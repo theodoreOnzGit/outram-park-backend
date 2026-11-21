@@ -7,6 +7,4 @@
 //!
 //! Electron-impact ionisation cross sections from a generalised-oscillator-strength approach, and the sampling that uses them (369 lines). Description from the file's header and size; not yet read line by line.
 //!
-//! **Status: placeholder, nothing ported (gh:#976).** When code lands here it
-//! carries the attribution header block (upstream project, file, commit,
-//! copyright, licence) and a doc-comment `file:line` for every routine.
+//! **Status: ported, in `egsnrc_mortran.rs` (corrected 2026-11-21).** `eii_init` is [`super::egsnrc_mortran::eii_init`], `eii_sample` is [`super::egsnrc_mortran::eii_sample`], and the EII selection that opens `MOLLER` is [`super::egsnrc_mortran::moller_eii_select`], with `EiiReadings` for the four oddities in `eii.mortran` (see `docs/egsnrc_port_remaining.md`). They live beside the routines that call them rather than in this file. First port, not differentially tested (gh:#1680).

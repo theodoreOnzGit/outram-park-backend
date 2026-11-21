@@ -5,8 +5,6 @@
 //! (the file headers read version 3 or, at the licensee's option, later;
 //! the SLAC-derived parts carry their own notice in the header).
 //!
-//! Index of the last non-blank character of a string, for compilers without `lnblnk` (47 lines). Description from the file's header and size; not yet read line by line.
+//! Index of the last non-blank character of a string, for compilers without `lnblnk` (47 lines).
 //!
-//! **Status: placeholder, nothing ported (gh:#976).** When code lands here it
-//! carries the attribution header block (upstream project, file, commit,
-//! copyright, licence) and a doc-comment `file:line` for every routine.
+//! **Status: ported, in `egs_utilities_mortran.rs` (corrected 2026-11-21).** `lnblnk1` is [`super::egs_utilities_mortran::lnblnk1`]. First port, not differentially tested (gh:#1680).
