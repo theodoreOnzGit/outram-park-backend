@@ -3363,6 +3363,454 @@ pub fn init_nist_brems(
     Ok((esige_max, psige_max))
 }
 
+/// `$MXINPUT`, `$MXBCINP` (`egsnrc.mortran:7967-7968`) and `$MXSHXSEC`
+/// (`egsnrc.macros:491`).
+pub const MXINPUT: usize = 2000;
+/// See [`MXINPUT`].
+pub const MXBCINP: usize = 183;
+/// See [`MXINPUT`].
+pub const MXSHXSEC: usize = 30;
+
+/// One `<prefix>_photo.data`-style file (`_photo`, `_pair`, `_triplet`,
+/// `_rayleigh`, `_photonuc`): per element `Z = 1..` a count `ndat` and then
+/// `ndat` pairs of `ln E` and `ln sigma` (1-based).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UserXsecTable {
+    /// `elements[Z]` is `(etmp, ftmp)`, both 1-based; index 0 unused.
+    pub elements: Vec<(Vec<f64>, Vec<f64>)>,
+}
+
+impl UserXsecTable {
+    /// Parse every element block in the file's text.
+    ///
+    /// # Errors
+    ///
+    /// A message when a block is malformed or `ndat` exceeds [`MXINPUT`].
+    pub fn from_text(text: &str) -> Result<Self, String> {
+        let mut lines = text.lines();
+        let mut elements = alloc::vec![(Vec::new(), Vec::new())];
+        while let Ok(h) = read_record(&mut lines, 1) {
+            let ndat = h[0] as usize;
+            if ndat > MXINPUT {
+                return Err(alloc::format!("Too many input data points. Max. is {MXINPUT}"));
+            }
+            let v = read_record(&mut lines, 2 * ndat)?;
+            let mut e = alloc::vec![0.0];
+            let mut f = alloc::vec![0.0];
+            for k in 0..ndat {
+                e.push(v[2 * k]);
+                f.push(v[2 * k + 1]);
+            }
+            elements.push((e, f));
+        }
+        Ok(Self { elements })
+    }
+}
+
+/// `egsi_get_data` (`egsnrc.mortran:8765-8850`): the cross section of a
+/// medium on the photon energy grid `gle = (k - ge0) / ge1`, `k = 1..=n`, as
+/// the sum over its elements (`zsorted`, ascending, with `pz_sorted`) of
+/// `pz * sigma_Z(E)`. `flag` is 0 for photoelectric, Rayleigh and Compton
+/// (log-log), 1 for pair and 2 for triplet (threshold-subtracted, zero below
+/// threshold) and 3 for photonuclear (linear, zero outside the data). `rm` is
+/// the electron rest energy. Returns the 1-based data (index 0 unused).
+///
+/// # Errors
+///
+/// A message when an element has no data, or (flag 0) an energy lies outside
+/// the available range.
+pub fn user_xsec_data(
+    table: &UserXsecTable,
+    flag: i32,
+    n: usize,
+    zsorted: &[f64],
+    pz_sorted: &[f64],
+    ge1: f64,
+    ge0: f64,
+    rm: f64,
+) -> Result<Vec<f64>, String> {
+    let mut data = alloc::vec![0.0_f64; n + 1];
+    for (i, &zs) in zsorted.iter().enumerate() {
+        let iz = (zs + 0.5) as usize;
+        let (e0, f0) = table.elements.get(iz).ok_or_else(|| alloc::format!("no data for Z = {iz}"))?;
+        let mut ndat = e0.len() - 1;
+        let (etmp, ftmp);
+        let mut eth = 0.0;
+        if flag == 0 || flag == 3 {
+            etmp = e0.clone();
+            ftmp = f0.clone();
+        } else {
+            eth = if flag == 1 { 2.0 * rm } else { 4.0 * rm };
+            let mut e = alloc::vec![0.0; ndat + 2];
+            let mut f = alloc::vec![0.0; ndat + 2];
+            for k in 1..=ndat {
+                e[k + 1] = e0[k];
+                f[k + 1] = f0[k];
+            }
+            ndat += 1;
+            for k in 2..=ndat {
+                f[k] -= 3.0 * RealMath::r_ln(1.0 - eth / RealMath::r_exp(e[k]));
+            }
+            f[1] = f[2];
+            e[1] = RealMath::r_ln(eth);
+            etmp = e;
+            ftmp = f;
+        }
+        for k in 1..=n {
+            let gle = (k as f64 - ge0) / ge1;
+            let e = RealMath::r_exp(gle);
+            let sig;
+            if gle < etmp[1] || gle >= etmp[ndat] {
+                if flag == 0 {
+                    return Err(alloc::format!(
+                        "Energy {} is outside the available data range of {} {}",
+                        RealMath::r_exp(gle),
+                        RealMath::r_exp(etmp[1]),
+                        RealMath::r_exp(etmp[ndat])
+                    ));
+                } else if flag == 1 || flag == 2 {
+                    sig = if gle < etmp[1] { 0.0 } else { RealMath::r_exp(ftmp[ndat]) };
+                } else {
+                    sig = 0.0;
+                }
+            } else {
+                let mut kk = ndat;
+                for k2 in 1..ndat {
+                    if gle >= etmp[k2] && gle < etmp[k2 + 1] {
+                        kk = k2;
+                        break;
+                    }
+                }
+                if flag != 3 {
+                    let p = (gle - etmp[kk]) / (etmp[kk + 1] - etmp[kk]);
+                    sig = RealMath::r_exp(p * ftmp[kk + 1] + (1.0 - p) * ftmp[kk]);
+                } else {
+                    let p = (e - RealMath::r_exp(etmp[kk])) / (RealMath::r_exp(etmp[kk + 1]) - RealMath::r_exp(etmp[kk]));
+                    sig = p * RealMath::r_exp(ftmp[kk + 1]) + (1.0 - p) * RealMath::r_exp(ftmp[kk]);
+                }
+            }
+            let mut sig = sig;
+            if (flag == 1 || flag == 2) && e > eth {
+                let t = 1.0 - eth / e;
+                sig *= t * t * t;
+            }
+            data[k] += pz_sorted[i] * sig;
+        }
+    }
+    Ok(data)
+}
+
+/// `egs_KN_sigma0` (`egsnrc.mortran:8728-8745`): the Klein-Nishina cross
+/// section per electron at photon energy `e` (MeV), in barns scaled by upstream's
+/// constant, with the low-energy series below `e = 0.01 prm`.
+pub fn egs_kn_sigma0(e: f64, prm: f64) -> f64 {
+    let con = 0.1274783851;
+    let ko = e / prm;
+    if ko < 0.01 {
+        return 8.0 * con / 3.0 * (1.0 - ko * (2.0 - ko * (5.2 - 13.3 * ko))) / prm;
+    }
+    let c1 = 1.0 / (ko * ko);
+    let c2 = 1.0 - 2.0 * (1.0 + ko) * c1;
+    let c3 = (1.0 + 2.0 * ko) * c1;
+    let eps2 = 1.0;
+    let eps1 = 1.0 / (1.0 + 2.0 * ko);
+    (c1 * (1.0 / eps1 - 1.0 / eps2) + c2 * RealMath::r_ln(eps2 / eps1) + eps2 * (c3 + 0.5 * eps2) - eps1 * (c3 + 0.5 * eps1)) / e * con
+}
+
+/// The bound-Compton input of `egs_init_user_photon` (used when `ibcmp(1) > 1`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum BoundComptonData {
+    /// `ibcmp(1) <= 1`: plain Klein-Nishina.
+    #[default]
+    None,
+    /// The default `compton_sigma.data`: a header `emin emax ne` and per
+    /// element a row of `ne` values of the bound-to-KN cross-section ratio.
+    Ratio(String),
+    /// A user `<prefix>_compton.data` in the layout of the other cross-section files.
+    Custom(String),
+}
+
+/// Everything `egs_init_user_photon` reads from the data files (as text) and
+/// from the run's switches.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UserPhotonInput {
+    /// `<prefix>_photo.data`.
+    pub photo: String,
+    /// `<prefix>_pair.data`.
+    pub pair: String,
+    /// `<prefix>_triplet.data`.
+    pub triplet: String,
+    /// `<prefix>_rayleigh.data`.
+    pub rayleigh: String,
+    /// `<photonuc>_photonuc.data` when `iphotonuc = 1`.
+    pub photonuc: Option<String>,
+    /// Bound Compton data when `ibcmp(1) > 1`.
+    pub compton: BoundComptonData,
+    /// `$MXGE`, the number of grid points (EGSnrc builds use 2000; the macro
+    /// definition is not in the clone this was ported from).
+    pub mxge: usize,
+    /// `eadl_relax`.
+    pub eadl_relax: bool,
+    /// `rm` = `prm`.
+    pub rm: f64,
+    /// The atomic form factors for Rayleigh sampling (`pgs4form.dat`), needed
+    /// when a medium has `iraylm = 1`.
+    pub form_factors: Option<FormFactorTable>,
+}
+
+/// One medium for `egs_init_user_photon`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UserPhotonMedium {
+    /// `(ZELEM, PZ, WA)` per element.
+    pub comp: Vec<(f64, f64, f64)>,
+    /// `rho`, g/cm^3.
+    pub rho: f64,
+    /// `AP`, MeV.
+    pub ap: f64,
+    /// `UP`, MeV.
+    pub up: f64,
+    /// `iraylm(medium) = 1`.
+    pub rayleigh: bool,
+}
+
+/// The tables `egs_init_user_photon` builds for one medium (1-based).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UserPhotonMediumTables {
+    /// `mge(medium)`.
+    pub mge: usize,
+    /// `ge0`, `ge1`.
+    pub ge0: f64,
+    /// See `ge0`.
+    pub ge1: f64,
+    /// `gmfp0/1`.
+    pub gmfp: Pwlf,
+    /// `gbr10/11`.
+    pub gbr1: Pwlf,
+    /// `gbr20/21`.
+    pub gbr2: Pwlf,
+    /// `cohe0/1`.
+    pub cohe: Pwlf,
+    /// `photonuc0/1` (flat 1 when photonuclear is off... upstream leaves it
+    /// untouched, so this is all zeros then).
+    pub photonuc: Pwlf,
+    /// The Rayleigh sampling data when `rayleigh` and form factors were given.
+    pub rayleigh: Option<RayleighData>,
+}
+
+/// The result of [`init_user_photon`].
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UserPhotonTables {
+    /// Per medium, 1-based.
+    pub media: Vec<UserPhotonMediumTables>,
+    /// `binding_energies(k, iz)` replaced by the photo-absorption edges:
+    /// `binding_energies[iz][k]`, `k = 1..=MXSHXSEC`, MeV, 1-based.
+    pub binding_energies: Vec<Vec<f64>>,
+}
+
+/// `egs_init_user_photon` (`egsnrc.mortran:7972-8268`), without the
+/// `.xsections` listing (`out`), the shellwise (MCDF) photoelectric option
+/// and custom Rayleigh form-factor files: it reads the photo-absorption,
+/// pair, triplet, Rayleigh, photonuclear and Compton data bases and builds,
+/// per medium, the mean free path, pair and (pair + Compton) probabilities,
+/// the coherent-scattering factor and the photonuclear factor as piecewise
+/// linear fits in `ln E`, plus the photo-absorption edges.
+///
+/// Elements are taken in ascending `Z`; upstream's heap sort is replaced by a
+/// stable sort, which only differs for repeated `Z`.
+///
+/// # Errors
+///
+/// A message when any data text is malformed or lacks an element.
+pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Result<UserPhotonTables, String> {
+    let rm = inp.rm;
+    let photo = UserXsecTable::from_text(&inp.photo)?;
+    let pair = UserXsecTable::from_text(&inp.pair)?;
+    let triplet = UserXsecTable::from_text(&inp.triplet)?;
+    let rayleigh = UserXsecTable::from_text(&inp.rayleigh)?;
+    let photonuc = match &inp.photonuc {
+        Some(t) => Some(UserXsecTable::from_text(t)?),
+        None => None,
+    };
+    let custom_compton = match &inp.compton {
+        BoundComptonData::Custom(t) => Some(UserXsecTable::from_text(t)?),
+        _ => None,
+    };
+
+    // replace binding energies with the edges in the photo-absorption file
+    let mut binding_energies = alloc::vec![alloc::vec![0.0_f64; MXSHXSEC + 1]];
+    for iz in 1..=100 {
+        let (etmp, _) = photo.elements.get(iz).ok_or_else(|| alloc::format!("photo data has no element {iz}"))?;
+        let ndat = etmp.len() - 1;
+        let mut be = alloc::vec![0.0_f64; MXSHXSEC + 1];
+        let mut k = 0usize;
+        for j in (2..=ndat).rev() {
+            if etmp[j] - etmp[j - 1] < 1e-5 {
+                k += 1;
+                if k <= MXSHXSEC {
+                    be[k] = RealMath::r_exp(etmp[j]);
+                } else {
+                    return Err(alloc::format!("{k} binding energies read exceeding array size of {MXSHXSEC}"));
+                }
+                if !inp.eadl_relax && k >= 4 {
+                    break;
+                }
+            }
+        }
+        binding_energies.push(be);
+    }
+
+    let nmed = media.len() - 1;
+    let mut out = alloc::vec![UserPhotonMediumTables::default()];
+    let nge = inp.mxge;
+    for medium in 1..=nmed {
+        let m = &media[medium];
+        let mut t = UserPhotonMediumTables { mge: nge, ..Default::default() };
+        t.ge1 = (nge - 1) as f64 / RealMath::r_ln(m.up / m.ap);
+        t.ge0 = 1.0 - t.ge1 * RealMath::r_ln(m.ap);
+        let (ge0, ge1) = (t.ge0, t.ge1);
+        let (mut sum_z, mut sum_a) = (0.0, 0.0);
+        for &(z, pz, wa) in &m.comp {
+            sum_z += pz * z;
+            sum_a += pz * wa;
+        }
+        let con2 = m.rho / (sum_a * 1.6605655);
+        let mut order: Vec<usize> = (0..m.comp.len()).collect();
+        order.sort_by(|&a, &b| m.comp[a].0.partial_cmp(&m.comp[b].0).unwrap_or(core::cmp::Ordering::Equal));
+        let z_sorted: Vec<f64> = order.iter().map(|&i| m.comp[i].0).collect();
+        let pz_sorted: Vec<f64> = order.iter().map(|&i| m.comp[i].1).collect();
+
+        let sig_photo = user_xsec_data(&photo, 0, nge, &z_sorted, &pz_sorted, ge1, ge0, rm)?;
+        let sig_rayleigh = user_xsec_data(&rayleigh, 0, nge, &z_sorted, &pz_sorted, ge1, ge0, rm)?;
+        let sig_pair = user_xsec_data(&pair, 1, nge, &z_sorted, &pz_sorted, ge1, ge0, rm)?;
+        let sig_triplet = user_xsec_data(&triplet, 2, nge, &z_sorted, &pz_sorted, ge1, ge0, rm)?;
+        let sig_photonuc = match &photonuc {
+            Some(tab) => Some(user_xsec_data(tab, 3, nge, &z_sorted, &pz_sorted, ge1, ge0, rm)?),
+            None => None,
+        };
+        // the bound Compton cross section data
+        let mut sig_compton: Option<Vec<f64>> = None;
+        let (mut bc_emin, mut bc_emax, mut bc_dle) = (0.0, 0.0, 0.0);
+        let mut bc_data: Vec<f64> = Vec::new();
+        match &inp.compton {
+            BoundComptonData::None => {}
+            BoundComptonData::Custom(_) => {
+                let tab = custom_compton.as_ref().ok_or_else(|| String::from("no Compton table"))?;
+                sig_compton = Some(user_xsec_data(tab, 0, nge, &z_sorted, &pz_sorted, ge1, ge0, rm)?);
+            }
+            BoundComptonData::Ratio(text) => {
+                let mut lines = text.lines();
+                let h = read_record(&mut lines, 3)?;
+                bc_emin = h[0];
+                bc_emax = h[1];
+                let bc_ne = h[2] as usize;
+                if bc_ne > MXBCINP {
+                    return Err(String::from("Number of input Compton data exceeds array size"));
+                }
+                bc_dle = RealMath::r_ln(bc_emax / bc_emin) / (bc_ne - 1) as f64;
+                bc_data = alloc::vec![0.0; bc_ne + 2];
+                let mut bc_tmp = alloc::vec![0.0; bc_ne];
+                let mut iz_old = 1usize;
+                for i in 0..z_sorted.len() {
+                    let iz = (z_sorted[i] + 0.5) as usize;
+                    for _ in iz_old..=iz {
+                        bc_tmp = read_record(&mut lines, bc_ne)?;
+                    }
+                    for j in 1..=bc_ne {
+                        bc_data[j] += pz_sorted[i] * z_sorted[i] * bc_tmp[j - 1];
+                    }
+                    iz_old = iz + 1;
+                }
+                for j in 1..=bc_ne {
+                    bc_data[j] = RealMath::r_ln(bc_data[j] / sum_z);
+                }
+            }
+        }
+        if m.rayleigh {
+            if let Some(ff) = &inp.form_factors {
+                t.rayleigh = Some(init_rayleigh_sampling(&m.comp.iter().map(|c| (c.0, c.1)).collect::<Vec<_>>(), ff, ge0, ge1, nge, rm));
+            }
+        }
+
+        let mut a0 = |v: &mut Vec<f64>| *v = alloc::vec![0.0; nge + 1];
+        a0(&mut t.gmfp.a0);
+        a0(&mut t.gmfp.a1);
+        a0(&mut t.gbr1.a0);
+        a0(&mut t.gbr1.a1);
+        a0(&mut t.gbr2.a0);
+        a0(&mut t.gbr2.a1);
+        a0(&mut t.cohe.a0);
+        a0(&mut t.cohe.a1);
+        a0(&mut t.photonuc.a0);
+        a0(&mut t.photonuc.a1);
+        let (mut gmfp_old, mut gbr1_old, mut gbr2_old, mut cohe_old, mut photonuc_old) = (0.0, 0.0, 0.0, 0.0, 0.0);
+        let (mut gmfp, mut gbr1, mut gbr2, mut cohe, mut photonuc, mut gle) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        for i in 1..=nge {
+            gle = (i as f64 - ge0) / ge1;
+            let e = RealMath::r_exp(gle);
+            let mut sig_kn = sum_z * egs_kn_sigma0(e, rm);
+            match &inp.compton {
+                BoundComptonData::None => {}
+                BoundComptonData::Custom(_) => {
+                    sig_kn = sig_compton.as_ref().map_or(sig_kn, |v| v[i]);
+                }
+                BoundComptonData::Ratio(_) => {
+                    let bcf;
+                    if e <= bc_emin {
+                        bcf = RealMath::r_exp(bc_data[1]);
+                    } else if e < bc_emax {
+                        let mut aj = 1.0 + RealMath::r_ln(e / bc_emin) / bc_dle;
+                        let j = aj as usize;
+                        aj -= j as f64;
+                        bcf = RealMath::r_exp(bc_data[j] * (1.0 - aj) + bc_data[j + 1] * aj);
+                    } else {
+                        bcf = 1.0;
+                    }
+                    sig_kn *= bcf;
+                }
+            }
+            let sig_p = sig_pair[i] + sig_triplet[i];
+            let sigma = sig_kn + sig_p + sig_photo[i];
+            gmfp = 1.0 / (sigma * con2);
+            gbr1 = sig_p / sigma;
+            gbr2 = gbr1 + sig_kn / sigma;
+            cohe = sigma / (sig_rayleigh[i] + sigma);
+            if let Some(sp) = &sig_photonuc {
+                photonuc = sigma / (sp[i] + sigma);
+            }
+            if i > 1 {
+                t.gmfp.a1[i - 1] = (gmfp - gmfp_old) * ge1;
+                t.gmfp.a0[i - 1] = gmfp - t.gmfp.a1[i - 1] * gle;
+                t.gbr1.a1[i - 1] = (gbr1 - gbr1_old) * ge1;
+                t.gbr1.a0[i - 1] = gbr1 - t.gbr1.a1[i - 1] * gle;
+                t.gbr2.a1[i - 1] = (gbr2 - gbr2_old) * ge1;
+                t.gbr2.a0[i - 1] = gbr2 - t.gbr2.a1[i - 1] * gle;
+                t.cohe.a1[i - 1] = (cohe - cohe_old) * ge1;
+                t.cohe.a0[i - 1] = cohe - t.cohe.a1[i - 1] * gle;
+                t.photonuc.a1[i - 1] = (photonuc - photonuc_old) * ge1;
+                t.photonuc.a0[i - 1] = photonuc - t.photonuc.a1[i - 1] * gle;
+            }
+            gmfp_old = gmfp;
+            gbr1_old = gbr1;
+            gbr2_old = gbr2;
+            cohe_old = cohe;
+            photonuc_old = photonuc;
+        }
+        // the last interval repeats the slope; the intercept uses the last point
+        t.gmfp.a1[nge] = t.gmfp.a1[nge - 1];
+        t.gmfp.a0[nge] = gmfp - t.gmfp.a1[nge] * gle;
+        t.gbr1.a1[nge] = t.gbr1.a1[nge - 1];
+        t.gbr1.a0[nge] = gbr1 - t.gbr1.a1[nge] * gle;
+        t.gbr2.a1[nge] = t.gbr2.a1[nge - 1];
+        t.gbr2.a0[nge] = gbr2 - t.gbr2.a1[nge] * gle;
+        t.cohe.a1[nge] = t.cohe.a1[nge - 1];
+        t.cohe.a0[nge] = cohe - t.cohe.a1[nge] * gle;
+        t.photonuc.a1[nge] = t.photonuc.a1[nge - 1];
+        t.photonuc.a0[nge] = photonuc - t.photonuc.a1[nge] * gle;
+        out.push(t);
+    }
+    Ok(UserPhotonTables { media: out, binding_energies })
+}
+
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
 fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> PhotonResult {
     res.edep = peig;
@@ -9232,6 +9680,95 @@ mod tests {
         let mut bad = inputs.clone();
         bad[1].ae = 100.0;
         assert!(init_nist_brems(&toy_nist_brems_text(), 1, &bad, &mut tabs.media, RM).is_err());
+    }
+
+    fn toy_xsec_file(energies: &[f64], scale: f64, slope: f64) -> String {
+        let mut t = String::new();
+        for z in 1..=100 {
+            t += &alloc::format!("{}\n", energies.len());
+            for e in energies {
+                t += &alloc::format!("{:.12} {:.12}\n", e.ln(), (scale * z as f64).ln() + slope * e.ln());
+            }
+        }
+        t
+    }
+
+    fn toy_user_photon_input(compton: BoundComptonData, photonuc: bool) -> UserPhotonInput {
+        UserPhotonInput {
+            photo: toy_xsec_file(&[1e-4, 0.01, 0.01, 1.0, 20.0, 1000.0], 1.0, -2.5),
+            pair: toy_xsec_file(&[1.1, 2.0, 5.0, 20.0, 100.0], 1e-3, 0.3),
+            triplet: toy_xsec_file(&[2.2, 5.0, 20.0, 100.0], 1e-5, 0.3),
+            rayleigh: toy_xsec_file(&[1e-4, 1.0, 1000.0], 0.5, -1.5),
+            photonuc: photonuc.then(|| toy_xsec_file(&[0.001, 5.0, 1000.0], 1e-4, 0.0)),
+            compton,
+            mxge: 60,
+            eadl_relax: false,
+            rm: RM,
+            form_factors: None,
+        }
+    }
+
+    fn toy_user_photon_media() -> Vec<UserPhotonMedium> {
+        vec![UserPhotonMedium::default(), UserPhotonMedium { comp: vec![(8.0, 2.0, 16.0), (1.0, 1.0, 1.0)], rho: 1.0, ap: 0.01, up: 20.0, rayleigh: false }]
+    }
+
+    #[test]
+    fn user_photon_tables_are_consistent_with_the_data_bases() {
+        let inp = toy_user_photon_input(BoundComptonData::None, true);
+        let media = toy_user_photon_media();
+        let t = init_user_photon(&inp, &media).unwrap();
+        let m = &t.media[1];
+        assert_eq!(m.mge, 60);
+        // the fits reproduce the grid values: at every grid energy the two
+        // adjacent intervals agree (continuous piecewise-linear fit)
+        for i in 1..m.mge - 1 {
+            let gle = (i as f64 + 1.0 - m.ge0) / m.ge1;
+            let (a, b) = (m.gmfp.eval(i, gle), m.gmfp.eval(i + 1, gle));
+            assert!((a - b).abs() <= 1e-9 * a.abs(), "{a} {b}");
+            assert!(m.gbr1.eval(i, gle) >= 0.0 && m.gbr2.eval(i, gle) >= m.gbr1.eval(i, gle) - 1e-12);
+            let c = m.cohe.eval(i, gle);
+            assert!(c > 0.0 && c <= 1.0);
+            let pn = m.photonuc.eval(i, gle);
+            assert!(pn > 0.0 && pn <= 1.0);
+        }
+        // below the pair threshold there is no pair production
+        let gle0 = (1.0 - m.ge0) / m.ge1;
+        assert_eq!(m.gbr1.eval(1, gle0), 0.0);
+        // photo-absorption edges: the duplicated energy 0.01 is found
+        assert!((t.binding_energies[8][1] - 0.01).abs() < 1e-9);
+        // a Rayleigh switch without form factors leaves the sampler empty
+        assert!(m.rayleigh.is_none());
+    }
+
+    #[test]
+    fn user_photon_bound_compton_and_failure_paths() {
+        let media = toy_user_photon_media();
+        // bound-Compton ratio file: emin, emax, ne, then one row per element Z
+        let mut ratio = String::from("0.001 100.0 5\n");
+        for _ in 1..=8 {
+            ratio += "0.5 0.6 0.8 0.95 1.0\n";
+        }
+        let kn = init_user_photon(&toy_user_photon_input(BoundComptonData::None, false), &media).unwrap();
+        let bc = init_user_photon(&toy_user_photon_input(BoundComptonData::Ratio(ratio), false), &media).unwrap();
+        // bound Compton reduces the Compton cross section, so the mean free path grows
+        let gle = (30.0 - kn.media[1].ge0) / kn.media[1].ge1;
+        assert!(bc.media[1].gmfp.eval(30, gle) > kn.media[1].gmfp.eval(30, gle));
+        let custom = init_user_photon(
+            &toy_user_photon_input(BoundComptonData::Custom(toy_xsec_file(&[1e-4, 1.0, 1000.0], 0.05, -1.0)), false),
+            &media,
+        );
+        assert!(custom.is_ok());
+        // failures: photo data outside the grid range, a truncated file
+        let mut bad = toy_user_photon_input(BoundComptonData::None, false);
+        bad.photo = toy_xsec_file(&[0.05, 0.06, 0.07], 1.0, -2.5);
+        assert!(init_user_photon(&bad, &media).is_err());
+        let mut bad = toy_user_photon_input(BoundComptonData::None, false);
+        bad.pair = String::from("3\n1.0 2.0\n");
+        assert!(init_user_photon(&bad, &media).is_err());
+        assert!(UserXsecTable::from_text("5000\n").is_err());
+        // the low-energy series joins the closed form at k = 0.01 m c^2
+        let (lo, hi) = (egs_kn_sigma0(0.00999 * RM, RM), egs_kn_sigma0(0.01001 * RM, RM));
+        assert!((lo - hi).abs() / hi < 5e-3, "{lo} {hi}");
     }
 
 }
