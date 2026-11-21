@@ -19,6 +19,7 @@
 //! | `SUBROUTINE ANNIH_AT_REST` (`egsnrc.mortran:186-224`) | [`annih_at_rest`] |
 //! | `SUBROUTINE UPHI` (`egsnrc.mortran:6722-6838`), `IENTRY` 2 and 3 | [`uphi`] |
 //! | `SUBROUTINE RELAX` (`egsnrc.mortran:5556-5790`), the built-in K/L1/L2/L3/M/N scheme | [`relax`] |
+//! | `egs_init_relax`, `egs_eadl_relax`, the EADL branches of `RELAX`, `PHOTO`, `init_compton`, `EDGSET` (`egsnrc.mortran:5793-6208, 5644, 5156, 2490-2506, 6376/6428`) | [`EadlFile`], [`init_relax_eadl`], [`eadl_relax`], [`init_compton_eadl`], [`edgset_eadl_from_text`] |
 //! | `SUBROUTINE PAIR` (`egsnrc.mortran:4517-4670`) with `$SET-PAIR-ANGLE` (`egsnrc.macros:2070-2165`) | [`pair`] |
 //! | `UPHI` `IENTRY = 1` (angle from `theta`, `egsnrc.mortran:6759-6769`) | [`uphi_from_theta`] |
 //! | `SUBROUTINE PHOTO` (`egsnrc.mortran:5049-5170`) with `$SELECT-PHOTOELECTRON-DIRECTION` (`egsnrc.macros:1916-1953`) | [`photo`], [`select_photoelectron_direction`] |
@@ -11861,7 +11862,7 @@ mod tests {
     /// The EADL data of the real files, structure and sanity (no upstream
     /// output): `relax.data` of the pinned commit is 199947 four-byte
     /// records, record 1 is 100 elements, Ta has 22 shells and its K shell
-    /// 178 transitions.
+    /// 177 transitions (178 channels with the remainder bin).
     #[test]
     fn real_relax_data_when_available() {
         let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
@@ -11873,7 +11874,7 @@ mod tests {
         assert_eq!(f.nz().unwrap(), 100);
         let ta = f.element(73).unwrap();
         eprintln!("Ta: {} shells, K shell {} transitions, K binding energy {} MeV", ta.len(), ta[0].transitions.len(), ta[0].binding_energy);
-        assert_eq!((ta.len(), ta[0].transitions.len()), (22, 178));
+        assert_eq!((ta.len(), ta[0].transitions.len()), (22, 177)); // +1 remainder bin = 178 channels upstream
         for z in 1..=100 {
             let sh = f.element(z).unwrap();
             assert!(!sh.is_empty() && sh.len() <= MXESHLL);
@@ -12017,7 +12018,8 @@ mod tests {
 
     /// Phase 2, the transport kernel: 200 histories of `tutor1` (20 MeV
     /// electrons, 1 mm Ta plate, `tutor_data.pegs4dat`, EGSnrc defaults except
-    /// `eadl_relax = false`, the one variant this port has) against the
+    /// `eadl_relax = false`; the EADL default is
+    /// `differential_tutor1_histories_against_compiled_egsnrc_eadl`) against the
     /// discards a REAL EGSnrc logs (`histories.txt` of the `difftut` user code:
     /// RANMAR seeded 1802/9373, full precision, `-fdefault-real-8` build).
     /// `EGSNRC_REFERENCE_HISTORIES` is that file; the data files come from
