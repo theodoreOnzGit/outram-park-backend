@@ -58,6 +58,7 @@ use crate::nostd_prelude::*;
 use super::egsnrc_macros::{EgsError, Stack, UniformSource, select_azimuthal_angle};
 use super::egs_utilities_mortran::{alias_sample1, gauss_legendre, prepare_alias_table, set_spline, spline};
 use super::lit;
+use super::eemf_macros_mortran::{EemfField, EemfState, EemfStepVars, InitiateInput, PiiDirections, PiiInput};
 use petir::mathf::RealMath;
 use petir::real::Real;
 
@@ -6157,11 +6158,27 @@ fn spin_interval(med: &MsMedium, elke: f64) -> (usize, f64) {
 /// initial direction is along z into the lab frame, then transport
 /// (`egsnrc.mortran:4262-4290`, shared by both routines).
 #[allow(clippy::too_many_arguments)]
-fn ms_rotate_and_transport(
+fn ms_rotate_and_transport(inp: &MsDistInput, s: (f64, f64, f64), t: (f64, f64, f64)) -> MsDistOutput {
+    let ((us, vs, ws), (ut, vt, wt)) = ms_rotate(inp, s, t);
+    MsDistOutput {
+        us,
+        vs,
+        ws,
+        xf: inp.x0 + inp.tustep * ut,
+        yf: inp.y0 + inp.tustep * vt,
+        zf: inp.z0 + inp.tustep * wt,
+        ustep: 0.0,
+    }
+}
+
+/// The rotation half of [`ms_rotate_and_transport`]: scattering and transport
+/// directions into the lab frame.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn ms_rotate(
     inp: &MsDistInput,
     (mut us, mut vs, mut ws): (f64, f64, f64),
     (mut ut, mut vt, mut wt): (f64, f64, f64),
-) -> MsDistOutput {
+) -> ((f64, f64, f64), (f64, f64, f64)) {
     let sint02 = inp.u0 * inp.u0 + inp.v0 * inp.v0;
     if sint02 > lit(1e-20) {
         let sint0 = Real::sqrt(sint02);
@@ -6182,15 +6199,7 @@ fn ms_rotate_and_transport(
         wt *= inp.w0;
         ws *= inp.w0;
     }
-    MsDistOutput {
-        us,
-        vs,
-        ws,
-        xf: inp.x0 + inp.tustep * ut,
-        yf: inp.y0 + inp.tustep * vt,
-        zf: inp.z0 + inp.tustep * wt,
-        ustep: 0.0,
-    }
+    ((us, vs, ws), (ut, vt, wt))
 }
 
 /// `msdist_pI` (`egsnrc.mortran:4309-4455`): multiple elastic scattering and
@@ -6304,6 +6313,28 @@ pub fn msdist_p2<R: UniformSource>(
     count_p2_steps: &mut f64,
     rng: &mut R,
 ) -> Result<MsDistOutput, EgsError> {
+    msdist_p2_field(med, ms, spin, inp, medium, count_p2_steps, None, rng)
+}
+
+/// [`msdist_p2`] with the `$EMFIELD_PII` hook of `EEMF_macros.mortran` (the
+/// field and its `COMMON/EM/` state), called after the rotation into the lab
+/// frame and before the transport, as `egsnrc.mortran:4286`. `None` is
+/// [`msdist_p2`].
+///
+/// # Errors
+///
+/// From [`mscat`].
+#[allow(clippy::too_many_arguments)]
+pub fn msdist_p2_field<R: UniformSource>(
+    med: &MsMedium,
+    ms: &MsData,
+    spin: &SpinData,
+    inp: &MsDistInput,
+    medium: usize,
+    count_p2_steps: &mut f64,
+    field: Option<(&EemfField, &mut EemfState)>,
+    rng: &mut R,
+) -> Result<MsDistOutput, EgsError> {
     let rmt2 = 2.0 * RM;
     let rmsq = RM * RM;
     let prm = RM;
@@ -6406,9 +6437,32 @@ pub fn msdist_p2<R: UniformSource>(
     let wt = eta1 * (1.0 + temp) + b * w1 + c * w2 + eta1 * ws * temp1;
     let ustep = inp.tustep * Real::sqrt(ut * ut + vt * vt + wt * wt);
 
-    let mut out = ms_rotate_and_transport(inp, (us, vs, ws), (ut, vt, wt));
-    out.ustep = ustep;
-    Ok(out)
+    let ((us, vs, ws), (mut ut, mut vt, mut wt)) = ms_rotate(inp, (us, vs, ws), (ut, vt, wt));
+    let (mut us, mut vs, mut ws) = (us, vs, ws);
+    if let Some((f, state)) = field {
+        let pin = PiiInput {
+            u0: [inp.u0, inp.v0, inp.w0],
+            x0: [inp.x0, inp.y0, inp.z0],
+            tustep: inp.tustep,
+            eloss: inp.eloss,
+            qel: inp.qel,
+            s1: [sint1, cphi1, sphi1, w1],
+            s2: [sint2, cphi2, sphi2, w2],
+        };
+        let mut d = PiiDirections { us: [us, vs, ws], ut: [ut, vt, wt] };
+        state.emfield_pii(f, &pin, &mut d);
+        [us, vs, ws] = d.us;
+        [ut, vt, wt] = d.ut;
+    }
+    Ok(MsDistOutput {
+        us,
+        vs,
+        ws,
+        xf: inp.x0 + inp.tustep * ut,
+        yf: inp.y0 + inp.tustep * vt,
+        zf: inp.z0 + inp.tustep * wt,
+        ustep,
+    })
 }
 
 /// `$EPSEMFP` (`egsnrc.macros:1401`): smallest electron MFP value.
@@ -6533,6 +6587,10 @@ pub struct ElectrConfig {
     /// Constant electric and magnetic field of `emf_macros.mortran` (`None`:
     /// `emfield_on = .false.`, the stock default). See [`EmField`].
     pub em: Option<EmField>,
+    /// The Malkov-Rogers field of `EEMF_macros.mortran` (PRESTA-II, magnetic
+    /// field only; see [`super::eemf_macros_mortran`]). Replaces `em`: both set
+    /// is [`EgsError::Unsupported`] (upstream compiles one or the other).
+    pub eemf: Option<EemfField>,
 }
 
 /// The external electromagnetic field of `HEN_HOUSE/src/emf_macros.mortran`,
@@ -6694,6 +6752,8 @@ pub struct ElectrCounters {
     pub count_all_steps: f64,
     /// `ierust`: negative-`ustep` errors seen.
     pub ierust: i32,
+    /// `COMMON/EM/` of `EEMF_macros.mortran`, which persists across calls.
+    pub eemf: EemfState,
 }
 
 /// What `electr` returns.
@@ -6881,7 +6941,10 @@ enum Discard {
 /// Moller, Bhabha, bremsstrahlung and annihilation) until it is discarded or a
 /// photon tops the stack.
 ///
-/// Not ported: the EM-field macros (all empty by default), range rejection
+/// The classic `emf_macros` hooks ([`EmField`]) and the Malkov-Rogers
+/// `EEMF_macros` ([`EemfField`], magnetic field only,
+/// [`super::eemf_macros_mortran`]) are ported; both are off by default.
+/// Not ported: range rejection
 /// (`i_do_rr = 0`), `$USER-RANGE-DISCARD`, the energy-loss fluctuation hook
 /// (`$DE-FLUCTUATION`, empty), electron-impact ionisation (`eii_flag = 0`),
 /// the `AUSGAB` calls, and all diagnostic output. The `ustep <= 0` message is
@@ -6917,6 +6980,25 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
     let mut irl = stack.ir[stack.np] as usize;
     let mut medium = tables.regions[irl].med;
     let em = cfg.em.filter(|e| e.active());
+    let eemf = match cfg.eemf {
+        Some(f) => {
+            f.check_supported()?;
+            if cfg.em.is_some() {
+                return Err(EgsError::Unsupported("ELECTR: emf_macros and EEMF_macros are alternatives upstream"));
+            }
+            if !cfg.presta_ii || !cfg.exact_bca {
+                return Err(EgsError::Unsupported("ELECTR: EEMF_macros is ported for PRESTA-II with the exact BCA only"));
+            }
+            if f.active() { Some(f) } else { None }
+        }
+        None => None,
+    };
+    // ELECTR locals the EEMF macros read while stale: they hold the values of
+    // the last step in a medium when a vacuum step reads them
+    let mut tperp = 0.0;
+    let mut skindepth = 0.0;
+    let mut tuss_ss = 0.0;
+    let mut x_final_keep = [0.0_f64; 3];
     let mut eml = EmLocal::default();
     let mut loc = Loc { etap: 1.0, xi_corr: 1.0, ms_corr: 1.0, rhof: 1.0, ..Default::default() };
     let (mut lelec, mut qel);
@@ -6995,6 +7077,19 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         ustep = tstep;
                         tustep = ustep;
                         callhowfar = true;
+                        // $EMFIELD_INITIATE_SET_TUSTEP in vacuum: its restriction of `tustep` is
+                        // overwritten by the assignments above, which upstream runs after it
+                        if let Some(f) = &eemf {
+                            // (upstream calls it BEFORE `tstep = vacdst`; the order only matters for `tustep`)
+                            let mut scratch = tustep;
+                            counters.eemf.initiate_set_tustep(
+                                f,
+                                stack,
+                                np,
+                                &InitiateInput { eke, tperp, skindepth, exact_bca: cfg.exact_bca },
+                                &mut scratch,
+                            );
+                        }
                         // $SET-TUSTEP-EM-FIELD, EM step size restriction in vacuum
                         if let Some(f) = &em {
                             f.set_tustep(&mut eml, stack, np, eie, lelec, &mut tustep, rm);
@@ -7046,12 +7141,22 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         if let Some(f) = &em {
                             f.set_tustep(&mut eml, stack, np, eie, lelec, &mut tustep, rm);
                         }
-                        let tperp = geometry.hownear(stack);
+                        tperp = geometry.hownear(stack);
                         stack.dnear[np] = tperp;
                         // $SET-SKINDEPTH(eke, elke)
                         let ssmfp = elastic_scattering_mfp(m, &mut loc, cfg, lelec, eke, elke, lelke);
-                        let skindepth = cfg.skindepth_for_bca * ssmfp;
+                        skindepth = cfg.skindepth_for_bca * ssmfp;
                         tustep = tustep.min(tperp.max(skindepth));
+                        // $EMFIELD_INITIATE_SET_TUSTEP
+                        if let Some(f) = &eemf {
+                            counters.eemf.initiate_set_tustep(
+                                f,
+                                stack,
+                                np,
+                                &InitiateInput { eke, tperp, skindepth, exact_bca: cfg.exact_bca },
+                                &mut tustep,
+                            );
+                        }
 
                         counters.count_all_steps += 1.0;
                         ustep = tustep;
@@ -7080,7 +7185,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 z0: stack.z[np],
                             };
                             let o = if cfg.presta_ii {
-                                msdist_p2(&m.ms, ms, &tables.spin, &inp, medium, &mut counters.count_p2_steps, rng)?
+                                let field = eemf.as_ref().map(|f| (f, &mut counters.eemf));
+                                msdist_p2_field(&m.ms, ms, &tables.spin, &inp, medium, &mut counters.count_p2_steps, field, rng)?
                             } else {
                                 msdist_p1(&m.ms, ms, &tables.spin, &inp, medium, rng)?
                             };
@@ -7111,6 +7217,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                     } else {
                                         0.5 * lambda * ssmfp
                                     };
+                                    tuss_ss = tuss;
                                     if tuss < tustep {
                                         tustep = tuss;
                                         dosingle = true;
@@ -7139,7 +7246,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         }
                     }
 
-                    let irold = stack.ir[np] as usize;
+                    let mut irold = stack.ir[np] as usize;
                     let mut st = HowfarState { ustep, irnew: irold, idisc: 0 };
                     let ustep0 = ustep;
                     // $CALL-HOWFAR-IN-ELECTR
@@ -7147,7 +7254,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         geometry.howfar(stack, &mut st);
                     }
                     ustep = st.ustep;
-                    let irnew = st.irnew;
+                    let mut irnew = st.irnew;
                     idisc = st.idisc;
                     if idisc > 0 {
                         discard = Some(Discard::User);
@@ -7166,7 +7273,27 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
 
                     if ustep == 0.0 || medium == 0 {
                         // fast step in vacuum
-                        if ustep != 0.0 {
+                        if ustep != 0.0 && eemf.is_some() {
+                            // $EMFieldInVacuum (`$EM_MACROS_ACTIVE`)
+                            let mut v = EemfStepVars {
+                                callhowfar,
+                                ustep,
+                                vstep: 0.0,
+                                tperp,
+                                skindepth,
+                                irl,
+                                irnew,
+                                idisc,
+                                lelec,
+                                ..Default::default()
+                            };
+                            counters.eemf.emfield_in_vacuum(stack, geometry, &mut v);
+                            ustep = v.ustep;
+                            irnew = v.irnew;
+                            idisc = v.idisc;
+                            irl = v.irl;
+                            irold = stack.ir[np] as usize;
+                        } else if ustep != 0.0 {
                             let vstep = ustep;
                             // $VACUUM-ADD-WORK-EM-FIELD
                             if let Some(f) = &em {
@@ -7200,7 +7327,36 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         continue 'tstep; // NEXT :TSTEP:
                     }
 
-                    let vstep = ustep;
+                    let mut vstep = ustep;
+                    // $EM_FIELD_SS
+                    if !callmsdist && eemf.is_some() {
+                        let mut v = EemfStepVars {
+                            callhowfar,
+                            callmsdist,
+                            dosingle,
+                            ustep,
+                            tustep,
+                            vstep,
+                            tuss: tuss_ss,
+                            tperp,
+                            skindepth,
+                            irl,
+                            irnew,
+                            idisc,
+                            lelec,
+                            final_pos: x_final_keep,
+                        };
+                        counters.eemf.em_field_ss(stack, geometry, &mut v);
+                        callhowfar = v.callhowfar;
+                        dosingle = v.dosingle;
+                        ustep = v.ustep;
+                        tustep = v.tustep;
+                        vstep = v.vstep;
+                        irl = v.irl;
+                        irnew = v.irnew;
+                        idisc = v.idisc;
+                        x_final_keep = v.final_pos;
+                    }
                     if callhowfar {
                         if cfg.exact_bca {
                             tvstep = vstep;
@@ -7235,6 +7391,10 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     // $ADD-WORK-EM-FIELD: e-loss or gain in the EM field
                     if let Some(f) = &em {
                         de += f.work(&eml, stack, np, ustep, rm);
+                    }
+                    // $ADD_WORK_EM_FIELD (EEMF): `x_final` is the previous step's here
+                    if eemf.is_some() {
+                        de += counters.eemf.add_work_em_field(lelec, x_final_keep);
                     }
                     let ekef = eke - de;
                     let _eold = eie;
@@ -7293,10 +7453,18 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         x_final = xtrans;
                         y_final = ytrans;
                         z_final = ztrans;
+                        x_final_keep = [x_final, y_final, z_final];
                     } else {
-                        x_final = stack.x[np] + stack.u[np] * vstep;
-                        y_final = stack.y[np] + stack.v[np] * vstep;
-                        z_final = stack.z[np] + stack.w[np] * vstep;
+                        // `IF ~($EM_MACROS_ACTIVE)`: with EEMF the final position is the one `$EM_FIELD_SS` set
+                        if eemf.is_some() {
+                            x_final = x_final_keep[0];
+                            y_final = x_final_keep[1];
+                            z_final = x_final_keep[2];
+                        } else {
+                            x_final = stack.x[np] + stack.u[np] * vstep;
+                            y_final = stack.y[np] + stack.v[np] * vstep;
+                            z_final = stack.z[np] + stack.w[np] * vstep;
+                        }
                         if domultiple || dosingle {
                             let (u_tmp, v_tmp, w_tmp) = (stack.u[np], stack.v[np], stack.w[np]);
                             let mut saved = UphiSaved::default();
@@ -10379,6 +10547,7 @@ mod tests {
             vacdst: 1.0e8,
             brems: BremsConfig::default(),
             em: None,
+            eemf: None,
         }
     }
 
@@ -10461,6 +10630,71 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// `EEMF_macros` in `electr`: a magnetic field conserves energy over whole
+    /// showers (no work), a field that is all zero is exactly no field (same
+    /// random numbers, same tally), and the cases outside the port's scope
+    /// are refused rather than run: an electric field, `em` together with
+    /// `eemf`, PRESTA-I, the inexact boundary crossing.
+    #[test]
+    fn electr_with_eemf_conserves_energy_and_refuses_what_it_does_not_port() {
+        let ptables = photon_tables(0.0, 0.5, 0);
+        let pcfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut pgeo = Slab { length: 3.0 };
+        let mut run = |eemf: Option<EemfField>, seed: i32| {
+            let mut rng = Ranmar::new(seed, seed + 1);
+            let mut cfg = electr_cfg(true, true, false);
+            cfg.eemf = eemf;
+            let mut drv = ElectrDriver { tables: toy_electron_tables(), cfg, geo: Slab { length: 3.0 }, counters: ElectrCounters::default(), tally: 0.0 };
+            let ei = 0.5 + RM + 0.3;
+            let mut st = Stack::new(500);
+            let start = ShowerStart { iqi: -1, ei, xi: 0.0, yi: 0.0, zi: 1.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 1, wti: 1.0 };
+            let r = shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng).unwrap();
+            (r.edep_photon_discards + r.edep_local + drv.tally, ei - RM, drv.counters)
+        };
+        let field = EemfField::magnetic([0.0, 0.5, 0.8]);
+        for seed in 11..19 {
+            let (total, expect, counters) = run(Some(field), seed);
+            assert!((total - expect).abs() < 1e-6, "{total} vs {expect}");
+            assert_eq!(counters.eemf.show_b, 1000, "the field was read");
+            let (t0, _, c0) = run(None, seed);
+            let (tz, _, cz) = run(Some(EemfField::magnetic([0.0; 3])), seed);
+            assert_eq!(t0, tz, "an all-zero field is no field");
+            assert_eq!(cz.eemf, EemfState::default());
+            assert_eq!(c0.count_p2_steps, cz.count_p2_steps);
+        }
+        // refusals
+        let tables = toy_electron_tables();
+        let mut geo = Slab { length: 3.0 };
+        let one = || {
+            let mut st = Stack::new(10);
+            st.np = 1;
+            st.iq[1] = -1;
+            st.e[1] = RM + 1.0;
+            st.ir[1] = 1;
+            st.wt[1] = 1.0;
+            st.w[1] = 1.0;
+            st.z[1] = 1.0;
+            st
+        };
+        let mut rng = Ranmar::new(1, 2);
+        let mut cfg = electr_cfg(true, true, false);
+        cfg.eemf = Some(EemfField { e_in: [1.0, 0.0, 0.0], ..field });
+        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
+        assert!(matches!(r, Err(EgsError::Unsupported(_))));
+        cfg.eemf = Some(field);
+        cfg.em = Some(EmField { e_in: [0.0; 3], b: [0.0, 0.0, 1.0], emlmt: 0.02 });
+        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
+        assert!(matches!(r, Err(EgsError::Unsupported(_))));
+        cfg.em = None;
+        cfg.presta_ii = false;
+        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
+        assert!(matches!(r, Err(EgsError::Unsupported(_))));
+        cfg.presta_ii = true;
+        cfg.exact_bca = false;
+        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
+        assert!(matches!(r, Err(EgsError::Unsupported(_))));
     }
 
     #[test]
@@ -12184,6 +12418,10 @@ mod tests {
     #[derive(Clone)]
     struct Tutor1Geo {
         zbound: f64,
+        /// `Some((zb2, zb3))`: the five-region layered variant of the EEMF
+        /// vacuum test (`emL1`): vacuum, Ta to `zbound`, vacuum gap to `zb2`,
+        /// Ta to `zb3`, vacuum; regions 1 and 5 discard.
+        layers: Option<(f64, f64)>,
         prm: f64,
         log: std::sync::Arc<std::sync::RwLock<Vec<(i32, f64, f64)>>>,
     }
@@ -12197,6 +12435,33 @@ mod tests {
                 let ek = if stack.iq[np] == 0 { stack.e[np] } else { stack.e[np] - this.prm };
                 this.log.write().unwrap().push((stack.iq[np], ek, w));
             };
+            if let Some((zb2, zb3)) = self.layers {
+                // the HOWFAR of `emL1.mortran`: planes at 0, zbound, zb2, zb3
+                let (lo, hi, down, up) = match stack.ir[np] {
+                    2 => (0.0, self.zbound, 1, 3),
+                    3 => (self.zbound, zb2, 2, 4),
+                    4 => (zb2, zb3, 3, 5),
+                    _ => {
+                        discard(self, st);
+                        return;
+                    }
+                };
+                let _ = lo;
+                if w > 0.0 {
+                    let tval = (hi - z) / w;
+                    if tval <= st.ustep {
+                        st.ustep = tval;
+                        st.irnew = up;
+                    }
+                } else if w < 0.0 {
+                    let tval = (lo - z) / w;
+                    if tval <= st.ustep {
+                        st.ustep = tval;
+                        st.irnew = down;
+                    }
+                }
+                return;
+            }
             match stack.ir[np] {
                 3 => discard(self, st),
                 2 => {
@@ -12230,7 +12495,16 @@ mod tests {
     impl ElectronGeometry for Tutor1Geo {
         fn hownear(&mut self, stack: &Stack) -> f64 {
             let np = stack.np;
-            if stack.ir[np] == 2 { stack.z[np].min(self.zbound - stack.z[np]) } else { 0.0 }
+            let z = stack.z[np];
+            if let Some((zb2, zb3)) = self.layers {
+                return match stack.ir[np] {
+                    2 => z.min(self.zbound - z),
+                    3 => (z - self.zbound).min(zb2 - z),
+                    4 => (z - zb2).min(zb3 - z),
+                    _ => 0.0,
+                };
+            }
+            if stack.ir[np] == 2 { z.min(self.zbound - z) } else { 0.0 }
         }
     }
 
@@ -12775,6 +13049,8 @@ mod tests {
         use std::sync::{Arc, RwLock};
         // `EGSNRC_PHOTONUC`: the user code set `iphotonucr(2) = 1` (the `difftutF` reference)
         let photonuc_on = std::env::var("EGSNRC_PHOTONUC").is_ok();
+        // `EGSNRC_LAYERS`: the five-region layered geometry of `emL1.mortran` (3 MeV electrons, a vacuum gap between two Ta plates)
+        let layers = std::env::var("EGSNRC_LAYERS").is_ok();
         let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
         let path = std::env::var("EGSNRC_PEGS4_FILE").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4/data/tutor_data.pegs4dat"));
         let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
@@ -12899,7 +13175,14 @@ mod tests {
             eprintln!("pair tables: NRC pair header {w_nrc:e}, x grid {w_x:e}, fdata {w_f:e}, wdata {w_w:e} (integer mismatches {int_bad}); triplet worst relative {w_trip:e}");
         }
         let ptables = PhotonTables {
-            regions: vec![PhotonRegionData::default(), reg(0, 0.0), PhotonRegionData { iphotonucr: photonuc_on as i32, ..reg(1, rho) }, reg(0, 0.0)],
+            regions: if layers {
+                // `emL1`: vacuum (ecut = pcut = 0 as in the user code), Ta, vacuum, Ta, vacuum; the Ta cut is 1.0 MeV
+                let vac = PhotonRegionData { pcut: 0.0, ecut: 0.0, ..reg(0, 0.0) };
+                let ta = PhotonRegionData { ecut: 1.0, ..reg(1, rho) };
+                vec![PhotonRegionData::default(), vac, ta, vac, ta, vac]
+            } else {
+                vec![PhotonRegionData::default(), reg(0, 0.0), PhotonRegionData { iphotonucr: photonuc_on as i32, ..reg(1, rho) }, reg(0, 0.0)]
+            },
             media: vec![PhotonMediumData::default(), photon_med],
             compton,
             relax: relax_d.clone(),
@@ -12934,7 +13217,13 @@ mod tests {
         emed.ms.blcce = f.blcce;
         let ereg = |med: usize, rhor: f64| ElectrRegion { med, rhor, ecut: 1.5, smaxir: 1.0e10, pcut: lit(0.1) };
         let etables = ElectrTables {
-            regions: vec![ElectrRegion::default(), ereg(0, 0.0), ereg(1, rho), ereg(0, 0.0)],
+            regions: if layers {
+                let vac = ElectrRegion { ecut: 0.0, pcut: 0.0, ..ereg(0, 0.0) };
+                let ta = ElectrRegion { ecut: 1.0, ..ereg(1, rho) };
+                vec![ElectrRegion::default(), vac, ta, vac, ta, vac]
+            } else {
+                vec![ElectrRegion::default(), ereg(0, 0.0), ereg(1, rho), ereg(0, 0.0)]
+            },
             media: vec![ElectronMediumData::default(), emed],
             ms: Some(MsData::from_text(&text("msnew.data")).unwrap()),
             spin: sdata,
@@ -13000,13 +13289,18 @@ mod tests {
             }
         }
         let log = Arc::new(RwLock::new(Vec::new()));
-        let geo = Tutor1Geo { zbound: lit(0.1), prm: lit(0.5109989461), log: log.clone() };
+        let geo = Tutor1Geo { zbound: if layers { 0.05 } else { lit(0.1) }, layers: if layers { Some((0.5, 0.55)) } else { None }, prm: lit(0.5109989461), log: log.clone() };
         // `EGSNRC_EM_FIELD=ex,ey,ez,bx,by,bz,emlmt`: the constant EM field the user code set (`difftutEB`, ...)
         let em = std::env::var("EGSNRC_EM_FIELD").ok().map(|v| {
             let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
             EmField { e_in: [x[0], x[1], x[2]], b: [x[3], x[4], x[5]], emlmt: x[6] }
         });
-        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() }, em };
+        // `EGSNRC_EEMF_FIELD=bx,by,bz,emlmt`: the magnetic field the EEMF user code set (`emB1`, ...)
+        let eemf = std::env::var("EGSNRC_EEMF_FIELD").ok().map(|v| {
+            let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
+            EemfField { e_in: [0.0; 3], b_in: [x[0], x[1], x[2]], emlmt: x[3], estepe: MAX_ELOSS }
+        });
+        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() }, em, eemf };
         let pcfg = PhotonConfig { pair: PairConfig { pair_nrc, itriplet, ..PairConfig::default() }, rr: None, prm: RM, vacdst: 1.0e8 };
         let mut drv = Tutor1Driver { tables: etables, cfg: ecfg, geo: geo.clone(), counters: ElectrCounters::default() };
         let mut pgeo = geo;
@@ -13015,7 +13309,7 @@ mod tests {
         let mut st = Stack::new(15);
         for _ in 0..200 {
             log.write().unwrap().clear();
-            let start = ShowerStart { iqi: -1, ei: lit(20.5109989461), xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 2, wti: 1.0 };
+            let start = ShowerStart { iqi: -1, ei: if layers { lit(3.5109989461) } else { lit(20.5109989461) }, xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 2, wti: 1.0 };
             match shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng) {
                 Ok(_) => mine.push(log.read().unwrap().clone()),
                 Err(e) => {

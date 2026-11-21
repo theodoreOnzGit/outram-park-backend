@@ -72,7 +72,7 @@ that way in every new module.
 - **Scope:** `egsnrc.mortran` with `egsnrc.macros` (the kernel),
   `egs_utilities`, `nrcaux`, `get_media_inputs`, `pegs4_routines`/`_macros`
   and `pegs4/pegs4.mortran`.
-- **Deferred:** the `EEMF_*` field macros, `egs_parallel`, and
+- **Deferred:** ~~the `EEMF_*` field macros~~ **CORRECTED 2026-11-21:** `EEMF_macros` is ported (magnetic field) and compared; `EEMF_macros_beamnrc` is not; `egs_parallel`, and
   `get_inputs`'s user-code input parsing beyond what the media need.
 - **Order** (each step reaches the previous ones):
   1. PEGS4 data preparation;
