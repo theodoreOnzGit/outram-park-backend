@@ -1657,9 +1657,9 @@ pub fn bhabha<R: UniformSource>(stack: &mut Stack, te: f64, prm: f64, rng: &mut 
 /// Returns `false` without scattering when `ekin <= 2 te`. The secondary
 /// goes to `np_old + 1` with `iq = -1`.
 ///
-/// Not ported, refused with [`EgsError::Unsupported`] when `eii_active`
-/// (`eii_flag > 0` and the medium has EII shells): electron-impact ionisation
-/// sampling (`eii_sample`, `eii.mortran`). It is off by default.
+/// Refused with [`EgsError::Unsupported`] when `eii_active` (`eii_flag > 0`
+/// and the medium has EII shells): call [`moller_eii_select`] first, which
+/// samples the EII event or says to carry on with this routine.
 ///
 /// # Errors
 ///
@@ -3809,6 +3809,467 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
         out.push(t);
     }
     Ok(UserPhotonTables { media: out, binding_energies })
+}
+
+/// `$MAX_EII_SHELLS` and `$N_EII_BINS` (`egsnrc.macros:596-598`).
+pub const MAX_EII_SHELLS: usize = 40;
+/// See [`MAX_EII_SHELLS`].
+pub const N_EII_BINS: usize = 250;
+
+/// `COMMON/eii_data/` (`egsnrc.macros:603-625`), filled by [`eii_init`]. All
+/// shell and bin arrays are 1-based.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EiiData {
+    /// `eii_xsection_a(1..MAX_EII_BINS)`.
+    pub xsection_a: Vec<f64>,
+    /// `eii_xsection_b`.
+    pub xsection_b: Vec<f64>,
+    /// `eii_cons(medium)`: `rho / (1.6605655 sum_a)`.
+    pub cons: Vec<f64>,
+    /// `eii_a(shell)`, `eii_b(shell)`: the energy grid of each shell.
+    pub a: Vec<f64>,
+    /// See `a`.
+    pub b: Vec<f64>,
+    /// `eii_z(shell)`.
+    pub z: Vec<usize>,
+    /// `eii_sh(shell)`: 1 K, 2 LI, 3 LII, 4 LIII.
+    pub sh: Vec<usize>,
+    /// `eii_nshells(Z)`.
+    pub nshells: Vec<usize>,
+    /// `eii_nsh(medium)`.
+    pub nsh: Vec<usize>,
+    /// `eii_first(medium, element)`.
+    pub first: Vec<Vec<usize>>,
+    /// `eii_no(medium, element)`.
+    pub no: Vec<Vec<usize>>,
+    /// `eii_flag`: `false` after `eii_init` found no EII shells (upstream turns
+    /// itself off).
+    pub flag: bool,
+}
+
+/// One medium for [`eii_init`].
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EiiMediumInput {
+    /// `(ZELEM, PZ, WA)` per element.
+    pub comp: Vec<(f64, f64, f64)>,
+    /// `rho`.
+    pub rho: f64,
+    /// `AE`, total energy, MeV.
+    pub ae: f64,
+    /// `AP`, MeV.
+    pub ap: f64,
+}
+
+/// How to read three places in `eii.mortran` where the source looks wrong
+/// and only a built EGSnrc can say what is real (`docs/egsnrc_port_remaining.md`).
+/// The default is the *intended* reading in all three; the literal one is
+/// there for phase 2 to compare.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct EiiReadings {
+    /// `eii.mortran:176` writes `binding_energies(iZ, ish)` for an array
+    /// declared `(shell, iZ)`. `true` reproduces that: the flat Fortran
+    /// (column-major) address `(ish - 1) * MXSHELL + iZ - 1` is read.
+    pub binding_energy_swapped: bool,
+    /// `eii.mortran:227` uses `eii_a(jjj)`, `eii_b(jjj)` (shell type) where the
+    /// shell index `jj` is meant. `true` reproduces the shell-type index.
+    pub bin_index_by_shell_type: bool,
+    /// `eii.mortran:215` reads `ap(medium)` (a COMMON variable, not the loop
+    /// index `imed`) in `Ecc = min(Ec, ap(medium))`. `Some(ap)` uses that
+    /// value; `None` uses the loop medium's own `AP` (the intended reading).
+    pub ecc_ap: Option<f64>,
+}
+
+/// `eii_init` (`eii.mortran:51-305`): reads `eii_ik.data` (text), sets the EII
+/// shells per element and medium, and rewrites the restricted stopping power
+/// and discrete-interaction cross section of each medium with EII shells
+/// (`media[m].ededx`, `esig`) so the Moller part of those shells is replaced
+/// by the EII cross section. `relax` supplies the binding energies (upstream
+/// calls `EDGSET` first for that). `rm` is `RM`.
+///
+/// Three places in the source look wrong; [`EiiReadings`] chooses the reading
+/// (intended by default, literal on request).
+///
+/// # Errors
+///
+/// A message for short or malformed data, too many shells, a data file that
+/// lacks shells the binding energies require, or a bin index outside the
+/// table (which upstream would read out of bounds).
+pub fn eii_init(
+    text: &str,
+    media_in: &[EiiMediumInput],
+    relax: &RelaxData,
+    media: &mut [ElectronMediumData],
+    rm: f64,
+    readings: EiiReadings,
+) -> Result<EiiData, String> {
+    const MXELEMENT: usize = 100;
+    const CONS: f64 = 0.153536; // 2 pi Re^2 rm / u
+    let nmed = media_in.len() - 1;
+    let mut d = EiiData {
+        nshells: alloc::vec![0; MXELEMENT + 1],
+        nsh: alloc::vec![0; nmed + 1],
+        cons: alloc::vec![0.0; nmed + 1],
+        first: alloc::vec![Vec::new(); nmed + 1],
+        no: alloc::vec![Vec::new(); nmed + 1],
+        flag: true,
+        ..Default::default()
+    };
+    // the minimum of all threshold energies
+    let mut e_eii_min = 1e30_f64;
+    for m in media_in.iter().skip(1) {
+        e_eii_min = e_eii_min.min(m.ae - rm).min(m.ap);
+    }
+    // the elements that need EII data
+    for m in media_in.iter().skip(1) {
+        for &(z, _, _) in &m.comp {
+            let iz = (z + 0.5) as usize;
+            if d.nshells[iz] == 0 {
+                let mut nsh = 0;
+                for ish in 1..=4 {
+                    if relax.binding_energies[iz][ish] > e_eii_min {
+                        nsh += 1;
+                    }
+                }
+                d.nshells[iz] = nsh;
+            }
+        }
+    }
+    let nsh_tot: usize = d.nshells.iter().sum();
+    if nsh_tot == 0 {
+        d.flag = false; // "EII requested but no shells ... => turning off EII"
+        return Ok(d);
+    }
+    if nsh_tot > MAX_EII_SHELLS {
+        return Err(alloc::format!("Number of shells with binding energies above threshold is {nsh_tot}; more than the {MAX_EII_SHELLS} allocated"));
+    }
+    let mut tmp_array = alloc::vec![0usize; MXELEMENT + 1];
+    for j in 2..=MXELEMENT {
+        tmp_array[j] = tmp_array[j - 1] + d.nshells[j - 1];
+    }
+    // the EII active shells per medium and element
+    for imed in 1..=nmed {
+        let mut nsh = 0;
+        for &(z, _, _) in &media_in[imed].comp {
+            let iz = (z + 0.5) as usize;
+            d.no[imed].push(d.nshells[iz]);
+            nsh += d.nshells[iz];
+            d.first[imed].push(if d.nshells[iz] > 0 { tmp_array[iz] + 1 } else { 0 });
+        }
+        d.nsh[imed] = nsh;
+    }
+    // read the EII data
+    let mut lines = text.lines();
+    let nskip = read_record(&mut lines, 1)?[0] as usize;
+    for _ in 0..nskip {
+        lines.next().ok_or_else(|| String::from("I/O error while reading EII data"))?;
+    }
+    let h = read_record(&mut lines, 2)?;
+    let (emax, nbin) = (h[0], h[1] as usize);
+    if nbin != N_EII_BINS {
+        return Err(String::from("Inconsistent EII data file"));
+    }
+    d.xsection_a = alloc::vec![0.0; N_EII_BINS * MAX_EII_SHELLS + 1];
+    d.xsection_b = d.xsection_a.clone();
+    d.a = alloc::vec![0.0; MAX_EII_SHELLS + 1];
+    d.b = d.a.clone();
+    d.z = alloc::vec![0; MAX_EII_SHELLS + 1];
+    d.sh = alloc::vec![0; MAX_EII_SHELLS + 1];
+    let mut ii = 0usize;
+    for _ in 1..=MXELEMENT {
+        let h = read_record(&mut lines, 2)?;
+        let (iz, nsh) = (h[0] as usize, h[1] as usize);
+        if nsh < d.nshells[iz] {
+            return Err(alloc::format!("EII data file has data for {nsh} shells for element {iz}, but {} are required", d.nshells[iz]));
+        }
+        for ish in 1..=nsh {
+            let fmax = read_record(&mut lines, 1)?[0];
+            let aux_array = read_record(&mut lines, nbin)?;
+            if ish <= d.nshells[iz] {
+                ii += 1;
+                d.z[ii] = iz;
+                d.sh[ii] = ish;
+                let be = if readings.binding_energy_swapped {
+                    // the flat column-major address of binding_energies(iZ, ish)
+                    let flat = (ish - 1) * MXSHELL + iz - 1;
+                    let (zz, shell) = (flat / MXSHELL + 1, flat % MXSHELL + 1);
+                    *relax.binding_energies.get(zz).and_then(|r| r.get(shell)).ok_or_else(|| String::from("swapped binding_energies address outside the table"))?
+                } else {
+                    relax.binding_energies[iz][ish]
+                };
+                d.a[ii] = nbin as f64 / RealMath::r_ln(emax / be);
+                d.b[ii] = 1.0 - d.a[ii] * RealMath::r_ln(be);
+                for k in 1..=nbin {
+                    let sigo = if k > 1 { fmax * aux_array[k - 2] } else { 0.0 };
+                    let loge = (k as f64 - d.b[ii]) / d.a[ii];
+                    let iii = nbin * (ii - 1) + k;
+                    d.xsection_a[iii] = (fmax * aux_array[k - 1] - sigo) * d.a[ii];
+                    d.xsection_b[iii] = sigo - d.xsection_a[iii] * loge;
+                }
+            }
+        }
+        if ii == nsh_tot {
+            break;
+        }
+    }
+    // adjust the restricted stopping power and the discrete cross sections
+    for imed in 1..=nmed {
+        let mi = &media_in[imed];
+        let ec = mi.ae - rm;
+        let ecc = ec.min(readings.ecc_ap.unwrap_or(mi.ap));
+        let mut sum_a = 0.0;
+        for &(_, pz, wa) in &mi.comp {
+            sum_a += pz * wa;
+        }
+        let con_med = mi.rho / 1.6605655 / sum_a;
+        d.cons[imed] = con_med;
+        if d.nsh[imed] > 0 {
+            let m = &mut media[imed];
+            let meke = m.esig.a0.len() - 1;
+            let (eke0, eke1) = (m.eke0, m.eke1);
+            let (mut dedx_old, mut sigm_old) = (0.0, 0.0);
+            for j in 1..=meke {
+                let loge = (j as f64 - eke0) / eke1;
+                let e = RealMath::r_exp(loge);
+                let tau = e / rm;
+                let beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
+                let p2 = 2.0 * rm * tau * (tau + 2.0);
+                let mut dedx = m.ededx.eval(j, loge);
+                let mut sigm = if e > 2.0 * ec {
+                    let sig = m.esig.eval(j, loge);
+                    let wbrem = m.ebr1.eval(j, loge);
+                    sig * (1.0 - wbrem)
+                } else {
+                    0.0
+                };
+                let (mut sum_sigma, mut sum_dedx) = (0.0, 0.0);
+                for (iele, &(z, pz, _)) in mi.comp.iter().enumerate() {
+                    let iz = (z + 0.5) as usize;
+                    for ish in 1..=d.no[imed][iele] {
+                        let jj = d.first[imed][iele] + ish - 1;
+                        let jjj = d.sh[jj];
+                        let u = relax.binding_energies[iz][jjj];
+                        let wmax = (e + u) / 2.0;
+                        let uwm = u / wmax;
+                        if u < e && u > ecc {
+                            let uwm3 = uwm * uwm * uwm;
+                            let ss_0 = 2.0 * (RealMath::r_ln(p2 / u) - uwm3 * RealMath::r_ln(p2 / wmax) - (beta2 + 0.833333) * (1.0 - uwm3)) / 3.0 / u;
+                            let t1 = tau + 1.0;
+                            let sh_0 = (1.0 - uwm
+                                + uwm / (t1 * t1) * (tau * tau * (wmax - u) / (2.0 * wmax - u) - (tau + 0.5) * RealMath::r_ln((2.0 * wmax - u) / u)))
+                                / u;
+                            let ss_1 = RealMath::r_ln(p2 / u) - uwm * uwm * RealMath::r_ln(p2 / wmax) - (beta2 + 1.0) * (1.0 - uwm * uwm);
+                            let sh_1 = RealMath::r_ln((2.0 * wmax - u) / u) + (tau / t1) * (tau / t1) * (wmax - u) / (wmax - u / 2.0);
+                            let av_e = (ss_1 + sh_1) / (ss_0 + sh_0);
+                            // eii_a/eii_b: shell index jj (intended) or shell type jjj (literal), per `readings`
+                            let kb = if readings.bin_index_by_shell_type { jjj } else { jj };
+                            let ib = d.a[kb] * loge + d.b[kb];
+                            let i = (jj as i64 - 1) * N_EII_BINS as i64 + ib as i64;
+                            if i < 1 || i as usize >= d.xsection_a.len() {
+                                return Err(alloc::format!("EII cross-section bin {i} outside the table (shell type {jjj}, shell {jj})"));
+                            }
+                            let i = i as usize;
+                            let sig = (d.xsection_a[i] * loge + d.xsection_b[i]) * pz * con_med;
+                            sum_sigma += sig;
+                            sum_dedx += sig * av_e;
+                        }
+                    }
+                }
+                sigm += sum_sigma;
+                dedx -= sum_dedx;
+                let aux = ec / e;
+                if e > 2.0 * ec {
+                    let t1 = tau + 1.0;
+                    let r = tau / t1;
+                    sigm -= CONS * mi.rho / (beta2 * ec)
+                        * (1.0 - 2.0 * aux + r * r * aux * (1.0 - 2.0 * aux) / 2.0 + (2.0 * tau + 1.0) / (t1 * t1) * aux * RealMath::r_ln(2.0 * aux))
+                        / sum_a;
+                    dedx += CONS * mi.rho / beta2
+                        * (-RealMath::r_ln(2.0 * aux) + r * r * (1.0 - 2.0 * aux) * (1.0 + 2.0 * aux) / 8.0 - (2.0 * tau + 1.0) / (t1 * t1) * (1.0 - 2.0 * aux) / 2.0)
+                        / sum_a;
+                }
+                if j > 1 {
+                    m.ededx.a1[j - 1] = (dedx - dedx_old) * eke1;
+                    m.ededx.a0[j - 1] = dedx - m.ededx.a1[j - 1] * loge;
+                    m.esig.a1[j - 1] = (sigm - sigm_old) * eke1;
+                    m.esig.a0[j - 1] = sigm - m.esig.a1[j - 1] * loge;
+                }
+                dedx_old = dedx;
+                sigm_old = sigm;
+            }
+            m.ededx.a1[meke] = m.ededx.a1[meke - 1];
+            m.ededx.a0[meke] = m.ededx.a0[meke - 1];
+            m.esig.a1[meke] = m.esig.a1[meke - 1];
+            m.esig.a0[meke] = m.esig.a0[meke - 1];
+        }
+    }
+    Ok(d)
+}
+
+/// `eii_sample` (`eii.mortran:308-369`): electron-impact ionisation of shell
+/// `ish` of element `iz` (binding energy `uj`, MeV) by the electron on top of
+/// the stack: the hard or soft collision is sampled, the primary keeps slot
+/// `np`, the delta electron goes to `np + 1` when above `ae`, and the vacancy
+/// relaxes. Returns the energy deposited locally (`edep`: the unemitted delta
+/// energy plus what `RELAX` leaves). `ae` is the medium's `AE`; `ecut` and
+/// `pcut` are the region's, for `RELAX`; `prm` is `PRM`.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`].
+pub fn eii_sample<R: UniformSource>(
+    stack: &mut Stack,
+    relax_data: &RelaxData,
+    ish: usize,
+    iz: usize,
+    uj: f64,
+    ae: f64,
+    ecut: f64,
+    pcut: f64,
+    prm: f64,
+    rng: &mut R,
+) -> Result<f64, EgsError> {
+    let rmt2 = 2.0 * prm;
+    let np = stack.np;
+    let peie = stack.e[np];
+    let t = peie - prm;
+    let tau = t / prm;
+    let tau1 = tau + 1.0;
+    let tau12 = tau1 * tau1;
+    let tau2 = tau * tau;
+    let p2 = tau2 + 2.0 * tau;
+    let beta2 = p2 / tau12;
+    let c1 = tau2 / tau12;
+    let c2 = (2.0 * tau + 1.0) / tau12;
+    let wmax = 0.5 * (t + uj);
+    let xmax = uj / wmax;
+    let fm_s = RealMath::r_ln(rmt2 * p2 / uj) - beta2 - 0.5;
+    let prob_s = 2.0 * fm_s * (1.0 + xmax + xmax * xmax);
+    let mut fm_h = 1.0 + c1 - c2;
+    if fm_h < 1.0 {
+        fm_h = 1.0;
+    }
+    let prob = fm_h + prob_s;
+    let mut wx;
+    loop {
+        let r1 = rng.uniform();
+        let r2 = rng.uniform();
+        let _r3 = rng.uniform();
+        let frej;
+        if r1 * prob < fm_h {
+            // the hard collision cross section
+            wx = 1.0 / (r2 * xmax + 1.0 - r2);
+            let wxx = wx * xmax;
+            let aux = wxx / (2.0 - wxx);
+            frej = (1.0 + c1 * aux * aux - c2 * aux) / fm_h;
+        } else {
+            // the soft collision cross section
+            wx = 1.0 / Real::sqrt((r2 * xmax) * (r2 * xmax) + (1.0 - r2) * (1.0 - r2));
+            frej = 1.0 - RealMath::r_ln(wx) / fm_s;
+        }
+        if r2 < frej {
+            break;
+        }
+    }
+    wx *= uj;
+
+    // set up the new particles
+    let h1 = (peie + prm) / t;
+    let pese1 = peie - prm;
+    stack.e[np] = pese1;
+    let mut dcosth = h1 * (pese1 - prm) / (pese1 + prm);
+    if dcosth < 0.0 {
+        // upstream takes `sqrt` of this and gets NaN directions; refuse instead
+        return Err(EgsError::Fatal("eii_sample: upstream's primary energy peie - prm is below prm, cos^2 < 0"));
+    }
+    let mut sinthe = Real::sqrt(1.0 - dcosth);
+    let mut costhe = Real::sqrt(dcosth);
+    let mut saved = UphiSaved::default();
+    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+
+    let pese2 = wx - uj + prm;
+    let mut edep;
+    if pese2 > ae {
+        stack.check_stack(stack.np + 1, "eii_sample")?;
+        stack.np += 1;
+        let np2 = stack.np;
+        stack.e[np2] = pese2;
+        dcosth = h1 * (pese2 - prm) / (pese2 + prm);
+        sinthe = -Real::sqrt(1.0 - dcosth);
+        costhe = Real::sqrt(dcosth);
+        stack.iq[np2] = -1;
+        uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
+        edep = 0.0;
+    } else {
+        edep = wx - uj;
+    }
+    let r = relax(stack, relax_data, uj, ish as i32, iz, ecut, pcut, prm, rng)?;
+    edep += r.edep;
+    Ok(edep)
+}
+
+/// The EII selection that opens `MOLLER` (`egsnrc.mortran:2633-2661`): with
+/// EII on and EII shells in the medium, the interaction is first tried against
+/// each EII shell. Returns `Some(edep)` when an EII event was sampled by
+/// [`eii_sample`] (the caller then does not run the Moller sampling), `None`
+/// to carry on with Moller. `comp` is `(ZELEM, PZ)` per element of the
+/// medium, `elke` and `lelke` the interval of `ln(E_kin)`, and `ekin`, `te`,
+/// `ap` the energies of the interaction and the medium (MeV).
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`], or [`EgsError::Fatal`] when a bin index falls
+/// outside the table.
+pub fn moller_eii_select<R: UniformSource>(
+    stack: &mut Stack,
+    eii: &EiiData,
+    medium: usize,
+    comp: &[(f64, f64)],
+    emed: &ElectronMediumData,
+    relax_data: &RelaxData,
+    elke: f64,
+    lelke: usize,
+    region: (f64, f64),
+    prm: f64,
+    ap: f64,
+    rng: &mut R,
+) -> Result<Option<f64>, EgsError> {
+    if !eii.flag || eii.nsh[medium] == 0 {
+        return Ok(None);
+    }
+    let np = stack.np;
+    stack.np_old = np;
+    let ekin = stack.e[np] - prm;
+    let mut sigm = emed.esig.eval(lelke, elke);
+    let pbrem = emed.ebr1.eval(lelke, elke);
+    sigm *= 1.0 - pbrem;
+    let mut rsh = rng.uniform();
+    rsh *= sigm;
+    for (iele, &(z, pz)) in comp.iter().enumerate() {
+        let iz = (z + 0.5) as usize;
+        let nsh = eii.no[medium][iele];
+        if nsh > 0 {
+            let ifirst = eii.first[medium][iele];
+            for ish in 1..=nsh {
+                let uj = relax_data.binding_energies[iz][ish];
+                if ekin > uj && (uj > emed.te || uj > ap) {
+                    let jj = ifirst + ish - 1;
+                    let i = (eii.a[jj] * elke + eii.b[jj] + ((jj - 1) * N_EII_BINS) as f64) as i64;
+                    if i < 1 || i as usize >= eii.xsection_a.len() {
+                        return Err(EgsError::Fatal("MOLLER/EII: cross-section bin outside the table"));
+                    }
+                    let i = i as usize;
+                    let sig_j = (eii.xsection_a[i] * elke + eii.xsection_b[i]) * pz * eii.cons[medium];
+                    rsh -= sig_j;
+                    if rsh < 0.0 {
+                        let ecut_pcut = region;
+                        let edep = eii_sample(stack, relax_data, ish, iz, uj, emed.ae, ecut_pcut.0, ecut_pcut.1, prm, rng)?;
+                        return Ok(Some(edep));
+                    }
+                }
+            }
+        }
+    }
+    Ok(None)
 }
 
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
@@ -9769,6 +10230,171 @@ mod tests {
         // the low-energy series joins the closed form at k = 0.01 m c^2
         let (lo, hi) = (egs_kn_sigma0(0.00999 * RM, RM), egs_kn_sigma0(0.01001 * RM, RM));
         assert!((lo - hi).abs() / hi < 5e-3, "{lo} {hi}");
+    }
+
+    fn toy_eii_relax() -> RelaxData {
+        let mut d = toy_relax();
+        // element 1 gets K = 50 keV and L1 = 20 keV (above the 10 keV threshold),
+        // L2, L3 below it
+        d.binding_energies[1] = alloc::vec![0.0, 0.05, 0.02, 0.0008, 0.0008, 0.0005, 0.0001];
+        d
+    }
+
+    fn toy_eii_text() -> String {
+        toy_eii_text_with([8.0, 3.0])
+    }
+
+    fn toy_eii_text_with(fmaxes: [f64; 2]) -> String {
+        let mut t = String::from("1\nskipped line\n100.0 250\n");
+        // element 1 with two shells, each: fmax, then the cumulative probability on 250 bins
+        t += "1 2\n";
+        for fmax in fmaxes {
+            t += &alloc::format!("{fmax}\n");
+            let cum: Vec<String> = (1..=N_EII_BINS).map(|k| alloc::format!("{}", ((k as f64) / 250.0).sqrt())).collect();
+            t += &cum.join(" ");
+            t += "\n";
+        }
+        t
+    }
+
+    fn toy_eii_inputs() -> Vec<EiiMediumInput> {
+        vec![EiiMediumInput::default(), EiiMediumInput { comp: vec![(1.0, 1.0, 1.0)], rho: 1.0, ae: 0.01 + RM, ap: 0.01 }]
+    }
+
+    #[test]
+    fn eii_init_sets_shells_and_rewrites_the_cross_sections() {
+        let mut tabs = toy_electron_tables();
+        let relax_d = toy_eii_relax();
+        let (esig0, ededx0) = (tabs.media[1].esig.clone(), tabs.media[1].ededx.clone());
+        let d = eii_init(&toy_eii_text(), &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).unwrap();
+        assert!(d.flag);
+        assert_eq!(d.nshells[1], 2);
+        assert_eq!((d.nsh[1], d.first[1][0], d.no[1][0]), (2, 1, 2));
+        assert!(d.cons[1] > 0.0 && (d.sh[1], d.sh[2]) == (1, 2) && d.z[1] == 1);
+        assert_ne!(tabs.media[1].esig, esig0);
+        assert_ne!(tabs.media[1].ededx, ededx0);
+        let neke = tabs.media[1].esig.a1.len() - 1;
+        assert_eq!(tabs.media[1].esig.a1[neke], tabs.media[1].esig.a1[neke - 1]);
+        // no shell above threshold: EII turns itself off
+        let mut none = toy_eii_relax();
+        none.binding_energies[1] = alloc::vec![0.0, 0.001, 0.0008, 0.0008, 0.0008, 0.0005, 0.0001];
+        let off = eii_init(&toy_eii_text(), &toy_eii_inputs(), &none, &mut tabs.media, RM, EiiReadings::default()).unwrap();
+        assert!(!off.flag);
+        // failures: wrong bin count, truncated data, a file lacking shells
+        assert!(eii_init("0\n100.0 7\n", &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).is_err());
+        assert!(eii_init("0\n100.0 250\n1 2\n", &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).is_err());
+        assert!(eii_init("0\n100.0 250\n1 1\n", &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).is_err());
+        assert!(eii_init("x", &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).is_err());
+    }
+
+    #[test]
+    fn eii_sample_follows_upstream_including_its_primary_energy() {
+        // UPSTREAM QUIRK, reproduced: `eii.mortran:345` sets the primary's
+        // total energy to `peie - prm` (its kinetic energy), not `peie - wx`,
+        // which looks like a typo and loses `prm` of energy per event. This
+        // test pins the literal behaviour so phase 2 can settle it against a
+        // built EGSnrc; it is NOT a statement that the physics is right.
+        let relax_d = toy_eii_relax();
+        let mut rng = Ranmar::new(77, 78);
+        let (mut with_delta, mut without) = (0, 0);
+        for &(t, ish, uj) in &[(1.0_f64, 1usize, 0.05_f64), (0.9, 2, 0.02)] {
+            for _ in 0..100 {
+                let mut st = Stack::new(40);
+                st.np = 1;
+                st.e[1] = t + RM;
+                st.iq[1] = -1;
+                st.wt[1] = 1.0;
+                st.ir[1] = 3;
+                (st.u[1], st.v[1], st.w[1]) = (0.0, 0.0, 1.0);
+                let edep = eii_sample(&mut st, &relax_d, ish, 1, uj, 0.01 + RM, RM + 1e-4, 1e-4, RM, &mut rng).unwrap();
+                assert!((st.e[1] - t).abs() < 1e-12, "the literal upstream primary energy");
+                assert!(edep >= -1e-12);
+                assert!((norm(&st, 1) - 1.0).abs() < 1e-9);
+                if st.np > 1 && st.iq[2] == -1 && st.e[2] > 0.01 + RM {
+                    with_delta += 1;
+                } else {
+                    without += 1;
+                }
+            }
+        }
+        assert!(with_delta > 0 && without > 0, "{with_delta} {without}");
+        // below T = prm the literal formula has cos^2 < 0: refused, not NaN
+        let mut st = Stack::new(40);
+        st.np = 1;
+        st.e[1] = 0.1 + RM;
+        st.w[1] = 1.0;
+        assert!(matches!(
+            eii_sample(&mut st, &relax_d, 1, 1, 0.05, 0.01 + RM, RM + 1e-4, 1e-4, RM, &mut rng),
+            Err(EgsError::Fatal(_))
+        ));
+    }
+
+    #[test]
+    fn moller_eii_select_picks_eii_events() {
+        let mut tabs = toy_electron_tables();
+        let relax_d = toy_eii_relax();
+        let d = eii_init(&toy_eii_text_with([1.0, 0.5]), &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).unwrap();
+        // fixed Moller-type cross section so EII competes with it
+        tabs.media[1].esig = const_pwlf(5.0);
+        tabs.media[1].ebr1 = const_pwlf(0.3);
+        let emed = &tabs.media[1];
+        let mut rng = Ranmar::new(5, 6);
+        let (mut hits, mut misses) = (0, 0);
+        let t = 1.0_f64;
+        let elke = t.ln();
+        let l = (emed.eke1 * elke + emed.eke0) as usize;
+        for _ in 0..400 {
+            let mut st = Stack::new(40);
+            st.np = 1;
+            st.e[1] = t + RM;
+            st.iq[1] = -1;
+            st.wt[1] = 1.0;
+            st.ir[1] = 3;
+            (st.u[1], st.v[1], st.w[1]) = (0.0, 0.0, 1.0);
+            match moller_eii_select(&mut st, &d, 1, &[(1.0, 1.0)], emed, &relax_d, elke, l, (RM + 1e-4, 1e-4), RM, 0.01, &mut rng).unwrap() {
+                Some(edep) => {
+                    hits += 1;
+                    assert!(st.e[1] < t + RM && edep >= -1e-12);
+                }
+                None => misses += 1,
+            }
+        }
+        assert!(hits > 0 && misses > 0, "{hits} {misses}");
+        // EII off, or no EII shells in the medium: always carry on with Moller
+        let mut off = d.clone();
+        off.flag = false;
+        let mut st = Stack::new(5);
+        st.np = 1;
+        st.e[1] = 2.0;
+        assert_eq!(moller_eii_select(&mut st, &off, 1, &[(1.0, 1.0)], emed, &relax_d, 0.0, 5, (RM, 0.0), RM, 0.01, &mut rng).unwrap(), None);
+    }
+
+    #[test]
+    fn eii_literal_readings_differ_from_the_intended_ones() {
+        let relax_d = toy_eii_relax();
+        let mut tabs = toy_electron_tables();
+        let intended = eii_init(&toy_eii_text(), &toy_eii_inputs(), &relax_d, &mut tabs.media, RM, EiiReadings::default()).unwrap();
+        let mut tabs2 = toy_electron_tables();
+        let swapped = EiiReadings { binding_energy_swapped: true, ..Default::default() };
+        let lit = eii_init(&toy_eii_text(), &toy_eii_inputs(), &relax_d, &mut tabs2.media, RM, swapped).unwrap();
+        // shell 1 of Z = 1 reads the same word either way; shell 2 reads Z = 2's K energy
+        assert_eq!(lit.a[1], intended.a[1]);
+        assert_ne!(lit.a[2], intended.a[2]);
+        // a different Ecc changes which shells use the EII cross section
+        // (Ec = 0.03 MeV here, so Ecc = 0.04 -> 0.03 drops the 0.02 MeV shell)
+        let mut inputs = toy_eii_inputs();
+        inputs[1].ae = 0.03 + RM;
+        let mut tabs3 = toy_electron_tables();
+        eii_init(&toy_eii_text(), &inputs, &relax_d, &mut tabs3.media, RM, EiiReadings::default()).unwrap();
+        let mut tabs4 = toy_electron_tables();
+        let r = EiiReadings { ecc_ap: Some(0.04), ..Default::default() };
+        eii_init(&toy_eii_text(), &inputs, &relax_d, &mut tabs4.media, RM, r).unwrap();
+        assert_ne!(tabs3.media[1].esig, tabs4.media[1].esig);
+        // the shell-type bin index agrees with the shell index when type == index
+        let mut tabs5 = toy_electron_tables();
+        let r = EiiReadings { bin_index_by_shell_type: true, ..Default::default() };
+        eii_init(&toy_eii_text(), &toy_eii_inputs(), &relax_d, &mut tabs5.media, RM, r).unwrap();
+        assert_eq!(tabs5.media[1].esig, tabs.media[1].esig);
     }
 
 }

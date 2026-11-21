@@ -24,7 +24,7 @@ and the stack, azimuth and `$RANDOMSET` macros.
 | `PHOTONUC` | `:9001-9015` | Ported (`photonuc`, with the `$PHOTONUC-CORRECTION` and `$PHOTONUCLEAR` hooks in `photon`). Upstream is a placeholder: it zeroes the photon's energy and weight, and `photon` then discards it with `edep = peig`, so scoring is told the energy was deposited. Pinned by a test. |
 | ~~`egs_rayleigh_sampling`~~ | `:8558` | **PORTED 2026-11-21** with `egs_init_rayleigh_sampling`, `prepare_rayleigh_data`, `egs_rayleigh_sigma`, `zero()` and the `$RAYLEIGH-*` hooks in `photon` (first port, not differentially tested; tests are toy-data and energy balance, not compared to EGSnrc). |
 | ~~`sample_triplet`~~ **PORTED 2026-11-21** (`sample_triplet`, `init_triplet`, `pair_with_triplet`; first port, toy-data and conservation tests only, `photon` does not yet carry the triplet state so `itriplet > 0` there is still refused), ~~NRC pair~~ **PORTED 2026-11-21** (`init_nrc_pair` takes decoded records because `pair_nrc1.data`'s direct-access layout depends on build macros not in the clone; `pair_with_nrc`; `prepare_alias_table`), ~~NIST/NRC brems tables~~ **PORTED 2026-11-21** (`init_nist_brems`, `gauss_legendre`, and the `ibr_nist >= 1` branch of `brems`; toy-data tests only, `nist_brems.data`/`nrc_brems.data` are not in the clone so the real files are untested), EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |
-| Whole files | `pegs4/pegs4.mortran`, `get_media_inputs`, `egs_utilities` (rest), `eii` (`src/`) | `nrcaux` is ported except `WATCH` (event-trace printing); `erf1`, `set_spline`, `spline`, `alias_sample1` from `egs_utilities`. `eii` is not ported: see the findings below. The rest is not started. |
+| Whole files | `pegs4/pegs4.mortran`, `get_media_inputs`, `egs_utilities` (rest), `eii` (`src/`) | `nrcaux` is ported except `WATCH` (event-trace printing); `erf1`, `set_spline`, `spline`, `alias_sample1` from `egs_utilities`. `eii` is ported except the `ELECTR` wiring: see the findings below. The rest is not started. |
 
 ## What now binds `ELECTR` to data
 
@@ -42,11 +42,27 @@ full showers through `SHOWER`, `ELECTR` and `PHOTON`).
   alias, bin 1). A uniform histogram or a tie such as `0.4 - 0.15 = 0.25`
   triggers it; `init_compton` avoids it with a final loop. Ported as is and
   pinned by `exactly_average_bins_stay_unfinalised_as_upstream`.
-- **`eii_init` (`eii.mortran`) is not ported** because three things in it
-  cannot be reproduced from the source alone: it indexes `binding_energies(iZ,
-  ish)` with the arguments swapped relative to the declaration
-  `binding_energies(shell, iZ)`; it reads `ap(medium)` for `Ecc` where `imed`
-  is meant (the global `medium` at that point is not `imed`); and the shell
-  loop uses `eii_a(jjj)` (shell type) where `eii_a(jj)` looks intended. Each
-  would need a built EGSnrc to see which behaviour is real.
+- ~~**`eii_init` (`eii.mortran`) is not ported**~~ **CORRECTED 2026-11-21:**
+  `eii_init`, `eii_sample` and the EII branch that opens `MOLLER`
+  (`moller_eii_select`) are ported (first port, toy-data tests only; `eii_ik.data`
+  is not in the clone, so the real file is untested). Four things in the source
+  look wrong and only a built EGSnrc can say which behaviour is real; the first
+  three are switches in `EiiReadings` (intended reading by default, literal on
+  request), the fourth is reproduced literally:
+  1. `eii.mortran:176` writes `binding_energies(iZ, ish)` for an array declared
+     `(shell, iZ)` (`binding_energy_swapped`);
+  2. `eii.mortran:215` reads `ap(medium)` for `Ecc` where `imed` is meant
+     (`ecc_ap`);
+  3. `eii.mortran:227` uses `eii_a(jjj)` (shell type) where `eii_a(jj)` looks
+     intended (`bin_index_by_shell_type`);
+  4. `eii.mortran:345` sets the primary's total energy to `peie - prm`, not
+     `peie - wx` as `MOLLER` does with its own `pese1`. That loses `prm` per
+     event and, below `T = prm`, makes `cos^2 < 0` (NaN directions upstream); the
+     port reproduces the energy and returns `EgsError::Fatal` for the NaN case.
+     Pinned by `eii_sample_follows_upstream_including_its_primary_energy`, which
+     is not a statement that the physics is right.
+
+  Still open: `ELECTR` does not call `moller_eii_select` yet (it passes
+  `eii_active = false`), and the `ELECTR` threshold change for EII
+  (`egsnrc.mortran:1672`) is not made.
 - **`NEXT :TSTEP:` in `ELECTR`** is read as a loop restart (see above).
