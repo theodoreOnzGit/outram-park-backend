@@ -164,3 +164,13 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
   transport kernel is built.
 - All of `punggol::openmc_photon`: OpenMC needs its vendored submodules and
   HDF5 photon data, which are not available.
+
+## Issues filed (2026-11-21)
+
+- gh:#1686 histories comparison (`tutor1`), `init_compton` with `eadl_relax`,
+  Rayleigh and edge tables.
+- gh:#1687 single-precision constants in the upstream build: maintainer decision.
+- gh:#1688 PEGS4 residual of 2e-4, cause not identified.
+- gh:#1689 the four `eii.mortran` oddities, now checkable against the built EGSnrc.
+- gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
+- gh:#1691 `egs_compoundstoelements` source missing; `rad_compton1`; duplicate `ztbl`.
