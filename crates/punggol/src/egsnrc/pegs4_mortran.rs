@@ -82,7 +82,7 @@
 //! that **differ**, ported here under `_pegs4` names:
 //!
 //! * `MIX` (`:1914-2109`): the radiation length is
-//!   `RLC = 1/((ZAB-ZF)*(AN*RHO/WM)*4*FSC*R0**2)` (`:2090`), the library
+//!   `RLC = 1/((ZAB-ZF)*(AN*RHO/WM)*4*FSC*R0**2)` (`:2034`), the library
 //!   version `1/((AN*RHO/WM)*4*FSC*R0**2*(ZAB-ZF))`: a different `f32`
 //!   rounding sequence ([`Pegs4Program::mix_pegs4`]).
 //! * `SPINIT` (`:2672-2923`): the density effect comes from the
@@ -92,7 +92,7 @@
 //!   ([`Pegs4Program::spinit_pegs4`]).
 //! * `SPIONB` (`:5184-5282`), and so `SPIONE`, `SPIONP`, `SPTOTE`, `SPTOTP`
 //!   and `EFUNS`, which call it: with `EPSTFL = 0` the correction is the
-//!   analytic `DELTA(X)` (`:5237-5241`); the library `SPIONB` always
+//!   analytic `DELTA(X)` (`:5235-5240`); the library `SPIONB` always
 //!   interpolates the table ([`Pegs4Program::spionb_pegs4`] and friends).
 //!
 //! Only here (never in the library file): `GFUNS`, `RFUNS`, `PMDCON`, `LAY`,
@@ -117,42 +117,66 @@
 //!   [`Pegs4Block::Test`] are accepted and do nothing but leave a line in
 //!   [`Pegs4Output::listing`]. `DBUG` is empty upstream and is the same here.
 //! * **Unit and file opening**: `open_units`, `egs_strip_path`,
-//!   `show_pegs4_help`, `lnblnk1`, the command-line options (`:5463-5893`),
-//!   and the `pegs4.log` side file `LAY` appends to (`:1869-1900`: it needs a
+//!   `show_pegs4_help`, `lnblnk1`, the command-line options (`:5478-5893`),
+//!   and the `pegs4.log` side file `LAY` appends to (`:1862-1900`: it needs a
 //!   file system and the date).
 //! * **The `NAMELIST` parser** and the listing file (unit 6): the `OUTPUT`
 //!   diagnostics are not reproduced except for a few lines in
 //!   [`Pegs4Output::listing`]; `QD`'s unit-10 `DCADRE CODE` message
-//!   (`:5163-5176`) is omitted, as in the previous port.
+//!   (`:5164-5176`) is omitted, as in the previous port.
 //! * `IFUN`, `IV`, `VLO`, `VHI`, `IDF`, `NPTS`, `EI`, `ISUB` of `&INP`: they
 //!   feed only the plotting options.
-//! * `ISTATB` (`DATA ISTATB`, `:1356-1360`): declared and never read.
+//! * `ISTATB` (`DATA ISTATB`, `:1386-1390`): declared and never read.
 //!
 //! # Things in the upstream source that look wrong (quoted, not changed)
 //!
-//! * `pegs4.mortran:792-796`: a medium whose `RHO` is absent takes
-//!   `RHOSAV`, the density of the *previous block* (already multiplied by
-//!   `GASP` in `MIX`, `:1976`), for every option but `ELEM`. A `MIXT`/`COMP`
-//!   after a gas without `RHO` silently inherits a scaled density.
-//! * `:992`: `XVAL(I)=XVAL(I)**2.` squares the form-factor abscissae **in
+//! * **A second medium in one run is refused** unless its `&INP` zeroes the
+//!   density-effect variables. `SPINIT` stores its results in `AFACT`, `SK`,
+//!   `X0`, `X1`, `IEV`, `CBAR` (`:2726-2729`, `:2744`, `:2828`), the same
+//!   variables the `&INP` namelist assigns (`:720`), and the next `SPINIT`
+//!   begins `IF(ISSB.EQ.0.AND.(AFACT.NE.0.0.OR.CBAR.NE.0.0.OR. ...))` ...
+//!   `INCORRECT USER-OVERRIDE OF SSB-DATA`, `$CALL_EXIT(21)` (`:2711-2715`).
+//!   Every input deck shipped in `pegs4/inputs` defines exactly one medium.
+//!   Pinned by a test; the way round is `AFACT=0, CBAR=0, SK=0, X0=0, X1=0,
+//!   IEV=0` in the next block.
+//! * `:812-816`: a medium whose `RHO` is absent takes `RHOSAV`, the density
+//!   of the *previous block* (already multiplied by `GASP` in `MIX`, `:2005`),
+//!   for every option but `ELEM`. A `MIXT`/`COMP` after a gas without `RHO`
+//!   silently inherits a scaled density.
+//! * `:1004`: `XVAL(I)=XVAL(I)**2.` squares the form-factor abscissae **in
 //!   place**, so a second `PWLF` with `IRAYL=1` (same program run) squares
 //!   them again.
-//! * `:951-952`, `:957`: `PWLF` passes `NALE`/`NALG`/`NALR` as the maximum
+//! * `:980-984`, `:1015`: `PWLF` passes `NALE`/`NALG`/`NALR` as the maximum
 //!   number of subintervals, but the arrays are dimensioned `$MXEKE = 150`,
-//!   `$MXGE = 2000`, `$MXRL = 100` (`:76-79`): a larger `NALE` writes past
+//!   `$MXGE = 2000`, `$MXRL = 100` (`:160-166`): a larger `NALE` writes past
 //!   `AFE`. Here it is an `Err`.
-//! * `:3890-3911` (`COMPRM`): `C1`, `C2`, `C3`, `EPS1`, `EPS2`, `K0P` are
+//! * `:3900` (`COMPRM`): `C1`, `C2`, `C3`, `EPS1`, `EPS2`, `K0P` are
 //!   explicit `REAL*8` ("for very low energy photons") in a file whose
-//!   macros turn every `DOUBLEPRECISION` into `REAL`; the explicit `REAL*8`
-//!   is not touched by the macro.
-//! * `:1888-1913` (`MIX`): local arrays of 20 elements while `$MXEL = 20`
-//!   (`:60`), consistent here, but `LAY`'s and `SPINIT`'s `IFIX(Z)` indexing
-//!   (`ITBL(IZ)`) has no range check for `Z > 100`.
-//! * `:2917`: `$DUMP IEV,VPLASM,...` after the density summary prints
-//!   variables that exist only on the `EPSTFL = 0` path.
-//! * `:4511`/`:5455-5470`: `ZTBL` returns 0 for an unknown symbol and the
-//!   caller (`:915`) aborts with exit 16, but `ELEM` of a symbol padded with
-//!   a trailing blank only matches because Fortran string comparison pads.
+//!   macro turns every `DOUBLEPRECISION` into `REAL` (`:644`); the explicit
+//!   `REAL*8` is not touched by the macro.
+//! * `:2871-2874` (`SPINIT`, `EPSTFL=1`): a zero sum of `RHOZ` only prints
+//!   "SOMETHING WRONG" and the run goes on, dividing by it at `:2888-2889`.
+//! * `:2855-2893` (`SPINIT`, composition check): the flag `ICHECK` is cleared
+//!   by *any* matching element and set only by a weight mismatch, so a later
+//!   matching element clears an earlier mismatch (the library version has the
+//!   same logic, `pegs4_routines.mortran:1825-1841`). Ported as written.
+//! * `:2005`: `MIX` multiplies `RHO` by `GASP` in place and `LAY` writes
+//!   that scaled `RHO` next to `GASP` (`:1830`); the reader (`HATCH`) takes
+//!   the written `RHO` as the density.
+//! * `:2133-2320` (`MOLIER`): `VERT2` is dimensioned `($MXVRT2 = 200,
+//!   $MSSTEPS)` (`:158`) but filled to `MXV2 = 1000 - MXV1` entries, which can
+//!   exceed 200. Here the rows hold 1000.
+//! * **A defect found in this crate's existing code, not upstream**:
+//!   `egsnrc_mortran::parse_pegs4_media` reads the gas header
+//!   (`(5A1,5X,F11.0,4X,I2,26X,I1,9X,I1,9X,I1)`, `egsnrc.mortran:2086`) with
+//!   `IUNRST` at column 52; the shipped gas record
+//!   ` MIXT,RHO= 1.2048E-03,NE= 4,GASP= 1.0000E+00, IUNRST=0, ...`
+//!   (`pegs4/data/521icru.pegs4dat`) and this file's [`Pegs4Program::lay`]
+//!   put it at column 53, so the real layout fails to parse
+//!   (`bad numeric field '='`). Its test fixture
+//!   (`egsnrc_mortran.rs:9402`) omits the comma before ` IUNRST`, one
+//!   character short of the real record. Not edited here (out of this
+//!   file's scope).
 //!
 //! # What is ported
 //!
@@ -180,7 +204,7 @@
 //! | `EBIND`, `EBR1`, `EDEDX`, `ESIG` (`:4429-4492`) | methods |
 //! | `GBR1`, `GBR2`, `GMFP` (`:4532-4571`) | methods |
 //! | `PAIRDR`, `PAIRDZ`, `PAIRFR`, `PAIRFZ`, `PAIRRM`, `PAIRRR`, `PAIRRZ`, `PAIRTE`, `PAIRTM`, `PAIRTR`, `PAIRTU`, `PAIRTZ` (`:4728-5022`) | methods |
-//! | `PBR1`, `PBR2`, `PDEDX`, `PHOTTE`, `PHOTTZ`, `PSIG` (`:5027-5125`) | methods (`PHOTTE` is `phottte`... see [`Pegs4Program::photte`]) |
+//! | `PBR1`, `PBR2`, `PDEDX`, `PHOTTE`, `PHOTTZ`, `PSIG` (`:5027-5125`) | methods (`PHOTTE` is [`Pegs4Program::photte`]) |
 //! | `TMXDE2` (`:5397-5410`) | [`Pegs4Program::tmxde2`] |
 
 #[cfg(not(any(feature = "std", test)))]
@@ -440,7 +464,7 @@ fn right_justify(s: String, w: usize) -> String {
 /// three-digit exponent loses its `E` (`1.00000-100`). The `f32` is widened
 /// to `f64` first, which is exact, so the digits are those of the exact
 /// binary value correctly rounded, as `gfortran` prints a `REAL*4`.
-/// Used by the `:FLT:` format `(1X,1P,5E14.5)` of `LAY` (`:1816`) and the
+/// Used by the `:FLT:` format `(1X,1P,5E14.5)` of `LAY` (`:1825`) and the
 /// `E11.4`/`E12.5` of its headers.
 pub fn fmt_e(x: f32, w: usize, d: usize) -> String {
     let v = f64::from(x);
@@ -493,7 +517,7 @@ pub fn fmt_i(n: i64, w: usize) -> String {
     right_justify(format!("{n}"), w)
 }
 
-/// The `:FLT:` format `(1X,1P,5E14.5)` of `LAY` (`:1816`, and `MOLIER`'s
+/// The `:FLT:` format `(1X,1P,5E14.5)` of `LAY` (`:1825`, and `MOLIER`'s
 /// `:FLTNG:` is [`fnums_f52`]): a list of reals, five per record, each record
 /// starting with one blank. An empty list writes one blank record.
 fn flt_records(out: &mut Vec<String>, items: &[f32]) {
@@ -510,7 +534,7 @@ fn flt_records(out: &mut Vec<String>, items: &[f32]) {
     }
 }
 
-/// The `:INT:` format `(1X,14I5)` (`:1815`, `MOLIER`'s `:INTG:`).
+/// The `:INT:` format `(1X,14I5)` (`:1824`, `MOLIER`'s `:INTG:`).
 fn int_records(out: &mut Vec<String>, items: &[i64]) {
     if items.is_empty() {
         out.push(String::from(" "));
@@ -525,7 +549,7 @@ fn int_records(out: &mut Vec<String>, items: &[i64]) {
     }
 }
 
-/// `MOLIER`'s `:FLTNG:` format `(1X,14F5.2)` (`:2291`).
+/// `MOLIER`'s `:FLTNG:` format `(1X,14F5.2)` (`:2309`).
 fn fnums_f52(out: &mut Vec<String>, items: &[f32]) {
     if items.is_empty() {
         out.push(String::from(" "));
@@ -557,7 +581,7 @@ fn pad_to(s: &str, n: usize) -> String {
 /// the Fortran expression order (`ECGS**2` is a product, `RME*C**2/ERGMEV`
 /// is `(RME*(C*C))/ERGMEV`). `RM` is **not** the `PRM = 0.5109989461` of
 /// the NRC library: it is derived from `RME = 9.1091E-28`, `C = 2.997925E+10`
-/// and `ERGMEV` (`:2536-2539`).
+/// and `ERGMEV` (`:2533-2535`, `:2548`).
 pub fn pmdcon() -> Pegs4Constants {
     let pip: f32 = 3.141_592_653_6;
     let c: f32 = 2.997925e10;
@@ -789,7 +813,7 @@ pub struct Pegs4Inp {
 }
 
 /// The cards of an `ELEM`, `MIXT` or `COMP` option after the option name
-/// and the namelist (`:881-884`): `MEDIUM` and the Sternheimer id
+/// and the namelist (`:884-885`): `MEDIUM` and the Sternheimer id
 /// (`(24A1,6X,24A1)`), then the element symbols (`(24(A2,1X))`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MediumBlock {
@@ -798,7 +822,7 @@ pub struct MediumBlock {
     /// `MEDIUM`, padded or cut to 24 characters.
     pub medium: String,
     /// `IDSTRN`, 24 characters; a blank first character means "copy
-    /// `MEDIUM`" (`:885`).
+    /// `MEDIUM`" (`:886`).
     pub idstrn: String,
     /// `ASYM(1..)`: element symbols, two significant characters each.
     pub asym: Vec<String>,
@@ -842,7 +866,7 @@ pub struct CallBlock {
 }
 
 /// One option block of the deck: the option name card and the cards that
-/// follow it (`:808-1151`).
+/// follow it (`:804-1151`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pegs4Block {
     /// `ELEM`: a one-element medium.
@@ -1146,7 +1170,7 @@ pub struct Pegs4Program {
     pub tet2: f32,
     /// `TEM` (`THRESH`).
     pub tem: f32,
-    /// `MEDSET`: a medium has been defined.
+    /// `MEDSET`: a medium has been defined (`:934`).
     pub medset: bool,
     /// `ENGSET`: `ENER` has been given.
     pub engset: bool,
@@ -1207,7 +1231,7 @@ pub struct Pegs4Program {
 
 impl Pegs4Program {
     /// The state after `BLOCK DATA` (`:1160-1428`) and `PMDCON`
-    /// (`:742`): `IUNRST = 0`, `IRAYL = 0`, `GASP = 0`, `EPSTFL = 0`,
+    /// (`:751`): `IUNRST = 0`, `IRAYL = 0`, `GASP = 0`, `EPSTFL = 0`,
     /// `IAPRIM = 1`, the density-effect parameters 0, the `PWLF` defaults,
     /// the element-symbol table. `data` is units 8 and 9.
     pub fn new(data: Pegs4Data) -> Self {
@@ -1271,8 +1295,8 @@ impl Pegs4Program {
     }
 }
 
-/// `DL1..DL6(L)` screening-fit value at `delta` (`BREMFR` `:3544-3553`,
-/// `PAIRFR` `:4789-4797`): the quadratic fit up to `delta = 1`, the
+/// `DL1..DL6(L)` screening-fit value at `delta` (`BREMFR` `:3537-3557`,
+/// `PAIRFR` `:4781-4801`): the quadratic fit up to `delta = 1`, the
 /// logarithmic one above. `l` is the 1-based level.
 fn screening_fit(c: &Pegs4Common, delta: f32, l: usize) -> f32 {
     let i = l - 1;
@@ -1508,7 +1532,7 @@ impl Pegs4Program {
     }
 
     /// `COMPRM` (`:3890-3911`): Compton cross section into `k1..k2`. The
-    /// constants and `EPS` are **`REAL*8`** upstream (`:3894`): `K0P = K0/RM`
+    /// constants and `EPS` are **`REAL*8`** upstream (`:3900`): `K0P = K0/RM`
     /// is a single-precision quotient widened, `CCOMP2` is the single-precision
     /// product `RLC*EDEN*PI*R0**2` divided by `K0P` in double and narrowed,
     /// and the bracket is evaluated in double and narrowed once at the end.
@@ -1653,7 +1677,7 @@ impl Pegs4Program {
         if k >= 50.0 {
             xlnz += 4.0 * self.c.fcoulcp(z);
         }
-        // DELTAM IS THE DELTA AT WHICH THE SQUARE BRACKETS GO TO ZERO (:4768)
+        // DELTAM IS THE DELTA AT WHICH THE SQUARE BRACKETS GO TO ZERO (:4752-4776)
         let deltam = exp((21.12 - xlnz) / 4.184) - 0.952;
         self.lpairz = Lpairz { k, const_, delc, xlnz, deltam };
         self.pairfz(e)
@@ -1869,7 +1893,7 @@ impl Pegs4Program {
     /// per radiation length) except for the density correction: with
     /// `EPSTFL = 0` it is the analytic Sternheimer fit
     /// `0` for `X <= X0`; `TOLN10*X-CBAR+AFACT*(X1-X)**SK` for `X < X1`;
-    /// `TOLN10*X-CBAR` above (`:5237-5241`), `X = 0.21715*ln(ETA2)`; with
+    /// `TOLN10*X-CBAR` above (`:5235-5240`), `X = 0.21715*ln(ETA2)`; with
     /// `EPSTFL = 1` the table interpolation of [`Pegs4Common::density_delta`].
     /// The library version always interpolates a table (see the module
     /// notes). Needs [`Self::spinit_pegs4`] to have run.
@@ -1961,7 +1985,7 @@ impl Pegs4Program {
     /// `EFUNS` (`:1596-1675`): the eight electron/positron functions `PWLF1`
     /// fits (`V(1..8)` as indices 0..7). The same as
     /// [`Pegs4Common::efuns`] but calling this file's `SPTOTE`/`SPTOTP`.
-    /// `IUNRST` 5, 6, 7 are `Err` (`$CALL_EXIT(20)`).
+    /// `IUNRST` 6 and 7 are `Err` (`$CALL_EXIT(20)`).
     pub fn efuns_pegs4(&mut self, e: f32) -> Result<[f32; 8], Pegs4Error> {
         let mut v = [0.0f32; 8];
         let (aep, app) = (self.c.aep, self.c.app);
@@ -2224,12 +2248,12 @@ impl Pegs4Program {
 
     /// `MIX` (`:1914-2109`) as the stand-alone program has it: the same as
     /// [`Pegs4Common::mix`] except the radiation length, which here is
-    /// `RLC = 1/((ZAB-ZF)*(AN*RHO/WM)*4*FSC*R0**2)` (`:2090`) rather than
+    /// `RLC = 1/((ZAB-ZF)*(AN*RHO/WM)*4*FSC*R0**2)` (`:2034`) rather than
     /// `1/((AN*RHO/WM)*4*FSC*R0**2*(ZAB-ZF))`: a different `f32` rounding
     /// sequence. `BLCC`, `TEFF0`, `XCC` and `XR0` follow from it
-    /// (`:2084-2107`). Works on `self.c` (call after `medium_option` has
+    /// (`:2081-2107`). Works on `self.c` (call after `medium_option` has
     /// copied `Z`, `PZ`, `WA`, `RHOZ`, `NE` there). **Scales `RHO` by `GASP`
-    /// in place** when `GASP != 0` (`:1976`), so call it once per medium.
+    /// in place** when `GASP != 0` (`:2005`), so call it once per medium.
     pub fn mix_pegs4(&mut self) {
         let k = self.c.k;
         if self.c.gaspp != 0.0 {
@@ -2289,7 +2313,7 @@ impl Pegs4Program {
     /// density-effect parameters and `SPC1`, `SPC2`, `TOLN10` for
     /// [`Self::spionb_pegs4`]. Call after [`Self::mix_pegs4`].
     ///
-    /// * `EPSTFL = 0` (also any value outside 0..1, `:2685`): if `ISSB != 0`
+    /// * `EPSTFL = 0` (also any value outside 0..1, `:2689`): if `ISSB != 0`
     ///   the user's `AFACT, CBAR, SK, X0, X1, IEV` are used (all six must be
     ///   non-zero, `CBAR > 0`, else exit 21); otherwise they must all be
     ///   zero, and the medium is looked up by `IDSTRN` in the 73-medium
@@ -2297,9 +2321,9 @@ impl Pegs4Program {
     ///   general formula is used: `IEV` from `ITBL` (an element; H, N, O are
     ///   refused, exit 21) or the Bragg rule with Berger and Seltzer's
     ///   adjusted I-values, `CBAR = 1+2 ln(I/(hbar*2*pi*VPLASM/ERGMEV))`,
-    ///   `X0`, `X1`, `SK` by the case tables (`:2759-2801`), `AFACT` from
+    ///   `X0`, `X1`, `SK` by the case tables (`:2744-2817`), `AFACT` from
     ///   continuity at `X0`. A gas-pressure correction (`ln GASP`) follows
-    ///   for every path (`:2810-2816`).
+    ///   for every path (`:2820-2827`).
     /// * `EPSTFL = 1`: unit 20 ([`Self::density_text`]): a title line, then
     ///   `NEPST IEV RHO NELEPS`, `NELEPS` pairs `Z W`, `NEPST` pairs
     ///   `E(kinetic, MeV) DELTA`. Energies become total, are clamped to
@@ -2308,7 +2332,7 @@ impl Pegs4Program {
     ///   library version: a later matching element clears an earlier
     ///   mismatch).
     ///
-    /// A zero sum of `RHOZ` only prints a message upstream (`:2874-2877`)
+    /// A zero sum of `RHOZ` only prints a message upstream (`:2871-2874`)
     /// and the run continues; it does here too (a line in `listing`).
     ///
     /// # Errors
@@ -2352,7 +2376,7 @@ impl Pegs4Program {
                         message: String::from("STOPPED IN SPINIT: INCORRECT USER-OVERRIDE OF SSB-DATA"),
                     });
                 }
-                // THE SSB LOOKUP TABLE (:2711-2721)
+                // THE SSB LOOKUP TABLE (:2723-2730)
                 let id = pad_to(&self.idstrn, LMED);
                 let mut found: Option<usize> = None;
                 for (m, name) in SSB_NAMES.iter().enumerate() {
@@ -2372,7 +2396,7 @@ impl Pegs4Program {
                     imev = self.c.iev * 1.0e-6;
                     im = (m + 1) as i32;
                 } else {
-                    // THE STERNHEIMER-PEIERLS GENERAL FORMULA (:2726-2801)
+                    // THE STERNHEIMER-PEIERLS GENERAL FORMULA (:2732-2817)
                     im = 0;
                     if self.c.nep == 1 {
                         let iz = self.c.zelemp[0] as usize;
@@ -2405,7 +2429,7 @@ impl Pegs4Program {
                             } else {
                                 self.c.iev = 1.13 * ITBL[iz - 1];
                             }
-                            // NRCC: the 7 lines above reflect table 6 of ref 59 of SLAC-265 (:2745)
+                            // NRCC: the 7 lines above reflect table 6 of ref 59 of SLAC-265 (:2748-2763)
                             aliadg = aliadg + self.c.pzp[ie] * self.c.zelemp[ie] * ln(self.c.iev);
                         }
                         aliadg /= self.c.zc;
@@ -2485,7 +2509,7 @@ impl Pegs4Program {
                     }
                 }
             }
-            // :SSB-PARAMETERS-DEFINED: GAS PRESSURE CORRECTION (:2810-2816)
+            // :SSB-PARAMETERS-DEFINED: GAS PRESSURE CORRECTION (:2818-2828)
             if self.c.gaspp != 0.0 {
                 let algasp = ln(self.c.gaspp);
                 self.c.cbar -= algasp;
@@ -2496,7 +2520,7 @@ impl Pegs4Program {
                 self.c.afact = (self.c.cbar - self.c.toln10 * self.c.x0) / powf(self.c.x1 - self.c.x0, self.c.sk);
             }
         } else {
-            // EPSTFL = 1: READ THE DENSITY-EFFECT FILE (:2823-2891)
+            // EPSTFL = 1: READ THE DENSITY-EFFECT FILE (:2831-2902)
             let text = match &self.density_text {
                 Some(t) => t.clone(),
                 None => return Err(Pegs4Error::Fatal(String::from("EPSTFL=1 but no density-effect file (unit 20) was supplied"))),
@@ -2531,12 +2555,12 @@ impl Pegs4Program {
                 self.c.epsten[i] = real_token(&ed[2 * i]).map_err(Pegs4Error::Fatal)?;
                 self.c.epstd[i] = real_token(&ed[2 * i + 1]).map_err(Pegs4Error::Fatal)?;
             }
-            // CONVERT TO TOTAL ENERGIES (:2845-2846)
+            // CONVERT TO TOTAL ENERGIES (:2840-2841)
             for i in 0..nepst {
                 self.c.epsten[i] += rm;
             }
             imev = self.c.iev * 1.0e-6;
-            // CHECK THAT WE HAVE COVERED ENERGY RANGES NEEDED (:2850-2858)
+            // CHECK THAT WE HAVE COVERED ENERGY RANGES NEEDED (:2845-2853)
             if nepst > 0 && self.c.aep < self.c.epsten[0] {
                 listing.push(format!("SPINIT: lowest density-effect energy {} is above AE={}, set to AE", self.c.epsten[0], self.c.aep));
                 self.c.epsten[0] = self.c.aep;
@@ -2549,7 +2573,7 @@ impl Pegs4Program {
                 ));
                 self.c.epsten[nepst - 1] = self.c.uep;
             }
-            // COMPOSITION AND DENSITY CHECK (:2860-2907)
+            // COMPOSITION AND DENSITY CHECK (:2855-2902)
             let tlrnce: f32 = 0.01;
             let mut icheck = 0;
             if neleps != self.c.nep {
@@ -2762,7 +2786,7 @@ impl Pegs4Program {
     /// medium (symbols to `Z` by `ZTBL`, atomic weights from `WATBL` unless
     /// `WA` overrides, `PZ` from `RHOZ` for a mixture or `RHOZ` from `PZ`
     /// otherwise, `RHO` from `RHOTBL` for an element without one), then
-    /// `MIX`, `SPINIT`, `DIFFER` (in that order, `:928-935`) and set
+    /// `MIX`, `SPINIT`, `DIFFER` (in that order, `:919-934`) and set
     /// `MEDSET`. `kind` is the option name (`"ELEM"`, `"MIXT"`, `"COMP"`).
     ///
     /// # Errors
@@ -2800,7 +2824,7 @@ impl Pegs4Program {
             if zi == 0.0 {
                 return Err(format!("CALL_EXIT(16): BAD ATOMIC SYMBOL '{}'....JOB ABORTED.", self.asym[i]));
             }
-            // ALLOW THE USER TO OVERRIDE ATOMIC WEIGHTS (:903-905)
+            // ALLOW THE USER TO OVERRIDE ATOMIC WEIGHTS (:911-916)
             if self.wa[i] == 0.0 {
                 self.wa[i] = WATBL[(zi as usize) - 1];
             }
@@ -2810,7 +2834,7 @@ impl Pegs4Program {
                 self.rhoz[i] = self.pz[i] * self.wa[i];
             }
         }
-        // IF RHO IS NOT GIVEN FOR AN ELEMENT, SUPPLY IT FROM OUR TABLE (:910)
+        // IF RHO IS NOT GIVEN FOR AN ELEMENT, SUPPLY IT FROM OUR TABLE (:917)
         if self.ne == 1 && self.c.rhop == 0.0 {
             self.c.rhop = RHOTBL[(self.z[0] as usize) - 1];
         }
@@ -2860,7 +2884,7 @@ impl Pegs4Program {
     /// [`Self::gfuns`] over `AP..UP` (linear in `ln E`, `XR = 2*RM`) and, if
     /// `IRAYL = 1`, the Rayleigh distribution function ([`Self::rfuns`])
     /// over `0..1`, after forming `AFAC2`, squaring `XVAL` in place and
-    /// integrating `AFFACT` into `AFFI` (`:984-1018`).
+    /// integrating `AFFACT` into `AFFI` (`:987-1017`).
     ///
     /// # Errors
     ///
@@ -2921,7 +2945,7 @@ impl Pegs4Program {
         self.bxe = bxe;
         out.listing.push(format!("PWLF electron: NEL={}", self.nel));
 
-        // NEXT FIT GAMMA (:985-987)
+        // NEXT FIT GAMMA (:983-985)
         let mut afg = core::mem::take(&mut self.afg);
         let mut bfg = core::mem::take(&mut self.bfg);
         let (mut axg, mut bxg) = (0.0f32, 0.0f32);
@@ -2943,7 +2967,7 @@ impl Pegs4Program {
         out.listing.push(format!("PWLF photon: NGL={}", self.ngl));
 
         if self.irayl == 1 {
-            // PWLF FOR THE DISTRIBUTION FUNCTION FOR RAYLEIGH (:989-1018)
+            // PWLF FOR THE DISTRIBUTION FUNCTION FOR RAYLEIGH (:987-1017)
             for i in 0..100 {
                 self.afac2[i] = 0.0;
                 for inn in 0..self.c.nep {
@@ -2998,7 +3022,7 @@ impl Pegs4Program {
     /// 3. one ` ASYM=..,Z=..,A=..,PZ=..,RHOZ=..` line per element;
     /// 4. `RLC, AE, AP, UE, UP`; the sizes `NSGE, NGE, NSEKE, NEKE, NLEKE,
     ///    NCMFP, NRANGE, IRAYL, IUNRST` (`NSGE`, `NSEKE`, `NLEKE`, `NCMFP`,
-    ///    `NRANGE` are faked as 0, `:1840`); the 36 screening constants;
+    ///    `NRANGE` are faked as 0, `:1846`); the 36 screening constants;
     ///    `DELCM` and the `ALPHI, BPAR, DELPOS` pairs; `XR0, TEFF0, BLCC,
     ///    XCC`; `BXE, AXE`; the electron fits; `EBINDA, BXG, AXG`; the first
     ///    three photon fits per energy; and, when `IRAYL != 0`, `NGR`, `BXR,
@@ -3121,14 +3145,14 @@ impl Pegs4Program {
     /// larger angle, rounds them to 1000 integer entries (adjusting the
     /// largest ones when rounding cannot make 1000) and fills `VERT1` (the
     /// minimum over steps) and `VERT2` (the rest). The data set records go to
-    /// `out` (unit 7: `:2287-2318`); the listing tables (`:2252-2284`) are not
+    /// `out` (unit 7: `:2310-2320`); the listing tables (`:2290-2306`) are not
     /// reproduced.
     pub fn molier(&mut self, out: &mut Vec<String>) {
         let msteps = self.mims.msteps;
         let jrmax = self.mims.jrmax;
         let bmin = self.c.bmin;
         let fstep = self.mims.fstep;
-        // NOW FILL UP MSMAP (:2209-2211)
+        // NOW FILL UP MSMAP (:2204-2207)
         for is in 1..msteps {
             let lo = fstep[is - 1] as usize;
             let hi = (fstep[is] - 1.0) as usize;
@@ -3143,7 +3167,7 @@ impl Pegs4Program {
         let mut ip1 = vec![[0i32; MSSTEPS]; 29];
         for is in 0..msteps {
             let blc = blcmin + ln(fstep[is]);
-            // NOW SOLVE FOR B: FIRST GUESS, THEN NEWTON (:2215-2220)
+            // NOW SOLVE FOR B: FIRST GUESS, THEN NEWTON (:2213-2217)
             let mut b = blc + ln(blc);
             loop {
                 let bold = b;
@@ -3153,7 +3177,7 @@ impl Pegs4Program {
                 }
             }
             self.mims.fsqr[is] = sqrt(fstep[is] * b / bmin);
-            // PROBABILITIES OF THE INPUT REDUCED ANGLES (:2224-2230)
+            // PROBABILITIES OF THE INPUT REDUCED ANGLES (:2221-2227)
             let b1 = 1.0 / b;
             let mut ptot = 0.0f32;
             for i in 0..29 {
@@ -3166,7 +3190,7 @@ impl Pegs4Program {
             for i in 0..29 {
                 q[i][is] = p[i][is];
             }
-            // ALL PROBABILITIES EITHER 0.0 OR GREATER THAN 0.001 (:2236-2240)
+            // ALL PROBABILITIES EITHER 0.0 OR GREATER THAN 0.001 (:2231-2237)
             let mut i: i32 = 29;
             loop {
                 let mut l: i32 = 1;
@@ -3181,7 +3205,7 @@ impl Pegs4Program {
                     break;
                 }
             }
-            // MAKE UP 1000 INTEGER PROBABILITIES (:2243-2252)
+            // MAKE UP 1000 INTEGER PROBABILITIES (:2240-2245)
             let mut ppp = 0.5f32;
             let mut pp = 0.5f32;
             let mut itot: i32 = 0;
@@ -3208,7 +3232,7 @@ impl Pegs4Program {
             if done {
                 continue;
             }
-            // GET 1000 ENTRIES WHEN ROUNDING ADJUSTMENT FAILS (:2253-2271)
+            // GET 1000 ENTRIES WHEN ROUNDING ADJUSTMENT FAILS (:2249-2263)
             let mut ip2: Vec<usize> = (1..=29).collect();
             let mut n: i32 = 29;
             loop {
@@ -3233,7 +3257,7 @@ impl Pegs4Program {
             }
             let _ = itot;
         }
-        // NOW FIND MINIMUM FREQUENCY FOR EACH ANGLE OVER ALL STEPS (:2276-2285)
+        // NOW FIND MINIMUM FREQUENCY FOR EACH ANGLE OVER ALL STEPS (:2266-2272)
         let mut iall = [0i32; 29];
         let mut mxv1: i32 = 0;
         for i in 0..29 {
@@ -3246,7 +3270,7 @@ impl Pegs4Program {
         let mxv2 = 1000 - mxv1;
         self.mims.mxv1 = mxv1.max(0) as usize;
         self.mims.mxv2 = mxv2.max(0) as usize;
-        // NOW FILL UP THE VERT ARRAYS (:2288-2302)
+        // NOW FILL UP THE VERT ARRAYS (:2275-2284)
         let mut ii = 0usize;
         for i in 0..29 {
             for _j in 0..iall[i].max(0) {
@@ -3268,7 +3292,7 @@ impl Pegs4Program {
                 }
             }
         }
-        // PUNCH OUT THE DATA NEEDED BY EGS (:2316-2335)
+        // PUNCH OUT THE DATA NEEDED BY EGS (:2310-2320)
         out.push(String::from(" MATERIAL INDEPENDENT MULTIPLE SCATTERING DATA"));
         int_records(
             out,
@@ -3298,9 +3322,9 @@ impl Pegs4Program {
     }
 
     /// The main program (`:668-1151`): run the option blocks in order. At
-    /// the top of each block `WA` and `RHO` are saved and zeroed (`:778-780`),
+    /// the top of each block `WA` and `RHO` are saved and zeroed (`:776-780`),
     /// the block's `&INP` is applied, a zero `RHO` is restored from the saved
-    /// one for every option but `ELEM` (`:792-797`, see the module notes),
+    /// one for every option but `ELEM` (`:812-816`, see the module notes),
     /// and for the non-medium options `RHO` and `WA` are restored and a
     /// changed `EPSTFL`, `IUNRST` or `IAPRIM` is reset (`:826-846`). `STOP`
     /// (or the end of the list) ends the run.
@@ -3443,6 +3467,22 @@ mod tests {
         Pegs4Inp { iaprim: Some(0), ..Default::default() }
     }
 
+    /// `&INP` that zeroes the density-effect variables a previous medium's
+    /// `SPINIT` left behind (see the module notes: without it a second
+    /// medium in one run is refused).
+    fn inp_reset() -> Pegs4Inp {
+        Pegs4Inp {
+            iaprim: Some(0),
+            afact: Some(0.0),
+            sk: Some(0.0),
+            x0: Some(0.0),
+            x1: Some(0.0),
+            iev: Some(0.0),
+            cbar: Some(0.0),
+            ..Default::default()
+        }
+    }
+
     fn elem(sym: &str, medium: &str, id: &str, inp: Pegs4Inp) -> Pegs4Block {
         Pegs4Block::Elem(MediumBlock { inp, medium: pad_to(medium, LMED), idstrn: pad_to(id, LMED), asym: vec![String::from(sym)] })
     }
@@ -3510,7 +3550,7 @@ mod tests {
         assert_eq!(out[1], "    15");
         let mut out = Vec::new();
         fnums_f52(&mut out, &[0.05, 9.75, 4.07]);
-        assert_eq!(out[0], " 0.05 9.75 4.07");
+        assert_eq!(out[0], "  0.05 9.75 4.07");
     }
 
     #[test]
@@ -3614,7 +3654,8 @@ mod tests {
         assert_eq!(ifunt("ALIN"), Some(1));
         assert_eq!(ifunt("XSIF"), Some(78));
         assert_eq!(ifunt("GMFP  "), ifunt("GMFP"));
-        assert_eq!(ifunt("GMFPXXX"), ifunt("GMFP"), "names are six characters");
+        assert_eq!(ifunt("GMFP  XYZ"), ifunt("GMFP"), "names are six characters");
+        assert_eq!(ifunt("GMFPXX"), None);
         assert_eq!(ifunt("NOPE"), None);
         let mut names: Vec<&str> = FUNCTIONS.iter().map(|f| f.0).collect();
         names.sort_unstable();
@@ -3797,9 +3838,10 @@ mod tests {
         for e in [0.02f32, 0.5, 3.0, 20.0] {
             let v = p.gfuns(e);
             assert_eq!(v[0], p.gmfp(e));
-            assert!(rel(v[1], p.gbr1(e)) < 1e-6);
-            assert!(rel(v[2], p.gbr2(e)) < 1e-6);
-            assert!(rel(v[3], p.cratio(e)) < 1e-6);
+            let close = |a: f32, b: f32| (a - b).abs() <= 1e-6 * b.abs().max(1e-30);
+            assert!(close(v[1], p.gbr1(e)), "GBR1 at {e}: {} vs {}", v[1], p.gbr1(e));
+            assert!(close(v[2], p.gbr2(e)));
+            assert!(close(v[3], p.cratio(e)));
             assert!(v[3] > 0.0 && v[3] <= 1.0, "coherent ratio {}", v[3]);
             assert!(v[1] <= v[2] + 1e-7);
             let tot = p.pairtu(e) + p.comptm(e) + p.photte(e);
@@ -4212,8 +4254,8 @@ mod tests {
         let out = p
             .run(&[
                 carbon_elem(),
-                // the density of a MIXT/COMP without RHO is the PREVIOUS one (:792-797)
-                comp(&["C", "C"], "CC", "C", Pegs4Inp { ne: Some(2), pz: Some(vec![1.0, 1.0]), iaprim: Some(0), ..Default::default() }),
+                // the density of a MIXT/COMP without RHO is the PREVIOUS one (:812-816)
+                comp(&["C", "C"], "CC", "C", Pegs4Inp { ne: Some(2), pz: Some(vec![1.0, 1.0]), ..inp_reset() }),
             ])
             .unwrap();
         assert_eq!(p.c.rhop, 2.26, "ELEM took RHOTBL(6) and the COMP inherited it");
@@ -4222,7 +4264,7 @@ mod tests {
         let mut p = Pegs4Program::new(synthetic_data());
         p.run(&[
             elem("C", "C", "C", Pegs4Inp { rho: Some(5.0), iaprim: Some(0), ..Default::default() }),
-            elem("C", "C", "C", inp0()),
+            elem("C", "C", "C", inp_reset()),
         ])
         .unwrap();
         assert_eq!(p.c.rhop, 2.26);
@@ -4409,7 +4451,7 @@ mod tests {
         assert_eq!(r.rsct.len(), p.ngr);
         assert_eq!(r.cohe.len(), p.ngl);
         assert!(rel(r.rco[0] as f32, p.bxr) < 1e-5 || (r.rco[0] as f32 - p.bxr).abs() < 1e-5);
-        // upstream's oddity (:992): a second PWLF squares XVAL again
+        // upstream's oddity (:1004): a second PWLF squares XVAL again
         p.run(&[Pegs4Block::Pwlf(Pegs4Inp::default())]).unwrap();
         for i in 0..100 {
             let sq = x0[i] * x0[i];
@@ -4425,10 +4467,20 @@ mod tests {
         let gas = Pegs4Inp { gasp: Some(2.0), rho: Some(0.5), iaprim: Some(0), iunrst: Some(0), ..Default::default() };
         let out = p.run(&[elem("C", "C", "NOT-IN-TABLE", gas), ener(0.521, 10.0, 0.01, 10.0), Pegs4Block::Deck(Pegs4Inp::default())]).unwrap();
         assert_eq!(p.c.rhop, 1.0, "MIX multiplies RHO by GASP in place");
-        assert!(out.deck[1].starts_with(" ELEM,RHO= 1.0000E+00,NE= 1,GASP= 2.0000E+00, IUNRST=0, EPSTFL=0, IAPRIM=0"), "{}", out.deck[1]);
-        let m = &parse_pegs4_media(&out.deck_text(), &["C"]).unwrap()[0];
-        assert_eq!(m.rho, 1.0);
-        assert_eq!(m.nne, 1);
+        // the layout of the shipped gas record (data/521icru.pegs4dat):
+        // " MIXT,RHO= 1.2048E-03,NE= 4,GASP= 1.0000E+00, IUNRST=0, EPSTFL=1, IAPRIM=1"
+        assert_eq!(out.deck[1], " ELEM,RHO= 1.0000E+00,NE= 1,GASP= 2.0000E+00, IUNRST=0, EPSTFL=0, IAPRIM=0");
+        let shipped = " MIXT,RHO= 1.2048E-03,NE= 4,GASP= 1.0000E+00, IUNRST=0, EPSTFL=1, IAPRIM=1";
+        let ours = format!(
+            " MIXT,RHO={},NE={},GASP={}, IUNRST={}, EPSTFL={}, IAPRIM={}",
+            fmt_e(1.2048e-3, 11, 4),
+            fmt_i(4, 2),
+            fmt_e(1.0, 11, 4),
+            fmt_i(0, 1),
+            fmt_i(1, 1),
+            fmt_i(1, 1)
+        );
+        assert_eq!(ours, shipped);
     }
 
     // ---- MOLIER ----
@@ -4466,6 +4518,20 @@ mod tests {
         assert_eq!(out.deck.len(), expect);
         assert!(out.deck[2].starts_with("    1."), "{}", out.deck[2]);
         assert!(out.deck[2].len() == 1 + 4 * 16);
+    }
+
+    #[test]
+    fn a_second_medium_needs_the_density_variables_reset() {
+        // pegs4.mortran:2711-2713 refuses SSB data given without ISSB, and
+        // SPINIT itself leaves AFACT, SK, X0, X1, IEV, CBAR set (:2726-2729,
+        // :2828), so the next ELEM/MIXT/COMP of the same run trips it (exit 21)
+        // unless its &INP zeroes them. Pinned as upstream behaves.
+        let mut p = Pegs4Program::new(synthetic_data());
+        let e = p.run(&[carbon_elem(), elem("C", "C", "C", inp0())]).unwrap_err();
+        assert!(e.contains("21") && e.contains("OVERRIDE"), "{e}");
+        let mut p = Pegs4Program::new(synthetic_data());
+        p.run(&[carbon_elem(), elem("C", "C", "C", inp_reset())]).unwrap();
+        assert!(p.medset);
     }
 
     // ---- real data (env-gated) ----
