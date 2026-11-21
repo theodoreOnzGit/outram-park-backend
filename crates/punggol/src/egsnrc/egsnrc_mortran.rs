@@ -6585,6 +6585,33 @@ mod tests {
         // the fits are over increasing energy: the cut-off energy sits in the table
         assert!(m.eke[1] > 0.0 && m.ge[1] > 0.0);
         std::eprintln!("PEGS4 {name}: rho {} rlc {} ae {} neke {} nge {}", m.rho, m.rlc, m.ae, m.sizes[3], m.sizes[1]);
+
+        // run the whole assembly on it, in centimetres
+        let mut scaled = meds[0].clone();
+        scaled.apply_dunit(1.0);
+        let cfg = HatchConfig { ecutmn: scaled.ae, ..Default::default() };
+        let h = hatch_media(&[scaled.clone()], &cfg);
+        let e = &h.media[0].electron;
+        let neke = scaled.sizes[3] as usize;
+        assert!(e.e_array[1] > 0.0 && e.e_array[1] < scaled.ae, "the table starts below AE");
+        assert!(e.e_array[1..=neke].windows(2).all(|w| w[1] > w[0]), "table energies increase");
+        assert!(e.range_ep[0][1..=neke].windows(2).all(|w| w[1] > w[0]), "e- range increases with energy");
+        assert!(e.range_ep[1][1..=neke].windows(2).all(|w| w[1] > w[0]), "e+ range increases with energy");
+        assert!(e.range_ep[1][neke] <= e.range_ep[0][neke] * 1.5 && e.range_ep[1][neke] > 0.0);
+        assert!(e.esig_e > 0.0 && e.psig_e > 0.0 && e.esig_e.is_finite());
+        for i in 1..neke {
+            let elke = (i as f64 + 1.0 - e.eke0) / e.eke1;
+            let t = e.tmxs.a1[i] * elke + e.tmxs.a0[i];
+            assert!(t > 0.0 && t.is_finite(), "tmxs at node {i}: {t}");
+        }
+        assert!(e.brems.zbrang > 0.0 && e.brems.lzbrang.is_finite());
+        std::eprintln!(
+            "hatch_media {name}: range(top) {:.4} cm, esig_e {:.4}, tmxs(top) {:.4} cm, blcc {:.4e}",
+            e.range_ep[0][neke],
+            e.esig_e,
+            e.tmxs.a1[neke - 1] * ((neke as f64 - e.eke0) / e.eke1) + e.tmxs.a0[neke - 1],
+            e.ms.blcc
+        );
     }
 
 
