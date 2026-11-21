@@ -268,8 +268,33 @@ over 200 histories is not explained; a constant not yet wrapped (Mortran
 literals in files other than `egsnrc_mortran.rs`, or in the expansion of a
 macro) or amplification of a ~1e-10 start through the shower are both
 possible, not tested. Residual above 1e-9: reported to the maintainer.
-Spin, Rayleigh and EADL stock references were not built (the existing ones are
-promoted builds).
+Spin, Rayleigh and EADL stock references were built afterwards (below).
+
+### Stock-build spin, Rayleigh and EADL (2026-11-21)
+
+Stock references rebuilt from the same sources (`gfortran -x f77-cpp-input
+-std=legacy -O1`, no promotion) as `difftab_stock`, `difftabE_stock`,
+`difftutE_stock`; port with `egsnrc-f32-constants` (feature) vs without:
+
+| quantity | f64 constants | f32 constants |
+|---|---|---|
+| Rayleigh `xgrid` | 2.5e-8 | exact |
+| Rayleigh `fcum`, `b`, `c` | 4.2e-12, 8.8e-13, 5.1e-8 | 2.9e-16, 3.1e-15, 3.0e-15 |
+| Rayleigh `pmax0`, `pmax1` | not recorded | 5.9e-7, 4.7e-4 (cancelling coefficients) |
+| spin fits (worst of 14 tables) | 1.3e-5 | 4.2e-6 (`etap1`; `q1ce1` 6.5e-9) |
+| EADL `shell_be`, Ta binding energies | 2.5e-9 | exact |
+| EADL Compton `be` | 3.8e-8 | 1.7e-16 |
+| EADL Compton `eno` | 1.9e-8 | 1.9e-8 (unchanged) |
+| EADL Compton `erfJo` | 1.0e-3 | 1.0e-3 (unchanged; relative metric on near-zero values) |
+| EADL tutor1 histories (200, same sequence) worst relative kinetic energy | 5.6e-7 | 4.1e-8 |
+| EADL history 1 | 15.145539980 vs ref 15.145540870 | 15.145540867 vs 15.145540870 |
+
+The feature removes most of the stock-build difference everywhere but does not
+reach round-off for the spin fits, `pmax`, `eno`, `erfJo` and the 4e-8 history
+worst case: some single-precision effect is still not reproduced (not located;
+tracked in gh:#1694). The EADL table test asserts `< 1e-9` and therefore fails
+against the stock references in both modes, as it should (its gate is the
+promoted build).
 
 
 ## ESTAR mixtures: `egs_compoundstoelements` (gh:#1691, 2026-11-21)
