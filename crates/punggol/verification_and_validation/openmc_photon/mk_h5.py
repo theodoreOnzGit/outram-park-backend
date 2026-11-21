@@ -20,10 +20,10 @@ def to_hdf5(self, group, shell):
     if shell in self.transitions:
         df = self.transitions[shell].copy()
         for c in list(df.columns[:2]):
-            df[c] = [idx.get(v, np.nan) if isinstance(v, str) else v for v in df[c].astype(object)]
+            df[c] = [idx.get(v, 0.0) if isinstance(v, str) else (0.0 if (v is None or v is pd.NA or v != v) else v) for v in df[c].astype(object)]  # _SUBSHELLS[0] is None -> 0
         rows = [[(np.nan if (v is None or v is pd.NA or (isinstance(v, float) and v != v)) else float(v)) for v in r] for r in df.values.tolist()]
         group.create_dataset('transitions', data=np.array(rows, dtype=float))
 ph.AtomicRelaxation.to_hdf5 = to_hdf5
-p = d.IncidentPhoton.from_endf(sys.argv[1], sys.argv[2])
+p = d.IncidentPhoton.from_endf(sys.argv[1], None if sys.argv[2] == 'none' else sys.argv[2])
 p.export_to_hdf5(sys.argv[3], 'w')
 print('written', p.name)

@@ -42,14 +42,25 @@ with and without Doppler broadening: **5400 samples**.
 | `pair_production` (E-, E+, mu-, mu+) | 0 (relative) |
 | final LCG seed after every call | 0 mismatches |
 
+`calculate_xs` (harness builds an `openmc::Particle`; Rust rebuilds the
+element from the dump), 2026-11-21, ENDF/B-VIII.0 via NJOY2016 photoat + atrelax:
+
+| element | points | index mismatches | worst difference (relative; absolute where reference is 0) |
+|---|---|---|---|
+| U (Z=92) | 307 | 0 | coherent 1.2e-16, all others 0 |
+| H (Z=1, no subshell structure beyond K) | 184 | 0 | photoelectric 1.3e-16, all others 0 |
+
+H samplers: 5584 samples, all 0 (alpha, mu, shell, pair, final seed). The
+1e-16 residuals are last-bit round-off (below the 1e-9 allowance); cause not
+traced further.
+
 So the Rust samplers consume exactly the same random numbers in the same order
 and give bit-identical results for this element.
 
 ## Not yet compared
 
-`calculate_xs` (needs an `openmc::Particle`), `atomic_relaxation`,
+`atomic_relaxation`,
 `thick_target_bremsstrahlung`, `sample_photon_reaction`,
 `sample_electron_reaction`, `sample_positron_reaction`,
-`process_charged_secondary`, and other elements (one real element, U, so the
-shell structure of light elements is untested). The data come from ENDF/B-VIII.0
+`process_charged_secondary`, and further elements (U and H only). The data come from ENDF/B-VIII.0
 U only; the C++ harness can be extended to dump and call these (gh:#1690).

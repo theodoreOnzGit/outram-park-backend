@@ -69,6 +69,12 @@ fn photon_samplers_against_compiled_openmc() {
     let nmap: usize = d.header("subshell_map")[0].parse().unwrap();
     let smap: Vec<i32> = d.lines[d.pos..d.pos + nmap].iter().map(|l| l.trim().parse().unwrap()).collect();
     d.pos += nmap;
+    let energy = d.vec("energy");
+    let coherent = d.vec("coherent");
+    let incoherent = d.vec("incoherent");
+    let pair_total = d.vec("pair_production_total");
+    let xs_flat = d.vec("cross_sections");
+    let xs_shape: Vec<usize> = d.header("cross_sections_shape").iter().map(|t| t.parse().unwrap()).collect();
     let (ix, iy) = d.tab("incoherent_form_factor");
     let (cx, cy) = d.tab("coherent_int_form_factor");
     let inc = Tabulated1D::lin_lin(ix, iy).unwrap();
@@ -85,6 +91,11 @@ fn photon_samplers_against_compiled_openmc() {
 
     let p = PhotonInteraction {
         z,
+        energy,
+        coherent,
+        incoherent,
+        pair_production_total: pair_total,
+        cross_sections: Matrix::new(xs_flat, xs_shape[1]).unwrap(),
         incoherent_form_factor: Some(inc),
         coherent_int_form_factor: Some(coh),
         profile_pz: Arc::from(pz),
@@ -100,11 +111,26 @@ fn photon_samplers_against_compiled_openmc() {
 
     let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
     let (mut n, mut seed_bad, mut shell_bad) = (0usize, 0usize, 0usize);
+    let (mut n_xs, mut idx_bad) = (0usize, 0usize);
+    let mut w_xs = [0.0_f64; 6];
     let (mut w_a, mut w_mu, mut w_r, mut w_pair) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
     for l in std::fs::read_to_string(samples_path).unwrap().lines() {
         let t: Vec<&str> = l.split_whitespace().collect();
         n += 1;
         match t[0] {
+            "xs" => {
+                n_xs += 1;
+                let e: f64 = t[1].parse().unwrap();
+                let x = p.calculate_xs(e);
+                if x.index_grid != t[2].parse::<usize>().unwrap() {
+                    idx_bad += 1;
+                }
+                let theirs: Vec<f64> = t[3..9].iter().map(|v| v.parse().unwrap()).collect();
+                let mine = [x.interp_factor, x.coherent, x.incoherent, x.photoelectric, x.pair_production, x.total];
+                for k in 0..6 {
+                    w_xs[k] = w_xs[k].max(if theirs[k] == 0.0 { mine[k].abs() } else { rel(mine[k], theirs[k]) });
+                }
+            }
             "compton" => {
                 let alpha: f64 = t[1].parse().unwrap();
                 let doppler = t[2] == "1";
@@ -144,6 +170,10 @@ fn photon_samplers_against_compiled_openmc() {
     }
     eprintln!(
         "{n} samples: compton alpha_out rel {w_a:e}, |dmu| {w_mu:e}, shell mismatches {shell_bad}; rayleigh |dmu| {w_r:e}; pair worst rel {w_pair:e}; final-seed mismatches {seed_bad}"
+    );
+    eprintln!(
+        "{n_xs} calculate_xs points: index mismatches {idx_bad}; worst difference (relative, absolute where the reference is 0): interp {:e}, coherent {:e}, incoherent {:e}, photoelectric {:e}, pair {:e}, total {:e}",
+        w_xs[0], w_xs[1], w_xs[2], w_xs[3], w_xs[4], w_xs[5]
     );
     assert!(n > 0);
 }

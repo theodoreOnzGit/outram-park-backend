@@ -8,6 +8,8 @@
 #include "openmc/photon.h"
 #include "openmc/constants.h"
 #include "openmc/random_lcg.h"
+#include "openmc/particle.h"
+#include "openmc/memory.h"
 
 using namespace openmc;
 
@@ -21,7 +23,8 @@ int main(int argc, char** argv) {
   const char* element = argv[2];
   hid_t fid = H5Fopen(file, H5F_ACC_RDONLY, H5P_DEFAULT);
   hid_t g = H5Gopen(fid, element, H5P_DEFAULT);
-  PhotonInteraction p(g);
+  data::elements.push_back(make_unique<PhotonInteraction>(g));
+  PhotonInteraction& p = *data::elements[0];
 
   FILE* d = fopen(argv[3], "w");
   fprintf(d, "Z %d\n", p.Z_);
@@ -40,6 +43,12 @@ int main(int argc, char** argv) {
     fprintf(d, "%s %zu\n", name, t.x().size());
     for (size_t i = 0; i < t.x().size(); ++i) fprintf(d, "%.17g %.17g\n", t.x()[i], t.y()[i]);
   };
+  dump_vec(d, "energy", p.energy_.data(), p.energy_.size());
+  dump_vec(d, "coherent", p.coherent_.data(), p.coherent_.size());
+  dump_vec(d, "incoherent", p.incoherent_.data(), p.incoherent_.size());
+  dump_vec(d, "pair_production_total", p.pair_production_total_.data(), p.pair_production_total_.size());
+  dump_vec(d, "cross_sections", p.cross_sections_.data(), p.cross_sections_.size());
+  fprintf(d, "cross_sections_shape %zu %zu\n", p.cross_sections_.shape(0), p.cross_sections_.shape(1));
   dump_tab("incoherent_form_factor", p.incoherent_form_factor_);
   dump_tab("coherent_int_form_factor", p.coherent_int_form_factor_);
   // probe values of the two tabulated functions: the Rust interpolation must reproduce them
@@ -52,6 +61,19 @@ int main(int argc, char** argv) {
 
   // samplers
   FILE* o = fopen(argv[4], "w");
+  {
+    Particle part;
+    std::vector<double> es;
+    for (int i = 0; i <= 160; ++i) es.push_back(500.0 * std::pow(1.0e9 / 500.0, i / 160.0));
+    for (size_t i = 0; i < p.energy_.size(); i += 97) es.push_back(std::exp(p.energy_[i]));
+    es.push_back(10.0); es.push_back(1.0e12);
+    for (double e : es) {
+      part.E() = e;
+      p.calculate_xs(part);
+      auto& x = part.photon_xs(0);
+      fprintf(o, "xs %.17g %d %.17g %.17g %.17g %.17g %.17g %.17g\n", e, x.index_grid, x.interp_factor, x.coherent, x.incoherent, x.photoelectric, x.pair_production, x.total);
+    }
+  }
   const double energies[] = {1.0e3, 1.0e4, 1.0e5, 5.0e5, 1.0e6, 3.0e6, 1.0e7, 1.0e8};
   for (double e : energies) {
     double alpha = e / MASS_ELECTRON_EV;
