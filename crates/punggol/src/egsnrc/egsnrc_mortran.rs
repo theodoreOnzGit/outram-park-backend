@@ -55,6 +55,7 @@
 use crate::nostd_prelude::*;
 
 use super::egsnrc_macros::{EgsError, Stack, UniformSource, select_azimuthal_angle};
+use super::egs_utilities_mortran::{alias_sample1, prepare_alias_table};
 use petir::mathf::RealMath;
 use petir::real::Real;
 
@@ -959,7 +960,7 @@ pub struct PairConfig {
     pub iprdst: i32,
     /// `Some(prob_RR)` when `i_play_RR = 1`: Russian roulette on the pair.
     pub rr: Option<f64>,
-    /// `pair_nrc` (default 0): NRC pair tables (not ported; `1` is refused).
+    /// `pair_nrc` (default 0): NRC pair tables (`1` needs [`pair_with_nrc`]).
     pub pair_nrc: bool,
     /// `itriplet` (default 0): triplet production (`> 0` needs [`pair_with_triplet`]).
     pub itriplet: i32,
@@ -979,7 +980,7 @@ impl Default for PairConfig {
 /// sampling (`killed` in the result).
 ///
 /// `rm` is `RM` (= `PRM`). Not ported, refused with
-/// [`EgsError::Unsupported`]: the NRC pair tables (`pair_nrc`); triplet
+/// [`EgsError::Unsupported`]: the NRC pair tables (`pair_nrc`) need [`pair_with_nrc`] and triplet
 /// production (`itriplet > 0`) needs [`pair_with_triplet`].
 ///
 /// # Errors
@@ -992,7 +993,7 @@ pub fn pair<R: UniformSource>(
     rm: f64,
     rng: &mut R,
 ) -> Result<bool, EgsError> {
-    pair_core(stack, med, cfg, rm, None, rng)
+    pair_core(stack, med, cfg, rm, None, None, rng)
 }
 
 /// [`pair`] with triplet production (`itriplet > 0`): `triplet` is the
@@ -1012,7 +1013,25 @@ pub fn pair_with_triplet<R: UniformSource>(
     triplet: (&TripletData, &mut TripletState, usize, f64),
     rng: &mut R,
 ) -> Result<bool, EgsError> {
-    pair_core(stack, med, cfg, rm, Some(triplet), rng)
+    pair_core(stack, med, cfg, rm, Some(triplet), None, rng)
+}
+
+/// [`pair`] sampling the positron energy from the NRC pair tables
+/// (`pair_nrc = 1`): `nrc` is the tables ([`NrcPairData`]) and the medium
+/// index. Photons above the table range fall back to the usual sampling.
+///
+/// # Errors
+///
+/// As [`pair`].
+pub fn pair_with_nrc<R: UniformSource>(
+    stack: &mut Stack,
+    med: &PairMedium,
+    cfg: &PairConfig,
+    rm: f64,
+    nrc: (&NrcPairData, usize),
+    rng: &mut R,
+) -> Result<bool, EgsError> {
+    pair_core(stack, med, cfg, rm, None, Some(nrc), rng)
 }
 
 fn pair_core<R: UniformSource>(
@@ -1021,10 +1040,11 @@ fn pair_core<R: UniformSource>(
     cfg: &PairConfig,
     rm: f64,
     triplet: Option<(&TripletData, &mut TripletState, usize, f64)>,
+    nrc: Option<(&NrcPairData, usize)>,
     rng: &mut R,
 ) -> Result<bool, EgsError> {
-    if cfg.pair_nrc {
-        return Err(EgsError::Unsupported("PAIR: NRC pair cross sections (pair_nrc = 1)"));
+    if cfg.pair_nrc && nrc.is_none() {
+        return Err(EgsError::Unsupported("PAIR: NRC pair cross sections (pair_nrc = 1) without NRC tables"));
     }
     if cfg.itriplet > 0 && triplet.is_none() {
         return Err(EgsError::Unsupported("PAIR: triplet production (itriplet > 0) without triplet data"));
@@ -1069,7 +1089,44 @@ fn pair_core<R: UniformSource>(
     let rmt2 = 2.0 * rm;
     let (pese1, pese2, iq1, iq2);
 
-    if eig <= 2.1 {
+    // the NRC pair cross section data base, within its energy range
+    let mut nrc_pair: Option<(f64, f64, i32, i32)> = None;
+    if cfg.pair_nrc {
+        if let Some((nd, imed)) = nrc {
+            let k = eig / rm;
+            if k < nd.emax {
+                let ibin = if k <= nd.emin {
+                    1usize
+                } else {
+                    let mut abin = 1.0 + RealMath::r_ln((k - 2.0) / (nd.emin - 2.0)) * nd.dlei;
+                    let mut ib = abin as usize;
+                    abin -= ib as f64;
+                    let rbin = rng.uniform();
+                    if rbin < abin {
+                        ib += 1;
+                    }
+                    ib
+                };
+                let t = &nd.tables[imed][ibin];
+                let xx = alias_sample1(&nd.xdata, &t.fdata, &t.wdata, &t.idata, rng);
+                // the energy fraction of the positron
+                nrc_pair = Some(if xx > 0.5 {
+                    let e1 = rm * (1.0 + xx * (k - 2.0));
+                    (e1, peig - e1, 1, -1)
+                } else {
+                    let e2 = rm * (1.0 + xx * (k - 2.0));
+                    (peig - e2, e2, -1, 1)
+                });
+            }
+        }
+    }
+
+    if let Some((e1, e2, q1, q2)) = nrc_pair {
+        pese1 = e1;
+        pese2 = e2;
+        iq1 = q1;
+        iq2 = q2;
+    } else if eig <= 2.1 {
         // below 2.1: uniform energies
         let rnno30 = rng.uniform();
         let rnno34 = rng.uniform();
@@ -2779,6 +2836,117 @@ pub fn sample_triplet<R: UniformSource>(
         stack.np = np + 2;
         return Ok(());
     }
+}
+
+/// `$NRC-PAIR-NXX` and `$NRC-PAIR-NEE` (`egsnrc.macros:413-414`).
+pub const NRC_PAIR_NXX: usize = 65;
+/// See [`NRC_PAIR_NXX`].
+pub const NRC_PAIR_NEE: usize = 84;
+
+/// One energy bin of the NRC pair data of a medium: the density on the `x`
+/// grid and its alias table (1-based).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NrcPairBin {
+    /// `nrcp_fdata(1..NXX, ie, medium)` (index 0 unused, so `fdata[1..=65]`;
+    /// the alias grid runs over `fdata[1..=NXX]` as `fs(0:nsbin)` shifted).
+    pub fdata: Vec<f64>,
+    /// `nrcp_wdata`.
+    pub wdata: Vec<f64>,
+    /// `nrcp_idata`.
+    pub idata: Vec<i32>,
+}
+
+/// `COMMON/nrc_pair/` for all media, filled by [`init_nrc_pair`].
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NrcPairData {
+    /// `nrcp_emin`, `nrcp_emax` (units of `m c^2`).
+    pub emin: f64,
+    /// See `emin`.
+    pub emax: f64,
+    /// `nrcp_dle`.
+    pub dle: f64,
+    /// `nrcp_dlei`.
+    pub dlei: f64,
+    /// `nrcp_xdata(1..NXX)` as the 0-based abscissas `0..=NX-1` the alias
+    /// sampler wants (`xdata[ix] = nrcp_xdata(ix + 1)`).
+    pub xdata: Vec<f64>,
+    /// `tables[medium][ie]`, both 1-based.
+    pub tables: Vec<Vec<NrcPairBin>>,
+}
+
+/// `init_nrc_pair` (`egsnrc.mortran:7255-7360`): builds the NRC pair tables
+/// from the data base `pair_nrc1.data`, which is a Fortran direct-access
+/// file whose record length depends on build-time macros (`$RECL-FACTOR`,
+/// `$BYTE_ORDER`) and is not in the clone. The file decoding is therefore
+/// left to the caller: `emin`, `emax`, `ne`, `nb` are the header record, and
+/// `record(irec)` returns the `NRC_PAIR_NXX` single-precision values of
+/// direct-access record `irec` (1-based; record 1 is the header and element
+/// `Z` energy `ie` is record `(Z-1) * ne + 1 + ie`). `comp[medium]` is
+/// `(ZELEM, PZ)` per element (`comp[0]` unused).
+///
+/// # Errors
+///
+/// A message when `nb` or `ne` do not match the compiled grid sizes, or when
+/// `record` returns `None` or a short record.
+pub fn init_nrc_pair<F: FnMut(usize) -> Option<Vec<f32>>>(
+    emin: f32,
+    emax: f32,
+    ne: i32,
+    nb: i32,
+    comp: &[Vec<(f64, f64)>],
+    mut record: F,
+) -> Result<NrcPairData, String> {
+    if nb as usize != NRC_PAIR_NXX {
+        return Err(String::from("Inconsistent x-grid size"));
+    }
+    if ne as usize != NRC_PAIR_NEE {
+        return Err(String::from("Inconsistent energy grid size"));
+    }
+    let (emin, emax) = (f64::from(emin), f64::from(emax));
+    let dle = RealMath::r_ln((emax - 2.0) / (emin - 2.0)) / (ne - 1) as f64;
+    let nb = nb as usize;
+    let nbb = nb / 2;
+    let ddx = Real::sqrt(0.5) / nbb as f64;
+    // nrcp_xdata(1..nb)
+    let mut x1 = alloc::vec![0.0_f64; nb + 1];
+    for ix in 0..=nbb {
+        let xx = ddx * ix as f64;
+        x1[ix + 1] = xx * xx;
+    }
+    for ix in (0..nbb).rev() {
+        let xx = ddx * ix as f64;
+        x1[nb - ix] = 1.0 - xx * xx;
+    }
+    let xdata: Vec<f64> = x1[1..].to_vec();
+    let nmed = comp.len() - 1;
+    let mut tables: Vec<Vec<NrcPairBin>> = alloc::vec![Vec::new()];
+    for imed in 1..=nmed {
+        let mut f = alloc::vec![alloc::vec![0.0_f64; nb + 1]; NRC_PAIR_NEE + 1];
+        for &(z, pz) in &comp[imed] {
+            let iz = (z + 0.5) as usize;
+            let tmp = pz * z * z;
+            let mut irec = (iz - 1) * ne as usize + 2;
+            for fe in f.iter_mut().skip(1) {
+                let tarray = record(irec).ok_or_else(|| String::from("I/O error while reading NRC pair data file"))?;
+                if tarray.len() < nb {
+                    return Err(String::from("short NRC pair data record"));
+                }
+                for ix in 1..=nb {
+                    fe[ix] += tmp * f64::from(tarray[ix - 1]);
+                }
+                irec += 1;
+            }
+        }
+        let mut bins = alloc::vec![NrcPairBin::default()];
+        for fe in f.iter().skip(1) {
+            // prepare_alias_table(nb-1, nrcp_xdata, nrcp_fdata(1..)): the
+            // 0-based f(0:nb-1) is the data stored at 1..nb
+            let (ws, ib) = prepare_alias_table(&xdata, &fe[1..]);
+            bins.push(NrcPairBin { fdata: fe[1..].to_vec(), wdata: ws, idata: ib });
+        }
+        tables.push(bins);
+    }
+    Ok(NrcPairData { emin, emax, dle, dlei: 1.0 / dle, xdata, tables })
 }
 
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
@@ -8513,6 +8681,68 @@ mod tests {
         assert!(!killed);
         assert_eq!(st.np, 3);
         // without the data the plain entry point refuses
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 5.0;
+        assert!(matches!(pair(&mut st, &toy_pair_medium(), &cfg, RM, &mut rng), Err(EgsError::Unsupported(_))));
+    }
+
+    fn toy_nrc_pair() -> NrcPairData {
+        // a density peaked at both ends of x, same for every record
+        let comp = vec![vec![], vec![(8.0, 1.0)]];
+        let rec: Vec<f32> = (0..NRC_PAIR_NXX).map(|i| 1.0 + ((i as f32) - 32.0).powi(2)).collect();
+        init_nrc_pair(2.5, 100.0, NRC_PAIR_NEE as i32, NRC_PAIR_NXX as i32, &comp, |_| Some(rec.clone())).unwrap()
+    }
+
+    #[test]
+    fn nrc_pair_tables_are_built_and_validated() {
+        let nd = toy_nrc_pair();
+        assert_eq!(nd.xdata.len(), NRC_PAIR_NXX);
+        assert!((nd.xdata[0]).abs() < 1e-15 && (nd.xdata[NRC_PAIR_NXX - 1] - 1.0).abs() < 1e-12);
+        assert_eq!(nd.tables[1].len(), NRC_PAIR_NEE + 1);
+        assert!((nd.dle * nd.dlei - 1.0).abs() < 1e-12);
+        let comp = vec![vec![], vec![(8.0, 1.0)]];
+        assert!(init_nrc_pair(2.5, 100.0, 3, 65, &comp, |_| None).is_err());
+        assert!(init_nrc_pair(2.5, 100.0, 84, 64, &comp, |_| None).is_err());
+        assert!(init_nrc_pair(2.5, 100.0, 84, 65, &comp, |_| None).is_err());
+        assert!(init_nrc_pair(2.5, 100.0, 84, 65, &comp, |_| Some(vec![1.0])).is_err());
+    }
+
+    #[test]
+    fn alias_table_of_a_linear_density_samples_its_mean() {
+        let xs: Vec<f64> = (0..=8).map(|i| i as f64 / 8.0).collect();
+        // (a uniform density has every bin exactly at the average, which upstream's
+        // loop leaves unfinalised, as `prepare_alias_sampling`'s port records)
+        let fs: Vec<f64> = xs.iter().map(|x| 1.0 + 0.8 * x).collect();
+        let (ws, ib) = super::super::egs_utilities_mortran::prepare_alias_table(&xs, &fs);
+        let mut rng = Ranmar::new(3, 4);
+        let (mut m, n) = (0.0, 20000);
+        for _ in 0..n {
+            let x = alias_sample1(&xs, &fs, &ws, &ib, &mut rng);
+            assert!((0.0..=1.0).contains(&x));
+            m += x;
+        }
+        // mean of f = 1 + 0.8 x on [0,1]: (1/2 + 0.8/3) / 1.4
+        assert!((m / n as f64 - (0.5 + 0.8 / 3.0) / 1.4).abs() < 0.01);
+    }
+
+    #[test]
+    fn pair_with_nrc_splits_energy_and_falls_back_above_range() {
+        let nd = toy_nrc_pair();
+        let cfg = PairConfig { pair_nrc: true, ..Default::default() };
+        let mut rng = Ranmar::new(12, 13);
+        for &e0 in &[1.5_f64, 5.0, 100.0] {
+            for _ in 0..100 {
+                let mut st = Stack::new(10);
+                st.np = 1;
+                st.e[1] = e0;
+                st.w[1] = 1.0;
+                st.wt[1] = 1.0;
+                let killed = pair_with_nrc(&mut st, &toy_pair_medium(), &cfg, RM, (&nd, 1), &mut rng).unwrap();
+                assert!(!killed && st.np == 2);
+                assert!((st.e[1] + st.e[2] - e0).abs() < 1e-9 && st.iq[1] * st.iq[2] == -1);
+            }
+        }
         let mut st = Stack::new(10);
         st.np = 1;
         st.e[1] = 5.0;

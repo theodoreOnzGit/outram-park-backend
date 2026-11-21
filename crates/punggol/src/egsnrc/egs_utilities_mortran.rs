@@ -22,6 +22,7 @@
 //! | upstream | here |
 //! |---|---|
 //! | `FUNCTION ERF1` (`egs_utilities.mortran:2096-2151`) | [`erf1`] |
+//! | `SUBROUTINE prepare_alias_table` (`egs_utilities.mortran:1846-1895`) | [`prepare_alias_table`] |
 //! | `FUNCTION alias_sample1` (`egs_utilities.mortran:1901-1936`) | [`alias_sample1`] |
 //! | `SUBROUTINE set_spline`, `FUNCTION spline` (`egs_utilities.mortran:1762-1839`) | [`set_spline`], [`spline`] |
 
@@ -166,11 +167,57 @@ pub fn spline(s: f64, x: &[f64], co: &SplineCoefficients) -> f64 {
     co.a[m] + q * (co.b[m] + q * (co.c[m] + q * co.d[m]))
 }
 
+/// `prepare_alias_table` (`egs_utilities.mortran:1846-1895`): the alias table
+/// of the piecewise-linear density `fs` at the nodes `xs` (both `0..=nsbin`,
+/// 0-based, `nsbin + 1` values), for [`alias_sample1`]. Each bin's
+/// probability is its trapezoid area, floored at 1e-30. Returns `(ws, ibin)`,
+/// 1-based over `1..=nsbin` (index 0 unused).
+pub fn prepare_alias_table(xs: &[f64], fs: &[f64]) -> (Vec<f64>, Vec<i32>) {
+    let nsbin = xs.len() - 1;
+    let mut ws = alloc::vec![0.0_f64; nsbin + 1];
+    let mut ibin = alloc::vec![0_i32; nsbin + 1];
+    let mut sum = 0.0;
+    for i in 1..=nsbin {
+        let mut aux = 0.5 * (fs[i] + fs[i - 1]) * (xs[i] - xs[i - 1]);
+        if aux < 1e-30 {
+            aux = 1e-30;
+        }
+        ws[i] = -aux;
+        ibin[i] = 1;
+        sum += aux;
+    }
+    sum /= nsbin as f64;
+    for i in 1..nsbin {
+        // the Mortran DO loops leave the index at nsbin when no bin qualifies
+        let mut j_h = nsbin;
+        for jh in 1..=nsbin {
+            if ws[jh] < 0.0 && ws[jh].abs() > sum {
+                j_h = jh;
+                break;
+            }
+        }
+        let mut j_l = nsbin;
+        for jl in 1..=nsbin {
+            if ws[jl] < 0.0 && ws[jl].abs() < sum {
+                j_l = jl;
+                break;
+            }
+        }
+        let aux = sum - ws[j_l].abs();
+        ws[j_h] += aux;
+        ws[j_l] = -ws[j_l] / sum;
+        ibin[j_l] = j_h as i32;
+        if i == nsbin - 1 {
+            ws[j_h] = 1.0;
+        }
+    }
+    (ws, ibin)
+}
+
 /// `alias_sample1` (`egs_utilities.mortran:1901-1936`): a value from a
 /// piecewise-linear density with an alias table. `xs` and `fs` are the node
 /// abscissas and densities `0..=nsbin` (0-based, `nsbin + 1` values), `ws` and
-/// `ibin` the alias table (1-based, from `prepare_alias_sampling` over the bin
-/// probabilities).
+/// `ibin` the alias table (1-based, from [`prepare_alias_table`]).
 pub fn alias_sample1<R: super::egsnrc_macros::UniformSource>(
     xs: &[f64],
     fs: &[f64],
