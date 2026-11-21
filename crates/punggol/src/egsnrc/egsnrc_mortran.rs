@@ -11719,7 +11719,7 @@ mod tests {
             pair: text("xcom_pair.data"),
             triplet: text("xcom_triplet.data"),
             rayleigh: text("xcom_rayleigh.data"),
-            photonuc: None,
+            photonuc: std::env::var("EGSNRC_REFERENCE_PHOTONUC_TABLES").ok().map(|_| text("iaea_photonuc.data")),
             compton: BoundComptonData::Ratio(text("compton_sigma.data")),
             mxge: 2000,
             eadl_relax: true,
@@ -11778,6 +11778,19 @@ mod tests {
         }
         for (f, name) in ["gmfp", "gbr1", "gbr2", "cohe"].iter().enumerate() {
             eprintln!("{name} function value: worst relative difference {:e}", worst_f[f]);
+        }
+        // photonuclear factor `photonuc0/1` (`difftabF`, `iphotonucr(2) = 1`)
+        if let Ok(pn) = std::env::var("EGSNRC_REFERENCE_PHOTONUC_TABLES") {
+            let (mut wp0, mut wp1, mut np) = (0.0_f64, 0.0_f64, 0usize);
+            for l in std::fs::read_to_string(pn).unwrap().lines().skip(1) {
+                let v: Vec<f64> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
+                let i = v[0] as usize;
+                wp0 = wp0.max((m.photonuc.a0[i] - v[1]).abs() / v[1].abs().max(1e-300));
+                wp1 = wp1.max(if v[2] == 0.0 { m.photonuc.a1[i].abs() } else { (m.photonuc.a1[i] - v[2]).abs() / v[2].abs() });
+                np += 1;
+            }
+            eprintln!("photonuc tables: {np} points, photonuc0 worst relative {wp0:e}, photonuc1 worst {wp1:e}");
+            assert_eq!(np, m.mge);
         }
         assert_eq!(n, m.mge);
         assert!((m.ge0 - ge0).abs() <= 1e-9 * ge0.abs() && (m.ge1 - ge1).abs() <= 1e-9 * ge1.abs());
@@ -12534,6 +12547,8 @@ mod tests {
     fn tutor1_histories_report(reference: &str, eadl: bool, eii: bool, ibr_nist: i32, pair_nrc: bool, itriplet: i32) {
         use petir::rng::ranmar::Ranmar;
         use std::sync::{Arc, RwLock};
+        // `EGSNRC_PHOTONUC`: the user code set `iphotonucr(2) = 1` (the `difftutF` reference)
+        let photonuc_on = std::env::var("EGSNRC_PHOTONUC").is_ok();
         let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
         let path = std::env::var("EGSNRC_PEGS4_FILE").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4/data/tutor_data.pegs4dat"));
         let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
@@ -12549,7 +12564,7 @@ mod tests {
             pair: text("xcom_pair.data"),
             triplet: text("xcom_triplet.data"),
             rayleigh: text("xcom_rayleigh.data"),
-            photonuc: None,
+            photonuc: if photonuc_on { Some(text("iaea_photonuc.data")) } else { None },
             compton: BoundComptonData::Ratio(text("compton_sigma.data")),
             mxge: 2000,
             eadl_relax: eadl,
@@ -12569,6 +12584,9 @@ mod tests {
         let ut = init_user_photon(&inp, &um).unwrap();
         let u = &ut.media[1];
         let mut photon_med = r.media[0].photon.clone();
+        if photonuc_on {
+            photon_med.photonuc = u.photonuc.clone();
+        }
         photon_med.ge0 = u.ge0;
         photon_med.ge1 = u.ge1;
         photon_med.gmfp0 = u.gmfp.a0.clone();
@@ -12655,7 +12673,7 @@ mod tests {
             eprintln!("pair tables: NRC pair header {w_nrc:e}, x grid {w_x:e}, fdata {w_f:e}, wdata {w_w:e} (integer mismatches {int_bad}); triplet worst relative {w_trip:e}");
         }
         let ptables = PhotonTables {
-            regions: vec![PhotonRegionData::default(), reg(0, 0.0), reg(1, rho), reg(0, 0.0)],
+            regions: vec![PhotonRegionData::default(), reg(0, 0.0), PhotonRegionData { iphotonucr: photonuc_on as i32, ..reg(1, rho) }, reg(0, 0.0)],
             media: vec![PhotonMediumData::default(), photon_med],
             compton,
             relax: relax_d.clone(),
@@ -12806,6 +12824,9 @@ mod tests {
         );
         if let (Some(a), Some(b)) = (mine.first(), theirs.first()) {
             eprintln!("history 1 port {a:?}\nhistory 1 ref  {b:?}");
+        }
+        if let (Some(k), Ok(_)) = (first_diff, std::env::var("EGSNRC_SHOW_FIRST_DIFF")) {
+            eprintln!("history {k} port {:?}\nhistory {k} ref  {:?}", mine[k - 1], theirs[k - 1]);
         }
     }
 

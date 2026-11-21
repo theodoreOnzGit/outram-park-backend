@@ -217,7 +217,7 @@ outside the array (the port uses 0.0 and ends the cascade); `:6108` assigns
 
 ## Not differentially tested, and why (CORRECTED 2026-11-21)
 
-**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), photonuclear and electromagnetic fields (not ported), the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
+**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), ~~photonuclear~~ **CORRECTED 2026-11-21: photonuclear IS ported (the `PHOTONUC` placeholder, the HATCH `photonuc0/1` table and the `$PHOTONUC-*` hooks in `photon`) and is now compared, see "Photonuclear" below**; electromagnetic fields (`EEMF`) and `egs_parallel` (not ported), the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
@@ -597,6 +597,40 @@ wrong pairing shows up as a divergence, not as a silent pass.
 ## Open items (every one filed)
 
 - OpenMC elements other than U and H: **data missing**, gh:#1695.
-- Photonuclear, EEMF, `egs_parallel` (not ported, nothing to compare), gh:#1697.
+- ~~Photonuclear, EEMF, `egs_parallel`~~ **CORRECTED: photonuclear is compared (below)**; EEMF and `egs_parallel` are not ported (nothing to compare), gh:#1697.
 - `xsec_out`, `outputDensityFile`: diagnostic file output, deliberately not
   ported.
+
+
+## Photonuclear (2026-11-21, gh:#1697 corrected)
+
+`egsnrc_port_remaining.md` already said `PHOTONUC` was ported; the phase 2
+list above wrongly counted photonuclear as unported. It is ported (the
+`PHOTONUC` placeholder, `iphotonucr`, the `photonuc0/1` table that
+`egs_init_user_photon` builds from `iaea_photonuc.data`, and the
+`$PHOTONUC-CORRECTION` and `$PHOTONUCLEAR` hooks in `photon`) but had never
+been compared. Now it is.
+
+Reference: two copies of the `tutor1` user code with one line changed,
+`iphotonucr(2) = 1;` before `CALL HATCH` (the Ta plate is region 2): `difftabF`
+(the table-dump copy plus a dump of `PHOTONUC0/1`) and `difftutF` (the
+history-listing copy), both built `-fdefault-real-8 -fdefault-double-8`. The
+run log confirms "Photonuclear flag: 1 ... REQUESTED FOR MEDIUM NUMBER 1".
+
+| comparison | result |
+|---|---|
+| `photonuc0`, `photonuc1`, 2000 grid points (`EGSNRC_REFERENCE_PHOTONUC_TABLES`, in `differential_user_photon_tables_against_compiled_egsnrc`) | **bit-identical** (0, 0) |
+| 200 `tutor1` histories with `iphotonucr = 1` (`EGSNRC_PHOTONUC=1`, EADL relaxation, `differential_tutor1_histories_against_compiled_egsnrc_eadl`) | same sequence **200 of 200**, kinetic energy 7.4e-16, `|dw|` 1.8e-15 |
+| control: the same reference against the port with photonuclear OFF | diverges at history 3 (37 of 200 in sequence), so the option acts |
+
+A pairing mistake worth recording: `difftutF` was derived from `difftutB`,
+which does not set `eadl_relax = .false.`, so its reference uses EADL
+relaxation (the stock default). The first comparison used the non-EADL test and
+diverged at history 4. Tracing `RNNO36`, `RNNO37` and `RNNO39` in both programs
+(`WRITE`s inserted into the generated `.f`, the port's `eprintln`s, since
+removed) showed the first three photon interactions agree and the divergence
+followed a relaxation draw, which pointed at the option mismatch; with the EADL
+test the run agrees to round-off. No port defect.
+
+Still not ported: `EEMF`, `EEMF_macros_beamnrc` and `egs_parallel` (gh:#1697);
+there is no Rust to compare.
