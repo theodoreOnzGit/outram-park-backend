@@ -217,7 +217,7 @@ outside the array (the port uses 0.0 and ends the cascade); `:6108` assigns
 
 ## Not differentially tested, and why (CORRECTED 2026-11-21)
 
-**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), ~~photonuclear~~ **CORRECTED 2026-11-21: photonuclear IS ported (the `PHOTONUC` placeholder, the HATCH `photonuc0/1` table and the `$PHOTONUC-*` hooks in `photon`) and is now compared, see "Photonuclear" below**; electromagnetic fields (`EEMF`) and `egs_parallel` (not ported), the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
+**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), ~~photonuclear~~ **CORRECTED 2026-11-21: photonuclear IS ported (the `PHOTONUC` placeholder, the HATCH `photonuc0/1` table and the `$PHOTONUC-*` hooks in `photon`) and is now compared, see "Photonuclear" below**; ~~electromagnetic fields~~ **CORRECTED: the classic `emf_macros` field hooks are ported and compared (below)**; only `EEMF_macros` (Malkov-Rogers) and `egs_parallel` are not ported, the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
@@ -597,7 +597,7 @@ wrong pairing shows up as a divergence, not as a silent pass.
 ## Open items (every one filed)
 
 - OpenMC elements other than U and H: **data missing**, gh:#1695.
-- ~~Photonuclear, EEMF, `egs_parallel`~~ **CORRECTED: photonuclear is compared (below)**; EEMF and `egs_parallel` are not ported (nothing to compare), gh:#1697.
+- ~~Photonuclear, EEMF, `egs_parallel`~~ **CORRECTED: photonuclear and the classic `emf_macros` are compared (below)**; `EEMF_macros` (Malkov-Rogers, 2400 lines) and `egs_parallel` are not ported (nothing to compare), gh:#1697.
 - `xsec_out`, `outputDensityFile`: diagnostic file output, deliberately not
   ported.
 
@@ -634,3 +634,45 @@ test the run agrees to round-off. No port defect.
 
 Still not ported: `EEMF`, `EEMF_macros_beamnrc` and `egs_parallel` (gh:#1697);
 there is no Rust to compare.
+
+
+## Electromagnetic fields: `emf_macros` ported and compared (2026-11-21, gh:#1697)
+
+`HEN_HOUSE/src/emf_macros.mortran` (the classic, Bielajew-style external-field
+macros: 434 lines) is ported as `ElectrConfig::em` (`EmField`) and the five
+`ELECTR` hooks `$SET-TUSTEP-EM-FIELD` (vacuum and medium),
+`$VACUUM-ADD-WORK-EM-FIELD`, `$ADD-WORK-EM-FIELD` and `$SET-ANGLES-EM-FIELD`
+(vacuum and medium). The field is the one the LAST `$GET-EM-FIELD` and
+`$GET-POTENTIAL` definitions give (a later Mortran `REPLACE` overrides an
+earlier one): a constant E field (`ExIN, EyIN, EzIN`, V/cm) and B field
+(`Bx, By, Bz`, T) read from `COMMON/EMF_INPUTS/`, limited by `EMLMTIN`
+(default 0.02). `emfield_on` is true when any component is nonzero.
+
+Reference: the `tutor1` history user code (`difftut`) built with
+`emf_macros.mortran` placed after `egsnrc.macros` in the Mortran3 command, with
+`;COMIN/EMF-INPUTS/;` and the field set before `CALL HATCH` (`difftutEB`,
+`difftutEE`, `difftutEBE`; `-fdefault-real-8`). 200 histories each, 20 MeV
+electrons on the 1 mm Ta plate, fields acting in the vacuum regions and the
+plate (`EGSNRC_EM_FIELD=ex,ey,ez,bx,by,bz,emlmt`):
+
+| field | same sequence | worst relative kinetic energy | worst `|dw|` |
+|---|---|---|---|
+| B = (0, 0.5, 0.8) T | 200 of 200 | 1.1e-15 | 2.0e-15 |
+| E = (2e4, -1e4, 5e3) V/cm | 200 of 200 | 9.3e-16 | 3.8e-15 |
+| both | 200 of 200 | 1.8e-15 | 1.5e-14 |
+| control: E+B reference, port with no field | 42 of 200, diverges at history 2 | | |
+
+**Upstream defect, kept and noted.** `$SET-TUSTEP-CHANGE-OF-EM-FIELD` reads
+`EFXF`, `EFYF`, `EFZF`, which nothing assigns (`$GET-EM-FIELD(EF,BF,XF,YF,ZF)`
+writes `EFX0`, `EFY0`, `EFZ0`). The port reads them as 0; the compiled
+reference agrees to 1e-15 with an E field, so the stack garbage was 0 in that
+build, but the behaviour is undefined in the source. For a constant field the
+test then evaluates to 1 and never limits the step.
+
+**Not ported:** `EEMF_macros.mortran` and `EEMF_macros_beamnrc.mortran`
+(2400 and 2546 lines, Malkov and Rogers, Med. Phys. 43, 4447 (2016)): a
+different, much larger EM-field algorithm (1PI/3PI integration, boundary
+handling, single-scattering in fields, vacuum transport) that replaces PRESTA-II
+macros inside `ELECTR` (`$EM_MACROS_ACTIVE`, `$EMFieldInVacuum`,
+`$EM_FIELD_SS`); and `egs_parallel.mortran` (lock-file job control through C
+utilities, no physics). Both remain on gh:#1697.

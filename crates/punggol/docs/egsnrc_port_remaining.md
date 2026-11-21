@@ -98,3 +98,11 @@ intake "was checked on a real `pb.pegs4dat`" covered a non-gas medium only.
 `egsnrc_mortran.rs`; compared with a built EGSnrc in
 `egsnrc_phase2_differential.md`. Still not ported: the MCDF shellwise
 photoelectric option (`mcdf_pe_xsections`, off by default).
+
+
+**2026-11-21, emf_macros:** the classic external-field macros
+(`HEN_HOUSE/src/emf_macros.mortran`) are ported as `ElectrConfig::em` with the
+`ELECTR` hooks and compared with a compiled EGSnrc (bit-level agreement ~1e-15,
+`docs/egsnrc_phase2_differential.md`, "Electromagnetic fields"). Still not
+ported: `EEMF_macros.mortran`, `EEMF_macros_beamnrc.mortran`, `egs_parallel`
+(gh:#1697).

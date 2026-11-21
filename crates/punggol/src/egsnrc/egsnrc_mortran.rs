@@ -6530,6 +6530,158 @@ pub struct ElectrConfig {
     pub vacdst: f64,
     /// `nbr_split`, `ibrdst`, `ibr_nist`.
     pub brems: BremsConfig,
+    /// Constant electric and magnetic field of `emf_macros.mortran` (`None`:
+    /// `emfield_on = .false.`, the stock default). See [`EmField`].
+    pub em: Option<EmField>,
+}
+
+/// The external electromagnetic field of `HEN_HOUSE/src/emf_macros.mortran`,
+/// as its LAST `$GET-EM-FIELD`/`$GET-POTENTIAL` definitions give it (a
+/// Mortran `REPLACE` that comes later overrides an earlier one): a constant
+/// field read from `COMMON/EMF_INPUTS/`. `emfield_on` is true when any
+/// component is nonzero (`egs_utilities.mortran:934`); a field that is all
+/// zero is the same as `None`.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct EmField {
+    /// `ExIN`, `EyIN`, `EzIN`: electric field, V/cm.
+    pub e_in: [f64; 3],
+    /// `Bx`, `By`, `Bz`: magnetic field, T.
+    pub b: [f64; 3],
+    /// `EMLMTIN` (default 0.02): the fractional limit on the change of
+    /// direction, energy and field over a step (`$EMULMT`, `$EMELMT`,
+    /// `$EMFLMT`).
+    pub emlmt: f64,
+}
+
+/// The locals the `emf_macros` hooks share across one `ELECTR` step
+/// (`$DEFINE-LOCAL-VARIABLES-ELECTR` additions).
+#[derive(Debug, Clone, Copy, Default)]
+struct EmLocal {
+    x0: f64,
+    y0: f64,
+    z0: f64,
+    e0: [f64; 3],
+    b0: [f64; 3],
+    beta20: f64,
+    gamma0: f64,
+    dperp: [f64; 3],
+    dperp2: f64,
+    bperp: [f64; 3],
+    bperp2: f64,
+}
+
+impl EmField {
+    fn active(&self) -> bool {
+        self.e_in.iter().chain(self.b.iter()).map(|v| v * v).sum::<f64>() > 0.0
+    }
+
+    /// The last `$GET-EM-FIELD(E,B,x,y,z)`: constant fields in units of 1/cm.
+    fn get_field(&self, rm: f64) -> ([f64; 3], [f64; 3]) {
+        let fb = 1.0 / (rm * 1.0e6);
+        let e = [self.e_in[0] * fb, self.e_in[1] * fb, self.e_in[2] * fb];
+        let fb = 3.0 / rm;
+        let b = [self.b[0] * fb, self.b[1] * fb, self.b[2] * fb];
+        (e, b)
+    }
+
+    /// `$SET-TUSTEP-EM-FIELD` (`emf_macros.mortran:99-130` and its three
+    /// limit macros): shorten `tustep` so the field's deflection, energy
+    /// change and variation stay within `emlmt`. `eie` is the total energy,
+    /// MeV. **Upstream defect, kept:** `$SET-TUSTEP-CHANGE-OF-EM-FIELD` reads
+    /// `EFXF`, `EFYF`, `EFZF`, which nothing assigns (`$GET-EM-FIELD(EF,BF,XF,
+    /// YF,ZF)` writes `EFX0`, `EFY0`, `EFZ0`); the port reads them as 0.
+    fn set_tustep(&self, loc: &mut EmLocal, stack: &Stack, np: usize, eie: f64, lelec: i32, tustep: &mut f64, rm: f64) {
+        loc.x0 = stack.x[np];
+        loc.y0 = stack.y[np];
+        loc.z0 = stack.z[np];
+        let (e, b) = self.get_field(rm);
+        let ekin0 = eie - rm;
+        loc.beta20 = lit(1.0e-8).max(ekin0 * (eie + rm) / (eie * eie));
+        let beta0 = Real::sqrt(loc.beta20);
+        loc.gamma0 = 1.0 / Real::sqrt((1.0 + beta0) * (1.0 - beta0));
+        let fnorm = lelec as f64 / (loc.beta20 * loc.gamma0);
+        let e0 = [fnorm * e[0], fnorm * e[1], fnorm * e[2]];
+        let fnormb = beta0 * fnorm;
+        let b0 = [fnormb * b[0], fnormb * b[1], fnormb * b[2]];
+        let (u0, v0, w0) = (stack.u[np], stack.v[np], stack.w[np]);
+        let edotu = e0[0] * u0 + e0[1] * v0 + e0[2] * w0;
+        let dperp = [e0[0] - u0 * edotu, e0[1] - v0 * edotu, e0[2] - w0 * edotu];
+        let dperp2 = dperp[0] * dperp[0] + dperp[1] * dperp[1] + dperp[2] * dperp[2];
+        let bperp = [v0 * b0[2] - w0 * b0[1], w0 * b0[0] - u0 * b0[2], u0 * b0[1] - v0 * b0[0]];
+        let bperp2 = bperp[0] * bperp[0] + bperp[1] * bperp[1] + bperp[2] * bperp[2];
+        let eperp = [dperp[0] + bperp[0], dperp[1] + bperp[1], dperp[2] + bperp[2]];
+        let eperp2 = eperp[0] * eperp[0] + eperp[1] * eperp[1] + eperp[2] * eperp[2];
+        loc.e0 = e0;
+        loc.b0 = b0;
+        loc.dperp = dperp;
+        loc.dperp2 = dperp2;
+        loc.bperp = bperp;
+        loc.bperp2 = bperp2;
+        // $SET-TUSTEP-DIRECTION-VECTOR-CHANGE-EM-FIELD
+        if eperp2 != 0.0 {
+            *tustep = tustep.min(self.emlmt / Real::sqrt(eperp2));
+        }
+        // $SET-TUSTEP-ENERGY-CHANGE-EM-FIELD
+        if edotu != 0.0 {
+            *tustep = tustep.min((self.emlmt / ((1.0 + 1.0 / loc.gamma0) * edotu)).abs());
+        }
+        // $SET-TUSTEP-CHANGE-OF-EM-FIELD
+        if *tustep != 0.0 {
+            let mut test = e0[0] * e0[0] + e0[1] * e0[1] + e0[2] * e0[2];
+            if test != 0.0 {
+                let ef = [0.0_f64; 3]; // EFXF, EFYF, EFZF: unassigned upstream
+                test = ((ef[0] - e0[0]).powi(2) + (ef[1] - e0[1]).powi(2) + (ef[2] - e0[2]).powi(2)) / test;
+                if test != 0.0 && test < 1.0 {
+                    *tustep = tustep.min(self.emlmt * *tustep / Real::sqrt(test));
+                }
+            }
+        }
+    }
+
+    /// `$ADD-WORK-EM-FIELD`: the energy change over `ustep` from the
+    /// potential of the (constant) E field (the last `$GET-POTENTIAL`).
+    fn work(&self, loc: &EmLocal, stack: &Stack, np: usize, ustep: f64, rm: f64) -> f64 {
+        let pot = |x: f64, y: f64, z: f64| -loc.gamma0 * loc.beta20 * rm * (loc.e0[0] * x + loc.e0[1] * y + loc.e0[2] * z);
+        let pot1 = pot(loc.x0, loc.y0, loc.z0);
+        let x1 = loc.x0 + ustep * stack.u[np];
+        let y1 = loc.y0 + ustep * stack.v[np];
+        let z1 = loc.z0 + ustep * stack.w[np];
+        let pot2 = pot(x1, y1, z1);
+        pot2 - pot1
+    }
+
+    /// `$SET-ANGLES-EM-FIELD`: rotate the direction by the field over `tvstep`.
+    fn set_angles(&self, loc: &EmLocal, stack: &mut Stack, np: usize, tvstep: f64) {
+        if tvstep == 0.0 {
+            return;
+        }
+        let (bx0, by0, bz0) = (loc.b0[0], loc.b0[1], loc.b0[2]);
+        if loc.bperp2 != 0.0 {
+            let (u0, v0, w0) = (stack.u[np], stack.v[np], stack.w[np]);
+            let ufx = u0 + tvstep * loc.bperp[0];
+            let ufy = v0 + tvstep * loc.bperp[1];
+            let ufz = w0 + tvstep * loc.bperp[2];
+            let mut bdotub = bx0 * ufx + by0 * ufy + bz0 * ufz;
+            let bsqrd = bx0 * bx0 + by0 * by0 + bz0 * bz0;
+            bdotub /= bsqrd;
+            let (ufxpar, ufypar, ufzpar) = (bx0 * bdotub, by0 * bdotub, bz0 * bdotub);
+            let (ufxprp, ufyprp, ufzprp) = (ufx - ufxpar, ufy - ufypar, ufz - ufzpar);
+            let mut fnorm = ufxprp * ufxprp + ufyprp * ufyprp + ufzprp * ufzprp;
+            let bu = bx0 * u0 + by0 * v0 + bz0 * w0;
+            fnorm /= 1.0 - bu * bu / bsqrd;
+            fnorm = Real::sqrt(fnorm);
+            stack.u[np] = ufxpar + ufxprp / fnorm;
+            stack.v[np] = ufypar + ufyprp / fnorm;
+            stack.w[np] = ufzpar + ufzprp / fnorm;
+        }
+        if loc.dperp2 != 0.0 {
+            let test = 0.5 * loc.dperp2 * tvstep * tvstep;
+            let fnorm = 1.0 + test * (1.0 - 0.5 * test);
+            stack.u[np] = (stack.u[np] + tvstep * loc.dperp[0]) / fnorm;
+            stack.v[np] = (stack.v[np] + tvstep * loc.dperp[1]) / fnorm;
+            stack.w[np] = (stack.w[np] + tvstep * loc.dperp[2]) / fnorm;
+        }
+    }
 }
 
 /// What `ELECTR` keeps between calls and the CH-step counters
@@ -6764,6 +6916,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
 
     let mut irl = stack.ir[stack.np] as usize;
     let mut medium = tables.regions[irl].med;
+    let em = cfg.em.filter(|e| e.active());
+    let mut eml = EmLocal::default();
     let mut loc = Loc { etap: 1.0, xi_corr: 1.0, ms_corr: 1.0, rhof: 1.0, ..Default::default() };
     let (mut lelec, mut qel);
     let (mut peie, mut eie);
@@ -6841,6 +6995,11 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         ustep = tstep;
                         tustep = ustep;
                         callhowfar = true;
+                        // $SET-TUSTEP-EM-FIELD, EM step size restriction in vacuum
+                        if let Some(f) = &em {
+                            f.set_tustep(&mut eml, stack, np, eie, lelec, &mut tustep, rm);
+                        }
+                        ustep = tustep;
                     } else {
                         // non-vacuum
                         loc.rhof = tables.regions[irl].rhor / m.rho; // $SET-RHOF
@@ -6883,6 +7042,10 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         // $RANDOMIZE-TUSTEP is .false.
                         tmxs = tmxs.min(tables.regions[irl].smaxir);
                         tustep = tstep.min(tmxs).min(range);
+                        // $SET-TUSTEP-EM-FIELD: optional tustep restriction in an EM field
+                        if let Some(f) = &em {
+                            f.set_tustep(&mut eml, stack, np, eie, lelec, &mut tustep, rm);
+                        }
                         let tperp = geometry.hownear(stack);
                         stack.dnear[np] = tperp;
                         // $SET-SKINDEPTH(eke, elke)
@@ -7005,10 +7168,21 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         // fast step in vacuum
                         if ustep != 0.0 {
                             let vstep = ustep;
+                            // $VACUUM-ADD-WORK-EM-FIELD
+                            if let Some(f) = &em {
+                                let de = f.work(&eml, stack, np, ustep, rm);
+                                peie -= de;
+                                eie = peie;
+                                stack.e[np] = peie;
+                            }
                             stack.x[np] += stack.u[np] * vstep;
                             stack.y[np] += stack.v[np] * vstep;
                             stack.z[np] += stack.w[np] * vstep;
                             stack.dnear[np] -= vstep;
+                            // $SET-ANGLES-EM-FIELD
+                            if let Some(f) = &em {
+                                f.set_angles(&eml, stack, np, vstep);
+                            }
                         }
                         if irnew != irold {
                             stack.ir[np] = irnew as i32;
@@ -7058,6 +7232,10 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     }
                     let save_de = de;
                     let edep = de; // $DE-FLUCTUATION is empty
+                    // $ADD-WORK-EM-FIELD: e-loss or gain in the EM field
+                    if let Some(f) = &em {
+                        de += f.work(&eml, stack, np, ustep, rm);
+                    }
                     let ekef = eke - de;
                     let _eold = eie;
                     let _enew = _eold - de;
@@ -7144,6 +7322,10 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     stack.v[np] = v_final;
                     stack.w[np] = w_final;
                     stack.dnear[np] -= vstep;
+                    // $SET-ANGLES-EM-FIELD
+                    if let Some(f) = &em {
+                        f.set_angles(&eml, stack, np, tvstep);
+                    }
                     res.edep_steps += edep;
 
                     peie -= de;
@@ -10196,7 +10378,51 @@ mod tests {
             prm: RM,
             vacdst: 1.0e8,
             brems: BremsConfig::default(),
+            em: None,
         }
+    }
+
+    /// `emf_macros` hooks: a magnetic field turns the direction without
+    /// changing its length or the energy; an electric field does work equal
+    /// to the potential difference; a zero field is not active.
+    #[test]
+    fn em_field_hooks_rotate_direction_and_do_work() {
+        let mut st = Stack::new(4);
+        st.np = 1;
+        st.u[1] = 0.6;
+        st.v[1] = 0.0;
+        st.w[1] = 0.8;
+        let mut loc = EmLocal::default();
+        let eie = 5.0;
+        // magnetic field only
+        let b = EmField { e_in: [0.0; 3], b: [0.0, 0.0, 1.0], emlmt: 0.02 };
+        assert!(b.active());
+        assert!(!EmField::default().active());
+        let mut tustep = 1.0e8;
+        b.set_tustep(&mut loc, &st, 1, eie, -1, &mut tustep, RM);
+        assert!(tustep < 1.0e8 && tustep > 0.0, "the deflection limit shortens the step: {tustep}");
+        assert_eq!(b.work(&loc, &st, 1, tustep, RM), 0.0, "no work in a B field");
+        b.set_angles(&loc, &mut st, 1, tustep);
+        let norm = st.u[1] * st.u[1] + st.v[1] * st.v[1] + st.w[1] * st.w[1];
+        assert!((norm - 1.0).abs() < 1e-12, "{norm}");
+        assert!(st.v[1].abs() > 0.0, "the electron is deflected sideways");
+        assert!((st.w[1] - 0.8).abs() < 1e-12, "no change along the field");
+        // electric field only: work over a step along the field is -q E dz
+        let e = EmField { e_in: [0.0, 0.0, 1.0e4], b: [0.0; 3], emlmt: 0.02 };
+        let mut st2 = Stack::new(4);
+        st2.np = 1;
+        st2.w[1] = 1.0;
+        let mut loc2 = EmLocal::default();
+        let mut t2 = 1.0e8;
+        e.set_tustep(&mut loc2, &st2, 1, eie, -1, &mut t2, RM);
+        assert!(t2 < 1.0e8);
+        let de = e.work(&loc2, &st2, 1, t2, RM);
+        assert!(de != 0.0);
+        let de_double = e.work(&loc2, &st2, 1, 2.0 * t2, RM);
+        assert!((de_double - 2.0 * de).abs() < 1e-12 * de.abs(), "constant field: work is linear in the step");
+        e.set_angles(&loc2, &mut st2, 1, t2);
+        let n2 = st2.u[1] * st2.u[1] + st2.v[1] * st2.v[1] + st2.w[1] * st2.w[1];
+        assert!((n2 - 1.0).abs() < 1e-9, "{n2}");
     }
 
     #[test]
@@ -12775,7 +13001,12 @@ mod tests {
         }
         let log = Arc::new(RwLock::new(Vec::new()));
         let geo = Tutor1Geo { zbound: lit(0.1), prm: lit(0.5109989461), log: log.clone() };
-        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() } };
+        // `EGSNRC_EM_FIELD=ex,ey,ez,bx,by,bz,emlmt`: the constant EM field the user code set (`difftutEB`, ...)
+        let em = std::env::var("EGSNRC_EM_FIELD").ok().map(|v| {
+            let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
+            EmField { e_in: [x[0], x[1], x[2]], b: [x[3], x[4], x[5]], emlmt: x[6] }
+        });
+        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() }, em };
         let pcfg = PhotonConfig { pair: PairConfig { pair_nrc, itriplet, ..PairConfig::default() }, rr: None, prm: RM, vacdst: 1.0e8 };
         let mut drv = Tutor1Driver { tables: etables, cfg: ecfg, geo: geo.clone(), counters: ElectrCounters::default() };
         let mut pgeo = geo;
