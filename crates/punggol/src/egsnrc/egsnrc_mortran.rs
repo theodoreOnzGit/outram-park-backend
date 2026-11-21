@@ -10703,4 +10703,83 @@ mod tests {
         assert_eq!(parse_medium_header(line).unwrap(), (1.2048e-3, 4, 0, 1, 1));
     }
 
+    /// Phase 2: the data readers on the REAL EGSnrc data files (not vendored
+    /// here: `EGSNRC_HEN_HOUSE_DATA`, default
+    /// `/tmp/claude-0/up/egsnrc/HEN_HOUSE/data`, plus `.../pegs4/pgs4form.dat`).
+    /// Checks structure and sanity, not agreement with EGSnrc output.
+    ///
+    /// Results (2026-11-21): `spinms.data` is exactly `1 + 100*4*16` records of
+    /// 1104 bytes (7066704 bytes) and decodes; `pair_nrc1.data` is exactly
+    /// `1 + 100*84` records of 260 bytes (2184260 bytes), header `ne = 84`,
+    /// `nb = 65`, and builds the alias tables for water; `eii_ik.data`,
+    /// `nist_brems.data`, `nrc_brems.data`, `triplet.data`, `epdl_*.data`,
+    /// `compton_sigma.data` parse. The user-photon tables for water give a
+    /// no-Rayleigh mean free path at 1 MeV within 2 % of 1/(0.0707 cm^2/g)
+    /// (a value recalled from NIST XCOM, not read from the repo).
+    #[test]
+    fn real_hen_house_data_files_when_available() {
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let Ok(spin_bytes) = std::fs::read(format!("{dir}/spinms.data")) else {
+            eprintln!("EGSnrc data not found in {dir}: real-data test skipped");
+            return;
+        };
+        let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
+        // spinms.data
+        let sf = SpinFile::from_bytes(&spin_bytes).unwrap();
+        eprintln!("spinms.data: {} records, E {}..{} keV, b2 {}..{}", sf.records.len(), sf.espin_min, sf.espin_max, sf.b2spin_min, sf.b2spin_max);
+        assert_eq!(sf.records.len(), 100 * 4 * (MAXE_SPIN + 1));
+        assert!(sf.espin_min > 0.0 && sf.espin_max > sf.espin_min && sf.b2spin_max > sf.b2spin_min);
+        // pair_nrc1.data
+        let nf = NrcPairFile::from_bytes(&std::fs::read(format!("{dir}/pair_nrc1.data")).unwrap()).unwrap();
+        eprintln!("pair_nrc1.data: emin {} emax {} ne {} nb {}", nf.emin, nf.emax, nf.ne, nf.nb);
+        let water = vec![vec![], vec![(1.0, 2.0), (8.0, 1.0)]];
+        let nd = nf.init(&water).unwrap();
+        assert_eq!(nd.tables[1].len(), NRC_PAIR_NEE + 1);
+        // triplet.data
+        let td = init_triplet(&text("triplet.data"), &water, RM).unwrap();
+        assert!(td.a_triplet[1].iter().any(|v| *v != 0.0));
+        // user photon set for water, with Rayleigh form factors and bound Compton
+        let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();
+        let inp = UserPhotonInput {
+            photo: text("epdl_photo.data"),
+            pair: text("epdl_pair.data"),
+            triplet: text("epdl_triplet.data"),
+            rayleigh: text("epdl_rayleigh.data"),
+            photonuc: Some(text("iaea_photonuc.data")),
+            compton: BoundComptonData::Ratio(text("compton_sigma.data")),
+            mxge: 2000,
+            eadl_relax: false,
+            rm: RM,
+            form_factors: Some(ff),
+        };
+        let media = vec![
+            UserPhotonMedium::default(),
+            UserPhotonMedium { comp: vec![(1.0, 2.0, 1.00794), (8.0, 1.0, 15.9994)], rho: 1.0, ap: 0.01, up: 50.0, rayleigh: true },
+        ];
+        let t = init_user_photon(&inp, &media).unwrap();
+        let m = &t.media[1];
+        let gle = 1.0_f64.ln();
+        let l = (m.ge1 * gle + m.ge0) as usize;
+        let mfp = m.gmfp.eval(l, gle);
+        eprintln!("water, 1 MeV: no-Rayleigh mean free path {mfp} cm (1/0.0707 = {})", 1.0 / 0.0707);
+        assert!((mfp * 0.0707 - 1.0).abs() < 0.02, "{mfp}");
+        assert!(m.rayleigh.is_some());
+        // the EDGSET readers on photo_relax.data and photo_cs.data, then eii_ik.data
+        let (relax_d, _photo_d) = edgset_from_text(&text("photo_relax.data"), &text("photo_cs.data")).unwrap();
+        eprintln!("Pb binding energies (MeV): {:?}", &relax_d.binding_energies[82][1..=4]);
+        let mut etabs = toy_electron_tables();
+        let ein = vec![EiiMediumInput::default(), EiiMediumInput { comp: vec![(82.0, 1.0, 207.2)], rho: 11.34, ae: 0.521, ap: 0.01 }];
+        let ed = eii_init(&text("eii_ik.data"), &ein, &relax_d, &mut etabs.media, RM, EiiReadings::default());
+        eprintln!("eii_ik.data: {:?}", ed.as_ref().map(|d| (d.flag, d.nshells[82], d.nsh[1])).map_err(|e| e.clone()));
+        assert!(ed.is_ok());
+        // eii_ik.data and the NIST/NRC bremsstrahlung tables parse (toy electron tables, lead)
+        let mut tabs = toy_electron_tables();
+        let nin = vec![NistBremsInput::default(), NistBremsInput { comp: vec![(82.0, 1.0, 207.2)], ap: 0.01, ae: 0.01 + RM, ue: 10.5 }];
+        for (file, which) in [("nist_brems.data", 1), ("nrc_brems.data", 2)] {
+            let r = init_nist_brems(&text(file), which, &nin, &mut tabs.media, RM);
+            eprintln!("{file}: {:?}", r.as_ref().map(|v| *v).map_err(|e| e.clone()));
+            assert!(r.is_ok(), "{file}");
+        }
+    }
+
 }

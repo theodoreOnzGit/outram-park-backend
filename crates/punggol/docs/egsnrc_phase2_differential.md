@@ -1,7 +1,8 @@
 # EGSnrc phase 2: differential tests against compiled upstream (2026-11-21)
 
-Status: **partial**. Only the PEGS4 program (`pegs4_mortran.rs`) has been
-compared with a built upstream. Everything else in `punggol::egsnrc` and all of
+Status: **partial**. The PEGS4 program (`pegs4_mortran.rs`) has been
+compared with a built upstream, and the data-file readers have been run on the
+real EGSnrc data files. Everything else in `punggol::egsnrc` and all of
 `punggol::openmc_photon` is still "first port, not differentially tested"; the
 reasons and the issues are at the end.
 
@@ -60,6 +61,33 @@ Candidates, not tested: the order of single-precision operations in
 maintainer: it is above the 1e-9 code-to-code bound and is propagated error of
 the `real*4` program, not a physics disagreement.
 
+## The data files ARE in the EGSnrc repository (correction)
+
+~~"The files are not available"~~ **CORRECTED 2026-11-21:** the maintainer does
+not have them to hand, but `HEN_HOUSE/data/` of the pinned EGSnrc commit holds
+`spinms.data`, `pair_nrc1.data`, `eii_ik.data`, `nist_brems.data`,
+`nrc_brems.data`, `triplet.data`, `epdl_{photo,pair,rayleigh,triplet}.data`,
+`compton_sigma.data`, `iaea_photonuc.data`, `photo_relax.data`, `photo_cs.data`
+(31 MB; a sparse checkout of that directory fetched them). They are AGPL data
+and stay in the scratch clone, never committed. Test
+`real_hen_house_data_files_when_available` (env `EGSNRC_HEN_HOUSE_DATA`) runs
+the readers on them; it checks structure and sanity, not agreement with EGSnrc
+output:
+
+- `spinms.data` is exactly `1 + 100*4*16` records of 1104 bytes
+  (7,066,704 bytes), header 1 to 100 keV, b2 0.3005 to 1; decodes.
+  ~~"not re-checked against a real `spinms.data`"~~: layout confirmed by size
+  and header.
+- `pair_nrc1.data` is exactly `1 + 100*84` records of 260 bytes (2,184,260
+  bytes), `emin 2.01`, `emax 168.6`, `ne 84`, `nb 65`; builds the water tables.
+- `triplet.data`, `epdl_*`, `compton_sigma.data`, `iaea_photonuc.data`,
+  `eii_ik.data`, `nist_brems.data`, `nrc_brems.data`, `photo_relax.data`,
+  `photo_cs.data` parse; Pb binding energies read K 88.0045, L1 15.86, L2 15.20,
+  L3 13.04 keV (the K edge matches `EKEDGE(82)` of the PEGS4 run).
+- The user-photon tables for water give a no-Rayleigh photon mean free path at
+  1 MeV of 14.167 cm against 14.144 cm from 1/(0.0707 cm^2/g) (0.0707 recalled
+  from NIST XCOM, not read from the repo): +0.16 %.
+
 ## Not differentially tested, and why
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
@@ -67,8 +95,8 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 - The EGSnrc transport kernel (`photon`, `electr`, `shower`, `moller`, `brems`,
   EII, triplet, Rayleigh, ...): needs a built user code on the full EGSnrc
   tree and a matching geometry on the Rust side.
-- Everything that reads `spinms.data`, `pair_nrc1.data`, `eii_ik.data`,
-  `nist_brems.data`, `nrc_brems.data` and the `<prefix>_*.data` photon set:
-  the files are not available.
+- Everything that reads the data files above: now readable (see above), but
+  no EGSnrc output exists to compare the derived tables with until the
+  transport kernel is built.
 - All of `punggol::openmc_photon`: OpenMC needs its vendored submodules and
   HDF5 photon data, which are not available.
