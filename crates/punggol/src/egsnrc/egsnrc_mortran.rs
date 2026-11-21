@@ -8471,6 +8471,14 @@ pub struct SpinFits {
     pub blcce: Pwlf,
 }
 
+/// `alog` of a `real*4`, the way gfortran's glibc `logf` gives it: computed in
+/// `f64` and rounded, which agrees with glibc for all but extreme cases, where
+/// `petir`'s `f32` `ln` is one ulp off in about 7 % of arguments
+/// (`tests/f32_math_vs_gfortran.rs`, gh:#1688).
+fn ln32(x: f32) -> f32 {
+    RealMath::r_ln(f64::from(x)) as f32
+}
+
 /// `init_spin` (`egsnrc.mortran:3309-3706`), from the decoded records: the
 /// spin rejection function for multiple elastic scattering and the
 /// interpolation arrays for the screening parameter, elastic cross section and
@@ -8494,8 +8502,8 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
 
     // header ranges and the energy grid (keV), `real*4` arithmetic where upstream's is
     let (e_min_kev, e_max_kev) = (file.espin_min, file.espin_max);
-    let dloge = (RealMath::r_ln(e_max_kev / e_min_kev) / n_ener as f32) as f64;
-    let mut eloge = RealMath::r_ln(e_min_kev) as f64;
+    let dloge = (ln32(e_max_kev / e_min_kev) / n_ener as f32) as f64;
+    let mut eloge = ln32(e_min_kev) as f64;
     let mut earray = alloc::vec![0.0_f64; ne1 + 1];
     earray[0] = e_min_kev as f64;
     for i in 1..=n_ener {
@@ -8513,9 +8521,9 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
     // convert to MeV and set the interpolation intervals (real*4 storage)
     let espin_min = e_min_kev / 1000.0_f32;
     let espin_max = e_max_kev / 1000.0_f32;
-    let dlener = RealMath::r_ln(espin_max / espin_min) / MAXE_SPIN as f32;
+    let dlener = ln32(espin_max / espin_min) / MAXE_SPIN as f32;
     let dleneri = 1.0_f32 / dlener;
-    let espml = RealMath::r_ln(espin_min);
+    let espml = ln32(espin_min);
     let dbeta2 = (file.b2spin_max - file.b2spin_min) / MAXE_SPIN as f32;
     let dbeta2i = 1.0_f32 / dbeta2;
     let dqq1 = 0.5_f32 / MAXQ_SPIN as f32;

@@ -218,13 +218,13 @@ use super::get_media_inputs_mortran::{ASYMT, WATBL};
 use super::pegs4_routines_mortran::{aintp, pwlf1, qd, ListReader, Pegs4Common, Pegs4Constants, Pegs4Error};
 
 fn ln(x: f32) -> f32 {
-    RealMath::r_ln(x)
+    RealMath::r_ln(f64::from(x)) as f32
 }
 fn exp(x: f32) -> f32 {
-    RealMath::r_exp(x)
+    RealMath::r_exp(f64::from(x)) as f32
 }
 fn powf(x: f32, y: f32) -> f32 {
-    RealMath::r_powf(x, y)
+    RealMath::r_powf(f64::from(x), f64::from(y)) as f32
 }
 fn sqrt(x: f32) -> f32 {
     Real::sqrt(x)
@@ -4696,6 +4696,9 @@ mod tests {
                     continue;
                 }
                 n_diff += 1;
+                if std::env::var("PEGS4_SHOW_DIFFS").is_ok() {
+                    eprintln!("{name} line {}:\n  port: {}\n  ref : {}", i + 1, m.trim_end(), r.trim_end());
+                }
                 let (nm, nr) = (num(m), num(r));
                 if nm.len() != nr.len() {
                     n_tok += 1;

@@ -388,3 +388,33 @@ events. All residuals are above the 1e-9 allowance; causes not isolated
 case) and reported to the maintainer. Not compared: `pair_nrc1.data` and
 `triplet.data` tables themselves, the options in combination, `eii_flag`
 with brems options.
+
+
+## PEGS4 residual: `f32` library functions (gh:#1688, 2026-11-21)
+
+The PEGS4 port's single-precision fit coefficients differed from a built PEGS4
+at 1.7e-4 to 3.8e-4. **Cause found:** `petir`'s `f32` `r_exp`, `r_ln` and
+`r_powf` are one ulp off glibc's `expf`, `logf`, `powf` (which gfortran calls
+for `real*4` `exp`, `log`, `**`) in 7 to 9 % of arguments
+(`tests/f32_math_vs_gfortran.rs` with `verification_and_validation/f32_math/`:
+319, 282 and 379 of 4000 arguments differ; `r_powi` agrees on 48000 of 48000).
+Computing the three in `f64` and rounding (glibc's results are within 0.502
+ulp, so this agrees with them almost always) in `pegs4_routines_mortran.rs`
+and `pegs4_mortran.rs`:
+
+| medium | differing lines before | after | worst `|d|/max|line|` before | after |
+|---|---|---|---|---|
+| `pb700` | 606 of 3388 | 9 | 1.7e-4 | 8.9e-6 |
+| `h2o700` | 576 of 3741 | 8 | 3.8e-4 | 3.2e-6 |
+| `tis521` | 131 of 674 | 3 | 2.4e-4 | 2.8e-6 |
+
+The 20 lines that still differ (three clusters of a few coefficients each)
+are above the 1e-9 bound; cause not isolated. The `f64` functions of `petir`
+also differ from glibc in the last bit for `sin` (571 of 20000), `cos` (618),
+`tan` (110), `atan` (917), `log10` (2410), `exp` (22), `pow` (9), `ln` (1);
+substituting `f64::sin/cos/tan/exp/ln/powf` (glibc through `std`) for them in
+`egsnrc_mortran.rs` changed **no** history number (tutor1, promoted build:
+still 1.07e-8 / 5.3e-9 with EADL), so those last-bit differences are not what
+limits the `shower` comparison. `petir` is not changed here. `ln32` (the
+spin-table setup's `real*4` `alog`) now uses the `f64` route too, with no
+visible effect.
