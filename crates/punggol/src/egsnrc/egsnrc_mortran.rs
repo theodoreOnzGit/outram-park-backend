@@ -36,6 +36,7 @@
 //! | `SUBROUTINE init_compton` (`egsnrc.mortran:2422-2575`) | [`init_compton`] |
 //! | `SUBROUTINE mscati` (`egsnrc.mortran:2749-2975`), without `init_spin` | [`mscati`], [`MscatiSettings::resolve`] |
 //! | the table assembly of `HATCH` (`egsnrc.mortran:2036-2325`, `egsnrc.macros:1981-2036, 3681-3692`) | [`hatch_media`], [`adjust_rhor_ecut_pcut`] |
+//! | `SUBROUTINE init_spin` (`egsnrc.mortran:3309-3706`), from decoded records | [`init_spin`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -4978,6 +4979,364 @@ pub fn adjust_rhor_ecut_pcut(
     }
 }
 
+/// One direct-access record of `spinms.data` as `init_spin` reads it
+/// (`egsnrc.mortran:3403-3419`): four 32-bit floats, `fmax_array(0:15)` and
+/// 512 16-bit integers.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpinRecord {
+    /// `dum1`, `dum2`, `dum3`, `aux_o` (`real*4`).
+    pub dum: [f32; 3],
+    /// `aux_o`.
+    pub aux_o: f32,
+    /// `fmax_array(0:MAXQ_SPIN)`.
+    pub fmax: [f32; MAXQ_SPIN + 1],
+    /// `i2_array(1:512)`.
+    pub i2: Vec<i16>,
+}
+
+/// The decoded contents of `spinms.data`: the header ranges and every record,
+/// indexed `[(iz - 1) * 4 * (n_ener + 1) + 2 * iq * (n_ener + 1) + i]` for
+/// `iz = 1..=100`, `iq = 0..=1`, `i = 0..=MAXE_SPI1`.
+///
+/// The binary decoder itself is not ported: the byte order token
+/// (`$BYTE_ORDER`) and `$RECL-FACTOR` that fix the layout are build-time
+/// macros of EGSnrc's configuration, which is not in the source this port
+/// read. A decoder must produce this structure.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpinFile {
+    /// `espin_min`, `espin_max`: energy range, keV (`real*4`).
+    pub espin_min: f32,
+    /// See `espin_min`.
+    pub espin_max: f32,
+    /// `b2spin_min`, `b2spin_max` (`real*4`).
+    pub b2spin_min: f32,
+    /// See `b2spin_min`.
+    pub b2spin_max: f32,
+    /// The records.
+    pub records: Vec<SpinRecord>,
+}
+
+/// What `init_spin` needs of one medium.
+#[derive(Debug, Clone, Default)]
+pub struct SpinMediumInput {
+    /// `(ZELEM, PZ, WA)` per element.
+    pub elements: Vec<(f64, f64, f64)>,
+    /// `eke0`, `eke1`, `meke`.
+    pub eke0: f64,
+    /// See `eke0`.
+    pub eke1: f64,
+    /// See `eke0`.
+    pub neke: usize,
+    /// `blcc`, `xcc` as `mscati` leaves them (Euler constant absorbed, `xcc` squared).
+    pub blcc: f64,
+    /// See `blcc`.
+    pub xcc: f64,
+    /// `TE(medium)` and `UE(medium)`, MeV.
+    pub te: f64,
+    /// See `te`.
+    pub ue: f64,
+    /// The `esig` and `ededx` fits (1-based).
+    pub esig: Pwlf,
+    /// See `esig`.
+    pub ededx: Pwlf,
+}
+
+/// The spin-effect fits of one medium (`COMMON/ELECIN/`, 1-based).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SpinFits {
+    /// `etae_ms`, `etap_ms`: screening-angle correction.
+    pub etae_ms: Pwlf,
+    /// See `etae_ms`.
+    pub etap_ms: Pwlf,
+    /// `q1ce_ms`, `q1cp_ms`: first-moment correction.
+    pub q1ce_ms: Pwlf,
+    /// See `q1ce_ms`.
+    pub q1cp_ms: Pwlf,
+    /// `q2ce_ms`, `q2cp_ms`: second-moment correction.
+    pub q2ce_ms: Pwlf,
+    /// See `q2ce_ms`.
+    pub q2cp_ms: Pwlf,
+    /// `blcce`: correction to `blcc` for the scattering power already in
+    /// discrete Moller/Bhabha events.
+    pub blcce: Pwlf,
+}
+
+/// `init_spin` (`egsnrc.mortran:3309-3706`), from the decoded records: the
+/// spin rejection function for multiple elastic scattering and the
+/// interpolation arrays for the screening parameter, elastic cross section and
+/// first and second moments. Returns the [`SpinData`] (rejection tables for
+/// all media and the interpolation constants) and the [`SpinFits`] of each
+/// medium. `prm` is `PRM`. Single-precision storage follows upstream:
+/// the file values and `spin_rej`, `espin_*`, `dlener(i)`, `dbeta2(i)`, `dqq1(i)`
+/// are `real*4`, and the arithmetic upstream does on them in single precision
+/// is done in `f32` here.
+///
+/// # Errors
+///
+/// A message when a medium element's record is missing.
+pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result<(SpinData, Vec<SpinFits>), String> {
+    use super::egs_utilities_mortran::{set_spline, spline};
+    const FINE: f64 = 137.03604;
+    const TF_CONSTANT: f64 = 0.88534138;
+    let n_ener = MAXE_SPIN;
+    let ne1 = MAXE_SPI1 + 1; // 0..=MAXE_SPI1
+    let fool = |v: f64| v; // (the $FOOL-INTEL-OPTIMIZER hooks print only)
+    let _ = fool;
+
+    // header ranges and the energy grid (keV), `real*4` arithmetic where upstream's is
+    let (e_min_kev, e_max_kev) = (file.espin_min, file.espin_max);
+    let dloge = (RealMath::r_ln(e_max_kev / e_min_kev) / n_ener as f32) as f64;
+    let mut eloge = RealMath::r_ln(e_min_kev) as f64;
+    let mut earray = alloc::vec![0.0_f64; ne1 + 1];
+    earray[0] = e_min_kev as f64;
+    for i in 1..=n_ener {
+        eloge += dloge;
+        earray[i] = RealMath::r_exp(eloge);
+    }
+    let dbeta2_first = ((file.b2spin_max - file.b2spin_min) / n_ener as f32) as f64;
+    let mut beta2 = file.b2spin_min as f64;
+    earray[n_ener + 1] = e_max_kev as f64;
+    for i in (n_ener + 2)..=(2 * n_ener + 1) {
+        beta2 += dbeta2_first;
+        earray[i] = if beta2 < 0.999 { prm * 1000.0 * (1.0 / Real::sqrt(1.0 - beta2) - 1.0) } else { 50585.1 };
+    }
+
+    // convert to MeV and set the interpolation intervals (real*4 storage)
+    let espin_min = e_min_kev / 1000.0_f32;
+    let espin_max = e_max_kev / 1000.0_f32;
+    let dlener = RealMath::r_ln(espin_max / espin_min) / MAXE_SPIN as f32;
+    let dleneri = 1.0_f32 / dlener;
+    let espml = RealMath::r_ln(espin_min);
+    let dbeta2 = (file.b2spin_max - file.b2spin_min) / MAXE_SPIN as f32;
+    let dbeta2i = 1.0_f32 / dbeta2;
+    let dqq1 = 0.5_f32 / MAXQ_SPIN as f32;
+    let dqq1i = 1.0_f32 / dqq1;
+
+    let nmed = media.len();
+    let mut spin = SpinData {
+        spin_rej: alloc::vec![0.0; nmed * 2 * (MAXE_SPI1 + 1) * (MAXQ_SPIN + 1) * (MAXU_SPIN + 1)],
+        espml,
+        b2spin_min: file.b2spin_min,
+        dbeta2i,
+        dleneri,
+        dqq1i,
+    };
+    let mut fits_out = Vec::with_capacity(nmed);
+
+    for (m0, med) in media.iter().enumerate() {
+        let medium = m0 + 1;
+        let mut eta_array = [[0.0_f64; MAXE_SPI1 + 1]; 2];
+        let mut c_array = [[0.0_f64; MAXE_SPI1 + 1]; 2];
+        let mut g_array = [[0.0_f64; MAXE_SPI1 + 1]; 2];
+        let (mut sum_z2, mut sum_z) = (0.0_f64, 0.0_f64);
+        for &(z, pz, _wa) in &med.elements {
+            let iz = (z + 0.5) as usize;
+            let tmp = pz * z * (z + 1.0);
+            sum_z2 += tmp;
+            sum_z += pz * z;
+            let z23 = RealMath::r_powf(z, 0.6666667);
+            for iq in 0..2usize {
+                for i in 0..=MAXE_SPI1 {
+                    let idx = (iz - 1) * 4 * (n_ener + 1) + 2 * iq * (n_ener + 1) + i;
+                    let rec = file
+                        .records
+                        .get(idx)
+                        .ok_or_else(|| alloc::format!("spin data record missing for Z = {iz}"))?;
+                    let (dum1, dum2, dum3, aux_o) = (rec.dum[0] as f64, rec.dum[1] as f64, rec.dum[2] as f64, rec.aux_o as f64);
+                    eta_array[iq][i] += tmp * RealMath::r_ln(z23 * aux_o);
+                    let tau = earray[i] / prm * 0.001;
+                    let eta = z23 / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT)) * aux_o / 4.0 / tau / (tau + 2.0);
+                    c_array[iq][i] += tmp * (RealMath::r_ln(1.0 + 1.0 / eta) - 1.0 / (1.0 + eta)) * dum1 * dum3;
+                    g_array[iq][i] += tmp * dum2;
+                    for j in 0..=MAXQ_SPIN {
+                        let tmp_4 = rec.fmax[j];
+                        for k in 0..=MAXU_SPIN {
+                            let mut ii4 = rec.i2[(MAXU_SPIN + 1) * j + k] as i32;
+                            if ii4 < 0 {
+                                ii4 += 65536;
+                            }
+                            // dum1 = ii4; dum1 = dum1*tmp_4/65535 in single precision
+                            let d1: f32 = ii4 as f32 * tmp_4 / 65535.0_f32;
+                            let at = spin_idx(medium, iq, i, j, k);
+                            spin.spin_rej[at] = (spin.spin_rej[at] as f64 + tmp * d1 as f64) as f32;
+                        }
+                    }
+                }
+            }
+        }
+        // scale the maximum of the rejection function to unity
+        for iq in 0..2usize {
+            for i in 0..=MAXE_SPI1 {
+                for j in 0..=MAXQ_SPIN {
+                    let mut fmax = 0.0_f64;
+                    for k in 0..=MAXU_SPIN {
+                        let v = spin.spin_rej[spin_idx(medium, iq, i, j, k)] as f64;
+                        if v > fmax {
+                            fmax = v;
+                        }
+                    }
+                    for k in 0..=MAXU_SPIN {
+                        let at = spin_idx(medium, iq, i, j, k);
+                        spin.spin_rej[at] = (spin.spin_rej[at] as f64 / fmax) as f32;
+                    }
+                }
+            }
+        }
+        // eta, c and g arrays to their final form
+        for i in 0..=MAXE_SPI1 {
+            let tau = earray[i] / prm * 0.001;
+            let _beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
+            for iq in 0..2usize {
+                let aux_o = (RealMath::r_exp(eta_array[iq][i] / sum_z2) / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT))) as f32 as f64;
+                eta_array[iq][i] = 0.26112447 * aux_o * med.blcc / med.xcc;
+                let eta = aux_o / 4.0 / tau / (tau + 2.0);
+                let l = RealMath::r_ln(1.0 + 1.0 / eta);
+                let gamma = 3.0 * (1.0 + eta) * (l * (1.0 + 2.0 * eta) - 2.0) / (l * (1.0 + eta) - 1.0);
+                g_array[iq][i] = g_array[iq][i] / sum_z2 / gamma;
+                c_array[iq][i] = c_array[iq][i] / sum_z2 / (l - 1.0 / (1.0 + eta));
+            }
+        }
+
+        let neke = med.neke;
+        let (eke0, eke1) = (med.eke0, med.eke1);
+        let new_pwlf = || Pwlf { a0: alloc::vec![0.0; neke + 2], a1: alloc::vec![0.0; neke + 2] };
+        let mut fits = SpinFits {
+            etae_ms: new_pwlf(),
+            etap_ms: new_pwlf(),
+            q1ce_ms: new_pwlf(),
+            q1cp_ms: new_pwlf(),
+            q2ce_ms: new_pwlf(),
+            q2cp_ms: new_pwlf(),
+            blcce: new_pwlf(),
+        };
+
+        // the screening-parameter interpolation tables
+        let eta_at = |e: f64, eil: f64| -> (f64, f64) {
+            if e <= espin_min as f64 {
+                (eta_array[0][0], eta_array[1][0])
+            } else {
+                let (aae, je);
+                if e <= espin_max as f64 {
+                    let a = (eil - espml as f64) * dleneri as f64;
+                    let j = a as usize;
+                    aae = a - j as f64;
+                    je = j;
+                } else {
+                    let tau = e / prm;
+                    let beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
+                    let a = (beta2 - file.b2spin_min as f64) * dbeta2i as f64;
+                    let j = a as usize;
+                    aae = a - j as f64;
+                    je = j + MAXE_SPIN + 1;
+                }
+                (
+                    (1.0 - aae) * eta_array[0][je] + aae * eta_array[0][je + 1],
+                    (1.0 - aae) * eta_array[1][je] + aae * eta_array[1][je + 1],
+                )
+            }
+        };
+        let eil0 = (1.0 - eke0) / eke1;
+        let (mut si1e, mut si1p) = eta_at(RealMath::r_exp(eil0), eil0);
+        for i in 1..neke {
+            let eil = ((i + 1) as f64 - eke0) / eke1;
+            let e = RealMath::r_exp(eil);
+            let (si2e, si2p) = eta_at(e, eil);
+            fits.etae_ms.a1[i] = (si2e - si1e) * eke1;
+            fits.etae_ms.a0[i] = si2e - fits.etae_ms.a1[i] * eil;
+            fits.etap_ms.a1[i] = (si2p - si1p) * eke1;
+            fits.etap_ms.a0[i] = si2p - fits.etap_ms.a1[i] * eil;
+            si1e = si2e;
+            si1p = si2p;
+        }
+        fits.etae_ms.a1[neke] = fits.etae_ms.a1[neke - 1];
+        fits.etae_ms.a0[neke] = fits.etae_ms.a0[neke - 1];
+        fits.etap_ms.a1[neke] = fits.etap_ms.a1[neke - 1];
+        fits.etap_ms.a0[neke] = fits.etap_ms.a0[neke - 1];
+
+        // splines over the energy grid (ln of the energy in MeV)
+        let mut elarray = alloc::vec![0.0_f64; ne1 + 1]; // 1-based over ndata = MAXE_SPI1 + 1
+        let ndata = MAXE_SPI1 + 1;
+        // upstream indexes elarray(0:MAXE_SPI1); the spline routines take it as
+        // x(1:n), so the 0-based Mortran array maps to 1-based by one
+        for i in 0..=MAXE_SPIN {
+            elarray[i + 1] = RealMath::r_ln(earray[i] / 1000.0);
+        }
+        for i in (MAXE_SPIN + 1)..MAXE_SPI1 {
+            elarray[i + 1] = RealMath::r_ln(earray[i + 1] / 1000.0);
+        }
+        elarray[ndata] = if med.ue > 1e5 { RealMath::r_ln(med.ue) } else { RealMath::r_ln(1e5) };
+        let mut moment_fit = |src: &[f64; MAXE_SPI1 + 1], dst: &mut Pwlf| {
+            let mut farray = alloc::vec![0.0_f64; ne1 + 1];
+            for i in 0..=MAXE_SPIN {
+                farray[i + 1] = src[i];
+            }
+            for i in (MAXE_SPIN + 1)..MAXE_SPI1 {
+                farray[i + 1] = src[i + 1];
+            }
+            farray[ndata] = 1.0;
+            let co = set_spline(&elarray, &farray);
+            let eil = (1.0 - eke0) / eke1;
+            let mut si1 = spline(eil, &elarray, &co);
+            for i in 1..neke {
+                let eil = ((i + 1) as f64 - eke0) / eke1;
+                let si2 = spline(eil, &elarray, &co);
+                dst.a1[i] = (si2 - si1) * eke1;
+                dst.a0[i] = si2 - dst.a1[i] * eil;
+                si1 = si2;
+            }
+            dst.a1[neke] = dst.a1[neke - 1];
+            dst.a0[neke] = dst.a0[neke - 1];
+        };
+        moment_fit(&c_array[0], &mut fits.q1ce_ms);
+        moment_fit(&c_array[1], &mut fits.q1cp_ms);
+        moment_fit(&g_array[0], &mut fits.q2ce_ms);
+        moment_fit(&g_array[1], &mut fits.q2cp_ms);
+
+        // subtract the scattering power already in discrete Moller/Bhabha events
+        let tauc = med.te / prm;
+        let mut si1e = 1.0_f64;
+        for i in 1..neke {
+            let eil = ((i + 1) as f64 - eke0) / eke1;
+            let e = RealMath::r_exp(eil);
+            let tau = e / prm;
+            let si2e;
+            if tau > 2.0 * tauc {
+                let sig = med.esig.eval(i + 1, eil) / med.ededx.eval(i + 1, eil);
+                if sig > 1e-6 {
+                    let etap = fits.etae_ms.eval(i + 1, eil);
+                    let eta = 0.25 * etap * med.xcc / med.blcc / tau / (tau + 2.0);
+                    let g_r = (1.0 + 2.0 * eta) * RealMath::r_ln(1.0 + 1.0 / eta) - 2.0;
+                    let t1 = (tau + 2.0) / (tau + 1.0);
+                    let mut g_m = RealMath::r_ln(0.5 * tau / tauc)
+                        + (1.0 + t1 * t1) * RealMath::r_ln(2.0 * (tau - tauc + 2.0) / (tau + 4.0))
+                        - 0.25
+                            * (tau + 2.0)
+                            * (tau + 2.0 + 2.0 * (2.0 * tau + 1.0) / ((tau + 1.0) * (tau + 1.0)))
+                            * RealMath::r_ln((tau + 4.0) * (tau - tauc) / tau / (tau - tauc + 2.0))
+                        + 0.5 * (tau - 2.0 * tauc) * (tau + 2.0) * (1.0 / (tau - tauc) - 1.0 / ((tau + 1.0) * (tau + 1.0)));
+                    if g_m < g_r {
+                        g_m /= g_r;
+                    } else {
+                        g_m = 1.0;
+                    }
+                    si2e = 1.0 - g_m * sum_z / sum_z2;
+                } else {
+                    si2e = 1.0;
+                }
+            } else {
+                si2e = 1.0;
+            }
+            fits.blcce.a1[i] = (si2e - si1e) * eke1;
+            fits.blcce.a0[i] = si2e - fits.blcce.a1[i] * eil;
+            si1e = si2e;
+        }
+        fits.blcce.a1[neke] = fits.blcce.a1[neke - 1];
+        fits.blcce.a0[neke] = fits.blcce.a0[neke - 1];
+        fits_out.push(fits);
+    }
+    Ok((spin, fits_out))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -6912,6 +7271,133 @@ mod tests {
             let r = shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng).unwrap();
             let total = r.edep_photon_discards + r.edep_local + drv.tally;
             assert!((total - (ei - RM)).abs() < 1e-6, "total {total}");
+        }
+    }
+
+
+    /// A synthetic `spinms.data` content: every record the same smooth,
+    /// non-trivial shape.
+    fn synthetic_spin_file() -> SpinFile {
+        let n = 100 * 4 * (MAXE_SPIN + 1);
+        let rec = SpinRecord {
+            dum: [1.0, 0.9, 1.1],
+            aux_o: 2.0,
+            fmax: [3.0; MAXQ_SPIN + 1],
+            i2: (0..512).map(|v| ((v * 97) % 30000) as i16 - 100).collect(),
+        };
+        SpinFile {
+            espin_min: 1.0,
+            espin_max: 1.0e3,
+            b2spin_min: 0.4,
+            b2spin_max: 0.99,
+            records: alloc::vec![rec; n],
+        }
+    }
+
+    fn spin_medium() -> SpinMediumInput {
+        let t = toy_ms_medium();
+        SpinMediumInput {
+            elements: alloc::vec![(6.0, 1.0, 12.0), (8.0, 2.0, 16.0)],
+            eke0: 11.0,
+            eke1: 2.0,
+            neke: 14,
+            blcc: t.blcc,
+            xcc: t.xcc,
+            te: 0.01,
+            ue: 2.0,
+            esig: const_pwlf(5.0),
+            ededx: const_pwlf(2.0),
+        }
+    }
+
+    #[test]
+    fn init_spin_builds_normalised_rejection_functions_and_continuous_fits() {
+        let file = synthetic_spin_file();
+        let (spin, fits) = init_spin(&file, &[spin_medium(), spin_medium()], RM).unwrap();
+        assert_eq!(fits.len(), 2);
+        // interpolation constants (real*4, as upstream)
+        let dlener = (1.0f32 / 1000.0).ln();
+        let _ = dlener;
+        assert!((spin.espml as f64 - (1.0f64 / 1000.0).ln()).abs() < 1e-6, "espml {}", spin.espml);
+        assert!((spin.dqq1i - 30.0).abs() < 1e-5);
+        assert!(spin.b2spin_min == 0.4);
+        // the rejection function has unit maximum for every (qel, i, j) and is non-negative
+        for medium in 1..=2 {
+            for iq in 0..2 {
+                for i in 0..=MAXE_SPI1 {
+                    for j in 0..=MAXQ_SPIN {
+                        let row: Vec<f32> = (0..=MAXU_SPIN).map(|k| spin.spin_rej[spin_idx(medium, iq, i, j, k)]).collect();
+                        let mx = row.iter().cloned().fold(0.0_f32, f32::max);
+                        assert!((mx - 1.0).abs() < 1e-6, "max {mx}");
+                        assert!(row.iter().all(|&v| v >= 0.0 && v.is_finite()));
+                    }
+                }
+            }
+        }
+        // the piecewise-linear fits are continuous across bins and the last repeats the one before
+        let f = &fits[0];
+        for p in [&f.etae_ms, &f.etap_ms, &f.q1ce_ms, &f.q1cp_ms, &f.q2ce_ms, &f.q2cp_ms, &f.blcce] {
+            for i in 1..13usize {
+                let eil = ((i + 1) as f64 - 11.0) / 2.0;
+                let left = p.a1[i] * eil + p.a0[i];
+                let right = p.a1[i + 1] * eil + p.a0[i + 1];
+                assert!((left - right).abs() < 1e-9 * left.abs().max(1.0), "continuity at {i}: {left} vs {right}");
+                assert!(left.is_finite());
+            }
+            assert_eq!((p.a0[14], p.a1[14]), (p.a0[13], p.a1[13]));
+        }
+        // blcce is 1 below twice the Moller threshold (tau <= 2 tauc) and otherwise in (0, 1]
+        for i in 1..=13usize {
+            let eil = ((i + 1) as f64 - 11.0) / 2.0;
+            let tau = eil.exp() / RM;
+            let v = f.blcce.a1[i] * eil + f.blcce.a0[i];
+            if tau <= 2.0 * 0.01 / RM {
+                assert!((v - 1.0).abs() < 1e-9, "blcce below threshold at {i}: {v}");
+            } else {
+                assert!(v > 0.0 && v <= 1.0 + 1e-9, "blcce {v} at {i}");
+            }
+        }
+        // a missing record is an error
+        let mut short = file.clone();
+        short.records.truncate(10);
+        assert!(init_spin(&short, &[spin_medium()], RM).is_err());
+    }
+
+    #[test]
+    fn init_spin_output_drives_a_scattering_step() {
+        // the spin tables feed mscat/msdist: a spin-on step conserves norms
+        let file = synthetic_spin_file();
+        let (spin, fits) = init_spin(&file, &[spin_medium()], RM).unwrap();
+        let ms = MsData::from_text(&synthetic_ms_text()).unwrap();
+        let mut med = toy_ms_medium();
+        med.eke0 = 11.0;
+        med.eke1 = 2.0;
+        let f = &fits[0];
+        med.etae_ms = f.etae_ms.clone();
+        med.etap_ms = f.etap_ms.clone();
+        med.q1ce_ms = f.q1ce_ms.clone();
+        med.q1cp_ms = f.q1cp_ms.clone();
+        med.q2ce_ms = f.q2ce_ms.clone();
+        med.q2cp_ms = f.q2cp_ms.clone();
+        med.blcce = f.blcce.clone();
+        let mut rng = Ranmar::new(2, 7);
+        for _ in 0..20 {
+            let inp = MsDistInput {
+                e0: 1.0,
+                eloss: 0.002,
+                tustep: 0.01,
+                rhof: 1.0,
+                qel: 0,
+                spin_effects: true,
+                u0: 0.0,
+                v0: 0.0,
+                w0: 1.0,
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+            };
+            let o = msdist_p2(&med, &ms, &spin, &inp, 1, &mut 0.0, &mut rng).unwrap();
+            assert!((o.us * o.us + o.vs * o.vs + o.ws * o.ws - 1.0).abs() < 1e-6);
         }
     }
 
