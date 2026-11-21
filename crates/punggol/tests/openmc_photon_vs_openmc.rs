@@ -17,7 +17,7 @@ use punggol::openmc_photon::{ElectronSubshell, Matrix, PhotonInteraction, Relaxa
 use outram_mc_libs::geometry::position::Direction;
 use petir::rng::lcg::prn;
 use punggol::openmc_photon::bremsstrahlung::BremsstrahlungData;
-use punggol::openmc_photon::reaction::{Event, PhotonSettings, PhotonState, TtbTables, sample_photon_reaction};
+use punggol::openmc_photon::reaction::{Event, PhotonSettings, PhotonState, TtbTables, sample_electron_reaction, sample_photon_reaction, sample_positron_reaction};
 use std::sync::Arc;
 
 struct Dump {
@@ -158,6 +158,8 @@ fn photon_samplers_against_compiled_openmc() {
 
     let (mut n_react, mut react_bad_seed, mut react_bad_event, mut react_bad_nsec) = (0usize, 0usize, 0usize, 0usize);
     let mut w_react = 0.0_f64;
+    let (mut n_chg, mut chg_bad) = (0usize, 0usize);
+    let mut w_chg = 0.0_f64;
     let tables = TtbTables { e_grid: &ttb_grid, electron: &ttb_electron, positron: &ttb_positron };
 
     let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
@@ -302,6 +304,36 @@ fn photon_samplers_against_compiled_openmc() {
                     }
                 }
             }
+            "chg" => {
+                n_chg += 1;
+                let mode: u8 = t[1].parse().unwrap();
+                let kind: u8 = t[2].parse().unwrap();
+                let e: f64 = t[3].parse().unwrap();
+                let mut seed: u64 = t[4].parse().unwrap();
+                let settings = if mode == 0 { PhotonSettings::new() } else { PhotonSettings::new().without_ttb() };
+                let mut st = PhotonState { e, u: Direction::new(0.48, 0.6, 0.64), wgt: 1.0, mu: 0.0, in_void: false, event: Event::None, event_mt: 0 };
+                let out = if kind == 0 {
+                    sample_electron_reaction(&mut st, &settings, Some(&tables), &mut seed)
+                } else {
+                    sample_positron_reaction(&mut st, &settings, Some(&tables), &mut seed)
+                };
+                if st.event != Event::Absorb || t[5] != "4" || st.e != 0.0 || st.wgt != 0.0 {
+                    chg_bad += 1;
+                }
+                if seed != t[8].parse::<u64>().unwrap() {
+                    chg_bad += 1;
+                }
+                if out.secondaries.len() != t[9].parse::<usize>().unwrap() {
+                    chg_bad += 1;
+                } else {
+                    for (k, sec) in out.secondaries.iter().enumerate() {
+                        let b: Vec<f64> = t[10 + 5 * k..15 + 5 * k].iter().map(|x| x.parse().unwrap()).collect();
+                        for (a, b) in [(sec.e, b[0]), (sec.wgt, b[1]), (sec.u.u, b[2]), (sec.u.v, b[3]), (sec.u.w, b[4])] {
+                            w_chg = w_chg.max(if b == 0.0 { a.abs() } else { rel(a, b) });
+                        }
+                    }
+                }
+            }
             other => panic!("unknown sample kind {other}"),
         }
     }
@@ -318,5 +350,6 @@ fn photon_samplers_against_compiled_openmc() {
     eprintln!(
         "{n_react} sample_photon_reaction calls (TTB on/off): event/MT mismatches {react_bad_event}, bank-size mismatches {react_bad_nsec}, final-seed mismatches {react_bad_seed}, worst state/secondary difference {w_react:e}"
     );
+    eprintln!("{n_chg} sample_electron/positron_reaction calls: mismatches (event, seed, bank size) {chg_bad}, worst secondary difference {w_chg:e}");
     assert!(n > 0);
 }

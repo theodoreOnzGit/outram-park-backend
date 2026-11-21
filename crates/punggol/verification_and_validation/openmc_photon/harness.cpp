@@ -196,6 +196,31 @@ int main(int argc, char** argv) {
       }
     }
   }
+  // sample_electron_reaction / sample_positron_reaction
+  for (int mode = 0; mode < 2; ++mode) {
+    settings::electron_treatment = mode == 0 ? ElectronTreatment::TTB : ElectronTreatment::LED;
+    for (int kind = 0; kind < 2; ++kind) {
+      for (double e : rE) {
+        for (uint64_t s0 = 1; s0 <= 300; ++s0) {
+          Particle part;
+          part.type() = kind == 0 ? ParticleType::electron() : ParticleType::positron();
+          part.E() = e * 10.0;
+          part.wgt() = 1.0;
+          part.u() = Direction(0.48, 0.6, 0.64);
+          part.material() = 0;
+          part.stream() = 0;
+          part.seeds(0) = s0 * 32452843ULL;
+          uint64_t seed_in = part.seeds(0);
+          part.local_secondary_bank().clear();
+          if (kind == 0) sample_electron_reaction(part); else sample_positron_reaction(part);
+          auto& bank = part.local_secondary_bank();
+          fprintf(o, "chg %d %d %.17g %llu %d %.17g %.17g %llu %zu", mode, kind, e * 10.0, (unsigned long long)seed_in, (int)part.event(), part.E(), part.wgt(), (unsigned long long)part.seeds(0), bank.size());
+          for (auto& sb : bank) fprintf(o, " %.17g %.17g %.17g %.17g %.17g", sb.E, sb.wgt, sb.u.x, sb.u.y, sb.u.z);
+          fprintf(o, "\n");
+        }
+      }
+    }
+  }
   fclose(o);
   return 0;
 }

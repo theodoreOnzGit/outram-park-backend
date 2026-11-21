@@ -78,6 +78,11 @@ powers) is **not ported and not compared** (gh:#1693).
 | U | 7200 | 0 | 0 | 0 | 4.3e-15 |
 | H | 7200 | 0 | 0 | 0 | 2.6e-14 |
 
+`sample_electron_reaction` and `sample_positron_reaction` (2026-11-21): 10800
+calls per element (TTB on/off, both particles, 9 energies from 20 keV to
+1 GeV, 300 seeds), same synthetic tables: event, final energy and weight,
+final seed, bank size 0 mismatches; worst secondary difference 2.2e-16.
+
 **Defect found and fixed.** The first run of this comparison on U gave 162
 bank-size mismatches and 473 seed mismatches, all in TTB mode on photoelectric
 events. Cause: upstream `atomic_relaxation` calls `process_charged_secondary`
@@ -99,6 +104,4 @@ and give bit-identical results for this element.
 
 ## Not yet compared
 
-`sample_electron_reaction`, `sample_positron_reaction` (charged-particle
-entry points, not called by the harness yet, gh:#1693),
 `Material::init_bremsstrahlung` (not ported, gh:#1693), and further elements (U and H only; data from ENDF/B-VIII.0; gh:#1690).
