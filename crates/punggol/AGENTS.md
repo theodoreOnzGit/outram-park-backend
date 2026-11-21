@@ -120,7 +120,8 @@ and commands an agent needs:
   `from_ace` rejects NJOY's older photoatomic ACE: no subshell data). Ubuntu's
   pandas 2.1 lacks `future.no_silent_downcasting` and refuses the integer
   replacement in `AtomicRelaxation.to_hdf5`; a small driver that patches both
-  (numbers unchanged) is in the phase 2 doc. The comparison links `libopenmc` in a small C++ harness that calls
+  (numbers unchanged) is `verification_and_validation/openmc_photon/mk_h5.py`
+  (`python3.12 mk_h5.py photoat.endf atrelax.endf out.h5`). The comparison links `libopenmc` in a small C++ harness that calls
   `PhotonInteraction::{compton_scatter, rayleigh_scatter, pair_production,
   calculate_xs}` with the same seeds as `punggol::openmc_photon`.
 - **Permissions:** downloading and running third-party binaries or cloning
