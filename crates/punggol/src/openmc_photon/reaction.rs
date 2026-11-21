@@ -54,6 +54,7 @@ use outram_mc_libs::physics::scatter::rotate_angle_openmc_unguarded as rotate_an
 use petir::mathf::RealMath;
 use petir::real::Real;
 use petir::rng::lcg::prn;
+use alloc::sync::Arc;
 
 /// `ElectronTreatment` (`settings.h`): how charged secondaries are handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,9 +73,11 @@ pub enum ElectronTreatment {
 pub struct PhotonSettings {
     /// `settings::energy_cutoff[photon]`, eV (upstream default 1000).
     pub photon_cutoff: f64,
-    /// `settings::energy_cutoff[electron]`, eV (default 1000).
+    /// `settings::energy_cutoff[electron]`, eV (upstream default ~~1000~~
+    /// **0**, CORRECTED 2026-11-21, gh:#1685).
     pub electron_cutoff: f64,
-    /// `settings::energy_cutoff[positron]`, eV (default 1000).
+    /// `settings::energy_cutoff[positron]`, eV (upstream default ~~1000~~
+    /// **0**, CORRECTED 2026-11-21, gh:#1685).
     pub positron_cutoff: f64,
     /// `settings::electron_treatment`.
     pub electron_treatment: ElectronTreatment,
@@ -83,15 +86,21 @@ pub struct PhotonSettings {
 }
 
 impl PhotonSettings {
-    /// Upstream's defaults: TTB on, atomic relaxation on, 1 keV cutoffs
-    /// (`settings.cpp`: `energy_cutoff = {0, 1000, 0, 0}` for neutrons and
-    /// charged particles is overridden by `settings::energy_cutoff` defaults of
-    /// 1000 eV for photon/electron/positron, `settings.cpp:113`).
+    /// Upstream's defaults: TTB on (`settings.cpp:113`), atomic relaxation on
+    /// (`:67`), and `energy_cutoff {0.0, 1000.0, 0.0, 0.0}` (`:114`, indexed
+    /// neutron, photon, electron, positron by `transport_index`,
+    /// `particle_type.h:152-165`): **1 keV for photons, 0 for electrons and
+    /// positrons.** ~~1 keV for all three, "`settings.cpp:113`"~~ **CORRECTED
+    /// 2026-11-21 (gh:#1685):** that misread the array; with 1 keV electron and
+    /// positron cutoffs, sub-keV Compton and Auger electrons were left off the
+    /// charged-secondary list and did not radiate when the photon cutoff is
+    /// below 1 keV (phase 2 used 1, 5 and 50 keV photon cutoffs, where the
+    /// difference cannot show).
     pub fn new() -> Self {
         Self {
             photon_cutoff: 1000.0,
-            electron_cutoff: 1000.0,
-            positron_cutoff: 1000.0,
+            electron_cutoff: 0.0,
+            positron_cutoff: 0.0,
             electron_treatment: ElectronTreatment::Ttb,
             atomic_relaxation: true,
         }
@@ -197,6 +206,12 @@ pub struct ReactionOutcome {
 /// (`p.photon_xs(i_element).total`). Draws one random number; returns the
 /// index into the material's element list, or `None` when the cumulative
 /// probability never exceeds the cutoff (upstream's `fatal_error`).
+///
+/// The densities must be atom densities: upstream converts a weight-fraction
+/// material (negative `atom_density_` entries) to atom densities before any
+/// tracking (`Material::normalize_density`), and this function does not
+/// convert (only the TTB table builder takes the negative entries,
+/// `collision_stopping_power`; gh:#1685).
 pub fn sample_element(macro_total: f64, atom_densities: &[f64], micro_totals: &[f64], seed: &mut u64) -> Option<usize> {
     let cutoff = prn(seed) * macro_total;
     let mut prob = 0.0_f64;
@@ -210,14 +225,17 @@ pub fn sample_element(macro_total: f64, atom_densities: &[f64], micro_totals: &[
 }
 
 /// The bremsstrahlung table to use for a charged type (material's `ttb_`).
-#[derive(Debug, Clone, Copy)]
-pub struct TtbTables<'a> {
+/// Shared read-only data, held by `Arc` (~~borrowed, `TtbTables<'a>`~~
+/// CORRECTED 2026-11-21, gh:#1685: the workspace has no lifetime parameters
+/// on structs).
+#[derive(Debug, Clone)]
+pub struct TtbTables {
     /// `data::ttb_e_grid`, ln eV.
-    pub e_grid: &'a [f64],
+    pub e_grid: Arc<[f64]>,
     /// Electron table.
-    pub electron: &'a BremsstrahlungData,
+    pub electron: Arc<BremsstrahlungData>,
     /// Positron table.
-    pub positron: &'a BremsstrahlungData,
+    pub positron: Arc<BremsstrahlungData>,
 }
 
 /// `isotropic_direction` (azimuth first, as `photon.cpp` uses it).
@@ -248,7 +266,7 @@ pub fn process_charged_secondary(
     e: f64,
     particle: ParticleType,
     settings: &PhotonSettings,
-    ttb: Option<&TtbTables<'_>>,
+    ttb: Option<&TtbTables>,
     out: &mut ReactionOutcome,
     seed: &mut u64,
 ) {
@@ -258,8 +276,8 @@ pub fn process_charged_secondary(
     }
     if e >= settings.cutoff(particle) && settings.electron_treatment == ElectronTreatment::Ttb {
         if let Some(t) = ttb {
-            let data = if particle == ParticleType::Positron { t.positron } else { t.electron };
-            for ph in thick_target_bremsstrahlung(t.e_grid, data, p.in_void, settings.photon_cutoff, e, seed) {
+            let data = if particle == ParticleType::Positron { &t.positron } else { &t.electron };
+            for ph in thick_target_bremsstrahlung(&t.e_grid, data, p.in_void, settings.photon_cutoff, e, seed) {
                 create_secondary(out, settings, ParticleType::Photon, u, ph.energy, p.wgt);
             }
         }
@@ -283,7 +301,7 @@ fn apply_relaxation_secondary(
     p: &PhotonState,
     s: RelaxationSecondary,
     settings: &PhotonSettings,
-    ttb: Option<&TtbTables<'_>>,
+    ttb: Option<&TtbTables>,
     out: &mut ReactionOutcome,
     seed: &mut u64,
 ) {
@@ -315,7 +333,7 @@ pub fn sample_photon_reaction(
     element: &PhotonInteraction,
     micro: &PhotonMicroXs,
     settings: &PhotonSettings,
-    ttb: Option<&TtbTables<'_>>,
+    ttb: Option<&TtbTables>,
     seed: &mut u64,
 ) -> ReactionOutcome {
     let mut out = ReactionOutcome::default();
@@ -440,13 +458,13 @@ pub fn sample_photon_reaction(
 pub fn sample_electron_reaction(
     p: &mut PhotonState,
     settings: &PhotonSettings,
-    ttb: Option<&TtbTables<'_>>,
+    ttb: Option<&TtbTables>,
     seed: &mut u64,
 ) -> ReactionOutcome {
     let mut out = ReactionOutcome::default();
     if settings.electron_treatment == ElectronTreatment::Ttb {
         if let Some(t) = ttb {
-            for ph in thick_target_bremsstrahlung(t.e_grid, t.electron, p.in_void, settings.photon_cutoff, p.e, seed) {
+            for ph in thick_target_bremsstrahlung(&t.e_grid, &t.electron, p.in_void, settings.photon_cutoff, p.e, seed) {
                 create_secondary(&mut out, settings, ParticleType::Photon, p.u, ph.energy, p.wgt);
             }
         }
@@ -462,13 +480,13 @@ pub fn sample_electron_reaction(
 pub fn sample_positron_reaction(
     p: &mut PhotonState,
     settings: &PhotonSettings,
-    ttb: Option<&TtbTables<'_>>,
+    ttb: Option<&TtbTables>,
     seed: &mut u64,
 ) -> ReactionOutcome {
     let mut out = ReactionOutcome::default();
     if settings.electron_treatment == ElectronTreatment::Ttb {
         if let Some(t) = ttb {
-            for ph in thick_target_bremsstrahlung(t.e_grid, t.positron, p.in_void, settings.photon_cutoff, p.e, seed) {
+            for ph in thick_target_bremsstrahlung(&t.e_grid, &t.positron, p.in_void, settings.photon_cutoff, p.e, seed) {
                 create_secondary(&mut out, settings, ParticleType::Photon, p.u, ph.energy, p.wgt);
             }
         }

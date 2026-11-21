@@ -10,8 +10,11 @@
 //   This port:        AGPL-3.0-only, with the MIT notice preserved here.
 //! **OpenMC photon interaction samplers** (gh:#975 / #1683).
 //!
-//! **Status: first port, not differentially tested (gh:#1683).** Nothing here
-//! has been compared with a compiled OpenMC; that is phase 2.
+//! ~~**Status: first port, not differentially tested (gh:#1683).** Nothing here
+//! has been compared with a compiled OpenMC; that is phase 2.~~ **CORRECTED
+//! 2026-11-21 (gh:#1685):** differentially tested against a built OpenMC for U
+//! and H, including a two-element material (`docs/openmc_photon_phase2.md`);
+//! other elements are data-blocked (gh:#1695). Phase 3 review: see that doc.
 //!
 //! # What is ported (upstream `src/photon.cpp` at `8f79d9d0`)
 //!
@@ -53,8 +56,13 @@
 //!   (PENELOPE-2011, Z = 1), so `r[Z_]` reads the radius of element `Z + 1`,
 //!   and `Z = 99` reads one past the end. Ported as upstream has it
 //!   ([`SCREENING_RADIUS`] is indexed by `Z`, with `Z = 99` clamped to the last
-//!   entry instead of reading out of bounds). For phase 2 to confirm against
-//!   the PENELOPE table.
+//!   entry instead of reading out of bounds). ~~For phase 2 to confirm against
+//!   the PENELOPE table.~~ **Confirmed 2026-11-21 (gh:#1685, phase 3):** the
+//!   upstream array at `photon.cpp:802` starts at Z = 1 and is read as
+//!   `r[Z_]` (`:850`, `:854`, `:889`), so upstream uses element `Z + 1`'s
+//!   radius; phase 2's bit identity for U shows the port reads the same entry.
+//!   An upstream defect, kept for code-to-code identity; flagged to the
+//!   maintainer.
 //! - Maths goes through `petir` (`RealMath`, `Real`): never the platform libm.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -303,7 +311,10 @@ pub struct Transition {
     pub secondary_subshell: i32,
     /// Transition energy, eV.
     pub energy: f64,
-    /// Probability of this transition.
+    /// Probability of this transition, **normalised** over the shell's
+    /// transitions: upstream divides by their sum when it loads them
+    /// (`photon.cpp:199`); a caller building data by hand must do the same, or
+    /// the sampling in `atomic_relaxation_with` falls to the last transition.
     pub probability: f64,
 }
 

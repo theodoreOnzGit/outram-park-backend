@@ -410,7 +410,7 @@ fn run_photon(micro_mask: [bool; 4], e: f64, settings: &PhotonSettings, seed: &m
     }
     micro.total = micro.coherent + micro.incoherent + micro.photoelectric + micro.pair_production;
     let (grid, data) = toy_ttb();
-    let tables = TtbTables { e_grid: &grid, electron: &data, positron: &data };
+    let tables = TtbTables { e_grid: Arc::from(grid.as_slice()), electron: Arc::new(data.clone()), positron: Arc::new(data.clone()) };
     let mut p = state(e);
     let out = sample_photon_reaction(&mut p, &el, &micro, settings, Some(&tables), seed);
     (p, out)
@@ -464,6 +464,8 @@ fn correct_physics_is_default() {
     assert_eq!(s.electron_treatment, ElectronTreatment::Ttb);
     assert!(s.atomic_relaxation);
     assert_eq!(s.photon_cutoff, 1000.0);
+    // upstream's `energy_cutoff {0, 1000, 0, 0}` (settings.cpp:114): no electron or positron cutoff (gh:#1685)
+    assert_eq!((s.electron_cutoff, s.positron_cutoff), (0.0, 0.0));
     // ablations are explicit
     assert_eq!(s.without_ttb().electron_treatment, ElectronTreatment::LocalDeposit);
     assert!(!s.without_atomic_relaxation().atomic_relaxation);
@@ -500,7 +502,7 @@ fn deferred_treatment_records_charged_seam_without_ttb() {
 #[test]
 fn electron_and_positron_reactions() {
     let (grid, data) = toy_ttb();
-    let tables = TtbTables { e_grid: &grid, electron: &data, positron: &data };
+    let tables = TtbTables { e_grid: Arc::from(grid.as_slice()), electron: Arc::new(data.clone()), positron: Arc::new(data.clone()) };
     let s = PhotonSettings::new();
     let mut seed = 51u64;
     let mut p = state(2.0e5);
@@ -526,7 +528,7 @@ fn electron_and_positron_reactions() {
 #[test]
 fn process_charged_secondary_branches() {
     let (grid, data) = toy_ttb();
-    let tables = TtbTables { e_grid: &grid, electron: &data, positron: &data };
+    let tables = TtbTables { e_grid: Arc::from(grid.as_slice()), electron: Arc::new(data.clone()), positron: Arc::new(data.clone()) };
     let s = PhotonSettings::new();
     let p = state(1.0e6);
     let mut seed = 61u64;

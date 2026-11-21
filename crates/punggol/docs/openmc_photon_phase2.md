@@ -178,3 +178,69 @@ Further elements beyond U and H (C, O, Si, Fe, Pb, ...): ENDF/B-VIII.0
 `photoat` and `atrelax` tapes for them are not available in this session;
 data request filed as gh:#1695. Nothing else in `punggol::openmc_photon` is
 left uncompared.
+
+## Phase 3: review pass (gh:#1685, 2026-11-21)
+
+One reading pass over what phase 2 did not reach (the handover on gh:#1685),
+against OpenMC `8f79d9d0` (`src/`, `include/openmc/`, and the three Python
+files `decay_spectrum` ports) read from a fresh sparse clone. No passing
+comparison was re-run, and none could be: the OpenMC build and the U/H dumps
+were lost with scratch. The one behavioural fix (the cutoff defaults, below)
+cannot change any phase 2 number: see its entry. `cargo test --release -p
+punggol --lib --tests`: all pass (258 lib tests, 8 integration).
+
+### What was read
+
+| Item (from the handover) | Read against | Finding |
+|---|---|---|
+| Elements other than U and H: no Compton profiles, no relaxation tables, conduction electrons | `photon.cpp:160-262` (constructor), `:924-997` (`atomic_relaxation`), `material.cpp:526-621, 1197-1318` | the port's branches match: `has_atomic_relaxation` gates relaxation and the photoelectric binding energy; `subshell_map` is used only when relaxation data exist (`physics.cpp`, Compton branch); `collision_stopping_power`, `sternheimer_adjustment` and `density_effect` match line for line, including the `n_conduction == 0` (non-metal, `beta_0`) and `> 0` paths |
+| The 7-deep vacancy stack | `photon.h:112`, `photon.cpp:210-214` | same constant; upstream warns at load when an element needs more, and the port's `calc_max_stack_size` is the same check (unit-tested) |
+| Transition probabilities | `photon.cpp:180-200` | upstream normalises them at load; the port takes them as given. Now said on `Transition::probability`. The port clamps `i_trans` to the last transition where upstream would index one past the end (both only when the sum is below the draw) |
+| Weight-fraction input at the material level | `physics.cpp` `sample_element`, `Material::normalize_density` | the port's `sample_element` takes atom densities and does not convert; now said in its doc. Only the TTB builder takes negative entries, as upstream |
+| Photon cutoffs other than 1, 5, 50 keV; `PhotonSettings` | `settings.cpp:67, 113-114, 750-775`, `particle_type.h:152-165` | **defect found: electron and positron cutoff defaults** (below) |
+| Correct-physics defaults | `settings.cpp:67, 113` | TTB on, atomic relaxation on, pinned by `correct_physics_is_default`, with `without_ttb` and `without_atomic_relaxation` |
+| Ordering of secondaries (the class of the two phase 2 defects) | `physics.cpp` Compton, photoelectric, pair branches; `sample_electron_reaction`, `sample_positron_reaction`; `bremsstrahlung.cpp:34-60` | the order of draws and of `create_secondary` calls matches in every branch; TTB returns before drawing when `E` is below the photon cutoff, as upstream |
+| `pair_production`'s `r[Z_]` | `photon.cpp:802-889` | **confirmed upstream defect**: the PENELOPE table starts at Z = 1 and is read as `r[Z_]`, so it uses element Z + 1's radius, and Z = 99 reads past the end. The port reproduces it (Z = 99 clamped) for code-to-code identity. Flagged for the maintainer |
+| Particle split | `crates/*/Cargo.toml` | holds: `punggol` depends on `outram-mc-libs`; nothing depends the other way |
+
+### What was fixed
+
+1. **`PhotonSettings::new()` electron and positron cutoffs: 1000 eV, now
+   0.** Upstream's `energy_cutoff {0.0, 1000.0, 0.0, 0.0}`
+   (`settings.cpp:114`) is indexed neutron, photon, electron, positron; only
+   photons default to 1 keV. The port's doc cited `settings.cpp:113` for 1 keV
+   on all three. Effect: sub-keV Compton and Auger electrons were left off the
+   charged-secondary list (the hand-off to `punggol::egsnrc`), and, with a
+   photon cutoff below 1 keV, sub-keV electrons did not radiate.
+   **Effect on phase 2: none.** The harness set only the photon cutoff, so the
+   reference ran with 0 eV electron cutoffs and the Rust side with 1 keV. At
+   the photon cutoffs compared (1, 5, 50 keV) the two cannot differ: a sub-keV
+   electron's TTB returns before drawing (`E` below the photon cutoff), and the
+   comparison does not include the charged list. Pinned in
+   `correct_physics_is_default`.
+2. **`TtbTables` without a lifetime parameter:** it borrowed its tables
+   (`TtbTables<'a>`); now `Arc<[f64]>` and `Arc<BremsstrahlungData>`, the
+   workspace's pattern for shared read-only data. Same values; tests updated.
+3. **Attribution header** added to `decay_spectrum.rs` (it ports OpenMC's
+   Python and had none); its five line citations checked against `8f79d9d0`.
+4. **Stale docs corrected** (struck through): `openmc_photon` module status
+   ("not differentially tested"), the `r[Z_]` note ("for phase 2 to
+   confirm"), the README table, `lib.rs` status and `SCOPE`, and in
+   `crates/outram-mc-libs/AGENTS.md` "Nothing is ported yet".
+
+### What remains untested, and why
+
+- **Elements other than U and H**: data-blocked (gh:#1695). The branches they
+  would reach were read and match upstream (table above).
+- **The cutoff fix against a built OpenMC**: not run (build lost). A
+  differential run with a sub-keV photon cutoff and the charged list
+  compared would exercise it.
+- **`uom` at the public API: not met** (energies are `f64` eV), as for
+  EGSnrc; the same proposal: a `uom` facade where a user calls in. Maintainer
+  decision.
+- **Downstream heating and KERMA:** nothing to re-measure. No coupled n-γ
+  path exists (`outram-mc-libs` does not record photon birth sites for
+  `punggol`, and `punggol` supplies no geometry), so no V&V number moved off
+  its neutron-only basis; gh:#323 is already closed (not planned, 2026-11-14).
+  The D1S and R2S unblock of gh:#1391 needs that path, so it is **not**
+  unblocked by this phase.
