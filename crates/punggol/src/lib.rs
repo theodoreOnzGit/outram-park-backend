@@ -15,15 +15,26 @@
 //!   `Material.get_decay_photon_energy` and `openmc.stats.DecaySpectrum`
 //!   (gh:#1391). Checked against OpenMC, see
 //!   `verification_and_validation/decay_photon_spectra/`.
-//! - [`egsnrc`]: the EGSnrc port (gh:#976), **scaffolded, nothing
-//!   implemented**: one placeholder module per upstream Mortran file.
+//! - [`egsnrc`]: the EGSnrc port (gh:#976), ~~**scaffolded, nothing
+//!   implemented**~~ **CORRECTED 2026-11-21 (gh:#1682):** PEGS4, HATCH, the
+//!   interaction routines, `PHOTON`, `ELECTR`, `SHOWER`, the EM-field macros
+//!   and `egs_parallel` are ported and differentially tested against a
+//!   compiled EGSnrc (`docs/egsnrc_phase2_differential.md`; bit-identical
+//!   with the `std` feature, to round-off without it); `rad_compton1` and
+//!   `xsec_out` are not ported, on purpose.
 //! - [`openmc_photon`]: the OpenMC photon interaction samplers
 //!   (Klein-Nishina, Compton with Doppler broadening, Rayleigh, pair
 //!   production, atomic relaxation), thick-target bremsstrahlung and the
 //!   photon/electron/positron reaction sampling (gh:#975, gh:#1683).
-//!   **First port, not differentially tested.** Data is passed in; no HDF5
-//!   reader yet.
-//! - **No transport loop.** Nothing here tracks a photon through geometry.
+//!   ~~**First port, not differentially tested.**~~ **CORRECTED 2026-11-21:**
+//!   differentially tested against a built OpenMC for U and H
+//!   (`docs/openmc_photon_phase2.md`); other elements are data-blocked
+//!   (gh:#1695). Data is passed in; no HDF5 reader yet.
+//! - ~~**No transport loop.**~~ **CORRECTED 2026-11-21:** EGSnrc's `PHOTON`,
+//!   `ELECTR` and `SHOWER` are transport loops, behind the compile-time
+//!   `Geometry` / `ElectronGeometry` seams; this crate supplies **no
+//!   geometry** (the tests use a slab), so nothing here tracks a particle
+//!   through a real geometry.
 //!
 //! # Boundaries
 //!
@@ -64,7 +75,7 @@ pub mod openmc_photon;
 
 /// The scope this crate states, as a machine-readable string.
 pub const SCOPE: &str =
-    "Radiation transport beyond neutrons: decay-photon source spectra (EGSnrc scaffolded, OpenMC photon samplers first port, no transport loop)";
+    "Radiation transport beyond neutrons: decay-photon source spectra, the EGSnrc port and the OpenMC photon samplers (transport loops behind a geometry seam, no geometry supplied)";
 
 #[cfg(test)]
 mod tests {
@@ -74,6 +85,6 @@ mod tests {
     #[test]
     fn the_scope_is_recorded() {
         assert!(SCOPE.contains("decay-photon"));
-        assert!(SCOPE.contains("no transport loop"));
+        assert!(SCOPE.contains("no geometry supplied"));
     }
 }

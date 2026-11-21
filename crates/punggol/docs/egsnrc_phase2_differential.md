@@ -5,6 +5,14 @@ spin, Rayleigh) and a 200-history `tutor1` transport run of `punggol::egsnrc`
 have been compared with a built upstream, and the data-file readers have been
 run on the real EGSnrc data files. ~~`punggol::openmc_photon` has not (gh:#1690). Everything else in `punggol::egsnrc` and all of `punggol::openmc_photon` is still "first port, not differentially tested"~~ **CORRECTED 2026-11-21**: `punggol::openmc_photon` is compared for U and H, see `openmc_photon_phase2.md`; the further elements need data (gh:#1695).
 
+**Scope of every bit-identity claim below (maintainer, 2026-11-21, gh:#1682):**
+bit identity with the compiled reference holds **with the `std` feature**,
+where `egsnrc::libm` and the `f32` shims call the platform libm (glibc, the
+library gfortran links). Without `std` they call PETIR's `sin`, `cos`, `tan`,
+`ln`, `exp`, `powf` and `asinh_fdlibm`, which agree with glibc to last-bit
+round-off; the `no_std` build agrees with the reference to round-off, not bit
+for bit, and that is accepted.
+
 ## How the reference was built (scratch, nothing committed)
 
 EGSnrc `bd49a47a` read from a sparse clone (`HEN_HOUSE/{src,pegs4,mortran3,
@@ -1095,3 +1103,84 @@ dispatch itself (the port's `Geometry::hownear` seam takes its place), the
 SLABS component module, and a full BEAMnrc run with Rust (the host would have
 to be mirrored). `EemfVariant::BeamNrc` needs the caller to implement
 `hownear` for the geometry, as BEAMnrc does per component module.
+## Phase 3: review pass (gh:#1682, 2026-11-21)
+
+One reading pass over what phase 2 did not reach (the handover on gh:#1682),
+against EGSnrc `bd49a47a` read from a fresh sparse clone. No comparison that
+passed was re-run; the compiled references were lost with scratch and
+`gfortran` is not installed in this session, so **no phase 2 number was
+re-measured**. None needed to be: every change below either adds a check that
+no differential test calls, or changes a `Default` that every differential test
+overrides field by field (the `reg`/`ereg` closures set all fields), or is a
+behaviour-preserving refactor covered by the unit tests and by reading a real
+PEGS4 file (`700icru.pegs4dat`, AG700ICRU). `cargo test --release -p punggol
+--lib`: 258 passed (256 before, plus the two new tests below).
+
+### What was read
+
+| Item (from the handover) | Read against | Finding |
+|---|---|---|
+| Error and refusal paths | every `$egs_fatal` in `egsnrc.mortran` | the routine-level ones are ported (`SHOWER` pi-zero, `PHOTO` Z range, stack overflows, EII bin, `mscat` step). **Three `HATCH`-time option checks were missing** (below). |
+| `MOLLER` refusing `eii_flag > 0` | `egsnrc.mortran:2598-2745` | correct: a hand-off to `moller_eii_select`, which `ELECTR` calls first |
+| `$SET-TUSTEP-EM-FIELD` and its limit macros | `emf_macros.mortran:99-226` | matches; `$EMULMT`, `$EMELMT`, `$EMFLMT` are all `EMLMTIN`; `$SET-TUSTEP-DIRECTION-VECTOR-CHANGE-BY-MULTIPLE-SCATTERING` is null upstream (the body is commented out, 2004) |
+| `EFXF`/`EFYF`/`EFZF` read as 0 | `emf_macros.mortran:190-193`, the `$GET-EM-FIELD` definitions `:340-420` | confirmed: `$GET-EM-FIELD(EF,BF,...)` writes `EFX0`..., never `EFXF`. With 0 the ratio is exactly 1, so the limit never applies; the port reproduces it. |
+| `$ADD_WORK_EM_FIELD` using the previous `x_final` | `egsnrc.mortran:1471` (the macro) vs `:1551`/`:1559` (`x_final` assigned) | confirmed: the work of a condensed-history step uses the end of the **previous** step. **An upstream physics defect, reproduced on purpose for the comparison**; flagged for the maintainer, not changed (changing it would break the bit-identity the port is checked by). |
+| stale `tperp`, `skindepth` in vacuum | the `EEMF_macros` module doc and `electr` | documented in the module; matches the Fortran's locals. One duplicated assignment (`tperp = v.tperp;` twice) removed. |
+| `$CALC_analyticDeflection`, `$MF_Transport` | `EEMF_macros.mortran:1294-1352`, `:1965-2021` | dead as the module doc says (`ELSEIF(.true.)`; `$MF_Transport` never expanded) |
+| `egs_parallel` and `i_parallel` | `egs_parallel.mortran:336-400` | the uniform and lock-file branches match. `pjob_finish` borrows `cfg`, so upstream's `i_parallel = 0` at `:complete_calculation:` (`:394`) is the caller's; now said in its doc. |
+| BEAMnrc's `IR_to_CM` / `$GOTO_CM_LIST` | `EEMF_macros_beamnrc.mortran:113-130` | not portable here: the component-module dispatch is BEAMnrc's geometry (a user code), which sits behind `ElectronGeometry::hownear` in this port. Untested, by design. |
+| `std` / `no_std` libm | `egsnrc::libm`, the `f32` shims, `asinh_glibc` | routed as described; every transcendental in non-test code goes through them |
+
+### What was fixed
+
+1. **`PhotonTables::check_hatch_options`** (new): the three option-consistency
+   stops of `HATCH` (`init_compton` `:2570-2576`, `EDGSET` `:6355-6362`,
+   `HATCH` `:2465-2472`): bound Compton without relaxation, EADL relaxation
+   without relaxation, EADL with `xcom` without bound Compton. Without them a
+   vacancy reaches `relax` with no data for its element (an index panic, where
+   upstream stops at start-up). Test:
+   `check_hatch_options_refuses_what_hatch_stops_on`.
+2. **Region defaults are EGSnrc's** (`$set-region-by-region-defaults`,
+   `egsnrc.macros:3662-3676`). `PhotonRegionData::default()` was derived, so
+   bound Compton, relaxation, photoelectron angular sampling and Rayleigh were
+   **off**; they are now on (`ibcmp 3`, `iedgfl 1`, `iphter 1`, `irayl 1`), the
+   workspace's correct-physics-default rule. `ElectrRegion::default()` had
+   `smaxir = 0`, which clamps every step to zero; now `$MAX-SMAX = 1e10`. Test:
+   `region_defaults_are_egsnrcs_with_the_physics_on`. No differential number
+   moves (all set the fields).
+3. **No lifetime parameters:** the private PEGS4 line cursor (`Pegs4Lines`)
+   held a `Lines<'a>`; now an index over a line slice. Same output (unit tests,
+   the real 700icru file).
+4. **Bit identity is a `std` claim** (maintainer, 2026-11-21): stated once at
+   the top of this record, in `egsnrc`'s module doc, in the BEAMnrc module
+   doc, in `AGENTS.md` and in the README status.
+5. **Stale docs corrected** (struck through): `lib.rs` status and `SCOPE`
+   ("scaffolded, nothing implemented", "no transport loop"), the README status
+   and table, `egsnrc` module doc ("not differentially tested"), `COMPT`'s
+   doc ("`RELAX` is not ported"), the `punggol` rows of
+   `docs/ecosystem-naming.md` and `docs/claude-md/members-and-dependencies.md`.
+6. Two unused imports removed; one `punggol` integration test that reads a
+   chain file gated on `std` (it stopped compiling without `std` once the chain
+   codec became `no_std`, gh:#1648).
+
+### What remains untested, and why
+
+- **The `HATCH` checks and new defaults against a compiled EGSnrc**: not run
+  (no `gfortran`, references lost). They are upstream's own values and
+  messages, cited line by line.
+- **`uom` at the public API: not met.** The port's public functions take `f64`
+  MeV and cm, mirroring the Fortran COMMONs field for field, which is what lets
+  the differential tests compare them. Wrapping ~1,000 fields in `uom` would be
+  a rewrite of the API phase 2 verified; the proposal is a `uom` facade at the
+  layer a user calls (the coupling to `outram-mc-libs`), when that layer is
+  written. **Maintainer decision.**
+- **`ElectrConfig` has no `Default`**: a caller must choose `spin_effects`,
+  `exact_bca`, `presta_ii`; upstream's defaults are on, on, PRESTA-II. Not a
+  silent off (it cannot be omitted), so left; a `Default` with upstream's
+  values would be the next step if wanted.
+- **`$ADD_WORK_EM_FIELD`'s previous-step `x_final`**: an upstream defect kept
+  for bit identity. Whether to offer a corrected variant is a maintainer call.
+- BEAMnrc component modules, `rad_compton1`, `xsec_out`: not ported, as before.
+- Energies above a medium's `UE`/`UP`: upstream does not check (an
+  out-of-range table index reads past the array); the port panics on the
+  index instead. Not reachable when the PEGS4 data cover the source energy.

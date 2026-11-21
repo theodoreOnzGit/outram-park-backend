@@ -372,6 +372,11 @@ pub struct PjobFinishResult {
 ///
 /// `file_text` is the lock file as read (ignored for `is_uniform_run`).
 ///
+/// Upstream then ends at `:complete_calculation:` with `i_parallel = 0; call
+/// egs_open_units(.false.)` (`egs_parallel.mortran:394`). `cfg` is borrowed and
+/// not changed here: a caller that names files by `i_parallel` after the last
+/// finish, as upstream's later output does, sets it to 0 itself (gh:#1682).
+///
 /// # Errors
 ///
 /// [`EgsError::Fatal`] when the lock-file text cannot be read.

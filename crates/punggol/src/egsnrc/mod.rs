@@ -1,10 +1,18 @@
-//! **EGSnrc port** (gh:#976): one module per upstream Mortran file. ~~Only `egsnrc_mortran` and `egsnrc_macros` hold code~~ **CORRECTED 2026-11-21:** `egsnrc_mortran`, `egsnrc_macros`, `egs_utilities_mortran`, `nrcaux_mortran`, `get_inputs_mortran`, `get_media_inputs_mortran`, `pegs4_routines_mortran` and `pegs4_mortran` hold code (first ports, not differentially tested, gh:#1680; `eii_mortran` and `lnblnk1_mortran` point to where their routines live); ~~the rest (`rad_compton1`, the `EEMF`/`emf` macros, `egs_parallel`, `transportp_macros`, `pegs4_macros`) are placeholders or deliberately not ported~~ **CORRECTED 2026-11-21:** `emf_macros` is ported inside `egsnrc_mortran` (`ElectrConfig::em`) and `EEMF_macros` has its own module, `eemf_macros_mortran` (magnetic, electric and combined fields, PRESTA-II and PRESTA-I, exact and inexact BCA; both compared with a compiled EGSnrc); the rest (`rad_compton1`, ~~`EEMF_macros_beamnrc`~~ **CORRECTED 2026-11-21 (later):** `EEMF_macros_beamnrc` is ported as `EemfVariant::BeamNrc` inside `eemf_macros_mortran`, `transportp_macros`, `pegs4_macros`) are placeholders or deliberately not ported; ~~`egs_parallel`~~ **CORRECTED 2026-11-21:** `egs_parallel_mortran` holds the job-control state transitions of `egs_pjob_control`/`egs_pjob_finish` (compared with real processes).
+//! **EGSnrc port** (gh:#976): one module per upstream Mortran file. ~~Only `egsnrc_mortran` and `egsnrc_macros` hold code~~ **CORRECTED 2026-11-21:** `egsnrc_mortran`, `egsnrc_macros`, `egs_utilities_mortran`, `nrcaux_mortran`, `get_inputs_mortran`, `get_media_inputs_mortran`, `pegs4_routines_mortran` and `pegs4_mortran` hold code (~~first ports, not differentially tested, gh:#1680~~ **CORRECTED 2026-11-21 (gh:#1682):** differentially tested against a compiled EGSnrc, `docs/egsnrc_phase2_differential.md`; `eii_mortran` and `lnblnk1_mortran` point to where their routines live); ~~the rest (`rad_compton1`, the `EEMF`/`emf` macros, `egs_parallel`, `transportp_macros`, `pegs4_macros`) are placeholders or deliberately not ported~~ **CORRECTED 2026-11-21:** `emf_macros` is ported inside `egsnrc_mortran` (`ElectrConfig::em`) and `EEMF_macros` has its own module, `eemf_macros_mortran` (magnetic, electric and combined fields, PRESTA-II and PRESTA-I, exact and inexact BCA; both compared with a compiled EGSnrc); the rest (`rad_compton1`, ~~`EEMF_macros_beamnrc`~~ **CORRECTED 2026-11-21 (later):** `EEMF_macros_beamnrc` is ported as `EemfVariant::BeamNrc` inside `eemf_macros_mortran`, `transportp_macros`, `pegs4_macros`) are placeholders or deliberately not ported; ~~`egs_parallel`~~ **CORRECTED 2026-11-21:** `egs_parallel_mortran` holds the job-control state transitions of `egs_pjob_control`/`egs_pjob_finish` (compared with real processes).
 //!
 //! Upstream: EGSnrc, <https://github.com/nrc-cnrc/EGSnrc>, commit
 //! `bd49a47aae3938f49f4100b8e018091861408b19` (the file list below was read
 //! from a shallow clone on 2026-11-20; EGSnrc is not vendored in this
 //! workspace and no EGSnrc text is committed). Licence: AGPL-3.0, which
 //! matches this workspace (see the crate's `NOTICE`).
+//!
+//! # Bit identity is a `std` claim
+//!
+//! Where this port is recorded as bit-identical to a compiled EGSnrc, that is
+//! **with the `std` feature**: `egsnrc::libm` and the `f32` shims call the platform
+//! libm, the one gfortran links. Without `std` they call PETIR, which agrees
+//! with glibc to last-bit round-off; the `no_std` build agrees to round-off,
+//! not bit for bit (maintainer, 2026-11-21, gh:#1682).
 //!
 //! # What is scaffolded
 //!
