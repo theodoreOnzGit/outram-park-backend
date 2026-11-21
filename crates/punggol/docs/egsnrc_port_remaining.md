@@ -12,7 +12,7 @@ scheme), `PAIR` (no NRC tables or triplets), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
 `Geometry` trait, no Rayleigh or photonuclear), `SHOWER` (behind the
 `ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields, range rejection or EII; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
-`spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), the PEGS4 intake of `HATCH` (`parse_pegs4_media`, `Pegs4Medium::apply_dunit`), `fix_brems`, `init_compton` (non-EADL) and `mscati` (without `init_spin`), and `erf1` from `egs_utilities`, Russian roulette,
+`spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), the PEGS4 intake of `HATCH` (`parse_pegs4_media`, `Pegs4Medium::apply_dunit`), `fix_brems`, `init_compton` (non-EADL) and `mscati` (without `init_spin`), `hatch_media` and `adjust_rhor_ecut_pcut`, and `erf1` from `egs_utilities`, Russian roulette,
 and the stack, azimuth and `$RANDOMSET` macros.
 
 ## Not ported, and what each needs

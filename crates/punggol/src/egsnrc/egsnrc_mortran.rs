@@ -35,6 +35,7 @@
 //! | `SUBROUTINE fix_brems`, `FCOULC`, `XSIF` (`egsnrc.mortran:2325-2420`) | [`fix_brems`] |
 //! | `SUBROUTINE init_compton` (`egsnrc.mortran:2422-2575`) | [`init_compton`] |
 //! | `SUBROUTINE mscati` (`egsnrc.mortran:2749-2975`), without `init_spin` | [`mscati`], [`MscatiSettings::resolve`] |
+//! | the table assembly of `HATCH` (`egsnrc.mortran:2036-2325`, `egsnrc.macros:1981-2036, 3681-3692`) | [`hatch_media`], [`adjust_rhor_ecut_pcut`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -1625,7 +1626,8 @@ pub struct BremsMedium {
     pub dl: [Vec<f64>; 6],
     /// `ZBRANG(MEDIUM)`.
     pub zbrang: f64,
-    /// `LZBRANG(MEDIUM) = log(zbrang)`.
+    /// `LZBRANG(MEDIUM) = -log(zbrang)` (`egsnrc.macros:1991`; the sign is
+    /// upstream's: an earlier doc line here said `+log`, which was wrong).
     pub lzbrang: f64,
     /// `AP(MEDIUM)`: photon production threshold, MeV.
     pub ap: f64,
@@ -4773,6 +4775,209 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
     (out, esige_max, psige_max)
 }
 
+/// What `hatch_media` needs besides the PEGS4 data.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HatchConfig {
+    /// `ibrdst` (bremsstrahlung angular distribution), for `ZBRANG`.
+    pub ibrdst: i32,
+    /// `iprdst` (pair angular distribution), for `ZBRANG`.
+    pub iprdst: i32,
+    /// `bca_algorithm` (0 exact), with `estepe`, `ximax`, `skindepth_for_bca`
+    /// as for [`MscatiSettings::resolve`].
+    pub bca_algorithm: i32,
+    /// See [`MscatiSettings`].
+    pub estepe: f64,
+    /// See [`MscatiSettings`].
+    pub ximax: f64,
+    /// See [`MscatiSettings`].
+    pub skindepth_for_bca: f64,
+    /// `$set_ecutmn`: the smallest `ECUT` over the regions, MeV.
+    pub ecutmn: f64,
+    /// `PRM`, MeV.
+    pub prm: f64,
+}
+
+impl Default for HatchConfig {
+    fn default() -> Self {
+        Self {
+            ibrdst: 1,
+            iprdst: 1,
+            bca_algorithm: 0,
+            estepe: 0.0,
+            ximax: 0.0,
+            skindepth_for_bca: 0.0,
+            ecutmn: RM + 0.01,
+            prm: RM,
+        }
+    }
+}
+
+/// One medium after `HATCH`: the tables the transport routines take.
+#[derive(Debug, Clone, Default)]
+pub struct HatchedMedium {
+    /// For `ELECTR`, `MOLLER`, `BHABHA`, `BREMS`.
+    pub electron: ElectronMediumData,
+    /// For `PHOTON`, `PAIR`, `PHOTO`.
+    pub photon: PhotonMediumData,
+}
+
+/// The result of [`hatch_media`].
+#[derive(Debug, Clone)]
+pub struct HatchResult {
+    /// One entry per medium, in the order given (medium `m + 1` is index `m`).
+    pub media: Vec<HatchedMedium>,
+    /// The resolved step-size settings.
+    pub settings: MscatiSettings,
+    /// `esige_max`, `psige_max`.
+    pub sige_max: (f64, f64),
+}
+
+/// A 1-based [`Pwlf`] from PEGS4 rows (`a0` at column `c0`, `a1` at `c1`).
+fn pwlf_from_rows<const N: usize>(rows: &[[f64; N]], c0: usize, c1: usize) -> Pwlf {
+    let mut a0 = alloc::vec![0.0];
+    let mut a1 = alloc::vec![0.0];
+    for r in rows {
+        a0.push(r[c0]);
+        a1.push(r[c1]);
+    }
+    Pwlf { a0, a1 }
+}
+
+/// The table assembly of `HATCH` for media already read ([`parse_pegs4_media`]
+/// and scaled ([`Pegs4Medium::apply_dunit`])): `ZBRANG` and `LZBRANG`
+/// (`$INITIALIZE-BREMS-ANGLE`, `$INITIALIZE-PAIR-ANGLE`), `TE` and `THMOLL`,
+/// [`fix_brems`], [`mscati`], and the move of the PEGS4 columns into
+/// [`ElectronMediumData`] and [`PhotonMediumData`].
+///
+/// Not assembled here (their data come from other routines, not ported):
+/// the spin-effect fits of `MsMedium` (`init_spin`; left empty, so
+/// `spin_effects` must be off), the Rayleigh data, the per-medium
+/// [`ComptonData`] ([`init_compton`]) and the photoelectric edge data
+/// ([`edgset_from_text`]), which are global and are passed to the transport
+/// routines beside these tables.
+pub fn hatch_media(pegs4: &[Pegs4Medium], cfg: &HatchConfig) -> HatchResult {
+    let raw: Vec<(f64, f64)> = pegs4.iter().map(|m| (m.blcc, m.xcc)).collect();
+    let settings = MscatiSettings::resolve(
+        cfg.bca_algorithm,
+        cfg.estepe,
+        cfg.ximax,
+        cfg.skindepth_for_bca,
+        cfg.ecutmn,
+        cfg.prm,
+        &raw,
+    );
+    let mmedia: Vec<MscatiMedium> = pegs4
+        .iter()
+        .map(|m| MscatiMedium {
+            eke0: m.eke[0],
+            eke1: m.eke[1],
+            neke: m.sizes[3] as usize,
+            ededx: pwlf_from_rows(&m.elecin, 4, 5),
+            pdedx: pwlf_from_rows(&m.elecin, 6, 7),
+            esig: pwlf_from_rows(&m.elecin, 0, 1),
+            psig: pwlf_from_rows(&m.elecin, 2, 3),
+            blcc: m.blcc,
+            xcc: m.xcc,
+        })
+        .collect();
+    let (tabs, esige_max, psige_max) = mscati(&mmedia, &settings, RM);
+    let mut media = Vec::with_capacity(pegs4.len());
+    for (m, t) in pegs4.iter().zip(tabs) {
+        // ZBRANG, LZBRANG (set when either angular distribution asks for it)
+        let mut zbrang = 0.0;
+        let mut lzbrang = 0.0;
+        if cfg.ibrdst == 1 || cfg.iprdst > 0 {
+            let mut pznorm = 0.0;
+            for e in &m.elements {
+                zbrang += e.pz * e.zelem * (e.zelem + 1.0);
+                pznorm += e.pz;
+            }
+            zbrang = 8.116224e-05 * RealMath::r_powf(zbrang / pznorm, 1.0 / 3.0);
+            lzbrang = -RealMath::r_ln(zbrang);
+        }
+        let comp: Vec<(f64, f64)> = m.elements.iter().map(|e| (e.zelem, e.pz)).collect();
+        let fits = fix_brems(&comp, m.ap);
+        let te = m.ae - RM;
+        let pair = PairMedium { delcm: m.delcm, dl: fits.dl.clone(), bpar: fits.bpar, zbrang };
+        let electron = ElectronMediumData {
+            rho: m.rho,
+            eke0: m.eke[0],
+            eke1: m.eke[1],
+            e_array: t.e_array,
+            range_ep: t.range_ep,
+            ededx: pwlf_from_rows(&m.elecin, 4, 5),
+            pdedx: pwlf_from_rows(&m.elecin, 6, 7),
+            esig: pwlf_from_rows(&m.elecin, 0, 1),
+            psig: pwlf_from_rows(&m.elecin, 2, 3),
+            ebr1: pwlf_from_rows(&m.elecin, 8, 9),
+            pbr1: pwlf_from_rows(&m.elecin, 10, 11),
+            pbr2: pwlf_from_rows(&m.elecin, 12, 13),
+            tmxs: t.tmxs,
+            esig_e: t.esig_e,
+            psig_e: t.psig_e,
+            sig_ismonotone: t.sig_ismonotone,
+            te,
+            thmoll: te * 2.0 + RM,
+            ae: m.ae,
+            ms: MsMedium { blcc: t.blcc, xcc: t.xcc, eke0: m.eke[0], eke1: m.eke[1], ..Default::default() },
+            brems: BremsMedium {
+                delcm: m.delcm,
+                dl: fits.dl,
+                zbrang,
+                lzbrang,
+                ap: m.ap,
+                log_ap: fits.log_ap,
+            },
+        };
+        let mut photo = PhotoMedium { zelem: alloc::vec![0.0], pz: alloc::vec![0.0] };
+        for e in &m.elements {
+            photo.zelem.push(e.zelem);
+            photo.pz.push(e.pz);
+        }
+        let photon = PhotonMediumData {
+            rho: m.rho,
+            ge0: m.ge[0],
+            ge1: m.ge[1],
+            gmfp0: pwlf_from_rows(&m.photin, 0, 1).a0,
+            gmfp1: pwlf_from_rows(&m.photin, 0, 1).a1,
+            gbr10: pwlf_from_rows(&m.photin, 2, 3).a0,
+            gbr11: pwlf_from_rows(&m.photin, 2, 3).a1,
+            gbr20: pwlf_from_rows(&m.photin, 4, 5).a0,
+            gbr21: pwlf_from_rows(&m.photin, 4, 5).a1,
+            photo,
+            pair,
+        };
+        media.push(HatchedMedium { electron, photon });
+    }
+    HatchResult { media, settings, sige_max: (esige_max, psige_max) }
+}
+
+/// `$adjust_rhor_ecut_pcut` (`egsnrc.macros:3681-3692`): raise each region's
+/// `ECUT` and `PCUT` to at least its medium's `AE` and `AP`, and give regions
+/// without a density the medium's. `med`, `ecut`, `pcut`, `rhor` are per
+/// region (the same index); `ae`, `ap`, `rho` per medium, 1-based
+/// (index 0 unused). A region with `med == 0` or beyond `ae.len()` is vacuum
+/// and untouched.
+pub fn adjust_rhor_ecut_pcut(
+    med: &[usize],
+    ecut: &mut [f64],
+    pcut: &mut [f64],
+    rhor: &mut [f64],
+    ae: &[f64],
+    ap: &[f64],
+    rho: &[f64],
+) {
+    for (jr, &md) in med.iter().enumerate() {
+        if md >= 1 && md < ae.len() {
+            ecut[jr] = ecut[jr].max(ae[md]);
+            pcut[jr] = pcut[jr].max(ap[md]);
+            if rhor[jr] == 0.0 {
+                rhor[jr] = rho[md];
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5447,7 +5652,7 @@ mod tests {
             delcm: 0.5,
             dl: [one.clone(), zero.clone(), zero, one.clone(), alloc::vec![0.0; 9], one],
             zbrang: 0.02,
-            lzbrang: (0.02f64).ln(),
+            lzbrang: -(0.02f64).ln(),
             ap: 0.01,
             log_ap: (0.01f64).ln(),
         }
@@ -6545,6 +6750,142 @@ mod tests {
         falling.esig = Pwlf { a0: (0..16).map(|i| 5.0 - 0.1 * i as f64).collect(), a1: alloc::vec![0.0; 16] };
         let (tf, _, _) = mscati(&[falling], &settings, RM);
         assert!(!tf[0].sig_ismonotone[0] && tf[0].sig_ismonotone[1]);
+    }
+
+
+    /// A PEGS4 medium consistent with the toy transport tables: 14 energy bins
+    /// (`lelke = 2 ln E + 11`), constant stopping power 2 MeV/cm, constant
+    /// cross section, and a 1-point-per-bin photon table.
+    fn consistent_pegs4_medium() -> Pegs4Medium {
+        let neke = 14;
+        let mut row = [0.0; 16];
+        row[0] = 5.0; // ESIG0
+        row[2] = 5.0; // PSIG0
+        row[4] = 2.0; // EDEDX0
+        row[6] = 2.0; // PDEDX0
+        row[8] = 0.3; // EBR10
+        row[10] = 0.3; // PBR10
+        row[12] = 0.6; // PBR20
+        row[14] = 0.1; // TMXS0 (overwritten by mscati)
+        let mut dl = [[0.0; 6]; 6];
+        for k in 0..6 {
+            for i in 0..6 {
+                dl[k][i] = 1.0;
+            }
+        }
+        Pegs4Medium {
+            name: String::from("TOY"),
+            rho: 1.0,
+            nne: 2,
+            elements: alloc::vec![
+                Pegs4Element { asym: "C ".into(), zelem: 6.0, wa: 12.0, pz: 1.0, rhoz: 0.4 },
+                Pegs4Element { asym: "O ".into(), zelem: 8.0, wa: 16.0, pz: 2.0, rhoz: 0.6 },
+            ],
+            rlc: 40.0,
+            ae: 0.521,
+            ap: 0.01,
+            ue: 2.0,
+            up: 2.0,
+            sizes: [0, 3, 0, neke as i32, 0, 0, 0],
+            dl,
+            delcm: 0.5,
+            blcc: 1.0e4,
+            xcc: 1.0e-2,
+            eke: [11.0, 2.0],
+            elecin: alloc::vec![row; neke],
+            ge: [1.0, 0.0],
+            photin: alloc::vec![[1.0, 0.0, 0.2, 0.0, 0.6, 0.0]; 3],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn hatch_media_assembles_the_tables() {
+        let m = consistent_pegs4_medium();
+        let h = hatch_media(&[m.clone()], &HatchConfig::default());
+        let e = &h.media[0].electron;
+        // PEGS4 columns land in the right fits (1-based over the bins)
+        assert_eq!((e.ededx.a0[3], e.pdedx.a0[3], e.esig.a0[3], e.psig.a0[3]), (2.0, 2.0, 5.0, 5.0));
+        assert_eq!((e.ebr1.a0[1], e.pbr1.a0[1], e.pbr2.a0[1]), (0.3, 0.3, 0.6));
+        assert_eq!(e.ededx.a0.len(), 15);
+        // thresholds
+        assert!((e.te - (0.521 - RM)).abs() < 1e-15);
+        assert!((e.thmoll - (2.0 * (0.521 - RM) + RM)).abs() < 1e-15);
+        // mscati's products: range from the table, Euler constant in blcc, xcc squared
+        assert!((e.range_ep[0][5] - (e.e_array[5] - e.e_array[1]) / 2.0).abs() < 1e-12);
+        assert!((e.ms.blcc - 1.16699413758864573e4).abs() < 1e-9 && (e.ms.xcc - 1.0e-4).abs() < 1e-15);
+        assert!(e.esig_e > 0.0 && e.sig_ismonotone == [true, true]);
+        // ZBRANG = 8.116224e-5 * (sum pz Z (Z+1) / sum pz)^(1/3), LZBRANG = -ln ZBRANG
+        let want = 8.116224e-05 * ((1.0 * 6.0 * 7.0 + 2.0 * 8.0 * 9.0) / 3.0f64).powf(1.0 / 3.0);
+        assert!((e.brems.zbrang - want).abs() < 1e-15 * want.max(1.0) + 1e-18);
+        assert!((e.brems.lzbrang + want.ln()).abs() < 1e-12);
+        assert_eq!(h.media[0].photon.pair.zbrang, e.brems.zbrang);
+        // fix_brems results reach both users
+        let fits = fix_brems(&[(6.0, 1.0), (8.0, 2.0)], 0.01);
+        assert_eq!(e.brems.dl[0][1], fits.dl[0][1]);
+        assert_eq!(h.media[0].photon.pair.bpar, fits.bpar);
+        assert_eq!(e.brems.log_ap, fits.log_ap);
+        // photon side
+        let p = &h.media[0].photon;
+        assert_eq!((p.ge0, p.ge1, p.rho), (1.0, 0.0, 1.0));
+        assert_eq!((p.gmfp0[2], p.gbr10[2], p.gbr20[2]), (1.0, 0.2, 0.6));
+        assert_eq!(p.photo.zelem, alloc::vec![0.0, 6.0, 8.0]);
+        assert_eq!(p.photo.pz, alloc::vec![0.0, 1.0, 2.0]);
+        // ZBRANG is not computed when neither angular distribution needs it
+        let off = hatch_media(&[m], &HatchConfig { ibrdst: 0, iprdst: 0, ..Default::default() });
+        assert_eq!((off.media[0].electron.brems.zbrang, off.media[0].electron.brems.lzbrang), (0.0, 0.0));
+    }
+
+    #[test]
+    fn adjust_rhor_ecut_pcut_raises_cuts_and_sets_densities() {
+        let med = [1usize, 0, 2];
+        let mut ecut = [0.4, 0.4, 0.9];
+        let mut pcut = [0.001, 0.001, 0.5];
+        let mut rhor = [0.0, 0.0, 2.5];
+        adjust_rhor_ecut_pcut(&med, &mut ecut, &mut pcut, &mut rhor, &[0.0, 0.521, 0.6], &[0.0, 0.01, 0.02], &[0.0, 1.2, 3.0]);
+        assert_eq!(ecut, [0.521, 0.4, 0.9]);
+        assert_eq!(pcut, [0.01, 0.001, 0.5]);
+        assert_eq!(rhor, [1.2, 0.0, 2.5], "vacuum untouched, a set density kept");
+    }
+
+    #[test]
+    fn hatched_tables_drive_an_electron_shower() {
+        // the same energy-balance check as the hand-built tables, now with the
+        // electron tables assembled by hatch_media from PEGS4-shaped data
+        let h = hatch_media(&[consistent_pegs4_medium()], &HatchConfig::default());
+        let med = h.media[0].electron.clone();
+        let mut ms_med = toy_ms_medium();
+        ms_med.blcc = med.ms.blcc;
+        ms_med.xcc = med.ms.xcc;
+        ms_med.eke0 = med.eke0;
+        ms_med.eke1 = med.eke1;
+        let mut electron = med;
+        let toy = toy_electron_tables();
+        electron.ms = MsMedium { etae_ms: ms_med.etae_ms.clone(), ..toy.media[1].ms.clone() };
+        electron.ms.blcc = ms_med.blcc;
+        electron.ms.xcc = ms_med.xcc;
+        electron.brems = toy.media[1].brems.clone();
+        let mut tables = toy.clone();
+        tables.media[1] = electron;
+        let mut rng = Ranmar::new(14, 15);
+        let ptables = photon_tables(0.0, 0.5, 0);
+        let pcfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut pgeo = Slab { length: 3.0 };
+        for _ in 0..10 {
+            let mut drv = ElectrDriver {
+                tables: tables.clone(),
+                cfg: electr_cfg(true, true, false),
+                geo: Slab { length: 3.0 },
+                counters: ElectrCounters::default(),
+                tally: 0.0,
+            };
+            let ei = 0.5 + RM + 0.3;
+            let mut st = Stack::new(500);
+            let start = ShowerStart { iqi: -1, ei, xi: 0.0, yi: 0.0, zi: 1.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 1, wti: 1.0 };
+            let r = shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng).unwrap();
+            let total = r.edep_photon_discards + r.edep_local + drv.tally;
+            assert!((total - (ei - RM)).abs() < 1e-6, "total {total}");
+        }
     }
 
     #[test]
