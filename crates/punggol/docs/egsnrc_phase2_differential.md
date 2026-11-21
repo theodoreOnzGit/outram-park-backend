@@ -121,9 +121,7 @@ gfortran unless `-fdefault-real-8` is given, so the default upstream build uses
 literals and agrees with the promoted build to round-off. EGSnrc's own
 `gfortran` spec (`specs/gfortran-suse11.4.conf`) sets `FCFLAGS = -fPIC`,
 `FOPT = -O3 -ffast-math` and no promotion, so a stock build has the 1e-8
-effect. **Maintainer decision needed:** keep `f64` literals (matches the
-promoted build, arguably the intended arithmetic) or round such constants
-through `f32` (matches a stock build). This likely explains differences of the
+effect. ~~**Maintainer decision needed:** keep `f64` literals or round such constants through `f32`.~~ **DECIDED 2026-11-21 (maintainer):** compare like with like: first a single-precision-constants mode of the port against the stock build, and once that agrees, `f64` constants become the workspace standard, validated against the `-fdefault-real-8` build (gh:#1687). Not yet implemented. This likely explains differences of the
 same order in other ported routines and is the first thing to check there.
 
 ### Electron tables (`hatch_media`: PEGS4 intake, `DUNIT`, `fix_brems`, `mscati`)
