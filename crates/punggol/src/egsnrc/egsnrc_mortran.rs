@@ -39,6 +39,8 @@
 //! | `SUBROUTINE init_spin` (`egsnrc.mortran:3309-3706`), from decoded records | [`init_spin`] |
 //! | `SUBROUTINE PHOTONUC` (`egsnrc.mortran:9001-9015`), a placeholder upstream | [`photonuc`] |
 //! | `$PHOTONUC-CORRECTION`, `$PHOTONUCLEAR` (`egsnrc.macros:1615-1629`) | inside [`photon`] |
+//! | `egs_init_rayleigh_sampling`, `prepare_rayleigh_data`, `egs_rayleigh_sampling`, `egs_rayleigh_sigma`, `ZERO` (`egsnrc.mortran:8283-8700`, `egs_utilities.mortran:2152-2186`) | [`init_rayleigh_sampling`], [`prepare_rayleigh_data`], [`rayleigh_sampling`], [`rayleigh_sigma`], [`zero_value`] |
+//! | `$RAYLEIGH-CORRECTION`, `$RAYLEIGH-SCATTERING` (`egsnrc.macros:1579, 1602`) | inside [`photon`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -1867,7 +1869,8 @@ pub struct PhotonRegionData {
     pub iedgfl: i32,
     /// `iphter(region)`.
     pub iphter: i32,
-    /// `iraylr(region)`; `1` (Rayleigh) is not ported and is refused.
+    /// `iraylr(region)`: `1` turns on Rayleigh scattering (needs `cohe` and
+    /// `rayleigh` data in the medium).
     pub irayl: i32,
     /// `iphotonucr(region)`: `1` turns on the photonuclear placeholder, which
     /// discards the photon.
@@ -1898,6 +1901,13 @@ pub struct PhotonMediumData {
     pub gbr20: Vec<f64>,
     /// See `gbr20`.
     pub gbr21: Vec<f64>,
+    /// `cohe0(L)`, `cohe1(L)`: the coherent-scattering correction `COHFAC` that
+    /// scales the photon mean free path (`cohe1(L) * GLE + cohe0(L)`); needed
+    /// with `iraylr = 1`.
+    pub cohe: Pwlf,
+    /// The Rayleigh sampling data ([`init_rayleigh_sampling`]); needed with
+    /// `iraylr = 1`.
+    pub rayleigh: Option<RayleighData>,
     /// `photonuc0(L)`, `photonuc1(L)`: the factor `PHOTONUCFAC` that scales the
     /// photon mean free path (`photonuc1(L) * GLE + photonuc0(L)`), used when
     /// a region has `iphotonucr = 1`.
@@ -1966,6 +1976,339 @@ pub fn photonuc(stack: &mut Stack) {
     stack.wt[np] = 0.0;
 }
 
+/// `$MXRAYFF` and `$RAYCDFSIZE` (`egsnrc.macros:205-206`).
+pub const MXRAYFF: usize = 100;
+/// See [`MXRAYFF`].
+pub const RAYCDFSIZE: usize = 100;
+
+/// `ZERO()` (`egs_utilities.mortran:2152-2186`): the smallest positive value
+/// the arithmetic can hold, found as upstream finds it (stepping down by
+/// factors of 1e5, then 10, then 2..10 until the next step underflows).
+pub fn zero_value() -> f64 {
+    let mut x = 1.0e-20_f64;
+    let mut xtemp = x;
+    for _ in 0..100 {
+        if x == 0.0 {
+            break;
+        }
+        xtemp = x;
+        x /= 1.0e5;
+    }
+    x = xtemp;
+    for _ in 0..5 {
+        if x != 0.0 {
+            xtemp = x;
+        } else {
+            break;
+        }
+        x /= 10.0;
+    }
+    x = xtemp;
+    for i in 2..=10 {
+        if x != 0.0 {
+            xtemp = x;
+        } else {
+            break;
+        }
+        x /= i as f64;
+    }
+    xtemp
+}
+
+/// The atomic form factors of `pgs4form.dat`: the momentum-transfer grid
+/// and `aff(i, iZ)` for 100 elements, read as `read(ff_unit,*) xval, aff`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FormFactorTable {
+    /// `xval(1..MXRAYFF)`, 1-based.
+    pub xval: Vec<f64>,
+    /// `aff(i, iZ)`: `aff[iz][i]`, both 1-based.
+    pub aff: Vec<Vec<f64>>,
+}
+
+impl FormFactorTable {
+    /// Parse the data set from an in-memory copy of `pgs4form.dat`
+    /// (list-directed, `MXRAYFF + MXRAYFF * 100` values; `aff` is column-major
+    /// in `i`).
+    ///
+    /// # Errors
+    ///
+    /// A message when the text is short or a value does not parse.
+    pub fn from_text(text: &str) -> Result<Self, String> {
+        let mut lines = text.lines();
+        let n = MXRAYFF + MXRAYFF * 100;
+        let v = read_record(&mut lines, n)?;
+        let xval: Vec<f64> = core::iter::once(0.0).chain(v[..MXRAYFF].iter().copied()).collect();
+        let mut aff = alloc::vec![alloc::vec![0.0; MXRAYFF + 1]];
+        for iz in 0..100 {
+            let base = MXRAYFF + iz * MXRAYFF;
+            aff.push(core::iter::once(0.0).chain(v[base..base + MXRAYFF].iter().copied()).collect());
+        }
+        Ok(Self { xval, aff })
+    }
+}
+
+/// The Rayleigh sampling data of one medium (`COMMON/rayleigh_sampling/`),
+/// 1-based.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RayleighData {
+    /// `xgrid(i, medium)`.
+    pub xgrid: Vec<f64>,
+    /// `fcum`.
+    pub fcum: Vec<f64>,
+    /// `b_array`.
+    pub b_array: Vec<f64>,
+    /// `c_array`.
+    pub c_array: Vec<f64>,
+    /// `i_array(1..RAYCDFSIZE)`.
+    pub i_array: Vec<i32>,
+    /// `pmax0`, `pmax1`: the maximum cumulative probability fit over energy.
+    pub pmax: Pwlf,
+}
+
+/// `prepare_rayleigh_data` (`egsnrc.mortran:8607-8707`): the cumulative
+/// distribution of `x f(x)^2` for a form factor given at `x[1..=ndat]`
+/// (power-law between points), the maximum cumulative probability at each of
+/// `ne` photon energies between `emin` and `emax` (MeV), and the uniform
+/// cumulative bins the sampler uses. `f` is rescaled in place as upstream
+/// does. Returns `pe_array` (1-based over `ne`) with the data in `out`.
+pub fn prepare_rayleigh_data(
+    x: &[f64],
+    f: &mut [f64],
+    ne: usize,
+    emin: f64,
+    emax: f64,
+    prm: f64,
+) -> (Vec<f64>, RayleighData) {
+    let ndat = x.len() - 1;
+    let ncbin = RAYCDFSIZE;
+    let zero = zero_value();
+    let mut fcum = alloc::vec![0.0_f64; ndat + 1];
+    let mut b_array = alloc::vec![0.0_f64; ndat + 1];
+    let mut c_array = alloc::vec![0.0_f64; ndat + 1];
+    let mut i_array = alloc::vec![0_i32; ncbin + 2];
+    let mut pe_array = alloc::vec![0.0_f64; ne + 1];
+    for i in 1..=ndat {
+        if f[i] == 0.0 {
+            f[i] = zero;
+        }
+    }
+    // the cumulative distribution
+    let mut sum0 = 0.0_f64;
+    fcum[1] = 0.0;
+    for i in 1..ndat {
+        let b = RealMath::r_ln(f[i + 1] / f[i]) / RealMath::r_ln(x[i + 1] / x[i]);
+        b_array[i] = b;
+        let (x1, x2) = (x[i], x[i + 1]);
+        let pow_x1 = RealMath::r_powf(x1, 2.0 * b);
+        let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+        sum0 += f[i] * f[i] * (x2 * x2 * pow_x2 - x1 * x1 * pow_x1) / ((1.0 + b) * pow_x1);
+        fcum[i + 1] = sum0;
+    }
+    // the maximum cumulative probability as a function of photon energy
+    let dle = RealMath::r_ln(emax / emin) / (ne - 1) as f64;
+    let mut i = 1usize;
+    for j in 1..=ne {
+        let e = emin * RealMath::r_exp(dle * (j - 1) as f64);
+        let xmax = 20.607544 * 2.0 * e / prm;
+        let mut k = i;
+        while k <= ndat - 1 {
+            if xmax >= x[k] && xmax < x[k + 1] {
+                break;
+            }
+            k += 1;
+        }
+        i = k;
+        let b = b_array[i];
+        let (x1, x2) = (x[i], xmax);
+        let pow_x1 = RealMath::r_powf(x1, 2.0 * b);
+        let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+        pe_array[j] = fcum[i] + f[i] * f[i] * (x2 * x2 * pow_x2 - x1 * x1 * pow_x1) / ((1.0 + b) * pow_x1);
+    }
+    i_array[ncbin] = i as i32;
+    // renormalise so that pe_array(emax) = 1 (slightly larger so fcum is never underestimated)
+    let anorm = 1.0 / Real::sqrt(pe_array[ne]);
+    let anorm1 = 1.005 / pe_array[ne];
+    let anorm2 = 1.0 / pe_array[ne];
+    for j in 1..=ne {
+        pe_array[j] *= anorm1;
+        if pe_array[j] > 1.0 {
+            pe_array[j] = 1.0;
+        }
+    }
+    for j in 1..=ndat {
+        f[j] *= anorm;
+        fcum[j] *= anorm2;
+        c_array[j] = (1.0 + b_array[j]) / ((x[j] * f[j]) * (x[j] * f[j]));
+    }
+    // uniform cumulative bins
+    let dw = 1.0 / (ncbin - 1) as f64;
+    let mut xold = x[1];
+    let mut ibin = 1usize;
+    let mut b = b_array[1];
+    let mut pow_x1 = RealMath::r_powf(x[1], 2.0 * b);
+    i_array[1] = 1;
+    for i in 2..ncbin {
+        let mut w = dw;
+        loop {
+            let x1 = xold;
+            let x2 = x[ibin + 1];
+            let t = x1 * x1 * RealMath::r_powf(x1, 2.0 * b);
+            let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+            let aux = f[ibin] * f[ibin] * (x2 * x2 * pow_x2 - t) / ((1.0 + b) * pow_x1);
+            if aux > w {
+                xold = RealMath::r_exp(RealMath::r_ln(t + w * (1.0 + b) * pow_x1 / f[ibin] / f[ibin]) / (2.0 + 2.0 * b));
+                i_array[i] = ibin as i32;
+                break;
+            }
+            w -= aux;
+            xold = x2;
+            ibin += 1;
+            b = b_array[ibin];
+            pow_x1 = RealMath::r_powf(xold, 2.0 * b);
+        }
+    }
+    // b_array as needed at run time
+    for j in 1..=ndat {
+        b_array[j] = 0.5 / (1.0 + b_array[j]);
+    }
+    let data = RayleighData {
+        xgrid: x.to_vec(),
+        fcum,
+        b_array,
+        c_array,
+        i_array,
+        pmax: Pwlf::default(),
+    };
+    (pe_array, data)
+}
+
+/// `egs_init_rayleigh_sampling` (`egsnrc.mortran:8446-8530`) for one medium,
+/// using the PEGS4 photon data (so the independent-atom form factor is built
+/// from `pgs4form.dat`): `comp` is `(ZELEM, PZ)` per element, `ge0`, `ge1` and
+/// `mge` the photon energy grid of the medium. Returns the sampling data with
+/// the `pmax` fit filled in.
+pub fn init_rayleigh_sampling(comp: &[(f64, f64)], ff: &FormFactorTable, ge0: f64, ge1: f64, mge: usize, prm: f64) -> RayleighData {
+    let mut xgrid = alloc::vec![0.0_f64; MXRAYFF + 1];
+    let mut f = alloc::vec![0.0_f64; MXRAYFF + 1];
+    for i in 1..=MXRAYFF {
+        xgrid[i] = ff.xval[i];
+        let mut v = 0.0;
+        for &(z, pz) in comp {
+            let a = ff.aff[(z + 0.5) as usize][i];
+            v += pz * a * a;
+        }
+        f[i] = Real::sqrt(v);
+    }
+    // x = 1e-4 avoids log(0)
+    if xgrid[1] < 1e-6 {
+        xgrid[1] = 1e-4;
+    }
+    let emin = RealMath::r_exp((1.0 - ge0) / ge1);
+    let emax = RealMath::r_exp((mge as f64 - ge0) / ge1);
+    let (pe_array, mut data) = prepare_rayleigh_data(&xgrid, &mut f, mge, emin, emax, prm);
+    let ne = mge;
+    let mut pmax = Pwlf { a0: alloc::vec![0.0; ne + 1], a1: alloc::vec![0.0; ne + 1] };
+    for i in 1..ne {
+        let gle = (i as f64 - ge0) / ge1;
+        pmax.a1[i] = (pe_array[i + 1] - pe_array[i]) * ge1;
+        pmax.a0[i] = pe_array[i] - pmax.a1[i] * gle;
+    }
+    pmax.a0[ne] = pmax.a0[ne - 1];
+    pmax.a1[ne] = pmax.a1[ne - 1];
+    data.pmax = pmax;
+    data
+}
+
+/// `egs_rayleigh_sigma` (`egsnrc.mortran:8531-8555`): the analytic Rayleigh
+/// cross section in barns at energy `e` (MeV) from a form factor `f` on the
+/// grid `x` (both 1-based, `ndat` points). Zero entries are replaced by
+/// [`zero_value`] in place, as upstream does.
+pub fn rayleigh_sigma(e: f64, x: &mut [f64], f: &mut [f64]) -> f64 {
+    const HC: f64 = 0.0123984768438;
+    const HC2: f64 = 0.0001537222280;
+    let ndat = x.len() - 1;
+    let zero = zero_value();
+    let c = 2.0 * HC2 / (e * e);
+    let c2 = c * c;
+    let xmax = e / HC;
+    let mut sigma = 0.0_f64;
+    for i in 1..ndat {
+        if x[i] == 0.0 {
+            x[i] = zero;
+        }
+        if x[i + 1] == 0.0 {
+            x[i + 1] = zero;
+        }
+        if f[i] == 0.0 {
+            f[i] = zero;
+        }
+        if f[i + 1] == 0.0 {
+            f[i + 1] = zero;
+        }
+        let b = RealMath::r_ln(f[i + 1] / f[i]) / RealMath::r_ln(x[i + 1] / x[i]);
+        let x1 = x[i];
+        let mut x2 = x[i + 1];
+        if x2 > xmax {
+            x2 = xmax;
+        }
+        let pow_x1 = RealMath::r_powf(x1, 2.0 * b);
+        let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+        let mut raysig = pow_x2 * (x2 * x2 / (b + 1.0) - (c * x2.powi(4)) / (b + 2.0) + (c2 * x2.powi(6)) / (2.0 * b + 6.0));
+        raysig -= pow_x1 * (x1 * x1 / (b + 1.0) - (c * x1.powi(4)) / (b + 2.0) + (c2 * x1.powi(6)) / (2.0 * b + 6.0));
+        raysig = raysig * f[i] * f[i] / pow_x1;
+        sigma += raysig;
+        if x[i + 1] > xmax {
+            break;
+        }
+    }
+    0.49893439187842413747 * c * sigma
+}
+
+/// `egs_rayleigh_sampling` (`egsnrc.mortran:8558-8590`): the cosine and sine of
+/// the Rayleigh scattering angle of a photon of energy `e` (MeV,
+/// `gle = ln e`, `lgle` its table interval). The form factor is sampled by the
+/// cumulative bins, then the angular factor `1 + cos^2` is rejected on.
+pub fn rayleigh_sampling<R: UniformSource>(d: &RayleighData, e: f64, gle: f64, lgle: usize, rng: &mut R) -> (f64, f64) {
+    const HC_I: f64 = 80.65506856998;
+    const TWICE_HC2: f64 = 0.000307444456;
+    let dwi = (RAYCDFSIZE - 1) as f64;
+    let pmax = d.pmax.eval(lgle, gle);
+    let xmax = HC_I * e;
+    let csqthe;
+    let mut costhe;
+    loop {
+        let rnnray1 = rng.uniform();
+        let mut xv;
+        loop {
+            let mut rnnray0 = rng.uniform();
+            rnnray0 *= pmax;
+            let ibin = (1.0 + rnnray0 * dwi) as usize;
+            let mut ib = d.i_array[ibin] as usize;
+            if d.i_array[ibin + 1] as usize > ib {
+                loop {
+                    if rnnray0 < d.fcum[ib + 1] {
+                        break;
+                    }
+                    ib += 1;
+                }
+            }
+            rnnray0 = (rnnray0 - d.fcum[ib]) * d.c_array[ib];
+            xv = d.xgrid[ib] * RealMath::r_exp(RealMath::r_ln(1.0 + rnnray0) * d.b_array[ib]);
+            if xv < xmax {
+                break;
+            }
+        }
+        xv /= e;
+        costhe = 1.0 - TWICE_HC2 * xv * xv;
+        let c2 = costhe * costhe;
+        if 2.0 * rnnray1 < 1.0 + c2 {
+            csqthe = c2;
+            break;
+        }
+    }
+    (costhe, Real::sqrt(1.0 - csqthe))
+}
+
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
 fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> PhotonResult {
     res.edep = peig;
@@ -1979,8 +2322,8 @@ fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> Photo
 /// it is discarded (`ircode = 2`). Interactions call [`pair`], [`compt`]
 /// (with [`relax`] for its vacancy) and [`photo`].
 ///
-/// Not ported: Rayleigh scattering (`iraylr = 1`, `egs_rayleigh_sampling`),
-/// refused with [`EgsError::Unsupported`]; the `AUSGAB` hooks; `$PARTICLE-SELECTION-*`
+/// With `iraylr = 1` a region needs the medium's `cohe` and `rayleigh` data
+/// (else [`EgsError::Unsupported`]); the `AUSGAB` hooks are not ported; `$PARTICLE-SELECTION-*`
 /// (empty by default). `lgle` is recomputed whenever the medium changes, as
 /// upstream.
 ///
@@ -2009,6 +2352,7 @@ pub fn photon<R: UniformSource, G: Geometry>(
     }
 
     let mut photonucfac = 1.0_f64;
+    let mut cohfac = 1.0_f64;
 
     // :PNEWENERGY:
     'pnewenergy: loop {
@@ -2037,11 +2381,16 @@ pub fn photon<R: UniformSource, G: Geometry>(
                     tstep = cfg.vacdst;
                 } else {
                     let region = &tables.regions[irl];
-                    if region.irayl == 1 {
-                        return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1)"));
+                    if region.irayl == 1 && tables.media[medium].rayleigh.is_none() {
+                        return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1) without Rayleigh data"));
                     }
                     let rhof = region.rhor / tables.media[medium].rho;
                     gmfp = gmfpr0 / rhof;
+                    // $RAYLEIGH-CORRECTION
+                    if region.irayl == 1 {
+                        cohfac = tables.media[medium].cohe.eval(lgle, gle);
+                        gmfp *= cohfac;
+                    }
                     // $PHOTONUC-CORRECTION
                     if region.iphotonucr == 1 {
                         photonucfac = tables.media[medium].photonuc.eval(lgle, gle);
@@ -2091,8 +2440,18 @@ pub fn photon<R: UniformSource, G: Geometry>(
         // it is finally time to interact
         {
             let region = &tables.regions[irl];
+            // $RAYLEIGH-SCATTERING
             if region.irayl == 1 {
-                return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1)"));
+                let rnno37 = rng.uniform();
+                if rnno37 <= 1.0 - cohfac {
+                    stack.np_old = stack.np;
+                    let mrec = &tables.media[medium];
+                    let rd = mrec.rayleigh.as_ref().ok_or(EgsError::Unsupported("PHOTON: no Rayleigh data"))?;
+                    let (costhe, sinthe) = rayleigh_sampling(rd, stack.e[stack.np], gle, lgle, rng);
+                    let mut saved = UphiSaved::default();
+                    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+                    continue 'pnewenergy;
+                }
             }
             // $PHOTONUCLEAR
             if region.iphotonucr == 1 {
@@ -4973,6 +5332,15 @@ pub fn hatch_media(pegs4: &[Pegs4Medium], cfg: &HatchConfig) -> HatchResult {
             gbr11: pwlf_from_rows(&m.photin, 2, 3).a1,
             gbr20: pwlf_from_rows(&m.photin, 4, 5).a0,
             gbr21: pwlf_from_rows(&m.photin, 4, 5).a1,
+            cohe: m
+                .rayleigh
+                .as_ref()
+                .map(|r| Pwlf {
+                    a0: core::iter::once(0.0).chain(r.cohe.iter().map(|c| c[0])).collect(),
+                    a1: core::iter::once(0.0).chain(r.cohe.iter().map(|c| c[1])).collect(),
+                })
+                .unwrap_or_default(),
+            rayleigh: None,
             photonuc: Pwlf::default(),
             photo,
             pair,
@@ -6147,6 +6515,8 @@ mod tests {
             gbr11: alloc::vec![0.0, 0.0],
             gbr20: alloc::vec![0.0, gbr_pair + gbr_compt],
             gbr21: alloc::vec![0.0, 0.0],
+            cohe: const_pwlf(1.0),
+            rayleigh: None,
             photonuc: const_pwlf(1.0),
             photo: photo_med,
             pair: toy_pair_medium(),
@@ -7490,4 +7860,95 @@ mod tests {
         assert!((norm(&st, 1) - 1.0).abs() < 1e-12);
         assert!((st.w[1] + 0.8).abs() < 1e-15, "w = c * costhe");
     }
+    /// Smooth toy form factor `f(x) = 1/(1+x^2)` on a log grid.
+    fn toy_form_factor() -> (Vec<f64>, Vec<f64>) {
+        let mut x = vec![0.0];
+        let mut f = vec![0.0];
+        for i in 0..MXRAYFF {
+            let xv = 1e-4 * (1e6_f64).powf(i as f64 / (MXRAYFF - 1) as f64);
+            x.push(xv);
+            f.push(10.0 / (1.0 + xv * xv));
+        }
+        (x, f)
+    }
+
+    #[test]
+    fn zero_value_is_tiny_positive() {
+        let z = zero_value();
+        assert!(z > 0.0 && z < 1e-300, "{z}");
+    }
+
+    #[test]
+    fn rayleigh_prepare_and_sampling_are_consistent() {
+        let (x, mut f) = toy_form_factor();
+        let (ge0, ge1, mge) = (1.0 - 1.0 * 20.0, 20.0 / 7.0 * 2.0, 200usize);
+        let _ = (ge0, ge1);
+        let emin = 0.001;
+        let emax = 0.5; // xmax = 20.6*2*emax/prm stays inside the toy grid (<= 100)
+        let (pe, mut d) = prepare_rayleigh_data(&x, &mut f, 50, emin, emax, 0.511);
+        assert!(pe[1] > 0.0);
+        for j in 2..=50 {
+            assert!(pe[j] >= pe[j - 1] && pe[j] <= 1.0);
+        }
+        assert!((pe[50] - 1.0).abs() < 1e-12);
+        // a flat pmax fit of 1 so the whole distribution is sampled
+        d.pmax = Pwlf { a0: vec![1.0; mge + 1], a1: vec![0.0; mge + 1] };
+        let mut rng = Ranmar::new(1802, 9373);
+        let mut mean = 0.0;
+        let n = 4000;
+        for _ in 0..n {
+            let (c, sn) = rayleigh_sampling(&d, 0.1, 0.1_f64.ln(), 5, &mut rng);
+            assert!((-1.0..=1.0).contains(&c));
+            assert!((c * c + sn * sn - 1.0).abs() < 1e-12);
+            mean += c;
+        }
+        mean /= n as f64;
+        // forward peaked: mean cosine clearly positive
+        assert!(mean > 0.5, "{mean}");
+    }
+
+    #[test]
+    fn rayleigh_sigma_is_positive_and_falls_with_energy() {
+        let (mut x, mut f) = toy_form_factor();
+        let s1 = rayleigh_sigma(0.05, &mut x, &mut f);
+        let s2 = rayleigh_sigma(1.0, &mut x, &mut f);
+        assert!(s1 > 0.0 && s2 > 0.0 && s1 > s2, "{s1} {s2}");
+    }
+
+    #[test]
+    fn init_rayleigh_sampling_builds_pmax_fit() {
+        let (x, f) = toy_form_factor();
+        let mut ff = FormFactorTable { xval: x.clone(), aff: vec![vec![0.0; MXRAYFF + 1]] };
+        for _ in 1..=100 {
+            ff.aff.push(f.clone());
+        }
+        let (ge0, ge1, mge) = (1.0 - 0.01_f64.ln() * 20.0, 20.0, 90usize);
+        let d = init_rayleigh_sampling(&[(8.0, 2.0), (1.0, 1.0)], &ff, ge0, ge1, mge, 0.511);
+        assert_eq!(d.pmax.a0.len(), mge + 1);
+        let e = 0.1_f64;
+        let l = (e.ln() * ge1 + ge0) as usize;
+        assert!(l >= 1 && l < mge);
+        let p = d.pmax.eval(l, e.ln());
+        assert!(p > 0.0 && p <= 1.0 + 1e-9, "{p}");
+        let bad = FormFactorTable::from_text("1.0 2.0");
+        assert!(bad.is_err());
+    }
+
+    #[test]
+    fn photon_with_rayleigh_scattering_keeps_energy_balance() {
+        let mut tables = photon_tables(0.0, 0.5, 3);
+        let (x, mut f) = toy_form_factor();
+        let (_, mut d) = prepare_rayleigh_data(&x, &mut f, 50, 0.001, 0.5, 0.511);
+        d.pmax = Pwlf { a0: vec![1.0; 3], a1: vec![0.0; 3] };
+        tables.media[1].rayleigh = Some(d);
+        tables.media[1].cohe = const_pwlf(0.5);
+        tables.regions[1].irayl = 1;
+        let cfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut rng = Ranmar::new(5, 6);
+        for _ in 0..200 {
+            let r = run_history(&tables, &cfg, 0.1, &mut rng);
+            assert!(r.abs() < 1e-9, "residual {r}");
+        }
+    }
+
 }

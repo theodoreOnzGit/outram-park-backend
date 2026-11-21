@@ -10,7 +10,7 @@ port, not differentially tested** (phase 2).
 `ANNIH_AT_REST`, `ANNIH`, `COMPT` (RELAX returned as a seam), `RELAX` (built-in
 scheme), `PAIR` (no NRC tables or triplets), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
-`Geometry` trait, no Rayleigh), `PHOTONUC`, `SHOWER` (behind the
+`Geometry` trait; Rayleigh when the medium carries `RayleighData`), `PHOTONUC`, `SHOWER` (behind the
 `ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields, range rejection or EII; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
 `spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), the PEGS4 intake of `HATCH` (`parse_pegs4_media`, `Pegs4Medium::apply_dunit`), `fix_brems`, `init_compton` (non-EADL) and `mscati`, `init_spin` (from decoded records), `set_spline`, `spline`, `hatch_media` and `adjust_rhor_ecut_pcut`, and `erf1` from `egs_utilities`, Russian roulette,
 and the stack, azimuth and `$RANDOMSET` macros.
@@ -20,9 +20,9 @@ and the stack, azimuth and `$RANDOMSET` macros.
 | Item | Upstream | Why it is a chain, not a routine |
 |---|---|---|
 | `spinms.data` decoder | `init_spin` (`:3369-3420`) | `init_spin` is ported from decoded records (`SpinFile`); the binary layout depends on the build-time macros `$BYTE_ORDER` and `$RECL-FACTOR`, which are not in the source read. A decoder must fill `SpinFile`. |
-| `HATCH` (rest) | `:1827-2598` | The PEGS4 intake (`parse_pegs4_media`) and `DUNIT` scaling (`Pegs4Medium::apply_dunit`) are ported and were checked on a real `pb.pegs4dat` (`EGSNRC_PEGS4_DATA`). Not yet: turning `Pegs4Medium` into the per-medium tables the routines take (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `ElectronMediumData`), `egs_init_user_photon`, `init_nist_brems`, `init_nrc_pair`, `eii_init`, `init_triplet`, `egs_init_rayleigh_sampling`. |
+| `HATCH` (rest) | `:1827-2598` | The PEGS4 intake (`parse_pegs4_media`) and `DUNIT` scaling (`Pegs4Medium::apply_dunit`) are ported and were checked on a real `pb.pegs4dat` (`EGSNRC_PEGS4_DATA`). Not yet: turning `Pegs4Medium` into the per-medium tables the routines take (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `ElectronMediumData`), `egs_init_user_photon`, `init_nist_brems`, `init_nrc_pair`, `eii_init`, `init_triplet`. The Rayleigh initialiser from `pgs4form.dat` (`FormFactorTable::from_text`, `init_rayleigh_sampling`) is ported; the PEGS4 `cohe` fit is not yet wired from `Pegs4Medium` into `PhotonMediumData.cohe`. |
 | `PHOTONUC` | `:9001-9015` | Ported (`photonuc`, with the `$PHOTONUC-CORRECTION` and `$PHOTONUCLEAR` hooks in `photon`). Upstream is a placeholder: it zeroes the photon's energy and weight, and `photon` then discards it with `edep = peig`, so scoring is told the energy was deposited. Pinned by a test. |
-| `egs_rayleigh_sampling` | `:8558` | Rayleigh scattering; off by default (refused by `photon`). |
+| ~~`egs_rayleigh_sampling`~~ | `:8558` | **PORTED 2026-11-21** with `egs_init_rayleigh_sampling`, `prepare_rayleigh_data`, `egs_rayleigh_sigma`, `zero()` and the `$RAYLEIGH-*` hooks in `photon` (first port, not differentially tested; tests are toy-data and energy balance, not compared to EGSnrc). |
 | `sample_triplet`, NRC pair, NIST/NRC brems tables, EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |
 | Whole files | `pegs4/pegs4.mortran`, `get_media_inputs`, `egs_utilities` (rest), `eii` (`src/`) | `nrcaux` is ported except `WATCH` (event-trace printing); `erf1`, `set_spline`, `spline`, `alias_sample1` from `egs_utilities`. `eii` is not ported: see the findings below. The rest is not started. |
 
