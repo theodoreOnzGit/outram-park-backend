@@ -15,13 +15,14 @@
 //!
 //! General utility routines and macros shared by the core and the user codes (2332 lines). Description from the file's header and size; not yet read line by line.
 //!
-//! **Status: first port of `erf1`, `set_spline` and `spline` only, not differentially tested (gh:#1680).**
+//! **Status: first port of `erf1`, `set_spline`, `spline` and `alias_sample1` only, not differentially tested (gh:#1680).**
 //! The rest of the file (input parsing, I/O units, heap sort, messages) is a
 //! placeholder.
 //!
 //! | upstream | here |
 //! |---|---|
 //! | `FUNCTION ERF1` (`egs_utilities.mortran:2096-2151`) | [`erf1`] |
+//! | `FUNCTION alias_sample1` (`egs_utilities.mortran:1901-1936`) | [`alias_sample1`] |
 //! | `SUBROUTINE set_spline`, `FUNCTION spline` (`egs_utilities.mortran:1762-1839`) | [`set_spline`], [`spline`] |
 
 #[cfg(not(any(feature = "std", test)))]
@@ -165,6 +166,42 @@ pub fn spline(s: f64, x: &[f64], co: &SplineCoefficients) -> f64 {
     co.a[m] + q * (co.b[m] + q * (co.c[m] + q * co.d[m]))
 }
 
+/// `alias_sample1` (`egs_utilities.mortran:1901-1936`): a value from a
+/// piecewise-linear density with an alias table. `xs` and `fs` are the node
+/// abscissas and densities `0..=nsbin` (0-based, `nsbin + 1` values), `ws` and
+/// `ibin` the alias table (1-based, from `prepare_alias_sampling` over the bin
+/// probabilities).
+pub fn alias_sample1<R: super::egsnrc_macros::UniformSource>(
+    xs: &[f64],
+    fs: &[f64],
+    ws: &[f64],
+    ibin: &[i32],
+    rng: &mut R,
+) -> f64 {
+    let nsbin = ws.len() - 1;
+    let r1 = rng.uniform();
+    let r2 = rng.uniform();
+    let mut aj = 1.0 + r1 * nsbin as f64;
+    let mut j = aj as usize;
+    aj -= j as f64;
+    if aj > ws[j] {
+        j = ibin[j] as usize;
+    }
+    let x = xs[j - 1];
+    let dx = xs[j] - x;
+    if fs[j - 1] > 0.0 {
+        let a = fs[j] / fs[j - 1] - 1.0;
+        if a.abs() < 0.2 {
+            let rnno1 = 0.5 * (1.0 - r2) * a;
+            x + r2 * dx * (1.0 + rnno1 * (1.0 - r2 * a))
+        } else {
+            x - dx / a * (1.0 - petir::real::Real::sqrt(1.0 + r2 * a * (2.0 + a)))
+        }
+    } else {
+        x + dx * petir::real::Real::sqrt(r2)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,6 +240,48 @@ mod tests {
         for m in 1..xd.len() {
             assert!((spline(xd[m], &xd, &cd) - fd[m]).abs() < 1e-9, "descending node {m}");
         }
+    }
+
+
+    #[test]
+    fn alias_sample1_samples_a_linear_density() {
+        use super::super::nrcaux_mortran::prepare_alias_sampling;
+        use petir::rng::ranmar::Ranmar;
+        // f(x) = x on [0, 1] with five nodes; bin probabilities by trapezoids
+        let xs = [0.0, 0.25, 0.5, 0.75, 1.0];
+        let fs = [0.0, 0.25, 0.5, 0.75, 1.0];
+        let mut probs = alloc::vec![0.0];
+        for j in 1..=4 {
+            probs.push(0.5 * (fs[j - 1] + fs[j]) * (xs[j] - xs[j - 1]));
+        }
+        let total: f64 = probs.iter().sum();
+        for p in probs.iter_mut() {
+            *p /= total;
+        }
+        let (ws, ibin) = prepare_alias_sampling(&mut probs);
+        let mut rng = Ranmar::new(21, 43);
+        let n = 200_000;
+        let (mut mean, mut inside) = (0.0, 0);
+        for _ in 0..n {
+            let x = alias_sample1(&xs, &fs, &ws, &ibin, &mut rng);
+            mean += x;
+            if (0.0..=1.0).contains(&x) {
+                inside += 1;
+            }
+        }
+        assert_eq!(inside, n, "every sample is inside the support");
+        // E[x] = 2/3 for a density proportional to x
+        assert!((mean / n as f64 - 2.0 / 3.0).abs() < 0.005, "mean {}", mean / n as f64);
+        // a flat density takes the near-uniform branch (probabilities perturbed off the exact
+        // tie that prepare_alias_sampling cannot finalise, see nrcaux_mortran)
+        let flat = [1.0, 1.0, 1.0, 1.0, 1.0];
+        let mut p2 = alloc::vec![0.0, 0.2501, 0.2499, 0.2502, 0.2498];
+        let (w2, i2) = prepare_alias_sampling(&mut p2);
+        let mut m2 = 0.0;
+        for _ in 0..n {
+            m2 += alias_sample1(&xs, &flat, &w2, &i2, &mut rng);
+        }
+        assert!((m2 / n as f64 - 0.5).abs() < 0.005);
     }
 
     /// `erf1` is an accurate error function: it agrees with `libm`'s `erf`
