@@ -12,6 +12,10 @@
 #include "openmc/memory.h"
 #include "openmc/settings.h"
 #include "openmc/geometry.h"
+#include "openmc/material.h"
+#include "openmc/physics.h"
+#include "openmc/bremsstrahlung.h"
+#include "openmc/tensor.h"
 
 using namespace openmc;
 
@@ -65,6 +69,41 @@ int main(int argc, char** argv) {
   for (auto& sh : p.shells_) {
     fprintf(d, "shell %d %d %.17g %zu\n", sh.index_subshell, sh.threshold, sh.binding_energy, sh.transitions.size());
     for (auto& t : sh.transitions) fprintf(d, "%d %d %.17g %.17g\n", t.primary_subshell, t.secondary_subshell, t.energy, t.probability);
+  }
+  // Synthetic thick-target bremsstrahlung tables (Material::init_bremsstrahlung
+  // is NOT exercised here; the sampler is). Smooth, positive, monotone CDFs.
+  const int NE = 24;
+  data::ttb_e_grid = tensor::zeros<double>({(size_t)NE});
+  for (int i = 0; i < NE; ++i) data::ttb_e_grid(i) = std::log(1.0e3 * std::pow(1.0e9 / 1.0e3, i / (NE - 1.0)));
+  model::materials.push_back(make_unique<Material>());
+  Material& mat = *model::materials[0];
+  mat.element_ = {0};
+  mat.nuclide_ = {0};
+  mat.atom_density_ = tensor::zeros<double>({(size_t)1});
+  mat.atom_density_(0) = 0.048;
+  mat.ttb_ = make_unique<Bremsstrahlung>();
+  for (int part = 0; part < 2; ++part) {
+    BremsstrahlungData* t = part == 0 ? &mat.ttb_->electron : &mat.ttb_->positron;
+    t->pdf = tensor::zeros<double>({(size_t)NE, (size_t)NE});
+    t->cdf = tensor::zeros<double>({(size_t)NE, (size_t)NE});
+    t->yield = tensor::zeros<double>({(size_t)NE});
+    for (int i = 0; i < NE; ++i) {
+      t->yield(i) = std::log(0.004 * (part == 0 ? 1.0 : 0.7) * std::pow(std::exp(data::ttb_e_grid(i)) / 1.0e5, 0.6));
+      double acc = 0.0;
+      for (int w = 0; w <= i; ++w) {
+        double k = std::exp(data::ttb_e_grid(w));
+        t->pdf(i, w) = (part == 0 ? 1.0 : 0.8) * (1.0 + 0.3 * w) / (k * (1.0 + 0.1 * i));
+        if (w > 0) acc += 0.5 * (t->pdf(i, w) + t->pdf(i, w - 1)) * (std::exp(data::ttb_e_grid(w)) - std::exp(data::ttb_e_grid(w - 1)));
+        t->cdf(i, w) = acc;
+      }
+    }
+  }
+  dump_vec(d, "ttb_e_grid", data::ttb_e_grid.data(), data::ttb_e_grid.size());
+  for (int part = 0; part < 2; ++part) {
+    BremsstrahlungData* t = part == 0 ? &mat.ttb_->electron : &mat.ttb_->positron;
+    dump_vec(d, part == 0 ? "ttb_e_pdf" : "ttb_p_pdf", t->pdf.data(), t->pdf.size());
+    dump_vec(d, part == 0 ? "ttb_e_cdf" : "ttb_p_cdf", t->cdf.data(), t->cdf.size());
+    dump_vec(d, part == 0 ? "ttb_e_yield" : "ttb_p_yield", t->yield.data(), t->yield.size());
   }
   fclose(d);
 
@@ -128,6 +167,31 @@ int main(int argc, char** argv) {
         auto& bank = part.local_secondary_bank();
         fprintf(o, "relax %zu %.17g %llu %llu %zu", ish, pe, (unsigned long long)seed_in, (unsigned long long)part.seeds(0), bank.size());
         for (auto& sb : bank) fprintf(o, " %.17g %.17g %.17g %.17g", sb.E, sb.u.x, sb.u.y, sb.u.z);
+        fprintf(o, "\n");
+      }
+    }
+  }
+  // sample_photon_reaction, TTB on (synthetic tables) and off
+  const double rE[] = {2.0e3, 1.0e4, 5.0e4, 1.0e5, 5.0e5, 1.0e6, 2.0e6, 1.0e7, 1.0e8};
+  for (int mode = 0; mode < 2; ++mode) {
+    settings::electron_treatment = mode == 0 ? ElectronTreatment::TTB : ElectronTreatment::LED;
+    for (double e : rE) {
+      for (uint64_t s0 = 1; s0 <= 400; ++s0) {
+        Particle part;
+        part.E() = e;
+        part.wgt() = 1.0;
+        part.u() = Direction(0.48, 0.6, 0.64);
+        part.material() = 0;
+        part.stream() = 0;
+        part.seeds(0) = s0 * 49979687ULL;
+        uint64_t seed_in = part.seeds(0);
+        part.local_secondary_bank().clear();
+        p.calculate_xs(part);
+        part.macro_xs().total = mat.atom_density_(0) * part.photon_xs(0).total;
+        sample_photon_reaction(part);
+        auto& bank = part.local_secondary_bank();
+        fprintf(o, "react %d %.17g %llu %d %d %.17g %.17g %.17g %.17g %.17g %.17g %llu %zu", mode, e, (unsigned long long)seed_in, (int)part.event(), part.event_mt(), part.E(), part.wgt(), part.u().x, part.u().y, part.u().z, part.mu(), (unsigned long long)part.seeds(0), bank.size());
+        for (auto& sb : bank) fprintf(o, " %d %.17g %.17g %.17g %.17g %.17g", sb.particle.transport_index(), sb.E, sb.wgt, sb.u.x, sb.u.y, sb.u.z);
         fprintf(o, "\n");
       }
     }

@@ -246,34 +246,34 @@ fn annihilate(wgt: f64, out: &mut ReactionOutcome, seed: &mut u64) {
     out.secondaries.push(Secondary { particle: ParticleType::Photon, u: neg(u), e: MASS_ELECTRON_EV, wgt });
 }
 
-/// Hand a relaxation secondary list to the particle bank / charged seam.
-fn apply_relaxation(
+/// Hand one relaxation secondary to the particle bank / charged seam, at the
+/// moment upstream creates it (so Auger-electron bremsstrahlung draws land in
+/// the same place in the random stream).
+fn apply_relaxation_secondary(
     p: &PhotonState,
-    list: Vec<RelaxationSecondary>,
+    s: RelaxationSecondary,
     settings: &PhotonSettings,
     ttb: Option<&TtbTables<'_>>,
     out: &mut ReactionOutcome,
     seed: &mut u64,
 ) {
-    for s in list {
-        match s {
-            RelaxationSecondary::Photon { u, energy } => out.secondaries.push(Secondary {
-                particle: ParticleType::Photon,
-                u: Direction::new(u.0, u.1, u.2),
-                e: energy,
-                wgt: p.wgt,
-            }),
-            RelaxationSecondary::Electron { u, energy } => process_charged_secondary(
-                p,
-                Direction::new(u.0, u.1, u.2),
-                energy,
-                ParticleType::Electron,
-                settings,
-                ttb,
-                out,
-                seed,
-            ),
-        }
+    match s {
+        RelaxationSecondary::Photon { u, energy } => out.secondaries.push(Secondary {
+            particle: ParticleType::Photon,
+            u: Direction::new(u.0, u.1, u.2),
+            e: energy,
+            wgt: p.wgt,
+        }),
+        RelaxationSecondary::Electron { u, energy } => process_charged_secondary(
+            p,
+            Direction::new(u.0, u.1, u.2),
+            energy,
+            ParticleType::Electron,
+            settings,
+            ttb,
+            out,
+            seed,
+        ),
     }
 }
 
@@ -330,13 +330,13 @@ pub fn sample_photon_reaction(
             && i_shell >= 0
             && element.subshell_map[i_shell as usize] >= 0
         {
-            let list = element.atomic_relaxation(
+            element.atomic_relaxation_with(
                 element.subshell_map[i_shell as usize] as usize,
                 p.e,
                 settings.photon_cutoff,
                 seed,
+                |s, seed| apply_relaxation_secondary(p, s, settings, ttb, &mut out, seed),
             );
-            apply_relaxation(p, list, settings, ttb, &mut out, seed);
         }
         phi += PI;
         p.e = alpha_out * MASS_ELECTRON_EV;
@@ -378,8 +378,9 @@ pub fn sample_photon_reaction(
                 let u = Direction::new(mu, s * RealMath::r_cos(phi), s * RealMath::r_sin(phi));
                 process_charged_secondary(p, u, e_electron, ParticleType::Electron, settings, ttb, &mut out, seed);
                 if settings.atomic_relaxation {
-                    let list = element.atomic_relaxation(i_shell, p.e, settings.photon_cutoff, seed);
-                    apply_relaxation(p, list, settings, ttb, &mut out, seed);
+                    element.atomic_relaxation_with(i_shell, p.e, settings.photon_cutoff, seed, |s, seed| {
+                        apply_relaxation_secondary(p, s, settings, ttb, &mut out, seed)
+                    });
                 }
                 p.event = Event::Absorb;
                 p.event_mt = 533 + shell.index_subshell;

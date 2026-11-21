@@ -62,12 +62,43 @@ shells x 3 particle energies x 40 seeds = 3480 cascades (241 of them emitted
 mismatches 0, worst energy/direction difference 1.1e-16 (round-off). H has no
 relaxation data (120 trivial cascades, equal).
 
+`sample_photon_reaction` (2026-11-21), thick-target bremsstrahlung on and off,
+9 energies (2 keV to 100 MeV) x 400 seeds x 2 modes = 7200 calls per element
+(U: all four reaction types and 25+ photoelectric shells occur; 2920 calls
+banked at least one secondary). The harness sets up a one-element `Material` and calls
+`openmc::sample_photon_reaction`; the Rust test calls one `prn` first, which
+stands for upstream's `sample_element` draw. TTB tables are **synthetic**
+(24-point grid, smooth positive PDF, monotone CDF, power-law yield): they
+exercise `thick_target_bremsstrahlung` and `process_charged_secondary`, but
+`Material::init_bremsstrahlung` (which derives the real tables from stopping
+powers) is **not ported and not compared** (gh:#1693).
+
+| element | calls | event/MT mismatches | bank-size mismatches | final-seed mismatches | worst state/secondary difference |
+|---|---|---|---|---|---|
+| U | 7200 | 0 | 0 | 0 | 4.3e-15 |
+| H | 7200 | 0 | 0 | 0 | 2.6e-14 |
+
+**Defect found and fixed.** The first run of this comparison on U gave 162
+bank-size mismatches and 473 seed mismatches, all in TTB mode on photoelectric
+events. Cause: upstream `atomic_relaxation` calls `process_charged_secondary`
+for each Auger electron in the middle of the cascade, so the bremsstrahlung
+draws interleave with the cascade's own; the port returned the whole secondary
+list first and processed it afterwards, reordering the random stream. Fixed by
+`PhotonInteraction::atomic_relaxation_with`, which hands each secondary to a
+callback at the moment upstream creates it (`atomic_relaxation` keeps its
+behaviour as a wrapper). Not caught by the cascade test above, which runs with
+local deposition and so draws nothing for Auger electrons. The worst
+difference, 4e-15 to 3e-14, is round-off in `ln`/`exp` of the TTB sampler
+(below the 1e-9 allowance, cause not traced further).
+
+`p.mu()` is compared only for scattering events: upstream leaves it
+uninitialised on absorption.
+
 So the Rust samplers consume exactly the same random numbers in the same order
 and give bit-identical results for this element.
 
 ## Not yet compared
 
-`thick_target_bremsstrahlung`, `sample_photon_reaction`,
-`sample_electron_reaction`, `sample_positron_reaction`,
-`process_charged_secondary`, and further elements (U and H only). The data come from ENDF/B-VIII.0
-U only; the C++ harness can be extended to dump and call these (gh:#1690).
+`sample_electron_reaction`, `sample_positron_reaction` (charged-particle
+entry points, not called by the harness yet, gh:#1693),
+`Material::init_bremsstrahlung` (not ported, gh:#1693), and further elements (U and H only; data from ENDF/B-VIII.0; gh:#1690).

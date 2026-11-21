@@ -882,8 +882,29 @@ impl PhotonInteraction {
         seed: &mut u64,
     ) -> Vec<RelaxationSecondary> {
         let mut out = Vec::new();
+        self.atomic_relaxation_with(i_shell, particle_energy, photon_energy_cutoff, seed, |s, _| out.push(s));
+        out
+    }
+
+    /// [`atomic_relaxation`](Self::atomic_relaxation) with each secondary handed
+    /// to `on_secondary` **at the point upstream creates it**, together with the
+    /// seed. This matters: upstream processes an Auger electron
+    /// (`process_charged_secondary`, which may draw random numbers for
+    /// thick-target bremsstrahlung) in the middle of the cascade, so those
+    /// draws interleave with the cascade's own. Collecting the list first and
+    /// processing it afterwards (what `atomic_relaxation` does) reorders the
+    /// stream; found by the differential test against compiled OpenMC
+    /// (gh:#1690, 2026-11-21).
+    pub fn atomic_relaxation_with<F: FnMut(RelaxationSecondary, &mut u64)>(
+        &self,
+        i_shell: usize,
+        particle_energy: f64,
+        photon_energy_cutoff: f64,
+        seed: &mut u64,
+        mut on_secondary: F,
+    ) {
         if !self.has_atomic_relaxation || self.shells[i_shell].binding_energy > particle_energy {
-            return out;
+            return;
         }
         let mut n_holes = 0usize;
         let mut holes = [0usize; MAX_STACK_SIZE];
@@ -899,7 +920,7 @@ impl PhotonInteraction {
             }
             if shell.transitions.is_empty() {
                 let u = isotropic_direction(seed);
-                out.push(RelaxationSecondary::Photon { u, energy: shell.binding_energy });
+                on_secondary(RelaxationSecondary::Photon { u, energy: shell.binding_energy }, seed);
                 continue;
             }
             let mut c = -prn(seed);
@@ -927,12 +948,11 @@ impl PhotonInteraction {
             }
             let u = isotropic_direction(seed);
             if auger {
-                out.push(RelaxationSecondary::Electron { u, energy: transition.energy });
+                on_secondary(RelaxationSecondary::Electron { u, energy: transition.energy }, seed);
             } else {
-                out.push(RelaxationSecondary::Photon { u, energy: transition.energy });
+                on_secondary(RelaxationSecondary::Photon { u, energy: transition.energy }, seed);
             }
         }
-        out
     }
 }
 

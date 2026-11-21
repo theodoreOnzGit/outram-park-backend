@@ -14,6 +14,10 @@
 //! Results: `docs/openmc_photon_phase2.md`.
 
 use punggol::openmc_photon::{ElectronSubshell, Matrix, PhotonInteraction, RelaxationSecondary, Tabulated1D, Transition};
+use outram_mc_libs::geometry::position::Direction;
+use petir::rng::lcg::prn;
+use punggol::openmc_photon::bremsstrahlung::BremsstrahlungData;
+use punggol::openmc_photon::reaction::{Event, PhotonSettings, PhotonState, TtbTables, sample_photon_reaction};
 use std::sync::Arc;
 
 struct Dump {
@@ -114,6 +118,16 @@ fn photon_samplers_against_compiled_openmc() {
         });
     }
 
+    let ttb_grid = d.vec("ttb_e_grid");
+    let ne = ttb_grid.len();
+    let mut ttb_table = |pre: &str| BremsstrahlungData {
+        pdf: Matrix::new(d.vec(&format!("{pre}_pdf")), ne).unwrap(),
+        cdf: Matrix::new(d.vec(&format!("{pre}_cdf")), ne).unwrap(),
+        yield_: d.vec(&format!("{pre}_yield")),
+    };
+    let ttb_electron = ttb_table("ttb_e");
+    let ttb_positron = ttb_table("ttb_p");
+
     let p = PhotonInteraction {
         z,
         energy,
@@ -141,6 +155,10 @@ fn photon_samplers_against_compiled_openmc() {
     }
     let (mut n_relax, mut relax_seed_bad, mut relax_count_bad) = (0usize, 0usize, 0usize);
     let mut w_relax = 0.0_f64;
+
+    let (mut n_react, mut react_bad_seed, mut react_bad_event, mut react_bad_nsec) = (0usize, 0usize, 0usize, 0usize);
+    let mut w_react = 0.0_f64;
+    let tables = TtbTables { e_grid: &ttb_grid, electron: &ttb_electron, positron: &ttb_positron };
 
     let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
     let (mut n, mut seed_bad, mut shell_bad) = (0usize, 0usize, 0usize);
@@ -224,6 +242,66 @@ fn photon_samplers_against_compiled_openmc() {
                     }
                 }
             }
+            "react" => {
+                n_react += 1;
+                let mode: u8 = t[1].parse().unwrap();
+                let e: f64 = t[2].parse().unwrap();
+                let mut seed: u64 = t[3].parse().unwrap();
+                let settings = if mode == 0 { PhotonSettings::new() } else { PhotonSettings::new().without_ttb() };
+                // upstream's `sample_element` draws one number before the reaction is sampled
+                let _ = prn(&mut seed);
+                let micro = p.calculate_xs(e);
+                let mut st = PhotonState {
+                    e,
+                    u: Direction::new(0.48, 0.6, 0.64),
+                    wgt: 1.0,
+                    mu: 0.0,
+                    in_void: false,
+                    event: Event::None,
+                    event_mt: 0,
+                };
+                let out = sample_photon_reaction(&mut st, &p, &micro, &settings, Some(&tables), &mut seed);
+                let want_event = match t[4] {
+                    "3" => Event::Scatter,
+                    "4" => Event::Absorb,
+                    _ => Event::None,
+                };
+                if st.event != want_event || st.event_mt != t[5].parse::<i32>().unwrap() {
+                    react_bad_event += 1;
+                }
+                let v: Vec<f64> = t[6..11].iter().map(|x| x.parse().unwrap()).collect();
+                for (a, b) in [(st.e, v[0]), (st.wgt, v[1]), (st.u.u, v[2]), (st.u.v, v[3]), (st.u.w, v[4])] {
+                    w_react = w_react.max(if b == 0.0 { a.abs() } else { rel(a, b) });
+                }
+                if std::env::var("OPENMC_DEBUG").is_ok() && n_react < 100000 {
+                    let dd = [(st.e, v[0]), (st.wgt, v[1]), (st.u.u, v[2]), (st.u.v, v[3]), (st.u.w, v[4])];
+                    if dd.iter().any(|(a, b)| (a - b).abs() > 1e-9 * b.abs().max(1.0)) {
+                        eprintln!("DIFF mode {mode} e {e} mt {} mine {:?} want {:?} line {}", st.event_mt, dd, v, &l[..l.len().min(160)]);
+                    }
+                }
+                // `p.mu()` is only written by the two scattering events (it is uninitialised otherwise)
+                if st.event == Event::Scatter {
+                    w_react = w_react.max((st.mu - t[11].parse::<f64>().unwrap()).abs());
+                }
+                if seed != t[12].parse::<u64>().unwrap() {
+                    react_bad_seed += 1;
+                }
+                let nsec: usize = t[13].parse().unwrap();
+                if out.secondaries.len() != nsec {
+                    react_bad_nsec += 1;
+                    if std::env::var("OPENMC_DEBUG").is_ok() && react_bad_nsec < 8 {
+                        eprintln!("NSEC mode {mode} e {e} mt {} mine {} want {nsec}", st.event_mt, out.secondaries.len());
+                    }
+                } else {
+                    for (k, sec) in out.secondaries.iter().enumerate() {
+                        let b: Vec<f64> = t[14 + 6 * k..20 + 6 * k].iter().map(|x| x.parse().unwrap()).collect();
+                        assert_eq!(b[0], 1.0, "only photons are banked");
+                        for (a, b) in [(sec.e, b[1]), (sec.wgt, b[2]), (sec.u.u, b[3]), (sec.u.v, b[4]), (sec.u.w, b[5])] {
+                            w_react = w_react.max(if b == 0.0 { a.abs() } else { rel(a, b) });
+                        }
+                    }
+                }
+            }
             other => panic!("unknown sample kind {other}"),
         }
     }
@@ -236,6 +314,9 @@ fn photon_samplers_against_compiled_openmc() {
     );
     eprintln!(
         "{n_relax} atomic_relaxation cascades (max stack {max_stack}): photon-count mismatches {relax_count_bad}, final-seed mismatches {relax_seed_bad}, worst photon energy/direction difference {w_relax:e}"
+    );
+    eprintln!(
+        "{n_react} sample_photon_reaction calls (TTB on/off): event/MT mismatches {react_bad_event}, bank-size mismatches {react_bad_nsec}, final-seed mismatches {react_bad_seed}, worst state/secondary difference {w_react:e}"
     );
     assert!(n > 0);
 }
