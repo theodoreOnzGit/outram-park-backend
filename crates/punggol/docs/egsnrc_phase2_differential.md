@@ -449,10 +449,50 @@ before):
 | tutor1 histories (200, same sequence) | 4.5e-8 | 1.07e-8 |
 | EADL histories | 4.1e-8 | 5.3e-9 |
 
-Remaining: the histories differ from both the stock and the promoted build by
-5e-9 to 1e-8 although every table is bit-identical, so the cause is
+~~Remaining: the histories differ from both the stock and the promoted build by
+5e-9 to 1e-8 although every table is bit-identical~~ **CORRECTED 2026-11-21, see "Histories to round-off" below: found and fixed** (original text: the histories differ from both builds by 5e-9 to 1e-8 although every table is bit-identical, so the cause is
 arithmetic order inside the transport routines; the first history already
 differs by 5.7e-13 and the shower amplifies it. This is a propagated
 round-off of the kind the maintainer's rule (root `CLAUDE.md`: "1e-4 for
 propagated error") allows, and is recorded here rather than chased. The
 20 `pegs4` lines of gh:#1688 are not resolved.
+
+
+## Histories to round-off, PEGS4 bit-identical (gh:#1694, gh:#1688, 2026-11-21)
+
+**Histories.** Traces from both programs (Fortran `WRITE`s inserted into the
+generated `.f`; the port's `eprintln`s, since removed) were compared event by
+event: `mscat` inputs, `msdist_pII` outputs, `UPHI` angles, `BREMS`, `MOLLER`,
+the energy loss per step. The first difference was in the very first
+`msdist_pII`: `sint1` differed by 1e-10 although `cost1` differed by one ulp,
+i.e. the multiple-scattering table `fms_array` was one single-precision ulp
+off. Cause: `init_ms_SR` computes `fms_array(k) = fms_array(k+1)/fms_array(k)
+- 1` and `dllamb`, `dllambi`, `dqms`, `dqmsi` with **all-`real*4` operands**,
+i.e. in single precision, in both the stock and the promoted build (the
+arrays are declared `real*4` explicitly); the port did them in `f64` and
+rounded. Fixed (single-precision arithmetic). Two smaller order-of-operations
+slips found on the way are also fixed (`temp2` in `msdist_pII`, now
+`... * (q*q)` as the source has it).
+
+Results (200 `tutor1` histories each, same discard sequence in all):
+
+| reference | before | after (worst relative kinetic energy) |
+|---|---|---|
+| promoted, plain | 1.1e-8 | **1.5e-15** |
+| promoted, EADL | 5.3e-9 | 1.0e-15 |
+| promoted, EII | 1.7e-9 | 4.4e-16 |
+| promoted, NIST brems / NRC brems | 3.2e-8 / 3.8e-9 | 1.0e-15 / 4.8e-16 |
+| promoted, `pair_nrc` / `itriplet` | 2.1e-8 / 4.4e-9 | 1.7e-15 / 1.1e-15 |
+| stock + `egsnrc-f32-constants`, plain / EADL / EII / NIST | 1.1e-8 / 5.3e-9 / 3.6e-9 / 8.2e-8 | 1.2e-15 / 1.3e-15 / 7.4e-16 / 1.2e-15 |
+
+All are floating-point round-off (a few ulp). The earlier statement that the
+remainder was "propagated round-off" was wrong: it was a real defect.
+
+**PEGS4 (gh:#1688).** glibc's `expf`, `logf`, `powf` are not correctly rounded
+(`logf` differs from the correctly rounded result in 0.35 % of arguments, 14
+of 4000), so computing the `f32` functions in `f64` and rounding left 20 lines
+differing. With the platform functions (`f32::ln`, `exp`, `powf`, `log10`,
+which call glibc) `differential_against_compiled_pegs4` is **bit-identical on
+all three media** (`pb700` 3388, `h2o700` 3741, `tis521` 674 lines, 0
+differing). The `no_std` build keeps the `f64` route (compiles; not bit-identical,
+as before). `ln32` in `init_spin` uses the same rule.

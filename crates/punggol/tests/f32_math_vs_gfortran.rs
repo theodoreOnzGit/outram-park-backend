@@ -18,6 +18,7 @@ use petir::mathf::RealMath;
 fn f32_math_vs_gfortran() {
     let Ok(p) = std::env::var("F32_REF") else { return };
     let mut bad = [0usize; 3];
+    let mut via64 = [0usize; 3];
     let mut n = 0;
     for (k, l) in std::fs::read_to_string(p).unwrap().lines().enumerate() {
         let i = (k + 1) as f32;
@@ -28,9 +29,12 @@ fn f32_math_vs_gfortran() {
         if RealMath::r_exp(x - 5.0f32).to_bits() != v[1] { bad[0] += 1; }
         if RealMath::r_ln(x).to_bits() != v[2] { bad[1] += 1; }
         if RealMath::r_powf(x, -0.3333333f32).to_bits() != v[3] { bad[2] += 1; }
+        if (RealMath::r_exp(f64::from(x - 5.0f32)) as f32).to_bits() != v[1] { via64[0] += 1; }
+        if (RealMath::r_ln(f64::from(x)) as f32).to_bits() != v[2] { via64[1] += 1; }
+        if (RealMath::r_powf(f64::from(x), f64::from(-0.3333333f32)) as f32).to_bits() != v[3] { via64[2] += 1; }
         n += 1;
     }
-    eprintln!("{n} args: exp mismatches {}, ln {}, powf {}", bad[0], bad[1], bad[2]);
+    eprintln!("{n} args: exp mismatches {}, ln {}, powf {}; via f64: exp {}, ln {}, powf {}", bad[0], bad[1], bad[2], via64[0], via64[1], via64[2]);
 }
 
 #[test]

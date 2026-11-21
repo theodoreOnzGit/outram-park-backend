@@ -137,13 +137,46 @@ use petir::mathf::RealMath;
 use petir::real::Real;
 
 fn ln(x: f32) -> f32 {
-    RealMath::r_ln(f64::from(x)) as f32
+    // glibc's `logf` (what gfortran calls) is not correctly rounded (0.35 % of arguments);
+    // with `std` the platform's is used, which reproduces it bit for bit (gh:#1688)
+    #[cfg(feature = "std")]
+    {
+        x.ln()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_ln(f64::from(x)) as f32
+    }
 }
 fn exp(x: f32) -> f32 {
-    RealMath::r_exp(f64::from(x)) as f32
+    #[cfg(feature = "std")]
+    {
+        x.exp()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_exp(f64::from(x)) as f32
+    }
 }
 fn powf(x: f32, y: f32) -> f32 {
-    RealMath::r_powf(f64::from(x), f64::from(y)) as f32
+    #[cfg(feature = "std")]
+    {
+        x.powf(y)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_powf(f64::from(x), f64::from(y)) as f32
+    }
+}
+pub(super) fn log10_f32(x: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        x.log10()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_log10(f64::from(x)) as f32
+    }
 }
 fn sqrt(x: f32) -> f32 {
     Real::sqrt(x)
@@ -470,7 +503,7 @@ pub fn dcadre<F: FnMut(f32) -> f32>(mut f: F, a: f32, b: f32, aerr: f32, rerr: f
     let mut est = [0.0f32; 32];
     let mut reglsv = [false; 32];
 
-    let alg4o2 = (RealMath::r_log10(f64::from(two)) as f32);
+    let alg4o2 = log10_f32(two);
     let mut cadre = zero;
     let mut error = zero;
     let mut curest = zero;
@@ -728,7 +761,7 @@ pub fn dcadre<F: FnMut(f32) -> f32>(mut f: F, a: f32, b: f32, aerr: f32, rerr: f
                 } else {
                     // ALPHA=LOG10(SING)/ALG4O2-ONE is computed upstream and
                     // never used; kept for fidelity of the call sequence.
-                    let _alpha = (RealMath::r_log10(f64::from(sing)) as f32) / alg4o2 - one;
+                    let _alpha = log10_f32(sing) / alg4o2 - one;
                     ier = ier.max(65);
                     lbl = Lbl::L160;
                 }

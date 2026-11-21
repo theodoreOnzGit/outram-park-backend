@@ -218,13 +218,36 @@ use super::get_media_inputs_mortran::{ASYMT, WATBL};
 use super::pegs4_routines_mortran::{aintp, pwlf1, qd, ListReader, Pegs4Common, Pegs4Constants, Pegs4Error};
 
 fn ln(x: f32) -> f32 {
-    RealMath::r_ln(f64::from(x)) as f32
+    // glibc's `logf` (what gfortran calls) is not correctly rounded (0.35 % of arguments);
+    // with `std` the platform's is used, which reproduces it bit for bit (gh:#1688)
+    #[cfg(feature = "std")]
+    {
+        x.ln()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_ln(f64::from(x)) as f32
+    }
 }
 fn exp(x: f32) -> f32 {
-    RealMath::r_exp(f64::from(x)) as f32
+    #[cfg(feature = "std")]
+    {
+        x.exp()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_exp(f64::from(x)) as f32
+    }
 }
 fn powf(x: f32, y: f32) -> f32 {
-    RealMath::r_powf(f64::from(x), f64::from(y)) as f32
+    #[cfg(feature = "std")]
+    {
+        x.powf(y)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_powf(f64::from(x), f64::from(y)) as f32
+    }
 }
 fn sqrt(x: f32) -> f32 {
     Real::sqrt(x)

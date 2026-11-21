@@ -5673,21 +5673,24 @@ impl MsData {
                     ims[ms_idx(i, j, k)] = ii[k] as i16;
                 }
                 for k in 0..MAXU_MS {
-                    // fms(k) = fms(k+1)/fms(k) - 1 in double, stored real*4
-                    let a = fms[ms_idx(i, j, k)] as f64;
-                    let b = fms[ms_idx(i, j, k + 1)] as f64;
-                    fms[ms_idx(i, j, k)] = (b / a - 1.0) as f32;
+                    // fms(k) = fms(k+1)/fms(k) - 1: every operand is real*4, so the
+                    // division and the subtraction are single precision (an earlier
+                    // version did them in double: 1 ulp off, gh:#1694)
+                    let a = fms[ms_idx(i, j, k)];
+                    let b = fms[ms_idx(i, j, k + 1)];
+                    fms[ms_idx(i, j, k)] = b / a - 1.0_f32;
                     ims[ms_idx(i, j, k)] -= 1;
                 }
                 fms[ms_idx(i, j, MAXU_MS)] = fms[ms_idx(i, j, MAXU_MS - 1)];
             }
         }
-        let llammin = RealMath::r_ln(LAMBMIN_MS) as f32 as f64;
-        let llammax = RealMath::r_ln(LAMBMAX_MS) as f32 as f64;
-        let dllamb = ((llammax - llammin) / MAXL_MS as f64) as f32 as f64;
-        let dllambi = (1.0 / dllamb) as f32;
-        let dqms = (QMAX_MS / MAXQ_MS as f64) as f32 as f64;
-        let dqmsi = (1.0 / dqms) as f32;
+        // all of these are real*4 variables: single-precision arithmetic
+        let llammin = RealMath::r_ln(LAMBMIN_MS) as f32;
+        let llammax = RealMath::r_ln(LAMBMAX_MS) as f32;
+        let dllamb = (llammax - llammin) / MAXL_MS as f32;
+        let dllambi = 1.0_f32 / dllamb;
+        let dqms = QMAX_MS as f32 / MAXQ_MS as f32;
+        let dqmsi = 1.0_f32 / dqms;
         Ok(Self { ums, fms, wms, ims, dllambi, dqmsi })
     }
 }
@@ -6299,7 +6302,7 @@ pub fn msdist_p2<R: UniformSource>(
     let mut chia2 = xcccc / (4.0 * p2 * blccc);
     let mut lambda = 0.5 * inp.tustep * inp.rhof * blccc / beta2; // a half step
     let q = epsilonp / ((tau + 1.0) * (tau + 2.0));
-    let temp2 = lit(0.166666) * (4.0 + tau * (6.0 + tau * (7.0 + tau * (4.0 + tau)))) * q * q;
+    let temp2 = lit(0.166666) * (4.0 + tau * (6.0 + tau * (7.0 + tau * (4.0 + tau)))) * (q * q);
     lambda *= 1.0 - temp2;
 
     let (etap, xi_corr, mut gamma, ms_corr);
@@ -8476,7 +8479,14 @@ pub struct SpinFits {
 /// `petir`'s `f32` `ln` is one ulp off in about 7 % of arguments
 /// (`tests/f32_math_vs_gfortran.rs`, gh:#1688).
 fn ln32(x: f32) -> f32 {
-    RealMath::r_ln(f64::from(x)) as f32
+    #[cfg(feature = "std")]
+    {
+        x.ln()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_ln(f64::from(x)) as f32
+    }
 }
 
 /// `init_spin` (`egsnrc.mortran:3309-3706`), from the decoded records: the
