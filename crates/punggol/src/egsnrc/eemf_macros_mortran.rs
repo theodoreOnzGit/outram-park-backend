@@ -531,7 +531,7 @@ impl EemfState {
             self.delta_t_calculated = false;
             // $duAdaptive
             if self.b_field_transport {
-                self.du_adaptiv_em_factor = (lit(1.5) / self.b_amp).r_powf(1.0 / 5.0);
+                self.du_adaptiv_em_factor = super::libm::powf(lit(1.5) / self.b_amp, 1.0 / 5.0);
             }
         }
 
@@ -820,8 +820,8 @@ impl EemfState {
     /// for the parallel displacement and `xEMF` as the start, as upstream.
     pub fn calc_ss_mag(&mut self, p1: f64, vstep: f64) {
         self.alpha_em = self.omega_em * p1 / (lit(100.0) * self.v_i);
-        let sin_a = self.alpha_em.r_sin();
-        let cos_a = self.alpha_em.r_cos();
+        let sin_a = super::libm::sin(self.alpha_em);
+        let cos_a = super::libm::cos(self.alpha_em);
         self.sin_cos_a = [sin_a, cos_a];
         let c = lit(100.0) * self.ssc * self.v_i;
         let mut xs = [0.0; 3];
@@ -882,8 +882,8 @@ impl EemfState {
         self.beta_em = Real::sqrt(1.0 - q * q);
         self.v_i = SL * self.beta_em;
         self.alpha_em = self.omega_em * p1 / (lit(100.0) * self.v_i);
-        let sin_a = self.alpha_em.r_sin();
-        let cos_a = self.alpha_em.r_cos();
+        let sin_a = super::libm::sin(self.alpha_em);
+        let cos_a = super::libm::cos(self.alpha_em);
         self.sin_cos_a = [sin_a, cos_a];
         self.ssc *= lit(100.0);
         let mut t = [0.0; 3];
@@ -1209,8 +1209,11 @@ impl EemfState {
                         }
                     } else if self.b_field_transport {
                         // vacuum B-field transport by the distance to the nearest boundary
-                        v.vstep += self.tperp_em - self.vstep0_mag;
+                        v.vstep = v.vstep + self.tperp_em - self.vstep0_mag;
+                        eprintln!("TRC H1 {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", self.tperp_em, v.vstep, self.vstep0_mag, self.e_total, self.omega_em, self.beta_em, self.b_amp, self.sign_omega);
                         self.ss_mf_transport(v.vstep, 2.0, v.lelec);
+                        eprintln!("TRC H2 {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", self.xs[0], self.xs[1], self.xs[2], self.us[0], self.us[1], self.us[2], v.vstep, self.tperp_em);
+                        eprintln!("TRC H3 {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", self.alpha_em, self.sin_cos_a[0], self.sin_cos_a[1], self.ssc, self.perp[2], self.perp2[2], self.prll[2], self.omega_em, self.v_i);
                         v.vstep += self.vstep0_mag;
                         continue;
                     } else {
@@ -1310,9 +1313,9 @@ pub fn asinh_glibc(x: f64) -> f64 {
     }
     let w = if xa > 268_435_456.0 {
         // |x| > 2^28
-        xa.r_ln() + 6.931_471_805_599_452_862_27e-01
+        super::libm::ln(xa) + 6.931_471_805_599_452_862_27e-01
     } else if xa > 2.0 {
-        (2.0 * xa + 1.0 / (Real::sqrt(xa * xa + 1.0) + xa)).r_ln()
+        super::libm::ln(2.0 * xa + 1.0 / (Real::sqrt(xa * xa + 1.0) + xa))
     } else {
         let t = xa * xa;
         (xa + t / (1.0 + Real::sqrt(1.0 + t))).r_ln_1p()

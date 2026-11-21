@@ -145,7 +145,7 @@ pub fn annih<R: UniformSource>(stack: &mut Stack, nbr_split: usize, rm: f64, rng
     let p = Real::sqrt(a * t);
     let pot = p / t;
     let ep0 = 1.0 / (a + p);
-    let wsamp = RealMath::r_ln((1.0 - ep0) / ep0);
+    let wsamp = super::libm::ln((1.0 - ep0) / ep0);
 
     let aa = stack.u[np0];
     let bb = stack.v[np0];
@@ -171,7 +171,7 @@ pub fn annih<R: UniformSource>(stack: &mut Stack, nbr_split: usize, rm: f64, rng
         let mut ep;
         loop {
             let rnno01 = rng.uniform();
-            ep = ep0 * RealMath::r_exp(rnno01 * wsamp);
+            ep = ep0 * super::libm::exp(rnno01 * wsamp);
             let rnno02 = rng.uniform();
             let t2 = ep * a - 1.0;
             let rejf = 1.0 - t2 * t2 / (ep * (a * a - 2.0));
@@ -502,7 +502,7 @@ pub fn compt<R: UniformSource>(
         'resample: loop {
             if ko > 2.0 {
                 if first_time {
-                    alph1 = RealMath::r_ln(broi);
+                    alph1 = super::libm::ln(broi);
                     bro = 1.0 / broi;
                     let alph2 = ko * (broi + 1.0) * bro * bro;
                     alpha = alph1 + alph2;
@@ -511,7 +511,7 @@ pub fn compt<R: UniformSource>(
                     let rnno15 = rng.uniform();
                     let rnno16 = rng.uniform();
                     if rnno15 * alpha < alph1 {
-                        br = RealMath::r_exp(alph1 * rnno16) * bro;
+                        br = super::libm::exp(alph1 * rnno16) * bro;
                     } else {
                         br = Real::sqrt(rnno16 * broi2 + (1.0 - rnno16)) * bro;
                     }
@@ -584,7 +584,7 @@ pub fn compt<R: UniformSource>(
             }
             let mut aux3 = 1.0 + 2.0 * jo * pzmax.abs();
             let mut aux4 = 0.5 * (1.0 - aux3 * aux3);
-            fpz = 0.5 * RealMath::r_exp(aux4);
+            fpz = 0.5 * super::libm::exp(aux4);
             af = qc * (1.0 + br * (br - costhe) / qc2);
             if af < 0.0 {
                 if pzmax > 0.0 {
@@ -637,10 +637,10 @@ pub fn compt<R: UniformSource>(
                 rnno18 *= fpz;
                 if rnno18 < 0.5 {
                     rnno18 = (1e-30_f64).max(2.0 * rnno18);
-                    pz = 0.5 * (1.0 - Real::sqrt(1.0 - 2.0 * RealMath::r_ln(rnno18))) / jo;
+                    pz = 0.5 * (1.0 - Real::sqrt(1.0 - 2.0 * super::libm::ln(rnno18))) / jo;
                 } else {
                     rnno18 = 2.0 * (1.0 - rnno18);
-                    pz = 0.5 * (Real::sqrt(1.0 - 2.0 * RealMath::r_ln(rnno18)) - 1.0) / jo;
+                    pz = 0.5 * (Real::sqrt(1.0 - 2.0 * super::libm::ln(rnno18)) - 1.0) / jo;
                 }
                 if pz.abs() > 1.0 {
                     continue;
@@ -1338,9 +1338,9 @@ pub fn uphi_from_theta<R: UniformSource>(
     theta: f64,
     rng: &mut R,
 ) -> Result<(), EgsError> {
-    let sinthe = RealMath::r_sin(theta);
+    let sinthe = super::libm::sin(theta);
     let cthet = 2.5 * core::f64::consts::PI - theta;
-    let costhe = RealMath::r_sin(cthet);
+    let costhe = super::libm::sin(cthet);
     uphi(stack, saved, 2, lvl, sinthe, costhe, rng)
 }
 
@@ -1478,7 +1478,7 @@ fn pair_core<R: UniformSource>(
     let eig = peig;
     if cfg.itriplet > 0 && eig > 4.0 * rm {
         if let Some((td, state, imed, up_max)) = triplet {
-            let gle = RealMath::r_ln(eig);
+            let gle = super::libm::ln(eig);
             let itrip = (td.dli_triplet * gle + td.bli_triplet) as usize;
             let ftrip = if itrip < td.a_triplet[imed].len() {
                 td.a_triplet[imed][itrip] * gle + td.b_triplet[imed][itrip]
@@ -1504,7 +1504,7 @@ fn pair_core<R: UniformSource>(
                 let ibin = if k <= nd.emin {
                     1usize
                 } else {
-                    let mut abin = 1.0 + RealMath::r_ln((k - 2.0) / (nd.emin - 2.0)) * nd.dlei;
+                    let mut abin = 1.0 + super::libm::ln((k - 2.0) / (nd.emin - 2.0)) * nd.dlei;
                     let mut ib = abin as usize;
                     abin -= ib as f64;
                     let rbin = rng.uniform();
@@ -1558,7 +1558,7 @@ fn pair_core<R: UniformSource>(
                 amax = med.dl[0][l] + delta * (med.dl[1][l] + delta * med.dl[2][l]);
                 bmax = med.dl[0][l1] + delta * (med.dl[1][l1] + delta * med.dl[2][l1]);
             } else {
-                let aux2 = RealMath::r_ln(delta + med.dl[5][l]);
+                let aux2 = super::libm::ln(delta + med.dl[5][l]);
                 amax = med.dl[3][l] + med.dl[4][l] * aux2;
                 bmax = med.dl[3][l1] + med.dl[4][l1] * aux2;
             }
@@ -1600,7 +1600,7 @@ fn pair_core<R: UniformSource>(
             let rejf = if delta < 1.0 {
                 med.dl[0][l1] + delta * (med.dl[1][l1] + delta * med.dl[2][l1])
             } else {
-                med.dl[3][l1] + med.dl[4][l1] * RealMath::r_ln(delta + med.dl[5][l1])
+                med.dl[3][l1] + med.dl[4][l1] * super::libm::ln(delta + med.dl[5][l1])
             };
             if rnno34 * rejmax <= rejf {
                 break;
@@ -1668,7 +1668,7 @@ fn pair_core<R: UniformSource>(
                             * (esedei + eseder + 1.0 - 4.0 * (xi - 0.5) * (xi - 0.5))
                             * (1.0
                                 + 0.25
-                                    * RealMath::r_ln(
+                                    * super::libm::ln(
                                         ((1.0 + eseder) * (1.0 + esedei) / (2.0 * tteig))
                                             * ((1.0 + eseder) * (1.0 + esedei) / (2.0 * tteig))
                                             + ztarg * xi * xi,
@@ -1679,7 +1679,7 @@ fn pair_core<R: UniformSource>(
                 let rejmin = rej(ximin);
                 let ya = (2.0 / tteig) * (2.0 / tteig);
                 let xitry = (0.01_f64).max(ximin.max((0.5_f64).min(Real::sqrt(ya / ztarg))));
-                let mut galpha = 1.0 + 0.25 * RealMath::r_ln(ya + ztarg * xitry * xitry);
+                let mut galpha = 1.0 + 0.25 * super::libm::ln(ya + ztarg * xitry * xitry);
                 let gbeta = 0.5 * ztarg * xitry / (ya + ztarg * xitry * xitry);
                 galpha -= gbeta * (xitry - 0.5);
                 let mut ximid = galpha / (3.0 * gbeta);
@@ -1702,8 +1702,8 @@ fn pair_core<R: UniformSource>(
                         break;
                     }
                 }
-                sinthe = RealMath::r_sin(theta);
-                costhe = RealMath::r_cos(theta);
+                sinthe = super::libm::sin(theta);
+                costhe = super::libm::cos(theta);
             } else if iprdst_use == 3 {
                 let c = 1.0 - 2.0 * rng.uniform();
                 let s = (1.0 - c) * (1.0 + c);
@@ -1730,8 +1730,8 @@ fn pair_core<R: UniformSource>(
     // iprdst = 0: theta = 0
     uphi_from_theta(stack, &mut saved, 1, 0.0, rng)?;
     stack.np += 1;
-    let sinthe = -RealMath::r_sin(0.0);
-    let costhe = RealMath::r_sin(2.5 * core::f64::consts::PI);
+    let sinthe = -super::libm::sin(0.0);
+    let costhe = super::libm::sin(2.5 * core::f64::consts::PI);
     uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
     let np = stack.np;
     stack.iq[np] = iq2;
@@ -1927,7 +1927,7 @@ pub fn photo<R: UniformSource>(
                     }
                     sigma = data.edge_a[izk][j]
                         + gle * (data.edge_b[izk][j] + gle * (data.edge_c[izk][j] + gle * data.edge_d[izk][j]));
-                    sigma = RealMath::r_exp(sigma);
+                    sigma = super::libm::exp(sigma);
                 }
                 sigma *= medium.pz[k];
                 sigtot += sigma;
@@ -2276,14 +2276,14 @@ pub fn brems<R: UniformSource>(
             } else {
                 br = rng.uniform();
             }
-            esg = med.ap * RealMath::r_exp(br * waux);
+            esg = med.ap * super::libm::exp(br * waux);
             ese = peie - esg;
         } else {
         // Bethe-Heitler
         loop {
             let rnno06 = rng.uniform();
             let rnno07 = rng.uniform();
-            let br = brmin * RealMath::r_exp(rnno06 * waux);
+            let br = brmin * super::libm::exp(rnno06 * waux);
             let e_g = ekin * br;
             let e_e = peie - e_g;
             let delta = e_g / eie / e_e * med.delcm;
@@ -2293,7 +2293,7 @@ pub fn brems<R: UniformSource>(
                 phi1 = med.dl[0][l] + delta * (med.dl[1][l] + delta * med.dl[2][l]);
                 phi2 = med.dl[0][l1] + delta * (med.dl[1][l1] + delta * med.dl[2][l1]);
             } else {
-                phi1 = med.dl[3][l] + med.dl[4][l] * RealMath::r_ln(delta + med.dl[5][l]);
+                phi1 = med.dl[3][l] + med.dl[4][l] * super::libm::ln(delta + med.dl[5][l]);
                 phi2 = phi1;
             }
             let rejf = (1.0 + aux * aux) * phi1 - 2.0 * aux * phi2 / 3.0;
@@ -2333,7 +2333,7 @@ pub fn brems<R: UniformSource>(
                 let rjarg3 = if aux1 > 10.0 {
                     med.lzbrang + (1.0 - aux1) / (aux1 * aux1)
                 } else {
-                    RealMath::r_ln(aux / (1.0 + aux1))
+                    super::libm::ln(aux / (1.0 + aux1))
                 };
                 let rejmax = rjarg1 * rjarg3 - rjarg2;
                 loop {
@@ -2349,7 +2349,7 @@ pub fn brems<R: UniformSource>(
                     if rtest < aux4 + aux5 * rjarg3 {
                         break;
                     }
-                    let aux2 = RealMath::r_ln(aux / (1.0 + aux1 / a34));
+                    let aux2 = super::libm::ln(aux / (1.0 + aux1 / a34));
                     let rejtst = aux4 + aux5 * aux2;
                     if rtest < rejtst {
                         break;
@@ -2651,19 +2651,19 @@ pub fn prepare_rayleigh_data(
     let mut sum0 = 0.0_f64;
     fcum[1] = 0.0;
     for i in 1..ndat {
-        let b = RealMath::r_ln(f[i + 1] / f[i]) / RealMath::r_ln(x[i + 1] / x[i]);
+        let b = super::libm::ln(f[i + 1] / f[i]) / super::libm::ln(x[i + 1] / x[i]);
         b_array[i] = b;
         let (x1, x2) = (x[i], x[i + 1]);
-        let pow_x1 = RealMath::r_powf(x1, 2.0 * b);
-        let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+        let pow_x1 = super::libm::powf(x1, 2.0 * b);
+        let pow_x2 = super::libm::powf(x2, 2.0 * b);
         sum0 += f[i] * f[i] * (x2 * x2 * pow_x2 - x1 * x1 * pow_x1) / ((1.0 + b) * pow_x1);
         fcum[i + 1] = sum0;
     }
     // the maximum cumulative probability as a function of photon energy
-    let dle = RealMath::r_ln(emax / emin) / (ne - 1) as f64;
+    let dle = super::libm::ln(emax / emin) / (ne - 1) as f64;
     let mut i = 1usize;
     for j in 1..=ne {
-        let e = emin * RealMath::r_exp(dle * (j - 1) as f64);
+        let e = emin * super::libm::exp(dle * (j - 1) as f64);
         let xmax = 20.607544 * 2.0 /* `20.607544d0` */ * e / prm;
         let mut k = i;
         while k <= ndat - 1 {
@@ -2675,8 +2675,8 @@ pub fn prepare_rayleigh_data(
         i = k;
         let b = b_array[i];
         let (x1, x2) = (x[i], xmax);
-        let pow_x1 = RealMath::r_powf(x1, 2.0 * b);
-        let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+        let pow_x1 = super::libm::powf(x1, 2.0 * b);
+        let pow_x2 = super::libm::powf(x2, 2.0 * b);
         pe_array[j] = fcum[i] + f[i] * f[i] * (x2 * x2 * pow_x2 - x1 * x1 * pow_x1) / ((1.0 + b) * pow_x1);
     }
     i_array[ncbin] = i as i32;
@@ -2700,18 +2700,18 @@ pub fn prepare_rayleigh_data(
     let mut xold = x[1];
     let mut ibin = 1usize;
     let mut b = b_array[1];
-    let mut pow_x1 = RealMath::r_powf(x[1], 2.0 * b);
+    let mut pow_x1 = super::libm::powf(x[1], 2.0 * b);
     i_array[1] = 1;
     for i in 2..ncbin {
         let mut w = dw;
         loop {
             let x1 = xold;
             let x2 = x[ibin + 1];
-            let t = x1 * x1 * RealMath::r_powf(x1, 2.0 * b);
-            let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+            let t = x1 * x1 * super::libm::powf(x1, 2.0 * b);
+            let pow_x2 = super::libm::powf(x2, 2.0 * b);
             let aux = f[ibin] * f[ibin] * (x2 * x2 * pow_x2 - t) / ((1.0 + b) * pow_x1);
             if aux > w {
-                xold = RealMath::r_exp(RealMath::r_ln(t + w * (1.0 + b) * pow_x1 / f[ibin] / f[ibin]) / (2.0 + 2.0 * b));
+                xold = super::libm::exp(super::libm::ln(t + w * (1.0 + b) * pow_x1 / f[ibin] / f[ibin]) / (2.0 + 2.0 * b));
                 i_array[i] = ibin as i32;
                 break;
             }
@@ -2719,7 +2719,7 @@ pub fn prepare_rayleigh_data(
             xold = x2;
             ibin += 1;
             b = b_array[ibin];
-            pow_x1 = RealMath::r_powf(xold, 2.0 * b);
+            pow_x1 = super::libm::powf(xold, 2.0 * b);
         }
     }
     // b_array as needed at run time
@@ -2758,8 +2758,8 @@ pub fn init_rayleigh_sampling(comp: &[(f64, f64)], ff: &FormFactorTable, ge0: f6
     if xgrid[1] < lit(1e-6) {
         xgrid[1] = lit(1e-4);
     }
-    let emin = RealMath::r_exp((1.0 - ge0) / ge1);
-    let emax = RealMath::r_exp((mge as f64 - ge0) / ge1);
+    let emin = super::libm::exp((1.0 - ge0) / ge1);
+    let emax = super::libm::exp((mge as f64 - ge0) / ge1);
     let (pe_array, mut data) = prepare_rayleigh_data(&xgrid, &mut f, mge, emin, emax, prm);
     let ne = mge;
     let mut pmax = Pwlf { a0: alloc::vec![0.0; ne + 1], a1: alloc::vec![0.0; ne + 1] };
@@ -2800,14 +2800,14 @@ pub fn rayleigh_sigma(e: f64, x: &mut [f64], f: &mut [f64]) -> f64 {
         if f[i + 1] == 0.0 {
             f[i + 1] = zero;
         }
-        let b = RealMath::r_ln(f[i + 1] / f[i]) / RealMath::r_ln(x[i + 1] / x[i]);
+        let b = super::libm::ln(f[i + 1] / f[i]) / super::libm::ln(x[i + 1] / x[i]);
         let x1 = x[i];
         let mut x2 = x[i + 1];
         if x2 > xmax {
             x2 = xmax;
         }
-        let pow_x1 = RealMath::r_powf(x1, 2.0 * b);
-        let pow_x2 = RealMath::r_powf(x2, 2.0 * b);
+        let pow_x1 = super::libm::powf(x1, 2.0 * b);
+        let pow_x2 = super::libm::powf(x2, 2.0 * b);
         let mut raysig = pow_x2 * (x2 * x2 / (b + 1.0) - (c * x2.powi(4)) / (b + 2.0) + (c2 * x2.powi(6)) / (2.0 * b + 6.0));
         raysig -= pow_x1 * (x1 * x1 / (b + 1.0) - (c * x1.powi(4)) / (b + 2.0) + (c2 * x1.powi(6)) / (2.0 * b + 6.0));
         raysig = raysig * f[i] * f[i] / pow_x1;
@@ -2848,7 +2848,7 @@ pub fn rayleigh_sampling<R: UniformSource>(d: &RayleighData, e: f64, gle: f64, l
                 }
             }
             rnnray0 = (rnnray0 - d.fcum[ib]) * d.c_array[ib];
-            xv = d.xgrid[ib] * RealMath::r_exp(RealMath::r_ln(1.0 + rnnray0) * d.b_array[ib]);
+            xv = d.xgrid[ib] * super::libm::exp(super::libm::ln(1.0 + rnnray0) * d.b_array[ib]);
             if xv < xmax {
                 break;
             }
@@ -2917,12 +2917,12 @@ pub fn init_triplet(text: &str, comp: &[Vec<(f64, f64)>], rm: f64) -> Result<Tri
         if ifirst == 0 && energies[i] > lit(4.01) * rm {
             ifirst = i;
         }
-        energies[i] = RealMath::r_ln(energies[i]);
+        energies[i] = super::libm::ln(energies[i]);
     }
     if ifirst < 2 {
         return Err(String::from("triplet energies must start below 4.01 m and rise above it"));
     }
-    let log_4rm = RealMath::r_ln(4.0 * rm);
+    let log_4rm = super::libm::ln(4.0 * rm);
     energies[ifirst - 1] = log_4rm;
     let dl_triplet = (energies[ntrip] - log_4rm) / MAX_TRIPLET as f64;
     let dli_triplet = 1.0 / dl_triplet;
@@ -3031,16 +3031,16 @@ pub fn sample_triplet<R: UniformSource>(
             return Ok(());
         }
         st.dlogki = (MAX_TRIPLET - 1) as f64;
-        st.dlogki /= RealMath::r_ln(st.kmax / st.kmin);
-        st.alogkm = 1.0 - st.dlogki * RealMath::r_ln(st.kmin);
+        st.dlogki /= super::libm::ln(st.kmax / st.kmin);
+        st.alogkm = 1.0 - st.dlogki * super::libm::ln(st.kmin);
         st.prmi = 1.0 / prm;
         for i in 1..=MAX_TRIPLET {
-            let k = lit(4.1) * RealMath::r_exp((i as f64 - 1.0) / st.dlogki);
+            let k = lit(4.1) * super::libm::exp((i as f64 - 1.0) / st.dlogki);
             st.ebin[i] = k;
             let qmin = 4.0 * k / (k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0)));
             let qmax = (k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0))) / (2.0 * k + 1.0);
             st.qmin[i] = qmin;
-            st.wp[i] = RealMath::r_ln(qmax / qmin);
+            st.wp[i] = super::libm::ln(qmax / qmin);
         }
     }
     if st.kmax <= st.kmin {
@@ -3077,7 +3077,7 @@ pub fn sample_triplet<R: UniformSource>(
         if eta_pr < tiny_eta {
             eta_pr = tiny_eta;
         }
-        let pr = st.qmin[i] * RealMath::r_exp(eta_pr * st.wp[i]);
+        let pr = st.qmin[i] * super::libm::exp(eta_pr * st.wp[i]);
         let pr2 = pr * pr;
         let er = Real::sqrt(1.0 + pr2);
         let (pp_min, pp_max) = triplet_pp_limits(k, pr, er);
@@ -3101,8 +3101,8 @@ pub fn sample_triplet<R: UniformSource>(
             eta_costp = tiny_eta;
         }
         let epp = ep / pp;
-        let mut wmup = RealMath::r_ln((epp - 1.0) / (epp - mup_min));
-        let cost_p = epp - (epp - mup_min) * RealMath::r_exp(wmup * eta_costp);
+        let mut wmup = super::libm::ln((epp - 1.0) / (epp - mup_min));
+        let cost_p = epp - (epp - mup_min) * super::libm::exp(wmup * eta_costp);
         wmup *= cost_p - epp;
         let mut sint_p = 1.0 - cost_p * cost_p;
         if sint_p > lit(1e-20) {
@@ -3129,7 +3129,7 @@ pub fn sample_triplet<R: UniformSource>(
             eta_costm = tiny_eta;
         }
         let aux6 = Real::sqrt((em - xmin) / (em - xmax));
-        let aux7 = aux6 * RealMath::r_tan(lit(1.570796326794897) * eta_costm);
+        let aux7 = aux6 * super::libm::tan(lit(1.570796326794897) * eta_costm);
         let uu = (aux7 - 1.0) / (aux7 + 1.0);
         let mut cost_m = 0.5 * (xmax + xmin + 2.0 * uu * (xmax - xmin) / (1.0 + uu * uu));
         let mut wmum = Real::sqrt((xmax - cost_m) * (cost_m - xmin));
@@ -3181,7 +3181,7 @@ pub fn sample_triplet<R: UniformSource>(
         let aux5 = k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0));
         let qmin = 4.0 * k / aux5;
         let qmax = aux5 / (2.0 * k + 1.0);
-        let pr = qmin * RealMath::r_exp(eta_pr * RealMath::r_ln(qmax / qmin));
+        let pr = qmin * super::libm::exp(eta_pr * super::libm::ln(qmax / qmin));
         let pr2 = pr * pr;
         let er = Real::sqrt(1.0 + pr2);
         let (pp_min, pp_max) = triplet_pp_limits(k, pr, er);
@@ -3197,8 +3197,8 @@ pub fn sample_triplet<R: UniformSource>(
         let pm = Real::sqrt(pm2);
         let mup_min = (k2p2 - (pr + pm) * (pr + pm)) / (2.0 * k * pp);
         let epp = ep / pp;
-        let wmup = RealMath::r_ln((epp - 1.0) / (epp - mup_min));
-        let cost_p = epp - (epp - mup_min) * RealMath::r_exp(wmup * eta_costp);
+        let wmup = super::libm::ln((epp - 1.0) / (epp - mup_min));
+        let cost_p = epp - (epp - mup_min) * super::libm::exp(wmup * eta_costp);
         let sint_p = Real::sqrt(1.0 - cost_p * cost_p);
         let k2p2x = k2p2 - 2.0 * k * pp * cost_p;
         let b = pr2 - k2p2x - pm2;
@@ -3216,7 +3216,7 @@ pub fn sample_triplet<R: UniformSource>(
         let xmin = (-b * aux1 - d) * aux3;
         let xmax = (-b * aux1 + d) * aux3;
         let aux6 = Real::sqrt((em - xmin) / (em - xmax));
-        let aux7 = aux6 * RealMath::r_tan(lit(1.570796326794897) * eta_costm);
+        let aux7 = aux6 * super::libm::tan(lit(1.570796326794897) * eta_costm);
         let uu = (aux7 - 1.0) / (aux7 + 1.0);
         let cost_m = 0.5 * (xmax + xmin + 2.0 * uu * (xmax - xmin) / (1.0 + uu * uu)) / pm;
         let sint_m = Real::sqrt(1.0 - cost_m * cost_m);
@@ -3234,8 +3234,8 @@ pub fn sample_triplet<R: UniformSource>(
         let mut ppy = 0.0;
         let mut pmx = pm * sint_m * cphi;
         let mut pmy = pm * sint_m * sphi;
-        let cphi = RealMath::r_cos(phi);
-        let sphi = RealMath::r_sin(phi);
+        let cphi = super::libm::cos(phi);
+        let sphi = super::libm::sin(phi);
         let mut tmp = ppx * sphi;
         ppx = ppx * cphi - ppy * sphi;
         ppy = tmp + ppy * cphi;
@@ -3511,7 +3511,7 @@ pub fn init_nist_brems(
     }
     let mut xi_array = alloc::vec![0.0_f64; kmix + 1];
     for k in 1..=kmix {
-        xi_array[k] = RealMath::r_ln(1.0 - x_array[k] + lit(1e-6));
+        xi_array[k] = super::libm::ln(1.0 - x_array[k] + lit(1e-6));
     }
     let (x_gauss, w_gauss) = gauss_legendre(0.0, 1.0, MXGAUSS);
 
@@ -3520,7 +3520,7 @@ pub fn init_nist_brems(
     for medium in 1..=nmed {
         let inp = &inputs[medium];
         let ap = inp.ap;
-        let log_ap = RealMath::r_ln(ap);
+        let log_ap = super::libm::ln(ap);
         let emin = (inp.ae - rm).max(ap);
         let mut ifirst = nmix + 1;
         for i in 1..=nmix {
@@ -3557,7 +3557,7 @@ pub fn init_nist_brems(
         for i in ifirst..=ilast {
             let ii = i + 1 - ifirst;
             ee[ii] = energy_array[i];
-            ele[ii] = RealMath::r_ln(ee[ii]);
+            ele[ii] = super::libm::ln(ee[ii]);
             for k in 1..=kmix {
                 cs[ii][k] = 0.0;
                 for &(z0, pz, _) in &inp.comp {
@@ -3565,16 +3565,16 @@ pub fn init_nist_brems(
                     let z = z0 * z0 / sum_a;
                     cs[ii][k] += pz * z * cs_array[iz][k][i];
                 }
-                csx[k] = RealMath::r_ln(cs[ii][k]);
+                csx[k] = super::libm::ln(cs[ii][k]);
             }
             let co = set_spline(&xi_array, &csx);
             // integrate
             cse[ii] = 0.0;
-            let aux = RealMath::r_ln(ee[ii] / ap);
+            let aux = super::libm::ln(ee[ii] / ap);
             for ig in 0..MXGAUSS {
-                let xi = RealMath::r_ln(1.0 - ap / ee[ii] * RealMath::r_exp(x_gauss[ig] * aux) + lit(1e-6));
+                let xi = super::libm::ln(1.0 - ap / ee[ii] * super::libm::exp(x_gauss[ig] * aux) + lit(1e-6));
                 let res = spline(xi, &xi_array, &co);
-                cse[ii] += w_gauss[ig] * RealMath::r_exp(res);
+                cse[ii] += w_gauss[ig] * super::libm::exp(res);
             }
         }
         let co_e = set_spline(&ele[..=nener], &cse[..=nener]);
@@ -3590,12 +3590,12 @@ pub fn init_nist_brems(
         let (mut si1_psig, mut si1_pbr1, mut si1_pbr2) = (0.0, 0.0, 0.0);
         for i in 1..=neke {
             let eil = (i as f64 - eke0) / eke1;
-            let ei = RealMath::r_exp(eil);
+            let ei = super::libm::exp(eil);
             let beta2 = ei * (ei + 2.0 * rm) / ((ei + rm) * (ei + rm));
             let sigb = if ei <= ap {
                 lit(1e-30)
             } else {
-                spline(eil, &ele[..=nener], &co_e) * RealMath::r_ln(ei / ap) / beta2 * rho
+                spline(eil, &ele[..=nener], &co_e) * super::libm::ln(ei / ap) / beta2 * rho
             };
             let mut sigt = m.esig.eval(i, eil);
             let mut ebr1 = m.ebr1.eval(i, eil);
@@ -3672,15 +3672,15 @@ pub fn init_nist_brems(
             nb_emin = energy_array[ifirst + 1];
         }
         let nb_emax = energy_array[ilast];
-        let nb_lemin = RealMath::r_ln(nb_emin);
-        let nb_lemax = RealMath::r_ln(nb_emax);
+        let nb_lemin = super::libm::ln(nb_emin);
+        let nb_lemax = super::libm::ln(nb_emax);
         let nb_dle = (nb_lemax - nb_lemin) / (MXBRES - 1) as f64;
         let nb_dlei = 1.0 / nb_dle;
         let mut bins = alloc::vec![NistBremsBin::default()];
         let mut eil = nb_lemin - nb_dle;
         for _ in 1..=MXBRES {
             eil += nb_dle;
-            let ei = RealMath::r_exp(eil);
+            let ei = super::libm::exp(eil);
             let mut ii = nener + 1;
             for iii in 1..=nener {
                 if ei < ee[iii] {
@@ -3699,17 +3699,17 @@ pub fn init_nist_brems(
             let ple = (eil - ele[ii]) / (ele[ii + 1] - ele[ii]);
             let qle = 1.0 - ple;
             for k in 1..=kmix {
-                csx[k] = RealMath::r_ln(qle * cs[ii][k] + ple * cs[ii + 1][k]);
+                csx[k] = super::libm::ln(qle * cs[ii][k] + ple * cs[ii + 1][k]);
             }
             let co = set_spline(&xi_array, &csx);
             let mut xd = alloc::vec![0.0_f64; MXBRXS + 1];
             let mut fd = alloc::vec![0.0_f64; MXBRXS + 1];
             let x = ap / ei;
-            let aux = -RealMath::r_ln(x);
-            let xi = RealMath::r_ln(1.0 - x + lit(1e-6));
+            let aux = -super::libm::ln(x);
+            let xi = super::libm::ln(1.0 - x + lit(1e-6));
             let res = spline(xi, &xi_array, &co);
             xd[0] = 0.0;
-            fd[0] = RealMath::r_exp(res);
+            fd[0] = super::libm::exp(res);
             let mut k = kmix + 1;
             for kk in 1..=kmix {
                 if x_array[kk] > x {
@@ -3726,15 +3726,15 @@ pub fn init_nist_brems(
                 if ndat > MXBRXS {
                     return Err(String::from("init_nist_brems: too many x points"));
                 }
-                xd[ndat] = RealMath::r_ln(x_array[j] / x) / aux;
-                fd[ndat] = RealMath::r_exp(csx[j]);
+                xd[ndat] = super::libm::ln(x_array[j] / x) / aux;
+                fd[ndat] = super::libm::exp(csx[j]);
             }
             ndat += 1;
             if ndat > MXBRXS {
                 return Err(String::from("init_nist_brems: too many x points"));
             }
             xd[ndat] = 1.0;
-            fd[ndat] = RealMath::r_exp(csx[kmix]);
+            fd[ndat] = super::libm::exp(csx[kmix]);
             // fill intermediate points where linear interpolation in x is worst
             if ndat < MXBRXS {
                 loop {
@@ -3743,8 +3743,8 @@ pub fn init_nist_brems(
                     for kk in 0..ndat {
                         let xm = 0.5 * (xd[kk] + xd[kk + 1]);
                         let fm = 0.5 * (fd[kk] + fd[kk + 1]);
-                        let xi = RealMath::r_ln(1.0 - ap / ei * RealMath::r_exp(xm * aux) + lit(1e-6));
-                        let res = RealMath::r_exp(spline(xi, &xi_array, &co));
+                        let xi = super::libm::ln(1.0 - ap / ei * super::libm::exp(xm * aux) + lit(1e-6));
+                        let res = super::libm::exp(spline(xi, &xi_array, &co));
                         let error = (1.0 - fm / res).abs();
                         if error > max_error {
                             x_max_error = xm;
@@ -3870,27 +3870,27 @@ pub fn user_xsec_data(
             }
             ndat += 1;
             for k in 2..=ndat {
-                f[k] -= 3.0 * RealMath::r_ln(1.0 - eth / RealMath::r_exp(e[k]));
+                f[k] -= 3.0 * super::libm::ln(1.0 - eth / super::libm::exp(e[k]));
             }
             f[1] = f[2];
-            e[1] = RealMath::r_ln(eth);
+            e[1] = super::libm::ln(eth);
             etmp = e;
             ftmp = f;
         }
         for k in 1..=n {
             let gle = (k as f64 - ge0) / ge1;
-            let e = RealMath::r_exp(gle);
+            let e = super::libm::exp(gle);
             let sig;
             if gle < etmp[1] || gle >= etmp[ndat] {
                 if flag == 0 {
                     return Err(alloc::format!(
                         "Energy {} is outside the available data range of {} {}",
-                        RealMath::r_exp(gle),
-                        RealMath::r_exp(etmp[1]),
-                        RealMath::r_exp(etmp[ndat])
+                        super::libm::exp(gle),
+                        super::libm::exp(etmp[1]),
+                        super::libm::exp(etmp[ndat])
                     ));
                 } else if flag == 1 || flag == 2 {
-                    sig = if gle < etmp[1] { 0.0 } else { RealMath::r_exp(ftmp[ndat]) };
+                    sig = if gle < etmp[1] { 0.0 } else { super::libm::exp(ftmp[ndat]) };
                 } else {
                     sig = 0.0;
                 }
@@ -3904,10 +3904,10 @@ pub fn user_xsec_data(
                 }
                 if flag != 3 {
                     let p = (gle - etmp[kk]) / (etmp[kk + 1] - etmp[kk]);
-                    sig = RealMath::r_exp(p * ftmp[kk + 1] + (1.0 - p) * ftmp[kk]);
+                    sig = super::libm::exp(p * ftmp[kk + 1] + (1.0 - p) * ftmp[kk]);
                 } else {
-                    let p = (e - RealMath::r_exp(etmp[kk])) / (RealMath::r_exp(etmp[kk + 1]) - RealMath::r_exp(etmp[kk]));
-                    sig = p * RealMath::r_exp(ftmp[kk + 1]) + (1.0 - p) * RealMath::r_exp(ftmp[kk]);
+                    let p = (e - super::libm::exp(etmp[kk])) / (super::libm::exp(etmp[kk + 1]) - super::libm::exp(etmp[kk]));
+                    sig = p * super::libm::exp(ftmp[kk + 1]) + (1.0 - p) * super::libm::exp(ftmp[kk]);
                 }
             }
             let mut sig = sig;
@@ -3935,7 +3935,7 @@ pub fn egs_kn_sigma0(e: f64, prm: f64) -> f64 {
     let c3 = (1.0 + 2.0 * ko) * c1;
     let eps2 = 1.0;
     let eps1 = 1.0 / (1.0 + 2.0 * ko);
-    (c1 * (1.0 / eps1 - 1.0 / eps2) + c2 * RealMath::r_ln(eps2 / eps1) + eps2 * (c3 + 0.5 * eps2) - eps1 * (c3 + 0.5 * eps1)) / e * con
+    (c1 * (1.0 / eps1 - 1.0 / eps2) + c2 * super::libm::ln(eps2 / eps1) + eps2 * (c3 + 0.5 * eps2) - eps1 * (c3 + 0.5 * eps1)) / e * con
 }
 
 /// The bound-Compton input of `egs_init_user_photon` (used when `ibcmp(1) > 1`).
@@ -4068,7 +4068,7 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
             if etmp[j] - etmp[j - 1] < lit(1e-5) {
                 k += 1;
                 if k <= MXSHXSEC {
-                    be[k] = RealMath::r_exp(etmp[j]);
+                    be[k] = super::libm::exp(etmp[j]);
                 } else {
                     return Err(alloc::format!("{k} binding energies read exceeding array size of {MXSHXSEC}"));
                 }
@@ -4086,8 +4086,8 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
     for medium in 1..=nmed {
         let m = &media[medium];
         let mut t = UserPhotonMediumTables { mge: nge, ..Default::default() };
-        t.ge1 = (nge - 1) as f64 / RealMath::r_ln(m.up / m.ap);
-        t.ge0 = 1.0 - t.ge1 * RealMath::r_ln(m.ap);
+        t.ge1 = (nge - 1) as f64 / super::libm::ln(m.up / m.ap);
+        t.ge0 = 1.0 - t.ge1 * super::libm::ln(m.ap);
         let (ge0, ge1) = (t.ge0, t.ge1);
         let (mut sum_z, mut sum_a) = (0.0, 0.0);
         for &(z, pz, wa) in &m.comp {
@@ -4127,7 +4127,7 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
                 if bc_ne > MXBCINP {
                     return Err(String::from("Number of input Compton data exceeds array size"));
                 }
-                bc_dle = RealMath::r_ln(bc_emax / bc_emin) / (bc_ne - 1) as f64;
+                bc_dle = super::libm::ln(bc_emax / bc_emin) / (bc_ne - 1) as f64;
                 bc_data = alloc::vec![0.0; bc_ne + 2];
                 let mut bc_tmp = alloc::vec![0.0; bc_ne];
                 let mut iz_old = 1usize;
@@ -4142,7 +4142,7 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
                     iz_old = iz + 1;
                 }
                 for j in 1..=bc_ne {
-                    bc_data[j] = RealMath::r_ln(bc_data[j] / sum_z);
+                    bc_data[j] = super::libm::ln(bc_data[j] / sum_z);
                 }
             }
         }
@@ -4167,7 +4167,7 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
         let (mut gmfp, mut gbr1, mut gbr2, mut cohe, mut photonuc, mut gle) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         for i in 1..=nge {
             gle = (i as f64 - ge0) / ge1;
-            let e = RealMath::r_exp(gle);
+            let e = super::libm::exp(gle);
             let mut sig_kn = sum_z * egs_kn_sigma0(e, rm);
             match &inp.compton {
                 BoundComptonData::None => {}
@@ -4177,12 +4177,12 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
                 BoundComptonData::Ratio(_) => {
                     let bcf;
                     if e <= bc_emin {
-                        bcf = RealMath::r_exp(bc_data[1]);
+                        bcf = super::libm::exp(bc_data[1]);
                     } else if e < bc_emax {
-                        let mut aj = 1.0 + RealMath::r_ln(e / bc_emin) / bc_dle;
+                        let mut aj = 1.0 + super::libm::ln(e / bc_emin) / bc_dle;
                         let j = aj as usize;
                         aj -= j as f64;
-                        bcf = RealMath::r_exp(bc_data[j] * (1.0 - aj) + bc_data[j + 1] * aj);
+                        bcf = super::libm::exp(bc_data[j] * (1.0 - aj) + bc_data[j + 1] * aj);
                     } else {
                         bcf = 1.0;
                     }
@@ -4417,8 +4417,8 @@ pub fn eii_init(
                 } else {
                     relax.binding_energies[iz][ish]
                 };
-                d.a[ii] = nbin as f64 / RealMath::r_ln(emax / be);
-                d.b[ii] = 1.0 - d.a[ii] * RealMath::r_ln(be);
+                d.a[ii] = nbin as f64 / super::libm::ln(emax / be);
+                d.b[ii] = 1.0 - d.a[ii] * super::libm::ln(be);
                 for k in 1..=nbin {
                     let sigo = if k > 1 { fmax * aux_array[k - 2] } else { 0.0 };
                     let loge = (k as f64 - d.b[ii]) / d.a[ii];
@@ -4450,7 +4450,7 @@ pub fn eii_init(
             let (mut dedx_old, mut sigm_old) = (0.0, 0.0);
             for j in 1..=meke {
                 let loge = (j as f64 - eke0) / eke1;
-                let e = RealMath::r_exp(loge);
+                let e = super::libm::exp(loge);
                 let tau = e / rm;
                 let beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
                 let p2 = 2.0 * rm * tau * (tau + 2.0);
@@ -4473,13 +4473,13 @@ pub fn eii_init(
                         let uwm = u / wmax;
                         if u < e && u > ecc {
                             let uwm3 = uwm * uwm * uwm;
-                            let ss_0 = 2.0 * (RealMath::r_ln(p2 / u) - uwm3 * RealMath::r_ln(p2 / wmax) - (beta2 + lit(0.833333)) * (1.0 - uwm3)) / 3.0 / u;
+                            let ss_0 = 2.0 * (super::libm::ln(p2 / u) - uwm3 * super::libm::ln(p2 / wmax) - (beta2 + lit(0.833333)) * (1.0 - uwm3)) / 3.0 / u;
                             let t1 = tau + 1.0;
                             let sh_0 = (1.0 - uwm
-                                + uwm / (t1 * t1) * (tau * tau * (wmax - u) / (2.0 * wmax - u) - (tau + 0.5) * RealMath::r_ln((2.0 * wmax - u) / u)))
+                                + uwm / (t1 * t1) * (tau * tau * (wmax - u) / (2.0 * wmax - u) - (tau + 0.5) * super::libm::ln((2.0 * wmax - u) / u)))
                                 / u;
-                            let ss_1 = RealMath::r_ln(p2 / u) - uwm * uwm * RealMath::r_ln(p2 / wmax) - (beta2 + 1.0) * (1.0 - uwm * uwm);
-                            let sh_1 = RealMath::r_ln((2.0 * wmax - u) / u) + (tau / t1) * (tau / t1) * (wmax - u) / (wmax - u / 2.0);
+                            let ss_1 = super::libm::ln(p2 / u) - uwm * uwm * super::libm::ln(p2 / wmax) - (beta2 + 1.0) * (1.0 - uwm * uwm);
+                            let sh_1 = super::libm::ln((2.0 * wmax - u) / u) + (tau / t1) * (tau / t1) * (wmax - u) / (wmax - u / 2.0);
                             let av_e = (ss_1 + sh_1) / (ss_0 + sh_0);
                             // eii_a/eii_b: shell index jj (intended) or shell type jjj (literal), per `readings`
                             let kb = if readings.bin_index_by_shell_type { jjj } else { jj };
@@ -4502,10 +4502,10 @@ pub fn eii_init(
                     let t1 = tau + 1.0;
                     let r = tau / t1;
                     sigm -= CONS * mi.rho / (beta2 * ec)
-                        * (1.0 - 2.0 * aux + r * r * aux * (1.0 - 2.0 * aux) / 2.0 + (2.0 * tau + 1.0) / (t1 * t1) * aux * RealMath::r_ln(2.0 * aux))
+                        * (1.0 - 2.0 * aux + r * r * aux * (1.0 - 2.0 * aux) / 2.0 + (2.0 * tau + 1.0) / (t1 * t1) * aux * super::libm::ln(2.0 * aux))
                         / sum_a;
                     dedx += CONS * mi.rho / beta2
-                        * (-RealMath::r_ln(2.0 * aux) + r * r * (1.0 - 2.0 * aux) * (1.0 + 2.0 * aux) / 8.0 - (2.0 * tau + 1.0) / (t1 * t1) * (1.0 - 2.0 * aux) / 2.0)
+                        * (-super::libm::ln(2.0 * aux) + r * r * (1.0 - 2.0 * aux) * (1.0 + 2.0 * aux) / 8.0 - (2.0 * tau + 1.0) / (t1 * t1) * (1.0 - 2.0 * aux) / 2.0)
                         / sum_a;
                 }
                 if j > 1 {
@@ -4660,8 +4660,8 @@ pub fn eii_init_egsnrc_l(
                 d.z[ii] = iz;
                 d.sh[ii] = ish;
                 let be = relax.binding_energies[iz][ish];
-                d.a[ii] = nbin as f64 / RealMath::r_ln(emax / be);
-                d.b[ii] = 1.0 - d.a[ii] * RealMath::r_ln(be);
+                d.a[ii] = nbin as f64 / super::libm::ln(emax / be);
+                d.b[ii] = 1.0 - d.a[ii] * super::libm::ln(be);
                 for k in 1..=nbin {
                     let sigo = if k > 1 { fmax * aux_array[k - 2] } else { 0.0 };
                     let loge = (k as f64 - d.b[ii]) / d.a[ii];
@@ -4696,7 +4696,7 @@ pub fn eii_init_egsnrc_l(
             let mut sigma_max = 0.0_f64;
             for j in 1..=meke {
                 let loge = (j as f64 - eke0) / eke1;
-                let e = RealMath::r_exp(loge);
+                let e = super::libm::exp(loge);
                 let tau = e / rm;
                 let t1 = tau + 1.0;
                 let beta2 = tau * (tau + 2.0) / (t1 * t1);
@@ -4722,16 +4722,16 @@ pub fn eii_init_egsnrc_l(
                         if u < e && u > ecc {
                             sum_sh += OCCN_NUMBERS[jjj - 1];
                             let uwm3 = uwm * uwm * uwm;
-                            let ss_0 = 2.0 * (RealMath::r_ln(p2 / u) - uwm3 * RealMath::r_ln(p2 / wmax) - (beta2 + lit(0.833333)) * (1.0 - uwm3)) / 3.0 / u;
+                            let ss_0 = 2.0 * (super::libm::ln(p2 / u) - uwm3 * super::libm::ln(p2 / wmax) - (beta2 + lit(0.833333)) * (1.0 - uwm3)) / 3.0 / u;
                             let em = e + rm;
                             let sh_0 = ((1.0 - uwm) * (1.0 + uwm / (2.0 - uwm)) + u * (wmax - u) / (em * em)
-                                - (2.0 * tau + 1.0) / (t1 * t1) * uwm / 2.0 * RealMath::r_ln((2.0 - uwm) / uwm))
+                                - (2.0 * tau + 1.0) / (t1 * t1) * uwm / 2.0 * super::libm::ln((2.0 - uwm) / uwm))
                                 / u;
-                            let ss_1 = RealMath::r_ln(p2 / u) - uwm * uwm * RealMath::r_ln(p2 / wmax) - (beta2 + 1.0) * (1.0 - uwm * uwm);
-                            let sh_1 = RealMath::r_ln(wmax / u / (2.0 - uwm))
+                            let ss_1 = super::libm::ln(p2 / u) - uwm * uwm * super::libm::ln(p2 / wmax) - (beta2 + 1.0) * (1.0 - uwm * uwm);
+                            let sh_1 = super::libm::ln(wmax / u / (2.0 - uwm))
                                 + 2.0 * (wmax - u) / (2.0 * wmax - u)
                                 + (wmax * wmax - u * u) / (em * em) / 2.0
-                                - (2.0 * tau + 1.0) / (t1 * t1) * RealMath::r_ln((2.0 * wmax - u) / wmax);
+                                - (2.0 * tau + 1.0) / (t1 * t1) * super::libm::ln((2.0 * wmax - u) / wmax);
                             let av_e = (ss_1 + sh_1) / (ss_0 + sh_0);
                             // the live source indexes eii_a/eii_b by the shell TYPE jjj (kept)
                             let ib = d.a[jjj] * loge + d.b[jjj];
@@ -4754,11 +4754,11 @@ pub fn eii_init_egsnrc_l(
                     let r = tau / t1;
                     let sigo = CONS * sum_occn * mi.rho / (beta2 * ec)
                         * ((1.0 - 2.0 * aux) * (1.0 + aux / (1.0 - aux) + r * r * aux / 2.0)
-                            - (2.0 * tau + 1.0) / (t1 * t1) * aux * RealMath::r_ln((1.0 - aux) / aux))
+                            - (2.0 * tau + 1.0) / (t1 * t1) * aux * super::libm::ln((1.0 - aux) / aux))
                         / sum_a;
                     let de = CONS * sum_occn * mi.rho / beta2
-                        * (RealMath::r_ln(0.25 / aux / (1.0 - aux)) + (1.0 - 2.0 * aux) / (1.0 - aux) + r * r * (1.0 - 4.0 * aux * aux) / 8.0
-                            - (2.0 * tau + 1.0) / (t1 * t1) * RealMath::r_ln(2.0 * (1.0 - aux)))
+                        * (super::libm::ln(0.25 / aux / (1.0 - aux)) + (1.0 - 2.0 * aux) / (1.0 - aux) + r * r * (1.0 - 4.0 * aux * aux) / 8.0
+                            - (2.0 * tau + 1.0) / (t1 * t1) * super::libm::ln(2.0 * (1.0 - aux)))
                         / sum_a;
                     sigm -= sigo;
                     dedx += de;
@@ -4832,7 +4832,7 @@ pub fn eii_sample<R: UniformSource>(
     let c2 = (2.0 * tau + 1.0) / tau12;
     let wmax = 0.5 * (t + uj);
     let xmax = uj / wmax;
-    let fm_s = RealMath::r_ln(rmt2 * p2 / uj) - beta2 - 0.5;
+    let fm_s = super::libm::ln(rmt2 * p2 / uj) - beta2 - 0.5;
     let prob_s = 2.0 * fm_s * (1.0 + xmax + xmax * xmax);
     let mut fm_h = 1.0 + c1 - c2;
     if fm_h < 1.0 {
@@ -4854,7 +4854,7 @@ pub fn eii_sample<R: UniformSource>(
         } else {
             // the soft collision cross section
             wx = 1.0 / Real::sqrt((r2 * xmax) * (r2 * xmax) + (1.0 - r2) * (1.0 - r2));
-            frej = 1.0 - RealMath::r_ln(wx) / fm_s;
+            frej = 1.0 - super::libm::ln(wx) / fm_s;
         }
         if r2 < frej {
             break;
@@ -4935,7 +4935,7 @@ pub fn eii_sample_egsnrc<R: UniformSource>(
     let wmax = 0.5 * (t + uj);
     let xmax = uj / wmax;
     let c1 = (wmax / peie) * (wmax / peie);
-    let fm_s = RealMath::r_ln(rmt2 * p2 / uj) - beta2 - 0.5;
+    let fm_s = super::libm::ln(rmt2 * p2 / uj) - beta2 - 0.5;
     let prob_s = lit(0.66666667) * fm_s * (1.0 + xmax + xmax * xmax);
     let mut fm_h = 2.0 + c1 - c2;
     if fm_h < 1.0 {
@@ -4956,8 +4956,8 @@ pub fn eii_sample_egsnrc<R: UniformSource>(
             frej = (1.0 + aux * (aux - c2) + c1 * wxx * wxx) / fm_h;
         } else {
             // the soft collision cross section
-            wx = 1.0 / RealMath::r_powf(r2 * xmax * xmax * xmax + 1.0 - r2, lit(0.333333333));
-            frej = 1.0 - RealMath::r_ln(wx) / fm_s;
+            wx = 1.0 / super::libm::powf(r2 * xmax * xmax * xmax + 1.0 - r2, lit(0.333333333));
+            frej = 1.0 - super::libm::ln(wx) / fm_s;
         }
         if r3 < frej {
             break;
@@ -5186,13 +5186,13 @@ pub fn photon<R: UniformSource, G: Geometry>(
         if stack.wt[stack.np] == 0.0 {
             return Ok(photon_discard(stack, &mut res, peig));
         }
-        let gle = RealMath::r_ln(eig);
+        let gle = super::libm::ln(eig);
         // $SELECT-PHOTON-MFP
         let mut rnno35 = rng.uniform();
         if rnno35 == 0.0 {
             rnno35 = lit(1.0e-30);
         }
-        let mut dpmfp = -RealMath::r_ln(rnno35);
+        let mut dpmfp = -super::libm::ln(rnno35);
 
         // :PNEWMEDIUM:
         'pnewmedium: loop {
@@ -5708,8 +5708,8 @@ impl MsData {
             }
         }
         // all of these are real*4 variables: single-precision arithmetic
-        let llammin = RealMath::r_ln(LAMBMIN_MS) as f32;
-        let llammax = RealMath::r_ln(LAMBMAX_MS) as f32;
+        let llammin = super::libm::ln(LAMBMIN_MS) as f32;
+        let llammax = super::libm::ln(LAMBMAX_MS) as f32;
         let dllamb = (llammax - llammin) / MAXL_MS as f32;
         let dllambi = 1.0_f32 / dllamb;
         let dqms = QMAX_MS as f32 / MAXQ_MS as f32;
@@ -5901,7 +5901,7 @@ pub fn mscat<R: UniformSource>(
 ) -> Result<(f64, f64), EgsError> {
     if lambda <= lit(13.8) {
         let sprob = rng.uniform();
-        let explambda = RealMath::r_exp(-lambda);
+        let explambda = super::libm::exp(-lambda);
         if sprob < explambda {
             // no scattering
             return Ok((1.0, 0.0));
@@ -5960,7 +5960,7 @@ pub fn mscat<R: UniformSource>(
                     sinz = Real::sqrt(sinz);
                     xi = rng.uniform();
                     let phi = xi * lit(6.2831853);
-                    cost = cost * cosz - sint * sinz * RealMath::r_cos(phi);
+                    cost = cost * cosz - sint * sinz * super::libm::cos(phi);
                     sint = Real::sqrt((0.0_f64).max((1.0 - cost) * (1.0 + cost)));
                 }
                 if wsum > sprob {
@@ -5974,7 +5974,7 @@ pub fn mscat<R: UniformSource>(
     // a multiple scattering event: sample from the q^(2+) surface
     if lambda <= LAMBMAX_MS {
         if *find_index {
-            let llmbda = RealMath::r_ln(lambda);
+            let llmbda = super::libm::ln(lambda);
             let mut ai = llmbda * ms.dllambi as f64;
             let mut i = ai as usize;
             ai -= i as f64;
@@ -6261,7 +6261,7 @@ pub fn msdist_p1_field<R: UniformSource>(
     let (etap, xi_corr, ms_corr);
     let mut elke = 0.0;
     if inp.spin_effects {
-        elke = RealMath::r_ln(e);
+        elke = super::libm::ln(e);
         let (l, el) = spin_interval(med, elke);
         elke = el;
         if inp.qel == 0 {
@@ -6279,7 +6279,7 @@ pub fn msdist_p1_field<R: UniformSource>(
     }
     let chia2 = xcccc * p2i / (4.0 * blccc) * etap;
     lambda = lambda / etap / (1.0 + chia2) * ms_corr;
-    let chilog = RealMath::r_ln(1.0 + 1.0 / chia2);
+    let chilog = super::libm::ln(1.0 + 1.0 / chia2);
     let q1 = 2.0 * chia2 * (chilog * (1.0 + chia2) - 1.0);
     let mut xi = q1 * lambda;
 
@@ -6300,7 +6300,7 @@ pub fn msdist_p1_field<R: UniformSource>(
     let z = if xi < lit(0.1) {
         1.0 - xi * (0.5 - xi * (lit(0.166666667) - lit(0.041666667) * xi))
     } else {
-        (1.0 - RealMath::r_exp(-xi)) / xi
+        (1.0 - super::libm::exp(-xi)) / xi
     };
     let mut r = 0.5 * sint;
     let mut r2 = r * r;
@@ -6385,7 +6385,7 @@ pub fn msdist_p2_field<R: UniformSource>(
     let (etap, xi_corr, mut gamma, ms_corr);
     let mut elke = 0.0;
     if inp.spin_effects {
-        elke = RealMath::r_ln(e);
+        elke = super::libm::ln(e);
         let (l, el) = spin_interval(med, elke);
         elke = el;
         if inp.qel == 0 {
@@ -6406,7 +6406,7 @@ pub fn msdist_p2_field<R: UniformSource>(
     }
     chia2 *= etap;
     lambda = lambda / (etap * (1.0 + chia2)) * ms_corr;
-    let chilog = RealMath::r_ln(1.0 + 1.0 / chia2);
+    let chilog = super::libm::ln(1.0 + 1.0 / chia2);
     let q1 = 2.0 * chia2 * (chilog * (1.0 + chia2) - 1.0);
     gamma = 6.0 * chia2 * (1.0 + chia2) * (chilog * (1.0 + 2.0 * chia2) - 2.0) / q1 * gamma;
     let mut xi = q1 * lambda;
@@ -6931,7 +6931,7 @@ fn calculate_xi(m: &ElectronMediumData, loc: &mut Loc, cfg: &ElectrConfig, lelec
     loc.chia2 = loc.xccl / (4.0 * loc.blccl * loc.p2);
     loc.xi = 0.5 * loc.xccl / loc.p2 / loc.beta2 * path;
     if cfg.spin_effects {
-        loc.elkems = RealMath::r_ln(loc.ekems);
+        loc.elkems = super::libm::ln(loc.ekems);
         let l = eke_interval(m, loc.elkems);
         if lelec < 0 {
             loc.etap = m.ms.etae_ms.eval(l, loc.elkems);
@@ -6948,7 +6948,7 @@ fn calculate_xi(m: &ElectronMediumData, loc: &mut Loc, cfg: &ElectrConfig, lelec
         loc.xi_corr = 1.0;
         loc.etap = 1.0;
     }
-    loc.xi *= RealMath::r_ln(1.0 + 1.0 / loc.chia2) - 1.0 / (1.0 + loc.chia2);
+    loc.xi *= super::libm::ln(1.0 + 1.0 / loc.chia2) - 1.0 / (1.0 + loc.chia2);
 }
 
 /// How the discard section is entered.
@@ -7059,8 +7059,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     if rnne1 == 0.0 {
                         rnne1 = lit(1.0e-30);
                     }
-                    demfp = (-RealMath::r_ln(rnne1)).max(EPSEMFP);
-                    elke = RealMath::r_ln(eke);
+                    demfp = (-super::libm::ln(rnne1)).max(EPSEMFP);
+                    elke = super::libm::ln(eke);
                     let m = &tables.media[medium];
                     lelke = eke_interval(m, elke);
                     // $EVALUATE-SIG0
@@ -7130,7 +7130,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 if ekef <= m.e_array[1] {
                                     tstep = cfg.vacdst;
                                 } else {
-                                    let elkef = RealMath::r_ln(ekef);
+                                    let elkef = super::libm::ln(ekef);
                                     let lelkef = eke_interval(m, elkef);
                                     if lelkef == lelke {
                                         tstep = compute_drange(m, lelec, eke, ekef, lelke, elke, elkef);
@@ -7178,6 +7178,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             );
                         }
 
+                        eprintln!("TRC TM {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", tustep, counters.eemf.tmax_ch, counters.eemf.step_rist, counters.eemf.du_adaptiv_em_factor, counters.eemf.s_max_pii, tperp, skindepth, counters.eemf.em_const, counters.eemf.e_total, tstep, tmxs, range, eke, elke, m.tmxs.a1[lelke], m.tmxs.a0[lelke], loc.rhof);
                         counters.count_all_steps += 1.0;
                         ustep = tustep;
                         tvstep = tustep;
@@ -7226,7 +7227,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 if rnnoss < lit(1.0e-30) {
                                     rnnoss = lit(1.0e-30);
                                 }
-                                let lambda = -RealMath::r_ln(1.0 - rnnoss);
+                                let lambda = -super::libm::ln(1.0 - rnnoss);
                                 let lambda_max = 0.5 * loc.blccl * rm / dedx * {
                                     let t = eke / rm + 1.0;
                                     t * t * t
@@ -7238,6 +7239,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                         0.5 * lambda * ssmfp
                                     };
                                     tuss_ss = tuss;
+                                    eprintln!("TRC SS {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", tuss, lambda, lambda_max, ssmfp, loc.blccl, eke, dedx, tustep);
                                     if tuss < tustep {
                                         tustep = tuss;
                                         dosingle = true;
@@ -7259,7 +7261,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 ustep = if loc.xi < lit(0.1) {
                                     tustep * (1.0 - loc.xi * (0.5 - loc.xi * lit(0.166667)))
                                 } else {
-                                    tustep * (1.0 - RealMath::r_exp(-loc.xi)) / loc.xi
+                                    tustep * (1.0 - super::libm::exp(-loc.xi)) / loc.xi
                                 };
                             }
                             callhowfar = ustep >= tperp;
@@ -7309,7 +7311,10 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 energies: [eie, eke, peie],
                                 ..Default::default()
                             };
+                            eprintln!("TRC VI {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", ustep, tperp, skindepth, stack.x[np], stack.y[np], stack.z[np], stack.u[np], stack.v[np], stack.w[np], eie);
                             counters.eemf.emfield_in_vacuum(stack, geometry, &mut v);
+                            tperp = v.tperp;
+                            eprintln!("TRC VO {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", v.vstep, tperp, skindepth, stack.x[np], stack.y[np], stack.z[np], stack.u[np], stack.v[np], stack.w[np], v.energies[0]);
                             tperp = v.tperp;
                             stack.x_final = v.final_pos;
                             [eie, eke, peie] = v.energies;
@@ -7397,7 +7402,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 if loc.xi < lit(0.1) {
                                     tvstep = vstep * (1.0 + loc.xi * (0.5 + loc.xi * lit(0.333333)));
                                 } else if loc.xi < lit(0.999999) {
-                                    tvstep = -vstep * RealMath::r_ln(1.0 - loc.xi) / loc.xi;
+                                    tvstep = -vstep * super::libm::ln(1.0 - loc.xi) / loc.xi;
                                 } else {
                                     return Err(EgsError::Fatal("ELECTR: xi > 1 in $SET-TVSTEP"));
                                 }
@@ -7448,7 +7453,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             loc.beta2 = loc.p2 / (loc.p2 + rmsq);
                             loc.chia2 = m.ms.xcc / (4.0 * m.ms.blcc * loc.p2);
                             if cfg.spin_effects {
-                                loc.elkems = RealMath::r_ln(loc.ekems);
+                                loc.elkems = super::libm::ln(loc.ekems);
                                 let l = eke_interval(m, loc.elkems);
                                 loc.etap = if lelec < 0 {
                                     m.ms.etae_ms.eval(l, loc.elkems)
@@ -7517,6 +7522,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     stack.v[np] = v_final;
                     stack.w[np] = w_final;
                     stack.dnear[np] -= vstep;
+                    eprintln!("TRC ST {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", tustep, vstep, de, stack.x[np], stack.y[np], stack.z[np], stack.u[np], stack.v[np], stack.w[np], tperp);
                     // $SET-ANGLES-EM-FIELD
                     if let Some(f) = &em {
                         f.set_angles(&eml, stack, np, tvstep);
@@ -7533,7 +7539,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     let medold = medium;
                     if medium != 0 {
                         eke = eie - rm;
-                        elke = RealMath::r_ln(eke);
+                        elke = super::libm::ln(eke);
                         lelke = eke_interval(&tables.media[medium], elke);
                     }
                     if irnew != irold {
@@ -8046,8 +8052,8 @@ pub fn xsif(z: f64) -> f64 {
         let iz = z as usize; // 1-based in upstream
         ALRADP[iz - 1] / (ALRAD[iz - 1] - fcoulc(z))
     } else {
-        RealMath::r_ln(A1440 * RealMath::r_powf(z, -lit(0.666667)))
-            / (RealMath::r_ln(A183 * RealMath::r_powf(z, -lit(0.33333))) - fcoulc(z))
+        super::libm::ln(A1440 * super::libm::powf(z, -lit(0.666667)))
+            / (super::libm::ln(A183 * super::libm::powf(z, -lit(0.33333))) - fcoulc(z))
     }
 }
 
@@ -8068,14 +8074,14 @@ pub struct BremsFits {
 /// electron kinetic energy). `elements` is `(ZELEM, PZ)` per element of the
 /// medium, `ap` its photon threshold in MeV.
 pub fn fix_brems(elements: &[(f64, f64)], ap: f64) -> BremsFits {
-    let log_ap = RealMath::r_ln(ap);
+    let log_ap = super::libm::ln(ap);
     let (mut zt, mut zb, mut zf) = (0.0, 0.0, 0.0);
     for &(zi, pi) in elements {
         let fc = fcoulc(zi);
         let xi = xsif(zi);
         let aux = pi * zi * (zi + xi);
         zt += aux;
-        zb -= aux * RealMath::r_ln(zi) / 3.0;
+        zb -= aux * super::libm::ln(zi) / 3.0;
         zf += aux * fc;
     }
     let zv = (zb - zf) / zt;
@@ -8312,11 +8318,11 @@ impl MscatiSettings {
                     let mut tstbm = (ecutmn - prm) * (ecutmn + prm) / (ecutmn * ecutmn);
                     let r = ecutmn / xcc;
                     tstbm = blcc * tstbm * r * r;
-                    let aux = RealMath::r_ln(tstbm);
-                    tstbm = RealMath::r_ln(tstbm / aux);
+                    let aux = super::libm::ln(tstbm);
+                    tstbm = super::libm::ln(tstbm / aux);
                     tstbmn = tstbmn.min(tstbm);
                 }
-                skin = RealMath::r_exp(tstbmn);
+                skin = super::libm::exp(tstbmn);
             } else {
                 skin = SKIN_DEPTH_FOR_BCA;
             }
@@ -8396,8 +8402,8 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
         let (mut ise_monoton, mut isp_monoton) = (true, true);
         let (mut sige_old, mut sigp_old) = (-1.0_f64, -1.0_f64);
         for i in 1..=neke {
-            let ei = RealMath::r_exp((i as f64 - eke0) / eke1);
-            let eil = RealMath::r_ln(ei);
+            let ei = super::libm::exp((i as f64 - eke0) / eke1);
+            let eil = super::libm::ln(ei);
             let sig = m.esig.eval(i, eil) / m.ededx.eval(i, eil);
             if sig > sigee {
                 sigee = sig;
@@ -8425,22 +8431,22 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
         // range array
         let mut e_array = alloc::vec![0.0; neke + 2];
         let mut range_ep = [alloc::vec![0.0; neke + 2], alloc::vec![0.0; neke + 2]];
-        let mut ei = RealMath::r_exp((1.0 - eke0) / eke1);
+        let mut ei = super::libm::exp((1.0 - eke0) / eke1);
         e_array[1] = ei;
-        let expeke1 = RealMath::r_exp(1.0 / eke1) - 1.0;
+        let expeke1 = super::libm::exp(1.0 / eke1) - 1.0;
         for i in 1..neke {
-            let eip1 = RealMath::r_exp(((i + 1) as f64 - eke0) / eke1);
+            let eip1 = super::libm::exp(((i + 1) as f64 - eke0) / eke1);
             e_array[i + 1] = eip1;
             let eke = 0.5 * (eip1 + ei);
-            let elke = RealMath::r_ln(eke);
+            let elke = super::libm::ln(eke);
             let lelke = (eke1 * elke + eke0) as usize;
             let d = eip1 - ei;
             let ededx = m.pdedx.eval(lelke, elke);
             let aux = m.pdedx.a1[i] / ededx;
-            range_ep[1][i + 1] = range_ep[1][i] + d / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * (d / eke) * (d / eke) / 24.0);
+            range_ep[1][i + 1] = range_ep[1][i] + d / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * ((d / eke) * (d / eke)) / 24.0);
             let ededx = m.ededx.eval(lelke, elke);
             let aux = m.ededx.a1[i] / ededx;
-            range_ep[0][i + 1] = range_ep[0][i] + d / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * (d / eke) * (d / eke) / 24.0);
+            range_ep[0][i + 1] = range_ep[0][i] + d / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * ((d / eke) * (d / eke)) / 24.0);
             ei = eip1;
         }
 
@@ -8448,26 +8454,27 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
         let mut tmxs0 = alloc::vec![0.0; neke + 2];
         let mut tmxs1 = alloc::vec![0.0; neke + 2];
         let eil = (1.0 - eke0) / eke1;
-        let ei = RealMath::r_exp(eil);
+        let ei = super::libm::exp(eil);
         let p2 = ei * (ei + rmt2);
         let beta2 = p2 / (p2 + rmsq);
         let chia2 = xcc / (4.0 * p2 * blcc);
         let dedx0 = m.ededx.eval(1, eil);
-        let mut estepx = 2.0 * p2 * beta2 * dedx0 / ei / xcc / (RealMath::r_ln(1.0 + 1.0 / chia2) * (1.0 + chia2) - 1.0);
+        let mut estepx = 2.0 * p2 * beta2 * dedx0 / ei / xcc / (super::libm::ln(1.0 + 1.0 / chia2) * (1.0 + chia2) - 1.0);
         estepx *= settings.ximax;
         if estepx > settings.estepe {
             estepx = settings.estepe;
         }
         let mut si = estepx * ei / dedx0;
+        eprintln!("TT S0 {:e} {:e} {:e} {:e} {:e} {:e} {:e}", ei, estepx, dedx0, si, eil, eke0, eke1);
         for i in 1..neke {
             let elke = ((i + 1) as f64 - eke0) / eke1;
-            let eke = RealMath::r_exp(elke);
+            let eke = super::libm::exp(elke);
             let lelke = i + 1;
             let p2 = eke * (eke + rmt2);
             let beta2 = p2 / (p2 + rmsq);
             let chia2 = xcc / (4.0 * p2 * blcc);
             let ededx = m.ededx.eval(lelke, elke);
-            let mut estepx = 2.0 * p2 * beta2 * ededx / eke / xcc / (RealMath::r_ln(1.0 + 1.0 / chia2) * (1.0 + chia2) - 1.0);
+            let mut estepx = 2.0 * p2 * beta2 * ededx / eke / xcc / (super::libm::ln(1.0 + 1.0 / chia2) * (1.0 + chia2) - 1.0);
             estepx *= settings.ximax;
             if estepx > settings.estepe {
                 estepx = settings.estepe;
@@ -8481,7 +8488,7 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
                 let _ = ekef;
                 lelkef = 1usize;
             } else {
-                let elkef = RealMath::r_ln(ekef);
+                let elkef = super::libm::ln(ekef);
                 lelkef = (eke1 * elkef + eke0) as usize;
                 let leip1l = lelkef + 1;
                 let eip1l = (leip1l as f64 - eke0) / eke1;
@@ -8493,9 +8500,11 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
                 let ededx = m.ededx.eval(lelktmp, elktmp);
                 aux = m.ededx.a1[lelktmp] / ededx;
                 let dd = eip1 - ekef;
-                sip1 = dd / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * (dd / ektmp) * (dd / ektmp) / 24.0);
+                sip1 = dd / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * ((dd / ektmp) * (dd / ektmp)) / 24.0);
+                eprintln!("TE {} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", i, ededx, aux, elkef, elktmp, sip1, dd, eip1, ektmp);
             }
-            sip1 += range_ep[0][lelke] - range_ep[0][lelkef + 1];
+            sip1 = sip1 + range_ep[0][lelke] - range_ep[0][lelkef + 1];
+            eprintln!("TT {} {:e} {:e} {:e} {:e} {:e}", i, eke, estepx, ekef, sip1, si);
             tmxs1[i] = (sip1 - si) * eke1;
             tmxs0[i] = sip1 - tmxs1[i] * elke;
             si = sip1;
@@ -8636,8 +8645,8 @@ pub fn hatch_media(pegs4: &[Pegs4Medium], cfg: &HatchConfig) -> HatchResult {
                 zbrang += e.pz * e.zelem * (e.zelem + 1.0);
                 pznorm += e.pz;
             }
-            zbrang = lit(8.116224e-05) * RealMath::r_powf(zbrang / pznorm, 1.0 / 3.0);
-            lzbrang = -RealMath::r_ln(zbrang);
+            zbrang = lit(8.116224e-05) * super::libm::powf(zbrang / pznorm, 1.0 / 3.0);
+            lzbrang = -super::libm::ln(zbrang);
         }
         let comp: Vec<(f64, f64)> = m.elements.iter().map(|e| (e.zelem, e.pz)).collect();
         let fits = fix_brems(&comp, m.ap);
@@ -8883,7 +8892,7 @@ fn ln32(x: f32) -> f32 {
     }
     #[cfg(not(feature = "std"))]
     {
-        RealMath::r_ln(f64::from(x)) as f32
+        super::libm::ln(f64::from(x)) as f32
     }
 }
 
@@ -8916,7 +8925,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
     earray[0] = e_min_kev as f64;
     for i in 1..=n_ener {
         eloge += dloge;
-        earray[i] = RealMath::r_exp(eloge);
+        earray[i] = super::libm::exp(eloge);
     }
     let dbeta2_first = ((file.b2spin_max - file.b2spin_min) / n_ener as f32) as f64;
     let mut beta2 = file.b2spin_min as f64;
@@ -8959,7 +8968,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
             let tmp = pz * z * (z + 1.0);
             sum_z2 += tmp;
             sum_z += pz * z;
-            let z23 = RealMath::r_powf(z, lit(0.6666667));
+            let z23 = super::libm::powf(z, lit(0.6666667));
             for iq in 0..2usize {
                 for i in 0..=MAXE_SPI1 {
                     let idx = (iz - 1) * 4 * (n_ener + 1) + 2 * iq * (n_ener + 1) + i;
@@ -8968,10 +8977,10 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
                         .get(idx)
                         .ok_or_else(|| alloc::format!("spin data record missing for Z = {iz}"))?;
                     let (dum1, dum2, dum3, aux_o) = (rec.dum[0] as f64, rec.dum[1] as f64, rec.dum[2] as f64, rec.aux_o as f64);
-                    eta_array[iq][i] += tmp * RealMath::r_ln(z23 * aux_o);
+                    eta_array[iq][i] += tmp * super::libm::ln(z23 * aux_o);
                     let tau = earray[i] / prm * lit(0.001);
                     let eta = z23 / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT)) * aux_o / 4.0 / tau / (tau + 2.0);
-                    c_array[iq][i] += tmp * (RealMath::r_ln(1.0 + 1.0 / eta) - 1.0 / (1.0 + eta)) * dum1 * dum3;
+                    c_array[iq][i] += tmp * (super::libm::ln(1.0 + 1.0 / eta) - 1.0 / (1.0 + eta)) * dum1 * dum3;
                     g_array[iq][i] += tmp * dum2;
                     for j in 0..=MAXQ_SPIN {
                         let tmp_4 = rec.fmax[j];
@@ -9012,11 +9021,11 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
             let tau = earray[i] / prm * lit(0.001);
             let _beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
             for iq in 0..2usize {
-                let aux_o = (RealMath::r_exp(eta_array[iq][i] / sum_z2) / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT))) as f32 as f64;
+                let aux_o = (super::libm::exp(eta_array[iq][i] / sum_z2) / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT))) as f32 as f64;
                 // `0.26112447*aux_o` is real*4 times real*4 in a stock build
                 eta_array[iq][i] = super::lit_mul(0.26112447, aux_o as f32) * med.blcc / med.xcc;
                 let eta = aux_o / 4.0 / tau / (tau + 2.0);
-                let l = RealMath::r_ln(1.0 + 1.0 / eta);
+                let l = super::libm::ln(1.0 + 1.0 / eta);
                 let gamma = 3.0 * (1.0 + eta) * (l * (1.0 + 2.0 * eta) - 2.0) / (l * (1.0 + eta) - 1.0);
                 g_array[iq][i] = g_array[iq][i] / sum_z2 / gamma;
                 c_array[iq][i] = c_array[iq][i] / sum_z2 / (l - 1.0 / (1.0 + eta));
@@ -9062,10 +9071,10 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
             }
         };
         let eil0 = (1.0 - eke0) / eke1;
-        let (mut si1e, mut si1p) = eta_at(RealMath::r_exp(eil0), eil0);
+        let (mut si1e, mut si1p) = eta_at(super::libm::exp(eil0), eil0);
         for i in 1..neke {
             let eil = ((i + 1) as f64 - eke0) / eke1;
-            let e = RealMath::r_exp(eil);
+            let e = super::libm::exp(eil);
             let (si2e, si2p) = eta_at(e, eil);
             fits.etae_ms.a1[i] = (si2e - si1e) * eke1;
             fits.etae_ms.a0[i] = si2e - fits.etae_ms.a1[i] * eil;
@@ -9085,12 +9094,12 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
         // upstream indexes elarray(0:MAXE_SPI1); the spline routines take it as
         // x(1:n), so the 0-based Mortran array maps to 1-based by one
         for i in 0..=MAXE_SPIN {
-            elarray[i + 1] = RealMath::r_ln(earray[i] / 1000.0);
+            elarray[i + 1] = super::libm::ln(earray[i] / 1000.0);
         }
         for i in (MAXE_SPIN + 1)..MAXE_SPI1 {
-            elarray[i + 1] = RealMath::r_ln(earray[i + 1] / 1000.0);
+            elarray[i + 1] = super::libm::ln(earray[i + 1] / 1000.0);
         }
-        elarray[ndata] = if med.ue > 1e5 { RealMath::r_ln(med.ue) } else { super::lit_ln(1e5) };
+        elarray[ndata] = if med.ue > 1e5 { super::libm::ln(med.ue) } else { super::lit_ln(1e5) };
         let mut moment_fit = |src: &[f64; MAXE_SPI1 + 1], dst: &mut Pwlf| {
             let mut farray = alloc::vec![0.0_f64; ne1 + 1];
             for i in 0..=MAXE_SPIN {
@@ -9123,7 +9132,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
         let mut si1e = 1.0_f64;
         for i in 1..neke {
             let eil = ((i + 1) as f64 - eke0) / eke1;
-            let e = RealMath::r_exp(eil);
+            let e = super::libm::exp(eil);
             let tau = e / prm;
             let si2e;
             if tau > 2.0 * tauc {
@@ -9131,14 +9140,14 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
                 if sig > lit(1e-6) {
                     let etap = fits.etae_ms.eval(i + 1, eil);
                     let eta = 0.25 * etap * med.xcc / med.blcc / tau / (tau + 2.0);
-                    let g_r = (1.0 + 2.0 * eta) * RealMath::r_ln(1.0 + 1.0 / eta) - 2.0;
+                    let g_r = (1.0 + 2.0 * eta) * super::libm::ln(1.0 + 1.0 / eta) - 2.0;
                     let t1 = (tau + 2.0) / (tau + 1.0);
-                    let mut g_m = RealMath::r_ln(0.5 * tau / tauc)
-                        + (1.0 + t1 * t1) * RealMath::r_ln(2.0 * (tau - tauc + 2.0) / (tau + 4.0))
+                    let mut g_m = super::libm::ln(0.5 * tau / tauc)
+                        + (1.0 + t1 * t1) * super::libm::ln(2.0 * (tau - tauc + 2.0) / (tau + 4.0))
                         - 0.25
                             * (tau + 2.0)
                             * (tau + 2.0 + 2.0 * (2.0 * tau + 1.0) / ((tau + 1.0) * (tau + 1.0)))
-                            * RealMath::r_ln((tau + 4.0) * (tau - tauc) / tau / (tau - tauc + 2.0))
+                            * super::libm::ln((tau + 4.0) * (tau - tauc) / tau / (tau - tauc + 2.0))
                         + 0.5 * (tau - 2.0 * tauc) * (tau + 2.0) * (1.0 / (tau - tauc) - 1.0 / ((tau + 1.0) * (tau + 1.0)));
                     if g_m < g_r {
                         g_m /= g_r;
@@ -11517,7 +11526,7 @@ mod tests {
         let comp = vec![vec![], vec![(8.0, 1.0)]];
         let td = init_triplet(&toy_triplet_text(), &comp, RM).unwrap();
         // fraction rises from 0 at threshold; check a mid bin
-        let gle = RealMath::r_ln(5.0);
+        let gle = crate::egsnrc::libm::ln(5.0);
         let i = (td.dli_triplet * gle + td.bli_triplet) as usize;
         let f = td.a_triplet[1][i] * gle + td.b_triplet[1][i];
         // sigma_t/(sigma_p+sigma_t) at 5 MeV = 5e-5/(4e-3+5e-5)
@@ -13087,6 +13096,15 @@ mod tests {
         let presta1 = std::env::var("EGSNRC_PRESTA1").is_ok();
         let bca1 = std::env::var("EGSNRC_BCA1").is_ok();
         let r = hatch_media(&pm, &HatchConfig { ecutmn: if layers { 1.0 } else { 1.5 }, bca_algorithm: i32::from(bca1), skindepth_for_bca: 3.0, ..Default::default() });
+        if let Ok(path) = std::env::var("EGSNRC_DUMP_TABLES") {
+            let e = &r.media[0].electron;
+            let mut out = String::new();
+            for jj in 1..e.esig.a0.len() {
+                out += &format!("{} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}\n", jj, e.ededx.a0[jj], e.ededx.a1[jj], e.pdedx.a0[jj], e.pdedx.a1[jj], e.esig.a0[jj], e.esig.a1[jj], e.psig.a0[jj], e.psig.a1[jj], e.ebr1.a0[jj], e.ebr1.a1[jj], e.pbr1.a0[jj], e.pbr1.a1[jj]);
+                out += &format!("{} {:e} {:e} {:e} {:e} {:e} {:e} {:e}\n", jj, e.pbr2.a0[jj], e.pbr2.a1[jj], e.tmxs.a0[jj], e.tmxs.a1[jj], e.range_ep[0][jj], e.range_ep[1][jj], e.e_array[jj]);
+            }
+            std::fs::write(path, out).unwrap();
+        }
         let comp: Vec<(f64, f64)> = pm[0].elements.iter().map(|x| (x.zelem, x.pz)).collect();
         // photon tables from the xcom series
         let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();

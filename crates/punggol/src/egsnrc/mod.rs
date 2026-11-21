@@ -199,3 +199,88 @@ pub fn lit_ln(constant: f64) -> f64 {
 pub fn lit_div(constant: f64, n: f64) -> f64 {
     if cfg!(feature = "egsnrc-f32-constants") { f64::from(constant as f32 / n as f32) } else { constant / n }
 }
+
+/// `sin`, `cos` and `tan` as the platform libm computes them (gh:#1698).
+///
+/// A compiled EGSnrc calls glibc's `sin`/`cos`/`tan`; PETIR's routines are
+/// within an ulp of it but not always the same double (found 2026-11-21 in the
+/// `$SS_MF_Transport` helix: `sin(0.2852453666859538)` differs by 1 ulp, and
+/// the difference grows through a near-tangent spiral to 1e-7 in a layered
+/// vacuum-gap history). With the `std` feature the port therefore calls the
+/// `std` functions (the same libm gfortran links); without it PETIR's.
+pub(crate) mod libm {
+    #[cfg(not(feature = "std"))]
+    use petir::mathf::RealMath;
+    /// `sin(x)`.
+    #[inline]
+    pub fn sin(x: f64) -> f64 {
+        #[cfg(feature = "std")]
+        {
+            x.sin()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            RealMath::r_sin(x)
+        }
+    }
+    /// `cos(x)`.
+    #[inline]
+    pub fn cos(x: f64) -> f64 {
+        #[cfg(feature = "std")]
+        {
+            x.cos()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            RealMath::r_cos(x)
+        }
+    }
+    /// `tan(x)`.
+    #[inline]
+    pub fn tan(x: f64) -> f64 {
+        #[cfg(feature = "std")]
+        {
+            x.tan()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            RealMath::r_tan(x)
+        }
+    }
+    /// `ln(x)` (Fortran `LOG`).
+    #[inline]
+    pub fn ln(x: f64) -> f64 {
+        #[cfg(feature = "std")]
+        {
+            x.ln()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            RealMath::r_ln(x)
+        }
+    }
+    /// `exp(x)`.
+    #[inline]
+    pub fn exp(x: f64) -> f64 {
+        #[cfg(feature = "std")]
+        {
+            x.exp()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            RealMath::r_exp(x)
+        }
+    }
+    /// `x ** y` (Fortran real exponent).
+    #[inline]
+    pub fn powf(x: f64, y: f64) -> f64 {
+        #[cfg(feature = "std")]
+        {
+            x.powf(y)
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            RealMath::r_powf(x, y)
+        }
+    }
+}
