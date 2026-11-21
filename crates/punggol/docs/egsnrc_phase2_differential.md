@@ -315,7 +315,7 @@ four-oxide rock; uranium dioxide + water), **0 difference** in `Z` and in every
 mass fraction (bit-identical). Upstream oddity ported as it is: `getElemArray`
 capitalises the first and lower-cases the second character of each token, so
 `CH4` becomes `Ch4` (an unknown symbol, fatal) and must be written `C1H4`.
-Not ported: the mixture's I-value and `egs_estar`.
+Mixture I-value and `egs_estar` are ported later (see the `egs_estar` section).
 
 
 ## Electron-impact ionisation (gh:#1689, 2026-11-21)
@@ -520,5 +520,49 @@ as before). `ln32` in `init_spin` uses the same rule.
   act.
 - **`xsec_out`** only writes a diagnostic cross-section file: not ported on
   purpose (no physics, `no_std` library).
-- **`egs_estar`** (density-effect correction for runs without a PEGS4 file) is
-  not ported nor compared: gh:#1696.
+- **`egs_estar`** (density-effect correction): see the next section.
+
+
+## `egs_estar` density-effect calculation (2026-11-21, gh:#1696)
+
+Ported: `estar.cpp:estarCalculation` with `egsEstar`'s argument checks
+(`estar_calculation` in `estar_cpp.rs`), `fcalc` / `mixtureCalculation` /
+`compRes` / `getDataFromFormulae` (I-value, `Z/A`, mass fractions), `parseData`
+(the oscillator layout of `elementData`), `fscof`, `fbspol`,
+`objective_function`, `bisec`. The upstream tables `energy_grid`, `poth`,
+`potgas`, `potcon` and `elementData` (14530 numbers in a `[14532]` array,
+zero-filled like C++) are **read from `estar_dataTables.cpp` at run time**
+(`EstarTables::from_upstream_source`) and never committed. Not ported:
+`outputDensityFile` (writes a diagnostic text file), like `xsec_out`.
+
+**The `q` grid is x87 `long double`.** Upstream builds `vector<long double> q`
+(1101 points, ratio `exp(ln 10 / 50)`) and mixes it with `double` in
+`eps + q`, `q / denom` and `q / (yq + 1)`; on x86-64 Linux those are 64-bit
+mantissa operations. The port emulates them (`Ext`: round-to-nearest-even
+multiply, divide, add, subtract, conversion to and from `f64`).
+
+Reference: `verification_and_validation/egsnrc_estar/harness_calc.cpp` includes
+the upstream `estar.cpp`, `estar_formulaCalcs.cpp`, `estar_dataParser.cpp` and
+`estar_dataTables.cpp` (`g++ -O2 -std=c++17`, `egsFatal`/`egsInformation`
+stubbed) and calls `estarCalculation` for 17 media: elements (H gas and
+liquid, Al conductor, elemental C special case, Cu, Pb, Au, N gas), compounds
+(water, water with a user I-value of 75 eV, NaI, SiO2, methane gas, a
+repeated-element merge), mixtures (air, water plus methane, a three-oxide
+mixture). Test `differential_estar_calculation_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_ESTAR_CALC`, `EGSNRC_ESTAR_TABLES`).
+
+| quantity | result |
+|---|---|
+| density correction, 17 media x 113 energies | **1921 of 1921 bit-identical**, worst 0 |
+| mean I-value (`float`) | equal in all 17 |
+
+**Ablation** (what the `long double` emulation carries): with every `Ext`
+operation replaced by plain `f64` arithmetic, only **1150 of 1921** are
+bit-identical and the worst relative difference is **1.8e-14** (H gas, grid
+point 72). That is round-off below the 1e-9 allowance, but the emulation is
+what reaches bit identity, so it stays.
+
+Upstream observation (not a port defect): hydrogen at 1 g/cm3 makes
+`estarCalculation` abort ("Newton's method converged to negative root"), so
+the H case uses the physical densities 8.375e-5 and 0.0708 g/cm3; the port
+returns `Err` in the same situation.

@@ -31,7 +31,12 @@
 //!
 //! Not ported: the I-value of the mixture (`fc.pot`, `fc.zav` and the
 //! `poth`/`potgas`/`potcon` tables) which `egsCompoundsToElements` computes
-//! but never returns, and `egs_estar` (the density-effect calculation).
+//! but never returns (that part is ported below as `fcalc`).
+//!
+//! **`egs_estar`** (`estarCalculation`, the density-effect correction) is
+//! ported too (gh:#1696) and is bit-identical to the compiled upstream on 17
+//! media (`docs/egsnrc_phase2_differential.md`). Not ported:
+//! `outputDensityFile`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -40,6 +45,10 @@ use crate::nostd_prelude::*;
 use super::egsnrc_macros::EgsError;
 use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::vec;
+use alloc::string::ToString;
+use petir::mathf::RealMath;
+use petir::real::Real;
 
 /// `atb[]`: atomic mass of element `Z` at index `Z - 1`
 /// (`estar_dataTables.cpp`), `Z = 1..=100`.
@@ -213,6 +222,716 @@ pub fn symbol(z: i32) -> Option<&'static str> {
     if (1..=100).contains(&z) { Some(SYMBOLS[(z - 1) as usize]) } else { None }
 }
 
+// ---------------------------------------------------------------------------
+// egs_estar: the density-effect calculation (`estar.cpp:estarCalculation`).
+// ---------------------------------------------------------------------------
+
+/// x87 80-bit `long double` arithmetic (64-bit mantissa, round to nearest
+/// even), for the `vector<long double> q` that `estarCalculation` builds on
+/// x86-64 Linux. Only the operations upstream uses on it are provided:
+/// conversion from and to `double`, `+`, `-`, `*`, `/`. Values stay in the
+/// normal range, so no subnormals or infinities are modelled.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Ext {
+    neg: bool,
+    exp: i32,
+    mant: u64,
+}
+
+impl Ext {
+    const ZERO: Ext = Ext { neg: false, exp: 0, mant: 0 };
+
+    /// Normalise and round `m * 2^exp` (plus a positive fraction below one
+    /// unit of `m` when `sticky`) to a 64-bit mantissa.
+    fn pack(neg: bool, m: u128, exp: i32, sticky: bool) -> Ext {
+        if m == 0 {
+            return Ext::ZERO;
+        }
+        let p = 127 - m.leading_zeros() as i32;
+        if p < 64 {
+            let sh = 63 - p;
+            return Ext { neg, exp: exp - sh, mant: (m << sh) as u64 };
+        }
+        let sh = (p - 63) as u32;
+        let mut kept = (m >> sh) as u64;
+        let rest = m & ((1u128 << sh) - 1);
+        let half = 1u128 << (sh - 1);
+        let up = rest > half || (rest == half && (sticky || kept & 1 == 1));
+        let mut e = exp + sh as i32;
+        if up {
+            if kept == u64::MAX {
+                kept = 1u64 << 63;
+                e += 1;
+            } else {
+                kept += 1;
+            }
+        }
+        Ext { neg, exp: e, mant: kept }
+    }
+
+    fn from_f64(x: f64) -> Ext {
+        if x == 0.0 {
+            return Ext::ZERO;
+        }
+        let bits = x.to_bits();
+        let e = ((bits >> 52) & 0x7ff) as i32;
+        let m = (bits & ((1u64 << 52) - 1)) | (1u64 << 52);
+        Ext::pack(bits >> 63 == 1, m as u128, e - 1075, false)
+    }
+
+    fn to_f64(self) -> f64 {
+        if self.mant == 0 {
+            return 0.0;
+        }
+        let mut kept = self.mant >> 11;
+        let rest = self.mant & 0x7ff;
+        if rest > 0x400 || (rest == 0x400 && kept & 1 == 1) {
+            kept += 1;
+        }
+        let mut e2 = self.exp + 11;
+        if kept == 1u64 << 53 {
+            kept = 1u64 << 52;
+            e2 += 1;
+        }
+        let biased = (e2 + 52 + 1023) as u64;
+        let bits = ((self.neg as u64) << 63) | (biased << 52) | (kept & ((1u64 << 52) - 1));
+        f64::from_bits(bits)
+    }
+
+    fn mul(self, o: Ext) -> Ext {
+        if self.mant == 0 || o.mant == 0 {
+            return Ext::ZERO;
+        }
+        Ext::pack(self.neg != o.neg, self.mant as u128 * o.mant as u128, self.exp + o.exp, false)
+    }
+
+    fn div(self, o: Ext) -> Ext {
+        if self.mant == 0 {
+            return Ext::ZERO;
+        }
+        let num = (self.mant as u128) << 64;
+        let d = o.mant as u128;
+        let (q, rem) = (num / d, num % d);
+        let r4 = rem << 2;
+        let q2 = (q << 2) | (r4 / d);
+        Ext::pack(self.neg != o.neg, q2, self.exp - 64 - o.exp - 2, r4 % d != 0)
+    }
+
+    fn add(self, o: Ext) -> Ext {
+        if self.mant == 0 {
+            return o;
+        }
+        if o.mant == 0 {
+            return self;
+        }
+        let (big, small) = if (self.exp, self.mant) >= (o.exp, o.mant) { (self, o) } else { (o, self) };
+        let d = (big.exp - small.exp) as u32;
+        let bx = (big.mant as u128) << 62;
+        let sx = (small.mant as u128) << 62;
+        let (s, sticky) = if d == 0 {
+            (sx, false)
+        } else if d >= 127 {
+            (0, true)
+        } else {
+            (sx >> d, sx & ((1u128 << d) - 1) != 0)
+        };
+        if big.neg == small.neg {
+            Ext::pack(big.neg, bx + s, big.exp - 62, sticky)
+        } else {
+            let diff = bx - s - sticky as u128;
+            Ext::pack(big.neg, diff, big.exp - 62, sticky)
+        }
+    }
+
+    fn sub(self, o: Ext) -> Ext {
+        self.add(Ext { neg: !o.neg, ..o })
+    }
+}
+
+/// The six tables `estar_dataTables.cpp` holds besides `atb`/`atomic_number`
+/// (which are in this file). **Read from the upstream source text at run
+/// time and never committed**: `elementData` alone is 14532 numbers of an
+/// AGPL data file (AGENTS.md, "Differential testing").
+#[derive(Debug, Clone)]
+pub struct EstarTables {
+    /// `energy_grid[113]`, MeV.
+    pub energy_grid: Vec<f64>,
+    /// `poth[100]`, I-values (eV) of the elements.
+    pub poth: Vec<f64>,
+    /// `potgas[9]`.
+    pub potgas: Vec<f64>,
+    /// `potcon[9]`.
+    pub potcon: Vec<f64>,
+    /// `elementData[14532]`.
+    pub element_data: Vec<f64>,
+}
+
+/// The numbers of `const double <name>[...] = { ... };` in C++ source text.
+fn extract_array(text: &str, name: &str) -> Result<Vec<f64>, EgsError> {
+    let mut key = String::from("const double ");
+    key.push_str(name);
+    key.push('[');
+    let start = text.find(key.as_str()).ok_or(EgsError::Fatal("estar tables: array not found"))?;
+    let rest = &text[start..];
+    let open = rest.find('{').ok_or(EgsError::Fatal("estar tables: no opening brace"))?;
+    let close = rest.find("};").ok_or(EgsError::Fatal("estar tables: no closing brace"))?;
+    let mut out = Vec::new();
+    for line in rest[open + 1..close].lines() {
+        let code = line.split("//").next().unwrap_or("");
+        for tok in code.split(|c: char| c == ',' || c.is_whitespace()).filter(|t| !t.is_empty()) {
+            out.push(tok.parse::<f64>().map_err(|_| EgsError::Fatal("estar tables: bad number"))?);
+        }
+    }
+    Ok(out)
+}
+
+impl EstarTables {
+    /// Parse `HEN_HOUSE/egs++/estar/estar_dataTables.cpp`. Checks the array
+    /// lengths the header declares (113, 100, 9, 9, 14532).
+    pub fn from_upstream_source(text: &str) -> Result<Self, EgsError> {
+        let t = EstarTables {
+            energy_grid: extract_array(text, "energy_grid")?,
+            poth: extract_array(text, "poth")?,
+            potgas: extract_array(text, "potgas")?,
+            potcon: extract_array(text, "potcon")?,
+            element_data: extract_array(text, "elementData")?,
+        };
+        // C++ zero-fills an array whose initialiser is shorter than its
+        // declared size: upstream supplies 14530 numbers for `[14532]`.
+        let mut t = t;
+        if t.element_data.len() <= 14532 {
+            t.element_data.resize(14532, 0.0);
+        }
+        if t.energy_grid.len() != 113 || t.poth.len() != 100 || t.potgas.len() != 9 || t.potcon.len() != 9 || t.element_data.len() != 14532 {
+            return Err(EgsError::Fatal("estar tables: unexpected array length"));
+        }
+        Ok(t)
+    }
+}
+
+/// `formula_calc`: what `fcalc` and `mixtureCalculation` return.
+#[derive(Debug, Clone)]
+pub struct FormulaCalc {
+    /// Atomic numbers of the elements present.
+    pub jz: Vec<usize>,
+    /// Their mass fractions.
+    pub wt: Vec<f64>,
+    /// `Z/A` of the substance.
+    pub zav: f64,
+    /// Mean excitation energy, eV.
+    pub pot: f64,
+}
+
+/// `fcalc` (`estar_formulaCalcs.cpp`): I-value, `Z/A` and mass fractions of
+/// one element or compound formula. `knmat`: 0 element, 1 compound, 2 mixture
+/// component.
+pub fn fcalc(knmat: i32, rho: f64, formula: &str, t: &EstarTables) -> Result<FormulaCalc, EgsError> {
+    let parsed = parse_formula(formula)?;
+    let mut jz = Vec::with_capacity(parsed.len());
+    let mut nz = Vec::with_capacity(parsed.len());
+    for (sym, n) in &parsed {
+        jz.push(atom_num(sym)?);
+        nz.push(*n);
+    }
+    let mmax = jz.len();
+    let mut asum = 0.0_f64;
+    for m in 0..mmax {
+        asum += ATB[jz[m] - 1] * nz[m];
+    }
+    if asum == 0.0 {
+        return Err(EgsError::Fatal("estar::fcalc: total atomic mass sum is zero"));
+    }
+    let wt: Vec<f64> = (0..mmax).map(|m| ATB[jz[m] - 1] * (nz[m] / asum)).collect();
+    let (mut zav, mut potl) = (0.0_f64, 0.0_f64);
+    let rhocut = 0.1_f64;
+    for m in 0..mmax {
+        let jm = jz[m];
+        let za = jm as f64 / ATB[jm - 1];
+        zav += wt[m] * za;
+        let potm = if knmat >= 1 {
+            if jm >= 10 {
+                if mmax > 1 { 1.13 * t.poth[jm - 1] } else { t.poth[jm - 1] }
+            } else if rho <= rhocut {
+                t.potgas[jm - 1]
+            } else {
+                t.potcon[jm - 1]
+            }
+        } else {
+            t.poth[jm - 1]
+        };
+        if potm <= 0.0 {
+            return Err(EgsError::Fatal("estar::fcalc: I-value is non-positive"));
+        }
+        potl += wt[m] * za * RealMath::r_ln(potm);
+    }
+    if zav == 0.0 {
+        return Err(EgsError::Fatal("estar::fcalc: mean Z/A is zero"));
+    }
+    Ok(FormulaCalc { jz, wt, zav, pot: RealMath::r_exp(potl / zav) })
+}
+
+/// `mixtureCalculation`: components given as formulas with mass fractions.
+fn mixture_calculation(rho: f64, formulas: &[String], mass_fraction: &[f64], t: &EstarTables) -> Result<FormulaCalc, EgsError> {
+    if formulas.is_empty() || formulas.len() != mass_fraction.len() {
+        return Err(EgsError::Fatal("estar::getEgsMediaData: number of components must be > 0"));
+    }
+    let mut sumf = 0.0_f64;
+    for f in mass_fraction {
+        if *f <= 0.0 {
+            return Err(EgsError::Fatal("estar::getEgsMediaData: mass fractions must be > 0"));
+        }
+        sumf += *f;
+    }
+    let frac: Vec<f64> = mass_fraction.iter().map(|f| *f / sumf).collect();
+    let (mut present, mut wate) = ([false; 100], [0.0_f64; 100]);
+    let (mut zavs, mut pots) = (Vec::new(), Vec::new());
+    for (i, formula) in formulas.iter().enumerate() {
+        let fc = fcalc(2, rho, formula, t)?;
+        for j in 0..fc.jz.len() {
+            let k = fc.jz[j] - 1;
+            if !present[k] {
+                present[k] = true;
+                wate[k] = frac[i] * fc.wt[j];
+            } else {
+                wate[k] += frac[i] * fc.wt[j];
+            }
+        }
+        zavs.push(fc.zav);
+        pots.push(fc.pot);
+    }
+    let jz: Vec<usize> = (0..100).filter(|k| present[*k]).map(|k| k + 1).collect();
+    let wt: Vec<f64> = jz.iter().map(|z| wate[z - 1]).collect();
+    let (mut zav, mut potl) = (0.0_f64, 0.0_f64);
+    for i in 0..formulas.len() {
+        zav += frac[i] * zavs[i];
+        potl += frac[i] * zavs[i] * RealMath::r_ln(pots[i]);
+    }
+    if zav == 0.0 {
+        return Err(EgsError::Fatal("estar::mixtureCalculation: mixture mean Z/A is zero"));
+    }
+    Ok(FormulaCalc { jz, wt, zav, pot: RealMath::r_exp(potl / zav) })
+}
+
+/// `compFormulaPreprocess::compRes` + `getCompFormula`: merge repeated
+/// elements (float atom counts, ascending `Z`) and write the formula string.
+fn compound_formula(elems: &[String], num_atoms: &[f32]) -> Result<String, EgsError> {
+    let mut present = [false; 100];
+    let mut atoms = [0.0_f32; 100];
+    let mut name: [Option<String>; 100] = core::array::from_fn(|_| None);
+    for (i, e) in elems.iter().enumerate() {
+        let k = atom_num(e)? - 1;
+        if !present[k] {
+            present[k] = true;
+            atoms[k] = num_atoms[i];
+            name[k] = Some(e.clone());
+        } else {
+            atoms[k] += num_atoms[i];
+        }
+    }
+    let mut out = String::new();
+    for k in 0..100 {
+        if present[k] {
+            out.push_str(name[k].as_deref().unwrap_or(""));
+            out.push_str(&(atoms[k] as i32).to_string());
+        }
+    }
+    Ok(out)
+}
+
+/// `getDataFromFormulae`.
+fn data_from_formulae(knmat: i32, rho: f64, elems: &[String], mass_fraction: &[f64], num_atoms: &[f32], t: &EstarTables) -> Result<FormulaCalc, EgsError> {
+    match knmat {
+        0 => fcalc(0, rho, &elems[0], t),
+        1 => fcalc(1, rho, &compound_formula(elems, num_atoms)?, t),
+        _ => mixture_calculation(rho, elems, mass_fraction, t),
+    }
+}
+
+/// `fscof`: natural cubic spline coefficients `(a, b, c, d)`.
+fn fscof(nmax: usize, x: &[f64], f: &[f64]) -> Result<[Vec<f64>; 4], EgsError> {
+    if nmax < 2 {
+        return Err(EgsError::Fatal("estar::fscof: needs at least 2 points"));
+    }
+    let (mut a, mut b, mut c, mut d) = (vec![0.0_f64; nmax], vec![0.0_f64; nmax], vec![0.0_f64; nmax], vec![0.0_f64; nmax]);
+    let m2 = nmax - 1;
+    let mut s = 0.0_f64;
+    let mut r;
+    for m in 0..m2 {
+        d[m] = x[m + 1] - x[m];
+        if d[m] == 0.0 {
+            return Err(EgsError::Fatal("estar::fscof: zero interval"));
+        }
+        r = (f[m + 1] - f[m]) / d[m];
+        c[m] = r - s;
+        s = r;
+    }
+    s = 0.0;
+    r = 0.0;
+    c[0] = 0.0;
+    c[nmax - 1] = 0.0;
+    for m in 1..m2 {
+        c[m] += r * c[m - 1];
+        b[m] = (x[m - 1] - x[m + 1]) * 2.0 - r * s;
+        if b[m] == 0.0 {
+            return Err(EgsError::Fatal("estar::fscof: zero pivot"));
+        }
+        s = d[m];
+        r = s / b[m];
+    }
+    let mut mr = m2 - 1;
+    for _ in 1..m2 {
+        c[mr] = (d[mr] * c[mr + 1] - c[mr]) / b[mr];
+        mr -= 1;
+    }
+    for m in 0..m2 {
+        s = d[m];
+        r = c[m + 1] - c[m];
+        d[m] = r / s;
+        c[m] *= 3.0;
+        b[m] = (f[m + 1] - f[m]) / s - (c[m] + r) * s;
+        a[m] = f[m];
+    }
+    Ok([a, b, c, d])
+}
+
+/// `fbspol`: evaluate the spline at `s`; returns the bracketing indices
+/// (`lb`, `ub`). (Upstream's out-of-range `egsWarning` extrapolation
+/// messages are not reproduced.)
+fn fbspol(s: f64, x: &[f64], a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> Result<(usize, usize), EgsError> {
+    let n = x.len() as i64;
+    if n < 2 {
+        return Err(EgsError::Fatal("estar::fbspol: need at least 2 points"));
+    }
+    let (idir, mlb, mub): (i64, i64, i64) = if x[0] <= x[(n - 1) as usize] { (0, 0, n) } else { (1, n, 0) };
+    let mut mu;
+    if s > x[(mub + idir - 1) as usize] {
+        mu = mub + 2 * idir - 1;
+    } else if s < x[(mlb + 1 - idir - 1) as usize] {
+        mu = mlb - 2 * idir + 1;
+    } else {
+        let (mut ml, mut hi) = (mlb, mub);
+        loop {
+            let mav = (ml + hi) / 2;
+            if s < x[mav as usize] {
+                hi = mav;
+            } else {
+                ml = mav;
+            }
+            if (hi - ml).abs() <= 1 {
+                break;
+            }
+        }
+        mu = hi + idir - 1;
+    }
+    mu += 1;
+    if mu > n - 1 {
+        mu = n - 1;
+    }
+    let _ = (a, b, c, d); // g (the spline value) is `solver = 1`, unused with `solver = 2`
+    Ok(((mu - 1) as usize, mu as usize))
+}
+
+/// `objective_function`.
+fn objective_function(tau: f64, f: &[f64], eps: &[f64], nmax: usize, x: f64) -> Result<f64, EgsError> {
+    let arg = tau * (tau + 2.0);
+    if arg <= 0.0 {
+        return Err(EgsError::Fatal("estar::objective_function: tau*(tau+2) is non-positive"));
+    }
+    let yl = RealMath::r_ln(arg);
+    let mut yql = 0.0_f64;
+    for i in 0..nmax {
+        let denom = eps[i] + x;
+        if denom == 0.0 {
+            return Err(EgsError::Fatal("estar::objective_function: eps + x is zero"));
+        }
+        yql += f[i] / denom;
+    }
+    if yql <= 0.0 {
+        return Err(EgsError::Fatal("estar::objective_function: yql is non-positive"));
+    }
+    Ok(yl - RealMath::r_ln(1.0 / yql))
+}
+
+/// `bisec`.
+fn bisec(mut lower: f64, mut upper: f64, tolerance: f64, tau: f64, f: &[f64], eps: &[f64], nmax: usize) -> Result<f64, EgsError> {
+    if tolerance <= 0.0 {
+        return Err(EgsError::Fatal("estar::bisec: tolerance must be positive"));
+    }
+    let mut f_lower = objective_function(tau, f, eps, nmax, lower)?;
+    let f_upper = objective_function(tau, f, eps, nmax, upper)?;
+    if (f_lower > 0.0) == (f_upper > 0.0) {
+        return Err(EgsError::Fatal("estar::bisec: bounds do not bracket a root"));
+    }
+    let mut x_mid = lower;
+    let mut del = 1.0_f64;
+    while del > tolerance {
+        x_mid = (lower + upper) / 2.0;
+        let f_mid = objective_function(tau, f, eps, nmax, x_mid)?;
+        if (f_mid > 0.0) == (f_lower > 0.0) {
+            lower = x_mid;
+            f_lower = f_mid;
+        } else {
+            upper = x_mid;
+        }
+        del = f_mid.abs();
+    }
+    Ok(x_mid)
+}
+
+/// What `estarCalculation` returns through its pointer arguments, plus the
+/// `formula_calc` it computed on the way.
+#[derive(Debug, Clone)]
+pub struct EstarResult {
+    /// `densityCorr[113]`.
+    pub density_corr: Vec<f64>,
+    /// `enGrid[113]`, MeV.
+    pub en_grid: Vec<f64>,
+    /// `*meanIval` (a `float` upstream).
+    pub mean_ival: f32,
+    /// The formula data (`fc`), with `pot` as upstream's I-value in eV.
+    pub fc: FormulaCalc,
+}
+
+/// `estarCalculation` (`estar.cpp:492`) with `egsEstar`'s argument checks:
+/// the ESTAR density-effect correction of a medium on the 113-point energy
+/// grid. `elements` is `getElemArray`'s output ([`element_array`]),
+/// `ipotval` is `-1` for "compute the I-value". The long-double `q` grid is
+/// emulated with [`Ext`]; the `outputDensityFile` text file is not written
+/// (diagnostic output, like `xsec_out`).
+///
+/// **First port, differentially tested against compiled upstream** (see
+/// `docs/egsnrc_phase2_differential.md`).
+#[allow(clippy::too_many_arguments)]
+pub fn estar_calculation(
+    is_compound: bool,
+    media_density: f32,
+    elements: &[String],
+    mass_fraction: &[f64],
+    num_of_atoms: &[f32],
+    ipotval: f32,
+    t: &EstarTables,
+) -> Result<EstarResult, EgsError> {
+    let nep = elements.len();
+    if nep == 0 || nep > 100 || media_density <= 0.0 {
+        return Err(EgsError::Fatal("estar::egsEstar: invalid NEP or density"));
+    }
+    let knmat = if is_compound { 1 } else if nep == 1 { 0 } else { 2 };
+    let rho = media_density as f64;
+    let mut fc = data_from_formulae(knmat, rho, elements, mass_fraction, num_of_atoms, t)?;
+    if ipotval >= 0.0 {
+        fc.pot = ipotval as f64;
+    }
+    let mean_ival = fc.pot as f32;
+
+    let lkmax = 113usize;
+    let lmax = 1101usize;
+    let qfac = Ext::from_f64(RealMath::r_exp(RealMath::r_ln(10.0_f64) / 50.0));
+    let mut q = vec![Ext::from_f64(1e-04); lmax];
+    for i in 1..lmax {
+        q[i] = q[i - 1].mul(qfac);
+    }
+
+    let mmax = fc.jz.len();
+    if mmax == 0 || mmax > 50 {
+        return Err(EgsError::Fatal("estar::estarCalculation: mmax out of range [1, 50]"));
+    }
+    let mut g = [0.0_f64; 50];
+    for i in 0..mmax {
+        let jz = fc.jz[i];
+        if jz == 0 || jz > 100 {
+            return Err(EgsError::Fatal("estar::estarCalculation: atomic number out of range"));
+        }
+        let a = ATB[jz - 1];
+        g[i] = fc.wt[i] * (jz as f64 / a);
+    }
+    let zav = fc.zav;
+    if zav <= 0.0 {
+        return Err(EgsError::Fatal("estar::estarCalculation: zav is non-positive"));
+    }
+    let hom = 28.81593_f64 * Real::sqrt(rho * zav);
+    let phil = 2.0 * RealMath::r_ln(fc.pot / hom);
+    for gi in g.iter_mut().take(mmax) {
+        *gi /= zav;
+    }
+
+    // parseData: per element nmax, 113, nc[nmax], bd[nmax], 113 loss values.
+    let ed = &t.element_data;
+    let mut nmax_z = [0usize; 100];
+    let mut nc = [[0_i32; 27]; 100];
+    let mut bd = [[0.0_f64; 27]; 100];
+    let mut j = 0usize;
+    for i in 0..100 {
+        let nm = ed[j] as i32;
+        if nm < 0 || j + 2 + 2 * nm as usize + 113 > 14532 || nm as usize > 26 {
+            return Err(EgsError::Fatal("estar::parseData: bad data layout"));
+        }
+        nmax_z[i] = nm as usize;
+        let mut k = j + 2;
+        for a in 0..nm as usize {
+            nc[i][a] = ed[k] as i32;
+            k += 1;
+        }
+        for a in 0..nm as usize {
+            bd[i][a] = ed[k];
+            k += 1;
+        }
+        k += 113;
+        j = k;
+    }
+
+    let mut nbas = 0usize;
+    let mut f = vec![0.0_f64; 1000];
+    let mut en = vec![0.0_f64; 1000];
+    for m in 0..mmax {
+        let iz = fc.jz[m];
+        let rec = iz - 1;
+        let mut nmax = nmax_z[rec];
+        if iz == 6 && mmax == 1 {
+            nc[rec][nmax - 1] = 1;
+            nc[rec][nmax] = -1;
+            bd[rec][nmax] = bd[rec][nmax - 1];
+            nmax += 1;
+        }
+        if nc[rec][nmax - 1] < 0 {
+            nc[rec][nmax - 1] = -nc[rec][nmax - 1];
+            if mmax <= 1 {
+                bd[rec][nmax - 1] = 0.0;
+            }
+        }
+        let mut nsum = 0_i32;
+        for p in 0..nmax {
+            nsum += nc[rec][p];
+        }
+        let sum = nsum as f64;
+        if nbas + nmax > 1000 {
+            return Err(EgsError::Fatal("estar::estarCalculation: too many oscillators"));
+        }
+        if sum == 0.0 {
+            return Err(EgsError::Fatal("estar::estarCalculation: electron sum is zero"));
+        }
+        for n in 0..nmax {
+            f[n + nbas] = nc[rec][n] as f64 * g[m] / sum;
+            en[n + nbas] = bd[rec][n];
+        }
+        nbas += nmax;
+    }
+
+    let nmax = nbas;
+    let mut alf = vec![0.0_f64; 1000];
+    let mut eps = vec![0.0_f64; 1000];
+    for a in alf.iter_mut().take(nmax) {
+        *a = 2.0 / 3.0;
+    }
+    if en[nmax - 1] <= 0.0 {
+        alf[nmax - 1] = 1.0;
+    }
+    for n in 0..nmax {
+        eps[n] = (en[n] / hom) * (en[n] / hom);
+    }
+
+    // Newton's method for the adjustment factor squared.
+    let mut root = 1.0_f64;
+    let mut droot = 1.0_f64;
+    let mut iter = 0;
+    while droot.abs() - 0.00001 > 0.0 {
+        let mut fun = -phil;
+        let mut der = 0.0_f64;
+        for n in 0..nmax {
+            let trm = root * eps[n] + alf[n] * f[n];
+            if trm <= 0.0 {
+                return Err(EgsError::Fatal("estar::estarCalculation: non-positive trm in Newton's method"));
+            }
+            fun += f[n] * RealMath::r_ln(trm);
+            der += f[n] * eps[n] / trm;
+        }
+        if der == 0.0 {
+            return Err(EgsError::Fatal("estar::estarCalculation: zero derivative in Newton's method"));
+        }
+        droot = fun / der;
+        root -= droot;
+        iter += 1;
+        if iter >= 1000 {
+            return Err(EgsError::Fatal("estar::estarCalculation: Newton's method did not converge"));
+        }
+    }
+    if root < 0.0 {
+        return Err(EgsError::Fatal("estar::estarCalculation: Newton's method gave a negative root"));
+    }
+    for e in eps.iter_mut().take(nmax) {
+        *e *= root;
+    }
+
+    let mut yq = vec![0.0_f64; lmax];
+    let mut yql = vec![0.0_f64; lmax];
+    let mut d = vec![0.0_f64; lmax];
+    for n in 0..lmax {
+        let mut sum = 0.0_f64;
+        for m in 0..nmax {
+            let denom = Ext::from_f64(eps[m]).add(q[n]).to_f64();
+            if denom == 0.0 {
+                return Err(EgsError::Fatal("estar::estarCalculation: eps + q is zero"));
+            }
+            sum += f[m] / denom;
+        }
+        if sum == 0.0 {
+            return Err(EgsError::Fatal("estar::estarCalculation: zero sum for yq"));
+        }
+        yq[n] = 1.0 / sum;
+        if yq[n] <= 0.0 {
+            return Err(EgsError::Fatal("estar::estarCalculation: yq is non-positive"));
+        }
+        yql[n] = RealMath::r_ln(yq[n]);
+        let mut sum = 0.0_f64;
+        for m in 0..nmax {
+            let denom = eps[m] + alf[m] * f[m];
+            if denom == 0.0 {
+                return Err(EgsError::Fatal("estar::estarCalculation: zero denominator in arg"));
+            }
+            let arg = Ext::from_f64(1.0).add(q[n].div(Ext::from_f64(denom))).to_f64();
+            sum += f[m] * RealMath::r_ln(arg);
+        }
+        d[n] = Ext::from_f64(sum).sub(q[n].div(Ext::from_f64(yq[n] + 1.0))).to_f64();
+    }
+
+    let rmass = 0.510999906_f64;
+    let [sa, sb, sc, sd] = fscof(lmax, &yql, &d)?;
+    let tol = 0.000000001_f64;
+    let mut dlt = vec![0.0_f64; lkmax];
+    for i in 0..lkmax {
+        let tau = t.energy_grid[i] / rmass;
+        let y = tau * (tau + 2.0);
+        let mut delta = 0.0_f64;
+        if y >= yq[0] {
+            if y - yq[lmax - 1] <= 0.0 {
+                let yl = RealMath::r_ln(y);
+                let (lb, ub) = fbspol(yl, &yql, &sa, &sb, &sc, &sd)?;
+                let xroot = bisec(q[lb].to_f64(), q[ub].to_f64(), tol, tau, &f, &eps, nmax)?;
+                let mut yqn = 0.0_f64;
+                let mut sum = 0.0_f64;
+                for m in 0..nmax {
+                    let denom = eps[m] + alf[m] * f[m];
+                    if denom == 0.0 {
+                        return Err(EgsError::Fatal("estar::estarCalculation: zero denominator in bisection arg"));
+                    }
+                    let arg = 1.0 + xroot / denom;
+                    sum += f[m] * RealMath::r_ln(arg);
+                    yqn += f[m] / (eps[m] + xroot);
+                }
+                if yqn == 0.0 {
+                    return Err(EgsError::Fatal("estar::estarCalculation: yqn is zero"));
+                }
+                yqn = 1.0 / yqn;
+                delta = sum - xroot / (yqn + 1.0);
+            } else {
+                return Err(EgsError::Fatal("estar::estarCalculation: energy out of range"));
+            }
+        }
+        dlt[i] = delta;
+    }
+    Ok(EstarResult { density_corr: dlt, en_grid: t.energy_grid.clone(), mean_ival, fc })
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,6 +1019,75 @@ mod tests {
             n += 1;
         }
         eprintln!("{n} mixtures: worst relative difference in mass fraction {worst:e}");
+        assert!(n > 0);
+    }
+
+    /// `Ext` against `f64` where the result is exactly representable, and
+    /// the double-rounding behaviour `long double` has.
+    #[test]
+    fn ext_matches_f64_when_exact() {
+        let a = Ext::from_f64(0.75);
+        let b = Ext::from_f64(0.125);
+        assert_eq!(a.add(b).to_f64(), 0.875);
+        assert_eq!(a.sub(b).to_f64(), 0.625);
+        assert_eq!(b.sub(a).to_f64(), -0.625);
+        assert_eq!(a.mul(b).to_f64(), 0.09375);
+        assert_eq!(a.div(b).to_f64(), 6.0);
+        assert_eq!(Ext::from_f64(1e-4).to_f64(), 1e-4);
+        assert_eq!(a.sub(a).to_f64(), 0.0);
+        // 1 + 2^-60 is kept by the 64-bit mantissa but rounds away in f64
+        let tiny = Ext::from_f64(1.0).add(Ext::from_f64(2f64.powi(-60)));
+        assert_ne!(tiny.mant, 1u64 << 63);
+        assert_eq!(tiny.to_f64(), 1.0);
+    }
+
+    /// `EGSNRC_REFERENCE_ESTAR_CALC` (lines `case iscomp nep rho ipot
+    /// e:w:atoms ... | rc ival | density corrections`, written by
+    /// `verification_and_validation/egsnrc_estar/harness_calc.cpp` linked to
+    /// the upstream `estar*.cpp`) and `EGSNRC_ESTAR_TABLES` (the upstream
+    /// `estar_dataTables.cpp`, read at run time, never committed). Prints
+    /// the worst relative difference; results in
+    /// `docs/egsnrc_phase2_differential.md`.
+    #[test]
+    fn differential_estar_calculation_against_compiled_egsnrc() {
+        let (Ok(path), Ok(tabs)) = (std::env::var("EGSNRC_REFERENCE_ESTAR_CALC"), std::env::var("EGSNRC_ESTAR_TABLES")) else {
+            eprintln!("EGSNRC_REFERENCE_ESTAR_CALC/EGSNRC_ESTAR_TABLES not set: differential test skipped");
+            return;
+        };
+        let t = EstarTables::from_upstream_source(&std::fs::read_to_string(tabs).unwrap()).unwrap();
+        let (mut n, mut exact, mut worst, mut worst_line) = (0usize, 0usize, 0.0_f64, String::new());
+        for l in std::fs::read_to_string(path).unwrap().lines() {
+            let parts: Vec<&str> = l.split(" | ").collect();
+            let head: Vec<&str> = parts[0].split_whitespace().collect();
+            let iscomp = head[1] == "1";
+            let rho: f32 = head[3].parse().unwrap();
+            let ipot: f32 = head[4].parse().unwrap();
+            let (mut el, mut w, mut a) = (Vec::new(), Vec::new(), Vec::new());
+            for tok in &head[5..] {
+                let f: Vec<&str> = tok.split(':').collect();
+                el.push(String::from(f[0]));
+                w.push(f[1].parse::<f64>().unwrap());
+                a.push(f[2].parse::<f32>().unwrap());
+            }
+            let ival: f32 = parts[1].split_whitespace().nth(1).unwrap().parse().unwrap();
+            let want: Vec<f64> = parts[2].split_whitespace().map(|x| x.parse().unwrap()).collect();
+            let r = estar_calculation(iscomp, rho, &el, &w, &a, ipot, &t).unwrap();
+            assert_eq!(r.mean_ival, ival, "{}", parts[0]);
+            assert_eq!(want.len(), 113);
+            for (k, wv) in want.iter().enumerate() {
+                let g = r.density_corr[k];
+                if g.to_bits() == wv.to_bits() {
+                    exact += 1;
+                }
+                let rel = if *wv != 0.0 { (g - wv).abs() / wv.abs() } else { g.abs() };
+                if rel > worst {
+                    worst = rel;
+                    worst_line = format!("{} grid {k}: {g:e} vs {wv:e}", parts[0]);
+                }
+            }
+            n += 1;
+        }
+        eprintln!("{n} media x 113 energies: {exact} bit-identical of {}, worst relative difference {worst:e} ({worst_line})", n * 113);
         assert!(n > 0);
     }
 }

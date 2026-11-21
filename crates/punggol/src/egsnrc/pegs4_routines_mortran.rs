@@ -45,7 +45,7 @@
 //! `DBRPR`, `LSPION`, `EPSTAR`, `RADLEN`, `MIMSD`, `LBREMZ` and `ELEMTB`'s
 //! symbol table. Not carried: the name strings of `MIXDAT`/`MEDINP`
 //! (`ELEM_NAMES`, `COMP_NAMES`, `OUTDENSITY`, `MEDID`): upstream uses them
-//! only as arguments of the C++ `egs_estar` call, which is not ported.
+//! only as arguments of the C++ `egs_estar` call (~~not ported~~ **CORRECTED 2026-11-21**: ported as `estar_cpp::estar_calculation`, gh:#1696; this module still takes its result as an input).
 //! `SAVE`d locals (`APRIM`'s `APRIMD/EPRIM/ZPRIM/APRIMZ/napre/naprz`, `QFIT`'s
 //! `nkp`) become fields or constants.
 //!
@@ -63,8 +63,9 @@
 //!   Reading follows Fortran list-directed record semantics (see
 //!   [`ListReader`]).
 //! * `SPINIT`'s `egs_estar` call (the ICRU/ESTAR density-effect interface,
-//!   `pegs4_routines.mortran:1708-1712`) is **not in the upstream clone**
-//!   (the only occurrence of the name is in this file), so it is taken as an
+//!   `pegs4_routines.mortran:1708-1712`) lives in `HEN_HOUSE/egs++/estar/`
+//!   (~~not in the upstream clone~~ **CORRECTED 2026-11-21**, ported as
+//!   `estar_cpp::estar_calculation`); here it is still taken as an
 //!   input, [`EstarDensity`], and tested with a synthetic table.
 //! * Plot/histogram routines: none are in this file.
 //!
