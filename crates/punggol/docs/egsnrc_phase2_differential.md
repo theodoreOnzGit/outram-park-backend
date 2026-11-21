@@ -675,7 +675,7 @@ different, much larger EM-field algorithm (1PI/3PI integration, boundary
 handling, single-scattering in fields, vacuum transport) that replaces PRESTA-II
 macros inside `ELECTR` (`$EM_MACROS_ACTIVE`, `$EMFieldInVacuum`,
 `$EM_FIELD_SS`); and `egs_parallel.mortran` (lock-file job control through C
-utilities, no physics). Both remain on gh:#1697. ~~`EEMF_macros` not ported~~ **CORRECTED the same day: `EEMF_macros` is ported, next section.**
+utilities, no physics). Both remain on gh:#1697.~~ **CORRECTED 2026-11-21 (later): `egs_parallel` is ported, see "egs_parallel" below.** ~~`EEMF_macros` not ported~~ **CORRECTED the same day: `EEMF_macros` is ported, next section.**
 
 
 ## EEMF (Malkov-Rogers): `EEMF_macros` ported and compared (2026-11-21, gh:#1697)
@@ -743,8 +743,8 @@ not expanded. `$setEFPotential`: inside `IF (.false.)`. `$IntegrationAlg` 0, 1
 (`diff` is 1359 lines: the `$EM_FIELD_SS` linear branch has no `irl ~= ir(np)`
 clause, the `$ssFieldAlg` tests differ, INITIATE gains `IF(medium~=0)` and a
 `howfarCheck`, plus `$CALL-HOWNEAR_EM` over BEAMnrc component modules, which
-this crate does not have). `egs_parallel.mortran` (read in full: lock-file job
-control through `egs_*_control_file` C utilities, no physics).
+this crate does not have). ~~`egs_parallel.mortran` (read in full: lock-file job
+control through `egs_*_control_file` C utilities, no physics)~~ **CORRECTED 2026-11-21 (later): ported, see "egs_parallel" below; the decisions separate cleanly from the file I/O.**.
 
 **Upstream behaviour worth knowing.** `$EMFieldInVacuum`'s electric loop
 (`:EFieldVacuumHFCheck:`) advances `tperp_em` by `|u_em|` (the direction
@@ -872,3 +872,66 @@ against `2 R sin(alpha/2)`, 1-point and 3-point integrations, the vacuum macro
 against the sagitta, the electric branches, `$EMFIELD_PI` state-only), and
 `electr_with_eemf_conserves_energy_and_refuses_what_it_does_not_port` covers
 whole showers with PRESTA-II/PRESTA-I and both BCAs.
+
+
+## egs_parallel: job control ported and compared with real processes (2026-11-21, gh:#1697)
+
+`HEN_HOUSE/src/egs_parallel.mortran` (422 lines, read in full) is ported as
+`src/egsnrc/egs_parallel_mortran.rs`. ~~Not ported: lock-file job control through
+C utilities, no `no_std` seam.~~ **CORRECTED:** `egs_pjob_control` and
+`egs_pjob_finish` are state transitions over the **text** of the lock file, and
+that separates from the file calls. Ported as pure functions (`no_std`, no I/O):
+`pjob_control(cfg, state, ncase, n_tot, sum, sum2, file_text)` returning
+`(n_run, n_left, n_tot, res, dres)` and the action for the caller
+(`Create`/`Update(text)`/`Remove`/`None`), `pjob_finish(cfg, file_text)`
+returning `n_job` and whether this job is the last (with the first job's
+`t_first`), the control record (`PjobControlRecord`), the Fortran format
+`(2i15,i4,2(1pe16.8),1pe13.5,0pf7.2,2x,8i5)` (including `*` fill and the
+`+ddd` three-digit exponent) and the list-directed reader (reusing
+`ListReader`). `$egs_fatal` branches are `EgsError::Fatal`. Includes the
+`is_uniform_run` and `n_parallel <= 0` shortcuts and `$N_CHUNKS = 10`.
+
+**The seam, kept with the caller:** `egs_create_control_file`,
+`egs_open_control_file`, `egs_rewind_control_file` (locks), `egs_read_control_file`,
+`egs_write_control_file`, `egs_unlock_control_file`, `egs_close_control_file`,
+`egs_remove_file` of `HEN_HOUSE/cutils/egs_c_utils.c`, and `egs_date_and_time`
+(`t_first`, the first job's start time). The caller reads the lock file, passes
+its text, and writes back `PjobAction::file_bytes()`: the control string and
+**one blank** (`n_write = lnblnk1 + 1` bytes of the blank-padded string).
+
+**Reference.** A Mortran user code (the tutor1 template with its main program
+replaced; `HAVE_C_COMPILER` defined, `egs_parallel.mortran` added to the Mortran3
+command, `egs_c_utils.c` compiled with gcc and a one-line `egs_config1.h`,
+`-fdefault-real-8`) runs through `egs_init` with `-P n -j i -f first [-u]` and
+real separate processes sharing one `EGS_HOME`. Each process waits for a
+`go_<job>_<step>` file, makes one `egs_pjob_control` call with deterministic fake
+scores (`sum = n_run (1 + 0.1 j + 0.01 step)`, `sum2 = n_run (m^2 + 0.25)`),
+logs `n_run`, `n_tot`, `res`, `dres`, `n_max_parallel` at 17 digits and creates
+`ack_...`; a controller (Python) releases one call at a time in a chosen,
+unequal order (the weights make job 2 call twice per turn), snapshots the lock
+file after every call, and finally releases the `egs_pjob_finish` calls in a
+chosen order. `t_first` was set to `100 j + i` after `egs_init` so that the
+`8i5` field is exercised. (Real clock calls are replaced by a stub: the elapsed
+time printed by the last job is therefore not compared.)
+
+**Results** (`differential_parallel_run_against_compiled_egsnrc`, env
+`EGSNRC_PJOB_DIR`, `EGSNRC_PJOB_CFG=n_parallel,first_parallel,uniform`; every
+call replayed with the inputs the driver passed; compared: `n_run`, `n_tot`,
+`res`, `dres` (exact `f64` equality), `n_max_parallel`, `n_job`, and the **lock
+file bytes after each call** (exact string equality)):
+
+| scenario | calls | differ |
+|---|---|---|
+| 3 jobs, ncase 1000, finish order 2, 1, 3 (the last removes the file) | 37 | 0 |
+| 3 jobs, ncase 800, first job continues a run (`n_tot = 500`, `sum = 620.5`, `sum2 = 900.25`) | 37 | 0 |
+| 3 jobs, `-f 2` (the first job is job 2; jobs 2 and 3 run), ncase 777 | 36 | 0 |
+| 3 jobs, `-u` (uniform run control, no lock file) | 9 | 0 |
+| no `-P` (`n_parallel = 0`: `n_run = ncase` every call), 4 calls | 4 | 0 |
+| negative control: the 800-history scenario replayed with a different `params.txt` | 37 | 36 |
+
+In the uniform and serial paths `res` and `dres` are never assigned by upstream
+(the log shows garbage from uninitialised memory), so they are not compared there;
+the port returns `None` for them. One thing the first run of the driver showed
+about upstream: `egs_pjob_finish` of the last job sets `i_parallel = 0`
+(`egs_open_units(.false.)`), so a caller that names files by `i_parallel` after
+the last finish must save it.
