@@ -121,7 +121,7 @@ gfortran unless `-fdefault-real-8` is given, so the default upstream build uses
 literals and agrees with the promoted build to round-off. EGSnrc's own
 `gfortran` spec (`specs/gfortran-suse11.4.conf`) sets `FCFLAGS = -fPIC`,
 `FOPT = -O3 -ffast-math` and no promotion, so a stock build has the 1e-8
-effect. ~~**Maintainer decision needed:** keep `f64` literals or round such constants through `f32`.~~ **DECIDED 2026-11-21 (maintainer):** compare like with like: first a single-precision-constants mode of the port against the stock build, and once that agrees, `f64` constants become the workspace standard, validated against the `-fdefault-real-8` build (gh:#1687). Not yet implemented. This likely explains differences of the
+effect. ~~**Maintainer decision needed:** keep `f64` literals or round such constants through `f32`.~~ **DECIDED 2026-11-21 (maintainer):** compare like with like: first a single-precision-constants mode of the port against the stock build, and once that agrees, `f64` constants become the workspace standard, validated against the `-fdefault-real-8` build (gh:#1687). **IMPLEMENTED 2026-11-21:** cargo feature `egsnrc-f32-constants` (`punggol::egsnrc::lit`, 204 Mortran decimal constants in `egsnrc_mortran.rs` plus the tutor1 driver's `0.1`, `20.5109989461`, `0.5109989461`); off by default. Results against the STOCK build with the feature on are in "Single-precision-constants mode" below. This explained differences of the
 same order in other ported routines and is the first thing to check there.
 
 ### Electron tables (`hatch_media`: PEGS4 intake, `DUNIT`, `fix_brems`, `mscati`)
@@ -242,3 +242,31 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 - gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
 - gh:#1692 ~~EADL relaxation not ported~~ **done 2026-11-21 (above)**; triplet, NRC pair, NIST/NRC bremsstrahlung and EII still not wired into a full run.
 - gh:#1691 `egs_compoundstoelements` source missing; `rad_compton1`; duplicate `ztbl`.
+
+
+## Single-precision-constants mode against the stock build (gh:#1687, 2026-11-21)
+
+`cargo test --release -p punggol --features egsnrc-f32-constants --lib differential_`
+with the stock-build references (`difftab`, `difftut`; `-O1`, no promotion).
+Default build (feature off) is unchanged: histories against the promoted build
+still 1.1e-8 (re-run, same day).
+
+| quantity | f64 constants vs stock (before) | f32 constants vs stock (now) |
+|---|---|---|
+| photon tables `gmfp`, `gbr1`, `gbr2` (worst, 2000 points) | 2.8e-8 | 1.5e-13, 3.1e-13, 7.1e-12 |
+| electron tables | up to 9.6e-8 (`te`) | exact except `tmxs` 4.6e-14 |
+| tutor1 histories, same discard sequence | 200 of 200 | 200 of 200 |
+| tutor1 histories, worst relative kinetic energy | 5.8e-7 | 4.5e-8 |
+| tutor1 histories, worst `|dw|` | 2.0e-6 | 1.3e-7 |
+| history 1 (first), kinetic energy | 15.1455401944 vs ref 15.1455408697 (4.5e-8, wrapped port constants only) | 15.145540867215 vs 15.145540869713 (1.6e-10) |
+
+The history result needed the tutor1 **driver's own** single-precision
+literals too (`PCUT = 0.1`, `ZBOUND = 0.1`, `EIN = 20.5109989461`,
+`EKINE = E - 0.5109989461`): the Rust copy of the driver used exact `f64`, and
+that alone left the first history at 4.5e-8. The remaining worst-case 4.5e-8
+over 200 histories is not explained; a constant not yet wrapped (Mortran
+literals in files other than `egsnrc_mortran.rs`, or in the expansion of a
+macro) or amplification of a ~1e-10 start through the shower are both
+possible, not tested. Residual above 1e-9: reported to the maintainer.
+Spin, Rayleigh and EADL stock references were not built (the existing ones are
+promoted builds).

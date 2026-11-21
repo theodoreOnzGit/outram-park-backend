@@ -57,6 +57,7 @@ use crate::nostd_prelude::*;
 
 use super::egsnrc_macros::{EgsError, Stack, UniformSource, select_azimuthal_angle};
 use super::egs_utilities_mortran::{alias_sample1, gauss_legendre, prepare_alias_table, set_spline, spline};
+use super::lit;
 use petir::mathf::RealMath;
 use petir::real::Real;
 
@@ -150,7 +151,7 @@ pub fn annih<R: UniformSource>(stack: &mut Stack, nbr_split: usize, rm: f64, rng
     let cc = stack.w[np0];
     let mut sinpsi = aa * aa + bb * bb;
     let (mut sindel, mut cosdel) = (0.0, 0.0);
-    if sinpsi > 1e-20 {
+    if sinpsi > lit(1e-20) {
         sinpsi = Real::sqrt(sinpsi);
         sindel = bb / sinpsi;
         cosdel = aa / sinpsi;
@@ -215,7 +216,7 @@ fn annih_rotate(
     (sinpsi, sindel, cosdel): (f64, f64, f64),
     (sinthe, costhe, cphi, sphi): (f64, f64, f64, f64),
 ) {
-    if sinpsi >= 1e-10 {
+    if sinpsi >= lit(1e-10) {
         let us = sinthe * cphi;
         let vs = sinthe * sphi;
         stack.u[np] = cc * cosdel * us - sindel * vs + aa * costhe;
@@ -301,7 +302,7 @@ pub fn uphi<R: UniformSource>(
     }
     let (a, b, c) = (saved.a, saved.b, saved.c);
     let sinps2 = a * a + b * b;
-    if sinps2 < 1.0e-20 {
+    if sinps2 < lit(1.0e-20) {
         // small polar angle case
         stack.u[np] = sinthe * cosphi;
         stack.v[np] = sinthe * sinphi;
@@ -320,7 +321,7 @@ pub fn uphi<R: UniformSource>(
 }
 
 /// Electron rest energy, MeV (`RM` and `PRM`, `egsnrc.macros:1140`).
-pub const RM: f64 = 0.5109989461;
+pub const RM: f64 = lit(0.5109989461);
 
 /// The Compton data `COMPT` reads (`COMMON/COMPTON-DATA/`,
 /// `egsnrc.macros:450-472`), filled upstream by `HATCH` from the media's
@@ -600,21 +601,21 @@ pub fn compt<R: UniformSource>(
                 break 'retry_setup;
             }
             let fpz1;
-            if pzmax < -0.15 {
-                fmax = 1.0 - af * 0.15;
+            if pzmax < -lit(0.15) {
+                fmax = 1.0 - af * lit(0.15);
                 fpz1 = fpz * fmax * jo;
-            } else if pzmax < 0.15 {
+            } else if pzmax < lit(0.15) {
                 fmax = 1.0 + af * pzmax;
-                aux3 = 1.0 / (1.0 + 0.33267252734 * aux3);
-                aux4 = fpz * aux3 * (0.3480242 + aux3 * (-0.0958798 + aux3 * 0.7478556)) + data.erf_jo_array[j];
+                aux3 = 1.0 / (1.0 + lit(0.33267252734) * aux3);
+                aux4 = fpz * aux3 * (lit(0.3480242) + aux3 * (-lit(0.0958798) + aux3 * lit(0.7478556))) + data.erf_jo_array[j];
                 if pzmax > 0.0 {
-                    fpz1 = (1.0 - fmax * fpz) * jo - 0.62665706866 * af * aux4;
+                    fpz1 = (1.0 - fmax * fpz) * jo - lit(0.62665706866) * af * aux4;
                     fpz = 1.0 - fpz;
                 } else {
-                    fpz1 = fmax * fpz * jo - 0.62665706866 * af * aux4;
+                    fpz1 = fmax * fpz * jo - lit(0.62665706866) * af * aux4;
                 }
             } else {
-                fmax = 1.0 + af * 0.15;
+                fmax = 1.0 + af * lit(0.15);
                 fpz1 = (1.0 - fmax * fpz) * jo;
                 fpz = 1.0 - fpz;
             }
@@ -643,8 +644,8 @@ pub fn compt<R: UniformSource>(
                 if pz.abs() > 1.0 {
                     continue;
                 }
-                if pz < 0.15 {
-                    let frej = if pz < -0.15 { 1.0 - af * 0.15 } else { 1.0 + af * pz };
+                if pz < lit(0.15) {
+                    let frej = if pz < -lit(0.15) { 1.0 - af * lit(0.15) } else { 1.0 + af * pz };
                     let eta = rng.uniform();
                     if eta * fmax > frej {
                         continue;
@@ -659,13 +660,13 @@ pub fn compt<R: UniformSource>(
 
         // energy of the scattered photon
         let pz2 = pz * pz;
-        if pz.abs() < 0.01 {
+        if pz.abs() < lit(0.01) {
             br *= 1.0 + pz * (qc + (br2 - costhe) * pz);
         } else {
             aux = 1.0 - pz2 * br * costhe;
             let aux1 = 1.0 - pz2 * br2;
             let aux2 = qc2 - br2 * pz2 * sinthe;
-            if aux2 > 1e-10 {
+            if aux2 > lit(1e-10) {
                 br = br / aux1 * (aux + pz * Real::sqrt(aux2));
             }
         }
@@ -682,7 +683,7 @@ pub fn compt<R: UniformSource>(
     let np = stack.np;
     stack.e[np] = pesg;
     let aux = 1.0 + br * br - 2.0 * br * costhe;
-    if aux > 1e-8 {
+    if aux > lit(1e-8) {
         costhe = (1.0 - br * costhe) / Real::sqrt(aux);
         sinthe = (1.0 - costhe) * (1.0 + costhe);
         if sinthe > 0.0 {
@@ -703,7 +704,7 @@ pub fn compt<R: UniformSource>(
 
     let mut out = ComptonOutcome::default();
     if ibcmpl == 1 || ibcmpl == 3 {
-        if uj > 1e-3 {
+        if uj > lit(1e-3) {
             out.vacancy = Some(ShellVacancy { uj, shn: data.shn_array[j], iz: data.iz_array[j] });
         } else {
             out.edep_local = uj;
@@ -725,7 +726,7 @@ pub const MXTRANS: usize = 39;
 pub const MXVAC: usize = 50;
 /// `$RELAX-CUTOFF` (`egsnrc.macros:777`): binding energies below this, MeV,
 /// are absorbed locally.
-pub const RELAX_CUTOFF: f64 = 0.001;
+pub const RELAX_CUTOFF: f64 = lit(0.001);
 
 /// `COMMON/EDGE/` as `RELAX` reads it (`egsnrc.macros:501-515`), 1-based:
 /// `binding_energies[iz][shell]` (MeV) and `relaxation_prob[iz][transition]`
@@ -916,7 +917,7 @@ fn relax_push_isotropic<R: UniformSource>(
     eta = 2.0 * eta - 1.0;
     stack.w[np] = eta;
     eta = (1.0 - eta) * (1.0 + eta);
-    if eta > 1e-20 {
+    if eta > lit(1e-20) {
         eta = Real::sqrt(eta);
         let (cphi, sphi) = select_azimuthal_angle(rng);
         stack.u[np] = eta * cphi;
@@ -1530,7 +1531,7 @@ fn pair_core<R: UniformSource>(
         pese2 = e2;
         iq1 = q1;
         iq2 = q2;
-    } else if eig <= 2.1 {
+    } else if eig <= lit(2.1) {
         // below 2.1: uniform energies
         let rnno30 = rng.uniform();
         let rnno34 = rng.uniform();
@@ -1630,7 +1631,7 @@ fn pair_core<R: UniformSource>(
             let rtest = rng.uniform();
             let gbeta = pese1 / (pese1 + 10.0);
             iprdst_use = if rtest < gbeta { 1 } else { 4 };
-        } else if cfg.iprdst == 2 && eig < 4.14 {
+        } else if cfg.iprdst == 2 && eig < lit(4.14) {
             iprdst_use = 1;
         } else {
             iprdst_use = cfg.iprdst;
@@ -1672,7 +1673,7 @@ fn pair_core<R: UniformSource>(
                                             + ztarg * xi * xi,
                                     ))
                 };
-                let pi_ttese = 3.141593 * ttese;
+                let pi_ttese = lit(3.141593) * ttese;
                 let ximin = 1.0 / (1.0 + pi_ttese * pi_ttese);
                 let rejmin = rej(ximin);
                 let ya = (2.0 / tteig) * (2.0 / tteig);
@@ -1688,7 +1689,7 @@ fn pair_core<R: UniformSource>(
                 }
                 ximid = (0.01_f64).max(ximin.max((0.5_f64).min(ximid)));
                 let rejmid = rej(ximid);
-                let rejtop = 1.02 * rejmin.max(rejmid);
+                let rejtop = lit(1.02) * rejmin.max(rejmid);
                 let mut theta;
                 loop {
                     let xitst = rng.uniform();
@@ -1825,7 +1826,7 @@ pub fn select_photoelectron_direction<R: UniformSource>(
         let mut rnpht = rng.uniform();
         rnpht = 2.0 * rnpht - 1.0;
         let xi;
-        if ratio <= 0.2 {
+        if ratio <= lit(0.2) {
             let fkappa = rnpht + 0.5 * ratio * (1.0 - rnpht) * (1.0 + rnpht);
             if gamma < 100.0 {
                 costhe = (beta + fkappa) / (1.0 + beta * fkappa);
@@ -2231,7 +2232,7 @@ pub fn brems<R: UniformSource>(
         b = stack.v[np];
         c = stack.w[np];
         sinpsi = a * a + b * b;
-        if sinpsi > 1e-20 {
+        if sinpsi > lit(1e-20) {
             sinpsi = Real::sqrt(sinpsi);
             sindel = b / sinpsi;
             cosdel = a / sinpsi;
@@ -2360,7 +2361,7 @@ pub fn brems<R: UniformSource>(
             let costhe = 1.0 - 2.0 * y2tst * y2maxi;
             let sinthe = Real::sqrt(((1.0 - costhe) * (1.0 + costhe)).max(0.0));
             let (cphi, sphi) = select_azimuthal_angle(rng);
-            if sinpsi >= 1e-10 {
+            if sinpsi >= lit(1e-10) {
                 let us = sinthe * cphi;
                 let vs = sinthe * sphi;
                 stack.u[np] = c * cosdel * us - sindel * vs + a * costhe;
@@ -2508,7 +2509,7 @@ pub struct PhotonResult {
 }
 
 /// `$EPSGMFP` (`egsnrc.macros:1402`): smallest gamma MFP value.
-pub const EPSGMFP: f64 = 1e-8;
+pub const EPSGMFP: f64 = lit(1e-8);
 
 /// `PHOTONUC` (`egsnrc.mortran:9001-9015`): a placeholder for photonuclear
 /// modelling. The photon's energy and weight are set to zero: it is thrown
@@ -2656,7 +2657,7 @@ pub fn prepare_rayleigh_data(
     let mut i = 1usize;
     for j in 1..=ne {
         let e = emin * RealMath::r_exp(dle * (j - 1) as f64);
-        let xmax = 20.607544 * 2.0 * e / prm;
+        let xmax = lit(20.607544) * 2.0 * e / prm;
         let mut k = i;
         while k <= ndat - 1 {
             if xmax >= x[k] && xmax < x[k + 1] {
@@ -2674,7 +2675,7 @@ pub fn prepare_rayleigh_data(
     i_array[ncbin] = i as i32;
     // renormalise so that pe_array(emax) = 1 (slightly larger so fcum is never underestimated)
     let anorm = 1.0 / Real::sqrt(pe_array[ne]);
-    let anorm1 = 1.005 / pe_array[ne];
+    let anorm1 = lit(1.005) / pe_array[ne];
     let anorm2 = 1.0 / pe_array[ne];
     for j in 1..=ne {
         pe_array[j] *= anorm1;
@@ -2747,8 +2748,8 @@ pub fn init_rayleigh_sampling(comp: &[(f64, f64)], ff: &FormFactorTable, ge0: f6
         f[i] = Real::sqrt(v);
     }
     // x = 1e-4 avoids log(0)
-    if xgrid[1] < 1e-6 {
-        xgrid[1] = 1e-4;
+    if xgrid[1] < lit(1e-6) {
+        xgrid[1] = lit(1e-4);
     }
     let emin = RealMath::r_exp((1.0 - ge0) / ge1);
     let emax = RealMath::r_exp((mge as f64 - ge0) / ge1);
@@ -2771,8 +2772,8 @@ pub fn init_rayleigh_sampling(comp: &[(f64, f64)], ff: &FormFactorTable, ge0: f6
 /// grid `x` (both 1-based, `ndat` points). Zero entries are replaced by
 /// [`zero_value`] in place, as upstream does.
 pub fn rayleigh_sigma(e: f64, x: &mut [f64], f: &mut [f64]) -> f64 {
-    const HC: f64 = 0.0123984768438;
-    const HC2: f64 = 0.0001537222280;
+    const HC: f64 = lit(0.0123984768438);
+    const HC2: f64 = lit(0.0001537222280);
     let ndat = x.len() - 1;
     let zero = zero_value();
     let c = 2.0 * HC2 / (e * e);
@@ -2808,7 +2809,7 @@ pub fn rayleigh_sigma(e: f64, x: &mut [f64], f: &mut [f64]) -> f64 {
             break;
         }
     }
-    0.49893439187842413747 * c * sigma
+    lit(0.49893439187842413747) * c * sigma
 }
 
 /// `egs_rayleigh_sampling` (`egsnrc.mortran:8558-8590`): the cosine and sine of
@@ -2816,8 +2817,8 @@ pub fn rayleigh_sigma(e: f64, x: &mut [f64], f: &mut [f64]) -> f64 {
 /// `gle = ln e`, `lgle` its table interval). The form factor is sampled by the
 /// cumulative bins, then the angular factor `1 + cos^2` is rejected on.
 pub fn rayleigh_sampling<R: UniformSource>(d: &RayleighData, e: f64, gle: f64, lgle: usize, rng: &mut R) -> (f64, f64) {
-    const HC_I: f64 = 80.65506856998;
-    const TWICE_HC2: f64 = 0.000307444456;
+    const HC_I: f64 = lit(80.65506856998);
+    const TWICE_HC2: f64 = lit(0.000307444456);
     let dwi = (RAYCDFSIZE - 1) as f64;
     let pmax = d.pmax.eval(lgle, gle);
     let xmax = HC_I * e;
@@ -2906,7 +2907,7 @@ pub fn init_triplet(text: &str, comp: &[Vec<(f64, f64)>], rm: f64) -> Result<Tri
     }
     let mut ifirst = 0usize;
     for i in 1..=ntrip {
-        if ifirst == 0 && energies[i] > 4.01 * rm {
+        if ifirst == 0 && energies[i] > lit(4.01) * rm {
             ifirst = i;
         }
         energies[i] = RealMath::r_ln(energies[i]);
@@ -2929,7 +2930,7 @@ pub fn init_triplet(text: &str, comp: &[Vec<(f64, f64)>], rm: f64) -> Result<Tri
         let mut sigt = alloc::vec![0.0; ntrip + 1];
         for i in 1..=ntrip {
             for &(z, pz) in &comp[imed] {
-                let iz = (z + 0.1) as usize;
+                let iz = (z + lit(0.1)) as usize;
                 sigp[i] += pz * sig_pair[iz][i];
                 sigt[i] += pz * sig_triplet[iz][i];
             }
@@ -3006,7 +3007,7 @@ pub fn sample_triplet<R: UniformSource>(
     gle: f64,
     rng: &mut R,
 ) -> Result<(), EgsError> {
-    let tiny_eta = 1e-6;
+    let tiny_eta = lit(1e-6);
     if !st.is_initialized {
         st.is_initialized = true;
         st.fmax = alloc::vec![-1.0; MAX_TRIPLET + 1];
@@ -3018,7 +3019,7 @@ pub fn sample_triplet<R: UniformSource>(
         st.wp = st.eta_p.clone();
         st.qmin = st.eta_p.clone();
         st.kmax = up_max;
-        st.kmin = 4.1 * prm;
+        st.kmin = lit(4.1) * prm;
         if st.kmax <= st.kmin {
             return Ok(());
         }
@@ -3027,7 +3028,7 @@ pub fn sample_triplet<R: UniformSource>(
         st.alogkm = 1.0 - st.dlogki * RealMath::r_ln(st.kmin);
         st.prmi = 1.0 / prm;
         for i in 1..=MAX_TRIPLET {
-            let k = 4.1 * RealMath::r_exp((i as f64 - 1.0) / st.dlogki);
+            let k = lit(4.1) * RealMath::r_exp((i as f64 - 1.0) / st.dlogki);
             st.ebin[i] = k;
             let qmin = 4.0 * k / (k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0)));
             let qmax = (k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0))) / (2.0 * k + 1.0);
@@ -3097,10 +3098,10 @@ pub fn sample_triplet<R: UniformSource>(
         let cost_p = epp - (epp - mup_min) * RealMath::r_exp(wmup * eta_costp);
         wmup *= cost_p - epp;
         let mut sint_p = 1.0 - cost_p * cost_p;
-        if sint_p > 1e-20 {
+        if sint_p > lit(1e-20) {
             sint_p = Real::sqrt(sint_p);
         } else {
-            sint_p = 1e-10;
+            sint_p = lit(1e-10);
         }
         let k2p2x = k2p2 - 2.0 * k * pp * cost_p;
         let b = pr2 - k2p2x - pm2;
@@ -3121,7 +3122,7 @@ pub fn sample_triplet<R: UniformSource>(
             eta_costm = tiny_eta;
         }
         let aux6 = Real::sqrt((em - xmin) / (em - xmax));
-        let aux7 = aux6 * RealMath::r_tan(1.570796326794897 * eta_costm);
+        let aux7 = aux6 * RealMath::r_tan(lit(1.570796326794897) * eta_costm);
         let uu = (aux7 - 1.0) / (aux7 + 1.0);
         let mut cost_m = 0.5 * (xmax + xmin + 2.0 * uu * (xmax - xmin) / (1.0 + uu * uu));
         let mut wmum = Real::sqrt((xmax - cost_m) * (cost_m - xmin));
@@ -3208,7 +3209,7 @@ pub fn sample_triplet<R: UniformSource>(
         let xmin = (-b * aux1 - d) * aux3;
         let xmax = (-b * aux1 + d) * aux3;
         let aux6 = Real::sqrt((em - xmin) / (em - xmax));
-        let aux7 = aux6 * RealMath::r_tan(1.570796326794897 * eta_costm);
+        let aux7 = aux6 * RealMath::r_tan(lit(1.570796326794897) * eta_costm);
         let uu = (aux7 - 1.0) / (aux7 + 1.0);
         let cost_m = 0.5 * (xmax + xmin + 2.0 * uu * (xmax - xmin) / (1.0 + uu * uu)) / pm;
         let sint_m = Real::sqrt(1.0 - cost_m * cost_m);
@@ -3221,7 +3222,7 @@ pub fn sample_triplet<R: UniformSource>(
         let sphi = Real::sqrt(1.0 - cphi * cphi);
 
         // the final momenta, in the frame with the photon along z
-        let phi = rng.uniform() * 6.283185307179586;
+        let phi = rng.uniform() * lit(6.283185307179586);
         let mut ppx = pp * sint_p;
         let mut ppy = 0.0;
         let mut pmx = pm * sint_m * cphi;
@@ -3256,7 +3257,7 @@ pub fn sample_triplet<R: UniformSource>(
             (slot_m, -1_i32, em * prm, pmi, pmx, pmy, pmz),
             (np + 2, -1_i32, er * prm, pri, prx, pry, prz),
         ];
-        if sinpsi2 > 1e-20 {
+        if sinpsi2 > lit(1e-20) {
             let sinpsi = Real::sqrt(sinpsi2);
             let sindel = bb / sinpsi;
             let cosdel = a / sinpsi;
@@ -3476,7 +3477,7 @@ pub fn init_nist_brems(
     if ibr_nist != 1 && ibr_nist != 2 {
         return Err(alloc::format!("init_nist_brems: unknown value of ibr_nist! ibr_nist = {ibr_nist}"));
     }
-    const AMU: f64 = 1660.5655; // converts the cross sections from mB/atom to cm^2/g
+    const AMU: f64 = lit(1660.5655); // converts the cross sections from mB/atom to cm^2/g
     let mut lines = text.lines();
     lines.next().ok_or_else(|| String::from("data ends early"))?;
     let nk = read_record(&mut lines, 2)?;
@@ -3502,7 +3503,7 @@ pub fn init_nist_brems(
     }
     let mut xi_array = alloc::vec![0.0_f64; kmix + 1];
     for k in 1..=kmix {
-        xi_array[k] = RealMath::r_ln(1.0 - x_array[k] + 1e-6);
+        xi_array[k] = RealMath::r_ln(1.0 - x_array[k] + lit(1e-6));
     }
     let (x_gauss, w_gauss) = gauss_legendre(0.0, 1.0, MXGAUSS);
 
@@ -3552,7 +3553,7 @@ pub fn init_nist_brems(
             for k in 1..=kmix {
                 cs[ii][k] = 0.0;
                 for &(z0, pz, _) in &inp.comp {
-                    let iz = (z0 + 0.1) as usize;
+                    let iz = (z0 + lit(0.1)) as usize;
                     let z = z0 * z0 / sum_a;
                     cs[ii][k] += pz * z * cs_array[iz][k][i];
                 }
@@ -3563,7 +3564,7 @@ pub fn init_nist_brems(
             cse[ii] = 0.0;
             let aux = RealMath::r_ln(ee[ii] / ap);
             for ig in 0..MXGAUSS {
-                let xi = RealMath::r_ln(1.0 - ap / ee[ii] * RealMath::r_exp(x_gauss[ig] * aux) + 1e-6);
+                let xi = RealMath::r_ln(1.0 - ap / ee[ii] * RealMath::r_exp(x_gauss[ig] * aux) + lit(1e-6));
                 let res = spline(xi, &xi_array, &co);
                 cse[ii] += w_gauss[ig] * RealMath::r_exp(res);
             }
@@ -3584,7 +3585,7 @@ pub fn init_nist_brems(
             let ei = RealMath::r_exp(eil);
             let beta2 = ei * (ei + 2.0 * rm) / ((ei + rm) * (ei + rm));
             let sigb = if ei <= ap {
-                1e-30
+                lit(1e-30)
             } else {
                 spline(eil, &ele[..=nener], &co_e) * RealMath::r_ln(ei / ap) / beta2 * rho
             };
@@ -3697,7 +3698,7 @@ pub fn init_nist_brems(
             let mut fd = alloc::vec![0.0_f64; MXBRXS + 1];
             let x = ap / ei;
             let aux = -RealMath::r_ln(x);
-            let xi = RealMath::r_ln(1.0 - x + 1e-6);
+            let xi = RealMath::r_ln(1.0 - x + lit(1e-6));
             let res = spline(xi, &xi_array, &co);
             xd[0] = 0.0;
             fd[0] = RealMath::r_exp(res);
@@ -3734,7 +3735,7 @@ pub fn init_nist_brems(
                     for kk in 0..ndat {
                         let xm = 0.5 * (xd[kk] + xd[kk + 1]);
                         let fm = 0.5 * (fd[kk] + fd[kk + 1]);
-                        let xi = RealMath::r_ln(1.0 - ap / ei * RealMath::r_exp(xm * aux) + 1e-6);
+                        let xi = RealMath::r_ln(1.0 - ap / ei * RealMath::r_exp(xm * aux) + lit(1e-6));
                         let res = RealMath::r_exp(spline(xi, &xi_array, &co));
                         let error = (1.0 - fm / res).abs();
                         if error > max_error {
@@ -3916,10 +3917,10 @@ pub fn user_xsec_data(
 /// section per electron at photon energy `e` (MeV), in barns scaled by upstream's
 /// constant, with the low-energy series below `e = 0.01 prm`.
 pub fn egs_kn_sigma0(e: f64, prm: f64) -> f64 {
-    let con = 0.1274783851;
+    let con = lit(0.1274783851);
     let ko = e / prm;
-    if ko < 0.01 {
-        return 8.0 * con / 3.0 * (1.0 - ko * (2.0 - ko * (5.2 - 13.3 * ko))) / prm;
+    if ko < lit(0.01) {
+        return 8.0 * con / 3.0 * (1.0 - ko * (2.0 - ko * (lit(5.2) - lit(13.3) * ko))) / prm;
     }
     let c1 = 1.0 / (ko * ko);
     let c2 = 1.0 - 2.0 * (1.0 + ko) * c1;
@@ -4056,7 +4057,7 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
         let mut be = alloc::vec![0.0_f64; MXSHXSEC + 1];
         let mut k = 0usize;
         for j in (2..=ndat).rev() {
-            if etmp[j] - etmp[j - 1] < 1e-5 {
+            if etmp[j] - etmp[j - 1] < lit(1e-5) {
                 k += 1;
                 if k <= MXSHXSEC {
                     be[k] = RealMath::r_exp(etmp[j]);
@@ -4085,7 +4086,7 @@ pub fn init_user_photon(inp: &UserPhotonInput, media: &[UserPhotonMedium]) -> Re
             sum_z += pz * z;
             sum_a += pz * wa;
         }
-        let con2 = m.rho / (sum_a * 1.6605655);
+        let con2 = m.rho / (sum_a * lit(1.6605655));
         let mut order: Vec<usize> = (0..m.comp.len()).collect();
         order.sort_by(|&a, &b| m.comp[a].0.partial_cmp(&m.comp[b].0).unwrap_or(core::cmp::Ordering::Equal));
         let z_sorted: Vec<f64> = order.iter().map(|&i| m.comp[i].0).collect();
@@ -4315,7 +4316,7 @@ pub fn eii_init(
     readings: EiiReadings,
 ) -> Result<EiiData, String> {
     const MXELEMENT: usize = 100;
-    const CONS: f64 = 0.153536; // 2 pi Re^2 rm / u
+    const CONS: f64 = lit(0.153536); // 2 pi Re^2 rm / u
     let nmed = media_in.len() - 1;
     let mut d = EiiData {
         nshells: alloc::vec![0; MXELEMENT + 1],
@@ -4432,7 +4433,7 @@ pub fn eii_init(
         for &(_, pz, wa) in &mi.comp {
             sum_a += pz * wa;
         }
-        let con_med = mi.rho / 1.6605655 / sum_a;
+        let con_med = mi.rho / lit(1.6605655) / sum_a;
         d.cons[imed] = con_med;
         if d.nsh[imed] > 0 {
             let m = &mut media[imed];
@@ -4464,7 +4465,7 @@ pub fn eii_init(
                         let uwm = u / wmax;
                         if u < e && u > ecc {
                             let uwm3 = uwm * uwm * uwm;
-                            let ss_0 = 2.0 * (RealMath::r_ln(p2 / u) - uwm3 * RealMath::r_ln(p2 / wmax) - (beta2 + 0.833333) * (1.0 - uwm3)) / 3.0 / u;
+                            let ss_0 = 2.0 * (RealMath::r_ln(p2 / u) - uwm3 * RealMath::r_ln(p2 / wmax) - (beta2 + lit(0.833333)) * (1.0 - uwm3)) / 3.0 / u;
                             let t1 = tau + 1.0;
                             let sh_0 = (1.0 - uwm
                                 + uwm / (t1 * t1) * (tau * tau * (wmax - u) / (2.0 * wmax - u) - (tau + 0.5) * RealMath::r_ln((2.0 * wmax - u) / u)))
@@ -4809,7 +4810,7 @@ pub fn photon<R: UniformSource, G: Geometry>(
         // $SELECT-PHOTON-MFP
         let mut rnno35 = rng.uniform();
         if rnno35 == 0.0 {
-            rnno35 = 1.0e-30;
+            rnno35 = lit(1.0e-30);
         }
         let mut dpmfp = -RealMath::r_ln(rnno35);
 
@@ -5034,7 +5035,7 @@ pub fn shower<R: UniformSource, G: Geometry, E: ElectronTransport>(
     start: &ShowerStart,
     rng: &mut R,
 ) -> Result<ShowerResult, EgsError> {
-    const PI0MSQ: f64 = 1.8215416e4; // pi-zero mass (MeV) squared
+    const PI0MSQ: f64 = lit(1.8215416e4); // pi-zero mass (MeV) squared
     let mut out = ShowerResult::default();
     stack.np = 1;
     stack.np_old = stack.np;
@@ -5110,7 +5111,7 @@ pub const LAMBMIN_MS: f64 = 1.0;
 /// `$LAMBMAX_MS`.
 pub const LAMBMAX_MS: f64 = 1e5;
 /// `$QMIN_MS`.
-pub const QMIN_MS: f64 = 1e-3;
+pub const QMIN_MS: f64 = lit(1e-3);
 /// `$QMAX_MS`.
 pub const QMAX_MS: f64 = 0.5;
 
@@ -5205,7 +5206,7 @@ fn edgset_read(photo: &str, phocs: &str, eadl: bool) -> Result<(RelaxData, Photo
         }
         let r = read_record(&mut lines, 1 + MXSHELL)?;
         for k in 1..=MXSHELL {
-            rd.binding_energies[i][k] = r[k] * 1e-6; // to MeV
+            rd.binding_energies[i][k] = r[k] * lit(1e-6); // to MeV
         }
     }
     lines.next();
@@ -5214,7 +5215,7 @@ fn edgset_read(photo: &str, phocs: &str, eadl: bool) -> Result<(RelaxData, Photo
         for k in 1..=MXINTER {
             pd.interaction_prob[i][k] = r[k];
         }
-        pd.interaction_prob[i][MXSHELL] = 1.01;
+        pd.interaction_prob[i][MXSHELL] = lit(1.01);
     }
     // K, L1, L2, L3 and M relaxation probabilities, each after a header line
     for &(first, last) in &[(1usize, 19usize), (20, 26), (27, 32), (33, 37), (38, 38)] {
@@ -5502,7 +5503,7 @@ pub fn mscat<R: UniformSource>(
     spin_state: &mut SpinState,
     rng: &mut R,
 ) -> Result<(f64, f64), EgsError> {
-    if lambda <= 13.8 {
+    if lambda <= lit(13.8) {
         let sprob = rng.uniform();
         let explambda = RealMath::r_exp(-lambda);
         if sprob < explambda {
@@ -5559,10 +5560,10 @@ pub fn mscat<R: UniformSource>(
                     break;
                 }
                 let mut sinz = xi * (2.0 - xi);
-                if sinz > 1.0e-20 {
+                if sinz > lit(1.0e-20) {
                     sinz = Real::sqrt(sinz);
                     xi = rng.uniform();
-                    let phi = xi * 6.2831853;
+                    let phi = xi * lit(6.2831853);
                     cost = cost * cosz - sint * sinz * RealMath::r_cos(phi);
                     sint = Real::sqrt((0.0_f64).max((1.0 - cost) * (1.0 + cost)));
                 }
@@ -5600,15 +5601,15 @@ pub fn mscat<R: UniformSource>(
             } else {
                 j = MAXQ_MS;
             }
-            state.omega2 = if llmbda < 2.2299 {
+            state.omega2 = if llmbda < lit(2.2299) {
                 chia2
                     * (lambda + 4.0)
-                    * (1.347006
-                        + llmbda * (0.209364 - llmbda * (0.45525 - llmbda * (0.50142 - 0.081234 * llmbda))))
+                    * (lit(1.347006)
+                        + llmbda * (lit(0.209364) - llmbda * (lit(0.45525) - llmbda * (lit(0.50142) - lit(0.081234) * llmbda))))
             } else {
                 chia2
                     * (lambda + 4.0)
-                    * (-2.77164 + llmbda * (2.94874 - llmbda * (0.1535754 - llmbda * 0.00552888)))
+                    * (-lit(2.77164) + llmbda * (lit(2.94874) - llmbda * (lit(0.1535754) - llmbda * lit(0.00552888))))
             };
             state.i = i;
             state.j = j;
@@ -5627,15 +5628,15 @@ pub fn mscat<R: UniformSource>(
             let mut u = ms.ums[ms_idx(i, j, k)] as f64;
             let du = ms.ums[ms_idx(i, j, k + 1)] as f64 - u;
             let xi = rng.uniform();
-            if a.abs() < 0.2 {
+            if a.abs() < lit(0.2) {
                 let x1 = 0.5 * (1.0 - xi) * a;
                 u += xi * du * (1.0 + x1 * (1.0 - xi * a));
             } else {
                 u -= du / a * (1.0 - Real::sqrt(1.0 + xi * a * (2.0 + a)));
             }
             let mut xi = state.omega2 * u / (1.0 + 0.5 * state.omega2 - u);
-            if xi > 1.99999 {
-                xi = 1.99999;
+            if xi > lit(1.99999) {
+                xi = lit(1.99999);
             }
             let cost = 1.0 - xi;
             if spin_effects {
@@ -5768,7 +5769,7 @@ fn ms_rotate_and_transport(
     (mut ut, mut vt, mut wt): (f64, f64, f64),
 ) -> MsDistOutput {
     let sint02 = inp.u0 * inp.u0 + inp.v0 * inp.v0;
-    if sint02 > 1e-20 {
+    if sint02 > lit(1e-20) {
         let sint0 = Real::sqrt(sint02);
         let sint0i = 1.0 / sint0;
         let cphi0 = sint0i * inp.u0;
@@ -5826,10 +5827,10 @@ pub fn msdist_p1<R: UniformSource>(
     let mut lambda = inp.tustep * inp.rhof * blccc / beta2;
 
     // account for energy loss in the MS distribution
-    let factor = 1.0 / (1.0 + 0.9784671 * e);
+    let factor = 1.0 / (1.0 + lit(0.9784671) * e);
     let mut epsilon = inp.eloss / inp.e0;
     epsilon /= 1.0 - 0.5 * epsilon;
-    let temp = 0.25 * (1.0 - factor * (1.0 - 0.333333 * factor)) * epsilon * epsilon;
+    let temp = 0.25 * (1.0 - factor * (1.0 - lit(0.333333) * factor)) * epsilon * epsilon;
     lambda *= 1.0 + temp;
 
     let (etap, xi_corr, ms_corr);
@@ -5871,8 +5872,8 @@ pub fn msdist_p1<R: UniformSource>(
 
     // correct xi used for the PLC calculation for spin effects
     xi *= xi_corr;
-    let z = if xi < 0.1 {
-        1.0 - xi * (0.5 - xi * (0.166666667 - 0.041666667 * xi))
+    let z = if xi < lit(0.1) {
+        1.0 - xi * (0.5 - xi * (lit(0.166666667) - lit(0.041666667) * xi))
     } else {
         (1.0 - RealMath::r_exp(-xi)) / xi
     };
@@ -5928,7 +5929,7 @@ pub fn msdist_p2<R: UniformSource>(
     let mut chia2 = xcccc / (4.0 * p2 * blccc);
     let mut lambda = 0.5 * inp.tustep * inp.rhof * blccc / beta2; // a half step
     let q = epsilonp / ((tau + 1.0) * (tau + 2.0));
-    let temp2 = 0.166666 * (4.0 + tau * (6.0 + tau * (7.0 + tau * (4.0 + tau)))) * q * q;
+    let temp2 = lit(0.166666) * (4.0 + tau * (6.0 + tau * (7.0 + tau * (4.0 + tau)))) * q * q;
     lambda *= 1.0 - temp2;
 
     let (etap, xi_corr, mut gamma, ms_corr);
@@ -5989,7 +5990,7 @@ pub fn msdist_p2<R: UniformSource>(
     let mut eta = rng.uniform();
     eta = Real::sqrt(eta);
     let eta1 = 0.5 * (1.0 - eta);
-    let mut delta = 0.9082483 - (0.1020621 - 0.0263747 * gamma) * xi;
+    let mut delta = lit(0.9082483) - (lit(0.1020621) - lit(0.0263747) * gamma) * xi;
 
     // correct the coefficients for energy loss
     let mut temp1 = 2.0 + tau;
@@ -5997,7 +5998,7 @@ pub fn msdist_p2<R: UniformSource>(
     temp -= (tau + 1.0) / ((tau + 2.0) * (chilog * (1.0 + chia2) - 1.0));
     temp *= epsilonp;
     temp1 = 1.0 - temp;
-    delta += 0.40824829
+    delta += lit(0.40824829)
         * (epsilon * (tau + 1.0)
             / ((tau + 2.0) * (chilog * (1.0 + chia2) - 1.0) * (chilog * (1.0 + 2.0 * chia2) - 2.0))
             - 0.25 * temp * temp);
@@ -6017,7 +6018,7 @@ pub fn msdist_p2<R: UniformSource>(
 }
 
 /// `$EPSEMFP` (`egsnrc.macros:1401`): smallest electron MFP value.
-pub const EPSEMFP: f64 = 1.0e-8;
+pub const EPSEMFP: f64 = lit(1.0e-8);
 
 /// A geometry that can also say how far the nearest boundary is
 /// (`$CALL-HOWNEAR(tperp)`, a user macro in EGSnrc; PRESTA-II aborts without it).
@@ -6218,7 +6219,7 @@ fn compute_eloss(m: &ElectronMediumData, lelec: i32, rhof: f64, path: f64, e: f6
     let aux = slope / dedxmid;
     let mut de = dedxmid * path * rhof;
     let fedep = de / e;
-    de *= 1.0 - 0.5 * fedep * aux * (1.0 - 0.333333 * fedep * (aux - 1.0 - 0.25 * fedep * (2.0 - aux * (4.0 - aux))));
+    de *= 1.0 - 0.5 * fedep * aux * (1.0 - lit(0.333333) * fedep * (aux - 1.0 - 0.25 * fedep * (2.0 - aux * (4.0 - aux))));
     de
 }
 
@@ -6242,7 +6243,7 @@ fn compute_eloss_g(
         let mut lelktmp = l;
         tuss = (range - path) * rhof;
         if tuss <= 0.0 {
-            e - m.te * 0.99
+            e - m.te * lit(0.99)
         } else {
             while tuss < m.range_ep[qel][lelktmp] {
                 lelktmp -= 1;
@@ -6406,7 +6407,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     // $SELECT-ELECTRON-MFP
                     let mut rnne1 = rng.uniform();
                     if rnne1 == 0.0 {
-                        rnne1 = 1.0e-30;
+                        rnne1 = lit(1.0e-30);
                     }
                     demfp = (-RealMath::r_ln(rnne1)).max(EPSEMFP);
                     elke = RealMath::r_ln(eke);
@@ -6452,7 +6453,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         sig = sig0; // $SCALE-SIG0
                         if sig <= 0.0 {
                             tstep = cfg.vacdst;
-                            sig0 = 1.0e-15;
+                            sig0 = lit(1.0e-15);
                         } else {
                             // $CALCULATE-TSTEP-FROM-DEMFP
                             if compute_tstep {
@@ -6539,8 +6540,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             if cfg.exact_bca {
                                 domultiple = false;
                                 let mut rnnoss = rng.uniform();
-                                if rnnoss < 1.0e-30 {
-                                    rnnoss = 1.0e-30;
+                                if rnnoss < lit(1.0e-30) {
+                                    rnnoss = lit(1.0e-30);
                                 }
                                 let lambda = -RealMath::r_ln(1.0 - rnnoss);
                                 let lambda_max = 0.5 * loc.blccl * rm / dedx * {
@@ -6571,8 +6572,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 domultiple = true;
                                 loc.ekems = eke - 0.5 * tustep * dedx;
                                 calculate_xi(m, &mut loc, cfg, lelec, tustep);
-                                ustep = if loc.xi < 0.1 {
-                                    tustep * (1.0 - loc.xi * (0.5 - loc.xi * 0.166667))
+                                ustep = if loc.xi < lit(0.1) {
+                                    tustep * (1.0 - loc.xi * (0.5 - loc.xi * lit(0.166667)))
                                 } else {
                                     tustep * (1.0 - RealMath::r_exp(-loc.xi)) / loc.xi
                                 };
@@ -6597,7 +6598,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     }
                     // $CHECK-NEGATIVE-USTEP
                     if ustep <= 0.0 {
-                        if ustep < -1e-4 {
+                        if ustep < -lit(1e-4) {
                             counters.ierust += 1;
                             if counters.ierust > 1000 {
                                 return Err(EgsError::Fatal("ELECTR: too many negative ustep errors"));
@@ -6643,9 +6644,9 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             if vstep < ustep0 {
                                 loc.ekems = eke - 0.5 * tustep * vstep / ustep0 * dedx;
                                 calculate_xi(m, &mut loc, cfg, lelec, vstep);
-                                if loc.xi < 0.1 {
-                                    tvstep = vstep * (1.0 + loc.xi * (0.5 + loc.xi * 0.333333));
-                                } else if loc.xi < 0.999999 {
+                                if loc.xi < lit(0.1) {
+                                    tvstep = vstep * (1.0 + loc.xi * (0.5 + loc.xi * lit(0.333333)));
+                                } else if loc.xi < lit(0.999999) {
                                     tvstep = -vstep * RealMath::r_ln(1.0 - loc.xi) / loc.xi;
                                 } else {
                                     return Err(EgsError::Fatal("ELECTR: xi > 1 in $SET-TVSTEP"));
@@ -6783,7 +6784,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     // $UPDATE-DEMFP
                     demfp -= save_de * sig;
                     total_tstep -= tvstep * loc.rhof;
-                    if total_tstep < 1e-9 {
+                    if total_tstep < lit(1e-9) {
                         demfp = 0.0;
                     }
                     if demfp < EPSEMFP {
@@ -7257,25 +7258,25 @@ impl Pegs4Medium {
 
 /// `FCOULC` (`egsnrc.mortran:2413-2421`): the Coulomb correction function.
 pub fn fcoulc(z: f64) -> f64 {
-    const FINE: f64 = 137.03604;
+    const FINE: f64 = lit(137.03604);
     let mut asq = z / FINE;
     asq *= asq;
-    asq * (1.0 / (1.0 + asq) + 0.20206 + asq * (-0.0369 + asq * (0.0083 + asq * (-0.002))))
+    asq * (1.0 / (1.0 + asq) + lit(0.20206) + asq * (-lit(0.0369) + asq * (lit(0.0083) + asq * (-lit(0.002)))))
 }
 
 /// `XSIF` (`egsnrc.mortran:2423-2437`): the ratio of the inelastic to the
 /// elastic radiation logarithms.
 pub fn xsif(z: f64) -> f64 {
-    const ALRAD: [f64; 4] = [5.31, 4.79, 4.74, 4.71];
-    const ALRADP: [f64; 4] = [6.144, 5.621, 5.805, 5.924];
+    const ALRAD: [f64; 4] = [lit(5.31), lit(4.79), lit(4.74), lit(4.71)];
+    const ALRADP: [f64; 4] = [lit(6.144), lit(5.621), lit(5.805), lit(5.924)];
     const A1440: f64 = 1194.0;
-    const A183: f64 = 184.15;
+    const A183: f64 = lit(184.15);
     if z <= 4.0 {
         let iz = z as usize; // 1-based in upstream
         ALRADP[iz - 1] / (ALRAD[iz - 1] - fcoulc(z))
     } else {
-        RealMath::r_ln(A1440 * RealMath::r_powf(z, -0.666667))
-            / (RealMath::r_ln(A183 * RealMath::r_powf(z, -0.33333)) - fcoulc(z))
+        RealMath::r_ln(A1440 * RealMath::r_powf(z, -lit(0.666667)))
+            / (RealMath::r_ln(A183 * RealMath::r_powf(z, -lit(0.33333))) - fcoulc(z))
     }
 }
 
@@ -7308,8 +7309,8 @@ pub fn fix_brems(elements: &[(f64, f64)], ap: f64) -> BremsFits {
     }
     let zv = (zb - zf) / zt;
     let zg = zb / zt;
-    let fmax1 = 2.0 * (20.863 + 4.0 * zg) - 2.0 * (20.029 + 4.0 * zg) / 3.0;
-    let fmax2 = 2.0 * (20.863 + 4.0 * zv) - 2.0 * (20.029 + 4.0 * zv) / 3.0;
+    let fmax1 = 2.0 * (lit(20.863) + 4.0 * zg) - 2.0 * (lit(20.029) + 4.0 * zg) / 3.0;
+    let fmax2 = 2.0 * (lit(20.863) + 4.0 * zv) - 2.0 * (lit(20.029) + 4.0 * zv) / 3.0;
     let mut dl: [Vec<f64>; 6] = core::array::from_fn(|_| alloc::vec![0.0; 9]);
     let mut set = |l: usize, v: [f64; 6]| {
         for k in 0..6 {
@@ -7317,15 +7318,15 @@ pub fn fix_brems(elements: &[(f64, f64)], ap: f64) -> BremsFits {
         }
     };
     // used in BREMS
-    set(1, [(20.863 + 4.0 * zg) / fmax1, -3.242 / fmax1, 0.625 / fmax1, (21.12 + 4.0 * zg) / fmax1, -4.184 / fmax1, 0.952]);
-    set(2, [(20.029 + 4.0 * zg) / fmax1, -1.93 / fmax1, -0.086 / fmax1, (21.12 + 4.0 * zg) / fmax1, -4.184 / fmax1, 0.952]);
-    set(3, [(20.863 + 4.0 * zv) / fmax2, -3.242 / fmax2, 0.625 / fmax2, (21.12 + 4.0 * zv) / fmax2, -4.184 / fmax2, 0.952]);
-    set(4, [(20.029 + 4.0 * zv) / fmax2, -1.93 / fmax2, -0.086 / fmax2, (21.12 + 4.0 * zv) / fmax2, -4.184 / fmax2, 0.952]);
+    set(1, [(lit(20.863) + 4.0 * zg) / fmax1, -lit(3.242) / fmax1, 0.625 / fmax1, (lit(21.12) + 4.0 * zg) / fmax1, -lit(4.184) / fmax1, lit(0.952)]);
+    set(2, [(lit(20.029) + 4.0 * zg) / fmax1, -lit(1.93) / fmax1, -lit(0.086) / fmax1, (lit(21.12) + 4.0 * zg) / fmax1, -lit(4.184) / fmax1, lit(0.952)]);
+    set(3, [(lit(20.863) + 4.0 * zv) / fmax2, -lit(3.242) / fmax2, 0.625 / fmax2, (lit(21.12) + 4.0 * zv) / fmax2, -lit(4.184) / fmax2, lit(0.952)]);
+    set(4, [(lit(20.029) + 4.0 * zv) / fmax2, -lit(1.93) / fmax2, -lit(0.086) / fmax2, (lit(21.12) + 4.0 * zv) / fmax2, -lit(4.184) / fmax2, lit(0.952)]);
     // and these in PAIR
-    set(5, [3.0 * (20.863 + 4.0 * zg) - (20.029 + 4.0 * zg), 3.0 * (-3.242) - (-1.930), 3.0 * 0.625 - (-0.086), 2.0 * 21.12 + 8.0 * zg, 2.0 * (-4.184), 0.952]);
-    set(6, [3.0 * (20.863 + 4.0 * zg) + (20.029 + 4.0 * zg), 3.0 * (-3.242) + (-1.930), 3.0 * 0.625 + (-0.086), 4.0 * 21.12 + 16.0 * zg, 4.0 * (-4.184), 0.952]);
-    set(7, [3.0 * (20.863 + 4.0 * zv) - (20.029 + 4.0 * zv), 3.0 * (-3.242) - (-1.930), 3.0 * 0.625 - (-0.086), 2.0 * 21.12 + 8.0 * zv, 2.0 * (-4.184), 0.952]);
-    set(8, [3.0 * (20.863 + 4.0 * zv) + (20.029 + 4.0 * zv), 3.0 * (-3.242) + (-1.930), 3.0 * 0.625 + (-0.086), 4.0 * 21.12 + 16.0 * zv, 4.0 * (-4.184), 0.952]);
+    set(5, [3.0 * (lit(20.863) + 4.0 * zg) - (lit(20.029) + 4.0 * zg), 3.0 * (-lit(3.242)) - (-lit(1.930)), 3.0 * 0.625 - (-lit(0.086)), 2.0 * lit(21.12) + 8.0 * zg, 2.0 * (-lit(4.184)), lit(0.952)]);
+    set(6, [3.0 * (lit(20.863) + 4.0 * zg) + (lit(20.029) + 4.0 * zg), 3.0 * (-lit(3.242)) + (-lit(1.930)), 3.0 * 0.625 + (-lit(0.086)), 4.0 * lit(21.12) + 16.0 * zg, 4.0 * (-lit(4.184)), lit(0.952)]);
+    set(7, [3.0 * (lit(20.863) + 4.0 * zv) - (lit(20.029) + 4.0 * zv), 3.0 * (-lit(3.242)) - (-lit(1.930)), 3.0 * 0.625 - (-lit(0.086)), 2.0 * lit(21.12) + 8.0 * zv, 2.0 * (-lit(4.184)), lit(0.952)]);
+    set(8, [3.0 * (lit(20.863) + 4.0 * zv) + (lit(20.029) + 4.0 * zv), 3.0 * (-lit(3.242)) + (-lit(1.930)), 3.0 * 0.625 + (-lit(0.086)), 4.0 * lit(21.12) + 16.0 * zv, 4.0 * (-lit(4.184)), lit(0.952)]);
     let mut bpar = [0.0; 3];
     bpar[2] = dl[0][7] / (3.0 * dl[0][8] + dl[0][7]);
     bpar[1] = 12.0 * dl[0][8] / (3.0 * dl[0][8] + dl[0][7]);
@@ -7378,9 +7379,9 @@ pub fn init_compton(incoh_text: &str, media: &[Vec<(f64, f64)>], prm: f64) -> Re
         d.shn_array[j] = r[1] as i32;
         d.ne_array[j] = r[2] as i32;
         d.jo_array[j] = r[3] * 137.0;
-        d.be_array[j] = r[4] * 1e-6 / prm;
-        let aux_erf = 0.70710678119 * (1.0 + 0.3 * d.jo_array[j]);
-        d.erf_jo_array[j] = 0.82436063535 * (super::egs_utilities_mortran::erf1(aux_erf) - 1.0);
+        d.be_array[j] = r[4] * lit(1e-6) / prm;
+        let aux_erf = lit(0.70710678119) * (1.0 + lit(0.3) * d.jo_array[j]);
+        d.erf_jo_array[j] = lit(0.82436063535) * (super::egs_utilities_mortran::erf1(aux_erf) - 1.0);
     }
     for (m0, comp) in media.iter().enumerate() {
         let medium = m0 + 1;
@@ -7533,7 +7534,7 @@ impl MscatiSettings {
         let estepe = if estepe <= 0.0 || estepe >= 1.0 { MAX_ELOSS } else { estepe };
         let ximax = if ximax <= 0.0 || ximax >= 1.0 { BCA_XIMAX } else { ximax };
         let mut skin = skindepth_for_bca;
-        if skin <= 1e-4 {
+        if skin <= lit(1e-4) {
             if !exact_bca {
                 let mut tstbmn = 1e30_f64;
                 for &(blcc, xcc) in media {
@@ -7615,7 +7616,7 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
     let mut out = Vec::with_capacity(media.len());
     for m in media {
         let neke = m.neke;
-        let blcc = 1.16699413758864573 * m.blcc;
+        let blcc = lit(1.16699413758864573) * m.blcc;
         let xcc = m.xcc * m.xcc;
         let (eke0, eke1) = (m.eke0, m.eke1);
 
@@ -7778,7 +7779,7 @@ impl Default for HatchConfig {
             estepe: 0.0,
             ximax: 0.0,
             skindepth_for_bca: 0.0,
-            ecutmn: RM + 0.01,
+            ecutmn: RM + lit(0.01),
             prm: RM,
         }
     }
@@ -7864,7 +7865,7 @@ pub fn hatch_media(pegs4: &[Pegs4Medium], cfg: &HatchConfig) -> HatchResult {
                 zbrang += e.pz * e.zelem * (e.zelem + 1.0);
                 pznorm += e.pz;
             }
-            zbrang = 8.116224e-05 * RealMath::r_powf(zbrang / pznorm, 1.0 / 3.0);
+            zbrang = lit(8.116224e-05) * RealMath::r_powf(zbrang / pznorm, 1.0 / 3.0);
             lzbrang = -RealMath::r_ln(zbrang);
         }
         let comp: Vec<(f64, f64)> = m.elements.iter().map(|e| (e.zelem, e.pz)).collect();
@@ -8114,8 +8115,8 @@ pub struct SpinFits {
 ///
 /// A message when a medium element's record is missing.
 pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result<(SpinData, Vec<SpinFits>), String> {
-    const FINE: f64 = 137.03604;
-    const TF_CONSTANT: f64 = 0.88534138;
+    const FINE: f64 = lit(137.03604);
+    const TF_CONSTANT: f64 = lit(0.88534138);
     let n_ener = MAXE_SPIN;
     let ne1 = MAXE_SPI1 + 1; // 0..=MAXE_SPI1
     let fool = |v: f64| v; // (the $FOOL-INTEL-OPTIMIZER hooks print only)
@@ -8136,7 +8137,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
     earray[n_ener + 1] = e_max_kev as f64;
     for i in (n_ener + 2)..=(2 * n_ener + 1) {
         beta2 += dbeta2_first;
-        earray[i] = if beta2 < 0.999 { prm * 1000.0 * (1.0 / Real::sqrt(1.0 - beta2) - 1.0) } else { 50585.1 };
+        earray[i] = if beta2 < lit(0.999) { prm * 1000.0 * (1.0 / Real::sqrt(1.0 - beta2) - 1.0) } else { lit(50585.1) };
     }
 
     // convert to MeV and set the interpolation intervals (real*4 storage)
@@ -8172,7 +8173,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
             let tmp = pz * z * (z + 1.0);
             sum_z2 += tmp;
             sum_z += pz * z;
-            let z23 = RealMath::r_powf(z, 0.6666667);
+            let z23 = RealMath::r_powf(z, lit(0.6666667));
             for iq in 0..2usize {
                 for i in 0..=MAXE_SPI1 {
                     let idx = (iz - 1) * 4 * (n_ener + 1) + 2 * iq * (n_ener + 1) + i;
@@ -8182,7 +8183,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
                         .ok_or_else(|| alloc::format!("spin data record missing for Z = {iz}"))?;
                     let (dum1, dum2, dum3, aux_o) = (rec.dum[0] as f64, rec.dum[1] as f64, rec.dum[2] as f64, rec.aux_o as f64);
                     eta_array[iq][i] += tmp * RealMath::r_ln(z23 * aux_o);
-                    let tau = earray[i] / prm * 0.001;
+                    let tau = earray[i] / prm * lit(0.001);
                     let eta = z23 / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT)) * aux_o / 4.0 / tau / (tau + 2.0);
                     c_array[iq][i] += tmp * (RealMath::r_ln(1.0 + 1.0 / eta) - 1.0 / (1.0 + eta)) * dum1 * dum3;
                     g_array[iq][i] += tmp * dum2;
@@ -8222,11 +8223,11 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
         }
         // eta, c and g arrays to their final form
         for i in 0..=MAXE_SPI1 {
-            let tau = earray[i] / prm * 0.001;
+            let tau = earray[i] / prm * lit(0.001);
             let _beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
             for iq in 0..2usize {
                 let aux_o = (RealMath::r_exp(eta_array[iq][i] / sum_z2) / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT))) as f32 as f64;
-                eta_array[iq][i] = 0.26112447 * aux_o * med.blcc / med.xcc;
+                eta_array[iq][i] = lit(0.26112447) * aux_o * med.blcc / med.xcc;
                 let eta = aux_o / 4.0 / tau / (tau + 2.0);
                 let l = RealMath::r_ln(1.0 + 1.0 / eta);
                 let gamma = 3.0 * (1.0 + eta) * (l * (1.0 + 2.0 * eta) - 2.0) / (l * (1.0 + eta) - 1.0);
@@ -8340,7 +8341,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
             let si2e;
             if tau > 2.0 * tauc {
                 let sig = med.esig.eval(i + 1, eil) / med.ededx.eval(i + 1, eil);
-                if sig > 1e-6 {
+                if sig > lit(1e-6) {
                     let etap = fits.etae_ms.eval(i + 1, eil);
                     let eta = 0.25 * etap * med.xcc / med.blcc / tau / (tau + 2.0);
                     let g_r = (1.0 + 2.0 * eta) * RealMath::r_ln(1.0 + 1.0 / eta) - 2.0;
@@ -12146,7 +12147,7 @@ mod tests {
         emed.ms.q2ce_ms = f.q2ce_ms;
         emed.ms.q2cp_ms = f.q2cp_ms;
         emed.ms.blcce = f.blcce;
-        let ereg = |med: usize, rhor: f64| ElectrRegion { med, rhor, ecut: 1.5, smaxir: 1.0e10, pcut: 0.1 };
+        let ereg = |med: usize, rhor: f64| ElectrRegion { med, rhor, ecut: 1.5, smaxir: 1.0e10, pcut: lit(0.1) };
         let etables = ElectrTables {
             regions: vec![ElectrRegion::default(), ereg(0, 0.0), ereg(1, rho), ereg(0, 0.0)],
             media: vec![ElectronMediumData::default(), emed],
@@ -12155,7 +12156,7 @@ mod tests {
             eii: None,
         };
         let log = Arc::new(RwLock::new(Vec::new()));
-        let geo = Tutor1Geo { zbound: 0.1, prm: RM, log: log.clone() };
+        let geo = Tutor1Geo { zbound: lit(0.1), prm: lit(0.5109989461), log: log.clone() };
         let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig::default() };
         let pcfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 1.0e8 };
         let mut drv = Tutor1Driver { tables: etables, cfg: ecfg, geo: geo.clone(), counters: ElectrCounters::default() };
@@ -12165,7 +12166,7 @@ mod tests {
         for _ in 0..200 {
             log.write().unwrap().clear();
             let mut st = Stack::new(15);
-            let start = ShowerStart { iqi: -1, ei: 20.5109989461, xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 2, wti: 1.0 };
+            let start = ShowerStart { iqi: -1, ei: lit(20.5109989461), xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 2, wti: 1.0 };
             match shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng) {
                 Ok(_) => mine.push(log.read().unwrap().clone()),
                 Err(e) => {

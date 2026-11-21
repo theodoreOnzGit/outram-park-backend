@@ -153,3 +153,17 @@ mod tests {
         }
     }
 }
+
+/// A decimal constant from the Mortran source (gh:#1687).
+///
+/// Mortran3 emits real constants without a `d0` suffix, so a stock gfortran
+/// build of EGSnrc reads them as **single precision**, then widens them
+/// (`1.6605655` becomes `1.66056549549102783...`). The port's standard is the
+/// exact `f64` constant. With the cargo feature `egsnrc-f32-constants`, every
+/// constant wrapped in `lit` is first rounded through `f32`, which reproduces
+/// the stock build bit for bit and is how the port is validated against it
+/// (`docs/egsnrc_phase2_differential.md`). Off by default.
+#[inline]
+pub const fn lit(x: f64) -> f64 {
+    if cfg!(feature = "egsnrc-f32-constants") { x as f32 as f64 } else { x }
+}

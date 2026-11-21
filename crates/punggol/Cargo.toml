@@ -38,3 +38,6 @@ thiserror-nostd = { workspace = true }
 # target (see README, "no_std"). `std` forwards to outram-mc-libs.
 std = ["thiserror-nostd/std", "outram-mc-libs/std"]
 default = ["std"]
+# Round every Mortran decimal constant of `egsnrc::egsnrc_mortran` through f32, as a
+# stock gfortran build of EGSnrc does (gh:#1687). Off: the standard exact f64.
+egsnrc-f32-constants = []
