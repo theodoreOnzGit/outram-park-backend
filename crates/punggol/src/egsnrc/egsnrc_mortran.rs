@@ -23,7 +23,7 @@
 //! | `UPHI` `IENTRY = 1` (angle from `theta`, `egsnrc.mortran:6759-6769`) | [`uphi_from_theta`] |
 //! | `SUBROUTINE PHOTO` (`egsnrc.mortran:5049-5170`) with `$SELECT-PHOTOELECTRON-DIRECTION` (`egsnrc.macros:1916-1953`) | [`photo`], [`select_photoelectron_direction`] |
 //! | `SUBROUTINE BHABHA` (`egsnrc.mortran:229-309`) | [`bhabha`] |
-//! | `SUBROUTINE MOLLER` (`egsnrc.mortran:2598-2745`), without the EII branch | [`moller`] |
+//! | `SUBROUTINE MOLLER` (`egsnrc.mortran:2598-2745`); its EII selection (`2633-2661`) is [`moller_eii_select`] | [`moller`], [`moller_eii_select`] |
 //! | `SUBROUTINE BREMS` (`egsnrc.mortran:312-525`), Bethe-Heitler path | [`brems`] |
 //! | `SUBROUTINE PHOTON` (`egsnrc.mortran:6438-6640`), without Rayleigh or photonuclear | [`photon`] |
 //! | `SUBROUTINE SHOWER` (`egsnrc.mortran:6645-6718`) | [`shower`] |
@@ -4272,6 +4272,77 @@ pub fn moller_eii_select<R: UniformSource>(
     Ok(None)
 }
 
+/// The direct-access file `pair_nrc1.data` read by [`init_nrc_pair`] (record
+/// length `NRC_PAIR_NXX * $RECL-FACTOR` = 65 four-byte words = 260 bytes; the
+/// factor is a build macro not in the clone, but the physical record size is
+/// the data's own). Record 1 is `emin`, `emax` (`real*4`), `ne`, `nb`
+/// (`integer*4`), one byte `endian` (0 means `1234`, little-endian, anything
+/// else big-endian) and 243 bytes of padding; record `r` is 65 `real*4`.
+/// **Not re-checked against a real `pair_nrc1.data`** (not in the clone).
+#[derive(Debug, Clone, PartialEq)]
+pub struct NrcPairFile {
+    /// `emin`, `emax` (units of `m c^2`).
+    pub emin: f32,
+    /// See `emin`.
+    pub emax: f32,
+    /// `ne`: energy grid size.
+    pub ne: i32,
+    /// `nb`: `x` grid size.
+    pub nb: i32,
+    little: bool,
+    bytes: Vec<u8>,
+}
+
+/// Bytes per record of `pair_nrc1.data`.
+pub const NRC_PAIR_RECORD_BYTES: usize = NRC_PAIR_NXX * 4;
+
+impl NrcPairFile {
+    /// Decode the header of the file content.
+    ///
+    /// # Errors
+    ///
+    /// A message when the file is shorter than its header record.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() < NRC_PAIR_RECORD_BYTES {
+            return Err(String::from("pair_nrc1.data is shorter than its header record"));
+        }
+        let little = bytes[16] == 0;
+        let f = |o: usize| {
+            let b = [bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]];
+            if little { f32::from_le_bytes(b) } else { f32::from_be_bytes(b) }
+        };
+        let i = |o: usize| {
+            let b = [bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]];
+            if little { i32::from_le_bytes(b) } else { i32::from_be_bytes(b) }
+        };
+        Ok(Self { emin: f(0), emax: f(4), ne: i(8), nb: i(12), little, bytes: bytes.to_vec() })
+    }
+
+    /// Direct-access record `irec` (1-based): its `NRC_PAIR_NXX` values, or
+    /// `None` past the end of the file.
+    pub fn record(&self, irec: usize) -> Option<Vec<f32>> {
+        let o = irec.checked_sub(1)? * NRC_PAIR_RECORD_BYTES;
+        let rec = self.bytes.get(o..o + NRC_PAIR_RECORD_BYTES)?;
+        Some(
+            rec.chunks_exact(4)
+                .map(|c| {
+                    let b = [c[0], c[1], c[2], c[3]];
+                    if self.little { f32::from_le_bytes(b) } else { f32::from_be_bytes(b) }
+                })
+                .collect(),
+        )
+    }
+
+    /// [`init_nrc_pair`] on this file.
+    ///
+    /// # Errors
+    ///
+    /// As [`init_nrc_pair`].
+    pub fn init(&self, comp: &[Vec<(f64, f64)>]) -> Result<NrcPairData, String> {
+        init_nrc_pair(self.emin, self.emax, self.ne, self.nb, comp, |r| self.record(r))
+    }
+}
+
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
 fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> PhotonResult {
     res.edep = peig;
@@ -7405,10 +7476,15 @@ pub struct SpinRecord {
 /// indexed `[(iz - 1) * 4 * (n_ener + 1) + 2 * iq * (n_ener + 1) + i]` for
 /// `iz = 1..=100`, `iq = 0..=1`, `i = 0..=MAXE_SPI1`.
 ///
-/// The binary decoder itself is not ported: the byte order token
-/// (`$BYTE_ORDER`) and `$RECL-FACTOR` that fix the layout are build-time
-/// macros of EGSnrc's configuration, which is not in the source this port
-/// read. A decoder must produce this structure.
+/// [`SpinFile::from_bytes`] decodes the binary file. `init_spin` reads it as a
+/// Fortran direct-access file with `recl = 276 * $RECL-FACTOR`; `$RECL-FACTOR`
+/// and `$BYTE_ORDER` are build-time macros not in the source this port read,
+/// so the decoder is written from the record contents instead: every record
+/// is 276 four-byte words = 1104 bytes (header: 32-character version, 4-character
+/// byte-order token `1234` or `4321`, four `real*4`; data record: four `real*4`,
+/// `fmax_array(0:15)` as `real*4`, 512 `integer*2`), and the byte order is the
+/// file's own token, which `init_spin` compares with the CPU's to decide on
+/// swapping. **Not re-checked against a real `spinms.data`** (not in the clone).
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpinFile {
     /// `espin_min`, `espin_max`: energy range, keV (`real*4`).
@@ -7421,6 +7497,58 @@ pub struct SpinFile {
     pub b2spin_max: f32,
     /// The records.
     pub records: Vec<SpinRecord>,
+}
+
+/// Bytes per direct-access record of `spinms.data`: `276 * 4`
+/// (`egsnrc.mortran:3372`).
+pub const SPIN_RECORD_BYTES: usize = 276 * 4;
+
+impl SpinFile {
+    /// Decode the content of `spinms.data` (see the type's documentation).
+    ///
+    /// # Errors
+    ///
+    /// A message when the file is shorter than its header, the byte-order token
+    /// is neither `1234` nor `4321`, or a record is cut short.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() < SPIN_RECORD_BYTES {
+            return Err(String::from("spinms.data is shorter than its header record"));
+        }
+        let le = match &bytes[32..36] {
+            b"1234" => true,
+            b"4321" => false,
+            _ => return Err(String::from("spinms.data: unknown byte-order token")),
+        };
+        let f32_at = |o: usize| -> f32 {
+            let b = [bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]];
+            if le { f32::from_le_bytes(b) } else { f32::from_be_bytes(b) }
+        };
+        let i16_at = |o: usize| -> i16 {
+            let b = [bytes[o], bytes[o + 1]];
+            if le { i16::from_le_bytes(b) } else { i16::from_be_bytes(b) }
+        };
+        let (espin_min, espin_max, b2spin_min, b2spin_max) = (f32_at(36), f32_at(40), f32_at(44), f32_at(48));
+        let nrec = bytes.len() / SPIN_RECORD_BYTES - 1;
+        if bytes.len() % SPIN_RECORD_BYTES != 0 {
+            return Err(String::from("spinms.data: the last record is cut short"));
+        }
+        let mut records = Vec::with_capacity(nrec);
+        for r in 1..=nrec {
+            let o = r * SPIN_RECORD_BYTES;
+            let mut fmax = [0.0_f32; MAXQ_SPIN + 1];
+            for (j, f) in fmax.iter_mut().enumerate() {
+                *f = f32_at(o + 16 + 4 * j);
+            }
+            let base = o + 16 + 4 * (MAXQ_SPIN + 1);
+            records.push(SpinRecord {
+                dum: [f32_at(o), f32_at(o + 4), f32_at(o + 8)],
+                aux_o: f32_at(o + 12),
+                fmax,
+                i2: (0..512).map(|k| i16_at(base + 2 * k)).collect(),
+            });
+        }
+        Ok(Self { espin_min, espin_max, b2spin_min, b2spin_max, records })
+    }
 }
 
 /// What `init_spin` needs of one medium.
@@ -10479,6 +10607,89 @@ mod tests {
             }
         }
         assert!(deposited > 0.0 || fatal > 0, "no EII event in {done} runs");
+    }
+
+    /// The bytes `spinms.data` would hold for `f`, in either byte order.
+    fn spin_file_bytes(f: &SpinFile, little: bool) -> Vec<u8> {
+        let f32b = |v: f32| if little { v.to_le_bytes() } else { v.to_be_bytes() };
+        let i16b = |v: i16| if little { v.to_le_bytes() } else { v.to_be_bytes() };
+        let mut out = Vec::new();
+        let mut head = alloc::vec![b' '; SPIN_RECORD_BYTES];
+        head[..9].copy_from_slice(b"toy spins");
+        head[32..36].copy_from_slice(if little { b"1234" } else { b"4321" });
+        for (k, v) in [f.espin_min, f.espin_max, f.b2spin_min, f.b2spin_max].into_iter().enumerate() {
+            head[36 + 4 * k..40 + 4 * k].copy_from_slice(&f32b(v));
+        }
+        out.extend_from_slice(&head);
+        for r in &f.records {
+            let mut rec = Vec::new();
+            for v in r.dum {
+                rec.extend_from_slice(&f32b(v));
+            }
+            rec.extend_from_slice(&f32b(r.aux_o));
+            for v in r.fmax {
+                rec.extend_from_slice(&f32b(v));
+            }
+            for &v in &r.i2 {
+                rec.extend_from_slice(&i16b(v));
+            }
+            assert_eq!(rec.len(), SPIN_RECORD_BYTES);
+            out.extend_from_slice(&rec);
+        }
+        out
+    }
+
+    #[test]
+    fn spin_file_decoder_round_trips_both_byte_orders() {
+        let f = synthetic_spin_file();
+        for little in [true, false] {
+            let back = SpinFile::from_bytes(&spin_file_bytes(&f, little)).unwrap();
+            assert_eq!(back, f);
+        }
+        // errors
+        assert!(SpinFile::from_bytes(&[0u8; 10]).is_err());
+        let mut bad = spin_file_bytes(&f, true);
+        bad[32..36].copy_from_slice(b"????");
+        assert!(SpinFile::from_bytes(&bad).is_err());
+        let mut cut = spin_file_bytes(&f, true);
+        cut.pop();
+        assert!(SpinFile::from_bytes(&cut).is_err());
+    }
+
+    /// The bytes of a toy `pair_nrc1.data` for elements `1..=nz`.
+    fn toy_nrc_pair_bytes(nz: usize, little: bool) -> Vec<u8> {
+        let f32b = |v: f32| if little { v.to_le_bytes() } else { v.to_be_bytes() };
+        let i32b = |v: i32| if little { v.to_le_bytes() } else { v.to_be_bytes() };
+        let mut out = Vec::new();
+        out.extend_from_slice(&f32b(2.5));
+        out.extend_from_slice(&f32b(100.0));
+        out.extend_from_slice(&i32b(NRC_PAIR_NEE as i32));
+        out.extend_from_slice(&i32b(NRC_PAIR_NXX as i32));
+        out.push(if little { 0 } else { 1 });
+        out.resize(NRC_PAIR_RECORD_BYTES, 0);
+        for _ in 0..nz * NRC_PAIR_NEE {
+            for i in 0..NRC_PAIR_NXX {
+                out.extend_from_slice(&f32b(1.0 + ((i as f32) - 32.0).powi(2)));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn nrc_pair_file_decoder_matches_the_closure_route() {
+        let comp = vec![vec![], vec![(8.0, 1.0)]];
+        let reference = toy_nrc_pair();
+        for little in [true, false] {
+            let file = NrcPairFile::from_bytes(&toy_nrc_pair_bytes(8, little)).unwrap();
+            assert_eq!((file.ne, file.nb), (NRC_PAIR_NEE as i32, NRC_PAIR_NXX as i32));
+            assert_eq!(file.init(&comp).unwrap(), reference);
+        }
+        let file = NrcPairFile::from_bytes(&toy_nrc_pair_bytes(8, true)).unwrap();
+        assert!(file.record(0).is_none() && file.record(1 + 8 * NRC_PAIR_NEE + 5).is_none());
+        // too few elements in the file for Z = 8
+        let short = NrcPairFile::from_bytes(&toy_nrc_pair_bytes(2, true)).unwrap();
+        assert!(short.init(&comp).is_err());
+        assert!(NrcPairFile::from_bytes(&[0u8; 10]).is_err());
     }
 
 }
