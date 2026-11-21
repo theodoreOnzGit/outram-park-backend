@@ -418,3 +418,41 @@ still 1.07e-8 / 5.3e-9 with EADL), so those last-bit differences are not what
 limits the `shower` comparison. `petir` is not changed here. `ln32` (the
 spin-table setup's `real*4` `alog`) now uses the `f64` route too, with no
 visible effect.
+
+
+## Stock-build residuals resolved (gh:#1694, 2026-11-21)
+
+Method: dump `eta_array`, `c_array`, `g_array` and `earray` from the stock and
+promoted Fortran builds (a line inserted into the generated `.f`) and from the
+port, and bisect. The stock build differs from the promoted one by more than
+"constants rounded through f32": **expressions that mix a `real*4` constant
+with `real*4` variables are evaluated in single precision**, and `Log(c)` of a
+constant is a single-precision `logf`. Found and fixed (each only in
+`egsnrc-f32-constants` mode; the default is unchanged):
+
+- `0.26112447*aux_o` (`init_spin`): real*4 times real*4, `lit_mul`;
+- `Log(1e5)` (`elarray`, `init_spin`): `lit_ln`;
+- `atav = 1./nsh` (`init_compton`): `lit_div`;
+- constants that are `d0` in the Mortran (`20.607544d0`, `1.005d0`,
+  `1.8215416D4`, `0.001D0`) had been rounded by mistake: now exact;
+- `erf1`'s `DATA` coefficients and `CONST` are real*4 literals in a stock
+  build: now `lit`.
+
+Results against the stock build with the feature on (all were above 1e-9
+before):
+
+| quantity | before | after |
+|---|---|---|
+| spin fits (14 tables) | up to 4.2e-6 | **bit-identical** |
+| Rayleigh `pmax0/1` | 5.9e-7, 4.7e-4 | 5.0e-13, 6.5e-13 |
+| Compton `eno`, `erfJo` | 1.9e-8, 1.0e-3 | **0, 0** |
+| tutor1 histories (200, same sequence) | 4.5e-8 | 1.07e-8 |
+| EADL histories | 4.1e-8 | 5.3e-9 |
+
+Remaining: the histories differ from both the stock and the promoted build by
+5e-9 to 1e-8 although every table is bit-identical, so the cause is
+arithmetic order inside the transport routines; the first history already
+differs by 5.7e-13 and the shower amplifies it. This is a propagated
+round-off of the kind the maintainer's rule (root `CLAUDE.md`: "1e-4 for
+propagated error") allows, and is recorded here rather than chased. The
+20 `pegs4` lines of gh:#1688 are not resolved.
