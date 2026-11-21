@@ -55,7 +55,7 @@
 use crate::nostd_prelude::*;
 
 use super::egsnrc_macros::{EgsError, Stack, UniformSource, select_azimuthal_angle};
-use super::egs_utilities_mortran::{alias_sample1, prepare_alias_table};
+use super::egs_utilities_mortran::{alias_sample1, gauss_legendre, prepare_alias_table, set_spline, spline};
 use petir::mathf::RealMath;
 use petir::real::Real;
 
@@ -1742,6 +1742,9 @@ pub struct BremsMedium {
     pub ap: f64,
     /// `log_ap(MEDIUM) = log(ap)`.
     pub log_ap: f64,
+    /// The NIST / NRC cross-section alias tables (`COMMON/nist_brems/`), built
+    /// by [`init_nist_brems`]; needed with `ibr_nist >= 1`.
+    pub nist: Option<NistBremsMedium>,
 }
 
 /// Switches `BREMS` reads (`COMMON/BREMPR/`).
@@ -1753,7 +1756,7 @@ pub struct BremsConfig {
     /// inherits the electron direction.
     pub ibrdst: i32,
     /// `ibr_nist` (default 0): 0 Bethe-Heitler; 1 and 2 (NIST / NRC alias
-    /// tables) are not ported and are refused.
+    /// tables) need the medium's `nist` tables.
     pub ibr_nist: i32,
 }
 
@@ -1769,8 +1772,9 @@ impl Default for BremsConfig {
 /// keeps slot `np_old` with `e = peie - e_photon(last)`. `elke` is
 /// `ln(E_kinetic)` as `ELECTR` computes it.
 ///
-/// Not ported, refused with [`EgsError::Unsupported`]: the NIST/NRC
-/// cross-section alias tables (`ibr_nist >= 1`).
+/// With `ibr_nist >= 1` the photon energy comes from the medium's alias
+/// tables ([`init_nist_brems`]); without them it is refused with
+/// [`EgsError::Unsupported`].
 ///
 /// # Errors
 ///
@@ -1786,8 +1790,8 @@ pub fn brems<R: UniformSource>(
     if cfg.nbr_split < 1 {
         return Ok(());
     }
-    if cfg.ibr_nist >= 1 {
-        return Err(EgsError::Unsupported("BREMS: NIST/NRC bremsstrahlung tables (ibr_nist >= 1)"));
+    if cfg.ibr_nist >= 1 && med.nist.is_none() {
+        return Err(EgsError::Unsupported("BREMS: NIST/NRC bremsstrahlung tables (ibr_nist >= 1) without tables"));
     }
     let rm = RM;
     stack.np_old = stack.np;
@@ -1832,10 +1836,36 @@ pub fn brems<R: UniformSource>(
     }
     let _ = z2max;
 
+    // the energy bin of the NIST / NRC tables
+    let (mut jj, mut ajj) = (0usize, 0.0_f64);
+    if let Some(nb) = med.nist.as_ref().filter(|_| cfg.ibr_nist >= 1) {
+        let a = 1.0 + (waux + med.log_ap - nb.lemin) * nb.dlei;
+        jj = a as usize;
+        ajj = a - jj as f64;
+        if jj > MXBRES {
+            jj = MXBRES;
+            ajj = -1.0;
+        }
+    }
+
     let mut pese = peie;
     for _ in 1..=cfg.nbr_split {
-        // Bethe-Heitler
         let (esg, ese);
+        if let Some(nb) = med.nist.as_ref().filter(|_| cfg.ibr_nist >= 1) {
+            // the NIST or NRC bremsstrahlung cross section data base
+            let br;
+            if ekin > nb.emin {
+                let r1 = rng.uniform();
+                let j = if r1 < ajj { jj + 1 } else { jj };
+                let bin = &nb.bins[j];
+                br = alias_sample1(&bin.xdata, &bin.fdata, &bin.wdata, &bin.idata, rng);
+            } else {
+                br = rng.uniform();
+            }
+            esg = med.ap * RealMath::r_exp(br * waux);
+            ese = peie - esg;
+        } else {
+        // Bethe-Heitler
         loop {
             let rnno06 = rng.uniform();
             let rnno07 = rng.uniform();
@@ -1858,6 +1888,7 @@ pub fn brems<R: UniformSource>(
                 ese = e_e;
                 break;
             }
+        }
         }
         pese = peie - esg;
 
@@ -2496,12 +2527,12 @@ pub fn init_triplet(text: &str, comp: &[Vec<(f64, f64)>], rm: f64) -> Result<Tri
             f_triplet[i - ifirst + 2] = sigt[i] / (sigp[i] + sigt[i]);
         }
         f_triplet[1] = 0.0;
-        let co = super::egs_utilities_mortran::set_spline(&xs, &f_triplet);
+        let co = set_spline(&xs, &f_triplet);
         let mut log_e = log_4rm;
         let mut f_old = 0.0;
         for i in 1..MAX_TRIPLET {
             log_e += dl_triplet;
-            let f_new = super::egs_utilities_mortran::spline(log_e, &xs, &co);
+            let f_new = spline(log_e, &xs, &co);
             a_triplet[imed][i] = (f_new - f_old) * dli_triplet;
             b_triplet[imed][i] = f_new - a_triplet[imed][i] * log_e;
             f_old = f_new;
@@ -2947,6 +2978,389 @@ pub fn init_nrc_pair<F: FnMut(usize) -> Option<Vec<f32>>>(
         tables.push(bins);
     }
     Ok(NrcPairData { emin, emax, dle, dlei: 1.0 / dle, xdata, tables })
+}
+
+/// `$MXBREN`, `$MXBRXX`, `$MXBREL`, `$MXGAUSS`, `$MXBRES`, `$MXBRXS`
+/// (`egsnrc.macros:350-355`).
+pub const MXBREN: usize = 57;
+/// See [`MXBREN`].
+pub const MXBRXX: usize = 54;
+/// See [`MXBREN`].
+pub const MXBREL: usize = 100;
+/// See [`MXBREN`].
+pub const MXGAUSS: usize = 64;
+/// See [`MXBREN`].
+pub const MXBRES: usize = 100;
+/// See [`MXBREN`].
+pub const MXBRXS: usize = 50;
+
+/// One photon-energy bin of the NIST / NRC bremsstrahlung tables: the density
+/// on `x = k / T` at `0..=MXBRXS` and its alias table (1-based).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NistBremsBin {
+    /// `nb_xdata(0:MXBRXS, i, medium)`.
+    pub xdata: Vec<f64>,
+    /// `nb_fdata`.
+    pub fdata: Vec<f64>,
+    /// `nb_wdata(1:MXBRXS, ...)` (index 0 unused).
+    pub wdata: Vec<f64>,
+    /// `nb_idata`.
+    pub idata: Vec<i32>,
+}
+
+/// `COMMON/nist_brems/` for one medium.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NistBremsMedium {
+    /// `nb_emin`: lowest kinetic energy covered, MeV.
+    pub emin: f64,
+    /// `nb_emax`.
+    pub emax: f64,
+    /// `nb_lemin`.
+    pub lemin: f64,
+    /// `nb_lemax`.
+    pub lemax: f64,
+    /// `nb_dle`.
+    pub dle: f64,
+    /// `nb_dlei`.
+    pub dlei: f64,
+    /// `bins[i]`, `i = 1..=MXBRES` (index 0 unused).
+    pub bins: Vec<NistBremsBin>,
+}
+
+/// What `init_nist_brems` takes from the media of the run.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NistBremsInput {
+    /// `(ZELEM, PZ, WA)` per element.
+    pub comp: Vec<(f64, f64, f64)>,
+    /// `AP(medium)`, MeV.
+    pub ap: f64,
+    /// `AE(medium)`, total energy, MeV.
+    pub ae: f64,
+    /// `UE(medium)`, total energy, MeV.
+    pub ue: f64,
+}
+
+/// `init_nist_brems` (`egsnrc.mortran:6892-7228`): replaces the PEGS4
+/// bremsstrahlung part of the electron and positron cross sections with the
+/// NIST (`ibr_nist = 1`, `nist_brems.data`) or NRC (`2`, `nrc_brems.data`)
+/// data in `text`, in place in `media[m].esig`, `ebr1`, `psig`, `pbr1`,
+/// `pbr2` (and the `esig_e`, `psig_e` maxima), and builds the alias tables
+/// `BREMS` samples from. `media` and `inputs` are 1-based; the data text is
+/// the file's content (first line a header, then `nmix kmix`, the energy
+/// grid, the `x` grid, a skipped line and `MXBREL` blocks of `nmix * kmix`
+/// values). Returns `(esige_max, psige_max)`, the maxima over the media.
+///
+/// # Errors
+///
+/// A message when the data are short or too large, `ibr_nist` is not 1 or 2,
+/// a medium has no table interval to overwrite, or the energy range is empty.
+pub fn init_nist_brems(
+    text: &str,
+    ibr_nist: i32,
+    inputs: &[NistBremsInput],
+    media: &mut [ElectronMediumData],
+    rm: f64,
+) -> Result<(f64, f64), String> {
+    if ibr_nist != 1 && ibr_nist != 2 {
+        return Err(alloc::format!("init_nist_brems: unknown value of ibr_nist! ibr_nist = {ibr_nist}"));
+    }
+    const AMU: f64 = 1660.5655; // converts the cross sections from mB/atom to cm^2/g
+    let mut lines = text.lines();
+    lines.next().ok_or_else(|| String::from("data ends early"))?;
+    let nk = read_record(&mut lines, 2)?;
+    let (nmix, kmix) = (nk[0] as usize, nk[1] as usize);
+    if kmix > MXBRXX {
+        return Err(String::from("init_nist_brems: to many k values in data file!"));
+    }
+    if nmix > MXBREN {
+        return Err(String::from("init_nist_brems: to many T values in data file!"));
+    }
+    let energy_array: Vec<f64> = core::iter::once(0.0).chain(read_record(&mut lines, nmix)?).collect();
+    let x_array: Vec<f64> = core::iter::once(0.0).chain(read_record(&mut lines, kmix)?).collect();
+    lines.next().ok_or_else(|| String::from("data ends early"))?;
+    // cs_array(n, k, i): cs_array[i][k][n]
+    let mut cs_array = alloc::vec![alloc::vec![alloc::vec![0.0_f64; nmix + 1]; kmix + 1]; MXBREL + 1];
+    for plane in cs_array.iter_mut().skip(1) {
+        let v = read_record(&mut lines, nmix * kmix)?;
+        for k in 1..=kmix {
+            for n in 1..=nmix {
+                plane[k][n] = v[(k - 1) * nmix + (n - 1)];
+            }
+        }
+    }
+    let mut xi_array = alloc::vec![0.0_f64; kmix + 1];
+    for k in 1..=kmix {
+        xi_array[k] = RealMath::r_ln(1.0 - x_array[k] + 1e-6);
+    }
+    let (x_gauss, w_gauss) = gauss_legendre(0.0, 1.0, MXGAUSS);
+
+    let nmed = inputs.len() - 1;
+    let (mut esige_max, mut psige_max) = (0.0_f64, 0.0_f64);
+    for medium in 1..=nmed {
+        let inp = &inputs[medium];
+        let ap = inp.ap;
+        let log_ap = RealMath::r_ln(ap);
+        let emin = (inp.ae - rm).max(ap);
+        let mut ifirst = nmix + 1;
+        for i in 1..=nmix {
+            if energy_array[i] >= emin {
+                ifirst = i;
+                break;
+            }
+        }
+        let mut ilast = 1usize;
+        for i in (1..=nmix).rev() {
+            if energy_array[i] < inp.ue - rm {
+                ilast = i + 1;
+                break;
+            }
+            ilast = 1;
+        }
+        if ilast > nmix {
+            ilast = nmix;
+        }
+        if ifirst > ilast {
+            return Err(String::from("init_nist_brems: no data in the energy range of the medium"));
+        }
+        let nener = ilast - ifirst + 1;
+        let mut ee = alloc::vec![0.0_f64; nener + 1];
+        let mut ele = alloc::vec![0.0_f64; nener + 1];
+        let mut cs = alloc::vec![alloc::vec![0.0_f64; kmix + 1]; nener + 1];
+        let mut cse = alloc::vec![0.0_f64; nener + 1];
+        let mut sum_a = 0.0;
+        for &(_, pz, wa) in &inp.comp {
+            sum_a += pz * wa;
+        }
+        sum_a *= AMU;
+        let mut csx = alloc::vec![0.0_f64; kmix + 1];
+        for i in ifirst..=ilast {
+            let ii = i + 1 - ifirst;
+            ee[ii] = energy_array[i];
+            ele[ii] = RealMath::r_ln(ee[ii]);
+            for k in 1..=kmix {
+                cs[ii][k] = 0.0;
+                for &(z0, pz, _) in &inp.comp {
+                    let iz = (z0 + 0.1) as usize;
+                    let z = z0 * z0 / sum_a;
+                    cs[ii][k] += pz * z * cs_array[iz][k][i];
+                }
+                csx[k] = RealMath::r_ln(cs[ii][k]);
+            }
+            let co = set_spline(&xi_array, &csx);
+            // integrate
+            cse[ii] = 0.0;
+            let aux = RealMath::r_ln(ee[ii] / ap);
+            for ig in 0..MXGAUSS {
+                let xi = RealMath::r_ln(1.0 - ap / ee[ii] * RealMath::r_exp(x_gauss[ig] * aux) + 1e-6);
+                let res = spline(xi, &xi_array, &co);
+                cse[ii] += w_gauss[ig] * RealMath::r_exp(res);
+            }
+        }
+        let co_e = set_spline(&ele[..=nener], &cse[..=nener]);
+        let m = &mut media[medium];
+        let neke = m.esig.a0.len() - 1;
+        if neke < 2 {
+            return Err(String::from("init_nist_brems: the electron tables have no energy intervals"));
+        }
+        let (eke0, eke1, rho) = (m.eke0, m.eke1, m.rho);
+        // now replace the PEGS cross sections
+        let (mut sigee, mut sigep) = (1e-15_f64, 1e-15_f64);
+        let (mut si1_esig, mut si1_ebr1) = (0.0, 0.0);
+        let (mut si1_psig, mut si1_pbr1, mut si1_pbr2) = (0.0, 0.0, 0.0);
+        for i in 1..=neke {
+            let eil = (i as f64 - eke0) / eke1;
+            let ei = RealMath::r_exp(eil);
+            let beta2 = ei * (ei + 2.0 * rm) / ((ei + rm) * (ei + rm));
+            let sigb = if ei <= ap {
+                1e-30
+            } else {
+                spline(eil, &ele[..=nener], &co_e) * RealMath::r_ln(ei / ap) / beta2 * rho
+            };
+            let mut sigt = m.esig.eval(i, eil);
+            let mut ebr1 = m.ebr1.eval(i, eil);
+            if sigt < 0.0 {
+                sigt = 0.0;
+            }
+            ebr1 = ebr1.clamp(0.0, 1.0);
+            if i > 1 {
+                let (si_esig, si_ebr1) = (si1_esig, si1_ebr1);
+                si1_esig = sigt * (1.0 - ebr1) + sigb;
+                si1_ebr1 = sigb / si1_esig;
+                m.esig.a1[i - 1] = (si1_esig - si_esig) * eke1;
+                m.esig.a0[i - 1] = si1_esig - m.esig.a1[i - 1] * eil;
+                m.ebr1.a1[i - 1] = (si1_ebr1 - si_ebr1) * eke1;
+                m.ebr1.a0[i - 1] = si1_ebr1 - m.ebr1.a1[i - 1] * eil;
+            } else {
+                si1_esig = sigt * (1.0 - ebr1) + sigb;
+                si1_ebr1 = sigb / si1_esig;
+            }
+            // positrons
+            let mut sigt = m.psig.eval(i, eil);
+            let mut pbr1 = m.pbr1.eval(i, eil);
+            let mut pbr2 = m.pbr2.eval(i, eil);
+            if sigt < 0.0 {
+                sigt = 0.0;
+            }
+            pbr1 = pbr1.clamp(0.0, 1.0);
+            pbr2 = pbr2.clamp(0.0, 1.0);
+            let mut sig_bhabha = sigt * (pbr2 - pbr1);
+            if sig_bhabha < 0.0 {
+                sig_bhabha = 0.0;
+            }
+            if i > 1 {
+                let (si_psig, si_pbr1, si_pbr2) = (si1_psig, si1_pbr1, si1_pbr2);
+                si1_psig = sigt * (1.0 - pbr1) + sigb;
+                si1_pbr1 = sigb / si1_psig;
+                si1_pbr2 = (sigb + sig_bhabha) / si1_psig;
+                m.psig.a1[i - 1] = (si1_psig - si_psig) * eke1;
+                m.psig.a0[i - 1] = si1_psig - m.psig.a1[i - 1] * eil;
+                m.pbr1.a1[i - 1] = (si1_pbr1 - si_pbr1) * eke1;
+                m.pbr1.a0[i - 1] = si1_pbr1 - m.pbr1.a1[i - 1] * eil;
+                m.pbr2.a1[i - 1] = (si1_pbr2 - si_pbr2) * eke1;
+                m.pbr2.a0[i - 1] = si1_pbr2 - m.pbr2.a1[i - 1] * eil;
+            } else {
+                si1_psig = sigt * (1.0 - pbr1) + sigb;
+                si1_pbr1 = sigb / si1_psig;
+                si1_pbr2 = (sigb + sig_bhabha) / si1_psig;
+            }
+            let sige = si1_esig / m.ededx.eval(i, eil);
+            if sige > sigee {
+                sigee = sige;
+            }
+            let sige = si1_psig / m.pdedx.eval(i, eil);
+            if sige > sigep {
+                sigep = sige;
+            }
+        }
+        for pw in [&mut m.esig, &mut m.ebr1, &mut m.psig, &mut m.pbr1, &mut m.pbr2] {
+            pw.a1[neke] = pw.a1[neke - 1];
+            pw.a0[neke] = pw.a0[neke - 1];
+        }
+        m.esig_e = sigee;
+        m.psig_e = sigep;
+        if sigee > esige_max {
+            esige_max = sigee;
+        }
+        if sigep > psige_max {
+            psige_max = sigep;
+        }
+
+        // the arrays for brems sampling
+        let mut nb_emin = energy_array[ifirst];
+        if nb_emin <= ap {
+            nb_emin = energy_array[ifirst + 1];
+        }
+        let nb_emax = energy_array[ilast];
+        let nb_lemin = RealMath::r_ln(nb_emin);
+        let nb_lemax = RealMath::r_ln(nb_emax);
+        let nb_dle = (nb_lemax - nb_lemin) / (MXBRES - 1) as f64;
+        let nb_dlei = 1.0 / nb_dle;
+        let mut bins = alloc::vec![NistBremsBin::default()];
+        let mut eil = nb_lemin - nb_dle;
+        for _ in 1..=MXBRES {
+            eil += nb_dle;
+            let ei = RealMath::r_exp(eil);
+            let mut ii = nener + 1;
+            for iii in 1..=nener {
+                if ei < ee[iii] {
+                    ii = iii;
+                    break;
+                }
+            }
+            // the Mortran loop leaves ii at nener + 1 when no energy exceeds ei
+            ii = ii.saturating_sub(1);
+            if ii < 1 {
+                ii = 1;
+            }
+            if ii > nener - 1 {
+                ii = nener - 1;
+            }
+            let ple = (eil - ele[ii]) / (ele[ii + 1] - ele[ii]);
+            let qle = 1.0 - ple;
+            for k in 1..=kmix {
+                csx[k] = RealMath::r_ln(qle * cs[ii][k] + ple * cs[ii + 1][k]);
+            }
+            let co = set_spline(&xi_array, &csx);
+            let mut xd = alloc::vec![0.0_f64; MXBRXS + 1];
+            let mut fd = alloc::vec![0.0_f64; MXBRXS + 1];
+            let x = ap / ei;
+            let aux = -RealMath::r_ln(x);
+            let xi = RealMath::r_ln(1.0 - x + 1e-6);
+            let res = spline(xi, &xi_array, &co);
+            xd[0] = 0.0;
+            fd[0] = RealMath::r_exp(res);
+            let mut k = kmix + 1;
+            for kk in 1..=kmix {
+                if x_array[kk] > x {
+                    k = kk;
+                    break;
+                }
+            }
+            if k > kmix {
+                k = kmix;
+            }
+            let mut ndat = 0usize;
+            for j in (k + 1)..kmix {
+                ndat += 1;
+                if ndat > MXBRXS {
+                    return Err(String::from("init_nist_brems: too many x points"));
+                }
+                xd[ndat] = RealMath::r_ln(x_array[j] / x) / aux;
+                fd[ndat] = RealMath::r_exp(csx[j]);
+            }
+            ndat += 1;
+            if ndat > MXBRXS {
+                return Err(String::from("init_nist_brems: too many x points"));
+            }
+            xd[ndat] = 1.0;
+            fd[ndat] = RealMath::r_exp(csx[kmix]);
+            // fill intermediate points where linear interpolation in x is worst
+            if ndat < MXBRXS {
+                loop {
+                    let (mut x_max_error, mut f_max_error, mut k_max_error) = (0.0, 0.0, 0usize);
+                    let mut max_error = 0.0;
+                    for kk in 0..ndat {
+                        let xm = 0.5 * (xd[kk] + xd[kk + 1]);
+                        let fm = 0.5 * (fd[kk] + fd[kk + 1]);
+                        let xi = RealMath::r_ln(1.0 - ap / ei * RealMath::r_exp(xm * aux) + 1e-6);
+                        let res = RealMath::r_exp(spline(xi, &xi_array, &co));
+                        let error = (1.0 - fm / res).abs();
+                        if error > max_error {
+                            x_max_error = xm;
+                            f_max_error = res;
+                            max_error = error;
+                            k_max_error = kk;
+                        }
+                    }
+                    ndat += 1;
+                    let mut kk = ndat;
+                    while kk >= k_max_error + 2 {
+                        xd[kk] = xd[kk - 1];
+                        fd[kk] = fd[kk - 1];
+                        kk -= 1;
+                    }
+                    xd[k_max_error + 1] = x_max_error;
+                    fd[k_max_error + 1] = f_max_error;
+                    if ndat == MXBRXS {
+                        break;
+                    }
+                }
+            }
+            let (wd, id) = prepare_alias_table(&xd, &fd);
+            bins.push(NistBremsBin { xdata: xd, fdata: fd, wdata: wd, idata: id });
+        }
+        m.brems.log_ap = log_ap;
+        m.brems.nist = Some(NistBremsMedium {
+            emin: nb_emin,
+            emax: nb_emax,
+            lemin: nb_lemin,
+            lemax: nb_lemax,
+            dle: nb_dle,
+            dlei: nb_dlei,
+            bins,
+        });
+    }
+    Ok((esige_max, psige_max))
 }
 
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
@@ -5955,6 +6369,7 @@ pub fn hatch_media(pegs4: &[Pegs4Medium], cfg: &HatchConfig) -> HatchResult {
                 lzbrang,
                 ap: m.ap,
                 log_ap: fits.log_ap,
+                nist: None,
             },
         };
         let mut photo = PhotoMedium { zelem: alloc::vec![0.0], pz: alloc::vec![0.0] };
@@ -6112,7 +6527,6 @@ pub struct SpinFits {
 ///
 /// A message when a medium element's record is missing.
 pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result<(SpinData, Vec<SpinFits>), String> {
-    use super::egs_utilities_mortran::{set_spline, spline};
     const FINE: f64 = 137.03604;
     const TF_CONSTANT: f64 = 0.88534138;
     let n_ener = MAXE_SPIN;
@@ -7051,6 +7465,7 @@ mod tests {
             lzbrang: -(0.02f64).ln(),
             ap: 0.01,
             log_ap: (0.01f64).ln(),
+            nist: None,
         }
     }
 
@@ -8747,6 +9162,76 @@ mod tests {
         st.np = 1;
         st.e[1] = 5.0;
         assert!(matches!(pair(&mut st, &toy_pair_medium(), &cfg, RM, &mut rng), Err(EgsError::Unsupported(_))));
+    }
+
+    fn toy_nist_brems_text() -> String {
+        let en = [0.02, 0.1, 0.5, 1.0, 5.0, 20.0];
+        let xs = [0.0, 0.2, 0.5, 0.8, 0.95, 1.0];
+        let mut t = String::from("toy table\n6 6\n");
+        t += &en.iter().map(|e| alloc::format!("{e}")).collect::<Vec<_>>().join(" ");
+        t += "\n";
+        t += &xs.iter().map(|x| alloc::format!("{x}")).collect::<Vec<_>>().join(" ");
+        t += "\nblock header\n";
+        for z in 1..=MXBREL {
+            for x in &xs {
+                for e in &en {
+                    t += &alloc::format!("{} ", (z as f64) * 10.0 * (1.0 - 0.7 * x) * (1.0 + 0.1 * (e * 100.0_f64).ln()));
+                }
+                t += "\n";
+            }
+        }
+        t
+    }
+
+    #[test]
+    fn gauss_legendre_integrates_polynomials_on_zero_one() {
+        let (x, w) = gauss_legendre(0.0, 1.0, MXGAUSS);
+        let i4: f64 = x.iter().zip(&w).map(|(x, w)| w * x.powi(4)).sum();
+        assert!((i4 - 0.2).abs() < 1e-13, "{i4}");
+        let one: f64 = w.iter().sum();
+        assert!((one - 1.0).abs() < 1e-13);
+    }
+
+    #[test]
+    fn nist_brems_replaces_the_cross_sections_and_samples_photons() {
+        let mut tabs = toy_electron_tables();
+        let inputs = vec![NistBremsInput::default(), NistBremsInput { comp: vec![(8.0, 1.0, 16.0)], ap: 0.01, ae: 0.01 + RM, ue: 10.5 }];
+        let before = tabs.media[1].esig.clone();
+        let (se, sp) = init_nist_brems(&toy_nist_brems_text(), 1, &inputs, &mut tabs.media, RM).unwrap();
+        let m = &tabs.media[1];
+        assert!(se > 1e-15 && sp > 1e-15 && m.esig_e == se && m.psig_e == sp);
+        assert_ne!(m.esig, before);
+        let neke = m.esig.a1.len() - 1; // the toy tables carry one entry more than `N_EKE`
+        assert!(m.esig.a1.len() == before.a1.len() && m.esig.a1[neke] == m.esig.a1[neke - 1]);
+        let nb = m.brems.nist.as_ref().unwrap();
+        assert_eq!(nb.bins.len(), MXBRES + 1);
+        assert!(nb.emin >= 0.02 && nb.emax <= 20.0 && (nb.dle * nb.dlei - 1.0).abs() < 1e-12);
+        assert_eq!(nb.bins[5].xdata.len(), MXBRXS + 1);
+        assert!((nb.bins[5].xdata[MXBRXS] - 1.0).abs() < 1e-12);
+        // BREMS using the tables
+        let mut rng = Ranmar::new(2, 3);
+        for &ekin in &[0.05_f64, 0.5, 4.0] {
+            for _ in 0..50 {
+                let mut st = Stack::new(10);
+                st.np = 1;
+                st.e[1] = ekin + RM;
+                st.iq[1] = -1;
+                st.wt[1] = 1.0;
+                st.w[1] = 1.0;
+                let cfg = BremsConfig { ibr_nist: 1, ..Default::default() };
+                brems(&mut st, &m.brems, &cfg, ekin.ln(), RM, &mut rng).unwrap();
+                assert_eq!(st.np, 2);
+                assert!(st.e[2] >= 0.01 * (1.0 - 1e-9) && st.e[2] <= ekin * (1.0 + 1e-9), "{} {ekin}", st.e[2]);
+                assert!((st.e[1] + st.e[2] - ekin - RM).abs() < 1e-12);
+            }
+        }
+        // errors
+        assert!(init_nist_brems("x", 3, &inputs, &mut tabs.media, RM).is_err());
+        assert!(init_nist_brems("x\n99 6\n", 1, &inputs, &mut tabs.media, RM).is_err());
+        assert!(init_nist_brems("x\n6 99\n", 1, &inputs, &mut tabs.media, RM).is_err());
+        let mut bad = inputs.clone();
+        bad[1].ae = 100.0;
+        assert!(init_nist_brems(&toy_nist_brems_text(), 1, &bad, &mut tabs.media, RM).is_err());
     }
 
 }

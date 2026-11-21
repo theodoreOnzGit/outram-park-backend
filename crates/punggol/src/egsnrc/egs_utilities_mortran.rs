@@ -22,6 +22,7 @@
 //! | upstream | here |
 //! |---|---|
 //! | `FUNCTION ERF1` (`egs_utilities.mortran:2096-2151`) | [`erf1`] |
+//! | `SUBROUTINE gauss_legendre` (`egs_utilities.mortran:2024-2059`) | [`gauss_legendre`] |
 //! | `SUBROUTINE prepare_alias_table` (`egs_utilities.mortran:1846-1895`) | [`prepare_alias_table`] |
 //! | `FUNCTION alias_sample1` (`egs_utilities.mortran:1901-1936`) | [`alias_sample1`] |
 //! | `SUBROUTINE set_spline`, `FUNCTION spline` (`egs_utilities.mortran:1762-1839`) | [`set_spline`], [`spline`] |
@@ -165,6 +166,45 @@ pub fn spline(s: f64, x: &[f64], co: &SplineCoefficients) -> f64 {
     }
     let q = s - x[m];
     co.a[m] + q * (co.b[m] + q * (co.c[m] + q * co.d[m]))
+}
+
+/// `gauss_legendre` (`egs_utilities.mortran:2024-2059`): abscissas and weights
+/// of the `n`-point Gauss-Legendre rule on `[x1, x2]`, 0-based. Converged to
+/// `3e-14` and started from `cos(pi (i - 1/4) / (n + 1/2))` as upstream does.
+/// (`outram_mc_libs::physics::collision_probability::gauss_legendre` is a
+/// different implementation, on `[-1, 1]` and converged to `1e-15`, so it
+/// does not reproduce these nodes bit for bit.)
+pub fn gauss_legendre(x1: f64, x2: f64, n: usize) -> (Vec<f64>, Vec<f64>) {
+    const EPS: f64 = 3.0e-14;
+    const PI: f64 = 3.141592654;
+    let mut x = alloc::vec![0.0_f64; n];
+    let mut w = alloc::vec![0.0_f64; n];
+    let m = n.div_ceil(2);
+    let xm = 0.5 * (x2 + x1);
+    let xl = 0.5 * (x2 - x1);
+    for i in 1..=m {
+        let mut z = RealMath::r_cos(PI * (i as f64 - 0.25) / (n as f64 + 0.5));
+        let mut pp;
+        loop {
+            let (mut p1, mut p2) = (1.0_f64, 0.0_f64);
+            for j in 1..=n {
+                let p3 = p2;
+                p2 = p1;
+                p1 = ((2.0 * j as f64 - 1.0) * z * p2 - (j as f64 - 1.0) * p3) / j as f64;
+            }
+            pp = n as f64 * (z * p1 - p2) / (z * z - 1.0);
+            let z1 = z;
+            z = z1 - p1 / pp;
+            if (z - z1).abs() < EPS {
+                break;
+            }
+        }
+        x[i - 1] = xm - xl * z;
+        x[n - i] = xm + xl * z;
+        w[i - 1] = 2.0 * xl / ((1.0 - z * z) * pp * pp);
+        w[n - i] = w[i - 1];
+    }
+    (x, w)
 }
 
 /// `prepare_alias_table` (`egs_utilities.mortran:1846-1895`): the alias table
