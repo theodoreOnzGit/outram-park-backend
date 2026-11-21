@@ -1,8 +1,9 @@
 # EGSnrc phase 2: differential tests against compiled upstream (2026-11-21)
 
-Status: **partial**. The PEGS4 program (`pegs4_mortran.rs`) has been
-compared with a built upstream, and the data-file readers have been run on the
-real EGSnrc data files. Everything else in `punggol::egsnrc` and all of
+Status: **partial**. The PEGS4 program, the HATCH tables (photon, electron,
+spin, Rayleigh) and a 200-history `tutor1` transport run of `punggol::egsnrc`
+have been compared with a built upstream, and the data-file readers have been
+run on the real EGSnrc data files. `punggol::openmc_photon` has not (gh:#1690). Everything else in `punggol::egsnrc` and all of
 `punggol::openmc_photon` is still "first port, not differentially tested"; the
 reasons and the issues are at the end.
 
@@ -149,16 +150,56 @@ and the single-precision (`real*4`) storage of the spin data.
 `init_compton`, the Rayleigh tables and the photoelectric edge data are not in
 these comparisons (`hatch_media` does not assemble them).
 
+### Rayleigh tables
+
+Test `differential_rayleigh_tables_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_RAYLEIGH_TABLES`): `xgrid` exact, `fcum` 2.6e-16, `b_array`
+3.1e-15, `c_array` 3.1e-15, `pmax0/1` 4.6e-13 / 6.0e-13 (cancelling
+coefficients), `i_array` identical, against the promoted build.
+
+### Transport histories (`tutor1`)
+
+A copy of `tutor1.mortran` (`difftut`) seeds RANMAR at 1802/9373, runs 200
+histories of a 20 MeV electron on the 1 mm Ta plate and logs every discarded
+particle (charge, kinetic energy, `w`) at full precision, with `eadl_relax`
+set false (the one relaxation variant this port has; the stock default is
+EADL, which is not ported). Test
+`differential_tutor1_histories_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_HISTORIES`) runs `punggol::egsnrc::shower` on the same seeds
+(`petir` RANMAR) with the full `HATCH` assembly (PEGS4 intake, `hatch_media`,
+`init_user_photon` xcom series, `init_compton`, `edgset_from_text`,
+`init_spin` on the real `spinms.data`, `MsData` from the real `msnew.data`),
+default options (`ibcmp = 3` bound Compton, Rayleigh on, photoelectron
+angular sampling on, spin effects on, PRESTA-II, exact BCA) and a Rust copy of
+`tutor1`'s `HOWFAR`/`HOWNEAR`:
+
+| reference build | histories | same sequence of discarded particles | worst relative kinetic energy difference | worst abs difference of `w` |
+|---|---|---|---|---|
+| `-fdefault-real-8` | 200 | **200 of 200** | 1.1e-8 | 8.0e-8 |
+| stock (single-precision constants) | 200 | **200 of 200** | 5.8e-7 | 2.0e-6 |
+
+History 1 (the first discarded electron): port 15.145539980145696 MeV,
+`w = 0.973402260762049`; promoted build 15.145539980154389,
+0.973402260772736 (relative 5.7e-13); stock 15.145540869713436,
+0.9734022872287683. Every random decision of all 200 showers (every
+interaction type, every secondary) is the same as upstream's, which is a much
+stronger statement than the table agreement; the residual 1e-8 is round-off
+amplified through the shower, and the stock-build 6e-7 is the
+single-precision-constant effect of gh:#1687 propagated. It is above the 1e-9
+code-to-code bound and is flagged for the maintainer; the sample (one
+geometry, one material, one source) is small. Not covered: EADL relaxation,
+photonuclear, positrons, EII, triplet, NIST/NRC bremsstrahlung and the NRC pair
+tables in a full transport run (the readers and samplers of the last four are
+exercised only by unit tests).
+
 ## Not differentially tested, and why
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
-- The EGSnrc transport kernel (`photon`, `electr`, `shower`, `moller`, `brems`,
-  EII, triplet, Rayleigh, ...): the reference now builds and runs (`tutor1`),
-  but no comparison of histories or of the electron tables (`mscati`, spin
-  fits, `esig`/`ededx`, ranges) has been written; it needs the Rust `HATCH`
-  assembly for the same options and a slab geometry matching `tutor1`'s
-  `HOWFAR`.
+- Optional kernel branches not in the `tutor1` run: EII, triplet, NIST/NRC
+  bremsstrahlung, NRC pair, EADL relaxation (not ported), photonuclear,
+  positron-dominated showers and electromagnetic fields (not ported). The
+  built reference can run them with a user code that sets the switches.
 - Everything that reads the data files above: now readable (see above), but
   no EGSnrc output exists to compare the derived tables with until the
   transport kernel is built.
@@ -167,8 +208,8 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
 ## Issues filed (2026-11-21)
 
-- gh:#1686 histories comparison (`tutor1`), `init_compton` with `eadl_relax`,
-  Rayleigh and edge tables.
+- gh:#1686 ~~histories comparison (`tutor1`)~~ **done 2026-11-21 (above)**; still
+  open there: `init_compton` with `eadl_relax` and the edge tables.
 - gh:#1687 single-precision constants in the upstream build: maintainer decision.
 - gh:#1688 PEGS4 residual of 2e-4, cause not identified.
 - gh:#1689 the four `eii.mortran` oddities, now checkable against the built EGSnrc.

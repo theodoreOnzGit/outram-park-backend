@@ -10982,4 +10982,276 @@ mod tests {
         }
     }
 
+    /// Phase 2: the Rayleigh sampling tables (`init_rayleigh_sampling` ->
+    /// `prepare_rayleigh_data`) against `XGRID`, `FCUM`, `B_ARRAY`, `C_ARRAY`,
+    /// `I_ARRAY`, `PMAX0/1` of a built EGSnrc `HATCH` (Ta;
+    /// `EGSNRC_REFERENCE_RAYLEIGH_TABLES` = `tables_rayleigh.txt` of the
+    /// `difftab` run; `EGSNRC_HEN_HOUSE_DATA` for `pgs4form.dat`). Reports the
+    /// worst relative differences; the integer `I_ARRAY` must be equal.
+    #[test]
+    fn differential_rayleigh_tables_against_compiled_egsnrc() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_RAYLEIGH_TABLES") else {
+            eprintln!("EGSNRC_REFERENCE_RAYLEIGH_TABLES not set: differential test skipped");
+            return;
+        };
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();
+        // Ta as in tutor_data: 2000 photon grid points over AP = 0.01 .. UP = 50 MeV
+        let ge1 = 1999.0 / (50.0_f64 / 0.01).ln();
+        let ge0 = 1.0 - ge1 * 0.01_f64.ln();
+        let d = init_rayleigh_sampling(&[(73.0, 1.0)], &ff, ge0, ge1, 2000, RM);
+        let refs = std::fs::read_to_string(reference).unwrap();
+        let (mut wx, mut wf, mut wb, mut wc, mut wp0, mut wp1) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+        let mut bad_i = 0;
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-12);
+        for (n, l) in refs.lines().enumerate() {
+            let v: Vec<f64> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
+            let i = v[0] as usize;
+            if n < 100 {
+                wx = wx.max(rel(d.xgrid[i], v[1]));
+                wf = wf.max(rel(d.fcum[i], v[2]));
+                wb = wb.max(rel(d.b_array[i], v[3]));
+                wc = wc.max(rel(d.c_array[i], v[4]));
+                if d.i_array[i] != v[5] as i32 {
+                    bad_i += 1;
+                }
+            } else {
+                wp0 = wp0.max(rel(d.pmax.a0[i], v[1]));
+                wp1 = wp1.max(rel(d.pmax.a1[i], v[2]));
+            }
+        }
+        eprintln!("xgrid {wx:e} fcum {wf:e} b {wb:e} c {wc:e} pmax0 {wp0:e} pmax1 {wp1:e}; i_array mismatches {bad_i}");
+        assert_eq!(bad_i, 0);
+    }
+
+    /// The `tutor1` geometry (`HOWFAR`, `HOWNEAR` of `tutor1.mortran`): vacuum,
+    /// a 1 mm plate (region 2), vacuum; every discarded particle is logged as
+    /// `(iq, kinetic energy, w)`, which is what its `AUSGAB(3)` prints.
+    #[derive(Clone)]
+    struct Tutor1Geo {
+        zbound: f64,
+        prm: f64,
+        log: std::sync::Arc<std::sync::RwLock<Vec<(i32, f64, f64)>>>,
+    }
+
+    impl Geometry for Tutor1Geo {
+        fn howfar(&mut self, stack: &Stack, st: &mut HowfarState) {
+            let np = stack.np;
+            let (z, w) = (stack.z[np], stack.w[np]);
+            let mut discard = |this: &Tutor1Geo, st: &mut HowfarState| {
+                st.idisc = 1;
+                let ek = if stack.iq[np] == 0 { stack.e[np] } else { stack.e[np] - this.prm };
+                this.log.write().unwrap().push((stack.iq[np], ek, w));
+            };
+            match stack.ir[np] {
+                3 => discard(self, st),
+                2 => {
+                    if w > 0.0 {
+                        let tval = (self.zbound - z) / w;
+                        if tval <= st.ustep {
+                            st.ustep = tval;
+                            st.irnew = 3;
+                        }
+                    } else if w < 0.0 {
+                        let tval = -z / w;
+                        if tval <= st.ustep {
+                            st.ustep = tval;
+                            st.irnew = 1;
+                        }
+                    }
+                }
+                1 => {
+                    if w > 0.0 {
+                        st.ustep = 0.0;
+                        st.irnew = 2;
+                    } else {
+                        discard(self, st);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    impl ElectronGeometry for Tutor1Geo {
+        fn hownear(&mut self, stack: &Stack) -> f64 {
+            let np = stack.np;
+            if stack.ir[np] == 2 { stack.z[np].min(self.zbound - stack.z[np]) } else { 0.0 }
+        }
+    }
+
+    struct Tutor1Driver {
+        tables: ElectrTables,
+        cfg: ElectrConfig,
+        geo: Tutor1Geo,
+        counters: ElectrCounters,
+    }
+
+    impl ElectronTransport for Tutor1Driver {
+        fn electr<R: UniformSource>(&mut self, stack: &mut Stack, rng: &mut R) -> Result<i32, EgsError> {
+            Ok(electr(stack, &self.tables, &self.cfg, &mut self.geo, &mut self.counters, rng)?.ircode)
+        }
+    }
+
+    /// Phase 2, the transport kernel: 200 histories of `tutor1` (20 MeV
+    /// electrons, 1 mm Ta plate, `tutor_data.pegs4dat`, EGSnrc defaults except
+    /// `eadl_relax = false`, the one variant this port has) against the
+    /// discards a REAL EGSnrc logs (`histories.txt` of the `difftut` user code:
+    /// RANMAR seeded 1802/9373, full precision, `-fdefault-real-8` build).
+    /// `EGSNRC_REFERENCE_HISTORIES` is that file; the data files come from
+    /// `EGSNRC_HEN_HOUSE_DATA`, the data set from `EGSNRC_PEGS4_FILE`. Prints
+    /// how many histories agree in structure and the worst relative energy
+    /// and direction differences over those; asserts nothing numerical.
+    #[test]
+    fn differential_tutor1_histories_against_compiled_egsnrc() {
+        use petir::rng::ranmar::Ranmar;
+        use std::sync::{Arc, RwLock};
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES") else {
+            eprintln!("EGSNRC_REFERENCE_HISTORIES not set: differential test skipped");
+            return;
+        };
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let path = std::env::var("EGSNRC_PEGS4_FILE").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4/data/tutor_data.pegs4dat"));
+        let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
+        // media and the HATCH assembly
+        let mut pm = parse_pegs4_media(&std::fs::read_to_string(path).unwrap(), &["TA"]).unwrap();
+        pm[0].apply_dunit(1.0);
+        let r = hatch_media(&pm, &HatchConfig { ecutmn: 1.5, ..Default::default() });
+        let comp: Vec<(f64, f64)> = pm[0].elements.iter().map(|x| (x.zelem, x.pz)).collect();
+        // photon tables from the xcom series
+        let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();
+        let inp = UserPhotonInput {
+            photo: text("xcom_photo.data"),
+            pair: text("xcom_pair.data"),
+            triplet: text("xcom_triplet.data"),
+            rayleigh: text("xcom_rayleigh.data"),
+            photonuc: None,
+            compton: BoundComptonData::Ratio(text("compton_sigma.data")),
+            mxge: 2000,
+            eadl_relax: false,
+            rm: RM,
+            form_factors: Some(ff),
+        };
+        let um = vec![
+            UserPhotonMedium::default(),
+            UserPhotonMedium {
+                comp: pm[0].elements.iter().map(|x| (x.zelem, x.pz, x.wa)).collect(),
+                rho: pm[0].rho,
+                ap: pm[0].ap,
+                up: pm[0].up,
+                rayleigh: true,
+            },
+        ];
+        let ut = init_user_photon(&inp, &um).unwrap();
+        let u = &ut.media[1];
+        let mut photon_med = r.media[0].photon.clone();
+        photon_med.ge0 = u.ge0;
+        photon_med.ge1 = u.ge1;
+        photon_med.gmfp0 = u.gmfp.a0.clone();
+        photon_med.gmfp1 = u.gmfp.a1.clone();
+        photon_med.gbr10 = u.gbr1.a0.clone();
+        photon_med.gbr11 = u.gbr1.a1.clone();
+        photon_med.gbr20 = u.gbr2.a0.clone();
+        photon_med.gbr21 = u.gbr2.a1.clone();
+        photon_med.cohe = u.cohe.clone();
+        photon_med.rayleigh = u.rayleigh.clone();
+        let (relax_d, photo_d) = edgset_from_text(&text("photo_relax.data"), &text("photo_cs.data")).unwrap();
+        let compton = init_compton(&text("incoh.data"), &[comp.clone()], RM).unwrap();
+        let rho = pm[0].rho;
+        let photo_med = PhotoMedium { zelem: core::iter::once(0.0).chain(comp.iter().map(|c| c.0)).collect(), pz: core::iter::once(0.0).chain(comp.iter().map(|c| c.1)).collect() };
+        photon_med.photo = photo_med;
+        let reg = |med: usize, rhor: f64| PhotonRegionData { med, rhor, pcut: 0.1, ecut: 1.5, ibcmp: 3, iedgfl: 1, iphter: 1, irayl: 1, iphotonucr: 0 };
+        let ptables = PhotonTables {
+            regions: vec![PhotonRegionData::default(), reg(0, 0.0), reg(1, rho), reg(0, 0.0)],
+            media: vec![PhotonMediumData::default(), photon_med],
+            compton,
+            relax: relax_d.clone(),
+            photo: photo_d,
+        };
+        // electron tables with the spin fits
+        let mut emed = r.media[0].electron.clone();
+        let sfile = SpinFile::from_bytes(&std::fs::read(format!("{dir}/spinms.data")).unwrap()).unwrap();
+        let sin = SpinMediumInput {
+            elements: pm[0].elements.iter().map(|x| (x.zelem, x.pz, x.wa)).collect(),
+            eke0: emed.eke0,
+            eke1: emed.eke1,
+            neke: emed.esig.a0.len() - 1,
+            blcc: emed.ms.blcc,
+            xcc: emed.ms.xcc,
+            te: emed.te,
+            ue: pm[0].ue,
+            esig: emed.esig.clone(),
+            ededx: emed.ededx.clone(),
+        };
+        let (sdata, fits) = init_spin(&sfile, &[sin], RM).unwrap();
+        let f = fits[0].clone();
+        emed.ms.etae_ms = f.etae_ms;
+        emed.ms.etap_ms = f.etap_ms;
+        emed.ms.q1ce_ms = f.q1ce_ms;
+        emed.ms.q1cp_ms = f.q1cp_ms;
+        emed.ms.q2ce_ms = f.q2ce_ms;
+        emed.ms.q2cp_ms = f.q2cp_ms;
+        emed.ms.blcce = f.blcce;
+        let ereg = |med: usize, rhor: f64| ElectrRegion { med, rhor, ecut: 1.5, smaxir: 1.0e10, pcut: 0.1 };
+        let etables = ElectrTables {
+            regions: vec![ElectrRegion::default(), ereg(0, 0.0), ereg(1, rho), ereg(0, 0.0)],
+            media: vec![ElectronMediumData::default(), emed],
+            ms: Some(MsData::from_text(&text("msnew.data")).unwrap()),
+            spin: sdata,
+            eii: None,
+        };
+        let log = Arc::new(RwLock::new(Vec::new()));
+        let geo = Tutor1Geo { zbound: 0.1, prm: RM, log: log.clone() };
+        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig::default() };
+        let pcfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 1.0e8 };
+        let mut drv = Tutor1Driver { tables: etables, cfg: ecfg, geo: geo.clone(), counters: ElectrCounters::default() };
+        let mut pgeo = geo;
+        let mut rng = Ranmar::new(1802, 9373);
+        let mut mine: Vec<Vec<(i32, f64, f64)>> = Vec::new();
+        for _ in 0..200 {
+            log.write().unwrap().clear();
+            let mut st = Stack::new(15);
+            let start = ShowerStart { iqi: -1, ei: 20.5109989461, xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 2, wti: 1.0 };
+            match shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng) {
+                Ok(_) => mine.push(log.read().unwrap().clone()),
+                Err(e) => {
+                    eprintln!("history {} stopped with {e:?}", mine.len() + 1);
+                    mine.push(Vec::new());
+                    break;
+                }
+            }
+        }
+        // the reference
+        let mut theirs: Vec<Vec<(i32, f64, f64)>> = Vec::new();
+        for l in std::fs::read_to_string(reference).unwrap().lines() {
+            if l.starts_with('H') {
+                theirs.push(Vec::new());
+            } else {
+                let v: Vec<&str> = l.split_whitespace().collect();
+                theirs.last_mut().unwrap().push((v[0].parse().unwrap(), v[1].parse().unwrap(), v[2].parse().unwrap()));
+            }
+        }
+        let (mut same_shape, mut first_diff, mut worst_e, mut worst_w) = (0usize, None, 0.0_f64, 0.0_f64);
+        for (i, (a, b)) in mine.iter().zip(&theirs).enumerate() {
+            let shape = a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.0 == y.0);
+            if shape {
+                same_shape += 1;
+                for (x, y) in a.iter().zip(b) {
+                    worst_e = worst_e.max((x.1 - y.1).abs() / y.1.abs().max(1e-12));
+                    worst_w = worst_w.max((x.2 - y.2).abs());
+                }
+            } else if first_diff.is_none() {
+                first_diff = Some(i + 1);
+            }
+        }
+        eprintln!(
+            "tutor1: {} port histories, {} reference; same charge sequence {same_shape}; first history with a different sequence {first_diff:?}; over those: worst relative kinetic energy difference {worst_e:e}, worst |dw| {worst_w:e}",
+            mine.len(),
+            theirs.len()
+        );
+        if let (Some(a), Some(b)) = (mine.first(), theirs.first()) {
+            eprintln!("history 1 port {a:?}\nhistory 1 ref  {b:?}");
+        }
+    }
+
 }
