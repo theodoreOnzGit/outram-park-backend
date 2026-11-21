@@ -735,6 +735,12 @@ pub struct RelaxData {
     pub binding_energies: Vec<Vec<f64>>,
     /// `relaxation_prob(transition, iZ)`.
     pub relaxation_prob: Vec<Vec<f64>>,
+    /// The EADL relaxation tables of `egs_init_relax` (`eadl_relax = true`,
+    /// the stock EGSnrc default). `None` keeps the built-in scheme above,
+    /// bit for bit. With `Some`, [`relax`] dispatches to [`eadl_relax`] first
+    /// thing, as `RELAX` does (`egsnrc.mortran:5644`), and [`photo`] does not
+    /// let a vacancy start below L3 (`egsnrc.mortran:5156`).
+    pub eadl: Option<EadlData>,
 }
 
 /// What `RELAX` leaves for the caller.
@@ -755,8 +761,10 @@ const FIRST_TRANSITION: [usize; 5] = [1, 20, 27, 33, 38];
 /// `last_transition(1..5)` (`egsnrc.mortran:5597`).
 const LAST_TRANSITION: [usize; 5] = [19, 26, 32, 37, 39];
 
-/// `RELAX` (`egsnrc.mortran:5556-5790`), the built-in scheme (not the EADL
-/// tables, `eadl_relax`, whose `egs_eadl_relax` is not ported): fill a vacancy
+/// `RELAX` (`egsnrc.mortran:5556-5790`), the built-in scheme, or the EADL
+/// scheme ([`eadl_relax`]) when `data.eadl` is `Some` (upstream's
+/// `eadl_relax` switch; `energy` is then not used, the binding energies are
+/// EADL's): fill a vacancy
 /// of energy `energy` (MeV) in shell `n` of element `iz` by fluorescence,
 /// Coster-Kronig and Auger transitions. Charged and photon products above the
 /// cut-offs go on the stack (copying properties of slot `np - 1`, as upstream),
@@ -780,6 +788,10 @@ pub fn relax<R: UniformSource>(
     prm: f64,
     rng: &mut R,
 ) -> Result<RelaxOutcome, EgsError> {
+    if let Some(eadl) = &data.eadl {
+        // `IF (eadl_relax) [ call egs_eadl_relax(iZ,n); return; ]`, egsnrc.mortran:5644
+        return eadl_relax(stack, eadl, iz, n, ecut, pcut, rng);
+    }
     let mut out = RelaxOutcome::default();
     if n < 1 || n as usize > MXSHELL {
         return Ok(out); // unknown vacancy
@@ -914,6 +926,397 @@ fn relax_push_isotropic<R: UniformSource>(
         stack.w[np] = 1.0;
     }
     Ok(())
+}
+
+/// `$MXESHLL` (`egsnrc.macros:677`): maximum shells of one element.
+pub const MXESHLL: usize = 30;
+/// `$MAXSHELL` (`egsnrc.macros:678`): maximum shells over all media elements.
+pub const MAXSHELL_EADL: usize = 3000;
+/// `$MAXRELAX` (`egsnrc.macros:679`): maximum relaxation channels.
+pub const MAXRELAX_EADL: usize = 10000;
+/// `$MAXTRANS` (`egsnrc.macros:681`): maximum transitions per shell.
+pub const MAXTRANS_EADL: usize = 300;
+
+/// One shell of one element as stored in `relax.data`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EadlShellRecord {
+    /// EADL shell type (`shell_type`).
+    pub shell_type: i32,
+    /// Binding energy, MeV (`real*4` in the file).
+    pub binding_energy: f32,
+    /// `(final state, probability)` per transition, exactly as stored (C-style
+    /// 0-based states; `egs_init_relax` adds 1 or 65).
+    pub transitions: Vec<(i32, f32)>,
+}
+
+/// `$HEN_HOUSE/data/relax.data` (`egs_init_relax`, `egsnrc.mortran:5793-6008`):
+/// a Fortran direct-access file of **4-byte records**
+/// (`recl = $RECL-FACTOR`, with the 4-byte-integer re-creation the upstream
+/// header describes; the 1-byte `relax_onebyte.data` is the C++ code's file
+/// and is not read by the Fortran). Record 1 holds the number of elements
+/// (100 in the shipped file), record `iZ + 1` the record number where the
+/// data of element `iZ` start, and there: the number of shells, then per
+/// shell `shell_type`, `ntran`, binding energy (`real*4`), then `ntran` pairs
+/// of final state and probability (`real*4`). Upstream does no byte swapping,
+/// so the byte order is the machine's; the decoder takes little-endian and
+/// falls back to big-endian when record 1 is not a plausible element count.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EadlFile {
+    words: Vec<u32>,
+}
+
+impl EadlFile {
+    /// Decode the bytes of `relax.data`.
+    ///
+    /// # Errors
+    ///
+    /// A message when the length is not a multiple of 4 or record 1 is not an
+    /// element count in either byte order.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() < 4 || bytes.len() % 4 != 0 {
+            return Err(alloc::format!("relax.data: {} bytes is not a multiple of 4", bytes.len()));
+        }
+        let le = |c: &[u8]| u32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+        let be = |c: &[u8]| u32::from_be_bytes([c[0], c[1], c[2], c[3]]);
+        let plausible = |n: u32| (1..=1000).contains(&n);
+        let swap = if plausible(le(&bytes[0..4])) {
+            false
+        } else if plausible(be(&bytes[0..4])) {
+            true
+        } else {
+            return Err(String::from("relax.data: record 1 is not an element count in either byte order"));
+        };
+        let words = bytes.chunks_exact(4).map(|c| if swap { be(c) } else { le(c) }).collect();
+        Ok(Self { words })
+    }
+
+    fn int(&self, rec: usize) -> Result<i32, String> {
+        self.words.get(rec.wrapping_sub(1)).map(|w| *w as i32).ok_or_else(|| alloc::format!("relax.data: record {rec} is outside the file"))
+    }
+
+    fn real(&self, rec: usize) -> Result<f32, String> {
+        self.words.get(rec.wrapping_sub(1)).map(|w| f32::from_bits(*w)).ok_or_else(|| alloc::format!("relax.data: record {rec} is outside the file"))
+    }
+
+    /// The number of elements in the file (record 1).
+    ///
+    /// # Errors
+    ///
+    /// A message when the file is empty.
+    pub fn nz(&self) -> Result<usize, String> {
+        Ok(self.int(1)? as usize)
+    }
+
+    /// The shells of element `iz` (`egsnrc.mortran:5918-5950`).
+    ///
+    /// # Errors
+    ///
+    /// A message when `iz` is not in the file or a record is out of range.
+    pub fn element(&self, iz: usize) -> Result<Vec<EadlShellRecord>, String> {
+        if iz < 1 || iz > self.nz()? {
+            return Err(alloc::format!("relax.data has no element {iz}"));
+        }
+        let mut rec = self.int(iz + 1)? as usize;
+        let nshell = self.int(rec)?;
+        if !(0..=1000).contains(&nshell) {
+            return Err(alloc::format!("relax.data: element {iz} claims {nshell} shells"));
+        }
+        let mut out = Vec::new();
+        for _ in 0..nshell {
+            let shell_type = self.int(rec + 1)?;
+            let ntran = self.int(rec + 2)?;
+            let binding_energy = self.real(rec + 3)?;
+            if !(0..=100_000).contains(&ntran) {
+                return Err(alloc::format!("relax.data: element {iz} claims {ntran} transitions"));
+            }
+            rec += 3;
+            let mut transitions = Vec::with_capacity(ntran as usize);
+            for _ in 0..ntran {
+                transitions.push((self.int(rec + 1)?, self.real(rec + 2)?));
+                rec += 2;
+            }
+            out.push(EadlShellRecord { shell_type, binding_energy, transitions });
+        }
+        Ok(out)
+    }
+}
+
+/// The EADL relaxation tables `egs_init_relax` fills (`COMMON/RELAX-INIT/`,
+/// `egsnrc.macros:703-725`). Shells of all media elements are one list,
+/// **1-based** (index 0 unused), in upstream's load order (media in order,
+/// elements ascending in `Z`, a `Z` loaded once). The per-shell transition
+/// tables are stored as one vector per shell (1-based) in place of upstream's
+/// flat `relax_first`/`relax_prob`/`relax_atbin`/`relax_state`, so that
+/// [`sample_alias_histogram`](super::egs_utilities_mortran::sample_alias_histogram)
+/// is used as it is.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EadlData {
+    /// `shell_be(ish)`, MeV.
+    pub shell_be: Vec<f64>,
+    /// `shell_type(ish)`.
+    pub shell_type: Vec<i32>,
+    /// `shell_num(ish)`: position within the element.
+    pub shell_num: Vec<i32>,
+    /// `shell_Z(ish)`.
+    pub shell_z: Vec<i32>,
+    /// `shell_eadl(iZ, k)`, `[iz][k]`: global index of shell `k` of element
+    /// `iZ`, `-1` where unset.
+    pub shell_eadl: Vec<Vec<i32>>,
+    /// `relax_ntran(ish)`: `-1` below the relaxation cut-off.
+    pub relax_ntran: Vec<i32>,
+    /// `relax_state(.)` of each shell, 1-based; `-1` is the "no transition"
+    /// remainder bin when the EADL probabilities sum to less than 1.
+    pub relax_state: Vec<Vec<i32>>,
+    /// `relax_prob(.)` of each shell after `prepare_alias_histogram`
+    /// (alias weights), 1-based.
+    pub relax_prob: Vec<Vec<f64>>,
+    /// `relax_atbin(.)` of each shell (alias indices), 1-based.
+    pub relax_atbin: Vec<Vec<i32>>,
+}
+
+/// `egs_init_relax` (`egsnrc.mortran:5793-6008`): load the EADL data of every
+/// element of the media from `file` (`relax.data`).
+///
+/// `media_z[m]` lists the `ZELEM` of medium `m` (only the elements are used;
+/// upstream loads each distinct `Z` once, medium by medium, elements in
+/// ascending `Z`). `binding_energies[iz][k]` is `COMMON/EDGE/`'s array, in
+/// MeV: a positive value replaces the file's binding energy of that shell,
+/// and, for the `epdl` series (`photon_xsections = 'epdl'`), a zero one is
+/// filled in from the file (`egsnrc.mortran:5934-5941`). (For `xcom`,
+/// [`init_compton_eadl`] does that filling, and must run first.)
+/// `RELAX-CUTOFF` is 1 keV.
+///
+/// Reading only the real `relax.data` of the pinned commit has been done
+/// (see the V&V notes in `docs/egsnrc_phase2_differential.md`).
+///
+/// # Errors
+///
+/// A message for a malformed file, more than [`MAXSHELL_EADL`] shells,
+/// [`MAXRELAX_EADL`] channels, [`MAXTRANS_EADL`] transitions in a shell,
+/// a shell number above [`MXESHLL`], or a `binding_energies` too small.
+pub fn init_relax_eadl(file: &EadlFile, media_z: &[Vec<f64>], binding_energies: &mut [Vec<f64>], epdl: bool) -> Result<EadlData, String> {
+    let min_be = RELAX_CUTOFF;
+    let mut d = EadlData {
+        shell_be: alloc::vec![0.0],
+        shell_type: alloc::vec![0],
+        shell_num: alloc::vec![0],
+        shell_z: alloc::vec![0],
+        shell_eadl: alloc::vec![alloc::vec![-1; MXESHLL + 1]; 101],
+        relax_ntran: alloc::vec![0],
+        relax_state: alloc::vec![Vec::new()],
+        relax_prob: alloc::vec![Vec::new()],
+        relax_atbin: alloc::vec![Vec::new()],
+    };
+    let mut relax_ntot = 0usize;
+    for zs in media_z {
+        let mut sorted: Vec<i64> = zs.iter().map(|z| *z as i64).collect();
+        sorted.sort();
+        for iz in sorted {
+            if d.shell_z.iter().skip(1).any(|z| *z as i64 == iz) {
+                continue; // already loaded for this atomic number
+            }
+            if iz < 1 || iz > 100 {
+                return Err(alloc::format!("init_relax_eadl: atomic number {iz} is not between 1 and 100"));
+            }
+            let izu = iz as usize;
+            let shells = file.element(izu)?;
+            let shell_ntot = d.shell_be.len() - 1;
+            if shell_ntot + shells.len() > MAXSHELL_EADL {
+                return Err(alloc::format!("Too many shells to fit in the list: {} (at least)", shell_ntot + shells.len()));
+            }
+            for (i, sh) in shells.iter().enumerate() {
+                let num = i + 1;
+                let ish = shell_ntot + num;
+                if num > MXESHLL {
+                    return Err(alloc::format!("Z = {iz} has more than {MXESHLL} shells"));
+                }
+                let mut shell_be = sh.binding_energy as f64;
+                let slot = binding_energies.get_mut(izu).and_then(|r| r.get_mut(num)).ok_or_else(|| String::from("binding_energies is too small for the EADL shells"))?;
+                if *slot > 0.0 {
+                    shell_be = *slot;
+                } else if epdl {
+                    *slot = shell_be;
+                }
+                d.shell_be.push(shell_be);
+                d.shell_type.push(sh.shell_type);
+                d.shell_num.push(num as i32);
+                d.shell_z.push(iz as i32);
+                d.shell_eadl[izu][num] = ish as i32;
+                let mut itmp: Vec<i32> = alloc::vec![0];
+                let mut wtmp: Vec<f64> = alloc::vec![0.0];
+                for &(state, prob) in &sh.transitions {
+                    // C-style indexing: +1 for radiative, +65 for non-radiative states
+                    itmp.push(if state < 64 { state + 1 } else { state + 65 });
+                    wtmp.push(prob as f64);
+                }
+                let mut ntran = sh.transitions.len();
+                if ntran > MAXTRANS_EADL {
+                    return Err(alloc::format!("Z = {iz} shell {num} has {ntran} transitions, more than {MAXTRANS_EADL}"));
+                }
+                if shell_be < min_be {
+                    d.relax_ntran.push(-1);
+                    d.relax_state.push(Vec::new());
+                    d.relax_prob.push(Vec::new());
+                    d.relax_atbin.push(Vec::new());
+                } else {
+                    let mut sumw = 0.0;
+                    for k in 1..=ntran {
+                        sumw += wtmp[k];
+                    }
+                    if sumw > 1.0 {
+                        for k in 1..=ntran {
+                            wtmp[k] /= sumw;
+                        }
+                    } else if sumw < 1.0 {
+                        ntran += 1;
+                        itmp.push(-1);
+                        wtmp.push(1.0 - sumw);
+                    }
+                    if relax_ntot + ntran > MAXRELAX_EADL {
+                        return Err(alloc::format!("Too many relaxation transitions: {} (at least)", relax_ntot + ntran));
+                    }
+                    let atbin = super::egs_utilities_mortran::prepare_alias_histogram(&mut wtmp);
+                    d.relax_ntran.push(ntran as i32);
+                    d.relax_state.push(itmp);
+                    d.relax_prob.push(wtmp);
+                    d.relax_atbin.push(atbin);
+                    relax_ntot += ntran;
+                }
+            }
+        }
+    }
+    Ok(d)
+}
+
+/// `egs_eadl_relax(iZ, shell_egs)` (`egsnrc.mortran:6019-6208`): fill a
+/// vacancy in shell `shell_egs` (position within the element) of element `iz`
+/// with EADL fluorescence, Coster-Kronig and Auger transitions. Products above
+/// the cut-offs go on the stack (properties copied from the slot that was on
+/// top at entry, `np_save`; direction uniform in `cos` with the box-method
+/// azimuth), the rest accumulates in the returned `edep`. `ecut` is the
+/// region's `ECUT` (total energy), `pcut` its `PCUT`. The `RELAX-USER`/`rfu_*`
+/// outputs and the `AUSGAB` calls are omitted.
+///
+/// Differences from [`relax`]'s built-in scheme that matter: the vacancy
+/// energy is the table's binding energy (not an argument); a vacancy cascades
+/// down all EADL shells, but a vacancy in a shell above number 4 (below L3) is
+/// deposited locally without cascade (`:6107`, the MCDF option is off);
+/// the below-cut-off test is `Evac < 1 keV`, strict.
+///
+/// **Upstream oddities, reproduced:**
+/// - `new_state = sample_alias_histogram(..)` is followed by
+///   `IF( new_state < 0 )` (`:6145`), but the sampler returns a bin number
+///   `>= 1`, so that branch (meant for the remainder bin) never runs. The
+///   remainder bin has `relax_state = -1`, which then passes
+///   `new_state <= 64` as a *radiative* transition to the shell at global
+///   index `vac - shell_num(vac) - 1` (the last shell of the previously loaded
+///   element, or index 0 for the first one, where Fortran reads whatever
+///   precedes the array; here `0.0` and a vacancy that ends the cascade).
+/// - `edep = Evac` (`:6108`; the cascade's own deposits at `:6125` are `+=`): an assignment, which equals
+///   the addition only when the caller zeroed `edep` first (`COMPT` does).
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`] when the stack fills.
+pub fn eadl_relax<R: UniformSource>(
+    stack: &mut Stack,
+    d: &EadlData,
+    iz: usize,
+    shell_egs: i32,
+    ecut: f64,
+    pcut: f64,
+    rng: &mut R,
+) -> Result<RelaxOutcome, EgsError> {
+    let mut out = RelaxOutcome::default();
+    let shell = if shell_egs < 0 { -1 } else { d.shell_eadl.get(iz).and_then(|r| r.get(shell_egs as usize)).copied().unwrap_or(-1) };
+    if shell < 1 || shell as usize > MAXSHELL_EADL || shell as usize >= d.shell_be.len() {
+        return Ok(out); // unknown vacancy
+    }
+    let ec = ecut - RM;
+    let pc = pcut;
+    let min_e = RELAX_CUTOFF;
+    let be_of = |idx: i64| -> f64 { if idx >= 1 { d.shell_be.get(idx as usize).copied().unwrap_or(0.0) } else { 0.0 } };
+    let shell = shell as usize;
+    let mut evac = d.shell_be[shell];
+    // vacancies below L3 deposit locally (mcdf_pe_xsections is off)
+    if shell_egs > 4 {
+        out.edep = evac;
+        return Ok(out);
+    }
+    let mut vac = shell as i64;
+    let mut vacs: Vec<i64> = Vec::new();
+    let np_save = stack.np;
+    loop {
+        'vacancy: {
+            let ntran = if vac >= 1 { d.relax_ntran.get(vac as usize).copied().unwrap_or(-1) } else { -1 };
+            if evac < min_e || ntran < 1 {
+                out.edep += evac;
+                break 'vacancy;
+            }
+            let v = vac as usize;
+            let bin = super::egs_utilities_mortran::sample_alias_histogram(&d.relax_prob[v], &d.relax_atbin[v], rng) as i32;
+            let (ef, iqf, ecc);
+            if bin < 0 {
+                // never taken upstream either (see the doc comment)
+                ef = 0.0;
+                iqf = -1;
+                ecc = ec;
+            } else {
+                let mut new_state = d.relax_state[v][bin as usize] as i64;
+                let base = vac - d.shell_num[v] as i64;
+                if new_state <= 64 {
+                    iqf = 0;
+                    new_state += base;
+                    ef = be_of(new_state);
+                    vacs.push(new_state);
+                    ecc = pc;
+                } else {
+                    iqf = -1;
+                    let mut new1 = new_state / 64;
+                    let mut new2 = new_state - 64 * new1;
+                    new1 += base;
+                    new2 += base;
+                    ef = be_of(new1) + be_of(new2);
+                    vacs.push(new1);
+                    vacs.push(new2);
+                    ecc = ec;
+                }
+            }
+            let ex = evac - ef;
+            if ex > ecc {
+                stack.np += 1;
+                stack.check_stack(stack.np, "new_relax")?;
+                let np = stack.np;
+                stack.iq[np] = iqf;
+                stack.transfer_properties(np, np_save);
+                let rnno = rng.uniform();
+                let cost = 2.0 * rnno - 1.0;
+                let mut sint = 1.0 - cost * cost;
+                if sint > 0.0 {
+                    sint = Real::sqrt(sint);
+                    let (cphi, sphi) = select_azimuthal_angle(rng);
+                    stack.u[np] = sint * cphi;
+                    stack.v[np] = sint * sphi;
+                    stack.w[np] = cost;
+                } else {
+                    stack.u[np] = 0.0;
+                    stack.v[np] = 0.0;
+                    stack.w[np] = cost;
+                }
+                stack.e[np] = if iqf == 0 { ex } else { ex + RM };
+            } else {
+                out.edep += ex;
+            }
+        }
+        match vacs.pop() {
+            None => break,
+            Some(next) => {
+                vac = next;
+                evac = be_of(next);
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// `UPHI` with `IENTRY = 1` (`egsnrc.mortran:6759-6769`): `sinthe` and `costhe`
@@ -1453,9 +1856,10 @@ pub fn select_photoelectron_direction<R: UniformSource>(
 /// sampled from the fits in `data`, then the shell; a K..M vacancy goes to
 /// [`relax`]. `gle` is `ln(E)` of the photon (the caller's `GLE`).
 ///
-/// Not ported: the shellwise MCDF branch (`mcdf_pe_xsections`,
-/// `egs_shellwise_photo`) and the EADL branch (`eadl_relax`), both off by
-/// default. The below-1 keV warning is not printed. If the element or edge
+/// With `relax_data.eadl` set (`eadl_relax`) a shell above L3 (`k > 4`) emits
+/// the photoelectron without a vacancy, and K..L3 vacancies are relaxed by
+/// [`eadl_relax`] through [`relax`]. Not ported: the shellwise MCDF branch
+/// (`mcdf_pe_xsections`, `egs_shellwise_photo`), off by default. The below-1 keV warning is not printed. If the element or edge
 /// loops run off their end (round-off), the index is clamped to the last
 /// element instead of reading past the arrays.
 ///
@@ -1557,11 +1961,18 @@ pub fn photo<R: UniformSource>(
                 k += 1;
             }
             // (defaults to the MXSHELL shell if the loop completes)
-            e_vac = relax_data.binding_energies[iz][k];
-            k_shell = k;
-            stack.e[np] = peig - e_vac + prm;
-            do_relax = true;
-            stack.iq[np] = -1;
+            if relax_data.eadl.is_some() && k > 4 {
+                // EADL: no initial vacancy below L3, just emit the electron
+                // (`egsnrc.mortran:5156-5160`)
+                stack.iq[np] = -1;
+                stack.e[np] = peig + prm;
+            } else {
+                e_vac = relax_data.binding_energies[iz][k];
+                k_shell = k;
+                stack.e[np] = peig - e_vac + prm;
+                do_relax = true;
+                stack.iq[np] = -1;
+            }
         }
     } else {
         stack.e[np] = peig + prm;
@@ -4729,19 +5140,52 @@ fn read_record(lines: &mut core::str::Lines<'_>, n: usize) -> Result<Vec<f64>, S
 /// (`binding_energies` in MeV, `relaxation_prob`) and the [`PhotoData`] part
 /// (`interaction_prob`, `edge_*`), 1-based over 100 elements.
 ///
-/// Not ported: the `eadl_relax` variant (binding energies skipped, then
-/// `egs_init_relax`), and the "relaxations not requested" early return (the
-/// caller decides whether to read at all).
+/// The `eadl_relax` variant is [`edgset_eadl_from_text`]. Not ported: the
+/// "relaxations not requested" early return (the caller decides whether to
+/// read at all).
 ///
 /// # Errors
 ///
 /// A message when the text is short or a value does not parse.
 pub fn edgset_from_text(photo: &str, phocs: &str) -> Result<(RelaxData, PhotoData), String> {
+    edgset_read(photo, phocs, false)
+}
+
+/// `EDGSET` with `eadl_relax = true` (`egsnrc.mortran:6355-6430`): as
+/// [`edgset_from_text`] but the binding-energy block of `*_photo.data` is
+/// skipped (they come from the photo-absorption edges, `binding_energies` as
+/// [`init_user_photon`] built them, then [`init_compton_eadl`] for `xcom`),
+/// and `egs_init_relax` ([`init_relax_eadl`]) loads `relax.data` into
+/// [`RelaxData::eadl`]. The returned `binding_energies` are the final
+/// (post-`egs_init_relax`) ones, and the mutated input is left in the same
+/// state. For the `epdl` series call this *before* [`init_compton_eadl`]; for
+/// `xcom` after (the order in `HATCH`, `egsnrc.mortran:2264-2274`).
+///
+/// # Errors
+///
+/// As [`edgset_from_text`] and [`init_relax_eadl`].
+pub fn edgset_eadl_from_text(
+    photo: &str,
+    phocs: &str,
+    relax_file: &EadlFile,
+    media_z: &[Vec<f64>],
+    binding_energies: &mut [Vec<f64>],
+    epdl: bool,
+) -> Result<(RelaxData, PhotoData), String> {
+    let (mut rd, pd) = edgset_read(photo, phocs, true)?;
+    let eadl = init_relax_eadl(relax_file, media_z, binding_energies, epdl)?;
+    rd.binding_energies = binding_energies.to_vec();
+    rd.eadl = Some(eadl);
+    Ok((rd, pd))
+}
+
+fn edgset_read(photo: &str, phocs: &str, eadl: bool) -> Result<(RelaxData, PhotoData), String> {
     const NEL: usize = 100; // $MXELEMENT
     let mut lines = photo.lines();
     let mut rd = RelaxData {
         binding_energies: alloc::vec![alloc::vec![0.0; MXSHELL + 1]; NEL + 1],
         relaxation_prob: alloc::vec![alloc::vec![0.0; MXTRANS + 1]; NEL + 1],
+        eadl: None,
     };
     let mut pd = PhotoData {
         edge_energies: alloc::vec![alloc::vec![0.0; MXEDGE + 2]; NEL + 1],
@@ -4753,6 +5197,11 @@ pub fn edgset_from_text(photo: &str, phocs: &str) -> Result<(RelaxData, PhotoDat
         interaction_prob: alloc::vec![alloc::vec![0.0; MXSHELL + 1]; NEL + 1],
     };
     for i in 1..=NEL {
+        if eadl {
+            // "Skip, using binding_energies from *_photo.data file" (:6376)
+            lines.next().ok_or_else(|| String::from("data ends early"))?;
+            continue;
+        }
         let r = read_record(&mut lines, 1 + MXSHELL)?;
         for k in 1..=MXSHELL {
             rd.binding_energies[i][k] = r[k] * 1e-6; // to MeV
@@ -6895,8 +7344,9 @@ pub const MXMDSH: usize = 200;
 /// `PRM` (MeV). The `ComptonData` arrays are 1-based, the per-medium ones
 /// indexed `[medium]` (index 0 unused).
 ///
-/// Not ported: the `eadl_relax` variant (shell numbers and binding energies
-/// replaced by the photoelectric data's), the radiative-Compton data
+/// The `eadl_relax` variant (shell numbers and binding energies replaced by
+/// the photoelectric data's) is [`init_compton_eadl`]. Not ported: the
+/// radiative-Compton data
 /// (`$RADC_HATCH`, empty by default), and the trailing check that relaxations
 /// are on (the caller's).
 ///
@@ -6996,6 +7446,55 @@ pub fn init_compton(incoh_text: &str, media: &[Vec<(f64, f64)>], prm: f64) -> Re
         d.shell_array[medium] = shell[..=nsh].to_vec();
         d.eno_array[medium] = eno[..=nsh].to_vec();
         d.eno_atbin_array[medium] = atbin[..=nsh].to_vec();
+    }
+    Ok(d)
+}
+
+/// `init_compton` with `eadl_relax = true` (`egsnrc.mortran:2490-2506`): the
+/// data of [`init_compton`], then, shell by shell in file order, the shell
+/// type `shn_array(j)` is replaced by the actual shell number within the
+/// element (1 for the first shell of each `Z`, then counting up), and the
+/// binding energy by the photo-absorption edge `binding_energies[iz][shn]`
+/// (MeV, [`init_user_photon`]'s output) when it is positive; otherwise, for
+/// the `xcom` series, the file's binding energy is written *into*
+/// `binding_energies` (`egsnrc.mortran:2500-2503`; the shells below 1 keV
+/// that have no edge). The alias tables do not depend on either, so applying
+/// the replacement after [`init_compton`] is the same as upstream's
+/// in-loop one.
+///
+/// Upstream's fatal when bound Compton is off and `eadl_relax` is on with
+/// `xcom` (`:2467-2472`) is the caller's, as is the call order (see
+/// [`edgset_eadl_from_text`]).
+///
+/// # Errors
+///
+/// As [`init_compton`], or a message when a shell number exceeds
+/// `binding_energies`.
+pub fn init_compton_eadl(
+    incoh_text: &str,
+    media: &[Vec<(f64, f64)>],
+    prm: f64,
+    binding_energies: &mut [Vec<f64>],
+    xcom: bool,
+) -> Result<ComptonData, String> {
+    let mut d = init_compton(incoh_text, media, prm)?;
+    let mut iz = 0;
+    for j in 1..=MXTOTSH {
+        if d.iz_array[j] != iz {
+            d.shn_array[j] = 1;
+            iz = d.iz_array[j];
+        } else {
+            d.shn_array[j] = d.shn_array[j - 1] + 1;
+        }
+        let slot = binding_energies
+            .get_mut(iz as usize)
+            .and_then(|r| r.get_mut(d.shn_array[j] as usize))
+            .ok_or_else(|| alloc::format!("binding_energies has no shell {} of Z = {iz}", d.shn_array[j]))?;
+        if *slot > 0.0 {
+            d.be_array[j] = *slot / prm;
+        } else if xcom {
+            *slot = d.be_array[j] * prm;
+        }
     }
     Ok(d)
 }
@@ -8180,6 +8679,7 @@ mod tests {
             ],
             // iz 1 -> fluorescence, iz 2 -> Auger
             relaxation_prob: alloc::vec![Vec::new(), prob, prob_auger],
+            eadl: None,
         }
     }
 
