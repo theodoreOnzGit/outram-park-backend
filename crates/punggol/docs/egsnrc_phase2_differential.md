@@ -982,7 +982,7 @@ The `PRESTA-I exact E+B` case that had 35 histories with a different charge
 sequence in every ulp probe is now 200 of 200: the sequences flipped because
 history 36 sat on a boundary test (`z = 0.05` reached or missed by 1.2e-7 cm)
 that the 1e-17 start deviation reached; with a bit-identical start it does not.
-Not re-run (no compiled reference left in scratch): layers B (0.9,0,1.2) (old 4.1e-15 / 1.4e-13, row kept as it was). The unit tests are `libm_wrappers_are_the_platform_functions`,
+~~Not re-run (no compiled reference left in scratch): layers B (0.9,0,1.2) (old 4.1e-15 / 1.4e-13, row kept as it was).~~ **Re-run 2026-11-21 with a rebuilt reference (`emL4`): layers B (0.9,0,1.2), 200 of 200 same sequence, energy 0, |dw| 0.** Likewise re-run after the libm change with the CORRECT references: `pair_nrc = 1` (`difftutP_8`) and `itriplet = 1` (`difftutT_8`) are 200 of 200, energy 0, |dw| 0, as are the plain, photonuclear (`difftutF_8`, EADL) and NRC-brems (`difftutR_8`) runs. (The agent's "NRC pair + triplet did not match `difftutP`" paired the triplet option with the pair-only reference; `difftutT_8` is the triplet reference.) The unit tests are `libm_wrappers_are_the_platform_functions`,
 `asinh_glibc_matches_the_platform_function` and the differential tests above.
 Lesson for the rest of the port: **Fortran evaluates `a = a + b - c` left to
 right; `a += b - c` is a different operation in floating point**, and a libm
