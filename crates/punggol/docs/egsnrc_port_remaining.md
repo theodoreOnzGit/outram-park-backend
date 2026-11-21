@@ -11,7 +11,7 @@ port, not differentially tested** (phase 2).
 scheme), `PAIR` (no NRC tables; triplets via `pair_with_triplet`), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
 `Geometry` trait; Rayleigh when the medium carries `RayleighData`), `PHOTONUC`, `SHOWER` (behind the
-`ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields, range rejection or EII; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
+`ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields or range rejection; EII through `ElectrTables::eii`; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
 `spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), the PEGS4 intake of `HATCH` (`parse_pegs4_media`, `Pegs4Medium::apply_dunit`), `fix_brems`, `init_compton` (non-EADL) and `mscati`, `init_spin` (from decoded records), `set_spline`, `spline`, `hatch_media` and `adjust_rhor_ecut_pcut`, and `erf1` from `egs_utilities`, Russian roulette,
 and the stack, azimuth and `$RANDOMSET` macros.
 
@@ -62,7 +62,10 @@ full showers through `SHOWER`, `ELECTR` and `PHOTON`).
      Pinned by `eii_sample_follows_upstream_including_its_primary_energy`, which
      is not a statement that the physics is right.
 
-  Still open: `ELECTR` does not call `moller_eii_select` yet (it passes
-  `eii_active = false`), and the `ELECTR` threshold change for EII
-  (`egsnrc.mortran:1672`) is not made.
+  ~~Still open: `ELECTR` does not call `moller_eii_select` yet~~ **CORRECTED
+  2026-11-21:** `electr` calls `moller_eii_select` when
+  `ElectrTables::eii` is `Some`, and skips the `thmoll` force-brems check
+  when EII is on (`egsnrc.mortran:1672`); pinned by
+  `electr_uses_the_eii_selection_when_eii_is_on` (toy numbers; the EII energy
+  deposit is reported in `ElectrResult::edep_eii`).
 - **`NEXT :TSTEP:` in `ELECTR`** is read as a loop restart (see above).

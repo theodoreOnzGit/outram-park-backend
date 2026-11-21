@@ -5565,6 +5565,8 @@ pub struct ElectrRegion {
     pub ecut: f64,
     /// `smaxir(region)`: maximum step in the region, cm.
     pub smaxir: f64,
+    /// `pcut(region)`, photon cut-off, MeV (used by `RELAX` after EII).
+    pub pcut: f64,
 }
 
 /// All tables `electr` needs; `regions` and `media` are 1-based.
@@ -5578,6 +5580,21 @@ pub struct ElectrTables {
     pub ms: Option<MsData>,
     /// The spin-effect tables.
     pub spin: SpinData,
+    /// Electron-impact ionisation (`eii_flag > 0`), or `None` for off.
+    pub eii: Option<ElectrEii>,
+}
+
+/// What `ELECTR` needs for electron-impact ionisation: the tables of
+/// [`eii_init`], the `(ZELEM, PZ)` of each medium's elements (1-based by
+/// medium) and the relaxation data `RELAX` uses after an ionisation.
+#[derive(Debug, Clone, Default)]
+pub struct ElectrEii {
+    /// `COMMON/eii_data/`.
+    pub data: EiiData,
+    /// `comp[medium]` = `(ZELEM, PZ)` per element.
+    pub comp: Vec<Vec<(f64, f64)>>,
+    /// The relaxation data (binding energies and transition probabilities).
+    pub relax: RelaxData,
 }
 
 /// Switches `ELECTR` reads.
@@ -5622,6 +5639,9 @@ pub struct ElectrResult {
     /// Sum of the energy loss `de` of the condensed-history steps, MeV
     /// (what upstream hands to `AUSGAB` as `EDEP` at each step).
     pub edep_steps: f64,
+    /// Energy deposited locally by electron-impact ionisation events
+    /// (`edep` of [`eii_sample`], not part of `edep_steps`), MeV.
+    pub edep_eii: f64,
 }
 
 /// `$SET INTERVAL elke,eke` (`egsnrc.macros:1225`): the table interval.
@@ -6271,7 +6291,10 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                 if rnno24 <= ebr1 {
                     do_brems = true;
                 } else {
-                    if stack.e[stack.np] <= m.thmoll {
+                    // with EII on, interactions go down to the ionisation threshold,
+                    // which may be below thmoll, so the Moller threshold is not applied
+                    let eii_on = tables.eii.as_ref().is_some_and(|e| e.data.flag);
+                    if stack.e[stack.np] <= m.thmoll && !eii_on {
                         // not enough energy for Moller: force bremsstrahlung if allowed
                         if ebr1 <= 0.0 {
                             continue 'newelectron;
@@ -6279,7 +6302,30 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         do_brems = true;
                     }
                     if !do_brems {
-                        moller(stack, m.te, m.thmoll, false, prm, rng)?;
+                        let mut eii_done = false;
+                        if let Some(ei) = &tables.eii {
+                            let reg = &tables.regions[irl];
+                            if let Some(edep) = moller_eii_select(
+                                stack,
+                                &ei.data,
+                                medium,
+                                &ei.comp[medium],
+                                m,
+                                &ei.relax,
+                                elke,
+                                lelke,
+                                (reg.ecut, reg.pcut),
+                                prm,
+                                m.brems.ap,
+                                rng,
+                            )? {
+                                res.edep_eii += edep;
+                                eii_done = true;
+                            }
+                        }
+                        if !eii_done {
+                            moller(stack, m.te, m.thmoll, false, prm, rng)?;
+                        }
                         if stack.iq[stack.np] == 0 {
                             return Ok(res);
                         }
@@ -9066,13 +9112,14 @@ mod tests {
             ms: ms_med,
             brems: toy_brems_medium(),
         };
-        let slab = ElectrRegion { med: 1, rhor: 1.0, ecut: te + RM, smaxir: 1.0e10 };
+        let slab = ElectrRegion { med: 1, rhor: 1.0, ecut: te + RM, smaxir: 1.0e10, pcut: 0.01 };
         let outside = ElectrRegion { med: 0, ..slab };
         ElectrTables {
             regions: alloc::vec![ElectrRegion::default(), slab, outside],
             media: alloc::vec![ElectronMediumData::default(), med],
             ms: Some(MsData::from_text(&synthetic_ms_text()).unwrap()),
             spin: flat_spin(1.0),
+            eii: None,
         }
     }
 
@@ -9088,7 +9135,7 @@ mod tests {
     impl ElectronTransport for ElectrDriver {
         fn electr<R: UniformSource>(&mut self, stack: &mut Stack, rng: &mut R) -> Result<i32, EgsError> {
             let r = electr(stack, &self.tables, &self.cfg, &mut self.geo, &mut self.counters, rng)?;
-            self.tally += r.edep_steps + r.edep;
+            self.tally += r.edep_steps + r.edep + r.edep_eii;
             Ok(r.ircode)
         }
     }
@@ -10395,6 +10442,43 @@ mod tests {
         let r = EiiReadings { bin_index_by_shell_type: true, ..Default::default() };
         eii_init(&toy_eii_text(), &toy_eii_inputs(), &relax_d, &mut tabs5.media, RM, r).unwrap();
         assert_eq!(tabs5.media[1].esig, tabs.media[1].esig);
+    }
+
+    #[test]
+    fn electr_uses_the_eii_selection_when_eii_is_on() {
+        let mut rng = Ranmar::new(123, 124);
+        let mut tables = toy_electron_tables();
+        let relax_d = toy_eii_relax();
+        let d = eii_init(&toy_eii_text_with([1.0, 0.5]), &toy_eii_inputs(), &relax_d, &mut tables.media, RM, EiiReadings::default()).unwrap();
+        // the toy rewrite can drive esig negative (tiny Ec); restore a positive
+        // cross section so the test exercises the wiring, not the toy numbers
+        tables.media[1].esig = const_pwlf(5.0);
+        tables.media[1].ededx = const_pwlf(2.0);
+        tables.eii = Some(ElectrEii { data: d, comp: vec![Vec::new(), vec![(1.0, 1.0)]], relax: relax_d });
+        let cfg = electr_cfg(true, true, false);
+        let (mut deposited, mut fatal, mut done) = (0.0, 0, 0);
+        for _ in 0..300 {
+            let mut st = Stack::new(200);
+            st.np = 1;
+            st.e[1] = 2.0 + RM;
+            st.iq[1] = -1;
+            st.wt[1] = 1.0;
+            st.ir[1] = 1;
+            st.z[1] = 1.0;
+            (st.u[1], st.v[1], st.w[1]) = (0.0, 0.0, 1.0);
+            let mut geo = Slab { length: 3.0 };
+            let mut counters = ElectrCounters::default();
+            match electr(&mut st, &tables, &cfg, &mut geo, &mut counters, &mut rng) {
+                Ok(r) => {
+                    deposited += r.edep_eii;
+                    done += 1;
+                }
+                // upstream's primary energy after EII makes cos^2 < 0 below T = prm
+                Err(EgsError::Fatal(_)) => fatal += 1,
+                Err(e) => panic!("{e:?}"),
+            }
+        }
+        assert!(deposited > 0.0 || fatal > 0, "no EII event in {done} runs");
     }
 
 }
