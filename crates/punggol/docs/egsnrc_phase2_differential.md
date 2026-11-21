@@ -805,30 +805,30 @@ sequence of the discarded particles; worst over those histories):
 | tutor1 E+B, PRESTA-I exact | 200 | 4.7e-16 | 5.6e-16 |
 | tutor1 E+B, PII inexact | 200 | 1.5e-15 | 3.3e-15 |
 | tutor1 E+B, PRESTA-I inexact | 200 | 4.1e-16 | 3.2e-14 |
-| layers B (0,0.05,0) | 200 | 3.0e-14 | 1.1e-11 |
+| layers B (0,0.05,0) | 200 | ~~3.0e-14~~ **0** | ~~1.1e-11~~ **0** |
 | layers B (0.9,0,1.2) | 200 | 4.1e-15 | 1.4e-13 |
-| layers B (0,1.5,0) | 200 | 3.0e-14 | 1.4e-10 |
-| layers B (0,0.5,0.8) | 200 | 5.2e-9 | 8.7e-8 |
-| layers B (1,0,0) | 200 | 6.8e-11 | 4.3e-7 |
+| layers B (0,1.5,0) | 200 | ~~3.0e-14~~ **0** | ~~1.4e-10~~ **0** |
+| layers B (0,0.5,0.8) | 200 | ~~5.2e-9~~ **0** | ~~8.7e-8~~ **0** |
+| layers B (1,0,0) | 200 | ~~6.8e-11~~ **0** | ~~4.3e-7~~ **0** |
 | layers E (0,0,5e3) | 200 | 4.4e-15 | 4.3e-15 |
 | layers E (0,0,2e5) | 200 | 1.3e-13 | 8.3e-12 |
 | layers E (2e4,-1e4,5e3) | 200 | 3.2e-15 | 1.1e-14 |
-| layers E (2e4,-1e4,5e3) + B (0,0.5,0.8) | 200 | 1.2e-13 | 1.3e-7 |
+| layers E (2e4,-1e4,5e3) + B (0,0.5,0.8) | 200 | ~~1.2e-13~~ **0** | ~~1.3e-7~~ **0** |
 | layers E (1e5,-5e4,8e4) + B (0,0.5,0.8) | 200 | 4.0e-15 | 6.0e-12 |
 | layers B (1,0,0), PRESTA-I exact | 200 | 1.6e-14 | 2.3e-12 |
 | layers B (1,0,0), PII inexact | 200 | 5.1e-14 | 1.8e-13 |
 | layers B (1,0,0), PRESTA-I inexact | 200 | 3.2e-14 | 1.2e-12 |
 | layers B (0,1.5,0), PII inexact | 200 | 5.8e-15 | 2.4e-13 |
-| layers E (0,0,2e5), PRESTA-I exact | 200 | 9.7e-12 | 5.0e-8 |
-| layers E (0,0,2e5), PII inexact | 200 | 2.0e-7 | 2.8e-8 |
-| layers E (0,0,2e5), PRESTA-I inexact | 200 | 9.3e-11 | 3.0e-7 |
-| layers E (1e5,-5e4,8e4) + B, PRESTA-I exact | **165** (first different: history 37) | | |
-| layers E (1e5,-5e4,8e4) + B, PII inexact | 200 | 5.1e-7 | 8.9e-7 |
-| layers E (1e5,-5e4,8e4) + B, PRESTA-I inexact | 200 | 2.4e-15 | 1.2e-10 |
+| layers E (0,0,2e5), PRESTA-I exact | 200 | ~~9.7e-12~~ **0** | ~~5.0e-8~~ **0** |
+| layers E (0,0,2e5), PII inexact | 200 | ~~2.0e-7~~ **0** | ~~2.8e-8~~ **0** |
+| layers E (0,0,2e5), PRESTA-I inexact | 200 | ~~9.3e-11~~ **0** | ~~3.0e-7~~ **0** |
+| layers E (1e5,-5e4,8e4) + B, PRESTA-I exact | ~~**165** (first different: history 37)~~ **200** | **0** | **0** |
+| layers E (1e5,-5e4,8e4) + B, PII inexact | 200 | ~~5.1e-7~~ **0** | ~~8.9e-7~~ **0** |
+| layers E (1e5,-5e4,8e4) + B, PRESTA-I inexact | 200 | ~~2.4e-15~~ **0** | ~~1.2e-10~~ **0** |
 | control: tutor1 with the B (0,0.5,0.8) reference, port with no field | 39 | diverges at history 1 | |
 
-**The layered rows above 1e-9, and the 35 diverging histories, are round-off
-amplification: proven by perturbing the compiled Fortran itself** (follow-up,
+~~**The layered rows above 1e-9, and the 35 diverging histories, are round-off
+amplification: proven by perturbing the compiled Fortran itself**~~ **CORRECTED 2026-11-21 (later, gh:#1698): the sensitivity was real, the starting deviation was not round-off but five defects, all found and fixed (next section); every row above is now 0.** What follows is the earlier record, kept as the method for measuring sensitivity (follow-up,
 bounded effort). Method: build the reference again with the beam energy changed
 by 1 to 7 units in the last place (`EIN = 3.5109989461` to
 `nextafter`^k) and compare each variant with the unperturbed reference,
@@ -937,6 +937,57 @@ about upstream: `egs_pjob_finish` of the last job sets `i_parallel = 0`
 the last finish must save it.
 
 
+## Layered residuals resolved: the first differing operations (gh:#1698, 2026-11-21)
+
+The earlier section showed that a one-ulp change of the beam energy moves the
+compiled Fortran by as much as the port differed from it, and concluded
+"round-off amplification". That measured the *sensitivity* of the layered
+geometry (a near-tangent spiral inside the skin depth grows a 1e-17 start by
+~1e3 per 25 steps), not where the port and the Fortran *start* to differ. They
+did start to differ, by an ulp, in code that was not the same operation. Method
+that found them: for `layers B (1,0,0)` (4.3e-7), `WRITE(97,...)` traces in the
+generated Fortran (`1PE26.18`, 19 digits) and matching `eprintln!` in the port
+(shortest round-trip), at the step records (`ELECTR` before `$SET-ANGLES`,
+vacuum macro in and out), the tustep inputs, the `mscati` loop and the helix
+constants; compare the two streams **bit for bit** and fix the first
+mismatching value, repeat. The first mismatch, in order:
+
+| # | first differing value | operation | fix |
+|---|---|---|---|
+| 1 | history 1, first step: `tmxs` (3.5e-16), from the tables `tmxs0(1)`, `tmxs1(1)` (37 of 40 entries differ, worst 1.6e-14; all other tables bit-identical) | `mscati`: Fortran `sip1 = sip1 + range_ep(0,lelke) - range_ep(0,lelkef+1)` is `(sip1 + a) - b`; the port wrote `sip1 += a - b`, `sip1 + (a - b)`. For `i = 1` the two `range_ep` are equal, so Fortran rounds `sip1 + a` and subtracts, the port adds zero | `sip1 = sip1 + range_ep[0][lelke] - range_ep[0][lelkef + 1]` (`mscati`) |
+| 2 | history 2, `$EMFieldInVacuum`: `vstep` after the B branch's first line (3e-16) | Fortran `vstep = vstep + tperp_em - vstep0_mag` is `(vstep + tperp) - v0`; the port wrote `vstep += tperp - v0` | `v.vstep = v.vstep + tperp_em - vstep0_mag` |
+| 3 | history 4, helix `ws_em` (1.4e-16) | `sin(alpha_em)` with `alpha_em = 0.2852453666859538`: PETIR's `sin` and glibc's differ by 1 ulp (`2.8139291182876525e-1` against `2.813929118287653e-1`) | `egsnrc::libm::sin`, `cos`, `tan` call the `std` functions (the libm gfortran links) with the `std` feature, PETIR without |
+| 4 | history 161, `elke = log(eke)` (1.2e-16) | PETIR `ln` and glibc `log` differ by an ulp for this energy | `libm::ln`, `exp`, `powf` the same way (all 118 `r_ln`, 58 `r_exp`, 15 `r_powf` call sites of `egsnrc_mortran.rs`, and those of the EEMF file) |
+| 5 | BEAMnrc variant, tutor1 E (2e4,-1e4,5e3), history 33: `EF_xPerpFinal` (2e-7 relative) | `asinh(a) - asinh(b)` for a 3e-9 m step: the two `asinh` differ by ~1e-16 absolute (PETIR `log1p` inside the fdlibm algorithm against glibc's), and the difference of two nearly equal numbers amplifies it to 2e-7 | `asinh_glibc` calls the platform `asinh` with `std`; the fdlibm port stays for `no_std` (`asinh_fdlibm`, compared in the tests) |
+
+(Items 1 and 2 were the dominant ones: the earlier test that swapped the port's
+`sin`/`cos`/`powf` for the platform ones "changed nothing" because 1 and 2 were
+still there.) Results after the fixes, 200 histories each, same seeds, worst
+relative kinetic energy difference / worst `|dw|`, every case **same charge
+sequence 200 of 200**:
+
+| group | cases | before | after |
+|---|---|---|---|
+| standard file, tutor1 B (4 fields), E, E+B, with PRESTA-I and inexact BCA (all tutor1 rows of the table above that have a compiled reference left in scratch) | 17 | 4.7e-16 to 1.5e-15, `dw` to 1.1e-12 | **0 and 0** |
+| standard file, layers B (0,0.05,0), (0,1.5,0) (plus (0,1.5,0) PII inexact) | 3 | to 3e-14 / 1.4e-10 | **0 and 0** |
+| standard file, layers B (0,0.5,0.8) | 1 | 5.2e-9 / 8.7e-8 | **0 and 0** |
+| standard file, layers B (1,0,0) (4 option combinations) | 4 | 6.8e-11 / 4.3e-7 (PII exact) | **0 and 0** |
+| standard file, layers E (0,0,5e3), (0,0,2e5) (4 combinations), (2e4,-1e4,5e3) | 6 | to 2.0e-7 / 3.0e-7 | **0 and 0** |
+| standard file, layers E+B (2e4,-1e4,5e3)+B; (1e5,-5e4,8e4)+B (4 combinations) | 5 | 1.3e-7; 5.1e-7 / 8.9e-7; **165 of 200** (PRESTA-I exact) | **0 and 0; 200 of 200** |
+| BEAMnrc variant, all 16 cases of its section | 16 | up to 1.0e-10 / 1.1e-8 | **0 and 0** |
+| tutor1 default, EADL, EII, NIST brems (1, 2), all options (X1, X2), NRC pair | 8 | 4.5e-16 to 1.5e-15 | **0 and 0** |
+| electron tables of `HATCH` (`tmxs0`, `tmxs1` were the only inexact ones) | 19 tables | 1.6e-14 (`tmxs`) | **0** for every table |
+
+The `PRESTA-I exact E+B` case that had 35 histories with a different charge
+sequence in every ulp probe is now 200 of 200: the sequences flipped because
+history 36 sat on a boundary test (`z = 0.05` reached or missed by 1.2e-7 cm)
+that the 1e-17 start deviation reached; with a bit-identical start it does not.
+Not re-run (no compiled reference left in scratch): layers B (0.9,0,1.2) (old 4.1e-15 / 1.4e-13, row kept as it was). The unit tests are `libm_wrappers_are_the_platform_functions`,
+`asinh_glibc_matches_the_platform_function` and the differential tests above.
+Lesson for the rest of the port: **Fortran evaluates `a = a + b - c` left to
+right; `a += b - c` is a different operation in floating point**, and a libm
+function is not "the same" because it is accurate to an ulp.
+
 ## EEMF_macros_beamnrc: ported as `EemfVariant::BeamNrc` and compared (2026-11-21, gh:#1697)
 
 ~~`EEMF_macros_beamnrc.mortran` needs BEAMnrc's component modules and cannot be
@@ -987,6 +1038,8 @@ seeds, 200 histories, Rust against the compiled Fortran (test harness:
 **Results** (200 histories each; "seq" is histories with the same charge
 sequence; worst relative kinetic-energy difference / worst |dw|):
 
+**CORRECTED 2026-11-21 (later, gh:#1698): after the fixes every row below is `0` and `0` (bit-identical); the numbers in the table are the first measurement, kept as the record.**
+
 | host | field | seq | energy | \|dw\| |
 |---|---|---|---|---|
 | tutor1 | B (0,0.5,0.8) T | 200/200 | 4.7e-15 | 3.5e-14 |
@@ -1010,8 +1063,8 @@ sequence; worst relative kinetic-energy difference / worst |dw|):
 ulp-amplified paths; the variant's vacuum path is linear and shorter.) A
 magnetic field **in a medium** is bit-identical to the standard algorithm.
 
-**Residuals above 1e-9 on the layers host, and why they are round-off, not a
-defect.** The only one is layers E (0,0,5e3), |dw| 1.1e-8. No trace of a
+~~**Residuals above 1e-9 on the layers host, and why they are round-off, not a
+defect.**~~ **CORRECTED 2026-11-21 (later, gh:#1698): all 16 rows are now 0 and 0; the residuals below were real differences (items 1 to 5 of the previous section).** Earlier record: The only one is layers E (0,0,5e3), |dw| 1.1e-8. No trace of a
 difference in the algorithm was found (the charge sequence agrees in all 200
 histories, the first divergence by value was traced to `asinh(a)-asinh(b)` and
 `sqrt()-sqrt()` of the distance function: two nearly equal numbers, so a last-bit
@@ -1034,7 +1087,7 @@ same probe gave 4.4e-12 to 8.7e-12 in energy and 1.8e-11 in |dw| against our
 1.7e-12 to 4.5e-12 / 3.4e-11. The port also carries an `asinh_glibc` (the
 fdlibm algorithm glibc's `asinh` uses) because Rust's `asinh` differs by an ulp
 from it. These residuals exceed the 1e-9 bit-level allowance and are **flagged for
-the maintainer**; they are explained by amplification, not hidden.
+the maintainer**; they are explained by amplification, not hidden.~~ **CORRECTED 2026-11-21 (later):** they were not; see above.
 
 **Left.** Nothing in the file is unported that the compiled configuration
 expands. Not exercised: the BEAMnrc `IR_to_CM`/`$GOTO_CM_LIST` `HOWNEAR`

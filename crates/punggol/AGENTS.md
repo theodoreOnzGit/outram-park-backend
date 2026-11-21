@@ -141,6 +141,12 @@ and commands an agent needs:
 - **Code-to-code to bit identity** where OpenMC is the oracle; round-off only
   below 1e-9 relative, with the cause explained (root `CLAUDE.md`). Never
   loosen a gate.
+- **Port Fortran expressions in the Fortran's order, and call the platform libm
+  (gh:#1698).** Fortran evaluates `a = a + b - c` as `(a + b) - c`; `a += b - c`
+  is a different operation in floating point and moved layered histories by
+  1e-7. `sin`/`cos`/`tan`/`ln`/`exp`/`powf`/`asinh` go through `egsnrc::libm`
+  (the `std` functions with the `std` feature, which are what gfortran links;
+  PETIR without): PETIR's differ from glibc's by an ulp for some arguments.
 - **V&V records carry methodology and results**, and the OpenMC drivers that
   made the reference are committed under `verification_and_validation/<topic>/openmc_inputs/`.
 - **`no_std` + `alloc`** without the default `std` feature. Use `core::` /

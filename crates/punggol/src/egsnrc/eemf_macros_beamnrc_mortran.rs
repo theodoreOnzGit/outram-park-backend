@@ -21,9 +21,11 @@
 //! file, `$CALL-HOWNEAR_EM` a plain `HOWNEAR`, 200 histories): magnetic field
 //! in a medium bit-level (<= 5e-15), in vacuum <= 1.5e-11; electric and
 //! combined fields: same charge sequence in 200 of 200, energy 5e-13 to 1e-10,
-//! |dw| up to 1.1e-8, which compiled-Fortran one-ulp input probes (6e-9 to
+//! |dw| up to 1.1e-8, ~~which compiled-Fortran one-ulp input probes (6e-9 to
 //! 2e-7) show to be round-off amplification through `asinh`/`sqrt`
-//! cancellation. Tables, probe and recipe: `docs/egsnrc_phase2_differential.md`,
+//! cancellation~~ **CORRECTED 2026-11-21 (later, gh:#1698):** now **bit-identical**
+//! in every case (0 and 0); the residual was a PETIR `log1p` inside `asinh`, a
+//! `sin`, a `log` and two re-associated sums. Tables, probe and recipe: `docs/egsnrc_phase2_differential.md`,
 //! "EEMF_macros_beamnrc".
 //!
 //! ~~**Status: placeholder, nothing ported (gh:#976).**~~ **CORRECTED

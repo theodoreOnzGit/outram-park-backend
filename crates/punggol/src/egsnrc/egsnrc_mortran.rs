@@ -7178,7 +7178,6 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             );
                         }
 
-                        eprintln!("TRC TM {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", tustep, counters.eemf.tmax_ch, counters.eemf.step_rist, counters.eemf.du_adaptiv_em_factor, counters.eemf.s_max_pii, tperp, skindepth, counters.eemf.em_const, counters.eemf.e_total, tstep, tmxs, range, eke, elke, m.tmxs.a1[lelke], m.tmxs.a0[lelke], loc.rhof);
                         counters.count_all_steps += 1.0;
                         ustep = tustep;
                         tvstep = tustep;
@@ -7239,7 +7238,6 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                         0.5 * lambda * ssmfp
                                     };
                                     tuss_ss = tuss;
-                                    eprintln!("TRC SS {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", tuss, lambda, lambda_max, ssmfp, loc.blccl, eke, dedx, tustep);
                                     if tuss < tustep {
                                         tustep = tuss;
                                         dosingle = true;
@@ -7311,10 +7309,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 energies: [eie, eke, peie],
                                 ..Default::default()
                             };
-                            eprintln!("TRC VI {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", ustep, tperp, skindepth, stack.x[np], stack.y[np], stack.z[np], stack.u[np], stack.v[np], stack.w[np], eie);
                             counters.eemf.emfield_in_vacuum(stack, geometry, &mut v);
                             tperp = v.tperp;
-                            eprintln!("TRC VO {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", v.vstep, tperp, skindepth, stack.x[np], stack.y[np], stack.z[np], stack.u[np], stack.v[np], stack.w[np], v.energies[0]);
                             tperp = v.tperp;
                             stack.x_final = v.final_pos;
                             [eie, eke, peie] = v.energies;
@@ -7522,7 +7518,6 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     stack.v[np] = v_final;
                     stack.w[np] = w_final;
                     stack.dnear[np] -= vstep;
-                    eprintln!("TRC ST {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", tustep, vstep, de, stack.x[np], stack.y[np], stack.z[np], stack.u[np], stack.v[np], stack.w[np], tperp);
                     // $SET-ANGLES-EM-FIELD
                     if let Some(f) = &em {
                         f.set_angles(&eml, stack, np, tvstep);
@@ -8465,7 +8460,6 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
             estepx = settings.estepe;
         }
         let mut si = estepx * ei / dedx0;
-        eprintln!("TT S0 {:e} {:e} {:e} {:e} {:e} {:e} {:e}", ei, estepx, dedx0, si, eil, eke0, eke1);
         for i in 1..neke {
             let elke = ((i + 1) as f64 - eke0) / eke1;
             let eke = super::libm::exp(elke);
@@ -8501,10 +8495,8 @@ pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Ve
                 aux = m.ededx.a1[lelktmp] / ededx;
                 let dd = eip1 - ekef;
                 sip1 = dd / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * ((dd / ektmp) * (dd / ektmp)) / 24.0);
-                eprintln!("TE {} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", i, ededx, aux, elkef, elktmp, sip1, dd, eip1, ektmp);
             }
             sip1 = sip1 + range_ep[0][lelke] - range_ep[0][lelkef + 1];
-            eprintln!("TT {} {:e} {:e} {:e} {:e} {:e}", i, eke, estepx, ekef, sip1, si);
             tmxs1[i] = (sip1 - si) * eke1;
             tmxs0[i] = sip1 - tmxs1[i] * elke;
             si = sip1;
@@ -13096,15 +13088,6 @@ mod tests {
         let presta1 = std::env::var("EGSNRC_PRESTA1").is_ok();
         let bca1 = std::env::var("EGSNRC_BCA1").is_ok();
         let r = hatch_media(&pm, &HatchConfig { ecutmn: if layers { 1.0 } else { 1.5 }, bca_algorithm: i32::from(bca1), skindepth_for_bca: 3.0, ..Default::default() });
-        if let Ok(path) = std::env::var("EGSNRC_DUMP_TABLES") {
-            let e = &r.media[0].electron;
-            let mut out = String::new();
-            for jj in 1..e.esig.a0.len() {
-                out += &format!("{} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}\n", jj, e.ededx.a0[jj], e.ededx.a1[jj], e.pdedx.a0[jj], e.pdedx.a1[jj], e.esig.a0[jj], e.esig.a1[jj], e.psig.a0[jj], e.psig.a1[jj], e.ebr1.a0[jj], e.ebr1.a1[jj], e.pbr1.a0[jj], e.pbr1.a1[jj]);
-                out += &format!("{} {:e} {:e} {:e} {:e} {:e} {:e} {:e}\n", jj, e.pbr2.a0[jj], e.pbr2.a1[jj], e.tmxs.a0[jj], e.tmxs.a1[jj], e.range_ep[0][jj], e.range_ep[1][jj], e.e_array[jj]);
-            }
-            std::fs::write(path, out).unwrap();
-        }
         let comp: Vec<(f64, f64)> = pm[0].elements.iter().map(|x| (x.zelem, x.pz)).collect();
         // photon tables from the xcom series
         let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();

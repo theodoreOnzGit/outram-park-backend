@@ -19,6 +19,11 @@
 //! layered vacuum-gap geometry the agreement is ~1e-15 until a near-wall spiral
 //! amplifies the last bit (shown to be round-off in the Fortran itself). Results
 //! and method: `docs/egsnrc_phase2_differential.md`, "EEMF (Malkov-Rogers)".
+//! ~~layered residuals up to 4e-7 are round-off amplification~~ **CORRECTED
+//! 2026-11-21 (later, gh:#1698):** they were five real ulp-level differences
+//! (an `a += b - c` association in `mscati` and in the vacuum macro, glibc
+//! `sin`/`log`/`asinh` against PETIR's); fixed, and every standard and BEAMnrc
+//! comparison, tutor1 and layered, is now **bit-identical** (0 and 0).
 //!
 //! **Scope of this port.** The configuration the file compiles by default:
 //! `$IntegrationAlg = 3`, `$ssFieldAlg = 2`, `$orderBoundary`,
@@ -1210,10 +1215,7 @@ impl EemfState {
                     } else if self.b_field_transport {
                         // vacuum B-field transport by the distance to the nearest boundary
                         v.vstep = v.vstep + self.tperp_em - self.vstep0_mag;
-                        eprintln!("TRC H1 {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", self.tperp_em, v.vstep, self.vstep0_mag, self.e_total, self.omega_em, self.beta_em, self.b_amp, self.sign_omega);
                         self.ss_mf_transport(v.vstep, 2.0, v.lelec);
-                        eprintln!("TRC H2 {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", self.xs[0], self.xs[1], self.xs[2], self.us[0], self.us[1], self.us[2], v.vstep, self.tperp_em);
-                        eprintln!("TRC H3 {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e} {:e}", self.alpha_em, self.sin_cos_a[0], self.sin_cos_a[1], self.ssc, self.perp[2], self.perp2[2], self.prll[2], self.omega_em, self.v_i);
                         v.vstep += self.vstep0_mag;
                         continue;
                     } else {
@@ -1306,6 +1308,20 @@ pub const EC_EM: f64 = lit(1.60217662e-19);
 /// formulas) is amplified to 1e-10 in the position.
 #[must_use]
 pub fn asinh_glibc(x: f64) -> f64 {
+    // with `std` the platform `asinh` is exactly what a compiled EGSnrc calls (glibc)
+    #[cfg(feature = "std")]
+    {
+        x.asinh()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        asinh_fdlibm(x)
+    }
+}
+
+/// The fdlibm `asinh` (glibc's algorithm) over PETIR's `log`, `log1p` and `sqrt`; the `no_std` path of
+/// [`asinh_glibc`], and compared against the platform function in the tests.
+pub fn asinh_fdlibm(x: f64) -> f64 {
     let xa = x.abs();
     if xa < 3.725_290_298_461_914e-9 {
         // |x| < 2^-28
@@ -2123,10 +2139,13 @@ mod tests {
     #[test]
     fn asinh_glibc_matches_the_platform_function() {
         for x in [0.0, 1.0e-10, 1.0e-3, 0.3, 1.9, 2.0, 2.5, 30.0, 1.0e3, 1.0e10, -0.7, -5.0] {
-            let (a, b) = (asinh_glibc(x), x.asinh());
+            let (a, b) = (asinh_fdlibm(x), x.asinh());
             assert!((a - b).abs() <= 4.0e-16 * b.abs().max(1e-300), "{x}: {a} vs {b}");
+            #[cfg(feature = "std")]
+            assert_eq!(asinh_glibc(x), b);
         }
         assert_eq!(asinh_glibc(-0.7), -asinh_glibc(0.7));
+        assert_eq!(asinh_fdlibm(-0.7), -asinh_fdlibm(0.7));
     }
 
     /// A state with an electric field `e_amp` (V/m) along `e`.

@@ -284,3 +284,32 @@ pub(crate) mod libm {
         }
     }
 }
+
+#[cfg(test)]
+mod libm_tests {
+    use super::libm;
+
+    /// The libm wrappers are the platform functions (the ones a compiled
+    /// EGSnrc links) with `std`, and PETIR's within an ulp or two without.
+    /// The value pinned is the case that differed: `sin(0.2852453666859538)`.
+    #[test]
+    fn libm_wrappers_are_the_platform_functions() {
+        let a = 0.285_245_366_685_953_8_f64;
+        let tol = |x: f64, y: f64| (x - y).abs() <= 4.0 * f64::EPSILON * y.abs();
+        assert!(tol(libm::sin(a), a.sin()));
+        assert!(tol(libm::cos(a), a.cos()));
+        assert!(tol(libm::tan(a), a.tan()));
+        assert!(tol(libm::ln(a), a.ln()));
+        assert!(tol(libm::exp(a), a.exp()));
+        assert!(tol(libm::powf(1.5, 0.2), 1.5_f64.powf(0.2)));
+        #[cfg(feature = "std")]
+        {
+            assert_eq!(libm::sin(a), a.sin());
+            assert_eq!(libm::cos(a), a.cos());
+            assert_eq!(libm::tan(a), a.tan());
+            assert_eq!(libm::ln(a), a.ln());
+            assert_eq!(libm::exp(a), a.exp());
+            assert_eq!(libm::powf(1.5, 0.2), 1.5_f64.powf(0.2));
+        }
+    }
+}
