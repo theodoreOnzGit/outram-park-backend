@@ -29,14 +29,15 @@
 //! `fcalc`'s mass-fraction part, `getEgsMediaData` (normalise the fractions)
 //! and `mixtureCalculation`'s element accumulation (ascending `Z`).
 //!
-//! Not ported: the I-value of the mixture (`fc.pot`, `fc.zav` and the
+//! The I-value of the mixture (`fc.pot`, `fc.zav` and the
 //! `poth`/`potgas`/`potcon` tables) which `egsCompoundsToElements` computes
-//! but never returns (that part is ported below as `fcalc`).
+//! but never returns is ported below as `fcalc`.
 //!
 //! **`egs_estar`** (`estarCalculation`, the density-effect correction) is
 //! ported too (gh:#1696) and is bit-identical to the compiled upstream on 17
-//! media (`docs/egsnrc_phase2_differential.md`). Not ported:
-//! `outputDensityFile`.
+//! media (`docs/egsnrc_phase2_differential.md`), and so is
+//! `outputDensityFile` (as `density_file_text`, whose text equals the file the
+//! compiled upstream writes). Nothing of `estar.cpp` is left unported.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -678,6 +679,106 @@ fn bisec(mut lower: f64, mut upper: f64, tolerance: f64, tau: f64, f: &[f64], ep
     Ok(x_mid)
 }
 
+/// C++ `iostream` default floating output with `setprecision(prec)`: `%.{prec}g`.
+fn fmt_g(x: f64, prec: usize) -> String {
+    if x == 0.0 {
+        return String::from(if x.is_sign_negative() { "-0" } else { "0" });
+    }
+    let sci = alloc::format!("{:.*e}", prec - 1, x);
+    let (mant, exp) = sci.split_once('e').unwrap_or((sci.as_str(), "0"));
+    let ex: i32 = exp.parse().unwrap_or(0);
+    let strip = |t: &str| -> String {
+        if t.contains('.') { String::from(t.trim_end_matches('0').trim_end_matches('.')) } else { String::from(t) }
+    };
+    if ex < -4 || ex >= prec as i32 {
+        let sign = if ex < 0 { '-' } else { '+' };
+        let mut out = strip(mant);
+        out.push('e');
+        out.push(sign);
+        if ex.abs() < 10 {
+            out.push('0');
+        }
+        out.push_str(&ex.abs().to_string());
+        out
+    } else {
+        strip(&alloc::format!("{:.*}", (prec as i32 - 1 - ex) as usize, x))
+    }
+}
+
+/// C++ `iostream` `scientific` output with `setprecision(prec)`: `%.{prec}e`.
+fn fmt_e(x: f64, prec: usize) -> String {
+    let sci = alloc::format!("{:.*e}", prec, x);
+    let (mant, exp) = sci.split_once('e').unwrap_or((sci.as_str(), "0"));
+    let ex: i32 = exp.parse().unwrap_or(0);
+    let mut out = String::from(mant);
+    out.push('e');
+    out.push(if ex < 0 { '-' } else { '+' });
+    if ex.abs() < 10 {
+        out.push('0');
+    }
+    out.push_str(&ex.abs().to_string());
+    out
+}
+
+/// `getFileNameWithoutExtension` (`estar.cpp:411`): the part after the last
+/// `/` without its last extension, and `""` when the name has no `/`
+/// (upstream's behaviour, kept).
+fn file_name_without_extension(s: &str) -> String {
+    match s.rfind('/') {
+        Some(i) => {
+            let name = &s[i + 1..];
+            match name.rfind('.') {
+                Some(d) => String::from(&name[..d]),
+                None => String::from(name),
+            }
+        }
+        None => String::new(),
+    }
+}
+
+/// `outputDensityFile` (`estar.cpp:428-486`): the text of the density
+/// correction file that `egsEstar` writes for `output_filename` (cut at its
+/// first blank, as upstream does); `None` when the name is empty (upstream
+/// then writes nothing). The caller writes the file, so the library does no I/O.
+pub fn density_file_text(media_density: f32, r: &EstarResult, output_filename: &str) -> Option<String> {
+    let name = output_filename.split(|c| c == ' ' || c == '\n' || c == '\r' || c == '\t').next().unwrap_or("");
+    if name.is_empty() {
+        return None;
+    }
+    let mut o = String::new();
+    o.push_str(&file_name_without_extension(name));
+    o.push('\n');
+    o.push_str("113 ");
+    o.push_str(&fmt_g(r.mean_ival as f64, 8));
+    o.push(' ');
+    o.push_str(&fmt_g(media_density as f64, 8));
+    o.push(' ');
+    o.push_str(&r.fc.jz.len().to_string());
+    o.push('\n');
+    let mmax = r.fc.jz.len();
+    for k in 0..mmax {
+        o.push_str(&r.fc.jz[k].to_string());
+        o.push(' ');
+        o.push_str(&fmt_g(r.fc.wt[k], 8));
+        if (k + 1) % 6 == 0 || k + 1 == mmax {
+            o.push('\n');
+        } else {
+            o.push(' ');
+        }
+    }
+    for i in 0..113 {
+        o.push_str(&fmt_e(r.en_grid[i], 2));
+        o.push(',');
+        o.push_str(&fmt_e(r.density_corr[i], 3));
+        if (i + 1) % 4 == 0 || i + 1 == 113 {
+            o.push('\n');
+        } else {
+            o.push_str("  ");
+        }
+    }
+    Some(o)
+}
+
 /// What `estarCalculation` returns through its pointer arguments, plus the
 /// `formula_calc` it computed on the way.
 #[derive(Debug, Clone)]
@@ -696,8 +797,7 @@ pub struct EstarResult {
 /// the ESTAR density-effect correction of a medium on the 113-point energy
 /// grid. `elements` is `getElemArray`'s output ([`element_array`]),
 /// `ipotval` is `-1` for "compute the I-value". The long-double `q` grid is
-/// emulated with [`Ext`]; the `outputDensityFile` text file is not written
-/// (diagnostic output, like `xsec_out`).
+/// emulated with [`Ext`]; the `outputDensityFile` text is [`density_file_text`].
 ///
 /// **First port, differentially tested against compiled upstream** (see
 /// `docs/egsnrc_phase2_differential.md`).
@@ -1055,7 +1155,7 @@ mod tests {
             return;
         };
         let t = EstarTables::from_upstream_source(&std::fs::read_to_string(tabs).unwrap()).unwrap();
-        let (mut n, mut exact, mut worst, mut worst_line) = (0usize, 0usize, 0.0_f64, String::new());
+        let (mut n, mut exact, mut worst, mut worst_line, mut files_equal) = (0usize, 0usize, 0.0_f64, String::new(), 0usize);
         for l in std::fs::read_to_string(path).unwrap().lines() {
             let parts: Vec<&str> = l.split(" | ").collect();
             let head: Vec<&str> = parts[0].split_whitespace().collect();
@@ -1073,6 +1173,14 @@ mod tests {
             let want: Vec<f64> = parts[2].split_whitespace().map(|x| x.parse().unwrap()).collect();
             let r = estar_calculation(iscomp, rho, &el, &w, &a, ipot, &t).unwrap();
             assert_eq!(r.mean_ival, ival, "{}", parts[0]);
+            // `outputDensityFile`: the text must equal what the compiled upstream wrote
+            if let Ok(dir) = std::env::var("EGSNRC_REFERENCE_ESTAR_DENSITY_DIR") {
+                let fname = format!("{dir}/case{n}.density");
+                let want = std::fs::read_to_string(&fname).unwrap();
+                let got = density_file_text(rho, &r, &fname).unwrap();
+                assert_eq!(got, want, "density file text of case {n}");
+                files_equal += 1;
+            }
             assert_eq!(want.len(), 113);
             for (k, wv) in want.iter().enumerate() {
                 let g = r.density_corr[k];
@@ -1087,7 +1195,29 @@ mod tests {
             }
             n += 1;
         }
-        eprintln!("{n} media x 113 energies: {exact} bit-identical of {}, worst relative difference {worst:e} ({worst_line})", n * 113);
+        eprintln!("{n} media x 113 energies: {exact} bit-identical of {}, worst relative difference {worst:e} ({worst_line}); density files identical to upstream: {files_equal}", n * 113);
         assert!(n > 0);
+    }
+
+    /// The C++ `iostream` number formats of `outputDensityFile` and its name rules.
+    #[test]
+    fn density_file_formats_match_iostream() {
+        assert_eq!(fmt_g(82.0, 8), "82");
+        assert_eq!(fmt_g(0.001205, 8), "0.001205");
+        assert_eq!(fmt_g(19.200000762939453, 8), "19.200001");
+        assert_eq!(fmt_g(1.0e-5, 8), "1e-05");
+        assert_eq!(fmt_g(123456789.0, 8), "1.2345679e+08");
+        assert_eq!(fmt_g(0.0, 8), "0");
+        assert_eq!(fmt_e(1.0e-3, 2), "1.00e-03");
+        assert_eq!(fmt_e(0.0, 3), "0.000e+00");
+        assert_eq!(fmt_e(-1.25e12, 3), "-1.250e+12");
+        assert_eq!(file_name_without_extension("/a/b/water.density"), "water");
+        assert_eq!(file_name_without_extension("water.density"), "", "no '/': upstream returns an empty name");
+        assert_eq!(file_name_without_extension("/a/b/noext"), "noext");
+        let r = EstarResult { density_corr: vec![0.0; 113], en_grid: vec![1.0e-3; 113], mean_ival: 75.0, fc: FormulaCalc { jz: vec![1, 8], wt: vec![0.1111, 0.8889], zav: 0.55, pot: 75.0 } };
+        assert!(density_file_text(1.0, &r, "").is_none());
+        let t = density_file_text(1.0, &r, "/x/w.density trailing words").unwrap();
+        assert!(t.starts_with("w\n113 75 1 2\n1 0.1111 8 0.8889\n1.00e-03,0.000e+00  "));
+        assert_eq!(t.lines().count(), 2 + 1 + 29, "title, header, one element line, 29 grid lines");
     }
 }

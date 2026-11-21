@@ -36,7 +36,8 @@ int main() {
     string el[4]; double w[4]; float a[4];
     for (int i = 0; i < c.n; ++i) { el[i] = c.e[i]; w[i] = c.w[i]; a[i] = c.a[i]; }
     double dc[113], en[113]; float mi; float ip = c.ipot;
-    fprintf(stderr, "running %s n=%d rho=%g\n", c.e[0], c.n, c.rho); int r = estarCalculation(c.iscomp == 1, c.n, c.rho, el, w, a, dc, en, &mi, &ip, 1, "");
+    fprintf(stderr, "running %s n=%d rho=%g\n", c.e[0], c.n, c.rho); static int idx = 0; std::string outf = getenv("ESTAR_OUT_DIR") ? std::string(getenv("ESTAR_OUT_DIR")) + "/case" + std::to_string(idx++) + ".density" : std::string("");
+    int r = estarCalculation(c.iscomp == 1, c.n, c.rho, el, w, a, dc, en, &mi, &ip, 1, outf);
     printf("case %d %d %.9g %.9g", c.iscomp == 1 ? 1 : 0, c.n, c.rho, c.ipot);
     for (int i = 0; i < c.n; ++i) printf(" %s:%.17g:%.9g", c.e[i], c.w[i], c.a[i]);
     printf(" | %d %.9g |", r, mi);

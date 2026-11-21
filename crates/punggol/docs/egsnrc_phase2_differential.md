@@ -524,8 +524,9 @@ Ported: `estar.cpp:estarCalculation` with `egsEstar`'s argument checks
 `objective_function`, `bisec`. The upstream tables `energy_grid`, `poth`,
 `potgas`, `potcon` and `elementData` (14530 numbers in a `[14532]` array,
 zero-filled like C++) are **read from `estar_dataTables.cpp` at run time**
-(`EstarTables::from_upstream_source`) and never committed. Not ported:
-`outputDensityFile` (writes a diagnostic text file), like `xsec_out`.
+(`EstarTables::from_upstream_source`) and never committed.
+~~Not ported: `outputDensityFile` (writes a diagnostic text file), like `xsec_out`.~~
+**CORRECTED 2026-11-21: ported as `density_file_text`** (the C++ `iostream` formats `%.8g` and `%.{2,3}e`, the first-blank cut of the file name and `getFileNameWithoutExtension`'s empty-name quirk); the 17 density files the compiled upstream writes (`ESTAR_OUT_DIR` in `harness_calc.cpp`) are reproduced **byte for byte** (17 of 17, `EGSNRC_REFERENCE_ESTAR_DENSITY_DIR`). Nothing of `estar.cpp` is left unported.
 
 **The `q` grid is x87 `long double`.** Upstream builds `vector<long double> q`
 (1101 points, ratio `exp(ln 10 / 50)`) and mixes it with `double` in
