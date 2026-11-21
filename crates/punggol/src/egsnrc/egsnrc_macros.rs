@@ -110,6 +110,10 @@ pub struct Stack {
     pub np: usize,
     /// `NPold`.
     pub np_old: usize,
+    /// The `save`d variables of `sample_triplet` (`egsnrc.mortran:4744-4757`):
+    /// Fortran keeps them between calls and histories, so they travel with the
+    /// stack, which a caller reuses across histories to keep them.
+    pub triplet: super::egsnrc_mortran::TripletState,
     mxstack: usize,
 }
 
@@ -133,6 +137,7 @@ impl Stack {
             latchi: 0,
             np: 0,
             np_old: 0,
+            triplet: super::egsnrc_mortran::TripletState::default(),
             mxstack,
         }
     }

@@ -358,3 +358,33 @@ Residual 1.7e-9 to 3.6e-9 is above the 1e-9 allowance and is reported to the
 maintainer; its cause is not isolated (round-off amplified through the shower
 is the likely reading, untested). The three `EiiReadings` switches are not
 used by the live path and remain for the standalone file.
+
+
+## Optional branches: NIST/NRC bremsstrahlung, NRC pair, triplet (gh:#1692, 2026-11-21)
+
+References: `difftutE` (EADL) plus one line before `CALL HATCH`
+(`ibr_nist=1;`, `ibr_nist=2;`, `pair_nrc=1;`, `itriplet=1;`) and `BREMPR` in
+the user code's `COMIN` list (`difftutB`, `difftutR`, `difftutP`, `difftutT`;
+promoted build, 200 `tutor1` histories). For `pair_nrc` and `itriplet` the port
+needed wiring: `PhotonTables::{nrc_pair, triplet, up_max}` and
+`Stack::triplet` (the `save`d `sample_triplet` state, which Fortran keeps
+across histories, so the test reuses one `Stack`), and `photon` now calls
+`pair_core` with them. Real `pair_nrc1.data`, `triplet.data`, `nist_brems.data`
+and `nrc_brems.data` are read for the first time here.
+
+| option | tables | 200 histories, same discard sequence | worst relative kinetic energy | worst `|dw|` |
+|---|---|---|---|---|
+| `ibr_nist = 1` (NIST brems) | bit-identical (12 columns) | 200 of 200 | 3.2e-8 | 2.8e-7 |
+| `ibr_nist = 1`, stock build with `egsnrc-f32-constants` | bit-identical | 200 of 200 | 8.2e-8 | 7.6e-7 |
+| `ibr_nist = 2` (NRC brems) | bit-identical | 200 of 200 | 3.8e-9 | 1.9e-8 |
+| `pair_nrc = 1` | not dumped | 200 of 200 | 2.1e-8 | 1.6e-7 |
+| `itriplet = 1` | not dumped | 200 of 200 | 4.4e-9 | 4.7e-9 |
+
+Control: the port WITHOUT `pair_nrc` or `itriplet` against those references
+diverges at history 19 (58 and 48 of 200 histories agree in sequence), so the
+options do change the run and the agreement above is not an artefact of rare
+events. All residuals are above the 1e-9 allowance; causes not isolated
+(single-precision effects in the alias-table sampling are possible for the NIST
+case) and reported to the maintainer. Not compared: `pair_nrc1.data` and
+`triplet.data` tables themselves, the options in combination, `eii_flag`
+with brems options.

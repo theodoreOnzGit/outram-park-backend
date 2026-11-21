@@ -2479,6 +2479,12 @@ pub struct PhotonTables {
     pub relax: RelaxData,
     /// `COMMON/EDGE/` photoelectric part.
     pub photo: PhotoData,
+    /// `COMMON/nrc_pair/` for `pair_nrc = 1` ([`init_nrc_pair`]); `None` with `pair_nrc = 0`.
+    pub nrc_pair: Option<NrcPairData>,
+    /// `triplet.data` for `itriplet > 0` ([`init_triplet`]); `None` otherwise.
+    pub triplet: Option<TripletData>,
+    /// The largest `UP(i)` over the media, MeV (the `kmax` of `sample_triplet`'s binning).
+    pub up_max: f64,
 }
 
 /// Switches `photon` reads.
@@ -5266,7 +5272,19 @@ pub fn photon<R: UniformSource, G: Geometry>(
         let gbr1 = m.gbr11[lgle] * gle + m.gbr10[lgle];
         let mut pair_done = false;
         if rnno36 <= gbr1 && stack.e[stack.np] > rmt2 {
-            pair(stack, &m.pair, &cfg.pair, RM, rng)?;
+            // `pair_nrc = 1` and `itriplet > 0` need their tables (PAIR's NRC and triplet branches)
+            let mut ts = core::mem::take(&mut stack.triplet);
+            let r = pair_core(
+                stack,
+                &m.pair,
+                &cfg.pair,
+                RM,
+                tables.triplet.as_ref().map(|t| (t, &mut ts, medium, tables.up_max)),
+                tables.nrc_pair.as_ref().map(|n| (n, medium)),
+                rng,
+            );
+            stack.triplet = ts;
+            r?;
             if stack.iq[stack.np] != 0 {
                 return Ok(res);
             }
@@ -9525,6 +9543,9 @@ mod tests {
             compton: toy_compton_data(0.01),
             relax: photo_relax_data(),
             photo,
+            nrc_pair: None,
+            triplet: None,
+            up_max: 0.0,
         }
     }
 
@@ -12385,7 +12406,7 @@ mod tests {
             eprintln!("EGSNRC_REFERENCE_HISTORIES not set: differential test skipped");
             return;
         };
-        tutor1_histories_report(&reference, false, false);
+        tutor1_histories_report(&reference, false, false, 0, false, 0);
     }
 
     /// Phase 2, EADL relaxation (the stock default, `eadl_relax = true`):
@@ -12401,7 +12422,7 @@ mod tests {
             eprintln!("EGSNRC_REFERENCE_HISTORIES_EADL not set: differential test skipped");
             return;
         };
-        tutor1_histories_report(&reference, true, false);
+        tutor1_histories_report(&reference, true, false, 0, false, 0);
     }
 
     /// Phase 2, electron-impact ionisation on (`eii_flag = 1`, `eii_xfile =
@@ -12417,10 +12438,45 @@ mod tests {
             eprintln!("EGSNRC_REFERENCE_HISTORIES_EII not set: differential test skipped");
             return;
         };
-        tutor1_histories_report(&reference, true, true);
+        tutor1_histories_report(&reference, true, true, 0, false, 0);
     }
 
-    fn tutor1_histories_report(reference: &str, eadl: bool, eii: bool) {
+    /// Phase 2, NRC pair cross sections (`pair_nrc = 1`, `pair_nrc1.data`) and
+    /// triplet production (`itriplet = 1`, `triplet.data`), selected by
+    /// `EGSNRC_PAIR_NRC` / `EGSNRC_ITRIPLET` (set to 1), against the
+    /// `difftutP`/`difftutT` builds (`difftutE` plus `pair_nrc=1;` or
+    /// `itriplet=1;` before `CALL HATCH`; `EGSNRC_REFERENCE_HISTORIES_PAIR`).
+    /// The 20 MeV electron makes bremsstrahlung photons above `4 m` so pair and
+    /// triplet events occur in the 1 mm Ta plate. Real `pair_nrc1.data`
+    /// decodes here for the first time.
+    #[test]
+    fn differential_tutor1_histories_against_compiled_egsnrc_pair_options() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES_PAIR") else {
+            eprintln!("EGSNRC_REFERENCE_HISTORIES_PAIR not set: differential test skipped");
+            return;
+        };
+        let pair_nrc = std::env::var("EGSNRC_PAIR_NRC").is_ok();
+        let itriplet = if std::env::var("EGSNRC_ITRIPLET").is_ok() { 1 } else { 0 };
+        tutor1_histories_report(&reference, true, false, 0, pair_nrc, itriplet);
+    }
+
+    /// Phase 2, NIST bremsstrahlung (`ibr_nist = 1`, `nist_brems.data`; EADL
+    /// relaxation): `init_nist_brems` on the real file and the alias-table
+    /// sampling in `brems`, against the `difftutB` build (`difftutE` plus
+    /// `ibr_nist=1;` before `CALL HATCH`, `BREMPR` in the `COMIN` list;
+    /// `EGSNRC_REFERENCE_HISTORIES_NIST`, tables in
+    /// `EGSNRC_REFERENCE_NIST_TABLES`).
+    #[test]
+    fn differential_tutor1_histories_against_compiled_egsnrc_nist_brems() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES_NIST") else {
+            eprintln!("EGSNRC_REFERENCE_HISTORIES_NIST not set: differential test skipped");
+            return;
+        };
+        let ibr = std::env::var("EGSNRC_IBR_NIST").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+        tutor1_histories_report(&reference, true, false, ibr, false, 0);
+    }
+
+    fn tutor1_histories_report(reference: &str, eadl: bool, eii: bool, ibr_nist: i32, pair_nrc: bool, itriplet: i32) {
         use petir::rng::ranmar::Ranmar;
         use std::sync::{Arc, RwLock};
         let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
@@ -12484,12 +12540,22 @@ mod tests {
         let photo_med = PhotoMedium { zelem: core::iter::once(0.0).chain(comp.iter().map(|c| c.0)).collect(), pz: core::iter::once(0.0).chain(comp.iter().map(|c| c.1)).collect() };
         photon_med.photo = photo_med;
         let reg = |med: usize, rhor: f64| PhotonRegionData { med, rhor, pcut: 0.1, ecut: 1.5, ibcmp: 3, iedgfl: 1, iphter: 1, irayl: 1, iphotonucr: 0 };
+        let nrc_pair = if pair_nrc {
+            let f = NrcPairFile::from_bytes(&std::fs::read(format!("{dir}/pair_nrc1.data")).unwrap()).unwrap();
+            Some(f.init(&[Vec::new(), comp.clone()]).unwrap())
+        } else {
+            None
+        };
+        let triplet_data = if itriplet > 0 { Some(init_triplet(&text("triplet.data"), &[Vec::new(), comp.clone()], RM).unwrap()) } else { None };
         let ptables = PhotonTables {
             regions: vec![PhotonRegionData::default(), reg(0, 0.0), reg(1, rho), reg(0, 0.0)],
             media: vec![PhotonMediumData::default(), photon_med],
             compton,
             relax: relax_d.clone(),
             photo: photo_d,
+            nrc_pair,
+            triplet: triplet_data,
+            up_max: pm[0].up,
         };
         // electron tables with the spin fits
         let mut emed = r.media[0].electron.clone();
@@ -12524,6 +12590,30 @@ mod tests {
             eii: None,
         };
         let mut etables = etables;
+        if ibr_nist > 0 {
+            let inputs = vec![
+                NistBremsInput::default(),
+                NistBremsInput { comp: pm[0].elements.iter().map(|x| (x.zelem, x.pz, x.wa)).collect(), ap: pm[0].ap, ae: pm[0].ae, ue: pm[0].ue },
+            ];
+            let file = if ibr_nist == 1 { "nist_brems.data" } else { "nrc_brems.data" };
+            init_nist_brems(&text(file), ibr_nist, &inputs, &mut etables.media, RM).unwrap();
+            if let Ok(tabs) = std::env::var("EGSNRC_REFERENCE_NIST_TABLES") {
+                let e = &etables.media[1];
+                let mut worst = [0.0_f64; 12];
+                for l in std::fs::read_to_string(tabs).unwrap().lines() {
+                    let v: Vec<f64> = l.split_whitespace().filter_map(|t| t.parse().ok()).collect();
+                    if v.len() != 13 || l.trim_start().starts_with(char::is_alphabetic) {
+                        continue;
+                    }
+                    let i = v[0] as usize;
+                    let row = [e.ededx.a0[i], e.ededx.a1[i], e.pdedx.a0[i], e.pdedx.a1[i], e.esig.a0[i], e.esig.a1[i], e.psig.a0[i], e.psig.a1[i], e.ebr1.a0[i], e.ebr1.a1[i], e.pbr1.a0[i], e.pbr1.a1[i]];
+                    for (k, (a, b)) in row.iter().zip(&v[1..]).enumerate() {
+                        worst[k] = worst[k].max((a - b).abs() / b.abs().max(1e-12));
+                    }
+                }
+                eprintln!("NIST-brems tables (ededx0/1, pdedx0/1, esig0/1, psig0/1, ebr10/11, pbr10/11) worst relative: {worst:?}");
+            }
+        }
         if eii {
             let inputs = vec![
                 EiiMediumInput::default(),
@@ -12560,15 +12650,15 @@ mod tests {
         }
         let log = Arc::new(RwLock::new(Vec::new()));
         let geo = Tutor1Geo { zbound: lit(0.1), prm: lit(0.5109989461), log: log.clone() };
-        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig::default() };
-        let pcfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 1.0e8 };
+        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() } };
+        let pcfg = PhotonConfig { pair: PairConfig { pair_nrc, itriplet, ..PairConfig::default() }, rr: None, prm: RM, vacdst: 1.0e8 };
         let mut drv = Tutor1Driver { tables: etables, cfg: ecfg, geo: geo.clone(), counters: ElectrCounters::default() };
         let mut pgeo = geo;
         let mut rng = Ranmar::new(1802, 9373);
         let mut mine: Vec<Vec<(i32, f64, f64)>> = Vec::new();
+        let mut st = Stack::new(15);
         for _ in 0..200 {
             log.write().unwrap().clear();
-            let mut st = Stack::new(15);
             let start = ShowerStart { iqi: -1, ei: lit(20.5109989461), xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 2, wti: 1.0 };
             match shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng) {
                 Ok(_) => mine.push(log.read().unwrap().clone()),
