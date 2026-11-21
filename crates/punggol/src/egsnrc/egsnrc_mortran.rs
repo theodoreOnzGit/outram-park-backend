@@ -726,7 +726,7 @@ pub const MXTRANS: usize = 39;
 pub const MXVAC: usize = 50;
 /// `$RELAX-CUTOFF` (`egsnrc.macros:777`): binding energies below this, MeV,
 /// are absorbed locally.
-pub const RELAX_CUTOFF: f64 = lit(0.001);
+pub const RELAX_CUTOFF: f64 = 0.001; // `0.001D0`: an exact double in Mortran, never rounded through f32
 
 /// `COMMON/EDGE/` as `RELAX` reads it (`egsnrc.macros:501-515`), 1-based:
 /// `binding_energies[iz][shell]` (MeV) and `relaxation_prob[iz][transition]`
@@ -2663,7 +2663,7 @@ pub fn prepare_rayleigh_data(
     let mut i = 1usize;
     for j in 1..=ne {
         let e = emin * RealMath::r_exp(dle * (j - 1) as f64);
-        let xmax = lit(20.607544) * 2.0 * e / prm;
+        let xmax = 20.607544 * 2.0 /* `20.607544d0` */ * e / prm;
         let mut k = i;
         while k <= ndat - 1 {
             if xmax >= x[k] && xmax < x[k + 1] {
@@ -2681,7 +2681,7 @@ pub fn prepare_rayleigh_data(
     i_array[ncbin] = i as i32;
     // renormalise so that pe_array(emax) = 1 (slightly larger so fcum is never underestimated)
     let anorm = 1.0 / Real::sqrt(pe_array[ne]);
-    let anorm1 = lit(1.005) / pe_array[ne];
+    let anorm1 = 1.005 / pe_array[ne];
     let anorm2 = 1.0 / pe_array[ne];
     for j in 1..=ne {
         pe_array[j] *= anorm1;
@@ -5405,7 +5405,7 @@ pub fn shower<R: UniformSource, G: Geometry, E: ElectronTransport>(
     start: &ShowerStart,
     rng: &mut R,
 ) -> Result<ShowerResult, EgsError> {
-    const PI0MSQ: f64 = lit(1.8215416e4); // pi-zero mass (MeV) squared
+    const PI0MSQ: f64 = 1.8215416e4; // `1.8215416D4` // pi-zero mass (MeV) squared
     let mut out = ShowerResult::default();
     stack.np = 1;
     stack.np_old = stack.np;
@@ -7784,7 +7784,7 @@ pub fn init_compton(incoh_text: &str, media: &[Vec<(f64, f64)>], prm: f64) -> Re
             eno[i] = -eno[i];
             atbin[i] = i as i32;
         }
-        let atav = 1.0 / nsh as f64;
+        let atav = super::lit_div(1.0, nsh as f64); // `1./nsh`: real*4 / integer in a stock build
         for i in 1..=nsh.saturating_sub(1) {
             // Mortran DO loops leave the index at `nsh` when they run out
             let mut j_h = nsh;
@@ -8605,7 +8605,8 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
             let _beta2 = tau * (tau + 2.0) / ((tau + 1.0) * (tau + 1.0));
             for iq in 0..2usize {
                 let aux_o = (RealMath::r_exp(eta_array[iq][i] / sum_z2) / ((FINE * TF_CONSTANT) * (FINE * TF_CONSTANT))) as f32 as f64;
-                eta_array[iq][i] = lit(0.26112447) * aux_o * med.blcc / med.xcc;
+                // `0.26112447*aux_o` is real*4 times real*4 in a stock build
+                eta_array[iq][i] = super::lit_mul(0.26112447, aux_o as f32) * med.blcc / med.xcc;
                 let eta = aux_o / 4.0 / tau / (tau + 2.0);
                 let l = RealMath::r_ln(1.0 + 1.0 / eta);
                 let gamma = 3.0 * (1.0 + eta) * (l * (1.0 + 2.0 * eta) - 2.0) / (l * (1.0 + eta) - 1.0);
@@ -8681,7 +8682,7 @@ pub fn init_spin(file: &SpinFile, media: &[SpinMediumInput], prm: f64) -> Result
         for i in (MAXE_SPIN + 1)..MAXE_SPI1 {
             elarray[i + 1] = RealMath::r_ln(earray[i + 1] / 1000.0);
         }
-        elarray[ndata] = if med.ue > 1e5 { RealMath::r_ln(med.ue) } else { RealMath::r_ln(1e5) };
+        elarray[ndata] = if med.ue > 1e5 { RealMath::r_ln(med.ue) } else { super::lit_ln(1e5) };
         let mut moment_fit = |src: &[f64; MAXE_SPI1 + 1], dst: &mut Pwlf| {
             let mut farray = alloc::vec![0.0_f64; ne1 + 1];
             for i in 0..=MAXE_SPIN {

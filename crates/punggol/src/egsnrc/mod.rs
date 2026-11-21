@@ -170,3 +170,32 @@ mod tests {
 pub const fn lit(x: f64) -> f64 {
     if cfg!(feature = "egsnrc-f32-constants") { x as f32 as f64 } else { x }
 }
+
+/// A Mortran decimal constant times a `real*4` variable. In a stock build
+/// (single-precision constants) both operands are single, so the product is
+/// rounded to `f32`; with exact `f64` constants (the default, and the
+/// `-fdefault-real-8` build) the constant is double and the product is `f64`
+/// (gh:#1694: found by dumping `eta_array` from both builds).
+#[inline]
+pub fn lit_mul(constant: f64, v: f32) -> f64 {
+    if cfg!(feature = "egsnrc-f32-constants") { f64::from(constant as f32 * v) } else { constant * f64::from(v) }
+}
+
+/// `Log(c)` of a Mortran decimal constant: with single-precision constants the
+/// argument is `real*4`, so a stock build calls `logf` and gets a single result
+/// (`elarray(ndata) = Log(1e5)` in `init_spin`); otherwise `f64` (gh:#1694).
+#[inline]
+pub fn lit_ln(constant: f64) -> f64 {
+    if cfg!(feature = "egsnrc-f32-constants") {
+        f64::from(petir::mathf::RealMath::r_ln(constant) as f32)
+    } else {
+        petir::mathf::RealMath::r_ln(constant)
+    }
+}
+
+/// A Mortran decimal constant divided by an integer (`atav = 1./nsh`): with
+/// single-precision constants the quotient is `real*4` (gh:#1694).
+#[inline]
+pub fn lit_div(constant: f64, n: f64) -> f64 {
+    if cfg!(feature = "egsnrc-f32-constants") { f64::from(constant as f32 / n as f32) } else { constant / n }
+}
