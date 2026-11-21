@@ -114,6 +114,11 @@ pub struct Stack {
     /// Fortran keeps them between calls and histories, so they travel with the
     /// stack, which a caller reuses across histories to keep them.
     pub triplet: super::egsnrc_mortran::TripletState,
+    /// `x_final, y_final, z_final` (a `COMMON` of `egsnrc.macros:911`): the
+    /// position at the end of the last `PHOTON` or `ELECTR` step. It persists
+    /// across calls and histories; `$ADD_WORK_EM_FIELD` of `EEMF_macros` reads
+    /// it before `ELECTR` assigns it for the step.
+    pub x_final: [f64; 3],
     mxstack: usize,
 }
 
@@ -138,6 +143,7 @@ impl Stack {
             np: 0,
             np_old: 0,
             triplet: super::egsnrc_mortran::TripletState::default(),
+            x_final: [0.0; 3],
             mxstack,
         }
     }

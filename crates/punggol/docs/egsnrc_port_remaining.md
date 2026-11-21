@@ -105,9 +105,12 @@ photoelectric option (`mcdf_pe_xsections`, off by default).
 `ELECTR` hooks and compared with a compiled EGSnrc (bit-level agreement ~1e-15,
 `docs/egsnrc_phase2_differential.md`, "Electromagnetic fields"). Still not
 ~~ported: `EEMF_macros.mortran`, `EEMF_macros_beamnrc.mortran`, `egs_parallel`~~
-**CORRECTED 2026-11-21 (later):** `EEMF_macros.mortran` is ported (magnetic field,
-PRESTA-II, `src/egsnrc/eemf_macros_mortran.rs`) and compared, see
+**CORRECTED 2026-11-21 (later):** `EEMF_macros.mortran` is ported (magnetic, electric
+and combined fields, PRESTA-II and PRESTA-I, exact and inexact BCA,
+`src/egsnrc/eemf_macros_mortran.rs`) and compared, see
 `docs/egsnrc_phase2_differential.md`, "EEMF (Malkov-Rogers)". Still not
 ported: `EEMF_macros_beamnrc.mortran` (a different algorithm, needs BEAMnrc
-geometry) and `egs_parallel` (lock-file job control, no physics); the
-electric-field macros of `EEMF_macros` and `$EMFIELD_PI` (gh:#1697).
+geometry) and `egs_parallel` (lock-file job control, no physics) (gh:#1697).
+~~The electric-field macros of `EEMF_macros` and `$EMFIELD_PI` are not ported~~
+**CORRECTED:** what the compiled configuration expands of them is ported; the
+rest is never expanded (see the phase-2 doc).

@@ -217,7 +217,7 @@ outside the array (the port uses 0.0 and ends the cascade); `:6108` assigns
 
 ## Not differentially tested, and why (CORRECTED 2026-11-21)
 
-**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), ~~photonuclear~~ **CORRECTED 2026-11-21: photonuclear IS ported (the `PHOTONUC` placeholder, the HATCH `photonuc0/1` table and the `$PHOTONUC-*` hooks in `photon`) and is now compared, see "Photonuclear" below**; ~~electromagnetic fields~~ **CORRECTED: the classic `emf_macros` field hooks are ported and compared (below)**; ~~only `EEMF_macros` (Malkov-Rogers) and `egs_parallel` are not ported~~ **CORRECTED 2026-11-21 (later): `EEMF_macros` is ported for a magnetic field and compared ("EEMF (Malkov-Rogers)" below); `EEMF_macros_beamnrc` and `egs_parallel` are not ported,** the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
+**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), ~~photonuclear~~ **CORRECTED 2026-11-21: photonuclear IS ported (the `PHOTONUC` placeholder, the HATCH `photonuc0/1` table and the `$PHOTONUC-*` hooks in `photon`) and is now compared, see "Photonuclear" below**; ~~electromagnetic fields~~ **CORRECTED: the classic `emf_macros` field hooks are ported and compared (below)**; ~~only `EEMF_macros` (Malkov-Rogers) and `egs_parallel` are not ported~~ **CORRECTED 2026-11-21 (later): `EEMF_macros` is ported (magnetic, electric and combined fields; PRESTA-II and PRESTA-I; exact and inexact BCA) and compared ("EEMF (Malkov-Rogers)" below); `EEMF_macros_beamnrc` and `egs_parallel` are not ported,** the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
@@ -682,115 +682,193 @@ utilities, no physics). Both remain on gh:#1697. ~~`EEMF_macros` not ported~~ **
 
 `HEN_HOUSE/src/EEMF_macros.mortran` (2400 lines; Malkov and Rogers, Med. Phys.
 43, 4447 (2016)) is ported as `src/egsnrc/eemf_macros_mortran.rs`, with the
-hooks in `electr` and `msdist_p2_field` (`ElectrConfig::eemf`,
-`ElectrCounters::eemf`, the `COMMON/EM/` that persists across calls).
+hooks in `electr`, `msdist_p2_field` and `msdist_p1_field`
+(`ElectrConfig::eemf`, `ElectrCounters::eemf` for the `COMMON/EM/` that
+persists across calls, `Stack::x_final` for the global `x_final`).
 
-**Scope (maintainer decision, 2026-11-21): the configuration the file compiles
-by default, magnetic field only.** `$IntegrationAlg = 3`, `$ssFieldAlg = 2`
-(analytic helix), `$orderBoundary`, `$orderAdaptive`, `$duAdaptive` true,
-`$energyLossViaPotential` false, `$ss_em` true, `$changingEMField` false,
-PRESTA-II (`$EMFIELD_PII` in `msdist_pII`), exact BCA. A non-zero electric
-field, PRESTA-I and `exact_bca = false` return `EgsError::Unsupported`
-(upstream's header: only the magnetic field is validated). Ported: the nine
-hooks of `ELECTR` (`$EMFIELD_INITIATE_SET_TUSTEP` twice, `$EMFieldInVacuum`,
-`$EM_FIELD_SS`, `$ADD_WORK_EM_FIELD`, the `IF ~($EM_MACROS_ACTIVE)` guard
-on `x_final`, `$EMFIELD_PII`) with `$TUSTEP_RIST_B`, `$NORM_VEC_B`,
-`$INTERACT_EM`, `$NORMALIZE`, `$SET_MAGNITUDE`, `$SS_MF_Transport`,
-`$SS_MF_directionsConstants`, `$CALC_SS_MAG`; also `$CALC_analyticDeflection`
-and `$MF_Transport`, which **no run-time path reaches** (the first sits in the
-branches after `ELSEIF(.true.)` of `$EM_FIELD_SS`, the generated Fortran has
-them as dead code; the second is defined and never expanded), so they are
-covered by unit tests only.
+**Scope.** The configuration the file compiles by default: `$IntegrationAlg
+= 3`, `$ssFieldAlg = 2`, `$orderBoundary`, `$orderAdaptive`, `$duAdaptive`
+true, `$energyLossViaPotential` false, `$ss_em` true, `$changingEMField`
+false. ~~First version (earlier on 2026-11-21): magnetic field only, PRESTA-II
+only, exact BCA only; electric field, PRESTA-I and `exact_bca = false`
+returned `EgsError::Unsupported`, the electric macros being "not ported
+because `$SS_EF_Transport` calls the undefined `$calculateDeltaT`".~~
+**CORRECTED 2026-11-21 (follow-up):** that reason was wrong for this
+configuration. The generated Fortran (`-fdefault-real-8` build of the user code,
+read, not assumed) never expands `$SS_EF_Transport`, `$EF_Transport`,
+`$EF_timeIntegral`, `$EF_setVelocities`, `$EF_setPositions` or
+`$calculateDeltaT`: a `grep` of the generated `.f` for `EF_tLower`,
+`timeForInt`, `EF_fourthDer`, `momTot_EF`, `deltaT0`, `nSteps`, `EF_s1`,
+`calculateDeltaT` finds only the `COMMON/EM/` declaration. What *is* compiled
+for an electric field is ported: magnetic, electric and combined fields,
+PRESTA-II and PRESTA-I, exact and inexact boundary crossing.
 
-**Not ported, and why.** The electric-field macros (`$TUSTEP_RIST_E`,
-`$EF_*`, `$SS_EF_Transport`, `$setEFPotential`, `$COMPUTE_PL_EM_LOSS`): upstream
-validates only B, and `$SS_EF_Transport` calls `$calculateDeltaT`, which no
-file defines. `$EMFIELD_PI`: PRESTA-I, outside the decision. The `$IntegrationAlg
-= 0` branch and the `$changingEMField` branches: compiled out by the constants
-(the generated Fortran holds `IF (3 .EQ. 0)` and `IF (.false.)`).
-`EEMF_macros_beamnrc.mortran`: `diff` against the standard file is 1359 lines;
-besides BEAMnrc component-module `HOWNEAR` plumbing it changes the algorithm
-(the `$EM_FIELD_SS` linear branch has no `irl ~= ir(np)` clause, the
-`$ssFieldAlg` tests differ, `$EMFIELD_INITIATE_SET_TUSTEP` gains `IF(medium~=0)`
-and a `howfarCheck`), so it is not "the same algorithm plus plumbing"; it also
-needs BEAMnrc's geometry. `egs_parallel.mortran`: read in full; lock-file job
-control through the C utilities `egs_*_control_file`, no physics, no `no_std`
-seam (see the module doc).
+**Ported**, with the hooks of `ELECTR`: `$EMFIELD_INITIATE_SET_TUSTEP` (twice)
+with `$TUSTEP_RIST_B` and `$TUSTEP_RIST_E` and the electric step restriction;
+`$EMFIELD_PII` with its plain-normalisation (electric) paths; `$EMFIELD_PI`;
+`$EM_FIELD_SS` (the electric branch `$ssFieldAlg > 0`, taken whenever `E` is
+present, alone or with `B`; the magnetic branch with the `:BCA4_tperpCheck:`
+loop); `$EMFieldInVacuum` (the magnetic helix, taken when `B` is present, and the
+`:EFieldVacuumHFCheck:` segments for `E` alone; the electric energy change in the
+linear part); `$ADD_WORK_EM_FIELD` / `$calculate_EchangeInEF`; the `x_final`
+guard; `$NORM_VEC_B`, `$INTERACT_EM`, `$NORMALIZE`, `$SET_MAGNITUDE`,
+`$SS_MF_Transport`, `$SS_MF_directionsConstants`, `$CALC_SS_MAG`. Also ported but
+unreachable (unit tests only): `$CALC_analyticDeflection` (sits after
+`ELSEIF(.true.)` of `$EM_FIELD_SS`, dead in the Fortran) and `$MF_Transport`
+(defined, never expanded).
+
+**Three properties of the compiled build, reproduced on purpose.**
+1. `$ADD_WORK_EM_FIELD` runs **before** `ELECTR` assigns `x_final` for the
+   step, so for a condensed-history step the work uses the previous
+   `x_final` (a global `COMMON`, also written by `PHOTON`): `de_EM = lelec E_amp
+   1e-8 E.(x0 - x_final_previous)`, which is ~0 except at the first step of an
+   `ELECTR` call. The port keeps `x_final` in `Stack` and writes it from `PHOTON`
+   and `ELECTR`; the compiled build is the truth, and the agreement below
+   depends on it.
+2. `$EMFIELD_PI` with `$IntegrationAlg = 3` runs none of its branches
+   (`IF (3 .EQ. 0)`, `3 .EQ. 1`, `3 .EQ. 2`, checked in the generated
+   `msdist_pI`): it only updates `v_f`, `eloss_corr0`, `EM_const0`. **A PRESTA-I
+   condensed-history step is not bent by the field**; the field acts through the
+   step restriction and the single-scattering steps.
+3. `tperp`, `skindepth` (stale `ELECTR` locals in vacuum), `tmax_CH`,
+   `eloss_corr` and the rest of `COMMON/EM/` persist.
+
+**Not ported** (each checked in the generated Fortran): `$EF_Transport`,
+`$EF_timeIntegral`, `$EF_setVelocities`, `$EF_setPositions`,
+`$SS_EF_Transport`, `$calculateDeltaT`, `$TUSTEP_ERIST`,
+`$COMPUTE_PL_EM_LOSS` (`$extra_E_loss_em` is not defined anywhere), `$MAXS_eLoss`:
+not expanded. `$setEFPotential`: inside `IF (.false.)`. `$IntegrationAlg` 0, 1
+(constant) and 2 branches of `$EMFIELD_PII`/`$EMFIELD_PI`: `IF (3 .EQ. n)`.
+`$changingEMField` branches: `IF (.false.)`. `EEMF_macros_beamnrc.mortran`
+(`diff` is 1359 lines: the `$EM_FIELD_SS` linear branch has no `irl ~= ir(np)`
+clause, the `$ssFieldAlg` tests differ, INITIATE gains `IF(medium~=0)` and a
+`howfarCheck`, plus `$CALL-HOWNEAR_EM` over BEAMnrc component modules, which
+this crate does not have). `egs_parallel.mortran` (read in full: lock-file job
+control through `egs_*_control_file` C utilities, no physics).
+
+**Upstream behaviour worth knowing.** `$EMFieldInVacuum`'s electric loop
+(`:EFieldVacuumHFCheck:`) advances `tperp_em` by `|u_em|` (the direction
+change), which is 0 for a direction exactly parallel to `E`; then
+`tmax_CH = s_max_pii = 1e30`, the step runs away and the loop never ends. A
+unit test with a direction along `E` hung until this was found. It is not
+reachable in the histories below (direction cosines are never exactly along
+`E`). `msdist` receives `u(np)` by reference, so `$NORM_VEC_B(u0, ...)` writes
+the stack; harmless because `ELECTR` overwrites `u(np)` afterwards.
 
 **Reference.** `HEN_HOUSE/src/EEMF_macros.mortran` replaces `emf_macros` in the
-Mortran3 command (`egsnrc.macros EEMF_macros.mortran machine.macros ...`),
-`-fdefault-real-8 -fdefault-double-8`, `-O1` (an `-O0` build gave bit-identical
-histories). Two user codes, both the `difftut` history code with
-`;COMIN/EMF-INPUTS/;` and `ExIN=0;EyIN=0;EzIN=0; Bx=..;By=..;Bz=..;
+Mortran3 command, `-fdefault-real-8 -fdefault-double-8`, `-O1` (an `-O0` build
+gave bit-identical histories). User codes, all the `difftut` history code with
+`;COMIN/EMF-INPUTS/;` and `ExIN=..;EyIN=..;EzIN=..; Bx=..;By=..;Bz=..;
 BxIN=Bx;ByIN=By;BzIN=Bz; EMLMTIN=0.02; emfield_on=.true.;` before `CALL
-HATCH` (the field acts in vacuum and Ta; `EGSNRC_EEMF_FIELD=bx,by,bz,emlmt`):
-1. **tutor1** as it is: 20 MeV, vacuum, 1 mm Ta (region 2), vacuum.
-   Electrons that leave the plate are discarded by `HOWFAR` in regions 1 and 3
-   before any vacuum step, so `$EMFieldInVacuum` is **not reached** here (a
-   vacuum step needs `ustep /= 0`).
-2. **layers** (`EGSNRC_LAYERS=1`, `emL1`...), added to reach the vacuum
-   macro: five regions, vacuum | Ta 0 to 0.05 cm | vacuum gap to 0.5 cm | Ta to
-   0.55 cm | vacuum; regions 1 and 5 discard in `HOWFAR`; `HOWNEAR` is the
-   distance to the nearest plane; 3.5 MeV electrons from the origin; `ECUT` of
-   both plates 1.0 MeV; vacuum regions `ECUT = PCUT = 0` (as the user code,
-   which does not set them). The 200 histories contain 60 vacuum-macro calls
-   (trace of `$EMFieldInVacuum`, `fort.97`).
-
-The stale `ELECTR` locals `tperp` and `skindepth` (read by the vacuum macro and
-by `$EMFIELD_INITIATE_SET_TUSTEP` in vacuum while they still hold the last
-medium step) are hoisted to function scope in `electr`, as the task required;
-`tmax_CH` and the rest of `COMMON/EM/` persist in `ElectrCounters`. The initial
-value of the uninitialised `tperp` and `skindepth` (zero here) was not exercised:
-every vacuum step in these runs follows a medium step.
+HATCH` (`EGSNRC_EEMF_FIELD=ex,ey,ez,bx,by,bz,emlmt`, or `bx,by,bz,emlmt`):
+1. **tutor1** as it is: 20 MeV, vacuum, 1 mm Ta (region 2), vacuum. Electrons that
+   leave the plate are discarded by `HOWFAR` before any vacuum step, so
+   `$EMFieldInVacuum` is **not reached** here.
+2. **layers** (`EGSNRC_LAYERS=1`), added to reach the vacuum macro: five regions,
+   vacuum | Ta 0 to 0.05 cm | vacuum gap to 0.5 cm | Ta to 0.55 cm | vacuum;
+   regions 1 and 5 discard in `HOWFAR`; `HOWNEAR` is the distance to the nearest
+   plane; 3.5 MeV electrons from the origin; plates' `ECUT` 1.0 MeV; vacuum
+   regions `ECUT = PCUT = 0`. 39 to 60 vacuum-macro calls per 200 histories (counted in the trace of the Fortran for `E (0,0,2e5)` and `B (1,0,0)`).
+3. **Options** (`;COMIN/ET-Control/;` and `transport_algorithm=1;` and/or
+   `bca_algorithm=1;` after `call egs_init`, before `CALL HATCH`;
+   `EGSNRC_PRESTA1`, `EGSNRC_BCA1` on the Rust side). The compiled upstream runs
+   all four combinations (no compile error, no abort). `skindepth_for_bca`
+   keeps its default 3.0 for `bca_algorithm = 1` (`mscati` recomputes it only
+   when `<= 1e-4`). **Found on the way:** the port's test passed
+   `skindepth_for_bca = 0` to `hatch_media`, which recomputed 319 elastic MFPs
+   for the inexact BCA, so the no-field inexact-BCA run disagreed with the
+   reference from history 1; with `skindepth_for_bca = 3.0` the no-field
+   references (`transport_algorithm`/`bca_algorithm` = (0,1), (1,1) on the stock
+   build, no EEMF) agree to 3.7e-15 and 9.1e-16 in energy (6.3e-15, 2.1e-15 in
+   `|dw|`). That is a test-harness input, not a defect of `electr`.
 
 **Results** (port against the compiled reference, 200 histories each, same
-RANMAR seeds; "same sequence" = same charge sequence of the discarded
-particles; worst over the histories with the same sequence):
+RANMAR seeds; fields are `E` in V/cm, `B` in T; "same seq" = same charge
+sequence of the discarded particles; worst over those histories):
 
-| geometry, B (T) | same sequence | worst relative kinetic energy | worst `|dw|` |
+| geometry, field, options | same seq | worst rel. kinetic energy | worst abs(dw) |
 |---|---|---|---|
-| tutor1, (0, 0.5, 0.8) | 200 of 200 | 4.7e-15 | 3.5e-14 |
-| tutor1, (1, 0, 0) | 200 of 200 | 8.9e-16 | 1.2e-15 |
-| tutor1, (0, 0.05, 0) | 200 of 200 | 1.3e-15 | 7.8e-16 |
-| tutor1, (0.9, 0, 1.2) (1.5 T) | 200 of 200 | 6.9e-16 | 1.3e-15 |
-| layers, (0, 0.05, 0) | 200 of 200 | 3.0e-14 | 1.1e-11 |
-| layers, (0.9, 0, 1.2) | 200 of 200 | 4.1e-15 | 1.4e-13 |
-| layers, (0, 1.5, 0) | 200 of 200 | 3.0e-14 | 1.4e-10 |
-| layers, (0, 0.5, 0.8) | 200 of 200 | 5.2e-9 | 8.7e-8 |
-| layers, (1, 0, 0) | 200 of 200 | 6.8e-11 | 4.3e-7 |
-| control: tutor1 with the (0, 0.5, 0.8) reference, port with no field | 39 of 200, diverges at history 1 | | |
+| tutor1 B (0,0.5,0.8), PII exact | 200 | 4.7e-15 | 3.5e-14 |
+| tutor1 B (1,0,0) | 200 | 8.9e-16 | 1.2e-15 |
+| tutor1 B (0,0.05,0) | 200 | 1.3e-15 | 7.8e-16 |
+| tutor1 B (0.9,0,1.2) | 200 | 6.9e-16 | 1.3e-15 |
+| tutor1 E (0,0,5e3) | 200 | 9.8e-16 | 8.9e-16 |
+| tutor1 E (2e4,-1e4,5e3) | 200 | 1.1e-15 | 5.5e-14 |
+| tutor1 E (2e4,-1e4,5e3) + B (0,0.5,0.8) | 200 | 1.0e-15 | 1.2e-13 |
+| tutor1 B (0,0.5,0.8), PRESTA-I exact | 200 | 7.2e-16 | 2.9e-14 |
+| tutor1 B (0,0.5,0.8), PII inexact | 200 | 6.6e-15 | 6.9e-14 |
+| tutor1 B (0,0.5,0.8), PRESTA-I inexact | 200 | 7.5e-16 | 2.4e-15 |
+| tutor1 E (2e4,-1e4,5e3), PRESTA-I exact | 200 | 1.3e-15 | 1.1e-12 |
+| tutor1 E (2e4,-1e4,5e3), PII inexact | 200 | 8.9e-16 | 4.4e-15 |
+| tutor1 E (2e4,-1e4,5e3), PRESTA-I inexact | 200 | 8.7e-16 | 6.6e-15 |
+| tutor1 E (0,0,5e3), PII inexact | 200 | 1.0e-15 | 2.2e-15 |
+| tutor1 E+B, PRESTA-I exact | 200 | 4.7e-16 | 5.6e-16 |
+| tutor1 E+B, PII inexact | 200 | 1.5e-15 | 3.3e-15 |
+| tutor1 E+B, PRESTA-I inexact | 200 | 4.1e-16 | 3.2e-14 |
+| layers B (0,0.05,0) | 200 | 3.0e-14 | 1.1e-11 |
+| layers B (0.9,0,1.2) | 200 | 4.1e-15 | 1.4e-13 |
+| layers B (0,1.5,0) | 200 | 3.0e-14 | 1.4e-10 |
+| layers B (0,0.5,0.8) | 200 | 5.2e-9 | 8.7e-8 |
+| layers B (1,0,0) | 200 | 6.8e-11 | 4.3e-7 |
+| layers E (0,0,5e3) | 200 | 4.4e-15 | 4.3e-15 |
+| layers E (0,0,2e5) | 200 | 1.3e-13 | 8.3e-12 |
+| layers E (2e4,-1e4,5e3) | 200 | 3.2e-15 | 1.1e-14 |
+| layers E (2e4,-1e4,5e3) + B (0,0.5,0.8) | 200 | 1.2e-13 | 1.3e-7 |
+| layers E (1e5,-5e4,8e4) + B (0,0.5,0.8) | 200 | 4.0e-15 | 6.0e-12 |
+| layers B (1,0,0), PRESTA-I exact | 200 | 1.6e-14 | 2.3e-12 |
+| layers B (1,0,0), PII inexact | 200 | 5.1e-14 | 1.8e-13 |
+| layers B (1,0,0), PRESTA-I inexact | 200 | 3.2e-14 | 1.2e-12 |
+| layers B (0,1.5,0), PII inexact | 200 | 5.8e-15 | 2.4e-13 |
+| layers E (0,0,2e5), PRESTA-I exact | 200 | 9.7e-12 | 5.0e-8 |
+| layers E (0,0,2e5), PII inexact | 200 | 2.0e-7 | 2.8e-8 |
+| layers E (0,0,2e5), PRESTA-I inexact | 200 | 9.3e-11 | 3.0e-7 |
+| layers E (1e5,-5e4,8e4) + B, PRESTA-I exact | **165** (first different: history 37) | | |
+| layers E (1e5,-5e4,8e4) + B, PII inexact | 200 | 5.1e-7 | 8.9e-7 |
+| layers E (1e5,-5e4,8e4) + B, PRESTA-I inexact | 200 | 2.4e-15 | 1.2e-10 |
+| control: tutor1 with the B (0,0.5,0.8) reference, port with no field | 39 | diverges at history 1 | |
 
-**The rows above 1e-9 (the last two of the layered runs) are round-off
-amplified, not a different algorithm, and they are reported as such, not
-accepted by a tolerance.** What was measured:
-- The first divergence is at the last bit (`~1e-16` in the step positions and
-  directions) and grows smoothly: for layers (0, 0.5, 0.8), history 88, the
-  per-step deviation of `(tustep, vstep, de, x, y, z, u, v, w)` is 2e-17 at the
-  start of the history, 8.9e-12 120 steps later, 5.3e-8 after 149 steps and
-  6e-5 at the last, a few hundred single-scattering steps spent within 3e-5 cm of
-  a plane (a near-tangent spiral inside the skin depth); for layers (1, 0, 0),
-  history 47, 1.5e-16 at the start, 1e-13 after 30 steps, 1e-11 after 80, 4e-11
-  at the end. The charge sequence never differs.
-- Changing **one input of the compiled Fortran by one unit in the last place**
-  (`ZBOUND = 0.05` to `0.05000000000000001`, a 7e-18 cm change) moves layers
-  (1, 0, 0), history 141, by `|dw| = 4.3e-7`: the same 4.3e-7 as the port
-  against the reference. Probes of the same kind on layers (0, 0.5, 0.8) (one ulp
-  of `ZBOUND`, of `ZB2`, of the beam energy) moved it by at most 4.7e-11 in `|dw|`
-  (2.6e-12 in energy): so the 8.7e-8 of that row is **not reproduced by those three
-  probes**; the growth above is the evidence that it is the same kind of
-  amplification, not a proof. The Fortran itself has no other build
-  difference to compare (`-O0` and `-O1` are identical).
-- Swapping the port's `sin`/`cos` for the platform libm and `powf` for the
-  platform `pow` changed nothing (digits identical), so the libm is not the
-  source; the remaining candidates are last-bit differences in compound
-  expressions, and none was found.
-Per the root rules the residuals above 1e-9 are for the maintainer to judge.
+**The layered rows above 1e-9, and the 35 diverging histories, are round-off
+amplification: proven by perturbing the compiled Fortran itself** (follow-up,
+bounded effort). Method: build the reference again with the beam energy changed
+by 1 to 7 units in the last place (`EIN = 3.5109989461` to
+`nextafter`^k) and compare each variant with the unperturbed reference,
+Fortran against Fortran, same RANMAR seeds. Results (worst over 200 histories
+of `|dw|`, shown against the port-vs-reference figure of the same case):
 
-**Tests.** `tutor1_histories_report` (the test
+| case | port against reference | Fortran against Fortran, 1 to 7 ulp of `EIN` |
+|---|---|---|
+| layers B (0,0.5,0.8) | 8.7e-8 (E 5.2e-9) | 3.5e-11, 9.2e-11, **9.2e-8**, 8.8e-8, 1.1e-10, 8.8e-8, 9.3e-8 (8 probes) |
+| layers B (1,0,0) | 4.3e-7 (E 6.8e-11) | 3.6e-7, 6.1e-7, 5.5e-7, 5.5e-7, 4.0e-7, 5.5e-8, 3.5e-7 |
+| layers E+B (2e4,-1e4,5e3)+(0,0.5,0.8) | 1.3e-7 | 1.3e-7, 1.3e-9, 4.7e-10, 1.9e-7, 4.7e-10, 1.0e-7, 1.8e-7 |
+| layers E (0,0,2e5), PII inexact | 2.8e-8 (E 2.0e-7) | 1.3e-12, 1.5e-9, 5.7e-9, 2.8e-8, 3.1e-8, 2.9e-8, 2.9e-8 (E up to 2.3e-7) |
+| layers E (0,0,2e5), PRESTA-I exact | 5.0e-8 | 1.1e-7, 6.1e-8, 5.0e-8, 1.1e-7, 7.2e-8, 7.2e-8, 1.1e-7 |
+| layers E (0,0,2e5), PRESTA-I inexact | 3.0e-7 | 2.0e-8, 2.1e-8, 1.0e-7, 3.2e-7, 1.4e-7, 2.1e-7, 4.3e-7 |
+| layers E+B (1e5,-5e4,8e4), PII inexact | 8.9e-7 | 7.9e-7, 5.4e-7, 8.9e-7, 2.7e-7, 1.7e-7, 2.2e-6, 2.1e-6 |
+| layers E+B (1e5,-5e4,8e4), PRESTA-I exact | 35 histories with a different charge sequence | **35 of 200 histories with a different sequence in every one of the 7 probes** |
+
+In every case the Fortran moves by the same order as the port differs from
+it, and for the PRESTA-I E+B case a one-ulp change of the beam energy flips the
+same number (35) of histories. The earlier probes of one geometry constant
+(`ZBOUND`, `ZB2`) that moved the (0,0.5,0.8) case by only 5e-11 simply did not
+hit a sensitive history; the energy ensemble does. Mechanism (traces of the
+step-by-step deviation, port against reference): the deviation starts at
+~1e-17 and grows by about 1e3 per 25 steps through a few hundred
+single-scattering steps spent within 3e-5 cm of a plane (a near-tangent
+spiral inside the skin depth); for PRESTA-I E+B history 36 it grows from 2e-17
+to 1e-5 and then a boundary-crossing test (`z = 0.05` reached or missed by
+1.2e-7 cm) flips, which sends the history down a different branch (reference
+discards in vacuum region 3, port keeps spiralling). This does not prove
+bit-level equivalence of every operation; it shows that no deviation of this
+size can be attributed to a port difference, because the compiled code itself
+moves by as much under a perturbation of 1e-16.
+
+**Tests.** `tutor1_histories_report` (test
 `differential_tutor1_histories_against_compiled_egsnrc`) takes the field from
-`EGSNRC_EEMF_FIELD=bx,by,bz,emlmt` and the geometry from `EGSNRC_LAYERS`;
-`EGSNRC_REFERENCE_HISTORIES` is the reference `histories.txt` (skipped when
-unset, asserts structure only). Unit tests in `eemf_macros_mortran.rs` reach
-every ported function (norm preserved, the analytic helix against
-`2 R sin(alpha/2)`, the 1-point and 3-point integrations, the vacuum macro
-against the sagitta `d^2/(2R)`).
+`EGSNRC_EEMF_FIELD`, the geometry from `EGSNRC_LAYERS`, the options from
+`EGSNRC_PRESTA1` and `EGSNRC_BCA1`; `EGSNRC_REFERENCE_HISTORIES` is the
+reference (skipped when unset, asserts structure only). Unit tests in
+`eemf_macros_mortran.rs` reach every ported function (norm preserved, the helix
+against `2 R sin(alpha/2)`, 1-point and 3-point integrations, the vacuum macro
+against the sagitta, the electric branches, `$EMFIELD_PI` state-only), and
+`electr_with_eemf_conserves_energy_and_refuses_what_it_does_not_port` covers
+whole showers with PRESTA-II/PRESTA-I and both BCAs.

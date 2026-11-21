@@ -14,18 +14,32 @@
 //! validated.
 //!
 //! **Status: first port, compared with a compiled EGSnrc (gh:#1697)**: 200
-//! `tutor1` histories agree to ~1e-15 for B fields in the plate and to
-//! round-off amplification in a layered vacuum-gap geometry; results and
-//! method are in `docs/egsnrc_phase2_differential.md`, "EEMF (Malkov-Rogers)".
+//! `tutor1` histories agree to ~1e-15 for magnetic, electric and combined
+//! fields, with PRESTA-II or PRESTA-I and the exact or inexact BCA; in a
+//! layered vacuum-gap geometry the agreement is ~1e-15 until a near-wall spiral
+//! amplifies the last bit (shown to be round-off in the Fortran itself). Results
+//! and method: `docs/egsnrc_phase2_differential.md`, "EEMF (Malkov-Rogers)".
 //!
-//! **Scope of this port (maintainer decision, 2026-11-21).** The configuration
-//! the file compiles by default: `$IntegrationAlg = 3`, `$ssFieldAlg = 2`,
-//! `$orderBoundary`, `$orderAdaptive`, `$duAdaptive` true,
-//! `$energyLossViaPotential` false, `$ss_em` true, `$changingEMField` false,
-//! PRESTA-II (`$EMFIELD_PII` inside `msdist_pII`), the exact boundary-crossing
-//! algorithm, **magnetic field only**. A non-zero electric field, PRESTA-I
-//! (`$EMFIELD_PI`) and `exact_bca = false` return [`EgsError::Unsupported`]
-//! from [`electr`](super::egsnrc_mortran::electr), not a result.
+//! **Scope of this port.** The configuration the file compiles by default:
+//! `$IntegrationAlg = 3`, `$ssFieldAlg = 2`, `$orderBoundary`,
+//! `$orderAdaptive`, `$duAdaptive` true, `$energyLossViaPotential` false,
+//! `$ss_em` true, `$changingEMField` false; **magnetic, electric and combined
+//! fields**; PRESTA-II (`$EMFIELD_PII`) and PRESTA-I (`$EMFIELD_PI`), exact or
+//! inexact boundary crossing. (An earlier version of this file refused electric
+//! fields, PRESTA-I and the inexact BCA; ~~refused~~ **CORRECTED 2026-11-21:**
+//! the generated Fortran never expands `$SS_EF_Transport`, `$EF_Transport` or
+//! `$EF_timeIntegral` for this configuration, so the reason given then,
+//! `$calculateDeltaT` being undefined, concerned code that is not compiled in.)
+//!
+//! **What an electric field does** (all from the generated Fortran, not from
+//! the file's comments): `$EM_FIELD_SS` takes its electric branch whenever
+//! `E` is present, alone or with `B`, so with `E + B` the single-scatter
+//! transport is the first-order `$INTERACT_EM` step with no helix;
+//! `$EMFieldInVacuum` uses the helix when `B` is present and the
+//! `:EFieldVacuumHFCheck:` segments (`$TUSTEP_RIST_E`) for `E` alone; the work
+//! `$ADD_WORK_EM_FIELD` uses `x_final` **before** `ELECTR` assigns it for the
+//! step, so for a condensed-history step it is the end of the previous step
+//! (the global `Stack::x_final`, which `PHOTON` also writes).
 //!
 //! | upstream (`EEMF_macros.mortran`) | here |
 //! |---|---|
@@ -36,23 +50,30 @@
 //! | `$EMFIELD_PII` (`:487-811`) | [`EemfState::emfield_pii`] |
 //! | `$NORM_VEC_B` (`:814-854`), `$INTERACT_EM` (`:856-871`) | [`EemfState::norm_vec_b`], [`EemfState::interact_em`] |
 //! | `$NORMALIZE`, `$SET_MAGNITUDE` (`:2328-2343`) | [`normalize`], [`set_magnitude`] |
-//! | `$EM_FIELD_SS` (`:1083-1437`), the magnetic branch with `$ssFieldAlg = 2` | [`EemfState::em_field_ss`] |
+//! | `$EM_FIELD_SS` (`:1083-1437`): the electric branch (`$ssFieldAlg > 0`) and the magnetic branch with `$ssFieldAlg = 2` | [`EemfState::em_field_ss`] |
 //! | `$SS_MF_Transport`, `$SS_MF_directionsConstants`, `$CALC_SS_MAG` (`:1440-1613`) | [`EemfState::ss_mf_transport`], [`EemfState::ss_mf_directions_constants`], [`EemfState::calc_ss_mag`] |
-//! | `$EMFieldInVacuum` (`:1615-1963`), the magnetic branch | [`EemfState::emfield_in_vacuum`] |
+//! | `$EMFieldInVacuum` (`:1615-1963`), the magnetic and the electric branch | [`EemfState::emfield_in_vacuum`] |
 //! | `$CALC_analyticDeflection` (`:2345-2398`), `$MF_Transport` (`:1965-2021`) | [`EemfState::calc_analytic_deflection`], [`EemfState::mf_transport`] |
-//! | `$ADD_WORK_EM_FIELD`, `$calculate_EchangeInEF` (`:2299-2320`) | [`EemfState::add_work_em_field`] |
+//! | `$ADD_WORK_EM_FIELD`, `$calculate_EchangeInEF` (`:2299-2320`) | [`EemfState::add_work_em_field`], [`EemfState::echange_in_ef`] |
+//! | `$EMFIELD_PI` (`:875-1081`) | [`EemfState::emfield_pi`] |
+//! | `$TUSTEP_RIST_E` (`:456-469`) | inside [`EemfState::initiate_set_tustep`] and the electric branch of [`EemfState::emfield_in_vacuum`] |
 //!
-//! **Not ported, with the reason.**
-//! - The electric-field macros (`$TUSTEP_RIST_E`, `$TUSTEP_ERIST`,
-//!   `$EF_Transport`, `$EF_timeIntegral`, `$EF_setVelocities`,
-//!   `$EF_setPositions`, `$SS_EF_Transport`, `$setEFPotential`,
-//!   `$COMPUTE_PL_EM_LOSS`): the file says only the magnetic field is validated,
-//!   and `$SS_EF_Transport` calls `$calculateDeltaT`, which no file defines.
-//!   Nothing in them runs for a magnetic field alone.
-//! - `$EMFIELD_PI` (PRESTA-I) and `$IntegrationAlg` 0, 1, 2: the
-//!   `$IntegrationAlg` constant is 3, so the `= 0` branch of `$EMFIELD_PII` is
-//!   compiled out (the generated Fortran has `IF (3 .EQ. 0)`); the `= 1` branch
-//!   runs only for `tustep <= sMinP3` and is ported.
+//! **Not ported, with the reason (each checked in the generated Fortran).**
+//! - `$EF_Transport`, `$EF_timeIntegral`, `$EF_setVelocities`,
+//!   `$EF_setPositions`, `$SS_EF_Transport` (and so `$calculateDeltaT`),
+//!   `$TUSTEP_ERIST`, `$COMPUTE_PL_EM_LOSS` with `$extra_E_loss_em`,
+//!   `$MAXS_eLoss`, `$setEFPotential`: none is expanded into the compiled
+//!   `ELECTR` or `msdist` (`grep` of the generated `.f` for their variables finds
+//!   only the `COMMON` declaration); `$setEFPotential` sits in
+//!   `IF (.false.)` (`$energyLossViaPotential`).
+//! - `$IntegrationAlg` 0, 1 (as a constant) and 2: the constant is 3, so
+//!   `IF (3 .EQ. 0)`, `3 .EQ. 1`, `3 .EQ. 2` are dead in both `$EMFIELD_PII` and
+//!   `$EMFIELD_PI`. The `= 1` branch of `$EMFIELD_PII` runs through
+//!   `(alg = 3) & (tustep <= sMinP3)` and is ported. **Consequence: with the
+//!   compiled constant `$EMFIELD_PI` bends nothing** ([`EemfState::emfield_pi`]
+//!   only updates `v_f`, `eloss_corr0`, `EM_const0`); a PRESTA-I condensed
+//!   step is not deflected by the field, only its single-scattering steps and
+//!   the step restriction are.
 //! - The `$changingEMField` branches (`.false.`): the generated Fortran holds
 //!   them as `IF (.false.)`.
 //! - The branches of `$EM_FIELD_SS` after `ELSEIF(.true.)` (`:1294-1352`):
@@ -79,7 +100,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 
-use super::egsnrc_macros::{EgsError, Stack};
+use super::egsnrc_macros::Stack;
 use super::egsnrc_mortran::{ElectronGeometry, Geometry, HowfarState};
 use super::lit;
 use petir::mathf::RealMath;
@@ -115,8 +136,7 @@ pub fn bca_lin_dist(skindepth: f64) -> f64 {
 /// `EMLMTIN` of `COMMON/EMF-INPUTS/`, and `ESTEPE` of `COMMON/ET-Control/`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EemfField {
-    /// `ExIN`, `EyIN`, `EzIN`, V/cm. Must be zero: the electric field is not
-    /// ported ([`EgsError::Unsupported`]).
+    /// `ExIN`, `EyIN`, `EzIN`, V/cm.
     pub e_in: [f64; 3],
     /// `BxIN`, `ByIN`, `BzIN`, T.
     pub b_in: [f64; 3],
@@ -139,20 +159,6 @@ impl EemfField {
     #[must_use]
     pub fn active(&self) -> bool {
         self.e_in.iter().chain(self.b_in.iter()).map(|v| v * v).sum::<f64>() > 0.0
-    }
-
-    /// Check the field is one this port handles.
-    ///
-    /// # Errors
-    ///
-    /// [`EgsError::Unsupported`] for a non-zero electric field.
-    pub fn check_supported(&self) -> Result<(), EgsError> {
-        if self.e_in.iter().any(|v| *v != 0.0) {
-            return Err(EgsError::Unsupported(
-                "EEMF_macros: a non-zero electric field is not ported (upstream validates the magnetic field only)",
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -242,6 +248,9 @@ pub struct EemfStepVars {
     pub lelec: i32,
     /// `x_final`, `y_final`, `z_final`.
     pub final_pos: [f64; 3],
+    /// `eie`, `eke`, `peie`: the electron's energies, which the electric
+    /// field changes in vacuum (`$EMFieldInVacuum`).
+    pub energies: [f64; 3],
 }
 
 /// `COMMON/EM/` (`EEMF_macros.mortran:113-211`), the magnetic subset, with a
@@ -498,7 +507,16 @@ impl EemfState {
             }
         }
 
-        // $TUSTEP_RIST_B
+        // $TUSTEP_RIST_B, else $TUSTEP_RIST_E
+        if !self.b_field_transport && self.e_field_transport {
+            self.em_const = Real::sqrt(self.em[0] * self.em[0] + self.em[1] * self.em[1] + self.em[2] * self.em[2]);
+            if self.em_const > 0.0 {
+                self.step_rist = self.delta_u * self.e_total * self.beta_em2 / (lit(1e-8) * self.em_const);
+                self.tmax_ch = self.step_rist.min(self.s_max_pii);
+            } else {
+                self.tmax_ch = self.s_max_pii;
+            }
+        }
         if self.b_field_transport {
             self.em_const = Real::sqrt(self.em[0] * self.em[0] + self.em[1] * self.em[1] + self.em[2] * self.em[2]);
             if self.em_const > 0.0 {
@@ -523,7 +541,10 @@ impl EemfState {
                 // $ssFieldAlg = 2: a step shortened below the skin depth is sent to single scattering
                 *tustep = tustep.max(skindepth);
             }
-            // the `$ssFieldAlg = 1` and electric-field restriction is false for a magnetic field
+            // `$ssFieldAlg = 2` with an electric field: the step is also limited to `tmax_CH`
+            if tperp > buffer && self.e_field_transport {
+                *tustep = tustep.min(self.tmax_ch);
+            }
         }
     }
 
@@ -586,6 +607,11 @@ impl EemfState {
         // the effect of the magnetic field on u0
         if self.b_amp.abs() > lit(1e-16) {
             u0 = self.norm_vec_b(u0);
+        } else {
+            // an electric field alone: a plain normalisation
+            let (x, y, z, r) = normalize(u0[0] + self.em[0], u0[1] + self.em[1], u0[2] + self.em[2]);
+            u0 = [x, y, z];
+            self.r0_em = r;
         }
 
         // rotate using the first scattering angle and the initial direction with the field
@@ -642,6 +668,10 @@ impl EemfState {
         self.em = [self.em[0] * self.em_const2, self.em[1] * self.em_const2, self.em[2] * self.em_const2];
         if self.b_field_transport {
             uem1 = self.norm_vec_b(uem1);
+        } else {
+            let (x, y, z, r) = normalize(uem1[0] + self.em[0], uem1[1] + self.em[1], uem1[2] + self.em[2]);
+            uem1 = [x, y, z];
+            self.r0_em = r;
         }
 
         // rotate using the second scattering direction
@@ -684,6 +714,10 @@ impl EemfState {
         // the direction of motion from the field
         if self.b_field_transport {
             d.us = self.norm_vec_b(d.us);
+        } else {
+            let (x, y, z, r) = normalize(d.us[0] + self.em[0], d.us[1] + self.em[1], d.us[2] + self.em[2]);
+            d.us = [x, y, z];
+            self.r0_em = r;
         }
 
         // before applying the change to the position, test for a step over a
@@ -708,6 +742,25 @@ impl EemfState {
                 d.ut[k] += 0.5 * self.eloss_corr0 * u_tmp_em[k] * self.em_const0 / self.em_const;
             }
         }
+    }
+
+    /// `$EMFIELD_PI` (`EEMF_macros.mortran:875-1081`), called at the end of
+    /// `msdist_pI`. Its branches are `$IntegrationAlg` 0, 1 and 2; the
+    /// compiled constant is 3, so (generated Fortran: `IF (3 .EQ. 0)`, `3 .EQ. 1`,
+    /// `3 .EQ. 2`) none runs and the hook only updates `v_f`, `eloss_corr0` and
+    /// `EM_const0`. A PRESTA-I condensed-history step is **not bent** by the
+    /// field; only the single-scattering steps ([`Self::em_field_ss`]) and the
+    /// step restriction act.
+    pub fn emfield_pi(&mut self, eloss: f64, tustep: f64, qel: usize) {
+        if !self.em_transport_active {
+            return;
+        }
+        let q = ERM / (self.e_total - eloss);
+        self.v_f = SL * Real::sqrt(1.0 - q * q);
+        if self.v_f > 0.0 {
+            self.eloss_corr0 = 0.5 * (1.0 + self.v_i / self.v_f);
+        }
+        self.em_const0 = ((qel as f64 * 2.0 - 1.0) * tustep * lit(1e-8)) / (self.e_total * self.beta_em2);
     }
 
     /// `$SS_MF_directionsConstants` (`:1551-1587`): the constants of the helix
@@ -850,13 +903,21 @@ impl EemfState {
     /// `$ADD_WORK_EM_FIELD` with `$calculate_EchangeInEF` (`:2299-2320`): the
     /// energy change over the step from the electric field, to add to `de`.
     /// `final_pos` is `x_final, y_final, z_final` as `ELECTR` holds them at
-    /// that point. Zero for a magnetic field alone (`E_amp = 0`).
+    /// that point (stale for a condensed-history step, as upstream: `x_final` is
+    /// assigned after this call). Zero for a magnetic field alone (`E_amp = 0`).
     #[must_use]
     pub fn add_work_em_field(&self, lelec: i32, final_pos: [f64; 3]) -> f64 {
+        self.echange_in_ef(lelec, self.x0, final_pos)
+    }
+
+    /// `$calculate_EchangeInEF(P1..P6)` (`:2305-2320`) with
+    /// `$energyLossViaPotential` false: the change of energy from the
+    /// electric field between `a` and `b`, to be subtracted from `eie`.
+    #[must_use]
+    pub fn echange_in_ef(&self, lelec: i32, a: [f64; 3], b: [f64; 3]) -> f64 {
         let [ex, ey, ez] = self.e;
-        let mut de_em = ex * (self.x0[0] - final_pos[0]) + ey * (self.x0[1] - final_pos[1]) + ez * (self.x0[2] - final_pos[2]);
-        de_em = f64::from(lelec) * self.e_amp * lit(1e-8) * de_em;
-        de_em
+        let de_em = ex * (a[0] - b[0]) + ey * (a[1] - b[1]) + ez * (a[2] - b[2]);
+        f64::from(lelec) * self.e_amp * lit(1e-8) * de_em
     }
 
     /// `$EM_FIELD_SS` (`:1083-1437`): single-scatter transport in a magnetic
@@ -866,13 +927,36 @@ impl EemfState {
     /// distance to the nearest boundary (the `:BCA4_tperpCheck:` loop).
     pub fn em_field_ss<G: ElectronGeometry>(&mut self, stack: &mut Stack, geometry: &mut G, v: &mut EemfStepVars) {
         let np = stack.np;
-        if !self.b_field_transport {
+        if !self.b_field_transport && !self.e_field_transport {
             // no field: linear transport
             v.final_pos = [self.x0[0] + self.u0[0] * v.vstep, self.x0[1] + self.u0[1] * v.vstep, self.x0[2] + self.u0[2] * v.vstep];
             return;
         }
         let buffer = bca_lin_buffer(v.skindepth);
         let dist = bca_lin_dist(v.skindepth);
+        if self.e_field_transport {
+            // an electric field (alone or with B): linear near a boundary, else
+            // first-order integration over the step (`$ssFieldAlg > 0`); B is in
+            // `$INTERACT_EM` but the helix is not used
+            if (v.vstep <= dist && v.tperp <= buffer) || (v.vstep <= dist && v.irl != stack.ir[np] as usize) {
+                v.final_pos = [self.x0[0] + self.u0[0] * v.vstep, self.x0[1] + self.u0[1] * v.vstep, self.x0[2] + self.u0[2] * v.vstep];
+            } else {
+                self.em_const = (f64::from(v.lelec) * v.vstep * lit(1e-8)) / (self.e_total * self.beta_em2);
+                self.interact_em(self.u0);
+                let (x, y, z, r) = normalize(self.u0[0] + self.em[0], self.u0[1] + self.em[1], self.u0[2] + self.em[2]);
+                stack.u[np] = x;
+                stack.v[np] = y;
+                stack.w[np] = z;
+                self.r0_em = r;
+                v.final_pos = [
+                    self.x0[0] + (self.u0[0] + 0.5 * self.em[0]) * v.vstep,
+                    self.x0[1] + (self.u0[1] + 0.5 * self.em[1]) * v.vstep,
+                    self.x0[2] + (self.u0[2] + 0.5 * self.em[2]) * v.vstep,
+                ];
+                self.r0_em = set_magnitude(self.em[0], self.em[1], self.em[2]);
+            }
+            return;
+        }
         if v.vstep <= dist && v.tperp <= buffer {
             // linear transport near the boundary
             v.final_pos = [self.x0[0] + self.u0[0] * v.vstep, self.x0[1] + self.u0[1] * v.vstep, self.x0[2] + self.u0[2] * v.vstep];
@@ -1018,7 +1102,19 @@ impl EemfState {
                     }
                     break;
                 }
-                // the electric-field energy change is zero here
+                if self.e_amp.abs() > 0.0 {
+                    // the energy change in the E field after the linear transport
+                    let de_em = self.echange_in_ef(v.lelec, self.x0, v.final_pos);
+                    v.energies[0] -= de_em;
+                    v.energies[1] = v.energies[0] - ERM;
+                    v.energies[2] = v.energies[0];
+                    stack.e[np] = v.energies[0];
+                    self.e_total = v.energies[1] + ERM - de_em;
+                    let q = ERM / self.e_total;
+                    self.beta_em = Real::sqrt(1.0 - q * q);
+                    self.v_i = SL * self.beta_em;
+                    self.beta_em2 = self.beta_em * self.beta_em;
+                }
                 self.xs = v.final_pos;
                 stack.x[np] = v.final_pos[0];
                 stack.y[np] = v.final_pos[1];
@@ -1075,11 +1171,67 @@ impl EemfState {
                             v.irl = stack.ir[np] as usize;
                             continue;
                         }
-                    } else {
+                    } else if self.b_field_transport {
                         // vacuum B-field transport by the distance to the nearest boundary
                         v.vstep += self.tperp_em - self.vstep0_mag;
                         self.ss_mf_transport(v.vstep, 2.0, v.lelec);
                         v.vstep += self.vstep0_mag;
+                        continue;
+                    } else {
+                        // vacuum E-field transport by the distance to the nearest boundary, in
+                        // segments of `tmax_CH` (:EFieldVacuumHFCheck:)
+                        loop {
+                            self.em_const = 1.0;
+                            self.interact_em(self.us);
+                            self.tperp0_em = self.tperp_em;
+                            self.tperp_max_em = lit(1e-8) / ((v.energies[1] + ERM) * self.beta_em2);
+                            self.tperp_max_em = (self.eloss_corr * self.eloss_corr) * self.tperp_max_em;
+                            self.r0_em = Real::sqrt(self.em[0] * self.em[0] + self.em[1] * self.em[1] + self.em[2] * self.em[2]);
+                            self.tperp_max_em = 0.5 * self.tperp_max_em * self.r0_em;
+                            if self.tperp_max_em.abs() > 0.0 {
+                                self.s_max_pii = (-1.0 + Real::sqrt(1.0 + 4.0 * self.tperp_max_em * lit(0.99) * v.tperp)) / (2.0 * self.tperp_max_em);
+                            } else {
+                                self.s_max_pii = lit(1e30);
+                            }
+                            // $TUSTEP_RIST_E
+                            self.em_const = Real::sqrt(self.em[0] * self.em[0] + self.em[1] * self.em[1] + self.em[2] * self.em[2]);
+                            if self.em_const > 0.0 {
+                                self.step_rist = self.delta_u * self.e_total * self.beta_em2 / (lit(1e-8) * self.em_const);
+                                self.tmax_ch = self.step_rist.min(self.s_max_pii);
+                            } else {
+                                self.tmax_ch = self.s_max_pii;
+                            }
+                            v.vstep += self.tmax_ch;
+                            self.em_const = (f64::from(v.lelec) * self.tmax_ch * lit(1e-8)) / (self.e_total * self.beta_em2);
+                            self.em = [self.em[0] * self.em_const, self.em[1] * self.em_const, self.em[2] * self.em_const];
+                            let fin = [
+                                self.xs[0] + (self.us[0] + 0.5 * self.em[0]) * self.tmax_ch,
+                                self.xs[1] + (self.us[1] + 0.5 * self.em[1]) * self.tmax_ch,
+                                self.xs[2] + (self.us[2] + 0.5 * self.em[2]) * self.tmax_ch,
+                            ];
+                            v.final_pos = fin;
+                            let (x, y, z, r) = normalize(self.us[0] + self.em[0], self.us[1] + self.em[1], self.us[2] + self.em[2]);
+                            self.us = [x, y, z];
+                            self.r0_em = r;
+                            self.r0_em = set_magnitude(self.em[0], self.em[1], self.em[2]);
+                            // the energy change over the segment
+                            let de_em = self.echange_in_ef(v.lelec, self.xs, fin);
+                            self.xs = fin;
+                            v.energies[0] -= de_em;
+                            v.energies[1] = v.energies[0] - ERM;
+                            v.energies[2] = v.energies[0];
+                            stack.e[np] = v.energies[0];
+                            self.e_total = v.energies[1] + ERM;
+                            let q = ERM / self.e_total;
+                            self.beta_em = Real::sqrt(1.0 - q * q);
+                            self.v_i = SL * self.beta_em;
+                            self.beta_em2 = self.beta_em * self.beta_em;
+                            self.tperp_em -= self.r0_em;
+                            if self.tperp_em > buffer {
+                                continue;
+                            }
+                            break;
+                        }
                         continue;
                     }
                     break;
@@ -1170,15 +1322,14 @@ mod tests {
         assert_eq!(normalize(0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0));
     }
 
-    /// The field is refused when electric, and `emfield_on` follows any component.
+    /// `emfield_on` follows any component, an electric one included.
     #[test]
-    fn field_checks() {
+    fn field_activity() {
         assert!(EemfField::magnetic([0.0, 0.5, 0.8]).active());
         assert!(!EemfField::magnetic([0.0; 3]).active());
-        assert!(EemfField::magnetic([0.0, 0.5, 0.8]).check_supported().is_ok());
-        let mut e = EemfField::magnetic([0.0, 0.5, 0.8]);
+        let mut e = EemfField::magnetic([0.0; 3]);
         e.e_in = [1.0, 0.0, 0.0];
-        assert!(matches!(e.check_supported(), Err(EgsError::Unsupported(_))));
+        assert!(e.active());
     }
 
     /// `$INITIATE`: sets the unit field vector, `B_amp`, the particle constants
@@ -1408,5 +1559,69 @@ mod tests {
         s3.emfield_in_vacuum(&mut st3, &mut g, &mut v3);
         assert_eq!(st3.z[1], 0.75);
         assert_eq!(v3.vstep, 0.25);
+    }
+
+    /// An electric field: `$EM_FIELD_SS` takes the first-order electric branch
+    /// (no helix), the work is `lelec E_amp 1e-8 E.(x0 - x_final)`, `$EMFIELD_PII`
+    /// takes its plain-normalisation paths, `$EMFIELD_PI` only updates its state,
+    /// and a vacuum step in the gap changes the energy with the field.
+    #[test]
+    fn electric_field_branches() {
+        let mut f = EemfField::magnetic([0.0; 3]);
+        f.e_in = [0.0, 0.0, 2.0e5];
+        let st = one_electron([0.0, 0.0, 0.5], [1.0, 0.0, 0.0], 2);
+        let mut s = EemfState::default();
+        let mut tustep = 0.4;
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        assert!(s.e_field_transport && !s.b_field_transport && s.em_transport_active);
+        assert_eq!(s.e_amp, 2.0e5 * 100.0);
+        assert!(s.tmax_ch > 0.0 && tustep <= 0.4);
+        // work: -q E.dx scaled; electron (lelec = -1) moving against +z field direction gains/loses by the displacement
+        let w = s.add_work_em_field(-1, [0.0, 0.0, 0.6]);
+        assert!(w != 0.0);
+        assert_eq!(w, s.echange_in_ef(-1, s.x0, [0.0, 0.0, 0.6]));
+        assert_eq!(s.add_work_em_field(-1, s.x0), 0.0);
+        // single-scatter: the electric branch, no helix, direction stays a unit vector
+        let mut g = Gap;
+        let mut stk = st.clone();
+        let mut v = EemfStepVars { callhowfar: false, vstep: 0.1, ustep: 0.1, tustep: 0.1, tperp: 0.5, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, ..Default::default() };
+        s.em_field_ss(&mut stk, &mut g, &mut v);
+        let n = (stk.u[1] * stk.u[1] + stk.v[1] * stk.v[1] + stk.w[1] * stk.w[1]).sqrt();
+        assert!((n - 1.0).abs() < 1e-14);
+        assert!(stk.w[1].abs() > 0.0, "the field turned the direction towards z");
+        assert!(v.final_pos[2] != 0.5);
+        // PII, 3-point, plain normalisation: unit vectors
+        let mk = |ts: f64| PiiInput { u0: [1.0, 0.0, 0.0], x0: [0.0, 0.0, 0.5], tustep: ts, eloss: 1.0e-3, qel: 0, s1: [0.01, 1.0, 0.0, 0.99995], s2: [0.01, 0.0, 1.0, 0.99995] };
+        let mut d = PiiDirections { us: [1.0, 0.0, 0.0], ut: [1.0, 0.0, 0.0] };
+        s.emfield_pii(&f, &mk(0.1), &mut d);
+        let n = (d.us[0] * d.us[0] + d.us[1] * d.us[1] + d.us[2] * d.us[2]).sqrt();
+        assert!((n - 1.0).abs() < 1e-12 && d.us[2].abs() > 0.0, "{:?}", d.us);
+        // PI: only state
+        let before = d;
+        s.emfield_pi(1.0e-3, 0.1, 0);
+        assert_eq!(s.em_const0, ((0.0 * 2.0 - 1.0) * 0.1 * 1e-8) / (s.e_total * s.beta_em2));
+        assert_eq!(d, before);
+        let mut off = EemfState::default();
+        off.emfield_pi(1.0e-3, 0.1, 0);
+        assert_eq!(off, EemfState::default(), "no field: nothing changes");
+        // vacuum E branch: gap, E along z accelerates the electron towards a wall; energy changes
+        // (not along the field: for a direction parallel to E upstream's segment loop never advances `tperp_em` and does not end)
+        let mut stv = one_electron([0.0, 0.0, 0.5], [0.6, 0.0, 0.8], 2);
+        stv.e[1] = 0.5 + 0.5109989461;
+        let mut sv = EemfState::default();
+        let mut tu = 1.0e8;
+        sv.initiate_set_tustep(&f, &stv, 1, &InitiateInput { eke: 0.5, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tu);
+        let e0 = stv.e[1];
+        let mut vv = EemfStepVars { callhowfar: true, ustep: 1.0e8, tustep: 1.0e8, tperp: 0.5, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, energies: [e0, 0.5, e0], ..Default::default() };
+        call_howfar(&mut g, &stv, &mut vv);
+        sv.emfield_in_vacuum(&mut stv, &mut g, &mut vv);
+        assert!(vv.energies[0] != e0, "the field changed the energy: {:?}", vv.energies);
+        assert_eq!(stv.e[1], vv.energies[0]);
+        assert!((stv.z[1] - 1.0).abs() < 1.0e-5, "reached the wall: z = {}", stv.z[1]);
+        // E + B: the vacuum macro follows the helix (B branch) and the SS step is the electric one
+        let fb = EemfField { e_in: [0.0, 0.0, 2.0e5], b_in: [1.0, 0.0, 0.0], ..f };
+        let mut sb = EemfState::default();
+        sb.initiate_set_tustep(&fb, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        assert!(sb.e_field_transport && sb.b_field_transport);
     }
 }

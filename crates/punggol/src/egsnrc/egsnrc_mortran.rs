@@ -5238,6 +5238,7 @@ pub fn photon<R: UniformSource, G: Geometry>(
                 stack.x[np] += stack.u[np] * vstep;
                 stack.y[np] += stack.v[np] * vstep;
                 stack.z[np] += stack.w[np] * vstep;
+                stack.x_final = [stack.x[np], stack.y[np], stack.z[np]];
                 stack.dnear[np] -= st.ustep;
                 if medium != 0 {
                     dpmfp = (0.0_f64).max(dpmfp - st.ustep / gmfp);
@@ -6218,6 +6219,27 @@ pub fn msdist_p1<R: UniformSource>(
     medium: usize,
     rng: &mut R,
 ) -> Result<MsDistOutput, EgsError> {
+    msdist_p1_field(med, ms, spin, inp, medium, None, rng)
+}
+
+/// [`msdist_p1`] with the `$EMFIELD_PI` hook of `EEMF_macros.mortran`
+/// (`egsnrc.mortran:4504`), which with the compiled `$IntegrationAlg = 3`
+/// only updates the field's state ([`EemfState::emfield_pi`]); the outputs
+/// are those of [`msdist_p1`].
+///
+/// # Errors
+///
+/// From [`mscat`].
+#[allow(clippy::too_many_arguments)]
+pub fn msdist_p1_field<R: UniformSource>(
+    med: &MsMedium,
+    ms: &MsData,
+    spin: &SpinData,
+    inp: &MsDistInput,
+    medium: usize,
+    field: Option<&mut EemfState>,
+    rng: &mut R,
+) -> Result<MsDistOutput, EgsError> {
     let rmt2 = 2.0 * RM;
     let rmsq = RM * RM;
     let blccc = med.blcc;
@@ -6292,6 +6314,9 @@ pub fn msdist_p1<R: UniformSource>(
     let ustep = Real::sqrt(z2 + r2) * inp.tustep;
     let mut out = ms_rotate_and_transport(inp, (us, vs, ws), (ut, vt, wt));
     out.ustep = ustep;
+    if let Some(state) = field {
+        state.emfield_pi(inp.eloss, inp.tustep, inp.qel);
+    }
     Ok(out)
 }
 
@@ -6587,8 +6612,8 @@ pub struct ElectrConfig {
     /// Constant electric and magnetic field of `emf_macros.mortran` (`None`:
     /// `emfield_on = .false.`, the stock default). See [`EmField`].
     pub em: Option<EmField>,
-    /// The Malkov-Rogers field of `EEMF_macros.mortran` (PRESTA-II, magnetic
-    /// field only; see [`super::eemf_macros_mortran`]). Replaces `em`: both set
+    /// The Malkov-Rogers field of `EEMF_macros.mortran` (magnetic, electric or
+    /// both; PRESTA-II or PRESTA-I; see [`super::eemf_macros_mortran`]). Replaces `em`: both set
     /// is [`EgsError::Unsupported`] (upstream compiles one or the other).
     pub eemf: Option<EemfField>,
 }
@@ -6942,7 +6967,7 @@ enum Discard {
 /// photon tops the stack.
 ///
 /// The classic `emf_macros` hooks ([`EmField`]) and the Malkov-Rogers
-/// `EEMF_macros` ([`EemfField`], magnetic field only,
+/// `EEMF_macros` ([`EemfField`], magnetic, electric or combined fields,
 /// [`super::eemf_macros_mortran`]) are ported; both are off by default.
 /// Not ported: range rejection
 /// (`i_do_rr = 0`), `$USER-RANGE-DISCARD`, the energy-loss fluctuation hook
@@ -6982,12 +7007,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
     let em = cfg.em.filter(|e| e.active());
     let eemf = match cfg.eemf {
         Some(f) => {
-            f.check_supported()?;
             if cfg.em.is_some() {
                 return Err(EgsError::Unsupported("ELECTR: emf_macros and EEMF_macros are alternatives upstream"));
-            }
-            if !cfg.presta_ii || !cfg.exact_bca {
-                return Err(EgsError::Unsupported("ELECTR: EEMF_macros is ported for PRESTA-II with the exact BCA only"));
             }
             if f.active() { Some(f) } else { None }
         }
@@ -6998,7 +7019,6 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
     let mut tperp = 0.0;
     let mut skindepth = 0.0;
     let mut tuss_ss = 0.0;
-    let mut x_final_keep = [0.0_f64; 3];
     let mut eml = EmLocal::default();
     let mut loc = Loc { etap: 1.0, xi_corr: 1.0, ms_corr: 1.0, rhof: 1.0, ..Default::default() };
     let (mut lelec, mut qel);
@@ -7188,7 +7208,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 let field = eemf.as_ref().map(|f| (f, &mut counters.eemf));
                                 msdist_p2_field(&m.ms, ms, &tables.spin, &inp, medium, &mut counters.count_p2_steps, field, rng)?
                             } else {
-                                msdist_p1(&m.ms, ms, &tables.spin, &inp, medium, rng)?
+                                msdist_p1_field(&m.ms, ms, &tables.spin, &inp, medium, eemf.as_ref().map(|_| &mut counters.eemf), rng)?
                             };
                             uscat = o.us;
                             vscat = o.vs;
@@ -7285,9 +7305,13 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 irnew,
                                 idisc,
                                 lelec,
+                                final_pos: stack.x_final,
+                                energies: [eie, eke, peie],
                                 ..Default::default()
                             };
                             counters.eemf.emfield_in_vacuum(stack, geometry, &mut v);
+                            stack.x_final = v.final_pos;
+                            [eie, eke, peie] = v.energies;
                             ustep = v.ustep;
                             irnew = v.irnew;
                             idisc = v.idisc;
@@ -7344,7 +7368,8 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             irnew,
                             idisc,
                             lelec,
-                            final_pos: x_final_keep,
+                            final_pos: stack.x_final,
+                            energies: [eie, eke, peie],
                         };
                         counters.eemf.em_field_ss(stack, geometry, &mut v);
                         callhowfar = v.callhowfar;
@@ -7355,7 +7380,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         irl = v.irl;
                         irnew = v.irnew;
                         idisc = v.idisc;
-                        x_final_keep = v.final_pos;
+                        stack.x_final = v.final_pos;
                     }
                     if callhowfar {
                         if cfg.exact_bca {
@@ -7394,7 +7419,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                     }
                     // $ADD_WORK_EM_FIELD (EEMF): `x_final` is the previous step's here
                     if eemf.is_some() {
-                        de += counters.eemf.add_work_em_field(lelec, x_final_keep);
+                        de += counters.eemf.add_work_em_field(lelec, stack.x_final);
                     }
                     let ekef = eke - de;
                     let _eold = eie;
@@ -7453,17 +7478,18 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                         x_final = xtrans;
                         y_final = ytrans;
                         z_final = ztrans;
-                        x_final_keep = [x_final, y_final, z_final];
+                        stack.x_final = [x_final, y_final, z_final];
                     } else {
                         // `IF ~($EM_MACROS_ACTIVE)`: with EEMF the final position is the one `$EM_FIELD_SS` set
                         if eemf.is_some() {
-                            x_final = x_final_keep[0];
-                            y_final = x_final_keep[1];
-                            z_final = x_final_keep[2];
+                            x_final = stack.x_final[0];
+                            y_final = stack.x_final[1];
+                            z_final = stack.x_final[2];
                         } else {
                             x_final = stack.x[np] + stack.u[np] * vstep;
                             y_final = stack.y[np] + stack.v[np] * vstep;
                             z_final = stack.z[np] + stack.w[np] * vstep;
+                            stack.x_final = [x_final, y_final, z_final];
                         }
                         if domultiple || dosingle {
                             let (u_tmp, v_tmp, w_tmp) = (stack.u[np], stack.v[np], stack.w[np]);
@@ -10635,8 +10661,8 @@ mod tests {
     /// `EEMF_macros` in `electr`: a magnetic field conserves energy over whole
     /// showers (no work), a field that is all zero is exactly no field (same
     /// random numbers, same tally), and the cases outside the port's scope
-    /// are refused rather than run: an electric field, `em` together with
-    /// `eemf`, PRESTA-I, the inexact boundary crossing.
+    /// are refused rather than run: `em` together with `eemf` (upstream
+    /// compiles one or the other). PRESTA-I and the inexact BCA run.
     #[test]
     fn electr_with_eemf_conserves_energy_and_refuses_what_it_does_not_port() {
         let ptables = photon_tables(0.0, 0.5, 0);
@@ -10680,21 +10706,20 @@ mod tests {
         };
         let mut rng = Ranmar::new(1, 2);
         let mut cfg = electr_cfg(true, true, false);
-        cfg.eemf = Some(EemfField { e_in: [1.0, 0.0, 0.0], ..field });
-        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
-        assert!(matches!(r, Err(EgsError::Unsupported(_))));
         cfg.eemf = Some(field);
         cfg.em = Some(EmField { e_in: [0.0; 3], b: [0.0, 0.0, 1.0], emlmt: 0.02 });
         let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
         assert!(matches!(r, Err(EgsError::Unsupported(_))));
+        // PRESTA-I and the inexact BCA are not refused any more; the field is applied
         cfg.em = None;
-        cfg.presta_ii = false;
-        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
-        assert!(matches!(r, Err(EgsError::Unsupported(_))));
-        cfg.presta_ii = true;
-        cfg.exact_bca = false;
-        let r = electr(&mut one(), &tables, &cfg, &mut geo, &mut ElectrCounters::default(), &mut rng);
-        assert!(matches!(r, Err(EgsError::Unsupported(_))));
+        for (presta_ii, exact_bca) in [(false, true), (true, false), (false, false)] {
+            let mut c = electr_cfg(presta_ii, exact_bca, false);
+            c.eemf = Some(field);
+            let mut counters = ElectrCounters::default();
+            let r = electr(&mut one(), &tables, &c, &mut geo, &mut counters, &mut rng);
+            assert!(r.is_ok(), "{presta_ii} {exact_bca}: {r:?}");
+            assert_eq!(counters.eemf.show_b, 1000);
+        }
     }
 
     #[test]
@@ -13057,7 +13082,10 @@ mod tests {
         // media and the HATCH assembly
         let mut pm = parse_pegs4_media(&std::fs::read_to_string(path).unwrap(), &["TA"]).unwrap();
         pm[0].apply_dunit(1.0);
-        let r = hatch_media(&pm, &HatchConfig { ecutmn: 1.5, ..Default::default() });
+        // `EGSNRC_PRESTA1` / `EGSNRC_BCA1`: the user code set `transport_algorithm = 1` / `bca_algorithm = 1` before HATCH
+        let presta1 = std::env::var("EGSNRC_PRESTA1").is_ok();
+        let bca1 = std::env::var("EGSNRC_BCA1").is_ok();
+        let r = hatch_media(&pm, &HatchConfig { ecutmn: if layers { 1.0 } else { 1.5 }, bca_algorithm: i32::from(bca1), skindepth_for_bca: 3.0, ..Default::default() });
         let comp: Vec<(f64, f64)> = pm[0].elements.iter().map(|x| (x.zelem, x.pz)).collect();
         // photon tables from the xcom series
         let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();
@@ -13295,12 +13323,16 @@ mod tests {
             let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
             EmField { e_in: [x[0], x[1], x[2]], b: [x[3], x[4], x[5]], emlmt: x[6] }
         });
-        // `EGSNRC_EEMF_FIELD=bx,by,bz,emlmt`: the magnetic field the EEMF user code set (`emB1`, ...)
+        // `EGSNRC_EEMF_FIELD=ex,ey,ez,bx,by,bz,emlmt` (or `bx,by,bz,emlmt`): the field the EEMF user code set (`emB1`, ...)
         let eemf = std::env::var("EGSNRC_EEMF_FIELD").ok().map(|v| {
             let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
-            EemfField { e_in: [0.0; 3], b_in: [x[0], x[1], x[2]], emlmt: x[3], estepe: MAX_ELOSS }
+            if x.len() == 4 {
+                EemfField { e_in: [0.0; 3], b_in: [x[0], x[1], x[2]], emlmt: x[3], estepe: MAX_ELOSS }
+            } else {
+                EemfField { e_in: [x[0], x[1], x[2]], b_in: [x[3], x[4], x[5]], emlmt: x[6], estepe: MAX_ELOSS }
+            }
         });
-        let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() }, em, eemf };
+        let ecfg = ElectrConfig { spin_effects: true, exact_bca: r.settings.exact_bca, skindepth_for_bca: r.settings.skindepth_for_bca, presta_ii: !presta1, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() }, em, eemf };
         let pcfg = PhotonConfig { pair: PairConfig { pair_nrc, itriplet, ..PairConfig::default() }, rr: None, prm: RM, vacdst: 1.0e8 };
         let mut drv = Tutor1Driver { tables: etables, cfg: ecfg, geo: geo.clone(), counters: ElectrCounters::default() };
         let mut pgeo = geo;
