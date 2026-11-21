@@ -136,7 +136,7 @@ fn photon_samplers_against_compiled_openmc() {
     let raw_ne = d.vec("ttb_raw_ne");
     let raw_ion = d.vec("ttb_raw_ion");
     let sc = d.header("ttb_scalars");
-    let (i_ev, z_atomic): (f64, f64) = (sc[0].parse().unwrap(), sc[1].parse().unwrap());
+    let (i_ev, z_atomic, photon_cutoff): (f64, f64, f64) = (sc[0].parse().unwrap(), sc[1].parse().unwrap(), sc[2].parse().unwrap());
     let e_lin = d.vec("ttb_e_grid_lin");
     let (c_dcs, _, _) = d.mat("ttb_dcs");
     let c_srad = d.vec("ttb_srad");
@@ -160,7 +160,7 @@ fn photon_samplers_against_compiled_openmc() {
         electron_energy: raw_e,
     };
     assert_eq!(input.dcs.rows(), raw_r);
-    let (element_ttb, grid_lin) = prepare_element_ttb(&input, 1000.0, None, &k_grid);
+    let (element_ttb, grid_lin) = prepare_element_ttb(&input, photon_cutoff, None, &k_grid);
     let rel_v = |a: &[f64], b: &[f64]| a.iter().zip(b).fold(0.0_f64, |w, (x, y)| w.max(if *y == 0.0 { x.abs() } else { (x - y).abs() / y.abs() }));
     let w_grid = rel_v(&grid_lin, &e_lin);
     let w_dcs = rel_v(&(0..element_ttb.dcs.rows()).flat_map(|i| element_ttb.dcs.row(i).to_vec()).collect::<Vec<_>>(), &c_dcs);
@@ -174,7 +174,7 @@ fn photon_samplers_against_compiled_openmc() {
     let w_cdf = rel_v(&flat(&derived.electron.cdf), &flat(&ref_electron.cdf)).max(rel_v(&flat(&derived.positron.cdf), &flat(&ref_positron.cdf)));
     let w_yield = rel_v(&derived.electron.yield_, &ref_electron.yield_).max(rel_v(&derived.positron.yield_, &ref_positron.yield_));
     eprintln!(
-        "TTB tables (Z = {z_atomic}, {ne} energies): grid {w_grid:e}, log grid {w_log_grid:e}, dcs {w_dcs:e}, radiative stopping power {w_srad:e}; electron+positron pdf {w_pdf:e}, cdf {w_cdf:e}, ln yield {w_yield:e} (worst relative)"
+        "TTB tables (Z = {z_atomic}, photon cutoff {photon_cutoff} eV, {ne} energies): grid {w_grid:e}, log grid {w_log_grid:e}, dcs {w_dcs:e}, radiative stopping power {w_srad:e}; electron+positron pdf {w_pdf:e}, cdf {w_cdf:e}, ln yield {w_yield:e} (worst relative)"
     );
     // the reaction samples below use the DERIVED tables, so they check the whole chain
     let (ttb_electron, ttb_positron) = (derived.electron, derived.positron);
@@ -274,7 +274,7 @@ fn photon_samplers_against_compiled_openmc() {
                 let ish: usize = t[1].parse().unwrap();
                 let pe: f64 = t[2].parse().unwrap();
                 let mut seed: u64 = t[3].parse().unwrap();
-                let out = p.atomic_relaxation(ish, pe, 1000.0, &mut seed);
+                let out = p.atomic_relaxation(ish, pe, photon_cutoff, &mut seed);
                 if seed != t[4].parse::<u64>().unwrap() {
                     relax_seed_bad += 1;
                 }
@@ -300,9 +300,14 @@ fn photon_samplers_against_compiled_openmc() {
                 let mode: u8 = t[1].parse().unwrap();
                 let e: f64 = t[2].parse().unwrap();
                 let mut seed: u64 = t[3].parse().unwrap();
-                let settings = if mode == 0 { PhotonSettings::new() } else { PhotonSettings::new().without_ttb() };
+                let base = PhotonSettings { photon_cutoff, ..PhotonSettings::new() };
+                let settings = if mode == 0 { base } else { base.without_ttb() };
                 // upstream's `sample_element` draws one number before the reaction is sampled
-                let _ = prn(&mut seed);
+                // (it comes after the cutoff kill, so a photon below the cutoff draws nothing)
+                let below_cutoff = e < photon_cutoff;
+                if !below_cutoff {
+                    let _ = prn(&mut seed);
+                }
                 let micro = p.calculate_xs(e);
                 let mut st = PhotonState {
                     e,
@@ -319,7 +324,11 @@ fn photon_samplers_against_compiled_openmc() {
                     "4" => Event::Absorb,
                     _ => Event::None,
                 };
-                if st.event != want_event || st.event_mt != t[5].parse::<i32>().unwrap() {
+                // a photon below the cutoff is killed without setting an event (upstream leaves it unset)
+                if !below_cutoff && (st.event != want_event || st.event_mt != t[5].parse::<i32>().unwrap()) {
+                    react_bad_event += 1;
+                }
+                if below_cutoff && (st.e != 0.0 || st.wgt != 0.0) {
                     react_bad_event += 1;
                 }
                 let v: Vec<f64> = t[6..11].iter().map(|x| x.parse().unwrap()).collect();
@@ -361,7 +370,8 @@ fn photon_samplers_against_compiled_openmc() {
                 let kind: u8 = t[2].parse().unwrap();
                 let e: f64 = t[3].parse().unwrap();
                 let mut seed: u64 = t[4].parse().unwrap();
-                let settings = if mode == 0 { PhotonSettings::new() } else { PhotonSettings::new().without_ttb() };
+                let base = PhotonSettings { photon_cutoff, ..PhotonSettings::new() };
+                let settings = if mode == 0 { base } else { base.without_ttb() };
                 let mut st = PhotonState { e, u: Direction::new(0.48, 0.6, 0.64), wgt: 1.0, mu: 0.0, in_void: false, event: Event::None, event_mt: 0 };
                 let out = if kind == 0 {
                     sample_electron_reaction(&mut st, &settings, Some(&tables), &mut seed)

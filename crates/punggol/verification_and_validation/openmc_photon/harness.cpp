@@ -31,6 +31,8 @@ static void dump_vec(FILE* f, const char* name, const double* p, size_t n) {
 int main(int argc, char** argv) {
   const char* file = argv[1];
   const char* element = argv[2];
+  const double cutoff = (argc > 5) ? atof(argv[5]) : 1000.0;
+  settings::energy_cutoff[ParticleType::photon().transport_index()] = cutoff;
   hid_t fid = H5Fopen(file, H5F_ACC_RDONLY, H5P_DEFAULT);
   hid_t g = H5Gopen(fid, element, H5P_DEFAULT);
   data::elements.push_back(make_unique<PhotonInteraction>(g));
@@ -94,7 +96,7 @@ int main(int argc, char** argv) {
     dump_vec(d, "ttb_k_grid", data::ttb_k_grid.data(), data::ttb_k_grid.size());
     dump_vec(d, "ttb_raw_ne", raw_ne.data(), raw_ne.size());
     dump_vec(d, "ttb_raw_ion", raw_ion.data(), raw_ion.size());
-    fprintf(d, "ttb_scalars %.17g %.17g\n", Ival, (double)p.Z_);
+    fprintf(d, "ttb_scalars %.17g %.17g %.17g\n", Ival, (double)p.Z_, cutoff);
     dump_vec(d, "ttb_e_grid_lin", data::ttb_e_grid.data(), data::ttb_e_grid.size());
     fprintf(d, "ttb_dcs %zu %zu\n", p.dcs_.shape(0), p.dcs_.shape(1));
     for (size_t i = 0; i < p.dcs_.size(); ++i) fprintf(d, "%.17g\n", p.dcs_.data()[i]);

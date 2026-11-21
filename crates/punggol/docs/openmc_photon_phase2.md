@@ -99,6 +99,20 @@ electron and positron, ENDF/B-VIII.0 `bremsstrahlung` data:
 (worst relative differences; the last-bit residuals are round-off in
 `ln`/`exp` below the 1e-9 allowance, cause not traced).
 
+**Photon cutoff above the lowest tabulated electron energy** (the truncation
+branch; harness argument `photon_cutoff`, 2026-11-21), U:
+
+| `settings::energy_cutoff[photon]` | incident energies kept | table differences (grid, `dcs`, radiative stopping power) | `pdf` / `cdf` / `ln yield` | atomic relaxation, 3480 cascades | reaction samples (7200 + 10800) |
+|---|---|---|---|---|---|
+| 1 keV (default, no truncation) | 200 | 0 | 5.8e-16 / 6.1e-16 / 2.4e-15 | 0 mismatches | 0 mismatches, worst 1.0e-13 |
+| 5 keV | 177 | 0 | 5.8e-16 / 6.8e-16 / 7.2e-16 | 0 mismatches | 0 mismatches, worst 5.0e-14 |
+| 50 keV | 144 | 0 | 5.8e-16 / 6.3e-16 / 1.5e-15 | 0 mismatches | 0 mismatches, worst 4.3e-15 |
+
+A photon below the cutoff is killed by `sample_photon_reaction` before
+`sample_element` draws its number and without setting an event (upstream
+leaves `event` and `event_mt` unset), so the test draws nothing for those and
+checks only `E = 0`, `wgt = 0`.
+
 **Defect found and fixed (second one).** With real tables 103 of 7200
 photon-reaction calls and 360 of 10800 charged-particle calls on U disagreed in
 the number of banked photons: the Rust bremsstrahlung loop banked a photon of
@@ -131,4 +145,4 @@ and give bit-identical results for this element.
 
 ## Not yet compared
 
-further elements (U and H only; data from ENDF/B-VIII.0; gh:#1690), TTB with a non-default photon cutoff above the lowest tabulated electron energy (the truncation branch of `prepare_element_ttb` is covered by a unit test only), and materials of several elements or weight-fraction input (unit tests only).
+further elements (U and H only; data from ENDF/B-VIII.0; gh:#1690), and materials of several elements or weight-fraction input (unit tests only).
