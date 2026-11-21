@@ -15,12 +15,15 @@
 //!
 //! General utility routines and macros shared by the core and the user codes (2332 lines). Description from the file's header and size; not yet read line by line.
 //!
-//! **Status: first port of `erf1`, `set_spline`, `spline` and `alias_sample1` only, not differentially tested (gh:#1680).**
-//! The rest of the file (input parsing, I/O units, heap sort, messages) is a
-//! placeholder.
+//! **Status: first port of the numerical and string/table utilities, not differentially tested (gh:#1680).**
+//! The operating-system glue (`egs_init`, `egs_finish`, `egs_open_file`,
+//! `egs_combine_runs`, `egs_check_arguments`, unit and byte readers, `replace_env`,
+//! `egs_write_string`) is deliberately not ported: this crate is `no_std`, and
+//! in-memory text and byte decoders take their place.
 //!
 //! | upstream | here |
 //! |---|---|
+//! | `ibsearch`, `prepare_alias_histogram`, `sample_alias_histogram`, `lnblnk1`, `toUpper`, `egs_strip_extension`, `egs_is_absolute_path`, `egs_swap_2/4`, `egs_add_medium`, `egs_get_medium_name`, `egs_scale_xcc` | [`ibsearch`], [`prepare_alias_histogram`], [`sample_alias_histogram`], [`lnblnk1`], [`to_upper`], [`strip_extension`], [`is_absolute_path`], [`swap_bytes`], [`MediaNames`], [`scale_xcc`] |
 //! | `FUNCTION ERF1` (`egs_utilities.mortran:2096-2151`) | [`erf1`] |
 //! | `SUBROUTINE gauss_legendre` (`egs_utilities.mortran:2024-2059`) | [`gauss_legendre`] |
 //! | `SUBROUTINE prepare_alias_table` (`egs_utilities.mortran:1846-1895`) | [`prepare_alias_table`] |
@@ -289,6 +292,201 @@ pub fn alias_sample1<R: super::egsnrc_macros::UniformSource>(
     }
 }
 
+/// `ibsearch` (`egs_utilities.mortran:2320-2331`): binary search of the
+/// ascending 1-based table `b[1..=nsh]` for `a`; returns the lower index `m`
+/// with `b[m] <= a < b[m + 1]` (`1` below the table, `nsh - 1` at or above its
+/// top).
+pub fn ibsearch(a: f64, nsh: usize, b: &[f64]) -> usize {
+    let (mut min, mut max) = (1usize, nsh);
+    while min + 1 < max {
+        let help = (max + min) / 2;
+        if b[help] <= a {
+            min = help;
+        } else {
+            max = help;
+        }
+    }
+    min
+}
+
+/// `prepare_alias_histogram` (`egs_utilities.mortran:1940-1992`): the alias
+/// table of the discrete probabilities `ws[1..=nsbin]` (index 0 unused),
+/// rewritten in place into the alias weights; returns the alias indices
+/// (1-based). To be used with [`sample_alias_histogram`].
+pub fn prepare_alias_histogram(ws: &mut [f64]) -> Vec<i32> {
+    let nsbin = ws.len() - 1;
+    let mut ibin = alloc::vec![0_i32; nsbin + 1];
+    let mut sum = 0.0;
+    for i in 1..=nsbin {
+        sum += ws[i];
+        ibin[i] = -1;
+    }
+    sum /= nsbin as f64;
+    for _ in 1..nsbin {
+        // the Mortran DO loops leave the index at nsbin + 1 when nothing qualifies
+        let mut j_h = nsbin + 1;
+        for jh in 1..=nsbin {
+            if ibin[jh] < 0 && ws[jh] > sum {
+                j_h = jh;
+                break;
+            }
+        }
+        let mut j_l = nsbin + 1;
+        for jl in 1..=nsbin {
+            if ibin[jl] < 0 && ws[jl] < sum {
+                j_l = jl;
+                break;
+            }
+        }
+        if j_h > nsbin || j_l > nsbin {
+            // upstream would index one past the arrays here (an exactly flat histogram)
+            break;
+        }
+        let aux = sum - ws[j_l];
+        ws[j_h] -= aux;
+        ws[j_l] /= sum;
+        ibin[j_l] = j_h as i32;
+    }
+    for i in 1..=nsbin {
+        if ibin[i] < 0 {
+            ibin[i] = i as i32;
+            ws[i] = 1.0;
+        }
+    }
+    ibin
+}
+
+/// `sample_alias_histogram` (`egs_utilities.mortran:1994-2020`): a bin index
+/// `1..=nsbin` drawn with the probabilities [`prepare_alias_histogram`] was
+/// given.
+pub fn sample_alias_histogram<R: super::egsnrc_macros::UniformSource>(ws: &[f64], ibin: &[i32], rng: &mut R) -> usize {
+    let nsbin = ws.len() - 1;
+    let r1 = rng.uniform();
+    let r2 = rng.uniform();
+    let mut b = 1 + (nsbin as f64 * r1) as usize;
+    if r2 > ws[b] {
+        b = ibin[b] as usize;
+    }
+    b
+}
+
+/// `lnblnk1` (`egs_utilities.mortran:2065-2085`): the index (1-based) of the
+/// last character that is not a blank, tab, line or page break; `0` for an
+/// empty or all-blank string. The scan runs from the end, and the first NUL it
+/// meets returns `i - 1` (so `"ab\0\0"` gives 3, not the `strlen` 2 the
+/// upstream comment suggests).
+pub fn lnblnk1(string: &[u8]) -> usize {
+    for i in (1..=string.len()).rev() {
+        let j = string[i - 1];
+        if j == 0 {
+            return i - 1;
+        }
+        if !matches!(j, 9..=13 | 32) {
+            return i;
+        }
+    }
+    0
+}
+
+/// `toUpper` (`egs_utilities.mortran:2202-2220`): upper-case ASCII letters,
+/// the string truncated or padded to 512 characters as upstream's
+/// `character*512` result is.
+pub fn to_upper(a_string: &str) -> String {
+    let mut out: String = a_string.chars().take(512).map(|c| c.to_ascii_uppercase()).collect();
+    while out.len() < 512 {
+        out.push(' ');
+    }
+    out
+}
+
+/// `egs_strip_extension` (`egs_utilities.mortran:1118-1131`): when `filen`
+/// (ignoring trailing blanks) ends with `fext`, blank that suffix out and
+/// return `true`.
+pub fn strip_extension(filen: &mut String, fext: &str) -> bool {
+    let l1 = filen.trim_end_matches([' ', '\t', '\n', '\u{b}', '\u{c}', '\r']).len();
+    let l2 = fext.trim_end_matches([' ', '\t', '\n', '\u{b}', '\u{c}', '\r']).len();
+    if l1 >= l2 && filen[..l1].ends_with(&fext[..l2]) {
+        let keep = l1 - l2;
+        filen.truncate(keep);
+        true
+    } else {
+        false
+    }
+}
+
+/// `egs_is_absolute_path` (`egs_utilities.mortran:1137-1146`): upstream tests
+/// for any file separator (`/`) anywhere in the name, not only the first
+/// character, so a relative path with a directory also counts.
+pub fn is_absolute_path(fname: &str) -> bool {
+    fname.contains('/')
+}
+
+/// `egs_swap_2` / `egs_swap_4` (`egs_utilities.mortran:1738-1757`): reverse
+/// the byte order of a 2- or 4-byte object in place.
+pub fn swap_bytes(c: &mut [u8]) {
+    c.reverse();
+}
+
+/// The media table of `egs_add_medium` / `egs_get_medium_name`
+/// (`egs_utilities.mortran:1552-1620`): names of at most 24 characters,
+/// 1-based medium numbers.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct MediaNames {
+    names: Vec<String>,
+}
+
+impl MediaNames {
+    /// An empty table (`nmed = 0`).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// `nmed`.
+    pub fn nmed(&self) -> usize {
+        self.names.len()
+    }
+
+    /// `egs_add_medium`: the medium number of `medname` (cut at 24 characters
+    /// and at a NUL), adding it when new.
+    ///
+    /// # Errors
+    ///
+    /// A message when `max_media` (`$MXMED`) would be exceeded.
+    pub fn add_medium(&mut self, medname: &str, max_media: usize) -> Result<usize, String> {
+        let mut name: String = medname.chars().take(24).collect();
+        if let Some(p) = name.find('\0') {
+            name.truncate(p);
+        }
+        // upstream compares up to the first blank of the stored 24-character name
+        let name = name.trim_end_matches(' ').to_owned();
+        for (i, n) in self.names.iter().enumerate() {
+            if *n == name {
+                return Ok(i + 1);
+            }
+        }
+        if self.names.len() + 1 > max_media {
+            return Err(alloc::format!("In egs_add_medium: maximum number of media exceeded (MXMED = {max_media})"));
+        }
+        self.names.push(name);
+        Ok(self.names.len())
+    }
+
+    /// `egs_get_medium_name`: the name of medium `imed`, or an empty string
+    /// when `imed` is out of range.
+    pub fn medium_name(&self, imed: usize) -> &str {
+        if imed < 1 || imed > self.names.len() { "" } else { &self.names[imed - 1] }
+    }
+}
+
+/// `egs_scale_xcc` (`egs_utilities.mortran:1717-1723`): multiply the
+/// screening parameter `xcc` of medium `imed` (1-based, `nmed` media) by
+/// `factor`; out-of-range media are ignored.
+pub fn scale_xcc(xcc: &mut [f64], imed: usize, nmed: usize, factor: f64) {
+    if imed > 0 && imed <= nmed {
+        xcc[imed] *= factor;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,4 +583,70 @@ mod tests {
         // the regime boundary at x = 3 is continuous
         assert!((erf1(3.0) - erf1(3.0 + 1e-12)).abs() < 1e-11);
     }
+    #[test]
+    fn ibsearch_finds_the_interval() {
+        let b = [0.0, 1.0, 2.0, 4.0, 8.0];
+        assert_eq!(ibsearch(0.5, 4, &b), 1);
+        assert_eq!(ibsearch(2.0, 4, &b), 2);
+        assert_eq!(ibsearch(3.9, 4, &b), 2);
+        assert_eq!(ibsearch(5.0, 4, &b), 3);
+        assert_eq!(ibsearch(100.0, 4, &b), 3);
+        assert_eq!(ibsearch(-1.0, 4, &b), 1);
+    }
+
+    #[test]
+    fn alias_histogram_reproduces_the_probabilities() {
+        use petir::rng::ranmar::Ranmar;
+        let probs = [0.0, 0.1, 0.4, 0.2, 0.3];
+        let mut ws = probs.to_vec();
+        let ib = prepare_alias_histogram(&mut ws);
+        let mut rng = Ranmar::new(8, 9);
+        let mut counts = [0usize; 5];
+        let n = 100_000;
+        for _ in 0..n {
+            counts[sample_alias_histogram(&ws, &ib, &mut rng)] += 1;
+        }
+        for i in 1..=4 {
+            assert!((counts[i] as f64 / n as f64 - probs[i]).abs() < 0.01, "bin {i}: {}", counts[i]);
+        }
+        // a flat histogram needs no aliasing
+        let mut flat = vec![0.0, 0.25, 0.25, 0.25, 0.25];
+        let fb = prepare_alias_histogram(&mut flat);
+        assert_eq!((flat[1..].to_vec(), fb[1..].to_vec()), (vec![1.0; 4], vec![1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn string_and_table_helpers_follow_upstream() {
+        assert_eq!(lnblnk1(b"abc  \t"), 3);
+        // the scan runs from the END: a NUL there gives i - 1 (not strlen), a later NUL is not seen
+        assert_eq!(lnblnk1(b"ab\0cd"), 5);
+        assert_eq!(lnblnk1(b"ab\0\0"), 3);
+        assert_eq!(lnblnk1(b"   "), 0);
+        assert_eq!(lnblnk1(b""), 0);
+        let u = to_upper("Water, liquid");
+        assert_eq!((u.len(), &u[..13]), (512, "WATER, LIQUID"));
+        let mut f = String::from("run.egsinp  ");
+        assert!(strip_extension(&mut f, ".egsinp"));
+        assert_eq!(f, "run");
+        let mut g = String::from("run.egsinp");
+        assert!(!strip_extension(&mut g, ".phsp"));
+        assert!(!strip_extension(&mut g, "a.very.long.extension.egsinp"));
+        assert!(is_absolute_path("dir/file") && !is_absolute_path("file"));
+        let mut c = [1u8, 2, 3, 4];
+        swap_bytes(&mut c);
+        assert_eq!(c, [4, 3, 2, 1]);
+        let mut m = MediaNames::new();
+        assert_eq!(m.add_medium("H2O700ICRU", 3).unwrap(), 1);
+        assert_eq!(m.add_medium("AIR700ICRU\0junk", 3).unwrap(), 2);
+        assert_eq!(m.add_medium("H2O700ICRU", 3).unwrap(), 1);
+        assert_eq!(m.add_medium("PB700ICRU", 3).unwrap(), 3);
+        assert!(m.add_medium("NEW", 3).is_err());
+        assert_eq!((m.nmed(), m.medium_name(2), m.medium_name(0), m.medium_name(9)), (3, "AIR700ICRU", "", ""));
+        let mut xcc = [0.0, 2.0, 3.0];
+        scale_xcc(&mut xcc, 2, 2, 0.5);
+        scale_xcc(&mut xcc, 3, 2, 0.5);
+        scale_xcc(&mut xcc, 0, 2, 0.5);
+        assert_eq!(xcc, [0.0, 2.0, 1.5]);
+    }
+
 }
