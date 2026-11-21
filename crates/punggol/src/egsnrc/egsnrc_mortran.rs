@@ -11705,7 +11705,7 @@ mod tests {
                 assert!((norm(&st, i) - 1.0).abs() < 1e-9);
             }
             // the vacancy energy is the table's (10 keV), not the argument
-            assert!((tot - 0.01).abs() < 1e-12, "{tot}");
+            assert!((tot - 0.01_f32 as f64).abs() < 1e-12, "{tot}");
             match st.np {
                 2 if st.iq[2] == 0 => photons += 1,
                 2 => augers += 1,
@@ -11719,7 +11719,7 @@ mod tests {
         let mut st = Stack::new(10);
         st.np = 1;
         let out = eadl_relax(&mut st, &eadl, 2, 5, RM + 1e-4, 1e-4, &mut rng).unwrap();
-        assert_eq!((st.np, out.edep), (1, 0.002));
+        assert_eq!((st.np, out.edep), (1, 0.002_f32 as f64));
         // unknown vacancies: other element, shell number outside the table, negative
         for (z, s) in [(3usize, 1i32), (2, 7), (2, 0), (2, -1), (200, 1)] {
             let out = eadl_relax(&mut st, &eadl, z, s, 1.0, 1.0, &mut rng).unwrap();
@@ -11727,10 +11727,10 @@ mod tests {
         }
         // a vacancy under 1 keV is deposited
         let out = eadl_relax(&mut st, &eadl, 2, 2, 1.0, 1.0, &mut rng).unwrap();
-        assert_eq!(out.edep, 0.0005);
+        assert_eq!(out.edep, 0.0005_f32 as f64);
         // cut-offs: nothing is emitted above them, everything is deposited
         let out = eadl_relax(&mut st, &eadl, 2, 1, 10.0, 10.0, &mut rng).unwrap();
-        assert!((out.edep - 0.01).abs() < 1e-12 && st.np == 1);
+        assert!((out.edep - 0.01_f32 as f64).abs() < 1e-12 && st.np == 1);
         // a full stack is an error
         let mut full = Stack::new(1);
         full.np = 1;
@@ -11827,7 +11827,7 @@ mod tests {
         }
         photo.push_str("header\n");
         for i in 1..=100 {
-            photo.push_str(&alloc::format!("{i} 0.5 0.5 0.5 0.5\n"));
+            photo.push_str(&alloc::format!("{i} 0.5 0.5 0.5 0.5 0.5\n"));
         }
         for &(first, last) in &[(1usize, 19usize), (20, 26), (27, 32), (33, 37), (38, 38)] {
             photo.push_str("header\n");
