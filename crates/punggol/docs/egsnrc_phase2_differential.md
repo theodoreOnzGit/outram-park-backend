@@ -99,7 +99,7 @@ assumed**: with 1 the real code fails reading element 73), then `gfortran -x
 f77-cpp-input -DGIT_HASH=... -DCOMPILE_TIME=...` with a small stub file for the
 `egs_*` system routines. `HEN_HOUSE/user_codes/tutor1` (20 MeV electrons on a
 1 mm Ta plate, `tutor_data.pegs4dat`) runs and prints per-history exit lists
-(not yet compared). A copy, `difftab.mortran`, calls `HATCH` and dumps
+(~~not yet compared~~ **compared, see "Histories" below**). A copy, `difftab.mortran`, calls `HATCH` and dumps
 `GMFP0/1`, `GBR10/11`, `GBR20/21`, `COHE0/1` of the Ta medium.
 
 Test `differential_user_photon_tables_against_compiled_egsnrc`
@@ -558,3 +558,45 @@ Upstream observation (not a port defect): hydrogen at 1 g/cm3 makes
 `estarCalculation` abort ("Newton's method converged to negative root"), so
 the H case uses the physical densities 8.375e-5 and 0.0708 g/cm3; the port
 returns `Err` in the same situation.
+
+
+## Full re-run of every differential comparison (2026-11-21, one session, final sweep)
+
+All run in release mode against the references in scratch, in the same session
+as the last code change (`cargo test --release -p punggol --lib differential
+-- --nocapture` with the `EGSNRC_REFERENCE_*` variables set; promoted-build
+references, `-fdefault-real-8`):
+
+| comparison | result |
+|---|---|
+| PEGS4 `pb700` / `h2o700` / `tis521` | 3388 / 3741 / 674 lines, **0 differing** |
+| photon tables (`gmfp`, `gbr1`, `gbr2`, `cohe`) | worst 1.7e-12 at table-interval level; function values 2.9e-16 to 1.1e-15 |
+| electron tables | exact except `tmxs` 1.6e-14, 1.1e-14 |
+| Rayleigh / spin tables | worst 6.0e-13 / **0** |
+| EADL tables (shells, channels, alias) | integers 0 mismatches; worst 1.7e-16 |
+| EII tables (12 arrays) | all **0** |
+| tutor1 200 histories, plain | same sequence 200 of 200, kinetic energy 1.5e-15 |
+| ... EADL | 200 of 200, same order of size |
+| ... EII | 200 of 200, 4.4e-16 |
+| ... NIST brems (`ibr_nist = 1`, `difftutB_8`) | 200 of 200, 1.0e-15 |
+| ... NRC brems (`ibr_nist = 2`, `difftutR_8`) | 200 of 200, 4.8e-16 |
+| ... `pair_nrc = 1` | 200 of 200, 1.7e-15 |
+| ... `itriplet = 1` | 200 of 200, 1.1e-15 |
+| ... all options, NIST / NRC | 200 of 200, 4.5e-16 / 1.1e-15 |
+| ESTAR mixtures (5) / `egs_estar` (17 media x 113) | 0 / 1921 of 1921 bit-identical |
+| OpenMC U: `calculate_xs`, samplers, relaxation, reactions, TTB tables | 0 mismatches; worst 1.0e-13 (round-off) |
+| OpenMC H: same | 0 mismatches; worst 2.6e-14 |
+| OpenMC U + H material, weight-fraction TTB, `sample_element` | 0 mismatches; worst 4.3e-15 |
+
+A mix-up worth recording: the first NRC-brems run used `difftutB2_8`, which is
+**not** the NRC-brems reference (it is a trace build of another case) and
+diverged at history 1; with the right reference (`difftutR_8`) the run agrees.
+The reference directories are named by the user code that wrote them, so a
+wrong pairing shows up as a divergence, not as a silent pass.
+
+## Open items (every one filed)
+
+- OpenMC elements other than U and H: **data missing**, gh:#1695.
+- Photonuclear, EEMF, `egs_parallel` (not ported, nothing to compare), gh:#1697.
+- `xsec_out`, `outputDensityFile`: diagnostic file output, deliberately not
+  ported.
