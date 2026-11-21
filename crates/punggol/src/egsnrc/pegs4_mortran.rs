@@ -2440,7 +2440,7 @@ impl Pegs4Program {
                     let edenl = if self.c.gaspp == 0.0 { self.c.eden } else { self.c.eden / self.c.gaspp };
                     let vplasm = sqrt(edenl / k.pip * k.r0 * (k.c * k.c));
                     self.c.cbar = 1.0 + 2.0 * ln(imev_sp / (k.hbar * 2.0 * k.pip * vplasm / k.ergmev));
-                    let z1 = self.c.zelemp[0] as i32;
+                    let z1 = if self.c.nep >= 1 { self.c.zelemp[0] as i32 } else { 0 };
                     let z2 = if self.c.nep >= 2 { self.c.zelemp[1] as i32 } else { 0 };
                     if self.c.nep == 1 && z1 == 2 && self.c.gaspp != 0.0 {
                         self.c.x0 = 2.191;
@@ -3591,9 +3591,9 @@ mod tests {
         s
     }
 
-    #[test]
-    fn data_parse_reads_the_two_free_format_files() {
-        let d = synthetic_data();
+    /// The text of units 8 and 9 for `d`, as tokens (`D` exponents for the
+    /// coherent table to exercise the reader).
+    fn data_tokens(d: &Pegs4Data) -> (Vec<String>, Vec<String>) {
         let mut t8: Vec<String> = Vec::new();
         t8.extend(d.nphe.iter().map(|v| format!("{v}")));
         for arr in [&d.phe, &d.phd] {
@@ -3605,6 +3605,13 @@ mod tests {
         t8.extend(d.cohe.iter().map(|v| format!("{:e}", v).replace('e', "D")));
         let mut t9: Vec<String> = d.xval.iter().map(|v| format!("{v:e}")).collect();
         t9.extend(d.afac.iter().map(|v| format!("{v:e}")));
+        (t8, t9)
+    }
+
+    #[test]
+    fn data_parse_reads_the_two_free_format_files() {
+        let d = synthetic_data();
+        let (t8, t9) = data_tokens(&d);
         let parsed = Pegs4Data::parse(&list_text(&t8), &list_text(&t9)).unwrap();
         assert_eq!(parsed, d);
         assert!(Pegs4Data::parse("1 2 3", &list_text(&t9)).is_err());
@@ -3936,7 +3943,7 @@ mod tests {
 
     #[test]
     fn mix_pegs4_differs_from_the_library_mix_only_in_the_rlc_rounding() {
-        let mut p = carbon_program();
+        let p = carbon_program();
         let mut lib = Pegs4Common::new(pmdcon());
         lib.asymt = p.c.asymt.clone();
         lib.nep = 1;
@@ -4521,6 +4528,33 @@ mod tests {
     }
 
     #[test]
+    fn the_free_run_function_builds_the_program_from_text() {
+        let d = synthetic_data();
+        let (t8, t9) = data_tokens(&d);
+        // a tiny aprime.data: NAPRZ NAPRE, the energies (MeV), then Z and the factors
+        let aprime = "2 3\n1.0 2.0 3.0\n 6 1.0 1.1 1.2\n 13 1.0 1.0 1.0\n";
+        let dens = density_file(2.26, 6, 1.0);
+        let inp = Pegs4Inp { epstfl: Some(1), ..Default::default() };
+        let blocks = [
+            elem("C", "C", "C", inp),
+            ener(0.521, 10.511, 0.01, 10.0),
+            Pegs4Block::Pwlf(Pegs4Inp::default()),
+            Pegs4Block::Deck(Pegs4Inp::default()),
+        ];
+        let out = run(&list_text(&t8), &list_text(&t9), Some(aprime), Some(&dens), &blocks).unwrap();
+        assert!(out.deck[1].starts_with(" ELEM,RHO= 2.2600E+00,NE= 1, IUNRST=0, EPSTFL=1, IAPRIM=1"), "{}", out.deck[1]);
+        // without the aprime text IAPRIM = 1 cannot be served; the error is reported
+        let e = run(&list_text(&t8), &list_text(&t9), None, Some(&dens), &[
+            elem("C", "C", "C", Pegs4Inp { epstfl: Some(1), ..Default::default() }),
+            ener(0.521, 10.511, 0.01, 10.0),
+            Pegs4Block::Pwlf(Pegs4Inp::default()),
+        ])
+        .unwrap_err();
+        assert!(e.contains("aprime"), "{e}");
+        assert!(run("1 2", "1 2", None, None, &[]).is_err());
+    }
+
+    #[test]
     fn a_second_medium_needs_the_density_variables_reset() {
         // pegs4.mortran:2711-2713 refuses SSB data given without ISSB, and
         // SPINIT itself leaves AFACT, SK, X0, X1, IEV, CBAR set (:2726-2729,
@@ -4546,6 +4580,22 @@ mod tests {
     /// through `parse_pegs4_media`, the first and third records agree with
     /// that shipped file's format, and the fit counts are within the array
     /// limits.
+    ///
+    /// Results (2026-11-21, release build, `f32`, the files at
+    /// `PEGS4_DATA_DIR`): `pgs4pepr.dat` holds exactly the 20217 numbers the
+    /// `READ(8,*)` of `:757` asks for (`100 + 2*6100 + 100 + 17 + 1700 + 6100`),
+    /// so the array layout read here is the file's. **PB** (`p4ielem`
+    /// settings, `IAPRIM = 1` from `aprime.data`): `RHO = 11.34`,
+    /// `RLC = 0.561722 cm`, `NEL = 150` (the `$MXEKE` limit: the 1 % electron
+    /// fit does not converge within 150 intervals over 1.5 MeV to 100 GeV),
+    /// `NGL = 242`, `EBINDA = 0.088004 MeV` (the K edge of lead, 88.004 keV,
+    /// `EKEDGE(82)`), 789 records. **H2O** (`COMP`, `IRAYL=1`, `AE=0.700`,
+    /// `UE=50.511`, `AP=0.01`, `UP=50`): `RLC = 36.0863 cm`, `NEL = 150`,
+    /// `NGL = 2000`, `NGR = 100` (all at their array limits), `EBINDA = 0`
+    /// (the file's `EKEDGE` is 0 for Z = 1 and 8). Record 1 and the element
+    /// record of the PB deck are character-for-character the shipped
+    /// `data/pb.pegs4dat` records (a layout check; that file was made with
+    /// other settings and is **not** a reference for the numbers).
     #[test]
     fn real_data_end_to_end_when_the_files_exist() {
         let dir = std::env::var("PEGS4_DATA_DIR").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4"));

@@ -6646,10 +6646,14 @@ fn parse_medium_header(line: &str) -> Result<(f64, usize, i32, i32, i32), String
             return Ok((rho, nne, a, b, d));
         }
     }
-    // format 2: 26 columns of gas pressure before IUNRST
-    let a = fixed_field(&c, 52, 1)? as i32;
-    let b = fixed_field(&c, 62, 1)? as i32;
-    let d = fixed_field(&c, 72, 1)? as i32;
+    // format 2: 26 columns of gas pressure before IUNRST. 5 + 5 + 11 + 4 + 2 + 26
+    // = 53 columns precede IUNRST, so its digit is column 54 (0-based index 53);
+    // ~~indices 52, 62, 72~~ **CORRECTED 2026-11-21**: they were one column early
+    // and only matched a test fixture that left out the comma after GASP's value
+    // (found against the shipped `521icru.pegs4dat` by the pegs4 port).
+    let a = fixed_field(&c, 53, 1)? as i32;
+    let b = fixed_field(&c, 63, 1)? as i32;
+    let d = fixed_field(&c, 73, 1)? as i32;
     Ok((rho, nne, a, b, d))
 }
 
@@ -9399,7 +9403,7 @@ mod tests {
         let mut t = String::new();
         t.push_str(&alloc::format!(" MEDIUM={:<24},STERNCID=XX\n", name));
         if gas {
-            t.push_str(" GAS ,RHO= 1.2000E-03,NE= 1,GASP= 1.0000E+00 IUNRST=0, EPSTFL=1, IAPRIM=1\n");
+            t.push_str(" GAS ,RHO= 1.2000E-03,NE= 1,GASP= 1.0000E+00, IUNRST=0, EPSTFL=1, IAPRIM=1\n");
         } else {
             t.push_str(" ELEM,RHO= 1.1340E+01,NE= 2, IUNRST=0, EPSTFL=1, IAPRIM=1\n");
         }
@@ -10690,6 +10694,13 @@ mod tests {
         let short = NrcPairFile::from_bytes(&toy_nrc_pair_bytes(2, true)).unwrap();
         assert!(short.init(&comp).is_err());
         assert!(NrcPairFile::from_bytes(&[0u8; 10]).is_err());
+    }
+
+    #[test]
+    fn gas_header_of_a_shipped_pegs4_file_parses() {
+        // the header line of `521icru.pegs4dat` (EGSnrc pegs4/data), verbatim
+        let line = " MIXT,RHO= 1.2048E-03,NE= 4,GASP= 1.0000E+00, IUNRST=0, EPSTFL=1, IAPRIM=1";
+        assert_eq!(parse_medium_header(line).unwrap(), (1.2048e-3, 4, 0, 1, 1));
     }
 
 }

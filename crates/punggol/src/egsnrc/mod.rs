@@ -1,5 +1,4 @@
-//! **EGSnrc port scaffold** (gh:#976): one placeholder module per upstream
-//! Mortran file. **Only `egsnrc_mortran` (`ANNIH_AT_REST`, `UPHI`) and `egsnrc_macros` (stack, azimuth) hold code (first port, not differentially tested, gh:#1680);** the rest are placeholders.
+//! **EGSnrc port** (gh:#976): one module per upstream Mortran file. ~~Only `egsnrc_mortran` and `egsnrc_macros` hold code~~ **CORRECTED 2026-11-21:** `egsnrc_mortran`, `egsnrc_macros`, `egs_utilities_mortran`, `nrcaux_mortran`, `get_inputs_mortran`, `get_media_inputs_mortran`, `pegs4_routines_mortran` and `pegs4_mortran` hold code (first ports, not differentially tested, gh:#1680; `eii_mortran` and `lnblnk1_mortran` point to where their routines live); the rest (`rad_compton1`, the `EEMF`/`emf` macros, `egs_parallel`, `transportp_macros`, `pegs4_macros`) are placeholders or deliberately not ported.
 //!
 //! Upstream: EGSnrc, <https://github.com/nrc-cnrc/EGSnrc>, commit
 //! `bd49a47aae3938f49f4100b8e018091861408b19` (the file list below was read
