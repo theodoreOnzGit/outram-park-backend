@@ -205,7 +205,7 @@ fn two_element_material_against_compiled_openmc() {
     // sample_element + sample_photon_reaction on the atom-density material
     let (derived, rho_u, rho_h) = derived_atom.unwrap();
     let rhos = [rho_u, rho_h];
-    let tables = TtbTables { e_grid: &ttb_grid, electron: &derived.electron, positron: &derived.positron };
+    let tables = TtbTables { e_grid: Arc::from(ttb_grid.as_slice()), electron: Arc::new(derived.electron.clone()), positron: Arc::new(derived.positron.clone()) };
     let (mut n, mut bad_event, mut bad_elem, mut bad_seed, mut bad_nsec) = (0usize, 0usize, 0usize, 0usize, 0usize);
     let (mut per_elem, mut worst) = ([0usize; 2], 0.0_f64);
     for l in std::fs::read_to_string(samples_path).unwrap().lines() {

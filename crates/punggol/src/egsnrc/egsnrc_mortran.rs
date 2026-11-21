@@ -58,8 +58,7 @@ use crate::nostd_prelude::*;
 use super::egsnrc_macros::{EgsError, Stack, UniformSource, select_azimuthal_angle};
 use super::egs_utilities_mortran::{alias_sample1, gauss_legendre, prepare_alias_table, set_spline, spline};
 use super::lit;
-use super::eemf_macros_mortran::{EemfField, EemfVariant, EemfState, EemfStepVars, InitiateInput, PiiDirections, PiiInput};
-use petir::mathf::RealMath;
+use super::eemf_macros_mortran::{EemfField, EemfState, EemfStepVars, InitiateInput, PiiDirections, PiiInput};
 use petir::real::Real;
 
 /// `ANNIH_AT_REST` (`egsnrc.mortran:186-224`): the particle on top of the stack
@@ -436,8 +435,9 @@ pub fn play_russian_roulette<R: UniformSource>(stack: &mut Stack, from: usize, p
 /// is `Some(prob_RR)` when `i_play_RR = 1`.
 ///
 /// **Seams, deliberate:**
-/// - A shell vacancy is *returned* ([`ComptonOutcome::vacancy`]) because `RELAX`
-///   is not ported. Upstream plays Russian roulette after `RELAX`; here it is
+/// - A shell vacancy is *returned* ([`ComptonOutcome::vacancy`]) ~~because `RELAX`
+///   is not ported~~ (CORRECTED 2026-11-21, gh:#1682: [`relax`] is ported, and
+///   [`photon`] calls it with the returned vacancy). Upstream plays Russian roulette after `RELAX`; here it is
 ///   played inside only when no vacancy is pending, so with a vacancy the
 ///   caller applies [`play_russian_roulette`] from `np_old + 1` after relaxing.
 /// - Radiative Compton corrections (`$RADC_CHECK`, `$RADC_REJECTION`, empty by
@@ -2402,7 +2402,16 @@ pub trait Geometry {
 }
 
 /// Per-region data `PHOTON` reads.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+///
+/// [`Default`] is EGSnrc's own (`$set-region-by-region-defaults`,
+/// `egsnrc.macros:3662-3676`, called by `egs_set_defaults`): bound Compton
+/// (`ibcmp = 3`, norej), atomic relaxation (`iedgfl = 1`), photoelectron
+/// angular sampling (`iphter = 1`) and Rayleigh scattering (`irayl = 1`) are
+/// **on** (the workspace's correct-physics-default rule, gh:#1682); turn one
+/// off by setting its field to 0. ~~Derived, so all four were off~~
+/// **CORRECTED 2026-11-21 (gh:#1682).** `med` stays 0 (vacuum) and `rhor`,
+/// the cuts 0, as upstream before `$adjust_rhor_ecut_pcut`.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PhotonRegionData {
     /// `med(region)`; `0` is vacuum.
     pub med: usize,
@@ -2424,6 +2433,12 @@ pub struct PhotonRegionData {
     /// `iphotonucr(region)`: `1` turns on the photonuclear placeholder, which
     /// discards the photon.
     pub iphotonucr: i32,
+}
+
+impl Default for PhotonRegionData {
+    fn default() -> Self {
+        Self { med: 0, rhor: 0.0, pcut: 0.0, ecut: 0.0, ibcmp: 3, iedgfl: 1, iphter: 1, irayl: 1, iphotonucr: 0 }
+    }
 }
 
 /// Per-medium tables `PHOTON` reads: the piecewise-linear `GMFP`, `GBR1`,
@@ -2486,6 +2501,52 @@ pub struct PhotonTables {
     pub triplet: Option<TripletData>,
     /// The largest `UP(i)` over the media, MeV (the `kmax` of `sample_triplet`'s binning).
     pub up_max: f64,
+}
+
+impl PhotonTables {
+    /// The option-consistency checks `HATCH` makes before any transport
+    /// (gh:#1682, phase 3): upstream stops with `$egs_fatal`; here they are
+    /// [`EgsError::Fatal`]. Call once after assembling the tables, as `HATCH`
+    /// does; [`photon`] does not repeat them per history. `xcom` is
+    /// `photon_xsections = 'xcom'`.
+    ///
+    /// - Bound Compton (`ibcmp > 0` in a region with a medium) creates
+    ///   vacancies, so it needs relaxation data (`iedgfl` in `1..=100` in some
+    ///   region): `init_compton`, `egsnrc.mortran:2570-2576`
+    ///   (`$need_bound_compton_data`, `$need_relaxation_data`,
+    ///   `egsnrc.macros:3711-3726`).
+    /// - EADL relaxation (`RelaxData::eadl` present) needs relaxation turned
+    ///   on in some region: `EDGSET`, `egsnrc.mortran:6355-6362`.
+    /// - EADL relaxation with the `xcom` photon cross sections needs bound
+    ///   Compton, since below 1 keV the binding energies come from
+    ///   `incoh.data`: `HATCH`, `egsnrc.mortran:2465-2472`.
+    ///
+    /// Without these a vacancy reaches [`relax`] with no data for its element.
+    ///
+    /// # Errors
+    ///
+    /// [`EgsError::Fatal`] naming the inconsistency, with upstream's reason.
+    pub fn check_hatch_options(&self, xcom: bool) -> Result<(), EgsError> {
+        // `media` and `regions` are 1-based (index 0 is unused), as in `photon`
+        let nmed = self.media.len().saturating_sub(1);
+        let need_bound_compton = self.regions.iter().skip(1).any(|r| r.med > 0 && r.med <= nmed && r.ibcmp > 0);
+        let need_relaxation = self.regions.iter().skip(1).any(|r| r.iedgfl > 0 && r.iedgfl <= 100);
+        let eadl_relax = self.relax.eadl.is_some();
+        if !need_bound_compton && eadl_relax && xcom {
+            return Err(EgsError::Fatal(
+                "HATCH: turn ON Compton binding corrections when using detailed atomic relaxation (eadl_relax) with xcom: binding energies below 1 keV come from incoh.data",
+            ));
+        }
+        if need_bound_compton && !need_relaxation {
+            return Err(EgsError::Fatal(
+                "init_compton: scattering off bound electrons creates atomic vacancies; turn ON atomic relaxations",
+            ));
+        }
+        if eadl_relax && !need_relaxation {
+            return Err(EgsError::Fatal("EDGSET: turn ON atomic relaxations when requesting detailed atomic relaxation (eadl_relax)"));
+        }
+        Ok(())
+    }
 }
 
 /// Switches `photon` reads.
@@ -6549,8 +6610,11 @@ pub struct ElectronMediumData {
     pub brems: BremsMedium,
 }
 
-/// Per-region data `ELECTR` reads.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// Per-region data `ELECTR` reads. [`Default`] is EGSnrc's
+/// (`egsnrc.macros:3662-3676`): `smaxir = $MAX-SMAX = 1e10` cm, so a default
+/// region does not limit the step (~~derived, `smaxir = 0`, which clamps every
+/// step to zero~~ **CORRECTED 2026-11-21, gh:#1682**); `med` 0 and the cuts 0.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ElectrRegion {
     /// `med(region)`; `0` is vacuum.
     pub med: usize,
@@ -6562,6 +6626,12 @@ pub struct ElectrRegion {
     pub smaxir: f64,
     /// `pcut(region)`, photon cut-off, MeV (used by `RELAX` after EII).
     pub pcut: f64,
+}
+
+impl Default for ElectrRegion {
+    fn default() -> Self {
+        Self { med: 0, rhor: 0.0, ecut: 0.0, smaxir: lit(1e10), pcut: 0.0 }
+    }
 }
 
 /// All tables `electr` needs; `regions` and `media` are 1-based.
@@ -7311,7 +7381,6 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                             };
                             counters.eemf.emfield_in_vacuum(stack, geometry, &mut v);
                             tperp = v.tperp;
-                            tperp = v.tperp;
                             stack.x_final = v.final_pos;
                             [eie, eke, peie] = v.energies;
                             ustep = v.ustep;
@@ -7810,21 +7879,32 @@ fn fixed_field(chars: &[char], start: usize, w: usize) -> Result<f64, String> {
 
 /// A cursor over the lines of a PEGS4 data set that reads Fortran-formatted
 /// lists as `HATCH` does.
-struct Pegs4Lines<'a> {
-    lines: core::str::Lines<'a>,
+/// A cursor over the PEGS4 file's lines (an index, so the struct holds no
+/// borrow: the workspace's no-lifetime rule, gh:#1682).
+struct Pegs4Lines {
+    pos: usize,
 }
 
-impl<'a> Pegs4Lines<'a> {
-    fn next_line(&mut self) -> Result<&'a str, String> {
-        self.lines.next().ok_or_else(|| String::from("PEGS4 data ends early"))
+impl Pegs4Lines {
+    /// The next line, or `None` at the end.
+    fn next_opt<'t>(&mut self, lines: &[&'t str]) -> Option<&'t str> {
+        let l = lines.get(self.pos).copied();
+        if l.is_some() {
+            self.pos += 1;
+        }
+        l
+    }
+
+    fn next_line<'t>(&mut self, lines: &[&'t str]) -> Result<&'t str, String> {
+        self.next_opt(lines).ok_or_else(|| String::from("PEGS4 data ends early"))
     }
 
     /// `READ(KMPI, :FLT:)` of `n` values: format `(1X, 1PE14.5, 4E14.5)`, five
     /// 14-column values per record, a fresh record per five.
-    fn flt(&mut self, n: usize) -> Result<Vec<f64>, String> {
+    fn flt(&mut self, lines: &[&str], n: usize) -> Result<Vec<f64>, String> {
         let mut out = Vec::with_capacity(n);
         while out.len() < n {
-            let chars = padded(self.next_line()?, 71);
+            let chars = padded(self.next_line(lines)?, 71);
             for k in 0..5 {
                 if out.len() == n {
                     break;
@@ -7836,10 +7916,10 @@ impl<'a> Pegs4Lines<'a> {
     }
 
     /// `READ(KMPI, :INT:)` of `n` values: format `(1X, 14I5)`.
-    fn int(&mut self, n: usize) -> Result<Vec<i32>, String> {
+    fn int(&mut self, lines: &[&str], n: usize) -> Result<Vec<i32>, String> {
         let mut out = Vec::with_capacity(n);
         while out.len() < n {
-            let chars = padded(self.next_line()?, 71);
+            let chars = padded(self.next_line(lines)?, 71);
             for k in 0..14 {
                 if out.len() == n {
                     break;
@@ -7895,13 +7975,14 @@ pub fn parse_pegs4_media(text: &str, names: &[&str]) -> Result<Vec<Pegs4Medium>,
     const LMDN: usize = 24;
     let wanted: Vec<Vec<char>> = names.iter().map(|n| padded(n, LMDN)).collect();
     let mut found: Vec<Option<Pegs4Medium>> = alloc::vec![None; names.len()];
-    let mut cur = Pegs4Lines { lines: text.lines() };
+    let lines: Vec<&str> = text.lines().collect();
+    let mut cur = Pegs4Lines { pos: 0 };
     let mut nfound = 0;
     while nfound < names.len() {
         // medium header search
         let mut im = None;
         loop {
-            let line = match cur.lines.next() {
+            let line = match cur.next_opt(&lines) {
                 Some(l) => l,
                 None => {
                     let missing: Vec<&str> =
@@ -7924,14 +8005,14 @@ pub fn parse_pegs4_media(text: &str, names: &[&str]) -> Result<Vec<Pegs4Medium>,
             continue; // we already have this one
         }
         let mut med = Pegs4Medium { name: wanted[im].iter().collect(), ..Default::default() };
-        let (rho, nne, iunrst, epstfl, iaprim) = parse_medium_header(cur.next_line()?)?;
+        let (rho, nne, iunrst, epstfl, iaprim) = parse_medium_header(cur.next_line(&lines)?)?;
         med.rho = rho;
         med.nne = nne;
         med.iunrst = iunrst;
         med.epstfl = epstfl;
         med.iaprim = iaprim;
         for _ in 0..nne {
-            let c = padded(cur.next_line()?, 60);
+            let c = padded(cur.next_line(&lines)?, 60);
             med.elements.push(Pegs4Element {
                 asym: c[6..8].iter().collect(),
                 zelem: fixed_field(&c, 11, 3)?,
@@ -7941,21 +8022,21 @@ pub fn parse_pegs4_media(text: &str, names: &[&str]) -> Result<Vec<Pegs4Medium>,
             });
         }
         // MEDIA and THRESH
-        let v = cur.flt(5)?;
+        let v = cur.flt(&lines, 5)?;
         (med.rlc, med.ae, med.ap, med.ue, med.up) = (v[0], v[1], v[2], v[3], v[4]);
         // actual array sizes from PEGS
-        let v = cur.int(8)?;
+        let v = cur.int(&lines, 8)?;
         med.sizes = [v[0], v[1], v[2], v[3], v[4], v[5], v[6]];
         med.irayl = v[7];
         let (nge, neke) = (med.sizes[1] as usize, med.sizes[3] as usize);
         // BREMPR
-        let v = cur.flt(36)?;
+        let v = cur.flt(&lines, 36)?;
         for i in 0..6 {
             for k in 0..6 {
                 med.dl[k][i] = v[i * 6 + k];
             }
         }
-        let v = cur.flt(7)?;
+        let v = cur.flt(&lines, 7)?;
         med.delcm = v[0];
         for i in 0..2 {
             med.alphi[i] = v[1 + i * 3];
@@ -7963,21 +8044,21 @@ pub fn parse_pegs4_media(text: &str, names: &[&str]) -> Result<Vec<Pegs4Medium>,
             med.delpos[i] = v[3 + i * 3];
         }
         // ELECIN
-        let v = cur.flt(4)?;
+        let v = cur.flt(&lines, 4)?;
         (med.xr0, med.teff0, med.blcc, med.xcc) = (v[0], v[1], v[2], v[3]);
-        let v = cur.flt(2)?;
+        let v = cur.flt(&lines, 2)?;
         med.eke = [v[0], v[1]];
-        let v = cur.flt(16 * neke)?;
+        let v = cur.flt(&lines, 16 * neke)?;
         for i in 0..neke {
             let mut row = [0.0; 16];
             row.copy_from_slice(&v[16 * i..16 * i + 16]);
             med.elecin.push(row);
         }
         // PHOTIN
-        let v = cur.flt(3)?;
+        let v = cur.flt(&lines, 3)?;
         med.ebinda = v[0];
         med.ge = [v[1], v[2]];
-        let v = cur.flt(6 * nge)?;
+        let v = cur.flt(&lines, 6 * nge)?;
         for i in 0..nge {
             let mut row = [0.0; 6];
             row.copy_from_slice(&v[6 * i..6 * i + 6]);
@@ -7985,12 +8066,12 @@ pub fn parse_pegs4_media(text: &str, names: &[&str]) -> Result<Vec<Pegs4Medium>,
         }
         // optional Rayleigh input
         if med.irayl == 1 {
-            let ngr = cur.int(1)?[0];
-            let v = cur.flt(2)?;
+            let ngr = cur.int(&lines, 1)?[0];
+            let v = cur.flt(&lines, 2)?;
             let rco = [v[0], v[1]];
-            let v = cur.flt(2 * ngr as usize)?;
+            let v = cur.flt(&lines, 2 * ngr as usize)?;
             let rsct: Vec<[f64; 2]> = (0..ngr as usize).map(|i| [v[2 * i], v[2 * i + 1]]).collect();
-            let v = cur.flt(2 * nge)?;
+            let v = cur.flt(&lines, 2 * nge)?;
             let cohe: Vec<[f64; 2]> = (0..nge).map(|i| [v[2 * i], v[2 * i + 1]]).collect();
             med.rayleigh = Some(Pegs4Rayleigh { ngr, rco, rsct, cohe });
         }
@@ -9965,6 +10046,48 @@ mod tests {
             triplet: None,
             up_max: 0.0,
         }
+    }
+
+    /// The region defaults are EGSnrc's `$set-region-by-region-defaults`:
+    /// the photon physics on, no step limit (gh:#1682). Pins the
+    /// correct-physics default.
+    #[test]
+    fn region_defaults_are_egsnrcs_with_the_physics_on() {
+        let p = PhotonRegionData::default();
+        assert_eq!((p.ibcmp, p.iedgfl, p.iphter, p.irayl, p.iphotonucr), (3, 1, 1, 1, 0));
+        assert_eq!(ElectrRegion::default().smaxir, lit(1e10));
+    }
+
+    /// `check_hatch_options` refuses the three option combinations `HATCH`
+    /// stops on (gh:#1682), and accepts the consistent ones.
+    #[test]
+    fn check_hatch_options_refuses_what_hatch_stops_on() {
+        // bound Compton with relaxation on: consistent
+        let ok = photon_tables(0.0, 1.0, 1);
+        assert!(ok.check_hatch_options(false).is_ok());
+        // bound Compton with relaxation off everywhere: init_compton stops
+        let mut no_relax = photon_tables(0.0, 1.0, 1);
+        for r in no_relax.regions.iter_mut().skip(1) {
+            r.iedgfl = 0;
+        }
+        // index 0 is unused (1-based), so its default iedgfl = 1 does not count
+        assert_eq!(no_relax.regions[0].iedgfl, 1);
+        assert!(matches!(no_relax.check_hatch_options(false), Err(EgsError::Fatal(m)) if m.starts_with("init_compton")));
+        // Klein-Nishina everywhere and no relaxation: nothing needs it
+        let mut kn = no_relax.clone();
+        for r in kn.regions.iter_mut().skip(1) {
+            r.ibcmp = 0;
+        }
+        assert!(kn.check_hatch_options(true).is_ok());
+        // EADL relaxation requested, relaxation off: EDGSET stops
+        let mut eadl = kn.clone();
+        eadl.relax.eadl = Some(EadlData::default());
+        assert!(matches!(eadl.check_hatch_options(false), Err(EgsError::Fatal(m)) if m.starts_with("EDGSET")));
+        // EADL with xcom and no bound Compton: HATCH stops
+        let mut xcom = photon_tables(0.0, 1.0, 0);
+        xcom.relax.eadl = Some(EadlData::default());
+        assert!(matches!(xcom.check_hatch_options(true), Err(EgsError::Fatal(m)) if m.starts_with("HATCH")));
+        assert!(xcom.check_hatch_options(false).is_ok());
     }
 
     /// Follow one photon and everything it makes until the stack is empty:
@@ -13326,7 +13449,7 @@ mod tests {
             EmField { e_in: [x[0], x[1], x[2]], b: [x[3], x[4], x[5]], emlmt: x[6] }
         });
         // `EGSNRC_EEMF_BEAMNRC`: the user code was built with `EEMF_macros_beamnrc.mortran`
-        let eemf_variant = if std::env::var("EGSNRC_EEMF_BEAMNRC").is_ok() { EemfVariant::BeamNrc } else { EemfVariant::Standard };
+        let eemf_variant = if std::env::var("EGSNRC_EEMF_BEAMNRC").is_ok() { super::super::eemf_macros_mortran::EemfVariant::BeamNrc } else { super::super::eemf_macros_mortran::EemfVariant::Standard };
         // `EGSNRC_EEMF_FIELD=ex,ey,ez,bx,by,bz,emlmt` (or `bx,by,bz,emlmt`): the field the EEMF user code set (`emB1`, ...)
         let eemf = std::env::var("EGSNRC_EEMF_FIELD").ok().map(|v| {
             let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();

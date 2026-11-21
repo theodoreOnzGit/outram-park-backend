@@ -1,3 +1,15 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//
+// Attribution (RESEARCH_INTEGRITY_AND_PROVENANCE.md): this module is a port of
+// OpenMC's decay-photon spectrum code.
+//   Upstream project: OpenMC, https://github.com/openmc-dev/openmc
+//   Upstream files:   openmc/data/decay.py, openmc/material.py,
+//                     openmc/stats/univariate.py, src/distribution.cpp, src/chain.cpp
+//   Upstream commit:  8f79d9d0 (the line numbers cited below were checked
+//                     against it on 2026-11-21, gh:#1685; the header was missing)
+//   Upstream licence: MIT, Copyright (c) 2011-2025 Massachusetts Institute of
+//                     Technology, UChicago Argonne LLC, and OpenMC contributors
+//   This port:        AGPL-3.0-only, with the MIT notice preserved here.
 //! **Decay-photon energy spectra from the depletion chain** (gh:#1391, non-photon part).
 //!
 //! OpenMC builds a photon-energy distribution for a decaying material from the

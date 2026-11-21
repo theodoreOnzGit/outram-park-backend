@@ -23,7 +23,7 @@
 //! combined fields: same charge sequence in 200 of 200, energy 5e-13 to 1e-10,
 //! |dw| up to 1.1e-8, ~~which compiled-Fortran one-ulp input probes (6e-9 to
 //! 2e-7) show to be round-off amplification through `asinh`/`sqrt`
-//! cancellation~~ **CORRECTED 2026-11-21 (later, gh:#1698):** now **bit-identical**
+//! cancellation~~ **CORRECTED 2026-11-21 (later, gh:#1698):** now **bit-identical** (with the `std` feature; to round-off without it)
 //! in every case (0 and 0); the residual was a PETIR `log1p` inside `asinh`, a
 //! `sin`, a `log` and two re-associated sums. Tables, probe and recipe: `docs/egsnrc_phase2_differential.md`,
 //! "EEMF_macros_beamnrc".

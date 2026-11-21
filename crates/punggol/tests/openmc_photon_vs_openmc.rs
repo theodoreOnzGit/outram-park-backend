@@ -211,7 +211,7 @@ fn photon_samplers_against_compiled_openmc() {
     let mut w_react = 0.0_f64;
     let (mut n_chg, mut chg_bad) = (0usize, 0usize);
     let mut w_chg = 0.0_f64;
-    let tables = TtbTables { e_grid: &ttb_grid, electron: &ttb_electron, positron: &ttb_positron };
+    let tables = TtbTables { e_grid: Arc::from(ttb_grid.as_slice()), electron: Arc::new(ttb_electron.clone()), positron: Arc::new(ttb_positron.clone()) };
 
     let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
     let (mut n, mut seed_bad, mut shell_bad) = (0usize, 0usize, 0usize);

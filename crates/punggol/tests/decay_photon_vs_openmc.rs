@@ -42,6 +42,7 @@
 //! # Results
 //!
 //! See `verification_and_validation/decay_photon_spectra/README.md`.
+#![cfg(feature = "std")] // reads the depletion chain from a file (std only)
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
