@@ -69,3 +69,14 @@ full showers through `SHOWER`, `ELECTR` and `PHOTON`).
   `electr_uses_the_eii_selection_when_eii_is_on` (toy numbers; the EII energy
   deposit is reported in `ElectrResult::edep_eii`).
 - **`NEXT :TSTEP:` in `ELECTR`** is read as a loop restart (see above).
+
+## Data files skipped for now (maintainer, 2026-11-21)
+
+The maintainer does not have the EGSnrc and OpenMC data files at hand
+(`spinms.data`, `pair_nrc1.data`, `eii_ik.data`, `nist_brems.data`,
+`nrc_brems.data`, the `<prefix>_photo/_pair/_triplet/_rayleigh.data` set,
+`compton_profiles.h5`, `density_effect.h5`, `BREMX.DAT`): "u will have to skip
+those for now". Everything that reads them is ported against the documented
+layout and tested on synthetic input only; none has been run on the real
+files, so none of it counts as verified against them. Phase 2 differential
+tests that need those files are skipped until they are supplied.
