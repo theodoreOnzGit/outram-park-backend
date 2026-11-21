@@ -52,6 +52,69 @@ tell its upstream from the path:
   2. differential testing against the compiled upstream;
   3. one Opus pass that reads only what the differential tests did not reach.
 
+## Differential testing (phase 2 of a port; maintainer, 2026-11-21)
+
+Full recipe, results and numbers: `docs/egsnrc_phase2_differential.md`. Rules
+and commands an agent needs:
+
+- **Reference = the real upstream, built from source in scratch, never
+  committed.** Scratch clones go under `/tmp/claude-0/up/`, builds under
+  `/tmp/claude-0/<name>/`. Neither upstream source nor its data (AGPL EGSnrc
+  data files, ENDF evaluations, HDF5 libraries) enters this repository; only
+  our tests, drivers (`verification_and_validation/<topic>/…_inputs/`) and
+  recorded numbers do. Check `df -h /tmp` first (the per-session disk is
+  small; `rm -rf target/release` frees about 19 GB).
+- **EGSnrc** (`bd49a47a`, sparse clone of `HEN_HOUSE/{src,pegs4,mortran3,
+  pieces,scripts,specs,makefiles,cutils,data,user_codes/tutor1}`; `git
+  sparse-checkout add` more paths as needed, and never `git grep` a blobless
+  clone: it fetches everything). Build Mortran3 with `gfortran -std=legacy`
+  plus a stub for `egs_fdate`, make `mortran3.dat`, write a `machine.macros`
+  for gfortran (`$RECL-FACTOR 4`, `$BYTE_ORDER '1234'`, `$CALL_EXIT`,
+  `$FLUSH_UNIT`, ...), compile a user code with `mortran3.exe -d mortran3.dat
+  -f egsnrc.macros machine.macros ranmar.macros <user>.mortran ranmar.mortran
+  nrcaux.mortran machine.mortran egs_utilities.mortran egsnrc.mortran`, then
+  `gfortran -x f77-cpp-input -std=legacy -O1 -DGIT_HASH=... -DCOMPILE_TIME=...`
+  with stubs for the `egs_*` system routines. Do not use
+  `-ffixed-line-length-132` (it corrupts string literals across continuation
+  lines). `HEN_HOUSE=<clone>/HEN_HOUSE/ EGS_HOME=<scratch>/home/`, and the run
+  directory needs an (empty) `<code>.egsinp`. `tutor1` is the working example;
+  a copy that dumps tables (`difftab`) or logs discarded particles (`difftut`)
+  is how the tests got their references.
+- **Compare like with like on precision.** Mortran3 emits single-precision
+  constants, so a stock gfortran build rounds them through `f32`; build every
+  reference **twice**, stock and with `-fdefault-real-8 -fdefault-double-8`.
+  Decision (gh:#1687): first validate a single-precision-constants mode of the
+  port against the stock build, then `f64` constants are the standard,
+  validated against the promoted build. State which build each number is from.
+- **Same RNG, same seeds.** `petir` RANMAR/RANLUX and
+  `outram_mc_libs::rng::lcg` are already bit-identical; seed the reference
+  explicitly (EGSnrc: `ixx=1802; jxx=9373; call init_ranmar`).
+- **Tests are env-gated and report, they do not tune.** Each differential test
+  skips unless its `*_REFERENCE_*` variable is set (see the doc for the list),
+  prints worst relative differences per table or per history, and asserts only
+  structure. Never change an input, a tolerance or a constant to make a
+  comparison pass; find the cause by reading upstream (root `CLAUDE.md`, "Get
+  the PROCESS right first"). Report residuals above 1e-9 to the maintainer.
+- **Compare in order:** data readers on the real files, then derived tables
+  (HATCH photon, electron, spin, Rayleigh, Compton), then a full transport run
+  (`shower`) history by history. A table that disagrees makes the history
+  comparison meaningless.
+- **OpenMC** (`8f79d9d0`): `cmake -S <clone> -B <build> -DOPENMC_BUILD_TESTS=OFF
+  -DOPENMC_USE_OPENMP=OFF`, `cmake --build <build> --target libopenmc -j 2`
+  (apt `libhdf5-dev libpugixml-dev libfmt-dev`; the vendored libraries are
+  found or fetched). Photon data: NJOY2016 (clone `njoy/NJOY2016`, cmake,
+  `njoy < tests/48/input` with `tape20 = photoat-…endf`, `tape21 =
+  atrelax-…endf`, both in `tests/resources`) writes a photoatomic ACE; OpenMC's
+  Python `openmc.data.IncidentPhoton.from_ace` turns it into HDF5 (use
+  `/usr/bin/python3.12`: the apt `numpy`/`h5py`/`scipy`/`pandas`/`lxml`/
+  `uncertainties` match it; `PYTHONPATH` the OpenMC clone and the `endf`
+  package). The comparison links `libopenmc` in a small C++ harness that calls
+  `PhotonInteraction::{compton_scatter, rayleigh_scatter, pair_production,
+  calculate_xs}` with the same seeds as `punggol::openmc_photon`.
+- **Permissions:** downloading and running third-party binaries or cloning
+  repositories the maintainer did not name is refused by the session's
+  permission check; ask the maintainer rather than working around it.
+
 ## Rules
 
 - **Search before building.** The chain `<source>` codec is
