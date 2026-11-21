@@ -137,8 +137,17 @@ electron grid):
 | `-fdefault-real-8 -fdefault-double-8` | **bit-identical** (relative difference exactly 0) for `eke0/1`, `blcc`, `xcc`, `esig_e`, `psig_e`, `te`, `thmoll`, `ededx`, `pdedx`, `esig`, `psig`, `ebr1`, `pbr1`, `pbr2`, both ranges and `e_array`; `tmxs` 1.6e-14 |
 | stock (`-O1`, single-precision literals) | the same tables exact except `te` 9.6e-8, `thmoll` 2.0e-8, `blcc` 3.7e-8, `tmxs` 3.3e-8 (the `prm`/`rm` constant carried as a single-precision literal) |
 
-Spin fits (`init_spin`), `init_compton`, the Rayleigh tables and the photoelectric
-edge data are not in this comparison (`hatch_media` does not assemble them).
+### Spin fits (`init_spin` on the real `spinms.data`)
+
+Test `differential_spin_fits_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_SPIN_TABLES`): `ETAE_MS`, `ETAP_MS`, `Q1CE_MS`, `Q1CP_MS`,
+`Q2CE_MS`, `Q2CP_MS`, `BLCCE` (both coefficients, every interval) against the
+`-fdefault-real-8` reference: **bit-identical** (relative difference exactly 0
+on all 14 arrays). This also exercises `SpinFile::from_bytes` on the real file
+and the single-precision (`real*4`) storage of the spin data.
+
+`init_compton`, the Rayleigh tables and the photoelectric edge data are not in
+these comparisons (`hatch_media` does not assemble them).
 
 ## Not differentially tested, and why
 

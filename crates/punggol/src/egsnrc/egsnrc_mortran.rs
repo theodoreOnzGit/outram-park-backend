@@ -10925,4 +10925,61 @@ mod tests {
         }
     }
 
+    /// Phase 2: the spin fits of `init_spin` (decoded from the REAL
+    /// `spinms.data`) against the `ETAE_MS`, `ETAP_MS`, `Q1C*_MS`, `Q2C*_MS`
+    /// and `BLCCE` arrays of a built EGSnrc `HATCH` for the same medium
+    /// (`EGSNRC_REFERENCE_SPIN_TABLES` = `tables_spin.txt` of the `difftab` run;
+    /// `EGSNRC_HEN_HOUSE_DATA`, `EGSNRC_PEGS4_FILE` as above). Reports worst
+    /// relative differences; asserts nothing numerical.
+    #[test]
+    fn differential_spin_fits_against_compiled_egsnrc() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_SPIN_TABLES") else {
+            eprintln!("EGSNRC_REFERENCE_SPIN_TABLES not set: differential test skipped");
+            return;
+        };
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let path = std::env::var("EGSNRC_PEGS4_FILE").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4/data/tutor_data.pegs4dat"));
+        let mut media = parse_pegs4_media(&std::fs::read_to_string(path).unwrap(), &["TA"]).unwrap();
+        media[0].apply_dunit(1.0);
+        let r = hatch_media(&media, &HatchConfig { ecutmn: 1.5, ..Default::default() });
+        let e = &r.media[0].electron;
+        let file = SpinFile::from_bytes(&std::fs::read(format!("{dir}/spinms.data")).unwrap()).unwrap();
+        let input = SpinMediumInput {
+            elements: media[0].elements.iter().map(|x| (x.zelem, x.pz, x.wa)).collect(),
+            eke0: e.eke0,
+            eke1: e.eke1,
+            neke: e.esig.a0.len() - 1,
+            blcc: e.ms.blcc,
+            xcc: e.ms.xcc,
+            te: e.te,
+            ue: media[0].ue,
+            esig: e.esig.clone(),
+            ededx: e.ededx.clone(),
+        };
+        let (_data, fits) = init_spin(&file, &[input], RM).unwrap();
+        let f = &fits[0];
+        let names = ["etae0", "etae1", "etap0", "etap1", "q1ce0", "q1ce1", "q1cp0", "q1cp1", "q2ce0", "q2ce1", "q2cp0", "q2cp1", "blcce0", "blcce1"];
+        let mut worst = [0.0_f64; 14];
+        let refs = std::fs::read_to_string(reference).unwrap();
+        let mut pending: Vec<f64> = Vec::new();
+        for l in refs.lines() {
+            let v: Vec<f64> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
+            let i = v[0] as usize;
+            pending.extend_from_slice(&v[1..]);
+            if pending.len() == 14 {
+                let mine = [
+                    f.etae_ms.a0[i], f.etae_ms.a1[i], f.etap_ms.a0[i], f.etap_ms.a1[i], f.q1ce_ms.a0[i], f.q1ce_ms.a1[i], f.q1cp_ms.a0[i], f.q1cp_ms.a1[i],
+                    f.q2ce_ms.a0[i], f.q2ce_ms.a1[i], f.q2cp_ms.a0[i], f.q2cp_ms.a1[i], f.blcce.a0[i], f.blcce.a1[i],
+                ];
+                for k in 0..14 {
+                    worst[k] = worst[k].max((mine[k] - pending[k]).abs() / pending[k].abs().max(1e-6));
+                }
+                pending.clear();
+            }
+        }
+        for (n, w) in names.iter().zip(worst) {
+            eprintln!("{n}: worst relative (floor 1e-6) difference {w:e}");
+        }
+    }
+
 }
