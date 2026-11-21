@@ -11580,6 +11580,428 @@ mod tests {
         }
     }
 
+    /// Bytes of a synthetic `relax.data`: `elements[z - 1]` is the shell list
+    /// of element `z` as `(shell_type, binding energy, [(state, prob)])`.
+    fn synthetic_relax_bytes(elements: &[Vec<(i32, f32, Vec<(i32, f32)>)>], big_endian: bool) -> Vec<u8> {
+        let nz = elements.len();
+        let mut words: Vec<u32> = alloc::vec![nz as u32];
+        words.resize(1 + nz, 0);
+        for (i, shells) in elements.iter().enumerate() {
+            words[1 + i] = (words.len() + 1) as u32; // record number of the element's data
+            words.push(shells.len() as u32);
+            for (ty, be, trans) in shells {
+                words.push(*ty as u32);
+                words.push(trans.len() as u32);
+                words.push(be.to_bits());
+                for (state, prob) in trans {
+                    words.push(*state as u32);
+                    words.push(prob.to_bits());
+                }
+            }
+        }
+        words.iter().flat_map(|w| if big_endian { w.to_be_bytes() } else { w.to_le_bytes() }).collect()
+    }
+
+    /// Element 2 of a toy EADL file: K (10 keV) with a fluorescence line to L2
+    /// (0.5), an Auger L1L1 (0.3) and 0.2 left over (so a remainder bin);
+    /// L1..L3 below the 1 keV cut-off; M and N at 2 keV with no transitions.
+    fn toy_eadl_file(big_endian: bool) -> EadlFile {
+        let shells = alloc::vec![
+            (1, 0.01_f32, alloc::vec![(2, 0.5_f32), (65, 0.3)]),
+            (2, 0.0005, Vec::new()),
+            (3, 0.0005, Vec::new()),
+            (4, 0.0005, Vec::new()),
+            (5, 0.002, Vec::new()),
+            (6, 0.002, Vec::new()),
+        ];
+        let bytes = synthetic_relax_bytes(&[Vec::new(), shells], big_endian);
+        EadlFile::from_bytes(&bytes).unwrap()
+    }
+
+    fn toy_binding_energies() -> Vec<Vec<f64>> {
+        alloc::vec![alloc::vec![0.0; MXSHXSEC + 1]; 101]
+    }
+
+    #[test]
+    fn eadl_file_decodes_both_byte_orders_and_refuses_garbage() {
+        let le = toy_eadl_file(false);
+        let be = toy_eadl_file(true);
+        assert_eq!(le, be);
+        assert_eq!(le.nz().unwrap(), 2);
+        let sh = le.element(2).unwrap();
+        assert_eq!(sh.len(), 6);
+        assert_eq!(sh[0].transitions, alloc::vec![(2, 0.5_f32), (65, 0.3_f32)]);
+        assert_eq!(sh[4].binding_energy, 0.002_f32);
+        assert!(le.element(0).is_err() && le.element(3).is_err());
+        assert!(EadlFile::from_bytes(&[1, 2, 3]).is_err());
+        assert!(EadlFile::from_bytes(&[0xff; 8]).is_err());
+        // a pointer past the end of the file is an error, not a panic
+        let mut bytes = synthetic_relax_bytes(&[Vec::new(), Vec::new()], false);
+        bytes[8..12].copy_from_slice(&1000u32.to_le_bytes());
+        assert!(EadlFile::from_bytes(&bytes).unwrap().element(2).is_err());
+    }
+
+    #[test]
+    fn init_relax_eadl_builds_alias_tables_and_shifts_states() {
+        let file = toy_eadl_file(false);
+        let mut be = toy_binding_energies();
+        let d = init_relax_eadl(&file, &[alloc::vec![2.0], alloc::vec![2.0]], &mut be, false).unwrap();
+        // each Z is loaded once, shells 1-based
+        assert_eq!(d.shell_be.len(), 7);
+        assert_eq!(d.shell_eadl[2][1..=6], [1, 2, 3, 4, 5, 6]);
+        assert_eq!(d.shell_eadl[2][7], -1);
+        assert_eq!((d.shell_num[3], d.shell_z[3], d.shell_type[1]), (3, 2, 1));
+        // K: states +1 / +65, the remainder bin has state -1 and probability 1 - 0.8
+        assert_eq!(d.relax_ntran[1], 3);
+        assert_eq!(d.relax_state[1][1..=3], [3, 130, -1]);
+        // shells under 1 keV have no relaxation; M and N (>= 1 keV, no transitions) get a certain remainder bin
+        assert_eq!(d.relax_ntran[2], -1);
+        assert_eq!((d.relax_ntran[5], d.relax_state[5][1]), (1, -1));
+        // the alias table reproduces the probabilities: bin j is drawn with
+        // (w_j + sum over i with atbin_i = j of (1 - w_i)) / n
+        let (w, at) = (&d.relax_prob[1], &d.relax_atbin[1]);
+        let want = [0.5_f32 as f64, 0.3_f32 as f64, 1.0 - (0.5_f32 as f64 + 0.3_f32 as f64)];
+        for j in 1..=3usize {
+            let mut p = w[j];
+            for i in 1..=3usize {
+                if i != j && at[i] as usize == j {
+                    p += 1.0 - w[i];
+                }
+            }
+            assert!((p / 3.0 - want[j - 1]).abs() < 1e-12, "bin {j}: {} vs {}", p / 3.0, want[j - 1]);
+        }
+        // binding energies are not touched for xcom; for epdl the zeros are filled from the file
+        assert!(be[2].iter().all(|v| *v == 0.0));
+        init_relax_eadl(&file, &[alloc::vec![2.0]], &mut be, true).unwrap();
+        assert_eq!((be[2][1], be[2][5]), (0.01_f32 as f64, 0.002_f32 as f64));
+        // a positive table value wins over the file's
+        be[2][1] = 0.011;
+        let d2 = init_relax_eadl(&file, &[alloc::vec![2.0]], &mut be, false).unwrap();
+        assert_eq!(d2.shell_be[1], 0.011);
+        // an element absent from the file is an error
+        assert!(init_relax_eadl(&file, &[alloc::vec![3.0]], &mut be, false).is_err());
+    }
+
+    #[test]
+    fn eadl_relax_conserves_energy_and_follows_the_toy_cascade() {
+        let file = toy_eadl_file(false);
+        let mut be = toy_binding_energies();
+        let eadl = init_relax_eadl(&file, &[alloc::vec![2.0]], &mut be, true).unwrap();
+        let rd = RelaxData { binding_energies: be, eadl: Some(eadl.clone()), ..Default::default() };
+        let mut rng = Ranmar::new(17, 23);
+        let (mut photons, mut augers, mut nothing) = (0, 0, 0);
+        for _ in 0..400 {
+            let mut st = Stack::new(40);
+            st.np = 1;
+            st.wt[1] = 1.0;
+            st.ir[1] = 3;
+            st.x[1] = 4.0;
+            // `relax` dispatches to `eadl_relax` when EADL tables are present
+            let out = relax(&mut st, &rd, 0.123, 1, 2, RM + 1e-4, 1e-4, RM, &mut rng).unwrap();
+            let mut tot = out.edep;
+            for i in 2..=st.np {
+                tot += if st.iq[i] == 0 { st.e[i] } else { st.e[i] - RM };
+                assert_eq!((st.ir[i], st.x[i]), (3, 4.0), "properties come from the slot on top at entry");
+                assert!((norm(&st, i) - 1.0).abs() < 1e-9);
+            }
+            // the vacancy energy is the table's (10 keV), not the argument
+            assert!((tot - 0.01).abs() < 1e-12, "{tot}");
+            match st.np {
+                2 if st.iq[2] == 0 => photons += 1,
+                2 => augers += 1,
+                _ => nothing += 1,
+            }
+        }
+        // fluorescence 0.5 / Auger 0.3 / remainder 0.2 (the remainder bin emits
+        // the whole 10 keV as a photon: the upstream oddity, see `eadl_relax`)
+        assert!(photons > 150 && augers > 60 && nothing == 0, "{photons} {augers} {nothing}");
+        // a vacancy below L3 is deposited locally, no cascade, edep is the table's
+        let mut st = Stack::new(10);
+        st.np = 1;
+        let out = eadl_relax(&mut st, &eadl, 2, 5, RM + 1e-4, 1e-4, &mut rng).unwrap();
+        assert_eq!((st.np, out.edep), (1, 0.002));
+        // unknown vacancies: other element, shell number outside the table, negative
+        for (z, s) in [(3usize, 1i32), (2, 7), (2, 0), (2, -1), (200, 1)] {
+            let out = eadl_relax(&mut st, &eadl, z, s, 1.0, 1.0, &mut rng).unwrap();
+            assert_eq!((st.np, out.edep), (1, 0.0));
+        }
+        // a vacancy under 1 keV is deposited
+        let out = eadl_relax(&mut st, &eadl, 2, 2, 1.0, 1.0, &mut rng).unwrap();
+        assert_eq!(out.edep, 0.0005);
+        // cut-offs: nothing is emitted above them, everything is deposited
+        let out = eadl_relax(&mut st, &eadl, 2, 1, 10.0, 10.0, &mut rng).unwrap();
+        assert!((out.edep - 0.01).abs() < 1e-12 && st.np == 1);
+        // a full stack is an error
+        let mut full = Stack::new(1);
+        full.np = 1;
+        let mut err = false;
+        for _ in 0..20 {
+            full.np = 1;
+            err |= matches!(eadl_relax(&mut full, &eadl, 2, 1, RM + 1e-4, 1e-4, &mut rng), Err(EgsError::StackExceeded { .. }));
+        }
+        assert!(err);
+    }
+
+    #[test]
+    fn photo_with_eadl_tables_emits_no_vacancy_below_l3() {
+        let (mut d, one, _) = toy_photo_data();
+        for k in 1..=4 {
+            d.interaction_prob[6][k] = 0.0; // every K..L3 candidate is declined: the shell ends above L3
+        }
+        let file = toy_eadl_file(false);
+        let mut be = toy_binding_energies();
+        // the same binding-energy ladder as the toy built-in tables, element 6 for the photo data
+        be[6] = alloc::vec![0.0, 0.01, 0.0008, 0.0008, 0.0008, 0.0005, 0.0001];
+        let eadl = init_relax_eadl(&file, &[alloc::vec![2.0]], &mut be, false).unwrap();
+        let rd = RelaxData { binding_energies: be, eadl: Some(eadl), ..Default::default() };
+        let reg = PhotoRegion { iedgfl: 1, iphter: 0, ecut: RM + 1e-4, pcut: 1e-4 };
+        let mut rng = Ranmar::new(3, 4);
+        for _ in 0..20 {
+            let mut st = photon_stack(0.05);
+            let o = photo(&mut st, &d, &rd, &one, &reg, (0.05f64).ln(), None, RM, &mut rng).unwrap();
+            assert_eq!((st.np, st.iq[1], o.edep), (1, -1, 0.0));
+            assert!((st.e[1] - (0.05 + RM)).abs() < 1e-15);
+        }
+        // with the built-in tables the same draws do start a vacancy (K..L3 or M)
+        let builtin = photo_relax_data();
+        let mut started = 0;
+        for _ in 0..40 {
+            let mut st = photon_stack(0.05);
+            photo(&mut st, &d, &builtin, &one, &reg, (0.05f64).ln(), None, RM, &mut rng).unwrap();
+            if st.e[1] < 0.05 + RM - 1e-9 {
+                started += 1;
+            }
+        }
+        assert!(started > 0);
+    }
+
+    /// An `incoh.data`-shaped text whose every `Z` has at most `MXSHXSEC` shells:
+    /// Z = 2 has two (type 1 then 2, as the EADL renumbering wants), the rest
+    /// is filler in blocks of 20.
+    fn eadl_incoh_text() -> String {
+        let mut t = String::new();
+        for k in 0..18 {
+            t.push_str(&alloc::format!("# comment {k}\n"));
+        }
+        t.push_str("2 1 2 0.05 500.0\n2 2 1 0.06 100.0\n");
+        for n in 2..MXTOTSH {
+            t.push_str(&alloc::format!("{} 7 2 0.05 1000.0\n", 10 + (n - 2) / 20));
+        }
+        t
+    }
+
+    #[test]
+    fn init_compton_eadl_renumbers_shells_and_swaps_binding_energies() {
+        let text = eadl_incoh_text();
+        let media = alloc::vec![alloc::vec![(2.0, 1.0)]];
+        let plain = init_compton(&text, &media, RM).unwrap();
+        // incoh.data's own shell types are kept by the plain version
+        assert_eq!(plain.shn_array[3], 7);
+        let mut be = toy_binding_energies();
+        be[2][1] = 0.004; // an edge for the first shell only
+        let d = init_compton_eadl(&text, &media, RM, &mut be, true).unwrap();
+        // shell numbers within each element: 1, 2 for Z = 2, then 1..20 per filler Z
+        assert_eq!((d.shn_array[1], d.shn_array[2], d.shn_array[3], d.shn_array[4], d.shn_array[22]), (1, 2, 1, 2, 20));
+        // an edge replaces the binding energy (in units of rm); without one, file value kept and written to the table (xcom)
+        assert!((d.be_array[1] - 0.004 / RM).abs() < 1e-15);
+        assert!((d.be_array[2] - 100.0 * 1e-6 / RM).abs() < 1e-15);
+        assert!((be[2][2] - d.be_array[2] * RM).abs() < 1e-18);
+        assert_eq!(be[2][1], 0.004);
+        // for another series (epdl) the table is left alone
+        let mut be2 = toy_binding_energies();
+        let _ = init_compton_eadl(&text, &media, RM, &mut be2, false).unwrap();
+        assert!(be2[2].iter().all(|v| *v == 0.0));
+        // everything the alias tables use is the plain version's
+        assert_eq!((d.n_shell[1], d.shell_array[1].clone(), d.eno_array[1].clone()), (plain.n_shell[1], plain.shell_array[1].clone(), plain.eno_array[1].clone()));
+        // a table without room for the shell number is an error
+        let mut tiny = alloc::vec![alloc::vec![0.0; 3]; 101];
+        assert!(init_compton_eadl(&text, &media, RM, &mut tiny, true).is_err());
+    }
+
+    #[test]
+    fn edgset_eadl_skips_binding_energies_and_loads_the_relaxation_tables() {
+        // photo_relax.data and photo_cs.data shaped text: 100 elements each
+        let mut photo = String::new();
+        for i in 1..=100 {
+            photo.push_str(&alloc::format!("{i} 1 2 3 4 5 6\n"));
+        }
+        photo.push_str("header\n");
+        for i in 1..=100 {
+            photo.push_str(&alloc::format!("{i} 0.5 0.5 0.5 0.5\n"));
+        }
+        for &(first, last) in &[(1usize, 19usize), (20, 26), (27, 32), (33, 37), (38, 38)] {
+            photo.push_str("header\n");
+            for i in 1..=100 {
+                photo.push_str(&alloc::format!("{i}"));
+                for _ in first..=last {
+                    photo.push_str(" 0.1");
+                }
+                photo.push('\n');
+            }
+        }
+        let mut phocs = String::new();
+        for i in 1..=100 {
+            phocs.push_str(&alloc::format!("{i} 1\n1 2 3 4 0.001\n"));
+        }
+        // the plain reader reads the binding energies (eV -> MeV); the EADL one skips them
+        let (plain, _) = edgset_from_text(&photo, &phocs).unwrap();
+        assert!((plain.binding_energies[1][1] - 1e-6).abs() < 1e-18);
+        let file = toy_eadl_file(false);
+        let mut be = toy_binding_energies();
+        be[2][3] = 0.0123;
+        let (rd, pd) = edgset_eadl_from_text(&photo, &phocs, &file, &[alloc::vec![2.0]], &mut be, false).unwrap();
+        assert_eq!(rd.binding_energies[1][1], 0.0);
+        assert_eq!(rd.binding_energies[2][3], 0.0123);
+        assert_eq!(rd.eadl.as_ref().unwrap().shell_be[3], 0.0123);
+        assert_eq!(pd.interaction_prob[5][MXSHELL], 1.01);
+        assert!((rd.relaxation_prob[7][38] - 0.1).abs() < 1e-15);
+        assert!(plain.eadl.is_none());
+    }
+
+    /// The EADL data of the real files, structure and sanity (no upstream
+    /// output): `relax.data` of the pinned commit is 199947 four-byte
+    /// records, record 1 is 100 elements, Ta has 22 shells and its K shell
+    /// 178 transitions.
+    #[test]
+    fn real_relax_data_when_available() {
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let Ok(bytes) = std::fs::read(format!("{dir}/relax.data")) else {
+            eprintln!("EGSnrc data not found in {dir}: real-data test skipped");
+            return;
+        };
+        let f = EadlFile::from_bytes(&bytes).unwrap();
+        assert_eq!(f.nz().unwrap(), 100);
+        let ta = f.element(73).unwrap();
+        eprintln!("Ta: {} shells, K shell {} transitions, K binding energy {} MeV", ta.len(), ta[0].transitions.len(), ta[0].binding_energy);
+        assert_eq!((ta.len(), ta[0].transitions.len()), (22, 178));
+        for z in 1..=100 {
+            let sh = f.element(z).unwrap();
+            assert!(!sh.is_empty() && sh.len() <= MXESHLL);
+            assert!(sh.iter().all(|s| s.binding_energy > 0.0 && s.transitions.iter().all(|t| t.1 >= 0.0 && t.1 <= 1.0)));
+        }
+        // all 100 elements load: shell and channel counts under upstream's limits
+        let mut be = toy_binding_energies();
+        let all: Vec<f64> = (1..=100).map(|z| z as f64).collect();
+        match init_relax_eadl(&f, &[all], &mut be, true) {
+            Ok(d) => eprintln!("all 100 elements: {} shells, {} relax channels", d.shell_be.len() - 1, d.relax_state.iter().map(|v| v.len().saturating_sub(1)).sum::<usize>()),
+            Err(e) => eprintln!("all 100 elements together: {e} (upstream limits $MAXSHELL / $MAXRELAX)"),
+        }
+    }
+
+    /// Phase 2: EADL relaxation tables against the REAL EGSnrc `HATCH`
+    /// (`eadl_relax = true`, the stock default, series `xcom`, tutor1's Ta).
+    /// `EGSNRC_REFERENCE_EADL_TABLES` is the directory written by `difftabE`
+    /// (a copy of `difftab` with the `COMPTON-DATA`, `SHELL-DATA` and
+    /// `RELAX-DATA` commons dumped): `tables_compton.txt` (the medium's shell
+    /// alias table and every `iz/shn/ne/be/Jo/erfJo` of the 1538 shells),
+    /// `tables_shell.txt` (`shell_*`, `shell_eadl(73,.)`, `relax_*`),
+    /// `tables_edges.txt` (`binding_energies(1..30, 73)` after `HATCH`).
+    /// Integers are compared exactly, reals by the worst relative difference
+    /// (reported, and asserted below 1e-9).
+    #[test]
+    fn differential_eadl_tables_against_compiled_egsnrc() {
+        let Ok(refdir) = std::env::var("EGSNRC_REFERENCE_EADL_TABLES") else {
+            eprintln!("EGSNRC_REFERENCE_EADL_TABLES not set: differential test skipped");
+            return;
+        };
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
+        let rd_ref = |f: &str| -> Vec<Vec<f64>> {
+            std::fs::read_to_string(format!("{refdir}/{f}"))
+                .unwrap()
+                .lines()
+                .map(|l| l.split_whitespace().skip_while(|t| t.parse::<f64>().is_err() && false).map(|t| t.parse::<f64>().unwrap_or(f64::NAN)).collect())
+                .collect()
+        };
+        // the same assembly as HATCH for xcom + eadl_relax (egsnrc.mortran:2264-2274)
+        let um = vec![UserPhotonMedium::default(), UserPhotonMedium { comp: vec![(73.0, 1.0, 180.948)], rho: 16.6, ap: 0.01, up: 50.0, rayleigh: false }];
+        let inp = UserPhotonInput {
+            photo: text("xcom_photo.data"),
+            pair: text("xcom_pair.data"),
+            triplet: text("xcom_triplet.data"),
+            rayleigh: text("xcom_rayleigh.data"),
+            photonuc: None,
+            compton: BoundComptonData::Ratio(text("compton_sigma.data")),
+            mxge: 2000,
+            eadl_relax: true,
+            rm: RM,
+            form_factors: None,
+        };
+        let ut = init_user_photon(&inp, &um).unwrap();
+        let mut be = ut.binding_energies.clone();
+        let comp = vec![(73.0, 1.0)];
+        let compton = init_compton_eadl(&text("incoh.data"), &[comp], RM, &mut be, true).unwrap();
+        let rfile = EadlFile::from_bytes(&std::fs::read(format!("{dir}/relax.data")).unwrap()).unwrap();
+        let (rd, _) = edgset_eadl_from_text(&text("photo_relax.data"), &text("photo_cs.data"), &rfile, &[vec![73.0]], &mut be, false).unwrap();
+        let eadl = rd.eadl.clone().unwrap();
+        let rel = |a: f64, b: f64| if a == b { 0.0 } else { (a - b).abs() / b.abs().max(1e-300) };
+        // binding energies of Ta after HATCH
+        let edges = rd_ref("tables_edges.txt");
+        let worst_edge = (1..=30).map(|k| rel(rd.binding_energies[73][k], edges[k - 1][1])).fold(0.0_f64, f64::max);
+        // Compton tables
+        let comp_t = rd_ref("tables_compton.txt");
+        let n_shell = comp_t[0][1] as usize;
+        assert_eq!(n_shell as i32, compton.n_shell[1]);
+        let (mut ints_bad, mut w_eno) = (0usize, 0.0_f64);
+        for i in 1..=n_shell {
+            let r = &comp_t[i];
+            ints_bad += usize::from(r[1] as i32 != compton.shell_array[1][i]);
+            ints_bad += usize::from(r[2] as i32 != compton.eno_atbin_array[1][i]);
+            w_eno = w_eno.max(rel(compton.eno_array[1][i], r[3]));
+        }
+        let (mut w_be, mut w_jo, mut w_erf) = (0.0_f64, 0.0_f64, 0.0_f64);
+        for j in 1..=MXTOTSH {
+            let r = &comp_t[n_shell + j];
+            ints_bad += usize::from(r[1] as i32 != compton.iz_array[j]);
+            ints_bad += usize::from(r[2] as i32 != compton.shn_array[j]);
+            ints_bad += usize::from(r[3] as i32 != compton.ne_array[j]);
+            w_be = w_be.max(rel(compton.be_array[j], r[4]));
+            w_jo = w_jo.max(rel(compton.jo_array[j], r[5]));
+            w_erf = w_erf.max(rel(compton.erf_jo_array[j], r[6]));
+        }
+        // shell and relaxation tables
+        let sh_t = rd_ref("tables_shell.txt");
+        let (ntot, rtot) = (sh_t[0][1] as usize, sh_t[0][2] as usize);
+        assert_eq!(ntot, eadl.shell_be.len() - 1);
+        let mut relax_first = 0usize;
+        let (mut s_bad, mut w_sbe, mut w_prob, mut r_bad) = (0usize, 0.0_f64, 0.0_f64, 0usize);
+        let mut flat_at = 0usize;
+        let mut flat: Vec<(i32, f64, i32)> = Vec::new();
+        for ish in 1..=ntot {
+            let r = &sh_t[ish];
+            s_bad += usize::from(r[1] as i32 != eadl.shell_type[ish]);
+            s_bad += usize::from(r[2] as i32 != eadl.shell_num[ish]);
+            s_bad += usize::from(r[3] as i32 != eadl.shell_z[ish]);
+            s_bad += usize::from(r[5] as i32 != eadl.relax_ntran[ish]);
+            let ntran = eadl.relax_ntran[ish];
+            let first = if ntran < 0 { -1 } else { (relax_first + 1) as i32 };
+            s_bad += usize::from(r[4] as i32 != first);
+            s_bad += usize::from(r[7] as i32 != eadl.shell_eadl[73][eadl.shell_num[ish] as usize]);
+            w_sbe = w_sbe.max(rel(eadl.shell_be[ish], r[6]));
+            if ntran > 0 {
+                for k in 1..=ntran as usize {
+                    flat.push((eadl.relax_state[ish][k], eadl.relax_prob[ish][k], eadl.relax_atbin[ish][k]));
+                }
+                relax_first += ntran as usize;
+            }
+        }
+        assert_eq!(rtot, relax_first);
+        for (i, f) in flat.iter().enumerate() {
+            let r = &sh_t[ntot + 1 + i];
+            r_bad += usize::from(r[1] as i32 != f.0);
+            r_bad += usize::from(r[3] as i32 != f.2);
+            w_prob = w_prob.max(rel(f.1, r[2]));
+            flat_at += 1;
+        }
+        eprintln!("binding_energies(1..30, Ta): worst relative difference {worst_edge:e}");
+        eprintln!("compton: {n_shell} medium shells, {} shells total, integer mismatches {ints_bad}; worst relative: eno {w_eno:e}, be {w_be:e}, Jo {w_jo:e}, erfJo {w_erf:e}", MXTOTSH);
+        eprintln!("eadl: {ntot} shells, {rtot} channels ({flat_at} compared), shell integer mismatches {s_bad}, channel integer mismatches {r_bad}; worst relative: shell_be {w_sbe:e}, relax_prob(alias) {w_prob:e}");
+        assert_eq!((ints_bad, s_bad, r_bad), (0, 0, 0));
+        for w in [worst_edge, w_eno, w_be, w_jo, w_erf, w_sbe, w_prob] {
+            assert!(w < 1e-9, "{w:e}");
+        }
+    }
+
     struct Tutor1Driver {
         tables: ElectrTables,
         cfg: ElectrConfig,
