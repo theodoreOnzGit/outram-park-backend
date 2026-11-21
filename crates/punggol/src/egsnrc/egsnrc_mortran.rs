@@ -10782,4 +10782,90 @@ mod tests {
         }
     }
 
+    /// Phase 2: the user-photon tables (`egs_init_user_photon`) against the
+    /// tables a REAL EGSnrc `HATCH` builds. `EGSNRC_REFERENCE_PHOTON_TABLES` is
+    /// the `tables_photon.txt` written by a copy of `tutor1.mortran` (Ta, 20 MeV
+    /// electrons, `tutor_data.pegs4dat`, default options: photon series `xcom`,
+    /// bound Compton, EADL relaxation) that dumps `GMFP0/1`, `GBR10/11`,
+    /// `GBR20/21`, `COHE0/1` after `CALL HATCH`. The data files come from
+    /// `EGSNRC_HEN_HOUSE_DATA`. Reports the worst relative difference per
+    /// array; asserts only the grid constants (`mge`, `ge0`, `ge1`).
+    #[test]
+    fn differential_user_photon_tables_against_compiled_egsnrc() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_PHOTON_TABLES") else {
+            eprintln!("EGSNRC_REFERENCE_PHOTON_TABLES not set: differential test skipped");
+            return;
+        };
+        let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
+        let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
+        let ff = FormFactorTable::from_text(&std::fs::read_to_string(format!("{dir}/../pegs4/pgs4form.dat")).unwrap()).unwrap();
+        let inp = UserPhotonInput {
+            photo: text("xcom_photo.data"),
+            pair: text("xcom_pair.data"),
+            triplet: text("xcom_triplet.data"),
+            rayleigh: text("xcom_rayleigh.data"),
+            photonuc: None,
+            compton: BoundComptonData::Ratio(text("compton_sigma.data")),
+            mxge: 2000,
+            eadl_relax: true,
+            rm: RM,
+            form_factors: Some(ff),
+        };
+        // tutor_data.pegs4dat: TA, Z = 73, A = 180.948, rho = 16.6, AP = 0.01, UP = 50
+        let media = vec![
+            UserPhotonMedium::default(),
+            UserPhotonMedium { comp: vec![(73.0, 1.0, 180.948)], rho: 16.6, ap: 0.01, up: 50.0, rayleigh: true },
+        ];
+        let t = init_user_photon(&inp, &media).unwrap();
+        let m = &t.media[1];
+        let refs = std::fs::read_to_string(reference).unwrap();
+        let mut lines = refs.lines();
+        let mut scalar = |name: &str| -> f64 {
+            let l = lines.next().unwrap();
+            assert!(l.trim_start().starts_with(name), "{l}");
+            l.split_whitespace().nth(1).unwrap().parse().unwrap()
+        };
+        assert_eq!(scalar("mge") as usize, m.mge);
+        let (ge0, ge1) = (scalar("ge0"), scalar("ge1"));
+        eprintln!("ge0 port {} ref {ge0}; ge1 port {} ref {ge1}", m.ge0, m.ge1);
+        let (_ap, _up) = (scalar("ap"), scalar("up"));
+        let names = ["gmfp0", "gmfp1", "gbr10", "gbr11", "gbr20", "gbr21", "cohe0", "cohe1"];
+        let mine = [&m.gmfp.a0, &m.gmfp.a1, &m.gbr1.a0, &m.gbr1.a1, &m.gbr2.a0, &m.gbr2.a1, &m.cohe.a0, &m.cohe.a1];
+        let mut worst = [0.0_f64; 8];
+        let mut worst_at = [0usize; 8];
+        // the fitted FUNCTIONS (a0 + a1 * gle at the interval's own grid energy), the
+        // quantity the transport uses, as the slopes alone amplify cancellation
+        let mut worst_f = [0.0_f64; 4];
+        let mut n = 0;
+        for l in lines {
+            let v: Vec<f64> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
+            let i = v[0] as usize;
+            n += 1;
+            let gle = (i as f64 - ge0) / ge1;
+            for f in 0..4 {
+                let (a, b) = (mine[2 * f][i] + mine[2 * f + 1][i] * gle, v[1 + 2 * f] + v[2 + 2 * f] * gle);
+                // probabilities and a mean free path of order 1e-3 to 1e3: mixed absolute/relative
+                worst_f[f] = worst_f[f].max((a - b).abs() / b.abs().max(1e-6));
+            }
+            for k in 0..8 {
+                let (a, b) = (mine[k][i], v[k + 1]);
+                let scale = b.abs().max(1e-300);
+                let rel = (a - b).abs() / scale;
+                if rel > worst[k] {
+                    worst[k] = rel;
+                    worst_at[k] = i;
+                }
+            }
+        }
+        eprintln!("{n} grid points compared");
+        for k in 0..8 {
+            eprintln!("{}: worst relative difference {:e} at interval {}", names[k], worst[k], worst_at[k]);
+        }
+        for (f, name) in ["gmfp", "gbr1", "gbr2", "cohe"].iter().enumerate() {
+            eprintln!("{name} function value: worst relative difference {:e}", worst_f[f]);
+        }
+        assert_eq!(n, m.mge);
+        assert!((m.ge0 - ge0).abs() <= 1e-9 * ge0.abs() && (m.ge1 - ge1).abs() <= 1e-9 * ge1.abs());
+    }
+
 }

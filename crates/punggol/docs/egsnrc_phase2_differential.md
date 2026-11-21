@@ -88,13 +88,53 @@ output:
   1 MeV of 14.167 cm against 14.144 cm from 1/(0.0707 cm^2/g) (0.0707 recalled
   from NIST XCOM, not read from the repo): +0.16 %.
 
+## The EGSnrc kernel build and the first kernel-level comparison
+
+The full kernel builds from the same sparse clone: Mortran3 over
+`egsnrc.macros machine.macros ranmar.macros <user code> ranmar.mortran
+nrcaux.mortran machine.mortran egs_utilities.mortran egsnrc.mortran`
+(`machine.mortran` empty; `machine.macros` as above plus `$copy_file`,
+`$move_file`, `$remove_directory`, `$COMPILE_TIME`, `$GIT_HASH`, and
+`$RECL-FACTOR 4`, which **confirms the 1104-byte `spinms.data` record the port
+assumed**: with 1 the real code fails reading element 73), then `gfortran -x
+f77-cpp-input -DGIT_HASH=... -DCOMPILE_TIME=...` with a small stub file for the
+`egs_*` system routines. `HEN_HOUSE/user_codes/tutor1` (20 MeV electrons on a
+1 mm Ta plate, `tutor_data.pegs4dat`) runs and prints per-history exit lists
+(not yet compared). A copy, `difftab.mortran`, calls `HATCH` and dumps
+`GMFP0/1`, `GBR10/11`, `GBR20/21`, `COHE0/1` of the Ta medium.
+
+Test `differential_user_photon_tables_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_PHOTON_TABLES`): `init_user_photon` with the default
+`xcom` series, bound Compton and EADL relaxation against that dump
+(2000 grid points, `ge0`, `ge1` equal to the last digit):
+
+| build of the reference | gmfp | gbr1 | gbr2 | cohe (fitted function values, worst) | coefficients (worst) |
+|---|---|---|---|---|---|
+| default flags (`-O1`, no `-fdefault-real-8`) | 2.8e-8 | 2.8e-6 (floor 1e-6) | 1.9e-8 | 9.9e-10 | 3.3e-4 on slopes |
+| `-fdefault-real-8 -fdefault-double-8` | 1.1e-15 | 3.0e-16 | 5.9e-16 | 2.4e-16 | 1.7e-12 |
+
+**Cause, verified by the second row:** Mortran3 emits real constants without a
+`D` exponent (`1.6605655`, `0.1274783851`, ...), which are *single precision* in
+gfortran unless `-fdefault-real-8` is given, so the default upstream build uses
+`f32`-rounded constants inside `real*8` arithmetic. The port uses `f64`
+literals and agrees with the promoted build to round-off. EGSnrc's own
+`gfortran` spec (`specs/gfortran-suse11.4.conf`) sets `FCFLAGS = -fPIC`,
+`FOPT = -O3 -ffast-math` and no promotion, so a stock build has the 1e-8
+effect. **Maintainer decision needed:** keep `f64` literals (matches the
+promoted build, arguably the intended arithmetic) or round such constants
+through `f32` (matches a stock build). This likely explains differences of the
+same order in other ported routines and is the first thing to check there.
+
 ## Not differentially tested, and why
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
 - The EGSnrc transport kernel (`photon`, `electr`, `shower`, `moller`, `brems`,
-  EII, triplet, Rayleigh, ...): needs a built user code on the full EGSnrc
-  tree and a matching geometry on the Rust side.
+  EII, triplet, Rayleigh, ...): the reference now builds and runs (`tutor1`),
+  but no comparison of histories or of the electron tables (`mscati`, spin
+  fits, `esig`/`ededx`, ranges) has been written; it needs the Rust `HATCH`
+  assembly for the same options and a slab geometry matching `tutor1`'s
+  `HOWFAR`.
 - Everything that reads the data files above: now readable (see above), but
   no EGSnrc output exists to compare the derived tables with until the
   transport kernel is built.
