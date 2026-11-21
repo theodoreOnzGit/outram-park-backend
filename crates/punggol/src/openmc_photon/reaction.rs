@@ -35,8 +35,8 @@
 //! # Differences from upstream
 //!
 //! - `p.create_secondary` becomes a push onto [`ReactionOutcome::secondaries`].
-//! - `sample_element` (choosing the element in a material) is the caller's: the
-//!   element and its microscopic cross sections are arguments.
+//! - `sample_element` is [`sample_element`]; [`sample_photon_reaction`] itself
+//!   takes the chosen element and its microscopic cross sections as arguments.
 //! - `p.bank_second_E() -= 2 m_e` (the positron annihilation heating offset) is
 //!   reported as [`ReactionOutcome::bank_second_e_offset`].
 
@@ -188,6 +188,25 @@ pub struct ReactionOutcome {
     pub charged: Vec<Secondary>,
     /// Sum of `p.bank_second_E() -= ...` offsets, eV (negative).
     pub bank_second_e_offset: f64,
+}
+
+/// `sample_element` (`physics.cpp:558-588`): choose the element of a material
+/// at a photon collision. `macro_total` is `p.macro_xs().total`, and element
+/// `i` has atom density `atom_densities[i]` (atom/b-cm, `mat->atom_density(i,
+/// density_mult)`) and total microscopic cross section `micro_totals[i]`
+/// (`p.photon_xs(i_element).total`). Draws one random number; returns the
+/// index into the material's element list, or `None` when the cumulative
+/// probability never exceeds the cutoff (upstream's `fatal_error`).
+pub fn sample_element(macro_total: f64, atom_densities: &[f64], micro_totals: &[f64], seed: &mut u64) -> Option<usize> {
+    let cutoff = prn(seed) * macro_total;
+    let mut prob = 0.0_f64;
+    for (i, (rho, sigma_t)) in atom_densities.iter().zip(micro_totals).enumerate() {
+        prob += rho * sigma_t;
+        if prob > cutoff {
+            return Some(i);
+        }
+    }
+    None
 }
 
 /// The bremsstrahlung table to use for a charged type (material's `ttb_`).

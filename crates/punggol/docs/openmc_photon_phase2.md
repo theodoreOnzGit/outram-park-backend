@@ -143,6 +143,38 @@ uninitialised on absorption.
 So the Rust samplers consume exactly the same random numbers in the same order
 and give bit-identical results for this element.
 
+## Material of two elements, weight-fraction input (2026-11-21)
+
+`verification_and_validation/openmc_photon/harness_multi.cpp` loads U and H
+into `data::elements`, builds two `openmc::Material`s of both elements and
+dumps what `Material::init_bremsstrahlung` produces: (a) atom densities
+(U 0.0225, H 0.0675 atom/b-cm) and (b) **weight fractions** (negative
+`atom_density_` entries, -0.9 and -0.1, the branch `collision_stopping_power`
+takes). It then runs `sample_element` and `sample_photon_reaction` on material
+(a) for 9 energies x 400 seeds x TTB on/off = 7200 calls. The Rust side is
+`tests/openmc_photon_multi_element_vs_openmc.rs`
+(`OPENMC_REFERENCE_DUMPS=U.dump,H.dump`, `OPENMC_REFERENCE_MULTI_TABLES`,
+`OPENMC_REFERENCE_MULTI_SAMPLES`) and the new `reaction::sample_element`
+(`physics.cpp:558-588`, ported here; `sample_photon_reaction` still takes the
+chosen element as an argument).
+
+| quantity | result |
+|---|---|
+| shared electron-energy grid, log grid | 0 (exact) |
+| TTB `pdf` / `cdf` / `ln yield`, atom densities | 0 (exact) |
+| TTB `pdf` / `cdf` / `ln yield`, weight fractions | 1.2e-15 / 6.7e-16 / 3.6e-15 |
+| `sample_element` choice | 0 mismatches in 7200 (U 7176, H 24) |
+| event/MT, bank size, final seed | 0 / 0 / 0 mismatches |
+| worst state/secondary difference | 4.3e-15 (round-off in `ln`/`exp`) |
+
+H is chosen in only 24 of 7200 calls because U dominates the macroscopic cross
+section at these densities; the weight-fraction branch is exercised in the
+tables only (upstream converts weight fractions to atom densities before
+tracking, so sampling with negative densities has no meaning).
+
 ## Not yet compared
 
-further elements (U and H only; data from ENDF/B-VIII.0; gh:#1690), and materials of several elements or weight-fraction input (unit tests only).
+Further elements beyond U and H (C, O, Si, Fe, Pb, ...): ENDF/B-VIII.0
+`photoat` and `atrelax` tapes for them are not available in this session;
+data request filed as gh:#1695. Nothing else in `punggol::openmc_photon` is
+left uncompared.

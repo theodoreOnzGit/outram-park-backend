@@ -1,11 +1,9 @@
 # EGSnrc phase 2: differential tests against compiled upstream (2026-11-21)
 
-Status: **partial**. The PEGS4 program, the HATCH tables (photon, electron,
+~~Status: **partial**.~~ **CORRECTED 2026-11-21: every ported `egsnrc` file the compiled upstream can exercise is now compared; the sections below record the numbers, later ones supersede earlier ones where struck through. What is not compared is listed in "Not differentially tested, and why" (corrected).** (Original status text:) The PEGS4 program, the HATCH tables (photon, electron,
 spin, Rayleigh) and a 200-history `tutor1` transport run of `punggol::egsnrc`
 have been compared with a built upstream, and the data-file readers have been
-run on the real EGSnrc data files. `punggol::openmc_photon` has not (gh:#1690). Everything else in `punggol::egsnrc` and all of
-`punggol::openmc_photon` is still "first port, not differentially tested"; the
-reasons and the issues are at the end.
+run on the real EGSnrc data files. ~~`punggol::openmc_photon` has not (gh:#1690). Everything else in `punggol::egsnrc` and all of `punggol::openmc_photon` is still "first port, not differentially tested"~~ **CORRECTED 2026-11-21**: `punggol::openmc_photon` is compared for U and H, see `openmc_photon_phase2.md`; the further elements need data (gh:#1695).
 
 ## How the reference was built (scratch, nothing committed)
 
@@ -55,7 +53,7 @@ the line-normalised column is the meaningful one.
 Scale of the effect: rebuilding the reference with `-O3 -ffast-math` moves
 `pb700` by 3.8e-4 in the same measure on 2633 lines, so the port's residual is
 inside the single-precision sensitivity of the program, but it is **not**
-bit-identical to the `-O0/-O1` build and **no cause has been identified**.
+bit-identical to the `-O0/-O1` build and ~~**no cause has been identified**~~ **CORRECTED 2026-11-21: found, f32 `ln`/`exp`/`powf` vs glibc; PEGS4 is now bit-identical, see "PEGS4 residual: `f32` library functions" below**.
 Candidates, not tested: the order of single-precision operations in
 `mix_pegs4`/`spinit_pegs4`/`pwlf1`, and `f32` `exp`/`ln` in
 `petir::mathf::RealMath` against glibc's `expf`/`logf`. This is flagged for the
@@ -215,31 +213,31 @@ is treated as a radiative transition to a global shell index that can be 0 or
 outside the array (the port uses 0.0 and ends the cascade); `:6108` assigns
 `edep = Evac` where `:6125` uses `+=` (equivalent only because `COMPT` zeroes
 `edep`); loading all 100 elements into one medium needs 10055 channels against
-`$MAXRELAX = 10000` and is refused as upstream would. The 5e-9 and 1e-8
-residuals are above the 1e-9 bound and unexplained beyond round-off.
+`$MAXRELAX = 10000` and is refused as upstream would. ~~The 5e-9 and 1e-8 residuals are above the 1e-9 bound and unexplained beyond round-off.~~ **CORRECTED 2026-11-21: explained and removed, see "Histories to round-off"; EADL histories are now 1.0e-15.**
 
-## Not differentially tested, and why
+## Not differentially tested, and why (CORRECTED 2026-11-21)
+
+**Current state:** compared and agreeing (see the sections below): PEGS4, HATCH photon/electron/spin/Rayleigh/Compton/EADL/EII/NIST/NRC-pair/triplet tables, 200-history transport in every option combination (~1e-15), ESTAR mixtures and `egs_estar`. Not compared, with the reason: `xsec_out` (diagnostic file output, not ported on purpose), `outputDensityFile` (same), photonuclear and electromagnetic fields (not ported), the OpenMC elements other than U and H (no data, gh:#1695). The text of this section as first written follows, struck through where later work superseded it.
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
-- Optional kernel branches not in the `tutor1` run: EII, triplet, NIST/NRC
-  bremsstrahlung, NRC pair, photonuclear,
+- ~~Optional kernel branches not in the `tutor1` run: EII, triplet, NIST/NRC
+  bremsstrahlung, NRC pair,~~ **now compared (see "Optional branches", "Option combinations")**; photonuclear,
   positron-dominated showers and electromagnetic fields (not ported). The
   built reference can run them with a user code that sets the switches.
 - Everything that reads the data files above: now readable (see above), but
   no EGSnrc output exists to compare the derived tables with until the
   transport kernel is built.
-- All of `punggol::openmc_photon`: OpenMC needs its vendored submodules and
-  HDF5 photon data, which are not available.
+- ~~All of `punggol::openmc_photon`: OpenMC needs its vendored submodules and HDF5 photon data, which are not available.~~ **CORRECTED 2026-11-21**: OpenMC was built and U and H compared (`openmc_photon_phase2.md`).
 
 ## Issues filed (2026-11-21)
 
 - gh:#1686 ~~histories comparison (`tutor1`)~~ **done 2026-11-21 (above)**; `init_compton` with
   `eadl_relax` and the edge tables are done too (EADL section).
 - gh:#1687 single-precision constants in the upstream build: maintainer decision.
-- gh:#1688 PEGS4 residual of 2e-4, cause not identified.
+- gh:#1688 ~~PEGS4 residual of 2e-4, cause not identified~~ **resolved 2026-11-21, bit-identical**.
 - ~~gh:#1689~~ **SETTLED 2026-11-21, see "Electron-impact ionisation"** the four `eii.mortran` oddities, now checkable against the built EGSnrc.
-- gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
+- gh:#1690 ~~OpenMC phase 2: needs vendored sources and HDF5 photon data~~ **done for U and H, including a two-element material**; other elements: gh:#1695.
 - gh:#1692 ~~EADL relaxation not ported~~ **done 2026-11-21 (above)**; triplet, NRC pair, NIST/NRC bremsstrahlung and EII still not wired into a full run.
 - gh:#1691 ~~`egs_compoundstoelements` source missing~~ **FOUND AND PORTED 2026-11-21** (see "ESTAR mixtures" below); `rad_compton1` (not in scope) and the duplicate `ztbl` remain.
 
@@ -267,7 +265,7 @@ that alone left the first history at 4.5e-8. The remaining worst-case 4.5e-8
 over 200 histories is not explained; a constant not yet wrapped (Mortran
 literals in files other than `egsnrc_mortran.rs`, or in the expansion of a
 macro) or amplification of a ~1e-10 start through the shower are both
-possible, not tested. Residual above 1e-9: reported to the maintainer.
+~~possible, not tested. Residual above 1e-9: reported to the maintainer.~~ **CORRECTED 2026-11-21: the cause was the single-precision `init_ms_SR` arrays and the driver's own literals; the stock-build histories are now ~1e-15 ("Histories to round-off").**
 Spin, Rayleigh and EADL stock references were built afterwards (below).
 
 ### Stock-build spin, Rayleigh and EADL (2026-11-21)
@@ -354,9 +352,7 @@ below `T = prm`). Not ported: `eii_L_factor` (default 1), `xsec_out`.
 | 200 histories, stock build with `egsnrc-f32-constants` | 200 of 200, 3.6e-9, 2.6e-8 |
 | 200 histories, stock build, f64 constants | 200 of 200, 1.5e-7, 6.5e-7 |
 
-Residual 1.7e-9 to 3.6e-9 is above the 1e-9 allowance and is reported to the
-maintainer; its cause is not isolated (round-off amplified through the shower
-is the likely reading, untested). The three `EiiReadings` switches are not
+~~Residual 1.7e-9 to 3.6e-9 is above the 1e-9 allowance and is reported to the maintainer; its cause is not isolated~~ **CORRECTED 2026-11-21: cause found (single-precision `init_ms_SR` arrays), histories now at ~1e-15, see "Histories to round-off"**. The three `EiiReadings` switches are not
 used by the live path and remain for the standalone file.
 
 
@@ -383,11 +379,7 @@ and `nrc_brems.data` are read for the first time here.
 Control: the port WITHOUT `pair_nrc` or `itriplet` against those references
 diverges at history 19 (58 and 48 of 200 histories agree in sequence), so the
 options do change the run and the agreement above is not an artefact of rare
-events. All residuals are above the 1e-9 allowance; causes not isolated
-(single-precision effects in the alias-table sampling are possible for the NIST
-case) and reported to the maintainer. Not compared: `pair_nrc1.data` and
-`triplet.data` tables themselves, the options in combination, `eii_flag`
-with brems options.
+events. ~~All residuals are above the 1e-9 allowance; causes not isolated. Not compared: `pair_nrc1.data` and `triplet.data` tables themselves, the options in combination, `eii_flag` with brems options.~~ **CORRECTED 2026-11-21: all of these are now compared and the histories are ~1e-15, see "Option combinations, pair/triplet tables, `eii_L_factor`" and "Histories to round-off"**.
 
 
 ## PEGS4 residual: `f32` library functions (gh:#1688, 2026-11-21)
@@ -409,7 +401,7 @@ and `pegs4_mortran.rs`:
 | `tis521` | 131 of 674 | 3 | 2.4e-4 | 2.8e-6 |
 
 The 20 lines that still differ (three clusters of a few coefficients each)
-are above the 1e-9 bound; cause not isolated. The `f64` functions of `petir`
+~~are above the 1e-9 bound; cause not isolated~~ **CORRECTED 2026-11-21: after the `f32` fix below all three media are bit-identical**. The `f64` functions of `petir`
 also differ from glibc in the last bit for `sin` (571 of 20000), `cos` (618),
 `tan` (110), `atan` (917), `log10` (2410), `exp` (22), `pow` (9), `ln` (1);
 substituting `f64::sin/cos/tan/exp/ln/powf` (glibc through `std`) for them in
