@@ -37,6 +37,8 @@
 //! | `SUBROUTINE mscati` (`egsnrc.mortran:2749-2975`), without `init_spin` | [`mscati`], [`MscatiSettings::resolve`] |
 //! | the table assembly of `HATCH` (`egsnrc.mortran:2036-2325`, `egsnrc.macros:1981-2036, 3681-3692`) | [`hatch_media`], [`adjust_rhor_ecut_pcut`] |
 //! | `SUBROUTINE init_spin` (`egsnrc.mortran:3309-3706`), from decoded records | [`init_spin`] |
+//! | `SUBROUTINE PHOTONUC` (`egsnrc.mortran:9001-9015`), a placeholder upstream | [`photonuc`] |
+//! | `$PHOTONUC-CORRECTION`, `$PHOTONUCLEAR` (`egsnrc.macros:1615-1629`) | inside [`photon`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -1867,7 +1869,8 @@ pub struct PhotonRegionData {
     pub iphter: i32,
     /// `iraylr(region)`; `1` (Rayleigh) is not ported and is refused.
     pub irayl: i32,
-    /// `iphotonucr(region)`; `1` (photonuclear) is not ported and is refused.
+    /// `iphotonucr(region)`: `1` turns on the photonuclear placeholder, which
+    /// discards the photon.
     pub iphotonucr: i32,
 }
 
@@ -1895,6 +1898,10 @@ pub struct PhotonMediumData {
     pub gbr20: Vec<f64>,
     /// See `gbr20`.
     pub gbr21: Vec<f64>,
+    /// `photonuc0(L)`, `photonuc1(L)`: the factor `PHOTONUCFAC` that scales the
+    /// photon mean free path (`photonuc1(L) * GLE + photonuc0(L)`), used when
+    /// a region has `iphotonucr = 1`.
+    pub photonuc: Pwlf,
     /// The element list `PHOTO` samples from.
     pub photo: PhotoMedium,
     /// The data `PAIR` reads.
@@ -1946,6 +1953,19 @@ pub struct PhotonResult {
 /// `$EPSGMFP` (`egsnrc.macros:1402`): smallest gamma MFP value.
 pub const EPSGMFP: f64 = 1e-8;
 
+/// `PHOTONUC` (`egsnrc.mortran:9001-9015`): a placeholder for photonuclear
+/// modelling. The photon's energy and weight are set to zero: it is thrown
+/// away. `photon` then finds the zero weight on re-entering its loop and
+/// discards it with `edep = peig`, the photon's energy before it was zeroed
+/// (upstream's `USER-PHOTON-DISCARD` takes `EDEP=PEIG`, so a scoring routine
+/// is told the energy was deposited even though the comment says it is not).
+pub fn photonuc(stack: &mut Stack) {
+    stack.np_old = stack.np;
+    let np = stack.np;
+    stack.e[np] = 0.0;
+    stack.wt[np] = 0.0;
+}
+
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
 fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> PhotonResult {
     res.edep = peig;
@@ -1959,9 +1979,8 @@ fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> Photo
 /// it is discarded (`ircode = 2`). Interactions call [`pair`], [`compt`]
 /// (with [`relax`] for its vacancy) and [`photo`].
 ///
-/// Not ported: Rayleigh scattering (`iraylr = 1`, `egs_rayleigh_sampling`)
-/// and photonuclear reactions (`iphotonucr = 1`, `PHOTONUC`), refused with
-/// [`EgsError::Unsupported`]; the `AUSGAB` hooks; `$PARTICLE-SELECTION-*`
+/// Not ported: Rayleigh scattering (`iraylr = 1`, `egs_rayleigh_sampling`),
+/// refused with [`EgsError::Unsupported`]; the `AUSGAB` hooks; `$PARTICLE-SELECTION-*`
 /// (empty by default). `lgle` is recomputed whenever the medium changes, as
 /// upstream.
 ///
@@ -1989,8 +2008,10 @@ pub fn photon<R: UniformSource, G: Geometry>(
         return Ok(photon_discard(stack, &mut res, peig));
     }
 
+    let mut photonucfac = 1.0_f64;
+
     // :PNEWENERGY:
-    loop {
+    'pnewenergy: loop {
         if stack.wt[stack.np] == 0.0 {
             return Ok(photon_discard(stack, &mut res, peig));
         }
@@ -2019,11 +2040,13 @@ pub fn photon<R: UniformSource, G: Geometry>(
                     if region.irayl == 1 {
                         return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1)"));
                     }
-                    if region.iphotonucr == 1 {
-                        return Err(EgsError::Unsupported("PHOTON: photonuclear reactions (iphotonucr = 1)"));
-                    }
                     let rhof = region.rhor / tables.media[medium].rho;
                     gmfp = gmfpr0 / rhof;
+                    // $PHOTONUC-CORRECTION
+                    if region.iphotonucr == 1 {
+                        photonucfac = tables.media[medium].photonuc.eval(lgle, gle);
+                        gmfp *= photonucfac;
+                    }
                     tstep = gmfp * dpmfp;
                 }
                 let np = stack.np;
@@ -2071,8 +2094,13 @@ pub fn photon<R: UniformSource, G: Geometry>(
             if region.irayl == 1 {
                 return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1)"));
             }
+            // $PHOTONUCLEAR
             if region.iphotonucr == 1 {
-                return Err(EgsError::Unsupported("PHOTON: photonuclear reactions (iphotonucr = 1)"));
+                let rnno39 = rng.uniform();
+                if rnno39 <= 1.0 - photonucfac {
+                    photonuc(stack);
+                    continue 'pnewenergy;
+                }
             }
         }
         let rnno36 = rng.uniform();
@@ -4945,6 +4973,7 @@ pub fn hatch_media(pegs4: &[Pegs4Medium], cfg: &HatchConfig) -> HatchResult {
             gbr11: pwlf_from_rows(&m.photin, 2, 3).a1,
             gbr20: pwlf_from_rows(&m.photin, 4, 5).a0,
             gbr21: pwlf_from_rows(&m.photin, 4, 5).a1,
+            photonuc: Pwlf::default(),
             photo,
             pair,
         };
@@ -6118,6 +6147,7 @@ mod tests {
             gbr11: alloc::vec![0.0, 0.0],
             gbr20: alloc::vec![0.0, gbr_pair + gbr_compt],
             gbr21: alloc::vec![0.0, 0.0],
+            photonuc: const_pwlf(1.0),
             photo: photo_med,
             pair: toy_pair_medium(),
         };
@@ -6186,6 +6216,63 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn photonuclear_placeholder_discards_the_photon_and_keeps_energy_balance() {
+        let mut st = Stack::new(5);
+        st.np = 2;
+        st.e[2] = 3.0;
+        st.wt[2] = 1.5;
+        photonuc(&mut st);
+        assert_eq!((st.np_old, st.np, st.e[2], st.wt[2]), (2, 2, 0.0, 0.0));
+        // with a photonuclear factor of one half the mean free path halves and
+        // half of the interactions are photonuclear; every history still balances
+        // because the discard reports the photon's energy as `edep`
+        let mut tables = photon_tables(0.0, 0.5, 0);
+        tables.regions[1].iphotonucr = 1;
+        tables.media[1].photonuc = const_pwlf(0.5);
+        let cfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut rng = Ranmar::new(60, 61);
+        let mut absorbed = 0;
+        for _ in 0..200 {
+            let r = run_history(&tables, &cfg, 0.5, &mut rng);
+            assert!(r.abs() < 1e-9, "residual {r}");
+            absorbed += 1;
+        }
+        assert_eq!(absorbed, 200);
+        // with the placeholder on fewer histories reach an ordinary interaction (a charged
+        // particle on top of the stack), and the photonuclear discards report the photon's
+        // energy as `edep` (upstream's USER-PHOTON-DISCARD), so they look like full-energy
+        // escapes: both are pinned here
+        let mut off = tables.clone();
+        off.regions[1].iphotonucr = 0;
+        let mut geo = Slab { length: 3.0 };
+        let mut tally = |t: &PhotonTables, rng: &mut Ranmar| {
+            let (mut interacted, mut full_energy_discards) = (0, 0);
+            for _ in 0..300 {
+                let mut st = Stack::new(100);
+                st.np = 1;
+                st.e[1] = 1.0;
+                st.w[1] = 1.0;
+                st.z[1] = 1e-4;
+                st.ir[1] = 1;
+                st.wt[1] = 1.0;
+                let r = photon(&mut st, t, &cfg, &mut geo, rng).unwrap();
+                if r.ircode == 1 {
+                    interacted += 1;
+                }
+                if r.ircode == 2 && r.edep == 1.0 {
+                    full_energy_discards += 1;
+                }
+            }
+            (interacted, full_energy_discards)
+        };
+        let (int_on, disc_on) = tally(&tables, &mut rng);
+        let (int_off, disc_off) = tally(&off, &mut rng);
+        assert!(int_on < int_off, "interacting histories {int_on} vs {int_off}");
+        assert!(disc_on > disc_off, "full-energy discards {disc_on} vs {disc_off}");
+    }
+
     #[test]
     fn photon_discards_refusals_and_roulette() {
         let mut rng = Ranmar::new(3, 5);
@@ -6216,7 +6303,7 @@ mod tests {
         st.w[1] = 1.0;
         let r = photon(&mut st, &tables, &cfg, &mut geo, &mut rng).unwrap();
         assert_eq!(r.ircode, 2);
-        // Rayleigh and photonuclear are refused
+        // Rayleigh is refused
         let mut bad = tables.clone();
         bad.regions[1].irayl = 1;
         let mut st = Stack::new(10);
@@ -6226,15 +6313,6 @@ mod tests {
         st.wt[1] = 1.0;
         st.w[1] = 1.0;
         assert!(matches!(photon(&mut st, &bad, &cfg, &mut geo, &mut rng), Err(EgsError::Unsupported(_))));
-        let mut bad2 = tables.clone();
-        bad2.regions[1].iphotonucr = 1;
-        let mut st2 = Stack::new(10);
-        st2.np = 1;
-        st2.e[1] = 1.0;
-        st2.ir[1] = 1;
-        st2.wt[1] = 1.0;
-        st2.w[1] = 1.0;
-        assert!(matches!(photon(&mut st2, &bad2, &cfg, &mut geo, &mut rng), Err(EgsError::Unsupported(_))));
         // Russian roulette: histories still terminate
         let cfg_rr = PhotonConfig { rr: Some(0.5), ..cfg };
         for _ in 0..50 {
