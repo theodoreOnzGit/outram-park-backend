@@ -7,4 +7,4 @@
 //!
 //! Index of the last non-blank character of a string, for compilers without `lnblnk` (47 lines).
 //!
-//! **Status: ported, in `egs_utilities_mortran.rs` (corrected 2026-11-21).** `lnblnk1` is [`super::egs_utilities_mortran::lnblnk1`]. First port, not differentially tested (gh:#1680).
+//! **Status: ported, in `egs_utilities_mortran.rs` (corrected 2026-11-21).** `lnblnk1` is [`super::egs_utilities_mortran::lnblnk1`]. A first port, not differentially tested (gh:#1680).
