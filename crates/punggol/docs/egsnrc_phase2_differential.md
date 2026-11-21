@@ -160,8 +160,7 @@ coefficients), `i_array` identical, against the promoted build.
 A copy of `tutor1.mortran` (`difftut`) seeds RANMAR at 1802/9373, runs 200
 histories of a 20 MeV electron on the 1 mm Ta plate and logs every discarded
 particle (charge, kinetic energy, `w`) at full precision, with `eadl_relax`
-set false (the one relaxation variant this port has; the stock default is
-EADL, which is not ported). Test
+set false (simple relaxation; the EADL default is compared in its own section). Test
 `differential_tutor1_histories_against_compiled_egsnrc`
 (`EGSNRC_REFERENCE_HISTORIES`) runs `punggol::egsnrc::shower` on the same seeds
 (`petir` RANMAR) with the full `HATCH` assembly (PEGS4 intake, `hatch_media`,
@@ -190,12 +189,41 @@ photonuclear, positrons, EII, triplet, NIST/NRC bremsstrahlung and the NRC pair
 tables in a full transport run (the readers and samplers of the last four are
 exercised only by unit tests).
 
+### EADL relaxation (the stock default configuration)
+
+Ported 2026-11-21: `EadlFile::from_bytes` (`relax.data`, 4-byte records),
+`init_relax_eadl` (`egs_init_relax`, `egsnrc.mortran:5793-6008`), `eadl_relax`
+(`egs_eadl_relax`, `:6019-6208`), the EADL branches of `relax`, `photo`,
+`init_compton` (`init_compton_eadl`) and `EDGSET` (`edgset_eadl_from_text`).
+The MCDF shellwise photoelectric option (off by default) is not ported.
+Against a reference built with `eadl_relax` at its stock default (`difftutE`,
+`difftabE`, promoted build; tests `..._histories_against_compiled_egsnrc_eadl`
+with `EGSNRC_REFERENCE_HISTORIES_EADL`, and
+`differential_eadl_tables_against_compiled_egsnrc` with
+`EGSNRC_REFERENCE_EADL_TABLES`):
+
+- 200 `tutor1` histories: **200 of 200** same charge sequence, worst relative
+  kinetic energy difference 5.3e-9, worst |dw| 2.4e-8 (the simple-relaxation
+  case is unchanged at 1.07e-8).
+- Tables: all 22 EADL shells and 1270 relaxation channels of Ta, all 1538
+  Compton shells, the medium alias table and the Ta binding energies agree;
+  integers exactly, reals bit-identical except `be_array` at 1.7e-16.
+
+Upstream oddities reproduced (doc comments): `egsnrc.mortran:6145` tests
+`new_state < 0` on an alias bin number that is always >= 1, so the leftover bin
+is treated as a radiative transition to a global shell index that can be 0 or
+outside the array (the port uses 0.0 and ends the cascade); `:6108` assigns
+`edep = Evac` where `:6125` uses `+=` (equivalent only because `COMPT` zeroes
+`edep`); loading all 100 elements into one medium needs 10055 channels against
+`$MAXRELAX = 10000` and is refused as upstream would. The 5e-9 and 1e-8
+residuals are above the 1e-9 bound and unexplained beyond round-off.
+
 ## Not differentially tested, and why
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
 - Optional kernel branches not in the `tutor1` run: EII, triplet, NIST/NRC
-  bremsstrahlung, NRC pair, EADL relaxation (not ported), photonuclear,
+  bremsstrahlung, NRC pair, photonuclear,
   positron-dominated showers and electromagnetic fields (not ported). The
   built reference can run them with a user code that sets the switches.
 - Everything that reads the data files above: now readable (see above), but
@@ -206,11 +234,11 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 
 ## Issues filed (2026-11-21)
 
-- gh:#1686 ~~histories comparison (`tutor1`)~~ **done 2026-11-21 (above)**; still
-  open there: `init_compton` with `eadl_relax` and the edge tables.
+- gh:#1686 ~~histories comparison (`tutor1`)~~ **done 2026-11-21 (above)**; `init_compton` with
+  `eadl_relax` and the edge tables are done too (EADL section).
 - gh:#1687 single-precision constants in the upstream build: maintainer decision.
 - gh:#1688 PEGS4 residual of 2e-4, cause not identified.
 - gh:#1689 the four `eii.mortran` oddities, now checkable against the built EGSnrc.
 - gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
-- gh:#1692 EADL relaxation (the stock default) not ported; triplet, NRC pair, NIST/NRC bremsstrahlung and EII not wired into a full run.
+- gh:#1692 ~~EADL relaxation not ported~~ **done 2026-11-21 (above)**; triplet, NRC pair, NIST/NRC bremsstrahlung and EII still not wired into a full run.
 - gh:#1691 `egs_compoundstoelements` source missing; `rad_compton1`; duplicate `ztbl`.

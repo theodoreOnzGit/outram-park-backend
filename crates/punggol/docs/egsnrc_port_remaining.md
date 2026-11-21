@@ -89,3 +89,12 @@ GASP's value to match, so every real gas medium (`521icru.pegs4dat`) failed
 with `bad numeric field '='`. Fixed, with the verbatim header line as a test
 (`gas_header_of_a_shipped_pegs4_file_parses`). The earlier statement that the
 intake "was checked on a real `pb.pegs4dat`" covered a non-gas medium only.
+
+## EADL relaxation ported (2026-11-21)
+
+~~EADL relaxation (`eadl_relax`) is not ported~~ **CORRECTED 2026-11-21:**
+`EadlFile`, `init_relax_eadl`, `eadl_relax`, `init_compton_eadl`,
+`edgset_eadl_from_text` and the EADL branches of `relax` and `photo` are in
+`egsnrc_mortran.rs`; compared with a built EGSnrc in
+`egsnrc_phase2_differential.md`. Still not ported: the MCDF shellwise
+photoelectric option (`mcdf_pe_xsections`, off by default).

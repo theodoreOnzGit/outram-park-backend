@@ -107,8 +107,20 @@ and commands an agent needs:
   atrelax-…endf`, both in `tests/resources`) writes a photoatomic ACE; OpenMC's
   Python `openmc.data.IncidentPhoton.from_ace` turns it into HDF5 (use
   `/usr/bin/python3.12`: the apt `numpy`/`h5py`/`scipy`/`pandas`/`lxml`/
-  `uncertainties` match it; `PYTHONPATH` the OpenMC clone and the `endf`
-  package). The comparison links `libopenmc` in a small C++ harness that calls
+  `uncertainties` match it; `PYTHONPATH` the OpenMC clone, the `endf` package
+  and a fake `openmc-<ver>.dist-info/METADATA` directory, since OpenMC asks
+  `importlib.metadata` for its own version). The `endf` package is
+  `github.com/paulromano/endf-python` (maintainer approved the clone,
+  2026-11-21): clone it into `/tmp/claude-0/up/`, build its pybind11
+  extension by hand (`g++ -O2 -shared -fPIC -std=c++17 $(python3.12-config
+  --includes) -I/usr/include/pybind11 src/endf/_records.cpp -o
+  src/endf/_records$(python3.12-config --extension-suffix)`; apt
+  `pybind11-dev python3.12-dev`) and put `src/` on `PYTHONPATH`. Use
+  `IncidentPhoton.from_endf(photoat, atrelax)`, not `from_ace` (OpenMC's
+  `from_ace` rejects NJOY's older photoatomic ACE: no subshell data). Ubuntu's
+  pandas 2.1 lacks `future.no_silent_downcasting` and refuses the integer
+  replacement in `AtomicRelaxation.to_hdf5`; a small driver that patches both
+  (numbers unchanged) is in the phase 2 doc. The comparison links `libopenmc` in a small C++ harness that calls
   `PhotonInteraction::{compton_scatter, rayleigh_scatter, pair_production,
   calculate_xs}` with the same seeds as `punggol::openmc_photon`.
 - **Permissions:** downloading and running third-party binaries or cloning
