@@ -43,7 +43,7 @@ full showers through `SHOWER`, `ELECTR` and `PHOTON`).
   triggers it; `init_compton` avoids it with a final loop. Ported as is and
   pinned by `exactly_average_bins_stay_unfinalised_as_upstream`.
 - ~~**`eii_init` (`eii.mortran`) is not ported**~~ **CORRECTED 2026-11-21:**
-  `eii_init`, `eii_sample` and the EII branch that opens `MOLLER`
+  ~~`eii_init`, `eii_sample` and the EII branch that opens `MOLLER`~~ **CORRECTED 2026-11-21 (gh:#1689): the four oddities below are in `src/eii.mortran`, which the build does not use; the live `egsnrc.mortran` copies read `binding_energies(ish, iZ)` and `ap(imed)` as intended, keep `eii_a(jjj)`, and compute everything else differently (ported as `eii_init_egsnrc`/`eii_sample_egsnrc`, matched to the built program).** Original text: `eii_init`, `eii_sample` and the EII branch that opens `MOLLER`
   (`moller_eii_select`) are ported (first port, toy-data tests only; `eii_ik.data`
   is not in the clone, so the real file is untested). Four things in the source
   look wrong and only a built EGSnrc can say which behaviour is real; the first

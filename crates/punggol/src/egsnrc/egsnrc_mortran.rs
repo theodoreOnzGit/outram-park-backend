@@ -4518,6 +4518,255 @@ pub fn eii_init(
     Ok(d)
 }
 
+/// `occn_numbers` of `eii_init`: electrons per shell type (K, LI, LII, LIII).
+const OCCN_NUMBERS: [f64; 4] = [2.0, 2.0, 2.0, 4.0];
+
+/// `eii_init` as the **live** EGSnrc has it (`egsnrc.mortran:7433-7760`), which
+/// is NOT the standalone `src/eii.mortran` that [`eii_init`] was ported from
+/// (found 2026-11-21, gh:#1689: the built program compiles the copy inside
+/// `egsnrc.mortran`; `eii.mortran` is not part of the build). The live version
+/// differs: `binding_energies(ish, iZ)` and `ap(imed)` are read as intended;
+/// the Moller subtraction uses new `sh_0`/`sh_1` formulas and `sum_occn`
+/// (`sigo`, `de`); `esig` is rebuilt from `sigma = sigm + wbrem * sig` and
+/// `ebr1` is rewritten (`wbrem * sig / sigma`); the maximum of `sigma / dedx`
+/// becomes `esig_e` and the monotonicity flag is set; `eii_a(jjj)` is indexed
+/// by shell type as in the older file (kept: for a single element with the
+/// shells in order it equals the shell index). Not ported: `eii_L_factor`
+/// (default 1) and the `xsec_out` cross-section file. Returns the data and,
+/// per medium with EII shells, `(esig_e, monotone)`.
+///
+/// # Errors
+///
+/// As [`eii_init`].
+pub fn eii_init_egsnrc(
+    text: &str,
+    media_in: &[EiiMediumInput],
+    relax: &RelaxData,
+    media: &mut [ElectronMediumData],
+    rm: f64,
+) -> Result<(EiiData, Vec<(f64, bool)>), String> {
+    const MXELEMENT: usize = 100;
+    const CONS: f64 = lit(0.153536); // 2 pi Re^2 rm / u
+    let nmed = media_in.len() - 1;
+    let mut d = EiiData {
+        nshells: alloc::vec![0; MXELEMENT + 1],
+        nsh: alloc::vec![0; nmed + 1],
+        cons: alloc::vec![0.0; nmed + 1],
+        first: alloc::vec![Vec::new(); nmed + 1],
+        no: alloc::vec![Vec::new(); nmed + 1],
+        flag: true,
+        ..Default::default()
+    };
+    // the minimum of all threshold energies
+    let mut e_eii_min = 1e30_f64;
+    for m in media_in.iter().skip(1) {
+        e_eii_min = e_eii_min.min(m.ae - rm).min(m.ap);
+    }
+    // the elements that need EII data
+    for m in media_in.iter().skip(1) {
+        for &(z, _, _) in &m.comp {
+            let iz = (z + 0.5) as usize;
+            if d.nshells[iz] == 0 {
+                let mut nsh = 0;
+                for ish in 1..=4 {
+                    if relax.binding_energies[iz][ish] > e_eii_min {
+                        nsh += 1;
+                    }
+                }
+                d.nshells[iz] = nsh;
+            }
+        }
+    }
+    let nsh_tot: usize = d.nshells.iter().sum();
+    if nsh_tot == 0 {
+        d.flag = false; // "EII requested but no shells ... => turning off EII"
+        return Ok((d, Vec::new()));
+    }
+    if nsh_tot > MAX_EII_SHELLS {
+        return Err(alloc::format!("Number of shells with binding energies above threshold is {nsh_tot}; more than the {MAX_EII_SHELLS} allocated"));
+    }
+    let mut tmp_array = alloc::vec![0usize; MXELEMENT + 1];
+    for j in 2..=MXELEMENT {
+        tmp_array[j] = tmp_array[j - 1] + d.nshells[j - 1];
+    }
+    // the EII active shells per medium and element
+    for imed in 1..=nmed {
+        let mut nsh = 0;
+        for &(z, _, _) in &media_in[imed].comp {
+            let iz = (z + 0.5) as usize;
+            d.no[imed].push(d.nshells[iz]);
+            nsh += d.nshells[iz];
+            d.first[imed].push(if d.nshells[iz] > 0 { tmp_array[iz] + 1 } else { 0 });
+        }
+        d.nsh[imed] = nsh;
+    }
+    // read the EII data
+    let mut lines = text.lines();
+    let nskip = read_record(&mut lines, 1)?[0] as usize;
+    for _ in 0..nskip {
+        lines.next().ok_or_else(|| String::from("I/O error while reading EII data"))?;
+    }
+    let h = read_record(&mut lines, 2)?;
+    let (emax, nbin) = (h[0], h[1] as usize);
+    if nbin != N_EII_BINS {
+        return Err(String::from("Inconsistent EII data file"));
+    }
+    d.xsection_a = alloc::vec![0.0; N_EII_BINS * MAX_EII_SHELLS + 1];
+    d.xsection_b = d.xsection_a.clone();
+    d.a = alloc::vec![0.0; MAX_EII_SHELLS + 1];
+    d.b = d.a.clone();
+    d.z = alloc::vec![0; MAX_EII_SHELLS + 1];
+    d.sh = alloc::vec![0; MAX_EII_SHELLS + 1];
+    let mut ii = 0usize;
+    for _ in 1..=MXELEMENT {
+        let h = read_record(&mut lines, 2)?;
+        let (iz, nsh) = (h[0] as usize, h[1] as usize);
+        if nsh < d.nshells[iz] {
+            return Err(alloc::format!("EII data file has data for {nsh} shells for element {iz}, but {} are required", d.nshells[iz]));
+        }
+        for ish in 1..=nsh {
+            let fmax = read_record(&mut lines, 1)?[0];
+            let aux_array = read_record(&mut lines, nbin)?;
+            if ish <= d.nshells[iz] {
+                ii += 1;
+                d.z[ii] = iz;
+                d.sh[ii] = ish;
+                let be = relax.binding_energies[iz][ish];
+                d.a[ii] = nbin as f64 / RealMath::r_ln(emax / be);
+                d.b[ii] = 1.0 - d.a[ii] * RealMath::r_ln(be);
+                for k in 1..=nbin {
+                    let sigo = if k > 1 { fmax * aux_array[k - 2] } else { 0.0 };
+                    let loge = (k as f64 - d.b[ii]) / d.a[ii];
+                    let iii = nbin * (ii - 1) + k;
+                    d.xsection_a[iii] = (fmax * aux_array[k - 1] - sigo) * d.a[ii];
+                    d.xsection_b[iii] = sigo - d.xsection_a[iii] * loge;
+                }
+            }
+        }
+        if ii == nsh_tot {
+            break;
+        }
+    }
+    // adjust the restricted stopping power and the discrete cross sections
+    let mut monotone: Vec<(f64, bool)> = Vec::new();
+    for imed in 1..=nmed {
+        let mi = &media_in[imed];
+        let ec = mi.ae - rm;
+        let ecc = ec.min(mi.ap);
+        let mut sum_a = 0.0;
+        for &(_, pz, wa) in &mi.comp {
+            sum_a += pz * wa;
+        }
+        let con_med = mi.rho / lit(1.6605655) / sum_a;
+        d.cons[imed] = con_med;
+        if d.nsh[imed] > 0 {
+            let m = &mut media[imed];
+            let meke = m.esig.a0.len() - 1;
+            let (eke0, eke1) = (m.eke0, m.eke1);
+            let (mut dedx_old, mut sigma_old, mut wbrem_old) = (0.0, 0.0, 0.0);
+            let mut is_monotone = true;
+            let mut sigma_max = 0.0_f64;
+            for j in 1..=meke {
+                let loge = (j as f64 - eke0) / eke1;
+                let e = RealMath::r_exp(loge);
+                let tau = e / rm;
+                let t1 = tau + 1.0;
+                let beta2 = tau * (tau + 2.0) / (t1 * t1);
+                let p2 = 2.0 * rm * tau * (tau + 2.0);
+                let mut dedx = m.ededx.eval(j, loge);
+                let sig = if e > mi.ap || e > 2.0 * ec { m.esig.eval(j, loge) } else { 0.0 };
+                let (mut sigm, mut wbrem) = if e > 2.0 * ec {
+                    let wbrem = m.ebr1.eval(j, loge);
+                    (sig * (1.0 - wbrem), wbrem)
+                } else {
+                    (0.0, 1.0)
+                };
+                let (mut sum_occn, mut sum_sigma, mut sum_dedx) = (0.0, 0.0, 0.0);
+                for (iele, &(z, pz, _)) in mi.comp.iter().enumerate() {
+                    let iz = (z + 0.5) as usize;
+                    let mut sum_sh = 0.0;
+                    for ish in 1..=d.no[imed][iele] {
+                        let jj = d.first[imed][iele] + ish - 1;
+                        let jjj = d.sh[jj];
+                        let u = relax.binding_energies[iz][jjj];
+                        let wmax = (e + u) / 2.0;
+                        let uwm = u / wmax;
+                        if u < e && u > ecc {
+                            sum_sh += OCCN_NUMBERS[jjj - 1];
+                            let uwm3 = uwm * uwm * uwm;
+                            let ss_0 = 2.0 * (RealMath::r_ln(p2 / u) - uwm3 * RealMath::r_ln(p2 / wmax) - (beta2 + lit(0.833333)) * (1.0 - uwm3)) / 3.0 / u;
+                            let em = e + rm;
+                            let sh_0 = ((1.0 - uwm) * (1.0 + uwm / (2.0 - uwm)) + u * (wmax - u) / (em * em)
+                                - (2.0 * tau + 1.0) / (t1 * t1) * uwm / 2.0 * RealMath::r_ln((2.0 - uwm) / uwm))
+                                / u;
+                            let ss_1 = RealMath::r_ln(p2 / u) - uwm * uwm * RealMath::r_ln(p2 / wmax) - (beta2 + 1.0) * (1.0 - uwm * uwm);
+                            let sh_1 = RealMath::r_ln(wmax / u / (2.0 - uwm))
+                                + 2.0 * (wmax - u) / (2.0 * wmax - u)
+                                + (wmax * wmax - u * u) / (em * em) / 2.0
+                                - (2.0 * tau + 1.0) / (t1 * t1) * RealMath::r_ln((2.0 * wmax - u) / wmax);
+                            let av_e = (ss_1 + sh_1) / (ss_0 + sh_0);
+                            // the live source indexes eii_a/eii_b by the shell TYPE jjj (kept)
+                            let ib = d.a[jjj] * loge + d.b[jjj];
+                            let i = (jj as i64 - 1) * N_EII_BINS as i64 + ib as i64;
+                            if i < 1 || i as usize >= d.xsection_a.len() {
+                                return Err(alloc::format!("EII cross-section bin {i} outside the table (shell type {jjj}, shell {jj})"));
+                            }
+                            let i = i as usize;
+                            let sig_j = (d.xsection_a[i] * loge + d.xsection_b[i]) * pz * con_med;
+                            sum_sigma += sig_j;
+                            sum_dedx += sig_j * av_e;
+                        }
+                    }
+                    sum_occn += sum_sh * pz;
+                }
+                sigm += sum_sigma;
+                dedx -= sum_dedx;
+                let aux = ec / e;
+                if e > 2.0 * ec {
+                    let r = tau / t1;
+                    let sigo = CONS * sum_occn * mi.rho / (beta2 * ec)
+                        * ((1.0 - 2.0 * aux) * (1.0 + aux / (1.0 - aux) + r * r * aux / 2.0)
+                            - (2.0 * tau + 1.0) / (t1 * t1) * aux * RealMath::r_ln((1.0 - aux) / aux))
+                        / sum_a;
+                    let de = CONS * sum_occn * mi.rho / beta2
+                        * (RealMath::r_ln(0.25 / aux / (1.0 - aux)) + (1.0 - 2.0 * aux) / (1.0 - aux) + r * r * (1.0 - 4.0 * aux * aux) / 8.0
+                            - (2.0 * tau + 1.0) / (t1 * t1) * RealMath::r_ln(2.0 * (1.0 - aux)))
+                        / sum_a;
+                    sigm -= sigo;
+                    dedx += de;
+                }
+                let sigma = sigm + wbrem * sig;
+                if sigma / dedx > sigma_max {
+                    sigma_max = sigma / dedx;
+                }
+                wbrem = if sigma > 0.0 { wbrem * sig / sigma } else { 1.0 };
+                if j > 1 {
+                    m.ededx.a1[j - 1] = (dedx - dedx_old) * eke1;
+                    m.ededx.a0[j - 1] = dedx - m.ededx.a1[j - 1] * loge;
+                    m.esig.a1[j - 1] = (sigma - sigma_old) * eke1;
+                    m.esig.a0[j - 1] = sigma - m.esig.a1[j - 1] * loge;
+                    m.ebr1.a1[j - 1] = (wbrem - wbrem_old) * eke1;
+                    m.ebr1.a0[j - 1] = wbrem - m.ebr1.a1[j - 1] * loge;
+                    if sigma / dedx < sigma_old / dedx_old {
+                        is_monotone = false;
+                    }
+                }
+                dedx_old = dedx;
+                sigma_old = sigma;
+                wbrem_old = wbrem;
+            }
+            for t in [&mut m.ededx, &mut m.esig, &mut m.ebr1] {
+                t.a1[meke] = t.a1[meke - 1];
+                t.a0[meke] = t.a0[meke - 1];
+            }
+            m.sig_ismonotone[0] = is_monotone;
+            m.esig_e = sigma_max;
+            monotone.push((sigma_max, is_monotone));
+        }
+    }
+    Ok((d, monotone))
+}
+
 /// `eii_sample` (`eii.mortran:308-369`): electron-impact ionisation of shell
 /// `ish` of element `iz` (binding energy `uj`, MeV) by the electron on top of
 /// the stack: the hard or soft collision is sampled, the primary keeps slot
@@ -4620,10 +4869,113 @@ pub fn eii_sample<R: UniformSource>(
     Ok(edep)
 }
 
+/// `eii_sample` as the **live** EGSnrc has it (`egsnrc.mortran:7759-`), not
+/// the standalone `src/eii.mortran` of [`eii_sample`] (gh:#1689): `c1 =
+/// (Wmax/peie)^2`, `fm_h = 2 + c1 - c2`, `prob_s` with `0.66666667`, the hard
+/// collision `frej = (1 + aux (aux - c2) + c1 wxx^2) / fm_h`, the soft
+/// collision `wx = (r2 xmax^3 + 1 - r2)^(-1/3)`, acceptance on `r3`, and the
+/// primary keeps `peie - wx` (the standalone file keeps `peie - prm`, which the
+/// port refused below `T = prm`). The `$AUSCALL` hooks and the commented-out
+/// splitting are not ported.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`], or `Fatal` if `cos^2 < 0`.
+pub fn eii_sample_egsnrc<R: UniformSource>(
+    stack: &mut Stack,
+    relax_data: &RelaxData,
+    ish: usize,
+    iz: usize,
+    uj: f64,
+    ae: f64,
+    ecut: f64,
+    pcut: f64,
+    prm: f64,
+    rng: &mut R,
+) -> Result<f64, EgsError> {
+    let rmt2 = 2.0 * prm;
+    let np = stack.np;
+    let peie = stack.e[np];
+    let t = peie - prm;
+    let tau = t / prm;
+    let tau1 = tau + 1.0;
+    let tau12 = tau1 * tau1;
+    let tau2 = tau * tau;
+    let p2 = tau2 + 2.0 * tau;
+    let beta2 = p2 / tau12;
+    let c2 = (2.0 * tau + 1.0) / tau12;
+    let wmax = 0.5 * (t + uj);
+    let xmax = uj / wmax;
+    let c1 = (wmax / peie) * (wmax / peie);
+    let fm_s = RealMath::r_ln(rmt2 * p2 / uj) - beta2 - 0.5;
+    let prob_s = lit(0.66666667) * fm_s * (1.0 + xmax + xmax * xmax);
+    let mut fm_h = 2.0 + c1 - c2;
+    if fm_h < 1.0 {
+        fm_h = 1.0;
+    }
+    let prob = fm_h + prob_s;
+    let mut wx;
+    loop {
+        let r1 = rng.uniform();
+        let r2 = rng.uniform();
+        let r3 = rng.uniform();
+        let frej;
+        if r1 * prob < fm_h {
+            // the hard collision cross section
+            wx = 1.0 / (r2 * xmax + 1.0 - r2);
+            let wxx = wx * xmax;
+            let aux = wxx / (2.0 - wxx);
+            frej = (1.0 + aux * (aux - c2) + c1 * wxx * wxx) / fm_h;
+        } else {
+            // the soft collision cross section
+            wx = 1.0 / RealMath::r_powf(r2 * xmax * xmax * xmax + 1.0 - r2, lit(0.333333333));
+            frej = 1.0 - RealMath::r_ln(wx) / fm_s;
+        }
+        if r3 < frej {
+            break;
+        }
+    }
+    wx *= uj;
+
+    // set up the new particles
+    let h1 = (peie + prm) / t;
+    let pese1 = peie - wx;
+    stack.e[np] = pese1;
+    let mut dcosth = h1 * (pese1 - prm) / (pese1 + prm);
+    if dcosth < 0.0 {
+        // upstream takes `sqrt` of this and gets NaN directions; refuse instead
+        return Err(EgsError::Fatal("eii_sample: upstream's primary energy peie - prm is below prm, cos^2 < 0"));
+    }
+    let mut sinthe = Real::sqrt(1.0 - dcosth);
+    let mut costhe = Real::sqrt(dcosth);
+    let mut saved = UphiSaved::default();
+    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+
+    let pese2 = wx - uj + prm;
+    let mut edep;
+    if pese2 > ae {
+        stack.check_stack(stack.np + 1, "eii_sample")?;
+        stack.np += 1;
+        let np2 = stack.np;
+        stack.e[np2] = pese2;
+        dcosth = h1 * (pese2 - prm) / (pese2 + prm);
+        sinthe = -Real::sqrt(1.0 - dcosth);
+        costhe = Real::sqrt(dcosth);
+        stack.iq[np2] = -1;
+        uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
+        edep = 0.0;
+    } else {
+        edep = wx - uj;
+    }
+    let r = relax(stack, relax_data, uj, ish as i32, iz, ecut, pcut, prm, rng)?;
+    edep += r.edep;
+    Ok(edep)
+}
+
 /// The EII selection that opens `MOLLER` (`egsnrc.mortran:2633-2661`): with
 /// EII on and EII shells in the medium, the interaction is first tried against
 /// each EII shell. Returns `Some(edep)` when an EII event was sampled by
-/// [`eii_sample`] (the caller then does not run the Moller sampling), `None`
+/// [`eii_sample_egsnrc`] (the caller then does not run the Moller sampling), `None`
 /// to carry on with Moller. `comp` is `(ZELEM, PZ)` per element of the
 /// medium, `elke` and `lelke` the interval of `ln(E_kin)`, and `ekin`, `te`,
 /// `ap` the energies of the interaction and the medium (MeV).
@@ -4675,7 +5027,7 @@ pub fn moller_eii_select<R: UniformSource>(
                     rsh -= sig_j;
                     if rsh < 0.0 {
                         let ecut_pcut = region;
-                        let edep = eii_sample(stack, relax_data, ish, iz, uj, emed.ae, ecut_pcut.0, ecut_pcut.1, prm, rng)?;
+                        let edep = eii_sample_egsnrc(stack, relax_data, ish, iz, uj, emed.ae, ecut_pcut.0, ecut_pcut.1, prm, rng)?;
                         return Ok(Some(edep));
                     }
                 }
@@ -12033,7 +12385,7 @@ mod tests {
             eprintln!("EGSNRC_REFERENCE_HISTORIES not set: differential test skipped");
             return;
         };
-        tutor1_histories_report(&reference, false);
+        tutor1_histories_report(&reference, false, false);
     }
 
     /// Phase 2, EADL relaxation (the stock default, `eadl_relax = true`):
@@ -12049,10 +12401,26 @@ mod tests {
             eprintln!("EGSNRC_REFERENCE_HISTORIES_EADL not set: differential test skipped");
             return;
         };
-        tutor1_histories_report(&reference, true);
+        tutor1_histories_report(&reference, true, false);
     }
 
-    fn tutor1_histories_report(reference: &str, eadl: bool) {
+    /// Phase 2, electron-impact ionisation on (`eii_flag = 1`, `eii_xfile =
+    /// 'ik'`, EADL relaxation): the 200 histories against `histories.txt` of
+    /// the `difftutI` build (`difftutE` plus `eii_flag=1; eii_xfile='ik';`
+    /// before `CALL HATCH`; `EGSNRC_REFERENCE_HISTORIES_EII`). Uses
+    /// [`eii_init`] on the real `eii_ik.data` with the default (intended)
+    /// [`EiiReadings`]; settles gh:#1689 when read together with
+    /// `docs/egsnrc_phase2_differential.md`.
+    #[test]
+    fn differential_tutor1_histories_against_compiled_egsnrc_eii() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES_EII") else {
+            eprintln!("EGSNRC_REFERENCE_HISTORIES_EII not set: differential test skipped");
+            return;
+        };
+        tutor1_histories_report(&reference, true, true);
+    }
+
+    fn tutor1_histories_report(reference: &str, eadl: bool, eii: bool) {
         use petir::rng::ranmar::Ranmar;
         use std::sync::{Arc, RwLock};
         let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
@@ -12155,6 +12523,41 @@ mod tests {
             spin: sdata,
             eii: None,
         };
+        let mut etables = etables;
+        if eii {
+            let inputs = vec![
+                EiiMediumInput::default(),
+                EiiMediumInput { comp: pm[0].elements.iter().map(|x| (x.zelem, x.pz, x.wa)).collect(), rho: pm[0].rho, ae: pm[0].ae, ap: pm[0].ap },
+            ];
+            let readings = EiiReadings {
+                binding_energy_swapped: std::env::var("EGSNRC_EII_SWAPPED").is_ok(),
+                bin_index_by_shell_type: std::env::var("EGSNRC_EII_BIN_BY_TYPE").is_ok(),
+                ecc_ap: if std::env::var("EGSNRC_EII_ECC_AP").is_ok() { Some(pm[0].ap) } else { None },
+            };
+            let d = if std::env::var("EGSNRC_EII_STANDALONE_FILE").is_ok() {
+                eii_init(&text("eii_ik.data"), &inputs, &relax_d, &mut etables.media, RM, readings).unwrap()
+            } else {
+                eii_init_egsnrc(&text("eii_ik.data"), &inputs, &relax_d, &mut etables.media, RM).unwrap().0
+            };
+            etables.eii = Some(ElectrEii { data: d, comp: vec![Vec::new(), comp.clone()], relax: relax_d.clone() });
+            if let Ok(tabs) = std::env::var("EGSNRC_REFERENCE_EII_TABLES") {
+                // the electron tables HATCH leaves after `eii_init` rewrote `esig`/`ededx`
+                let e = &etables.media[1];
+                let mut worst = [0.0_f64; 12];
+                for l in std::fs::read_to_string(tabs).unwrap().lines() {
+                    let v: Vec<f64> = l.split_whitespace().filter_map(|t| t.parse().ok()).collect();
+                    if v.len() != 13 || l.trim_start().starts_with(char::is_alphabetic) {
+                        continue;
+                    }
+                    let i = v[0] as usize;
+                    let row = [e.ededx.a0[i], e.ededx.a1[i], e.pdedx.a0[i], e.pdedx.a1[i], e.esig.a0[i], e.esig.a1[i], e.psig.a0[i], e.psig.a1[i], e.ebr1.a0[i], e.ebr1.a1[i], e.pbr1.a0[i], e.pbr1.a1[i]];
+                    for (k, (a, b)) in row.iter().zip(&v[1..]).enumerate() {
+                        worst[k] = worst[k].max((a - b).abs() / b.abs().max(1e-12));
+                    }
+                }
+                eprintln!("EII tables (ededx0/1, pdedx0/1, esig0/1, psig0/1, ebr10/11, pbr10/11) worst relative: {worst:?}");
+            }
+        }
         let log = Arc::new(RwLock::new(Vec::new()));
         let geo = Tutor1Geo { zbound: lit(0.1), prm: lit(0.5109989461), log: log.clone() };
         let ecfg = ElectrConfig { spin_effects: true, exact_bca: true, skindepth_for_bca: 3.0, presta_ii: true, prm: RM, vacdst: 1.0e8, brems: BremsConfig::default() };

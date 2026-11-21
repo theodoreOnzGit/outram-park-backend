@@ -238,7 +238,7 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
   `eadl_relax` and the edge tables are done too (EADL section).
 - gh:#1687 single-precision constants in the upstream build: maintainer decision.
 - gh:#1688 PEGS4 residual of 2e-4, cause not identified.
-- gh:#1689 the four `eii.mortran` oddities, now checkable against the built EGSnrc.
+- ~~gh:#1689~~ **SETTLED 2026-11-21, see "Electron-impact ionisation"** the four `eii.mortran` oddities, now checkable against the built EGSnrc.
 - gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
 - gh:#1692 ~~EADL relaxation not ported~~ **done 2026-11-21 (above)**; triplet, NRC pair, NIST/NRC bremsstrahlung and EII still not wired into a full run.
 - gh:#1691 ~~`egs_compoundstoelements` source missing~~ **FOUND AND PORTED 2026-11-21** (see "ESTAR mixtures" below); `rad_compton1` (not in scope) and the duplicate `ztbl` remain.
@@ -316,3 +316,45 @@ mass fraction (bit-identical). Upstream oddity ported as it is: `getElemArray`
 capitalises the first and lower-cases the second character of each token, so
 `CH4` becomes `Ch4` (an unknown symbol, fatal) and must be written `C1H4`.
 Not ported: the mixture's I-value and `egs_estar`.
+
+
+## Electron-impact ionisation (gh:#1689, 2026-11-21)
+
+Reference: `difftutI`/`difftabI`, i.e. `difftutE`/`difftabE` (EADL relaxation,
+the stock default) with `eii_flag=1; eii_xfile='ik';` before `CALL HATCH` and
+`EII-DATA` in the user code's `COMIN` list (the 200-history `tutor1` run and
+the table dump); promoted and stock builds. Tests: tables via
+`EGSNRC_REFERENCE_EII_TABLES` and histories via
+`EGSNRC_REFERENCE_HISTORIES_EII`
+(`differential_tutor1_histories_against_compiled_egsnrc_eii`).
+
+**Finding: the four oddities of `eii.mortran` were a red herring.**
+`HEN_HOUSE/src/eii.mortran` is not compiled into EGSnrc; `egsnrc.mortran`
+contains its own, different `eii_init` (`:7433`) and `eii_sample` (`:7759`).
+The first comparison of the port (made from `eii.mortran`) failed: `ededx0`
+1.3 %, `esig1` 12x, `ebr1` (rewritten by the live version, unchanged by the
+old) 0.74, whatever combination of the three `EiiReadings` switches was used,
+and the histories diverged in the first history (17.74 vs 18.05 MeV).
+Ported the live routines as `eii_init_egsnrc` and `eii_sample_egsnrc`
+(`moller_eii_select` now calls the latter). Differences from the standalone
+file: `binding_energies(ish, iZ)` and `ap(imed)` are read as intended;
+`sh_0`/`sh_1`, `sigo` and `de` (with `sum_occn`) are new; `esig` is rebuilt
+from `sigm + wbrem*sig`, `ebr1` is rewritten, `esig_e` is the maximum of
+`sigma/dedx`; `eii_a(jjj)` is still indexed by shell type; `eii_sample` has
+`c1 = (Wmax/peie)^2`, `fm_h = 2 + c1 - c2`, `0.66666667`, the other soft and
+hard sampling, acceptance on `r3`, and `pese1 = peie - wx` (so no refusal
+below `T = prm`). Not ported: `eii_L_factor` (default 1), `xsec_out`.
+
+| quantity | result |
+|---|---|
+| electron tables after `eii_init` (12 columns, 40 energies), promoted build | **bit-identical** (all 12 worst differences 0) |
+| same, stock build with `egsnrc-f32-constants` | bit-identical |
+| same, stock build, f64 constants | up to 3.3e-7 (`pbr` slope) |
+| 200 histories, promoted build | 200 of 200 same discard sequence, worst relative kinetic energy 1.7e-9, worst `|dw|` 1.0e-8 |
+| 200 histories, stock build with `egsnrc-f32-constants` | 200 of 200, 3.6e-9, 2.6e-8 |
+| 200 histories, stock build, f64 constants | 200 of 200, 1.5e-7, 6.5e-7 |
+
+Residual 1.7e-9 to 3.6e-9 is above the 1e-9 allowance and is reported to the
+maintainer; its cause is not isolated (round-off amplified through the shower
+is the likely reading, untested). The three `EiiReadings` switches are not
+used by the live path and remain for the standalone file.
