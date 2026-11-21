@@ -56,13 +56,14 @@ pub mod eemf_macros_beamnrc_mortran;
 pub mod pegs4_macros_mortran;
 pub mod pegs4_routines_mortran;
 pub mod pegs4_mortran;
+pub mod estar_cpp;
 
 /// The EGSnrc commit the file list was read at.
 pub const UPSTREAM_COMMIT: &str = "bd49a47aae3938f49f4100b8e018091861408b19";
 
 /// Upstream paths (relative to the EGSnrc repository root), one per module
 /// above, in the same order.
-pub const UPSTREAM_FILES: [&str; 21] = [
+pub const UPSTREAM_FILES: [&str; 22] = [
     "HEN_HOUSE/src/egsnrc.mortran",
     "HEN_HOUSE/src/egsnrc.macros",
     "HEN_HOUSE/src/egs_utilities.mortran",
@@ -84,6 +85,7 @@ pub const UPSTREAM_FILES: [&str; 21] = [
     "HEN_HOUSE/src/pegs4_macros.mortran",
     "HEN_HOUSE/src/pegs4_routines.mortran",
     "HEN_HOUSE/pegs4/pegs4.mortran",
+    "HEN_HOUSE/egs++/estar/estar.cpp",
 ];
 
 /// The module an upstream path is scaffolded as: the file name with `.` read
@@ -140,6 +142,7 @@ mod tests {
             include_str!("pegs4_macros_mortran.rs"),
             include_str!("pegs4_routines_mortran.rs"),
             include_str!("pegs4_mortran.rs"),
+            include_str!("estar_cpp.rs"),
         ];
         for (path, doc) in UPSTREAM_FILES.iter().zip(docs) {
             assert!(doc.contains(path), "{path}");

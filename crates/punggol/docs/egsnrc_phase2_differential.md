@@ -241,7 +241,7 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 - gh:#1689 the four `eii.mortran` oddities, now checkable against the built EGSnrc.
 - gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
 - gh:#1692 ~~EADL relaxation not ported~~ **done 2026-11-21 (above)**; triplet, NRC pair, NIST/NRC bremsstrahlung and EII still not wired into a full run.
-- gh:#1691 `egs_compoundstoelements` source missing; `rad_compton1`; duplicate `ztbl`.
+- gh:#1691 ~~`egs_compoundstoelements` source missing~~ **FOUND AND PORTED 2026-11-21** (see "ESTAR mixtures" below); `rad_compton1` (not in scope) and the duplicate `ztbl` remain.
 
 
 ## Single-precision-constants mode against the stock build (gh:#1687, 2026-11-21)
@@ -270,3 +270,24 @@ macro) or amplification of a ~1e-10 start through the shower are both
 possible, not tested. Residual above 1e-9: reported to the maintainer.
 Spin, Rayleigh and EADL stock references were not built (the existing ones are
 promoted builds).
+
+
+## ESTAR mixtures: `egs_compoundstoelements` (gh:#1691, 2026-11-21)
+
+The routine was missing because the clone held only `HEN_HOUSE/src` and
+`pegs4`; it is `egsCompoundsToElements` in `HEN_HOUSE/egs++/estar/estar.cpp`
+(with `estar_formulaCalcs.cpp`, `estar_dataParser.cpp`, `estar_dataTables.cpp`;
+`git sparse-checkout add HEN_HOUSE/egs++/estar`). Ported as
+`punggol::egsnrc::estar_cpp` and wired into `get_media_inputs`, so a `mixture
+compounds` medium is expanded to elements (ascending `Z`, normalised mass
+fractions). Differential test `differential_estar_mixture_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_ESTAR`) against upstream's own `mixtureCalculation`,
+built by `verification_and_validation/egsnrc_estar/harness.cpp` with
+`egsFatal`/`egsInformation` stubbed (`g++ -std=c++17 -Iinc -I<estar>
+harness.cpp estar_formulaCalcs.cpp estar_dataParser.cpp estar_dataTables.cpp`):
+5 mixtures (water; water + a hydrocarbon; salt, water and oxygen; a
+four-oxide rock; uranium dioxide + water), **0 difference** in `Z` and in every
+mass fraction (bit-identical). Upstream oddity ported as it is: `getElemArray`
+capitalises the first and lower-cases the second character of each token, so
+`CH4` becomes `Ch4` (an unknown symbol, fatal) and must be written `C1H4`.
+Not ported: the mixture's I-value and `egs_estar`.

@@ -31,11 +31,13 @@
 //!
 //! # Not ported
 //!
-//! * `egs_compoundstoelements` (called at `:1720`): its source is not in the
-//!   EGSnrc tree that was read (`HEN_HOUSE/src`, `pegs4`), so a `mixture
-//!   compounds` medium is parsed and stored (`compound_list`,
-//!   `compound_fractions`, `ncomp`) but **not expanded to elements**:
-//!   [`MediumInput::needs_compound_expansion`] is set and `elements` is empty.
+//! * ~~`egs_compoundstoelements` (called at `:1720`): its source is not in the
+//!   EGSnrc tree that was read, so a `mixture compounds` medium is not
+//!   expanded to elements~~ **CORRECTED 2026-11-21 (gh:#1691):** it is in
+//!   `HEN_HOUSE/egs++/estar/estar.cpp` and is ported in [`super::estar_cpp`];
+//!   a `mixture compounds` medium is now expanded (ascending `Z`, mass
+//!   fractions normalised). The compound names must be chemical formulas
+//!   (`H2O`), as upstream requires.
 //! * The `entry show_media_parameters` (`:1888-2080`): output formatting, and
 //!   the stopping-power plot it drives (`EDEDX`, `MEDXVGRPLOT`, `:1955+`),
 //!   which the task excluded.
@@ -217,8 +219,9 @@ pub struct MediumInput {
     pub compound_list: Vec<String>,
     /// `compoundFractions(i,j)` (`REAL*4`).
     pub compound_fractions: Vec<f32>,
-    /// True for a `mixture compounds` medium: `egs_compoundstoelements` is
-    /// not ported, so `elements` is empty.
+    /// ~~True for a `mixture compounds` medium: `egs_compoundstoelements` is
+    /// not ported~~ **CORRECTED 2026-11-21:** always false now, the mixture is
+    /// expanded (kept for callers; gh:#1691).
     pub needs_compound_expansion: bool,
     /// `iunrst(i)`.
     pub iunrst: i32,
@@ -1005,7 +1008,19 @@ pub fn get_media_inputs(
                     m.compound_list.push(t.compound_list[j].clone());
                     m.compound_fractions.push(t.compound_fractions[j] as f32);
                 }
-                m.needs_compound_expansion = true;
+                // egs_compoundstoelements (:1720) -> estar_cpp
+                let formulas = super::estar_cpp::element_array(&t.compound_list[..t.nne].join(" "), t.nne).map_err(|e| format!("{e:?}"))?;
+                let fracs: Vec<f64> = t.compound_fractions[..t.nne].to_vec();
+                let expanded = super::estar_cpp::compounds_to_elements(&formulas, &fracs, m.local_density).map_err(|e| format!("{e:?}"))?;
+                m.nne = expanded.len();
+                for e in &expanded {
+                    let z = e.z as usize;
+                    let (wa, wa4) = (watbl(z), WATBL[z - 1]);
+                    let rhoz = e.rhoz;
+                    let rhoz4 = rhoz as f32;
+                    let asym = String::from(super::estar_cpp::symbol(e.z).unwrap_or(""));
+                    m.elements.push(MediumElement { element: Pegs4Element { asym, zelem: f64::from(e.z), wa, pz: rhoz / wa, rhoz }, pz4: rhoz4 / wa4, rhoz4, wa4 });
+                }
             }
             m.iunrst = t.iunrst;
             m.iaprim = t.iaprim;
@@ -1172,12 +1187,15 @@ mod tests {
     }
 
     #[test]
-    fn get_media_inputs_mixture_is_stored_not_expanded() {
-        let deck = format!("{DEFS}:start MIX:\n mixture compounds = WATER, AIR\n mass fractions = 0.25, 0.75\n rho = 1.5\n:stop MIX:\n");
+    fn get_media_inputs_mixture_is_expanded_to_elements() {
+        let deck = format!("{DEFS}:start MIX:\n mixture compounds = H2O, C1H4\n mass fractions = 0.25, 0.75\n rho = 1.5\n:stop MIX:\n");
         let m = &run(&deck, &["MIX"]).unwrap().media[0];
-        assert!(m.committed && m.needs_compound_expansion);
-        assert_eq!((m.ncomp, m.nne, m.elements.len()), (2, 0, 0));
-        assert_eq!(m.compound_list, vec![String::from("WATER"), String::from("AIR")]);
+        assert!(m.committed && !m.needs_compound_expansion);
+        assert_eq!((m.ncomp, m.nne, m.elements.len()), (2, 3, 3));
+        assert_eq!(m.elements.iter().map(|e| e.element.asym.as_str()).collect::<Vec<_>>(), vec!["H", "C", "O"]);
+        let total: f64 = m.elements.iter().map(|e| e.element.rhoz).sum();
+        assert!((total - 1.0).abs() < 1e-14);
+        assert_eq!(m.compound_list, vec![String::from("H2O"), String::from("C1H4")]);
         assert_eq!(m.compound_fractions, vec![0.25_f32, 0.75_f32]);
         assert_eq!(m.rho, 1.5);
     }
