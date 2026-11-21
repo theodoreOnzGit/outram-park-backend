@@ -11604,12 +11604,32 @@ mod tests {
     /// and direction differences over those; asserts nothing numerical.
     #[test]
     fn differential_tutor1_histories_against_compiled_egsnrc() {
-        use petir::rng::ranmar::Ranmar;
-        use std::sync::{Arc, RwLock};
         let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES") else {
             eprintln!("EGSNRC_REFERENCE_HISTORIES not set: differential test skipped");
             return;
         };
+        tutor1_histories_report(&reference, false);
+    }
+
+    /// Phase 2, EADL relaxation (the stock default, `eadl_relax = true`):
+    /// the same 200 histories with the Rust assembly using
+    /// [`init_compton_eadl`], [`edgset_eadl_from_text`] and the real
+    /// `relax.data`, against `histories.txt` of the `difftutE` build (the
+    /// `difftut` user code with its `eadl_relax=.false.;` line removed, run
+    /// from `EGSNRC_REFERENCE_HISTORIES_EADL`). Prints the same figures as
+    /// [`differential_tutor1_histories_against_compiled_egsnrc`].
+    #[test]
+    fn differential_tutor1_histories_against_compiled_egsnrc_eadl() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES_EADL") else {
+            eprintln!("EGSNRC_REFERENCE_HISTORIES_EADL not set: differential test skipped");
+            return;
+        };
+        tutor1_histories_report(&reference, true);
+    }
+
+    fn tutor1_histories_report(reference: &str, eadl: bool) {
+        use petir::rng::ranmar::Ranmar;
+        use std::sync::{Arc, RwLock};
         let dir = std::env::var("EGSNRC_HEN_HOUSE_DATA").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/data"));
         let path = std::env::var("EGSNRC_PEGS4_FILE").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4/data/tutor_data.pegs4dat"));
         let text = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
@@ -11628,7 +11648,7 @@ mod tests {
             photonuc: None,
             compton: BoundComptonData::Ratio(text("compton_sigma.data")),
             mxge: 2000,
-            eadl_relax: false,
+            eadl_relax: eadl,
             rm: RM,
             form_factors: Some(ff),
         };
@@ -11655,8 +11675,18 @@ mod tests {
         photon_med.gbr21 = u.gbr2.a1.clone();
         photon_med.cohe = u.cohe.clone();
         photon_med.rayleigh = u.rayleigh.clone();
-        let (relax_d, photo_d) = edgset_from_text(&text("photo_relax.data"), &text("photo_cs.data")).unwrap();
-        let compton = init_compton(&text("incoh.data"), &[comp.clone()], RM).unwrap();
+        let (relax_d, photo_d, compton) = if eadl {
+            // HATCH order for eadl_relax with the xcom series (egsnrc.mortran:2264-2274)
+            let mut be = ut.binding_energies.clone();
+            let compton = init_compton_eadl(&text("incoh.data"), &[comp.clone()], RM, &mut be, true).unwrap();
+            let rfile = EadlFile::from_bytes(&std::fs::read(format!("{dir}/relax.data")).unwrap()).unwrap();
+            let media_z = vec![comp.iter().map(|c| c.0).collect::<Vec<f64>>()];
+            let (rd, pd) = edgset_eadl_from_text(&text("photo_relax.data"), &text("photo_cs.data"), &rfile, &media_z, &mut be, false).unwrap();
+            (rd, pd, compton)
+        } else {
+            let (rd, pd) = edgset_from_text(&text("photo_relax.data"), &text("photo_cs.data")).unwrap();
+            (rd, pd, init_compton(&text("incoh.data"), &[comp.clone()], RM).unwrap())
+        };
         let rho = pm[0].rho;
         let photo_med = PhotoMedium { zelem: core::iter::once(0.0).chain(comp.iter().map(|c| c.0)).collect(), pz: core::iter::once(0.0).chain(comp.iter().map(|c| c.1)).collect() };
         photon_med.photo = photo_med;
