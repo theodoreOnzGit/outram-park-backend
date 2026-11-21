@@ -17,7 +17,7 @@ recoils) stay in `boon-lay`.
 
 ## Status
 
-Stated plainly: **decay-photon source spectra and a first port of OpenMC's photon samplers; no transport loop yet.**
+Stated plainly: **decay-photon source spectra and a first port of OpenMC's photon samplers (`compton_scatter`, `rayleigh_scatter`, `pair_production` bit-identical to a built OpenMC for uranium: `docs/openmc_photon_phase2.md`); no transport loop yet.**
 
 | Part | State |
 |---|---|
