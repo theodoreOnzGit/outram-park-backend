@@ -16,6 +16,10 @@
 #include "openmc/physics.h"
 #include "openmc/bremsstrahlung.h"
 #include "openmc/tensor.h"
+#include "openmc/nuclide.h"
+#include "openmc/hdf5_interface.h"
+#include <cstring>
+#include <unistd.h>
 
 using namespace openmc;
 
@@ -70,34 +74,51 @@ int main(int argc, char** argv) {
     fprintf(d, "shell %d %d %.17g %zu\n", sh.index_subshell, sh.threshold, sh.binding_energy, sh.transitions.size());
     for (auto& t : sh.transitions) fprintf(d, "%d %d %.17g %.17g\n", t.primary_subshell, t.secondary_subshell, t.energy, t.probability);
   }
-  // Synthetic thick-target bremsstrahlung tables (Material::init_bremsstrahlung
-  // is NOT exercised here; the sampler is). Smooth, positive, monotone CDFs.
-  const int NE = 24;
-  data::ttb_e_grid = tensor::zeros<double>({(size_t)NE});
-  for (int i = 0; i < NE; ++i) data::ttb_e_grid(i) = std::log(1.0e3 * std::pow(1.0e9 / 1.0e3, i / (NE - 1.0)));
+  // Real thick-target bremsstrahlung tables: Material::init_bremsstrahlung on
+  // this element (data::ttb_e_grid is still linear here, as upstream has it
+  // while materials are built), then the log of the grid.
+  const int NE = (int)data::ttb_e_grid.size();
+  {
+    hid_t fid2 = H5Fopen(file, H5F_ACC_RDONLY, H5P_DEFAULT);
+    hid_t g2 = H5Gopen(fid2, element, H5P_DEFAULT);
+    hid_t rg = open_group(g2, "bremsstrahlung");
+    tensor::Tensor<double> raw_dcs, raw_e, raw_ne, raw_ion; double Ival;
+    read_dataset(rg, "dcs", raw_dcs);
+    read_dataset(rg, "electron_energy", raw_e);
+    read_dataset(rg, "num_electrons", raw_ne);
+    read_dataset(rg, "ionization_energy", raw_ion);
+    read_attribute(rg, "I", Ival);
+    fprintf(d, "ttb_raw_dcs %zu %zu\n", raw_dcs.shape(0), raw_dcs.shape(1));
+    for (size_t i = 0; i < raw_dcs.size(); ++i) fprintf(d, "%.17g\n", raw_dcs.data()[i]);
+    dump_vec(d, "ttb_raw_e", raw_e.data(), raw_e.size());
+    dump_vec(d, "ttb_k_grid", data::ttb_k_grid.data(), data::ttb_k_grid.size());
+    dump_vec(d, "ttb_raw_ne", raw_ne.data(), raw_ne.size());
+    dump_vec(d, "ttb_raw_ion", raw_ion.data(), raw_ion.size());
+    fprintf(d, "ttb_scalars %.17g %.17g\n", Ival, (double)p.Z_);
+    dump_vec(d, "ttb_e_grid_lin", data::ttb_e_grid.data(), data::ttb_e_grid.size());
+    fprintf(d, "ttb_dcs %zu %zu\n", p.dcs_.shape(0), p.dcs_.shape(1));
+    for (size_t i = 0; i < p.dcs_.size(); ++i) fprintf(d, "%.17g\n", p.dcs_.data()[i]);
+    dump_vec(d, "ttb_srad", p.stopping_power_radiative_.data(), p.stopping_power_radiative_.size());
+    H5Gclose(rg); H5Gclose(g2); H5Fclose(fid2);
+  }
+  // a nuclide carrying only its awr (Nuclide has no default constructor; the
+  // process leaves with _exit so the bogus object is never destroyed)
+  static char nbuf[sizeof(Nuclide)] __attribute__((aligned(64)));
+  memset(nbuf, 0, sizeof(nbuf));
+  Nuclide* fake = reinterpret_cast<Nuclide*>(nbuf);
+  const double awr = (p.Z_ == 92) ? 238.0289 : (p.Z_ == 1 ? 1.007940 : 2.0 * p.Z_);
+  fake->awr_ = awr;
+  data::nuclides.push_back(unique_ptr<Nuclide>(fake));
   model::materials.push_back(make_unique<Material>());
   Material& mat = *model::materials[0];
   mat.element_ = {0};
   mat.nuclide_ = {0};
   mat.atom_density_ = tensor::zeros<double>({(size_t)1});
   mat.atom_density_(0) = 0.048;
-  mat.ttb_ = make_unique<Bremsstrahlung>();
-  for (int part = 0; part < 2; ++part) {
-    BremsstrahlungData* t = part == 0 ? &mat.ttb_->electron : &mat.ttb_->positron;
-    t->pdf = tensor::zeros<double>({(size_t)NE, (size_t)NE});
-    t->cdf = tensor::zeros<double>({(size_t)NE, (size_t)NE});
-    t->yield = tensor::zeros<double>({(size_t)NE});
-    for (int i = 0; i < NE; ++i) {
-      t->yield(i) = std::log(0.004 * (part == 0 ? 1.0 : 0.7) * std::pow(std::exp(data::ttb_e_grid(i)) / 1.0e5, 0.6));
-      double acc = 0.0;
-      for (int w = 0; w <= i; ++w) {
-        double k = std::exp(data::ttb_e_grid(w));
-        t->pdf(i, w) = (part == 0 ? 1.0 : 0.8) * (1.0 + 0.3 * w) / (k * (1.0 + 0.1 * i));
-        if (w > 0) acc += 0.5 * (t->pdf(i, w) + t->pdf(i, w - 1)) * (std::exp(data::ttb_e_grid(w)) - std::exp(data::ttb_e_grid(w - 1)));
-        t->cdf(i, w) = acc;
-      }
-    }
-  }
+  mat.density_ = 0.048;
+  fprintf(d, "ttb_mat %.17g %.17g %.17g\n", awr, mat.atom_density_(0), mat.density_);
+  mat.init_bremsstrahlung();
+  data::ttb_e_grid = tensor::log(data::ttb_e_grid);
   dump_vec(d, "ttb_e_grid", data::ttb_e_grid.data(), data::ttb_e_grid.size());
   for (int part = 0; part < 2; ++part) {
     BremsstrahlungData* t = part == 0 ? &mat.ttb_->electron : &mat.ttb_->positron;
@@ -105,6 +126,7 @@ int main(int argc, char** argv) {
     dump_vec(d, part == 0 ? "ttb_e_cdf" : "ttb_p_cdf", t->cdf.data(), t->cdf.size());
     dump_vec(d, part == 0 ? "ttb_e_yield" : "ttb_p_yield", t->yield.data(), t->yield.size());
   }
+  (void)NE;
   fclose(d);
 
   // samplers
@@ -222,5 +244,6 @@ int main(int argc, char** argv) {
     }
   }
   fclose(o);
-  return 0;
+  fflush(stdout);
+  _exit(0);
 }

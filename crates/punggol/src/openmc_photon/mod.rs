@@ -68,6 +68,7 @@ use petir::real::Real;
 use petir::rng::lcg::prn;
 
 pub mod bremsstrahlung;
+pub mod ttb_tables;
 #[cfg(test)]
 mod tests;
 pub mod reaction;

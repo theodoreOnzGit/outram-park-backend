@@ -15,8 +15,10 @@
 
 use punggol::openmc_photon::{ElectronSubshell, Matrix, PhotonInteraction, RelaxationSecondary, Tabulated1D, Transition};
 use outram_mc_libs::geometry::position::Direction;
+use petir::mathf::RealMath;
 use petir::rng::lcg::prn;
 use punggol::openmc_photon::bremsstrahlung::BremsstrahlungData;
+use punggol::openmc_photon::ttb_tables::{ElementTtbInput, TtbComponent, init_bremsstrahlung, prepare_element_ttb};
 use punggol::openmc_photon::reaction::{Event, PhotonSettings, PhotonState, TtbTables, sample_electron_reaction, sample_photon_reaction, sample_positron_reaction};
 use std::sync::Arc;
 
@@ -38,6 +40,14 @@ impl Dump {
         let v = self.lines[self.pos..self.pos + n].iter().map(|l| l.trim().parse().unwrap()).collect();
         self.pos += n;
         v
+    }
+    /// A `name rows cols` header followed by `rows * cols` numbers.
+    fn mat(&mut self, name: &str) -> (Vec<f64>, usize, usize) {
+        let h = self.header(name);
+        let (r, c): (usize, usize) = (h[0].parse().unwrap(), h[1].parse().unwrap());
+        let v = self.lines[self.pos..self.pos + r * c].iter().map(|l| l.trim().parse().unwrap()).collect();
+        self.pos += r * c;
+        (v, r, c)
     }
     fn tab(&mut self, name: &str) -> (Vec<f64>, Vec<f64>) {
         let n: usize = self.header(name)[0].parse().unwrap();
@@ -118,15 +128,56 @@ fn photon_samplers_against_compiled_openmc() {
         });
     }
 
-    let ttb_grid = d.vec("ttb_e_grid");
-    let ne = ttb_grid.len();
-    let mut ttb_table = |pre: &str| BremsstrahlungData {
+    // thick-target bremsstrahlung: derive the tables from the raw element data
+    // and compare with what `Material::init_bremsstrahlung` produced
+    let (raw_dcs, raw_r, raw_c) = d.mat("ttb_raw_dcs");
+    let raw_e = d.vec("ttb_raw_e");
+    let k_grid = d.vec("ttb_k_grid");
+    let raw_ne = d.vec("ttb_raw_ne");
+    let raw_ion = d.vec("ttb_raw_ion");
+    let sc = d.header("ttb_scalars");
+    let (i_ev, z_atomic): (f64, f64) = (sc[0].parse().unwrap(), sc[1].parse().unwrap());
+    let e_lin = d.vec("ttb_e_grid_lin");
+    let (c_dcs, _, _) = d.mat("ttb_dcs");
+    let c_srad = d.vec("ttb_srad");
+    let mh = d.header("ttb_mat");
+    let (awr, atom_density, density_entry): (f64, f64, f64) = (mh[0].parse().unwrap(), mh[1].parse().unwrap(), mh[2].parse().unwrap());
+    let ttb_grid_ref = d.vec("ttb_e_grid");
+    let ne = ttb_grid_ref.len();
+    let mut ref_table = |pre: &str| BremsstrahlungData {
         pdf: Matrix::new(d.vec(&format!("{pre}_pdf")), ne).unwrap(),
         cdf: Matrix::new(d.vec(&format!("{pre}_cdf")), ne).unwrap(),
         yield_: d.vec(&format!("{pre}_yield")),
     };
-    let ttb_electron = ttb_table("ttb_e");
-    let ttb_positron = ttb_table("ttb_p");
+    let ref_electron = ref_table("ttb_e");
+    let ref_positron = ref_table("ttb_p");
+    let input = ElementTtbInput {
+        z: z_atomic,
+        i_ev,
+        n_electrons: raw_ne,
+        ionization_energy: raw_ion,
+        dcs: Matrix::new(raw_dcs, raw_c).unwrap(),
+        electron_energy: raw_e,
+    };
+    assert_eq!(input.dcs.rows(), raw_r);
+    let (element_ttb, grid_lin) = prepare_element_ttb(&input, 1000.0, None, &k_grid);
+    let rel_v = |a: &[f64], b: &[f64]| a.iter().zip(b).fold(0.0_f64, |w, (x, y)| w.max(if *y == 0.0 { x.abs() } else { (x - y).abs() / y.abs() }));
+    let w_grid = rel_v(&grid_lin, &e_lin);
+    let w_dcs = rel_v(&(0..element_ttb.dcs.rows()).flat_map(|i| element_ttb.dcs.row(i).to_vec()).collect::<Vec<_>>(), &c_dcs);
+    let w_srad = rel_v(&element_ttb.stopping_power_radiative, &c_srad);
+    let comps = [TtbComponent { awr, atom_density, element: element_ttb }];
+    let derived = init_bremsstrahlung(&comps, density_entry, &grid_lin, &k_grid);
+    let ttb_grid: Vec<f64> = grid_lin.iter().map(|v| RealMath::r_ln(*v)).collect();
+    let flat = |m: &Matrix| (0..m.rows()).flat_map(|i| m.row(i).to_vec()).collect::<Vec<_>>();
+    let w_log_grid = rel_v(&ttb_grid, &ttb_grid_ref);
+    let w_pdf = rel_v(&flat(&derived.electron.pdf), &flat(&ref_electron.pdf)).max(rel_v(&flat(&derived.positron.pdf), &flat(&ref_positron.pdf)));
+    let w_cdf = rel_v(&flat(&derived.electron.cdf), &flat(&ref_electron.cdf)).max(rel_v(&flat(&derived.positron.cdf), &flat(&ref_positron.cdf)));
+    let w_yield = rel_v(&derived.electron.yield_, &ref_electron.yield_).max(rel_v(&derived.positron.yield_, &ref_positron.yield_));
+    eprintln!(
+        "TTB tables (Z = {z_atomic}, {ne} energies): grid {w_grid:e}, log grid {w_log_grid:e}, dcs {w_dcs:e}, radiative stopping power {w_srad:e}; electron+positron pdf {w_pdf:e}, cdf {w_cdf:e}, ln yield {w_yield:e} (worst relative)"
+    );
+    // the reaction samples below use the DERIVED tables, so they check the whole chain
+    let (ttb_electron, ttb_positron) = (derived.electron, derived.positron);
 
     let p = PhotonInteraction {
         z,
@@ -292,7 +343,7 @@ fn photon_samplers_against_compiled_openmc() {
                 if out.secondaries.len() != nsec {
                     react_bad_nsec += 1;
                     if std::env::var("OPENMC_DEBUG").is_ok() && react_bad_nsec < 8 {
-                        eprintln!("NSEC mode {mode} e {e} mt {} mine {} want {nsec}", st.event_mt, out.secondaries.len());
+                        eprintln!("NSEC mode {mode} e {e} mt {} mine {} want {nsec}\n mine {:?}\n want {:?}", st.event_mt, out.secondaries.len(), out.secondaries.iter().map(|x| x.e).collect::<Vec<_>>(), (0..nsec).map(|k| t[14 + 6 * k + 1].to_string()).collect::<Vec<_>>());
                     }
                 } else {
                     for (k, sec) in out.secondaries.iter().enumerate() {

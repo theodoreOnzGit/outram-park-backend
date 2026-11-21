@@ -9,7 +9,7 @@
 //   This port:        AGPL-3.0-only, with the MIT notice preserved here.
 //! **Thick-target bremsstrahlung (TTB)** from OpenMC (gh:#1683).
 //!
-//! **Status: first port, not differentially tested (gh:#1683).**
+//! **Status: first port, differentially tested against a built OpenMC for U and H (`docs/openmc_photon_phase2.md`); the tables it samples from are derived by [`super::ttb_tables`] (gh:#1683, gh:#1693).**
 //!
 //! Port of `thick_target_bremsstrahlung(Particle&, ParticleType, Direction,
 //! double)` (`src/bremsstrahlung.cpp:34-119`). Upstream reads the material's
@@ -18,7 +18,7 @@
 //! the photons are returned as [`BremsPhoton`]s. The `p.material() ==
 //! MATERIAL_VOID` early return is the caller's (`in_void`).
 //!
-//! No data is vendored: the tables come from OpenMC's `BREMX.DAT`-derived HDF5
+//! No data is vendored: the element data come from OpenMC's `BREMX.DAT`-derived HDF5
 //! files, read by a loader that is not part of this module.
 
 #[cfg(not(any(feature = "std", test)))]

@@ -211,6 +211,17 @@ fn neg(u: Direction) -> Direction {
     Direction::new(-u.u, -u.v, -u.w)
 }
 
+/// `Particle::create_secondary` (`particle.cpp:86-122`): a secondary whose
+/// energy is below its type's cutoff is not created (`E < energy_cutoff`).
+/// Every secondary of this module goes through here, as upstream's do.
+fn create_secondary(out: &mut ReactionOutcome, settings: &PhotonSettings, particle: ParticleType, u: Direction, e: f64, wgt: f64) -> bool {
+    if e < settings.cutoff(particle) {
+        return false;
+    }
+    out.secondaries.push(Secondary { particle, u, e, wgt });
+    true
+}
+
 /// `process_charged_secondary` (`physics.cpp:470-497`).
 pub fn process_charged_secondary(
     p: &PhotonState,
@@ -230,20 +241,20 @@ pub fn process_charged_secondary(
         if let Some(t) = ttb {
             let data = if particle == ParticleType::Positron { t.positron } else { t.electron };
             for ph in thick_target_bremsstrahlung(t.e_grid, data, p.in_void, settings.photon_cutoff, e, seed) {
-                out.secondaries.push(Secondary { particle: ParticleType::Photon, u, e: ph.energy, wgt: p.wgt });
+                create_secondary(out, settings, ParticleType::Photon, u, ph.energy, p.wgt);
             }
         }
     }
     if particle == ParticleType::Positron {
-        annihilate(p.wgt, out, seed);
+        annihilate(p.wgt, settings, out, seed);
         out.bank_second_e_offset -= 2.0 * MASS_ELECTRON_EV;
     }
 }
 
-fn annihilate(wgt: f64, out: &mut ReactionOutcome, seed: &mut u64) {
+fn annihilate(wgt: f64, settings: &PhotonSettings, out: &mut ReactionOutcome, seed: &mut u64) {
     let u = isotropic(seed);
-    out.secondaries.push(Secondary { particle: ParticleType::Photon, u, e: MASS_ELECTRON_EV, wgt });
-    out.secondaries.push(Secondary { particle: ParticleType::Photon, u: neg(u), e: MASS_ELECTRON_EV, wgt });
+    create_secondary(out, settings, ParticleType::Photon, u, MASS_ELECTRON_EV, wgt);
+    create_secondary(out, settings, ParticleType::Photon, neg(u), MASS_ELECTRON_EV, wgt);
 }
 
 /// Hand one relaxation secondary to the particle bank / charged seam, at the
@@ -258,12 +269,9 @@ fn apply_relaxation_secondary(
     seed: &mut u64,
 ) {
     match s {
-        RelaxationSecondary::Photon { u, energy } => out.secondaries.push(Secondary {
-            particle: ParticleType::Photon,
-            u: Direction::new(u.0, u.1, u.2),
-            e: energy,
-            wgt: p.wgt,
-        }),
+        RelaxationSecondary::Photon { u, energy } => {
+            create_secondary(out, settings, ParticleType::Photon, Direction::new(u.0, u.1, u.2), energy, p.wgt);
+        }
         RelaxationSecondary::Electron { u, energy } => process_charged_secondary(
             p,
             Direction::new(u.0, u.1, u.2),
@@ -420,7 +428,7 @@ pub fn sample_electron_reaction(
     if settings.electron_treatment == ElectronTreatment::Ttb {
         if let Some(t) = ttb {
             for ph in thick_target_bremsstrahlung(t.e_grid, t.electron, p.in_void, settings.photon_cutoff, p.e, seed) {
-                out.secondaries.push(Secondary { particle: ParticleType::Photon, u: p.u, e: ph.energy, wgt: p.wgt });
+                create_secondary(&mut out, settings, ParticleType::Photon, p.u, ph.energy, p.wgt);
             }
         }
     }
@@ -442,11 +450,11 @@ pub fn sample_positron_reaction(
     if settings.electron_treatment == ElectronTreatment::Ttb {
         if let Some(t) = ttb {
             for ph in thick_target_bremsstrahlung(t.e_grid, t.positron, p.in_void, settings.photon_cutoff, p.e, seed) {
-                out.secondaries.push(Secondary { particle: ParticleType::Photon, u: p.u, e: ph.energy, wgt: p.wgt });
+                create_secondary(&mut out, settings, ParticleType::Photon, p.u, ph.energy, p.wgt);
             }
         }
     }
-    annihilate(p.wgt, &mut out, seed);
+    annihilate(p.wgt, settings, &mut out, seed);
     p.e = 0.0;
     p.wgt = 0.0;
     p.event = Event::Absorb;
