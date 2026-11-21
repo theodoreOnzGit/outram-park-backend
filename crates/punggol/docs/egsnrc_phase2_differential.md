@@ -496,3 +496,29 @@ which call glibc) `differential_against_compiled_pegs4` is **bit-identical on
 all three media** (`pb700` 3388, `h2o700` 3741, `tis521` 674 lines, 0
 differing). The `no_std` build keeps the `f64` route (compiles; not bit-identical,
 as before). `ln32` in `init_spin` uses the same rule.
+
+
+## Option combinations, pair/triplet tables, `eii_L_factor` (2026-11-21)
+
+- **All options at once** (EADL, `eii_flag = 1`, `ibr_nist` 1 or 2, `pair_nrc = 1`,
+  `itriplet = 1`; reference `difftutX1`/`difftutX2`, test
+  `differential_tutor1_histories_against_compiled_egsnrc_all_options`,
+  `EGSNRC_REFERENCE_HISTORIES_ALL`): 200 of 200 same sequence, worst relative
+  kinetic energy **4.5e-16** (NIST) and **1.1e-15** (NRC).
+- **NRC pair and triplet tables themselves** (`difftutN` dumps `nrcp_*` and
+  `a_triplet`/`b_triplet` after `HATCH`; `EGSNRC_REFERENCE_PAIRTABLES`): triplet
+  `a`, `b`, `dl`, `dli`, `bli`, `log_4rm` **bit-identical**; NRC pair x grid,
+  `fdata`, `wdata`, `idata` bit-identical (3 layout offsets documented in the
+  test: the port keeps `fdata` 0-based and `wdata`, `idata` with slot 0 unused).
+  The header (`emin`, `emax`, `dle`, `dlei`) first differed by 4.2e-8 because
+  `log((emax-2)/(emin-2))/(ne-1)` is single precision in the source (`emin`,
+  `emax` are `real*4`); fixed, now bit-identical.
+- **`eii_L_factor`** (L-shell EII cross sections scaled, default 1; new
+  `eii_init_egsnrc_l`): reference with `eii_L_factor = 0.5`: tables bit-identical,
+  200 histories 1.0e-15; the control with the factor left at 1 against the same
+  reference diverges at history 1 (47 of 200 in sequence), so the factor does
+  act.
+- **`xsec_out`** only writes a diagnostic cross-section file: not ported on
+  purpose (no physics, `no_std` library).
+- **`egs_estar`** (density-effect correction for runs without a PEGS4 file) is
+  not ported nor compared: gh:#1696.

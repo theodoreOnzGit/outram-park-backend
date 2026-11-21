@@ -3352,8 +3352,9 @@ pub fn init_nrc_pair<F: FnMut(usize) -> Option<Vec<f32>>>(
     if ne as usize != NRC_PAIR_NEE {
         return Err(String::from("Inconsistent energy grid size"));
     }
+    // emin and emax are real*4 in the source, so the quotient, `log` and division are single precision
+    let dle = f64::from(ln32((emax - 2.0_f32) / (emin - 2.0_f32)) / (ne - 1) as f32);
     let (emin, emax) = (f64::from(emin), f64::from(emax));
-    let dle = RealMath::r_ln((emax - 2.0) / (emin - 2.0)) / (ne - 1) as f64;
     let nb = nb as usize;
     let nbb = nb / 2;
     let ddx = Real::sqrt(0.5) / nbb as f64;
@@ -4551,6 +4552,23 @@ pub fn eii_init_egsnrc(
     media: &mut [ElectronMediumData],
     rm: f64,
 ) -> Result<(EiiData, Vec<(f64, bool)>), String> {
+    eii_init_egsnrc_l(text, media_in, relax, media, rm, 1.0)
+}
+
+/// [`eii_init_egsnrc`] with `eii_L_factor` (`egsnrc.mortran`: the cross
+/// sections of the L shells, `1 < ish < 5`, are scaled by it; default 1).
+///
+/// # Errors
+///
+/// As [`eii_init`].
+pub fn eii_init_egsnrc_l(
+    text: &str,
+    media_in: &[EiiMediumInput],
+    relax: &RelaxData,
+    media: &mut [ElectronMediumData],
+    rm: f64,
+    eii_l_factor: f64,
+) -> Result<(EiiData, Vec<(f64, bool)>), String> {
     const MXELEMENT: usize = 100;
     const CONS: f64 = lit(0.153536); // 2 pi Re^2 rm / u
     let nmed = media_in.len() - 1;
@@ -4631,8 +4649,11 @@ pub fn eii_init_egsnrc(
             return Err(alloc::format!("EII data file has data for {nsh} shells for element {iz}, but {} are required", d.nshells[iz]));
         }
         for ish in 1..=nsh {
-            let fmax = read_record(&mut lines, 1)?[0];
+            let mut fmax = read_record(&mut lines, 1)?[0];
             let aux_array = read_record(&mut lines, nbin)?;
+            if ish > 1 && ish < 5 {
+                fmax *= eii_l_factor;
+            }
             if ish <= d.nshells[iz] {
                 ii += 1;
                 d.z[ii] = iz;
@@ -12495,6 +12516,21 @@ mod tests {
         tutor1_histories_report(&reference, true, false, ibr, false, 0);
     }
 
+    /// Phase 2, all options at once (EADL, `eii_flag = 1`, `ibr_nist`, `pair_nrc = 1`,
+    /// `itriplet = 1`; `EGSNRC_IBR_NIST` selects 1 or 2, default 1), against the
+    /// `difftutX` build (`difftutE` plus the five assignments before `CALL
+    /// HATCH`, `BREMPR` and `EII-DATA` in the `COMIN` list;
+    /// `EGSNRC_REFERENCE_HISTORIES_ALL`).
+    #[test]
+    fn differential_tutor1_histories_against_compiled_egsnrc_all_options() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_HISTORIES_ALL") else {
+            eprintln!("EGSNRC_REFERENCE_HISTORIES_ALL not set: differential test skipped");
+            return;
+        };
+        let ibr = std::env::var("EGSNRC_IBR_NIST").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+        tutor1_histories_report(&reference, true, true, ibr, true, 1);
+    }
+
     fn tutor1_histories_report(reference: &str, eadl: bool, eii: bool, ibr_nist: i32, pair_nrc: bool, itriplet: i32) {
         use petir::rng::ranmar::Ranmar;
         use std::sync::{Arc, RwLock};
@@ -12566,6 +12602,58 @@ mod tests {
             None
         };
         let triplet_data = if itriplet > 0 { Some(init_triplet(&text("triplet.data"), &[Vec::new(), comp.clone()], RM).unwrap()) } else { None };
+        if let Ok(path) = std::env::var("EGSNRC_REFERENCE_PAIRTABLES") {
+            // `NRCP`, `NRCX`, `NRCT`, `TRIS`, `TRIT` lines of the `difftutN` dump
+            let txt = std::fs::read_to_string(path).unwrap();
+            let rel = |a: f64, b: f64| if b == 0.0 { a.abs() } else { (a - b).abs() / b.abs() };
+            let (mut w_nrc, mut w_trip, mut int_bad) = (0.0_f64, 0.0_f64, 0usize);
+            let (mut w_x, mut w_f, mut w_w) = (0.0_f64, 0.0_f64, 0.0_f64);
+            let (mut ix, mut it, mut ie, mut ik) = (1usize, 1usize, 1usize, 1usize);
+            for l in txt.lines() {
+                let t: Vec<&str> = l.split_whitespace().collect();
+                let v = |k: usize| -> f64 { t[k].parse().unwrap() };
+                match t[0] {
+                    "NRCP" => {
+                        let n = nrc_pair.as_ref().expect("NRC pair tables");
+                        w_nrc = w_nrc.max(rel(n.emin, v(1))).max(rel(n.emax, v(2))).max(rel(n.dle, v(3))).max(rel(n.dlei, v(4)));
+                    }
+                    "NRCX" => {
+                        let n = nrc_pair.as_ref().unwrap();
+                        w_x = w_x.max(rel(n.xdata[ix - 1], v(1)));
+                        ix += 1;
+                    }
+                    "NRCT" => {
+                        let bin = &nrc_pair.as_ref().unwrap().tables[1][ie];
+                        // the port keeps `fdata` 0-based and `wdata`, `idata` with slot 0 unused: the
+                        // Fortran element `k` is `fdata[k - 1]`, `wdata[k]`, `idata[k]`, and the
+                        // last Fortran slot (65) has no counterpart
+                        w_f = w_f.max(rel(bin.fdata[ik - 1], v(1)));
+                        if ik < 65 {
+                            w_w = w_w.max(rel(bin.wdata[ik], v(2)));
+                            if bin.idata[ik] != t[3].parse::<i32>().unwrap() {
+                                int_bad += 1;
+                            }
+                        }
+                        ik += 1;
+                        if ik > 65 {
+                            ik = 1;
+                            ie += 1;
+                        }
+                    }
+                    "TRIS" => {
+                        let d = triplet_data.as_ref().expect("triplet data");
+                        w_trip = w_trip.max(rel(d.dl_triplet, v(1))).max(rel(d.dli_triplet, v(2))).max(rel(d.bli_triplet, v(3))).max(rel(d.log_4rm, v(4)));
+                    }
+                    "TRIT" => {
+                        let d = triplet_data.as_ref().unwrap();
+                        w_trip = w_trip.max(rel(d.a_triplet[1][it], v(1))).max(rel(d.b_triplet[1][it], v(2)));
+                        it += 1;
+                    }
+                    _ => {}
+                }
+            }
+            eprintln!("pair tables: NRC pair header {w_nrc:e}, x grid {w_x:e}, fdata {w_f:e}, wdata {w_w:e} (integer mismatches {int_bad}); triplet worst relative {w_trip:e}");
+        }
         let ptables = PhotonTables {
             regions: vec![PhotonRegionData::default(), reg(0, 0.0), reg(1, rho), reg(0, 0.0)],
             media: vec![PhotonMediumData::default(), photon_med],
@@ -12646,7 +12734,7 @@ mod tests {
             let d = if std::env::var("EGSNRC_EII_STANDALONE_FILE").is_ok() {
                 eii_init(&text("eii_ik.data"), &inputs, &relax_d, &mut etables.media, RM, readings).unwrap()
             } else {
-                eii_init_egsnrc(&text("eii_ik.data"), &inputs, &relax_d, &mut etables.media, RM).unwrap().0
+                eii_init_egsnrc_l(&text("eii_ik.data"), &inputs, &relax_d, &mut etables.media, RM, std::env::var("EGSNRC_EII_L_FACTOR").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0)).unwrap().0
             };
             etables.eii = Some(ElectrEii { data: d, comp: vec![Vec::new(), comp.clone()], relax: relax_d.clone() });
             if let Ok(tabs) = std::env::var("EGSNRC_REFERENCE_EII_TABLES") {
