@@ -54,12 +54,19 @@ H samplers: 5584 samples, all 0 (alpha, mu, shell, pair, final seed). The
 1e-16 residuals are last-bit round-off (below the 1e-9 allowance); cause not
 traced further.
 
+`atomic_relaxation` (2026-11-21; charged secondaries deposited locally, i.e.
+`ElectronTreatment::LED`, so the bank holds the fluorescent photons): U, 29
+shells x 3 particle energies x 40 seeds = 3480 cascades (241 of them emitted
+263 photons; the others are below the binding energy or Auger-only), plus
+`calc_max_stack_size` (6, equal). Photon-count mismatches 0, final-seed
+mismatches 0, worst energy/direction difference 1.1e-16 (round-off). H has no
+relaxation data (120 trivial cascades, equal).
+
 So the Rust samplers consume exactly the same random numbers in the same order
 and give bit-identical results for this element.
 
 ## Not yet compared
 
-`atomic_relaxation`,
 `thick_target_bremsstrahlung`, `sample_photon_reaction`,
 `sample_electron_reaction`, `sample_positron_reaction`,
 `process_charged_secondary`, and further elements (U and H only). The data come from ENDF/B-VIII.0

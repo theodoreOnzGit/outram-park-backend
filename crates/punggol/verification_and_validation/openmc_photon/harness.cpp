@@ -10,6 +10,8 @@
 #include "openmc/random_lcg.h"
 #include "openmc/particle.h"
 #include "openmc/memory.h"
+#include "openmc/settings.h"
+#include "openmc/geometry.h"
 
 using namespace openmc;
 
@@ -57,6 +59,13 @@ int main(int argc, char** argv) {
     double x = 1.0e-3 * std::pow(1.5, i);
     fprintf(d, "%.17g %.17g %.17g\n", x, p.incoherent_form_factor_(x), p.coherent_int_form_factor_(x));
   }
+  fprintf(d, "has_atomic_relaxation %d\n", p.has_atomic_relaxation_ ? 1 : 0);
+  fprintf(d, "max_stack %d\n", p.has_atomic_relaxation_ ? p.calc_max_stack_size() : 0);
+  fprintf(d, "shells %zu\n", p.shells_.size());
+  for (auto& sh : p.shells_) {
+    fprintf(d, "shell %d %d %.17g %zu\n", sh.index_subshell, sh.threshold, sh.binding_energy, sh.transitions.size());
+    for (auto& t : sh.transitions) fprintf(d, "%d %d %.17g %.17g\n", t.primary_subshell, t.secondary_subshell, t.energy, t.probability);
+  }
   fclose(d);
 
   // samplers
@@ -97,6 +106,29 @@ int main(int argc, char** argv) {
         double ee, ep, mue, mup;
         p.pair_production(alpha, &ee, &ep, &mue, &mup, &seed);
         fprintf(o, "pair %.17g %llu %.17g %.17g %.17g %.17g %llu\n", alpha, (unsigned long long)seed_in, ee, ep, mue, mup, (unsigned long long)seed);
+      }
+    }
+  }
+  // atomic relaxation (local energy deposition for charged secondaries, so only
+  // the fluorescent photons are banked)
+  settings::electron_treatment = ElectronTreatment::LED;
+  model::n_coord_levels = 1;
+  const double pes[] = {5.0e4, 1.0e5, 1.0e6};
+  for (size_t ish = 0; ish < p.shells_.size(); ++ish) {
+    for (double pe : pes) {
+      for (uint64_t s0 = 1; s0 <= 40; ++s0) {
+        Particle part;
+        part.E() = pe;
+        part.wgt() = 1.0;
+        part.stream() = 0;
+        part.seeds(0) = s0 * 15485863ULL;
+        uint64_t seed_in = part.seeds(0);
+        part.local_secondary_bank().clear();
+        p.atomic_relaxation((int)ish, part);
+        auto& bank = part.local_secondary_bank();
+        fprintf(o, "relax %zu %.17g %llu %llu %zu", ish, pe, (unsigned long long)seed_in, (unsigned long long)part.seeds(0), bank.size());
+        for (auto& sb : bank) fprintf(o, " %.17g %.17g %.17g %.17g", sb.E, sb.u.x, sb.u.y, sb.u.z);
+        fprintf(o, "\n");
       }
     }
   }

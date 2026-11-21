@@ -13,7 +13,7 @@
 //! `Tabulated1D` probes are reproduced and that the sample files parse.
 //! Results: `docs/openmc_photon_phase2.md`.
 
-use punggol::openmc_photon::{Matrix, PhotonInteraction, Tabulated1D};
+use punggol::openmc_photon::{ElectronSubshell, Matrix, PhotonInteraction, RelaxationSecondary, Tabulated1D, Transition};
 use std::sync::Arc;
 
 struct Dump {
@@ -82,12 +82,37 @@ fn photon_samplers_against_compiled_openmc() {
     // probes: the Rust interpolation must reproduce OpenMC's Tabulated1D
     let _ = d.header("probes");
     let mut worst_probe = 0.0_f64;
-    while d.pos < d.lines.len() {
+    for _ in 0..20 {
         let v: Vec<f64> = d.lines[d.pos].split_whitespace().map(|t| t.parse().unwrap()).collect();
         d.pos += 1;
         worst_probe = worst_probe.max((inc.eval(v[0]) - v[1]).abs() / v[1].abs().max(1e-300)).max((coh.eval(v[0]) - v[2]).abs() / v[2].abs().max(1e-300));
     }
     eprintln!("Tabulated1D probes: worst relative difference {worst_probe:e}");
+    let has_relax = d.header("has_atomic_relaxation")[0] == "1";
+    let max_stack: i32 = d.header("max_stack")[0].parse().unwrap();
+    let n_shells: usize = d.header("shells")[0].parse().unwrap();
+    let mut shells = Vec::new();
+    for _ in 0..n_shells {
+        let h = d.header("shell");
+        let nt: usize = h[3].parse().unwrap();
+        let mut transitions = Vec::new();
+        for _ in 0..nt {
+            let v: Vec<&str> = d.lines[d.pos].split_whitespace().collect();
+            d.pos += 1;
+            transitions.push(Transition {
+                primary_subshell: v[0].parse().unwrap(),
+                secondary_subshell: v[1].parse().unwrap(),
+                energy: v[2].parse().unwrap(),
+                probability: v[3].parse().unwrap(),
+            });
+        }
+        shells.push(ElectronSubshell {
+            index_subshell: h[0].parse().unwrap(),
+            threshold: h[1].parse().unwrap(),
+            binding_energy: h[2].parse().unwrap(),
+            transitions,
+        });
+    }
 
     let p = PhotonInteraction {
         z,
@@ -106,8 +131,16 @@ fn photon_samplers_against_compiled_openmc() {
         binding_energy: be,
         electron_pdf: epdf,
         subshell_map: smap,
+        has_atomic_relaxation: has_relax,
+        shells,
         ..Default::default()
     };
+
+    if has_relax {
+        assert_eq!(p.calc_max_stack_size(), max_stack, "calc_max_stack_size");
+    }
+    let (mut n_relax, mut relax_seed_bad, mut relax_count_bad) = (0usize, 0usize, 0usize);
+    let mut w_relax = 0.0_f64;
 
     let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
     let (mut n, mut seed_bad, mut shell_bad) = (0usize, 0usize, 0usize);
@@ -165,6 +198,32 @@ fn photon_samplers_against_compiled_openmc() {
                     seed_bad += 1;
                 }
             }
+            "relax" => {
+                n_relax += 1;
+                let ish: usize = t[1].parse().unwrap();
+                let pe: f64 = t[2].parse().unwrap();
+                let mut seed: u64 = t[3].parse().unwrap();
+                let out = p.atomic_relaxation(ish, pe, 1000.0, &mut seed);
+                if seed != t[4].parse::<u64>().unwrap() {
+                    relax_seed_bad += 1;
+                }
+                // upstream's bank holds the photons only (charged secondaries are deposited locally)
+                let photons: Vec<(f64, (f64, f64, f64))> = out
+                    .iter()
+                    .filter_map(|s| match s {
+                        RelaxationSecondary::Photon { u, energy } => Some((*energy, *u)),
+                        _ => None,
+                    })
+                    .collect();
+                if photons.len() != t[5].parse::<usize>().unwrap() {
+                    relax_count_bad += 1;
+                } else {
+                    for (k, (e, u)) in photons.iter().enumerate() {
+                        let v: Vec<f64> = t[6 + 4 * k..10 + 4 * k].iter().map(|x| x.parse().unwrap()).collect();
+                        w_relax = w_relax.max(rel(*e, v[0])).max((u.0 - v[1]).abs()).max((u.1 - v[2]).abs()).max((u.2 - v[3]).abs());
+                    }
+                }
+            }
             other => panic!("unknown sample kind {other}"),
         }
     }
@@ -174,6 +233,9 @@ fn photon_samplers_against_compiled_openmc() {
     eprintln!(
         "{n_xs} calculate_xs points: index mismatches {idx_bad}; worst difference (relative, absolute where the reference is 0): interp {:e}, coherent {:e}, incoherent {:e}, photoelectric {:e}, pair {:e}, total {:e}",
         w_xs[0], w_xs[1], w_xs[2], w_xs[3], w_xs[4], w_xs[5]
+    );
+    eprintln!(
+        "{n_relax} atomic_relaxation cascades (max stack {max_stack}): photon-count mismatches {relax_count_bad}, final-seed mismatches {relax_seed_bad}, worst photon energy/direction difference {w_relax:e}"
     );
     assert!(n > 0);
 }
