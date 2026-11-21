@@ -27,6 +27,9 @@
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::material::material::{Material, NuclideComponent};
+use crate::material::material_sab::{assign_material_sab, MaterialSab};
+use crate::material::nuclide::Nuclide;
+use crate::material::thermal::ThermalScattering;
 use crate::pebble_beds::fhr_pebble::TrisoSpec;
 use crate::pebble_beds::htr10::{
     u235_atom_fraction, C12_ATOM_FRACTION_OF_NATURAL_C, C13_ATOM_FRACTION_OF_NATURAL_C,
@@ -222,9 +225,216 @@ pub fn cell_radius(r_lump: f64, c_per_u: f64) -> f64 {
     r_lump / uranium_volume_fraction(c_per_u).r_cbrt()
 }
 
+/// What a nuclide of the five-nuclide table [`TAPES`] is, so that code asks
+/// for "the carbon-12" and not for "slot 3" (GitHub #1635 item 3).
+///
+/// New work (2026-11-17), beside [`Mix`] and not in place of it:
+/// [`Mix::densities`] keeps its positional order, and [`Mix::density_of`] and
+/// [`RoleIndex`] are the role-keyed views of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    U234,
+    U235,
+    U238,
+    C12,
+    C13,
+}
+
+impl Role {
+    /// Every role, in [`TAPES`] order.
+    pub const ALL: [Role; 5] = [Role::U234, Role::U235, Role::U238, Role::C12, Role::C13];
+
+    /// Position of this role's tape in [`TAPES`] (and of its density in
+    /// [`Mix::densities`]): the one place the order is spelled out.
+    pub const fn tape_index(self) -> usize {
+        match self {
+            Role::U234 => 0,
+            Role::U235 => 1,
+            Role::U238 => 2,
+            Role::C12 => 3,
+            Role::C13 => 4,
+        }
+    }
+
+    /// True for the two carbons, the roles the graphite law binds to.
+    pub fn is_carbon(self) -> bool {
+        matches!(self, Role::C12 | Role::C13)
+    }
+
+    /// True for the three uranium isotopes.
+    pub fn is_uranium(self) -> bool {
+        !self.is_carbon()
+    }
+}
+
+impl Mix {
+    /// This mixture's atom density of one role \[atoms/barn-cm\]; the same
+    /// numbers as [`Mix::densities`], asked for by role.
+    pub fn density_of(&self, role: Role) -> f64 {
+        self.densities()[role.tape_index()]
+    }
+}
+
+/// Where each [`Role`]'s nuclide sits in the array that the materials
+/// reference. With nothing bound ([`RoleIndex::free`]) that is [`TAPES`]
+/// order; after [`bind_graphite`] the two carbons point at their bound copies,
+/// which are appended after the table, so a density vector must be built
+/// through this index, never by array position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RoleIndex {
+    slots: [usize; 5],
+}
+
+impl RoleIndex {
+    /// Nothing bound: role `r` is nuclide `r.tape_index()`.
+    pub fn free() -> Self {
+        Self { slots: [0, 1, 2, 3, 4] }
+    }
+
+    /// Index of the nuclide that carries `role` in the materials' array.
+    pub fn slot(&self, role: Role) -> usize {
+        self.slots[role.tape_index()]
+    }
+
+    /// One atom density per nuclide of an array of `n_nuclides`: the mixture's
+    /// density of each role on that role's slot, zero on every other nuclide
+    /// (the free carbon the bound copy replaced, say).
+    pub fn densities(&self, mix: &Mix, n_nuclides: usize) -> Vec<f64> {
+        let mut d = vec![0.0; n_nuclides];
+        for role in Role::ALL {
+            d[self.slot(role)] = mix.density_of(role);
+        }
+        d
+    }
+
+    /// The per-nuclide values `per_nuclide` (an array of the same length as the
+    /// nuclide array) read back by role.
+    pub fn by_role<T: Copy>(&self, per_nuclide: &[T]) -> [T; 5] {
+        [
+            per_nuclide[self.slots[0]],
+            per_nuclide[self.slots[1]],
+            per_nuclide[self.slots[2]],
+            per_nuclide[self.slots[3]],
+            per_nuclide[self.slots[4]],
+        ]
+    }
+}
+
+/// The result of [`bind_graphite`].
+#[derive(Debug, Clone)]
+pub struct GraphiteBinding {
+    /// The materials, carbon components repointed at the bound copies.
+    pub materials: Vec<Material>,
+    /// The table with the bound carbon copies appended after it.
+    pub nuclides: Vec<Nuclide>,
+    /// Where each role sits in [`Self::nuclides`].
+    pub roles: RoleIndex,
+}
+
+/// Give every material that holds carbon the crystalline-graphite law on its
+/// carbon, per material as OpenMC does (GitHub #462, #1635 item 3): the table
+/// `nuclides` (the five of [`TAPES`] first, free) keeps its entries and its
+/// indices, and [`assign_material_sab`] appends a bound copy of C-12 and of
+/// C-13 for the materials that reference them. A material without carbon (a
+/// uranium lump) is untouched. `law = None` binds nothing (the explicit
+/// ablation): the materials and the table come back unchanged.
+///
+/// # Errors
+///
+/// Fewer than five nuclides, or whatever [`assign_material_sab`] refuses
+/// (notably a carbon slot already bound by the deprecated nuclide-level call).
+pub fn bind_graphite(
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    law: Option<&ThermalScattering>,
+) -> Result<GraphiteBinding, String> {
+    if nuclides.len() < TAPES.len() {
+        return Err(format!("{} nuclides, the table has {}", nuclides.len(), TAPES.len()));
+    }
+    let Some(law) = law else {
+        return Ok(GraphiteBinding {
+            materials: materials.to_vec(),
+            nuclides: nuclides.to_vec(),
+            roles: RoleIndex::free(),
+        });
+    };
+    let mut entries: Vec<MaterialSab> = Vec::new();
+    for role in [Role::C12, Role::C13] {
+        entries.extend(MaterialSab::for_materials_containing(materials, role.tape_index(), 0, &[]));
+    }
+    let (out_mats, out_nucs) =
+        assign_material_sab(materials, nuclides, std::slice::from_ref(law), &entries)?;
+    // The bound copy of a role: what the first material holding it now
+    // references at the same component position (fraction 1 keeps positions).
+    let mut roles = RoleIndex::free();
+    for role in [Role::C12, Role::C13] {
+        let free = role.tape_index();
+        let found = materials.iter().enumerate().find_map(|(m, mat)| {
+            mat.components
+                .iter()
+                .position(|c| c.nuclide_idx == free)
+                .map(|k| out_mats[m].components[k].nuclide_idx)
+        });
+        if let Some(bound) = found {
+            roles.slots[free] = bound;
+        }
+    }
+    Ok(GraphiteBinding { materials: out_mats, nuclides: out_nucs, roles })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Five stand-in nuclides (the roles do not depend on the data) and the
+    /// graphite law replaced by any law: the structure of the binding is what
+    /// is under test. Pins that the carbon of every carbon-bearing material
+    /// moves to a bound copy, the uranium and a carbon-free material do not,
+    /// and a density vector built by role puts each density on the nuclide
+    /// its material references (GitHub #1635 item 3).
+    #[test]
+    fn binding_graphite_moves_carbon_to_bound_copies_and_roles_follow() {
+        use crate::material::nuclide::Nuclide;
+        use njoy_outram_park_fork::leapr::decks::SabMaterial;
+        let table: Vec<Nuclide> = (0..5).map(|_| Nuclide::from_core("H1").expect("core H1")).collect();
+        let law = ThermalScattering::from_embedded_leapr_deck(SabMaterial::HInH2O, 296.0, "law")
+            .expect("embedded law");
+        let mix = natural_mix(600.0);
+        let mats = vec![uranium_metal().material(1, "U"), graphite().material(2, "C"), mix.material(3, "mix")];
+
+        // Free (ablation): nothing changes, roles are the positional order.
+        let free = bind_graphite(&mats, &table, None).expect("free");
+        assert_eq!(free.nuclides.len(), 5);
+        assert_eq!(free.roles, RoleIndex::free());
+        assert_eq!(free.roles.densities(&mix, 5), mix.densities().to_vec());
+
+        let b = bind_graphite(&mats, &table, Some(&law)).expect("bound");
+        assert_eq!(b.nuclides.len(), 7, "two bound carbon copies appended");
+        assert_eq!((b.roles.slot(Role::C12), b.roles.slot(Role::C13)), (5, 6));
+        for r in [Role::U234, Role::U235, Role::U238] {
+            assert_eq!(b.roles.slot(r), r.tape_index());
+        }
+        assert!(b.nuclides[5].has_thermal_scattering() && b.nuclides[6].has_thermal_scattering());
+        assert!(!b.nuclides[3].has_thermal_scattering() && !b.nuclides[4].has_thermal_scattering());
+        // The uranium lump is untouched; graphite and mix reference the copies.
+        let key = |m: &Material| m.components.iter().map(|c| (c.nuclide_idx, c.atom_density)).collect::<Vec<_>>();
+        assert_eq!(key(&b.materials[0]), key(&mats[0]));
+        for m in [1, 2] {
+            for c in &b.materials[m].components {
+                assert!(c.nuclide_idx != 3 && c.nuclide_idx != 4, "material {m} still holds a free carbon");
+            }
+        }
+        // Role-keyed densities equal what the material holds, nuclide by nuclide.
+        let d = b.roles.densities(&mix, b.nuclides.len());
+        for c in &b.materials[2].components {
+            assert_eq!(d[c.nuclide_idx], c.atom_density, "nuclide {}", c.nuclide_idx);
+        }
+        assert_eq!(d[3], 0.0);
+        assert_eq!(d[4], 0.0);
+        assert_eq!(b.roles.by_role(&d), mix.densities());
+        // Too short a table is refused.
+        assert!(bind_graphite(&mats, &table[..4], Some(&law)).is_err());
+    }
 
     /// The pebble closes on the specification's own 5 g of heavy metal and
     /// 8335 particles, and the ratio the records quote is reproduced.

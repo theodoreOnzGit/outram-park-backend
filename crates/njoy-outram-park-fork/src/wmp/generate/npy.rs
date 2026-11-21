@@ -15,8 +15,12 @@
 // The LAPACK-backed calls (`scipy.linalg.lstsq` = DGELSD, `np.linalg.lstsq`
 // = DGELSD, `scipy.linalg.eigvals` = DGEEV) are NOT reproduced bit for bit:
 // they are re-expressed on PETIR's GSL ports (Golub-Reinsch SVD, Francis QR),
-// with the same truncation rule. See `docs/wmp-generation.md` for the measured
-// consequence.
+// with ~~the same truncation rule~~ **CORRECTED 2026-11-19 (gh:#1390)**: the same *stated* rule (`s <= rcond * s_max` is
+// dropped) applied to the exact SVD of the triangle; DGELSD's divide and conquer keeps one MORE singular value than DGESDD,
+// DGESVD and DGELSS in 17 of 42 measured pole-identification solves of U-238 piece 296 (and one fewer in none), and
+// the port agrees with those three (41 of 42): `verification_and_validation/wmp_generate_u238/README.md`, "Diagnosis of
+// the dense end on piece 296". See `verification_and_validation/wmp_generate/README.md` for the
+// measured consequence (~~`docs/wmp-generation.md`~~ does not exist, corrected 2026-11-18).
 
 //! numpy/scipy primitives for the WMP generator (gh:#1390).
 

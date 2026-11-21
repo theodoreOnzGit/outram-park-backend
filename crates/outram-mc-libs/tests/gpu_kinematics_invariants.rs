@@ -55,7 +55,7 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;
-use outram_mc_libs::gpu::{probe, GpuContext};
+use outram_mc_libs::gpu::{shared_probe, GpuContext};
 
 use outram_mc_libs::gpu::batched_event::shader_source;
 
@@ -340,7 +340,7 @@ fn the_reference_identities_are_self_consistent() {
 /// GPU-vs-mirror test could not give at any tolerance.
 #[test]
 fn gpu_elastic_kinematics_match_the_closed_form() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_elastic_kinematics_match_the_closed_form: no GPU adapter");
         return;
     };
@@ -421,7 +421,7 @@ fn gpu_elastic_kinematics_match_the_closed_form() {
 /// collision in many thousands and vanish into the statistics.
 #[test]
 fn gpu_rotate_direction_preserves_the_unit_norm_and_the_cosine() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!(
             "SKIP gpu_rotate_direction_preserves_the_unit_norm_and_the_cosine: no GPU adapter"
         );
@@ -480,7 +480,7 @@ fn gpu_rotate_direction_preserves_the_unit_norm_and_the_cosine() {
 /// neutrons from nothing, which no tolerance should absorb.
 #[test]
 fn gpu_scattered_energy_stays_within_the_elastic_band() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_scattered_energy_stays_within_the_elastic_band: no GPU adapter");
         return;
     };

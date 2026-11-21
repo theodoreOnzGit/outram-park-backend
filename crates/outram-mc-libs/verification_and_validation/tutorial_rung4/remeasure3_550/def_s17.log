@@ -1,0 +1,52 @@
+LEU-COMP-THERM-008 pin cell, reflective square lattice: k∞ against pitch
+  nuclide tier: CHEAP (--cheap-nuclides) (11 tapes); soluble boron: case-1, 1511 ppm
+  material 1 "Water with 1511 PPM": omitted 6.750e-5 of 1.002e-1 /b·cm (0.07 % of its atoms)
+  material 3 "Aluminum 6061 Cladding for Fuel": omitted 1.032e-3 of 5.538e-2 /b·cm (1.86 % of its atoms)
+  omitted (not in the active nuclide tier, or no tape): B11, Cr50, Cr52, Cr53, Cr54, Cu63, Cu65, Fe54, Fe56, Fe57, Fe58, Mg24, Mg25, Mg26, Ti46, Ti47, Ti48, Ti49, Ti50, Zn64, Zn66, Zn67, Zn68, Zn70 — 1.100e-3 /b·cm in total
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K, URR + DBRC by default):
+  H1        0.1 s  urr=false dbrc=true sab=true
+  O16       4.0 s  urr=false dbrc=true sab=false
+  B10       0.2 s  urr=false dbrc=true sab=false
+  U234     19.5 s  urr=true dbrc=true sab=false
+  U235    130.5 s  urr=true dbrc=true sab=false
+  U238    110.9 s  urr=true dbrc=true sab=false
+  Al27      2.1 s  urr=false dbrc=true sab=false
+  Si28      1.7 s  urr=false dbrc=true sab=false
+  Si29      1.7 s  urr=false dbrc=true sab=false
+  Si30      1.4 s  urr=false dbrc=true sab=false
+  Mn55     10.0 s  urr=true dbrc=true sab=false
+Nuclear data ready in 315.3 s (282.1 s of it the 11 nuclides, the rest the S(a,b)).
+
+  pitch    p/d    Vm/Vf   k_inf ± σ              eta     f       p       eps     leak     t[s]
+  1.63576  1.356   1.841  1.06074 ± 0.00111  1.7756  0.6808  0.7587  1.1571  0.0e0  369
+SEED 1.63576 17 1.06074 0.00111
+  1.75000  1.451   2.306  1.01167 ± 0.00099  1.7769  0.6293  0.7945  1.1378  0.0e0  380
+SEED 1.75 17 1.01167 0.00099
+  1.63576  1.356   1.841  1.06337 ± 0.00105  1.7756  0.6810  0.7587  1.1571  0.0e0  539
+SEED 1.63576 18 1.06337 0.00105
+  1.75000  1.451   2.306  1.01259 ± 0.00104  1.7770  0.6295  0.7943  1.1373  0.0e0  455
+SEED 1.75 18 1.01259 0.00104
+  1.63576  1.356   1.841  1.06114 ± 0.00105  1.7756  0.6807  0.7582  1.1570  0.0e0  532
+SEED 1.63576 19 1.06114 0.00105
+  1.75000  1.451   2.306  1.01095 ± 0.00108  1.7769  0.6294  0.7944  1.1374  0.0e0  488
+SEED 1.75 19 1.01095 0.00108
+  1.63576  1.356   1.841  1.06157 ± 0.00091  1.7756  0.6811  0.7586  1.1571  0.0e0  541
+SEED 1.63576 20 1.06157 0.00091
+  1.75000  1.451   2.306  1.01108 ± 0.00101  1.7769  0.6291  0.7938  1.1376  0.0e0  355
+SEED 1.75 20 1.01108 0.00101
+  1.63576  1.356   1.841  1.06166 ± 0.00094  1.7756  0.6808  0.7587  1.1572  0.0e0  385
+SEED 1.63576 21 1.06166 0.00094
+  1.75000  1.451   2.306  1.01158 ± 0.00103  1.7769  0.6296  0.7941  1.1375  0.0e0  343
+SEED 1.75 21 1.01158 0.00103
+  1.63576  1.356   1.841  1.06104 ± 0.00097  1.7756  0.6806  0.7583  1.1573  0.0e0  391
+SEED 1.63576 22 1.06104 0.00097
+  1.75000  1.451   2.306  1.01352 ± 0.00110  1.7770  0.6291  0.7943  1.1374  0.0e0  347
+SEED 1.75 22 1.01352 0.00110
+  1.63576  1.356   1.841  1.06161 ± 0.00106  1.7756  0.6803  0.7589  1.1568  0.0e0  382
+SEED 1.63576 23 1.06161 0.00106
+  1.75000  1.451   2.306  1.01242 ± 0.00098  1.7770  0.6291  0.7940  1.1376  0.0e0  345
+SEED 1.75 23 1.01242 0.00098
+  1.63576  1.356   1.841  1.06159 ± 0.00100  1.7756  0.6811  0.7585  1.1566  0.0e0  383
+SEED 1.63576 24 1.06159 0.00100
+  1.75000  1.451   2.306  1.01068 ± 0.00100  1.7769  0.6296  0.7943  1.1373  0.0e0  341
+SEED 1.75 24 1.01068 0.00100

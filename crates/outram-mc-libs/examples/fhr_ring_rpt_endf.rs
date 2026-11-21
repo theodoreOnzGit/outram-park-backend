@@ -142,8 +142,12 @@
 //!    are measurements rather than failures to measure.
 //!
 //! 7. **Caveats 4-6 were measured BEFORE the residual was closed.** They are
-//!    still correct as *worth* measurements — that is what they are for, and
-//!    their numbers do not depend on what else was wrong at the time — but read
+//!    still correct as *worth* measurements — that is what they are for, ~~and
+//!    their numbers do not depend on what else was wrong at the time~~
+//!    **CORRECTED 2026-11-17 (gh:#1617)**: the caveat-6 target-motion number
+//!    DID depend on it. Replayed post-F-19 on `60f6bb261`, the same whole-run
+//!    switch gives -556 +/- 87 pcm (8 seeds), not -2242; see
+//!    `examples/fhr_pebble_target_at_rest_ablation.rs` — but read
 //!    them as the elimination trail that led to GitHub #193 rather than as live
 //!    statements about an open gap. The trail was: graphite S(α,β) priced at
 //!    -127 +/- 337 pcm, the MF=4 angular law at -81 +/- 317, a deliberately
@@ -674,6 +678,18 @@ mod desktop {
             compute,
             ..KeffSettings::default()
         };
+        // `OUTRAM_FHR_ALL_SEED=S` (gh:#1635 item 1): master seed S for EVERY
+        // solve of this run (the TRISO packing seed below is a separate
+        // constant and does not move). Unset, `keff` is untouched and the
+        // output is unchanged. Env glue in an example's `run()`, exempt from
+        // the reached-by-a-test rule: it is exercised by every ensemble run.
+        let keff = match std::env::var("OUTRAM_FHR_ALL_SEED") {
+            Ok(s) => KeffSettings {
+                seed: s.parse().expect("OUTRAM_FHR_ALL_SEED must be a u64"),
+                ..keff
+            },
+            Err(_) => keff,
+        };
         // Full-pebble delta domains. The OpenMC deck clips the coolant at a
         // reflective SPHERE r = 3, so `ball` is the matched domain and every
         // absolute comparison against OpenMC uses it.
@@ -752,6 +768,22 @@ mod desktop {
         // runs only the surface-tracked CSG case, which is the one that yields
         // the six-factor decomposition. ~5 min instead of ~40.
         if only == "csg" {
+            // `OUTRAM_FHR_RING_SEEDS=N` / `OUTRAM_FHR_RING_SEED0=S` (gh:#1583):
+            // N consecutive master seeds from S inside this one process (the
+            // ENDF load is paid once), CSG arm only. Unset: one solve at the
+            // default seed with unchanged output.
+            let n_seeds_env: Option<u64> = std::env::var("OUTRAM_FHR_RING_SEEDS")
+                .ok()
+                .and_then(|v| v.parse().ok());
+            let seed0: u64 = std::env::var("OUTRAM_FHR_RING_SEED0")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(KeffSettings::default().seed);
+            for seed_i in 0..n_seeds_env.unwrap_or(1) {
+            let mut keff = keff.clone();
+            if n_seeds_env.is_some() {
+                keff.seed = seed0 + seed_i;
+            }
             let r_rpt_fuel_csg =
                 rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
             let pebble_csg = fhr_pebble_geometry(
@@ -800,6 +832,10 @@ mod desktop {
                     "      {name}  {ours:.4} vs {theirs:.4}   {:+.2}%",
                     100.0 * (ours / theirs - 1.0)
                 );
+            }
+            if n_seeds_env.is_some() {
+                eprintln!("SEEDK {} {:.5} {:.5}", keff.seed, r.keff.k_mean, r.keff.k_std);
+            }
             }
             return;
         }

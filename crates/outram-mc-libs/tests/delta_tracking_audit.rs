@@ -352,7 +352,7 @@ fn cell_tally() -> Tally {
             }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Total],
-        bins: vec![TallyBin::default(); 3 * 2 * 2],
+        bins: vec![TallyBin::default(); 3 * 2 * 2], derivative: None,
     }
 }
 

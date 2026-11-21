@@ -129,6 +129,29 @@
 //! three. Every arm agrees within statistics, and the two unresolved nulls stay
 //! unresolved as the statistics improve rather than resolving into something.
 //!
+//! ## After the S(a,b) emission-grid flip (gh:#550, 2026-11-19)
+//!
+//! The 24-seed numbers below were taken with the log-spaced emission tables.
+//! Re-run with the node-grid default, 12 seeds, same settings: natural-B atom
+//! ppm 1.68456 (sd 573 pcm) against 1.68681, **-225 +/- 205 pcm** (z -1.10);
+//! the other four arms -156, -80, +278 and -159 pcm, all |z| <= 1.25. A paired
+//! control with `OUTRAM_SAB_LOG_SPACED_GRID=1` over seeds 1-3 swings by
+//! +-1000 pcm per seed. Nothing is resolved; the table below is not
+//! superseded. Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
+//! ## After the per-material S(a,b) migration (gh:#1581, #1583)
+//!
+//! The table above was measured 2026-09-16 at 6000 histories, **before** the
+//! migration, and has **not** been re-measured: it stays as recorded. The
+//! migration lengthens the nuclide array, which re-draws the URR stream.
+//! `OUTRAM_HTR10_SEEDS=N` runs N master seeds per arm in one process (seed
+//! loop outer). A 24-seed old-vs-new ensemble at 300 x [20 + 60] gave every
+//! arm and every boron delta consistent with zero (|z| <= 1.84): natural-B
+//! atom ppm `1.68887` (old, sd 829 pcm) vs `1.68681` (new, sd 589 pcm),
+//! -206 +- 208 pcm. That is a null at about +-200 pcm, not a proof of zero.
+//! Method, the five-arm table, hardware and raw outputs:
+//! `verification_and_validation/sab_per_material_1581/README.md`.
+//!
 //! ## This is verification input, not a validated result
 //!
 //! The eigenvalue printed is a **bare pebble k-infinity**, reflective at the
@@ -228,6 +251,15 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(2000);
 
+    let n_seeds: usize = std::env::var("OUTRAM_HTR10_SEEDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
+    let seed0: u64 = std::env::var("OUTRAM_HTR10_SEED0")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
+
     println!("HTR-10 fuel pebble — k-infinity by delta (Woodcock) tracking");
     println!("============================================================");
     println!("  geometry : Li, Yu & Wei (2014), HTR 2014 Weihai, Table 2");
@@ -263,6 +295,9 @@ fn main() {
     println!("{}", "-".repeat(75));
 
     let mut baseline: Option<(f64, f64)> = None;
+    // Build every arm's universe once (gh:#1583: with several seeds the seed
+    // loop is OUTER so a run cut short still holds equal N in every arm).
+    let mut built = Vec::new();
     for arm in BoronReading::all() {
         let arm_materials = fuel_pebble_materials(NUCLIDES, arm, TEMP_K);
         // Per-material S(a,b) (gh:#1581): each arm's own materials decide
@@ -285,6 +320,50 @@ fn main() {
             println!("{}", universe.majorant_audit_line(&nucs, &tag));
             continue;
         }
+        built.push((arm, universe, nucs));
+    }
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        return;
+    }
+    // `OUTRAM_HTR10_SEEDS=N` (gh:#1583): N master seeds per arm inside this
+    // one process, so the slow ENDF load is paid once. N = 1 (the default) is
+    // the single-seed table, unchanged.
+    if n_seeds > 1 {
+        let mut ks: Vec<Vec<f64>> = vec![Vec::new(); built.len()];
+        for i in 0..n_seeds {
+            let seed = seed0 + i as u64;
+            let s = KeffSettings { seed, ..settings.clone() };
+            for (ai, (arm, universe, nucs)) in built.iter().enumerate() {
+                let t0 = Instant::now();
+                let r = universe.keff(nucs, &s);
+                println!(
+                    "SEED {:<30} {:>4} {:>10.5} {:>10.5} {:>8.1}s",
+                    arm.label(),
+                    seed,
+                    r.k_mean,
+                    r.k_std,
+                    t0.elapsed().as_secs_f64()
+                );
+                ks[ai].push(r.k_mean);
+            }
+        }
+        for (ai, (arm, _, _)) in built.iter().enumerate() {
+            let n = ks[ai].len() as f64;
+            let mean = ks[ai].iter().sum::<f64>() / n;
+            let var = ks[ai].iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0);
+            println!(
+                "ENSEMBLE {:<30} n={} mean {:.5} sd {:.5} sem {:.5}",
+                arm.label(),
+                ks[ai].len(),
+                mean,
+                var.sqrt(),
+                (var / n).sqrt()
+            );
+        }
+        return;
+    }
+    for (arm, universe, nucs) in &built {
+        let nucs = nucs.as_slice();
         let t0 = Instant::now();
         let r = universe.keff(&nucs, &settings);
         let secs = t0.elapsed().as_secs_f64();

@@ -1,0 +1,43 @@
+[package]
+name = "punggol"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license = "AGPL-3.0-only"
+description = "PUNGGOL (Particle transport, UNcertainty, Geometry, Gamma transport, Optimization Library) — radiation transport beyond neutrons: photons, electrons and positrons. First code (2026-11-20): decay-photon source spectra from the depletion chain, a port of OpenMC's decay_photon_energy, Material.get_decay_photon_energy and DecaySpectrum. OpenMC photon samplers, bremsstrahlung and reaction sampling (first port, not differentially tested). No transport loop; the EGSnrc port is scaffolded as placeholders."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror). Excluded so it
+# never ships to crates.io; so is the V&V record, which carries OpenMC decks.
+exclude = ["docs", "verification_and_validation"]
+
+# Where this crate sits in kovan's code map (see `crates/bishan/Cargo.toml`
+# for the scale). Fidelity 4: Monte Carlo and first-principles data.
+[package.metadata.kovan]
+row = 2
+topic = "neutronics"
+fidelity = 4
+maturity = 1
+backronym = "Particle transport, UNcertainty, Geometry, Gamma transport, Optimization Library"
+
+[dependencies]
+# Every transcendental routes through PETIR (gh:#985); petir is no_std.
+petir.workspace = true
+# Neutrons stay in outram-mc-libs; this crate depends on it, never the
+# reverse. It supplies the chain codec (`depletion::DepletionChainXml`) and
+# the univariate samplers (`source::distribution`).
+outram-mc-libs = { workspace = true }
+# `thiserror` without its std default; `std` turns it back on (the pattern of
+# outram-mc-libs, gh:#1605). Imported in lib.rs as `thiserror`.
+thiserror-nostd = { workspace = true }
+
+[features]
+# Without `std` the crate is `no_std` + `alloc`, checked on a bare-metal
+# target (see README, "no_std"). `std` forwards to outram-mc-libs.
+std = ["thiserror-nostd/std", "outram-mc-libs/std"]
+default = ["std"]
+# Round every Mortran decimal constant of `egsnrc::egsnrc_mortran` through f32, as a
+# stock gfortran build of EGSnrc does (gh:#1687). Off: the standard exact f64.
+egsnrc-f32-constants = []

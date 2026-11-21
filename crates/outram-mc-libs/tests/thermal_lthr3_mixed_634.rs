@@ -34,7 +34,7 @@
 
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
-use outram_mc_libs::material::thermal::{ThermalElastic, ThermalScattering};
+use outram_mc_libs::material::thermal::{EndfElasticOptions, ThermalElastic, ThermalScattering};
 use std::path::PathBuf;
 
 fn njoy_root() -> PathBuf {
@@ -53,7 +53,19 @@ fn lthr3_tape_keeps_both_elastic_parts_and_matches_the_ace_route() {
         eprintln!("SKIP: NJOY2016 test 67 data not found under {}", root.display());
         return;
     }
-    let endf = ThermalScattering::from_endf_file(&tape, 15, 400.0, "D in 7LiD").expect("ENDF route");
+    // Deck 67's THERMR card has natom = 2; passed through the new input
+    // (gh:#634 decision 2026-11-17), not applied by hand.
+    const DECK_67_NATOM: f64 = 2.0;
+    let endf = ThermalScattering::from_endf_file_with_options(
+        &tape,
+        15,
+        400.0,
+        "D in 7LiD",
+        EndfElasticOptions::default().with_natom(DECK_67_NATOM),
+    )
+    .expect("ENDF route with natom");
+    let endf_default =
+        ThermalScattering::from_endf_file(&tape, 15, 400.0, "D in 7LiD").expect("ENDF route, default");
     let raw = njoy_outram_park_fork::acer::read::read(&ace).expect("reference ACE");
     let acer = ThermalScattering::from_ace(&raw, "D in 7LiD").expect("ACE route");
 
@@ -64,13 +76,6 @@ fn lthr3_tape_keeps_both_elastic_parts_and_matches_the_ace_route() {
         panic!("ACE route built {}, not mixed", acer.elastic().kind_name());
     };
 
-    // NJOY's `iel` divides SB by the THERMR card's `natom` (`c1 = sb/(2*natom)`,
-    // thermr.f90 `iel`), which deck 67 sets to 2; the ENDF route here divides
-    // by MF=7/MT=4 B(6) = 1 for this tape (as OpenMC's `from_endf` applies no
-    // natom). Coherent elastic is not divided by `natom` on either side. So
-    // the incoherent parts are compared through the deck's card value, an
-    // input from outside this comparison, not a fitted factor.
-    const DECK_67_NATOM: f64 = 2.0;
     let (mut worst_coh, mut worst_inc, mut worst_total): (f64, f64, f64) = (0.0, 0.0, 0.0);
     for k in 0..=30 {
         let e = 1.0e-3 * 1000f64.powf(k as f64 / 30.0);
@@ -83,16 +88,86 @@ fn lthr3_tape_keeps_both_elastic_parts_and_matches_the_ace_route() {
         if ca > 0.0 {
             worst_coh = worst_coh.max((cb - ca).abs() / ca);
         }
-        let (ia, ib) = (ace_inc.cross_section(e), inc.cross_section(e) / DECK_67_NATOM);
+        let (ia, ib) = (ace_inc.cross_section(e), inc.cross_section(e));
         worst_inc = worst_inc.max((ib - ia).abs() / ia);
         let a = acer.elastic_xs(e);
         worst_total = worst_total.max((b - a).abs() / a);
-        println!("E = {e:.4e} eV: coh ACE {ca:.6e} ENDF {cb:.6e} | inc ACE {ia:.6e} ENDF/natom {ib:.6e}");
+        println!("E = {e:.4e} eV: coh ACE {ca:.6e} ENDF {cb:.6e} | inc ACE {ia:.6e} ENDF(natom=2) {ib:.6e}");
+        // The default route (no natom) divides by the tape's B(6) = 1 here, so its
+        // incoherent part is exactly natom times ours; the coherent part is
+        // identical (never divided by natom).
+        let ThermalElastic::Mixed(dcoh, dinc) = endf_default.elastic() else { unreachable!() };
+        assert_eq!(dcoh.cross_section(e).to_bits(), cb.to_bits());
+        assert_eq!(dinc.cross_section(e), ib * DECK_67_NATOM);
     }
     println!(
-        "worst rel. diff 1e-3..1 eV: coherent {worst_coh:.3e}, incoherent (ENDF/natom) {worst_inc:.3e}, \
-         total sigma_el without the natom card {worst_total:.3e}"
+        "worst rel. diff 1e-3..1 eV: coherent {worst_coh:.3e}, incoherent (ENDF, natom = 2) {worst_inc:.3e}, \
+         total sigma_el {worst_total:.3e}"
     );
     assert!(worst_coh < 1.0e-2, "coherent parts differ by {worst_coh:.3e}");
     assert!(worst_inc < 1.0e-2, "incoherent parts differ by {worst_inc:.3e}");
+    assert!(worst_total < 1.0e-2, "total sigma_el differs by {worst_total:.3e}");
+}
+
+/// **The default is unchanged (gh:#634, decision 2026-11-17).** Without a
+/// `natom` the incoherent elastic part is divided by the tape's MT=4 B(6), as
+/// before and as OpenMC's `from_endf`. Pinned on a tape that is held in the
+/// repository (H in ZrH, incoherent-only, MAT 7): `with_natom(B(6))` is
+/// bit-identical to the default (`from_endf_file`)
+/// (factor `B(6)/B(6)` = 1); `with_natom(2 B(6))` halves sigma exactly; the
+/// coherent-free elastic of other tapes is untouched; a bad `natom` is refused.
+/// Predicted before the run: all four hold exactly (the rescale is a single
+/// multiplication by an exact power of two or one).
+#[test]
+fn default_keeps_the_tape_b6_and_natom_rescales_the_incoherent_part_only() {
+    use njoy_outram_park_fork::thermr::scattering::IncoherentElasticScattering;
+    use njoy_outram_park_fork::units::Temperature;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    let Some(path) = njoy_outram_park_fork::reference_data::reference_endf_or_skip(
+        "tsl-HinZrH-ENDF8.0.endf",
+        "#634 natom default pin",
+    ) else {
+        return;
+    };
+    let base = ThermalScattering::from_endf_file(&path, 7, 296.0, "H in ZrH").unwrap();
+    let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&path).unwrap();
+    let b6 = IncoherentElasticScattering::from_tape(&tape, 7, Temperature::new::<kelvin>(296.0))
+        .unwrap()
+        .principal_atom_count();
+    let same_b6 = ThermalScattering::from_endf_file_with_options(
+        &path,
+        7,
+        296.0,
+        "H in ZrH",
+        EndfElasticOptions::default().with_natom(b6),
+    )
+    .unwrap();
+    let double = ThermalScattering::from_endf_file_with_options(
+        &path,
+        7,
+        296.0,
+        "H in ZrH",
+        EndfElasticOptions::default().with_natom(2.0 * b6),
+    )
+    .unwrap();
+    println!("ZrH B(6) = {b6}");
+    for e in [1.0e-3, 0.0253, 0.3] {
+        let d = base.elastic_xs(e);
+        assert!(d > 0.0);
+        assert_eq!(same_b6.elastic_xs(e).to_bits(), d.to_bits());
+        assert_eq!(double.elastic_xs(e).to_bits(), (d * 0.5).to_bits());
+        // Inelastic is not touched by the elastic option.
+        assert_eq!(double.inelastic_xs(e).to_bits(), base.inelastic_xs(e).to_bits());
+    }
+    for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        let r = ThermalScattering::from_endf_file_with_options(
+            &path,
+            7,
+            296.0,
+            "H in ZrH",
+            EndfElasticOptions::default().with_natom(bad),
+        );
+        assert!(r.is_err(), "natom = {bad} must be refused");
+    }
 }

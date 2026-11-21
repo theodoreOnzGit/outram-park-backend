@@ -277,12 +277,11 @@ mod energy_only_slowing_down;
 mod ugraphite_common;
 
 use energy_only_slowing_down::{slow_down, KernelOptions};
-use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::fhr_pebble::homogeneous_cube;
 use std::time::Instant;
 use ugraphite_common::{
     env_or, htr10_pebble_mix, load_nuclides, natural_mix, print_case, run_case, FuelSplit, Mix,
-    CaseResult, E_MAX_EV, E_MIN_EV, N_FINE, RES_UPPER_EV, TEMP_K, THERMAL_CUT_EV,
+    CaseResult, UgData, E_MAX_EV, E_MIN_EV, N_FINE, RES_UPPER_EV, TEMP_K, THERMAL_CUT_EV,
 };
 
 // ANCHOR: model (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
@@ -291,10 +290,10 @@ use ugraphite_common::{
 const HALF_CM: f64 = 50.0;
 
 /// The homogeneous medium: one material filling the reflective cube.
-fn run_homogeneous(label: &str, mix: Mix, nuclides: &[Nuclide], seed: u64) -> CaseResult {
+fn run_homogeneous(label: &str, mix: Mix, data: &UgData, seed: u64) -> CaseResult {
     let geom = homogeneous_cube(HALF_CM, 0, TEMP_K);
     let mats = vec![mix.material(1, label)];
-    run_case(&geom, &mats, nuclides, seed, HALF_CM, FuelSplit::ByNuclide(mix))
+    run_case(&geom, &mats, data, seed, HALF_CM, FuelSplit::ByNuclide(mix))
 }
 // ANCHOR_END: model
 
@@ -303,7 +302,7 @@ fn main() {
     let seed: u64 = env_or("SEED", 20_261_004);
     eprintln!("Reconstructing nuclides (ENDF/B-VIII.0, {TEMP_K} K):");
     let t_load = Instant::now();
-    let nuclides = load_nuclides();
+    let data = load_nuclides();
     eprintln!("data ready in {:.1} s", t_load.elapsed().as_secs_f64());
     println!(
         "settings: PARTICLES {} x [INACTIVE {} + ACTIVE {}], THREADS {}, SEED {seed}, {TEMP_K} K, \
@@ -315,12 +314,12 @@ fn main() {
     );
 
     match mode.as_str() {
-        "sweep" => sweep(&nuclides, seed),
-        _ => main_case(&nuclides, seed),
+        "sweep" => sweep(&data, seed),
+        _ => main_case(&data, seed),
     }
 }
 
-fn main_case(nuclides: &[Nuclide], seed: u64) {
+fn main_case(data: &UgData, seed: u64) {
     let mut mix = htr10_pebble_mix();
     if let Ok(cu) = std::env::var("CU") {
         let cu: f64 = cu.parse().expect("CU");
@@ -329,7 +328,7 @@ fn main_case(nuclides: &[Nuclide], seed: u64) {
         mix.u = [mix.u[0] / s * n_u, mix.u[1] / s * n_u, mix.u[2] / s * n_u];
     }
     let label = "homogeneous U(17 wt%) + graphite at the HTR-10 pebble ratio";
-    let r = run_homogeneous(label, mix, nuclides, seed);
+    let r = run_homogeneous(label, mix, data, seed);
     print_case(label, mix.c_per_u(), &r);
     println!(
         "N [atoms/b-cm]: U234 {:.4e}  U235 {:.4e}  U238 {:.4e}  C {:.5e}",
@@ -340,9 +339,13 @@ fn main_case(nuclides: &[Nuclide], seed: u64) {
     let p_hist: usize = env_or("P_HIST", 400_000);
     let mut s = seed ^ 0x0E0E_0E0E;
     let t0 = Instant::now();
+    // The same materials the transport run used: the graphite law is bound per
+    // material, so the carbon sits on its bound copies and the densities are
+    // laid out by role (GitHub #1635 item 3).
+    let bound = data.bind(&[mix.material(1, label)]);
     let c = slow_down(
-        nuclides,
-        &mix.densities(),
+        &bound.nuclides,
+        &bound.roles.densities(&mix, bound.nuclides.len()),
         TEMP_K,
         RES_UPPER_EV,
         THERMAL_CUT_EV,
@@ -367,8 +370,9 @@ fn main_case(nuclides: &[Nuclide], seed: u64) {
         (p_tr.mean - p_eo) / (p_tr.std.r_powi(2) + sig * sig).sqrt()
     );
     let names = ["U234", "U235", "U238", "C12", "C13"];
-    let per: Vec<String> = c
-        .absorbed_by
+    let per: Vec<String> = bound
+        .roles
+        .by_role(&c.absorbed_by)
         .iter()
         .zip(names)
         .map(|(n, nm)| format!("{nm} {:.5}", *n as f64 / c.histories as f64))
@@ -376,7 +380,7 @@ fn main_case(nuclides: &[Nuclide], seed: u64) {
     println!("  energy-only absorption per source neutron by nuclide: {}", per.join(", "));
 }
 
-fn sweep(nuclides: &[Nuclide], seed: u64) {
+fn sweep(data: &UgData, seed: u64) {
     let ratios: Vec<f64> = std::env::var("RATIOS")
         .ok()
         .map(|s| s.split(',').map(|x| x.trim().parse().expect("RATIOS")).collect())
@@ -389,7 +393,7 @@ fn sweep(nuclides: &[Nuclide], seed: u64) {
     for (i, &cu) in ratios.iter().enumerate() {
         let mix = natural_mix(cu);
         let label = format!("natural U + graphite, N_C/N_U = {cu}");
-        let r = run_homogeneous(&label, mix, nuclides, seed + i as u64);
+        let r = run_homogeneous(&label, mix, data, seed + i as u64);
         print_case(&label, mix.c_per_u(), &r);
         rows.push((cu, r));
     }

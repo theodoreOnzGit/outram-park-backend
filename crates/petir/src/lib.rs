@@ -206,6 +206,7 @@ pub mod cheb;
 pub mod cheb_slice;
 pub mod depletion;
 pub mod deriv;
+pub mod egsnrc;
 pub mod error;
 pub mod expint;
 /// faer's dense SVD (`Mat::svd()`), ported bit for bit from `faer` 0.24.4

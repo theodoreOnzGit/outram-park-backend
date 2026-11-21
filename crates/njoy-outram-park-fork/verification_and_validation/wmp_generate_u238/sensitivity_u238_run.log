@@ -1,0 +1,14 @@
+piece 5 trial 0 (unperturbed): 5 poles, poles move 0.000e+00, residues 0.000e+00 relative; sigma worst 0.000e+00 b absolute, 0.000e+00 relative above atol; 1 s
+piece 5 trial 1 (xs +-1 ulp): 5 poles, poles move 3.883e-08, residues 1.103e-06 relative; sigma worst 2.607e-08 b absolute, 0.000e+00 relative above atol; 1 s
+piece 5 trial 2 (xs +-1 ulp): 5 poles, poles move 7.321e-08, residues 2.024e-06 relative; sigma worst 2.622e-08 b absolute, 0.000e+00 relative above atol; 1 s
+piece 7 trial 0 (unperturbed): 6 poles, poles move 0.000e+00, residues 0.000e+00 relative; sigma worst 0.000e+00 b absolute, 0.000e+00 relative above atol; 1 s
+piece 7 trial 1 (xs +-1 ulp): 6 poles, poles move 2.008e-09, residues 5.769e-05 relative; sigma worst 6.427e-07 b absolute, 0.000e+00 relative above atol; 0 s
+piece 7 trial 2 (xs +-1 ulp): 6 poles, poles move 4.852e-10, residues 1.767e-05 relative; sigma worst 2.690e-07 b absolute, 0.000e+00 relative above atol; 0 s
+piece 8 trial 0 (unperturbed): 5 poles, poles move 0.000e+00, residues 0.000e+00 relative; sigma worst 0.000e+00 b absolute, 0.000e+00 relative above atol; 0 s
+piece 8 trial 1 (xs +-1 ulp): 5 poles, poles move 2.854e-08, residues 8.895e-06 relative; sigma worst 2.546e-10 b absolute, 0.000e+00 relative above atol; 0 s
+piece 8 trial 2 (xs +-1 ulp): 5 poles, poles move 1.090e-07, residues 3.392e-05 relative; sigma worst 9.388e-10 b absolute, 0.000e+00 relative above atol; 0 s
+piece 100 trial 0 (unperturbed): 16 poles, poles move 0.000e+00, residues 0.000e+00 relative; sigma worst 0.000e+00 b absolute, 0.000e+00 relative above atol; 256 s
+piece 100 trial 1 (xs +-1 ulp): 16 poles, poles move 2.851e-03, residues 2.784e-01 relative; sigma worst 4.060e-03 b absolute, 1.172e-04 relative above atol; 241 s
+piece 100 trial 2 (xs +-1 ulp): 16 poles, poles move 2.745e-03, residues 2.765e-01 relative; sigma worst 4.538e-03 b absolute, 1.072e-04 relative above atol; 235 s
+piece 200 trial 0 (unperturbed): 34 poles, poles move 0.000e+00, residues 0.000e+00 relative; sigma worst 0.000e+00 b absolute, 0.000e+00 relative above atol; 237 s
+piece 200 trial 1 (xs +-1 ulp): 34 poles, poles move 2.849e-02, residues 3.569e+01 relative; sigma worst 3.585e-02 b absolute, 2.523e-03 relative above atol; 230 s

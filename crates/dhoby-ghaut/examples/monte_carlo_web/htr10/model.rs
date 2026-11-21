@@ -25,12 +25,12 @@
 //!   when #585 landed; the record used the example's local union-grid
 //!   construction, both are bounds. The audit of both arms on this rung's
 //!   data is in `the_fuel_zone_case_runs_both_arms`.)
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581; read only, not run): SAFE (carbon only in the matrix and the homogenised zone, as in `htr10_fuel_zone_kinf`), not migrated: `FuelZone::new(nuclides)` builds the materials itself, so this is not a mechanical change. Not run here (browser demo).
 
 use crate::engine::Tier;
 use crate::tapes::read_tape;
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, AssembledCore};
 use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -103,13 +103,7 @@ impl DataBuilder {
         if self.nuclides.len() != fz::ENDF_TAPES.len() {
             return Err(format!("{} of {} nuclides processed", self.nuclides.len(), fz::ENDF_TAPES.len()));
         }
-        let nuclides: Vec<Nuclide> = self
-            .nuclides
-            .into_iter()
-            .enumerate()
-            .map(|(i, n)| if i == 3 || i == 4 { n.with_thermal_scattering(sab.clone()) } else { n })
-            .collect();
-        FuelZone::new(nuclides).map(Some)
+        FuelZone::new(self.nuclides, sab).map(Some)
     }
 }
 
@@ -126,9 +120,24 @@ pub struct FuelZone {
 }
 
 impl FuelZone {
-    pub fn new(nuclides: Vec<Nuclide>) -> Result<Self, String> {
+    /// `nuclides` are the seven of [`fz::ENDF_TAPES`], all free. The graphite
+    /// law goes per material, as OpenMC does and `htr10_fuel_zone_kinf.rs`
+    /// does (GitHub #462, #1635 item 3): the matrix and the homogenised zone
+    /// reference the carbons and get bound copies appended to the table; the
+    /// kernel holds none. Compile-checked only: a browser demo, not run.
+    pub fn new(nuclides: Vec<Nuclide>, law: ThermalScattering) -> Result<Self, String> {
         let f = fz::kernel_packing_fraction();
-        let (kernel, matrix, hom) = fz::build_materials(&fz::endf_layout(), TEMP_K, f);
+        let layout = fz::endf_layout();
+        let (kernel, matrix, hom) = fz::build_materials(&layout, TEMP_K, f);
+        let all = [kernel, matrix, hom];
+        let mut entries = Vec::new();
+        for &(slot, _) in &layout.carbon {
+            entries.extend(MaterialSab::for_materials_containing(&all, slot, 0, &[]));
+        }
+        let (mut mats, nuclides) = assign_material_sab(&all, &nuclides, &[law], &entries)?;
+        let hom = mats.pop().ok_or("three materials expected")?;
+        let matrix = mats.pop().ok_or("three materials expected")?;
+        let kernel = mats.pop().ok_or("three materials expected")?;
         let packed = PackedSpheres::pack(fz::KERNEL_RADIUS_CM, HALF_CM, f, PACKING_SEED).map_err(|e| format!("packing: {e:?}"))?;
         Ok(Self { nuclides, het: vec![kernel, matrix], hom: vec![hom], packed, maj_het: None, maj_hom: None })
     }

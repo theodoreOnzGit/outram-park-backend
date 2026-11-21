@@ -55,6 +55,10 @@ std = [
 # gated behind this feature, on by default
 # (docs/claude-md/long-tests-and-ci.md). Added 2026-10-13 (gh:#849).
 long-tests = []
+# The DEM pour's diagnostics and drawings for pebble-bed k_eff simulators
+# (gh:#1655): `dem_pour`. GUI and std only, so the no_std core and the
+# Android build are unaffected (gh:#1640).
+dem_ui = ["std", "dep:egui", "dep:bugis", "dep:outram-park-fork-liggghts", "dep:wasm-bindgen"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
@@ -92,6 +96,14 @@ spin                  = { workspace = true }
 # so an expensive Monte Carlo run is reloaded rather than repeated.
 serde                 = { workspace = true, optional = true }
 serde_json            = { workspace = true, optional = true }
+egui                  = { workspace = true, optional = true }
+bugis                 = { workspace = true, optional = true, features = ["web_demo"] }
+outram-park-fork-liggghts = { workspace = true, optional = true, features = ["std"] }
+
+# The pour engine's Web Worker messages (`dem_pour::engine`, gh:#1655):
+# `bugis::web_demo::link::Message` speaks `JsValue` on wasm32 only.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Steam states of the helical-coil SG test in `htr10_th_transient` (moved

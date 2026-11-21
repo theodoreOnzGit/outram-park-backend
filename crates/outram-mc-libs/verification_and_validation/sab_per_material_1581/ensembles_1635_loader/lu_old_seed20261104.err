@@ -1,0 +1,7 @@
+Reconstructing nuclides (ENDF/B-VIII.0, 296 K):
+  U234  RECONR+BROADR @ 296 K: 22.0s
+  U235  RECONR+BROADR @ 296 K: 157.0s
+  U238  RECONR+BROADR @ 296 K: 135.6s
+  C12   RECONR+BROADR @ 296 K: 954.3ms
+  C13   RECONR+BROADR @ 296 K: 205.7ms
+data ready in 336.5 s

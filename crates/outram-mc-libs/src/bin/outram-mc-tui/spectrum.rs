@@ -42,7 +42,7 @@ pub fn new_spectrum_tally() -> (Tally, Vec<f64>) {
         name: "spectrum overlay".into(),
         filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); N_SPECTRUM_BINS],
+        bins: vec![TallyBin::default(); N_SPECTRUM_BINS], derivative: None,
     };
     (tally, edges)
 }

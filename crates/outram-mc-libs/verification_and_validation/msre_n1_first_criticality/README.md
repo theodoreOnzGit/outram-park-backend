@@ -4,6 +4,45 @@
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
 
+> **S(α,β) DEFAULT CHANGED 2026-11-19 (gh:#550, commit 44f365bbb): ENDF thermal
+> emission is now built on THERMR's `calcem` node grid.** The k values below were
+> measured on the earlier log-spaced build and have **not been re-measured** here.
+> The second re-measure, in `tutorial_rung4/sab_reference_550.md` ("Second
+> re-measure"), covers HTR-10, FHR, `dh_keff_vv`, HST-009 and MSRE; no graphite or
+> water case moved by an amount its statistics resolve. Re-run with
+> `OUTRAM_SAB_LOG_SPACED_GRID=1` to reproduce the old build.
+> MSRE N-1 there: ~~−183 ± 73 pcm on 2 seeds with no paired control, so not a
+> measurement of the change.~~ **CORRECTED 2026-11-19 (third re-measure,
+> `tutorial_rung4/sab_reference_550.md`; seed 1, `OUTRAM_SAB_LOG_SPACED_GRID=1`
+> against the default, same code and seed): the node grid LOWERS N-1 k by
+> −297 ± 73 pcm (z −4.1; 1.019902 ± 0.000544 → 1.016934 ± 0.000488).** The knob-on
+> arm reproduces the pre-flip binary's seed 1 digit for digit; the other +237 pcm
+> since the 2026-11-13 record (seed 1: 1.017528) is other code, not the flip.
+> One seed pair, not replicated, and the predicted −10 pcm missed. ~~**Every k in
+> this README below predates both and is not re-measured: on seed 1 alone the
+> 6-seed headline 1.01807 ± 0.00023 is stale by about −60 pcm net (+237 other
+> code, −297 flip).**~~
+>
+> **REPLICATED 2026-11-20 (gh:#1128), six seed pairs at 20000 × [100 + 200], 4 threads:**
+> - **Old build:** 54d472f7f, pre-flip; it reproduces the knob-on arm, seed 1 = 1.019902.
+> - **New default:** 516f559f8. Its seed 1, 1.016934, reproduces the third re-measure at 4 threads.
+> - **The flip moves N-1 by Δk = −229 ± 28 pcm (z −8.0).** Pairs: −297, −310, −117, −216, −210, −224. The single pair's −297 was 2.4σ high. The prediction posted on gh:#1128 before the runs (−50 to −250) held.
+> - **"Other code" since 2026-11-13 is +73 ± 35 pcm (z 2.1), not +237.** The old build's six-seed mean is 1.018804 ± 0.000272, against the record's 1.018074 ± 0.000227. Seed 1 was a high draw.
+> - **New default, six seeds: k = 1.016515 ± 0.000329, +1571 pcm against k_ref.** It replaces 1.01807 in the table below.
+> - **Still pre-flip below:** every other number, including the coefficients, the ablations, the parameter sweeps and the rods (all on 54d472f7f). It is labelled as such and not re-measured.
+> - **Split, 2026-11-20 (gh:#1128).**
+>   - **Method:** seeds 1–3 per arm, paired with the new default, on binary `msre_n1_split_cfbabfad6` (516f559f8 plus the example's two ablation flags). Each flag puts that one table back on the old grid, so k(arm) − k(new) is the table's share.
+>   - **Graphite carries the move: +238 ± 66 pcm.** That is 104 % of the six-seed −229. Pairs: +112, +337, +264.
+>   - **H(H2O) in the shield: +49 ± 55 pcm, consistent with zero.** Pairs: +88, +119, −59.
+>   - **The shares add up:** their sum minus the full move on the same seeds is +46 ± 73.
+>   - **Both predictions posted before the runs held:** graphite ≥ 80 %, water within ±60.
+>   - **Caveat:** three seeds. This resolves which table carries the move, not its exact fraction.
+> - ~~**Not in either binary:** `develop` commits after 516f559f8, among them #698's coincident-boundary rule, which re-pinned a nested-lattice k (3060a346d). Whether they move N-1 is checked next, on gh:#1128.~~ **Checked 2026-11-20:** `develop` c1b106728 (with #698, #699, #692 and others) against 516f559f8, six seed pairs.
+>   - **Result:** **+52 ± 44 pcm (z 1.2), not resolved.** Pairs: +138, +201, −21, +30, +60, −95.
+>   - **Prediction** (within ±80 of zero, posted before the runs): held.
+>   - **Seed 1's +138 is mostly re-randomisation.** c1b106728's six seeds give 1.017037 ± 0.000386, consistent with the headline below. The headline stays on 516f559f8, its paired reference.
+>   - **`develop` 122217f38 (2026-11-20)** reproduces c1b106728's seed 1 bit for bit (1.018318). So nothing in between reaches N-1, including e771dbb94 (#689, the rule for laws 44/61).
+
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
 > dynamically shifting with temp. Shields all in shld be default … physical
 > realism without crippling the simulation."** The model now expands each
@@ -28,8 +67,8 @@ adds no number of its own.
 
 | quantity | this model | reference | section |
 |---|---|---|---|
-| N-1 k at 1181 °F (6 seeds) | **1.01807 ± 0.00023, +1726 ± 23 pcm** (~~1.00536, +455 ± 23~~ previous default; ~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [new default](#re-measured-on-the-2026-11-13-default-dimensions-at-temperature-and-the-whole-shield-gh1128-gh1129) |
-| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **fails, by 726 pcm** (~~passes~~ on the previous default) | — | [Methodology](#methodology) |
+| N-1 k at 1181 °F (6 seeds) | **1.016515 ± 0.000329, +1571 ± 33 pcm** (S(α,β) on the calcem grid, 516f559f8, 2026-11-20; ~~1.01807 ± 0.00023, +1726 ± 23~~ log-spaced build, 2026-11-13; ~~1.00536, +455 ± 23~~ previous default; ~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [new default](#re-measured-on-the-2026-11-13-default-dimensions-at-temperature-and-the-whole-shield-gh1128-gh1129) |
+| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **fails, by 571 pcm** (~~fails, by 726 pcm~~ log-spaced build; ~~passes~~ on the previous default) | — | [Methodology](#methodology) |
 | ²³⁵U concentration coefficient | **0.208 ± 0.004** (~~0.235 ± 0.006~~) | measured 0.223; ORNL calc. 0.234–0.248 | new default |
 | equivalent ²³⁵U excess behind the N-1 residual | **about 2.7 g/L (8.3 %)** (~~0.63 g/L, 1.9 %~~) | measured 32.8 ± 0.3 g/L | same |
 | α_iso (×10⁻⁵ /°F) | **−7.17 ± 0.42** (~~−7.69 ± 0.35~~) | measured −7.24 | same |
@@ -104,7 +143,11 @@ llvmpipe / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, 4 threads, about
 `+u234+<ablation>` (Mo omitted: `mo-omitted@…+u234`).
 
 **Open, waiting on the maintainer:**
-- the rod worth, whose geometry is built but needs the Gd tapes;
+- ~~the rod worth, whose geometry is built but needs the Gd tapes;~~
+  **CORRECTED 2026-11-19:** the Gd tapes are in `reference-data/ace`
+  (20cbe5e). The seed-1 worths are recorded in "The k_eff tab's parameters"
+  below (rod 1 and the bank about 10.5 % above ORNL-4233's measurements),
+  and the six-seed runs and rod 1's integral curve are running (gh:#1658);
 - the defaults in the ablation table above.
 
 ## Methodology
@@ -1207,6 +1250,121 @@ summary table were measured on the previous default salt; their shifts are
 differences, which the U-234 change should move by much less than their σ,
 but they were not re-run.~~ **2026-11-13:** the ablation rows were re-run on
 this default; each moved by less than 1σ.
+
+### The k_eff tab's parameters: salt level, enrichment, rods (2026-11-19, gh:#1658, #1659, #1660)
+
+**Methodology.**
+- **Model:** the default (`--mo natural`, hot dimensions, full TM-0728 shield).
+- **Settings:** the record's, 20 000 × [100 + 200], 4 threads, seed 1 unless stated.
+- **Binaries:** `msre_n1_params` (42b372a59) and `msre_n1_rods` (54d472f7f).
+- **Hardware:** llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, Linux, CPU transport. The machine was shared with builds, so wall times are not quoted.
+- **Data:** `data/` labels `+salt-level-<z>cm`, `+u235wt-<w>`, `+rodpos-<a>_<b>_<c>`.
+- **Comparison:** each case against the default re-run on the same binary, k = **1.019902 ± 0.000544**. That re-run is **+237 pcm** from the 2026-11-13 binary's 1.017528 ± 0.000538. The shift is not from these parameters, whose `None` defaults are pinned to today's geometry and salt; it is reported on gh:#1128 and ~~not yet bisected~~ **bisected 2026-11-19, part found** (see "The +237 pcm code shift" below).
+- **Predictions:** posted on each issue before its runs.
+
+**Salt level (#1659).** Salt below `z` (above the stringer bottom), void above it. Drawn at 162.8, 100 and 40 cm in `images/parameters/`. There is **no reference**: ORNL-4233 measured nothing against level.
+
+| z (cm) | k | Δk vs full | predicted |
+|---|---|---|---|
+| 162.8 (graphite top) | 1.005016 ± 0.000526 | −1489 pcm | ≈ −600 (**missed**, 2.5×) |
+| 140 | 0.994181 ± 0.000536 | −2572 | ≈ −2600 |
+| 120 | 0.973990 ± 0.000555 | −4591 | ≈ −5200 |
+| 100 | 0.941381 ± 0.000580 | −7852 | ≈ −9100 |
+
+The one-group prediction undervalued the upper head's 26 cm of salt. That salt both fissions and reflects, and the prediction counted it as about 9 cm of height. Below the graphite top the prediction holds within 15 %.
+
+**Enrichment (#1660).** U-235 wt fraction w of the uranium, at fixed uranium atoms. The default is w₀ = 0.30993.
+
+| w | k | Δk vs w₀ | predicted |
+|---|---|---|---|
+| 0.34 (N₅ +9.7 %) | 1.042589 ± 0.000497 | +2269 pcm | +2200 to +2400 |
+| 0.28 (N₅ −9.7 %) | 0.990600 ± 0.000540 | −2930 pcm | −2200 to −2400 (**missed** by 530 pcm) |
+
+- **Up side:** gives a coefficient of 0.234 against ORNL-4233's measured 0.223 (+5 %). This is the side ORNL measured, by adding enriching salt.
+- **Down side:** 0.30. k(N₅) is concave, which the prediction did not carry.
+
+**Rods (#1658).** Positions are ORNL inches withdrawn (rod 2, rod 1, rod 3), with poison placed by ORNL-4233 Fig. 2. Worth Δρ = 1/k₂ − 1/k₁.
+
+| configuration | k | compared with | Δρ | ORNL-4233 measured | predicted |
+|---|---|---|---|---|---|
+| all at 51 in | 1.017298 ± 0.000536 | no rods | −251 ± 74 pcm | 80 pcm (an estimate) | −50 to −150 (**missed**) |
+| rod 1 at 0 | 0.992089 ± 0.000543 | all at 51 | **2.498 ± 0.076 %** | **2.26 %** | 1.9 to 2.6 |
+| all at 0 | 0.956938 ± 0.000612 | all at 51 | **6.200 ± 0.085 %** | **5.59 %** | 4.8 to 6.2 |
+
+- ~~**Interpretation:** rod 1 and the bank both come out about **10.5 % above** the measured worths, at 3.1σ and 7.2σ. Their ratio agrees: 2.48 against ORNL's 2.47. So a single cause scales the whole poison worth.~~ **SUPERSEDED 2026-11-20** by the six-seed rows and the new-default check below. The table above is single seeds on the pre-#550 build.
+- **Six seeds, pre-#550 build (54d472f7f), 2026-11-19/20:**
+
+| configuration | k (6 seeds) | worth | ORNL-4233 | model / measured |
+|---|---|---|---|---|
+| all at 51 in | 1.017704 ± 0.000156 | — | — | — |
+| rod 1 at 0 | 0.992700 ± 0.000234 | 2.475 ± 0.028 % | 2.26 % | 1.095 |
+| all at 0 | 0.957610 ± 0.000209 | 6.166 ± 0.027 % | 5.59 % | 1.103 |
+
+- **Rod 1 on the current default (516f559f8, S(α,β) on the calcem grid), six seeds, 2026-11-20:** all at 51 in gives 1.015216 ± 0.000239 and rod 1 at 0 gives 0.991799 ± 0.000195.
+  - **The worth is 2.326 ± 0.031 %, 1.029 against ORNL-4233** (+2.9 %, 2.2σ).
+  - **Paired by seed against the old build: −0.149 ± 0.027 % (z −5.5).** Pairs: −0.138, −0.045, −0.243, −0.122, −0.180, −0.167.
+  - **The prediction missed.** It was posted on gh:#1658 before the runs: within ±0.10 % of 2.475, because "a worth is a difference". The worth moved by 5.5σ, so that reasoning was wrong. The band itself is missed by 1.6σ, short of the posted 2σ refutation line.
+- ~~**Reading:** most of the ~10 % rod overestimate came from the old S(α,β) emission grid, the staircase between calcem nodes (gh:#550). The poison model is not the cause. On the current default, rod 1 is within 3 % of the measured worth.~~ **CORRECTED 2026-11-20 19:40 by the bank result below.** The S(α,β) change accounts for rod 1's overestimate only. It does not account for the bank's.
+  - ~~The **bank (all rods at 0) is not re-measured** on the current default. It probably drops by a similar fraction, but that is not tested.~~
+  - ~~The suspects below now explain at most a few percent.~~
+- **Bank (all rods at 0) on the current default (516f559f8), six seeds, 2026-11-20:** k = 0.956054 ± 0.000166, paired with the all-withdrawn seeds above.
+  - **Worth: 6.095 ± 0.040 %, 1.090 against ORNL-4233's 5.59 %.** The old build gave 6.166 ± 0.030 %.
+  - **Paired move: −0.071 ± 0.033 % (−1.2 %, z −2.2).** Rod 1 moved −6.0 %.
+  - **The prediction is refuted** (posted on gh:#1658 before the runs: 5.80 ± 0.15 %, scaling with rod 1). The result is 3.7σ above the band.
+  - **The bank-to-rod-1 ratio rises from 2.49 to 2.62 ± 0.02**, against ORNL's 2.47.
+- **Reading, corrected:** the S(α,β) change moves rod 1's worth six times more, in proportion, than the bank's.
+  - On the current default, **rod 1 is +2.9 % and the bank +9.0 %** against ORNL-4233. The old build's "one cause scales all the poison" reading (a common 10 %) no longer holds.
+  - **Why rod 1 alone is sensitive to the graphite kernel is not investigated.** Rod 1 sits in a different lattice position from rods 2 and 3, with a different local spectrum.
+  - **The bank's +9 % stays open.** The suspects below (Gd₂O₃ content, axial smearing, normalisation) apply to it in full.
+- **Rod 1 integral curve, pre-#550 build (54d472f7f), six seeds per position, 2026-11-20.**
+  - **Method:** rods 2 and 3 at 51 in, rod 1 at p. The worth inserted is 1/k(p) − 1/k(51), paired by seed. The fraction is that worth over rod 1's full worth (p = 0), also paired by seed.
+
+| rod 1 at | k (6 seeds) | worth inserted | fraction | predicted (gh:#1658) | z |
+|---|---|---|---|---|---|
+| 40 in | 1.015052 ± 0.000281 | 0.257 ± 0.032 % | 0.104 ± 0.013 | 0.06 | +3.4 |
+| 30 in | 1.010245 ± 0.000260 | 0.726 ± 0.023 % | 0.293 ± 0.009 | 0.33 | −4.2 |
+| 20 in | 1.003790 ± 0.000158 | 1.362 ± 0.018 % | 0.551 ± 0.009 | 0.71 | −18.2 |
+| 10 in | 0.996982 ± 0.000222 | 2.042 ± 0.030 % | 0.825 ± 0.010 | 0.95 | −11.9 |
+
+  - **The prediction missed at every point.** It assumed a cosine-shaped flux over the rod's travel, giving an S-shaped integral curve. The computed curve is close to linear in the lower half: the bottom 10 in still carry 17.5 % of the worth, against 5 % predicted. Why the shape differs is **not investigated**.
+  - **No comparison with the measured curve:** ORNL-4233 Figs. 5–6 are not digitised here.
+  - **Pre-flip build:** the S(α,β) change moves the full worth by −6 %. The curve's fractions are ratios and may move less, but this is untested.
+- **Suspects, not yet tested:**
+  - the poison's Gd₂O₃ content or density (TM-0728 Table 5.4);
+  - the axial smearing of the elements;
+  - the static-worth normalisation.
+- **Statistics:** ~~these are single seeds.~~ The table at the top of this section is single seeds; the six-seed rows above supersede it. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
+
+#### The +237 pcm code shift, bisected (2026-11-19, gh:#1128)
+
+> **SETTLED 2026-11-20 by six-seed means.** The "+237 pcm" was one seed. The old build, 54d472f7f, at seeds 1–6 averages **1.018804 ± 0.000272**, against the 2026-11-13 record's 1.018074 ± 0.000227: **+73 ± 35 pcm (z 2.06)**. The bisect below correctly names the two commits where seed 1's random path changes (323d5d93 and 5d7c7644). But its +109 / +128 split is one seed's, and neither piece is resolved. The two commits together are worth about +73 pcm, marginally resolved. Whether they move k by any physics, and not by re-randomisation alone, is not separated here. Data: `data/keff.csv`, rows for the label `…+shield-tm0728-full` with binary 54d472f7f (the 2026-11-19 runs).
+
+- **Method:** `git bisect` from 0dd316cb (good, the 2026-11-13 binary) to 57b484bc (bad). Each step builds the N-1 example at that commit and runs the default, seed 1, on today's data and today's checkout of `reference-data`. A step is good only if k is **exactly** 1.017528. A commit that does not compile is skipped. Each step takes about 50 min.
+- **Results:**
+
+| commit | k |
+|---|---|
+| 9fb69f83, 3f6338c9, 651dcd74, c0171d11 | 1.017528 (good) |
+| **323d5d93**, 66ff395c, a97ca6da | **1.018617** (+109 pcm) |
+| cedf0a10, 46d78180 | 1.019902 (+237 pcm) |
+| c1c427c5 | does not compile (duplicated `RealMath`), skipped |
+
+- **First change, +109 pcm: 323d5d93.** That commit makes four cross-section details match OpenMC by default (gh:#463 items 5, 6, 7 and 11):
+  - ν-fission is interpolated as a product;
+  - the energy grid extrapolates beyond its ends;
+  - S(α,β) is dropped only for E > E_max, where before it was dropped at E ≥ E_max;
+  - the S(α,β) total is computed as total + thermal − elastic.
+  
+  It is the commit predicted on gh:#1128 before the last steps ran. 66ff395c, the next commit, only adds a test, so it cannot move k.
+- **CAVEAT, added 2026-11-19 20:00 UTC: the test cannot tell a physics change from a change of random path.** A step is good only if k is exactly 1.017528. So any commit that changes which random numbers a history consumes reads as bad, physics or not. 323d5d93's own record puts its largest cross-section move at 6.9e-7 relative.
+  - Two single seeds of the same physics differ with sd ≈ 78 pcm, so +109 is 1.4σ and is **not resolved** as a physics shift.
+  - The comparison that can resolve it is today's six-seed default mean against 1.01807 ± 0.00023 (2026-11-13). That run is queued, with its prediction on gh:#1128.
+  - ~~**Interpretation:** this is a correction toward the upstream rule, not a defect.~~ The interpretation below holds for the commit, not for the size of the shift.
+- **Interpretation:** this is a correction toward the upstream rule, not a defect. It is kept, as "correct physics is the default" requires, and it moves N-1 further from the reference. `OUTRAM_MC_LEGACY_XS_DETAILS=1` restores all four details together. Which of the four carries the +109 pcm is **not yet measured**.
+- **The remaining +128 pcm** (also 1.6σ, so not resolved either) ~~comes from~~ is a change of k at a later commit, between a97ca6da and cedf0a10.
+  - **Bisected 2026-11-19 20:52 UTC:** the change is at **5d7c7644**, which was predicted on gh:#1128 before the last steps. Its parent 71025161 and fde69485 give 1.018617; 5d7c7644 and 0aadb663 give 1.019902. The runner-up, 970191bf, is inside fde69485, so it is ruled out.
+  - **What 5d7c7644 changes:** it moves the N-1 driver's S(α,β) from the C-12 and C-13 **nuclides** to the **materials** containing them (`assign_material_sab`, gh:#462, #1581). Its audit says the bound set is unchanged: C-12 and C-13 appear only in graphite compositions, and H-1 only in the shield water. The nuclide list is renumbered, so histories draw different random streams.
+  - **Reading:** a change of path, with no physics change claimed. Whether the k moved is decided by the six-seed comparison of today's default against 1.01807 ± 0.00023, not by this bisect. That run started 20:54 UTC, with its prediction on gh:#1128. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 

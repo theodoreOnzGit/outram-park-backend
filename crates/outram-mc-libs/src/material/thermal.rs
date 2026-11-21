@@ -156,7 +156,32 @@ pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 /// bracket search is binary rather than linear: 10.33 Msample/s at 384 against
 /// 11.22 at 48, i.e. **−8 %** of the thermal sampling rate. Before that change
 /// the same step cost −33 %.
+///
+/// **Status since 2026-11-19 (gh:#550):** this is no longer the default build.
+/// ~~The ENDF-route tables sit at this many log-spaced energies.~~ **CORRECTED
+/// 2026-11-19:** `from_tape` puts one table at each `calcem` incident energy;
+/// this constant sizes only the explicit ablation
+/// `ThermalScattering::from_tape_log_spaced_grid`. The sizing above was
+/// measured against THERMR at probe energies where the two builds agree
+/// (graphite and H-in-H2O golden gates re-run both ways 2026-11-19: `<E'>/E`
+/// rows equal to 5 digits, 2e-5 at worst); the builds differ BETWEEN `calcem`
+/// nodes (`sab_reference_550.md`).
 const N_EMIT_GRID: usize = 384;
+
+/// The named environment ablation of the gh:#550 flip (2026-11-19):
+/// `OUTRAM_SAB_LOG_SPACED_GRID=1` makes [`ThermalScattering::from_tape`] and
+/// [`ThermalScattering::from_tape_with_options`] build the pre-flip
+/// log-spaced emission tables instead of the `calcem` node grid, so that a
+/// consumer far from the constructors (an example, `nee_soon`, a LEAPR route)
+/// can be re-run as a paired old-build control without a second checkout.
+/// Unset, empty or `0` is the default (physics on). Read on every call, not
+/// cached. Always `false` without `std`.
+fn log_spaced_grid_ablation_requested() -> bool {
+    match crate::env::var("OUTRAM_SAB_LOG_SPACED_GRID") {
+        Ok(v) => !v.is_empty() && v != "0",
+        Err(_) => false,
+    }
+}
 /// Equally-probable outgoing energies per emission table (NJOY-typical).
 ///
 /// **Raised from 16 to 64 on 2026-09-12**, by the same sweep that sized
@@ -269,6 +294,16 @@ const N_EMIT_GRID: usize = 384;
 const N_OUTGOING: usize = 64;
 /// Equally-probable cosines per outgoing-energy bin (NJOY-typical).
 const N_COSINES: usize = 8;
+
+/// Where the incident-energy points of the emission tables sit (GitHub #550).
+#[derive(Debug, Clone, Copy)]
+enum EmissionGridKind {
+    /// `n` log-spaced energies (the density scaled to the cutoff); each table
+    /// is the `calcem` record nearest its label.
+    LogSpaced(usize),
+    /// THERMR's own incident-energy grid, one table per `calcem` record.
+    CalcemNodes,
+}
 /// Bottom of the pre-tabulation grid \[eV\] — the thermal tail of a Maxwellian.
 const E_MIN_GRID_EV: f64 = 1.0e-5;
 /// Upper end of the span on which `N_EMIT_GRID` was sized
@@ -893,13 +928,93 @@ impl ThermalScattering {
         }
     }
 
+    /// The ENDF-route default build. **Since 2026-11-19 (gh:#550, maintainer
+    /// decision "flip and re-measure") the emission tables sit on THERMR's own
+    /// incident-energy grid** ([`from_tape_on_calcem_grid`](Self::from_tape_on_calcem_grid)),
+    /// as NJOY's ACE stores them. ~~Until then this called
+    /// [`from_tape_with_grids`](Self::from_tape_with_grids) at `N_EMIT_GRID`
+    /// log-spaced energies, each labelled with an energy whose `calcem` record
+    /// was the nearest node, a staircase in incident energy (mean E' off the
+    /// evaluation by up to 2.3 %).~~ **CORRECTED 2026-11-19.** The old build is
+    /// the explicit ablation [`from_tape_with_grids`](Self::from_tape_with_grids).
+    /// Record and re-measured numbers:
+    /// `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
+        if log_spaced_grid_ablation_requested() {
+            return Self::from_tape_log_spaced_grid(tape, mat, temperature_k, name);
+        }
+        Self::from_tape_on_calcem_grid(tape, mat, temperature_k, name)
+    }
+
+    #[cfg(feature = "std")]
+    /// [`from_endf_file`](Self::from_endf_file) with explicit
+    /// [`EndfElasticOptions`] (gh:#634): today, the optional THERMR `natom`
+    /// for the incoherent elastic part. `EndfElasticOptions::default()` is
+    /// exactly `from_endf_file`.
+    ///
+    /// # Errors
+    /// As [`from_endf_file`](Self::from_endf_file), plus
+    /// [`NjoyError::InvalidInput`] for a `natom` that is not finite and positive.
+    pub fn from_endf_file_with_options<P: AsRef<std::path::Path>>(
+        path: P,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(path.as_ref())?;
+        Self::from_tape_with_options(&tape, mat, temperature_k, name, options)
+    }
+
+    /// **The explicit ABLATION of the gh:#550 flip:** the pre-2026-11-19 default
+    /// build, emission tables at `N_EMIT_GRID` log-spaced energies, each filled
+    /// with the nearest `calcem` record (a staircase in incident energy; mean
+    /// E' off the evaluation by up to 2.3 %). Use it only to reproduce numbers
+    /// recorded before the flip; [`from_tape`](Self::from_tape) is the physics.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape).
+    pub fn from_tape_log_spaced_grid(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
         Self::from_tape_with_grids(tape, mat, temperature_k, name, N_EMIT_GRID, N_OUTGOING)
+    }
+
+    /// [`from_tape`](Self::from_tape) with explicit [`EndfElasticOptions`]
+    /// (gh:#634). `EndfElasticOptions::default()` is exactly `from_tape`.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape), plus [`NjoyError::InvalidInput`] for
+    /// a `natom` that is not finite and positive.
+    pub fn from_tape_with_options(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        // gh:#550: the default is THERMR's own incident-energy grid; the
+        // log-spaced build is `from_tape_with_grids_and_options`.
+        if log_spaced_grid_ablation_requested() {
+            return Self::from_tape_with_grids_and_options(
+                tape,
+                mat,
+                temperature_k,
+                name,
+                N_EMIT_GRID,
+                N_OUTGOING,
+                options,
+            );
+        }
+        Self::from_tape_on_calcem_grid_and_options(tape, mat, temperature_k, name, N_OUTGOING, options)
     }
 
     /// [`from_tape`](Self::from_tape) with the **two emission-table dimensions
@@ -923,6 +1038,23 @@ impl ThermalScattering {
     /// and memory scale linearly in `n_emit` and in `n_outgoing`, so neither is
     /// a free knob.
     ///
+    /// **This is the explicit LOG-SPACED ABLATION since 2026-11-19 (gh:#550):
+    /// [`from_tape`](Self::from_tape) now builds on THERMR's own grid.**
+    ///
+    /// **Caveat found 2026-11-18 (GitHub #550):** each table here is
+    /// `IncoherentInelasticScattering::emission` at a log-spaced energy, and
+    /// `emission` answers with the `calcem` record **nearest** that energy, so
+    /// a table labelled `E` holds the outgoing energies of a node 4 to 10 %
+    /// away. Between THERMR's nodes the sampled `<E'>` is off the evaluation by
+    /// up to 2.3 % (0.025 eV: +0.86 %, 0.1 eV: -1.1 %, 1 eV: +1.5 %, 3.5 eV:
+    /// -2.3 %), and a finer `n_emit` does not help (it adds labels, not
+    /// records). [`from_tape_on_calcem_grid`](Self::from_tape_on_calcem_grid)
+    /// puts the tables on THERMR's own grid and is within 6.4e-4 of the
+    /// evaluation at every energy measured. This function is kept for the
+    /// convergence study that sized the defaults and as the ablation.
+    /// ~~**[`from_tape`](Self::from_tape) still uses this log-spaced grid**~~
+    /// **CORRECTED 2026-11-19:** flipped; `from_tape` uses the node grid.
+    ///
     /// Transport callers should use [`from_tape`](Self::from_tape) and get the
     /// validated defaults. A zero in either dimension is rejected as
     /// [`NjoyError::NotPorted`] rather than silently producing a law that cannot
@@ -938,10 +1070,125 @@ impl ThermalScattering {
         n_emit: usize,
         n_outgoing: usize,
     ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_grids_and_options(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            n_emit,
+            n_outgoing,
+            EndfElasticOptions::default(),
+        )
+    }
+
+    /// [`from_tape_with_grids`](Self::from_tape_with_grids) with explicit
+    /// [`EndfElasticOptions`] (gh:#634); the default options are exactly
+    /// `from_tape_with_grids`.
+    ///
+    /// # Errors
+    /// As [`from_tape_with_grids`](Self::from_tape_with_grids), plus
+    /// [`NjoyError::InvalidInput`] for a `natom` that is not finite and positive.
+    pub fn from_tape_with_grids_and_options(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        n_emit: usize,
+        n_outgoing: usize,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_emission_grid(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            EmissionGridKind::LogSpaced(n_emit),
+            n_outgoing,
+            options,
+        )
+    }
+
+    /// **The emission tables on THERMR's own incident-energy grid**, as NJOY's
+    /// ACE stores them and OpenMC reads them (GitHub #550).
+    ///
+    /// [`from_tape_with_grids`](Self::from_tape_with_grids) places its emission
+    /// tables on a log-spaced grid of `n_emit` energies and asks
+    /// `IncoherentInelasticScattering::emission` for each. That function returns
+    /// the `calcem` record **nearest** the requested energy, so a table labelled
+    /// `E` carries the outgoing energies of a node up to half a node spacing
+    /// (4 to 10 % of `E`) away: the emission law becomes a staircase in
+    /// incident energy, where OpenMC's sampler expects a table at each of its
+    /// own grid points and interpolates the outgoing energy between them. Here
+    /// each table is the `calcem` record at its own energy, labelled with it,
+    /// so [`sample_inelastic`](Self::sample_inelastic) interpolates exactly as
+    /// it does for an ACE table. `n_outgoing` is the number of equiprobable
+    /// outgoing energies per table (the crate default is 64, NJOY's ACE
+    /// `NIEB` for the OpenMC decks).
+    ///
+    /// Measurement: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+    ///
+    /// # Errors
+    /// As [`from_tape_with_grids_and_options`](Self::from_tape_with_grids_and_options).
+    pub fn from_tape_on_calcem_grid_and_options(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        n_outgoing: usize,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_emission_grid(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            EmissionGridKind::CalcemNodes,
+            n_outgoing,
+            options,
+        )
+    }
+
+    /// [`from_tape_on_calcem_grid_and_options`](Self::from_tape_on_calcem_grid_and_options)
+    /// with default [`EndfElasticOptions`] and the crate's default outgoing
+    /// bin count.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape).
+    pub fn from_tape_on_calcem_grid(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_on_calcem_grid_and_options(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            N_OUTGOING,
+            EndfElasticOptions::default(),
+        )
+    }
+
+    /// The one body behind the log-spaced and the node-grid constructors.
+    fn from_tape_with_emission_grid(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        grid_kind: EmissionGridKind,
+        n_outgoing: usize,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
         use uom::si::{energy::electronvolt, thermodynamic_temperature::kelvin};
 
+        options.validate()?;
+        let n_emit = match grid_kind {
+            EmissionGridKind::LogSpaced(n) => n,
+            EmissionGridKind::CalcemNodes => 1,
+        };
         if n_emit == 0 || n_outgoing == 0 {
             return Err(NjoyError::NotPorted(
                 "ThermalScattering: an emission table with a zero dimension cannot sample",
@@ -999,7 +1246,12 @@ impl ThermalScattering {
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
         // carrying an equiprobable (E', μ) table.
-        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, dens(n_emit));
+        let emit_e = match grid_kind {
+            EmissionGridKind::LogSpaced(_) => log_grid(E_MIN_GRID_EV, cutoff_ev, dens(n_emit)),
+            // THERMR's own incident grid: the energies of the sigma table, each
+            // of which is a `calcem` record (and so an exact request below).
+            EmissionGridKind::CalcemNodes => xs_e.clone(),
+        };
         let emit_tables: Vec<EmissionTable> = emit_e
             .iter()
             .map(|&e| {
@@ -1009,7 +1261,7 @@ impl ThermalScattering {
             })
             .collect();
 
-        let elastic = build_elastic_channel(tape, mat, t, cutoff_ev)?;
+        let elastic = build_elastic_channel(tape, mat, t, cutoff_ev, options.natom)?;
 
         Ok(Self {
             name: name.to_string(),
@@ -1548,6 +1800,7 @@ fn build_elastic_channel(
     mat: i32,
     t: njoy_outram_park_fork::units::Temperature,
     cutoff_ev: f64,
+    natom: Option<f64>,
 ) -> Result<ThermalElastic, NjoyError> {
     use njoy_outram_park_fork::thermr::scattering::{
         CoherentElasticScattering, IncoherentElasticScattering,
@@ -1578,9 +1831,20 @@ fn build_elastic_channel(
             let e_grid = log_grid(E_MIN_GRID_EV, cutoff_ev, N_INC_ELASTIC_GRID);
             let mut sigma = Vec::with_capacity(e_grid.len());
             let mut cosines = Vec::with_capacity(e_grid.len() * N_INC_ELASTIC_COSINES);
+            // `ie.cross_section` divides by the tape's MT=4 B(6) (`2*B(6)` in
+            // `σ_b/(2N)`). With a `natom` the divisor is `natom` instead, as
+            // THERMR's `iel` (`c1 = sb/(2*natom)`, `thermr.f90`): rescale by
+            // `B(6)/natom`. Without one the factor is not applied at all, so the
+            // default is bit-identical to before. The coherent part is never
+            // divided by this `natom` (NJOY's `coh` does not use it).
+            let rescale = natom.map(|n| ie.principal_atom_count() / n);
             for &e_ev in &e_grid {
                 let e = NeutronEnergy::new::<electronvolt>(e_ev);
-                sigma.push(ie.cross_section(e).get::<barn>());
+                let s = ie.cross_section(e).get::<barn>();
+                sigma.push(match rescale {
+                    Some(f) => s * f,
+                    None => s,
+                });
                 let mus = ie.equiprobable_cosines(e, N_INC_ELASTIC_COSINES);
                 for j in 0..N_INC_ELASTIC_COSINES {
                     cosines.push(mus.get(j).copied().unwrap_or(0.0));
@@ -1668,6 +1932,43 @@ fn interp_linear(xs: &[f64], ys: &[f64], x: f64) -> f64 {
         y0 + (y1 - y0) * (x - x0) / (x1 - x0)
     } else {
         y0
+    }
+}
+
+/// Options for the ENDF route's elastic channel (gh:#634, maintainer decision
+/// 2026-11-17).
+///
+/// `EndfElasticOptions::default()` changes nothing: the incoherent elastic
+/// part is divided by the tape's MF=7/MT=4 `B(6)`, as OpenMC's `from_endf`
+/// does. [`with_natom`](Self::with_natom) divides it by the given `natom`
+/// instead, as THERMR's card does (`iel`: `c1 = sb/(2*natom)`). The coherent
+/// part is never divided by it, on either side.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct EndfElasticOptions {
+    natom: Option<f64>,
+}
+
+impl EndfElasticOptions {
+    /// Divide the incoherent elastic part by `natom` (THERMR's card input)
+    /// instead of the tape's `B(6)`.
+    pub fn with_natom(mut self, natom: f64) -> Self {
+        self.natom = Some(natom);
+        self
+    }
+
+    /// The `natom` given, if any.
+    pub fn natom(&self) -> Option<f64> {
+        self.natom
+    }
+
+    /// Refuse a `natom` that is not finite and positive.
+    fn validate(&self) -> Result<(), NjoyError> {
+        match self.natom {
+            Some(n) if !(n.is_finite() && n > 0.0) => Err(NjoyError::InvalidInput(format!(
+                "ENDF-route natom must be finite and positive, got {n}"
+            ))),
+            _ => Ok(()),
+        }
     }
 }
 

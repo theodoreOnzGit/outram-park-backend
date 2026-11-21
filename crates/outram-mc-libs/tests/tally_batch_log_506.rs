@@ -93,12 +93,14 @@ fn flux_tally() -> Tally {
         name: "flux".into(),
         filters: vec![FilterKind::Cell(CellFilter { cell_indices: vec![0] })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     }
 }
 
+// gh:#675: the log always holds RAW per-batch sums, so these tests compare it with
+// raw tally sums (`normalise_tallies: false`); the default now normalises.
 fn settings() -> KeffSettings {
-    KeffSettings { n_particles: 200, n_inactive: 2, n_active: N_ACTIVE, seed: 11, ..Default::default() }
+    KeffSettings { n_particles: 200, n_inactive: 2, n_active: N_ACTIVE, seed: 11, normalise_tallies: false, ..Default::default() }
 }
 
 fn source_box() -> SourceBox {
@@ -173,7 +175,7 @@ fn a_run_without_a_log_records_nothing() {
 #[test]
 fn the_fixed_source_driver_logs_each_batch_without_changing_the_tally() {
     let src = FixedSource::Point { r: Position::ZERO, energy_ev: 1.0e6 };
-    let s = FixedSourceSettings { n_particles: 400, n_batches: 5, seed: 3, ..Default::default() };
+    let s = FixedSourceSettings { n_particles: 400, n_batches: 5, seed: 3, normalise_tallies: false, ..Default::default() };
     let mut plain = flux_tally();
     run_fixed_source(&geometry(), &[heu()], &nuclides(), &src, &s, Some(&mut plain));
 

@@ -1,0 +1,33 @@
+=== FHR ring-RPT pebble: free-gas target motion, priced with the in-process hook ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 154.0s
+  reconstructing U238   … 122.9s
+  reconstructing O16    … 3.9s
+  reconstructing C12    … 976.0ms
+  reconstructing C13    … 213.6ms
+  reconstructing C12    … 916.0ms
+  reconstructing C13    … 204.2ms
+  reconstructing Si28   … 1.6s
+  reconstructing Si29   … 1.5s
+  reconstructing Si30   … 1.2s
+  reconstructing F19    … 369.4ms
+  reconstructing Li6    … 155.1ms
+  reconstructing Li7    … 141.8ms
+  reconstructing Be9    … 326.8ms
+  control: kinematics kT 5.170400e-2 -> 0 eV on all 16 nuclides (S(alpha,beta) moderators included)
+  ring-RPT fuel shell: 1.493359 < r < 1.753118 cm; pebble 2, reflective root 3
+Nuclear data + materials ready in 306.1 s.
+
+8 seeds per arm, 4000 histories × [30 inactive + 80 active]:
+    MOVING  seed   1: kfull = 1.363720663647968 k = 1.36372 ± 0.00193, p = 0.4834, eps = 1.5044  [436.4 s]
+    MOVING  seed   2: kfull = 1.362856934890321 k = 1.36286 ± 0.00209, p = 0.4841, eps = 1.5024  [387.3 s]
+    MOVING  seed   3: kfull = 1.361750322873971 k = 1.36175 ± 0.00171, p = 0.4828, eps = 1.5041  [372.4 s]
+    MOVING  seed   4: kfull = 1.363223263172762 k = 1.36322 ± 0.00181, p = 0.4832, eps = 1.5059  [389.3 s]
+    MOVING  seed   5: kfull = 1.363143787001105 k = 1.36314 ± 0.00163, p = 0.4838, eps = 1.5044  [372.4 s]
+    MOVING  seed   6: kfull = 1.362718267119320 k = 1.36272 ± 0.00199, p = 0.4840, eps = 1.5038  [314.0 s]
+    MOVING  seed   7: kfull = 1.362297447939936 k = 1.36230 ± 0.00192, p = 0.4840, eps = 1.5044  [370.4 s]
+    MOVING  seed   8: kfull = 1.362322904960999 k = 1.36232 ± 0.00170, p = 0.4839, eps = 1.5049  [388.1 s]
+  MOVING  arm done in 3030.3 s
+MOVING-only: n = 8 k_MOVING = 1.36275, sd = 62 pcm, sem = 22 pcm

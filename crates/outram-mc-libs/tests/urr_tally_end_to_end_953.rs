@@ -219,7 +219,7 @@ fn fixed_source_batches(nuclides: &[Nuclide], n_batches: usize, per_batch: usize
                     bins: WINDOW.to_vec(),
                 })],
                 scores: vec![ScoreType::Absorption],
-                bins: vec![TallyBin::default(); 1],
+                bins: vec![TallyBin::default(); 1], derivative: None,
             };
             let mut rec = TrackRecorder::new(4 * per_batch, 100_000);
             let settings = FixedSourceSettings {
@@ -257,7 +257,8 @@ fn fixed_source_batches(nuclides: &[Nuclide], n_batches: usize, per_batch: usize
             }
             let n = per_batch as f64;
             Batch {
-                track_length: tally.bins[0].sum / n,
+                // gh:#675: one batch, normalised per source particle by default.
+                track_length: tally.bins[0].sum,
                 analog: inw as f64 / n,
                 analog_all: all as f64 / n,
             }
@@ -356,7 +357,7 @@ fn window_tally() -> Tally {
             bins: WINDOW.to_vec(),
         })],
         scores: vec![ScoreType::Flux, ScoreType::Absorption],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     }
 }
 

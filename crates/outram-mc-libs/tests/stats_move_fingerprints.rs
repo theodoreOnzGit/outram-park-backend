@@ -460,7 +460,11 @@ fn two_group_mg_sphere_is_bit_identical() {
     check(
         "mg_sphere",
         fp.0,
-        0xcafa58c94439199d,
+        // Re-pinned (GitHub #259 diagnosis): the MG driver now resamples the bank by the comb
+        // instead of with replacement, so its random stream moved. Was 0xcafa58c94439199d,
+        // k = 0.66115 +/- 0.00639; now k = 0.65646 +/- 0.00676 (single seed, 800 histories:
+        // -0.7 sigma of the run's own k_std, as a stream change gives).
+        0xf4e640eec4a8087b,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -1027,7 +1031,15 @@ fn csg_nested_lattice_keff_is_bit_identical() {
         // (k 1.72835 +/- 0.01486), now k 1.71604 +/- 0.01213, 0.64 sigma.
                 // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0xc79b620923731abe (k 1.71604 +/- 0.01213), now k 1.72254 +/- 0.01595, 0.32 sigma. Legacy switch reproduces the old pin.
                         // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0x216a856800b43331 (k 1.72254 +/- 0.01595), now k 1.71589 +/- 0.01110, -0.34 sigma. Legacy switch reproduces the old pin (to verify).
-        0xee7a5a97dd810edc,
+        // Re-pinned 2026-11-20 (gh:#698, OpenMC geometry.cpp:480-518): a lower
+        // coordinate level now beats a higher one only by FP_REL_PRECISION (1e-5)
+        // relative, and a surface wins within a level only if shorter than the
+        // lattice distance by FP_COINCIDENT (was 1e-14 and a surface-preferred
+        // 1e-9 cm tie): was 0xee7a5a97dd810edc (k 1.71589 +/- 0.01110), now
+        // k 1.71762 +/- 0.01223, +0.16 sigma. Cause isolated: restoring the old
+        // tie rule alone (keeping the token-level change) reproduces the old pin,
+        // so the surface-token level change moves nothing in this model.
+        0x6d6dd00f56e17f8e,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

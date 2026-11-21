@@ -67,11 +67,10 @@
 //! therefore behind `long-tests`.
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. C-12 / C-13 are referenced only by the graphite matrix; the UO2 kernel holds no carbon. Not migrated because the test audits the majorant over exactly this nuclide array (about 6.5 min on 2 cores) and was not re-run.
-
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::delta_tracking::{Majorant, MajorantAudit};
@@ -146,12 +145,8 @@ fn htr10_kernel_and_matrix_are_bounded_on_endf() {
         u235,
         load("n-092_U_238.endf", "U238", t).expect("U-238 tape"),
         load("n-008_O_016-ENDF8.0.endf", "O16", t).expect("O-16 tape"),
-        load("n-006_C_012-ENDF8.0.endf", "C12", t)
-            .expect("C-12 tape")
-            .with_thermal_scattering(sab.clone()),
-        load("n-006_C_013-ENDF8.0.endf", "C13", t)
-            .expect("C-13 tape")
-            .with_thermal_scattering(sab),
+        load("n-006_C_012-ENDF8.0.endf", "C12", t).expect("C-12 tape"),
+        load("n-006_C_013-ENDF8.0.endf", "C13", t).expect("C-13 tape"),
         load("n-005_B_010-ENDF8.0.endf", "B10", t).expect("B-10 tape"),
         load("n-005_B_011-ENDF8.0.endf", "B11", t).expect("B-11 tape"),
     ];
@@ -182,6 +177,13 @@ fn htr10_kernel_and_matrix_are_bounded_on_endf() {
             ],
         ),
     ];
+    // gh:#1581 / #1635: S(alpha,beta) per material. C-12 (slot 3) and C-13
+    // (slot 4) are free in the array; the graphite matrix, the only material
+    // that references them, gets bound copies appended after the free slots.
+    let mut sab_entries = MaterialSab::for_materials_containing(&mats, 3, 0, &[]);
+    sab_entries.extend(MaterialSab::for_materials_containing(&mats, 4, 0, &[]));
+    let (mats, nuclides) = assign_material_sab(&mats, &nuclides, &[sab], &sab_entries)
+        .expect("S(alpha,beta) per material");
 
     let new = Majorant::bounding(&mats, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
     let a_new = new.audit(&mats, &nuclides, AUDIT_LO, AUDIT_HI, AUDIT_N);

@@ -101,7 +101,9 @@ impl App {
             // centred on the origin; the half-extent is refitted to the
             // screen's aspect before each fit.
             view: View::new(0.5 * bugis::components::msre_plant::EXTENT_FT.0 as f64).with_home([0.0, 0.0]),
-            tab: Tab::Plant,
+            // `?tab=keff` opens on the k_eff tab (an unattended browser
+            // check, as `?krun`; gh:#1661). Any other value: Plant.
+            tab: if bugis::web_demo::platform::query_pairs().iter().any(|(k, v)| k == "tab" && v == "keff") { Tab::Keff } else { Tab::Plant },
             snap: None,
             history: Vec::new(),
             drift: None,

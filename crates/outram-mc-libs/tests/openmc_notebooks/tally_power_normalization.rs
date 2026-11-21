@@ -253,7 +253,7 @@ fn tally_power_normalization() {
         name: "fuel power".into(),
         filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::Fission, ScoreType::KappaFission],
-        bins: vec![TallyBin::default(); 3],
+        bins: vec![TallyBin::default(); 3], derivative: None,
     };
 
     let settings = KeffSettings {

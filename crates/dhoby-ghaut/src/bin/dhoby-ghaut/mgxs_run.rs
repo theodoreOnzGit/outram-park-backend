@@ -118,7 +118,7 @@ fn tallies(groups: &GroupStructure, mesh: &Arc<UnstructuredMesh>) -> (Tally, Tal
         name: "workbench mgxs scalar".into(),
         filters: vec![mesh_f(), e()],
         scores: SCALAR_SCORES.to_vec(),
-        bins: vec![TallyBin::default(); n_c * n_g * SCALAR_SCORES.len()],
+        bins: vec![TallyBin::default(); n_c * n_g * SCALAR_SCORES.len()], derivative: None,
     };
     let matrix = Tally {
         id: 82,
@@ -132,7 +132,7 @@ fn tallies(groups: &GroupStructure, mesh: &Arc<UnstructuredMesh>) -> (Tally, Tal
         ],
         // The same scores, same order, as `nee_soon::mgxs::matrix_tally`.
         scores: MATRIX_SCORE_TYPES.to_vec(),
-        bins: vec![TallyBin::default(); n_c * n_g * n_g * MATRIX_SCORES],
+        bins: vec![TallyBin::default(); n_c * n_g * n_g * MATRIX_SCORES], derivative: None,
     };
     (scalar, matrix)
 }

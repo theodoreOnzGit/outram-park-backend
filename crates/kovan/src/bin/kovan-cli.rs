@@ -541,6 +541,73 @@ enum Command {
         #[arg(long)]
         crates: Option<String>,
     },
+    /// Plans the partitioned semantic index (GitHub #1668, #1671): every
+    /// workspace member in exactly one partition whose dependency closure
+    /// stays within `--max-closure` packages (memory grows with the
+    /// closure). Writes the plan as JSON (stdout, or `--out`).
+    IndexPlan {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Largest closure (packages) a partition may load. A member whose
+        /// own closure is larger gets a partition alone, and is listed.
+        #[arg(long, default_value_t = 750)]
+        max_closure: usize,
+        /// Most members in one partition.
+        #[arg(long, default_value_t = 8)]
+        max_members: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Print the partitions as a GitHub Actions matrix
+        /// (`{"include":[{"id":..,"crates":"a,b","key":..}]}`, with each
+        /// partition's cache key) instead.
+        #[arg(long)]
+        matrix: bool,
+    },
+    /// Indexes one partition (GitHub #1669): `rust-analyzer scip` over a
+    /// project holding only the partition's dependency closure, writing
+    /// `partition.scip` and `partition.json` (members, closure, cache key,
+    /// time, peak memory, documents) into `--out`. Never loads the rest of
+    /// the workspace. Unix.
+    IndexPartition {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated workspace members.
+        #[arg(long)]
+        crates: String,
+        #[arg(long)]
+        out: PathBuf,
+        /// Stop rust-analyzer past this resident memory (MiB; 0: none).
+        #[arg(long, default_value_t = 0)]
+        memory_mib: u64,
+        /// Stop rust-analyzer after this many seconds (0: none).
+        #[arg(long, default_value_t = 0)]
+        timeout: u64,
+        /// Only print the partition's cache key (GitHub #1672) and stop.
+        #[arg(long)]
+        key_only: bool,
+    },
+    /// Merges partition indexes (GitHub #1670) into one SCIP file that
+    /// `call-graph --scip` and `index --scip` read as before. Refuses mixed
+    /// rust-analyzer versions, overlapping partitions and (unless
+    /// `--allow-incomplete`) a plan member with no successful partition.
+    ScipMerge {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// The plan to check coverage against.
+        #[arg(long)]
+        plan: Option<PathBuf>,
+        #[arg(long)]
+        out: PathBuf,
+        /// Write what succeeded even when coverage is incomplete (said
+        /// loudly; never for publishing).
+        #[arg(long)]
+        allow_incomplete: bool,
+        /// Partition folders (each with partition.json and partition.scip).
+        dirs: Vec<PathBuf>,
+    },
     /// Regenerates every `<!-- code-walk: ... -->` block in the Markdown
     /// under the given paths and fails if one is stale, a concept path no
     /// longer connects, or a hand-filled hop names a function that no longer
@@ -990,6 +1057,53 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::call_graph::run_keys(&root, crates.as_deref().map(commands::call_graph::parse_crates))
+        }
+        Command::IndexPlan { workspace, max_closure, max_members, out, matrix } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let plan = commands::index_partition::run_plan(&root, max_closure, max_members)?;
+            let text = if matrix {
+                let keys = commands::index_partition::partition_keys(&root, &plan)?;
+                commands::index_partition::matrix_json(&plan, &keys)
+            } else {
+                serde_json::to_string_pretty(&plan).map_err(|e| e.to_string())?
+            };
+            match out {
+                Some(p) => std::fs::write(&p, text).map_err(|e| format!("{}: {e}", p.display())),
+                None => {
+                    println!("{text}");
+                    Ok(())
+                }
+            }
+        }
+        Command::IndexPartition { workspace, crates, out, memory_mib, timeout, key_only } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let members = commands::call_graph::parse_crates(&crates);
+            if key_only {
+                println!("{}", commands::index_partition::partition_key_for(&root, &members)?);
+                return Ok(());
+            }
+            let limits = commands::index_partition::Limits { memory_mib, timeout_s: timeout };
+            let r = commands::index_partition::run_partition(&root, &members, &out, limits, &Default::default())?;
+            eprintln!(
+                "index-partition: {} in {:.0} s, peak {} MiB, documents {:?}{}",
+                if r.ok { "complete" } else { "INCOMPLETE" },
+                r.wall_s,
+                r.peak_rss_mib.map_or("?".into(), |m| m.to_string()),
+                r.documents,
+                r.stopped.as_deref().map(|s| format!(", stopped: {s}")).unwrap_or_default()
+            );
+            if r.ok {
+                Ok(())
+            } else {
+                Err(format!("partition {} incomplete; see {}", r.members.join(","), out.join("partition.json").display()))
+            }
+        }
+        Command::ScipMerge { workspace, plan, out, allow_incomplete, dirs } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::index_partition::run_merge(&root, &dirs, plan.as_deref(), &out, allow_incomplete).map(|_| ())
         }
         Command::CodeWalkCheck {
             paths,

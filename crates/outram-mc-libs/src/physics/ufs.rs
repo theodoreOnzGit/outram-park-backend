@@ -2,8 +2,15 @@
 
 //! **Uniform fission site (UFS) weighting** — GitHub #258 scope item 5.
 //!
-//! Ported from `ufs_count_sites` and `ufs_get_weight` (`src/eigenvalue.cpp`)
-//! at OpenMC `afa7a14`.
+//! **WIRED 2026-11-20 (gh:#692).** ~~NOT CALLED: no caller outside this file, and
+//! `Site` has no weight field.~~ `VarianceReduction::with_ufs(mesh)` turns it on;
+//! each generation the drivers (`run_keff_csg_seq/par`, `CsgPowerIteration`) build
+//! [`UfsWeights`] from that generation's source, scale the expected fission-site
+//! count at each collision by [`UfsWeights::weight_at`], bank each site at
+//! `Site::wgt = 1 / weight`, start the next history at that weight and normalise
+//! `k` by the source weight. Off by default, as upstream. **Not carried across
+//! ranks** (the distributed wire format has no site weight) and a source site
+//! outside the mesh turns biasing off for that generation (upstream errors).
 //!
 //! # What it does and why it is not the same as a weight window
 //!

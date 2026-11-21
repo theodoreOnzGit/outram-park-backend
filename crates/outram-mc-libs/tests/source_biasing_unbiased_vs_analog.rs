@@ -18,7 +18,7 @@
 //! makes `w·E` constant: a zero-variance estimator of `E[E]` (seed spread
 //! exactly 0, `z` undefined), a true property of that bias but useless as a
 //! test. A second run used `n = 0.5` and found `E[w] = 1.4997`, i.e. a
-//! **biased** estimator: see `non_integer_power_law_bias_weight_is_upstreams_defect`.
+//! **biased** estimator: see `non_integer_power_law_bias_weight_is_unbiased_by_default` (upstream defect fixed, gh:#1580).
 //! `n = 2` was then fixed, before any `n = 2` result. Drawn through the full `IndependentSource::sample`
 //! path (`wgt = strength * w`). Analytic truth under `p`:
 //! `E[E] = 2.5e6`, `E[E^2] = 7.0e12`, `P(E < 2 MeV) = 1/3`, `E[w] = 1`.
@@ -125,22 +125,75 @@ fn biased_source_mean_matches_analog_and_truth() {
     assert_ne!(source(true).sample(&mut s).wgt, 1.0);
 }
 
-/// **Upstream defect, reproduced and pinned (not fixed).** OpenMC's
-/// `PowerLaw::evaluate` computes `int pwr = n() + 1;` (the port notes it in
-/// `Distribution::evaluate`), which truncates a non-integer exponent, so the
-/// density it returns is normalised with `trunc(n + 1)` instead of `n + 1`.
-/// The importance weight `p/q` uses that density, so a `PowerLaw` bias with
-/// non-integer `n` gives `E[w] = (n + 1)/trunc(n + 1)` instead of 1: for
-/// `n = 0.5`, exactly 1.5, a 50 % bias in every biased tally. The sampler is
-/// exact; only the weight is wrong. The port copies upstream faithfully
-/// (bit-compared at integer `n` only), so it inherits this. Predicted before
-/// the run that found it (by reading `evaluate`): `E[w] = 1.5`.
+
+/// Mean and standard error of the per-draw weight.
+fn mean_weight(src: &IndependentSource, seed0: u64, n: usize) -> (f64, f64) {
+    let mut seed = seed0;
+    let (mut s, mut s2) = (0.0f64, 0.0f64);
+    for _ in 0..n {
+        let w = src.sample(&mut seed).wgt;
+        s += w;
+        s2 += w * w;
+    }
+    let nf = n as f64;
+    let m = s / nf;
+    (m, ((s2 / nf - m * m) / nf).sqrt())
+}
+
+fn source_legacy(n: f64) -> IndependentSource {
+    let p = Distribution::uniform(E_LO, E_HI);
+    let q = Distribution::power_law(E_LO, E_HI, n).with_upstream_integer_exponent();
+    IndependentSource {
+        spatial: SpatialKind::Point(PointSource { r: Position::ZERO }),
+        energy: EnergyKind::Distribution(p.with_bias(q).unwrap()),
+        angle: AngleKind::Monodirectional(MonodirectionalAngle { d: Direction::new(0.0, 0.0, 1.0) }),
+        strength: 1.0,
+    }
+}
+
+/// **Non-integer `PowerLaw` bias exponent (gh:#1580, FIXED 2026-11-17).**
+/// OpenMC `8f79d9d0`'s `PowerLaw::evaluate` computes `int pwr = n() + 1;`,
+/// which truncates a non-integer exponent and normalises its density by
+/// `trunc(n + 1)` instead of `n + 1`. The importance weight `p/q` then has
+/// `E[w] = (n + 1)/trunc(n + 1)` instead of 1. ~~The port copied this and the
+/// test pinned the defect (`E[w] = 1.50006` at `n = 0.5`).~~ **CORRECTED
+/// 2026-11-17 (maintainer: fix it):** the default now uses the real exponent;
+/// the truncation stays only behind
+/// `Distribution::with_upstream_integer_exponent`.
+///
+/// **Predicted before the run:** default `E[w] = 1` (|z| <= 2) at `n = 0.5`
+/// and `n = 1.5`; legacy `E[w] = 1.5` at `n = 0.5` and `1.25` at `n = 1.5`
+/// (`(n+1)/trunc(n+1)`), within 0.01 for 2e5 draws.
+///
+/// **Results:** printed with `--nocapture`; recorded in the gh:#1580 commit.
 #[test]
-fn non_integer_power_law_bias_weight_is_upstreams_defect() {
-    let src = source_n(true, 0.5);
-    let mut seed = 99u64;
+fn non_integer_power_law_bias_weight_is_unbiased_by_default() {
     let n = 200_000;
-    let mean_w: f64 = (0..n).map(|_| src.sample(&mut seed).wgt).sum::<f64>() / n as f64;
-    println!("PowerLaw bias n = 0.5: E[w] = {mean_w:.5} (unbiased would be 1, upstream defect predicts 1.5)");
-    assert!((mean_w - 1.5).abs() < 0.01, "E[w] = {mean_w}");
+    for (k, expo) in [0.5f64, 1.5].into_iter().enumerate() {
+        let (m, se) = mean_weight(&source_n(true, expo), 99 + k as u64, n);
+        let z = (m - 1.0) / se;
+        println!("PowerLaw bias n = {expo}: default E[w] = {m:.5} +- {se:.5} (z = {z:+.2})");
+        assert!(z.abs() <= 2.0, "n = {expo}: E[w] = {m} +- {se}, z = {z}");
+    }
+}
+
+/// The legacy option reproduces the upstream truncation (the old pinned value).
+#[test]
+fn legacy_upstream_integer_exponent_reproduces_the_old_weight() {
+    let n = 200_000;
+    for (k, (expo, expected)) in [(0.5f64, 1.5f64), (1.5, 1.25)].into_iter().enumerate() {
+        let (m, se) = mean_weight(&source_legacy(expo), 99 + k as u64, n);
+        println!("PowerLaw bias n = {expo}: legacy E[w] = {m:.5} +- {se:.5} (upstream truncation predicts {expected})");
+        assert!((m - expected).abs() < 0.01, "n = {expo}: E[w] = {m}, expected {expected}");
+    }
+}
+
+/// Integer exponents are untouched by the fix: default and legacy agree bit for bit.
+#[test]
+fn integer_exponent_is_identical_in_default_and_legacy() {
+    let a = Distribution::power_law(E_LO, E_HI, 2.0);
+    let b = Distribution::power_law(E_LO, E_HI, 2.0).with_upstream_integer_exponent();
+    for x in [1.1e6, 2.0e6, 3.9e6] {
+        assert_eq!(a.evaluate(x).unwrap().to_bits(), b.evaluate(x).unwrap().to_bits());
+    }
 }

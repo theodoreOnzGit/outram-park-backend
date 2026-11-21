@@ -121,7 +121,7 @@ fn per_group_macro_xs_match_the_evaluations_own_tables() {
         name: "t".into(),
         filters,
         scores: vec![ScoreType::DelayedNuFission],
-        bins: vec![TallyBin::default(); nb],
+        bins: vec![TallyBin::default(); nb], derivative: None,
     };
     let mut by_group = mk(
         vec![

@@ -6615,6 +6615,7 @@ dependencies = [
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-mc-libs",
+ "outram-park-fork-liggghts",
  "petir",
  "serde",
  "serde_json",
@@ -6625,6 +6626,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tuas_boussinesq_solver",
  "uom",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -8266,6 +8268,15 @@ name = "pulp-wasm-simd-flag"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
+
+[[package]]
+name = "punggol"
+version = "0.0.1"
+dependencies = [
+ "outram-mc-libs",
+ "petir",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "pxfm"

@@ -429,15 +429,18 @@ pub struct Nuclide {
     /// `true` after [`Nuclide::without_other_neutron_channels`] (the ablation
     /// arm): those reactions fall back into the elastic remainder, as before.
     other_channels_ablated: bool,
-    /// Unresolved-resonance probability tables, when the caller has asked for
-    /// them with [`Nuclide::with_urr_probability_tables`]. `None` — the
-    /// default — means the unresolved range is treated as infinitely dilute,
-    /// which is what this crate did unconditionally before 2026-09-16.
+    /// Unresolved-resonance probability tables ([`Nuclide::with_urr_probability_tables`]).
+    /// ~~`None` — the default~~ **CORRECTED 2026-11-19** (gh:#693): the ENDF route applies them by default
+    /// (`with_urr_probability_tables` then `with_dbrc` in the constructor) and the
+    /// ACE route does too (gh:#307, `tests/correct_physics_is_default.rs`); `None`
+    /// is the explicit ablation, where the unresolved range is treated as
+    /// infinitely dilute, as this crate did unconditionally before 2026-09-16.
     urr: Option<UrrProbabilityTables>,
-    /// 0 K elastic cross section for the **DBRC** resonance-elastic correction,
-    /// when the caller asked for it with [`Nuclide::with_dbrc`]. `None` — the
-    /// default — is the constant-cross-section approximation this crate used
-    /// unconditionally before 2026-09-16.
+    /// 0 K elastic cross section for the **DBRC** resonance-elastic correction
+    /// ([`Nuclide::with_dbrc`]). ~~`None` — the default~~ **CORRECTED 2026-11-19** (gh:#693): applied by
+    /// default on the ENDF route (`DBRC_DEFAULT_E_MAX_EV`); `None` is the
+    /// explicit ablation, the constant-cross-section approximation this crate
+    /// used unconditionally before 2026-09-16.
     dbrc: Option<DbrcTable>,
     /// The 0 K elastic `(E [eV], σ [b])` grid retained at construction, capped
     /// at [`DBRC_GRID_MAX_EV`], from which [`Nuclide::with_dbrc`] builds its
@@ -474,7 +477,11 @@ pub struct Nuclide {
 }
 
 #[cfg(feature = "std")]
+mod hdf5_laws;
+#[cfg(feature = "std")]
 mod hdf5_read;
+#[cfg(all(test, feature = "std"))]
+mod hdf5_real_tests;
 mod multipole;
 pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
 
@@ -1450,7 +1457,7 @@ impl Nuclide {
     /// this crate did unconditionally before 2026-09-16 and what
     /// `docs/neutronics-physics-coverage.md` recorded as known-absent physics.
     ///
-    /// # Cost — this is not free, which is why it is opt-in
+    /// # Cost — this is not free (~~which is why it is opt-in~~ **CORRECTED 2026-11-19** (gh:#693): the ENDF route applies it by default; correctness outranks runtime)
     ///
     /// PURR is a Monte Carlo calculation over resonance ladders. At the
     /// verified NJOY production settings (`nbin = 20`, `nladr = 64`,
@@ -4937,7 +4944,11 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
         FissionSpectrum::Mixture(parts) => {
             let weights: Vec<f64> = parts
                 .iter()
-                .map(|(p_k, _)| eval_tab1(e_in, &p_k.interp, &p_k.pairs).unwrap_or(0.0))
+                // gh:#688: OpenMC's `Tabulated1D` clamps to the end value outside
+                // the table (`src/endf.cpp:249-252`). ~~`eval_tab1` returns 0
+                // there, so every weight read 0 and the draw silently fell back
+                // to `parts[0]`.~~ **CORRECTED 2026-11-19.**
+                .map(|(p_k, _)| tabulated1d_eval(e_in, &p_k.interp, &p_k.pairs))
                 .collect();
             let total: f64 = weights.iter().sum();
             if !(total > 0.0) {
@@ -5152,6 +5163,22 @@ pub(crate) fn sample_continuous_tabular_indexed(
     e_in: f64,
     seed: &mut u64,
 ) -> (f64, usize, AnglePick) {
+    sample_continuous_tabular_indexed_with(chi, e_in, seed, true)
+}
+
+/// [`sample_continuous_tabular_indexed`] with the single-histogram-region rule
+/// (gh:#689) switchable. `histogram_ok = true` is OpenMC's `ContinuousTabular`
+/// (MF5 LF=1 / law 4); `false` always picks the lower or upper table at random,
+/// which is what the Kalbach-Mann and correlated energy-angle laws (44/61) do:
+/// the maintainer's meta-audit of #689 says upstream applies `histogram_interp`
+/// to `ContinuousTabular` only (the vendored source is not in this checkout, so
+/// not re-read).
+pub(crate) fn sample_continuous_tabular_indexed_with(
+    chi: &ChiTabular,
+    e_in: f64,
+    seed: &mut u64,
+    histogram_ok: bool,
+) -> (f64, usize, AnglePick) {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {
@@ -5176,14 +5203,27 @@ pub(crate) fn sample_continuous_tabular_indexed(
         (i, (e_in - energy[i]) / (energy[i + 1] - energy[i]))
     };
 
-    // (2) statistically pick the lower or upper table.
-    let l = if r > prn(seed) { i + 1 } else { i };
+    // (2) statistically pick the lower or upper table. gh:#689: when the whole
+    // incident grid is ONE histogram (INT=1) region, upstream uses the lower
+    // table only, with no random pick and no envelope scaling
+    // (`histogram_interp`, `src/distribution_energy.cpp:153-157, 178, 255`;
+    // taken from the issue's citation, the vendored source is not in this
+    // checkout). ~~The pick and the scaling were unconditional.~~ **CORRECTED
+    // 2026-11-19.**
+    let histogram_interp = histogram_ok && chi.incident_interp.len() == 1 && chi.incident_interp[0].1 == 1;
+    let l = if histogram_interp {
+        i
+    } else if r > prn(seed) {
+        i + 1
+    } else {
+        i
+    };
 
     // (3) invert table l's outgoing-energy CDF.
     let (e_out, k) = sample_ct_table_indexed(&chi.tables[l], prn(seed));
     // A discrete line is emitted at its own energy, unscaled (OpenMC:
     // `if (k < n_discrete) E_out = E_l_k;`, no envelope interpolation).
-    if k.row < chi.tables[l].n_discrete {
+    if k.row < chi.tables[l].n_discrete || histogram_interp {
         return (e_out, l, k);
     }
 
@@ -6062,6 +6102,50 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
 mod tests {
     use super::*;
 
+    /// gh:#689: with `incident_interp = [(2, 1)]` (one histogram region) every
+    /// draw between two incident energies comes from the LOWER table; with
+    /// lin-lin (`INT = 2`) both tables are drawn from (control).
+    #[test]
+    fn a_histogram_incident_grid_uses_the_lower_table_only() {
+        use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular};
+        let one = |e: f64| ChiEout { e_out: vec![e], pdf: vec![1.0], cdf: vec![1.0], linlin: true, n_discrete: 0 };
+        let mk = |int: u32| ChiTabular {
+            incident: vec![1.0e6, 2.0e6],
+            tables: vec![one(1.0e6), one(5.0e6)],
+            incident_interp: vec![(2, int)],
+        };
+        let draws = |chi: &ChiTabular| {
+            let mut seed = 3u64;
+            (0..200).map(|_| sample_continuous_tabular(chi, 1.5e6, &mut seed)).collect::<Vec<f64>>()
+        };
+        assert!(draws(&mk(1)).iter().all(|&e| e == 1.0e6), "histogram: lower table only");
+        let lin = draws(&mk(2));
+        assert!(lin.contains(&1.0e6) && lin.contains(&5.0e6), "control: lin-lin draws both");
+        // The Kalbach-Mann / correlated laws (44/61) call the sampler with the
+        // histogram rule off: a single INT=1 region still picks at random.
+        let mut seed = 3u64;
+        let both: Vec<f64> = (0..200)
+            .map(|_| sample_continuous_tabular_indexed_with(&mk(1), 1.5e6, &mut seed, false).0)
+            .collect();
+        assert!(both.contains(&1.0e6) && both.contains(&5.0e6), "histogram_ok = false: random pick");
+    }
+
+    /// gh:#688: mixture weights `p_k(E)` clamp to the end value outside their
+    /// table, as OpenMC's `Tabulated1D` does. Law 0 has weight 0 and law 1 weight
+    /// 1 everywhere in `[1, 10]` eV, so at `E = 100` eV (above the table) the
+    /// draw must come from law 1. Before, both weights read 0 and the draw fell
+    /// back to `parts[0]`.
+    #[test]
+    fn mixture_weights_clamp_outside_their_table() {
+        let tab = |w: f64| njoy_outram_park_fork::endf::Tab1 { head: njoy_outram_park_fork::endf::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 0, n2: 2 }, interp: vec![], pairs: vec![(1.0, w), (10.0, w)] };
+        let law = |v: f64| FissionSpectrum::Tabulated { e_out: vec![v], pdf: vec![1.0] };
+        let mix = FissionSpectrum::Mixture(vec![(tab(0.0), law(1.0)), (tab(1.0), law(10.0))]);
+        let mut seed = 1u64;
+        for e_in in [0.5, 5.0, 100.0] {
+            assert_eq!(sample_chi(&mix, e_in, &mut seed), 10.0, "e_in = {e_in}");
+        }
+    }
+
     /// GitHub #463 item 1: the absorption fallback counts OpenMC's full
     /// disappearance set, MT=155/182/191-193/197 included, on both the
     /// searched and the indexed path. Fails before 2026-09-30, where MT=155
@@ -6781,14 +6865,12 @@ impl Nuclide {
     ///
     /// # What this does NOT do
     ///
-    /// * It does **not** change the emission spectrum. A delayed neutron is
-    ///   still born from the prompt `chi` — MF=5/455's delayed spectra are read
-    ///   but not sampled here. Delayed spectra are softer, so a `beta_eff`
-    ///   computed through transport with this approximation carries that error.
-    /// * Nothing in the transport loop calls this yet. `Site` has no field for a
-    ///   precursor group (59 `Site {…}` literals across the crate), so carrying
-    ///   the tag across generations — which is what IFP's `beta_eff` needs — is a
-    ///   separate change. This is the sampler, verified on its own.
+    /// * ~~It does **not** change the emission spectrum: a delayed neutron is
+    ///   still born from the prompt `chi`.~~ **CORRECTED 2026-11-19** (gh:#693): `sample_fission_energy_below`
+    ///   samples the delayed spectra (MF=5/455).
+    /// * ~~Nothing in the transport loop calls this yet; `Site` has no field for
+    ///   a precursor group.~~ **CORRECTED 2026-11-19** (gh:#693): `transport_csg.rs` calls it at fission
+    ///   and `Site::delayed_group` carries the tag across generations.
     pub fn sample_delayed_group(&self, e: f64, seed: &mut u64) -> Option<usize> {
         let d = self.delayed()?;
         let beta = self.delayed_fraction(e);

@@ -137,6 +137,7 @@ pub(crate) mod nostd_prelude {
 #[allow(unused_imports)]
 use nostd_prelude::*;
 
+pub mod axisym_vessel;
 pub mod bonded;
 pub mod boundary;
 pub mod capillary;

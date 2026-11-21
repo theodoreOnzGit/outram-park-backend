@@ -36,12 +36,11 @@
 //! Hardware: see the README section.
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. The bound H-1 is referenced only by the water material (the fuel holds none). Not migrated because the test audits majorants over these per-temperature nuclide sets and was not re-run.
-
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use outram_mc_libs::material::material::{Material as LowMaterial, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -101,7 +100,9 @@ struct Set {
 
 fn load(case: &str, t: f64) -> Set {
     let sp = specs(case);
-    let nuclides: Vec<Nuclide> = sp
+    // Every nuclide is loaded FREE; each LEAPR law is carried beside it and
+    // associated per material below (gh:#462, #1581, #1635).
+    let loaded: Vec<(Nuclide, Option<ThermalScattering>)> = sp
         .par_iter()
         .map(|&(file, name, law, _)| {
             let n = Nuclide::from_endf_file_with_speed(
@@ -111,12 +112,10 @@ fn load(case: &str, t: f64) -> Set {
                 SpeedTier::Fast,
             )
             .unwrap();
-            match law {
-                None => n,
-                Some(m) => n.with_thermal_scattering(
-                    ThermalScattering::from_embedded_leapr_deck(m, t, &format!("{m:?}")).unwrap(),
-                ),
-            }
+            let sab = law.map(|m| {
+                ThermalScattering::from_embedded_leapr_deck(m, t, &format!("{m:?}")).unwrap()
+            });
+            (n, sab)
         })
         .collect();
     let components = sp
@@ -127,14 +126,31 @@ fn load(case: &str, t: f64) -> Set {
             atom_density: s.3,
         })
         .collect();
+    let materials = vec![LowMaterial {
+        id: 1,
+        name: case.into(),
+        components,
+        temperature: t,
+    }];
+    let mut tables: Vec<ThermalScattering> = Vec::new();
+    let mut sab_entries: Vec<MaterialSab> = Vec::new();
+    for (i, (_, sab)) in loaded.iter().enumerate() {
+        if let Some(sab) = sab {
+            sab_entries.extend(MaterialSab::for_materials_containing(
+                &materials,
+                i,
+                tables.len(),
+                &[],
+            ));
+            tables.push(sab.clone());
+        }
+    }
+    let free: Vec<Nuclide> = loaded.into_iter().map(|(n, _)| n).collect();
+    let (materials, nuclides) = assign_material_sab(&materials, &free, &tables, &sab_entries)
+        .expect("S(alpha,beta) per material");
     Set {
         t,
-        materials: vec![LowMaterial {
-            id: 1,
-            name: case.into(),
-            components,
-            temperature: t,
-        }],
+        materials,
         nuclides,
     }
 }

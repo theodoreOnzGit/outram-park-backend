@@ -103,6 +103,16 @@
 //!   this crate cannot reproduce an OpenMC sequence bit-for-bit. (Not
 //!   re-checked 2026-10-05.)
 //!
+//! # Re-measured 2026-11-19 after the S(a,b) emission-grid flip (gh:#550)
+//!
+//! `OUTRAM_FZ_SEEDS=12 -- 2000 20 60`, seeds 1-12, default (node grid) against
+//! `OUTRAM_SAB_LOG_SPACED_GRID=1` (the old build, which reproduces the
+//! 2026-11-17 record's means and sds exactly): heterogeneous 1.57253 (sd 314
+//! pcm) against 1.57302 (sd 279), **-49 +/- 121 pcm** (0.4 sigma); homogenised
+//! 1.44731 against 1.44751, -20 +/- 113; worth -12522 against -12552,
+//! +30 +/- 175. Nothing resolved. Record:
+//! `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! # Reproducibility
 //!
 //! Everything needed to re-run this is printed by the program itself: the RNG
@@ -378,6 +388,49 @@ fn main() {
         settings.n_particles, settings.n_inactive, settings.n_active, transport_seed, settings.compute
     );
     println!();
+
+    // `OUTRAM_FZ_SEEDS=N` (gh:#1583): N master seeds per case inside this one
+    // process, so the slow ENDF load is paid once; `OUTRAM_FZ_SEED0` is the
+    // first seed (default 1). Seed loop outer. Prints `SEED <case> <seed> k std`
+    // per run, then `ENSEMBLE` lines, and returns. Unset leaves the single-seed
+    // program below exactly as it was.
+    if let Some(n_seeds) = std::env::var("OUTRAM_FZ_SEEDS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        let seed0: u64 = std::env::var("OUTRAM_FZ_SEED0")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1);
+        let het_m = vec![kernel.clone(), matrix.clone()];
+        let hom_m = vec![homogenised.clone()];
+        let het_mj = build_majorant(&het_m, &nuclides);
+        let hom_mj = build_majorant(&hom_m, &nuclides);
+        let mut ks: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+        for i in 0..n_seeds {
+            let seed = seed0 + i as u64;
+            let s = KeffSettings { seed, ..settings.clone() };
+            let t0 = Instant::now();
+            let r = run_keff_delta(
+                half,
+                &het_m,
+                &nuclides,
+                &het_mj,
+                |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize }),
+                &s,
+            );
+            println!("SEED het {seed:>4} {:.5} {:.5} {:.1}s", r.k_mean, r.k_std, t0.elapsed().as_secs_f64());
+            ks[0].push(r.k_mean);
+            let t0 = Instant::now();
+            let r = run_keff_delta(half, &hom_m, &nuclides, &hom_mj, |_p: Position| Some(0usize), &s);
+            println!("SEED hom {seed:>4} {:.5} {:.5} {:.1}s", r.k_mean, r.k_std, t0.elapsed().as_secs_f64());
+            ks[1].push(r.k_mean);
+        }
+        for (name, v) in ["het", "hom"].iter().zip(ks.iter()) {
+            let n = v.len() as f64;
+            let mean = v.iter().sum::<f64>() / n;
+            let var = v.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0);
+            println!("ENSEMBLE {name} n={} mean {:.5} sd {:.5} sem {:.5}", v.len(), mean, var.sqrt(), (var / n).sqrt());
+        }
+        return;
+    }
 
     // --- Case 1: doubly heterogeneous, kernels resolved explicitly. ---
     let het_materials = vec![kernel, matrix];

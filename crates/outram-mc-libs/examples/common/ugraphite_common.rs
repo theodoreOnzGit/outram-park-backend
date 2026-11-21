@@ -14,7 +14,6 @@
 //! the recorded results are documented in `ugraphite_four_factor.rs`.
 
 #![allow(dead_code)]
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. Carbon is referenced only by the graphite and the mix (uranium lumps hold none). Not migrated because `run_case` and `slow_down` index the atom-density vector `Mix::densities()` by nuclide-array position, so appending bound copies would put the fold and the energy-only walk out of step; that is a redesign of `Mix`, not a call-site change.
 
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -35,8 +34,9 @@ use std::time::Instant;
 // here under the names the two examples use.
 #[allow(unused_imports)]
 pub use outram_mc_libs::vv::ugraphite::{
-    graphite, graphite_density, natural_mix, uranium_metal, uranium_volume_fraction, Mix,
-    GRAPHITE_TSL, NAT_U, TAPES, TEMPERATURE_K as TEMP_K,
+    bind_graphite, graphite, graphite_density, natural_mix, uranium_metal,
+    uranium_volume_fraction, GraphiteBinding, Mix, Role, RoleIndex, GRAPHITE_TSL, NAT_U, TAPES,
+    TEMPERATURE_K as TEMP_K,
 };
 
 /// Thermal / resonance group boundary \[eV\] (the cadmium cutoff; the module's
@@ -52,15 +52,6 @@ pub const E_MIN_EV: f64 = 1.0e-5;
 pub const E_MAX_EV: f64 = 2.0e7;
 /// Fine bins: ~1000 per decade over 1e-5 .. 2e7 eV.
 pub const N_FINE: usize = 12_300;
-
-/// Indices into the nuclide array of [`load_nuclides`] (the order of
-/// [`TAPES`]).
-pub mod nx {
-    pub const U234: usize = 0;
-    pub const U235: usize = 1;
-    pub const U238: usize = 2;
-    pub const URANIUM: [usize; 3] = [U234, U235, U238];
-}
 
 /// One HTR-10 fuel pebble's uranium and carbon, smeared over the ball
 /// (`vv::ugraphite::htr10_pebble_mix`), with its inventory printed.
@@ -80,14 +71,35 @@ pub fn env_or<T: std::str::FromStr>(k: &str, d: T) -> T {
         .unwrap_or(d)
 }
 
+/// The data of rungs 2 and 3: the five free nuclides of [`TAPES`] and, unless
+/// ablated, the crystalline-graphite law. The law is **not** attached to a
+/// nuclide: [`UgData::bind`] gives it to the materials that hold carbon, per
+/// material as OpenMC does (GitHub #462, #1635 item 3).
+pub struct UgData {
+    /// U-234, U-235, U-238, C-12, C-13 in [`TAPES`] order, all free.
+    pub nuclides: Vec<Nuclide>,
+    /// MAT 30, 296 K; `None` under the `GRAPHITE_SAB=0` ablation.
+    pub law: Option<ThermalScattering>,
+}
+
+impl UgData {
+    /// The materials and the nuclide table to transport through: carbon-bearing
+    /// materials get the law on bound carbon copies appended to the table, and
+    /// the [`RoleIndex`] says where each role then sits.
+    pub fn bind(&self, mats: &[Material]) -> GraphiteBinding {
+        bind_graphite(mats, &self.nuclides, self.law.as_ref()).expect("bind the graphite law per material")
+    }
+}
+
 /// U-234, U-235, U-238, C-12, C-13 from ENDF/B-VIII.0 at [`TEMP_K`] (RECONR +
-/// BROADR, tolerance 0.001; URR and DBRC by the constructor's defaults), with
-/// crystalline-graphite S(alpha,beta) (MAT 30, 296 K) on both carbons.
+/// BROADR, tolerance 0.001; URR and DBRC by the constructor's defaults), and
+/// crystalline-graphite S(alpha,beta) (MAT 30, 296 K), which [`UgData::bind`]
+/// puts on the carbon of every material that holds carbon.
 ///
 /// **Ablation (explicit, off by default):** `GRAPHITE_SAB=0` leaves the
 /// carbons as free gas (the transport's free-gas kernel below 400 kT), to
 /// measure what the bound-atom law is worth (lesson step 4). Printed when on.
-pub fn load_nuclides() -> Vec<Nuclide> {
+pub fn load_nuclides() -> UgData {
     let sab_on = std::env::var("GRAPHITE_SAB").as_deref() != Ok("0");
     if !sab_on {
         println!("ABLATION: GRAPHITE_SAB=0, carbon is free gas (no crystalline-graphite S(a,b))");
@@ -104,17 +116,8 @@ pub fn load_nuclides() -> Vec<Nuclide> {
     let tsl = reference_endf(GRAPHITE_TSL.0).expect("graphite S(a,b) tape");
     let sab = ThermalScattering::from_endf_file(tsl.to_str().expect("path"), GRAPHITE_TSL.1, TEMP_K, "c_Graphite")
         .expect("crystalline-graphite S(a,b) at 296 K");
-    TAPES
-        .iter()
-        .map(|&(name, file)| {
-            let n = load(name, file);
-            if name.starts_with('C') && sab_on {
-                n.with_thermal_scattering(sab.clone())
-            } else {
-                n
-            }
-        })
-        .collect()
+    let nuclides = TAPES.iter().map(|&(name, file)| load(name, file)).collect();
+    UgData { nuclides, law: sab_on.then_some(sab) }
 }
 
 /// How "fuel" is identified for the thermal utilisation `f`.
@@ -167,15 +170,19 @@ pub fn physics_config(seed: u64, source: SourceBox) -> ReactorPhysicsConfig {
 }
 
 /// Run the power iteration with six-factor capture on `geom` and assemble the
-/// factors with the requested fuel definition.
+/// factors with the requested fuel definition. The graphite law is bound per
+/// material here ([`UgData::bind`]); the fold of the thermal absorption reads
+/// its densities by role, so it follows the carbon onto its bound copies.
 pub fn run_case(
     geom: &Geometry,
     mats: &[Material],
-    nuclides: &[Nuclide],
+    data: &UgData,
     seed: u64,
     source_half_cm: f64,
     split: FuelSplit,
 ) -> CaseResult {
+    let bound = data.bind(mats);
+    let (mats, nuclides) = (bound.materials.as_slice(), bound.nuclides.as_slice());
     let h = source_half_cm;
     let cfg = physics_config(
         seed,
@@ -197,7 +204,8 @@ pub fn run_case(
             wall_s,
         },
         FuelSplit::ByNuclide(mix) => {
-            let dens = mix.densities();
+            let dens = bound.roles.densities(&mix, nuclides.len());
+            let uranium = [Role::U234, Role::U235, Role::U238].map(|r| bound.roles.slot(r));
             let sp = &report.spectrum;
             let (mut fold_tot, mut fold_u) = (0.0_f64, 0.0_f64);
             for (b, w) in sp.energy_edges_ev.windows(2).enumerate() {
@@ -211,7 +219,7 @@ pub fn run_case(
                     }
                     let r = sp.flux_raw[b] * dens[i] * nuc.xs_at_energy(e_mid, TEMP_K).absorption;
                     fold_tot += r;
-                    if nx::URANIUM.contains(&i) {
+                    if uranium.contains(&i) {
                         fold_u += r;
                     }
                 }

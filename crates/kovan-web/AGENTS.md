@@ -47,8 +47,13 @@ incremental: per-crate documents cached under
 `target/kovan-index/<backend>/<crate>/<key>.json`, keyed by
 `kovan-cli call-graph-keys`, merged with `call-graph --merge`;
 `data.sh --check` pins that a merge equals one run. The backend is SCIP by
-default (one `rust-analyzer scip` over the workspace, about 4 min and 16 GiB
-peak; `KOVAN_CALL_GRAPH_BACKEND=lsp` for the old per-call LSP path). A crate
+default (~~one `rust-analyzer scip` over the workspace, about 4 min and 16 GiB
+peak~~ **CORRECTED 2026-11-19 (#1668):** a partitioned index, one bounded
+`rust-analyzer scip` per group of members, merged with `kovan-cli scip-merge`;
+peak ~12 GiB per partition, run one at a time locally and as a job matrix on
+Pages; `KOVAN_INDEXER=monolithic` restores the single whole-workspace run;
+`KOVAN_CALL_GRAPH_BACKEND=lsp` for the old per-call LSP path; see
+`crates/kovan/docs/partitioned-indexing.md`). A crate
 that cannot be rebuilt keeps its last cached graph and is named as stale,
 never silently (Leak Before Break). Nothing generated is committed.
 

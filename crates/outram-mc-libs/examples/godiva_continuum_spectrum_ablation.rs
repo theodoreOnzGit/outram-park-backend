@@ -256,7 +256,7 @@ mod desktop {
                     bins: edges.to_vec(),
                 })],
                 scores: vec![ScoreType::Flux],
-                bins: vec![TallyBin::default(); N_BINS],
+                bins: vec![TallyBin::default(); N_BINS], derivative: None,
             };
             let settings = KeffSettings {
                 n_particles: HISTORIES,

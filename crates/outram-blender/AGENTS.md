@@ -236,6 +236,29 @@ Rules that follow:
 - The code is an OpenMC port (MIT): keep each file's provenance header; see
   `NOTICE` and `LICENSE.openmc`.
 
+## EGSnrc geometry goes in `outram_blender::egsnrc` (maintainer, 2026-11-20, gh:#976)
+
+If the egs++ geometry library (`HEN_HOUSE/egs++/geometry`, ~37.6k lines of
+C++, 28 types) is ported, it lives here in a module named `egsnrc`. It must not
+be mixed into `csg`, which is the OpenMC port. Each port's upstream stays
+readable from its path.
+
+- **Not decided yet:** whether to port egs++ or write a thin adapter that
+  answers EGSnrc's `isWhere`/`howfar`/`hownear` from `csg`. The trade-off is
+  on #976.
+- **Dispatch, if it is ported:**
+  - one enum with a variant per geometry type, in place of the 43 virtual
+    methods of `EGS_BaseGeometry`;
+  - children held by index, the way `csg` nests universes;
+  - no run-time factory;
+  - the variant list settled before any `match` on it is reviewed.
+- **This crate's rules apply as for `csg`:**
+  - never depend on `outram-mc-libs` (or `punggol`);
+  - draw the geometry;
+  - provenance header on each ported file (EGSnrc, file, commit, NRC
+    copyright, AGPL-3.0);
+  - EGSnrc source is never vendored.
+
 ## Meshing nexus (GitHub #492, 2026-10-03)
 
 `unstructured::UnstructuredMesh` is the **neutral mesh description**: points,

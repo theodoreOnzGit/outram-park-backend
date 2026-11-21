@@ -74,7 +74,7 @@ pub fn get_microxs_and_flux(
             FilterKind::Energy(EnergyFilter { bins: energies.to_vec() }),
         ],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); domains.len() * groups],
+        bins: vec![TallyBin::default(); domains.len() * groups], derivative: None,
     };
     crate::physics::transport_csg::try_run_keff_csg(geom, materials, nuclides, source, settings, Some(&mut tally))
         .map_err(|e| e.to_string())?;

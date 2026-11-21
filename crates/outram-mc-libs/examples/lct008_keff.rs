@@ -85,6 +85,14 @@
 //! Fixed by `Geometry::cross_surface_in_frame`; diagnosis in
 //! `tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff`.
 //!
+//! ## RE-MEASURED 2026-11-19 (gh:#550): S(a,b) emission tables on THERMR's grid
+//!
+//! `ThermalScattering::from_tape` now builds on the `calcem` grid. Case 1,
+//! 32 seeds: **+148 pcm, sem +/-21, sd 117** against +172 +/- 22 (32 seeds,
+//! 2026-11-12): move -24 +/- 30 pcm (z -0.8); predicted +40, sign missed.
+//! Xeon 2.10 GHz, 4 shared logical cores (2 threads), transport 6405 s.
+//! Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! ## The spread across cases is what identified it, and this file already had that argument
 //!
 //! The CORRECTION below refuted a U-238 resonance-escape explanation on exactly

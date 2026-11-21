@@ -62,7 +62,7 @@
 //! | pass | filters | scores |
 //! |---|---|---|
 //! | scalar | `[Material, Energy]` | `Flux, Total, Absorption, NuFission, KappaFission, Fission` |
-//! | matrix | `[Material, Energy, EnergyOut]` | `ScatterN` (nu-scatter), `NuFission` (births, for `chi`), `Scatter` (scatter-only, since 2026-10-13) |
+//! | matrix | `[Material, Energy, EnergyOut]` | `NuScatter` (nu-scatter; `ScatterN` until 2026-11-20, gh:#680), `NuFission` (births, for `chi`), `Scatter` (scatter-only, since 2026-10-13) |
 //!
 //! Because the histories are identical, the flux denominator from the scalar
 //! pass is the correct denominator for the matrix pass; they are not two
@@ -840,6 +840,30 @@ impl MgxsLibrary {
             .collect()
     }
 
+    /// [`Self::balance_check`] on the **scatter-only** row ([`ZoneMgxs::scatter_only`]),
+    /// which counts a reaction once however many neutrons it emits, so
+    /// `Sigma_t = Sigma_a + Sigma_s` holds and the discrepancy is a CONDENSATION
+    /// defect only, with no (n,xn) gain in it (gh:#680, #682). A zone condensed
+    /// before 2026-10-13 has no scatter-only row; it falls back to the
+    /// nu-scatter row, as [`Self::balance_check`] does.
+    #[must_use]
+    pub fn balance_check_scatter_only(&self) -> Vec<(String, Vec<(f64, f64, f64)>)> {
+        self.zones
+            .iter()
+            .map(|z| {
+                let rows = (0..z.flux.len())
+                    .map(|g| {
+                        let row = z.scatter_only.get(g).unwrap_or(&z.scatter[g]);
+                        let rebuilt = z.absorption[g] + row.iter().sum::<f64>();
+                        let rel = if z.total[g] > 0.0 { (rebuilt - z.total[g]) / z.total[g] } else { 0.0 };
+                        (z.total[g], rebuilt, rel)
+                    })
+                    .collect();
+                (z.name.clone(), rows)
+            })
+            .collect()
+    }
+
     /// Solve for the buckling that reproduces a **measured** leakage fraction.
     ///
     /// `leak_fraction` is neutrons lost per neutron produced, taken from the
@@ -1519,14 +1543,14 @@ fn reverse_matrix(m: &[Vec<f64>]) -> Vec<Vec<f64>> {
 }
 
 /// The score order the matrix pass must declare, and that [`condense`]
-/// assumes: the nu-scatter matrix (`ScatterN`), the fission births that give
+/// assumes: the nu-scatter matrix (`NuScatter`, gh:#680), the fission births that give
 /// `chi` (`NuFission`) and, appended 2026-10-13 (gh:#682), the scatter-only
 /// matrix (`Scatter`). All three need the same
 /// `[Material, Energy, EnergyOut]` filters, so they share one tally and one
 /// transport pass. Exposed so a caller building its own matrix tally
 /// (`dhoby-ghaut`'s mesh tally) cannot disagree with the reader.
 pub const MATRIX_SCORE_TYPES: [ScoreType; 3] =
-    [ScoreType::ScatterN, ScoreType::NuFission, ScoreType::Scatter];
+    [ScoreType::NuScatter, ScoreType::NuFission, ScoreType::Scatter];
 
 /// Number of scores in the matrix pass (`MATRIX_SCORE_TYPES.len()`).
 pub const MATRIX_SCORES: usize = MATRIX_SCORE_TYPES.len();
@@ -1751,7 +1775,7 @@ pub fn scalar_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
             }),
         ],
         scores: SCALAR_SCORES.to_vec(),
-        bins: vec![TallyBin::default(); n],
+        bins: vec![TallyBin::default(); n], derivative: None,
     }
 }
 
@@ -1785,7 +1809,7 @@ pub fn matrix_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
         // because it carries no outgoing energy and the EnergyOutFilter
         // rejects it. That is what lets chi ride along without another pass.
         scores: MATRIX_SCORE_TYPES.to_vec(),
-        bins: vec![TallyBin::default(); n * MATRIX_SCORES],
+        bins: vec![TallyBin::default(); n * MATRIX_SCORES], derivative: None,
     }
 }
 
@@ -1813,7 +1837,7 @@ mod tests {
             name: "scalar".into(),
             filters: vec![],
             scores: SCALAR_SCORES.to_vec(),
-            bins,
+            bins, derivative: None,
         }
     }
 
@@ -1833,7 +1857,7 @@ mod tests {
             name: "matrix".into(),
             filters: vec![],
             scores: MATRIX_SCORE_TYPES.to_vec(),
-            bins,
+            bins, derivative: None,
         }
     }
 
@@ -1941,6 +1965,34 @@ mod tests {
         );
         assert_eq!(s[0][0], 0.0);
         assert_eq!(s[1][1], 0.0);
+    }
+
+    /// gh:#680: with an (n,2n)-style gain the nu-scatter row over-counts by the
+    /// extra neutron, so [`MgxsLibrary::balance_check`] shows it as a discrepancy,
+    /// while [`MgxsLibrary::balance_check_scatter_only`] closes to round-off.
+    #[test]
+    fn the_scatter_only_balance_has_no_nxn_gain_in_it() {
+        let lib = MgxsLibrary {
+            groups: GroupStructure::new(vec![1.0e-5, 2.0e7]).expect("edges ascend"),
+            zones: vec![ZoneMgxs {
+                name: "nxn".into(),
+                flux: vec![1.0],
+                total: vec![0.51],
+                absorption: vec![0.01],
+                fission: vec![0.0],
+                nu_fission: vec![0.0],
+                kappa_fission: vec![0.0],
+                // 0.50 scatter-only, plus 0.02 of (n,2n) gain in the nu row.
+                scatter: vec![vec![0.52]],
+                chi: vec![1.0],
+                sigma: None,
+                scatter_only: vec![vec![0.50]],
+            }],
+        };
+        let nu = lib.balance_check()[0].1[0].2;
+        let only = lib.balance_check_scatter_only()[0].1[0].2;
+        assert!(nu > 0.03, "nu-scatter row carries the gain: {nu}");
+        assert!(only.abs() < 1e-12, "scatter-only row closes: {only}");
     }
 
     /// Rebalancing makes the solver's absorption equal the tallied absorption.
@@ -2463,14 +2515,14 @@ mod tests {
             name: "scalar".into(),
             filters: vec![],
             scores: SCALAR_SCORES.to_vec(),
-            bins: sb,
+            bins: sb, derivative: None,
         };
         let matrix = Tally {
             id: 2,
             name: "matrix".into(),
             filters: vec![],
-            scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
-            bins: mb,
+            scores: vec![ScoreType::NuScatter, ScoreType::NuFission],
+            bins: mb, derivative: None,
         };
         let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 2).expect("condense");
         let z = &lib.zones[0];
@@ -2595,7 +2647,7 @@ mod tests {
             name: "m".into(),
             filters: vec![],
             scores: MATRIX_SCORE_TYPES.to_vec(),
-            bins: mb,
+            bins: mb, derivative: None,
         };
         let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 1).expect("condense");
         let z = &lib.zones[0];

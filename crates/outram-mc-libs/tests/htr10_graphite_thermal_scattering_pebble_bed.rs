@@ -185,7 +185,9 @@
 //! HTR-10. AI-assisted draft, not human-reviewed.
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. The one carbon slot is referenced only by the graphite matrix; the free-gas arm builds the array with no law. The file mixes nuclide-level cross-section checks with the k run through one `nuclides(thermal)` helper, so a migration is a rewrite of its helpers; left for a change that can re-run its k pins.
+// gh:#462, #1581, #1635: every nuclide is loaded FREE and the graphite law is
+// associated per material in `model`, so the deprecated nuclide-level binding is
+// no longer used here (its `#![allow(deprecated)]` marker was removed).
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
@@ -193,6 +195,7 @@ use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};
 use njoy_outram_park_fork::units::Temperature;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
@@ -266,17 +269,34 @@ fn regenerated_graphite_thermal_scattering(temperature_k: f64) -> ThermalScatter
 /// the crystalline-graphite S(alpha, beta) law to natural carbon is the right
 /// pairing: the ENDF thermal-scattering evaluation is itself for carbon *in
 /// graphite* as an element, not per-isotope.
-fn nuclides(thermal: Option<ThermalScattering>) -> Vec<Nuclide> {
-    let matrix = match thermal {
-        Some(t) => Nuclide::from_core("C0").unwrap().with_thermal_scattering(t),
-        None => Nuclide::from_core("C0").unwrap(),
-    };
-    vec![
+///
+/// **Per-material S(a,b) (gh:#462, #1581, #1635).** All four slots are loaded
+/// free. With a law, [`assign_material_sab`] appends a bound copy of `C0` as
+/// slot 4 and repoints the graphite matrix (the only material that references
+/// slot 3) at it, so the returned array has 5 nuclides and the materials are
+/// the lowered ones; slot 3 stays free and unreferenced. Without a law it is
+/// the 4-nuclide free-gas array and `materials()` unchanged.
+fn model(thermal: Option<ThermalScattering>) -> (Vec<Material>, Vec<Nuclide>) {
+    let free = vec![
         Nuclide::from_core("U234").unwrap(),
         Nuclide::from_core("U235").unwrap(),
         Nuclide::from_core("U238").unwrap(),
-        matrix,
-    ]
+        Nuclide::from_core("C0").unwrap(),
+    ];
+    let mats = materials();
+    match thermal {
+        None => (mats, free),
+        Some(t) => {
+            let entries = MaterialSab::for_materials_containing(&mats, 3, 0, &[]);
+            assign_material_sab(&mats, &free, &[t], &entries).expect("S(a,b) per material")
+        }
+    }
+}
+
+/// The graphite matrix's carbon nuclide in a [`model`]: slot 3 when free, the
+/// bound copy the matrix material references when a law was associated.
+fn matrix_nuclide<'a>(mats: &[Material], nucs: &'a [Nuclide]) -> &'a Nuclide {
+    &nucs[mats[1].components[0].nuclide_idx]
 }
 
 /// `[fuel kernel (HEU) = material 0, graphite matrix = material 1]` — same
@@ -315,11 +335,11 @@ fn materials() -> Vec<Material> {
     vec![fuel, matrix]
 }
 
-fn run_keff(nuclides: &[Nuclide]) -> outram_mc_libs::physics::keff::KeffResult {
-    let mats = materials();
+fn run_keff(model: &(Vec<Material>, Vec<Nuclide>)) -> outram_mc_libs::physics::keff::KeffResult {
+    let (mats, nuclides) = (&model.0, &model.1[..]);
     let packed =
         PackedSpheres::pack(PACK_R, PACK_HALF, PACK_PF, PACK_SEED).expect("RSA packs at pf 0.30");
-    let maj = Majorant::bounding(&mats, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
+    let maj = Majorant::bounding(mats, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
     let material_at = move |p: outram_mc_libs::geometry::position::Position| {
         Some(if packed.is_inside_kernel(p) {
             0usize
@@ -333,7 +353,7 @@ fn run_keff(nuclides: &[Nuclide]) -> outram_mc_libs::physics::keff::KeffResult {
         n_active: 15,
         ..KeffSettings::default()
     };
-    run_keff_delta(PACK_HALF, &mats, nuclides, &maj, material_at, &settings)
+    run_keff_delta(PACK_HALF, mats, nuclides, &maj, material_at, &settings)
 }
 
 /// LIVE: with the free-gas target velocity sampled, the bound-atom graphite law
@@ -353,7 +373,7 @@ fn run_keff(nuclides: &[Nuclide]) -> outram_mc_libs::physics::keff::KeffResult {
 /// collision loop's own branch directly instead of through an eigenvalue.
 #[test]
 fn bound_graphite_and_free_gas_agree_once_target_motion_is_sampled() {
-    let free_gas = run_keff(&nuclides(None));
+    let free_gas = run_keff(&model(None));
     assert!(
         free_gas.k_mean.is_finite() && free_gas.k_mean > 0.0,
         "free-gas k = {}",
@@ -361,7 +381,7 @@ fn bound_graphite_and_free_gas_agree_once_target_motion_is_sampled() {
     );
 
     let thermal = regenerated_graphite_thermal_scattering(TEMPERATURE_K);
-    let bound = run_keff(&nuclides(Some(thermal)));
+    let bound = run_keff(&model(Some(thermal)));
     assert!(
         bound.k_mean.is_finite() && bound.k_mean > 0.0,
         "bound-graphite k = {}",
@@ -418,10 +438,15 @@ fn graphite_thermal_law_reaches_the_transport_kernel() {
     const E: f64 = 0.0253;
     const N: usize = 200_000;
 
-    let plain = nuclides(None);
-    let bound = nuclides(Some(regenerated_graphite_thermal_scattering(TEMPERATURE_K)));
-    // Index 3 is the graphite matrix nuclide -- see `nuclides`.
-    let (c_plain, c_bound) = (&plain[3], &bound[3]);
+    let (plain_mats, plain) = model(None);
+    let (bound_mats, bound) =
+        model(Some(regenerated_graphite_thermal_scattering(TEMPERATURE_K)));
+    // The graphite matrix nuclide: slot 3 free, the bound copy when a law is
+    // associated -- see `model`.
+    let (c_plain, c_bound) = (
+        matrix_nuclide(&plain_mats, &plain),
+        matrix_nuclide(&bound_mats, &bound),
+    );
 
     // 1. The branch.
     let mut seed = 4_242_u64;
@@ -506,8 +531,7 @@ fn graphite_thermal_law_reaches_the_transport_kernel() {
 fn majorant_still_bounds_total_xs_with_bound_graphite() {
     let thermal = regenerated_graphite_thermal_scattering(TEMPERATURE_K);
     let cutoff = thermal.cutoff_ev();
-    let nucs = nuclides(Some(thermal));
-    let mats = materials();
+    let (mats, nucs) = model(Some(thermal));
     // Identical majorant parameters to `run_keff`, so this measures the
     // majorant the transport actually uses.
     let maj = Majorant::bounding(&mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.1);
@@ -635,8 +659,7 @@ fn diagnose_thermal_spectrum_reach() {
 
     let thermal = regenerated_graphite_thermal_scattering(TEMPERATURE_K);
     let cutoff = thermal.cutoff_ev();
-    let nucs = nuclides(Some(thermal));
-    let mats = materials();
+    let (mats, nucs) = model(Some(thermal));
 
     // Volume-homogenize: fuel occupies PACK_PF of the box, matrix the rest.
     let mut comps = Vec::new();

@@ -476,7 +476,7 @@ pub fn decode_history(v: &[f64]) -> Result<History, String> {
     })
 }
 
-const GEN_HEAD: usize = 15;
+const GEN_HEAD: usize = 16;
 
 /// A generation report and its sites as `f64`s. `None` is NaN.
 pub fn encode_generation(g: &Generation) -> Vec<f64> {
@@ -499,6 +499,7 @@ pub fn encode_generation(g: &Generation) -> Vec<f64> {
         c.fissions_by_energy[0] as f64,
         c.fissions_by_energy[1] as f64,
         c.fissions_by_energy[2] as f64,
+        c.lost as f64,
         g.sites.len() as f64,
     ]);
     for s in &g.sites {
@@ -511,7 +512,7 @@ pub fn decode_generation(v: &[f64]) -> Result<Generation, String> {
     if v.len() < GEN_HEAD {
         return Err("generation message too short".into());
     }
-    let n = v[14] as usize;
+    let n = v[15] as usize;
     if v.len() != GEN_HEAD + 2 * n {
         return Err(format!("generation message: {} values for {n} sites", v.len()));
     }
@@ -529,6 +530,7 @@ pub fn decode_generation(v: &[f64]) -> Result<Generation, String> {
             leaked: v[9] as u64,
             captured: v[10] as u64,
             fissions_by_energy: [v[11] as u64, v[12] as u64, v[13] as u64],
+            lost: v[14] as u64,
         },
     };
     let sites = v[GEN_HEAD..].chunks_exact(2).map(|c| [c[0] as f32, c[1] as f32]).collect();

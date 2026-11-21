@@ -44,9 +44,10 @@ runs unless a caller builds the windows and attaches them with
 - **Unbiased:** `|z| ≤ 2` (`UNBIASED_Z_BAND`), `z = Δmean / sqrt(σ_a² + σ_v²)`,
   for the headline tally and for every mesh cell both arms resolve (with the
   expected ~5 % of cells outside 2σ by chance stated, not hidden).
-  **Open question for the maintainer:** #497 says "within combined σ"; read
+  ~~**Open question for the maintainer:** #497 says "within combined σ"; read
   literally as 1σ, a correct estimator fails 32 % of the time. 2σ is used
-  here and flagged, decided before any result exists.
+  here and flagged, decided before any result exists.~~ **DECIDED 2026-11-17
+  (maintainer): the gate is `|z| ≤ 2`.**
 - **FOM:** reported, with uncertainty, against analog and MAGIC. No FOM
   threshold is a pass/fail gate — the issue asks for a measured ratio.
 
@@ -225,7 +226,7 @@ N = 5 seeds per arm per run is the floor asked for; sigma and its error are
 both poor at that N. One geometry, one early-tally size (2000 particles), one
 mesh (31 x 38, the 50 cm default that `fom_2026_09_24.md` calls
 misconfigured for weight windows), one MAGIC iteration count (windows built
-once). The gate decision (|z| <= 1 vs <= 2) is still the maintainer's.
+once). ~~The gate decision (|z| <= 1 vs <= 2) is still the maintainer's.~~ **DECIDED 2026-11-17: `|z| <= 2`.**
 
 ## Source biasing (2026-11-14)
 
@@ -241,8 +242,8 @@ bit-compared with compiled OpenMC in
 source tree itself is not on this machine (`/home/teddy0/...` absent, no
 `vendor/openmc`), so **this session did not re-read upstream's lines**; the
 provenance is the port's own headers and its recorded bit-comparison. It is
-opt-in (`with_bias`); an unbiased source has `w = 1` exactly. Importance-map
-driven source biasing (from learned windows) is **not** implemented.
+opt-in (`with_bias`); an unbiased source has `w = 1` exactly. ~~Importance-map
+driven source biasing (from learned windows) is **not** implemented.~~ **CORRECTED 2026-11-17 (gh:#1615):** implemented, see the last section.
 
 **New test:** `tests/source_biasing_unbiased_vs_analog.rs`, `p = Uniform(1, 4
 MeV)`, `q = PowerLaw(n = 2)`, 5 seeds x 100 000 draws through
@@ -264,10 +265,21 @@ z undefined), and a first run with `n = 0.5` exposed the defect below.
 `int pwr = n() + 1`, so `p/q` is off by `(n+1)/trunc(n+1)`. Measured at
 `n = 0.5`: **E[w] = 1.50006** (predicted 1.5 from reading `evaluate`), a 50 %
 bias on every tally using that source; the sampler is exact, only the weight
-is wrong. Pinned by `non_integer_power_law_bias_weight_is_upstreams_defect`.
+is wrong. ~~Pinned by `non_integer_power_law_bias_weight_is_upstreams_defect`.
 The port copies upstream (the bit-comparison covers integer `n` only), so
 fixing it would diverge from OpenMC: **maintainer decision**; whether current
-OpenMC still has this was not checked here (no upstream source available).
+OpenMC still has this was not checked here (no upstream source available).~~
+**CORRECTED 2026-11-17 (gh:#1580, maintainer decision: fix it).** The default
+`Distribution::power_law` now uses the real exponent; OpenMC `8f79d9d0`'s
+truncation is reachable only through `Distribution::with_upstream_integer_exponent()`.
+Predicted before the run: default E[w] = 1, legacy `(n+1)/trunc(n+1)`.
+Measured (2e5 draws, `source_biasing_unbiased_vs_analog`): default
+E[w] = 1.00004 +- 0.00043 at n = 0.5 (z = +0.09) and 0.99909 +- 0.00137 at
+n = 1.5 (z = -0.67); legacy 1.50006 +- 0.00065 (n = 0.5) and 1.24886 +- 0.00171
+(n = 1.5, predicted 1.25). Integer n is bit-identical in both modes, and the
+code-to-code comparison with OpenMC names the legacy option for its
+`powerlaw_frac` case (`source_distributions_vs_openmc_code_to_code`, still
+40/40 bit-identical).
 
 
 ## MAGIC shift investigation (2026-11-15, gh:#1579)
@@ -298,11 +310,11 @@ energy-bin lookup and no window outside the mesh or energy range.
 
 | # | upstream | port | status |
 |---|---|---|---|
-| 1 | surface checkpoint default OFF (`settings.cpp:89`), collision only | plays the window at both | knob added, default left ON (`with_weight_window_checkpoint_surface`); measured below |
-| 2 | window applied at birth (`simulation.cpp:759`) | first applied at the first surface/collision, so `ww_born` anchors there | not changed, not measured |
-| 3 | `split()` banks `wgt_born`, `wgt_ww_born`, `n_split`, not `ww_factor` | daughters copy `ww_factor` too | no effect while `max_lb_ratio = 1` (this test); not changed |
+| 1 | surface checkpoint default OFF (`settings.cpp:89`), collision only | plays the window at both | ~~knob added, default left ON~~ **CHANGED 2026-11-15 (gh:#1582): default OFF as upstream**; knob `with_weight_window_checkpoint_surface` |
+| 2 | window applied at birth (`simulation.cpp:759`) | first applied at the first surface/collision, so `ww_born` anchors there | ~~not changed~~ **CHANGED (gh:#1582): applied at birth by default** |
+| 3 | `split()` banks `wgt_born`, `wgt_ww_born`, `n_split`, not `ww_factor` | daughters copy `ww_factor` too | ~~not changed~~ **CHANGED (gh:#1582): daughters restart at 0 by default**; no effect while `max_lb_ratio = 1` |
 | 4 | daughter banked with `surf_id` | daughter at a surface re-located with `on_surface = NONE` | measured via 1 (surface checkpoint off removes it) |
-| 5 | no window at a surface checkpoint sets `wgt_ww_born = 1` | left at -1 | not changed |
+| 5 | no window at a surface checkpoint sets `wgt_ww_born = 1` | left at -1 | ~~not changed~~ **CHANGED (gh:#1582): set to 1 at the surface checkpoint and at birth** (not at the collision checkpoint: `physics.cpp:67-76` calls `apply_weight_window` directly) |
 
 ### Step 2: measurement
 
@@ -366,7 +378,7 @@ relative VOV is about 2 / n_chunks = 0.0005 analog, 0.0010 MAGIC):
    z -1.5, sem on the ratio about 1.2 %), with the statement above; not the
    -4.8 %.
 
-### Reviewed functions edited
+### Reviewed functions edited (2026-11-15, gh:#1579; later parity change below)
 
 `outram_mc_libs::physics::transport_csg` history kernel: one line in the
 surface-crossing checkpoint (`if vr.weight_window_checkpoint_surface && ...`),
@@ -376,6 +388,419 @@ default behaviour unchanged. `review.md` was not touched. Added
 
 ### Open follow-ups
 
-Upstream parity for differences 2, 3 and 5, and whether the default for 1
+~~Upstream parity for differences 2, 3 and 5, and whether the default for 1
 should become upstream's (OFF), would change every recorded window V&V number
-and are left to the maintainer.
+and are left to the maintainer.~~ **DONE 2026-11-15/17 (gh:#1582), next
+section.** Difference 4 (re-locating a surface daughter with
+`on_surface = NONE`) is not changed: with the surface checkpoint now off by
+default it is only reached when a caller switches that checkpoint on.
+
+## Weight-window parity with OpenMC 8f79d9d0 (2026-11-15/17, gh:#1582)
+
+**Change.** The four differences are now upstream's behaviour by default:
+(1) surface checkpoint OFF (`settings.cpp:89`); (2) window applied to a source
+particle at birth, `wgt_ww_born = -1` then `apply_weight_windows`
+(`simulation.cpp:757-761`); (3) a split daughter does not copy `ww_factor`
+(`particle.cpp:122-145`, `simulation.cpp:735`); (4) a surface checkpoint or
+birth that finds no valid window sets `wgt_ww_born = 1` while unset
+(`weight_windows.cpp:965-967`; the collision checkpoint does not, `physics.cpp:67-76`).
+Old behaviour: `VarianceReduction::with_legacy_weight_window_game()`, or the
+four builders (`with_weight_window_checkpoint_surface(true)`,
+`with_weight_window_at_birth(false)`,
+`with_weight_window_split_keeps_ww_factor(true)`,
+`with_weight_window_no_window_born_one(false)`), or `OUTRAM_MC_LEGACY_WW_GAME=1`
+read by `VarianceReduction::default()`. Predictions P1-P6 were posted on #1582
+before any measurement.
+
+**Hardware / load.** 4 logical cores, 15 GB, Linux 6.18, CPU only; two or three
+single-thread processes at once on a shared box. The CPU model was not
+recorded for the 2026-11-15 runs (the container reports Xeon 2.10 GHz now; the
+#1579 runs reported 2.80 GHz), so absolute seconds are not comparable and only
+same-session ratios are quoted. Sizes as in #1579: windows from a 2000-history
+analog tally (seed 424 242, threshold 1, ratio 5), headline band 900-1450 cm.
+
+### Far-field MAGIC against analog (40 fresh seeds: 2 x 20, offsets 0 and 500 000 000)
+
+Analog is not re-run: it never consults a window and is bit-identical (tests
+below), so the #1579 analog record (4.7623 +- 0.0686, 4.7217 +- 0.0552, 40
+seeds 4.7420 +- 0.0436, same seeds) stands.
+
+| replicate | analog | MAGIC, old game (#1579) | MAGIC, parity game | z (parity vs analog) |
+|---|---|---|---|---|
+| C (seeds 0-19) | 4.7623 +- 0.0686 | 4.6328 +- 0.0598 (0.973) | 4.6777 +- 0.0282 (0.982) | -1.14 |
+| D (seeds 20-39) | 4.7217 +- 0.0552 | 4.6828 +- 0.0438 (0.992) | 4.7172 +- 0.0278 (0.999) | -0.07 |
+| C + D | 4.7420 +- 0.0436 | 4.6578 +- 0.0368 (**0.982**, z -1.48) | 4.6975 +- 0.0198 (**0.991**) | **-0.93** |
+
+- **Old game reproduced (P2 hit):** `with_legacy_weight_window_game()` on replicate
+  C gives 4.6328 +- 0.0598, identical to the #1579 record to the printed digits.
+- **Gate, both readings:** the parity game's MAGIC/analog = 0.991, **z -0.93:
+  passes |z| <= 1 and |z| <= 2** (old game: -1.48, passed <= 2 only). P4 (0.98,
+  68 % interval 0.96-1.00; "probably not <= 1") **hit on the value, missed on
+  the gate**: z is smaller than predicted because the sem fell, not only
+  because the mean rose.
+- **The sem fell by 1.9x** (0.0368 -> 0.0198, 0.9 % -> 0.42 %), at the same
+  20 000 histories per seed. Chunk tail (200 histories): relative VOV 0.0006
+  (old 0.0024, analog 0.0007), skew 0.49 (old 1.90, analog 1.49). **P5 missed:**
+  predicted the VOV to stay about 3x analog's; it is now at analog's level. The
+  heavy tail #1579 saw was a property of the old anchoring, not of the game.
+- The 0 to -3 % residual #1579 could not exclude is now 0.991 +- 0.011 (0 to
+  -2 % at 1 sigma); a ~1 % shift is not resolved.
+
+### Cost and figure of merit: the parity game is about 5x dearer per history
+
+`shielded_room_weight_window` (matched-budget FOM test, gate passed in both
+runs; same binary, the old game selected with `OUTRAM_MC_LEGACY_WW_GAME=1`, same
+box, run back to back):
+
+| | old game | parity game |
+|---|---|---|
+| MAGIC iterations: cells with a window | 624/1178 | 725/1178 |
+| windows arm | 40 000 particles, 400 realizations, 407.4 s | 8 000 particles, 80 realizations, 430.3 s |
+| per-particle cost (analog 0.73 / 0.71 ms) | 10.18 ms, ratio 13.9x | 53.79 ms, ratio 75.5x |
+| unbiasedness, flux per source particle vs analog 1714.41 | 1709.66 (-0.28 %) | 1744.88 (+1.78 %) |
+| FOM ratio 0-400 cm | 0.069x | 0.058x |
+| FOM ratio 400-900 cm | 0.057x | 0.042x |
+| FOM ratio 900-1450 cm (far field) | 0.110x | 0.109x |
+| cells windows resolve that analog does not | 63 | 108 |
+
+The 8 000-particle parity arm has 5x fewer histories (the test caps by wall
+clock), so its +1.78 % flux difference is a noisier estimate, not a larger
+bias; the 40-seed far-field result above is the bias gate. Far-field FOM ratio
+is unchanged (0.110x -> 0.109x), the other two bands fall and more cells are
+resolved. Windows are still **worse per unit compute than analog** on this
+problem. The 2026-09-24 table in `variance_reduction/fom_2026_09_24.md`
+(cost ratio 5.72x, hardware not recorded) is a different machine and code
+state; it is left as recorded, with this section as its supersession.
+
+### #497 learned-importance table re-measured (N = 5 seeds per arm, offsets 0 and 5 000 000)
+
+Same windows and sizes as the 2026-11-14 record; z against analog:
+
+| band 900-1450 cm | run | old MAGIC | parity MAGIC | old learned | parity learned |
+|---|---|---|---|---|---|
+| mean | A | 4.478 +- 0.047 | 4.6664 +- 0.0440 | - | 4.6382 +- 0.0497 |
+| z vs analog (4.7532 +- 0.0651) | A | -3.43 | **-1.10** | +0.30 | -1.40 |
+| mean | B | 4.593 +- 0.064 | 4.7034 +- 0.0718 | - | 4.6901 +- 0.0440 |
+| z vs analog (4.7699 +- 0.1040) | B | -1.45 | **-0.53** | -0.12 | -0.71 |
+| FOM / analog | A, B | 0.849, 1.146 | **0.211, 0.195** | 0.082, 0.345 | **0.173, 0.569** |
+| FOM learned / MAGIC | A, B | 0.097, 0.301 | **0.819, 2.915** | | |
+
+The N = 5 FOM ratios carry ~100 % relative sigma, so they are scales, not
+measurements. What moved: MAGIC no longer reads low in either run; MAGIC FOM
+against analog **fell** from about 1 to about 0.2 (the cost above), and
+learned/MAGIC rose from about 0.17 to 0.8-2.9, so "learned importance loses to
+MAGIC" no longer holds on this problem (it ties within noise); the
+"learned/analog about 0.2" line is now 0.17-0.57. Other bands (raw, in
+`li_*.log` of the run, not archived): 0-400 cm z -1.05 / -2.21 (MAGIC) and
+-2.68 / -3.02 (learned); 400-900 cm z -2.53 / +0.16 (MAGIC), -2.41 / +0.36
+(learned). **Five of twelve arm/band/run cells miss |z| <= 2 in the 0-400 and 400-900 bands**
+(MAGIC 0-400 run B -2.21 and 400-900 run A -2.53; learned 0-400 both runs and
+400-900 run A -2.41). The old record
+had one such miss in the 400-900 band (run A, -2.41). About one in twenty cells would miss by chance; five of twelve
+is more than that (the cells are correlated, since both arms share the same
+analog), and the 0-400 band is a 1065-flux-unit total with
+R 0.1 %, where a 0.4 % shift is 2.2 sigma. **Not explained here; not tuned.**
+Whether the near-field bands carry a small real shift under both games is
+open and is filed as a follow-up on #1582.
+
+### Tests and bit-identity
+
+Analog runs are unchanged: `variance_reduction_is_bit_identical_when_analog`
+(2 tests, `--include-ignored`), `stats_move_fingerprints` (9) and
+`cls_scls_keff_pin_205` (3) pass. New: `weight_window_parity_tests`
+(`transport_csg.rs`: item 4 and item 3 at the checkpoint),
+`the_weight_window_game_defaults_to_upstream_and_each_knob_flips`
+(`variance_reduction.rs`) and
+`birth_window_parity_game_differs_from_legacy_and_both_are_unbiased` (a k run
+with an energy-dependent window; the two games differ in bits and each agrees
+with analog, z +1.38 at the default and +0.80 legacy against analog
+1.00115 +- 0.00452). Item 3 has no effect here (`max_lb_ratio = 1`), so the
+measurements above price items 1, 2 and 4 together; **they were not
+separated** (the surface checkpoint alone was priced in #1579: no effect).
+
+### Reviewed functions edited (gh:#1582, maintainer-confirmed)
+
+`outram_mc_libs::physics::transport_csg::transport_history_vr`
+(`fn:cef42e1a8f2fd45a`): a birth-window block on the first pop (a
+`source_pop` flag), and a new last argument on the two existing checkpoint
+calls. `weight_window_checkpoint` (not in kovan's index) gained the
+no-window rule, the `ww_factor` reset and the `set_born_one` argument.
+`VarianceReduction::default` is not reviewed. `review.md` was not touched.
+
+## Source biasing from the learned importance map (2026-11-17, gh:#1615)
+
+**Maintainer direction (gh:#497, 2026-11-17):** "connect source biasing with
+importance, let it be an option". **Also decided: the unbiasedness gate is
+`|z| <= 2`** (`UNBIASED_Z_BAND`), the maintainer's choice, no longer a flagged
+question. The earlier "both readings tabulated, none chosen" tables above stay
+as the record of what was measured; the gate they are judged by is now 2.
+
+### Design (written before any run)
+
+Code: `src/stats/learned_source_bias.rs` (`with_learned_source_bias`,
+`learned_biased_spatial`, `learned_biased_energy`, `SourceBiasReport`), plus
+one new `SpatialDistribution::Cells` variant (uniform-in-box cells chosen by
+the ported OpenMC `DiscreteIndex`, biased by `compute_importance_weights`;
+`src/source/distribution.rs`). **Off by default:** nothing calls it; a
+`FixedSource` is analog unless a caller passes it through
+`with_learned_source_bias`.
+
+- **Importance = `1/lower` of the window set** (MAGIC's `lower` is
+  proportional to the forward flux; the learned fill extends it), CADIS
+  `q ∝ p·I`. Chosen over a second flux-derived map because then source and
+  game cannot disagree: every birth has `w/lower_c` equal to the same
+  constant (`1/Σ p_k/lower_k`), i.e. all births land at the same place in
+  their own window. Pinned by a unit test.
+- Position: source box split over the mesh cells it overlaps, `p_c` =
+  overlap fraction. Energy: a mono-energetic source has one group; a discrete
+  spectrum is biased by `learned_biased_energy` (product-form: energy and
+  position independent, so the joint (cell, group) importance is not
+  represented).
+- **A point source is a single cell: the bias is the identity** and the
+  source is returned unchanged. The 2026-11-14 shielded-room record uses a
+  point source, so **it has no source bias to measure**; that is a finding,
+  not a gap to paper over. To have something to bias, the V&V case below uses
+  a **volume source** (a box in the inner room), a new case with its own
+  analog arm and its own early tally.
+- Cells with no window get the `p`-weighted mean importance of the windowed
+  source cells (neutral; affects variance only).
+
+### Case and protocol (fixed before any run)
+
+`shielded_room_learned_source_bias` in
+`tests/openmc_notebooks/shielded_room_weight_window.rs`: the same room,
+materials and 31 x 38 mesh; source a uniform box
+`[350,750] x [650,1000] x [150,550]` cm (same centre `(550, 825, 350)` as the
+point source, entirely inside the inner room), 2.5 MeV isotropic. Bands, seeds
+(N = 5 per arm), sizes (analog 40 000, others 20 000 per seed, early tally
+2000 analog histories of THIS source, seed 424 242, threshold 1, ratio 5), FOM
+(`1/(R²T)`, T total transport seconds) and headline (900-1450 cm from
+`(550, 825)`) are those of the protocol above. Arms: **analog**; **learned
+windows only**; **source bias only** (analog transport, biased births, 40 000
+per seed like analog); **learned windows + source bias**; MAGIC windows only
+as the existing reference. Two replicates with fresh transport seeds (offsets
+0 and 5 000 000), both reported. Gate: headline `|z| <= 2` against analog for
+every variance-reduced arm.
+
+### Prediction (written 2026-11-17 BEFORE any run)
+
+1. **Bias.** None by argument; each arm's headline `|z| <= 2` with p about
+   0.95. Other bands missed `|z| <= 2` in 5 of 12 cells in the #1582
+   re-measurement (not explained); I expect that to recur in the 0-400 and
+   400-900 bands in at least one cell, and will report it, not tune.
+2. **Point-source case:** `with_learned_source_bias` returns the source
+   unchanged (bit-identical runs). Asserted, not measured.
+3. **Weight spread.** Importance `1/lower` varies across the 8 x 7 source
+   cells by roughly a factor 2-10 (the flux falls towards the walls), so the
+   birth-weight relative variance `E[w²]-1` is predicted **0.1-1.0**.
+4. **Source bias alone vs analog (FOM ratio):** **0.7-1.5, point 1.0.** The
+   source region is a small part of the room; CADIS source bias is meant to
+   pair with windows, and alone it moves births modestly.
+5. **Learned windows only vs analog:** 0.1-0.8, point 0.3 (the point-source
+   record gave 0.17-0.57); **MAGIC vs analog** 0.1-0.5, point 0.2.
+6. **Learned + source bias vs learned only:** **0.8-1.5, point 1.1**, and I
+   expect it **not to be resolved from 1** at N = 5 (FOM sigma about 100 %):
+   `|ln ratio| < 2 sigma` with probability about 0.8. A resolved gain
+   above 2 would surprise me (about 5 %).
+
+### Results (measured 2026-11-17, gh:#1615)
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container), 4 logical cores, 15 GB
+RAM, Linux 6.18.44, CPU only. Each replicate is one single-threaded process;
+the two replicates ran concurrently (offsets 0 = A, 5 000 000 = B), on a box
+shared with other agents' builds and runs (load average 15-19 during the runs).
+**Absolute seconds mean nothing and the arms ran sequentially under a drifting
+load, so every FOM below is timing-contaminated.** See the timing caveat.
+**Commit of the test code:** `e3189a363`. **Command:** `shielded_room_learned_source_bias
+--ignored --nocapture` from `cargo test --release -j 2 -p outram-mc-libs
+--no-default-features --test openmc_notebooks`, binary copied and run directly.
+Sizes as protocol: early tally 2000 histories (seed 424 242), analog and
+source-bias-only 40 000 per seed, MAGIC / learned / learned+source-bias 20 000
+per seed, N = 5 seeds per arm.
+
+**Windows and bias built.** MAGIC 607/1178 cells carry a window; learned
+1178/1178 (571 filled, 0 clamped, LOO RMSE in ln flux 1.35). Source bias over
+the box: 56 cells, none without a window, birth weights `p/q` from 0.601 to
+1.966, **relative variance of the birth weight 0.074**.
+
+#### Headline band (900-1450 cm), flux per source particle summed over 317 cells
+
+| run | arm | mean +- sem | z vs analog | `\|z\|<=2` | FOM ratio vs analog (+- ~100 %) |
+|---|---|---|---|---|---|
+| A | analog | 4.9011 +- 0.0965 | - | - | 1 |
+| A | MAGIC | 4.8505 +- 0.0650 | -0.43 | yes | 0.39 |
+| A | learned | 4.7930 +- 0.0444 | -1.02 | yes | 1.13 |
+| A | source bias only | 4.6958 +- 0.0230 | **-2.07** | **NO** | 33.4 |
+| A | learned + source bias | 4.7948 +- 0.0405 | -1.02 | yes | 1.81 |
+| B | analog | 4.9925 +- 0.164 | - | - | 1 |
+| B | MAGIC | 4.7520 +- 0.0651 | -1.36 | yes | 1.02 |
+| B | learned | 4.8084 +- 0.0905 | -0.98 | yes | 0.73 |
+| B | source bias only | 5.0756 +- 0.181 | +0.34 | yes | 1.69 |
+| B | learned + source bias | 4.7650 +- 0.0677 | -1.28 | yes | 1.72 |
+
+FOM(learned + source bias) / FOM(learned only), headline: **1.60 (A), 2.37 (B)**,
+each +- 100 %. Other bands: 0-400 cm 0.28, 8.5; 400-900 cm 0.99, 1.67.
+
+**Gate (`|z| <= 2`, maintainer-decided).** Of the 24 arm/band/run cells (4 arms x 3
+bands x 2 runs; the table above is the 8 headline cells), **one misses: run A,
+source bias only, headline band, z = -2.07.** It is not repaired or explained
+away. That arm's 5-seed sigma (0.0230) is four times smaller than the analog's
+(0.0965) and the run B repeat of the same arm sits at +0.34 with sigma 0.181,
+so the miss is consistent with a small sample sigma (a 5-seed sigma is a poor
+estimate, and a heavy-tailed score makes it worse) but **that is a reading, not
+a finding**: nothing here separates a real -4 % shift from noise. Seven of the eight headline arm/run means read below analog (-0.43 to -2.07 sigma;
+the exception is B source bias only, +0.34), the
+same sign the #1582 re-measurement saw for MAGIC; no single cell fails, and the
+pooled shift was not tested here. Other bands: no cell outside `|z| <= 2`;
+the nearest is run B MAGIC 0-400 cm at z = +1.96.
+
+#### Timing caveat (read before quoting any FOM)
+
+Seconds per arm (5 seeds): A: analog 267, MAGIC 1478, learned 1068, source-bias
+129, learned+sb 801; B: 258, 1456, 1084, 130, 806. ~~**Source-bias-only ran the
+same 40 000 analog histories per seed as the analog arm in about half the
+time, in both replicates.**~~ **CORRECTED 2026-11-17 (gh:#1619): it was load drift, see the #1619 section below.** Original text, superseded for the source-bias arm: **Source-bias-only ran the
+same 40 000 analog histories per seed as the analog arm in about half the
+time, in both replicates.** Biased births cannot halve an analog history's
+cost (the transport and weights are analog), so this is either load drift
+(analog ran first, on the busiest box) or a real cost difference between the
+`Box` and `Independent` source paths that was not investigated. Until it is,
+**the source-bias-only FOM ratios (33.4, 1.69, ...) are not evidence of a
+gain**; the variance side alone (sigma ratio) is A 0.24, B 1.1, which disagree.
+The same caveat applies to the learned+sb / learned ratios (learned+sb was
+25 % cheaper per history in both runs).
+
+#### Against the prediction (written before any run)
+
+| prediction | measured | verdict |
+|---|---|---|
+| headline `\|z\|<=2` for every arm, p about 0.95 each; at least one near-field cell would miss | **one headline miss** (A, source bias only, -2.07); **no** near-field miss | **partial miss**: the gate failed where I did not expect it and held where I did |
+| point source: bias is the identity | `with_learned_source_bias` returns the source unchanged, asserted in the test | hit (by construction) |
+| birth-weight relative variance 0.1-1.0 | **0.074**; weights 0.60-1.97 | **miss** (slightly low): the importance varies only ~3.3x across the box, not 2-10x |
+| source bias alone vs analog FOM 0.7-1.5, point 1.0 | 33.4 and 1.69 (headline); 2.97, 0.98 (0-400); 4.0, 0.49 (400-900) | **miss** in A (33.4), hit in B, and timing-contaminated (above); not resolved at +-100 % |
+| learned vs analog 0.1-0.8, point 0.3 | 1.13 (A), 0.73 (B) | A **miss** (above), B inside the range |
+| MAGIC vs analog 0.1-0.5, point 0.2 | 0.39 (A), 1.02 (B) | A inside, B **miss** (above) |
+| learned+sb / learned 0.8-1.5, point 1.1, not resolved from 1 | 1.60 (A), 2.37 (B), each +- 100 % | both above the range, **neither resolved from 1**; "not resolved" held |
+
+**Which numbers to quote.** None of the FOM ratios in this table is resolved:
+each carries about 100 % sigma at N = 5 and the arms' times are contaminated by
+load. What the data supports: (1) the learned source bias is unbiased to within
+`|z| <= 2` on 23 of 24 cells, with one 2.07 miss recorded; (2) it moves births
+only mildly on this box source (weight relative variance 0.074), so a large FOM
+gain from it should not be expected, and none is demonstrated; (3) on the
+headline band learned+sb is not distinguished from learned windows alone. A
+resolved FOM claim needs more seeds and a quiet machine, so that timings are
+comparable.
+
+**Not tested.** More than N = 5 seeds; a quiet machine; the discrete-energy
+bias in transport (unit-tested only); a source whose importance varies by 10x
+or more across its extent; ~~the cause of the source-bias-only speed difference~~ **CORRECTED 2026-11-17 (gh:#1619): measured, it was load drift, see the #1619 section.**
+
+## #1619: is the source-bias-only arm's ~2x speed a source-path cost? (2026-11-17)
+
+### What was read (before any run)
+
+- `FixedSource::Box` (`src/physics/fixed_source.rs`, `sample`): one
+  `isotropic_direction` draw, then three `prn`, a few flops.
+- `FixedSource::Independent` -> `IndependentSource::sample`
+  (`src/source/source.rs`): spatial draw (`SpatialBox`: three `prn`; `Cells`:
+  one `DiscreteIndex::sample` (a table lookup) plus three `prn`), energy (no
+  draw for `Monoenergetic`), angle (`isotropic_direction`), then `strength *
+  wr * we`. Same number of draws, plus one table lookup for `Cells`.
+- Both go through the same `transport_history_vr_urr` call in
+  `run_fixed_source_traced`; only the birth weight argument differs
+  (`birth_weight` is 1.0 for `Box`). Nothing in the loop branches on the
+  source variant, and the geometry start cell is located inside
+  `transport_history_vr_urr` from the birth position for both.
+- So the code path difference is tens of nanoseconds per history against
+  about a millisecond of transport.
+
+### Prediction (written 2026-11-17 BEFORE any run)
+
+1. **Path cost: none.** Per-history cost of (b) `Independent`/`SpatialBox` and
+   (b2) `Independent`/`Cells` (unbiased) equals (a) `Box` to within the
+   run-to-run noise: paired cost ratio **1.00 +- 0.03**. The headline-band flux
+   and the total flux per source particle of (a), (b) and (b2) agree within
+   their seed sigma (they sample the same distribution; the draw order differs,
+   so not bit-identical). Every arm transports exactly N histories (no fissile
+   material).
+2. **The 2x is load drift.** The analog arm ran first at load 15-19, and the
+   source-bias arm later on a lighter box.
+3. **But (c), the learned bias, is not the same physical source**, so its cost
+   per history can differ for a real reason: births are moved towards
+   high-importance cells (importance `1/lower` grows away from the source
+   centre, birth weights 0.60-1.97). Births nearer the room walls reach
+   concrete sooner. Predicted paired cost (c)/(a) **0.8-1.0, point 0.9**: a
+   modest real effect, **not 0.5**.
+4. Verdict I expect: load drift explains the factor 2; at most a 10 % real cost
+   effect of the birth redistribution; no defect in the source path. If (b) or
+   (b2) is faster than (a) by more than 5 % that contradicts (1) and a start
+   cell, a track length or a source-region difference is investigated.
+
+### Results (measured 2026-11-17, gh:#1619)
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container), 4 logical cores, 15 GB
+RAM, Linux 6.18.44, CPU only; each run single-threaded. The box was shared
+with another agent's builds: load average 1.3-2.9 during the runs (the
+#1615 runs had 15-19). **Test:** `shielded_room_source_path_timing`
+(`tests/openmc_notebooks/shielded_room_weight_window.rs`, `--ignored`), run as
+`OUTRAM_T1619_N=60000 OUTRAM_T1619_REPEATS=6`. Analog transport in every arm,
+60 000 histories per run (about 38 s), same seed per repeat index across arms,
+arm order alternated (a,b,b2,c then c,b2,b,a, ...), one warm-up run, 943 s in
+all. Arms: (a) `FixedSource::Box`; (b) the same box as an unbiased
+`Independent` source (`SpatialBox`, weight 1); (b2) the same box as an
+unbiased `SpatialDistribution::Cells` (56 equal cells, uniform strengths);
+(c) `with_learned_source_bias` (56 cells, weights 0.60-1.97, relative variance
+0.074).
+
+| arm | cost per history, ms (mean, sd over 6) | paired cost / (a), mean (sem) | headline flux per source particle (mean +- sem) | total flux per source particle |
+|---|---|---|---|---|
+| a `Box` | 0.654 (0.035) | 1 | 4.708 +- 0.130 | 1692.6 +- 3.5 |
+| b `Independent`/`SpatialBox` | 0.630 (0.012) | 0.965 (0.016) | 4.709 +- 0.127 | 1693.8 +- 2.8 |
+| b2 `Independent`/`Cells`, unbiased | 0.630 (0.029) | 0.967 (0.032) | 4.948 +- 0.105 | 1693.2 +- 2.7 |
+| c learned bias | 0.646 (0.044) | 0.989 (0.030) | 4.729 +- 0.085 | 1692.7 +- 3.8 |
+
+Every run transported exactly 60 000 histories (no fissile material).
+Headline (900-1450 cm) a vs b: z = 0.00; a vs b2: z = +1.4; a vs c: z = +0.13.
+
+**Verdict: load drift. There is no source-path cost.** The four arms cost the
+same per history to within 3.5 %, and the paired differences are 0.4 to 2.2
+standard errors of the mean from 1, the b arm's 0.965 (2.2 sem) being the
+largest. If that 3.5 % is real it is far from the factor 2 seen in #1615, so I
+do not chase it. (a) and (b) have the same mean total flux per particle (track
+length) and headline flux, so they transport the same particles: no different
+start cell, no skipped locate, no different source region, no tally bias. The
+cost per history here, 0.65 ms, times the #1615 200 000 histories per arm is
+131 s, which is the 129 s and 130 s the source-bias arm took in #1615. **The
+source-bias arm was the correctly timed one; the analog arm's 267 s and 258 s
+were inflated about 2x by load (15-19, analog ran first).** The learned bias
+itself (c) is not cheaper per history (0.989 +- 0.030).
+
+**Corrected numbers.** (1) Per-history cost, source-bias-only against analog:
+**0.99 +- 0.03**, not 0.5. (2) Source-bias-only FOM ratio against analog at
+equal per-history cost, headline band, from the #1615 seed sigmas (FOM ratio =
+variance ratio / cost ratio): ~~A 33.4~~ **about 17.8** (sigma 0.0965 vs 0.0230),
+~~B 1.69~~ **about 0.83** (sigma 0.164 vs 0.181). Each is still about +-100 %
+at N = 5, and A and B differ by a factor 20, so **neither shows a resolved
+gain**; quote neither. A FOM ratio is only valid when both times come from
+paired, alternating runs on one box. **Not re-timed here:** the
+variance-reduced arms (MAGIC, learned, learned+sb), so the "learned+sb 25 %
+cheaper than learned" observation is **not explained by this measurement**:
+this run covers analog transport only. It is probably the same drift (learned
+ran before learned+sb under a falling load), but that is a reading, not a
+finding, and the learned+sb / learned FOM ratios (1.60, 2.37) stay unquotable
+until those arms are re-timed in alternating order.
+
+#### Against the prediction (written before the run)
+
+| prediction | measured | verdict |
+|---|---|---|
+| (b), (b2) cost per history = (a) within 3 %, same tally physics, equal history count | 0.965 +- 0.016 and 0.967 +- 0.032; headline z 0.00 and +1.4; histories equal | hit, (b) at the edge of the 3 % band |
+| the 2x is load drift | the source-bias arm's 130 s = 200 000 x 0.65 ms | hit |
+| (c)/(a) 0.8-1.0, point 0.9 | 0.989 +- 0.030 | inside the range at its top: no birth-location effect is resolved, my point estimate (0.9) was too low |
+| no defect in the source path | none found; no source code changed | hit |
+
+**Code changed:** the new `#[ignore]` test only (`shielded_room_source_path_timing`
+and two helpers in the same test file). No kovan-reviewed function was edited,
+no `review.md` touched. **Not tested:** the VR arms' timing (above); fission
+(the room has none); the `Surface` source.

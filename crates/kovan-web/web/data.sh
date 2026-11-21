@@ -50,8 +50,25 @@
 # that much time has gone on indexing, crates not yet in the cache fall back
 # as above instead of letting a cold cache run the job into its timeout.
 #
+# KOVAN_SCIP_BUDGET=<seconds> (scip backend; default 0 = no limit): if
+# `rust-analyzer scip` is still running after that long it is stopped and
+# counts as failed, so the changed crates fall back as above. Added
+# 2026-11-18: on two Pages runs (2026-11-17 develop dispatch, 2026-11-18
+# run 44412826676) the call-graph job was lost with its runner at about
+# 60 min, the step never finishing, against 27 min on 2026-11-15; the
+# kernel's OOM kill (oom_score_adj below) never came, so the likeliest cause
+# is swap thrashing. A budget turns that into the fallback this script
+# already has, instead of a lost runner and no deploy.
+#
 # KOVAN_WEB_CRATES=a,b limits the call graph to those crates (local runs).
 # KOVAN_SCIP_THREADS=<n> is passed to `rust-analyzer scip --num-threads`.
+#
+# KOVAN_SCIP_FROM=<file> (scip backend; GitHub #1668): use this SCIP index
+# instead of running `rust-analyzer scip` here, e.g. the merged partition
+# index Pages' index-unify job writes (`kovan-cli scip-merge`, every member
+# indexed by a worker that loads only its partition's closure). Copied to
+# target/kovan-scip/index.scip; when the file is missing or empty, data.sh
+# says so and runs rust-analyzer as before.
 # Never commits anything. Release build (workspace rule); rust-analyzer's own
 # build-script `cargo check` is given `--release` too, so no target/debug.
 set -euo pipefail
@@ -117,6 +134,15 @@ ensure_scip() {
   fi
   mkdir -p "$SCIP_DIR"
   rm -f "$SCIP" "$SCIP_DIR/index.key"
+  if [[ -n "${KOVAN_SCIP_FROM:-}" ]]; then
+    if [[ -s "$KOVAN_SCIP_FROM" ]]; then
+      cp "$KOVAN_SCIP_FROM" "$SCIP"
+      echo "$want" > "$SCIP_DIR/index.key"
+      echo "data.sh: using the SCIP index $KOVAN_SCIP_FROM (KOVAN_SCIP_FROM); rust-analyzer scip not run"
+      return 0
+    fi
+    loud "KOVAN_SCIP_FROM=$KOVAN_SCIP_FROM is missing or empty: running rust-analyzer scip here"
+  fi
   # Keep rust-analyzer's build-script `cargo check` in the release profile.
   printf '{"cargo":{"extraArgs":["--release"]}}\n' > "$SCIP_DIR/ra-config.json"
   local threads=()
@@ -131,7 +157,14 @@ ensure_scip() {
     exec rust-analyzer scip "$root" --output "$SCIP" --config-path "$SCIP_DIR/ra-config.json" "${threads[@]}"
   ) > "$SCIP_DIR/rust-analyzer-scip.log" 2>&1 &
   pid=$!
+  local budget="${KOVAN_SCIP_BUDGET:-0}" stopped=0
   while kill -0 "$pid" 2>/dev/null; do
+    if (( budget > 0 && SECONDS - t0 >= budget )); then
+      loud "rust-analyzer scip still running after its budget of $budget s (KOVAN_SCIP_BUDGET): stopped"
+      kill $(pgrep -P "$pid" 2>/dev/null || true) "$pid" 2>/dev/null || true
+      stopped=1
+      break
+    fi
     # The rustup proxy may run the real binary as a child: take the largest.
     for p in "$pid" $(pgrep -P "$pid" 2>/dev/null || true); do
       h="$(awk '/^VmHWM:/{print $2}' "/proc/$p/status" 2>/dev/null || true)"
@@ -140,6 +173,7 @@ ensure_scip() {
     sleep 2
   done
   wait "$pid" || rc=$?
+  (( stopped )) && rc=124
   echo "data.sh: rust-analyzer scip: exit $rc after $((SECONDS - t0)) s, peak resident memory >= $((peak / 1024)) MiB"
   if (( rc != 0 )) || [[ ! -s "$SCIP" ]]; then
     tail -n 20 "$SCIP_DIR/rust-analyzer-scip.log" | sed 's/^/data.sh: rust-analyzer: /' >&2

@@ -1,0 +1,21 @@
+=== k-worth of the S(a,b) emission-tabulation repair ===
+graphite-moderated homogeneous medium, 600 K, C/HM = 400, reflective cube half = 20 cm (k_inf, zero leakage)
+8 replicas x 4000 particles x [20 + 80], 4 tabulations
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  reconstructing U235   … 158.3s
+  reconstructing U238   … 143.1s
+  reconstructing O16    … 3.9s
+  reconstructing C12    … 959.4ms
+  reconstructing C13    … 217.9ms
+  S(a,b) 48x16  (superseded): built in 17.6s
+  S(a,b) 384x16 (grid only): built in 20.1s
+  S(a,b) 48x64  (bins only): built in 17.3s
+  S(a,b) 384x64 (current): built in 17.8s
+  replica 0: 48x16  (superseded) k=1.38343+/-0.00172; 384x16 (grid only) k=1.38723+/-0.00187; 48x64  (bins only) k=1.38669+/-0.00163; 384x64 (current) k=1.38498+/-0.00174;
+  replica 1: 48x16  (superseded) k=1.38533+/-0.00177; 384x16 (grid only) k=1.38648+/-0.00189; 48x64  (bins only) k=1.38176+/-0.00175; 384x64 (current) k=1.38652+/-0.00188;
+  replica 2: 48x16  (superseded) k=1.38607+/-0.00162; 384x16 (grid only) k=1.38404+/-0.00173; 48x64  (bins only) k=1.38527+/-0.00200; 384x64 (current) k=1.38375+/-0.00176;
+  replica 3: 48x16  (superseded) k=1.38559+/-0.00201; 384x16 (grid only) k=1.38321+/-0.00195; 48x64  (bins only) k=1.38458+/-0.00178; 384x64 (current) k=1.38140+/-0.00194;
+  replica 4: 48x16  (superseded) k=1.38543+/-0.00191; 384x16 (grid only) k=1.38532+/-0.00184; 48x64  (bins only) k=1.38195+/-0.00165; 384x64 (current) k=1.38664+/-0.00193;
+  replica 5: 48x16  (superseded) k=1.38083+/-0.00188; 384x16 (grid only) k=1.38477+/-0.00179; 48x64  (bins only) k=1.38156+/-0.00164; 384x64 (current) k=1.38364+/-0.00188;
+  replica 6:EXIT 143

@@ -403,7 +403,7 @@ fn g2_g4_fused_gpu_banks_per_collision() {
         advance_generation_gpu_banking, advance_generation_gpu_banking_with_capacity,
     };
     use outram_mc_libs::physics::keff::run_keff_gpu_event_reports;
-    let Some(ctx) = outram_mc_libs::gpu::probe() else {
+    let Some(ctx) = outram_mc_libs::gpu::shared_probe() else {
         eprintln!("SKIP g2_g4_fused_gpu_banks_per_collision: no GPU adapter");
         return;
     };

@@ -623,7 +623,7 @@ a translation of it.
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
 | Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. ~~Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`)~~ **CORRECTED 2026-09-22 (gh:#265)** — anisotropic MG scattering is ported: `src/physics/scattdata.rs` carries `LegendreKernel` (rejection sampling, upstream's 10 % bounding-box margin and its `f > 0` negativity truncation) and `TabularKernel` (`convert_legendre_to_tabular`, the clamp-and-renormalise path), and `Mgxs::with_legendre_scattering` wires them into `run_keff_mg`. Paired P0-vs-P3 worth on a bare 35 cm cube: **−4371 ± 44 pcm (99.6 σ)** at 128 seeds against **−4200 predicted before the run**, with the zero-leakage control at −1 ± 38 pcm (0.0 σ), and agreement with OpenMC's own MG mode within 1.3 σ on every arm (~~a 32-seed first pass gave −4308 ± 93~~ superseded by the 128-seed run, which it agrees with) — `verification_and_validation/mg_anisotropic_scattering/`. Still absent: MGXS *generation* from CE data (the `njoy-outram-park-fork` track). **(n,xn) scattering multiplicity since 2026-10-13 (gh:#682):** `Mgxs::with_scattering_multiplicity` takes upstream's per-transfer `multiplicity_matrix`. The kernel then weights each scatter by the **row** multiplicity `nu_row / s_row`, where upstream uses `wgt *= mult[g][g']` (`src/scattdata.cpp:367`). That is a deliberate divergence: upstream samples g' from the nu-scatter row, so its weighting is exact only for a row-uniform multiplicity. On a two-group set it would give 1.578 against the analytic 1.517; this port gives 1.516 ± 0.003 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`). A non-fissile set may carry chi = 0 (gh:#848, as `src/xsdata.cpp:40-63`) |
-| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`, `integrators.rs`); live one-group burnup test vs the `depletion` notebook. **The math moved to PETIR 2026-10-17 (gh:#950, maintainer: "All math moved to petir")**: `petir::depletion` holds the burnup matrix type, IPF CRAM and all eight OpenMC integrators; this crate keeps the chain, `build_matrix`, the operators (`OneGroupOperator` implements PETIR's `TransportOperator`) and transfer rates, and re-exports the moved items at their old paths. `tests/depletion_move_fingerprints.rs` pins the move bit-identical; CF4 deliberately changed (it had followed upstream's docstring, not its code: order 1.94 → 3.93). **OpenMC's `TransferRates` / `ExternalSourceRates` since 2026-11-17 (gh:#1622):** `depletion::external_rates` ports removal, feed (exact, by matrix augmentation), material-to-material transfer (block system) and redox from `transfer_rates.py`, `chain.py` and `pool.py` at `e4febe9`; ~~analytic tests only, not yet run against OpenMC~~ **CORRECTED 2026-11-17: run against OpenMC** (2.8e-15 on the same inputs; 2.0e-15 on upstream's regression files; the feed case 1.5e-8 is PETIR CRAM-48, gh:#1645). It strips the augmented entry only from materials augmented that step, where upstream strips any material with a source at any step (a finding, read from the source). **OpenMC's `CoupledOperator` (flux mode) since 2026-11-17 (gh:#1626):** `depletion::coupled_operator`; on OpenMC's pincell depletion example it agrees with OpenMC within statistics (`tests/pincell_depletion_vs_openmc.rs`, `verification_and_validation/spectrum_depletion/`) |
+| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`, `integrators.rs`); live one-group burnup test vs the `depletion` notebook. **The math moved to PETIR 2026-10-17 (gh:#950, maintainer: "All math moved to petir")**: `petir::depletion` holds the burnup matrix type, IPF CRAM and all eight OpenMC integrators; this crate keeps the chain, `build_matrix`, the operators (`OneGroupOperator` implements PETIR's `TransportOperator`) and transfer rates, and re-exports the moved items at their old paths. `tests/depletion_move_fingerprints.rs` pins the move bit-identical; CF4 deliberately changed (it had followed upstream's docstring, not its code: order 1.94 → 3.93). **OpenMC's `TransferRates` / `ExternalSourceRates` since 2026-11-17 (gh:#1622):** `depletion::external_rates` ports removal, feed (exact, by matrix augmentation), material-to-material transfer (block system) and redox from `transfer_rates.py`, `chain.py` and `pool.py` at `e4febe9`; ~~analytic tests only, not yet run against OpenMC~~ **CORRECTED 2026-11-17: run against OpenMC** (2.8e-15 on the same inputs; 2.0e-15 on upstream's regression files; the feed case 1.5e-8 is PETIR CRAM-48, gh:#1645). It strips the augmented entry only from materials augmented that step, where upstream strips any material with a source at any step (a finding, read from the source). **OpenMC's `CoupledOperator` (flux mode) since 2026-11-17 (gh:#1626):** `depletion::coupled_operator`; on OpenMC's pincell depletion example it agrees with OpenMC within statistics (`tests/pincell_depletion_vs_openmc.rs`, `verification_and_validation/spectrum_depletion/`) **k-eigenvalue search coupled to depletion (added 2026-11-17, gh:#1616, composed with `deplete_coupled` in gh:#1618):** `src/depletion/keff_search.rs` ports OpenMC's `_KeffSearchControl` (`openmc/deplete/keff_search_control.py`, upstream PR #4083): an opt-in hook that, at the beginning of every burnup step, adjusts one scalar parameter (soluble boron, enrichment, rod position) until the system is critical, then depletes at that value. `KeffSearchControl` carries the settings; `deplete_independent_with_keff_search` and `deplete_coupled_with_keff_search` run it. **GRsecant (`physics::search_grsecant`, Price and Roskoff) is the default method**, as upstream; the workspace bracketed search (`physics::search_for_keff`) is selectable through `KeffSearchMethod::Bracketed`. Test: `tests/keff_search_depletion_1616.rs`. |
 
 ### Out of scope (will NOT be ported)
 - **ENDF nuclear data parsing** — `src/endf.cpp`, `include/openmc/endf.h`
@@ -649,10 +649,18 @@ a translation of it.
   (`src/material/nuclide/hdf5_read.rs`) converts a `ReadNuclide`. It reproduces
   `Nuclide::from_ace`'s cross sections bit for bit
   (`tests/nuclide_from_hdf5.rs`) and transports elastic, MT=51..90 `level` and
-  Watt/Maxwell/evaporation fission. It **refuses by name** every other
+  Watt/Maxwell/evaporation fission. ~~It **refuses by name** every other
   neutron-emitting law, URR tables, delayed products and polynomial nu, so a
-  real OpenMC U-235 library (continuous and correlated laws) is still refused.
-  Verified: `ReadNuclide` is used in `src/material/nuclide/hdf5_read.rs`.
+  real OpenMC U-235 library (continuous and correlated laws) is still refused.~~
+  **CORRECTED 2026-11-18 (gh:#303):** it also decodes `continuous`,
+  `correlated`, `kalbach-mann`, `nbody` and `LNW` chains, URR tables, delayed
+  groups, polynomial nu and the `0K` elastic (DBRC), mapped onto what `from_ace`
+  builds (`src/material/nuclide/hdf5_laws.rs`). The 11-nuclide LCT-008 NJOY
+  library, U-235 and U-238 included, converts and matches `from_ace` on the ACE it
+  was built from (record: `verification_and_validation/hdf5_library_303/`). Still
+  refused: `madland-nix` and unknown laws; thermal `.h5` files are not read.
+  Verified: `Nuclide::from_hdf5` is exercised on all 11 files by
+  `material::nuclide::hdf5_real_tests` (env-gated).
 
   **The part that still holds for this crate:** it takes its data pre-loaded,
   captures run state (`physics::state_point`) and hands it to that codec at
@@ -832,6 +840,15 @@ prescribed with a reference, or depletion with code and run).
   `BurnupStep`'s densities into atoms (`N * 1e24 * V`) and activities
   (`lambda * N`, `lambda` from the same chain). Every chain nuclide is kept,
   stable ones at zero activity; a negative density is refused, not clipped.
+- **Waste rating from an inventory (2026-11-20, gh:#1391):** `waste` ports
+  OpenMC's `openmc/waste.py` (Fetter and 10 CFR 61.55 tables, classification
+  rules) and takes this inventory type through `WasteInventory::from_inventory`.
+  Bit-identical to OpenMC on 90 classifications and 1020 ratios
+  (`tests/waste_vs_openmc_1391.rs`, `verification_and_validation/waste_1391/`).
+  Half-lives are a caller-supplied `HalfLifeTable`, not embedded. The decay-photon
+  spectra of the same issue are **not here**: they are `punggol`'s (photons are
+  not this crate's), which reads the chain through this crate's re-export
+  `depletion::DepletionChainXml`.
 - **Dependency direction:** `sembawang -> outram-mc-libs`. **This crate must
   never depend on `sembawang`.**
 - `sembawang` reads it in TRISO-ATOPS terms (`sembawang::inventory`), and
@@ -1056,12 +1073,21 @@ the maintainer, 2026-10-03; protocols in
   filling the cells MAGIC leaves without a window (extrapolation clamped,
   leave-one-out error reported); `VrArm` / `FomComparison` for
   `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Measured 2026-11-14:** no
-  resolvable bias, but FOM about 0.2x of analog and of MAGIC on the shielded room
+  resolvable bias, but ~~FOM about 0.2x of analog and of MAGIC~~ **CORRECTED
+  2026-11-17 (gh:#1582, weight windows now play upstream's game by default,
+  re-measured): learned about 0.17-0.57x of analog, 0.8-2.9x of MAGIC, and MAGIC
+  about 0.2x of analog (N = 5, ~100 % sigma)** on the shielded room
   (`stats_epic_493/497_learned_importance.md`). **Off by default**:
   it only builds a `WeightWindows`; transport changes only if a caller
-  attaches it to a `VarianceReduction`, whose default stays analog. Source
+  attaches it to a `VarianceReduction`, whose default stays analog. ~~Source
   biasing from the learned map is not implemented (CORRECTED 2026-11-14: OpenMC's
-  user-specified source `bias` is ported in `source::distribution`, opt-in).
+  user-specified source `bias` is ported in `source::distribution`, opt-in).~~
+  **CORRECTED 2026-11-17 (gh:#1615):** `stats::learned_source_bias`
+  (`with_learned_source_bias`, `learned_biased_spatial`, `learned_biased_energy`)
+  biases births with `q ∝ p/lower` of the window set, weight `p/q`, built on the
+  ported OpenMC `bias` machinery plus `SpatialDistribution::Cells`. Opt-in; a
+  point source is one cell, so the bias is the identity. The unbiasedness gate
+  `|z| ≤ 2` is **maintainer-decided (2026-11-17)**, no longer open.
 - `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
   `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
   own MC-noise variance separated out, quantiles, Pearson / Spearman /
@@ -1072,7 +1098,12 @@ the maintainer, 2026-10-03; protocols in
   refits), `predict` → `SurrogatePrediction` with a jackknife+ interval (its
   own type: **a surrogate value is never a transport result**), `loo_gate`
   (literal and noise-floor-aware readings — the literal one is expected to
-  fail for a perfect surrogate; flagged on #499), `propose_next_runs`
+  fail for a perfect surrogate; ~~flagged on #499~~ **DECIDED 2026-11-17
+  (maintainer, gh:#499): the noise-floor-aware reading gates**
+  (`LooGate::passes`), the literal one is reported but not gating; degree 2
+  stays the gated degree, degree 3 a labelled study, and the degree-2 FAIL is
+  the recorded finding, lack of fit of a quadratic; re-run 2026-11-17
+  reproduces the 2026-10-07 numbers), `propose_next_runs`
   (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
   the committed HTR-10 sweep CSV without transport. **Measured 2026-10-07
   (gh:#782), the one exception to "every gate NOT YET MEASURED" above:** on

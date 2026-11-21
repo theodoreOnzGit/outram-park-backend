@@ -90,22 +90,28 @@
 //! a case set that happened to miss every torus would otherwise let the GPU
 //! comparison pass by agreeing about nothing.
 //!
-//! # Known limitation: SIGSEGV under parallel test threads (GitHub #466)
+//! # Shared device: SIGSEGV under parallel test threads (GitHub #466)
 //!
-//! This binary exits with SIGSEGV at `--test-threads=3` and passes 10/10 at
+//! ~~This binary exits with SIGSEGV at `--test-threads=3` and passes 10/10 at
 //! `--test-threads=1`. Each test here creates its own `wgpu` device and queue,
 //! and concurrent device creation in one process appears to race in the
 //! Vulkan driver or loader. The crash is below this crate, and it is
 //! intermittent. Until #466 lands a shared process-wide GPU context, read a
 //! SIGSEGV here as that race rather than a geometry-helper defect, and re-run
-//! with `--test-threads=1`.
+//! with `--test-threads=1`.~~ **CHANGED 2026-11-17 (maintainer decision on
+//! #466):** every test here takes the one process-wide device from
+//! `outram_mc_libs::gpu::shared_probe()` (created once, lazily, reused by
+//! every test), so concurrent device creation cannot happen. A SIGSEGV that
+//! still appears is not that race: report it. Measurement (Mesa lavapipe,
+//! 30 runs at `--test-threads=4` and 30 at 14): 0 crashes before and after;
+//! see the #466 commit message.
 
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;
-use outram_mc_libs::gpu::{probe, GpuContext};
+use outram_mc_libs::gpu::{shared_probe, GpuContext};
 
 /// The shader under test, included verbatim so it cannot drift from the one
 /// the library ships.
@@ -664,7 +670,7 @@ fn the_torus_reference_and_the_case_set_are_sound() {
 /// shader's `cc` term fails this test and no other.
 #[test]
 fn gpu_axis_cylinder_matches_the_closed_form() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_axis_cylinder_matches_the_closed_form: no GPU adapter");
         return;
     };
@@ -708,7 +714,7 @@ fn gpu_axis_cylinder_matches_the_closed_form() {
 /// `smallest_positive_root` on the GPU against the quadratic formula.
 #[test]
 fn gpu_smallest_positive_root_matches_the_closed_form() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_smallest_positive_root_matches_the_closed_form: no GPU adapter");
         return;
     };
@@ -764,7 +770,7 @@ fn gpu_smallest_positive_root_matches_the_closed_form() {
 /// quartic coefficient by `1.0001` fails this test.
 #[test]
 fn gpu_torus_distance_matches_an_independent_root_scan() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_torus_distance_matches_an_independent_root_scan: no GPU adapter");
         return;
     };
@@ -852,7 +858,7 @@ fn gpu_torus_distance_matches_an_independent_root_scan() {
 /// test: the defect is detected and no longer corrupts anything downstream.
 #[test]
 fn gpu_cubic_roots_come_back_ascending() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_cubic_roots_come_back_ascending: no GPU adapter");
         return;
     };
@@ -946,7 +952,7 @@ fn test_polys() -> Vec<(Vec<f32>, usize)> {
 /// is the `f32`-versus-`f64` cost and not a discrepancy in the scheme.
 #[test]
 fn gpu_poly_eval_is_horner_in_descending_order() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_poly_eval_is_horner_in_descending_order: no GPU adapter");
         return;
     };
@@ -1009,7 +1015,7 @@ fn gpu_poly_eval_is_horner_in_descending_order() {
 /// shows up as a wrong root — it shows up as a missing or duplicated one.
 #[test]
 fn gpu_poly_abs_scale_is_the_sum_of_absolute_horner_terms() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_poly_abs_scale_is_the_sum_of_absolute_horner_terms: no GPU adapter");
         return;
     };
@@ -1059,7 +1065,7 @@ fn gpu_poly_abs_scale_is_the_sum_of_absolute_horner_terms() {
 /// `collect_real_roots`, which scans `[-m, m]`.
 #[test]
 fn gpu_root_bound_is_cauchys_bound_and_actually_bounds_the_roots() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_root_bound_is_cauchys_bound_and_actually_bounds_the_roots: no GPU");
         return;
     };
@@ -1133,7 +1139,7 @@ fn gpu_root_bound_is_cauchys_bound_and_actually_bounds_the_roots() {
 /// the solver's output alone, which is why it is checked here.
 #[test]
 fn gpu_push_unique_keeps_a_set() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_push_unique_keeps_a_set: no GPU adapter");
         return;
     };
@@ -1200,7 +1206,7 @@ fn gpu_push_unique_keeps_a_set() {
 /// and every returned point inside the bracket it was given.
 #[test]
 fn gpu_bisect_root_converges_to_the_root_petir_finds() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_bisect_root_converges_to_the_root_petir_finds: no GPU adapter");
         return;
     };

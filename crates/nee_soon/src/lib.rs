@@ -224,6 +224,8 @@ use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, Thermodyn
 /// `tampines` primary loop (gh:#1151; moved from `tampines` 2026-11-03).
 pub mod htr10_th_transient;
 /// MSRE power-to-reactivity frequency response (MSRE T-1, gh:#1132).
+#[cfg(feature = "dem_ui")]
+pub mod dem_pour;
 pub mod msre_frequency_response;
 pub mod htr10_rmc;
 pub mod httr;

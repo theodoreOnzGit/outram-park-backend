@@ -700,7 +700,7 @@ mod tests {
     #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_lcg_state_matches_cpu() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             #[cfg(feature = "std")]
             eprintln!("SKIP gpu_lcg_state_matches_cpu: no GPU adapter (CPU-only CI)");
             return;
@@ -806,7 +806,7 @@ mod tests {
     #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_flight_matches_cpu_mirror() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             #[cfg(feature = "std")]
             eprintln!("SKIP gpu_flight_matches_cpu_mirror: no GPU adapter (CPU-only CI)");
             return;
@@ -1141,7 +1141,7 @@ mod tests {
 
         #[cfg(all(feature = "std", not(target_os = "android")))]
         {
-            let Some(ctx) = crate::gpu::probe() else {
+            let Some(ctx) = crate::gpu::shared_probe() else {
                 #[cfg(feature = "std")]
                 eprintln!("SKIP GPU arm of mirror_and_gpu_resolve_the_sphere_surface_as_openmc");
                 return;

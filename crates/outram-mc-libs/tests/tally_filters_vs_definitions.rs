@@ -275,10 +275,13 @@ fn edge_binned_filters_handle_their_boundaries() {
     };
     assert_eq!(b(-1.0), Some(0), "the bottom edge belongs to the first bin");
     assert_eq!(b(-0.75), Some(0));
+    // gh:#687 (2026-11-20): OpenMC `lower_bound_index` (`search.h:17-19`; the
+    // filters call it after `mu >= front && mu <= back`): an interior edge belongs
+    // to the bin BELOW. ~~An interior edge belongs to the bin above.~~
     assert_eq!(
         b(-0.5),
-        Some(1),
-        "an interior edge belongs to the bin above"
+        Some(0),
+        "an interior edge belongs to the bin below"
     );
     assert_eq!(b(0.999), Some(3));
     assert_eq!(b(1.0), Some(3), "the TOP edge is inclusive, not rejected");
@@ -301,7 +304,8 @@ fn edge_binned_filters_handle_their_boundaries() {
             time: 1.0e-6,
             ..Default::default()
         }),
-        Some(1)
+        // gh:#687: an interior edge belongs to the bin below (~~Some(1)~~).
+        Some(0)
     );
     assert_eq!(
         t.get_bin(&FilterEvent {
@@ -324,15 +328,16 @@ fn edge_binned_filters_handle_their_boundaries() {
         azimuthal: vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI],
     };
     assert_eq!(pa.n_bins(), 4);
-    // +z, phi = atan2(0, 1) = 0 -> polar bin 1 (cos = +1 is the top edge, bin 1),
-    // azimuthal bin 1 (phi = 0 is an interior edge -> bin above).
-    assert_eq!(pa.get_bin(&going(0.0, 0.0, 1.0)), Some(1 * 2 + 1));
-    // -z, phi = 0 -> polar bin 0.
-    assert_eq!(pa.get_bin(&going(0.0, 0.0, -1.0)), Some(0 * 2 + 1));
-    // +x with a small -y: phi slightly negative -> azimuthal bin 0, polar bin 1
-    // (w = 0 is an interior edge, so the bin above).
+    // gh:#687 (2026-11-20): `lower_bound_index`, an interior edge belongs to the bin
+    // BELOW (~~above~~). +z, phi = atan2(0, 1) = 0: polar bin 1 (cos = +1 is the top
+    // edge, kept in the last bin), azimuthal bin 0 (phi = 0 is an interior edge).
+    assert_eq!(pa.get_bin(&going(0.0, 0.0, 1.0)), Some(1 * 2 + 0));
+    // -z, phi = 0 -> polar bin 0, azimuthal bin 0 (interior edge -> below).
+    assert_eq!(pa.get_bin(&going(0.0, 0.0, -1.0)), Some(0 * 2 + 0));
+    // +x with a small -y: phi slightly negative -> azimuthal bin 0; polar w = 0 is an
+    // interior edge, so polar bin 0.
     let e = going(1.0, -1.0e-6, 0.0);
-    assert_eq!(pa.get_bin(&e), Some(1 * 2 + 0));
+    assert_eq!(pa.get_bin(&e), Some(0 * 2 + 0));
 }
 
 #[test]

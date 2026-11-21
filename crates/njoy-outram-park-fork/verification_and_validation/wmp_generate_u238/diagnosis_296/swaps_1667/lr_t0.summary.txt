@@ -1,0 +1,13 @@
+{
+ "code": "openmc",
+ "swaps": [
+  "lstsq_res"
+ ],
+ "input": "/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/wmp1390d/in_296_t0.f64",
+ "orders": "98:130",
+ "iterations": 510,
+ "final_poles": 59,
+ "grid_points_outside": 1064,
+ "seconds": 2323.3473160266876,
+ "best_quality": 1.5419209749408094
+}

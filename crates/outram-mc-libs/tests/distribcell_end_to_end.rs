@@ -121,7 +121,7 @@ fn a_distribcell_tally_distinguishes_lattice_instances() {
             n_instances: offsets.n_instances,
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); offsets.n_instances],
+        bins: vec![TallyBin::default(); offsets.n_instances], derivative: None,
     };
 
     // Source at the centre of tile 0 (the most negative y).
@@ -183,7 +183,7 @@ fn without_the_tables_a_distribcell_tally_scores_nothing() {
             n_instances: N_TILES,
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); N_TILES],
+        bins: vec![TallyBin::default(); N_TILES], derivative: None,
     };
     let half_y = 0.5 * PITCH * N_TILES as f64;
     run_fixed_source_traced(

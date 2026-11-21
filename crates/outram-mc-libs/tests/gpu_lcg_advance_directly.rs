@@ -86,7 +86,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
-use outram_mc_libs::gpu::{probe, GpuContext};
+use outram_mc_libs::gpu::{shared_probe, GpuContext};
 use outram_mc_libs::rng::lcg;
 
 /// The shader under test: exactly what the batched-flight pipeline compiles,
@@ -388,7 +388,7 @@ fn the_reference_is_sound_without_a_gpu() {
 /// `u64::MAX`, which are where an emulated 32-bit carry goes wrong.
 #[test]
 fn gpu_lcg_advance_is_bit_exact_against_the_cpu_lcg() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_lcg_advance_is_bit_exact_against_the_cpu_lcg: no GPU adapter");
         return;
     };
@@ -438,7 +438,7 @@ fn gpu_lcg_advance_is_bit_exact_against_the_cpu_lcg() {
 /// independently of what is done with it.
 #[test]
 fn gpu_mul64_low_is_exact_against_a_u64_multiply() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_mul64_low_is_exact_against_a_u64_multiply: no GPU adapter");
         return;
     };
@@ -484,7 +484,7 @@ fn gpu_mul64_low_is_exact_against_a_u64_multiply() {
 /// steps from 256 different seeds it cannot.
 #[test]
 fn gpu_a_long_chain_stays_locked_to_the_cpu_stream() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_a_long_chain_stays_locked_to_the_cpu_stream: no GPU adapter");
         return;
     };
@@ -531,7 +531,7 @@ fn gpu_a_long_chain_stays_locked_to_the_cpu_stream() {
 /// arithmetic wearing a float, not a rounding question.
 #[test]
 fn gpu_the_two_kernels_draw_the_same_stream() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_the_two_kernels_draw_the_same_stream: no GPU adapter");
         return;
     };

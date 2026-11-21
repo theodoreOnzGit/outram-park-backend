@@ -364,6 +364,7 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
         filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); 4], // 2 cells × 2 scores
+        derivative: None,
     };
 
     // Kept modest: an infinite reflective H medium with no S(α,β) thermal cutoff

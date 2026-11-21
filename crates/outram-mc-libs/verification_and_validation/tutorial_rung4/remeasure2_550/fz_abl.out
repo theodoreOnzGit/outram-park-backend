@@ -1,0 +1,36 @@
+=== HTR-10 fuel-zone infinite medium — rung 1 step 1a ===
+Data          : IAEA-TECDOC-1382 Table 4-38 atom densities (Open tier)
+Fidelity tier : HIGH: ENDF/B-VIII.0 direct (RECONR + BROADR, tol 1e-3), URR + DBRC on
+Thermal       : bound graphite S(alpha,beta) on C-12 and C-13: tsl-reactor-graphite-30P.endf (MAT 32) at 296 K
+Coatings      : NOT resolved — buffer/IPyC/SiC/OPyC smeared into matrix
+Temperature   : 293.15 K (benchmark B1 core temperature, 20 C)
+Geometry      : reflective cube, half-width 1 cm, zero leakage (k_inf)
+Packing       : 1018 kernels of r = 0.025 cm, target f = 0.008335, realized f = 0.008328, seed 20260811
+Transport     : 2000 particles/generation, 20 inactive + 60 active, RNG seed 1, CpuSingleThread
+
+SEED het    1 1.57155 0.00253 75.0s
+SEED hom    1 1.44409 0.00265 55.3s
+SEED het    2 1.57545 0.00262 69.6s
+SEED hom    2 1.44776 0.00296 54.2s
+SEED het    3 1.57246 0.00272 74.8s
+SEED hom    3 1.45076 0.00300 55.3s
+SEED het    4 1.57546 0.00278 69.5s
+SEED hom    4 1.44746 0.00327 46.6s
+SEED het    5 1.57294 0.00256 74.2s
+SEED hom    5 1.44485 0.00318 53.1s
+SEED het    6 1.57555 0.00257 72.2s
+SEED hom    6 1.45017 0.00272 52.0s
+SEED het    7 1.57609 0.00249 55.7s
+SEED hom    7 1.44628 0.00311 40.0s
+SEED het    8 1.57614 0.00292 55.9s
+SEED hom    8 1.44712 0.00306 40.3s
+SEED het    9 1.56944 0.00288 56.5s
+SEED hom    9 1.45141 0.00253 40.2s
+SEED het   10 1.56867 0.00262 55.6s
+SEED hom   10 1.45043 0.00260 40.0s
+SEED het   11 1.57323 0.00264 56.2s
+SEED hom   11 1.44354 0.00293 41.1s
+SEED het   12 1.56930 0.00229 57.8s
+SEED hom   12 1.44623 0.00291 42.0s
+ENSEMBLE het n=12 mean 1.57302 sd 0.00279 sem 0.00081
+ENSEMBLE hom n=12 mean 1.44751 sd 0.00268 sem 0.00077

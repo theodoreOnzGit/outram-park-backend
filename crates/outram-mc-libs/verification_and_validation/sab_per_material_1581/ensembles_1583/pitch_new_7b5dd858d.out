@@ -1,0 +1,33 @@
+LEU-COMP-THERM-008 pin cell, reflective square lattice: k∞ against pitch
+  nuclide tier: CHEAP (--cheap-nuclides) (11 tapes); soluble boron: case-1, 1511 ppm
+  material 1 "Water with 1511 PPM": omitted 6.750e-5 of 1.002e-1 /b·cm (0.07 % of its atoms)
+  material 3 "Aluminum 6061 Cladding for Fuel": omitted 1.032e-3 of 5.538e-2 /b·cm (1.86 % of its atoms)
+  omitted (not in the active nuclide tier, or no tape): B11, Cr50, Cr52, Cr53, Cr54, Cu63, Cu65, Fe54, Fe56, Fe57, Fe58, Mg24, Mg25, Mg26, Ti46, Ti47, Ti48, Ti49, Ti50, Zn64, Zn66, Zn67, Zn68, Zn70 — 1.100e-3 /b·cm in total
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K, URR + DBRC by default):
+  H1        0.2 s  urr=false dbrc=true sab=true
+  O16       6.5 s  urr=false dbrc=true sab=false
+  B10       0.3 s  urr=false dbrc=true sab=false
+  U234     30.3 s  urr=true dbrc=true sab=false
+  U235    227.2 s  urr=true dbrc=true sab=false
+  U238    204.4 s  urr=true dbrc=true sab=false
+  Al27      4.4 s  urr=false dbrc=true sab=false
+  Si28      3.2 s  urr=false dbrc=true sab=false
+  Si29      3.4 s  urr=false dbrc=true sab=false
+  Si30      3.0 s  urr=false dbrc=true sab=false
+  Mn55     21.2 s  urr=true dbrc=true sab=false
+Nuclear data ready in 558.9 s.
+
+  pitch    p/d    Vm/Vf   k_inf ± σ              eta     f       p       eps     leak     t[s]
+  1.45000  1.202   1.153  1.12126 ± 0.00190  1.7718  0.7716  0.6688  1.2209  0.0e0  315
+SEED 1.45 1 1.12126 0.00190
+  1.63576  1.356   1.841  1.06186 ± 0.00210  1.7755  0.6813  0.7584  1.1565  0.0e0  227
+SEED 1.63576 1 1.06186 0.00210
+  1.45000  1.202   1.153  1.11764 ± 0.00193  1.7718  0.7713  0.6689  1.2209  0.0e0  257
+SEED 1.45 2 1.11764 0.00193
+  1.63576  1.356   1.841  1.06390 ± 0.00202  1.7755  0.6808  0.7588  1.1562  0.0e0  226
+SEED 1.63576 2 1.06390 0.00202
+  1.45000  1.202   1.153  1.11627 ± 0.00194  1.7719  0.7715  0.6694  1.2195  0.0e0  299
+SEED 1.45 3 1.11627 0.00194
+  1.63576  1.356   1.841  1.06228 ± 0.00190  1.7755  0.6801  0.7585  1.1575  0.0e0  250
+SEED 1.63576 3 1.06228 0.00190
+EXIT 143

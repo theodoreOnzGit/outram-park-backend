@@ -1,0 +1,47 @@
+
+running 5 tests
+test advanced_cover_reaches_the_region_majorant_and_bounds_the_table ... ok
+test graphite_uo2_default_cover_bounds_between_its_tables ... EXIT 143
+[MIX] 1 table {293.6}, per-table margin 0: build 30.0 s, 360636 nodes; at the tables worst 1.0003762 (9.2130e-5 eV, 293.6 K); between worst 2.4596081 (1.3858e-5 eV, 1500 K) over 8 unprocessed-as-table Ts
+[MIX] 1 table {293.6}, per-table margin 0.3: build 30.8 s, 360636 nodes; at the tables worst 0.7695202 (9.2130e-5 eV, 293.6 K); between worst 1.8920063 (1.3858e-5 eV, 1500 K) over 8 unprocessed-as-table Ts
+[MIX] ends {293.6,1500}, per-table margin 0: build 51.8 s, 372733 nodes; at the tables worst 1.0148614 (1.3858e-5 eV, 1500 K); between worst 1.0012727 (1.6895e6 eV, 600 K) over 7 unprocessed-as-table Ts
+[MIX] ends {293.6,1500}, per-table margin 0.3: build 55.1 s, 372733 nodes; at the tables worst 0.7806626 (1.3858e-5 eV, 1500 K); between worst 0.7702098 (1.6895e6 eV, 600 K) over 7 unprocessed-as-table Ts
+[MIX] 3 tables {293.6,900,1500}, per-table margin 0: build 77.2 s, 376988 nodes; at the tables worst 1.0148614 (1.3858e-5 eV, 1500 K); between worst 1.0004942 (1.7746e0 eV, 1200 K) over 6 unprocessed-as-table Ts
+[MIX] 3 tables {293.6,900,1500}, per-table margin 0.3: build 75.8 s, 376988 nodes; at the tables worst 0.7806626 (1.3858e-5 eV, 1500 K); between worst 0.7696109 (1.7746e0 eV, 1200 K) over 6 unprocessed-as-table Ts
+[MIX] 5 tables {293.6,600,900,1200,1500}, per-table margin 0: build 138.3 s, 379716 nodes; at the tables worst 1.0148614 (1.3858e-5 eV, 1500 K); between worst 1.0002329 (3.3686e0 eV, 750 K) over 4 unprocessed-as-table Ts
+[MIX] 5 tables {293.6,600,900,1200,1500}, per-table margin 0.3: build 124.5 s, 379716 nodes; at the tables worst 0.7806626 (1.3858e-5 eV, 1500 K); between worst 0.7694099 (3.3686e0 eV, 750 K) over 4 unprocessed-as-table Ts
+[MIX] COST at 1050 K: per-T rebuild (stage 1): build 22.8 s, worst 0.777, mean Smaj/St flat/thermal/epi/fast = 1.40/1.31/1.51/1.35
+[MIX] COST at 1050 K: 5-table max over [293.6,1500]: mean Smaj/St = 1.48/1.41/1.64/1.36 (x1.06 of rebuild, flat)
+[MIX] COVER regions   1 degree 0: fit 0.02 s, mean Smaj/St = 60.3/42.8/47.9/91.2 (x40.6 of table, flat)
+[MIX] COVER regions   1 degree 2: fit 0.05 s, mean Smaj/St = 55.5/51.4/90.2/17.3 (x37.4 of table, flat)
+[MIX] COVER regions   1 degree 4: fit 0.07 s, mean Smaj/St = 24.5/8.9/51.1/6.2 (x16.5 of table, flat)
+[MIX] COVER regions   1 degree 8: fit 0.14 s, mean Smaj/St = 19.3/3.2/43.3/4.9 (x13.0 of table, flat)
+[MIX] COVER regions   4 degree 0: fit 0.02 s, mean Smaj/St = 21.0/21.7/32.8/6.0 (x14.1 of table, flat)
+[MIX] COVER regions   4 degree 2: fit 0.05 s, mean Smaj/St = 15.6/3.1/35.2/3.0 (x10.5 of table, flat)
+[MIX] COVER regions   4 degree 4: fit 0.07 s, mean Smaj/St = 11.2/2.0/25.2/2.6 (x7.6 of table, flat)
+[MIX] COVER regions   4 degree 8: fit 0.15 s, mean Smaj/St = 9.2/1.9/20.3/2.4 (x6.2 of table, flat)
+[MIX] COVER regions  16 degree 0: fit 0.03 s, mean Smaj/St = 8.6/1.7/18.9/2.5 (x5.8 of table, flat)
+[MIX] COVER regions  16 degree 2: fit 0.04 s, mean Smaj/St = 7.6/1.6/16.6/2.2 (x5.1 of table, flat)
+[MIX] COVER regions  16 degree 4: fit 0.06 s, mean Smaj/St = 7.4/1.5/16.3/2.0 (x5.0 of table, flat)
+[MIX] COVER regions  16 degree 8: fit 0.18 s, mean Smaj/St = 6.2/1.5/13.3/1.9 (x4.2 of table, flat)
+[MIX] COVER regions  64 degree 0: fit 0.02 s, mean Smaj/St = 4.6/1.5/9.1/1.9 (x3.1 of table, flat)
+[MIX] COVER regions  64 degree 2: fit 0.04 s, mean Smaj/St = 3.6/1.5/6.8/1.8 (x2.5 of table, flat)
+[MIX] COVER regions  64 degree 4: fit 0.08 s, mean Smaj/St = 2.9/1.4/4.9/1.7 (x1.9 of table, flat)
+[MIX] COVER regions  64 degree 8: fit 0.12 s, mean Smaj/St = 2.2/1.4/3.3/1.6 (x1.5 of table, flat)
+[MIX] COVER regions 256 degree 0: fit 0.02 s, mean Smaj/St = 2.5/1.4/4.0/1.6 (x1.7 of table, flat)
+[MIX] COVER regions 256 degree 2: fit 0.04 s, mean Smaj/St = 1.9/1.4/2.6/1.5 (x1.3 of table, flat)
+[MIX] COVER regions 256 degree 4: fit 0.12 s, mean Smaj/St = 1.8/1.4/2.3/1.4 (x1.2 of table, flat)
+[MIX] COVER regions 256 degree 8: fit 0.15 s, mean Smaj/St = 1.7/1.4/2.1/1.4 (x1.1 of table, flat)
+[MIX] COVER regions 1024 degree 0: fit 0.02 s, mean Smaj/St = 1.7/1.4/2.2/1.4 (x1.2 of table, flat)
+[MIX] COVER regions 1024 degree 2: fit 0.07 s, mean Smaj/St = 1.6/1.4/2.0/1.4 (x1.1 of table, flat)
+[MIX] COVER regions 1024 degree 4: fit 0.12 s, mean Smaj/St = 1.6/1.4/1.9/1.4 (x1.1 of table, flat)
+[MIX] COVER regions 1024 degree 8: fit 0.17 s, mean Smaj/St = 1.6/1.4/1.8/1.4 (x1.1 of table, flat)
+[MIX] DEFAULT cover CoverSettings { regions: 256, degree: 4 }: audited against all 9 temperatures, worst Sigma_t/Sigma_maj 0.7806 at 1.3858e-5 eV, 1500 K
+ok
+test u238_default_cover_bounds_between_its_tables ... SKIP: reference ENDF tapes not present
+ok
+test u238_majorant_covers_the_temperature_range ... SKIP: reference ENDF tapes not present
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6680.49s
+

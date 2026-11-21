@@ -1,0 +1,78 @@
+LEU-COMP-THERM-008 case 1 lattice (11-nuclide tier): ENDF route vs ENDF->ACE->read route
+  H1: ACE 0.2 MB (written, read back, removed)
+  B10: ACE 1.7 MB (written, read back, removed)
+  O16: ACE 16.3 MB (written, read back, removed)
+  U234: ACE 9.1 MB (written, read back, removed)
+  U235: ACE 135.9 MB (written, read back, removed)
+  U238: ACE 126.5 MB (written, read back, removed)
+  Al27: ACE 5.2 MB (written, read back, removed)
+  Si28: ACE 6.6 MB (written, read back, removed)
+  Si29: ACE 6.1 MB (written, read back, removed)
+  Si30: ACE 4.7 MB (written, read back, removed)
+  Mn55: ACE 17.7 MB (written, read back, removed)
+  material 1 "Water with 1511 PPM": omitted 6.750e-5 of 1.002e-1 /b·cm (0.07 % of its atoms)
+  material 3 "Aluminum 6061 Cladding for Fuel": omitted 1.032e-3 of 5.538e-2 /b·cm (1.86 % of its atoms)
+  omitted (not in the active nuclide tier, or no tape): B11, Cr50, Cr52, Cr53, Cr54, Cu63, Cu65, Fe54, Fe56, Fe57, Fe58, Mg24, Mg25, Mg26, Ti46, Ti47, Ti48, Ti49, Ti50, Zn64, Zn66, Zn67, Zn68, Zn70 — 1.100e-3 /b·cm in total
+
+  geometry: 11 surfaces, 29 cells, 26 universes, 23 lattices (root = universe 0)
+  lattice row convention: the two orders are exact y-mirrors of each other (50000 points), so k cannot depend on the choice
+  geometry check: 200000 points, 139186 inside / 60814 outside; volume shares Water with 1511 PPM 68.9 % / Fuel (2.459 w/o with B-10 for impurities) 22.6 % / Aluminum 6061 Cladding for Fuel 8.5 %
+
+Lattice, 4000 histories x [40 inactive + 100 active], seed 9, 2 threads
+    seed   9: ENDF 1.00176   ACE 1.00388   (+212.2 pcm)
+    seed  10: ENDF 1.00439   ACE 1.00560   (+120.5 pcm)
+    seed  11: ENDF 1.00304   ACE 0.99977   (-326.5 pcm)
+    seed  12: ENDF 1.00341   ACE 1.00009   (-332.9 pcm)
+    seed  13: ENDF 1.00640   ACE 0.99961   (-678.4 pcm)
+    seed  14: ENDF 1.00008   ACE 1.00536   (+528.3 pcm)
+    seed  15: ENDF 1.00107   ACE 1.00051   (-56.1 pcm)
+    seed  16: ENDF 1.00195   ACE 0.99863   (-332.2 pcm)
+
+  route B WITH PURR: ACE arm carries URR on 4 nuclide(s); the control arm ablates DBRC only
+
+  PARITY (the point of this example)
+    ENDF route : k_eff = 1.00276 +/- 0.00071
+    ACE  route : k_eff = 1.00168 +/- 0.00099
+    difference : -108.1 pcm  (combined sigma 121.7 pcm, 0.89 sigma)
+    => the two routes AGREE within statistics.
+
+    The lattice on an 11-nuclide tier: 24 clad and boron trace nuclides are
+    dropped, so k is close to, but not exactly, the full model's.
+
+  THE ASYMMETRY, PRICED (GitHub #307 item 5)
+    ENDF ablated : k_eff = 1.00441 +/- 0.00046   (DBRC off; URR on, as in route B)
+    ablated - ENDF : +164.6 +/- 84.5 pcm (1.95 sigma)          -- the worth of DBRC here
+    ACE - ablated  : -272.7 +/- 109.2 pcm (2.50 sigma)          -- the routes with the SAME physics
+    ACE - ENDF     : -108.1 +/- 121.7 pcm (0.89 sigma)          -- what was quoted before
+    change in gap  : +164.6 +/- 163.6 pcm (1.01 sigma)
+    => removing the asymmetry moved the arms FURTHER APART by 164.6 pcm, more
+       than the uncertainty on that change, so the -108.1 pcm is not explained by
+       URR+DBRC and the routes differ for another reason.
+    per-seed spread: ENDF sd 200 pcm, ACE sd 280 pcm, ablated sd 130 pcm over 8 seeds
+    NOTE ON PAIRING: URR and DBRC change how many variates a history draws, so
+             the ablated arm's random stream DIVERGES from the unablated one. These are
+             independent runs, not a paired difference -- the sigmas above are sqrt(2) x the
+             per-arm sigma and no variance cancels. Measured in
+             verification_and_validation/ace_route_physics/urr_dbrc_worth_2026_09_25.md.
+
+  stage                       time [s]     % of accounted
+  --------------------------------------------------------
+  ENDF parse                     1.12       0.06 %
+  RECONR (0 K)                  60.03       3.33 %
+  BROADR (-> 293.6 K)           49.20       2.73 %
+  ACER build                   181.41      10.07 %
+  ACE write                      5.45       0.30 %
+  ACE read                       1.06       0.06 %
+  Nuclide::from_ace              0.05       0.00 %
+  Nuclide::from_endf_file      285.40      15.85 %
+  transport (ENDF route)       411.77      22.87 %
+  transport (ACE route)        401.55      22.30 %
+  transport (ENDF ablated)     403.61      22.41 %
+  --------------------------------------------------------
+  accounted                   1800.65     100.00 %
+  wall clock                  1839.67     (unaccounted 39.02 s)
+
+  Building the ACE library cost 297.21 s and 329.9 MB; loading it back cost
+  1.11 s. The straight-from-ENDF route cost 285.40 s. So ACE pays for itself
+  after about 1.0 reuses of this library.
+EXIT 0

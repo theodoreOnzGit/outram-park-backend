@@ -1,0 +1,75 @@
+warning: unused variable: `kmt`
+   --> crates/njoy-outram-park-fork/src/acer/acelcp.rs:352:20
+    |
+352 |         for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+    |                    ^^^ help: if this is intentional, prefix it with an underscore: `_kmt`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `njoy-outram-park-fork` (lib) generated 1 warning (run `cargo fix --lib -p njoy-outram-park-fork` to apply 1 suggestion)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:27:9
+   |
+27 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+28 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+29 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1135:7
+     |
+1135 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: unused import: `transport_history_vr`
+  --> crates/outram-mc-libs/src/physics/fixed_source.rs:38:37
+   |
+38 | use crate::physics::transport_csg::{transport_history_vr, Site};
+   |                                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::energy::EnergyDist`
+  --> crates/outram-mc-libs/src/source/source.rs:16:5
+   |
+16 | use super::energy::EnergyDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::spatial::SpatialDist`
+  --> crates/outram-mc-libs/src/source/source.rs:17:5
+   |
+17 | use super::spatial::SpatialDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:184:19
+    |
+171 | impl Site {
+    | --------- associated function in this implementation
+...
+184 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 4 warnings (run `cargo fix --lib -p outram-mc-libs` to apply 1 suggestion)
+   Compiling outram-mc-libs v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/crates/outram-mc-libs)
+    Finished `release` profile [optimized] target(s) in 6.19s
+     Running tests/openmc_notebooks.rs (/tmp/claude-0/-home-user-outram-park-backend/208a80c6-8981-41e3-ac0f-1769a3a0e997/scratchpad/target-njoy/release/deps/openmc_notebooks-a8f315b36bb7db24)
+
+running 6 tests
+test pincell::pincell_criticality_eigenvalue_via_godiva_bare_sphere ... ok
+test pincell::pincell_leakage_reduces_reactivity ... ok
+test pincell::pincell_heterogeneous_csg_with_cell_flux_tally ... ok
+test pincell::pincell_reflective_cell_suppresses_leakage ... ok
+test pincell::csg_multithread_agrees_with_single_thread ... ok
+test pincell::pincell_lwr_thermal_pin_benchmark ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 37 filtered out; finished in 41.14s
+

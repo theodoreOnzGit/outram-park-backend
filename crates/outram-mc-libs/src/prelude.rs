@@ -40,7 +40,7 @@ pub use crate::material::processed::ProcessedEvaluation;
 pub use crate::material::speed::SpeedTier;
 pub use crate::material::temperature_interpolation::{InterpolationVariable, TableBracket, TemperatureTables};
 pub use crate::material::thermal::{
-    CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
+    CoherentElasticTable, EndfElasticOptions, IncoherentElasticTable, ThermalElastic, ThermalScattering,
 };
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{
@@ -60,6 +60,9 @@ pub use crate::physics::compute::{ComputeType, ThreadCount};
 pub use crate::physics::keff::{run_keff, GenerationReport, HistoryCounts, KeffResult, KeffSettings, PowerIteration};
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
+};
+pub use crate::physics::search_grsecant::{
+    grsecant_search_for_keff, GrSecantError, GrSecantFlag, GrSecantResult, GrSecantSettings,
 };
 pub use crate::physics::transport_csg::{
     run_keff_csg, run_keff_csg_reactor_physics, try_run_keff_csg, DeltaTallyEstimator,
@@ -180,6 +183,9 @@ pub use crate::NjoyError;
 pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};
 pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchLog, TallyBatchRecorder};
 pub use crate::stats::convergence::SourceConvergence;
+pub use crate::stats::learned_source_bias::{
+    learned_biased_energy, learned_biased_spatial, with_learned_source_bias, SourceBiasReport,
+};
 pub use crate::stats::learned_importance::{
     learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
 };

@@ -188,8 +188,8 @@ id = "fn:80d7b4ca412b265b"
 name = "maxwell"
 qual = "maxwell"
 lines = [
-    20,
-    35,
+    25,
+    40,
 ]
 hash = "sha256:16bc8d4c42d852500bddb77271702690b6e6af91bf647f0aef16329c367722a4"
 doc_hash = "sha256:56c2428f923be4fb43c300c7d13bad5e1efa121a756b03839096cb70d2c9196c"
@@ -342,8 +342,8 @@ id = "fn:ddcbfd0af4d2a0a5"
 name = "watt"
 qual = "watt"
 lines = [
-    37,
-    47,
+    42,
+    52,
 ]
 hash = "sha256:e5826c07d17b7e7e4f09779812ef1de7dea6fb143a8914ca9279e12b16222db6"
 doc_hash = "sha256:fd8dca0dc228d91581e6a51d87abe9e803eb74abca412a756ece38c4e046b540"
@@ -490,12 +490,24 @@ reached_by = [
 ]
 
 [[module."distributions.rs".function]]
+id = "fn:73d3175114d13b5a"
+name = "normal_variate"
+qual = "normal_variate"
+lines = [
+    54,
+    74,
+]
+hash = "sha256:3d856bb6ed888639cd9db5979b48bc8ab8a6691769765b8f6ae85b1641901b53"
+doc_hash = "sha256:82d9396182c90299069f52bdd6985dddec7b158238858a3c0d7d31f31e3c7638"
+index_out_of_date = true
+
+[[module."distributions.rs".function]]
 id = "fn:7988a62af8c6ea5b"
 name = "isotropic_direction"
 qual = "isotropic_direction"
 lines = [
-    49,
-    59,
+    76,
+    86,
 ]
 hash = "sha256:576fe9036e71d2d607368c650c190582e256534a212cb77704d2acc72253662d"
 doc_hash = "sha256:fa82d7214c781596ab2664347b7d1ef8cb7f297757987ba6f67af9284924c371"
@@ -660,8 +672,172 @@ reached_by = [
     "#174",
 ]
 
+[[module."distributions.rs".function]]
+id = "fn:3e2c64e02f754399"
+name = "isotropic_direction_openmc"
+qual = "isotropic_direction_openmc"
+lines = [
+    88,
+    102,
+]
+hash = "sha256:abbfdafc74818a415d6191893f5567b45073027c8fa2625cff57fe0e35358dbe"
+doc_hash = "sha256:97705a6dfbe898decfa1a6926b789432c335354f38552d887d47fd51d61f6199"
+index_out_of_date = true
+
 [module."mod.rs"]
 path = "crate::rng"
+
+[module."openmc_seeding.rs"]
+path = "?"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:0ddb600e33c68958"
+name = "SeedingMode"
+qual = "SeedingMode"
+item = "type"
+shape = "enum"
+lines = [
+    102,
+    117,
+]
+hash = "sha256:cea16d6c95b3ef2f87528037905377aecf8b5497c836f84c4a281b1c627e0341"
+doc_hash = "sha256:6fd2e7b5d2c0f4552a109df3916b6a748504e4070b35fe660b43a6ae9fc2722a"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:e78a617871cd8500"
+name = "OpenMcRunLayout"
+qual = "OpenMcRunLayout"
+item = "type"
+shape = "struct"
+lines = [
+    119,
+    138,
+]
+hash = "sha256:9aa29a0002b801757b9dfb175b02b44a3c319dc90cb6c825797c7e260b305816"
+doc_hash = "sha256:b68bd75f6e784a24a5263c8ed25b3f3f4a1bd2c197c5e1c8877ade2993d94634"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:a1c3b13acd1283c9"
+name = "single_rank"
+qual = "OpenMcRunLayout::single_rank"
+lines = [
+    141,
+    153,
+]
+hash = "sha256:2891e58f61bd6523413f5bec2045a4219bd724bf42339c3734985e27a4b7649a"
+doc_hash = "sha256:c838dced7a6bfc0b97b5c1bbb26bc3dec16814eb4cb5518172d747158f7c4879"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:37a3286f2a2eed4e"
+name = "overall_generation"
+qual = "OpenMcRunLayout::overall_generation"
+lines = [
+    155,
+    159,
+]
+hash = "sha256:d3bc03109d170d20d80b6f754a4e6de262ef9a422aeb4e1fbc11ae49ac26f13f"
+doc_hash = "sha256:24f97e95dc3c27a3f4d49b608c63bbe3190354e2db01d54240bcb61a90670999"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:f59eb3dc3e81cb75"
+name = "compute_particle_id"
+qual = "OpenMcRunLayout::compute_particle_id"
+lines = [
+    161,
+    169,
+]
+hash = "sha256:19b94acb88396687aed59afa3e9f9049abe81b9416616d37c29dba08d759a244"
+doc_hash = "sha256:68a6726cded92ee208a999d070e6d2fc4ccac60db60c00a1a45e4a705741bfc2"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:8d68923d42b761bc"
+name = "compute_transport_seed"
+qual = "OpenMcRunLayout::compute_transport_seed"
+lines = [
+    171,
+    185,
+]
+hash = "sha256:12b810f61b633ebc1ee5b95afdc7af62756a9473503a84aa9fc98b4cb805a365"
+doc_hash = "sha256:c77c4778116fbe39163052431836c3d50f37d82b0e2899cc34477db9cb3c7e10"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:5e5d6cce9b2506fa"
+name = "particle_seeds"
+qual = "OpenMcRunLayout::particle_seeds"
+lines = [
+    187,
+    200,
+]
+hash = "sha256:902105379aaa0e779cf9fa7398b4df3aa525856cc91924f1edee66549cd96c2f"
+doc_hash = "sha256:b7eb57809140990b8e1d51f3e953283cde3b42ab132a7e827a9bc58c44c75602"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:db49f6cabb90895d"
+name = "source_seed"
+qual = "OpenMcRunLayout::source_seed"
+lines = [
+    202,
+    210,
+]
+hash = "sha256:ab3b3bfec5d75ed651fc4d273c7807eb897d73e269601098047c446f242d7dbc"
+doc_hash = "sha256:a6f02d7ddbc3b51b5c7efe58918e47e1618d635cf21a6962d1871c82beeee1ba"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:cf9f63f0bfa40ae6"
+name = "bank_comb_seed"
+qual = "OpenMcRunLayout::bank_comb_seed"
+lines = [
+    212,
+    219,
+]
+hash = "sha256:575cd447440775cccf3890e6dc895f63d7b44bddeb936c1f498362565ba9476f"
+doc_hash = "sha256:44bfd99af8627ee9e2dc777cf6dfa48fdd3bf5977ea77cf71e2c792a47f99065"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:535ee6b532c5e366"
+name = "comb_resample_openmc"
+qual = "comb_resample_openmc"
+lines = [
+    222,
+    253,
+]
+hash = "sha256:60a83147ea7c0be09e1212f4b3b508cb29b00556b6bfc11681083c5485b3e5c2"
+doc_hash = "sha256:7fdbfb79940ac8d79525acc97e8deda775d8898643400b8a15b4686c94ca070c"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:9b89ad239c3ac9a8"
+name = "openmc_history_seeds"
+qual = "SeedingMode::openmc_history_seeds"
+lines = [
+    256,
+    276,
+]
+hash = "sha256:a4476af3555b74f665b15e67293fb60aef5b2ba0dd459ea5eeddd6fe6a98fefd"
+doc_hash = "sha256:02c53ef78a5658109c2380be1714ffde6ad5927a6ba48686ce3282c70d542a6a"
+index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:99a2b0ac1382e5d3"
+name = "openmc_history_seeds_are_init_particle_seeds_of_the_transport_seed"
+qual = "openmc_history_seeds_are_init_particle_seeds_of_the_transport_seed"
+lines = [
+    283,
+    304,
+]
+hash = "sha256:f56a47703b9b9b9b37b8e25ce89adac8e96b5ee9ee64458ee18654edc9ac5f9e"
+doc_hash = "sha256:57abc8623f0ff27e3ffb0732006269aed3d58d6da8816518e5c120e7608326db"
+test = true
+index_out_of_date = true
 
 [test_run]
 commit = "13e891e5b491e162abaf022ef19097f07222b12e"

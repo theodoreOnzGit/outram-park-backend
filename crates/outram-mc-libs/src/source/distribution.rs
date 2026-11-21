@@ -36,7 +36,13 @@
 //! - `Legendre` is in `openmc.stats` (Python) only: its `sample` raises
 //!   `NotImplementedError` upstream. [`Legendre`] therefore evaluates the density
 //!   and nothing more.
-//! - `DecaySpectrum` needs the depletion chain (pairs with gh:#975).
+//! - ~~`DecaySpectrum` needs the depletion chain (pairs with gh:#975).~~
+//!   **CORRECTED 2026-11-20 (gh:#1391, maintainer decision):** it is ported,
+//!   but in `punggol::decay_spectrum` (`DecaySpectrum`, and the C++ side as
+//!   `ResolvedDecaySpectrum`), not here: decay photons are PUNGGOL's, and this
+//!   crate is neutrons only. It builds on this enum's `Discrete`/`Tabular`/
+//!   `Mixture` samplers and on the chain's `<source>` elements. Photon
+//!   *transport* stays with gh:#975.
 //! - `MeshSpatial` is [`super::extra::MeshSource`] (gh:#264).
 //! - `Equiprobable`: upstream's `sample_unbiased` reads `x_[i + i]` where `x_[i + 1]`
 //!   is meant, so it is wrong for `i > 0`; not ported rather than copying a defect.
@@ -270,6 +276,9 @@ pub struct PowerLaw {
     offset: f64,
     span: f64,
     ninv: f64,
+    /// Legacy switch: normalise `evaluate` with `trunc(n + 1)` as OpenMC
+    /// `8f79d9d0` does. Default `false` (the real exponent). gh:#1580.
+    upstream_integer_exponent: bool,
 }
 
 /// `Normal` (`distribution.cpp:343`), optionally truncated to `[lower, upper]`.
@@ -334,10 +343,37 @@ impl Distribution {
     }
 
     /// `PowerLaw(a, b, n)`.
+    ///
+    /// **Divergence from upstream (gh:#1580, maintainer decision 2026-11-17).**
+    /// OpenMC `8f79d9d0` (`distribution.cpp:253`, `PowerLaw::evaluate`) writes
+    /// `int pwr = n() + 1;`, which truncates a non-integer exponent, so its
+    /// density is normalised by `trunc(n + 1)` instead of `n + 1` and a
+    /// `PowerLaw` *bias* with non-integer `n` gives importance weights with
+    /// `E[w] = (n + 1)/trunc(n + 1)` (1.5 at `n = 0.5`). This port uses the
+    /// real exponent, so `evaluate` integrates to 1 and `E[w] = 1`. Integer
+    /// `n` is unaffected (bit-identical to upstream). The upstream behaviour
+    /// stays reachable, by name only, through
+    /// [`Distribution::with_upstream_integer_exponent`]. Sampling is the same
+    /// either way.
     pub fn power_law(a: f64, b: f64, n: f64) -> Self {
         let offset = a.r_powf(n + 1.0);
         let span = b.r_powf(n + 1.0) - offset;
-        Distribution::PowerLaw { law: PowerLaw { offset, span, ninv: 1.0 / (n + 1.0) }, bias: None }
+        Distribution::PowerLaw {
+            law: PowerLaw { offset, span, ninv: 1.0 / (n + 1.0), upstream_integer_exponent: false },
+            bias: None,
+        }
+    }
+
+    /// Legacy option for a `PowerLaw`: reproduce OpenMC `8f79d9d0`'s
+    /// `int pwr = n() + 1;` truncation in `evaluate` (and so in the bias
+    /// weight). Only for comparing with upstream; it is a defect for
+    /// non-integer `n` (see [`Distribution::power_law`]). Other variants are
+    /// returned unchanged. gh:#1580.
+    pub fn with_upstream_integer_exponent(mut self) -> Self {
+        if let Distribution::PowerLaw { law, .. } = &mut self {
+            law.upstream_integer_exponent = true;
+        }
+        self
     }
 
     /// `Maxwell(theta)`.
@@ -452,8 +488,10 @@ impl Distribution {
                 if x <= a || x >= b {
                     0.0
                 } else {
-                    // upstream: `int pwr = n() + 1;` truncates toward zero
-                    let pwr = (n + 1.0) as i32 as f64;
+                    // upstream: `int pwr = n() + 1;` truncates toward zero.
+                    // Default here is the real exponent (gh:#1580); the
+                    // truncation is the explicit legacy option.
+                    let pwr = if law.upstream_integer_exponent { (n + 1.0) as i32 as f64 } else { n + 1.0 };
                     let norm = pwr / law.span;
                     norm * x.abs().r_powf(n)
                 }
@@ -604,6 +642,14 @@ pub enum SpatialDistribution {
     Spherical { r: Distribution, cos_theta: Distribution, phi: Distribution, origin: V3 },
     /// `PointCloud`: weighted discrete points.
     PointCloud { points: Vec<V3>, di: DiscreteIndex, weight: Vec<f64> },
+    /// **Uniform-in-box cells** (gh:#1615, not an OpenMC class): choose one of
+    /// several boxes by a discrete index, then a point uniform inside it. The
+    /// cell choice is biased exactly as [`SpatialDistribution::PointCloud`]'s
+    /// point choice is (sample `q`, weight `p/q`, via the ported
+    /// [`DiscreteIndex`] and [`compute_importance_weights`]); inside a box the
+    /// draw is `SpatialBox`'s. Built by [`SpatialDistribution::cells`] /
+    /// [`SpatialDistribution::cells_biased`].
+    Cells { boxes: Vec<(V3, V3)>, di: DiscreteIndex, weight: Vec<f64> },
 }
 
 impl SpatialDistribution {
@@ -674,6 +720,37 @@ impl SpatialDistribution {
         })
     }
 
+    /// Uniform-in-box cells chosen with probability proportional to
+    /// `strengths` (no bias, weight 1).
+    ///
+    /// # Errors
+    ///
+    /// If the lengths differ, or there are no cells.
+    pub fn cells(boxes: Vec<(V3, V3)>, strengths: &[f64]) -> Result<Self, String> {
+        if boxes.len() != strengths.len() || boxes.is_empty() {
+            return Err("cells: boxes and strengths must be non-empty and the same length".into());
+        }
+        Ok(SpatialDistribution::Cells { boxes, di: DiscreteIndex::new(strengths), weight: Vec::new() })
+    }
+
+    /// Biased cells: drawn with `bias` strengths, weighted `p_norm / bias_norm`
+    /// (`compute_importance_weights`). Unbiased in the mean for any `bias` that
+    /// is positive wherever `strengths` is.
+    ///
+    /// # Errors
+    ///
+    /// If the three lengths differ, or there are no cells.
+    pub fn cells_biased(boxes: Vec<(V3, V3)>, strengths: &[f64], bias: &[f64]) -> Result<Self, String> {
+        if boxes.len() != strengths.len() || boxes.len() != bias.len() || boxes.is_empty() {
+            return Err("cells_biased: boxes, strengths and bias must be non-empty and the same length".into());
+        }
+        Ok(SpatialDistribution::Cells {
+            boxes,
+            di: DiscreteIndex::new(bias),
+            weight: compute_importance_weights(strengths, bias),
+        })
+    }
+
     /// Sample a position and its importance weight, with upstream's draw order
     /// and operation order.
     pub fn sample(&self, seed: &mut u64) -> (V3, f64) {
@@ -719,6 +796,19 @@ impl SpatialDistribution {
             SpatialDistribution::PointCloud { points, di, weight } => {
                 let i = di.sample(seed);
                 (points[i], if weight.is_empty() { 1.0 } else { weight[i] })
+            }
+            SpatialDistribution::Cells { boxes, di, weight } => {
+                let i = di.sample(seed);
+                let (ll, ur) = boxes[i];
+                let xi = [prn(seed), prn(seed), prn(seed)];
+                (
+                    [
+                        ll[0] + xi[0] * (ur[0] - ll[0]),
+                        ll[1] + xi[1] * (ur[1] - ll[1]),
+                        ll[2] + xi[2] * (ur[2] - ll[2]),
+                    ],
+                    if weight.is_empty() { 1.0 } else { weight[i] },
+                )
             }
         }
     }

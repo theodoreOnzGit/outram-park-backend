@@ -395,7 +395,7 @@ fn flux_tally() -> Tally {
             mesh: MeshKind::Regular(m),
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n],
+        bins: vec![TallyBin::default(); n], derivative: None,
     }
 }
 
@@ -1316,7 +1316,7 @@ fn shielded_room_learned_importance() {
 // bias or a heavy tail? Hypothesis and prediction were posted on the issue
 // before any run. Record: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
 //
-// One process per arm (`OUTRAM_MB_ARM` = analog | magic | magic_collision),
+// One process per arm (`OUTRAM_MB_ARM` = analog | magic | magic_legacy | magic_collision; since gh:#1582 `magic` is the upstream-parity game),
 // each writing one line per chunk of histories to `OUTRAM_MB_OUT`; then
 // `shielded_room_magic_bias_report` reads the files. A chunk is a separate
 // one-batch `run_fixed_source` call of `OUTRAM_MB_CHUNK` histories, so the
@@ -1364,6 +1364,14 @@ fn shielded_room_magic_bias_hunt_arm() {
     let (vr, base) = match arm.as_str() {
         "analog" => (VarianceReduction::default(), 20_261_114u64),
         "magic" => (VarianceReduction::default().with_weight_windows(magic), 30_261_114),
+        // gh:#1582: the pre-parity game (both checkpoints, no birth window, ...);
+        // same seeds as the #1579 "magic" arm, so it must reproduce that record.
+        "magic_legacy" => (
+            VarianceReduction::default()
+                .with_weight_windows(magic)
+                .with_legacy_weight_window_game(),
+            30_261_114,
+        ),
         "magic_collision" => (
             VarianceReduction::default()
                 .with_weight_windows(magic)
@@ -1453,4 +1461,335 @@ fn shielded_room_magic_bias_report() {
             ref_stats = Some((mean, sem));
         }
     }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// #1615 — source biasing from the learned importance map, on this room with a
+// VOLUME source (a point source is one cell: the bias is the identity).
+// Protocol and prediction (written and committed before any run):
+// `verification_and_validation/stats_epic_493/497_learned_importance.md`,
+// section "Source biasing from the learned importance map".
+// ════════════════════════════════════════════════════════════════════════════
+
+use outram_mc_libs::stats::learned_source_bias::with_learned_source_bias;
+
+/// The #1615 case's source: a uniform box in the inner room centred on the
+/// point source of the other tests, 2.5 MeV isotropic.
+fn volume_source() -> FixedSource {
+    FixedSource::Box {
+        lower: Position::new(350.0, 650.0, 150.0),
+        upper: Position::new(750.0, 1000.0, 550.0),
+        energy_ev: 2.5e6,
+    }
+}
+
+/// [`run_arm`] with an explicit source.
+fn run_arm_src(
+    label: &str,
+    src: &FixedSource,
+    n: usize,
+    n_seeds: usize,
+    seed0: u64,
+    vr: &VarianceReduction,
+    ctx: (&Geometry, &[Material], &[Nuclide]),
+) -> (Vec<Vec<f64>>, f64) {
+    let per_batch = (n / N_BATCHES) as f64;
+    let mut runs = Vec::new();
+    let mut total = 0.0;
+    for s in 0..n_seeds {
+        let mut t = flux_tally();
+        let t0 = Instant::now();
+        run_fixed_source(
+            ctx.0,
+            ctx.1,
+            ctx.2,
+            src,
+            &settings(n, seed0 + 1_000_003 * s as u64, vr.clone()),
+            Some(&mut t),
+        );
+        let dt = t0.elapsed().as_secs_f64();
+        total += dt;
+        println!("  {label} seed {s}: {n} particles in {dt:.1} s");
+        runs.push(t.bins.iter().map(|b| b.mean(N_BATCHES as u64) / per_batch).collect());
+    }
+    (runs, total)
+}
+
+/// **Methodology.** Arms on the shielded room with a uniform box source
+/// ([`volume_source`]): analog; MAGIC windows; learned windows; source bias
+/// only (analog transport, `with_learned_source_bias` births, analog particle
+/// count); learned windows + source bias. Windows come from an early analog
+/// tally of THIS source (2000 histories, seed 424 242, threshold 1, ratio 5).
+/// N seeds per arm (`OUTRAM_LI_SEEDS`, default 5), headline band 900-1450 cm
+/// from the box centre, FOM `1/(R^2 T)`, z against analog at the maintainer's
+/// gate `|z| <= 2`. The only assertion is the gross-defect guard `|z| <= 5`
+/// and the point-source identity.
+///
+/// **Results:** `verification_and_validation/stats_epic_493/497_learned_importance.md`,
+/// section "Source biasing from the learned importance map" (gh:#1615).
+#[test]
+#[ignore = "measurement (#1615), single-threaded, tens of minutes; run explicitly with --ignored"]
+fn shielded_room_learned_source_bias() {
+    let Some(nucs) = load_nuclides() else { return };
+    let mats = materials();
+    let geom = geometry();
+    let env = |k: &str, d: usize| -> usize {
+        std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+    };
+    let n_seeds = env("OUTRAM_LI_SEEDS", 5);
+    let n_analog = env("OUTRAM_LI_N_ANALOG", 40_000);
+    let n_vr = env("OUTRAM_LI_N_VR", 20_000);
+    let n_early = env("OUTRAM_LI_N_EARLY", 2_000);
+    let off = env("OUTRAM_LI_SEED_OFFSET", 0) as u64;
+    let ctx = (&geom, mats.as_slice(), nucs.as_slice());
+    let src_a = volume_source();
+
+    let m = mesh();
+    let n_m = m.n_bins();
+    let vol = (1550.0 / m.dimension[0] as f64) * (1900.0 / m.dimension[1] as f64) * 700.0;
+    let mut early = flux_tally();
+    run_fixed_source(
+        &geom,
+        &mats,
+        &nucs,
+        &src_a,
+        &settings(n_early, 424_242, VarianceReduction::default()),
+        Some(&mut early),
+    );
+    let sum: Vec<f64> = early.bins.iter().map(|b| b.sum).collect();
+    let sum_sq: Vec<f64> = early.bins.iter().map(|b| b.sum_sq).collect();
+    let volumes = vec![vol; n_m];
+    let mut magic =
+        WeightWindows::new(m.clone(), vec![0.0, 2.0e7], vec![-1.0; n_m], vec![-1.0; n_m]).unwrap();
+    magic.update_magic(&sum, &sum_sq, &volumes, N_BATCHES, 1.0, 5.0).unwrap();
+    let lis = LearnedImportanceSettings { threshold: 1.0, ratio: 5.0, ..Default::default() };
+    let (learned, fills) =
+        learned_weight_windows(m, vec![0.0, 2.0e7], &sum, &sum_sq, &volumes, N_BATCHES, &lis).unwrap();
+    let nw = |w: &WeightWindows| w.lower.iter().filter(|&&l| l > 0.0).count();
+    println!("MAGIC windows {}/{n_m}; learned windows {}/{n_m}", nw(&magic), nw(&learned));
+    for f in &fills {
+        println!("learned fill: {f:?}");
+    }
+    let (src_b, rep) = with_learned_source_bias(&src_a, &learned).unwrap();
+    println!("source bias report: {rep:?}");
+    // The point source is one cell: identity.
+    let pt = source();
+    let (pt_b, pt_rep) = with_learned_source_bias(&pt, &learned).unwrap();
+    assert!(matches!(pt_b, FixedSource::Point { .. }) && pt_rep.weight_rel_variance == 0.0);
+
+    let vr_magic = VarianceReduction::default().with_weight_windows(magic);
+    let vr_learned = VarianceReduction::default().with_weight_windows(learned);
+    let analog = VarianceReduction::default();
+    let (a_runs, t_a) = run_arm_src("analog", &src_a, n_analog, n_seeds, 20_261_117 + off, &analog, ctx);
+    let (m_runs, t_m) = run_arm_src("MAGIC", &src_a, n_vr, n_seeds, 30_261_117 + off, &vr_magic, ctx);
+    let (l_runs, t_l) = run_arm_src("learned", &src_a, n_vr, n_seeds, 40_261_117 + off, &vr_learned, ctx);
+    let (s_runs, t_s) = run_arm_src("source-bias", &src_b, n_analog, n_seeds, 50_261_117 + off, &analog, ctx);
+    let (ls_runs, t_ls) =
+        run_arm_src("learned+source-bias", &src_b, n_vr, n_seeds, 60_261_117 + off, &vr_learned, ctx);
+    println!(
+        "seconds: analog {t_a:.1}, MAGIC {t_m:.1}, learned {t_l:.1}, source-bias {t_s:.1}, learned+sb {t_ls:.1}"
+    );
+
+    let mut worst_z = 0.0f64;
+    for (name, lo, hi) in
+        [("0-400", 0.0, 400.0), ("400-900", 400.0, 900.0), ("900-1450 (HEADLINE)", 900.0, 1450.0)]
+    {
+        let bins = band_bins(lo, hi);
+        let a = band_arm(&a_runs, &bins, t_a);
+        let arms = [
+            ("MAGIC", &m_runs, t_m),
+            ("learned", &l_runs, t_l),
+            ("source-bias", &s_runs, t_s),
+            ("learned+sb", &ls_runs, t_ls),
+        ];
+        let l_only = band_arm(&l_runs, &bins, t_l);
+        for (arm_name, runs, t) in arms {
+            let v = band_arm(runs, &bins, t);
+            let c = FomComparison::new(a, v);
+            println!(
+                "band {name} ({} cells) {arm_name}: analog {:.4e} +- {:.2e}; vr {:.4e} +- {:.2e}; z {:+.2} [|z|<=2: {}]; \
+                 FOM analog {:.3e}, vr {:.3e}; FOM ratio vs analog {:.3} +- {:.3}",
+                bins.len(), a.mean, a.sigma, v.mean, v.sigma, c.z, c.unbiased, a.fom(), v.fom(),
+                c.fom_ratio, c.fom_ratio_sigma,
+            );
+            worst_z = worst_z.max(c.z.abs());
+        }
+        let ls = band_arm(&ls_runs, &bins, t_ls);
+        let ratio = ls.fom() / l_only.fom();
+        let rel = (ls.fom_relative_sigma().powi(2) + l_only.fom_relative_sigma().powi(2)).sqrt();
+        println!("band {name}: FOM (learned+sb) / (learned only) = {ratio:.3} +- {:.3}", ratio * rel);
+    }
+    assert!(worst_z <= 5.0, "gross bias guard (not the gate): worst |z| = {worst_z}");
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// gh:#1619 — is the source-bias-only arm's ~2x speed a real source-path cost?
+// ════════════════════════════════════════════════════════════════════════════
+
+use outram_mc_libs::source::angle::{AngleKind, IsotropicAngle};
+use outram_mc_libs::source::distribution::SpatialDistribution;
+use outram_mc_libs::source::energy::{EnergyKind, Monoenergetic};
+use outram_mc_libs::source::source::IndependentSource;
+use outram_mc_libs::source::spatial::{BoxSource, SpatialKind};
+
+/// The #1615 volume source as an UNBIASED `Independent` source: `SpatialBox`
+/// (`bin_cells == false`) or the same box cut into 8 x 7 equal boxes of
+/// 50 x 50 cm in x-y and the full box height in z, with uniform strengths
+/// (`bin_cells == true`: the `SpatialDistribution::Cells` path with no bias,
+/// weight 1). The mesh cells are 50 x 50 cm in x-y and one cell thick in z, so
+/// these are exactly the 56 cells the learned bias splits the box into.
+fn unbiased_independent(bin_cells: bool) -> FixedSource {
+    let (lo, hi) = ([350.0, 650.0, 150.0], [750.0, 1000.0, 550.0]);
+    let spatial = if bin_cells {
+        let mut boxes = Vec::new();
+        for i in 0..8 {
+            for j in 0..7 {
+                let x0 = 350.0 + 50.0 * i as f64;
+                let y0 = 650.0 + 50.0 * j as f64;
+                boxes.push(([x0, y0, lo[2]], [x0 + 50.0, y0 + 50.0, hi[2]]));
+            }
+        }
+        let p = vec![1.0; boxes.len()];
+        SpatialKind::Distribution(SpatialDistribution::cells(boxes, &p).unwrap())
+    } else {
+        SpatialKind::Box(BoxSource {
+            lower_left: Position::new(lo[0], lo[1], lo[2]),
+            upper_right: Position::new(hi[0], hi[1], hi[2]),
+        })
+    };
+    FixedSource::Independent(std::sync::Arc::new(IndependentSource {
+        spatial,
+        energy: EnergyKind::Mono(Monoenergetic { e: 2.5e6 }),
+        angle: AngleKind::Isotropic(IsotropicAngle),
+        strength: 1.0,
+    }))
+}
+
+fn load_average() -> String {
+    std::fs::read_to_string("/proc/loadavg")
+        .map(|s| s.split_whitespace().take(3).collect::<Vec<_>>().join(" "))
+        .unwrap_or_else(|_| "unknown".into())
+}
+
+/// **Methodology (gh:#1619).** Four arms, all ANALOG transport (default
+/// `VarianceReduction`), the same room, the same N histories and the same seed
+/// at each repeat index: (a) `FixedSource::Box`; (b) the same box as an
+/// unbiased `Independent` source (`SpatialBox`, weight 1); (b2) the same box as
+/// an unbiased `SpatialDistribution::Cells` (56 equal cells, the path the bias
+/// uses, no bias); (c) the learned source bias (`with_learned_source_bias`).
+/// Repeats alternate the arm order (a,b,b2,c then c,b2,b,a, ...) so a linear
+/// load drift cancels; `/proc/loadavg` is printed per run. Reports per-history
+/// cost (mean and sd over repeats), the headline-band (900-1450 cm) flux per
+/// source particle, the total flux per source particle (a track-length proxy)
+/// and the history count. The assertions are gross guards only: histories
+/// equal across arms, and (a) vs (b) headline |z| <= 5. `OUTRAM_T1619_N`
+/// (default 5000), `OUTRAM_T1619_REPEATS` (default 6).
+///
+/// **Results:** `verification_and_validation/stats_epic_493/497_learned_importance.md`,
+/// section "#1619".
+#[test]
+#[ignore = "timing measurement (#1619), single-threaded, ~10-25 minutes; run explicitly with --ignored"]
+fn shielded_room_source_path_timing() {
+    let Some(nucs) = load_nuclides() else { return };
+    let mats = materials();
+    let geom = geometry();
+    let env = |k: &str, d: usize| -> usize {
+        std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+    };
+    let n = env("OUTRAM_T1619_N", 5_000);
+    let repeats = env("OUTRAM_T1619_REPEATS", 6);
+    let per_batch = (n / N_BATCHES) as f64;
+    let src_a = volume_source();
+
+    // The #1615 learned windows, built exactly as `shielded_room_learned_source_bias`.
+    let m = mesh();
+    let n_m = m.n_bins();
+    let vol = (1550.0 / m.dimension[0] as f64) * (1900.0 / m.dimension[1] as f64) * 700.0;
+    let mut early = flux_tally();
+    run_fixed_source(
+        &geom,
+        &mats,
+        &nucs,
+        &src_a,
+        &settings(2_000, 424_242, VarianceReduction::default()),
+        Some(&mut early),
+    );
+    let sum: Vec<f64> = early.bins.iter().map(|b| b.sum).collect();
+    let sum_sq: Vec<f64> = early.bins.iter().map(|b| b.sum_sq).collect();
+    let volumes = vec![vol; n_m];
+    let lis = LearnedImportanceSettings { threshold: 1.0, ratio: 5.0, ..Default::default() };
+    let (learned, _fills) =
+        learned_weight_windows(m, vec![0.0, 2.0e7], &sum, &sum_sq, &volumes, N_BATCHES, &lis).unwrap();
+    let (src_c, rep) = with_learned_source_bias(&src_a, &learned).unwrap();
+    println!("source bias report: {rep:?}");
+
+    let arms: [(&str, FixedSource); 4] = [
+        ("a Box", src_a.clone()),
+        ("b Independent/SpatialBox", unbiased_independent(false)),
+        ("b2 Independent/Cells unbiased", unbiased_independent(true)),
+        ("c learned bias", src_c),
+    ];
+    let heads = band_bins(900.0, 1450.0);
+    let analog = VarianceReduction::default();
+    // Per arm, per repeat: (seconds, headline flux/particle, total flux/particle, histories).
+    let mut rec: Vec<Vec<(f64, f64, f64, usize)>> = vec![Vec::new(); arms.len()];
+    // Warm-up: one short run so first-touch costs do not land on arm (a).
+    let mut tw = flux_tally();
+    run_fixed_source(&geom, &mats, &nucs, &src_a, &settings(500, 1, analog.clone()), Some(&mut tw));
+    for r in 0..repeats {
+        let order: Vec<usize> =
+            if r % 2 == 0 { (0..arms.len()).collect() } else { (0..arms.len()).rev().collect() };
+        for ai in order {
+            let mut t = flux_tally();
+            let load0 = load_average();
+            let t0 = Instant::now();
+            let res = run_fixed_source(
+                &geom,
+                &mats,
+                &nucs,
+                &arms[ai].1,
+                &settings(n, 7_261_119 + 1_000_003 * r as u64, analog.clone()),
+                Some(&mut t),
+            );
+            let dt = t0.elapsed().as_secs_f64();
+            let flux: Vec<f64> = t.bins.iter().map(|b| b.mean(N_BATCHES as u64) / per_batch).collect();
+            let head: f64 = heads.iter().map(|&b| flux[b]).sum();
+            let tot: f64 = flux.iter().sum();
+            println!(
+                "repeat {r} arm {:<30} {dt:7.2} s  {:.3} ms/hist  head {head:.4}  total {tot:.2}  hist {}  load(start) {load0} load(end) {}",
+                arms[ai].0,
+                1e3 * dt / n as f64,
+                res.total_histories,
+                load_average()
+            );
+            rec[ai].push((dt, head, tot, res.total_histories));
+        }
+    }
+    println!("\nN = {n} histories per run, {repeats} repeats, per-history cost in ms");
+    let base_cost: Vec<f64> = rec[0].iter().map(|x| 1e3 * x.0 / n as f64).collect();
+    for (ai, (name, _)) in arms.iter().enumerate() {
+        let cost: Vec<f64> = rec[ai].iter().map(|x| 1e3 * x.0 / n as f64).collect();
+        let (cm, cs) = mean_and_sem(&cost);
+        let heads_v: Vec<f64> = rec[ai].iter().map(|x| x.1).collect();
+        let tots_v: Vec<f64> = rec[ai].iter().map(|x| x.2).collect();
+        let (hm, hs) = mean_and_sem(&heads_v);
+        let (tm, ts) = mean_and_sem(&tots_v);
+        let ratio: Vec<f64> = cost.iter().zip(&base_cost).map(|(c, b)| c / b).collect();
+        let (rm, rs) = mean_and_sem(&ratio);
+        println!(
+            "{name:<30} cost {cm:.4} (sd {:.4}, sem {cs:.4}) ms/hist; paired cost/a {rm:.3} (sem {rs:.3}); \
+             head {hm:.4} +- {hs:.4}; total {tm:.2} +- {ts:.2}",
+            cs * (cost.len() as f64).sqrt()
+        );
+    }
+    // Gross guards.
+    let hist0 = rec[0][0].3;
+    for r in &rec {
+        assert!(r.iter().all(|x| x.3 == hist0), "non-fissile: every arm transports exactly N histories");
+    }
+    let (ha, sa) = mean_and_sem(&rec[0].iter().map(|x| x.1).collect::<Vec<_>>());
+    let (hb, sb) = mean_and_sem(&rec[1].iter().map(|x| x.1).collect::<Vec<_>>());
+    let z = (ha - hb) / (sa * sa + sb * sb).sqrt();
+    println!("headline a vs b: z = {z:+.2}");
+    assert!(z.abs() <= 5.0, "gross guard: a vs b headline z = {z}");
 }

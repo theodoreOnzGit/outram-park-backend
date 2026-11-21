@@ -240,7 +240,18 @@ fn main() {
     // case), for the rod worth (gh:#1128). Default: none, every recorded run.
     let rods_spec = flag(&args, "--rods").unwrap_or_else(|| "none".to_string());
     let rods = m::rods_inserted(&rods_spec);
-    let rodded = rods.iter().any(|&r| r);
+    // `--rod-positions a,b,c`: the rods at ORNL rod positions (inches
+    // withdrawn, 0 the driven lower limit, 51 the upper limit; ORNL-4233
+    // Fig. 2), in `m::OPENINGS` order: rod 2, rod 1, rod 3; `-` leaves a
+    // thimble empty (gh:#1658, `m::geometry_with_rods_at`). Exclusive with
+    // `--rods` (full-length rods).
+    let rod_positions: Option<[Option<f64>; 3]> = flag(&args, "--rod-positions").map(|v| {
+        let p: Vec<Option<f64>> = v.split(',').map(|x| if x.trim() == "-" { None } else { Some(x.trim().parse::<f64>().expect("inches withdrawn")) }).collect();
+        assert_eq!(p.len(), 3, "--rod-positions takes three values (rod 2, rod 1, rod 3)");
+        [p[0], p[1], p[2]]
+    });
+    assert!(rod_positions.is_none() || !rods.iter().any(|&r| r), "--rod-positions and --rods are exclusive");
+    let rodded = rods.iter().any(|&r| r) || rod_positions.is_some();
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
@@ -342,6 +353,14 @@ fn main() {
         eprintln!("  ABLATION: --minor-uranium none, the salt has no U-234/U-236");
         mats[m::SALT_IDX].1 = m::salt_without_minor_uranium(&mats[m::SALT_IDX].1);
     }
+    // `--u235-wt w`: the salt's uranium at U-235 weight fraction `w`, same
+    // uranium atoms, U-234/U-236 kept in ratio (gh:#1660,
+    // `m::salt_with_enrichment`). Applied after `--u235-scale` and
+    // `--minor-uranium`; the basket keeps the default salt.
+    if let Some(w) = flag(&args, "--u235-wt").map(|v| v.parse::<f64>().expect("weight fraction")) {
+        eprintln!("  --u235-wt {w}: salt U-235 weight fraction {:.5} -> {w}", m::u235_weight_fraction(&mats[m::SALT_IDX].1));
+        mats[m::SALT_IDX].1 = m::salt_with_enrichment(&mats[m::SALT_IDX].1, w);
+    }
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
         for (n, _) in comps {
@@ -389,6 +408,8 @@ fn main() {
     let mut nuclides: Vec<Nuclide> =
         slots.into_iter().map(|s| s.into_inner().expect("slot").expect("loaded")).collect();
     let sab = !args.iter().any(|a| a == "--no-sab");
+    let sab_log_grid_graphite = args.iter().any(|a| a == "--sab-log-grid-graphite");
+    let sab_log_grid_water = args.iter().any(|a| a == "--sab-log-grid-water");
     // The laws are held here and attached per material once the materials
     // exist (gh:#462, #1581): tables[0] graphite on C-12 / C-13, then H in H2O
     // on H-1.
@@ -407,7 +428,24 @@ fn main() {
             "crystalline" => (SabMaterial::CrystallineGraphite, "c_Graphite"),
             other => panic!("--graphite-law must be 30p|10p|crystalline, got {other}"),
         };
-        let law = ThermalScattering::from_embedded_leapr_deck(material, t_g, tag).expect("graphite S(a,b) from LEAPR");
+        // `--sab-log-grid-graphite` (gh:#1128, #550): this table alone on the
+        // pre-2026-11-19 log-spaced emission grid, the explicit ablation
+        // `from_tape_log_spaced_grid`, to split the flip's move between the
+        // graphite and the shield water. The LEAPR tape is built exactly as
+        // `from_embedded_leapr_deck` builds it.
+        let law = if sab_log_grid_graphite {
+            use njoy_outram_park_fork::endf::tape::Tape;
+            use njoy_outram_park_fork::leapr::deck::LeaprDeck;
+            use njoy_outram_park_fork::leapr::decks::embedded_deck_text;
+            use njoy_outram_park_fork::leapr::run::run_deck_at_temperature;
+            let deck = LeaprDeck::parse(embedded_deck_text(material).expect("embedded LEAPR deck")).expect("LEAPR deck parses");
+            let run = run_deck_at_temperature(&deck, t_g).expect("LEAPR runs");
+            let tape = Tape::read(std::io::Cursor::new(run.write_text().expect("LEAPR tape text"))).expect("LEAPR tape reads");
+            eprintln!("  ABLATION: --sab-log-grid-graphite, graphite emission on the pre-#550 log-spaced grid");
+            ThermalScattering::from_tape_log_spaced_grid(&tape, deck.mat, t_g, tag).expect("graphite S(a,b), log-spaced grid")
+        } else {
+            ThermalScattering::from_embedded_leapr_deck(material, t_g, tag).expect("graphite S(a,b) from LEAPR")
+        };
         eprintln!("    C: graphite {graphite_law} S(a,b) by LEAPR at {t_g:.2} K in {:.1} s", t.elapsed().as_secs_f64());
         sab_graphite = Some(sab_tables.len());
         sab_tables.push(law);
@@ -417,8 +455,16 @@ fn main() {
     // The shield's water: H-1 bound in H2O at the shield temperature.
     if names.iter().any(|n| *n == "H1") {
         let tape = reference_endf("tsl-HinH2O.endf").expect("tsl-HinH2O tape");
-        let law = ThermalScattering::from_endf_file(tape.to_str().expect("utf-8 path"), 1, m::SHIELD_TEMPERATURE_K, "c_H_in_H2O")
-            .expect("H in H2O S(a,b)");
+        // `--sab-log-grid-water` (gh:#1128, #550): the shield water's table
+        // alone on the pre-2026-11-19 log-spaced emission grid.
+        let law = if sab_log_grid_water {
+            let t = njoy_outram_park_fork::endf::tape::Tape::read_file(&tape).expect("tsl-HinH2O tape reads");
+            eprintln!("  ABLATION: --sab-log-grid-water, H in H2O emission on the pre-#550 log-spaced grid");
+            ThermalScattering::from_tape_log_spaced_grid(&t, 1, m::SHIELD_TEMPERATURE_K, "c_H_in_H2O").expect("H in H2O S(a,b), log-spaced grid")
+        } else {
+            ThermalScattering::from_endf_file(tape.to_str().expect("utf-8 path"), 1, m::SHIELD_TEMPERATURE_K, "c_H_in_H2O")
+                .expect("H in H2O S(a,b)")
+        };
         sab_water = Some(sab_tables.len());
         sab_tables.push(law);
         eprintln!("    H1: bound in H2O at {:.1} K", m::SHIELD_TEMPERATURE_K);
@@ -474,8 +520,28 @@ fn main() {
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
         m::Shield::Tm0728Full => m::geometry_with_full_shield(t_k, t_g, dims, ends, base_materials),
     };
-    let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
+    let g = match rod_positions {
+        Some(p) => m::geometry_with_rods_at(g, dims, p, first_rod_material, t_k),
+        None if rodded => m::geometry_with_rods(g, dims, rods, first_rod_material, t_k),
+        None => g,
+    };
+    // `--salt-level-cm z`: the salt surface at z (stringer bottom at 0),
+    // void above it (gh:#1659, `m::geometry_with_salt_level`).
+    let g = match flag(&args, "--salt-level-cm").map(|v| v.parse::<f64>().expect("cm")) {
+        Some(z) => {
+            eprintln!("  --salt-level-cm {z}: salt surface at z = {z} cm");
+            m::geometry_with_salt_level(g, z)
+        }
+        None => g,
+    };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if sab_log_grid_graphite { "+sablog-graphite" } else { "" } + if sab_log_grid_water { "+sablog-water" } else { "" } + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + match (rod_positions, rodded) {
+        (Some(p), _) => format!("+rodpos-{}", p.iter().map(|x| x.map_or("-".to_string(), |v| format!("{v}"))).collect::<Vec<_>>().join("_")),
+        (None, true) => format!("+rods-{rods_spec}"),
+        (None, false) => String::new(),
+    }.as_str();
+    let label = label
+        + flag(&args, "--salt-level-cm").map_or(String::new(), |z| format!("+salt-level-{z}cm")).as_str()
+        + flag(&args, "--u235-wt").map_or(String::new(), |w| format!("+u235wt-{w}")).as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

@@ -261,7 +261,7 @@ fn tally_arithmetic_derived() {
         name: "flux+fission spectrum".into(),
         filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux, ScoreType::Fission],
-        bins: vec![TallyBin::default(); n_groups * 2],
+        bins: vec![TallyBin::default(); n_groups * 2], derivative: None,
     };
 
     let settings = KeffSettings {
