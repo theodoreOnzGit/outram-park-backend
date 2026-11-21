@@ -125,6 +125,21 @@ promoted build, arguably the intended arithmetic) or round such constants
 through `f32` (matches a stock build). This likely explains differences of the
 same order in other ported routines and is the first thing to check there.
 
+### Electron tables (`hatch_media`: PEGS4 intake, `DUNIT`, `fix_brems`, `mscati`)
+
+Test `differential_electron_tables_against_compiled_egsnrc`
+(`EGSNRC_REFERENCE_ELECTRON_TABLES`, the `tables_electron.txt` of the same
+`difftab` run: Ta, `tutor_data.pegs4dat`, default options, 14 tables over the
+electron grid):
+
+| reference build | result |
+|---|---|
+| `-fdefault-real-8 -fdefault-double-8` | **bit-identical** (relative difference exactly 0) for `eke0/1`, `blcc`, `xcc`, `esig_e`, `psig_e`, `te`, `thmoll`, `ededx`, `pdedx`, `esig`, `psig`, `ebr1`, `pbr1`, `pbr2`, both ranges and `e_array`; `tmxs` 1.6e-14 |
+| stock (`-O1`, single-precision literals) | the same tables exact except `te` 9.6e-8, `thmoll` 2.0e-8, `blcc` 3.7e-8, `tmxs` 3.3e-8 (the `prm`/`rm` constant carried as a single-precision literal) |
+
+Spin fits (`init_spin`), `init_compton`, the Rayleigh tables and the photoelectric
+edge data are not in this comparison (`hatch_media` does not assemble them).
+
 ## Not differentially tested, and why
 
 See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:

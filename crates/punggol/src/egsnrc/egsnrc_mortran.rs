@@ -10868,4 +10868,61 @@ mod tests {
         assert!((m.ge0 - ge0).abs() <= 1e-9 * ge0.abs() && (m.ge1 - ge1).abs() <= 1e-9 * ge1.abs());
     }
 
+    /// Phase 2: the electron tables of `hatch_media` (PEGS4 intake, `DUNIT`
+    /// scaling, `fix_brems`, `mscati`) against the tables a REAL EGSnrc
+    /// `HATCH` builds for the same data set: `EGSNRC_REFERENCE_ELECTRON_TABLES`
+    /// is the `tables_electron.txt` of the `difftab` copy of `tutor1`
+    /// (`tutor_data.pegs4dat`, medium TA, default options), `EGSNRC_PEGS4_FILE`
+    /// the data set (default `.../HEN_HOUSE/pegs4/data/tutor_data.pegs4dat`).
+    /// Reports the worst relative difference per table; asserts that the
+    /// scalar table sizes agree.
+    #[test]
+    fn differential_electron_tables_against_compiled_egsnrc() {
+        let Ok(reference) = std::env::var("EGSNRC_REFERENCE_ELECTRON_TABLES") else {
+            eprintln!("EGSNRC_REFERENCE_ELECTRON_TABLES not set: differential test skipped");
+            return;
+        };
+        let path = std::env::var("EGSNRC_PEGS4_FILE").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4/data/tutor_data.pegs4dat"));
+        let mut media = parse_pegs4_media(&std::fs::read_to_string(path).unwrap(), &["TA"]).unwrap();
+        media[0].apply_dunit(1.0);
+        let r = hatch_media(&media, &HatchConfig { ecutmn: 1.5, ..Default::default() });
+        let e = &r.media[0].electron;
+        let refs = std::fs::read_to_string(reference).unwrap();
+        let mut lines = refs.lines();
+        let mut scalar = |name: &str| -> f64 {
+            let l = lines.next().unwrap();
+            assert!(l.trim_start().starts_with(name), "{l}");
+            l.split_whitespace().nth(1).unwrap().parse().unwrap()
+        };
+        let meke = scalar("meke") as usize;
+        assert_eq!(meke, e.esig.a0.len() - 1);
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
+        eprintln!("eke0 {:e} eke1 {:e}", rel(e.eke0, scalar("eke0")), rel(e.eke1, scalar("eke1")));
+        eprintln!("blcc {:e} xcc {:e}", rel(e.ms.blcc, scalar("blcc")), rel(e.ms.xcc, scalar("xcc")));
+        eprintln!("esig_e {:e} psig_e {:e}", rel(e.esig_e, scalar("esig_e")), rel(e.psig_e, scalar("psig_e")));
+        eprintln!("te {:e} thmoll {:e}", rel(e.te, scalar("te")), rel(e.thmoll, scalar("thmoll")));
+        let names = [
+            "ededx0", "ededx1", "pdedx0", "pdedx1", "esig0", "esig1", "psig0", "psig1", "ebr10", "ebr11", "pbr10", "pbr11", "pbr20", "pbr21", "tmxs0",
+            "tmxs1", "range_e", "range_p", "e_array",
+        ];
+        let mut worst = [0.0_f64; 19];
+        for l in lines {
+            let v: Vec<f64> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
+            let i = v[0] as usize;
+            let mine_row: Vec<f64> = if v.len() == 13 {
+                vec![e.ededx.a0[i], e.ededx.a1[i], e.pdedx.a0[i], e.pdedx.a1[i], e.esig.a0[i], e.esig.a1[i], e.psig.a0[i], e.psig.a1[i], e.ebr1.a0[i], e.ebr1.a1[i], e.pbr1.a0[i], e.pbr1.a1[i]]
+            } else {
+                vec![e.pbr2.a0[i], e.pbr2.a1[i], e.tmxs.a0[i], e.tmxs.a1[i], e.range_ep[0][i], e.range_ep[1][i], e.e_array[i]]
+            };
+            let off = if v.len() == 13 { 0 } else { 12 };
+            for (k, (a, b)) in mine_row.iter().zip(&v[1..]).enumerate() {
+                let scale = b.abs().max(1e-12);
+                worst[off + k] = worst[off + k].max((a - b).abs() / scale);
+            }
+        }
+        for (n, w) in names.iter().zip(worst) {
+            eprintln!("{n}: worst relative difference {w:e}");
+        }
+    }
+
 }
