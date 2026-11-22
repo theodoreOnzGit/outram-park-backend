@@ -67,9 +67,12 @@
 //!
 //! Scores supported: [`ScoreType::Flux`] on segments (`w * d`) and
 //! [`ScoreType::Current`] on crossings and, for a mesh-surface tally, on
-//! segments. A tally with a mesh-surface filter must carry no other filter
+//! segments. ~~A tally with a mesh-surface filter must carry no other filter
 //! (one event can match several faces; combining would need a product over
-//! multi-match filters). Time is not reconstructed (`time = 0`).
+//! multi-match filters).~~ **CORRECTED 2026-11-22 (gh:#1713):** a mesh-surface
+//! filter combines with single-bin filters as upstream's `FilterBinIter` does
+//! ([`mesh_surface_bins`]); a second multi-match filter beside it is still
+//! refused. Time is not reconstructed (`time = 0`).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -465,9 +468,9 @@ pub fn score_crossing(
 }
 
 /// Score the mesh faces crossed since [`EventHistory::r_last_current`] into
-/// `batch`, for a tally whose only filter is a mesh-surface filter and whose
-/// score is `Current` (`filter_meshsurface.cpp`); any other tally is left
-/// alone. `crossing` is the surface the flight ended on (`None` for a
+/// `batch`, for a tally with a mesh-surface filter and a `Current` score
+/// (`filter_meshsurface.cpp`, `tally_scoring.cpp:2612-2650`); any other tally
+/// is left alone. `crossing` is the surface the flight ended on (`None` for a
 /// collision or a lattice boundary), `collides` whether it ended in a
 /// collision.
 ///
@@ -477,6 +480,18 @@ pub fn score_crossing(
 /// direction ([`mesh_surface_span`]), not one per geometry segment; per
 /// segment, every segment that ended on a mesh plane made a tie. Call
 /// [`EventHistory::end_flight`] after scoring.
+///
+/// ~~Only a tally whose only filter is the mesh-surface filter is scored.~~
+/// **CHANGED 2026-11-22 (gh:#1713):** other single-bin filters may sit beside
+/// it ([`mesh_surface_bins`]). They read the state upstream's
+/// `score_meshsurface_tally` sees (`particle.cpp:411,743,785,835`, all before
+/// the event changes it): `energy`, the cell, material and universe of the
+/// flight (`hist.material`, `universe_idx`, `cell_instance`, the levels in
+/// `hist`), and the raytrace's end point as `position`. A tally that pairs it
+/// with another multi-match filter is not scored here (the history driver
+/// [`score_history_event`] returns an error for it). Called from both the
+/// surface-tracking and the delta-tracking arm of `transport_history_vr_urr`,
+/// once per flight (delta tracking: new work, not upstream).
 #[allow(clippy::too_many_arguments)]
 pub fn score_mesh_surface_segment(
     batch: &mut [f64],
@@ -484,6 +499,8 @@ pub fn score_mesh_surface_segment(
     geom: &Geometry,
     hist: &EventHistory,
     cell_idx: usize,
+    universe_idx: usize,
+    cell_instance: Option<usize>,
     energy: f64,
     weight: f64,
     crossing: Option<usize>,
@@ -492,7 +509,9 @@ pub fn score_mesh_surface_segment(
     u: Direction,
     d: f64,
 ) {
-    let [FilterKind::MeshSurface(f)] = tally.filters.as_slice() else { return };
+    if !tally.filters.iter().any(|f| matches!(f, FilterKind::MeshSurface(_))) {
+        return;
+    }
     let Some((start, track_end)) =
         mesh_surface_span(geom, hist.r_last_current, r_flight, u, d, hist.after_boundary, crossing, collides)
     else {
@@ -500,6 +519,11 @@ pub fn score_mesh_surface_segment(
     };
     let ev = FilterEvent {
         cell_idx,
+        material_idx: hist.material.unwrap_or(usize::MAX),
+        universe_idx,
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         energy,
         position_last: start,
         position: track_end,
@@ -508,16 +532,82 @@ pub fn score_mesh_surface_segment(
         cell_born: hist.cell_born,
         position_born: hist.position_born,
         weight,
+        cell_instance,
         ..Default::default()
     };
+    let Ok(bins) = mesh_surface_bins(tally, &ev) else { return };
     let n_scores = tally.scores.len();
-    for b in f.matches(&ev) {
+    for (b, fw) in bins {
         for (s, sc) in tally.scores.iter().enumerate() {
             if matches!(sc, ScoreType::Current) {
-                batch[b * n_scores + s] += weight;
+                batch[b * n_scores + s] += weight * fw;
             }
         }
     }
+}
+
+/// The flattened filter bins and filter weights one mesh-surface event scores
+/// into: OpenMC's `FilterBinIter` (`tally_scoring.cpp:33-60,96-141`) for a
+/// tally holding exactly one mesh-surface filter and any number of single-bin
+/// filters (gh:#1713).
+///
+/// The mesh-surface filter contributes every face
+/// [`MeshSurfaceFilter::matches`](super::filter_extra::MeshSurfaceFilter::matches)
+/// returns for `ev.position_last -> ev.position` (weight 1,
+/// `filter_meshsurface.cpp:10-22`); every other filter its one
+/// [`FilterKind::get_bin`] (weight 1), or for an
+/// [`EnergyFunctionFilter`](super::filter_extra::EnergyFunctionFilter) bin 0
+/// with weight `y(E)` (`filter_energyfunc.cpp`). The index is
+/// `sum_i bin_i * stride_i` with the last filter fastest (`tally.cpp:496-509`,
+/// the same row-major product [`score_crossing`] forms), the weight the
+/// product of the filters' weights. Any filter without a match: no bins
+/// (`tally_scoring.cpp:47-51`). With the mesh-surface filter alone this is
+/// `(face, 1.0)` per face, so a lone mesh-surface tally scores exactly what it
+/// scored before (`w * 1.0 == w`).
+///
+/// # Errors
+///
+/// No mesh-surface filter, or a second filter that can match several bins at
+/// once (another mesh-surface, mesh-material, particle-production, or a
+/// functional expansion): those combinations are not implemented.
+pub fn mesh_surface_bins(tally: &Tally, ev: &FilterEvent) -> Result<Vec<(usize, f64)>, String> {
+    let mut ms: Option<(usize, &super::filter_extra::MeshSurfaceFilter)> = None;
+    let mut base = 0usize;
+    let mut weight = 1.0f64;
+    let mut stride = 1usize;
+    let mut no_match = false;
+    for f in tally.filters.iter().rev() {
+        match f {
+            FilterKind::MeshSurface(m) => {
+                if ms.is_some() {
+                    return Err("a tally may carry only one mesh-surface filter".into());
+                }
+                ms = Some((stride, m));
+            }
+            FilterKind::MeshMaterial(_) | FilterKind::ParticleProduction(_) => {
+                return Err("a mesh-surface filter cannot be combined with another multi-match filter".into());
+            }
+            _ if f.is_expansion() => {
+                return Err("a mesh-surface filter cannot be combined with an expansion filter".into());
+            }
+            FilterKind::EnergyFunction(ef) => match ef.response(ev.energy) {
+                Some(y) => weight *= y,
+                None => no_match = true,
+            },
+            _ => match f.get_bin(ev) {
+                Some(b) => base += b * stride,
+                None => no_match = true,
+            },
+        }
+        stride *= f.n_bins();
+    }
+    let Some((ms_stride, m)) = ms else {
+        return Err("no mesh-surface filter on this tally".into());
+    };
+    if no_match {
+        return Ok(Vec::new());
+    }
+    Ok(m.matches(ev).into_iter().map(|face| (base + face * ms_stride, weight)).collect())
 }
 
 /// Rebuild the tallying events of one history from its [`TraceEvent`] stream.
@@ -743,24 +833,26 @@ pub fn score_history_event(
     out: &mut [f64],
 ) -> Result<(), String> {
     let n_scores = tally.scores.len();
-    let ms = tally.filters.iter().position(|f| matches!(f, FilterKind::MeshSurface(_)));
-    if let Some(i) = ms {
-        if tally.filters.len() != 1 {
-            return Err("a mesh-surface tally must carry no other filter here".into());
-        }
-        let FilterKind::MeshSurface(f) = &tally.filters[i] else { unreachable!() };
+    if tally.filters.iter().any(|f| matches!(f, FilterKind::MeshSurface(_))) {
+        // ~~A mesh-surface tally must carry no other filter here.~~ **CHANGED
+        // 2026-11-22 (gh:#1713):** single-bin filters combine with it as
+        // upstream's `FilterBinIter` does ([`mesh_surface_bins`]).
         if let (HistoryEventKind::Segment { .. }, Some((r0, r1))) = (he.kind, he.mesh_surface_span) {
             let mut ev = he.ev.clone();
             ev.position_last = r0;
             ev.position = r1;
-            for b in f.matches(&ev) {
+            for (b, fw) in mesh_surface_bins(tally, &ev)? {
                 for (s, sc) in tally.scores.iter().enumerate() {
                     match sc {
-                        ScoreType::Current => out[b * n_scores + s] += he.ev.weight,
+                        ScoreType::Current => out[b * n_scores + s] += he.ev.weight * fw,
                         _ => return Err(format!("score {sc:?} unsupported on mesh-surface")),
                     }
                 }
             }
+        } else {
+            // Refuse an unsupported combination on every event, not only on
+            // those that carry a span.
+            mesh_surface_bins(tally, &he.ev)?;
         }
         return Ok(());
     }
