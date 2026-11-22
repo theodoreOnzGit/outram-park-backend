@@ -4,7 +4,6 @@ use crate::nostd_prelude::*;
 use fission_yields_data::prelude::{parse_nuclide_allow_underscore_isomer, Nuclide};
 use uom::si::{energy::electronvolt, f64::*, ratio::ratio, time::second};
 
-#[cfg(feature = "std")]
 use crate::decay_xml_info_serde::SerdeNuclideData;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -94,8 +93,8 @@ impl DecayType {
     }
 }
 
-/// `std` only (gh:#1634): `SerdeNuclideData` is the parsed OpenMC XML.
-#[cfg(feature = "std")]
+/// ~~`std` only (gh:#1634): `SerdeNuclideData` is the parsed OpenMC XML.~~
+/// **CHANGED 2026-11-22:** no longer `std` only (depletion lib 1.1.0 is `no_std`).
 impl From<SerdeNuclideData> for NuclideReactionAndDecayData {
     fn from(raw_data_serde: SerdeNuclideData) -> Self {
         // first convert nuclide name to string
@@ -285,8 +284,9 @@ pub mod boron_group_test;
 pub mod heavier_than_actinides;
 
 /// contains modules to parse nuclides and obtain their respective xml data
-/// `std` only (gh:#1634): it parses OpenMC's XML (`serde-xml-rs`).
-#[cfg(feature = "std")]
+/// ~~`std` only (gh:#1634): it parses OpenMC's XML (`serde-xml-rs`).~~
+/// **CHANGED 2026-11-22:** no longer `std` only (depletion lib 1.1.0 is
+/// `no_std`).
 pub mod parse_nuclides_to_decay_data;
 
 /// contains a module for a full decay library, which is meant to make it

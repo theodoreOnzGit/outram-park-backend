@@ -132,7 +132,6 @@ pub struct DecayLibrary {
 }
 
 impl DecayLibrary {
-    #[cfg(feature = "std")]
     pub fn new() -> Self {
         let hydrogen_data: Vec<NuclideReactionAndDecayData>;
         let helium_data: Vec<NuclideReactionAndDecayData>;

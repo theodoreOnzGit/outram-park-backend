@@ -117,9 +117,11 @@ The default `std` feature can be turned off: the library is then `no_std` +
 (`cargo check --release -p sembawang --lib --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). The BWR Mark I plant model, the release
 chain, the HTR-10 cases and the LWR comparison build without it. What `std`
-carries: the fission-product decay summation that loads the OpenMC decay
+carries: ~~the fission-product decay summation that loads the OpenMC decay
 libraries (`bwr_mark1::fp_decay::compute`; its committed element tables build
-without std), printing, the integration tests and the examples.
+without std),~~ printing, the integration tests and the examples. **CHANGED
+2026-11-22:** `fp_decay::compute` builds without `std` too, since the OpenMC
+decay libraries (1.1.0) are `no_std`.
 
 ## Running
 

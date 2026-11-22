@@ -1094,7 +1094,6 @@ dependencies = [
  "petir",
  "rayon",
  "serde",
- "serde-xml-rs",
  "serde_json",
  "spin 0.10.1",
  "toml",
@@ -7309,23 +7308,21 @@ dependencies = [
 
 [[package]]
 name = "openmc-endf-8-depletion-lib-a"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f47182ad7d6fee991ad80fdb21960eef765067a4765d34e9ecec7c2c9a6cf815"
+checksum = "64286b2a469c95614aed9497b762b84410311f918fe05ce88b341bbc3048b43f"
 dependencies = [
+ "roxmltree",
  "serde",
- "serde-xml-rs",
 ]
 
 [[package]]
 name = "openmc-endf-8-depletion-lib-b"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b45b56c1199f22efc3ddce9cf64acb4a21ce7bca7b9df30f94f7a01e7aaa263"
+checksum = "6a30b45d8d13e72e84ff8d51714ebfe7802d5d911cff461b5f295b2ffc88b04b"
 dependencies = [
  "openmc-endf-8-depletion-lib-a",
- "serde",
- "serde-xml-rs",
 ]
 
 [[package]]
@@ -9053,18 +9050,6 @@ checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
-]
-
-[[package]]
-name = "serde-xml-rs"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc2215ce3e6a77550b80a1c37251b7d294febaf42e36e21b7b411e0bf54d540d"
-dependencies = [
- "log",
- "serde",
- "thiserror 2.0.21",
- "xml",
 ]
 
 [[package]]
@@ -11815,12 +11800,6 @@ name = "xkeysym"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
-
-[[package]]
-name = "xml"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f45bb2c13fec6a6cb4c0f76a7e94839e110a14ec803ec2940777a94c347bc52"
 
 [[package]]
 name = "xml-rs"

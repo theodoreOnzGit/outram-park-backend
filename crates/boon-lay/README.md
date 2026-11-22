@@ -92,10 +92,13 @@ it**: every decay, diffusion, first-passage and transmutation simulator, the
 failure models, the TRISO-ATOPS release models and the chemistry rate laws.
 What `std` (default) carries:
 
-- **the OpenMC decay data source**: `decay_xml_info_serde`,
+- ~~**the OpenMC decay data source**: `decay_xml_info_serde`,
   `parse_nuclides_to_decay_data` and `DecayLibrary::new`, which read
   `openmc-endf-8-depletion-lib-b` through `serde-xml-rs` (no `no_std` build).
-  Without `std` a `DecayLibrary` has to be built from another source;
+  Without `std` a `DecayLibrary` has to be built from another source;~~
+  **CHANGED 2026-11-22:** the decay data source builds without `std` too,
+  since `openmc-endf-8-depletion-lib-a`/`-b` 1.1.0 parse with `roxmltree`
+  (no_std); `DecayLibrary::new` works on bare metal;
 - the TRISO-ATOPS run-file readers (`triso_atops_fork::run_file`: files,
   `serde_json`) and `serde` itself (RustBCA input files only);
 - the rayon thread pool (serial `wasm_par` stand-in without it, as on wasm),

@@ -52,14 +52,13 @@ backronym = "BOmbardment of neutrons On Nuclides with Lagrangian transport and t
 [dependencies]
 uom             = { workspace = true }
 serde           = { workspace = true, optional = true }
-serde-xml-rs    = { workspace = true, optional = true }
 # JSON for reading upstream / GUI-written TRISO-ATOPS run files
 # (triso_atops_fork::run_file::upstream, #449). Pure Rust; wasm/Android-clean.
 serde_json      = { workspace = true, optional = true }
 anyhow-nostd    = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
-openmc-endf-8-depletion-lib-b     = { workspace = true, optional = true }
+openmc-endf-8-depletion-lib-b     = { workspace = true }
 # ── RustBCA copy (src/rustbca/, gh:#876 item 7) ─────────────────────────────
 # The no_std + alloc core needs only these. petir supplies the libm-backed
 # `real::Real` float shim (the workspace's one no_std shim) and, since
@@ -160,17 +159,16 @@ name = "layer_diffusion_table"
 rustbca-std = ["std", "dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
 
 # `no_std` + `alloc` without `std` (gh:#1634, epic gh:#1585). `std` (default)
-# carries: the OpenMC decay/transmutation data (`openmc-endf-8-depletion-lib-b`,
-# read through `serde-xml-rs`) and the modules built on it, `serde` /
+# carries: ~~the OpenMC decay/transmutation data (`openmc-endf-8-depletion-lib-b`,
+# read through `serde-xml-rs`) and the modules built on it~~ (CHANGED
+# 2026-11-22: lib-b 1.1.0 is no_std, so the decay data is always on), `serde` /
 # `serde_json` (file input only), the TRISO run-file readers, the rayon thread
 # pool (serial `wasm_par` stand-in without it), the wgpu `gpu` module, printing,
 # and `std` in `anyhow` and `outram-mc-libs`. `rustbca-std` implies it.
 default = ["std"]
 std = [
     "dep:serde",
-    "dep:serde-xml-rs",
     "dep:serde_json",
-    "dep:openmc-endf-8-depletion-lib-b",
     "dep:rayon",
     "dep:wgpu",
     "anyhow-nostd/std",

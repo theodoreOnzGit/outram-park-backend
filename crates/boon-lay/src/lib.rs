@@ -120,8 +120,9 @@ pub use fission_yields_data::prelude::Nuclide::*;
 
 /// this contains the raw information
 /// based on pwr neutron spectrum
-/// `std` only (gh:#1634): parses OpenMC's XML (`serde-xml-rs`).
-#[cfg(feature = "std")]
+/// ~~`std` only (gh:#1634): parses OpenMC's XML (`serde-xml-rs`).~~
+/// **CHANGED 2026-11-22:** builds without `std` since
+/// `openmc-endf-8-depletion-lib-b` 1.1.0 parses with `roxmltree` (no_std).
 pub mod decay_xml_info_serde;
 
 /// this is the struct that converts the SerdeNuclideData to

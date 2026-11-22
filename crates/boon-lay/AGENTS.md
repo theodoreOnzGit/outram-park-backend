@@ -143,7 +143,7 @@ Covers:
 | `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. ~~**CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG~~ **CORRECTED 2026-10-20 (gh:#995):** `rand` and `rand_distr` are gone again; the RustBCA copy draws from `petir::rng`, a draw-for-draw port of the same ChaCha8 RNG |
 | `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16); since 2026-10-20 also `rng::{ChaCha8Rng, Uniform, Normal}` for that copy (gh:#995) |
 | `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
-| `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
+| ~~`serde` / `serde-xml-rs`~~ | ~~Deserialise the ENDF-8 XML into `SerdeNuclideData` structs~~ **CHANGED 2026-11-22:** `serde-xml-rs` is no longer a dependency; `openmc-endf-8-depletion-lib-b` 1.1.0 parses the XML itself (no_std, `roxmltree`). `serde` stays for the RustBCA and run-file inputs |
 | `anyhow` | Error propagation in XML parsing |
 
 ---
