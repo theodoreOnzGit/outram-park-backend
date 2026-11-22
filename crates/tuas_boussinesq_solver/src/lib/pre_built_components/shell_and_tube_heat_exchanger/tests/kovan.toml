@@ -426,3 +426,10 @@ passed = [
     "#8",
 ]
 failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = []
+failed = []
