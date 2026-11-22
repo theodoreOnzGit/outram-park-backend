@@ -23069,7 +23069,7 @@ says so instead of leaving the partial answer to be found later.
 
 ```rust
 pub struct MeshSurfaceFilter {
-    pub mesh: crate::tally::mesh::RegularMesh,
+    pub mesh: MeshKind,
 }
 ```
 
@@ -23077,7 +23077,7 @@ pub struct MeshSurfaceFilter {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh` | `crate::tally::mesh::RegularMesh` | The mesh whose faces are binned. Only [`MeshKind::Regular`] is<br>supported — the cylindrical and spherical meshes carry no face<br>crossing routine yet, and [`Self::new`] refuses them rather than<br>returning an empty bin list that reads as "this track crossed nothing". |
+| `mesh` | `MeshKind` | The mesh whose faces are binned: any of the four structured kinds.<br>~~Only [`MeshKind::Regular`] is supported~~ **CHANGED 2026-11-22<br>(gh:#1712):** rectilinear, cylindrical and spherical meshes are walked<br>by the same port of `raytrace_mesh`. [`Self::new`] still refuses an<br>unstructured mesh, as upstream does. The field was a `RegularMesh`<br>before gh:#1712. (Row hand-edited 2026-11-22; `kovan-cli` was not<br>available to regenerate this mirror.) |
 
 ##### Implementations
 
