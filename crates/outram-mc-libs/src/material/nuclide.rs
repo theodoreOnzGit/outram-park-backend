@@ -24,7 +24,6 @@ use crate::material::thermal::ThermalScattering;
 use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
-use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{
     AnglePick, ChiEout, ChiTabular, ContinuumAngular, ContinuumBranch, ContinuumEmission,

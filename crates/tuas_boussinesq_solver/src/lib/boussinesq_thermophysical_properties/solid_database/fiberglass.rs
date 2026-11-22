@@ -5,7 +5,6 @@ use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
 use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::*;
 use uom::si::length::millimeter;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::pressure::atmosphere;

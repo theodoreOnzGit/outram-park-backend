@@ -79,7 +79,6 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;

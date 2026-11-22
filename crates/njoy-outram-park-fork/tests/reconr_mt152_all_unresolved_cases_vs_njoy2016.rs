@@ -112,12 +112,9 @@
 // Reads reference files or the deck work directory: needs `std` (gh:#1592).
 #![cfg(feature = "std")]
 
-use petir::mathf::RealMath;
-use njoy_outram_park_fork::common::phys::{AMASSN_AMU, PI};
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::groupr::urr_pendf::{read_urr_from_tape, read_urr_table};
-use njoy_outram_park_fork::reconr::slbw::WAVE_K;
 use njoy_outram_park_fork::reconr::urr::build_mt152;
 use njoy_outram_park_fork::reconr::{mf1, reconr_background};
 use njoy_outram_park_fork::reference_data::{reference_file, reference_file_or_skip};

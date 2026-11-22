@@ -160,7 +160,7 @@ fn check_angular(f: &mut Findings, what: &str, a: &ElasticAngular, b: &ElasticAn
 
 fn compare(name: &str, h5: &Nuclide, ace: &Nuclide) -> Findings {
     let mut f = Findings { name: name.into(), lines: Vec::new(), misses: Vec::new() };
-    let mut expect_same = |f: &mut Findings, what: &str, ok: bool| {
+    let expect_same = |f: &mut Findings, what: &str, ok: bool| {
         f.lines.push(format!("{what}: {}", if ok { "identical" } else { "DIFFERENT" }));
         if !ok {
             f.misses.push(what.to_string());

@@ -35,7 +35,7 @@ use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::physics::transport_csg::{transport_history_vr, Site};
+use crate::physics::transport_csg::Site;
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::tally::scoring::flush_batch;

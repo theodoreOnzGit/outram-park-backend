@@ -101,7 +101,6 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use petir::mathf::RealMath;
 use outram_foam_basic_lib::fields::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::mesh::FvMesh;
