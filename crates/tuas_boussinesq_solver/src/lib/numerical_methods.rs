@@ -285,6 +285,10 @@ pub(crate) fn false_position_root<F: Fn(f64) -> f64>(
 /// absolute `SimpleConvergency::eps` was below one representable step of
 /// the answer and so could never be met; see
 /// `pre_built_components::gfhr_pipe_tests::multi_branch::multi_branch_solvers`.
+///
+/// Its only callers are in `gfhr_pipe_tests`, which is `#[cfg(test)]`, so a
+/// library build alone sees it as unused.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
     method: BracketingMethod,
     f: F,

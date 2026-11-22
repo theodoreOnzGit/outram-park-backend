@@ -102,12 +102,8 @@ impl Diff {
     }
 }
 
-/// Replay a two-particle case against the reference.
-fn replay_pair(rows: &[Vec<f64>], model: GranularContactModel, v_a: Vec3, v_b: Vec3) -> Diff {
-    replay_pair_at(rows, model, 0.0060, v_a, v_b, Vec3::zero(), Vec3::zero())
-}
-
-/// As [`replay_pair`], with explicit initial separation and spins.
+/// Replay a two-particle case against the reference, with explicit initial
+/// separation and spins.
 fn replay_pair_at(
     rows: &[Vec<f64>],
     model: GranularContactModel,

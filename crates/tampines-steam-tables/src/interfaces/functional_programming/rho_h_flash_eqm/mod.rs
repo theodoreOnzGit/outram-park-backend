@@ -813,10 +813,15 @@ const P_TRIPLE_POINT_PASCAL_FLOOR: f64 = 611.657;
 /// compression = (v_f(T) - v) / v_f(T)
 /// ```
 ///
-/// which is `~ kappa_T * (p - p_sat(T))`. When that is below
+/// which is `~ kappa_T * (p - p_sat(T))`. ~~When that is below
 /// [`LIQUID_SNAP_COMPRESSION`] the state is indistinguishable from saturated
 /// liquid and `p_sat(T)` is the honest answer; above it, the compression is
-/// resolvable and the fitted surface has something to work with.
+/// resolvable and the fitted surface has something to work with.~~
+/// **CORRECTED 2026-11-22:** no `LIQUID_SNAP_COMPRESSION` constant exists and
+/// there is no separate snap: up to [`LIQUID_LINEAR_COMPRESSION_LIMIT`] the
+/// state is anchored on the saturation line, `p_sat(T)` plus the departure the
+/// compression implies (exactly `p_sat(T)` as compression goes to 0); above
+/// it the fitted surface takes over.
 ///
 /// This is what makes the snap safe. Deciding from `h` alone would be wrong:
 /// compressed liquid at 100 bar and 45 degC has nearly the same enthalpy as
@@ -899,8 +904,10 @@ fn region_1_saturated_liquid_snap(
     }
     compression = compression.max(0.0);
 
-    // Convert the compression into an estimated pressure margin above
-    // saturation, and judge it RELATIVE to the saturation pressure itself.
+    // ~~Convert the compression into an estimated pressure margin above
+    // saturation, and judge it RELATIVE to the saturation pressure itself.~~
+    // (CORRECTED 2026-11-22: superseded by the anchored expansion below; the
+    // reasoning is kept for its measured lesson.)
     //
     // An absolute margin does not work, and the round-trip test says so
     // plainly: a fixed 5e-4 compression is about 10 bar, which is negligible
@@ -1121,18 +1128,13 @@ fn saturated_liquid_temperature_from_enthalpy(
 /// either side is in `region_1_round_trips_through_the_snap_and_the_fit`.
 const LIQUID_LINEAR_COMPRESSION_LIMIT: f64 = 5.0e-4;
 
-/// Fraction of the saturation pressure by which a Region 1 state may sit above
-/// the saturation line and still be snapped to it.
-///
-/// The criterion is `(p - p_sat) < f * p_sat`, estimated from the measured
-/// compression via `kappa_T`, so the snap's own error is bounded by `f` **by
-/// construction** — the returned `p_sat` is at worst this fraction low.
-///
-/// An absolute compression threshold was tried first and is wrong: a fixed
-/// `5e-4` compression is about 10 bar, which is nothing beside `p_sat` at
-/// 300 degC (85.9 bar) and everything beside it at 5 degC (0.0087 bar). The
-/// round-trip test measured 99.9 % error from that version.
-const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+// ~~`LIQUID_SNAP_PRESSURE_FRACTION` (0.05): the fraction of `p_sat` by which
+// a Region 1 state could sit above saturation and still be snapped to it.~~
+// REMOVED 2026-11-22: unused since the snap branch was replaced by the
+// saturation-anchored expansion below (`compression -> 0` is the snap), and
+// flagged as dead code by rustc. The absolute-threshold lesson it recorded
+// (a fixed 5e-4 compression is ~10 bar: 99.9 % error at 5 degC) is kept in
+// `region_1_saturated_liquid_snap`'s comments.
 
 /// Apparent expansion beyond the saturated-liquid volume that
 /// [`region_1_saturated_liquid_snap`] tolerates before declining the state.

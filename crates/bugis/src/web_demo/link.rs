@@ -505,6 +505,9 @@ mod tests {
     /// The engine thread is registered for `send` to wake (gh:#1105), and a
     /// request-reply round trip completes, many in a row, in order.
     #[test]
+    // Off wasm `Link` has a single variant (`Native`), so this `if let` is
+    // irrefutable; it is kept as written so the test reads as a check.
+    #[allow(irrefutable_let_patterns)]
     fn send_wakes_the_engine_thread() {
         let link = start_native(Echo, || {});
         if let Link::Native(m) = &link {

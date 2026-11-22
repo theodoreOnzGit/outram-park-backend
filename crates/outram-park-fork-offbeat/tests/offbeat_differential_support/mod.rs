@@ -3,6 +3,11 @@
 //
 //! Shared helpers for the OFFBEAT differential tests (gh:#1393): fixture
 //! parsing, ulp distance and per-model statistics.
+//!
+//! Each `offbeat_differential_*` test binary compiles this module on its own
+//! and uses a different subset of it, so an item one binary leaves unused is
+//! used by another.
+#![allow(dead_code)]
 
 use std::collections::BTreeMap;
 
