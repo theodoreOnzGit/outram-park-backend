@@ -689,8 +689,13 @@ pub fn run_keff_reactor_physics(
     }
 
     // ── Leakage: per-bin spectrum, group sums, total ─────────────────────────
+    // The leakage bins are flushed raw in every mode: `normalise_tallies` divides
+    // the tally batch only (`transport_csg.rs`, gh:#675), so leakage keeps the
+    // per-history divisor. With `per_source` here (1.0 since 2026-11-20) the
+    // vacuum fast pin cell read 9665 leaked per source neutron (2026-11-22).
+    let leak_per_source = config.keff.n_particles.max(1) as f64;
     let leak_spec: Vec<Estimate> = (0..n_e)
-        .map(|e| bin_estimate(&leak_bins[e], n_active, per_source))
+        .map(|e| bin_estimate(&leak_bins[e], n_active, leak_per_source))
         .collect();
     let mut l_group = [Vec::<Estimate>::new(), Vec::new(), Vec::new()];
     for e in 0..n_e {
