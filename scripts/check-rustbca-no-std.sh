@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Proves that boon-lay's copy of RustBCA (crates/boon-lay/src/rustbca/) is
+# Proves that the RustBCA copy (crates/kembangan/src/rustbca/, moved from
+# boon-lay 2026-11-22, gh:#1699) is
 # no_std + alloc, by compiling that exact module tree as a `#![no_std]` library.
 #
 # Why a separate harness: boon-lay itself is a std crate, so building boon-lay
@@ -62,7 +63,7 @@ cat > "$H/src/lib.rs" <<EOF
 #![no_std]
 extern crate alloc;
 
-#[path = "$ROOT/crates/boon-lay/src/rustbca/mod.rs"]
+#[path = "$ROOT/crates/kembangan/src/rustbca/mod.rs"]
 pub mod rustbca;
 EOF
 

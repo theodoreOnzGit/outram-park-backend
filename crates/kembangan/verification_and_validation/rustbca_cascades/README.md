@@ -1,5 +1,7 @@
 # RustBCA cascades in an HTR-10 TRISO particle: a cost probe
 
+> **MOVED 2026-11-22 (gh:#1699):** this record moved from `boon-lay` to `kembangan` with the RustBCA copy. Results below were measured as `boon_lay::rustbca`, the same code, and are kept as run.
+
 > **Research, education and V&V only.** Fission-fragment ranges below are
 > **illustrative**. They have not been compared with measured data.
 

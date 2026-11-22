@@ -17,7 +17,8 @@ The standalone source lives at:
 
 Without its default `std` feature this crate is `no_std` + `alloc`, checked on
 a bare-metal target by `scripts/check-nostd.sh` (and the RustBCA copy alone by
-`scripts/check-rustbca-no-std.sh`). Keep it that way:
+`scripts/check-rustbca-no-std.sh`; the copy moved to `kembangan` 2026-11-22,
+gh:#1699). Keep it that way:
 
 - New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
   glob (outside `src/rustbca/`, whose files import `alloc` items by name).
@@ -108,6 +109,12 @@ electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
   run on 2026-10-16; its record is in
   `verification_and_validation/rustbca_cascades/`. A fragment cascade costs
   1.5–2 s on one desktop core.
+- **MOVED 2026-11-22 (gh:#1699, maintainer direction):** the RustBCA copy
+  is now `kembangan::rustbca` (`crates/kembangan/src/rustbca/`), with its
+  differential test, the cost-probe example and both V&V records.
+  `boon_lay::rustbca` re-exports it and `rustbca-std` forwards to
+  kembangan's; `boon-lay -> kembangan`, never the reverse. The rules in the
+  two bullets here now apply in kembangan.
 - **Keep the copy a copy.** Make changes to RustBCA itself in `src/rustbca/`
   only when they are needed (no_std, a bug), and record each one in the module
   docs' numbered list. Physics boon-lay adds on top, such as a layered-sphere

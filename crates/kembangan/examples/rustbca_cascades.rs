@@ -10,10 +10,10 @@
 //! primary's range, as a sanity check on the physics and as the first,
 //! UNVALIDATED look at fragment ranges.
 //!
-//! Run: `cargo run --release -j 6 -p boon-lay --example rustbca_cascades`
+//! Run: `cargo run --release -j 6 -p kembangan --example rustbca_cascades`
 //! (`RUSTBCA_CASCADES_SCALE=0.25` runs a quarter of the cascades). Single
 //! thread, by design: a per-cascade time is the quantity.
-//! Tests of the helpers: `cargo test --release -j 6 -p boon-lay --example rustbca_cascades`.
+//! Tests of the helpers: `cargo test --release -j 6 -p kembangan --example rustbca_cascades`.
 //!
 //! **Fragment results are ILLUSTRATIVE.** RustBCA's high-energy electronic
 //! stopping is Bethe with the bare projectile charge `Za²`
@@ -188,7 +188,7 @@
 
 use std::time::Instant;
 
-use boon_lay::rustbca::{
+use kembangan::rustbca::{
     bca, geometry, material, particle, ElectronicStoppingMode, Geometry, Mesh1D, Options, AMU,
     ANGSTROM, EV, MICRON,
 };
@@ -347,8 +347,8 @@ fn build_material(stack: &[Layer]) -> material::Material<Mesh1D> {
         Z: species.iter().map(|s| s.z).collect(),
         m: species.iter().map(|s| s.m_u).collect(),
         interaction_index: vec![0; N_SLOTS],
-        surface_binding_model: boon_lay::rustbca::SurfaceBindingModel::AVERAGE,
-        bulk_binding_model: boon_lay::rustbca::BulkBindingModel::INDIVIDUAL,
+        surface_binding_model: kembangan::rustbca::SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: kembangan::rustbca::BulkBindingModel::INDIVIDUAL,
     };
     let geometry_input = geometry::Mesh1DInput {
         length_unit: "ANGSTROM".to_string(),

@@ -13,7 +13,7 @@
 positrons, coupled to `outram-mc-libs`' neutrons, for heating, ionisation and
 shielding. The one question it answers is **"Where do the gammas and betas go,
 and where do they deposit their energy?"** Ions (fission fragments, alphas,
-recoils) stay in `boon-lay`.
+recoils) stay in ~~`boon-lay`~~ `kembangan` (moved 2026-11-22 with the RustBCA copy, gh:#1699).
 
 ## Status
 

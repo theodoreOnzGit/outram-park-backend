@@ -9,7 +9,9 @@ AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
 
 This crate contains code translated from a COPYLEFT upstream: RustBCA
 (GPL-3.0-or-later), copied in whole as `src/rustbca/` with its own upstream
-LICENSE beside it; the TRISO-ATOPS material is MIT (`LICENSE.triso-atops`,
+LICENSE beside it (MOVED 2026-11-22 to the `kembangan` crate, GitHub issue
+#1699; boon-lay re-exports it, and 37 other files here keep GPL-3.0
+attribution headers); the TRISO-ATOPS material is MIT (`LICENSE.triso-atops`,
 `NOTICE.triso-atops`). A translation is a derivative work of that upstream's
 copyright, so those files CANNOT be relicensed. They stay GPL-3.0 and their
 SPDX headers are unchanged; no file header in this crate was touched by this

@@ -1081,14 +1081,9 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "fission-yields-data",
- "float-cmp 0.10.0",
- "geo",
- "getrandom 0.3.4",
  "image",
- "indicatif",
- "itertools 0.15.0",
+ "kembangan",
  "log",
- "miniz_oxide 0.8.9",
  "openmc-endf-8-depletion-lib-b",
  "outram-mc-libs",
  "petir",
@@ -1096,7 +1091,6 @@ dependencies = [
  "serde",
  "serde_json",
  "spin 0.10.1",
- "toml",
  "uom",
  "wgpu",
 ]
@@ -1149,6 +1143,7 @@ dependencies = [
  "boon-lay",
  "changi",
  "petir",
+ "punggol",
  "uom",
 ]
 
@@ -5651,6 +5646,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "kembangan"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "float-cmp 0.10.0",
+ "geo",
+ "getrandom 0.3.4",
+ "indicatif",
+ "itertools 0.15.0",
+ "miniz_oxide 0.8.9",
+ "njoy-outram-park-fork",
+ "outram-mc-libs",
+ "petir",
+ "punggol",
+ "rayon",
+ "serde",
+ "toml",
 ]
 
 [[package]]

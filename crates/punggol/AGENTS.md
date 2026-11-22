@@ -26,7 +26,10 @@ this crate as tracking particles through a real geometry.
   `outram-mc-libs` depend on this crate.
 - Coupled neutron-photon transport: `outram-mc-libs` records where secondary
   photons are born in its collision loop; PUNGGOL transports them.
-- Ions (fission fragments, alphas, recoil knock-ons) stay in `boon-lay`.
+- Ions (fission fragments, alphas, recoil knock-ons) stay in ~~`boon-lay`~~
+  **`kembangan`** (CHANGED 2026-11-22, gh:#1699: the RustBCA copy moved
+  there; `boon_lay::rustbca` re-exports it). PUNGGOL serves kembangan
+  (`kembangan -> punggol`), and buangkok (`buangkok -> punggol`).
 - **General numerics go to `petir`**: alias tables, RANMAR and RANLUX,
   interpolation. Do not grow a second copy here.
 

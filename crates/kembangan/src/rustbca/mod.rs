@@ -16,6 +16,11 @@
 
 //! # `rustbca` — a copy of RustBCA, made `no_std` + `alloc`
 //!
+//! **MOVED 2026-11-22 (gh:#1699, maintainer direction):** this copy now lives
+//! in `kembangan` (materials damage), and `boon_lay::rustbca` re-exports it.
+//! Notes below that say "boon-lay" describe where each change was made at
+//! the time; read them as this copy's history.
+//!
 //! **This module is a copy of RustBCA**, the binary-collision-approximation
 //! (BCA) Monte Carlo code for ion–material interactions by Jon Drobny and
 //! Davide Curreli. It is not boon-lay's own code. boon-lay re-exports it as

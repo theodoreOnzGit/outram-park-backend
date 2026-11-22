@@ -55,6 +55,7 @@ crates=(
   sembawang                   # gh:#1641
   bishan                      # gh:#1642
   punggol                     # gh:#1391 (created 2026-11-20)
+  kembangan                   # gh:#1699 (created 2026-11-22)
   pasir-ris                   # gh:#1642
   deck-based-open-source-visualisation-engine-for-reactors-dover  # gh:#1643
   # Already no_std, gated 2026-11-17 (after the gh:#1585 survey). petir,

@@ -40,7 +40,7 @@ backronym = "Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Ope
 # `std` (default, gh:#1593): without it the crate is `no_std` + `alloc`,
 # checked on a bare-metal target by `scripts/check-nostd.sh`.
 default = ["std"]
-std = ["changi/std"]
+std = ["changi/std", "punggol/std"]
 
 [dependencies]
 # `published::accident_dose_by_distance` re-exports changi's `AccidentCase`
@@ -57,6 +57,12 @@ changi = { workspace = true }
 # nothing Android- or wasm-hostile. The code-to-code test also uses petir's
 # `qag` as the checked-and-rejected alternative to `dqagse` (a mutation test).
 petir = { workspace = true }
+# Photon transport for dose (maintainer, 2026-11-22, gh:#1699): buangkok is
+# the one dose crate, so punggol's gamma transport feeds dose here (e.g. to
+# check or replace the analytic plume-shine and ground-shine integrals), and
+# changi keeps its no-dose boundary. Direction: buangkok -> punggol, never the
+# reverse. Not called yet. punggol is no_std, like this crate.
+punggol = { workspace = true }
 uom = { workspace = true }
 
 [dev-dependencies]

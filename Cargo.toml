@@ -140,6 +140,13 @@ members = [
     # source spectra only, no transport; the EGSnrc port is scaffolded as
     # placeholders. Depends on outram-mc-libs, never the reverse.
     "crates/punggol",
+    # kembangan — KEMBANGAN (Kinetics, Elasticity and Materials Behaviour for
+    # Aging in Nuclear Environments through Generative AI and Numerical
+    # Modelling): materials damage under irradiation. Created 2026-11-22
+    # (gh:#1699, maintainer direction) with the RustBCA copy moved from
+    # boon-lay. Serves boon-lay; punggol, outram-mc-libs, njoy and petir
+    # serve it.
+    "crates/kembangan",
     # bugis — BUGIS (Branding, User-interface and Graphics for Interactive
     # Simulators): the shared Gruvbox Dark/Light egui theme every simulator
     # uses (maintainer, 2026-11-02). egui only, never eframe.
@@ -645,6 +652,7 @@ petir                        = { path = "crates/petir",                        v
 changi                       = { path = "crates/changi",                       version = "0.0.3", default-features = false }
 bishan                       = { path = "crates/bishan",                       version = "0.0.3" }
 punggol                      = { path = "crates/punggol",                      version = "0.0.1", default-features = false }
+kembangan                    = { path = "crates/kembangan",                    version = "0.0.1", default-features = false }
 bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.2", default-features = false }
 sembawang                    = { path = "crates/sembawang",                    version = "0.0.2", default-features = false }

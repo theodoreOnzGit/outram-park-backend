@@ -67,6 +67,13 @@ are not validated against any accident.
 
 ## Charged particles: a copy of RustBCA (added 2026-10-16, GitHub #876)
 
+> **MOVED 2026-11-22 (gh:#1699, maintainer direction):** the RustBCA copy,
+> its differential test, `examples/rustbca_cascades.rs` and both V&V records
+> now live in [`kembangan`](../kembangan/README.md), the materials-damage
+> crate. `boon_lay::rustbca` is a re-export of `kembangan::rustbca`, so
+> callers are unchanged, and `rustbca-std` here forwards to kembangan's. The
+> paths in this section are now under `crates/kembangan/`.
+
 **`rustbca` is a copy of RustBCA, not boon-lay's own code, and boon-lay
 re-exports it** as `boon_lay::rustbca`. It is copied from `lcpp-org/RustBCA`
 ~~v3.0.0~~ (`a356280d`, which is v3.0.0 plus 17 upstream commits, corrected 2026-11-13 gh:#1426; GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
