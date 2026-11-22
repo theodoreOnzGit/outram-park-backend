@@ -205,3 +205,82 @@ scatter, criterion |z| <= 2 on the pooled bins. Expectation: the OpenMC first-ru
 mostly the reference's draw; the pooled worst |z| falls under 2 (about 1.2). If it stays above
 2.5 the noise reading is wrong and the collision-number binning (n_collision off by one at a
 secondary or after a split) is the suspect.
+
+## Amendment 6 -- the χ² gate, registered BEFORE any fresh run (gh:#1711, 2026-11-22)
+
+Written and committed before OpenMC or our code is run on any of the seeds below. Maintainer
+(gh:#1709/#1711, 2026-11-22): "Bin by bin shldnt make sense"; asked for "the chi sq gate".
+
+**Why the instrument changes.** A bin-by-bin |z| <= 2 gate fails a correct code with probability
+1 - 0.9545^k per run (24 % for k = 6, 17 % for k = 4, 13 % for k = 3), and the worst |z| of k bins
+is not a statistic whose distribution the gate states. The question each tally asks is "are the
+k bins of the two codes consistent with the same expectation, given both codes' noise?", which is
+a χ² test with k degrees of freedom. Nothing below is chosen from data: the seeds below have never
+been run by either code, and no result on them exists when this is committed.
+
+**Statistic (per tally, per seed).** For bin i, with each code's 20-batch mean and batch standard
+error (OpenMC: `std_dev` of the statepoint; ours: standard error over the 20 batch values),
+
+    z_i = (ours_i - openmc_i) / sqrt(se_ours_i^2 + se_openmc_i^2),   χ² = Σ_i z_i^2,
+
+summed over the bins with **nonzero combined variance**; k = the number of such bins. A bin whose
+combined variance is zero must hold the same value in both codes (both empty), else the tally
+**fails** outright (a deterministic disagreement). Expected k: COLLISION 6, LEGENDRE 4, WEIGHT 3
+(bins [0, 0.1) and [0.1, 0.25) are empty in both codes under roulette at 0.25, as on every seen
+seed).
+
+**p-value.** p = P(χ²_k >= χ²_obs) = Q(k/2, χ²_obs/2), the regularised upper incomplete gamma,
+taken from the workspace (`outram_foam_basic_lib::math::inc_gamma_ratio_q`, the DiDonato-Morris
+port of OpenFOAM's `incGammaRatio_Q`), checked in the test against the closed forms
+Q(1, x) = e^-x (k = 2) and Q(1/2, x) = erfc(sqrt x) (k = 1) before it is used.
+
+**Gate.** **Pass when p >= 0.01**, for every tally on every fresh seed, each judged separately.
+
+**Fresh seeds.** 2001, 2002, 2003, 2004 -- for both codes, one run per seed, 20 batches x 50 000
+histories, the committed scripts verbatim (`exp_b_collisions.py ... <seed>`,
+`exp_c_weight.py ... <seed>`, output suffix `_s<seed>`); ours with the same seed number:
+
+| test (new) | route | tallies (k) | per-seed gates |
+|---|---|---|---|
+| B driver | `trace_csg_history` + `history_events` | COLLISION (6), LEGENDRE (4) | 8 |
+| B real | `run_fixed_source_traced` | COLLISION (6) | 4 |
+| C real | `run_fixed_source_traced`, survival biasing | WEIGHT (3) | 4 |
+
+**Family-wise false alarm, stated now.** 16 per-seed gates at 0.01: a correct code fails at least
+one with probability 1 - 0.99^16 = 15 % (if the gates were independent; the B driver and real
+routes share the OpenMC reference per seed, so slightly less). A single failure at p just under 0.01
+is therefore not by itself evidence of a defect; it is reported, and the gate is **not** moved.
+
+**Pooled over the four seeds (reported, not gated).** (a) Σ_s χ²_s with Σ k dof (4k), p from the
+same Q. (b) A bias statistic sensitive to a shift that repeats on every seed: per bin
+z̄_i = Σ_s z_{s,i} / sqrt(4), χ²_bias = Σ_i z̄_i^2 with k dof. Per-seed sensitivity: COLLISION
+bin 4 has a combined se of about 0.0032 (0.43 %), so one seed flags a bias of roughly 1.3 % in a
+single bin; the 4-seed bias statistic flags roughly 0.6 %.
+
+**Assumptions the gate rests on, and how each would show.**
+1. *Bins are independent.* They are not, within one code: the collision-number bins of one history
+   share its flight (a history that scatters more fills higher bins and less of bin 0), and the
+   Legendre moments P0..P3 are sums over the same scatters. The two codes are independent of each
+   other, so each z_i is still N(0,1) and **E[χ²] = k holds**; correlation only widens the
+   distribution (var χ² = 2 Σ_ij ρ_ij², not 2k), so the 0.01 tail is entered more often than 1 %.
+   Detection, registered here as a report: the bin-to-bin correlation matrix of our batch values
+   (20 batches x 4 seeds), the variance-inflation factor Σ_ij ρ_ij² / k, and the spread of the four
+   per-seed χ² against 2k. If the factor exceeds about 2, the independence assumption is wrong
+   enough to matter and the finding is recorded; the gate is not re-derived on these seeds.
+2. *Batch standard errors are exact.* They are estimated from 20 batches each, so z_i is
+   t-like (Welch dof about 30-38) and E[z_i^2] is about 1.06: χ² runs about 6 % high on average.
+   Stated, not corrected.
+3. *Seeds are independent streams.* The seeds are new numbers; each code's stream for seed s is
+   not a shift of any seen seed's. Nearby LCG seeds are what 1001..1008 also used.
+
+**Prediction.** All 16 per-seed gates pass; χ²/k scattered around 1 (roughly 0.2-2.5 per tally);
+pooled Σχ² p > 0.05 for each tally; bias χ² p > 0.05 (the seen tendency of COLLISION bin 4,
+pooled z +1.2 to +1.5 on seeds 1001..1008, would show as z̄_4 of about +1 here if it is a real
+~0.2 % effect, below the sensitivity above). Variance-inflation factor: above 1 for both COLLISION
+and LEGENDRE (LEGENDRE larger, about 2, because P0 and P2 share every scatter), about 1 for WEIGHT.
+
+**The seen seeds (261, 1001..1008).** Their tests (`b_collision_and_legendre_vs_openmc`,
+`real_b_collision_vs_openmc`, `b_replicates_pooled_vs_openmc`, `real_b_replicates_pooled_vs_openmc`,
+`real_c_weight_vs_openmc`) become **reports**: they print the bin-by-bin z and the χ² and p of the
+same statistic, and gate nothing, because those seeds were used to make decisions (gh:#1709) and
+cannot test the gate. Reference data for them is kept.
