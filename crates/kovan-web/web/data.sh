@@ -108,7 +108,10 @@ case "$BACKEND" in
 esac
 SCIP_DIR="$root/target/kovan-scip"
 SCIP="$SCIP_DIR/index.scip"
-cargo build --release -q -j "$JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli
+# kovan-cli builds on every core on CI (maintainer, 2026-11-22: "ensure kovan
+# builds in parallel threads"); locally JOBS (PAGES_JOBS, default 3) applies.
+if [[ -n "${CI:-}" ]]; then KOVAN_JOBS="${KOVAN_JOBS:-$(nproc)}"; else KOVAN_JOBS="${KOVAN_JOBS:-$JOBS}"; fi
+cargo build --release -q -j "$KOVAN_JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli
 kc="$root/target/release/kovan-cli"
 trap '"$kc" lsp-daemon-stop --root "$root" >/dev/null 2>&1 || true' EXIT
 
