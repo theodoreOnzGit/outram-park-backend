@@ -553,6 +553,66 @@ fn real_a2_mesh_surface_vs_openmc() {
     }
 }
 
+/// **A mesh-surface filter combined with single-bin filters (gh:#1713).**
+///
+/// Methodology: on every Experiment A site (one analog particle of weight 1
+/// per run, so every per-bin sum is a small integer and summation order cannot
+/// change the bits), the live runner scores (a) the plain 6x2x1 mesh-surface
+/// tally, (b) `Energy [1e-5, 1e5, 2e7] eV x MeshSurface`, (c)
+/// `MeshSurface x Cell [1, 2]` (the two leaf cells, which cover the model).
+/// Pass: (b) summed over its energy bins and (c) summed over its cell bins
+/// equal (a) bit for bit on every site and face, (a) is not all zero, both
+/// energy groups receive some score, and the
+/// history driver (`score_history`, the oracle) gives (b) bit for bit too.
+/// Prediction (written before running, V&V README
+/// `mesh_surface_delta_and_filters_1713`, P3 and P5): exact everywhere.
+///
+/// Results (2026-11-22): see that README.
+#[test]
+fn real_mesh_surface_combined_with_energy_and_cell_sums_to_plain() {
+    let Some(m) = model() else { return };
+    let ms = || FilterKind::MeshSurface(MeshSurfaceFilter::new(MeshKind::Regular(mesh())).unwrap());
+    let plain = tally(vec![ms()], ScoreType::Current);
+    let by_e = tally(
+        vec![FilterKind::Energy(outram_mc_libs::tally::filter::EnergyFilter { bins: vec![1.0e-5, 1.0e5, 2.0e7] }), ms()],
+        ScoreType::Current,
+    );
+    let by_cell = tally(
+        vec![ms(), FilterKind::Cell(outram_mc_libs::tally::filter::CellFilter { cell_indices: vec![1, 2] })],
+        ScoreType::Current,
+    );
+    let n_ms = plain.bins.len();
+    let mut total = 0.0;
+    let mut in_group = [0.0f64; 2];
+    let mut in_cell = [0.0f64; 2];
+    for (i, s) in load_sites().iter().enumerate() {
+        let a = via_runner(m, &plain, s, &[], i);
+        let b = via_runner(m, &by_e, s, &[], i);
+        let c = via_runner(m, &by_cell, s, &[], i);
+        let b_driver = via_driver(m, &by_e, s, &[], i);
+        assert_eq!(b, b_driver, "site {i}: live and driver differ on Energy x MeshSurface");
+        for f in 0..n_ms {
+            let sum_e = b[f] + b[n_ms + f];
+            assert_eq!(sum_e.to_bits(), a[f].to_bits(), "site {i} face {f}: energy-summed {sum_e} vs plain {}", a[f]);
+            let sum_c = c[2 * f] + c[2 * f + 1];
+            assert_eq!(sum_c.to_bits(), a[f].to_bits(), "site {i} face {f}: cell-summed {sum_c} vs plain {}", a[f]);
+            for k in 0..2 {
+                in_group[k] += b[k * n_ms + f];
+                in_cell[k] += c[2 * f + k];
+            }
+            total += a[f];
+        }
+    }
+    println!("[mesh_surface x energy/cell] total plain current {total}, per energy group {in_group:?}, per cell {in_cell:?}");
+    assert!(total > 0.0, "the plain mesh-surface tally scored nothing");
+    // Measured 2026-11-22: groups [18, 38], cells [0, 56]. The sphere cell
+    // never scores: in this dilute model every mesh-surface event on these
+    // sites is a vacuum leak, made from the outer cell. So the cell split is
+    // checked for the sum only; the energy split also scores both bins.
+    assert!(in_group.iter().all(|&x| x > 0.0), "an energy group never scored: {in_group:?}");
+    assert_eq!(in_cell[1], total, "every score lands in the outer cell (see above)");
+}
+
 /// **The geometry, drawn from the assembled model** (AGENTS.md drawing rule),
 /// with the ported plotter (`geometry::plot`), PNGs committed beside the record:
 /// the xy slice at z = 0 through the three sphere centres, the xz slice at

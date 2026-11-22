@@ -2619,8 +2619,8 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 &hist,
                             );
                             score_mesh_surface_segment(
-                                batch, t, geom, &hist, cell_idx, e, w, ends_on, collides,
-                                r_flight, u, seg,
+                                batch, t, geom, &hist, cell_idx, leaf.universe, cell_instance,
+                                e, w, ends_on, collides, r_flight, u, seg,
                             );
                         }
                         if let Some(x) = extra.as_deref_mut() {
@@ -2630,8 +2630,8 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                     mxs.as_ref(), w, cell_instance, time_s, u, &hist,
                                 );
                                 score_mesh_surface_segment(
-                                    batch, t, geom, &hist, cell_idx, e, w, ends_on, collides,
-                                    r_flight, u, seg,
+                                    batch, t, geom, &hist, cell_idx, leaf.universe, cell_instance,
+                                    e, w, ends_on, collides, r_flight, u, seg,
                                 );
                             });
                         }
@@ -2642,6 +2642,37 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // is scored here. Both, and the history of this
                     // estimator: `physics::delta_tracking::handoff`.
                     TrackingMethod::Delta { .. } => {
+                        // ── Mesh-surface currents (gh:#1713; NEW WORK, not
+                        // upstream: OpenMC has no delta tracking). A delta
+                        // flight is still one straight line from `r_flight`
+                        // along `u`, bounded by the nearest surface, that ends
+                        // in a REAL collision at `d_col` or at that surface
+                        // (virtual collisions change neither `u` nor `E`), so
+                        // the raytrace `r_last_current -> end` is the surface
+                        // arm's, unchanged. This arm and the surface arm are
+                        // exclusive per flight, and `end_flight` below runs
+                        // once per flight for both, so nothing is scored twice
+                        // and the span continues across a hand-off.
+                        let seg = d_col.min(d_bound.distance);
+                        let ends_on = match d_bound.crossing {
+                            Crossing::Surface(i) => Some(i),
+                            Crossing::Lattice | Crossing::None => None,
+                        };
+                        let collides = d_col < d_bound.distance;
+                        if let Some(t) = tally {
+                            score_mesh_surface_segment(
+                                batch, t, geom, &hist, cell_idx, leaf.universe, cell_instance,
+                                e, w, ends_on, collides, r_flight, u, seg,
+                            );
+                        }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                                score_mesh_surface_segment(
+                                    batch, t, geom, &hist, cell_idx, leaf.universe, cell_instance,
+                                    e, w, ends_on, collides, r_flight, u, seg,
+                                );
+                            });
+                        }
                         if let (Some(t), true) = (
                             tally,
                             delta_estimator == DeltaTallyEstimator::RealCollision

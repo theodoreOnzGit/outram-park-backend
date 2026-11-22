@@ -23481,9 +23481,12 @@ apart, and no recorded comparison contains one.
 
 Scores supported: [`ScoreType::Flux`] on segments (`w * d`) and
 [`ScoreType::Current`] on crossings and, for a mesh-surface tally, on
-segments. A tally with a mesh-surface filter must carry no other filter
+segments. ~~A tally with a mesh-surface filter must carry no other filter
 (one event can match several faces; combining would need a product over
-multi-match filters). Time is not reconstructed (`time = 0`).
+multi-match filters).~~ **CORRECTED 2026-11-22 (gh:#1713):** a mesh-surface
+filter combines with single-bin filters as upstream's `FilterBinIter` does
+([`mesh_surface_bins`]); a second multi-match filter beside it is still
+refused. Time is not reconstructed (`time = 0`).
 
 ```rust
 pub mod history_events { /* ... */ }
@@ -24062,14 +24065,20 @@ pub fn score_crossing(batch: &mut [f64], tally: &crate::tally::tally::Tally, geo
 
 - `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
 
-Score the faces one flight crosses into `batch` for a tally whose only
+~~Score the faces one flight crosses into `batch` for a tally whose only
 filter is a mesh-surface filter and whose score is `Current`
-(`filter_meshsurface.cpp`); any other tally is left alone. `crossing` is the
-surface the flight ended on (`None` for a collision or a lattice boundary),
-`collides` whether it ended in a collision.
+(`filter_meshsurface.cpp`); any other tally is left alone.~~ **CORRECTED
+2026-11-22 (gh:#1709, gh:#1713; hand-edited, mirror not regenerated):** scores
+one raytrace from `EventHistory::r_last_current` to where the flight
+collides, leaks or changes direction (`mesh_surface_span`), for a tally with
+a mesh-surface filter, any single-bin filters beside it
+(`mesh_surface_bins`) and a `Current` score; called from the surface- and the
+delta-tracking arm. `crossing` is the surface the flight ended on (`None` for
+a collision or a lattice boundary), `collides` whether it ended in a
+collision. See the source doc comment for the full text.
 
 ```rust
-pub fn score_mesh_surface_segment(batch: &mut [f64], tally: &crate::tally::tally::Tally, geom: &crate::geometry::geometry::Geometry, hist: &EventHistory, cell_idx: usize, energy: f64, weight: f64, crossing: Option<usize>, collides: bool, r_flight: crate::geometry::position::Position, u: crate::geometry::position::Direction, d: f64) { /* ... */ }
+pub fn score_mesh_surface_segment(batch: &mut [f64], tally: &crate::tally::tally::Tally, geom: &crate::geometry::geometry::Geometry, hist: &EventHistory, cell_idx: usize, universe_idx: usize, cell_instance: Option<usize>, energy: f64, weight: f64, crossing: Option<usize>, collides: bool, r_flight: crate::geometry::position::Position, u: crate::geometry::position::Direction, d: f64) { /* ... */ }
 ```
 
 #### Function `history_events`
