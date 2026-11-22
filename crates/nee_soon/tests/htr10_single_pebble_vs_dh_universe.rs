@@ -72,8 +72,24 @@
 //!
 //! ## Results
 //!
-//! **Like for like: not yet recorded.** The default-budget and 10000 × \[50 + 200\]
-//! runs were started on 2026-11-22; their numbers go here when they finish.
+//! **2026-11-22, like for like**, seed 20261013, 4-core Intel Xeon @
+//! 2.30 GHz, 4 threads, 15.7 GiB RAM:
+//!
+//! | budget | CSG pebble (8345 TRISO, DH packing) | DhUniverse pebble | CSG − DH |
+//! |---|---|---|---|
+//! | 4000 × \[10 + 50\] (the default) | 1.68625 ± 0.00185 (415 s, 0 lost) | 1.68850 ± 0.00197 (52 s) | **−225 ± 271 pcm (−0.83σ): passes** |
+//! | 10000 × \[50 + 200\] | 1.68863 ± 0.00056 (4026 s, 0 lost) | 1.68732 ± 0.00059 (313 s) | **+131 ± 81 pcm (+1.62σ): passes** |
+//!
+//! The prediction holds at both budgets: on the same geometry the two
+//! trackers agree within 3σ, and at high statistics a tracker defect larger
+//! than about 250 pcm (3σ) is excluded. The +1.6σ is not resolved; a
+//! second seed or batch-means σ (#850) would say whether it is noise.
+//! The DH arm repeats bit for bit the 1.68732 ± 0.00059 of the earlier
+//! 10000 × \[50 + 200\] run (same packing, seed and settings), a
+//! reproducibility check on it. Source convergence: 50 inactive batches
+//! of 10000 brought the Shannon entropy to its plateau in the earlier
+//! high-statistics run on this pebble; this run did not print the entropy,
+//! so that was not re-checked here.
 //!
 //! ~~**2026-10-13 (old, not like for like), 4000 × \[10 + 50\]:** CSG
 //! single pebble 1.68619 ± 0.00223 (0 lost), DhUniverse 1.68517 ± 0.00266,

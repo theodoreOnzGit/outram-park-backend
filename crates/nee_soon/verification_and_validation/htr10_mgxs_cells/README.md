@@ -108,6 +108,32 @@ face to count.
 ## 3. The CSG single pebble against `DhUniverse::pebble`
 
 Test: `tests/htr10_single_pebble_vs_dh_universe.rs` (gated by `long-tests`).
+**Like for like since 2026-11-22 (gh:#1707):** both arms use the **same
+geometry**: DhUniverse's own random packing (8345 TRISO) in its reflective
+sphere (r = 3.7221 cm), built for CSG by `single_pebble_like_dh_universe`.
+They differ only in the tracking code. The materials and data are the same.
+Pass: |Δk| < 3σ combined. Prediction, made before the run: Δk consistent
+with zero.
+
+**Result** (2026-11-22, seed 20 261 013, 4-core Xeon @ 2.30 GHz):
+
+| budget | CSG pebble | DhUniverse pebble | CSG − DH |
+|---|---|---|---|
+| 4000 x [10 + 50] (default) | 1.68625 ± 0.00185 (415 s, 0 lost) | 1.68850 ± 0.00197 (52 s) | **−225 ± 271 pcm (−0.83σ): passes** |
+| 10000 x [50 + 200] | 1.68863 ± 0.00056 (4026 s, 0 lost) | 1.68732 ± 0.00059 (313 s) | **+131 ± 81 pcm (+1.62σ): passes** |
+
+At high statistics, a tracker difference larger than about 250 pcm is
+excluded.
+
+~~**Superseded (not like for like):**~~ The 2026-10-13 version compared the
+cubic lattice in a reflective cube with this random packing in the sphere.
+That mixes geometry with method, which the comparison must not do. The
+earlier text follows, struck through:
+
+<details><summary>2026-10-13 record (superseded)</summary>
+
+
+Test: `tests/htr10_single_pebble_vs_dh_universe.rs` (gated by `long-tests`).
 The methodology is in its module docs. In short, it uses the same data and
 materials in both arms. The CSG arm is the cubic lattice in a reflective cube.
 The DH arm is random packing in a reflective equal-volume sphere
@@ -127,6 +153,11 @@ The two independently built pebbles agree. **This budget does not resolve
 the prediction**, because σ = 347 pcm exceeds the 300 pcm bound. What it does
 exclude, at about 3σ, is a gross build defect, such as #316's TRISO-count
 error (+353 pcm on the core). A probe at 500 x [2 + 3] gave −12 ± 1864 pcm.
+
+At 10000 x [50 + 200] that geometry-mixed comparison gave −455 ± 82 pcm
+(2026-11-22, gh:#1707).
+
+</details>
 
 ## 4. Cell-size convergence, 1 / 7 / 19 tiles
 
