@@ -427,6 +427,12 @@ fn settings(n_particles: usize, seed: u64, vr: VarianceReduction) -> FixedSource
         temperature_k: TEMP,
         seed,
         variance_reduction: vr,
+        // Raw per-batch sums: every total, FOM and recorded number in this
+        // test divides by particle counts itself, as written before
+        // `normalise_tallies` became the default (gh:#675, 2026-11-20). With the
+        // default the two arms' different batch structures put a factor of ~50
+        // between their "flux per source particle" (2026-11-22).
+        normalise_tallies: false,
         ..FixedSourceSettings::default()
     }
 }

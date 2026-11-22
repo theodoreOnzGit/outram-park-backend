@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v22.22.0",
+  "node": "v12.22.9",
   "style": "kovan-literature/data/csl/apa.csl",
   "locale": "kovan-literature/data/csl/locales-en-US.xml"
  },
@@ -41,6 +41,7 @@
   "cohen1991commoncold",
   "coles2022parametric",
   "conlinjeremylloyd2017njoy21",
+  "crank1975diffusion",
   "Danonetal2005",
   "de2021ai",
   "devkota2009lagrangian",
@@ -184,6 +185,7 @@
   "openfoam_cavity_tutorial",
   "orgogozo2014open",
   "palmblad2026agentic",
+  "patankar1980numerical",
   "pessiglione2025fatigue",
   "sciantix2344575",
   "price2012golden",
@@ -210,6 +212,7 @@
   "spinellis2009evaluating",
   "squires2012thermal",
   "steward2025neurobiology",
+  "stoyer2026atops",
   "SubeljBajec2011a",
   "SubeljBajec2011b",
   "SubeljBajec2012",
@@ -591,6 +594,11 @@
    "parenthetical": "(Conlin et al., 2017)",
    "narrative": "Conlin et al. (2017)",
    "bibliography": "<div class=\"csl-entry\">Conlin, J. L., Kahler, A. C., McCartney, A. P., &#38; Rehn, D. A. (2017). NJOY21: Next generation nuclear data processing capabilities. <i>EPJ Web of Conferences</i>, <i>146</i>, 09040. https://doi.org/10.1051/epjconf/201714609040</div>"
+  },
+  "crank1975diffusion": {
+   "parenthetical": "(Crank, 1975)",
+   "narrative": "Crank (1975)",
+   "bibliography": "<div class=\"csl-entry\">Crank, J. (1975). <i>The Mathematics of Diffusion</i> (2nd ed.). Clarendon Press.</div>"
   },
   "de2021ai": {
    "parenthetical": "(De Cremer &#38; Kasparov, 2021)",
@@ -1252,6 +1260,11 @@
    "narrative": "Palmblad et al. (2026)",
    "bibliography": "<div class=\"csl-entry\">Palmblad, M., Ragland, J. M., &#38; Neely, B. A. (2026). Agentic AI-assisted coding offers a unique opportunity to instill epistemic grounding during software development. <i>arXiv Preprint arXiv:2604.21744</i>.</div>"
   },
+  "patankar1980numerical": {
+   "parenthetical": "(Patankar, 1980)",
+   "narrative": "Patankar (1980)",
+   "bibliography": "<div class=\"csl-entry\">Patankar, S. V. (1980). <i>Numerical Heat Transfer and Fluid Flow</i>. Hemisphere.</div>"
+  },
   "pessiglione2025fatigue": {
    "parenthetical": "(Pessiglione et al., 2025)",
    "narrative": "Pessiglione et al. (2025)",
@@ -1361,6 +1374,11 @@
    "parenthetical": "(Steward et al., 2025)",
    "narrative": "Steward et al. (2025)",
    "bibliography": "<div class=\"csl-entry\">Steward, G., Looi, V., &#38; Chib, V. S. (2025). The Neurobiology of Cognitive Fatigue and Its Influence on Effort-Based Choice. <i>The Journal of Neuroscience</i>, <i>45</i>(24), e1612242025. https://doi.org/10.1523/JNEUROSCI.1612-24.2025</div>"
+  },
+  "stoyer2026atops": {
+   "parenthetical": "(Stoyer et al., 2026)",
+   "narrative": "Stoyer et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Stoyer, B., Raichart, A., &#38; Petti, D. (2026). TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors. <i>Nuclear Technology</i>. https://doi.org/10.1080/00295450.2026.2671624</div>"
   },
   "sun2026quality": {
    "parenthetical": "(X. Sun et al., 2026)",
