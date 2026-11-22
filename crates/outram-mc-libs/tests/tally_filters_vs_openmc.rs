@@ -22,9 +22,13 @@
 //! `tally::history_events` driver.~~ **CORRECTED 2026-11-18 (gh:#261,
 //! maintainer-confirmed wiring):** every Experiment A filter except CELL_INSTANCE
 //! also has a `real_*` test that runs the real fixed-source runner
-//! (`run_fixed_source_traced`); the driver tests are kept as the oracle. The
+//! (`run_fixed_source_traced`); the driver tests are kept as the oracle. ~~The
 //! mesh-surface `real_*` tests pin the **count** of tie misses (16 and 1), they
-//! do not assert zero. Experiments B (COLLISION) and C (WEIGHT, survival
+//! do not assert zero.~~ **CHANGED 2026-11-22 (gh:#1709):** the tie misses came
+//! from scoring mesh-surface currents per geometry segment with a re-derived
+//! crossing count; upstream raytraces once from `r_last_current` with
+//! `raytrace_mesh`. Both are now ported, and all four mesh-surface tests
+//! (driver and real) assert zero misses and measure worst 0. Experiments B (COLLISION) and C (WEIGHT, survival
 //! biasing) at the end of the file are statistical.
 //!
 //! Pass criterion (fixed before the run, `prediction_before_measuring.md`,
@@ -522,24 +526,30 @@ fn real_mu_surface_vs_openmc() {
     }
 }
 
-/// Registered 6x2x1 mesh: the 16 tie misses of the driver version are
-/// predicted to recur here (amendment 3); the test pins the COUNT, not zero.
+/// Registered 6x2x1 mesh. ~~The 16 tie misses of the driver version are
+/// predicted to recur here (amendment 3); the test pins the COUNT, not zero.~~
+/// **CHANGED 2026-11-22 (gh:#1709):** with upstream's `raytrace_mesh` ported
+/// and the raytrace spanning `r_last_current` to collision / leak / reflection
+/// as upstream does (not one per geometry segment), 0 misses, worst 0: pinned
+/// at zero, moved from 16.
 #[test]
 fn real_mesh_surface_vs_openmc() {
     let f = MeshSurfaceFilter::new(MeshKind::Regular(mesh())).unwrap();
     let t = tally(vec![FilterKind::MeshSurface(f)], ScoreType::Current);
     if let Some(r) = run_all("mesh_surface", &t, &[], false, true, None) {
-        assert_eq!(r.n_miss, 16, "mesh-surface tie misses (record: README)");
+        assert_eq!(r.n_miss, 0, "mesh-surface misses (gh:#1709; record: README)");
     }
 }
 
-/// A2 mesh: the 1 box-edge tie recurs (amendment 2 and 3).
+/// A2 mesh. ~~The 1 box-edge tie recurs (amendment 2 and 3).~~ **CHANGED
+/// 2026-11-22 (gh:#1709):** 0 misses with the `raytrace_mesh` port; pinned at
+/// zero, moved from 1.
 #[test]
 fn real_a2_mesh_surface_vs_openmc() {
     let f = MeshSurfaceFilter::new(MeshKind::Regular(mesh_a2())).unwrap();
     let t = tally(vec![FilterKind::MeshSurface(f)], ScoreType::Current);
     if let Some(r) = run_all("A2_mesh_surface", &t, &[], false, true, None) {
-        assert_eq!(r.n_miss, 1, "mesh-surface tie miss (record: README)");
+        assert_eq!(r.n_miss, 0, "mesh-surface misses (gh:#1709; record: README)");
     }
 }
 
@@ -690,6 +700,15 @@ fn z_report(name: &str, batches: &[Vec<Vec<f64>>], ti: usize, theirs: &[(f64, f6
     (theirs.len(), worst)
 }
 
+/// First run of Experiment B, gate |z| <= 2 on every bin.
+///
+/// ~~A miss leaves the test red.~~ **CHANGED 2026-11-22 (gh:#1709, maintainer
+/// decision: "Follow registered plan"):** one run gated bin by bin on 10 bins
+/// fails a correct code about 37 % of the time (1 - 0.9545^10). The
+/// registered protocol reports a first-run miss and decides it with the 8-seed
+/// pooled replication at the same |z| <= 2, so the test now does exactly that.
+/// The threshold is unchanged. Recorded: first run 2.87 (collision bin 4),
+/// pooled 1.54 (collision) and 1.19 (legendre); the README has the numbers.
 #[test]
 fn b_collision_and_legendre_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
@@ -702,8 +721,18 @@ fn b_collision_and_legendre_vs_openmc() {
     let (n1, w1) = z_report("collision", &batches, 0, &load_stat("collision"));
     let (n2, w2) = z_report("legendre", &batches, 1, &load_stat("legendre"));
     println!("[B] collision: {n1} bins worst |z| {w1:.2}; legendre: {n2} bins worst |z| {w2:.2}");
-    assert!(w1 <= 2.0, "collision filter worst |z| {w1}");
-    assert!(w2 <= 2.0, "legendre filter worst |z| {w2}");
+    if w1 <= 2.0 && w2 <= 2.0 {
+        return;
+    }
+    // The registered protocol (`prediction_before_measuring.md`, amendment 2,
+    // fixed before the replication was run): a first-run miss is reported and
+    // decided by the 8-seed pooled replication at the same |z| <= 2 (gh:#1709).
+    let pooled = b_pooled_worst(&geom, &mats, nuc);
+    println!("[B] first run missed (collision {w1:.2}, legendre {w2:.2}); pooled replication {pooled:?}");
+    assert!(
+        pooled[0] <= 2.0 && pooled[1] <= 2.0,
+        "first run worst |z| collision {w1} legendre {w2}, and the registered pooled replication {pooled:?}"
+    );
 }
 
 fn load_stat_file(stem: &str) -> Vec<f64> {
@@ -718,6 +747,12 @@ fn load_stat_file(stem: &str) -> Vec<f64> {
 fn b_replicates_pooled_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
     let nuc = &model().unwrap().nuclides;
+    let worst = b_pooled_worst(&geom, &mats, nuc);
+    assert!(worst[0] <= 2.0 && worst[1] <= 2.0, "pooled worst |z| {worst:?}");
+}
+
+/// The pooled worst |z| of the Experiment B replication (collision, legendre).
+fn b_pooled_worst(geom: &Geometry, mats: &[Material], nuc: &[Nuclide]) -> [f64; 2] {
     let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
     let tl = tally(vec![FilterKind::Legendre(LegendreFilter { order: 3 })], ScoreType::Scatter);
     let names = ["collision", "legendre"];
@@ -726,7 +761,7 @@ fn b_replicates_pooled_vs_openmc() {
     let mut theirs: Vec<Vec<Vec<f64>>> = vec![vec![Vec::new(); 6], vec![Vec::new(); 4]];
     for k in 1..=8u64 {
         let seed = 1000 + k;
-        let batches = run_b(&geom, &mats, nuc, &[tc.clone(), tl.clone()], 50_000, seed);
+        let batches = run_b(geom, mats, nuc, &[tc.clone(), tl.clone()], 50_000, seed);
         for ti in 0..2 {
             let om = load_stat_file(&format!("expB_{}_s{seed}", names[ti]));
             for b in 0..nb[ti] {
@@ -753,7 +788,7 @@ fn b_replicates_pooled_vs_openmc() {
         }
     }
     println!("[B pooled] collision worst |z| {:.2}, legendre worst |z| {:.2}", worst[0], worst[1]);
-    assert!(worst[0] <= 2.0 && worst[1] <= 2.0, "pooled worst |z| {worst:?}");
+    worst
 }
 
 // ── Experiments B and C THROUGH THE REAL TRANSPORT (gh:#261, 2026-11-18) ──────
@@ -816,6 +851,12 @@ fn z_pairs(name: &str, ours: &[(f64, f64)], theirs: &[(f64, f64)]) -> f64 {
     worst
 }
 
+/// First run of Experiment B through the real runner, gate |z| <= 2 on every
+/// bin. **CHANGED 2026-11-22 (gh:#1709, maintainer decision):** a miss falls
+/// back to the replication registered in amendment 5 (8 seed pairs pooled,
+/// same |z| <= 2), as for [`b_collision_and_legendre_vs_openmc`]; 6 bins fail
+/// a correct code about 24 % of the time in one run. Recorded: first run
+/// 2.56, pooled 1.39.
 #[test]
 fn real_b_collision_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
@@ -826,7 +867,15 @@ fn real_b_collision_vs_openmc() {
     println!("[real B] 1e6 histories in {:.1} s (4 logical cores, single thread, shared host)", t0.elapsed().as_secs_f64());
     let w = z_pairs("collision", &ours, &load_stat("collision"));
     println!("[real B] collision worst |z| {w:.2}");
-    assert!(w <= 2.0, "collision filter through real transport: worst |z| {w}");
+    if w <= 2.0 {
+        return;
+    }
+    // The registered protocol (amendment 5, fixed before the replication was
+    // run): a first-run miss is decided by the 8-seed pooled replication at the
+    // same |z| <= 2 (gh:#1709).
+    let pooled = real_b_pooled_worst(&geom, &mats, nuc);
+    println!("[real B] first run missed ({w:.2}); pooled replication {pooled:.2}");
+    assert!(pooled <= 2.0, "first run worst |z| {w}, and the registered pooled replication {pooled}");
 }
 
 /// Replication plan of amendment 5 (fixed before it was run): 8 seed pairs,
@@ -835,12 +884,18 @@ fn real_b_collision_vs_openmc() {
 fn real_b_replicates_pooled_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
     let nuc = &model().unwrap().nuclides;
+    let worst = real_b_pooled_worst(&geom, &mats, nuc);
+    assert!(worst <= 2.0, "pooled worst |z| {worst}");
+}
+
+/// The pooled worst |z| of the real-transport Experiment B replication.
+fn real_b_pooled_worst(geom: &Geometry, mats: &[Material], nuc: &[Nuclide]) -> f64 {
     let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
     let mut ours: Vec<Vec<f64>> = vec![Vec::new(); 6];
     let mut theirs: Vec<Vec<f64>> = vec![Vec::new(); 6];
     for k in 1..=8u64 {
         let seed = 1000 + k;
-        let run = real_stats(&geom, &mats, nuc, &tc, Default::default(), 1.0e6, 50_000, seed);
+        let run = real_stats(geom, mats, nuc, &tc, Default::default(), 1.0e6, 50_000, seed);
         let om = load_stat_file(&format!("expB_collision_s{seed}"));
         for b in 0..6 {
             ours[b].push(run[b].0);
@@ -862,7 +917,7 @@ fn real_b_replicates_pooled_vs_openmc() {
         worst = worst.max(z.abs());
     }
     println!("[real B pooled] collision worst |z| {worst:.2}");
-    assert!(worst <= 2.0, "pooled worst |z| {worst}");
+    worst
 }
 
 fn model_c() -> Option<(Geometry, Vec<Material>, Vec<Nuclide>)> {

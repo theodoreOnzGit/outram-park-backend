@@ -48,7 +48,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use crate::geometry::position::Position;
+use crate::geometry::position::{Direction, Position};
 use crate::tally::mesh_unstructured::UnstructuredMeshExt;
 
 pub use outram_blender::spatial_mesh::*;
@@ -214,10 +214,93 @@ pub trait RegularMeshExt {
     /// crossings on all three axes and sorts them, which is equivalent for a
     /// **uniform** grid (where every plane position is known in closed form)
     /// and avoids reproducing the `TINY_BIT` nudging that the incremental form
-    /// needs. `surface_crossings_agree_with_an_incremental_walk` checks the
+    /// needs. ~~`surface_crossings_agree_with_an_incremental_walk` checks the
     /// two against each other on randomised tracks rather than asserting the
-    /// equivalence.
+    /// equivalence.~~ **CORRECTED 2026-11-22 (gh:#1709):** no such test
+    /// existed. The equivalence does **not** hold at ties (a track ending on a
+    /// plane); off ties it is checked against the port of the incremental walk,
+    /// [`Self::surface_bins_crossed_openmc`], by
+    /// `tests/mesh_surface_raytrace_1709.rs`. The mesh-surface filter uses the
+    /// port.
     fn surface_bins_crossed(&self, r0: Position, r1: Position) -> Vec<usize>;
+    /// Every surface bin the track `r0 -> r1` (direction `u`) crosses, in order
+    /// of travel: a **port** of `StructuredMesh::raytrace_mesh` with its
+    /// `SurfaceAggregator` (`src/mesh.cpp:1312-1488`, OpenMC `8f79d9d0`), and
+    /// `RegularMesh::distance_to_grid_boundary` (`:1667`) and
+    /// `get_index_in_direction` (`:1640`) for a 3-D regular mesh (gh:#1709).
+    ///
+    /// Beside the re-derivation [`Self::surface_bins_crossed`], which counts
+    /// crossings on the open interval and so differs from upstream exactly when
+    /// a track ends on a mesh plane. Upstream instead locates the start element
+    /// `TINY_BIT` along `u`, walks the planes incrementally from `r0`, and stops
+    /// once the distance travelled reaches `|r1 - r0|` (a crossing exactly at
+    /// `r1` is not counted). [`MeshSurfaceFilter`] uses this one.
+    ///
+    /// [`MeshSurfaceFilter`]: crate::tally::filter_extra::MeshSurfaceFilter
+    fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Vec<usize>;
+}
+
+/// OpenMC's `TINY_BIT` (`include/openmc/constants.h`).
+const TINY_BIT: f64 = 1.0e-8;
+
+/// `RegularMesh::get_index_in_direction` (`src/mesh.cpp:1640`): the 1-based
+/// index along axis `i`, 0 below the mesh and `shape + 1` above it.
+fn regular_index_in_direction(m: &RegularMesh, r: f64, i: usize, width: f64) -> i64 {
+    let shape = m.dimension[i] as i64;
+    if r <= m.lower_left[i] {
+        return if r == m.lower_left[i] { 1 } else { 0 };
+    }
+    if r >= m.upper_right[i] {
+        return if r == m.upper_right[i] { shape } else { shape + 1 };
+    }
+    ((r - m.lower_left[i]) / width).ceil() as i64
+}
+
+/// `StructuredMesh::get_indices` (`src/mesh.cpp:1180`) on a 3-D regular mesh.
+fn regular_indices(m: &RegularMesh, r: [f64; 3], width: [f64; 3]) -> ([i64; 3], bool) {
+    let mut ijk = [0i64; 3];
+    let mut in_mesh = true;
+    for i in 0..3 {
+        ijk[i] = regular_index_in_direction(m, r[i], i, width[i]);
+        if ijk[i] < 1 || ijk[i] > m.dimension[i] as i64 {
+            in_mesh = false;
+        }
+    }
+    (ijk, in_mesh)
+}
+
+/// `MeshDistance` (`include/openmc/mesh.h:314`); the default is upstream's
+/// `{0, false, INFTY}`.
+#[derive(Clone, Copy)]
+struct MeshDistance {
+    next_index: i64,
+    max_surface: bool,
+    distance: f64,
+}
+
+/// `RegularMesh::distance_to_grid_boundary` (`src/mesh.cpp:1667`). The `l`
+/// argument is unused upstream for a regular mesh, so it is not taken here.
+fn regular_distance_to_grid_boundary(
+    m: &RegularMesh,
+    ijk: [i64; 3],
+    i: usize,
+    r0: [f64; 3],
+    u: [f64; 3],
+    width: [f64; 3],
+) -> MeshDistance {
+    let mut d = MeshDistance { next_index: ijk[i], max_surface: false, distance: f64::INFINITY };
+    if u[i].abs() < FP_PRECISION {
+        return d;
+    }
+    d.max_surface = u[i] > 0.0;
+    if d.max_surface && ijk[i] <= m.dimension[i] as i64 {
+        d.next_index += 1;
+        d.distance = ((m.lower_left[i] + ijk[i] as f64 * width[i]) - r0[i]) / u[i];
+    } else if !d.max_surface && ijk[i] >= 1 {
+        d.next_index -= 1;
+        d.distance = ((m.lower_left[i] + (ijk[i] - 1) as f64 * width[i]) - r0[i]) / u[i];
+    }
+    d
 }
 
 impl RegularMeshExt for RegularMesh {
@@ -330,6 +413,87 @@ impl RegularMeshExt for RegularMesh {
             }
         }
         bins
+    }
+
+    fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Vec<usize> {
+        let mut bins = Vec::new();
+        let width = self.width();
+        // Compute the length of the entire track.
+        let dr = [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z];
+        let total_distance = (dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2]).sqrt();
+        if total_distance == 0.0 {
+            return bins;
+        }
+        let local_r = [r0.x, r0.y, r0.z];
+        let uu = [u.u, u.v, u.w];
+        let at = |l: f64| [local_r[0] + l * uu[0], local_r[1] + l * uu[1], local_r[2] + l * uu[2]];
+        let mut traveled_distance = 0.0f64;
+        // Index of the current cell, offset a tiny bit in the direction of flight.
+        let (mut ijk, mut in_mesh) = regular_indices(self, at(TINY_BIT), width);
+        // A very short track is inside one cell and crosses no surface.
+        if total_distance < 2.0 * TINY_BIT {
+            return bins;
+        }
+        let bin_of = |ijk: [i64; 3]| -> usize {
+            (((ijk[2] - 1) as usize * self.dimension[1] + (ijk[1] - 1) as usize) * self.dimension[0])
+                + (ijk[0] - 1) as usize
+        };
+        let mut distances = [MeshDistance { next_index: 0, max_surface: false, distance: f64::INFINITY }; 3];
+        for (k, dk) in distances.iter_mut().enumerate() {
+            *dk = regular_distance_to_grid_boundary(self, ijk, k, local_r, uu, width);
+        }
+        loop {
+            if in_mesh {
+                // The surface at minimal distance (the first one on a tie, as
+                // `std::min_element`).
+                let mut k = 0;
+                for j in 1..3 {
+                    if distances[j].distance < distances[k].distance {
+                        k = j;
+                    }
+                }
+                traveled_distance = distances[k].distance;
+                if traveled_distance >= total_distance {
+                    return bins;
+                }
+                // Outward current from the cell being left.
+                bins.push(self.surface_bin(bin_of(ijk), k, distances[k].max_surface, false));
+                ijk[k] = distances[k].next_index;
+                distances[k] = regular_distance_to_grid_boundary(self, ijk, k, local_r, uu, width);
+                in_mesh = ijk[k] >= 1 && ijk[k] <= self.dimension[k] as i64;
+                // Inward current into the next cell.
+                if in_mesh {
+                    bins.push(self.surface_bin(bin_of(ijk), k, !distances[k].max_surface, true));
+                }
+            } else {
+                // Outside: travel the largest distance needed to cross every
+                // outer surface.
+                let mut k_max: Option<usize> = None;
+                for k in 0..3 {
+                    if (ijk[k] < 1 || ijk[k] > self.dimension[k] as i64)
+                        && distances[k].distance > traveled_distance
+                    {
+                        traveled_distance = distances[k].distance;
+                        k_max = Some(k);
+                    }
+                }
+                if k_max.is_none() {
+                    traveled_distance += TINY_BIT;
+                }
+                if traveled_distance >= total_distance {
+                    return bins;
+                }
+                let (n, inside) = regular_indices(self, at(traveled_distance + TINY_BIT), width);
+                ijk = n;
+                in_mesh = inside;
+                for (k, dk) in distances.iter_mut().enumerate() {
+                    *dk = regular_distance_to_grid_boundary(self, ijk, k, local_r, uu, width);
+                }
+                if let (true, Some(k)) = (in_mesh, k_max) {
+                    bins.push(self.surface_bin(bin_of(ijk), k, !distances[k].max_surface, true));
+                }
+            }
+        }
     }
 }
 

@@ -665,9 +665,16 @@ impl MeshSurfaceFilter {
         }
     }
 
-    /// Every surface bin this track crosses, in order of travel.
+    /// Every surface bin the track `ev.position_last -> ev.position` (direction
+    /// `ev.direction`) crosses, in order of travel, by the port of upstream's
+    /// `raytrace_mesh` ([`RegularMeshExt::surface_bins_crossed_openmc`]).
+    /// ~~By the re-derivation `surface_bins_crossed`~~ **CHANGED 2026-11-22
+    /// (gh:#1709):** that counted crossings on the open interval and broke
+    /// ties at a track end differently from upstream.
+    ///
+    /// [`RegularMeshExt::surface_bins_crossed_openmc`]: crate::tally::mesh::RegularMeshExt::surface_bins_crossed_openmc
     pub fn matches(&self, ev: &FilterEvent) -> Vec<usize> {
-        self.mesh.surface_bins_crossed(ev.position_last, ev.position)
+        self.mesh.surface_bins_crossed_openmc(ev.position_last, ev.position, ev.direction)
     }
 }
 

@@ -2670,6 +2670,18 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 }
             }
 
+            // OpenMC's `r_last_current` for the mesh-surface raytrace (gh:#1709).
+            hist.end_flight(
+                geom,
+                match d_bound.crossing {
+                    Crossing::Surface(i) => Some(i),
+                    Crossing::Lattice | Crossing::None => None,
+                },
+                d_col < d_bound.distance,
+                r_flight,
+                u,
+                d_col.min(d_bound.distance),
+            );
             if d_col < d_bound.distance {
                 collisions += 1;
                 hist.collided();

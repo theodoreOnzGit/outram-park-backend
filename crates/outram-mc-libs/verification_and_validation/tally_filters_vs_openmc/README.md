@@ -124,7 +124,7 @@ reads as noise, but the first-run gate stays red and is reported as such.
 |---|---|---|---|
 | 1 | DISTRIBCELL | yes | exact, 0 misses |
 | 2 | CELL_INSTANCE | yes | exact, 0 misses |
-| 3 | MESH_SURFACE | yes | **miss** on ties (16 / 1 bins); off ties exact |
+| 3 | MESH_SURFACE | yes | ~~**miss** on ties (16 / 1 bins); off ties exact~~ exact, 0 misses (gh:#1709: upstream's `raytrace_mesh` and `r_last_current` span ported) |
 | 4 | MESHBORN | yes | exact, 0 misses |
 | 5 | MESH_MATERIAL | yes | **miss** as shipped (midpoint); 0 misses with splitting |
 | 6 | ENERGY_FUNCTION | yes | exact, 0 misses |
@@ -316,7 +316,57 @@ bin 2 ours 1.968699 +- 0.001685 vs OpenMC 1.965959 +- 0.001969 (z +1.06), bin 3 
 (+0.07), bin 4 5.663063 vs 5.662350 (+0.13). Worst \|z\| **1.06**, prediction held. Hardware as in
 the provenance table (4-core Xeon 2.10 GHz, shared); ours 4.4 s per 1e6 histories (O-16 run).
 
-**The red gates now.** Of the original four: `mesh_material_vs_openmc` is **green**.
+## Mesh-surface ties fixed by porting upstream (gh:#1709, 2026-11-22)
+
+The 16 / 1 mesh-surface misses above were **not** a floating-point tie that
+upstream also suffers. They had two causes, both found by reading upstream:
+
+1. **Where the raytrace starts and ends.** OpenMC scores mesh-surface currents
+   once from `p.r_last_current()` (the birth point, `particle.cpp:174`, then
+   each collision site, `:464`) to where the particle collides (`:411`), leaks
+   (pushed on by `TINY_BIT`, `:743-748`) or changes direction at a reflective
+   or periodic surface (moved back by `TINY_BIT`, `:785-788, 835-838`).
+   Crossing a transmissive surface scores nothing. Both our routes scored one
+   raytrace **per geometry segment**. Here every tile edge lies on a mesh plane,
+   so segments ended exactly on mesh planes and produced the ties. The record's
+   "upstream semantics" line ("scored per flight segment",
+   `history_events.rs`) was wrong and is struck through there.
+2. **How crossings are counted.** `RegularMesh::surface_bins_crossed` re-derived
+   `raytrace_mesh`, counting crossings on the open interval.
+   `surface_bins_crossed_openmc` now ports `raytrace_mesh` with its
+   `SurfaceAggregator`, `distance_to_grid_boundary` and
+   `get_index_in_direction` (`mesh.cpp:1312-1488, 1640, 1667`, OpenMC
+   `8f79d9d0`), and `MeshSurfaceFilter` uses it. Off ties it gives the same
+   bins as the re-derivation on 20 000 random tracks
+   (`tests/mesh_surface_raytrace_1709.rs`).
+
+**Result:** all four mesh-surface tests give **0 misses, worst scaled
+difference 0** (exact): registered mesh (2592 bins) and A2 (3240 bins), each
+for the driver and for the real runner. The `real_*` pins moved from 16 and 1
+to 0. The other Experiment A filters are unchanged (all green).
+
+The live change (`EventHistory::end_flight`, `mesh_surface_span`) only keeps
+`r_last_current`. It draws no random number and changes no decision, so no `k`
+or non-mesh-surface tally moves.
+
+## First-run statistical gates follow the registered plan (gh:#1709, 2026-11-22)
+
+**Maintainer decision ("Follow registered plan").** `b_collision_and_legendre_vs_openmc`
+and `real_b_collision_vs_openmc` gate one run bin by bin at |z| <= 2. For a
+correct code that fails about 37 % of the time on 10 bins and about 24 % on 6
+(1 - 0.9545^n). The protocol registered before either replication ran
+(amendments 2 and 5) reports a first-run miss and decides it with the 8-seed
+pooled replication at the **same** |z| <= 2. The two tests now do exactly that:
+they pass on a clean first run; otherwise they run the pooled replication and
+assert on it. The threshold, the seeds and the references are unchanged. The
+first-run |z| is still printed and is recorded here: 2.87 and 2.56, decided by
+pooled 1.54 / 1.19 and 1.39. ~~The first-run gates stay red~~ (the 18 Nov
+wording below) no longer holds.
+
+**The red gates now.** ~~Of the original four:~~ **CORRECTED 2026-11-22
+(gh:#1709): none.** The mesh-surface ties are fixed by the port above, and the
+first-run collision gates follow the registered plan. The 18 Nov text follows,
+kept as history. Of the original four: `mesh_material_vs_openmc` is **green**.
 `mesh_surface_vs_openmc` and `a2_mesh_surface_vs_openmc` (driver oracle) stay red on the tie
 misses; their real-transport twins pass only because they pin the counts 16 and 1, not zero.
 `b_collision_and_legendre_vs_openmc` (driver, first run, 2.87) stays red, and its real-transport
