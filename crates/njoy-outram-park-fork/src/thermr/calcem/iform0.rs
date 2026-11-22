@@ -17,6 +17,9 @@
 //! function returns is the physical content those steps would otherwise
 //! write, as typed Rust data (see [`super::types`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::super::mf7::IncoherentInelastic;
 use super::egrid;
 use super::sigl::sigl;

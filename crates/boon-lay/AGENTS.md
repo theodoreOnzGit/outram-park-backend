@@ -9,9 +9,27 @@ The standalone source lives at:
 `/home/teddy0/Documents/research/boon-lay/`
 
 **Version:** ~~0.2.1~~ **CORRECTED 2026-09-21** — `Cargo.toml` says 0.1.3  
-**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): `src/rustbca/` stays GPL-3.0-or-later, `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
+**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973; every file AGPL-3.0-only since 2026-11-22, RustBCA having moved to `kembangan`). ~~As a combined work: `src/rustbca/` stays GPL-3.0-or-later,~~ `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
 
 ---
+
+## `no_std` + `alloc`, with a default `std` feature (gh:#1634, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh` (and the RustBCA copy alone by
+`scripts/check-rustbca-no-std.sh`; the copy moved to `kembangan` 2026-11-22,
+gh:#1699). Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (outside `src/rustbca/`, whose files import `alloc` items by name).
+- Clocks are `crate::time`, one-time statics `crate::sync::OnceLock`, a
+  `rayon` import takes `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`
+  with `wasm_par` on `any(target_arch = "wasm32", not(feature = "std"))`.
+- The OpenMC XML data path, files, `serde` and printing are
+  `#[cfg(feature = "std")]`. Keep data *loading* separate from the code that
+  *uses* the data, so the simulators stay available without std.
+- Kovan-reviewed functions are still closed to modification: the 2026-11-17
+  confirmation covered only the mechanical edits listed on gh:#1634.
 
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
@@ -72,7 +90,7 @@ electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
 
 - **The first charged-particle code is RustBCA.** It is copied, not taken as a
   dependency, into its own module tree in this crate, with clear attribution:
-  upstream `lcpp-org/RustBCA` v3.0.0 `a356280d`, GPL-3.0, with a provenance
+  upstream `lcpp-org/RustBCA` ~~v3.0.0~~ `a356280d` (**CORRECTED 2026-11-13, gh:#1426:** v3.0.0 plus 17 commits; the tag is `673bd3f`), GPL-3.0, with a provenance
   header on every file and a list of local changes. Its `no_std` + `alloc`
   build is re-exported from here (gh:#876, item 7). It covers fission
   fragments, alphas and recoil knock-ons, all of which are in scope.
@@ -91,6 +109,12 @@ electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
   run on 2026-10-16; its record is in
   `verification_and_validation/rustbca_cascades/`. A fragment cascade costs
   1.5–2 s on one desktop core.
+- **MOVED 2026-11-22 (gh:#1699, maintainer direction):** the RustBCA copy
+  is now `kembangan::rustbca` (`crates/kembangan/src/rustbca/`), with its
+  differential test, the cost-probe example and both V&V records.
+  `boon_lay::rustbca` re-exports it and `rustbca-std` forwards to
+  kembangan's; `boon-lay -> kembangan`, never the reverse. The rules in the
+  two bullets here now apply in kembangan.
 - **Keep the copy a copy.** Make changes to RustBCA itself in `src/rustbca/`
   only when they are needed (no_std, a bug), and record each one in the module
   docs' numbered list. Physics boon-lay adds on top, such as a layered-sphere
@@ -126,7 +150,7 @@ Covers:
 | `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. ~~**CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG~~ **CORRECTED 2026-10-20 (gh:#995):** `rand` and `rand_distr` are gone again; the RustBCA copy draws from `petir::rng`, a draw-for-draw port of the same ChaCha8 RNG |
 | `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16); since 2026-10-20 also `rng::{ChaCha8Rng, Uniform, Normal}` for that copy (gh:#995) |
 | `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
-| `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
+| ~~`serde` / `serde-xml-rs`~~ | ~~Deserialise the ENDF-8 XML into `SerdeNuclideData` structs~~ **CHANGED 2026-11-22:** `serde-xml-rs` is no longer a dependency; `openmc-endf-8-depletion-lib-b` 1.1.0 parses the XML itself (no_std, `roxmltree`). `serde` stays for the RustBCA and run-file inputs |
 | `anyhow` | Error propagation in XML parsing |
 
 ---
@@ -161,7 +185,7 @@ src/
         movement_within_triso_particle/
         release_fraction_crp_6_case_1a_1b/  ← CRP-6 benchmark
       temperature_dependent_collisions/
-        diffusion_coeffs/                 ← ~~Cs, Ag, Sr diffusion coefficients in SiC/PyC~~ **CORRECTED 2026-10-04:** Ag, Cs, Sr, Kr (Jiang 2023) for kernel, buffer, PyC, SiC; other elements fall back to Ag; graphite is todo!() (gh:#541). **CORRECTED 2026-10-18:** except Kr in the buffer, where `get_d1_for_kr` is still `todo!()` (checked in `diffusion_coeffs/mod.rs`; `docs/tutorial/src/layers.md` was right; that tutorial book was folded into the Fission products science lessons on 2026-11-04, gh:#1207)
+        diffusion_coeffs/                 ← ~~Cs, Ag, Sr diffusion coefficients in SiC/PyC~~ **CORRECTED 2026-10-04:** Ag, Cs, Sr, Kr (Jiang 2023) for kernel, buffer, PyC, SiC; other elements fall back to Ag; graphite is todo!() (gh:#541). **CORRECTED 2026-10-18:** ~~except Kr in the buffer, where `get_d1_for_kr` is still `todo!()`~~ (true then, closed 2026-11-10 below; checked in `diffusion_coeffs/mod.rs`; `docs/tutorial/src/layers.md` was right; that tutorial book was folded into the Fission products science lessons on 2026-11-04, gh:#1207). **UPDATED 2026-11-10 (gh:#638):** ~~the Kr buffer getters are still undefined, but the lookup no longer reaches them: `get_diffusion_coeff_jiang` returns a typed `MissingDiffusionData` for Kr in the buffer and graphite,~~ and ~~a Walk-on-Spheres walker stops with `HopOutcome::NoDiffusionData` instead of panicking~~ (`tests/kr_buffer_missing_diffusion_data.rs`). **CORRECTED 2026-11-10 (gh:#638, maintainer: "Find a cited value"):** Kr in the buffer is now `1e-8 m^2/s`, `Q = 0` (`diffusion_coeffs::KR_BUFFER_D_M2_PER_S`, IAEA-TECDOC-978 (1997) App. A, section A.1.2, printed p. 440; applied to fission gases by CRP-6, IAEA-TECDOC-1674 (2012) section 10.2.2, p. 538), and all four buffer getters return it; only Kr in graphite returns `MissingDiffusionData`, and no layer of a `TrisoCell` reaches the walker's stop any more
     tests/
   lagrangian_transmutation_and_fission_simulator/
     mod.rs                                ← ~~empty stub (future work)~~ **CORRECTED 2026-09-21**: implemented in `lagrangian_diffusion::first_passage::depletion`; this `mod.rs` is the map
@@ -188,7 +212,7 @@ src/
     removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
     normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
   chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
-  rustbca/                                ← **A COPY of RustBCA** v3.0.0 (lcpp-org, a356280d, GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
+  rustbca/                                ← **A COPY of RustBCA** ~~v3.0.0~~ (lcpp-org, a356280d = v3.0.0 + 17 commits, gh:#1426; GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
   compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
   gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
   wasm_par.rs                             ← serial rayon stand-ins on wasm32. Added 2026-10-04

@@ -24,10 +24,17 @@
 //! `ehr` (`errorr.f90:2364`) — that is what the reference code does, so it
 //! is what the port does.
 //!
-//! **Scope:** `mfcov = 33`, `nstan = 0` (an NC-type record with `LTY` 1–3
-//! is `NotPorted`), no `matb`/`matc` standards redefinition, ENDF-5/6. The
+//! **Scope:** `mfcov = 33`, and since 2026-11-13 `mfcov = 31` (`covcal` reads the file
+//! [`CovarianceReactions::mf`] names) and `mfcov = 34` ([`super::mf34`] calls
+//! [`contribution`] with `alp` in place of `sig`), ~~`nstan = 0` (an NC-type record with `LTY` 1–3
+//! is `NotPorted`), no `matb`/`matc` standards redefinition,~~ **CORRECTED 2026-11-14
+//! (gh:#1371):** `nstan` with card 11's `matb > 0` (an NC-type record with `LTY` 1–3
+//! stages the standard's records through [`super::standards::stand`]), ENDF-5/6. The
 //! `LB = 7` law belongs to MF=35 and is rejected here as upstream does.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;
@@ -54,7 +61,7 @@ pub struct NiRecord {
 impl NiRecord {
     /// Build from a LIST head `(c1,c2,l1,l2,n1,n2)` and its data
     /// (`errorr.f90:2062-2077`).
-    fn from_list(l1: i32, l2: i32, n1: i32, n2: i32, data: &[f64]) -> Self {
+    pub(super) fn from_list(l1: i32, l2: i32, n1: i32, n2: i32, data: &[f64]) -> Self {
         let lb = l2;
         let mut lt = l1.max(0) as usize;
         if lb == 6 && n2 > 0 {
@@ -101,10 +108,13 @@ fn find_bin(x: f64, nint: usize, e: impl Fn(usize) -> f64) -> Option<usize> {
 /// The contribution of one record to `cov(jh)` for union groups `(jg, jh)`
 /// with lower bounds `(eg, ehr)` (`errorr.f90:2150-2417`).
 ///
-/// `sig`/`sig1` are the reaction / `MT1` union-group cross sections;
-/// `dun` is `un(jg+1) - un(jg)` (used by `LB = 8`).
+/// `sig`/`sig1` are the reaction / `MT1` union-group cross sections (the
+/// Legendre coefficients `alp1`/`alp2` for MF=34); `dun` is `un(jg+1) - un(jg)`
+/// (used by `LB = 8`). The products are formed left to right as upstream writes
+/// them, `F * sig(jg) * sig1(jh)` (until 2026-11-13 this was `F * (sig * sig1)`,
+/// which can differ in the last bit; gh:#1369).
 #[allow(clippy::too_many_arguments)]
-fn contribution(
+pub(super) fn contribution(
     r: &NiRecord,
     jg: usize,
     jh: usize,
@@ -115,7 +125,6 @@ fn contribution(
     sig1_jh: f64,
 ) -> f64 {
     let np = r.np;
-    let ss = sig_jg * sig1_jh;
     match r.lb {
         8 => {
             // errorr.f90:2154-2171: diagonal only, pairs (E_k,F_k) at
@@ -144,7 +153,7 @@ fn contribution(
             let Some(l) = find_bin(ehr, nl1, |l| r.d(np + l)) else {
                 return 0.0;
             };
-            r.d(np + r.lt + (k - 1) * nl1 + l) * ss
+            r.d(np + r.lt + (k - 1) * nl1 + l) * sig_jg * sig1_jh
         }
         5 => {
             // errorr.f90:2225-2255: one grid data(1..np); nk1 = np-1.
@@ -165,7 +174,7 @@ fn contribution(
             } else {
                 (k - 1) * nk1 + (l - 1)
             };
-            r.d(1 + idx + np) * ss
+            r.d(1 + idx + np) * sig_jg * sig1_jh
         }
         0..=4 => {
             // errorr.f90:2257-2417: (E,F) pairs; first table nk = np-lt pairs,
@@ -196,7 +205,7 @@ fn contribution(
                 let Some(l) = find_bin(ehr, lend, ecol) else {
                     return 0.0;
                 };
-                return f1(k) * fcol(l) * ss;
+                return f1(k) * fcol(l) * sig_jg * sig1_jh;
             }
             // lb = 0, 1, 4: ehr must fall in the same first-table bin (label 490).
             if !(ehr >= e1(k) && ehr < e1(k + 1)) {
@@ -204,7 +213,7 @@ fn contribution(
             }
             match r.lb {
                 0 => f1(k),
-                1 => f1(k) * ss,
+                1 => f1(k) * sig_jg * sig1_jh,
                 _ => {
                     // lb = 4 (labels 450/460/480/482/484): l for ehr on the
                     // second table, then m with the upstream mixed test.
@@ -214,7 +223,7 @@ fn contribution(
                     let Some(m) = (1..=nlt1).find(|&m| eg >= e2(m) && ehr < e2(m + 1)) else {
                         return 0.0;
                     };
-                    f1(k) * f2(m) * f2(l) * ss
+                    f1(k) * f2(m) * f2(l) * sig_jg * sig1_jh
                 }
             }
         }
@@ -300,21 +309,32 @@ pub fn covcal(
         nmts: 0,
         blocks: Vec::new(),
     };
-    if !reactions.mf33_present {
+    if reactions.mf() == 33 && !reactions.mf33_present {
         return Ok(out); // errorr.f90:1849-1852 "temporary patch for missing mf33"
     }
 
     for sec in endf
         .sections()
         .iter()
-        .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| s.key.mat == matd && s.key.mf == reactions.mf())
     {
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?;
-        let nl = head.n2;
+        // MF=40 (errorr.f90:1889-1907, gh:#1371): `nl = NS`, then the final
+        // state's CONT; `za`/`awr` come from the HEAD (`run_cov_gendf`).
+        let nl = if reactions.mf() == 40 {
+            super::gridd::mf40_final_state(&head, &mut cur)?;
+            1
+        } else {
+            head.n2
+        };
         if nl == 0 {
             continue; // component of a lumped reaction (errorr.f90:1922)
+        }
+        // iread = 1 (errorr.f90:1913-1918, gh:#1371): a section not on card 8a is skipped.
+        if reactions.card8.as_ref().is_some_and(|c8| !c8.mts.contains(&mth)) {
+            continue;
         }
         let nmts = out.nmts; // 0-based index of this section in mts
         out.nmts += 1;
@@ -350,20 +370,26 @@ pub fn covcal(
                 .position(|(&m, &a)| m == mt1 && a == mat1);
             let iok = kmt1.is_some();
 
-            // NC-type sub-subsections (errorr.f90:2017-2030): read and skip
-            // (lty=0 carries no matrix); lty 1..3 would need `stand`/nstan.
+            // NC-type sub-subsections (errorr.f90:2017-2030): lty=0 carries no matrix.
+            // With lty 1..3 `stand` stages the standard's NI records first, each with
+            // its window (errorr.f90:2017-2030, `nstan`, gh:#1371).
+            let mut recs: Vec<NiRecord> = Vec::with_capacity(ni.max(0) as usize);
+            let mut windows: Vec<Option<super::standards::StandardWindow>> = Vec::new();
             for _ in 0..nc {
                 let lty_cont = cur.read_cont()?;
                 let lty = lty_cont.l2;
-                let _list = cur.read_list()?;
+                let list = cur.read_list()?;
                 if iok && (1..=3).contains(&lty) {
-                    return Err(NjoyError::NotPorted(
-                        "errorr::covcal: NC-type sub-subsection with lty 1..3 (ratio-to-standard, needs nstan)",
-                    ));
+                    let std = reactions.standards.as_ref().ok_or_else(|| {
+                        NjoyError::InvalidInput("errorr::covcal: NC-type sub-subsection with lty 1..3 and nstan = 0".into())
+                    })?;
+                    for (r, w) in super::standards::stand(std, reactions.mf(), &list.head, lty)? {
+                        recs.push(r);
+                        windows.push(Some(w));
+                    }
                 }
             }
             // NI-type sub-subsections (errorr.f90:2058-2081)
-            let mut recs: Vec<NiRecord> = Vec::with_capacity(ni.max(0) as usize);
             for _ in 0..ni {
                 let list = cur.read_list()?;
                 recs.push(NiRecord::from_list(
@@ -388,12 +414,17 @@ pub fn covcal(
             for r in &recs {
                 r.validate(mth, mt1)?;
             }
+            for w in windows.iter().flatten() {
+                w.validate()?;
+            }
+            windows.resize(recs.len(), None);
             // sigma for mt1 (errorr.f90:2103-2114)
             let sig1: Vec<f64> = if kmt1 != Some(nmts) {
                 if (851..=870).contains(&mt1) {
                     lumped_sigma(groups, reactions, mt1)
                 } else {
-                    groups.sigma_for(mt1)
+                    // `rdsig(mat1,mt1,…)`: another material's for a card-10 pair (gh:#1369)
+                    groups.sigma_for_mat(mat1, mt1)
                 }
             } else {
                 sig.clone()
@@ -408,7 +439,11 @@ pub fn covcal(
                 for jh in 0..nunion {
                     let ehr = un[jh];
                     let mut c = 0.0;
-                    for r in &recs {
+                    for (r, w) in recs.iter().zip(&windows) {
+                        // errorr.f90:2101-2118: a standard's record only inside its window
+                        if w.is_some_and(|w| !w.admits(eg, ehr)) {
+                            continue;
+                        }
                         c += contribution(r, jg, jh, eg, ehr, dun, sig[jg], sig1[jh]);
                     }
                     cov[jh] = c;

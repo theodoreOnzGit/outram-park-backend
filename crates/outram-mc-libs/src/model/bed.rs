@@ -28,8 +28,11 @@
 //! A ball is named by the tile that owns it: skewed coordinates `(a, b)`, the
 //! tile's level, and which of the tile's balls it is.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use super::hopper::{Hopper, Wall};
 
@@ -165,8 +168,8 @@ impl BedCensus {
     }
 }
 
-impl std::fmt::Display for BedCensus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for BedCensus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(
             f,
             "bed: {} balls kept above the floor ({} fuel, {} moderator), {} more in the cone and \
@@ -449,8 +452,8 @@ impl BedLayout {
         c.planes = planes;
         if c.bed_balls > 0 {
             c.bed_height_cm = hi - lo;
-            let ball_v = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
-            let cylinder_v = std::f64::consts::PI * self.hopper.radius_cm().r_powi(2) * (hi - lo);
+            let ball_v = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
+            let cylinder_v = core::f64::consts::PI * self.hopper.radius_cm().r_powi(2) * (hi - lo);
             c.filling_fraction = c.bed_balls as f64 * ball_v / cylinder_v;
         }
         self.census = c;

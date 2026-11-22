@@ -20,6 +20,9 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 /// Error type for `SquareMatrix::solve`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatrixError {
     /// The matrix is exactly singular: the LU decomposition found a zero pivot
@@ -27,8 +30,8 @@ pub enum MatrixError {
     Singular { col: usize },
 }
 
-impl std::fmt::Display for MatrixError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MatrixError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             MatrixError::Singular { col } => {
                 write!(f, "matrix is singular: zero pivot at column {col}")
@@ -37,7 +40,7 @@ impl std::fmt::Display for MatrixError {
     }
 }
 
-impl std::error::Error for MatrixError {}
+impl core::error::Error for MatrixError {}
 
 /// Row-major n×n dense matrix of `f64`. Maps to `Foam::scalarSquareMatrix`.
 ///
@@ -300,6 +303,51 @@ impl SquareMatrix {
         a.lu_back_substitute(&pivot, &mut b);
         Ok(b)
     }
+
+    /// The inverse, built the way `Foam::LUscalarMatrix::inv` builds it
+    /// (gh:#1361): one LU decomposition, then one back-substitution per unit
+    /// vector `e_j`, whose result is column `j` of the inverse.
+    ///
+    /// GeN-Foam's `solvePolyharmonicSpline` keeps this inverse and forms
+    /// `w = inv * v`; that is a different operation order from
+    /// [`solve`](Self::solve) and rounds differently, so a translation of
+    /// GeN-Foam uses this. Returns `Err(MatrixError::Singular)` under the same
+    /// sentinel test as [`solve`](Self::solve).
+    pub fn inverse(&self) -> Result<SquareMatrix, MatrixError> {
+        let mut a = self.clone();
+        let pivot = a.lu_decompose();
+        for i in 0..self.n {
+            if a.get(i, i) == f64::EPSILON {
+                return Err(MatrixError::Singular { col: i });
+            }
+        }
+        let mut inv = SquareMatrix::new(self.n);
+        for j in 0..self.n {
+            let mut source = vec![0.0; self.n];
+            if let Some(slot) = source.get_mut(j) {
+                *slot = 1.0;
+            }
+            a.lu_back_substitute(&pivot, &mut source);
+            for (i, &x) in source.iter().enumerate() {
+                inv.set(i, j, x);
+            }
+        }
+        Ok(inv)
+    }
+
+    /// Matrix-vector product `self * x`, accumulated row by row in column
+    /// order, `result[i] += self(i, j) * x[j]` from zero, exactly as
+    /// `Foam::Matrix::Amul` does (gh:#1361). `x` shorter than `n` is treated
+    /// as zero-padded.
+    pub fn multiply_vector(&self, x: &[f64]) -> Vec<f64> {
+        let mut result = vec![0.0; self.n];
+        for (i, slot) in result.iter_mut().enumerate() {
+            for (j, &xj) in x.iter().enumerate().take(self.n) {
+                *slot += self.get(i, j) * xj;
+            }
+        }
+        result
+    }
 }
 
 #[cfg(test)]
@@ -448,6 +496,25 @@ mod tests {
         let x = m.solve(&rhs).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-6, "x[0]={}", x[0]);
         assert!((x[1] - 1.0).abs() < 1e-6, "x[1]={}", x[1]);
+    }
+
+    #[test]
+    fn inverse_times_vector_solves_and_singular_is_err() {
+        // A = [3 1; 1 2], inverse = 1/5 [2 -1; -1 3]; solve (5,5) -> (1,2).
+        let mut m = SquareMatrix::new(2);
+        m.set(0, 0, 3.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 2.0);
+        let inv = m.inverse().unwrap();
+        assert!((inv.get(0, 0) - 0.4).abs() < 1e-15);
+        assert!((inv.get(0, 1) + 0.2).abs() < 1e-15);
+        assert!((inv.get(1, 0) + 0.2).abs() < 1e-15);
+        assert!((inv.get(1, 1) - 0.6).abs() < 1e-15);
+        let x = inv.multiply_vector(&[5.0, 5.0]);
+        assert!((x[0] - 1.0).abs() < 1e-14 && (x[1] - 2.0).abs() < 1e-14);
+        // a zero row: LU writes the EPSILON sentinel, `inverse` reports it.
+        assert!(SquareMatrix::new(2).inverse().is_err());
     }
 
     #[test]

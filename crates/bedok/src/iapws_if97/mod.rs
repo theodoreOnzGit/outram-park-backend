@@ -154,6 +154,9 @@
 //!
 //! No other region has been translated, so no other region is verified.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod backward;
 pub mod basic;
 pub mod region1;

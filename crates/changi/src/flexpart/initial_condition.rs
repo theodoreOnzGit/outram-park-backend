@@ -67,6 +67,9 @@
 //! upstream's `init_cond(0:numxgrid-1, 0:numygrid-1, numzgrid, maxspec,
 //! maxpointspec_act)`; all indices 0-based.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flexpart::concentration::{ConcentrationGrid, OutputDomain};
 use crate::flexpart::particle_average::{Corners, GriddedMet, Vertical};
 

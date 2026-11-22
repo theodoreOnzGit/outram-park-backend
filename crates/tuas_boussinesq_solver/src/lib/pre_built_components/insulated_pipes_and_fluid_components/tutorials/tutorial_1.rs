@@ -1,4 +1,7 @@
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use uom::si::angle::degree;
 use uom::si::f64::*;
@@ -147,9 +150,11 @@ pub fn fluid_mechanics_basics() {
 
     // we should get a pressure drop, which you can view using
     // the dbg! macro, which works like printing the result out
+    #[cfg(feature = "std")]
     dbg!(&test_pressure_drop);
 
     // you can also use the println macro to do it
+    #[cfg(feature = "std")]
     println!("{:?}", test_pressure_drop);
 
     // i prefer the former, the syntax is easier

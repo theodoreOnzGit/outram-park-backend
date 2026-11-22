@@ -54,7 +54,10 @@
 //! reference, monotonicity, and the fully-shielded floor) are verified with
 //! measured numbers in the module tests.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::groupr::panel::{group_integral, GroupFlux, PointwiseXs};
 use crate::groupr::unresolved::{genflx_bondarenko_urr, UnresolvedTable, UrrReaction};

@@ -54,6 +54,9 @@
 //! exponent are dimensionless. `p` is non-negative by construction: it is an
 //! accumulated measure.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 

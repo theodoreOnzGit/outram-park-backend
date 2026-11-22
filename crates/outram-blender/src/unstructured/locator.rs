@@ -35,6 +35,9 @@
 //! The grid is part of the description (built once, read-only, shared through
 //! the mesh's `Arc`) so that every consumer uses the same candidates.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Upper bound on buckets per axis, so a pathological aspect ratio cannot
 /// allocate an unbounded grid.

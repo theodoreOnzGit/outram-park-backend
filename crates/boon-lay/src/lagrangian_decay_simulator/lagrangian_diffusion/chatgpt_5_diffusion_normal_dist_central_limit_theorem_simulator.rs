@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::rng::{distributions::sample_normal, lcg::prn};
 
@@ -23,7 +26,7 @@ fn sample_gaussian_vector(seed: &mut u64, sigma2: f64) -> [f64; 3] {
 /// Sample a unit direction uniformly on S^2.
 fn sample_unit_vector(seed: &mut u64) -> [f64; 3] {
     let u: f64 = prn(seed) * 2.0 - 1.0;
-    let phi: f64 = prn(seed) * 2.0 * std::f64::consts::PI;
+    let phi: f64 = prn(seed) * 2.0 * core::f64::consts::PI;
     let rxy = (1.0 - u * u).sqrt();
     [rxy * phi.r_cos(), rxy * phi.r_sin(), u]
 }

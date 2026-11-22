@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 // This file is part of OUTRAM PARK. See the module header for licence terms.
 
@@ -144,8 +144,11 @@
 //! homogenised `core_model::assemble`, itself withdrawn 2026-10-01 (it cuts
 //! pebbles, which is wrong physics).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// Close-packed layer spacing for spheres of diameter `d` \[cm\]: `d*sqrt(2/3)`.
 #[must_use]
@@ -923,8 +926,8 @@ impl TwoBallBed {
     #[must_use]
     pub fn all_balls(&self) -> Vec<BallId> {
         let nr = self.n_rings as i32;
-        let mut a_cols = std::collections::BTreeSet::new();
-        let mut b_owners = std::collections::BTreeSet::new();
+        let mut a_cols = alloc::collections::BTreeSet::new();
+        let mut b_owners = alloc::collections::BTreeSet::new();
         for a in -(nr - 1)..=(nr - 1) {
             for b in -(nr - 1)..=(nr - 1) {
                 if hex_ring(a, b) > self.n_rings - 1 {
@@ -1991,6 +1994,7 @@ mod hex_lattice_tests {
             let total = fuel + moderator;
             let frac = fuel as f64 / total as f64;
             let target = super::super::table1::FUEL_BALL_FRACTION;
+            #[cfg(feature = "std")]
             println!(
                 "{rings} rings x {axial} layers: {total:>7} tiles, {fuel:>7} fuel \
                  -> {frac:.6} (target {target})"
@@ -2023,6 +2027,7 @@ mod hex_lattice_tests {
             // Deviation in TILES, which is the meaningful unit.
             worst = worst.max((fuel as f64 - target * n as f64).abs());
         }
+        #[cfg(feature = "std")]
         println!(
             "{} tiles, worst prefix deviation {worst:.4} tiles",
             flat.len()
@@ -2176,6 +2181,7 @@ mod seker_cell_tests {
     #[test]
     fn the_seker_cell_has_the_derived_dimensions() {
         let c = SekerCell::from_paper();
+        #[cfg(feature = "std")]
         println!(
             "apothem {:.6}, pitch {:.6}, height {:.6}, packing {:.6}",
             c.apothem,
@@ -2213,6 +2219,7 @@ mod seker_cell_tests {
                 contacts += usize::from((d - 6.0).abs() < 1e-9);
             }
         }
+        #[cfg(feature = "std")]
         println!("{} balls, min distance {dmin:.9} cm, {contacts} contacts", c.len());
         assert!(dmin > 6.0 - 1e-9, "balls overlap: {dmin}");
         assert!(contacts > c.len(), "the packing should be held by contacts");
@@ -2280,7 +2287,7 @@ mod seker_cell_tests {
         let bed = SekerBed::new(cell, 4, 3, 5.0, 1.0e3, 900.0, None, FuelAssignment::Paper);
         let level = 2;
         let tz = bed.z_bottom + (f64::from(level) + 0.5) * cell.height;
-        let mine: std::collections::BTreeSet<SekerBallId> =
+        let mine: alloc::collections::BTreeSet<SekerBallId> =
             bed.tile_balls(0, 0, level).into_iter().collect();
         assert_eq!(mine.len(), 23, "23 distinct balls");
         for id in bed.all_balls() {
@@ -2350,12 +2357,16 @@ mod seker_cell_tests {
         let v_ball = 4.0 / 3.0 * PI * 27.0;
         let height = bed.bed_top - bed.bed_bottom;
         let ff = total as f64 * v_ball / (PI * 90.0 * 90.0 * height);
+        #[cfg(feature = "std")]
         println!("basal per plane {basal:?}, mean {mb:.1} (Seker 733)");
+        #[cfg(feature = "std")]
         println!("central per plane {central:?}, mean {mc:.1} (Seker 613)");
+        #[cfg(feature = "std")]
         println!(
             "total {total} (Seker 1346 x 12 + 733 = 16885), bed {height:.3} cm, filling {ff:.4} \
              (Seker's 16885 balls in the same bed: 0.6073)"
         );
+        #[cfg(feature = "std")]
         println!("fuel {} of {} eligible", bed.fuel_balls, bed.eligible_balls);
         assert!((mc - 613.0).abs() / 613.0 < 0.01, "central {mc}");
         assert!((mb - 733.0).abs() / 733.0 < 0.04, "basal {mb}");

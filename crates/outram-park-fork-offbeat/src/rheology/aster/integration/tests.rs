@@ -29,6 +29,9 @@
 //! external reference rather than a self-consistency check, and they fail
 //! loudly if an update rule is subtly wrong in a way that still converges.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 

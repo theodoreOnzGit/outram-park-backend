@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Example 4
 ///
 ///
@@ -20,7 +23,7 @@ pub fn coriolis_flowmeter_empirical_custom_component_example_3(
     use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::ratio::ratio;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -29,11 +32,11 @@ pub fn coriolis_flowmeter_empirical_custom_component_example_3(
     use uom::si::length::meter;
     use uom::si::angle::degree;
     use uom::si::length::millimeter;
-    use std::thread;
-    use std::sync::Mutex;
-    use std::sync::Arc;
-    use std::ops::DerefMut;
-    use std::ops::Deref;
+    use crate::thread;
+    use crate::sync::Mutex;
+    use alloc::sync::Arc;
+    use core::ops::DerefMut;
+    use core::ops::Deref;
 
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureChange;

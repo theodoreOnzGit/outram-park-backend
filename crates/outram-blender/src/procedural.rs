@@ -58,6 +58,9 @@
 //! graph's node `Vec` — the same no-pointers/no-lifetimes discipline as
 //! [`crate::mesh`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::transform::Affine3;

@@ -61,6 +61,9 @@
 //! Input boxes in degrees; output boxes in mother-grid units; `dx`, `dy` in
 //! degrees per grid cell.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// The mother-grid description `coordtrafo` reads from `com_mod`.

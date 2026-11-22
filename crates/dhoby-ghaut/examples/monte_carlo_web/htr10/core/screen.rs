@@ -21,10 +21,10 @@
 //! [`super::TRACED_PER_GENERATION`] histories of every generation.
 
 use super::pool::{CorePool, Note, PoolPhase, PoolState, RestartKind, RunOrigin, RunState};
-use super::{DEFAULT_RUN, RECORD_RUN, RECORD_SEED};
+use super::{DEFAULT_RUN, RECORD_RUN};
 use crate::anim::{animated_speed, draw_track, energy_bar, fmt_speed, legend_markers, Anim};
 use crate::history::History;
-use crate::keff::{clamp_to_caps, eta_line, plan_line, KeffConfig, MAX_GENERATIONS, MAX_PARTICLES, MIN_ACTIVE};
+use crate::keff::{eta_line, plan_line, KeffConfig};
 use crate::raster::{Preset, RasterInfo, Slicer};
 use dhoby_ghaut::web_demo::platform::now_s;
 use dhoby_ghaut::web_demo::pool::{plan, Device, Plan};
@@ -425,7 +425,7 @@ pub const RODS_SETTLE_S: f64 = 1.5;
 pub fn rods_resync_due(s: &PoolState, want: &[f64; 10], sweeping: bool, changed_s: f64, now: f64) -> bool {
     !sweeping
         && s.phase == PoolPhase::Ready
-        && !s.run.as_ref().is_some_and(RunState::going)
+        && !s.keff.run.as_ref().is_some_and(RunState::going)
         && want.map(f64::to_bits) != s.rods.map(f64::to_bits)
         && now - changed_s >= RODS_SETTLE_S
 }
@@ -573,7 +573,7 @@ impl CoreScreen {
             }
             // Autostart goes through the same door as the Start button, so
             // it too runs on the reader's rods (a URL may set them).
-            autostart_now = self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() && self.sweep.is_none();
+            autostart_now = self.autostart && p.state.phase == PoolPhase::Ready && p.state.keff.run.is_none() && self.sweep.is_none();
             // Rods (gh:#1025): a sweep drives the pool itself; otherwise the
             // pool's core follows the reader's rods once they rest.
             if let Some(sw) = self.sweep.as_mut() {
@@ -587,7 +587,7 @@ impl CoreScreen {
                 };
                 if sw.done() {
                     let fam = sw.family;
-                    for r in sw.results.drain(..) {
+                    for r in sw.sweep.results.drain(..) {
                         self.live_results.push((fam, r));
                     }
                     self.sweep = None;
@@ -727,7 +727,7 @@ impl CoreScreen {
     /// The run's console: one row per generation, as the side panel's table
     /// (`gen  k  H  mean ± σ  wall`).
     pub fn console(&self) -> Vec<String> {
-        let Some(run) = self.pool.as_ref().and_then(|p| p.state.run.as_ref()) else { return Vec::new() };
+        let Some(run) = self.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()) else { return Vec::new() };
         let mut v = vec![format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg)), " gen   k        H      mean ± σ             wall".to_string()];
         v.extend(run.gens.iter().map(|g| {
             let mean = g.gen.k_mean.map_or(String::new(), |(m, e)| format!("  {m:.5} ± {e:.5}"));
@@ -740,7 +740,7 @@ impl CoreScreen {
     /// Whether a run or a sweep is going (the bed and the rods the pool
     /// holds cannot change under it).
     pub fn busy(&self) -> bool {
-        self.sweep.is_some() || self.pool.as_ref().and_then(|p| p.state.run.as_ref()).is_some_and(RunState::going)
+        self.sweep.is_some() || self.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()).is_some_and(RunState::going)
     }
 
     /// Start k_eff at the reader's setting: straight away when the pool's
@@ -1169,7 +1169,7 @@ impl CoreScreen {
             text = Some(note(format!("Preparing the data: {:.0} %", 100.0 * s.progress()), grey));
         }
         if text.is_none() {
-            let run = s.run.as_ref();
+            let run = s.keff.run.as_ref();
             let going = run.is_some_and(RunState::going);
             if self.sweep.is_some() && !going {
                 text = Some(note(format!("Rebuilding the core: {}", self.sweep_status), grey));
@@ -1211,13 +1211,13 @@ impl CoreScreen {
     pub fn keff_body(&self, ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, text: f32, curves: &[crate::htr10::rods::RecordedCurve]) {
         use crate::keffplot::{self, GenPoint, RefLine, RunShape};
         let rect = rect.shrink2(Vec2::new(8.0, 4.0));
-        let run = self.pool.as_ref().and_then(|p| p.state.run.as_ref());
+        let run = self.pool.as_ref().and_then(|p| p.state.keff.run.as_ref());
         let cfg = run.map_or(self.cfg, |r| r.cfg);
         let pts: Vec<GenPoint> = run.map(|r| r.gens.iter().map(|g| GenPoint::from(&g.gen)).collect()).unwrap_or_default();
         let shape = RunShape { n_inactive: cfg.n_inactive, total: cfg.n_inactive + cfg.n_active };
         // What the run ran (the pool may have been rebuilt since), else what
         // the next run will: its references follow that.
-        let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.rods, r.layers));
+        let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.model.rods, r.model.layers));
         let dem = layers == super::random_bed::DEM_BED;
         // The reader's pour has no recorded reference (`record_row(0)` is none).
         let n = if dem { super::super::LADDER_N as usize } else if layers == super::random_bed::USER_POUR { 0 } else { layers };
@@ -1274,87 +1274,34 @@ fn draw_pour(painter: &egui::Painter, rect: Rect, view: &dhoby_ghaut::web_demo::
     use outram_park_fork_liggghts::htr10_fill::{wall_radius_at, VALVE_Z_M};
     let theme = bugis::Theme::current(visuals);
     let r = super::pour::R_CM;
-    painter.rect_filled(rect, 0.0, visuals.extreme_bg_color);
     let top = centres_m.chunks_exact(3).map(|c| 100.0 * f64::from(c[2]) + r).fold(2.0 * r, f64::max);
-    let shift = 0.5 * top.min(super::pour::HEIGHT_LIMIT_CM);
-    let at = |x: f64, z: f64| view.to_screen(rect, x, z - shift);
-    // The wall, from the valve to the cavity top.
-    let wall = egui::Stroke::new(1.5, theme.accent(4));
     let z_hi = nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM;
+    // The wall, from the valve to the cavity top (radius against height).
     let n = 120;
-    for side in [-1.0, 1.0] {
-        let pts: Vec<Pos2> = (0..=n)
-            .map(|i| {
-                let z = 100.0 * VALVE_Z_M + (z_hi - 100.0 * VALVE_Z_M) * i as f64 / n as f64;
-                at(side * 100.0 * wall_radius_at(z / 100.0), z)
-            })
-            .collect();
-        painter.add(egui::Shape::line(pts, wall));
-    }
-    let line = |z: f64, c: Color32| {
-        painter.line_segment([at(-90.0, z), at(90.0, z)], egui::Stroke::new(1.0, c));
+    let wall = (0..=n)
+        .map(|i| {
+            let z = 100.0 * VALVE_Z_M + (z_hi - 100.0 * VALVE_Z_M) * i as f64 / n as f64;
+            (100.0 * wall_radius_at(z / 100.0), z)
+        })
+        .collect();
+    let frame = nee_soon::dem_pour::PourFrame {
+        wall,
+        wall_colour: theme.accent(4),
+        marks: vec![
+            (0.0, String::new(), visuals.weak_text_color()),
+            (super::pour::HEIGHT_LIMIT_CM, "95 %".to_string(), visuals.error_fg_color),
+            (z_hi, String::new(), theme.accent(4)),
+        ],
+        mark_half_width: 90.0,
+        shift: 0.5 * top.min(super::pour::HEIGHT_LIMIT_CM),
     };
-    line(0.0, visuals.weak_text_color());
-    line(super::pour::HEIGHT_LIMIT_CM, visuals.error_fg_color);
-    line(z_hi, theme.accent(4));
-    let scale = (at(1.0, 0.0).x - at(0.0, 0.0).x).abs();
-    for c in centres_m.chunks_exact(3) {
-        let (x, y, z) = (100.0 * f64::from(c[0]), 100.0 * f64::from(c[1]), 100.0 * f64::from(c[2]));
-        if y.abs() >= r {
-            continue;
-        }
-        let rr = (r * r - y * y).sqrt() * f64::from(scale);
-        let col = if z > 0.0 { visuals.text_color() } else { visuals.weak_text_color() };
-        painter.circle_filled(at(x, z), rr.max(1.0) as f32, col);
-    }
-    painter.text(
-        at(92.0, super::pour::HEIGHT_LIMIT_CM),
-        egui::Align2::LEFT_CENTER,
-        "95 %",
-        egui::FontId::proportional(12.0),
-        visuals.error_fg_color,
-    );
+    nee_soon::dem_pour::draw_pour(painter, rect, view, centres_m, r, &frame, visuals);
 }
 
-/// **The pour's g(r)**, with the reference random bed's points
-/// ([`super::pour::REFERENCE_G`]) marked, √2 d (where a crystal would peak),
-/// √3 d and 2 d as guides, and g = 1. Colours from the Gruvbox theme
-/// (bugis). GUI drawing, not reached by a test (the test rule's exception);
-/// its numbers are `pour::diagnostics`, which is.
+/// **The pour's g(r)**: `nee_soon::dem_pour::rdf_plot` (gh:#1655). GUI
+/// drawing, not reached by a test (the test rule's exception).
 fn rdf_plot(ui: &mut egui::Ui, d: &super::pour::PourDiagnostics) {
-    let theme = bugis::Theme::current(ui.visuals());
-    let fg = ui.visuals().text_color();
-    let faint = ui.visuals().weak_text_color();
-    let w = ui.available_width().max(160.0);
-    let (rect, _) = ui.allocate_exact_size(Vec2::new(w, 170.0), egui::Sense::hover());
-    let p = ui.painter_at(rect);
-    p.rect_filled(rect, 4.0, ui.visuals().extreme_bg_color);
-    let plot = Rect::from_min_max(rect.min + Vec2::new(34.0, 8.0), rect.max - Vec2::new(8.0, 22.0));
-    let x_max = d.r_max_d.max(1.0);
-    // Log-free linear axis, clipped at 6 so the second shell reads; the
-    // contact peak's height is in the line above.
-    let y_max = 6.0;
-    let at = |x: f64, y: f64| Pos2::new(plot.left() + (x / x_max) as f32 * plot.width(), plot.bottom() - (y.min(y_max) / y_max) as f32 * plot.height());
-    for (x, label) in [(1.0, "d"), (2f64.sqrt(), "√2"), (3f64.sqrt(), "√3"), (2.0, "2d")] {
-        if x <= x_max {
-            p.line_segment([at(x, 0.0), at(x, y_max)], egui::Stroke::new(0.5, faint));
-            p.text(at(x, 0.0) + Vec2::new(0.0, 3.0), egui::Align2::CENTER_TOP, label, egui::FontId::proportional(10.0), faint);
-        }
-    }
-    p.line_segment([at(0.0, 1.0), at(x_max, 1.0)], egui::Stroke::new(0.5, faint));
-    for y in [0.0, 1.0, 2.0, 4.0, 6.0] {
-        p.text(Pos2::new(plot.left() - 4.0, at(0.0, y).y), egui::Align2::RIGHT_CENTER, format!("{y}"), egui::FontId::proportional(10.0), faint);
-    }
-    let pts: Vec<Pos2> = d.r_over_d.iter().zip(&d.g).filter(|(_, g)| g.is_finite()).map(|(&x, &g)| at(x, g)).collect();
-    p.add(egui::Shape::line(pts, egui::Stroke::new(1.5, theme.accent(0))));
-    let [g2, g3, g4, _] = super::pour::REFERENCE_G;
-    for (x, g) in [(2f64.sqrt(), g2), (3f64.sqrt(), g3), (2.0, g4)] {
-        if x <= x_max {
-            p.circle_stroke(at(x, g), 3.5, egui::Stroke::new(1.5, theme.accent(1)));
-        }
-    }
-    p.text(plot.right_top(), egui::Align2::RIGHT_TOP, "g(r): yours (line), reference bed (circles)", egui::FontId::proportional(10.5), fg);
-    p.text(Pos2::new(plot.center().x, rect.bottom() - 2.0), egui::Align2::CENTER_BOTTOM, "r / d", egui::FontId::proportional(10.0), faint);
+    nee_soon::dem_pour::rdf_plot(ui, d);
 }
 
 fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
@@ -1369,13 +1316,13 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                 format!(
                     "Processing nuclear data in {} workers: {}/{} jobs, {:.0} % · {el:.0} s",
                     s.workers,
-                    s.secs.iter().filter(|x| x.is_some()).count(),
-                    s.secs.len(),
+                    s.data.secs.iter().filter(|x| x.is_some()).count(),
+                    s.data.secs.len(),
                     100.0 * s.progress()
                 ),
                 white,
             ));
-            if s.sources.iter().any(Option::is_some) {
+            if s.data.sources.iter().any(Option::is_some) {
                 v.push((format!("So far: {}", s.data_source()), white));
             }
         }
@@ -1414,7 +1361,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
             if s.live_workers() < s.workers {
                 v.push((dead_line(s), amber));
             }
-            if let Some(run) = &s.run {
+            if let Some(run) = &s.keff.run {
                 let total = run.cfg.n_inactive + run.cfg.n_active;
                 if let RunOrigin::Restart { .. } = run.origin {
                     v.push((format!("This is {}.", run.describe()), amber));
@@ -1457,7 +1404,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
 /// Which workers have stopped, and why (gh:#817).
 fn dead_line(s: &PoolState) -> String {
     let dead: Vec<String> = (0..s.workers)
-        .filter_map(|w| s.died[w].as_ref().map(|why| format!("worker {} ({why})", w + 1)))
+        .filter_map(|w| s.keff.died[w].as_ref().map(|why| format!("worker {} ({why})", w + 1)))
         .collect();
     format!(
         "{} of {} workers left; their data are intact. Stopped: {}.",
@@ -1488,7 +1435,7 @@ fn restart(s: &mut PoolState, kind: RestartKind) {
 
 /// The run failed and the data are intact: offer the restarts.
 fn restart_wanted(s: &PoolState) -> bool {
-    s.phase == PoolPhase::Ready && s.run.as_ref().is_some_and(|r| r.failed.is_some())
+    s.phase == PoolPhase::Ready && s.keff.run.as_ref().is_some_and(|r| r.failed.is_some())
 }
 
 /// What a button asked of the screen that the pool cannot do itself.
@@ -1526,7 +1473,7 @@ fn pool_panel(
         ui.colored_label(amber, dead_line(s));
     }
     if restart_wanted(s) {
-        if let Some(e) = s.run.as_ref().and_then(|r| r.failed.clone()) {
+        if let Some(e) = s.keff.run.as_ref().and_then(|r| r.failed.clone()) {
             ui.colored_label(red, e);
         }
         for (kind, label) in restart_labels(s) {
@@ -1538,15 +1485,15 @@ fn pool_panel(
             }
         }
     }
-    if !s.log.is_empty() {
+    if !s.keff.log.is_empty() {
         egui::CollapsingHeader::new(format!(
             "Pool log ({} entries, {} stale replies discarded)",
-            s.log.len(),
-            s.stale_discarded
+            s.keff.log.len(),
+            s.keff.stale_discarded
         ))
         .default_open(false)
         .show(ui, |ui| {
-            for l in &s.log {
+            for l in &s.keff.log {
                 ui.weak(l);
             }
         });
@@ -1555,15 +1502,15 @@ fn pool_panel(
     egui::CollapsingHeader::new(format!("Data: {:.0} % ({} workers)", 100.0 * s.progress(), s.workers)).default_open(!ready).show(ui, |ui| {
         ui.label(format!("Nuclear data: {}", s.data_source()));
         egui::Grid::new("core_jobs").num_columns(4).striped(true).show(ui, |ui| {
-            for (j, l) in s.labels.iter().enumerate() {
+            for (j, l) in s.data.labels.iter().enumerate() {
                 ui.label(l);
-                ui.label(format!("w{}", s.owner[j] + 1));
-                ui.label(match (s.secs[j], s.started[j]) {
+                ui.label(format!("w{}", s.data.owner[j] + 1));
+                ui.label(match (s.data.secs[j], s.data.started[j]) {
                     (Some(t), _) => format!("{t:.1} s"),
                     (None, true) => "…".into(),
                     (None, false) => "queued".into(),
                 });
-                ui.label(match &s.sources[j] {
+                ui.label(match &s.data.sources[j] {
                     Some(dhoby_ghaut::web_demo::data_cache::Source::Cached { .. }) => "cached",
                     Some(_) => "processed",
                     None => "",
@@ -1591,40 +1538,13 @@ fn pool_panel(
     // Going from the moment it starts, including while the initial source is
     // sampled: a second Start in that window queued generation 0 twice. A
     // failed run is not going (gh:#817).
-    let running = s.run.as_ref().is_some_and(|r| r.going());
+    let running = s.keff.run.as_ref().is_some_and(|r| r.going());
     // Held to the demo's caps (keff::MAX_PARTICLES, MAX_GENERATIONS in all;
     // 2026-10-15, were 20 000 and 50 + 200 here).
-    egui::Grid::new("core_cfg").num_columns(2).show(ui, |ui| {
-        ui.label("neutrons per generation");
-        ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=MAX_PARTICLES).speed(100));
-        ui.end_row();
-        ui.label("inactive generations");
-        let hi = MAX_GENERATIONS - cfg.n_active.max(MIN_ACTIVE);
-        ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(0..=hi));
-        ui.end_row();
-        ui.label("active generations");
-        let hi = MAX_GENERATIONS - cfg.n_inactive.min(MAX_GENERATIONS - MIN_ACTIVE);
-        ui.add(egui::DragValue::new(&mut cfg.n_active).range(MIN_ACTIVE..=hi));
-        ui.end_row();
-        ui.label("seed");
-        ui.add(egui::DragValue::new(&mut cfg.seed));
-        ui.end_row();
-    });
-    *cfg = clamp_to_caps(*cfg, 0);
-    if cfg.seed != RECORD_SEED {
-        ui.weak(format!("The record used seed {RECORD_SEED}."));
-    }
-    // Repeat the record (gh:#876 item 5): same settings and seed.
-    ui.add_enabled_ui(!running, |ui| {
-        ui.horizontal_wrapped(|ui| {
-            if ui.button("Defaults").clicked() {
-                *cfg = DEFAULT_RUN;
-            }
-            if ui.button(format!("Recorded settings ({})", crate::keff::settings_line(&RECORD_RUN))).clicked() {
-                *cfg = RECORD_RUN;
-            }
-        });
-    });
+    // The fields and buttons are the library's (gh:#1653), the same in every
+    // k_eff simulator.
+    let presets = dhoby_ghaut::mc_web::run_settings::RunPresets { defaults: DEFAULT_RUN, recorded: Some(RECORD_RUN) };
+    dhoby_ghaut::mc_web::run_settings::run_settings_ui(ui, "core_cfg", cfg, 0, &presets, running);
     let page = dhoby_ghaut::web_demo::platform::page_url();
     crate::keff::settings_link_row(ui, &crate::keff::settings_link(&page, "htr10", "watch", Some("core"), cfg));
     ui.weak(crate::keff::POOL_TIP);
@@ -1633,7 +1553,7 @@ fn pool_panel(
         if !running && ui.button("▶ Start").clicked() {
             action = Some(PoolAction::Start);
         }
-        if let Some(r) = s.run.as_ref().filter(|_| running) {
+        if let Some(r) = s.keff.run.as_ref().filter(|_| running) {
             let paused = r.paused;
             if ui
                 .button(if paused { "▶ Resume" } else { "⏸ Pause" })
@@ -1646,7 +1566,7 @@ fn pool_panel(
             }
         }
     });
-    match s.run.as_ref().filter(|_| running) {
+    match s.keff.run.as_ref().filter(|_| running) {
         Some(run) => {
             if let Some(l) = run_eta(run) {
                 ui.label(l);
@@ -1656,7 +1576,7 @@ fn pool_panel(
             ui.weak(plan_line(cfg, None));
         }
     }
-    if let Some(run) = &s.run {
+    if let Some(run) = &s.keff.run {
         // What kind of run this is (a restart says how, gh:#817).
         let mut what = format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg));
         if let RunOrigin::Restart { after, .. } = &run.origin {
@@ -1827,7 +1747,7 @@ mod tests {
         };
         let mut p = CorePool::start(&ctx, plan, 12, &ZoneTemperatures::record()).expect("pool");
         // Data ready without processing anything (the protocol is scripted).
-        let n = p.state.labels.len();
+        let n = p.state.data.labels.len();
         for j in 0..n {
             let ev = CoreEv::Product {
                 job: j,
@@ -1880,7 +1800,7 @@ mod tests {
         screen.reprocess(&ctx);
         let fresh = screen.pool.as_ref().expect("a new pool");
         assert_eq!(fresh.state.phase, PoolPhase::Processing);
-        assert!(fresh.state.log.is_empty());
+        assert!(fresh.state.keff.log.is_empty());
         if let Some(p) = screen.pool.take() {
             p.terminate();
         }

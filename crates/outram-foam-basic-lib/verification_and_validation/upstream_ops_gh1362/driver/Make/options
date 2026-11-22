@@ -1,0 +1,16 @@
+EXE_INC = \
+    -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/LimitedScheme \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/vanLeer \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/vanAlbada \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/Minmod \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/SuperBee \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/MUSCL \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/UMIST \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/OSPRE \
+    -I$(LIB_SRC)/finiteVolume/interpolation/surfaceInterpolation/limitedSchemes/limitedLinear
+
+EXE_LIBS = \
+    -lfiniteVolume \
+    -lmeshTools

@@ -23,13 +23,22 @@
 //! **Scope of this port (honest):** `mfcov = 33`, `iread = 0` (reaction list
 //! taken from the file), `nstan = 0` (no ratio-to-standard tape: an NC-type
 //! sub-subsection with `LTY > 0` is an error here exactly as it is in
-//! upstream with `nstan = 0`), ENDF-5/6 format (`iverf > 4`). MF=31/34/35/40
-//! and the `iread = 1/2` user-list branches are not ported.
+//! upstream with `nstan = 0`), ENDF-5/6 format (`iverf > 4`). ~~MF=31/34/35/40
+//! and the `iread = 1/2` user-list branches are not ported.~~ **CORRECTED
+//! 2026-11-14** (checked against the code): [`gridd`] also reads MF=31
+//! (`CovarianceReactions::mfcov`), MF=40 with one final state
+//! ([`mf40_final_state`], gh:#1371) and card 10's `iread = 2` pairs; MF=34 and
+//! MF=35 have their own readers (`mf34`, `mf35`). ~~`iread = 1` is not ported.~~
+//! **CORRECTED 2026-11-14 (gh:#1371):** `iread = 1` is read too
+//! ([`CovarianceReactions::card8`]).
 //!
 //! All energies go through `sigfig(x, ndig = 6)` ([`NDIG`], `errorr.f90:116`)
 //! exactly as upstream, so the union grid matches the Fortran listing to the
 //! printed digits.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;
@@ -71,7 +80,8 @@ pub struct CovarianceReactions {
     /// `mats(1:nmt1)` — companion material of each entry (`0` = this
     /// material; `-1` marks a negated lumped component).
     pub mats: Vec<i32>,
-    /// `mzap(1:nmt1)` — always `0` for MF=33.
+    /// `mzap(1:nmt1)` — `0` for MF=31/33; for MF=40, `10*L1 + LFS` of the
+    /// final state's CONT (`errorr.f90:1190`, gh:#1371).
     pub mzap: Vec<i32>,
     /// `iga(1:nga)` — the `MT`s `grpav` group-averages (every MF=33 `MT`
     /// that is neither a lump nor ignored).
@@ -82,6 +92,81 @@ pub struct CovarianceReactions {
     pub mf32_present: bool,
     /// `mf33 == 1` — the dictionary lists an MF=33 file.
     pub mf33_present: bool,
+    /// `mfcov`: the covariance file read, 31, 33 or 40; `0` (the default) means 33.
+    pub mfcov: i32,
+    /// Card 10's `mat1 mt1` pairs when `iread = 2` (`errorr.f90:907-919`), gh:#1369;
+    /// `None` for `iread = 0`. [`gridd`] appends them after the reactions it finds,
+    /// as upstream keeps them at `mts(nmt+1:nmt1)` (`:1202-1209`).
+    pub card10: Option<Vec<(i32, i32)>>,
+    /// The `nstan` tape and card 11 (gh:#1371); `None` for `nstan = 0`, when an
+    /// NC-type sub-subsection with `LTY` 1-3 stops `gridd` as upstream does.
+    pub standards: Option<super::standards::Standards>,
+    /// Cards 8-9 (`iread = 1`, `errorr.f90:862-905`, gh:#1371): the user's
+    /// reaction list and derivation coefficients. `None` for `iread = 0/2`.
+    /// [`gridd`] then takes `mts` from here instead of from the file, skips
+    /// every other section, and keeps these coefficients (`:1154-1157`,
+    /// `:1166-1169`, `:1300`); [`super::covcal::covcal`] skips the same sections
+    /// (`:1913-1918`).
+    pub card8: Option<Card8>,
+}
+
+/// ERRORR's cards 8-9 (`iread = 1`, `errorr.f90:862-905`): `mts(1:nmt)` and
+/// `akxy`/`ek`, which replace what [`gridd`] would derive from the file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Card8 {
+    /// Card 8a: `mts(1:nmt)`, with `mats = 0`.
+    pub mts: Vec<i32>,
+    /// Cards 8b and 9: `ek(1:nek+1)` (`sigfig`'d to [`NDIG`]) and `akxy`;
+    /// with `nek = 0`, `ek = (small, big)` and the identity (`:883-891`).
+    pub derived: DerivedCoefficients,
+}
+
+impl Card8 {
+    /// Build cards 8-9 as `errorr.f90:862-905` stores them. `ek` is card 8b as
+    /// read (`nek+1` bounds; empty for `nek = 0`), `rows[i][j]` card 9's line for
+    /// range `i` and reaction `j`, whose `k`-th word is `akxy(k, j, i)`.
+    ///
+    /// # Errors
+    /// [`NjoyError::InvalidInput`] when the shapes disagree with `nmt`/`nek`.
+    pub fn from_cards(mts: Vec<i32>, ek: &[f64], rows: &[Vec<Vec<f64>>]) -> Result<Self, NjoyError> {
+        let nmt = mts.len();
+        if ek.is_empty() {
+            return Ok(Card8 { mts, derived: DerivedCoefficients::identity(vec![SMALL, BIG], nmt) });
+        }
+        let nek = ek.len() - 1;
+        if nek == 0 || rows.len() != nek || rows.iter().any(|r| r.len() != nmt || r.iter().any(|w| w.len() != nmt)) {
+            return Err(NjoyError::InvalidInput(format!("errorr cards 8b/9: {} bounds and {} ranges for nmt = {nmt}", ek.len(), rows.len())));
+        }
+        let ek: Vec<f64> = ek.iter().map(|&e| sigfig(e, NDIG, 0)).collect();
+        let mut derived = DerivedCoefficients { ek, nmt1: nmt, akxy: vec![0.0; nek * nmt * nmt] };
+        for (i, range) in rows.iter().enumerate() {
+            for (j, row) in range.iter().enumerate() {
+                for (k, &v) in row.iter().enumerate() {
+                    derived.set(k, j, i, v);
+                }
+            }
+        }
+        Ok(Card8 { mts, derived })
+    }
+}
+
+impl CovarianceReactions {
+    /// `nmt`: the reactions of this material, without card 10's pairs, which
+    /// [`gridd`] keeps at the end (`nmt1 = nmt + pairs`). `covout` writes one
+    /// section per `ix <= nmt` and one subsection per `ixp <= nmt1`
+    /// (`errorr.f90:7068`, `:7225`, `:7254`), gh:#1369.
+    pub fn nmt(&self) -> usize {
+        self.mts.len() - self.card10.as_ref().map_or(0, Vec::len)
+    }
+
+    /// The covariance file `gridd`, `lumpmt` and `covcal` read (`mfcov`, 33 unless set).
+    pub fn mf(&self) -> i32 {
+        if self.mfcov == 0 {
+            33
+        } else {
+            self.mfcov
+        }
+    }
 }
 
 /// Scan the material's dictionary for the covariance reactions
@@ -96,7 +181,16 @@ pub struct CovarianceReactions {
 /// [`NjoyError::EndfParse`] if the dictionary lists no MF=32/33 file
 /// (`icov == 0`, upstream's "no data on file for mfcov" termination).
 pub fn scan_reactions(tape: &Tape, matd: i32) -> Result<CovarianceReactions, NjoyError> {
-    let mut r = CovarianceReactions::default();
+    scan_reactions_mf(tape, matd, 33)
+}
+
+/// [`scan_reactions`] for `mfcov = 31` (nubar covariances, `errorr.f90:757`) or 33.
+/// For 31, `icov` counts MF=31 sections and the reactions are MF=31's.
+///
+/// # Errors
+/// As [`scan_reactions`], for the file `mfcov`.
+pub fn scan_reactions_mf(tape: &Tape, matd: i32, mfcov: i32) -> Result<CovarianceReactions, NjoyError> {
+    let mut r = CovarianceReactions { mfcov, ..CovarianceReactions::default() };
     let mut icov = 0;
     for sec in tape.sections().iter().filter(|s| s.key.mat == matd) {
         let (mf, mt) = (sec.key.mf, sec.key.mt);
@@ -106,10 +200,11 @@ pub fn scan_reactions(tape: &Tape, matd: i32) -> Result<CovarianceReactions, Njo
         if mf == 33 {
             r.mf33_present = true;
         }
-        if mf == 32 || mf == 33 {
+        // errorr.f90:757-761; `mfcov = 40` counts MF=40 (gh:#1371).
+        if (mfcov == 33 && (mf == 32 || mf == 33)) || ((mfcov == 31 || mfcov == 40) && mf == mfcov) {
             icov += 1;
         }
-        if mf != 33 {
+        if mf != mfcov {
             continue;
         }
         // errorr.f90:750-754 — unknown MTs are ignored with a message.
@@ -127,7 +222,7 @@ pub fn scan_reactions(tape: &Tape, matd: i32) -> Result<CovarianceReactions, Njo
     }
     if icov == 0 {
         return Err(NjoyError::EndfParse(format!(
-            "errorr: no data on file for mfcov=33 (mat {matd})"
+            "errorr: no data on file for mfcov={mfcov} (mat {matd})"
         )));
     }
     Ok(r)
@@ -282,8 +377,11 @@ pub struct GriddResult {
 /// do not enter the union grid (`errorr.f90:1200-1218`).
 ///
 /// # Errors
-/// - [`NjoyError::NotPorted`] for an NC-type sub-subsection with `LTY > 0`
-///   (needs the `nstan` standards tape, `errorr.f90:1274-1297`).
+/// - ~~[`NjoyError::NotPorted`] for an NC-type sub-subsection with `LTY > 0`
+///   (needs the `nstan` standards tape, `errorr.f90:1274-1297`).~~ **CORRECTED
+///   2026-11-14 (gh:#1371):** with `reactions.standards` set, `LTY` 1 and 2 merge
+///   the standard's energies ([`super::standards::grist`]); without it,
+///   [`NjoyError::InvalidInput`], as upstream stops with `nstan = 0`.
 /// - [`NjoyError::EndfParse`] for `MT1 = 0`, `LTY > 3`, a formula that
 ///   references an `MT` absent from MF=33, or a malformed record.
 pub fn gridd(
@@ -295,23 +393,43 @@ pub fn gridd(
     let mut ek: Vec<f64> = Vec::new();
     let mut formulas: Vec<Formula> = Vec::new();
 
+    let mfcov = reactions.mf();
+    let standards = reactions.standards.clone();
+    // iread = 1 (errorr.f90:877-881, gh:#1371): `mts` is card 8a, `mats = 0`.
+    let card8 = reactions.card8.clone();
+    if let Some(c8) = &card8 {
+        reactions.mts = c8.mts.clone();
+        reactions.mats = vec![0; c8.mts.len()];
+        reactions.mzap = vec![0; c8.mts.len()];
+    }
     for sec in tape
         .sections()
         .iter()
-        .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
     {
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?; // errorr.f90:1167
-        let nsub = head.n2; // NL (errorr.f90:1181)
+        // MF=40 (errorr.f90:1184-1191, gh:#1371): one final state, read past its
+        // subsection CONT, which gives `izap`; then one sub-subsection.
+        let (nsub, izap) = if mfcov == 40 { (1, mf40_final_state(&head, &mut cur)?) } else { (head.n2, 0) };
         if nsub == 0 {
             continue; // component of a lumped reaction (errorr.f90:1149)
         }
-        // errorr.f90:1154-1165 — append this reaction.
-        reactions.mts.push(mth);
-        reactions.mats.push(0);
-        reactions.mzap.push(0);
-        let nmt = reactions.mts.len() - 1;
+        // iread = 1 (errorr.f90:1154-1157): a section not on card 8a is skipped
+        // (`tosend`); one that is keeps its card-8a position.
+        let nmt = if let Some(c8) = &card8 {
+            match c8.mts.iter().position(|&m| m == mth) {
+                Some(i) => i,
+                None => continue,
+            }
+        } else {
+            // errorr.f90:1154-1165 — append this reaction.
+            reactions.mts.push(mth);
+            reactions.mats.push(0);
+            reactions.mzap.push(izap);
+            reactions.mts.len() - 1
+        };
 
         for _ in 0..nsub {
             let sub = cur.read_cont()?; // errorr.f90:1187
@@ -323,7 +441,13 @@ pub fn gridd(
                 )));
             }
             // iread=0: mat1>0 -> iok=0 (errorr.f90:1207-1208, 1224-1226).
-            let iok = mat1 <= 0;
+            // iread=2 (gh:#1369): mat1=0, or a card-10 pair (`:1213-1219`).
+            // iread=1 (gh:#1371): mat1 <= 0 and mt1 on card 8a (`:1220-1225`).
+            let iok = match (&card8, &reactions.card10) {
+                (Some(c8), _) => mat1 <= 0 && c8.mts.contains(&mt1),
+                (None, None) => mat1 <= 0,
+                (None, Some(pairs)) => mat1 == 0 || pairs.contains(&(mat1, mt1)),
+            };
             let nc = sub.n1;
             let ni = sub.n2;
 
@@ -344,10 +468,24 @@ pub fn gridd(
                 let elh = sigfig(list.head.c1, NDIG, 0);
                 let ehh = sigfig(list.head.c2, NDIG, 0);
                 if lty != 0 {
-                    // errorr.f90:1274-1297: needs nstan.
-                    return Err(NjoyError::NotPorted(
-                        "errorr::gridd: NC-type sub-subsection with lty>0 (ratio-to-standard, needs nstan)",
-                    ));
+                    // errorr.f90:1274-1300: the standard's energies come from nstan
+                    // (`grist`, gh:#1371); upstream stops when nstan = 0.
+                    let Some(std) = &standards else {
+                        return Err(NjoyError::InvalidInput(format!(
+                            "errorr::gridd: cannot calculate covariances of reaction mt={mth} with mt1={mt1} because nstan=0 (standard mat {} mt {})",
+                            list.head.l1, list.head.l2
+                        )));
+                    };
+                    match lty {
+                        1 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, elh, ehh, &mut eni)?,
+                        2 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, 0.0, 0.0, &mut eni)?,
+                        _ => {}
+                    }
+                    continue;
+                }
+                // errorr.f90:1299: iread = 1 takes its formulas from card 9.
+                if card8.is_some() {
+                    continue;
                 }
                 // errorr.f90:1300-1318 — save the derivation formula.
                 let n2h = list.head.n2 as usize; // number of MTs in the formula
@@ -395,7 +533,21 @@ pub fn gridd(
             }
         }
     }
+    // iread=2 (gh:#1369): card 10's pairs follow the reactions found
+    // (`mts(nmt+1:nmt1)`, errorr.f90:1202-1209).
+    if let Some(pairs) = reactions.card10.clone() {
+        for (mat1, mt1) in pairs {
+            reactions.mts.push(mt1);
+            reactions.mats.push(mat1);
+            reactions.mzap.push(0);
+        }
+    }
 
+    // iread = 1 (errorr.f90:1166-1169): the end of the file returns before the
+    // coefficients are rebuilt; card 9's stand.
+    if let Some(c8) = card8 {
+        return Ok(GriddResult { eni, derived: c8.derived });
+    }
     // errorr.f90:1406-1420 — a default range 1e-5 .. ek(1) if needed.
     let mut neki = ek.len();
     if neki > 0 && SMALL5 + SMALL5 / 1000.0 < ek[0] {
@@ -445,6 +597,36 @@ pub fn gridd(
         }
     }
     Ok(GriddResult { eni, derived })
+}
+
+/// MF=40's level between the section HEAD and the sub-subsections, as `gridd`
+/// and `covcal` read it (`errorr.f90:1184-1191`, `:1889-1907`), gh:#1371: the
+/// HEAD's `N1` is `NS`, the number of final states; the first subsection CONT
+/// `[QM, QI, IZAP, LFS, 0, NL]` gives `izap = 10*L1 + LFS`. Upstream's `L1` is
+/// the product's ZA (ENDF-6 leaves it 0, and `covcal` then warns that a COVR
+/// title will be ambiguous). Returns `izap`.
+///
+/// Upstream then reads exactly one sub-subsection per final state (`gridd`'s
+/// `nsub = 1`, `covcal`'s `nl = NS`) and never reads a second state's CONT.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`], by name, for `NS /= 1` or `NL /= 1`: upstream reads
+/// the next state's CONT (or the next sub-subsection's) as a sub-subsection header
+/// and loses its place in the section. On TENDL-2023 Ar-37 (`NS = 2`) NJOY2016.80
+/// stops in `covcal` with "mfcov mt found not equal to input mt".
+pub(super) fn mf40_final_state(head: &crate::endf::records::Cont, cur: &mut SectionCursor<'_>) -> Result<i32, NjoyError> {
+    if head.n1 != 1 {
+        return Err(NjoyError::NotPorted(
+            "errorr mfcov = 40: NS /= 1 final states (gridd/covcal read the second state's CONT as a sub-subsection header, errorr.f90:1184-1191, 1889-1907)",
+        ));
+    }
+    let sub = cur.read_cont()?;
+    if sub.n2 != 1 {
+        return Err(NjoyError::NotPorted(
+            "errorr mfcov = 40: NL /= 1 sub-subsections in a final state (gridd reads one, errorr.f90:1186)",
+        ));
+    }
+    Ok(10 * sub.l1 + sub.l2)
 }
 
 /// Form the union of the user's group boundaries with the MF=33 energy grid
@@ -535,10 +717,11 @@ pub fn lumpmt(
     if reactions.lumps.is_empty() {
         return Ok(());
     }
+    let mfcov = reactions.mf();
     for sec in tape
         .sections()
         .iter()
-        .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
     {
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);

@@ -125,6 +125,9 @@
 //! Enum-free by design (a single struct of parameters); no trait objects, no
 //! `Box`, no lifetimes (workspace rules).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 

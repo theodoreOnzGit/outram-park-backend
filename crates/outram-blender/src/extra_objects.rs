@@ -41,8 +41,11 @@
 //! All radii / lengths are dimensionless model-space quantities; angles are
 //! radians; tooth/segment counts are clamped to sane minimums.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::{PI, TAU};
+use core::f64::consts::{PI, TAU};
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;

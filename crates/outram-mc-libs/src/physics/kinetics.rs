@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Point-kinetics parameters from a Monte Carlo run** — the effective
 //! delayed fraction `β_eff` and the neutron generation time `Λ`. GitHub #262.
@@ -43,6 +43,9 @@
 //! rather than a second calculation. Like `β_eff` above it is the
 //! **non-adjoint-weighted** form.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;

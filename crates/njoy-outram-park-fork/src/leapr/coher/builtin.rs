@@ -34,6 +34,9 @@
 //! (monotone edges, non-negative structure factors, plausible first-edge energy)
 //! but **not** validated against a reference LEAPR run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::PI;
 use crate::leapr::coher::BraggEdges;

@@ -46,6 +46,9 @@
 //!
 //! Positions are dimensionless model-space quantities (see [`crate::math`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -112,7 +115,7 @@ pub fn circle(mesh: &Mesh, loop_verts: &[VertexId], _cyclic: bool) -> Mesh {
     };
     let n = loop_verts.len();
     for (k, vid) in loop_verts.iter().enumerate() {
-        let a = a0 + std::f64::consts::TAU * k as f64 / n as f64;
+        let a = a0 + core::f64::consts::TAU * k as f64 / n as f64;
         positions[vid.0] = c
             .add(u.scale(radius * a.r_cos()))
             .add(v.scale(radius * a.r_sin()));
@@ -321,7 +324,7 @@ pub fn subdivide(mesh: &Mesh, loop_verts: &[VertexId], cyclic: bool) -> Mesh {
         return rebuilt(&positions, &faces);
     }
     // Loop edges as an unordered-pair set → midpoint vertex id.
-    use std::collections::HashMap;
+    use crate::hash::HashMap;
     let mut mid: HashMap<(usize, usize), usize> = HashMap::new();
     let last = if cyclic { n } else { n - 1 };
     for i in 0..last {

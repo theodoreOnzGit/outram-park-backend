@@ -35,9 +35,11 @@
 //!   hybrid; the mirror now matches the public
 //!   `ph_flash_eqm::w_ph_eqm_hem` (without its absent clamp), and the
 //!   `edw_knp` run is gone. The mirror is kept unchanged so the `hem_sound`
-//!   golden does not move. `lambda_ph` is
+//!   golden does not move. ~~`lambda_ph` is
 //!   hashed as NaN at the 17 grid points where `t_ph_eqm < 273.15 K`, because
-//!   `lambda_ph_eqm` panics there (gh:#904; see `part_a`). There are also three
+//!   `lambda_ph_eqm` panics there (gh:#904; see `part_a`).~~ **CORRECTED
+//!   2026-11-10:** that panic is fixed (gh:#904) and `lambda_ph` is hashed at
+//!   every point. There are also three
 //!   probes:
 //!   - `powi_const`: `f64::powi` with literal arguments, which the compiler
 //!     may constant-fold;
@@ -291,6 +293,13 @@ impl Fnv {
 /// a continuous global maximum. The Edwards break boundary calls it; the
 /// step-1 hashes are unchanged, and the step-10 ones and later moved. Recorded in
 /// `verification_and_validation/determinism_golden_moves.md`.
+/// **2026-11-10 (gh:#904):** `lambda_ph` regenerated: its 17 former-NaN
+/// points (the panic guard) now carry values; the other 2147 are unchanged.
+/// **2026-11-16 (gh:#1607):** `edw_pimple_*` regenerated (15 of 16; `he_1`
+/// unchanged): the array now runs on `outram-foam-basic-lib`'s upstream-order
+/// operators (gh:#1489) instead of a pre-#1489 copy. A 1-ulp step-1 seed grows to
+/// 5e-8 in `p` by step 200. Recorded, with the measured differences, in
+/// `verification_and_validation/determinism_golden_moves.md`.
 const GOLDEN: &[(&str, usize, u64)] = &[
     // GOLDEN-TABLE-START
     ("t_ph", 2164, 0xfe7442848ca7f258),
@@ -299,29 +308,29 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("x_ph", 2164, 0x7525347c80e73231),
     ("kappa_t_ph", 2164, 0x30e98ac17f829393),
     ("mu_ph", 2164, 0xf94a3d0371d786d7),
-    ("lambda_ph", 2164, 0xf2fb2a32e2b829c9),
+    ("lambda_ph", 2164, 0xc1c6c09c20975332),
     ("hem_sound", 2164, 0x2703fa131e5f029b),
     ("p_rho_h", 2164, 0x8a482250694e65de),
     ("powi_const", 7, 0x29117476631d81ac),
     ("powi_runtime", 2007, 0x2eecdc58aa489499),
     ("std_libm", 2500, 0xc001414e982af1cb),
     ("petir_libm", 2500, 0x6dfb4db67eae5e27),
-    ("edw_pimple_p_1", 24, 0x5c438839a9588fe5),
+    ("edw_pimple_p_1", 24, 0x8d430410d56799cc),
     ("edw_pimple_he_1", 24, 0x99e80f2836e95484),
-    ("edw_pimple_rho_1", 24, 0xbf05587125d7c7a4),
-    ("edw_pimple_U_1", 72, 0x60673c681d1e7655),
-    ("edw_pimple_p_10", 24, 0xea24059e9252ee26),
-    ("edw_pimple_he_10", 24, 0x97558ed3c2267639),
-    ("edw_pimple_rho_10", 24, 0x4a6a86282b7d1440),
-    ("edw_pimple_U_10", 72, 0x56f26996362e49d7),
-    ("edw_pimple_p_50", 24, 0x2db5604a318a689a),
-    ("edw_pimple_he_50", 24, 0xfb30d36be397eea7),
-    ("edw_pimple_rho_50", 24, 0x522057d3cd38af3b),
-    ("edw_pimple_U_50", 72, 0x9be7a101d78eb351),
-    ("edw_pimple_p_200", 24, 0x2745182f6bdcdd42),
-    ("edw_pimple_he_200", 24, 0x9bbaec8f5dface67),
-    ("edw_pimple_rho_200", 24, 0xba774c18e058e414),
-    ("edw_pimple_U_200", 72, 0x49d693d4bf1ada00),
+    ("edw_pimple_rho_1", 24, 0xcd32bb4b43d3486a),
+    ("edw_pimple_U_1", 72, 0x84b8abd449c96cc7),
+    ("edw_pimple_p_10", 24, 0x78b090ab26827b15),
+    ("edw_pimple_he_10", 24, 0xda33bccef07f6501),
+    ("edw_pimple_rho_10", 24, 0x3a98613213d7ef36),
+    ("edw_pimple_U_10", 72, 0x49b8965f3229ba5f),
+    ("edw_pimple_p_50", 24, 0x046d14343f8da32a),
+    ("edw_pimple_he_50", 24, 0x376cfacb147b992d),
+    ("edw_pimple_rho_50", 24, 0x39e8d741c2d9d930),
+    ("edw_pimple_U_50", 72, 0x4783a649141d0141),
+    ("edw_pimple_p_200", 24, 0x0bc3ec6e62362a80),
+    ("edw_pimple_he_200", 24, 0xdeec6fe5a05d9b0c),
+    ("edw_pimple_rho_200", 24, 0xb91e0276528fd948),
+    ("edw_pimple_U_200", 72, 0x7ee1dfa6f7512b7d),
     // GOLDEN-TABLE-END
 ];
 
@@ -480,22 +489,15 @@ fn part_a() -> Vec<(String, usize, u64)> {
         sweep("x_ph", x_ph_flash),
         sweep("kappa_t_ph", |p, h| kappa_t_ph_eqm(p, h).value), // SI base: 1/Pa
         sweep("mu_ph", |p, h| mu_ph_eqm(p, h).get::<pascal_second>()),
-        // `lambda_ph_eqm` PANICS ("t,p flashing at eqm out of bounds!", via
-        // `lambda_2_crit_enhancement_term_tp_two_phase_estimate` ->
-        // `v_tp_eqm_two_phase`) at points inside the crate's own (p,h)
-        // validity range, wherever the two-phase flash puts T a hair below
-        // 273.15 K. Measured 2026-10-16: (T, p) = (273.1384 K, 611.657 Pa) and
-        // (273.1383 K, 1000 Pa). That is a library defect, filed as gh:#904.
-        // A panic cannot be caught on wasm32-wasip1 (panic = abort), so such
-        // points are hashed as a fixed NaN. The rule is stated in advance, not
-        // fitted: lambda is skipped wherever t_ph_eqm < 273.15 K.
-        sweep("lambda_ph", |p, h| {
-            if t_ph_eqm(p, h).get::<kelvin>() < 273.15 {
-                f64::NAN
-            } else {
-                lambda_ph_eqm(p, h).get::<watt_per_meter_kelvin>()
-            }
-        }),
+        // ~~`lambda_ph_eqm` PANICS at the 17 grid points where t_ph_eqm <
+        // 273.15 K, so they were hashed as NaN~~ **Fixed 2026-11-10
+        // (gh:#904):** the Region 1 backward T there is ~21 mK below
+        // 273.15 K (measured (273.1384 K, 611.657 Pa) and (273.1383 K,
+        // 1000 Pa)); `lambda_ph_eqm` now evaluates the critical-enhancement
+        // term with the Region 1 equation, as the (p,h) flash routes it, so
+        // the guard is gone. The golden moved for those 17 points only
+        // (`verification_and_validation/determinism_golden_moves.md`).
+        sweep("lambda_ph", |p, h| lambda_ph_eqm(p, h).get::<watt_per_meter_kelvin>()),
         sweep("hem_sound", hem_sound_speed_mirror),
         sweep("p_rho_h", |p, h| {
             let rho = MassDensity::new::<kilogram_per_cubic_meter>(

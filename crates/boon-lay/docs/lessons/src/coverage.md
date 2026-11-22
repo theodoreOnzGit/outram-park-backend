@@ -39,7 +39,7 @@ same mapping concept by concept for TRISO-ATOPS.
 
 | Module | Core lesson | Extended | Code Review map | V&V record | Gaps |
 |---|---|---|---|---|---|
-| `nuclide_reaction_and_decay_data` (`DecayLibrary`, `NuclideReactionAndDecayData`, `DecayType`, `get_decay_info`, parsing) | [An atom's clock](../../science/fission-products/decay-clock.html) | [decay data](./decay-data.md) | that lesson | about 70 half-life parse tests | gh:#538 (`get_decay_branch_info` is `todo!()`) |
+| `nuclide_reaction_and_decay_data` (`DecayLibrary`, `NuclideReactionAndDecayData`, `DecayType`, `get_decay_info`, parsing) | [An atom's clock](../../science/fission-products/decay-clock.html) | [decay data](./decay-data.md) | that lesson | about 70 half-life parse tests | gh:#538 (~~`get_decay_branch_info` is `todo!()`~~ implemented 2026-11-10) |
 | `decay_xml_info_serde` | — | [decay data](./decay-data.md) | decay-data page | re-export only | — |
 | `prelude` | — | [architecture](./architecture.md) | — | re-export only | — |
 

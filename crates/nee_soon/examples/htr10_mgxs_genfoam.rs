@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # HTR-10: Monte Carlo MGXS handed to GeN-Foam, on ONE shared geometry
@@ -58,11 +57,9 @@ use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use nee_soon::genfoam_xs::to_nuclear_data_input;
-use nee_soon::htr10_rmc::core_model::{
-    assemble, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
-};
+use nee_soon::htr10_rmc::core_model::{assemble, mat};
 use nee_soon::htr10_rmc::materials::GraphiteLaw;
-use nee_soon::htr10_rmc::reflector::zone_composition;
+use nee_soon::htr10_rmc::materials::htr10_fixed_layout_material_set;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
     DiffusionNeutronics, DiffusionSettings,
@@ -71,10 +68,11 @@ use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::prelude::BoundaryCondition;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
@@ -83,7 +81,6 @@ use uom::si::f64::{Area, Length};
 use uom::si::length::meter;
 
 const TEMP_K: f64 = 293.6;
-const B10_OF_NATURAL: f64 = 0.199;
 const NUC: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn env_usize(key: &str, default: usize) -> usize {
@@ -93,7 +90,7 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-fn nuclides() -> Option<Vec<Nuclide>> {
+fn nuclides() -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
     let dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let load = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok();
@@ -115,99 +112,40 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
-    Some(vec![
+    // Every slot is loaded free; the laws are attached per material in `main`
+    // (`assign_htr10_sab`, gh:#462 / #1581).
+    let nuclides = vec![
         load("U235", "n-092_U_235-ENDF8.0.endf")?,
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
-        bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?,
+        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
         // isotopes. The atom density was always built from silicon's natural
         // molar mass, so this splits a correct total rather than changing it.
-        bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-        bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
-        bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?,
+        load("Si29", "n-014_Si_029-ENDF8.0.endf")?,
+        load("Si30", "n-014_Si_030-ENDF8.0.endf")?,
         load("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
         // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
         // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
         // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
         load("C13", "n-006_C_013-ENDF8.0.endf")?,
-        load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
-    ])
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+    ];
+    Some((nuclides, Htr10SabLaws { graphite: sab, c_in_sic, si_in_sic }))
 }
 
 /// The eleven materials `htr10_rmc`'s geometry indexes, in `mat::` order.
+/// The fixed-layout HTR-10 material set at [`TEMP_K`]: the library's
+/// [`htr10_fixed_layout_material_set`] (moved there from this example and
+/// `htr10_mgxs_genfoam`/`htr10_deterministic_vs_mc`, which carried identical
+/// copies, 2026-11-17).
 fn materials() -> Vec<Material> {
-    let mut mats = fuel_pebble_materials(NUC, BoronReading::Natural, TEMP_K);
-    mats.truncate(6); // 0..5: kernel, buffer, iPyC, SiC, oPyC, graphite
-    mats.push(Material {
-        id: 70,
-        name: "helium".into(),
-        components: vec![],
-        temperature: TEMP_K,
-    });
-    let graphite_zone = |id: i32, name: &str, z_carbon: f64, z_boron: f64| Material {
-        id,
-        name: name.into(),
-        components: NUC.c_graphite
-            .components(z_carbon)
-            .into_iter()
-            .chain([
-            NuclideComponent {
-                nuclide_idx: NUC.b10,
-                atom_density: z_boron * B10_OF_NATURAL,
-            },
-            ])
-            .collect(),
-        temperature: TEMP_K,
-    };
-    let z22 = zone_composition(22).expect("TECDOC zone 22");
-    mats.push(graphite_zone(
-        71,
-        "reflector graphite (TECDOC zone 22)",
-        z22.carbon,
-        z22.natural_boron,
-    ));
-    let z17 = zone_composition(17).expect("TECDOC zone 17");
-    mats.push(graphite_zone(
-        72,
-        "boronated carbon brick (TECDOC zone 17)",
-        z17.carbon,
-        z17.natural_boron,
-    ));
-    mats.push(graphite_zone(
-        73,
-        "bored side reflector (TECDOC zones 31-40)",
-        HTR10_BORED_CARBON,
-        HTR10_BORED_BORON,
-    ));
-    let dummy = mats[mat::GRAPHITE].clone();
-    mats.push(Material {
-        id: 74,
-        name: "homogenised dummy pebbles".into(),
-        components: dummy
-            .components
-            .iter()
-            .map(|c| NuclideComponent {
-                nuclide_idx: c.nuclide_idx,
-                atom_density: c.atom_density * PAPER_FILLING_FRACTION,
-            })
-            .collect(),
-        temperature: TEMP_K,
-    });
-    assert_eq!(
-        mats.len(),
-        mat::HOMOG_DUMMY + 1,
-        "material order must match mat::"
-    );
-    mats
+    htr10_fixed_layout_material_set(NUC, TEMP_K)
 }
 
 fn main() {
@@ -219,11 +157,16 @@ fn main() {
     println!("HTR-10: Monte Carlo MGXS -> GeN-Foam, one shared geometry");
     println!("=========================================================");
 
-    let Some(nucs) = nuclides() else {
+    let Some((free_nucs, laws)) = nuclides() else {
         println!("SKIP: reference-data/endf/ not in this checkout.");
         return;
     };
     let mats = materials();
+    // Per-material S(a,b) (gh:#462, #1581). Audited 2026-11-14: the graphite
+    // slot is referenced by the graphite, the reflector / brick / bored-zone
+    // graphite and the dummy pebbles only; the SiC slots by the SiC layer.
+    let (mats, nucs) =
+        assign_htr10_sab(&mats, &free_nucs, &NUC, &laws).expect("S(a,b) per material");
     let core = assemble(rings, layers, 0);
     println!(
         "  geometry: {} tiles, {} cells, {} universes; bed r={:.1} cm, half-height={:.1} cm",

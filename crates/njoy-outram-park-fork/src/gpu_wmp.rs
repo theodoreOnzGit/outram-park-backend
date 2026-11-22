@@ -58,6 +58,9 @@
 // Public result type + CPU reference batch (the trusted path).
 // ---------------------------------------------------------------------------
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The `f32` cross-section triple the GPU WMP evaluator returns for one energy.
 ///
 /// Each field is a microscopic cross section in **barn**, in the same channel
@@ -623,7 +626,7 @@ impl crate::gpu::GpuContext {
             pass.dispatch_workgroups(n_energy.div_ceil(64), 1, 1);
         }
         encoder.copy_buffer_to_buffer(&output_buf, 0, &staging_buf, 0, output_size);
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue.submit(core::iter::once(encoder.finish()));
 
         // --- read back --------------------------------------------------------
         let slice = staging_buf.slice(..);

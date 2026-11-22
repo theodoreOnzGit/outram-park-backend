@@ -1,8 +1,11 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use crate::heat_transfer_correlations::thermal_resistance::try_get_thermal_conductance_annular_cylinder;
 use uom::si::f64::*;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// basically given mcp and an arbitrary ua, for heat loss
 /// the pipe fluid temperature at outlet should reach the analytical
@@ -25,7 +28,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_1m() {
     use uom::si::ratio::ratio;
     use uom::si::thermal_conductance::watt_per_kelvin;
     use uom::si::f64::*;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
     use uom::si::pressure::atmosphere;
 
     use uom::{si::time::second, ConstZero};
@@ -253,6 +256,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_1m() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -260,6 +264,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_1m() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
     approx::assert_relative_eq!(
@@ -296,7 +301,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_3m() {
     use uom::si::ratio::ratio;
     use uom::si::thermal_conductance::watt_per_kelvin;
     use uom::si::f64::*;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
     use uom::si::pressure::atmosphere;
 
     use uom::{si::time::second, ConstZero};
@@ -524,6 +529,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_3m() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -531,6 +537,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_3m() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
     approx::assert_relative_eq!(
@@ -567,7 +574,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_5m() {
     use uom::si::ratio::ratio;
     use uom::si::thermal_conductance::watt_per_kelvin;
     use uom::si::f64::*;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
     use uom::si::pressure::atmosphere;
 
     use uom::{si::time::second, ConstZero};
@@ -795,6 +802,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_5m() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -802,6 +810,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_5m() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
     approx::assert_relative_eq!(
@@ -838,7 +847,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_7m() {
     use uom::si::ratio::ratio;
     use uom::si::thermal_conductance::watt_per_kelvin;
     use uom::si::f64::*;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
     use uom::si::pressure::atmosphere;
 
     use uom::{si::time::second, ConstZero};
@@ -1066,6 +1075,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_7m() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -1073,6 +1083,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_7m() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
     approx::assert_relative_eq!(
@@ -1109,7 +1120,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_9m() {
     use uom::si::ratio::ratio;
     use uom::si::thermal_conductance::watt_per_kelvin;
     use uom::si::f64::*;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
     use uom::si::pressure::atmosphere;
 
     use uom::{si::time::second, ConstZero};
@@ -1337,6 +1348,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_9m() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -1344,6 +1356,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_9m() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
     approx::assert_relative_eq!(

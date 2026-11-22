@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -7,7 +7,7 @@
 // Upstream source  : trisoatops/utility_functions/calculation_functions.py
 //                    (`breakthrough_model_transient`, `booth_transient`, `RF_Graph`)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Transient (accident) release models
@@ -30,8 +30,11 @@
 //! | [`booth_transient`] | `booth_transient` |
 //! | [`rf_graph`] | `RF_Graph` |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, Length, Ratio};

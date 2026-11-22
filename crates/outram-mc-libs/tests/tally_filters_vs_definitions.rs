@@ -98,19 +98,18 @@ fn zernike_moments_are_orthogonal_on_the_unit_disc() {
     // resolutions. Midpoint quadrature has its own error, so the question is not
     // "is the off-diagonal zero" but "does it fall like the quadrature does".
     let gram_at = |nr: usize, nt: usize| -> Vec<f64> {
-        let (NR, NT) = (nr, nt);
         let mut gram = vec![0.0f64; n * n];
-        for ir in 0..NR {
-            let rho = (ir as f64 + 0.5) / NR as f64;
-            for it in 0..NT {
-                let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / NT as f64;
+        for ir in 0..nr {
+            let rho = (ir as f64 + 0.5) / nr as f64;
+            for it in 0..nt {
+                let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / nt as f64;
                 let ev = at(Position {
                     x: rho * th.r_cos(),
                     y: rho * th.r_sin(),
                     z: 0.0,
                 });
                 let z = f.expansion_moments(&ev).expect("inside the disc");
-                let w = rho * (1.0 / NR as f64) * (2.0 * std::f64::consts::PI / NT as f64);
+                let w = rho * (1.0 / nr as f64) * (2.0 * std::f64::consts::PI / nt as f64);
                 for i in 0..n {
                     for j in 0..n {
                         gram[i * n + j] += w * z[i] * z[j];
@@ -208,19 +207,18 @@ fn spherical_harmonic_moments_are_orthonormal_on_the_sphere() {
     );
 
     let gram_at = |nmu: usize, nphi: usize| -> Vec<f64> {
-        let (NMU, NPHI) = (nmu, nphi);
         let mut gram = vec![0.0f64; n * n];
-        for im in 0..NMU {
-            let mu = -1.0 + 2.0 * (im as f64 + 0.5) / NMU as f64;
+        for im in 0..nmu {
+            let mu = -1.0 + 2.0 * (im as f64 + 0.5) / nmu as f64;
             let st = (1.0 - mu * mu).max(0.0).sqrt();
-            for ip in 0..NPHI {
+            for ip in 0..nphi {
                 let phi = -std::f64::consts::PI
-                    + 2.0 * std::f64::consts::PI * (ip as f64 + 0.5) / NPHI as f64;
+                    + 2.0 * std::f64::consts::PI * (ip as f64 + 0.5) / nphi as f64;
                 let ev = going(st * phi.r_cos(), st * phi.r_sin(), mu);
                 let y = f
                     .expansion_moments(&ev)
                     .expect("harmonics are defined everywhere");
-                let w = (2.0 / NMU as f64) * (2.0 * std::f64::consts::PI / NPHI as f64);
+                let w = (2.0 / nmu as f64) * (2.0 * std::f64::consts::PI / nphi as f64);
                 for i in 0..n {
                     for j in 0..n {
                         gram[i * n + j] += w * y[i] * y[j];
@@ -275,10 +273,13 @@ fn edge_binned_filters_handle_their_boundaries() {
     };
     assert_eq!(b(-1.0), Some(0), "the bottom edge belongs to the first bin");
     assert_eq!(b(-0.75), Some(0));
+    // gh:#687 (2026-11-20): OpenMC `lower_bound_index` (`search.h:17-19`; the
+    // filters call it after `mu >= front && mu <= back`): an interior edge belongs
+    // to the bin BELOW. ~~An interior edge belongs to the bin above.~~
     assert_eq!(
         b(-0.5),
-        Some(1),
-        "an interior edge belongs to the bin above"
+        Some(0),
+        "an interior edge belongs to the bin below"
     );
     assert_eq!(b(0.999), Some(3));
     assert_eq!(b(1.0), Some(3), "the TOP edge is inclusive, not rejected");
@@ -301,7 +302,8 @@ fn edge_binned_filters_handle_their_boundaries() {
             time: 1.0e-6,
             ..Default::default()
         }),
-        Some(1)
+        // gh:#687: an interior edge belongs to the bin below (~~Some(1)~~).
+        Some(0)
     );
     assert_eq!(
         t.get_bin(&FilterEvent {
@@ -324,15 +326,16 @@ fn edge_binned_filters_handle_their_boundaries() {
         azimuthal: vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI],
     };
     assert_eq!(pa.n_bins(), 4);
-    // +z, phi = atan2(0, 1) = 0 -> polar bin 1 (cos = +1 is the top edge, bin 1),
-    // azimuthal bin 1 (phi = 0 is an interior edge -> bin above).
-    assert_eq!(pa.get_bin(&going(0.0, 0.0, 1.0)), Some(1 * 2 + 1));
-    // -z, phi = 0 -> polar bin 0.
-    assert_eq!(pa.get_bin(&going(0.0, 0.0, -1.0)), Some(0 * 2 + 1));
-    // +x with a small -y: phi slightly negative -> azimuthal bin 0, polar bin 1
-    // (w = 0 is an interior edge, so the bin above).
+    // gh:#687 (2026-11-20): `lower_bound_index`, an interior edge belongs to the bin
+    // BELOW (~~above~~). +z, phi = atan2(0, 1) = 0: polar bin 1 (cos = +1 is the top
+    // edge, kept in the last bin), azimuthal bin 0 (phi = 0 is an interior edge).
+    assert_eq!(pa.get_bin(&going(0.0, 0.0, 1.0)), Some(1 * 2 + 0));
+    // -z, phi = 0 -> polar bin 0, azimuthal bin 0 (interior edge -> below).
+    assert_eq!(pa.get_bin(&going(0.0, 0.0, -1.0)), Some(0 * 2 + 0));
+    // +x with a small -y: phi slightly negative -> azimuthal bin 0; polar w = 0 is an
+    // interior edge, so polar bin 0.
     let e = going(1.0, -1.0e-6, 0.0);
-    assert_eq!(pa.get_bin(&e), Some(1 * 2 + 0));
+    assert_eq!(pa.get_bin(&e), Some(0 * 2 + 0));
 }
 
 #[test]

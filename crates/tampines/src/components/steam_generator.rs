@@ -8,6 +8,9 @@
 //! for the primary-to-secondary coupling, [`crate::hem::HemSteamCv`] for the
 //! boiling secondary-side steam/water state.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::components::heat_exchanger::HeatExchanger;
 use crate::hem::HemSteamCv;
 use crate::TampinesError;

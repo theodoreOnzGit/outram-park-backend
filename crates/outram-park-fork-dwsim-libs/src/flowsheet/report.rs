@@ -69,6 +69,9 @@
 //!   reproduced, and named here so it is not mistaken for an oversight in the
 //!   port: see [`REPORTED_PHASES`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::graph::Flowsheet;
 use crate::flowsheet::objects::{FlowsheetObject, ObjectData};
 use crate::flowsheet::streams::{MaterialStreamData, PhaseIndex, PhaseProperties};

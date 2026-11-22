@@ -25,5 +25,10 @@ See `TRISO-ATOPS/PROVENANCE.md` here and `docs/triso-atops-fork.md` for the full
 provenance and the Python→Rust module map. Attribution artifacts live at the
 crate root: `LICENSE.triso-atops`, `NOTICE.triso-atops`, and per-file headers.
 
+**Upstream has moved on (checked 2026-11-13, gh:#1426):** `origin/HEAD` is `0e87d36` (release 2.2.0), two releases
+past `de374c8`, with two physics changes (`release_activity` normalisation, `R_B_fail` silver correction).
+The fork stays pinned to `de374c8`; see
+`verification_and_validation/triso_atops_upstream_drift/README.md` for the diff and its size.
+
 If further reusable upstream reference implementations are identified later,
 document them here with the same fields.

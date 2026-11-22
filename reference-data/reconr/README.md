@@ -227,3 +227,14 @@ Fe-54's alone is 16.6 MB.
 Data policy: derived products of open ENDF/B-VIII.0 data (Mo-95: its public
 beta release) processed with the BSD-licensed NJOY2016; no proprietary
 content.
+
+## Ca-40 against NJOY2016 **2016.80** (added 2026-11-10, gh:#1368)
+
+`ca40-ENDF8.0-0K-err0.001-njoy2016.80.pendf` (7.9 MB) is `tape50` of NJOY2016 regression test 88
+(`moder 20 -21; reconr -21 -22 / 2025 0 / .001 / 0 /; moder -22 50`, deck in the `.njoy-input` beside it) run with a
+2016.80 (`ab27c64`) build, gfortran 13.3.0; it is byte-identical to upstream's own `tests/88/referenceTape50`. Input tape:
+`../endf/n-020_Ca_040-ENDF8.0.endf` (MAT 2025). Unlike the other tapes here this is 2016.80, not 2016.79: 2016.80 is the
+version that fixed `bigeta` for Ca-40's proton emission. **Measured:** the port's RECONR is identical in every MF=3 word
+(`tests/pendf_stages_vs_njoy2016.rs::reconr_ca40_test88_*`); before the `bigeta` sync 9 sections differed
+(31 184 points against 31 188). Record: `crates/njoy-outram-park-fork/verification_and_validation/upstream_units/samm_bigeta/README.md`.
+Data policy: derived product of the open ENDF/B-VIII.0 evaluation processed with BSD-licensed NJOY2016.

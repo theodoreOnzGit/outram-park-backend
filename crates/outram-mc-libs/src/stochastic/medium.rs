@@ -46,6 +46,9 @@
 //! [`StochasticMedium::Rsa`] and approximate-by-construction for the others. Treat a
 //! CLS/SCLS material answer as a sample, not as ground truth.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::pebble_beds::sphere_packing::PackedSpheres;
 

@@ -1,5 +1,8 @@
 // `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
 // semantics (gh:#989); see crate::numerical_methods.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::numerical_methods::{brent_root, SimpleConvergency};
 use uom::si::f64::*;
 use uom::ConstZero;
@@ -241,7 +244,7 @@ pub fn isothermal_ctah_and_heater_branch_validation_test() {
         //
         // the total mass flowrate through the collection of parallel
         // branches is zero
-        let pressure_change_across_each_branch = 
+        let pressure_change_across_each_branch =
             FluidComponentSuperCollection::
             isothermal_ciet_solve_pressure_change_across_each_branch_for_ctah_and_heater_branch(
                 &ctah_and_heater_branches);
@@ -411,7 +414,7 @@ pub fn isothermal_ctah_and_heater_branch_code_to_code_verification_test() {
         //
         // the total mass flowrate through the collection of parallel
         // branches is zero
-        let pressure_change_across_each_branch = 
+        let pressure_change_across_each_branch =
             FluidComponentSuperCollection::
             isothermal_ciet_solve_pressure_change_across_each_branch_for_ctah_and_heater_branch(
                 &ctah_and_heater_branches);

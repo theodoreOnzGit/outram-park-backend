@@ -4,6 +4,9 @@
 //! CoolProp `IsoButane` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
 use crate::transport::{
@@ -233,6 +236,7 @@ pub static ISOBUTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 1520540217.5,
             t_ref: -1.0,
+            p_reducing: 3629000.0,
         }),
     }),
 };

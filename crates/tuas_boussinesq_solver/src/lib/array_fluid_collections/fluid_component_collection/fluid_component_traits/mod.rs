@@ -20,6 +20,9 @@
 //! hydrostatic_pressure_change + internal_pressure_source`; gravity is taken as
 //! 9.81 m/s^2 and hydrostatic head as `rho * g * L * sin(incline_angle)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::acceleration::meter_per_second_squared;
@@ -730,11 +733,11 @@ pub trait FluidCustomComponentCalcPressureChange:
 
         let pressure_loss = <Self as FluidCustomComponentCalcPressureLoss>::
             fluid_custom_component_calc_pressure_loss(
-                fluid_mass_flowrate, 
-                cross_sectional_area, 
-                hydraulic_diameter, 
-                fluid_viscosity, 
-                fluid_density, 
+                fluid_mass_flowrate,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
                 loss_correlation)?;
 
         let hydrostatic_pressure =
@@ -785,14 +788,14 @@ pub trait FluidCustomComponentCalcPressureChange:
         // once we have pressure loss
         // we can get mass flowrate
 
-        let mass_flowrate: MassRate 
+        let mass_flowrate: MassRate
             = <Self as FluidCustomComponentCalcPressureLoss>::
             fluid_custom_component_calc_mass_flowrate_from_pressure_loss(
-                pressure_loss, 
-                cross_sectional_area, 
-                hydraulic_diameter, 
-                fluid_viscosity, 
-                fluid_density, 
+                pressure_loss,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
                 loss_correlation)?;
 
         return Ok(mass_flowrate);

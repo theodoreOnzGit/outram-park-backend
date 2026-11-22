@@ -35,7 +35,10 @@
 //!   FormDynamicsIntegratorControl.vb:135) and same value shape, but ordered, so
 //!   the recorded series can be read back in time order without a sort.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use uom::si::f64::Time;
 use uom::si::time::{minute, second};

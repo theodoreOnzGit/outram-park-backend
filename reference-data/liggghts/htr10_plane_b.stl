@@ -1,0 +1,16 @@
+solid htr10_plane_b
+  facet normal 0 0 1
+    outer loop
+      vertex -1.0 -1.0 -0.10
+      vertex 1.0 -1.0 -0.10
+      vertex 1.0 1.0 -0.10
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -1.0 -1.0 -0.10
+      vertex 1.0 1.0 -0.10
+      vertex -1.0 1.0 -0.10
+    endloop
+  endfacet
+endsolid htr10_plane_b

@@ -6,6 +6,9 @@
 //! [`crate::compressible`] for the component-level wrappers that use a
 //! [`TampinesFluid`] to construct a loop segment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_fork_coolprop::Fluid as CoolPropFluid;
 
 /// Which backend thermophysical-property source a TAMPINES fluid is

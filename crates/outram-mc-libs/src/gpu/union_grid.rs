@@ -43,6 +43,9 @@
 // GPU-vs-CPU agreement test), but still requires human review before it is
 // promoted past the "Unit Tested" V&V stage.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::gpu::xs_interp::interp_xs_cpu;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
@@ -275,7 +278,7 @@ impl UnionTotalXs {
     /// Compiled on non-Android targets only (the GPU path depends on `wgpu`,
     /// which is target-gated out on Android); callers on Android use
     /// [`lookup_cpu`](Self::lookup_cpu).
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     pub fn lookup_gpu(&self, ctx: &crate::gpu::GpuContext, queries_ev: &[f64]) -> Vec<f32> {
         let grid_f32: Vec<f32> = self.grid.iter().map(|&x| x as f32).collect();
         let sigma_f32: Vec<f32> = self.sigma_total.iter().map(|&x| x as f32).collect();
@@ -404,10 +407,11 @@ mod tests {
     /// lookups; the residual is pure `f32` precision, comfortably inside the 3e-3
     /// relative gate (the worst case is a query on a steep resonance flank where
     /// f32 rounding of the widely ranged energy and the blend accumulates most).
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_matches_cpu_union_grid() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP union_grid gpu test: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -450,6 +454,7 @@ mod tests {
             );
         }
         let mean_abs = sum_abs / gpu.len() as f64;
+        #[cfg(feature = "std")]
         eprintln!(
             "union_grid GPU vs CPU on Godiva Sigma_t: max|diff|={max_abs:.3e} cm^-1, \
              mean|diff|={mean_abs:.3e} cm^-1 over {} queries (adapter: {})",
@@ -572,6 +577,7 @@ mod tests {
             max_rel_dense = max_rel_dense.max(rd);
         }
 
+        #[cfg(feature = "std")]
         eprintln!(
             "native-union: {} nodes (backbone {backbone}); max-rel-err vs macro_xs_total: \
              native={max_rel_native:.3e}, dense-log({backbone})={max_rel_dense:.3e}",
@@ -609,10 +615,11 @@ mod tests {
     /// kernel reproduces the CPU-reference macroscopic total on the native-union
     /// grid to single precision, so switching from the dense-log grid to the
     /// native-breakpoint union does not perturb GPU/CPU agreement.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_matches_cpu_native_union() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP native-union gpu test: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -653,6 +660,7 @@ mod tests {
             );
         }
         let mean_abs = sum_abs / gpu.len() as f64;
+        #[cfg(feature = "std")]
         eprintln!(
             "native-union GPU vs CPU on Godiva Sigma_t ({} nodes): max|diff|={max_abs:.3e} cm^-1, \
              mean|diff|={mean_abs:.3e} cm^-1 over {} queries (adapter: {})",

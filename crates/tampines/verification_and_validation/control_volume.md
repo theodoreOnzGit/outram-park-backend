@@ -983,7 +983,7 @@ representation in it.
   NCG/H2O RM §4.1.2, §5.1.2 and §5.1.4 tables, the N2 power laws (§4.4
   Table 4.1, §5.4 Table 5.2), Eucken for H2 (Eq 4-1), and the steam-air and
   steam-H2 diffusivities (Eqs 6-1, 6-2) combined by Blanc's law.
-- `sembawang::bwr_mark1::vapour` has Chapman–Enskog binary diffusivity
+- `sembawang::bwr_mark1::vapour` (since 2026-11-11 `outram_park_fork_offbeat::melcor::vapour`, gh:#1335) has Chapman–Enskog binary diffusivity
   (MELCOR RN §2.5.2, Eq 2-105) with the diffusion collision integral of
   NCG/H2O Table 6.1, and the Lennard-Jones parameters of steam, H2 and N2
   (NCG/H2O §5.2). Those three are Svehla's (NASA TR R-132, 1962), the table

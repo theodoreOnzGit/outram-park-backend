@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
@@ -37,6 +37,9 @@
 //! on the `wasm32` build, which is the intended behaviour: adding a method
 //! should be a deliberate act, not something a blanket shim hides.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Serial stand-in for `rayon`'s `IntoParallelIterator`.
 ///
 /// Blanket-implemented for every [`IntoIterator`], so `(0..n).into_par_iter()`

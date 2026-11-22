@@ -18,6 +18,9 @@
 //! `liquid_side_draws` \[mol/s\], `vapor_compositions` /
 //! `liquid_compositions` / `k_values` \[-\], `heats` \[W\].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::columns::model::{ColumnSolverOutput, ColumnSpec};
 
 /// A full stage-by-stage column profile at one point in a solve.

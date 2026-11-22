@@ -137,7 +137,7 @@ pub fn wos_paths(temp_c: f64, n: usize, seed: u64) -> Vec<Vec<[f64; 5]>> {
                 let h = (radius - w.radius()).get::<micrometer>();
                 match w.hop(&cell, eps) {
                     HopOutcome::Stepped => path.push(row(&w, h)),
-                    HopOutcome::ReachedInterface | HopOutcome::Released => break,
+                    HopOutcome::ReachedInterface | HopOutcome::Released | HopOutcome::NoDiffusionData => break,
                 }
             }
             path

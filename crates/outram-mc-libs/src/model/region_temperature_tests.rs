@@ -4,6 +4,9 @@
 //! `ThermalProfile` (#949). No nuclear data is processed here (header-only
 //! library); the transport checks are `tests/region_temperature.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::dh_region::{DhRegion, Packing};
 use super::isotope::isotopes::*;
 use super::material::{atoms_per_barn_cm, Material};
@@ -48,7 +51,7 @@ fn cell_temperatures(a: &super::AssembledModel) -> Vec<Option<f64>> {
         .map(|c| match c.fill {
             CellFill::Material(m) => {
                 assert_eq!(
-                    c.temperature, a.materials[m].temperature,
+                    c.temperature, Some(a.materials[m].temperature),
                     "cell and material agree"
                 );
                 Some(a.materials[m].temperature)
@@ -174,7 +177,7 @@ fn every_shape_at_the_model_temperature_changes_nothing() {
     }
     for (x, y) in plain.geometry.cells.iter().zip(&explicit.geometry.cells) {
         assert_eq!((&x.region, &x.fill), (&y.region, &y.fill));
-        assert_eq!(x.temperature.to_bits(), y.temperature.to_bits());
+        assert_eq!(x.temperature.map(f64::to_bits), y.temperature.map(f64::to_bits));
     }
     assert_eq!(plain.temperatures_k(), vec![293.6]);
 }
@@ -310,6 +313,7 @@ fn components_take_their_mean_from_a_thermal_profile() {
     assert_eq!(taken.len(), 2);
     assert_eq!((taken[0].0, taken[1].0), (fuel, shell));
     let (t_fuel, t_shell) = (taken[0].1.get::<kelvin>(), taken[1].1.get::<kelvin>());
+    #[cfg(feature = "std")]
     println!("thermal profile -> fuel {t_fuel:.2} K, shell {t_shell:.2} K");
     assert!(t_fuel > t_shell && t_shell > 500.0, "{t_fuel} {t_shell}");
     assert_eq!(

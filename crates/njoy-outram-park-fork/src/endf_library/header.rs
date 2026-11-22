@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
@@ -22,6 +22,9 @@
 //! carries `LREL = 1`, the same as a VII.1 Cl-35 tape, and an ENDF/B-VIII.1
 //! Sr-88 tape carries `LREL = 0`, like VIII.0), while `HSUB` does.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::parse::parse_endf_float;
 
 /// The header of an ENDF-6 tape: identity, library and sub-library.

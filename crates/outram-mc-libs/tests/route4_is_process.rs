@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Route 4's data are njoy's `process`, bit for bit** (gh:#931).
 //!
@@ -42,6 +42,8 @@
 //! See the test output (`cargo test --release -p outram-mc-libs --test
 //! route4_is_process -- --nocapture`), recorded in
 //! `verification_and_validation/route4_process_931/README.md`.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::process::{self, CrossSectionSettings};

@@ -31,6 +31,9 @@
 //! (20 and 40 keV) while the UNRESR comparison — which never adds `sigx` —
 //! spans the whole range.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::purr::wfun::DopplerTable;

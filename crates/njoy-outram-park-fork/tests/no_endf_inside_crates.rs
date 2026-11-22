@@ -28,6 +28,9 @@
 //! Skips (passes with a note) when the workspace root cannot be located, so a
 //! crates.io consumer running the suite outside a git clone is not failed by it.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::reference_data::is_endf_tape;
 use std::path::{Path, PathBuf};
 

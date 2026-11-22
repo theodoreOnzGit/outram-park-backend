@@ -125,6 +125,9 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 
 /// A 2-component vector, `f64` `x`/`y`.

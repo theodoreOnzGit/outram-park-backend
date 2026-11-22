@@ -1,6 +1,6 @@
 [package]
 name = "njoy-outram-park-fork"
-version = "0.0.7"
+version = "0.0.8"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
@@ -34,15 +34,15 @@ include = [
     # (found by `cargo publish` verify, 2026-10-07). It degrades to "unknown"
     # when there is no .git, as on crates.io.
     "/build.rs",
-    "docs/**",
     "/LICENSE*",
     "/NOTICE",
     "/README.md",
     "/Cargo.toml",
 ]
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate.
-exclude = ["docs", "verification_and_validation/*.csv"]
+# docs/ and verification_and_validation/ are not in `include`, so neither ships.
+# (Until 2026-11-14 "docs/**" was listed here and an `exclude = ["docs", ...]`
+# beside it was ignored, because cargo ignores `exclude` when `include` is set;
+# that shipped 2.6 MB of docs.)
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -67,7 +67,8 @@ maturity = 2
 # GSL and verified against it. PETIR is no_std with only `libm`, so it adds no
 # std, BLAS or C-toolchain weight -- this crate stays dependency-lean.
 petir.workspace = true
-thiserror.workspace = true
+# `thiserror` without its `std` default (gh:#1592): `std` re-enables it.
+thiserror-nostd = { workspace = true }
 uom.workspace = true
 # Fortran `mess(...)` (non-fatal warning, upstream continues) maps to `log`,
 # never a silent print — see docs/porting-plan.md §5. `error(...)` (fatal
@@ -84,21 +85,31 @@ log.workspace = true
 # / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
 # the blob without HDF5, so the codec must be in the default build.
 miniz_oxide.workspace = true
-# Pure-Rust HDF5 reader — no system libhdf5, so it is always compiled (no build
+# `no_std` stand-ins for `OnceLock` and `thread_local!` (`crate::nostd_sync`),
+# used only without `std` (gh:#1592). Pure `core`, no OS.
+# `HashMap`/`HashSet` without `std` (workspace-wide choice, 2026-11-16);
+# unused in std builds.
+hashbrown = { workspace = true }
+spin = { workspace = true }
+# Pure-Rust HDF5 reader — no system libhdf5 (CORRECTED 2026-11-16, gh:#1592:
+# compiled with the default `std` feature, no longer always) (no build
 # burden). Used by `WindowedMultipole::load_h5` (WMP blob-baking) and the OpenMC
 # ENDF/B-8.0 code-to-code Doppler verification test. See docs/architecture.md.
-hdf5-pure.workspace = true
-# ── On-disk artifact cache (always compiled) ─────────────────────────────────
+hdf5-pure = { workspace = true, optional = true }
+# ── On-disk artifact cache (with `std`; was "always compiled" until gh:#1592) ─────────────────────────────
 # `acquire::EndfCache` is the crate's single caching layer: platform cache-dir
 # discovery, a per-artifact advisory lock, double-checked acquire, fsync + atomic
 # rename, and a SHA-256 sidecar. It has two producers — the `net-fetch` download
 # path, and the **offline LEAPR regeneration** path
-# (`leapr::generate`), which is on by default and needs no network. So these
-# three must be unconditional. All are small, pure-Rust and Android-clean:
+# (`leapr::generate`), which is on by default and needs no network. ~~So these
+# three must be unconditional.~~ CORRECTED 2026-11-16 (gh:#1592): they come
+# with the default `std` feature (`sha2` always, as `sha2-nostd`). All are small, pure-Rust and Android-clean:
 # `directories` reads env vars, `fs2` uses `flock` (present on Android/bionic),
 # `sha2` is pure Rust.
-sha2 = { workspace = true }
-directories = { workspace = true }
+# Without `std` (gh:#1592); SHA-256 is the same either way. Renamed back to
+# `sha2` in lib.rs.
+sha2-nostd = { workspace = true }
+directories = { workspace = true, optional = true }
 # fs2 gives the cache its advisory lock via flock(2). No filesystem, no flock,
 # no meaning on wasm — target-gated off, and acquire.rs's lock/unlock calls are
 # cfg'd to match. op-okqo.1.
@@ -114,14 +125,35 @@ directories = { workspace = true }
 # only. Version comes from the root [workspace.dependencies] (matches the
 # egui/eframe 0.34 wgpu, so no duplicate wgpu in the tree).
 [target.'cfg(not(target_os = "android"))'.dependencies]
-wgpu = { workspace = true }
+wgpu = { workspace = true, optional = true }
+
+# teh-o-prke carries ENDF/B-VIII.0 delayed-neutron group constants as cited
+# literals; tests/teh_o_prke_delayed_data_vs_endf8.rs re-reads the tapes and
+# asserts they are equal (gh:#1319). A dev-dependency only: teh-o-prke does
+# not depend on this crate, so the edge forms no cycle.
+[dev-dependencies]
+teh-o-prke = { workspace = true, features = ["std"] }
 
 [features]
 # `long-tests` is default-on so the reference-data tests run unless someone
 # deliberately opts out with `--no-default-features` (i.e. `cargo quick-test`).
 # Cargo offers no way to disable a single default feature, which is why the
 # workspace's quick-test alias uses `--no-default-features`.
-default = ["long-tests"]
+default = ["std", "long-tests"]
+
+# ── std: everything that needs an operating system (gh:#1592, epic gh:#1585) ──
+# Without it the crate is `no_std` + `alloc`: the ENDF parser and the
+# processing modules run on in-memory tapes. `std` adds the files, the on-disk
+# cache, the HDF5 reader/writers, threads (rayon), the GPU path (wgpu) and the
+# two binaries. Each optional dependency is still target-gated as before
+# (rayon/fs2/ureq/zip/ratatui off wasm, wgpu off Android); `?` below would be
+# wrong for them, `dep:` on a target-gated dependency enables it only where the
+# target table admits it.
+std = [
+    "thiserror-nostd/std",
+    "dep:hdf5-pure", "dep:directories",
+    "dep:rayon", "dep:fs2", "dep:ratatui", "dep:wgpu",
+]
 
 # The CORE 125-nuclide windowed-multipole blob (`src/data/wmp_core.wmpl`,
 # ~4.7 MB, ENDF/B-VII.1, MIT CRPG) is ALWAYS embedded via `include_bytes!` and
@@ -134,10 +166,12 @@ default = ["long-tests"]
 # LOW tier (WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`.
 #
-# Only the HTTP/TLS and zip halves are gated; the on-disk cache substrate
-# (`acquire::EndfCache`) is always compiled, because the offline LEAPR
+# Only the HTTP/TLS and zip halves are gated by this feature; the on-disk cache
+# substrate (`acquire::EndfCache`) comes with `std` (CORRECTED 2026-11-16,
+# gh:#1592: it was "always compiled"), because the offline LEAPR
 # regeneration path (`leapr::generate`, on by default) caches through it.
-net-fetch = ["dep:ureq", "dep:zip"]
+# `net-fetch` implies `std`.
+net-fetch = ["std", "dep:ureq", "dep:zip"]
 
 # Diagnostic examples that reconstruct a full evaluation from `reference-data/`
 # (repo-only, multi-MB) and take minutes — gated out of the default build and
@@ -165,7 +199,8 @@ name = "seam_stage_probe"
 required-features = ["urr-diagnostics"]
 
 # ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
-# Own folder + README under tests/u238_doppler_verification/. Uses the always-on
+# Own folder + README under tests/u238_doppler_verification/. Uses the (with
+# `std`; "always-on" until gh:#1592)
 # hdf5-pure reader to parse the committed OpenMC U238.h5.
 [[test]]
 name = "u238_doppler_verification"
@@ -181,7 +216,8 @@ path = "tests/openmc_notebooks_data/main.rs"
 
 # ── njoy-tui: mobile-first JANIS-like nuclear-data browser TUI ────────────────
 # A [[bin]] target inside this crate rather than a separate crate. It always
-# builds (`ratatui` is an unconditional dependency), so `cargo run -p
+# builds with default features (`ratatui` comes with `std`; it was an
+# unconditional dependency until gh:#1592), so `cargo run -p
 # njoy-outram-park-fork --bin njoy-tui` and `cargo install --path
 # crates/njoy-outram-park-fork` need no feature flags. Sources live under
 # src/bin/njoy-tui/; the binary uses this crate's own library
@@ -190,6 +226,13 @@ path = "tests/openmc_notebooks_data/main.rs"
 [[bin]]
 name = "njoy-tui"
 path = "src/bin/njoy-tui/main.rs"
+required-features = ["std"]
+
+# `njoy-deck <deck> [workdir]`: run an NJOY input deck (gh:#1369).
+[[bin]]
+name = "njoy-deck"
+path = "src/bin/njoy_deck.rs"
+required-features = ["std"]
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown at all — it needs OS
@@ -206,8 +249,8 @@ path = "src/bin/njoy-tui/main.rs"
 # of `rayon::prelude`; that module runs the same work serially and produces
 # bit-identical output. Bead op-okqo.1.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon.workspace = true
-fs2 = { workspace = true }
+rayon = { workspace = true, optional = true }
+fs2 = { workspace = true, optional = true }
 # HIGH-fidelity ENDF download tier — optional, behind the `net-fetch` feature
 # (docs/data-acquisition.md). The default build pulls neither, so a data consumer
 # that only wants the offline tiers stays free of a TLS/HTTP dependency tree.
@@ -227,6 +270,6 @@ zip = { workspace = true, optional = true }
 #
 # It sits in this table because crossterm has no wasm32 backend — there is no
 # terminal in a browser, and the njoy-tui binary is not a wasm target either.
-ratatui = { workspace = true }
+ratatui = { workspace = true, optional = true }
 # Added per phase as modules are ported (see docs/porting-plan.md):
 #   ndarray  — ENDF tape arrays and cross-section grids (column-major data)

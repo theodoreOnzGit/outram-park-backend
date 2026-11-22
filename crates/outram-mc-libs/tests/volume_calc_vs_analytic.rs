@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — stochastic CSG volume calculation against closed-form
 //! volumes, and its *quoted uncertainty* against the observed scatter.

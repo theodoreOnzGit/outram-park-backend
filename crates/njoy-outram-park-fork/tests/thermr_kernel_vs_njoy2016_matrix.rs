@@ -42,6 +42,9 @@
 //! matrix is 76 277 card images; the moments are what the comparison uses and
 //! what #188 is about.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

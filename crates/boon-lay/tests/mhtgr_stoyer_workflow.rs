@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // MHTGR end-to-end workflow check of the TRISO-ATOPS fork against Stoyer et
 // al. (gh:#413).

@@ -1,0 +1,377 @@
+diff --git a/meshLibrary/cartesianMesh/cartesianMeshExtractor/cartesianMeshExtractor.C b/meshLibrary/cartesianMesh/cartesianMeshExtractor/cartesianMeshExtractor.C
+index 9c7066d..3b72e23 100644
+--- a/meshLibrary/cartesianMesh/cartesianMeshExtractor/cartesianMeshExtractor.C
++++ b/meshLibrary/cartesianMesh/cartesianMeshExtractor/cartesianMeshExtractor.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "cartesianMeshExtractor.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "meshOctree.H"
+ 
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+diff --git a/meshLibrary/utilities/anisotropicMeshing/polyMeshGenGeometryModification/polyMeshGenGeometryModification.C b/meshLibrary/utilities/anisotropicMeshing/polyMeshGenGeometryModification/polyMeshGenGeometryModification.C
+index 8086382..fbfae13 100644
+--- a/meshLibrary/utilities/anisotropicMeshing/polyMeshGenGeometryModification/polyMeshGenGeometryModification.C
++++ b/meshLibrary/utilities/anisotropicMeshing/polyMeshGenGeometryModification/polyMeshGenGeometryModification.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "polyMeshGenGeometryModification.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "dictionary.H"
+ 
+ // * * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * //
+diff --git a/meshLibrary/utilities/containers/LongList/LongList.C b/meshLibrary/utilities/containers/LongList/LongList.C
+index ca0f975..10e49be 100644
+--- a/meshLibrary/utilities/containers/LongList/LongList.C
++++ b/meshLibrary/utilities/containers/LongList/LongList.C
+@@ -65,7 +65,7 @@ Foam::Ostream& Foam::Module::operator<<
+     const Foam::Module::LongList<T, Offset>& DL
+ )
+ {
+-    if ((os.format() == IOstream::ASCII) || !contiguous<T>())
++    if ((os.format() == IOstream::ASCII) || !is_contiguous<T>::value)
+     {
+         if (DL.size() < 15)
+         {
+@@ -157,7 +157,7 @@ Foam::Istream& Foam::Module::operator>>
+         DL.setSize(size);
+ 
+         // Read list contents depending on data format
+-        if ((is.format() == IOstream::ASCII) || !contiguous<T>())
++        if ((is.format() == IOstream::ASCII) || !is_contiguous<T>::value)
+         {
+             // Read beginning of contents
+             char listDelimiter = is.readBeginList("List");
+@@ -283,7 +283,7 @@ void Foam::Module::LongList<T, Offset>::appendFromStream(Istream& is)
+         setSize(origSize + size);
+ 
+         // Read list contents depending on data format
+-        if ((is.format() == IOstream::ASCII) || !contiguous<T>())
++        if ((is.format() == IOstream::ASCII) || !is_contiguous<T>::value)
+         {
+             // Read beginning of contents
+             char listDelimiter = is.readBeginList("List");
+diff --git a/meshLibrary/utilities/containers/LongList/LongListI.H b/meshLibrary/utilities/containers/LongList/LongListI.H
+index 1a4667b..2906054 100644
+--- a/meshLibrary/utilities/containers/LongList/LongListI.H
++++ b/meshLibrary/utilities/containers/LongList/LongListI.H
+@@ -218,7 +218,7 @@ inline Foam::label Foam::Module::LongList<T, Offset>::size() const
+ template<class T, int Offset>
+ inline Foam::label Foam::Module::LongList<T, Offset>::byteSize() const
+ {
+-    if (!contiguous<T>())
++    if (!is_contiguous<T>::value)
+     {
+         FatalErrorInFunction
+             << "Cannot return the binary size of a list of "
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledMeshOctreeCubeCoordinates/labelledMeshOctreeCubeCoordinates.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledMeshOctreeCubeCoordinates/labelledMeshOctreeCubeCoordinates.H
+index 481060d..988c1f0 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledMeshOctreeCubeCoordinates/labelledMeshOctreeCubeCoordinates.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledMeshOctreeCubeCoordinates/labelledMeshOctreeCubeCoordinates.H
+@@ -172,10 +172,7 @@ public:
+ 
+ //- Data for labelledMeshOctreeCubeCoordinates are contiguous
+ template<>
+-inline bool contiguous<Module::labelledMeshOctreeCubeCoordinates>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::labelledMeshOctreeCubeCoordinates> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPair/labelledPair.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPair/labelledPair.H
+index ffb7061..bb62d53 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPair/labelledPair.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPair/labelledPair.H
+@@ -226,10 +226,7 @@ public:
+ 
+ //- Data for labelledPair are contiguous
+ template<>
+-inline bool contiguous<Module::labelledPair>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::labelledPair> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/labelledPoint.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/labelledPoint.H
+index d18e524..bb7c22a 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/labelledPoint.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/labelledPoint.H
+@@ -165,10 +165,7 @@ public:
+ 
+ //- Data for labelledPoint are contiguous
+ template<>
+-inline bool contiguous<Module::labelledPoint>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::labelledPoint> : std::true_type {};
+ 
+ 
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/refLabelledPoint.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/refLabelledPoint.H
+index 2c86029..51e05a1 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/refLabelledPoint.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPoint/refLabelledPoint.H
+@@ -152,10 +152,7 @@ public:
+ 
+ //- Data for refLabelledPoint are contiguous
+ template<>
+-inline bool contiguous<Module::refLabelledPoint>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::refLabelledPoint> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/labelledPointScalar.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/labelledPointScalar.H
+index 083ac09..4c69b2b 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/labelledPointScalar.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/labelledPointScalar.H
+@@ -188,10 +188,7 @@ public:
+ 
+ //- Data for labelledPointScalar are contiguous
+ template<>
+-inline bool contiguous<Module::labelledPointScalar>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::labelledPointScalar> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/refLabelledPointScalar.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/refLabelledPointScalar.H
+index 09c8225..530771b 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/refLabelledPointScalar.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledPointScalar/refLabelledPointScalar.H
+@@ -160,10 +160,7 @@ public:
+ 
+ //- Data for refLabelledPointScalar are contiguous
+ template<>
+-inline bool contiguous<Module::refLabelledPointScalar>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::refLabelledPointScalar> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledScalar/labelledScalar.H b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledScalar/labelledScalar.H
+index efc696a..90c288b 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/labelledScalar/labelledScalar.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/labelledScalar/labelledScalar.H
+@@ -197,10 +197,7 @@ public:
+ 
+ //- Data for labelledScalar are contiguous
+ template<>
+-inline bool contiguous<Module::labelledScalar>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::labelledScalar> : std::true_type {};
+ 
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/meshOctreeCubeCoordinatesScalar/meshOctreeCubeCoordinatesScalar.H b/meshLibrary/utilities/helperClasses/parallelHelpers/meshOctreeCubeCoordinatesScalar/meshOctreeCubeCoordinatesScalar.H
+index f8b8120..e603f3b 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/meshOctreeCubeCoordinatesScalar/meshOctreeCubeCoordinatesScalar.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/meshOctreeCubeCoordinatesScalar/meshOctreeCubeCoordinatesScalar.H
+@@ -185,10 +185,7 @@ public:
+ 
+ //- Data for meshOctreCubeCoordinatesScalar are contiguous
+ template<>
+-inline bool contiguous<Module::meshOctreeCubeCoordinatesScalar>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::meshOctreeCubeCoordinatesScalar> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/parPartTet/parPartTet.H b/meshLibrary/utilities/helperClasses/parallelHelpers/parPartTet/parPartTet.H
+index 7099dba..a01fe80 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/parPartTet/parPartTet.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/parPartTet/parPartTet.H
+@@ -135,10 +135,7 @@ public:
+ 
+ //- Data for parPartTet are contiguous
+ template<>
+-inline bool contiguous<Module::parPartTet>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::parPartTet> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/helperClasses/parallelHelpers/parTriFace/parTriFace.H b/meshLibrary/utilities/helperClasses/parallelHelpers/parTriFace/parTriFace.H
+index 6a7a6a1..b4b1360 100644
+--- a/meshLibrary/utilities/helperClasses/parallelHelpers/parTriFace/parTriFace.H
++++ b/meshLibrary/utilities/helperClasses/parallelHelpers/parTriFace/parTriFace.H
+@@ -150,10 +150,7 @@ public:
+ 
+ //- Data for parTriFace are contiguous
+ template<>
+-inline bool contiguous<Module::parTriFace>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::parTriFace> : std::true_type {};
+ 
+ 
+ } // End namespace Foam
+diff --git a/meshLibrary/utilities/helperFunctions/helperFunctionsPar.C b/meshLibrary/utilities/helperFunctions/helperFunctionsPar.C
+index 088378d..1326fd2 100644
+--- a/meshLibrary/utilities/helperFunctions/helperFunctionsPar.C
++++ b/meshLibrary/utilities/helperFunctions/helperFunctionsPar.C
+@@ -143,7 +143,7 @@ void Foam::Module::help::exchangeMap
+ {
+     data.clear();
+ 
+-    if (!contiguous<T>())
++    if (!is_contiguous<T>::value)
+     {
+         FatalError << "Data is not contiguous" << exit(FatalError);
+     }
+@@ -363,7 +363,7 @@ void Foam::Module::help::exchangeMap
+ {
+     mOut.clear();
+ 
+-    if (!contiguous<T>())
++    if (!is_contiguous<T>::value)
+     {
+         FatalError << "Data is not contigous" << exit(FatalError);
+     }
+diff --git a/meshLibrary/utilities/intersectionTools/findCellsIntersectingSurface/findCellsIntersectingSurface.C b/meshLibrary/utilities/intersectionTools/findCellsIntersectingSurface/findCellsIntersectingSurface.C
+index 8f1211a..f1f6295 100644
+--- a/meshLibrary/utilities/intersectionTools/findCellsIntersectingSurface/findCellsIntersectingSurface.C
++++ b/meshLibrary/utilities/intersectionTools/findCellsIntersectingSurface/findCellsIntersectingSurface.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "findCellsIntersectingSurface.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "polyMeshGen.H"
+ #include "polyMeshGenAddressing.H"
+ #include "triSurf.H"
+diff --git a/meshLibrary/utilities/meshes/polyMeshGenModifier/polyMeshGenModifierZipUpCells.C b/meshLibrary/utilities/meshes/polyMeshGenModifier/polyMeshGenModifierZipUpCells.C
+index 2d555c5..74b1b39 100644
+--- a/meshLibrary/utilities/meshes/polyMeshGenModifier/polyMeshGenModifierZipUpCells.C
++++ b/meshLibrary/utilities/meshes/polyMeshGenModifier/polyMeshGenModifierZipUpCells.C
+@@ -452,7 +452,13 @@ void Foam::Module::polyMeshGenModifier::zipUpCells()
+ 
+                 if (pointChain.size() > 2)
+                 {
+-                    edgesToInsert[nEdgesToInsert] = pointChain;
++                    {
++                        // gh:#1385 patch: OpenFOAM >= v1906 has no List = SLList assignment
++                        labelList& eti = edgesToInsert[nEdgesToInsert];
++                        eti.setSize(pointChain.size());
++                        label k = 0;
++                        for (const label pI : pointChain) eti[k++] = pI;
++                    }
+                     nEdgesToInsert++;
+                 }
+             }
+diff --git a/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeBasic.H b/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeBasic.H
+index 21a7cf6..9a9eec1 100644
+--- a/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeBasic.H
++++ b/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeBasic.H
+@@ -149,10 +149,7 @@ public:
+ 
+ //- Data for meshOctreeCubeBasic are contiguous
+ template<>
+-inline bool contiguous<Module::meshOctreeCubeBasic>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::meshOctreeCubeBasic> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeCoordinates.H b/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeCoordinates.H
+index 97ecb64..bdf81a3 100644
+--- a/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeCoordinates.H
++++ b/meshLibrary/utilities/octrees/meshOctree/meshOctreeCube/meshOctreeCubeCoordinates.H
+@@ -240,10 +240,7 @@ public:
+ 
+ //- Data for meshOctreeCubeCoordinates are contiguous
+ template<>
+-inline bool contiguous<Module::meshOctreeCubeCoordinates>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::meshOctreeCubeCoordinates> : std::true_type {};
+ 
+ } // End namespace Foam
+ 
+diff --git a/meshLibrary/utilities/smoothers/geometry/meshOptimizer/boundaryLayerOptimisation/boundaryLayerOptimisation.C b/meshLibrary/utilities/smoothers/geometry/meshOptimizer/boundaryLayerOptimisation/boundaryLayerOptimisation.C
+index 2a38230..86a29e2 100644
+--- a/meshLibrary/utilities/smoothers/geometry/meshOptimizer/boundaryLayerOptimisation/boundaryLayerOptimisation.C
++++ b/meshLibrary/utilities/smoothers/geometry/meshOptimizer/boundaryLayerOptimisation/boundaryLayerOptimisation.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "boundaryLayerOptimisation.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "meshSurfacePartitioner.H"
+ 
+ // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+diff --git a/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractor.C b/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractor.C
+index 03f21aa..84f7bca 100644
+--- a/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractor.C
++++ b/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractor.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "error.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "polyMeshGenModifier.H"
+ #include "edgeExtractor.H"
+ #include "meshSurfaceEngine.H"
+diff --git a/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractorCorners.C b/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractorCorners.C
+index ef24146..8043045 100644
+--- a/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractorCorners.C
++++ b/meshLibrary/utilities/surfaceTools/edgeExtraction/edgeExtractor/edgeExtractorCorners.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "error.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "polyMeshGenModifier.H"
+ #include "edgeExtractor.H"
+ #include "meshSurfaceEngine.H"
+diff --git a/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/parMapperHelper.H b/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/parMapperHelper.H
+index e3f8aed..caf43b6 100644
+--- a/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/parMapperHelper.H
++++ b/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/parMapperHelper.H
+@@ -179,10 +179,7 @@ public:
+ 
+ //- Data for parMapperHelper are contiguous
+ template<>
+-inline bool contiguous<Module::parMapperHelper>()
+-{
+-    return true;
+-}
++struct is_contiguous<Module::parMapperHelper> : std::true_type {};
+ 
+ 
+ } // End namespace Foam
+diff --git a/meshLibrary/utilities/triSurfaceTools/triSurfaceImportSurfaceAsSubset/triSurfaceImportSurfaceAsSubset.C b/meshLibrary/utilities/triSurfaceTools/triSurfaceImportSurfaceAsSubset/triSurfaceImportSurfaceAsSubset.C
+index 64384fd..448916e 100644
+--- a/meshLibrary/utilities/triSurfaceTools/triSurfaceImportSurfaceAsSubset/triSurfaceImportSurfaceAsSubset.C
++++ b/meshLibrary/utilities/triSurfaceTools/triSurfaceImportSurfaceAsSubset/triSurfaceImportSurfaceAsSubset.C
+@@ -24,6 +24,7 @@ License
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "triSurfaceImportSurfaceAsSubset.H"
++#include "demandDrivenData.H"  // gh:#1385 patch: no longer transitive in v2506
+ #include "meshOctree.H"
+ #include "meshOctreeCreator.H"
+ #include "helperFunctions.H"

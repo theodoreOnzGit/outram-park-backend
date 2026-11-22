@@ -46,8 +46,24 @@
 //! `Sigma_r(T) = Sigma_r(T_ref) + (dSigma_r/dT) (T - T_ref)`. Moltres itself
 //! interpolates every group constant from tabulated `T` points; the linear
 //! single-coefficient form is the documented first-pass simplification.
+//!
+//! ~~Moltres' table interpolation is not carried at all.~~ **UPDATED
+//! 2026-11-13 (gh:#1400)** -- [`crate::tables`] reads the Moltres property
+//! files and evaluates `interp_type = none | linear` (bit-identical to
+//! MOOSE's `LinearInterpolation`); ~~spline, monotone-cubic, bicubic and
+//! least-squares interpolation are not translated~~ **CORRECTED 2026-11-13
+//! (gh:#1538)**: spline and monotone-cubic are translated
+//! ([`crate::moose_interpolation`], wired into [`crate::tables`]), bicubic and
+//! least-squares in [`crate::tables_multivar`], `MoltresJsonMaterial` as
+//! `MoltresTables::from_json`. The reduced linear
+//! removal-XS form below remains the model [`XsFields::sigma_removal_at`]
+//! applies; its distance from the full table is measured in the gh:#1400
+//! record (S4).
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fv_operators::fvc;
 use outram_foam_basic_lib::prelude::{Field, FvMesh, PatchField, SurfaceScalarField, VolScalarField};
@@ -293,6 +309,9 @@ pub struct XsFields {
     pub energy_groups: usize,
     /// The mesh the fields live on.
     pub mesh: Arc<FvMesh>,
+    /// Cell-centred diffusion coefficient `D_g` per group, `m` (what the
+    /// vacuum boundary weights are built from).
+    pub diffusion_cell: Vec<VolScalarField>,
     /// Face-interpolated diffusion coefficient `D_g` per group, `m`.
     pub diffusion_face: Vec<SurfaceScalarField>,
     /// Removal cross section `Sigma_{r,g}` per group at the reference
@@ -365,6 +384,7 @@ impl XsFields {
         };
 
         let mut diffusion_face = Vec::with_capacity(g);
+        let mut diffusion_cell = Vec::with_capacity(g);
         let mut sigma_removal = Vec::with_capacity(g);
         let mut nu_sigma_f = Vec::with_capacity(g);
         let mut chi_prompt = Vec::with_capacity(g);
@@ -376,6 +396,7 @@ impl XsFields {
         for gg in 0..g {
             let d_vol = broadcast(format!("D{gg}"), &|m| m.diffusion[gg]);
             diffusion_face.push(fvc::interpolate(&d_vol));
+            diffusion_cell.push(d_vol);
             sigma_removal.push(broadcast(format!("sigmaR{gg}"), &|m| m.sigma_removal[gg]));
             nu_sigma_f.push(broadcast(format!("nuSigmaF{gg}"), &|m| m.nu_sigma_f[gg]));
             chi_prompt.push(broadcast(format!("chiP{gg}"), &|m| m.chi_prompt[gg]));
@@ -396,6 +417,7 @@ impl XsFields {
         Ok(Self {
             energy_groups: g,
             mesh,
+            diffusion_cell,
             diffusion_face,
             sigma_removal,
             nu_sigma_f,

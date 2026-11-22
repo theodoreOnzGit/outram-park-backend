@@ -1,0 +1,14 @@
+# n 12000, CPU seeds [1, 2] (GPU seed 1), CPU threads 4; GPU adapter llvmpipe (LLVM 20.1.2, 256 bits) (Vulkan, Cpu)
+pour,seed,steps,wall_s,ms_per_step,phi_whole_core,surface_m,g_peak,g_sqrt2d,g_sqrt3d,g_2d
+cpu,1,24000,438.9,18.29,0.5843,0.7242,19.12,0.625,1.293,1.186
+cpu,2,24000,433.7,18.07,0.5858,0.7218,19.20,0.616,1.270,1.178
+gpu,1,22000,213.6,9.71,0.5841,0.7254,19.02,0.641,1.256,1.273
+# GPU table overflows: cells 0, contact slots 0
+# wrote crates/outram-park-fork-liggghts/verification_and_validation/gpu_dem_pour/gr_n12000.csv
+# phi_whole_core: GPU 0.5841; CPU mean 0.5850, s 0.0011; 95 % prediction interval ±0.0164: inside
+# surface_m: GPU 0.7254; CPU mean 0.7230, s 0.0017; 95 % prediction interval ±0.0269: inside
+# g_peak: GPU 19.0177; CPU mean 19.1571, s 0.0593; 95 % prediction interval ±0.9228: inside
+# g_sqrt2d: GPU 0.6410; CPU mean 0.6206, s 0.0062; 95 % prediction interval ±0.0963: inside
+# g_sqrt3d: GPU 1.2561; CPU mean 1.2815, s 0.0156; 95 % prediction interval ±0.2429: inside
+# g_2d: GPU 1.2733; CPU mean 1.1818, s 0.0054; 95 % prediction interval ±0.0838: OUTSIDE
+# verdict: NOT inside on every quantity (see above)

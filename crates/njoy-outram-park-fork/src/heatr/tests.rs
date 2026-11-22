@@ -1,5 +1,8 @@
 //! Unit tests for `heatr` (moved verbatim out of `heatr/mod.rs` on split).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::damage::*;
 use super::kerma::*;
@@ -28,6 +31,7 @@ fn recon(awr: f64, sections: Vec<ReconrSection>) -> ReconrResult {
         sections,
         resonance_upper_limit: None,
         unresolved_table: None,
+        temperature_k: 0.0,
     }
 }
 

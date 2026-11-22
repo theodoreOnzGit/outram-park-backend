@@ -522,7 +522,7 @@ fn least_squares_gradient_is_exact_for_a_linear_field_on_a_wavy_mesh() {
     let exact = Vector3::new(3.0, -1.5, 0.0);
 
     let g_gauss = fvc::grad(&t);
-    let g_ls = fvc::grad_least_squares(&t);
+    let g_ls = fvc::grad_least_squares_face_centre(&t);
 
     let err = |g: &outram_foam_basic_lib::fields::vol_field::VolVectorField| {
         (0..mesh.n_cells)

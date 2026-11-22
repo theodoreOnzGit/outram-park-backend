@@ -424,12 +424,27 @@ struct Hit {
     s: u32,
 };
 
-// Cell::distance_to_boundary.
+// Cell::distance_to_boundary (OpenMC `Region::distance`, 8f79d9d0, gh:#1456).
 fn cell_distance(c: u32, r: vec3<f32>, u: vec3<f32>) -> Hit {
     return toks_distance(full_toks(c), r, u);
 }
 
-fn toks_distance(tk: Toks, r: vec3<f32>, u: vec3<f32>) -> Hit {
+// FP_PRECISION and FP_COINCIDENT (include/openmc/constants.h:53,55), as the CPU
+// uses them. In f32 the FP_PRECISION tie rule is `d` smaller than the running
+// minimum by at least 1e-14 of it, which any strictly smaller f32 satisfies, so
+// it keeps the first of two equal distances exactly as the CPU does.
+const FP_PRECISION: f32 = 1.0e-14;
+const FP_COINCIDENT: f32 = 1.0e-12;
+// A union whose faces keep reporting virtual crossings is bounded; the CPU loops
+// until the membership changes or no surface is hit.
+const MAX_VIRTUAL_HOPS: u32 = 32u;
+
+// Region::distance_to_nearest_surface: the minimum surface distance over the
+// region's half-space tokens. A candidate replaces the running minimum only when
+// it is shorter by at least FP_PRECISION of it, so two surfaces at one distance
+// keep the first found. `ignore_coincident` skips an intersection closer than
+// FP_COINCIDENT (different surface definitions describing one surface).
+fn nearest_surface(tk: Toks, r: vec3<f32>, u: vec3<f32>, ignore_coincident: bool) -> Hit {
     let ts = tk.s;
     let tl = tk.n;
     var best = Hit(INF, NONE);
@@ -438,11 +453,51 @@ fn toks_distance(tk: Toks, r: vec3<f32>, u: vec3<f32>) -> Hit {
         if (t >= TOK_INTER) { continue; }
         let s = t >> 1u;
         let d = surf_distance(s, r, u, s == tok_surf);
-        if (d < best.d) {
+        if (ignore_coincident && d < FP_COINCIDENT) { continue; }
+        if (d < best.d && (best.d >= INF || best.d - d >= FP_PRECISION * best.d)) {
             best = Hit(d, s);
         }
     }
     return best;
+}
+
+// Region::distance_complex (OpenMC #3934, "Fix virtual surface crossing"): the
+// oncoming boundary of a union or complement region. Walk to the nearest
+// candidate surface; if crossing it does not change whether the point is in the
+// region (a virtual crossing, e.g. an internal face of a union) go on from
+// there, summing the distances. The side entered is taken from the surface
+// normal, not the surface equation, as the CPU does (Cell::distance_complex).
+// The surface token is saved and restored: the hops move it.
+fn toks_distance_complex(tk: Toks, r0: vec3<f32>, u: vec3<f32>) -> Hit {
+    let in_region = toks_contain(tk, r0, u);
+    let save_s = tok_surf;
+    let save_o = tok_out;
+    var r = r0;
+    var total: f32 = 0.0;
+    var out = Hit(INF, NONE);
+    for (var hop: u32 = 0u; hop < MAX_VIRTUAL_HOPS; hop = hop + 1u) {
+        let hs = nearest_surface(tk, r, u, tok_surf != NONE);
+        if (hs.d >= INF) { break; }
+        r = r + hs.d * u;
+        total = total + hs.d;
+        let n = surf_normal(hs.s, r);
+        // entering_negative = u.n <= 0, so the side entered is Outside iff u.n > 0
+        tok_surf = hs.s;
+        tok_out = dot(u, n) > 0.0;
+        out = Hit(total, hs.s);
+        if (toks_contain(tk, r, u) != in_region) { break; }
+    }
+    tok_surf = save_s;
+    tok_out = save_o;
+    return out;
+}
+
+fn toks_distance(tk: Toks, r: vec3<f32>, u: vec3<f32>) -> Hit {
+    if ((tk.f & 1u) == 1u) {
+        // a simple region (no union, no complement): the nearest surface
+        return nearest_surface(tk, r, u, false);
+    }
+    return toks_distance_complex(tk, r, u);
 }
 
 // The side of `s` a ray leaving cell `c` across it ends on (boundary_token).

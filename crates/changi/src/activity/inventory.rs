@@ -41,6 +41,9 @@
 //! licence and is **not** redistributed here; only the cited table of 22
 //! values is, which is ordinary scientific citation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Radioactivity;
 use uom::si::radioactivity::becquerel;
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A skewed (IFENG = 1) S(α,β) ACE table is sampled as OpenMC samples it** —
 //! GitHub #365 audit.
@@ -27,6 +27,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test and recorded in the #365 thread.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;

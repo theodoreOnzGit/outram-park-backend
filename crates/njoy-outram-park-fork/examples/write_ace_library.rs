@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Write a transport-ready ACE **library** with this workspace's NJOY port —
 //! the Rust-generated counterpart of an NJOY2016 `RECONR -> BROADR -> PURR ->

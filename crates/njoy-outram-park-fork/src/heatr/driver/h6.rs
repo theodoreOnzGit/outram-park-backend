@@ -16,6 +16,9 @@
 //! (`groupr::kinematics::cm`); HEATR's is a different routine with different
 //! tolerances and is translated as it stands.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::{legndr1, nint, terp1};
 use super::state::Heatr;

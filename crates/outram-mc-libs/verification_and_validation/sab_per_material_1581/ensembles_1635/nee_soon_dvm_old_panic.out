@@ -1,0 +1,21 @@
+16:38:03
+HTR-10: deterministic (diffusion + SP3) vs Monte Carlo, k_inf
+=============================================================
+  geometry: 5746 tiles, 19410 cells, 767 universes; bed r=90.0 cm, half-height=22.6 cm
+
+  Monte Carlo pass 1/2 (scalar reaction rates)...
+
+thread 'main' (7074) panicked at crates/outram-mc-libs/src/material/cell_temperature.rs:178:68:
+cell 2 references material 11, out of range
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: outram_mc_libs::material::cell_temperature::with_cell_temperatures::{closure#0}
+   3: outram_mc_libs::material::cell_temperature::with_cell_temperatures_and_majorants
+   4: outram_mc_libs::physics::transport_csg::run_keff_csg_seq
+   5: outram_mc_libs::physics::transport_csg::run_keff_csg_inner
+   6: outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid
+   7: htr10_deterministic_vs_mc::main
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+EXIT 101
+16:42:34

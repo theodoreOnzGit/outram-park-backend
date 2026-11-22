@@ -109,6 +109,9 @@
 //! polyMesh patch, or a faceted-CSG surface each build on. It is fully
 //! implemented and tested.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
@@ -383,6 +386,7 @@ pub fn to_polymesh_text(mesh: &Mesh) -> PolyMeshText {
 /// `boundary` (no `.txt` extension — OpenFOAM's exact file names) into `dir`.
 /// Typically `dir` is a case's `constant/polyMesh` directory. The output is a
 /// boundary surface, not a solve-ready volume mesh (see [`to_polymesh_text`]).
+#[cfg(feature = "std")]
 pub fn write_polymesh(mesh: &Mesh, dir: &std::path::Path) -> std::io::Result<()> {
     let t = to_polymesh_text(mesh);
     std::fs::create_dir_all(dir)?;
@@ -1063,7 +1067,7 @@ impl FacetedSolid {
     /// assert!(patch.check_closed_manifold().is_err());
     /// ```
     pub fn check_closed_manifold(&self) -> Result<(), ExportError> {
-        use std::collections::HashMap;
+        use crate::hash::HashMap;
 
         for (ti, t) in self.triangles.iter().enumerate() {
             if t[0] == t[1] || t[1] == t[2] || t[2] == t[0] {
@@ -1130,7 +1134,7 @@ impl FacetedSolid {
             let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
             solid_angle += 2.0 * numerator.r_atan2(denominator);
         }
-        (solid_angle / (4.0 * std::f64::consts::PI)).abs() > 0.5
+        (solid_angle / (4.0 * core::f64::consts::PI)).abs() > 0.5
     }
 }
 
@@ -1417,7 +1421,7 @@ pub fn to_csg_geometry(mesh: &Mesh) -> Result<crate::csg::geometry::Geometry, Ex
         id: 1,
         region,
         fill: CellFill::Void,
-        temperature: 293.6,
+        temperature: None,
         translation: Position::ZERO,
         tracking: None,
     };

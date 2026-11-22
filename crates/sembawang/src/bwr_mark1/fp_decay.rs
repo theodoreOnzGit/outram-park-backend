@@ -36,9 +36,12 @@
 //! heat. A test regenerates it and compares it byte for byte; re-bless with
 //! `FUKUSHIMA_BLESS=1`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::Params;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// The fission-product elements, by atomic number (Ti to Er).
 const ELEMENTS: [(u32, &str); 47] = [
@@ -194,7 +197,7 @@ fn graph() -> Vec<Nuc> {
         .iter()
         .map(|&i| {
             let r = &raw[i];
-            let lambda = r.1.filter(|&h| h > 0.0).map(|h| std::f64::consts::LN_2 / h).unwrap_or(0.0);
+            let lambda = r.1.filter(|&h| h > 0.0).map(|h| core::f64::consts::LN_2 / h).unwrap_or(0.0);
             Nuc {
                 name: r.0.clone(),
                 element: z_of[symbol(&r.0)],
@@ -211,7 +214,7 @@ fn graph() -> Vec<Nuc> {
 /// every nuclide of `nucs`.
 fn sources(prm: &Params, nucs: &[Nuc]) -> Vec<f64> {
     use fission_yields_data::prelude::{fission_yield_linear_interpolation, Nuclide};
-    use std::str::FromStr;
+    use core::str::FromStr;
     use uom::si::energy::{electronvolt, kiloelectronvolt};
     use uom::si::f64::Energy;
     use uom::si::ratio::ratio;
@@ -421,6 +424,7 @@ impl ElementShares {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     /// The graph holds every element, and its topological order puts
     /// parents first: I-135 before Xe-135, Te-132 before I-132.
     #[test]
@@ -434,6 +438,7 @@ mod tests {
         assert!(g.len() > 1000, "{}", g.len());
     }
 
+    #[cfg(feature = "std")]
     /// Cesium-137's share of the cesium mass at the scram, from the
     /// summation (for the Cs-137 release against BSAF Fig 5.1, gh:#1040).
     /// Results (2026-10-29): Cs-137 30.09 kg of 95.01 kg, a share of
@@ -451,6 +456,7 @@ mod tests {
         assert_eq!(sum.nuclide_mass_kg("NotANuclide"), 0.0);
     }
 
+    #[cfg(feature = "std")]
     /// The committed table is what the summation computes (regenerated
     /// byte for byte; `FUKUSHIMA_BLESS=1` rewrites it), and its total is
     /// checked against the ANS-1979 fission-product curve of `decay.rs`

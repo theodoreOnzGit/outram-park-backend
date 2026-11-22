@@ -138,7 +138,7 @@ pub fn clausen(x: f64) -> f64 {
         x * (1.0 - Real::ln(x))
     } else {
         let t = 2.0 * (x * x / (core::f64::consts::PI * core::f64::consts::PI) - 0.5);
-        x * (crate::cheb_slice::eval_gsl(t, &ACLAUS) - Real::ln(x))
+        x * (crate::specfunc::cheb_eval_e(t, &ACLAUS) - Real::ln(x))
     };
 
     sgn * val
@@ -294,7 +294,7 @@ mod tests {
         let x = PI * SQRT_DBL_EPSILON;
         let small = x * (1.0 - x.ln());
         let t = 2.0 * (x * x / (PI * PI) - 0.5);
-        let cheb = x * (crate::cheb_slice::eval_gsl(t, &ACLAUS) - x.ln());
+        let cheb = x * (crate::specfunc::cheb_eval_e(t, &ACLAUS) - x.ln());
         assert!(
             ((small - cheb) / cheb).abs() < 1e-12,
             "join at x_cut = {x:e}: {small:e} vs {cheb:e}"

@@ -33,6 +33,9 @@
 //! and the `k` trigger. A run goes to its last generation unless the
 //! population dies out.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     bank_entropy, resample, sample_box_source, transport_history_vr, Site, SourceBox, GEN_STRIDE,
     HIST_STRIDE,
@@ -88,6 +91,8 @@ impl SourceSite {
             // Not carried across ranks: only IFP reads it, and the
             // distributed driver does not run IFP.
             parent_lifetime_s: 0.0,
+            // The wire format carries no weight: UFS is not supported across ranks.
+            wgt: 1.0,
         }
     }
 
@@ -211,7 +216,7 @@ pub struct ChunkCounts {
 }
 
 impl ChunkCounts {
-    const WORDS: usize = 15;
+    const WORDS: usize = 16;
     fn add(&mut self, o: &ChunkCounts) {
         self.histories += o.histories;
         self.collisions += o.collisions;
@@ -241,6 +246,7 @@ impl ChunkCounts {
             self.ends.fissions_by_energy[0] as f64,
             self.ends.fissions_by_energy[1] as f64,
             self.ends.fissions_by_energy[2] as f64,
+            self.ends.lost as f64,
         ]
     }
     fn from_words(w: &[f64]) -> Self {
@@ -255,7 +261,7 @@ impl ChunkCounts {
             stuck_events: u(6),
             leak_vacuum: u(7),
             leak_infinity: u(8),
-            ends: crate::physics::keff::HistoryCounts { tracked: u(9), leaked: u(10), captured: u(11), fissions_by_energy: [u(12), u(13), u(14)] },
+            ends: crate::physics::keff::HistoryCounts { tracked: u(9), leaked: u(10), captured: u(11), fissions_by_energy: [u(12), u(13), u(14)], lost: u(15) },
         }
     }
 }
@@ -426,6 +432,16 @@ pub fn transport_chunk(
     settings: &KeffSettings,
     chunk: &GenerationChunk,
 ) -> ChunkResult {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
+    };
     let gen_base_seed = future_seed(
         (chunk.generation as u64).wrapping_mul(GEN_STRIDE),
         chunk.run_seed,
@@ -791,6 +807,7 @@ mod tests {
                     vec![
                         hs(0, HalfSpaceSense::Outside),
                         hs(1, HalfSpaceSense::Inside),
+                        RegionToken::Intersection,
                     ],
                     1,
                     TEMP,
@@ -944,10 +961,11 @@ mod tests {
         };
         let c = one_generation(1);
         let e = c.ends;
-        assert_eq!(e.tracked, e.leaked + e.captured + e.fissions());
+        assert_eq!(e.tracked, e.leaked + e.captured + e.fissions() + e.lost);
         assert!(e.tracked >= c.histories && c.histories == s.n_particles as u64);
         assert!(e.leaked > 0 && e.captured > 0 && e.fissions() > 0, "{e:?}");
-        assert_eq!(e.leaked, c.leak_vacuum + c.leak_infinity + c.delta_lost + c.lost_locate + c.stuck_events, "every leak-scored end");
+        assert_eq!(e.leaked, c.leak_vacuum + c.leak_infinity + c.delta_lost, "every leak-scored end");
+        assert_eq!(e.lost, c.lost_locate + c.stuck_events, "every lost end (gh:#699)");
         for n in [3, 7] {
             assert_eq!(one_generation(n), c, "{n} chunks");
         }

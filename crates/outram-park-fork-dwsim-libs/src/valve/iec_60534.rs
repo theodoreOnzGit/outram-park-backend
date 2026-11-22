@@ -13,6 +13,9 @@
 //! engineering unit, not a `uom` SI quantity, so it is wrapped in
 //! [`ValveFlowCoefficient`] rather than left as a bare `f64`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, MassRate, Pressure, Ratio};
 use uom::si::mass_density::kilogram_per_cubic_meter;

@@ -140,6 +140,15 @@ smoothing), and `layers::add_boundary_layers` / `add_boundary_layers_adaptive`
 (graded prism wall layers — flat walls, and curved/polyhedral walls with
 per-point thickness limiting).
 
+**Upstream cases (gh:#1476).** `mesh_dict` reads an upstream `system/meshDict`
+(every entry honoured or reported) with `checkMeshDict`'s validation;
+`tri_surf_io` reads the `surfaceFile` (`.fms`, `.ftr`, and STL with the
+`surface-file` feature); `poly_mesh_gen_io` (`foam-export`) writes
+`constant/polyMesh` with subsets and `meshMetaDict`. The executables are
+`outram-foam-cli`'s `cartesianMesh`, `tetMesh`, `pMesh` and `cartesian2DMesh`
+(`cartesianMesh -case <dir>`). Record:
+`verification_and_validation/case_reading_gh1476/`.
+
 ### Honest scope: what "verified" covers, and what is unmeasured
 
 "Verified" above means **topological and volumetric** verification —
@@ -327,6 +336,28 @@ Remaining roadmap (beads under the `op-hzs` epic):
     `TetDualReport::stage_notes` rather than failing silently
 13. feature-edge-aware snapping, so patch seams follow surface feature edges
     rather than mesh face edges
+
+## `no_std` + `alloc` (gh:#1639)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-cfmesh --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every generator and stage builds without
+it (`cartesianMesh`, `tetMesh`, `pMesh`, `cartesian2DMesh`, the tet-dual
+pipeline, layers, the optimisers and the surface tools). What `std` adds:
+
+- file I/O: `surface-file` (STL, which therefore implies `std`), the
+  `polyMeshGen` read/write and debug dumps;
+- threads: the per-node optimiser map runs on scoped threads with `std`, and
+  serially without it (as on wasm), with the same results;
+- the wall clock behind the timing profile (`crate::time`: zero without it);
+- the diagnostic environment variables (`GH1385_TRACE`, `CFMESH_*`, through
+  `crate::env`: unset without it);
+- printing, and `std` in `outram-foam-basic-lib` and `outram-foam-mesh`.
+
+Maps are std's with `std`, so every fingerprint pin holds, and `hashbrown`
+without it. The root workspace entry is `default-features = false`, so a
+member that wants `std` asks for it.
 
 ## Design rules (workspace `CLAUDE.md`)
 

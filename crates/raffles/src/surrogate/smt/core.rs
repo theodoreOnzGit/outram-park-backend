@@ -50,6 +50,9 @@
 //! standardisation, the reduced likelihood and its gradient, and the
 //! multistart optimiser over log10 θ.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::linalg::{backward_lt, backward_upper, columns, dot, forward, householder_qr, singular_value_ratio};

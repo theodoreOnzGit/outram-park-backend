@@ -59,6 +59,9 @@ use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::structure::{
 /// Uniform across the Core zone, from the case's own `phaseProperties`.
 const ALPHA_STRUCTURE: f64 = 0.61;
 const POWER_DENSITY: f64 = 19_965_700.0;
+/// `powerDensityNeutronics` as the tutorial's `phaseProperties` states it (`19.96567386e6`): the fresh
+/// run's input. The constant above is the older record's rounded value (19 965 700), 1.3e-6 higher.
+const FRESH_POWER_DENSITY: f64 = 19.965_673_86e6;
 /// Upstream's own computed Maxwell effective matrix conductivity, W/(m K).
 const UPSTREAM_KEFFMATRIX: f64 = 29.587;
 
@@ -113,6 +116,78 @@ fn load() -> Vec<Row> {
             }
         })
         .collect()
+}
+
+/// `COL`/`UNIFORM` lines of `refs/gfhr_chain.ref.txt.gz` (gh:#1361 round 3): a fresh run of the
+/// real binary at writePrecision 17, third step (t = 0.358511 s), every 100th pebble-bed cell
+/// plus the `TpS` extremes. Returns `(columns, uniform values)`.
+fn fresh_chain() -> (std::collections::HashMap<String, Vec<f64>>, std::collections::HashMap<String, f64>) {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("verification_and_validation/genfoam_vs_upstream_gh1361/refs/gfhr_chain.ref.txt.gz");
+    let bytes = std::fs::read(&path).expect("reference present");
+    // gzip -n: 10-byte header, 8-byte trailer.
+    let text = String::from_utf8(
+        miniz_oxide::inflate::decompress_to_vec(&bytes[10..bytes.len() - 8]).expect("inflate"),
+    )
+    .expect("utf8");
+    let (mut cols, mut uniform) = (std::collections::HashMap::new(), std::collections::HashMap::new());
+    for line in text.lines() {
+        let mut w = line.split_whitespace();
+        match w.next() {
+            Some("COL") => {
+                let name = w.next().expect("name").to_string();
+                cols.insert(name, w.map(|x| x.parse::<f64>().expect("f64")).collect());
+            }
+            Some("UNIFORM") => {
+                let name = w.next().expect("name").to_string();
+                uniform.insert(name, w.next().expect("value").parse::<f64>().expect("f64"));
+            }
+            _ => {}
+        }
+    }
+    (cols, uniform)
+}
+
+/// **V&V, round 3 — every stage of the pebble chain against a FRESH 17-digit run.**
+///
+/// Prediction Q2 (written before the port run): each stage within 1e-12 relative, the 5e-6 of
+/// the record above being the 6-digit ASCII floor of the committed CSV.
+#[test]
+fn the_ported_pebble_chain_reproduces_a_fresh_17_digit_gfhr_run() {
+    let (cols, uniform) = fresh_chain();
+    let g = gfhr();
+    let k = gfhr_k();
+    let t_ps = &cols["TpS"];
+    assert!(t_ps.len() > 2000, "sample of {}", t_ps.len());
+
+    let keff = g.effective_matrix_conductivity(&k);
+    let keff_up = uniform["keffmatrix"];
+    let keff_rel = (keff - keff_up).abs() / keff_up;
+
+    const NAMES: [&str; 5] = ["Tmout", "Tmav", "TfS", "Tfav", "Tfmax"];
+    let mut worst = [0.0_f64; 5];
+    let mut worst_ulp = [0_u64; 5];
+    for (i, &ts) in t_ps.iter().enumerate() {
+        let t = g.steady_temperatures(ts, FRESH_POWER_DENSITY, ALPHA_STRUCTURE, &k);
+        let ours = [t.matrix_outer, t.matrix_average, t.particle_surface, t.fuel_average, t.fuel_max];
+        for (s, name) in NAMES.iter().enumerate() {
+            let theirs = cols[*name][i];
+            worst[s] = worst[s].max((ours[s] - theirs).abs() / theirs);
+            let ulp = if ours[s].to_bits() == theirs.to_bits() { 0 } else { ours[s].to_bits().abs_diff(theirs.to_bits()) };
+            worst_ulp[s] = worst_ulp[s].max(ulp);
+        }
+    }
+    println!(
+        "gFHR fresh 17-digit run: {} sampled cells; keffmatrix port {keff:.17} upstream {keff_up:.17} rel {keff_rel:.3e}",
+        t_ps.len()
+    );
+    for (s, name) in NAMES.iter().enumerate() {
+        println!("\t{name:8} worst relative difference {:.3e}  (worst {} ulp)", worst[s], worst_ulp[s]);
+    }
+    assert!(keff_rel < 1e-12, "keffmatrix {keff_rel:.3e}");
+    for (s, name) in NAMES.iter().enumerate() {
+        assert!(worst[s] < 1e-12, "{name} differs from upstream by {:.3e}", worst[s]);
+    }
 }
 
 /// **V&V — every stage of the ported pebble model matches upstream's own fields.**

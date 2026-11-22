@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Mesh, file, surface and constrained sources** — GitHub #264.
 //!
@@ -32,6 +32,9 @@
 //! and [`SurfaceSource::total_weight`] exists so a caller can check the
 //! bookkeeping rather than assume it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
@@ -544,6 +547,7 @@ mod tests {
         let want = 0.75;
         let sigma = (want * (1.0 - want) / N as f64).sqrt();
         let dev = (p - want).abs() / sigma;
+        #[cfg(feature = "std")]
         println!("element 0 share {p:.5} vs requested {want} ({dev:.2} sigma)");
         assert!(dev < 4.0, "strengths not reproduced: {dev:.2} sigma");
     }
@@ -565,8 +569,8 @@ mod tests {
         let s = MeshSource::new(
             MeshKind::Spherical(SphericalMesh {
                 r_grid: vec![0.0, 1.0],
-                theta_grid: vec![0.0, std::f64::consts::PI],
-                phi_grid: vec![0.0, std::f64::consts::TAU],
+                theta_grid: vec![0.0, core::f64::consts::PI],
+                phi_grid: vec![0.0, core::f64::consts::TAU],
                 origin: Position::new(0.0, 0.0, 0.0),
             }),
             vec![1.0],
@@ -720,6 +724,7 @@ mod tests {
         );
         let p = lower_z as f64 / N as f64;
         let sigma = (0.75 * 0.25 / N as f64).sqrt();
+        #[cfg(feature = "std")]
         println!("lower-z share {p:.5} vs requested 0.75 ({:.2} sigma)", (p - 0.75).abs() / sigma);
         assert!((p - 0.75).abs() / sigma < 4.0, "z split not reproduced");
     }

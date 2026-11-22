@@ -18,6 +18,9 @@
 //! interpolation formula as [`crate::unresr::wfun::WTable::lookup`] (same
 //! `a1..a5`/`pq` weights), only the grid-index mapping differs per table.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::unresr::wfun::WRecurrence;
 
@@ -113,7 +116,7 @@ fn w_asymptotic2(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
 /// (labels 420-440).
 fn w_taylor2(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
     const C2: f64 = 1.5;
-    let rpi = std::f64::consts::PI.sqrt();
+    let rpi = core::f64::consts::PI.sqrt();
 
     let temp1 = r2 + ai2;
     let temp2 = 2.0 * temp1 * temp1;

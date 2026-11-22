@@ -89,12 +89,15 @@
 //! caller sets on the flux fields (vacuum = `FixedValue(0)`, reflective =
 //! `ZeroGradient`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fields;
 
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
     fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
@@ -550,4 +553,5 @@ impl WithInternal for VolScalarField {
 
 mod eigenvalue;
 pub mod precursor_drift;
+mod pseudo_time;
 mod transient;

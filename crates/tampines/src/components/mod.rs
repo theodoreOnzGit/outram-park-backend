@@ -17,8 +17,13 @@
 //! CoreChannel, wall heat exchanger), [`reactor_power`] (core power
 //! distribution). The steady wrappers below are not their front end.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod condenser;
 pub mod cooling_tower;
+pub mod drain_tank;
+pub mod freeze_valve;
 pub mod heat_exchanger;
 pub mod heat_structure;
 pub mod helical_coil_otsg;
@@ -27,6 +32,7 @@ pub mod helical_coil_steam_generator;
 pub mod junction;
 pub mod pipe;
 pub mod pump;
+pub mod pump_coastdown;
 pub mod reactor_power;
 pub mod steam_generator;
 pub mod turbine;
@@ -63,6 +69,7 @@ pub use helical_coil_otsg::{
 pub use junction::{HemJunction, HemNetwork, PipeEndRef, VolumeBranch};
 pub use pipe::{Pipe, PipeBackend};
 pub use pump::Pump;
+pub use pump_coastdown::InertialPumpCoastdown;
 pub use reactor_power::{AxialPowerShape, CoreChannelShare, ReactorPowerSource, TotalPower};
 pub use steam_generator::SteamGenerator;
 pub use turbine::Turbine;

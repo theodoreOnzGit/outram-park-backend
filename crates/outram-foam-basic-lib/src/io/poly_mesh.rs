@@ -45,6 +45,14 @@
 //! Faces are ordered OpenFOAM-style: internal faces first
 //! (`[0, n_internal_faces)`), then boundary faces grouped by patch.
 
+// gh:#1586: without `std` there are no files, so the text formatters and
+// cursors below, reached only through the file readers and writers, are
+// unused in a `no_std` build.
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::dict::{fmt_scalar, tokenize, write_header, Token, BANNER, FOOTER, SEPARATOR};
@@ -106,63 +114,30 @@ impl PolyMesh {
     }
 
     /// Compute per-cell `(volumes, centres)` `[m^3]`, `[m]` via the OpenFOAM
-    /// pyramid decomposition (`primitiveMeshCellCentresAndVols`).
+    /// pyramid decomposition (`primitiveMeshTools::makeCellCentresAndVols`).
+    ///
+    /// Same operation order as OpenFOAM-v2506 so the result is bit-identical
+    /// (gh:#1489, `tests/operators_vs_openfoam.rs`): the estimate sums the
+    /// owner faces of every face, then the neighbour faces; the pyramid
+    /// accumulation runs over all owner faces, then all neighbour faces; the
+    /// volume takes `* (1/3)` last. ~~Interleaved by face, `/ 3.0`, `EPSILON`
+    /// threshold~~ **CORRECTED 2026-11-11 (gh:#1489)**: upstream's threshold
+    /// is `VSMALL` (1e-300).
     fn cell_geometry(&self) -> (Vec<f64>, Vec<Vector3>) {
         let mut face_ctr = Vec::with_capacity(self.faces.len());
         let mut face_sf = Vec::with_capacity(self.faces.len());
+        let mut owner = Vec::with_capacity(self.faces.len());
+        let mut neighbour = Vec::with_capacity(self.n_internal_faces);
         for f in &self.faces {
             let (c, sf) = face_centre_and_area(&self.points, &f.verts);
             face_ctr.push(c);
             face_sf.push(sf);
-        }
-
-        // First pass: estimate each cell centre as the mean of its face centres.
-        let mut c_est = vec![Vector3::ZERO; self.n_cells];
-        let mut n_cell_faces = vec![0.0f64; self.n_cells];
-        for (fi, f) in self.faces.iter().enumerate() {
-            c_est[f.owner] += face_ctr[fi];
-            n_cell_faces[f.owner] += 1.0;
+            owner.push(f.owner);
             if let Some(nb) = f.neighbour {
-                c_est[nb] += face_ctr[fi];
-                n_cell_faces[nb] += 1.0;
+                neighbour.push(nb);
             }
         }
-        for c in 0..self.n_cells {
-            if n_cell_faces[c] > 0.0 {
-                c_est[c] /= n_cell_faces[c];
-            }
-        }
-
-        // Second pass: sum pyramid volumes / centroids about the estimate.
-        let mut vol = vec![0.0f64; self.n_cells];
-        let mut ctr = vec![Vector3::ZERO; self.n_cells];
-        for (fi, f) in self.faces.iter().enumerate() {
-            let cf = face_ctr[fi];
-            {
-                let cell = f.owner;
-                let sf = face_sf[fi];
-                let pyr3 = sf.dot(cf - c_est[cell]);
-                let pyr_ctr = cf * 0.75 + c_est[cell] * 0.25;
-                vol[cell] += pyr3;
-                ctr[cell] += pyr_ctr * pyr3;
-            }
-            if let Some(cell) = f.neighbour {
-                let sf = face_sf[fi] * -1.0;
-                let pyr3 = sf.dot(cf - c_est[cell]);
-                let pyr_ctr = cf * 0.75 + c_est[cell] * 0.25;
-                vol[cell] += pyr3;
-                ctr[cell] += pyr_ctr * pyr3;
-            }
-        }
-        for c in 0..self.n_cells {
-            if vol[c].abs() > f64::EPSILON {
-                ctr[c] /= vol[c];
-            } else {
-                ctr[c] = c_est[c];
-            }
-            vol[c] /= 3.0;
-        }
-        (vol, ctr)
+        cell_geometry_from_faces(&face_ctr, &face_sf, &owner, &neighbour, self.n_cells)
     }
 
     /// Convert to the geometry-carrying [`FvMesh`], computing cell
@@ -204,6 +179,7 @@ impl PolyMesh {
 
     // ── Reading ─────────────────────────────────────────────────────────────
 
+    #[cfg(feature = "std")]
     /// Read a `polyMesh` from a `constant/polyMesh` directory.
     ///
     /// Reads `points`, `faces`, `owner`, `neighbour`, and `boundary`.
@@ -265,6 +241,7 @@ impl PolyMesh {
 
     // ── Writing ─────────────────────────────────────────────────────────────
 
+    #[cfg(feature = "std")]
     /// Write the `polyMesh` files into `dir`, creating it if necessary.
     pub fn write(&self, dir: impl AsRef<Path>) -> Result<(), IoError> {
         let dir = dir.as_ref();
@@ -275,6 +252,42 @@ impl PolyMesh {
         write_file(&dir.join("neighbour"), &self.neighbour_string())?;
         write_file(&dir.join("boundary"), &self.boundary_string())?;
         Ok(())
+    }
+
+    #[cfg(feature = "std")]
+    /// Write `dir/cellZones` (OpenFOAM `cellZoneMesh`, gh:#1463): for each
+    /// `(name, cells)` a `cellZone` dictionary with its `cellLabels`. An empty
+    /// `zones` list writes nothing, as `blockMesh` only adds zones when a
+    /// block names one. A separate call so the `polyMesh` files themselves
+    /// are untouched.
+    ///
+    /// Format (what `blockMesh` writes):
+    /// `N ( name { type cellZone; cellLabels List<label> n ( ... ) ; } ... )`.
+    pub fn write_cell_zones(
+        dir: impl AsRef<Path>,
+        zones: &[(String, Vec<usize>)],
+    ) -> Result<(), IoError> {
+        if zones.is_empty() {
+            return Ok(());
+        }
+        let dir = dir.as_ref();
+        std::fs::create_dir_all(dir).map_err(|e| IoError::io(dir.display().to_string(), e))?;
+        let mut s = header_str("regIOobject", "cellZones");
+        s.push_str(&format!("{}\n(\n", zones.len()));
+        for (name, cells) in zones {
+            s.push_str(&format!(
+                "{name}\n{{\n    type cellZone;\n    cellLabels      List<label> \n{}\n(\n",
+                cells.len()
+            ));
+            for c in cells {
+                s.push_str(&c.to_string());
+                s.push('\n');
+            }
+            s.push_str(")\n;\n}\n");
+        }
+        s.push_str(")\n\n");
+        s.push_str(FOOTER);
+        write_file(&dir.join("cellZones"), &s)
     }
 
     fn points_string(&self) -> String {
@@ -356,21 +369,90 @@ impl PolyMesh {
 
 // ── Geometry (mirrors outram-foam-mesh::block_mesh) ─────────────────────────
 
+/// Cell volumes and centres from the face geometry, upstream's
+/// `primitiveMeshTools::makeCellCentresAndVols` operation for operation (the
+/// body of [`PolyMesh::cell_geometry`], factored out in gh:#1363 so the
+/// appbuilder's own mesh reader uses it instead of an older duplicate whose
+/// summation order differed, giving cell volumes up to 14 ulp off upstream on
+/// the shockTube mesh). `owner` has one entry per face (internal first),
+/// `neighbour` one per internal face.
+pub fn cell_geometry_from_faces(
+    face_ctr: &[Vector3],
+    face_sf: &[Vector3],
+    owner: &[usize],
+    neighbour: &[usize],
+    n_cells: usize,
+) -> (Vec<f64>, Vec<Vector3>) {
+    // First pass: estimate each cell centre as the mean of its face centres.
+    let mut c_est = vec![Vector3::ZERO; n_cells];
+    let mut n_cell_faces = vec![0.0f64; n_cells];
+    for (fi, &o) in owner.iter().enumerate() {
+        c_est[o] += face_ctr[fi];
+        n_cell_faces[o] += 1.0;
+    }
+    for (fi, &nb) in neighbour.iter().enumerate() {
+        c_est[nb] += face_ctr[fi];
+        n_cell_faces[nb] += 1.0;
+    }
+    for c in 0..n_cells {
+        if n_cell_faces[c] > 0.0 {
+            c_est[c] /= n_cell_faces[c];
+        }
+    }
+
+    // Second pass: sum pyramid volumes / centroids about the estimate.
+    let mut vol = vec![0.0f64; n_cells];
+    let mut ctr = vec![Vector3::ZERO; n_cells];
+    for (fi, &cell) in owner.iter().enumerate() {
+        let cf = face_ctr[fi];
+        let pyr3 = face_sf[fi].dot(cf - c_est[cell]);
+        let pyr_ctr = cf * (3.0 / 4.0) + c_est[cell] * (1.0 / 4.0);
+        ctr[cell] += pyr_ctr * pyr3;
+        vol[cell] += pyr3;
+    }
+    for (fi, &cell) in neighbour.iter().enumerate() {
+        let cf = face_ctr[fi];
+        let pyr3 = face_sf[fi].dot(c_est[cell] - cf);
+        let pyr_ctr = cf * (3.0 / 4.0) + c_est[cell] * (1.0 / 4.0);
+        ctr[cell] += pyr_ctr * pyr3;
+        vol[cell] += pyr3;
+    }
+    for c in 0..n_cells {
+        if vol[c].abs() > 1.0e-300 {
+            ctr[c] /= vol[c];
+        } else {
+            ctr[c] = c_est[c];
+        }
+    }
+    for v in vol.iter_mut() {
+        *v *= 1.0 / 3.0;
+    }
+    (vol, ctr)
+}
+
 /// Face centre `[m]` and area vector `Sf` `[m^2]` from a vertex loop, using the
 /// OpenFOAM decomposition of the polygon into triangles about its centroid.
-fn face_centre_and_area(points: &[Vector3], verts: &[usize]) -> (Vector3, Vector3) {
+///
+/// Same operation order as OpenFOAM-v2506 `primitiveMeshTools::
+/// makeFaceCentresAndAreas`, so the result is bit-identical (gh:#1489): a
+/// triangle is `(1/3)*(a+b+c)` and `0.5*((b-a)^(c-a))`; a polygon is
+/// `(1/3)*sumAc/sumA` with `c = p + p_next + centroid`, area `0.5*sumN`; a
+/// zero-area face (`sumA < ROOTVSMALL = 1e-150`) takes the vertex mean and a
+/// zero area. ~~Each triangle centre was divided by 3 before the area
+/// weighting; threshold `EPSILON`.~~ **CORRECTED 2026-11-11 (gh:#1489).**
+pub fn face_centre_and_area(points: &[Vector3], verts: &[usize]) -> (Vector3, Vector3) {
     let n = verts.len();
     debug_assert!(n >= 3);
     if n == 3 {
         let a = points[verts[0]];
         let b = points[verts[1]];
         let c = points[verts[2]];
-        let centre = (a + b + c) / 3.0;
+        let centre = (a + b + c) * (1.0 / 3.0);
         let area = (b - a).cross(c - a) * 0.5;
         return (centre, area);
     }
-    let mut c_est = Vector3::ZERO;
-    for &v in verts {
+    let mut c_est = points[verts[0]];
+    for &v in &verts[1..] {
         c_est += points[v];
     }
     c_est /= n as f64;
@@ -381,19 +463,18 @@ fn face_centre_and_area(points: &[Vector3], verts: &[usize]) -> (Vector3, Vector
     for i in 0..n {
         let p1 = points[verts[i]];
         let p2 = points[verts[(i + 1) % n]];
-        let mid = (p1 + p2 + c_est) / 3.0;
+        let c = p1 + p2 + c_est;
         let n_tri = (p2 - p1).cross(c_est - p1);
         let a_tri = n_tri.mag();
-        sum_a += a_tri;
         sum_n += n_tri;
-        sum_ac += mid * a_tri;
+        sum_a += a_tri;
+        sum_ac += c * a_tri;
     }
-    let centre = if sum_a > f64::EPSILON {
-        sum_ac / sum_a
+    if sum_a < 1.0e-150 {
+        (c_est, Vector3::ZERO)
     } else {
-        c_est
-    };
-    (centre, sum_n * 0.5)
+        ((sum_ac * (1.0 / 3.0)) / sum_a, sum_n * 0.5)
+    }
 }
 
 // ── PatchKind <-> OpenFOAM type strings ─────────────────────────────────────
@@ -505,6 +586,7 @@ impl ListCursor {
     }
 }
 
+#[cfg(feature = "std")]
 fn read_points(path: &Path) -> Result<Vec<Vector3>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -523,6 +605,7 @@ fn read_points(path: &Path) -> Result<Vec<Vector3>, IoError> {
     Ok(pts)
 }
 
+#[cfg(feature = "std")]
 fn read_faces(path: &Path) -> Result<Vec<Vec<usize>>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -543,6 +626,7 @@ fn read_faces(path: &Path) -> Result<Vec<Vec<usize>>, IoError> {
     Ok(faces)
 }
 
+#[cfg(feature = "std")]
 fn read_labels(path: &Path) -> Result<Vec<usize>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -563,6 +647,7 @@ struct RawPatch {
     start_face: usize,
 }
 
+#[cfg(feature = "std")]
 fn read_boundary(path: &Path) -> Result<Vec<RawPatch>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -630,10 +715,12 @@ fn read_boundary(path: &Path) -> Result<Vec<RawPatch>, IoError> {
 
 // ── small file helpers ──────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 fn read_to_string(path: &Path) -> Result<String, IoError> {
     std::fs::read_to_string(path).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 fn write_file(path: &Path, contents: &str) -> Result<(), IoError> {
     std::fs::write(path, contents).map_err(|e| IoError::io(path.display().to_string(), e))
 }

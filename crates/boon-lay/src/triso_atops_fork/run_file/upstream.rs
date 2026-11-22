@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 // Ported from TRISO-ATOPS (INL), https://github.com/IdahoLabResearch/TRISO-ATOPS
 // Source file      : trisoatops/utility_functions/run_functions.py
 //                    (process_run_file, read_profile, check_run_file)
 // Upstream commit  : de374c8
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// Ported under GPL-3.0; see LICENSE.triso-atops and NOTICE.triso-atops.
+// Ported under AGPL-3.0-only; see LICENSE.triso-atops and NOTICE.triso-atops.
 
 //! Reading an **upstream / GUI-written** TRISO-ATOPS run file (GitHub #449).
 //!
@@ -54,6 +54,9 @@
 //!   inputs (a missing required key, for example). Here **every** failure is
 //!   an [`UpstreamRunFileError`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 

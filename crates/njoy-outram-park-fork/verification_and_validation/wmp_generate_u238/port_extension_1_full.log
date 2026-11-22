@@ -1,0 +1,13 @@
+piece 25: sigma from the poles on the 884 grid points: OpenMC 13 outside rtol/atol of the data, port 13; worst port-vs-OpenMC 1.706e-3 b absolute, 2.482e-6 relative above atol
+piece 25: 884 points, 10 poles = OpenMC, worst pole 7.311e-9, residue 2.242e-2 relative, 33.8 s
+piece 50: sigma from the poles on the 1546 grid points: OpenMC 0 outside rtol/atol of the data, port 0; worst port-vs-OpenMC 1.680e-5 b absolute, 1.510e-8 relative above atol
+piece 50: 1546 points, 12 poles = OpenMC, worst pole 3.666e-5, residue 5.836e-3 relative, 50.7 s
+piece 75: sigma from the poles on the 2791 grid points: OpenMC 0 outside rtol/atol of the data, port 0; worst port-vs-OpenMC 6.317e-3 b absolute, 2.163e-4 relative above atol
+piece 75: 2791 points, 16 poles = OpenMC, worst pole 1.701e-2, residue 9.362e-1 relative, 80.2 s
+piece 125: sigma from the poles on the 3508 grid points: OpenMC 1 outside rtol/atol of the data, port 1; worst port-vs-OpenMC 3.764e-4 b absolute, 9.078e-6 relative above atol
+piece 125: 3508 points, 20 poles = OpenMC, worst pole 1.599e-2, residue 7.502e-2 relative, 160.2 s
+piece 150: 4176 points, port 25 poles, OpenMC 24 poles (DIFFERENT), 164.1 s
+piece 175: 4101 points, port 29 poles, OpenMC 30 poles (DIFFERENT), 173.2 s
+piece 225: sigma from the poles on the 5022 grid points: OpenMC 21 outside rtol/atol of the data, port 22; worst port-vs-OpenMC 5.852e-3 b absolute, 2.485e-4 relative above atol
+piece 225: 5022 points, 34 poles = OpenMC, worst pole 9.530e-4, residue 9.385e-1 relative, 256.1 s
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1040.01s

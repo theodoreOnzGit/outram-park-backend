@@ -37,7 +37,12 @@
 //! own PNGs; it handles what libpng writes for an 8-bit RGB/RGBA
 //! non-interlaced image — all five row filters — and refuses anything else.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::io;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::colour::Rgb;
@@ -92,6 +97,7 @@ impl ImageData {
     ///
     /// # Errors
     /// Any I/O error from creating or writing the file.
+    #[cfg(feature = "std")]
     pub fn write_png(&self, path: impl AsRef<Path>) -> io::Result<()> {
         std::fs::write(path, self.to_png_bytes())
     }
@@ -113,6 +119,7 @@ impl ImageData {
     ///
     /// # Errors
     /// Any I/O error from creating or writing the file.
+    #[cfg(feature = "std")]
     pub fn write_ppm(&self, path: impl AsRef<Path>) -> io::Result<()> {
         std::fs::write(path, self.to_ppm_bytes())
     }
@@ -243,12 +250,12 @@ fn encode_png(img: &ImageData) -> Vec<u8> {
             if score < best_score {
                 best_score = score;
                 best_ft = ft;
-                std::mem::swap(&mut best, &mut trial);
+                core::mem::swap(&mut best, &mut trial);
             }
         }
         raw.push(best_ft);
         raw.extend_from_slice(&best);
-        std::mem::swap(&mut prev, &mut row);
+        core::mem::swap(&mut prev, &mut row);
     }
 
     let mut ihdr = Vec::with_capacity(13);
@@ -370,7 +377,7 @@ pub fn decode_png(bytes: &[u8]) -> Result<ImageData, PngDecodeError> {
         for px in cur.chunks_exact(channels) {
             pixels.push(Rgb::new(px[0], px[1], px[2]));
         }
-        std::mem::swap(&mut prev, &mut cur);
+        core::mem::swap(&mut prev, &mut cur);
     }
     Ok(ImageData {
         width: w,

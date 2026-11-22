@@ -12,7 +12,10 @@
 
 //! Small-strain isotropic mechanics solver with eigenstrain loading.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::PatchField;
 use outram_foam_basic_lib::fields::{Field, VolScalarField, VolSymmTensorField, VolVectorField};

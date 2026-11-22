@@ -15,6 +15,9 @@
 //! | `f6cm`    | 8260–8518 | [`Cm6Emission::f6cm`] | **DONE**, including the `ND` discrete-line branches (init bounds `8324-8335`, delta-function branch `8467-8501`) |
 //! | `cm2lab`  | 8135–8258 | [`cm2lab`] | **DONE** |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::bach::bach;
 use super::shared::{legndr, remove_small_moments, LabDistribution, EMAX, SMALL, TINY};

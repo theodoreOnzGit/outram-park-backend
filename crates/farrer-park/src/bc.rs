@@ -57,6 +57,9 @@
 //! through unit thickness, which integrates to newton per metre of thickness),
 //! nodal forces in newtons, stiffness in newton per metre.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dof::{DofId, DofMap};
 use crate::element::FacetType;
 use crate::error::{FemError, Result};

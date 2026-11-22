@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Iterated fission probability (IFP)** — adjoint-weighted `β_eff` and `Λ`.
 //! GitHub #262 scope item 4.
@@ -48,6 +48,9 @@
 //! defaults to 10. [`IfpSettings::n_generation`] carries it on the result so a
 //! β_eff cannot be quoted without it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Which lineage data to carry — `settings::ifp_delayed_group_on` and
 /// `ifp_lifetime_on`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

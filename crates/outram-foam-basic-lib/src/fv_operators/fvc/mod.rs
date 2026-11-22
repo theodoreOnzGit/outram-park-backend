@@ -38,6 +38,9 @@
 //! `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
 //! rest of the FV operator layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod central_upwind;
 mod ddt_corr;
 mod div;
@@ -46,19 +49,27 @@ mod flux;
 mod grad;
 mod grad_least_squares;
 mod grad_vec;
+mod grad_vec_corrected;
 mod interpolate;
 mod muscl;
 mod reconstruct;
+mod linear_upwind;
 mod sn_grad;
+mod sn_grad_corrected;
 
 pub use ddt_corr::{ddt_corr, ddt_corr_backward, BackwardDdtCoeffs};
-pub use div::{div, div_flux, div_vec};
+pub use div::{div, div_flux, div_limited, div_vec};
 pub use div_tensor::{div_symm_tensor, div_tensor};
 pub use flux::{buoyancy_flux, flux};
 pub use grad::grad;
-pub use grad_least_squares::grad_least_squares;
+pub use grad_least_squares::{grad_least_squares, grad_least_squares_face_centre};
 pub use grad_vec::grad_vec;
+pub use grad_vec_corrected::grad_vec_corrected;
 pub use interpolate::{interpolate, linear_weight};
-pub use muscl::{reconstruct_pos_neg, Limiter};
+pub use muscl::{reconstruct_pos_neg, reconstruct_pos_neg_vector, Limiter};
 pub use reconstruct::reconstruct;
-pub use sn_grad::sn_grad;
+pub use linear_upwind::{linear_upwind, linear_upwind_with_grad};
+pub use sn_grad::{sn_grad, sn_grad_with_delta};
+pub use sn_grad_corrected::{
+    non_orth_correction_vectors, sn_grad_corrected, sn_grad_correction_with_grad,
+};

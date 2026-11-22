@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: GPL-3.0
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **HEATR as a whole against NJOY2016's HEATR, byte for byte** (GitHub
 //! #535).

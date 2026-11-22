@@ -64,7 +64,7 @@ use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid_with_progress, 
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::tally::filter::{EnergyFilter, EnergyOutFilter, FilterKind, MeshFilter};
 use outram_mc_libs::tally::mesh::MeshKind;
-use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+use outram_mc_libs::tally::tally::{Tally, TallyBin};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
@@ -118,7 +118,7 @@ fn tallies(groups: &GroupStructure, mesh: &Arc<UnstructuredMesh>) -> (Tally, Tal
         name: "workbench mgxs scalar".into(),
         filters: vec![mesh_f(), e()],
         scores: SCALAR_SCORES.to_vec(),
-        bins: vec![TallyBin::default(); n_c * n_g * SCALAR_SCORES.len()],
+        bins: vec![TallyBin::default(); n_c * n_g * SCALAR_SCORES.len()], derivative: None,
     };
     let matrix = Tally {
         id: 82,
@@ -132,7 +132,7 @@ fn tallies(groups: &GroupStructure, mesh: &Arc<UnstructuredMesh>) -> (Tally, Tal
         ],
         // The same scores, same order, as `nee_soon::mgxs::matrix_tally`.
         scores: MATRIX_SCORE_TYPES.to_vec(),
-        bins: vec![TallyBin::default(); n_c * n_g * n_g * MATRIX_SCORES],
+        bins: vec![TallyBin::default(); n_c * n_g * n_g * MATRIX_SCORES], derivative: None,
     };
     (scalar, matrix)
 }

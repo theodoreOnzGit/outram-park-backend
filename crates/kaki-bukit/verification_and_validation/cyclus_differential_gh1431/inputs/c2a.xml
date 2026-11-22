@@ -1,0 +1,19 @@
+<simulation>
+  <control><duration>24</duration><startmonth>1</startmonth><startyear>2000</startyear></control>
+  <archetypes>
+    <spec><lib>cycamore</lib><name>Source</name></spec>
+    <spec><lib>cycamore</lib><name>Sink</name></spec>
+    <spec><lib>agents</lib><name>NullRegion</name></spec>
+    <spec><lib>agents</lib><name>NullInst</name></spec>
+  </archetypes>
+  <facility><name>S</name><config><Source><outcommod>u</outcommod><throughput>100</throughput></Source></config></facility>
+  <facility><name>A</name><config><Sink><in_commods><val>u</val></in_commods><capacity>60</capacity></Sink></config></facility>
+  <facility><name>B</name><config><Sink><in_commods><val>u</val></in_commods><capacity>70</capacity></Sink></config></facility>
+  <region><name>R</name><config><NullRegion/></config>
+    <institution><name>I</name><initialfacilitylist>
+      <entry><prototype>S</prototype><number>1</number></entry>
+      <entry><prototype>A</prototype><number>1</number></entry>
+      <entry><prototype>B</prototype><number>1</number></entry>
+    </initialfacilitylist><config><NullInst/></config></institution>
+  </region>
+</simulation>

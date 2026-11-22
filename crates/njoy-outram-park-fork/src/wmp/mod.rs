@@ -55,6 +55,11 @@
 //! build); re-bake it with the `bake_wmp` example. See
 //! `docs/wmp-nuclide-manifest.md`.
 //!
+//! **Generation** (gh:#1390, 2026-11-14): [`generate`] makes a WMP library
+//! from an ENDF tape, a translation of OpenMC's `WindowedMultipole.from_endf`
+//! (OpenMC is MIT; not MIT CRPG's library data, not NJOY). Until then this
+//! module could only read and evaluate WMP data.
+//!
 //! # Layout
 //!
 //! Split by responsibility (crate file-size rule, `docs/porting-plan.md` §5):
@@ -72,9 +77,15 @@
 //!   ([`crate::wmp::WindowedMultipole::to_blob`] / [`crate::wmp::WindowedMultipole::from_blob`],
 //!   [`crate::wmp::WmpLibrary`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod blob;
+pub mod generate;
 mod evaluate;
+#[cfg(feature = "std")]
 mod h5;
+#[cfg(feature = "std")]
 mod h5_write;
 #[cfg(test)]
 mod tests;
@@ -83,6 +94,7 @@ mod types;
 pub use blob::WmpLibrary;
 pub use evaluate::faddeeva;
 pub(crate) use evaluate::{weideman_coeffs, weideman_l};
+#[cfg(feature = "std")]
 pub use h5_write::WMP_VERSION;
 pub use types::{Cf64, WindowedMultipole, WmpReaction, WmpWindow, WmpXs};
 

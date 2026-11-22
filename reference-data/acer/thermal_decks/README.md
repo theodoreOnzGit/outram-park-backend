@@ -32,6 +32,16 @@ and the NJOY2016 decks that made them.
 | `hh2o_293p6k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_293p6k_tol0p001.njoy` | `f968d3f38ed36d44778b3df564e60b0cb19f86ab8526ebae0d5c671d5ab7e403` |
 | `hh2o_293p9k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_293p9k_tol0p001.njoy` | `78b85f4f732cb26ec67b837b96e7a1cae74c17f296be5d6b52f6d36e8d6cb732` |
 | `hh2o_leapr_293p6k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_leapr_293p6k_tol0p001.njoy` | `8199044bccaf9d96e7b82e891cb2f3f0161c733f3b43dee8de55e91650480d06` |
+| `al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz` | `al27_20k_tol0p05_iwt2.njoy` | `487869a86120cef26753a06a042a0ce1ace922322f207f5490fa5f66385f48fe` |
+
+**The `iwt = 2` Al-27 table (gh:#1366, 2026-11-14)** is the only one here made
+with NJOY2016 **2016.80** (`ab27c64`, gfortran 13.3.0, cmake Release; the
+build in the worktree of gh:#1368). It is `al27_20k_tol0p05.njoy` with ACER card 9's
+`iwt` set to 2. `thermr.f90` and `aceth.f90` are unchanged from 2016.79 (gh:#1366's
+upstream diff touches `samm.f90` and `acefc.f90` only). Its ITXE locator/count
+table equals the 2016.79 table's of 2026-09-22
+(`../al27_20k_thermal_ifeng2_njoy2016.csv`) in all 106 rows. Oracle for
+`acer_thermal_word_parity.rs` and `acer_thermal_ifeng_vs_njoy2016.rs`.
 
 
 **The LEAPR deck (GitHub #871, `tests/process_api.rs`).**

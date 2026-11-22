@@ -126,6 +126,9 @@
 //! No experimental electrolyte database is bundled; parameters in tests are
 //! public-literature constants (`Kw`, `Ksp`) or closed-form-checkable values.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::electrolyte::DebyeHuckel;
 

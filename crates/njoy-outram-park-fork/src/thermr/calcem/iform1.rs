@@ -33,6 +33,9 @@
 //! Not ported here either (see [`super`]'s module docs): MF=6/LAW=7 tape
 //! record packing and the final cross-section merge onto the old PENDF tape.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::super::mf7::IncoherentInelastic;
 use super::egrid;
 use super::sigu::sigu;

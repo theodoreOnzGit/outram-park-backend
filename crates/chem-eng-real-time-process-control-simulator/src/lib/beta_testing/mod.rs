@@ -20,6 +20,9 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this program.  If not, see <https://www.gnu.org/licenses/>.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod prelude;
 pub(crate) mod stable_transfer_functions;
 pub(crate) mod controllers;

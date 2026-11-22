@@ -40,7 +40,11 @@
 //! "Extrude to Cursor" is `extrude_* ` followed by a translate by the caller,
 //! so it needs no dedicated entry point.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use crate::hash::{HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};

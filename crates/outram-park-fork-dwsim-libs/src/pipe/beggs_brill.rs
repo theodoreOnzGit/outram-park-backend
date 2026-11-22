@@ -11,6 +11,9 @@
 //! done in plain `f64` (SI) after unwrapping the `uom` inputs; only the
 //! function boundary and the final results are dimensioned.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::friction_factor::{darcy_friction_factor, reynolds_number};
 use uom::si::f64::{
@@ -106,7 +109,7 @@ pub fn beggs_brill_pressure_drop(
     surface_tension_liquid: SurfaceTension,
 ) -> BeggsBrillResult {
     let d = diameter.get::<meter>();
-    let area = std::f64::consts::PI / 4.0 * d * d;
+    let area = core::f64::consts::PI / 4.0 * d * d;
     let q_l = q_liquid.get::<cubic_meter_per_second>();
     let q_g = q_gas.get::<cubic_meter_per_second>();
     let v_sl = q_l / area;

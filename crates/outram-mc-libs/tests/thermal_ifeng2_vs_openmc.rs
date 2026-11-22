@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A continuous (IFENG = 2) S(α,β) ACE table is read and sampled as OpenMC
 //! samples it** — GitHub #365 audit.
@@ -34,6 +34,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test and recorded in the V&V note.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;

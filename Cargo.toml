@@ -134,6 +134,19 @@ members = [
     # slides made visible in the workspace; no code, no deps. Boundary with
     # SEMBAWANG's severe-accident scope is an open maintainer decision.
     "crates/bishan",
+    # punggol — PUNGGOL (Particle transport, UNcertainty, Geometry, Gamma
+    # transport, Optimization Library): radiation transport beyond neutrons.
+    # Created 2026-11-20 (gh:#1391, #976, maintainer direction): decay-photon
+    # source spectra only, no transport; the EGSnrc port is scaffolded as
+    # placeholders. Depends on outram-mc-libs, never the reverse.
+    "crates/punggol",
+    # kembangan — KEMBANGAN (Kinetics, Elasticity and Materials Behaviour for
+    # Aging in Nuclear Environments through Generative AI and Numerical
+    # Modelling): materials damage under irradiation. Created 2026-11-22
+    # (gh:#1699, maintainer direction) with the RustBCA copy moved from
+    # boon-lay. Serves boon-lay; punggol, outram-mc-libs, njoy and petir
+    # serve it.
+    "crates/kembangan",
     # bugis — BUGIS (Branding, User-interface and Graphics for Interactive
     # Simulators): the shared Gruvbox Dark/Light egui theme every simulator
     # uses (maintainer, 2026-11-02). egui only, never eframe.
@@ -193,7 +206,11 @@ categories = ["science"]
 # between TUAS, TAMPINES, etc. All pinned to the latest stable release.
 [workspace.dependencies]
 # core numerical / library deps
-approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stable
+approx = "0.5.1"
+# `approx` without its `std` default, for crates that build `no_std` +
+# `alloc` and use it in library code (gh:#1601, TUAS). Same package and
+# version; their `std` feature turns `approx-nostd/std` back on.
+approx-nostd = { package = "approx", version = "0.5.1", default-features = false }            # 0.6 is only a pre-release; staying on latest stable
 csv = "1.4.0"
 # no_std f64 transcendentals for PETIR: a pure-Rust port of musl libm,
 # MIT OR Apache-2.0 (permissive into ~~GPL-3.0~~ AGPL-3.0). Required, not optional -- in
@@ -204,8 +221,24 @@ csv = "1.4.0"
 # depend on that reproducibility -- do not feature-gate back to std maths.
 libm = { version = "0.2", default-features = false }
 ndarray = "0.17.2"
+# `ndarray` without its `std` default, for crates that build `no_std` +
+# `alloc` (gh:#1600, `teh-o-prke`); their `std` feature turns
+# `ndarray-nostd/std` back on. Same package and version, so a std build
+# unifies it with the entry above.
+ndarray-nostd = { package = "ndarray", version = "0.17.2", default-features = false }
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
 thiserror = "2.0.18"
+# `thiserror` without its `std` default, for crates that build `no_std` +
+# `alloc` (gh:#1585, first `outram-foam-basic-lib`, gh:#1586). A member
+# crate cannot switch off the defaults of `thiserror.workspace = true`, so
+# this second key names the same crate and version with them off; the crate
+# turns `std` back on from its own `std` feature and renames it with
+# `extern crate thiserror_nostd as thiserror;`. Same version as above: bump
+# both together.
+thiserror-nostd = { package = "thiserror", version = "2.0.18", default-features = false }
+# `sha2` without its `std` default (gh:#1592): SHA-256 is pure computation;
+# `std` only adds `io::Write` support.
+sha2-nostd = { package = "sha2", version = "0.10", default-features = false }
 # uom WITHOUT its `std` feature (gh:#985, maintainer direction 2026-10-20: "I
 # want uom as no std in this workspace. Do the refactor using petir math.").
 # With `std` on, Quantity sqrt/powi/cbrt/hypot/mul_add, Ratio exp/ln/log*/
@@ -312,6 +345,9 @@ xml-rs = "0.8.28"
 # API changes between 0.x releases.
 html5ever = "0.39"
 anyhow = "1.0.100"
+# `anyhow` without its `std` default, for `no_std` crates (boon-lay's RustBCA
+# copy, gh:#1634); same pattern and version as `thiserror-nostd`.
+anyhow-nostd = { package = "anyhow", version = "1.0.100", default-features = false }
 
 # OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the
 # actively-maintained successor to the older `opcua` crate (locka99, last
@@ -347,7 +383,10 @@ rust-mqtt = "0.5.1"
 
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
-serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+serde_json = "1.0"
+# `serde_json` without its `std` default but with `alloc` (gh:#1597, the
+# moltres tables parser): same crate and version as above, bump both together.
+serde_json-nostd = { package = "serde_json", version = "1.0", default-features = false, features = ["alloc"] }           # KovanDocument (de)serialisation, generated artifacts
 # Worker wire format for the browser demos (gh:#986). JSON cannot carry a
 # non-finite f64 -- it writes NaN as `null`, which will not read back as f64 --
 # and `HtgrSnapshot` uses NaN deliberately, in a dozen fields, to mean "not
@@ -446,8 +485,10 @@ rayon = "1.11.0"
 # 0.1.5 declared a bare `uom = "0.38"`, i.e. with `std`, which feature-unified
 # `uom/std` back on for the whole workspace.
 fission-yields-data = "0.1.6"
-openmc-endf-8-depletion-lib-a = "1.0.0"
-openmc-endf-8-depletion-lib-b = "1.0.0"
+# 1.1.0 (2026-11-22): no_std + alloc (roxmltree replaces serde-xml-rs), so
+# boon-lay's DecayLibrary and sembawang's fp_decay build without std.
+openmc-endf-8-depletion-lib-a = "1.1.0"
+openmc-endf-8-depletion-lib-b = "1.1.0"
 # pure-Rust HDF5 (no system libhdf5) — staged for the Windowed Multipole (WMP)
 # import in njoy-outram-park-fork (Phase 4g, MIT WMP_Library). No member inherits
 # it yet, so it has no build impact until WMP adds `hdf5-pure.workspace = true`.
@@ -456,6 +497,16 @@ hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 # codec for the embedded WMPB windowed-multipole blob in njoy-outram-park-fork.
 # Chosen over zstd/ruzstd because those lack a mature pure-Rust *encoder*.
 miniz_oxide = "0.8"
+# `no_std` one-time init and lock for njoy-outram-park-fork without `std`
+# (gh:#1592); already in the lock file through other crates.
+# `HashMap` / `HashSet` in every `no_std` + `alloc` build (maintainer,
+# 2026-11-16: "hashbrown workspace wide"; first gh:#1604). The same `Hash +
+# Eq` bounds as std's, so a stand-in adds no `Ord` bound to any API. Used only
+# without `std`; std builds keep `std::collections`. Its iteration order is
+# arbitrary, like std's: a map whose order reaches a result is sorted first.
+# Already in the lock file.
+hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
+spin = { version = "0.10.1", default-features = false, features = ["mutex", "spin_mutex", "once", "rwlock"] }
 
 # HIGH-fidelity data-acquisition stack for njoy-outram-park-fork's `net-fetch`
 # feature (opt-in ENDF download tier; see docs/data-acquisition.md). Every crate
@@ -575,67 +626,89 @@ tokio = { version = "1.53", features = [
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
-chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.5" }
-outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.2" }
-teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8" }
-raffles                      = { path = "crates/raffles",                      version = "0.0.4" }
-petir                        = { path = "crates/petir",                        version = "0.0.4" }
-changi                       = { path = "crates/changi",                       version = "0.0.3" }
-bishan                       = { path = "crates/bishan",                       version = "0.0.3" }
-bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
-buangkok                     = { path = "crates/buangkok",                     version = "0.0.2" }
-sembawang                    = { path = "crates/sembawang",                    version = "0.0.2" }
-redhill                      = { path = "crates/redhill",                      version = "0.0.3" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7" }
-outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.5" }
-outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3" }
+# `default-features = false` since gh:#1612 (no_std); members that need its
+# CSV logging ask for `features = ["std"]`.
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.6", default-features = false }
+outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.3", default-features = false }
+outram-park-fork-moltres = { path = "crates/outram-park-fork-moltres", version = "0.0.3" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.9", default-features = false }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.10", default-features = false }
+# `default-features = false` since gh:#1605 (same reason as njoy above);
+# members that need `std` ask for it.
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.2", default-features = false }
+# `default-features = false` (gh:#1598, #1599): the crate's default is `std`
+# (gh:#1586), and a member cannot switch an inherited default off. So the
+# root leaves it off and every member that needs files, threads or timing
+# asks for `features = ["std"]` itself; a crate converted to `no_std` turns
+# it on from its own `std` feature instead.
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.9", default-features = false }
+# `raffles` likewise since gh:#1610: `default-features = false`, and each
+# member that needs its `std` asks for it.
+raffles                      = { path = "crates/raffles",                      version = "0.0.5", default-features = false }
+petir                        = { path = "crates/petir",                        version = "0.0.5" }
+# `default-features = false` (gh:#1587): `changi`'s default is `std`; members
+# that need its thread pool ask for `features = ["std"]` (see
+# `outram-foam-basic-lib` above for why the root must leave it off).
+changi                       = { path = "crates/changi",                       version = "0.0.4", default-features = false }
+bishan                       = { path = "crates/bishan",                       version = "0.0.4" }
+punggol                      = { path = "crates/punggol",                      version = "0.0.1", default-features = false }
+kembangan                    = { path = "crates/kembangan",                    version = "0.0.1", default-features = false }
+bugis                        = { path = "crates/bugis",                        version = "0.0.2" }
+buangkok                     = { path = "crates/buangkok",                     version = "0.0.3", default-features = false }
+sembawang                    = { path = "crates/sembawang",                    version = "0.0.3", default-features = false }
+redhill                      = { path = "crates/redhill",                      version = "0.0.4" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.6", default-features = false }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.8", default-features = false }
+outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.6", default-features = false }
+outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.4", default-features = false }
 # FEM structural mechanics; first workspace-dep consumer: outram-blender's
 # optional `fem-export` bridge (GitHub #492).
-farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4" }
-outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.2" }
-outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.7" }
+farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.5", default-features = false }
+outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.3" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.8", default-features = false }
 # Granular DEM. `default-features = false` HERE, at the root, because workspace
 # inheritance can only ADD features: a member writing `default-features = false`
 # against a default-on root entry is silently ignored. Its defaults are
 # `long-tests` (its own slow tests -- meaningless to a dependent) and `gnn`
 # (pulls `raffles`); a member that wants either names it. First consumer:
 # outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
-outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.3", default-features = false }
-outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.5" }
-boon-lay            = { path = "crates/boon-lay",            version = "0.2.2" }
+outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.4", default-features = false }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.6", default-features = false }
+boon-lay            = { path = "crates/boon-lay",            version = "0.2.3", default-features = false }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
-njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.7" }
+# `default-features = false` since gh:#1605, so `outram-mc-libs` can take it
+# without `std`; every member that needs files, HDF5 or threads asks for
+# `features = ["std"]`.
+njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.8", default-features = false }
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
-nee_soon            = { path = "crates/nee_soon",            version = "0.0.5" }
-outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.4" }
+nee_soon            = { path = "crates/nee_soon",            version = "0.0.6", default-features = false }
+# `default-features = false` since gh:#1601 (no_std TUAS); members that need
+# its `std` ask for `features = ["std"]`.
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.5", default-features = false }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).
-tampines            = { path = "crates/tampines",            version = "0.0.4" }
+tampines            = { path = "crates/tampines",            version = "0.0.5", default-features = false }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
-outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.4" }
+outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.5" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
 # Publish batch 1 (op-3b7h, crates.io "burst of ~5 new names" limit):
 # common/discovery/codegen/literature/semantics bumped to 0.0.1 together —
 # keep each pin here in sync with that crate's own `version` (workspace-
 # maintenance.md's "drift" warning) whenever one changes.
-kovan-common     = { path = "crates/kovan-common",     version = "0.0.5" }
-kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.5" }
-kovan-literature = { path = "crates/kovan-literature", version = "0.0.4" }
-kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.4" }
-kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.5" }
+kovan-common     = { path = "crates/kovan-common",     version = "0.0.6" }
+kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.6" }
+kovan-literature = { path = "crates/kovan-literature", version = "0.0.5" }
+kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.5" }
+kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.6" }
 # Batch 2 (after batch 1 is live + the rate-limit cooldown) — not bumped yet.
-kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.4" }
+kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.5" }
 # The Code Review UI (egui). Desktop kovan embeds it (GitHub #820).
-kovan-web        = { path = "crates/kovan-web",        version = "0.0.4" }
+kovan-web        = { path = "crates/kovan-web",        version = "0.0.5" }
 # The line lexer kopitiam-neovim highlights with (pure Rust, no dependencies,
 # already in Cargo.lock through kopitiam-neovim). Used directly since
 # 2026-10-13 (#857) to colour source in kovan's review views and its kvim
@@ -652,7 +725,7 @@ kopitiam-syntax  = "0.2.5"
 # blender's geometry description without blender's default-on `gpu` feature
 # (wgpu); outram-mc has its own GPU path. A member that wants blender's GPU
 # vertex transform names `features = ["gpu"]`.
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.7", default-features = false }
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.8", default-features = false }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between
@@ -660,7 +733,7 @@ outram-blender   = { path = "crates/outram-blender",   version = "0.0.7", defaul
 # Android-safe by default; its `foam-export` feature adds the (BLAS-free)
 # outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
 # `foam-mesh` bridge.
-outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.4" }
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.5", default-features = false }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.
@@ -744,3 +817,4 @@ strip = "none"
 # cases), which adds `-C force-frame-pointers=yes`. That branch had defined
 # this profile with `debug = "line-tables-only"`; the merge keeps `debug = 2`,
 # a superset, so the script is unaffected.
+

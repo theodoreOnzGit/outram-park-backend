@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Code-to-code verification of the non-geometry plotting port**
 //! (`outram_mc_libs::plotter`) against OpenMC's own Python functions:
@@ -56,6 +56,8 @@
 //! (the U-235/U-238 grids make them 1-13 MB) are regenerated into the temp
 //! directory on every run instead of being committed; gate 1 asserts they are
 //! deterministic.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

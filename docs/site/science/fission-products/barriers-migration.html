@@ -49,7 +49,7 @@
 <h2>The gaps, shown as gaps</h2>
 <ul>
 <li><b>Only four elements have their own numbers:</b> Ag, Cs, Sr and Kr. Every other element is walked as if it were silver. That is a placeholder, not a model (gh:#541).</li>
-<li><b>Krypton in the buffer has no number.</b> The code there is a <code>todo!()</code>: asking for it would crash. This page never asks; the widget shows a &ldquo;?&rdquo;.</li>
+<li><del><b>Krypton in the buffer has no number.</b> The code there is a <code>todo!()</code>: asking for it would crash. This page never asks; the widget shows a &ldquo;?&rdquo;.</del> <b>CORRECTED 2026-11-10 (gh:#638):</b> krypton in the buffer now has a number, the same 10<sup>&minus;8</sup>&nbsp;m&sup2;/s with no temperature dependence as the other three elements. It is the German &ldquo;no significant retention&rdquo; value of IAEA-TECDOC-978 (1997, Appendix A, p.&nbsp;440), which the IAEA CRP-6 benchmark applies to fission gases (IAEA-TECDOC-1674, 2012, section 10.2.2, p.&nbsp;538): a convention for a porous layer, not a measurement.</li>
 <li><b>The graphite around the particles has no number in the walker</b> (also <code>todo!()</code>). TRISO-ATOPS has its own graphite correlation, drawn dashed.</li>
 <li>Kr&rsquo;s kernel coefficient switches branch at 700 &deg;C in the walker but at 1500 &deg;C in TRISO-ATOPS (gh:#974, still open).</li>
 </ul>

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact mean fission-neutron birth energy under OpenMC's sample_fission_neutron
 # (src/physics.cpp): delayed with probability nu_d/nu_t, group by its yield,
 # energy from that group's law; otherwise the prompt law. For GitHub #365 audit
 # (delayed spectra reach outram-mc's transport on both data routes).
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # ACE rows use OpenMC's ACE reader of the NJOY2016 tables; ENDF rows use
 # OpenMC's ENDF reader of the same evaluations (no NJOY), so the ENDF route is

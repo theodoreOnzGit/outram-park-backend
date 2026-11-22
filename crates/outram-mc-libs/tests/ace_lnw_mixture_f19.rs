@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **An ACE `LNW` chain of correlated laws is a mixture selected by its
 //! applicability — GitHub #365.**
@@ -83,6 +83,8 @@
 //! three synthetic selection tests; zeroing it below its range fails the
 //! clamping test. Full record:
 //! `verification_and_validation/ace_route_physics/f19_lnw_mixture_2026-09-29.md`.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::endf::records::{Cont, Tab1};
 use njoy_outram_park_fork::nuclear_data::secondary::{

@@ -14,6 +14,9 @@
 //! CoolProp's own default for binary pairs it has no fitted data for, not an
 //! error condition. [`lookup`] returning `None` is the normal, common case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod data_0;
 mod data_1;
 mod data_2;

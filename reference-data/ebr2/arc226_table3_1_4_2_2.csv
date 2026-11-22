@@ -1,0 +1,21 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# Table 3.1.4.2.2 "Intermediate IHX Inlet Sodium Temperature For SHRT-17", printed p.21 (PDF p.37). Boundary condition.
+# Units: s, degrees F
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+time_s,temperature_F
+0,574.02
+60,573.86
+120,573.65
+180,573.73
+240,573.37
+300,572.63
+360,572.17
+420,571.53
+480,571.02
+540,570.87
+600,570.26
+660,568.82
+720,566.43
+780,563.69
+840,560.39
+900,557.83

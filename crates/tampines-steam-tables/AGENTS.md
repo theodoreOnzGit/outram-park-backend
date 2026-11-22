@@ -44,7 +44,7 @@ maturity gate in that file for what this means and how the bar is revised.
   - `hs` flash at the **triple point** — not supported yet.
   - `pt`/`ps` flash over **240–1000 bar** — "to implement in next major
     version".
-  - **Metastable region 2** regressions — outstanding TODO.
+  - ~~**Metastable region 2** regressions — outstanding TODO.~~ **CORRECTED 2026-11-13 (gh:#1346):** no such gap is open. The three R7-97 metastable-vapour sets (A 450 K / 1 MPa, B 440 K / 1 MPa, C 450 K / 1.5 MPa) are active, not ignored (their `#[ignore]` lines are commented out), and `cargo test --release -p tampines-steam-tables --lib metastable` reports `30 passed; 0 failed; 0 ignored`.
   - The **Peng-Robinson EOS** under `openfoam_algorithms/` shows **7%, 17% and
     26% errors vs NIST** at various states. **Out of scope, and not a defect in
     anything this crate delivers:** that vendored OpenFOAM thermophysics tree
@@ -54,7 +54,12 @@ maturity gate in that file for what this means and how the bar is revised.
 
   Additional evidence: re-running the suite regenerates
   `verification_and_validation/generated/*.md` with every number byte-identical
-  and only the timestamp line changed — the V&V results reproduce exactly.
+  ~~and only the timestamp line changed~~ — the V&V results reproduce exactly.
+  **CORRECTED 2026-11-10 (gh:#305):** a report whose only change would be its
+  generation stamp is no longer rewritten (`vv_report.rs`,
+  `write_unless_only_the_stamp_moved`), so a reproducing run leaves the six
+  receipts untouched and the stamp now dates the last run in which a result
+  changed.
 
   IF97 is a released international standard with its own verification tables,
   which makes path 1 the best-anchored bar of the declared crates. Path 2 and
@@ -76,6 +81,26 @@ including choked (critical) two-phase flow, and powers the secondary loop of an
 FHR (Fluoride salt-cooled High-temperature Reactor) educational simulator.
 
 License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`) (OpenFOAM-derived algorithms are included; see README).
+
+## `no_std` + `alloc`, with a default `std` feature (gh:#1599, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). Keep it that way:
+
+- **New code uses `core::` / `alloc::` paths** where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths (a doctest has no
+  `extern crate alloc`).
+- **What needs an operating system goes behind `#[cfg(feature = "std")]`**:
+  printing (`dbg!`, `println!`, `eprintln!`: put the attribute on the
+  statement), files, threads, clocks.
+- **No `HashMap` in the library**: `BTreeMap` (`alloc`; fixed iteration
+  order).
+- **A `std` build computes what it did before**: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
 
 ## Build, test, run
 
@@ -520,9 +545,17 @@ corrected above, gh:#1111).
     the 1073.15 K isotherm): measured `try_t_ph_eqm` → `Err(OutOfRange {
     quantity: "specific enthalpy", value: 5218862.9, max: 4156132.3, .. })`.
     The checked and unchecked APIs therefore differ by the whole of Region 5.
-- **Transport near saturation:** the IAPWS R12-08 / R15-11 critical-enhancement
+- **Transport near saturation:** ~~the IAPWS R12-08 / R15-11 critical-enhancement
   terms for μ and λ are intentionally omitted in the fast path; enable them
-  when accuracy very close to Tc matters.
+  when accuracy very close to Tc matters.~~ **CORRECTED 2026-11-13 (gh:#1346):**
+  only the viscosity enhancement μ₂ is omitted (set to 1, as IAPWS R12-08 permits for
+  industrial use, and as CoolProp `IF97.h` does; μ agrees with it to 1e-14 in Regions 1, 2
+  and 5). The thermal-conductivity enhancement λ₂ **is** included
+  (`thermal_conductivity::lambda_2_crit_enhancement_term_*`, summed into
+  `lambda_tp_eqm_single_phase`); there is nothing to enable. Near the critical point the
+  Region 3 inputs to λ₂ (cp, cv, κT from the unrefined SR5 v(p,T)) make λ differ from
+  `IF97.h` by up to 0.85 at exactly Tc, pc and 2.9e-3 at (647.0 K, 22.0 MPa)
+  (`verification_and_validation/if97_differential/RESULTS.md`).
 
 ## Workspace notes (read on demand)
 

@@ -1075,7 +1075,8 @@ quality limits, warm-started momentum; Re = 100; nominal instrument;
 
 | cells | mesh | demo pair: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** | `Gauss linear`: steps, u_c/2U, **dp/dz/HP**, RMS, **τ_w/HP** |
 |---|---|---|---|
-| 6 353 | h 4 mm, no layer (**default**) | 29, 0.8925, **1.0326**, 0.0356, **1.0312** | 63, 0.9811, **0.9673**, 0.0126, **0.9638** |
+| 6 353 | h 4 mm, no layer (~~**default**~~ the default until gh:#1298; now the ablation `TetDualSpec::PRE_GH1298`) | 29, 0.8925, **1.0326**, 0.0356, **1.0312** | 63, 0.9811, **0.9673**, 0.0126, **0.9638** |
+| 6 353 | ~~**gh:#1298 default**~~ gh:#1298 mesher (cell-centre dual, corners, upstream's sequence), h 4 mm, no layer (2026-11-05; the default until the maintainer's decision the same day, which made it h 5 mm with 3 layers: 7 049 cells, 26, 0.9394, 1.0062, 0.0278, 1.0090) | 27, 0.8832, **1.0649**, 0.0363, **1.0652** | not run |
 | 6 713 | h 6 mm, 1 layer | 23, 0.8071, 1.0565, 0.0733, 1.0514 | 76, 0.9453, 0.8882, 0.0222, 0.8840 |
 | 11 177 | h 3.3 mm, no layer | 37, 0.9606, **0.9838**, 0.0214, **0.9802** | 54, 0.9669, **0.9632**, 0.0161, **0.9596** |
 | 10 745 | h 5 mm, 1 layer | 28, 0.8954, 0.9705, 0.0509, 0.9678 | 63, 0.9440, 0.9011, 0.0262, 0.8978 |
@@ -2403,8 +2404,12 @@ rim; the `centre` renders beyond their file listing.
 
 ### Recommendation (for the maintainer; nothing is changed)
 
-**Do not make `CellCentre` + `Corners` the unstructured default yet,
-with any layer strategy.** (1) The `Corners` rim is a chain of chords:
+~~**Do not make `CellCentre` + `Corners` the unstructured default yet,
+with any layer strategy.**~~ **SUPERSEDED 2026-11-05 (gh:#1298):** after
+gh:#1259/#1283 fixed the rim (`untangle_surface`: inlet 0.994 πR²) and the
+cost (`upEnl`: 6 s natively, 23 s in a browser for 3 layers), the
+maintainer made `CellCentre` + `Corners` with upstream's sequence the
+default; see the gh:#1298 section. (1) The `Corners` rim is a chain of chords:
 the projected inlet is 0.956 / 0.983 / 0.948 πR² at h 4 / 5 / 6 mm, and
 cfMesh's `correctEdgesBetweenPatches` does not repair it (item 1); the
 current default (per-corner, h 4 mm, bare) gives u_c/2U 0.8925 against
@@ -2832,11 +2837,13 @@ upstream does, behind `UntangleControls::mesh_untangler` and
 
 Upstream behaviour kept: `optimiseUsingMeshUntangler` never re-marks the
 inverted tetrahedra it re-checks (the Knupp loop does), so its second pass
-finds none and returns. In effect it is one pass. A port defect found in
+finds none and returns. In effect it is one pass. ~~A port defect found in
 passing and **not fixed** (it would change the default output):
 `optimise_using_knupp_metric` increments its pass counter on every pass,
 where upstream's short-circuit `||` does so only when the inverted count did
-not fall.
+not fall.~~ **FIXED 2026-11-05 (gh:#1284):** the reading was incomplete:
+upstream's Knupp loop never counts the tetrahedra it re-checks, so, like
+the LP untangler, it makes one pass. See the gh:#1284 section.
 
 **Predictions (written 2026-11-05, before the run; same case as the
 gh:#1255 section).**
@@ -3583,6 +3590,481 @@ crate's column builder is upstream's split for one count per column. The box sho
 needs `refineEdgeHexCell` only where two layered patches meet at a cell: with `inlet` unlayered,
 no cell needs it.
 
+## `optimiseUsingKnuppMetric` counts its passes as upstream does (gh:#1284, epic gh:#1251)
+
+### What upstream does (read 2026-11-05, before any code)
+
+`tetMeshOptimisation::optimiseUsingKnuppMetric(nIterations = 5)`, DAFoam/cfmesh
+`e944f6ba695f`, `tetMeshOptimisation.C` lines 53–191 (the same text in
+wyldckat/cfMesh v1.0 and the full v1.1 tree):
+
+1. mark the tetrahedra with `mag < VSMALL` (`invertedTets`);
+2. loop: count the marked ones (`nNegative`), return if none; move every
+   unlocked `SMOOTH` node of a marked tetrahedron with `knuppMetric`;
+3. "check which tets have been repaired": `nNegativeBefore = nNegative;
+   nNegative = 0;`, then mark (`helper`) the tetrahedra still below
+   `VSMALL` **without ever incrementing `nNegative`**. The same loop in
+   `optimiseUsingMeshUntangler` has `++nNegative`; this one does not;
+4. `if (nNegative == 0) return;` — always taken, so the `while
+   ((nNegative < nNegativeBefore) || (++nIter < nIterations))` is never
+   reached.
+
+**Upstream therefore runs exactly one Knupp pass per call** whenever an
+inverted tetrahedron exists, whatever `nIterations` is. It looks like an
+upstream defect; upstream is the specification, so the port follows it.
+
+**What the port did.** It counted the repaired tetrahedra (`n_negative += 1`
+in step 3) and so ran the loop: another pass while the count fell, and up to
+`n_iterations` passes in all. gh:#1260's note (the port increments `n_iter`
+on every pass where upstream's `||` short-circuits) was right about the
+condition but missed that upstream never reaches it.
+
+**The fix.** `PartTetMesh::optimise_using_knupp_metric` keeps upstream's
+loop as written, the uncounted step 3 included, so it returns after the
+first pass. Caller: `untangle_mesh_fv` (every `CfMeshOptimise` untangle and
+`optimiseFinalMesh`'s untangles), as upstream's `untangleMeshFV`.
+
+### Predictions (written 2026-11-05, before the fix was run)
+
+Case: the gh:#1255 baseline, `diagnose_dual_kinds_differential` with
+`CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3
+CFMESH_STRATS=cfmesh CFMESH_FP=corners` (R 10 mm, L 200 mm, 48 sides,
+`CellCentre` + `Corners`, h 5 mm, 3 layers 0.3 mm × 1.2, `CfMeshOptimise`
+with every optional control off). Before: 7 025 cells, first untangle
+2 861 → 29, 77 bad faces at the end, max / p99 NO 57.5° / 53.3°, thickness
+0.977 mm, 18.3 s on a shared host.
+
+- **Mechanism.** Fewer Knupp passes per untangle iteration: the port ran a
+  second pass only where the first left an inverted tetrahedron, so the
+  change is confined to the iterations with stubborn inversions; the volume
+  optimiser that follows each Knupp call repairs most of what Knupp leaves.
+- **Bad faces at the end:** 77, within ±10 (77 ± 10). Sign: equal or more
+  (fewer untangling moves per iteration), not fewer.
+- **First untangle:** 2 861 → 29 ± 5 (the 29 are boundary-held, out of
+  Knupp's reach).
+- **Max non-orthogonality:** within ±2° of 57.5°. Thickness within ±2 % of
+  0.977 mm.
+- **Meshing time:** −0 to −20 % (Knupp passes saved; each Knupp pass costs
+  less than a volume-optimiser pass, so the saving is small); a rise would
+  mean the untangle needed more outer iterations.
+- **Pins:** `layer_strategies_are_deterministic`'s `CfMeshOptimise`
+  fingerprint moves (some untangle call meets a tetrahedron the first Knupp
+  pass does not repair); its `SnappyCollapse` fingerprint and every
+  `BackOffOnly` pin do not (no Knupp call).
+
+### Results (2026-11-05, after gh:#1285; same session, host lightly loaded)
+
+The fix in a unit test first (`mesh_optimizer::tests::knupp_metric_makes_one_pass_as_upstream`):
+a 4 × 4 × 4 box with three interior points pushed through their
+neighbours, 40 inverted tetrahedra; one call leaves 2 with `nIterations`
+1, 5 and 50, the three runs bit-identical. So the case is one where the
+pre-gh:#1284 loop would have gone on to a second pass.
+
+**The gh:#1255 baseline** (the predictions' case), before → after:
+
+| quantity | before (same session) | after |
+|---|---|---|
+| cells | 7 025 | 7 025 |
+| meshing | 13.6 s | 14.0 s |
+| first untangle | 2 861 → 29 (13 passes, 27 708 nodes) | 2 861 → 29 (13 passes, 27 708 nodes) |
+| `optimiseLayer`: hairs thinned in the last pass | 2 560 | 2 559 |
+| bad faces at the end (`findBadFaces`) | 77 | 77 |
+| max / p99 non-orthogonality | 57.5° / 53.3° | 57.5° / 53.3° |
+| mean total thickness | 0.977 mm (9.766e-4 m) | 0.978 mm (9.782e-4 m) |
+| V/(section L), inlet/section | 0.98887, 0.98287 | 0.98887, 0.98287 |
+
+**gh:#1283's `CfMeshOptimise` rows** (`diagnose_final_mesh_differential`,
+`CFMESH_VARIANTS=base,upE,upEnl`, 3 layers), struck values from the table
+above:
+
+| route, h | NO max / p99 (°) | bad | cM | thick (mm) | time (s) |
+|---|---|---|---|---|---|
+| `base` h 4 | 65.4 / ~~50.9~~ 52.0 | 48 | 240 | ~~0.737~~ 0.738 | ~~91~~ 29.3 |
+| `base` h 5 | 57.5 / 53.3 | 77 | 77 | ~~0.977~~ 0.978 | ~~40~~ 13.7 |
+| `base` h 6 | 75.7 / ~~50.0~~ 50.1 | 13 | 76 | ~~1.262~~ 1.261 | ~~26~~ 9.4 |
+| `upE` h 4 / 5 / 6 | unchanged (73.0 / 33.7; 44.5 / 30.8; 89.6 / 32.9) | 0 / 0 / 1 | 16 / 0 / 28 | 1.099 / 1.491 / 1.910 | ~~14 / 1.2 / 6.8~~ 7.1 / 1.5 / 4.5 |
+| `upEnl` h 4 | ~~84.6~~ 84.8 / 49.3 | 0 | ~~13~~ 15 | 0.671 | ~~36~~ 16.3 |
+| `upEnl` h 5 | ~~44.9 / 44.2~~ 45.0 / 44.3 | 0 | 0 | ~~0.895~~ 0.896 | ~~16~~ 5.9 |
+| `upEnl` h 6 | 84.5 / 43.4 | 12 | 42 | ~~1.178~~ 1.179 | ~~17~~ 6.8 |
+
+The bare (0-layer) rows of `base`, `upE` and `upEnl` came out exactly as
+in the gh:#1283 table (NO, bad, cM, flux to the digits printed): the bare
+routes' untangles there met no tetrahedron that one Knupp pass left
+inverted. The times in the struck column were taken on a host shared with
+two other builds (load 6–9); today's on a lightly loaded one (load ~3), so
+the time column compares hosts, not the fix: the before/after pair at h 5
+(13.6 → 14.0 s, same session) is the fix's own time. **Attribution:**
+between the gh:#1283 recording and these rows two changes landed, this
+one and the workspace's PETIR routing of transcendental calls (merged from
+`develop` at `a593a5b84`); gh:#1285's reorder runs after the layer stage
+and does not reach these numbers. Only the h 5 before/after pair, taken in
+this session on the merged code, isolates gh:#1284; the other struck
+values may carry some of the PETIR change too (not separated).
+
+**Pins.** `layer_strategies_are_deterministic`: `CfMeshOptimise`
+~~5422758738504758818~~ → 18177691582502802893 (7 725 cells, unchanged);
+`SnappyCollapse` 18444736245533413537 unchanged. Every `BackOffOnly` pin
+unchanged.
+
+### Against the predictions
+
+- Bad faces 77 ± 10, equal or more: **held** (77).
+- First untangle 2 861 → 29 ± 5: **held** (29).
+- NO within ±2°: **held** (unchanged at h 5; +0.2° at most elsewhere).
+  Thickness ±2 %: **held** (+0.1 %).
+- Time −0 to −20 %: **missed in sign, inside the noise** (+2.9 %,
+  13.6 → 14.0 s). The second Knupp passes the old loop made were few: the
+  pass count of the first untangle is unchanged (13), and the volume
+  optimiser dominates the smoothing time.
+- Pins: **held** (`CfMeshOptimise` moved, `SnappyCollapse` and the
+  back-off pins did not).
+
+**What it means.** On these meshes the port's extra Knupp passes did
+almost nothing: one hair's thinning and 0.1 % of layer thickness. The
+change is for fidelity to upstream, not for the numbers. The rows that
+depend on `CfMeshOptimise` above this section were measured before
+gh:#1284; where re-measured here they moved by at most the amounts in the
+table, and the solves of the gh:#1283 section were not re-run for this
+change alone (the gh:#1298 section re-runs the default's).
+
+**Images.** None drawn: the mesh moved by 1.6 µm of mean layer thickness
+(0.977 → 0.978 mm), below one pixel of the gh:#1283 rim close-ups
+(8.6 µm per pixel), so a new image would be the old one.
+
+**Tests.** `cargo test --release -p outram-park-fork-cfmesh --features
+cell-centre-dual --lib`: 240 passed, 0 failed, 25 ignored (2026-11-05).
+
+## Foam Studio's new unstructured default: upstream's sequence without the Laplace pass (gh:#1298, epic gh:#1251)
+
+**Maintainer-approved 2026-11-05.** gh:#1283's recommendation 2 (route
+`upEnl`) becomes Foam Studio's default.
+
+> **Default case changed the same day (maintainer decision on gh:#1298,
+> 2026-11-05):** the default keeps this mesher but is **h 5 mm with 3
+> layers**, not h 4 mm bare; see "The default becomes h 5 mm with 3 layers"
+> at the end of this section. Below, "the default" with h 4 mm and no layer
+> means the default as first set by gh:#1298; those rows and the h 4 mm
+> dp/dz miss stay as recorded.
+
+### What changed
+
+- `examples/foam_studio_web/engine.rs`: `TetDualSpec::BASE` is now the
+  cell-centre dual (`DualKind::CellCentre`) with the class's feature points
+  (`FeaturePointRule::Corners`), `LayerQualityStrategy::CfMeshOptimise`, and
+  the new `CfMeshRoute::UpstreamNoLaplace`:
+  - `TetDualOptions::untangle_surface` (cfMesh's `meshSurfaceOptimizer` in
+    the feature-edge capture);
+  - `TetDualOptions::optimise_final_mesh` (`optimizeSurface`,
+    `untangleMeshFV` with boundary moves and the LP untangler,
+    `optimizeLowQualityFaces`, `untangleMeshFV`);
+  - `BoundaryProjection::EachPass` (not upstream; gh:#1283);
+  - `optimize_mesh_fv_laplace` off (it thickens the stack ~50 %, gh:#1256).
+  The steps are set in Foam Studio (`engine::route_options`), **not** in the
+  cfMesh crate's `TetDualOptions::default()`, which is unchanged: Foam
+  Studio builds its options from that default and overrides them, so the
+  crate's own pins and every other consumer (`outram-blender::foam_mesh`,
+  the `dhoby-ghaut` workbench) keep the old pipeline.
+- The old default is `TetDualSpec::PRE_GH1298` (`CfMeshRoute::PreGh1298`,
+  per-corner dual, `OnFeatureEdge`, `BackOffOnly`), the named ablation:
+  page URL `route=legacy&dual=corner&fp=edges&layerq=backoff`, native knob
+  `FOAM_CFMESH_ROUTE=legacy` (plus `FOAM_DUAL_KIND=corner FOAM_DUAL_FP=edges
+  FOAM_LAYER_STRATEGY=backoff`). The diagnostics that reproduce earlier
+  records now say `..TetDualSpec::PRE_GH1298`.
+- The native knobs `FOAM_CFMESH_*`, `FOAM_UNTANGLE_SURFACE`,
+  `FOAM_OPTIMISE_FINAL` now take `1` / `0` and **leave the route's value
+  when unset** (before, unset meant off). A reproduction command recorded
+  above, run after gh:#1298, therefore needs `FOAM_CFMESH_ROUTE=legacy`.
+- The page: a "cfMesh surface + final optimisation (upstream sequence)"
+  checkbox and `route=` in the URL; the worker message carries a fourth
+  mesher code.
+
+### Predictions (written 2026-11-05, before any run of the new default)
+
+The demo default is h 4 mm (0.4 R), no layer, on Foam Studio's cylinder
+(48 sides, R 10 mm, L 200 mm), Re 100, steady. The sources are gh:#1283's
+`upEnl` rows (cfMesh diagnostic, 2026-11-05) and its `up`/`upE` solve at
+h 4 bare; gh:#1284's Knupp change and gh:#1285's face order come after
+them, so I expect small shifts from those only.
+
+1. **Mesh (default, h 4 bare):** 6 353 cells (every route kept the count);
+   max non-orthogonality 52.7° ± 2° (`upEnl`, Foam Studio's own NO measure
+   may read ~1° lower as in gh:#1283); inlet flux / πR² 0.9939 ± 0.001;
+   0 `findBadFaces`, 0 pyramids ≤ 0.
+2. **Solve (default):** steady in 25–32 steps; u_c/2U **0.86–0.91** (central
+   0.88: between `base` 0.8502 and `upE` 0.8985, nearer `upE` because the
+   inflow is `upE`'s); dp/dz / HP **1.00–1.04** (central 1.02); mass
+   conserved to 1e-8. The pre-gh:#1298 pin (0.8925 / 1.0326, per-corner
+   dual) is not the comparison: that is another dual.
+3. **Meshing time (native, this host, loaded):** 1–6 s (gh:#1283 `upEnl`
+   h 4 bare: 5.2 s on a loaded host; `upE` 1.3 s). Against the old
+   default's ~0.5 s that is 2–10× slower.
+4. **3 layers at h 5 (the layer case):** 7 049 cells ± 30, 0 bad faces,
+   thickness 0.895 ± 0.05 mm, u_c/2U 0.939 ± 0.005, dp/dz 1.006 ± 0.005,
+   10–20 s native.
+5. **`TetDualSpec::estimated_cells`:** the bare coefficient (6.5 per h³)
+   holds for the cell-centre dual (same cell count as the per-corner dual);
+   the layer term needs about **2.6** wall faces per h² of wall (h 5:
+   1 304 wall faces on the `Corners` duals against 7 632 per-corner), not
+   15. With 15 the h 5 / 3-layer estimate is ~26k against ~7k measured.
+6. **Browser (wasm, desktop Chromium headless):** the default meshes in
+   3–15 s (the wasm build is single-threaded and ~2–3× slower than native),
+   then runs; on the phone viewport the same, with the panel folded and the
+   UI responsive while the worker meshes (the meshing is in the worker).
+   **Phone-acceptable** I take as under ~20 s on this host.
+
+### Methodology (as run, 2026-11-05)
+
+- Native: `foam_studio_web --headless-unstructured` (the default) and
+  `--headless-unstructured 5 3 0.3 1.2 100` (3 layers at h 5 mm), release,
+  this host (4 cores, load ~3, no other build running). `--mesh-sweep` for
+  the cell counts behind `estimated_cells`.
+- cfMesh level: `final_mesh::diagnose_gh1283::diagnose_final_mesh_differential`
+  with `CFMESH_VARIANTS=base,upE,upEnl` (route `upEnl` is the new default's
+  cfMesh options), after gh:#1284 and gh:#1285. Its rows are in the
+  gh:#1284 section's table (3 layers) and match gh:#1283's bare rows
+  exactly.
+- Browser: `crates/dhoby-ghaut/web/foam_studio/build.sh` (wasm-bindgen
+  0.2.129), served locally, `browser_check.js` cases `default_gh1298_*` and
+  `legacy_default_desktop` (`crates/dhoby-ghaut/verification_and_validation/foam_studio_unstructured_web/`).
+- Images: `foam_studio_web --render-default` (new), from the `PolyMesh` the
+  solver gets, into `laminar_pipe_gh1155/default_gh1298/`.
+
+### Results (2026-11-05)
+
+~~**The default**~~ **The gh:#1298 mesher bare** (h 4 mm, no layer; the default until the maintainer's decision below), against the old default (the ablation,
+`TetDualSpec::PRE_GH1298`, still pinned by
+`headless_unstructured_pipe_runs_and_is_pinned`):
+
+| mesher | cells | max NO (°) | inlet flux / πR² | meshing (native) | steps | u_c/2U | dp/dz / HP | RMS | τ_w / HP |
+|---|---|---|---|---|---|---|---|---|---|
+| ~~per-corner dual, `OnFeatureEdge`, back-off, pre-gh:#1298 route (the old default)~~ ablation | 6 353 | 52.3 (gh:#1202) | — | ~0.5 s | 29 | 0.8925 | 1.0326 | 0.0356 | 1.0312 |
+| ~~**new default**~~ gh:#1298 mesher bare (`CellCentre` + `Corners`, `CfMeshOptimise`, upstream's sequence without Laplace) | 6 353 | 52.5 | 0.99391 | 2.4 s | 27 | **0.8832** | **1.0649** | 0.0363 | 1.0652 |
+
+**The layer case** (h 5 mm, 3 layers, first 0.3 mm, × 1.2): 7 049 cells,
+100 % coverage, mean total thickness 0.896 mm, max NO 45.1°, inlet flux
+0.99196 πR², 0 `findBadFaces`, meshed in 6.0 s, 26 steps, u_c/2U
+**0.9394**, dp/dz **1.0062**, RMS 0.0278, τ_w 1.0090 (gh:#1283's `upEnl`
+solve: 0.9394 / 1.0063, 26 steps).
+
+**`--mesh-sweep` on the new default** (cells / wall faces / max NO /
+meshing s; 0 to 3 layers):
+
+| h (mm) | 0 | 1 | 2 | 3 |
+|---|---|---|---|---|
+| 6 | 1 939 / 824 / 64.4° / 1.9 | 2 765 / 834 / 75.3° / 8.5 | **1 939** (layers refused, bare returned) / 77.6° / 14.6 | 4 417 / 824 / 87.1° / 10.7 |
+| 5 | 3 113 / 1 312 / 50.7° / 1.4 | 4 425 / 60.5° / 2.3 | 5 737 / 45.1° / 9.2 | 7 049 / 45.1° / 9.7 |
+| 4 | 6 353 / 2 052 / 52.5° / 3.2 | 8 405 / 78.0° / 26.3 | 10 457 / 82.4° / 25.6 | 12 509 / 83.9° / 26.9 |
+| 3.3 | 11 177 / 2 904 / 60.3° / 4.8 | 14 081 / 57.3° / 22.1 | 16 985 / 57.1° / 26.1 | 19 889 / 57.4° / 26.1 |
+
+(h 2.5 and 2 mm clamp to R/3 = 3.3 mm, as before.) Each layer adds one
+cell per wall face. **`TetDualSpec::estimated_cells` recalibrated:** the
+`polyDualMesh` duals now use `MESH_ESTIMATE_POLY_DUAL = (6.5, 2.6)`: bare
+6.19–6.67 cells per h³ (the per-corner 6.5 kept, same counts) and 2.36–2.61
+wall faces per h² (2.6 is the h 4–5 mm value). Estimates against the
+sweep, 3 layers: h 6 / 5 / 4 mm 4 613 / 7 188 / 12 507 against 4 417 /
+7 049 / 12 509 (+4.4 / +2.0 / 0.0 %). Before, the per-corner coefficient
+(15) gave ≈ 26k for 7 049. Pinned in `unstructured_specs_are_clamped`
+(±10 %).
+
+**Browser** (headless Chromium, software WebGL, this host):
+
+| case | cells | meshed | steady | steps | UI frames while meshing (median / max) | page errors |
+|---|---|---|---|---|---|---|
+| ~~new default~~ gh:#1298 mesher bare h 4, desktop 1280×900 | 6 353 | 7 s | 14 s | 27 | 16.7 / 117 ms | 0 |
+| ~~new default~~ gh:#1298 mesher bare h 4, **phone** 390×844 | 6 353 | 8 s | 13 s | 27 | 16.7 / 100 ms | 0 |
+| new mesher, h 5, 3 layers, desktop (the default since the maintainer's decision) | 7 049 | 23 s | 28 s | 26 | 16.7 / 100 ms | 0 |
+| new mesher, h 5, 3 layers, **phone** | 7 049 | 22 s | 26 s | 26 | 16.7 / 233 ms | 0 |
+| old default (ablation, `route=legacy&dual=corner&fp=edges&layerq=backoff`), desktop | 6 353 | 2 s | 10 s | 29 | 16.7 / 167 ms | 0 |
+
+The cell and step counts equal the native ones, so the browser builds and
+solves the same meshes. The UI thread draws at 60 fps while the worker
+meshes (the meshing is in the worker; the one long frame is the page's
+first). The cfMesh 3-layer case that took 646 s in the browser on the old
+route (gh:#1240 browser record) takes 22–23 s on the new one.
+
+### Against the predictions
+
+1. Mesh: 6 353 cells **held**; max NO 52.5° **held** (52.7 ± 2);
+   flux 0.99391 **held**; 0 bad faces **held** (diagnostic).
+2. Solve: steps 27 **held** (25–32); u_c/2U 0.8832 **held** (0.86–0.91);
+   **dp/dz 1.0649 missed, high** (predicted 1.00–1.04). The new default is
+   further from Hagen–Poiseuille in dp/dz than the old one (1.0326) and
+   slightly lower in u_c (0.8832 against 0.8925). gh:#1283 measured `upE`
+   (with the Laplace pass) at 0.8985 / 1.0137 on the same h; without the
+   Laplace pass the bare mesh keeps a max NO of 52.5° against 40.6°, and
+   the 3 % pressure-gradient excess is most likely that (not isolated).
+   The default was chosen for the layer case (h 5 / 3 layers: 0.9394 /
+   1.0062, 0 bad faces, 23 s in the browser), and **the bare default is a
+   step back on dp/dz**: recorded for the maintainer, not tuned.
+3. Meshing time 2.4 s **held** (1–6 s; ~5× the old 0.5 s).
+4. Layer case: 7 049 cells **held**; 0 bad **held**; thickness 0.896 mm
+   **held**; u_c 0.9394 **held**; dp/dz 1.0062 **held**; meshing 6.0 s
+   **missed, faster** (10–20 s).
+5. Estimate: bare coefficient **held**; layer coefficient 2.6 **held**
+   (measured 2.36–2.61).
+6. Browser: 7–8 s meshing **held** (3–15 s); phone panel folded and UI
+   responsive **held**; under ~20 s **held** for the default, **missed**
+   for the 3-layer case (22–23 s, not the default).
+
+### Images
+
+- `laminar_pipe_gh1155/default_gh1298/`: `default_gh1298_h4_bare_*`,
+  `default_gh1298_h5_3layers_*`, `pre_gh1298_h4_bare_*`, each `xy`
+  (mid-length cross-section), `xz_inlet`, `xz_corner` (inlet corner),
+  `xy_wall` (wall zoom); recompressed losslessly.
+- `crates/dhoby-ghaut/verification_and_validation/foam_studio_unstructured_web/default_gh1298_*`
+  and `legacy_default_desktop_*`: the page while solving and at the end.
+
+**Checked by eye (2026-11-05):**
+- `default_gh1298_h4_bare_xy`: convex polyhedral cells (octagons with
+  small square cells between them, the cell-centre dual's look), the wall
+  a polygon on the circle, no sliver or inverted cell.
+- `default_gh1298_h4_bare_xz_corner` against `pre_gh1298_h4_bare_xz_corner`:
+  the new mesh's inlet is the straight line z = 0 and the rim cell meets
+  the wall x = 1.0 cm square; the old per-corner dual's cells are
+  star-shaped (the median dual's corner pieces).
+- `default_gh1298_h5_3layers_xy_wall`: three layers along the wall, read
+  off the image at y = 0 as about 0.25 (at the wall) / 0.35 / 0.3 mm, some
+  0.9 mm in all (0.896 mm measured), one dual cell over them; the stack
+  follows the polygon's kink at y = 0. The layers do not grow away from the
+  wall as the 1.2 expansion asks (`optimiseLayer` and the split set them).
+- The browser screenshots: the phone shows the folded panel ("Controls »"),
+  the zoom buttons and the solved pipe; the desktop panel shows the new
+  "cfMesh surface + final optimisation (upstream sequence)" box ticked,
+  cell-centre, corners and cfMesh optimise selected, "≈ 6k cells
+  estimated", meshed in 5.62 s.
+
+**Not checked:** the outlet end; the 3-D shape of the rim cells; a real
+phone and a real GPU (software WebGL only).
+
+### Recommendation / open (gh:#1298)
+
+- The new default's bare dp/dz (+6.5 % of HP) is worse than the old
+  default's (+3.3 %). Options for the maintainer: make the default 3 layers
+  at h 5 mm (0.9394 / 1.0062, 7 049 cells, 23 s in a browser), or bring
+  back the Laplace pass once the layer split honours the requested
+  thickness (`upE`: 0.8985 / 1.0137 bare). Nothing was tuned here.
+  **Decided 2026-11-05 by the maintainer: the first** (the default is h 5
+  mm with 3 layers; next subsection).
+- h 6 mm with 2 layers: the layer stage is refused on the new route and the
+  bare mesh returned (sweep); not investigated.
+
+**Tests (2026-11-05, release):** `cargo test -p dhoby-ghaut --example
+foam_studio_web`: 19 passed, 7 ignored (new:
+`headless_unstructured_default_is_pinned`,
+`mesher_choices_default_to_upstreams_sequence_and_follow_the_url`; the
+ablation pin `headless_unstructured_pipe_runs_and_is_pinned` unchanged at
+0.8925 / 1.0326; `unstructured_specs_are_clamped` checks the new estimate;
+`layer_warning_matches_the_record`, `requests_and_events_survive_the_wire`
+updated for the fourth mesher code). `cargo test -p outram-park-fork-cfmesh
+--features cell-centre-dual --lib`: 240 passed, 25 ignored (no cfMesh pin
+moves for gh:#1298: its defaults are unchanged). `cargo test -p
+outram-blender --features foam-mesh --lib foam_mesh`: 14 passed. `cargo
+test -p petir --test no_platform_libm`: 4 passed.
+
+### The default becomes h 5 mm with 3 layers (maintainer decision, 2026-11-05)
+
+**Maintainer decision on gh:#1298, 2026-11-05:** Foam Studio's unstructured
+default keeps the new mesher (`TetDualSpec::BASE`: `CellCentre` +
+`Corners`, `CfMeshOptimise`, `CfMeshRoute::UpstreamNoLaplace`), but the
+default case becomes **3 wall layers at h 5 mm** (first layer 0.3 mm,
+× 1.2). Reason: the bare h 4 mm default missed its prediction (dp/dz
+1.0649 × HP, predicted 1.00–1.04; the old default was 1.0326), while the
+same mesher at h 5 mm with 3 layers measured u_c/2U 0.9394, dp/dz 1.0062
+(7 049 cells, 6.0 s native, 22–23 s in the browser), the closest to
+Hagen–Poiseuille of the cases above. The bare h 4 mm case stays reachable
+(page URL `h=4&layers=0`, native `--headless-unstructured 4 0`) and its
+miss stays recorded above.
+
+**Predictions (written 2026-11-05, before any run of the new default).**
+The source of every number is the gh:#1298 layer-case run above
+(`--headless-unstructured 5 3 0.3 1.2 100`); the default now reaches the
+same spec through `TetDualSpec::default_for(0.01)` (0.5 R, 3 layers, first
+0.03 R, × 1.2), whose lengths may differ from `5e-3` / `0.3e-3` by an ulp.
+I expect the same mesh and at most a round-off change in the solve.
+
+1. **Native default** (`--headless-unstructured`, no arguments): 7 049
+   cells (± 30), 26 steps (± 2), u_c/2U 0.9394 ± 0.002, dp/dz 1.0062 ±
+   0.002 × HP, mass conserved to 1e-8; meshing 4–10 s on this host.
+2. **Estimate and cap:** `estimated_cells` 7 188 (within 10 % of 7 049);
+   the 50k cap (`MAX_CELLS`) and the h range [R/3, R/1.5] leave h at
+   5 mm (`clamped(default) == default`).
+3. **`layer_warning`:** shows the upstream-sequence note for the default;
+   nothing in it contradicts the gh:#1298 record once its time is taken
+   from that record (6 s native, 22–23 s browser) rather than gh:#1283's
+   12 s.
+4. **Browser** (headless Chromium, SwiftShader): the default at desktop and
+   phone width builds 7 049 cells and reaches steady in 26 steps; meshing
+   20–25 s (gh:#1298: 22–23 s); UI median frame 16.7 ms (60 fps) while the
+   worker meshes; 0 page errors. `h=4&layers=0` gives the bare row:
+   6 353 cells, 27 steps.
+
+**What changed (code).** `examples/foam_studio_web/engine.rs`:
+`TetDualSpec::default_for` is cell 0.5 R, 3 layers (was 0.4 R, 0);
+`TetDualSpec::BASE`'s numbers are the same h 5 mm, 3 layers;
+`TetDualSpec::PRE_GH1298` spells out the old default's h 4 mm, no layer, so
+the ablation is unchanged; new `TetDualSpec::with_size_query` (the page's
+`h=` / `layers=`, used by `app.rs`). `app.rs`: the panel starts from
+`default_for(0.01)` as before, so native, URL and panel agree; the layer
+note's time now quotes gh:#1298 (6 s native, 22 s browser) instead of
+gh:#1283's 12 s. `main.rs`: `--headless-unstructured` with no arguments
+runs the new default (it starts from `default_for`); `--render-default`
+draws the bare h 4 mm case explicitly and the default as the 3-layer case.
+
+**Results (2026-11-05, release, this host, load ~1.6).**
+
+| quantity | predicted | measured | |
+|---|---|---|---|
+| cells | 7 049 ± 30 | 7 049 | held |
+| max NO / skewness | — | 45.1° / 1.97 | |
+| inlet flux / πR² | — | 0.99196 | |
+| layer coverage, mean thickness | — | 100 %, 0.896 mm | |
+| bad faces at the end (`findBadFaces`) | — | 0 | |
+| meshing (native) | 4–10 s | 6.1 s | held |
+| steps to steady | 26 ± 2 | 26 | held |
+| u_c/2U | 0.9394 ± 0.002 | **0.9394** | held |
+| dp/dz / HP | 1.0062 ± 0.002 | **1.0062** | held |
+| RMS, τ_w / HP | — | 0.0278, 1.0090 | |
+| mass (out/in − 1) | < 1e-8 | < 1e-8 (pin) | held |
+| `estimated_cells` | 7 188, within 10 % | 7 188 (+2.0 %) | held |
+| cap / clamp | h stays 5 mm | `clamped(default) == default` | held |
+| browser desktop: cells, steps, meshing | 7 049, 26, 20–25 s | 7 049, 26, 22 s | held |
+| browser phone: cells, steps, meshing | 7 049, 26, 20–25 s | 7 049, 26, **22 s** | held |
+| UI median frame while meshing | 16.7 ms | 16.7 ms (both widths) | held |
+| page errors | 0 | 0 | held |
+| `h=4&layers=0` (browser, desktop) | 6 353 cells, 27 steps | 6 353, 27 (8 s meshed) | held |
+| `--headless-unstructured 4 0` (native) | the gh:#1298 bare row | 6 353 cells, 27 steps, 0.8832 / 1.0649, 2.3 s | held |
+
+The default and gh:#1298's layer-case run give the same numbers to the
+printed digits: `default_for(0.01)`'s lengths equal `5e-3` and `3e-4`
+exactly (checked: `0.5 * 0.01 == 5 * 1e-3`, `0.03 * 0.01 == 0.3 * 1e-3` in
+`f64`). The browser log is
+`crates/dhoby-ghaut/verification_and_validation/foam_studio_unstructured_web/browser_check_gh1298_default_h5.txt`.
+
+**Moved pins (old → new):** `headless_unstructured_default_is_pinned`
+6 353 → 7 049 cells, u_c/2U 0.8832 → 0.9394, dp/dz 1.0649 → 1.0062 (old
+values struck in its doc comment); `unstructured_specs_are_clamped`: the
+default's estimate is checked against 7 049 (±10 %; was 6 353 ±15 %, which
+is now checked on the bare h 4 mm spec); `mesher_choices_…`: the default's
+numbers (5 mm, 3, 0.3 mm, 1.2), `PRE_GH1298`'s (4 mm, 0), the clamp leaving
+the default alone and the `h=4&layers=0` URL; `layer_warning_matches_the_record`:
+the default shows the upstream-sequence note with 6 s, 0.939 and 1.006.
+The ablation pin `headless_unstructured_pipe_runs_and_is_pinned` is
+unchanged (0.8925 / 1.0326). No cfMesh pin moves.
+
+**Images:** `laminar_pipe_gh1155/default_gh1298/default_gh1298_h4_bare_*`
+and `default_gh1298_h5_3layers_*` re-rendered with the new labels ("GH1298
+MESHER, H 4 MM, NO LAYER (DEFAULT UNTIL THE GH1298 DECISION)", "GH1298
+DEFAULT: H 5 MM, 3 LAYERS"); the meshes are the same (6 353 and 7 049
+cells). Checked by eye: `default_gh1298_h5_3layers_xy_wall`
+shows the three layers at the wall, as before; `default_gh1298_h4_bare_xy`
+and `_xz_corner` as before. The `pre_gh1298_*` images are unchanged.
+
+**Tests (2026-11-05, release):** `cargo test --release -j 2 -p dhoby-ghaut
+--example foam_studio_web`: 19 passed, 7 ignored. `cargo test --release -p
+petir --test no_platform_libm`: 4 passed. No cfMesh code changed, so no
+cfMesh pin was run.
+
 ## Reproduce
 
 ```bash
@@ -3632,4 +4114,17 @@ FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh FOAM_CFMES
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_LAYER_STRATEGY=cfmesh FOAM_UNTANGLE_SURFACE=1 FOAM_OPTIMISE_FINAL=1 FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_LPU=1 FOAM_CFMESH_LAPLACE=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_UNTANGLE_SURFACE=1 FOAM_OPTIMISE_FINAL=1 FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_LPU=1 FOAM_CFMESH_LAPLACE=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 0 0.3 1.2 100
 FOAM_DUAL_KIND=centre FOAM_DUAL_FP=corners FOAM_RENDER_N=3 FOAM_CFMESH_BMOVES=1 FOAM_CFMESH_PROJECT=each cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-layer-strategies <dir>
+# gh:#1284 (Knupp: one pass; the gh:#1255 baseline)
+CFMESH_CASE="pipe h5" CFMESH_DUAL=centre CFMESH_LAYERS=3 CFMESH_STRATS=cfmesh CFMESH_FP=corners cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_dual_kinds_differential
+CFMESH_VARIANTS=base,upE,upEnl cargo test --release -p outram-park-fork-cfmesh --features cell-centre-dual --lib -- --ignored --nocapture diagnose_final_mesh_differential
+# gh:#1298 (the new default; since gh:#1298 the FOAM_* knobs above keep the
+# route's value when unset, so a pre-gh:#1298 command needs
+# FOAM_CFMESH_ROUTE=legacy FOAM_DUAL_KIND=corner FOAM_DUAL_FP=edges FOAM_LAYER_STRATEGY=backoff)
+# the default: h 5 mm, 3 layers since the maintainer's gh:#1298 decision
+cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured
+cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 5 3 0.3 1.2 100
+# the bare h 4 mm case (the default until that decision)
+cargo run --release -p dhoby-ghaut --example foam_studio_web -- --headless-unstructured 4 0
+cargo run --release -p dhoby-ghaut --example foam_studio_web -- --mesh-sweep
+cargo run --release -p dhoby-ghaut --example foam_studio_web -- --render-default
 ```

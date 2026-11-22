@@ -34,6 +34,8 @@
 //! tabulated `U_x/U_lid` values on the vertical centreline. Public literature
 //! data; the same table the `pimple_foam_cavity` tutorial already uses.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field_full, read_vol_vector_field_full,
@@ -168,8 +170,11 @@ fn ghia_error(solver: &PimpleFoam) -> (f64, f64) {
 ///
 /// * [`DivScheme::GaussUpwind`] — first-order upwind (the historical hardwired
 ///   behaviour and the new honest default).
-/// * [`DivScheme::GaussLinear`] — second-order central differencing by deferred
-///   correction.
+/// * [`DivScheme::GaussLinear`] — second-order central differencing,
+///   ~~by deferred correction~~ **CORRECTED 2026-11-12 (gh:#1363):** fully
+///   implicit since dfb334c42, as upstream's `Gauss linear`; the deferred form
+///   is now [`DivScheme::GaussLinearDeferred`]. The Ghia RMS/max recorded for
+///   this test did not move (0.0057 / 0.0127, as reported by the gh:#1363 re-run).
 ///
 /// The vertical-centreline `U_x/U_lid` profile is extracted from the central
 /// column of cells and compared with the 17 tabulated Ghia points; the metric is

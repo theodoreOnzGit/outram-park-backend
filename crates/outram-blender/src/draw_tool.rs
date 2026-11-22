@@ -46,6 +46,9 @@
 //! Points and lengths are dimensionless model-space quantities (see
 //! [`crate::math`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -221,7 +224,7 @@ fn disc_prism(
     let (cu, cv) = plane.project(center);
     let mut positions: Vec<Vec3> = Vec::new();
     for i in 0..n {
-        let a = std::f64::consts::TAU * i as f64 / n as f64;
+        let a = core::f64::consts::TAU * i as f64 / n as f64;
         positions.push(plane.point(cu + r_base * a.r_cos(), cv + r_base * a.r_sin(), 0.0));
     }
     let apex = r_top.abs() < 1e-12;
@@ -229,7 +232,7 @@ fn disc_prism(
         positions.push(plane.point(cu, cv, depth));
     } else {
         for i in 0..n {
-            let a = std::f64::consts::TAU * i as f64 / n as f64;
+            let a = core::f64::consts::TAU * i as f64 / n as f64;
             positions.push(plane.point(cu + r_top * a.r_cos(), cv + r_top * a.r_sin(), depth));
         }
     }
@@ -444,7 +447,7 @@ mod tests {
     #[test]
     fn eval_dimension_parses_expressions() {
         assert!((eval_dimension("2*0.5").unwrap() - 1.0).abs() < 1e-12);
-        assert!((eval_dimension("pi/2").unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+        assert!((eval_dimension("pi/2").unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-12);
         assert!(eval_dimension("not a number").is_none());
     }
 

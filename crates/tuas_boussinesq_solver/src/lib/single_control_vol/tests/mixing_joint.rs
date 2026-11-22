@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// when two streams of equal mass flowrate meet,
 /// one of 50C and the other of 100C,
 /// the outlet temperature should be 75C
@@ -160,6 +163,7 @@ pub fn adiabatic_mixing_joint_test_single_cv_only() {
     let outlet_pipe_temp = outlet_pipe.temperature;
     let outlet_temp_degc = outlet_pipe_temp.get::<degree_celsius>();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         simulation_time.get::<second>(),
         inlet_pipe_1_temp.get::<degree_celsius>(),

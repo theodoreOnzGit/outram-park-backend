@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Pins for GitHub #948: windowed multipole (WMP) on a **pointwise** nuclide,
 //! evaluated at the lookup temperature inside its range, as OpenMC does
@@ -41,6 +41,8 @@
 //! 1.00032 (2500), an under-bound of up to 0.27 % between pole nodes;
 //! margin 0.05 → ≤ 0.95494 at every T. Control: 3.28 at 1500 K from a
 //! 293.6 K build. Wall time ~40 s per U-238 test (3 cores).
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use std::sync::Arc;
 

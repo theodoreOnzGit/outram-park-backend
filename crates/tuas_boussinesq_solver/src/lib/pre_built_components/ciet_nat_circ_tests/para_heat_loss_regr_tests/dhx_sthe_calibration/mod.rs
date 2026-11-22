@@ -11,6 +11,9 @@
 //! factor. Sets C-1 to C-8 use `calibration_version_2` (adds ambient heat-loss
 //! tuning); set C-9 uses `calibration_version_1`. See Zou et al. (ANL/NSE-19/11).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Zweibaum's unpublished data:
 /// dataset number,pri loop mass flowrate (kg/s),DRACS loop mass flowrate (kg/s),DHX shell top inlet (DegC),DHX tube bottom inlet(DegC),DHX shell bottom outlet (DegC),DHX tube top outlet (DegC),
 /// C-1,0.02003,0.02686,71.47752,39.84713,53.60943,53.00304,

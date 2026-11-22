@@ -9,6 +9,8 @@ This crate provides:
    (gh:#1156) an incompressible energy equation for `PimpleFoam`
    (`solvers::energy`) with chtMultiRegionFoam's fluid/solid region coupling
    (`solvers::cht_multi_region_foam`).
+   Since 2026-11-14 (gh:#1383) also `solvers::solid_displacement_foam` (ESI v2506
+   `solidDisplacementFoam`, bit-identical to the real binary on the V&V block).
 2. **Case I/O** — polyMesh and field readers. **The
    controlDict/fvSchemes/fvSolution parsers and every OpenFOAM/VTK writer are
    `todo!()`** — cases are configured by constructing the structs in Rust and
@@ -23,9 +25,31 @@ This crate provides:
    GeN-Foam's `twoPhase` boiling solver (implicitUpwind alpha; **MULES is not
    ported**) and runs upstream's `1D_boiling` case files end to end; its V&V
    record is `verification_and_validation/genfoam_two_phase/README.md`, and it
-   is **not** compared with an upstream run (none is shipped or runnable here).
+   ~~is **not** compared with an upstream run (none is shipped or runnable
+   here; the thermal-hydraulics stack it needs is not built yet)~~ **CORRECTED 2026-11-12** (gh:#1361 round 3):
+   it IS compared, step by step, with the real unmodified GeN-Foam binary
+   (652b3da on ESI v2506, built here with `libFFSSrc2`/`libFFSSolvers2`) on `1D_boiling`
+   with `implicitUpwind` in both: 65 steps agree to <= 1e-9 (p to 5e-12), the single-phase
+   run to t = 6.0 s to <= 2.5e-11, the boiling onset to 3e-6 of the vapour fraction; after
+   the onset the flow excursion amplifies a 1e-6 difference to O(1) within 0.5 s, so only
+   the span up to and through the onset is gated. Record, and the six upstream behaviours the
+   port now reproduces (each with its earlier form kept callable):
+   `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 3".
    `TwoPhaseCase::read` refuses, by name, every case selection the port does
    not implement: extend the port, never the refusal.
+
+## `no_std` + `alloc`, with a default `std` feature (gh:#1633, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Paths are `crate::path::{Path, PathBuf}` (`PathBuf` is a `String` without
+  std); maps are `crate::hash::HashMap`.
+- Anything that opens, reads or writes a file is `#[cfg(feature = "std")]`, and
+  so is any test that does. Keep the parsers separate from the file read where
+  you can, so the physics stays available without std.
 
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
@@ -89,7 +113,10 @@ maturity gate in that file for what this means and how the bar is revised.
   asserts is the Table II faithful-station point error < 5 % of peak (worst
   0.43 / 0.96 / 0.43 %); it asserts no whole-field `L2`. The velocity `L2` is
   dominated by the single cell on the shock (`L∞` 48 %, which alone
-  contributes ≈ 4.8 % to a 100-cell `L2`). Found while building the HEM pipe
+  contributes ≈ 4.8 % to a 100-cell `L2`). **RE-MEASURED 2026-11-12 (gh:#1363,
+  re-run)**: after `rhoCentralFoam` became a translation of upstream's
+  `rhoCentralFoam.C` (bit-identical on the shockTube), the whole-field `L2` is
+  ρ 1.51 %, u 5.39 %, p 1.21 % (`RESULTS.md`); u is still not within 5 %. Found while building the HEM pipe
   solver's Sod case (gh #902). Evidence class:
   **analytical / manufactured solution** (the exact Riemann solver is the
   reference, not another code), supported by cross-code comparison against an

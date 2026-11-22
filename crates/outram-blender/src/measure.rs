@@ -36,6 +36,9 @@
 //! - Mesh analysis: [`overhang`], [`distortion`], [`sharp_edges`],
 //!   [`self_intersections`], [`thickness`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
@@ -261,7 +264,7 @@ pub fn sharp_edges(mesh: &Mesh, angle: f64) -> Vec<EdgeId> {
 /// not a spatial-hash implementation.
 pub fn self_intersections(mesh: &Mesh) -> Vec<(FaceId, FaceId)> {
     let tris = triangulated(mesh);
-    let face_verts: Vec<std::collections::BTreeSet<usize>> = (0..mesh.face_count())
+    let face_verts: Vec<alloc::collections::BTreeSet<usize>> = (0..mesh.face_count())
         .map(|f| {
             mesh.face_vertices(FaceId(f))
                 .into_iter()
@@ -429,12 +432,12 @@ mod tests {
         let m = primitives::cube(2.0);
         let d = dihedral_angle(&m, EdgeId(0)).unwrap();
         assert!(
-            (d - std::f64::consts::FRAC_PI_2).abs() < 1e-9,
+            (d - core::f64::consts::FRAC_PI_2).abs() < 1e-9,
             "cube edges are 90°"
         );
         let f = FaceId(0);
         let v = m.face_vertices(f)[0];
-        assert!((corner_angle(&m, f, v).unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
+        assert!((corner_angle(&m, f, v).unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-9);
     }
 
     #[test]
@@ -449,7 +452,7 @@ mod tests {
             vertex: Vec3::ZERO,
             b: Vec3::new(0.0, 1.0, 0.0),
         };
-        assert!((p.angle() - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
+        assert!((p.angle() - core::f64::consts::FRAC_PI_2).abs() < 1e-9);
     }
 
     #[test]
@@ -465,8 +468,8 @@ mod tests {
             .find(|&f| m.face_centroid(f).z < -0.5)
             .unwrap();
         assert!(overhang(&m, top, Vec3::new(0.0, 0.0, 1.0)) < 0.01);
-        assert!((overhang(&m, bot, Vec3::new(0.0, 0.0, 1.0)) - std::f64::consts::PI).abs() < 0.01);
-        assert_eq!(sharp_edges(&m, std::f64::consts::FRAC_PI_4).len(), 12);
+        assert!((overhang(&m, bot, Vec3::new(0.0, 0.0, 1.0)) - core::f64::consts::PI).abs() < 0.01);
+        assert_eq!(sharp_edges(&m, core::f64::consts::FRAC_PI_4).len(), 12);
     }
 
     #[test]

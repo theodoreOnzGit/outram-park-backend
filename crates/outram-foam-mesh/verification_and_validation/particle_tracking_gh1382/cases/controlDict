@@ -1,0 +1,14 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+
+application trackParticles;
+startFrom startTime;
+startTime 0;
+stopAt endTime;
+endTime 0.05;
+deltaT 0.01;
+writeControl timeStep;
+writeInterval 1000;
+writeFormat ascii;
+writePrecision 17;
+timeFormat general;
+timePrecision 6;

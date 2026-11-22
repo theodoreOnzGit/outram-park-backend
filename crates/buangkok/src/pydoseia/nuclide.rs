@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Half-life text parsing and decay constants, as pyDOSEIA does them.
 //!
 //! # Provenance
@@ -29,6 +29,9 @@
 //! `0.693 / T_half` (not `ln 2 = 0.693147...`, a relative difference of
 //! 2.1e-4).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Upstream's value of `ln 2`, as written: `0.693`.
 pub const UPSTREAM_LN2: f64 = 0.693;
 

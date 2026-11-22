@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **GitHub #461: the CSG k path honours variance reduction on every compute
 //! path, and analog fission banks by weight.** Found by the OpenMC-vs-outram-mc
@@ -152,12 +152,19 @@ fn parallel_path_applies_survival_biasing() {
 
 #[test]
 fn parallel_path_honours_the_keff_trigger() {
+    let trigger = Some(Trigger {
+        metric: TriggerMetric::StandardDeviation,
+        threshold: 1.0,
+        ignore_zeros: false,
+    });
+    // gh:#703 (2026-11-20): the trigger is first checked at
+    // `keff_trigger_min_active` active generations, default 20, as upstream
+    // checks triggers only from `n_batches` on. ~~A trigger met by any two active
+    // generations stopped the run after two.~~ An explicit minimum of 2 restores
+    // that, and still pins that the PARALLEL path honours a trigger (gh:#461).
     let s = KeffSettings {
-        keff_trigger: Some(Trigger {
-            metric: TriggerMetric::StandardDeviation,
-            threshold: 1.0,
-            ignore_zeros: false,
-        }),
+        keff_trigger: trigger,
+        keff_trigger_min_active: 2,
         ..base(par())
     };
     let r = run(&s);
@@ -167,6 +174,9 @@ fn parallel_path_honours_the_keff_trigger() {
         "a trigger met by any two active generations did not stop the parallel run \
          (GitHub #461)"
     );
+    // The default waits for 20 active generations.
+    let d = KeffSettings { keff_trigger: trigger, ..base(par()) };
+    assert_eq!(run(&d).k_by_generation.len(), d.n_inactive + 20, "default minimum of 20");
 }
 
 #[test]
@@ -198,4 +208,82 @@ fn analog_fission_under_weight_windows_is_unbiased() {
         "weight-windowed k differs from analog by {z:+.2} sigma: fission is not banking \
          by weight (GitHub #461)"
     );
+}
+
+/// gh:#1582. The upstream-parity game (window at birth, collision checkpoint
+/// only) and the legacy game are different games on a window that varies with
+/// energy (the source is born in the upper energy bin, the first collision may
+/// land in the lower one, so `ww_born` anchors differently), and both are
+/// fair: each agrees with analog. The bit difference proves the knobs reach
+/// the kernel; the z gates prove neither game biases fission.
+#[test]
+fn birth_window_parity_game_differs_from_legacy_and_both_are_unbiased() {
+    let mesh = RegularMesh {
+        lower_left: [-R, -R, -R],
+        upper_right: [R, R, R],
+        dimension: [1, 1, 1],
+    };
+    let ww = WeightWindows::new(mesh, vec![1.0e-5, 1.0e5, 2.0e7], vec![0.05, 0.5], vec![0.15, 1.5])
+        .expect("valid windows");
+    let seq = ComputeType::CpuSingleThread;
+    let analog = run(&base(seq));
+    let mut ks = Vec::new();
+    for vr in [
+        VarianceReduction::default().with_weight_windows(ww.clone()),
+        VarianceReduction::default().with_weight_windows(ww).with_legacy_weight_window_game(),
+    ] {
+        let r = run(&KeffSettings { variance_reduction: vr, ..base(seq) });
+        let z = (r.k_mean - analog.k_mean) / (analog.k_std.r_powi(2) + r.k_std.r_powi(2)).sqrt();
+        println!(
+            "analog {:.5} +/- {:.5}; windowed {:.5} +/- {:.5}; z {z:+.2}",
+            analog.k_mean, analog.k_std, r.k_mean, r.k_std
+        );
+        assert!(z.abs() < 4.0, "windowed k differs from analog by {z:+.2} sigma");
+        ks.push(r.k_mean);
+    }
+    assert_ne!(ks[0].to_bits(), ks[1].to_bits(), "birth/parity knobs did not reach the kernel");
+}
+
+/// **gh:#703 sigma validation (measurement, ignored).** Triggered runs stop on
+/// the first generation at which the reported sigma is small enough, a
+/// data-dependent stopping rule that can bias the REPORTED sigma low. Compare the
+/// mean reported `k_std` of 40 triggered runs (trigger: sigma <= 0.0025, minimum
+/// 20 active generations, at most 200) with the seed-to-seed standard deviation
+/// of their `k_mean`. Printed, not asserted: the ratio's own uncertainty with 40
+/// runs is ~11 %, so a pass/fail gate would be noise.
+///
+/// **Result (2026-11-20, bare HEU sphere, 2000 particles, 10 inactive, seeds
+/// 7000-7039, sequential):** the 40 runs stopped after 51-102 active generations
+/// (none hit the 200 cap); mean k = 1.00441, seed-to-seed sd = 0.00293, mean
+/// reported sigma = 0.00249, **ratio sd/sigma = 1.18 +- ~0.13**. The reported
+/// sigma is ~15 % low, 1.4 sigma of the ratio's own uncertainty from unity:
+/// suggestive of the usual under-estimate from ignoring generation-to-generation
+/// correlation (not measured here on an untriggered control, so the stopping rule
+/// is not separated from it).
+#[test]
+#[ignore = "measurement: ~40 triggered runs"]
+fn triggered_sigma_against_seed_to_seed_spread_703() {
+    let trigger = Some(Trigger { metric: TriggerMetric::StandardDeviation, threshold: 0.0025, ignore_zeros: false });
+    let mut ks = Vec::new();
+    let mut sigmas = Vec::new();
+    let mut gens = Vec::new();
+    for seed in 0..40u64 {
+        let s = KeffSettings {
+            keff_trigger: trigger.clone(),
+            n_active: 200,
+            seed: 7000 + seed,
+            ..base(ComputeType::CpuSingleThread)
+        };
+        let r = run(&s);
+        ks.push(r.k_mean);
+        sigmas.push(r.k_std);
+        gens.push(r.active_generations(&s));
+    }
+    let n = ks.len() as f64;
+    let mean = ks.iter().sum::<f64>() / n;
+    let sd = (ks.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+    let mean_sigma = sigmas.iter().sum::<f64>() / n;
+    println!("triggered runs: active generations {gens:?}");
+    println!("mean k = {mean:.5}; seed-to-seed sd = {sd:.5}; mean reported sigma = {mean_sigma:.5}; ratio sd/sigma = {:.2}", sd / mean_sigma);
+    assert!(sd.is_finite() && mean_sigma > 0.0);
 }

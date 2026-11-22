@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 
 //! # CI SMOKE COPY: Godiva (HEU-MET-FAST-001), HIGH tier, local ENDF/B-VIII.0

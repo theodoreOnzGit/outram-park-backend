@@ -49,6 +49,9 @@
 // still requires human review before it is promoted past the "Unit Tested" V&V
 // stage.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::gpu::union_grid::UnionTotalXs;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;

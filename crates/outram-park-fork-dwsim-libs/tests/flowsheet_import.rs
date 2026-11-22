@@ -55,6 +55,8 @@
 //! duty outlet to its energy stream is refused. The fixture is kept precisely
 //! because it pins that gap.
 
+// The `.dwxmz` importer is `std` only (gh:#1591).
+#![cfg(feature = "std")]
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

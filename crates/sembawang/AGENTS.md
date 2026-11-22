@@ -2,6 +2,23 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `sembawang` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1641, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps `crate::hash`, one-time initialisation `crate::sync::OnceLock`.
+  Inside `bwr_mark1`, write `::core::` (the local `mod core` shadows `core`).
+- ~~Only the OpenMC decay-data **loading** is `std`
+  (`bwr_mark1::fp_decay::{raw_data, graph, compute}`, which read the
+  `openmc-endf-8-depletion-lib-a`/`-b` crates); the committed element tables
+  (`ElementShares::committed`) the plant model uses build without it.~~
+  **CHANGED 2026-11-22:** the decay-data loading builds without `std` too
+  (`openmc-endf-8-depletion-lib-a`/`-b` 1.1.0 are `no_std`).
+- Printing is gated one statement at a time; integration tests and examples
+  are `std` only, as are the four unit tests that call `compute`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -130,6 +147,17 @@ in the demo.
   multi-hour.)
 - **Clean room:** public manuals and literature only, never MELCOR, MAAP,
   ASTEC, RELAP5, SCDAP or FRAPCON source.
+- **Equations go to offbeat, the plant stays here (2026-11-11, gh:#1335;
+  maintainer 2026-11-10: "the MELCOR equations clean room should live as an
+  offbeat module rather than in sembawang").** `aerosol`, `vapour`,
+  `rn_volume`, `iodine`, `wire` and the constant `params::R_GAS` moved
+  unchanged to `outram_park_fork_offbeat::melcor`;
+  `sembawang::bwr_mark1::{aerosol, iodine, rn_volume, vapour, wire}` are
+  deprecated `pub use` aliases for one release. New generic MELCOR-manual
+  equations go to `offbeat::melcor` when they need nothing beyond `petir`,
+  `tampines-steam-tables` and `changi`; anything needing `tampines`,
+  `teh-o-prke`, the ENDF libraries or `tuas_boussinesq_solver`, and all
+  plant data, stays here. Why each remaining file stayed: gh:#1335.
 - **Transcendentals through PETIR** (`.r_exp()` etc., gh:#985), never the
   platform's `.exp()`; converted 2026-10-29 with the effect measured in
   `verification_and_validation/bwr_mark1/petir-conversion.md`.

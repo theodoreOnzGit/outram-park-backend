@@ -91,15 +91,18 @@
 //!    [`crate::polyfill_beautify`], and for the same reason.
 //! 3. **Rebuild, not in-place.** Returns a new [`Mesh`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::polyfill;
 
 /// Blender's default angle limit for Limited Dissolve: 5°, in radians.
-pub const DEFAULT_ANGLE_LIMIT: f64 = 5.0 * std::f64::consts::PI / 180.0;
+pub const DEFAULT_ANGLE_LIMIT: f64 = 5.0 * core::f64::consts::PI / 180.0;
 
 /// Upstream's `COST_INVALID` — an edge that must never be dissolved.
 const COST_INVALID: f64 = f64::MAX;
@@ -139,7 +142,7 @@ fn unit_normal(ring: &[usize], positions: &[Vec3]) -> Option<Vec3> {
 /// merge would create a hole or a pinch and is refused. That refusal is
 /// this port's stand-in for upstream's `USE_DEGENERATE_CHECK`.
 pub(crate) fn join_faces(fa: &[usize], fb: &[usize]) -> Option<Vec<usize>> {
-    use std::collections::HashSet;
+    use crate::hash::HashSet;
 
     let mut directed: HashSet<(usize, usize)> = HashSet::new();
     for ring in [fa, fb] {
@@ -172,7 +175,7 @@ pub(crate) fn join_faces(fa: &[usize], fb: &[usize]) -> Option<Vec<usize>> {
 
     // Re-link the survivors into a cycle. Two edges leaving the same vertex
     // means the merged boundary pinches there; refuse.
-    let mut next: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut next: crate::hash::HashMap<usize, usize> = crate::hash::HashMap::new();
     for (u, v) in &directed {
         if next.insert(*u, *v).is_some() {
             return None;
@@ -304,7 +307,7 @@ fn dissolve_edges(faces: &mut [Option<Vec<usize>>], positions: &[Vec3], limit: f
             .iter()
             .min_by(|x, y| {
                 x.1.partial_cmp(y.1)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .unwrap_or(core::cmp::Ordering::Equal)
                     .then_with(|| x.0.cmp(y.0))
             })
             .map(|(k, v)| (k, v))

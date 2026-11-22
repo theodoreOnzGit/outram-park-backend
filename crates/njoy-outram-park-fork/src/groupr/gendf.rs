@@ -41,6 +41,9 @@
 //! kinematics) is not ported — see [`crate::groupr::panel`] and
 //! [`crate::groupr::kinematics`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::{Cont, List, SectionCursor};
 use crate::NjoyError;
 

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::MassDensity;
 use uom::si::f64::Pressure;
 use uom::si::f64::ThermodynamicTemperature;
@@ -98,6 +101,7 @@ fn solid_density(
             CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
         }
         Material::Liquid(_) => {
+            #[cfg(feature = "std")]
             println!("solid_density, use SolidMaterial enums only");
             return Err(TuasLibError::TypeConversionErrorMaterial);
         }

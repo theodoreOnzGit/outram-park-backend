@@ -7,6 +7,9 @@
 // script deliberately includes steps far beyond the explicit stability limit
 // (dt >> Lambda). That is the stiff behaviour the implicit solver exists to
 // avoid; it is pinned anyway, because the pin is about arithmetic identity.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const PIN_IMPLICIT: [(u64, u64); 3] = [
     (0xf8f1_ad9a_0d8d_9c71, 0x4024_2fb1_709e_059d),
     (0x3df8_e3d2_b841_a895, 0x4012_07d8_d4aa_66eb),

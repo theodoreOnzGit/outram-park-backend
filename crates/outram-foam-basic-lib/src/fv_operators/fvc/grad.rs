@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::interpolate;
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
@@ -44,6 +47,12 @@ pub fn grad(vol: &VolScalarField) -> VolVectorField {
     }
 
     for (pi, patch) in mesh.patches.iter().enumerate() {
+        // upstream: an `empty` patch field has no faces, so it adds nothing to
+        // the Gauss sum (gh:#1363; including them left round-off in the empty
+        // directions that changed the TVD limiter's `d . grad`).
+        if patch.kind == crate::mesh::fv_mesh::PatchKind::Empty {
+            continue;
+        }
         for fi in 0..patch.size {
             let gf = patch.start + fi;
             let owner = mesh.owner[gf];
@@ -61,7 +70,7 @@ pub fn grad(vol: &VolScalarField) -> VolVectorField {
     VolVectorField::new(
         crate::fv_operators::naming::derived_name("grad", &vol.name),
         vol.mesh.clone(),
-        Field::from_fn(mesh.n_cells, |c| g[c] * (1.0 / mesh.cell_volumes[c])),
+        Field::from_fn(mesh.n_cells, |c| g[c] / mesh.cell_volumes[c]),
         boundary,
     )
 }
@@ -72,7 +81,7 @@ mod tests {
     use crate::fields::vol_field::VolScalarField;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use approx::assert_relative_eq;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(

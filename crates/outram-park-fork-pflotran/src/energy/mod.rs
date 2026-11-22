@@ -88,6 +88,9 @@
 //! solve mix quantities of differing dimension; callers apply units at the
 //! case-setup layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use crate::grid::{BoundaryLocation, CartesianGrid};
 use crate::transport::FlowField;

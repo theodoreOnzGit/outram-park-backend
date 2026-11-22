@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Second-tranche groups of the pyDOSEIA code-to-code fixture: QUADPACK,
 //! ingestion, plume shine, DCF screening, plume rise and the driver. Included
 //! by `tests/pydoseia_code_to_code.rs`; the methodology and the results are in
@@ -103,6 +103,11 @@ pub const TOLERANCES: &[(&str, f64, &str)] = &[
         "driver_summary",
         0.0,
         "pandas sums (pairwise and Kahan) reproduced in order",
+    ),
+    (
+        "boundary_totals",
+        0.0,
+        "upstream's own `df_all` frames captured in memory at full precision (gh:#1429); the rows that go through numpy's exp are pinned in KNOWN_DIFFERENCES",
     ),
     (
         "boundary_totals_text",
@@ -889,7 +894,7 @@ pub fn port(
                 r.total,
             ]
         }
-        "boundary_totals_text" => {
+        "boundary_totals" | "boundary_totals_text" => {
             let sc = row.s("scenario");
             let cfg = driver_config(sc);
             let totals = assessment::plant_boundary_totals(

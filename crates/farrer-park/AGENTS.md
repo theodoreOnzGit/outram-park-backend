@@ -4,6 +4,14 @@
 Crate-specific guidance. The workspace-root `CLAUDE.md` still binds; this file
 adds to it and never relaxes it.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1632, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way: `core::` /
+`alloc::` paths and the `crate::nostd_prelude::*` glob in new code, maps from
+`crate::hash` (`hashbrown` without std), and printing only in tests or behind
+`#[cfg(feature = "std")]`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

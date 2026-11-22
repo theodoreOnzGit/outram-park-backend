@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Build, once, the ACE library that `tutorial_lct008 --ace-dir <dir>` reads:
 # LEU-COMP-THERM-008's 38 tapes (`five_route_keff/nuclides.tsv`: the 35 the

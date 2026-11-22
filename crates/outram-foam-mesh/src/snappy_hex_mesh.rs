@@ -89,17 +89,36 @@
 //! println!("refined mesh has {} cells", castellated.n_cells());
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod background;
 pub mod castellation;
 pub mod cyclic;
+pub mod dict;
+pub mod esi_feature;
+pub mod esi_layer_final;
+pub mod esi_layer_loop;
+pub mod esi_layer_outer;
+pub mod esi_layer_topo;
+pub mod esi_layers;
+pub mod esi_medial;
+pub mod esi_octree;
+pub mod esi_merge;
+pub mod esi_snap;
+pub mod esi_split;
 pub mod layers;
 pub mod poly_topology;
+pub mod refinement;
 pub mod snapping;
 pub mod stl;
 
 // Re-export the primary entry points at the module root for discoverability.
 pub use background::{BackgroundMesh, Bounds};
-pub use castellation::{castellate, CastellatedMesh, CastellationControls, SurfaceFace};
+pub use castellation::{
+    castellate, CastellatedMesh, CastellationControls, CellRemoval, RefinementSelection, SurfaceFace,
+    SurfaceRegionPatches,
+};
 pub use cyclic::{
     check_conformity, resolve_pairs, CyclicError, CyclicPair, CyclicPointConstraints,
     DEFAULT_CYCLIC_TOL,
@@ -107,7 +126,9 @@ pub use cyclic::{
 pub use layers::{add_layers, layer_thicknesses, total_layer_thickness, LayerControls};
 pub use poly_topology::{face_area_and_centre, MeshQuality, PolyPatchMesh, QualityLimits};
 pub use snapping::{raw_surface_displacements, snap, SnapControls};
-pub use stl::{read_stl, read_stl_ascii_str, read_stl_binary, read_stl_bytes, Triangle, TriangleSoup};
+pub use stl::{read_stl_ascii_str, read_stl_binary, read_stl_bytes, Triangle, TriangleSoup};
+#[cfg(feature = "std")]
+pub use stl::read_stl;
 
 use crate::MeshError;
 

@@ -75,6 +75,9 @@
 //! it is the caller's responsibility. AI-assisted port — untrusted draft
 //! material until human-reviewed per the crate `CLAUDE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::Component;
 

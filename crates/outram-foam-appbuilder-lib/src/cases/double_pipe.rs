@@ -45,8 +45,11 @@
 //! against the solved ε tests what the ideal model leaves out (axial
 //! conduction in the wall and the fluids, and the entrance regions' radial
 //! profiles), not an identity.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
 use uom::si::f64::{KinematicViscosity, Length, ThermodynamicTemperature, Time, Velocity, VolumeRate};
@@ -104,7 +107,7 @@ impl DoublePipeExchanger {
             fluid: IncompressibleThermo::si(1000.0, 4000.0, 0.6),
             nu: KinematicViscosity::new::<square_meter_per_second>(1.0e-6),
             wall: IncompressibleThermo::si(8000.0, 500.0, 16.0),
-            flow_rate: VolumeRate::new::<cubic_meter_per_second>(30.0 * 1.0e-6 / 0.01 * std::f64::consts::PI * 0.005 * 0.005),
+            flow_rate: VolumeRate::new::<cubic_meter_per_second>(30.0 * 1.0e-6 / 0.01 * core::f64::consts::PI * 0.005 * 0.005),
             t_hot_in: ThermodynamicTemperature::new::<kelvin>(350.0),
             t_cold_in: ThermodynamicTemperature::new::<kelvin>(300.0),
             annulus_flow_rate: None,
@@ -139,7 +142,7 @@ impl DoublePipeExchanger {
         let fluid = |mesh: Arc<FvMesh>, t_in: f64, dt: Time, q: VolumeRate| -> Result<PimpleFoam, AppBuilderError> {
             let area = patch_area(&mesh, "inlet")?;
             let flow = PipeFlow {
-                radius: Length::new::<meter>((area / std::f64::consts::PI).sqrt()),
+                radius: Length::new::<meter>((area / core::f64::consts::PI).sqrt()),
                 length: self.length,
                 bulk_velocity: Velocity::new::<meter_per_second>(q.get::<cubic_meter_per_second>() / area),
                 nu: self.nu,
@@ -165,7 +168,7 @@ impl DoublePipeExchanger {
 
 fn patch_index(m: &FvMesh, name: &str) -> Result<usize, AppBuilderError> {
     m.patches.iter().position(|p| p.name == name).ok_or_else(|| AppBuilderError::Case {
-        case: std::path::PathBuf::from("double_pipe"),
+        case: crate::path::PathBuf::from("double_pipe"),
         msg: format!("no patch named {name}"),
     })
 }

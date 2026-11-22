@@ -159,6 +159,9 @@
 //! (the 623.15 K / 100 MPa region relabel) is a 3 ppm enthalpy change that
 //! removes an inconsistency rather than creating one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use approx::assert_relative_eq;
 use uom::si::available_energy::{joule_per_kilogram, kilojoule_per_kilogram};
 use uom::si::f64::*;

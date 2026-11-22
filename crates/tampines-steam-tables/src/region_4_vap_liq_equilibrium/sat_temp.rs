@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{beta_dimensionless_pressure_4, region_4_coeff_index};
 use uom::si::{f64::*, thermodynamic_temperature::kelvin};

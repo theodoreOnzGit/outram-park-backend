@@ -50,10 +50,16 @@ converter, exactly as planned:
   2026-10-05** (GitHub #536): all 59 098 float fields of a two-material
   selection are character-identical to the tape NJOY's MODER writes (see
   *Testing*).
-- **NJOY blocked-binary** — not ported. A fully in-memory Rust pipeline that
+- **NJOY blocked-binary** — ~~not ported. A fully in-memory Rust pipeline that
   passes typed `Tape` values between modules has no use for it (per
   `porting-plan.md` §5); port only if interchange with the upstream Fortran
-  binary is ever needed.
+  binary is ever needed.~~ **CORRECTED 2026-11-13 (gh:#1375):** its *semantics*
+  are ported: in a deck a negative unit is held in memory at the precision NJOY's
+  binary carries (`deck::tapes::TapeUnits::put_gendf`, `GendfText::records`, the
+  PENDF and ACE unit flags), and ERRORR, WIMSR, PLOTR and ACER read it as NJOY
+  reads its binary; all 87 upstream decks are identical. The on-disk format
+  (`glstio`) is still not ported: a blocked-binary file on disk is refused
+  (`deck/tapes.rs`, "blocked-binary tape file on disk").
 
 ## Testing
 

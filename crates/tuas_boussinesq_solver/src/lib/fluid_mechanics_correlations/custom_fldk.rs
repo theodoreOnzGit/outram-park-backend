@@ -7,6 +7,9 @@
 //! All inputs and outputs are bare `f64` dimensionless quantities (Reynolds
 //! number, relative roughness, `L/D`). Reynolds number is recovered from a
 //! Bejan number by bisection root-finding.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::numerical_methods::bisection_residual;
 

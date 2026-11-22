@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod adjust_phi;
 
 /// Bounded names for operator-derived fields.
@@ -36,5 +39,7 @@ pub mod fvc;
 ///
 /// Usage mirrors `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
 pub mod fvm;
+
+pub mod les_filter;
 
 pub use adjust_phi::adjust_phi;

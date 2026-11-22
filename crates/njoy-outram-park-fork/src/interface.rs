@@ -49,8 +49,12 @@
 //!   ([`NuclearDataLibrary::from_file`], `write_*`) are native conveniences
 //!   that wrap them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
@@ -97,6 +101,7 @@ pub struct NuclearDataLibrary {
 impl NuclearDataLibrary {
     // ── Constructors ──────────────────────────────────────────────────────────
 
+    #[cfg(feature = "std")]
     /// Load an ENDF-6 evaluation from `path` (plain or gzipped).
     ///
     /// **Native convenience:** reads the file, then [`Self::from_tape`]. In a
@@ -119,7 +124,7 @@ impl NuclearDataLibrary {
     /// [`Self::from_tape`].
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, NjoyError> {
-        Self::from_tape(Tape::read(bytes)?)
+        Self::from_tape(Tape::from_bytes(bytes)?)
     }
 
     /// An evaluation from a parsed [`Tape`]. The tape must hold one material;
@@ -435,6 +440,7 @@ impl NuclearDataLibrary {
         self.processed()?.to_ace()
     }
 
+    #[cfg(feature = "std")]
     /// Write [`Self::to_ace`] as a Type-1 (text) ACE file. Native
     /// convenience; in a browser use [`AceTable::to_type1_text`].
     ///
@@ -445,6 +451,7 @@ impl NuclearDataLibrary {
         self.to_ace()?.write_type1(path).map_err(NjoyError::Io)
     }
 
+    #[cfg(feature = "std")]
     /// Write [`Self::to_ace`] as a Type-2 (Fortran unformatted, `itype = 2`)
     /// ACE file. Native convenience; in a browser use
     /// [`AceTable::to_type2_bytes`].
@@ -491,6 +498,7 @@ impl NuclearDataLibrary {
         ))
     }
 
+    #[cfg(feature = "std")]
     /// Write [`Self::to_pendf_tape`] as ENDF text with [`Tape::write`]
     /// (MODER's formatting). Native convenience.
     ///

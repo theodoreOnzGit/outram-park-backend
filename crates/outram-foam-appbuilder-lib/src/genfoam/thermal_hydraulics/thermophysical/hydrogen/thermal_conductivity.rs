@@ -57,6 +57,9 @@
 //! [`viscosity::dynamic_viscosity`](super::viscosity::dynamic_viscosity) — see
 //! that module's doc for the upstream naming quirk this reproduces.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::collision_integrals::{a12, b12, omega22_12};
 use super::constants::{R, W, W_H};

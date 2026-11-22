@@ -32,6 +32,9 @@
 
 //! **OpenDA's Nelder–Mead simplex** (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cost::CostFunction;
 use super::linalg::{self, axpy, scale};
 use crate::{RafflesError, Result};
@@ -142,9 +145,9 @@ impl Simplex {
         let (r, e, c, s) = (-1.0_f64, 2.0_f64, 0.5_f64, 0.5_f64);
         let n = self.n;
         let nf = n as f64;
-        let mut sparam = std::mem::take(&mut self.vertices);
-        let mut costs = std::mem::take(&mut self.costs);
-        let mut preds = std::mem::take(&mut self.preds);
+        let mut sparam = core::mem::take(&mut self.vertices);
+        let mut costs = core::mem::take(&mut self.costs);
+        let mut preds = core::mem::take(&mut self.preds);
         let mut flag = false;
         self.iterations += 1;
         let mut centroid = sparam[0].clone();

@@ -56,6 +56,9 @@
 //! beyond it, because an all-zero result is otherwise indistinguishable from a
 //! correct answer. A mixed set is allowed through — check [`DilutionFactors::reach`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Frequency, Length, MassRate, Time};
 use uom::si::frequency::hertz;
 use uom::si::length::meter;

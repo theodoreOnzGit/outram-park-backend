@@ -113,6 +113,9 @@
 //! finite-volume solver (gh:#1068) is not part of [`Discretisation`] yet; the
 //! comparison test leaves a marked hook for it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod eigen;
 mod pipe;
 

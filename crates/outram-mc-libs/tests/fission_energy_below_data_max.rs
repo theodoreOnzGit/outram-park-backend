@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **GitHub #463 item 2: no fission neutron is born at or above the top of
 //! the data.** OpenMC's `sample_fission_neutron` resamples until
@@ -21,6 +21,8 @@
 //!    10 MeV) at 20 MeV incident, every birth is below the cap, **and** the
 //!    uncapped draw puts some births above it, so the arm is able to fail.
 //!    Before 2026-09-30 nothing enforced the cap.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::material::nuclide::Nuclide;
 

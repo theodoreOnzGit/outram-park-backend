@@ -64,6 +64,9 @@
 //! `expPr` per side) and the method signatures document, but do not compute,
 //! the flux balance above. Every method body is `unimplemented!()`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Ratio, ThermalConductivity, ThermodynamicTemperature};
 
 use super::super::units::HeatTransferCoefficient;

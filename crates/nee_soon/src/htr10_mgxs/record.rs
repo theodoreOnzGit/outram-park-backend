@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! What a case run leaves behind, and how it is written and read back.
@@ -23,8 +22,14 @@
 //! file-format exception to the crate's `uom` rule. The run API itself takes
 //! and returns `uom` quantities ([`super::MgxsCase::temperature`]).
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
+#[cfg(feature = "std")]
 use std::path::Path;
+
+#[cfg(feature = "std")]
 
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +37,8 @@ use crate::mgxs::MgxsLibrary;
 
 /// Where the run came from, supplied by the caller (the record cannot
 /// discover its own commit).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Provenance {
     /// `git rev-parse --short=10 HEAD` of this repository, `-dirty` if a
     /// tracked file differed.
@@ -42,7 +48,8 @@ pub struct Provenance {
 }
 
 /// One pass of a case.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PassRecord {
     /// `"scalar"` or `"matrix"`.
     pub pass: String,
@@ -64,7 +71,8 @@ pub struct PassRecord {
 }
 
 /// The fine library collapsed onto one structure.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CollapsedSummary {
     /// [`super::Collapse::label`].
     pub structure: String,
@@ -85,7 +93,8 @@ pub struct CollapsedSummary {
 }
 
 /// One pass/fail check, recorded whichever way it went.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Check {
     /// What was checked.
     pub name: String,
@@ -96,7 +105,8 @@ pub struct Check {
 }
 
 /// Everything a case run produced.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CaseRecord {
     /// Case name ([`super::MgxsCase::name`]).
     pub case: String,
@@ -298,6 +308,7 @@ impl CaseRecord {
         m
     }
 
+    #[cfg(feature = "std")]
     /// Write `record.json`, `summary.csv` and `README.md` into `dir`,
     /// creating it.
     ///
@@ -321,6 +332,7 @@ impl CaseRecord {
         put(Self::README, &self.readme_md())
     }
 
+    #[cfg(feature = "std")]
     /// Read `record.json` back from a case folder.
     ///
     /// # Errors
@@ -334,6 +346,7 @@ impl CaseRecord {
     }
 }
 
+#[cfg(feature = "std")]
 /// Rewrite `INDEX.md` in `root` from every `<root>/<case>/record.json`:
 /// one table row per case, in case-name order, so the folder's state can be
 /// read in one file. Folders without a record (a run in progress) are listed
@@ -447,6 +460,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// A record written to a folder reads back identical, and its README and
     /// CSV carry the numbers (a failed check is shown as a failure).
     #[test]
@@ -465,6 +479,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[cfg(feature = "std")]
     /// The index lists a finished case with its numbers and a folder without
     /// a record as unfinished.
     #[test]

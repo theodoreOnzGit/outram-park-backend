@@ -28,11 +28,14 @@
 //! multiply without bound and is capped (and physically meaningless for a fixed
 //! source). Neutron-only, offline data. See the workspace `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::physics::transport_csg::{transport_history_vr, Site};
+use crate::physics::transport_csg::Site;
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::tally::scoring::flush_batch;
@@ -99,7 +102,13 @@ pub enum FixedSource {
     /// plausible wrong number. Check
     /// [`SurfaceSource::dropped`](crate::source::extra::SurfaceSource::dropped)
     /// before building this if a soft failure is wanted.
-    Surface(std::sync::Arc<crate::source::extra::SurfaceSource>),
+    Surface(alloc::sync::Arc<crate::source::extra::SurfaceSource>),
+    /// **A general [`IndependentSource`](crate::source::source::IndependentSource)**
+    /// (gh:#1388): any spatial, energy and angular distribution, including
+    /// OpenMC's `Mixture`, `CylindricalIndependent`, ... (via the
+    /// `Distribution` variants of `SpatialKind` / `EnergyKind`). The birth
+    /// weight is the source's `strength` times the importance weights.
+    Independent(alloc::sync::Arc<crate::source::source::IndependentSource>),
 }
 
 impl FixedSource {
@@ -111,7 +120,7 @@ impl FixedSource {
     /// what makes a two-stage run answer the same problem as a single-stage
     /// one — under variance reduction the recorded weights are nowhere near 1,
     /// and discarding them would rescale stage two's answer silently.
-    fn sample(&self, seed: &mut u64) -> (Site, f64) {
+    pub(crate) fn sample(&self, seed: &mut u64) -> (Site, f64) {
         match self {
             FixedSource::Point { r, energy_ev } => {
                 let (dx, dy, dz) = isotropic_direction(seed);
@@ -130,6 +139,10 @@ impl FixedSource {
                     lower.z + prn(seed) * (upper.z - lower.z),
                 );
                 (Site::new(r, u, *energy_ev), 1.0)
+            }
+            FixedSource::Independent(src) => {
+                let site = src.sample(seed);
+                (Site::new(site.r, site.u, site.e), site.wgt)
             }
             FixedSource::Surface(ss) => {
                 // A replay draws no direction or energy of its own: both were
@@ -167,10 +180,28 @@ pub struct FixedSourceSettings {
     pub temperature_k: f64,
     /// Master RNG seed (fixed → reproducible on the single-thread path).
     pub seed: u64,
-    /// Safety cap on fission secondaries transported per source particle — the
-    /// backstop against runaway multiplication if a (mis-specified)
-    /// super-critical system is run as a fixed source.
+    /// Safety cap on fission secondaries — the backstop against runaway
+    /// multiplication if a (mis-specified) super-critical system is run as a
+    /// fixed source. **Since 2026-11-20 (gh:#685) it caps the LIVE secondary bank**
+    /// (secondaries waiting to be transported), as OpenMC's
+    /// `settings::max_secondaries` caps the live secondary bank (the issue's
+    /// citation; the vendored source is not in this checkout). ~~It capped the
+    /// CUMULATIVE number transported per source particle.~~ That earlier meaning
+    /// is kept as an option: [`Self::cumulative_secondary_cap`].
     pub max_secondaries: usize,
+    /// `true` (default) ALSO keeps the pre-2026-11-20 meaning of
+    /// [`Self::max_secondaries`] as a runaway backstop: at most that many
+    /// secondaries are transported per source particle in total. `false` is pure
+    /// upstream (live-bank cap only), which does not bound a near-critical or
+    /// supercritical chain: measured 2026-11-20, a Godiva-sized HEU sphere run as
+    /// a fixed source with only the live cap did not finish in 50 minutes
+    /// (`tests/tally_batch_log_506.rs`), where the cumulative cap ends it.
+    pub cumulative_secondary_cap: bool,
+    /// Normalise each batch per source particle before it is flushed (gh:#675,
+    /// OpenMC `Tally::accumulate`). **`true` is the default since 2026-11-20**
+    /// (maintainer direction on gh:#675); ~~`false` kept the raw per-batch sums~~
+    /// and is the explicit ablation. The divisor is that batch's own particle count.
+    pub normalise_tallies: bool,
     /// Variance reduction (GitHub #258). The [`Default`] is analog.
     ///
     /// A fixed-source shielding run is the case variance reduction exists for:
@@ -178,6 +209,26 @@ pub struct FixedSourceSettings {
     /// so the attenuated tally never converges. That is why this field is here
     /// and not only on [`crate::physics::keff::KeffSettings`].
     pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
+    /// Where each history's random streams start. The default is the run's
+    /// single sequential stream. [`SeedingMode::OpenMc`] puts particle `p` of
+    /// batch `b` (OpenMC's `current_batch = b + 1`, `n_particles` per batch,
+    /// one generation per batch) on OpenMC's `init_particle_seeds` layout: the
+    /// source is sampled from `STREAM_SOURCE`, the transport (and the fission
+    /// progeny, which continue the parent's stream as in OpenMC) from
+    /// `STREAM_TRACKING`, the URR bands from `STREAM_URR_PTABLE`
+    /// (gh:#1386, `initialize_history`, `src/simulation.cpp`).
+    pub seeding: crate::rng::openmc_seeding::SeedingMode,
+    /// Report-only log of each batch's tally bin sums (GitHub #506); `None`
+    /// (the default) records nothing. Never read by transport.
+    pub tally_batch_log: Option<crate::stats::correlated_sigma::TallyBatchLog>,
+}
+
+impl FixedSourceSettings {
+    /// This run with `seeding` ([`FixedSourceSettings::seeding`]).
+    pub fn with_seeding(mut self, seeding: crate::rng::openmc_seeding::SeedingMode) -> Self {
+        self.seeding = seeding;
+        self
+    }
 }
 
 impl Default for FixedSourceSettings {
@@ -189,6 +240,10 @@ impl Default for FixedSourceSettings {
             temperature_k: 293.6,
             seed: 1,
             max_secondaries: 10_000,
+            cumulative_secondary_cap: true,
+            normalise_tallies: true,
+            seeding: Default::default(),
+            tally_batch_log: None,
         }
     }
 }
@@ -206,6 +261,14 @@ pub struct FixedSourceResult {
     /// (`Σ ν·σ_f / σ_t` over collisions) — the sub-critical multiplication `M`.
     /// `0` for a non-fissile (shielding) system.
     pub multiplication: f64,
+    /// Fission secondaries **discarded** because a source particle's chain hit
+    /// [`FixedSourceSettings::max_secondaries`] (gh:#685). Non-zero means
+    /// `multiplication` and any tally are **biased low**: upstream aborts here
+    /// (`fatal_error`, `src/physics.cpp:122-130`) rather than truncating, and
+    /// this port reports instead of aborting, so check this field. Near
+    /// critical (`k -> 1`) the expected chain length is `1/(1-k)`, so a fixed
+    /// cap truncates a growing share of the answer.
+    pub dropped_secondaries: usize,
 }
 
 /// Run a fixed-source transport calculation.
@@ -254,6 +317,37 @@ pub fn run_fixed_source(
     )
 }
 
+/// [`run_fixed_source`], failing as OpenMC does when the secondary bank is
+/// truncated (gh:#685): `fatal_error("The secondary particle bank appears to be
+/// growing without bound ...")`, `src/physics.cpp:122-130`. `Ok` is bit-identical
+/// to [`run_fixed_source`]; an `Err` carries the message and the truncated
+/// result is dropped, since its `multiplication` and tallies are biased low.
+///
+/// # Errors
+///
+/// A message naming how many secondaries were dropped and the cap, when
+/// [`FixedSourceResult::dropped_secondaries`] is non-zero.
+pub fn try_run_fixed_source(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source: &FixedSource,
+    settings: &FixedSourceSettings,
+    tally: Option<&mut Tally>,
+) -> Result<FixedSourceResult, String> {
+    let res = run_fixed_source(geom, materials, nuclides, source, settings, tally);
+    if res.dropped_secondaries > 0 {
+        return Err(format!(
+            "{} fission secondaries were dropped at max_secondaries = {} (OpenMC aborts, \
+             src/physics.cpp:122-130): the multiplication and any tally are biased low. \
+             Raise FixedSourceSettings::max_secondaries, or use run_fixed_source and \
+             check dropped_secondaries.",
+            res.dropped_secondaries, settings.max_secondaries
+        ));
+    }
+    Ok(res)
+}
+
 /// [`run_fixed_source`] with **particle track capture** — GitHub #271.
 ///
 /// Every phase-space state of the first `recorder.max_tracks` histories is
@@ -278,27 +372,62 @@ pub fn run_fixed_source_traced(
     // cell its tally is about.
     distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>,
 ) -> FixedSourceResult {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
     let mut batch = vec![0.0; n_bins];
 
     let n = settings.n_particles.max(1);
     let n_batches = settings.n_batches.max(1);
-    // Even split; the last batch absorbs the remainder.
+    // gh:#675: EXACTLY `n_batches` batches, sizes differing by at most one
+    // (`n / nb`, the first `n % nb` batches one larger). ~~`ceil(n / nb)` per
+    // batch with an early `break`, which flushed fewer than `n_batches`
+    // realizations (n = 100, nb = 40 gave 34) though the docs say to read a
+    // tally with `n_batches`.~~ **CORRECTED 2026-11-19.** An empty batch
+    // (n < nb) still closes as a zero realization. `per_batch` stays the
+    // largest batch for the OpenMC seeding layout (unchanged when `nb | n`).
+    let (base, rem) = (n / n_batches, n % n_batches);
     let per_batch = n.div_ceil(n_batches);
 
     let mut total_histories = 0usize;
+    let mut dropped_secondaries = 0usize;
     let mut production_sum = 0.0;
     let mut done = 0usize;
 
-    for _b in 0..n_batches {
-        let this_batch = per_batch.min(n - done);
-        if this_batch == 0 {
-            break;
-        }
-        for _ in 0..this_batch {
+    for b in 0..n_batches {
+        let this_batch = base + usize::from(b < rem);
+        for i in 0..this_batch {
+            // SeedingMode::OpenMc: this particle's three OpenMC streams.
+            let openmc = match settings.seeding {
+                crate::rng::openmc_seeding::SeedingMode::Outram => None,
+                crate::rng::openmc_seeding::SeedingMode::OpenMc { total_gen } => {
+                    let mut layout = crate::rng::openmc_seeding::OpenMcRunLayout::single_rank(
+                        settings.seed as i64,
+                        per_batch as i64,
+                        1,
+                    );
+                    layout.total_gen = total_gen;
+                    Some(layout.particle_seeds(b as i64 + 1, 1, i as i64 + 1))
+                }
+            };
+            let mut src_stream = openmc.map(|s| s[crate::rng::openmc_seeding::STREAM_SOURCE]);
+            // The default keeps the one sequential stream, copied in and out.
+            let urr_start = openmc.map(|s| s[crate::rng::openmc_seeding::STREAM_URR_PTABLE]);
             // One source particle and its fission progeny (a private bank).
-            let (birth_site, birth_weight) = source.sample(&mut seed);
+            let (birth_site, birth_weight) = match src_stream.as_mut() {
+                Some(ss) => source.sample(ss),
+                None => source.sample(&mut seed),
+            };
+            // gh:#1493: the copy is taken AFTER the source draws, so the default
+            // mode keeps develop's one sequential stream. Copying before them
+            // (3134e3134) made `seed = hseed` below discard the source's advance:
+            // every history reused the same source variates.
+            let mut hseed = openmc.map_or(seed, |s| s[crate::rng::openmc_seeding::STREAM_TRACKING]);
             let mut bank = vec![birth_site];
             // Only the SOURCE particle carries the replayed weight; its
             // fission progeny are born at 1 like any other secondary.
@@ -308,7 +437,7 @@ pub fn run_fixed_source_traced(
                 total_histories += 1;
                 let mut next: Vec<Site> = Vec::new();
                 // k_running = 1.0: analog multiplicity (no eigenvalue normalization).
-                let prod = transport_history_vr(
+                let prod = crate::physics::transport_csg::transport_history_vr_urr(
                     site,
                     geom,
                     materials,
@@ -317,7 +446,7 @@ pub fn run_fixed_source_traced(
                     &[],
                     1.0,
                     &mut next,
-                    &mut seed,
+                    &mut hseed,
                     tally.as_deref(),
                     &mut batch,
                     // Leakage accounting is not tracked for fixed-source runs —
@@ -335,21 +464,37 @@ pub fn run_fixed_source_traced(
                     // Only the source particle carries a replayed weight; a
                     // fission secondary is born at 1 like any other.
                     if is_source_particle { birth_weight } else { 1.0 },
+                    urr_start,
                     &mut crate::physics::tracking_trace::no_trace,
                 );
                 is_source_particle = false;
                 production_sum += prod.production;
                 for s in next {
-                    if secondaries < settings.max_secondaries {
+                    let room = bank.len() < settings.max_secondaries
+                        && (!settings.cumulative_secondary_cap || secondaries < settings.max_secondaries);
+                    if room {
                         bank.push(s);
                         secondaries += 1;
+                    } else {
+                        dropped_secondaries += 1;
                     }
                 }
+            }
+            if openmc.is_none() {
+                seed = hseed;
             }
         }
         done += this_batch;
         // Close this batch as one tally realization.
         if let Some(t) = tally.as_deref_mut() {
+            // Report-only per-batch log (GitHub #506): reads, draws nothing.
+            if let Some(log) = &settings.tally_batch_log {
+                log.push(&batch);
+            }
+            if settings.normalise_tallies && this_batch > 0 {
+                let w = this_batch as f64;
+                batch.iter_mut().for_each(|v| *v /= w);
+            }
             flush_batch(t, &mut batch);
         }
     }
@@ -358,7 +503,44 @@ pub fn run_fixed_source_traced(
         source_particles: done,
         total_histories,
         multiplication: production_sum / done.max(1) as f64,
+        dropped_secondaries,
     }
+}
+
+/// The result of [`run_fixed_source_flux_derivative`] (the general type of
+/// [`crate::physics::derivative_run`]).
+pub use crate::physics::derivative_run::DerivativeResult as FluxDerivativeResult;
+
+/// **A tally derivative, wired into the transport** (gh:#683, #263): the FLUX in
+/// `score_material` and its derivative with respect to the variable of
+/// `derivative`, from one fixed-source run. A thin wrapper over
+/// [`crate::physics::derivative_run::run_fixed_source_derivative`] with the flux
+/// score; see that module for the method, scope and the other scores.
+///
+/// # Errors
+///
+/// A temperature derivative, or any error of the derivative accumulators.
+pub fn run_fixed_source_flux_derivative(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source: &FixedSource,
+    settings: &FixedSourceSettings,
+    derivative: &crate::tally::derivative::TallyDerivative,
+    score_material: usize,
+) -> Result<FluxDerivativeResult, String> {
+    crate::physics::derivative_run::run_fixed_source_derivative(
+        geom,
+        materials,
+        nuclides,
+        source,
+        settings,
+        &crate::physics::derivative_run::DerivativeSpec {
+            derivative: derivative.clone(),
+            score: crate::tally::tally::ScoreType::Flux,
+            score_material,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -407,7 +589,7 @@ mod tests {
             name: "flux".into(),
             filters: vec![filter],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); 1],
+            bins: vec![TallyBin::default(); 1], derivative: None,
         }
     }
 
@@ -448,8 +630,9 @@ mod tests {
         );
         assert_eq!(res.multiplication, 0.0, "no fissile material");
         // Flux tally sum is the total track length = N·R (exact for a void).
-        let total_path = tally.bins[0].sum;
-        let mean_path = total_path / n as f64;
+        // gh:#675: normalised per source particle by default, so the mean over
+        // batches IS the mean path length (before: raw sum / n).
+        let mean_path = tally.bins[0].mean_realized();
         assert!(
             (mean_path - r_cm).abs() < 1e-9,
             "mean path length = R; got {mean_path} vs {r_cm}"
@@ -522,5 +705,165 @@ mod tests {
             "secondaries were transported"
         );
         assert!(tally.bins[0].sum > 0.0, "flux tally is positive");
+        assert_eq!(res.dropped_secondaries, 0, "default cap not reached here");
+    }
+
+    /// gh:#675: `normalise_tallies` divides each batch by its own particle count:
+    /// 100 particles in 4 batches of 25, so every bin mean is the raw one over 25;
+    /// the run itself (histories, multiplication) is untouched.
+    #[test]
+    fn normalised_fixed_source_tallies_are_the_raw_ones_per_source_particle() {
+        let geom = sphere_geom(5.0, BoundaryType::Vacuum, CellFill::Void);
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 1.0e6 };
+        let run = |norm: bool| {
+            let mut tally = flux_tally();
+            let res = run_fixed_source(
+                &geom, &[], &[], &src,
+                &FixedSourceSettings { n_particles: 100, n_batches: 4, normalise_tallies: norm, ..Default::default() },
+                Some(&mut tally),
+            );
+            (res.total_histories, tally.bins[0].mean_realized())
+        };
+        let (h_raw, raw) = run(false);
+        let (h_norm, norm) = run(true);
+        assert_eq!(h_raw, h_norm);
+        assert!((raw / 25.0 - norm).abs() <= 1e-12 * raw, "{raw} / 25 vs {norm}");
+    }
+
+    /// gh:#675: exactly `n_batches` realizations are flushed, whatever `n`
+    /// (100 particles in 40 batches flushed 34 before; 10 in 6 flushed 5), and the
+    /// void-sphere tally, where every particle scores exactly R, has zero variance.
+    #[test]
+    fn exactly_n_batches_realizations_are_flushed() {
+        let r_cm = 5.0;
+        let geom = sphere_geom(r_cm, BoundaryType::Vacuum, CellFill::Void);
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 1.0e6 };
+        for (n, nb) in [(100usize, 40usize), (10, 6), (1000, 20), (7, 7)] {
+            let mut tally = flux_tally();
+            let res = run_fixed_source(
+                &geom,
+                &[],
+                &[],
+                &src,
+                &FixedSourceSettings { n_particles: n, n_batches: nb, ..Default::default() },
+                Some(&mut tally),
+            );
+            assert_eq!(res.source_particles, n);
+            assert_eq!(tally.bins[0].count, nb as u64, "n = {n}, n_batches = {nb}");
+        }
+    }
+
+    /// gh:#685: a cap that truncates a chain is REPORTED, not silent. The same
+    /// strongly sub-critical HEU sphere with `max_secondaries = 1` must drop
+    /// secondaries and say so, and the default cap drops none.
+    #[test]
+    fn a_truncating_secondary_cap_is_reported() {
+        use crate::material::material::{Material, NuclideComponent};
+        use crate::material::nuclide::Nuclide;
+        let nuclides = vec![
+            Nuclide::from_core("U234").unwrap(),
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let heu = Material {
+            id: 1,
+            name: "HEU".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+            ],
+        };
+        let geom = sphere_geom(4.0, BoundaryType::Vacuum, CellFill::Material(0));
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let run = |cap: usize| {
+            run_fixed_source(
+                &geom,
+                &[heu.clone()],
+                &nuclides,
+                &src,
+                &FixedSourceSettings { n_particles: 200, n_batches: 2, max_secondaries: cap, ..Default::default() },
+                None,
+            )
+        };
+        let capped = run(1);
+        assert!(capped.dropped_secondaries > 0, "cap of 1 must truncate");
+        let refused = try_run_fixed_source(
+            &geom, &[heu.clone()], &nuclides, &src,
+            &FixedSourceSettings { n_particles: 200, n_batches: 2, max_secondaries: 1, ..Default::default() },
+            None,
+        );
+        assert!(refused.unwrap_err().contains("dropped"), "the try_ form refuses");
+        assert_eq!(run(10_000).dropped_secondaries, 0);
+        // gh:#685: the cap is on the LIVE bank, so it never drops more than the
+        // old cumulative cap does (the live bank is at most the cumulative count),
+        // and the cumulative meaning stays available as an option.
+        let cumulative = run_fixed_source(
+            &geom,
+            &[heu.clone()],
+            &nuclides,
+            &src,
+            &FixedSourceSettings {
+                n_particles: 200,
+                n_batches: 2,
+                max_secondaries: 1,
+                cumulative_secondary_cap: true,
+                ..Default::default()
+            },
+            None,
+        );
+        assert!(cumulative.dropped_secondaries >= capped.dropped_secondaries);
+    }
+
+    /// gh:#683 / #263, analytic: in an infinite (reflective) non-fissile medium
+    /// every neutron dies by absorption, and the spectrum shape does not depend
+    /// on the density, so the track-length flux is `Phi = 1 / Sigma_a_eff` and
+    /// scales as `1 / rho`: `d Phi / d rho = -Phi / rho`. Hydrogen, reflective
+    /// sphere, a 2 MeV point source, 20 batches of 1000 histories (measured 2026-11-20:
+    /// flux 75.54 +- 0.38, d flux/d rho -1049 +- 94 against the analytic -1144, +1.01
+    /// sigma; the same run with 50 histories per batch gave -1488 +- 281, -1.32 sigma). The derivative
+    /// accumulated along each history through the trace observer must reproduce
+    /// `-Phi / rho` within four combined standard errors; a missing streaming or
+    /// collision term (the gh:#683 defect) gives a different sign or size. The
+    /// density derivative of a run on a DIFFERENT material (the filter) is zero.
+    #[test]
+    fn the_flux_derivative_in_an_infinite_medium_is_minus_flux_over_density() {
+        use crate::material::material::{Material, NuclideComponent};
+        use crate::material::nuclide::Nuclide;
+        use crate::tally::derivative::{DerivativeVariable, TallyDerivative};
+        let nuclides = vec![Nuclide::from_core("H1").unwrap()];
+        let rho = 6.6e-2;
+        let mats = vec![Material {
+            id: 1,
+            name: "H".into(),
+            temperature: 293.6,
+            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: rho }],
+        }];
+        let geom = sphere_geom(30.0, BoundaryType::Reflective, CellFill::Material(0));
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let settings = FixedSourceSettings { n_particles: 20000, n_batches: 20, seed: 7, ..Default::default() };
+        let d = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
+        let r = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &d, 0).unwrap();
+        let expected = -r.flux / rho;
+        let sigma = (r.d_flux_std.powi(2) + (r.flux_std / rho).powi(2)).sqrt();
+        println!(
+            "flux = {:.4} +- {:.4}; d flux/d rho = {:.3} +- {:.3}; analytic -flux/rho = {:.3} ({:+.2} sigma)",
+            r.flux, r.flux_std, r.d_flux, r.d_flux_std, expected, (r.d_flux - expected) / sigma
+        );
+        assert!(r.flux > 0.0 && r.d_flux < 0.0, "flux {} and derivative {} must have opposite signs", r.flux, r.d_flux);
+        assert!((r.d_flux - expected).abs() < 4.0 * sigma, "d flux/d rho {} vs -flux/rho {expected} (sigma {sigma})", r.d_flux);
+        // One nuclide in the material: a nuclide-density derivative is the density
+        // derivative (`d Sigma/d N_i = sigma_i = Sigma/rho`), on the same histories.
+        let dn = TallyDerivative { material_idx: 0, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
+        let rn = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dn, 0).unwrap();
+        assert!((rn.d_flux - r.d_flux).abs() <= 1e-9 * r.d_flux.abs(), "{} vs {}", rn.d_flux, r.d_flux);
+        // ~~Temperature is refused.~~ **CORRECTED 2026-11-20:** it is supported on
+        // the WMP (`Core`) tier (finite-difference dSigma/dT); here it must run and
+        // give a finite number. Its analytic check is in
+        // `tests/tally_derivatives_wired.rs`.
+        let dt = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Temperature };
+        let rt = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dt, 0).unwrap();
+        assert!(rt.d_flux.is_finite());
     }
 }

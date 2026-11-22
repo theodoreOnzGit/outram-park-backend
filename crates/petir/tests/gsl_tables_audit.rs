@@ -7,8 +7,9 @@
 //! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs`,
 //! `lambert.rs`, `clausen.rs`, `transport.rs`, `atanint.rs`,
 //! `synchrotron.rs`, `fermi_dirac.rs`, `dawson.rs`, `expint3.rs`,
-//! `sinint.rs`, `shint.rs` and `gamma.rs` — 101 file-scope tables plus two
-//! local ones, **2413 literals**.
+//! `sinint.rs`, `shint.rs`, `gamma.rs` and (since 2026-11-12, gh:#1421)
+//! `trig.rs` — ~~101~~ 103 file-scope tables plus two local ones,
+//! ~~2413~~ **2436 literals**.
 //!
 //! `gamma.rs` is the odd one out and was the odd one *missing*: its
 //! `LANCZOS_7_C` is not a Chebyshev series but the Lanczos `g=7, n=9`
@@ -301,6 +302,9 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("sinint.rs", "G2", "sinint.c", "g2_data"),
     ("sinint.rs", "SI", "sinint.c", "si_data"),
     ("sinint.rs", "CI", "sinint.c", "ci_data"),
+    // trig.c -- added with `sin_gsl`/`cos_gsl` (gh:#1421, 2026-11-12).
+    ("trig.rs", "SIN_DATA", "trig.c", "sin_data"),
+    ("trig.rs", "COS_DATA", "trig.c", "cos_data"),
 ];
 
 /// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
@@ -517,8 +521,8 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        2413,
-        "expected 2413 coefficients across {} tables, audited {checked}",
+        2436,
+        "expected 2436 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
 }
@@ -527,7 +531,7 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
 ///
 /// Kept as a named constant so `every_module_with_a_table_is_in_the_audited_list`
 /// can check it against the directory rather than against nobody.
-const AUDITED_MODULES: [&str; 16] = [
+const AUDITED_MODULES: [&str; 17] = [
     "bessel.rs",
     "psi.rs",
     "zeta.rs",
@@ -544,6 +548,7 @@ const AUDITED_MODULES: [&str; 16] = [
     "sinint.rs",
     "shint.rs",
     "gamma.rs",
+    "trig.rs",
 ];
 
 /// **Every module under `src/specfunc/` that declares a `[f64; N]` table is

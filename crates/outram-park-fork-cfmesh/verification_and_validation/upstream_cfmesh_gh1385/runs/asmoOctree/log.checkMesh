@@ -1,0 +1,115 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh
+Date   : Nov 11 2026
+Time   : 09:33:11
+Host   : vm
+PID    : 28697
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/asmoOctree
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+--> FOAM Warning : 
+    From static Foam::instantList Foam::timeSelector::select0(Foam::Time&, const Foam::argList&)
+    in file db/Time/timeSelector.C at line 284
+    No time specified or available, selecting 'constant'
+Create mesh for time = constant
+
+Check mesh...
+
+Time = constant
+
+Mesh stats 
+    points:           71650
+    internal points:  49829
+    faces:            177398
+    internal faces:   155799
+    cells:            53003
+    faces per cell:   6.2863800162254968
+    boundary patches: 10
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     45912
+    prisms:        220
+    wedges:        0
+    pyramids:      620
+    tet wedges:    0
+    tetrahedra:    324
+    polyhedra:     5927
+    Breakdown of polyhedra by number of faces:
+        faces   number of cells
+            6   1299
+            7   549
+            8   58
+            9   2924
+           12   883
+           15   212
+           18   2
+
+Checking topology...
+    Boundary definition OK.
+    Cell to face addressing OK.
+    Point usage OK.
+    Upper triangular ordering OK.
+    Face vertices OK.
+    Number of regions: 1 (OK).
+
+Checking patch topology for multiply connected surfaces...
+                   Patch    Faces   Points  Surface topology
+               INLE10000      144      171  ok (non-closed singly connected)
+               OUTL20001      144      171  ok (non-closed singly connected)
+               SYMP30002     3527     3907  ok (non-closed singly connected)
+        defaultFaces0003      432      495  ok (non-closed singly connected)
+        defaultFaces0004     2304     2571  ok (non-closed singly connected)
+        defaultFaces0005      972     1045  ok (non-closed singly connected)
+        defaultFaces0006    11719    12027  ok (non-closed singly connected)
+        defaultFaces0007      941     1006  ok (non-closed singly connected)
+        defaultFaces0008      341      385  ok (non-closed singly connected)
+        defaultFaces0009     1075     1137  ok (non-closed singly connected)
+                    ".*"    21599    21821      ok (closed singly connected)
+
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking basic pointZone addressing...
+    No pointZones found.
+
+Checking geometry...
+    Overall domain bounding box (-1.2150000333786011 -0.79199999570846558 -0.033635623850691042) (4.0500001907348633 2.6734284923993322e-07 1.6200000047683716)
+    Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)
+    Mesh has 3 solution (non-empty) directions (1 1 1)
+    Boundary openness (-3.5982724959336886e-17 1.5296544571924335e-15 2.8898624084737281e-16) OK.
+    Max cell openness = 3.0706196992272614e-16 OK.
+    Max aspect ratio = 9.7678968515186675 OK.
+    Minimum face area = 1.8209804942584135e-07. Maximum face area = 0.040179151356055584.  Face area magnitudes OK.
+    Min volume = 1.9811803908634835e-10. Max volume = 0.0091194130023013308.  Total volume = 6.876189793276116.  Cell volumes OK.
+    Mesh non-orthogonality Max: 63.211107532346347 average: 7.0880529918288788
+    Non-orthogonality check OK.
+    Face pyramids OK.
+    Max skewness = 1.7505962402947794 OK.
+    Coupled point location match (average 0) OK.
+
+Mesh OK.
+
+End
+

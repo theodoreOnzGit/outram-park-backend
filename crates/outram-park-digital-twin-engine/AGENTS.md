@@ -57,7 +57,7 @@ the offline example simulators built on it (`htgr_sim_v1`, `fhr_sim_v2`,
 `distillation_sim_v1`, plus the `widget_studio` example and the
 `ciet_educational_simulator_v2` / `ciet_v2_opcua_client` binaries, and since
 2026-10-17 the `ciet_web` example: CIET v2's own stepper as wasm for the
-browser demo in `web/ciet/`, gh:#924). It
+browser demo in `web/ciet/`, gh:#924), and since 2026-11-14 the `msre_web` example: the museum MSRE simulator in `web/msre/`, `msre::session` and `msre::moltres_drift::LoopDrift` on a Web Worker, gh:#1569/#1570/#1575; the plant paces itself on the worker's clock with a salt-freeze guard, gh:#1573; a Core k_eff tab runs `vv::msre_n1::Study` on a pool of workers through `dhoby_ghaut::mc_web`, gh:#1571/#1572, and measures the fuel and graphite coefficients the reader can send to the plant, gh:#1574; since gh:#1578 the engine, workers and pool are the library's `msre::web`, and the example holds only `main`, the app and the drawing). It
 turns physics state into on-screen process objects: cell count drives displayed
 cells, temperature drives cell colour, mass flow drives tracer direction,
 residence time drives tracer travel time.
@@ -87,17 +87,40 @@ indicative only.
 quantity `tampines`/`nee_soon` do not yet expose, add it *there*, not here.
 ~~`src/` is presentation only: visual wrappers, colour maps, tracer kinematics,
 and the app scaffold.~~ **CORRECTED 2026-09-29** — checked against `src/`:
-`src/` is presentation plus **infrastructure**, with one physics-data module:
+`src/` is presentation plus **infrastructure**, with ~~one physics-data module~~
+**two physics modules (CORRECTED 2026-11-10, gh:#1330: `msre/` added)**:
 
 - **`htr10/`** holds *cited* HTR-10 design constants and packed-bed closures
   (KTA pressure drop, ZBS bed conductivity, IAEA benchmark eigenvalues), each
   with a test that reproduces its published value (bead `op-jyyp`). It is the
   sanctioned exception, and its rule is its own module doc's: nothing uncited
   goes in, and no solver loop or transient model goes in.
+- **`ebr2/`** (since 2026-11-10, gh:#1331) holds cited EBR-II SHRT-17 /
+  SHRT-45R benchmark data **and a lumped stepping model** (`ebr2::model::
+  Ebr2Model`). It is a second maintainer-directed exception, with a wider
+  scope than `htr10`'s: the maintainer asked for EBR-II "in library so I can
+  build web simulations from the outram-park metacrate" (2026-11-10). Its
+  rules are in its module doc:
+  - every number is cited, derived and labelled, or a required caller input;
+  - the coupling is derived and run uncalibrated;
+  - status NOT VALIDATED;
+  - V&V record in `docs/ebr2_library.md`.
+- **`msre/`** (2026-11-10, gh:#1330; maintainer direction on gh:#1317: "I
+  would like to have MSRE and EBR-II in library so I can build web
+  simulations from the outram-park metacrate") is the third sanctioned
+  exception (after `htr10/` and `ebr2/`), and unlike `htr10/` it **does** hold a transient model:
+  `msre::model::MsreModel`, a GUI-free stepping simulator integrating
+  ORNL-TM-1070's equations with ~~`teh-o-prke`'s circulating kinetics~~
+  (**CORRECTED 2026-11-10, gh:#1332:** `msre::circulation`'s variable-flow
+  kinetics, bit-identical to `teh-o-prke`'s at full flow), plus
+  cited constants (`msre::design`) and re-exports of the workspace's MSRE
+  V&V pieces. Its new physics (absolute temperature levels) ran uncalibrated;
+  record in `docs/msre_library.md`. NOT VALIDATED.
 - `headless/`, `ascii/` (since 2026-11-02 in `bugis`, re-exported here) and the OPC-UA layers (`opcua_core`, `ciet_opcua`,
   `htgr_opcua`) are infrastructure, not physics.
 
-The rule itself stands: no *model* physics in `src/`.
+The rule itself stands: no *model* physics in `src/`, except where the
+maintainer has directed it for a named module (`ebr2/`, 2026-11-10).
 
 The examples are the exception — `examples/htgr_sim_v1/physics/` is that
 simulator's *own* lumped plant model, which is allowed to own its correlations.
@@ -384,6 +407,8 @@ fall under it too.
 | `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. ~~**MOVED 2026-11-02 (gh:#1112)** to `bugis::components` (feature `widgets`), re-exported here by `src/components/mod.rs`. Only `excursion.rs` stays here, because it reads `htr10::design`'s cited fuel-temperature limits (physics data).~~ **CORRECTED 2026-11-05** (maintainers: "bugis should be standalone"; "widget art can live in bugis, the combination of logic and art can live inside the digital twin engine"): the widget library is split. The art stays in `bugis::components` and is re-exported here; the widgets that hold a physics component (`PipeVisual`, `PipeComponent`, `ValveVisual`, `ReactorVesselVisual`, `CondenserVisual`, `CoolingTowerVisual`, `HeatExchangerVisual`, `PumpVisual`, `SteamGeneratorVisual`, `TurbineVisual`) and `ReactorArchetypeKinetics` / `HeatExchangerKindArrangement` live here, beside `excursion.rs`, and draw through bugis's `*Art` types. bugis depends on no physics crate. |
 | `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. **MOVED 2026-11-02 (gh:#1112)** to `bugis::app_scaffold` (feature `app_scaffold`), re-exported here as `app_scaffold` (ungated, as before); `src/app_scaffold/` keeps only the kovan review records. |
 | `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. GUI-free and not target-gated. Not validated. |
+| `ebr2/` | Cited EBR-II SHRT-17 / SHRT-45R data (`design`, `shrt`, `kinetics`, `pump`) and `model::Ebr2Model`: point kinetics and fast-reactor feedback (`teh-o-prke`, a normal dependency since 2026-11-10), a lumped fuel / core / IHX / pool model with TUAS sodium, stepped by `step(dt)` for web simulations (gh:#1331). GUI-free, not target-gated, builds for wasm32. `csv_equality` pins the data to `reference-data/ebr2/`. Not validated; V&V in `docs/ebr2_library.md`. |
+| `msre/` | MSRE in one place (gh:#1330): `design` (cited TM-0728 / TM-1070 / TM-1626 constants, re-exporting `nee_soon`'s), `model::MsreModel` (stepping simulator for web demos: circulating kinetics + fuel/graphite feedback + HX, coolant loop, radiator, piping lags; since gh:#1332 fuel- and coolant-pump trips and start-ups), `circulation` (variable-flow circulating kinetics: ~~TM-1070 well-stirred, default, or TM-1626 line model~~ TM-1626 importance-weighted line model, the default since 2026-11-11 (gh:#1330, maintainer: "Let's use ORNL more correct physics"; pinned by `tests/msre_correct_physics_is_default.rs`), or TM-1070 well-stirred, the ablation `MsreConfig::without_line_model`), `pumps` (ORNL-4233 Fig. 23 coast-downs, TM-0728 start-up, `tampines` inertial), `session` (since 2026-11-14, gh:#1570: operator commands, the ideal flux servo, plain-number snapshots, the headless CSV and the T-1 period table for the `msre_web` example; since gh:#1573 also the salt-freeze guard `Session::advance_guarded` / `thaw` and the wall-clock `Pacer` of the self-paced plant worker; no physics of its own), `moltres_drift` (since 2026-11-14, gh:#1575: `outram-park-fork-moltres` is a direct dependency; `line_loss` checks the line model against Moltres's finite-volume precursor drift, and `LoopDrift` steps that drift beside the plant for `msre_web`'s Moltres tab), `web` (since 2026-11-15, gh:#1578, maintainer: "msre code shld reside in library"): the `msre_web` demo's engine (`web::engine`: the plant `Runner`, its messages and wire codes, the browser Web Worker, the native ticker), its k_eff worker (`web::keff`) and the page-side pool and measured split (`web::keff_pool`), moved from the example on `dhoby_ghaut::mc_web` and `bugis::web_demo`; and re-exports `frequency_response`, `first_criticality`, `circulating_kinetics`, `salts`. GUI-free, ~~not target-gated,~~ builds for wasm32; ~~not target-gated~~ **CORRECTED 2026-11-15:** everything but `web` is ungated, and `web` is off Android with the link layer it rides on. Not validated. |
 | `headless/` | Drives a simulator with no GUI, window or thread (the headless rule below, gh #150). |
 | `multifidelity/` | HF → LF model mapping (epic gh:#1177). `double_pipe` (gh:#1178): the double-pipe CFD (`outram-foam-appbuilder-lib`, a normal dependency since 2026-11-03) and the TUAS 1-D exchanger at the same design points, closures read off the CFD, the committed dataset, the rung-3 `evaluate(&x, &θ)`. Since 2026-11-04 (gh:#1194) `double_pipe::fidelity` adapts it to `raffles::fidelity` (`TuasOneD: ParametricModel`, `committed_dataset()` as a `Dataset` with its stored split); `raffles` is a normal dependency for it. Since 2026-11-04 (gh:#1190) `double_pipe::lf_grid` runs the 1-D model at nominal θ on a 375-point grid (committed `lf_grid.csv`) and `double_pipe::cokriging` pairs it with the CFD as a `MultiFidelityDataset` for SMT's MFK. Since 2026-11-04 (gh:#1181) `cokriging::SweepAxes::full_factorial` and `cokriging::sweep` are the design-sweep API (uom-typed axes in, `Prediction`s in order out); the gh:#1182 demo's grid and its MFK artefact go through them. Since 2026-11-04 (gh:#1180) `double_pipe::koh` calibrates θ by Kennedy–O'Hagan (`raffles::fidelity::koh`) on the CFD's training UA, through `one_d::ua` (TUAS's UA without the march, bit-identical to the marched UA). Since 2026-11-04 (gh:#1191) `double_pipe::filtering` tracks a synthetic drifting wall resistance from noisy outlet temperatures with `raffles::filtering`'s FilterPy ports, through `raffles::fidelity::StateSpaceModel` (truth: the CFD's own Nusselt numbers, TUAS conductances via `one_d::ua_with_nusselt`, ε-NTU; synthetic data only). Since 2026-11-04 (gh:#1192) `double_pipe::openda` runs `raffles::openda`'s OpenDA EnKF on the same twin experiment (`FilterKind::OpenDaEnsemble`) and OpenDA's DUD on the CFD training UA beside gh:#1180's KOH posterior (record `verification_and_validation/double_pipe_openda_gh1192.md`). **Infrastructure under the "no new physics" rule:** it builds and runs other crates' models and tabulates their outputs; every correlation and equation it evaluates is TUAS's, the foam crates' or dwsim-libs'. A new closure *model* (a correlation) belongs in the model's crate, not here. |
 | `ascii/` | Renders 2-D schematic geometry to a character grid, so a diagram can be checked by a test or an agent. **MOVED 2026-11-02 (gh:#1112)** to `bugis::ascii` (feature `ascii`), re-exported here as `ascii`. |

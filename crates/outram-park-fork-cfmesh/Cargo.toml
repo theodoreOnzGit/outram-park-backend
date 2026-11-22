@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-cfmesh"
-version = "0.0.4"
+version = "0.0.5"
 edition.workspace = true
 # GPL-3.0-only: this crate is a Rust port/fork of cfMesh (GPL-3.0-only). The
 # voro++-derived portions (BSD, LBNL) retain their permissive provenance
@@ -14,7 +14,7 @@ categories.workspace = true
 # The vendored upstream clones are dev-only reference material (gitignored) and
 # must never be packaged; `upstream_source/README.md` (the small provenance
 # record) stays in the package.
-exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro"]
+exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro", "test_data", "verification_and_validation", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -47,21 +47,47 @@ maturity = 2
 foam-export = []
 # The cell-centre dual (gh:#1240, `dual::DualKind::CellCentre`): OpenFOAM's
 # `polyDualMesh` as ported in `outram-foam-mesh` (pure Rust, Android- and
-# wasm-safe). outram-foam-mesh does not depend on this crate: no cycle.
-cell-centre-dual = ["dep:outram-foam-mesh"]
+# wasm-safe). outram-foam-mesh does not depend on this crate: no cycle. Since
+# gh:#1480 the dependency is unconditional; the feature only switches the code.
+cell-centre-dual = []
+# gh:#1476: `surfaceFile` STL reading through outram-foam-mesh's port of
+# OpenFOAM's STLReader (`tri_surf_io::read_surface_bytes`). FMS/FTR need no
+# feature. Since gh:#1480 outram-foam-mesh is an unconditional dependency; the
+# feature only switches the code on. The outram-foam-cli meshers (cartesianMesh, tetMesh, pMesh, cartesian2DMesh)
+# turn it on.
+surface-file = ["std"]
+# `no_std` + `alloc` without `std` (gh:#1639, epic gh:#1637). `std` carries
+# file I/O (STL `surfaceFile`, `polyMeshGen` read/write, dictionaries), the
+# wall clock behind the timing traces, the trace/diagnostic environment
+# variables, printing, and `std` in the dependencies. `surface-file` reads STL
+# files, so it implies `std`.
+default = ["std"]
+std = ["outram-foam-basic-lib/std", "outram-foam-mesh/std"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
 outram-foam-basic-lib = { workspace = true }
-outram-foam-mesh = { workspace = true, optional = true }
+# gh:#1480: non-optional. The OpenFOAM mesh-quality checks (`checks.rs`, used by
+# the layer back-off, the pipelines and the optimizers) live in
+# `outram_foam_mesh::check_mesh`. Pure Rust, Android- and wasm-safe (checked
+# 2026-11-11, see the gh:#1480 V&V record); outram-foam-mesh does not depend on
+# this crate: no cycle.
+outram-foam-mesh = { workspace = true }
+hashbrown = { workspace = true }
 
 [dev-dependencies]
-# gh:#1276: the feature-edge differential (`surface::tests`) calls
-# `outram_foam_mesh::snappy_hex_mesh::snapping::detect_feature_edges`. Pure
-# Rust, Android- and wasm-safe; outram-foam-mesh does not depend on this crate.
-outram-foam-mesh = { workspace = true }
+# (outram-foam-mesh, used by the gh:#1276 feature-edge differential, is a
+# normal dependency since gh:#1480.)
+# gh:#1385: the upstream-differential tests inflate the committed `.gz`
+# polyMesh files (pure-Rust DEFLATE, already a workspace dependency).
+miniz_oxide = { workspace = true }
+# gh:#1385 round 5: `tests/cfmesh_vs_upstream_single_orifice.rs` reads the
+# tutorial's STL through `tri_surf_io::read_surface_bytes`, which needs the
+# `surface-file` feature; a self dev-dependency turns it on for this crate's own
+# tests, so `cargo test -p outram-park-fork-cfmesh --lib --tests` runs them.
+outram-park-fork-cfmesh = { path = ".", features = ["surface-file"] }
 
 # GUI example stack — the `mesh_studio` egui app (author a surface → generate a
 # polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam

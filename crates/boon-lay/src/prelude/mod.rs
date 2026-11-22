@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::decay_xml_info_serde;
 pub use crate::decay_xml_info_serde::*;
 

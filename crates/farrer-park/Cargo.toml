@@ -1,6 +1,6 @@
 [package]
 name = "farrer-park"
-version = "0.0.4"
+version = "0.0.5"
 edition.workspace = true
 # GPL-3.0-only. All three upstreams (MOOSE, PRISMS-Plasticity, PRISMS-Fatigue)
 # are LGPL-2.1, and LGPL-2.1 section 3 lets a licensee relicense under the
@@ -14,7 +14,7 @@ homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
-exclude = ["docs"]
+exclude = ["docs", "*.whl", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -40,7 +40,8 @@ petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS, no C/Fortran toolchain).
 # `uom` types the physical-quantity API boundary; `thiserror` the error enum.
 uom.workspace = true
-thiserror.workspace = true
+thiserror-nostd = { workspace = true }
+hashbrown = { workspace = true }
 # The shared numerical backend. Farrer Park depends on outram-foam-basic-lib for
 # Krylov solvers, preconditioners and multigrid ONLY — never for its spatial
 # discretisation. FEM stays FEM (GitHub issue #175); LduMatrix remains the
@@ -48,4 +49,11 @@ thiserror.workspace = true
 # matrix implementing the same `LinearOperator` contract.
 # Through the root [workspace.dependencies] pin (path + version): a bare path
 # dependency carries no version, and `cargo publish` refuses it.
-outram-foam-basic-lib.workspace = true
+outram-foam-basic-lib = { workspace = true }
+
+# `no_std` + `alloc` without `std` (gh:#1632, epic gh:#1585; unblocks
+# tampines gh:#1606). `std` carries `std` in the dependencies; the library
+# itself needs nothing else from it (tests always build with std).
+[features]
+default = ["std"]
+std = ["thiserror-nostd/std", "outram-foam-basic-lib/std"]

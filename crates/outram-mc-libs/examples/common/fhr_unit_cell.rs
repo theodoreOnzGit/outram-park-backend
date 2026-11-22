@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The FHR reference unit cell's material table** (tutorial rung 5, step 5:
 //! the double-heterogeneity shortcuts). Shared by `dh_keff_vv.rs` (the record)

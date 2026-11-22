@@ -32,6 +32,9 @@
 /// assert!(p.get::<pascal>() > 0.0);
 /// ```
 // ── quantity types ────────────────────────────────────────────────────────────
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use uom::si::f64::{
     AvailableEnergy, DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
     SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature,

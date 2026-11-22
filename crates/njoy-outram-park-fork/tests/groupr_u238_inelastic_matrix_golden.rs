@@ -80,6 +80,9 @@
 //! where NJOY's matrix row and its MF=3 vector legitimately differ by 1e-4
 //! because the matrix path breaks its panels at every critical energy.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 

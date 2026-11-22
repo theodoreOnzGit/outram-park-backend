@@ -169,6 +169,9 @@
 //! API; per-cell state and the inner loops are raw SI (Pa, kg/m³, m/s, J/kg),
 //! as in [`super::two_fluid`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::roots::{BracketingMethod, BracketingSolver};
 use tampines_steam_tables::hem::{StiffenedGasHem, StiffenedGasPair};
@@ -743,7 +746,7 @@ impl SevenEquation1d {
     /// 1 mm bubble-diameter area `6 α_v / d` (gh:#1060's own ablation).
     #[must_use]
     pub fn without_regime_map(mut self) -> Self {
-        let area = std::mem::replace(&mut self.area_source, InterfacialAreaSource::Constant(0.0));
+        let area = core::mem::replace(&mut self.area_source, InterfacialAreaSource::Constant(0.0));
         self.area_source = match area {
             InterfacialAreaSource::Exchange(x) => InterfacialAreaSource::Exchange(x.without_regime_map()),
             other => other,

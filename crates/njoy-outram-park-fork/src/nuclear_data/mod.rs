@@ -20,6 +20,9 @@
 //! the [`XsProvider`] enum. A consumer holds one and calls [`XsProvider::micro`];
 //! adding a new representation is a new variant that every `match` must handle.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod delayed;
 pub mod delayed_mgxs;
 pub mod secondary;
@@ -599,7 +602,7 @@ impl MgxsLibrary {
     /// tens of KB and parsed once, then shared. Look up a nuclide with
     /// [`Self::get`] (e.g. `.get("U238")`).
     pub fn core() -> &'static MgxsLibrary {
-        static CORE: std::sync::OnceLock<MgxsLibrary> = std::sync::OnceLock::new();
+        static CORE: crate::once::OnceLock<MgxsLibrary> = crate::once::OnceLock::new();
         CORE.get_or_init(|| {
             MgxsLibrary::from_blob(include_bytes!("../data/mgxs_core.mgxl"))
                 .expect("embedded CORE MGXL blob is valid")

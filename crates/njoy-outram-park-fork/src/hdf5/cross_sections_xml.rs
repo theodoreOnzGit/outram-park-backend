@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`cross_sections.xml` — the library index** — GitHub #270 scope item 4.
 //!
@@ -24,7 +24,10 @@
 //! It does not read the `.h5` files the index points at. The index is a
 //! lookup; resolving an entry to data is the nuclide reader's job.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use super::xml_scan::scan;

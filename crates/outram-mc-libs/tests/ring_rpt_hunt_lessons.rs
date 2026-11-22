@@ -43,6 +43,8 @@
 //! repo-only `reference-data/endf/` is absent, matching
 //! `tests/thermal_graphite_elastic.rs`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::physics::slowing_down::{solve_on_grid, SlowingDownGrid};
 

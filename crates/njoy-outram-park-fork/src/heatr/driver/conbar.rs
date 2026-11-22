@@ -16,6 +16,9 @@
 //! as upstream indexes it, so the routine's few reads past a subsection's own
 //! data land on what upstream would read there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::{list_flat, nint, tab1_flat, tab2_flat, terp1, terpa, terpa0, QP4, QW4};
 use super::state::Heatr;

@@ -1,0 +1,19 @@
+FoamFile
+{
+    version   2.0;
+    format    ascii;
+    class     dictionary;
+    location  "system";
+    object    meshDict;
+}
+
+// gh:#1385: the gh:#1279 "setup S" isotropic control (gh:#1299):
+// sphere R 3 m, 24 x 48 UV, MeshDict::with_max_cell_size(0.5).
+surfaceFile "sphere_r3_24x48.stl";
+
+maxCellSize 0.5;
+
+workflowControls
+{
+    stopAfter edgeExtraction;
+}

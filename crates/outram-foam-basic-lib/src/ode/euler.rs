@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use super::{adaptive_step, integrate_interval, integrate_interval_esi_v2506, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 
 /// Explicit first-order Euler solver with adaptive step size.
 /// Maps to `Foam::Euler` (which inherits from `adaptiveSolver`).
@@ -100,6 +103,29 @@ impl Euler {
             dx_est,
         )
     }
+
+    /// [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y, dxTry)`
+    /// loop (see `integrate_interval_esi_v2506`): bit-identical to upstream on
+    /// `Test-ODE.C` where `integrate` differs in the last bits and in the final
+    /// step-size estimate. `integrate` is kept unchanged (gh:#1362 row 6).
+    pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(
+        &mut self,
+        ode: &Sys,
+        x_start: f64,
+        x_end: f64,
+        y: &mut Vec<f64>,
+        dx_est: &mut f64,
+    ) -> Result<(), OdeError> {
+        let cfg = self.config.clone();
+        integrate_interval_esi_v2506(
+            &cfg,
+            &mut |x, y, dx| self.solve_step(ode, x, y, dx),
+            x_start,
+            x_end,
+            y,
+            dx_est,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -154,7 +180,7 @@ mod tests {
         let mut y = vec![1.0_f64, 0.0];
         let mut dx = 0.1;
         solver
-            .integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx)
+            .integrate(&ode, 0.0, core::f64::consts::PI / 2.0, &mut y, &mut dx)
             .unwrap();
         assert!(y[0].abs() < 5e-2, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 5e-2, "y1={}", y[1]);

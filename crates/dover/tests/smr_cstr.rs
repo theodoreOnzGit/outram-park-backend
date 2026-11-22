@@ -6,6 +6,7 @@
 //! qualitative direction of every operating-variable response. Not one of them
 //! compares against an experiment or a published reformer, so nothing here
 //! licenses calling the model validated. See `src/smr.rs` for the scope.
+#![cfg(feature = "std")] // gh:#1643: the deck tests read TOML (std)
 
 use petir::mathf::RealMath;
 use dover::deck::{Deck, DeckError};

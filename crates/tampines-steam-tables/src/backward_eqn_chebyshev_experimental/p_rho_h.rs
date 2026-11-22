@@ -104,6 +104,9 @@
 //! 98.3%, Region 2 99.3%, Region 3 100%, Region 5 96.4%), consistent with its
 //! self-reported ~97.3%. Region 4 is absent from that measurement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{

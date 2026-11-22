@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -10,7 +10,7 @@
 //                    trisoatops/utility_functions/run_functions.py
 //                    (`nuclide_sort`, `convert_time`)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// Ported under GPL-3.0; see LICENSE.triso-atops and NOTICE.triso-atops.
+// Ported under AGPL-3.0-only; see LICENSE.triso-atops and NOTICE.triso-atops.
 
 //! Run set-up: which nuclides a run uses, how they are classified, and how a
 //! bulk inventory is distributed over the axial nodes.
@@ -38,6 +38,9 @@
 //! | `nuclide_import_accident` unguarded table lookup (`KeyError`) | Returns [`SelectionError::UnknownNuclide`] |
 //! | `nuclide_sort` compares a `list` to `str` (dead reordering) | [`sort_parents_before_daughters`] does what upstream intended |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::nuclide_model::{nuclide_database::find_nuclide, TrisoAtopsNuclide};
 use uom::si::f64::Time;
 use uom::si::time::second;

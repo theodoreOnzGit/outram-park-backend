@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use peroxide::fuga::{CubicSpline, Spline};
 use roots::{find_root_brent, SimpleConvergency};
 use specific_enthalpy::try_get_h;

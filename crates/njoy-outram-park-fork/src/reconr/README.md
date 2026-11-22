@@ -86,7 +86,13 @@ upstream `resxs`'s verbatim (`reconr.f90:2361-2470`): per-reaction relative
 error on elastic/fission/capture at the 7-figure-rounded midpoint, the
 resonance-integral relaxation (`errmax = 10 err` when a panel contributes less
 than `errint = err/20000` b), `err/5` below 0.4999 eV, significant-figure
-termination, and the `estp = 4.1` step-increase rule. It replaced a 0.1 b
+termination, and the `estp = 4.1` step-increase rule. (**2026-11-13, gh:#1369:**
+the port refines each resolved range on its own grid, where upstream's `resxs`
+walks every range in one pass. `seam.rs` restores the difference: it tests the
+panel across a boundary between two resolved ranges with `sigma`'s `[el, eh)`
+dispatch, and re-walks the upper range's first panels with the carried
+step-increase state. JENDL-3.3 U-238 and Pu-239, NJOY2016 test 17, are byte-identical
+with it, where 12 and 60 lines were missing before.) It replaced a 0.1 b
 error floor the port had added against over-refinement of µb-level valleys —
 that floor left Si-30 capture between the 2.2 and 4.9 keV resonances on 8
 points where NJOY has 47, 13 % high at 3.3 keV (bead `op-yr43`); with the

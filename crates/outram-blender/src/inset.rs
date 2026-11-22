@@ -47,6 +47,9 @@
 //! adjacent-faces-oppose rule used elsewhere in the crate. No `faer`, no
 //! external dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 
@@ -134,7 +137,7 @@ pub fn inset_faces(mesh: &Mesh, amount: f64) -> Mesh {
 mod tests {
     use super::*;
     use crate::primitives;
-    use std::collections::HashSet;
+    use crate::hash::HashSet;
 
     /// True when every directed half-edge is unique and its reverse is present.
     fn is_watertight_consistent(mesh: &Mesh) -> bool {

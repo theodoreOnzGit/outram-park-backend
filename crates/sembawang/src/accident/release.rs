@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! The driver: a prescribed transient plus an inventory, out to a source term.
 //!
@@ -52,6 +52,9 @@
 //! activities. Silently clamping and silently passing it on are both worse than
 //! saying so.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use boon_lay::triso_atops_fork::accident::{
     accident_release_curies, atoms_to_curies, coolant_release, mean_temperature_rate,
@@ -68,7 +71,7 @@ use boon_lay::triso_atops_fork::normal_operation::{
 use boon_lay::triso_atops_fork::run_selection::{
     normalise_nuclide_name, select_nuclides, select_nuclides_accident, ParentDecayPolicy,
 };
-use std::collections::HashMap;
+use crate::hash::HashMap;
 use boon_lay::triso_atops_fork::TrisoAtopsNuclide;
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};

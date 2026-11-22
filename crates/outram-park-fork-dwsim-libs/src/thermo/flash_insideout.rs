@@ -87,6 +87,9 @@
 //! > facility operation, reactor control, safety-critical, or licensing
 //! > decisions. Independent OUTRAM PARK fork, not the official DWSIM.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::flash::{rachford_rice_g, wilson_k_values, FlashError, FlashResult};
 use crate::thermo::Component;

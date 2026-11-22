@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use super::liquid_database::dowtherm_a::min_temp_dowtherm_a;

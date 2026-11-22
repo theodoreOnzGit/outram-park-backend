@@ -1,0 +1,103 @@
+   Compiling petir v0.0.4 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/petir)
+   Compiling njoy-outram-park-fork v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/njoy-outram-park-fork)
+   Compiling outram-foam-basic-lib v0.1.8 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/outram-foam-basic-lib)
+   Compiling tampines-steam-tables v0.3.1 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+   Compiling raffles v0.0.4 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/raffles)
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling outram-park-fork-liggghts v0.0.3 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/outram-park-fork-liggghts)
+   Compiling outram-blender v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/outram-blender)
+warning: unused variable: `kmt`
+   --> crates/njoy-outram-park-fork/src/acer/acelcp.rs:337:20
+    |
+337 |         for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+    |                    ^^^ help: if this is intentional, prefix it with an underscore: `_kmt`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling outram-mc-libs v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-acefa2821d57a2cf6/crates/outram-mc-libs)
+warning: unused import: `transport_history_vr`
+  --> crates/outram-mc-libs/src/physics/fixed_source.rs:35:37
+   |
+35 | use crate::physics::transport_csg::{transport_history_vr, Site};
+   |                                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::energy::EnergyDist`
+  --> crates/outram-mc-libs/src/source/source.rs:13:5
+   |
+13 | use super::energy::EnergyDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::spatial::SpatialDist`
+  --> crates/outram-mc-libs/src/source/source.rs:14:5
+   |
+14 | use super::spatial::SpatialDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:180:19
+    |
+167 | impl Site {
+    | --------- associated function in this implementation
+...
+180 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `njoy-outram-park-fork` (lib) generated 1 warning (run `cargo fix --lib -p njoy-outram-park-fork` to apply 1 suggestion)
+warning: `outram-mc-libs` (lib) generated 4 warnings (run `cargo fix --lib -p outram-mc-libs` to apply 1 suggestion)
+warning: variable does not need to be mutable
+   --> crates/outram-mc-libs/examples/hst009_keff.rs:312:9
+    |
+312 |     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/outram-mc-libs/examples/jemima_keff.rs:315:9
+    |
+315 |     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (example "hst009_keff") generated 1 warning (run `cargo fix --example "hst009_keff" -p outram-mc-libs` to apply 1 suggestion)
+warning: variable does not need to be mutable
+   --> crates/outram-mc-libs/examples/lct008_keff.rs:629:9
+    |
+629 |     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (example "jemima_keff") generated 1 warning (run `cargo fix --example "jemima_keff" -p outram-mc-libs` to apply 1 suggestion)
+warning: `outram-mc-libs` (example "lct008_keff") generated 1 warning (run `cargo fix --example "lct008_keff" -p outram-mc-libs` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 2m 34s

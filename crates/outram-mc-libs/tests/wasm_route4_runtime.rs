@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Runtime gate: route 4's nuclide construction RUNS in a wasm runtime
 //! and gives the native numbers** (epic #925's wasm criterion, gh:#931).
@@ -29,6 +29,8 @@
 //!
 //! Recorded in `verification_and_validation/route4_process_931/README.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -36,9 +38,15 @@ use outram_mc_libs::material::processed::ProcessedEvaluation;
 
 const U234: &[u8] = include_bytes!("../../../reference-data/endf/n-092_U_234-ENDF8.0.endf");
 
-/// The fingerprint the native run printed (x86_64 Linux, release,
-/// 2026-10-17).
-const NATIVE_FINGERPRINT: u64 = 0x871c_dd4d_51d2_06f2;
+/// The fingerprint the native run printed (x86_64 Linux, release).
+///
+/// ~~`0x871c_dd4d_51d2_06f2` (2026-10-17)~~ **RE-PINNED 2026-11-14**: GitHub
+/// #463 items 5 and 6 made OpenMC's `nu_fission` interpolation and grid
+/// extrapolation the default in `xs_at_energy`, which this fingerprint
+/// samples. `OUTRAM_MC_LEGACY_XS_DETAILS=1` still gives the old value bit for
+/// bit, and the product-word count (380182) is unchanged, so the move is that
+/// change alone. Not re-checked: the `wasm32-wasip1` run against the new pin.
+const NATIVE_FINGERPRINT: u64 = 0x3d0f_096f_6352_6343;
 
 /// FNV-1a over 64-bit words.
 fn fnv(words: impl Iterator<Item = u64>, mut h: u64) -> u64 {

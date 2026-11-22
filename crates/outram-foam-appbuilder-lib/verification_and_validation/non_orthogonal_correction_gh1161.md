@@ -224,3 +224,7 @@ correction: at 20k, 34 steps took 7.9 s against 5.5 s for the ablation
   pre-gh:#1161 solver; it is corrected in place there.
 - Every Cartesian V&V number (cavity Ghia, icoFoam comparison, BDF2 order,
   open channel) moves by round-off only (section 3), so no pin moved.
+
+## Update 2026-11-11 (gh:#1488): the orthogonal ablation after the boundary-`deltaCoeffs` fix
+
+The orthogonal mode's boundary distance was `|Cf - C|`; upstream `fvPatch::delta()` is patch-normal (`|n . d|`, ESI v2506 `fvPatch.C:156`). With the fix, the 5k ablation row of table 1 is ~~dpdz/HP **1.03160**, ÷ polygon 1.01986, u_c/2U 0.9902~~ **1.03221, 1.02046, 0.9904** (re-run in release, `pipe_5k_non_orthogonal_correction --nocapture`; steps 19, flux 0.9999999999, cont 1.3e-11 against 1.4e-11 before). It moves 6e-4 AWAY from Hagen-Poiseuille. The corrected row is unchanged to the printed digits (1.01768, 1.00610; `cont` 5.7e-12), because the corrected path's boundary term already used the patch-normal distance. The other table-1 and Re = 25 ablation rows (20k, 50k) were not re-run; expect a similar shift (Not re-checked).

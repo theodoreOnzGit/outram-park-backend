@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The regression pin for GitHub #258** — adding variance reduction must not
 //! move a single bit of an analog run.
@@ -225,6 +225,8 @@
 //! changes nothing. The estimator's unbiasedness is measured separately by
 //! `examples/variance_reduction_ablation.rs`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -244,10 +246,57 @@ const TEMP: f64 = 293.6;
 /// re-recorded, see the module docs). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.872_893_945_032_524_82e-1;
-const K_STD_PRE_258: f64 = 4.034_210_549_813_215_67e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.831_945_442_690_159_80e-1;
+/// **RE-PINNED 2026-11-09 (gh:#1311; maintainer: resonance scattering on,
+/// with upstream's default method RVS).** The resonance-scattering sampler
+/// went from DBRC to RVS. Both sample the same 0 K-corrected distribution,
+/// but they draw different random numbers, so every history that scatters
+/// off a resonant nuclide below 1 keV takes another RNG path. The pin
+/// therefore moved, and nothing about the analog path did:
+/// - the first generation is still bit-identical (9.354845634945611e-1);
+/// - this test passes unchanged on develop without RVS (checked the same
+///   day, 2026-11-09, on `484b7f007`);
+/// - the new k differs from the old by +565 pcm against a combined σ of
+///   620 pcm (0.9σ), i.e. a re-draw.
+///
+/// The values before, measured with DBRC: k_mean
+/// 9.872_893_945_032_524_82e-1, k_std 4.034_210_549_813_215_67e-3, first
+/// generation 9.354_845_634_945_611_05e-1, last 9.831_945_442_690_159_80e-1.
+// Re-pinned 2026-11-11 (gh:#1386): the OpenMC-faithful collision kernels are the
+// transport default. Before: k_mean 0.992937 (k_std 4.69e-3), first generation
+// 0.935485, last 0.979643. After: k_mean 0.999782 (k_std 4.41e-3), first 0.911470,
+// last 1.061531: +685 pcm, 1.07 sigma (quadrature of the two k_std), so
+// re-pinned. The old values were not re-measured under the legacy switch here.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 a, b: OpenMC scatter() reaction
+// order + single-cutoff level pick, CSG default). Before: k_mean 0.999782 (k_std
+// 4.41e-3), first 0.911470, last 1.061531. After: k_mean 0.994679 (k_std 4.92e-3),
+// first 0.947756, last 0.957608: -510 pcm, 0.77 sigma (quadrature of the two
+// k_std), so re-pinned. OUTRAM_MC_LEGACY_REACTION_ORDER=1 reproduces the old values.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 d: OpenMC sample_fission_neutron
+// order). Before: k_mean 0.994679 (k_std 4.92e-3), first 0.947756, last 0.957608.
+// After: k_mean 0.987865 (k_std 4.52e-3), first 0.889782, last 0.954621: -681 pcm,
+// 1.02 sigma (quadrature of the two k_std), so re-pinned, not a finding.
+// Verified 2026-11-11: the (d) pin above passed (6.3 min) before (c) landed.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 c: OpenMC per-collision
+// create_fission_sites banking). Before: k_mean 0.987865 (k_std 4.52e-3), first
+// 0.889782, last 0.954621. After: k_mean 0.994298 (k_std 3.73e-3), first 0.910957,
+// last 1.014228: +643 pcm, 1.10 sigma (quadrature of the two k_std), so
+// re-pinned, not a finding. OUTRAM_MC_LEGACY_FISSION_BANKING=1 reproduces the old
+// values (verified 2026-11-11, 5.9 min, passes against the previous pin).
+// Re-pinned again 2026-11-14 (gh:#463 items 5, 6, 7, 11: nu_fission as the
+// interpolated product nu(E_i) sigma_f(E_i), grid extrapolation, S(a,b) cutoff
+// and S(a,b) total, all as OpenMC; this test uses only item 5, a bare U sphere).
+// Before: k_mean 0.994298 (k_std 3.73e-3), first 0.910957051, last 1.014228.
+// After: k_mean 0.986678 (k_std 3.08e-3), first 0.910960078, last 0.996303:
+// -762 pcm, 1.57 sigma (quadrature of the two k_std), so re-pinned, not a
+// finding. The first generation moves in the sixth digit (nu_fission shifts by
+// ~1e-5 relative) and the streams split from there, exactly as at #931.
+// OUTRAM_MC_LEGACY_XS_DETAILS=1 reproduces the old four values bit for bit
+// (verified 2026-11-14, 305 s). The worth is priced by a paired ensemble in
+// the issue: Godiva +125 +- 38 (new) vs +65 +- 31 (legacy), 16 seeds, +60 +- 49 pcm.
+const K_MEAN_PRE_258: f64 = 9.866_778_269_174_408_81e-1;
+const K_STD_PRE_258: f64 = 3.084_243_839_167_062_19e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.109_600_775_102_070_22e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.963_026_755_611_674_72e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

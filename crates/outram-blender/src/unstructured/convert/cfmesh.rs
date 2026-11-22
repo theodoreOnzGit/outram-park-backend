@@ -24,6 +24,9 @@
 //! can be retyped with
 //! [`UnstructuredMesh::with_patch_where`](crate::unstructured::UnstructuredMesh::with_patch_where).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_fork_cfmesh::pipeline::{TetDualOptions, TetDualReport};
 use outram_park_fork_cfmesh::volume_mesh::VolumeMesh;
 

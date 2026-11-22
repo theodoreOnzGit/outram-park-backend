@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact moments of OpenMC's sampling of an ACE IFENG = 2 (continuous)
 # incoherent-inelastic S(a,b) law, for GitHub #365 audit.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 # Data: OpenMC's ThermalScattering.from_ace reader of an NJOY2016 table built
 # with iwt = 2 (deck: target/ace_extra/HH2O_iwt2/input, recorded in the V&V
 # note). Algorithm: IncoherentInelasticAE::sample_params / sample

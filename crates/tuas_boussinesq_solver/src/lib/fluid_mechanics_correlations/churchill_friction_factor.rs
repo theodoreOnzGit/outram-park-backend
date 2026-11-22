@@ -9,6 +9,9 @@
 //! single smooth expression valid across the laminar, transition and turbulent
 //! regimes; the Reynolds number must be strictly positive (Re = 0 or Re < 0
 //! panics).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::numerical_methods::bisection_residual;
 

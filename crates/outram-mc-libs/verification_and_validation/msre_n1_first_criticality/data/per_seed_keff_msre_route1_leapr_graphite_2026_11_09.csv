@@ -1,0 +1,10 @@
+case,route,code,seed,k,k_std_internal,particles,inactive,active,threads,wall_s,commit,k_alt
+msre_n1_salt1181F_graphite1181F,route1-leapr,openmc,1,1.011761,0.000516,20000,100,200,32,187.9,b0bb1f8bed,1.010619
+msre_n1_salt1181F_graphite1181F,route1-leapr,openmc,2,1.012036,0.000520,20000,100,200,32,187.0,b0bb1f8bed,1.012498
+msre_n1_salt1181F_graphite1181F,route1-leapr,openmc,3,1.012059,0.000510,20000,100,200,32,191.1,b0bb1f8bed,1.011552
+msre_n1_salt1131F_graphite1131F,route1-leapr,openmc,1,1.015550,0.000485,20000,100,200,32,191.4,b0bb1f8bed,1.015537
+msre_n1_salt1131F_graphite1131F,route1-leapr,openmc,2,1.016169,0.000542,20000,100,200,32,187.3,b0bb1f8bed,1.016359
+msre_n1_salt1131F_graphite1131F,route1-leapr,openmc,3,1.015477,0.000510,20000,100,200,32,188.4,b0bb1f8bed,1.016445
+msre_n1_salt1231F_graphite1231F,route1-leapr,openmc,1,1.007937,0.000533,20000,100,200,32,205.1,b0bb1f8bed,1.007932
+msre_n1_salt1231F_graphite1231F,route1-leapr,openmc,2,1.008282,0.000523,20000,100,200,32,186.9,b0bb1f8bed,1.008421
+msre_n1_salt1231F_graphite1231F,route1-leapr,openmc,3,1.007662,0.000523,20000,100,200,32,194.5,b0bb1f8bed,1.008331

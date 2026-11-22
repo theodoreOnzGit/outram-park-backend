@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 // This file is part of OUTRAM PARK. See the module header for licence terms.
 
@@ -24,10 +24,13 @@
 //! These are arithmetic, not transport. Eigenvalue consequences are measured in
 //! `examples/htr10_pebble_delta_tracking.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::prelude::TrisoSpec;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 const KERNELS_PER_BALL: f64 = 8335.0;
 const FUEL_ZONE_RADIUS: f64 = 2.5;
@@ -149,6 +152,7 @@ fn the_kernel_boron_is_quoted_relative_to_uranium_not_uo2() {
     );
     // Independent: TECDOC-1382 Table 4-38 (MIT) tabulates exactly this
     // reading, 1.849637e-8 kernel B-10 (gh:#424).
+    #[cfg(feature = "std")]
     println!("kernel B-10 {kernel_b10:.6e}, TECDOC Table 4-38 (MIT) 1.849637e-8");
     assert!((kernel_b10 / 1.849_637e-8 - 1.0).abs() < 1.0e-3);
 }
@@ -300,6 +304,7 @@ fn the_graphite_boron_matches_mits_atom_ppm_table() {
         matrix.components.iter().filter(|c| c.nuclide_idx == i).map(|c| c.atom_density).sum()
     };
     let (b10, b11) = (get(n.b10), get(n.b11));
+    #[cfg(feature = "std")]
     println!("matrix B-10 {b10:.6e} (MIT 2.244010e-8), B-11 {b11:.6e} (MIT 9.032424e-8)");
     assert!((b10 / 2.244_010e-8 - 1.0).abs() < 1.0e-3);
     assert!((b11 / 9.032_424e-8 - 1.0).abs() < 1.0e-3);

@@ -38,6 +38,9 @@
 //!   natural-circulation loop.
 //! - `gfhr_pipe_tests` — test-only gFHR pipe/branch flow checks.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// HeatTransferEntity module
 ///
 /// For practical reasons, using different functions to connect

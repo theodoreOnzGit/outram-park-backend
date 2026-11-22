@@ -60,6 +60,9 @@
 //! that test's doc comment and in
 //! `verification_and_validation/heatr_vs_njoy2016.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod capture;
 mod mf6;
 
@@ -525,6 +528,7 @@ mod tests {
             }],
             resonance_upper_limit: None,
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         let pp = PhotonProduction::default();
         assert!(pp.is_empty());

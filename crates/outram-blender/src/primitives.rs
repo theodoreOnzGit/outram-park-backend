@@ -48,10 +48,13 @@
 //! [`crate::math`]); a length unit is attached only when a mesh is handed to a
 //! solver through an [`crate::export`] bridge.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// An axis-aligned cube of side `size`, centred on the origin.
 ///

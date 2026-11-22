@@ -1,0 +1,99 @@
+[package]
+name = "kembangan"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license = "AGPL-3.0-only"
+description = "KEMBANGAN (Kinetics, Elasticity and Materials Behaviour for Aging in Nuclear Environments through Generative AI and Numerical Modelling) — materials damage under irradiation. First code (2026-11-22): the RustBCA copy (binary-collision Monte Carlo for ions and recoils), moved from boon-lay. dpa, gas production and property changes are not implemented."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# What crates.io gets: an allow-list, as boon-lay's. tests/, examples/,
+# verification_and_validation/ and the kovan files stay in git.
+include = [
+    "/src/**/*.rs",
+    "/src/**/README.md",
+    "/src/rustbca/LICENSE",
+    "/README.md",
+    "/LICENSE",
+    # The crate is AGPL-3.0-only, as the workspace. The GPL text ships for
+    # the upstream RustBCA files' own attribution (see NOTICE, gh:#973).
+    "/LICENSE.GPL-3.0",
+    "/NOTICE",
+]
+
+# Where this crate sits in kovan's code map (see bishan's Cargo.toml for the
+# key). Materials damage is structural-materials behaviour; RustBCA is a
+# brute-force Monte Carlo (fidelity 4).
+[package.metadata.kovan]
+row = 2
+topic = "structural-mechanics"
+fidelity = 4
+maturity = 1
+backronym = "Kinetics, Elasticity and Materials Behaviour for Aging in Nuclear Environments through Generative AI and Numerical Modelling"
+
+[dependencies]
+# Direction (maintainer, 2026-11-22, gh:#1699): kembangan SERVES boon-lay
+# and other crates (they depend on it); punggol and others SERVE kembangan
+# (it depends on them). None of these may ever depend on kembangan.
+#
+# petir: RustBCA's float shim (`real::Real`) and its random numbers
+# (`petir::rng`, a draw-for-draw port of rand's ChaCha8Rng, gh:#995).
+petir = { workspace = true }
+anyhow-nostd = { workspace = true }
+# The damage sources, wired in for the planned dpa and gas-production work
+# (gh:#1699): neutron flux from outram-mc-libs, damage-energy cross sections
+# (NJOY HEATR) from njoy-outram-park-fork, and photon transport from punggol.
+# Not called yet.
+outram-mc-libs = { workspace = true }
+njoy-outram-park-fork = { workspace = true }
+punggol = { workspace = true }
+# RustBCA's std layer: serde parses its TOML/JSON input files.
+serde = { workspace = true, optional = true }
+# OS entropy for RustBCA's `seed < 0` and `simple_bca`, `rustbca-std` only.
+getrandom = { workspace = true, optional = true }
+# RustBCA's std-only parts, behind `rustbca-std`.
+toml = { workspace = true, optional = true }
+geo = { workspace = true, optional = true }
+indicatif = { workspace = true, optional = true, features = ["rayon"] }
+itertools = { workspace = true, optional = true }
+
+# rayon-core does not build for wasm32-unknown-unknown; RustBCA's batch
+# driver (rustbca-std) is native only.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true, optional = true }
+
+[dev-dependencies]
+# RustBCA's own unit tests (src/rustbca/tests.rs): float-cmp for their
+# assertions, geo because they build Mesh2D geometries.
+float-cmp = { workspace = true }
+geo = { workspace = true }
+# tests/rustbca_upstream_differential.rs inflates the gzipped RustBCA
+# reference run (verification_and_validation/rustbca_differential/).
+miniz_oxide = { workspace = true }
+
+[features]
+# Without `std` the crate is `no_std` + `alloc` (checked on a bare-metal
+# target by scripts/check-nostd.sh).
+default = ["std"]
+std = [
+    "dep:serde",
+    "dep:rayon",
+    "anyhow-nostd/std",
+    "outram-mc-libs/std",
+    "njoy-outram-park-fork/std",
+    "punggol/std",
+]
+# The std-only layer of the RustBCA copy: TOML input files, file output, the
+# rayon/indicatif batch driver (native only), entropy seeding, simple_bca,
+# and the geo-backed Mesh2D / HomogeneousMesh2D. OFF by default (as it was
+# in boon-lay, gh:#876 item 7). Not for wasm32-unknown-unknown: getrandom
+# needs its wasm_js feature there, which nothing enables.
+rustbca-std = ["std", "dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
+
+# Headless cost probe for RustBCA cascades in a UO2 kernel and its TRISO
+# coatings (gh:#876 item 7, moved from boon-lay 2026-11-22).
+[[example]]
+name = "rustbca_cascades"
+required-features = ["std"]

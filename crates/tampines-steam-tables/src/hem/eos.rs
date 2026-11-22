@@ -22,6 +22,9 @@
 //! characteristics `u ± c` and its Courant number with it, so a frozen speed
 //! would put the waves of a flashing flow in the wrong place.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::roots::{BracketingMethod, BracketingSolver};
 use uom::si::available_energy::joule_per_kilogram;

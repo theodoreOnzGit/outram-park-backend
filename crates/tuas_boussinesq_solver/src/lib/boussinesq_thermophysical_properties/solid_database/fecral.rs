@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::diffusion_coefficient::square_millimeter_per_second;
 use peroxide::fuga::{CubicSpline, Spline};
 use uom::si::f64::*;

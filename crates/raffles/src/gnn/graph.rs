@@ -7,6 +7,9 @@
 //! bound in [`super::bound`] is *about* this topology and a caller who only
 //! wants that bound should not have to pull in a tensor library to get it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{RafflesError, Result};
 
 /// An undirected graph over `n` nodes, stored as a directed edge list with

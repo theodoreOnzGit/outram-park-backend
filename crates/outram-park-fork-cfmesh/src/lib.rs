@@ -261,6 +261,80 @@
 //! > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 //! > operation, licensing, or safety-critical decisions.
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1639, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
+/// Hash maps and sets: std's with `std` (and in tests), so iteration order and
+/// every result are as before; `hashbrown` without it (gh:#1639).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+/// The wall clock behind the timing traces (gh:#1639). With `std` this is
+/// `std::time::Instant`; without it there is no clock and `elapsed()` is zero.
+pub(crate) mod time {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::time::Instant;
+
+    /// Stand-in for `std::time::Instant` without std: no clock.
+    #[cfg(not(any(feature = "std", test)))]
+    #[derive(Clone, Copy, Debug)]
+    pub(crate) struct Instant;
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl Instant {
+        /// A fixed instant: there is no clock to read.
+        pub(crate) fn now() -> Self {
+            Instant
+        }
+        /// Always zero without a clock.
+        pub(crate) fn elapsed(&self) -> core::time::Duration {
+            core::time::Duration::ZERO
+        }
+    }
+}
+
+/// Diagnostic environment variables (`GH1385_TRACE`, `CFMESH_*`, gh:#1639).
+/// With `std` this is `std::env::var`; without it every variable is unset.
+pub(crate) mod env {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::env::var;
+
+    /// Without std there is no environment: every variable reads as unset.
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) fn var(_key: &str) -> Result<alloc::string::String, ()> {
+        Err(())
+    }
+}
+
 pub mod anisotropic;
 pub mod cartesian;
 pub mod cartesian_mesh;
@@ -272,6 +346,7 @@ pub mod dual;
 pub mod edge_extractor;
 pub mod layers;
 pub mod math;
+pub mod mesh_dict;
 pub mod mesh_octree;
 pub mod mesh_octree_automatic_refinement;
 pub mod mesh_octree_creator;
@@ -309,6 +384,7 @@ pub mod tet_mesh_extractor_octree;
 pub mod rename_boundary_patches;
 pub mod renumber_mesh;
 pub mod topology;
+pub mod tri_surf_io;
 pub mod tri_surface_2d;
 pub mod voronoi_mesh_extractor;
 pub mod volume_mesh;
@@ -319,6 +395,12 @@ pub mod workflow_controls;
 /// default so the base crate stays dependency-free and Android-buildable.
 #[cfg(feature = "foam-export")]
 pub mod foam;
+
+/// `polyMeshGen::write` / `read` with subsets and `meshMetaDict` (feature
+/// `foam-export`, gh:#1476): what the cfMesh executables write to
+/// `constant/polyMesh`, and what `restartFromLatestStep` reads back.
+#[cfg(feature = "foam-export")]
+pub mod poly_mesh_gen_io;
 
 /// The cell-centre (`polyDualMesh`) dual of a [`volume_mesh::VolumeMesh`]
 /// through `outram-foam-mesh` (feature `cell-centre-dual`, gh:#1240): the

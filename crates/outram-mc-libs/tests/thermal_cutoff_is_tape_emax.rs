@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ENDF-route S(α,β) cutoff is the evaluation's own E_max, as in OpenMC
 //! and NJOY.** GitHub #459.
@@ -25,6 +25,8 @@
 //! it (`cutoff 4 != B(4) 10.00008`). After the fix the cutoff is 10.0 eV, the
 //! top of THERMR's table at `emax = B(4)` (NJOY's own table also stops at
 //! 10.0 eV), and σ_inel(6 eV) = 20.535 b.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::material::thermal::ThermalScattering;
 

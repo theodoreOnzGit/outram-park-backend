@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Gaussian-plume dispersion as pyDOSEIA computes it: the Pasquill-Gifford
 //! sigmas, the release-height wind correction, the two master equations and
 //! the dilution factor (`chi/Q`) for each of pyDOSEIA's release modes.
@@ -27,6 +27,9 @@
 //! The sigma fits differ (upstream uses the BARC/AERB power-law set below, not
 //! Briggs), so the two are not interchangeable and are not unified here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Velocity};
 use uom::si::length::meter;

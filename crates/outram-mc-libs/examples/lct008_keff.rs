@@ -17,8 +17,8 @@
 //! | benchmark | spectrum | U-238 | `p` | result |
 //! |---|---|---|---|---|
 //! | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | — | ~~+16 ± 11 pcm (256 seeds)~~ −6 ± 5 pcm (1024 seeds, 2026-10-05, #546) |
-//! | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | — | +6 ± 173 pcm |
-//! | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | ≈ 0.95 | −18 ± 171 pcm |
+//! | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | — | ~~+6 ± 173 pcm~~ −401 ± 13 pcm (128 seeds, RE-MEASURED 2026-11-12, gh:#1386) |
+//! | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | ≈ 0.95 | ~~−18 ± 171 pcm~~ +80 ± 13 pcm (128 seeds, RE-MEASURED 2026-11-12, gh:#1386) |
 //! | **this case** | **thermal** | **97.5 % of HM** | **≈ 0.75** | ? |
 //!
 //! Godiva and Jemima are fast — U-238 is present, in bulk, but no neutron is
@@ -84,6 +84,14 @@
 //!
 //! Fixed by `Geometry::cross_surface_in_frame`; diagnosis in
 //! `tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff`.
+//!
+//! ## RE-MEASURED 2026-11-19 (gh:#550): S(a,b) emission tables on THERMR's grid
+//!
+//! `ThermalScattering::from_tape` now builds on the `calcem` grid. Case 1,
+//! 32 seeds: **+148 pcm, sem +/-21, sd 117** against +172 +/- 22 (32 seeds,
+//! 2026-11-12): move -24 +/- 30 pcm (z -0.8); predicted +40, sign missed.
+//! Xeon 2.10 GHz, 4 shared logical cores (2 threads), transport 6405 s.
+//! Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
 //!
 //! ## The spread across cases is what identified it, and this file already had that argument
 //!
@@ -461,11 +469,43 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## RE-MEASURED 2026-11-12 — 32 seeds, `OUTRAM_BENCH_SEEDS=32` (gh:#1386)
+//!
+//! **Current value, case 1: `+172 pcm, sem ±22, seed-to-seed sd 124`
+//! (32 seeds)** against k = 1.0000, i.e. `k = 1.00172 ± 0.00022`, at code
+//! `49148da11`: this branch's transport defaults (OpenMC-faithful collision
+//! kernels, OpenMC reaction order with a single-cutoff level pick, OpenMC
+//! fission-neutron order, per-collision fission banking, the gh:#1497
+//! direction-norm guard). The example's defaults: full 35-nuclide model
+//! (36 tapes), 4000 × [120 + 250], speed tier `fast`, URR and DBRC on,
+//! H in H₂O from `tsl-HinH2O.endf`. Pooled active-half drift +24 ± 34 pcm
+//! (not resolved). Every history clean.
+//!
+//! **Against which record. No like-for-like record exists.** The
+//! 2026-09-18 `+165 ± 25` below predates the URR/DBRC defaults, the full
+//! nuclide tier and the gh:#931 PURR counts. The nearest record of the same
+//! 35-nuclide model is route 4 of `icsbep_five_route_keff`, **`+135 ± 23`
+//! over 32 seeds, 2026-10-18** (`verification_and_validation/route4_process_931/`),
+//! but at 10 000 × [40 + 120] with H in H₂O from the LEAPR deck. **New − that
+//! = +37 ± 32 pcm (+1.2σ)**, inside the ±2σ predicted before the run
+//! (`crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/predictions.md`). For completeness: against route 4's
+//! 8-seed 10 000 × [250 + 400] row (2026-10-14, `+118 ± 19`) it is
+//! +54 ± 29 (1.9σ), and against the stale `+165 ± 25` it is +7 ± 33. None of
+//! these separates the transport-default change from the run-size and
+//! S(α,β)-source differences; a paired legacy arm would, and was not run
+//! (not required under 3σ). Measured on an Intel Xeon @ 2.80 GHz, 4 logical
+//! cores shared with a concurrent workspace test suite, 15 GiB RAM, Linux
+//! 6.18.44, CPU only: data 594.6 s, transport 5580.2 s for the 32 seeds.
+//! Log: `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/lct008_keff_default_s32.log`.
+//!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! **Superseded: by the URR/DBRC defaults, the full nuclide tier, and the
+//! 2026-11-12 re-measure above. Quote `+172 ± 22`.**
 //!
 //! | | dk vs benchmark |
 //! |---|---|
-//! | **pooled mean, 32 seeds** | **+165 pcm, sem +/-25** |
+//! | **pooled mean, 32 seeds** | ~~**+165 pcm, sem +/-25**~~ **RE-MEASURED 2026-11-12: +172 ± 22 (32 seeds)** |
 //! | seed-to-seed sd | 143 pcm — what ONE run scatters by |
 //! | previously recorded (SINGLE seed) | `+201 +/- 63 pcm` |
 //! | one draw taken 2026-09-18 | `+89 +/- 126 pcm` |
@@ -571,8 +611,15 @@ fn main() {
         eprintln!("Nuclide route: ENDF -> ACER -> .ace -> from_ace (--via-ace)");
         d
     });
-    let (nuclides, slots, omitted) = load_nuclides(&spec, res_opts, ace_scratch.clone());
+    let (free_nuclides, slots, omitted, sab) =
+        load_nuclides(&spec, res_opts, ace_scratch.clone());
     let (materials, clad_idx) = build_materials(&spec, &slots, &omitted, false);
+    // Per-material H(H2O), as the model's <sab> cards say (gh:#462, #1581).
+    let (materials, nuclides) =
+        assign_spec_sab(&spec, &materials, &free_nuclides, &slots, sab.as_ref());
+    if sab.is_some() {
+        eprintln!("    H1 carries c_H_in_H2O in the materials whose <sab> card names it");
+    }
     report_omissions(&spec, &omitted);
     // `check_geometry`'s hand-written predicate resolves materials by the model's
     // own ids through `PIN_SHELLS`, but it does assume the file lists them in id
@@ -725,6 +772,7 @@ fn main() {
     if clad_bound {
         eprintln!("\n  bounding the clad omission: omitted density re-added as Mn-55 …");
         let (bounded, _) = build_materials(&spec, &slots, &omitted, true);
+        let (bounded, _) = assign_spec_sab(&spec, &bounded, &free_nuclides, &slots, sab.as_ref());
         let geom2 = build_geometry(&bounded, true);
         let src2 = SourceBox {
             lower: Position::new(-R_CORE, -R_CORE, Z_LO),
@@ -847,7 +895,12 @@ fn load_nuclides(
     spec: &[MaterialSpec],
     opts: ResonanceOptions,
     ace_scratch: Option<std::path::PathBuf>,
-) -> (Vec<Nuclide>, BTreeMap<String, usize>, BTreeMap<String, f64>) {
+) -> (
+    Vec<Nuclide>,
+    BTreeMap<String, usize>,
+    BTreeMap<String, f64>,
+    Option<ThermalScattering>,
+) {
     let mut wanted: Vec<&str> = Vec::new();
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
     for m in spec {
@@ -879,7 +932,6 @@ fn load_nuclides(
         .expect("H(H2O) S(a,b)")
     });
 
-    let mut sab = sab;
     let mut nuclides = Vec::new();
     let mut slots = BTreeMap::new();
     for name in wanted {
@@ -917,17 +969,13 @@ fn load_nuclides(
                 }
             }
         }
-        if name == "H1" {
-            if let Some(s) = sab.take() {
-                n = n.with_thermal_scattering(s);
-                eprintln!("    H1 carries c_H_in_H2O");
-            }
-        }
+        // H-1 stays free here; `assign_spec_sab` attaches c_H_in_H2O to the
+        // materials whose `<sab>` card names it (gh:#462, #1581).
         slots.insert(name.to_string(), nuclides.len());
         nuclides.push(n);
     }
     eprintln!("Nuclear data ready in {:.1} s.", t0.elapsed().as_secs_f64());
-    (nuclides, slots, omitted)
+    (nuclides, slots, omitted, sab)
 }
 
 /// The ACE temperature in MeV, for the ACE route's ZAID header.

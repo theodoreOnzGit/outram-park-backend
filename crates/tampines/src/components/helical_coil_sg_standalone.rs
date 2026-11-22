@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Standalone helical-coil steam-generator harness** — the exchanger alone,
 //! with no plant attached.
@@ -79,6 +79,9 @@
 //! validated against a measured HTR-10 steam generator. Research, education and
 //! V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     AvailableEnergy, MassRate, Pressure, ThermalConductance, ThermodynamicTemperature, Time,

@@ -32,6 +32,9 @@
 //! default-on `gpu` feature and is never built on Android or wasm32;
 //! [`gpu::flat`], its geometry encoding, is core like the rest.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cell;
 pub mod geometry;
 pub mod gpu;

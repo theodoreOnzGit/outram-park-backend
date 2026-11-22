@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-liggghts"
-version = "0.0.3"
+version = "0.0.4"
 edition.workspace = true
 # LICENSING NOTE (see NOTICE): LIGGGHTS-PUBLIC's source headers declare "GNU
 # Public License, version 2 OR LATER", which IS compatible with GPL-3.0 (the
@@ -14,7 +14,7 @@ homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
-exclude = ["docs", "examples/data"]
+exclude = ["docs", "examples/data", "upstream_source"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -38,7 +38,13 @@ maturity = 2
 # `cargo test` runs them. See the "Any test over 5 minutes" HARD RULE in the
 # workspace CLAUDE.md; turn them off with `cargo quick-test -p
 # outram-park-fork-liggghts`.
-default = ["long-tests", "gnn"]
+# `std` (default, gh:#1602): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`. It carries
+# rayon (without it the parallel loops run serially through `wasm_par`, as
+# on wasm), the GPU path (`wgpu`), files and printing. `gnn` works without
+# it, since `raffles` is no_std too (gh:#1610).
+std = ["thiserror-nostd/std", "dep:rayon", "dep:wgpu", "raffles?/std"]
+default = ["std", "long-tests", "gnn"]
 long-tests = []
 # Contact-graph and message-passing-reach bridge to `raffles::gnn`
 # (src/gnn_bridge.rs). **ON by default** (maintainer direction, 2026-09-17).
@@ -64,7 +70,11 @@ petir = { workspace = true }
 # The DEM pillar is kept dependency-independent of the CFD crates (per the
 # Phase II separation principle) — CFD-DEM coupling is a future explicit seam.
 uom.workspace = true
-thiserror.workspace = true
+# `thiserror` without its std default (gh:#1602); `std` turns it back on.
+# Imported in lib.rs as `thiserror`.
+thiserror-nostd.workspace = true
+# `HashMap`/`HashSet` without `std` (workspace rule); unused in std builds.
+hashbrown.workspace = true
 # RAFFLES's graph-neural-network layer, for the `gnn` feature below. Optional
 # in Cargo terms but **enabled by the default feature set** (maintainer
 # direction, 2026-09-17). It carries no tensor library: `raffles`'s own `burn`
@@ -90,7 +100,8 @@ burn = { workspace = true, optional = true }
 # parallel force loop accumulates in the serial contact order, so it is
 # bit-identical to the scalar path at any thread count (see `src/compute.rs`).
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true }
+# std-only (gh:#1602).
+rayon = { workspace = true, optional = true }
 
 # Optional GPU compute (headless, no window) for the embarrassingly-parallel
 # analysis kernels — see `src/gpu/`. Exactly the gate `outram-mc-libs` uses, for
@@ -110,7 +121,8 @@ rayon = { workspace = true }
 # pure-std `block_on` to drive the two `request_adapter`/`request_device`
 # futures, keeping this crate's third-party surface unchanged.
 [target.'cfg(not(target_os = "android"))'.dependencies]
-wgpu = { workspace = true }
+# std-only (gh:#1602).
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true

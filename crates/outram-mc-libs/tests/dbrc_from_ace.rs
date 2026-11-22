@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **DBRC on the ACE route: attached when the data permits, and never silently
 //! absent** — GitHub #307 item 3.
@@ -26,6 +26,8 @@
 //!
 //! Printed by the tests. `reference-data/ace` ships U-235 at both 0 K and
 //! 293.6 K, so every branch below runs on real data rather than a construction.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::acer::read;
 use njoy_outram_park_fork::reference_data::ace_reference_file_or_skip;

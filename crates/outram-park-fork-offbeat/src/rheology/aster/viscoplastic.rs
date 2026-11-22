@@ -66,6 +66,9 @@
 //! to one scalar unknown, `Δp`, solved with the safeguarded Newton from
 //! [`crate::rheology::aster::integration`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::SymmTensor;
 

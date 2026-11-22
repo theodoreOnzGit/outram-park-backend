@@ -67,6 +67,9 @@
 //! the Schmid factor is dimensionless and lies in `[0, 0.5]`, and the
 //! `q`-matrix entries are dimensionless ratios.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::tensor::Voigt6;
 
 /// The largest number of slip systems any [`SlipFamily`] in this crate has.

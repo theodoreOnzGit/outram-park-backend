@@ -19,6 +19,9 @@
 //! energy-grid node lists) is also not yet ported — it belongs to Phase 6
 //! (top-level orchestration / PENDF grid generation), not this phase.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::common::phys::{
     ANRATIO, CLIGHT_CM_S, DNRATIO, EV_ERG, HBAR_ERG_S, HNRATIO, INV_FINE_STRUCT, PNRATIO, TNRATIO,
 };

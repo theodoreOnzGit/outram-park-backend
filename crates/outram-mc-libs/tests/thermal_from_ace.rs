@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`ThermalScattering` from an ACE table** — ACE gap 2, transport side.
 //!
@@ -15,6 +15,8 @@
 //! # Results, 2026-09-25
 //!
 //! Printed by the test.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use std::fs::File;

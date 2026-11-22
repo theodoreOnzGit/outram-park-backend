@@ -3,6 +3,9 @@
 // Do not edit by hand — re-run the generator. See dev/gen_incompressible.py.
 //! CoolProp `ExampleDigitalPure` incompressible-fluid fit, as hardcoded `const` data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `ExampleDigitalPure` (pure), `T ∈ [280.0, 500.0] K`.

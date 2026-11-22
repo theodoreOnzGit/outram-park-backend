@@ -9,6 +9,9 @@
 //! They are deliberately short. The array's own Edwards blowdown case runs for
 //! minutes; nothing here needs more than a handful of steps.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use approx::assert_relative_eq;
 use uom::si::angle::degree;
 use uom::si::angular_velocity::radian_per_second;

@@ -31,6 +31,9 @@
 //! densities, unlike an OpenMC `Material` (mass density + atom/weight fractions),
 //! where the reference `rpt_pebble.py` has to convert through moles.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
 use crate::geometry::position::Position;
@@ -138,7 +141,7 @@ impl TrisoSpec {
     /// The five shell volumes \[cm³\] of one particle, kernel first: the kernel
     /// ball then the four coating shells.
     pub fn layer_volumes(&self) -> [f64; 5] {
-        let ball = |r: f64| 4.0 / 3.0 * std::f64::consts::PI * r * r * r;
+        let ball = |r: f64| 4.0 / 3.0 * core::f64::consts::PI * r * r * r;
         [
             ball(self.kernel),
             ball(self.buffer) - ball(self.kernel),
@@ -688,6 +691,7 @@ mod tests {
             let expect = (r[i].r_powi(3) - lo) / o3;
             let got = hits[i] as f64 / N as f64 / triso;
             let rel = (got - expect) / expect;
+            #[cfg(feature = "std")]
             eprintln!(
                 "[explicit pebble] {:<7} share of TRISO {got:.6}  geometry {expect:.6}  {:+.2} %",
                 names[i],
@@ -703,6 +707,7 @@ mod tests {
         }
 
         // 2. Two independent estimators of the ball's packing fraction agree ...
+        #[cfg(feature = "std")]
         eprintln!(
             "[explicit pebble] ball pf: material_at {triso:.5}, volume_fraction_in_ball \
              {ball_pf:.5}, packer nominal {:.5}",
@@ -749,7 +754,7 @@ mod tests {
     fn layer_volumes_sum_to_particle_volume() {
         let s = TrisoSpec::FHR_HALEU_UCO;
         let v: f64 = s.layer_volumes().iter().sum();
-        let ball = 4.0 / 3.0 * std::f64::consts::PI * s.opyc.r_powi(3);
+        let ball = 4.0 / 3.0 * core::f64::consts::PI * s.opyc.r_powi(3);
         assert!((v - ball).abs() < 1e-15 * ball, "{v} vs {ball}");
     }
 
@@ -906,7 +911,7 @@ mod tests {
         let r_fz = 1.9;
         let pf = 0.3;
         let r_out = rpt_fuel_outer_radius(r_in, r_fz, pf);
-        let ball = |r: f64| 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+        let ball = |r: f64| 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
         let shell_v = ball(r_out) - ball(r_in);
         let particle_v = pf * ball(r_fz);
         assert!(
@@ -1043,6 +1048,7 @@ mod tests {
         };
         let rep =
             run_keff_reactor_physics(&g, &[fuel, graphite, coolant], &nucs, &cfg).expect("Ok");
+        #[cfg(feature = "std")]
         eprintln!(
             "[op-mzvp.2.11] reflective pebble: k_eff = {:.5} +/- {:.5}, leakage = {:.3e} per source neutron",
             rep.keff.k_mean, rep.keff.k_std, rep.leakage_total.mean

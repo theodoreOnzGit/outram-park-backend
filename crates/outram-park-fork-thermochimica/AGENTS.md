@@ -5,6 +5,24 @@ workspace root `CLAUDE.md` binds here as everywhere; this file adds what is
 specific to this crate. Added 2026-10-20: the member-crate rule requires one,
 and this crate had none.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1590, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` only turns on `thiserror`'s `std`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`, on the
+  statement or the item.
+- No `HashMap` in the library: `BTreeMap` (`alloc`; fixed iteration order).
+- A `std` build computes what it did before: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
+
 ## What it is
 
 An independent pure-Rust translation of ORNL **Thermochimica**
@@ -14,7 +32,7 @@ molten fluoride salts: fission-product speciation, UF3/UF4 redox partitioning
 and solubility, for MSRE fission-product migration.
 
 **Status: SCAFFOLD, no human V&V.** Checked 2026-10-20:
-- the whole port is `src/gem.rs`, with 6 unit tests;
+- the whole port is `src/gem.rs`, with ~~6~~ **7** unit tests (**CORRECTED 2026-11-13**, gh:#1407: one added for the merit-offset repair) and, since 2026-11-13, `tests/thermochimica_differential.rs`, a comparison against a run of Thermochimica `0c35c8d` (`verification_and_validation/thermochimica_differential/`);
 - `src/lib.rs` only re-exports;
 - no other crate depends on it (no consumer in any `crates/*/Cargo.toml`).
 

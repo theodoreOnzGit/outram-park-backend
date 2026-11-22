@@ -17,6 +17,9 @@
 //! "likelihood" `ln post − ln base`. At β = 1 the tempered target is
 //! exactly SEPIA's posterior; only the tempering path differs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::model::{EmulatorFactor, KohForm, KohModel, KohParams, ParamPrior, PriorDist};
 use crate::bayesian::transitional::{tmcmc, TemperingCriterion, TransitionKernel, TransitionalConfig};
@@ -193,7 +196,7 @@ impl KohModel {
                 _ => 1,
             };
             let b = base(self.group_prior(*g))?;
-            marginals.extend(std::iter::repeat(b).take(width));
+            marginals.extend(core::iter::repeat(b).take(width));
         }
         let prior = IndependentPrior::new(marginals)?;
         let factor: Option<EmulatorFactor> = match config.free {

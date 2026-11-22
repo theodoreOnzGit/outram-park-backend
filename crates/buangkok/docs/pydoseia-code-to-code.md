@@ -23,7 +23,7 @@ validation against measurement or against an independent code in this pass.
 verification_and_validation/pydoseia_code_to_code/gen_pydoseia_reference.py
   + tranche2.py (imported by it; second tranche, 2026-09-28)
     imports upstream from vendor/pyDOSEIA, runs it on synthetic inputs
-    -> tests/data/pydoseia_reference.csv          1 899 rows, 18 127 values
+    -> tests/data/pydoseia_reference.csv          1 917 rows, 18 217 values
     -> tests/data/pydoseia_synthetic_*.csv        the inputs, as upstream read them
         -> tests/pydoseia_code_to_code.rs         replays every row through the port
            + tests/pydoseia_c2c/tranche2.rs       (the second tranche's groups)
@@ -210,7 +210,7 @@ Taken **2026-09-28** on x86-64 Linux: upstream `dca4cdc3`, Python 3.14.7, numpy
 cases, 13 422 values, 20 groups, all passing** (unchanged by the second
 tranche: the same rows, the same deviations). Second tranche, same day and
 versions (joblib 1.6.0): **884 cases, 4 705 values, 23 groups, all passing**.
-In total **1 899 cases, 18 127 values, 43 groups**.
+In total ~~**1 899 cases, 18 127 values, 43 groups**~~ **CHANGED 2026-11-13 (gh:#1429): 1 917 cases, 18 217 values, 44 groups** (the new `boundary_totals` group adds 18 cases and 90 values; the 1 899 rows and 18 127 values that were there are unchanged).
 
 | Group | Cases | Values | max rel dev | Tolerance |
 |---|---:|---:|---:|---:|
@@ -223,7 +223,7 @@ In total **1 899 cases, 18 127 values, 43 groups**.
 | `tjfd` | 24 | 3 840 | 0 (exact) | 0 |
 | `tjfd_missing` | 24 | 3 840 | 0 (exact) | 0 |
 | `calm_factors` | 4 | 64 | 0 (exact) | 0 |
-| `speed_means` | 2 | 12 | 4.83e-16 | 2e-15 |
+| `speed_means` | 2 | 12 | ~~4.83e-16~~ **0 (exact), 2026-11-13** | ~~2e-15~~ **0** |
 | `dilution_met_long_term` | 16 | 256 | 0 (exact) | 1e-15 |
 | `half_life` | 22 | 22 | 0 (exact) | 0 |
 | `dcf_inhalation` | 60 | 480 | 0 (exact) | 0 |
@@ -260,6 +260,7 @@ Second tranche:
 | `driver` | 53 | 484 | 0 (exact) | 0 |
 | `driver_dcf_report` | 10 | 72 | 0 (exact) | 0 |
 | `driver_summary` | 12 | 60 | 0 (exact) | 0 |
+| `boundary_totals` (2026-11-13, gh:#1429) | 18 | 90 | 1.12e-16 (1 value; 89 of 90 bit-identical, see below) | 0 (one pinned known difference) |
 | `boundary_totals_text` | 18 | 90 | 3.68e-4 | 6e-4 |
 | `driver_raises` | 1 | 1 | 0 (exact) | 0 |
 
@@ -300,9 +301,12 @@ prints are the `driver` and `driver_summary` groups, which are exact. In the
 rest are arrays of three shapes, including the transposed one (D9); the port
 reproduces each outcome and each shape.
 
-**Interpretation.** Of the 43 groups, 41 are bit-exact; `speed_means` is 2 ulp
+**Interpretation.** ~~Of the 43 groups, 41 are bit-exact; `speed_means` is 2 ulp
 from a pandas reduction and `boundary_totals_text` is limited by the report's
-printing. The plume-shine groups being bit-exact means that the QUADPACK
+printing.~~ **CHANGED 2026-11-13 (gh:#1429):** `speed_means` is now bit-exact
+(12 of 12; see "Closing the last two groups" below), and `boundary_totals_text`
+is limited by the report's printing, which the new in-memory group
+`boundary_totals` removes (89 of 90 values bit-identical, the other 1.1e-16). The plume-shine groups being bit-exact means that the QUADPACK
 port subdivides exactly as SciPy does (the adaptive quadrature would amplify
 any difference in the integrand or the error estimate into a different
 subdivision). The driver groups compare against upstream's own joblib run, so
@@ -324,6 +328,53 @@ cargo test --release -p buangkok --test pydoseia_code_to_code -- --nocapture
 
 (`--check` regenerates the synthetic input CSVs, which is deterministic, and
 diffs the fixture only.)
+
+## Closing the last two groups (gh:#1429, 2026-11-13)
+
+Predictions were committed before the runs: `verification_and_validation/pydoseia_code_to_code/PREDICTIONS.md`;
+the results are in `RESULTS.md` beside it.
+
+**`speed_means`: a port defect, fixed.** `met::speed_distribution` summed the
+kept speeds left to right. Upstream's `_[0].mean()` is pandas' `Series.mean()`,
+which is numpy's pairwise `add.reduce` (eight accumulators, block of 128)
+divided by the count. Localisation, by running upstream only: on the 12
+(window, class) series pandas' mean equals `np.add.reduce(a) / n` in 12 of 12
+and a left-to-right sum / n in 3 of 12 (the classes hold 29 to 386 values, so
+all of them are past numpy's 8-element threshold). The port now calls the
+crate's existing `assessment::numpy_pairwise_sum`. Moved: max relative
+deviation 4.83e-16 -> 0, tolerance 2e-15 -> 0, **12 of 12 bit-identical**, pinned by
+`speed_means_and_boundary_totals_bit_identical_counts_are_pinned`.
+
+**`boundary_totals_text`: not a port limit; replaced by an in-memory group.**
+The text group is bounded by pandas' six-figure `to_string`. The generator now
+wraps `pandas.DataFrame.to_string` while `output_to_txt` runs and records the
+very `df_all` frames upstream builds (`boundary_totals`, full precision, tolerance 0).
+Result: **89 of 90 values bit-identical** to `assessment::plant_boundary_totals`
+(total = pandas row sum, ingestion = pandas sum of three). The 90th (the total
+for `long_term_met`, SYN-6, age 18) is 1.1e-16 off and is pinned in
+`KNOWN_DIFFERENCES`; cause below. The text group is kept as the record of the
+printed route (3.68e-4, tolerance 6e-4, unchanged).
+
+### The fixture depends on numpy's `exp` (found 2026-11-13)
+
+The committed fixture was generated on a machine where numpy's `exp` agreed with
+glibc's, and the port (Rust `f64::exp`, glibc) reproduces it. Regenerating it here
+(Python 3.13.18, numpy 2.5.3, pandas 3.0.6, scipy 1.18.1, glibc 2.39; the committed
+header says Python 3.14.7) gives **78 of 18 127 values different** in
+`master_single` 1, `dilution_no_met` 15, `ingestion` 42, `plume_shine_single` 1,
+`plume_shine_long_term` 2, `plume_shine_met` 1 and `driver` 16, all one or two
+ulp, and in exactly the paths that call `numpy.exp`. Localised: on this machine
+`np.exp` differs from `math.exp` (glibc) on 9 190 of 200 000 random inputs in
+[-50, 5], and `NPY_DISABLE_CPU_FEATURES` for AVX-512, AVX2 and FMA3 does not
+change that. With numpy 2.4.6 and pandas 3.1.1 the same regeneration also moves 21
+`dcf_screening` values (pandas 3.1.1's `read_excel` parses some floats one ulp
+differently: the screening CSVs regenerate differently) and 4 `driver_summary`
+values. Run against such a fixture, the port gives at most 4.65e-16 relative
+(`ingestion`) and 4.19e-16 (`dilution_no_met`). **So bit-exactness of the
+exp-dependent groups holds against a fixture whose `exp` is glibc's, and not
+against every numpy build.** The committed rows were left as they are and only
+the 18 new rows were added from the new environment; this is why `boundary_totals`
+has one pinned 1-ulp row.
 
 ## Upstream defects found while porting
 

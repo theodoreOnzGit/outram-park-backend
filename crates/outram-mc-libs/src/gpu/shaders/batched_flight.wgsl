@@ -15,6 +15,8 @@
 //   5. stream to whichever is nearer and flag the outcome:
 //        collided  (d_col <  d_bound) — particle moved to the collision site,
 //        leaked    (d_col >= d_bound) — particle left the sphere (dead here).
+//      A particle outside the sphere, or on it moving out, leaks before the
+//      distance test (OpenMC `Surface::sense`; gh:#1507).
 // The branchy collision physics (which nuclide/reaction, secondary E/angle) is
 // NOT done here — it stays on the CPU caller. This kernel only does the flight.
 //
@@ -97,9 +99,16 @@
 // - RNG state advance: OpenMC src/random_lcg.cpp:32-35 (prn), constants 11-12.
 // - Sigma_t grid search + linear interp: OpenMC src/nuclide.cpp:716-740
 //   (Nuclide::calculate_xs), mirrored exactly as in this crate's xs_interp.wgsl.
-// - Bounding-sphere distance: OpenMC src/surface.cpp:607-638
+// - Bounding-sphere distance: ~~OpenMC src/surface.cpp:607-638
 //   (SurfaceSphere::distance), the coincident=false path; also this crate's
-//   `src/geometry/surface.rs` Sphere::distance.
+//   `src/geometry/surface.rs` Sphere::distance.~~ CORRECTED 2026-11-12
+//   (gh:#1506, #1507): step 6 did NOT follow SurfaceSphere::distance
+//   (src/surface.cpp:652-690 at 8f79d9d0): it floored both roots at EPS and had
+//   no Surface::sense test, so a neutron on or near the surface moving out got
+//   no boundary. Fixed in batched_event.wgsl (#1506). FIXED HERE 2026-11-12
+//   (gh:#1507): step 6 is now OpenMC Surface::sense (src/surface.cpp:118-132)
+//   then SurfaceSphere::distance (652-690), coincident = false, the same text
+//   as batched_event.wgsl.
 //
 // PRECISION / STATUS
 // ------------------
@@ -135,8 +144,13 @@ struct Params {
 // A sentinel "no intersection" distance (cm). Physically the sampled flight
 // distance in this kernel is O(10) cm, so this is always larger than any d_col.
 const BIG: f32 = 1e30;
-// Coincident-surface epsilon (cm), f32; matches the task spec / OpenMC treatment.
-const EPS: f32 = 1e-7;
+// ~~Coincident-surface epsilon (cm), f32; matches the task spec / OpenMC
+// treatment. const EPS: f32 = 1e-7;~~ REMOVED 2026-11-12 (gh:#1507): OpenMC has
+// no such floor. OpenMC FP_COINCIDENT (include/openmc/constants.h:55), as
+// batched_event.wgsl and csg_trace.wgsl carry it. In f32 the band |f| < 1e-12
+// is below the rounding of f near the surface, so membership is decided by the
+// sign of f except at f == 0.
+const FP_COINCIDENT: f32 = 1.0e-12;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -197,8 +211,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     //    which is >= d_bound below, i.e. treated as a leak.
     let d_col = -log(xi) / sigma_t;
 
-    // 6. Distance to the bounding sphere (cm). Mirrors OpenMC
-    //    src/surface.cpp:607-638 SurfaceSphere::distance (coincident = false).
+    // 6. Sphere sense, then distance to the bounding sphere (cm). ~~Mirrors
+    //    OpenMC src/surface.cpp:607-638 SurfaceSphere::distance (coincident =
+    //    false).~~ CORRECTED 2026-11-12 (it did not: EPS floor, no sense test)
+    //    and FIXED the same day (gh:#1507) with the text #1506 put in
+    //    batched_event.wgsl, mirrored by `batched_flight::sphere_distance_f32`.
     //    part_in dir layout: dir(i,c) = part_in[N + 3i + c].
     let px = pos[3u * i + 0u];
     let py = pos[3u * i + 1u];
@@ -209,26 +226,36 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let ox = px - params.sphere.x;
     let oy = py - params.sphere.y;
     let oz = pz - params.sphere.z;
-    let rad = params.sphere.w;
-    let k = ox * ux + oy * uy + oz * uz;      // o . u
-    let c = ox * ox + oy * oy + oz * oz - rad * rad;
-    let disc = k * k - c;
+    let kdot = ox * ux + oy * uy + oz * uz;   // (r - c0) . u
+    let cc = ox * ox + oy * oy + oz * oz - params.sphere.w * params.sphere.w;
+
+    // Cell membership first: OpenMC `Surface::sense` (src/surface.cpp:118-132,
+    // 8f79d9d0). A neutron is inside (-sphere) only when its sense is negative;
+    // a coincident one (|f| < FP_COINCIDENT) takes the side its direction
+    // points to (u . grad f = 2k > 0 means outward). OpenMC never transports a
+    // particle outside its cell, and outside the vacuum sphere there is no
+    // cell, so the neutron is gone. f32 rounding of a collision site can put a
+    // neutron just outside, where the distance below would never leak it.
+    var outside: bool;
+    if (abs(cc) < FP_COINCIDENT) { outside = kdot > 0.0; } else { outside = cc > 0.0; }
+    if (outside) {
+        state[2u * nn + i] = 0u;               // beyond the vacuum boundary: leaked
+        return;
+    }
+
+    // Distance to the bounding sphere: OpenMC `SurfaceSphere::distance`
+    // (src/surface.cpp:652-690, 8f79d9d0), coincident = false.
+    let disc = kdot * kdot - cc;
     var d_bound: f32;
     if (disc < 0.0) {
-        d_bound = BIG;                         // ray misses the sphere
+        d_bound = BIG;
+    } else if (abs(cc) < FP_COINCIDENT) {
+        if (kdot >= 0.0) { d_bound = BIG; } else { d_bound = -kdot + sqrt(disc); }
+    } else if (cc < 0.0) {
+        d_bound = -kdot + sqrt(disc);
     } else {
-        let sq = sqrt(disc);
-        let d_near = -k - sq;
-        if (d_near > EPS) {
-            d_bound = d_near;
-        } else {
-            let d_far = -k + sq;
-            if (d_far > EPS) {
-                d_bound = d_far;
-            } else {
-                d_bound = BIG;                 // both roots behind the particle
-            }
-        }
+        let d = -kdot - sqrt(disc);
+        if (d < 0.0) { d_bound = BIG; } else { d_bound = d; }
     }
 
     // 7. Stream to the nearer event.

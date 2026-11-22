@@ -28,6 +28,9 @@
 //! rule that a block must never accumulate a growing history of its inputs
 //! (bead `op-fm5`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, ratio::ratio, time::second};
 
 use super::polynomial;

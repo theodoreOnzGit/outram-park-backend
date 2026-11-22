@@ -54,6 +54,9 @@
 //! verified as faithful ports; their validation against rod-bundle pressure-drop
 //! data is deferred to when the porous momentum solver (bead op-p6p.7.11) exists.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::units::reynolds_number;

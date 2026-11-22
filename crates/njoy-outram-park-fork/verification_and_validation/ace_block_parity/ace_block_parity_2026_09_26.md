@@ -213,9 +213,13 @@ the stage comparator. The number in brackets is what it moved.
     [U-234 grid 41 541 vs 25 393 points -> SAME; U-238 -> SAME.]
 21. **MF=10 in the union**, with the same threshold raise (`lunion`,
     `nss = n1h`). [Ar-37: two NJOY points above 22 MeV.]
-22. **`emerge` reads `lunion`'s TAB1s through a formatted scratch tape.** A
+22. **`emerge` reads `lunion`'s TAB1s through ~~a formatted~~ its scratch tape.** A
     raised threshold `sigfig(thr,7,+1)` loses sigfig's 1e-13 bias there.
     [Sr-88: MT=63/66/72 one unit off in the 7th figure -> SAME.]
+    **CORRECTED 2026-11-12 (gh:#1496):** the scratch `nscr1` is formatted only
+    when `npend > 0` (`reconr.f90:155,193`; Sr-88's deck is `reconr 20 22`).
+    With `npend < 0` it is binary and the bias survives (Zr-90 MT=52/53/58 on
+    decks 32/49/69, `reconr::reconr_for_deck`).
 23. **LRP != 1 never reaches `rdfil2`.** There are no nodes, and
     `eresr = eresh = 20 MeV`; the PENDF limit is 20 MeV. [C-12, Li-6: 1e5 eV
     decade point missing, and unbroadened above 1e5 eV -> SAME.]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **HTR-10 cross-section plots, drawn with the ported `openmc.Model.plot`**
 //! ([`outram_mc_libs::geometry::plot::ModelPlot`]).
@@ -31,6 +31,9 @@
 //! reflector through the withdrawn rods, and the hot-gas duct, so that the
 //! control-rod, absorber-ball (KLAK), irradiation and coolant borings all show.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::plot::{

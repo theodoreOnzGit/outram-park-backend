@@ -1,6 +1,6 @@
 [package]
 name = "deck-based-open-source-visualisation-engine-for-reactors-dover"
-version = "0.0.2"
+version = "0.0.3"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -41,11 +41,24 @@ petir = { workspace = true }
 # ReactorFeed/Outcome. Reused rather than reimplemented -- see src/lib.rs.
 outram-park-fork-dwsim-libs = { workspace = true }
 # The deck is a typed, validated document; serde derives it and toml parses it.
-serde = { workspace = true }
-toml = { workspace = true }
+# Both `std` only (gh:#1643): toml 0.8 needs std.
+serde = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 
 # The package name spells out the backronym (`dover` on crates.io belongs to
 # another project); the library keeps the short name, so `use dover::...` works.
+[features]
+# `std` (default, gh:#1643): the TOML deck reader/writer (`serde`, `toml`).
+# Without it the crate is `no_std` + `alloc`, checked on a bare-metal target
+# by `scripts/check-nostd.sh`: the deck types, validation, the SMR physics and
+# the headless CSV runner build without it.
+default = ["std"]
+std = ["outram-park-fork-dwsim-libs/std", "dep:serde", "dep:toml"]
+
+[[example]]
+name = "smr_cstr"
+required-features = ["std"]
+
 [lib]
 name = "dover"
 path = "src/lib.rs"

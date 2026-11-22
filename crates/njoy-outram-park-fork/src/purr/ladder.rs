@@ -6,6 +6,9 @@
 //! plan-named boundary, the Monte Carlo core (`unrest`) lives in
 //! [`super::unrest`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::unresr::mf2::UnresolvedRange;
 use crate::unresr::wfun::{qp_node, qw_weight};
@@ -208,7 +211,7 @@ pub fn generate_ladder(
     // purr.f90:1772-1773 — `dn=20; dn=dn-dn/10000` = 19.998.
     const COMPETITIVE_SCALE: f64 = 20.0 - 20.0 / 10000.0;
 
-    let dcon = seq.dbar * (4.0 / std::f64::consts::PI).sqrt();
+    let dcon = seq.dbar * (4.0 / core::f64::consts::PI).sqrt();
     let mut resonances: Vec<LadderResonance> = Vec::new();
 
     loop {
@@ -423,7 +426,7 @@ pub fn infinite_dilution_reference(
             let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
             let rat = seq.awri / (seq.awri + 1.0);
             let k = crate::reconr::slbw::WAVE_K * rat * e2;
-            let ab = 4.0 * std::f64::consts::PI / (k * k);
+            let ab = 4.0 * core::f64::consts::PI / (k * k);
             let rho = k * aa;
             let rho_c = k * seq.ap;
             let (vl, ps) = penetrability_factor(seq.l, rho, rho_c);
@@ -487,7 +490,7 @@ pub fn infinite_dilution_reference(
             let gs = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 1);
             let gc = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 2);
             let gf_avg = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 3);
-            let temp = seq.abn * std::f64::consts::PI * ab * gj * gnx / (2.0 * seq.d);
+            let temp = seq.abn * core::f64::consts::PI * ab * gj * gnx / (2.0 * seq.d);
             sigi_elastic += temp * (gs * gnx - 2.0 * ps.r_sin().r_powi(2));
             sigi_fission += temp * gf_avg * gfx;
             sigi_capture += temp * gc * seq.gg;

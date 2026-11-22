@@ -37,6 +37,9 @@
 
 //! The extended Kalman filter (FilterPy's `ExtendedKalmanFilter`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::numpy_ops::Matrix;
 use crate::{RafflesError, Result};
 

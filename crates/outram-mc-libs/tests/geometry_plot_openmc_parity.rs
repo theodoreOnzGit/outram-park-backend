@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate — the ported plotter against `openmc --plot`, pixel for pixel.**
 //! GitHub #268.
@@ -38,6 +38,8 @@
 //!
 //! Set `OUTRAM_PLOT_OUT=<dir>` to keep this crate's PNGs (that is how
 //! `geometry_plotting/outram/` was produced).
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use std::path::PathBuf;
 

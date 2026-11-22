@@ -57,8 +57,11 @@
 //!   seeded generator makes a random ramp repeatable, which a verification test
 //!   needs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 use uom::si::f64::Time;
 use uom::si::time::second;
@@ -644,7 +647,7 @@ impl DynamicsManager {
 
         // The indicator map is taken out for the duration of the run so the loop
         // needs no borrow of the manager, then put back.
-        let mut indicators = std::mem::take(&mut self.indicators);
+        let mut indicators = core::mem::take(&mut self.indicators);
         let outcome = run_integrator(
             &setup,
             &mut integrator,

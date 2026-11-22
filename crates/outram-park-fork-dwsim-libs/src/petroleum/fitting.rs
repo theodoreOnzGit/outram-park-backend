@@ -74,6 +74,9 @@
 //!   multiplier — the same net effect as upstream, which leaves `fw`/`fzra` at
 //!   its previous value when the fit throws.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, Ratio, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -295,7 +298,7 @@ pub fn fit_acentric_factor_scale(component: &Component) -> f64 {
         let mut trial = component.clone();
         trial.acentric_factor = component.acentric_factor * t;
         match bubble_temperature(
-            std::slice::from_ref(&trial),
+            core::slice::from_ref(&trial),
             &[1.0],
             DENSITY_FIT_PRESSURE_PA,
             PropertyPackageModel::PengRobinson,

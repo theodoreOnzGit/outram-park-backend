@@ -14,6 +14,9 @@
 //! branches, `setqri`/`settri`/`gcphase` (derivative and angular-
 //! distribution assembly), `derres`/`derext` (derivative propagation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod abpart;
 pub mod assembly;
 pub mod crosss;

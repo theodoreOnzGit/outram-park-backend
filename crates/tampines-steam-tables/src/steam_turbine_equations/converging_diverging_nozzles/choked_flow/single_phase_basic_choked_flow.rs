@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 
@@ -79,6 +82,7 @@ pub fn get_choked_flow_state_for_nozzle_subsonic_to_sonic(
     let mass_flowrate_error: Ratio = (choked_mass_flowrate - mass_flowrate) / mass_flowrate;
 
     if mass_flowrate_error.abs() >= Ratio::new::<ratio>(0.05) {
+        #[cfg(feature = "std")]
         eprintln!(
             "Warning: Mass balance error = {:.2}%. \
                    Inlet conditions may not be consistent with choked flow.",
@@ -111,6 +115,7 @@ pub fn get_choked_flow_state_for_nozzle_subsonic_to_sonic(
         let momentum_balance_error: Ratio = (lhs - rhs) / lhs;
 
         if momentum_balance_error.abs() >= Ratio::new::<ratio>(0.05) {
+            #[cfg(feature = "std")]
             eprintln!(
                 "Warning: Momentum balance error = {:.2}%. \
                    Check if flow is truly choked.",
@@ -120,6 +125,7 @@ pub fn get_choked_flow_state_for_nozzle_subsonic_to_sonic(
             //
             // but to be fair, the nozzle walls exert a force on the fluid,
             // this is note accounted for in the above momentum balance
+            #[cfg(feature = "std")]
             dbg!(&(lhs, rhs));
         }
     }

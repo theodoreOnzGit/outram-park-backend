@@ -39,7 +39,10 @@
 //! the ordered chain, so the whole loop slides coherently. A vertex without
 //! exactly two rails (a pole, a boundary end) is left where it is.
 
-use std::collections::BTreeSet;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
 
 use crate::mesh::{EdgeId, Mesh, VertexId};
 use crate::topology::MeshTopology;

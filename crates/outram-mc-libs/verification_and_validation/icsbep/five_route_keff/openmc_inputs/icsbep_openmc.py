@@ -16,11 +16,15 @@ Physics settings, each chosen to match what outram-mc carries by default:
 * temperature 293.6 K on every material (the libraries hold one temperature,
   labelled 294K by OpenMC from kT = 2.53e-8 MeV);
 * URR probability tables ON (``ptables``, OpenMC's default);
-* resonance elastic scattering ON, method ``dbrc``, 1e-5 eV <= E <= 1 keV,
-  every nuclide carrying 0 K elastic (all of them) -- outram-mc applies DBRC
-  to every nuclide below 1 keV with no lower limit (``DbrcTable::applies``).
-  OpenMC's Python API refuses energy_min <= 0, so it is set to 1e-5 eV, the
-  bottom of every ENDF evaluation's grid, rather than OpenMC's 0.01 eV default;
+* resonance elastic scattering ON, every nuclide carrying 0 K elastic (all
+  of them). ~~method ``dbrc``, 1e-5 eV <= E <= 1 keV: outram-mc applies DBRC
+  to every nuclide below 1 keV with no lower limit~~ **CHANGED 2026-11-09
+  (gh:#1311, maintainer: ports match upstream's defaults):** method ``rvs``
+  (OpenMC's default, and outram-mc's default since the same change), 0.01 eV
+  <= E <= 1 keV, OpenMC's defaults. outram-mc has applied the 0.01 eV lower
+  bound since gh:#407 (``RES_SCAT_ENERGY_MIN`` in ``physics::scatter``), so the
+  old "no lower limit" claim was already false. Runs recorded before this
+  change used ``dbrc`` from 1e-5 eV;
 * S(a,b) ``c_H_in_H2O`` on the water-bearing materials (HST-009 solution and
   reflector, LCT-008s mixture), none elsewhere;
 * source: Watt fission spectrum (OpenMC's default, the same a, b as outram-mc's
@@ -136,7 +140,36 @@ def lct008(cheap=False):
     return used, geo, src
 
 
-CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008": lct008}
+# MSRE graphite-stringer cell (MSRE N-C1, gh:#1126): the same model as
+# icsbep_five_route_keff.rs's `msre_cell_case` (sources, idealisations and atom
+# densities documented there). A 5.08 cm (2 in.) graphite square with four
+# 0.508 x 3.048 cm fuel half-channels, reflective on all six faces: k-infinity.
+def msre():
+    salt = mat("MSRE fuel salt (35 % U-235)", [
+        ("Li7", 2.011483e-02), ("Li6", 2.011684e-06), ("Be9", 9.006153e-03),
+        ("Zr90", 7.961625e-04), ("Zr91", 1.736238e-04), ("Zr92", 2.653875e-04),
+        ("Zr94", 2.689466e-04), ("Zr96", 4.332857e-05),
+        ("U235", 9.748929e-05), ("U238", 1.810515e-04), ("F19", 4.543310e-02)])
+    graphite = mat("MSRE CGB graphite", [
+        ("C12", 9.271946e-02), ("C13", 1.038652e-03), ("B10", 1.651533e-08), ("B11", 6.681124e-08)])
+    graphite.add_s_alpha_beta("c_Graphite_30p")
+    h, d, w, z = 2.54, 0.508, 1.524, 10.0
+    x0, x1 = openmc.XPlane(-h, boundary_type="reflective"), openmc.XPlane(h, boundary_type="reflective")
+    y0, y1 = openmc.YPlane(-h, boundary_type="reflective"), openmc.YPlane(h, boundary_type="reflective")
+    z0, z1 = openmc.ZPlane(-z, boundary_type="reflective"), openmc.ZPlane(z, boundary_type="reflective")
+    fx0, fx1, fy0, fy1 = openmc.XPlane(-h + d), openmc.XPlane(h - d), openmc.YPlane(-h + d), openmc.YPlane(h - d)
+    sx0, sx1, sy0, sy1 = openmc.XPlane(-w), openmc.XPlane(w), openmc.YPlane(-w), openmc.YPlane(w)
+    slab = +z0 & -z1
+    channels = ((+fx1 & -x1 & +sy0 & -sy1 & slab) | (+x0 & -fx0 & +sy0 & -sy1 & slab)
+                | (+fy1 & -y1 & +sx0 & -sx1 & slab) | (+y0 & -fy0 & +sx0 & -sx1 & slab))
+    box = +x0 & -x1 & +y0 & -y1 & slab
+    geo = openmc.Geometry([openmc.Cell(fill=salt, region=channels),
+                           openmc.Cell(fill=graphite, region=box & ~channels)])
+    src = openmc.stats.Box((-h, -h, -z), (h, h, z))
+    return [salt, graphite], geo, src
+
+
+CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008": lct008, "msre": msre}
 
 
 def main():
@@ -210,8 +243,8 @@ def main():
         constraints={"fissionable": True})
     s.temperature = {"default": T, "method": "nearest", "tolerance": 10.0}
     s.ptables = not a.no_ptables
-    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "dbrc",
-                              "energy_min": 1.0e-5, "energy_max": 1000.0}
+    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "rvs",
+                              "energy_min": 0.01, "energy_max": 1000.0}
     if a.dbrc_nuclides:
         s.resonance_scattering["nuclides"] = a.dbrc_nuclides.split(",")
     s.output = {"tallies": False, "summary": False}

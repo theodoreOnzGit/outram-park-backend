@@ -1,4 +1,7 @@
 /// obtains temperature from pressure and enthalpy in region 3
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod t_ph_flash;
 pub use t_ph_flash::*;
 

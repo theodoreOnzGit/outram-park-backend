@@ -53,6 +53,9 @@
 //! one is wanted, belongs at the solver level once [`super::structure`] lands,
 //! since it must name both concrete types.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fluid;
 pub mod phase_base;
 pub mod phase_pair;

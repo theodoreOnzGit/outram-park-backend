@@ -56,6 +56,9 @@
 //! path does not see the PENDF, so only the `σ_g` and `cflx` normalisation
 //! moves.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
@@ -275,6 +278,7 @@ fn config() -> Mf33Config {
         tempin: TEMP_K,
         irelco: IRELCO,
         dap: 0.0,
+        card8: None,
     }
 }
 

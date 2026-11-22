@@ -77,7 +77,8 @@ relative in a near-steady window.
 **What would not count as agreement.** None of P2-P4 is a comparison with
 upstream. They test that the port behaves like the physics it ports. Parity
 with upstream on `1D_boiling` is **not** measured by this record and must not
-be claimed from it.
+be claimed from it. **CORRECTED 2026-11-12** (gh:#1361 round 3): it IS measured, elsewhere, against the real
+binary: `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 3".
 
 ## Deviations from the case, decided before the run
 
@@ -157,7 +158,12 @@ Both also change the excursion (minimum inlet velocity -3.12 and -2.11 m/s
 against -0.94 m/s), so **the boiling phase of this run is sensitive to its
 iteration controls**: 426 of the 4577 steps ended at the 24-corrector limit
 without meeting `residualControl`. Whether upstream (with MULES) behaves the
-same is unknown, since upstream cannot be run here.
+same is unknown, ~~since upstream cannot be run here~~ **ANSWERED 2026-11-12** (gh:#1361 round 3, real binary, same `implicitUpwind`): upstream's own
+cumulative liquid continuity error is **-0.4466 kg/m^3 at the shipped solver tolerances and -2.2965 kg/m^3 at
+1e-14**: it also moves by a factor 5 with the linear-solver tolerance alone, in the same direction as the port's
+(then -2.675; -1.860 shipped and -4.290 tight after round 3). The -2.7 is a property of the case's boiling
+phase, not a port-only defect. Not an upstream-parity number: the boiling phase amplifies a 1e-6 difference to
+O(1) within 0.5 s.
 
 ## Plots
 
@@ -171,14 +177,17 @@ same is unknown, since upstream cannot be run here.
   structure temperature against time; power off at 7 s.
 
 **No upstream curve is overlaid on any plot, because upstream ships none for
-this case and cannot be run here.** The geometry is the 40-cell, 2 m channel
+this case ~~and cannot be run here~~** (**CORRECTED 2026-11-12**: it can be, and was; the comparison is in
+`genfoam_vs_upstream_gh1361/README.md`, in numbers rather than overlays). The geometry is the 40-cell, 2 m channel
 of upstream's `blockMeshDict`; the heated zone boundaries (0.5 m, 1.5 m) are
 marked on the void plot and match the `cellZones` read (cells 10-29).
 
 ## What is not established
 
-- **Parity with upstream** on any two-phase quantity. Nothing here compares the
-  port with an upstream run; the numbers above are the port's alone.
+- ~~**Parity with upstream** on any two-phase quantity. Nothing here compares the
+  port with an upstream run; the numbers above are the port's alone.~~ **CORRECTED 2026-11-12** (gh:#1361 round 3): this record compares nothing with
+  upstream, but `genfoam_vs_upstream_gh1361/README.md` "Round 3" does (65 steps to 1e-9, the onset to 3e-6; pointwise
+  agreement is lost within 0.5 s of the boiling onset).
 - The other four feature cases: `1D_PSBT_SC` and `1D_CHF` need closures that
   are not ported (the case reader stops on them by name);
   `2D_voidMotionNoPhaseChange` and `2D_KNS37-L22` were not attempted.

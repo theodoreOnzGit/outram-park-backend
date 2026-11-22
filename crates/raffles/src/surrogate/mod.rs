@@ -88,6 +88,9 @@
 //! the upstream file under `ravenframework/SupervisedLearning/`, the commit,
 //! the copyright holder and the licence.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod gaussian_process;
 pub mod polynomial;
 pub mod polynomial_chaos;

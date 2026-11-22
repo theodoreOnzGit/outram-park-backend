@@ -1,9 +1,12 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::*;
 

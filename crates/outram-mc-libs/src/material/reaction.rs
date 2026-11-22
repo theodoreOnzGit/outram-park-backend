@@ -1,4 +1,11 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Reaction types and secondary particle sampling.
+///
+/// **NOT USED (gh:#693, checked 2026-11-19: no user in `src/`, `tests/` or
+/// `examples/`).** Secondary sampling lives in `material/nuclide.rs`; this file
+/// is the unported skeleton of upstream `reaction.cpp`.
 ///
 /// C++ source: `src/reaction.cpp` (424 LOC), `include/openmc/reaction.h`.
 /// Also: `src/physics_common.cpp` — secondary product angle/energy sampling.

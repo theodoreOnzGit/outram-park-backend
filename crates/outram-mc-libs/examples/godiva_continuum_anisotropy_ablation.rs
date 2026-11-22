@@ -143,7 +143,10 @@
 //! ablation arm landing back on a number pooled by a different program checks
 //! the instrument rather than restating it.
 //!
-//! **A consequence for `RECORDED_PCM`.** That constant is `16.0`, measured
+//! **A consequence for `RECORDED_PCM`.** ~~That constant is `16.0`~~ **CORRECTED
+//! 2026-11-14** (the constant is `-6.0` +/- 5 since 2026-10-05, 1024 seeds,
+//! `godiva_keff_endf_local.rs:328`; the text below is the 2026-09-26 reasoning,
+//! kept as written): that constant was `16.0`, measured
 //! pre-`op-og56`. This says the post-`op-og56` mean is lower by `38 ± 23 pcm`,
 //! i.e. near `−22`. It has **not** been re-measured at 256 seeds and the
 //! constant is **not** changed on a 1.6 sigma shift. The drift gate that uses it
@@ -203,16 +206,17 @@ fn main() {
 mod desktop {
     use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
-    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::material::material::Material;
+    use outram_mc_libs::vv::godiva;
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
     use std::sync::Arc;
     use std::time::Instant;
 
     /// Godiva's fuel temperature \[K\] — the tapes are broadened to it.
-    const TEMP_K: f64 = 293.6;
+    const TEMP_K: f64 = godiva::TEMPERATURE_K;
     /// ICSBEP HEU-MET-FAST-001 sphere radius \[cm\].
-    const RADIUS_CM: f64 = 8.7407;
+    const RADIUS_CM: f64 = godiva::RADIUS_CM;
     /// Worker threads. Each runs whole seeds; transport inside a seed is serial.
     ///
     /// Taken from the machine, not hard-coded. This example exists to be moved
@@ -227,13 +231,9 @@ mod desktop {
             .unwrap_or(4)
     }
 
-    /// `(tape file, nuclide name, atom density \[atoms/barn·cm\])` — the three
-    /// ICSBEP nuclides, same numbers as `godiva_keff_endf_local`.
-    const NUCLIDES: &[(&str, &str, f64)] = &[
-        ("n-092_U_234-ENDF8.0.endf", "U234", 4.9184e-4),
-        ("n-092_U_235-ENDF8.0.endf", "U235", 4.4994e-2),
-        ("n-092_U_238.endf", "U238", 2.4984e-3),
-    ];
+    // The Godiva model (radius, temperature, the three ICSBEP nuclides as
+    // `(name, tape, atoms/b-cm)`, the material) is `vv::godiva`; this
+    // example's identical copy was removed 2026-11-18 (gh:#1647).
 
     /// Mean, sample standard deviation and standard error of a sample.
     fn stats(x: &[f64]) -> (f64, f64, f64) {
@@ -279,7 +279,7 @@ mod desktop {
         println!("Reconstructing HEU isotopes from ENDF/B-VIII.0 (RECONR + BROADR @ 293.6 K)…");
         let t0 = Instant::now();
         let mut aniso = Vec::new();
-        for &(file, name, _) in NUCLIDES {
+        for &(name, file, _) in &godiva::NUCLIDES {
             let Some(p) = reference_endf(file) else {
                 println!(
                     "  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping."
@@ -327,19 +327,7 @@ mod desktop {
             t0.elapsed().as_secs_f64()
         );
 
-        let material = Material {
-            id: 1,
-            name: "Godiva HEU".into(),
-            temperature: TEMP_K,
-            components: NUCLIDES
-                .iter()
-                .enumerate()
-                .map(|(i, &(_, _, rho))| NuclideComponent {
-                    nuclide_idx: i,
-                    atom_density: rho,
-                })
-                .collect(),
-        };
+        let material = godiva::material();
 
         let seeds: Vec<u64> = (1..=n_seeds as u64).collect();
         let aniso = Arc::new(aniso);

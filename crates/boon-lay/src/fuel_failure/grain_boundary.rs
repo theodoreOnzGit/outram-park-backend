@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -90,6 +90,9 @@
 //! (corrosion raises the failure fraction), the floor at `0.44·m_o`, and the
 //! `0.565`/`187400` Arrhenius as transcribed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;

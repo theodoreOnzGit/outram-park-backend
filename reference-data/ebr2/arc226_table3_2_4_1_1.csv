@@ -1,0 +1,35 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# Table 3.2.4.1.1 "Primary Pump Speeds for SHRT-45R", printed p.29 (PDF p.45). Boundary condition.
+# Units: time s, speed rpm
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+time_s,pump1_rpm,pump2_rpm
+0,792.05,762.27
+1,769.10,739.07
+1.5,731.19,701.21
+3,606.46,575.65
+4.5,511.19,482.21
+7,397.55,373.96
+11,283.90,266.69
+17,213.66,198.62
+25.5,154.38,144.98
+36.5,105.14,100.40
+48.5,72.67,68.91
+64.5,46.45,42.42
+82,25.45,19.69
+90,17.13,1.38
+95,10.39,-0.67
+98.5,-0.67,-0.67
+120,-1.06,-0.99
+180,-0.72,-0.67
+240,-0.67,-0.53
+300,-1.26,-1.23
+360,-1.53,-1.38
+420,-0.87,-0.77
+480,-0.70,-0.50
+540,-1.60,-1.50
+600,-1.55,-1.57
+660,-1.55,-1.50
+720,-1.33,-1.31
+780,-0.96,-0.87
+840,-1.72,-1.62
+900,-1.28,-1.14

@@ -8,6 +8,9 @@
 //! thermal-hydraulics, PID-controller and miscellaneous debugging tests, and
 //! the mesh-refinement convergence study.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// In the original SAM publication
 ///
 /// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
@@ -795,9 +798,13 @@ pub fn dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2() {
             // tchx outlet temperature
             // current sim time
             // and tchx heat trf coeff
+            #[cfg(feature = "std")]
             dbg!(&mass_flowrate_absolute);
+            #[cfg(feature = "std")]
             dbg!(&tchx_outlet_temperature);
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
+            #[cfg(feature = "std")]
             dbg!(&tchx_heat_transfer_coeff);
         }
     }

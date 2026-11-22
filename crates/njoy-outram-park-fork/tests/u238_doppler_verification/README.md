@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Copyright (C) 2026 OUTRAM PARK contributors
 Part of Outram Park (outram-park-backend), njoy-outram-park-fork.
 Derivative work of NJOY2016 — see the crate NOTICE / LICENSE.njoy.

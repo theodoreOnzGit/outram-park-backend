@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Depletion integrators (from PETIR), this crate's one-group operator,
 //! and transfer rates** — GitHub #266 scope items 2, 3 and 4; gh:#950.
@@ -45,9 +45,12 @@
 //! burnup loop was first written, so the recorded results do not move.
 //! Upstream's default is CRAM48 (`abc.py:643`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mathf::RealMath;
-use std::collections::HashMap;
-use std::convert::Infallible;
+use crate::hash::HashMap;
+use core::convert::Infallible;
 
 use crate::depletion::chain::DepletionChain;
 use crate::depletion::matrix::DepletionMatrix;
@@ -668,7 +671,7 @@ mod tests {
         let mut m = DepletionMatrix::zeros(1);
         apply_transfer_rates(&mut m, &[t]).unwrap();
         let out = cram16(&m, &[1.0], cycle_days * SECONDS_PER_DAY);
-        let want = std::f64::consts::E.recip();
+        let want = core::f64::consts::E.recip();
         assert!(
             (out[0] - want).abs() < 1e-10,
             "after one cycle time {} remains, expected 1/e = {want}",

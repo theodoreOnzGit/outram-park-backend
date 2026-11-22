@@ -34,15 +34,21 @@
 //! | [`rho_pimple_foam`] | rhoPimpleFoam | Compressible transient PIMPLE |
 //! | [`sonic_foam`] | sonicFoam | Transonic/supersonic compressible |
 //! | [`rho_central_foam`] | rhoCentralFoam | Density-based central-upwind (Kurganov-Tadmor) |
+//! | [`solid_displacement_foam`] | solidDisplacementFoam (ESI v2506, compactNormalStress) | Linear-elastic small-strain solid with thermal stress |
 //! | [`hrm_foam`] | HRMFoam | Homogeneous relaxation two-phase flashing flow |
 //! | [`reacting_two_phase_euler_foam`] | reactingTwoPhaseEulerFoam | Two-fluid Euler-Euler with reacting mass/heat transfer |
 //!
 //! `bc_util` is a crate-internal helper for capturing and re-applying patch
 //! boundary conditions around a field solve.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod bc_util;
 pub mod cht_multi_region_foam;
 pub mod energy;
+pub mod energy_radiation;
+pub mod energy_view_factor;
 pub mod hrm_foam;
 pub mod melt_foam;
 pub mod non_orthogonal;
@@ -53,4 +59,5 @@ pub mod rho_pimple_foam;
 /// Applying `fvSchemes` selections (ddt / div) to an assembled equation.
 /// See [`schemes::ddt_vec_scheme`] and [`schemes::div_vec_scheme`].
 pub mod schemes;
+pub mod solid_displacement_foam;
 pub mod sonic_foam;

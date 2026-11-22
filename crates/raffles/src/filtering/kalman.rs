@@ -37,6 +37,9 @@
 //! The linear Kalman filter and the Rauch–Tung–Striebel smoother (FilterPy's
 //! `KalmanFilter`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::numpy_ops::Matrix;
 use crate::{RafflesError, Result};
 

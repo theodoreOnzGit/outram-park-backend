@@ -65,6 +65,9 @@
 //! return the face correction that `pEqn.flux()` must subtract, and it has no
 //! vector form for the momentum equation. Its geometry
 //! ([`fvm::non_ortho_geometry`]) is reused.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::fv_schemes::LaplacianScheme;
 use outram_foam_basic_lib::prelude::*;
@@ -319,7 +322,7 @@ pub fn restamp_vector_delta(mat: &mut FvVectorMatrix, gamma: &SurfaceScalarField
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Two cells whose centres are offset in y, so the shared face (normal +x)
     /// is 45° non-orthogonal.

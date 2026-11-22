@@ -53,6 +53,9 @@
 //! `renumberMesh` reads them in the cells' own order
 //! ([`crate::renumber_mesh`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::tet_creator_octree::TetCreatorOctree;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
@@ -200,6 +203,7 @@ pub fn poly_mesh_from_cells(points: Vec<Vec3>, mut faces: Vec<Vec<usize>>, mut c
         owner: own.into_iter().map(|o| o.expect("owned")).collect(),
         neighbour: nei,
         n_cells,
+        cells: Some(cells.clone()),
     };
     Ok(AssembledMesh { mesh, cells, point_map })
 }

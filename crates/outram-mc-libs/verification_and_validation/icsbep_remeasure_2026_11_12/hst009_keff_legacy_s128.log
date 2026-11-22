@@ -1,0 +1,179 @@
+HEU-SOL-THERM-009 case 1 — water-reflected sphere of uranium oxyfluoride
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K):
+  H(H2O) S(α,β): ENDF/B-VIII.0 tsl-HinH2O (MAT 1) … ok
+  reconstructing U234   … 24.3s
+  reconstructing U235   … 164.9s
+  reconstructing U238   … 121.6s
+  reconstructing F19    … 326.7ms
+  reconstructing O16    … 5.0s
+  reconstructing H1     … 109.2ms
+  reconstructing Al27   … 2.8s
+  reconstructing Si28   … 2.1s
+  reconstructing Si29   … 2.0s
+  reconstructing Si30   … 1.6s
+  reconstructing Mn55   … 12.0s
+  reconstructing U236   … 18.2s
+Nuclear data ready in 392.5 s.
+
+solution r < 11.5177 cm, 1100-Al tank to 11.6764 cm, water to 35 cm (vacuum)
+  speed tier: fast (OUTRAM_SPEED)
+  5000 histories/gen, 40 inactive + 120 active generations
+
+  [transport losses] hst009_keff seed 1
+    histories 800000   collisions 71268639   leaks: vacuum 23356 / infinity 0
+    lost_locate           0  (0.0000 % of histories)
+    stuck_events          0  (0.0000 %)   mean path 0.000e0 cm   last E 0.000e0 eV
+    neg_dist              0  (0.0000 %)   worst 0.000e0   from lattice 0
+    => CLEAN: no history was lost, trapped, or given a negative distance.
+  [source convergence] hst009_keff seed 1
+    inactive quarters: 0.9916  1.0038  0.9895  1.0015
+    active halves:     0.99941 then 0.99779   drift -162 +/- 331 pcm (>= this err)
+    Shannon entropy:   NOT COMPUTED for this run
+    => no resolved drift; source looks converged.
+    seed 2: k = 1.00017 +/- 0.00158
+    seed 3: k = 1.00190 +/- 0.00147
+    seed 4: k = 1.00356 +/- 0.00166
+    seed 5: k = 1.00221 +/- 0.00151
+    seed 6: k = 1.00001 +/- 0.00164
+    seed 7: k = 1.00241 +/- 0.00166
+    seed 8: k = 1.00156 +/- 0.00147
+    seed 9: k = 0.99997 +/- 0.00142
+    seed 10: k = 0.99957 +/- 0.00156
+    seed 11: k = 0.99998 +/- 0.00157
+    seed 12: k = 1.00103 +/- 0.00160
+    seed 13: k = 0.99869 +/- 0.00151
+    seed 14: k = 1.00087 +/- 0.00171
+    seed 15: k = 0.99724 +/- 0.00156
+    seed 16: k = 0.99945 +/- 0.00150
+    seed 17: k = 0.99722 +/- 0.00167
+    seed 18: k = 1.00031 +/- 0.00167
+    seed 19: k = 1.00035 +/- 0.00146
+    seed 20: k = 1.00127 +/- 0.00143
+    seed 21: k = 1.00277 +/- 0.00138
+    seed 22: k = 1.00033 +/- 0.00167
+    seed 23: k = 1.00033 +/- 0.00148
+    seed 24: k = 0.99984 +/- 0.00151
+    seed 25: k = 1.00083 +/- 0.00154
+    seed 26: k = 1.00290 +/- 0.00166
+    seed 27: k = 1.00104 +/- 0.00175
+    seed 28: k = 1.00026 +/- 0.00147
+    seed 29: k = 1.00134 +/- 0.00165
+    seed 30: k = 1.00354 +/- 0.00156
+    seed 31: k = 1.00114 +/- 0.00157
+    seed 32: k = 1.00188 +/- 0.00164
+    seed 33: k = 1.00182 +/- 0.00160
+    seed 34: k = 1.00135 +/- 0.00141
+    seed 35: k = 0.99807 +/- 0.00142
+    seed 36: k = 1.00038 +/- 0.00161
+    seed 37: k = 1.00117 +/- 0.00170
+    seed 38: k = 0.99995 +/- 0.00137
+    seed 39: k = 1.00012 +/- 0.00144
+    seed 40: k = 1.00261 +/- 0.00165
+    seed 41: k = 1.00176 +/- 0.00166
+    seed 42: k = 1.00103 +/- 0.00150
+    seed 43: k = 1.00271 +/- 0.00166
+    seed 44: k = 1.00037 +/- 0.00155
+    seed 45: k = 0.99998 +/- 0.00145
+    seed 46: k = 1.00238 +/- 0.00138
+    seed 47: k = 0.99938 +/- 0.00163
+    seed 48: k = 0.99984 +/- 0.00148
+    seed 49: k = 1.00187 +/- 0.00148
+    seed 50: k = 0.99977 +/- 0.00167
+    seed 51: k = 0.99977 +/- 0.00163
+    seed 52: k = 0.99937 +/- 0.00166
+    seed 53: k = 1.00111 +/- 0.00165
+    seed 54: k = 0.99805 +/- 0.00158
+    seed 55: k = 1.00068 +/- 0.00150
+    seed 56: k = 1.00340 +/- 0.00144
+    seed 57: k = 1.00096 +/- 0.00146
+    seed 58: k = 0.99761 +/- 0.00162
+    seed 59: k = 0.99879 +/- 0.00154
+    seed 60: k = 1.00256 +/- 0.00154
+    seed 61: k = 1.00032 +/- 0.00151
+    seed 62: k = 1.00104 +/- 0.00174
+    seed 63: k = 1.00011 +/- 0.00161
+    seed 64: k = 1.00133 +/- 0.00169
+    seed 65: k = 0.99902 +/- 0.00148
+    seed 66: k = 0.99898 +/- 0.00157
+    seed 67: k = 0.99829 +/- 0.00141
+    seed 68: k = 1.00131 +/- 0.00162
+    seed 69: k = 1.00122 +/- 0.00163
+    seed 70: k = 1.00337 +/- 0.00148
+    seed 71: k = 1.00028 +/- 0.00146
+    seed 72: k = 1.00234 +/- 0.00157
+    seed 73: k = 1.00223 +/- 0.00145
+    seed 74: k = 1.00315 +/- 0.00162
+    seed 75: k = 1.00441 +/- 0.00175
+    seed 76: k = 1.00098 +/- 0.00155
+    seed 77: k = 1.00301 +/- 0.00165
+    seed 78: k = 1.00493 +/- 0.00149
+    seed 79: k = 1.00246 +/- 0.00142
+    seed 80: k = 1.00014 +/- 0.00141
+    seed 81: k = 1.00129 +/- 0.00164
+    seed 82: k = 1.00377 +/- 0.00175
+    seed 83: k = 0.99879 +/- 0.00149
+    seed 84: k = 0.99949 +/- 0.00155
+    seed 85: k = 0.99890 +/- 0.00136
+    seed 86: k = 0.99993 +/- 0.00177
+    seed 87: k = 1.00158 +/- 0.00137
+    seed 88: k = 1.00336 +/- 0.00167
+    seed 89: k = 0.99887 +/- 0.00139
+    seed 90: k = 1.00076 +/- 0.00168
+    seed 91: k = 0.99983 +/- 0.00164
+    seed 92: k = 0.99988 +/- 0.00163
+    seed 93: k = 1.00157 +/- 0.00155
+    seed 94: k = 1.00079 +/- 0.00153
+    seed 95: k = 1.00300 +/- 0.00162
+    seed 96: k = 0.99865 +/- 0.00169
+    seed 97: k = 0.99859 +/- 0.00161
+    seed 98: k = 1.00075 +/- 0.00146
+    seed 99: k = 1.00087 +/- 0.00163
+    seed 100: k = 1.00256 +/- 0.00170
+    seed 101: k = 1.00205 +/- 0.00165
+    seed 102: k = 1.00263 +/- 0.00150
+    seed 103: k = 1.00165 +/- 0.00163
+    seed 104: k = 1.00411 +/- 0.00158
+    seed 105: k = 1.00147 +/- 0.00169
+    seed 106: k = 1.00097 +/- 0.00145
+    seed 107: k = 0.99972 +/- 0.00149
+    seed 108: k = 1.00090 +/- 0.00159
+    seed 109: k = 1.00211 +/- 0.00155
+    seed 110: k = 1.00229 +/- 0.00149
+    seed 111: k = 1.00086 +/- 0.00150
+    seed 112: k = 1.00015 +/- 0.00152
+    seed 113: k = 1.00157 +/- 0.00178
+    seed 114: k = 1.00362 +/- 0.00144
+    seed 115: k = 1.00388 +/- 0.00166
+    seed 116: k = 0.99839 +/- 0.00165
+    seed 117: k = 1.00219 +/- 0.00164
+    seed 118: k = 1.00228 +/- 0.00153
+    seed 119: k = 1.00165 +/- 0.00164
+    seed 120: k = 0.99718 +/- 0.00140
+    seed 121: k = 0.99880 +/- 0.00156
+    seed 122: k = 0.99948 +/- 0.00159
+    seed 123: k = 1.00322 +/- 0.00174
+    seed 124: k = 0.99966 +/- 0.00154
+    seed 125: k = 0.99913 +/- 0.00157
+    seed 126: k = 1.00040 +/- 0.00159
+    seed 127: k = 1.00044 +/- 0.00172
+    seed 128: k = 1.00219 +/- 0.00141
+
+  ENSEMBLE HEU-SOL-THERM-009 case 1: 128 seeds
+    pooled dk    = +89 pcm
+    seed-to-seed sd  = 163 pcm   (what ONE run scatters by)
+    uncertainty  sem = +/-14 pcm   (on the pooled mean)
+    distance from benchmark = 6.2 sem
+  transport: 5808.5 s
+  k_eff = 0.99860 ± 0.00165
+  ICSBEP HEU-SOL-THERM-009 case 1 (critical) = 1.0000 ± ~0.006
+  Δk from the benchmark = -140 ± 165 pcm
+
+  For scale, the FHR pebble sat +4004 pcm above its reference when this
+  was written; GitHub #193 has since closed that to +37 pcm.
+  (The U-238 resonance-escape reading of that residual was later REFUTED:
+  see examples/lct008_keff.rs and GitHub #188. Three LEU-COMP-THERM-008
+  cases sharing one lattice give +2950/+2271/+1713 pcm, a 14-sigma spread
+  that an error in `p` cannot produce.)
+
+=== V&V gate: ICSBEP HEU-SOL-THERM-009 case 1 ===
+  [PASS] HEU-SOL-THERM-009 case 1 (critical HEU solution): k = 0.99860 ± 0.00165 vs benchmark 1.00000 ± 0.00600  (-140 pcm, gate ±1261 pcm)

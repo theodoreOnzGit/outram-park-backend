@@ -4,6 +4,9 @@
 //! submodule checks predicted temperatures (K / degC) against an analytical or
 //! reference solution.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 /// Contains tests for simple lumped heat capacitance
 mod lumped_heat_capacitance;

@@ -1,0 +1,41 @@
+# cohesion washino/capillary/viscous against a dry zplane PRIMITIVE wall
+# (gh:#1487): the in.cap_washino_mesh spheres over a zplane at 0. A primitive
+# wall carries no liquid (V_Lj = 0): the bridge holds f V_Li and a rupture
+# moves no liquid.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.2 0.2 -0.2 0.2 -0.05 0.4 units box
+create_box	1 reg
+neighbor	0.004 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+fix 		c1 all property/global surfaceLiquidContentInitial scalar 0.1
+fix 		c2 all property/global surfaceTension scalar 0.072
+fix 		c3 all property/global fluidViscosity scalar 1.0e-3
+fix 		c4 all property/global contactAngle peratomtype 0.3
+fix 		c5 all property/global minSeparationDistanceRatio scalar 0.01
+fix 		c6 all property/global maxSeparationDistanceRatio scalar 2.0
+pair_style	gran model hertz tangential history cohesion washino/capillary/viscous
+pair_coeff	* *
+timestep	1e-6
+fix		zwall all wall/gran model hertz tangential history cohesion washino/capillary/viscous primitive type 1 zplane 0.0
+create_atoms	1 single 0.06 -0.06 0.008 units box
+create_atoms	1 single 0.09 -0.02 0.006 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.2 vy 0.1 vz -0.4 omegax 10.0 omegay 30.0 omegaz 5.0
+set		atom 2 diameter 0.01 density 2500 vx -0.02 vy 0.01 vz -0.005 omegax -5.0 omegay 8.0 omegaz 20.0
+fix		integr all nve/sphere
+thermo		1000
+thermo_modify	lost ignore norm no
+run		0
+set		atom 1 property/atom surfaceLiquidContent 0.2
+set		atom 2 property/atom surfaceLiquidContent 0.15
+dump		d1 all custom 200 dump.cap_washino_plane id x y z vx vy vz omegax omegay omegaz fx fy fz f_surfaceLiquidContent f_liquidFlux
+dump_modify	d1 sort id
+run		40000

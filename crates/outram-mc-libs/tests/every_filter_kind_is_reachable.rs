@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The reachability gate for tally filters** — GitHub #261.
 //!
@@ -27,7 +27,7 @@
 //! 31 variants, all constructible, all dispatched, all reporting a bin count.
 
 use petir::mathf::RealMath;
-use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::particle::particle::ParticleType;
 use outram_mc_libs::tally::filter::*;
 use outram_mc_libs::tally::filter_extra::*;
@@ -66,6 +66,8 @@ fn one_of_each() -> Vec<FilterKind> {
             polar: vec![0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI],
             azimuthal: vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI],
         }),
+        FilterKind::Polar(PolarFilter::new(vec![0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI]).unwrap()),
+        FilterKind::Azimuthal(AzimuthalFilter::new(vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI]).unwrap()),
         FilterKind::Time(TimeFilter {
             bounds: vec![0.0, 1.0],
         }),
@@ -168,7 +170,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
             name: name.into(),
             filters: vec![f],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); n],
+            bins: vec![TallyBin::default(); n], derivative: None,
         };
         assert_eq!(t.n_bins(), n, "{name} does not size its tally correctly");
     }
@@ -176,7 +178,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
     // 29 variants: 28 constructed above plus the refused `DelayedGroup`.
     assert_eq!(
         filters.len() + REFUSED_VARIANTS,
-        31,
+        33, // 31 + `Polar` and `Azimuthal` (gh:#691)
         "the variant count changed. If a filter was ADDED, construct it above \
          so this gate covers it; `FilterKind::name` will already have failed \
          to compile if it was not dispatched."
@@ -387,6 +389,10 @@ fn the_particle_production_filter_can_match_one_event_many_times() {
 /// |---|---|---|---|---|
 /// | `12*0 + 0 + 2 + 0 = 2` | 0 | x | max | outward |
 /// | `12*1 + 0 + 0 + 1 = 13` | 1 | x | min | inward |
+///
+/// **2026-11-22 (gh:#1709):** the filter now walks the track with upstream's
+/// `raytrace_mesh`, which reads the direction of flight (`p.u()`), so each
+/// event here carries its `direction`; it had been left at the default.
 #[test]
 fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let m = RegularMesh {
@@ -400,6 +406,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let ev = FilterEvent {
         position_last: Position::new(0.5, 0.5, 0.5),
         position: Position::new(1.5, 0.5, 0.5),
+        direction: Direction { u: 1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     let bins = f.matches(&ev);
@@ -410,6 +417,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let back = FilterEvent {
         position_last: Position::new(1.5, 0.5, 0.5),
         position: Position::new(0.5, 0.5, 0.5),
+        direction: Direction { u: -1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     assert_eq!(f.matches(&back), vec![12, 3], "got {:?}", f.matches(&back));
@@ -418,6 +426,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let inside = FilterEvent {
         position_last: Position::new(0.2, 0.5, 0.5),
         position: Position::new(0.8, 0.5, 0.5),
+        direction: Direction { u: 1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     assert!(f.matches(&inside).is_empty());
@@ -426,6 +435,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let out = FilterEvent {
         position_last: Position::new(1.5, 0.5, 0.5),
         position: Position::new(9.0, 0.5, 0.5),
+        direction: Direction { u: 1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     assert_eq!(f.matches(&out), vec![m.surface_bin(1, 0, true, false)]);
@@ -444,6 +454,7 @@ fn a_diagonal_track_scores_its_crossings_in_order() {
     let ev = FilterEvent {
         position_last: Position::new(0.5, 0.5, 0.5),
         position: Position::new(2.5, 2.5, 2.5),
+        direction: Direction { u: 1.0 / 3f64.sqrt(), v: 1.0 / 3f64.sqrt(), w: 1.0 / 3f64.sqrt() },
         ..FilterEvent::default()
     };
     let bins = f.matches(&ev);

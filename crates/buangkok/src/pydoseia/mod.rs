@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! # A port of pyDOSEIA: Gaussian-plume dilution and five dose pathways
 //!
 //! > **Research, education and V&V only.** Not for medical, occupational,
@@ -92,6 +92,9 @@
 //! assert!(d.millisieverts() > 0.0);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod assessment;
 pub mod config;
 pub(crate) mod csv;

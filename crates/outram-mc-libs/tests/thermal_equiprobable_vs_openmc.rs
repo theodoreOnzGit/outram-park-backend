@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Equiprobable (ACE IFENG = 0) S(α,β) tables are sampled as OpenMC samples
 //! them, by default.** GitHub #407.
@@ -42,6 +42,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test and recorded on #407.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;

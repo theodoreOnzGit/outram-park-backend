@@ -34,6 +34,9 @@
 //! everywhere (Reynolds, Prandtl, `j_h`, `f_s`, pressure drop, HTC). This is
 //! a real property of the ported method, not an omission.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{
     DynamicViscosity, HeatTransfer, Length, MassDensity, MassRate, Pressure, Ratio,
@@ -161,7 +164,7 @@ pub fn tube_side(
 ) -> TubeSideResult {
     let di = geometry.tube_inner_diameter.get::<meter>();
     let nt = (geometry.tube_number_per_shell / geometry.tube_passes_per_shell).max(1) as f64;
-    let area = std::f64::consts::PI / 4.0 * di * di;
+    let area = core::f64::consts::PI / 4.0 * di * di;
     let v_t = w.get::<kilogram_per_second>() / (rho.value * nt * area);
     let re_t = rho.value * v_t * di / mu.value;
     // Cp unit note: DWSIM stores Cp in kJ/(kg K) internally and multiplies

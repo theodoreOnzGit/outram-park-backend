@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ACE route reads MT=5's energy-dependent multiplicity** — GitHub #365
 //! audit.
@@ -28,6 +28,8 @@
 //! 48 rows (8 nuclides x 6 energies) equal; e.g. U-235 y(10 MeV) = 1.98752 and
 //! U-238 y(12 MeV) = 0.06682, both previously 1. Without the change the test
 //! fails on the first U-235 row (checked by reverting the wiring).
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::collections::BTreeMap;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **The HTR-10 material set, in one place.**
 //!
 //! # Why this module exists
@@ -50,8 +50,11 @@
 //! - **real nickel and iron** in the rod steel, or the simplified Ni -> Fe,
 //!   Fe-57 -> Fe-56 mapping when asked for (gh:#329, gh:#339).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
-use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading};
+use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -393,6 +396,73 @@ pub const ROD_STEEL_WT: [(&str, f64); 7] = [
 /// ~~§ 4.1.2~~ § 4.1.1.5, pp. 235-236 (CORRECTED 2026-10-01, gh:#428): iron alone,
 /// filling 27.5 mm < R < 55 mm.
 pub const ROD_JOINT_IRON_DENSITY: f64 = 0.04;
+
+/// The fixed-layout HTR-10 material set, in [`mat`] order: the pebble's six
+/// materials ([`fuel_pebble_materials`], natural boron), helium, reflector
+/// graphite (TECDOC zone 22), the boronated carbon brick (zone 17), the bored
+/// side reflector (zones 31-40), and the homogenised dummy pebbles (moderator
+/// graphite at [`PAPER_FILLING_FRACTION`]). Every material sits at
+/// `temperature_k` and indexes the nuclides through `nuc`'s fixed layout.
+///
+/// The deterministic-vs-Monte-Carlo and MGXS-to-GeN-Foam comparisons use this
+/// simpler set; [`htr10_material_set`] is the full one, on a
+/// [`Htr10NuclideLayout`]. Moved here from two examples that each carried an
+/// identical private copy (2026-11-17), so both build the same materials and a
+/// `no_std` caller can too.
+///
+/// # Panics
+/// If TECDOC zone 22 or 17 is missing from [`zone_composition`] (a fixed
+/// table), or the set does not end at [`mat::HOMOG_DUMMY`].
+pub fn htr10_fixed_layout_material_set(nuc: Htr10Nuclides, temperature_k: f64) -> Vec<Material> {
+    let mut mats = fuel_pebble_materials(nuc, BoronReading::Natural, temperature_k);
+    mats.truncate(6); // 0..5: kernel, buffer, iPyC, SiC, oPyC, graphite
+    mats.push(Material {
+        id: 70,
+        name: "helium".into(),
+        components: vec![],
+        temperature: temperature_k,
+    });
+    let graphite_zone = |id: i32, name: &str, z_carbon: f64, z_boron: f64| Material {
+        id,
+        name: name.into(),
+        components: nuc
+            .c_graphite
+            .components(z_carbon)
+            .into_iter()
+            .chain([NuclideComponent {
+                nuclide_idx: nuc.b10,
+                atom_density: z_boron * B10_OF_NATURAL,
+            }])
+            .collect(),
+        temperature: temperature_k,
+    };
+    let z22 = zone_composition(22).expect("TECDOC zone 22");
+    mats.push(graphite_zone(71, "reflector graphite (TECDOC zone 22)", z22.carbon, z22.natural_boron));
+    let z17 = zone_composition(17).expect("TECDOC zone 17");
+    mats.push(graphite_zone(72, "boronated carbon brick (TECDOC zone 17)", z17.carbon, z17.natural_boron));
+    mats.push(graphite_zone(
+        73,
+        "bored side reflector (TECDOC zones 31-40)",
+        HTR10_BORED_CARBON,
+        HTR10_BORED_BORON,
+    ));
+    let dummy = mats[mat::GRAPHITE].clone();
+    mats.push(Material {
+        id: 74,
+        name: "homogenised dummy pebbles".into(),
+        components: dummy
+            .components
+            .iter()
+            .map(|c| NuclideComponent {
+                nuclide_idx: c.nuclide_idx,
+                atom_density: c.atom_density * PAPER_FILLING_FRACTION,
+            })
+            .collect(),
+        temperature: temperature_k,
+    });
+    assert_eq!(mats.len(), mat::HOMOG_DUMMY + 1, "material order must match mat::");
+    mats
+}
 
 /// Build the material set, indexed by [`mat`] (`mat::COUNT` materials).
 ///

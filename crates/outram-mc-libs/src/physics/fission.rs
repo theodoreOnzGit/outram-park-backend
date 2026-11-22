@@ -28,6 +28,9 @@
 //! spectra a delayed neutron's energy is drawn from its group's spectrum, not
 //! the prompt χ (`Nuclide::sample_fission_energy_below`, GitHub #365).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::rng::lcg::prn;
 
 /// Sample the integer number of fission neutrons to bank from one fission event.

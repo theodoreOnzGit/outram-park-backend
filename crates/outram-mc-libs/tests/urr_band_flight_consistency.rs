@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **One URR band per nuclide and energy serves the flight, the choice of
 //! nuclide and the reaction, as in OpenMC.** GitHub #407.
@@ -43,6 +43,8 @@
 //! # Results (2026-09-29)
 //!
 //! All pass; the printed numbers are recorded on #407.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::material::material::{urr_xi, Material, NuclideComponent};

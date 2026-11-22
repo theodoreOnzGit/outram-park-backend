@@ -242,7 +242,7 @@ fn flux_energy_spectrum() {
         name: "flux spectrum".into(),
         filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n_bins],
+        bins: vec![TallyBin::default(); n_bins], derivative: None,
     };
 
     let settings = KeffSettings {

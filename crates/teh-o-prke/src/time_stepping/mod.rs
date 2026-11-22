@@ -12,6 +12,9 @@
 //    photochemical dispersion problems.
 //    SIAM Journal on Scientific Computing, 20(4), 1456-1480.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[allow(non_upper_case_globals)]
 pub mod openfoam_rfk45;
 

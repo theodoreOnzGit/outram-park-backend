@@ -5,6 +5,9 @@
 //! temperature-difference parasitic heat-loss cases (fluid flowing through a
 //! pipe losing heat to a constant ambient temperature).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this test checks if FluidArrays can form adiabatic mixing joints
 /// with single cvs
 ///

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, pressure::megapascal, thermodynamic_temperature::kelvin};
 
 use crate::region_5_steam_at_800_plus_degc::s_tp_5;

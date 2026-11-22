@@ -33,6 +33,9 @@
 //! | [`time_field_table`] | `timeFieldTable` | Ported — [`TimeFieldTable`] |
 //! | [`nusselt_baffle`] | `NusseltThermalBaffle1D` | **Scaffold only** — [`NusseltThermalBaffle1DBc`]; every method is `unimplemented!()`. See the module doc for why (cross-patch implicit coupling) and bead op-p6p.7.13 for the follow-up. |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod blackbody_radiation;
 pub mod nusselt_baffle;
 pub mod time_field_table;

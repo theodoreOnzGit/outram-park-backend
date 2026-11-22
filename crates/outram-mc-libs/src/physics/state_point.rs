@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **State points and run summaries** — what a run leaves behind.
 //! GitHub #271 scope items 3 and 4.
@@ -26,6 +26,9 @@
 //! this module captures the state and hands it over. [`StatePoint`] is
 //! therefore a value, not a file, and nothing here opens one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
@@ -290,7 +293,7 @@ mod tests {
             name: "t".into(),
             filters: vec![],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); 1000],
+            bins: vec![TallyBin::default(); 1000], derivative: None,
         });
         assert!(with_tally.approx_bytes() > small.approx_bytes());
     }

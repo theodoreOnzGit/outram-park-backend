@@ -42,6 +42,9 @@
 //! `cells`, `universes`, `lattices`, plus the `root_universe`. It is read-only
 //! after construction, so transport threads share it as `Arc<Geometry>`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cell::{CellFill, SurfaceToken};
 use super::lattice::Lattice;
 use super::position::{Direction, Position};
@@ -121,9 +124,26 @@ pub struct GeometryPath {
     ///
     /// NEW WORK, no OpenMC counterpart (`bn:op-867c.4`).
     pub tracking_level: usize,
+    /// The coordinate level at which [`Self::on_surface`] names a surface, or
+    /// `None` for "every level" (the behaviour of [`Geometry::locate`]). Set by
+    /// [`Geometry::locate_at_level`] (gh:#698): a surface index names the same
+    /// physical plane only at the level where the particle crossed it, so the
+    /// token is not consulted at any other level.
+    pub on_level: Option<usize>,
 }
 
 impl GeometryPath {
+    /// The surface token to apply to the cell at coordinate level `level`:
+    /// [`Self::on_surface`] where it names a surface, [`SurfaceToken::NONE`]
+    /// at every other level when [`Self::on_level`] is set (gh:#698).
+    #[inline]
+    pub fn token_at(&self, level: usize) -> SurfaceToken {
+        match self.on_level {
+            Some(l) if l != level => SurfaceToken::NONE,
+            _ => self.on_surface,
+        }
+    }
+
     /// The leaf (lowest) coordinate level — where the material fill lives.
     #[inline]
     pub fn leaf(&self) -> &Coord {
@@ -176,6 +196,21 @@ pub struct Geometry {
 }
 
 impl Geometry {
+    /// **Ablate cell temperatures** (GitHub #313): a copy in which every cell
+    /// is "unset" (`temperature: None`), so every material cell takes its
+    /// material's temperature and `bind_cell_temperatures` changes nothing.
+    ///
+    /// Cell temperature is the transport default, as in OpenMC; this is the
+    /// explicit, visible way to run without it.
+    #[must_use]
+    pub fn without_cell_temperatures(&self) -> Self {
+        let mut g = self.clone();
+        for c in &mut g.cells {
+            c.temperature = None;
+        }
+        g
+    }
+
     /// Locate the particle at global position `r` moving along `u`.
     ///
     /// Descends from the root universe: at each level it finds the containing
@@ -198,6 +233,34 @@ impl Geometry {
         r: Position,
         u: Direction,
         on_surface: SurfaceToken,
+    ) -> Option<GeometryPath> {
+        self.locate_impl(r, u, on_surface, None)
+    }
+
+    /// [`Self::locate`] with `on_surface` applied only at coordinate level
+    /// `token_level` (gh:#698): the level of the crossing that produced the token
+    /// (`BoundaryHit::coord_level`). OpenMC restarts the cell search at the
+    /// crossing's own level (`cross_surface`, `particle.cpp:345`), so a surface
+    /// index never constrains a cell in another level or another tile of a
+    /// repeated universe, where it names a different physical plane. The returned
+    /// path carries `on_level = Some(token_level)`, which the distance queries
+    /// honour through [`GeometryPath::token_at`].
+    pub fn locate_at_level(
+        &self,
+        r: Position,
+        u: Direction,
+        on_surface: SurfaceToken,
+        token_level: usize,
+    ) -> Option<GeometryPath> {
+        self.locate_impl(r, u, on_surface, Some(token_level))
+    }
+
+    fn locate_impl(
+        &self,
+        r: Position,
+        u: Direction,
+        on_surface: SurfaceToken,
+        token_level: Option<usize>,
     ) -> Option<GeometryPath> {
         let mut levels: Vec<Coord> = Vec::new();
         let mut level = Coord {
@@ -223,7 +286,10 @@ impl Geometry {
                 level.u,
                 &self.surfaces,
                 &self.cells,
-                on_surface,
+                match token_level {
+                    Some(l) if l != levels.len() => SurfaceToken::NONE,
+                    _ => on_surface,
+                },
             )?;
             level.cell = i_cell;
             let cell = &self.cells[i_cell];
@@ -242,6 +308,7 @@ impl Geometry {
                         on_surface,
                         tracking,
                         tracking_level,
+                        on_level: token_level,
                     });
                 }
                 CellFill::Void => {
@@ -252,6 +319,7 @@ impl Geometry {
                         on_surface,
                         tracking,
                         tracking_level,
+                        on_level: token_level,
                     });
                 }
                 CellFill::Universe(u_idx) => {
@@ -292,17 +360,33 @@ impl Geometry {
     /// Distance to the nearest boundary — surface or lattice tile — over all
     /// coordinate levels of `path`.
     ///
-    /// Ported from `distance_to_boundary` (`src/geometry.cpp:361`): each level
+    /// Ported from `distance_to_boundary` (`src/geometry.cpp:480-518`): each level
     /// contributes its cell's nearest bounding-surface distance and, if the level
-    /// is a lattice tile, the distance to the next tile edge; the global minimum
-    /// wins. Because nested frames here are pure translations (no rotation), the
-    /// global `on_surface` index is valid for coincident checks at every level.
+    /// is a lattice tile, the distance to the next tile edge. A lower level wins
+    /// only by `FP_REL_PRECISION` (1e-5) relative, so a boundary coincident with a
+    /// higher-level one resolves to the higher level (gh:#698).
+    ///
+    /// ~~Because nested frames here are pure translations, the global
+    /// `on_surface` index is valid at every level.~~ **CORRECTED 2026-11-19**
+    /// (gh:#698): false for a universe repeated in a lattice, where surface index
+    /// `i` names a different physical plane in every tile; that is why the
+    /// higher-level boundary must win a coincident tie.
     ///
     /// (Doc comment restored 2026-10-02, GitHub #486: in the former
     /// outram-mc-libs file it sat above `distance_out_of_level`'s and was
     /// rendered as part of that method's docs.)
     pub fn distance_to_boundary(&self, path: &GeometryPath) -> BoundaryHit {
-        const FP_REL: f64 = 1.0e-14;
+        // `distance_to_boundary`, OpenMC `src/geometry.cpp:480-518` (gh:#698).
+        // Levels run from the highest (root) downwards. A lower level replaces
+        // the best so far only if it is shorter by `FP_REL_PRECISION` relative,
+        // so a lower-level surface coincident with a higher-level boundary (a
+        // lattice tile edge, the parent cell's wall) never wins on round-off.
+        // Within one level the surface wins only if it is shorter than the
+        // lattice distance by `FP_COINCIDENT` (upstream's `d_surf < d_lat -
+        // FP_COINCIDENT`), else the lattice edge.
+        // ~~`FP_REL = 1e-14`, a surface preferred on a 1e-9 cm tie, and the
+        // lower level winning on round-off~~ **CORRECTED 2026-11-19** (gh:#698).
+        const FP_REL_PRECISION: f64 = 1.0e-5;
         let mut best = BoundaryHit {
             distance: f64::INFINITY,
             crossing: Crossing::None,
@@ -312,40 +396,33 @@ impl Geometry {
         for (i, coord) in path.levels.iter().enumerate() {
             let cell = &self.cells[coord.cell];
             let (d_surf, i_surf) =
-                cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.on_surface);
-            if d_surf < best.distance * (1.0 - FP_REL) {
-                best.distance = d_surf;
-                best.crossing = if i_surf == usize::MAX {
-                    Crossing::None
-                } else {
-                    Crossing::Surface(i_surf)
-                };
-                best.coord_level = i;
-            }
+                cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.token_at(i));
+            let d_lat = match coord.lattice {
+                Some(l_idx) => {
+                    self.lattices[l_idx]
+                        .distance(coord.r, coord.u, coord.lattice_index)
+                        .0
+                }
+                None => f64::INFINITY,
+            };
+            let beats = |d: f64, best_d: f64| {
+                best_d == f64::INFINITY || (best_d - d) / best_d >= FP_REL_PRECISION
+            };
 
-            if let Some(l_idx) = coord.lattice {
-                let (d_lat, _trans) =
-                    self.lattices[l_idx].distance(coord.r, coord.u, coord.lattice_index);
-                // Root-cause fix for op-6tz.34 (nested-lattice under-count). When a
-                // lattice fills its enclosing cell exactly, the outermost tile edge
-                // is coincident with the cell's bounding (reflective) surface. If
-                // floating-point rounding lets the lattice edge win this tie, the
-                // transport loop nudges the particle a hair PAST the tile edge —
-                // which is also past the reflective wall — so it lands outside the
-                // model region and `locate` leaks it, systematically under-counting
-                // histories. A bounding surface is the harder boundary: require a
-                // lattice crossing to beat the current best by a small ABSOLUTE
-                // margin when the best is a coincident Surface, so the wall wins the
-                // tie and the particle reflects instead of leaking. A genuine
-                // interior tile crossing (no coincident surface) is unaffected.
-                const COINCIDENT_ABS: f64 = 1.0e-9; // cm; the transport nudge scale
-                let surface_tie = matches!(best.crossing, Crossing::Surface(_))
-                    && (best.distance - d_lat).abs() < COINCIDENT_ABS;
-                if d_lat < best.distance * (1.0 - FP_REL) && !surface_tie {
-                    best.distance = d_lat;
-                    best.crossing = Crossing::Lattice;
+            if d_surf < d_lat - super::surface::FP_COINCIDENT {
+                if beats(d_surf, best.distance) {
+                    best.distance = d_surf;
+                    best.crossing = if i_surf == usize::MAX {
+                        Crossing::None
+                    } else {
+                        Crossing::Surface(i_surf)
+                    };
                     best.coord_level = i;
                 }
+            } else if coord.lattice.is_some() && beats(d_lat, best.distance) {
+                best.distance = d_lat;
+                best.crossing = Crossing::Lattice;
+                best.coord_level = i;
             }
         }
         best
@@ -477,5 +554,141 @@ mod tests {
                 SurfaceToken::NONE
             )
             .is_none());
+    }
+
+    /// gh:#698: a pin universe bounded by its own planes at the tile edges, in a
+    /// 2x2 lattice. At a point whose local `x = +h` plane and the lattice tile
+    /// edge coincide, `distance_to_boundary` must return the LATTICE crossing, as
+    /// OpenMC does (`d_surf < d_lat - FP_COINCIDENT` is false), not the tile-local
+    /// plane whose index names a different plane in the next tile.
+    #[test]
+    fn coincident_tile_local_plane_loses_to_the_lattice_edge() {
+        use crate::csg::cell::CellFill;
+        use crate::csg::lattice::RectLattice;
+        let pitch = 1.26;
+        let h = 0.63;
+        let plane = |x0: f64| SurfaceKind::XPlane(XPlane { x0, bc: BoundaryType::Transmissive });
+        let yplane = |y0: f64| SurfaceKind::YPlane(YPlane { y0, bc: BoundaryType::Transmissive });
+        let surfaces = vec![
+            plane(0.0),
+            plane(2.0 * pitch),
+            yplane(0.0),
+            yplane(2.0 * pitch),
+            plane(-h),
+            plane(h),
+            yplane(-h),
+            yplane(h),
+        ];
+        let hs = |i: usize, sense| RegionToken::HalfSpace { surface_idx: i, sense };
+        let and = RegionToken::Intersection;
+        let root = Cell::fill(
+            1,
+            vec![
+                hs(0, HalfSpaceSense::Outside),
+                hs(1, HalfSpaceSense::Inside),
+                and,
+                hs(2, HalfSpaceSense::Outside),
+                and,
+                hs(3, HalfSpaceSense::Inside),
+                and,
+            ],
+            CellFill::Lattice(0),
+            Position::ZERO,
+        );
+        let pin_mod = Cell::material(
+            2,
+            vec![
+                hs(4, HalfSpaceSense::Outside),
+                hs(5, HalfSpaceSense::Inside),
+                and,
+                hs(6, HalfSpaceSense::Outside),
+                and,
+                hs(7, HalfSpaceSense::Inside),
+                and,
+            ],
+            0,
+            293.6,
+        );
+        let lattice = RectLattice {
+            id: 1,
+            n: [2, 2, 1],
+            lower_left: Position::new(0.0, 0.0, -0.5),
+            pitch: [pitch, pitch, 1.0],
+            universes: vec![1, 1, 1, 1],
+            outer: None,
+        };
+        let geom = Geometry {
+            surfaces,
+            cells: vec![root, pin_mod],
+            universes: vec![
+                Universe { id: 0, cell_indices: vec![0] },
+                Universe { id: 1, cell_indices: vec![1] },
+            ],
+            lattices: vec![crate::csg::lattice::Lattice::Rect(lattice)],
+            root_universe: 0,
+        };
+        // Tile (0,0), local x = 0.37: the local x = +h plane and the tile edge are
+        // both 0.26 cm away along +x.
+        let p = geom
+            .locate(
+                Position::new(1.0, 0.63, 0.0),
+                Direction::new(1.0, 0.0, 0.0),
+                SurfaceToken::NONE,
+            )
+            .unwrap();
+        let hit = geom.distance_to_boundary(&p);
+        assert!((hit.distance - 0.26).abs() < 1e-12, "d = {}", hit.distance);
+        assert_eq!(hit.crossing, Crossing::Lattice, "tile edge must beat the coincident local plane");
+    }
+
+    /// gh:#698 (token level): surface 0 is used by the ROOT cell (global `x > 0`)
+    /// and by the pin universe in a lattice tile centred at x = 10.5 (local
+    /// `x < 0`, i.e. a different physical plane at x = 10.5). A particle that has
+    /// just crossed the tile-local plane moving to its inside carries the token
+    /// (0, Inside). Applied at every level (`locate`) the token is also forced on
+    /// the root cell, whose region wants Outside(0), so the search fails; applied
+    /// only at the crossing's level (`locate_at_level`) the root cell is judged by
+    /// the particle's real position and the particle is found in the inside pin
+    /// cell.
+    #[test]
+    fn the_surface_token_applies_only_at_the_crossing_level() {
+        use crate::csg::cell::CellFill;
+        use crate::csg::lattice::{Lattice, RectLattice};
+        let plane = |x0: f64| SurfaceKind::XPlane(XPlane { x0, bc: BoundaryType::Transmissive });
+        let hs = |i: usize, sense| RegionToken::HalfSpace { surface_idx: i, sense };
+        let (out, ins, and) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside, RegionToken::Intersection);
+        let root = Cell::fill(
+            1,
+            vec![hs(0, out), hs(1, ins), and],
+            CellFill::Lattice(0),
+            Position::ZERO,
+        );
+        let inside_pin = Cell::material(2, vec![hs(0, ins)], 7, 293.6);
+        let outside_pin = Cell::material(3, vec![hs(0, out)], 8, 293.6);
+        let geom = Geometry {
+            surfaces: vec![plane(0.0), plane(20.0)],
+            cells: vec![root, inside_pin, outside_pin],
+            universes: vec![
+                Universe { id: 0, cell_indices: vec![0] },
+                Universe { id: 1, cell_indices: vec![1, 2] },
+            ],
+            lattices: vec![Lattice::Rect(RectLattice {
+                id: 1,
+                n: [1, 1, 1],
+                lower_left: Position::new(10.0, -0.5, -0.5),
+                pitch: [1.0, 1.0, 1.0],
+                universes: vec![1],
+                outer: None,
+            })],
+            root_universe: 0,
+        };
+        let r = Position::new(10.5 - 1.0e-9, 0.0, 0.0);
+        let u = Direction::new(-1.0, 0.0, 0.0);
+        let token = SurfaceToken::on(0, HalfSpaceSense::Inside);
+        assert!(geom.locate(r, u, token).is_none(), "token at every level rejects the root cell");
+        let p = geom.locate_at_level(r, u, token, 1).expect("found with the token at its own level");
+        assert_eq!(p.material, Some(7), "the inside pin cell");
+        assert_eq!(p.token_at(0), SurfaceToken::NONE);
+        assert_eq!(p.token_at(1), token);
     }
 }

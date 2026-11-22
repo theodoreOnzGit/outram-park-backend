@@ -28,6 +28,19 @@ use uom::si::velocity::meter_per_second;
 /// Bulk velocity of the coil runs \[m/s\] (Re is set through ν).
 pub const U_COIL: f64 = 5.0e-3;
 
+/// Normalised-residual tolerance of the coil runs' momentum solve (the
+/// solver's default is 1e-7). **Set 2026-11-12 (gh:#1500):** with upstream's
+/// implicit `Gauss linear` the warm-started Gauss-Seidel sweeps stop just
+/// under 1e-7 and the state then wanders by ~1e-7 m/s per step (1e-5 of U),
+/// which kept the steady metric at a constant 4.68e-3 for 2 500 steps on the
+/// m = 2 coil at Re 200 against the criterion 1e-3, while f·Re/64 was fixed
+/// to five digits. At 1e-10 and 1e-12 the run reaches the unchanged
+/// criterion (351 steps) with the same f·Re/64 = 1.42097 and the same
+/// trajectory to four digits at step 300 (3.295e-3), so 1e-10 is where the
+/// metric stops depending on the tolerance. Record:
+/// `helical_coil_dean_gh1157.md`.
+pub const U_TOLERANCE: f64 = 1.0e-10;
+
 fn m(v: f64) -> Length {
     Length::new::<meter>(v)
 }
@@ -140,7 +153,7 @@ pub struct CoilReport {
 
 impl CoilRun {
     /// The case on `fv` (the mesh of `grid`) at `reynolds`, with convection
-    /// `scheme` (the V&V record's choice is `GaussLinear`), Courant number
+    /// `scheme` (the V&V record's choice is `GaussLinear`, upstream's implicit form), Courant number
     /// `co` on the axial cell length capped at viscous number `max_viscous`,
     /// one non-orthogonal corrector.
     pub fn on_mesh(grid: HelicalPipe, fv: Arc<FvMesh>, reynolds: f64, scheme: DivScheme, co: f64, max_viscous: f64) -> Self {
@@ -159,6 +172,7 @@ impl CoilRun {
         let mut solver = pipe.build_solver(fv, dt);
         solver.solution.pimple.n_non_orthogonal_correctors = 1;
         solver.schemes.default_div = scheme;
+        solver.u_linear_solver.tolerance = U_TOLERANCE;
         Self { grid, solver, flow, cells, ds, steps: 0 }
     }
 
@@ -206,7 +220,7 @@ impl CoilRun {
     }
 }
 
-/// Run `grid` at `reynolds` (Courant number `co`, 4 in the record) until the steady metric is below `tol` (the
+/// Run `grid` at `reynolds` (Courant number `co`, `engine::COIL_CO` = 1 in the record since gh:#1500; it was 4 for the deferred form) until the steady metric is below `tol` (the
 /// record's criterion is `engine::STEADY`, 1e-3; a smaller one checks that
 /// the reported numbers do not depend on it) or `max_steps`; returns the
 /// report, the run itself (its fields, for pictures) and the wall seconds of
@@ -214,9 +228,24 @@ impl CoilRun {
 ///
 /// # Errors
 /// Meshing or divergence, as text.
-pub fn run_to_steady(grid: HelicalPipe, reynolds: f64, scheme: DivScheme, co: f64, tol: f64, max_steps: usize, mut on_step: impl FnMut(&CoilRun, f64)) -> Result<(CoilReport, CoilRun, f64), String> {
+pub fn run_to_steady(grid: HelicalPipe, reynolds: f64, scheme: DivScheme, co: f64, tol: f64, max_steps: usize, on_step: impl FnMut(&CoilRun, f64)) -> Result<(CoilReport, CoilRun, f64), String> {
+    run_to_steady_with_u_tolerance(grid, reynolds, scheme, co, tol, max_steps, None, on_step)
+}
+
+/// [`run_to_steady`] with the momentum linear solver's tolerance set to
+/// `u_tolerance` when it is `Some` (`PimpleFoam::with_linear_solver_settings`;
+/// `None` keeps [`U_TOLERANCE`]). The gh:#1500 diagnosis ablation of the
+/// linear-solver floor in the steady metric.
+///
+/// # Errors
+/// Meshing or divergence, as text.
+#[allow(clippy::too_many_arguments)]
+pub fn run_to_steady_with_u_tolerance(grid: HelicalPipe, reynolds: f64, scheme: DivScheme, co: f64, tol: f64, max_steps: usize, u_tolerance: Option<f64>, mut on_step: impl FnMut(&CoilRun, f64)) -> Result<(CoilReport, CoilRun, f64), String> {
     let fv = Arc::new(grid.mesh().map_err(|e| e.to_string())?.to_fv_mesh().map_err(|e| e.to_string())?);
     let mut run = CoilRun::on_mesh(grid, fv, reynolds, scheme, co, crate::engine::MAX_VISCOUS_DEFAULT);
+    if let Some(t) = u_tolerance {
+        run.solver.u_linear_solver.tolerance = t;
+    }
     let t0 = bugis::web_demo::platform::now_s();
     for _ in 0..max_steps {
         let c = run.step()?;
@@ -250,11 +279,23 @@ mod tests {
     /// A coarse half-turn coil at Re = 100 runs to steady: the core flows
     /// outward, the axial maximum moves outward, and the friction factor is
     /// above the straight pipe's. (Regression of the code path, not V&V.)
+    ///
+    /// **Re-pinned 2026-11-12 (gh:#1500), measured, release, this host, 1152
+    /// cells, Re 200:** the case ran with the deferred-correction form at Co
+    /// 4 (63 steps; f·Re/64 on the last turn 1.74452, axial maximum n/R
+    /// -0.647, core u_n -0.1810 U, vortex pair -0.1515, max secondary
+    /// 0.3287 U); with upstream's implicit `Gauss linear` it **diverges at
+    /// Co 4** (cause: the implicit central matrix is not diagonally dominant
+    /// above a cell Courant number of about 1, see the V&V record), and at the
+    /// new Co 1 ([`crate::engine::COIL_CO`]) it takes 90 steps and gives
+    /// 1.76254 (+1.0 %), -0.647, -0.1870, -0.1612, 0.3223. The asserted
+    /// signs and the steady criterion did not change; only the scheme and the
+    /// Courant number (the protocol) did.
     #[test]
     fn a_coarse_coil_shows_dean_flow() {
         let spec = CoilSpec { tube_radius: 0.005, coil_diameter: 0.04, pitch: 0.0, turns: 0.5 };
         let g = spec.grid(4, 2, 24);
-        let (r, run, _) = run_to_steady(g, 200.0, DivScheme::GaussLinear, 4.0, crate::engine::STEADY, 2000, |_, _| {}).unwrap();
+        let (r, run, _) = run_to_steady(g, 200.0, DivScheme::GaussLinear, crate::engine::COIL_CO, crate::engine::STEADY, 2000, |_, _| {}).unwrap();
         let steps = run.steps;
         assert!(steps < 2000, "steady in {steps}");
         assert!(r.section.core_u_n < 0.0, "{r:?}");

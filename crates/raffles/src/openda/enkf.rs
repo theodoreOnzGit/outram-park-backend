@@ -41,6 +41,9 @@
 //! **OpenDA's ensemble Kalman filter** with its localisation options
 //! (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::jama::Rows;
 use super::linalg::{self, axpy, ensemble_average, remove_average};
 use super::models::{Observations, OdaStochModel};

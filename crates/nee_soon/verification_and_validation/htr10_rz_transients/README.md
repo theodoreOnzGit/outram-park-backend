@@ -775,7 +775,7 @@ ablated, which reproduces the Sec 7 base to every digit).
 | MOD-OUTSIDE-FZ | 287 s | 0.877 | 0.482 | 0.181 | 0.034 | -393 @ 2995 | 7746 s | 26.0 % @ 8835 | 88 kW |
 | PARTB (Sec 7 base) | 288 s | 0.855 | 0.433 | 0.162 | 0.033 | -372 @ 3085 | 7631 s | 22.4 % @ 8720 | 109 kW |
 | KIN-LAMBDA-H06 | 296 s | 0.865 | 0.442 | 0.169 | 0.036 | -346 @ 3005 | 7416 s | 20.0 % @ 8505 | 108 kW |
-| KIN-DN-TEHO | 297 s | 0.870 | 0.446 | 0.171 | 0.036 | -348 @ 3000 | 7431 s | 20.3 % @ 8530 | 109 kW |
+| KIN-DN-TEHO | ~~297 s~~ **279 s** | ~~0.870~~ **0.861** | ~~0.446~~ **0.413** | ~~0.171~~ **0.148** | ~~0.036~~ **0.029** | ~~-348 @ 3000~~ **-327 @ 3045** | ~~7431 s~~ **7311 s** | ~~20.3 % @ 8530~~ **19.9 % @ 8335** | ~~109~~ **106 kW** |
 | KIN-DN-1G | 217 s | 0.902 | 0.523 | 0.167 | 0.015 | -346 @ 3005 | 7416 s | 22.9 % @ 8660 | 115 kW |
 | *measured* | ~330 s | 0.905 | 0.496 | **0.204** | 0.047 | - | 2520 / 4075 s | 24.6 % @ 4395 s | ~180 kW |
 
@@ -788,7 +788,7 @@ ablated, which reproduces the Sec 7 base to every digit).
 | MOD-OUTSIDE-FZ | **175.0 % @ 32 s** | 1.746 | 1.731 | 254 s | 6511 s | 136 kW |
 | PARTB (Sec 7 base) | 158.4 % @ 23 s | 1.547 | 1.477 | 272 s | 6056 s | 137 kW |
 | KIN-LAMBDA-H06 | 155.6 % @ 21 s | 1.483 | 1.399 | 286 s | 5751 s | 126 kW |
-| KIN-DN-TEHO | 154.4 % @ 22 s | 1.485 | 1.408 | 286 s | 5771 s | 125 kW |
+| KIN-DN-TEHO | ~~154.4 % @ 22 s~~ **161.1 % @ 21 s** | ~~1.485~~ **1.529** | ~~1.408~~ **1.430** | ~~286 s~~ **272 s** | ~~5771 s~~ **5586 s** | ~~125~~ **142 kW** |
 | KIN-DN-1G | 139.3 % @ 31 s | 1.393 | 1.379 | 232 s | 5751 s | 137 kW |
 | *measured* | 216 % @ 35 s [H06] / 241 % @ 30 s [J09] | - | - | 810 s | 2400 / ~3400 s | ~200 kW |
 
@@ -797,7 +797,7 @@ ablated, which reproduces the Sec 7 base to every digit).
 | Case | Predicted | Measured | Verdict |
 |---|---|---|---|
 | KIN-LAMBDA-H06 | P(100 s) < 0.5 %; CRW < 1 point | -0.6 %; +1.2 points | marginal miss (still negligible) |
-| KIN-DN-TEHO | +-3 %; < 3 points | +0.3 %; 0.0 points | met |
+| KIN-DN-TEHO | +-3 %; < 3 points | ~~+0.3 %; 0.0 points~~ **-13.3 %; +6.7 points** (re-measured after gh:#1319) | ~~met~~ **miss since gh:#1319** (the prediction assumed the old set, which was Keepin's in all but rounding) |
 | KIN-DN-1G | P(100 s) lower by 10-40 % | -2.2 % (but P(200 s) -59 %, 1 % at 217 s); CRW -15 points, 9 s later | miss: the one-group set crosses the six-group curve near 100 s; not a candidate either way |
 | MOD-ALLGRAPHITE alone (DUMMY-IN-CELL vs PARTB) | P(100 s) +3 to +12 %; CRW peak -3 to -10 %; rho = 0 +-150 s | **+8.6 %**; **-1.4 points** (-0.9 %); -165 s (LOFC), -155 s (CRW) | met; CRW sign met, size a miss (smaller); re-criticality just outside |
 | DUMMY-LAG, all-graphite (BASE vs DUMMY-IN-CELL) | +-3 %; +-3 points; +-150 s | -3.2 %; -2.6 points; -40 s / -130 s | met (P(100 s) at the edge) |
@@ -813,10 +813,26 @@ against 592.2 degC). Under the part B reading the same lag moves the
 moderator reading by 2.5 K (588.5 degC).
 
 **Reading it.**
-- **Ruled out as causes:** `Lambda` (< 1 %), the delayed-group set (the
+- **Ruled out as causes:** `Lambda` (< 1 %), ~~the delayed-group set (the
   Keepin and `teh-o-prke` U-235 sets agree to 0.3 %; one group is not
-  physical), and the dummy-pebble lag under the all-graphite reading
+  physical)~~, and the dummy-pebble lag under the all-graphite reading
   (< 3 %, and the wrong way).
+- **CORRECTED 2026-11-10 (gh:#1319): the delayed-group set is not ruled
+  out.** `teh-o-prke`'s U-235 set is now ENDF/B-VIII.0 (`sum beta_i /
+  lambda_i` 0.08030 s at beta 0.00726, against Keepin's 0.09449 s; the old
+  `teh-o-prke` set was 0.09473 s, Keepin's in all but rounding, which is
+  why it moved nothing). With it the LOFC P(100 s) is **0.148** (BASE
+  0.170, measured 0.204: further from the measurement) and the CRW first
+  peak **161.1 % at 21 s** (BASE 154.4 %, measured 216-241 %: closer).
+  The two evaluated sets bracket a 13 % spread in P(100 s), so the
+  short-term LOFC comparison carries a delayed-data uncertainty of that
+  size. BASE still uses Keepin (the named base assumption); this is
+  recorded, not a reason to switch. Re-measured with
+  `cargo test --release -p nee_soon --lib rz_short_term_feedback_cases --
+  --nocapture`; predictions were posted on gh:#1319 before the run
+  (P(100 s) -3 to -10 %: a miss in size, -13 %; CRW peak +1 to +6 points:
+  just over, +6.7; re-criticality within +-150 s: miss for CRW, -185 s;
+  late power within +-5 kW: miss for CRW, +17 kW).
 - **What the corrected physics does:** reading the moderator coefficient
   on all the pebble graphite takes P(100 s) from 0.162 to **0.170**
   (measured 0.204: ~20 % of the gap closed), the 1 % time from 288 to

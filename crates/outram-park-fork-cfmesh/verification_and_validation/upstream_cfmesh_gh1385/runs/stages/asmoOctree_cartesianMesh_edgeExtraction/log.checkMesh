@@ -1,0 +1,121 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh
+Date   : Nov 11 2026
+Time   : 12:24:58
+Host   : vm
+PID    : 25939
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/stage_asmo_cartesianMesh_edgeExtraction
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+--> FOAM Warning : 
+    From static Foam::instantList Foam::timeSelector::select0(Foam::Time&, const Foam::argList&)
+    in file db/Time/timeSelector.C at line 284
+    No time specified or available, selecting 'constant'
+Create mesh for time = constant
+
+Check mesh...
+
+Time = constant
+
+Mesh stats 
+    points:           49829
+    faces:            114411
+    internal faces:   94834
+    cells:            32419
+    faces per cell:   6.4543940281933434
+    boundary patches: 10
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     26156
+    prisms:        0
+    wedges:        0
+    pyramids:      620
+    tet wedges:    0
+    tetrahedra:    324
+    polyhedra:     5319
+    Breakdown of polyhedra by number of faces:
+        faces   number of cells
+            6   1299
+            9   2923
+           12   883
+           15   212
+           18   2
+
+Checking topology...
+    Boundary definition OK.
+ ***Total number of faces on empty patches is not divisible by the number of cells in the mesh. Hence this mesh is not 1D or 2D.
+    Cell to face addressing OK.
+    Point usage OK.
+ ***Faces not in upper triangular order.
+  <<Writing 17582 unordered faces to set upperTriangularFace
+    Face vertices OK.
+    Number of regions: 1 (OK).
+
+Checking patch topology for multiply connected surfaces...
+                   Patch    Faces   Points  Surface topology
+               INLE10000       96      119  ok (non-closed singly connected)
+               OUTL20001       96      119  ok (non-closed singly connected)
+               SYMP30002     2974     3350  ok (non-closed singly connected)
+        defaultFaces0003      312      371  ok (non-closed singly connected)
+        defaultFaces0004     1987     2250  ok (non-closed singly connected)
+        defaultFaces0005      832      901  ok (non-closed singly connected)
+        defaultFaces0006    11239    11546  ok (non-closed singly connected)
+        defaultFaces0007      799      864  ok (non-closed singly connected)
+        defaultFaces0008      315      358  ok (non-closed singly connected)
+        defaultFaces0009      927      989  ok (non-closed singly connected)
+                    ".*"    19577    19799      ok (closed singly connected)
+
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking basic pointZone addressing...
+    No pointZones found.
+
+Checking geometry...
+    Overall domain bounding box (-1.2150000333786011 -0.79199999570846558 -0.03352746042333192) (4.0500001907348633 2.6735128438622555e-07 1.6200000047683716)
+    Mesh has 0 geometric (non-empty/wedge) directions (0 0 0)
+    Mesh has 0 solution (non-empty) directions (0 0 0)
+ ***Number of edges not aligned with or perpendicular to non-empty directions: 57318
+  <<Writing 34714 points on non-aligned edges to set nonAlignedEdges
+    Boundary openness (3.7359246625922189e-18 -1.3288960362727003e-16 8.4662975524339523e-17) OK.
+    Max cell openness = 6.9980664796506036e-16 OK.
+    Max aspect ratio = -1 OK.
+    Minimum face area = 1.2912491139676056e-07. Maximum face area = 0.040000000000000258.  Face area magnitudes OK.
+ ***Zero or negative cell volume detected.  Minimum negative volume: -2.4865348764340446e-09, Number of negative volume cells: 5
+  <<Writing 5 zero volume cells to set zeroVolumeCells
+    Mesh non-orthogonality Max: 173.43528551281858 average: 15.722456241135037
+   *Number of severely non-orthogonal (> 70 degrees) faces: 55.
+ ***Number of non-orthogonality errors: 9.
+  <<Writing 64 non-orthogonal faces to set nonOrthoFaces
+ ***Error in face pyramids: 30 faces are incorrectly oriented.
+  <<Writing 26 faces with incorrect orientation to set wrongOrientedFaces
+ ***Max skewness = 35.222497124379885, 2 highly skew faces detected which may impair the quality of the results
+  <<Writing 2 skew faces to set skewFaces
+    Coupled point location match (average 0) OK.
+
+Failed 6 mesh checks.
+
+End
+

@@ -21,7 +21,10 @@
 //! `Element.expand` partitions an isotope the library lacks into one it has,
 //! `openmc/element.py:150-195`).
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use super::isotope::Isotope;
 
@@ -48,8 +51,8 @@ pub enum MassSource {
     Given(String),
 }
 
-impl std::fmt::Display for MassSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MassSource {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             MassSource::EndfAwr(lib) => {
                 write!(f, "ENDF AWR x neutron mass (CODATA 2018), from {lib}")

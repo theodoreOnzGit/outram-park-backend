@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // NOT ported from RAVEN. Added 2026-10-03 for GitHub issue #499 (epic #493).
@@ -50,6 +50,9 @@
 //! Predictive inference with the jackknife+. *Annals of Statistics, 49*(1),
 //! 486–507. doi:10.1214/20-AOS1965
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::PolynomialSurrogate;
 use crate::{RafflesError, Result};

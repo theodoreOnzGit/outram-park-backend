@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # OpenMC's view of the "other" neutron-emitting reactions -- every
 # non-redundant reaction with a neutron product other than elastic, the
 # levels/continuum MT=51..91, (n,2n), (n,3n), MT=5 and fission -- for GitHub
 # #365 audit (outram used to sample them as elastic).
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 # Rows:  <route>,<nuclide>,<mt>,<E eV>,<sigma b>,<neutron yield>,<cm 0/1>
 #   route "ace": IncidentNeutron.from_ace of the NJOY2016 table;
 #   route "endf": IncidentNeutron.from_endf of the evaluation (independent of

@@ -114,6 +114,9 @@
 //! this module exposes [`decay_is_negligible`] rather than leaving each
 //! caller to guess.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::f64::{Ratio, Time};

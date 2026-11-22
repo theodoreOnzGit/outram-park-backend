@@ -12,6 +12,9 @@
 //! poisoning) and recorded in
 //! `crates/raffles/verification_and_validation/fidelity_interface_gh1194.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::dataset::{Dataset, Fidelity, Split};
 use super::models::HighFidelityModel;
 use super::surrogate::{Surrogate, SurrogateSpec, ValidationReport};

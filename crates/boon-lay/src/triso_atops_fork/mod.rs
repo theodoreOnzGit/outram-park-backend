@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -8,9 +8,9 @@
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
 //                    (DOE contract DE-AC07-05ID14517; authors B. D. Stoyer,
 //                     D. A. Petti, A. C. Raichart; User Manual also credits K. E. Egan)
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained per the MIT license (see LICENSE.triso-atops
-// and NOTICE.triso-atops at the crate root). MIT is GPLv3-compatible.
+// and NOTICE.triso-atops at the crate root). MIT is AGPLv3-compatible.
 
 //! # `triso_atops_fork` — Eulerian / continuum TRISO fission-product release
 //!
@@ -121,6 +121,9 @@
 //! code to build for Android. See `docs/triso-atops-fork.md` for the full
 //! Python→Rust module map and the port/verification status.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The radioactive decay constant `λ = ln 2 / t½`.
 ///
 /// SI unit `s^-1`; dimensionally a frequency. Construct with
@@ -152,6 +155,8 @@ pub mod normal_operation;
 pub mod accident;
 
 /// The JSON run file: parsing, validation and unit attachment.
+/// `std` only (gh:#1634): reads run files (files, `serde_json`).
+#[cfg(feature = "std")]
 pub mod run_file;
 
 /// Model variant: the upstream code (default) or the 2026 paper as written (gh:#1015).

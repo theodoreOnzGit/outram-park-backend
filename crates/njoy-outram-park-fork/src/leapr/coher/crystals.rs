@@ -24,6 +24,9 @@
 //! provenance: the source of the lattice constants, of the atomic positions,
 //! and of the bound coherent scattering lengths.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::leapr::coher::general::{BasisAtom, CrystalStructure};
 use crate::leapr::decks::SabMaterial;
 
@@ -244,8 +247,8 @@ mod tests {
         assert_eq!(s.basis.iter().filter(|a| a.label == "Si").count(), 4);
         assert_eq!(s.basis.iter().filter(|a| a.label == "C").count(), 4);
         // sigma_coh round-trips to the published bound coherent cross sections
-        let si = 4.0 * std::f64::consts::PI * B_COH_SILICON_FM.r_powi(2) / 100.0;
-        let c = 4.0 * std::f64::consts::PI * B_COH_CARBON_FM.r_powi(2) / 100.0;
+        let si = 4.0 * core::f64::consts::PI * B_COH_SILICON_FM.r_powi(2) / 100.0;
+        let c = 4.0 * core::f64::consts::PI * B_COH_CARBON_FM.r_powi(2) / 100.0;
         assert!((si - 2.163).abs() < 5e-3, "sigma_coh(Si) = {si}");
         assert!((c - 5.551).abs() < 5e-3, "sigma_coh(C) = {c}");
     }

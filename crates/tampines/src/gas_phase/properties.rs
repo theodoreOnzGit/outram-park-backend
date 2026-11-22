@@ -72,6 +72,9 @@
 //! port plus ideal-gas limits. AI-assisted draft pending human review per
 //! `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::TampinesError;
 use outram_park_fork_coolprop::{conductivity, state_ph, state_pt, viscosity, Fluid};
 use uom::si::available_energy::joule_per_kilogram;

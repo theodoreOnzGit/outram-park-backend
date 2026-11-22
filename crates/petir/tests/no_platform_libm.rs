@@ -74,7 +74,7 @@ const EXCLUDED_CRATES: &[(&str, &str)] = &[(
 
 /// Directories (relative to `crates/`) the gate does not scan, with the reason.
 const EXCLUDED_DIRS: &[(&str, &str)] = &[(
-    "boon-lay/src/rustbca",
+    "kembangan/src/rustbca",
     "the RustBCA port carries its own `Real` trait and its own routing \
      discipline, gated by `local_change_tests.rs` (gh:#995 owns it)",
 )];
@@ -305,7 +305,7 @@ mod tests {
 fn the_walk_honours_exclusions_and_only_them() {
     let files = scanned_files();
     assert!(files.iter().all(|(r, _)| !r.starts_with("petir/")));
-    assert!(files.iter().all(|(r, _)| !r.starts_with("boon-lay/src/rustbca/")));
+    assert!(files.iter().all(|(r, _)| !r.starts_with("kembangan/src/rustbca/")));
     assert!(files.iter().any(|(r, _)| r.starts_with("boon-lay/src/")));
     assert!(files.iter().any(|(r, _)| r.starts_with("outram-mc-libs/src/")));
     assert!(files.iter().any(|(r, _)| r.starts_with("dhoby-ghaut/src/bin/")));

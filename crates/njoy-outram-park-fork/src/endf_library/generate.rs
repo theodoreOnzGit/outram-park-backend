@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
@@ -24,6 +24,9 @@
 //! `0K/<name>.ace` for its companion, `<T>K/<law>.ace` for a thermal table;
 //! [`crate::archive::write_zip`] packs a batch into one download.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::header::SubLibrary;
 use super::index::{EndfLibraryIndex, IndexedTape};
 use crate::leapr::deck::LeaprDeck;

@@ -10,6 +10,19 @@ pebble/packed-bed physics. Ports LIGGGHTS/LAMMPS-granular.
 > `[workspace.dependencies]` — do not pin versions in this crate's
 > `Cargo.toml`.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1602, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Maps come from `crate::hash` (`hashbrown` without std, the workspace rule).
+- A `rayon` import takes `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`,
+  with the `wasm_par` stand-in on `any(target_arch = "wasm32", not(feature = "std"))`.
+- GPU code is `#[cfg(all(feature = "std", not(target_os = "android")))]`.
+- Files and printing are `#[cfg(feature = "std")]`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -111,8 +124,10 @@ are different claims and this entry keeps them apart.
   | head-on, Hooke | 251 | **bit-identical** |
   | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
   | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
-  | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
-  | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
+  | oblique + friction (shear history, slip, torque) | 251 | ~~`max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp)~~ **bit-identical (CORRECTED 2026-11-10, gh:#1406)** |
+  | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | ~~`max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s`~~ **bit-identical (CORRECTED 2026-11-10, gh:#1406)** |
+  | oblique **Hooke** + history + CDT rolling (new 2026-11-10) | 251 | **bit-identical** |
+  | two atom types (different `E`, `ν`, `e`, `µ`), head-on and oblique (new 2026-11-10) | 251 each | **bit-identical** |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
   | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | ~~`12.78°` vs `15.43°` — 2.65°~~ **`14.09°` vs `15.43°` — 1.34°** (**CORRECTED 2026-09-18**: 12.78 came from the pre-`op-t3l.9` nondeterministic build and is not reproducible; the gap HALVES. The mesh-contact attribution is now UNSUPPORTED — a resolution sweep is flat within a measured 0.266° realisation scatter. See the V&V doc.) |
   | **HTR-10 full core**, 27 554 pebbles, `D/d = 30`, `E = 5e8` | settled state | `φ = 0.5732` vs `0.5732` — **4 decimals**; median pebble **61 µm** apart, 99.93 % within 1 mm |
@@ -208,6 +223,21 @@ are different claims and this entry keeps them apart.
   tracked in gh #64. Absent prelude was the single most predictive defect
   across the seven crates dogfooded in gh #58 — the two worst failures there
   were both prelude failures — so this crate starts from behind.
+
+  **UPDATED 2026-11-10 (gh #64, #1317).**
+  - **The prelude now exists:** `src/prelude.rs`, imported with
+    `use outram_park_fork_liggghts::prelude::*;`. It covers particles, walls
+    (including mesh and moving walls), both contact-model families, both
+    engines, the compute backend, bonds, thermal and radiative models, the
+    coupling seam, the RDF and the HTR-10 fill driver.
+  - **It is executable.** Its doctest runs a `GranularSystem` settle with
+    nothing else imported from the crate, and all 11 examples now import from
+    it. The only explicit imports left are `gnn_bridge` and `Htr10GpuFill`,
+    which are kept out of the prelude because they are feature- and
+    target-gated.
+  - **Version:** the crate is at `0.0.3`, not `0.0.0`.
+  - **Not done:** the Haiku dogfood run that the maturity gate asks of a
+    mature crate has not been done against this prelude.
 
 - **2026-09-17 — mesh-wall cross-code leg extended to the HTR-10 DISCHARGE
   geometry, plus a reproducibility defect found and fixed. The bar itself is
@@ -314,10 +344,10 @@ are different claims and this entry keeps them apart.
 
 ## Scope
 
-Modules: `bonded`, `boundary`, `compute`, `contact`, `coupling`, `gnn_bridge`
+Modules: `bonded`, `boundary`, `capillary` (liquid-bridge cohesion, gh:#1411), `compute`, `contact`, `coupling`, `gnn_bridge`
 (feature `gnn`), `gpu` (non-Android; ~~non-wasm~~ wasm since 2026-11-05), `granular`, `granular_system`,
-`htr10_fill`, `integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`,
-`simulation`, `thermal`, `thermal_radiation`, `timestep`.
+`htr10_fill`, `integrator`, `mesh_wall`, `multisphere` (rigid clumps, gh:#1415), `particle`, `rdf`, `rolling`,
+`simulation`, `superquadric` (superquadric particles, gh:#1415), `thermal`, `thermal_radiation`, `timestep`.
 
 **`htr10_fill` (2026-10-05, gh:#561)** pours `N` pebbles into the HTR-10 vessel
 from empty and settles them in chunks a UI drives (`Htr10Fill::advance`); the

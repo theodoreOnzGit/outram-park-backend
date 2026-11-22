@@ -33,6 +33,9 @@
 //! Process-noise matrices for kinematic models (FilterPy's
 //! `Q_discrete_white_noise`, `Q_continuous_white_noise`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::numpy_ops::Matrix;
 use crate::{RafflesError, Result};

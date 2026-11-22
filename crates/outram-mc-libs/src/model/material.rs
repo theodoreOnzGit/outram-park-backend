@@ -34,6 +34,9 @@
 //! a nuclear-data library (see [`super::resolve`]), because weight bases need
 //! the library's atomic masses.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{MassDensity, Pressure, Ratio, ThermodynamicTemperature, VolumetricNumberDensity};
 use uom::si::volumetric_number_density::per_cubic_centimeter;
 
@@ -733,6 +736,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     /// **Atoms per barn·cm through `AtomDensity` and back are within one
     /// ulp, not always bit for bit** (gh #943): every density of
     /// HEU-SOL-THERM-009 (`vv::hst009`) and Godiva (`vv::godiva`). Measured

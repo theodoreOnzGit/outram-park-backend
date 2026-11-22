@@ -1,0 +1,4 @@
+DensEmpirical rows 96: upstream != port-order 28; of which burnup conversion (Bu/1000/0.881*1000 != Bu/0.881) differs on 12 rows; association alone differs on 28 rows
+Reloc rows 768: upstream != port-order 276 (deltaGap/100 != closure on 90 rows)
+SwFrapcon rows 42: upstream != port-order 3 (burnup conversion differs on 3 rows)
+SwAim1 rows 28: upstream != port-order 18 (fluence base f*1e-22 != (f*1e4)/1e26 on 7 rows)

@@ -59,6 +59,9 @@
 //! real entry point; RECONR calls [`setup::setup`] + [`xsformula::cssammy`]
 //! and ERRORR [`setup::setup_with_derivs`] + [`xsformula::cssammy_with_derivs`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod betset;
 pub mod context;
 pub mod coulomb;
@@ -94,8 +97,9 @@ use crate::NjoyError;
 /// there, with Cl-35, Fe-54, Fe-57, Cu-63, Cu-65 and Mo-95; Fe-57 and Mo-95 are
 /// word-for-word NJOY's in `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`)
 /// across all 44,326 points of NJOY's own
-/// grid inside the resolved range — worst relative deviation MT=1 `9.80e-3`, and
-/// `2.39e-3` at `err = 0.0001`. Record:
+/// grid inside the resolved range — ~~worst relative deviation MT=1 `9.80e-3`, and
+/// `2.39e-3` at `err = 0.0001`~~ **CORRECTED 2026-11-14 (gh:#1366): every pair
+/// bit-identical** after PENDF text, MT=1/2/102. Record:
 /// `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
 /// `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
 ///

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -94,6 +94,9 @@
 //! doc; it is **not** a verification, because Fig. 9's caption states neither
 //! the burnup nor the irradiation history.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Length, Ratio, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
@@ -185,7 +188,7 @@ impl DecompositionCalibration {
     /// `α` of Eq (13).
     pub const fn alpha(self) -> f64 {
         match self {
-            DecompositionCalibration::LooseParticles => std::f64::consts::LN_2,
+            DecompositionCalibration::LooseParticles => core::f64::consts::LN_2,
             DecompositionCalibration::ParticlesInSphere => 0.0001,
         }
     }
@@ -282,7 +285,7 @@ mod tests {
 
         // The sphere calibration reaches its median much later:
         // zeta = (ln2/1e-4)^(1/4) = 9.1247...
-        let zeta_half = (std::f64::consts::LN_2 / 0.0001).r_powf(0.25);
+        let zeta_half = (core::f64::consts::LN_2 / 0.0001).r_powf(0.25);
         let phi = thermal_decomposition_failure_fraction(
             Ratio::new::<ratio>(zeta_half),
             DecompositionCalibration::ParticlesInSphere,

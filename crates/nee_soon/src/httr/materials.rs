@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # HTTR nuclides and materials
@@ -48,6 +47,9 @@
 //! O-18 is not modelled separately: R1's oxygen total (Table 3.1) is split
 //! by the deck into O-16 and O-17 only, so O-18's 0.2 % rides on O-16.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 
 use crate::htr10_rmc::data::{DataDir, NuclideSlot, Tape, ThermalLaw, ThermalLawSource};
@@ -180,6 +182,7 @@ pub enum HttrThermal {
     FreeGas,
 }
 
+#[cfg(feature = "std")]
 /// The 48 nuclide slots in [`nuc`] order, every one ENDF/B-VIII.0, with
 /// the thermal law each carries, and the modelling notes a run records.
 ///

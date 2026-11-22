@@ -25,6 +25,7 @@
 //! Accident at the Fukushima Daiichi Nuclear Power Plant*, NEA No. 7525,
 //! © OECD 2021. Facts and numbers only.
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::compare::{against_measured, histories, inside_envelope, Histories};
 use sembawang::bwr_mark1::params::Params;
 use sembawang::bwr_mark1::Mechanisms;

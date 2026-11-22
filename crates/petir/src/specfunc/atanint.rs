@@ -110,11 +110,11 @@ pub fn atanint(x: f64) -> f64 {
         x
     } else if ax <= 1.0 {
         let t = 2.0 * (x * x - 0.5);
-        x * crate::cheb_slice::eval_gsl(t, &ATANINT)
+        x * crate::specfunc::cheb_eval_e(t, &ATANINT)
     } else if ax < 1.0 / SQRT_DBL_EPSILON {
         let t = 2.0 * (1.0 / (x * x) - 0.5);
         sgn * (0.5 * core::f64::consts::PI * Real::ln(ax)
-            + crate::cheb_slice::eval_gsl(t, &ATANINT) / ax)
+            + crate::specfunc::cheb_eval_e(t, &ATANINT) / ax)
     } else {
         // The series at 1/x^2 has collapsed to its leading term, 1.
         sgn * (0.5 * core::f64::consts::PI * Real::ln(ax) + 1.0 / ax)
@@ -260,9 +260,9 @@ mod tests {
     fn the_reflection_is_the_branch_structure() {
         // The two formulas at x = 1, where the branches meet.
         let x = 1.0_f64;
-        let below = x * crate::cheb_slice::eval_gsl(2.0 * (x * x - 0.5), &ATANINT);
+        let below = x * crate::specfunc::cheb_eval_e(2.0 * (x * x - 0.5), &ATANINT);
         let above = 0.5 * PI * x.ln()
-            + crate::cheb_slice::eval_gsl(2.0 * (1.0 / (x * x) - 0.5), &ATANINT) / x;
+            + crate::specfunc::cheb_eval_e(2.0 * (1.0 / (x * x) - 0.5), &ATANINT) / x;
         assert!(
             ((below - above) / above).abs() < 1e-14,
             "the two Chebyshev branches at x = 1: {below} vs {above}"
@@ -281,7 +281,7 @@ mod tests {
 
         // The small-argument branch joins the Chebyshev one.
         let x = 0.5 * SQRT_DBL_EPSILON;
-        let cheb = x * crate::cheb_slice::eval_gsl(2.0 * (x * x - 0.5), &ATANINT);
+        let cheb = x * crate::specfunc::cheb_eval_e(2.0 * (x * x - 0.5), &ATANINT);
         assert!(
             ((x - cheb) / cheb).abs() < 1e-14,
             "small/Chebyshev join at {x:e}: {x:e} vs {cheb:e}"
@@ -290,7 +290,7 @@ mod tests {
         // And the large-argument branch joins the reflected one.
         let x = 1.0 / SQRT_DBL_EPSILON;
         let a = 0.5 * PI * x.ln()
-            + crate::cheb_slice::eval_gsl(2.0 * (1.0 / (x * x) - 0.5), &ATANINT) / x;
+            + crate::specfunc::cheb_eval_e(2.0 * (1.0 / (x * x) - 0.5), &ATANINT) / x;
         let b = 0.5 * PI * x.ln() + 1.0 / x;
         assert!(
             ((a - b) / b).abs() < 1e-14,

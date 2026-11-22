@@ -9,6 +9,9 @@
 //! C (40 degC), for both the isolated DRACS loop and the DRACS loop coupled to
 //! the DHX and heater branches.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// For CIET natural circulation tests,
 ///
 /// there are two sets of tests.

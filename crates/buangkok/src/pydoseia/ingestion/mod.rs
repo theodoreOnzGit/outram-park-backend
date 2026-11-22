@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Ingestion: pyDOSEIA's terrestrial food-chain model (IAEA SRS 19 screening
 //! equations for leafy vegetables / food crops, pasture, stored feed, milk and
 //! meat) and its specific-activity models for H-3 and C-14 (IAEA TECDOC-1616).
@@ -46,6 +46,9 @@
 //! a labelled **divergence** that computes each nuclide on its own and fixes
 //! D8-D11; the default everywhere else stays upstream's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod corrected;
 pub mod food_chain;
 pub mod upstream;

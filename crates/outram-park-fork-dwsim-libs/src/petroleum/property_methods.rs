@@ -55,6 +55,9 @@
 //!    arguments **swapped**. That is a defect of the caller, not of this
 //!    function; see [`crate::petroleum::generate_compounds`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{KinematicViscosity, MolarMass, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::kinematic_viscosity::square_meter_per_second;

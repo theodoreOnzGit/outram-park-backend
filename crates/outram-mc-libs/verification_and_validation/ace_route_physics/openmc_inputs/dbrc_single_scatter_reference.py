@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # OpenMC's distribution of the energy after ONE elastic scatter off U-238 at
 # 293.6 K, near the 6.67 / 20.9 / 36.7 eV resonances, with and without DBRC,
-# for GitHub #407. Own work, GPL-3.0; OpenMC (MIT).
+# for GitHub #407. Own work, AGPL-3.0-only; OpenMC (MIT).
 #
 # A monoenergetic isotropic point source sits at the centre of a U-238 sphere so
 # thin (optical radius <= 3e-3 at the resonance peak) that the escaping

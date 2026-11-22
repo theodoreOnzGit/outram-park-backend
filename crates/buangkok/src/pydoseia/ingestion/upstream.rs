@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! `DoseFunc.ingestion_dose` exactly as upstream runs it, list indexing and
 //! output layout included. Ported from pyDOSEIA `dosefunc.py` at commit
 //! `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`, Copyright (c) 2024
@@ -8,6 +8,9 @@
 //! function exists so that the port can be compared with upstream number for
 //! number, and so that upstream's defects D8-D11 are demonstrable.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::food_chain::{
     animal_products, c14_in_animal, c14_in_plant, deposition_rate_per_day, food_crop, per_day,
     tritium_in_animal, tritium_in_plant, AnimalProduct, Climate, VegetationType, C14_S_AIR,

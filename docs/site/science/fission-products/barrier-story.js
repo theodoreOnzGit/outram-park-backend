@@ -257,7 +257,7 @@
         L.buttons(body, "Element", [["Cs", "Cs-137"], ["Ag", "Ag-110m"], ["Sr", "Sr-90"]], st.el, function (v) { st.el = v; runTracks(redraw); if (!st.sweep[v]) runSweep(redraw); redraw(); });
         L.slider(body, "Temperature of the traces (°C)", 1000, 1800, 100, st.tC, function (v) { st.tC = v; return v + " °C"; }).onchange = function () { runTracks(redraw); };
         var b = el("button", { type: "button", "class": "w-btn" }, "Run the sweep again"); b.onclick = function () { runSweep(redraw); }; body.append(b);
-        body.append(el("p", { "class": "w-note" }, "Kr cannot be walked: boon-lay has no Kr coefficient in the buffer (todo!, gh:#541). Each atom is born evenly in the kernel; the particle sits at one temperature; nothing decays."));
+        body.append(el("p", { "class": "w-note" }, "Kr is not walked here. (Until 2026-11-10 boon-lay had no Kr coefficient in the buffer; it now has the cited 1e-8 m²/s of IAEA-TECDOC-978, gh:#638, but this walk was built for Cs, Ag and Sr.) Each atom is born evenly in the kernel; the particle sits at one temperature; nothing decays."));
         runTracks(redraw); runSweep(redraw);
       }
     });

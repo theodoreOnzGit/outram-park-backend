@@ -1,0 +1,65 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : cartesianMesh
+Date   : Nov 11 2026
+Time   : 09:37:52
+Host   : vm
+PID    : 4017
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/stage_sphere_cartesianMesh_templateGeneration
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Setting root cube size and refinement parameters
+Root box (-8 -8 -8) (8 8 8)
+Requested cell size corresponds to octree level 5
+Refining boundary
+Refining boundary boxes to the given size
+Finished refining boundary boxes
+Performing automatic refinement
+Performing automatic refinement
+Marking inside/outside.
+Number of internal boxes is 624
+Number of outside boxes is 1304
+Number of data boxes is 432
+Number of unknown boxes is 0
+Refining boxes near DATA boxes
+Marking inside/outside.
+Number of internal boxes is 848
+Number of outside boxes is 1304
+Number of data boxes is 432
+Number of unknown boxes is 0
+Finished refining boxes near DATA boxes
+Extracting polyMesh
+Creating octree vertices
+Octree nodes 1309
+Resizing points!
+Finished creating octree vertices
+Creating polyMesh from octree
+Reordering boundary faces 
+Finished reordering boundary faces
+Finished creating polyMesh
+Mesh has :
+895 vertices 
+2064 faces
+600 cells
+Finished extracting polyMesh
+Saving mesh generated after step templateGeneration
+Here
+"Stopping after step templateGeneration"
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+End
+

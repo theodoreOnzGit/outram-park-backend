@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **One nuclide's ACE table, ours against an NJOY2016 table, word for word**
 //! (GitHub #872).

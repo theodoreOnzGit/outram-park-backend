@@ -1,5 +1,8 @@
-use std::thread::{self};
-use std::thread::JoinHandle;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::thread::{self};
+use crate::thread::JoinHandle;
 
 use super::StructuralSupport;
 use ndarray::*;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Hand a released source term to `changi` for dispersion and deposition.
 //!
@@ -19,6 +19,9 @@
 //! This module has **no upstream**. It is plumbing between two crates, checked
 //! by consistency tests, not verification.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use uom::si::f64::{Radioactivity, Time};
 use uom::si::radioactivity::becquerel;

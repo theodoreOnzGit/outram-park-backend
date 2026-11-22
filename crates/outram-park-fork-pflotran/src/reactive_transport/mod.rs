@@ -66,13 +66,19 @@
 //!
 //! Enum dispatch throughout, no trait objects, per the workspace design rules.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use crate::geochemistry::{ReactionNetwork, Speciation};
 use crate::grid::{BoundaryLocation, CartesianGrid};
 use crate::transport::FlowField;
 use outram_foam_basic_lib::krylov::{bicgstab, KrylovSettings, Preconditioner};
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+#[cfg(feature = "std")]
 use rayon::prelude::*;
+#[cfg(not(feature = "std"))]
+use crate::par::prelude::*;
 
 /// A reactive (multi-component) boundary condition bound to one of the six
 /// domain-box face locations.

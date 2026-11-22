@@ -28,7 +28,10 @@
 //! assert!(matches!(mt, MtReaction::Unknown(999)));
 //! ```
 
-use std::fmt;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt;
 
 /// Standard ENDF-6 MT reaction/section numbers.
 ///

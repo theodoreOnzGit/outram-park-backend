@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK. See `src/lib.rs` for the full licence
@@ -9,6 +9,9 @@
 //! **Verification, not validation**: closed-form identities and invariants
 //! only. Nothing here is compared against an experiment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 
@@ -174,7 +177,7 @@ fn the_pipe_geometry_is_exact() {
     )
     .expect("the Edwards pipe is well posed");
 
-    let expected_area = std::f64::consts::PI * d * d / 4.0;
+    let expected_area = core::f64::consts::PI * d * d / 4.0;
     println!(
         "A = {:e} m^2, dx = {:e} m, V_cell = {:e} m^3, g_x = {}",
         pipe.area_si(),
@@ -203,7 +206,7 @@ fn the_pipe_geometry_is_exact() {
     let vertical = Pipe1d::circular(
         Length::new::<meter>(l),
         Length::new::<meter>(d),
-        Angle::new::<radian>(std::f64::consts::FRAC_PI_2),
+        Angle::new::<radian>(core::f64::consts::FRAC_PI_2),
         n,
     )
     .expect("a vertical pipe is well posed");

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[inline]
 pub fn l2_norms_sq_3d_f64(vs: &[[f64; 3]], out: &mut [f64]) {
     assert_eq!(vs.len(), out.len());

@@ -32,6 +32,9 @@
 //! recognition on the way back, for tets and hexes only); `Tri6` midside
 //! nodes (a 2-D mesh is refused anyway: `polyMesh` is 3-D).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::io::{MeshFace, PolyMesh};
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, PatchKind as FoamKind};
 use outram_foam_basic_lib::primitives::Vector3;

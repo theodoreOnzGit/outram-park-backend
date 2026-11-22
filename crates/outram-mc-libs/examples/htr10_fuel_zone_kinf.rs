@@ -103,6 +103,16 @@
 //!   this crate cannot reproduce an OpenMC sequence bit-for-bit. (Not
 //!   re-checked 2026-10-05.)
 //!
+//! # Re-measured 2026-11-19 after the S(a,b) emission-grid flip (gh:#550)
+//!
+//! `OUTRAM_FZ_SEEDS=12 -- 2000 20 60`, seeds 1-12, default (node grid) against
+//! `OUTRAM_SAB_LOG_SPACED_GRID=1` (the old build, which reproduces the
+//! 2026-11-17 record's means and sds exactly): heterogeneous 1.57253 (sd 314
+//! pcm) against 1.57302 (sd 279), **-49 +/- 121 pcm** (0.4 sigma); homogenised
+//! 1.44731 against 1.44751, -20 +/- 113; worth -12522 against -12552,
+//! +30 +/- 175. Nothing resolved. Record:
+//! `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! # Reproducibility
 //!
 //! Everything needed to re-run this is printed by the program itself: the RNG
@@ -127,6 +137,7 @@
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
@@ -147,7 +158,7 @@ use fuel_zone::*;
 /// The 2026-09-11 data route: embedded WMP CORE library with its 10-group fast
 /// fallback, free-gas carbon. Kept only as the explicit `--low-tier` ablation
 /// so the old record can be reproduced.
-fn low_tier_nuclides() -> (Vec<Nuclide>, Layout, String, String) {
+fn low_tier_nuclides() -> (Vec<Nuclide>, Layout, String, String, Option<ThermalScattering>) {
     let nuclides = vec![
         Nuclide::from_core("U235").expect("U235 is in the embedded CORE library"),
         Nuclide::from_core("U238").expect("U238 is in the embedded CORE library"),
@@ -169,6 +180,7 @@ fn low_tier_nuclides() -> (Vec<Nuclide>, Layout, String, String) {
         layout,
         "LOW (ABLATION --low-tier: embedded WMP CORE + 10-group fast fallback)".into(),
         "FREE GAS (ABLATION --low-tier: no graphite S(alpha,beta))".into(),
+        None,
     )
 }
 
@@ -183,7 +195,7 @@ fn low_tier_nuclides() -> (Vec<Nuclide>, Layout, String, String) {
 /// (porosity of 1.73 g/cm3 graphite is ~23 %, and 30 % is the nearer of the
 /// two tabulated laws). `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P`
 /// selects another, as an explicit ablation.
-fn endf_nuclides(temp_k: f64) -> (Vec<Nuclide>, Layout, String, String) {
+fn endf_nuclides(temp_k: f64) -> (Vec<Nuclide>, Layout, String, String, Option<ThermalScattering>) {
     let load = |name: &str, file: &str| -> Nuclide {
         let path = reference_endf(file)
             .unwrap_or_else(|| panic!("missing reference tape {file} in reference-data/endf/"));
@@ -225,8 +237,9 @@ fn endf_nuclides(temp_k: f64) -> (Vec<Nuclide>, Layout, String, String) {
     let nuclides: Vec<Nuclide> = ENDF_TAPES
         .iter()
         .map(|&(name, file)| {
-            let n = load(name, file);
-            if name == "C12" || name == "C13" { n.with_thermal_scattering(sab.clone()) } else { n }
+            // Every slot is loaded free; the graphite law is attached per
+            // material in `main` (gh:#462, #1581).
+            load(name, file)
         })
         .collect();
     let layout = endf_layout();
@@ -235,6 +248,7 @@ fn endf_nuclides(temp_k: f64) -> (Vec<Nuclide>, Layout, String, String) {
         layout,
         "HIGH: ENDF/B-VIII.0 direct (RECONR + BROADR, tol 1e-3), URR + DBRC on".into(),
         format!("bound graphite S(alpha,beta) on C-12 and C-13: {tsl_file} (MAT {tsl_mat}) at {sab_t} K"),
+        Some(sab),
     )
 }
 
@@ -295,13 +309,33 @@ fn main() {
     // Benchmark core temperature for B1: 20 degrees Celsius = 293.15 K.
     let temperature_k = 293.15;
 
-    let (nuclides, layout, data_label, thermal_label) = if low_tier {
+    let (free_nuclides, layout, data_label, thermal_label, graphite_law) = if low_tier {
         low_tier_nuclides()
     } else {
         endf_nuclides(temperature_k)
     };
     let (kernel, matrix, homogenised) =
         build_materials(&layout, temperature_k, kernel_packing_fraction);
+    // Per-material S(a,b), as OpenMC does (gh:#462, #1581). Audited
+    // 2026-11-14: the carbon is in the matrix and the homogenised zone only
+    // (the UO2 kernel holds none), and both are graphite, so no free material
+    // references a bound copy.
+    let (kernel, matrix, homogenised, nuclides) = match graphite_law {
+        Some(law) => {
+            let all = [kernel, matrix, homogenised];
+            let mut entries = Vec::new();
+            for &(slot, _) in &layout.carbon {
+                entries.extend(MaterialSab::for_materials_containing(&all, slot, 0, &[]));
+            }
+            let (mut mats, nucs) = assign_material_sab(&all, &free_nuclides, &[law], &entries)
+                .expect("S(a,b) per material");
+            let homogenised = mats.pop().expect("three materials");
+            let matrix = mats.pop().expect("three materials");
+            let kernel = mats.pop().expect("three materials");
+            (kernel, matrix, homogenised, nucs)
+        }
+        None => (kernel, matrix, homogenised, free_nuclides),
+    };
 
     let packed = PackedSpheres::pack(
         KERNEL_RADIUS_CM,
@@ -354,6 +388,49 @@ fn main() {
         settings.n_particles, settings.n_inactive, settings.n_active, transport_seed, settings.compute
     );
     println!();
+
+    // `OUTRAM_FZ_SEEDS=N` (gh:#1583): N master seeds per case inside this one
+    // process, so the slow ENDF load is paid once; `OUTRAM_FZ_SEED0` is the
+    // first seed (default 1). Seed loop outer. Prints `SEED <case> <seed> k std`
+    // per run, then `ENSEMBLE` lines, and returns. Unset leaves the single-seed
+    // program below exactly as it was.
+    if let Some(n_seeds) = std::env::var("OUTRAM_FZ_SEEDS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        let seed0: u64 = std::env::var("OUTRAM_FZ_SEED0")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1);
+        let het_m = vec![kernel.clone(), matrix.clone()];
+        let hom_m = vec![homogenised.clone()];
+        let het_mj = build_majorant(&het_m, &nuclides);
+        let hom_mj = build_majorant(&hom_m, &nuclides);
+        let mut ks: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+        for i in 0..n_seeds {
+            let seed = seed0 + i as u64;
+            let s = KeffSettings { seed, ..settings.clone() };
+            let t0 = Instant::now();
+            let r = run_keff_delta(
+                half,
+                &het_m,
+                &nuclides,
+                &het_mj,
+                |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize }),
+                &s,
+            );
+            println!("SEED het {seed:>4} {:.5} {:.5} {:.1}s", r.k_mean, r.k_std, t0.elapsed().as_secs_f64());
+            ks[0].push(r.k_mean);
+            let t0 = Instant::now();
+            let r = run_keff_delta(half, &hom_m, &nuclides, &hom_mj, |_p: Position| Some(0usize), &s);
+            println!("SEED hom {seed:>4} {:.5} {:.5} {:.1}s", r.k_mean, r.k_std, t0.elapsed().as_secs_f64());
+            ks[1].push(r.k_mean);
+        }
+        for (name, v) in ["het", "hom"].iter().zip(ks.iter()) {
+            let n = v.len() as f64;
+            let mean = v.iter().sum::<f64>() / n;
+            let var = v.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0);
+            println!("ENSEMBLE {name} n={} mean {:.5} sd {:.5} sem {:.5}", v.len(), mean, var.sqrt(), (var / n).sqrt());
+        }
+        return;
+    }
 
     // --- Case 1: doubly heterogeneous, kernels resolved explicitly. ---
     let het_materials = vec![kernel, matrix];

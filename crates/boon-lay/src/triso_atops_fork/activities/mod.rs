@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -11,7 +11,7 @@
 //                    trisoatops/trisoatops.py (the `× λ / 3.7e10` Ci conversion,
 //                     the `inventory / λ × 3.7e10` atom-count conversion)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Activity bookkeeping — coolant / plate-out / clean-up source terms
@@ -80,6 +80,9 @@
 //! individual bookkeeping functions are verified against values produced by the
 //! upstream Python on the same inputs (data taken 2026-07-15, commit `de374c8`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod coolant_activity;
 pub mod live_pools;
 pub mod source_terms;

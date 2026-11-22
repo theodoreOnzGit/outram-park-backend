@@ -5,6 +5,24 @@ workspace root `CLAUDE.md` binds here as everywhere; this file adds what is
 specific to this crate. Added 2026-10-20: the member-crate rule requires one,
 and this crate had none.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1589, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` only turns on `thiserror`'s `std`; everything else is `no_std` + `alloc` already. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`, on the
+  statement or the item.
+- No `HashMap` in the library: `BTreeMap` (`alloc`; fixed iteration order).
+- A `std` build computes what it did before: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
+
 ## What it is
 
 An independent pure-Rust translation of **ONIX**
@@ -20,6 +38,9 @@ CRAM**, using the same algorithm and coefficients as ONIX
   against closed-form Bateman solutions. The README records the measured
   errors (2026-08-04), from 3.8e-15 for a three-member chain to 1.8e-14 for
   atom conservation.
+- **Differential run against ONIX 7328dc6 (2026-11-13, gh:#1404):** see
+  `verification_and_validation/onix_differential/`. `tests/onix_differential.rs` pins it.
+  It found and fixed two port defects (isomer channels, state of excited-parent daughters).
 - **Not yet ported:** OpenMC coupling, ONIX's nuclide-data libraries,
   predictor-corrector schemes, order-48 CRAM, and the input and reporting
   machinery.

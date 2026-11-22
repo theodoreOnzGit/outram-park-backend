@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ACE delayed-neutron blocks: DNU, BDD, DNEDL, DNED** — GitHub #307.
 //!
@@ -46,6 +46,9 @@
 //! (`openmc/data/reaction.py:355-357`: `AngleEnergy.from_ace(ace, ace.jxs[27],
 //! location_start)`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
 use crate::error::NjoyError;

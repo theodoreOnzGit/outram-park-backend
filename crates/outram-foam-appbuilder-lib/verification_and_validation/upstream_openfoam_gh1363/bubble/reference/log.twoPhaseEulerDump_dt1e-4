@@ -1,0 +1,204 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _615aae61d7-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : twoPhaseEulerDump
+Date   : Nov 13 2026
+Time   : 20:44:35
+Host   : vm
+PID    : 12137
+I/O    : uncollated
+Case   : /home/user/upstream-build/gh1363/bubble
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+
+PIMPLE: Operating solver in PISO mode
+
+
+Reading g
+
+Reading hRef
+Creating twoPhaseSystem
+
+Selecting thermodynamics package 
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          eConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleInternalEnergy;
+}
+
+Calculating face flux field phi.air
+Selecting diameterModel for phase air: constant
+Selecting turbulence model type laminar
+Selecting laminar stress model Stokes
+Selecting thermodynamics package 
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          eConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleInternalEnergy;
+}
+
+Calculating face flux field phi.water
+Selecting diameterModel for phase water: constant
+Selecting turbulence model type laminar
+Selecting laminar stress model Stokes
+Selecting default blending method: none
+Selecting aspectRatioModel for (air in water): constant
+Selecting aspectRatioModel for (water in air): constant
+Selecting dragModel for (air in water): SchillerNaumann
+Selecting swarmCorrection for (air in water): none
+Selecting dragModel for (water in air): SchillerNaumann
+Selecting swarmCorrection for (water in air): none
+Selecting heatTransferModel for (air in water): RanzMarshall
+Selecting heatTransferModel for (water in air): RanzMarshall
+Calculating field g.h
+
+Reading field p_rgh
+
+Creating field dpdt
+
+Creating field kinetic energy K
+
+No MRF models present
+
+No finite volume options present
+Courant Number mean: 0 max: 0
+Max Ur Courant Number = 0
+Calculating field DDtU1 and DDtU2
+
+
+Starting time loop
+
+Courant Number mean: 0 max: 0
+Max Ur Courant Number = 0
+Time = 0.0001
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000000021805  Max(alpha.air) = 0.22609356150017584
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0041615145639166042, Final residual = 9.8608682835190091e-13, No Iterations 30
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Courant Number mean: 3.3887578449064752e-07 max: 1.0181628893980136e-06
+Max Ur Courant Number = 3.8975982918105556e-05
+Time = 0.0002
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000005640243  Max(alpha.air) = 0.22609290452522765
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0026752313769779039, Final residual = 3.1749690029481586e-13, No Iterations 31
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Courant Number mean: 6.7310005257449622e-07 max: 2.0335067303556341e-06
+Max Ur Courant Number = 7.6960670237733296e-05
+Time = 0.0003
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10000000728536888  Max(alpha.air) = 0.2260916093276977
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0035510914714350335, Final residual = 2.1952200066255231e-13, No Iterations 31
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Courant Number mean: 1.0127299551453057e-06 max: 3.0747414532375803e-06
+Max Ur Courant Number = 0.00011418076473718293
+Time = 0.0004
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000046990697095  Max(alpha.air) = 0.22608967998934384
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0043881181104956646, Final residual = 1.91395633346871e-13, No Iterations 31
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Courant Number mean: 1.35630550791547e-06 max: 4.1325550548472742e-06
+Max Ur Courant Number = 0.00015067464960085737
+Time = 0.0005
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10000342156599103  Max(alpha.air) = 0.22608711976759049
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0049912942551460174, Final residual = 1.9105749484531909e-13, No Iterations 31
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Courant Number mean: 1.7011526024652137e-06 max: 5.1952444986524365e-06
+Max Ur Courant Number = 0.00018644657573625332
+Time = 0.0006
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403868  Min(alpha.air) = 0.10000677054466041  Max(alpha.air) = 0.22608393268781907
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0054557666831027149, Final residual = 1.5884200754923526e-13, No Iterations 31
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Courant Number mean: 2.0450519175970732e-06 max: 6.254651520681332e-06
+Max Ur Courant Number = 0.00022148018351277496
+Time = 0.0007
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.1000100734280612  Max(alpha.air) = 0.22608012341916656
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0058406419975023738, Final residual = 1.8352341652019985e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Courant Number mean: 2.3866012673324827e-06 max: 7.3061305694865548e-06
+Max Ur Courant Number = 0.00025574480062053072
+Time = 0.0008
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.1000137720893314  Max(alpha.air) = 0.22607569692579474
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0061736859256255189, Final residual = 1.9360116002146206e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Courant Number mean: 2.7249910072367489e-06 max: 8.3473193489670296e-06
+Max Ur Courant Number = 0.00028921255653301516
+Time = 0.0009
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403869  Min(alpha.air) = 0.10001989093284087  Max(alpha.air) = 0.22607065822379582
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0064717044073204074, Final residual = 4.0051788843876198e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Courant Number mean: 3.0597984788997113e-06 max: 9.3770241394105346e-06
+Max Ur Courant Number = 0.00032185420040743283
+Time = 0.001
+
+PIMPLE: iteration 1
+MULES: Solving for alpha.air
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10002169434369258  Max(alpha.air) = 0.22606501227516237
+Constructing momentum equations
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0067475475863328837, Final residual = 5.5904129021948515e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+End
+

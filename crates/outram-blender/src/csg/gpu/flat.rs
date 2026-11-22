@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
-// This file is part of OUTRAM PARK. GPL-3.0-only; see LICENSE.
+// This file is part of OUTRAM PARK. AGPL-3.0-only; see LICENSE.
 //
 // NEW WORK (gh:#587), no upstream counterpart: a flat, GPU-uploadable copy of
 // an assembled [`Geometry`]. The surface tag order and coefficient layout are
@@ -57,6 +57,9 @@
 //!
 //! `outer` and empty tiles are `-1` (as `u32`, [`NONE`]) when absent.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::csg::cell::{CellFill, HalfSpaceSense, RegionToken};
 use crate::csg::geometry::Geometry;
 use crate::csg::lattice::{HexOrientation, Lattice};
@@ -155,8 +158,8 @@ pub enum FlattenError {
     TooLarge,
 }
 
-impl std::fmt::Display for FlattenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for FlattenError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::TorusUnsupported(i) => write!(f, "surface {i} is a torus (no GPU solver)"),
             Self::RegionTooDeep { cell } => write!(f, "cell {cell}'s region is too deep"),
@@ -166,7 +169,7 @@ impl std::fmt::Display for FlattenError {
     }
 }
 
-impl std::error::Error for FlattenError {}
+impl core::error::Error for FlattenError {}
 
 /// A [`Geometry`] flattened for the GPU ray tracer. Built by [`flatten`].
 #[derive(Debug, Clone, PartialEq)]
@@ -389,7 +392,7 @@ fn universe_depth(
                         h.outer,
                     ),
                 };
-                let mut seen = std::collections::BTreeSet::new();
+                let mut seen = alloc::collections::BTreeSet::new();
                 let mut d = 0;
                 for v in map.into_iter().chain(outer) {
                     if seen.insert(v) {
@@ -466,7 +469,7 @@ pub fn flatten_with(g: &Geometry, index: bool) -> Result<FlatGeometry, FlattenEr
     let mut hint_keys: Vec<u32> = Vec::new();
     let mut hint_cands: Vec<Vec<u32>> = Vec::new();
     for u in &g.universes {
-        let mut by_key: std::collections::BTreeMap<u32, Vec<u32>> = Default::default();
+        let mut by_key: alloc::collections::BTreeMap<u32, Vec<u32>> = Default::default();
         for &c in &u.cell_indices {
             for t in &g.cells[c].region {
                 if let RegionToken::HalfSpace { surface_idx, sense } = *t {
@@ -515,7 +518,7 @@ pub fn flatten_with(g: &Geometry, index: bool) -> Result<FlatGeometry, FlattenEr
     let mut order: Vec<usize> = (0..g.universes.len())
         .filter(|&u| index && super::index::wants_index(g, u))
         .collect();
-    order.sort_by_key(|&u| (u != g.root_universe, std::cmp::Reverse(tokens_of(u)), u));
+    order.sort_by_key(|&u| (u != g.root_universe, core::cmp::Reverse(tokens_of(u)), u));
     for u in order {
         if grid_words.len() >= super::index::BUDGET_WORDS {
             break;

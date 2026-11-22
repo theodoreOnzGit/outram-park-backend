@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -7,7 +7,7 @@
 // Upstream source  : trisoatops/utility_functions/calculation_functions.py
 //                    (`R_B_fail` dispatcher, `release_fraction` dispatcher)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Release models — release-to-birth / release-fraction physics
@@ -27,6 +27,9 @@
 //! objects), so a new group is a compile error until every dispatcher handles
 //! it. See User Manual §3.1–3.3.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod steady_state;
 pub mod transient;
 
@@ -437,7 +440,7 @@ pub fn release_fraction_transient_for(
 mod tests {
     use super::*;
     use petir::mathf::RealMath;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::time::second;
 
@@ -535,7 +538,7 @@ mod tests {
     fn paper_other_metals_and_long_lived_volatiles() {
         let paper = TrisoAtopsVariant::ATOPS2026PAPER;
         let a: f64 = ((R * R + G * G) / 2.0).sqrt();
-        let lam = std::f64::consts::LN_2 / 5.53e6;
+        let lam = core::f64::consts::LN_2 / 5.53e6;
         let mu = a * (lam / 1e-19_f64).sqrt();
         let hand = 3.0 / mu * (1.0 / mu.r_tanh() - 1.0 / mu);
         let got = rb(paper, 40, true, lam, 1e-19, 9.46e7);
@@ -547,14 +550,14 @@ mod tests {
         let d_kr = crate::triso_atops_fork::diffusion::diffusion_coefficient_for(paper, 36, t1000, t1000)
             .kernel
             .get::<square_meter_per_second>();
-        let lam85 = std::f64::consts::LN_2 / 3.39e8;
+        let lam85 = core::f64::consts::LN_2 / 3.39e8;
         let tau = d_kr * 9.46e7 / (a * a);
         let got85 = rb(paper, 36, false, lam85, d_kr, 9.46e7);
         assert!((got85 - sphere_release(tau)).abs() < 1e-15);
         let up85 = rb(TrisoAtopsVariant::Upstream, 36, false, lam85, d_kr, 9.46e7);
         println!("Kr-85 <R/B>_fail at 1000 degC: upstream Eq. (6a) {up85:.4e}, paper Eq. (6c) {got85:.4e}");
         // Short-lived volatiles are unchanged.
-        let lam88 = std::f64::consts::LN_2 / 1.02e4;
+        let lam88 = core::f64::consts::LN_2 / 1.02e4;
         assert_eq!(
             rb(paper, 36, true, lam88, d_kr, 9.46e7),
             rb(TrisoAtopsVariant::Upstream, 36, true, lam88, d_kr, 9.46e7)

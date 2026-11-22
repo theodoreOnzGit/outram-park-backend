@@ -8,6 +8,9 @@
 //! end-to-end runs on upstream's tutorial cases are integration tests in
 //! `tests/genfoam_two_phase_1d_boiling.rs` (they need the upstream clone).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::case::TwoPhaseCase;
 use super::fv::{self, Bc, Eqn, Geometry, Scalar};
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
@@ -23,7 +26,7 @@ fn line(n: i64) -> Geometry {
         n,
     )
     .expect("1-D mesh");
-    Geometry::new(std::sync::Arc::new(mesh))
+    Geometry::new(alloc::sync::Arc::new(mesh))
 }
 
 /// `fvc::reconstruct` of the flux of a uniform field returns that field in
@@ -62,6 +65,7 @@ fn neg_laplacian_with_fixed_ends_gives_the_linear_profile() {
     }
 }
 
+#[cfg(feature = "std")]
 /// The case reader rejects a directory that is not a case.
 #[test]
 fn reading_a_missing_case_is_an_error() {
@@ -69,6 +73,7 @@ fn reading_a_missing_case_is_an_error() {
     assert!(r.is_err());
 }
 
+#[cfg(feature = "std")]
 /// The vendored upstream `1D_boiling` case reads, builds, and steps through
 /// the `ThermalHydraulicsSolver` enum; the fluid fractions fill the moving
 /// volume exactly (`twoPhase.C` normalisation).

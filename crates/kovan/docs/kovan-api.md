@@ -7540,12 +7540,23 @@ pub fn resolve_out_dir(explicit: Option<&std::path::Path>) -> io::Result<(std::p
 markdown mirror of its public API.
 
 A Rust port of `scripts/gen_api_docs.py`, which it **replaces** (retired
-2026-08-14). The pipeline is unchanged:
+2026-08-14). The pipeline is:
 
 ```text
-cargo +nightly doc --output-format json  ->  target/doc/<crate>.json
-                       rustdoc-md        ->  crates/<crate>/docs/<crate>-api.md
+cargo +nightly doc --release --lib …  ->  Cargo-reported library JSON path
+                       rustdoc-md    ->  crates/<crate>/docs/<crate>-api.md
 ```
+
+Cargo's artifact messages supply the JSON path, including the library name,
+configured target directory and any build-target subdirectory (gh:#779).
+`KOVAN_RUSTDOC_TOOLCHAIN` selects the nightly toolchain (default: `nightly`).
+CI pins it alongside rustdoc-md to keep the JSON producer and reader paired.
+
+# Credit
+
+The Cargo-artifact JSON resolution, the `KOVAN_RUSTDOC_TOOLCHAIN` pin and
+the end-to-end pipeline tests (gh:#779) were contributed by Curtis
+(KnightNiwrem on GitHub) in PR #1303, 2026-11-05.
 
 # Filename: `<crate>-api.md`, not `api.md`
 

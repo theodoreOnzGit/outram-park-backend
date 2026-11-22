@@ -127,6 +127,22 @@ wasm-buildable.
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
 > safety-critical, or licensing decisions.
 
+## `no_std` + `alloc` (gh:#1604)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-blender --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The CSG description and navigation kernel,
+the plotter (rendering to an in-memory `ImageData`, PNG/PPM bytes), the tally
+meshes, the unstructured mesh and the mesh-editing operators all stay. What
+`std` adds: `rayon` (without it the plotter and overlap loops run serially, as
+on wasm, with the same pixels), file writes (`write_png`, `write_ppm`,
+`write_polymesh`, the STL file functions) and every optional feature (`gpu`,
+`foam-export`, `foam-mesh`, `gnn-graph`, `block-mesh`, `fem-export` each turn
+`std` on). The root workspace entry has `default-features = false`, so a
+member that wants `std` asks for `features = ["std"]`. Without `std` the hash
+maps are `hashbrown`'s; with it (the default) nothing changes.
+
 ## Naming & trademark (decided)
 
 **Decision (2026-07-17): keep the name `outram-blender`, and clearly mark it as

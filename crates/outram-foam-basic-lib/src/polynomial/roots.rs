@@ -20,6 +20,9 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 /// Root classification tag, matching `Foam::roots::type`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RootType {
@@ -78,7 +81,7 @@ impl<const N: usize> Roots<N> {
     }
 }
 
-impl<const N: usize> std::ops::Index<usize> for Roots<N> {
+impl<const N: usize> core::ops::Index<usize> for Roots<N> {
     type Output = f64;
     #[inline]
     fn index(&self, i: usize) -> &f64 {

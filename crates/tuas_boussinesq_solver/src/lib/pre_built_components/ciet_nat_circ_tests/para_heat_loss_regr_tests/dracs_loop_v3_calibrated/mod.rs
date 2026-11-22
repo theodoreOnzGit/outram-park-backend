@@ -8,6 +8,9 @@
 //! (kg/s) for set-C data points (heater powers ~841-2765 W) against experimental
 //! data, expecting ~8.5% over-prediction.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// c1 for
 /// version 3 of coupled DRACS loop
 ///
@@ -52,6 +55,7 @@ pub fn regression_long_test_calibrated_ver3_set_c1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -122,6 +126,7 @@ pub fn regression_long_test_calibrated_ver3_set_c2() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -193,6 +198,7 @@ pub fn regression_long_test_calibrated_ver3_set_c3() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -263,6 +269,7 @@ pub fn regression_long_test_calibrated_ver3_set_c4() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -334,6 +341,7 @@ pub fn regression_long_test_calibrated_ver3_set_c5() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -415,6 +423,7 @@ pub fn regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -489,6 +498,7 @@ pub fn regression_long_test_calibrated_ver3_set_c6_extra_extra_long() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -563,6 +573,7 @@ pub fn regression_long_test_calibrated_ver3_set_c6_extra_long() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -629,6 +640,7 @@ pub fn regression_long_test_calibrated_ver3_set_c6() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -701,6 +713,7 @@ pub fn regression_long_test_calibrated_ver3_set_c6_shorter() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -772,6 +785,7 @@ pub fn regression_long_test_calibrated_ver3_set_c7() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -844,6 +858,7 @@ pub fn regression_long_test_calibrated_ver3_set_c8() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -916,6 +931,7 @@ pub fn regression_long_test_calibrated_ver3_set_c9() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,

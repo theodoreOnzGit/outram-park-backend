@@ -107,6 +107,9 @@
 //!   departures that turn these ideal-gas values into real-fluid properties
 //!   live in [`crate::thermo::cubic_eos`], not here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)] — CODATA 2018 exact value.
 ///

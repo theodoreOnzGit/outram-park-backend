@@ -121,13 +121,14 @@ impl RungBuilder for Builder {
         model::DataBuilder::make(tier.speed(), index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
+        let bound = self.0.finish(&model::materials())?;
         let phys = sim::Physics {
             geometry: model::build_geometry(),
-            materials: model::materials(),
-            nuclides: self.0.finish()?,
+            materials: bound.materials,
+            nuclides: bound.nuclides,
             birth: sim::Birth::Cube { half: model::HALF_CM },
         };
-        Ok(Loaded { phys, chain: sim::Chain::new(CHAIN_SEED) })
+        Ok(Loaded { phys, chain: sim::Chain::new(CHAIN_SEED), roles: bound.roles })
     }
 }
 
@@ -135,6 +136,9 @@ impl RungBuilder for Builder {
 pub struct Loaded {
     pub phys: sim::Physics,
     pub chain: sim::Chain,
+    /// Where each role sits in `phys.nuclides`: the carbon is on bound copies
+    /// appended after the table (the graphite law is per material).
+    pub roles: outram_mc_libs::vv::ugraphite::RoleIndex,
 }
 
 impl LoadedRung for Loaded {
@@ -161,7 +165,7 @@ impl LoadedRung for Loaded {
             &[
                 ("U-238 capture", model::N_U238, Channel::Capture),
                 ("U-235 fission", model::N_U235, Channel::Fission),
-                ("C-12 scattering (bound in graphite below the S(α,β) cutoff)", model::N_C12, Channel::Scatter),
+                ("C-12 scattering (bound in graphite below the S(α,β) cutoff)", self.roles.slot(outram_mc_libs::vv::ugraphite::Role::C12), Channel::Scatter),
             ],
         )
     }
@@ -191,7 +195,7 @@ pub(crate) mod tests {
     }
 
     /// Process the six tapes natively at the Watch tier, as the worker does.
-    pub(crate) fn load(tier: Tier) -> Vec<outram_mc_libs::material::nuclide::Nuclide> {
+    pub(crate) fn load(tier: Tier, materials: &[outram_mc_libs::material::material::Material]) -> outram_mc_libs::vv::ugraphite::GraphiteBinding {
         let mut b = model::DataBuilder::new(tier.speed());
         for (label, tape) in model::JOBS {
             let t = std::time::Instant::now();
@@ -200,7 +204,7 @@ pub(crate) mod tests {
             b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
             eprintln!("  {label:<16} {:6.1} s", t.elapsed().as_secs_f64());
         }
-        b.finish().expect("finish")
+        b.finish(materials).expect("finish")
     }
 
     /// Process the tapes (tolerance 0.01) and run real histories through the
@@ -212,13 +216,16 @@ pub(crate) mod tests {
     #[test]
     #[ignore = "processes 6 ENDF tapes (~1 min); run with --ignored"]
     fn histories_in_the_mixture_end_properly_and_thermalise() {
+        let bound = load(Tier::Exact, &model::materials());
         let phys = sim::Physics {
             geometry: model::build_geometry(),
-            materials: model::materials(),
-            nuclides: load(Tier::Exact),
+            materials: bound.materials,
+            nuclides: bound.nuclides,
             birth: sim::Birth::Cube { half: model::HALF_CM },
         };
-        assert!(phys.nuclides[3].sample_thermal(0.01, &mut 1).is_some(), "C-12 carries the graphite law");
+        let c12 = bound.roles.slot(outram_mc_libs::vv::ugraphite::Role::C12);
+        assert!(phys.nuclides[c12].sample_thermal(0.01, &mut 1).is_some(), "C-12 carries the graphite law");
+        assert!(phys.nuclides[3].sample_thermal(0.01, &mut 1).is_none(), "the free C-12 slot stays free");
         let mut chain = sim::Chain::new(3);
         let (mut thermal, mut fissions, n) = (0, 0, 60);
         let t = std::time::Instant::now();

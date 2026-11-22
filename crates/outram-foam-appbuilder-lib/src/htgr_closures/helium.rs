@@ -40,6 +40,9 @@
 //! is a dev-dependency here, used to verify these fits). A caller that has
 //! CoolProp should prefer it; the tests record how far apart the two are.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{

@@ -36,6 +36,10 @@ structure.
 
 ## Existing content in this folder
 
+- **`derivations/ray/`**: Ray W.'s hand derivation of fission-product
+  diffusion in TRISO particles (single sphere, Robin surface, FTCS). Moved
+  from the repository root on 2026-11-22; see `derivations/README.md`.
+
 This folder already has `porting-history.md` (hand-maintained porting notes) — untouched by this convention; it stays as free-form history alongside any future `code_structure.md`/`latex/` content.
 
 ## What's *not* here (yet)

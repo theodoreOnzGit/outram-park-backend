@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # HTTR start-up core: an explicit-TRISO, delta-tracked Monte Carlo model
@@ -96,6 +95,9 @@
 //! empty holes of three instrumentation columns, not the fuel, and matters
 //! for the axial fission-rate tally, not for `k_eff`. Not priced.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod geometry;
 pub mod materials;
 pub mod spec;
@@ -111,14 +113,19 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::delta_tracking::majorant::Majorant;
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::geometry::position::Position;
+#[cfg(feature = "std")]
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::tally::mesh::RegularMesh;
 
-use crate::htr10_rmc::data::{load_slots_with_progress, Htr10DataError, LoadProgress, TapeSource, Uo2Laws};
+use crate::htr10_rmc::data::{Htr10DataError, LoadProgress, TapeSource, Uo2Laws};
+#[cfg(feature = "std")]
+use crate::htr10_rmc::data::{load_slots_with_progress};
 use crate::htr10_rmc::materials::GraphiteLaw;
 
 pub use geometry::{assemble_httr, AssembledHttr, CompactTracking};
-pub use materials::{httr_material_set, httr_nuclide_slots, HttrMaterialConfig, HttrThermal};
+pub use materials::{httr_material_set, HttrMaterialConfig, HttrThermal};
+#[cfg(feature = "std")]
+pub use materials::{httr_nuclide_slots};
 pub use spec::RodPositions;
 
 /// The benchmark temperature, 300 K (R1 §3.1.4).
@@ -148,6 +155,7 @@ impl Default for HttrDataConfig {
     }
 }
 
+#[cfg(feature = "std")]
 /// Read and process every HTTR nuclide (48 slots, [`materials::nuc`]) and
 /// thermal law, through the same loader as HTR-10.
 ///

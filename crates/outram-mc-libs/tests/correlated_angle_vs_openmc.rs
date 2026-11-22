@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The correlated angle laws (ACE law 61, law 44) and the AND histogram forms
 //! are sampled as OpenMC samples them.** This is part of the GitHub #365 audit.
@@ -52,6 +52,8 @@
 //! `verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`,
 //! with the separation from the old scheme. U-235 MT=91 at 5 MeV:
 //! OpenMC `<mu_cm>` 0.02017, old scheme 0.01561.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;

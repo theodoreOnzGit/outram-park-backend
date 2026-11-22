@@ -53,7 +53,8 @@ pub struct Branch {
 }
 
 /// The branches of `n` (read from `decay_information` directly: the
-/// accessor `get_decay_branch_info` is a `todo!()`, gh:#538).
+/// accessor `get_decay_branch_info` ~~is a `todo!()`~~ has returned them
+/// since 2026-11-10, gh:#538).
 pub fn branches(lib: &DecayLibrary, n: Nuclide) -> Vec<Branch> {
     lib.try_match_nuclides_to_decay_data(n)
         .map(|d| {

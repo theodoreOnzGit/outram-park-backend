@@ -44,6 +44,9 @@
 //! crate. The gate is workspace-wide, `crates/petir/tests/no_platform_libm.rs`,
 //! and covers this crate's `src/` (gh:#985).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use petir::mathf::RealMath;
 
 #[cfg(test)]

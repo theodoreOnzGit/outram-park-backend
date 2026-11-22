@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Sampling a delayed-neutron precursor group** — gh:#262 scope items 2–3.
 //!
@@ -30,6 +30,8 @@
 //! # Results (2026-09-24, ENDF/B-VIII.0 U-235 and U-238)
 //!
 //! Printed by the tests.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::material::nuclide::Nuclide;
 

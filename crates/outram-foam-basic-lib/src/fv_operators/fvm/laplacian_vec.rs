@@ -19,12 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
 use crate::fv_operators::fvc::interpolate;
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;
+use crate::fv_operators::fvm::DeltaCoeff;
 use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Implicit vector Laplacian: `−∇·(γ ∇U)`.
@@ -75,8 +79,7 @@ pub fn laplacian_vec(
             let owner = mesh.owner[gf];
             let sf = mesh.face_area_vectors[gf];
             let area = sf.mag();
-            let cf = mesh.face_centres[gf];
-            let delta = (cf - mesh.cell_centres[owner]).mag().max(1e-30);
+            let delta = DeltaCoeff::Orthogonal.boundary_delta(&mesh, gf).max(1e-30); // gh:#1488
             let coeff = gamma_f.boundary[pi].values[fi] * area / delta;
 
             match &u.boundary[pi].bc {

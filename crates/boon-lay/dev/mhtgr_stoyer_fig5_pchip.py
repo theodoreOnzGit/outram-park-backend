@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """PROCESSING of the maintainer's digitised Stoyer Fig. 5 (gh:#413 check (b)):
 dense, shape-preserving resampling for upstream TRISO-ATOPS's grid-sensitive
 `coolant_release` (cumulative-trapezoid integral of dn/dt over the supplied

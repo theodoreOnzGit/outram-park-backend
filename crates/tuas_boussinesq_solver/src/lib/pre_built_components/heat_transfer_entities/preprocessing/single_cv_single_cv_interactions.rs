@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::single_control_vol::SingleCVNode;
 use crate::tuas_lib_error::TuasLibError;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::{

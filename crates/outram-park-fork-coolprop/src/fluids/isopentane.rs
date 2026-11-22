@@ -4,6 +4,9 @@
 //! CoolProp `Isopentane` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
 use crate::transport::{
@@ -109,6 +112,10 @@ pub static ISOPENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static ISOPENTANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: Some(ViscosityModel::Chung {
         dipole_moment_d: 0.1,
+        t_critical: 460.35,
+        rhomolar_critical: 3271.0,
+        acentric: 0.2274,
+        molar_mass: 0.07214878,
     }),
     conductivity: Some(ConductivityModel::Correlation {
         dilute: ConductivityDilute::RatioPolynomials {
@@ -150,6 +157,7 @@ pub static ISOPENTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.27e-10,
             qd: 1506024096.3855422,
             t_ref: -1.0,
+            p_reducing: 3378000.0,
         }),
     }),
 };

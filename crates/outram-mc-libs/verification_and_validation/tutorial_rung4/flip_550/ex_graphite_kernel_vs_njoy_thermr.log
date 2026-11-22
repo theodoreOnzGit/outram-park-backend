@@ -1,0 +1,19 @@
+=== V&V gate: graphite S(alpha,beta) kernel vs committed NJOY2016 oracle ===
+     1.0000e-2  <E'>/E ours   4.92277  NJOY   4.90799   +0.30 %  (sampling 1 sigma 0.35 %, 83 % coherent elastic)
+     2.5300e-2  <E'>/E ours   1.90768  NJOY   1.90393   +0.20 %  (sampling 1 sigma 0.27 %, 78 % coherent elastic)
+     5.0000e-2  <E'>/E ours   1.26553  NJOY   1.26414   +0.11 %  (sampling 1 sigma 0.15 %, 65 % coherent elastic)
+     1.1157e-1  <E'>/E ours   1.01173  NJOY   1.01158   +0.01 %  (sampling 1 sigma 0.07 %, 43 % coherent elastic)
+     2.0000e-1  <E'>/E ours   0.93715  NJOY   0.93648   +0.07 %  (sampling 1 sigma 0.05 %, 27 % coherent elastic)
+     4.1704e-1  <E'>/E ours   0.89031  NJOY   0.89041   -0.01 %  (sampling 1 sigma 0.04 %, 13 % coherent elastic)
+     6.2500e-1  <E'>/E ours   0.87908  NJOY   0.87857   +0.06 %  (sampling 1 sigma 0.03 %, 9 % coherent elastic)
+      1.0500e0  <E'>/E ours   0.86971  NJOY   0.86953   +0.02 %  (sampling 1 sigma 0.03 %, 5 % coherent elastic)
+      1.8550e0  <E'>/E ours   0.86384  NJOY   0.86398   -0.02 %  (sampling 1 sigma 0.02 %, 3 % coherent elastic)
+      3.7500e0  <E'>/E ours   0.86031  NJOY   0.86040   -0.01 %  (sampling 1 sigma 0.02 %, 1 % coherent elastic)
+  worst sampling 1 sigma across the table: 0.35 %
+  [PASS] graphite MF=6/MT=229 kernel <E'>/E vs NJOY THERMR: 10/10 points compared, worst +0.301 % at 1.0000e-2 (envelope ±1.000 %)
+  [PASS] graphite kernel CONVERGES on NJOY above 0.2 eV: 5/5 points compared, worst +0.058 % at 6.2500e-1 (envelope ±0.200 %)
+  [PASS] graphite converges onto NJOY above 0.2 eV and stays there — the property H-in-H2O lacks (#188)
+
+The live-tape comparison needs GRAPHITE_THERMR pointing at an NJOY THERMR
+tape (deck in the module docs). The golden gate above already ran, so this
+program is still a V&V case without it — it just cannot re-measure the oracle.

@@ -98,6 +98,9 @@
 //!   therefore always false and the update is the unconditional 50 % average
 //!   `T = (T_new + T_old)/2`. Preserved.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use ndarray::Array2;
 

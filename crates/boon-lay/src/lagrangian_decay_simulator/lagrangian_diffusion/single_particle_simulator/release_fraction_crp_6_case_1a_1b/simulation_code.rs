@@ -10,6 +10,9 @@
 //! [`calculate_analytical_fraction_released`]:
 //! crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
 use uom::si::f64::*;
 use uom::ConstZero;

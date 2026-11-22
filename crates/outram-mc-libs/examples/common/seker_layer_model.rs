@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tutorial 7's model: one Şeker layer of the HTR-10 pebble bed, an
 //! infinite stack of it, through the beginner API** (`outram_mc_libs::model`,

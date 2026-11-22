@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, MeshError, PatchKind};
 use crate::primitives::Vector3;
 use uom::si::area::square_meter;

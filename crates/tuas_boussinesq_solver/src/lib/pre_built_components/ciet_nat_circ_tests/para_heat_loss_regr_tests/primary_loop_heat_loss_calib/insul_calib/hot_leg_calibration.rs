@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 ///
 /// dataset number,pri loop mass flowrate (kg/s),Heater outlet (DegC),DHX shell top (DegC),DHX shell bottom (DegC),Heater inlet (DegC),
 /// C-1,0.02003,75.22747,71.47752,53.60943,50.45784,
@@ -12,7 +15,7 @@
 #[test]
 pub fn hot_leg_insulation_thickness_calibration_v1() {
     // checks hot leg to ambient calibration
-    use std::thread;
+    use crate::thread;
 
     // in this test, I attempted to
     // calibrate the heat loss using an increased ambient_heat_transfer_coeff
@@ -729,6 +732,7 @@ pub fn pri_loop_hot_leg_insulation_thickness_calibration_regression_test_v1(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_inlet_temperature_set_point.get::<degree_celsius>(),
         dhx_inlet_actual_temperature.get::<degree_celsius>(),
@@ -1126,6 +1130,7 @@ pub fn pri_loop_hot_leg_insulation_thickness_calibration_validation_test_v1(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_inlet_temperature_set_point.get::<degree_celsius>(),
         dhx_inlet_actual_temperature.get::<degree_celsius>(),

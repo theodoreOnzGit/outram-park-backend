@@ -195,8 +195,10 @@ lengths (0.4, 0.6, 1), scales (2, 0.5, 1)), `planeScaling` (origin
 points moved). A box scaled ×2 in x has volume 2.000000000000001.
 Overlapping and non-parallel combinations are refused. **All held.**
 `surface_generate_bounding_box_appends_an_outward_box`: the 12 appended
-triangles enclose +27 (outward, held). No generator calls the module yet
-(`anisotropicSources` and `projectSurfaceAfterBackScaling` are not wired).
+triangles enclose +27 (outward, held). ~~No generator calls the module yet
+(`anisotropicSources` and `projectSurfaceAfterBackScaling` are not wired).~~
+**UPDATED 2026-11-05 (gh:#1279 remainder):** the four generators call it;
+record in `../anisotropic_gh1279/`.
 
 ## gh:#1286 (the acceptance gate)
 

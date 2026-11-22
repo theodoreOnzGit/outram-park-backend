@@ -34,7 +34,12 @@
 //! That flag is carried into the raw table rather than re-derived, so a
 //! built table never falls back to the reader's heuristic.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::io::{self, Write};
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::fortran_fmt::fixed;
@@ -96,7 +101,7 @@ impl AceTable {
                 // 2026-10-14 (gh:#865): a thermal table's IZ is ACER card 8a's
                 // moderator ZA list (`acer.f90:396-399`); AW stays 0.
                 iz: self.iz,
-                aw: [0.0; 16],
+                aw: self.aw,
             },
             nxs: self.nxs,
             jxs: self.jxs,
@@ -124,6 +129,7 @@ impl AceTable {
         Ok(self.to_raw(AceFileType::Type2Binary)?.to_type2_bytes())
     }
 
+    #[cfg(feature = "std")]
     /// Write this table to `path` as a Type-1 ASCII ACE file.
     ///
     /// # Errors
@@ -142,6 +148,7 @@ impl AceTable {
     ///
     /// # Errors
     /// As [`write_type1`][Self::write_type1].
+    #[cfg(feature = "std")]
     pub fn write_to<W: Write>(&self, w: &mut W) -> io::Result<()> {
         let raw = self
             .to_raw(AceFileType::Type1Ascii)
@@ -149,6 +156,7 @@ impl AceTable {
         w.write_all(raw.to_type1_string().as_bytes())
     }
 
+    #[cfg(feature = "std")]
     /// Write this table as a **Type 2** (Fortran unformatted sequential) ACE
     /// file — the container `acer`'s `itype = 2` produces.
     ///

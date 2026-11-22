@@ -58,6 +58,9 @@
 //! [`Fluid::normalized`]: super::fluid::Fluid::normalized
 //! [`Fluid::nu`]: super::fluid::Fluid::nu
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};
 
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
@@ -158,7 +161,7 @@ mod tests {
     use crate::genfoam::thermal_hydraulics::units::reynolds_number;
     use outram_foam_basic_lib::mesh::fv_mesh::{FvMesh, FvMeshBuilder};
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Build a single-cell, no-face, no-patch mesh for pure per-cell arithmetic
     /// tests (all these helpers touch only the internal cell field).

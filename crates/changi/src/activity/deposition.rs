@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Dry deposition of airborne activity onto the ground.
 //!
@@ -48,6 +48,9 @@
 //! NUREG/CR-4691 (the MACCS2 model description), IAEA Safety Reports Series
 //! No. 19, and Sehmel's 1980 deposition review. Tracked as a GitHub issue.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Velocity;
 use uom::si::velocity::meter_per_second;
 

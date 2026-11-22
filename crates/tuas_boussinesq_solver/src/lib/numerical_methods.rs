@@ -15,7 +15,10 @@
 //! | `peroxide` `integrate(f, (a, b), Integral::GaussLegendre(20))` | [`gauss_legendre_20`] | the rule and its arithmetic (PETIR's tables were ported from peroxide 0.41.2; order 20 is unchanged) | none measured |
 //! | `peroxide` `CubicSpline::from_nodes` / `.eval` / `.integrate` | [`NaturalCubicSpline`] | the interpolant (natural cubic spline through the same knots) | out of the table it is an error, where peroxide extrapolated; the second-derivative solve is GSL's tridiagonal one, not peroxide's dense `inv()`, so values move at round-off |
 
-use std::cell::Cell;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::cell::Cell;
 
 use petir::interp::{Interp, InterpMethod};
 use petir::roots::{test_interval, BracketingMethod, BracketingSolver};
@@ -282,6 +285,10 @@ pub(crate) fn false_position_root<F: Fn(f64) -> f64>(
 /// absolute `SimpleConvergency::eps` was below one representable step of
 /// the answer and so could never be met; see
 /// `pre_built_components::gfhr_pipe_tests::multi_branch::multi_branch_solvers`.
+///
+/// Its only callers are in `gfhr_pipe_tests`, which is `#[cfg(test)]`, so a
+/// library build alone sees it as unused.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
     method: BracketingMethod,
     f: F,

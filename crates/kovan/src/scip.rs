@@ -587,6 +587,197 @@ fn for_each_field(
     Ok(())
 }
 
+fn put_varint(mut v: u64, out: &mut Vec<u8>) {
+    loop {
+        let b = (v & 0x7f) as u8;
+        v >>= 7;
+        if v == 0 {
+            out.push(b);
+            return;
+        }
+        out.push(b | 0x80);
+    }
+}
+
+fn put_bytes(num: u64, b: &[u8], out: &mut Vec<u8>) {
+    put_varint(num << 3 | 2, out);
+    put_varint(b.len() as u64, out);
+    out.extend_from_slice(b);
+}
+
+/// What [`merge`] did.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MergeReport {
+    /// The rust-analyzer version every part was written by.
+    pub tool_version: String,
+    /// Documents taken from each part, in order.
+    pub documents: Vec<usize>,
+    /// Distinct external symbols kept.
+    pub external_symbols: usize,
+    /// Documents written by more than one part, combined into one: a file
+    /// two crates load through `#[path]`, indexed in each crate's context.
+    pub shared_documents: Vec<String>,
+}
+
+/// One raw field of a document: `(field number, bytes, varint value)`.
+type RawField = (u64, Vec<u8>, Option<u64>);
+
+/// One document being merged: its path, its other fields (occurrences,
+/// symbols, language, encoding) in first-seen order, the set already taken,
+/// and the parts that wrote it. Owned: no lifetime parameters on structs
+/// (workspace rule).
+struct MergedDoc {
+    path: String,
+    fields: Vec<RawField>,
+    seen: std::collections::HashSet<RawField>,
+    parts: std::collections::BTreeSet<usize>,
+}
+
+/// Merge SCIP indexes written for **disjoint** sets of crates (GitHub
+/// #1670) into one: the union of their documents, external symbols
+/// de-duplicated, and one `Metadata` with `project_root` set to
+/// `project_root` (each partition was written from its own view folder).
+/// This is enough for [`ScipIndex`], which resolves a reference by its
+/// symbol string among every document's definitions: a partition's
+/// references into another partition's crates carry the same symbol string
+/// as that partition's definitions (checked on `changi` → `petir`,
+/// 2026-11-19, 51 of 51).
+///
+/// Refused, so a mixed index is never published: parts written by
+/// different rust-analyzer versions (symbol strings may differ), and a part
+/// with no metadata. ~~A document present in two parts is refused (the
+/// partitions overlap).~~ **CHANGED 2026-11-19:** it is combined, the union
+/// of its occurrences and symbols, and listed in
+/// [`MergeReport::shared_documents`]: a file two packages load through
+/// `#[path]` is indexed in each one's context, as the monolithic index
+/// holds both in one document. Partitions that overlap by whole members are
+/// caught by the plan's coverage instead.
+pub fn merge(parts: &[Vec<u8>], project_root: &str) -> Result<(Vec<u8>, MergeReport), String> {
+    let mut report = MergeReport::default();
+    let mut first_meta: Option<Vec<(u64, Wire, usize)>> = None;
+    let mut meta_src: &[u8] = &[];
+    let mut docs: Vec<MergedDoc> = Vec::new();
+    let mut by_path: HashMap<String, usize> = HashMap::new();
+    let mut externals: Vec<&[u8]> = Vec::new();
+    let mut seen_ext: std::collections::HashSet<&[u8]> = std::collections::HashSet::new();
+    for (k, b) in parts.iter().enumerate() {
+        let mut version: Option<String> = None;
+        let mut n_docs = 0;
+        for_each_field(b, |num, w| {
+            match (num, w) {
+                (1, Wire::Len(s, e)) => {
+                    let meta = &b[s..e];
+                    let mut fields = Vec::new();
+                    let mut v = String::new();
+                    for_each_field(meta, |n, w| {
+                        if let (2, Wire::Len(ts, te)) = (n, &w) {
+                            for_each_field(&meta[*ts..*te], |m, w| {
+                                if let (2, Wire::Len(vs, ve)) = (m, w) {
+                                    v = String::from_utf8_lossy(&meta[*ts..*te][vs..ve]).into_owned();
+                                }
+                                Ok(())
+                            })?;
+                        }
+                        fields.push((n, w, 0));
+                        Ok(())
+                    })?;
+                    version = Some(v);
+                    if first_meta.is_none() {
+                        first_meta = Some(fields);
+                        meta_src = meta;
+                    }
+                }
+                (2, Wire::Len(s, e)) => {
+                    let doc = &b[s..e];
+                    let mut path = String::new();
+                    let mut fields = Vec::new();
+                    for_each_field(doc, |n, w| {
+                        match w {
+                            Wire::Len(ps, pe) if n == 1 => {
+                                path = String::from_utf8_lossy(&doc[ps..pe]).replace('\\', "/");
+                            }
+                            Wire::Len(ps, pe) => fields.push((n, doc[ps..pe].to_vec(), None)),
+                            Wire::Varint(v) => fields.push((n, Vec::new(), Some(v))),
+                            Wire::Fixed => {}
+                        }
+                        Ok(())
+                    })?;
+                    let i = *by_path.entry(path.clone()).or_insert_with(|| {
+                        docs.push(MergedDoc {
+                            path: path.clone(),
+                            fields: Vec::new(),
+                            seen: Default::default(),
+                            parts: Default::default(),
+                        });
+                        docs.len() - 1
+                    });
+                    n_docs += 1;
+                    let d = &mut docs[i];
+                    d.parts.insert(k);
+                    for f in fields {
+                        if d.seen.insert(f.clone()) {
+                            d.fields.push(f);
+                        }
+                    }
+                }
+                (3, Wire::Len(s, e)) => {
+                    if seen_ext.insert(&b[s..e]) {
+                        externals.push(&b[s..e]);
+                    }
+                }
+                _ => {}
+            }
+            Ok(())
+        })
+        .map_err(|e| format!("part {k}: {e}"))?;
+        let version = version.ok_or_else(|| format!("part {k} has no metadata"))?;
+        if k == 0 {
+            report.tool_version = version;
+        } else if version != report.tool_version {
+            return Err(format!(
+                "part {k} was written by rust-analyzer {version}, part 0 by {}: symbol strings may differ",
+                report.tool_version
+            ));
+        }
+        report.documents.push(n_docs);
+    }
+    let mut meta = Vec::new();
+    for (n, w, _) in first_meta.unwrap_or_default() {
+        match w {
+            Wire::Len(s, e) if n != 3 => put_bytes(n, &meta_src[s..e], &mut meta),
+            Wire::Varint(v) => {
+                put_varint(n << 3, &mut meta);
+                put_varint(v, &mut meta);
+            }
+            _ => {}
+        }
+    }
+    put_bytes(3, project_root.as_bytes(), &mut meta);
+    let mut out = Vec::new();
+    put_bytes(1, &meta, &mut out);
+    for d in &docs {
+        let mut enc = Vec::new();
+        put_bytes(1, d.path.as_bytes(), &mut enc);
+        for (n, bytes, v) in &d.fields {
+            match v {
+                Some(v) => {
+                    put_varint(n << 3, &mut enc);
+                    put_varint(*v, &mut enc);
+                }
+                None => put_bytes(*n, bytes, &mut enc),
+            }
+        }
+        put_bytes(2, &enc, &mut out);
+    }
+    report.shared_documents = docs.iter().filter(|d| d.parts.len() > 1).map(|d| d.path.clone()).collect();
+    report.shared_documents.sort();
+    for x in &externals {
+        put_bytes(3, x, &mut out);
+    }
+    report.external_symbols = externals.len();
+    Ok((out, report))
+}
+
 /// Protobuf encoding helpers for tests (here and in the call-graph tests):
 /// a hand-built index in the same wire format rust-analyzer writes.
 #[cfg(test)]
@@ -675,6 +866,45 @@ mod tests {
         assert_eq!(ix.paths_mentioning("crates/petir", 3), vec!["C:/Users/x/Crates/Petir/src/lib.rs"]);
         assert!(ix.document("crates/petir/src/lib.rs").is_none(), "the lookup itself stays exact");
         assert!(ix.paths_mentioning("crates/redhill", 3).is_empty());
+    }
+
+    /// GitHub #1670: two partitions' indexes merge into one whose reader
+    /// resolves a reference in one partition to the definition the other
+    /// wrote (by symbol string); the project root is the one given; mixed
+    /// rust-analyzer versions and an overlapping document are refused.
+    #[test]
+    fn partitions_merge_and_resolve_across_each_other() {
+        let f = "rust-analyzer cargo core 0.1.0 m/f().";
+        let def = [(&[1u32, 7, 8][..], f, 1u64)];
+        let call = [(&[4u32, 2, 3][..], f, 0u64)];
+        let core = encode::index("1.99.1", &[("crates/core/src/m.rs", &def)]);
+        let app = encode::index("1.99.1", &[("crates/app/src/main.rs", &call)]);
+        let (merged, report) = merge(&[core.clone(), app.clone()], "file:///ws").unwrap();
+        assert_eq!(report.documents, [1, 1]);
+        assert_eq!(report.tool_version, "1.99.1");
+        let ix = ScipIndex::decode(&merged).unwrap();
+        assert_eq!(ix.project_root, "file:///ws");
+        assert_eq!(ix.tool_version, "1.99.1");
+        let r = &ix.document("crates/app/src/main.rs").unwrap().occurrences[0];
+        let d = ix.nearest_definition(r.symbol, "crates/app/src/main.rs", 4, None, &[], None).unwrap();
+        assert_eq!(ix.documents[d.doc as usize].path, "crates/core/src/m.rs");
+
+        // A file both parts wrote (a `#[path]` file shared by two crates):
+        // one document, the union of its occurrences, listed as shared.
+        let shared_def = [(&[2u32, 7, 8][..], "rust-analyzer cargo app 0.1.0 shared/g().", 1u64)];
+        let both = [(&[1u32, 7, 8][..], f, 1u64), (&[2, 7, 8], "rust-analyzer cargo app 0.1.0 shared/g().", 1)];
+        let other = encode::index("1.99.1", &[("crates/core/src/m.rs", &shared_def)]);
+        let (m, r) = merge(&[core.clone(), other], "file:///ws").unwrap();
+        assert_eq!(r.shared_documents, ["crates/core/src/m.rs"]);
+        let d = ScipIndex::decode(&m).unwrap();
+        assert_eq!(d.documents.len(), 1);
+        assert_eq!(d.documents[0].occurrences.len(), both.len());
+        let (_, r) = merge(&[core.clone(), core.clone()], "file:///ws").unwrap();
+        assert_eq!(r.shared_documents, ["crates/core/src/m.rs"], "identical occurrences are taken once");
+        let old = encode::index("1.98.0", &[("crates/app/src/main.rs", &call)]);
+        let e = merge(&[core, old], "file:///ws").unwrap_err();
+        assert!(e.contains("1.98.0"), "{e}");
+        assert!(merge(&[vec![]], "file:///ws").unwrap_err().contains("no metadata"));
     }
 
     #[test]

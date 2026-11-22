@@ -9,6 +9,9 @@
 //! training / held-out split fixed at construction; [`MultiFidelityDataset`]
 //! orders several of them low → high.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::marker::PhantomData;
 
 use super::quantities::{Channel, Quantities};

@@ -1,0 +1,32 @@
+# compute wall/gran/local dump (gh:#1418): per-contact data of the settled
+# D/d = 6 bed (354 pebbles) against a MESH floor (plate_square.stl, two
+# triangles, z = 0, shared diagonal edge x = y under the bed) at steps 1..100.
+# The cylinder stays a primitive wall (the compute reports mesh contacts only).
+# Needs pgl_pebble.data = csv2data.sh pebble_bed_settled.csv pgl_pebble.data 0.01 2500 -0.005 0.35
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+neighbor	0.003 bin
+neigh_modify	delay 0
+read_data	pgl_pebble.data
+fix 		m1 all property/global youngsModulus peratomtype 5.0e6
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	5e-6
+fix		plate all mesh/surface file plate_square.stl type 1
+fix		cyl all wall/gran model hertz tangential history primitive type 1 zcylinder 0.030 0. 0.
+fix		pwall all wall/gran model hertz tangential history mesh n_meshes 1 meshes plate
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+compute		wgl all wall/gran/local pos vel id force torque history contactArea delta
+dump		d1 all local 1 dump.wgl.* c_wgl[1] c_wgl[2] c_wgl[3] c_wgl[4] c_wgl[5] c_wgl[6] c_wgl[7] c_wgl[8] c_wgl[9] c_wgl[10] c_wgl[11] c_wgl[12] c_wgl[13] c_wgl[14] c_wgl[15] c_wgl[16] c_wgl[17] c_wgl[18] c_wgl[19] c_wgl[20] c_wgl[21] c_wgl[22] c_wgl[23] c_wgl[24] c_wgl[25] c_wgl[26]
+dump_modify	d1 format "%.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g "
+thermo		50
+thermo_modify	lost ignore norm no
+run		100

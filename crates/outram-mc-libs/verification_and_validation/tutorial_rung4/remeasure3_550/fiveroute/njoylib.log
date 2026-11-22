@@ -1,0 +1,42 @@
+  NJOY2016 0 K  U238  250889792 bytes
+  NJOY2016 0 K  U236  10538188 bytes
+  NJOY2016 293 K  F19  3548536 bytes
+  NJOY2016 0 K  F19  3581280 bytes
+NJOY2016 library complete under /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/remeasure3_rest/fr/njoy
+/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/remeasure3_rest/fr/njoy/0K:
+total 567668
+drwxr-xr-x 2 root root      4096 Nov 19 11:58 .
+drwxr-xr-x 6 root root      4096 Nov 19 11:55 ..
+lrwxrwxrwx 1 root root       134 Nov 19 11:55 Al27.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/Al27.ace
+lrwxrwxrwx 1 root root       133 Nov 19 11:55 B10.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/B10.ace
+-rw-r--r-- 1 root root   3581280 Nov 19 11:58 F19.ace
+lrwxrwxrwx 1 root root       132 Nov 19 11:55 H1.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/H1.ace
+lrwxrwxrwx 1 root root       134 Nov 19 11:55 Mn55.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/Mn55.ace
+lrwxrwxrwx 1 root root       133 Nov 19 11:55 O16.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/O16.ace
+lrwxrwxrwx 1 root root       134 Nov 19 11:55 Si28.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/Si28.ace
+lrwxrwxrwx 1 root root       134 Nov 19 11:55 Si29.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/Si29.ace
+lrwxrwxrwx 1 root root       134 Nov 19 11:55 Si30.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/Si30.ace
+lrwxrwxrwx 1 root root       134 Nov 19 11:55 U234.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K/U234.ace
+-rw-r--r-- 1 root root 316226457 Nov 19 11:56 U235.ace
+-rw-r--r-- 1 root root  10538188 Nov 19 11:58 U236.ace
+-rw-r--r-- 1 root root 250889792 Nov 19 11:58 U238.ace
+
+/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/remeasure3_rest/fr/njoy/293.6K:
+total 267372
+drwxr-xr-x 2 root root      4096 Nov 19 11:58 .
+drwxr-xr-x 6 root root      4096 Nov 19 11:55 ..
+lrwxrwxrwx 1 root root       138 Nov 19 11:55 Al27.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/Al27.ace
+lrwxrwxrwx 1 root root       137 Nov 19 11:55 B10.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/B10.ace
+-rw-r--r-- 1 root root   3548536 Nov 19 11:58 F19.ace
+lrwxrwxrwx 1 root root       145 Nov 19 11:55 Graphite30P.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/Graphite30P.ace
+lrwxrwxrwx 1 root root       136 Nov 19 11:55 H1.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/H1.ace
+lrwxrwxrwx 1 root root       140 Nov 19 11:55 HinH2O.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/HinH2O.ace
+lrwxrwxrwx 1 root root       138 Nov 19 11:55 Mn55.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/Mn55.ace
+lrwxrwxrwx 1 root root       137 Nov 19 11:55 O16.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/O16.ace
+lrwxrwxrwx 1 root root       138 Nov 19 11:55 Si28.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/Si28.ace
+lrwxrwxrwx 1 root root       138 Nov 19 11:55 Si29.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/Si29.ace
+lrwxrwxrwx 1 root root       138 Nov 19 11:55 Si30.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/Si30.ace
+lrwxrwxrwx 1 root root       138 Nov 19 11:55 U234.ace -> /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K/U234.ace
+-rw-r--r-- 1 root root 135931655 Nov 19 11:56 U235.ace
+-rw-r--r-- 1 root root   7726091 Nov 19 11:56 U236.ace
+-rw-r--r-- 1 root root 126511619 Nov 19 11:56 U238.ace

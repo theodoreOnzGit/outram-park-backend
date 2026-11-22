@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Freely usable dose coefficients from the US EPA Federal Guidance Reports,
 //! for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133, I-131, Cs-137,
 //! Ag-110m) plus Cs-137's short-lived daughter Ba-137m, all ages. The two
@@ -46,6 +46,9 @@
 //! Research-grade only: never a dose to a real person, and not for emergency,
 //! regulatory, occupational or medical use (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::pydoseia::dcf::{
     self, AgeBracket, ExternalDcfTable, InhalationDcfTable, ProgenyChains, ProgenyCorrection,
 };

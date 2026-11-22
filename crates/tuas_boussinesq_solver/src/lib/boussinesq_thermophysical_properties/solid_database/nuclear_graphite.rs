@@ -46,11 +46,13 @@
 //! literature values, verified only against hand evaluations of the same
 //! formulas (see the unit tests at the bottom of this file).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
 use petir::roots::BracketingMethod;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::*;
 use uom::si::length::micrometer;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::ratio::ratio;
@@ -903,6 +905,7 @@ pub fn nuclear_graphite_cp_spline_reproduces_butland_maddison_nodes() {
         }
     }
 
+    #[cfg(feature = "std")]
     println!(
         "cp spline max relative error across nodes: {:e}",
         max_rel_error
@@ -943,6 +946,7 @@ pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
     .unwrap()
     .get::<watt_per_meter_kelvin>();
 
+    #[cfg(feature = "std")]
     println!(
         "matrix A3 k at 373.15 K: measured {}, hand {}",
         k_measured_373, k_hand_373
@@ -962,6 +966,7 @@ pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
     .unwrap()
     .get::<watt_per_meter_kelvin>();
 
+    #[cfg(feature = "std")]
     println!(
         "matrix A3 k at 600 K: measured {}, hand {}",
         k_measured_600, k_hand_600
@@ -998,6 +1003,7 @@ pub fn nuclear_graphite_fluence_damage_factor_behaviour() {
     let factor_at_zero = nuclear_graphite_fluence_damage_factor(Ratio::new::<ratio>(0.0))
         .unwrap()
         .get::<ratio>();
+    #[cfg(feature = "std")]
     println!("damage factor at gam=0: {}", factor_at_zero);
     assert_eq!(
         factor_at_zero, 1.0,
@@ -1019,6 +1025,7 @@ pub fn nuclear_graphite_fluence_damage_factor_behaviour() {
         previous_factor = factor;
         gam_sample += 0.5;
     }
+    #[cfg(feature = "std")]
     println!("damage factor at gam=15: {}", previous_factor);
     assert!(
         previous_factor > 0.0,
@@ -1037,6 +1044,7 @@ pub fn nuclear_graphite_fluence_damage_factor_behaviour() {
         )
         .unwrap()
         .get::<watt_per_meter_kelvin>();
+        #[cfg(feature = "std")]
         println!(
             "matrix A3 k at 600 K, gam={}: {} (unirradiated {})",
             gam_value, k_irradiated, k_unirradiated
@@ -1079,6 +1087,7 @@ pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
         >(300.0))
         .unwrap()
         .get::<watt_per_meter_kelvin>();
+    #[cfg(feature = "std")]
     println!(
         "IG-110 k at 300 K: measured {}, hand {}",
         k_measured_300, k_hand_300
@@ -1092,6 +1101,7 @@ pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
         >(1000.0))
         .unwrap()
         .get::<watt_per_meter_kelvin>();
+    #[cfg(feature = "std")]
     println!(
         "IG-110 k at 1000 K: measured {}, hand {}",
         k_measured_1000, k_hand_1000
@@ -1154,6 +1164,7 @@ pub fn nuclear_graphite_enthalpy_round_trip() {
 
             let abs_error = (temperature_recovered.get::<kelvin>() - temp_kelvin).abs();
 
+            #[cfg(feature = "std")]
             println!(
                 "{:?} round trip at {} K: recovered {} K (error {:e} K)",
                 material,
@@ -1174,6 +1185,7 @@ pub fn nuclear_graphite_enthalpy_round_trip() {
         }
     }
 
+    #[cfg(feature = "std")]
     println!("max round-trip error: {:e} K", max_abs_error_kelvin);
 }
 
@@ -1207,6 +1219,7 @@ pub fn nuclear_graphite_enum_variants_dispatch_at_600_k() {
     // thermal conductivity
     let k_matrix = try_get_kappa_thermal_conductivity(matrix, temperature, pressure).unwrap();
     let k_ig_110 = try_get_kappa_thermal_conductivity(ig_110, temperature, pressure).unwrap();
+    #[cfg(feature = "std")]
     println!(
         "dispatch at 600 K: matrix k = {} W/(m K), IG-110 k = {} W/(m K)",
         k_matrix.get::<watt_per_meter_kelvin>(),
@@ -1232,6 +1245,7 @@ pub fn nuclear_graphite_enum_variants_dispatch_at_600_k() {
     // specific heat capacity (shared table; 600 K is a node: 1390.79)
     let cp_matrix = try_get_cp(matrix, temperature, pressure).unwrap();
     let cp_ig_110 = try_get_cp(ig_110, temperature, pressure).unwrap();
+    #[cfg(feature = "std")]
     println!(
         "dispatch at 600 K: cp = {} J/(kg K)",
         cp_matrix.get::<joule_per_kilogram_kelvin>()
@@ -1251,6 +1265,7 @@ pub fn nuclear_graphite_enum_variants_dispatch_at_600_k() {
     // density
     let rho_matrix = try_get_rho(matrix, temperature, pressure).unwrap();
     let rho_ig_110 = try_get_rho(ig_110, temperature, pressure).unwrap();
+    #[cfg(feature = "std")]
     println!(
         "dispatch at 600 K: matrix rho = {} kg/m^3, IG-110 rho = {} kg/m^3",
         rho_matrix.get::<kilogram_per_cubic_meter>(),
@@ -1471,6 +1486,7 @@ pub fn nuclear_graphite_a3_high_temp_enthalpy_is_the_integral_of_cp_and_inverts(
             .get::<kelvin>();
         worst = worst.max((back - tk).abs());
     }
+    #[cfg(feature = "std")]
     println!("high-temp A3 enthalpy round trip: worst error {worst:e} K");
     assert!(worst < 1e-6);
     // an enthalpy beyond h(3000 K) is refused, not extrapolated

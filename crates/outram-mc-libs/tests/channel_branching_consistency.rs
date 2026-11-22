@@ -105,6 +105,8 @@
 //! than two open suspicions, and says the next hypothesis has to come from
 //! somewhere not yet considered.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::{Inelastic, Nuclide};
 

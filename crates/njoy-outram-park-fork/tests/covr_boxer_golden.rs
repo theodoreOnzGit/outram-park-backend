@@ -45,6 +45,9 @@
 //! 0`) records; Si-30 has 122 null pairs suppressed; the absolute H-2 tape
 //! exercises the "do not translate to relative in the library option" rule.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -342,6 +345,7 @@ fn tier2(case: &Case) {
         tempin: TEMP_K,
         irelco: case.irelco,
         dap: 0.0,
+        card8: None,
     };
     let result = run_mf33(&endf, &pendf, &cfg).expect("run_mf33");
     // The real tape byte path: write the ERRORR tape, read it back.

@@ -69,6 +69,9 @@
 //! **Steel for regions 10, 11, 13** (bottom supports): no material is given;
 //! the Fig 2.8 barrel curve is used (Assumed).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::areal_number_density::per_square_centimeter;
 use uom::si::f64::{ArealNumberDensity, Pressure, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -193,7 +196,7 @@ fn zero_dose() -> ArealNumberDensity {
     ArealNumberDensity::new::<per_square_centimeter>(0.0)
 }
 
-fn closure_err(what: &str, e: impl std::fmt::Display) -> Htr10RzError {
+fn closure_err(what: &str, e: impl core::fmt::Display) -> Htr10RzError {
     Htr10RzError::Property(format!("{what}: {e}"))
 }
 

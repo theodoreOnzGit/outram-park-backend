@@ -66,6 +66,10 @@ gh issue comment <number> --body "..."           # progress
   - **Native:** `cargo check --release --workspace --lib --tests`.
   - **Wasm:** `bash scripts/check-wasm.sh`, the `wasm32-unknown-unknown`
     gate over the in-scope crates.
+  - **Pages demos (since 2026-11-06, gh:#1304):** `bash scripts/check-wasm-demos.sh`,
+    a `wasm32-unknown-unknown` check of every Pages demo example, which
+    `check-wasm.sh` (`--lib` only) cannot see. CI runs it as
+    `.github/workflows/wasm-demos.yml` on push to `develop` and on pull requests.
 
   **Why:** develop 16240d670 compiled natively but broke the Pages site
   build. `kovan-common`'s founder ballots (`review/signing/founders.rs`,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -24,6 +24,9 @@
 //! The `ln2` normalisation is the load-bearing detail; see the function's own
 //! docs and [`super::strength`] for where its `m` comes from.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, Ratio};
 use uom::si::pressure::pascal;
@@ -59,7 +62,7 @@ pub fn weibull_failure_fraction(
         return Ratio::new::<ratio>(1.0);
     }
     let x = (induced_stress.get::<pascal>() / sigma_o).max(0.0);
-    Ratio::new::<ratio>(1.0 - (-std::f64::consts::LN_2 * x.r_powf(weibull_modulus)).r_exp())
+    Ratio::new::<ratio>(1.0 - (-core::f64::consts::LN_2 * x.r_powf(weibull_modulus)).r_exp())
 }
 
 #[cfg(test)]

@@ -52,6 +52,8 @@
 //! were scored and then re-sampled after the particle stopped there. Fixed
 //! in `transport_csg.rs` (score only before `d_bound`), then passed.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use std::sync::Arc;
 
@@ -147,7 +149,7 @@ fn score_collision_point_bins_at_the_point() {
             mesh: MeshKind::Unstructured(Arc::new(mesh)),
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     };
     let at = Position::new(0.5, 0.5, 0.5);
     let u = Direction::new(1.0, 0.0, 0.0);
@@ -497,7 +499,7 @@ fn region_tally(a: f64) -> Tally {
             }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Total],
-        bins: vec![TallyBin::default(); 2 * 2],
+        bins: vec![TallyBin::default(); 2 * 2], derivative: None,
     }
 }
 

@@ -28,6 +28,9 @@
 //! every string the reference corpus actually uses is covered. This is original
 //! code documenting that format — not a port of DWSIM's loader.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::objects::ObjectType;
 use crate::flowsheet::streams::{CompositionBasis, FlowSpec, ForcedPhase, StreamSpec};
 use crate::thermo::property_package::PropertyPackageModel;

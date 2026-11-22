@@ -22,6 +22,9 @@
 //! caller's unit to SI happens once, inside uom, when the quantity is built.
 //! Temperature is the absolute `ThermodynamicTemperature`, stored in kelvin.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::marker::PhantomData;
 
 use crate::{RafflesError, Result};

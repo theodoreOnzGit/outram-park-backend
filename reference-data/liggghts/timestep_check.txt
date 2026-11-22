@@ -1,0 +1,5 @@
+# fix check/timestep/gran output at step 1 (f_ts[1] f_ts[2] f_ts[3] = Rayleigh,
+# Hertz, skin fractions), LIGGGHTS-PUBLIC 3d5c00f2, thermo_modify format float
+# %.17g, decks in.timestep_pebble and in.timestep_htr10 (2026-11-11).
+pebble 0.0081708822438469365 0.00099531126069687015 9.2117643627494697e-06
+htr10 0.11717156401701635 0.016745101056649926 0.00035716739665003295

@@ -20,6 +20,9 @@
 //!   such store, so [`crate::dynamics::manager::DynamicsManager::stored_states`]
 //!   holds the named states instead — a **port addition**, documented there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One dynamic-run configuration — upstream's `Schedule` (Schedule.vb:21-54).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Schedule {

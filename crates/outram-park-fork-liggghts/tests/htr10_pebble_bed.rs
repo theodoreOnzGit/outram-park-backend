@@ -185,7 +185,9 @@ fn data_path(name: &str) -> std::path::PathBuf {
     } else {
         "../../reference-data/liggghts"
     };
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(dir)
+        .join(name)
 }
 
 fn load_state(name: &str) -> Option<Vec<(Vec3, Vec3)>> {
@@ -241,7 +243,6 @@ fn max_overlap(ps: &[Particle], pairs: &[(usize, usize)]) -> f64 {
     }
     worst
 }
-
 
 /// Write this port's own settled state to `examples/data/` (gh:#1008) in the
 /// same CSV layout as the LIGGGHTS dumps (`id,x,y,z,vx,vy,vz`, `%.17g`), so a

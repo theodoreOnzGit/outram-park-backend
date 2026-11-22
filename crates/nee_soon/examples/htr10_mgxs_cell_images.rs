@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 
 //! # Draw the gh:#849 HTR-10 cells (crate HARD RULE: geometry is drawn)
@@ -12,6 +12,7 @@
 //! | cell | images |
 //! |---|---|
 //! | single pebble | x-y and x-z through a TRISO layer near the pebble's centre, one TRISO particle |
+//! | single pebble like the DhUniverse pebble (gh:#1707): DhUniverse's random packing in its reflective sphere | x-y and x-z central planes, x-y through a TRISO particle, one TRISO particle |
 //! | Şeker cluster, rings 1, 2, 3 | x-y at the basal plane (just inside the bottom face) and the central plane, x-z through the centre, one fuel pebble (through a TRISO layer), one TRISO particle |
 //!
 //! ```text
@@ -60,6 +61,13 @@ fn main() {
     let pal = nee_soon::htr10_rmc::plots::palette();
 
     let mut cells = vec![("single_pebble".to_string(), Htr10Cell::single_pebble())];
+    // gh:#1707: the CSG twin of the DhUniverse pebble the single pebble is
+    // compared with (its packing, in its reflective sphere).
+    let r_eq = (3.0 * 216.0 / (4.0 * std::f64::consts::PI)).cbrt();
+    cells.push((
+        "single_pebble_like_dh".to_string(),
+        Htr10Cell::single_pebble_like_dh_universe(&outram_mc_libs::dh_universe::PebbleParams::htr10_li2014().with_coolant(r_eq), 0),
+    ));
     for rings in 1..=3 {
         cells.push((format!("seker_cluster_r{rings}"), Htr10Cell::seker_cluster(rings)));
     }
@@ -118,7 +126,11 @@ fn main() {
                 [px, ((hgt / w) * px as f64).round() as usize],
             )
         };
-        if matches!(c.kind, nee_soon::htr10_mgxs::cells::CellKind::SinglePebble) {
+        if tag == "single_pebble_like_dh" {
+            render("xy_central.png", xy(0.0), "X-Y, CENTRAL PLANE (DH PACKING, REFLECTIVE SPHERE)");
+            render("xz_central.png", xz(0.0), "X-Z, CENTRAL PLANE (DH PACKING, REFLECTIVE SPHERE)");
+            render("xy_layer.png", xy(part.z), "X-Y THROUGH A TRISO PARTICLE");
+        } else if matches!(c.kind, nee_soon::htr10_mgxs::cells::CellKind::SinglePebble) {
             render("xy_layer.png", xy(part.z), "X-Y THROUGH A TRISO LAYER");
             render("xz_layer.png", xz(part.y), "X-Z THROUGH A TRISO LAYER");
         } else {

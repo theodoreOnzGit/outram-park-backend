@@ -8,6 +8,9 @@
 //! [`ParameterSpace`]: a bound or a prior per channel of a [`Quantities`]
 //! record, as a RAFFLES [`Distribution`] on the channel's SI base value.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::marker::PhantomData;
 
 use super::quantities::{Channel, Quantities, SiQuantity};

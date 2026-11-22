@@ -48,6 +48,9 @@
 //! is quoted from a comment, not from a publication. It is recorded so that
 //! whoever writes a 2-D solver has a target waiting.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The `k_eff` `geom2dxycase1.m`'s header quotes for this configuration.
 ///
 /// **Not reproduced**: nothing in the snapshot can solve a 2-D case. Quoted

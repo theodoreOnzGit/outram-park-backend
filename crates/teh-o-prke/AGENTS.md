@@ -7,6 +7,16 @@ Guidance for Claude Code (and other AI assistants) working in this crate.
 > full consolidation/migration history. Dependencies are inherited from the root
 > `[workspace.dependencies]` — do not pin versions in this crate's `Cargo.toml`.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1600, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way: new code
+uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*` glob (copy
+it from any module); `ndarray` and `thiserror` come in as `ndarray-nostd` /
+`thiserror-nostd` (imported under their usual names in `lib.rs`); printing
+and clocks stay in tests or go behind `#[cfg(feature = "std")]`; a map, if
+one is ever needed, follows the workspace rule (`crate::hash`, `hashbrown`).
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
@@ -20,6 +30,21 @@ maturity gate in that file for what this means and how the bar is revised.
   the LU solver verified against hand-computed 2×2 and 3×3 systems including
   pivoting and singular detection. Evidence class: **unit tests and internal
   consistency**, with literature constants as the reference. **29 tests pass**.
+
+  **Note 2026-11-10 (gh:#1319):** "U-233 and Pu-239 group sets likewise"
+  holds for the delayed fractions `beta_i` only. The decay constants
+  `lambda_i` are one shared U-235 set for all three nuclides
+  (`six_group_constants.rs`), and the source of that set and of the
+  `beta_i` is not identified. ~~Open, awaiting a source decision on the issue.~~
+  **Update 2026-11-10 (gh:#1319, maintainer decision: ENDF/B-VIII.0):**
+  `FissioningNuclideType::U235` now returns the ENDF/B-VIII.0 U-235 thermal
+  set (`ENDF_B_VIII0_U235`, `lambda_i` and `beta_i` from MAT 9228 MT=455,
+  total beta 0.0065230), and `ENDF_B_VIII0_U238` (2 MeV) is available as
+  data. Both are pinned bit for bit to the tapes by
+  `njoy-outram-park-fork`'s `tests/teh_o_prke_delayed_data_vs_endf8.rs`.
+  The old textbook arrays remain (`textbook_*` methods, `new_*` functions).
+  **Still open:** U-233 and Pu-239 keep the shared textbook `lambda_i`
+  (no ENDF/B-VIII.0 Pu-239 or U-233 tape in `reference-data/endf/`).
 
   **This is the thinnest declaration in the workspace, and is deliberately
   recorded as such.** ~~There is no analytical transient validation yet — no
@@ -86,13 +111,35 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
     with any number of delayed groups, backward Euler and RKF45, in-hour
     solver. `SixGroupPRKE` delegates to it and is pinned bit-identical to its
     pre-refactor self (`six_group_bit_identity_pin.rs`).
+  - `circulating.rs` — `CirculatingPointKinetics` (gh:#1131, MSRE T-C1):
+    precursors drift out with the fuel (core transit τ_c) and return after a
+    loop transit τ_L. Verified against its analytic circulation loss and
+    circulating in-hour equation, and against `PointKinetics` as τ_c → ∞.
   - `six_group_precursor_prke/` — six delayed-neutron precursor groups.
     - `six_group_constants.rs` — the `FissioningNuclideType` enum and the
       `new_u233_/u235_/pu239_delayed_neutron_fraction_array()` constructors
-      (per-nuclide delayed fractions). **These items live in this submodule**,
+      (per-nuclide delayed fractions, the textbook set), and since
+      2026-11-10 (gh:#1319) `SixGroupDelayedNeutronData` with the
+      ENDF/B-VIII.0 `ENDF_B_VIII0_U235` (the `U235` default) and
+      `ENDF_B_VIII0_U238` sets. **These items live in this submodule**,
       not at the `six_group_precursor_prke` level (see migration note below).
 - `feedback_mechanisms/` — incl. `fission_product_poisons/` (Xe/Sm).
   - `separable.rs` — RELAP5 separable feedback (RELAP-7 Eq 443, gh:#1083).
+  - `fast_reactor.rs` — fast-reactor feedback beside it (gh:#1326): fast
+    Doppler `-K_D ln(T/T_ref)`, axial fuel, clad, coolant T and density,
+    radial structures, driveline expansion via a rod-worth map. Port of
+    GeN-Foam's point-kinetics feedback sum; every coefficient a caller input.
+    The rod-worth map errors outside its closed range by default
+    (`RodWorthOutOfRange::Error`, both ends in range); GeN-Foam's zero is
+    `RodWorthOutOfRange::UpstreamZero` (maintainer decision 2026-11-10).
+    **Differential vs GeN-Foam 652b3da (gh:#1439, 2026-11-13):** bit-identical
+    on 830 fixed-input rows except one Doppler row per history (PETIR `r_ln`,
+    1 ulp in `ln`, 2 ulp in the term); see
+    `verification_and_validation/genfoam_differential/README.md`.
+    `PointKinetics::step_implicit_genfoam_form` (+ `SquareMatrix::
+    solve_gaussian_openfoam`, OpenFOAM's `solve()`) reproduces GeN-Foam's
+    `solvePointKinetics.H` step bit for bit (300/300); `step_implicit` is
+    unchanged and differs by round-off only (the solver, not the scaling).
 - `fuel_temperature_feedback`, `control_rod_feedback`, `decay_heat`.
 - `ans_decay_heat` — ANS standards enum, isotope mix incl. Pu-241, `F_gamma`,
   user-supplied coefficients, `G(t)` (gh:#1080). Only the 1978 draft set is

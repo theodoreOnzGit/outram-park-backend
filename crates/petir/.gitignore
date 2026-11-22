@@ -11,3 +11,7 @@
 # ARM optimized-routines clone (MIT OR Apache-2.0) -- the fast exp/log/pow
 # glibc itself ships. Present for development, never committed.
 /upstream_source/ARM-optimized-routines/
+
+# flock(1) lock files that differential-testing agents take while building an
+# upstream in upstream_source/ (gh:#1336). Never committed.
+/upstream_source/.*.lock

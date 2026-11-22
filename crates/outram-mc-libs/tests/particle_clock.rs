@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The particle clock** — gh:#262 and gh:#261.
 //!
@@ -87,7 +87,7 @@ fn flux_tally() -> Tally {
             cell_indices: vec![0],
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     }
 }
 
@@ -284,7 +284,7 @@ fn a_polar_filter_on_a_track_length_tally_sees_the_real_direction() {
             azimuthal: vec![-std::f64::consts::PI, std::f64::consts::PI],
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); N_POLAR],
+        bins: vec![TallyBin::default(); N_POLAR], derivative: None,
     };
     let geom = void_ball();
     let src = FixedSource::Point {

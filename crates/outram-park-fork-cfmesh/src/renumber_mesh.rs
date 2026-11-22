@@ -42,11 +42,15 @@
 //!    result is upper-triangular.
 //!
 //! **Where the port differs.** Upstream reads each cell's faces in the order
-//! `polyMeshGen` stores them. [`renumber_mesh`] takes them from the caller;
-//! [`cells_from_mesh`] gives each cell its faces in ascending face order,
-//! for a mesh that no longer carries the cell lists (every stage of this
-//! crate rebuilds the mesh from face lists).
+//! `polyMeshGen` stores them. [`renumber_mesh`] takes them from the caller
+//! (the four workflows pass `VolumeMesh::cell_face_lists`, the carried lists
+//! ~~(gh:#1385: every stage rebuilt the mesh from face lists, so none were
+//! carried)~~); [`cells_from_mesh`] gives each cell its faces in ascending
+//! face order, for a mesh that does not carry them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::volume_mesh::VolumeMesh;
 
 /// Each cell's faces in ascending face order.
@@ -76,7 +80,6 @@ pub struct Renumbered {
 /// lists of the cells of `mesh`, in the order upstream would hold them.
 pub fn renumber_mesh(mesh: &VolumeMesh, cells: &[Vec<usize>]) -> Renumbered {
     let nc = mesh.n_cells;
-    let nf = mesh.face_count();
     // calcCellCells
     let cell_cells: Vec<Vec<usize>> = (0..nc)
         .map(|c| {
@@ -116,6 +119,32 @@ pub fn renumber_mesh(mesh: &VolumeMesh, cells: &[Vec<usize>]) -> Renumbered {
             }
         }
     }
+    reorder_faces(mesh, cells, new_order)
+}
+
+/// OpenFOAM's **upper-triangular face order** with the cell numbering kept
+/// (gh:#1285): [`reorder_faces`] with the identity cell order. Internal
+/// faces end up sorted by (owner, neighbour) with `owner < neighbour`
+/// (a face whose owner was the higher cell is reversed, as
+/// `face::reverseFace`); boundary faces keep their order, orientation and
+/// patches. Points are not touched, so the geometry is the input's; only
+/// the face labels (and the winding of reversed faces) move.
+///
+/// This is step 2–3 of upstream's `renumberMesh` without step 1 (the
+/// cell walk). It is what `polyMesh` requires of every mesh it reads
+/// (`checkUpperTriangular`) and what `renumberMesh` produces, without
+/// changing which label a cell has, so cell zones and per-cell data
+/// computed before it stay valid.
+pub fn upper_triangular(mesh: &VolumeMesh) -> VolumeMesh {
+    let identity: Vec<usize> = (0..mesh.n_cells).collect();
+    reorder_faces(mesh, &cells_from_mesh(mesh), identity).mesh
+}
+
+/// Steps 2–3 of `renumberMesh` for a given cell order: `new_order[i]` is
+/// the old label of new cell `i` (module docs).
+pub fn reorder_faces(mesh: &VolumeMesh, cells: &[Vec<usize>], new_order: Vec<usize>) -> Renumbered {
+    let nc = mesh.n_cells;
+    let nf = mesh.face_count();
     let mut reverse_order = vec![0usize; nc];
     let new_cells: Vec<Vec<usize>> = new_order.iter().map(|&c| cells[c].clone()).collect();
     for (i, &c) in new_order.iter().enumerate() {
@@ -213,7 +242,7 @@ pub fn renumber_mesh(mesh: &VolumeMesh, cells: &[Vec<usize>]) -> Renumbered {
             q
         })
         .collect();
-    let out = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: nc, patches };
+    let out = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: nc, patches, cells: Some(cells_out.clone()) };
     Renumbered { mesh: out, cells: cells_out, new_order }
 }
 

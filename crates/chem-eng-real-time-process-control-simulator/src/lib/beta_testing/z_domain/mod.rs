@@ -84,6 +84,9 @@
 //! vector — forcing one would misstate the physics rather than protect it.
 //! This is a documented, deliberate exception to the uom-everywhere rule.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod continuous_tf;
 pub mod conversion;
 pub(crate) mod cplx;

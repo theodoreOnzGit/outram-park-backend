@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tally filters added for GitHub #261**, ported from `src/tallies/` at
 //! OpenMC `afa7a14`. (The commit the issue cites, `608a1c33`, is unavailable
@@ -23,6 +23,9 @@
 //! and `PARTICLE_PRODUCTION`. `DISTRIBCELL` is the expensive one — it needs the
 //! distribcell offset tables upstream builds in `src/geometry_aux.cpp`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::filter::{Filter, FilterEvent};
 use crate::tally::mesh::MeshKindExt;
 use crate::tally::mesh::RegularMeshExt;
@@ -395,8 +398,14 @@ use crate::tally::mesh::MeshKind;
 /// This is the tally that MGXS generation is built on. `Sigma_s,l,g->g'` is
 /// the `l`-th Legendre moment of the scattering kernel, and this filter
 /// crossed with an [`crate::tally::filter::EnergyFilter`] and an
-/// [`crate::tally::filter::EnergyOutFilter`] is exactly how it is measured.
-/// Without it a generated library can only ever be P0 — which is the defect
+/// [`crate::tally::filter::EnergyOutFilter`] is ~~exactly how it is measured~~
+/// **CORRECTED 2026-11-19** (gh:#676): how it WILL be measured. ~~Today that
+/// combination scores exactly zero~~ **CORRECTED 2026-11-20** (gh:#676): the
+/// scatter matrix (`score_scatter_matrix_mu`) sets `FilterEvent::mu` and deposits
+/// `w * P_l(mu)` into every moment bin, so `[Energy, EnergyOut, Legendre]` on a
+/// `NuScatter` score measures the P_l matrix (test
+/// `the_scatter_matrix_expands_in_legendre_moments_of_the_lab_cosine`). On any
+/// other tally the filter has no scoring path and `Tally::validate` refuses it. Without it a generated library can only ever be P0 — which is the defect
 /// GitHub #265 priced at **−4371 pcm** on a leakage-dominated case.
 ///
 /// # Why the weights are NOT `(l + 1/2) P_l`
@@ -585,10 +594,8 @@ impl ParticleProductionFilter {
             if s.energy < self.energy_bins[0] || s.energy > *self.energy_bins.last().unwrap() {
                 continue;
             }
-            let ei = self
-                .energy_bins
-                .partition_point(|&b| b <= s.energy)
-                .saturating_sub(1)
+            // `lower_bound_index` (gh:#687): an edge belongs to the lower bin.
+            let ei = crate::tally::filter::lower_bound_index(&self.energy_bins, s.energy)
                 .min(self.n_energy() - 1);
             out.push((pi * self.n_energy() + ei, s.weight));
         }
@@ -658,9 +665,16 @@ impl MeshSurfaceFilter {
         }
     }
 
-    /// Every surface bin this track crosses, in order of travel.
+    /// Every surface bin the track `ev.position_last -> ev.position` (direction
+    /// `ev.direction`) crosses, in order of travel, by the port of upstream's
+    /// `raytrace_mesh` ([`RegularMeshExt::surface_bins_crossed_openmc`]).
+    /// ~~By the re-derivation `surface_bins_crossed`~~ **CHANGED 2026-11-22
+    /// (gh:#1709):** that counted crossings on the open interval and broke
+    /// ties at a track end differently from upstream.
+    ///
+    /// [`RegularMeshExt::surface_bins_crossed_openmc`]: crate::tally::mesh::RegularMeshExt::surface_bins_crossed_openmc
     pub fn matches(&self, ev: &FilterEvent) -> Vec<usize> {
-        self.mesh.surface_bins_crossed(ev.position_last, ev.position)
+        self.mesh.surface_bins_crossed_openmc(ev.position_last, ev.position, ev.direction)
     }
 }
 

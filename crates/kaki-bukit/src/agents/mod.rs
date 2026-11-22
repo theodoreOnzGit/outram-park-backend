@@ -359,6 +359,20 @@ impl Facility for AgentKind {
     }
 }
 
+/// One cleared trade with its endpoints resolved: one row of upstream's
+/// `Transactions` table, minus the resource id.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Transaction {
+    /// The time step it cleared on.
+    pub time: i64,
+    /// The supplier.
+    pub sender: AgentId,
+    /// The requester.
+    pub receiver: AgentId,
+    /// The mass moved, in kilograms.
+    pub amt: f64,
+}
+
 /// A complete simulation: the agent arena, the context, and the phase loop.
 ///
 /// Upstream splits this between `Context` (which owns the agents) and `Timer`
@@ -372,6 +386,7 @@ pub struct Simulation {
     agents: Vec<AgentKind>,
     masses: AtomicMasses,
     trade_log: Vec<(i64, Trade)>,
+    transactions: Vec<Transaction>,
 }
 
 impl Simulation {
@@ -384,6 +399,7 @@ impl Simulation {
             agents: Vec::new(),
             masses: masses.clone(),
             trade_log: Vec::new(),
+            transactions: Vec::new(),
         }
     }
 
@@ -465,6 +481,13 @@ impl Simulation {
     #[must_use]
     pub fn trade_log(&self) -> &[(i64, Trade)] {
         &self.trade_log
+    }
+
+    /// Every cleared trade with sender and receiver resolved, in the order the
+    /// exchange returned them: upstream's `Transactions` table.
+    #[must_use]
+    pub fn transactions(&self) -> &[Transaction] {
+        &self.transactions
     }
 
     /// The handles of every agent that trades this step.
@@ -679,6 +702,14 @@ impl Simulation {
         }
 
         let t = self.ctx.time();
+        for tr in &trades {
+            self.transactions.push(Transaction {
+                time: t,
+                sender: xctx.bid(tr.bid)?.bidder(),
+                receiver: xctx.request(tr.request)?.requester(),
+                amt: tr.amt,
+            });
+        }
         self.trade_log.extend(trades.into_iter().map(|tr| (t, tr)));
         Ok(())
     }

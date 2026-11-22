@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // NOT a port. An extension of the ported TRISO-ATOPS coolant-activity model
 // (`coolant_activity.rs`, which ports upstream commit de374c8's
@@ -56,6 +56,9 @@
 //! (the ported forms' `C_parent`/`P_parent` are passed as zero by every caller
 //! in this workspace).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// The three primary-circuit pools and the cumulative leak, in **atoms**.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]

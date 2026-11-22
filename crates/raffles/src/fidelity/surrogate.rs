@@ -9,6 +9,9 @@
 //! what to fit, [`Surrogate`] is the fitted model, [`Prediction`] what it
 //! returns, and [`ValidationReport`] how wrong it is on the held-out rows.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::marker::PhantomData;
 
 use super::dataset::{Dataset, MultiFidelityDataset};

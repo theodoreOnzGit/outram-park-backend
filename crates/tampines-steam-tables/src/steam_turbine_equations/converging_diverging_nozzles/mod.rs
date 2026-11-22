@@ -9,6 +9,9 @@
 //! [`calculate_velocity_mass_flowrate_and_state_in_cd_nozzle`] is the main
 //! entry point tying the converging and diverging sections together.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use uom::si::f64::*;
 use uom::si::volume::cubic_meter;
@@ -102,7 +105,9 @@ pub fn calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
 
     let throat_has_choked_flow: bool = m_ideal >= choked_mass_flowrate;
     if debug == true {
+        #[cfg(feature = "std")]
         dbg!(&(p_throat_critical, p2));
+        #[cfg(feature = "std")]
         dbg!(&throat_has_choked_flow);
     }
 
@@ -125,6 +130,7 @@ pub fn calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
     // outlet flow is now decided upon using a (p,h) algorithm
     let state_throat = choked_state;
     if debug == true {
+        #[cfg(feature = "std")]
         dbg!("choked flow detected!");
     }
 

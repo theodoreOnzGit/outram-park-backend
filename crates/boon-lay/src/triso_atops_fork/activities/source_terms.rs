@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -7,7 +7,7 @@
 // Upstream source  : trisoatops/utility_functions/calculation_functions.py
 //                    (`release_rate`, `base_activities`)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Source terms — release rate and graphite hold-up
@@ -30,6 +30,9 @@
 //! **count** (`atoms`). See the [`super`] module docs for why the pool
 //! quantities are `f64` rather than `uom`-typed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{DiffusionCoefficient, Length, Time};
 use uom::si::frequency::hertz;
@@ -388,7 +391,7 @@ mod tests {
             becquerels_from_curies(44.5),
             true,
             t_irad(),
-            DecayConstant::new::<hertz>(std::f64::consts::LN_2 / 10152.0),
+            DecayConstant::new::<hertz>(core::f64::consts::LN_2 / 10152.0),
         );
         assert_relative_eq!(r, 635.911_23, max_relative = 1e-10);
     }
@@ -408,7 +411,7 @@ mod tests {
             becquerels_from_curies(44.5),
             false,
             t_irad(),
-            DecayConstant::new::<hertz>(std::f64::consts::LN_2 / 949_232_333.0),
+            DecayConstant::new::<hertz>(core::f64::consts::LN_2 / 949_232_333.0),
         );
         assert_relative_eq!(r, 63842.318_381_438_77, max_relative = 1e-10);
     }
@@ -421,7 +424,7 @@ mod tests {
     /// 2026-07-15): `S = 0.0006384231838143877`, `G = 5839942305222.119`.
     #[test]
     fn base_activities_special_metal_matches_upstream() {
-        let lam = DecayConstant::new::<hertz>(std::f64::consts::LN_2 / 949_232_333.0);
+        let lam = DecayConstant::new::<hertz>(core::f64::consts::LN_2 / 949_232_333.0);
         let sg = base_activities(
             ElementGroup::SpecialMetal,
             lam,

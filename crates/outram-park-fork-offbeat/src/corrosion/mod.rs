@@ -180,6 +180,9 @@
 //! [`HydrogenPickupModel`]: hydrogen::HydrogenPickupModel
 //! [`AccelerationScheme`]: acceleration::AccelerationScheme
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod acceleration;
 pub mod exotherm;
 pub mod hydrogen;

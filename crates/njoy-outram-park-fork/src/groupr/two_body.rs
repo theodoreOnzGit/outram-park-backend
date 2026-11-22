@@ -29,9 +29,19 @@
 //! Neutron-in / neutron-out (`izap = 1`, `aprime = 1`) two-body reactions
 //! from File 4 in the CM frame: elastic (`MT = 2`) and the discrete levels
 //! (`MT = 51-90`, through `q`/`thresh`). Not ported here: the charged-particle
-//! Coulomb term (`:9529-9548`), `MT = 251-253` (`mubar` etc.), the `law = 4`
-//! sign flip of ENDF-5 lab-frame data, and File-6 two-body data (`mft = 8`).
+//! Coulomb term (`:9529-9548`), ~~`MT = 251-253` (`mubar` etc.),~~ the `law = 4`
+//! sign flip of ENDF-5 lab-frame data~~, and File-6 two-body data (`mft = 8`)~~.
+//! **CORRECTED 2026-11-14** (checked against the code): `MT = 251-253` is
+//! [`TwoBodyFeed::for_mf3_ratio`]; File-6 two-body data reaches this feed through
+//! `File4Angular::isotropic_cm` (LAW = 3) and `File4Angular::from_mf6_law2`
+//! (LAW = 2, gh:#1370). **CORRECTED 2026-11-14 (gh:#1370):** the `law = 4` cosine
+//! flip is [`TwoBodyFeed::with_law4_cosine_flip`], for File-6 `LAW = 4`
+//! (`File4Angular::from_mf6_law4`); File-6 `LAW = 5` for a neutron is
+//! `File4Angular::from_mf6_law5`. The Coulomb term is still not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::groupr::file4::{File4Angular, NLD};
 use crate::groupr::kinematics::legndr;
@@ -202,6 +212,13 @@ pub struct TwoBodyFeed {
     ech: f64,
     ecn: f64,
     nqp0: usize,
+    /// `mtd` when it is 251-253 (`mubar`, `xi`, `gamma`), else 0.
+    ratio_mt: i32,
+    /// `npo += lord` for `mfd = 3` (`:9427`).
+    lord_extra: usize,
+    /// File-6 `LAW = 4`: `if (law.eq.4) wqp=-wqp` (`:9519`), the recoil's CM
+    /// cosine is the partner's negated (gh:#1370).
+    law4_flip: bool,
 }
 
 impl TwoBodyFeed {
@@ -269,9 +286,30 @@ impl TwoBodyFeed {
             ech: 0.0,
             ecn: 0.0,
             nqp0: 0,
+            ratio_mt: 0,
+            lord_extra: 0,
+            law4_flip: false,
         };
         feed.reset();
         Ok(feed)
+    }
+
+    /// Make this the `mfd = 3` feed of `MT = mtd` (251, 252 or 253, built on the
+    /// MF=4/MT=2 data): `getdis`'s ratio branches (`:9427, 9479-9491, 9556,
+    /// 9568, 9586-9602`) and `npo += lord`.
+    pub fn for_mf3_ratio(mut self, mtd: i32, lord: usize) -> Self {
+        self.ratio_mt = mtd;
+        self.lord_extra = lord;
+        self
+    }
+
+    /// Make this a File-6 `LAW = 4` (two-body recoil) feed: `getdis` negates each
+    /// quadrature cosine before evaluating both the angular probability and the
+    /// lab cosine (`if (law.eq.4) wqp=-wqp`, `groupr.f90:9519`), as upstream does,
+    /// with the angular data from [`File4Angular::from_mf6_law4`] (gh:#1370).
+    pub fn with_law4_cosine_flip(mut self) -> Self {
+        self.law4_flip = true;
+        self
     }
 
     /// Number of groups `ngn`.
@@ -343,7 +381,7 @@ impl TwoBodyFeed {
         let awr2 = awr * (awr + 1.0 - aprime) / aprime;
         let ld = nld - 1;
         // `npo = ld + nl + int(log(300/awr))` (`:9426`); Fortran `int` truncates.
-        let npo = (ld as i64 + nl as i64 + (300.0 / awr).r_ln().trunc() as i64).max(0) as usize;
+        let npo = (ld as i64 + nl as i64 + (300.0 / awr).r_ln().trunc() as i64).max(0) as usize + self.lord_extra;
         let mut nqp0 = 4;
         if npo > 8 {
             nqp0 = 8;
@@ -361,33 +399,40 @@ impl TwoBodyFeed {
         }
         let mut ng = 0usize;
         let mut ig = 0usize;
-        let mut ngnow: usize;
+        let mut ngnow: usize = 0;
         let mut ignow = 0usize;
         let iglo = self.iech.saturating_sub(1).max(1);
         let wmin = -1.0f64;
         let wmax = 1.0f64;
         let mut whi = wmin;
-        let mut ff = vec![vec![0.0f64; ngn1 + 1]; nl];
+        let mut ff = vec![vec![0.0f64; ngn1 + 2]; nl];
         let mut flt = vec![0.0f64; nl];
         // Labels 410/425: one final-group band per iteration (`mfd = 6`
-        // always returns to 410 after a band, `:9567`).
+        // always returns to 410 after a band, `:9567`; the ratio reactions
+        // and `mfd = 3` return to 425 and keep accumulating in one column).
+        let mtd = self.ratio_mt;
+        let ratio = mtd != 0;
+        let mut at425 = false;
         loop {
-            ng += 1;
-            if ng > ngn1 {
-                ng = ngn1;
-                ig = ignow;
+            if !at425 {
+                ng += 1;
+                if ng > ngn1 {
+                    ng = ngn1;
+                    ig = ignow;
+                    for f in ff.iter_mut() {
+                        f[ng - 1] = 0.0;
+                    }
+                    break;
+                }
+                ngnow = ng;
                 for f in ff.iter_mut() {
                     f[ng - 1] = 0.0;
                 }
-                break;
+                if ast == 0.0 {
+                    break;
+                }
             }
-            ngnow = ng;
-            for f in ff.iter_mut() {
-                f[ng - 1] = 0.0;
-            }
-            if ast == 0.0 {
-                break;
-            }
+            at425 = false;
             let wlo = whi;
             ig += 1;
             if iglo + ig > ngn1 {
@@ -397,6 +442,9 @@ impl TwoBodyFeed {
             }
             ignow = ig;
             let ep = self.egn[iglo + ig - 1];
+            if (mtd == 252 || mtd == 253) && ep >= e {
+                break;
+            }
             whi = ((ep / e) * (1.0 + awr).r_powi(2) / aprime - (1.0 + ast * ast)) / (2.0 * ast);
             if whi < SHADE * wmin {
                 whi = wmin;
@@ -404,8 +452,18 @@ impl TwoBodyFeed {
             if whi > SHADE * wmax {
                 whi = wmax;
             }
+            if ratio && wlo == whi {
+                at425 = true;
+                continue;
+            }
             if wlo == whi {
                 continue;
+            }
+            if (mtd == 252 || mtd == 253) && whi >= wmax {
+                // Label 464.
+                ff[0][0] = 1.0;
+                ig += 1;
+                break;
             }
             // Gauss quadrature between wlo and whi (`:9489-9563`).
             let aa = (whi + wlo) / 2.0;
@@ -426,8 +484,11 @@ impl TwoBodyFeed {
             flt.iter_mut().for_each(|x| *x = 0.0);
             let (qp, qw) = quadrature(nqp);
             for iqp in 0..nqp {
-                let wqp = aa + b * qp[iqp];
+                let mut wqp = aa + b * qp[iqp];
                 let wqw = b * qw[iqp];
+                if self.law4_flip {
+                    wqp = -wqp;
+                }
                 let p = legndr(wqp, ld);
                 let mut prob = 0.0;
                 for il in 1..=nld {
@@ -437,6 +498,9 @@ impl TwoBodyFeed {
                 let pl = legndr(wlab, nl - 1);
                 // `prob = yld*wqw*prob` (`:9555`); the product is commutative.
                 prob *= self.yld * wqw;
+                if mtd == 251 {
+                    prob *= wlab;
+                }
                 for il in 0..nl {
                     flt[il] += prob * pl[il];
                 }
@@ -450,8 +514,10 @@ impl TwoBodyFeed {
             if iglo + ig > ngn {
                 break;
             }
+            if ratio {
+                at425 = true;
+            }
         }
-        let _ = ig;
         // Label 465: seven-decimal rounding (`:9573-9580`).
         let fact = 1.0e7f64;
         let nudge = 1.0e-4f64;
@@ -460,6 +526,27 @@ impl TwoBodyFeed {
                 let iii = (fact * *v + nudge).round();
                 *v = iii / fact;
             }
+        }
+        let mut iglo = iglo;
+        if ratio {
+            for f in ff.iter_mut() {
+                if mtd == 251 || mtd == 252 {
+                    f[ng] = 1.0;
+                }
+                if iglo + ig >= 2 {
+                    if mtd == 252 {
+                        f[ng - 1] *= (self.egn[iglo + ig - 1] / self.egn[iglo + ig - 2]).r_ln();
+                    }
+                    if mtd == 253 {
+                        f[ng] = f[ng - 1];
+                        f[ng - 1] *= (e / self.egn[iglo + ig - 2]).r_ln();
+                    }
+                }
+            }
+            ng += 1;
+            iglo = 1;
+        }
+        for f in ff.iter_mut() {
             f.truncate(ng);
         }
         // Labels 610-680.

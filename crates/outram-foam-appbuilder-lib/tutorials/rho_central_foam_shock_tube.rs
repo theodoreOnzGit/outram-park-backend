@@ -53,8 +53,14 @@
 //! 2nd-order **vanLeer MUSCL reconstruction** (`fvc::reconstruct_pos_neg`),
 //! matching OpenFOAM rhoCentralFoam's scheme family. At t = 0.007 s on the
 //! 100-cell mesh the Rust port matches the OpenFOAM `rhoCentralFoam` reference
-//! run to a mean (L1) error of **ρ = 0.57 %, U = 1.41 %, p = 0.66 %** (measured
-//! 2026-07-06), shock front within ~2 cells of the exact Sod position.
+//! run to a mean (L1) error of ~~**ρ = 0.57 %, U = 1.41 %, p = 0.66 %** (measured
+//! 2026-07-06)~~ **RE-MEASURED 2026-11-12 (gh:#1363, release): ρ = 0.71 %,
+//! U = 1.62 %, p = 0.83 %** (the solver is now a translation of upstream's
+//! `rhoCentralFoam.C`; this old reference was written at 6 digits with the
+//! tutorial's adjustable time step, so it differs from a fixed-dt run by more
+//! than the bit-identical fixed-dt comparison in
+//! `verification_and_validation/rho_central_foam_vs_openfoam.md`), shock front
+//! within ~2 cells of the exact Sod position.
 //!
 //! ## Plottable comparison — OpenFOAM `rhoCentralFoam` vs the Rust port
 //!
@@ -145,6 +151,8 @@
 //! (Rows in the two undisturbed plateaus x < −3.0 and x > 4.2 are decimated
 //! here; the test prints all 100 cells.)
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field_full,

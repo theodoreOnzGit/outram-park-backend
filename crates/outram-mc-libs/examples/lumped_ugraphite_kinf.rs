@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Natural uranium in lumps inside graphite: `k_inf` against lump size.**
 //! Tutorial rung 3 (GitHub #525, epic #520), following rung 2's homogeneous
@@ -229,7 +229,7 @@ fn main() {
     let seed: u64 = env_or("SEED", 20_261_005);
     eprintln!("Reconstructing nuclides (ENDF/B-VIII.0, {TEMP_K} K):");
     let t_load = Instant::now();
-    let nuclides = load_nuclides();
+    let data = load_nuclides();
     eprintln!("data ready in {:.1} s", t_load.elapsed().as_secs_f64());
     let lump = uranium_metal();
     let graphite = graphite();
@@ -258,7 +258,7 @@ fn main() {
         let r = CONTROL_R_CM;
         let geom = ws_cell(r, cell_r(r));
         let mats = vec![hom.material(1, "homogenised"), hom.material(2, "homogenised")];
-        let res = run_case(&geom, &mats, &nuclides, seed, r, FuelSplit::ByNuclide(hom));
+        let res = run_case(&geom, &mats, &data, seed, r, FuelSplit::ByNuclide(hom));
         print_case(
             &format!("CONTROL: Wigner-Seitz cell r = {r} cm, both regions homogenised"),
             hom.c_per_u(),
@@ -278,7 +278,7 @@ fn main() {
         let big_r = cell_r(r);
         let geom = ws_cell(r, big_r);
         let mats = vec![lump.material(1, "U metal"), graphite.material(2, "graphite")];
-        let res = run_case(&geom, &mats, &nuclides, seed + 1 + i as u64, r, FuelSplit::ByMaterial);
+        let res = run_case(&geom, &mats, &data, seed + 1 + i as u64, r, FuelSplit::ByMaterial);
         print_case(
             &format!("lump r = {r} cm, cell R = {big_r:.4} cm (white)"),
             cu,

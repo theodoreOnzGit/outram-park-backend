@@ -58,8 +58,11 @@
 //!   Manifold library). This is the operator most relevant to feeding
 //!   `outram-mc-libs` CSG geometry.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::{HashMap, HashSet};
+use crate::hash::{HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh};
@@ -683,7 +686,7 @@ fn slerp(a: Vec3, b: Vec3, t: f64) -> Vec3 {
     if omega < 1e-9 {
         return a;
     }
-    if omega > std::f64::consts::PI - 1e-9 {
+    if omega > core::f64::consts::PI - 1e-9 {
         return a.scale(1.0 - t).add(b.scale(t)).normalize();
     }
     let so = omega.r_sin();

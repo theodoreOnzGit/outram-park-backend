@@ -38,6 +38,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_appbuilder_lib::htr10_rz::{Thermocouple, TransientCoreOptions};
 use uom::si::f64::{MassRate, Power, Pressure, Ratio, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;

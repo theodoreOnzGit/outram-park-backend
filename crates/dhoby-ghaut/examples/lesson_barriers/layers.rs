@@ -7,8 +7,9 @@
 //! `main.rs` and `tests/lesson_barriers.rs` through `#[path]`.
 //!
 //! **No call here can panic.** The walker's coefficient table has `todo!()`
-//! arms (matrix and structural graphite for every element, and krypton in
-//! the buffer: gh:#541). [`has_walker_coefficient`] encodes exactly which
+//! arms (matrix and structural graphite for every element~~, and krypton in
+//! the buffer~~: gh:#541; **CORRECTED 2026-11-10, gh:#638:** krypton in the
+//! buffer now has a cited value, IAEA-TECDOC-978's German `1e-8 m^2/s`). [`has_walker_coefficient`] encodes exactly which
 //! (layer, element) pairs are filled, read from
 //! `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs`
 //! on 2026-10-22, and [`walker_d`] refuses the others instead of calling
@@ -45,11 +46,16 @@ pub fn walker_elements() -> [(&'static str, Nuclide); 4] {
 /// `nuclide` in `layer`, and if not, why. Read from the source (see the
 /// module docs); `tests/lesson_barriers.rs` calls every pair this says is
 /// filled, so a pair wrongly marked filled would panic there, not on a page.
-pub fn has_walker_coefficient(layer: TrisoPebbleLayerMaterial, nuclide: Nuclide) -> Result<(), &'static str> {
+///
+/// Since 2026-11-10 (gh:#638) every one of the four elements is filled in
+/// every one of the four layers, so the answer no longer depends on
+/// `_nuclide`; the parameter stays so a future per-element gap needs no
+/// signature change.
+pub fn has_walker_coefficient(layer: TrisoPebbleLayerMaterial, _nuclide: Nuclide) -> Result<(), &'static str> {
     use TrisoPebbleLayerMaterial::*;
     match layer {
         MatrixGraphite | StructuralGraphite => Err("graphite is todo!() in boon-lay's walker (gh:#541)"),
-        Buffer if nuclide.get_z_a().0 == 36 => Err("krypton in the buffer is todo!() in boon-lay's walker (gh:#541)"),
+        // ~~Buffer for krypton: a gap~~ filled since 2026-11-10 (gh:#638).
         _ => Ok(()),
     }
 }

@@ -39,6 +39,9 @@
 //! eigensolver, and the product against the manual's own Eqs 293–298 at a
 //! moving state.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The local state the Jacobian needs: velocity `u`, total specific enthalpy
 /// `H`, sound speed `c` and Grüneisen coefficient `Γ`, raw SI.
 #[derive(Debug, Clone, Copy, PartialEq)]

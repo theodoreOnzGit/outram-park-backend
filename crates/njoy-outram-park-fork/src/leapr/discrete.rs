@@ -20,6 +20,9 @@
 //! ## Units
 //! `alpha`, `beta`, `S` dimensionless; oscillator energies in eV; temperatures K.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::leapr::input::LeaprInput;
 use crate::leapr::SabMatrix;

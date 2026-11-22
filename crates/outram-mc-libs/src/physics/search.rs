@@ -88,6 +88,9 @@
 //! println!("critical radius = {:.3} cm, k = {:.5}", result.parameter, result.keff);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::physics::keff::KeffResult;
 
 /// Which bracketed root-finding method [`search_for_keff`] uses.
@@ -213,8 +216,8 @@ pub enum SearchError {
     },
 }
 
-impl std::fmt::Display for SearchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for SearchError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SearchError::BracketDoesNotStraddle { k_lo, k_hi, target } => write!(
                 f,
@@ -229,7 +232,7 @@ impl std::fmt::Display for SearchError {
     }
 }
 
-impl std::error::Error for SearchError {}
+impl core::error::Error for SearchError {}
 
 /// Bracketed criticality search: find the scalar parameter `p` in `bracket`
 /// such that `k_eff(p) = settings.target`.

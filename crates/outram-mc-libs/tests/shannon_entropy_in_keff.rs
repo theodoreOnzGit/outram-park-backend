@@ -16,6 +16,8 @@
 //!
 //! Printed by the test.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

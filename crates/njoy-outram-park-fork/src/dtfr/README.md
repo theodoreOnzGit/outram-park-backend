@@ -45,11 +45,17 @@ ENDF cross sections or linear combinations thereof.
 
 **NotPorted (documented gaps):**
 
-- **GENDF tape reader** — the `contio`/`listio`/`moreio` walk of a GROUPR tape
+- ~~**GENDF tape reader** — the `contio`/`listio`/`moreio` walk of a GROUPR tape
   and the MF/MT accumulation dispatch (`dtfr.f90:181-553`). The ported kernels
-  consume an in-memory `table::DtfTable` instead.
-- **Plotting** — `ploted`/`plotnn`/`plotnp` viewr/PostScript streams
-  (`dtfr.f90:948-1507`) are **permanently out of scope** for this port.
+  consume an in-memory `table::DtfTable` instead.~~ **CORRECTED 2026-11-13 (gh:#1369):** `deck.rs` translates
+  `dtfr`, `ruin` and `dtfout` line for line and runs from a deck on the GENDF unit.
+- ~~**Plotting** — `ploted`/`plotnn`/`plotnp` viewr/PostScript streams
+  (`dtfr.f90:948-1507`) are **permanently out of scope** for this port.~~
+  **CORRECTED 2026-11-13 (gh:#1369):** translated in `plots.rs` (`ploted`, `histod`, `dpend`, `plotnn`,
+  `plotnp`), because upstream deck 03 compares them. Deck 03's units 34 (tables), 36
+  (plot commands) and 37 (VIEWR's PostScript, upstream's `referenceTape37` byte for
+  byte), and deck X1 (photon table, `ifilm = 2`) are NJOY2016.80's line for line
+  (`tests/deck_driver_photon_vs_njoy2016.rs`).
 - `driver::run` documents the full pipeline and returns
   `NjoyError::NotPorted("dtfr::run")`; the registry entry `dtfr::run()` returns
   `NjoyError::NotPorted("dtfr")`. No table is fabricated.

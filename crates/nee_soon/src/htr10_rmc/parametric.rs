@@ -37,8 +37,11 @@
 //!
 //! Orchestration only: no physics is implemented here.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use crate::sync::Mutex;
 
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use outram_mc_libs::material::material::Material;
@@ -58,7 +61,9 @@ use super::core_model::{
 use super::data::{
     Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape, TapeSource, ThermalLawSource,
 };
-use super::data_jobs::{assemble_entries, process_job_at, JobProduct, TemperedJob};
+use super::data_jobs::{assemble_entries, JobProduct, TemperedJob};
+#[cfg(feature = "std")]
+use super::data_jobs::{process_job_at};
 use super::explicit_bed::assemble_explicit_triso_from_centres_with;
 use super::keff_vs_height::{
     fissile_entropy_mesh, fissile_source_box, majorant_energy_grid, SweepStatistics,
@@ -316,6 +321,7 @@ impl ParametricStudy {
         })
     }
 
+    #[cfg(feature = "std")]
     /// Run job `i` of `plan`. `tape` is the tape [`Self::job_tape`] names,
     /// already read (`None` for a LEAPR law).
     ///
@@ -334,6 +340,7 @@ impl ParametricStudy {
         process_job_at(&j.job, &self.data, tape, j.temperature)
     }
 
+    #[cfg(feature = "std")]
     /// The tape job `i` reads, or `None` for a LEAPR law.
     ///
     /// # Errors
@@ -346,6 +353,7 @@ impl ParametricStudy {
             .tape(&self.data)
     }
 
+    #[cfg(feature = "std")]
     /// Build the nuclide array from the jobs' products (`product(i)` for job
     /// `i`) and the tapes (`read_tape`).
     ///
@@ -394,6 +402,7 @@ impl ParametricStudy {
         Majorant::over_indices(&plan.materials, &bed, nuclides, &majorant_energy_grid(), 0.3)
     }
 
+    #[cfg(feature = "std")]
     /// **Process every job natively and assemble the nuclide array**: the
     /// jobs on `threads` threads, tapes from the workspace. `progress` gets a
     /// line per finished job.
@@ -424,7 +433,7 @@ impl ParametricStudy {
                     if i >= plan.jobs.len() {
                         break;
                     }
-                    let t0 = std::time::Instant::now();
+                    let t0 = crate::time::Instant::now();
                     let r = self
                         .job_tape(plan, i)
                         .and_then(|t| t.map(|t| read(&t)).transpose())
@@ -491,7 +500,7 @@ impl ParametricStudy {
             &core.geometry,
             &plan.materials,
             nuclides,
-            std::slice::from_ref(&majorant),
+            core::slice::from_ref(&majorant),
             Some(&mesh),
             fissile_source_box(&core),
             &self.statistics.keff_settings(threads.max(1)),
@@ -499,6 +508,7 @@ impl ParametricStudy {
         ))
     }
 
+    #[cfg(feature = "std")]
     /// **Run it natively**: [`Self::plan`], [`Self::process_all`],
     /// [`Self::transport`].
     ///
@@ -634,7 +644,7 @@ mod tests {
                     if let Some(r) = mat::region_of_regional(x) {
                         regional[r] += 1;
                     }
-                    assert_eq!(a.temperature, study.temperatures.kelvin(zone_of_slot(x)));
+                    assert_eq!(a.temperature, Some(study.temperatures.kelvin(zone_of_slot(x))));
                 }
                 (fa, fb) => assert_eq!(format!("{fa:?}"), format!("{fb:?}")),
             }
@@ -644,7 +654,7 @@ mod tests {
         // Eight zones at eight temperatures: carbon at the five graphite
         // zones, so more nuclides than slots, and a job for each.
         assert!(plan.entries.len() > plan.layout.len());
-        let temps: std::collections::BTreeSet<u64> =
+        let temps: alloc::collections::BTreeSet<u64> =
             plan.jobs.iter().map(|j| j.kelvin().to_bits()).collect();
         assert_eq!(temps.len(), 8);
         // The coolant's helium density follows its temperature (700 K here
@@ -677,7 +687,7 @@ mod tests {
         for c in &core.geometry.cells {
             if let CellFill::Material(x) = c.fill {
                 let want = if x == mat::GRAPHITE { 900.0 } else { 300.15 };
-                assert_eq!(c.temperature, want, "cell {}", c.id);
+                assert_eq!(c.temperature, Some(want), "cell {}", c.id);
                 moved += usize::from(x == mat::GRAPHITE);
             }
         }

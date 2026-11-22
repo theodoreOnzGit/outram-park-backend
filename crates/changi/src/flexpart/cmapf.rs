@@ -124,6 +124,9 @@
 //! radians per km, wind components in any one consistent unit (upstream's
 //! comment says km/h; the rotation is unit-free).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Upstream's `pi` literal (`cmapf_mod.f90`), 3.2e-15 short of `PI`.

@@ -250,9 +250,7 @@ fn conus_slump_matches_liggghts() {
     // docs describe.
     let references: Vec<(usize, Vec<Vec3>)> = CHECKPOINTS
         .iter()
-        .filter_map(|&t| {
-            load_positions(&format!("htr10_conus_t{t}_liggghts.csv")).map(|p| (t, p))
-        })
+        .filter_map(|&t| load_positions(&format!("htr10_conus_t{t}_liggghts.csv")).map(|p| (t, p)))
         .collect();
     if references.is_empty() {
         eprintln!("skipping: no htr10_conus_t*_liggghts.csv reference frames present");

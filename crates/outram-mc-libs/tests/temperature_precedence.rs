@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Which temperature does what in a CSG k-eigenvalue run** — pinned, so
 //! the answer in `docs/temperatures.md` cannot drift. Maintainer direction,
@@ -15,7 +15,7 @@
 //! | S(α,β) table temperature | `ThermalScattering::from_endf_file(.., T, ..)` | Selects the bound-scattering table |
 //! | `Material::temperature` | the material | Passed to every cross-section lookup; **only multipole (`Core`) nuclides use it**. Pointwise nuclides ignore it |
 //! | `KeffSettings::temperature_k` | the run | ~~**Free-gas elastic kinematics**~~ **Nothing in the CSG drivers** since 2026-09-30 (GitHub #313): the free-gas kT is the nuclide's data temperature (pointwise) or the material's (multipole), as OpenMC |
-//! | `Cell::temperature` | the cell | **Not read by transport at all** |
+//! | `Cell::temperature` | the cell | ~~**Not read by transport at all**~~ **CORRECTED 2026-11-14 (GitHub #313): read, and applied by default**, as the temperature of a bound copy of its material. Pointwise (ACE) nuclides ignore a material's temperature, so this arm stays bit-identical here; multipole nuclides do not (`tests/cell_temperature_is_default.rs`) |
 //!
 //! # Methodology
 //!
@@ -24,7 +24,7 @@
 //! single thread, a fixed seed. A reference run has every temperature at
 //! 293.6 K. Each other arm changes **one** temperature to 1200 K:
 //!
-//! - cell temperature → k must be **bit-identical** (never read);
+//! - cell temperature → k must be **bit-identical** (~~never read~~ **CORRECTED 2026-11-14:** read, but through a material copy whose temperature pointwise ACE nuclides ignore);
 //! - material temperature → k must be **bit-identical** (ACE nuclides are
 //!   pointwise, so the lookup ignores it);
 //! - ~~run temperature → k must **differ** (the free-gas target velocity
@@ -62,6 +62,8 @@
 //!
 //! Recorded in `docs/temperatures.md` from this test's printout (2026-09-27,
 //! re-measured 2026-09-30 twice: once for the H-1 protocol, once for #313).
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -188,8 +190,8 @@ fn which_temperature_takes_precedence() {
     assert_eq!(
         cell_hot.0.to_bits(),
         reference.0.to_bits(),
-        "Cell::temperature changed k: it is read by transport after all, and \
-         docs/temperatures.md is wrong"
+        "Cell::temperature changed k on pointwise (ACE) nuclides: the bound \
+         material copy now matters to them, and docs/temperatures.md is wrong"
     );
     assert_eq!(
         mat_hot.0.to_bits(),

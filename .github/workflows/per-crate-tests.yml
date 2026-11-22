@@ -1,0 +1,371 @@
+# Per-crate test runner -- ONE JOB PER CRATE (GitHub #1337, maintainer,
+# 2026-11-10: "each crate should have its own runner, it's running out on
+# 6 hrs"). Called by full-tests.yml, manual-tests.yml and
+# kovan-nightly-tests.yml; it has no trigger of its own.
+#
+# WHY. A GitHub-hosted job is killed at 6 hours. The long tier of the whole
+# workspace in ONE job no longer fits: full-tests run 42136324698
+# (2026-11-06) compiled for 32 min, ran tests for 5 h 28 min, and was
+# cancelled at 6 h still inside outram-mc-libs, with petir, raffles,
+# sembawang, tampines, tuas_boussinesq_solver and others never started.
+#
+# ── Layout ───────────────────────────────────────────────────────────────────
+#
+#   setup    `scripts/ci-crate-matrix.sh` turns `cargo metadata`'s workspace
+#            members into the matrix (one entry per crate; one per test
+#            target for a crate in `ci/split-by-target.txt`). Fixes the commit
+#            every job tests. In kovan-record mode it also builds kovan-cli
+#            once and hands it to the test jobs.
+#   test     one job per matrix entry:
+#              cargo test -p <crate> --lib --tests --release --no-fail-fast
+#            (a shard replaces `--lib --tests` by its own `--lib` or
+#            `--test <name>`), long tests ON (default features), each with
+#            its own 6 hours, its own cache and its own result artifact.
+#            `fail-fast: false`: one red crate never cancels the others.
+#   summary  `if: always()`: one table of every entry's result in the job
+#            summary; fails if any entry failed, timed out or never reported.
+#
+# ── Things that are true here and were not in one big job ───────────────────
+#
+# FEATURE RESOLUTION IS PER CRATE. `cargo test -p X` resolves features for X
+# alone, where `--workspace` unified them across every member. A crate that
+# only compiled because ANOTHER member switched a feature on fails here; that
+# is a real defect of the crate (it does not build on its own), not of CI.
+#
+# EVERY CRATE COMPILES ITS OWN DEPENDENCY CLOSURE, so a shared low-level crate
+# is compiled once per job instead of once. That is the price of separate
+# 6-hour budgets. Each job restores a cache keyed on its package.
+#
+# max-parallel: 16. GitHub caps concurrent jobs per ACCOUNT across every
+# repository (20 on the Free plan, 40 on Pro); a matrix of ~200 jobs would
+# otherwise take every slot for hours, so a push to `develop` could not start
+# its own checks. 16 leaves 4 slots on Free for fast-tests / pages /
+# kovan-daily. GitHub queues the rest; nothing is dropped.
+#
+# NO SYSTEM BLAS. ~~kovan-nightly-tests.yml installed libopenblas-dev "for
+# outram-foam-basic-lib's matrix_bench"~~ CORRECTED 2026-11-10 (gh:#1337):
+# matrix_bench has `required-features = ["blas-bench"]`, which no run here
+# enables, so `--tests` never builds it and no workspace crate needs BLAS
+# (outram-foam-basic-lib/Cargo.toml; fast-tests.yml says the same).
+#
+# DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
+# workspace HARD RULE: they run in parallel.
+#
+# RELEASE MODE, as everywhere in this workspace.
+
+name: per-crate tests
+
+on:
+  workflow_call:
+    inputs:
+      scope:
+        description: "full = long tests ON; fast = --no-default-features (long tests OFF)"
+        type: string
+        default: full
+      package:
+        description: "One package only (blank = every workspace member)"
+        type: string
+        default: ""
+      filter:
+        description: "Test-name substring passed to every test binary (blank = none)"
+        type: string
+        default: ""
+      ref:
+        description: "Ref to test (blank = the commit that triggered the run)"
+        type: string
+        default: ""
+      cache-prefix:
+        description: "Prefix of every job's cache key"
+        type: string
+        required: true
+      kovan-record:
+        description: >-
+          Run each whole-crate job through `kovan-cli test -p <crate>` and
+          upload its evidence and changed kovan.toml files (kovan-nightly-tests.yml)
+        type: boolean
+        default: false
+    outputs:
+      sha:
+        description: "The commit every job tested"
+        value: ${{ jobs.setup.outputs.sha }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+  # Keep the rustdoc JSON producer paired with the verified rustdoc-md version.
+  KOVAN_RUSTDOC_TOOLCHAIN: nightly-2026-11-05
+  KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+
+jobs:
+  setup:
+    name: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Commit under test
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # rust-toolchain.toml pins the workspace toolchain; this installs it.
+      - name: Toolchain
+        run: rustup toolchain install && cargo --version
+
+      - name: Matrix from cargo metadata
+        id: matrix
+        env:
+          PACKAGE: ${{ inputs.package }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          args=(--scope "$SCOPE")
+          if [ -n "$PACKAGE" ]; then args+=(--package "$PACKAGE"); fi
+          m=$(scripts/ci-crate-matrix.sh "${args[@]}")
+          echo "matrix=$m" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.include | length' <<<"$m")" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Matrix at \`$(git rev-parse --short HEAD)\` (scope ${SCOPE})"
+            echo
+            scripts/ci-crate-matrix.sh "${args[@]}" --summary 2>&1 | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: Swatinem/rust-cache@v2
+        if: inputs.kovan-record
+        with:
+          key: ${{ inputs.cache-prefix }}-kovan-cli
+          cache-on-failure: true
+
+      - name: Build kovan-cli (once, for every job)
+        if: inputs.kovan-record
+        run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.kovan-record
+        with:
+          name: kovan-cli
+          path: target/release/kovan-cli
+          if-no-files-found: error
+          retention-days: 3
+
+  test:
+    name: ${{ matrix.package }}${{ matrix.shard != '' && format(' [{0}]', matrix.shard) || '' }}
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 16 # see the header
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.sha }}
+          # reference-data/ace and the literature corpus: the long tests read
+          # them, as the one-job workflows this replaces checked them out.
+          submodules: recursive
+
+      # The pinned toolchain plus rust-analyzer: kovan's SCIP and call-graph
+      # tests look for it on PATH (kovan-daily.yml, run 39684921124). Run in
+      # the checkout so it lands on the toolchain rust-toolchain.toml selects.
+      - name: Toolchain
+        run: |
+          rustup toolchain install
+          rustup component add rust-analyzer
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Per crate (shards of one crate share it), per scope: the two
+          # scopes build different features.
+          key: ${{ inputs.cache-prefix }}-${{ inputs.scope }}-${{ matrix.package }}
+          cache-on-failure: true
+
+      # The api-docs regression tests (kovan, kovan-semantics) run the real
+      # documentation pipeline.
+      - name: Install API-doc test prerequisites
+        if: contains(matrix.package, 'kovan')
+        run: |
+          rustup toolchain install "$KOVAN_RUSTDOC_TOOLCHAIN" --profile minimal
+          cargo install rustdoc-md --version 0.2.0 --locked
+
+      - uses: actions/download-artifact@v4
+        if: inputs.kovan-record && matrix.shard == ''
+        with:
+          name: kovan-cli
+          path: ${{ runner.temp }}/kovan-cli
+
+      # A step timeout below the job's, so a test run that overruns is
+      # stopped here and the result step still records it as a timeout.
+      - name: Test ${{ matrix.package }} ${{ matrix.select }}
+        id: test
+        timeout-minutes: 340
+        env:
+          PKG: ${{ matrix.package }}
+          SELECT: ${{ matrix.select }}
+          SCOPE: ${{ inputs.scope }}
+          FILTER: ${{ inputs.filter }}
+          RECORD: ${{ inputs.kovan-record && matrix.shard == '' }}
+        run: |
+          set -uo pipefail
+          read -r -a sel <<<"$SELECT"
+          if [ "$RECORD" = "true" ]; then
+            # kovan-cli adds `--lib --tests --release --no-fail-fast` itself;
+            # `-p` keeps the run full for this crate and records it into this
+            # crate's kovan.toml files only (GitHub #1049).
+            kc="$RUNNER_TEMP/kovan-cli/kovan-cli"
+            chmod +x "$kc"
+            cmd=("$kc" test --out "$RUNNER_TEMP/evidence.toml" -p "$PKG")
+          else
+            cmd=(cargo test -p "$PKG" "${sel[@]}" --release --no-fail-fast)
+            if [ "$SCOPE" = "fast" ]; then cmd+=(--no-default-features); fi
+            # A trailing bare filter is a test-NAME substring, not a cargo flag.
+            if [ -n "$FILTER" ]; then cmd+=("$FILTER"); fi
+          fi
+          printf 'running:'; printf ' %q' "${cmd[@]}"; printf '\n'
+          start=$(date +%s)
+          "${cmd[@]}" 2>&1 | tee "$RUNNER_TEMP/test.log"
+          code=${PIPESTATUS[0]}
+          # To files, not step outputs: a failed step's outputs never reach
+          # later steps (run 42917563946: kovan-literature's failure read as a
+          # timeout). No file at all means the step was killed (timeout).
+          echo "$code" > "$RUNNER_TEMP/test.code"
+          echo "$(( $(date +%s) - start ))" > "$RUNNER_TEMP/test.seconds"
+          exit "$code"
+
+      - name: Result
+        if: always()
+        env:
+          ID: ${{ matrix.id }}
+          PKG: ${{ matrix.package }}
+          SHARD: ${{ matrix.shard }}
+          SELECT: ${{ matrix.select }}
+          OUTCOME: ${{ steps.test.outcome }}
+        run: |
+          set -euo pipefail
+          CODE=$(cat "$RUNNER_TEMP/test.code" 2>/dev/null || true)
+          SECONDS_RUN=$(cat "$RUNNER_TEMP/test.seconds" 2>/dev/null || true)
+          log="$RUNNER_TEMP/test.log"
+          touch "$log"
+          sed 's/\x1b\[[0-9;]*m//g' "$log" > "$RUNNER_TEMP/test.clean"
+          # libtest's "test result: ok. 11 passed; 0 failed; 2 ignored; ..."
+          read -r results passed failed ignored < <(awk '
+            /^test result:/ { n++; for (i = 2; i <= NF; i++) {
+              if ($i ~ /^passed/) p += $(i-1); if ($i ~ /^failed/) f += $(i-1); if ($i ~ /^ignored/) g += $(i-1) } }
+            END { print n+0, p+0, f+0, g+0 }' "$RUNNER_TEMP/test.clean")
+          failures=$({ grep -E '^test .* \.\.\. FAILED$' "$RUNNER_TEMP/test.clean" || true; } \
+            | sed -E 's/^test (.*) \.\.\. FAILED$/\1/' | sort -u | head -50 | jq -R . | jq -sc .)
+          kovan=$({ grep -oE 'kovan-cli test: (COUNTED|NOT counted)' "$RUNNER_TEMP/test.clean" || true; } | head -1 | sed 's/kovan-cli test: //')
+          if [ "$OUTCOME" = "success" ]; then status=pass
+          elif [ -z "$CODE" ] && [ "$OUTCOME" = "failure" ]; then status=timeout
+          elif [ -z "$CODE" ]; then status="$OUTCOME"
+          elif [ "$results" = 0 ]; then status=build-failed
+          else status=fail
+          fi
+          mkdir -p "$RUNNER_TEMP/result"
+          jq -n --arg id "$ID" --arg package "$PKG" --arg shard "$SHARD" --arg select "$SELECT" \
+            --arg status "$status" --arg code "$CODE" --arg seconds "${SECONDS_RUN:-}" \
+            --argjson passed "$passed" --argjson failed "$failed" --argjson ignored "$ignored" \
+            --argjson binaries "$results" --argjson failures "$failures" --arg kovan "$kovan" \
+            '{id:$id, package:$package, shard:$shard, select:$select, status:$status, code:$code,
+              seconds:$seconds, binaries:$binaries, passed:$passed, failed:$failed,
+              ignored:$ignored, failures:$failures, kovan:$kovan}' \
+            > "$RUNNER_TEMP/result/$ID.json"
+          cat "$RUNNER_TEMP/result/$ID.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.id }}
+          path: ${{ runner.temp }}/result/${{ matrix.id }}.json
+          retention-days: 30
+
+      # kovan-record mode: the raw evidence and every kovan.toml this run
+      # rewrote. Each `-p` run rewrites only its own crate's files, so the
+      # caller can overlay all of them without conflict (it checks).
+      - name: Collect the kovan record
+        if: always() && inputs.kovan-record && matrix.shard == ''
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/kovan-record"
+          mkdir -p "$out"
+          if [ -f "$RUNNER_TEMP/evidence.toml" ]; then cp "$RUNNER_TEMP/evidence.toml" "$out/evidence.toml"; fi
+          git diff --name-only -z -- ':(glob)**/kovan.toml' > "$out/changed.list"
+          if [ -s "$out/changed.list" ]; then
+            tar --null -T "$out/changed.list" -cf "$out/kovan-toml.tar"
+          fi
+          tr '\0' '\n' < "$out/changed.list"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs.kovan-record && matrix.shard == ''
+        with:
+          name: kovan-record-${{ matrix.id }}
+          path: ${{ runner.temp }}/kovan-record/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  summary:
+    name: summary
+    needs: [setup, test]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+          merge-multiple: true
+
+      - name: Per-crate results
+        env:
+          EXPECTED: ${{ needs.setup.outputs.count }}
+          SETUP: ${{ needs.setup.result }}
+          MATRIX: ${{ needs.setup.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          if [ "$SETUP" != "success" ]; then
+            echo "::error title=per-crate tests::the matrix job did not succeed ($SETUP); no crate ran"
+            echo "**The matrix job did not succeed ($SETUP); no crate ran.**" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          # Every matrix entry, with a placeholder for one that never reported
+          # (cancelled, killed at the job limit, or never started).
+          jq -c '.include[]' <<<"$MATRIX" | while read -r e; do
+            id=$(jq -r .id <<<"$e")
+            [ -f "results/$id.json" ] || jq '. + {status:"no-result", passed:0, failed:0, ignored:0, binaries:0, failures:[], seconds:"", kovan:""}' <<<"$e" > "results/$id.json"
+          done
+          all=$(jq -s 'sort_by((.status == "pass"), .package, .shard)' results/*.json)
+          bad=$(jq '[.[] | select(.status != "pass")] | length' <<<"$all")
+          {
+            echo "## Per-crate tests: $(jq length <<<"$all") jobs, $bad not passing (expected $EXPECTED)"
+            echo
+            jq -r '"Passed \([.[].passed] | add), failed \([.[].failed] | add), ignored \([.[].ignored] | add) tests in \([.[].binaries] | add) test binaries."' <<<"$all"
+            echo
+            echo "| status | crate | target | tests passed / failed / ignored | minutes | kovan record | failing tests |"
+            echo "|---|---|---|---|---|---|---|"
+            jq -r '.[] | "| \(if .status == "pass" then "pass" else "**\(.status)**" end) | `\(.package)` | `\(.select)` | \(.passed) / \(.failed) / \(.ignored) | \(if (.seconds // "") == "" then "" else ((.seconds | tonumber) / 60 | floor | tostring) end) | \(.kovan // "") | \((.failures // []) | map("`\(.)`") | join(" "))|"' <<<"$all"
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq -s . results/*.json > per-crate-results.json
+          if [ "$bad" != 0 ]; then
+            jq -r '.[] | select(.status != "pass") | "::error title=\(.package) \(.shard)::\(.status) (\(.failed) failed)"' <<<"$all"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: per-crate-results
+          path: per-crate-results.json
+          if-no-files-found: ignore

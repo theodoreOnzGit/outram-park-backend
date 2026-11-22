@@ -1,5 +1,8 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use outram_mc_libs::rng::{distributions::sample_exp, lcg::prn};
 use uom::si::{f64::Ratio, ratio::ratio};

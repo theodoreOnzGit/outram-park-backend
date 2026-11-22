@@ -15,6 +15,9 @@
 //! routed through the ACER ACE-file writer (`src/ace/energy.rs` has its own,
 //! narrower MF=5 LF=1 parser for that separate path; see `docs/porting-plan.md` §8).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// `true` when an `(NBT, INT)` region table is **lin-lin throughout**: empty
@@ -348,7 +351,10 @@ pub struct ChiTabular {
     /// unit-base. That is a real discrepancy against the *evaluation* — but it
     /// is **not** a discrepancy against this crate's reference implementation:
     /// NJOY's ACER preserves the flag into the ACE Law-4 header, OpenMC applies
-    /// unit-base regardless, and this port's sampled spectra reproduce OpenMC's
+    /// unit-base regardless (~~"regardless"~~ **CORRECTED 2026-11-19**, gh:#689,
+    /// #693 item 6: except a single histogram (INT=1) incident region, where it
+    /// uses the lower table with no random pick and no scaling; ported in
+    /// `sample_continuous_tabular_indexed`), and this port's sampled spectra reproduce OpenMC's
     /// construction to 0.02 % (`outram-mc-libs`'s
     /// `mt91_transfer_vs_openmc.rs`). Diverging from OpenMC here is a
     /// maintainer decision, not something to do silently — hence: carried,
@@ -1517,7 +1523,7 @@ fn lab_angle_energy_emission(
             .iter()
             .flat_map(|t| t.e_out_mev.iter().copied())
             .collect();
-        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
         grid.dedup_by(|a, b| (*a - *b).abs() <= 0.0);
         if grid.len() < 2 {
             return Ok(None);
@@ -2583,6 +2589,7 @@ mod mf5_lf_survey {
     use crate::endf::tape::Tape;
     use crate::reference_data::reference_data_dir;
 
+    #[cfg(feature = "std")]
     /// **Which MF=5 secondary-energy laws (`LF`) do the held evaluations use?**
     ///
     /// [`super::FissionSpectrum::from_endf_mf5_mt`] ports LF=1/7/9/11 and
@@ -2613,7 +2620,7 @@ mod mf5_lf_survey {
             .collect();
         files.sort();
 
-        let mut seen: std::collections::BTreeMap<i32, usize> = Default::default();
+        let mut seen: alloc::collections::BTreeMap<i32, usize> = Default::default();
         let mut unported: Vec<String> = Vec::new();
         let (mut n_sec, mut n_err) = (0usize, 0usize);
         for f in &files {

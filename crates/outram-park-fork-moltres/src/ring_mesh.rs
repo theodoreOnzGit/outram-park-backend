@@ -42,9 +42,12 @@
 //! `n >= 130`) — a documented, mesh-refinement-vanishing geometric bias.
 //! Cell volumes use the exact arc measure `dx * A`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
-use std::sync::Arc;
+use core::f64::consts::PI;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{Field, FvMesh, FvMeshBuilder, SurfaceScalarField, Vector3};
 

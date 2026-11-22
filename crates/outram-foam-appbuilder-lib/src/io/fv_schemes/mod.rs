@@ -24,7 +24,12 @@
 //! interpolation) is a typed enum on [`FvSchemes`], so rust-analyzer surfaces
 //! every valid option on hover and an unknown scheme is a `Result` error.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 /// Parsed `system/fvSchemes` — numerical scheme selection for each operator.
@@ -75,8 +80,26 @@ pub enum GradScheme {
 /// Divergence / convection scheme (divSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum DivScheme {
+    /// `Gauss linear`: central differencing, fully implicit, as upstream's
+    /// `gaussConvectionScheme` (since gh:#1363; see
+    /// `fvm::div_vec_linear`). Unbounded: on a coarse convection-dominated
+    /// mesh it can diverge, as upstream's does.
     GaussLinear,
     GaussUpwind,
+    /// Central differencing by **deferred correction**: implicit upwind plus
+    /// the lagged explicit `φ (U_linear − U_upwind)` in the source, which is
+    /// what `GaussLinear` was before gh:#1363. **NOT an OpenFOAM scheme** and
+    /// not upstream's `Gauss linear` (it changes `A` and `H` of PISO: 1.4e-3
+    /// of the velocity range at step 2 of the cavity differential). Kept
+    /// explicit so an ablation can still reproduce it.
+    ///
+    /// **Deprecated 2026-11-12 (gh:#1500, maintainer: "Deprecate the old
+    /// scheme"):** use [`DivScheme::GaussLinear`]. The Foam Studio coil and
+    /// its gh:#1157 V&V record now run `GaussLinear`; the one remaining use is
+    /// the record's deferred-form ablation row (`--coil-run ... deferred`) and
+    /// this scheme's own unit test, each under `#[allow(deprecated)]`.
+    #[deprecated(note = "not an OpenFOAM scheme: use `DivScheme::GaussLinear` (upstream's fully implicit Gauss linear); see gh:#1500")]
+    GaussLinearDeferred,
     GaussLinearUpwind(String), // e.g. "Gauss linearUpwind grad(U)"
     GaussVanLeer,
     GaussMUSCL,
@@ -122,6 +145,7 @@ impl FvSchemes {
         self.grad_u.as_ref().unwrap_or(&self.default_grad)
     }
 
+    #[cfg(feature = "std")]
     /// Parse a `system/fvSchemes` file from disk.
     ///
     /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM

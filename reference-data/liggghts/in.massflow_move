@@ -1,0 +1,56 @@
+# fix massflow/mesh on a MOVING mesh (gh:#1416): the counting plate rises at 0.25 m/s (fix move/mesh linear) through the 12 spheres of in.massflow_plate; setRefPoint and the full-skin mesh neighbour list follow the plate.
+# plate_square.stl (z = 0, normal +-z) while bouncing on a floor wall at z = -0.12.
+# mfu counts upward crossings (count multiple), mfd downward ones (count once).
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.4 0.4 -0.4 0.4 -0.2 0.4 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+fix		plate all mesh/surface file plate_square.stl type 1
+fix		floor all wall/gran model hertz tangential history primitive type 1 zplane -0.12
+create_atoms	1 single -0.2 -0.040 0.06 units box
+create_atoms	1 single -0.08 -0.030 0.06 units box
+create_atoms	1 single 0.04 -0.020 0.06 units box
+create_atoms	1 single 0.16 -0.010 0.06 units box
+create_atoms	1 single -0.2 0.000 0.03 units box
+create_atoms	1 single -0.08 0.010 0.03 units box
+create_atoms	1 single 0.04 0.020 0.03 units box
+create_atoms	1 single 0.16 0.030 0.03 units box
+create_atoms	1 single -0.2 0.040 -0.05 units box
+create_atoms	1 single -0.08 0.050 -0.05 units box
+create_atoms	1 single 0.04 0.060 -0.05 units box
+create_atoms	1 single 0.16 0.070 -0.05 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.00 vz -0.50
+set		atom 2 diameter 0.01 density 2500 vx 0.05 vz -0.60
+set		atom 3 diameter 0.01 density 2500 vx -0.05 vz -0.70
+set		atom 4 diameter 0.01 density 2500 vx 0.00 vz -0.80
+set		atom 5 diameter 0.01 density 2500 vx 0.05 vz -0.90
+set		atom 6 diameter 0.01 density 2500 vx -0.05 vz -1.00
+set		atom 7 diameter 0.01 density 2500 vx 0.00 vz -1.10
+set		atom 8 diameter 0.01 density 2500 vx 0.05 vz -1.20
+set		atom 9 diameter 0.01 density 2500 vx -0.05 vz 2.10
+set		atom 10 diameter 0.01 density 2500 vx 0.00 vz 2.20
+set		atom 11 diameter 0.01 density 2500 vx 0.05 vz 2.30
+set		atom 12 diameter 0.01 density 2500 vx -0.05 vz 2.40
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+fix		mv all move/mesh mesh plate linear 0. 0. 0.25
+fix		mfu all massflow/mesh mesh plate vec_side 0 0 1 count multiple
+fix		mfd all massflow/mesh mesh plate vec_side 0 0 -1 count once
+thermo_style	custom step f_mfu[1] f_mfu[2] f_mfu[3] f_mfu[4] f_mfd[1] f_mfd[2] f_mfd[3] f_mfd[4]
+thermo_modify	lost ignore norm no format float %.17g
+thermo		500
+dump		d1 all custom 500 dump.massflow_move id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		60000

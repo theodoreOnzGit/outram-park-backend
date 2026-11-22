@@ -60,6 +60,9 @@
 //! moves from -0.276 to -0.023 — a factor of twelve, so the agreement is not a
 //! coincidence of scale.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::thermr::calcem::iform1::compute_iform1;

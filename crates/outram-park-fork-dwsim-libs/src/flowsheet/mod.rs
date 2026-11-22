@@ -136,10 +136,15 @@
 //!   crate's own equipment modules; wiring them into the registry is the
 //!   solver workstream's decision, not this module's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod component_basis;
 pub mod connectors;
 pub mod graph;
 /// Read-only importer for DWSIM's saved `.dwxml` / `.dwxmz` reference files.
+/// `std` only: it reads files and unzips them (gh:#1591).
+#[cfg(feature = "std")]
 pub mod import;
 pub mod objects;
 pub mod queue;

@@ -112,6 +112,9 @@
 //!   of elastic solids," *Proc. R. Soc. Lond. A* **324**(1558), 301–313
 //!   (1971) — the JKR adhesion theory; pull-off force `F_pull = (3/2)π γ R*`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Vec3;
 use crate::DemError;
 
@@ -459,7 +462,7 @@ impl CohesionModel {
         match self {
             Self::None => 0.0,
             Self::LinearCohesion { k_c, max_gap } => k_c * max_gap,
-            Self::Jkr { surface_energy } => 1.5 * std::f64::consts::PI * surface_energy * r_eff,
+            Self::Jkr { surface_energy } => 1.5 * core::f64::consts::PI * surface_energy * r_eff,
         }
     }
 
@@ -599,7 +602,7 @@ mod tests {
         use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
         use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 
-        let mass = 2500.0 * std::f64::consts::PI / 6.0 * 1.0e-6;
+        let mass = 2500.0 * core::f64::consts::PI / 6.0 * 1.0e-6;
         let mk = |x: f64, vx: f64, w: Vec3| {
             Particle::new(
                 Vec3::new(x, 0.0, 0.0),
@@ -735,7 +738,7 @@ mod tests {
     fn jkr_pull_off_matches_three_halves_pi_gamma_reff() {
         let model = CohesionModel::jkr(0.5).expect("valid γ");
         let r_eff = 0.02;
-        let f_pull = 1.5 * std::f64::consts::PI * 0.5 * r_eff; // 0.015π
+        let f_pull = 1.5 * core::f64::consts::PI * 0.5 * r_eff; // 0.015π
 
         assert_abs_diff_eq!(model.max_attractive_force(r_eff), f_pull, epsilon = 1.0e-12);
         // In contact → attractive (negative) scalar of magnitude F_pull.

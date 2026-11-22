@@ -126,6 +126,9 @@
 //! limit, an exact reduction). **No test here is a validation against measured
 //! fuel-rod data**, and nothing in this module may be described as validated.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod conductance;
 pub mod contact;
 pub mod free_volume;

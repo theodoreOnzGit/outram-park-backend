@@ -43,9 +43,13 @@
 //! ```
 
 // Point reactor kinetics: the six-group precursor solver and its nuclide data.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::zero_power_prke::six_group_precursor_prke::six_group_constants::FissioningNuclideType;
 pub use crate::zero_power_prke::six_group_precursor_prke::{DecayConstant, SixGroupPRKE};
 pub use crate::zero_power_prke::n_group_prke::PointKinetics;
+pub use crate::zero_power_prke::circulating::CirculatingPointKinetics;
 
 // Delayed neutrons as a standalone layer, for coupling into an external solver.
 pub use crate::delayed_neutron_layer::{DelayedNeutronLayer, NUM_DELAYED_GROUPS};

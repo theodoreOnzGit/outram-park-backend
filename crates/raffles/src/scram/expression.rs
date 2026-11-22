@@ -89,9 +89,12 @@
 //! assert!((p - (1.0 - (-1e-3f64).r_exp())).abs() < 1e-15);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::hash::HashMap;
+use alloc::sync::Arc;
 
 use crate::{RafflesError, Result};
 
@@ -980,8 +983,8 @@ impl Interval {
     }
 }
 
-impl std::fmt::Display for Interval {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Interval {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "{}{}, {}{}",
@@ -1592,9 +1595,13 @@ impl Expression {
     ///
     /// Upstream also **memoises** a sample per expression object per round,
     /// so a parameter feeding several events contributes one draw to all of
-    /// them. Here a parameter is a name in the [`Parameters`] table, so the
+    /// them. ~~Here a parameter is a name in the [`Parameters`] table, so the
     /// caller gets the same effect by sampling the table once per round —
-    /// which is what [`super::uncertainty`] does.
+    /// which is what [`super::uncertainty`] does.~~ **CORRECTED 2026-11-17
+    /// (gh:#1611):** sampling the table first drew the parameters in its
+    /// `HashMap` order, not upstream's; [`Expression::sample_memoised`] is the
+    /// memoised draw, and what [`super::uncertainty`] uses. This method reads
+    /// every parameter name from `parameters` as it stands.
     ///
     /// # Errors
     ///
@@ -1661,5 +1668,159 @@ impl Expression {
                 other.rebuild(sampled)?.evaluate(parameters, mission_time)?
             }
         })
+    }
+}
+
+/// Every parameter's **value** — upstream's `Parameter::value()`, which is
+/// its expression's value with each deviate at its mean, never a sample.
+///
+/// Parameters may name other parameters, so this resolves them in rounds until
+/// nothing new resolves. The result does not depend on the map's iteration
+/// order: each value is a deterministic function of the values it names.
+///
+/// # Errors
+///
+/// [`RafflesError::InvalidParameter`] naming the parameters that never
+/// resolve: one that names an undefined parameter, or a cycle, which upstream
+/// rejects when it validates the model.
+pub fn resolve_parameter_values(
+    definitions: &HashMap<String, Expression>,
+    mission_time: f64,
+) -> Result<Parameters> {
+    let mut resolved = Parameters::new();
+    for _ in 0..definitions.len().max(1) {
+        let mut progressed = false;
+        for (name, e) in definitions {
+            if resolved.contains_key(name) {
+                continue;
+            }
+            if let Ok(v) = e.evaluate(&resolved, mission_time) {
+                resolved.insert(name.clone(), v);
+                progressed = true;
+            }
+        }
+        if !progressed {
+            break;
+        }
+    }
+    if resolved.len() < definitions.len() {
+        let mut missing: Vec<&String> =
+            definitions.keys().filter(|k| !resolved.contains_key(*k)).collect();
+        missing.sort();
+        // Sorted so the message is the same on every run.
+        return Err(RafflesError::InvalidParameter {
+            parameter: "model".to_string(),
+            value: 0.0,
+            reason: format!(
+                "these parameters could not be resolved, which upstream would report as a \
+                 cycle: {missing:?}"
+            ),
+        });
+    }
+    Ok(resolved)
+}
+
+impl Expression {
+    /// Whether a random deviate is reachable from this expression, **looking
+    /// through parameter references** — upstream's `IsDeviate()` exactly.
+    ///
+    /// Upstream's `Parameter` registers its expression as its argument, so a
+    /// reference to a deviate parameter is itself deviate. [`is_deviate`]
+    /// stops at a [`Expression::Parameter`] name, because here a parameter is
+    /// a name rather than an object; this follows the name into
+    /// `definitions`. An undefined name is not deviate.
+    ///
+    /// `definitions` must be acyclic, which [`resolve_parameter_values`]
+    /// checks; [`super::uncertainty::analyse`] calls that first.
+    ///
+    /// [`is_deviate`]: Expression::is_deviate
+    pub fn is_deviate_through(&self, definitions: &HashMap<String, Expression>) -> bool {
+        match self {
+            Expression::Parameter(name) => definitions
+                .get(name)
+                .is_some_and(|d| d.is_deviate_through(definitions)),
+            Expression::UniformDeviate { .. }
+            | Expression::NormalDeviate { .. }
+            | Expression::LognormalDeviate { .. }
+            | Expression::LognormalDeviateNormal { .. }
+            | Expression::GammaDeviate { .. }
+            | Expression::BetaDeviate { .. }
+            | Expression::Histogram { .. } => true,
+            _ => self.args().iter().any(|a| a.is_deviate_through(definitions)),
+        }
+    }
+
+    /// One trial's draw of this expression **in upstream's order** — the
+    /// memoised `Expression::Sample()` (gh:#1611).
+    ///
+    /// Upstream memoises a sample per expression object per trial: the first
+    /// `Sample()` on an object draws and stores, later ones return the stored
+    /// value, and `Reset()` clears them between trials. A parameter is such an
+    /// object, and its `DoSample()` is its expression's `Sample()`. So a
+    /// parameter is drawn **lazily, the first time a deviate event's
+    /// expression reaches it**, depth first through the arguments in their
+    /// registration order, and every later reference reuses that draw.
+    ///
+    /// Here `round` is the memo: the parameters drawn so far this trial. The
+    /// caller clears it between trials, which is upstream's `Reset()`. The
+    /// order of draws therefore depends only on the expressions, never on how
+    /// `definitions` iterates.
+    ///
+    /// Following upstream, a random deviate's own arguments are taken at their
+    /// **value** (`values`, from [`resolve_parameter_values`]), not sampled:
+    /// `NormalDeviate::DoSample` reads `mean_.value()`. A formula's arguments
+    /// are sampled, as `ExpressionFormula::DoSample` does.
+    ///
+    /// # Errors
+    ///
+    /// As [`Expression::sample`], or if the expression names a parameter that
+    /// is not defined.
+    pub fn sample_memoised(
+        &self,
+        definitions: &HashMap<String, Expression>,
+        values: &Parameters,
+        round: &mut Parameters,
+        mission_time: f64,
+        seed: &mut u64,
+    ) -> Result<f64> {
+        match self {
+            Expression::Parameter(name) => {
+                if let Some(v) = round.get(name) {
+                    return Ok(*v);
+                }
+                let definition =
+                    definitions
+                        .get(name)
+                        .ok_or_else(|| RafflesError::InvalidParameter {
+                            parameter: "parameter".to_string(),
+                            value: 0.0,
+                            reason: format!(
+                                "the expression references `{name}`, which is not defined"
+                            ),
+                        })?;
+                let v = definition.sample_memoised(definitions, values, round, mission_time, seed)?;
+                round.insert(name.clone(), v);
+                Ok(v)
+            }
+            // No deviate below: upstream's `Sample()` returns the value.
+            _ if !self.is_deviate_through(definitions) => self.evaluate(values, mission_time),
+            // A deviate draws once, its arguments at their values.
+            Expression::UniformDeviate { .. }
+            | Expression::NormalDeviate { .. }
+            | Expression::LognormalDeviate { .. }
+            | Expression::LognormalDeviateNormal { .. }
+            | Expression::GammaDeviate { .. }
+            | Expression::BetaDeviate { .. }
+            | Expression::Histogram { .. } => self.sample(values, mission_time, seed),
+            // A formula: sample the arguments in order, then compute.
+            other => {
+                let mut sampled = Vec::new();
+                for a in other.args() {
+                    let v = a.sample_memoised(definitions, values, round, mission_time, seed)?;
+                    sampled.push(Expression::Float(v));
+                }
+                other.rebuild(sampled)?.evaluate(values, mission_time)
+            }
+        }
     }
 }

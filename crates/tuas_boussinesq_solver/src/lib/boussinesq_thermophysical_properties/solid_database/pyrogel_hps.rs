@@ -1,8 +1,10 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
 use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::*;
 use uom::si::length::nanometer;
 use uom::si::mass_density::gram_per_cubic_centimeter;
 use uom::si::pressure::atmosphere;
@@ -319,8 +321,8 @@ pub(crate) fn pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(
     // error inside it cannot be propagated with `?`. Capture it instead and
     // re-raise after the solve, so this path returns an error rather than
     // aborting the process.
-    let captured_error: std::cell::RefCell<Option<TuasLibError>> =
-        std::cell::RefCell::new(None);
+    let captured_error: core::cell::RefCell<Option<TuasLibError>> =
+        core::cell::RefCell::new(None);
 
     let enthalpy_root = |temp_degrees_c_value: f64| -> f64 {
         let lhs_value = h_fiberglass.get::<joule_per_kilogram>();

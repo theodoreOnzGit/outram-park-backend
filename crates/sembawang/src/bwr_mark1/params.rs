@@ -20,6 +20,9 @@
 //! (the measured data, for comparison only). The OECD/NEA BSAF specification
 //! is restricted and is **not** used.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::wire::{Reader, Writer};
 
@@ -666,7 +669,10 @@ pub const M_ZR: f64 = 0.091_224;
 pub const M_H2O: f64 = 0.018_015;
 pub const M_H2: f64 = 0.002_016;
 pub const M_N2: f64 = 0.028_014;
-pub const R_GAS: f64 = 8.314_462;
+/// The molar gas constant, J/(mol K): since gh:#1335 (2026-11-11) a
+/// re-export of the generic constant in `outram_park_fork_offbeat::melcor::params`,
+/// the same `f64` as before (8.314 462).
+pub use outram_park_fork_offbeat::melcor::params::R_GAS;
 
 // ── Containment (Mark I) ────────────────────────────────────────────────────
 
@@ -3023,7 +3029,7 @@ impl Params {
         // half-angle from the bottom is acos(0.023027) and the shell above
         // the water is 1 - acos(0.023027) / pi = 0.50733 of 4 pi^2 R r =
         // 2942.6 m^2. Recomputed by `params::tests::units_2_and_3_derive_from_their_sources`.
-        let shell_total = 4.0 * std::f64::consts::PI * std::f64::consts::PI * 16.75 * 4.45;
+        let shell_total = 4.0 * core::f64::consts::PI * core::f64::consts::PI * 16.75 * 4.45;
         let ww_shell_area = shell_total * UNITS23_SHELL_ABOVE_POOL;
         Self {
             thermal_power_w: 2381.0e6,
@@ -3101,14 +3107,14 @@ pub const UNITS23_WW_POOL_SURFACE_M2: f64 = 906.3;
 impl Params {
     /// UO2 mass of the whole core, kg (from the pellet geometry).
     pub fn core_uo2_kg(&self) -> f64 {
-        self.assemblies * self.rods_per_assembly * std::f64::consts::PI * self.pellet_r_m.r_powi(2) * self.active_length_m * self.uo2_density
+        self.assemblies * self.rods_per_assembly * core::f64::consts::PI * self.pellet_r_m.r_powi(2) * self.active_length_m * self.uo2_density
     }
 
     /// Zircaloy mass of the whole core (cladding over the active length plus
     /// channel boxes), kg.
     pub fn core_zr_kg(&self) -> f64 {
         let ri = self.clad_outer_r_m - self.clad_wall_m;
-        let clad = self.assemblies * self.rods_per_assembly * std::f64::consts::PI * (self.clad_outer_r_m.r_powi(2) - ri.r_powi(2)) * self.active_length_m * self.zr_density;
+        let clad = self.assemblies * self.rods_per_assembly * core::f64::consts::PI * (self.clad_outer_r_m.r_powi(2) - ri.r_powi(2)) * self.active_length_m * self.zr_density;
         let channel = self.assemblies * 4.0 * (self.channel_inner_width_m + self.channel_wall_m) * self.channel_wall_m * self.channel_length_m * self.zr_density;
         clad + channel
     }
@@ -3116,30 +3122,30 @@ impl Params {
     /// Zircaloy surface exposed to steam over the active length, m^2: the rods'
     /// outer surface and both faces of the channel walls.
     pub fn core_zr_area_m2(&self) -> f64 {
-        let rods = self.assemblies * self.rods_per_assembly * 2.0 * std::f64::consts::PI * self.clad_outer_r_m * self.active_length_m;
+        let rods = self.assemblies * self.rods_per_assembly * 2.0 * core::f64::consts::PI * self.clad_outer_r_m * self.active_length_m;
         let channel = self.assemblies * 2.0 * 4.0 * self.channel_inner_width_m * self.active_length_m;
         rods + channel
     }
 
     /// Rod surface over the active length, m^2 (the heat-transfer surface).
     pub fn core_rod_area_m2(&self) -> f64 {
-        self.assemblies * self.rods_per_assembly * 2.0 * std::f64::consts::PI * self.clad_outer_r_m * self.active_length_m
+        self.assemblies * self.rods_per_assembly * 2.0 * core::f64::consts::PI * self.clad_outer_r_m * self.active_length_m
     }
 
     /// Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
     pub fn core_flow_area_m2(&self) -> f64 {
-        self.assemblies * (self.channel_inner_width_m.r_powi(2) - self.rods_per_assembly * std::f64::consts::PI * self.clad_outer_r_m.r_powi(2))
+        self.assemblies * (self.channel_inner_width_m.r_powi(2) - self.rods_per_assembly * core::f64::consts::PI * self.clad_outer_r_m.r_powi(2))
     }
     pub fn hydraulic_diameter_m(&self) -> f64 {
-        let a = self.channel_inner_width_m.r_powi(2) - self.rods_per_assembly * std::f64::consts::PI * self.clad_outer_r_m.r_powi(2);
-        let wet = self.rods_per_assembly * 2.0 * std::f64::consts::PI * self.clad_outer_r_m + 4.0 * self.channel_inner_width_m;
+        let a = self.channel_inner_width_m.r_powi(2) - self.rods_per_assembly * core::f64::consts::PI * self.clad_outer_r_m.r_powi(2);
+        let wet = self.rods_per_assembly * 2.0 * core::f64::consts::PI * self.clad_outer_r_m + 4.0 * self.channel_inner_width_m;
         4.0 * a / wet
     }
 
     /// Fuel-to-clad conductance per unit rod length, W/(m K): the pellet's
     /// volume-average-to-surface resistance `1/(8 pi k)` plus the gap.
     pub fn fuel_to_clad_w_per_m_k(&self) -> f64 {
-        1.0 / (1.0 / (8.0 * std::f64::consts::PI * self.uo2_k) + 1.0 / (2.0 * std::f64::consts::PI * self.pellet_r_m * self.gap_h))
+        1.0 / (1.0 / (8.0 * core::f64::consts::PI * self.uo2_k) + 1.0 / (2.0 * core::f64::consts::PI * self.pellet_r_m * self.gap_h))
     }
 }
 
@@ -3205,7 +3211,7 @@ mod tests {
         let share = 2980.0 / (2980.0 + 3160.0);
         let frac = |d: f64| {
             let a = d.r_acos();
-            (a - a.r_sin() * a.r_cos()) / std::f64::consts::PI
+            (a - a.r_sin() * a.r_cos()) / core::f64::consts::PI
         };
         let (mut lo, mut hi) = (0.0, 1.0);
         for _ in 0..200 {
@@ -3213,7 +3219,8 @@ mod tests {
             if frac(mid) > share { lo = mid } else { hi = mid }
         }
         let delta = 0.5 * (lo + hi);
-        let above = 1.0 - delta.r_acos() / std::f64::consts::PI;
+        let above = 1.0 - delta.r_acos() / core::f64::consts::PI;
+        #[cfg(feature = "std")]
         println!("units 2/3: delta {delta:.6}, shell above the pool {above:.6}, shell {:.1} m2, C {:.4e} J/K", u2.ww_shell_area_m2, u2.ww_shell_c);
         assert!((above - UNITS23_SHELL_ABOVE_POOL).abs() < 1e-5, "{above}");
         // The downcomers from the main-vent area ratio; the drywell's areas

@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # Verification of the HTTR model's construction (no nuclear data)
@@ -36,8 +35,11 @@
 //! **Results (2026-10-16).** All pass; the measured numbers are in each
 //! test's assertion message and in the V&V README.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::position::{Direction, Position};
@@ -307,13 +309,16 @@ fn no_point_of_the_model_is_lost() {
     }
 }
 
+#[cfg(feature = "std")]
 /// The run's S(a,b) note names the thermal-law source the loader uses
 /// (gh:#1145): LEAPR by default. Until 2026-11-05 the note named the graphite
 /// tape in every run, although LEAPR had generated the graphite and SiC laws
 /// by default since 2026-11-03 (gh:#1137).
 #[test]
 fn the_sab_note_names_the_law_source_the_loader_uses() {
-    use super::materials::{httr_nuclide_slots, HttrThermal};
+    use super::materials::{HttrThermal};
+    #[cfg(feature = "std")]
+    use super::materials::{httr_nuclide_slots};
     use crate::htr10_rmc::data::ThermalLawSource;
     use crate::htr10_rmc::materials::GraphiteLaw;
     let (_, notes) = httr_nuclide_slots(GraphiteLaw::default(), HttrThermal::Bound);

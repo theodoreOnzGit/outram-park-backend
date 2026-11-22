@@ -98,6 +98,9 @@
 //! therefore probes at the bottom of the range deliberately; the full-grid
 //! sweep lives in `reconr_sr88_lrf7_kbk_njoy_golden.rs`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

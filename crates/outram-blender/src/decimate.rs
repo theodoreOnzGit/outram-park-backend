@@ -55,10 +55,14 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
-use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use core::cmp::Reverse;
+use alloc::collections::BinaryHeap;
+use crate::hash::{HashMap, HashSet};
 
 /// A symmetric `4×4` error quadric, stored as its 10 unique coefficients in the
 /// order `[a², ab, ac, ad, b², bc, bd, c², cd, d²]`.
@@ -230,12 +234,12 @@ impl PartialEq for Entry {
 }
 impl Eq for Entry {}
 impl PartialOrd for Entry {
-    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, o: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(o))
     }
 }
 impl Ord for Entry {
-    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, o: &Self) -> core::cmp::Ordering {
         self.cost.total_cmp(&o.cost)
     }
 }

@@ -2,6 +2,20 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `outram-park-fork-cfmesh` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1639, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps come from `crate::hash` (std's with `std`, so the fingerprint pins
+  hold; `hashbrown` without).
+- Clocks are `crate::time::Instant`, trace switches `crate::env::var`, and a
+  thread pool is `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`
+  with a serial path beside it.
+- Files and printing are `#[cfg(feature = "std")]` (one attribute per
+  `println!`), and so is any test or example that reads files.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -156,7 +170,12 @@ the surface only through `optimiseBoundaryVolumeOptimizer(true)`'s tangent
 constraint and calls no mapper afterwards. All three switches are off by
 default, and
 `final_mesh::tests::foam_studio_default_mesh_keeps_its_fingerprint` pins
-Foam Studio's default mesh.
+~~Foam Studio's default mesh~~ Foam Studio's pre-gh:#1298 default mesh
+(**UPDATED 2026-11-05, gh:#1298:** Foam Studio now turns all three on
+itself, with `CellCentre` + `Corners` and `CfMeshOptimise`
+(`engine::CfMeshRoute::UpstreamNoLaplace`); this crate's
+`TetDualOptions::default()` is unchanged, so its pins and the other
+consumers keep the old pipeline).
 
 Use the projection only with `untangle_surface`. On the `revert_tangled`
 capture it re-maps the points that capture left off the surface on
@@ -267,7 +286,8 @@ upstream's place; each is **off unless the `MeshDict` asks**
 `subset_cell_size`, `local_refinement_subsets`). `MeshDict::anisotropic_sources`
 moves the sources through gh:#1279's `anisotropic`
 (`mesh_octree_creator::source_surface_geometry` /
-`source_edge_mesh_geometry`); the generators do not read it.
+`source_edge_mesh_geometry`); ~~the generators do not read it~~ the
+generators read it too since gh:#1279's remainder (next section).
 
 `MeshOctreeAddressing::from_dict` and `cartesian_mesh_extractor_from_dict`
 read `nonManifoldMeshing`, `keep`/`removeCellsIntersectingPatches` and
@@ -278,6 +298,43 @@ edges). Upstream's proximity criterion needs the parts to be separate
 within `1.732 h`: a channel closed at its sides within that range is never
 refined. Record, the misses and the images:
 `verification_and_validation/octree_remainders_gh1278/`.
+
+## `anisotropicSources` in the four generators (gh:#1279 remainder, 2026-11-05)
+
+`cartesian_mesh`, `tet_mesh`, `p_mesh` and `cartesian_2d_mesh` apply
+`MeshDict::anisotropic_sources` where upstream's generators do:
+
+- **Constructor.** The octree is built on the modified surface
+  (`anisotropic::modified_surface_points`). Every step up to the revert
+  maps, extracts and optimises against that surface.
+- **3D generators.** At the end of `meshOptimisation`'s first
+  `optimiseFinalMesh` they revert, then run
+  `projectSurfaceAfterBackScaling` (`anisotropic::revert_and_project`,
+  then `optimiseFinalMesh` again on the original surface).
+- **2D generator.** The revert is at the end of `boundaryLayerGeneration`,
+  followed by a new quadtree on the original surface
+  (`cartesian_2d_mesh::refined_quadtree`), `remapBoundaryPoints` and
+  `optimiseMeshSurface`.
+
+A run stopped before the revert returns the mesh in the modified space,
+as upstream does. Without sources, all four outputs are pinned to their
+pre-wiring fingerprints
+(`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
+~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, ~~flagged for the maintainer~~ accepted by the maintainer 2026-11-12, gh:#1336):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream. **Moved again 2026-11-11 (gh:#1385 round 4, ~~flagged~~ accepted by the maintainer 2026-11-12, gh:#1336): the 2D fingerprint, then the `pMesh` one (fifth move)** (`preMapVertices` 2 iterations; the 2D template and `distributeBoundaryFaces` carry the cell lists through `replaceBoundary`); cartesian, tet and p did not move.
+
+**Accepted by the maintainer 2026-11-12 (gh:#1336):** every move of this pin (round 2 cartesian/tet, round 4 2D and pMesh; fingerprints only, cell counts unchanged) is accepted; the pin may still not move except for a fix that follows upstream.
+
+**UPDATED 2026-11-13 (gh:#1385 round 5, `cartesianMesh` only):** the back-scaling's
+`projectSurfaceAfterBackScaling` builds a **new octree on the original surface**
+(`createOctreeWithRefinedBoundary(20, 30)`), maps every boundary point with its
+`findNearestSurfacePoint` and runs the second `optimiseFinalMesh` with that octree
+(`anisotropic::revert_and_project_octree`); ~~the port mapped to the exact nearest point
+and optimised with brute-force searches~~ (`anisotropic::revert_and_project`, which
+`tetMesh`, `pMesh` and the 2D generator still call: not yet compared with a staged
+upstream run). Pinned by `tests/cfmesh_vs_upstream_single_orifice.rs`
+(`cartesianMesh/singleOrifice`, final mesh equal to upstream's up to the pow ulp).
+
+Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
 ## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
 
@@ -299,6 +356,54 @@ are not ported; the report says so at each step.~~ **UPDATED 2026-11-05
 layer is patch-wise. Record:
 `verification_and_validation/cartesian_2d_mesh_gh1275/`.
 
+## Every mesh leaves in OpenFOAM's upper-triangular face order (gh:#1285, 2026-11-05)
+
+`renumber_mesh::upper_triangular` (steps 2–3 of upstream's `renumberMesh`
+with the cell labels kept) is the **last step** of the tet-dual pipeline
+(`pipeline::run_pipeline`) and of `cartesian::cartesian_box`. One final
+step, not one per builder: every stage rebuilds its mesh from cell face
+lists, so an order set inside a stage does not survive the next. A new
+public route that returns a `VolumeMesh` ends with it too
+(`poly_mesh_gen_checks::check_upper_triangular` must pass). The four
+upstream workflows end with the full `renumberMesh` (cell walk too). The
+geometry is unchanged by it (`upper_triangular_order_moves_no_geometry`);
+fingerprints that hash face order moved once. Record:
+`verification_and_validation/upper_triangular_gh1285/`.
+
+## The `meshDict` reader: every entry gets a row (gh:#1476, 2026-11-11)
+
+`mesh_dict::read_mesh_dict` reads an upstream `meshDict` (parsed by
+`outram_foam_basic_lib::io::dict`, the one dictionary parser) into the
+typed `MeshDict` and generator options; `MeshDictReading::resolve` matches
+patch names as upstream's `findPatches` does (full regular-expression match,
+`rename_boundary_patches::regex_full_match`). Rules that follow:
+
+- **No entry is skipped silently.** Each gets a `KeywordStatus`: honoured,
+  reported (read, not acted on, with the reason), not applicable (upstream's
+  generator does not read it) or unknown. When a generator starts honouring a
+  reported entry (for example `optimiseLayer`, once `optimizeBoundaryLayer` is
+  wired), change its row in the same change and update the pin
+  `mesh_dict::tests::tutorials_read_with_no_unhandled_keyword`.
+- **The typed structs stay the interface**; the reader only fills them.
+- Surfaces: `tri_surf_io` (FMS, FTR; STL through `outram-foam-mesh`'s port of
+  OpenFOAM's `STLReader`, feature `surface-file`). Never a second STL reader.
+- ~~**Known gap:** the generators take patch *names* only
+  (`patches::SurfaceRegions`), so a surface's geometric types (`wall` in an
+  FMS, `empty` from an STL, which upstream's `renameBoundaryPatches` turns into
+  `wall`) do not reach the output; unrenamed patches come out as `patch`.~~
+  **CORRECTED 2026-11-11 (gh:#1483):** `SurfaceRegions::types` carries each
+  surface patch's geometric type (`TriSurf::surface_regions()` fills it from
+  the file); `edgeExtractor::updateMeshPatches` and the 2D
+  `distributeBoundaryFaces` put it on the mesh, and later steps keep it as
+  upstream's `replaceBoundary` does. A surface built without types
+  (`SurfaceRegions::single`, `from_labels`) keeps `patch`. Pinned against the
+  committed upstream `boundary` files by
+  `crates/outram-foam-cli/tests/cfmesh_patch_types.rs` and
+  `tests/cfmesh_patch_types_sphere.rs`; record
+  `verification_and_validation/patch_types_gh1483.md`.
+- Tutorial inputs live in `test_data/cfmesh_tutorials/` (provenance in its
+  `References.md`, excluded from the package).
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not
@@ -306,3 +411,79 @@ write new `macro_rules!` or proc macros in this crate; use functions,
 generics, enums and plain `match` arms. Using std and dependency macros
 (`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
 writing macros".
+
+## Differential against real upstream output (gh:#1385, 2026-11-11)
+
+`tests/cfmesh_vs_upstream_sphere.rs` pins `cartesianMesh`, `tetMesh` and `pMesh`
+stage by stage against cfMesh's own output
+(`verification_and_validation/upstream_cfmesh_gh1385/`): ~~bit-identical points
+and faces through `boundaryLayerGeneration`; `meshOptimisation` within the
+last bit, the cause proven in `tests/cfmesh_vs_upstream_cell_order.rs` (cell
+face order, which `VolumeMesh` does not carry)~~ **UPDATED 2026-11-11
+(gh:#1385, round 2):** all seven steps and the final meshes of the three
+generators are bit-identical on the sphere (`VolumeMesh::cells` carries cfMesh's
+cell face lists, see the V&V README), and asmoOctree is bit-identical through
+`boundaryLayerGeneration` (`outram-foam-cli/tests/cfmesh_vs_upstream_stages.rs`).
+Rules this taught:
+
+- **OpenFOAM divides.** `v /= s` and `v/s` divide each component;
+  `v.scale(1.0 / s)` differs in the last bit. Use `Vec3::div`. About 140
+  `scale(1.0 / x)` remain in the crate; fix the ones on a path you compare.
+- **The mapper, the untangler, the edge extractor and `optimiseMeshSurface`
+  take the octree** (`SurfaceQueries::with_octree`,
+  `optimise_mesh_surface_octree`,
+  `map_vertices_onto_surface_patches_given_octree`): upstream's
+  `findNearestSurfacePoint` is not an exact nearest point, and a brute-force
+  one differs in the last bit and near shared edges by more.
+- **`meshSurfaceEdgeExtractorNonTopo` / `...FUN` run on every surface**, also
+  one of a single region; `regions == None` is not a reason to skip them.
+- **Face order is part of the answer.** Template: octree-face order plus
+  `reorder_boundary_faces`; layers: `add_cells_upstream`. A stage built from
+  cell lists (`from_cell_faces`) does not come out in upstream's order.
+- **Cell face lists are part of the answer too** (`VolumeMesh::cells`, gh:#1385
+  round 2): the centre of a cell sums its faces in list order. A stage that
+  rebuilds a mesh must carry the lists the way upstream's modifier does
+  (`reorderBoundaryFaces` relabels in place; `replaceBoundary` keeps the internal
+  faces and appends the new boundary faces in the order of the boundary list,
+  labels by patch; `removeCells` / `addCells` / `decomposeFaces` as written) or
+  drop them (`None`): a carried list is used only while consistent with owner /
+  neighbour. Set `cells: None` in a new `VolumeMesh` literal unless you carry them.
+- **Multi-patch routines were checked on asmoOctree, not only the sphere:**
+  `mapEdgeNodes` / `mapCorners`, `decomposeCells` and `createNewVertex` now follow
+  upstream line by line (the approximation loop breaks before replacing the
+  estimate; `distanceOfPointFromTheEdge` is the distance to the infinite line).
+- **Round 3 (2026-11-11): the optimiser, its checks and the part tet mesh
+  follow upstream operation by operation** (V&V README, "round 3"). Rules it
+  taught: `findBadFaces` / `findLowQualityFaces` are cfMesh's checks on the
+  **addressing's** geometry (`checks::pmg_geometry`, the `*_g` functions of
+  `poly_mesh_gen_checks`), never on vertex-average centres; the part tet mesh
+  takes the addressing's centres, cfMesh's cell-list order and `tetMatcher`;
+  `partTetMesh::updateOrigMesh` marks **every** tet-mesh node as changed, moved
+  or not; `scale(1.0 / x)` is wrong wherever upstream writes `/ x` (the
+  volume optimiser, Knupp, the LP untangler, `generateNewVertices`).
+- **An OpenFOAM `HashSet` is iterated in hash order, and that can be the
+  answer, not round-off.** `triSurfaceCurvatureEstimator` fits a quadric over
+  `otherLabels` (`labelHashSet`); with five to seven points the fit is
+  near-singular and the order moves the curvature by O(1).
+  `surface::curvature::FoamLabelHashSet` emulates `HashTable::setEntry`
+  (capacity 128, head insertion, rehash at 0.8). Use it, or an equivalent,
+  wherever upstream iterates a hash container into a sum or a list.
+- **The one known residual is `pow`, not an algorithm.** glibc's `pow` on an
+  FMA CPU differs from PETIR's no-FMA ARM `pow` by one ulp on some inputs; the
+  `pow(stab, 3)` of `surfaceOptimizer::evaluateGradients` makes asmoOctree
+  `meshOptimisation` 71649/71650 and the elbow differ from `edgeExtraction`
+  on. Do not "fix" it by calling the platform `powf` (PETIR's gate forbids it);
+  `asmo_octree_mesh_optimisation_is_within_one_pow_ulp` pins it from above.
+  A difference **bigger** than a last-bit cascade is not this: look at the
+  traces (`GH1385_TRACE`, patches `gh1385-trace-instrumentation-*.patch`).
+- **C++ default arguments bind a `bool` to the first parameter (gh:#1385 round 5).**
+  `untangleMeshFV` calls `tmo.optimiseBoundaryVolumeOptimizer(true)` and `(false)` against
+  `(const label nIterations = 3, const bool nonShrinking = false)`: one unconstrained
+  iteration below two global iterations, zero from five on. Upstream's comments describe an
+  intent the code does not carry out; `mesh_optimizer::BoundaryMoveCalls::Upstream`
+  (default) follows the code, `AsDocumented` the comments. Read the **signature**, not the
+  comment, before porting a call.
+- **Two face-geometry formulas.** `foam_face_centre` / `ring_area_vector` are
+  `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
+  `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own
+  (`makeFaceCentresAndAreas`), used for cell centres. Do not swap them.

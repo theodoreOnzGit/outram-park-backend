@@ -1,6 +1,6 @@
 [package]
 name = "raffles"
-version = "0.0.4"
+version = "0.0.5"
 edition.workspace = true
 # AGPL-3.0-only since 2026-10-20 (gh:#973; was GPL-3.0-only), a combined work:
 # its SCRAM / MPNN / pba.r ports keep GPL-3.0 (LICENSE.GPL-3.0). Upstream RAVEN
@@ -56,7 +56,9 @@ backronym = "Risk Analysis Framework For Learning & Ensemble Simulation"
 # `[target.'cfg(not(target_os = "android"))'.dependencies]` table.
 #
 # Versions come from the root [workspace.dependencies] — never pin here.
-thiserror.workspace = true
+# `thiserror` without its std default (gh:#1610); the `std` feature turns it
+# back on. Imported in lib.rs as `thiserror`.
+thiserror-nostd.workspace = true
 # RANDOM NUMBER GENERATOR (src/samplers.rs). RAFFLES does NOT ship its own
 # generator: it reuses `petir::rng::lcg` — the OpenMC 64-bit LCG port, with the
 # O(log n) `future_seed` jump-ahead that gives each sampled dimension a provably
@@ -87,6 +89,8 @@ thiserror.workspace = true
 # gating convention if it ever needs something Android-hostile — see this
 # crate's CLAUDE.md.
 petir.workspace = true
+# `HashMap`/`HashSet` without `std` (gh:#1610); unused in std builds.
+hashbrown = { workspace = true }
 # DIMENSIONED QUANTITIES at the `fidelity` API edge (gh:#1194, maintainer:
 # "Integrate uom into the trait interface"). The root entry is no_std
 # (`default-features = false`, `si` + `f64`), pure Rust, and already in this
@@ -133,7 +137,10 @@ burn ={ workspace = true, optional = true }
 # file as serde-xml-rs's own dependency, so it adds nothing to the build, and
 # it is pure Rust — no libxml2, unlike upstream — so Android and wasm stay
 # clean.
-xml-rs.workspace = true
+#
+# std-only (gh:#1610): xml-rs has no `no_std` build, so the MEF reader is
+# behind the `std` feature.
+xml-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Reads the committed upstream reference outputs in
@@ -144,7 +151,11 @@ xml-rs.workspace = true
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 
 [features]
-default = ["long-tests"]
+# `std` (default, gh:#1610): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`. It carries the
+# MEF/XML reader (`scram::mef`, xml-rs), wall clocks and printing.
+std = ["thiserror-nostd/std", "dep:xml-rs"]
+default = ["std", "long-tests"]
 # Tests that take minutes rather than seconds. ON BY DEFAULT, per the
 # workspace `long-tests` rule: a slow check that nobody runs is not a check.
 # `cargo quick-test` turns it off for the edit-compile loop, and a skipped

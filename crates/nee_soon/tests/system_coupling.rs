@@ -177,6 +177,16 @@ fn the_feedback_through_the_port_is_the_hand_doppler() {
 /// (2026-11-01):** Picard to 1e-12: worst power difference 3.8e-12, fuel
 /// temperature 7.3e-15; P(2 s) = 3.4338 MW. Loose: 2.420e-4 at Δt 0.02 s,
 /// 1.210e-4 at 0.01 s, ratio 2.001. Held.
+///
+/// **Re-measured 2026-11-10 (gh:#1319)**, after `teh-o-prke`'s U-235
+/// default became ENDF/B-VIII.0 (beta 0.0065 -> 0.0065230, mean precursor
+/// life 13.05 -> 11.06 s; both the coupled and the monolithic solve read
+/// it): Picard worst power difference ~~3.8e-12~~ **4.2e-12**, fuel
+/// temperature ~~7.3e-15~~ **5.9e-15**; P(2 s) ~~3.4338~~ **3.4585 MW**
+/// (+0.72 %: a 0.35 % larger step and shorter-lived groups). Loose:
+/// ~~2.420e-4~~ **2.574e-4** at 0.02 s, ~~1.210e-4~~ **1.286e-4** at
+/// 0.01 s, ratio 2.001. Held. This movement was not predicted on the issue
+/// beforehand (the test was found after the predictions were posted).
 #[test]
 fn coupled_matches_monolithic_and_loose_coupling_is_first_order() {
     let tight = PicardControl { max_iterations: 50, tolerance: 1e-12 };

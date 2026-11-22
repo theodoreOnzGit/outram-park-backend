@@ -35,18 +35,18 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `photon` | [Consumer surface](./consumer-surface.md) | `PhotonProduction::from_endf` (appendix) | ~~indirect: ACE photon blocks word-identical (rung 9)~~ `heatr_vs_njoy2016.md` §4: MT=442 matches NJOY2016's HEATR at print precision (Fe-58, Si-28, 2026-10-05); `tests/photon.rs` | ~~P; MF=12 `LO = 2` not ported~~ **V** (MF=6 photons with `LAW ≠ 1` not valued) |
 | `groupr` | [Rung 7](./groupr.md) | `self_shielded_group_xs` | `groupr_gaminr_covr_leapr_vs_njoy2016.md` §3, five `tests/groupr_*_golden.rs` | V |
 | `gaminr` | [Rung 7](./groupr.md) | `gaminr::run_with_input` (appendix) | `gaminr_u_photoatomic_vs_njoy2016.md` | ~~**P — gap**: MF=26 coherent/incoherent matrices disagree with NJOY on real uranium~~ **V** (2026-10-05): all reactions incl. MF=26 matrices ≤ 3.7e-7 on real uranium once NJOY's deck uses separate units ([#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)) |
-| `errorr` | [Rung 8](./errorr.md) | `errorr::run_mf33` | `tests/errorr_mf33_golden.rs`, three `errorr_mf32_*` records | V (MF=33, MF=32 paths named); MF=31/34/35/40 not ported |
-| `covr` | [Rung 8](./errorr.md) | `covr::run_library` | `tests/covr_boxer_golden.rs` | V (library option); plotting not ported |
+| `errorr` | [Rung 8](./errorr.md) | `errorr::run_mf33` | `tests/errorr_mf33_golden.rs`, three `errorr_mf32_*` records | V (MF=33, MF=32 paths named); ~~MF=31/34/35/40 not ported~~ **CORRECTED 2026-11-13 (gh:#1369):** MF=31/34/35 ported and identical to NJOY2016 on whole upstream decks; MF=40 not ported |
+| `covr` | [Rung 8](./errorr.md) | `covr::run_library` | `tests/covr_boxer_golden.rs` | V (library option); ~~plotting not ported~~ **CORRECTED 2026-11-13:** plot option ported, its plot files identical to NJOY2016's on whole decks 05, 18, 27, 34, 47 (`tests/deck_driver_covr_vs_njoy2016.rs`, gh:#1369) |
 | `acer` | [Rung 9](./acer.md) | `build_full_with_purr` | `ace_block_parity_2026_09_26.md`, `acer_*_vs_njoy2016.md` (9 records) | V |
 | `wimsr` | [Output formats](./output-formats.md) | `wimsr::run_gendf` | `wimsr_u238_vs_njoy2016.md` | V; card-deck `run()` not ported |
 | `dtfr` | [Output formats](./output-formats.md) | listed by hand | `tests/dtfr_u238_claw_*_golden.rs` (worst 4.9e-6, first recorded [2026-10-04](./remeasured.md)) | V |
 | `resxsr` | [Output formats](./output-formats.md) | listed by hand | `tests/resxsr_h2_njoy_golden.rs` (byte-identical) | V |
 | `mixr` | [Output formats](./output-formats.md) | listed by hand | `tests/mixr_h2_be9_njoy_golden.rs` (exact, first recorded [2026-10-04](./remeasured.md)) | V |
 | `matxsr` | [Output formats](./output-formats.md) | — | — | **N** |
-| `ccccr` | [Output formats](./output-formats.md) | — | — | **N** |
-| `powr` | [Output formats](./output-formats.md) | — | — | **N** |
-| `plotr` | [Output formats](./output-formats.md) | — | — | **N** |
-| `viewr` | [Output formats](./output-formats.md) | — | — | **N** |
+| `ccccr` | [Output formats](./output-formats.md) | `ccccr` (deck) | `tests/deck_driver_tapes_vs_njoy2016.rs` (`test_02_ccccr_whole_deck`, `test_76_ccccr_whole_deck`) | ~~**N**~~ **CORRECTED 2026-11-13:** ported (gh:#1369); byte-identical to NJOY2016.80 on decks 02 and 76 |
+| `powr` | [Output formats](./output-formats.md) | `powr` (deck, `lib` 1 and 2) | `tests/deck_driver_powr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-14:** `lib` 1 and 2 translated (gh:#1373); identical to NJOY2016.80 line by line on seven decks; `lib = 3` refused |
+| `plotr` | [Output formats](./output-formats.md) | `plotr::Plotr::run` (deck) | `tests/deck_driver_plotr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-13:** ported (gh:#1369); identical to NJOY2016.80 line by line on decks 06 and 12 |
+| `viewr` | [Output formats](./output-formats.md) | `viewr::viewr_postscript` | `tests/deck_driver_tapes_vs_njoy2016.rs` (`test_*_viewr_*`), `tests/deck_driver_covr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-13:** ported 2026-11-12 (gh:#1369); PostScript identical to NJOY2016's line by line on whole decks |
 | `hdf5` | [OpenMC interchange](./openmc-interchange.md) | `write_nuclide` | `hdf5_nuclide_write/`, `nuclide_h5_fissile/`, `nuclide_h5_read/`, `depletion_chain_xml/` | P; fissile `k` comparison and read-side `k` comparison not yet run |
 | `wmp` | [Windowed multipole](./wmp.md) | `XsProvider::micro` → `evaluate` | `wmp_h5_write_2026_09_24.md`, `tests/wmp_arbitrary_temperature.rs` | P; WMP vs direct BROADR not done; ~~pole-count discrepancy (602 vs 4 062) between two records, not re-checked~~ pole count re-checked 2026-10-05: **4 062** (602 was a KB size, [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) |
 | `gpu_wmp` | [Windowed multipole](./wmp.md) | `wmp_evaluate_batch_cpu` | per-machine report only (methodology template) | P |
@@ -94,4 +94,6 @@ Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
    `docs/wmp-nuclide-manifest.md`, copied into the GPU benchmark's docs as a
    pole count. Corrected with strike-throughs there. [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
 5. **Not ported by design** (visible, no issue needed unless the maintainer
-   wants them): MATXSR, CCCCR, POWR, PLOTR, VIEWR, every card-deck `run()`.
+   wants them): MATXSR, ~~CCCCR~~, POWR, ~~PLOTR~~, ~~VIEWR~~, every card-deck `run()`.
+   **CORRECTED 2026-11-13 (gh:#1369):** CCCCR, PLOTR and VIEWR are ported and run from decks.
+   **CORRECTED 2026-11-14 (gh:#1373):** POWR `lib` 1 and 2 are translated and run from decks.

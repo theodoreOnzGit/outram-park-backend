@@ -1,6 +1,6 @@
 [package]
 name = "tuas_boussinesq_solver"
-version = "0.1.9"
+version = "0.1.10"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -38,30 +38,61 @@ backronym = "Thermo-hydraulic Uniphase Advection and Convection Solver for Salt 
 # default-on, so a plain `cargo test` runs them. See the "Any test over 5
 # minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
 # iterating with `cargo quick-test -p tuas_boussinesq_solver`.
-default = ["long-tests"]
+# `std` (default, gh:#1601): without it the library is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`. It carries
+# threads (without them each `thread::spawn` runs its closure at once and
+# `join` returns the result, the same numbers in the same order), clocks,
+# printing, CSV output and `env_logger`.
+std = [
+    "thiserror-nostd/std",
+    "ndarray-nostd/std",
+    "approx-nostd/std",
+    "outram-park-fork-coolprop/std",
+    "dep:csv",
+    "dep:env_logger",
+]
+default = ["std", "long-tests"]
 long-tests = []
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
-approx.workspace = true
-csv.workspace = true
-ndarray.workspace = true
-thiserror.workspace = true
+# Liquid sodium (gh:#1320, EBR-II groundwork #1312): TUAS reuses CoolProp's
+# `LiqNa` incompressible fit from the CoolProp port rather than carrying a
+# second sodium correlation. No cycle: the coolprop port depends only on
+# petir, uom and outram-foam-basic-lib, none of which depends on TUAS.
+outram-park-fork-coolprop.workspace = true
+# std-only (gh:#1601): CSV output writes files.
+csv = { workspace = true, optional = true }
+# `ndarray` / `thiserror` without their std defaults (gh:#1601); `std`
+# turns them back on. Imported in lib.rs under their usual names.
+ndarray-nostd.workspace = true
+thiserror-nostd.workspace = true
+# `approx` without std (gh:#1601): library code asserts with it. Imported in
+# lib.rs as `approx`.
+approx-nostd.workspace = true
+# `Mutex` without std (gh:#1601); unused in std builds.
+spin.workspace = true
 uom.workspace = true
 
 [lib]
 name = "tuas_boussinesq_solver"
 path = "src/lib/lib.rs"
 
+[[bin]]
+name = "tuas_boussinesq_solver"
+path = "src/main.rs"
+required-features = ["std"]
+
 [[example]]
 name = "ciet_educational_simulator"
+required-features = ["std"]
 
 
 [dev-dependencies]
 # the natural circulation loop requires a PID controller
-chem-eng-real-time-process-control-simulator.workspace = true
+chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 
 log.workspace = true
 
@@ -89,7 +120,8 @@ image.workspace = true
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger.workspace = true
+# std-only (gh:#1601).
+env_logger = { workspace = true, optional = true }
 
 # ~~wasm32 getrandom shim~~ REMOVED 2026-10-20 (gh:#989): randomness arrived
 # only through peroxide (rand -> getrandom). With peroxide gone, cargo tree for

@@ -215,6 +215,9 @@
 //! stress intensity factors in Pa m^(1/2), angles in radians. Poisson's ratio,
 //! Kolosov's `kappa` and the Legendre abscissa ratio are dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{SymmTensor, Tensor, Vector3};
 
@@ -764,7 +767,7 @@ pub fn westergaard_unit_field(
                      at the tip itself",
         });
     }
-    if !(theta.abs() <= std::f64::consts::PI + 1.0e-12) {
+    if !(theta.abs() <= core::f64::consts::PI + 1.0e-12) {
         return Err(OffbeatError::Unphysical {
             quantity: "crack-tip polar angle theta",
             value: theta,
@@ -776,7 +779,7 @@ pub fn westergaard_unit_field(
 
     let mu = elastic.shear_modulus();
     let ka = elastic.kolosov_kappa(state);
-    let two_pi = std::f64::consts::TAU;
+    let two_pi = core::f64::consts::TAU;
 
     // Upstream's `cr1` and `cr2` (chauxi.F90 lines 60-61). `cr1` is exactly
     // `cr2 / (2 r)`, which is why it serves as the radial derivative factor.

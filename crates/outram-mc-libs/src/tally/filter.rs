@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Tally filters — constrain which phase-space events are scored.
 ///
@@ -59,6 +62,10 @@ pub trait Filter: Send + Sync {
         None
     }
 }
+/// Coordinate levels a [`FilterEvent`] carries for the multi-level cell and
+/// universe filters (gh:#677).
+pub const MAX_PATH_LEVELS: usize = 8;
+
 #[derive(Debug, Clone, PartialEq)]
 
 /// Snapshot of particle state passed to filters at scoring time.
@@ -70,6 +77,17 @@ pub trait Filter: Send + Sync {
 /// particle type at all, so those filters could not have been written even as
 /// stubs.
 pub struct FilterEvent {
+    /// Cells and universes of every coordinate level of the particle's path,
+    /// root first, `usize::MAX` where a level has none (gh:#677). Only the
+    /// first [`MAX_PATH_LEVELS`] levels are kept. Filled on the track-length
+    /// path from the caller's [`super::history_events::EventHistory`]; empty
+    /// (`n_levels == 0`) elsewhere, where [`CellFilter`] and
+    /// [`UniverseFilter`] fall back to the leaf indices.
+    pub cell_levels: [usize; MAX_PATH_LEVELS],
+    /// See [`Self::cell_levels`].
+    pub universe_levels: [usize; MAX_PATH_LEVELS],
+    /// How many entries of the two level arrays are valid.
+    pub n_levels: usize,
     pub cell_idx: usize,
     pub material_idx: usize,
     pub universe_idx: usize,
@@ -191,6 +209,9 @@ impl Default for FilterEvent {
     /// to a `CellFilter` will match bin 0.
     fn default() -> Self {
         FilterEvent {
+            cell_levels: [usize::MAX; MAX_PATH_LEVELS],
+            universe_levels: [usize::MAX; MAX_PATH_LEVELS],
+            n_levels: 0,
             cell_idx: 0,
             material_idx: 0,
             universe_idx: 0,
@@ -243,6 +264,16 @@ impl Default for FilterEvent {
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
 ///
+/// **Every coordinate level on the track-length path (gh:#677, 2026-11-19).**
+/// OpenMC matches the cell at EVERY coordinate level (`filter_cell.cpp:51-56`).
+/// ~~This port matched only the leaf cell, so a tally on a cell filled with a
+/// universe or lattice scored 0 with no error.~~ **CORRECTED 2026-11-19, extended
+/// 2026-11-20:** where the event carries its path ([`FilterEvent::cell_levels`]:
+/// the track-length estimator, the scatter matrix and fission-birth scores) a
+/// container cell now matches. Only the delta-tracking collision-point score
+/// still matches the leaf alone. Upstream emits one bin per
+/// matching level; this returns the deepest match only.
+///
 /// **These are 0-based indices into the geometry's cell array, not cell IDs.**
 /// OpenMC's C++ filters bin by user-assigned global ID; this port bins by
 /// array position, matching [`FilterEvent::cell_idx`]. Passing an ID here
@@ -264,7 +295,18 @@ impl Filter for CellFilter {
         self.cell_indices.len()
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.cell_indices.iter().position(|&c| c == ev.cell_idx)
+        // Leaf first (the previous behaviour, unchanged where the path is not
+        // carried), then every ancestor level (gh:#677: OpenMC matches every
+        // level, `filter_cell.cpp:51-56`). Upstream returns EVERY matching
+        // level as its own bin; this returns the deepest one, so a filter that
+        // lists both a container cell and one of its descendants under-scores
+        // the shallower one.
+        if let Some(i) = self.cell_indices.iter().position(|&c| c == ev.cell_idx) {
+            return Some(i);
+        }
+        (0..ev.n_levels)
+            .rev()
+            .find_map(|l| self.cell_indices.iter().position(|&c| c == ev.cell_levels[l]))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -310,6 +352,17 @@ pub struct EnergyFilter {
     /// Ascending bin EDGES in eV. `n + 1` edges produce `n` bins.
     pub bins: Vec<f64>,
 }
+/// OpenMC's `lower_bound_index` (`include/openmc/search.h:17-19`) on ascending
+/// `edges` (at least two, `x` within `[edges[0], edges[last]]`): `0` if `x` is
+/// the first edge, else `lower_bound(x) - 1`. An interior edge therefore belongs
+/// to the LOWER bin and the top edge to the last bin (gh:#687).
+pub fn lower_bound_index(edges: &[f64], x: f64) -> usize {
+    if x == edges[0] {
+        return 0;
+    }
+    edges.partition_point(|&e| e < x).saturating_sub(1)
+}
+
 impl Filter for EnergyFilter {
     fn n_bins(&self) -> usize {
         if self.bins.len() < 2 {
@@ -319,14 +372,15 @@ impl Filter for EnergyFilter {
         }
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        if ev.energy < self.bins[0] || ev.energy >= *self.bins.last().unwrap() {
+        // OpenMC `EnergyFilter::get_all_bins`: `E >= front && E <= back`, then
+        // `lower_bound_index` (gh:#687). ~~An event on an interior edge went to
+        // the upper bin, and one on the top edge was dropped~~ **CORRECTED
+        // 2026-11-19.** An empty `bins` no longer panics.
+        let (first, last) = (self.bins.first()?, self.bins.last()?);
+        if self.bins.len() < 2 || ev.energy < *first || ev.energy > *last {
             return None;
         }
-        let idx = self
-            .bins
-            .partition_point(|&e| e <= ev.energy)
-            .saturating_sub(1);
-        Some(idx)
+        Some(lower_bound_index(&self.bins, ev.energy))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -367,16 +421,18 @@ impl Filter for EnergyOutFilter {
         // No secondary produced: this event is not a scatter, so it belongs in
         // no outgoing-energy bin at all.
         let e_out = ev.energy_out?;
-        if self.bins.len() < 2 || e_out < self.bins[0] || e_out >= *self.bins.last().unwrap() {
+        if self.bins.len() < 2 || e_out < self.bins[0] || e_out > *self.bins.last().unwrap() {
             return None;
         }
-        let idx = self.bins.partition_point(|&e| e <= e_out).saturating_sub(1);
-        Some(idx)
+        Some(lower_bound_index(&self.bins, e_out))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
 
 /// Filter by universe.  Maps to `openmc::UniverseFilter`.
+///
+/// **Every coordinate level on the track-length path (gh:#677, 2026-11-19):** see
+/// [`CellFilter`]; OpenMC `filter_universe.cpp:50-55`. Deepest match only.
 pub struct UniverseFilter {
     pub universe_indices: Vec<usize>,
 }
@@ -385,9 +441,13 @@ impl Filter for UniverseFilter {
         self.universe_indices.len()
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.universe_indices
-            .iter()
-            .position(|&u| u == ev.universe_idx)
+        // As [`CellFilter::get_bin`]: leaf, then the deepest ancestor (gh:#677).
+        if let Some(i) = self.universe_indices.iter().position(|&u| u == ev.universe_idx) {
+            return Some(i);
+        }
+        (0..ev.n_levels).rev().find_map(|l| {
+            self.universe_indices.iter().position(|&u| u == ev.universe_levels[l])
+        })
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -402,10 +462,10 @@ impl Filter for UniverseFilter {
 /// Ported from `src/tallies/filter_mesh.cpp` (`MeshFilter::get_all_bins`, the
 /// non-track-length branch: `mesh->get_bin(r)`; a single bin, weight 1). The
 /// track-length "bins crossed" sub-segmentation
-/// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) **for
-/// the four structured kinds** — this port scores the whole segment into the
-/// midpoint's cell, which is exact for a mesh whose cells are large relative
-/// to the mean free path. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
+/// (`StructuredMesh::bins_crossed`) is split at the grid surfaces for ALL four
+/// structured kinds (gh:#678, 2026-11-19: planes for regular and rectilinear,
+/// quadratic cuts for cylindrical and spherical); ~~a documented gap for the four
+/// structured kinds, scored whole into the midpoint's cell~~. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
 /// #492) the segment IS split** across the cells it crosses
 /// ([`Filter::track_length_bins`], after `MOABMesh::bins_crossed`).
 /// **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
@@ -427,8 +487,7 @@ impl Filter for MeshFilter {
         self.mesh.bin(ev.position)
     }
     /// Unstructured meshes split the segment across the cells it crosses
-    /// (GitHub #492); the structured kinds return `None` and keep the
-    /// midpoint binning documented above.
+    /// (GitHub #492), as do all four structured kinds (gh:#678).
     fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
         self.mesh.bins_crossed(r0, r1)
     }
@@ -612,9 +671,16 @@ impl Filter for MuFilter {
 }
 #[derive(Debug, Clone, PartialEq)]
 
-/// Filter by the particle's **polar and azimuthal angles of travel**. Maps to
-/// `openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
-/// `filter_polar.cpp`, which OpenMC exposes as one filter).
+/// Filter by the particle's **polar and azimuthal angles of travel**.
+///
+/// ~~Maps to `openmc::PolarAzimuthalFilter`, which OpenMC exposes as one
+/// filter.~~ **CORRECTED 2026-11-19** (gh:#691): OpenMC has no such filter. It
+/// has two, `PolarFilter` (`src/tallies/filter_polar.cpp`) and
+/// `AzimuthalFilter` (`filter_azimuthal.cpp`), and `PolarFilter` bins the ANGLE
+/// `theta = acos(u.z)`, whereas this filter's polar axis bins `cos(theta)`.
+/// **Convert an OpenMC theta edge list `t` to `cos(t)` (descending in theta is
+/// ascending in cosine) before use**; theta edges passed unconverted are not
+/// rejected and mis-bin silently.
 ///
 /// `polar` holds ascending edges in `cos(theta)` on `[-1, 1]` — **cosine, not
 /// the angle** — where `theta` is measured from `+z`, so `cos(theta)` is the
@@ -630,6 +696,29 @@ pub struct PolarAzimuthalFilter {
     pub azimuthal: Vec<f64>,
 }
 
+impl PolarAzimuthalFilter {
+    /// Build the filter from OpenMC `PolarFilter` **theta** edges (ascending
+    /// angle from +z, `[0, pi]`) and `AzimuthalFilter` phi edges (gh:#691). The
+    /// polar edges are converted to `cos(theta)` (ascending), so polar bin `p`
+    /// here is OpenMC's theta bin `n_polar - 1 - p`: **the polar bin order is
+    /// reversed relative to OpenMC's**. Edges outside `[0, pi]` are rejected
+    /// rather than mis-binned silently.
+    ///
+    /// # Errors
+    ///
+    /// A theta edge outside `[0, pi]`, or a non-ascending list.
+    pub fn from_theta_edges(theta: &[f64], azimuthal: Vec<f64>) -> Result<Self, String> {
+        if theta.len() < 2 || !theta.windows(2).all(|w| w[1] > w[0]) {
+            return Err("theta edges must be ascending, at least two".into());
+        }
+        if theta.iter().any(|t| !(0.0..=core::f64::consts::PI).contains(t)) {
+            return Err(format!("theta edges {theta:?} must lie in [0, pi] radians"));
+        }
+        let polar: Vec<f64> = theta.iter().rev().map(|t| t.r_cos()).collect();
+        Ok(Self { polar, azimuthal })
+    }
+}
+
 impl Filter for PolarAzimuthalFilter {
     fn n_bins(&self) -> usize {
         self.polar.len().saturating_sub(1) * self.azimuthal.len().saturating_sub(1)
@@ -639,6 +728,87 @@ impl Filter for PolarAzimuthalFilter {
         let phi = ev.direction.v.r_atan2(ev.direction.u);
         let i_a = bin_in_edges(&self.azimuthal, phi)?;
         Some(i_p * self.azimuthal.len().saturating_sub(1) + i_a)
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+
+/// Filter by the particle's **polar angle** `theta = acos(u.z)` \[rad\], as
+/// OpenMC's `PolarFilter` (`src/tallies/filter_polar.cpp`, gh:#691).
+///
+/// `edges` are ascending angles in `[0, pi]`, so bin `i` is OpenMC's bin `i`
+/// (unlike [`PolarAzimuthalFilter`], whose polar axis is `cos(theta)` and runs
+/// the other way). Edges outside `[0, pi]` are rejected by
+/// [`PolarFilter::new`]. The direction binned is [`FilterEvent::direction`];
+/// upstream uses the pre-collision direction `u_last` for non-track-length
+/// estimators, so a collision-estimator caller must put that direction in the
+/// event.
+pub struct PolarFilter {
+    /// Ascending `theta` edges \[rad\] on `[0, pi]`; `n_bins = len() - 1`.
+    pub edges: Vec<f64>,
+}
+
+impl PolarFilter {
+    /// Build the filter from `theta` edges.
+    ///
+    /// # Errors
+    ///
+    /// Fewer than two edges, not ascending, or outside `[0, pi]`.
+    pub fn new(edges: Vec<f64>) -> Result<Self, String> {
+        if edges.len() < 2 || !edges.windows(2).all(|w| w[1] > w[0]) {
+            return Err("polar edges must be ascending, at least two".into());
+        }
+        if edges.iter().any(|t| !(0.0..=core::f64::consts::PI).contains(t)) {
+            return Err(format!("polar edges {edges:?} must lie in [0, pi] radians"));
+        }
+        Ok(Self { edges })
+    }
+}
+
+impl Filter for PolarFilter {
+    fn n_bins(&self) -> usize {
+        self.edges.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let theta = ev.direction.w.clamp(-1.0, 1.0).r_acos();
+        bin_in_edges(&self.edges, theta)
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+
+/// Filter by the particle's **azimuthal angle** `phi = atan2(u.y, u.x)` \[rad\],
+/// as OpenMC's `AzimuthalFilter` (`src/tallies/filter_azimuthal.cpp`, gh:#691).
+///
+/// `edges` are ascending angles in `[-pi, pi]`; bin `i` is OpenMC's bin `i`.
+/// Direction convention as [`PolarFilter`].
+pub struct AzimuthalFilter {
+    /// Ascending `phi` edges \[rad\] on `[-pi, pi]`; `n_bins = len() - 1`.
+    pub edges: Vec<f64>,
+}
+
+impl AzimuthalFilter {
+    /// Build the filter from `phi` edges.
+    ///
+    /// # Errors
+    ///
+    /// Fewer than two edges, not ascending, or outside `[-pi, pi]`.
+    pub fn new(edges: Vec<f64>) -> Result<Self, String> {
+        if edges.len() < 2 || !edges.windows(2).all(|w| w[1] > w[0]) {
+            return Err("azimuthal edges must be ascending, at least two".into());
+        }
+        let pi = core::f64::consts::PI;
+        if edges.iter().any(|p| !(-pi..=pi).contains(p)) {
+            return Err(format!("azimuthal edges {edges:?} must lie in [-pi, pi] radians"));
+        }
+        Ok(Self { edges })
+    }
+}
+
+impl Filter for AzimuthalFilter {
+    fn n_bins(&self) -> usize {
+        self.edges.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        bin_in_edges(&self.edges, ev.direction.v.r_atan2(ev.direction.u))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -700,60 +870,47 @@ impl Filter for ParticleFilter {
 /// rather than left to the reader.
 ///
 /// A prompt neutron or a non-fission event carries
-/// [`FilterEvent::delayed_group`] `= None` and is rejected.
+/// [`FilterEvent::delayed_group`] `= None` and is rejected by [`Filter::get_bin`].
+///
+/// **On a tally, `delayed-nu-fission` and `decay-rate` do not go through
+/// `get_bin`** (gh:#262): as upstream's, the scoring code deposits into every
+/// group bin analytically (`MacroXs::nu_fission_delayed_group`). Only those two
+/// scores are allowed with this filter; [`super::tally::Tally::validate`]
+/// refuses the rest.
 pub struct DelayedGroupFilter {
     /// 0-based precursor group indices. One bin per entry.
     pub groups: Vec<usize>,
 }
 
 impl DelayedGroupFilter {
-    /// **This filter cannot currently tally anything, and saying so is the
-    /// point of this constructor.** GitHub #262.
+    /// Build a delayed-group filter over the **0-based** groups `groups`.
     ///
-    /// # Why it is refused rather than left constructible
-    ///
-    /// Audited 2026-09-22
-    /// (`verification_and_validation/delayed_neutrons/audit_2026_09_22.md`):
-    /// **nothing in this crate ever sets [`FilterEvent::delayed_group`].**
-    /// Every site that assigns `Some(..)` is a test. `physics::fission` folds
-    /// delayed neutrons into the total ν̄ and treats them as prompt — a
-    /// legitimate, clearly-labelled eigenvalue approximation — so no precursor
-    /// group is ever sampled to put on an event.
-    ///
-    /// A filter in that state does not fail. It sees `None` at every event,
-    /// bins nothing, and the tally returns **exactly zero** with no error and
-    /// no empty-result diagnostic.
-    ///
-    /// That is worse than the usual silent-wrong-answer, because **zero is a
-    /// value a physicist might accept**: a delayed-group tally over a
-    /// non-fissile region genuinely should be zero, so the wrong answer is
-    /// indistinguishable from a right one without knowing the geometry.
-    ///
-    /// # When this starts working
-    ///
-    /// When ν̄ is split into prompt and delayed in the transport loop and the
-    /// sampled precursor group is recorded on the event. The data is already
-    /// in the workspace and unused — `njoy-outram-park-fork`'s
-    /// `nuclear_data::delayed` carries MF=1/455 (λ_k, ν̄_d(E)) and MF=5/455
-    /// (abundances, delayed spectra). See #262 scope items 2 and 3. At that
-    /// point this constructor returns `Ok` and the struct's `Filter` impl
-    /// below already does the right thing unchanged.
-    ///
-    /// # Errors
-    ///
-    /// Always, until the above lands. The error names the audit so a caller
-    /// who hits it can read why rather than guess.
+    /// ~~**This filter cannot currently tally anything**: nothing set
+    /// `FilterEvent::delayed_group`, so it was refused (audit 2026-09-22,
+    /// `verification_and_validation/delayed_neutrons/audit_2026_09_22.md`).~~
+    /// **CORRECTED 2026-11-14 (gh:#262):** `delayed-nu-fission` and
+    /// `decay-rate` tallies carrying this filter are resolved by group
+    /// analytically, as upstream does (`tally_scoring.cpp:705`, `:773`;
+    /// `MacroXs::{nu_fission_delayed_group, decay_rate_group}`), so the filter
+    /// measures something real. Mirroring `filter_delayedgroup.cpp`, an empty
+    /// list, a duplicate, or a group at or beyond
+    /// [`crate::material::material::MAX_DELAYED_GROUPS`] is an error.
     pub fn new(groups: Vec<usize>) -> Result<Self, String> {
-        Err(format!(
-            "a DelayedGroupFilter over {} group(s) would tally exactly ZERO: nothing in \
-             this crate sets FilterEvent::delayed_group, because physics::fission folds \
-             delayed neutrons into the total nu-bar and treats them as prompt. See \
-             GitHub #262 and \
-             verification_and_validation/delayed_neutrons/audit_2026_09_22.md. \
-             Refused rather than returning a silent zero, which is indistinguishable \
-             from a correct result over a non-fissile region.",
-            groups.len()
-        ))
+        use crate::material::material::MAX_DELAYED_GROUPS;
+        if groups.is_empty() {
+            return Err("a DelayedGroupFilter needs at least one group".into());
+        }
+        for (i, &g) in groups.iter().enumerate() {
+            if g >= MAX_DELAYED_GROUPS {
+                return Err(format!(
+                    "delayed group {g} (0-based) is not below MAX_DELAYED_GROUPS = {MAX_DELAYED_GROUPS}"
+                ));
+            }
+            if groups[..i].contains(&g) {
+                return Err(format!("delayed group {g} listed twice"));
+            }
+        }
+        Ok(Self { groups })
     }
 }
 
@@ -872,11 +1029,10 @@ fn bin_in_edges(edges: &[f64], x: f64) -> Option<usize> {
     if n < 2 || x < edges[0] || x > edges[n - 1] {
         return None;
     }
-    if x == edges[n - 1] {
-        return Some(n - 2);
-    }
-    // Ascending edges, so a linear walk is correct; bin counts here are small.
-    (0..n - 1).find(|&i| x >= edges[i] && x < edges[i + 1])
+    // `lower_bound_index` (gh:#687): an interior edge belongs to the LOWER bin,
+    // the top edge to the last. ~~An interior edge went to the upper bin.~~
+    // **CORRECTED 2026-11-19.**
+    Some(lower_bound_index(edges, x))
 }
 
 /// Zernike moments `Z_n^m(rho, theta)` in OpenMC's ordering, for
@@ -958,7 +1114,7 @@ fn factorial(k: usize) -> f64 {
 /// filter scored with rather than a re-derivation that could drift.
 pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> {
     let mut out = Vec::with_capacity((order + 1) * (order + 1));
-    let four_pi = 4.0 * std::f64::consts::PI;
+    let four_pi = 4.0 * core::f64::consts::PI;
     for l in 0..=order {
         for m in -(l as i32)..=(l as i32) {
             let am = m.unsigned_abs() as usize;
@@ -968,9 +1124,9 @@ pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f
             let v = if m == 0 {
                 norm * p
             } else if m > 0 {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
+                core::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
             } else {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
+                core::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
             };
             out.push(v);
         }
@@ -1036,6 +1192,10 @@ pub enum FilterKind {
     Mu(MuFilter),
     /// [`PolarAzimuthalFilter`].
     PolarAzimuthal(PolarAzimuthalFilter),
+    /// [`PolarFilter`] — OpenMC's polar-angle filter (gh:#691).
+    Polar(PolarFilter),
+    /// [`AzimuthalFilter`] — OpenMC's azimuthal-angle filter (gh:#691).
+    Azimuthal(AzimuthalFilter),
     /// [`TimeFilter`].
     Time(TimeFilter),
     /// [`ParticleFilter`].
@@ -1171,6 +1331,8 @@ impl FilterKind {
             FilterKind::Surface(_) => "surface",
             FilterKind::Mu(_) => "mu",
             FilterKind::PolarAzimuthal(_) => "polar-azimuthal",
+            FilterKind::Polar(_) => "polar",
+            FilterKind::Azimuthal(_) => "azimuthal",
             FilterKind::Time(_) => "time",
             FilterKind::Particle(_) => "particle",
             FilterKind::DelayedGroup(_) => "delayedgroup",
@@ -1213,6 +1375,8 @@ impl FilterKind {
             FilterKind::Surface(f) => f,
             FilterKind::Mu(f) => f,
             FilterKind::PolarAzimuthal(f) => f,
+            FilterKind::Polar(f) => f,
+            FilterKind::Azimuthal(f) => f,
             FilterKind::Time(f) => f,
             FilterKind::Particle(f) => f,
             FilterKind::DelayedGroup(f) => f,
@@ -1241,6 +1405,62 @@ impl FilterKind {
 
 #[cfg(test)]
 mod tests {
+    /// gh:#691: theta edges `[0, pi/2, pi]` become cosine edges `[-1, 0, 1]`; a
+    /// downward direction (theta > pi/2) lands in OpenMC theta-bin 1 = polar bin
+    /// 0 here (reversed order), an upward one in theta-bin 0 = polar bin 1, and
+    /// edges passed in cosine space by mistake (`[0, 1.57, 3.14]`) are rejected.
+    #[test]
+    fn theta_edges_are_converted_to_cosine_edges() {
+        let pi = core::f64::consts::PI;
+        let f = PolarAzimuthalFilter::from_theta_edges(&[0.0, 0.5 * pi, pi], vec![-pi, pi]).unwrap();
+        assert!((f.polar[0] + 1.0).abs() < 1e-12 && f.polar[1].abs() < 1e-12 && (f.polar[2] - 1.0).abs() < 1e-12);
+        let ev = |w: f64| FilterEvent { direction: Direction::new((1.0 - w * w).sqrt(), 0.0, w), ..Default::default() };
+        assert_eq!(f.get_bin(&ev(-0.5)), Some(0), "downward = theta bin 1");
+        assert_eq!(f.get_bin(&ev(0.5)), Some(1), "upward = theta bin 0");
+        assert!(PolarAzimuthalFilter::from_theta_edges(&[0.0, 1.57, 3.5], vec![-pi, pi]).is_err());
+        assert!(PolarAzimuthalFilter::from_theta_edges(&[1.0, 0.5], vec![-pi, pi]).is_err());
+    }
+
+    /// gh:#691: OpenMC's own `PolarFilter` (theta = acos(u.z), same bin order as
+    /// upstream) and `AzimuthalFilter` (phi = atan2(u.y, u.x)) beside the
+    /// cosine-binned combined filter. Upward = theta bin 0, downward = bin 1;
+    /// theta edges outside [0, pi] and phi edges outside [-pi, pi] are rejected.
+    #[test]
+    fn upstream_polar_and_azimuthal_filters_bin_the_angles() {
+        let pi = core::f64::consts::PI;
+        let p = PolarFilter::new(vec![0.0, 0.5 * pi, pi]).unwrap();
+        let ev = |u: f64, v: f64, w: f64| FilterEvent { direction: Direction::new(u, v, w), ..Default::default() };
+        assert_eq!(p.get_bin(&ev(0.6, 0.0, 0.8)), Some(0));
+        assert_eq!(p.get_bin(&ev(0.6, 0.0, -0.8)), Some(1));
+        assert!(PolarFilter::new(vec![0.0, 1.57, 3.5]).is_err());
+        assert!(PolarFilter::new(vec![1.0]).is_err());
+        let a = AzimuthalFilter::new(vec![-pi, 0.0, pi]).unwrap();
+        assert_eq!(a.get_bin(&ev(1.0, -0.5, 0.0)), Some(0), "phi < 0");
+        assert_eq!(a.get_bin(&ev(-1.0, 0.5, 0.0)), Some(1), "phi > 0");
+        assert!(AzimuthalFilter::new(vec![-4.0, 0.0]).is_err());
+        assert_eq!((p.n_bins(), a.n_bins()), (2, 2));
+    }
+
+    /// gh:#687: OpenMC `lower_bound_index` edge convention. `[0,1,2]`: E = 1.0 is
+    /// bin 0 (upstream lower; was 1), E = 2.0 is bin 1 (upstream kept; was
+    /// dropped), E = 0.0 is bin 0, outside is `None`; empty edges do not panic.
+    #[test]
+    fn energy_edges_follow_lower_bound_index() {
+        let f = EnergyFilter { bins: vec![0.0, 1.0, 2.0] };
+        let at = |e: f64| f.get_bin(&FilterEvent { energy: e, ..Default::default() });
+        assert_eq!(at(0.0), Some(0));
+        assert_eq!(at(0.5), Some(0));
+        assert_eq!(at(1.0), Some(0));
+        assert_eq!(at(1.0 + 1e-12), Some(1));
+        assert_eq!(at(2.0), Some(1));
+        assert_eq!(at(2.0 + 1e-12), None);
+        assert_eq!(at(-1e-12), None);
+        assert_eq!(EnergyFilter { bins: vec![] }.get_bin(&FilterEvent::default()), None);
+        let g = EnergyOutFilter { bins: vec![0.0, 1.0, 2.0] };
+        let out = |e: f64| g.get_bin(&FilterEvent { energy_out: Some(e), ..Default::default() });
+        assert_eq!((out(1.0), out(2.0)), (Some(0), Some(1)));
+    }
+
     use super::*;
 
     /// `legendre_pn` matches the closed forms P_0..P_3 at a sample point.
@@ -1368,8 +1588,11 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(f.get_bin(&at(1.0)), Some(0), "lower edge is included");
-        assert_eq!(f.get_bin(&at(10.0)), Some(1), "interior edge -> upper bin");
-        assert_eq!(f.get_bin(&at(1000.0)), None, "top edge is excluded");
+        // ~~interior edge -> upper bin; top edge excluded~~ **CORRECTED
+        // 2026-11-19** (gh:#687): OpenMC `lower_bound_index`, interior edge ->
+        // LOWER bin, top edge kept (it is the same convention as `EnergyFilter`).
+        assert_eq!(f.get_bin(&at(10.0)), Some(0), "interior edge -> lower bin");
+        assert_eq!(f.get_bin(&at(1000.0)), Some(2), "top edge is kept, in the last bin");
         assert_eq!(f.get_bin(&at(0.5)), None, "below range");
         assert_eq!(f.get_bin(&at(5000.0)), None, "above range");
     }

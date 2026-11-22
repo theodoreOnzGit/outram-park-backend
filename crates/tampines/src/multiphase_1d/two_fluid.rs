@@ -313,7 +313,9 @@
 //! `W/m³`, `kg/(m³·s)` — because every one of them is read per cell per
 //! corrector per step. Every raw-`f64` boundary says so.
 
-use petir::mathf::RealMath;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_multiphase::two_fluid::RESIDUAL_ALPHA;
 
 use uom::si::available_energy::joule_per_kilogram;

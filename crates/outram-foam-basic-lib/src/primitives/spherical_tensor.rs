@@ -26,7 +26,10 @@
 //! the identity, its operations reduce to scalar arithmetic (trace `3*ii`,
 //! determinant `ii³`, inverse `1/ii`).
 
-use std::ops::{Add, Div, Mul, Neg, Sub};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Div, Mul, Neg, Sub};
 
 /// Isotropic diagonal tensor: represents `ii * I` where `I` is the 3×3 identity.
 /// Maps to `Foam::SphericalTensor<scalar>` (`SphericalTensorI.H`).

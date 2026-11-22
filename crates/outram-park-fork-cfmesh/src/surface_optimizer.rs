@@ -58,9 +58,12 @@
 //! `double`: `VSMALL` 1e-300, `ROOTVSMALL` 1e-150, `SMALL` 1e-15,
 //! `VGREAT` 1e300.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::surface_engine::{ring_area_vector, SurfaceEngine, SurfacePartitioner, VSMALL};
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 use petir::mathf::RealMath;
 
 const ROOTVSMALL: f64 = 1.0e-150;
@@ -108,12 +111,12 @@ fn centre_of(points: &[Vec3], triangles: &[([usize; 3], usize)], tri_ids: &[usiz
     let (mut centre, mut area_sum) = (Vec3::ZERO, 0.0);
     for &t in tri_ids {
         let tri = triangles[t].0;
-        let c = points[tri[0]].add(points[tri[1]]).add(points[tri[2]]).scale(1.0 / 3.0);
+        let c = points[tri[0]].add(points[tri[1]]).add(points[tri[2]]).div(3.0);
         let area = 0.5 * points[tri[1]].sub(points[tri[0]]).cross(points[tri[2]].sub(points[tri[0]])).length() + VSMALL;
         centre = centre.add(c.scale(area));
         area_sum += area;
     }
-    centre.scale(1.0 / area_sum)
+    centre.div(area_sum)
 }
 
 impl PartTriMesh {
@@ -307,7 +310,7 @@ impl PartTriMeshSimplex {
         for &t in &tm.point_triangles[p] {
             let tri = tm.triangles[t].0;
             for &q in &tri {
-                if let std::collections::btree_map::Entry::Vacant(e) = addr.entry(q) {
+                if let alloc::collections::btree_map::Entry::Vacant(e) = addr.entry(q) {
                     e.insert(pts.len());
                     pts.push(tm.points[q]);
                 }
@@ -399,7 +402,7 @@ fn evaluate_gradients(pts: &[Vec3], trias: &[[usize; 3]], k: f64) -> ([f64; 2], 
         let mut hgas: T2 = [[0.0; 2]; 2];
         for i in 0..2 {
             for j in 0..2 {
-                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.r_powi(3));
+                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.r_powf(3.0));
             }
         }
         let gl = [4.0 * p0.x - 2.0 * p1.x - 2.0 * p2.x, 4.0 * p0.y - 2.0 * p1.y - 2.0 * p2.y];
@@ -424,6 +427,15 @@ fn evaluate_gradients(pts: &[Vec3], trias: &[[usize; 3]], k: f64) -> ([f64; 2], 
     (g, h)
 }
 
+/// Set by `new_position_surface_optimizer` while it runs the boundary point
+/// named by `GH1385_BP`, so [`divide_and_conquer`] / [`steepest_descent`]
+/// print what upstream's instrumented `surfaceOptimizer.C` prints (gh:#1385).
+static SO_TRACE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+fn so_trace_on() -> bool {
+    SO_TRACE.load(core::sync::atomic::Ordering::Relaxed)
+}
+
 /// `surfaceOptimizer::dirVecs`.
 const DIR_VECS: [[f64; 2]; 4] = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]];
 
@@ -435,7 +447,7 @@ fn divide_and_conquer(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max
     let (mut dx, mut dy) = ((p_max.x - p_min.x) / 2.0, (p_max.y - p_min.y) / 2.0);
     let mut k = stabilisation_factor(pts, trias);
     let mut func_after = evaluate_func(pts, trias, k);
-    for _ in 0..100 {
+    for it in 0..100 {
         let func_before = func_after;
         func_after = VGREAT;
         let mut min_centre = Vec3::ZERO;
@@ -453,6 +465,10 @@ fn divide_and_conquer(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max
         pts[c] = min_centre;
         dx *= 0.5;
         dy *= 0.5;
+        if so_trace_on() {
+            #[cfg(feature = "std")]
+            eprintln!("DC {it} p {:.17e} {:.17e} f {:.17e}", pts[c].x, pts[c].y, func_after);
+        }
         if (func_after - func_before).abs() / func_after < tol {
             break;
         }
@@ -468,7 +484,7 @@ fn steepest_descent(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max: 
     let avg_edge = p_max.sub(p_min).length();
     let mut k = stabilisation_factor(pts, trias);
     let mut func_after = evaluate_func(pts, trias, k);
-    for _ in 0..100u8 {
+    for it in 0..100u8 {
         let func_before = func_after;
         let (g, h) = evaluate_gradients(pts, trias, k);
         let det = h[0][0] * h[1][1] - h[0][1] * h[1][0];
@@ -478,12 +494,18 @@ fn steepest_descent(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max: 
             disp.y = (-h[1][0] * g[0] + h[0][0] * g[1]) / det;
             let m = disp.length();
             if m > 0.2 * avg_edge {
-                disp = disp.scale(0.2 * avg_edge / m);
+                // `dir = disp/mag(disp); disp = dir*0.2*avgEdge`
+                let dir = disp.div(m);
+                disp = dir.scale(0.2).scale(avg_edge);
             }
         }
         pts[c] = pts[c].sub(disp);
         k = stabilisation_factor(pts, trias);
         func_after = evaluate_func(pts, trias, k);
+        if so_trace_on() {
+            #[cfg(feature = "std")]
+            eprintln!("SD {it} g {:.17e} {:.17e} H {:.17e} {:.17e} {:.17e} {:.17e} disp {:.17e} {:.17e} p {:.17e} {:.17e} f {:.17e}", g[0], g[1], h[0][0], h[0][1], h[1][0], h[1][1], disp.x, disp.y, pts[c].x, pts[c].y, func_after);
+        }
         if (func_after - func_before).abs() / func_before < tol {
             break;
         }
@@ -507,10 +529,11 @@ pub fn optimize_point(pts: &mut [Vec3], trias: &[[usize; 3]], tol: f64) -> Vec3 
         }
     }
     let scale = p_max.sub(p_min).length();
+    // `pts_[i] /= scale`, `pMin_ /= scale`: each component divided
     for p in pts.iter_mut() {
-        *p = p.scale(1.0 / scale);
+        *p = p.div(scale);
     }
-    let (p_min, p_max) = (p_min.scale(1.0 / scale), p_max.scale(1.0 / scale));
+    let (p_min, p_max) = (p_min.div(scale), p_max.div(scale));
     let c = trias[0][0];
     let func_divide = divide_and_conquer(pts, trias, p_min, p_max, tol);
     let new_point = pts[c];
@@ -795,7 +818,7 @@ impl MeshSurfaceOptimizer {
             if mag_sqr(n) < VSMALL {
                 return points[v];
             }
-            let n = n.scale(1.0 / n.length());
+            let n = n.div(n.length());
             for &bf in pf {
                 sum = sum.add(plane_nearest(points[v], n, self.engine.face_centres[bf]));
             }
@@ -804,7 +827,7 @@ impl MeshSurfaceOptimizer {
                 sum = sum.add(self.engine.face_centres[bf]);
             }
         }
-        sum.scale(1.0 / pf.len() as f64)
+        sum.div(pf.len() as f64)
     }
 
     /// `transformIntoPlane`: the point's simplex in the tangent plane
@@ -823,9 +846,9 @@ impl MeshSurfaceOptimizer {
             let q = plane_nearest(base, n, sp);
             let d = q.sub(p).length();
             if d > VSMALL {
-                let x = q.sub(p).scale(1.0 / d);
+                let x = q.sub(p).div(d);
                 let y = n.cross(x);
-                axes = Some((x, y.scale(1.0 / y.length())));
+                axes = Some((x, y.div(y.length())));
                 break;
             }
         }
@@ -844,11 +867,30 @@ impl MeshSurfaceOptimizer {
         if mag_sqr(n) < VSMALL {
             return points[v];
         }
-        let n = n.scale(1.0 / n.length());
+        let n = n.div(n.length());
         let Some((x, y, mut pts, trias)) = self.transform_into_plane(b, points[v], n) else {
             return points[v];
         };
+        let pts_in = pts.clone();
+        let tracing = crate::env::var("GH1385_TRACE").is_ok() && crate::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) == Some(b);
+        SO_TRACE.store(tracing, core::sync::atomic::Ordering::Relaxed);
         let q = optimize_point(&mut pts, &trias, 0.001);
+        SO_TRACE.store(false, core::sync::atomic::Ordering::Relaxed);
+        if crate::env::var("GH1385_TRACE").is_ok() && crate::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) == Some(b) {
+            // gh:#1385: the instrumented upstream prints the same (`SO ...`)
+            #[cfg(feature = "std")]
+            eprintln!("SO pn {:.17e} {:.17e} {:.17e}", self.engine.point_normals[b].x, self.engine.point_normals[b].y, self.engine.point_normals[b].z);
+            #[cfg(feature = "std")]
+            eprintln!("SO vx {:.17e} {:.17e} {:.17e}", x.x, x.y, x.z);
+            #[cfg(feature = "std")]
+            eprintln!("SO vy {:.17e} {:.17e} {:.17e}", y.x, y.y, y.z);
+            #[cfg(feature = "std")]
+            eprintln!("SO new {:.17e} {:.17e} {:.17e}", q.x, q.y, q.z);
+            for (i, p) in pts_in.iter().enumerate() {
+                #[cfg(feature = "std")]
+                eprintln!("SO pt {i} {:.17e} {:.17e}", p.x, p.y);
+            }
+        }
         let new_p = points[v].add(x.scale(q.x)).add(y.scale(q.y));
         if new_p.x.is_finite() && new_p.y.is_finite() && new_p.z.is_finite() {
             new_p
@@ -868,7 +910,7 @@ impl MeshSurfaceOptimizer {
     }
 
     /// `smoothLaplacianFC`.
-    fn smooth_laplacian_fc(&mut self, points: &mut [Vec3], selected: &[usize], transform: bool) {
+    pub fn smooth_laplacian_fc(&mut self, points: &mut [Vec3], selected: &[usize], transform: bool) {
         let new: Vec<(usize, Vec3)> =
             selected.iter().filter(|&&b| !self.locked(b)).map(|&b| (b, self.new_position_laplacian_fc(points, b, transform))).collect();
         for (b, p) in new {
@@ -879,7 +921,7 @@ impl MeshSurfaceOptimizer {
 
     /// `smoothSurfaceOptimizer`. The triangulation is built on first use
     /// and afterwards updated only at `selected`, as upstream's.
-    fn smooth_surface_optimizer(&mut self, points: &mut [Vec3], selected: &[usize]) {
+    pub fn smooth_surface_optimizer(&mut self, points: &mut [Vec3], selected: &[usize]) {
         if self.tri_mesh.is_none() {
             self.tri_mesh = Some(PartTriMesh::new(&self.engine, &self.part, points));
         }
@@ -903,6 +945,22 @@ impl MeshSurfaceOptimizer {
     fn map_edge_nodes(&mut self, points: &mut [Vec3], nodes: &[usize]) {
         let Some(q) = self.mapper.as_ref() else { return };
         let dist: Vec<f64> = nodes.iter().map(|&b| self.mapping_distance(points, b)).collect();
+        if let Some(o) = q.octree() {
+            // gh:#1385: upstream's routine, patches unsorted
+            let moved: Vec<(usize, Vec3)> = nodes
+                .iter()
+                .zip(&dist)
+                .map(|(&b, &max_dist)| {
+                    let v = self.engine.boundary_points[b];
+                    (v, crate::surface_mapper::map_edge_node_upstream(q, o, points[v], &self.part.point_patches[b], max_dist))
+                })
+                .collect();
+            for (v, p) in moved {
+                points[v] = p;
+            }
+            self.engine.update_geometry(points, nodes);
+            return;
+        }
         for (&b, &max2) in nodes.iter().zip(&dist) {
             let mut ps = self.part.point_patches[b].clone();
             ps.sort_unstable();
@@ -936,13 +994,18 @@ impl MeshSurfaceOptimizer {
         let mut remap = true;
         let mut n_inverted;
         let mut min_inverted = nbp;
-        let mut history: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+        let mut history: alloc::collections::VecDeque<usize> = alloc::collections::VecDeque::new();
         let mut min_points: Vec<Vec3> = vec![Vec3::ZERO; nbp];
         let mut first = true;
         loop {
             let (mut n_iter, mut n_after_refresh) = (0usize, 0usize);
             loop {
                 n_inverted = self.find_inverted_vertices(points, &mut smooth, n_additional_layers);
+                if crate::env::var("GH1385_TRACE").is_ok() {
+                    // gh:#1385: as the instrumented upstream prints it (`UNT globalIter iter nInverted nSmooth`)
+                    #[cfg(feature = "std")]
+                    eprintln!("UNT {} {} {} {}", rep.global_iterations, n_iter, n_inverted, smooth.iter().filter(|&&s| s).count());
+                }
                 if first {
                     rep.n_inverted_first = n_inverted;
                     first = false;
@@ -978,18 +1041,33 @@ impl MeshSurfaceOptimizer {
                         moved_edge.push(b);
                     }
                 }
+                // gh:#1385: `TRACE S1..S5 0 i x y z`, every boundary point, as the instrumented upstream prints it (only for the 24-point untangle)
+                let trace24 = crate::env::var("GH1385_TRACE").is_ok() && smooth.iter().filter(|&&s| s).count() == 24;
+                let dump = |tag: &str, engine: &SurfaceEngine, points: &[Vec3]| {
+                    if trace24 {
+                        for (b, &p) in engine.boundary_points.iter().enumerate() {
+                            #[cfg(feature = "std")]
+                            eprintln!("TRACE {tag} 0 {b} {:?} {:?} {:?}", points[p].x, points[p].y, points[p].z);
+                        }
+                    }
+                };
                 self.smooth_edge_points(points, &moved_edge);
+                dump("S1", &self.engine, points);
                 if remap {
                     self.map_edge_nodes(points, &moved_edge);
                 }
                 self.engine.update_geometry(points, &moved_edge);
+                dump("S2", &self.engine, points);
                 self.smooth_laplacian_fc(points, &moved, true);
                 self.engine.update_geometry(points, &moved);
+                dump("S3", &self.engine, points);
                 self.smooth_surface_optimizer(points, &moved);
+                dump("S4", &self.engine, points);
                 if remap {
                     self.map_vertices_onto_surface(points, &moved);
                 }
                 self.engine.update_geometry(points, &moved);
+                dump("S5", &self.engine, points);
                 n_iter += 1;
                 if !(n_inverted > 0 && n_iter < 20) {
                     break;
@@ -1026,12 +1104,35 @@ impl MeshSurfaceOptimizer {
         self.untangle_surface_selected(points, &all, n_additional_layers)
     }
 
+    /// With `GH1385_TRACE` and `GH1385_BP=<boundary point>` set, print that
+    /// boundary point as upstream's instrumented `meshSurfaceOptimizer` dumps
+    /// it (`TRACE <tag> <iteration> <bp> <x> <y> <z>`, gh:#1385).
+    fn trace_bp(&self, tag: &str, iter: usize, points: &[Vec3]) {
+        if crate::env::var("GH1385_TRACE").is_err() {
+            return;
+        }
+        if crate::env::var("GH1385_BP").is_ok_and(|v| v == "all") {
+            for (bp, &v) in self.engine.boundary_points.iter().enumerate() {
+                let p = points[v];
+                #[cfg(feature = "std")]
+                eprintln!("TRACE {tag} {iter} {bp} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+            }
+            return;
+        }
+        if let Some(bp) = crate::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) {
+            let p = points[self.engine.boundary_points[bp]];
+            #[cfg(feature = "std")]
+            eprintln!("TRACE {tag} {iter} {bp} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+        }
+    }
+
     /// `optimizeSurface(nIterations)`: `n_iterations` passes of edge-point
     /// smoothing (mapped back onto the feature edges when there is a
     /// mapper), then of Laplace (face centres, in plane) and
     /// `surfaceOptimizer` smoothing of the patch points, then
     /// `untangleSurface(0)`.
     pub fn optimize_surface(&mut self, points: &mut [Vec3], n_iterations: usize) -> UntangleReport {
+        self.trace_bp("opt_pre", 0, points);
         let (mut edge, mut partition) = (Vec::new(), Vec::new());
         for b in 0..self.engine.n_boundary_points() {
             if self.locked(b) {
@@ -1048,9 +1149,11 @@ impl MeshSurfaceOptimizer {
             self.map_edge_nodes(points, &edge);
             self.engine.update_geometry(points, &edge);
         }
-        for _ in 0..n_iterations {
+        for i in 0..n_iterations {
             self.smooth_laplacian_fc(points, &partition, true);
+            self.trace_bp("opt_lapfc", i, points);
             self.smooth_surface_optimizer(points, &partition);
+            self.trace_bp("opt_so", i, points);
         }
         self.untangle_surface(points, 0)
     }
@@ -1062,8 +1165,20 @@ impl MeshSurfaceOptimizer {
 /// layers, mapping back onto the surface). The whole boundary is one patch
 /// here, as upstream's at that stage (before `extractPatches`).
 pub fn map_mesh_to_surface(mesh: &crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
-    let mut m = mesh.clone();
     let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    map_mesh_to_surface_with(mesh, q)
+}
+
+/// [`map_mesh_to_surface`] with the nearest-point searches of upstream's
+/// octree (`meshOctree::findNearestSurfacePoint`), as the generators call it
+/// (gh:#1385).
+pub fn map_mesh_to_surface_octree(mesh: &crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(alloc::sync::Arc::new(o.clone()));
+    map_mesh_to_surface_with(mesh, q)
+}
+
+fn map_mesh_to_surface_with(mesh: &crate::volume_mesh::VolumeMesh, q: crate::surface_mapper::SurfaceQueries) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let mut m = mesh.clone();
     let one = vec![0usize; m.face_count()];
     let mut engine = SurfaceEngine::from_parts(&m.points, &m.faces, &m.owner, &m.neighbour, &one);
     for b in 0..engine.n_boundary_points() {
@@ -1082,6 +1197,35 @@ pub fn map_mesh_to_surface(mesh: &crate::volume_mesh::VolumeMesh, points: &[Vec3
 /// `mesh`, whose boundary face `f` is in surface region `face_region[f]`.
 pub fn optimise_mesh_surface(mesh: &mut crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
     let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    optimise_mesh_surface_with(mesh, q, regions, face_region)
+}
+
+/// [`optimise_mesh_surface`] with upstream's octree for the nearest-point
+/// searches of `mapEdgeNodes` (gh:#1385), as the generators call it.
+pub fn optimise_mesh_surface_octree(mesh: &mut crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(alloc::sync::Arc::new(o.clone()));
+    optimise_mesh_surface_with(mesh, q, regions, face_region)
+}
+
+/// `voronoiMeshGenerator::optimiseMeshSurface`: `optimizeSurface()` and then
+/// `untangleSurface()` on **one** `meshSurfaceOptimizer` (gh:#1385 round 4):
+/// its `partTriMesh` is created at the first `smoothSurfaceOptimizer` and
+/// afterwards only the selected points' coordinates are refreshed, so the
+/// untangle sees the triangulation's stale coordinates of every other point,
+/// as upstream does. Returns the two reports.
+pub fn optimise_mesh_surface_then_untangle_octree(mesh: &mut crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> (UntangleReport, UntangleReport) {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(alloc::sync::Arc::new(o.clone()));
+    let unassigned = regions.names.len();
+    let patch_of: Vec<usize> = face_region.iter().map(|r| r.unwrap_or(unassigned)).collect();
+    let engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &patch_of);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, Some(q));
+    let a = opt.optimize_surface(&mut mesh.points, 5);
+    let b = opt.untangle_surface(&mut mesh.points, 2);
+    (a, b)
+}
+
+fn optimise_mesh_surface_with(mesh: &mut crate::volume_mesh::VolumeMesh, q: crate::surface_mapper::SurfaceQueries, regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
     let unassigned = regions.names.len();
     let patch_of: Vec<usize> = face_region.iter().map(|r| r.unwrap_or(unassigned)).collect();
     let engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &patch_of);
@@ -1222,7 +1366,7 @@ mod tests {
     fn bipyramid(c: Vec3) -> VolumeMesh {
         let mut points = vec![c];
         for k in 0..6 {
-            let a = k as f64 * std::f64::consts::PI / 3.0;
+            let a = k as f64 * core::f64::consts::PI / 3.0;
             points.push(Vec3::new(a.r_cos(), a.r_sin(), 0.0));
         }
         points.push(Vec3::new(0.0, 0.0, -1.0));
@@ -1244,6 +1388,7 @@ mod tests {
                 crate::volume_mesh::BoundaryPatch { name: "top".into(), start_face: 0, n_faces: 6 },
                 crate::volume_mesh::BoundaryPatch { name: "bottom".into(), start_face: 6, n_faces: 6 },
             ],
+            cells: None,
         }
     }
 
@@ -1302,7 +1447,7 @@ mod tests {
     #[test]
     fn surface_optimizer_untangles_a_planar_fan() {
         let ring: Vec<Vec3> = (0..6).map(|k| {
-            let a = k as f64 * std::f64::consts::PI / 3.0;
+            let a = k as f64 * core::f64::consts::PI / 3.0;
             Vec3::new(a.r_cos(), a.r_sin(), 0.0)
         }).collect();
         let trias: Vec<[usize; 3]> = (0..6).map(|k| [0, 1 + k, 1 + (k + 1) % 6]).collect();
@@ -1314,6 +1459,7 @@ mod tests {
         let p = optimize_point(&mut pts, &trias, 0.001);
         pts[0] = p;
         let areas: Vec<f64> = trias.iter().map(|t| area_xy(pts[t[0]], pts[t[1]], pts[t[2]])).collect();
+        #[cfg(feature = "std")]
         println!("dragged fan: optimised to {p:?}, areas {areas:?}");
         assert!(areas.iter().all(|&a| a > 0.0));
 
@@ -1323,6 +1469,7 @@ mod tests {
         let p = optimize_point(&mut pts, &trias, 0.001);
         pts[0] = p;
         let f_opt = evaluate_func(&pts, &trias, 0.0);
+        #[cfg(feature = "std")]
         println!("regular hexagon: centre went to {p:?} (|d| {:.3e}), func {f_centre} -> {f_opt}", p.length());
         assert!(p.length() < 1e-3);
         assert!((f_opt - f_centre).abs() / f_centre < 1e-6);
@@ -1463,6 +1610,7 @@ mod tests {
                 }
                 inv_in_bad.extend(hit);
             }
+            #[cfg(feature = "std")]
             println!(
                 "pipe h 6 mm {kind:?} Corners, {} boundary points. Unmapped: {} inverted ({} reflex face corners). Mapped, no revert: {} inverted ({} reflex), {} cells with a non-positive pyramid ({} with a boundary face, {} of those with an inverted vertex), {} inverted vertices on such a face",
                 e.n_boundary_points(),
@@ -1492,6 +1640,7 @@ mod tests {
                 }
             }
             let names: Vec<&str> = m.patches.iter().map(|q| q.name.as_str()).collect();
+            #[cfg(feature = "std")]
             println!("  unmapped faces failing isFaceConvexAndOk per patch {names:?}: {per_patch:?}; most negative (e_prev x e_next).n = {worst:.3}");
             assert!(!inv.is_empty());
         }
@@ -1518,9 +1667,11 @@ mod diag {
                 continue;
             }
             shown += 1;
+            #[cfg(feature = "std")]
             println!("face {bf} patch {} ring {} pts ok {oks:?}", e.face_patches[bf], r.len());
             for &v in r {
                 let x = m.points[v];
+                #[cfg(feature = "std")]
                 println!("   {v}: ({:.5}, {:.5}, {:.5}) r {:.5}", x.x * 1e3, x.y * 1e3, x.z * 1e3, (x.x * x.x + x.y * x.y).sqrt() * 1e3);
             }
         }
@@ -1538,7 +1689,7 @@ mod tests_gh1259 {
     fn bipyramid(c: Vec3) -> VolumeMesh {
         let mut points = vec![c];
         for k in 0..6 {
-            let a = k as f64 * std::f64::consts::PI / 3.0;
+            let a = k as f64 * core::f64::consts::PI / 3.0;
             points.push(Vec3::new(a.r_cos(), a.r_sin(), 0.0));
         }
         points.push(Vec3::new(0.0, 0.0, -1.0));
@@ -1560,6 +1711,7 @@ mod tests_gh1259 {
                 crate::volume_mesh::BoundaryPatch { name: "top".into(), start_face: 0, n_faces: 6 },
                 crate::volume_mesh::BoundaryPatch { name: "bottom".into(), start_face: 6, n_faces: 6 },
             ],
+            cells: None,
         }
     }
 
@@ -1593,6 +1745,7 @@ mod tests_gh1259 {
         assert!(!so.locked(0));
         so.lock_feature_edges();
         let r = so.untangle_surface(&mut m.points, 2);
+        #[cfg(feature = "std")]
         println!("{r:?}; centre {:?}", m.points[0]);
         assert_eq!(r.n_inverted_first, 1);
         assert_eq!(r.n_inverted_last, 0);
@@ -1634,6 +1787,7 @@ mod tests_gh1259 {
         let (_, rep0) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         assert!(rep0.stage_notes.iter().all(|n| !n.contains("untangleSurface")));
         let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &TetDualOptions { untangle_surface: true, ..o.clone() }).unwrap();
+        #[cfg(feature = "std")]
         println!("{:?}", rep.stage_notes);
         assert!(rep.stage_notes.iter().any(|n| n.starts_with("untangleSurface")));
         m.validate().unwrap();
@@ -1642,6 +1796,7 @@ mod tests_gh1259 {
         let given = crate::surface_mapper::boundary_face_regions(&m, &p, &t, &regions);
         let mut m2 = m.clone();
         let r = crate::mesh_optimizer::optimize_surface(&mut m2, &p, &t, &regions, &given);
+        #[cfg(feature = "std")]
         println!("meshOptimizer::optimizeSurface: {r:?}; valid {:?}", m2.validate().is_ok());
 
         let mut lo = o.clone();
@@ -1651,6 +1806,7 @@ mod tests_gh1259 {
         lo.layer_strategy = crate::layers::LayerQualityStrategy::CfMeshOptimise;
         lo.cfmesh_layer_optimisation.optimise_surface = true;
         let (ml, repl) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &lo).unwrap();
+        #[cfg(feature = "std")]
         println!("CfMeshOptimise + optimise_surface: {} cells; {:?}", ml.cell_count(), repl.stage_notes);
         ml.validate().unwrap();
     }
@@ -1660,7 +1816,7 @@ mod tests_gh1259 {
     fn inlet_fraction(m: &VolumeMesh, r: f64) -> f64 {
         let q = m.patches.iter().find(|q| q.name == "inlet").unwrap();
         let a: f64 = (q.start_face..q.start_face + q.n_faces).map(|f| m.face_area_vector(f).z).sum();
-        a.abs() / (std::f64::consts::PI * r * r)
+        a.abs() / (core::f64::consts::PI * r * r)
     }
 
     /// Differential (gh:#1259), `--ignored`: `untangleSurface` (the
@@ -1679,11 +1835,11 @@ mod tests_gh1259 {
     #[ignore]
     fn diagnose_untangle_surface_differential() {
         let cases: [(&str, usize, f64); 3] = [("pipe24 L60", 24, 0.06), ("pipe48 L60", 48, 0.06), ("foam studio L200", 48, 0.2)];
-        let hs: Vec<f64> = std::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        let hs: Vec<f64> = crate::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         // CFMESH_CE=1: correct_edges on in both routes; CFMESH_CASE: only
         // the cases whose name contains it.
-        let ce = std::env::var("CFMESH_CE").as_deref() == Ok("1");
-        let only = std::env::var("CFMESH_CASE").ok();
+        let ce = crate::env::var("CFMESH_CE").as_deref() == Ok("1");
+        let only = crate::env::var("CFMESH_CASE").ok();
         for (name, n_seg, l) in cases {
             if only.as_deref().is_some_and(|c| !name.contains(c)) {
                 continue;
@@ -1700,7 +1856,7 @@ mod tests_gh1259 {
                         correct_edges: ce,
                         ..Default::default()
                     };
-                    let t0 = std::time::Instant::now();
+                    let t0 = crate::time::Instant::now();
                     let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
                     let secs = t0.elapsed().as_secs_f64();
                     let unmapped = rep
@@ -1713,6 +1869,7 @@ mod tests_gh1259 {
                     let e = SurfaceEngine::new(&m);
                     let inv = check_inverted_vertices(&e, &SurfacePartitioner::new(&e), &m.points, None).len();
                     let note = rep.stage_notes.iter().find(|n| n.starts_with("untangleSurface")).cloned().unwrap_or_default();
+                    #[cfg(feature = "std")]
                     println!(
                         "{name} h {:.0} {}{}: {} cells, capture {}, unmapped {unmapped}, inlet/piR2 {:.5}, V/piR2L {:.5}, nonpos pyramids {npyr}, inverted pts {inv}, NO max {:.1}, {secs:.1} s; {note}",
                         h * 1e3,
@@ -1721,7 +1878,7 @@ mod tests_gh1259 {
                         m.cell_count(),
                         if skipped { "REJECTED" } else { "kept" },
                         inlet_fraction(&m, 0.01),
-                        m.total_volume() / (std::f64::consts::PI * 1e-4 * l),
+                        m.total_volume() / (core::f64::consts::PI * 1e-4 * l),
                         crate::checks::check_quality(&m).max_non_orthogonality_deg,
                     );
                 }
@@ -1764,7 +1921,7 @@ pub(crate) mod render_gh1259 {
     }
 
     /// An 8-bit RGB PNG with stored (uncompressed) deflate blocks.
-    fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
+    pub(crate) fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
         let mut raw = Vec::with_capacity(h * (3 * w + 1));
         for y in 0..h {
             raw.push(0u8);
@@ -1846,7 +2003,7 @@ pub(crate) mod render_gh1259 {
     pub(crate) fn draw(m: &VolumeMesh, path: &std::path::Path, x0: f64, y0: f64, span: f64) {
         let mut c = Canvas::new(900, 900, x0, y0, span);
         for k in 0..48 {
-            let (a0, a1) = (k as f64 * std::f64::consts::TAU / 48.0, (k + 1) as f64 * std::f64::consts::TAU / 48.0);
+            let (a0, a1) = (k as f64 * core::f64::consts::TAU / 48.0, (k + 1) as f64 * core::f64::consts::TAU / 48.0);
             c.line(Vec3::new(0.01 * a0.r_cos(), 0.01 * a0.r_sin(), 0.0), Vec3::new(0.01 * a1.r_cos(), 0.01 * a1.r_sin(), 0.0), [220, 30, 30]);
         }
         let q = m.patches.iter().find(|q| q.name == "inlet").unwrap();
@@ -1869,7 +2026,7 @@ pub(crate) mod render_gh1259 {
     #[test]
     #[ignore]
     fn render_untangle_surface_inlets() {
-        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
+        let dir = crate::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
             concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/gh1259").to_string()
         });
         let dir = std::path::PathBuf::from(dir);
@@ -1888,6 +2045,7 @@ pub(crate) mod render_gh1259 {
                 let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
                 draw(&m, &dir.join(format!("inlet_{tag}_h{h_mm}.png")), -0.0105, -0.0105, 0.021);
                 draw(&m, &dir.join(format!("inlet_{tag}_h{h_mm}_rim.png")), 0.006, -0.00225, 0.0045);
+                #[cfg(feature = "std")]
                 println!("wrote inlet_{tag}_h{h_mm}(.png, _rim.png)");
             }
         }

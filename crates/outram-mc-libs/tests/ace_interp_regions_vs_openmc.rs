@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The nu and yield tables are evaluated on their own interpolation regions,
 //! as OpenMC's `Tabulated1D` evaluates them.** This is part of the GitHub #365
@@ -57,6 +57,8 @@
 //! All 56 values agree with OpenMC's rule to ≤ 1e-12. Worst relative difference
 //! from the lin-lin reading, per quantity, is printed by the test and recorded
 //! in `ace_route_physics/interp_regions_2026-09-29.md`.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::path::PathBuf;

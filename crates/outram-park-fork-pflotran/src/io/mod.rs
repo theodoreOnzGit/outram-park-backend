@@ -27,6 +27,9 @@
 //! Lengths in metres, pressures in pascals (Pa), times in seconds (s),
 //! permeability in m^2, `alpha` in 1/Pa, Darcy fluxes in m/s.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod parse;
 mod spec;
 mod writers;

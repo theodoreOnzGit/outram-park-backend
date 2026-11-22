@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! pyDOSEIA's run configuration, as a typed Rust structure with upstream's
 //! defaults and upstream's consistency checks.
 //!
@@ -18,6 +18,9 @@
 //! its upstream name in the field docs. Keys upstream reads but never uses in
 //! a calculation are listed at [`PyDoseiaConfig::unused_upstream_keys`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::pydoseia::dcf::LungAbsorptionType;
 use crate::pydoseia::ingestion::food_chain::{AnimalProduct, Climate, VegetationType};
 use crate::pydoseia::ingestion::{DietaryIntake, IngestionParameters, SoilType};

@@ -30,6 +30,9 @@
 //! partition is 1-D (structured slabs); unstructured / multi-dimensional
 //! partitioning is future work.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cartesian2d;
 pub mod krylov;
 pub mod ldu;

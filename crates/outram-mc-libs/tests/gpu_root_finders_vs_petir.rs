@@ -36,10 +36,12 @@
 //! against PETIR on the CPU in `the_test_cases_are_solvable_at_all`, a test
 //! that needs no device and would catch a badly-chosen case set.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;
-use outram_mc_libs::gpu::{probe, GpuContext};
+use outram_mc_libs::gpu::{shared_probe, GpuContext};
 
 /// The shader under test, included verbatim so it cannot drift from the one
 /// the library ships.
@@ -271,7 +273,7 @@ fn the_test_cases_are_solvable_at_all() {
 /// necessarily mean anything at all.
 #[test]
 fn gpu_quartic_roots_agree_with_petirs_closed_form() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_quartic_roots_agree_with_petirs_closed_form: no GPU adapter");
         return;
     };
@@ -343,7 +345,7 @@ fn gpu_quartic_roots_agree_with_petirs_closed_form() {
 /// inside what a ray-surface intersection needs.
 #[test]
 fn every_root_the_gpu_returns_is_a_real_root() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP every_root_the_gpu_returns_is_a_real_root: no GPU adapter");
         return;
     };

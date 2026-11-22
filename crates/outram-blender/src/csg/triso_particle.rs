@@ -104,6 +104,9 @@
 //!   follow-up (tracked in `op-jw4a`, not yet done): a tighter-tolerance
 //!   edge-by-edge validation, and root-causing the residual ~3% gap.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cell::{Cell, HalfSpaceSense, RegionToken};
 use super::geometry::Geometry;
 use super::position::Position;

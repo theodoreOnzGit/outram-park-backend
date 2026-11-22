@@ -11,7 +11,10 @@
 //! > **⚠️ Untrusted AI-assisted draft — no human V&V.** Verified against hand
 //! > arithmetic and cross-checked against this crate's rigorous MESH solvers
 //! > (see the tests below), **not** validated against experimental data or
-//! > DWSIM's own output. Not for nuclear facility operation, reactor control,
+//! > ~~DWSIM's own output~~ **CORRECTED 2026-11-13 (gh:#1356):** the FUG algorithm is
+//! > compared with a verbatim transcription of upstream, seeded with this port's
+//! > K-values (`tests/upstream_shortcut_parity.rs`: 110/112 bit-identical); K-values,
+//! > q re-computation, temperatures and duties are not. Not for nuclear facility operation, reactor control,
 //! > safety-critical, or licensing decisions. Independent OUTRAM PARK fork,
 //! > not the official DWSIM.
 //!
@@ -142,6 +145,9 @@
 //! - The result reports which [`UnderwoodMode`] was taken — upstream computes
 //!   the same branch but does not expose it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use ndarray::Array2;
 use uom::si::catalytic_activity::katal;
@@ -889,7 +895,7 @@ impl ShortcutColumn {
         // Souders-Brown-type maximum vapour velocity, Fair-style capacity
         // quadratic in the tray spacing (`:558`).
         let uv = (-0.17 * lt * lt + 0.27 * lt - 0.047) * ((rho_l - rho_v) / rho_v).sqrt();
-        let diameter = (4.0 * max_vw / (std::f64::consts::PI * rho_v * uv)).sqrt();
+        let diameter = (4.0 * max_vw / (core::f64::consts::PI * rho_v * uv)).sqrt();
 
         Ok(ShortcutColumnResult {
             minimum_stages: n_min,

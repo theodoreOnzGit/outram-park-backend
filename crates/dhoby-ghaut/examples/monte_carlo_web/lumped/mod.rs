@@ -106,13 +106,14 @@ impl RungBuilder for Builder {
         ugraphite::model::DataBuilder::make(tier.speed(), index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
+        let bound = self.0.finish(&model::materials())?;
         let phys = sim::Physics {
             geometry: model::build_geometry(),
-            materials: model::materials(),
-            nuclides: self.0.finish()?,
+            materials: bound.materials,
+            nuclides: bound.nuclides,
             birth: sim::Birth::Ball { r: model::LUMP_R_CM },
         };
-        Ok(Loaded { phys, chain: sim::Chain::new(CHAIN_SEED) })
+        Ok(Loaded { phys, chain: sim::Chain::new(CHAIN_SEED), roles: bound.roles })
     }
 }
 
@@ -154,10 +155,11 @@ mod tests {
     #[test]
     #[ignore = "processes 6 ENDF tapes (~1 min); run with --ignored"]
     fn histories_in_the_cell_end_properly() {
+        let bound = crate::ugraphite::tests::load(Tier::Exact, &model::materials());
         let phys = sim::Physics {
             geometry: model::build_geometry(),
-            materials: model::materials(),
-            nuclides: crate::ugraphite::tests::load(Tier::Exact),
+            materials: bound.materials,
+            nuclides: bound.nuclides,
             birth: sim::Birth::Ball { r: model::LUMP_R_CM },
         };
         let mut chain = sim::Chain::new(3);

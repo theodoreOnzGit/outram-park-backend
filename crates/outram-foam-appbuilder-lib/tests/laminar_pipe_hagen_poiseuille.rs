@@ -142,6 +142,19 @@ fn stage0_grids() -> [PipeOGrid; 3] {
 /// The default-run gate (gh:#1161): on the 5k stage 0 O-grid, Re = 100,
 /// Co ≈ 4, the corrected Laplacian lowers dp/dz toward Hagen–Poiseuille and
 /// conserves mass; the ablation reproduces the stage 0 number.
+///
+/// **gh:#1488 (2026-11-11), boundary `deltaCoeffs` made patch-normal as in
+/// upstream `fvPatch::delta()`.** Printed values, release, this 5280-cell
+/// O-grid: ablation (orthogonal) ~~`dpdz/HP` 1.03160, poly 1.01986, `uc15`
+/// 0.9902, `uc17` 0.9923, `uc_dev` 0.9900~~ **1.03221, 1.02046, 0.9904,
+/// 0.9926, 0.9902** (+6.1e-4 in `dpdz/HP`: the wall conductance `1/|n . d|`
+/// is larger than `1/|Cf - C|` on the skewed wall cells, so more wall
+/// shear for the same flow). That is 6e-4 FURTHER from the polygon's
+/// Hagen-Poiseuille value, a finding recorded rather than tuned; the
+/// ablation is a deliberately uncorrected solver. The default (corrected)
+/// row is unchanged to the printed digits (1.01768, poly 1.00610, `uc15`
+/// 0.9902, `cont` 5.7e-12): the corrected path already used the
+/// patch-normal distance. The assertions below did not move.
 #[test]
 fn pipe_5k_non_orthogonal_correction() {
     let f = PipeFlow::stage0();

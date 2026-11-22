@@ -98,14 +98,16 @@
 //! - **`α` outside `[0, 1]` is refused, not clipped.** Clipping would present
 //!   a CFL violation as a plausible answer.
 
-use petir::mathf::RealMath;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_multiphase::drift_flux::SlipModel;
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uom::si::f64::{Length, Mass, MassRate, Pressure, ThermodynamicTemperature, Time, Velocity};
 use uom::si::mass::kilogram;

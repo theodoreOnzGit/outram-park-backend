@@ -1,0 +1,8 @@
+step0 MOVING default               n=8 mean 1.36307 sd 117 pcm sem 41 pcm
+step1 MOVING legacy scatter        n=8 mean 1.36275 sd 62 pcm sem 22 pcm
+step4 MOVING no resonance scat.    n=8 mean 1.36570 sd 173 pcm sem 61 pcm
+AT-REST (identical both builds)    n=8 mean 1.36154 sd 141 pcm sem 50 pcm
+legacy scatter - default (MOVING)            paired -32 +- 33 (z -1.0, sd 94) | unpaired -32 +- 47 (z -0.7)
+no resonance scat. - default (MOVING)        paired +263 +- 84 (z 3.1, sd 238) | unpaired +263 +- 74 (z 3.6)
+worth, default (AT-REST - MOVING)            paired -153 +- 43 (z -3.6, sd 121) | unpaired -153 +- 65 (z -2.4)
+worth, no resonance scat. (AT-REST - MOVING) paired -416 +- 80 (z -5.2, sd 225) | unpaired -416 +- 79 (z -5.3)

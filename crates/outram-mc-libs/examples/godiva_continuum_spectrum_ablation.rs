@@ -140,7 +140,8 @@ mod desktop {
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
     use outram_mc_libs::geometry::universe::Universe;
-    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::material::material::Material;
+    use outram_mc_libs::vv::godiva;
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::KeffSettings;
     use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
@@ -148,8 +149,8 @@ mod desktop {
     use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
     use std::time::Instant;
 
-    const TEMP_K: f64 = 293.6;
-    const RADIUS_CM: f64 = 8.7407;
+    const TEMP_K: f64 = godiva::TEMPERATURE_K;
+    const RADIUS_CM: f64 = godiva::RADIUS_CM;
     const HISTORIES: usize = 5000;
     const INACTIVE: usize = 40;
     const ACTIVE: usize = 120;
@@ -161,11 +162,9 @@ mod desktop {
     /// The boundary the cross-code study reports its flux fraction below \[eV\].
     const SOFT_CUT_EV: f64 = 3.0e5;
 
-    const NUCLIDES: &[(&str, &str, f64)] = &[
-        ("n-092_U_234-ENDF8.0.endf", "U234", 4.9184e-4),
-        ("n-092_U_235-ENDF8.0.endf", "U235", 4.4994e-2),
-        ("n-092_U_238.endf", "U238", 2.4984e-3),
-    ];
+    // The Godiva model (radius, temperature, the three ICSBEP nuclides as
+    // `(name, tape, atoms/b-cm)`, the material) is `vv::godiva`; this
+    // example's identical copy was removed 2026-11-18 (gh:#1647).
 
     fn log_grid(n: usize) -> Vec<f64> {
         let (l0, l1) = (E_LO.r_ln(), E_HI.r_ln());
@@ -257,7 +256,7 @@ mod desktop {
                     bins: edges.to_vec(),
                 })],
                 scores: vec![ScoreType::Flux],
-                bins: vec![TallyBin::default(); N_BINS],
+                bins: vec![TallyBin::default(); N_BINS], derivative: None,
             };
             let settings = KeffSettings {
                 n_particles: HISTORIES,
@@ -297,7 +296,7 @@ mod desktop {
         let t0 = Instant::now();
         println!("Reconstructing HEU isotopes from ENDF/B-VIII.0 (RECONR + BROADR @ {TEMP_K} K)…");
         let mut aniso = Vec::new();
-        for &(file, name, _) in NUCLIDES {
+        for &(name, file, _) in &godiva::NUCLIDES {
             let Some(p) = reference_endf(file) else {
                 println!("  missing {file} — set OUTRAM_PARK_ENDF_DIR; skipping.");
                 return;
@@ -328,19 +327,7 @@ mod desktop {
             t0.elapsed().as_secs_f64()
         );
 
-        let materials = vec![Material {
-            id: 1,
-            name: "Godiva HEU".into(),
-            temperature: TEMP_K,
-            components: NUCLIDES
-                .iter()
-                .enumerate()
-                .map(|(i, &(_, _, d))| NuclideComponent {
-                    nuclide_idx: i,
-                    atom_density: d,
-                })
-                .collect(),
-        }];
+        let materials = vec![godiva::material()];
         let edges = log_grid(N_BINS);
         let seeds: Vec<u64> = (1..=n_seeds as u64).collect();
 

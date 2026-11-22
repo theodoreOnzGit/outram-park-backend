@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-only
 """Compare, case by case, what OpenMC's Model.plot drew and coloured
 (openmc_reference/) against what outram-mc-libs' emitted scripts draw and
 colour (outram/): every PNG pixel (RGBA) and every entry of the id map's cell

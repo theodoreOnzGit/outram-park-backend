@@ -150,6 +150,9 @@
 //! **verified, not benchmark-validated** — see `docs/port-scope.md` and epic
 //! `op-qo2` for the remaining backlog.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod activity;
 pub mod black_oil;
 pub mod chao_seader_grayson;

@@ -76,6 +76,9 @@
 //! mode, unit conversion of spec values, and the Brent fallbacks in the outer
 //! reboiler loop.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::columns::bubble_point::{
     back_calculate_duties, impose_condenser_spec, impose_reboiler_spec, net_flow_sums,

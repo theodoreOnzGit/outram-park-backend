@@ -78,10 +78,13 @@
 //! - Point normals are the unit sum of the area vectors of the point's
 //!   faces, zero when that sum is below `VSMALL` (`calculatePointNormals`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::volume_mesh::VolumeMesh;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 /// OpenFOAM `VSMALL` for `double`.
 pub(crate) const VSMALL: f64 = 1.0e-300;
@@ -140,21 +143,32 @@ pub struct SurfaceEngine {
     pub point_normals: Vec<Vec3>,
 }
 
-/// Newell's area vector of `ring` (OpenFOAM `face::normal`, see the module
-/// documentation).
-pub(crate) fn ring_area_vector(points: &[Vec3], ring: &[usize]) -> Vec3 {
+/// OpenFOAM `face::areaNormal` (OpenFOAM-v2506 `face.C`; cfMesh's
+/// `face::normal`), operation for operation: a triangle is
+/// `0.5*((p1 - p0)^(p2 - p0))`; any other face the sum of the triangle area
+/// normals `(p_i, p_{i+1}, centre)` about the vertex average
+/// (`centrePoint /= nPoints`, the centre last). gh:#1385: the earlier
+/// `0.5 * sum(p_i x p_{i+1})` is the same vector up to round-off, and not
+/// bit for bit.
+pub fn ring_area_vector(points: &[Vec3], ring: &[usize]) -> Vec3 {
     let k = ring.len();
-    let mut a = Vec3::ZERO;
-    for i in 0..k {
-        a = a.add(points[ring[i]].cross(points[ring[(i + 1) % k]]));
+    let tri_area_normal = |p0: Vec3, p1: Vec3, p2: Vec3| p1.sub(p0).cross(p2.sub(p0)).scale(0.5);
+    if k == 3 {
+        return tri_area_normal(points[ring[0]], points[ring[1]], points[ring[2]]);
     }
-    a.scale(0.5)
+    let centre = ring.iter().fold(Vec3::ZERO, |a, &v| a.add(points[v])).div(k as f64);
+    let mut n = Vec3::ZERO;
+    for i in 0..k {
+        let next = points[ring[(i + 1) % k]];
+        n = n.add(tri_area_normal(points[ring[i]], next, centre));
+    }
+    n
 }
 
 fn unit_or_zero(n: Vec3) -> Vec3 {
     let d = n.length();
     if d > VSMALL {
-        n.scale(1.0 / d)
+        n.div(d)
     } else {
         Vec3::ZERO
     }
@@ -523,7 +537,7 @@ mod tests {
     use super::*;
     use crate::carve::carve_box;
     use crate::shapes::box_surface;
-    use std::collections::BTreeMap;
+    use alloc::collections::BTreeMap;
 
     /// Patch of each boundary face of a box by its outward axis: 0..6.
     fn axis_patches(m: &VolumeMesh, e: &SurfaceEngine) -> Vec<usize> {
@@ -717,6 +731,7 @@ mod tests {
         let edge_pts: BTreeSet<usize> = n_feat.iter().filter(|&(_, &n)| n == 2).map(|(&v, _)| e.bp[v]).collect();
         assert_eq!(part.corners, corners);
         assert_eq!(part.edge_points, edge_pts);
+        #[cfg(feature = "std")]
         println!(
             "pipe h 5 mm: {} boundary points, {} faces, {} edges, {} feature edges, {} corners, {} edge points",
             e.n_boundary_points(),

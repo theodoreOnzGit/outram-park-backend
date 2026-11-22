@@ -114,6 +114,39 @@
 
 #![forbid(unsafe_code)]
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1632, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+
+/// Hash maps: std's with `std` (and in tests), so every result is as before;
+/// `hashbrown` without it, the workspace rule (gh:#1632).
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::HashMap;
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::HashMap;
+}
+
 pub mod assembly;
 pub mod bc;
 pub mod crystal;

@@ -26,6 +26,9 @@
 //! third virial `C_mix` in the pure/cross coefficients below (see [`b_mix`],
 //! [`c_mix`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Second virial coefficient of dry air `B_aa(T)` \[m³/mol\].
 pub fn b_aa(t: f64) -> f64 {

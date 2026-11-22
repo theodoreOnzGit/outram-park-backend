@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Delayed fission neutrons are born with their own spectra, on both data
 //! routes** — GitHub #365 audit.
@@ -49,6 +49,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test; recorded in the #365 thread.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::{ace_reference_file_or_skip, reference_endf};

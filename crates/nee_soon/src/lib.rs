@@ -83,6 +83,136 @@
 
 #![forbid(unsafe_code)]
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1640, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
+/// Paths (gh:#1640): std's with `std`. Without std there is no filesystem, so
+/// a `PathBuf` is a `String` (a label in configs and errors), and the code
+/// that opens files is `std` only.
+#[allow(unused_imports)]
+pub(crate) mod path {
+    #[cfg(feature = "std")]
+    pub(crate) use std::path::{Path, PathBuf};
+    /// A path label: no filesystem without `std`.
+    #[cfg(not(feature = "std"))]
+    pub(crate) type PathBuf = alloc::string::String;
+}
+
+/// Hash maps: std's with `std` (and in tests), so iteration order and every
+/// result are as before; `hashbrown` without it (gh:#1640).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+/// The wall clock behind run timings (gh:#1640): std's with `std`; without it
+/// there is no clock and `elapsed()` is zero.
+pub(crate) mod time {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::time::Instant;
+
+    /// Stand-in for `std::time::Instant` without std: no clock.
+    #[cfg(not(any(feature = "std", test)))]
+    #[derive(Clone, Copy, Debug)]
+    pub(crate) struct Instant;
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl Instant {
+        /// A fixed instant: there is no clock to read.
+        pub(crate) fn now() -> Self {
+            Instant
+        }
+        /// Always zero without a clock.
+        pub(crate) fn elapsed(&self) -> core::time::Duration {
+            core::time::Duration::ZERO
+        }
+     }
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl core::ops::Sub for Instant {
+        type Output = core::time::Duration;
+        /// Always zero without a clock.
+        fn sub(self, _earlier: Instant) -> core::time::Duration {
+            core::time::Duration::ZERO
+        }
+    }
+}
+
+/// Model switches read from the environment (`OUTRAM_HTR10_*`, gh:#1640):
+/// `std::env::var` with `std`; without it every variable is unset, so every
+/// switch takes its default.
+pub(crate) mod env {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::env::{var, var_os};
+
+    /// Without std there is no environment: every variable reads as unset.
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) fn var(_key: &str) -> Result<alloc::string::String, ()> {
+        Err(())
+    }
+
+    /// Without std there is no environment: every variable is absent.
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) fn var_os(_key: &str) -> Option<()> {
+        None
+    }
+}
+
+/// A mutex: std's with `std` (and in tests), a spin lock without it
+/// (gh:#1640). `lock()` returns a `Result` in both, so call sites read alike.
+pub(crate) mod sync {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::sync::Mutex;
+
+    /// `std::sync::Mutex` without std: a spin lock that cannot be poisoned.
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) struct Mutex<T>(spin::Mutex<T>);
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl<T> Mutex<T> {
+        /// A new unlocked mutex.
+        pub(crate) const fn new(value: T) -> Self {
+            Mutex(spin::Mutex::new(value))
+        }
+        /// Lock it; never poisoned, so always `Ok`.
+        pub(crate) fn lock(&self) -> Result<spin::MutexGuard<'_, T>, ()> {
+            Ok(self.0.lock())
+        }
+        /// The value inside; never poisoned, so always `Ok`.
+        pub(crate) fn into_inner(self) -> Result<T, ()> {
+            Ok(self.0.into_inner())
+        }
+    }
+}
+
 pub mod xin_wang_sp3_workflow;
 
 pub use teh_o_prke::nordheim_fuchs::NordheimFuchsExactTimestepper;
@@ -93,6 +223,10 @@ use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, Thermodyn
 /// HTR-10 coupled thermal-hydraulic transients: point kinetics with the
 /// `tampines` primary loop (gh:#1151; moved from `tampines` 2026-11-03).
 pub mod htr10_th_transient;
+/// MSRE power-to-reactivity frequency response (MSRE T-1, gh:#1132).
+#[cfg(feature = "dem_ui")]
+pub mod dem_pour;
+pub mod msre_frequency_response;
 pub mod htr10_rmc;
 pub mod httr;
 pub mod mgxs;

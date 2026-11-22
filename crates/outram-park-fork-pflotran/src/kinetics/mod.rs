@@ -113,9 +113,12 @@
 //! material until a human reviews it; no validation against published
 //! reactive-transport benchmarks has been performed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::cell::RefCell;
-use std::sync::Arc;
+use core::cell::RefCell;
+use alloc::sync::Arc;
 
 use crate::error::PflotranError;
 use crate::geochemistry::ReactionNetwork;

@@ -56,6 +56,12 @@
 //!
 //! BISHAN ends at what is released: activity, timing, release category. Dose
 //! is out of its scope, as it is for SEMBAWANG and (today) CHANGI.
+//!
+//! # `no_std`
+//!
+//! The crate is `no_std` (gh:#1642): it uses only `core`, `petir` and `uom`,
+//! so it needs no `std` feature. Tests link std as usual.
+#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
 pub mod building;

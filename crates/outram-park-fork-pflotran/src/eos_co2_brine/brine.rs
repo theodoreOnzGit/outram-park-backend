@@ -50,6 +50,9 @@
 //! Untrusted AI-generated draft (`RESPONSIBLE_USE.md`); see the parent module
 //! [`crate::eos_co2_brine`] for the full warning and provenance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 

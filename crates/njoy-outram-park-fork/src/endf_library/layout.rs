@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
@@ -10,6 +10,9 @@
 //! worth reading. A file's *identity* still comes from its own header
 //! ([`super::EndfHeader`]), never from its name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acquire::EndfLibrary;
 
 /// The folder structures this loader knows. Detected from the names alone
@@ -170,7 +173,7 @@ pub fn library_named_in<'a>(paths: impl IntoIterator<Item = &'a str>) -> Option<
         for d in &parts[..parts.len().saturating_sub(1)] {
             // Longest name first, so `ENDF-B-VII.1` is not read as `ENDF-B-VII`.
             let mut libs = EndfLibrary::all().to_vec();
-            libs.sort_by_key(|l| std::cmp::Reverse(l.dir().len()));
+            libs.sort_by_key(|l| core::cmp::Reverse(l.dir().len()));
             if let Some(l) = libs.into_iter().find(|l| d.contains(l.dir())) {
                 match found {
                     None => found = Some(l),

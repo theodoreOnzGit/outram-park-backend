@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Decode a continuous-energy neutron ACE table into usable physics.**
 //!
@@ -40,6 +40,9 @@
 //! Energies and `Q` values are **MeV in the file** and eV everywhere in this
 //! workspace.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
 use crate::error::NjoyError;

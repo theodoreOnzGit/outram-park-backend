@@ -47,10 +47,13 @@
 //! distort or invert its cell, which a later milestone addresses. Pure Rust,
 //! Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree_queries::SurfaceSearch;
 use crate::volume_mesh::VolumeMesh;
-use std::collections::HashSet;
+use crate::hash::HashSet;
 
 /// Return a copy of `mesh` with every **boundary** point projected onto the
 /// closest point of the surface (`points`, triangle indices `tris`).
@@ -104,6 +107,7 @@ pub fn snap_to_surface(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]]) 
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: None,
     }
 }
 

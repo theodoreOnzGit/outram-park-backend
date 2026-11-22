@@ -45,6 +45,9 @@
 //! `Vector3`, `Tensor`, or `SymmTensor` values in whatever SI units the caller
 //! assigns them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boundary;
 pub mod field;
 pub mod parallel;

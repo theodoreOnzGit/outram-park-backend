@@ -1,0 +1,30 @@
+# gh:#1510: in.mover_wiggle split into two runs (move/mesh wiggle across a set-up).
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.3 0.3 -0.3 0.3 -0.01 0.1 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+fix		plate all mesh/surface file plate_square.stl type 1
+fix		pwall all wall/gran model hertz tangential history mesh n_meshes 1 meshes plate
+create_atoms	1 single 0.05 0.0 0.0049 units box
+set		atom 1 diameter 0.01 density 2500
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+fix		spin all move/mesh mesh plate wiggle amplitude 0.004 0.002 0.002 period 0.08
+thermo		1000
+thermo_modify	lost ignore norm no
+dump		d1 all custom 40 dump.mover_wiggle_2run id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		5000
+run		5000

@@ -1,0 +1,44 @@
+diff --git a/meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator/cartesian2DMeshGenerator.C b/meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator/cartesian2DMeshGenerator.C
+index 124198e..73fe8fb 100644
+--- a/meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator/cartesian2DMeshGenerator.C
++++ b/meshLibrary/cartesian2DMesh/cartesian2DMeshGenerator/cartesian2DMeshGenerator.C
+@@ -180,8 +180,39 @@ void Foam::Module::cartesian2DMeshGenerator::refBoundaryLayers()
+ 
+         refLayers.activate2DMode();
+ 
++        if (getenv("GH1385_TRACE"))
++        {
++            const cellListPMG& pcls = mesh_.cells();
++            for (Foam::label i = 0; i < pcls.size(); ++i)
++            {
++                fprintf(stderr, "PFC %d", int(i));
++                for (Foam::label j = 0; j < pcls[i].size(); ++j) fprintf(stderr, " %d", int(pcls[i][j]));
++                fprintf(stderr, "\n");
++            }
++        }
++
+         refLayers.refineLayers();
+ 
++        if (getenv("GH1385_TRACE"))
++        {
++            const faceListPMG& fcs = mesh_.faces();
++            const labelList& own = mesh_.owner();
++            const labelList& nei = mesh_.neighbour();
++            for (Foam::label i = 0; i < fcs.size(); ++i)
++            {
++                fprintf(stderr, "RFF %d %d %d", int(i), int(own[i]), int(nei[i]));
++                for (Foam::label j = 0; j < fcs[i].size(); ++j) fprintf(stderr, " %d", int(fcs[i][j]));
++                fprintf(stderr, "\n");
++            }
++            const cellListPMG& cls = mesh_.cells();
++            for (Foam::label i = 0; i < cls.size(); ++i)
++            {
++                fprintf(stderr, "RFC %d", int(i));
++                for (Foam::label j = 0; j < cls[i].size(); ++j) fprintf(stderr, " %d", int(cls[i][j]));
++                fprintf(stderr, "\n");
++            }
++        }
++
+         meshSurfaceEngine mse(mesh_);
+         meshSurfaceOptimizer optimizer(mse, *octreePtr_);
+ 

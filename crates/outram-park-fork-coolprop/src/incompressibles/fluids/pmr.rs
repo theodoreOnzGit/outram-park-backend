@@ -3,6 +3,9 @@
 // Do not edit by hand — re-run the generator. See dev/gen_incompressible.py.
 //! CoolProp `PMR` incompressible-fluid fit, as hardcoded `const` data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `PMR` (pure), `T ∈ [233.15, 588.15] K`.

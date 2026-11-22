@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Writing the ACE delayed-neutron blocks: DNU, BDD, DNEDL, DNED.**
 //!
@@ -41,6 +41,9 @@
 //!   divided by it, and for `LF = 5` a renormalised CDF inside
 //!   `[0.999999997, 1.0001]` — and the last point, if below 1 — is pinned to 1.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::Tape;
 use crate::NjoyError;

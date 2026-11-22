@@ -29,6 +29,9 @@
 //! Newton solve on the real Jacobian, preconditioning, and 2-D/3-D (Cartesian) or
 //! unstructured partitioning remain follow-ups under op-57m.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_mpi::{Communicator, MpiResult, ReduceOp};
 
 use super::Decomposition1D;

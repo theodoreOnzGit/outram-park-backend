@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ENDF-route S(α,β) inelastic cross section is THERMR's own `calcem`
 //! integral, as NJOY writes it into the table OpenMC reads.** GitHub #188, and
@@ -40,6 +40,8 @@
 //!
 //! The same fix takes H(H2O) against THERMR's MT=222 from −1.39 % to +0.02 %,
 //! and graphite's MT=229 to +0.06 % (`tests/thermal_laws_vs_njoy_thermr.rs`).
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::path::PathBuf;

@@ -1,0 +1,17 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+application chtDump;
+libs ("/home/user/upstream-build/gh1363/bin/libchtBCs.so");
+startFrom startTime;
+startTime 0;
+stopAt endTime;
+endTime 4.9750000000000005;
+deltaT 0.1;
+writeControl timeStep;
+writeInterval 100000;
+writeFormat ascii;
+writePrecision 17;
+timeFormat general;
+timePrecision 8;
+runTimeModifiable false;
+adjustTimeStep no;
+interfacePatch interface;

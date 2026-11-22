@@ -77,6 +77,9 @@
 //! randomly seeded hash set, so the same input gives the same mesh in every
 //! run (the reproducibility defect class of the HTR-10 neighbour grid).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boundary_layers;
 pub mod refine_boundary_layers;
 pub mod extrude_layer;
@@ -85,7 +88,7 @@ pub mod triangulate_non_planar_base_faces;
 use crate::checks::check_quality;
 use crate::math::Vec3;
 use crate::volume_mesh::{cells_faces, from_cell_faces, from_cell_faces_wound, VolumeMesh};
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// Insert `n_layers` graded prism boundary layers at the patch named
 /// `patch_name`, returning the new mesh.

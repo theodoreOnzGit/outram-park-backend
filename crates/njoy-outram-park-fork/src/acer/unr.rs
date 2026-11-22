@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Writing the ACE UNR block** — the unresolved-range probability tables at
 //! `JXS(23)` — GitHub #325.
@@ -48,6 +48,9 @@
 //! no-op, which is what the round-trip gate in
 //! `tests/unr_block_write_vs_njoy2016.rs` checks word for word.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::build::sigfig;
 use crate::purr::UrrProbabilityTables;
 

@@ -10,6 +10,9 @@
 //! ambient-htc and Nusselt-number routes are retained as documented failed
 //! attempts (the thermal resistance is dominated by the insulation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 ///
 /// This module's test attempted to tweak the insulation thickness
 /// to ambient in order to obtain the correct dhx inlet temperature

@@ -69,7 +69,10 @@
 //!   the **whole** flowsheet every step (FormDynamicsIntegratorControl.vb:476-480),
 //!   so nothing depends on the flag.
 
-use std::fmt;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt;
 
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::catalytic_activity::katal;

@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-turbulence-lib"
-version = "0.1.5"
+version = "0.1.6"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +12,7 @@ categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate. `docs/` (incl. the generated
 # docs/api.md rustdoc mirror) isn't crate content either.
-exclude = ["verification_and_validation/*.csv", "docs"]
+exclude = ["verification_and_validation", "tests/fixtures", "docs", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -31,16 +31,22 @@ topic = "thermal-hydraulics"
 fidelity = 3
 maturity = 2
 
+[features]
+# `std` (default, gh:#1595): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["outram-foam-basic-lib/std", "thiserror-nostd/std"]
+
 [dependencies]
 # Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
 petir = { workspace = true }
-thiserror.workspace = true
+thiserror-nostd.workspace = true
 uom.workspace = true
-ndarray.workspace = true
-outram-foam-basic-lib.workspace = true
+outram-foam-basic-lib = { workspace = true }
 
 [dev-dependencies]
 approx.workspace = true
+miniz_oxide.workspace = true
 
 [lib]
 name = "outram_foam_turbulence_lib"

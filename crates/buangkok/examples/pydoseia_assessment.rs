@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! A whole pyDOSEIA run through the Rust API: the replacement for upstream's
 //! `python main.py --config_file input.yaml`.
 //!

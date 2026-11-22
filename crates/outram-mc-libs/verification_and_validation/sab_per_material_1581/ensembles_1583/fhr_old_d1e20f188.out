@@ -1,0 +1,79 @@
+=== FHR ring-RPT pebble: free-gas target motion, priced with the in-process hook ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 155.7s
+  reconstructing U238   … 115.3s
+  reconstructing O16    … 3.9s
+  reconstructing C12    … 905.3ms
+  reconstructing C13    … 219.2ms
+  reconstructing C12    … 793.1ms
+  reconstructing C13    … 262.8ms
+  reconstructing Si28   … 1.8s
+  reconstructing Si29   … 2.8s
+  reconstructing Si30   … 2.1s
+  reconstructing F19    … 460.4ms
+  reconstructing Li6    … 189.5ms
+  reconstructing Li7    … 170.3ms
+  reconstructing Be9    … 234.7ms
+  control: kinematics kT 5.170400e-2 -> 0 eV on all 14 nuclides (S(alpha,beta) moderators included)
+  ring-RPT fuel shell: 1.493359 < r < 1.753118 cm; pebble 2, reflective root 3
+Nuclear data + materials ready in 304.6 s.
+
+8 seeds per arm, 4000 histories × [30 inactive + 80 active]:
+    MOVING  seed   1: k = 1.36463 ± 0.00178, p = 0.4853, eps = 1.5011  [225.7 s]
+    MOVING  seed   2: k = 1.36491 ± 0.00174, p = 0.4840, eps = 1.5036  [252.7 s]
+    MOVING  seed   3: k = 1.36322 ± 0.00166, p = 0.4825, eps = 1.5065  [250.4 s]
+    MOVING  seed   4: k = 1.36293 ± 0.00192, p = 0.4826, eps = 1.5059  [255.3 s]
+    MOVING  seed   5: k = 1.36607 ± 0.00184, p = 0.4839, eps = 1.5035  [237.9 s]
+    MOVING  seed   6: k = 1.36291 ± 0.00167, p = 0.4846, eps = 1.5030  [247.2 s]
+    MOVING  seed   7: k = 1.36379 ± 0.00165, p = 0.4842, eps = 1.5034  [232.9 s]
+    MOVING  seed   8: k = 1.36225 ± 0.00166, p = 0.4843, eps = 1.5033  [228.4 s]
+  MOVING  arm done in 1930.6 s
+    AT-REST seed   1: k = 1.36190 ± 0.00183, p = 0.4859, eps = 1.4981  [199.3 s]
+    AT-REST seed   2: k = 1.35934 ± 0.00181, p = 0.4855, eps = 1.4995  [197.1 s]
+    AT-REST seed   3: k = 1.36111 ± 0.00168, p = 0.4856, eps = 1.4991  [202.9 s]
+    AT-REST seed   4: k = 1.36346 ± 0.00175, p = 0.4858, eps = 1.4985  [209.1 s]
+    AT-REST seed   5: k = 1.36369 ± 0.00187, p = 0.4853, eps = 1.4995  [232.9 s]
+    AT-REST seed   6: k = 1.36250 ± 0.00184, p = 0.4855, eps = 1.4996  [436.1 s]
+    AT-REST seed   7: k = 1.36108 ± 0.00186, p = 0.4850, eps = 1.4995  [554.1 s]
+    AT-REST seed   8: k = 1.36011 ± 0.00184, p = 0.4850, eps = 1.5000  [544.6 s]
+  AT-REST arm done in 2576.1 s
+
+FHR ring-RPT CSG pebble, free-gas target motion (in-process hook)
+  arm        n      k_eff        sd        sem
+  MOVING     8   1.36384   0.00127   0.00045
+  AT-REST    8   1.36165   0.00154   0.00054
+
+  p  (2-group): MOVING 0.4839 ± 0.0003   AT-REST 0.4854 ± 0.0001   difference +0.0015 ± 0.0003
+  eps(2-group): MOVING 1.5038 ± 0.0006   AT-REST 1.4992 ± 0.0002   difference -0.0046 ± 0.0006
+
+  difference (AT-REST − MOVING), unpaired = -219 ± 71 pcm  (3.1 sigma)
+  difference (AT-REST − MOVING), paired   = -219 ± 63 pcm  (3.5 sigma), paired sd 180
+  -> paired sd (180) EXCEEDS either arm's (154); the seeds do not pair, so quote the UNPAIRED figure.
+
+  Prediction on record, made before any measurement: -2242 pcm,
+  because that is what the environment-variable route (which zeroes the whole
+  run's transport temperature, S(alpha,beta) moderators included) measured on
+  this same case in gh:#193's pricing table. The question is whether the new
+  PER-NUCLIDE hook reaches the same set of nuclides that did.
+
+  VERDICT:
+    FAILED as stated: -219 ± 71 pcm is +2023 pcm from the recorded
+    -2242 pcm (28.7 sigma). Per the hand-off this is a REAL FINDING, not a
+    failure. But it is NOT the hand-off's stated explanation -- that the per-nuclide
+    hook reaches a different set of nuclides than zeroing the temperature did, the
+    S(alpha,beta) moderators in particular. Reading the code refutes that mechanism:
+      - XsSource::Pointwise never passes temp_k to recon.eval_mt, and every nuclide
+        on this case is HIGH tier, so zeroing the temperature moves no cross section;
+      - Nuclide::sample_thermal takes NO temperature argument at all -- the S(alpha,beta)
+        tables are fixed at construction, so the env var cannot reach the bound-atom law;
+      - free_gas_kt(temp) is the ONLY consumer of the run temperature in the collision
+        kernel (until GitHub #313, 2026-09-30, made it the data temperature), and with_target_at_rest makes that same function return 0.0.
+    The two routes are therefore mechanically identical on this case, and the gap is
+    CRATE DRIFT: the reference predates gh:#193's F-19 inelastic fix and op-tm9f /
+    op-og56. Check the unablated arm against the recorded k_eff 1.40546 and against
+    OpenMC's p 0.4842 / eps 1.5043 before reading the difference as a hook defect.
+    Note also that the -2242 pcm reference carries a ONE-SEED within-run
+    error bar (±323 pcm), not an ensemble one; part of any gap may be that.
+EXIT 0

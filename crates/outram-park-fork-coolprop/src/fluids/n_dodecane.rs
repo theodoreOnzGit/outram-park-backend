@@ -4,6 +4,9 @@
 //! CoolProp `n-Dodecane` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
 use crate::transport::{
@@ -184,6 +187,7 @@ pub static N_DODECANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 657894736.842,
             t_ref: -1.0,
+            p_reducing: 1817000.0,
         }),
     }),
 };

@@ -109,8 +109,8 @@ qual = "DistribcellOffsets"
 item = "type"
 shape = "struct"
 lines = [
-    61,
-    73,
+    64,
+    76,
 ]
 hash = "sha256:c250210a795336734928d50f3d0faeeef23f2c43506e715914f7f6787fd1e5cc"
 doc_hash = "sha256:3f5cd471bd4e86eb569c0726539b209248dd2fa8dcdff7c7992b6229f368a532"
@@ -211,8 +211,8 @@ id = "fn:9af9b79542a008da"
 name = "flat_tile"
 qual = "flat_tile"
 lines = [
-    75,
-    102,
+    78,
+    105,
 ]
 hash = "sha256:b5d89e6b30cd7dffd1fcde57875cb171f3530ef05ab295ab377e26af30441f18"
 doc_hash = "sha256:6b916fbdaa10c4e40e0aa22deacf06256f86ae1f0aa579166910a7bdbe3d059d"
@@ -315,8 +315,8 @@ id = "fn:9007ef620046ac6f"
 name = "tile_universes"
 qual = "tile_universes"
 lines = [
-    104,
-    116,
+    107,
+    119,
 ]
 hash = "sha256:8115a09584377a6115f21b302b06e2ec99ff6461a0399baadb3ec8ea62a82bfd"
 doc_hash = "sha256:032da8385885514fbb3eab12e4e2bb996f88148c555a57866071d983564aad77"
@@ -340,8 +340,8 @@ id = "fn:70d279453ee59925"
 name = "build"
 qual = "DistribcellOffsets::build"
 lines = [
-    119,
-    147,
+    122,
+    150,
 ]
 hash = "sha256:d11fecf031f55532be4cee1ed6ef32d4e5ba6e7cd536f103a9aea045bd5dbf9f"
 doc_hash = "sha256:8241217fe172525d2fa2f0c1f83a49b04407492df8534e4b4a55fd6fc88f304a"
@@ -368,8 +368,8 @@ id = "fn:b7001ead86f851bb"
 name = "count_universe"
 qual = "DistribcellOffsets::count_universe"
 lines = [
-    149,
-    188,
+    152,
+    191,
 ]
 hash = "sha256:3b61d1020216f4e4b32943a991ae9a4efa44d33359197566365e421b5b3b316a"
 doc_hash = "sha256:4bf4b333169f2302d1143495122676fcef52eff56e3532a64e89af44c11d76da"
@@ -393,8 +393,8 @@ id = "fn:4e920b92bc738a70"
 name = "count_cell"
 qual = "DistribcellOffsets::count_cell"
 lines = [
-    190,
-    224,
+    193,
+    227,
 ]
 hash = "sha256:7188b20c3a4baf425fe48e71e6a9e27d0744d303156077a12340bcf946f46235"
 doc_hash = "sha256:dd3ab8756cf75f0f21cd53bed317691ba06112e4d78cd4cb96495e78b221cd82"
@@ -422,8 +422,8 @@ id = "fn:140b06573daae0a0"
 name = "instance_of"
 qual = "DistribcellOffsets::instance_of"
 lines = [
-    226,
-    255,
+    229,
+    258,
 ]
 hash = "sha256:bcc9ef9a96be9ae92341072abd98dab7e0b806df4eb97b5d329d616c8e0c7c94"
 doc_hash = "sha256:3055431a454591c0de27724d8472091a9ec51749662e5d07cf40a826285dbebd"
@@ -529,8 +529,8 @@ id = "fn:7f7e15573aaae51b"
 name = "inside"
 qual = "inside"
 lines = [
-    267,
-    272,
+    270,
+    275,
 ]
 hash = "sha256:0930dd964c1751b7b16b86f131278ef199156185816c51b3273a67ee89fe6897"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -545,8 +545,8 @@ id = "fn:95a7bb31abc224cf"
 name = "lattice_geometry"
 qual = "lattice_geometry"
 lines = [
-    274,
-    313,
+    277,
+    316,
 ]
 hash = "sha256:6ad619f1ab5c77bebda4fd0b4ede0e1ccf3ea494561fbde7f3ab5290f31e8b57"
 doc_hash = "sha256:2b50d4704232f8d97e356ff738fd196f97344997b76dca5ade57a241f3df97a1"
@@ -575,8 +575,8 @@ id = "fn:be59a39a9d7aa9eb"
 name = "coord"
 qual = "coord"
 lines = [
-    315,
-    325,
+    318,
+    328,
 ]
 hash = "sha256:af8f7acca84922d371897b57b9dd8f8397d7e55fee62329e426305f7977748a5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -593,8 +593,8 @@ id = "fn:c62c15d1b07c3f67"
 name = "a_lattice_numbers_its_tiles_in_order"
 qual = "a_lattice_numbers_its_tiles_in_order"
 lines = [
-    327,
-    348,
+    330,
+    351,
 ]
 hash = "sha256:ee77d0d8073ad03e15dc2b3b3031c20075a8cfc517a3abae8b870d3eb1efc0ea"
 doc_hash = "sha256:f007d94f0410cbd7b075711b712c9f3be975672be88ab9673c1a06dad1b6f5f0"
@@ -612,8 +612,8 @@ id = "fn:155ca02cf8c89e3f"
 name = "a_path_without_the_target_has_no_instance"
 qual = "a_path_without_the_target_has_no_instance"
 lines = [
-    350,
-    357,
+    353,
+    360,
 ]
 hash = "sha256:8d3a5f9b0be99f3e7b9856911c8c3a52e3f9e7884d1e160be837c8ea231f4594"
 doc_hash = "sha256:fd18c29c4027e4428aae2af662bf37e0ace151345c549b892f63f502bb585cef"
@@ -631,8 +631,8 @@ id = "fn:61ddd92cca662936"
 name = "preceding_siblings_shift_the_instance_numbering"
 qual = "preceding_siblings_shift_the_instance_numbering"
 lines = [
-    359,
-    390,
+    362,
+    393,
 ]
 hash = "sha256:ab639592043e9007e1e05ab0e2daae2b85f8a905d15bd940bc2e1e64450fba92"
 doc_hash = "sha256:463d030f46fb329eb919c4ac9de111414a5cb0e4f3522e6aecb12144fee01fba"
@@ -655,8 +655,8 @@ id = "fn:e6040a30381080af"
 name = "nesting_multiplies_the_instance_count"
 qual = "nesting_multiplies_the_instance_count"
 lines = [
-    392,
-    422,
+    395,
+    425,
 ]
 hash = "sha256:c83a8cd6e5aa999337fc1d3838420da28b4784b049833c2df9fbb945ad4e1c1b"
 doc_hash = "sha256:7484efc2456a996862bf5d4c750823b7263656b271c3e502b6ef281dc31829a4"
@@ -683,8 +683,8 @@ id = "fn:085be6a354a854f0"
 name = "a_cyclic_universe_graph_is_refused"
 qual = "a_cyclic_universe_graph_is_refused"
 lines = [
-    424,
-    432,
+    427,
+    435,
 ]
 hash = "sha256:f532576b5d5c5ac50bd8bf12622f36c128da707cb62e437e23862823a2c42a88"
 doc_hash = "sha256:7c351b254017217c2e295b5efbd6f7352c14560ab84b28d4283526968240eec9"
@@ -707,8 +707,8 @@ id = "fn:23600b1350b20d49"
 name = "out_of_range_indices_are_refused"
 qual = "out_of_range_indices_are_refused"
 lines = [
-    434,
-    440,
+    437,
+    443,
 ]
 hash = "sha256:059164b0aa3aedf8b7f77ad6e5498da2f62de5f641b12686cd73f8b7749a2e9c"
 doc_hash = "sha256:3119a265ba34fc5776a975b0a8ba5a1cc6d0b7f656cd564f13bc72c3d85701a2"
@@ -736,8 +736,8 @@ id = "fn:1cb9c6b95c7890b8"
 name = "material_id"
 qual = "Material::material_id"
 lines = [
-    13,
     16,
+    19,
 ]
 hash = "sha256:9ab132033be55e910c6a38212fbe5dc5308c67139d329255d4630a0285e9b835"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -747,8 +747,8 @@ id = "fn:0458e431115f73ab"
 name = "material_name"
 qual = "Material::material_name"
 lines = [
-    17,
     20,
+    23,
 ]
 hash = "sha256:ed3f94b6b75d39c0bdab96cb3745c363cf14a1d07754108d9c28df4a7e6fc6cb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -775,8 +775,8 @@ qual = "STREAM_VOLUME"
 item = "const"
 shape = "const"
 lines = [
-    67,
-    68,
+    70,
+    71,
 ]
 hash = "sha256:2f7bbc500ab50bd88c11a82e9ae6ed0f788d3c4d02464e155d973e54eb477c92"
 doc_hash = "sha256:09006ffa86f392d7bd60911c016dbefa4d7fea37d2d2acf1bf306d259fb5aa11"
@@ -792,8 +792,8 @@ qual = "VolumeDomain"
 item = "type"
 shape = "enum"
 lines = [
-    70,
-    77,
+    73,
+    80,
 ]
 hash = "sha256:7ab130dd9224211f2ac5dba4730779e578af4d5d5c7869c3b1463b094d0b0e87"
 doc_hash = "sha256:3ddd658063ee2f4f17b56cbac324d9f61391f61995e86d4b741865dff289cd43"
@@ -809,8 +809,8 @@ qual = "BoundingBox"
 item = "type"
 shape = "struct"
 lines = [
-    79,
-    86,
+    82,
+    89,
 ]
 hash = "sha256:96941e9108d14b0ce14285040010cf371f761ddde1e4e4f562084f1a29db581b"
 doc_hash = "sha256:54737a1da720438312fcbbadae8b04bed1cd74b78346e040d675c4f2b90d556b"
@@ -825,8 +825,8 @@ id = "fn:1a7907ccad4a6b88"
 name = "volume"
 qual = "BoundingBox::volume"
 lines = [
-    89,
-    94,
+    92,
+    97,
 ]
 hash = "sha256:41e43e4da03cc3f5d57d6c62f6fbdf366d734f416386958486c1b0278afab897"
 doc_hash = "sha256:5c7b0bb7a7c856b861fc59d4d57a2e921ea7500d76af833c8290d93c18e6c164"
@@ -843,8 +843,8 @@ qual = "VolumeResult"
 item = "type"
 shape = "struct"
 lines = [
-    97,
-    110,
+    100,
+    113,
 ]
 hash = "sha256:0e371d17013a4c3aa310e1460ba4361aa8a1872635d26a4e524deb7aa5fe4a39"
 doc_hash = "sha256:13764f9172af1aac7c5d821b49558c9dce9f1a1bdeee097a7b9fd756302a7340"
@@ -858,8 +858,8 @@ id = "fn:a440e7502f1c9f07"
 name = "relative_error"
 qual = "VolumeResult::relative_error"
 lines = [
-    113,
-    120,
+    116,
+    123,
 ]
 hash = "sha256:d78e54527ab4aef6b87aa6dcfd30077a34b9c2f77db9b8c0a1da7bffc8e99c70"
 doc_hash = "sha256:626a11569053d464266bbee7d38d2abb347d10cfa09d92ffd80acba188c9e3ce"
@@ -872,8 +872,8 @@ qual = "VolumeCalculation"
 item = "type"
 shape = "struct"
 lines = [
-    123,
-    131,
+    126,
+    134,
 ]
 hash = "sha256:1a08d49b095b43c1af6f5c01ede1f1bd1c41e80e8348388fe4278053bb94dcc0"
 doc_hash = "sha256:0a78620071c2e4a2ef281465ce9950d2830c9f1028d6d9b691fa6650906e8035"
@@ -891,8 +891,8 @@ id = "fn:a4ad78a95b0194f5"
 name = "execute"
 qual = "VolumeCalculation::execute"
 lines = [
-    134,
-    208,
+    137,
+    211,
 ]
 hash = "sha256:3e2d9c98186c000f2c6f7c16df4b0a7a576715e1f3eded5d130a1de82b230fe1"
 doc_hash = "sha256:6d259e8139fe6a06eec9c6ce71999668f98c12b0c223c6d0bf7e7c608b3dd4b2"
@@ -1007,4 +1007,11 @@ passed = [
     "#89",
     "#90",
 ]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = []
 failed = []

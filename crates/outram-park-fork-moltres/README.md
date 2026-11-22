@@ -10,6 +10,14 @@ Circulating-fuel molten-salt reactor multiphysics: multigroup neutron diffusion,
 > affiliated with the upstream project. Not for nuclear facility operation,
 > reactor control, safety-critical, or licensing decisions.
 
+## `no_std` + `alloc` (gh:#1597)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-moltres --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` carries the table loaders that read files (`tables::...::load`, `tables_multivar::...::load`) and the `MOLTRES_DEBUG_OUTER` trace; JSON table parsing stays (`serde_json` with `alloc`, the root's `serde_json-nostd` key). With `std` on (the default)
+nothing changes.
+
 ## What is implemented (first pass, 2026-08-04)
 
 - **`materials`** — SI multigroup cross-section records (`MsrMaterial`,
@@ -57,10 +65,32 @@ numbers live in each test's doc comment (`src/*.rs`):
 This is **verification only** (correct implementation of the equations), not
 validation against MSRE benchmark data.
 
+### Differential against Moltres 3dd2ce7 (gh:#1400, added 2026-11-13)
+
+Kernel level (C++ transcription of the Moltres kernels + MOOSE
+`LinearInterpolation`, bits compared) and solution level (values from
+Moltres' committed gold files; MOOSE+Moltres was **not** rebuilt). Full
+record: `verification_and_validation/moltres_differential_gh1400/RESULTS.md`.
+Headline: table interpolation, `InScatter`, `DelayedNeutronSource`,
+`PrecursorDecay`, prompt-fission term 100 % bit-identical; `k_inf` from the
+Moltres property tables within `6e-14` relative of Moltres' `k_eff`
+(`gmm_none`, `gmm_linear`); Marshak/Mark/Milne vacuum right-edge values
+within `5e-14` absolute of the FE gold values.
+
+Round 2 (gh:#1538): MOOSE `SplineInterpolation`, `MonotoneCubicInterpolation`
+and `BicubicSplineInterpolation` (`moose_interpolation`), the least-squares
+branch and bicubic tables (`tables_multivar`) and `MoltresJsonMaterial`
+(`MoltresTables::from_json`) are translated. Spline, monotone-cubic, bicubic and
+least-squares kernels are 100 % bit-identical to the C++ transcription; the
+spline and monotone-cubic `k_inf` match the `gmm_*` and `mjm_*` gold `k_eff`
+within `3.1e-14` relative. Bicubic and least-squares have no Moltres test input,
+so they are kernel-level only. The `peak_power_density` controller is not
+translated.
+
 ## Run the tests
 
 ```bash
-cargo test -p outram-park-fork-moltres --lib --release
+cargo test -p outram-park-fork-moltres --lib --tests --release
 ```
 
 ## Bookkeeping status

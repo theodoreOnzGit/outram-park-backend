@@ -1,0 +1,105 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh
+Date   : Nov 11 2026
+Time   : 13:15:25
+Host   : vm
+PID    : 26260
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/stage_sphere_tetMesh_edgeExtraction
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+--> FOAM Warning : 
+    From static Foam::instantList Foam::timeSelector::select0(Foam::Time&, const Foam::argList&)
+    in file db/Time/timeSelector.C at line 284
+    No time specified or available, selecting 'constant'
+Create mesh for time = constant
+
+Check mesh...
+
+Time = constant
+
+Mesh stats 
+    points:           2651
+    faces:            26580
+    internal faces:   24780
+    cells:            12840
+    faces per cell:   4
+    boundary patches: 1
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     0
+    prisms:        0
+    wedges:        0
+    pyramids:      0
+    tet wedges:    0
+    tetrahedra:    12840
+    polyhedra:     0
+
+Checking topology...
+    Boundary definition OK.
+ ***Total number of faces on empty patches is not divisible by the number of cells in the mesh. Hence this mesh is not 1D or 2D.
+    Cell to face addressing OK.
+    Point usage OK.
+ ***Faces not in upper triangular order.
+  <<Writing 7150 unordered faces to set upperTriangularFace
+    Face vertices OK.
+    Number of regions: 1 (OK).
+
+Checking patch topology for multiply connected surfaces...
+    Patch               Faces    Points     Surface topology
+    sphere              1800     902      ok (closed singly connected)      
+    ".*"                1800     902      ok (closed singly connected)      
+
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking basic pointZone addressing...
+    No pointZones found.
+
+Checking geometry...
+    Overall domain bounding box (-3.000000000000016 -3.000000000000016 -3.000000000000016) (2.999999999999984 2.999999999999984 2.999999999999984)
+    Mesh has 0 geometric (non-empty/wedge) directions (0 0 0)
+    Mesh has 0 solution (non-empty) directions (0 0 0)
+ ***Number of edges not aligned with or perpendicular to non-empty directions: 11794
+  <<Writing 2651 points on non-aligned edges to set nonAlignedEdges
+    Boundary openness (4.4118304799812949e-17 -1.052625578301572e-17 1.8548468340115804e-16) OK.
+    Max cell openness = 6.7617501516026842e-16 OK.
+    Max aspect ratio = -1 OK.
+    Minimum face area = 0.00059500410406187901. Maximum face area = 0.1483914983028814.  Face area magnitudes OK.
+ ***Zero or negative cell volume detected.  Minimum negative volume: -0.0010577786977391988, Number of negative volume cells: 76
+  <<Writing 76 zero volume cells to set zeroVolumeCells
+    Mesh non-orthogonality Max: 179.52947078102088 average: 19.628758498923577
+   *Number of severely non-orthogonal (> 70 degrees) faces: 373.
+ ***Number of non-orthogonality errors: 76.
+  <<Writing 449 non-orthogonal faces to set nonOrthoFaces
+ ***Error in face pyramids: 304 faces are incorrectly oriented.
+  <<Writing 242 faces with incorrect orientation to set wrongOrientedFaces
+ ***Max skewness = 169.17408098904832, 5 highly skew faces detected which may impair the quality of the results
+  <<Writing 5 skew faces to set skewFaces
+    Coupled point location match (average 0) OK.
+
+Failed 6 mesh checks.
+
+End
+

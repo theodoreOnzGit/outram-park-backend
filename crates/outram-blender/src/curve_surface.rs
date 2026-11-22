@@ -36,6 +36,9 @@
 //!   [`FillMode::Full`] triangulates the outline (a flat cap).
 //! - `caps` — close the ends of a swept open spline.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::curve::Spline;
 use crate::math::Vec3;
@@ -102,7 +105,7 @@ pub fn curve_to_mesh(spline: &Spline, opts: &CurveGeometry) -> Mesh {
             let n = (*segments).max(3);
             (0..n)
                 .map(|i| {
-                    let a = std::f64::consts::TAU * i as f64 / n as f64;
+                    let a = core::f64::consts::TAU * i as f64 / n as f64;
                     [a.r_cos(), a.r_sin()]
                 })
                 .collect()
@@ -166,7 +169,7 @@ pub fn curve_to_mesh(spline: &Spline, opts: &CurveGeometry) -> Mesh {
     };
     let mut faces: Vec<Vec<usize>> = Vec::new();
     let seg_rings: Vec<&Vec<usize>> = if spline.cyclic {
-        rings.iter().chain(std::iter::once(&rings[0])).collect()
+        rings.iter().chain(core::iter::once(&rings[0])).collect()
     } else {
         rings.iter().collect()
     };

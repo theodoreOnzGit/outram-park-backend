@@ -18,3 +18,7 @@
 //
 //
 // misc cleanup work includes the STHE constructor unit test
+
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;

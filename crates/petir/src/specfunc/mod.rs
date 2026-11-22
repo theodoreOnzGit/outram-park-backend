@@ -20,7 +20,11 @@
 //! # What is here
 //!
 //! - **Error function family**: [`erf`], [`erfc`] and the scaled complementary
-//!   form [`erfc_scaled`], translated from GSL's `specfunc/erfc.c`; and
+//!   form [`erfc_scaled`]. ~~translated from GSL's `specfunc/erfc.c`~~
+//!   **CORRECTED 2026-11-10**: `erf`/`erfc` forward to the `libm` crate's
+//!   fdlibm (see `erf.rs`; against GSL 2.8 they are bit-identical on 76-86 %
+//!   of the sweep, worst 5e-14) and `erfc_scaled` is PETIR's own, with no GSL
+//!   counterpart; and
 //!   [`erf_inv`], the Winitzki approximation lifted verbatim from
 //!   `outram-foam-basic-lib`.
 //! - **Bessel family**: the cylindrical functions of orders 0 and 1 —
@@ -76,6 +80,22 @@ pub(crate) const SQRT_DBL_MIN: f64 = 1.491_668_146_240_041_3e-154;
 pub(crate) const DBL_MIN: f64 = f64::MIN_POSITIVE;
 /// `M_EULER`, the Euler-Mascheroni constant.
 pub(crate) const EULER: f64 = 0.577_215_664_901_532_9;
+
+/// GSL's `cheb_eval_e` value (`specfunc/cheb_eval.c`) for a series declared on
+/// `[-1, 1]`, which is every `cheb_series` in `specfunc/*.c` (121 of 121,
+/// checked by script 2026-11-12).
+///
+/// `cheb_eval_e` does not use its argument as given: it first maps it,
+/// `y = (2.0*x - a - b)/(b - a)`, which for `a = -1, b = 1` is
+/// `((2x + 1) - 1)/2` and is NOT `x` whenever `2x + 1` rounds. The module-level
+/// evaluators that passed `x` straight to `cheb_slice::eval_gsl` (which expects
+/// an argument already on `[-1, 1]`) therefore differed from GSL in the last
+/// bit on a share of inputs (gh:#1421). `cheb_slice::scale` is that exact
+/// expression.
+#[inline]
+pub(crate) fn cheb_eval_e(x: f64, c: &[f64]) -> f64 {
+    crate::cheb_slice::eval_gsl(crate::cheb_slice::scale(x, -1.0, 1.0), c)
+}
 
 /// `y * exp(x)`, computed as GSL's `gsl_sf_exp_mult_err_e` (`specfunc/exp.c`)
 /// computes its value: directly where both factors are comfortably in range,
@@ -161,6 +181,7 @@ pub mod erf_inv;
 pub mod expint3;
 pub mod fermi_dirac;
 pub mod gamma;
+mod gamma_data;
 pub mod gegenbauer;
 /// Regularised and unnormalised incomplete gamma functions, lifted verbatim
 /// from outram-foam-basic-lib (DiDonato & Morris, ACM TOMS 1986).

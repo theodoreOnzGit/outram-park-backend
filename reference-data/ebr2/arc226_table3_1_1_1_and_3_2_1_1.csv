@@ -1,0 +1,12 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# Table 3.1.1.1 "SHRT-17 Test Description", printed p.9 (PDF p.25); Table 3.2.1.1 "SHRT-45R Test Description", printed p.24 (PDF p.40)
+# Units as printed (gpm calibrated at the stated temperature, degrees F, MW)
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+item,shrt17,shrt45r
+initial_power,57.3 MW (ANL-EBR-132),60.0 MW
+initial_primary_coolant_flow,8500 gpm at 800F (through core),8971.9 gpm at 800F
+initial_intermediate_coolant_flow,5614.6 gpm at 582F,5474.5 gpm at 582F
+initial_core_inlet_temperature,664.8F,650.8F
+pump_coastdown,Power to motor-generator sets removed,Power to M-G sets removed; coastdown controlled by coupling/decoupling the M-G set clutch; approximately 95 seconds before pump stop
+control_rods,Full insertion at test initiation,Insertion disabled
+auxiliary_em_pump,Power to Auxiliary EM Pump removed,On battery

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -6,7 +6,7 @@
 // Upstream commit  : de374c8
 // Upstream source  : trisoatops/utility_functions/calculation_functions.py (`nuclides` dict)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Supported-nuclide database
@@ -20,6 +20,9 @@
 //! precursor within the TRISO-ATOPS model (e.g. `Xe-135` ← `I-135`), used to
 //! chain parent → daughter activity during a run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::TrisoAtopsNuclide;
 
 /// Number of distinct nuclides in the TRISO-ATOPS supported table.

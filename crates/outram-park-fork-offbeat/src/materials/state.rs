@@ -12,6 +12,9 @@
 
 //! The per-cell state every material correlation is evaluated against.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Everything a material property correlation may depend on, for **one cell**.
 ///
 /// # Why this type exists

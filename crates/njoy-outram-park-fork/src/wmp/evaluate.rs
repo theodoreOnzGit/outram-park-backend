@@ -4,10 +4,16 @@
 //!
 //! Split out of `wmp.rs` (see the module doc there for provenance and status).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::types::{Cf64, WindowedMultipole, WmpXs};
 use super::{CH_ABSORPTION, CH_FISSION, CH_SCATTER, K_BOLTZMANN, SQRT_PI};
+#[cfg(any(feature = "std", test))]
 use std::sync::OnceLock;
+#[cfg(not(any(feature = "std", test)))]
+use crate::nostd_sync::OnceLock;
 
 impl WindowedMultipole {
     /// Evaluate σ_s / σ_a / σ_f at incident energy `e_ev` \[eV\] and temperature
@@ -190,7 +196,7 @@ pub(crate) const WEIDEMAN_N: usize = 48;
 ///
 /// `pub(crate)` so the GPU port uploads the identical `L` the CPU uses.
 pub(crate) fn weideman_l() -> f64 {
-    (WEIDEMAN_N as f64 / std::f64::consts::SQRT_2).sqrt()
+    (WEIDEMAN_N as f64 / core::f64::consts::SQRT_2).sqrt()
 }
 
 /// The `N` Weideman coefficients, computed once and cached.
@@ -210,7 +216,7 @@ pub(crate) fn weideman_coeffs() -> &'static [f64] {
         let l = weideman_l();
         let m = 2 * n;
         let m2 = 2 * m; // sequence length = 4N
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
 
         // Generating sequence f (length m2): f[0] = 0; for idx = 1..m2, k = idx − m.
         let mut f = vec![0.0f64; m2];

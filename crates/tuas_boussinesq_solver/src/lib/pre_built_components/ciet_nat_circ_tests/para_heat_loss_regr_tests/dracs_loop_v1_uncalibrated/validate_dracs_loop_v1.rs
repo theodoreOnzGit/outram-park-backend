@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 /// function to validate coupled DRACS loop to experimental data
 /// within a given tolerance
@@ -418,6 +421,7 @@ pub fn validate_dracs_loop_v1(
         current_simulation_time += timestep;
     }
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_pri_loop,

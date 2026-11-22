@@ -36,6 +36,9 @@
 //!   adding a method means adding an enum variant, which the compiler then
 //!   forces every `match` site to handle.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::columns::bubble_point::WangHenkeSolver;
 use crate::columns::bubble_point2::ModifiedWangHenkeSolver;
 use crate::columns::model::{ColumnError, ColumnSolverInput, ColumnSolverOutput};

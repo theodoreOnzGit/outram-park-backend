@@ -1,4 +1,7 @@
 /// done using table 2.18
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod set_a_region_3_650_kelvin_500_kg_per_m3;
 
 /// done using table 2.18

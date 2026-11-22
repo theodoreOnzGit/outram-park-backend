@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use ndarray::*;
 use uom::num_traits::Zero;
 use uom::si::f64::*;
@@ -303,13 +306,13 @@ pub fn advance_timestep_fluid_shell_array_high_peclet_number(
             // so i shouldn't double count
 
             power_source_vector[i] = inner_side_fluid_conductance_array[i] *
-                last_timestep_temperature_inner_side[i] 
-                + outer_side_fluid_conductance_array[i] * 
+                last_timestep_temperature_inner_side[i]
+                + outer_side_fluid_conductance_array[i] *
                 last_timestep_temperature_outer_side[i]
-                //- mass_flowrate * h_fluid_last_timestep 
-                + last_timestep_temperature_fluid[i] * total_volume * 
-                volume_fraction_array[i] * rho_cp[i] / dt 
-                + q * q_fraction[i] 
+                //- mass_flowrate * h_fluid_last_timestep
+                + last_timestep_temperature_fluid[i] * total_volume *
+                volume_fraction_array[i] * rho_cp[i] / dt
+                + q * q_fraction[i]
                 + total_enthalpy_rate_change_front_node;
 
             // now advection causing heat transfer between the frontal

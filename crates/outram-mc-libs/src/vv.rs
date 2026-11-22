@@ -12,8 +12,19 @@
 //! they measure is `outram-mc-libs` reproducing NJOY, not NJOY reproducing
 //! itself.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod njoy_golden;
+/// MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core model.
+pub mod msre_n1;
+/// ICSBEP LEU-COMP-THERM-008: the cards, materials, nested-lattice CSG, its
+/// self-check and the pin cell (moved from `examples/common/` 2026-11-17).
+pub mod lct008;
+/// LEU-COMP-THERM-008 case 1 through the beginner API (tutorial 6, epic
+/// gh:#925; moved from `examples/common/` 2026-11-17).
+pub mod lct008_tutorial;
 /// Instruments for the temperature-interpolation error study (GitHub #947).
 pub mod temperature_interpolation_947;
 /// The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,
@@ -75,7 +86,7 @@ pub use raffles::estimators::pooled;
 /// pooled `sem` is `sd/√n`, so 7 seeds reach ~70 pcm on a case with
 /// `sd ≈ 175 pcm` and 64 reach ~22.
 pub fn bench_seeds() -> usize {
-    std::env::var("OUTRAM_BENCH_SEEDS")
+    crate::env::var("OUTRAM_BENCH_SEEDS")
         .ok()
         .and_then(|v| v.parse().ok())
         .filter(|&n: &usize| n >= 1)
@@ -92,7 +103,7 @@ pub fn bench_seeds() -> usize {
 /// run is not converged and its eigenvalue means nothing.
 pub fn bench_run_size(n_particles: usize, n_inactive: usize, n_active: usize) -> (usize, usize, usize) {
     let get = |var: &str, default: usize| {
-        std::env::var(var)
+        crate::env::var(var)
             .ok()
             .and_then(|v| v.parse().ok())
             .filter(|&n: &usize| n >= 1)
@@ -114,7 +125,7 @@ pub fn bench_run_size(n_particles: usize, n_inactive: usize, n_active: usize) ->
 /// for `very-fast`. An unrecognised value **panics** with the list of valid
 /// ones, rather than silently running a tier the caller did not ask for.
 pub fn bench_speed() -> crate::material::speed::SpeedTier {
-    match std::env::var("OUTRAM_SPEED") {
+    match crate::env::var("OUTRAM_SPEED") {
         Ok(v) => v.parse().unwrap_or_else(|e| panic!("OUTRAM_SPEED: {e}")),
         Err(_) => crate::material::speed::SpeedTier::default(),
     }
@@ -157,16 +168,20 @@ pub fn report_transport_losses(label: &str, r: &crate::physics::keff::KeffResult
     let n = r.histories.max(1) as f64;
     let pct = |x: u64| 100.0 * x as f64 / n;
 
+    #[cfg(feature = "std")]
     eprintln!("  [transport losses] {label}");
+    #[cfg(feature = "std")]
     eprintln!(
         "    histories {}   collisions {}   leaks: vacuum {} / infinity {}",
         r.histories, r.collisions, r.leak_vacuum, r.leak_infinity
     );
+    #[cfg(feature = "std")]
     eprintln!(
         "    lost_locate  {:>10}  ({:.4} % of histories)",
         r.lost_locate,
         pct(r.lost_locate)
     );
+    #[cfg(feature = "std")]
     eprintln!(
         "    stuck_events {:>10}  ({:.4} %)   mean path {:.3e} cm   last E {:.3e} eV",
         r.stuck_events,
@@ -174,6 +189,7 @@ pub fn report_transport_losses(label: &str, r: &crate::physics::keff::KeffResult
         r.stuck_path_cm,
         r.stuck_last_e
     );
+    #[cfg(feature = "std")]
     eprintln!(
         "    neg_dist     {:>10}  ({:.4} %)   worst {:.3e}   from lattice {}",
         r.neg_dist,
@@ -184,8 +200,10 @@ pub fn report_transport_losses(label: &str, r: &crate::physics::keff::KeffResult
 
     let bad = r.lost_locate + r.stuck_events + r.neg_dist;
     if bad == 0 {
+        #[cfg(feature = "std")]
         eprintln!("    => CLEAN: no history was lost, trapped, or given a negative distance.");
     } else {
+        #[cfg(feature = "std")]
         eprintln!(
             "    => {bad} histories ({:.4} %) ended in a TRANSPORT DEFECT, not physics. \
              Any residual interpreted as nuclear data is contaminated by this.",
@@ -233,8 +251,10 @@ pub fn report_source_convergence(
     let k = &r.k_by_generation;
     let n_in = n_inactive.min(k.len());
     let active = &k[n_in..];
+    #[cfg(feature = "std")]
     eprintln!("  [source convergence] {label}");
     if active.len() < 4 {
+        #[cfg(feature = "std")]
         eprintln!("    too few active generations ({}) to split", active.len());
         return f64::NAN;
     }
@@ -248,6 +268,7 @@ pub fn report_source_convergence(
         let qs: Vec<String> = (0..4)
             .map(|i| format!("{:.4}", mean(&k[i * q..(i + 1) * q])))
             .collect();
+        #[cfg(feature = "std")]
         eprintln!("    inactive quarters: {}", qs.join("  "));
     }
     // The drift needs its own uncertainty or it is not a measurement. Estimate
@@ -259,21 +280,25 @@ pub fn report_source_convergence(
     let n = active.len() as f64;
     let var = active.iter().map(|x| (x - mean(active)).r_powi(2)).sum::<f64>() / (n - 1.0);
     let drift_sem = (var * 2.0 / (n / 2.0)).sqrt() * 1.0e5;
+    #[cfg(feature = "std")]
     eprintln!(
         "    active halves:     {:.5} then {:.5}   drift {:+.0} +/- {:.0} pcm (>= this err)",
         a, b, drift, drift_sem
     );
     if !r.entropy.is_empty() {
         let e = &r.entropy;
+        #[cfg(feature = "std")]
         eprintln!(
             "    Shannon entropy:   first {:.4}  last {:.4}  (flat => converged)",
             e[0],
             e[e.len() - 1]
         );
     } else {
+        #[cfg(feature = "std")]
         eprintln!("    Shannon entropy:   NOT COMPUTED for this run");
     }
     if drift.abs() > 2.0 * drift_sem && drift.abs() > 100.0 {
+        #[cfg(feature = "std")]
         eprintln!(
             "    => DRIFT {:+.0} pcm across the active phase. The source was still \
              moving while scoring: raise n_inactive. Any residual smaller than this \
@@ -281,6 +306,7 @@ pub fn report_source_convergence(
             drift
         );
     } else {
+        #[cfg(feature = "std")]
         eprintln!("    => no resolved drift; source looks converged.");
     }
     drift
@@ -326,7 +352,8 @@ pub fn source_convergence_drift_pcm(
 /// always run. They were typed into that example and into many tests beside
 /// it; they are collected here (2026-10-04, gh:#521) so the tutorial and the
 /// web demo use the model the record was measured on, not another copy of it.
-/// Changing a value here changes that example.
+/// Changing a value here changes that example, and since 2026-11-18 (gh:#1647)
+/// the ~16 Godiva research examples that run this module instead of a copy.
 pub mod godiva {
     use crate::material::material::{Material, NuclideComponent};
 
@@ -409,8 +436,10 @@ fn materials_from(
 /// it (`verification_and_validation/icsbep/five_route_keff_2026_09_29.md`).
 /// Collected here on 2026-10-13 (GitHub #859) so the acceptance check
 /// (`examples/icsbep_five_route_keff.rs`) and the Monte Carlo web demo build
-/// ONE model. `examples/jemima_keff.rs` still carries its own copy of these
-/// numbers, with its ablation knobs.
+/// ONE model. ~~`examples/jemima_keff.rs` still carries its own copy of these
+/// numbers, with its ablation knobs.~~ **CHANGED 2026-11-17:** it runs this
+/// module (its copy was identical, value for value); its ablation knobs stay
+/// in the example.
 ///
 /// | region | z \[cm\] | r \[cm\] | material |
 /// |---|---|---|---|
@@ -524,7 +553,9 @@ pub mod jemima {
 /// model at the benchmark's 8.8837e-6 /b·cm, appended last in [`NUCLIDES`]
 /// so the other indices are unchanged. Collected
 /// here on 2026-10-13 (GitHub #859) for the same reason as [`jemima`];
-/// `examples/hst009_keff.rs` still carries its own copy.
+/// ~~`examples/hst009_keff.rs` still carries its own copy.~~ **CHANGED
+/// 2026-11-17:** it runs this module (its copy was identical, value for
+/// value).
 ///
 /// H-1 takes the H in H2O thermal scattering law ([`SAB_TAPE`]), in the
 /// solution and in the reflector.

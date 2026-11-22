@@ -8,6 +8,9 @@
 //! two submodules split the loop by leg: the hot leg (DHX tube top outlet ->
 //! TCHX inlet) and the cold leg (TCHX outlet -> DHX tube bottom inlet).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// calibration strategy is to adjust insulation thickness
 /// until correct parasitic heat loss is achieved
 ///

@@ -28,7 +28,10 @@
 //! > written to mirror the verified CPU `walk_to_absorbing_sphere` logic; the
 //! > per-thread `f32` RNG is a lightweight xorshift adequate for a demonstrator.
 
-use std::future::Future;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::future::Future;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
@@ -46,6 +49,7 @@ use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk
     WalkParams, WoSWalker,
 };
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::MissingDiffusionData;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::simulation_code::kernel_diffusion_coefficient;
 
 /// Number of points in the first-passage-time table uploaded to the GPU.
@@ -78,19 +82,24 @@ pub enum GpuError {
     Map(String),
     /// The map callback never fired.
     MapCallbackMissing,
+    /// A layer has no cited diffusion coefficient for the nuclide (gh:#638:
+    /// ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one), so no per-layer table can be built. The CPU
+    /// path reports the same case through `WoSWalker::missing_diffusion_data`.
+    MissingDiffusionData(MissingDiffusionData),
 }
 
-impl std::fmt::Display for GpuError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GpuError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             GpuError::Poll(e) => write!(f, "gpu poll failed: {e}"),
             GpuError::Map(e) => write!(f, "gpu buffer map failed: {e}"),
             GpuError::MapCallbackMissing => write!(f, "gpu map callback missing"),
+            GpuError::MissingDiffusionData(e) => write!(f, "{e}"),
         }
     }
 }
 
-impl std::error::Error for GpuError {}
+impl core::error::Error for GpuError {}
 
 /// A process-wide cached [`GpuContext`], probed once on first use.
 ///
@@ -546,7 +555,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 /// Per-layer diffusion coefficients (µm²/s) for `nuclide` in `cell`, indexed
 /// fuel, buffer, IPyC, SiC, OPyC — the same values the CPU path reads, sampled at
 /// a representative radius in each layer.
-fn layer_diffusion_um2_s(cell: &TrisoCell, nuclide: Nuclide) -> [f32; 5] {
+fn layer_diffusion_um2_s(
+    cell: &TrisoCell,
+    nuclide: Nuclide,
+) -> Result<[f32; 5], MissingDiffusionData> {
     let radii = layer_radii_um(cell);
     // Representative radius (µm) inside each layer: kernel centre, then midpoints.
     let mids = [
@@ -564,12 +576,12 @@ fn layer_diffusion_um2_s(cell: &TrisoCell, nuclide: Nuclide) -> [f32; 5] {
             Length::new::<meter>(0.0),
         ];
         let d_m2s = cell
-            .try_get_diffusion_coefficient(point, nuclide)
+            .get_diffusion_coefficient(point, nuclide)?
             .map(|c| c.get::<square_meter_per_second>())
             .unwrap_or(1e-6);
         d[k] = (d_m2s * 1.0e12) as f32; // m²/s → µm²/s
     }
-    d
+    Ok(d)
 }
 
 /// The five layer outer radii (µm): fuel, buffer, IPyC, SiC, OPyC.
@@ -605,7 +617,7 @@ pub fn try_advance_multilayer_gpu(
     let queue = &ctx.queue;
 
     let radii = layer_radii_um(cell);
-    let diff = layer_diffusion_um2_s(cell, nuclide);
+    let diff = layer_diffusion_um2_s(cell, nuclide).map_err(GpuError::MissingDiffusionData)?;
     let eps_um = params.capture_eps.get::<micrometer>() as f32;
     let reinsert_um = eps_um * params.reinsert_factor as f32;
     let until_s = until.get::<second>() as f32;
@@ -879,7 +891,7 @@ fn block_on<F: Future>(future: F) -> F::Output {
     }
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut cx = Context::from_waker(&waker);
-    let mut future = std::pin::pin!(future);
+    let mut future = core::pin::pin!(future);
     loop {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(val) => return val,

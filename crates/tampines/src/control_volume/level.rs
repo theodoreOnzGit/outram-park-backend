@@ -21,6 +21,9 @@
 //!   on `sembawang`'s own vessel the result is bit-identical
 //!   (`crates/sembawang/tests/swollen_level_vs_tampines.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, Length, Volume};
 use uom::si::length::meter;

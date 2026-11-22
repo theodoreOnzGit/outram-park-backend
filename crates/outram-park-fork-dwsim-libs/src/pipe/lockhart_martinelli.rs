@@ -5,6 +5,9 @@
 //! phase's single-phase pressure drop, corrected by a multiplier derived
 //! from the Martinelli parameter `X`), not the classic void-fraction chart.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::friction_factor::{darcy_friction_factor, frictional_pressure_drop, reynolds_number};
 use uom::si::acceleration::meter_per_second_squared;
@@ -60,7 +63,7 @@ pub fn lockhart_martinelli_pressure_drop(
     viscosity_gas: DynamicViscosity,
 ) -> LockhartMartinelliResult {
     let d = diameter.get::<meter>();
-    let area = std::f64::consts::PI / 4.0 * d * d;
+    let area = core::f64::consts::PI / 4.0 * d * d;
     let v_sl = Velocity::new::<meter_per_second>(q_liquid.get::<cubic_meter_per_second>() / area);
     let v_sg = Velocity::new::<meter_per_second>(q_gas.get::<cubic_meter_per_second>() / area);
 

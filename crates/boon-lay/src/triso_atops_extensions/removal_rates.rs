@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // NOT a port (gh:#583, 2026-10-05). Element-dependent plate-out and
 // purification rates for the TRISO-ATOPS coolant pools. The routing it
@@ -39,6 +39,9 @@
 //! so `f = η φ` ([`purification_rate`]). Both conversions are this module's
 //! modelling assumptions, stated here; neither comes from upstream.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, Time};
 use uom::si::frequency::hertz;
@@ -375,7 +378,7 @@ mod tests {
     fn per_cycle_fractions_become_first_order_rates() {
         let t = Time::new::<second>(10.0);
         let k = |f: f64| rate_from_fraction_per_cycle(Ratio::new::<ratio>(f), t).get::<hertz>();
-        assert!((k(0.5) - std::f64::consts::LN_2 / 10.0).abs() < 1e-15);
+        assert!((k(0.5) - core::f64::consts::LN_2 / 10.0).abs() < 1e-15);
         assert!((k(1e-9) / 1e-10 - 1.0).abs() < 1e-8);
         assert_eq!(k(0.0), 0.0);
         let p = purification_rate(Ratio::new::<ratio>(0.9), Ratio::new::<ratio>(0.02), t).get::<hertz>();
@@ -431,7 +434,7 @@ mod tests {
             &fallback,
         );
         let cs = r.for_element(55);
-        assert!((cs.k_plate.get::<hertz>() - std::f64::consts::LN_2 / 10.0).abs() < 1e-15);
+        assert!((cs.k_plate.get::<hertz>() - core::f64::consts::LN_2 / 10.0).abs() < 1e-15);
         assert!((cs.k_clean.get::<hertz>() + (-0.009f64).r_ln_1p() / 10.0).abs() < 1e-18);
         assert_eq!(r.for_element(36).k_plate.get::<hertz>(), 0.0);
         assert!(fell_back.contains(&(36, "plate-out")));

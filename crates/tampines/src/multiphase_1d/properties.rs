@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK. See `src/lib.rs` for the full licence
@@ -49,6 +49,9 @@
 //! SI — pascal, kelvin, `J/kg`, `kg/m³`, `Pa·s` — because these are read inside
 //! the per-cell loop.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_two_phase;
 use tampines_steam_tables::region_1_subcooled_liquid::{cp_tp_1, h_tp_1, v_tp_1};
 use tampines_steam_tables::region_2_vapour::{cp_tp_2, h_tp_2, v_tp_2};

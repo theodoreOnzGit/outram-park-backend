@@ -35,6 +35,9 @@
 //! match Blender's Add-Surface menu. Patch editing is
 //! [`NurbsSurface::move_control`] and [`NurbsSurface::control_mut`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -187,9 +190,9 @@ impl NurbsSurface {
         let mut control = Vec::with_capacity(nu * nv);
         for j in 0..nv {
             let la =
-                -std::f64::consts::FRAC_PI_2 + std::f64::consts::PI * j as f64 / (nv - 1) as f64;
+                -core::f64::consts::FRAC_PI_2 + core::f64::consts::PI * j as f64 / (nv - 1) as f64;
             for i in 0..nu {
-                let lo = std::f64::consts::TAU * i as f64 / nu as f64;
+                let lo = core::f64::consts::TAU * i as f64 / nu as f64;
                 control.push(Vec3::new(
                     radius * la.r_cos() * lo.r_cos(),
                     radius * la.r_cos() * lo.r_sin(),
@@ -216,7 +219,7 @@ impl NurbsSurface {
         for j in 0..2 {
             let z = -height * 0.5 + height * j as f64;
             for i in 0..nu {
-                let lo = std::f64::consts::TAU * i as f64 / nu as f64;
+                let lo = core::f64::consts::TAU * i as f64 / nu as f64;
                 control.push(Vec3::new(radius * lo.r_cos(), radius * lo.r_sin(), z));
             }
         }
@@ -237,9 +240,9 @@ impl NurbsSurface {
         let (nu, nv) = (20usize, 12usize);
         let mut control = Vec::with_capacity(nu * nv);
         for j in 0..nv {
-            let v = std::f64::consts::TAU * j as f64 / nv as f64;
+            let v = core::f64::consts::TAU * j as f64 / nv as f64;
             for i in 0..nu {
-                let u = std::f64::consts::TAU * i as f64 / nu as f64;
+                let u = core::f64::consts::TAU * i as f64 / nu as f64;
                 let rr = r + t * v.r_cos();
                 control.push(Vec3::new(rr * u.r_cos(), rr * u.r_sin(), t * v.r_sin()));
             }

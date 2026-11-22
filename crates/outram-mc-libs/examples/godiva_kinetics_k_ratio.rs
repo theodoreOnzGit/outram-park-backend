@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **β_eff and Λ for Godiva by the k-ratio route** — GitHub #262 scope item 3.
 //!
@@ -45,6 +45,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::vv::godiva;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings};
 use outram_mc_libs::physics::kinetics;
@@ -52,8 +53,15 @@ use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
 use outram_mc_libs::tally::filter::{CellFilter, FilterKind};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 
-const R_FUEL: f64 = 8.7407;
-const TEMP: f64 = 293.6;
+// Radius, temperature and the U-235/U-238 rows are `vv::godiva`'s (this
+// example's identical copies removed 2026-11-18, gh:#1647). The model is NOT
+// `godiva::material()`: it is the two-nuclide Godiva, U-234 omitted, so the
+// material is built here from `godiva::NUCLIDES[1..]` and indexes U-235 as 0
+// and U-238 as 1, as it always has.
+const R_FUEL: f64 = godiva::RADIUS_CM;
+const TEMP: f64 = godiva::TEMPERATURE_K;
+/// `godiva::NUCLIDES` without U-234: `(name, tape, atoms/b-cm)` for U-235, U-238.
+const TWO_NUCLIDES: [(&str, &str, f64); 2] = [godiva::NUCLIDES[1], godiva::NUCLIDES[2]];
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
@@ -63,10 +71,10 @@ fn heu() -> Option<Vec<Nuclide>> {
         p.exists().then_some(())?;
         Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).ok()
     };
-    Some(vec![
-        load("U235", "n-092_U_235-ENDF8.0.endf")?,
-        load("U238", "n-092_U_238.endf")?,
-    ])
+    TWO_NUCLIDES
+        .iter()
+        .map(|&(name, f, _)| load(name, f))
+        .collect()
 }
 
 fn model() -> (Geometry, Vec<Material>) {
@@ -97,16 +105,14 @@ fn model() -> (Geometry, Vec<Material>) {
     let mats = vec![Material {
         id: 1,
         name: "HEU".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: 4.4994e-2,
-            },
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: 2.4984e-3,
-            },
-        ],
+        components: TWO_NUCLIDES
+            .iter()
+            .enumerate()
+            .map(|(i, &(_, _, n))| NuclideComponent {
+                nuclide_idx: i,
+                atom_density: n,
+            })
+            .collect(),
         temperature: TEMP,
     }];
     (geom, mats)
@@ -132,7 +138,7 @@ fn lambda_tally() -> Tally {
             cell_indices: vec![0],
         })],
         scores: vec![ScoreType::InverseVelocity, ScoreType::NuFission],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     }
 }
 

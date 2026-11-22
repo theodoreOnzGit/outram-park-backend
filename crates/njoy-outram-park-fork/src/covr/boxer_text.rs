@@ -27,6 +27,9 @@
 //! writer can be verified against NJOY output value-by-value as well as
 //! byte-by-byte).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::covr::boxer::{setfor, BoxerData, BoxerDataType, BoxerHeader, BoxerPage, BoxerShape};
 use crate::dtfr::format::fortran_e;
 use crate::NjoyError;
@@ -132,9 +135,9 @@ pub struct BoxerRecord {
     pub data: BoxerData,
 }
 
-fn field<T: std::str::FromStr>(
+fn field<T: core::str::FromStr>(
     line: &str,
-    range: std::ops::Range<usize>,
+    range: core::ops::Range<usize>,
     what: &str,
 ) -> Result<T, NjoyError> {
     let s: String = line
@@ -149,8 +152,8 @@ fn field<T: std::str::FromStr>(
 
 /// Parse a run of fixed-width numeric fields spanning as many lines as
 /// needed; each line holds at most `per_line` fields of `width` columns.
-fn parse_fields<T: std::str::FromStr>(
-    lines: &mut std::iter::Peekable<std::str::Lines<'_>>,
+fn parse_fields<T: core::str::FromStr>(
+    lines: &mut core::iter::Peekable<core::str::Lines<'_>>,
     count: usize,
     width: usize,
     per_line: usize,

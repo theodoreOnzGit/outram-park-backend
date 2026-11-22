@@ -46,6 +46,10 @@
 //!   internal field, and fixedValue / zeroGradient boundary patches recovered
 //!   exactly.
 
+// Reads or writes files, or starts threads: needs the `std` feature
+// (gh:#1586; `cargo quick-test -p outram-foam-basic-lib` skips it).
+#![cfg(feature = "std")]
+
 use std::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};

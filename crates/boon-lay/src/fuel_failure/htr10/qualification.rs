@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // German-lineage TRISO fuel-qualification data — provenance
 // ---------------------------------------------------------
@@ -201,6 +201,9 @@
 //! both halves of it — so a later change that quietly fixes the level by
 //! moving a stand-in will break the test that records the gap.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Ratio, ThermodynamicTemperature, Time};
 
 /// One row of the German LEU UO₂ TRISO burn-leach record (Table 8, page 40).

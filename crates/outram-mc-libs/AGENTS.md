@@ -6,6 +6,31 @@ Pure-Rust port of the OpenMC Monte Carlo neutron transport kernels.
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openmc/`
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1605, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. The README lists what `std`
+carries. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob in `no_std` builds (copy the line from any module).
+- `HashMap` / `HashSet` from `crate::hash` (`hashbrown` without `std`);
+  `RwLock` / `PoisonError` from `crate::sync`; `env::var` from `crate::env`;
+  `available_parallelism` from `crate::thread`. Each is the `std` item itself
+  in a `std` build.
+- A `rayon` import or anything else the wasm build already swaps out takes
+  `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`, with the
+  `wasm_par` / serial branch on `any(target_arch = "wasm32", not(feature =
+  "std"))`; GPU code likewise reuses the Android branches.
+- Printing is a `#[cfg(feature = "std")]` statement, not a gated function;
+  files, HDF5 and LEAPR are `#[cfg(feature = "std")]` items. The depletion
+  chain from parsed XML (`DepletionChain::from_chain_xml*`) and
+  `depletion::spectrum_depletion` build without `std` (gh:#1648); only
+  `from_chain_xml_file` and the live decay-library reads are `std`.
+- Tests that read files or use threads are `#[cfg(feature = "std")]`; the
+  rest also build with `--no-default-features`.
+
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -598,7 +623,7 @@ a translation of it.
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
 | Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. ~~Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`)~~ **CORRECTED 2026-09-22 (gh:#265)** — anisotropic MG scattering is ported: `src/physics/scattdata.rs` carries `LegendreKernel` (rejection sampling, upstream's 10 % bounding-box margin and its `f > 0` negativity truncation) and `TabularKernel` (`convert_legendre_to_tabular`, the clamp-and-renormalise path), and `Mgxs::with_legendre_scattering` wires them into `run_keff_mg`. Paired P0-vs-P3 worth on a bare 35 cm cube: **−4371 ± 44 pcm (99.6 σ)** at 128 seeds against **−4200 predicted before the run**, with the zero-leakage control at −1 ± 38 pcm (0.0 σ), and agreement with OpenMC's own MG mode within 1.3 σ on every arm (~~a 32-seed first pass gave −4308 ± 93~~ superseded by the 128-seed run, which it agrees with) — `verification_and_validation/mg_anisotropic_scattering/`. Still absent: MGXS *generation* from CE data (the `njoy-outram-park-fork` track). **(n,xn) scattering multiplicity since 2026-10-13 (gh:#682):** `Mgxs::with_scattering_multiplicity` takes upstream's per-transfer `multiplicity_matrix`. The kernel then weights each scatter by the **row** multiplicity `nu_row / s_row`, where upstream uses `wgt *= mult[g][g']` (`src/scattdata.cpp:367`). That is a deliberate divergence: upstream samples g' from the nu-scatter row, so its weighting is exact only for a row-uniform multiplicity. On a two-group set it would give 1.578 against the analytic 1.517; this port gives 1.516 ± 0.003 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`). A non-fissile set may carry chi = 0 (gh:#848, as `src/xsdata.cpp:40-63`) |
-| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`, `integrators.rs`); live one-group burnup test vs the `depletion` notebook. **The math moved to PETIR 2026-10-17 (gh:#950, maintainer: "All math moved to petir")**: `petir::depletion` holds the burnup matrix type, IPF CRAM and all eight OpenMC integrators; this crate keeps the chain, `build_matrix`, the operators (`OneGroupOperator` implements PETIR's `TransportOperator`) and transfer rates, and re-exports the moved items at their old paths. `tests/depletion_move_fingerprints.rs` pins the move bit-identical; CF4 deliberately changed (it had followed upstream's docstring, not its code: order 1.94 → 3.93) |
+| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`, `integrators.rs`); live one-group burnup test vs the `depletion` notebook. **The math moved to PETIR 2026-10-17 (gh:#950, maintainer: "All math moved to petir")**: `petir::depletion` holds the burnup matrix type, IPF CRAM and all eight OpenMC integrators; this crate keeps the chain, `build_matrix`, the operators (`OneGroupOperator` implements PETIR's `TransportOperator`) and transfer rates, and re-exports the moved items at their old paths. `tests/depletion_move_fingerprints.rs` pins the move bit-identical; CF4 deliberately changed (it had followed upstream's docstring, not its code: order 1.94 → 3.93). **OpenMC's `TransferRates` / `ExternalSourceRates` since 2026-11-17 (gh:#1622):** `depletion::external_rates` ports removal, feed (exact, by matrix augmentation), material-to-material transfer (block system) and redox from `transfer_rates.py`, `chain.py` and `pool.py` at `e4febe9`; ~~analytic tests only, not yet run against OpenMC~~ **CORRECTED 2026-11-17: run against OpenMC** (2.8e-15 on the same inputs; 2.0e-15 on upstream's regression files; the feed case 1.5e-8 is PETIR CRAM-48, gh:#1645). It strips the augmented entry only from materials augmented that step, where upstream strips any material with a source at any step (a finding, read from the source). **OpenMC's `CoupledOperator` (flux mode) since 2026-11-17 (gh:#1626):** `depletion::coupled_operator`; on OpenMC's pincell depletion example it agrees with OpenMC within statistics (`tests/pincell_depletion_vs_openmc.rs`, `verification_and_validation/spectrum_depletion/`) **k-eigenvalue search coupled to depletion (added 2026-11-17, gh:#1616, composed with `deplete_coupled` in gh:#1618):** `src/depletion/keff_search.rs` ports OpenMC's `_KeffSearchControl` (`openmc/deplete/keff_search_control.py`, upstream PR #4083): an opt-in hook that, at the beginning of every burnup step, adjusts one scalar parameter (soluble boron, enrichment, rod position) until the system is critical, then depletes at that value. `KeffSearchControl` carries the settings; `deplete_independent_with_keff_search` and `deplete_coupled_with_keff_search` run it. **GRsecant (`physics::search_grsecant`, Price and Roskoff) is the default method**, as upstream; the workspace bracketed search (`physics::search_for_keff`) is selectable through `KeffSearchMethod::Bracketed`. Test: `tests/keff_search_depletion_1616.rs`. |
 
 ### Out of scope (will NOT be ported)
 - **ENDF nuclear data parsing** — `src/endf.cpp`, `include/openmc/endf.h`
@@ -613,7 +638,29 @@ a translation of it.
   when written and is no longer.** `njoy-outram-park-fork::hdf5` now has
   `mgxs.h5` and nuclide `.h5` writers (both verified by **OpenMC reading them
   back and transporting**), a `cross_sections.xml` reader, and
-  statepoint/summary/source writers.
+  statepoint/summary/source writers. **CORRECTED 2026-11-14:** a nuclide
+  `.h5` **reader** exists too, `njoy_outram_park_fork::hdf5::nuclide_read::
+  read_nuclide` (landed 2026-09-24, gh:#303), exercised by
+  `njoy-outram-park-fork/tests/nuclide_h5_vs_openmc.rs` and, from this crate,
+  `tests/band_xs_from_hdf5_reader.rs`. ~~What does not exist is a
+  `ReadNuclide` -> `Nuclide` conversion, so transport still cannot start from
+  an OpenMC `.h5` library. Verified by `grep`: no use of `ReadNuclide` in
+  `src/` here.~~ **CORRECTED 2026-11-14 (gh:#303):** `Nuclide::from_hdf5`
+  (`src/material/nuclide/hdf5_read.rs`) converts a `ReadNuclide`. It reproduces
+  `Nuclide::from_ace`'s cross sections bit for bit
+  (`tests/nuclide_from_hdf5.rs`) and transports elastic, MT=51..90 `level` and
+  Watt/Maxwell/evaporation fission. ~~It **refuses by name** every other
+  neutron-emitting law, URR tables, delayed products and polynomial nu, so a
+  real OpenMC U-235 library (continuous and correlated laws) is still refused.~~
+  **CORRECTED 2026-11-18 (gh:#303):** it also decodes `continuous`,
+  `correlated`, `kalbach-mann`, `nbody` and `LNW` chains, URR tables, delayed
+  groups, polynomial nu and the `0K` elastic (DBRC), mapped onto what `from_ace`
+  builds (`src/material/nuclide/hdf5_laws.rs`). The 11-nuclide LCT-008 NJOY
+  library, U-235 and U-238 included, converts and matches `from_ace` on the ACE it
+  was built from (record: `verification_and_validation/hdf5_library_303/`). Still
+  refused: `madland-nix` and unknown laws; thermal `.h5` files are not read.
+  Verified: `Nuclide::from_hdf5` is exercised on all 11 files by
+  `material::nuclide::hdf5_real_tests` (env-gated).
 
   **The part that still holds for this crate:** it takes its data pre-loaded,
   captures run state (`physics::state_point`) and hands it to that codec at
@@ -621,7 +668,7 @@ a translation of it.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
-- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). Nothing is ported yet. **CORRECTED AGAIN 2026-10-20 (maintainer): this crate is neutrons only.** Photons, electrons and positrons go to **PUNGGOL** (`punggol`); ions stay in `boon-lay`. See "Particle split" below.
+- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). ~~Nothing is ported yet.~~ **CORRECTED 2026-11-21 (gh:#1685):** OpenMC's photon samplers, TTB and reaction sampling are ported in `punggol::openmc_photon` and differentially tested for U and H; the coupled n-γ path (this crate recording photon birth sites for `punggol`) is not built. **CORRECTED AGAIN 2026-10-20 (maintainer): this crate is neutrons only.** Photons, electrons and positrons go to **PUNGGOL** (`punggol`); ions stay in `boon-lay`. See "Particle split" below.
 - **Python/ctypes C API** — `openmc/lib/` Python package
 - **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope). *Note 2026-09-25:* the plotter's per-pixel overlap test (`check_cell_overlap`, `src/geometry.cpp:38-90`) IS ported, as `geometry::plot::slice::check_cell_overlap`, because `<show_overlaps>` needs it; transport still does no overlap checking.
 
@@ -688,6 +735,27 @@ nobody reaches for is, in practice, an optimisation the code does not have.
 **If you find another eager evaluation on a hot path, the same three steps
 apply:** make the cheap path the default, prove it exact with a test, and
 record the measured worth rather than asserting one.
+
+### Resonance elastic scattering: on, upstream's RVS method (2026-11-09, gh:#1311)
+
+Maintainer decision: resonance scattering stays **on** by default (the root
+`CLAUDE.md` correct-physics rule), and its **method follows upstream's
+default**, OpenMC's `rvs` (`settings.cpp`: `res_scat_method {ResScatMethod::rvs}`).
+`physics::scatter::ResonanceScatteringMethod::{Rvs, Dbrc}` lives on the 0 K
+table (`DbrcTable`); `Nuclide::with_resonance_scattering_method(Dbrc)` selects
+DBRC by name. Window, 0.01 eV / 1 keV bounds and the nuclide set (every
+nuclide with 0 K elastic) are upstream's.
+
+- **RVS is a port of upstream's `rvs` branch** and the `√E σ₀K` CDF from
+  `nuclide.cpp`. Checked against OpenMC's single-scatter spectra
+  (`tests/dbrc_single_scatter_vs_openmc.rs`, U-238 at 6.4/20.5/36.4 eV):
+  worst |z| 3.4 with RVS, against 3.6 recorded for the DBRC kernel.
+- **The change moves random-number paths**, so every bit-identity pin with a
+  resonant nuclide below 1 keV was re-pinned in the same change, each with
+  its reason. The physics is the same distribution: k moves only within
+  statistics.
+- OpenMC comparison decks in `verification_and_validation/` use `rvs` and
+  0.01 eV since the same change (they used `dbrc` from 1e-5 eV before).
 
 ### `SpeedTier`: Standard / Fast / VeryFast (2026-09-27, gh:#349)
 
@@ -772,6 +840,15 @@ prescribed with a reference, or depletion with code and run).
   `BurnupStep`'s densities into atoms (`N * 1e24 * V`) and activities
   (`lambda * N`, `lambda` from the same chain). Every chain nuclide is kept,
   stable ones at zero activity; a negative density is refused, not clipped.
+- **Waste rating from an inventory (2026-11-20, gh:#1391):** `waste` ports
+  OpenMC's `openmc/waste.py` (Fetter and 10 CFR 61.55 tables, classification
+  rules) and takes this inventory type through `WasteInventory::from_inventory`.
+  Bit-identical to OpenMC on 90 classifications and 1020 ratios
+  (`tests/waste_vs_openmc_1391.rs`, `verification_and_validation/waste_1391/`).
+  Half-lives are a caller-supplied `HalfLifeTable`, not embedded. The decay-photon
+  spectra of the same issue are **not here**: they are `punggol`'s (photons are
+  not this crate's), which reads the chain through this crate's re-export
+  `depletion::DepletionChainXml`.
 - **Dependency direction:** `sembawang -> outram-mc-libs`. **This crate must
   never depend on `sembawang`.**
 - `sembawang` reads it in TRISO-ATOPS terms (`sembawang::inventory`), and
@@ -816,7 +893,7 @@ neutrons, PUNGGOL takes care of gammas and other things".
 |---|---|
 | Neutrons | **this crate**, and only neutrons |
 | Photons (gammas), electrons, positrons | **`punggol`** (PUNGGOL domain, `docs/ecosystem-naming.md`): the OpenMC photon port (gh:#975) and the EGSnrc electron/positron port as a module with provenance (gh:#976) |
-| Ions: fission fragments, alphas, recoil knock-ons | **`boon-lay`** (its RustBCA copy) |
+| Ions: fission fragments, alphas, recoil knock-ons | ~~**`boon-lay`** (its RustBCA copy)~~ **`kembangan`** (the RustBCA copy, moved from boon-lay 2026-11-22, gh:#1699; `boon_lay::rustbca` re-exports it) |
 
 - **Coupled neutron–photon transport:** this crate records where secondary
   photons are born in its collision loop (as OpenMC does), and `punggol`
@@ -977,8 +1054,15 @@ the maintainer, 2026-10-03; protocols in
 - `stats::correlated_sigma` (#495) — `KeffUncertainty::from_result`: batch
   means and `τ_int`/ESS over the active generations, reported **beside** the
   run's own `k_std`, which is carried bit for bit and never replaced.
-  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; no
-  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.
+  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; ~~no
+  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.~~
+  **CORRECTED 2026-11-14 (gh:#506):** `KeffSettings::tally_batch_log` and
+  `FixedSourceSettings::tally_batch_log` take an optional `TallyBatchLog`
+  (default `None`) that the CSG eigenvalue and fixed-source drivers fill with
+  each batch's tally bin sums before the flush; `TallyBatchRecorder::from_log`
+  reads it. Report-only: `tests/tally_batch_log_506.rs` pins `k` and the tally
+  bit-identical with and without it. Extra tallies of `CsgPowerIteration` are
+  not logged.
 - `stats::convergence` (#496) — `SourceConvergence::from_result`: MSER-5,
   Geweke and change-point on the entropy and `k` traces (all generations);
   recommends an inactive count only when every analysed trace has settled,
@@ -988,10 +1072,22 @@ the maintainer, 2026-10-03; protocols in
   the early tally resolves the flux, a RAFFLES polynomial in `ln φ(x,y,z)`
   filling the cells MAGIC leaves without a window (extrapolation clamped,
   leave-one-out error reported); `VrArm` / `FomComparison` for
-  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Off by default**:
+  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Measured 2026-11-14:** no
+  resolvable bias, but ~~FOM about 0.2x of analog and of MAGIC~~ **CORRECTED
+  2026-11-17 (gh:#1582, weight windows now play upstream's game by default,
+  re-measured): learned about 0.17-0.57x of analog, 0.8-2.9x of MAGIC, and MAGIC
+  about 0.2x of analog (N = 5, ~100 % sigma)** on the shielded room
+  (`stats_epic_493/497_learned_importance.md`). **Off by default**:
   it only builds a `WeightWindows`; transport changes only if a caller
-  attaches it to a `VarianceReduction`, whose default stays analog. Source
-  biasing is not implemented.
+  attaches it to a `VarianceReduction`, whose default stays analog. ~~Source
+  biasing from the learned map is not implemented (CORRECTED 2026-11-14: OpenMC's
+  user-specified source `bias` is ported in `source::distribution`, opt-in).~~
+  **CORRECTED 2026-11-17 (gh:#1615):** `stats::learned_source_bias`
+  (`with_learned_source_bias`, `learned_biased_spatial`, `learned_biased_energy`)
+  biases births with `q ∝ p/lower` of the window set, weight `p/q`, built on the
+  ported OpenMC `bias` machinery plus `SpatialDistribution::Cells`. Opt-in; a
+  point source is one cell, so the bias is the identity. The unbiasedness gate
+  `|z| ≤ 2` is **maintainer-decided (2026-11-17)**, no longer open.
 - `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
   `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
   own MC-noise variance separated out, quantiles, Pearson / Spearman /
@@ -1002,7 +1098,12 @@ the maintainer, 2026-10-03; protocols in
   refits), `predict` → `SurrogatePrediction` with a jackknife+ interval (its
   own type: **a surrogate value is never a transport result**), `loo_gate`
   (literal and noise-floor-aware readings — the literal one is expected to
-  fail for a perfect surrogate; flagged on #499), `propose_next_runs`
+  fail for a perfect surrogate; ~~flagged on #499~~ **DECIDED 2026-11-17
+  (maintainer, gh:#499): the noise-floor-aware reading gates**
+  (`LooGate::passes`), the literal one is reported but not gating; degree 2
+  stays the gated degree, degree 3 a labelled study, and the degree-2 FAIL is
+  the recorded finding, lack of fit of a quadratic; re-run 2026-11-17
+  reproduces the 2026-10-07 numbers), `propose_next_runs`
   (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
   the committed HTR-10 sweep CSV without transport. **Measured 2026-10-07
   (gh:#782), the one exception to "every gate NOT YET MEASURED" above:** on
@@ -1054,9 +1155,40 @@ constructor (`from_rows_top_down` vs `from_natural_order`).
 - **Count from the assembled geometry**: `AssembledModel::census()` walks the
   universe/lattice graph (`DistribcellOffsets`, plus each lattice's `outer`
   once per placement). Never report a particle count from a constant (gh:#316).
-- **Not yet**: a lattice in a sphere (whole-particle rejection), random
-  packing and `DhRegion` (tutorial 5), hex lattices, per-lattice delta
-  tracking (the beginner run carries no majorants).
+- **Not yet**: ~~a lattice in a sphere (whole-particle rejection), random
+  packing and `DhRegion` (tutorial 5), hex lattices,~~ **CORRECTED
+  2026-11-10**: those three landed 2026-10-18 (`Lattice::covering`,
+  `Packing`/`DhRegion`, `HexPrism` + `Lattice::hex`; see `model/mod.rs`
+  "Not yet here"); still not here: per-lattice delta tracking (the
+  beginner run carries no majorants).
+- **Hexagonal subassembly** (2026-11-10, gh #1327):
+  `model::HexSubassembly` builds a hex duct holding a triangular-pitch pin
+  bundle of `r` rings (`3r(r-1)+1` pins; centres from the `HexLattice`
+  port), each pin fuel / bond / clad as coaxial finite cylinders, with an
+  optional helical wire wrap smeared into the coolant. Plain shapes, so
+  `Model::assemble` checks it exactly. A `HexPrism`'s two z-planes are now
+  shared through `Lowering::zplane` (as a finite cylinder's were), so the
+  duct, the coolant prism and full-height pins end on one pair of planes
+  instead of three coincident pairs (`tests/model_hex_subassembly.rs`:
+  2 z-planes, 6 before). Pictures:
+  `verification_and_validation/hex_subassembly/`.
+
+### Collision tracks and MCPL files (2026-11-12, gh:#1392)
+
+- **`physics::collision_track`** ports OpenMC's `<collision_track>`. The bank
+  rides in `ExtraScoring::with_collision_track`, so only
+  `CsgPowerIteration::step_scored`/`step_par` record; the CSG kernel builds a
+  record only when a bank is attached and draws no random number, so every
+  `k` and pin is unchanged (`tests/collision_track_output.rs`). Files are
+  written at the run boundary (`write_collision_track_file`): HDF5 through
+  `njoy_outram_park_fork::hdf5::collision_track` in OpenMC's layout (read back
+  by `openmc.read_collision_track_hdf5`), or MCPL.
+- **`source::mcpl`** is the MCPL format ported from `mcpl.c` (Apache-2.0) in
+  pure Rust, no `libmcpl`, plus OpenMC's `mcpl_interface.cpp` uses. It
+  round-trips upstream's `surface_source_true.mcpl` byte for byte.
+- The record's `event_mt`, `n_collision` and `progeny_id` follow this
+  kernel's reaction groups, not OpenMC's MT walk; differences listed in
+  `verification_and_validation/collision_track_mcpl/README.md`.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
@@ -1097,6 +1229,43 @@ default for *physics* — geometry, kinematics, cross-section treatment — beca
 fidelity is this crate's whole value. The exemption is narrow and applies to the
 **bit-level output of the RNG only**, where matching upstream is a means to
 statistical quality rather than the goal itself.
+
+**OpenMC-compatible seeding exists as a named option (2026-11-11, gh:#1386).**
+`KeffSettings::with_seeding(SeedingMode::OpenMc { total_gen: 0 })` gives each
+history of the CSG drivers OpenMC's own stream seeds
+(`petir::rng::lcg::init_particle_seeds`, `rng::openmc_seeding`;
+`tests/openmc_seeding_vs_openmc_code_to_code.rs`, bit-identical to OpenMC
+`8f79d9d0`). **Extended 2026-11-11:** the mode now covers every stream OpenMC
+uses for a k-eigenvalue run (tracking including the delayed-group draw, source,
+URR, the `synchronize_bank` comb; volume always did) and the sequential
+`run_keff_csg_seq` / `CsgPowerIteration::step` as well as the parallel drivers
+(scalar and parallel k bit-identical under it); ~~the GPU batched drivers and the
+sphere drivers do not read it~~ **CORRECTED 2026-11-11:** the sphere drivers,
+the GPU batched drivers (seed layout only) and `FixedSource` read it too. The OpenMC-faithful collision kernels
+(`physics::scatter::{rotate_angle_openmc, inelastic_cm_to_lab_openmc,
+level_inelastic_scatter_openmc, elastic_scatter_openmc}`) and
+`physics::nbody::NBodyPhaseSpace` sit beside the older kernels, differential-tested
+bit for bit (`tests/collision_kinematics_vs_openmc_code_to_code.rs`,
+`verification_and_validation/upstream_openmc_samplers/`) ~~but are **not wired into
+transport**~~ **CORRECTED 2026-11-11 (maintainer decision): they ARE the transport
+default now** (`ScatterKernels::OpenMc`; legacy kernels via
+`Nuclide::with_legacy_scatter_kernels` or `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`);
+the pins that moved are re-pinned with old/new/sigma in their test docs. **Direction-norm guard
+(2026-11-11, gh:#1497):** `rotate_angle_openmc` and `rotate_direction` renormalise
+a direction whose `|u|^2 - 1` exceeds `sqrt(f64::EPSILON)`
+(`physics::scatter::renormalise_if_drifted`, new work: OpenMC never renormalises,
+and a chain of S(alpha,beta) rotations grew the error to a NaN direction, then a
+NaN energy, on the HTR-10 DH pebble); the plain translations are
+`rotate_angle_openmc_unguarded` / `rotate_direction_unguarded`, still bit-identical
+to upstream (`tests/direction_norm_drift_guard.rs`). **The GPU twin (2026-11-12,
+gh:#1499):** the fused-event WGSL `rotate_direction` and its f32 mirror
+(`gpu::batched_event::rotate_direction_f32`) carry the same guard at
+`sqrt(f32::EPSILON)` (`DIRECTION_NORM_DRIFT_TOL_F32`); the old rotations stay
+callable as `rotate_direction_unguarded` / `rotate_direction_f32_unguarded`
+(`tests/gpu_direction_norm_drift_guard.rs`). **The default stays `SeedingMode::Outram`**: the decision above
+stands and every recorded k-eff and bit-identity pin was measured with it. The
+option exists so one history can be compared with OpenMC's track file, not
+because parity became a goal.
 
 Practical consequence: where OpenMC's RNG design exists *for* statistical
 quality — as the PCG output permutation does, see `op-jis` — port it, and gate it

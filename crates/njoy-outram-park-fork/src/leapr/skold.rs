@@ -24,6 +24,9 @@
 //! `discre` in every temperature pass, only when `ncold = 0`
 //! (`leapr.f90:389-390`); the effective temperature is untouched.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::leapr::coldh::terpk;
 use crate::leapr::deck::PairCorrelation;

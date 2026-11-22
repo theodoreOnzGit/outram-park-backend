@@ -74,8 +74,12 @@
 //!   [`Selection::select_faces_by_sides`] ([`NumberCompare`]). "Ungrouped
 //!   vertices" waits on vertex groups in `op-hzs.54.28`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::{BTreeSet, HashMap};
+use alloc::collections::BTreeSet;
+use crate::hash::HashMap;
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};

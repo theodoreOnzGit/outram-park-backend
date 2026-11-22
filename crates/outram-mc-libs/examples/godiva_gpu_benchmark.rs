@@ -172,7 +172,9 @@ use std::time::Instant;
 #[cfg(not(target_os = "android"))]
 use outram_mc_libs::gpu::union_grid::UnionTotalXs;
 #[cfg(not(target_os = "android"))]
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material::Material;
+#[cfg(not(target_os = "android"))]
+use outram_mc_libs::vv::godiva::{self, RADIUS_CM, TEMPERATURE_K};
 #[cfg(not(target_os = "android"))]
 use outram_mc_libs::material::nuclide::Nuclide;
 #[cfg(not(target_os = "android"))]
@@ -180,17 +182,9 @@ use outram_mc_libs::physics::keff::{run_keff, KeffResult, KeffSettings};
 #[cfg(not(target_os = "android"))]
 use outram_mc_libs::rng::distributions::watt;
 
-/// Godiva atom densities and temperature (ICSBEP HEU-MET-FAST-001).
-#[cfg(not(target_os = "android"))]
-const RADIUS_CM: f64 = 8.7407;
-#[cfg(not(target_os = "android"))]
-const TEMPERATURE_K: f64 = 293.6;
-#[cfg(not(target_os = "android"))]
-const N_U234: f64 = 4.9184e-4;
-#[cfg(not(target_os = "android"))]
-const N_U235: f64 = 4.4994e-2;
-#[cfg(not(target_os = "android"))]
-const N_U238: f64 = 2.4984e-3;
+// Godiva radius, temperature and atom densities (ICSBEP HEU-MET-FAST-001)
+// are `vv::godiva` (this example's identical copy removed 2026-11-18,
+// gh:#1647).
 
 /// Energy grid bounds \[eV\] for the tabulated Sigma_t used by the XS kernel.
 #[cfg(not(target_os = "android"))]
@@ -256,7 +250,8 @@ fn main() {
 
 /// Build the Godiva bare-sphere HEU material and its LOW-tier (`from_core`)
 /// nuclide array. LOW tier keeps the run offline and reproducible (no network,
-/// no HDF5). Atom densities are the ICSBEP HEU-MET-FAST-001 values above.
+/// no HDF5). The material is `vv::godiva::material()`: the ICSBEP
+/// HEU-MET-FAST-001 atom densities, nuclides indexed 0, 1, 2 as loaded here.
 #[cfg(not(target_os = "android"))]
 fn godiva_material() -> (Material, Vec<Nuclide>) {
     let nuclides = vec![
@@ -264,25 +259,7 @@ fn godiva_material() -> (Material, Vec<Nuclide>) {
         Nuclide::from_core("U235").expect("U235 in CORE WMP library"),
         Nuclide::from_core("U238").expect("U238 in CORE WMP library"),
     ];
-    let material = Material {
-        id: 1,
-        name: "Godiva HEU".into(),
-        temperature: TEMPERATURE_K,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: N_U234,
-            },
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: N_U235,
-            },
-            NuclideComponent {
-                nuclide_idx: 2,
-                atom_density: N_U238,
-            },
-        ],
-    };
+    let material = godiva::material();
     (material, nuclides)
 }
 

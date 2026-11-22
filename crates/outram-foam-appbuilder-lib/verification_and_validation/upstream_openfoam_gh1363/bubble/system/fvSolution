@@ -1,0 +1,11 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvSolution; }
+solvers
+{
+    alpha.air { nAlphaCorr 1; nAlphaSubCycles 1; }
+    p_rgh { solver PCG; preconditioner diagonal; tolerance 1e-12; relTol 0; maxIter 20000; }
+    p_rghFinal { $p_rgh; }
+    "U.*" { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-15; relTol 0; minIter 1; }
+    "e.*" { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-15; relTol 0; minIter 1; }
+}
+PIMPLE { nOuterCorrectors 1; nCorrectors 1; nNonOrthogonalCorrectors 0; pRefCell 0; pRefValue 0; }
+relaxationFactors { equations { ".*" 1; } }

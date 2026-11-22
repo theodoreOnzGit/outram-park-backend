@@ -1,6 +1,6 @@
 [package]
 name = "boon-lay"
-version = "0.2.2"
+version = "0.2.3"
 edition.workspace = true
 license.workspace = true
 description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
@@ -17,11 +17,12 @@ include = [
     "/src/**/*.rs",
     "/src/**/*.wgsl",
     "/src/**/README.md",
-    "/src/rustbca/LICENSE",
     "/README.md",
     "/LICENSE",
     # The AGPL-3.0 text is `/LICENSE`; the GPL-3.0 text ships beside it because
-    # `src/rustbca/` stays GPL-3.0-or-later (gh:#973).
+    # ~~`src/rustbca/` stays GPL-3.0-or-later (gh:#973)~~ the crate's
+    # GPL-3.0 files stay GPL-3.0 (gh:#973; RustBCA moved to kembangan
+    # 2026-11-22, gh:#1699, and 37 other GPL-3.0-headed files remain).
     "/LICENSE.GPL-3.0",
     "/LICENSE.triso-atops",
     "/NOTICE",
@@ -51,30 +52,23 @@ backronym = "BOmbardment of neutrons On Nuclides with Lagrangian transport and t
 
 [dependencies]
 uom             = { workspace = true }
-serde           = { workspace = true }
-serde-xml-rs    = { workspace = true }
+serde           = { workspace = true, optional = true }
 # JSON for reading upstream / GUI-written TRISO-ATOPS run files
 # (triso_atops_fork::run_file::upstream, #449). Pure Rust; wasm/Android-clean.
-serde_json      = { workspace = true }
-anyhow          = { workspace = true }
+serde_json      = { workspace = true, optional = true }
+anyhow-nostd    = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
-# ── RustBCA copy (src/rustbca/, gh:#876 item 7) ─────────────────────────────
-# The no_std + alloc core needs only these. petir supplies the libm-backed
-# `real::Real` float shim (the workspace's one no_std shim) and, since
-# gh:#995, the random numbers: `petir::rng` ports the rand 0.10.3 /
-# rand_distr 0.6.0 pieces RustBCA used (ChaCha8Rng, Uniform, Normal), draw for
-# draw, so `rand` and `rand_distr` are no longer dependencies.
+# RustBCA moved to kembangan (2026-11-22, gh:#1699, maintainer direction);
+# boon-lay re-exports it as `boon_lay::rustbca`, so no caller changes.
+# Direction: boon-lay -> kembangan, never the reverse.
+kembangan       = { workspace = true }
+# petir: the libm-backed `real::Real` float shim and `petir::rng`, used by
+# boon-lay's own code (it came in with RustBCA, gh:#876 item 7, #995).
 petir           = { workspace = true }
-# OS entropy for `seed < 0` and `simple_bca`, std layer only (was rand's
-# thread_rng; gh:#995).
-getrandom       = { workspace = true, optional = true }
-# std-only parts of the copy, all behind the `rustbca-std` feature.
-toml            = { workspace = true, optional = true }
-geo             = { workspace = true, optional = true }
-indicatif       = { workspace = true, optional = true, features = ["rayon"] }
-itertools       = { workspace = true, optional = true }
+# `crate::sync::OnceLock` without std (gh:#1634).
+spin            = { workspace = true }
 # Data parallelism across independent Lagrangian histories. Pure-Rust and
 # Android/Termux-safe, so it stays an unconditional dependency.
 # rayon: see the wasm target table at the end of this manifest.
@@ -84,15 +78,10 @@ itertools       = { workspace = true, optional = true }
 # `gpu` module is `cfg(not(target_os = "android"))`-gated; the CPU (rayon) path
 # is always available and is the trusted reference.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
-wgpu = { workspace = true }
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
-# RustBCA's own unit tests (src/rustbca/tests.rs): float-cmp for their
-# assertions, geo because they build Mesh2D geometries (compiled under
-# cfg(test) as well as under `rustbca-std`).
-float-cmp       = { workspace = true }
-geo             = { workspace = true }
 # ~~JSON only for the run-file round-trip test; the library stays
 # format-agnostic.~~ UPDATED 2026-09-30 (#449): serde_json is now a library
 # dependency, because reading upstream's own run file (run_file::upstream) is
@@ -121,12 +110,18 @@ image           = { workspace = true }
 
 [[example]]
 name = "boon_lay_decay_simulator"
+# Uses the std-only decay data or threads (gh:#1634).
+required-features = ["std"]
 
 [[example]]
 name = "triso_simulator"
+# Uses the std-only decay data or threads (gh:#1634).
+required-features = ["std"]
 
 [[example]]
 name = "first_passage_realtime"
+# Uses the std-only decay data or threads (gh:#1634).
+required-features = ["std"]
 
 # Geometry check for lesson rung 1 (gh:#531): draws the assembled TrisoCell
 # from region lookups and recovers each interface radius. Pure std.
@@ -139,19 +134,34 @@ name = "triso_cell_slice"
 name = "layer_diffusion_table"
 
 [features]
-# The std-only layer of the RustBCA copy (src/rustbca/): TOML input files,
-# file output, the rayon/indicatif batch driver (native only), entropy
+# The std-only layer of the RustBCA copy, now kembangan's (2026-11-22,
+# gh:#1699): this feature forwards to `kembangan/rustbca-std`. TOML input
+# files, file output, the rayon/indicatif batch driver (native only), entropy
 # seeding, simple_bca, and the geo-backed Mesh2D / HomogeneousMesh2D. OFF by
-# default: boon-lay re-exports the no_std + alloc core (maintainer decision,
-# gh:#876 item 7). Not for wasm32-unknown-unknown: ~~getrandom 0.4 (from
-# rand's thread_rng)~~ getrandom 0.3 (the entropy seed, gh:#995) needs its
-# wasm_js feature there, which nothing enables here.
-rustbca-std = ["dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
+# default (maintainer decision, gh:#876 item 7). Not for
+# wasm32-unknown-unknown: getrandom needs its wasm_js feature there.
+rustbca-std = ["std", "kembangan/rustbca-std"]
 
-# Headless cost probe for RustBCA cascades in a UO2 kernel and its TRISO
-# coatings (gh:#876 item 7). Pure Rust, no GUI; runs on every target.
-[[example]]
-name = "rustbca_cascades"
+# `no_std` + `alloc` without `std` (gh:#1634, epic gh:#1585). `std` (default)
+# carries: ~~the OpenMC decay/transmutation data (`openmc-endf-8-depletion-lib-b`,
+# read through `serde-xml-rs`) and the modules built on it~~ (CHANGED
+# 2026-11-22: lib-b 1.1.0 is no_std, so the decay data is always on), `serde` /
+# `serde_json` (file input only), the TRISO run-file readers, the rayon thread
+# pool (serial `wasm_par` stand-in without it), the wgpu `gpu` module, printing,
+# and `std` in `anyhow` and `outram-mc-libs`. `rustbca-std` implies it.
+default = ["std"]
+std = [
+    "dep:serde",
+    "dep:serde_json",
+    "dep:rayon",
+    "dep:wgpu",
+    "anyhow-nostd/std",
+    "outram-mc-libs/std",
+    "kembangan/std",
+]
+
+# ~~Headless cost probe for RustBCA cascades~~ `rustbca_cascades` moved to
+# kembangan with RustBCA (2026-11-22, gh:#1699).
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown (no OS threads;
@@ -163,4 +173,4 @@ name = "rustbca_cascades"
 # CPU Walk-on-Spheres ensemble is what the GPU path is validated against.
 # Bead op-okqo.1.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true }
+rayon = { workspace = true, optional = true }

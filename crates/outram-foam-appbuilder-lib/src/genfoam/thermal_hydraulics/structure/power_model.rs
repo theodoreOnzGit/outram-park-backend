@@ -82,6 +82,9 @@
 //! initial value, which avoids the recurrence's division-by-zero edge when a
 //! profile passes through zero.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Ratio, ThermodynamicTemperature, Time};
 
 use crate::genfoam::common::TimeProfile;

@@ -1,0 +1,53 @@
+# Crates whose long/full CI run is split into ONE JOB PER TEST TARGET
+# (GitHub #1337). Read by scripts/ci-crate-matrix.sh; this is the only place
+# the split is chosen.
+#
+# Every other workspace member runs as ONE job:
+#     cargo test -p <crate> --lib --tests --release --no-fail-fast
+# A crate listed here instead gets one job for `--lib` plus one per other
+# target that `--tests` would run (each `--test`, and each `--bin`/`--example`/
+# `--bench` with `test = true`), GENERATED from `cargo metadata`, never
+# hand-listed, so a new test file gets its own job the moment it exists. The
+# union of the shards is exactly the target set of `--lib --tests`.
+#
+# WHY SPLIT AT ALL. A GitHub-hosted job is killed at 6 hours. A crate goes on
+# this list only with evidence that it alone is too close to that. Splitting
+# costs a compile of the crate's dependency closure per shard, so it is not
+# free: do not list a crate "to be safe" without a number.
+#
+# WHAT SPLITTING CANNOT DO. It splits by test BINARY. A crate whose slow tests
+# all live in `--lib` (tuas_boussinesq_solver: only a lib and one bin) gets
+# nothing from it, so it is not listed; see the note at the bottom.
+#
+# One package name per line; `#` starts a comment. The script fails if a name
+# here is not a workspace member, so the list cannot rot silently.
+
+# 139 shards (lib + 137 integration tests + 1 bin, 2026-11-10). Evidence:
+# full-tests run 42136324698 (2026-11-06, ubuntu-latest, whole workspace in
+# one job) spent 5688 s on the first 68 of its test binaries and was still
+# inside this crate (`majorant_temperature_cover`) when the 6-hour limit
+# cancelled it. Its own binaries include ablation_hook_controls (703 s),
+# majorant_bounds_endf (579 s), hybrid_tracking_equivalence (490 s).
+outram-mc-libs
+
+# 12 shards (lib + 11 integration tests). Evidence: the measured runtimes in
+# its own `long-tests` ignore messages sum to 5344 s for three tests alone
+# (angle_of_repose 2313 s, htr10_pebble_bed 2714 s, pebble_bed_bulk 317 s;
+# dev machine, 2026-09), and htr10_recirculation and htr10_conus_cross_code
+# (27 554 pebbles each, 12 recirculation batches / 20 000 steps) carry no
+# measured figure at all. Integration-test binaries run one after another, so
+# on a 4-core runner the crate's total is plausibly past 6 h.
+outram-park-fork-liggghts
+
+# NOT LISTED, with the numbers that decided it (re-measure if they move):
+#  - nee_soon: 5196 s of test time in run 42136324698 (lib 2497 s). Fits.
+#  - njoy-outram-park-fork: 2052 s over 120 binaries in the same run. Fits.
+#  - outram-park-digital-twin-engine: `--lib` about 2000 s (local, not
+#    re-measured on a runner); its other targets are short. Fits.
+#  - tuas_boussinesq_solver: the measured runtimes in its `long-tests` ignore
+#    messages sum to 20 873 s (dev machine, 2026-09-16), but they all run in
+#    parallel inside the ONE lib binary (a HARD RULE: never
+#    `--test-threads=1`), so a 4-core runner needs roughly a quarter of that
+#    plus slowdown. Not reached by run 42136324698, so not measured on CI.
+#    If its job times out, splitting by target will not help: the remedy is a
+#    test-name partition, which needs a design decision (GitHub #1337).

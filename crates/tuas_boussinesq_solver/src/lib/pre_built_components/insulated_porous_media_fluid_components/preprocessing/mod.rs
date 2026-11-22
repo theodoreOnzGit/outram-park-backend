@@ -5,7 +5,10 @@
 //! computes the nodal thermal conductances (W/K) that couple them, and wires
 //! the zero-power axial boundary conditions at each array end. MX-10 /
 //! static-mixer-specific preprocessing lives in the `mx10` submodule.
-use std::thread::{self, JoinHandle};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::thread::{self, JoinHandle};
 
 use super::InsulatedPorousMediaFluidComponent;
 use uom::ConstZero;

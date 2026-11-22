@@ -215,6 +215,15 @@ pub fn transport(n: u32, x: f64) -> f64 {
     }
     let nf = o.n as f64;
 
+    if x == 0.0 && o.n >= 3 {
+        // `x == 0.0` is its own branch upstream for orders 3, 4 and 5
+        // (transport.c:250, :327, :404), returning `+0.0`; order 2 has none
+        // and keeps `-0.0` (a first attempt that included it broke
+        // `transport_2(-0.0)`). Without it `-0.0` reached the small-`x` power
+        // and `transport_4(-0.0)` came out `-0.0` (gh:#1421).
+        return 0.0;
+    }
+
     if x < 3.0 * SQRT_DBL_EPSILON {
         // J(n, x) ~ x^{n-1} / (n-1) as x -> 0.
         let mut p = 1.0;
@@ -229,11 +238,20 @@ pub fn transport(n: u32, x: f64) -> f64 {
         // x^2/8 - 1.0: the two differ in the last bit near x = 0, and the
         // grouping is reproduced rather than simplified.
         let t = (x * x / 8.0 - 0.5) - 0.5;
-        let mut p = 1.0;
-        for _ in 1..o.n {
-            p *= x;
-        }
-        return p * crate::cheb_slice::eval_gsl(t, o.cheb);
+        // The power multiplying the Chebyshev value is written out per order
+        // upstream: `x`, `x2`, `x2*x`, `x2*x2` with `x2 = x*x`
+        // (specfunc/transport.c:189, :266, :343, :420). ~~A running product
+        // `((x*x)*x)*x`~~ **CORRECTED 2026-11-12 (gh:#1421):** for orders 4
+        // and 5 that is a different rounding, and `transport_5` differed from
+        // GSL linked to PETIR's libm on 9 % of its values because of it.
+        let x2 = x * x;
+        let p = match o.n {
+            2 => x,
+            3 => x2,
+            4 => x2 * x,
+            _ => x2 * x2,
+        };
+        return p * crate::specfunc::cheb_eval_e(t, o.cheb);
     }
 
     // Past 4, the limit minus the tail.
@@ -461,7 +479,7 @@ mod tests {
             }
             let small = p / (nf - 1.0);
             let t = (x * x / 8.0 - 0.5) - 0.5;
-            let cheb = p * crate::cheb_slice::eval_gsl(t, o.cheb);
+            let cheb = p * crate::specfunc::cheb_eval_e(t, o.cheb);
             assert!(
                 ((small - cheb) / cheb).abs() < 1e-8,
                 "J({n}) small/Chebyshev join at {x:e}: {small:e} vs {cheb:e}"
@@ -474,7 +492,7 @@ mod tests {
                 p *= x;
             }
             let t = (x * x / 8.0 - 0.5) - 0.5;
-            let a = p * crate::cheb_slice::eval_gsl(t, o.cheb);
+            let a = p * crate::specfunc::cheb_eval_e(t, o.cheb);
             let numexp = ((-LOG_DBL_EPSILON) / x) as u32 + 1;
             let s = sumexp(numexp, n, (-x).exp(), x);
             let b = o.val_infinity - (nf * x.ln() - x + s.ln()).exp();

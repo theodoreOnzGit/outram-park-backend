@@ -76,7 +76,7 @@ desktop and phone width. Not reviewed by a human. Known gaps are in
 ## Running it
 
 ```text
-crates/kovan-web/web/data.sh <out>/data        # code map + call graph (rust-analyzer scip, ~4 min, ~16 GiB)
+crates/kovan-web/web/data.sh <out>/data        # code map + call graph (partitioned rust-analyzer scip, ~12 GiB peak; was ~16 GiB monolithic)
 bash crates/kovan-web/web/build.sh <out>       # the wasm page
 python3 -m http.server -d <out> 8000
 cargo run -p kovan-web --example web --release -- --data <out>/data --workspace .

@@ -1,8 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::PathBuf;
 
 use super::*;
@@ -149,6 +152,7 @@ fn the_layout_is_read_from_the_names() {
     assert_eq!(LibraryLayout::Flat.role("x.endf"), PathRole::Unknown);
 }
 
+#[cfg(feature = "std")]
 /// **The workspace's mixed reference folder** reads as ENDF/B-VIII.0 (most
 /// of its tapes), and each Godiva nuclide resolves to the tape `vv::godiva`
 /// names; another library's tape is named in the error, never used.
@@ -284,6 +288,7 @@ fn fuzzy_matching_prefers_substrings() {
     assert_eq!(fuzzy_score("  ", "anything"), Some(0));
 }
 
+#[cfg(feature = "std")]
 /// **Browser generation (#936)**: F-19 at 293.6 K with its 0 K companion,
 /// read back by header through [`AceSet`]; the companion can be ablated; the
 /// H-in-H2O thermal table from the compiled-in LEAPR deck on the library's

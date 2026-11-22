@@ -18,7 +18,8 @@
 //! holds `Q` at whatever it is handed. To compare the *integrators*, this crate
 //! is run segment by segment on upstream's own per-segment `Q` (from the
 //! profile, `Q = F_i/C_i`). What holding the inlet `Q` costs is measured
-//! separately. Gate: **1e-8** worst per-species relative gap, as for the CSTR.
+//! separately. Gate: ~~**1e-8**~~ **1e-9** worst per-species relative gap, as for
+//! the CSTR (gh:#1614, 2026-11-17); steam reforming keeps 1e-8, flagged (2.6e-9).
 //!
 //! **Results (measured 2026-10-02, release).**
 //!
@@ -65,7 +66,13 @@ use outram_park_fork_dwsim_libs::reactions::{
 use outram_park_fork_dwsim_libs::reactors::{Pfr, ReactorFeed};
 
 /// Worst per-species gap gate for the integrator comparison.
-const GATE: f64 = 1e-8;
+// ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): the isomerisation cases measure
+// 1.2e-10 and 1.4e-10.
+const GATE: f64 = 1e-9;
+/// Steam reforming keeps ~~the shared~~ 1e-8: its gap is 2.6e-9 (2026-10-02,
+/// re-measured 2.57e-9 on 2026-11-17), above the 1e-9 round-off allowance of
+/// 2026-11-17. Accepted at 1e-8 and flagged on gh:#1614.
+const SMR_GATE: f64 = 1e-8;
 
 /// One upstream run, parsed from its `KEY=value` fixture.
 struct Upstream {
@@ -263,7 +270,7 @@ fn steam_reforming_matches_upstream() {
     let gap = worst_gap(&port, &u.f_out);
     let g_inlet = worst_gap(&at_inlet_q(&u, &rx, 1123.15, 2.0e6), &u.f_out);
     eprintln!("smr: segment Q {gap:e}, inlet Q {g_inlet:e}");
-    assert!(gap < GATE, "gap {gap:e}");
+    assert!(gap < SMR_GATE, "gap {gap:e}");
     assert!(
         (5.5e-2..6.5e-2).contains(&g_inlet),
         "constant-Q cost moved: {g_inlet:e}"

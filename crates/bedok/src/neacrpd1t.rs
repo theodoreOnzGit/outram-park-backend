@@ -53,6 +53,9 @@
 //! `E0` scale cancels. The feedback slopes follow `f`'s, so `fp` stays
 //! proportional to `f` under both feedback channels.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::neacrpd1::neacrpd1;
 use crate::sigmavalupd3d_handler::FeedbackTables;
 use crate::types::{

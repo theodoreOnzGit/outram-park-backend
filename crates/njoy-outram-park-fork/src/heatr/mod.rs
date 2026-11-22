@@ -120,6 +120,9 @@
 //! - [`driver`] — the routine-by-routine translation of `heatr.f90`
 //!   ([`heatr()`], [`HeatrInput`], [`heatr_kerma`], [`pendf_for_heatr`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod damage;
 pub mod driver;
 mod kerma;
@@ -129,7 +132,7 @@ mod twobody;
 mod tests;
 
 pub use damage::{default_displacement_energy, DamageEnergy};
-pub use driver::{heatr, heatr_kerma, pendf_for_heatr, HeatrInput, HeatrOutput, HeatrUnits};
+pub use driver::{heatr, heatr_kerma, heatr_kerma_with_partials, heatr_kerma_with_partials_ed, pendf_for_heatr, HeatrInput, HeatrOutput, HeatrUnits};
 pub use kerma::Kerma;
 pub use spectra::{build_emission_spectra, EmissionSpectrum};
 

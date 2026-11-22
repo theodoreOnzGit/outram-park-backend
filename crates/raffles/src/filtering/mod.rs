@@ -36,6 +36,9 @@
 //! V&V: `crates/raffles/verification_and_validation/filterpy_gh1191.md`,
 //! tests `tests/filterpy_gh1191.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod consistency;
 mod discretization;
 mod ekf;

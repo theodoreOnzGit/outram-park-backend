@@ -277,7 +277,7 @@ passes'", and nothing ran the other half.
 | branch | workflow | command | `long-tests` |
 |---|---|---|---|
 | `develop` | `.github/workflows/fast-tests.yml` | `cargo quick-test` | **off** |
-| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release` | **on** |
+| `main` | `.github/workflows/full-tests.yml` | ~~`cargo test --workspace --lib --tests --release`~~ one job per crate since 2026-11-10 (below) | **on** |
 | *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
 
 `fast-tests.yml` is now `develop`-only: the full command is a strict superset
@@ -398,3 +398,62 @@ what they are skipping. Do not guess the number; measure it.
 run in parallel; gating them does not license `--test-threads=1`, and a
 timeout is still not a failure.
 
+### One runner per crate (gh:#1337, 2026-11-10)
+
+**Maintainer, 2026-11-10: "Long tests and other tests CI should be
+refactored, each crate should have its own runner, it's running out on 6
+hrs."** The single-job long tier hit GitHub's hard 6-hour job limit. The
+evidence, from `full-tests.yml` run 42136324698 (push to `main`, 2026-11-06,
+`ubuntu-latest`, 4 cores): the whole-workspace build took 31 min 47 s, tests
+then ran for 5 h 28 min, and the job was cancelled while `outram-mc-libs`'
+`majorant_temperature_cover` was running. Crates in alphabetical order after
+it (`outram-park-*`, `petir`, `raffles`, `sembawang`, `tampines*`,
+`teh-o-prke`, `tuas_boussinesq_solver`) never started. Test time per crate in
+that run, summed from the gaps between cargo's `Running` lines:
+
+| crate | binaries run | seconds |
+|---|---|---|
+| `outram-mc-libs` (cancelled after 68 of 139) | 68 | 5688 |
+| `nee_soon` (lib 2497 s) | 12 | 5196 |
+| `njoy-outram-park-fork` | 120 | 2052 |
+| `outram-foam-appbuilder-lib` | 25 | 1251 |
+| `bedok` | 1 | 706 |
+| every other crate reached | — | under 80 each |
+
+**The design** (`.github/workflows/per-crate-tests.yml`, called by
+`full-tests.yml`, `manual-tests.yml` and `kovan-nightly-tests.yml`):
+
+- **One reusable workflow, three callers**, so the three cannot drift. A
+  called workflow is read from the same commit as its caller, so the
+  default-branch rule for `workflow_dispatch`/`schedule` (above) still means
+  the scheduled and dispatched runs use `main`'s copy until this reaches
+  `main`.
+- **The matrix is generated** (`scripts/ci-crate-matrix.sh`, bash and `jq`;
+  no Python, which no CI job here uses), from `cargo metadata`'s
+  `workspace_members`. Hand-listing would leave a new crate untested.
+- **Split by test target, opt-in** (`ci/split-by-target.txt`): one job for
+  `--lib`, one per other target with `test = true` (minus targets whose
+  `required-features` the scope does not enable, which `--tests` skips
+  silently and `--test X` would reject). The union is exactly what
+  `--lib --tests` runs. A split costs one dependency compile per shard, so a
+  crate is listed only with a number; the file records the numbers for the
+  crates it does and does not list.
+- **`max-parallel: 16`.** GitHub's concurrent-job cap is per account (20 on
+  Free, 40 on Pro). 16 leaves room for the `develop` push checks.
+- **A step timeout of 340 min inside the 360-min job**, so an overrun is
+  recorded as `timeout` by the result step instead of disappearing; the
+  summary also marks any entry with no result artifact as `no-result`.
+- **The kovan record (nightly).** `kovan-cli test -p <crate>` has been a full
+  run of that crate since #1049, written only into that crate's `kovan.toml`
+  files, so per-crate jobs feed the record without any change to kovan: the
+  nightly's `record` job overlays the files every job rewrote (they are
+  disjoint, and it checks) and then runs the targeted `--pending-stamps` pass
+  as before. **Not covered:** a split crate's shards cannot be recorded
+  (kovan-cli's command always carries `--lib --tests`, and a `--test X` run is
+  partial, never counted), so their stamps rely on the targeted pass.
+- **Not split, and why:** `tuas_boussinesq_solver` keeps every slow test in
+  its lib binary, run in parallel under the HARD RULE above; target-splitting
+  cannot divide it. Its gated tests' measured times sum to 20 873 s on the dev
+  machine (2026-09-16), about a quarter of that on 4 parallel threads before
+  slowdown. If its job ever times out, the remedy is a test-name partition,
+  which is a design decision, not something to do silently.

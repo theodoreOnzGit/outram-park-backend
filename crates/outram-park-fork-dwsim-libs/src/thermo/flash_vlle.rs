@@ -102,6 +102,9 @@
 //! objects / `dyn` / `Box` / lifetimes / channels. Compositions owned by value;
 //! documented raw `f64` (SI: K, Pa, mole fractions \[-\]) in the inner loops.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::{

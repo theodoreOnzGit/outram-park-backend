@@ -1,0 +1,3 @@
+mesh points=12840 faces=13690 patches=1; surface triangles=2208, bbox diagonal D=10.3923048
+patch defaultFaces           n=4488 max=4.096282e-01 p99=4.024714e-01 p50=1.231955e-01 mean=1.275082e-01  >1e-9D:4488 >1e-6D:4488 >1e-3D:4296
+ALL boundary points          n=4488 max=4.096282e-01 p99=4.024714e-01 p50=1.231955e-01 mean=1.275082e-01  >1e-9D:4488 >1e-6D:4488 >1e-3D:4296

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // NOT ported from RAVEN. Moved here 2026-10-02 from `outram-mc-libs` (GitHub
@@ -48,6 +48,9 @@
 // so the bit-identity contract on the moved functions is untouched.
 // ---------------------------------------------------------------------------
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Seed-ensemble consistency: `χ²/dof` of seed values against their internal
 /// `σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).

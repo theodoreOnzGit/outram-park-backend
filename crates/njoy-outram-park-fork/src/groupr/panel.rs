@@ -60,8 +60,11 @@
 //! `ff(il,ig)` feed function this reduction fixes to 1. See
 //! [`super::kinematics`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::endf::interp::{terp1, IntLaw};
 use crate::groupr::weights::AnalyticWeight;

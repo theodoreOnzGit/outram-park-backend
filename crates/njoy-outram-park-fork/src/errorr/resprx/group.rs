@@ -22,6 +22,9 @@
 //! - the first point is looked up against the *current* `ig` only, so
 //!   the search restarts from group 1 for the first in-range point.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 use super::super::weight::{ErrorrWeight, WeightSampler};

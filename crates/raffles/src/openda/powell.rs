@@ -33,6 +33,9 @@
 //! **OpenDA's Powell minimiser** with its bracketing and Brent line search
 //! (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cost::CostFunction;
 use super::linalg::axpy;
 use crate::{RafflesError, Result};
@@ -181,7 +184,7 @@ impl Powell {
         let mut f_p = self.f_current;
         let f_prev = f_p;
         for i in 0..n {
-            let mut xi = std::mem::take(&mut self.directions[i]);
+            let mut xi = core::mem::take(&mut self.directions[i]);
             let (p_opt, f_opt) = self.line_search(f, &p, &mut xi)?;
             self.directions[i] = xi;
             if (f_p - f_opt).abs() > del {
@@ -252,8 +255,8 @@ impl Powell {
         let (mut ax, mut bx) = (ab[0], ab[1]);
         let (mut fa, mut fbv) = (fb[0], fb[1]);
         if fbv > fa {
-            std::mem::swap(&mut ax, &mut bx);
-            std::mem::swap(&mut fbv, &mut fa);
+            core::mem::swap(&mut ax, &mut bx);
+            core::mem::swap(&mut fbv, &mut fa);
         }
         let mut cx = bx + (bx - ax) * gold;
         let mut fc = f.evaluate(&along(base, cx, xi))?;

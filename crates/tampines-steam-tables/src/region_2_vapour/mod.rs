@@ -1,4 +1,7 @@
 /// residual part
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const REGION_2_COEFFS_RES: [[f64; 3]; 43] = [
     [1.0, 0.0, -0.0017731742473213],
     [1.0, 1.0, -0.017834862292358],

@@ -83,6 +83,9 @@
 //! 3. **Returns a new [`Mesh`]** rather than mutating in place, like every
 //!    other operator here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::polyfill;

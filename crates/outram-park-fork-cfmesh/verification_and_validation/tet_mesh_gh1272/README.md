@@ -184,7 +184,8 @@ See the `pipeline::tet_mesh` docs for the step-by-step table.
   **CORRECTED 2026-11-05 (gh:#1280):** run (`symmetry_plane_optimisation`);
   no case here has a `symmetryPlane` patch, so no number above moves.
 - `anisotropicSources` (~~not ported~~ the classes are ported since
-  gh:#1279, `anisotropic`, but not wired into the workflow), `triSurfacePatchManipulator`, and `meshDict` and
+  gh:#1279, `anisotropic`, ~~but not wired into the workflow~~ **wired since
+  gh:#1279's remainder, `../anisotropic_gh1279/`**), `triSurfacePatchManipulator`, and `meshDict` and
   mesh file I/O (a restart holds the mesh in memory).
 
 ## Upstream defects found (none filed; for the maintainer)

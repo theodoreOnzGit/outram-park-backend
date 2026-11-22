@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Particle restart** — replay one history, exactly. GitHub #271, scope
 //! item 1.
@@ -41,6 +41,9 @@
 //!
 //! State points (scope item 3) and summary output (item 4) are also not here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
 use crate::rng::lcg::future_seed;
 
@@ -221,7 +224,7 @@ mod tests {
         // history 6's opening draws. A weaker check than full disjointness, but
         // it is the one that would actually fail if the stride were too small.
         let mut s = base.seed();
-        let mine: std::collections::HashSet<u64> =
+        let mine: crate::hash::HashSet<u64> =
             (0..2000).map(|_| prn(&mut s).to_bits()).collect();
         let mut t = ParticleRestart {
             history_index: 6,
@@ -241,6 +244,7 @@ mod tests {
     fn the_locator_carries_the_whole_restart_point() {
         let rp = restart(0x5EED, 3, 99);
         let s = rp.locator();
+        #[cfg(feature = "std")]
         println!("{s}");
         assert!(s.contains("0x0000000000005EED"));
         assert!(s.contains("gen=3"));

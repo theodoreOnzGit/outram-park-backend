@@ -10,8 +10,11 @@
 //! [`ciet_heater_v2`] submodule holds the CIET-heater-v2-specific variants of
 //! these builders.
 
-use std::thread::JoinHandle;
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::thread::JoinHandle;
+use crate::thread;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;

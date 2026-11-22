@@ -34,6 +34,9 @@
 /// Spectral decomposition of 3x3 tensors -- eigenvalues, eigenvectors, and the
 /// basis every isotropic tensor function (logarithm, exponential, square root)
 /// is built on.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod eigen;
 
 pub mod scalar;

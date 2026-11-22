@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -27,6 +27,9 @@
 //! and `m`, and they are **verified against the report's own Table 1** — see
 //! `tests::table_1_is_reproduced_exactly`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;

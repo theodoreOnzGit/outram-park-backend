@@ -62,6 +62,9 @@
 //! under their own name (no `defaultName`) are not checked against new
 //! names, so a kept name can repeat a new one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::symmetry_plane_optimisation::{symmetry_plane_optimisation, SymmetryReport};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 
@@ -192,7 +195,7 @@ fn calculate_new_boundary(mesh: &VolumeMesh, types: &[String], dict: &RenameBoun
             neighbour.push(None);
         }
     }
-    let m = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: mesh.n_cells, patches };
+    let m = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: mesh.n_cells, patches , cells: None };
     Some((m, new_types, unmatched))
 }
 

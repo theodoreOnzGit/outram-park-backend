@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Code-to-code: reading upstream-format TRISO-ATOPS run files (#449).**
 //!
@@ -37,6 +37,8 @@
 //! `check_run_file` re-adding the running count, so only **whether** an error
 //! occurred is compared, not how many.
 
+// Reads run files (`run_file` is std only, gh:#1634).
+#![cfg(feature = "std")]
 use boon_lay::triso_atops_fork::run_file::upstream::read_upstream_run_file;
 use serde_json::Value;
 use std::path::PathBuf;

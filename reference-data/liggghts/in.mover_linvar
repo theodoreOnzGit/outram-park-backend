@@ -1,0 +1,32 @@
+# fix move/mesh linear/variable (gh:#1416): sphere on the moving square plate, as in.rotating_plate.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.3 0.3 -0.3 0.3 -0.01 0.1 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+fix		plate all mesh/surface file plate_square.stl type 1
+fix		pwall all wall/gran model hertz tangential history mesh n_meshes 1 meshes plate
+create_atoms	1 single 0.05 0.0 0.0049 units box
+set		atom 1 diameter 0.01 density 2500
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+variable	vx equal 0.3*sin(2*PI*time/0.08)+0.5*step*dt
+variable	vy equal swiggle(0,0.15,0.05)
+variable	vz equal -0.05*cwiggle(0,1,0.1)
+fix		spin all move/mesh mesh plate linear/variable v_vx v_vy v_vz
+thermo		1000
+thermo_modify	lost ignore norm no
+dump		d1 all custom 40 dump.mover_linvar id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		10000

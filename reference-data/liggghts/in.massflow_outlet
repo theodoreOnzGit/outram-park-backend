@@ -1,0 +1,57 @@
+# fix massflow/mesh point_at_outlet / inside_out (gh:#1491): 12 spheres (d = 10 mm)
+# cross the closed 64-facet drum_cylinder.stl (radius 0.05 m, axis y, |y| <= 0.05),
+# which is a counting surface only (no wall/gran). Six start inside moving out,
+# six outside moving in; a floor wall at z = -0.12 sends them back up.
+# mfo: point_at_outlet at the drum axis; mfi: the same with inside_out.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.6 0.6 -0.6 0.6 -0.13 0.4 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+fix		drum all mesh/surface file drum_cylinder.stl type 1
+fix		floor all wall/gran model hertz tangential history primitive type 1 zplane -0.12
+create_atoms	1 single 0.0200 -0.0300 0.0000 units box
+create_atoms	1 single 0.0100 -0.0190 0.0173 units box
+create_atoms	1 single -0.0100 -0.0080 0.0173 units box
+create_atoms	1 single -0.0200 0.0030 0.0000 units box
+create_atoms	1 single -0.0100 0.0140 -0.0173 units box
+create_atoms	1 single 0.0100 0.0250 -0.0173 units box
+create_atoms	1 single 0.0693 -0.0260 0.0400 units box
+create_atoms	1 single 0.0000 -0.0150 0.0800 units box
+create_atoms	1 single -0.0693 -0.0040 0.0400 units box
+create_atoms	1 single -0.0693 0.0070 -0.0400 units box
+create_atoms	1 single 0.0000 0.0180 -0.0800 units box
+create_atoms	1 single 0.0693 0.0290 -0.0400 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.3000 vy -0.0200 vz 0.0000
+set		atom 2 diameter 0.01 density 2500 vx 0.1500 vy 0.0000 vz 0.2598
+set		atom 3 diameter 0.01 density 2500 vx -0.1500 vy 0.0200 vz 0.2598
+set		atom 4 diameter 0.01 density 2500 vx -0.3000 vy -0.0200 vz 0.0000
+set		atom 5 diameter 0.01 density 2500 vx -0.1500 vy 0.0000 vz -0.2598
+set		atom 6 diameter 0.01 density 2500 vx 0.1500 vy 0.0200 vz -0.2598
+set		atom 7 diameter 0.01 density 2500 vx -0.6928 vy -0.0200 vz -0.4000
+set		atom 8 diameter 0.01 density 2500 vx -0.0000 vy 0.0000 vz -0.8000
+set		atom 9 diameter 0.01 density 2500 vx 0.6928 vy 0.0200 vz -0.4000
+set		atom 10 diameter 0.01 density 2500 vx 0.6928 vy -0.0200 vz 0.4000
+set		atom 11 diameter 0.01 density 2500 vx 0.0000 vy 0.0000 vz 0.8000
+set		atom 12 diameter 0.01 density 2500 vx -0.6928 vy 0.0200 vz 0.4000
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+fix		mfo all massflow/mesh mesh drum count once point_at_outlet 0. 0. 0.
+fix		mfi all massflow/mesh mesh drum count once point_at_outlet 0. 0. 0. inside_out
+thermo_style	custom step f_mfo[1] f_mfo[2] f_mfo[3] f_mfo[4] f_mfi[1] f_mfi[2] f_mfi[3] f_mfi[4]
+thermo_modify	lost ignore norm no format float %.17g
+thermo		500
+dump		d1 all custom 500 dump.massflow_outlet id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		60000

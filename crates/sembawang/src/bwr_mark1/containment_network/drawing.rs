@@ -29,7 +29,10 @@
 //! network holds (each label, each layer boundary, the top boundary at the
 //! pool level), not how it looks.
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
 
 use tampines::control_volume::ControlVolume;
 use tampines::cv_network::NetworkEnd;

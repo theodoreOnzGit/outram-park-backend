@@ -91,7 +91,10 @@
 //! assert!((p - 0.7225).abs() < 1e-12);
 //! ```
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::fault_tree::{Arg, Connective, FaultTree};
 use crate::{RafflesError, Result};
@@ -338,11 +341,11 @@ impl Bdd {
     /// disagreement and not an ordering artefact.
     pub fn variable_order(tree: &FaultTree) -> Vec<usize> {
         let mut order_to_event = Vec::new();
-        let mut seen_events = std::collections::HashSet::new();
+        let mut seen_events = crate::hash::HashSet::new();
         let mut stack = vec![tree.top()];
         let mut seen_gates = vec![false; tree.gates().len()];
         while let Some(gate) = stack.pop() {
-            if std::mem::replace(&mut seen_gates[gate], true) {
+            if core::mem::replace(&mut seen_gates[gate], true) {
                 continue;
             }
             // Reversed so that a left-to-right reading of the tree gives a
@@ -439,17 +442,17 @@ impl Bdd {
     /// [`NODE_LIMIT`].
     pub fn conjoin(&mut self, a: NodeId, b: NodeId) -> Result<NodeId> {
         let mut builder = Builder {
-            nodes: std::mem::take(&mut self.nodes),
-            unique: std::mem::take(&mut self.unique),
-            apply_memo: std::mem::take(&mut self.apply_memo),
-            not_memo: std::mem::take(&mut self.not_memo),
+            nodes: core::mem::take(&mut self.nodes),
+            unique: core::mem::take(&mut self.unique),
+            apply_memo: core::mem::take(&mut self.apply_memo),
+            not_memo: core::mem::take(&mut self.not_memo),
             event_to_order: HashMap::new(),
         };
         let result = builder.apply(Op::And, a, b);
-        self.nodes = std::mem::take(&mut builder.nodes);
-        self.unique = std::mem::take(&mut builder.unique);
-        self.apply_memo = std::mem::take(&mut builder.apply_memo);
-        self.not_memo = std::mem::take(&mut builder.not_memo);
+        self.nodes = core::mem::take(&mut builder.nodes);
+        self.unique = core::mem::take(&mut builder.unique);
+        self.apply_memo = core::mem::take(&mut builder.apply_memo);
+        self.not_memo = core::mem::take(&mut builder.not_memo);
         result
     }
 

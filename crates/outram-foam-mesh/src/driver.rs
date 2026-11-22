@@ -83,12 +83,17 @@
 //! validated against OpenFOAM output**; treat the layer phase as the least
 //! trustworthy part of the pipeline.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::io::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::mesh_quality::{assess_quality, MeshQualityReport};
 use crate::snappy_hex_mesh::background::{BackgroundMesh, Bounds};
-use crate::snappy_hex_mesh::castellation::{castellate, CastellatedMesh, CastellationControls};
+use crate::snappy_hex_mesh::castellation::{
+    castellate, CastellatedMesh, CastellationControls, RefinementSelection,
+};
 use crate::snappy_hex_mesh::layers::{add_layers, LayerControls};
 use crate::snappy_hex_mesh::snapping::{snap, SnapControls};
 use crate::snappy_hex_mesh::stl::TriangleSoup;
@@ -177,6 +182,12 @@ pub struct MeshingControls {
     /// Layer controls (ignored unless [`phases`](Self::phases) is
     /// [`MeshingPhases::CastellateSnapLayers`]).
     pub layers: LayerControls,
+    /// How cells are chosen for refinement (default: the historical distance
+    /// band; [`RefinementSelection::SurfaceIntersection`] is OpenFOAM's rule,
+    /// gh:#1465). The `snappyHexMesh` binary sets the latter.
+    pub refinement: RefinementSelection,
+    /// `minRefinementCells`, read only by the surface-intersection rule.
+    pub min_refine_cells: usize,
 }
 
 impl Default for MeshingControls {
@@ -193,11 +204,20 @@ impl Default for MeshingControls {
             surface_patch_name: "surface".to_string(),
             snap: SnapControls::default(),
             layers: LayerControls::default(),
+            refinement: RefinementSelection::DistanceBand,
+            min_refine_cells: 0,
         }
     }
 }
 
 impl MeshingControls {
+    /// Select refinement cells as OpenFOAM's `surfaceOnlyRefine` does
+    /// (builder style; gh:#1465).
+    pub fn with_surface_intersection_refinement(mut self) -> Self {
+        self.refinement = RefinementSelection::SurfaceIntersection;
+        self
+    }
+
     /// Controls for **flow around** the surface: the surface is an obstacle and
     /// the meshed region is everything outside it, out to the background box.
     ///
@@ -294,6 +314,7 @@ pub struct GeneratedMesh {
 }
 
 impl GeneratedMesh {
+    #[cfg(feature = "std")]
     /// Write an OpenFOAM case skeleton: `<case_dir>/constant/polyMesh/{points,
     /// faces, owner, neighbour, boundary}`.
     ///
@@ -378,6 +399,8 @@ pub fn mesh_from_surface(
     let mut cast_controls =
         CastellationControls::new(background, controls.refinement_level, keep_point);
     cast_controls.surface_patch_name = controls.surface_patch_name.clone();
+    cast_controls.selection = controls.refinement;
+    cast_controls.min_refine_cells = controls.min_refine_cells;
     let castellated = castellate(surface, &cast_controls)?;
     let n_cells_castellated = castellated.n_cells();
 
@@ -561,7 +584,7 @@ mod tests {
         assert_eq!(out.quality.n_severely_non_ortho_faces, 0);
         assert_eq!(out.quality.verdict(), QualityVerdict::Good);
         // Retained volume ≈ 64 − 4.19 = 59.81 m³ (staircase agreement ~0.3 %).
-        let analytic = 64.0 - 4.0 / 3.0 * std::f64::consts::PI;
+        let analytic = 64.0 - 4.0 / 3.0 * core::f64::consts::PI;
         assert!(
             (out.quality.total_volume - analytic).abs() < 0.5,
             "retained volume {} m^3 vs analytic {analytic}",
@@ -611,7 +634,7 @@ mod tests {
             "snapping must deform the mesh: {}",
             snapped.quality.max_non_ortho_deg
         );
-        let analytic = 64.0 - 4.0 / 3.0 * std::f64::consts::PI;
+        let analytic = 64.0 - 4.0 / 3.0 * core::f64::consts::PI;
         assert!(
             (snapped.quality.total_volume - analytic).abs()
                 < (cast.quality.total_volume - analytic).abs(),

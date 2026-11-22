@@ -8,6 +8,38 @@ step upstream of an OpenMC run.
 > the shared dependency policy and design rules. Dep versions come from
 > `[workspace.dependencies]` — do not pin locally.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1592, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` carries files, the deck work directory, `acquire`'s
+cache, HDF5 files, `rayon`, `wgpu`, clocks and both binaries. The depletion
+chain parses from XML text without `std` (gh:#1648): only
+`DepletionChainXml::read_file` is `std` inside `hdf5`'s chain modules. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`.
+- A tape crosses memory as `Tape::from_bytes` / `Tape::to_text`; `Tape::read`
+  / `Tape::write` are their `io` wrappers, with one parsing and one writing
+  body between them (`tests/tape_from_bytes_matches_read.rs` pins that they
+  agree). A text round trip inside the processing code uses the in-memory
+  pair, not a `Vec<u8>` and `io`.
+- `OnceLock`, `RwLock` come from `crate::once`; a `thread_local!` gets a
+  `crate::nostd_sync::Local` twin for the `no_std` build (see
+  `reconr/mod.rs`). Without `std` that state is one global: the bare-metal
+  build is single-context, which the README states.
+- A `Path` that only labels an error can stay in a signature:
+  `crate::nostd_path::Path` stands in for it without `std`.
+- A `HashMap` may stay where it is lookup-only and never iterated into
+  output; it becomes a ~~`BTreeMap`~~ `hashbrown` map only in the `no_std`
+  build (`endf/tape.rs`; **CORRECTED 2026-11-16**: hashbrown workspace-wide,
+  maintainer).
+- A `std` build computes what it did before: `petir::real::Real` is imported
+  only without `std`, and the NJOY2016 parity gates are the check.
+
 ## The NJOY2016 manual: where it is, and its licence (2026-10-02)
 
 **The manual is OPEN literature, not proprietary.** Read it, quote it, and
@@ -525,8 +557,9 @@ anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.
 `alax` and `phoout` from `acepa.f90`. The Type-1 output is **byte-identical**
 to NJOY2016's own file on `reference-data/endf/photoat-synthetic-Z6.endf`
 (9 950 bytes, gated by `tests/acer_photoatomic_vs_njoy2016.rs`); on U
-ENDF/B-VIII.0, **71 781 of 71 807 words** sit at the file's own print
-precision. Full record:
+ENDF/B-VIII.0, ~~**71 781 of 71 807 words** sit at the file's own print
+precision~~ **CORRECTED 2026-11-13 (gh:#1369):** every line is NJOY2016's
+(decks 48 and 59; see "A residual that was a literal's kind" below). Full record:
 [`verification_and_validation/acer_photoatomic_vs_njoy2016.md`](verification_and_validation/acer_photoatomic_vs_njoy2016.md).
 
 Three things are worth carrying forward.
@@ -572,18 +605,26 @@ a 12-digit text comparison sees nothing:
   `skip6`/`skip6a` split above: **read the upstream routine that owns the
   input format, not the one whose name matches.**
 
-### A residual that is upstream's convergence, not the port's arithmetic
+### ~~A residual that is upstream's convergence, not the port's arithmetic~~ A residual that was a literal's kind (CORRECTED 2026-11-13)
 
-The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
+~~The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
 energies, all above 14 MeV, and it attributes entirely to `iheat`. Three
 hypotheses were tested and killed (round-off amplification in the attribution;
 conditioning — 1.4e-16 under a 1-ulp input change; the `1 − unow`
 cancellation — worth 0.0). The cause is the fourth: **upstream's `pnow/2`
 panel rule stops converging above ~300 MeV**, carrying 4.9e-5 of its own
 truncation at 1.5 GeV and 9.9e-4 at 10 GeV, measured by refining the panel
-limit (`iheat_refined`). `iheat` keeps upstream's rule; the refined path
-exists as a control, not as the default. Above ~300 MeV *neither* code
-supplies photon heating to better than 1e-4, and that is the number to quote.
+limit (`iheat_refined`).~~ **CORRECTED 2026-11-13 (gh:#1369):** the cause was
+in the port. `iheat`'s `unext.lt.0.99999` and `unow.lt.-.9999` compare against
+**single-precision** literals (no `_kr`; NJOY2016 is built without
+`-fdefault-real-8`), which the port had as doubles. So the panel loop could end
+one panel apart. With them translated as gfortran promotes them, the U
+evaluation's ACE is NJOY2016's line for line (decks 48 and 59). The truncation
+measurement still stands: `iheat` keeps upstream's rule, the refined path is a
+control, and above ~300 MeV *neither* code supplies photon heating to better than
+1e-4. But truncation is common to two copies of one rule, so it cannot separate
+them; only a branch taken differently can. **Check the kind of every bare
+Fortran literal in a comparison.**
 
 ## Dosimetry (`acer iopt = 3`) landed too, and NJOY does not test it (2026-09-21)
 
@@ -640,7 +681,14 @@ about the algorithm rather than about the data. It also makes a **positional**
 comparison legitimate, and taken that way the disagreement is **exactly one
 point per incident energy** — the last one, where the two codes' outgoing
 ranges end. The 10 412 interior points agree to **4.2e-7** in `E'` and 5e-5 in
-cosine; the CDF agrees to 6.5e-6 everywhere.
+cosine; the CDF agrees to 6.5e-6 everywhere. ~~(2026-09-22)~~ **CORRECTED
+2026-11-14 (gh:#1366):** none of that difference is left. Re-measured against
+an NJOY2016 `iwt = 2` table regenerated from the same deck
+(`reference-data/acer/al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz`), all
+200 054 ITXE words are identical as printed, endpoints included
+(`ifeng2_itxe_block_is_njoy2016s_in_every_word`), and the table on the incident
+PENDF is NJOY's in every word (`acer_thermal_word_parity.rs`). The #865
+`tpend`/`acesix` fixes removed it.
 
 **A stored density may be negative, and upstream's is.** The gate bounds the
 magnitude, not the sign, because **NJOY's own Al-27 table carries 7 negative
@@ -688,7 +736,13 @@ Three things worth carrying forward:
   `xie`, rounded by `tpend`), not from `iel`'s own value. That alone was
   2.2e-3 at 3.75 eV. Record:
   [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
-  Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
+  ~~Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.~~
+  **CORRECTED 2026-11-12 (gh:#1369):** NJOY2016's test 67 (D in 7LiD,
+  ENDF/B-VIII.1-beta, `LTHR = 3`, `natom = 2`) is gated word for word, through the
+  deck driver (`tests/deck_driver_tapes_vs_njoy2016.rs::test_67_thermal_ace_and_directory`).
+  It exposed one defect in the builder: the Bragg block (ITCX) was divided by
+  `natom`, where `thrlod` divides by `nmix` (`aceth.f90:735`); every earlier
+  case had `natom = 1`.
 
 **Away from the base temperature too (GitHub #866).** Graphite at 600 K and
 600.5 K and H in H₂O at 293.6 K and 293.9 K are word for word NJOY2016's
@@ -1072,10 +1126,24 @@ against `ANGLE_TOL = 5e-3` and a different bisection. Reusing it would have
 produced a different grid and lost parity. Only the isotropic case is
 implemented, pinned against NJOY's own output.
 
-**Everything unported refuses by name** (`NjoyError::NotPorted`): `ielas = 1`,
+**Everything unported refuses by name** (`NjoyError::NotPorted`): ~~`ielas = 1`,
 `LANG = 2`, `NA > 0`, `ND > 0`, `LCT /= 1`, recoil subsections, MF=4/MF=5,
-`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution. A photo-nuclear table
+`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution~~. A photo-nuclear table
 that silently omits an emitted particle still reads and still looks plausible.
+**CORRECTED 2026-11-13 (gh:#1369):** `build.rs` is now a line-for-line
+translation of `acephn`, and reproduces NJOY2016's ACE line for line on
+upstream decks 57, 58, 66 and 78 (Bi-209, Co-59, Pu-239, He-3): `LCT = 2/3`,
+Kalbach-Mann, `NA > 0`, `LAW = 2`, recoil heating and the MT=18 nubar are
+translated. Still refused: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~~
+`LAW = 4`. Record: `verification_and_validation/deck_driver/README.md` §21.
+**CORRECTED 2026-11-13 (gh:#1369, deck 56):** MF=4/MF=5 (`photonuclear/mf45.rs`) and the
+`iopt = 7` plot file (`acer::phnplo`) are translated too, and decks 56, 57, 58, 66
+and 78 are NJOY2016's as whole decks (README §22).
+**CORRECTED 2026-11-13 (gh:#1369, deck 64):** "`LAW = 4`" is refused only in part
+now. Its recoil heating (`acepn.f90:507-584`) is translated, and deck 64 (Ra-226
+TENDL-2019) is NJOY2016's as a whole deck. Still refused by name: `LAW = 4` for a
+recoil that is itself an emitted light particle (ANDP `:975-990`, DLWP
+`:1774-1790`), and `ielas = 1`. README §23.
 
 **The pair is archived, and the `hk` comment is the provenance.** Both tables
 — NJOY2016's and this port's — live in the `reference-data/ace` submodule as
@@ -1445,3 +1513,22 @@ means the NJOY2016 port (`reconr`, `broadr`, `purr`/`unrest`, `thermr`,
 - Fixing a genuine defect in the port is a separate matter: it follows the
   root `CLAUDE.md` rules ("read upstream first", and the closed-to-modification
   rule for kovan-reviewed functions), not this one.
+
+## ACER of an incident charged particle is NJOY2016's in every word (2026-11-11, GitHub #1485)
+
+`acefc.f90`'s `izai != 1` branches are ported (`acer::charged`, `charged_coulomb`,
+`acelcp`, `acelcp_ext`). Test decks 14, 50, 51, 52, 53, 54, 62 and 71 give unit
+31's ACE identical to NJOY2016's in every word
+(`tests/deck_driver_tapes_vs_njoy2016.rs`); ~~and so in every line~~ **CORRECTED
+2026-11-12 (gh:#1369):** deck 14's unit 31 still differed in 5 text lines, integer words printed
+as reals, until the charged branch printed through `change` (`acefix_change::type1_text`); it is
+identical line for line now (`test_14_whole_deck`); `coul`, `ptlegc` and `terp1`
+`INT = 6` are bit-identical to NJOY2016's own routines apart from two
+last-ulp values that are PETIR `cos` against glibc. Three things worth
+carrying forward, each found by reading upstream and each invisible until a
+deck was compared: `acelod` leaves the module `awr` at the AWR of the last
+MF=4/6 section it read; `convr` and `gamsum` open their scratch tapes in the
+mode of the ENDF and PENDF units, so a binary deck skips `a11`'s text
+rounding; an evaluation with an empty MF=1/MT=451 dictionary has no
+production at all. Record: `verification_and_validation/acer_charged/README.md`.
+

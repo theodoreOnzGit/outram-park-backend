@@ -1,0 +1,34 @@
+# fix mesh/surface/stress/servo with a VARIABLE set point (gh:#1491): in.mesh_servo with
+# target_val v_tv, tv = 0.1 + 0.05*sin(2*PI*step/4000) N (equal-style, evaluated each step).
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.3 0.3 -0.3 0.3 -0.01 0.1 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+variable	tv equal 0.1+0.05*sin(2*PI*step/4000)
+fix		plate all mesh/surface/stress/servo file plate_servo.stl type 1 com 0.0 0.0 0.0112 ctrlPV force axis 0. 0. 1. target_val v_tv vel_max 0.05 kp 1.0 ki 0.2 kd 0.0001
+fix		floor all wall/gran model hertz tangential history primitive type 1 zplane 0.0
+fix		pwall all wall/gran model hertz tangential history mesh n_meshes 1 meshes plate
+create_atoms	1 single 0.05 0.0 0.00499 units box
+create_atoms	1 single -0.04 0.003 0.00499 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.02
+set		atom 2 diameter 0.01 density 2500
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+thermo_style	custom step f_plate[1] f_plate[2] f_plate[3] f_plate[4] f_plate[5] f_plate[6] f_plate[7] f_plate[8] f_plate[9] f_plate[10] f_plate[11] f_plate[12]
+thermo		250
+thermo_modify	lost ignore norm no format float %.17g
+dump		d1 all custom 40 dump.mesh_servo_var id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		20000

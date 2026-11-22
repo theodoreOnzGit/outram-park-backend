@@ -47,6 +47,8 @@
 //! **at their peaks**, which is the hardest place to agree), the 20 keV
 //! resolved/unresolved seam, the unresolved band, and fast.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 // The oracle tables live in the library (`outram_mc_libs::vv::njoy_golden`) so
 // that `examples/u238_vs_njoy_pendf.rs`, which regenerates them from a live

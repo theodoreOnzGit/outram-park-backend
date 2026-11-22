@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// check hydraulic diameter calculated by manually against
 /// shell side hydraulic diameter
 /// in Du et al's paper within 3%
@@ -42,7 +45,7 @@ pub fn check_shell_side_fluid_hydraulic_diameter() {
 /// 4/pi * V/(N_t d_i) should be 0.0291 m^2/s
 #[test]
 pub fn check_tube_side_reynolds_number_diffusivity() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::{f64::*, ratio::ratio, volume_rate::cubic_meter_per_hour};
     use uom::si::length::meter;
@@ -69,7 +72,7 @@ pub fn check_shell_side_heat_trf_area() {
     use uom::si::f64::*;
     use uom::si::length::meter;
     use uom::si::area::square_meter;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     // from Du's heat exchanger type, except we use one inner tube
     let tube_side_od = Length::new::<meter>(0.014);

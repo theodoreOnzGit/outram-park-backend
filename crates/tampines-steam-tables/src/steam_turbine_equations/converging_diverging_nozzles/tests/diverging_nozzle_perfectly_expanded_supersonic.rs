@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::length::meter;
 use uom::si::mass_rate::kilogram_per_second;

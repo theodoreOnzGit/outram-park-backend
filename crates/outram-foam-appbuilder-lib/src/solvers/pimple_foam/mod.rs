@@ -211,6 +211,9 @@
 //!    by round-off only; V&V record:
 //!    `verification_and_validation/non_orthogonal_correction_gh1161.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -220,7 +223,7 @@ use crate::solvers::non_orthogonal::{self, LaplacianCorrection};
 use crate::solvers::schemes::DdtCorrForm;
 use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Re-apply a scalar boundary-condition template to a field after a solve has
 /// rebuilt it with zero-gradient boundaries (OpenFOAM `correctBoundaryConditions`).
@@ -430,6 +433,22 @@ pub struct PimpleFoam {
     /// (constant properties, no buoyancy), so `U`, `p` and `phi` are
     /// unchanged by it.
     pub energy: Option<EnergyEquation>,
+    /// Opt-in log of the initial residual of every linear solve, in upstream's
+    /// normalisation (gh:#1363; see [`SolveRecord`]). `None` by default, so a
+    /// run pays nothing; [`Self::with_solve_log`] switches it on.
+    pub solve_log: Option<Vec<SolveRecord>>,
+}
+
+/// One linear solve as upstream's solver log prints it: the field name
+/// (`"Ux"`, `"Uy"`, `"p"`) and its `Initial residual`, computed by
+/// `LduMatrix::openfoam_initial_residual` on the assembled system and the
+/// starting guess, i.e. before the solver touches the field.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SolveRecord {
+    /// Solved field (`"Ux"`, `"Uy"`, `"p"`).
+    pub field: &'static str,
+    /// Initial residual, upstream normalisation.
+    pub initial_residual: f64,
 }
 
 impl PimpleFoam {
@@ -489,6 +508,22 @@ impl PimpleFoam {
             p_linear_solver: SolverSettings { tolerance: 1e-8, max_iter: 2_000 },
             turbulence: TurbulenceClosure::default(),
             energy: None,
+            solve_log: None,
+        }
+    }
+
+    /// Record the initial residual of every linear solve in
+    /// [`Self::solve_log`] (gh:#1363), for comparison with an upstream log.
+    #[must_use]
+    pub fn with_solve_log(mut self) -> Self {
+        self.solve_log = Some(Vec::new());
+        self
+    }
+
+    /// Append one entry to the solve log, if it is on.
+    fn log_solve(&mut self, field: &'static str, ldu: &LduMatrix, b: &[f64], x: &[f64]) {
+        if let Some(log) = self.solve_log.as_mut() {
+            log.push(SolveRecord { field, initial_residual: ldu.openfoam_initial_residual(x, b) });
         }
     }
 
@@ -501,6 +536,9 @@ impl PimpleFoam {
     /// Whatever the flow or the energy solve returns.
     pub fn step(&mut self) -> Result<(), AppBuilderError> {
         let t_old = self.energy.as_ref().map(|e| e.t.clone());
+        if let Some(e) = self.energy.as_mut() {
+            e.begin_time_step();
+        }
         if !self.solution.pimple.frozen_flow {
             self.step_flow()?;
         }
@@ -681,6 +719,14 @@ impl PimpleFoam {
             }
             // Warm-started from the current U, as upstream's fvMatrix::solve
             // (gh:#1202: the cold start ran out of sweeps on thin wall layers).
+            if self.solve_log.is_some() {
+                let bx: Vec<f64> = (0..n).map(|c| u_eqn.source[c].x).collect();
+                let by: Vec<f64> = (0..n).map(|c| u_eqn.source[c].y).collect();
+                let ux: Vec<f64> = (0..n).map(|c| self.u.internal[c].x).collect();
+                let uy: Vec<f64> = (0..n).map(|c| self.u.internal[c].y).collect();
+                self.log_solve("Ux", &u_eqn.ldu, &bx, &ux);
+                self.log_solve("Uy", &u_eqn.ldu, &by, &uy);
+            }
             let (mut u_pred, _) = u_eqn.solve_with_guess("U", &self.u, settings);
             correct_bcs_vec(&mut u_pred, &u_bcs);
             // Restore source (remove pressure contribution) for H(U) computation
@@ -829,12 +875,19 @@ impl PimpleFoam {
                     // i.e. when no patch fixes p. With a fixed-p outlet, pinning
                     // cell 0 as well makes it a mass source/sink (gh:#1154).
                     if p_needs_reference {
-                        p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
+                        // upstream `fvMatrix::setReference` (gh:#1363: was a 1e30
+                        // penalty, `set_reference`)
+                        p_eqn.set_reference_openfoam(0, 0.0);
                     }
                     // Warm-start from the current pressure (previous corrector /
                     // time step). Near steady state `p` barely changes, so the
                     // solve converges in a few iterations instead of from x = 0
                     // every time. PCG or GAMG per `self.pressure_solver`.
+                    if self.solve_log.is_some() {
+                        let b: Vec<f64> = p_eqn.source.iter().copied().collect();
+                        let x: Vec<f64> = self.p.internal.iter().copied().collect();
+                        self.log_solve("p", &p_eqn.ldu, &b, &x);
+                    }
                     let (mut p_new, _) = match self.pressure_solver {
                         PressureSolver::Pcg => p_eqn.solve_cg_with_guess("p", &self.p, p_settings),
                         PressureSolver::Gamg => p_eqn.solve_gamg_with_guess("p", &self.p, p_settings),

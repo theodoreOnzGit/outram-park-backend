@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **A published dose-versus-distance table for two HTR-10 design-basis
 //! accidents, stored as reference data. Nothing here computes a dose.**
 //!
@@ -111,6 +111,9 @@
 //! and is **not** redistributed here. Only the cited table of 65 numbers is,
 //! which is ordinary scientific citation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Length;
 use uom::si::length::kilometer;
 

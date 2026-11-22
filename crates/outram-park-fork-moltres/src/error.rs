@@ -18,6 +18,9 @@
 
 //! Error type shared by every solver in this crate.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::MeshError;
 use thiserror::Error;
 

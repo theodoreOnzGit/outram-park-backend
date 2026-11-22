@@ -32,6 +32,9 @@
 // copyleft license which means you cannot use it in proprietary software.
 //
 //
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// License
 ///    This file is part of tuas_boussinesq_solver, a partial library of the
 ///    thermal hydraulics library written in rust meant to help with the

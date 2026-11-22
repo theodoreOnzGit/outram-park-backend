@@ -47,6 +47,8 @@
 //! Full record, with the headless-Chromium run:
 //! `verification_and_validation/nuclear_data_loading_web/README.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 

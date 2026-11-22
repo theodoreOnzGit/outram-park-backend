@@ -74,6 +74,9 @@
 //!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::reactions::Reaction;
 
 use super::{ReactorError, ReactorFeed, ReactorOutcome};

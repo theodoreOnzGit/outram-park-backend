@@ -19,6 +19,9 @@
 //! solve remain op-gj5 follow-ups. Blocks are balanced per axis; no
 //! reorder-for-locality.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_mpi::{CartesianComm, MpiResult};
 
 use super::krylov::distributed_dot;

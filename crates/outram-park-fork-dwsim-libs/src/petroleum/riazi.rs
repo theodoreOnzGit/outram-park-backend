@@ -87,6 +87,9 @@
 //!   value is then `×1e5` (`:448`), so the tabulated critical pressure is
 //!   **1.3 % low** relative to a true bar → Pa conversion. Reproduced.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{MolarMass, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::molar_mass::gram_per_mole;

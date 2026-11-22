@@ -3,6 +3,20 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `nee_soon` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1640, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps `crate::hash`, paths `crate::path`, clocks `crate::time`,
+  environment switches `crate::env`, mutexes `crate::sync`.
+- Keep data **loading** (ENDF/LEAPR tapes, record files) separate from the
+  code that **uses** the data, and put only the loading behind
+  `#[cfg(feature = "std")]`; a builder that takes loaded data stays available.
+- Printing is gated one statement at a time; tests and examples that load
+  data are `std` only.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -119,10 +133,13 @@ built from the core's own TRISO and pebble builders
 (`core_shell::TrisoBuild`, `core_model::build_tile_universes`, extracted; the
 core's geometry hash is unchanged). There are two kinds:
 - `single_pebble()`: a reflective 6 cm cube;
-- `seker_cluster(1..=3)`: reflective superlattice prisms of 1/7/19 tiles.
+- `seker_cluster(1..=3)`: reflective superlattice prisms of 1/7/19 tiles;
+- since 2026-11-22 (gh:#1707), `single_pebble_with_packing` (explicit TRISO
+  centres, cube or reflective sphere) and `single_pebble_like_dh_universe`
+  (the CSG twin of `DhUniverse::pebble`).
 
 They are drawn and checked in `verification_and_validation/htr10_mgxs_cells/`.
-The CSG pebble agrees with `DhUniverse::pebble` (+102 ± 347 pcm). The single
+~~The CSG pebble agrees with `DhUniverse::pebble` (+102 ± 347 pcm).~~ **CORRECTED 2026-11-22 (gh:#1707):** that comparison was not like for like (cubic lattice in a cube against random packing in a sphere). At 10000 × [50 + 200] it differs by −455 ± 82 pcm. The test now compares `single_pebble_like_dh_universe` (DH's packing in DH's reflective sphere) against `DhUniverse::pebble`: −225 ± 271 pcm at the default 4000 × [10 + 50] (808 s whole test) and +131 ± 81 pcm at 10000 × [50 + 200] (4669 s), both passing; the full table, with timings and hardware, is in `tests/htr10_single_pebble_vs_dh_universe.rs`. The single
 pebble is under-moderated (no dummy balls), so its constants do not describe
 the core; use a Şeker cluster for that. The 1/7/19 convergence is not resolved
 by the pilots and waits on the `cell_*_t300` records.
@@ -268,9 +285,30 @@ LEAPR by default").** `Htr10DataConfig::default().thermal_laws` is
 
 **Every HTR-10 and HTTR k recorded before 2026-11-03 used the published
 tapes' graphite and SiC laws**, at the tape's nearest temperature (296 K for
-a 300.15 K run). To reproduce one, set `OUTRAM_HTR10_TAPE_LAWS=1`
-(`ThermalLawSource::Tapes`). Re-measuring those records under the new default
-is gh:#1145.
+a 300.15 K run). ~~To reproduce one, set `OUTRAM_HTR10_TAPE_LAWS=1`
+(`ThermalLawSource::Tapes`).~~ **CORRECTED 2026-11-11 (gh:#1333):** the
+variable is read only where `ThermalLawSource::from_env()` is called
+(`load_slots_with_progress`, `examples/htr10_rmc_keff.rs`, HTTR's
+materials note); `Htr10DataConfig::default()` ignores it, so a test or
+caller building that config must set `thermal_laws:
+ThermalLawSource::Tapes` itself (verified: with only the variable set,
+`tests/htr10_rod_bank_insertion.rs`'s k was bit-identical to the LEAPR
+run). **And every k recorded before 2026-11-10 also used the DBRC
+resonance-scattering sampler**, now an option beside the default RVS
+(gh:#1311): reproducing one needs `Nuclide::with_resonance_scattering_method(
+ResonanceScatteringMethod::Dbrc)` as well. With both, the rod-bank test's
+2026-10-23 k reproduced bit for bit on 2026-11-11. Re-measuring those
+records under the new default is gh:#1145.
+
+**The DEM pour interface for pebble-bed k_eff simulators (gh:#1655,
+2026-11-18).** `dem_pour` (feature `dem_ui`: std, egui, bugis, the LIGGGHTS
+port; off by default, so the no_std core and Android build are untouched)
+holds the pour's diagnostics (`PourDiagnostics`, `diagnostics`: whole-core φ
+and g(r) by `outram_park_fork_liggghts::rdf`, against `REFERENCE_G`), the g(r)
+graph (`rdf_plot`) and the side-on pour drawing for any container
+(`draw_pour` with a `PourFrame`). Moved from `dhoby-ghaut`'s HTR-10 rung,
+which calls it; a new pebble-bed simulator uses it rather than copying the
+rung. The pour engine itself is still the rung's (`dem_web/engine.rs`).
 
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.

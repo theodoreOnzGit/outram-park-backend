@@ -19,6 +19,8 @@
 //! nuclides; the typed and bare-`f64` paths agree bit for bit at all 200
 //! energies. Tape absent: the tape cases skip.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

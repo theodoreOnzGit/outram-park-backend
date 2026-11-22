@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Angular source distributions.
 ///
@@ -13,6 +16,7 @@ pub trait AngleDist: Send + Sync {
 
 /// Isotropic — uniform on the unit sphere.
 /// TODO: port from `distribution_angle.cpp`.
+#[derive(Debug, Clone)]
 pub struct IsotropicAngle;
 impl AngleDist for IsotropicAngle {
     fn sample(&self, seed: &mut u64, _e: f64) -> Direction {
@@ -22,6 +26,7 @@ impl AngleDist for IsotropicAngle {
 }
 
 /// Monodirectional — all particles in the same direction.
+#[derive(Debug, Clone)]
 pub struct MonodirectionalAngle {
     pub d: Direction,
 }
@@ -34,6 +39,7 @@ impl AngleDist for MonodirectionalAngle {
 /// Every source angular distribution, as a closed enum. See
 /// [`super::spatial::SpatialKind`] for why this is an enum and not a trait
 /// object.
+#[derive(Debug, Clone)]
 pub enum AngleKind {
     /// [`IsotropicAngle`].
     Isotropic(IsotropicAngle),
@@ -179,7 +185,7 @@ impl PolarAzimuthalAngle {
     /// on the axis -- the classic error, and the reason this constructor
     /// exists rather than leaving a caller to write `Uniform { lo: 0, hi: theta }`.
     pub fn cone(axis: Direction, half_angle_rad: f64) -> Result<Self, String> {
-        if !(0.0..=std::f64::consts::PI).contains(&half_angle_rad) {
+        if !(0.0..=core::f64::consts::PI).contains(&half_angle_rad) {
             return Err(format!(
                 "cone half-angle {half_angle_rad} is outside [0, pi]"
             ));
@@ -199,7 +205,7 @@ impl PolarAzimuthalAngle {
             },
             ScalarDist::Uniform {
                 lo: 0.0,
-                hi: std::f64::consts::TAU,
+                hi: core::f64::consts::TAU,
             },
         )
     }

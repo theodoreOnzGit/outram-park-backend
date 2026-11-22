@@ -4,6 +4,91 @@
 on x86_64-unknown-linux-gnu (release). Its rule is that a golden may move
 **only with a named cause**. This file is where each move is recorded.
 
+## 2026-11-16: Part B `edw_pimple_*`, 15 of 16 MOVED (gh:#1607, the vendored FV copy replaced by `outram-foam-basic-lib`)
+
+**Cause.** gh:#1607 replaced the crate's vendored copy of
+`outram-foam-basic-lib` (`openfoam_algorithms/openfoam_source/`, 84 files
+that had drifted from it in 78) with re-exports of the crate itself, so the
+`rhoPimpleFoam` array now runs on today's operators. Those were changed on
+2026-11-11 to follow OpenFOAM v2506's operation order (gh:#1489, 34
+differential rows bit-identical to upstream; gh:#1362, 58 rows), which the
+copy predated. In the pressure equation:
+- `fvc::interpolate` computes upstream's `w*(P - N) + N`
+  (`surfaceInterpolationScheme::interpolate`), not `w*P + (1 - w)*N`, which
+  differs by an ulp;
+- `fvm::laplacian` follows upstream's coefficient order.
+
+The other pressure-equation operators the array uses, `fvm::ddt`,
+`FvMatrix::solve` and `solve_cg`, are code-identical to the copy. `fvm::div`
+only gained boundary branches (`InletOutlet`, ...) these cases do not use.
+The two functions only the copy had, `fvc::div_limited` and
+`fvm::ddt_coeff_old`, moved into `outram-foam-basic-lib` unchanged.
+
+**Method.** The same 200-step run on the commit before the change
+(`ecb3895e3`, with the copy) and after, every field dumped at full precision
+at the sampled steps, and the worst relative difference per field taken.
+Release, x86_64 Linux, 2026-11-16.
+
+| step | p | he | rho | U_x |
+|---|---|---|---|---|
+| 1 | 2.7e-16 (5/24 cells, 1 ulp) | bit-identical | 2.8e-16 (4/24) | noise at ±7.7e-36 m/s |
+| 10 | 6.7e-12 | 2.1e-14 | 5.3e-11 | noise near 0 (≤ 7e-16 m/s) |
+| 50 | 8.4e-11 | 3.0e-13 | 1.4e-10 | 3.9e-8 |
+| 200 | **5.4e-8** | 1.7e-10 | **4.2e-7** | 3.9e-7 |
+
+**Interpretation.** A 1-ulp seed in the step-1 pressure, from the
+interpolation order, grows through the flashing transient to 5e-8 in `p` and
+4e-7 in `rho` by step 200 (the blowdown's flashing front amplifies round-off:
+its local sound speed changes by orders of magnitude across saturation). That
+is above the workspace's 1e-8 round-off allowance for code-to-code
+comparisons, but the cause is understood and is a move TOWARD upstream's
+arithmetic, not a physics change. **Flagged for the maintainer** (root
+CLAUDE.md: a residual needs a human judgement). `edw_pimple_he_1` did not move.
+
+**Accepted by the maintainer, 2026-11-16:** "I'm ok with ulp, and the
+larger error bound" -- both the step-1 ulp differences and the 5.4e-8 (`p`) /
+4.2e-7 (`rho`) bound at step 200 on this flashing case.
+
+| golden | count | old hash | new hash |
+|---|---|---|---|
+| `edw_pimple_p_1` | 24 | `0x5c438839a9588fe5` | `0x8d430410d56799cc` |
+| `edw_pimple_rho_1` | 24 | `0xbf05587125d7c7a4` | `0xcd32bb4b43d3486a` |
+| `edw_pimple_U_1` | 72 | `0x60673c681d1e7655` | `0x84b8abd449c96cc7` |
+| `edw_pimple_p_10` | 24 | `0xea24059e9252ee26` | `0x78b090ab26827b15` |
+| `edw_pimple_he_10` | 24 | `0x97558ed3c2267639` | `0xda33bccef07f6501` |
+| `edw_pimple_rho_10` | 24 | `0x4a6a86282b7d1440` | `0x3a98613213d7ef36` |
+| `edw_pimple_U_10` | 72 | `0x56f26996362e49d7` | `0x49b8965f3229ba5f` |
+| `edw_pimple_p_50` | 24 | `0x2db5604a318a689a` | `0x046d14343f8da32a` |
+| `edw_pimple_he_50` | 24 | `0xfb30d36be397eea7` | `0x376cfacb147b992d` |
+| `edw_pimple_rho_50` | 24 | `0x522057d3cd38af3b` | `0x39e8d741c2d9d930` |
+| `edw_pimple_U_50` | 72 | `0x9be7a101d78eb351` | `0x4783a649141d0141` |
+| `edw_pimple_p_200` | 24 | `0x2745182f6bdcdd42` | `0x0bc3ec6e62362a80` |
+| `edw_pimple_he_200` | 24 | `0x9bbaec8f5dface67` | `0xdeec6fe5a05d9b0c` |
+| `edw_pimple_rho_200` | 24 | `0xba774c18e058e414` | `0xb91e0276528fd948` |
+| `edw_pimple_U_200` | 72 | `0x49d693d4bf1ada00` | `0x7ee1dfa6f7512b7d` |
+
+## 2026-11-10: Part A `lambda_ph` (gh:#904, the 273.15 K edge of Region 1)
+
+- **What moved:** `lambda_ph` only, `0xf2fb2a32e2b829c9` →
+  `0xc1c6c09c20975332`. Every other golden is unchanged.
+- **Cause:** `lambda_ph_eqm` panicked at 17 grid points (the `h = 0` column
+  of the 17 lowest isobars, 611.657 Pa upward), where the Region 1 backward
+  equation gives `T` about 21 mK below 273.15 K (inside IAPWS-IF97's 25 mK
+  backward/forward consistency) and the critical-enhancement term re-derived
+  the region from `(T, p)`. The harness hashed those points as NaN. The fix
+  evaluates that term with the Region 1 equation wherever the `(p,h)` flash
+  says Region 1, as `cp_ph_eqm`, `cv_ph_eqm` and `kappa_t_ph_eqm` already do,
+  and the NaN guard is removed.
+- **Prediction, written before the run:** with the guard still in place the
+  hash would not move (every non-edge Region 1 point already routed to
+  Region 1 through `(T, p)`); removing the guard would change exactly the 17
+  guarded values, to about 0.5555 W/(m K), liquid water near 0 °C.
+- **Measured** (x86_64-unknown-linux-gnu, release, `DETERMINISM_DUMP=lambda_ph`):
+  guard on, the hash stayed `0xf2fb2a32e2b829c9`, so 2147 of 2164 values are
+  bit-identical; guard off, exactly 17 values changed, NaN →
+  0.5555450 to 0.5555501 W/(m K).
+- **Not re-checked:** native vs wasm32 for the new value.
+
 ## 2026-11-02: Part B `edw_pimple_*` at steps 10, 50 and 200 (gh:#1111, subcooled critical-flow solver)
 
 - **What moved:** the 12 goldens `edw_pimple_{p,he,rho,U}_{10,50,200}`. The

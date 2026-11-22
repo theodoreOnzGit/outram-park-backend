@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -25,6 +25,9 @@
 //! The printed grouping is ambiguous; see [`internal_gas_pressure`] for the
 //! dimensional argument that settles it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{MolarVolume, Pressure, Ratio, ThermodynamicTemperature, Volume};
 use uom::si::molar_volume::cubic_meter_per_mole;
 use uom::si::pressure::pascal;

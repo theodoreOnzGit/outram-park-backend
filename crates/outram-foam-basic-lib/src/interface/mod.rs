@@ -11,4 +11,7 @@
 /// one dimensional meshes straight off the bat,
 ///
 ///
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod one_dimensional_meshing;

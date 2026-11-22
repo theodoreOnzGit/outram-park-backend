@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The three pyDOSEIA dose pathways ported in the first tranche: **inhalation**,
 //! **ground shine** (external dose from deposited activity) and
 //! **submersion** (external dose from the cloud, semi-infinite-cloud
@@ -30,6 +30,9 @@
 //! for a long-term release (discharge in Bq/year); [`EffectiveDose`] carries
 //! the mSv value either way. Research-grade only (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Radioactivity;
 use uom::si::radioactivity::becquerel;

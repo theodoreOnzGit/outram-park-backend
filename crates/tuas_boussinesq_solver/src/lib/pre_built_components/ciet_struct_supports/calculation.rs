@@ -1,5 +1,8 @@
-use std::thread::JoinHandle;
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::thread::JoinHandle;
+use crate::thread;
 
 use uom::si::f64::Time;
 

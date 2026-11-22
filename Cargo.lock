@@ -916,7 +916,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bedok"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "petir",
  "thiserror 2.0.21",
@@ -947,7 +947,7 @@ dependencies = [
 
 [[package]]
 name = "bishan"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "petir",
  "uom",
@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "boon-lay"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "approx",
@@ -1081,21 +1081,16 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "fission-yields-data",
- "float-cmp 0.10.0",
- "geo",
- "getrandom 0.3.4",
  "image",
- "indicatif",
- "itertools 0.15.0",
+ "kembangan",
  "log",
  "openmc-endf-8-depletion-lib-b",
  "outram-mc-libs",
  "petir",
  "rayon",
  "serde",
- "serde-xml-rs",
  "serde_json",
- "toml",
+ "spin 0.10.1",
  "uom",
  "wgpu",
 ]
@@ -1143,17 +1138,18 @@ dependencies = [
 
 [[package]]
 name = "buangkok"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boon-lay",
  "changi",
  "petir",
+ "punggol",
  "uom",
 ]
 
 [[package]]
 name = "bugis"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "csv",
  "egui",
@@ -1590,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "changi"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "approx",
  "petir",
@@ -1601,7 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "approx",
  "csv",
@@ -2229,7 +2225,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
 name = "deck-based-open-source-visualisation-engine-for-reactors-dover"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "outram-park-fork-dwsim-libs",
  "petir",
@@ -2391,12 +2387,13 @@ dependencies = [
 
 [[package]]
 name = "dhoby-ghaut"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boon-lay",
  "buangkok",
  "bugis",
  "changi",
+ "dhoby-ghaut",
  "eframe",
  "egui",
  "egui-file-dialog",
@@ -3221,8 +3218,9 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "farrer-park"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
+ "hashbrown 0.16.1",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",
@@ -5634,7 +5632,7 @@ dependencies = [
 
 [[package]]
 name = "kaki-bukit"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "petir",
 ]
@@ -5648,6 +5646,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "kembangan"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "float-cmp 0.10.0",
+ "geo",
+ "getrandom 0.3.4",
+ "indicatif",
+ "itertools 0.15.0",
+ "miniz_oxide 0.8.9",
+ "njoy-outram-park-fork",
+ "outram-mc-libs",
+ "petir",
+ "punggol",
+ "rayon",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -5669,7 +5687,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "bugis",
  "clap",
@@ -5842,7 +5860,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-codegen"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "kovan-common",
  "petir",
@@ -5852,7 +5870,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-common"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -5877,7 +5895,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-discovery"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "gix",
  "grep-matcher",
@@ -5893,7 +5911,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-literature"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "html5ever",
  "icu_casemap",
@@ -5917,7 +5935,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-metrics"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "kovan-common",
  "kovan-discovery",
@@ -5928,7 +5946,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-semantics"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "kovan-common",
  "kovan-discovery",
@@ -5939,7 +5957,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-web"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "bugis",
  "eframe",
@@ -6596,7 +6614,7 @@ dependencies = [
 
 [[package]]
 name = "nee_soon"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "bugis",
  "eframe",
@@ -6604,21 +6622,25 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "env_logger",
+ "hashbrown 0.16.1",
  "ndarray",
  "njoy-outram-park-fork",
  "outram-blender",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-mc-libs",
+ "outram-park-fork-liggghts",
  "petir",
  "serde",
  "serde_json",
+ "spin 0.10.1",
  "tampines",
  "tampines-steam-tables",
  "teh-o-prke",
  "thiserror 2.0.21",
  "tuas_boussinesq_solver",
  "uom",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -6670,10 +6692,11 @@ dependencies = [
 
 [[package]]
 name = "njoy-outram-park-fork"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "directories 5.0.1",
  "fs2",
+ "hashbrown 0.16.1",
  "hdf5-pure",
  "log",
  "miniz_oxide 0.8.9",
@@ -6681,6 +6704,8 @@ dependencies = [
  "ratatui",
  "rayon",
  "sha2",
+ "spin 0.10.1",
+ "teh-o-prke",
  "thiserror 2.0.21",
  "uom",
  "ureq 2.12.1",
@@ -7298,23 +7323,21 @@ dependencies = [
 
 [[package]]
 name = "openmc-endf-8-depletion-lib-a"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f47182ad7d6fee991ad80fdb21960eef765067a4765d34e9ecec7c2c9a6cf815"
+checksum = "64286b2a469c95614aed9497b762b84410311f918fe05ce88b341bbc3048b43f"
 dependencies = [
+ "roxmltree",
  "serde",
- "serde-xml-rs",
 ]
 
 [[package]]
 name = "openmc-endf-8-depletion-lib-b"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b45b56c1199f22efc3ddce9cf64acb4a21ce7bca7b9df30f94f7a01e7aaa263"
+checksum = "6a30b45d8d13e72e84ff8d51714ebfe7802d5d911cff461b5f295b2ffc88b04b"
 dependencies = [
  "openmc-endf-8-depletion-lib-a",
- "serde",
- "serde-xml-rs",
 ]
 
 [[package]]
@@ -7354,13 +7377,14 @@ dependencies = [
 
 [[package]]
 name = "outram-blender"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "eframe",
  "egui",
  "egui_plot",
  "env_logger",
  "farrer-park",
+ "hashbrown 0.16.1",
  "miniz_oxide 0.8.9",
  "naga",
  "outram-foam-basic-lib",
@@ -7376,9 +7400,11 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-blender",
  "outram-foam-basic-lib",
@@ -7395,9 +7421,10 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-basic-lib"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "ndarray-linalg",
  "petir",
@@ -7409,12 +7436,14 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-cli"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "clap",
+ "miniz_oxide 0.8.9",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
+ "outram-park-fork-cfmesh",
  "outram-park-fork-offbeat",
  "petir",
  "thiserror 2.0.21",
@@ -7423,9 +7452,12 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-mesh"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
+ "image",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
@@ -7435,9 +7467,10 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-multiphase"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",
@@ -7446,10 +7479,10 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-turbulence-lib"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "approx",
- "ndarray",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",
@@ -7458,10 +7491,11 @@ dependencies = [
 
 [[package]]
 name = "outram-mc-libs"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "approx",
  "fission-yields-data",
+ "hashbrown 0.16.1",
  "log",
  "miniz_oxide 0.8.9",
  "naga",
@@ -7476,6 +7510,7 @@ dependencies = [
  "raffles",
  "ratatui",
  "rayon",
+ "spin 0.10.1",
  "tampines-steam-tables",
  "thiserror 2.0.21",
  "uom",
@@ -7484,7 +7519,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-digital-twin-engine"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-opcua",
  "bishan",
@@ -7515,6 +7550,7 @@ dependencies = [
  "outram-mc-libs",
  "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",
+ "outram-park-fork-moltres",
  "outram-park-fork-offbeat",
  "petir",
  "postcard",
@@ -7537,22 +7573,26 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-cfmesh"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "bugis",
  "eframe",
  "egui",
  "env_logger",
+ "hashbrown 0.16.1",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
+ "outram-park-fork-cfmesh",
  "petir",
 ]
 
 [[package]]
 name = "outram-park-fork-coolprop"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "uom",
@@ -7560,9 +7600,10 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-dwsim-libs"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
  "ndarray",
  "petir",
  "thiserror 2.0.21",
@@ -7572,10 +7613,11 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-liggghts"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "approx",
  "burn",
+ "hashbrown 0.16.1",
  "petir",
  "raffles",
  "rayon",
@@ -7586,17 +7628,18 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-moltres"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "outram-foam-basic-lib",
  "petir",
+ "serde_json",
  "thiserror 2.0.21",
  "uom",
 ]
 
 [[package]]
 name = "outram-park-fork-offbeat"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "approx",
  "outram-foam-basic-lib",
@@ -7607,7 +7650,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-onix"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "petir",
  "thiserror 2.0.21",
@@ -7616,7 +7659,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-pflotran"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "hdf5-pure",
  "outram-foam-basic-lib",
@@ -7631,8 +7674,9 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-thermochimica"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
+ "miniz_oxide 0.8.9",
  "petir",
  "thiserror 2.0.21",
  "uom",
@@ -7640,7 +7684,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-mpi"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "thiserror 2.0.21",
 ]
@@ -7691,7 +7735,7 @@ dependencies = [
 
 [[package]]
 name = "pasir-ris"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "bishan",
  "buangkok",
@@ -7783,7 +7827,7 @@ checksum = "3637c05577168127568a64e9dc5a6887da720efef07b3d9472d45f63ab191166"
 
 [[package]]
 name = "petir"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "approx",
  "faer",
@@ -8238,6 +8282,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
 
 [[package]]
+name = "punggol"
+version = "0.0.1"
+dependencies = [
+ "outram-mc-libs",
+ "petir",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "pxfm"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8308,9 +8361,10 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "raffles"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "burn",
+ "hashbrown 0.16.1",
  "petir",
  "serde_json",
  "thiserror 2.0.21",
@@ -8596,7 +8650,7 @@ checksum = "03251193000f4bd3b042892be858ee50e8b3719f2b08e5833ac4353724632430"
 
 [[package]]
 name = "redhill"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "redox_syscall"
@@ -8965,18 +9019,20 @@ checksum = "2ab42ca02749e120097e328d91d415325bdf43b1c72c4c8badf37375fe40a813"
 
 [[package]]
 name = "sembawang"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boon-lay",
  "buangkok",
  "changi",
  "fission-yields-data",
+ "hashbrown 0.16.1",
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
  "outram-mc-libs",
  "outram-park-fork-offbeat",
  "petir",
  "serde_json",
+ "spin 0.10.1",
  "tampines",
  "tampines-steam-tables",
  "teh-o-prke",
@@ -9009,18 +9065,6 @@ checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
-]
-
-[[package]]
-name = "serde-xml-rs"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc2215ce3e6a77550b80a1c37251b7d294febaf42e36e21b7b411e0bf54d540d"
-dependencies = [
- "log",
- "serde",
- "thiserror 2.0.21",
- "xml",
 ]
 
 [[package]]
@@ -9680,7 +9724,7 @@ dependencies = [
 
 [[package]]
 name = "tampines"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "boon-lay",
  "chem-eng-real-time-process-control-simulator",
@@ -9701,7 +9745,7 @@ dependencies = [
 
 [[package]]
 name = "tampines-steam-tables"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "approx",
  "bugis",
@@ -9714,6 +9758,7 @@ dependencies = [
  "env_logger",
  "image",
  "local-ip-address",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
@@ -9743,7 +9788,7 @@ dependencies = [
 
 [[package]]
 name = "teh-o-prke"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "approx",
  "bugis",
@@ -10152,7 +10197,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tuas_boussinesq_solver"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "approx",
  "bugis",
@@ -10166,8 +10211,10 @@ dependencies = [
  "image",
  "log",
  "ndarray",
+ "outram-park-fork-coolprop",
  "petir",
  "serde",
+ "spin 0.10.1",
  "thiserror 2.0.21",
  "uom",
 ]
@@ -11768,12 +11815,6 @@ name = "xkeysym"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
-
-[[package]]
-name = "xml"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f45bb2c13fec6a6cb4c0f76a7e94839e110a14ec803ec2940777a94c347bc52"
 
 [[package]]
 name = "xml-rs"

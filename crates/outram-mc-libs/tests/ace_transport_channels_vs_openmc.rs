@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ACE route transports the channels OpenMC transports — GitHub #366.**
 //!
@@ -62,6 +62,8 @@
 //! source change fails tests 2-4 (run and reverted). k_eff after the fix:
 //! Godiva route 3 -54 +/- 40 pcm vs OpenMC (was +1853), Jemima +124 +/- 38 (was
 //! -923; equal to the ENDF route's residual).
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::ce_decode::decode_ce;

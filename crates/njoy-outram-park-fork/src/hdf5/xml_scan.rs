@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A minimal element scanner for the small XML files OpenMC ships beside its
 //! HDF5 libraries** — `cross_sections.xml` and the depletion chain.
@@ -49,7 +49,10 @@
 //! a micro-optimisation: a 4 MB chain file took over a minute to scan, and the
 //! full ENDF/B-VIII chain is several times that again.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 /// One element from the document: its name, its attributes, and its text
 /// content when the element holds nothing but text.

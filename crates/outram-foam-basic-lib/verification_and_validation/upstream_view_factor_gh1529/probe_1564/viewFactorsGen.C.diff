@@ -1,0 +1,4 @@
+82a83
+> #include <cstdio>
+642a644
+>                 std::printf("PF %d cfo %.17g %.17g %.17g cf %.17g %.17g %.17g sf %.17g %.17g %.17g fc0 %.17g %.17g %.17g\n", int(localCoarseCf.size()), cfo.x(),cfo.y(),cfo.z(), cf.x(),cf.y(),cf.z(), sf.x(),sf.y(),sf.z(), upp.faceCentres()[0].x(), upp.faceCentres()[0].y(), upp.faceCentres()[0].z());

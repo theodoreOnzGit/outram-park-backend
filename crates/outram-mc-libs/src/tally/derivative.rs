@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tally derivatives** — a sensitivity coefficient from a single run.
 //! GitHub #263 scope item 3.
@@ -58,6 +58,9 @@
 //! not the transfer kernel. Upstream records this as causing 2–5 % errors on
 //! PWR pin-cell eigenvalue derivatives near low-energy resonances.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::tally::tally::ScoreType;
@@ -100,7 +103,39 @@ pub struct FluxDerivative {
     pub value: f64,
 }
 
+/// The estimator a tally scores with, for [`TallyDerivative::check_estimator`]
+/// (gh:#683 item 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivativeEstimator {
+    /// Analog (event-by-event) scoring.
+    Analog,
+    /// Collision estimator.
+    Collision,
+    /// Track-length estimator.
+    TrackLength,
+}
+
 impl TallyDerivative {
+    /// Refuse an estimator upstream refuses (gh:#683 item 3): OpenMC's
+    /// `apply_derivative_to_score` stops with a fatal error unless the tally is
+    /// analog or collision ("only implemented for analog and collision
+    /// estimators", `src/tallies/derivative.cpp`). A track-length tally would
+    /// otherwise be differentiated without its streaming-weighted score.
+    ///
+    /// # Errors
+    ///
+    /// [`DerivativeEstimator::TrackLength`].
+    pub fn check_estimator(&self, estimator: DerivativeEstimator) -> Result<(), String> {
+        match estimator {
+            DerivativeEstimator::Analog | DerivativeEstimator::Collision => Ok(()),
+            DerivativeEstimator::TrackLength => Err(
+                "a tally derivative is implemented for the analog and collision estimators \
+                 only, as upstream; a track-length tally cannot be differentiated"
+                    .into(),
+            ),
+        }
+    }
+
     /// The temperature step used by the finite difference \[K\].
     ///
     /// 1 K is small against the ~hundreds of K over which a resonance profile
@@ -203,6 +238,87 @@ impl TallyDerivative {
         Ok(())
     }
 
+    /// Accumulate this derivative's **streaming (track) term** over a flight of
+    /// `distance` \[cm\] in `material` — `score_track_derivative`
+    /// (`src/tallies/derivative.cpp:566, 573`), the counterpart of
+    /// [`Self::accumulate_at_collision`] (gh:#683). Without it
+    /// `(1/phi) d phi/d p` can only grow along a history.
+    ///
+    /// - density: `flux_deriv -= distance * Sigma_t / rho` (`rho` the total atom
+    ///   density, so `d Sigma_t / d rho = Sigma_t / rho`);
+    /// - nuclide density: `flux_deriv -= distance * sigma_t(nuclide)`.
+    ///
+    /// A flight in another material contributes nothing.
+    ///
+    /// # Errors
+    ///
+    /// A temperature derivative (needs `d Sigma_t / d T`, which this port does
+    /// not have; see the module docs), or a void under a density derivative.
+    pub fn accumulate_along_track(
+        &self,
+        flux_deriv: &mut FluxDerivative,
+        material_idx: usize,
+        material: &Material,
+        nuclides: &[Nuclide],
+        distance: f64,
+        e: f64,
+    ) -> Result<(), String> {
+        if material_idx != self.material_idx {
+            return Ok(());
+        }
+        match self.variable {
+            DerivativeVariable::Density => {
+                let rho: f64 = material.components.iter().map(|c| c.atom_density).sum();
+                if !(rho > 0.0) {
+                    return Err(format!(
+                        "material {material_idx} has total atom density {rho}; a density \
+                         derivative of a void is undefined, not zero"
+                    ));
+                }
+                flux_deriv.value -= distance * material.macro_xs(e, nuclides).total / rho;
+            }
+            DerivativeVariable::NuclideDensity { nuclide_idx } => {
+                let sigma_t = nuclides[nuclide_idx].xs_at_energy(e, material.temperature).total;
+                flux_deriv.value -= distance * sigma_t;
+            }
+            DerivativeVariable::Temperature => {
+                return Err(
+                    "the streaming term of a temperature derivative needs d(Sigma_t)/dT, \
+                     which this port does not have (see the module docs)"
+                        .into(),
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// The derivative of a **material-total** score under a nuclide-density
+    /// derivative (gh:#683 item 2): `score * (flux_deriv + sigma_i / Sigma)`,
+    /// where `sigma_i` is the differentiated nuclide's microscopic cross section
+    /// for the score's reaction and `Sigma` the material's macroscopic one
+    /// (`src/tallies/derivative.cpp:211-271`). ~~`apply_to_score` used `1/N_i`~~,
+    /// which is correct only for a score ON that nuclide and overstates a
+    /// material total by `Sigma_x / (N_i sigma_x,i)`.
+    ///
+    /// # Errors
+    ///
+    /// A non-nuclide-density derivative, or `Sigma <= 0`.
+    pub fn apply_to_material_total_score(
+        &self,
+        score: f64,
+        flux_deriv: &FluxDerivative,
+        sigma_nuclide: f64,
+        sigma_macro: f64,
+    ) -> Result<f64, String> {
+        if !matches!(self.variable, DerivativeVariable::NuclideDensity { .. }) {
+            return Err("sigma_i/Sigma applies to a nuclide-density derivative only".into());
+        }
+        if !(sigma_macro > 0.0) {
+            return Err(format!("macroscopic cross section {sigma_macro} must be positive"));
+        }
+        Ok(score * (flux_deriv.value + sigma_nuclide / sigma_macro))
+    }
+
     /// Turn a score into its derivative —
     /// `apply_derivative_to_score` (`src/tallies/derivative.cpp`).
     ///
@@ -240,15 +356,16 @@ impl TallyDerivative {
             DerivativeVariable::Density => {
                 let rho: f64 = material.components.iter().map(|c| c.atom_density).sum();
                 match score_type {
+                    // gh:#683 item 3: upstream's `apply_derivative_to_score` has
+                    // no case for ScatterN, NuScatter, PromptNuFission or
+                    // DelayedNuFission and raises a fatal error, so they fall
+                    // through to the error arm. ~~They were accepted.~~
+                    // **CORRECTED 2026-11-19.**
                     ScoreType::Total
                     | ScoreType::Scatter
-                    | ScoreType::NuScatter
-                    | ScoreType::ScatterN
                     | ScoreType::Absorption
                     | ScoreType::Fission
-                    | ScoreType::NuFission
-                    | ScoreType::PromptNuFission
-                    | ScoreType::DelayedNuFission => 1.0 / rho,
+                    | ScoreType::NuFission => 1.0 / rho,
                     other => {
                         return Err(format!(
                             "a density derivative of {other:?} is not defined; upstream \
@@ -268,16 +385,25 @@ impl TallyDerivative {
                         self.material_idx
                     ));
                 };
+                // `1/N_i` is upstream's term only for a score ON this nuclide.
+                // For a MATERIAL-TOTAL score use
+                // [`Self::apply_to_material_total_score`] (`sigma_i / Sigma`,
+                // `derivative.cpp:211-271`), which needs cross sections this
+                // signature does not carry (gh:#683 item 2). The
+                // analog/collision-only restriction is [`Self::check_estimator`];
+                // the `event_nuclide` check is in `accumulate_at_collision`; the
+                // score-type restriction is enforced below.
                 match score_type {
+                    // gh:#683 item 3: upstream's `apply_derivative_to_score` has
+                    // no case for ScatterN, NuScatter, PromptNuFission or
+                    // DelayedNuFission and raises a fatal error, so they fall
+                    // through to the error arm. ~~They were accepted.~~
+                    // **CORRECTED 2026-11-19.**
                     ScoreType::Total
                     | ScoreType::Scatter
-                    | ScoreType::NuScatter
-                    | ScoreType::ScatterN
                     | ScoreType::Absorption
                     | ScoreType::Fission
-                    | ScoreType::NuFission
-                    | ScoreType::PromptNuFission
-                    | ScoreType::DelayedNuFission => 1.0 / c.atom_density,
+                    | ScoreType::NuFission => 1.0 / c.atom_density,
                     other => {
                         return Err(format!(
                             "a nuclide-density derivative of {other:?} is not defined"
@@ -479,5 +605,81 @@ mod tests {
                 .unwrap(),
             0.0
         );
+    }
+
+    /// gh:#683: the streaming term has the sign and size that make an infinite
+    /// medium's logarithmic density derivative cancel. Over a flight of mean
+    /// length `1/Sigma_t` the track term is `-1/rho`, exactly undoing the
+    /// collision term `+1/rho`; a flight in another material, or a
+    /// temperature derivative, behaves as documented.
+    #[test]
+    fn the_streaming_term_cancels_the_collision_term_over_a_mean_flight() {
+        use crate::material::nuclide::Nuclide;
+        let nucs = vec![Nuclide::from_core("U238").unwrap(), Nuclide::from_core("U235").unwrap()];
+        let m = two_nuclide_material();
+        let d = TallyDerivative { material_idx: 3, variable: DerivativeVariable::Density };
+        let e = 1.0e6;
+        let sigma_t = m.macro_xs(e, &nucs).total;
+        assert!(sigma_t > 0.0);
+        let mut f = FluxDerivative::default();
+        d.accumulate_along_track(&mut f, 3, &m, &nucs, 1.0 / sigma_t, e).unwrap();
+        let rho: f64 = m.components.iter().map(|c| c.atom_density).sum();
+        assert!((f.value + 1.0 / rho).abs() < 1e-9 * (1.0 / rho), "track term {}", f.value);
+        d.accumulate_at_collision(&mut f, 3, &m, &nucs, 0, e).unwrap();
+        assert!(f.value.abs() < 1e-9 / rho, "net {}", f.value);
+        // Another material: nothing.
+        let mut g = FluxDerivative::default();
+        d.accumulate_along_track(&mut g, 7, &m, &nucs, 5.0, e).unwrap();
+        assert_eq!(g.value, 0.0);
+        // Nuclide density: -distance * sigma_t(nuclide).
+        let dn = TallyDerivative { material_idx: 3, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
+        let mut h = FluxDerivative::default();
+        dn.accumulate_along_track(&mut h, 3, &m, &nucs, 2.0, e).unwrap();
+        let st0 = nucs[0].xs_at_energy(e, m.temperature).total;
+        assert!((h.value + 2.0 * st0).abs() < 1e-12 * st0.abs().max(1.0));
+        // Temperature: refused, not zero.
+        let dt = TallyDerivative { material_idx: 3, variable: DerivativeVariable::Temperature };
+        assert!(dt.accumulate_along_track(&mut FluxDerivative::default(), 3, &m, &nucs, 1.0, e).is_err());
+    }
+
+    /// gh:#683 item 2: the material-total term is `sigma_i / Sigma`, not `1/N_i`.
+    /// With `sigma_i = 2`, `Sigma = 8` and flux derivative 0.5 a score of 4 gives
+    /// `4 * (0.5 + 0.25) = 3`; a density derivative is refused.
+    #[test]
+    fn a_nuclide_density_derivative_of_a_material_total_uses_sigma_over_sigma() {
+        let d = TallyDerivative { material_idx: 0, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
+        let f = FluxDerivative { value: 0.5 };
+        assert!((d.apply_to_material_total_score(4.0, &f, 2.0, 8.0).unwrap() - 3.0).abs() < 1e-15);
+        assert!(d.apply_to_material_total_score(4.0, &f, 2.0, 0.0).is_err());
+        let dd = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
+        assert!(dd.apply_to_material_total_score(4.0, &f, 2.0, 8.0).is_err());
+    }
+
+    /// gh:#683 item 3: scores upstream refuses to differentiate are refused here
+    /// too, under both density and nuclide-density derivatives.
+    #[test]
+    fn scores_upstream_refuses_to_differentiate_are_refused() {
+        let m = two_nuclide_material();
+        let f = FluxDerivative { value: 1.0 };
+        let vars = [
+            DerivativeVariable::Density,
+            DerivativeVariable::NuclideDensity { nuclide_idx: 0 },
+        ];
+        for variable in vars {
+            let d = TallyDerivative { material_idx: 0, variable };
+            for bad in [ScoreType::ScatterN, ScoreType::NuScatter, ScoreType::PromptNuFission, ScoreType::DelayedNuFission] {
+                assert!(d.apply_to_score(2.0, &f, Some(0), Some(&m), bad).is_err(), "{variable:?} {bad:?}");
+            }
+            assert!(d.apply_to_score(2.0, &f, Some(0), Some(&m), ScoreType::Fission).is_ok());
+        }
+    }
+
+    /// gh:#683 item 3: only analog and collision tallies may be differentiated.
+    #[test]
+    fn only_analog_and_collision_estimators_may_be_differentiated() {
+        let d = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
+        assert!(d.check_estimator(DerivativeEstimator::Analog).is_ok());
+        assert!(d.check_estimator(DerivativeEstimator::Collision).is_ok());
+        assert!(d.check_estimator(DerivativeEstimator::TrackLength).is_err());
     }
 }

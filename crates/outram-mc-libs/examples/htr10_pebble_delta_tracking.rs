@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # HTR-10 fuel pebble, k-infinity by delta (Woodcock) tracking
@@ -129,6 +128,29 @@
 //! three. Every arm agrees within statistics, and the two unresolved nulls stay
 //! unresolved as the statistics improve rather than resolving into something.
 //!
+//! ## After the S(a,b) emission-grid flip (gh:#550, 2026-11-19)
+//!
+//! The 24-seed numbers below were taken with the log-spaced emission tables.
+//! Re-run with the node-grid default, 12 seeds, same settings: natural-B atom
+//! ppm 1.68456 (sd 573 pcm) against 1.68681, **-225 +/- 205 pcm** (z -1.10);
+//! the other four arms -156, -80, +278 and -159 pcm, all |z| <= 1.25. A paired
+//! control with `OUTRAM_SAB_LOG_SPACED_GRID=1` over seeds 1-3 swings by
+//! +-1000 pcm per seed. Nothing is resolved; the table below is not
+//! superseded. Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
+//! ## After the per-material S(a,b) migration (gh:#1581, #1583)
+//!
+//! The table above was measured 2026-09-16 at 6000 histories, **before** the
+//! migration, and has **not** been re-measured: it stays as recorded. The
+//! migration lengthens the nuclide array, which re-draws the URR stream.
+//! `OUTRAM_HTR10_SEEDS=N` runs N master seeds per arm in one process (seed
+//! loop outer). A 24-seed old-vs-new ensemble at 300 x [20 + 60] gave every
+//! arm and every boron delta consistent with zero (|z| <= 1.84): natural-B
+//! atom ppm `1.68887` (old, sd 829 pcm) vs `1.68681` (new, sd 589 pcm),
+//! -206 +- 208 pcm. That is a null at about +-200 pcm, not a proof of zero.
+//! Method, the five-arm table, hardware and raw outputs:
+//! `verification_and_validation/sab_per_material_1581/README.md`.
+//!
 //! ## This is verification input, not a validated result
 //!
 //! The eigenvalue printed is a **bare pebble k-infinity**, reflective at the
@@ -141,6 +163,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use outram_mc_libs::dh_universe::{DhTreatment, DhUniverse, PebbleParams};
+use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
@@ -157,7 +180,7 @@ fn reference_endf(file: &str) -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
-fn nuclides() -> Option<Vec<Nuclide>> {
+fn nuclides() -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
     let load = |name: &str, file: &str| -> Option<Nuclide> {
         let path = reference_endf(file)?;
         eprint!("  reconstructing {name:<6} from {file} … ");
@@ -189,34 +212,33 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
-    Some(vec![
+    // Every slot is loaded free; the three laws are attached per material in
+    // `main` (`assign_htr10_sab`, gh:#462 / #1581).
+    let nuclides = vec![
         load("U235", "n-092_U_235-ENDF8.0.endf")?,
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
-        bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?,
+        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7, 8, 9: the slots `Htr10Nuclides` names. Filling the struct
         // fields in is not enough -- these indices are used to index this
         // very slice, so the entries have to exist or the example reads
         // past its own end at run time.
-        bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-        bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
-        bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?,
+        load("Si29", "n-014_Si_029-ENDF8.0.endf")?,
+        load("Si30", "n-014_Si_030-ENDF8.0.endf")?,
         // 10: B-11, the rest of natural boron (gh:#311).
         load("B11", "n-005_B_011-ENDF8.0.endf")?,
         // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
         // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
         // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
         load("C13", "n-006_C_013-ENDF8.0.endf")?,
-        load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
-    ])
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+    ];
+    Some((nuclides, Htr10SabLaws { graphite: sab, c_in_sic, si_in_sic }))
 }
 
 /// Where each nuclide sits in the slice handed to [`DhUniverse::keff`].
@@ -228,6 +250,15 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(2000);
 
+    let n_seeds: usize = std::env::var("OUTRAM_HTR10_SEEDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
+    let seed0: u64 = std::env::var("OUTRAM_HTR10_SEED0")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
+
     println!("HTR-10 fuel pebble — k-infinity by delta (Woodcock) tracking");
     println!("============================================================");
     println!("  geometry : Li, Yu & Wei (2014), HTR 2014 Weihai, Table 2");
@@ -238,7 +269,7 @@ fn main() {
 
     eprintln!("Reconstructing cross sections (setup, not transport):");
     let t_data = Instant::now();
-    let Some(nucs) = nuclides() else {
+    let Some((free_nucs, laws)) = nuclides() else {
         println!("SKIP: reference-data/endf/ tapes not available in this checkout.");
         return;
     };
@@ -263,9 +294,17 @@ fn main() {
     println!("{}", "-".repeat(75));
 
     let mut baseline: Option<(f64, f64)> = None;
+    // Build every arm's universe once (gh:#1583: with several seeds the seed
+    // loop is OUTER so a run cut short still holds equal N in every arm).
+    let mut built = Vec::new();
     for arm in BoronReading::all() {
-        let params = PebbleParams::htr10_li2014()
-            .with_materials(fuel_pebble_materials(NUCLIDES, arm, TEMP_K));
+        let arm_materials = fuel_pebble_materials(NUCLIDES, arm, TEMP_K);
+        // Per-material S(a,b) (gh:#1581): each arm's own materials decide
+        // which slots are bound.
+        let (arm_materials, nucs) =
+            assign_htr10_sab(&arm_materials, &free_nucs, &NUCLIDES, &laws)
+                .expect("S(a,b) per material");
+        let params = PebbleParams::htr10_li2014().with_materials(arm_materials);
         let universe = match DhUniverse::pebble(params, DhTreatment::DeltaTracking) {
             Ok(u) => u,
             Err(e) => {
@@ -280,6 +319,50 @@ fn main() {
             println!("{}", universe.majorant_audit_line(&nucs, &tag));
             continue;
         }
+        built.push((arm, universe, nucs));
+    }
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        return;
+    }
+    // `OUTRAM_HTR10_SEEDS=N` (gh:#1583): N master seeds per arm inside this
+    // one process, so the slow ENDF load is paid once. N = 1 (the default) is
+    // the single-seed table, unchanged.
+    if n_seeds > 1 {
+        let mut ks: Vec<Vec<f64>> = vec![Vec::new(); built.len()];
+        for i in 0..n_seeds {
+            let seed = seed0 + i as u64;
+            let s = KeffSettings { seed, ..settings.clone() };
+            for (ai, (arm, universe, nucs)) in built.iter().enumerate() {
+                let t0 = Instant::now();
+                let r = universe.keff(nucs, &s);
+                println!(
+                    "SEED {:<30} {:>4} {:>10.5} {:>10.5} {:>8.1}s",
+                    arm.label(),
+                    seed,
+                    r.k_mean,
+                    r.k_std,
+                    t0.elapsed().as_secs_f64()
+                );
+                ks[ai].push(r.k_mean);
+            }
+        }
+        for (ai, (arm, _, _)) in built.iter().enumerate() {
+            let n = ks[ai].len() as f64;
+            let mean = ks[ai].iter().sum::<f64>() / n;
+            let var = ks[ai].iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0);
+            println!(
+                "ENSEMBLE {:<30} n={} mean {:.5} sd {:.5} sem {:.5}",
+                arm.label(),
+                ks[ai].len(),
+                mean,
+                var.sqrt(),
+                (var / n).sqrt()
+            );
+        }
+        return;
+    }
+    for (arm, universe, nucs) in &built {
+        let nucs = nucs.as_slice();
         let t0 = Instant::now();
         let r = universe.keff(&nucs, &settings);
         let secs = t0.elapsed().as_secs_f64();

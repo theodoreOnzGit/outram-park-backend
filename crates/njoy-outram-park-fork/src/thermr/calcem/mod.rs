@@ -82,6 +82,9 @@
 //!   [`types::IncidentEnergyRecord::mubar`] for why this port always
 //!   normalizes instead (a packaging choice, not an algorithm change).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `thermr.f90`'s `sig`, as `sigl` and `sigu` call it: the shared kernel
 /// [`IncoherentInelastic::double_differential`] with `sig`'s last line,
 /// `if (sig.lt.sigmin) sig=0`, `sigmin = 1e-10` (GitHub #865). Without it the

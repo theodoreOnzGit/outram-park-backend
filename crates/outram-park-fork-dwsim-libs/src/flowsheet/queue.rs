@@ -55,7 +55,10 @@
 //!   [`CalculationSender`], with an `Other(String)` escape hatch, so the common
 //!   cases are exhaustive-matchable while round-tripping stays possible.
 
-use std::collections::VecDeque;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::VecDeque;
 
 use crate::flowsheet::objects::{FlowsheetObject, ObjectType};
 

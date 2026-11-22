@@ -32,6 +32,9 @@
 //! Coordinates are in **cm** whatever the mesh's unit (they are scaled), so
 //! the frame and ticks of [`annotate_slice`] read correctly.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::csg::plot::annotate::{annotate_slice, LegendEntry};
 use crate::csg::plot::colour::{default_colours, Rgb, BLACK, WHITE};
 use crate::csg::plot::image::ImageData;
@@ -116,7 +119,7 @@ fn fill_even_odd(img: &mut ImageData, segs: &[((f64, f64), (f64, f64))], colour:
                 xs.push(a.0 + (py - a.1) / (b.1 - a.1) * (b.0 - a.0));
             }
         }
-        xs.sort_by(|p, q| p.partial_cmp(q).unwrap_or(std::cmp::Ordering::Equal));
+        xs.sort_by(|p, q| p.partial_cmp(q).unwrap_or(core::cmp::Ordering::Equal));
         for pair in xs.chunks_exact(2) {
             let xa = pair[0].ceil().max(0.0) as i64;
             let xb = (pair[1].floor() as i64).min(img.width as i64 - 1);

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **`openmc.data.Tabulated1D` and `openmc.data.Polynomial`, evaluated exactly
 //! as upstream evaluates them on an array.**
 //!
@@ -23,6 +23,9 @@
 //!    section that is off by one ULP from upstream at a nuclide's threshold
 //!    is almost always this rule not being applied.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::numpy_ops::{isclose_scalar, searchsorted_right};
 use super::PlotError;

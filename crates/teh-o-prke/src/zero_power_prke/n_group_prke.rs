@@ -46,6 +46,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -121,6 +124,70 @@ pub(crate) fn backward_euler_step(
 /// One fixed-size RKF45 step of the N-group PRKE, in place. Same layout as
 /// [`backward_euler_step`]; same arithmetic as the pre-gh:#1082 six-group
 /// explicit solver (the decay-rate sum starts from group 1, not from zero).
+/// **GeN-Foam's backward-Euler step, assembled and solved as upstream does**
+/// (gh:#1439; `solvePointKinetics.H` of GeN-Foam 652b3da, GPL-3.0, EPFL).
+///
+/// Unknowns `x = [P, C_1 .. C_N, S]` (power, precursor powers, external source
+/// power; `n = N + 2`), rows exactly as upstream writes them, unscaled:
+///
+/// ```text
+/// A[0][0] = 1/dt - (rho - zeta - beta)/Lambda     B[0] = P_old/dt
+/// A[0][i] = -lambda_i                              A[0][n-1] = -1/Lambda
+/// A[i][0] = -beta_i/Lambda    A[i][i] = 1/dt + lambda_i    B[i] = C_i_old/dt
+/// A[n-1][n-1] = 1/dt                               B[n-1] = S_old/dt
+/// ```
+///
+/// solved with OpenFOAM's `solve(x, A, B)`
+/// ([`SquareMatrix::solve_gaussian_openfoam`]), not this crate's LU. `beta` is
+/// the left-to-right sum of the `beta_i` from zero (upstream's loop). The
+/// neutron density plays the role of `P` and the density of group `i` that of
+/// `C_i`; the source row is carried so the power row sees the same `S` upstream
+/// does, and its solution is discarded.
+pub(crate) fn backward_euler_step_genfoam_form(
+    decay_constants: &[DecayConstant],
+    delayed_fractions: &[Ratio],
+    state: &mut [VolumetricNumberDensity],
+    timestep: Time,
+    reactivity: Ratio,
+    subcritical_index: Ratio,
+    neutron_generation_time: Time,
+    external_source_power: VolumetricNumberDensity,
+) -> Result<(), TehOPrkeError> {
+    let groups = decay_constants.len();
+    check_shapes(groups, delayed_fractions.len(), state.len())?;
+    let n = groups + 2;
+    let dt = timestep.get::<second>();
+    let big_lambda = neutron_generation_time.get::<second>();
+    let rho = reactivity.get::<ratio>();
+    let zeta = subcritical_index.get::<ratio>();
+    let mut beta = 0.0_f64;
+    for f in delayed_fractions {
+        beta += f.get::<ratio>();
+    }
+    let mut matrix = SquareMatrix::new(n);
+    let mut rhs = vec![0.0_f64; n];
+    matrix.set(0, 0, 1.0 / dt - (rho - zeta - beta) / big_lambda);
+    for i in 1..n - 1 {
+        matrix.set(0, i, -decay_constants[i - 1].get::<hertz>());
+        rhs[0] = state[0].get::<per_cubic_meter>() / dt;
+    }
+    matrix.set(0, n - 1, -1.0 / big_lambda);
+    matrix.set(n - 1, n - 1, 1.0 / dt);
+    rhs[n - 1] = external_source_power.get::<per_cubic_meter>() / dt;
+    for i in 1..n - 1 {
+        matrix.set(i, 0, -delayed_fractions[i - 1].get::<ratio>() / big_lambda);
+        matrix.set(i, i, 1.0 / dt + decay_constants[i - 1].get::<hertz>());
+        rhs[i] = state[i].get::<per_cubic_meter>() / dt;
+    }
+    let solution = matrix
+        .solve_gaussian_openfoam(&rhs)
+        .map_err(|e| TehOPrkeError::ShapeMismatch(e.to_string()))?;
+    for (slot, value) in state.iter_mut().zip(solution) {
+        *slot = VolumetricNumberDensity::new::<per_cubic_meter>(value);
+    }
+    Ok(())
+}
+
 pub(crate) fn rkf45_step(
     decay_constants: &[DecayConstant],
     delayed_fractions: &[Ratio],
@@ -336,6 +403,25 @@ impl PointKinetics {
         }
     }
 
+    /// Set the whole state: the neutron density and one precursor density per
+    /// group (gh:#1439: lets a differential test restart each step from an
+    /// upstream state instead of accumulating this crate's own error).
+    /// Errors if `precursor_densities` does not have one entry per group.
+    pub fn set_state(
+        &mut self,
+        neutron_density: VolumetricNumberDensity,
+        precursor_densities: &[VolumetricNumberDensity],
+    ) -> Result<(), TehOPrkeError> {
+        check_shapes(
+            self.decay_constants.len(),
+            self.delayed_fractions.len(),
+            precursor_densities.len() + 1,
+        )?;
+        self.state[0] = neutron_density;
+        self.state[1..].copy_from_slice(precursor_densities);
+        Ok(())
+    }
+
     /// Advance one step by backward Euler (unconditionally stable).
     pub fn step_implicit(
         &mut self,
@@ -352,6 +438,35 @@ impl PointKinetics {
             reactivity,
             neutron_generation_time,
             background_source_rate,
+        )
+    }
+
+    /// Advance one backward-Euler step **assembled and solved as GeN-Foam's
+    /// `solvePointKinetics.H` does** (gh:#1439), for a caller that must
+    /// reproduce GeN-Foam bit for bit. Same equations as
+    /// [`Self::step_implicit`] plus the subcritical index `zeta`
+    /// (`rho - zeta - beta`) and an external source power `S`; see
+    /// [`backward_euler_step_genfoam_form`] for the rows. `step_implicit`
+    /// stays the default: it differs from this by round-off only (row
+    /// scaling by `dt`, LU instead of OpenFOAM's elimination), measured in
+    /// `verification_and_validation/genfoam_differential/README.md`.
+    pub fn step_implicit_genfoam_form(
+        &mut self,
+        timestep: Time,
+        reactivity: Ratio,
+        subcritical_index: Ratio,
+        neutron_generation_time: Time,
+        external_source_power: VolumetricNumberDensity,
+    ) -> Result<(), TehOPrkeError> {
+        backward_euler_step_genfoam_form(
+            &self.decay_constants,
+            &self.delayed_fractions,
+            &mut self.state,
+            timestep,
+            reactivity,
+            subcritical_index,
+            neutron_generation_time,
+            external_source_power,
         )
     }
 
@@ -490,17 +605,24 @@ mod tests {
     }
 
     /// Rescaling to a computed `beta_eff` keeps the group shares.
-    /// Hand evaluation: U-235 shares are 0.00021/0.0065 etc; rescaled to
-    /// 0.0070 the first group is 0.00021*0.0070/0.0065 = 2.26154e-4.
-    /// **Result (2026-11-01):** total 0.0070 to 1e-18, group 1 2.26154e-4.
+    /// ~~Hand evaluation: U-235 shares are 0.00021/0.0065 etc; rescaled to
+    /// 0.0070 the first group is 0.00021*0.0070/0.0065 = 2.26154e-4.~~
+    /// ~~**Result (2026-11-01):** total 0.0070 to 1e-18, group 1 2.26154e-4.~~
+    /// **CHANGED 2026-11-10 (gh:#1319):** U-235's default is now
+    /// ENDF/B-VIII.0, whose shares are the abundances `p_i` over their sum
+    /// (0.99999985). Hand evaluation: group 1 is
+    /// 0.03500755 * 0.0070 / 0.99999985 = 2.450529e-4.
+    /// **Result (2026-11-10):** total 0.0070 to 1e-18, group 1 2.450529e-4.
     #[test]
     fn rescale_to_beta_eff_keeps_group_shares() {
         let pk = PointKinetics::from_nuclide(FissioningNuclideType::U235)
             .with_total_delayed_fraction(r(0.0070));
         assert!((pk.total_delayed_fraction().get::<ratio>() - 0.0070).abs() < 1e-18);
+        let p_sum = 0.03500755 + 0.1806982 + 0.1725102 + 0.3867821 + 0.1585752 + 0.0664266;
         assert!(
-            (pk.delayed_fractions()[0].get::<ratio>() - 0.00021 * 0.0070 / 0.0065).abs() < 1e-18
+            (pk.delayed_fractions()[0].get::<ratio>() - 0.03500755 * 0.0070 / p_sum).abs() < 1e-18
         );
+        assert!((pk.delayed_fractions()[0].get::<ratio>() - 2.450529e-4).abs() < 1e-10);
         assert_eq!(pk.decay_constants().len(), 6);
         assert_eq!(pk.precursor_densities().len(), 6);
     }
@@ -547,7 +669,9 @@ mod tests {
 
     /// **V&V: in-hour equation, six groups (gh:#1082).**
     ///
-    /// *Methodology.* U-235 six-group data (beta = 0.0065), `Lambda = 1e-4 s`,
+    /// *Methodology.* U-235 six-group data (~~beta = 0.0065~~ **since
+    /// 2026-11-10, gh:#1319: the ENDF/B-VIII.0 default, beta = 0.0065230**),
+    /// `Lambda = 1e-4 s`,
     /// start at critical equilibrium, apply a step reactivity and integrate by
     /// backward Euler at `dt = 1 ms` to 500 s. The asymptotic growth rate is
     /// measured as `d ln n / dt` between 400 s and 500 s, when every other
@@ -584,6 +708,21 @@ mod tests {
     /// 7.0e-5; rho = -0.001: -7.69269389e-3 /s (-130.0 s), window from
     /// 1831 s, PRKE -7.69266472e-3, rel -3.8e-6 (predicted ~4e-6). Also in
     /// `verification_and_validation/prke_analytic_checks.md`.
+    ///
+    /// *Re-measured 2026-11-10 (gh:#1319), U-235 data now ENDF/B-VIII.0*
+    /// (`cargo test --release -p teh-o-prke --lib inhour_equation_six_group
+    /// -- --nocapture`). The data moved, so the roots moved; the integration
+    /// error stayed of the same order, as predicted on the issue:
+    /// rho = +0.001: omega ~~1.81870702e-2~~ **2.22678814e-2** /s (period
+    /// ~~54.98~~ **44.91** s, +22.4 % in omega), PRKE 2.22681294e-2, rel
+    /// 1.11e-5; rho = +0.003: ~~1.40406076e-1~~ **1.72959426e-1** /s
+    /// (~~7.122~~ **5.782** s, +23.2 %), PRKE 1.72974385e-1, rel 8.6e-5;
+    /// rho = -0.001: ~~-7.69269389e-3~~ **-8.56679171e-3** /s (~~-130.0~~
+    /// **-116.7** s), window from 1562 s, PRKE -8.56675560e-3, rel -4.2e-6.
+    /// The predicted omega rise for small rho was +15 to +18 %; the measured
+    /// +22 % is a miss in size (at omega ~ 0.02 /s the in-hour equation is
+    /// not in its small-omega limit, where only `sum beta_i/lambda_i`
+    /// counts: group 1's lambda is 0.013 /s, the same order as omega).
     #[test]
     fn inhour_equation_six_group() {
         let lam = 1.0e-4;

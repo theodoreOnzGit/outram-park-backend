@@ -42,6 +42,9 @@
 // is only exercised on a host with a real adapter (it SKIPs on CPU-only CI).
 // Human review is still required before this is promoted past "Unit Tested".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
 use crate::geometry::surface::SurfaceKind;
 
@@ -108,7 +111,8 @@ pub struct SurfaceQuery {
 /// - `XCylinder→[y0,z0,r]`, `YCylinder→[x0,z0,r]`, `ZCylinder→[x0,y0,r]`
 /// - cones `{X,Y,Z}Cone→[x0,y0,z0,r_sq]`
 /// - `Quadric→[a,b,c,d,e,f,g,h,j,k]`
-/// - tori `{X,Y,Z}Torus→[x0,y0,z0,a,b,c]`
+/// - tori `{X,Y,Z}Torus→[x0,y0,z0,a,c,b]` (radial minor radius first: the shader's
+///   `b` is the CPU struct's `c`, see gh:#701)
 ///
 /// The `bc` (boundary condition) field is intentionally not encoded — this kernel
 /// computes geometric distance only.
@@ -202,8 +206,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 12
             }
             SurfaceKind::YTorus(p) => {
@@ -211,8 +217,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 13
             }
             SurfaceKind::ZTorus(p) => {
@@ -220,8 +228,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 14
             }
         };
@@ -865,7 +875,7 @@ pub fn surface_distance_cpu_f32(encoded: &EncodedSurfaces, queries: &[SurfaceQue
 // ─────────────────────────────── GPU compute path ──────────────────────────────
 
 /// Reinterpret an `&[f32]` as native-endian bytes for buffer upload.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -875,7 +885,7 @@ fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
 }
 
 /// Reinterpret an `&[u32]` as native-endian bytes for buffer upload.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn u32_slice_to_bytes(data: &[u32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -885,7 +895,7 @@ fn u32_slice_to_bytes(data: &[u32]) -> Vec<u8> {
 }
 
 /// Rebuild a `Vec<f32>` of length `n` from a native-endian byte view.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
     let mut out = Vec::with_capacity(n);
     for chunk in bytes.chunks_exact(4).take(n) {
@@ -914,7 +924,7 @@ fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
 /// uniform, dispatches `ceil(n_query / 64)` workgroups of `main`, copies the
 /// result buffer to a mappable staging buffer, blocks on
 /// `device.poll(PollType::wait_indefinitely())`, and reads it back.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn surface_distance_gpu(
     ctx: &crate::gpu::GpuContext,
     encoded: &EncodedSurfaces,
@@ -967,7 +977,7 @@ pub fn surface_distance_gpu(
         usage: wgpu::BufferUsages::UNIFORM,
     });
 
-    let result_size = (n_query * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
+    let result_size = (n_query * core::mem::size_of::<f32>()) as wgpu::BufferAddress;
     let result_buf = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("surf_dist.result"),
         size: result_size,
@@ -1164,7 +1174,7 @@ pub const WORKGROUP_SIZE: u32 = 64;
 /// [`surface_distance_cpu_f32`] there. Results are mixed from two different
 /// arithmetic paths, so a hybrid batch is inherently less reproducible than
 /// either path alone.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn surface_distance_hybrid(
     ctx: Option<&crate::gpu::GpuContext>,
     encoded: &EncodedSurfaces,
@@ -1172,11 +1182,11 @@ pub fn surface_distance_hybrid(
     policy: crate::gpu::capabilities::SplitPolicy,
 ) -> (Vec<f32>, crate::gpu::capabilities::WorkSplit) {
     use crate::gpu::capabilities::{plan_split, HardwareCapabilities};
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
     let caps = match ctx {
@@ -1349,7 +1359,7 @@ mod tests {
 
     /// Deterministic direction sampler (Fibonacci-sphere) — no RNG dependency.
     fn dir(i: usize, n: usize) -> Direction {
-        let golden = std::f64::consts::PI * (3.0 - 5.0_f64.sqrt());
+        let golden = core::f64::consts::PI * (3.0 - 5.0_f64.sqrt());
         let z = 1.0 - 2.0 * (i as f64 + 0.5) / n as f64;
         let rho = (1.0 - z * z).max(0.0).sqrt();
         let phi = golden * i as f64;
@@ -1401,14 +1411,24 @@ mod tests {
             for &o in &origins {
                 for i in 0..n_dir {
                     let u = dir(i, n_dir);
-                    let d_ref = s.distance(o, u, false);
+                    // An origin exactly on the surface is a ray that starts ON it,
+                    // which transport flags `coincident` (as OpenMC does after a
+                    // crossing). **CORRECTED 2026-11-11 (gh:#1442, #701):** this
+                    // used `false` for every origin. The f64 `distance` is now the
+                    // line-by-line port of OpenMC `surface.cpp`, which has no
+                    // spurious-root filter of its own and so returns the legitimate
+                    // root at t ~ 2e-15 for a non-coincident ray starting on a
+                    // torus; the old CPU port filtered it. Both sides are queried
+                    // with the flag transport would set.
+                    let on_surface = s.evaluate(o).abs() < 1.0e-12;
+                    let d_ref = s.distance(o, u, on_surface);
                     let q = SurfaceQuery {
                         surface: si as u32,
-                        coincident: false,
+                        coincident: on_surface,
                         r: o,
                         u,
                     };
-                    let d_f32 = surface_distance_cpu_f32(&encoded, std::slice::from_ref(&q))[0];
+                    let d_f32 = surface_distance_cpu_f32(&encoded, core::slice::from_ref(&q))[0];
 
                     let ref_miss = !d_ref.is_finite();
                     let f32_miss = d_f32 >= MISS;
@@ -1461,8 +1481,8 @@ mod tests {
             r: 1.0,
             bc: BC,
         });
-        let enc = encode_surfaces(std::slice::from_ref(&sph));
-        let enc_c = encode_surfaces(std::slice::from_ref(&cyl));
+        let enc = encode_surfaces(core::slice::from_ref(&sph));
+        let enc_c = encode_surfaces(core::slice::from_ref(&cyl));
 
         // On +x of the unit sphere, aim in -x → far side at d = 2.
         let o = Position::new(1.0, 0.0, 0.0);
@@ -1474,7 +1494,7 @@ mod tests {
             r: o,
             u,
         };
-        let d_f32 = surface_distance_cpu_f32(&enc, std::slice::from_ref(&q))[0];
+        let d_f32 = surface_distance_cpu_f32(&enc, core::slice::from_ref(&q))[0];
         assert!((d_ref - 2.0).abs() < 1e-9, "f64 sphere far chord {d_ref}");
         assert!(
             (d_f32 - d_ref as f32).abs() < 3e-3,
@@ -1489,7 +1509,7 @@ mod tests {
             r: o,
             u,
         };
-        let d_f32_c = surface_distance_cpu_f32(&enc_c, std::slice::from_ref(&qc))[0];
+        let d_f32_c = surface_distance_cpu_f32(&enc_c, core::slice::from_ref(&qc))[0];
         assert!((d_ref_c - 2.0).abs() < 1e-9, "f64 cyl far chord {d_ref_c}");
         assert!(
             (d_f32_c - d_ref_c as f32).abs() < 3e-3,
@@ -1529,7 +1549,7 @@ mod tests {
     ///
     /// **Results (2026-07-24).** The shader parses and validates clean on this
     /// host (no GPU adapter needed).
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn wgsl_shader_is_valid() {
         let src = include_str!("shaders/surface_distance.wgsl");
@@ -1586,10 +1606,11 @@ mod tests {
     /// Worked example, query 16033 (surface 12 `XTorus`, origin `(0, -1.3, 0)`):
     /// before the fix `gpu = 3.120881e-7` against `cpu = 0.49672258`; after it
     /// both sides agree, and the trusted `f64` path gives `0.4967226591440329`.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_matches_cpu_reference() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP surface_distance gpu test: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -1654,45 +1675,58 @@ mod tests {
     /// machine-specific — it exists to make the numbers behind `op-bjd`
     /// inspectable. Run with:
     /// `cargo test -p outram-mc-libs --lib --release probed_hardware -- --ignored --nocapture`
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     #[ignore = "diagnostic: prints machine-specific adapter limits"]
     fn diagnose_probed_hardware_capabilities() {
         use crate::gpu::capabilities::{plan_split, SplitPolicy};
 
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP: no GPU adapter on this host");
             return;
         };
         let caps = ctx.capabilities();
         let g = caps.gpu.as_ref().expect("probe returned a context");
 
+        #[cfg(feature = "std")]
         eprintln!("adapter                            : {}", g.adapter_name);
+        #[cfg(feature = "std")]
         eprintln!("backend                            : {}", g.backend);
+        #[cfg(feature = "std")]
         eprintln!("class                              : {:?}", g.class);
+        #[cfg(feature = "std")]
         eprintln!(
             "max_storage_buffers_per_shader_stage: {}",
             g.max_storage_buffers_per_shader_stage
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "max_storage_buffer_binding_size    : {}",
             g.max_storage_buffer_binding_size
         );
+        #[cfg(feature = "std")]
         eprintln!("max_buffer_size                    : {}", g.max_buffer_size);
+        #[cfg(feature = "std")]
         eprintln!(
             "max_compute_invocations_per_workgroup: {}",
             g.max_compute_invocations_per_workgroup
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "max_compute_workgroups_per_dimension : {}",
             g.max_compute_workgroups_per_dimension
         );
+        #[cfg(feature = "std")]
         eprintln!("cpu_threads                        : {}", caps.cpu_threads);
+        #[cfg(feature = "std")]
         eprintln!("kernel needs storage buffers       : {STORAGE_BUFFERS_NEEDED}");
+        #[cfg(feature = "std")]
         eprintln!(
             "  -> supported?                    : {}",
             g.supports_storage_buffers(STORAGE_BUFFERS_NEEDED)
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "max chunk items ({QUERY_STRIDE_BYTES} B stride, wg {WORKGROUP_SIZE}): {}",
             g.max_chunk_items(QUERY_STRIDE_BYTES, WORKGROUP_SIZE)
@@ -1706,6 +1740,7 @@ mod tests {
             QUERY_STRIDE_BYTES,
             WORKGROUP_SIZE,
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "Auto split of 1e6 queries          : gpu={} cpu={} ({:?})",
             split.gpu_items, split.cpu_items, split.reason
@@ -1723,12 +1758,13 @@ mod tests {
     /// `gpu_matches_cpu_reference`'s Results note and its bead). Including them
     /// here would make this test fail for a reason that has nothing to do with
     /// work splitting. The other 12 surface types are compared in full.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn hybrid_splits_work_across_both_devices() {
         use crate::gpu::capabilities::{SplitPolicy, SplitReason};
 
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP hybrid test: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -1817,7 +1853,7 @@ mod tests {
     }
 
     /// With no context the hybrid path must still answer, entirely on the CPU.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn hybrid_without_a_gpu_runs_everything_on_the_cpu() {
         use crate::gpu::capabilities::{SplitPolicy, SplitReason};
@@ -1914,15 +1950,20 @@ mod tests {
             "origin is no longer on the torus: {sense}"
         );
 
+        // `coincident: true`: the ray starts on the surface. **CORRECTED
+        // 2026-11-11 (gh:#1442, #701):** was `false`. The f64 reference is now
+        // upstream's `torus_distance`, which (as OpenMC) returns the legitimate
+        // root at 2.4e-15 for a NON-coincident ray starting on the torus; the
+        // old CPU port filtered it out. Transport flags such a ray coincident.
         let q = vec![SurfaceQuery {
             surface: 0,
-            coincident: false,
+            coincident: true,
             r,
             u,
         }];
         let got = surface_distance_cpu_f32(&encoded, &q)[0];
 
-        let reference = surfaces[0].distance(r, u, false) as f32;
+        let reference = surfaces[0].distance(r, u, true) as f32;
         assert!(
             (got - reference).abs() <= 1.0e-3 * (1.0 + reference.abs()),
             "f32 mirror {got} disagrees with the f64 reference {reference}"

@@ -80,7 +80,7 @@ point `GasProduction::from_reconr_and_tape`.
 - `parse_mf6_product_yields` does not disambiguate two subsections sharing a
   `ZAP` via `LIP`/`JP`; only the first would be read. No evaluation in
   `reference-data/endf/` does that on MT=5.
-- The `run()` driver returns `NotPorted`; use `crate::gaspr`.
+- The module-level `run()` still returns `NotPorted`; the deck driver calls `gaspr::gaspr_tape` (PENDF in, PENDF out, `src/gaspr/tape.rs`, NJOY2016-identical on decks 12, 13 and 45; ~~no tape driver~~ CORRECTED 2026-11-11, gh:#1369).
 - **No human V&V.** Cross-code agreement with NJOY on the same evaluation is
   not agreement with measurement.
 

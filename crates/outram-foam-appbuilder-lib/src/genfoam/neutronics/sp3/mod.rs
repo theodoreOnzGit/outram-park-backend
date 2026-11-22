@@ -94,12 +94,15 @@
 //! transient predictors, and the albedo SP3 boundary are deferred with the
 //! coupling layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fields;
 
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
     fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
@@ -450,4 +453,5 @@ pub(crate) fn with_values(mut field: VolScalarField, values: Vec<f64>) -> VolSca
 }
 
 mod eigenvalue;
+mod pseudo_time;
 mod transient;

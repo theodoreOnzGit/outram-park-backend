@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // NOT a port (gh:#583, 2026-10-05). The per-node normal-operation chain of
 // `crate::triso_atops_fork::normal_operation::normal_operation_node` (which
@@ -39,6 +39,9 @@
 //! sets a zero rate where upstream's rate is non-zero, the pool is zero and
 //! does **not** inherit the parent's pool. Upstream never meets either case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Frequency, Time};
 use uom::si::frequency::hertz;
 

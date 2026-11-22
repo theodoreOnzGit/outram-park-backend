@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Discrete lines in ACE tabulated energy laws (INTT = 10·ND + LEP) are read
 //! and sampled as OpenMC samples them** — GitHub #365 audit.
@@ -32,6 +32,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test and recorded in the #365 thread.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;

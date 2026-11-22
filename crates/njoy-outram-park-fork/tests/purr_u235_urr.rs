@@ -22,6 +22,9 @@
 //! `rdf3un`'s "sanity check for lssf=1") and no competition is open below
 //! 7.5 keV: every number here is resonance + potential scattering only.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::purr::wfun::DopplerTable;
 use njoy_outram_park_fork::purr::{infinite_dilution_reference, probability_table, Rng};

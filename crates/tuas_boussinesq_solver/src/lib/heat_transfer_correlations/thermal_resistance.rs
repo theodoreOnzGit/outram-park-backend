@@ -33,8 +33,11 @@
 //! given various inputs
 //!
 //!
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::{PI, E};
+use core::f64::consts::{PI, E};
 
 use uom::si::temperature_interval;
 use uom::si::f64::*;

@@ -37,7 +37,7 @@
 //!
 //! - [`adjust_z_coordinates`]: the z-min points to the surface's lowest z,
 //!   the z-max points to its highest.
-//! - [`pre_map_vertices_2d`]: per iteration (default 3), each active edge's
+//! - [`pre_map_vertices_2d`]: per iteration (~~default 3~~ **CORRECTED 2026-11-11 (gh:#1385): upstream's `meshSurfaceMapper2D::preMapVertices` default is 2**, the 3 was the 3D routine's), each active edge's
 //!   points go **half way** to the nearest surface point of the average of
 //!   its two faces' centres. Unlike the 3D `preMapVertices` there is no
 //!   weighting and no untangling.
@@ -62,6 +62,9 @@
 //! up mesh point labels in a set of boundary-point labels (an upstream
 //! defect without effect).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::mesh_octree::{BoundBox, MeshOctree};
@@ -69,7 +72,7 @@ use crate::mesh_octree_queries::{NearestSearch, TriangleProjection};
 use crate::poly_mesh_gen_2d_engine::PolyMeshGen2DEngine;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// `findNearestSurfacePoint` (region `None`) or
 /// `findNearestSurfacePointInRegion`: (point, region), `None` where
@@ -129,7 +132,7 @@ pub fn pre_map_vertices_2d(mesh: &mut VolumeMesh, o: &MeshOctree, n_iterations: 
                     return None;
                 }
                 let s = ef.iter().fold(Vec3::ZERO, |s, &bf| s.add(engine.face_centres[bf]));
-                Some(s.scale(1.0 / ef.len() as f64))
+                Some(s.div(ef.len() as f64))
             })
             .collect();
         for (i, &e) in active.iter().enumerate() {
@@ -198,7 +201,7 @@ fn map_corners(mesh: &mut VolumeMesh, o: &MeshOctree, engine: &SurfaceEngine, pa
                     np = np.add(q);
                 }
             }
-            let np = np.scale(1.0 / e_patches.len() as f64);
+            let np = np.div(e_patches.len() as f64);
             let d = np.sub(approx);
             if d.dot(d) < 1e-8 * max_dist {
                 break;
@@ -258,8 +261,11 @@ pub fn map_edges_onto_surface_patches_2d(mesh: &mut VolumeMesh, o: &MeshOctree, 
 /// `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces`: the surface's
 /// regions (`names`) become the mesh's first patches, then
 /// `bottomEmptyFaces` and `topEmptyFaces`. Every patch is kept, empty or
-/// not, so patch `i` is region `i`. Returns the mesh and the patch types.
-pub fn distribute_boundary_faces(mesh: &VolumeMesh, o: &MeshOctree, names: &[String]) -> Result<(VolumeMesh, Vec<String>), String> {
+/// not, so patch `i` is region `i`. Returns the mesh and the patch types:
+/// each surface patch's `geometricType()` (`surface_types`, gh:#1483;
+/// upstream's `patchTypes[ptchI] = surfPatches[ptchI].geometricType()`, a
+/// type missing from the slice reads `patch`), then `empty` twice.
+pub fn distribute_boundary_faces(mesh: &VolumeMesh, o: &MeshOctree, names: &[String], surface_types: &[String]) -> Result<(VolumeMesh, Vec<String>), String> {
     let e2d = PolyMeshGen2DEngine::new(mesh)?;
     let n_int = mesh.n_internal_faces();
     let n_reg = names.len();
@@ -290,16 +296,26 @@ pub fn distribute_boundary_faces(mesh: &VolumeMesh, o: &MeshOctree, names: &[Str
     let mut all_names: Vec<String> = names.to_vec();
     all_names.push("bottomEmptyFaces".into());
     all_names.push("topEmptyFaces".into());
+    let mut new_label = vec![usize::MAX; mesh.face_count()];
     for (g, name) in groups.iter().zip(&all_names) {
         let start = out.faces.len();
         for &f in g {
+            new_label[f] = out.faces.len();
             out.faces.push(mesh.faces[f].clone());
             out.owner.push(mesh.owner[f]);
             out.neighbour.push(None);
         }
         out.patches.push(BoundaryPatch { name: name.clone(), start_face: start, n_faces: g.len() });
     }
-    let mut types = vec!["patch".to_string(); n_reg];
+    // `replaceBoundary`: the internal faces stay in each cell's list, the new
+    // boundary labels (running patch by patch) are appended to the owner's list
+    // in the order of the old boundary faces (gh:#1385 round 4)
+    let mut lists: Vec<Vec<usize>> = mesh.cell_face_lists().into_iter().map(|c| c.into_iter().filter(|&f| f < n_int).collect()).collect();
+    for f in n_int..mesh.face_count() {
+        lists[mesh.owner[f]].push(new_label[f]);
+    }
+    out.cells = Some(lists);
+    let mut types: Vec<String> = (0..n_reg).map(|i| surface_types.get(i).cloned().unwrap_or_else(|| "patch".to_string())).collect();
     types.push("empty".into());
     types.push("empty".into());
     Ok((out, types))

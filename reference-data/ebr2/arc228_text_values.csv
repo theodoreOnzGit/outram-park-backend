@@ -1,0 +1,20 @@
+# Document: Fei, Mohamed, Kim (2013), ANL-ARC-228 Rev. 1, Neutronics Benchmark Specifications for EBR-II SHRT-45R (Argonne National Laboratory)
+# Scalar values stated in the running text (not in a table), printed pp.8, 11, 19, 20, 25 (PDF = printed)
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+quantity,value,unit,printed_page,note
+run_138B_duration,5.67,d,8,
+run_138B_low_power_level,17.9,MW,8,
+run_138B_low_power_duration,4.03,d,8,
+run_138B_full_power_level,60.0,MW,8,
+run_138B_full_power_duration,1.64,d,8,
+run_138B_energy,177,MW-days,8,
+shutdown_before_run_138B,approximately a month and a half,-,8,
+rows_15_16_positions,66 and 24,-,10,
+control_rod_vertical_travel,43.815 (17.25 in.),cm,19,ARC-226 p.79 gives 35.56 cm (14 in); ANL-6864 p.14 gives 14 in
+control_rod_fuel_bundle_bottom_below_driver_fuel_bottom_at_SHRT-45R_start,21.06,cm,19,
+regular_worth_CONTROL_rod_position_as_stated,3D1,-,19,the loading maps show it at 5D1; 3D1 is a safety rod
+safety_rod_alternative_position_below_core,36.195 (14.25 in.),cm,20,
+safety_rod_fuel_bundle_bottom_below_driver_fuel_bottom_at_SHRT-45R_start,15.97,cm,20,
+HWCR_B4C_density,2.40,g/cc,20,B-10 enrichment not given
+axial_fuel_swelling_included_in_number_densities,6.88,%,20,corresponds to 4.5 at.% average core burnup
+nominal_average_fuel_temperature_for_Doppler_constant,487,C,25,

@@ -1,0 +1,26 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# EBR-II (NATDEMO) pump model coefficients, Eqs 3.7a-3.7l, printed p.16 (PDF p.32); Table 3.1.4.1.2 "EBR-II primary pump parameters", printed p.17 (PDF p.33)
+# Model, Eqs 3.1-3.6 (pp.15-16), in normalised variables H=H/Hr, s=s/sr, w=w/wr: H = b1 s^2 + b2 s w + b3 (w/|w|) |w|^b4.
+# b3 = b3m if s > eps_m w; b3t if s <= eps_m w and w >= wt; b3l if s <= eps_m w and w < wt. b4 = b4t if s > eps_m w or w >= wt; b4l if s <= eps_m w and w < wt.
+# (The w/|w| sign factor is how the extracted text renders Eq 3.1; check against the page before relying on it.)
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+source,symbol,value,unit
+eq3.7,b1,1.1740,-
+eq3.7,b2,0.0818,-
+eq3.7,b3m,-0.2558,-
+eq3.7,b3t,-0.5923,-
+eq3.7,b3l,-0.0471,-
+eq3.7,b4t,1.9,-
+eq3.7,b4l,1.0,-
+eq3.7,wt,0.06,-
+eq3.7,eps_m,0.55,-
+eq3.7,Hr,358530,Pa
+eq3.7,wr,250.2,kg/s
+eq3.7,sr,14.5 revolutions/s = 870,rpm
+table3.1.4.1.2,NR_rated_speed,870.0,rpm
+table3.1.4.1.2,HR_rated_head,37.7,m
+table3.1.4.1.2,QR_rated_flow,0.2946,m3/s
+table3.1.4.1.2,Ns_specific_speed,31.01/1602,SI/gp
+table3.1.4.1.2,Ip_inertia,16.0,kg m2
+table3.1.4.1.2,TR_rated_torque,1300.0,N m
+table3.1.4.1.2,TfR_friction_torque,0.0286 TR (37.2),N m

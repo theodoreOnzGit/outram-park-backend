@@ -139,13 +139,17 @@
 //! no benchmark has been run. Per the workspace `RESPONSIBLE_USE.md`, treat it
 //! as untrusted until reviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod mapping;
 pub mod xml;
 
 mod builder;
 
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
+use alloc::collections::BTreeMap;
+use crate::hash::HashMap;
+use core::fmt;
 use std::io::Read;
 use std::path::Path;
 
@@ -598,7 +602,7 @@ pub fn import_flowsheet_bytes(
     if bytes.starts_with(&ZIP_MAGIC) {
         return import_flowsheet_dwxmz(bytes);
     }
-    let text = std::str::from_utf8(bytes).map_err(|e| ImportError::Encoding {
+    let text = core::str::from_utf8(bytes).map_err(|e| ImportError::Encoding {
         source_name: source_name.to_string(),
         message: e.to_string(),
     })?;

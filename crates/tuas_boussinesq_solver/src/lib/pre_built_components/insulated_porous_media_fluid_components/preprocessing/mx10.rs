@@ -6,8 +6,11 @@
 //! geometry: air-to-insulation, therminol-to-steel-shell and
 //! steel-shell-to-fiberglass conductances, the MX-10 hydraulic-diameter
 //! Reynolds-number helper, and a threaded lateral-connection variant.
-use std::f64::consts::PI;
-use std::thread::{self, JoinHandle};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
+use crate::thread::{self, JoinHandle};
 
 use super::InsulatedPorousMediaFluidComponent;
 use uom::si::length::meter;

@@ -107,6 +107,9 @@
 //!   (`Streams.vb:86-93`), `EditingForm_EnergyStream`, and its property-grid
 //!   accessors.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::catalytic_activity::katal;
 use uom::si::f64::{

@@ -18,6 +18,11 @@
 //! re-parsed from free-format text; that is the one deliberate divergence, and it
 //! is the same shape every other module's driver in this crate takes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
+#[cfg(feature = "std")]
 use std::io::{Read, Write};
 
 use crate::endf::tape::Tape;
@@ -25,6 +30,7 @@ use crate::mixr::input::MixrInput;
 use crate::mixr::mix::mix;
 use crate::NjoyError;
 
+#[cfg(feature = "std")]
 /// Run MIXR end to end over byte streams: read each input tape, mix, write the
 /// output tape (`mixr.f90:144-389`).
 ///
@@ -119,6 +125,7 @@ mod tests {
         cur.read_tab1().unwrap().pairs
     }
 
+    #[cfg(feature = "std")]
     /// The file driver reproduces the direct `mix()` result through real tape I/O.
     ///
     /// **Methodology (task V&V gate).** Regression-lock the engine through the

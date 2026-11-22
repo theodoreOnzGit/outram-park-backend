@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use crate::tuas_lib_error::TuasLibError;
 
@@ -173,9 +176,9 @@ fn liquid_specific_heat_capacity(
         FLiNaK => get_flinak_constant_pressure_specific_heat_capacity(fluid_temp)?,
         CustomLiquid((low_bound_temp,high_bound_temp), cp_fn, _k, _mu_fn, _rho_fn) => {
             liquid_database::custom_liquid_material
-                ::get_custom_fluid_constant_pressure_specific_heat_capacity(fluid_temp, 
-                    cp_fn, 
-                    high_bound_temp, 
+                ::get_custom_fluid_constant_pressure_specific_heat_capacity(fluid_temp,
+                    cp_fn,
+                    high_bound_temp,
                     low_bound_temp)?
         },
     };

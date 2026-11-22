@@ -2,6 +2,15 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `outram-foam-mesh` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1638, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way: `core::` /
+`alloc::` paths and the `crate::nostd_prelude::*` glob in new code, maps from
+`crate::hash`, and anything that touches a file `#[cfg(feature = "std")]`
+(with a bytes/text parser beside it, as `read_stl_bytes` sits beside
+`read_stl`), and so is any test or example that does.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

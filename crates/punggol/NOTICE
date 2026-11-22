@@ -1,0 +1,25 @@
+PUNGGOL (crate `punggol`), part of the OUTRAM PARK workspace. AGPL-3.0-only.
+
+Upstream works this crate ports or will port:
+
+1. OpenMC (https://github.com/openmc-dev/openmc), MIT licence.
+   Copyright (c) 2011-2025 Massachusetts Institute of Technology, UChicago
+   Argonne LLC, and OpenMC contributors.
+   Ported into `src/decay_spectrum.rs`: openmc/data/decay.py
+   (decay_photon_energy), openmc/material.py (Material.get_decay_photon_energy),
+   openmc/stats/univariate.py (DecaySpectrum, combine_distributions, the
+   clip routines) and src/distribution.cpp (DecaySpectrum). Commit
+   8f79d9d02483c90e4134f03a9df4b75ce6b062bf. This is an independent
+   translation, not an OpenMC release, and is not endorsed by the OpenMC
+   project. The MIT permission notice is carried in
+   verification_and_validation/decay_photon_spectra/openmc_inputs/LICENSE.openmc.
+
+2. EGSnrc (https://github.com/nrc-cnrc/EGSnrc), GNU Affero General Public
+   License version 3 (file headers: or, at the licensee's option, a later
+   version). Copyright (C) National Research Council Canada and EGSnrc
+   contributors. NOTHING IS PORTED YET: `src/egsnrc/` holds placeholder
+   modules only (gh:#976), scaffolded against commit
+   bd49a47aae3938f49f4100b8e018091861408b19. Parts of EGSnrc originate from
+   SLAC (EGS4) and carry their own notice in the file headers; a port must
+   keep that notice and each file's attribution header block (upstream
+   project, file, commit, copyright, licence).

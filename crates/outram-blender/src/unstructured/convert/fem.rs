@@ -29,6 +29,9 @@
 //! afterwards with `with_patch_where`. [`to_fem_mesh`] drops patches and
 //! zones (farrer-park selects boundary nodes geometrically).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use farrer_park::element::ElementType;
 use farrer_park::mesh::{ElemId, Mesh as FemMesh};
 
@@ -194,7 +197,7 @@ mod tests {
         let (m, _) =
             generate(FemGenerator::QuarterAnnulusQuad4 { r_inner: 1.0, r_outer: 2.0, n_r: 4, n_theta: 16 }).unwrap();
         assert_eq!(m.dim(), 2);
-        let exact = std::f64::consts::PI * 3.0 / 4.0;
+        let exact = core::f64::consts::PI * 3.0 / 4.0;
         assert!(m.total_volume() < exact && m.total_volume() > 0.99 * exact);
     }
 }

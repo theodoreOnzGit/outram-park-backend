@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **Reaction and element tables the plotter needs**, transcribed from upstream.
 //!
 //! Ported from:
@@ -18,6 +18,9 @@
 //! matters: `SUM_RULES` fixes the order in which partial cross sections are
 //! summed, which fixes the floating-point result bit for bit.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `openmc.data.SUM_RULES` (from the `endf` package, `endf/incident_neutron.py`).
 pub(crate) const SUM_RULES: &[(i32, &[i32])] = &[
     (1, &[2, 3]),

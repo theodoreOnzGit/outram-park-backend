@@ -32,6 +32,9 @@
 ///
 /// Both slices must have the same length; a mismatch panics via
 /// `debug_assert`. Valid for any finite inputs; returns `0.0` for empty slices.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub fn dot(a: &[f64], b: &[f64]) -> f64 {
     debug_assert_eq!(a.len(), b.len(), "dot: length mismatch");
     a.iter().zip(b.iter()).map(|(ai, bi)| ai * bi).sum()

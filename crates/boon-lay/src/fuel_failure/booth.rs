@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -122,6 +122,9 @@
 //! `1/(15τ) ≈ 6.7·10⁶` against itself to produce a number of order 10⁻⁴.
 //! [`tests::the_thousand_term_cap_is_the_binding_one`] records both facts.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, Time};
 use uom::si::ratio::ratio;
@@ -153,7 +156,7 @@ pub fn booth_release_function(tau: Ratio) -> Ratio {
     if t <= 0.0 {
         return Ratio::new::<ratio>(0.0);
     }
-    let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+    let pi2 = core::f64::consts::PI * core::f64::consts::PI;
     let pi4 = pi2 * pi2;
     let mut sum = 0.0f64;
     let mut previous: Option<f64> = None;
@@ -234,7 +237,7 @@ mod tests {
     /// The literal reading of the printed summand, kept so the rejected
     /// grouping stays reproducible instead of only described.
     fn f_literal(tau: f64) -> f64 {
-        let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+        let pi2 = core::f64::consts::PI * core::f64::consts::PI;
         let pi4 = pi2 * pi2;
         let mut sum = 0.0;
         for n in 1..=MAX_SUMMANDS {
@@ -310,7 +313,7 @@ mod tests {
             );
         }
         // And it diverges: doubling the term count doubles the damage.
-        let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+        let pi2 = core::f64::consts::PI * core::f64::consts::PI;
         let pi4 = pi2 * pi2;
         let partial = |n_max: usize| -> f64 {
             (1..=n_max)
@@ -343,7 +346,7 @@ mod tests {
             );
         }
         for tau in [1.0e-4, 1.0e-3, 1.0e-2] {
-            let want = 4.0 * (tau / std::f64::consts::PI).sqrt() - 1.5 * tau;
+            let want = 4.0 * (tau / core::f64::consts::PI).sqrt() - 1.5 * tau;
             assert!(
                 (f(tau) - want).abs() < 3.0e-7,
                 "tau={tau}: {} vs 4 sqrt(tau/pi) - 3 tau/2 = {want}",
@@ -360,7 +363,7 @@ mod tests {
     fn the_thousand_term_cap_is_the_binding_one() {
         // Consecutive summands only close to 1e-20 near n ~ 5.3e3, well past
         // the cap: check the gap is still far above tolerance at n = 1000.
-        let pi2 = std::f64::consts::PI * std::f64::consts::PI;
+        let pi2 = core::f64::consts::PI * core::f64::consts::PI;
         let pi4 = pi2 * pi2;
         let term = |n: f64| (1.0 - (-n * n * pi2).r_exp()) / (n * n * n * n * pi4);
         let gap = (term(1000.0) - term(999.0)).abs();
@@ -389,7 +392,7 @@ mod tests {
         }
         // And it degrades at 1e-8, as the report's "caution!" implies: the
         // error there is of the same size as the answer.
-        let truth = 4.0 * (1.0e-8 / std::f64::consts::PI).sqrt();
+        let truth = 4.0 * (1.0e-8 / core::f64::consts::PI).sqrt();
         assert!(
             (f(1.0e-8) - truth).abs() > 0.5 * truth,
             "the cap's limitation at tau=1e-8 is a documented fact, not a bug \

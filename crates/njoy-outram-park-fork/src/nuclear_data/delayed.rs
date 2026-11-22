@@ -35,6 +35,9 @@
 //! so a caller hovering in their editor sees a dimensioned rate, not a bare
 //! float. No trait objects, no `Box`, no lifetimes (workspace rules).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Frequency;
 use uom::si::frequency::hertz;

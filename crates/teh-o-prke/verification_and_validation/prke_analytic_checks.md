@@ -48,13 +48,27 @@ so the next mode has decayed by at least `e^-15`.
 
 | case | `omega` reference (1/s) | period (s) | `omega` PRKE (1/s) | relative error | predicted |
 |---|---|---|---|---|---|
-| 6 groups U-235, `rho = +0.001` | 1.81870702e-2 | 54.98 | 1.81872357e-2 | 9.1e-6 | 9.1e-6 |
-| 6 groups U-235, `rho = +0.003` | 1.40406076e-1 | 7.122 | 1.40415934e-1 | 7.0e-5 | 7.0e-5 |
-| 6 groups U-235, `rho = -0.001` | -7.69269389e-3 | -130.0 | -7.69266472e-3 | -3.8e-6 | ~4e-6 |
+| ~~6 groups U-235, `rho = +0.001`~~ | ~~1.81870702e-2~~ | ~~54.98~~ | ~~1.81872357e-2~~ | ~~9.1e-6~~ | ~~9.1e-6~~ |
+| ~~6 groups U-235, `rho = +0.003`~~ | ~~1.40406076e-1~~ | ~~7.122~~ | ~~1.40415934e-1~~ | ~~7.0e-5~~ | ~~7.0e-5~~ |
+| ~~6 groups U-235, `rho = -0.001`~~ | ~~-7.69269389e-3~~ | ~~-130.0~~ | ~~-7.69266472e-3~~ | ~~-3.8e-6~~ | ~~4e-6~~ |
+| **6 groups U-235 ENDF/B-VIII.0, `rho = +0.001`** (2026-11-10) | 2.22678814e-2 | 44.91 | 2.22681294e-2 | 1.1e-5 | same order |
+| **6 groups U-235 ENDF/B-VIII.0, `rho = +0.003`** (2026-11-10) | 1.72959426e-1 | 5.782 | 1.72974385e-1 | 8.6e-5 | same order |
+| **6 groups U-235 ENDF/B-VIII.0, `rho = -0.001`** (2026-11-10) | -8.56679171e-3 | -116.7 | -8.56675560e-3 | -4.2e-6 | same order |
 | 1 group (`beta = 0.0065`, `lambda = 0.08`), `rho = 0.002` | 3.5464557789e-2 (closed form) | 28.20 | 3.5465186672e-2 | 1.8e-5 | 1.8e-5 |
 
 `Lambda = 1e-4 s` throughout. The bisection root equals the closed-form
 one-group root to better than 1e-12.
+
+**Re-measured 2026-11-10 (gh:#1319).** The crate's U-235 default changed
+from the textbook set (`beta = 0.0065`, rounded Keepin half-lives, source
+unidentified) to ENDF/B-VIII.0 (`beta = 0.0065230`, MAT 9228 MF=1/MF=5
+MT=455). The struck rows are the textbook-set results; the bold rows were
+measured with `cargo test --release -p teh-o-prke --lib
+inhour_equation_six_group -- --nocapture`. The solver's error is unchanged
+in order, as predicted on gh:#1319. The roots moved with the data: `omega`
+rose 22-23 % for the positive steps, more than the +15 to +18 % predicted
+from the 15 % shorter mean precursor life (at `omega ~ 0.02 /s` the
+small-`omega` limit does not hold; group 1's `lambda` is 0.013 /s).
 
 **A miss in the first protocol, recorded.** The first run used a fixed
 400-500 s window for every case, on the claim that all other roots had decayed
@@ -83,9 +97,11 @@ forms from `dP/dE = (rho_0 - b E)/Lambda`:
 | time of peak | (not a closed-form check) | 0.4466 s | |
 
 For comparison only (not gated, delayed neutrons are outside the closed
-form): six U-235 groups at `rho_ext = beta + rho_0` peak 2.8 % higher
-(1.285e9 W) and have released 31 % more energy by 1.5 s, the delayed source
-continuing after the prompt burst.
+form): six U-235 groups at `rho_ext = beta + rho_0` peak ~~2.8 % higher
+(1.285e9 W) and have released 31 % more energy by 1.5 s~~ **3.3 % higher
+(1.291e9 W, at 0.4261 s) and have released 34.6 % more energy by 1.5 s
+(re-measured 2026-11-10 with the ENDF/B-VIII.0 U-235 default, gh:#1319)**,
+the delayed source continuing after the prompt burst.
 
 ## 4. Density -> fission rate -> power, and `P_T` (gh:#1082)
 

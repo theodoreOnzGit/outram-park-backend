@@ -34,8 +34,11 @@
 //!
 //! Validated against three NJOY2016 runs (`tests/leapr_run_driver_njoy_oracle.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::fmt::Write as _;
+use core::fmt::Write as _;
 
 use crate::endf::parse::format_endf_float;
 use crate::endf::tape::Tape;
@@ -204,10 +207,7 @@ impl LeaprRun {
             s.push_str(&l);
             s.push('\n');
         }
-        let mut mf7 = Vec::new();
-        self.tape.write(&mut mf7)?;
-        let mf7 = String::from_utf8(mf7)
-            .map_err(|e| NjoyError::EndfParse(format!("leapr tape is not UTF-8: {e}")))?;
+        let mf7 = self.tape.to_text()?;
         // drop Tape::write's own TPID line
         for l in mf7.lines().skip(1) {
             let _ = writeln!(s, "{l}");

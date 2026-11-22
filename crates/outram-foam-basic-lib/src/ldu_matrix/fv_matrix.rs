@@ -19,8 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, AddAssign, Neg, Sub, SubAssign};
+use alloc::sync::Arc;
 
 use super::ldu_matrix::LduMatrix;
 use super::solvers::conjugate_gradient::conjugate_gradient;
@@ -422,6 +425,18 @@ impl FvMatrix {
     pub fn set_reference(&mut self, cell: usize, value: f64) {
         self.ldu.diag[cell] += 1e30;
         self.source[cell] += 1e30 * value;
+    }
+
+    /// Pin one cell exactly as upstream `fvMatrix::setReference` does
+    /// (gh:#1363): `source[c] += diag[c]*value; diag[c] += diag[c]`. The
+    /// diagonal is doubled, not given a `1e30` penalty as
+    /// [`Self::set_reference`] does, so the system stays well conditioned
+    /// and its residual is comparable with an upstream log. The solution
+    /// satisfies `p[c] ≈ value` only to the compatibility error of the
+    /// right-hand side, as upstream's does.
+    pub fn set_reference_openfoam(&mut self, cell: usize, value: f64) {
+        self.source[cell] += self.ldu.diag[cell] * value;
+        self.ldu.diag[cell] += self.ldu.diag[cell];
     }
 
     /// Diagonal coefficient per cell: `A[c] = diag[c]`.

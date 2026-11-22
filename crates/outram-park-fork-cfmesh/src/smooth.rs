@@ -66,9 +66,13 @@
 //! Delaunay optimisation and size-driven point insertion (the rest of `op-38z`)
 //! are separate, later increments.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{cells_faces, VolumeMesh};
-use std::collections::{BTreeSet, HashSet};
+use alloc::collections::{BTreeSet};
+use crate::hash::{HashSet};
 
 /// Smart-Laplacian-smooth `mesh` for `passes` sweeps, returning the relaxed
 /// mesh. Interior vertices move toward their neighbour centroid only when the
@@ -182,6 +186,7 @@ pub fn laplacian_smooth(mesh: &VolumeMesh, passes: usize) -> VolumeMesh {
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: None,
     }
 }
 

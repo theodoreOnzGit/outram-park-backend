@@ -43,6 +43,9 @@
 //! own; the grids differ from NJOY's union grid, the values do not (to
 //! `errthn`). Paging (`bfile3`) is not needed in memory.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mixr::mix::sigfig;
 
 use super::bsigma_scalar;

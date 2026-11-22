@@ -1,0 +1,9 @@
+EXE_INC = \
+    -I/home/user/upstream-build/OpenFOAM-v2506/applications/solvers/compressible/rhoCentralFoam \
+    -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude
+
+EXE_LIBS = \
+    -lfiniteVolume \
+    -lmeshTools

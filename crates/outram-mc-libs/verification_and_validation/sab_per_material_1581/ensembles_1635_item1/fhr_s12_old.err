@@ -1,0 +1,80 @@
+=== FHR ring-RPT vs explicit-TRISO — outram-mc-libs on ENDF/B-VIII.0 ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 159.1s
+  reconstructing U238   … 127.5s
+  reconstructing O16    … 4.4s
+  reconstructing C12    … 1.1s
+  reconstructing C13    … 216.0ms
+  reconstructing C12    … 1.0s
+  reconstructing C13    … 216.3ms
+  reconstructing Si28   … 1.7s
+  reconstructing Si29   … 1.6s
+  reconstructing Si30   … 1.4s
+  reconstructing F19    … 294.5ms
+  reconstructing Li6    … 111.6ms
+  reconstructing Li7    … 88.9ms
+  reconstructing Be9    … 119.4ms
+
+TRISO packing: cube pf 0.30000 would give 0.30778 in r < 1.9; requested 0.29242 instead, achieved 0.29929 (deck: 0.30000)
+Explicit fuel zone: 53324 TRISO particles packed in the r < 1.9425 cm cube; ~26128 of them lie in the r < 1.9 cm fuel sphere, which carries pf 0.2993
+Majorant check: worst Σ_t/Σ_maj = 0.769231 at 1.000000e-4 eV (material 0, UCO fuel kernel) over 220436 reconstructed grid points x 9 materials, 497.7ms
+  k_eff (explicit TRISO pebble, sphere) = 1.36046 ± 0.00193   [cube 1.39682 ± 0.00183]
+  k_eff (ring-RPT pebble, sphere)       = 1.36346 ± 0.00174   [cube 1.39960 ± 0.00183]   (fuel shell 1.4934–1.7531 cm)
+  k_eff (naive homogenised, sphere)     = 1.33190 ± 0.00189   [cube 1.37823 ± 0.00185]
+  k_eff (ring-RPT pebble, CSG sphere) = 1.36342 ± 0.00171   leak 0.00e0
+  [ring-RPT CSG pebble] η 2.0074 f 0.9217 p 0.4928 ε 1.4743 P_FNL 1.0000 P_TNL 1.0000 | k_4f 1.34420 leak 0.0000 gap +1.41% consistent=true
+  [ring-RPT CSG pebble] two-group (OpenMC convention, 0.625 eV): η 2.0074 f 0.9217 p 0.4827 ε 1.5051
+  [ring-RPT CSG pebble] flux per unit lethargy (Σψ·Δu = 1 over the whole range):
+      1e-4 – 1e-2 eV                     ψ̄ = 0.00026   (Δu = 2.303)
+      1e-2 – 0.1  eV  (Maxwellian peak)  ψ̄ = 0.01453   (Δu = 2.303)
+      0.1  – 0.625 eV                    ψ̄ = 0.04984   (Δu = 1.833)
+      0.625 – 10   eV  (6.674 eV)        ψ̄ = 0.04217   (Δu = 2.773)
+      10   – 100  eV                     ψ̄ = 0.05546   (Δu = 2.303)
+      100  – 1e3  eV                     ψ̄ = 0.06657   (Δu = 2.303)
+      1e3  – 2e4  eV  (plateau)          ψ̄ = 0.07112   (Δu = 2.996)
+      2e4  – 1e5  eV                     ψ̄ = 0.06363   (Δu = 1.609)
+      1e5  – 1e6  eV                     ψ̄ = 0.04451   (Δu = 2.303)
+      1e6  – 2e7  eV                     ψ̄ = 0.01962   (Δu = 2.996)
+
+── outram-mc-libs FHR pebble (ENDF/B-VIII.0, c_Graphite S(α,β)) ──
+  reflective SPHERE r = 3 — the domain OpenMC used, so both the
+  method delta AND the absolute k are comparable to the reference:
+    explicit TRISO   : 1.36046 ± 0.00193   vs OpenMC = -464 pcm (2.3σ)
+    ring-RPT         : 1.36346 ± 0.00174   Δ(RPT−explicit)   = +300 pcm  (1.2σ)   vs OpenMC = -133 pcm (0.7σ)
+    naive homogenised: 1.33190 ± 0.00189   Δ(naive−explicit) = -2856 pcm  (10.6σ)
+  reflective CUBE half-width 3 (corners carry extra FLiBe — NOT
+  comparable to OpenMC in absolute terms; shown to price that over-count):
+    explicit TRISO   : 1.39682 ± 0.00183   cube−sphere = +3636 pcm
+    ring-RPT         : 1.39960 ± 0.00183   Δ(RPT−explicit)   = +278 pcm  (1.1σ)
+    naive homogenised: 1.37823 ± 0.00185   Δ(naive−explicit) = -1859 pcm  (7.2σ)
+  reflective-sphere CSG (surface-tracked, six factors + spectrum):
+    ring-RPT         : 1.36342 ± 0.00171
+
+=== V&V gate: ring-RPT pebble vs the OpenMC reference ===
+  RPT - explicit  = +300 +/- 260 pcm (1.16 sigma)  [recorded +226 +/- 316, reference -31 +/- 92]
+  naive - explicit = -2856 +/- 270 pcm (10.6 sigma)  [recorded -3191, 10.7 sigma]
+  ring-RPT CSG - ring-RPT delta-tracked = -4 +/- 244 pcm (0.02 sigma)  [recorded +18, 0.05 sigma]
+  explicit TRISO  vs OpenMC = -464 pcm  [recorded -466, drift gate +/-1000]
+  ring-RPT        vs OpenMC = -133 pcm  [recorded -236, drift gate +/-1000]
+
+(the RPT inner radius 1.4934 cm was fitted against OpenMC; pass --search-rpt-radius
+ to solve for this code's own equivalent radius)
+
+── OpenMC full-pebble reference (op-mzvp.1, ENDF/B-VIII.0, c_Graphite) ──
+  explicit TRISO pebble : k = 1.36510 ± 0.00063
+  ring-RPT pebble       : k = 1.36479 ± 0.00067   Δ(RPT−explicit) = −31 pcm (0.34σ)
+  η/f/p/ε (explicit)    : 2.0158 / 0.9172 / 0.4837 / 1.5064
+  η/f/p/ε (ring-RPT)    : 2.0073 / 0.9216 / 0.4842 / 1.5043
+
+CAVEATS (see verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md):
+- the delta domain is now the same reflective SPHERE r = 3 the OpenMC
+deck used, so the cube-corner FLiBe over-count no longer affects the
+reported comparison; the cube rows are kept only to price it.
+- explicit-TRISO delta resolves the 5 coating layers by nearest-centre
++ radius, not exact CSG.
+- the RPT inner radius (1.4934 cm) was tuned by the deck author for
+OpenMC, so it is not optimal here.
+- Li-6(n,t) now counted (op-mzvp.2.10 fixed); tiny at 99.995 % Li-7.
+- AI-assisted code-to-code check, not a validated result.

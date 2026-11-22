@@ -13,7 +13,8 @@
 
 The Fukushima Unit 1 simulator, ~~`crates/dhoby-ghaut/examples/fukushima_web/`~~
 `sembawang::bwr_mark1` (`crates/sembawang/src/bwr_mark1/`, moved 2026-10-29 by
-F2, gh:#1033; the ~~`dhoby-ghaut`~~ `outram-park-digital-twin-engine` (moved
+F2, gh:#1033; its generic MELCOR equations in `outram_park_fork_offbeat::melcor`
+since 2026-11-11, gh:#1335; the ~~`dhoby-ghaut`~~ `outram-park-digital-twin-engine` (moved
 2026-11-05) `fukushima_web` demo draws it), is
 a reduced model. Against BSAF Phase II (NEA No. 7525) it misses, uncalibrated:
 
@@ -197,6 +198,13 @@ with one assumed size would let that \[A\] size decide drywell deposition and
 pool scrubbing, the same trap as choosing Unit 1's concrete. Doing it
 properly means porting a sectional aerosol model (MAEROS-type) and SPARC-90;
 reuse to check first: `changi::flexpart::aerosol` (Cunningham slip, settling).
+**Built 2026-10-29 (gh:#1047), and the equations moved 2026-11-11
+(gh:#1335):** the sectional aerosol, the vapour classes, the RN volume and the
+pool iodine equilibrium are now `outram_park_fork_offbeat::melcor::{aerosol,
+vapour, rn_volume, iodine}` (the plant and SPARC-90's scrubbing stay in
+`sembawang::bwr_mark1`; the old `bwr_mark1::` paths are deprecated aliases).
+No result in this plan moved: the BSAF comparison is bit-identical across the
+move.
 Gap release needs nothing: MELCOR's default gap inventory is zero (RN1_GAP
 `NMGAP` = 0), which is the model's. Reference curves are digitised (Figs
 2.6a–d).

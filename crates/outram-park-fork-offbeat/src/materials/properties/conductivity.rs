@@ -101,6 +101,9 @@
 //!   is not continuous as the gadolinia content goes to zero. See
 //!   [`ConductivityModel::NfirUo2`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::properties::heat_capacity::matpro_einstein_heat_capacity;
@@ -2006,7 +2009,7 @@ mod tests {
         let mut at_phi = fresh;
         at_phi.burnup = 128.75;
         let k_phi = model.value(&at_phi);
-        let expected = kappa_inf + (k0 - kappa_inf) / std::f64::consts::E;
+        let expected = kappa_inf + (k0 - kappa_inf) / core::f64::consts::E;
         assert!((k_phi - expected).abs() < 1.0e-12, "{k_phi} vs {expected}");
 
         let mut burnt = fresh;

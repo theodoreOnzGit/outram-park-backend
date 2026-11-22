@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Track capture does not perturb the run** — GitHub #271.
 //!
@@ -61,7 +61,7 @@ fn flux_tally() -> Tally {
             cell_indices: vec![0],
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     }
 }
 

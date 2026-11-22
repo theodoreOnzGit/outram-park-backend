@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! [`WindowedMultipole::write_h5`] — **writer** for the MIT CRPG `WMP_Library`
 //! HDF5 format. GitHub #270, scope table row *"WMP library | read (today) +
@@ -66,6 +66,9 @@
 //! **License:** the WMP data itself is MIT CRPG — `LICENSE-WMP` and the `NOTICE`
 //! credit must travel with any file written from the embedded library.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, CompoundTypeBuilder, FileBuilder};

@@ -108,6 +108,9 @@
 //! capacities of reactants and products differ. That drift is well inside the
 //! 5 % spread above and is not modelled.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::hydrogen::{surface_to_volume, ZIRCONIUM_ATOMIC_MASS};
 use super::PILLING_BEDWORTH_ZIRCONIUM;
 
@@ -331,7 +334,7 @@ mod tests {
     /// defect, which is a test passing for a bad reason.
     #[test]
     fn oxidation_overtakes_decay_heat_between_1300_and_1500k() {
-        const DECAY_HEAT_FLUX: f64 = 200.0 / (2.0 * std::f64::consts::PI * 4.75e-3);
+        const DECAY_HEAT_FLUX: f64 = 200.0 / (2.0 * core::f64::consts::PI * 4.75e-3);
         let cp = OxidationKinetics::CathcartPawel;
         let flux_at = |t: f64| heat_flux(cp.growth(1.0e-5, t, 0.0, 1.0), 6500.0, 1.0);
 

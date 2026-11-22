@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The parsed depletion chain against the hand transcription of the same
 //! file** — GitHub #270's "Depletion chain XML | read" row.
@@ -52,6 +52,8 @@
 //! Reference file: `tests/reference_data/openmc_chain_simple.xml`; see that
 //! folder's `README.md` for its source, commit, licence and (absence of)
 //! processing.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use std::path::{Path, PathBuf};
 

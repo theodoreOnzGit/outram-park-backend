@@ -85,18 +85,26 @@
 //! loop (`optimiseBoundaryVolumeOptimizer`, `optimiseBoundarySurfaceLaplace`:
 //! boundary points never move here),~~ **CHANGED 2026-11-05:** both are
 //! ported (gh:#1260, gh:#1255) and off by default, so the recorded results
-//! stand. **Not ported:** `tetMatcher` (a tetrahedral cell is
-//! decomposed like any other; this crate's tet-dual meshes have none), and
-//! the parallel buffer layers. Centres are this crate's: the face centre is
-//! the vertex average and the cell centre the pyramid-decomposition centroid
-//! ([`crate::checks`]), where cfMesh uses OpenFOAM's area-weighted face
-//! centre.
+//! stand. **Not ported:** the parallel buffer layers. ~~`tetMatcher` (a
+//! tetrahedral cell is decomposed like any other; this crate's tet-dual meshes
+//! have none)~~ **CORRECTED 2026-11-11 (gh:#1385 round 3):** a cell of four
+//! triangles is one tet with no centre node (`match_tet`; asmoOctree has 324).
+//! ~~Centres are this crate's: the face centre is the vertex average and the
+//! cell centre the pyramid-decomposition centroid ([`crate::checks`]), where
+//! cfMesh uses OpenFOAM's area-weighted face centre.~~ **CORRECTED 2026-11-11
+//! (gh:#1385 round 3):** the part tet mesh, the Laplacian smoother and the
+//! quality checks (`flag_faces`) read cfMesh's polyMeshGen addressing geometry
+//! ([`crate::checks::pmg_geometry`]); this module no longer uses
+//! [`crate::checks::cell_geometry`] (a test still does).
 //!
 //! Deterministic: every loop runs in index order and positions are updated
 //! Jacobi-style (all new positions from the old ones), as upstream's
 //! `updateVerticesSMP`.
 
-use crate::checks::cell_geometry;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::checks::{foam_cell_centres_and_vols, pmg_face_centre_and_area};
 use crate::math::Vec3;
 use crate::mesh_subsets::MeshSubsets;
 use crate::volume_mesh::VolumeMesh;
@@ -118,14 +126,50 @@ const LOCKED: u8 = 16;
 /// Signed volume of the tetrahedron `(a, b, c, d)`: OpenFOAM's
 /// `tetrahedron::mag`, `((b − a) × (c − a)) · (d − a) / 6`.
 fn tet_volume(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f64 {
-    b.sub(a).cross(c.sub(a)).dot(d.sub(a)) / 6.0
+    (1.0 / 6.0) * b.sub(a).cross(c.sub(a)).dot(d.sub(a))
+}
+
+/// `tetMatcher::matchShape(false, faces, owner, celli, cell)` for a cell of
+/// four triangles on four distinct points: the mesh point labels
+/// `vertLabels` (the base face `cell[0]` walked from its vertex 0 in the
+/// direction its orientation gives, then the apex found on the face that
+/// shares the edge `(v2, v0)`). `None` when the cell is not a tetrahedron.
+fn match_tet(mesh: &VolumeMesh, c: usize, cell: &[usize]) -> Option<[usize; 4]> {
+    if cell.len() != 4 || cell.iter().any(|&f| mesh.faces[f].len() != 3) {
+        return None;
+    }
+    let mut distinct: Vec<usize> = Vec::new();
+    for &f in cell {
+        for &v in &mesh.faces[f] {
+            if !distinct.contains(&v) {
+                distinct.push(v);
+            }
+        }
+    }
+    if distinct.len() != 4 {
+        return None;
+    }
+    // `nextVert(i, size, rightHand)`
+    let next = |i: usize, right: bool| if right { (i + 1) % 3 } else { (3 + i - 1) % 3 };
+    let f3 = cell[0];
+    let face3 = &mesh.faces[f3];
+    let right3 = mesh.owner[f3] != c;
+    let i1 = next(0, right3);
+    let i2 = next(i1, right3);
+    let (v0, v1, v2) = (face3[0], face3[i1], face3[i2]);
+    // the other face holding the edge (v2, v0): upstream's `face1`
+    let f1 = *cell[1..].iter().find(|&&f| mesh.faces[f].contains(&v2) && mesh.faces[f].contains(&v0))?;
+    let face1 = &mesh.faces[f1];
+    let i0 = face1.iter().position(|&v| v == v0)?;
+    let apex = face1[next(i0, mesh.owner[f1] == c)];
+    Some([v0, v1, v2, apex])
 }
 
 /// For each point, the cells using it, ascending (`pointCells`).
 pub(crate) fn point_cells(mesh: &VolumeMesh) -> Vec<Vec<usize>> {
     let mut pc: Vec<Vec<usize>> = vec![Vec::new(); mesh.points.len()];
     for f in 0..mesh.face_count() {
-        for c in std::iter::once(mesh.owner[f]).chain(mesh.neighbour[f]) {
+        for c in core::iter::once(mesh.owner[f]).chain(mesh.neighbour[f]) {
             for &p in &mesh.faces[f] {
                 pc[p].push(c);
             }
@@ -229,7 +273,10 @@ impl PartTetMesh {
 
     /// `partTetMesh::createPointsAndTets`.
     pub fn from_cells(mesh: &VolumeMesh, use_cell: &[bool], locked: &[bool]) -> Self {
-        let (_, centres) = cell_geometry(mesh);
+        // upstream reads `addressingData().faceCentres()` / `cellCentres()`:
+        // cfMesh's own formulas (`pmg_face_centre_and_area`,
+        // `foam_cell_centres_and_vols`), not the vertex average
+        let (_, centres) = foam_cell_centres_and_vols(mesh);
         let nf = mesh.face_count();
         let mut used_face = vec![0u8; nf];
         for f in 0..nf {
@@ -254,7 +301,7 @@ impl PartTetMesh {
             let ring = &mesh.faces[f];
             if ring.len() > 3 {
                 node_for_face[f] = points.len();
-                points.push(mesh.face_centroid(f));
+                points.push(pmg_face_centre_and_area(&mesh.points, ring).0);
                 kind.push(FACECENTRE);
             }
             for &p in ring {
@@ -272,7 +319,7 @@ impl PartTetMesh {
             let ring = &mesh.faces[f];
             if ring.len() > 3 {
                 node_for_face[f] = points.len();
-                points.push(mesh.face_centroid(f));
+                points.push(pmg_face_centre_and_area(&mesh.points, ring).0);
                 kind.push(FACECENTRE);
             }
             let v_type = if used_face[f] == 2 { SMOOTH } else { NONE };
@@ -288,10 +335,17 @@ impl PartTetMesh {
         }
         // Tetrahedra: each used cell about its centre, each face about its
         // centre (triangles directly).
-        let cf = cell_faces(mesh);
+        // the faces of a cell in cfMesh's cell-list order (`cells[cI]`)
+        let cf = mesh.cell_face_lists();
         let mut tets: Vec<[usize; 4]> = Vec::new();
         for c in 0..mesh.n_cells {
             if !use_cell[c] {
+                continue;
+            }
+            // `tetMatcher::matchShape`: a cell of four triangles is one tet,
+            // with no cell-centre node
+            if let Some(t) = match_tet(mesh, c, &cf[c]) {
+                tets.push(t.map(|v| node_for_point[v]));
                 continue;
             }
             let centre = points.len();
@@ -346,7 +400,7 @@ impl PartTetMesh {
     /// Returns (points, tets, local index of `node`).
     fn simplex(&self, node: usize) -> (Vec<Vec3>, Vec<[usize; 4]>, usize) {
         let mut pts: Vec<Vec3> = Vec::new();
-        let mut addr: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
+        let mut addr: alloc::collections::BTreeMap<usize, usize> = alloc::collections::BTreeMap::new();
         let mut tets = Vec::with_capacity(self.point_tets[node].len());
         for &t in &self.point_tets[node] {
             let tet = self.tets[t];
@@ -395,16 +449,17 @@ impl PartTetMesh {
                     c = c.add(a.add(b).add(cc).add(d).scale(0.25 * v));
                     vol += v;
                 }
-                self.points[node] = c.scale(1.0 / vol);
+                self.points[node] = c.div(vol);
             } else if update[node] & FACECENTRE != 0 {
                 let (mut c, mut area) = (Vec3::ZERO, 0.0);
                 for &t in &self.point_tets[node] {
                     let [a, b, cc, _] = self.tets[t].map(|v| self.points[v]);
                     let ar = b.sub(a).cross(cc.sub(a)).length() * 0.5 + VSMALL;
-                    c = c.add(a.add(b).add(cc).scale(ar / 3.0));
+                    // `c /= 3` then `centre += c*area`
+                    c = c.add(a.add(b).add(cc).div(3.0).scale(ar));
                     area += ar;
                 }
-                self.points[node] = c.scale(1.0 / area);
+                self.points[node] = c.div(area);
             }
         }
     }
@@ -415,9 +470,11 @@ impl PartTetMesh {
         let mut changed_point = vec![false; mesh.points.len()];
         for (node, &p) in self.node_in_orig.iter().enumerate() {
             if p != usize::MAX {
-                if mesh.points[p] != self.points[node] {
-                    changed_point[p] = true;
-                }
+                // upstream marks every node of the tet mesh as changed, moved
+                // or not (`changedNode[nodeLabelInOrigMesh_[pI]] = true`), so
+                // the next `changedFace` covers every cell around the region
+                // (gh:#1385 round 3; a locked node's cells were left out)
+                changed_point[p] = true;
                 mesh.points[p] = self.points[node];
             }
         }
@@ -436,10 +493,17 @@ impl PartTetMesh {
 
     /// `tetMeshOptimisation::optimiseUsingVolumeOptimizer(nIterations)`.
     pub fn optimise_using_volume_optimizer(&mut self, n_iterations: usize) {
-        for _ in 0..n_iterations {
+        for it in 0..n_iterations {
             let nodes: Vec<usize> = (0..self.points.len()).filter(|&n| self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
             let moved = self.smooth_nodes(&nodes, |pts, tets, c| volume_optimizer(pts, tets, c, 1e-5));
             self.update_vertices(&moved);
+            if self.points.len() == 21340 && crate::env::var("GH1385_TRACE").is_ok() {
+                // gh:#1385: `VI iteration node x y z`, as the instrumented upstream prints it
+                for (q, p) in self.points.iter().enumerate() {
+                    #[cfg(feature = "std")]
+                    eprintln!("VI {it} {q} {:?} {:?} {:?}", p.x, p.y, p.z);
+                }
+            }
         }
     }
 
@@ -500,19 +564,33 @@ impl PartTetMesh {
     }
 
     /// `tetMeshOptimisation::optimiseUsingKnuppMetric(nIterations)`: move the
-    /// points of inverted tetrahedra until none is left or the count stops
-    /// falling.
+    /// points of inverted tetrahedra with Knupp's metric.
     ///
-    /// **Port defect found 2026-11-05 (gh:#1260), not fixed:** fixing it
-    /// would change the default `CfMeshOptimise` output, which needs the
-    /// maintainer. Upstream's `while ((nNegative < nNegativeBefore) ||
-    /// (++nIter < nIterations))` increments `nIter` only when the count did
-    /// not fall; this loop increments it on every pass, so after passes that
-    /// did reduce the count it can stop sooner than upstream.
+    /// **gh:#1284 (2026-11-05): transcribed as upstream counts, which is
+    /// one pass.** In DAFoam/cfmesh `e944f6ba695f` (and in wyldckat/cfMesh
+    /// v1.0 and the full v1.1 tree) the loop that checks which tetrahedra
+    /// were repaired sets `nNegative = 0` and never increments it: it marks
+    /// `helper[tetI]` but has no `++nNegative`, unlike the same loop in
+    /// `optimiseUsingMeshUntangler`. So `if (nNegative == 0) return;` after
+    /// it always returns, and the `while ((nNegative < nNegativeBefore) ||
+    /// (++nIter < nIterations))` condition is never reached: upstream runs
+    /// **exactly one** Knupp pass whenever an inverted tetrahedron exists,
+    /// whatever `nIterations` is. This looks like an upstream defect, but
+    /// upstream is the specification, so the port keeps it (the count the
+    /// loop would have needed is left in, named, and unused for control).
+    ///
+    /// ~~Port defect found 2026-11-05 (gh:#1260), not fixed: upstream's
+    /// short-circuit `||` increments `nIter` only when the count did not
+    /// fall; this loop increments it on every pass.~~ **CORRECTED
+    /// 2026-11-05 (gh:#1284):** that reading missed the uncounted repair
+    /// loop. Before gh:#1284 the port counted the repaired tetrahedra and
+    /// ran up to `n_iterations` passes (more while the count fell);
+    /// upstream runs one.
     pub fn optimise_using_knupp_metric(&mut self, n_iterations: usize) {
         let mut inverted: Vec<bool> = self.tets.iter().map(|t| self.tet_vol(t) < VSMALL).collect();
         let mut n_iter = 0usize;
         loop {
+            // find the number of inverted tets
             let mut negative_node = vec![false; self.points.len()];
             let mut n_negative = 0usize;
             for (t, &inv) in inverted.iter().enumerate() {
@@ -526,25 +604,32 @@ impl PartTetMesh {
             if n_negative == 0 {
                 return;
             }
+            // smooth the mesh
             let nodes: Vec<usize> =
                 (0..self.points.len()).filter(|&n| negative_node[n] && self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
             let moved = self.smooth_nodes(&nodes, knupp_metric);
             self.update_vertices(&moved);
-            let before = n_negative;
-            n_negative = 0;
+            // check which tets have been repaired
+            let n_negative_before = n_negative;
+            // upstream: `nNegative = 0;` and the loop below never adds to it
+            let n_negative = 0usize;
             let mut helper = vec![false; self.tets.len()];
             for t in 0..self.tets.len() {
                 if inverted[t] && self.tet_vol(&self.tets[t]) < VSMALL {
                     helper[t] = true;
-                    n_negative += 1;
                 }
             }
             inverted = helper;
             if n_negative == 0 {
                 return;
             }
+            // `while ((nNegative < nNegativeBefore) || (++nIter < nIterations))`,
+            // unreachable as upstream has it
+            if n_negative < n_negative_before {
+                continue;
+            }
             n_iter += 1;
-            if !(n_negative < before || n_iter < n_iterations) {
+            if n_iter >= n_iterations {
                 return;
             }
         }
@@ -580,7 +665,7 @@ impl PartTetMesh {
 
     /// `one` over `nodes`, in node order, threaded natively.
     fn map_nodes<F: Fn(usize) -> Option<(usize, Vec3)> + Sync>(nodes: &[usize], one: F) -> Vec<(usize, Vec3)> {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         {
             let n_threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(8);
             if n_threads > 1 && nodes.len() > 64 {
@@ -680,8 +765,11 @@ fn madd(a: Mat3, b: Mat3, s: f64) -> Mat3 {
 }
 
 fn det3(m: &Mat3) -> f64 {
-    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    // OpenFOAM `Tensor::det`, in its order of operations
+    m[0][0] * m[1][1] * m[2][2] + m[0][1] * m[1][2] * m[2][0] + m[0][2] * m[1][0] * m[2][1]
+        - m[0][0] * m[1][2] * m[2][1]
+        - m[0][1] * m[1][0] * m[2][2]
+        - m[0][2] * m[1][1] * m[2][0]
 }
 
 /// `inv(m, det) & v`.
@@ -743,7 +831,10 @@ fn vo_func(pts: &[Vec3], tets: &[[usize; 4]]) -> f64 {
 }
 
 /// `volumeOptimizer::evaluateGradientsExact` (gradient and Hessian of
-/// [`vo_func`] at the free point).
+/// [`vo_func`] at the free point), operation for operation as upstream's
+/// expressions associate (gh:#1385 round 3): every `x/s` is a division, every
+/// `s*x/t` is `(s*x)/t`, `gradF += a - b` adds the difference, and
+/// `pow(stab, 3)` / `pow(Vs13, 4)` are `pow(double, double)` (`r_powf`).
 fn vo_gradients(pts: &[Vec3], tets: &[[usize; 4]], free: usize) -> Option<(Vec3, Mat3)> {
     let k = vo_stabilisation(pts, tets);
     let p = pts[free];
@@ -751,6 +842,18 @@ fn vo_gradients(pts: &[Vec3], tets: &[[usize; 4]], free: usize) -> Option<(Vec3,
     let c1 = c23 / 3.0;
     let mut grad = Vec3::ZERO;
     let mut hess: Mat3 = [[0.0; 3]; 3];
+    // tensor helpers following OpenFOAM's component-wise operators
+    let tdiv = |m: Mat3, s: f64| -> Mat3 { m.map(|r| r.map(|x| x / s)) };
+    let tmul = |s: f64, m: Mat3| -> Mat3 { m.map(|r| r.map(|x| s * x)) };
+    let tsub = |a: Mat3, b: Mat3| -> Mat3 {
+        let mut r = a;
+        for i in 0..3 {
+            for j in 0..3 {
+                r[i][j] = a[i][j] - b[i][j];
+            }
+        }
+        r
+    };
     for t in tets {
         let [a, b, c, d] = t.map(|v| pts[v]);
         let grad_v = b.sub(a).cross(c.sub(a)).scale(1.0 / 6.0);
@@ -761,32 +864,47 @@ fn vo_gradients(pts: &[Vec3], tets: &[[usize; 4]], free: usize) -> Option<(Vec3,
         if vs < VSMALL {
             return None; // upstream: FatalError "I cannot continue"
         }
-        let grad_stab = grad_v.scale(v / stab);
+        // Vtri*gradV/stab
+        let grad_stab = grad_v.scale(v).div(stab);
         let grad_lsq = p.scale(3.0).sub(a).sub(b).sub(c).scale(2.0);
         let grad_vs = grad_v.add(grad_stab).scale(0.5);
         let vs13 = (2.0 * vs).r_powf(1.0 / 3.0);
         let vstab = vs.r_powf(2.0 / 3.0);
         let sqr_vstab = vstab * vstab;
-        let grad_vstab = grad_vs.scale(2.0 * c23 / vs13);
-        grad = grad.add(grad_lsq.scale(1.0 / vstab)).sub(grad_vstab.scale(lsq / sqr_vstab));
+        // C*(2.*gradVs)/Vs13
+        let grad_vstab = grad_vs.scale(2.0).scale(c23).div(vs13);
+        // gradF += gradLsq/Vstab - LSqrTri*gradVstab/sqrVstab
+        grad = grad.add(grad_lsq.div(vstab).sub(grad_vstab.scale(lsq).div(sqr_vstab)));
+        // (gradV*gradV)/stab - sqr(Vtri)*(gradV*gradV)/pow(stab, 3)
         let gvgv = outer(grad_v, grad_v);
-        let grad_grad_stab = madd(gvgv.map(|r| r.map(|x| x / stab)), gvgv, -(v * v) / stab.r_powi(3));
-        let grad_grad_vstab = madd(grad_grad_stab.map(|r| r.map(|x| x * c23 / vs13)), outer(grad_vs, grad_vs), -c1 * 4.0 / vs13.r_powi(4));
-        // gradGradLsq = 6 I
-        let mut h = hess;
-        for i in 0..3 {
-            h[i][i] += 6.0 / vstab;
-        }
-        // − twoSymm(gradLsq ⊗ gradVstab / sqrVstab)
-        let gl_gv = outer(grad_lsq, grad_vstab.scale(1.0 / sqr_vstab));
+        let grad_grad_stab = tsub(tdiv(gvgv, stab), tdiv(tmul(v * v, gvgv), stab.r_powf(3.0)));
+        // C*(gradGradStab/Vs13) - C1*4.*(gradVs*gradVs)/pow(Vs13, 4)
+        let grad_grad_vstab = tsub(tmul(c23, tdiv(grad_grad_stab, vs13)), tdiv(tmul(c1 * 4.0, outer(grad_vs, grad_vs)), vs13.r_powf(4.0)));
+        // gradGradLsq/Vstab (gradGradLsq = 6 I)
+        let mut t1: Mat3 = [[0.0; 3]; 3];
         for i in 0..3 {
             for j in 0..3 {
-                h[i][j] -= gl_gv[i][j] + gl_gv[j][i];
+                t1[i][j] = (if i == j { 6.0 } else { 0.0 }) / vstab;
             }
         }
-        h = madd(h, grad_grad_vstab, -lsq / sqr_vstab);
-        h = madd(h, outer(grad_vstab, grad_vstab), 2.0 * lsq / (sqr_vstab * vstab));
-        hess = h;
+        // twoSymm(gradLsq*(gradVstab/sqrVstab))
+        let gl_gv = outer(grad_lsq, grad_vstab.div(sqr_vstab));
+        let mut t2: Mat3 = [[0.0; 3]; 3];
+        for i in 0..3 {
+            for j in 0..3 {
+                t2[i][j] = if i == j { 2.0 * gl_gv[i][i] } else { gl_gv[i][j] + gl_gv[j][i] };
+            }
+        }
+        // LSqrTri*gradGradVstab/sqrVstab
+        let t3 = tdiv(tmul(lsq, grad_grad_vstab), sqr_vstab);
+        // 2.0*LSqrTri*(gradVstab*gradVstab)/(sqrVstab*Vstab)
+        let t4 = tdiv(tmul(2.0 * lsq, outer(grad_vstab, grad_vstab)), sqr_vstab * vstab);
+        let expr = tsub(tsub(t1, t2), t3);
+        for i in 0..3 {
+            for j in 0..3 {
+                hess[i][j] += expr[i][j] + t4[i][j];
+            }
+        }
     }
     Some((grad, hess))
 }
@@ -886,10 +1004,12 @@ pub(crate) fn volume_optimizer(pts: &mut [Vec3], tets: &[[usize; 4]], free: usiz
             for t in tets {
                 let [a, b, c, d] = t.map(|v| pts[v]);
                 if tet_volume(a, b, c, d) < SMALL {
-                    let n = b.sub(a).cross(c.sub(a));
+                    // `triangle(a, b, c).normal()` is the area vector `0.5*((b - a)^(c - a))`;
+                    // `disp += 0.01*(n/d)` (gh:#1385 round 4: the port scaled the doubled vector by 0.01/m)
+                    let n = b.sub(a).cross(c.sub(a)).scale(0.5);
                     let m = n.length();
                     if m > VSMALL {
-                        disp = disp.add(n.scale(0.01 / m));
+                        disp = disp.add(n.div(m).scale(0.01));
                     }
                 }
             }
@@ -904,7 +1024,7 @@ pub(crate) fn volume_optimizer(pts: &mut [Vec3], tets: &[[usize; 4]], free: usiz
         pts[free] = copy_p;
     }
     for p in pts.iter_mut() {
-        *p = p.scale(1.0 / scale);
+        *p = p.div(scale);
     }
 }
 
@@ -922,7 +1042,7 @@ pub(crate) fn knupp_metric(pts: &mut [Vec3], tets: &[[usize; 4]], free: usize) {
         let d = n.length();
         if d > VSMALL {
             centres.push(a.add(b).add(c).scale(1.0 / 3.0));
-            normals.push(n.scale(1.0 / d));
+            normals.push(n.div(d));
         }
     }
     let mut beta = 0.01 * hi.sub(lo).length();
@@ -1025,7 +1145,7 @@ fn boundary_volume_non_shrinking(pts: &mut [Vec3], tets: &[[usize; 4]], c: usize
     for (a, b) in simplex_boundary_edges(tets) {
         let (pa, pb) = (pts[a], pts[b]);
         let n = pb.sub(pa).cross(orig.sub(pa)).scale(0.5);
-        let n = n.scale(1.0 / (n.length() + VSMALL));
+        let n = n.div(n.length() + VSMALL);
         xx += n.x * n.x;
         xy += n.x * n.y;
         xz += n.x * n.z;
@@ -1036,7 +1156,7 @@ fn boundary_volume_non_shrinking(pts: &mut [Vec3], tets: &[[usize; 4]], c: usize
     let nt = SymmTensor::new(xx, xy, xz, yy, yz, zz);
     let ev = eigen_values_symm(nt);
     let mut disp = pts[c].sub(orig);
-    let unit = |v: Vec3| v.scale(1.0 / (v.length() + VSMALL));
+    let unit = |v: Vec3| v.div(v.length() + VSMALL);
     if ev.z.abs() > ev.y.abs() + ev.x.abs() {
         // ordinary surface vertex
         let e = eigen_vectors_symm_with(nt, ev).row_z();
@@ -1067,7 +1187,7 @@ fn boundary_surface_laplace(pts: &mut [Vec3], tets: &[[usize; 4]], c: usize) -> 
         new_p = new_p.add(pts[a].add(pts[b]).add(pts[c]).scale(1.0 / 3.0));
         counter += 1;
     }
-    (counter != 0).then(|| new_p.scale(1.0 / counter as f64))
+    (counter != 0).then(|| new_p.div(counter as f64))
 }
 
 /// cfMesh's checks on the faces flagged `active`; returns the faces failing.
@@ -1076,89 +1196,33 @@ fn boundary_surface_laplace(pts: &mut [Vec3], tets: &[[usize; 4]], c: usize) -> 
 /// `findBadFaces` (pyramids, flatness 0.8, cell-part tetrahedra, areas) or,
 /// with `relaxed`, `findBadFacesRelaxed` (pyramids and areas only).
 fn flag_faces(mesh: &VolumeMesh, active: &[bool], mode: CheckMode) -> Vec<bool> {
-    let (_, centres) = cell_geometry(mesh);
+    use crate::poly_mesh_gen_checks as c;
+    // gh:#1385 round 3: cfMesh's own checks on the polyMeshGen addressing's
+    // face centres, face areas and cell centres (`pmg_geometry`), not this
+    // module's vertex-average approximations
+    let g = crate::checks::pmg_geometry(mesh);
+    let a = Some(active);
     let mut bad = vec![false; mesh.face_count()];
-    let cos65 = 65.0f64.to_radians().r_cos();
-    for f in 0..mesh.face_count() {
-        if !active[f] {
-            continue;
+    let mut or = |flags: Vec<bool>| {
+        for (b, f) in bad.iter_mut().zip(flags) {
+            *b |= f;
         }
-        let s = mesh.face_area_vector(f);
-        let fc = mesh.face_centroid(f);
-        let co = centres[mesh.owner[f]];
-        let ring = &mesh.faces[f];
-        let k = ring.len();
-        let mut b = false;
-        if mode == CheckMode::LowQuality {
-            if let Some(n) = mesh.neighbour[f] {
-                // checkFaceDotProduct: internal faces.
-                let d = centres[n].sub(co);
-                let dots = d.dot(s) / (d.length() * s.length() + VSMALL);
-                if dots < cos65 {
-                    b = true;
-                }
-                // checkFaceSkewness (cfMesh's): internal.
-                let cn = centres[n];
-                let d_own = fc.sub(co).length();
-                let d_nei = fc.sub(cn).length();
-                let x = co.scale(d_nei / (d_own + d_nei)).add(cn.scale(d_own / (d_own + d_nei)));
-                if fc.sub(x).length() / (cn.sub(co).length() + VSMALL) > 2.0 {
-                    b = true;
-                }
-            } else {
-                let d = fc.sub(co);
-                let m = s.length();
-                if m > VSMALL {
-                    let n = s.scale(1.0 / m);
-                    let dn = n.scale(n.dot(d));
-                    if d.sub(dn).length() / (d.length() + VSMALL) > 2.0 {
-                        b = true;
-                    }
-                }
-            }
-        } else {
-            // checkFacePyramids(VSMALL)
-            if fc.sub(co).dot(s) / 3.0 < VSMALL {
-                b = true;
-            }
-            if let Some(n) = mesh.neighbour[f] {
-                if centres[n].sub(fc).dot(s) / 3.0 < VSMALL {
-                    b = true;
-                }
-            }
-            // checkFaceAreas(VSMALL)
-            if s.length() < VSMALL {
-                b = true;
-            }
-            if mode == CheckMode::Bad {
-                // checkFaceFlatness(0.8)
-                if k > 3 && s.length() > VSMALL {
-                    let mut sum_a = 0.0;
-                    for i in 0..k {
-                        let p = mesh.points[ring[i]];
-                        let q = mesh.points[ring[(i + 1) % k]];
-                        sum_a += q.sub(p).cross(fc.sub(p)).length() * 0.5;
-                    }
-                    if s.length() / (sum_a + VSMALL) < 0.8 {
-                        b = true;
-                    }
-                }
-                // checkCellPartTetrahedra(VSMALL)
-                for i in 0..k {
-                    let p = mesh.points[ring[i]];
-                    let q = mesh.points[ring[(i + 1) % k]];
-                    if tet_volume(fc, q, p, co) < VSMALL {
-                        b = true;
-                    }
-                    if let Some(n) = mesh.neighbour[f] {
-                        if tet_volume(fc, p, q, centres[n]) < VSMALL {
-                            b = true;
-                        }
-                    }
-                }
-            }
+    };
+    match mode {
+        CheckMode::Bad => {
+            or(c::check_face_pyramids_g(mesh, &g, VSMALL, a).1);
+            or(c::check_face_flatness_g(mesh, &g, 0.8, a).1);
+            or(c::check_cell_part_tetrahedra_g(mesh, &g, VSMALL, a).1);
+            or(c::check_face_areas_g(mesh, &g, VSMALL, a).1);
         }
-        bad[f] = b;
+        CheckMode::Relaxed => {
+            or(c::check_face_pyramids_g(mesh, &g, VSMALL, a).1);
+            or(c::check_face_areas_g(mesh, &g, VSMALL, a).1);
+        }
+        CheckMode::LowQuality => {
+            or(c::check_face_dot_product_g(mesh, &g, 65.0, a).1);
+            or(c::check_face_skewness_g(mesh, &g, 2.0, a).1);
+        }
     }
     bad
 }
@@ -1225,23 +1289,48 @@ pub struct OptimiserReport {
     pub seconds_smooth: f64,
 }
 
-/// A clock for the profile (gh:#1241): `std::time::Instant` natively;
+/// A clock for the profile (gh:#1241): `crate::time::Instant` natively;
 /// wasm32-unknown-unknown has none, so the times there are NaN.
 #[cfg(not(target_arch = "wasm32"))]
-fn stamp() -> Option<std::time::Instant> {
-    Some(std::time::Instant::now())
+fn stamp() -> Option<crate::time::Instant> {
+    Some(crate::time::Instant::now())
 }
 #[cfg(target_arch = "wasm32")]
 fn stamp() -> Option<()> {
     None
 }
 #[cfg(not(target_arch = "wasm32"))]
-fn since(t: Option<std::time::Instant>) -> f64 {
+fn since(t: Option<crate::time::Instant>) -> f64 {
     t.map_or(f64::NAN, |t| t.elapsed().as_secs_f64())
 }
 #[cfg(target_arch = "wasm32")]
 fn since(_t: Option<()>) -> f64 {
     f64::NAN
+}
+
+/// With `GH1385_TRACE` set, print the flagged faces as upstream's instrumented
+/// `optimizeMeshFV.C` does (`BADF <tag> <iteration> <n>: <labels>`, gh:#1385).
+fn trace_bad(tag: &str, iter: usize, bad: &[bool]) {
+    if crate::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    let labels: Vec<String> = bad.iter().enumerate().filter(|(_, &b)| b).map(|(f, _)| f.to_string()).collect();
+    #[cfg(feature = "std")]
+    eprintln!("BADF {tag} {iter} {}: {}", labels.len(), labels.join(" "));
+}
+
+/// With `GH1385_TRACE` set, print a part tet mesh's nodes as upstream's
+/// instrumented `optimizeMeshFV.C` does (`TN <tag> <node> <x> <y> <z>`).
+fn trace_tet(tag: &str, tm: &PartTetMesh) {
+    if crate::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    #[cfg(feature = "std")]
+    eprintln!("TETMESH {tag} nodes {} tets {}", tm.points.len(), tm.tets.len());
+    for (i, p) in tm.points.iter().enumerate() {
+        #[cfg(feature = "std")]
+        eprintln!("TN {tag} {i} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+    }
 }
 
 /// `meshOptimizer::optimizeLowQualityFaces(maxNumIterations)`: repeatedly
@@ -1257,6 +1346,7 @@ pub fn optimize_low_quality_faces(mesh: &mut VolumeMesh, locked: &[bool], max_it
     for it in 0..max_iterations {
         let t = stamp();
         let low = flag_faces(mesh, &changed, CheckMode::LowQuality);
+        trace_bad("lowq", it, &low);
         rep.seconds_check += since(t);
         let n_bad = low.iter().filter(|&&b| b).count();
         if it == 0 {
@@ -1272,7 +1362,9 @@ pub fn optimize_low_quality_faces(mesh: &mut VolumeMesh, locked: &[bool], max_it
         rep.seconds_build += since(t);
         rep.nodes_smoothed += tm.n_smooth_nodes();
         let t = stamp();
+        trace_tet("lq_in", &tm);
         tm.optimise_using_volume_optimizer(10);
+        trace_tet("lq_vopt", &tm);
         rep.seconds_smooth += since(t);
         changed = tm.update_orig(mesh, &pc, &cf);
     }
@@ -1325,6 +1417,28 @@ pub fn untangle_mesh_fv_bounded(
     untangle_mesh_fv_with(mesh, locked, &c)
 }
 
+/// How `untangleMeshFV`'s boundary loop calls `tetMeshOptimisation::
+/// optimiseBoundaryVolumeOptimizer` (gh:#1385 round 5).
+///
+/// Upstream declares `optimiseBoundaryVolumeOptimizer(const label nIterations
+/// = 3, const bool nonShrinking = false)` and calls it as
+/// `optimiseBoundaryVolumeOptimizer(true)` while `nGlobalIter < 2` and
+/// `optimiseBoundaryVolumeOptimizer(false)` from `nGlobalIter >= 5`. In C++ the
+/// boolean binds to `nIterations`: the first call is **one** unconstrained
+/// iteration (not a non-shrinking one) and the last is **zero** iterations.
+/// The comments beside upstream's calls describe the intent, not the code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BoundaryMoveCalls {
+    /// The calls as the C++ binds them: `(1, false)` below 2 global
+    /// iterations, nothing from 5 (default; follows upstream).
+    #[default]
+    Upstream,
+    /// The calls as upstream's comments describe them: three iterations,
+    /// `nonShrinking` true below 2 and false from 5 (this port before
+    /// gh:#1385 round 5; kept callable for the differential).
+    AsDocumented,
+}
+
 /// The arguments of `meshOptimizer::untangleMeshFV`, and this port's
 /// switches beside them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1345,7 +1459,9 @@ pub struct UntangleControls {
     /// Run upstream's boundary loop between global iterations (gh:#1255):
     /// `optimiseBoundaryVolumeOptimizer(true)` while `nGlobalIter < 2`,
     /// `optimiseBoundarySurfaceLaplace` while `< 5`, then
-    /// `optimiseBoundaryVolumeOptimizer(false)`, on the cells around the bad
+    /// `optimiseBoundaryVolumeOptimizer(false)` (~~read as `nonShrinking`, three
+    /// iterations~~ **CORRECTED 2026-11-13, gh:#1385 round 5:** the `bool` binds to
+    /// `nIterations`; see [`BoundaryMoveCalls`]), on the cells around the bad
     /// faces (no extra layer), up to `max_surface_iterations` passes. `false`
     /// is this port's behaviour before gh:#1255 (boundary points never
     /// move) and keeps every recorded result; upstream always runs it.
@@ -1354,12 +1470,15 @@ pub struct UntangleControls {
     /// optimiser (`tmo.optimiseUsingMeshUntangler()`, gh:#1260). `false`
     /// is this port's behaviour before gh:#1260; upstream always runs it.
     pub mesh_untangler: bool,
+    /// How the boundary loop calls `optimiseBoundaryVolumeOptimizer`, see
+    /// [`BoundaryMoveCalls`]. Used only with [`Self::boundary_moves`].
+    pub boundary_calls: BoundaryMoveCalls,
 }
 
 impl Default for UntangleControls {
     /// Upstream's defaults, with this port's switches off.
     fn default() -> Self {
-        UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, relaxed: false, stop_on_stall: false, boundary_moves: false, mesh_untangler: false }
+        UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, relaxed: false, stop_on_stall: false, boundary_moves: false, mesh_untangler: false, boundary_calls: BoundaryMoveCalls::Upstream }
     }
 }
 
@@ -1425,6 +1544,7 @@ fn untangle_impl<P: FnMut(&mut VolumeMesh, &[bool])>(mesh: &mut VolumeMesh, lock
             let bad = flag_faces(mesh, &changed, mode);
             rep.seconds_check += since(t);
             n_bad = bad.iter().filter(|&&b| b).count();
+            trace_bad("untangle", n_iter, &bad);
             if first {
                 rep.flagged_before = n_bad;
                 first = false;
@@ -1442,11 +1562,15 @@ fn untangle_impl<P: FnMut(&mut VolumeMesh, &[bool])>(mesh: &mut VolumeMesh, lock
             rep.seconds_build += since(t);
             rep.nodes_smoothed += tm.n_smooth_nodes();
             let t = stamp();
+            trace_tet("in", &tm);
             tm.optimise_using_knupp_metric(5);
+            trace_tet("knupp", &tm);
             if c.mesh_untangler {
                 tm.optimise_using_mesh_untangler(5);
             }
+            trace_tet("untangler", &tm);
             tm.optimise_using_volume_optimizer(10);
+            trace_tet("vopt", &tm);
             rep.seconds_smooth += since(t);
             changed = tm.update_orig(mesh, &pc, &cf);
             rep.iterations += 1;
@@ -1481,15 +1605,21 @@ fn untangle_impl<P: FnMut(&mut VolumeMesh, &[bool])>(mesh: &mut VolumeMesh, lock
                 rep.seconds_build += since(t);
                 rep.boundary_nodes_smoothed += tm.n_boundary_nodes();
                 let t = stamp();
+                // upstream's calls pass a `bool` where the first parameter is
+                // `nIterations` (see `BoundaryMoveCalls`)
+                let (iters_a, non_shrinking_a, iters_c) = match c.boundary_calls {
+                    BoundaryMoveCalls::Upstream => (1, false, 0),
+                    BoundaryMoveCalls::AsDocumented => (3, true, 3),
+                };
                 if n_global < 2 {
-                    // the point stays in the plane determined by the point normal
-                    tm.optimise_boundary_volume_optimizer(3, true);
+                    // upstream's comment: the point stays in the plane determined by the point normal
+                    tm.optimise_boundary_volume_optimizer(iters_a, non_shrinking_a);
                 } else if n_global < 5 {
                     // move points without any constraints on the movement
                     tm.optimise_boundary_surface_laplace(3);
                 } else {
-                    // move boundary points without any constraints
-                    tm.optimise_boundary_volume_optimizer(3, false);
+                    // upstream's comment: move boundary points without any constraints
+                    tm.optimise_boundary_volume_optimizer(iters_c, false);
                 }
                 rep.seconds_smooth += since(t);
                 let before = mesh.points.clone();
@@ -1553,15 +1683,37 @@ pub fn optimize_surface(
     rep
 }
 
+/// [`optimize_surface`] with the searches through the octree, as upstream's
+/// `meshOptimizer::optimizeSurface(octree)` (gh:#1385): the surface optimiser
+/// and the mapper both take it.
+pub fn optimize_surface_octree(
+    mesh: &mut VolumeMesh,
+    o: &crate::mesh_octree::MeshOctree,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &crate::patches::SurfaceRegions,
+    face_region: &[Option<usize>],
+) -> crate::surface_optimizer::UntangleReport {
+    let rep = crate::surface_optimizer::optimise_mesh_surface_octree(mesh, o, points, tris, regions, face_region);
+    *mesh = crate::surface_mapper::map_vertices_onto_surface_patches_given_octree(mesh, o, points, tris, regions, face_region);
+    rep
+}
+
 /// `polyMeshGenChecks::checkFaceDotProduct(mesh, values, changedFacePtr)`:
 /// `d · S / (|d| |S| + VSMALL)` on the active internal faces, 1 elsewhere.
 pub fn face_dot_products(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
-    let (_, centres) = cell_geometry(mesh);
+    face_dot_products_g(mesh, &crate::checks::pmg_geometry(mesh), active)
+}
+
+/// [`face_dot_products`] on a precomputed [`crate::checks::PmgGeometry`]:
+/// `(d & s)/(mag(d)*mag(s) + VSMALL)` with the addressing's cell centres and
+/// face areas.
+pub(crate) fn face_dot_products_g(mesh: &VolumeMesh, g: &crate::checks::PmgGeometry, active: &[bool]) -> Vec<f64> {
     (0..mesh.face_count())
         .map(|f| match mesh.neighbour[f] {
             Some(n) if active[f] => {
-                let d = centres[n].sub(centres[mesh.owner[f]]);
-                let s = mesh.face_area_vector(f);
+                let d = g.cell_centres[n].sub(g.cell_centres[mesh.owner[f]]);
+                let s = g.face_areas[f];
                 d.dot(s) / (d.length() * s.length() + VSMALL)
             }
             _ => 1.0,
@@ -1576,30 +1728,37 @@ pub fn face_dot_products(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
 /// test `changedFacePtr` there), the tangential part of centre-to-face over
 /// its length; 0 elsewhere.
 pub fn face_skewness(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
-    let (_, centres) = cell_geometry(mesh);
+    face_skewness_g(mesh, &crate::checks::pmg_geometry(mesh), active)
+}
+
+/// [`face_skewness`] on a precomputed [`crate::checks::PmgGeometry`], in
+/// upstream's operation order: `centres[own]*dNei/(dOwn + dNei) +
+/// centres[nei]*dOwn/(dOwn + dNei)` is `((c*d)/s) + ((c*d)/s)`; the boundary
+/// normal is `face::normal` (`areaNormal`), divided by its magnitude.
+pub(crate) fn face_skewness_g(mesh: &VolumeMesh, g: &crate::checks::PmgGeometry, active: &[bool]) -> Vec<f64> {
     (0..mesh.face_count())
         .map(|f| {
-            let fc = mesh.face_centroid(f);
-            let co = centres[mesh.owner[f]];
+            let fc = g.face_centres[f];
+            let co = g.cell_centres[mesh.owner[f]];
             match mesh.neighbour[f] {
                 Some(n) => {
                     if !active[f] {
                         return 0.0;
                     }
-                    let cn = centres[n];
+                    let cn = g.cell_centres[n];
                     let d_own = fc.sub(co).length();
                     let d_nei = fc.sub(cn).length();
-                    let x = co.scale(d_nei / (d_own + d_nei)).add(cn.scale(d_own / (d_own + d_nei)));
+                    let x = co.scale(d_nei).div(d_own + d_nei).add(cn.scale(d_own).div(d_own + d_nei));
                     fc.sub(x).length() / (cn.sub(co).length() + VSMALL)
                 }
                 None => {
                     let d = fc.sub(co);
-                    let s = mesh.face_area_vector(f);
+                    let s = crate::surface_engine::ring_area_vector(&mesh.points, &mesh.faces[f]);
                     let m = s.length();
                     if m <= VSMALL {
                         return 0.0;
                     }
-                    let nrm = s.scale(1.0 / m);
+                    let nrm = s.div(m);
                     let dn = nrm.scale(nrm.dot(d));
                     d.sub(dn).length() / (d.length() + VSMALL)
                 }
@@ -1737,8 +1896,10 @@ fn point_points(mesh: &VolumeMesh) -> Vec<Vec<usize>> {
 ///   volumes) of the start of each iteration (`updateMeshGeometry` runs
 ///   after it), so the points of one iteration do not see each other.
 ///
-/// Centres are this crate's ([`crate::checks::cell_geometry`]), not
-/// OpenFOAM's area-weighted ones (module docs). Not
+/// ~~Centres are this crate's ([`crate::checks::cell_geometry`]), not
+/// OpenFOAM's area-weighted ones (module docs).~~ **CORRECTED 2026-11-11
+/// (gh:#1385):** cell centres are cfMesh's (`foam_cell_centres_and_vols`).
+/// Not
 /// [`crate::smooth::laplacian_smooth`] (Freitag's smart Laplacian): this is
 /// cfMesh's plain one, which may invert a cell; `optimizeMeshFV` untangles
 /// after it.
@@ -1759,14 +1920,14 @@ pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_po
                     for &q in &pp[p] {
                         new_p = new_p.add(mesh.points[q]);
                     }
-                    mesh.points[p] = new_p.scale(1.0 / pp[p].len() as f64);
+                    mesh.points[p] = new_p.div(pp[p].len() as f64);
                 }
             }
         }
         LaplaceKind::PointCells | LaplaceKind::WeightedPointCells => {
             let pc = point_cells(mesh);
             for _ in 0..n_iterations {
-                let (vols, centres) = cell_geometry(mesh);
+                let (vols, centres) = crate::checks::foam_cell_centres_and_vols(mesh);
                 for &p in smooth_points {
                     if !unlocked(p) || pc[p].is_empty() {
                         continue;
@@ -1776,7 +1937,7 @@ pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_po
                         for &c in &pc[p] {
                             new_p = new_p.add(centres[c]);
                         }
-                        new_p = new_p.scale(1.0 / pc[p].len() as f64);
+                        new_p = new_p.div(pc[p].len() as f64);
                     } else {
                         let mut sum_w = 0.0;
                         for &c in &pc[p] {
@@ -1784,7 +1945,7 @@ pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_po
                             new_p = new_p.add(centres[c].scale(w));
                             sum_w += w;
                         }
-                        new_p = new_p.scale(1.0 / sum_w);
+                        new_p = new_p.div(sum_w);
                     }
                     mesh.points[p] = new_p;
                 }
@@ -1936,6 +2097,7 @@ impl MeshOptimizer {
     /// then [`Self::untangle_mesh_fv`].
     pub fn optimize_mesh_fv(&self, mesh: &mut VolumeMesh, num_laplace_iterations: usize, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
         self.optimize_laplacian(mesh, LaplaceKind::PointCells, num_laplace_iterations);
+        crate::pipeline::cartesian_mesh::trace_points("fv_lap", mesh);
         self.untangle_mesh_fv(mesh, controls)
     }
 
@@ -2055,6 +2217,7 @@ pub struct ConstraintViolation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::checks::cell_geometry;
     use crate::cartesian::cartesian_box;
     use crate::checks::check_quality;
 
@@ -2237,6 +2400,7 @@ mod tests {
         let bad_a = find_bad_faces(&a);
         let left_a = count(&bad_a);
         let at_bnd_a = (0..a.face_count()).filter(|&f| bad_a[f] && a.faces[f].iter().any(|&p| on_bnd[p])).count();
+        #[cfg(feature = "std")]
         println!("(A) interior only: {bad0} -> {left_a} bad faces ({at_bnd_a} with a boundary point); {ra:?}");
         assert!(left_a >= 1, "interior moves alone should not repair the dent");
         // Second half of (A) MISSED (2026-11-05, folded fixture): 3 -> 8 bad
@@ -2246,8 +2410,11 @@ mod tests {
 
         // (B) one global iteration's non-shrinking boundary moves.
         let mut b = m0.clone();
-        let cb = UntangleControls { max_global_iterations: 2, boundary_moves: true, ..UntangleControls::default() };
+        // gh:#1385 round 5: the non-shrinking call is what upstream's comments
+        // describe; the default now follows the C++ (`BoundaryMoveCalls::Upstream`)
+        let cb = UntangleControls { max_global_iterations: 2, boundary_moves: true, boundary_calls: BoundaryMoveCalls::AsDocumented, ..UntangleControls::default() };
         let rb = untangle_mesh_fv_with(&mut b, &locked, &cb);
+        #[cfg(feature = "std")]
         println!("(B) 2 global, non-shrinking: {bad0} -> {} bad faces; {rb:?}", count(&find_bad_faces(&b)));
         assert!(rb.surface_iterations >= 1, "the boundary loop ran");
         let mut worst = 0.0f64;
@@ -2263,14 +2430,26 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!("(B) largest departure of a flat-side point from its plane: {worst:.3e}");
         assert!(worst <= 1e-12, "{worst}");
+
+        // (B') the same with upstream's calls as the C++ binds them (one
+        // unconstrained iteration): the loop runs, and its moves are not held
+        // to the plane (measured below, printed)
+        let mut b2 = m0.clone();
+        let cb2 = UntangleControls { max_global_iterations: 2, boundary_moves: true, ..UntangleControls::default() };
+        let rb2 = untangle_mesh_fv_with(&mut b2, &locked, &cb2);
+        #[cfg(feature = "std")]
+        println!("(B') 2 global, upstream calls (1 iteration, unconstrained): {bad0} -> {} bad faces; {rb2:?}", count(&find_bad_faces(&b2)));
+        assert!(rb2.surface_iterations >= 1, "the boundary loop ran with upstream's calls");
 
         // (C) upstream's defaults with the boundary loop.
         let mut c = m0.clone();
         let cc = UntangleControls { boundary_moves: true, ..UntangleControls::default() };
         let rc = untangle_mesh_fv_with(&mut c, &locked, &cc);
         let left_c = count(&find_bad_faces(&c));
+        #[cfg(feature = "std")]
         println!("(C) 10 global with boundary moves: {bad0} -> {left_c} bad faces; dent at {:?}; {rc:?}", c.points[dent]);
         assert_eq!(left_c, 0, "{rc:?}");
         for p in 0..m0.points.len() {
@@ -2319,6 +2498,7 @@ mod tests {
         let before = m.clone();
         let r = optimize_mesh_near_boundaries(&mut m, &locked, 2, 2);
         let back = m.points[near].sub(m0.points[near]).length();
+        #[cfg(feature = "std")]
         println!("near-wall point: 0.3 h -> {:.4} h; {r:?}", back / h);
         assert!(back < 0.15 * h, "{}", back / h);
         assert_eq!(m.points[centre], before.points[centre]);
@@ -2358,6 +2538,7 @@ mod tests {
         let (d0, s0) = (face_dot_products(&m0, &all), face_skewness(&m0, &all));
         for t in [0.0, 0.1, 0.5, 1.0] {
             let w = find_worst_quality_faces(&m0, &all, t);
+            #[cfg(feature = "std")]
             println!("unperturbed box, threshold {t}: {} faces selected", count(&w));
             for f in 0..m0.face_count() {
                 if w[f] {
@@ -2381,12 +2562,14 @@ mod tests {
                 assert!(pc[c].contains(&o) || m.neighbour[f].is_some_and(|n| pc[c].contains(&n)), "face {f}");
             }
         }
+        #[cfg(feature = "std")]
         println!("selected {} faces", count(&worst));
         let q0 = check_quality(&m).max_non_orthogonality_deg;
         let locked = vec![false; m.points.len()];
         let before = m.clone();
         let r = optimize_mesh_fv_best_quality(&mut m, &locked, 50, 0.1);
         let q = check_quality(&m).max_non_orthogonality_deg;
+        #[cfg(feature = "std")]
         println!("max non-orthogonality {q0:.3} -> {q:.3} deg; {r:?}");
         assert!(q < q0);
         for f in m.n_internal_faces()..m.face_count() {
@@ -2422,21 +2605,26 @@ mod tests {
             let mut m = m0.clone();
             opt.optimize_laplacian(&mut m, kind, 5);
             let worst = m.points.iter().zip(&m0.points).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+            #[cfg(feature = "std")]
             println!("{kind:?}: uniform box, largest move after 5 passes {worst:.2e}");
             assert!(worst <= 1e-12, "{kind:?} {worst}");
         }
         let mut m = m0.clone();
         let c = m.points.iter().position(|p| p.sub(Vec3::new(0.5, 0.5, 0.5)).length() < 1e-12).unwrap();
         m.points[c] = m.points[c].add(Vec3::new(0.075, 0.0, 0.0));
-        let (_, centres) = cell_geometry(&m);
+        // gh:#1385: the centres are cfMesh's `makeCellCentresAndVols` (the
+        // earlier expectation used `cell_geometry`, a different pyramid
+        // decomposition whose centre differs by 1.3e-5 on this mesh).
+        let (_, centres) = crate::checks::foam_cell_centres_and_vols(&m);
         let pc = point_cells(&m);
         let mut expect = Vec3::ZERO;
         for &cl in &pc[c] {
             expect = expect.add(centres[cl]);
         }
-        let expect = expect.scale(1.0 / pc[c].len() as f64);
+        let expect = expect.div(pc[c].len() as f64);
         let before = m.clone();
         opt.optimize_laplacian(&mut m, LaplaceKind::PointCells, 1);
+        #[cfg(feature = "std")]
         println!("one pass: x {} -> {} (expected {})", before.points[c].x, m.points[c].x, expect.x);
         assert_eq!(m.points[c], expect);
         let moved = (0..m.points.len()).filter(|&p| m.points[p] != before.points[p]).count();
@@ -2478,6 +2666,7 @@ mod tests {
         let mut m = m0.clone();
         let controls = UntangleControls { boundary_moves: true, ..UntangleControls::default() };
         let r = opt.optimize_mesh_fv(&mut m, 5, &controls).expect("no constraint enforced");
+        #[cfg(feature = "std")]
         println!("optimize_mesh_fv with one locked cell: {r:?}");
         for &p in &locked {
             assert_eq!(m.points[p], m0.points[p]);
@@ -2490,6 +2679,7 @@ mod tests {
         opt.set_enforce_constraints("badPoints");
         let mut m = m0.clone();
         let err = opt.untangle_mesh_fv(&mut m, &controls).expect_err("the dent needs a boundary move");
+        #[cfg(feature = "std")]
         println!("enforced: {} points in '{}'; {:?}", err.points.len(), err.subset_name, err.report);
         assert!(err.points.contains(&dent));
         for f in m.n_internal_faces()..m.face_count() {
@@ -2528,10 +2718,10 @@ mod tests {
         let q0 = check_quality(&m0);
         let opt = MeshOptimizer::new(&m0);
         let mut a = m0.clone();
-        let t = std::time::Instant::now();
+        let t = crate::time::Instant::now();
         opt.optimize_laplacian(&mut a, LaplaceKind::PointCells, 5);
         let ta = t.elapsed().as_secs_f64();
-        let t = std::time::Instant::now();
+        let t = crate::time::Instant::now();
         let b = crate::smooth::laplacian_smooth(&m0, 5);
         let tb = t.elapsed().as_secs_f64();
         let disp = |m: &VolumeMesh| {
@@ -2541,9 +2731,13 @@ mod tests {
         };
         let (qa, qb) = (check_quality(&a), check_quality(&b));
         let (da, db) = (disp(&a), disp(&b));
+        #[cfg(feature = "std")]
         println!("graded sphere: {} cells, {} inside points", m0.n_cells, opt.vertex_location.iter().filter(|&&v| v & vertex_type::INSIDE != 0).count());
+        #[cfg(feature = "std")]
         println!("unsmoothed:      NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}", q0.max_non_orthogonality_deg, q0.max_skewness, q0.n_negative_volume_cells, count(&find_bad_faces(&m0)));
+        #[cfg(feature = "std")]
         println!("laplacianPC x5:  NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {ta:.2} s", qa.max_non_orthogonality_deg, qa.max_skewness, qa.n_negative_volume_cells, count(&find_bad_faces(&a)), da.0, da.1);
+        #[cfg(feature = "std")]
         println!("smart Laplace x5: NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {tb:.2} s", qb.max_non_orthogonality_deg, qb.max_skewness, qb.n_negative_volume_cells, count(&find_bad_faces(&b)), db.0, db.1);
     }
 
@@ -2608,6 +2802,7 @@ mod tests {
             let mut v = p0.clone();
             volume_optimizer(&mut v, &tets, 6, 1e-5);
             let (mk, ml, mv) = (min_vol(&k, &tets), min_vol(&l, &tets), min_vol(&v, &tets));
+            #[cfg(feature = "std")]
             println!(
                 "star (jitter {jitter}): {inv0} inverted at start; Knupp -> {:?} min V {mk:.4}; LP -> {:?} min V {ml:.4}; volume optimiser -> {:?} min V {mv:.4}",
                 k[6], l[6], v[6]
@@ -2630,6 +2825,58 @@ mod tests {
     /// smoothers cannot); the runs differ in point positions (the LP pass
     /// moves the nodes of inverted tetrahedra first); each is
     /// deterministic.
+    /// gh:#1284: `optimiseUsingKnuppMetric` makes **one pass**, whatever
+    /// `nIterations` is (upstream's repair loop never counts, so its
+    /// `if (nNegative == 0) return;` is always taken). Methodology: a
+    /// 4 × 4 × 4 box with three interior points pushed through their
+    /// neighbours (inverted tetrahedra), the tet mesh around every face;
+    /// `optimise_using_knupp_metric` with 1, 5 and 50 iterations from the
+    /// same start. Predictions (written 2026-11-05, before the run): the
+    /// three give the same points to the bit; inverted tetrahedra are left
+    /// after the pass (so the case is one where the pre-gh:#1284 counting
+    /// loop would have gone on to a second pass); the pass moved points.
+    #[test]
+    fn knupp_metric_makes_one_pass_as_upstream() {
+        // Three interior points pushed through their neighbours was the case
+        // until gh:#1385 round 3; with the part tet mesh on cfMesh's centres
+        // one pass repairs it, so it no longer shows the one-pass rule. The
+        // candidates push more points; the first that leaves inverted
+        // tetrahedra after one pass is used (the test asserts one exists).
+        let pushes = [((0.5, 0.5, 0.5), (0.5, 0.5, 0.95)), ((0.25, 0.25, 0.25), (0.7, 0.25, 0.25)), ((0.75, 0.75, 0.25), (0.75, 0.2, 0.25)), ((0.25, 0.75, 0.75), (0.25, 0.2, 0.75)), ((0.75, 0.25, 0.75), (0.2, 0.25, 0.75)), ((0.5, 0.25, 0.5), (0.5, 0.9, 0.5)), ((0.5, 0.75, 0.25), (0.5, 0.1, 0.25))];
+        let mut chosen = None;
+        for n_push in 3..=pushes.len() {
+            let mut m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
+            for &(from, to) in &pushes[..n_push] {
+                let p = m.points.iter().position(|q| q.sub(Vec3::new(from.0, from.1, from.2)).length() < 1e-12).unwrap();
+                m.points[p] = Vec3::new(to.0, to.1, to.2);
+            }
+            let locked = vec![false; m.points.len()];
+            let all = vec![true; m.face_count()];
+            let start = PartTetMesh::around_faces(&m, &locked, &all, 0);
+            let mut one = start.clone();
+            one.optimise_using_knupp_metric(1);
+            if start.n_inverted_tets() > 0 && one.n_inverted_tets() > 0 {
+                chosen = Some(start);
+                break;
+            }
+        }
+        let start = chosen.expect("a case with inverted tetrahedra left after one Knupp pass");
+        let before = start.n_inverted_tets();
+        let mut runs = Vec::new();
+        for n in [1usize, 5, 50] {
+            let mut tm = start.clone();
+            tm.optimise_using_knupp_metric(n);
+            runs.push((n, tm.n_inverted_tets(), tm.points.clone()));
+        }
+        #[cfg(feature = "std")]
+        println!("inverted tets: {before} before, after one call with n = 1 / 5 / 50: {:?}", runs.iter().map(|r| r.1).collect::<Vec<_>>());
+        assert!(before > 0, "the case has inverted tetrahedra");
+        assert!(runs[0].2 != start.points, "the pass moved points");
+        assert!(runs[0].1 > 0, "inverted tetrahedra left after the pass: a counting loop would go on");
+        assert_eq!(runs[0].2, runs[1].2, "n = 5 is one pass");
+        assert_eq!(runs[0].2, runs[2].2, "n = 50 is one pass");
+    }
+
     #[test]
     fn untangle_with_and_without_the_lp_untangler() {
         let (m0, _) = dented_box();
@@ -2638,10 +2885,11 @@ mod tests {
         for lpu in [false, true] {
             let c = UntangleControls { boundary_moves: true, mesh_untangler: lpu, ..UntangleControls::default() };
             let mut m = m0.clone();
-            let t = std::time::Instant::now();
+            let t = crate::time::Instant::now();
             let r = untangle_mesh_fv_with(&mut m, &locked, &c);
             let secs = t.elapsed().as_secs_f64();
             let left = count(&find_bad_faces(&m));
+            #[cfg(feature = "std")]
             println!("LP untangler {lpu}: {} -> {left} bad faces, {} passes, {} global, {secs:.2} s", r.flagged_before, r.iterations, r.global_iterations);
             assert_eq!(left, 0);
             let mut m2 = m0.clone();
@@ -2649,6 +2897,7 @@ mod tests {
             assert_eq!(m2.points, m.points);
             res.push(m.points);
         }
+        #[cfg(feature = "std")]
         println!("positions differ: {}", res[0] != res[1]);
     }
 

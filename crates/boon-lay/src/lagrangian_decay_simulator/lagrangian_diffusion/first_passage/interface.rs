@@ -40,6 +40,9 @@
 //! Kr at 1000–1600 °C (Cs: 120 at 1000 °C, 440 at 1600 °C), measured with
 //! `examples/layer_diffusion_table.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::rng::lcg::prn;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::DiffusionCoefficient;

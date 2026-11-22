@@ -46,6 +46,9 @@
 //! Only container semantics and MATLAB built-ins. Physics belongs in the module
 //! named after the `.m` file it came from.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Column-major 2-D array — the translation's stand-in for a MATLAB matrix.
 ///
 /// Indices are **0-based**. Element `(i, j)` lives at linear offset
@@ -791,7 +794,7 @@ impl Decomposition {
 }
 
 /// The sparse backend every [`Decomposition::new`] uses: 0 = faer, 1 = ported.
-static SPARSE_BACKEND: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static SPARSE_BACKEND: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
 
 /// Choose the sparse LU behind [`Decomposition`], process-wide.
 ///
@@ -808,14 +811,19 @@ pub fn set_sparse_backend(backend: petir::sparse::SparseBackend) {
         petir::sparse::SparseBackend::Ported => 1,
         _ => 0,
     };
-    SPARSE_BACKEND.store(v, std::sync::atomic::Ordering::Relaxed);
+    SPARSE_BACKEND.store(v, core::sync::atomic::Ordering::Relaxed);
 }
 
 /// The sparse backend [`Decomposition::new`] currently uses.
 pub fn sparse_backend() -> petir::sparse::SparseBackend {
-    match SPARSE_BACKEND.load(std::sync::atomic::Ordering::Relaxed) {
+    match SPARSE_BACKEND.load(core::sync::atomic::Ordering::Relaxed) {
         1 => petir::sparse::SparseBackend::Ported,
+        // faer is a backend only with `std` (gh:#1588); without it the port is
+        // the only one.
+        #[cfg(feature = "std")]
         _ => petir::sparse::SparseBackend::Faer,
+        #[cfg(not(feature = "std"))]
+        _ => petir::sparse::SparseBackend::Ported,
     }
 }
 
@@ -840,6 +848,8 @@ pub fn min_abs_finite(v: &[f64]) -> Option<f64> {
 mod tests {
     use super::*;
 
+    // Faer is a backend only with `std` (gh:#1588).
+    #[cfg(feature = "std")]
     #[test]
     fn the_sparse_backend_is_faer_by_default_and_the_port_on_request() {
         use petir::sparse::SparseBackend;

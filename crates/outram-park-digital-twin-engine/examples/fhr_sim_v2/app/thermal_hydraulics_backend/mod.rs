@@ -1857,9 +1857,15 @@ mod steam_generator_pinch_at_the_nominal_operating_point {
             // not print a scary backtrace in an otherwise passing test.
             let previous_hook = std::panic::take_hook();
             std::panic::set_hook(Box::new(|_| {}));
-            let flashed = std::panic::catch_unwind(|| {
-                ph_flash_eqm::t_ph_eqm(feedwater.pressure, outlet_enthalpy).get::<degree_celsius>()
-            });
+            // AssertUnwindSafe: uom quantities carry a `PhantomData<dyn
+            // Dimension>`, which is not `RefUnwindSafe`, so the bare closure
+            // does not compile (gh:#1113). It is sound here: the closure
+            // reads two `Copy` values and calls a pure flash, and nothing it
+            // touches is observed after a panic.
+            let feed_pressure = feedwater.pressure;
+            let flashed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+                ph_flash_eqm::t_ph_eqm(feed_pressure, outlet_enthalpy).get::<degree_celsius>()
+            }));
             std::panic::set_hook(previous_hook);
             match flashed {
                 Ok(steam_outlet_degc) => {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 
 //! Quick checks of the gh:#849 cells, by sampling the ASSEMBLED geometry.
@@ -20,6 +20,9 @@
 //! Printed with `--nocapture`; recorded in
 //! `verification_and_validation/htr10_mgxs_cells/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::htr10_rmc::core_model::mat;
@@ -79,6 +82,7 @@ fn sample(c: &Htr10Cell, n: usize) -> (usize, f64, f64, f64) {
 fn within(label: &str, got: f64, want: f64, n: usize) {
     let sigma = (want * (1.0 - want) / n as f64).sqrt().max(1e-12);
     let z = (got - want) / sigma;
+    #[cfg(feature = "std")]
     println!("{label}: sampled {got:.5}, expected {want:.5} ({z:+.2} sigma)");
     assert!(z.abs() < 4.0, "{label}: {got} vs {want} is {z:.2} sigma");
 }
@@ -90,7 +94,7 @@ fn single_pebble_holds_the_core_pebble_at_simple_cubic_packing() {
     assert_eq!(c.volume_cm3, 216.0);
     let (n, ball, kernel, kernel_want) = sample(&c, 200_000);
     assert_eq!(n, 200_000, "every point of the cube is inside the cell");
-    within("single pebble ball fraction", ball, std::f64::consts::PI / 6.0, n);
+    within("single pebble ball fraction", ball, core::f64::consts::PI / 6.0, n);
     within("single pebble kernel fraction", kernel, kernel_want, n);
 }
 
@@ -107,6 +111,7 @@ fn seker_clusters_hold_seker_packing_and_the_core_fuel_rule() {
         let n_balls = c.fuel_balls + c.dummy_balls;
         // The core's low-discrepancy rule: floor(n f) of n balls are fuel.
         assert_eq!(c.fuel_balls, (n_balls as f64 * 0.57).floor() as usize, "rings {rings}");
+        #[cfg(feature = "std")]
         println!(
             "rings {rings}: {} balls with a piece inside ({} fuel, {} dummy)",
             n_balls, c.fuel_balls, c.dummy_balls

@@ -37,6 +37,9 @@
 
 /// this is the boundary eqn ps3 for the critical temp
 /// isotherm between region 4 and 3
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boundary_eqn_ps3;
 pub use boundary_eqn_ps3::*;
 

@@ -1,6 +1,6 @@
 [package]
 name = "sembawang"
-version = "0.0.2"
+version = "0.0.3"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -42,7 +42,25 @@ backronym = "Severe-accident Evolution and Melt Behaviour Analysis Workbench for
 # switch to the containment network (gh:#1099), whose 26-30 h plant runs take
 # about 20 min each.
 [features]
-default = ["long-tests"]
+default = ["std", "long-tests"]
+# `no_std` + `alloc` without `std` (gh:#1641, epic gh:#1637). `std` carries
+# ~~the OpenMC decay-data source (`openmc-endf-8-depletion-lib-a`/`-b`, read
+# through `serde-xml-rs`, no `no_std` build) and the code that loads it,~~
+# (CHANGED 2026-11-22: lib-a/-b 1.1.0 are no_std, so the decay data and
+# `fp_decay`'s summation are always on) fixture files, the wall clock, environment switches, printing, and `std`
+# in every dependency.
+std = [
+    "thiserror-nostd/std",
+    "boon-lay/std",
+    "changi/std",
+    "buangkok/std",
+    "outram-mc-libs/std",
+    "tampines-steam-tables/std",
+    "tampines/std",
+    "teh-o-prke/std",
+    "outram-park-fork-offbeat/std",
+    "tuas_boussinesq_solver/std",
+]
 long-tests = []
 
 [dependencies]
@@ -101,8 +119,60 @@ fission-yields-data           = { workspace = true }
 # thiserror), wasm in-scope, already built by dhoby-ghaut; no cycle.
 tuas_boussinesq_solver = { workspace = true }
 uom       = { workspace = true }
-thiserror = { workspace = true }
+thiserror-nostd = { workspace = true }
+hashbrown = { workspace = true }
+spin = { workspace = true }
 
 [dev-dependencies]
 # Reads boon-lay's upstream code-to-code probes (tests/nuclide_names_code_to_code.rs).
 serde_json = { workspace = true }
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "bwr_mark1_ensemble"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "bwr_mark1_sensitivity"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "containment_network_geometry"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_air_ingress_human_audited_example"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_air_ingress_kora_bound"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_dlofc_dose"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_dlofc_panama_source_term"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "lwr_nureg1465_counterpart"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "npmhtgr_chain"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "npmhtgr_release"
+required-features = ["std"]

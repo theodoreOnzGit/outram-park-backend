@@ -191,7 +191,8 @@ places copies of the lattice on a bigger grid. LCT-008 is three levels deep:
           → inside a vacuum cylinder r < 76.200 cm, |z| < 81.662 cm
 
 (The numbers are the committed `mit-crpg/benchmarks` cards, parsed at run
-time, `examples/common/lct008_model.rs`; described in the module doc of
+time, `outram_mc_libs::vv::lct008` (in `examples/common/lct008_model.rs` until
+2026-11-17); described in the module doc of
 `examples/lct008_keff.rs`.)
 
 **Formula.** Finding which lattice element contains a point is integer
@@ -215,7 +216,7 @@ beside it.
 (`Geometry::locate` descending through the levels).
 
 **Measured check (verification).** `check_geometry` in
-`common/lct008_model.rs` compares `Geometry::locate` with an independent
+`vv::lct008` (was `common/lct008_model.rs`) compares `Geometry::locate` with an independent
 hand-written tile-index predicate at 200 000 random points and requires
 exact agreement, and proves that the two row conventions give exact
 y-mirror images (50 000 points), so k cannot depend on that choice. Volume

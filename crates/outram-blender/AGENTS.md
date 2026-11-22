@@ -13,6 +13,19 @@ description FV (`PolyMesh`/`FvMesh`), FE (`farrer-park`) and Monte Carlo
 tallies (`MeshKind::Unstructured`) are built from; see "Meshing nexus"
 below.
 
+
+## `no_std` + `alloc`, with a default `std` feature (gh:#1604, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. `std` carries `rayon`, file
+I/O and every optional feature. Keep it that way: new code uses `core::` /
+`alloc::` paths and the `crate::nostd_prelude::*` glob (copy it from any
+module); maps come from `crate::hash` (std's with `std`, `hashbrown`'s
+without, so no public generic gains an `Ord` bound); a `rayon` import is
+`#[cfg(all(feature = "std", not(target_arch = "wasm32")))]` with the
+`crate::wasm_par` stand-in on the other branch; anything touching a file is
+`#[cfg(feature = "std")]`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -222,6 +235,29 @@ Rules that follow:
   geometry (HARD RULE above).
 - The code is an OpenMC port (MIT): keep each file's provenance header; see
   `NOTICE` and `LICENSE.openmc`.
+
+## EGSnrc geometry goes in `outram_blender::egsnrc` (maintainer, 2026-11-20, gh:#976)
+
+If the egs++ geometry library (`HEN_HOUSE/egs++/geometry`, ~37.6k lines of
+C++, 28 types) is ported, it lives here in a module named `egsnrc`. It must not
+be mixed into `csg`, which is the OpenMC port. Each port's upstream stays
+readable from its path.
+
+- **Not decided yet:** whether to port egs++ or write a thin adapter that
+  answers EGSnrc's `isWhere`/`howfar`/`hownear` from `csg`. The trade-off is
+  on #976.
+- **Dispatch, if it is ported:**
+  - one enum with a variant per geometry type, in place of the 43 virtual
+    methods of `EGS_BaseGeometry`;
+  - children held by index, the way `csg` nests universes;
+  - no run-time factory;
+  - the variant list settled before any `match` on it is reviewed.
+- **This crate's rules apply as for `csg`:**
+  - never depend on `outram-mc-libs` (or `punggol`);
+  - draw the geometry;
+  - provenance header on each ported file (EGSnrc, file, commit, NRC
+    copyright, AGPL-3.0);
+  - EGSnrc source is never vendored.
 
 ## Meshing nexus (GitHub #492, 2026-10-03)
 

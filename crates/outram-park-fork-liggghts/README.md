@@ -19,6 +19,24 @@ LIGGGHTS/LAMMPS — see NOTICE for the licensing flag.
 > provenance. LAMMPS-proper headers are version-unspecified (murkier) — treat
 > those with care. Phase 1 is clean-room from public DEM literature regardless.
 
+## `no_std` + `alloc` (gh:#1602)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-liggghts --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The DEM itself (particles, contact
+models, walls, meshes, insertion, integration, thermal and capillary
+models, the `htr10_fill` pour) and the `gnn` bridge build without it. What
+`std` adds:
+
+- `rayon`. Without it the parallel loops run serially through `wasm_par`,
+  as on wasm, and `ThreadCount` resolves to one core.
+- the GPU path (`gpu`, `wgpu`).
+- files and printing.
+
+The root workspace entry is `default-features = false`, so a member that
+wants `std` asks for it. With `std` on (the default) nothing changes.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
@@ -45,8 +63,10 @@ than being trusted. Measured 2026-09-15, every sampled frame compared:
 | head-on collision, Hooke | 251 | **bit-identical** |
 | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
 | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
-| oblique + friction (shear history, slip, torque) | 251 | round-off (1-3 ulp) |
-| oblique, no-history — the stateless `contact`+`simulation` path | 251 | round-off (1-3 ulp) |
+| oblique + friction (shear history, slip, torque) | 251 | ~~round-off (1-3 ulp)~~ **bit-identical** (CORRECTED 2026-11-10) |
+| oblique, no-history — the stateless `contact`+`simulation` path | 251 | ~~round-off (1-3 ulp)~~ **bit-identical** (CORRECTED 2026-11-10) |
+| oblique Hooke + history + CDT rolling | 251 | **bit-identical** (2026-11-10) |
+| two atom types, head-on and oblique | 251 each | **bit-identical** (2026-11-10) |
 | bulk bed, 354 pebbles, `D/d = 6` | settled | packing fraction within **0.20 %** |
 | angle of repose, 656 pebbles, lifting cylinder | settled heap | `12.78°` vs `15.43°` |
 | **HTR-10 full core**, 27 554 pebbles, `D/d = 30` | settled | packing fraction to **4 decimals**; median pebble **61 µm** apart |

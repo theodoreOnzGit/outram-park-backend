@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-multiphase"
-version = "0.0.5"
+version = "0.0.6"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -29,6 +29,12 @@ topic = "thermal-hydraulics"
 fidelity = 3
 maturity = 1
 
+[features]
+# `std` (default, gh:#1594): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["outram-foam-basic-lib/std", "thiserror-nostd/std"]
+
 [dependencies]
 # Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
 petir = { workspace = true }
@@ -37,11 +43,13 @@ petir = { workspace = true }
 # (FvMesh, VolScalarField, fvc/fvm operators) is reused from the Layer-1-4
 # crate — pure-Rust LU/LDU, no system BLAS, so this crate stays Android-buildable.
 uom.workspace = true
-thiserror.workspace = true
-outram-foam-basic-lib.workspace = true
+thiserror-nostd.workspace = true
+outram-foam-basic-lib = { workspace = true }
 
 [dev-dependencies]
 approx.workspace = true
+# gh:#1367: inflates the committed gzipped upstream reference outputs.
+miniz_oxide = { workspace = true }
 
 [lib]
 name = "outram_foam_multiphase"

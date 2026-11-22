@@ -8,6 +8,9 @@
 //! `diffuse_reflect` (white boundary) and the virtual-lattice helpers
 //! `sphere_centre_radius` / `overlaps_voxel`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_blender::csg::surface::*;
 
 pub use super::crossing::SurfaceKindExt;

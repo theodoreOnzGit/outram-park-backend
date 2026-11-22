@@ -1,0 +1,23 @@
+=== V&V gate: H-in-H2O S(alpha,beta) kernel vs committed NJOY2016 oracle ===
+     1.5000e-3  <E'>/E ours   7.31208  NJOY   7.30495   +0.10 %  (sampling 1 sigma 0.15 %)
+     5.0000e-3  <E'>/E ours   2.51043  NJOY   2.51021   +0.01 %  (sampling 1 sigma 0.12 %)
+     1.0000e-2  <E'>/E ours   1.66686  NJOY   1.66643   +0.03 %  (sampling 1 sigma 0.08 %)
+     2.5300e-2  <E'>/E ours   1.19411  NJOY   1.19386   +0.02 %  (sampling 1 sigma 0.05 %)
+     5.0000e-2  <E'>/E ours   1.01097  NJOY   1.01044   +0.05 %  (sampling 1 sigma 0.03 %)
+     1.1157e-1  <E'>/E ours   0.80092  NJOY   0.80017   +0.09 %  (sampling 1 sigma 0.03 %)
+     2.0000e-1  <E'>/E ours   0.71386  NJOY   0.71383   +0.00 %  (sampling 1 sigma 0.03 %)
+     4.1704e-1  <E'>/E ours   0.64250  NJOY   0.64228   +0.03 %  (sampling 1 sigma 0.04 %)
+     6.2500e-1  <E'>/E ours   0.60488  NJOY   0.60511   -0.04 %  (sampling 1 sigma 0.04 %)
+      1.0500e0  <E'>/E ours   0.56606  NJOY   0.56593   +0.02 %  (sampling 1 sigma 0.04 %)
+      1.8550e0  <E'>/E ours   0.53910  NJOY   0.53926   -0.03 %  (sampling 1 sigma 0.04 %)
+  worst sampling 1 sigma across the table: 0.15 %
+  [PASS] H(H2O) MF=6/MT=222 kernel <E'>/E vs NJOY THERMR: 11/11 points compared, worst +0.098 % at 1.5000e-3 (envelope ±1.500 %)
+  [PASS] the sign structure is intact: under-gain below 0.11157 eV, under-loss above it (a too-narrow kernel, not a scale error)
+
+thread 'main' (19956) panicked at crates/outram-mc-libs/examples/h2o_kernel_vs_njoy_thermr.rs:498:5:
+the kernel deviation at 0.0015 eV is 0.10 % against a sampling 1 sigma of 0.15 % -- under 5 sigma, so this run cannot distinguish the recorded defect (#188) from scatter. Either the sample count has dropped or the defect has been fixed; find out which before touching this gate.
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: h2o_kernel_vs_njoy_thermr::main
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.

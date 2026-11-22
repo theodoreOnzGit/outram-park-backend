@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // Monte Carlo setup/run driver over `outram-mc-libs`. Contains no transport
@@ -8,16 +8,15 @@
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Monte Carlo **simulation setup + run** — the backend the **MC Studio** egui
@@ -74,10 +73,13 @@
 //! println!("k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::blender_bridge::to_mc_geometry;
 use outram_blender::export::ExportError;
 use outram_blender::mesh::Mesh;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -144,8 +146,8 @@ pub enum SimError {
     Export(ExportError),
 }
 
-impl std::fmt::Display for SimError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for SimError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SimError::Nuclide(m) => {
                 write!(f, "nuclide not available in the CORE data library: {m}")
@@ -156,7 +158,7 @@ impl std::fmt::Display for SimError {
         }
     }
 }
-impl std::error::Error for SimError {}
+impl core::error::Error for SimError {}
 
 impl From<ExportError> for SimError {
     fn from(e: ExportError) -> Self {
@@ -304,6 +306,23 @@ pub fn csg_from_mesh(mesh: &Mesh, material_idx: usize) -> Result<SimGeometry, Si
     if let Some(cell) = geometry.cells.first_mut() {
         cell.fill = CellFill::Material(material_idx);
     }
+    // The exported body is the WHOLE model: nothing lies outside its surfaces, so
+    // they are vacuum boundaries. The export tags them Transmissive (it cannot
+    // know), and since gh:#699 a particle leaving through a Transmissive surface
+    // into no cell is a LOST particle (OpenMC `mark_as_lost`) that aborts the run
+    // past the lost-particle limit, instead of the silent leak it used to be.
+    for surface in &mut geometry.surfaces {
+        use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind};
+        match surface {
+            SurfaceKind::XPlane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::YPlane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::ZPlane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::Plane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::Sphere(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::ZCylinder(x) => x.bc = BoundaryType::Vacuum,
+            _ => {}
+        }
+    }
 
     // Source box = the mesh's bounding box (a fissile body sits inside it).
     let verts = mesh.positions();
@@ -343,7 +362,7 @@ pub fn cell_flux_tally(cell_indices: Vec<usize>) -> Tally {
         name: "cell flux".into(),
         filters: vec![filter],
         scores,
-        bins: vec![TallyBin::default(); n_bins],
+        bins: vec![TallyBin::default(); n_bins], derivative: None,
     }
 }
 

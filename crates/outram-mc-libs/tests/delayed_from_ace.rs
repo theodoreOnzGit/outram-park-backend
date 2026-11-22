@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Delayed neutrons on the ACE route, against the ENDF route** — GitHub #307
 //! item 1.
@@ -20,6 +20,8 @@
 //! # Results, 2026-09-25
 //!
 //! Printed by the tests.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::acer::read;
 use njoy_outram_park_fork::endf::tape::Tape;

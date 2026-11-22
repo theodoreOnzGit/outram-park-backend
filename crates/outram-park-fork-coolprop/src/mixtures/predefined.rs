@@ -13,6 +13,9 @@
 //!
 //! Molar composition (mole fractions), not mass fractions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{Mixture, MixtureError};
 use crate::fluid::Fluid;
 

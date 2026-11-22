@@ -42,6 +42,9 @@
 //! squared-exponential covariance, the log-likelihood, the log prior and the
 //! predictive distribution of (δ, η) at new x.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::data::{pairwise_sum, KohData};
 use crate::bayesian::transitional::cholesky;

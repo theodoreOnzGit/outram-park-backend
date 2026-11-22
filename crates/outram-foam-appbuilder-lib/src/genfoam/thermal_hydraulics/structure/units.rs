@@ -30,6 +30,9 @@
 
 // Re-export the fluid-coupling aliases so the structure vocabulary is complete
 // in one module.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use super::super::units::{HeatFlux, HeatTransferCoefficient};
 
 /// Volumetric power (heat-source) density `q'''` — **base SI: W / m^3**.

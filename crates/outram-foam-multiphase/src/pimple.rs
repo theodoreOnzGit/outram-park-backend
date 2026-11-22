@@ -121,6 +121,9 @@
 //!
 //! [`DriftFluxMixture`]: crate::drift_flux::DriftFluxMixture
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::drift_flux::DriftFlux;
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
@@ -128,7 +131,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, PatchField, SolverSettings, SurfaceScalarField, Vector3, VolScalarField,
     VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Dynamic (mechanical) pressure field `p` `[Pa]`, defined up to an additive
 /// constant. Carried as a [`VolScalarField`]; this alias documents the physical

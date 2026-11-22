@@ -30,6 +30,9 @@
 //! tabulated rows to produce a usable line — this module deliberately does
 //! not do that; it is a reference-data lookup, not a computation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod wagner_kretzschmar_2019;
 
 use uom::si::available_energy::kilojoule_per_kilogram;

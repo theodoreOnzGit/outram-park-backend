@@ -44,7 +44,10 @@
 //! Positions/lengths are dimensionless model-space quantities (see
 //! [`crate::math`]).
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -239,7 +242,7 @@ pub fn separate_loose_parts(object: &SceneObject) -> Vec<SceneObject> {
             }
         }
     }
-    use std::collections::BTreeMap;
+    use alloc::collections::BTreeMap;
     let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for v in 0..n {
         let r = find(&mut parent, v);
@@ -249,7 +252,7 @@ pub fn separate_loose_parts(object: &SceneObject) -> Vec<SceneObject> {
     groups
         .values()
         .filter_map(|verts| {
-            let remap: std::collections::HashMap<usize, usize> =
+            let remap: crate::hash::HashMap<usize, usize> =
                 verts.iter().enumerate().map(|(i, &v)| (v, i)).collect();
             let sub_pos: Vec<Vec3> = verts.iter().map(|&v| positions[v]).collect();
             let sub_faces: Vec<Vec<usize>> = polys

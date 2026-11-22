@@ -11,6 +11,9 @@
 //! plotting paths are **not** ported, so [`run`] returns
 //! [`NjoyError::NotPorted`] rather than fabricating a table.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dtfr::input::DtfrInput;
 use crate::NjoyError;
 

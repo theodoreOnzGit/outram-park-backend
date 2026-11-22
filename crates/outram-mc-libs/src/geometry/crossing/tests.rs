@@ -2,6 +2,9 @@
 //! reflections and the GitHub #168 shell regression. Moved with that code
 //! from the former `geometry/geometry.rs` on 2026-10-02 (GitHub #486).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
 use crate::geometry::geometry::{Crossing, Geometry};
@@ -332,7 +335,7 @@ fn reflective_concentric_shells_do_not_leak() {
             bins: edges.clone(),
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     };
     let mut leak = vec![TallyBin::default(); edges.len() - 1];
     let settings = KeffSettings {
@@ -353,6 +356,7 @@ fn reflective_concentric_shells_do_not_leak() {
         .map(|b| b.mean(settings.n_active as u64))
         .sum::<f64>()
         / settings.n_particles as f64;
+    #[cfg(feature = "std")]
     eprintln!(
         "[GH #168] concentric shells: k_eff = {:.5} +/- {:.5}, leakage = {leaked:.3e}",
         res.k_mean, res.k_std

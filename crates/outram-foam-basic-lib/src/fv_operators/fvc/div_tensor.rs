@@ -22,6 +22,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::interpolate;
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
@@ -82,7 +85,7 @@ pub fn div_tensor(sigma: &VolTensorField) -> VolVectorField {
     VolVectorField::new(
         crate::fv_operators::naming::derived_name("div", &sigma.name),
         sigma.mesh.clone(),
-        Field::from_fn(mesh.n_cells, |c| d[c] * (1.0 / mesh.cell_volumes[c])),
+        Field::from_fn(mesh.n_cells, |c| d[c] / mesh.cell_volumes[c]), // gh:#1362: upstream `surfaceIntegrate` divides by V (was `* (1/V)`)
         boundary,
     )
 }
@@ -126,7 +129,7 @@ pub fn div_symm_tensor(sigma: &VolSymmTensorField) -> VolVectorField {
     VolVectorField::new(
         crate::fv_operators::naming::derived_name("div", &sigma.name),
         sigma.mesh.clone(),
-        Field::from_fn(mesh.n_cells, |c| d[c] * (1.0 / mesh.cell_volumes[c])),
+        Field::from_fn(mesh.n_cells, |c| d[c] / mesh.cell_volumes[c]), // gh:#1362: upstream `surfaceIntegrate` divides by V (was `* (1/V)`)
         boundary,
     )
 }
@@ -137,7 +140,7 @@ mod tests {
     use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::{SymmTensor, Vector3};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// 1-D two-cell mesh (see `grad_vec` tests for geometry).
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {

@@ -3,6 +3,9 @@
 
 // IAPWS-IF97 Region 1 backward-equation coefficients (I_i, J_i, n_i) for
 // T(p,h) (Table 6); local copy of `super::REGION_1_BACK_COEFFS_PH`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const REGION_1_BACK_COEFFS_PH: [[f64; 3]; 20] = [
     [0.0, 0.0, -0.23872489924521e+3],
     [0.0, 1.0, 0.40421188637945e+3],

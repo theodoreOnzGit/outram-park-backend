@@ -24,11 +24,11 @@
 //! For tallies, the drivers accumulate running sums and keep no per-batch
 //! history, so a correlated `σ` needs the per-batch realisations recorded by
 //! the caller. [`TallyBatchRecorder`] does that by differencing a
-//! [`Tally`](crate::tally::tally::Tally)'s bin sums between batches. **No
-//! driver exposes a per-batch hook yet**, so today it serves a caller that
-//! steps batches itself; wiring a report-only hook into the drivers is a
-//! follow-up (filed against #495), not done here, because it would touch the
-//! drivers' inner loop.
+//! [`Tally`](crate::tally::tally::Tally)'s bin sums between batches.
+//! ~~**No driver exposes a per-batch hook yet**~~ **CORRECTED 2026-11-14
+//! (GitHub #506):** the CSG eigenvalue drivers and the fixed-source driver
+//! take an optional [`TallyBatchLog`] in their settings, and
+//! [`TallyBatchRecorder::from_log`] turns it into the same series.
 //!
 //! # V&V gate (from #495, fixed in advance)
 //!
@@ -44,6 +44,9 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/495_correlated_sigma.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::physics::keff::KeffResult;
 use crate::tally::tally::Tally;
 use raffles::estimators::autocorrelation::CorrelatedMean;
@@ -179,6 +182,89 @@ impl TallyBatchRecorder {
     }
 }
 
+/// **A report-only log of each active batch's tally bin sums** (GitHub #506).
+///
+/// A cloneable handle to shared storage (`Arc<RwLock<..>>`, the workspace's
+/// shared-state rule). Put one on
+/// [`KeffSettings::tally_batch_log`](crate::physics::keff::KeffSettings::tally_batch_log)
+/// or `FixedSourceSettings::tally_batch_log` and keep a clone: the driver
+/// appends the flat per-batch accumulator of the attached `Tally` (one value
+/// per bin, exactly what `flush_batch` is about to add to that bin's `sum`)
+/// before flushing it. The log is read-only to transport: scoring draws no
+/// random number and nothing here is read back, so a run with a log is the
+/// run without one, bit for bit (`tests/tally_batch_log_506.rs`).
+///
+/// Only drivers that take a `tally` argument record (`run_keff_csg_seq*`,
+/// `run_keff_csg_par*` and what routes to them, `run_fixed_source*`);
+/// `ExtraScoring` tallies of the stepped `CsgPowerIteration` do not.
+#[derive(Debug, Clone, Default)]
+pub struct TallyBatchLog {
+    batches: alloc::sync::Arc<crate::sync::RwLock<Vec<Vec<f64>>>>,
+}
+
+impl TallyBatchLog {
+    /// An empty log.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Append one batch (one value per tally bin). Called by the drivers.
+    pub fn push(&self, batch: &[f64]) {
+        self.batches
+            .write()
+            .unwrap_or_else(crate::sync::PoisonError::into_inner)
+            .push(batch.to_vec());
+    }
+
+    /// Number of batches recorded so far.
+    pub fn len(&self) -> usize {
+        self.batches
+            .read()
+            .unwrap_or_else(crate::sync::PoisonError::into_inner)
+            .len()
+    }
+
+    /// Whether no batch has been recorded.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The batches in order, `[batch][bin]`.
+    pub fn batches(&self) -> Vec<Vec<f64>> {
+        self.batches
+            .read()
+            .unwrap_or_else(crate::sync::PoisonError::into_inner)
+            .clone()
+    }
+}
+
+impl TallyBatchRecorder {
+    /// A recorder holding every batch of `log`, as if [`Self::record`] had
+    /// been called after each one. `n_bins` is the tally's bin count; a batch
+    /// of another length is an error.
+    ///
+    /// # Errors
+    ///
+    /// A logged batch whose length is not `n_bins`.
+    pub fn from_log(log: &TallyBatchLog, n_bins: usize) -> Result<Self, String> {
+        let mut series = vec![Vec::new(); n_bins];
+        let mut previous = vec![0.0; n_bins];
+        for (b, batch) in log.batches().iter().enumerate() {
+            if batch.len() != n_bins {
+                return Err(format!(
+                    "batch {b} has {} bins, expected {n_bins}",
+                    batch.len()
+                ));
+            }
+            for (i, v) in batch.iter().enumerate() {
+                series[i].push(*v);
+                previous[i] += *v;
+            }
+        }
+        Ok(Self { previous, series })
+    }
+}
+
 /// Corrected uncertainty of any per-batch series a caller already has (a
 /// tally bin, a leakage, a derived quantity) — the series route when no
 /// [`Tally`] is involved.
@@ -221,7 +307,7 @@ mod tests {
             name: "t".into(),
             filters: Vec::new(),
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default()],
+            bins: vec![TallyBin::default()], derivative: None,
         };
         let mut rec = TallyBatchRecorder::new(&t);
         for v in [1.0, 2.0, 4.0] {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // HTR-10 DLOFC case — provenance
 // ------------------------------
@@ -118,6 +118,9 @@
 //! time-dependent failure fraction threaded through the release chain is the
 //! obvious next step and is **not done here**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use boon_lay::fuel_failure::history::{AccidentHistory, AccidentStep};
 use boon_lay::fuel_failure::htr10 as panama_htr10;
@@ -1039,6 +1042,7 @@ mod tests {
             windows.push(vented);
         }
         let first = totals[0];
+        #[cfg(feature = "std")]
         println!("arm totals {totals:?}; largest PANAMA contribution {panama_share:.4e} Bq");
         for (i, t) in totals.iter().enumerate() {
             assert_eq!(windows[i], windows[0], "arm {i} vents a different window");

@@ -31,6 +31,9 @@
 //! by a write→read round-trip (see the module tests), not against PFLOTRAN gold
 //! files.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use hdf5_pure::{AttrValue, File, FileBuilder};
 
 use crate::error::PflotranError;

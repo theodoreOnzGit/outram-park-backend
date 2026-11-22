@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
 /// validation using the compact integral effects test (CIET) experimental
 /// data (No. ANL/NSE-19/11). Argonne National
@@ -57,7 +60,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
     use uom::si::{f64::*, power::watt};
 
     use crate::tuas_lib_error::TuasLibError;
-    use std::thread;
+    use crate::thread;
     use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
 
@@ -754,6 +757,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
                 // tchx outlet temperature
                 // current sim time
                 // and tchx heat trf coeff
+                #[cfg(feature = "std")]
                 dbg!(&(
                     input_power,
                     tchx_outlet_temperature,
@@ -772,6 +776,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
             .pipe_shell
             .try_get_bulk_temperature()
             .unwrap();
+        #[cfg(feature = "std")]
         dbg!(&(
             test_name,
             input_power,

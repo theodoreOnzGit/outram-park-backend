@@ -303,7 +303,7 @@ fn expansion_moment_filters() {
         name: "axial Legendre flux".into(),
         filters: vec![FilterKind::SpatialLegendre(filter)],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n_moments],
+        bins: vec![TallyBin::default(); n_moments], derivative: None,
     };
 
     let settings = KeffSettings {

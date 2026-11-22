@@ -2,6 +2,9 @@
 //!
 //! Ported from the read path of `contio`/`lineio`/`a11` in NJOY2016 `endf.f90`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::NjoyError;
 
@@ -27,6 +30,18 @@ use crate::NjoyError;
 /// ```
 pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
     let s = s.trim();
+    // **CHANGED 2026-11-11 (gh:#1369, test 01 / ENDF/B-V tape 511):** a blank
+    // inside a numeric field is ignored, as a Fortran formatted `read` does
+    // (BN mode). ENDF/B-V writes `1.00000- 5` for 1e-5; the exponent `- 5`
+    // used to fail to parse and the field silently became 0.0, which made
+    // HEATR's photon-yield scan on C-nat loop forever.
+    let compact;
+    let s = if s.contains(' ') {
+        compact = s.replace(' ', "");
+        compact.as_str()
+    } else {
+        s
+    };
     if s.is_empty() {
         return Ok(0.0);
     }
@@ -73,12 +88,15 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             };
             match exponent.parse::<i32>() {
                 Ok(e) => {
-                    let mut buf = [0u8; 40];
-                    let mut w = std::io::Cursor::new(&mut buf[..]);
-                    use std::io::Write;
+                    // The same 40 bytes, written through `core::fmt` rather
+                    // than `std::io::Cursor` so it builds without `std`
+                    // (gh:#1592); the text written, and so the parse, is
+                    // unchanged.
+                    let mut w = FixedBuf { buf: [0u8; 40], len: 0 };
+                    use core::fmt::Write;
                     if write!(w, "{mantissa}e{e}").is_ok() {
-                        let n = w.position() as usize;
-                        std::str::from_utf8(&buf[..n])
+                        let n = w.len;
+                        core::str::from_utf8(&w.buf[..n])
                             .ok()
                             .and_then(|t| t.parse::<f64>().ok())
                     } else {
@@ -320,13 +338,21 @@ pub struct RawLine {
 /// Columns 71–72 are `MF`.
 /// Columns 73–75 are `MT`.
 /// Columns 76–80 are the sequence number (ignored).
+///
+/// Columns are **characters**, not bytes (since 2026-11-10, gh:#660): a
+/// non-ASCII character (an accented author name in MF=1/MT=451 text) fills
+/// one column and is read as `?`, which no numeric field accepts, so a text
+/// field still reads as `0.0` exactly as it does for ASCII text. Before, the
+/// 80-byte copy and byte slicing panicked when a multibyte character
+/// straddled a field boundary. ASCII lines parse exactly as before.
 pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
-    // Pad to 80 chars so slicing is always in-bounds
+    // Pad to 80 columns so slicing is always in-bounds; one byte per column,
+    // all ASCII, so the byte slices below are always on char boundaries.
     let mut buf = [b' '; 80];
-    let bytes = line.as_bytes();
-    let copy_len = bytes.len().min(80);
-    buf[..copy_len].copy_from_slice(&bytes[..copy_len]);
-    let s = std::str::from_utf8(&buf).unwrap();
+    for (slot, c) in buf.iter_mut().zip(line.chars()) {
+        *slot = if c.is_ascii() { c as u8 } else { b'?' };
+    }
+    let s = core::str::from_utf8(&buf).map_err(|e| NjoyError::EndfParse(e.to_string()))?;
 
     let mut fields = [0.0f64; 6];
     for i in 0..6 {
@@ -400,5 +426,25 @@ mod tests {
         assert!((rl.fields[1] - 3.968219).abs() < 1e-5, "{}", rl.fields[1]);
         assert_eq!(rl.fields[2] as i32, -1); // L1 = -1
         assert_eq!(rl.fields[3] as i32, 0);
+    }
+}
+
+/// A fixed 40-byte text buffer for `parse_endf_float`'s re-assembled number:
+/// `core::fmt::Write` into a stack array, so no allocation and no `std`
+/// (gh:#1592). A write past the end fails, as the `Cursor` it replaces did.
+struct FixedBuf {
+    buf: [u8; 40],
+    len: usize,
+}
+
+impl core::fmt::Write for FixedBuf {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let end = self.len + s.len();
+        if end > self.buf.len() {
+            return Err(core::fmt::Error);
+        }
+        self.buf[self.len..end].copy_from_slice(s.as_bytes());
+        self.len = end;
+        Ok(())
     }
 }

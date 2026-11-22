@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A nuclide built from NJOY2016's ACE, against the same nuclide built from
 //! the ENDF evaluation.** GitHub #270.
@@ -40,6 +40,8 @@
 //! either a reconstruction difference (our RECONR against NJOY's), a broadening
 //! difference (our BROADR against NJOY's SIGMA1), or a decode error. Each is a
 //! finding.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::acer::read;
 use njoy_outram_park_fork::reference_data::{ace_reference_file_or_skip, reference_endf};

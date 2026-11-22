@@ -1,0 +1,28 @@
+FoamFile { version 2.0; format ascii; class dictionary; object blockMeshDict; }
+convertToMeters 1;
+geometry
+{
+    cyl { type searchableCylinder; point1 (0 0 -1); point2 (0 0 3); radius 1; }
+    pl { type searchablePlane; planeType pointAndNormal; pointAndNormalDict { point (0 0 0); normal (0 0 1); } }
+}
+vertices
+(
+    project (-0.7 -0.7 0.2) (cyl pl)
+    project (0.7 -0.7 0.2) (cyl pl)
+    project (0.7 0.7 0.2) (cyl pl)
+    project (-0.7 0.7 0.2) (cyl pl)
+    project (-0.7 -0.7 1.8) (cyl)
+    project (0.7 -0.7 1.8) (cyl)
+    project (0.7 0.7 1.8) (cyl)
+    project (-0.7 0.7 1.8) (cyl)
+);
+blocks ( hex (0 1 2 3 4 5 6 7) (8 8 6) simpleGrading (1 1 1) );
+edges
+(
+    project 0 1 (cyl pl)
+    project 1 2 (cyl pl)
+    project 2 3 (cyl pl)
+    project 3 0 (cyl pl)
+);
+defaultPatch { name walls; type wall; }
+boundary ();

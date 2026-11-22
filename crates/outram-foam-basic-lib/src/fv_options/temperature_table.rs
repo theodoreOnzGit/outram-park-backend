@@ -28,8 +28,11 @@
 //! expressions, dispatched at runtime; none of that is here, and adding it
 //! would belong in its own module rather than this one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::interpolation::interpolate_xy;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// A monotone-in-temperature lookup table with linear interpolation and
 /// end-clamping.

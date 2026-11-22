@@ -10,3 +10,7 @@
 //! Solid-phase transition models.
 //!
 //! **Not yet ported.** This module is a placeholder; see bead op-6sl.
+
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;

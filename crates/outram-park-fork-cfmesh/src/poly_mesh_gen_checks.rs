@@ -72,9 +72,14 @@
 //! flags; `checkFaceVertices` and `checkClosedCells` accept a label equal to
 //! the list size (`> n`, not `>= n`).
 
-use crate::checks::cell_geometry;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::checks::{cell_geometry, pmg_geometry, PmgGeometry};
+use crate::correct_edges::foam_face_centre;
+use crate::surface_engine::ring_area_vector;
 use crate::math::Vec3;
-use crate::mesh_optimizer::{face_dot_products, face_skewness};
+use crate::mesh_optimizer::{face_dot_products_g, face_skewness_g};
 use crate::volume_mesh::VolumeMesh;
 use petir::mathf::RealMath;
 
@@ -92,7 +97,8 @@ fn is_active(active: Option<&[bool]>, f: usize) -> bool {
 }
 
 fn tet_volume(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f64 {
-    b.sub(a).cross(c.sub(a)).dot(d.sub(a)) / 6.0
+    // `tetrahedron::mag`: `(1.0/6.0)*(((b - a) ^ (c - a)) & (d - a))`
+    (1.0 / 6.0) * b.sub(a).cross(c.sub(a)).dot(d.sub(a))
 }
 
 /// OpenFOAM's `tetrahedron::circumRadius`; `GREAT` for a degenerate
@@ -194,13 +200,19 @@ pub fn check_cell_volumes(mesh: &VolumeMesh) -> (bool, Vec<bool>) {
 /// `checkFaceAreas(minFaceArea)` (default `VSMALL`): faces with |S| below
 /// it; failed when the smallest area is below `VSMALL`.
 pub fn check_face_areas(mesh: &VolumeMesh, min_face_area: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
+    check_face_areas_g(mesh, &pmg_geometry(mesh), min_face_area, active)
+}
+
+/// [`check_face_areas`] on a precomputed [`PmgGeometry`]; `faceAreas` are
+/// the addressing's (gh:#1385 round 3).
+pub(crate) fn check_face_areas_g(mesh: &VolumeMesh, g: &PmgGeometry, min_face_area: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
     let mut bad = vec![false; mesh.face_count()];
     let mut min_area = f64::MAX;
     for (f, b) in bad.iter_mut().enumerate() {
         if !is_active(active, f) {
             continue;
         }
-        let a = mesh.face_area_vector(f).length();
+        let a = g.face_areas[f].length();
         *b = a < min_face_area;
         min_area = min_area.min(a);
     }
@@ -212,9 +224,15 @@ pub fn check_face_areas(mesh: &VolumeMesh, min_face_area: f64, active: Option<&[
 /// below `SMALL`, the errors). Failed when any face is an error
 /// (`errorNonOrth`); severe faces only go in the set.
 pub fn check_face_dot_product(mesh: &VolumeMesh, non_orth_warn_deg: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
+    check_face_dot_product_g(mesh, &pmg_geometry(mesh), non_orth_warn_deg, active)
+}
+
+/// [`check_face_dot_product`] on a precomputed [`PmgGeometry`].
+pub(crate) fn check_face_dot_product_g(mesh: &VolumeMesh, g: &PmgGeometry, non_orth_warn_deg: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
     let all = vec![true; mesh.face_count()];
-    let dots = face_dot_products(mesh, active.unwrap_or(&all));
-    let threshold = (non_orth_warn_deg / 180.0 * std::f64::consts::PI).r_cos();
+    let dots = face_dot_products_g(mesh, g, active.unwrap_or(&all));
+    // `::cos(nonOrthWarn/180.0*M_PI)`
+    let threshold = (non_orth_warn_deg / 180.0 * core::f64::consts::PI).r_cos();
     let mut bad = vec![false; mesh.face_count()];
     let mut n_error = 0usize;
     for f in 0..mesh.n_internal_faces() {
@@ -234,8 +252,13 @@ pub fn check_face_dot_product(mesh: &VolumeMesh, non_orth_warn_deg: f64, active:
 /// `checkFaceSkewness(warnSkew)` (default 4): faces with cfMesh skewness
 /// ([`face_skewness`]) above it.
 pub fn check_face_skewness(mesh: &VolumeMesh, warn_skew: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
+    check_face_skewness_g(mesh, &pmg_geometry(mesh), warn_skew, active)
+}
+
+/// [`check_face_skewness`] on a precomputed [`PmgGeometry`].
+pub(crate) fn check_face_skewness_g(mesh: &VolumeMesh, g: &PmgGeometry, warn_skew: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
     let all = vec![true; mesh.face_count()];
-    let skew = face_skewness(mesh, active.unwrap_or(&all));
+    let skew = face_skewness_g(mesh, g, active.unwrap_or(&all));
     let bad: Vec<bool> = (0..mesh.face_count()).map(|f| is_active(active, f) && skew[f] > warn_skew).collect();
     (bad.iter().any(|&b| b), bad)
 }
@@ -244,19 +267,31 @@ pub fn check_face_skewness(mesh: &VolumeMesh, warn_skew: f64, active: Option<&[b
 /// `VSMALL`): the owner pyramid's volume `S·(fc − c_own)/3` must exceed
 /// `minPyrVol`, and so must the neighbour's `S·(c_nei − fc)/3`.
 pub fn check_face_pyramids(mesh: &VolumeMesh, min_pyr_vol: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
-    let (_, centres) = cell_geometry(mesh);
+    check_face_pyramids_g(mesh, &pmg_geometry(mesh), min_pyr_vol, active)
+}
+
+/// [`check_face_pyramids`] on a precomputed [`PmgGeometry`], as upstream:
+/// `pyramidPointFaceRef(face, apex).mag(points)` is
+/// `(1.0/3.0)*(face.areaNormal(points) & (apex - face.centre(points)))`
+/// with OpenFOAM's `face::areaNormal` and `face::centre`; the owner's
+/// pyramid (negative when valid) is bad above `-minPyrVol`, the neighbour's
+/// below `minPyrVol`. Apexes are the addressing's cell centres.
+pub(crate) fn check_face_pyramids_g(mesh: &VolumeMesh, g: &PmgGeometry, min_pyr_vol: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
     let mut bad = vec![false; mesh.face_count()];
     for (f, b) in bad.iter_mut().enumerate() {
         if !is_active(active, f) {
             continue;
         }
-        let s = mesh.face_area_vector(f);
-        let fc = mesh.face_centroid(f);
-        if fc.sub(centres[mesh.owner[f]]).dot(s) / 3.0 < min_pyr_vol {
+        let ring = &mesh.faces[f];
+        let area = ring_area_vector(&mesh.points, ring);
+        let fc = foam_face_centre(&mesh.points, ring);
+        let pyr_own = (1.0 / 3.0) * area.dot(g.cell_centres[mesh.owner[f]].sub(fc));
+        if pyr_own > -min_pyr_vol {
             *b = true;
         }
         if let Some(n) = mesh.neighbour[f] {
-            if centres[n].sub(fc).dot(s) / 3.0 < min_pyr_vol {
+            let pyr_nei = (1.0 / 3.0) * area.dot(g.cell_centres[n].sub(fc));
+            if pyr_nei < min_pyr_vol {
                 *b = true;
             }
         }
@@ -267,6 +302,13 @@ pub fn check_face_pyramids(mesh: &VolumeMesh, min_pyr_vol: f64, active: Option<&
 /// `checkFaceFlatness(warnFlatness)`: polygons (more than 3 points) whose
 /// |S| over the summed areas of their centre triangles is below it.
 pub fn check_face_flatness(mesh: &VolumeMesh, warn_flatness: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
+    check_face_flatness_g(mesh, &pmg_geometry(mesh), warn_flatness, active)
+}
+
+/// [`check_face_flatness`] on a precomputed [`PmgGeometry`] (upstream's
+/// `faceCentres` and `mag(faceAreas)`; the triangle area is
+/// `mag(0.5*((next - this)^(fc - this)))`).
+pub(crate) fn check_face_flatness_g(mesh: &VolumeMesh, g: &PmgGeometry, warn_flatness: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
     let mut bad = vec![false; mesh.face_count()];
     for (f, b) in bad.iter_mut().enumerate() {
         let ring = &mesh.faces[f];
@@ -274,18 +316,18 @@ pub fn check_face_flatness(mesh: &VolumeMesh, warn_flatness: f64, active: Option
         if !is_active(active, f) || k <= 3 {
             continue;
         }
-        let s = mesh.face_area_vector(f);
-        if s.length() <= VSMALL {
+        let mag_area = g.face_areas[f].length();
+        if mag_area <= VSMALL {
             continue;
         }
-        let fc = mesh.face_centroid(f);
+        let fc = g.face_centres[f];
         let mut sum_a = 0.0;
         for i in 0..k {
             let p = mesh.points[ring[i]];
             let q = mesh.points[ring[(i + 1) % k]];
-            sum_a += q.sub(p).cross(fc.sub(p)).length() * 0.5;
+            sum_a += q.sub(p).cross(fc.sub(p)).scale(0.5).length();
         }
-        if s.length() / (sum_a + VSMALL) < warn_flatness {
+        if mag_area / (sum_a + VSMALL) < warn_flatness {
             *b = true;
         }
     }
@@ -296,7 +338,12 @@ pub fn check_face_flatness(mesh: &VolumeMesh, warn_flatness: f64, active: Option
 /// triangle (edge, face centre) with each adjacent cell centre must make a
 /// tetrahedron of volume above `minPartTet`.
 pub fn check_cell_part_tetrahedra(mesh: &VolumeMesh, min_part_tet: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
-    let (_, centres) = cell_geometry(mesh);
+    check_cell_part_tetrahedra_g(mesh, &pmg_geometry(mesh), min_part_tet, active)
+}
+
+/// [`check_cell_part_tetrahedra`] on a precomputed [`PmgGeometry`].
+pub(crate) fn check_cell_part_tetrahedra_g(mesh: &VolumeMesh, g: &PmgGeometry, min_part_tet: f64, active: Option<&[bool]>) -> (bool, Vec<bool>) {
+    let centres = &g.cell_centres;
     let mut bad = vec![false; mesh.face_count()];
     for (f, b) in bad.iter_mut().enumerate() {
         if !is_active(active, f) {
@@ -304,7 +351,7 @@ pub fn check_cell_part_tetrahedra(mesh: &VolumeMesh, min_part_tet: f64, active: 
         }
         let ring = &mesh.faces[f];
         let k = ring.len();
-        let fc = mesh.face_centroid(f);
+        let fc = g.face_centres[f];
         let co = centres[mesh.owner[f]];
         for i in 0..k {
             let p = mesh.points[ring[i]];
@@ -567,7 +614,7 @@ pub fn check_volume_uniformity(mesh: &VolumeMesh, _warn_uniform: f64, _active: O
 /// (any concave face, flags, the largest such sine).
 pub fn check_face_angles(mesh: &VolumeMesh, max_deg: f64, active: Option<&[bool]>) -> (bool, Vec<bool>, f64) {
     assert!((-SMALL..=180.0 + SMALL).contains(&max_deg), "maxDeg should be [0..180] but is now {max_deg}");
-    let max_sin = (max_deg / 180.0 * std::f64::consts::PI).r_sin();
+    let max_sin = (max_deg / 180.0 * core::f64::consts::PI).r_sin();
     let mut bad = vec![false; mesh.face_count()];
     let mut max_edge_sin = 0.0f64;
     for (f, b) in bad.iter_mut().enumerate() {
@@ -819,7 +866,7 @@ pub fn check_face_vertices(mesh: &VolumeMesh) -> (bool, Vec<bool>) {
         if ring.iter().any(|&p| p > np) {
             bad[f] = true;
         }
-        let mut seen = std::collections::BTreeSet::new();
+        let mut seen = alloc::collections::BTreeSet::new();
         for &p in ring {
             if !seen.insert(p) {
                 bad[f] = true;
@@ -889,12 +936,14 @@ mod tests {
         let s3 = 3.0f64.sqrt();
         let (a, b, c, d) = (Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, -1.0, -1.0), Vec3::new(-1.0, 1.0, -1.0), Vec3::new(-1.0, -1.0, 1.0));
         let q = tet_quality(a, b, c, d).abs();
+        #[cfg(feature = "std")]
         println!("regular tet: quality {q}, circumradius {} (expect {s3})", tet_circum_radius(a, b, c, d));
         assert!((q - 1.0).abs() < 1e-12, "{q}");
         assert!((tet_circum_radius(a, b, c, d) - s3).abs() < 1e-12);
 
         let cube = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [1, 1, 1]);
         let det = cell_determinants(&cube)[0];
+        #[cfg(feature = "std")]
         println!("unit cube determinant {det}");
         assert!((det - 1.0).abs() < 1e-12);
         assert!(!check_min_twist(&cube, 1.0 - 1e-12, None).0);
@@ -922,6 +971,7 @@ mod tests {
                 min_dot = min_dot.min(n(i).dot(n(j)));
             }
         }
+        #[cfg(feature = "std")]
         println!("folded face: smallest triangle-normal dot product {min_dot}");
         assert!(check_triangle_twist(&m, min_dot + 1e-9, None).1[f]);
         assert!(!check_triangle_twist(&m, min_dot - 1e-9, None).1[f]);
@@ -936,13 +986,18 @@ mod tests {
     /// owner < neighbour, so only the ordering half fails. The check is now
     /// made on the box with its internal faces sorted into that order
     /// (passes), then with two of them swapped (fails), and the unsorted box
-    /// is recorded failing on order only.
+    /// is recorded failing on order only. **UPDATED 2026-11-05 (gh:#1285):**
+    /// ~~`cartesian_box` fails it~~ `cartesian_box` now ends in that order
+    /// (`renumber_mesh::upper_triangular`) and passes as built (asserted);
+    /// the sort below is then the identity.
     #[test]
     fn upper_triangular_detects_a_swap() {
         let raw = cartesian_box(Vec3::ZERO, Vec3::new(2.0, 2.0, 1.0), [2, 2, 1]);
         let (fail_raw, bad_raw) = check_upper_triangular(&raw);
+        assert!(!fail_raw, "gh:#1285: cartesian_box is upper-triangular as built");
         let n_int = raw.n_internal_faces();
         assert!((0..n_int).all(|f| raw.owner[f] < raw.neighbour[f].unwrap()));
+        #[cfg(feature = "std")]
         println!("cartesian_box as built: upper-triangular {}, flagged {:?}", !fail_raw, (0..bad_raw.len()).filter(|&f| bad_raw[f]).collect::<Vec<_>>());
         let mut order: Vec<usize> = (0..n_int).collect();
         order.sort_by_key(|&f| (raw.owner[f], raw.neighbour[f]));
@@ -960,6 +1015,7 @@ mod tests {
         s.owner.swap(0, n_int - 1);
         s.neighbour.swap(0, n_int - 1);
         let (fail, bad) = check_upper_triangular(&s);
+        #[cfg(feature = "std")]
         println!("swapped: fail {fail}, flagged {:?}", (0..bad.len()).filter(|&f| bad[f]).collect::<Vec<_>>());
         assert!(fail);
     }

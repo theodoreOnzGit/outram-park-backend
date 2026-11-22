@@ -1,5 +1,8 @@
 //! Crate-wide error type for TAMPINES.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Errors returned by TAMPINES's public API.

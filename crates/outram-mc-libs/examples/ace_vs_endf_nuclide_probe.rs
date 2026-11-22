@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **One nuclide, ACE route against ENDF route, quantity by quantity** — the
 //! localiser for a k_eff gap between outram-mc's two data routes.

@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! **The depletion path into the release chain** (GitHub #951): an outram-mc
 //! burnup run, converted to a `RadionuclideInventory`, restricted to what

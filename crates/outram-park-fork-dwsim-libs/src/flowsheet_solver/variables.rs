@@ -47,6 +47,9 @@
 //!   case (`punit & "."`, FlowsheetSolver.vb:2186-2189) — this port is SI
 //!   throughout.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::catalytic_activity::katal;
 use uom::si::f64::{AvailableEnergy, MassRate, Power, Pressure, Ratio, ThermodynamicTemperature};

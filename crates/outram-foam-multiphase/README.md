@@ -29,6 +29,14 @@ reduced-order system-code physics (epic `op-dt3`) are derived — 1D models must
 trace back to a validated 3D reference here, never be invented independently.
 Independent OUTRAM PARK fork, not the official OpenFOAM (see `TRADEMARKS.md`).
 
+## `no_std` + `alloc` (gh:#1594)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-foam-multiphase --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` turns on `outram-foam-basic-lib`'s and `thiserror`'s `std`. With `std` on (the default)
+nothing changes.
+
 ## Roadmap
 
 | Stage | Module | OpenFOAM ref | Bead | Status |
@@ -44,7 +52,13 @@ momentum + pressure solve the drift-flux and two-fluid foundations leave out:
 `pimple` (drift-flux mixture Rhie-Chow pressure correction, advancing
 `U_m`–`p`–`α`) and `two_fluid_pimple` (shared-pressure Euler-Euler PISO,
 advancing `U_d`–`U_c`–`p`–`α_d`). Both are tested foundations (hydrostatic
-balance, at-rest stability), not validated CFD.
+balance, at-rest stability), not validated CFD. A third module,
+`two_fluid_pimple_esi` (gh:#1363 row 5), is a translation of ESI v2506
+`twoPhaseEulerFoam`'s step (drag and constant virtual mass, laminar, constant
+density, wall boundaries) that agrees with the real solver to about 1e-12 of
+the field peak for 10 steps on a closed bubble cloud; the dev-form
+`two_fluid_pimple` differs from it by 23 to 75 % there (record:
+`outram-foam-appbuilder-lib/verification_and_validation/reacting_two_phase_euler_foam_vs_openfoam.md`).
 
 All foundations are **unit-tested translations, not benchmark-validated**
 (verification checks only; drag-only interfacial force; validation is a later

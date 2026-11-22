@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// basically, for all smaller unit tests mean to debug the flow simulation
 pub mod debugging_tests;
 
@@ -53,7 +56,7 @@ pub fn isothermal_dhx_ctah_and_heater_branch_code_to_code_verification_test() {
         //
         // the total mass flowrate through the collection of parallel
         // branches is zero
-        let pressure_change_across_each_branch = 
+        let pressure_change_across_each_branch =
             FluidComponentSuperCollection::
             isothermal_ciet_solve_pressure_change_across_each_branch_for_ctah_and_heater_branch(
                 &dhx_ctah_and_heater_branches);

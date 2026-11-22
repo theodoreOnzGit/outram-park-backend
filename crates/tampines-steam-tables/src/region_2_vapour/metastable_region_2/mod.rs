@@ -1,6 +1,9 @@
 /// ideal gas part
 ///
 /// see footnotes for table 2.6
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const METASTABLE_REGION_2_COEFFS_IDEAL: [[f64; 2]; 9] = [
     [0.0, -0.96937268393049e1],
     [1.0, 0.10087275970006e2],

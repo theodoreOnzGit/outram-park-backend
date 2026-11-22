@@ -48,6 +48,9 @@
 //! `mess`; a well-formed table has no gaps, and this walk reports one as an
 //! error rather than papering over it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 /// Named photo-nuclear **NXS** indices (0-based).

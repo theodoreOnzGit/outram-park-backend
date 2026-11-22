@@ -52,6 +52,8 @@
 //! gate holds. What URR self-shielding is *worth* is a separate paired-seed
 //! measurement.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::purr::UrrSample;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

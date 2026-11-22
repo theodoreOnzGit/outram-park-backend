@@ -88,6 +88,9 @@
 //! square metres per unit thickness in a two-dimensional analysis, which
 //! cancels in the average).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::crystal::{CrystalState, SlipFamily, MAX_SLIP_SYSTEMS};
 use crate::error::{FemError, Result};
 use crate::tensor::Voigt6;
@@ -202,8 +205,13 @@ impl FatemiSocie {
     #[must_use]
     pub fn fip(&self, shear_strain_amplitude: f64, plane_normal_stress: f64) -> f64 {
         let normal = plane_normal_stress.max(0.0);
+        // Operation order is upstream's: `slip * (1 + k * (n / sigma_y))`
+        // (calculate_FIPs.py:95), i.e. divide first, then weight.  The
+        // previous `(k * n) / sigma_ref` is the same maths but rounds
+        // differently: 35 of 156 points with n > 0 differed by 1-2 ulp
+        // (gh:#1434, 2026-11-13).
         shear_strain_amplitude.abs()
-            * (1.0 + self.normal_stress_weight * normal / self.reference_stress)
+            * (1.0 + self.normal_stress_weight * (normal / self.reference_stress))
     }
 }
 
@@ -446,7 +454,7 @@ pub fn rank_regions(regions: &[RegionFip]) -> Vec<usize> {
         regions[*b]
             .fip
             .partial_cmp(&regions[*a].fip)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(core::cmp::Ordering::Equal)
     });
     order
 }

@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # Scattering multiplicity end to end, in an infinite medium (gh:#682)
@@ -76,6 +75,8 @@
 //! **Not covered:** a heterogeneous geometry, where flux-weighted constants
 //! are no longer exact; that is the gate's question (#850).
 
+// Needs nuclear data files or file output: `std` only (gh:#1640).
+#![cfg(feature = "std")]
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};

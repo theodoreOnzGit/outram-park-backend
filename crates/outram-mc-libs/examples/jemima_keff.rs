@@ -70,11 +70,53 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## RE-MEASURED 2026-11-12 — 128 seeds, `OUTRAM_BENCH_SEEDS=128` (gh:#1386)
+//!
+//! **Current value: `−401 pcm, sem ±13, seed-to-seed sd 144` (128 seeds)**,
+//! `k = 0.99599 ± 0.00013`, at code `49148da11`, i.e. with this branch's
+//! transport defaults: OpenMC-faithful collision kernels, OpenMC reaction
+//! order with a single-cutoff level pick, OpenMC fission-neutron order,
+//! per-collision fission banking, and the gh:#1497 direction-norm guard.
+//! 5000 × [40 + 120], speed tier `fast`, URR and DBRC on (constructor
+//! defaults). Pooled active-half drift −25 ± 24 pcm (not resolved). Every
+//! history clean (no lost, stuck or negative-distance event).
+//!
+//! **Against which record.** The 2026-09-18 `−253 ± 34` below predates the
+//! URR/DBRC defaults (2026-09-20) and the gh:#931 PURR counts, so it is not
+//! a like-for-like baseline. The latest record of *this* model at *these*
+//! settings is route 4 of `icsbep_five_route_keff` (same three nuclides
+//! through `from_endf_file_with_speed`, same run size): **`−376 ± 17` over
+//! 128 seeds, 2026-10-18** (`verification_and_validation/route4_process_931/`).
+//! **New − old = −25 ± 21 pcm (−1.2σ)**: within the ±2σ predicted before the
+//! run (`crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/predictions.md`), so the transport-default change is
+//! not resolved here. Against the stale `−253 ± 34`: −148 ± 36, which is
+//! the recorded URR-default move (−142, root `CLAUDE.md`) and not this
+//! change. Measured on an Intel Xeon @ 2.80 GHz, 4 logical cores shared with
+//! a concurrent workspace test suite, 15 GiB RAM, Linux 6.18.44, CPU only:
+//! data 294.8 s, transport 2699.9 s for the 128 seeds. Log:
+//! `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/jemima_keff_default_s128.log`.
+//!
+//! **Legacy arm at the same 128 seeds** (`OUTRAM_MC_LEGACY_REACTION_ORDER=1
+//! OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`, same code, same host): **`−370 ± 17`,
+//! sd 187**. It reproduces route 4's `−376 ± 17` to 0.25σ, which checks the
+//! harness. Default − legacy = **−31 ± 21 pcm (−1.5σ)**: the new defaults are
+//! not resolved here (the per-seed differences are no better paired, sd 238,
+//! because the draw order diverges at the first collision). One thing *is*
+//! resolved: the seed-to-seed sd fell from **187 to 144 pcm** (variance ratio
+//! 1.69, two-sided F-test p ≈ 0.003 at 127/127 dof), and the mean per-run `k_std` from
+//! 167 to 123 pcm. Per-collision fission banking (an expected-value bank
+//! at every collision instead of an analog bank at fission events) is the
+//! expected cause; it was not isolated by its own switch. Legacy transport
+//! 3111.2 s on the same host. Log: `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/jemima_keff_legacy_s128.log`.
+//!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! **Superseded twice: by the URR/DBRC defaults (2026-09-20) and by the
+//! 2026-11-12 re-measure above. Quote `−401 ± 13`.**
 //!
 //! | | dk vs benchmark |
 //! |---|---|
-//! | **pooled mean, 32 seeds** | **-253 pcm, sem +/-34** |
+//! | **pooled mean, 32 seeds** | ~~**-253 pcm, sem +/-34**~~ **RE-MEASURED 2026-11-12: −401 ± 13 (128 seeds)** |
 //! | seed-to-seed sd | 195 pcm — what ONE run scatters by |
 //! | previously recorded (SINGLE seed) | `+6 ± 173 pcm` |
 //!
@@ -105,28 +147,19 @@
 //! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::vv::assert_reproduces_keff;
-use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Direction;
-use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, ZCylinder, ZPlane};
-use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::compute::ComputeType;
 use outram_mc_libs::physics::keff::KeffSettings;
-use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::physics::transport_csg::run_keff_csg;
 use std::time::Instant;
 
-const TEMP_K: f64 = 293.6;
-
-const Z_BOT: f64 = 0.0;
-const Z_CORE_LO: f64 = 7.62;
-const Z_CORE_HI: f64 = 39.571;
-const Z_TOP: f64 = 47.0894;
-const R_CORE: f64 = 19.05;
-const R_OUT: f64 = 26.6446;
+// The model (dimensions, materials, CSG, source box) is the library's
+// `vv::jemima` since 2026-11-17; this example held an identical copy.
+use outram_mc_libs::vv::jemima::{self, R_CORE, R_OUT, TEMPERATURE_K as TEMP_K, Z_BOT, Z_CORE_HI, Z_CORE_LO, Z_TOP};
 
 fn main() {
     eprintln!("IEU-MET-FAST-002 'Jemima' — natural-U-reflected assembly of uranium plates");
@@ -245,32 +278,11 @@ fn main() {
         t0.elapsed().as_secs_f64()
     );
 
-    let comp = |v: &[(usize, f64)]| -> Vec<NuclideComponent> {
-        v.iter()
-            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
-                nuclide_idx,
-                atom_density,
-            })
-            .collect()
-    };
-    let materials = vec![
-        // Oralloy: ~16 % enriched. U-238 is 83 % of the heavy metal.
-        Material {
-            id: 1,
-            name: "oralloy core".into(),
-            temperature: TEMP_K,
-            components: comp(&[(0, 8.4430e-05), (1, 7.7777e-03), (2, 3.9671e-02)]),
-        },
-        // Natural uranium reflector: 99.3 % U-238.
-        Material {
-            id: 2,
-            name: "natural uranium reflector".into(),
-            temperature: TEMP_K,
-            components: comp(&[(0, 2.6433e-06), (1, 3.4603e-04), (2, 4.7711e-02)]),
-        },
-    ];
+    // Oralloy (~16 % enriched; U-238 is 83 % of the heavy metal) and the
+    // natural uranium reflector (99.3 % U-238): `vv::jemima::MATERIALS`.
+    let materials = jemima::materials();
 
-    let geom = build_geometry();
+    let geom = jemima::geometry();
     check_geometry(&geom);
 
     // OUTRAM_NPART overrides the per-generation population. Fission-source
@@ -289,10 +301,7 @@ fn main() {
         ..KeffSettings::default()
     };
     // Start in the core.
-    let src = SourceBox {
-        lower: Position::new(-R_CORE, -R_CORE, Z_CORE_LO),
-        upper: Position::new(R_CORE, R_CORE, Z_CORE_HI),
-    };
+    let src = jemima::source_box();
 
     eprintln!(
         "  core r < {R_CORE} cm, z {Z_CORE_LO}–{Z_CORE_HI}; natural-U reflector to \
@@ -403,61 +412,6 @@ const ICSBEP_IMF002_K: f64 = 1.0000;
 /// figure is tighter than this. Taking the looser band means a failure here is
 /// unambiguous rather than arguable.
 const ICSBEP_IMF002_BAND: f64 = 0.003;
-
-/// Surfaces, then four cells, exactly as the ICSBEP model's XML lists them.
-fn build_geometry() -> Geometry {
-    let zp = |z0: f64, bc: BoundaryType| SurfaceKind::ZPlane(ZPlane { z0, bc });
-    let zc = |r: f64, bc: BoundaryType| {
-        SurfaceKind::ZCylinder(ZCylinder {
-            x0: 0.0,
-            y0: 0.0,
-            r,
-            bc,
-        })
-    };
-    // 0..5 mirror the model's surfaces 1..6.
-    let surfaces = vec![
-        zp(Z_BOT, BoundaryType::Vacuum),
-        zp(Z_CORE_LO, BoundaryType::Transmissive),
-        zp(Z_CORE_HI, BoundaryType::Transmissive),
-        zp(Z_TOP, BoundaryType::Vacuum),
-        zc(R_CORE, BoundaryType::Transmissive),
-        zc(R_OUT, BoundaryType::Vacuum),
-    ];
-    let hs =
-        |surface_idx: usize, sense: HalfSpaceSense| RegionToken::HalfSpace { surface_idx, sense };
-    let out = |i: usize| hs(i, HalfSpaceSense::Outside);
-    let ins = |i: usize| hs(i, HalfSpaceSense::Inside);
-    let and = RegionToken::Intersection;
-
-    let cells = vec![
-        // bottom reflector: +1 -2 -6
-        Cell::material(1, vec![out(0), ins(1), and, ins(5), and], 1, TEMP_K),
-        // core: +2 -3 -5
-        Cell::material(2, vec![out(1), ins(2), and, ins(4), and], 0, TEMP_K),
-        // radial reflector: +2 -3 +5 -6
-        Cell::material(
-            3,
-            vec![out(1), ins(2), and, out(4), and, ins(5), and],
-            1,
-            TEMP_K,
-        ),
-        // top reflector: +3 -4 -6
-        Cell::material(4, vec![out(2), ins(3), and, ins(5), and], 1, TEMP_K),
-    ];
-
-    let cell_indices = (0..cells.len()).collect();
-    Geometry {
-        surfaces,
-        cells,
-        universes: vec![Universe {
-            id: 0,
-            cell_indices,
-        }],
-        lattices: vec![],
-        root_universe: 0,
-    }
-}
 
 /// Assert the CSG lookup agrees with a hand-written predicate everywhere.
 ///

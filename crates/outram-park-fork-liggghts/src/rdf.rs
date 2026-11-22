@@ -97,15 +97,18 @@
 //! real, and it is measured rather than asserted in `tests/htr10_rdf.rs`.
 //! **Any number quoted in a V&V document comes from the CPU path.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::compute::ComputeType;
 use crate::particle::Vec3;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par as rayon;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
 
 /// The region a bed occupies: a right circular cylinder with its axis along
@@ -174,7 +177,7 @@ impl RdfDomain {
     pub fn eroded_volume(&self, margin: f64) -> f64 {
         let r = (self.radius - margin).max(0.0);
         let h = (self.z_max - self.z_min - 2.0 * margin).max(0.0);
-        std::f64::consts::PI * r * r * h
+        core::f64::consts::PI * r * r * h
     }
 }
 
@@ -257,10 +260,18 @@ impl Rdf {
     /// Returns `None` if no minimum follows the peak within `r_max`.
     #[must_use]
     pub fn contact_coordination(&self) -> Option<f64> {
-        let peak = self.g.iter().enumerate().fold(
-            (0usize, f64::NEG_INFINITY),
-            |acc, (k, &v)| if v > acc.1 { (k, v) } else { acc },
-        ).0;
+        let peak = self
+            .g
+            .iter()
+            .enumerate()
+            .fold((0usize, f64::NEG_INFINITY), |acc, (k, &v)| {
+                if v > acc.1 {
+                    (k, v)
+                } else {
+                    acc
+                }
+            })
+            .0;
         let mut k = peak + 1;
         while k + 1 < self.g.len() {
             if self.g[k] <= self.g[k + 1] {
@@ -343,12 +354,19 @@ pub fn radial_distribution(centres: &[Vec3], settings: RdfSettings, compute: Com
     };
 
     let counts = match compute {
-        ComputeType::CpuSingleThread => histogram_serial(centres, &centre_idx, settings.r_max, dr, n_bins),
-        ComputeType::CpuMultiThread(_) => {
-            histogram_parallel(centres, &centre_idx, settings.r_max, dr, n_bins, compute.threads())
+        ComputeType::CpuSingleThread => {
+            histogram_serial(centres, &centre_idx, settings.r_max, dr, n_bins)
         }
+        ComputeType::CpuMultiThread(_) => histogram_parallel(
+            centres,
+            &centre_idx,
+            settings.r_max,
+            dr,
+            n_bins,
+            compute.threads(),
+        ),
         ComputeType::Gpu => {
-            #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+            #[cfg(all(all(feature = "std", not(target_os = "android")), all(feature = "std", not(target_arch = "wasm32"))))]
             {
                 match crate::gpu::rdf_histogram(centres, &centre_idx, settings.r_max, dr, n_bins) {
                     Some(c) => c,
@@ -364,7 +382,7 @@ pub fn radial_distribution(centres: &[Vec3], settings: RdfSettings, compute: Com
                     ),
                 }
             }
-            #[cfg(any(target_os = "android", target_arch = "wasm32"))]
+            #[cfg(any(any(target_os = "android", not(feature = "std")), any(target_arch = "wasm32", not(feature = "std"))))]
             {
                 histogram_serial(centres, &centre_idx, settings.r_max, dr, n_bins)
             }
@@ -389,7 +407,7 @@ pub fn radial_distribution(centres: &[Vec3], settings: RdfSettings, compute: Com
         // Exact shell volume, not 4*pi*r^2*dr — at d/50 resolution the
         // difference is small but it is free to be exact, and it removes a
         // systematic bias in the first bins where r^2 varies fastest.
-        let shell = 4.0 / 3.0 * std::f64::consts::PI * (r_hi.r_powi(3) - r_lo.r_powi(3));
+        let shell = 4.0 / 3.0 * core::f64::consts::PI * (r_hi.r_powi(3) - r_lo.r_powi(3));
         let expected = number_density * shell * centre_idx.len() as f64;
         g.push(if expected > 0.0 {
             counts[k] as f64 / expected

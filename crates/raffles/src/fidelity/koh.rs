@@ -28,6 +28,9 @@
 //! are mixtures over posterior samples of SEPIA's conditional Gaussians, with
 //! δ's part reported beside the total.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::dataset::{Dataset, Split};
 use super::models::{ParametricModel, ThetaEstimate};

@@ -79,8 +79,11 @@
 //! internal force vector in newtons, the stiffness matrix in newton per metre,
 //! body force in newton per cubic metre.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::dof::{DofMap, SparsityPattern};
 use crate::element::{map_gradients, map_point, ElementType, MAX_ELEM_NODES};
@@ -485,14 +488,14 @@ impl BodyForce {
             BodyForce::None => [0.0; 3],
             BodyForce::Uniform(b) => *b,
             BodyForce::ManufacturedSine(lambda, mu) => {
-                let pi = std::f64::consts::PI;
+                let pi = core::f64::consts::PI;
                 let a = (pi * x[0]).r_sin() * (pi * x[1]).r_sin();
                 let c = (pi * x[0]).r_cos() * (pi * x[1]).r_cos();
                 let f = pi * pi * ((lambda + 3.0 * mu) * a - (lambda + mu) * c);
                 [f, f, 0.0]
             }
             BodyForce::ManufacturedSine3d(lambda, mu) => {
-                let pi = std::f64::consts::PI;
+                let pi = core::f64::consts::PI;
                 let (sa, ca) = ((pi * x[0]).r_sin(), (pi * x[0]).r_cos());
                 let (sb, cb) = ((pi * x[1]).r_sin(), (pi * x[1]).r_cos());
                 let (sc, cc) = ((pi * x[2]).r_sin(), (pi * x[2]).r_cos());
@@ -520,7 +523,7 @@ impl BodyForce {
     pub fn manufactured_solution(&self, x: [f64; 3]) -> Option<([f64; 3], [[f64; 3]; 3])> {
         match self {
             BodyForce::ManufacturedSine(_, _) => {
-                let pi = std::f64::consts::PI;
+                let pi = core::f64::consts::PI;
                 let u = (pi * x[0]).r_sin() * (pi * x[1]).r_sin();
                 let dudx = pi * (pi * x[0]).r_cos() * (pi * x[1]).r_sin();
                 let dudy = pi * (pi * x[0]).r_sin() * (pi * x[1]).r_cos();
@@ -532,7 +535,7 @@ impl BodyForce {
                 Some(([u, u, 0.0], g))
             }
             BodyForce::ManufacturedSine3d(_, _) => {
-                let pi = std::f64::consts::PI;
+                let pi = core::f64::consts::PI;
                 let (sa, ca) = ((pi * x[0]).r_sin(), (pi * x[0]).r_cos());
                 let (sb, cb) = ((pi * x[1]).r_sin(), (pi * x[1]).r_cos());
                 let (sc, cc) = ((pi * x[2]).r_sin(), (pi * x[2]).r_cos());

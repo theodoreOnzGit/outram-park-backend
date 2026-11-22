@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // NOT ported from RAVEN. Added 2026-10-03 for GitHub issue #495 (epic #493) at
@@ -65,6 +65,9 @@
 //!   calculations. *Nuclear Science and Engineering, 145*, 279–290 — the
 //!   power-iteration motivation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Sokal's window constant `c`: the window `M` is the smallest with
 /// `M ≥ c·τ(M)`. Fixed in advance at Sokal's recommended `5`.

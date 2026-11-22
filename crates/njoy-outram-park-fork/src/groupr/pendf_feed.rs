@@ -60,11 +60,14 @@
 //!   retrieval-time special cases orthogonal to the tape read; a caller that
 //!   needs them must apply the correction itself.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::groupr::panel::{DerivedQuantity, PointwiseXs};
 use crate::NjoyError;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// The result of classifying a GROUPR-requested reaction number `mtd` into the
 /// ENDF file (`MF`) that holds it — `getsig`'s `mf`/`mt` selection

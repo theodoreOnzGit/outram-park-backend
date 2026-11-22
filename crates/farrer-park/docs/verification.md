@@ -1738,7 +1738,11 @@ half a report.
 8. **Two constitutive laws.** J2 with *linear* isotropic hardening (cases 1
    to 11) and rate-dependent crystal plasticity (cases 12 to 20). Neither has
    kinematic hardening; there is no creep and no damage. The crystal layer's
-   own limitations are listed in its section above.
+   own limitations are listed in its section above. Kernel-level differential
+   comparisons against PRISMS-Fatigue (real Python run), and against verbatim
+   transcriptions of PRISMS-Plasticity and MOOSE kernels, were added on
+   2026-11-13 (gh:#1434): `verification_and_validation/prisms_moose_differential_gh1434/RESULTS.md`
+   and `tests/prisms_differential*.rs`. They are code-to-code, not validation.
 9. **Straight-sided elements throughout.** No curved isoparametric mapping is
    exercised anywhere, including by Tri6.
 10. **No parallelism, no performance claim.** The largest system solved here is

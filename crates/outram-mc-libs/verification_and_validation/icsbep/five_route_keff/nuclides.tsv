@@ -39,3 +39,19 @@ Zn66	n-030_Zn_066-ENDF8.0.endf	3031
 Zn67	n-030_Zn_067-ENDF8.0.endf	3034
 Zn68	n-030_Zn_068-ENDF8.0.endf	3037
 Zn70	n-030_Zn_070-ENDF8.0.endf	3043
+# MSRE stringer cell (gh:#1126): salt and graphite nuclides. The Zr tapes are in
+# the reference-data/ace submodule (maintainer rule 2026-11-09), so their path is
+# relative to reference-data/endf. Routes 1 and 4 only: ~~the port's Be-9 ACE lacks
+# MT=16 neutrons (gh:#1309)~~ (CORRECTED 2026-11-09: Be-9's ACE is NJOY2016's in
+# every word since gh:#1309), but no graphite S(a,b) ACE is built for routes 3/5,
+# so routes 2/3/5 still must not run the msre case.
+Li6	n-003_Li_006-ENDF8.0.endf	325
+Li7	n-003_Li_007-ENDF8.0.endf	328
+Be9	n-004_Be_009-ENDF8.0.endf	425
+C12	n-006_C_012-ENDF8.0.endf	625
+C13	n-006_C_013-ENDF8.0.endf	628
+Zr90	../ace/endf/endf-b-viii.0/n-040_Zr_090-ENDF8.0.endf	4025
+Zr91	../ace/endf/endf-b-viii.0/n-040_Zr_091-ENDF8.0.endf	4028
+Zr92	../ace/endf/endf-b-viii.0/n-040_Zr_092-ENDF8.0.endf	4031
+Zr94	../ace/endf/endf-b-viii.0/n-040_Zr_094-ENDF8.0.endf	4037
+Zr96	../ace/endf/endf-b-viii.0/n-040_Zr_096-ENDF8.0.endf	4043

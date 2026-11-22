@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod position;
 pub mod surface;
 pub mod cell;
@@ -10,3 +13,4 @@ pub mod crossing;
 pub mod triso_particle;
 pub mod plot;
 pub mod volume_calc;
+pub mod composite;

@@ -48,6 +48,9 @@
 //! keeps the law's own points, storing `(E', pdf, cdf)` and the cosines at each
 //! one. See [`acesix_tabulated`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermr::calcem::types::EqualProbableRow;
 
@@ -287,7 +290,36 @@ pub fn normalized_rows(rows: &[EqualProbableRow]) -> Vec<EqualProbableRow> {
 /// # Errors
 /// Only if this crate's own `a11` port wrote text its ENDF reader cannot read.
 pub fn pendf_text(x: f64) -> Result<f64, crate::NjoyError> {
+    if BINARY_UNITS.with(core::cell::Cell::get) {
+        return Ok(x);
+    }
     crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(x))
+}
+
+#[cfg(any(feature = "std", test))]
+thread_local! {
+    /// Set by [`with_binary_units`] while a thermal table is built for a deck
+    /// whose THERMR/ACER units are negative (blocked binary).
+    static BINARY_UNITS: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };}
+#[cfg(not(any(feature = "std", test)))]
+/// Set by [`with_binary_units`] while a thermal table is built for a deck
+/// whose THERMR/ACER units are negative (blocked binary).
+static BINARY_UNITS: crate::nostd_sync::Local<core::cell::Cell<bool>> = crate::nostd_sync::Local::new(core::cell::Cell::new(false));
+
+/// Run `f` with [`pendf_text`] as the identity when `binary` (gh:#1369).
+///
+/// With **negative (binary) units** THERMR's output tape and `calcem`'s
+/// scratch tape hold the doubles as they are: `a11`'s text rounding (and the
+/// read back through it) never happens, so every value ACER reads is the one
+/// THERMR computed, after the explicit `sigfig` calls only. The deck driver
+/// builds the thermal table of a binary-unit deck inside this scope; the flag
+/// is per thread and restored on return. Measured on deck 49 (`-25`): without
+/// it the equiprobable cosines differ from NJOY2016's in the 12th figure.
+pub fn with_binary_units<R>(binary: bool, f: impl FnOnce() -> R) -> R {
+    let prev = BINARY_UNITS.with(|c| c.replace(binary));
+    let r = f();
+    BINARY_UNITS.with(|c| c.set(prev));
+    r
 }
 
 /// One `calcem` record's rows as `acesix` reads them from THERMR's PENDF
@@ -300,8 +332,10 @@ pub fn pendf_text(x: f64) -> Result<f64, crate::NjoyError> {
 /// rows to the scratch tape `nscr` (text when THERMR's output tape is,
 /// `thermr.f90:297-298`), and `tpend` reads them back before scaling. This
 /// reproduces a deck with **text (positive) units**, as OpenMC's
-/// `make_ace_thermal` writes; a deck with binary units skips both round trips
-/// and differs in the 7th figure.
+/// `make_ace_thermal` writes. ~~A deck with binary units skips both round trips
+/// and differs in the 7th figure.~~ **CORRECTED 2026-11-12 (gh:#1369):** a deck
+/// with binary units skips both round trips and [`with_binary_units`] reproduces
+/// that (NJOY2016 tests 49, 67-70 and 74, word for word).
 ///
 /// [`normalized_rows`] divides by a recomputed trapezoid instead and keeps full
 /// precision; it agrees with this to about 1e-5 in `E'`, which is why the

@@ -17,5 +17,7 @@ This file is human-owned: kovan never overwrites it.
 
 Not a review: an agent status note. `solver/two_phase/` (new, unreviewed)
 ports `solvers/twoPhase` with the implicitUpwind alpha solver; MULES is not
-ported. It runs upstream `1D_boiling`; no upstream parity is measured. The
+ported. It runs upstream `1D_boiling`; ~~no upstream parity is measured.~~
+**CORRECTED 2026-11-12** (gh:#1361 round 3): parity with the real binary is measured, see
+`verification_and_validation/genfoam_vs_upstream_gh1361/README.md` "Round 3". The
 closure leaves it calls are listed in its module doc.

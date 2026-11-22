@@ -4,9 +4,15 @@
 //!
 //! Split out of `wmp.rs` (see the module doc there for provenance and status).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::types::{Cf64, WindowedMultipole, WmpWindow};
 use crate::NjoyError;
+#[cfg(any(feature = "std", test))]
 use std::sync::OnceLock;
+#[cfg(not(any(feature = "std", test)))]
+use crate::nostd_sync::OnceLock;
 
 impl WindowedMultipole {
     /// Serialize this nuclide into the compact **WMPB v1** embedded blob — the
@@ -132,7 +138,7 @@ impl WindowedMultipole {
             .checked_add(name_len)
             .filter(|&e| e <= bytes.len())
             .ok_or_else(|| err("truncated name".into()))?;
-        let name = std::str::from_utf8(&bytes[WMPB_HEADER_LEN..name_end])
+        let name = core::str::from_utf8(&bytes[WMPB_HEADER_LEN..name_end])
             .map_err(|e| err(format!("name utf8: {e}")))?
             .to_string();
 
@@ -389,7 +395,7 @@ impl WmpLibrary {
                 .checked_add(name_len)
                 .filter(|&e| e <= bytes.len())
                 .ok_or_else(|| err("truncated name in index".into()))?;
-            let name = std::str::from_utf8(&bytes[cur..name_end])
+            let name = core::str::from_utf8(&bytes[cur..name_end])
                 .map_err(|e| err(format!("index name utf8: {e}")))?
                 .to_string();
             cur = name_end;

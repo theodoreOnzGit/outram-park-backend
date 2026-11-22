@@ -23,11 +23,14 @@
 //! - **No new dependency**: PNGs by outram-blender's own encoder over
 //!   `miniz_oxide`, the zip by [`zip`] over the same.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 mod plot;
 pub mod zip;
 
-use std::fmt::Write as _;
+use core::fmt::Write as _;
 
 use super::collect::{
     Ealf, Kinetics, Leakage, MCDiagnosticResult, MeshMap, NeutronBalance, RunHealth, SixFactors,
@@ -93,7 +96,7 @@ impl DiagnosticsReport {
     ///
     /// # Errors
     /// I/O, or a ZIP limit.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn write_zip(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
         let path = path.as_ref();
         if let Some(d) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
@@ -110,7 +113,7 @@ impl DiagnosticsReport {
     ///
     /// # Errors
     /// I/O.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn write_unzipped_to_dir(&self, dir: impl AsRef<std::path::Path>) -> std::io::Result<()> {
         for f in &self.files {
             let p = dir.as_ref().join(&f.path);
@@ -588,7 +591,7 @@ impl Builder {
             "flux [cm]",
             "sigma",
         ]);
-        for row in b.rows.iter().chain(std::iter::once(&b.total)) {
+        for row in b.rows.iter().chain(core::iter::once(&b.total)) {
             let mut v = vec![row.label.clone()];
             for e in [
                 &row.absorption,

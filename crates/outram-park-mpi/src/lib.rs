@@ -7,11 +7,23 @@
 //!
 //! > **⚠️ SCAFFOLD / VERIFICATION-ONLY — no human V&V yet.** This is the first
 //! > milestone: the shared-memory transport, datatypes, communicators (world),
-//! > and point-to-point communication. Collectives, communicator
-//! > duplication/splitting, groups, and a TCP (multi-node) transport are
-//! > bead-tracked follow-ups (epic op-erl). No comparison against MPICH's own
-//! > test suite has been made. Untrusted AI-generated draft until a human reviews
-//! > it, per the workspace `RESPONSIBLE_USE.md`.
+//! > and point-to-point communication. ~~Collectives,~~ ~~Communicator
+//! > duplication/splitting, groups, and~~ a TCP (multi-node) transport ~~are~~ is a
+//! > bead-tracked follow-up (epic op-erl). **CORRECTED 2026-11-10 (gh:#1435):**
+//! > collectives exist in [`collective`] (barrier, broadcast, reduce, allreduce,
+//! > scatter, gather, allgather). **CORRECTED 2026-11-13 (gh:#1435):**
+//! > duplication/splitting ([`comm_mgmt`]),
+//! > groups ([`group`]) and Cartesian topologies ([`topology`]) also exist; only a
+//! > TCP (multi-node) transport is still a follow-up. ~~No comparison against
+//! > MPICH's own test suite has been made.~~ **CORRECTED 2026-11-13 (gh:#1435):**
+//! > the crate is compared bit for bit against MPICH 4.2.0 on its point-to-point,
+//! > collective, group, communicator and Cartesian behaviour for 2 to 12 ranks
+//! > (`tests/mpich_differential.rs`; results in
+//! > `verification_and_validation/mpich_differential/README.md`). MPICH's own test
+//! > suite (`test/mpi`) has not been run. The MPICH version this crate was
+//! > translated from was never recorded and cannot be determined (see `NOTICE`).
+//! > Untrusted AI-generated draft until a human reviews it, per the workspace
+//! > `RESPONSIBLE_USE.md`.
 //! >
 //! > **Independent translation, not MPICH.** "MPI" names only the standard whose
 //! > API this implements; "MPICH" names the reference implementation whose
@@ -550,5 +562,70 @@ mod tests {
         })
         .unwrap();
         assert!(out[1]);
+    }
+
+    /// Exact integer check of every (size, root) of the long-message reduce
+    /// (Rabenseifner reduce-scatter + gather, `count > 256` doubles' worth of i64)
+    /// and of the recursive-doubling `all_reduce`, including odd roots below
+    /// `2 * rem` (the root is folded away and takes rank 0's segment), uneven
+    /// segment sizes (`count % pof2 != 0`) and a single rank.
+    #[test]
+    fn long_reduce_and_recursive_doubling_allreduce_are_exact_for_every_size_and_root() {
+        for n in 1..=9i32 {
+            let count = 300 + (n as usize); // 8 bytes each, over the 2 KiB short limit
+            for root in 0..n {
+                let out = run(n, |c| {
+                    let r = i64::from(c.rank());
+                    let sb: Vec<i64> = (0..count).map(|j| r * 1000 + j as i64).collect();
+                    let sum = c.reduce(&sb, ReduceOp::Sum, root).unwrap();
+                    let max = c.reduce(&sb, ReduceOp::Max, root).unwrap();
+                    (c.rank(), sum, max)
+                })
+                .unwrap();
+                let ranks_sum: i64 = (0..i64::from(n)).sum();
+                let want_sum: Vec<i64> = (0..count)
+                    .map(|j| ranks_sum * 1000 + i64::from(n) * j as i64)
+                    .collect();
+                let want_max: Vec<i64> = (0..count)
+                    .map(|j| i64::from(n - 1) * 1000 + j as i64)
+                    .collect();
+                for (rank, sum, max) in out {
+                    if rank == root {
+                        assert_eq!(sum.as_deref(), Some(&want_sum[..]), "n={n} root={root}");
+                        assert_eq!(max.as_deref(), Some(&want_max[..]), "n={n} root={root}");
+                    } else {
+                        assert!(
+                            sum.is_none() && max.is_none(),
+                            "n={n} root={root} rank={rank}"
+                        );
+                    }
+                }
+            }
+            let out = run(n, |c| {
+                let r = i64::from(c.rank());
+                c.all_reduce(&[r, r * r, 7], ReduceOp::Sum).unwrap()
+            })
+            .unwrap();
+            let s1: i64 = (0..i64::from(n)).sum();
+            let s2: i64 = (0..i64::from(n)).map(|r| r * r).sum();
+            for v in out {
+                assert_eq!(v, vec![s1, s2, 7 * i64::from(n)], "n={n}");
+            }
+        }
+    }
+
+    /// Mismatched contributions are reported, not summed: a rank whose partner sends a
+    /// different length gets `InvalidArgument` from `reduce` (binomial path).
+    #[test]
+    fn reduce_reports_length_mismatch() {
+        let out = run(2, |c| {
+            if c.rank() == 0 {
+                c.reduce(&[1_i32, 2, 3], ReduceOp::Sum, 0).is_err()
+            } else {
+                c.reduce(&[1_i32, 2], ReduceOp::Sum, 0).is_ok()
+            }
+        })
+        .unwrap();
+        assert!(out[0] && out[1]);
     }
 }

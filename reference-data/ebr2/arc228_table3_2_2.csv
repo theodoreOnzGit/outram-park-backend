@@ -1,0 +1,12 @@
+# Document: Fei, Mohamed, Kim (2013), ANL-ARC-228 Rev. 1, Neutronics Benchmark Specifications for EBR-II SHRT-45R (Argonne National Laboratory)
+# Table 3.2.2 "U-5Fs Isotopic Composition" (elemental, despite the title), printed p.21 (PDF p.21)
+# Units: weight percent of the U-5Fs alloy. Check: 95.0 + 5.00 (fissium constituents) = 100.00.
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+material,weight_percent
+Uranium,95.0
+Zirconium,0.10
+Molybdenum,2.46
+Ruthenium,1.96
+Rhodium,0.28
+Palladium,0.19
+Niobium,0.01

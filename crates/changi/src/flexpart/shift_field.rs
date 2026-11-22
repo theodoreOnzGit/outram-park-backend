@@ -38,6 +38,9 @@
 //! * `nxshift > nxf` or `< 0` would write `xshiftaux` out of bounds upstream;
 //!   the port refuses. So does `ldx <= nxf` (the duplicate column must fit).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Why a shift was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShiftError {

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
@@ -328,6 +331,7 @@ pub fn tpvx_hs_flash_eqm(
                 let sat_pressure = find_pressure_from_hs_region_4(h, s);
                 let sat_temp = t_ph_eqm(sat_pressure, h);
 
+                #[cfg(feature = "std")]
                 dbg!(&sat_temp.get::<degree_celsius>());
 
                 // page 103
@@ -485,11 +489,13 @@ fn hs_region_low_entropy_region_1_and_4(
     let lower_bound_enthalpy = h_ps_eqm(lower_bound_pressure, s);
 
     if h > upper_bound_enthalpy {
+        #[cfg(feature = "std")]
         dbg!(&(h, upper_bound_enthalpy));
         panic!("enthalpy too high for hs flash");
     };
 
     if h < lower_bound_enthalpy {
+        #[cfg(feature = "std")]
         dbg!(&(h, lower_bound_enthalpy));
         panic!("enthalpy too low for hs flash");
     };
@@ -772,6 +778,7 @@ fn hs_region_high_entropy_region_2b_and_4(
         let t_max = ThermodynamicTemperature::new::<kelvin>(1073.15);
         let upper_bound_enthalpy = h_tp_eqm_single_phase(t_max, p_sat);
         if h > upper_bound_enthalpy {
+            #[cfg(feature = "std")]
             dbg!(&(h, upper_bound_enthalpy));
             panic!("enthalpy too high for hs flash");
         };
@@ -842,6 +849,7 @@ fn hs_region_high_entropy_region_2a_or_4_only(
     };
 
     if h < lower_bound_enthalpy {
+        #[cfg(feature = "std")]
         dbg!(&(h, lower_bound_enthalpy));
         panic!("enthalpy too low for hs flash");
     };
@@ -876,6 +884,7 @@ fn hs_region_high_entropy_region_2a_only(
     };
 
     if h < lower_bound_enthalpy {
+        #[cfg(feature = "std")]
         dbg!(&(h, lower_bound_enthalpy));
         panic!("enthalpy too low for hs flash");
     };
@@ -912,7 +921,9 @@ fn additional_temperature_check_for_1073_15_k_isotherm(
         let t = t_ph_eqm(p, h);
 
         if t > t_bound {
+            #[cfg(feature = "std")]
             dbg!(&(t, t_bound));
+            #[cfg(feature = "std")]
             dbg!(&(h, s));
             panic!("temperature too high for (h,s) point (2b regime)");
         };
@@ -921,7 +932,9 @@ fn additional_temperature_check_for_1073_15_k_isotherm(
         let t = t_ph_eqm(p, h);
 
         if t > t_bound {
+            #[cfg(feature = "std")]
             dbg!(&(t, t_bound));
+            #[cfg(feature = "std")]
             dbg!(&(h, s));
             panic!("temperature too high for (h,s) point (2a regime)");
         };
@@ -985,14 +998,18 @@ pub fn find_pressure_from_hs_region_4(
 
         // Check convergence on entropy
         if f_mid.abs() < entropy_tolerance {
+            #[cfg(feature = "std")]
             dbg!("number of iterations for (h,s) iterative solver:");
+            #[cfg(feature = "std")]
             dbg!(&iteration);
             return p_mid;
         }
 
         // Check convergence on pressure
         if (p_high - p_low) < pressure_tolerance {
+            #[cfg(feature = "std")]
             dbg!("number of iterations for (h,s) iterative solver:");
+            #[cfg(feature = "std")]
             dbg!(&iteration);
             return p_mid;
         }
@@ -1012,13 +1029,16 @@ pub fn find_pressure_from_hs_region_4(
         n_iter += 1;
     }
 
+    #[cfg(feature = "std")]
     dbg!("number of iterations for (h,s) iterative solver:");
+    #[cfg(feature = "std")]
     dbg!(&n_iter);
 
     // Return best estimate if max iterations reached
     let p_final = (p_low + p_high) / 2.0;
     let final_error = residual(p_final);
 
+    #[cfg(feature = "std")]
     eprintln!(
         "Warning: Bisection did not converge after {} iterations. \
                Final error = {:.3} J/(kg·K)",

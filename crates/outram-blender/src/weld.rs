@@ -63,9 +63,12 @@
 //! No `faer`, no external dependency — just the fixed-size [`crate::math`]
 //! types and standard collections. Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Merge vertices closer than `distance` into one, returning the welded mesh.
 ///
@@ -247,9 +250,9 @@ impl UnionFind {
             return;
         }
         match self.rank[ra].cmp(&self.rank[rb]) {
-            std::cmp::Ordering::Less => self.parent[ra] = rb,
-            std::cmp::Ordering::Greater => self.parent[rb] = ra,
-            std::cmp::Ordering::Equal => {
+            core::cmp::Ordering::Less => self.parent[ra] = rb,
+            core::cmp::Ordering::Greater => self.parent[rb] = ra,
+            core::cmp::Ordering::Equal => {
                 self.parent[rb] = ra;
                 self.rank[ra] += 1;
             }

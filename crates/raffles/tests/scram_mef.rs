@@ -49,6 +49,8 @@
 //!
 //! Full record: `crates/raffles/docs/scram-port-verification.md`.
 
+#![cfg(feature = "std")] // reads MEF XML files (gh:#1610)
+
 use raffles::scram::bdd::Bdd;
 use raffles::scram::fault_tree::FaultTreeModel;
 use raffles::scram::importance::importance_factors;

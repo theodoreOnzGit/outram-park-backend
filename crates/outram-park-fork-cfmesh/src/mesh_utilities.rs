@@ -40,6 +40,9 @@
 //! Each is a composition of ported classes; nothing here re-implements a
 //! step.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boundary_layer_optimisation::{optimize_boundary_layer, untangle_boundary_layer, BoundaryLayerOptimisationControls, OptimizeBoundaryLayerReport, OptimizeBoundaryLayerSettings};
 use crate::layers::boundary_layers::{generate_layer, BoundaryLayersControls, GeneratedLayer, LayerRequest};
 use crate::layers::refine_boundary_layers::{refine_boundary_layers, RefineBoundaryLayersSettings, RefineError, RefineReport};
@@ -247,6 +250,7 @@ mod tests {
         let bad = find_bad_faces(&a).iter().filter(|&&x| x).count();
         let bad0 = find_bad_faces(&m0).iter().filter(|&&x| x).count();
         let (vols, _) = cell_geometry(&a);
+        #[cfg(feature = "std")]
         println!("improveMeshQuality: bad faces {bad0} -> {bad}; {rep:?}");
         assert_eq!(bad, 0);
         assert!(vols.iter().all(|&v| v > 0.0));
@@ -293,6 +297,7 @@ mod tests {
         m.validate().unwrap();
         let (vols, _) = cell_geometry(&m);
         let bad = find_bad_faces(&m).iter().filter(|&&x| x).count();
+        #[cfg(feature = "std")]
         println!("generateBoundaryLayers: cells {} volume {} min vol {:e} bad {bad}; layer {:?} faces; optimisation {:?}", m.n_cells, m.total_volume(), vols.iter().cloned().fold(f64::MAX, f64::min), rep.layer.as_ref().map(|l| l.n_layer_cells), rep.optimisation);
         assert_eq!(m.n_cells, 216);
         assert_eq!(bad, 0);
@@ -321,6 +326,7 @@ mod tests {
             let (n, mn, mean, mx, bad) = layer_stats(m);
             let (vols, _) = cell_geometry(m);
             let vmin = vols.iter().cloned().fold(f64::MAX, f64::min);
+            #[cfg(feature = "std")]
             println!(
                 "{label} optimiseLayer {name}: cells {} volume {:.12e} min cell vol {vmin:e}; hairs {n}, thickness min {mn:e} mean {mean:e} max {mx:e}; bad faces {bad}; boundary layer {:?}",
                 m.n_cells,

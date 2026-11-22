@@ -5,6 +5,9 @@
 //! rule); the shared grid machinery (`rebuild_range`, `RangeDelta`) stays
 //! there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::mf2::EnergyRange;
 use super::{rebuild_range, RangeDelta, ReconrSection, MAX_OTHER};
 
@@ -51,7 +54,7 @@ pub(super) fn add_rml_range(
     // own MF=3 section contribution, MT 103..107 remapped to 600..800.
     let other_mts = other_mts_of(&section);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &other_mts, raw, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &other_mts, raw, range.abn, |e| {
         let r = crate::samm::xsformula::cssammy(
             &section,
             &setup.kinematics,

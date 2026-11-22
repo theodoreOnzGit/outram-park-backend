@@ -57,6 +57,9 @@
 //! (`collision` / `inelastic_scatter`). The reflective-cube flight is new pebble-bed
 //! assembly built on this crate's primitives.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod distributed;
 
@@ -73,10 +76,7 @@ use crate::physics::delta_tracking::Majorant;
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated, rotate_direction,
-    two_body_scatter, two_body_scatter_with_mu,
-};
+use crate::physics::scatter::continuum_inelastic_scatter_evaluated;
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
 
@@ -116,9 +116,10 @@ const GEN_STRIDE: u64 = 1 << 40;
 ///
 /// # Implementing it
 ///
-/// `material_at` takes `&self`, so a stateful implementor needs interior
-/// mutability — `Mutex`/`RwLock`, which is also what satisfies the [`Sync`]
-/// supertrait the multi-threaded backend requires.
+/// `material_at` takes `&self` (shared, `Sync`) and `&mut Self::State` (the
+/// driver's, per run or per history). A lookup with mutable state puts it in
+/// [`Self::State`] and builds it in [`Self::new_state`]; it needs no lock, and
+/// the parallel drivers give every history its own (GitHub #205).
 ///
 /// ```
 /// use outram_mc_libs::pebble_beds::keff_delta::MaterialQuery;
@@ -126,28 +127,51 @@ const GEN_STRIDE: u64 = 1 << 40;
 ///
 /// // A closure is already a MaterialQuery — this is the common case.
 /// let two_zone = |p: Position| Some(if p.norm() < 1.0 { 0 } else { 1 });
-/// assert_eq!(MaterialQuery::material_at(&two_zone, Position::new(0.0, 0.0, 0.5)), Some(0));
+/// let mut state = two_zone.new_state(None);
+/// assert_eq!(MaterialQuery::material_at(&two_zone, &mut state, Position::new(0.0, 0.0, 0.5)), Some(0));
 /// ```
 pub trait MaterialQuery: Sync {
+    /// The mutable state a stateful lookup carries, **owned by the driver**
+    /// (GitHub #205): `()` for a stateless lookup. A chord-length sampler's
+    /// random stream and its retained inclusions live here, passed as
+    /// `&mut` to every query, so no lock is needed and each thread of the
+    /// parallel drivers holds its own.
+    ///
+    /// ~~The state sat behind a global `Mutex` inside the lookup~~
+    /// **CORRECTED 2026-11-14 (GitHub #205).**
+    type State: Send;
+
+    /// A fresh state. `None` is the run's own state, the one the sequential
+    /// drivers thread through every history (and the initial-source
+    /// sampling) in order; `Some((generation, history))` is the state of one
+    /// history of the parallel drivers, which must depend on nothing but
+    /// those two indices so the result is independent of the thread count.
+    fn new_state(&self, history: Option<(usize, usize)>) -> Self::State;
+
     /// Material index at `p`, or `None` if the point is outside the model.
     ///
     /// Returning `None` leaks the history, so a reflective domain should answer
     /// everywhere inside its boundary.
-    fn material_at(&self, p: Position) -> Option<usize>;
+    fn material_at(&self, state: &mut Self::State, p: Position) -> Option<usize>;
 
     /// Called once immediately before each source neutron is transported.
     ///
     /// Stateless lookups need not implement this; the default does nothing.
     /// Implement it to reset any memory that belongs to a single history.
-    fn begin_history(&self) {}
+    fn begin_history(&self, _state: &mut Self::State) {}
 }
 
 impl<F> MaterialQuery for F
 where
     F: Fn(Position) -> Option<usize> + Sync,
 {
+    type State = ();
+
     #[inline]
-    fn material_at(&self, p: Position) -> Option<usize> {
+    fn new_state(&self, _history: Option<(usize, usize)>) -> Self::State {}
+
+    #[inline]
+    fn material_at(&self, _state: &mut Self::State, p: Position) -> Option<usize> {
         self(p)
     }
 }
@@ -550,6 +574,7 @@ fn delta_flight<Q, O>(
     nuclides: &[Nuclide],
     max_virtual: u32,
     material_at: &Q,
+    state: &mut Q::State,
     seed: &mut u64,
     urr_seed: u64,
     observe: &mut O,
@@ -558,9 +583,13 @@ where
     Q: MaterialQuery,
     O: FnMut(TraceEvent),
 {
+    // The flight reads the state through a `RefCell` because `DeltaRegion`
+    // methods take `&self`; the borrow lasts one point query, on one thread,
+    // so there is no lock and no contention (GitHub #205).
+    let state = core::cell::RefCell::new(state);
     let region = DomainRegion {
         domain,
-        material_at: |p: Position| material_at.material_at(p),
+        material_at: |p: Position| material_at.material_at(&mut **state.borrow_mut(), p),
     };
     // The band total the collision will use (GitHub #407); the majorant
     // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
@@ -723,8 +752,13 @@ where
     Q: MaterialQuery,
 {
     let mut seed = settings.seed;
+    // One state for the whole run, threaded through the source sampling and
+    // every history in order: the order the old lock saw (GitHub #205).
+    let mut state = material_at.new_state(None);
 
-    let mut source = sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut seed);
+    let mut source = sample_initial_source(
+        domain, materials, nuclides, &material_at, &mut state, settings, &mut seed,
+    );
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -744,6 +778,7 @@ where
                 majorant,
                 k_running,
                 &material_at,
+                &mut state,
                 &mut next_bank,
                 &mut seed,
                 &mut no_trace,
@@ -801,16 +836,35 @@ pub struct DeltaPowerIteration {
 }
 
 impl DeltaPowerIteration {
-    /// Sample the initial source as [`run_keff_delta_seq_in`] does.
-    pub fn new<Q: MaterialQuery>(
+    /// Sample the initial source as [`run_keff_delta_seq_in`] does, for a
+    /// stateless lookup (a closure). A lookup with state uses
+    /// [`Self::new_with_state`].
+    pub fn new<Q: MaterialQuery<State = ()>>(
         domain: DeltaDomain,
         materials: &[Material],
         nuclides: &[Nuclide],
         material_at: &Q,
         settings: &KeffSettings,
     ) -> Self {
+        Self::new_with_state(domain, materials, nuclides, material_at, &mut (), settings)
+    }
+
+    /// [`Self::new`] for a lookup that carries state (GitHub #205): create the
+    /// state with [`MaterialQuery::new_state`]`(None)` and pass the same one
+    /// to every [`Self::step_with_state`], as [`run_keff_delta_seq_in`] threads
+    /// its one state through the run.
+    pub fn new_with_state<Q: MaterialQuery>(
+        domain: DeltaDomain,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        material_at: &Q,
+        state: &mut Q::State,
+        settings: &KeffSettings,
+    ) -> Self {
         let mut seed = settings.seed;
-        let source = sample_initial_source(domain, materials, nuclides, material_at, settings, &mut seed);
+        let source = sample_initial_source(
+            domain, materials, nuclides, material_at, state, settings, &mut seed,
+        );
         let n_gen = settings.n_inactive + settings.n_active;
         Self {
             domain,
@@ -826,26 +880,51 @@ impl DeltaPowerIteration {
 
     /// Transport one generation and resample its fission bank. `None` once
     /// every generation has run or the population has died out.
-    pub fn step<Q: MaterialQuery>(
+    pub fn step<Q: MaterialQuery<State = ()>>(
         &mut self,
         materials: &[Material],
         nuclides: &[Nuclide],
         majorant: &Majorant,
         material_at: &Q,
     ) -> Option<DeltaGenerationReport> {
-        self.step_traced(materials, nuclides, majorant, material_at, no_trace)
+        self.step_with_state(materials, nuclides, majorant, material_at, &mut ())
+    }
+
+    /// [`Self::step`] for a lookup that carries state (GitHub #205).
+    pub fn step_with_state<Q: MaterialQuery>(
+        &mut self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        majorant: &Majorant,
+        material_at: &Q,
+        state: &mut Q::State,
+    ) -> Option<DeltaGenerationReport> {
+        self.step_traced_with_state(materials, nuclides, majorant, material_at, state, no_trace)
     }
 
     /// [`Self::step`], reporting every step of every history to `observe`
     /// ([`TraceEvent`], gh:#784): the counters of the rung-5 demo's "Run
     /// many". Observing draws no random number, so the generation is the
     /// one [`Self::step`] runs, bit for bit (`tests/tracking_trace.rs`).
-    pub fn step_traced<Q: MaterialQuery, O: FnMut(TraceEvent)>(
+    pub fn step_traced<Q: MaterialQuery<State = ()>, O: FnMut(TraceEvent)>(
         &mut self,
         materials: &[Material],
         nuclides: &[Nuclide],
         majorant: &Majorant,
         material_at: &Q,
+        observe: O,
+    ) -> Option<DeltaGenerationReport> {
+        self.step_traced_with_state(materials, nuclides, majorant, material_at, &mut (), observe)
+    }
+
+    /// [`Self::step_traced`] for a lookup that carries state (GitHub #205).
+    pub fn step_traced_with_state<Q: MaterialQuery, O: FnMut(TraceEvent)>(
+        &mut self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        majorant: &Majorant,
+        material_at: &Q,
+        state: &mut Q::State,
         mut observe: O,
     ) -> Option<DeltaGenerationReport> {
         if self.finished {
@@ -864,6 +943,7 @@ impl DeltaPowerIteration {
                 majorant,
                 self.k_running,
                 material_at,
+                &mut *state,
                 &mut next_bank,
                 &mut self.seed,
                 &mut observe,
@@ -923,6 +1003,7 @@ where
     O: FnMut(TraceEvent),
 {
     let mut bank = Vec::new();
+    let mut state = material_at.new_state(None);
     transport_history(
         Site { r, u, e },
         domain,
@@ -931,6 +1012,7 @@ where
         majorant,
         1.0,
         material_at,
+        &mut state,
         &mut bank,
         seed,
         &mut observe,
@@ -961,6 +1043,9 @@ where
 ///
 /// The `material_at` geometry lookup is shared across threads by reference, so it
 /// must be [`Sync`] (every packed-sphere / membership lookup in this crate is).
+/// Its mutable state ([`MaterialQuery::State`]) is not shared: each history
+/// creates its own from `(generation, history)` (GitHub #205), so a stateful
+/// lookup such as chord-length sampling is as reproducible as a stateless one.
 pub fn run_keff_delta_par_in<Q>(
     domain: DeltaDomain,
     materials: &[Material],
@@ -973,11 +1058,11 @@ pub fn run_keff_delta_par_in<Q>(
 where
     Q: MaterialQuery,
 {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
 
@@ -995,8 +1080,12 @@ where
     let mut src_seed = settings.seed;
 
     // Initial source, as the single-thread path, on the sequential src stream.
-    let mut source =
-        sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut src_seed);
+    let mut source = {
+        let mut state = material_at.new_state(None);
+        sample_initial_source(
+            domain, materials, nuclides, &material_at, &mut state, settings, &mut src_seed,
+        )
+    };
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1021,6 +1110,10 @@ where
                     let mut seed =
                         future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
                     let mut local_bank: Vec<Site> = Vec::new();
+                    // This history's own lookup state, a function of
+                    // (generation, history) alone: no lock, and the result
+                    // does not depend on the thread count (GitHub #205).
+                    let mut state = material_at.new_state(Some((gen, hist_idx)));
                     let production = transport_history(
                         source[hist_idx],
                         domain,
@@ -1029,6 +1122,7 @@ where
                         majorant,
                         k_running,
                         &material_at,
+                        &mut state,
                         &mut local_bank,
                         &mut seed,
                         &mut no_trace,
@@ -1105,6 +1199,7 @@ fn transport_history<Q, O>(
     majorant: &Majorant,
     k_running: f64,
     material_at: &Q,
+    state: &mut Q::State,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
     // Step-level events (gh:#784). Every untraced caller passes `no_trace`;
@@ -1119,7 +1214,7 @@ where
     let e_cap_fission = library_energy_max_ev(nuclides);
     // Safety cap on events per history — a purely-scattering reflective medium with
     // vanishing absorption could otherwise bounce forever (mirrors keff drivers).
-    material_at.begin_history();
+    material_at.begin_history(state);
     const MAX_EVENTS: u32 = 100_000;
     const MAX_VIRTUAL: u32 = 100_000;
     let mut production = 0.0;
@@ -1156,6 +1251,7 @@ where
                 nuclides,
                 MAX_VIRTUAL,
                 material_at,
+                &mut *state,
                 seed,
                 urr_seed,
                 &mut *observe,
@@ -1206,39 +1302,65 @@ where
 
             // Reaction partition on the total: fission | capture | inelastic |
             // (n,2n) | elastic — identical to keff.rs / transport_csg.rs.
-            let xi = prn(seed) * x.total;
-            if xi < x.fission {
+            // gh:#1386/#1444 (c): OpenMC `create_fission_sites` at every collision.
+            let (pc_production, pc_n) =
+                crate::physics::scatter::per_collision_fission_count(&x, k_running, seed);
+            production += pc_production;
+            for _ in 0..pc_n {
+                let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
+                next_bank.push(Site { r, u: u_born, e: e_born });
+            }
+            let xi = crate::physics::scatter::scatter_ladder_xi(
+                nuc.scatter_kernels(),
+                prn(seed) * x.total,
+                x.absorption,
+                x.total,
+                seed,
+            );
+            let group = crate::physics::scatter::classify_reaction(
+                crate::physics::scatter::reaction_order_from_env(),
+                &x,
+                xi,
+            );
+            if group == crate::physics::scatter::ReactionGroup::Fission {
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
                 } else {
                     0.0
                 };
-                production += nu_bar;
-                let n = sample_num_neutrons(nu_bar, k_running, seed);
+                let per_collision = crate::physics::scatter::fission_banking_from_env()
+                    == crate::physics::scatter::FissionBanking::PerCollision;
+                let n = if per_collision {
+                    0 // banked before the reaction draw, as OpenMC
+                } else {
+                    production += nu_bar;
+                    sample_num_neutrons(nu_bar, k_running, seed)
+                };
                 for _ in 0..n {
-                    let (dx, dy, dz) = isotropic_direction(seed);
+                    let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
                     next_bank.push(Site {
                         r,
-                        u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
+                        u: u_born,
+                        e: e_born,
                     });
                 }
                 record_outcome(observe, r, u, e, TrackEvent::Fission, Some(m));
                 break 'history; // fission absorbs the incident neutron
-            } else if xi < x.absorption {
+            } else if group == crate::physics::scatter::ReactionGroup::Capture {
                 record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                 break 'history; // radiative capture
-            } else if xi < x.absorption + x.inelastic {
-                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+            } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
+                let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
                     // Discrete level: the CM angular law is the level's own ENDF
                     // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
                     // carries none for this level -- sampling every inelastic
                     // collision isotropically understates <mu>, inflating
                     // Sigma_tr, suppressing leakage and raising k.
-                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
-                        None => two_body_scatter(e, u, nuc.awr, q, seed),
-                    },
+                    Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
                     Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
                         e,
                         u,
@@ -1250,7 +1372,7 @@ where
                 };
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n {
+            } else if group == crate::physics::scatter::ReactionGroup::N2n {
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                 // elastic CM energy as before. Sharing the available energy between
                 // the two emitted neutrons is a separate gap (GitHub #192).
@@ -1282,7 +1404,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+            } else if group == crate::physics::scatter::ReactionGroup::N3n {
                 // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
                 // are emitted. Before 2026-09-16 there was no branch here at all:
                 // MT=17 is inside MT=1, so the collision still happened but fell
@@ -1310,7 +1432,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+            } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
                 // MT=5, "(n,anything)" -- GitHub #365 audit: this delta-tracking
                 // kernel had no MT=5 arm, so those collisions fell through to
                 // ELASTIC here while every other kernel in the crate has handled
@@ -1330,7 +1452,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+            } else if group == crate::physics::scatter::ReactionGroup::Other {
                 // The other neutron-emitting reactions (GitHub #365 audit).
                 let o = nuc.sample_other_emission(e, u, seed);
                 if o.n_emit == 0 {
@@ -1354,29 +1476,7 @@ where
                 // secondary energy is still drawn free-gas — internally
                 // inconsistent, and it suppresses the up-scatter that lets a
                 // graphite-moderated spectrum equilibrate.
-                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                    (e_out, rotate_direction(u, mu_lab, seed))
-                } else {
-                    {
-                        // Free-gas: below 400 kT the target's own thermal motion
-                        // is sampled, so the neutron can gain energy and the
-                        // population has a Maxwellian fixed point (bead op-50vu).
-                        // Above it this is the old target-at-rest kinematics.
-                        let kt = nuc.free_gas_kt(temp);
-                        let mu_cm = nuc
-                            .sample_elastic_mu_cm(e, seed)
-                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter_dbrc(
-                            e,
-                            u,
-                            nuc.awr,
-                            kt,
-                            mu_cm,
-                            seed,
-                            nuc.dbrc_table(),
-                        )
-                    }
-                };
+                let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
                 e = e2;
                 u = u2;
             }
@@ -1407,6 +1507,7 @@ fn sample_initial_source<Q: MaterialQuery>(
     materials: &[Material],
     nuclides: &[Nuclide],
     material_at: &Q,
+    state: &mut Q::State,
     settings: &KeffSettings,
     seed: &mut u64,
 ) -> Vec<Site> {
@@ -1419,7 +1520,7 @@ fn sample_initial_source<Q: MaterialQuery>(
         }
         let r = domain.sample_point(seed);
         let fissile = material_at
-            .material_at(r)
+            .material_at(state, r)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
@@ -1648,6 +1749,7 @@ mod tests {
 
         let sigma_comb = (seq.k_std.r_powi(2) + par1.k_std.r_powi(2)).sqrt().max(1e-9);
         let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
+        #[cfg(feature = "std")]
         eprintln!(
             "[delta backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",
             seq.k_mean, seq.k_std, par1.k_mean, par1.k_std, dist
@@ -1873,6 +1975,7 @@ mod tests {
             );
             let sigma = (cube.k_std.r_powi(2) + sphere.k_std.r_powi(2)).sqrt().max(1e-9);
             let dist = (cube.k_mean - sphere.k_mean).abs() / sigma;
+            #[cfg(feature = "std")]
             eprintln!(
                 "[k∞ shape independence, size {size}] cube {:.5} ± {:.5} vs sphere \
                  {:.5} ± {:.5}  ({dist:.2}σ, {:+.0} pcm)",

@@ -342,7 +342,11 @@ paper — in the relevant `docs/` development-history entry.
 **Maintainer judgment, 2026-10-20.** When a port is compared against its upstream
 (or two routes are compared), **bit-identity is the goal, but a round-off-level
 difference — e.g. 1 ulp from a different `libm`, a vectorised `exp`, or a changed
-operation order — is acceptable when the relative difference is below 1e-8.**
+operation order — is acceptable when the relative difference is below ~~1e-8~~
+**1e-9** (CORRECTED 2026-11-17, maintainer: "1e-9 supercedes").** Comparisons
+already accepted between 1e-9 and 1e-8 **stay accepted**, flagged (maintainer:
+"those which need 1e-8 and are accepted shld be acceptable"); they are listed
+on gh:#1614. A new one needs 1e-9.
 
 - **Bit-identical is still strongly preferred** (maintainer, same day): it is a
   yes/no check that automation can judge alone. **The moment a residual appears,
@@ -359,6 +363,17 @@ operation order — is acceptable when the relative difference is below 1e-8.**
 - **It does not relax physics V&V gates** (benchmark residuals, pcm, experimental
   tolerances), nor a bit-identity pin a test already holds — moving such a pin
   still needs the reasons the "PROCESS right first" section demands.
+- **Moving a pin for rounding (maintainer, 2026-11-17):** "Pins can move if they
+  r due to rounding errors, is ok. 1e-9 for most errors, 1e-4 for propagated
+  error." A pin may be re-pinned when its value moved by round-off: up to
+  **1e-9 relative** for a direct difference, and up to **1e-4 relative** for a
+  *propagated* one (a last-bit change carried forward, e.g. a Monte Carlo
+  random walk diverging after one rounded collision). Record the old and new
+  values and the relative change where the pin lives. A move beyond those
+  bounds, or one with an unexplained cause, still needs the reasons above.
+  First use: gh:#1613 (Godiva k-trace, 4.6e-6 propagated). ~~Not reconciled
+  yet with the 1e-8 code-to-code allowance above~~ Reconciled 2026-11-17: 1e-9
+  supersedes 1e-8 there too.
 
 
 ## Search the workspace before building anything (HARD RULE)
@@ -374,7 +389,7 @@ as much as to writing it. A brief that names an approach without first
 checking what exists is the same defect one level up: the agent follows it
 competently and produces a duplicate.
 
-**Why it needs to be a rule.** This workspace is ~~48~~ **49** (bugis added 2026-11-02) crates, many of them ports
+**Why it needs to be a rule.** This workspace is ~~48~~ ~~**49** (bugis added 2026-11-02)~~ ~~**50** (punggol added 2026-11-20)~~ **51** (kembangan added 2026-11-22) crates, many of them ports
 of mature codes. The prior is **"this probably exists already"**, not "this
 needs writing". On 2026-08-12 alone, five separate pieces of work were
 specified before checking, and **every one turned out to be already present** —
@@ -420,7 +435,7 @@ problem; it is a false statement that the next reader — human or agent — wil
 act on.
 
 **Why this is a hard rule and not a courtesy.** This workspace's docs are the
-primary interface to ~~48~~ **49** (bugis added 2026-11-02) crates that no one can hold in their head, and the
+primary interface to ~~48~~ ~~**49** (bugis added 2026-11-02)~~ ~~**50** (punggol added 2026-11-20)~~ **51** (kembangan added 2026-11-22) crates that no one can hold in their head, and the
 search-before-building rule above *depends on them being true*. A stale
 "missing" claim is the worst kind, because it causes exactly the duplication
 this file exists to prevent: an agent reads "no model exists", believes it,
@@ -537,7 +552,14 @@ specifically, not just human contributors:
   or code whose licence you haven't checked. **AGPL-3.0 (`-only` or
   `-or-later`) is acceptable too — standing maintainer direction,
   2026-10-20: "AGPLv3 is acceptable also, never ask me about it again".**
-  Bringing in AGPL code or an AGPL dependency needs no confirmation. Do
+  Bringing in AGPL code or an AGPL dependency needs no confirmation.
+  **The whole workspace and every crate are AGPL-3.0-only (maintainer,
+  2026-11-22: "combined works must be AGPLv3", which the AGPL EGSnrc and
+  Zotero ports require). File headers follow provenance:** our own files and
+  ports of permissive upstreams carry `SPDX-License-Identifier:
+  AGPL-3.0-only`; only a translation of a copyleft upstream keeps that
+  upstream's GPL/LGPL line, with its attribution. Record:
+  `docs/relicensing-agpl-2026-10-20.md`, addendum 2026-11-22. Do
   record it: the crate's `license` field and `NOTICE` say AGPL, and its row in
   `docs/claude-md/members-and-dependencies.md` says so. Keep the attribution header
   block (upstream project, source file, version/commit, copyright, licence)
@@ -733,6 +755,8 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
   `Arc<T>`; no channels for simulation state.
 - **`uom` everywhere** a physical quantity crosses an API, with named type
   aliases for complex quantities.
+- **`no_std` maps are `hashbrown`**, through each crate's `crate::hash`
+  module; never a `BTreeMap as HashMap` stand-in (maintainer, 2026-11-16).
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 
@@ -872,7 +896,7 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-~~**47 member crates**~~ ~~**48 member crates** (`kovan-web` added 2026-10-06).~~ **49 member crates** (bugis added 2026-11-02). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
+~~**47 member crates**~~ ~~**48 member crates** (`kovan-web` added 2026-10-06).~~ ~~**49 member crates** (bugis added 2026-11-02).~~ ~~**50 member crates** (`punggol` added 2026-11-20, gh:#1391/#976).~~ **51 member crates** (`kembangan` added 2026-11-22, gh:#1699). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).
@@ -892,6 +916,14 @@ README states:
 - its **status**, stated plainly (a placeholder says "nothing is implemented");
 - the **research, education and V&V only** banner from `RESPONSIBLE_USE.md`;
 - the **Bookkeeping status** table (both axes unchecked).
+
+**A new crate is `no_std` + `alloc` with a default `std` feature (HARD
+RULE, maintainer direction 2026-11-22: "All new crates shld follow this
+pattern from now on").** `#![cfg_attr(not(any(feature = "std", test)),
+no_std)]` and `extern crate alloc;` at the root, `default = ["std"]`, every
+workspace dependency taken with its `std` forwarded from the crate's `std`
+feature, and the crate added to `scripts/check-nostd.sh` in the same change.
+`kembangan` and `punggol` are the pattern.
 
 The same change also adds the crate's own `AGENTS.md` (its rules) and the
 standard `CLAUDE.md` pointer importing it (copy any crate's), the member line in the

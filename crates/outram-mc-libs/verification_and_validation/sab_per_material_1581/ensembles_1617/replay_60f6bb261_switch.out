@@ -1,0 +1,31 @@
+=== FHR ring-RPT pebble: free-gas target motion, priced with the in-process hook ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 96.6s
+  reconstructing U238   … 154.8s
+  reconstructing O16    … 221.8ms
+  reconstructing C12    … 46.4ms
+  reconstructing C13    … 29.3ms
+  reconstructing C12    … 39.4ms
+  reconstructing C13    … 31.6ms
+  reconstructing Si28   … 109.9ms
+  reconstructing Si29   … 130.5ms
+  reconstructing Si30   … 110.3ms
+  reconstructing F19    … 116.6ms
+  reconstructing Li6    … 46.3ms
+  reconstructing Li7    … 24.1ms
+  reconstructing Be9    … 29.0ms
+  control: kinematics kT 5.170400e-2 -> 0 eV on all 14 nuclides (S(alpha,beta) moderators included)
+  ring-RPT fuel shell: 1.493359 < r < 1.753118 cm; pebble 2, reflective root 3
+Nuclear data + materials ready in 274.9 s.
+
+8 seeds per arm, 4000 histories × [30 inactive + 80 active]:
+    SWITCH  seed   1: kfull = 1.360950878599100 k = 1.36095 ± 0.00191, p = 0.4849, eps = 1.5004  [1196.2 s]
+    SWITCH  seed   2: kfull = 1.356959614235443 k = 1.35696 ± 0.00213, p = 0.4836, eps = 1.5023  [1177.2 s]
+    SWITCH  seed   3: kfull = 1.365649311543329 k = 1.36565 ± 0.00208, p = 0.4851, eps = 1.4995  [1102.8 s]
+    SWITCH  seed   4: kfull = 1.358806862894121 k = 1.35881 ± 0.00215, p = 0.4848, eps = 1.5007  [1080.0 s]
+    SWITCH  seed   5: kfull = 1.360870933067463 k = 1.36087 ± 0.00203, p = 0.4832, eps = 1.5030  [1211.6 s]
+    SWITCH  seed   6: kfull = 1.362685367382041 k = 1.36269 ± 0.00222, p = 0.4836, eps = 1.5029  [1163.4 s]
+    SWITCH  seed   7: kfull = 1.359285890306704 k = 1.35929 ± 0.00220, p = 0.4832, eps = 1.5029  [1177.0 s]
+    SWITCH  seed   8: kfull = 1.360320030612570 k = 1.36032 ± 0.00245, p = 0.4846, eps = 1.5001  [1204.2 s]

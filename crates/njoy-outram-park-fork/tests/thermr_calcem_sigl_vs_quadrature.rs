@@ -60,6 +60,9 @@
 //! Agreement to 1e-4 in `μ̄` across a range where `μ̄` itself moves by a factor
 //! of five. **`EGRID`: all 118 values bit-for-bit identical to thermr.f90:1587.**
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::thermr::calcem::egrid::{BREAK, EGRID, NGRID, THERM};

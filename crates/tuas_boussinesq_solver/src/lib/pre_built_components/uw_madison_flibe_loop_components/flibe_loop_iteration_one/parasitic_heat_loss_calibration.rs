@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// In the reference,
 /// Britsch, K., Anderson, M., Brooks, P., &
 /// Sridharan, K. (2019). Natural circulation
@@ -18,7 +21,7 @@
 #[cfg(test)]
 #[test]
 pub fn heater_check_if_four_heater_test1() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::f64::*;
     use uom::si::length::{inch, millimeter};
@@ -91,7 +94,7 @@ pub fn heater_check_if_four_heater_test1() {
 #[cfg(test)]
 #[test]
 pub fn heater_check_if_four_heater_test5() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::f64::*;
     use uom::si::length::{inch, millimeter};
@@ -164,7 +167,7 @@ pub fn heater_check_if_four_heater_test5() {
 #[cfg(test)]
 #[test]
 pub fn heater_check_if_four_heater_test10() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::f64::*;
     use uom::si::length::{inch, millimeter};
@@ -728,6 +731,7 @@ pub fn calibrate_uw_madison_parasitic_heat_loss_fixed_flowrate(
         current_simulation_time += timestep;
 
         if print_debug_results_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
         }
     }
@@ -738,6 +742,7 @@ pub fn calibrate_uw_madison_parasitic_heat_loss_fixed_flowrate(
     let riser_entrance_tc_11_simulated_degc = tc_11_estimate.get::<degree_celsius>();
     let riser_exit_tc_14_simulated_degc = tc_14_estimate.get::<degree_celsius>();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         top_cross_entrance_tc_21_simulated_degc,
         top_cross_exit_tc_24_simulated_degc,
@@ -746,6 +751,7 @@ pub fn calibrate_uw_madison_parasitic_heat_loss_fixed_flowrate(
         riser_exit_tc_14_simulated_degc
     ));
 
+    #[cfg(feature = "std")]
     dbg!(&(top_cross_heat_transfer_coeff, downcomer_heat_transfer_coeff));
 
     // assert set points equal to experimental data to within some tolerance

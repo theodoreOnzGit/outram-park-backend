@@ -48,6 +48,9 @@
 //! fallback exactly, so an "empty" result is a well-defined zero-size box
 //! rather than an unbounded/inverted one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::VolScalarField;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
@@ -193,7 +196,7 @@ mod tests {
     use super::*;
     use outram_foam_basic_lib::fields::{BoundaryCondition, Field, PatchField, VolField};
     use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Three cells on a line at x = 0.5, 1.5, 2.5 (no boundary faces needed
     /// for this test — internal-field-only check).

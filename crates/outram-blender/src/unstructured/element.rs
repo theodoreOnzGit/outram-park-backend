@@ -39,6 +39,9 @@
 //! reference elements; `face_tables_are_outward` in the tests checks them
 //! numerically.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The unit the mesh's point coordinates are stored in.
 ///
 /// The neutral mesh stores raw `f64` coordinates (the documented raw-`f64`

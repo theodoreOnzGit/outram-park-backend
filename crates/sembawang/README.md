@@ -64,7 +64,11 @@ explosion never happening; in-vessel H2 at 25 h is inside its band
 the example moved there 2026-11-05). **Still does not exist:**
 ~~MCCI, aerosol physics, in-plant fission-product transport,~~ (**CORRECTED
 2026-11-02**: MCCI, sectional aerosol physics and in-plant fission-product
-transport exist since 2026-10-29: `cavity`, `rn_volume`, `containment_fp`) a general
+transport exist since 2026-10-29: `cavity`, `rn_volume`, `containment_fp`;
+**since 2026-11-11 (gh:#1335)** the MELCOR clean-room *equations*
+`aerosol`, `vapour`, `rn_volume`, `iodine` and `wire` live in
+`outram_park_fork_offbeat::melcor`, re-exported here under their old paths
+for one release, while the plant assembly stays here) a general
 (MELCOR-class) progression engine. **The containment is a control-volume
 network since 2026-11-02** (gh:#1099, maintainer: "switch it"):
 `containment_network` on `tampines`' `CvNetwork` (drywell, torus and
@@ -105,6 +109,19 @@ run on the hot-node history. GitHub #296.
 lines the release windows up with a `changi` dispersion run, so one run goes from
 the prescribed transient to Bq·s/m³ in air and Bq/m² on the ground. No dose is
 computed.
+
+## `no_std` + `alloc` (gh:#1641)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p sembawang --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The BWR Mark I plant model, the release
+chain, the HTR-10 cases and the LWR comparison build without it. What `std`
+carries: ~~the fission-product decay summation that loads the OpenMC decay
+libraries (`bwr_mark1::fp_decay::compute`; its committed element tables build
+without std),~~ printing, the integration tests and the examples. **CHANGED
+2026-11-22:** `fp_decay::compute` builds without `std` too, since the OpenMC
+decay libraries (1.1.0) are `no_std`.
 
 ## Running
 

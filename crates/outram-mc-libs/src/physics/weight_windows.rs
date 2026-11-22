@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Mesh-based weight windows** — splitting above the window, Russian
 //! roulette below it, and MAGIC generation from a flux tally. GitHub #258.
@@ -24,11 +24,19 @@
 //!
 //! # Where the two checkpoints sit
 //!
-//! Upstream applies windows at two points, `weight_window_checkpoint_surface`
-//! and `weight_window_checkpoint_collision`. Both are honoured here:
-//! [`WeightWindows::look_up`] is called after a surface crossing and after a
-//! collision, and [`apply`] plays the game.
+//! Upstream applies windows at birth (`simulation.cpp:757-761`) and at two
+//! checkpoints, `weight_window_checkpoint_surface` (default OFF,
+//! `settings.cpp:89`) and `weight_window_checkpoint_collision` (default ON).
+//! All three are honoured here with upstream's defaults (since 2026-11-15,
+//! gh:#1582; before that the surface checkpoint was ON and there was no birth
+//! window): [`WeightWindows::look_up`] is called at birth, after a collision
+//! and, when switched on, after a surface crossing, and [`apply`] plays the
+//! game. `VarianceReduction::with_legacy_weight_window_game` restores the old
+//! behaviour.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::physics::variance_reduction::russian_roulette;
 use crate::tally::mesh::RegularMesh;
@@ -689,6 +697,7 @@ mod tests {
                 *weight <= w.upper_weight * (1.0 + WEIGHT_WINDOW_REL_TOL)
                     && *weight >= w.lower_weight * (1.0 - WEIGHT_WINDOW_REL_TOL)
             }) {
+                #[cfg(feature = "std")]
                 println!(
                     "cascade settled after {} generations: {} particles, {produced} produced",
                     generation + 1,
@@ -746,6 +755,7 @@ mod tests {
             let p = start / w_s;
             let sigma = (p * (1.0 - p) / N as f64).sqrt() * w_s;
             let dev = (mean - start).abs() / sigma;
+            #[cfg(feature = "std")]
             println!(
                 "start {start:.2}: survivors {survivors}, mean weight {mean:.6} vs \
                  {start:.6} ({dev:.2} sigma); promoted to {w_s:.3}"
@@ -753,6 +763,7 @@ mod tests {
             worst = worst.max(dev);
             assert!(dev < 4.0, "expected weight not preserved: {dev:.2} sigma");
         }
+        #[cfg(feature = "std")]
         println!("worst deviation across all starting weights: {worst:.2} sigma");
     }
 
@@ -875,6 +886,7 @@ mod tests {
         let volumes = vec![1.0_f64; 4];
         ww.update_magic(&sum, &sum_sq, &volumes, n, 0.1, 5.0).unwrap();
 
+        #[cfg(feature = "std")]
         println!("MAGIC lower bounds: {:?}", ww.lower);
         assert!(
             (ww.lower[0] - 0.5).abs() < 1e-12,
@@ -915,6 +927,7 @@ mod tests {
         ];
         ww.update_magic(&sum, &sum_sq, &vec![1.0; 4], n, 0.1, 5.0)
             .unwrap();
+        #[cfg(feature = "std")]
         println!("MAGIC lower bounds with unresolved cells: {:?}", ww.lower);
         assert!(ww.lower[0] > 0.0, "the resolved cell must carry a window");
         for i in 1..4 {

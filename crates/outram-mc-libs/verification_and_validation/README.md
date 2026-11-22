@@ -74,3 +74,9 @@ against the **combined** σ of both codes.
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).
 
+## Bit-level code-to-code records against compiled OpenMC (gh:#1386, epic #1336)
+
+| folder | compared | result (2026-11-10) |
+|---|---|---|
+| `upstream_openmc_surfaces/` | `evaluate`, `distance`, `sense` of all 15 surface kinds; `RectLattice` / `HexLattice` `distance`, `get_indices`; a ray trace and lattice walks | all bit-identical after the port was brought in line with upstream; before-numbers and causes in its README |
+

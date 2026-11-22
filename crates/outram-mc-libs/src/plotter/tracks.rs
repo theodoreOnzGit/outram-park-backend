@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **`openmc.Track.plot` and `openmc.Tracks.plot`**: 3-D polylines of particle
 //! tracks.
 //!
@@ -21,6 +21,9 @@
 //! file does; a caller that wants that grouping builds the [`PlotTrack`]
 //! directly.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::physics::track_output::Track;
 

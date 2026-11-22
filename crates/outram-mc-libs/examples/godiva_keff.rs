@@ -70,7 +70,7 @@
 //! resolved inelastic levels); it should not be read as each sub-model being
 //! individually exact.
 
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::vv::godiva;
 use outram_mc_libs::vv::{assert_reproduces_keff, RecordedKeff};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
@@ -83,26 +83,9 @@ fn main() {
         Nuclide::from_core("U238").expect("U238 in CORE WMP library"),
     ];
 
-    // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001). ────
-    let material = Material {
-        id: 1,
-        name: "Godiva HEU".into(),
-        temperature: 293.6, // K
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: 4.9184e-4,
-            }, // U-234
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: 4.4994e-2,
-            }, // U-235
-            NuclideComponent {
-                nuclide_idx: 2,
-                atom_density: 2.4984e-3,
-            }, // U-238
-        ],
-    };
+    // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001),
+    //    `vv::godiva` (this example's identical copy removed 2026-11-17). ────
+    let material = godiva::material();
 
     // ── Power iteration. ──────────────────────────────────────────────────────
     let settings = KeffSettings {
@@ -112,7 +95,7 @@ fn main() {
         ..KeffSettings::default()
     };
 
-    let radius_cm = 8.7407;
+    let radius_cm = godiva::RADIUS_CM;
     println!("Godiva bare-sphere Keff  (r = {radius_cm} cm)");
     println!(
         "  {} histories/gen, {} inactive + {} active generations\n",

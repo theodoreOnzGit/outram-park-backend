@@ -1,10 +1,13 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// This test attempted to tweak the inner tube nusselt number
 /// in order to obtain the correct dhx inlet temperature
 ///
 #[test]
 pub fn hot_leg_nusselt_calibration_failed() {
     // checks hot leg to ambient calibration
-    use std::thread;
+    use crate::thread;
 
     // even after adjusting the nusselt number up more than 20 times,
     // the dhx outlet temperature is about 74.06 deg C
@@ -228,6 +231,7 @@ pub fn hot_leg_nusselt_calibration_regression_test_v2_failed(
 
             static_mixer_21_front_single_cv_temperature
         };
+        #[cfg(feature = "std")]
         dbg!(&dhx_inlet_actual_temperature.get::<degree_celsius>());
 
         nusselt_number_multiplicative_coefficient = {
@@ -487,6 +491,7 @@ pub fn hot_leg_nusselt_calibration_regression_test_v2_failed(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_inlet_temperature_set_point.get::<degree_celsius>(),
         dhx_inlet_actual_temperature.get::<degree_celsius>(),
@@ -678,6 +683,7 @@ pub fn hot_leg_nusselt_calibration_regression_test_v1_failed(
 
             static_mixer_21_front_single_cv_temperature
         };
+        #[cfg(feature = "std")]
         dbg!(&dhx_inlet_actual_temperature.get::<degree_celsius>());
 
         nusselt_number_multiplicative_coefficient = {
@@ -936,6 +942,7 @@ pub fn hot_leg_nusselt_calibration_regression_test_v1_failed(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_inlet_temperature_set_point.get::<degree_celsius>(),
         dhx_inlet_actual_temperature.get::<degree_celsius>(),

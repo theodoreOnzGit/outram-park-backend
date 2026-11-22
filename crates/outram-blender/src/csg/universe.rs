@@ -37,6 +37,9 @@
 //! Key operation: [`Universe::find_cell`] — given a local position, return the
 //! first cell in this universe that contains it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cell::{Cell, SurfaceToken};
 use super::position::{Direction, Position};
 use super::surface::SurfaceKind;
@@ -64,8 +67,11 @@ impl Universe {
     /// disambiguates membership for a particle that has just crossed a boundary
     /// and would otherwise be re-selected into the cell it was leaving. See
     /// [`Cell::contains`] and [`SurfaceToken`]. Pass [`SurfaceToken::NONE`] for a
-    /// standalone point query. Because every nested frame in this crate is a
-    /// pure translation, the global token stays valid at every level.
+    /// standalone point query. ~~Because every nested frame in this crate is a
+    /// pure translation, the global token stays valid at every level.~~ **CORRECTED
+    /// 2026-11-20** (gh:#698): false for a universe repeated in a lattice, where a
+    /// surface index names a different physical plane in every tile; the token
+    /// applies only at the level the particle crossed (`GeometryPath::on_level`).
     pub fn find_cell(
         &self,
         r: Position,

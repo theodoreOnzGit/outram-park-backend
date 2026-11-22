@@ -67,8 +67,11 @@
 //!   flag but [`UnresolvedTable::shield`] does **not** apply the `xtot`
 //!   correction — it evaluates the `iovl == 0` path. Flagged as a follow-up.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::endf::interp::{terp1, IntLaw};
 use crate::groupr::panel::{GroupFlux, PointwiseXs};

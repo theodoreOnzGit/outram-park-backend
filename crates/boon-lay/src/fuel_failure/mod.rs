@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // boon-lay fuel failure — provenance
 // ----------------------------------
@@ -167,6 +167,9 @@
 //! | Eq (3) grouping | bar spans the denominator | `R*T` in the numerator | dimensions; the printed form makes `p` fall with `T` |
 //! | `t_B` | seconds (-511-) | **seconds** | Fig. 3: seconds 0.0087, days 0.277 |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod booth;
 pub mod corrosion;
 pub mod decomposition;

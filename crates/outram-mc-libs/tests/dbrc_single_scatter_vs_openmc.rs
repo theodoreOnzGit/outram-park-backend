@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **One elastic scatter off U-238 near its low resonances, with DBRC, against
 //! OpenMC.** GitHub #407: on the lattice, the DBRC worth is −42.6 ± 20.0 pcm in
@@ -44,6 +44,8 @@
 //! The reference spheres were thinned until the DBRC-off rows agree
 //! (|z| ≤ 2.4). A thicker first attempt showed a spurious z ≈ 20 with DBRC off,
 //! from multiple scattering.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;

@@ -202,5 +202,9 @@ HEU-SOL-THERM-009 case 1 0.9990 ± 0.0043, LEU-COMP-THERM-008 case 1
 - `tests/wasm_route4_runtime.rs`: U-234 route 4 plus `from_processed`
   fingerprint `0x871cdd4d51d206f2` natively, and the **same** under
   wasm32-wasip1 (Node 26.11.1 WASI, 12.6 s). Headless Chromium was not run.
+  **Re-pinned 2026-11-14** to `0x3d0f096f63526343` natively, after GitHub
+  #463 items 5 and 6 changed `xs_at_energy`'s `nu_fission` and out-of-grid
+  rule; `OUTRAM_MC_LEGACY_XS_DETAILS=1` gives `0x871cdd4d51d206f2` again.
+  Not re-checked: the wasm32-wasip1 run against the new pin.
 - `examples/route4_purr_table_shift.rs`: the data table above, with a
   hand-checked unit test.

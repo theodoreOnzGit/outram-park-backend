@@ -289,7 +289,7 @@ Limits, each with an issue:
 ## The Monte Carlo demo, in the browser
 
 **Live:** <https://theodoreonzgit.github.io/outram-park-backend/demos/monte-carlo/>
-(published by the backend Pages site on every push to `develop`; geometry
+(published by the backend Pages site when `develop` is merged into `web-deploy`, ~~on every push to `develop`~~ **CHANGED 2026-11-06**, gh:#1306; geometry
 images at `demos/monte-carlo/geometry/`). `?rung=godiva&mode=run` opens the
 Godiva Run k_eff (likewise `jemima`, `hst009` and `lct008`, gh:#859); `?rung=triso` the pebble. The old
 `demos/triso-pebble/` URL redirects to `?rung=triso`. The rung table, and the

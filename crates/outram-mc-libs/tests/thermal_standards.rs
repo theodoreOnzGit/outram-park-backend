@@ -11,6 +11,9 @@
 //! the free-gas Doppler-broadening integral are both analytic, and the one
 //! external number (B-10's 2200 m/s absorption) is asserted loosely on purpose,
 //! with the tight check carried by the analytic one beside it.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): nuclide-level test or probe; it builds one bound nuclide and no material references it, so there is no free material that could receive the bound law. Not migrated: the nuclide-level binding is what it exercises.
 
 use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;

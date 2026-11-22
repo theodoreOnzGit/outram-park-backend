@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
 //
 // OUTRAM PARK is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the
-// Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3 of the License only.
 //
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// General Public License for more details.
+// Affero General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License along
+// You should have received a copy of the GNU Affero General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! **DOVER** — *Deck-based Open-source Visualisation Engine for Reactors*, the
@@ -73,7 +72,23 @@
 //! **isothermal** and holds volumetric flow constant, neither of which a real
 //! reformer does.
 
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![forbid(unsafe_code)]
+
+extern crate alloc;
+
+/// The `alloc` names `std` puts in its prelude, for `no_std` builds
+/// (gh:#1643). Glob-imported by every module in `no_std` builds only, so a
+/// `std` build resolves every name exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+}
 
 pub mod deck;
 pub mod headless;

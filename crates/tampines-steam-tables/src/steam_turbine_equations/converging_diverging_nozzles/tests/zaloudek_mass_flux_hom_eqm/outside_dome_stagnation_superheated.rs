@@ -14,6 +14,9 @@
 //! near-saturated-vapour throat recompresses isentropically into the
 //! superheated-vapour region.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::area::square_foot;

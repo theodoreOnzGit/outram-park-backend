@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::prelude::NuclideReactionAndDecayData;
 use fission_yields_data::prelude::Nuclide::*;
 use outram_mc_libs::rng::lcg::Lcg64 as Rand64;

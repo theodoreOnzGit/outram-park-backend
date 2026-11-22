@@ -18,6 +18,9 @@
 //! MF=32 FEND, so a tape without MF=32 gets none — the port refuses that
 //! case instead of silently returning the input.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
 use crate::NjoyError;

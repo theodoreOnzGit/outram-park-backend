@@ -21,10 +21,13 @@
 //! water's latent heat, upstream's own example value. The mesh is the same
 //! 4-cell, 0.5 m³-per-cell periodic 1-D mesh the other `fv_options` tests use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::mesh::FvMesh;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 const T_SOLID: f64 = 330.0;
 const T_LIQUID: f64 = 335.0;

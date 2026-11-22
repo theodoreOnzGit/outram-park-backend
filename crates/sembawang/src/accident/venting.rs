@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! The venting selection, held as indices so it cannot be mispaired.
 //!
@@ -54,6 +54,9 @@
 //! It carries no opinion about *why* a sample vented, so it cannot disagree
 //! about it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Time;
 use uom::si::time::second;
 

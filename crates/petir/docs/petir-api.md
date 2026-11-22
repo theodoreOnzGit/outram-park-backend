@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.3
+**Version:** 0.0.4
 
 **Format Version:** 61
 
@@ -120,6 +120,7 @@ the crate where a careless call compiles and is wrong.
 | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags` |
 | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
+| [`interp_egs`] | ported (EGSnrc, not GSL; AGPL-3.0-or-later) | EGSnrc's `EGS_Interpolator`: precomputed linear interpolation on uniform bins, from a table, a function, existing coefficients, or adaptively; out-of-range clamped (gh:#1289) |
 | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS, symmetric tridiagonal, and rectangular Householder QR with a least-squares solve |
 | [`min`] | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | [`ode`] | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver; implicit backward Euler and BDF2 with a modified-Newton inner solve ([`ode::implicit`], GSL `modnewton1`/`rk1imp` + OpenFOAM `backwardDdtScheme` coefficients, gh:#1065) |
@@ -5558,6 +5559,295 @@ pub struct Interp {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `interp_egs`
+
+EGSnrc's fast uniform-bin interpolator (`EGS_Interpolator`), ported from
+EGSnrc (AGPL-3.0-or-later) on gh:#1289.
+EGSnrc's fast run-time interpolator, `EGS_Interpolator`.
+
+# What it is, and how it differs from [`crate::interp`]
+
+[`crate::interp`] is GSL's interpolation: knots anywhere, a binary search
+(`gsl_interp_bsearch`) to find the bracket, linear or natural-cubic
+pieces, and extrapolation refused with [`crate::PetirError::Domain`].
+
+[`EgsInterpolator`] is a different tool for a different job. It is what
+EGSnrc's transport kernels use for cross sections and similar tables:
+
+- **Uniform bins only.** The interval `xmin..xmax` is split into `n`
+  equal bins, so the bin index is `(int)(ax + bx*x)`, one multiply-add and
+  a truncation, no search. This is the `$SET INTERVAL` mortran macro.
+- **Precomputed coefficients.** Each bin stores `a[i]` and `b[i]` so that
+  the value is `a[i] + b[i]*x`, one more multiply-add (`$EVALUATE USING`).
+  GSL's linear interpolant recomputes the slope from the two knots at
+  every call.
+- **Out of range is clamped, not refused.** [`EgsInterpolator::interpolate`]
+  returns `f(xmin)` below the interval and `f(xmax)` above it (and, as
+  upstream, for a NaN argument). There is no error path at evaluation.
+- **Construction from a function, optionally adaptive.**
+  [`EgsInterpolator::adaptive`] doubles the number of bins until linear
+  interpolation at every bin midpoint is within a relative `accu` of the
+  function, or `nmax` is reached.
+
+**Nothing from [`crate::interp`] was reused**: its knot storage, bracket
+search and refusal to extrapolate are each the thing EGSnrc's class does
+differently. What *is* shared is [`crate::PetirError`] for the
+construction errors.
+
+# Interpolating in a log variable
+
+Upstream has no log mode in this class. EGSnrc's callers build the
+interpolator over `ln E` and pass `ln E` at run time; do the same here.
+That usage is one of the differential-test cases
+(`verification_and_validation/egsnrc_interpolator/`).
+
+# Deviations from upstream, each flagged `DEVIATION` where it is made
+
+1. A table shorter than `nbin` values, or coefficient arrays shorter than
+   `nbin`, is refused with [`crate::PetirError::LengthMismatch`]. Upstream
+   reads past the end of the array.
+2. The checks (`nbin >= 2`, `xmin < xmax`) run **before** the function is
+   evaluated in [`EgsInterpolator::from_function`]. Upstream evaluates the
+   function at `nbin` points first (at `NaN` when `nbin == 1`) and then
+   calls `egsFatal`.
+3. `egsFatal` is an `Err`, not a process exit.
+4. Where upstream's in-range bin index would fall past the stored
+   coefficients (only possible through round-off when `|xmin|` is huge
+   against the bin width), [`EgsInterpolator::interpolate`] uses the last
+   stored bin; upstream reads out of bounds. The no-check fast paths return
+   `None` there instead.
+5. An interpolator is built by a constructor and never re-initialised;
+   upstream's empty constructor, `initialize` on an existing object and
+   `own_data` have no Rust counterpart. Coefficients given to
+   [`EgsInterpolator::from_coefficients`] are moved in rather than borrowed.
+
+# An upstream defect, NOT reproduced
+
+Two of upstream's constructors pass `Xmax` for `Xmin`
+(`egs_interpolator.cpp`, the function constructor and the `a`/`b`
+constructor both call `initialize(nbin,Xmax,Xmax,...)`), so `check` sees
+`Xmin >= Xmax` and `egsFatal` fires on every call. The `initialize`
+methods they meant to call are correct, and they are what this module
+ports. The defect was confirmed by running upstream (see the V&V record).
+
+# Units
+
+Bare `f64`, as everywhere in PETIR's numerics.
+
+```rust
+pub mod interp_egs { /* ... */ }
+```
+
+### Types
+
+#### Struct `EgsInterpolator`
+
+EGSnrc's `EGS_Interpolator`: piecewise-linear interpolation on uniform
+bins with precomputed `a[i] + b[i]*x` coefficients.
+
+```
+use petir::interp_egs::EgsInterpolator;
+
+// Five values on 0..4, i.e. four bins of width 1.
+let f = EgsInterpolator::from_values(5, 0.0, 4.0, &[0.0, 1.0, 4.0, 9.0, 16.0])?;
+assert_eq!(f.interpolate(2.5), 6.5);   // halfway between 4 and 9
+assert_eq!(f.interpolate(-3.0), 0.0);  // clamped to f(xmin)
+assert_eq!(f.interpolate(99.0), 16.0); // clamped to f(xmax)
+# Ok::<(), petir::PetirError>(())
+```
+
+```rust
+pub struct EgsInterpolator {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_values(nbin: usize, xmin: f64, xmax: f64, values: &[f64]) -> Result<Self> { /* ... */ }
+  ```
+  Interpolate `values`, taken to sit at `nbin` uniformly spaced points
+
+- ```rust
+  pub fn from_function<F: FnMut(f64) -> f64>(nbin: usize, xmin: f64, xmax: f64, func: F) -> Result<Self> { /* ... */ }
+  ```
+  Tabulate `func` at `nbin` uniformly spaced points `xmin + dx*j`,
+
+- ```rust
+  pub fn from_coefficients(nbin: usize, xmin: f64, xmax: f64, a: Vec<f64>, b: Vec<f64>) -> Result<Self> { /* ... */ }
+  ```
+  Wrap existing coefficients: `f(x) = a[i] + b[i]*x` in bin `i` of
+
+- ```rust
+  pub fn adaptive<F: FnMut(f64) -> f64>(xmin: f64, xmax: f64, func: F, nmax: usize, accu: f64) -> Result<Self> { /* ... */ }
+  ```
+  Choose the number of bins adaptively so that linear interpolation of
+
+- ```rust
+  pub fn interpolate(self: &Self, x: f64) -> f64 { /* ... */ }
+  ```
+  The value at `x`: `f(xmin)` if `x <= xmin`, `f(xmax)` if `x >= xmax`
+
+- ```rust
+  pub fn interpolate_fast(self: &Self, x: f64) -> Option<f64> { /* ... */ }
+  ```
+  The value at `x` with no range check: `a[i] + b[i]*x`,
+
+- ```rust
+  pub fn get_index(self: &Self, x: f64) -> i32 { /* ... */ }
+  ```
+  Upstream's `getIndex`: `(int)(ax + bx*x)` inside the interval, `0`
+
+- ```rust
+  pub fn get_index_fast(self: &Self, x: f64) -> i32 { /* ... */ }
+  ```
+  Upstream's `getIndexFast`: `(int)(ax + bx*x)`, no checks. Rust's
+
+- ```rust
+  pub fn interpolate_fast_at(self: &Self, i: i32, x: f64) -> Option<f64> { /* ... */ }
+  ```
+  Upstream's `interpolateFast(int i, EGS_Float x)`: `a[i] + b[i]*x`
+
+- ```rust
+  pub fn xmin(self: &Self) -> f64 { /* ... */ }
+  ```
+  Lower interpolation limit, upstream's `getXmin`.
+
+- ```rust
+  pub fn xmax(self: &Self) -> f64 { /* ... */ }
+  ```
+  Upper interpolation limit, upstream's `getXmax`.
+
+- ```rust
+  pub fn get_a(self: &Self, i: i32) -> Option<f64> { /* ... */ }
+  ```
+  `a[i]`, upstream's `get_a`; `None` outside the stored coefficients.
+
+- ```rust
+  pub fn get_b(self: &Self, i: i32) -> Option<f64> { /* ... */ }
+  ```
+  `b[i]`, upstream's `get_b`; `None` outside the stored coefficients.
+
+- ```rust
+  pub fn bins(self: &Self) -> i32 { /* ... */ }
+  ```
+  Number of bins, upstream's private `n` (`nbin - 1`). Not an upstream
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `LOOP_MAX`
+
+Upstream's iteration guard, `loopMax` (`egs_functions.h:96`,
+`const EGS_I64 loopMax = 1e10;`).
+
+```rust
+pub const LOOP_MAX: i64 = 10_000_000_000;
+```
+
+#### Constant `DEFAULT_NMAX`
+
+Upstream's default `nmax` for [`EgsInterpolator::adaptive`]
+(`egs_interpolator.h`, `int nmax = 1024`).
+
+```rust
+pub const DEFAULT_NMAX: usize = 1024;
+```
+
+#### Constant `DEFAULT_ACCU`
+
+Upstream's default `accu` for [`EgsInterpolator::adaptive`]
+(`egs_interpolator.h`, `EGS_Float accu = 1e-4`).
+
+```rust
+pub const DEFAULT_ACCU: f64 = 1e-4;
+```
+
 ## Module `linalg`
 
 Dense linear algebra — GSL's `blas/` and `linalg/` layers.
@@ -9027,9 +9317,19 @@ the `libm` row, so the workspace-wide rename has a target for every `log2`,
 `exp2` and `sin_cos` call site. `r_sin_cos` is `(r_sin, r_cos)`, not
 `libm::sincos`, so it is bit-identical to the two separate methods.
 
-**Only `exp`, `ln` and `powf` take the ARM route.** ARM optimized-routines
-publishes no scalar-double `log10`, `cbrt`, trig or hyperbolic functions,
-so the rest are `libm`: deterministic — one fixed implementation on every
+**Only `exp`, `ln` and `powf` take the ARM route.** ~~ARM optimized-routines
+publishes no scalar-double `log10`, `cbrt`, trig or hyperbolic functions,~~
+**CORRECTED 2026-11-05:** ARM optimized-routines (commit `20859d3`) now
+publishes scalar-double `log2`, `exp2`, `exp10` and `erf` in `math/`, and
+`log10`, `cbrt`, the inverse trig, hyperbolic, `expm1` and `log1p` in
+`math/aarch64/experimental/` (plain C); still no scalar-double `sin`,
+`cos` or `tan`. They were
+measured on gh:#1292 (2026-11-05): on PETIR's default x86-64 build (no
+FMA) those are slower than the `libm` crate for `cbrt`, `atan2`, `atan`, `asin`,
+`acos`, `tanh`, `sinh`, `expm1` and `log1p` (1.8-5.8x) and less accurate
+(1.0-2.5 ulp against 0.5-2.1), and transcendentals other than `exp`/`ln`
+were under 1 % of a Godiva transport run, so they stay on `libm`.
+So the rest are `libm`: deterministic — one fixed implementation on every
 target — but not fast, and not glibc's bits. They are here so that a crate
 choosing determinism can get it by a rename; that is a trade a crate makes
 knowingly, which is why the `r_` prefix stays and nothing shadows `std`.
@@ -14474,9 +14774,18 @@ needs re-baselining once, in the same way the `libm` swap itself did.
 port of CORE-MATH's correctly rounded `cr_hypot` / `cr_hypotf`, because
 the `libm` crate's `hypot` misrounds by one ulp on some inputs.
 
-Everything else here stays on `libm`: ARM publishes no scalar double
+Everything else here stays on `libm`: ~~ARM publishes no scalar double
 `log10`, `cbrt`, `cos`, `sin`, `tanh` or `atan2`, and the special functions
-(`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.
+(`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.~~
+**CORRECTED 2026-11-05:** ARM optimized-routines (commit `20859d3`) does
+publish scalar-double `log10`, `cbrt`, `tanh`, `atan2` (experimental) and
+`erf`/`erfc`, though still no `sin`, `cos` or `tan`. They were
+measured on gh:#1292 (2026-11-05): on PETIR's default x86-64 build (no
+FMA) those are slower than the `libm` crate for `cbrt`, `atan2`, `atan`, `asin`,
+`acos`, `tanh`, `sinh`, `expm1` and `log1p` (1.8-5.8x) and less accurate
+(1.0-2.5 ulp against 0.5-2.1), and transcendentals other than `exp`/`ln`
+were under 1 % of a Godiva transport run, so they stay on `libm`.
+See [`crate::mathf`] for the per-function table.
 
 ```rust
 pub mod real { /* ... */ }
@@ -15120,6 +15429,42 @@ assert_eq!(
 pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 { /* ... */ }
 ```
 
+#### Function `future_seed_coefficients`
+
+`future_seed_coefficients(n)` of OpenMC `src/random_lcg.cpp` (8f79d9d0):
+the `(multiplier, increment)` pair with `x_n = multiplier * x_0 + increment`
+(mod 2^64), by F. Brown's O(log n) algorithm. Same operation order as
+upstream; [`future_seed`] is this pair applied to a seed.
+
+```rust
+pub fn future_seed_coefficients(n: u64) -> (u64, u64) { /* ... */ }
+```
+
+#### Function `init_particle_seeds`
+
+Port of `init_particle_seeds(id, seeds)` (OpenMC `src/random_lcg.cpp`,
+commit `8f79d9d0`): the `N_STREAMS` starting seeds of one particle,
+`seeds[i] = multiplier * (master_seed + i) + increment` with
+`(multiplier, increment) = future_seed_coefficients(id * stride)`.
+
+`id` is OpenMC's *transport seed* index (see
+`outram_mc_libs::rng::openmc_seeding`), `stride` its `prn_stride`
+([`DEFAULT_STRIDE`] unless `openmc_set_stride` was called). Equal to
+`init_seed(id, i, master_seed)` stream by stream, computed with one
+coefficient pair instead of four jump-aheads.
+
+```
+use petir::rng::lcg::{init_particle_seeds, init_seed, DEFAULT_STRIDE, N_STREAMS};
+let s = init_particle_seeds(7, 1, DEFAULT_STRIDE);
+for i in 0..N_STREAMS {
+    assert_eq!(s[i], init_seed(7, i as i64, 1));
+}
+```
+
+```rust
+pub fn init_particle_seeds(id: i64, master_seed: i64, stride: u64) -> [u64; 4] { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `MULT`
@@ -15146,7 +15491,1826 @@ Default per-particle stride (number of RNG draws reserved per particle).
 pub const DEFAULT_STRIDE: u64 = 152917;
 ```
 
+#### Constant `N_STREAMS`
+
+Number of independent streams OpenMC gives each particle
+(`include/openmc/random_lcg.h`, `N_STREAMS`).
+
+```rust
+pub const N_STREAMS: usize = 4;
+```
+
+#### Constant `STREAM_TRACKING`
+
+Stream used for tracking (`STREAM_TRACKING`).
+
+```rust
+pub const STREAM_TRACKING: usize = 0;
+```
+
+#### Constant `STREAM_SOURCE`
+
+Stream used for source sampling (`STREAM_SOURCE`).
+
+```rust
+pub const STREAM_SOURCE: usize = 1;
+```
+
+#### Constant `STREAM_URR_PTABLE`
+
+Stream used for URR probability-table draws (`STREAM_URR_PTABLE`).
+
+```rust
+pub const STREAM_URR_PTABLE: usize = 2;
+```
+
+#### Constant `STREAM_VOLUME`
+
+Stream used for stochastic volume calculation (`STREAM_VOLUME`).
+
+```rust
+pub const STREAM_VOLUME: usize = 3;
+```
+
+## Module `alias_table`
+
+**Walker alias tables**, ported from EGSnrc's `egs_alias_table`.
+
+Two classes are ported, both with their construction and their sampling:
+
+| upstream | here | samples |
+|---|---|---|
+| `EGS_AliasTable`, type 0 | [`EgsAliasTable`] with [`AliasTableKind::Discrete`] | one of `N` discrete abscissas |
+| `EGS_AliasTable`, type 1 | [`AliasTableKind::Histogram`] | a bin, then uniformly within it |
+| `EGS_AliasTable`, type 2 (and 3) | [`AliasTableKind::LinearInterpolation`] | a bin, then from the linear density across it |
+| `EGS_AliasTable::initialize(xmin, xmax, accu, nmax, func, data)` | [`EgsAliasTable::from_function`] | type 2, built adaptively from a function |
+| `EGS_AliasTable::sampleBin` | [`EgsAliasTable::sample_bin`] | the bin index only |
+| `EGS_SimpleAliasTable` | [`EgsSimpleAliasTable`] | a bin index, two uniforms per draw |
+
+# The random numbers
+
+Upstream draws from `EGS_RandomGenerator::getUniform()`, a `double` in
+`[0, 1)`. Here every sampler takes PETIR's [`Rng`] trait and draws
+`rng.random::<f64>()` ([`super::RngExt`]: the top 53 bits of one
+`next_u64`, times `2^-53`), in the same order and the same number of times
+as upstream calls `getUniform()`. Given the same uniforms, the samples are
+bit-identical to upstream's; `verification_and_validation/egsnrc_alias_table/`
+shows it against upstream compiled from source.
+
+**Consequence for a caller wanting EGSnrc's exact streams:** a generator
+whose `getUniform()` is not of the form `k * 2^-53` (RANMAR's are
+multiples of `2^-24`, which are) reproduces EGSnrc only if its [`Rng`]
+implementation returns `next_u64() = k << 11` for the uniform `k * 2^-53`.
+
+# Deviations from upstream (none changes a result for valid input)
+
+1. **Memory:** `allocate`, `clear`, `copy` and the copy constructor are
+   `Vec` and `#[derive(Clone)]`. The function-driven `initialize`'s
+   `xtemp`/`ftemp` leak on the `is_ok` path upstream is gone.
+2. **Errors instead of undefined behaviour.** Upstream does not check `N`;
+   `N < 1` (discrete) or `N < 2` (continuous) leads to out-of-bounds reads
+   when sampling. Those return [`PetirError::Domain`], as does a too-short
+   `f`. A type other than 0..=3 is [`PetirError::Invalid`] (upstream would
+   read an uninitialised `fi[np]`). `egsFatal` calls (simple table with
+   `sum <= 0`; `loopMax` reached) return errors rather than exiting.
+3. **Warnings are flags.** `egsWarning(...)` in `make()` and in the simple
+   table's constructor set [`EgsAliasTable::aliasing_incomplete`] /
+   [`EgsSimpleAliasTable::aliasing_incomplete`]; `no_std` has nowhere to
+   print.
+4. **The bin index is clamped to `np - 1`.** Upstream's `(int)(r1*np)`
+   overruns the arrays only if `getUniform()` returns `>= 1`, which
+   `random::<f64>()` cannot (its maximum `1 - 2^-53` times any `np` rounds
+   below `np`). The clamp is there so no subscript can fail
+   (`tests/no_panic_gate.rs`), not to change a sample.
+5. **Type 3** is accepted by [`AliasTableKind::from_egs_type`] and mapped
+   to type 2: upstream's `initialize`/`copy` treat 2 and 3 alike and `make`
+   and `sample` branch only on 0 and 1, so the two are the same table.
+
+```rust
+pub mod alias_table { /* ... */ }
+```
+
+### Types
+
+#### Enum `AliasTableKind`
+
+How an [`EgsAliasTable`] reads its `(x, f)` input — upstream's `type`.
+
+**Upstream:** `egs_alias_table.h:85-96` (constructor documentation) and
+the `type` member comment: "0 => sum of delta functions, 1 => histogram,
+2 => linear interpolation between bin edges".
+
+```rust
+pub enum AliasTableKind {
+    Discrete,
+    Histogram,
+    LinearInterpolation,
+}
+```
+
+##### Variants
+
+###### `Discrete`
+
+Type 0: `sum_i f_i delta(x - x_i)`, `N` points, `N` probabilities.
+
+###### `Histogram`
+
+Type 1: `N` edges, `N - 1` bins, bin `i` on `[x_i, x_{i+1})` with
+density `f_i`.
+
+###### `LinearInterpolation`
+
+Type 2: `N` edges, a density varying linearly from `f_i` at `x_i` to
+`f_{i+1}` at `x_{i+1}`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_egs_type(egs_type: i32) -> Result<Self> { /* ... */ }
+  ```
+  Map upstream's integer `type` to the enum.
+
+- ```rust
+  pub fn egs_type(self: Self) -> i32 { /* ... */ }
+  ```
+  Upstream's integer `type` for this kind (`3` is reported as `2`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AccuracyGoal`
+
+Whether the function-driven constructor met its accuracy goal — the
+integer upstream's `initialize(xmin, xmax, accu, nmax, ...)` returns.
+
+```rust
+pub enum AccuracyGoal {
+    Met,
+    NotMetAtNmax,
+}
+```
+
+##### Variants
+
+###### `Met`
+
+Upstream return `0`: every check point is within `accu`.
+
+###### `NotMetAtNmax`
+
+Upstream return `1`: the table reached `nmax` points first. The table
+is still built and usable.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AliasMade`
+
+The alias-table data `make()` produces from `(x, f)`.
+
+Returned by [`egs_alias_make`]; [`EgsAliasTable`] wraps it.
+
+```rust
+pub struct AliasMade {
+    pub fi: alloc::vec::Vec<f64>,
+    pub wi: alloc::vec::Vec<f64>,
+    pub bin: alloc::vec::Vec<usize>,
+    pub average: f64,
+    pub incomplete: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fi` | `alloc::vec::Vec<f64>` | `fi`, divided by the total probability (`fi[i] /= sum`). |
+| `wi` | `alloc::vec::Vec<f64>` | `wi`: the probability of keeping bin `j` rather than its alias. |
+| `bin` | `alloc::vec::Vec<usize>` | `bin`: the alias of each bin. |
+| `average` | `f64` | `average`: the mean of the distribution. |
+| `incomplete` | `bool` | `true` where `make()` issued "found a high bin, but no low bin". |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EgsAliasTable`
+
+A Walker alias table over a discrete, histogram or piecewise-linear
+distribution — EGSnrc's `EGS_AliasTable`.
+
+Build with [`EgsAliasTable::new`] (tabulated) or
+[`EgsAliasTable::from_function`] (adaptive, from a function); draw with
+[`sample`](EgsAliasTable::sample) or
+[`sample_bin`](EgsAliasTable::sample_bin).
+
+```
+use petir::rng::{AliasTableKind, ChaCha8Rng, EgsAliasTable, SeedableRng};
+let t = EgsAliasTable::new(&[1.0, 2.0, 3.0], &[1.0, 2.0, 1.0], AliasTableKind::Discrete)?;
+assert_eq!(t.average(), 2.0);
+let mut rng = ChaCha8Rng::seed_from_u64(1);
+let x = t.sample(&mut rng);
+assert!(x == 1.0 || x == 2.0 || x == 3.0);
+# Ok::<(), petir::PetirError>(())
+```
+
+```rust
+pub struct EgsAliasTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(x: &[f64], f: &[f64], kind: AliasTableKind) -> Result<Self> { /* ... */ }
+  ```
+  Build from `N = x.len()` tabulated points — upstream's
+
+- ```rust
+  pub fn from_function<F: FnMut(f64) -> f64>(xmin: f64, xmax: f64, accu: f64, nmax: usize, func: F) -> Result<(Self, AccuracyGoal)> { /* ... */ }
+  ```
+  Build a [`AliasTableKind::LinearInterpolation`] table for `func` on
+
+- ```rust
+  pub fn sample<R: Rng + ?Sized>(self: &Self, rng: &mut R) -> f64 { /* ... */ }
+  ```
+  Draw a value — upstream's `sample(EGS_RandomGenerator *rndm)`.
+
+- ```rust
+  pub fn sample_bin<R: Rng + ?Sized>(self: &Self, rng: &mut R) -> usize { /* ... */ }
+  ```
+  Draw a bin index — upstream's `sampleBin` (`egs_alias_table.cpp:256-265`).
+
+- ```rust
+  pub fn average(self: &Self) -> f64 { /* ... */ }
+  ```
+  The distribution's mean — `getAverage()`.
+
+- ```rust
+  pub fn maximum(self: &Self) -> f64 { /* ... */ }
+  ```
+  The largest abscissa — `getMaximum()`, `xi[n-1]`.
+
+- ```rust
+  pub fn kind(self: &Self) -> AliasTableKind { /* ... */ }
+  ```
+  The table's kind (upstream `type`).
+
+- ```rust
+  pub fn xi(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The abscissas or bin edges, `xi` (`N` entries).
+
+- ```rust
+  pub fn fi(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The normalised function values, `fi`.
+
+- ```rust
+  pub fn wi(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The keep probabilities, `wi` (`np` entries).
+
+- ```rust
+  pub fn bins(self: &Self) -> &[usize] { /* ... */ }
+  ```
+  The aliases, `bin` (`np` entries).
+
+- ```rust
+  pub fn aliasing_incomplete(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` if `make()` stopped on "found a high bin, but no low bin"
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EgsSimpleAliasTable`
+
+A Walker alias table over bin indices only — EGSnrc's
+`EGS_SimpleAliasTable` (used upstream by source and shape collections and
+voxelised shapes).
+
+Its construction is the stack ("Vose") form, different from
+[`EgsAliasTable`]'s first-high/first-low scan, and each draw takes TWO
+uniforms: one for the bin, one for the keep test.
+
+```rust
+pub struct EgsSimpleAliasTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(f: &[f64]) -> Result<Self> { /* ... */ }
+  ```
+  Build from bin probabilities `f` (need not be normalised).
+
+- ```rust
+  pub fn sample<R: Rng + ?Sized>(self: &Self, rng: &mut R) -> usize { /* ... */ }
+  ```
+  Draw a bin — upstream's inline `sample` (`egs_alias_table.h:194-197`):
+
+- ```rust
+  pub fn wi(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The keep probabilities, `wi` (`n` entries, scaled so the mean is 1).
+
+- ```rust
+  pub fn bins(self: &Self) -> &[usize] { /* ... */ }
+  ```
+  The aliases, `bins` (`n` entries; a bin never aliased points to
+
+- ```rust
+  pub fn aliasing_incomplete(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` where upstream warns "table aliasing may be incomplete".
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `egs_alias_make`
+
+Build the alias table — `EGS_AliasTable::make()`.
+
+`xi` holds the `N` abscissas (discrete) or edges; `fi` holds `np = N`
+(discrete), `np = N - 1` (histogram) or `N` (linear) values. The caller
+([`EgsAliasTable::new`]) checks those lengths.
+
+**Upstream:** `egs_alias_table.cpp:116-187`, line for line, in the same
+operation order (the sums are accumulated bin by bin; the pairing loop
+takes the FIRST not-done high bin and the FIRST not-done low bin, which is
+what makes the table, and therefore every sample, match bit for bit).
+
+```rust
+pub fn egs_alias_make(kind: AliasTableKind, xi: &[f64], fi: &[f64]) -> AliasMade { /* ... */ }
+```
+
+#### Function `egs_alias_pick`
+
+Pick a bin from one uniform — the first five lines of upstream's
+`sampleBin` and `sample`.
+
+**Upstream:** `egs_alias_table.cpp:256-265`:
+`aj = r1*np; j = (int) aj; aj -= j; if (aj > wi[j]) j = bin[j];`.
+`j` is clamped to `np - 1` (module docs, deviation 4).
+
+```rust
+pub fn egs_alias_pick(wi: &[f64], bin: &[usize], r1: f64) -> usize { /* ... */ }
+```
+
+#### Function `egs_alias_value`
+
+The value within bin `j`, from the second uniform `r2` — the rest of
+upstream's `sample` for types 1 and 2.
+
+`xi` and `fi` are the table's stored (normalised) arrays. For
+[`AliasTableKind::Discrete`] the value is `xi[j]` and `r2` is not used
+(upstream does not draw it).
+
+**Upstream:** `egs_alias_table.cpp:268-294`, with the same grouping:
+`x + r2*dx*(1+rnno1*(1-r2*a))` and `x - dx/a*(1-sqrt(1+r2*a*(2+a)))`.
+An index miss cannot happen for a table built by [`EgsAliasTable`];
+it returns NaN, as `rng::normal` does for its tables.
+
+```rust
+pub fn egs_alias_value(kind: AliasTableKind, xi: &[f64], fi: &[f64], j: usize, r2: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `EGS_EPSILON`
+
+`egs_functions.h:60-63`, double branch: `const EGS_Float epsilon =
+1.0/(1ULL<<50);`, "4 times the machine epsilon".
+
+```rust
+pub const EGS_EPSILON: f64 = _;
+```
+
+#### Constant `EGS_LOOP_MAX`
+
+`egs_functions.h:96`: `const EGS_I64 loopMax = 1e10;`, the iteration
+guard EGSnrc puts on its otherwise unbounded loops.
+
+```rust
+pub const EGS_LOOP_MAX: i64 = 10_000_000_000;
+```
+
+## Module `ranlux`
+
+**RANLUX**, EGSnrc's default random number generator for its Mortran
+codes: Lüscher's luxury subtract-and-borrow generator in F. James's
+coding, as `HEN_HOUSE/src/ranlux.mortran` has it, with the 24-number
+buffer of `ranlux.macros`.
+
+# Luxury levels
+
+Upstream's table `nskipll = 0, 24, 73, 199, 365`: after each batch of 24
+numbers, that many further numbers are generated and thrown away. Level 0
+is RCARRY ("fails many tests"); upstream notes that "in actual EGSnrc
+calculations we have obtained incorrect results when using level 0, but
+level 1 and higher give the same results." The default is level 1
+(`$DEFAULT-LL`). Levels outside `0..=4` become level 1, as upstream does.
+
+# Single precision inside, as upstream
+
+`twom24` is `real*4` upstream, so `uni*twom24` and, for small `uni`, the
+48-bit refinement `uni*twom24 + seeds(j24)*twom24*twom24` are computed
+in **single precision** and only then stored to the `real*8` array. The
+refinement is therefore rounded to 24 significant bits. PETIR computes it
+in `f32` in the same order, which is what makes the stream bit-identical.
+
+# What is not ported
+
+`show_ranlux_seeds`, `print_ranlux_seeds`, the initialisation banner and
+`$RNG-INPUTS` (output and input plumbing). `twop24` is computed upstream
+but never used, so it is not ported.
+
+# Verification
+
+`tests/egsnrc_rndm_vs_upstream.rs` replays 28 streams of 10^6 numbers
+made by `ranlux.mortran` itself (Mortran3 + gfortran with EGSnrc's flags,
+`verification_and_validation/egsnrc_rndm/harness/`): every luxury level,
+five seeds, the default path, the out-of-range clamps and a state round
+trip. All bit-identical. The harness also reproduces the sums upstream's
+own `user_codes/ranlux_test` says it should print.
+
+```rust
+pub mod ranlux { /* ... */ }
+```
+
+### Types
+
+#### Enum `RanluxError`
+
+Why a RANLUX state could not be restored.
+
+```rust
+pub enum RanluxError {
+    PointersOutOfRange,
+    InvalidState,
+}
+```
+
+##### Variants
+
+###### `PointersOutOfRange`
+
+The packed pointers of `state(25)` decode to an `i24` or `j24`
+outside `1..=24`. Upstream: `set_ranlux_state` prints "Error in
+set_ranlux_state: seeds outside of allowed range!" and `stop`s.
+
+###### `InvalidState`
+
+A seed outside `0..2^24`, or a buffer pointer outside `1..=25`.
+**DEVIATION:** upstream does not check these; out-of-range seeds
+would overflow its `integer*4` arithmetic.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RanluxState`
+
+The full RANLUX state as upstream's `$STORE RNG STATE` writes it:
+`seeds` (the 25 integers of `get_ranlux_state`), `rng_array` and
+`rng_seed`.
+
+```rust
+pub struct RanluxState {
+    pub seeds: [i32; 25],
+    pub rng_array: [f64; 24],
+    pub rng_seed: i32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `seeds` | `[i32; 25]` | `get_ranlux_state`'s 25 integers: the 24 seeds, then<br>`i24 + 100*(j24 + 100*nskip)`, negated when the carry is set. |
+| `rng_array` | `[f64; 24]` | The 24 buffered numbers (`rng_array`). |
+| `rng_seed` | `i32` | The 1-based pointer to the next buffered number (`rng_seed`);<br>25 means the buffer is used up. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Ranlux`
+
+EGSnrc's RANLUX generator with the 24-number buffer of its macros.
+
+[`Ranlux::new`] is `$INITIALIZE RNG USING luxury_level AND seed;`
+(`init_ranlux`, then a first fill); [`Ranlux::get_uniform`] is
+`$RANDOMSET`. The raw `ranlux(rng_array)` subroutine is
+[`Ranlux::fill_array`].
+
+```rust
+pub struct Ranlux {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(luxury_level: i32, seed: i32) -> Ranlux { /* ... */ }
+  ```
+  `$INITIALIZE RNG USING luxury_level AND seed;`: `init_ranlux`, then
+
+- ```rust
+  pub fn fill_array(self: &mut Self, rng_array: &mut [f64; 24]) { /* ... */ }
+  ```
+  `subroutine ranlux(rng_array)`: 24 new numbers in `[0, 1)`, then
+
+- ```rust
+  pub fn get_uniform(self: &mut Self) -> f64 { /* ... */ }
+  ```
+  The next random number in `[0, 1)`: `$RANDOMSET`.
+
+- ```rust
+  pub fn nskip(self: &Self) -> i32 { /* ... */ }
+  ```
+  Numbers discarded after each batch of 24 (`nskip`): 0, 24, 73, 199
+
+- ```rust
+  pub fn get_ranlux_state(self: &Self) -> [i32; 25] { /* ... */ }
+  ```
+  `entry get_ranlux_state(state)`: the 24 seeds and the packed
+
+- ```rust
+  pub fn set_ranlux_state(self: &mut Self, state: &[i32; 25]) -> Result<(), RanluxError> { /* ... */ }
+  ```
+  `entry set_ranlux_state(state)`: the inverse of
+
+- ```rust
+  pub fn state(self: &Self) -> RanluxState { /* ... */ }
+  ```
+  The full state, as `$STORE RNG STATE` writes it.
+
+- ```rust
+  pub fn set_state(self: &mut Self, s: &RanluxState) -> Result<(), RanluxError> { /* ... */ }
+  ```
+  Restore a state, as `$RETRIEVE RNG STATE` does (read `rng_array`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    `$RNG-DEFAULT-INITIALIZATION;`: luxury level 1, the default seed.
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Rng**
+  - ```rust
+    fn next_u32(self: &mut Self) -> u32 { /* ... */ }
+    ```
+    One draw, its top 32 bits: see `ranmar::word32`. **Not upstream**
+
+  - ```rust
+    fn next_u64(self: &mut Self) -> u64 { /* ... */ }
+    ```
+    One draw times 2^64, exact (every RANLUX output is a multiple of
+
+  - ```rust
+    fn fill_bytes(self: &mut Self, dest: &mut [u8]) { /* ... */ }
+    ```
+    Three bytes per draw (its top 24 bits): see `ranmar::fill_bytes24`.
+
+- **RngExt**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `DEFAULT_LUXURY_LEVEL`
+
+`$DEFAULT-LL` (`ranlux.macros`): the default luxury level.
+
+```rust
+pub const DEFAULT_LUXURY_LEVEL: i32 = 1;
+```
+
+#### Constant `DEFAULT_SEED`
+
+`jseed_dflt` (`ranlux.mortran`): the seed used for `seedin <= 0`.
+
+```rust
+pub const DEFAULT_SEED: i32 = 314159265;
+```
+
+## Module `ranmar`
+
+**RANMAR**, EGSnrc's egs++ random number generator (`EGS_Ranmar`), with
+the array-buffered `getUniform` of its base class `EGS_RandomGenerator`.
+
+# What is ported, and what is not
+
+Ported, line for line: the seeding (`EGS_Ranmar::setState(int,int)`), the
+batch refill (`fillArray`, including its **high-resolution** second pass),
+`getUniform` with its array pointer, `getAzimuth`, `getGaussian`, the
+counters (`numbersGenerated`, `numbersUsed`, `resetCounter`), the
+in-memory state calls (`saveState`, `resetState`, `getCopy`,
+`setState(EGS_RandomGenerator*)`), the content of `storeState` /
+`setState(istream&)` / `addState` as a plain [`RanmarState`] value, and
+`defaultRNG`.
+
+Not ported:
+- `createRNG`, the `rng definition` input block and `describeRNG`: input
+  and output plumbing, not numerics (the brief of gh:#1289).
+- The **text** format of `storeState`. Upstream writes the buffered
+  numbers with the stream's default precision (6 significant digits), so
+  a text round trip changes the not-yet-used numbers: the differential
+  harness measured 24 of the next 300 draws differing, by up to
+  3.0e-6 relative (`verification_and_validation/egsnrc_rndm/README.md`).
+  [`RanmarState`] carries the same fields exactly instead.
+- `rngSize()`: the byte size of the C++ objects, meaningless here.
+
+# Verification
+
+`tests/egsnrc_rndm_vs_upstream.rs` replays streams made by upstream's own
+`egs_rndm.cpp`, compiled unmodified by the harness in
+`verification_and_validation/egsnrc_rndm/harness/`: 12 RANMAR streams of
+10^6 draws (standard and high resolution, array sizes 1, 97, 128, 1000),
+plus `getGaussian` and `getAzimuth` streams, all bit-identical.
+
+```rust
+pub mod ranmar { /* ... */ }
+```
+
+### Types
+
+#### Enum `RanmarError`
+
+Why a [`Ranmar`] could not be built or restored.
+
+```rust
+pub enum RanmarError {
+    ArraySizeBelowOne,
+    SequenceOutOfRange,
+    InvalidState,
+}
+```
+
+##### Variants
+
+###### `ArraySizeBelowOne`
+
+An array size below 1. Upstream: `egsFatal("Attempt to construct a
+RNG with n < 1")` in `EGS_RandomGenerator::allocate`.
+
+###### `SequenceOutOfRange`
+
+`defaultRNG(sequence)` with a sequence outside the allowed range.
+Upstream: `egsFatal("... sequence %d is outside of allowed range")`.
+
+###### `InvalidState`
+
+A [`RanmarState`] whose fields no RANMAR could reach (a pointer
+outside the lag table or the buffer, a lag-table entry or carry
+outside its range). **DEVIATION:** upstream's `setState(istream&)`
+reads the fields without checking them; PETIR refuses them, because
+out-of-range values would index outside the tables.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RanmarState`
+
+The complete state of a [`Ranmar`]: every field upstream's `storeState`
+writes, in the same order, held exactly.
+
+**Upstream:** `EGS_RandomGenerator::storeState` (`count`, `np`, `ip`,
+`rarray`) followed by `EGS_Ranmar::storePrivateState` (`ix`, `jx`, `c`,
+`iseed1`, `iseed2`, `high_res`, `u`). `np` is `rarray.len()`.
+
+```rust
+pub struct RanmarState {
+    pub count: i64,
+    pub ip: usize,
+    pub rarray: alloc::vec::Vec<f64>,
+    pub ix: i32,
+    pub jx: i32,
+    pub c: i32,
+    pub iseed1: i32,
+    pub iseed2: i32,
+    pub high_res: bool,
+    pub u: [i32; 97],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `count` | `i64` | Random numbers generated so far (`count`). |
+| `ip` | `usize` | Index of the next unused element of `rarray` (`ip`). |
+| `rarray` | `alloc::vec::Vec<f64>` | The buffered numbers (`rarray`, length `np`). |
+| `ix` | `i32` | First lag pointer (`ix`). |
+| `jx` | `i32` | Second lag pointer (`jx`). |
+| `c` | `i32` | The carry (`c`). |
+| `iseed1` | `i32` | The first initial seed (`iseed1`). |
+| `iseed2` | `i32` | The second initial seed (`iseed2`). |
+| `high_res` | `bool` | High-resolution mode (`high_res`). |
+| `u` | `[i32; 97]` | The lag table (`u`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Ranmar`
+
+EGSnrc's RANMAR generator with its array buffer (`EGS_Ranmar` and its
+base `EGS_RandomGenerator`).
+
+Draw with [`Ranmar::get_uniform`] (a number in `[0, 1)`, 24 bits, or 48
+in high resolution), [`Ranmar::get_azimuth`] or [`Ranmar::get_gaussian`];
+or through PETIR's [`Rng`](super::Rng) trait, where `random::<f64>()`
+returns exactly `get_uniform()` (one draw per word; see [`top24`] for the
+mapping and why `Normal` must not be fed this generator).
+
+[`Clone`] copies everything, including a state saved by
+[`Ranmar::save_state`]; [`Ranmar::get_copy`] is upstream's `getCopy`,
+which does not.
+
+```rust
+pub struct Ranmar {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(ixx: i32, jxx: i32) -> Ranmar { /* ... */ }
+  ```
+  `EGS_Ranmar(ixx, jxx)` with upstream's default array size of 128.
+
+- ```rust
+  pub fn with_array_size(ixx: i32, jxx: i32, n: usize) -> Result<Ranmar, RanmarError> { /* ... */ }
+  ```
+  `EGS_Ranmar(ixx, jxx, n)`: an array of `n` numbers per refill.
+
+- ```rust
+  pub fn default_rng(sequence: i32) -> Result<Ranmar, RanmarError> { /* ... */ }
+  ```
+  `EGS_RandomGenerator::defaultRNG(sequence)`: seeds 33 and
+
+- ```rust
+  pub fn set_high_resolution(self: &mut Self, hr: bool) { /* ... */ }
+  ```
+  Turn high resolution on or off (`setHighResolution`).
+
+- ```rust
+  pub fn high_resolution(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether high resolution is on.
+
+- ```rust
+  pub fn initial_seeds(self: &Self) -> (i32, i32) { /* ... */ }
+  ```
+  The two seeds in use, after upstream's clamping (`iseed1`, `iseed2`).
+
+- ```rust
+  pub fn array_size(self: &Self) -> usize { /* ... */ }
+  ```
+  The size of the array refilled at once (`np`).
+
+- ```rust
+  pub fn fill_array(self: &mut Self, array: &mut [f64]) { /* ... */ }
+  ```
+  Fill `array` with random numbers in `[0, 1)`, advancing the
+
+- ```rust
+  pub fn get_uniform(self: &mut Self) -> f64 { /* ... */ }
+  ```
+  The next random number, uniform in `[0, 1)`.
+
+- ```rust
+  pub fn get_azimuth(self: &mut Self) -> (f64, f64) { /* ... */ }
+  ```
+  Cosine and sine of an azimuth uniform in `[0, 2 pi)`.
+
+- ```rust
+  pub fn get_gaussian(self: &mut Self) -> f64 { /* ... */ }
+  ```
+  A Gaussian random number with mean 0 and standard deviation 1.
+
+- ```rust
+  pub fn numbers_generated(self: &Self) -> i64 { /* ... */ }
+  ```
+  Random numbers generated so far (`numbersGenerated`), including any
+
+- ```rust
+  pub fn numbers_used(self: &Self) -> i64 { /* ... */ }
+  ```
+  Random numbers handed out so far (`numbersUsed`).
+
+- ```rust
+  pub fn reset_counter(self: &mut Self) { /* ... */ }
+  ```
+  Set the generated-numbers counter to zero (`resetCounter`).
+
+- ```rust
+  pub fn save_state(self: &mut Self) { /* ... */ }
+  ```
+  Keep a copy of the current state for [`Ranmar::reset_state`]
+
+- ```rust
+  pub fn reset_state(self: &mut Self) { /* ... */ }
+  ```
+  Return to the state kept by the last [`Ranmar::save_state`]
+
+- ```rust
+  pub fn get_copy(self: &Self) -> Ranmar { /* ... */ }
+  ```
+  A copy of this generator without its saved state (`getCopy`).
+
+- ```rust
+  pub fn set_state_from(self: &mut Self, other: &Ranmar) { /* ... */ }
+  ```
+  Take the state of `other` (`setState(EGS_RandomGenerator *r)`).
+
+- ```rust
+  pub fn state(self: &Self) -> RanmarState { /* ... */ }
+  ```
+  The full state, as `storeState` would write it (see [`RanmarState`]).
+
+- ```rust
+  pub fn set_state(self: &mut Self, s: &RanmarState) -> Result<(), RanmarError> { /* ... */ }
+  ```
+  Restore a state written by [`Ranmar::state`] (`setState(istream&)`).
+
+- ```rust
+  pub fn add_state(self: &mut Self, s: &RanmarState) -> Result<(), RanmarError> { /* ... */ }
+  ```
+  Restore a state and add the current count to it (`addState`), as
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    `EGS_Ranmar()`: seeds 1802 and 9373, an array of 128.
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Rng**
+  - ```rust
+    fn next_u32(self: &mut Self) -> u32 { /* ... */ }
+    ```
+    One draw, its top 32 bits: see [`word32`]. **Not upstream** (EGSnrc
+
+  - ```rust
+    fn next_u64(self: &mut Self) -> u64 { /* ... */ }
+    ```
+    One draw times 2^64, exact: see [`top24`] for why
+
+  - ```rust
+    fn fill_bytes(self: &mut Self, dest: &mut [u8]) { /* ... */ }
+    ```
+    Three bytes per draw (its top 24 bits): see [`fill_bytes24`].
+
+- **RngExt**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `DEFAULT_ARRAY_SIZE`
+
+The default array size of `EGS_RandomGenerator(int n=128)`.
+
+```rust
+pub const DEFAULT_ARRAY_SIZE: usize = 128;
+```
+
+#### Constant `DEFAULT_IXX`
+
+The default first seed of `EGS_Ranmar(int ixx=1802, ...)`.
+
+```rust
+pub const DEFAULT_IXX: i32 = 1802;
+```
+
+#### Constant `DEFAULT_JXX`
+
+The default second seed of `EGS_Ranmar(..., int jxx=9373, ...)`.
+
+```rust
+pub const DEFAULT_JXX: i32 = 9373;
+```
+
 ### Re-exports
+
+#### Re-export `AccuracyGoal`
+
+```rust
+pub use alias_table::AccuracyGoal;
+```
+
+#### Re-export `AliasTableKind`
+
+```rust
+pub use alias_table::AliasTableKind;
+```
+
+#### Re-export `EgsAliasTable`
+
+```rust
+pub use alias_table::EgsAliasTable;
+```
+
+#### Re-export `EgsSimpleAliasTable`
+
+```rust
+pub use alias_table::EgsSimpleAliasTable;
+```
 
 #### Re-export `ChaCha8Rng`
 
@@ -15212,6 +17376,42 @@ pub use uniform::Uniform;
 
 ```rust
 pub use uniform::UniformError;
+```
+
+#### Re-export `Ranlux`
+
+```rust
+pub use ranlux::Ranlux;
+```
+
+#### Re-export `RanluxError`
+
+```rust
+pub use ranlux::RanluxError;
+```
+
+#### Re-export `RanluxState`
+
+```rust
+pub use ranlux::RanluxState;
+```
+
+#### Re-export `Ranmar`
+
+```rust
+pub use ranmar::Ranmar;
+```
+
+#### Re-export `RanmarError`
+
+```rust
+pub use ranmar::RanmarError;
+```
+
+#### Re-export `RanmarState`
+
+```rust
+pub use ranmar::RanmarState;
 ```
 
 ## Module `roots`
@@ -17442,7 +19642,11 @@ Special functions — GSL's `specfunc/`, plus the OpenFOAM-derived kernels.
 # What is here
 
 - **Error function family**: [`erf`], [`erfc`] and the scaled complementary
-  form [`erfc_scaled`], translated from GSL's `specfunc/erfc.c`; and
+  form [`erfc_scaled`]. ~~translated from GSL's `specfunc/erfc.c`~~
+  **CORRECTED 2026-11-10**: `erf`/`erfc` forward to the `libm` crate's
+  fdlibm (see `erf.rs`; against GSL 2.8 they are bit-identical on 76-86 %
+  of the sweep, worst 5e-14) and `erfc_scaled` is PETIR's own, with no GSL
+  counterpart; and
   [`erf_inv`], the Winitzki approximation lifted verbatim from
   `outram-foam-basic-lib`.
 - **Bessel family**: the cylindrical functions of orders 0 and 1 —
@@ -19917,10 +22121,21 @@ both, so the zeros come out exact by construction rather than by
 cancellation. The window is half-open at 0.01 exactly as upstream has it, so
 Lanczos accuracy returns just outside it.
 
-Two limits remain, stated rather than hidden. Accuracy degrades near the
+~~Two limits remain, stated rather than hidden. Accuracy degrades near the
 poles at the non-positive integers, where `ln Gamma` genuinely diverges; and
 the reflection branch has not ported GSL's fractional-part extraction, so it
-loses accuracy for `x` below about -50. Both are filed as beads.
+loses accuracy for `x` below about -50. Both are filed as beads.~~
+**CORRECTED 2026-11-12 (gh:#1419)** — the second sentence was wrong: the
+reflection degraded within 0.02 of EVERY negative integer (measured against
+compiled GSL 2.8: relative error `1e-16/|eps|`, 2.5e-8 at `eps = 1e-9`,
+0.04-0.15 absolute in `ln|Gamma|` one ulp from a pole), not only below -50.
+It is fixed: `lngamma_sgn_sing` and `lngamma_sgn_0` are ported, and
+`ln_gamma`, `ln_gamma_sgn` and `gamma` follow GSL's own dispatch
+(`gsl_sf_lngamma_e`, `gsl_sf_lngamma_sgn_e`, `gsl_sf_gamma_e`). Measured
+after the fix, against compiled GSL 2.8 on 346 near-pole values: see
+`tests/gsl_specfunc_code_to_code.rs` (`gamma_near_negative_integer_poles_*`).
+What is still refused: `|x| > 0.5/(eps pi) ~ 7.2e14` has no fractional part
+left (GSL `GSL_EROUND`; PETIR returns `NaN`).
 
 # Units
 
@@ -20002,20 +22217,28 @@ The gamma function, `Gamma(x)`.
 
 Defined for every `x` except the poles at `0, -1, -2, ...`, where it returns
 `NaN` (the two one-sided limits differ in sign, so no single value is
-correct). Overflows to `+inf` for `x` beyond about 171.6.
+correct). Overflows to `+inf` for `x > 171` (GSL's `GSL_SF_GAMMA_XMAX`;
+~~"beyond about 171.6"~~ **CORRECTED 2026-11-12**: `Gamma(171.5)` is
+representable but GSL, and now PETIR, return `+inf` there).
 
 # Algorithm
 
-Reconstructed as `sgn * exp(ln|Gamma(x)|)` from [`ln_gamma_sgn`]. For
-integer arguments up to 20 the exact factorial is returned instead, since
-those are representable exactly in `f64` and the Lanczos route would leave
-them a few ulp off — an irritating thing to discover in a test.
+GSL's `gsl_sf_gamma_e` (specfunc/gamma.c:1255), ported 2026-11-12
+(gh:#1419, gh:#1420). ~~Reconstructed as `sgn * exp(ln|Gamma(x)|)`; exact
+factorials for integers up to 20.~~ Now: the exact `fact_table` entry for an
+integer `1 <= x <= 171`; for `x >= 1/2` a series near 1 and 2, `exp` of the
+Lanczos logarithm below 5, a Chebyshev series for `5 <= x < 10`, and
+`x^(x/2) e^(-x) x^(x/2) sqrt(2 pi / x)` times the Stirling `gammastar`
+series above; for `x < 1/2` the reflection `1 / (sin_term Gamma(1 - x))`
+with `sin_term = (-1)^r sin(pi f) / pi` and `x = r + f` exact, so a pole
+costs no precision. Only `x <= -169` goes through the logarithm.
 
 # Accuracy
 
-Relative error under 1e-14 away from the poles. Note that the
-exponentiation costs roughly one decimal digit relative to [`ln_gamma`]:
-prefer the logarithm wherever the caller can work in log space.
+Against compiled GSL 2.8 (`tests/gsl_specfunc_code_to_code.rs`): 581 values
+on the sweep grid, worst relative difference 1.1e-15 against stock GSL
+(glibc `exp`/`pow`/`sin`) and 0 (all bit-identical) against GSL linked to
+PETIR's own libm.
 
 # Example
 
@@ -20031,16 +22254,20 @@ pub fn gamma(x: f64) -> f64 { /* ... */ }
 
 #### Function `factorial`
 
-`n!` as an `f64`, exactly for `n <= 20`.
+`n!` as an `f64`, from GSL's `fact_table` for every `n <= 170`.
 
 # Domain and range
 
-`20!` is the largest factorial that fits an exact `f64`; `170!` is the
-largest that fits at all. Beyond `n = 170` the result is `+inf` — use
-[`ln_factorial`] there instead of trying to represent the value.
+`22!` is the largest factorial that is exact in `f64` (checked with exact
+integer arithmetic; ~~"20! is the largest"~~ **CORRECTED 2026-11-12**: 21!
+and 22! are exact too); from `23!` the table holds GSL's correctly rounded
+value. `170!` is the largest that fits at all. Beyond `n = 170` the result is `+inf` — use [`ln_factorial`]
+there instead of trying to represent the value.
 
-Translates GSL's `gsl_sf_fact_e`, which likewise carries an exact table for
-the small cases.
+Translates GSL's `gsl_sf_fact_e` (specfunc/gamma.c:1474) with its
+`fact_table`, extracted from `gamma.c` by script (`gamma_data.rs`).
+~~Exact only for `n <= 20`, `exp(ln_gamma)` above~~ **CORRECTED
+2026-11-12 (gh:#1420)**: 171/171 values bit-identical to GSL 2.8.
 
 # Example
 
@@ -20058,7 +22285,9 @@ pub fn factorial(n: u32) -> f64 { /* ... */ }
 
 `ln(n!)`, valid for every `n` without overflow.
 
-Computed as `ln Gamma(n + 1)`. Translates GSL's `gsl_sf_lnfact_e`.
+`ln` of the exact `fact_table` entry for `n <= 170`, `ln Gamma(n + 1)` above.
+Translates GSL's `gsl_sf_lnfact_e` (specfunc/gamma.c:1514). ~~Computed as
+`ln Gamma(n + 1)` for every `n`~~ **CORRECTED 2026-11-12 (gh:#1420)**.
 
 # Example
 
@@ -20075,17 +22304,25 @@ pub fn ln_factorial(n: u32) -> f64 { /* ... */ }
 
 #### Function `ln_beta`
 
-The natural logarithm of the beta function,
-`ln B(a, b) = ln Gamma(a) + ln Gamma(b) - ln Gamma(a + b)`.
+The natural logarithm of the beta function, `ln B(a, b)`.
 
-Translates GSL's `gsl_sf_lnbeta_e`.
+Translates GSL's `gsl_sf_lnbeta_e` (specfunc/beta.c:35) via
+[`ln_beta_sgn`]: when one argument dominates (`min/max < 0.2`) it is built
+from `gammastar` and `log(1 + min/max)`, so there is no cancellation;
+otherwise `ln Gamma(a) + ln Gamma(b) - ln Gamma(a + b)` with the signs.
 
 # Domain
 
-`a > 0` and `b > 0`. Returns `NaN` otherwise — the beta function is defined
-for negative non-integer arguments too, but the sign bookkeeping that needs
-is not what any caller in this workspace wants, and returning a silently
-sign-wrong magnitude would be worse than refusing.
+Any `a`, `b` that are not zero or a negative integer. `NaN` if `B(a, b)` is
+negative (it has no real logarithm; use [`ln_beta_sgn`]) or if `a` or `b`
+is zero or a negative integer. ~~`a > 0` and `b > 0` only~~ **CORRECTED
+2026-11-12 (gh:#1420)**: negative non-integers are GSL's, e.g.
+`ln_beta(-0.5, 0.1) = 2.2037`.
+
+# Accuracy
+
+`ln_beta(1.0, 1e10)` is `-ln(1e10)` to the last bit of GSL's value
+(-23.025850929940457); ~~it was -23.02581787109375, 4e-5 off~~.
 
 # Example
 
@@ -20105,7 +22342,11 @@ The beta function, `B(a, b) = Gamma(a) Gamma(b) / Gamma(a + b)`.
 
 # Domain
 
-`a > 0` and `b > 0`; `NaN` otherwise, as for [`ln_beta`].
+Translates GSL's `gsl_sf_beta_e` (specfunc/beta.c:112): the product of
+gammas for `0 < a, b < 50`, `exp(ln_beta_sgn)` times the sign otherwise.
+Negative non-integer arguments are allowed (`beta(-2.5, 1.0) = -0.4`);
+`NaN` if `a` or `b` is zero or a negative integer, `0` if `a + b` is a
+negative integer.
 
 Underflows to zero for large arguments — `B(500, 500)` is about `1e-302`.
 Where that matters, stay in [`ln_beta`].
@@ -20123,21 +22364,22 @@ pub fn beta(a: f64, b: f64) -> f64 { /* ... */ }
 
 #### Function `choose`
 
-The binomial coefficient `n choose k`, computed in log space.
+The binomial coefficient `n choose k`.
 
-# Why not the obvious product
-
-`C(100, 50)` is about `1.0e29` — representable — but the naive
-`100! / (50! 50!)` overflows twice on the way there. Going through
-[`ln_factorial`] keeps every intermediate in range, and the result is
-rounded back to the nearest integer where it is small enough for that to be
-exact.
-
-Translates GSL's `gsl_sf_choose_e`.
+Translates GSL's `gsl_sf_choose_e` (specfunc/gamma.c:1584): for `n <= 170`
+`(n! / k!) / (n-k)!` from the exact table; above that a product of
+`n/(n-k) * (n-1)/(n-k-1) ...` when `n - k < 64`, else
+`exp(ln_choose(n, k))`. ~~Computed through `ln_factorial` and rounded to the
+nearest integer below 2^53~~ **CORRECTED 2026-11-12 (gh:#1420)**: GSL does
+not round, so for `n >= 20` or so the result is within a few ulp of the
+integer (GSL's own error estimate is `6 eps`), not always equal to it.
+`choose(100000, 5)` was off by 3.2e-10 relative and is now bit-identical to
+GSL.
 
 # Domain
 
-`k > n` gives `0.0`. Overflows to `+inf` beyond about `C(1029, 514)`.
+`k > n` gives `0.0` (GSL: `GSL_EDOM`). Overflows to `+inf` when the value
+exceeds `f64::MAX`.
 
 # Example
 
@@ -20149,6 +22391,54 @@ assert!((choose(100, 50) - 1.008_913_445_455_642_2e29).abs() / 1e29 < 1e-12);
 
 ```rust
 pub fn choose(n: u32, k: u32) -> f64 { /* ... */ }
+```
+
+#### Function `ln_beta_sgn`
+
+`ln|B(x, y)|` and the sign of `B(x, y)`: GSL's `gsl_sf_lnbeta_sgn_e`.
+`(NaN, NaN)` where GSL returns `GSL_EDOM` (`x` or `y` zero or a negative
+integer) or a round-off error.
+
+When one argument dominates (`min/max < 0.2`) the three log-gammas would
+cancel catastrophically, so GSL assembles the result from `gammastar` and
+`log(1 + min/max)` instead (the issue text of gh:#1420 names `lnpoch`; the
+source uses `gammastar`).
+
+Ported from GSL 2.8 `specfunc/beta.c:42` (commit `cf180cd7`), copyright (C)
+1996-2000 Gerard Jungman, GPL-3.0-or-later.
+
+# Example
+
+```
+use petir::specfunc::gamma::ln_beta_sgn;
+// B(a, 1) = 1/a, so B(-2.5, 1) = -0.4.
+let (ln_abs, sgn) = ln_beta_sgn(-2.5, 1.0);
+assert_eq!(sgn, -1.0);
+assert!((ln_abs - 0.4_f64.ln()).abs() < 1e-14);
+```
+
+```rust
+pub fn ln_beta_sgn(x: f64, y: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `ln_choose`
+
+`ln(n choose m)`: GSL's `gsl_sf_lnchoose_e` (specfunc/gamma.c:1556).
+`NaN` for `m > n` (GSL's `GSL_EDOM`).
+
+Ported from GSL 2.8 `specfunc/gamma.c` (commit `cf180cd7`), copyright (C)
+1996-2000 Gerard Jungman, GPL-3.0-or-later.
+
+# Example
+
+```
+use petir::specfunc::gamma::ln_choose;
+assert!((ln_choose(10, 5) - 252.0_f64.ln()).abs() < 1e-14);
+assert_eq!(ln_choose(7, 0), 0.0);
+```
+
+```rust
+pub fn ln_choose(n: u32, m: u32) -> f64 { /* ... */ }
 ```
 
 ## Module `gegenbauer`
@@ -22524,7 +24814,7 @@ where
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"transfer-fn\"), span: crates/petir/src/lib.rs:242:7: 242:30 (#0) }])]")`
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"transfer-fn\"), span: crates/petir/src/lib.rs:246:7: 246:30 (#0) }])]")`
 
 z-domain (discrete-time) transfer functions and continuous <-> discrete
 conversion, ported from the GNU Octave control package.
@@ -25351,7 +27641,7 @@ pub use ZDomainError as ChemEngProcessControlSimulatorError;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"uom\"), span: crates/petir/src/lib.rs:244:7: 244:22 (#0) }])]")`
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"uom\"), span: crates/petir/src/lib.rs:248:7: 248:22 (#0) }])]")`
 
 The 27 quantity methods `no_std` `uom` drops, restored on PETIR maths.
 

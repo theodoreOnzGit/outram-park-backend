@@ -123,6 +123,14 @@ and whole-body mSv) — as cited reference data, with provenance in
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
+## `no_std` + `alloc` (gh:#1593)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p buangkok --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` turns on `changi`'s `std` (its thread pool). With `std` on (the default)
+nothing changes.
+
 ## License
 
 ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). Part of the [OUTRAM PARK](../../README.md) workspace.

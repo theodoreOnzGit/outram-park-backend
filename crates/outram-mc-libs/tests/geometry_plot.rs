@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — the emitted matplotlib geometry-plot script. GitHub #268.
 //!

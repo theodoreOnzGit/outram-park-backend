@@ -43,6 +43,9 @@
 //!   after a real one: Collision + State(...)
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
 use crate::physics::delta_tracking::flight::TentativeSite;
 use crate::physics::track_output::{TrackEvent, TrackState};
@@ -71,6 +74,10 @@ pub enum TraceEvent {
         material: Option<usize>,
         /// `Σ_t` \[cm⁻¹\] there at the particle's energy (`0` in a void).
         sigma_t: f64,
+        /// The URR stream seed of this flight (`urr_seed`): the sampled-band draw of
+        /// nuclide `i` is `material::urr_xi(i, urr_seed)`, so an observer can
+        /// reproduce the cross sections the kernel used (gh:#263).
+        urr_seed: u64,
     },
     /// **Surface tracking**: one flight segment's two distances. The
     /// segment ends at the nearer of the two.
@@ -258,6 +265,7 @@ mod tests {
                 cell: 0,
                 material: None,
                 sigma_t: 0.0,
+                urr_seed: 0,
             },
             TraceEvent::Segment {
                 xi: None,

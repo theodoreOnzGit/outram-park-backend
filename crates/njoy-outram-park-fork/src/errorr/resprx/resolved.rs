@@ -44,6 +44,9 @@
 //! oracle test shows the port on the original tape equals NJOY on a tape
 //! with the empty block moved last.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::AMASSN_AMU;
 use crate::endf::records::SectionCursor;

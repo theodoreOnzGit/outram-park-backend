@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # The exact CDF of the continuum cosine that OpenMC's CorrelatedAngleEnergy
 # samples (law 61), for U-235 and U-238 MT=91 and MT=16 over the energies a
@@ -7,7 +7,7 @@
 # of correlated_angle_reference.py, which checks only moments. The moments are
 # near zero below ~3 MeV, so they cannot see a shape error there.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # F(mu) = sum_l w_l sum_k [ (m_k - c_k) G_k(mu) + (c_k1 - m_k) G_k1(mu) ],
 # m_k the bin's cdf midpoint (histogram E' tables: all on row k); G is the row's

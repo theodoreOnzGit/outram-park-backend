@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """Run the UPSTREAM INL TRISO-ATOPS Python (MIT, de374c8) on Stoyer et al.'s
 MHTGR cases (gh:#413) and write its normal-operation activities and initial
 depressurisation release to CSV.

@@ -66,6 +66,9 @@
 //! (S(α,β) cutoff, resolved/unresolved limits) are a refinement the
 //! equal-log default does not use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::majorant::Majorant;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
@@ -326,7 +329,7 @@ impl Majorant {
         // the node's angular neighbourhood.
         let mut yk = vec![f64::NEG_INFINITY; nn];
         for (k, v) in yk.iter_mut().enumerate() {
-            let th = |t: f64| (std::f64::consts::PI * t / nn as f64).r_cos();
+            let th = |t: f64| (core::f64::consts::PI * t / nn as f64).r_cos();
             let (x_hi, x_lo) = (th(k as f64), th(k as f64 + 1.0));
             // intervals overlapping [x_lo, x_hi]
             let first = xs.partition_point(|&x| x <= x_lo).saturating_sub(1);
@@ -342,7 +345,7 @@ impl Majorant {
         for (j, c) in coeffs.iter_mut().enumerate() {
             let s: f64 = (0..nn)
                 .map(|k| {
-                    let ang = std::f64::consts::PI * (k as f64 + 0.5) / nn as f64;
+                    let ang = core::f64::consts::PI * (k as f64 + 0.5) / nn as f64;
                     yk[k] * (j as f64 * ang).r_cos()
                 })
                 .sum();

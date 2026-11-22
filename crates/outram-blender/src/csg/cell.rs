@@ -40,8 +40,11 @@
 //! A cell may be a **material cell** (filled with a `Material`) or a **fill
 //! cell** (filled with a nested `Universe` or `Lattice`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::position::{Direction, Position};
-use super::surface::SurfaceKind;
+use super::surface::{SurfaceKind, FP_COINCIDENT};
 
 /// Which side of a surface a half-space token selects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -195,19 +198,27 @@ pub struct Cell {
     pub region: Vec<RegionToken>,
     /// What the cell is filled with.
     pub fill: CellFill,
-    /// Temperature of this cell in Kelvin.
+    /// Declared temperature of this cell in Kelvin, or `None` to **use the
+    /// material's temperature**, as OpenMC does (`assign_temperatures`,
+    /// `src/geometry_aux.cpp:170-198`: a cell with no `temperature` takes its
+    /// material's; `Cell::sqrtkT_` is what every lookup reads).
     ///
     /// ~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport
-    /// does not read this field.** Cross sections are looked up at the
-    /// material's temperature and broadened at the nuclide's build
-    /// temperature; free-gas kinematics use ~~the run's
-    /// `KeffSettings::temperature_k`~~ the nuclide's data temperature (the
-    /// material's for a multipole nuclide; GitHub #313, 2026-09-30).
-    /// Changing it to 1200 K leaves `k`
-    /// bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's
-    /// declared temperature for callers and a future per-cell treatment (OpenMC
-    /// has one); see `docs/temperatures.md`.
-    pub temperature: f64,
+    /// did not read this field.** ~~Changing it to 1200 K leaves `k`
+    /// bit-identical (`tests/temperature_precedence.rs`).~~ **CHANGED
+    /// 2026-11-14 (GitHub #313, maintainer direction): cell temperature is the
+    /// transport default.** The `run_keff_csg*` drivers and `CsgPowerIteration`
+    /// lower it through
+    /// `outram_mc_libs::material::cell_temperature::bind_cell_temperatures`:
+    /// a material cell whose `Some(t)` differs from its material's points at a
+    /// copy of that material at `t`. `None` (the type of "unset", which
+    /// `f64` could not express) changes nothing. The explicit ablation is
+    /// `Geometry::without_cell_temperatures`.
+    ///
+    /// Constructors take `impl Into<Option<f64>>`, so a bare `293.6` is an
+    /// explicit declaration (`Some`) and `None` is "unset". Fill cells carry
+    /// `None`; only material cells are read.
+    pub temperature: Option<f64>,
     /// Rigid translation \[cm\] applied to a fill universe's local frame
     /// (`coord.r -= translation`). Zero for material cells and untranslated fills.
     /// Mirrors `Cell::translation_` in `src/cell.cpp`.
@@ -232,13 +243,13 @@ impl Cell {
         id: i32,
         region: Vec<RegionToken>,
         material_idx: usize,
-        temperature: f64,
+        temperature: impl Into<Option<f64>>,
     ) -> Self {
         Self {
             id,
             region,
             fill: CellFill::Material(material_idx),
-            temperature,
+            temperature: temperature.into(),
             translation: Position::ZERO,
             tracking: None,
         }
@@ -250,7 +261,7 @@ impl Cell {
             id,
             region,
             fill,
-            temperature: 293.6,
+            temperature: None,
             translation,
             tracking: None,
         }
@@ -378,19 +389,44 @@ impl Cell {
                 }
             }
         }
-        stack.pop().unwrap_or(false)
+        // Implicit intersection (GitHub #1576): operands left on the stack with
+        // no operator between them are ANDed, as upstream inserts an
+        // `OP_INTERSECTION` between adjacent operands when it parses an
+        // expression (`src/cell.cpp:626`, `Region::Region`, OpenMC `8f79d9d0`).
+        // ~~Until 2026-11-14 this returned only the last token's value~~
+        // **CORRECTED 2026-11-14**: a region of bare half-spaces was judged by
+        // its final half-space alone.
+        !stack.is_empty() && stack.iter().all(|&b| b)
+    }
+
+    /// Whether the region has no union or complement, i.e. it is a pure
+    /// intersection of half-spaces: OpenMC's `Region::simple_`.
+    #[inline]
+    pub fn is_simple(&self) -> bool {
+        self.region
+            .iter()
+            .all(|t| matches!(t, RegionToken::HalfSpace { .. } | RegionToken::Intersection))
     }
 
     /// Distance along ray `(r, u)` to the nearest surface bounding this cell.
     ///
-    /// Ported from `Region::distance` (`src/cell.cpp:950`): take the minimum
-    /// `distance` over every half-space surface in the region (operators are
-    /// skipped). `on_surface` names the surface the particle currently sits on
-    /// (see [`SurfaceToken`]) — that surface is queried with the `coincident`
-    /// flag so round-off cannot re-report a zero crossing.
+    /// Ported from `Region::distance` (`src/cell.cpp:950` at OpenMC
+    /// `8f79d9d0`): a simple region takes the nearest surface of its tokens
+    /// ([`Self::distance_to_nearest_surface`]); a complex one (union or
+    /// complement) follows OpenMC #3934 ("Fix virtual surface crossing",
+    /// `03b036aa6`) and skips surfaces whose crossing does not change region
+    /// membership ([`Self::distance_complex`]). `on_surface` names the surface
+    /// the particle currently sits on (see [`SurfaceToken`]) — that surface is
+    /// queried with the `coincident` flag so round-off cannot re-report a zero
+    /// crossing.
     ///
     /// Returns `(distance, surface_idx)`; `surface_idx == usize::MAX` when no
     /// bounding surface is crossed (distance `INFINITY`).
+    ///
+    /// **GPU mirror:** `gpu/csg_trace.wgsl` still evaluates every region as a
+    /// plain nearest surface (the pre-#3934 rule, without the `FP_PRECISION` tie
+    /// rule), so it differs from this for union / complement regions. It is
+    /// exact for the simple regions the GPU tests use.
     #[inline]
     pub fn distance_to_boundary(
         &self,
@@ -399,6 +435,32 @@ impl Cell {
         surfaces: &[SurfaceKind],
         on_surface: SurfaceToken,
     ) -> (f64, usize) {
+        if self.is_simple() {
+            self.distance_to_nearest_surface(r, u, surfaces, on_surface, false)
+        } else {
+            self.distance_complex(r, u, surfaces, on_surface)
+        }
+    }
+
+    /// `Region::distance_to_nearest_surface` (`src/cell.cpp`, `8f79d9d0`): the
+    /// minimum surface distance over the region's half-space tokens.
+    ///
+    /// A candidate replaces the running minimum only when it is shorter by at
+    /// least `FP_PRECISION` of it (`min_dist - d >= FP_PRECISION * min_dist`), so
+    /// two surfaces at the same distance to round-off keep the first one found.
+    /// With `ignore_coincident_surfaces` an intersection closer than
+    /// `FP_COINCIDENT` is skipped: different surface definitions can describe the
+    /// same geometric surface, and crossing between them repeatedly by round-off
+    /// is what #3934 guards against.
+    fn distance_to_nearest_surface(
+        &self,
+        r: Position,
+        u: Direction,
+        surfaces: &[SurfaceKind],
+        on_surface: SurfaceToken,
+        ignore_coincident_surfaces: bool,
+    ) -> (f64, usize) {
+        // upstream's INFTY is DBL_MAX; this port's surfaces report INFINITY
         let mut min_dist = f64::INFINITY;
         let mut i_surf = usize::MAX;
         for tok in &self.region {
@@ -407,14 +469,76 @@ impl Cell {
             };
             let coincident = on_surface.is_on(*surface_idx);
             let d = surfaces[*surface_idx].distance(r, u, coincident);
-            if d < min_dist {
+            if ignore_coincident_surfaces && d < FP_COINCIDENT {
+                continue;
+            }
+            if d < min_dist && (min_dist - d >= FP_PRECISION * min_dist || min_dist.is_infinite()) {
                 min_dist = d;
                 i_surf = *surface_idx;
             }
         }
         (min_dist, i_surf)
     }
+
+    /// `Region::distance_complex` (`src/cell.cpp`, `8f79d9d0`, OpenMC #3934):
+    /// the oncoming boundary of a union/complement region. Walk to the nearest
+    /// candidate surface; if crossing it does not change whether the point is in
+    /// the region (a *virtual* crossing, e.g. an internal face of a union) go on
+    /// from there, summing the distances. The side entered is taken from the
+    /// surface normal, not from the surface equation, because accumulated
+    /// round-off can put the point on the wrong side of a curved surface.
+    fn distance_complex(
+        &self,
+        r: Position,
+        u: Direction,
+        surfaces: &[SurfaceKind],
+        on_surface: SurfaceToken,
+    ) -> (f64, usize) {
+        let in_region = self.contains(r, u, surfaces, on_surface);
+        let mut total_distance = 0.0_f64;
+        let mut r = r;
+        let mut on_surface = on_surface;
+        loop {
+            let (distance, i_surf) = self.distance_to_nearest_surface(
+                r,
+                u,
+                surfaces,
+                on_surface,
+                !matches!(on_surface, SurfaceToken::None),
+            );
+            // upstream: `distance == INFTY` (DBL_MAX); surfaces here miss with INFINITY
+            if !(distance < f64::MAX) {
+                return (f64::INFINITY, usize::MAX);
+            }
+            // Move to the candidate surface and find which side the ray enters.
+            r += u_scaled(u, distance);
+            total_distance += distance;
+            let n = surfaces[i_surf].normal_unnormalised(r);
+            let entering_negative = u.u * n[0] + u.v * n[1] + u.w * n[2] <= 0.0;
+            let sense = if entering_negative {
+                HalfSpaceSense::Inside
+            } else {
+                HalfSpaceSense::Outside
+            };
+            let token = SurfaceToken::on(i_surf, sense);
+            // A crossing that changes the membership is a true boundary;
+            // otherwise continue from the virtual crossing.
+            if self.contains(r, u, surfaces, token) != in_region {
+                return (total_distance, i_surf);
+            }
+            on_surface = token;
+        }
+    }
 }
+
+/// `distance * u` as a position offset (`Position += double * Direction`).
+#[inline]
+fn u_scaled(u: Direction, d: f64) -> Position {
+    Position { x: d * u.u, y: d * u.v, z: d * u.w }
+}
+
+/// `FP_PRECISION` (`include/openmc/constants.h`).
+const FP_PRECISION: f64 = 1.0e-14;
 
 #[cfg(test)]
 mod tests {
@@ -553,5 +677,91 @@ mod tests {
             &surfaces,
             SurfaceToken::NONE
         ));
+    }
+    /// **OpenMC #3934 (`03b036aa6`): a virtual crossing of a union is not a
+    /// boundary.** Cell = inside A OR inside B, A and B overlapping spheres
+    /// (radius 2 at x = 0 and x = 2). A ray from x = -1 along +x leaves A at
+    /// x = 2, but that point is inside B, so the cell is not left there; the true
+    /// boundary is B's far side at x = 4, 5 cm from the start. The pre-#3934
+    /// nearest-surface rule returned 3 cm. A simple (intersection) region still
+    /// returns its nearest surface, and an ignored coincident surface is skipped.
+    #[test]
+    fn a_union_skips_virtual_crossings_like_openmc_3934() {
+        let sphere = |x0: f64| {
+            SurfaceKind::Sphere(Sphere { x0, y0: 0.0, z0: 0.0, r: 2.0, bc: BoundaryType::Transmissive })
+        };
+        let surfaces = vec![sphere(0.0), sphere(2.0)];
+        let inside = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
+        let union_cell = Cell::material(
+            1,
+            vec![inside(0), inside(1), RegionToken::Union],
+            0,
+            293.6,
+        );
+        assert!(!union_cell.is_simple());
+        let u = Direction::new(1.0, 0.0, 0.0);
+        let r = Position::new(-1.0, 0.0, 0.0);
+        let (d, i) = union_cell.distance_to_boundary(r, u, &surfaces, SurfaceToken::NONE);
+        assert_eq!((d, i), (5.0, 1), "the union is left through B at x = 4");
+
+        // The same two surfaces as an intersection (the lens): left through A at x = 2.
+        let lens = Cell::material(2, vec![inside(0), inside(1), RegionToken::Intersection], 0, 293.6);
+        assert!(lens.is_simple());
+        let r = Position::new(1.0, 0.0, 0.0);
+        let (d, i) = lens.distance_to_boundary(r, u, &surfaces, SurfaceToken::NONE);
+        assert_eq!((d, i), (1.0, 0), "the lens is left through A at x = 2");
+
+        // A ray that misses every surface of a union reports no boundary.
+        let up = Direction::new(0.0, 0.0, 1.0);
+        let far = Position::new(100.0, 0.0, 0.0);
+        let (d, i) = union_cell.distance_to_boundary(far, up, &surfaces, SurfaceToken::NONE);
+        assert!(d.is_infinite() && i == usize::MAX);
+
+        // Standing on A's outer face (just crossed, outward, still inside B) the
+        // union stays occupied and the boundary is B's far side.
+        let on_a = SurfaceToken::on(0, HalfSpaceSense::Outside);
+        let r = Position::new(2.0, 0.0, 0.0);
+        let (d, i) = union_cell.distance_to_boundary(r, u, &surfaces, on_a);
+        assert_eq!((d, i), (2.0, 1));
+    }
+
+    /// **GitHub #1576: bare half-spaces are an implicit intersection.**
+    ///
+    /// Upstream inserts `OP_INTERSECTION` between adjacent operands
+    /// (`src/cell.cpp:626`). A shell written as `outside(0) inside(1)` with no
+    /// operator must contain only the points between the spheres; the old
+    /// last-token rule accepted everything inside sphere 1. Also checks the
+    /// region-tree (plot bounds) route builds the same intersection.
+    #[test]
+    fn bare_halfspaces_are_an_implicit_intersection() {
+        let sphere = |r: f64| {
+            SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r,
+                bc: BoundaryType::Transmissive,
+            })
+        };
+        let surfaces = vec![sphere(1.0), sphere(2.0)];
+        let outside = |i| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+        let inside = |i| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
+        let implicit = Cell::material(1, vec![outside(0), inside(1)], 0, 293.6);
+        let explicit = Cell::material(
+            2,
+            vec![outside(0), inside(1), RegionToken::Intersection],
+            0,
+            293.6,
+        );
+        let u = Direction::new(0.0, 0.0, 1.0);
+        for x in [0.0, 0.5, 1.5, 2.5, -1.5] {
+            let r = Position::new(x, 0.0, 0.0);
+            let want = x.abs() > 1.0 && x.abs() < 2.0;
+            assert_eq!(explicit.contains(r, u, &surfaces, SurfaceToken::NONE), want);
+            assert_eq!(implicit.contains(r, u, &surfaces, SurfaceToken::NONE), want, "x = {x}");
+        }
+        let (nodes, root) =
+            crate::csg::plot::model_plot::bounds::region_tree(&implicit.region).unwrap();
+        assert!(matches!(nodes[root], crate::csg::plot::model_plot::bounds::Node::And(..)));
     }
 }

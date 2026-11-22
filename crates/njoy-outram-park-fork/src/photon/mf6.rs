@@ -32,6 +32,9 @@
 //! with `AWP > 0` on MT=102 (upstream's `disc102` relativistic branch,
 //! `hgam102`) likewise. Neither occurs in the evaluations this was gated on.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::energy::mf6::skip_mf6_subsection;
 use crate::endf::interp::{terp1, terpa, IntLaw};
 use crate::endf::records::{SectionCursor, Tab1};

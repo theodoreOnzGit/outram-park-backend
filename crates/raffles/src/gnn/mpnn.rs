@@ -68,6 +68,9 @@
 //! around them — the Lightning training supervisor, the Weights & Biases
 //! sweep, and the matplotlib plotting.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use burn::module::{Module, Param};
 use burn::nn::{LayerNorm, LayerNormConfig, Linear, LinearConfig, Relu};
 use burn::prelude::Backend;

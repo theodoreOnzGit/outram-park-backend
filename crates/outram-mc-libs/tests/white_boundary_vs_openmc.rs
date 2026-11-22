@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — the WHITE boundary condition against OpenMC, and against the
 //! specular boundary it used to be silently aliased to. GitHub #259.
@@ -231,11 +231,17 @@ fn white_and_reflective_differ_as_openmc_says_they_do() {
             "{t:5.1}  {kr:.6}+/-{sr:.6}  {kw:.6}+/-{sw:.6}  {d_ours:+.6}   {d_omc:+.6}"
         );
 
-        // The three thin cases are the discriminating ones (4 to 106 sigma in
-        // OpenMC). T = 12 is included for the record but is only 3.5 sigma
-        // there, so it is NOT asserted on sign -- asserting a 3.5 sigma sign
-        // would be asserting noise.
-        if t <= 3.0 {
+        // ~~The three thin cases are the discriminating ones (4 to 106 sigma in
+        // OpenMC).~~ CORRECTED 2026-11-18 (gh:#259, maintainer decision): only
+        // T <= 1.0 is asserted on sign. On ONE run of this test's size the
+        // T = 3.0 effect (d about -0.0012) is only ~1.4 sigma, so its sign is
+        // a coin weighted 92:8, not a check: when the MG resampler moved to
+        // the comb this run drew d = +0.00056 at T = 3.0. The T = 3.0 sign is
+        // gated where it is resolved, by the 16-seed ensemble in
+        // tests/bc_vs_openmc_ensembles.rs (d = -0.00162 +/- 0.00040 against
+        // OpenMC's -0.00113, |z| <= 2). T = 12 is not asserted for the same
+        // reason (3.5 sigma in OpenMC, smaller still here).
+        if t <= 1.0 {
             assert!(
                 d_ours < 0.0,
                 "at T = {t}, white must lower k relative to specular (OpenMC: {d_omc:+.6}); \

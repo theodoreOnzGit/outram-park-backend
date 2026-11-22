@@ -3,6 +3,9 @@
 //!
 //! Split out of `wmp.rs` (see the module doc there for provenance and status).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Minimal complex number for the multipole sum. (The WMP inner loop needs only
 /// a handful of operations; a full complex-number dependency is overkill.)
 #[derive(Debug, Clone, Copy, PartialEq)]

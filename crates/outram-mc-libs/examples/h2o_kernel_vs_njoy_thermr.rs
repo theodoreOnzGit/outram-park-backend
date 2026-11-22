@@ -2,6 +2,17 @@
 //! distribution the transport actually samples — against **NJOY2016's THERMR
 //! MF=6 scattering matrix**.
 //!
+//! # STATUS, CORRECTED 2026-11-19 (gh:#1666): the #188 first-moment defect is gone
+//!
+//! ~~This program documents an open defect and its gate asserted that the defect
+//! is still visible (a deviation above 5 sigma at 1.5 meV).~~ **CORRECTED
+//! 2026-11-19 (gh:#1666):** the deviation at 1.5 meV is now `+0.10 %` against a
+//! sampling 1 sigma of `0.15 %`, indistinguishable from zero, and the last gate
+//! asserts that every row is **inside** `H2O_KERNEL_TOL` against THERMR instead.
+//! The history below is kept as it was written; the tables and "cause" sections
+//! describe the code as of 2026-09-12 and are not the present state. See
+//! [`golden_gate`] for the bisect that dates the change.
+//!
 //! # Why this exists
 //!
 //! `h2o_vs_njoy_thermr.rs` compares the *cross section* and finds a consistent
@@ -109,10 +120,15 @@ use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 
 const TEMP: f64 = 293.6;
-/// **Raised 400 000 -> 1 600 000 on 2026-09-13.** Not for precision: for the
+/// ~~**Raised 400 000 -> 1 600 000 on 2026-09-13.** Not for precision: for the
 /// gate at the bottom, which requires the recorded #188 deviation to exceed
-/// **5x** its own sampling standard error, so that a run which quietly lost
-/// sample count cannot keep reporting the defect from pure scatter. The
+/// **5x** its own sampling standard error,~~ **CORRECTED 2026-11-19
+/// (gh:#1666):** the 5-sigma "defect still visible" gate is gone (the defect
+/// is gone, see `golden_gate`); the sample count stays at 1 600 000 so the printed
+/// sampling sigma (0.15 % worst) stays small against `H2O_KERNEL_TOL` (1.5 %).
+/// The original rationale, kept for the record: the gate required the recorded
+/// #188 deviation to exceed **5x** its own sampling standard error, so that
+/// a run which quietly lost sample count cannot keep reporting the defect from pure scatter. The
 /// continuous outgoing-energy law shrank the deviation at 1.5 meV from 5.5 % to
 /// 1.31 %, which against the old 0.30 % standard error is 4.4 sigma -- under the
 /// bar. Four times the samples halves the error to ~0.15 % and puts the same
@@ -383,11 +399,58 @@ fn endf_f(s: &str) -> f64 {
 /// of the combined sampling noise of the two runs (different seed, different
 /// sample count); the tables agree.
 ///
-/// # What is asserted
+/// # CORRECTED 2026-11-19 (gh:#1666): the table above is the 2026-09-11 defect, not today's kernel
 ///
-/// The magnitude envelope is **6 %**, sized to the −5.54 % it documents: it
-/// catches the defect getting worse. **Tighten it when #188 is fixed; never
-/// widen it.**
+/// ~~**This crate's H-in-H₂O kernel is too narrow** ... This is the open defect
+/// GitHub #188.~~ **CORRECTED 2026-11-19 (gh:#1666):** the first-moment defect
+/// is gone, and this gate's last assertion, which required the 1.5 meV
+/// deviation to exceed 5 sampling sigma, panicked at `0.10 %` against `0.15 %`.
+///
+/// *When it went.* Found by running this example at successive commits
+/// (release build, `endf-pebble-cases`, 1 600 000 samples, seed 20 260 911,
+/// deviation of `⟨E′⟩/E` at 1.5 meV against THERMR, 1 sigma = 0.15 %):
+///
+/// | commit (2026-09-13 unless noted) | deviation | last assertion |
+/// |---|---|---|
+/// | `11fb94a36` (gate re-armed, `N = 1.6e6`) | −1.67 % | passes (11 sigma) |
+/// | `0be4d89b7` | −1.75 % | passes |
+/// | `cecd8bd92` "adaptively linearise THERMR's E' grid" | **−0.38 %** | **fails** (2.5 sigma) |
+/// | `9058ee216`, `32a43a086` | −0.38 % | fails |
+/// | `4a456a2fb` (2026-09-29, the commit before #407's sampler) | +0.34 % | fails |
+/// | `516f559f8` (this branch's base, 2026-11-19) | +0.10 % | fails |
+///
+/// So the gate has been stale since `cecd8bd92`, which took the deviation from
+/// −1.75 % to −0.38 %; the later `acesix` replacement (`4d074ea8b`, "gh:#188
+/// FIXED") and the #550 default flip moved it on to ~0. **It is not #407**:
+/// the pre-#407 commit `4a456a2fb` already fails, so the suspicion in gh:#1666
+/// that #407's OpenMC sampler removed it is not what the runs show.
+/// `0be4d89b7` is the direct parent of `cecd8bd92`, so the step between them is
+/// exactly that one commit.
+/// The `OUTRAM_SAB_LOG_SPACED_GRID=1` (pre-#550) arm was not re-run here; the
+/// issue reports it fails identically.
+///
+/// *Present result* (2026-11-19, base `516f559f8`): worst deviation across the
+/// eleven rows **+0.098 % at 1.5 meV** (sampling 1 sigma 0.15 % worst), inside
+/// `H2O_KERNEL_TOL` = 1.5 %. Other rows: +0.01, +0.03, +0.02, +0.05, +0.09,
+/// +0.00, +0.03, −0.04, +0.02, −0.03 % (5 meV ... 1.855 eV), all well inside
+/// the 1.5 % envelope (the +0.09 % at 0.1116 eV is 3 of its own 0.03 %
+/// sampling sigma, not significant against the tolerance). The `flip_550/ex_*.log`
+/// records under `verification_and_validation/tutorial_rung4/` hold the same
+/// run.
+///
+/// ~~# What is asserted~~ **What is asserted now (2026-11-19):**
+///
+/// 1. every row is within `H2O_KERNEL_TOL` of THERMR (`assert_table_relative`,
+///    unchanged, 1.5 %);
+/// 2. the sign structure bound (below), unchanged;
+/// 3. ~~the 1.5 meV deviation exceeds 5 sampling sigma~~ the 1.5 meV deviation
+///    is **below** `H2O_KERNEL_TOL` (the same constant row 1 uses, not a new
+///    number), printed with its sampling sigma. The old bar could only pass if
+///    the defect existed.
+///
+/// The envelope history, kept for the record: the magnitude envelope was
+/// **6 %**, sized to the −5.54 % it documented. ~~**Tighten it when #188 is
+/// fixed; never widen it.**~~ It has been tightened (now `H2O_KERNEL_TOL`).
 ///
 /// The **sign structure** is asserted separately and matters more than the
 /// magnitude. Below the crossover this crate must under-*gain* energy and above
@@ -485,28 +548,32 @@ fn golden_gate(law: &ThermalScattering) {
     }
     println!(
         "  [PASS] the sign structure is intact: under-gain below {H2O_KERNEL_CROSSOVER_EV} eV, \
-         under-loss above it (a too-narrow kernel, not a scale error)"
+         under-loss above it (bounded at 0.5 %, the wrong-sign tolerance)"
     );
 
-    // The finding must be larger than the noise that produced it. Without this,
-    // a gate that quietly lost sample count would keep reporting the defect from
-    // pure scatter -- or stop reporting it -- and nothing would say so.
+    // CORRECTED 2026-11-19 (gh:#1666). This block used to assert that the 1.5
+    // meV deviation EXCEEDED 5 sampling sigma, i.e. that defect #188 was still
+    // visible. It is not (+0.10 % against 0.15 % sigma; see the doc comment),
+    // so the assertion now bounds the same row BELOW the tolerance the table
+    // check above already uses, `H2O_KERNEL_TOL`. No new threshold, nothing
+    // loosened. The sigma is still printed so a reader can see whether the
+    // run could resolve a deviation of that size.
     let (at, ours, njoy) = rows[0];
     let rel = (ours / njoy - 1.0).abs();
     assert!(
-        rel > 5.0 * worst_se,
-        "the kernel deviation at {at} eV is {:.2} % against a sampling 1 sigma of \
-         {:.2} % -- under 5 sigma, so this run cannot distinguish the recorded \
-         defect (#188) from scatter. Either the sample count has dropped or the \
-         defect has been fixed; find out which before touching this gate.",
+        rel < H2O_KERNEL_TOL,
+        "the kernel deviation at {at} eV is {:.2} % (sampling 1 sigma {:.2} %), \
+         not below H2O_KERNEL_TOL = {:.2} % against THERMR. The #188 defect \
+         (or a regression of it) is back.",
         rel * 100.0,
         worst_se * 100.0,
+        H2O_KERNEL_TOL * 100.0,
     );
     println!(
-        "  [PASS] the finding exceeds its own noise: {:.2} % deviation against \
-         {:.2} % sampling 1 sigma ({:.0} sigma)",
+        "  [PASS] the 1.5 meV deviation is below the per-row tolerance: {:.2} % against \
+         {:.2} % (H2O_KERNEL_TOL), sampling 1 sigma {:.2} %",
         rel * 100.0,
+        H2O_KERNEL_TOL * 100.0,
         worst_se * 100.0,
-        rel / worst_se,
     );
 }

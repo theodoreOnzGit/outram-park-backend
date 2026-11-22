@@ -1,0 +1,154 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : tetMesh
+Date   : Nov 11 2026
+Time   : 13:15:27
+Host   : vm
+PID    : 26860
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/stage_sphere_tetMesh_meshOptimisation
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Setting root cube size and refinement parameters
+Root box (-8 -8 -8) (8 8 8)
+Requested cell size corresponds to octree level 5
+Refining boundary
+Refining boundary boxes to the given size
+Finished refining boundary boxes
+Performing automatic refinement
+Performing automatic refinement
+Marking inside/outside.
+Number of internal boxes is 624
+Number of outside boxes is 1304
+Number of data boxes is 432
+Number of unknown boxes is 0
+Refining boxes near DATA boxes
+Marking inside/outside.
+Number of internal boxes is 848
+Number of outside boxes is 1304
+Number of data boxes is 432
+Number of unknown boxes is 0
+Finished refining boxes near DATA boxes
+Using DATA boxes
+Creating face centre labels 
+Creating tets from faces with centre node
+Creating tets around split edges 
+Creating tets around edges
+Creating tets from split faces
+Extracting tetMesh
+Resizing points!
+Reordering boundary faces 
+Finished reordering boundary faces
+Mesh has :
+3215 vertices 
+29352 faces
+13968 cells
+Finished extracting tetMesh
+Removing 1128 cells which cannot be morphed
+Removing selected cells from the mesh
+New cells size 12840
+Reordering boundary faces 
+Finished reordering boundary faces
+Removing faces
+Finished removing faces
+Finished removing selected cells from the mesh
+Morphing internal faces
+Finished morphing internal faces
+Morphing boundary faces
+Finished morphing boundary faces
+Found 1800 boundary faces 
+Found 0 invalid cell connections
+Found 1800 boundary faces 
+Checking for invalid face connections
+Finished checking for invalid face connections
+Checking for non - mappable cells
+Found 0 non - mappable cells
+Finished checking for non - mappable cells
+Checking for non - mappable faces
+Found 0 non - mappable faces
+Finished checking non - mappable faces
+Checking cell connections
+Finished checking cell connections
+Found 1800 boundary faces 
+Mapping vertices onto surface
+Finished mapping vertices onto surface
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+Starting untangling the surface of the volume mesh
+Number of inverted boundary faces is 0
+Finished untangling the surface of the volume mesh
+Found 1800 boundary faces 
+Extracting edges
+Starting topological adjustment of patches
+No topological adjustment was needed
+Starting geometrical adjustment of patches
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+0 edge groups found!
+No geometrical adjustment was needed
+Found 1800 boundary faces 
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+Performing patch correction
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+Finished with patch correction
+Found 1800 boundary faces 
+Mapping vertices with respect to surface patches
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+0 edge groups found!
+Finished mapping vertices with respect to surface patches
+Found 1800 boundary faces 
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+Optimizing edges. Iteration:.....
+Optimizing surface vertices. Iteration:.....
+Starting untangling the surface of the volume mesh
+Number of inverted boundary faces is 0
+Finished untangling the surface of the volume mesh
+Found 1800 boundary faces 
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+Optimizing positions of surface nodes
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+Optimizing edges. Iteration:.....
+Optimizing surface vertices. Iteration:.....
+Starting untangling the surface of the volume mesh
+Number of inverted boundary faces is 0
+Finished untangling the surface of the volume mesh
+Mapping vertices with respect to surface patches
+Found 0 corners at the surface of the volume mesh
+Found 0 edge points at the surface of the volume mesh
+0 edge groups found!
+Finished mapping vertices with respect to surface patches
+Finished optimizing positions of surface nodes
+Starting smoothing the mesh
+Starting untangling the mesh
+Iteration 0. Number of bad faces is 0
+Finished untangling the mesh
+Finished smoothing the mesh
+Iteration 0. Number of bad faces is 0
+Starting untangling the mesh
+Iteration 0. Number of bad faces is 0
+Finished untangling the mesh
+Saving mesh generated after step meshOptimisation
+"Stopping after step meshOptimisation"
+ExecutionTime = 0.22 s  ClockTime = 0 s
+
+End
+

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The dose newtype of the pyDOSEIA port, and the dilution-factor type it
 //! shares with `changi`.
 //!
@@ -26,6 +26,9 @@
 //! and takes `changi`'s. `buangkok -> changi` is the dependency direction: dose
 //! sits downstream of dispersion.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use changi::activity::units::DilutionFactor;
 
 /// An effective dose (or, for a long-term release, the dose accrued over one

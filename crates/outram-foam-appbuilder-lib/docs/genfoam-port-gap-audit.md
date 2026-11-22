@@ -8,7 +8,7 @@ side: `crates/outram-foam-appbuilder-lib/src/genfoam/` at branch
 
 > **Update, same day, after gh:#1218.** The tables below are the state
 > *before* the two-phase port, kept as audited. `solver/two_phase/` now
-> covers, for the selections `1D_boiling` makes: `twoPhase.{C,H}`,
+> covers, for the selections `1D_boiling` makes (compared with the real binary since 2026-11-12, gh:#1361 round 3: `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`): `twoPhase.{C,H}`,
 > `alphaEqns_2p.H` + `solveAlphaImplicitUpwind.H`, `UEqns_2p.H`, `pEqnf_2p.H`
 > with the implicit partial-elimination branch and its `pEqnRoutines`,
 > `EEqns_2p.H` (both stabilisation modes), the field orchestration of
@@ -95,7 +95,7 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `thermalHydraulicsModel.{C,H}` (region base: PIMPLE, `p`/`p_rgh`, `g`, `hRef`, power coupling fields) | 745 | `solver/mod.rs` (`ThermalHydraulicsSolver` enum), fields inlined in `one_phase.rs` | partial | none of its own |
-| `onePhase/` (`onePhase.{C,H}`, `UEqn_1p`, `pEqn_1p`, `pEqnf_1p`, `EEqn_1p`, 7 `pEqnRoutines`) | 1,022 | `solver/one_phase.rs` (661), `solver/porous_drag.rs` (230) | partial: constant properties (`he = Cp T`), isotropic `Kd` only, no `p_rgh`/gravity split, no `pEqnf` face-centred momentum, no `fvOptions` | unit: `solver/tests.rs` (6), Darcy/drag/energy closed forms |
+| `onePhase/` (`onePhase.{C,H}`, `UEqn_1p`, `pEqn_1p`, `pEqnf_1p`, `EEqn_1p`, 7 `pEqnRoutines`) | 1,022 | `solver/one_phase.rs` (661), `solver/porous_drag.rs` (230) | partial: `one_phase.rs` is the older constant-property driver (`he = Cp T`, isotropic `Kd`, no `p_rgh`/gravity split, no `pEqnf`, no `fvOptions`), kept as it was. ~~no `pEqnf` face-centred momentum~~ **CORRECTED 2026-11-12 (gh:#1361 round 4):** `solver/two_phase/one_phase_fc.rs` (translation of `onePhase.C`, `UEqn_1p`, `pEqnf_1p` + routines, `EEqn_1p`, `FSPair::correct`, `customPimpleControl::loop`; heRhoThermo packages, `p_rgh`/gravity, `contErr`, kinetic energy; NOT ported: other momentum modes, turbulence, heat exchangers, pumps, tortuosity, non-`zeroGradient` U, closed volumes) runs the 40-cell channel derived from 1D_boiling against the real binary to 1e-13 over 108 steps | unit: `solver/tests.rs` (6); `tests/genfoam_one_phase_vs_upstream.rs` (vs the real binary) |
 | `onePhaseLegacy/` | 985 | — | missing | — |
 | `twoPhase/` (`twoPhase.{C,H}`, `UEqns_2p`, `pEqn_2p`, `pEqnf_2p`, `EEqns_2p`, `alphaEqns_2p`, 9 `pEqnRoutines`) | 2,654 | none before gh:#1218 | missing | — |
 | `twoPhase/.../solveAlphaImplicitUpwind.H` | 148 | none before gh:#1218 | missing | — |
@@ -186,9 +186,9 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `neutronics.{C,H}` base + `include/` | 827 | `neutronics/mod.rs` (`NeutronicsModel` enum), `state.rs` | ported | unit (5) |
-| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported | unit (9); **upstream run**: MSFR +0.3 pcm, ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`) |
-| `SP3/` | 1,140 | `neutronics/sp3/` | ported | unit (5) |
-| `SN/` | 1,323 | `neutronics/sn/` | partial: eigenvalue only, transient and higher moments missing | unit (6) |
+| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported | unit (9); **upstream run**: MSFR +0.3 pcm, ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 6e-14 and flux per cell 6e-13 from upstream at tight tolerances (`tests/genfoam_neutronics_vs_upstream.rs`) |
+| `SP3/` | 1,140 | `neutronics/sp3/` | ported | unit (5); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 1.7e-13, flux per cell 2.3e-12 (SP3 ~~"unit (5)" only~~ CORRECTED, it had not been compared with an upstream run before) |
+| `SN/` | 1,323 | `neutronics/sn/` | partial: eigenvalue only, transient missing. ~~higher moments missing~~ **CORRECTED 2026-11-12** (gh:#1474): `sn/pseudo_time.rs` + `sn/quadrature_set.rs` port the case `quadratureSet` reader, P1..P7 scattering and upstream's per-step eigenvalue iteration (`SnNeutronics` itself is unchanged) | unit (6); `tests/genfoam_sn_vs_upstream.rs`: small S_N slab with Godiva's quadrature and P0..P3 scattering, step by step vs the real binary to 1e-14 (README of `verification_and_validation/genfoam_vs_upstream_gh1361`); full Godiva_SN, upstream ~7.5 min per step, 2.9 GB: see that README |
 | `albedoSP3/` | 642 | `neutronics/albedo/` | ported | unit (5); upstream run (MSFR boundary rows, ≤ 0.6 pcm) |
 | `pointKinetics/` | 2,391 | `neutronics/point_kinetics/` | ported | unit (5); inhour test |
 | `XS/` + `nuclearDataOneEnergy` | 2,722 | `neutronics/xs/` | partial: discontinuity-factor adjustment deferred | unit (13) |
@@ -204,9 +204,9 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | `multiRegion/meshHandler` | 1,194 | `multi_region/coupling_fields.rs`, `mesh_to_mesh.rs`, `rbf_mapping.rs` | partial: no `movePoints` mesh deformation | unit (15) |
 | `multiRegion/multiPhysicsSolver` | 460 | `multi_region/outer_iteration.rs` | partial | unit (3) |
 | `multiRegion/regionSolvers` | 726 | `multi_region/outer_iteration.rs`, `mesh_region.rs` (`RegionKernel`) | partial: the TH region kernel is a lumped stand-in (`MeshThermalHydraulics`), not `onePhase`/`twoPhase` | unit (6) |
-| `common/radialBasisFunctionInterpolation` | 1,090 | `common/rbf.rs`, `multi_region/rbf_mapping.rs` | ported | unit; upstream run (MSFR XS parametrisation, 14 pcm) |
-| `common/timeProfile` | 397 | `common/time_profile.rs` | ported (`commDataLayer` out of scope) | unit (7) |
-| `common/InterpolateTable` | 675 | `common/interpolate_table.rs` | ported (1-D); `FieldField` 2-D/3-D instantiations deferred | unit (9) |
+| `common/radialBasisFunctionInterpolation` | 1,090 | `common/rbf.rs`, `multi_region/rbf_mapping.rs` | ported | unit; upstream run (MSFR XS parametrisation, 14 pcm); **libCommon driver, gh:#1361 (2026-11-12)**: inverse, weights and values bit-identical to GeN-Foam `libCommon` on 34 cases (weights were NOT before: the solve is now `inv(A) * v` as upstream) |
+| `common/timeProfile` | 397 | `common/time_profile.rs` | ported (`commDataLayer` out of scope) | unit (8); **libCommon driver, gh:#1361 (2026-11-12)**: table values bit-identical to upstream on 712 points (ESI `Function1::Table` form; the Foundation form is kept as `value_foundation` and differed in 242 of 667 interior points, up to 24 ulp) |
+| `common/InterpolateTable` | 675 | `common/interpolate_table.rs` | ported (1-D); `FieldField` 2-D/3-D instantiations deferred | unit (9); **libCommon driver, gh:#1361 (2026-11-12)**: 618 values, 90 integrals and 504 `getNextPoint` bit-identical to upstream |
 | `common/solver` | 457 | enum dispatch in each module | partial (by design) | — |
 | `common/mergeOrSplitBaffles` | 608 | — | missing | — |
 | `common/latticeMap` | 315 | — | missing | — |

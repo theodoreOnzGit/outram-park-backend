@@ -178,10 +178,16 @@ pinned bit-for-bit against the closed-form tier formulas).
   upstream reads one row/column past its `tr`/`ti` arrays (an unchecked
   out-of-bounds read); [`wfun::DopplerTable`] clamps the cell and
   extrapolates the quadratic instead.
-- **PENDF MT=152/MT=153 output-tape bookkeeping is not ported** — this crate
+- ~~**PENDF MT=152/MT=153 output-tape bookkeeping is not ported** — this crate
   has no established PENDF output-section-writer concept yet (unlike ACE),
   and it is pure tape plumbing, not physics. [`probability_table`] returns the
-  computed tables directly; `run()` remains `NotPorted`.
+  computed tables directly; `run()` remains `NotPorted`.~~ **CORRECTED
+  2026-11-13 (gh:#1498, #1369):** the deck driver writes them: `purr::pendf`
+  (one temperature, one sigma-zero, gh:#1498) and `purr::tables::multi`
+  (several temperatures and sigma-zeros, HEATR's heating per temperature;
+  upstream tests 10 and 19), laid out by `deck::pendf::purr_tape` and
+  `purr_tape_multi`. `run()` (the module table) is still `NotPorted`; decks go
+  through `deck::run_deck`.
 - **`nmode==1`'s renormalization branch is not ported** (`purr.f90:2256-2268`)
   — `nmode` is initialised to `0` in the driver and never set to `1` anywhere
   else in `purr.f90`; this is an always-inactive code path upstream (no card

@@ -47,8 +47,11 @@
 //! track-length estimator across its cells live in outram-mc-libs
 //! (`UnstructuredMeshExt`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::csg::position::Position;
 pub use crate::unstructured::UnstructuredMesh;

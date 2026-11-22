@@ -14,6 +14,8 @@
 #
 #   crates/kovan-web/web/data.sh <out-data-dir> [<api-dir>]
 #   crates/kovan-web/web/data.sh --check         # the determinism check
+#   crates/kovan-web/web/data.sh --api-lists <out-data-dir> <api-dir>
+#                       # only api/<crate>.json, for a rustdoc built elsewhere
 #
 # BACKEND (#772, maintainer 2026-10-07): KOVAN_CALL_GRAPH_BACKEND=scip (the
 # default) or lsp. With scip, `rust-analyzer scip` indexes the whole
@@ -48,13 +50,54 @@
 # that much time has gone on indexing, crates not yet in the cache fall back
 # as above instead of letting a cold cache run the job into its timeout.
 #
+# KOVAN_SCIP_BUDGET=<seconds> (scip backend; default 0 = no limit): if
+# `rust-analyzer scip` is still running after that long it is stopped and
+# counts as failed, so the changed crates fall back as above. Added
+# 2026-11-18: on two Pages runs (2026-11-17 develop dispatch, 2026-11-18
+# run 44412826676) the call-graph job was lost with its runner at about
+# 60 min, the step never finishing, against 27 min on 2026-11-15; the
+# kernel's OOM kill (oom_score_adj below) never came, so the likeliest cause
+# is swap thrashing. A budget turns that into the fallback this script
+# already has, instead of a lost runner and no deploy.
+#
 # KOVAN_WEB_CRATES=a,b limits the call graph to those crates (local runs).
 # KOVAN_SCIP_THREADS=<n> is passed to `rust-analyzer scip --num-threads`.
+#
+# KOVAN_SCIP_FROM=<file> (scip backend; GitHub #1668): use this SCIP index
+# instead of running `rust-analyzer scip` here, e.g. the merged partition
+# index Pages' index-unify job writes (`kovan-cli scip-merge`, every member
+# indexed by a worker that loads only its partition's closure). Copied to
+# target/kovan-scip/index.scip; when the file is missing or empty, data.sh
+# says so and runs rust-analyzer as before.
 # Never commits anything. Release build (workspace rule); rust-analyzer's own
 # build-script `cargo check` is given `--release` too, so no target/debug.
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
+# The rustdoc pages that exist, per crate (relative to the api/ folder), into
+# <out>/api/<crate>.json. rustdoc names a crate's folder with '_' for '-';
+# files are written under the package name, read from each member's own
+# Cargo.toml. Needs no kovan-cli and no rust-analyzer, so
+# `data.sh --api-lists <out-data-dir> <api-dir>` can run it alone, after the
+# call graph and the rustdoc were built on different runners (gh:#1305).
+write_api_lists() {
+  local out="$1" api="$2" m pkg name
+  mkdir -p "$out/api"
+  for m in crates/*/Cargo.toml; do
+    pkg="$(awk '/^\[package\]/{p=1;next} /^\[/{p=0} p && /^name[[:space:]]*=/{
+          gsub(/^name[[:space:]]*=[[:space:]]*"/,""); gsub(/".*$/,""); print; exit}' "$m")"
+    name="${pkg//-/_}"
+    [[ -n "$pkg" && -f "$api/$name/index.html" ]] || continue
+    (cd "$api" && find "$name" -name '*.html' | LC_ALL=C sort) \
+      | sed 's/.*/"&"/' | paste -sd, - | sed 's/^/[/; s/$/]/' > "$out/api/$pkg.json"
+  done
+}
+
+if [[ "${1:-}" == "--api-lists" ]]; then
+  write_api_lists "$(realpath -m "${2:?usage: data.sh --api-lists <out-data-dir> <api-dir>}")" "$(realpath -m "${3:?usage: data.sh --api-lists <out-data-dir> <api-dir>}")"
+  echo "data.sh: wrote $2/api/*.json"
+  exit 0
+fi
 JOBS="${PAGES_JOBS:-3}"
 CACHE="${KOVAN_INDEX_CACHE:-$root/target/kovan-index}"
 BUDGET="${KOVAN_INDEX_BUDGET:-0}"
@@ -65,7 +108,10 @@ case "$BACKEND" in
 esac
 SCIP_DIR="$root/target/kovan-scip"
 SCIP="$SCIP_DIR/index.scip"
-cargo build --release -q -j "$JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli
+# kovan-cli builds on every core on CI (maintainer, 2026-11-22: "ensure kovan
+# builds in parallel threads"); locally JOBS (PAGES_JOBS, default 3) applies.
+if [[ -n "${CI:-}" ]]; then KOVAN_JOBS="${KOVAN_JOBS:-$(nproc)}"; else KOVAN_JOBS="${KOVAN_JOBS:-$JOBS}"; fi
+cargo build --release -q -j "$KOVAN_JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli
 kc="$root/target/release/kovan-cli"
 trap '"$kc" lsp-daemon-stop --root "$root" >/dev/null 2>&1 || true' EXIT
 
@@ -91,6 +137,15 @@ ensure_scip() {
   fi
   mkdir -p "$SCIP_DIR"
   rm -f "$SCIP" "$SCIP_DIR/index.key"
+  if [[ -n "${KOVAN_SCIP_FROM:-}" ]]; then
+    if [[ -s "$KOVAN_SCIP_FROM" ]]; then
+      cp "$KOVAN_SCIP_FROM" "$SCIP"
+      echo "$want" > "$SCIP_DIR/index.key"
+      echo "data.sh: using the SCIP index $KOVAN_SCIP_FROM (KOVAN_SCIP_FROM); rust-analyzer scip not run"
+      return 0
+    fi
+    loud "KOVAN_SCIP_FROM=$KOVAN_SCIP_FROM is missing or empty: running rust-analyzer scip here"
+  fi
   # Keep rust-analyzer's build-script `cargo check` in the release profile.
   printf '{"cargo":{"extraArgs":["--release"]}}\n' > "$SCIP_DIR/ra-config.json"
   local threads=()
@@ -105,7 +160,14 @@ ensure_scip() {
     exec rust-analyzer scip "$root" --output "$SCIP" --config-path "$SCIP_DIR/ra-config.json" "${threads[@]}"
   ) > "$SCIP_DIR/rust-analyzer-scip.log" 2>&1 &
   pid=$!
+  local budget="${KOVAN_SCIP_BUDGET:-0}" stopped=0
   while kill -0 "$pid" 2>/dev/null; do
+    if (( budget > 0 && SECONDS - t0 >= budget )); then
+      loud "rust-analyzer scip still running after its budget of $budget s (KOVAN_SCIP_BUDGET): stopped"
+      kill $(pgrep -P "$pid" 2>/dev/null || true) "$pid" 2>/dev/null || true
+      stopped=1
+      break
+    fi
     # The rustup proxy may run the real binary as a child: take the largest.
     for p in "$pid" $(pgrep -P "$pid" 2>/dev/null || true); do
       h="$(awk '/^VmHWM:/{print $2}' "/proc/$p/status" 2>/dev/null || true)"
@@ -114,6 +176,7 @@ ensure_scip() {
     sleep 2
   done
   wait "$pid" || rc=$?
+  (( stopped )) && rc=124
   echo "data.sh: rust-analyzer scip: exit $rc after $((SECONDS - t0)) s, peak resident memory >= $((peak / 1024)) MiB"
   if (( rc != 0 )) || [[ ! -s "$SCIP" ]]; then
     tail -n 20 "$SCIP_DIR/rust-analyzer-scip.log" | sed 's/^/data.sh: rust-analyzer: /' >&2
@@ -246,16 +309,7 @@ printf '{"commit":"%s","repo":"%s","call_graph":{"backend":"%s","rust_analyzer":
   "$(json_list "${stale[@]}")" "$(json_list "${missing[@]}")" > "$out/build.json"
 
 # The rustdoc pages that exist, per crate (relative to the api/ folder).
-# rustdoc names a crate's folder with '_' for '-'; files are written under
-# the package name, read from each member's own Cargo.toml.
 if [[ -n "$api" && -d "$api" ]]; then
-  for m in crates/*/Cargo.toml; do
-    pkg="$(awk '/^\[package\]/{p=1;next} /^\[/{p=0} p && /^name[[:space:]]*=/{
-          gsub(/^name[[:space:]]*=[[:space:]]*"/,""); gsub(/".*$/,""); print; exit}' "$m")"
-    name="${pkg//-/_}"
-    [[ -n "$pkg" && -f "$api/$name/index.html" ]] || continue
-    (cd "$api" && find "$name" -name '*.html' | LC_ALL=C sort) \
-      | sed 's/.*/"&"/' | paste -sd, - | sed 's/^/[/; s/$/]/' > "$out/api/$pkg.json"
-  done
+  write_api_lists "$out" "$api"
 fi
 echo "data.sh: wrote $out ($(du -sh "$out" | cut -f1))"

@@ -143,7 +143,7 @@ Stated so nobody reads silence as a pass:
 |---|---|---|
 | `chemistry` (air, steam, hydrolysis) | transcription checks only; no comparison with measured oxidation or release | gh:#457, #444, #418 |
 | `first_passage::depletion` / transmutation | unit tests only; no Bateman or capture build-up comparison | gh:#539 |
-| decay branching | chain *order* checked (Th-232 → Pb-208); branching *frequencies* never sampled; two reachable panics | gh:#538 |
+| decay branching | chain *order* checked (Th-232 → Pb-208); branching *frequencies* ~~never sampled~~ **CORRECTED 2026-11-10:** sampled for Au-172 (10 000 draws, `get_decay_info::tests::test_rng`); ~~two reachable panics~~ **fixed 2026-11-10:** no-daughter branches end the chain, the rounding gap takes the largest branch (`get_decay_info/tests.rs`) | gh:#538 |
 | the legacy Gaussian engine | one unit test; never compared with an exact release | ([legacy](./legacy-gaussian.md)) |
 | the `wgpu` GPU kernel | only the CPU fallback has run | stated in `gpu.rs` |
 | SiC thermal decomposition, Eqs (11)–(14b) | nothing in the source report checks them | ([*An accident, step by step*](../../science/fission-products/failure-accident.html)) |

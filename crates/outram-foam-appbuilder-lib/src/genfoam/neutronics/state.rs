@@ -61,7 +61,10 @@
 //! | [`Self::power_density`] | `q'''` | `W/m^3` |
 //! | [`Self::one_group_flux`] | `sum_g phi_g` | `1/(m^2 s)` |
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;

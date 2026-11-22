@@ -16,6 +16,9 @@
 //! (`samm.f90:2048-2068`, background R-matrix terms) is not ported —
 //! [`crate::samm::mf2`] does not parse `KBK` background data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::coulomb::pghcou;
 use crate::samm::context::ChannelKinematics;
 use crate::samm::mf2::{ParticlePair, SpinGroup};

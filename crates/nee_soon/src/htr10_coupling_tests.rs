@@ -7,6 +7,9 @@
 //! transports the whole core, far over a test's budget (measured costs in
 //! `verification_and_validation/htr10_direct_coupling/README.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use uom::si::f64::{HeatCapacity, ThermalConductance};
 use uom::si::heat_capacity::joule_per_kelvin;
@@ -71,6 +74,7 @@ fn rz_target_receives_the_power_and_returns_zone_temperatures() {
         .sum();
     assert!((p / 1.0e7 - 1.0).abs() < 1e-10, "{p} W");
     let kz = |z| t.kelvin(z);
+    #[cfg(feature = "std")]
     println!("zones: {:?}, peaking {:?}", t.to_kelvin(), peaking);
     assert!(kz(Htr10Zone::FuelPebble) > kz(Htr10Zone::ModeratorPebble));
     assert!(kz(Htr10Zone::ModeratorPebble) > kz(Htr10Zone::SideReflector));
@@ -107,6 +111,7 @@ fn lumped_target_reaches_its_steady_state() {
     assert_eq!(t.kelvin(Htr10Zone::SideReflector), 600.0);
 }
 
+#[cfg(feature = "std")]
 /// The default power mesh covers the cylindrical bed, and a coupling with a
 /// relaxation outside `(0, 1]` is refused before any work.
 #[test]
@@ -135,6 +140,7 @@ fn power_mesh_and_refusals() {
     assert_eq!(c.cached_jobs(), 0);
 }
 
+#[cfg(feature = "std")]
 /// The history picture is written.
 #[test]
 fn history_draws() {

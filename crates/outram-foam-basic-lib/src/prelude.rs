@@ -45,6 +45,9 @@
 /// - Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
 /// - Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
 // --- Primitive scalars ---
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::primitives::{GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 
 // --- Primitive tensor types ---
@@ -77,9 +80,12 @@ pub use crate::ode::{
 pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
 
 // --- Specie-level thermophysics (Layer 1h) ---
+pub use crate::thermophysics::constants::GasConstant;
 pub use crate::thermophysics::eos::*;
 pub use crate::thermophysics::error::ThermoError;
 pub use crate::thermophysics::quantities::Compressibility;
+pub use crate::thermophysics::reaction_rate::*;
+pub use crate::thermophysics::table::{IntegratedNonUniformTable, NonUniformTable};
 pub use crate::thermophysics::thermo::*;
 pub use crate::thermophysics::transport::*;
 
@@ -103,14 +109,21 @@ pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerforman
 
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
+pub use crate::fv_operators::les_filter::{
+    simple_filter, surface_integrate, surface_sum, AnisotropicFilter, FilterValue, LaplaceFilter,
+    LesFilter,
+};
 
 // --- KNP central-upwind face flux (rhoCentralFoam kernel, Layer 3) ---
 pub use crate::fv_operators::fvc::central_upwind::{KnpFaceFlux, KnpFaceState, KnpWaveSpeeds};
 
 // --- Non-orthogonal (mesh-quality) correction for the Laplacian ---
-pub use crate::fv_operators::fvc::grad_least_squares;
+pub use crate::fv_operators::fvc::{
+    grad_least_squares, grad_least_squares_face_centre, linear_upwind, linear_upwind_with_grad,
+    non_orth_correction_vectors, sn_grad_corrected, sn_grad_correction_with_grad,
+};
 pub use crate::fv_operators::fvm::{
-    laplacian_corrected, max_non_orthogonality_deg, non_ortho_geometry,
+    laplacian_corrected, laplacian_corrected_face_centre, max_non_orthogonality_deg, non_ortho_geometry, non_ortho_geometry_port_original,
     solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
 };
 
@@ -128,7 +141,8 @@ pub use crate::fields::vol_field_algebra;
 pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoThermo, SolidThermo};
 
 // --- LDU solvers ---
-pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
+pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel, gauss_seidel_upstream};
+pub use crate::ldu_matrix::{pbicgstab_dilu, PbicgstabDiluPerformance, PbicgstabDiluSettings};
 
 // --- FvMatrix/FvVectorMatrix bridge onto the asymmetric Krylov solvers ---
 pub use crate::ldu_matrix::{
@@ -233,4 +247,23 @@ pub use crate::math::differentiate::{
     DerivativeSolution, DiffBatchFailure, DiffScheme, DiffSettings, DiffStatus, JacobianBatch,
     JacobianSolution, NumericalJacobian, CBRT_EPSILON, DERIVATIVE_BATCH_MIN_POINTS,
     FIFTH_ROOT_EPSILON, JACOBIAN_BATCH_MIN_PROBLEMS, JACOBIAN_COLUMN_MIN_DIMENSION,
+};
+
+// --- viewFactor surface radiation (Layer 4, gh:#1529) ---
+pub use crate::view_factor_radiation::{
+    parse_label_list_list, parse_scalar_list_list, GreyDiffusiveViewFactorPatch, ViewFactorError,
+    ViewFactorModel, ViewFactorPatch, ViewFactorSolution,
+};
+
+// --- viewFactorsGen generator (Layer 4, gh:#1540) ---
+pub use crate::view_factor_generation::{
+    format_g17, generate_view_factors, trace_candidate_rays, write_label_list_list_file,
+    write_map_dist_file, write_scalar_list_list_file, GeneratedViewFactors, RayFirstHit,
+    ViewFactorGenInput, ViewFactorGenSettings,
+};
+pub use crate::esi_octree::{LineHit, LineShapes, NearestShapes, Octree, OctreeShapes, TreeBox};
+
+// --- P1 thermal radiation (Layer 4, gh:#1379) ---
+pub use crate::radiation::{
+    stefan_boltzmann_esi_v2506, ConstantAbsorptionEmission, P1Model, P1PatchModel, P1Solution,
 };

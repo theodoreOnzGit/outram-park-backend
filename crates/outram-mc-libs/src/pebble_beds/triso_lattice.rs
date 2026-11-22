@@ -38,6 +38,9 @@
 //! - Particles whose bounding box leaves the lattice are counted
 //!   ([`TrisoLattice::partly_outside`]) where upstream warns.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::lattice::RectLattice;
 use crate::geometry::position::Position;
@@ -90,7 +93,7 @@ pub struct TrisoLattice {
 ///   surface is never lost, as `build_triso_particle`'s matrix cell does).
 /// - `lower_left`, `pitch`, `shape`: the lattice.
 /// - `background`: the matrix material index; `temperature` \[K\] for the
-///   cells.
+///   cells (`None` = the material's own, GitHub #313).
 /// - `base`, `lattice_id`: where the output starts (see
 ///   [`TrisoLatticeBase`]).
 #[allow(clippy::too_many_arguments)]
@@ -102,10 +105,12 @@ pub fn create_triso_lattice(
     pitch: [f64; 3],
     shape: [usize; 3],
     background: usize,
-    temperature: f64,
+    temperature: impl Into<Option<f64>>,
     base: TrisoLatticeBase,
     lattice_id: i32,
 ) -> TrisoLattice {
+    // `None`: the background cells take their material's temperature (GitHub #313).
+    let temperature: Option<f64> = temperature.into();
     let n_tiles = shape[0] * shape[1] * shape[2];
     let mut lattice = RectLattice {
         id: lattice_id,
@@ -121,12 +126,12 @@ pub fn create_triso_lattice(
     let mut partly_outside = 0;
     let element = |p: [f64; 3]| -> [i64; 3] {
         let ll = [lower_left.x, lower_left.y, lower_left.z];
-        std::array::from_fn(|i| ((p[i] - ll[i]) / pitch[i]).floor() as i64)
+        core::array::from_fn(|i| ((p[i] - ll[i]) / pitch[i]).floor() as i64)
     };
     for (k, c) in centres.iter().enumerate() {
         let c = [c.x, c.y, c.z];
-        let lo = element(std::array::from_fn(|i| c[i] - particle_radius));
-        let hi = element(std::array::from_fn(|i| c[i] + particle_radius));
+        let lo = element(core::array::from_fn(|i| c[i] - particle_radius));
+        let hi = element(core::array::from_fn(|i| c[i] + particle_radius));
         let mut outside = false;
         for iz in lo[2]..=hi[2] {
             for iy in lo[1]..=hi[1] {

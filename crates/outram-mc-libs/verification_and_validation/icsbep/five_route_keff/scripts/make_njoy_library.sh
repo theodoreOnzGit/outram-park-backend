@@ -34,7 +34,8 @@ export ENDF_DIR=$REPO/reference-data/endf
 export NJOY
 DECKS=$REPO/crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code
 SUB=$REPO/reference-data/ace/reference-njoy/endf-b-viii.0
-LIST=$HERE/../nuclides.tsv
+# LIST=<tsv> builds a subset (same columns); default: every nuclide of the study.
+LIST=${LIST:-$HERE/../nuclides.tsv}
 OUT=$WORK/njoy
 mkdir -p "$OUT/293.6K" "$OUT/0K" "$OUT/build293" "$OUT/build0K"
 
@@ -99,6 +100,23 @@ nj.make_ace_thermal(f"{endf}/n-001_H_001-ENDF8.0-Beta6.endf", f"{endf}/tsl-HinH2
                     njoy_exec=njoy, stdout=False)
 PYEOF
   cp "$OUT/build_thermal/ace" "$OUT/293.6K/HinH2O.ace"
+fi
+# ── Reactor graphite 30P (MSRE cell, gh:#1126), through OpenMC's NJOY driver, iwt = 1 ──
+# The tape tabulates 296 K, not 293.6 K, and THERMR does not interpolate in
+# temperature, so the table is made at 296 K; OpenMC applies it to a 293.6 K
+# material as its nearest temperature. Route 4 regenerates the law by LEAPR at
+# 293.6 K itself; that 2.4 K difference is part of the route comparison.
+if [ ! -s "$OUT/293.6K/Graphite30P.ace" ]; then
+  mkdir -p "$OUT/build_graphite"
+  "$PY" - "$ENDF_DIR" "$OUT/build_graphite" "$NJOY" <<'PYEOF'
+import sys, pathlib
+import openmc.data.njoy as nj
+endf, out, njoy = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
+nj.make_ace_thermal(f"{endf}/n-006_C_012-ENDF8.0.endf", f"{endf}/tsl-reactor-graphite-30P.endf",
+                    temperatures=[296.0], output_dir=out, iwt=1, table_name="grph30",
+                    zaids=[6000, 6012, 6013], nmix=1, njoy_exec=njoy, stdout=False)
+PYEOF
+  cp "$OUT/build_graphite/ace" "$OUT/293.6K/Graphite30P.ace"
 fi
 echo "NJOY2016 library complete under $OUT"
 ls -la "$OUT/293.6K" "$OUT/0K"

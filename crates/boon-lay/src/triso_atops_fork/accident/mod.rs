@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -8,7 +8,7 @@
 //                    (`inventory_processing`, `release_activity`, `coolant_release`)
 //                    trisoatops/trisoatops.py (`accident_case`)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// Ported under GPL-3.0; see LICENSE.triso-atops and NOTICE.triso-atops.
+// Ported under AGPL-3.0-only; see LICENSE.triso-atops and NOTICE.triso-atops.
 
 //! Depressurisation-accident release: how much of the activity a normal
 //! operation left sitting in the fuel and the primary circuit escapes when the
@@ -54,6 +54,9 @@
 //! accident source term especially must not be presented as authoritative for
 //! emergency planning, emergency response or licensing. See the crate docs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::nuclide_model::ElementGroup;
 use super::variant::{AccidentInventory, SilverAccidentInventory, TrisoAtopsVariant};
 use uom::si::f64::{Pressure, ThermodynamicTemperature, Time};

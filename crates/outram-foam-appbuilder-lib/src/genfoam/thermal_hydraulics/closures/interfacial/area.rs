@@ -69,6 +69,9 @@
 //! - Schor et al. rod-bundle interfacial area correlation with a three-region
 //!   (low/transition/high void-fraction) blend (as implemented upstream).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::units::{interfacial_area_concentration, FluidDiameter, InterfacialAreaConcentration};
 use uom::si::f64::Ratio;
 use uom::si::length::meter;

@@ -25,6 +25,9 @@
 //!   al. 2021), obtained via [`super::sam_table4_flowrates_kg_per_s`]; see that
 //!   function's doc comment for the openly-available source.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One coupled natural-circulation case: experimental and TUAS-K=17.8 values.
 /// SAM values are looked up separately from NED-2021 Table 4.
 ///
@@ -316,7 +319,7 @@ fn fmt_pct(pct: f64) -> String {
 /// Build the full markdown report as a `String` (deterministic; no clock/RNG,
 /// so re-running does not churn the committed file).
 fn build_markdown() -> String {
-    use std::fmt::Write as _;
+    use core::fmt::Write as _;
     let mut md = String::new();
 
     // --- Mandatory AI-generated disclaimer (see AI_USAGE.md) ---------------
@@ -446,7 +449,7 @@ enum Loop {
 
 /// Build one per-loop GFM table (25 rows, grouped implicitly by the case label).
 fn flow_table(which: Loop) -> String {
-    use std::fmt::Write as _;
+    use core::fmt::Write as _;
     let mut t = String::new();
     t.push_str("| Case | Heater (W) | TCHX (degC) | Experiment | TUAS K=17.8 | TUAS %err | SAM | SAM %err |\n");
     t.push_str("|---|---|---|---|---|---|---|---|\n");
@@ -559,6 +562,7 @@ fn generate_coupled_natcirc_sam_vs_tuas_vs_experiment_md() {
         "coupled_natural_circulation_SAM_vs_TUAS_vs_experiment.md",
     );
     std::fs::write(&path, md).expect("could not write SAM-vs-TUAS-vs-experiment markdown");
+    #[cfg(feature = "std")]
     eprintln!(
         "wrote coupled natcirc comparison markdown to {}",
         path.display()

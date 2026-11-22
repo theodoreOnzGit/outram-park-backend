@@ -1,0 +1,15 @@
+NOTICE -- kembangan
+===================
+
+KEMBANGAN (crate `kembangan`), part of the OUTRAM PARK workspace.
+Licence: AGPL-3.0-only, as for the whole workspace.
+
+Provenance of ported code: `src/rustbca/` is copied from RustBCA
+(https://github.com/lcpp-org/RustBCA; Jon Drobny and Davide Curreli; upstream
+licence GNU GPL v3), moved here from `boon-lay` on 2026-11-22 (GitHub issue
+#1699). Every file keeps its upstream attribution header and SPDX line, and
+the upstream LICENSE is kept beside the copy, as the workspace requires for
+ported files. The GPL-3.0 text ships as `LICENSE.GPL-3.0` for those files
+(GPLv3 section 4); the workspace's relicensing record is
+`docs/relicensing-agpl-2026-10-20.md` (GitHub issue #973). Provenance and
+every local change: `src/rustbca/mod.rs`, `src/rustbca/README.md`.

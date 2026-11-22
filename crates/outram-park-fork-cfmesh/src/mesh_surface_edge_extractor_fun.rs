@@ -54,6 +54,9 @@
 //! `reviseEdges` have no caller (the last two are empty upstream); not
 //! ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fundamental_sheets::{create_fundamental_sheets, SheetsKind, SheetsReport};
 use crate::layers::extrude_layer::ExtrudeLayerError;
 use crate::math::Vec3;
@@ -89,6 +92,7 @@ pub struct FunReport {
 /// mesh.
 pub fn mesh_surface_edge_extractor_fun(
     mesh: &mut VolumeMesh,
+    octree: Option<&crate::mesh_octree::MeshOctree>,
     points: &[Vec3],
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
@@ -96,6 +100,7 @@ pub fn mesh_surface_edge_extractor_fun(
     sheets: FunSheets,
     create_wrapper_sheet: bool,
 ) -> (FunReport, Vec<Option<usize>>) {
+    trace_dump("F0", mesh);
     let mut given = face_region.to_vec();
     let sheets_result = match sheets {
         FunSheets::Without => None,
@@ -114,7 +119,39 @@ pub fn mesh_surface_edge_extractor_fun(
             })
         }
     };
-    let smoothing = optimise_mesh_surface(mesh, points, tris, regions, &given);
-    *mesh = map_vertices_onto_surface_patches_given(mesh, points, tris, regions, &given);
+    trace_dump("FA", mesh);
+    let smoothing = match octree {
+        Some(o) => crate::surface_optimizer::optimise_mesh_surface_octree(mesh, o, points, tris, regions, &given),
+        None => optimise_mesh_surface(mesh, points, tris, regions, &given),
+    };
+    trace_dump("FB", mesh);
+    *mesh = match octree {
+        Some(o) => crate::surface_mapper::map_vertices_onto_surface_patches_given_octree(mesh, o, points, tris, regions, &given),
+        None => map_vertices_onto_surface_patches_given(mesh, points, tris, regions, &given),
+    };
+    trace_dump("FC", mesh);
     (FunReport { sheets: sheets_result, smoothing }, given)
+}
+
+/// gh:#1385: with `GH1385_TRACE` set, print the mesh the way the instrumented
+/// upstream `meshSurfaceEdgeExtractorFUN` does after each of its three steps
+/// (`<tag>P` points, `<tag>F` faces with owner and neighbour, `<tag>C` cell lists).
+fn trace_dump(tag: &str, mesh: &VolumeMesh) {
+    if crate::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    for (i, p) in mesh.points.iter().enumerate() {
+        #[cfg(feature = "std")]
+        eprintln!("{tag}P {i} {:?} {:?} {:?}", p.x, p.y, p.z);
+    }
+    for (i, f) in mesh.faces.iter().enumerate() {
+        let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+        #[cfg(feature = "std")]
+        eprintln!("{tag}F {i} {} {} {}", mesh.owner[i], mesh.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+    }
+    for (i, c) in mesh.cell_face_lists().iter().enumerate() {
+        let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+        #[cfg(feature = "std")]
+        eprintln!("{tag}C {i} {}", fs.join(" "));
+    }
 }

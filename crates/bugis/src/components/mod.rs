@@ -42,6 +42,7 @@ pub mod htr10_reactor_schematic;
 pub mod htr10_reactor_vessel;
 pub mod htr10_steam_generator;
 pub mod instrumentation;
+pub mod msre_plant;
 mod legend;
 pub(crate) mod pebble_bed_texture;
 pub mod pebble_packing;
@@ -71,6 +72,7 @@ pub use htr10_reactor_schematic::Htr10ReactorSchematic;
 pub use htr10_reactor_vessel::{Htr10FlowAnchors, Htr10ReactorVesselVisual};
 pub use htr10_steam_generator::Htr10SteamGeneratorVisual;
 pub use instrumentation::InstrumentationVisual;
+pub use msre_plant::{MsreLayout, MsrePlantScalars, MsrePlantSchematic};
 pub use legend::{LegendUnit, TemperatureLegend};
 pub use pipe::{
     CoaxialDuctGeometry, CoaxialDuctVisual, PipePhaseShade, PipeScalars, PipeScale, PipeArt,

@@ -34,9 +34,12 @@
 //! [`super::step_fn::StepFunction`] — and re-summed both on every call, so it
 //! cost twice what the plain lag did. See bead `op-fm5`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
-use std::collections::VecDeque;
+use alloc::collections::VecDeque;
 
 use uom::si::f64::*;
 use uom::si::ratio::ratio;

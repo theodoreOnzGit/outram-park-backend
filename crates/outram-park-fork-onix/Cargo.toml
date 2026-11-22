@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-onix"
-version = "0.0.2"
+version = "0.0.3"
 edition.workspace = true
 license.workspace = true
 description = "Independent pure-Rust fork/translation of ONIX (open-source depletion/burnup; MIT upstream) — Bateman/CRAM depletion + fission-product inventory for the MSRE digital twin. SCAFFOLD: no human V&V. Not affiliated with the ONIX project."
@@ -30,13 +30,19 @@ topic = "neutronics"
 fidelity = 1
 maturity = 2
 
+[features]
+# `std` (default, gh:#1589): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["thiserror-nostd/std"]
+
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985), and since gh:#999 CRAM16 itself (petir::depletion::cram16_pfd).
 # petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
 uom.workspace = true
-thiserror.workspace = true
+thiserror-nostd.workspace = true
 # CRAM16 itself is petir::depletion::cram16_pfd since 2026-10-20 (gh:#999), on
 # PETIR's own complex type; num-complex was dropped then.
 

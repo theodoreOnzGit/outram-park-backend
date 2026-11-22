@@ -28,6 +28,9 @@
 //! All arguments are dimensionless (`alpha`, `beta` are the usual ENDF thermal
 //! variables); the return value is the dimensionless S(alpha, beta).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Exponent floor below which `exp(.)` is treated as zero (matches NJOY

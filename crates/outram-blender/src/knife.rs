@@ -40,6 +40,9 @@
 //! Each [`knife`] chord splits exactly one face. Multiple chords on the same
 //! face are applied in sequence, each acting on whichever sub-face contains it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, Mesh, VertexId};
 
@@ -86,8 +89,8 @@ pub fn knife(mesh: &Mesh, chords: &[Chord]) -> KnifeResult {
 
     // Resolve each KnifePoint to a concrete vertex index, creating edge-split
     // vertices (deduplicated per (edge, rounded-t)).
-    let mut edge_split_cache: std::collections::HashMap<(usize, i64), usize> =
-        std::collections::HashMap::new();
+    let mut edge_split_cache: crate::hash::HashMap<(usize, i64), usize> =
+        crate::hash::HashMap::new();
     let mut resolve = |kp: KnifePoint, positions: &mut Vec<Vec3>| -> Option<usize> {
         match kp {
             KnifePoint::Vertex(v) => (v.0 < positions.len()).then_some(v.0),
@@ -109,8 +112,8 @@ pub fn knife(mesh: &Mesh, chords: &[Chord]) -> KnifeResult {
     };
 
     // Group chords by face and pre-resolve their endpoints.
-    let mut by_face: std::collections::BTreeMap<usize, Vec<(usize, usize)>> =
-        std::collections::BTreeMap::new();
+    let mut by_face: alloc::collections::BTreeMap<usize, Vec<(usize, usize)>> =
+        alloc::collections::BTreeMap::new();
     let mut cut_vertices: Vec<VertexId> = Vec::new();
     for c in chords {
         let (Some(a), Some(b)) = (
@@ -160,7 +163,7 @@ pub fn knife(mesh: &Mesh, chords: &[Chord]) -> KnifeResult {
 fn splice_edge_splits(
     ring: &[usize],
     mesh: &Mesh,
-    cache: &std::collections::HashMap<(usize, i64), usize>,
+    cache: &crate::hash::HashMap<(usize, i64), usize>,
 ) -> Vec<usize> {
     if cache.is_empty() {
         return ring.to_vec();

@@ -74,12 +74,15 @@
 // mirror is bit-identical across hosts. The GPU side still uses the WGSL
 // shader intrinsics, which are driver-defined; the mirror/GPU agreement
 // test tolerance covers that difference.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 // Used by `pool()` (native/Android) and `gpu_context()` (native/Android,
 // `gpu` feature) -- both absent on `wasm32-unknown-unknown`, so the import
 // is gated the same way rather than left to warn as unused there.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use std::sync::OnceLock;
 
 /// The WGSL source. Declares `changi_puff_field` and
@@ -225,7 +228,7 @@ pub fn field_serial(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
 ///
 /// **Native and Android only.** `wasm32-unknown-unknown` has no OS threads;
 /// see [`field_pooled`]'s `wasm32` arm below.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 fn pool() -> &'static rayon::ThreadPool {
     static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
     POOL.get_or_init(|| {
@@ -242,7 +245,7 @@ fn pool() -> &'static rayon::ThreadPool {
 /// **rows**, not cells: a row is 64 contributions-sums of identical cost, so
 /// the chunks are even and large enough that the scheduling overhead
 /// disappears against the work.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
     use rayon::prelude::*;
     if grid.is_empty() {
@@ -261,7 +264,8 @@ pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
 }
 
 /// The whole field, computed serially -- the `wasm32-unknown-unknown` arm of
-/// [`field_pooled`].
+/// [`field_pooled`], and since gh:#1587 the arm of any build without `std`
+/// (no OS threads there either; `rayon` is then not a dependency).
 ///
 /// `wasm32-unknown-unknown` has no OS threads, so `rayon` is not even a
 /// dependency on this target (`Cargo.toml`'s `[target.'cfg(not(target_arch =
@@ -277,7 +281,7 @@ pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
 /// `the_pooled_field_is_bit_identical_to_the_serial_one` pins that on the
 /// native target, so `field_pooled` and `field_serial` are already known to
 /// agree bit for bit before this target ever calls either.
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(not(feature = "std"), target_arch = "wasm32"))]
 pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
     field_serial(states, grid)
 }

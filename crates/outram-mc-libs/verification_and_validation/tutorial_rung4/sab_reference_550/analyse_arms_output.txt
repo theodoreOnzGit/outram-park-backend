@@ -1,0 +1,33 @@
+| pitch | arm | n | k | sd [pcm] |
+|---|---|---|---|---|
+| 2.4 | E: h5 data, ENDF S(a,b) on THERMR's grid | 8 | 0.70651 +- 0.00039 | 110 |
+| 2.4 | A: h5 data, NJOY ACE S(a,b) | 8 | 0.70694 +- 0.00023 | 66 |
+| 2.4 | B: h5 data, ENDF S(a,b) 384 log grid | 8 | 0.70559 +- 0.00027 | 76 |
+| 2.4 | baseline: ENDF data, 384 log grid | 16 | 0.70536 +- 0.00027 | 107 |
+| 2.4 | OpenMC | 16 | 0.70653 +- 0.00029 | 116 |
+| 1.63576 | E: h5 data, ENDF S(a,b) on THERMR's grid | 8 | 1.06257 +- 0.00045 | 128 |
+| 1.63576 | baseline: ENDF data, 384 log grid | 16 | 1.06216 +- 0.00031 | 126 |
+| 1.63576 | OpenMC | 16 | 1.06253 +- 0.00022 | 87 |
+| 1.75 | E: h5 data, ENDF S(a,b) on THERMR's grid | 16 | 1.01149 +- 0.00032 | 129 |
+| 1.75 | B: h5 data, ENDF S(a,b) 384 log grid | 8 | 1.01181 +- 0.00040 | 114 |
+| 1.75 | baseline: ENDF data, 384 log grid | 16 | 1.01104 +- 0.00016 | 63 |
+| 1.75 | OpenMC | 16 | 1.01104 +- 0.00033 | 132 |
+
+| pitch | difference | pcm | +- | z |
+|---|---|---|---|---|
+| 2.4 | E - OpenMC (16 seeds) | -2 | 48 | -0.04 |
+| 2.4 | E - ENDF-route baseline (16 seeds) | +115 | 47 | +2.44 |
+| 2.4 | baseline - OpenMC (16 seeds, recorded) | -117 | 39 | -2.97 |
+| 1.63576 | E - OpenMC (16 seeds) | +4 | 50 | +0.09 |
+| 1.63576 | E - ENDF-route baseline (16 seeds) | +42 | 55 | +0.75 |
+| 1.63576 | baseline - OpenMC (16 seeds, recorded) | -37 | 38 | -0.97 |
+| 1.75 | E - OpenMC (16 seeds) | +44 | 46 | +0.96 |
+| 1.75 | E - ENDF-route baseline (16 seeds) | +45 | 36 | +1.25 |
+| 1.75 | baseline - OpenMC (16 seeds, recorded) | -1 | 37 | -0.01 |
+
+2.40 cm E - OpenMC (32 seeds, 0.70652 +- 0.00020): -1 +- 44 pcm (z -0.02)
+2.40 cm A - OpenMC (32 seeds, 0.70652 +- 0.00020): +42 +- 31 pcm (z +1.36)
+2.40 cm B - OpenMC (32 seeds, 0.70652 +- 0.00020): -93 +- 33 pcm (z -2.79)
+2.40 cm E - A: -43 +- 45 pcm (z -0.94)
+2.40 cm E - B: +92 +- 47 pcm (z +1.96)
+2.40 cm A - B: +135 +- 35 pcm (z +3.80)

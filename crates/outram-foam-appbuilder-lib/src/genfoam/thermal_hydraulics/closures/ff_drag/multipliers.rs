@@ -81,6 +81,9 @@
 //! - P.A. Lottes, W.S. Flinn, "A method of analysis of natural circulation
 //!   boiling systems", *Nucl. Sci. Eng.* 1, 1956, pp. 461-476.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;

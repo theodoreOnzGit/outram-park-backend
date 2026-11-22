@@ -11,6 +11,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::handle3dcoords::handle3dcoords;
 use crate::matlab::Array3;
 use crate::types::Params;

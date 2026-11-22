@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! # HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453, #464)
 //!
@@ -85,6 +85,9 @@
 //! at 1 m/s, as `examples/htr10_air_ingress_kora_bound.rs`, whose chain
 //! [`htr10_air_ingress_bound`] reproduces.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use boon_lay::fuel_failure::htr10 as panama_htr10;
 use boon_lay::triso_atops_fork::accident::AccidentFractions;
@@ -127,6 +130,9 @@ pub type Releases = Vec<(String, f64)>;
 /// `examples/htr10_air_ingress_kora_bound.rs` (the maintainer's bounding case
 /// B, 2026-09-30): whole core 1400 °C for 140 h, every particle exposed.
 pub mod bound {
+    #[cfg(not(any(feature = "std", test)))]
+    #[allow(unused_imports)]
+    use crate::nostd_prelude::*;
     /// Hold temperature \[°C\].
     pub const HOLD_CELSIUS: f64 = 1400.0;
     /// Hold duration the failure fractions are taken at \[h\].
@@ -155,6 +161,9 @@ pub mod bound {
 /// with their provenance (#453). Proprietary tier: the values are cited, the
 /// PDF is not redistributed.
 pub mod kora {
+    #[cfg(not(any(feature = "std", test)))]
+    #[allow(unused_imports)]
+    use crate::nostd_prelude::*;
     use petir::mathf::RealMath;
     const TABLE_5_7: &str = include_str!("../reference/tecdoc978/table5_7_kora_heating_in_air.csv");
     const FIG_5_23: &str =
@@ -184,7 +193,7 @@ pub mod kora {
         for c in line.chars() {
             match c {
                 '"' => quoted = !quoted,
-                ',' if !quoted => out.push(std::mem::take(&mut cur)),
+                ',' if !quoted => out.push(core::mem::take(&mut cur)),
                 _ => cur.push(c),
             }
         }
@@ -561,6 +570,9 @@ fn rg1183_phases(n: &str) -> Option<Vec<ReleasePhase>> {
 /// Durations for PWRs and BWRs" (printed p. 9, PDF p. 18) and s.3.3 (printed
 /// pp. 7-9), in hours.
 pub mod n1465_timing {
+    #[cfg(not(any(feature = "std", test)))]
+    #[allow(unused_imports)]
+    use crate::nostd_prelude::*;
     /// End of the coolant-activity phase = gap onset \[h\]: Table 3.6 gives
     /// "10 to 30 seconds" for PWRs without leak-before-break approval; the
     /// **30 s** end of that range is taken (it is also RG 1.183's 0.5 min).
@@ -1856,6 +1868,7 @@ mod tests {
             r.iter().map(|(_, bq)| bq).sum::<f64>()
         };
         let (flat, drifting) = (at(0.0), at(0.1));
+        #[cfg(feature = "std")]
         println!("bound release: isothermal {flat:.4e} Bq, +0.1 K drift {drifting:.4e} Bq");
         assert!(flat > 0.0);
         assert!(

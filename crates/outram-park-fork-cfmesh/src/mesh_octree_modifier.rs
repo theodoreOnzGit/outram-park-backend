@@ -48,8 +48,11 @@
 //! `loadDistribution`, `refineTreeForCoordinates`,
 //! `updateCommunicationPattern`, `addLayerFromNeighbouringProcessors`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh_octree::MeshOctree;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 impl MeshOctree {
     /// `ensureCorrectRegularity`: grow the selection until refining it keeps
@@ -304,7 +307,7 @@ mod tests {
     use crate::math::Vec3;
     use crate::mesh_octree::tests::data_octree;
     use crate::mesh_octree_queries::tests::pipe;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Refine the leaves holding triangles `level` times through
     /// `refineSelectedBoxes` (so with the 1-irregularity rule), as
@@ -363,6 +366,7 @@ mod tests {
             raw.create_list_of_leaves();
             raw_jumps.push(max_level_jump(&raw));
         }
+        #[cfg(feature = "std")]
         println!("without ensureCorrectRegularity, jumps per pass {raw_jumps:?}");
         assert!(raw_jumps[1] >= 2, "the regularity pass is doing work");
 
@@ -408,7 +412,7 @@ mod tests {
             }
             let mut dist = vec![i32::MAX; o.number_of_leaves()];
             dist[l0] = 0;
-            let mut q = std::collections::VecDeque::from([l0]);
+            let mut q = alloc::collections::VecDeque::from([l0]);
             while let Some(l) = q.pop_front() {
                 if dist[l] == 2 {
                     continue;

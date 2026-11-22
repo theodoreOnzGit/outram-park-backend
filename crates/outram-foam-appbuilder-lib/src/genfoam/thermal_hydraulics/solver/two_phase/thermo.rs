@@ -27,6 +27,9 @@
 //! basic-lib's Newton `t_from_hs` (OpenFOAM `species::thermo::THs`), and the
 //! energy diffusivity is `alphahe = kappa/Cp` (laminar; `alphat = 0`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::dynamic_viscosity::pascal_second;

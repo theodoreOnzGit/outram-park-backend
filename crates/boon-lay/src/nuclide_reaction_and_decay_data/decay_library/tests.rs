@@ -1,8 +1,12 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
 
 use crate::prelude::{decay_library::DecayLibrary, NuclideReactionAndDecayData};
 use uom::si::{f64::*, time::year};
 
+#[cfg(feature = "std")]
 #[test]
 fn index_tritium() {
     let tritium = Nuclide::H3;

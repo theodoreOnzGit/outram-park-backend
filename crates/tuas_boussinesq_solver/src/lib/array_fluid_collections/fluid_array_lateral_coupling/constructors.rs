@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boussinesq_thermophysical_properties::prandtl::try_get_prandtl;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boussinesq_thermophysical_properties::Material;
@@ -13,7 +16,7 @@ use uom::si::ratio::ratio;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::pressure::atmosphere;
 use ndarray::*;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 impl FluidArray {
     /// generic constructor,

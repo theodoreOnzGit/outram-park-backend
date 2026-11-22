@@ -71,6 +71,9 @@
 //! See the parent module [`crate::eos_co2_brine`] for the full accuracy warning
 //! and provenance block. Untrusted AI-generated draft (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
@@ -263,7 +266,7 @@ fn largest_real_cubic_root(c2: f64, c1: f64, c0: f64) -> f64 {
         let mut arg = 3.0 * q / (p * m);
         arg = arg.clamp(-1.0, 1.0);
         let theta = arg.r_acos();
-        let two_pi = std::f64::consts::TAU;
+        let two_pi = core::f64::consts::TAU;
         let r0 = m * (theta / 3.0).r_cos() - shift;
         let r1 = m * ((theta - two_pi) / 3.0).r_cos() - shift;
         let r2 = m * ((theta - 2.0 * two_pi) / 3.0).r_cos() - shift;

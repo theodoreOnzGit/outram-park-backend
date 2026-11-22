@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Godiva through a round trip of this workspace's own ACE writer and
 //! reader**, with a timing breakdown of every stage.
@@ -77,7 +77,7 @@ use njoy_outram_park_fork::nuclear_data::secondary::{FissionSpectrum, NuBar};
 use njoy_outram_park_fork::photon::PhotonProduction;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 use njoy_outram_park_fork::reference_data::reference_endf;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
 
@@ -224,16 +224,7 @@ fn main() {
     // HEU-MET-FAST-001 atom densities [atoms/barn·cm], the same numbers every
     // other Godiva example here uses, so the runs differ only in where sigma
     // comes from.
-    let material = Material {
-        id: 1,
-        name: "Godiva HEU".into(),
-        temperature: TEMP_K,
-        components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
-        ],
-    };
+    let material = outram_mc_libs::vv::godiva::material();
     let settings = KeffSettings {
         n_particles: 5000,
         n_inactive: 40,

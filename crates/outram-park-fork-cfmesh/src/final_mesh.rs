@@ -61,6 +61,9 @@
 //! the spirit of `projectSurfaceAfterBackScaling` (map, then let the
 //! optimiser repair the cells). It is off by default.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls;
 use crate::math::Vec3;
 use crate::mesh_optimizer::{find_bad_faces, optimize_low_quality_faces, untangle_mesh_fv_projected, LaplaceKind, MeshOptimizer, OptimiserReport, UntangleControls};
@@ -204,6 +207,9 @@ pub fn optimise_final_mesh(mesh: &mut VolumeMesh, points: &[Vec3], tris: &[[usiz
         stop_on_stall: controls.stop_untangling_on_stall,
         boundary_moves: controls.untangle_boundary_moves,
         mesh_untangler: controls.untangle_mesh_untangler,
+        // the tet-dual pipeline's opt-in keeps the pre-round-5 calls: Foam
+        // Studio's pins (not run in this gate) depend on them
+        boundary_calls: crate::mesh_optimizer::BoundaryMoveCalls::AsDocumented,
     };
     let (r, pr) = untangle_on_surface(mesh, &none, &c, controls.boundary_projection, Some(&projector));
     notes.push(format!(
@@ -249,11 +255,14 @@ mod tests {
     }
 
     /// A short pipe (R 10 mm, L 40 mm, 24 sides) at h 5 mm, bare, the
-    /// default dual: small enough for the default test run.
+    /// default dual: small enough for the default test run. In the
+    /// pipeline's face order before gh:#1285 (`upper_triangular: false`),
+    /// the order these tests' cases were recorded on (the shake below picks
+    /// its points in face order).
     fn small_pipe() -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions, VolumeMesh) {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.04, 24);
         let o = TetDualOptions { cell_size: 0.005, n_layers: 0, ..Default::default() };
-        let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        let (m, _) = crate::pipeline::run_pipeline(&p, &t, &o, Some(&regions), false).unwrap();
         (p, t, regions, m)
     }
 
@@ -296,13 +305,67 @@ mod tests {
     /// `untangle_mesh_fv_with`; `EachPass` with boundary moves leaves the
     /// inlet planar to 1e-9 m (the gh:#1283 gate), on a mesh whose interior
     /// points were shaken so that the untangle has work to do.
+    ///
+    /// **gh:#1285 (2026-11-05).** The shake picks every third interior
+    /// point **in face order**, so it is a different case on the
+    /// upper-triangular mesh. The recorded case (`small_pipe`'s mesh in the
+    /// pipeline's pre-gh:#1285 face order, `upper_triangular: false`) is
+    /// kept and asserted as before. On the same mesh in the gh:#1285 order
+    /// the shake picks other points: `EachPass` still keeps the inlet
+    /// planar (asserted), but **`AfterUntangle` does not**: a rim point
+    /// (r 9.967 mm) that the boundary passes slid 1.9 mm up the wall is
+    /// mapped back only to z = 1.78e-4 m by the one projection at the end.
+    /// That is a measured limit of `AfterUntangle`, recorded in
+    /// `verification_and_validation/upper_triangular_gh1285/README.md`, and
+    /// not asserted away.
+    ///
+    /// **MOVED 2026-11-11 (gh:#1385 round 3):** ~~`AfterUntangle` leaves the
+    /// rim point 1.78e-4 m off the inlet plane in the gh:#1285 order~~ it now
+    /// keeps the inlet planar there too (0e0). Cause: the part tet mesh now
+    /// takes cfMesh's face and cell centres and cell-list order, and the
+    /// volume optimiser, Knupp metric and tet-mesh updates follow upstream's
+    /// arithmetic (V&V README, round 3), so the interior smoothing, and with
+    /// it the boundary passes, take other paths on this shaken mesh. The
+    /// limit of `AfterUntangle` is not removed in general (the projection is
+    /// still only at the end); this case no longer shows it.
     #[test]
     fn projected_untangle_keeps_the_inlet_planar() {
-        let (p, t, regions, m0) = small_pipe();
-        let pr = BoundaryProjector::new(&m0, &p, &t, &regions);
+        let (p, t, regions, recorded) = small_pipe();
+        let reordered = crate::renumber_mesh::upper_triangular(&recorded);
+        for (case, m0) in [("recorded", recorded), ("gh1285 order", reordered)] {
+            let pr = BoundaryProjector::new(&m0, &p, &t, &regions);
+            let shaken = shake_interior(&m0);
+            let none = vec![false; m0.points.len()];
+            // One interior pass per global iteration, so bad faces are left
+            // for the boundary loop.
+            let c = UntangleControls { boundary_moves: true, max_global_iterations: 4, max_iterations: 1, ..UntangleControls::default() };
+            let mut a = shaken.clone();
+            let ra = crate::mesh_optimizer::untangle_mesh_fv_with(&mut a, &none, &c);
+            let mut b = shaken.clone();
+            let (rb, _) = untangle_on_surface(&mut b, &none, &c, BoundaryProjection::Off, Some(&pr));
+            assert_eq!(a.points, b.points, "Off is the plain untangle");
+            assert_eq!(ra.flagged_after, rb.flagged_after);
+            let mut e = shaken.clone();
+            let (re, pe) = untangle_on_surface(&mut e, &none, &c, BoundaryProjection::EachPass, Some(&pr));
+            let mut g = shaken.clone();
+            let (_, pg) = untangle_on_surface(&mut g, &none, &c, BoundaryProjection::AfterUntangle, Some(&pr));
+            let plain_off = inlet_off_plane(&a, &m0, &pr, &regions);
+            let after_off = inlet_off_plane(&g, &m0, &pr, &regions);
+            #[cfg(feature = "std")]
+            println!("{case}: plain (inlet off plane {plain_off:e}): {} -> {}, {} boundary passes; EachPass: {} -> {}, {pe:?}; AfterUntangle {pg:?}, off plane {after_off:e}", ra.flagged_before, ra.flagged_after, ra.surface_iterations, re.flagged_before, re.flagged_after);
+            assert!(ra.surface_iterations > 0, "the case exercises the boundary loop");
+            assert!(inlet_off_plane(&e, &m0, &pr, &regions) < 1e-9, "{case}: EachPass: inlet off plane by {:e}", inlet_off_plane(&e, &m0, &pr, &regions));
+            // ~~the "gh1285 order" case missed by 1.78e-4 m (assert > 1e-5)~~
+            // now planar too, gh:#1385 round 3 (doc comment)
+            assert!(after_off < 1e-9, "{case}: AfterUntangle: inlet off plane by {after_off:e}");
+            assert_eq!(pe.points_moved > 0, ra.surface_iterations > 0, "boundary points move exactly when a boundary pass runs");
+        }
+    }
+
+    /// The test shake: every third interior point, in face order, pushed
+    /// 1.5 times its distance from the face centre away from it.
+    fn shake_interior(m0: &VolumeMesh) -> VolumeMesh {
         let mut shaken = m0.clone();
-        // Pull every boundary point 30 % of the way to its nearest interior
-        // neighbour's position, so cells next to the boundary tangle.
         let mut on_bnd = vec![false; m0.points.len()];
         for f in 0..m0.face_count() {
             if m0.neighbour[f].is_none() {
@@ -326,26 +389,7 @@ mod tests {
                 }
             }
         }
-        let none = vec![false; m0.points.len()];
-        // One interior pass per global iteration, so bad faces are left
-        // for the boundary loop.
-        let c = UntangleControls { boundary_moves: true, max_global_iterations: 4, max_iterations: 1, ..UntangleControls::default() };
-        let mut a = shaken.clone();
-        let ra = crate::mesh_optimizer::untangle_mesh_fv_with(&mut a, &none, &c);
-        let mut b = shaken.clone();
-        let (rb, _) = untangle_on_surface(&mut b, &none, &c, BoundaryProjection::Off, Some(&pr));
-        assert_eq!(a.points, b.points, "Off is the plain untangle");
-        assert_eq!(ra.flagged_after, rb.flagged_after);
-        let mut e = shaken.clone();
-        let (re, pe) = untangle_on_surface(&mut e, &none, &c, BoundaryProjection::EachPass, Some(&pr));
-        let mut g = shaken.clone();
-        let (_, pg) = untangle_on_surface(&mut g, &none, &c, BoundaryProjection::AfterUntangle, Some(&pr));
-        let plain_off = inlet_off_plane(&a, &m0, &pr, &regions);
-        println!("plain (inlet off plane {plain_off:e}): {} -> {}, {} boundary passes; EachPass: {} -> {}, {pe:?}; AfterUntangle {pg:?}", ra.flagged_before, ra.flagged_after, ra.surface_iterations, re.flagged_before, re.flagged_after);
-        assert!(ra.surface_iterations > 0, "the case exercises the boundary loop");
-        assert!(inlet_off_plane(&e, &m0, &pr, &regions) < 1e-9, "EachPass: inlet off plane by {:e}", inlet_off_plane(&e, &m0, &pr, &regions));
-        assert!(inlet_off_plane(&g, &m0, &pr, &regions) < 1e-9, "AfterUntangle: inlet off plane by {:e}", inlet_off_plane(&g, &m0, &pr, &regions));
-        assert_eq!(pe.points_moved > 0, ra.surface_iterations > 0, "boundary points move exactly when a boundary pass runs");
+        shaken
     }
 
     /// `optimise_final_mesh` on the bare small pipe returns a closed mesh
@@ -363,18 +407,22 @@ mod tests {
         }
     }
 
-    /// The Foam Studio unstructured default's cfMesh mesh (per-corner
+    /// ~~The Foam Studio unstructured default's~~ The pre-gh:#1298 Foam
+    /// Studio unstructured default's (gh:#1298 moved Foam Studio to the
+    /// cell-centre dual with upstream's sequence; this crate's defaults did
+    /// not change) cfMesh mesh (per-corner
     /// median dual, h 4 mm, no layer, L 200 mm `pipe_surface`) keeps the
     /// fingerprint recorded in gh:#1240 / gh:#1241,
-    /// 18084991279620725399, through the gh:#1283 code paths (every new
-    /// control off).
+    /// ~~18084991279620725399~~ (**re-pinned 2026-11-05, gh:#1285:**
+    /// 13281953444677737411, the same mesh in the upper-triangular face
+    /// order), through the gh:#1283 code paths (every new control off).
     #[test]
     fn foam_studio_default_mesh_keeps_its_fingerprint() {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
         let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         assert_eq!(m.cell_count(), 6353);
-        assert_eq!(crate::pipeline::tests::mesh_fingerprint(&m), 18084991279620725399);
+        assert_eq!(crate::pipeline::tests::mesh_fingerprint(&m), 13281953444677737411);
     }
 }
 
@@ -471,6 +519,7 @@ pub(crate) mod diagnose_gh1283 {
                 assert!((d.dot(s) / (d.length() * s.length())).is_finite(), "face {f}");
             }
         }
+        #[cfg(feature = "std")]
         println!("gh1286: {} cells, notes {:?}", m.cell_count(), rep.stage_notes);
     }
 
@@ -479,12 +528,12 @@ pub(crate) mod diagnose_gh1283 {
     fn diagnose_final_mesh_differential() {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(r, l, 48);
-        let env = |k: &str| std::env::var(k).ok();
+        let env = |k: &str| crate::env::var(k).ok();
         let hs: Vec<f64> = env("CFMESH_HS").map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let layers: Vec<usize> = env("CFMESH_LAYERS").map_or(vec![0, 3], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let all = ["base", "us", "bm", "bmE", "bmA", "up", "upE", "upEnl"];
         let names: Vec<String> = env("CFMESH_VARIANTS").map_or(all.iter().map(|s| s.to_string()).collect(), |v| v.split(',').map(String::from).collect());
-        let section = std::f64::consts::PI * r * r;
+        let section = core::f64::consts::PI * r * r;
         for &n in &layers {
             for &h in &hs {
                 for name in &names {
@@ -492,10 +541,11 @@ pub(crate) mod diagnose_gh1283 {
                         continue; // no untangle runs on a bare mesh without optimise_final_mesh
                     }
                     let o = variant(name, h, n);
-                    let t0 = std::time::Instant::now();
+                    let t0 = crate::time::Instant::now();
                     let (m, rep) = match surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o) {
                         Ok(x) => x,
                         Err(e) => {
+                            #[cfg(feature = "std")]
                             println!("h {:.0} n{n} {name}: ERROR {e}", h * 1e3);
                             continue;
                         }
@@ -532,6 +582,7 @@ pub(crate) mod diagnose_gh1283 {
                     let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
                     let thick = rep.layers.as_ref().map_or(0.0, |lo| 1e3 * lo.mean_total_thickness());
                     let skipped = rep.stage_notes.iter().any(|s| s.contains("skipped") && !s.starts_with("Delaunay"));
+                    #[cfg(feature = "std")]
                     println!(
                         "h {:.0} n{n} {name}: {} cells, {secs:.1} s, NaN-NO faces {n_nan}, NO max {:.1} p99 {:.1}, pyr<=0 {npyr}, inlet/piR2 {:.5}, inlet |z| max {z_in:.2e}, off-surface max {off:.2e}, findBadFaces {bad}, checkMesh fail {strict}, thick {thick:.3} mm, V/piR2L {:.5}, skipped {skipped}, fp {}",
                         h * 1e3,
@@ -544,6 +595,7 @@ pub(crate) mod diagnose_gh1283 {
                     );
                     if env("CFMESH_NOTES").is_some() {
                         for s in &rep.stage_notes {
+                            #[cfg(feature = "std")]
                             println!("    {s}");
                         }
                     }
@@ -563,7 +615,7 @@ pub(crate) mod diagnose_gh1283 {
     #[test]
     #[ignore]
     fn render_final_mesh_inlets() {
-        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
+        let dir = crate::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
             concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/gh1283").to_string()
         });
         let dir = std::path::PathBuf::from(dir);
@@ -580,6 +632,7 @@ pub(crate) mod diagnose_gh1283 {
             let stem = format!("inlet_{name}_h{h_mm}_n{n}");
             crate::surface_optimizer::render_gh1259::draw(&m, &dir.join(format!("{stem}.png")), -0.0105, -0.0105, 0.021);
             crate::surface_optimizer::render_gh1259::draw(&m, &dir.join(format!("{stem}_rim.png")), 0.006, -0.00225, 0.0045);
+            #[cfg(feature = "std")]
             println!("wrote {stem}(.png, _rim.png)");
         }
     }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Distribcell offset tables** — per-instance tallies inside a repeated
 //! universe. GitHub #261, the last of its sixteen filters.
@@ -53,7 +53,10 @@
 //! an error naming the universe, because a stack overflow gives a reader no
 //! information at all.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::geometry::cell::CellFill;
 use crate::geometry::geometry::{Coord, Geometry};

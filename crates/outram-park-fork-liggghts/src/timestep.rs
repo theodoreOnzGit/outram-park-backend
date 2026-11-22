@@ -64,12 +64,15 @@
 //!
 //! ## Honest scope
 //!
-//! Single material, monodisperse or polydisperse spheres, no moving meshes
-//! (upstream folds mesh node speeds into `v_rel,max`; here `v_rel,max = 2·v_max`
-//! over the particles, upstream's particle–particle branch). The estimates are
+//! Single material, monodisperse or polydisperse spheres. Moving-mesh node
+//! speeds enter through [`estimate_with_walls`] (~~not at all~~ **CORRECTED
+//! 2026-11-11**, gh:#1406); multi-type materials are not supported. The estimates are
 //! upstream's *heuristics*, not theorems — they are reproduced faithfully,
 //! including their approximations.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::granular::GranularMaterial;
 use crate::particle::Particle;
@@ -129,6 +132,13 @@ impl TimestepEstimate {
         }
     }
 
+    /// Upstream's `fraction_skin = v_rel,max*dt / skin` `[-]` (above 1, particles
+    /// can move further than the neighbour skin in one step).
+    #[must_use]
+    pub fn skin_fraction(&self, dt: f64, skin: f64) -> f64 {
+        (self.v_rel_max * dt) / skin
+    }
+
     /// Whether `dt` `[s]` satisfies **both** of upstream's warning thresholds.
     #[must_use]
     pub fn is_stable(&self, dt: f64) -> bool {
@@ -177,7 +187,7 @@ pub fn rayleigh_time(
     }
     let nu = material.poisson_ratio;
     let shear_mod = material.youngs_modulus / (2.0 * (nu + 1.0));
-    Ok(std::f64::consts::PI * radius * (density / shear_mod).sqrt() / (0.1631 * nu + 0.8766))
+    Ok(core::f64::consts::PI * radius * (density / shear_mod).sqrt() / (0.1631 * nu + 0.8766))
 }
 
 /// Hertz collision time `[s]` at relative approach speed `v_rel` `[m/s]`.
@@ -216,7 +226,7 @@ pub fn hertz_time(
     if v_rel == 0.0 {
         return Ok(f64::INFINITY);
     }
-    let m_eff = 4.0 * radius * radius * radius * std::f64::consts::PI / 3.0 * density;
+    let m_eff = 4.0 * radius * radius * radius * core::f64::consts::PI / 3.0 * density;
     let r_eff = radius / 2.0;
     let e_eff = material.y_eff();
     Ok(2.87 * (m_eff * m_eff / (r_eff * e_eff * e_eff * v_rel)).r_powf(0.2))
@@ -237,6 +247,26 @@ pub fn estimate(
     density: f64,
     material: &GranularMaterial,
 ) -> Result<TimestepEstimate, DemError> {
+    estimate_with_walls(particles, density, material, 0.0, 0.0)
+}
+
+/// As [`estimate`], with upstream's two extra velocity inputs:
+/// `mesh_node_speed_max` `[m/s]` (largest node speed of a moving mesh wall,
+/// upstream `vmax_sqr_mesh`) and `v_user` (the `vmax` keyword). Upstream:
+/// `vmax^2 = max(vmax_particles^2, v_user^2)`, `v_rel,max = max(2 vmax,
+/// vmax + v_mesh)`. Translated from `FixCheckTimestepGran::
+/// calc_rayleigh_hertz_estims` (LIGGGHTS-PUBLIC `3d5c00f2`).
+///
+/// # Errors
+///
+/// As [`estimate`].
+pub fn estimate_with_walls(
+    particles: &[Particle],
+    density: f64,
+    material: &GranularMaterial,
+    mesh_node_speed_max: f64,
+    v_user: f64,
+) -> Result<TimestepEstimate, DemError> {
     if particles.is_empty() {
         return Err(DemError::InvalidInput(
             "cannot estimate a time step for an empty ensemble".to_string(),
@@ -250,7 +280,10 @@ pub fn estimate(
         r_min = r_min.min(p.radius);
         v_max_sq = v_max_sq.max(p.velocity.norm_squared());
     }
-    let v_rel_max = 2.0 * v_max_sq.sqrt();
+    if v_user * v_user > v_max_sq {
+        v_max_sq = v_user * v_user;
+    }
+    let v_rel_max = (2.0 * v_max_sq.sqrt()).max(v_max_sq.sqrt() + mesh_node_speed_max);
 
     let mut t_h = f64::INFINITY;
     for p in particles {
@@ -280,7 +313,7 @@ mod tests {
     }
 
     fn sphere(r: f64, v: f64) -> Particle {
-        let m = 2500.0 * 4.0 / 3.0 * std::f64::consts::PI * r * r * r;
+        let m = 2500.0 * 4.0 / 3.0 * core::f64::consts::PI * r * r * r;
         Particle::new(
             Vec3::zero(),
             Vec3::new(v, 0.0, 0.0),
@@ -305,7 +338,7 @@ mod tests {
         let t = rayleigh_time(5.0e-3, 2500.0, &m).unwrap();
         let g = 1.0e7 / (2.0 * 1.3);
         let hand =
-            std::f64::consts::PI * 5.0e-3 * (2500.0_f64 / g).sqrt() / (0.1631 * 0.3 + 0.8766);
+            core::f64::consts::PI * 5.0e-3 * (2500.0_f64 / g).sqrt() / (0.1631 * 0.3 + 0.8766);
         assert_abs_diff_eq!(t, hand, epsilon = hand * 1e-12);
         assert!(rayleigh_time(0.0, 2500.0, &m).is_err());
         assert!(rayleigh_time(5e-3, -1.0, &m).is_err());
@@ -322,7 +355,7 @@ mod tests {
         let m = mat();
         let r = 5.0e-3;
         let t = hertz_time(r, 2500.0, 2.0, &m).unwrap();
-        let m_eff = 4.0 * r * r * r * std::f64::consts::PI / 3.0 * 2500.0;
+        let m_eff = 4.0 * r * r * r * core::f64::consts::PI / 3.0 * 2500.0;
         let hand = 2.87 * (m_eff * m_eff / ((r / 2.0) * m.y_eff().r_powi(2) * 2.0)).r_powf(0.2);
         assert_abs_diff_eq!(t, hand, epsilon = hand * 1e-12);
         assert!(hertz_time(r, 2500.0, 0.0, &m).unwrap().is_infinite());

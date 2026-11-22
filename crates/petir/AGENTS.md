@@ -17,6 +17,28 @@ anything structural. The decisions, all of them maintainer-decided:
 4. `no_std` is for **portability** — embedded, wasm, Android, anywhere.
 5. **Raw `f64`, not `uom`**, in the numerics. See the carve-out below.
 
+## A 1-ulp difference from the platform libm is accepted (maintainer, 2026-11-11)
+
+**Maintainer direction (gh:#1385, gh:#1364): "Keep 1 ulp ... the point of
+Petir is reproducibility and speed across platforms."**
+
+PETIR's `pow` and trig functions are implemented without hardware FMA. That
+way they give the same bits on every platform. glibc on an x86-64 CPU with
+FMA rounds `a*b + c` once instead of twice, so its `pow`, `sin` and the like
+can differ from PETIR's in the last bit.
+
+- **Do not change PETIR to chase a platform's bits.** That includes swapping
+  in the platform's `powf`, or adding an FMA path that only some targets have.
+- **Accept, count and pin these differences** in the V&V record when a port is
+  compared with an upstream built against glibc. Two examples:
+  - cfMesh against DAFoam/v2506 (gh:#1385): asmoOctree has 1 point that
+    differs. The elbow, cutCube pMesh and cutCube tetMesh are bit-identical
+    once the platform `pow` is substituted.
+  - blockMesh against OpenFOAM-dev (gh:#1364): 126 points differ, from trig.
+- **Substituting the platform libm is a diagnostic only.** It may be used to
+  prove that a residual comes from `pow` or trig. Never commit it. The
+  `no_platform_libm` gate stays green.
+
 ## Rule 2 is the one that gets broken. Here is how not to break it
 
 "Ported" means *you read the upstream source*. It does not mean you recalled a

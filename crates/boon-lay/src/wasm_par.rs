@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.
@@ -43,6 +43,9 @@
 //! which is intended — extending the shim should be a deliberate act rather
 //! than something a catch-all quietly absorbs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Mirror of `rayon::prelude`, so a call site can swap one import for another.
 pub(crate) mod prelude {
     pub(crate) use super::{IntoParallelIterator, ParallelSlice, ParallelSliceMut};

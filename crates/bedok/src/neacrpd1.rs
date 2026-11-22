@@ -67,6 +67,9 @@
 //! only the last is translated; the other two are recorded in the constant's
 //! docs so the intent is not lost.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry_ends3d::geometry_ends3d;
 use crate::iapws_if97::{basic::h1_pt, backward::t_ph, region4::tsat_p};
 use crate::matlab::{Array2, Array3};
@@ -340,7 +343,7 @@ pub fn neacrpd1(
     // left by 221 pins of 0.715 cm radius in a 30.48 cm square node. The
     // reference also carries two earlier, overwritten assignments:
     // `13000000/157/400.78` and an assembly-averaged form; only this one runs.
-    let flow_area = 30.48 * 30.48 - 221.0 * std::f64::consts::PI * 0.715 * 0.715;
+    let flow_area = 30.48 * 30.48 - 221.0 * core::f64::consts::PI * 0.715 * 0.715;
     let flowrate = 70000.0 / flow_area;
 
     // ----- fuel rod -----
@@ -390,9 +393,9 @@ pub fn neacrpd1(
     // either. Reproduced as written — the no-silent-repairs policy — and
     // pinned by a test so it stays visible if a future consumer appears.
     let mut vi = vec![0.0; maxir];
-    vi[0] = std::f64::consts::PI * lr[0] * lr[0];
+    vi[0] = core::f64::consts::PI * lr[0] * lr[0];
     for i in 1..maxir {
-        vi[i] = std::f64::consts::PI * (lr[i] * lr[i] - lr[i - 1] * lr[i - 1]);
+        vi[i] = core::f64::consts::PI * (lr[i] * lr[i] - lr[i - 1] * lr[i - 1]);
     }
 
     // 1 = fuel, 0 = gap, 2 = cladding.
@@ -406,8 +409,8 @@ pub fn neacrpd1(
         }
     }
 
-    let subarea = pitch * pitch - std::f64::consts::PI * rtot * rtot;
-    let hydia = 4.0 * subarea / (2.0 * std::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
+    let subarea = pitch * pitch - core::f64::consts::PI * rtot * rtot;
+    let hydia = 4.0 * subarea / (2.0 * core::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
 
     geometry.fuel = FuelGeometry {
         lr,
@@ -719,7 +722,7 @@ mod tests {
             _ => panic!("expected a uniform mass flux"),
         };
         eprintln!("mass flux       = {flowrate:.4} g/(s cm2)");
-        let expected = 70000.0 / (929.0304 - 221.0 * std::f64::consts::PI * 0.511_225);
+        let expected = 70000.0 / (929.0304 - 221.0 * core::f64::consts::PI * 0.511_225);
         assert!((flowrate - expected).abs() < 1e-9, "{flowrate} vs {expected}");
 
         assert_eq!(params.fuel.maxir, 22, "20 fuel + 1 gap + 1 clad");
@@ -760,7 +763,7 @@ mod tests {
         let vi = &geometry.fuel.vi;
 
         let r0 = geometry.fuel.fuelrad / params.fuel.fueln as f64;
-        assert!((vi[0] - std::f64::consts::PI * r0 * r0).abs() < 1e-15);
+        assert!((vi[0] - core::f64::consts::PI * r0 * r0).abs() < 1e-15);
 
         for (i, v) in vi.iter().enumerate().take(params.fuel.fueln).skip(1) {
             assert_eq!(*v, 0.0, "fuel node {i} should be zero under the defect");
@@ -769,7 +772,7 @@ mod tests {
         eprintln!(
             "sum as computed = {:.6}, a correct pellet+clad total would be {:.6}",
             vi.iter().sum::<f64>(),
-            std::f64::consts::PI * geometry.fuel.rtot * geometry.fuel.rtot
+            core::f64::consts::PI * geometry.fuel.rtot * geometry.fuel.rtot
         );
     }
 

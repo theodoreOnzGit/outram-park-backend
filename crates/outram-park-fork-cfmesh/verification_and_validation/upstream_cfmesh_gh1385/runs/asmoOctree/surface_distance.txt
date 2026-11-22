@@ -1,0 +1,12 @@
+mesh points=71650 faces=177398 patches=10; surface triangles=15656, bbox diagonal D=5.57508804
+patch INLE10000              n=171 max=2.775558e-17 p99=2.775558e-17 p50=0.000000e+00 mean=1.501398e-18  >1e-9D:0 >1e-6D:0 >1e-3D:0
+patch OUTL20001              n=171 max=5.551115e-17 p99=5.551115e-17 p50=0.000000e+00 mean=2.802522e-18  >1e-9D:0 >1e-6D:0 >1e-3D:0
+patch SYMP30002              n=3907 max=6.467345e-07 p99=4.564642e-08 p50=8.394297e-16 mean=2.067804e-09  >1e-9D:242 >1e-6D:0 >1e-3D:0
+patch defaultFaces0003       n=495 max=5.551115e-17 p99=3.103168e-17 p50=0.000000e+00 mean=1.700387e-18  >1e-9D:0 >1e-6D:0 >1e-3D:0
+patch defaultFaces0004       n=2571 max=4.096108e-04 p99=1.165431e-05 p50=0.000000e+00 mean=9.939925e-07  >1e-9D:264 >1e-6D:36 >1e-3D:0
+patch defaultFaces0005       n=1045 max=5.551115e-17 p99=5.551115e-17 p50=0.000000e+00 mean=2.168003e-18  >1e-9D:0 >1e-6D:0 >1e-3D:0
+patch defaultFaces0006       n=12027 max=5.636498e-04 p99=1.735767e-04 p50=3.042285e-06 mean=1.669546e-05  >1e-9D:11370 >1e-6D:4713 >1e-3D:0
+patch defaultFaces0007       n=1006 max=6.630443e-04 p99=3.465827e-04 p50=8.190864e-07 mean=3.561733e-05  >1e-9D:784 >1e-6D:411 >1e-3D:0
+patch defaultFaces0008       n=385 max=2.190800e-10 p99=6.602642e-11 p50=0.000000e+00 mean=1.574417e-12  >1e-9D:0 >1e-6D:0 >1e-3D:0
+patch defaultFaces0009       n=1137 max=6.064012e-04 p99=3.345996e-04 p50=1.843831e-06 mean=3.570096e-05  >1e-9D:993 >1e-6D:481 >1e-3D:0
+ALL boundary points          n=21821 max=6.630443e-04 p99=1.837835e-04 p50=3.402507e-07 mean=1.281734e-05  >1e-9D:13558 >1e-6D:5637 >1e-3D:0

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **Divergence from upstream**: ingestion dose computed one nuclide at a
 //! time, fixing pyDOSEIA defects D8-D11 (see `docs/pydoseia-code-to-code.md`).
 //! The equations are upstream's ([`super::food_chain`]); only the bookkeeping
@@ -19,6 +19,9 @@
 //! division by a year for a single plume) is upstream's. Not checked against
 //! SRS 19 or TECDOC-1616 beyond what the code comments cite.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::food_chain::{
     animal_products, c14_in_animal, c14_in_plant, deposition_rate_per_day, effective_removal_rates,
     food_crop, per_day, tritium_in_animal, tritium_in_plant, AnimalProduct, Climate,

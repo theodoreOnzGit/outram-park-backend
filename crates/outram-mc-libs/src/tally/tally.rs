@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Tally definition — filter composition and accumulator.
 ///
 /// C++ source: `src/tallies/tally.cpp`, `include/openmc/tallies/tally.h`.
@@ -27,7 +30,13 @@ pub enum ScoreType {
     /// to a target reactor thermal power (the `tally-power-normalization`
     /// notebook).
     KappaFission,
-    ScatterN, // (n,xn) scatter
+    /// ~~`(n,xn)` scatter~~ **CORRECTED 2026-11-19** (gh:#680): the track-length
+    /// and collision estimators score the **elastic** channel only; the
+    /// scatter matrix ([`super::scoring::score_scatter_matrix`]) scores
+    /// **every** scattering reaction weighted by its multiplicity, i.e. a
+    /// *nu*-scatter matrix. Its row sum therefore differs from a track-length
+    /// `ScatterN` (and from `Scatter`) by construction, by the (n,xn) excess.
+    ScatterN,
     Current,
     Events,
 
@@ -147,6 +156,35 @@ impl TallyBin {
         naive <= 0.0 && self.variance() > 0.0
     }
 
+    /// The mean over the bin's **own** realization count: the number of batches
+    /// it was flushed (`self.count`), not a caller-supplied `n` (gh:#675). A
+    /// triggered k run flushes fewer than `n_active` batches and fixed-source
+    /// batching used to flush fewer than `n_batches`; `mean(settings.n_active)`
+    /// was then 20x low. Prefer this to [`Self::mean`].
+    pub fn mean_realized(&self) -> f64 {
+        self.mean(self.count)
+    }
+
+    /// [`Self::mean_realized`] **normalised per source particle** (gh:#675).
+    /// OpenMC divides every realization by its batch's source weight
+    /// (`Tally::accumulate`, `src/tallies/tally.cpp:845-900`: `norm = total_source
+    /// / (contributing_particles * gen_per_batch)`); this port's bins hold the raw
+    /// per-batch sum, so the reader divides. Pass the source weight of ONE batch:
+    /// `n_particles` for an eigenvalue run, `n_particles / n_batches` for a
+    /// fixed-source run, or the sum of the source weights under UFS. With equal
+    /// batches this equals upstream's per-realization normalisation; the
+    /// relative standard deviation is scale-free, so
+    /// [`Self::rel_std_dev_realized`] needs no counterpart.
+    pub fn mean_per_source_particle(&self, source_weight_per_batch: f64) -> f64 {
+        self.mean_realized() / source_weight_per_batch
+    }
+
+    /// [`Self::rel_std_dev`] over the bin's OWN realization count
+    /// (gh:#675).
+    pub fn rel_std_dev_realized(&self) -> f64 {
+        self.rel_std_dev(self.count)
+    }
+
     /// Mean over `n_realizations` active batches.
     pub fn mean(&self, n_realizations: u64) -> f64 {
         if n_realizations == 0 {
@@ -233,6 +271,7 @@ mod bin_variance_tests {
         let naive_mean = bin.sum / n;
         let naive = (bin.sum_sq / n - naive_mean * naive_mean) / (n - 1.0);
 
+        #[cfg(feature = "std")]
         println!(
             "reference {reference:.6e}  welford {:.6e}  naive {naive:.6e}",
             bin.variance()
@@ -321,11 +360,265 @@ pub struct Tally {
     pub scores: Vec<ScoreType>,
     /// Accumulated bins, indexed `[filter_bin * n_scores + score_idx]`.
     pub bins: Vec<TallyBin>,
+    /// A differential operator this tally is estimated under (gh:#263), or `None`
+    /// for an ordinary tally. It is a declaration the derivative drivers read:
+    /// `physics::derivative_run::DerivativeSpec::for_tally` builds the spec for a
+    /// bin's score. Scoring by the ordinary drivers ignores it.
+    pub derivative: Option<crate::tally::derivative::TallyDerivative>,
 }
 
 impl Tally {
+    /// Realizations (flushed batches) this tally has accumulated: the largest bin
+    /// count (every bin of a tally is flushed together, so they are all equal;
+    /// an unflushed tally gives 0). The count tally readers should use instead of
+    /// a caller-supplied `n` (gh:#675).
+    pub fn n_realizations(&self) -> u64 {
+        self.bins.iter().map(|b| b.count).max().unwrap_or(0)
+    }
+
+    /// [`Self::validate`] plus a check against the geometry (gh:#677): a Cell or
+    /// Universe filter reads the coordinate path into fixed arrays of
+    /// [`super::filter::MAX_PATH_LEVELS`] levels, and a deeper level would be
+    /// dropped from the filter's match WITHOUT any signal. OpenMC sizes its
+    /// coordinate array per model, with no such cap (taken from its design, the
+    /// vendored source is not in this checkout), so a deeper model is refused
+    /// here rather than truncated.
+    ///
+    /// # Errors
+    ///
+    /// What [`Self::validate`] refuses, or a Cell/Universe-filtered tally on a
+    /// geometry whose coordinate path can be deeper than `MAX_PATH_LEVELS`.
+    pub fn validate_for_geometry(&self, geom: &crate::geometry::geometry::Geometry) -> Result<(), String> {
+        self.validate()?;
+        let uses_path = self.filters.iter().any(|f| {
+            matches!(
+                f,
+                super::filter::FilterKind::Cell(_) | super::filter::FilterKind::Universe(_)
+            )
+        });
+        let depth = geometry_path_depth(geom);
+        if uses_path && depth > super::filter::MAX_PATH_LEVELS {
+            return Err(format!(
+                "tally {} filters on cell/universe, but the geometry's coordinate path can be {depth} levels deep and \
+                 the filter records at most {} (gh:#677)",
+                self.id,
+                super::filter::MAX_PATH_LEVELS
+            ));
+        }
+        Ok(())
+    }
+
     /// Total number of bins = product of each filter's bin count × number of scores.
     pub fn n_bins(&self) -> usize {
         self.filters.iter().map(|f| f.n_bins()).product::<usize>() * self.scores.len()
+    }
+
+    /// Reject score/filter combinations upstream refuses (GitHub #262).
+    ///
+    /// A [`FilterKind::DelayedGroup`] filter is defined only with
+    /// `delayed-nu-fission` and `decay-rate` (and the IFP beta numerator,
+    /// which this crate accumulates in `physics::ifp`, not as a score):
+    /// OpenMC's `Tally::set_scores` stops with "Cannot tally ... with a
+    /// delayedgroup filter" (`src/tallies/tally.cpp:569`). Here any other
+    /// score would deposit nothing, a silent zero, so it is an error instead.
+    /// A delayed-group filter beside a track-splitting mesh filter is also
+    /// refused: the per-group deposit is not split across mesh cells.
+    ///
+    /// **A `LegendreFilter` or `MuFilter` off the scatter matrix is refused
+    /// too** (gh:#676): ~~no production path set `FilterEvent::mu`~~ **CORRECTED
+    /// 2026-11-19:** the scatter arms now supply the lab cosine to the matrix
+    /// estimator; any other tally would still bin `mu = 0` and look plausible.
+    pub fn validate(&self) -> Result<(), String> {
+        // The scatter matrix ([`super::scoring::score_scatter_matrix_mu`]) now
+        // supplies the lab cosine, so a `MuFilter` is meaningful on a tally that
+        // goes through it (an `EnergyOutFilter`, or a `NuScatter` score). On any
+        // other tally nothing sets `mu` and it would bin `mu = 0`.
+        let matrix = self.filters.iter().any(|f| matches!(f, FilterKind::EnergyOut(_)))
+            || self.scores.iter().any(|s| matches!(s, ScoreType::NuScatter));
+        if self.filters.iter().any(|f| matches!(f, FilterKind::Mu(_))) && !matrix {
+            return Err(format!(
+                "tally {}: a Mu filter needs the scattering cosine, which only the scatter \
+                 matrix supplies (an EnergyOut filter or a NuScatter score); on this tally \
+                 it would bin mu = 0 (gh:#676)",
+                self.id
+            ));
+        }
+        // A Legendre filter likewise expands in the cosine, on the scatter matrix
+        // only (`score_scatter_matrix_mu`); on any other tally it has no path.
+        if self.filters.iter().any(|f| matches!(f, FilterKind::Legendre(_))) && !matrix {
+            return Err(format!(
+                "tally {}: a Legendre filter expands in the scattering cosine, which only the \
+                 scatter matrix supplies (an EnergyOut filter or a NuScatter score); on this \
+                 tally it would score P_n(0) or zero (gh:#676)",
+                self.id
+            ));
+        }
+        if self.filters.iter().any(|f| matches!(f, FilterKind::DelayedGroup(_))) {
+            for s in &self.scores {
+                if !matches!(s, ScoreType::DelayedNuFission | ScoreType::DecayRate) {
+                    return Err(format!(
+                        "tally {}: score {:?} cannot be tallied with a delayed-group filter \
+                         (upstream tally.cpp:569 allows only delayed-nu-fission and decay-rate)",
+                        self.id, s
+                    ));
+                }
+            }
+            if self.filters.iter().any(|f| f.splits_track_length()) {
+                return Err(format!(
+                    "tally {}: a delayed-group filter cannot be combined with a mesh filter \
+                     that splits track length",
+                    self.id
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod validate_tests {
+    use super::*;
+    use crate::tally::filter::{FilterKind, MuFilter};
+
+    /// gh:#676: a Mu or Legendre filter is refused at validation, since nothing
+    /// supplies `mu`; an ordinary tally still validates.
+    #[test]
+    fn validate_refuses_mu_filters_and_accepts_an_ordinary_tally() {
+        let mut t = Tally {
+            id: 4,
+            name: "mu".into(),
+            filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
+            scores: vec![ScoreType::Scatter],
+            bins: vec![], derivative: None,
+        };
+        let e = t.validate().unwrap_err();
+        assert!(e.contains("scattering cosine"), "{e}");
+        // On the scatter matrix (a NuScatter score) the cosine is supplied.
+        t.scores = vec![ScoreType::NuScatter];
+        assert!(t.validate().is_ok());
+        t.scores = vec![ScoreType::Scatter];
+        // Legendre: the same rule.
+        t.filters = vec![FilterKind::Legendre(crate::tally::filter_extra::LegendreFilter { order: 1 })];
+        assert!(t.validate().is_err());
+        t.scores = vec![ScoreType::NuScatter];
+        assert!(t.validate().is_ok());
+        t.scores = vec![ScoreType::Scatter];
+        t.filters.clear();
+        assert!(t.validate().is_ok());
+    }
+}
+
+#[cfg(test)]
+mod realization_tests {
+    use super::*;
+
+    /// gh:#675: a tally reports its own realization count, and `mean_realized`
+    /// divides by it, so a run that flushed fewer batches than the caller asked
+    /// for is not read 20x low. Four batches of 10: mean 10 whether or not anyone
+    /// remembers `n_active`; `mean(40)` shows the old mistake.
+    #[test]
+    fn a_tally_reports_its_own_realization_count() {
+        let mut t = Tally { id: 1, name: "n".into(), filters: vec![], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default()], derivative: None };
+        assert_eq!(t.n_realizations(), 0);
+        for _ in 0..4 {
+            t.bins[0].score(10.0);
+        }
+        assert_eq!(t.n_realizations(), 4);
+        assert_eq!(t.bins[0].mean_realized(), 10.0);
+        assert_eq!(t.bins[0].rel_std_dev_realized(), 0.0, "identical batches: zero variance");
+        assert_eq!(t.bins[0].mean(40), 1.0, "the caller-supplied n of the old API reads 10x low");
+        assert_eq!(t.bins[0].mean_per_source_particle(5.0), 2.0, "10 per batch over 5 source particles");
+    }
+}
+
+/// The deepest coordinate path a particle can have in `geom`: one level per
+/// nested universe, plus one per lattice tile coordinate (a lattice is a level of
+/// its own). A reference cycle is cut at 64 levels, which is deeper than any cap.
+pub fn geometry_path_depth(geom: &crate::geometry::geometry::Geometry) -> usize {
+    use crate::geometry::cell::CellFill;
+    use crate::geometry::lattice::Lattice;
+    fn universe_depth(geom: &crate::geometry::geometry::Geometry, u: usize, guard: usize) -> usize {
+        if guard >= 64 {
+            return guard;
+        }
+        let Some(univ) = geom.universes.get(u) else { return 1 };
+        let mut deepest = 1;
+        for &ci in &univ.cell_indices {
+            let below = match geom.cells.get(ci).map(|c| &c.fill) {
+                Some(CellFill::Universe(v)) => universe_depth(geom, *v, guard + 1),
+                Some(CellFill::Lattice(l)) => {
+                    let members: Vec<usize> = match geom.lattices.get(*l) {
+                        Some(Lattice::Rect(r)) => r.universes.iter().copied().chain(r.outer).collect(),
+                        Some(Lattice::Hex(h)) => h
+                            .universes
+                            .iter()
+                            .filter_map(|&x| usize::try_from(x).ok())
+                            .chain(h.outer)
+                            .collect(),
+                        None => Vec::new(),
+                    };
+                    1 + members.into_iter().map(|v| universe_depth(geom, v, guard + 1)).max().unwrap_or(0)
+                }
+                _ => 0,
+            };
+            deepest = deepest.max(1 + below);
+        }
+        deepest
+    }
+    universe_depth(geom, geom.root_universe, 0)
+}
+
+#[cfg(test)]
+mod path_depth_tests {
+    use super::*;
+    use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+    use crate::geometry::geometry::Geometry;
+    use crate::geometry::position::Position;
+    use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
+    use crate::geometry::universe::Universe;
+    use crate::tally::filter::{CellFilter, FilterKind, MAX_PATH_LEVELS};
+
+    /// A chain of `n` universes, each one cell filled with the next: depth `n`.
+    fn chain(n: usize) -> Geometry {
+        let cells = (0..n)
+            .map(|i| {
+                let fill = if i + 1 < n { CellFill::Universe(i + 1) } else { CellFill::Material(0) };
+                Cell::fill(
+                    i as i32 + 1,
+                    vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+                    fill,
+                    Position::ZERO,
+                )
+            })
+            .collect();
+        Geometry {
+            surfaces: vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 1.0, bc: BoundaryType::Vacuum })],
+            cells,
+            universes: (0..n).map(|i| Universe { id: i as i32, cell_indices: vec![i] }).collect(),
+            lattices: vec![],
+            root_universe: 0,
+        }
+    }
+
+    /// gh:#677: a geometry nested deeper than the filter arrays is refused for a
+    /// Cell-filtered tally instead of silently truncated; a shallow one is fine,
+    /// and a tally with no path filter is not affected by depth.
+    #[test]
+    fn a_too_deep_geometry_is_refused_for_a_cell_filter() {
+        let tally = |filters| Tally {
+            id: 1,
+            name: "t".into(),
+            filters,
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 1],
+            derivative: None,
+        };
+        let cell_filtered = tally(vec![FilterKind::Cell(CellFilter { cell_indices: vec![0] })]);
+        let plain = tally(vec![]);
+        assert_eq!(geometry_path_depth(&chain(3)), 3);
+        assert!(cell_filtered.validate_for_geometry(&chain(MAX_PATH_LEVELS)).is_ok());
+        let deep = chain(MAX_PATH_LEVELS + 1);
+        assert!(cell_filtered.validate_for_geometry(&deep).unwrap_err().contains("coordinate path"));
+        assert!(plain.validate_for_geometry(&deep).is_ok());
     }
 }

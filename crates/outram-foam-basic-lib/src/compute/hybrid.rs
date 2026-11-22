@@ -65,6 +65,9 @@
 //! - **Dynamic work stealing** — surrenders reproducibility; see above.
 //! - **Transfer/compute overlap** (#18 form 3) — subsumed by the above.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::compute::ComputeBackend;
 
 /// How to choose the CPU/GPU lane split.
@@ -308,7 +311,7 @@ mod tests {
 
     #[test]
     fn harmonise_rounds_only_when_asked() {
-        let original = std::f64::consts::PI;
+        let original = core::f64::consts::PI;
         let mixed = SplitPlan {
             lanes: 2,
             cpu_lanes: 1,

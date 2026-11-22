@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`statepoint.h5`, `summary.h5` and `source.h5` writers** — GitHub #270
 //! scope item 5, and the file half of #271.
@@ -46,6 +46,9 @@
 //! `n` cannot be combined with another file's, and combining state points is
 //! most of why one writes them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, FileBuilder};

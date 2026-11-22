@@ -11,6 +11,9 @@
 //! the *call* into that future API; it does not (and must not) implement MGXS
 //! inside `njoy` from here. Tracked by bead **op-fr2.2.2**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Energy;
 
 use super::case;

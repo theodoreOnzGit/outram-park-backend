@@ -38,6 +38,9 @@
 //!   event time either way). The exact Brownian-bridge placement is a possible
 //!   refinement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
@@ -46,8 +49,11 @@ use uom::ConstZero;
 
 use crate::nuclide_reaction_and_decay_data::decay_library::DecayLibrary;
 use crate::nuclide_reaction_and_decay_data::HalfLifeAndDecayEnergyInfo;
+use crate::nuclide_reaction_and_decay_data::get_decay_info::DecaySample;
+use crate::nuclide_reaction_and_decay_data::DecayType;
 
 use super::walk_on_spheres::{HopOutcome, WalkParams, WoSWalker};
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::MissingDiffusionData;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
 
 /// The external neutron field driving transmutation.
@@ -133,6 +139,27 @@ pub enum DepletionOutcome {
         /// Nuclide identity when the cap was hit.
         nuclide: Nuclide,
     },
+    /// The atom decayed with no tracked daughter at `time` (spontaneous
+    /// fission, or a branch with no target such as He-5's alpha; gh:#538),
+    /// so it leaves the chain, as in OpenMC's depletion matrix. Before
+    /// 2026-11-10, spontaneous fission returned the parent as its own
+    /// daughter and the walk carried on.
+    DecayedWithoutTrackedDaughter {
+        /// Simulated time of the decay.
+        time: Time,
+        /// The nuclide that decayed.
+        parent: Nuclide,
+        /// The branch taken.
+        decay_type: DecayType,
+    },
+    /// The walk stopped because a layer the atom reached has no cited
+    /// diffusion coefficient for it (gh:#638: ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one).
+    NoDiffusionData {
+        /// Nuclide identity when the walk stopped.
+        nuclide: Nuclide,
+        /// Which (element, layer) pair has no coefficient.
+        missing: MissingDiffusionData,
+    },
 }
 
 /// Sample a waiting time `~ Exp(rate)` from a uniform deviate `u` in `[0, 1)`.
@@ -166,18 +193,29 @@ impl WoSWalker {
     /// drawn from the branching ratios using the walker's own RNG. Returns
     /// `true` if the nuclide changed (it was unstable), `false` otherwise.
     #[inline]
+    ///
+    /// Also `false` for a decay with no tracked daughter (spontaneous fission,
+    /// He-5's alpha; gh:#538), which leaves the identity unchanged: use
+    /// [`WoSWalker::sample_decay`] to see that case.
     pub fn decay_once(&mut self, decay_library: &DecayLibrary) -> bool {
-        let Some(data) = decay_library.try_match_nuclides_to_decay_data(self.nuclide) else {
-            return false;
-        };
-        let u = prn(&mut self.rng.0);
-        match data.get_next_target_nuclide_with_float(u) {
-            Some((daughter, _decay_type)) => {
-                self.nuclide = daughter;
-                true
-            }
-            None => false,
+        match self.sample_decay(decay_library) {
+            Some(DecaySample::Daughter { .. }) => true,
+            Some(DecaySample::Stable | DecaySample::NoTrackedDaughter { .. }) | None => false,
         }
+    }
+
+    /// Draw one decay of the current nuclide with the walker's RNG and apply
+    /// it: a daughter replaces the identity; a decay with no tracked daughter
+    /// (gh:#538) leaves it unchanged and is returned for the caller to act on.
+    /// `None` if the nuclide is not in the library (no draw is made).
+    pub fn sample_decay(&mut self, decay_library: &DecayLibrary) -> Option<DecaySample> {
+        let data = decay_library.try_match_nuclides_to_decay_data(self.nuclide)?;
+        let u = prn(&mut self.rng.0);
+        let sample = data.sample_decay_with_float(u);
+        if let DecaySample::Daughter { nuclide, .. } = sample {
+            self.nuclide = nuclide;
+        }
+        Some(sample)
     }
 
     /// Advance the walker — diffusing while decaying and transmuting — until it
@@ -225,6 +263,14 @@ impl WoSWalker {
                     nuclide: self.nuclide,
                 };
             }
+            if outcome == HopOutcome::NoDiffusionData {
+                if let Some(missing) = self.missing_diffusion_data {
+                    return DepletionOutcome::NoDiffusionData {
+                        nuclide: self.nuclide,
+                        missing,
+                    };
+                }
+            }
 
             if let Some(t_e) = event_time {
                 if t_e < tau && t_e < remaining {
@@ -235,7 +281,17 @@ impl WoSWalker {
                     // Choose the channel in proportion to its rate.
                     let pick = prn(&mut self.rng.0) * total_rate;
                     if pick < decay_rate {
-                        self.decay_once(decay_library);
+                        if let Some(DecaySample::NoTrackedDaughter { decay_type }) =
+                            self.sample_decay(decay_library)
+                        {
+                            // Spontaneous fission or a target-less branch: the
+                            // atom leaves the chain here (gh:#538).
+                            return DepletionOutcome::DecayedWithoutTrackedDaughter {
+                                time: self.time,
+                                parent: self.nuclide,
+                                decay_type,
+                            };
+                        }
                     } else if let Some(product) = transmutation.product_for(self.nuclide) {
                         self.nuclide = product;
                     }
@@ -266,6 +322,37 @@ mod tests {
     use uom::si::frequency::hertz;
     use uom::si::time::second;
 
+    #[cfg(feature = "std")]
+    /// gh:#538: He-5 (alpha, no target in the chain file, t_half ~ 1e-21 s)
+    /// decays on the first event and leaves the chain; before the fix the
+    /// walker panicked on `target.unwrap()`. U-238's walk is checked only to
+    /// run (its sf branch is 5.46e-7 of decays, too rare to hit here).
+    #[test]
+    fn he5_walker_leaves_chain_without_panic() {
+        let cell = TrisoCell::new_crp6_geometry();
+        let lib = DecayLibrary::new();
+        let mut w = WoSWalker::new_at_center(Nuclide::He5, OoRng64::from_u64(7));
+        let out = w.advance_until(
+            &cell,
+            &WalkParams::crp6_default(),
+            &lib,
+            Transmutation::None,
+            Time::new::<second>(1.0),
+        );
+        match out {
+            DepletionOutcome::DecayedWithoutTrackedDaughter {
+                parent, decay_type, ..
+            } => {
+                assert_eq!(parent, Nuclide::He5);
+                assert_eq!(decay_type, DecayType::Alpha);
+            }
+            other => panic!("expected He-5 to leave the chain, got {other:?}"),
+        }
+        let mut w2 = WoSWalker::new_at_center(Nuclide::He5, OoRng64::from_u64(7));
+        assert!(!w2.decay_once(&lib));
+        assert_eq!(w2.nuclide, Nuclide::He5);
+    }
+
     #[test]
     fn sample_event_time_has_mean_inverse_rate() {
         let rate = Frequency::new::<hertz>(2.5);
@@ -278,6 +365,7 @@ mod tests {
         assert_relative_eq!(mean, 1.0 / 2.5, max_relative = 0.02);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn decay_changes_nuclide_to_higher_z_daughter() {
         // Cs-137 (Z=55) beta-decays to a barium isotope (Z=56).
@@ -289,6 +377,7 @@ mod tests {
         assert_eq!(z, 56, "beta-minus decay of Cs (Z=55) should give Ba (Z=56)");
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn irradiation_transmutes_a_stable_target() {
         // A stable target (Cs-133) under a strong (n,gamma) field becomes Cs-134
@@ -321,6 +410,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn no_field_leaves_a_stable_nuclide_unchanged() {
         let library = DecayLibrary::new();

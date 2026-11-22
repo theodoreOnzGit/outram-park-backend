@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 // Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
 // GitHub issue #486: the plotter draws the CSG description this crate owns,
 // through the same locator transport uses. outram-mc-libs re-exports it as
@@ -27,6 +27,9 @@
 //! and common punctuation; lower case is drawn as upper case) so no font file
 //! or text-rendering dependency is needed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::colour::{Rgb, BLACK, WHITE};
 use super::image::ImageData;

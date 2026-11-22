@@ -123,6 +123,9 @@
 //! Everything else named in bead op-p6p.7.6 is ported and V&V'd in
 //! [`tests`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boiling;
 pub mod chf;
 pub mod ff_htc;

@@ -186,14 +186,21 @@ round-off; the ported Uniform Taylor (and its one-signed 0.095 %/yr loss at
 `tol = 1e-3`) is reachable as `DecaySolver::UniformTaylor` or the `_with_tol`
 variants, and the comparison tests check one against the other. CRAM48 is
 still not PyNE's CRAM14; the expected difference is ~1e-13 of the inventory
-(see `docs/port-notes.md`). No result here has been compared against a Cyclus
-run.
+(see `docs/port-notes.md`). ~~No result here has been compared against a Cyclus
+run.~~ **CORRECTED 2026-11-13 (gh:#1431):** the default (CRAM48) was compared
+with CYCLUS 1.6.0's live `Composition::Decay` (CRAM14) on a five-nuclide
+composition: 19 of 20 values agree to <= 2.4e-11 relative, and the 20th (a
+9.3e-8 trace of Y-90) to 2.8e-8, where the port is the one within 1e-12 of the
+analytic Bateman solution. See `verification_and_validation/cyclus_differential_gh1431/README.md`.
 
-There is **no comparison against a Cyclus run**, and that is the single most
-valuable thing that could be added. Building upstream Cyclus and diffing a
-simple simulation's trade schedule against this port is the natural next step,
-and is the same cross-code approach `outram-park-fork-liggghts` and `petir`
-took to earn their evidence.
+~~There is **no comparison against a Cyclus run**, and that is the single most
+valuable thing that could be added.~~ **CORRECTED 2026-11-13 (gh:#1431):** the
+first comparison against a CYCLUS 1.6.0 run exists (conda-forge binary):
+five Source/Sink exchange scenarios (all 173 transaction rows bit-identical)
+and the enrichment, Kahan, `comp_math` and decay kernels. It covers only what
+the port implements: no Reactor, Enrichment facility, FuelFab, Separations,
+Storage or Mixer exists to compare. Method, tables and caveats (the binary is
+1.6.0, not the pinned commits): `verification_and_validation/cyclus_differential_gh1431/README.md`.
 
 ## Bookkeeping status
 

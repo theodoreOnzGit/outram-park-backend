@@ -149,7 +149,7 @@ sub-`eps` elements that upstream writes verbatim (`errorr.f90:7563-7568`).
 | Run | Exercises | Measured |
 |---|---|---|
 | `tsl-HinH2O-293.6K` (`leapr_h2o_njoy_oracle.rs`) | `contin` + `trans` + `discre`, free-gas O secondary (`b7 = 1`) | 44,961 `S(α,β)` points to **1.0e-13**; `T_eff` 1194.341 K exact; `B(1..12)` identical |
-| `tsl-DinD2O-293.6K` (`leapr_d2o_skold_njoy_oracle.rs`) | the Sköld correction (`nsk = 2`) | 60,322 points to **1.0e-13**; `T_eff` 865.561 K exact |
+| `tsl-DinD2O-293.6K` (`leapr_d2o_skold_njoy_oracle.rs`) | the Sköld correction (`nsk = 2`) | 60,322 points to **1.0e-13** (`sigfig`'s bias); as `a11` prints them, 0 of 60,322 differ and that is the gate since 2026-11-14 (gh:#1366; was 1e-5); `T_eff` 865.561 K exact |
 | `tsl-SiO2-alpha`, 5 T (`leapr_sio2_mixed_moderator_oracle.rs`) | mixed moderator: second pass with `α/arat`, `S = S_Si + (sbs/sb) S_O`, two `T_eff` TAB1s | 43,449 points to **1.0e-13** at all five temperatures; both `T_eff` tables and the `contin` lambdas to every printed figure |
 
 Against the *published* ENDF/B-VIII.0 graphite tape (a different LEAPR

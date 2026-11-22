@@ -2512,10 +2512,10 @@ pub struct Quadric {
 Torus about the **Z** axis, centred at `(x0, y0, z0)`.
 
 Radial pair `(x, y)`, axial `z`:
-  `((sqrt((x−x0)² + (y−y0)²) − a) / b)² + ((z−z0) / c)² − 1 = 0`.
+  `(z−z0)² / b² + (sqrt((x−x0)² + (y−y0)²) − a)² / c² − 1 = 0`.
 
-`a` = major radius, `b` = in-plane minor radius, `c` = axial minor radius
-(all cm). Maps to OpenMC `SurfaceZTorus` (`src/surface.cpp`).
+`a` = major radius, `b` = minor radius along the axis, `c` = minor radius perpendicular to it
+(all cm) (gh:#701; ~~`b` in-plane, `c` axial~~ **CORRECTED 2026-11-11**: `b` is along the axis, `c` perpendicular, as OpenMC `surface.cpp:1198`; verified by `tests/surface_distance_vs_openmc_code_to_code.rs`). Maps to OpenMC `SurfaceZTorus` (`src/surface.cpp`).
 
 ```rust
 pub struct ZTorus {
@@ -2641,7 +2641,7 @@ pub struct ZTorus {
 Torus about the **X** axis, centred at `(x0, y0, z0)`.
 
 Radial pair `(y, z)`, axial `x`:
-  `((sqrt((y−y0)² + (z−z0)²) − a) / b)² + ((x−x0) / c)² − 1 = 0`.
+  `(x−x0)² / b² + (sqrt((y−y0)² + (z−z0)²) − a)² / c² − 1 = 0` (`b` axial, `c` radial; see `ZTorus`).
 X-axis twin of [`ZTorus`]; maps to OpenMC `SurfaceXTorus` (`src/surface.cpp`).
 
 ```rust
@@ -2768,7 +2768,7 @@ pub struct XTorus {
 Torus about the **Y** axis, centred at `(x0, y0, z0)`.
 
 Radial pair `(x, z)`, axial `y`:
-  `((sqrt((x−x0)² + (z−z0)²) − a) / b)² + ((y−y0) / c)² − 1 = 0`.
+  `(y−y0)² / b² + (sqrt((x−x0)² + (z−z0)²) − a)² / c² − 1 = 0` (`b` axial, `c` radial; see `ZTorus`).
 Y-axis twin of [`ZTorus`]; maps to OpenMC `SurfaceYTorus` (`src/surface.cpp`).
 
 ```rust
@@ -24593,7 +24593,7 @@ fields:
 - `XCylinder→[y0,z0,r]`, `YCylinder→[x0,z0,r]`, `ZCylinder→[x0,y0,r]`
 - cones `{X,Y,Z}Cone→[x0,y0,z0,r_sq]`
 - `Quadric→[a,b,c,d,e,f,g,h,j,k]`
-- tori `{X,Y,Z}Torus→[x0,y0,z0,a,b,c]`
+- tori `{X,Y,Z}Torus→[x0,y0,z0,a,c,b]` (radial minor radius first: the shader's `b` is the CPU struct's `c`, gh:#701)
 
 The `bc` (boundary condition) field is intentionally not encoded — this kernel
 computes geometric distance only.

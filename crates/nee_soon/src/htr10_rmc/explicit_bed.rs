@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 // This file is part of OUTRAM PARK. See the module header of `htr10_rmc` for
 // licence terms.
@@ -111,8 +111,11 @@
 //! 0.000962, −583 ± 143 pcm from the lattice at N = 12, on one pour
 //! (`verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, RegionToken};
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation};
@@ -262,7 +265,7 @@ impl ExplicitBed {
 /// centres are `d` apart (`d < 2r`).
 #[must_use]
 pub fn lens_volume(r: f64, d: f64) -> f64 {
-    std::f64::consts::PI * (4.0 * r + d) * (2.0 * r - d).r_powi(2) / 12.0
+    core::f64::consts::PI * (4.0 * r + d) * (2.0 * r - d).r_powi(2) / 12.0
 }
 
 /// **Fuel/dummy flags by the literature's rule**, for centres in the DEM
@@ -564,7 +567,7 @@ impl ExplicitBed {
             }
         }
         bed.max_overlap = (2.0 * r - dmin).max(0.0);
-        let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+        let v_ball = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
         bed.lens_volume_fraction = lens / (v_ball * bed.centres.len() as f64);
 
         // Every tile each ball intersects.
@@ -697,9 +700,9 @@ pub fn assemble_explicit_triso_from_centres_with(
     // the tiles below add hundreds of thousands. Only the order of entries in
     // the surface and cell lists differs from the Şeker path.
     sh.add_reflector();
-    let mut surfaces = std::mem::take(&mut sh.surfaces);
-    let mut cells = std::mem::take(&mut sh.cells);
-    let mut universes = std::mem::take(&mut sh.universes);
+    let mut surfaces = core::mem::take(&mut sh.surfaces);
+    let mut cells = core::mem::take(&mut sh.cells);
+    let mut universes = core::mem::take(&mut sh.universes);
 
     // Random TRISO packings (gh:#1243): each one exactly the lattice's
     // particle count, wrapped in a tracking lattice (geometry lattices 2..).
@@ -725,7 +728,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                 [pitch; 3],
                 [TILES; 3],
                 mat::GRAPHITE,
-                293.6,
+                None,
                 outram_mc_libs::pebble_beds::triso_lattice::TrisoLatticeBase {
                     surface: surfaces.len(),
                     cell: cells.len(),
@@ -765,7 +768,7 @@ pub fn assemble_explicit_triso_from_centres_with(
             TILE_HELIUM_CELL_ID,
             rg.0,
             mat::HELIUM,
-            293.6,
+            None,
         ));
     }
     universes.push(Universe {
@@ -860,7 +863,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                     TILE_FUEL_SHELL_CELL_ID + id,
                     clip(Rgn::out(fz).and(Rgn::ins(pb))).0,
                     mat::GRAPHITE,
-                    293.6,
+                    None,
                 ));
             } else {
                 idx.push(cells.len());
@@ -868,7 +871,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     clip(Rgn::ins(pb)).0,
                     moderator_slot,
-                    293.6,
+                    None,
                 ));
             }
             helium = Some(match helium {
@@ -882,7 +885,7 @@ pub fn assemble_explicit_triso_from_centres_with(
             TILE_HELIUM_CELL_ID + base,
             helium.0,
             mat::HELIUM,
-            293.6,
+            None,
         ));
         let u = universes.len();
         universes.push(Universe {

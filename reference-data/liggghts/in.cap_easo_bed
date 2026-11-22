@@ -1,0 +1,36 @@
+# cohesion easo/capillary/viscous on a small bed (gh:#1411): the 84 lowest
+# pebbles of the settled D/d = 6 bed with a deterministic 0.3 m/s velocity
+# field (make_capillary_decks.sh), no walls, no gravity. Bridges form at every
+# contact, stretch as the blob expands and shears, rupture and re-form while
+# liquid is transferred between pebbles. Dumps every 250 steps.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+neighbor	0.003 bin
+neigh_modify	delay 0
+read_data	cap_bed.data
+fix 		m1 all property/global youngsModulus peratomtype 5.0e6
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+fix 		c1 all property/global surfaceLiquidContentInitial scalar 0.1
+fix 		c2 all property/global surfaceTension scalar 0.072
+fix 		c3 all property/global fluidViscosity scalar 1.0e-3
+fix 		c4 all property/global contactAngle peratomtype 0.3
+fix 		c5 all property/global minSeparationDistanceRatio scalar 0.01
+fix 		c6 all property/global maxSeparationDistanceRatio scalar 1.2
+pair_style	gran model hertz tangential history cohesion easo/capillary/viscous
+pair_coeff	* *
+timestep	5e-6
+fix		integr all nve/sphere
+thermo		500
+thermo_modify	lost ignore norm no
+run		0
+variable	L atom 0.05+0.1*(id%4)
+set		group all property/atom surfaceLiquidContent v_L
+dump		d1 all custom 250 dump.cap_easo_bed id x y z vx vy vz omegax omegay omegaz fx fy fz f_surfaceLiquidContent f_liquidFlux
+dump_modify	d1 sort id
+run		4000

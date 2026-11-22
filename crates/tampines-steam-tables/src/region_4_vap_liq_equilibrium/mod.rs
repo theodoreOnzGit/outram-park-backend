@@ -8,6 +8,9 @@
 // to read
 // IAPWS-IF97 Table 34 coefficients (n_1..n_10) for the Region 4 saturation
 // pressure/temperature correlation.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 const REGION_4_COEFFS: [f64; 10] = [
@@ -73,3 +76,7 @@ pub use speed_of_sound_eqm::*;
 // tests
 #[cfg(test)]
 mod tests;
+
+/// Kieffer (1977) Fig. 9b verification of the HEM speed of sound (gh #29).
+#[cfg(test)]
+mod tests_kieffer_fig9b;

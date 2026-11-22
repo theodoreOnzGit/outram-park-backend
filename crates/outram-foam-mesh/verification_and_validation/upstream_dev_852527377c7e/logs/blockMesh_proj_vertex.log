@@ -1,0 +1,71 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  dev
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+Build  : dev-852527377c7e
+Exec   : blockMesh
+Date   : Nov 11 2026
+Time   : 15:19:46
+Host   : "vm"
+PID    : 28259
+I/O    : uncollated
+Case   : /home/user/upstream-build/dev-runs/blockMesh/proj_vertex
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 10)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Reading "blockMeshDict"
+
+Creating block mesh from
+    "system/blockMeshDict"
+No non-linear block edges defined
+No non-planar block faces defined
+Creating topology blocks
+Creating topology patches
+
+Creating block mesh topology
+
+Basic statistics
+    Number of internal faces : 0
+    Number of boundary faces : 6
+    Number of defined boundary faces : 6
+    Number of undefined boundary faces : 0
+
+Checking topology
+Creating block offsets
+Creating merge list .
+
+Creating polyMesh from blockMesh
+Creating patches
+Creating cells
+Creating points with scale 1
+    Block 0 cell size :
+        i : 0.19245008972987526 .. 0.19245008972987515
+        j : 0.15849920350718122 .. 0.31699840701436233
+        k : 0.39495020738171449 .. 0.19747510369085725
+
+No patch pairs to merge
+
+Writing polyMesh
+----------------
+Mesh Information
+----------------
+  boundingBox: (-0.57735026918962573 -0.57735026918962584 -0.57735026918962584) (0.57735026918962573 0.57735026918962584 0.57735026918962584)
+  nPoints: 210
+  nCells: 120
+  nFaces: 434
+  nInternalFaces: 286
+----------------
+Patches
+----------------
+  patch 0 (start: 286 size: 148) name: walls
+
+End
+

@@ -30,6 +30,9 @@
 //! and Android-buildable with no external linear-algebra dependency. The large
 //! solves the mesher never needs; all of its geometry is these fixed-size ops.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A 3-component vector `(x, y, z)` of `f64`s. `Copy`, so pass by value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {
@@ -67,6 +70,13 @@ impl Vec3 {
     /// Scalar multiple `self * s`.
     pub fn scale(self, s: f64) -> Vec3 {
         Vec3::new(self.x * s, self.y * s, self.z * s)
+    }
+
+    /// Quotient `self / s`, each component divided: OpenFOAM's `operator/`
+    /// and `/=` on a vector. `scale(1.0 / s)` is NOT the same in the last
+    /// bit (gh:#1385); use this wherever upstream divides.
+    pub fn div(self, s: f64) -> Vec3 {
+        Vec3::new(self.x / s, self.y / s, self.z / s)
     }
 
     /// Dot product `self · other`.

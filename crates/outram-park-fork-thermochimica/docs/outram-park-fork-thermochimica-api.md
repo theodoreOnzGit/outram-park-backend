@@ -678,7 +678,7 @@ pub struct GemResult {
 | `element_potentials` | `Vec<f64>` | Shared element potentials `π_k = λ_k/RT` \[-\], one per element. At the<br>solution every present species satisfies `µ_ps/RT = Σ_k a_ks π_k`. |
 | `gibbs_energy_rt` | `f64` | Dimensionless total Gibbs energy `G/RT = Σ_p Σ_s n_ps (µ_ps/RT)` \[mol\]<br>at the returned composition (the minimised objective). |
 | `gibbs_energy` | `f64` | Total Gibbs energy `G = RT · (G/RT)` \[J\], relative to the supplied<br>`g°_ps` reference states. |
-| `descent_merit_history` | `Vec<f64>` | Line-search merit `Φ = G/RT + μ·Σ_k|b_k − q_k|` \[mol\] at each iteration<br>plus the final value. **Monotonically non-increasing by construction**<br>(the V&V monotone-descent witness); `Φ → G/RT` as the violation → 0. |
+| `descent_merit_history` | `Vec<f64>` | Line-search merit `Φ = (G − c·q)/RT + μ·Σ_k|b_k − q_k|` \[mol\] at each<br>iteration plus the final value, where `c` is the per-element energy shift of<br>`GemSystem::merit_reference` (it changes `Φ` by the constant `c·b` on the<br>feasible set and does not change the solution). **Monotonically<br>non-increasing by construction** while the penalty `μ` is constant (the V&V<br>monotone-descent witness; `μ` is raised, never lowered, when the Newton<br>multipliers exceed it, which can step `Φ` up once at that iteration);<br>`Φ → G/RT − c·b/RT` as the violation → 0. (Hand-edited 2026-11-13, gh:#1407: `kovan-cli` was not built here; regenerate with `kovan-cli api-docs outram-park-fork-thermochimica`.) |
 | `iterations` | `usize` | Number of Newton iterations performed. |
 | `converged` | `bool` | `true` if both tolerances in [`GemOptions`] were met. |
 

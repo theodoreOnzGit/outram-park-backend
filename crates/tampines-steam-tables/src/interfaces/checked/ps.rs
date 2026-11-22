@@ -91,6 +91,9 @@
 //! internals' range comparisons are silently `false` for `NaN` and would
 //! otherwise let `NaN` states through undetected.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::pressure::pascal;
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;

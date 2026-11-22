@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Plume rise and building wake, which pyDOSEIA defines but never calls.
 //!
 //! # Provenance
@@ -22,6 +22,9 @@
 //! | [`plume_rise_stable_both_formulas`] | — | **divergence**: D6 corrected |
 //! | building wake | cannot run (`TypeError`), marked TO-DO; defect **D5** | [`building_wake_gifford`] is a **divergence** only |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Python's `v ** e` on floats: C `pow`, with the exponent hidden from LLVM so
 /// it is not strength-reduced.

@@ -115,6 +115,9 @@
 //!   would be a different measurement — and for CLS and SCLS, a badly
 //!   distorted one, because their point query serialises on a mutex (GitHub
 //!   issue #205). That is the measurement that has not been made.
+//!   **UPDATE 2026-11-14 (GitHub #205):** there is no mutex on the point query
+//!   any more (the sampler state is driver-owned, `DhQueryState`); the runs
+//!   below predate that and still read as recorded.
 //! - **The L3 is 260 MiB and the delta arm's packing is far smaller than that.**
 //!   25 856 spheres at a few tens of bytes each is well under a megabyte, so the
 //!   explicit geometry is cache-resident here and its lookup cost is close to
@@ -261,6 +264,10 @@
 //! lock is **uncontended** on the single-threaded backend these numbers were
 //! taken on, so it is probably a small part of what is left; its real damage
 //! shows up when threads are turned on, which has not been run.
+//! **UPDATE 2026-11-14 (GitHub #205):** the wiring described here is gone (no
+//! mutex, no per-history clone of the window); single-thread `k` is
+//! bit-identical to the version these numbers were taken on
+//! (`tests/cls_scls_keff_pin_205.rs`). The timings were not re-measured.
 //!
 //! # Settings
 //!
@@ -327,6 +334,7 @@ use outram_mc_libs::prelude::*;
 #[path = "common/fhr_unit_cell.rs"]
 mod fhr;
 use fhr::{materials, TEMP_K};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::thermal::ThermalScattering;
 use njoy_outram_park_fork::reference_data::reference_endf;
 
@@ -341,7 +349,7 @@ const OMC_RING_RPT: (f64, f64) = (1.36479, 0.00067);
 /// [`TEMP_K`].
 ///
 /// Index order must match the constants in `common/fhr_unit_cell.rs`.
-fn nuclides() -> Vec<Nuclide> {
+fn nuclides() -> (Vec<Nuclide>, ThermalScattering) {
     let load = |name: &str, file: &str| -> Nuclide {
         let path = reference_endf(file)
             .unwrap_or_else(|| panic!("missing reference tape {file} in reference-data/endf/"));
@@ -365,20 +373,22 @@ fn nuclides() -> Vec<Nuclide> {
     .expect("crystalline-graphite S(alpha,beta)");
     eprintln!("  graphite S(alpha,beta): ENDF/B-VIII.0 tsl-crystalline-graphite @ {TEMP_K} K … ok");
 
-    vec![
+    let nuclides = vec![
         load("U235", "n-092_U_235-ENDF8.0.endf"),
         load("U238", "n-092_U_238.endf"),
         load("O16", "n-008_O_016-ENDF8.0.endf"),
         // free-gas carbon: kernel oxycarbide and SiC
         load("C12", "n-006_C_012-ENDF8.0.endf"),
-        // graphite-bound carbon: buffer, PyC, matrix, shell
-        load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab),
+        // graphite carbon: buffer, PyC, matrix, shell. Loaded free; the
+        // S(a,b) law is attached per material in `main` (gh:#1581).
+        load("C12", "n-006_C_012-ENDF8.0.endf"),
         load("Si28", "n-014_Si_028-ENDF8.0.endf"),
         load("Li6", "n-003_Li_006-ENDF8.0.endf"),
         load("Li7", "n-003_Li_007-ENDF8.0.endf"),
         load("Be9", "n-004_Be_009-ENDF8.0.endf"),
         load("F19", "n-009_F_019-ENDF8.0.endf"),
-    ]
+    ];
+    (nuclides, sab)
 }
 
 /// `OUTRAM_DH_VV_AUDIT=1`: does the majorant `DhUniverse::keff` builds bound
@@ -429,10 +439,16 @@ fn main() {
 
     println!("Reconstructing ENDF/B-VIII.0 cross sections at {TEMP_K} K (setup, not transport):");
     let t_data = Instant::now();
-    let nucs = nuclides();
+    let (nucs, sab) = nuclides();
     let data_secs = t_data.elapsed().as_secs_f64();
     println!("  data ready in {data_secs:.1} s\n");
     let mats = materials();
+    // S(a,b) per material, as OpenMC does (gh:#462, #1581): the five graphite
+    // materials (buffer, IPyC, OPyC, matrix, shell) reference C_GRAPHITE and
+    // get c_Graphite; the kernel and SiC carbon (C_FREE) stay free.
+    let sab_entries = MaterialSab::for_materials_containing(&mats, fhr::C_GRAPHITE, 0, &[]);
+    let (mats, nucs) =
+        assign_material_sab(&mats, &nucs, &[sab], &sab_entries).expect("S(a,b) per material");
 
     let settings = KeffSettings {
         n_particles,

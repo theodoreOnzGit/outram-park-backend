@@ -4,7 +4,8 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 
 use fhr_thermal_hydraulics_state::FHRThermalHydraulicsState;
-use ndarray::{Array, Array1};
+// The crate takes `ndarray` as `ndarray-nostd` (gh:#1600); same package.
+use ndarray_nostd::{Array, Array1};
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::LiquidMaterial;
 use tuas_boussinesq_solver::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;
 use tuas_boussinesq_solver::prelude::beta_testing::{

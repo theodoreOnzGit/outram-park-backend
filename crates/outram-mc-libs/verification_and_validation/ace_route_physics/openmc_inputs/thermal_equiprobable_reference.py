@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact moments and the exact outgoing-energy CDF of OpenMC's sampling of an
 # ACE IFENG = 0 (equiprobable) S(a,b) law, IncoherentInelasticAEDiscrete with
 # skewed_ = false (openmc src/secondary_thermal.cpp, d7d3284a1), for GitHub
 # #407: outram's default for this form is now OpenMC's scheme.
-# Own work, GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work, AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # OpenMC: i, f from get_energy_index; j = floor(prn n) (every bin 1/n); E' =
 # (1-f) E(i,j) + f E(i+1,j); k = floor(prn m); mu = (1-f) mu(i,j,k) +

@@ -92,6 +92,8 @@
 //!   this passes.
 //! - **The secondary-energy law**, which is a separate residual (`op-os8x`).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::acer::angular::{parse_mf4_angular, EnergyAngular};
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;

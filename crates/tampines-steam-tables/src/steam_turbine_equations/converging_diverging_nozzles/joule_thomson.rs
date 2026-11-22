@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, ratio::ratio};
 use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
 
@@ -98,6 +101,7 @@ pub fn get_outlet_velocity_and_state_joule_thomson(
         // mutate the test rho, to reduce it
 
         if debug {
+            #[cfg(feature = "std")]
             dbg!(&(test_rho, relative_error, state_2_test));
         }
 
@@ -117,6 +121,7 @@ pub fn get_outlet_velocity_and_state_joule_thomson(
     // we can use regula falsi to finish this job
 
     if debug {
+        #[cfg(feature = "std")]
         dbg!(&(v_lower_limit, v_upper_limit));
     }
 
@@ -166,6 +171,7 @@ pub fn get_outlet_velocity_and_state_joule_thomson(
         }
 
         if debug {
+            #[cfg(feature = "std")]
             dbg!(&(v_lower_limit, v_upper_limit));
         }
         iteration += 1;

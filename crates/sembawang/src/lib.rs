@@ -14,7 +14,11 @@
 //!   a reduced, lumped model for ONE plant, Fukushima Daiichi Unit 1, in
 //!   [`bwr_mark1`]: core heat-up, Zr-steam oxidation and hydrogen,
 //!   relocation, a lower-head failure criterion, and containment
-//!   pressurisation. MCCI and aerosols are not implemented).
+//!   pressurisation. ~~MCCI and aerosols are not implemented~~
+//!   **CORRECTED 2026-11-11 (gh:#1335)**: MCCI (`bwr_mark1::cavity`) and
+//!   sectional aerosols exist since 2026-10-29; the aerosol, vapour and pool
+//!   iodine equations live in `outram_park_fork_offbeat::melcor` since
+//!   2026-11-11, called from [`bwr_mark1`]).
 //! - **What it orchestrates:** [`changi`] for dispersion and deposition (wired
 //!   in, see [`chain`]), `redhill` for ground transport (a placeholder, not
 //!   wired), and `raffles` for uncertainty propagation (GitHub #238, not yet
@@ -64,10 +68,17 @@
 //! the `dhoby-ghaut` `fukushima_web` demo's own physics until it moved here.
 //! It is lumped (a few nodes), an AI draft, uncalibrated, and **outside the
 //! BSAF Unit 1 bands**: the lower head fails about 2 h early and in-vessel
-//! hydrogen is about 3x low ([`bwr_mark1::compare`], gh:#1028). Still absent
+//! hydrogen is about 3x low ([`bwr_mark1::compare`], gh:#1028). ~~Still absent
 //! everywhere in the crate: molten-core-concrete interaction, aerosol
 //! physics, fission-product transport in the plant, and any MELCOR-class
-//! control-volume engine. The TRISO release path still takes a
+//! control-volume engine.~~ **CORRECTED 2026-11-11 (gh:#1335)**, checked
+//! against the module list: MCCI (`bwr_mark1::cavity`), sectional aerosol
+//! and in-plant fission-product transport (`containment_fp`, with the
+//! equations in `outram_park_fork_offbeat::melcor`) exist since 2026-10-29,
+//! and the containment is a control-volume network on `tampines` since
+//! 2026-11-02 (gh:#1099). Still absent: a general MELCOR-class engine. The
+//! lower-head and H2 figures in this paragraph are of 2026-10-29; the current
+//! ones are in [`bwr_mark1::compare`]. The TRISO release path still takes a
 //! **caller-prescribed** temperature transient; [`bwr_mark1`] does not feed
 //! it.
 //!
@@ -161,10 +172,78 @@
 //!
 //! [`redhill`]: https://docs.rs/redhill
 
-// `std` is required: `boon-lay` is a `std` crate, so `no_std` could not survive
-// the dependency even if this crate wanted it. The previous `#![no_std]` was
-// removed on 2026-09-21 for that reason and not as a preference.
+// ~~`std` is required: `boon-lay` is a `std` crate, so `no_std` could not survive
+// the dependency even if this crate wanted it.~~ ~~CORRECTED 2026-11-17: boon-lay
+// builds `no_std` + `alloc` (gh:#1634), so that reason no longer holds; this
+// crate is still `std`.~~ **CHANGED 2026-11-17 (gh:#1641):** this crate is now
+// `no_std` + `alloc` without its default `std` feature (header below). The
+// `#![no_std]` removed on 2026-09-21 was removed for the boon-lay reason, not
+// as a preference.
 #![forbid(unsafe_code)]
+
+// `no_std` + `alloc` without the default `std` feature (gh:#1641, epic
+// gh:#1637). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
+/// Hash maps: std's with `std` (and in tests), so iteration order and every
+/// result are as before; `hashbrown` without it (gh:#1641).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(not(any(feature = "std", test)))]
+    #[allow(unused_imports)]
+    use crate::nostd_prelude::*;
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+/// One-time initialisation (gh:#1641): std's `OnceLock` with `std` (and in
+/// tests), a `spin::Once` wrapper with the same two methods without it.
+pub(crate) mod sync {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::sync::OnceLock;
+
+    /// `OnceLock` without std, on `spin::Once`.
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) struct OnceLock<T>(spin::Once<T>);
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl<T> OnceLock<T> {
+        /// An empty cell.
+        pub(crate) const fn new() -> Self {
+            OnceLock(spin::Once::new())
+        }
+        /// The value, initialising it with `f` on first use.
+        pub(crate) fn get_or_init<F: FnOnce() -> T>(&self, f: F) -> &T {
+            self.0.call_once(f)
+        }
+    }
+}
 
 pub mod accident;
 /// AP1000 severe-accident plume-centreline TED digitised from Dadda et al.

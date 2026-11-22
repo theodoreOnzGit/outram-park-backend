@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
@@ -14,9 +17,9 @@ use uom::si::area::square_meter;
 use uom::si::ratio::ratio;
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::{f64::*, specific_heat_capacity::joule_per_kilogram_kelvin};
-use std::f64::consts::PI;
-use std::time::SystemTime;
-use std::thread::JoinHandle;
+use core::f64::consts::PI;
+use crate::time::SystemTime;
+use crate::thread::JoinHandle;
 use uom::si::pressure::atmosphere;
 
 use uom::{si::time::second, ConstZero};
@@ -483,6 +486,7 @@ pub fn static_mixer_41_label_6_1_meter_test() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -490,6 +494,7 @@ pub fn static_mixer_41_label_6_1_meter_test() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -747,6 +752,7 @@ pub fn static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -754,6 +760,7 @@ pub fn static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test() {
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -1009,6 +1016,7 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(
             exit_temperature.into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation)
         );
@@ -1016,6 +1024,7 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient
         simulated_outlet_temperature = exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 

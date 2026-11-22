@@ -34,6 +34,8 @@
 //! * [`integrators`] — PETIR's [`Integrator`](integrators::Integrator)
 //!   (re-exported), this crate's [`OneGroupOperator`](integrators::OneGroupOperator)
 //!   implementing PETIR's `TransportOperator`, and transfer rates.
+//! * [`keff_search`] — opt-in k-eigenvalue search before every burnup step
+//!   (OpenMC `keff_search_control.py`, gh:#1616); the other drivers are untouched.
 //! * [`operator`] — the burnup loops coupling transport to the transmutation
 //!   step. Stays here.
 //!
@@ -66,11 +68,22 @@
 //! | One-group scalar flux | neutrons / (cm²·s) |
 //! | One-group microscopic cross section | barn |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod integrators;
 pub mod matrix;
 pub mod cram;
 pub mod chain;
 pub mod operator;
+pub mod keff_search;
+pub mod external_rates;
+pub mod microxs;
+pub mod microxs_transport;
+pub mod coupled_operator;
+pub mod helpers;
+pub mod tracking;
+pub mod spectrum_depletion;
 
 pub use chain::{
     ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,
@@ -78,8 +91,16 @@ pub use chain::{
 };
 pub use matrix::DepletionMatrix;
 pub use operator::deplete_with;
+/// The depletion-chain XML codec this crate builds [`DepletionChain`] from,
+/// re-exported so a crate that reads the chain's non-neutron data (the decay
+/// `<source>` spectra, which have no home in [`NuclideData`]) goes through
+/// this crate and not a second parser (gh:#1391: `punggol` reads decay
+/// photons this way). A re-export only: no code was added.
+pub use njoy_outram_park_fork::hdf5::depletion_chain_xml::{
+    ChainDecaySource, ChainNuclide, DepletionChainXml,
+};
 
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// One-group microscopic **reaction rates** for a single nuclide, in `1/s`.
 ///

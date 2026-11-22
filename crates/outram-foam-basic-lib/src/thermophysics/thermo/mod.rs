@@ -28,14 +28,23 @@
 //! [`HConstThermo`], polynomial-Cp [`HPolynomialThermo`], tabulated
 //! [`HTabulatedThermo`], and NASA-7 (JANAF) [`JanafThermo`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod h_const;
+pub mod e_const;
 pub mod h_polynomial;
+pub mod h_power;
 pub mod h_tabulated;
+pub mod h_tabulated_esi;
 pub mod janaf;
 pub(crate) mod traits;
 
 pub use h_const::*;
+pub use e_const::*;
 pub use h_polynomial::*;
+pub use h_power::*;
 pub use h_tabulated::*;
+pub use h_tabulated_esi::*;
 pub use janaf::*;
 pub use traits::*;

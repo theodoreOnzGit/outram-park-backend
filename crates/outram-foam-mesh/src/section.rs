@@ -8,6 +8,9 @@
 //! polyhedron it is the hull of the true section. A vertex lying on the plane
 //! counts as above it, so a plane through a layer of faces gives one polygon
 //! per cell below it rather than two.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::block_mesh::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 use uom::si::f64::Length;
@@ -57,13 +60,24 @@ pub struct CellSection {
 /// plane passes through, in cell order.
 pub fn plane_section(mesh: &PolyMesh, axis: Axis, offset: Length) -> Vec<CellSection> {
     let h = offset.get::<meter>();
+    // A point within round-off of the plane is ON it (treated as the
+    // non-negative side). Node coordinates carry a few ulp of blend round-off
+    // (gh:#1464: blockMesh's 12-edge blend), so a plane that is meant to pass
+    // exactly through a layer of nodes must not split that layer.
+    let extent = mesh
+        .points
+        .iter()
+        .map(|p| axis.normal(*p).abs())
+        .fold(h.abs(), f64::max);
+    let tol = 1.0e-12 * extent;
+    let snap = |d: f64, tol: f64| if d.abs() <= tol { 0.0 } else { d };
     let mut pts: Vec<Vec<[f64; 2]>> = vec![Vec::new(); mesh.n_cells];
     for f in &mesh.faces {
         let n = f.verts.len();
         for i in 0..n {
             let a = mesh.points[f.verts[i]];
             let b = mesh.points[f.verts[(i + 1) % n]];
-            let (da, db) = (axis.normal(a) - h, axis.normal(b) - h);
+            let (da, db) = (snap(axis.normal(a) - h, tol), snap(axis.normal(b) - h, tol));
             if (da < 0.0) == (db < 0.0) {
                 continue;
             }
@@ -111,7 +125,7 @@ fn convex_hull(mut p: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
 /// index of the patch it was first met on: the wireframe of what the solver
 /// meshes.
 pub fn boundary_edges(mesh: &PolyMesh) -> Vec<([f64; 3], [f64; 3], usize)> {
-    let mut seen = std::collections::BTreeSet::new();
+    let mut seen = alloc::collections::BTreeSet::new();
     let mut out = Vec::new();
     for (pi, patch) in mesh.patches.iter().enumerate() {
         for f in &mesh.faces[patch.start..patch.start + patch.size] {

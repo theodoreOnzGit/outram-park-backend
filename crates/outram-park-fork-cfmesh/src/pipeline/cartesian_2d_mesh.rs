@@ -48,10 +48,24 @@
 //!
 //! Reused from the 3D workflow where upstream reuses it: the extractor, the
 //! four connectivity checks, `boundaryLayers`, `renumberMesh`,
-//! `renameBoundaryPatches`, `workflowControls`. `anisotropicSources`,
+//! `renameBoundaryPatches`, `workflowControls`. ~~`anisotropicSources`,~~
 //! `triSurfacePatchManipulator` and `triSurfaceCleanupDuplicateTriangles`
 //! (only run on a surface with feature edges) are not supported.
+//!
+//! **`anisotropicSources` (UPDATED 2026-11-05, gh:#1279 remainder):** as
+//! upstream, the quadtree is built on the modified surface; the revert is
+//! at the end of `boundaryLayerGeneration` (after the layer; also with the
+//! layer ablated or refused), followed by a new quadtree on the original
+//! surface ([`refined_quadtree`]), `remapBoundaryPoints` and
+//! `optimiseMeshSurface`, and the later steps use that quadtree. There is
+//! no `projectSurfaceAfterBackScaling` in 2D. As upstream, a run stopped
+//! before `boundaryLayerGeneration` returns the mesh in the modified space,
+//! and a restart that resumes after it keeps the modified quadtree (an
+//! upstream quirk, kept). Record: `verification_and_validation/anisotropic_gh1279/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::cartesian_mesh::{create_empty_patches, CartesianMeshOptions};
 use crate::layers::boundary_layers::{BoundaryLayersControls, LayerRequest};
 use crate::layers::refine_boundary_layers::{refine_boundary_layers_2d, RefineBoundaryLayersSettings, RefineError};
@@ -64,11 +78,11 @@ use crate::patches::SurfaceRegions;
 use crate::pipeline::cartesian_mesh::{cartesian_surface_preparation, n_nonpositive_cells};
 use crate::pipeline::tet_mesh::SavedMesh;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
-use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
+use crate::renumber_mesh::renumber_mesh;
 use crate::surface_mapper_2d::{adjust_z_coordinates, distribute_boundary_faces, map_vertices_onto_surface_2d, pre_map_vertices_2d, remap_boundary_points};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Settings of [`cartesian_2d_mesh`].
 #[derive(Debug, Clone, PartialEq)]
@@ -161,6 +175,18 @@ pub fn create_quadtree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Su
     o
 }
 
+/// `meshOctree(surf, true)` and `meshOctreeCreator(octree)
+/// .createOctreeWithRefinedBoundary(20)` (15 triangles per leaf, the
+/// header's default): the search quadtree `generateBoundaryLayers` builds
+/// on the original surface after the anisotropic revert (gh:#1279
+/// remainder).
+pub fn refined_quadtree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>) -> MeshOctree {
+    let surf = TriSurf::new(points.to_vec(), tris.to_vec(), regions.map(|r| r.region_of_tri.clone()));
+    let mut o = MeshOctree::new_quadtree(Arc::new(surf));
+    MeshOctreeCreator::new(&o, None).create_octree_with_refined_boundary(&mut o, 20, 15);
+    o
+}
+
 /// cfMesh `cartesian2DMesh` on the ribbon `(points, tris)` with optional
 /// named regions (module docs).
 pub fn cartesian_2d_mesh(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>, opts: &Cartesian2DMeshOptions) -> Result<(VolumeMesh, Cartesian2DMeshReport), String> {
@@ -185,7 +211,14 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
         rep.notes.push(format!("triSurface2DCheck: {w} (upstream writes badSurfaceWithSubsets.fms and continues)"));
         rep.surface_check = Some(w);
     }
-    let o = create_quadtree(points, tris, regions, &opts.dict);
+    // the constructor: with anisotropicSources the quadtree is built on the
+    // modified surface (surfaceMeshGeometryModification)
+    let mod_points = crate::anisotropic::modified_surface_points(points, opts.dict.anisotropic_sources.as_ref());
+    let mut mod_active = mod_points.is_some();
+    if mod_active {
+        rep.notes.push("constructor: anisotropicSources: surfaceMeshGeometryModification, the quadtree on the modified surface".into());
+    }
+    let mut o = create_quadtree(mod_points.as_deref().unwrap_or(points), tris, regions, &opts.dict);
     let single = SurfaceRegions::single("defaultFaces", tris.len());
     let reg = regions.unwrap_or(&single);
     let meta = saved.map(|s| s.meta.clone()).unwrap_or_default();
@@ -244,12 +277,12 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             }
             WorkflowStep::SurfaceProjection => {
                 adjust_z_coordinates(m, &o)?;
-                let missed = pre_map_vertices_2d(m, &o, 3)?;
+                let missed = pre_map_vertices_2d(m, &o, 2)?;
                 map_vertices_onto_surface_2d(m, &o)?;
-                rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (3 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
+                rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (2 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
             }
             WorkflowStep::PatchAssignment => {
-                let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names)?;
+                let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names, &reg.types)?;
                 *m = mm;
                 types = ty;
                 rep.notes.push(format!("patchAssignment: distributeBoundaryFaces: {:?}", m.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect::<Vec<_>>()));
@@ -275,6 +308,25 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
                         Err(e) => rep.notes.push(format!("boundaryLayerGeneration: boundaryLayers stopped ({e}); no layer")),
                     }
                 }
+                // generateBoundaryLayers' end, while modSurfacePtr_ is set:
+                // revertGeometryModification, a new quadtree on the original
+                // surface (createOctreeWithRefinedBoundary(20)), then
+                // mapEdgesAndCorners and optimiseMeshSurface on it
+                if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
+                    mod_active = false;
+                    crate::anisotropic::revert_points(&mut m.points, cm);
+                    o = refined_quadtree(points, tris, regions);
+                    let n = remap_boundary_points(m, &o)?;
+                    let (a, b) = optimise_mesh_surface_2d(m, &o)?;
+                    rep.notes.push(format!(
+                        "boundaryLayerGeneration: revertGeometryModification ({} points); quadtree on the original surface (createOctreeWithRefinedBoundary(20)); remapBoundaryPoints ({n} corner edges); optimiseMeshSurface: optimizeSurface2D ({} outline, {} bottom points), untangleSurface2D bad faces {:?}",
+                        m.points.len(),
+                        a.n_edge_points,
+                        a.n_partition_points,
+                        b.bad_faces
+                    ));
+                    rep.surface_2d.push((a, b));
+                }
             }
             WorkflowStep::MeshOptimisation => {
                 let (a, b) = optimise_mesh_surface_2d(m, &o)?;
@@ -283,9 +335,31 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             }
             WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
                 None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
-                Some(s) => match refine_boundary_layers_2d(m, s) {
+                Some(s) => match {
+                    if crate::env::var("GH1385_TRACE").is_ok() {
+                        for (i, c) in m.cell_face_lists().iter().enumerate() {
+                            let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+                            #[cfg(feature = "std")]
+                            eprintln!("PFC {i} {}", fs.join(" "));
+                        }
+                    }
+                    refine_boundary_layers_2d(m, s)
+                } {
                     Ok((mm, rr)) => {
                         *m = mm;
+                        if crate::env::var("GH1385_TRACE").is_ok() {
+                            // gh:#1385: the mesh as `refineLayers` leaves it, as upstream's instrumented generator prints it (`RFF`, `RFC`)
+                            for (i, f) in m.faces.iter().enumerate() {
+                                let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+                                #[cfg(feature = "std")]
+                                eprintln!("RFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+                            }
+                            for (i, c) in m.cell_face_lists().iter().enumerate() {
+                                let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+                                #[cfg(feature = "std")]
+                                eprintln!("RFC {i} {}", fs.join(" "));
+                            }
+                        }
                         types.resize(m.patches.len(), "patch".to_string());
                         rep.n_cells_refined = rr.n_cells_split;
                         let u = untangle_surface_2d(m)?;
@@ -301,7 +375,7 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
         }
     }
     let m = mesh.ok_or("the workflow produced no mesh")?;
-    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let r = renumber_mesh(&m, &m.cell_face_lists());
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), true);
     w.workflow_completed();
     rep.meta = w.meta;
@@ -378,6 +452,7 @@ mod tests {
         let opts = Cartesian2DMeshOptions { dict: dict.clone(), ..Default::default() };
         let (m, rep) = cartesian_2d_mesh(&p, &t, Some(&r), &opts).unwrap();
         for n in &rep.notes {
+            #[cfg(feature = "std")]
             println!("  2D: {n}");
         }
         m.validate().unwrap();
@@ -385,14 +460,18 @@ mod tests {
         let zs: Vec<f64> = m.points.iter().map(|q| q.z).collect();
         let n_front = zs.iter().filter(|&&z| z == 0.0).count();
         let n_back = zs.iter().filter(|&&z| z == dz).count();
+        #[cfg(feature = "std")]
         println!("2D: cells {} points {} front {n_front} back {n_back} dz {dz}", m.n_cells, m.points.len());
         assert_eq!(n_front + n_back, m.points.len(), "every point exactly on z = 0 or z = dz");
         assert_eq!(n_front, n_back);
         let area = m.total_volume() / dz;
+        #[cfg(feature = "std")]
         println!("2D: area {area:.12} against {:.12} ({:+.3e})", L * H, (area - L * H) / (L * H));
         let nonpos = n_nonpositive_cells(&m);
+        #[cfg(feature = "std")]
         println!("2D: non-positive cells {nonpos}; patches {:?} types {:?}", m.patches.iter().map(|x| (x.name.clone(), x.n_faces)).collect::<Vec<_>>(), rep.patch_types);
         let q = crate::checks::check_quality(&m);
+        #[cfg(feature = "std")]
         println!("2D: max non-orth {:.2} max skew {:.3}", q.max_non_orthogonality_deg, q.max_skewness);
         // one cell thick: every cell has exactly one face in each empty patch
         let mut per_cell = vec![[0usize; 2]; m.n_cells];
@@ -403,6 +482,7 @@ mod tests {
             }
         }
         let one_thick = per_cell.iter().filter(|c| c[0] == 1 && c[1] == 1).count();
+        #[cfg(feature = "std")]
         println!("2D: cells with one bottom and one top face: {one_thick} of {}", m.n_cells);
 
         // the template's x-y layout against the 3D mid-plane
@@ -415,16 +495,20 @@ mod tests {
         let near = |q: &Vec3| (q.z - zmid).abs() < 1e-9;
         let s2 = xy_set(t2.points.iter().copied());
         let s3 = xy_set(t3.points.iter().copied().filter(near));
+        #[cfg(feature = "std")]
         println!("template: 2D cells {} x-y nodes {}; 3D cells {} mid-plane nodes {}; root boxes 2D {:?} 3D {:?}", t2.n_cells, s2.len(), t3.n_cells, s3.len(), o2.root_box, o3.root_box);
+        #[cfg(feature = "std")]
         println!("template x-y layouts identical: {}", s2 == s3);
         // the finished meshes
         let (m3, rep3) = cartesian_mesh(&bp, &bt, Some(&br), &CartesianMeshGeneratorOptions { dict: dict.clone(), ..Default::default() }).unwrap();
         for n in &rep3.notes {
+            #[cfg(feature = "std")]
             println!("  3D: {n}");
         }
         let f2 = xy_set(m.points.iter().copied().filter(|q| q.z == 0.0));
         let f3 = xy_set(m3.points.iter().copied().filter(near));
         let common = f2.iter().filter(|x| f3.binary_search(x).is_ok()).count();
+        #[cfg(feature = "std")]
         println!("final: 2D x-y nodes {}; 3D mid-plane nodes {}; in both (1e-9) {common}", f2.len(), f3.len());
         // the 3D mid-plane after the optimiser: nodes within 0.01 of z = 0.25
         let slab: Vec<Vec3> = m3.points.iter().copied().filter(|q| (q.z - zmid).abs() < 0.01).collect();
@@ -437,6 +521,7 @@ mod tests {
             dmax = dmax.max(d);
             dsum += d;
         }
+        #[cfg(feature = "std")]
         println!(
             "final: 3D slab |z - 0.25| < 0.01 holds {} nodes (max |z - 0.25| {zdev:.3e}); 2D node to nearest slab node in x-y: mean {:.3e}, max {dmax:.3e} (cell 0.047)",
             slab.len(),
@@ -464,6 +549,7 @@ mod tests {
             let mid = c.centre(&o.root_box);
             assert_eq!(o.find_leaf_containing_vertex(mid), Some(l));
         }
+        #[cfg(feature = "std")]
         println!("quadtree leaves {}", o.number_of_leaves());
         let cm = cartesian_mesh_extractor(&o, &CartesianMeshOptions::default()).mesh;
         let (m, ty) = create_empty_patches(&cm, &o.root_box).unwrap();
@@ -503,6 +589,7 @@ mod tests {
         let before = m0.points.clone();
         let (a, b) = optimise_mesh_surface_2d(&mut m0, &o).unwrap();
         let moved = before.iter().zip(&m0.points).map(|(x, y)| x.sub(*y).length()).fold(0.0f64, f64::max);
+        #[cfg(feature = "std")]
         println!("S1 edgeExtraction: optimizeSurface2D {} outline + {} bottom points, largest move {moved:.3e}; untangleSurface2D {:?}", a.n_edge_points, a.n_partition_points, b.bad_faces);
         // Miss of S1 (predicted < 1e-12): which points moved, and whether
         // the outline stayed on the straight sides.
@@ -518,6 +605,7 @@ mod tests {
             }
         }
         let area0 = m0.total_volume() / dz;
+        #[cfg(feature = "std")]
         println!("S1 edgeExtraction: largest move of an outline point {out_max:.3e} ({off_side} left the sides), of an inner point {in_max:.3e}; area {area0:.15}; non-positive {}", n_nonpositive_cells(&m0));
         assert_eq!(off_side, 0);
         assert!((area0 - L * H).abs() < 1e-12);
@@ -526,10 +614,12 @@ mod tests {
         let opts = Cartesian2DMeshOptions { dict: dict.clone(), ..Default::default() };
         let (m, rep) = cartesian_2d_mesh(&p, &t, Some(&r), &opts).unwrap();
         for n in rep.notes.iter().filter(|n| n.starts_with("edgeExtraction") || n.starts_with("meshOptimisation")) {
+            #[cfg(feature = "std")]
             println!("  {n}");
         }
         let area = m.total_volume() / dz;
         let q = crate::checks::check_quality(&m);
+        #[cfg(feature = "std")]
         println!("S1 finished: {} cells, area {area:.15} ({:+.3e}), non-positive {}, max non-orth {:.2}, max skew {:.3}", m.n_cells, (area - L * H) / (L * H), n_nonpositive_cells(&m), q.max_non_orthogonality_deg, q.max_skewness);
         m.validate().unwrap();
         assert!(one_cell_thick(&m));
@@ -537,6 +627,7 @@ mod tests {
         assert_eq!(n_nonpositive_cells(&m), 0);
         let mut mm = m.clone();
         let u = untangle_surface_2d(&mut mm).unwrap();
+        #[cfg(feature = "std")]
         println!("S2: untangleSurface2D on the finished channel: bad faces {:?}", u.bad_faces);
         assert_eq!(u.bad_faces, vec![0]);
         // S3: drag one bottom point past its neighbour
@@ -557,6 +648,7 @@ mod tests {
         let n_bad0 = crate::mesh_optimizer::find_bad_faces(&d).iter().filter(|&&x| x).count();
         let u = untangle_surface_2d(&mut d).unwrap();
         let n_bad1 = crate::mesh_optimizer::find_bad_faces(&d).iter().filter(|&&x| x).count();
+        #[cfg(feature = "std")]
         println!("S3: dragged point {v} by 0.08: bad faces {n_bad0} -> {n_bad1}; iterations {:?}; non-positive {}", u.bad_faces, n_nonpositive_cells(&d));
         assert!(n_bad0 > 0);
         assert_eq!(n_bad1, 0);
@@ -565,9 +657,11 @@ mod tests {
         let opts3 = Cartesian2DMeshOptions { dict, boundary_layers: Some(s), ..Default::default() };
         let (m3, rep3) = cartesian_2d_mesh(&p, &t, Some(&r), &opts3).unwrap();
         for n in rep3.notes.iter().filter(|n| n.starts_with("boundaryLayerRefinement")) {
+            #[cfg(feature = "std")]
             println!("  {n}");
         }
         let area3 = m3.total_volume() / dz;
+        #[cfg(feature = "std")]
         println!("S4: {} cells, area {area3:.15}, non-positive {}, refine error {:?}", m3.n_cells, n_nonpositive_cells(&m3), rep3.refine_error);
         m3.validate().unwrap();
         assert!(one_cell_thick(&m3));
@@ -591,6 +685,7 @@ mod tests {
             let saved = SavedMesh { mesh: stopped, patch_types: srep.patch_types.clone(), meta: srep.meta.clone() };
             let restart = Cartesian2DMeshOptions { workflow: WorkflowSettings { stop_after: None, restart_from_latest_step: true }, ..base.clone() };
             let (resumed, rrep) = cartesian_2d_mesh_restart(&p, &t, Some(&r), &restart, &saved).unwrap();
+            #[cfg(feature = "std")]
             println!("stopped after {at:?}: resumed at {:?}, same mesh {}", rrep.steps_run.first(), crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full));
             assert!(crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full));
         }

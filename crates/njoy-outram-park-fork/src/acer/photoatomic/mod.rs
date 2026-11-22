@@ -53,6 +53,9 @@
 //! Everything else — the four partial cross sections — is evaluated **on that
 //! grid**, so the table is one shared grid rather than five.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fluorescence;
 pub mod incoherent_heating;
 

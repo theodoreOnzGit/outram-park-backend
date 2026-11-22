@@ -38,6 +38,9 @@
 //! the recursive autoregressive multi-fidelity model of Le Gratiet (2013),
 //! level by level from the lowest fidelity.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::core::{Level, LevelPar, Pairs, Projection, SmtCorrelation, SmtOptimizer, SmtRegression, SmtStarts};
 use super::krg::{broadcast, check_in_bounds, fit_level, normalise};
 use super::linalg::{backward_upper, columns, dot, forward, forward_ut, inverse};

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Meteorological-data processing as pyDOSEIA does it: hourly records to a
 //! **triple joint frequency distribution** (TJFD: stability class x wind-speed
 //! class x wind-direction sector), the missing-data correction, the calm
@@ -27,6 +27,9 @@
 //! mirror a spreadsheet row, including upstream's `999` / `9` missing-value
 //! sentinels.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Upstream's wind-speed class edges, km/h (10 classes; class 0 is calm).
 pub const WSRANGE_KMPH: [f64; 11] = [0.0, 1.8, 3.0, 5.5, 11.5, 19.5, 29.5, 38.5, 50.5, 61.5, 74.5];
 
@@ -263,6 +266,12 @@ fn numpy_linear_quantile(values: &[f64], q: f64) -> f64 {
 /// as upstream does; with fewer than 10 % missing they are then cut by the
 /// 0.9 quantile. A class with no records gives a NaN mean.
 ///
+/// The mean is pandas' `Series.mean()`: numpy's pairwise `add.reduce` divided by
+/// the count. ~~A left-to-right sum, 4.8e-16 from upstream (gh:#1429)~~
+/// **CHANGED 2026-11-13 (gh:#1429):** the pairwise sum, bit-identical to upstream
+/// on all 12 fixture means (localised: pandas equals pairwise/n in 12 of 12,
+/// left-to-right/n in 3 of 12).
+///
 /// Upstream uses these means (km/h) to divide a single-plume dilution factor
 /// computed at a 1 m/s reference speed, but that path fails its own shape
 /// assertion (defect D3). ~~so nothing in this port consumes them~~
@@ -285,7 +294,7 @@ pub fn speed_distribution(records: &[MetRecord], quantile: f64) -> ([Vec<f64>; 6
         means[s] = if kept[s].is_empty() {
             f64::NAN
         } else {
-            kept[s].iter().sum::<f64>() / kept[s].len() as f64
+            super::assessment::numpy_pairwise_sum(&kept[s]) / kept[s].len() as f64
         };
     }
     (kept, means)

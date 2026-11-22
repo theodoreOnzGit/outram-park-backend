@@ -36,7 +36,10 @@
 //! - [`skin_spline`] — a round tube along a [`Spline`] (the Skin modifier on a
 //!   curve).
 
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use crate::curve::{Spline, SplineType};
 use crate::curve_surface::{Bevel, CurveGeometry};
@@ -221,7 +224,7 @@ mod tests {
         assert!(!splines.is_empty());
         assert!(splines.iter().all(is_poly));
         // The chains between them touch every vertex at least once.
-        let touched: std::collections::BTreeSet<_> = splines
+        let touched: alloc::collections::BTreeSet<_> = splines
             .iter()
             .flat_map(|s| {
                 s.points

@@ -73,6 +73,9 @@
 //! - R. C. Williamson and T. Downs (1990). Probabilistic arithmetic I.
 //!   *Int. J. Approximate Reasoning* 4, 89-158.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::imprecise::{cbox_binomial, Interval, Pbox};
 use crate::{RafflesError, Result};
 

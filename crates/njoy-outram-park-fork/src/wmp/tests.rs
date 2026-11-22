@@ -1,5 +1,8 @@
 //! Unit tests for `wmp` (moved verbatim out of `wmp.rs` on split).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::evaluate::*;
 use super::*;

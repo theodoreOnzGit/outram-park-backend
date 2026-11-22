@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **An ACE LAW=4 continuum on MT=91/16/17 keeps its AND cosine** — GitHub
 //! #365 audit.
@@ -39,6 +39,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test and recorded in the #365 thread.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;

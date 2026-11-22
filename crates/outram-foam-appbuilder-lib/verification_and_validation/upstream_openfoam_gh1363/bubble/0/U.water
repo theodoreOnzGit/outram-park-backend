@@ -1,0 +1,3 @@
+FoamFile { version 2.0; format ascii; class volVectorField; object U.water; }
+dimensions [0 1 -1 0 0 0 0]; internalField uniform (0 0 0);
+boundaryField { walls { type noSlip; } frontAndBack { type empty; } }

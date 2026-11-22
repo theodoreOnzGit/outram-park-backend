@@ -1,0 +1,96 @@
+=== cavity base (centres dev)
+points fnv1a: ours c70d57282e84247e upstream c70d57282e84247e
+points: ours 1832 upstream 1832; bit-identical 1832; worst |diff| 0e0 at 0
+faces: ours 3475 upstream 3475; identical loops 3475; same point set 3475; first differing face None
+owner: ours 3475 upstream 3475; equal 3475
+neighbour: ours 2121 upstream 2121; equal 2121
+boundary: ours [("movingWall", 2121, 80), ("fixedWalls", 2201, 240), ("frontAndBack", 2441, 1034)]
+          equal: true
+=== cavity split (centres dev)
+points fnv1a: ours b6393d22445e45c9 upstream b6393d22445e45c9
+points: ours 4321 upstream 4321; bit-identical 4321; worst |diff| 0e0 at 0
+faces: ours 6154 upstream 6154; identical loops 6154; same point set 6154; first differing face None
+owner: ours 6154 upstream 6154; equal 6154
+neighbour: ours 4800 upstream 4800; equal 4800
+boundary: ours [("movingWall", 4800, 80), ("fixedWalls", 4880, 240), ("frontAndBack", 5120, 1034)]
+          equal: true
+=== cavity concave (centres dev)
+points fnv1a: ours c70d57282e84247e upstream c70d57282e84247e
+points: ours 1832 upstream 1832; bit-identical 1832; worst |diff| 0e0 at 0
+faces: ours 3475 upstream 3475; identical loops 3475; same point set 3475; first differing face None
+owner: ours 3475 upstream 3475; equal 3475
+neighbour: ours 2121 upstream 2121; equal 2121
+boundary: ours [("movingWall", 2121, 80), ("fixedWalls", 2201, 240), ("frontAndBack", 2441, 1034)]
+          equal: true
+=== annulus base (centres dev)
+points fnv1a: ours 5af2dee849024f74 upstream 5af2dee849024f74
+points: ours 924 upstream 924; bit-identical 924; worst |diff| 0e0 at 0
+faces: ours 1670 upstream 1670; identical loops 1670; same point set 1670; first differing face None
+owner: ours 1670 upstream 1670; equal 1670
+neighbour: ours 1072 upstream 1072; equal 1072
+boundary: ours [("inner", 1072, 63), ("outer", 1135, 63), ("defaultFaces", 1198, 472)]
+          equal: true
+=== annulus split (centres dev)
+points fnv1a: ours 80ca5a0854dc5035 upstream 80ca5a0854dc5035
+points: ours 2288 upstream 2288; bit-identical 2288; worst |diff| 0e0 at 0
+faces: ours 3478 upstream 3478; identical loops 3478; same point set 3478; first differing face None
+owner: ours 3478 upstream 3478; equal 3478
+neighbour: ours 2880 upstream 2880; equal 2880
+boundary: ours [("inner", 2880, 63), ("outer", 2943, 63), ("defaultFaces", 3006, 472)]
+          equal: true
+=== annulus concave (centres dev)
+points fnv1a: ours 5af2dee849024f74 upstream 5af2dee849024f74
+points: ours 924 upstream 924; bit-identical 924; worst |diff| 0e0 at 0
+faces: ours 1670 upstream 1670; identical loops 1670; same point set 1670; first differing face None
+owner: ours 1670 upstream 1670; equal 1670
+neighbour: ours 1072 upstream 1072; equal 1072
+boundary: ours [("inner", 1072, 63), ("outer", 1135, 63), ("defaultFaces", 1198, 472)]
+          equal: true
+=== warped base (centres dev)
+points fnv1a: ours c8e74dd971f08259 upstream c8e74dd971f08259
+points: ours 480 upstream 480; bit-identical 480; worst |diff| 0e0 at 0
+faces: ours 833 upstream 833; identical loops 833; same point set 833; first differing face None
+owner: ours 833 upstream 833; equal 833
+neighbour: ours 523 upstream 523; equal 523
+boundary: ours [("defaultFaces", 523, 310)]
+          equal: true
+=== warped split (centres dev)
+points fnv1a: ours da286fc1785322f7 upstream da286fc1785322f7
+points: ours 1133 upstream 1133; bit-identical 1133; worst |diff| 0e0 at 0
+faces: ours 1750 upstream 1750; identical loops 1750; same point set 1750; first differing face None
+owner: ours 1750 upstream 1750; equal 1750
+neighbour: ours 1440 upstream 1440; equal 1440
+boundary: ours [("defaultFaces", 1440, 310)]
+          equal: true
+=== warped concave (centres dev)
+points fnv1a: ours c8e74dd971f08259 upstream c8e74dd971f08259
+points: ours 480 upstream 480; bit-identical 480; worst |diff| 0e0 at 0
+faces: ours 833 upstream 833; identical loops 833; same point set 833; first differing face None
+owner: ours 833 upstream 833; equal 833
+neighbour: ours 523 upstream 523; equal 523
+boundary: ours [("defaultFaces", 523, 310)]
+          equal: true
+=== lshape base (centres dev)
+points fnv1a: ours 5fdaabe20c0f621d upstream 5fdaabe20c0f621d
+points: ours 522 upstream 522; bit-identical 522; worst |diff| 0e0 at 0
+faces: ours 830 upstream 830; identical loops 830; same point set 830; first differing face None
+owner: ours 830 upstream 830; equal 830
+neighbour: ours 466 upstream 466; equal 466
+boundary: ours [("defaultFaces", 466, 364)]
+          equal: true
+=== lshape split (centres dev)
+points fnv1a: ours ff2954a5da464b85 upstream ff2954a5da464b85
+points: ours 1000 upstream 1000; bit-identical 1000; worst |diff| 0e0 at 0
+faces: ours 1516 upstream 1516; identical loops 1516; same point set 1516; first differing face None
+owner: ours 1516 upstream 1516; equal 1516
+neighbour: ours 1152 upstream 1152; equal 1152
+boundary: ours [("defaultFaces", 1152, 364)]
+          equal: true
+=== lshape concave (centres dev)
+points fnv1a: ours dc9aedb0172be8ff upstream dc9aedb0172be8ff
+points: ours 531 upstream 531; bit-identical 531; worst |diff| 0e0 at 0
+faces: ours 857 upstream 857; identical loops 857; same point set 857; first differing face None
+owner: ours 857 upstream 857; equal 857
+neighbour: ours 493 upstream 493; equal 493
+boundary: ours [("defaultFaces", 493, 364)]
+          equal: true

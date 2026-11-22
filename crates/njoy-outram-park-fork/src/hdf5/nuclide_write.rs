@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Nuclide `.h5` writer** — GitHub #270 scope item 3.
 //!
@@ -97,6 +97,9 @@
 //! U-235 needs `continuous` and `correlated`, so a *complete* U-235 file
 //! waits on that; a fissile nuclide does not.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, FileBuilder};

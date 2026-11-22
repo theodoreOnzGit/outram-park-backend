@@ -33,6 +33,9 @@
 
 //! `PLSRegression(n_comp).fit(X, y).x_rotations_` for a single output.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::linalg::inverse;
 use crate::{RafflesError, Result};
 

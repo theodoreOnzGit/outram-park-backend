@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The pyDOSEIA driver: every distance and age of a configuration through the
 //! dilution factor and all five pathways, and the summary tables upstream
 //! writes.
@@ -24,6 +24,9 @@
 //! output formatting and are not ported; the **numbers** they print are, as
 //! the functions below.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Radioactivity};
 use uom::si::length::meter;
 use uom::si::radioactivity::becquerel;

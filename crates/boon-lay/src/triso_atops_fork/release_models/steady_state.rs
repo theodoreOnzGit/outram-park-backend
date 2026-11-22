@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -8,7 +8,7 @@
 //                    (`RB_fail_Noble_Gases`, `breakthrough_model`, `booth_longlived`,
 //                     `booth_shortlived_fastdiffuse`, `attenuation_factor`)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Steady-state (normal-operation) release models
@@ -31,8 +31,11 @@
 //! upstream defaults ([`BREAKTHROUGH_SERIES_TERMS`], [`BOOTH_SERIES_TERMS`],
 //! [`ATTENUATION_SERIES_TERMS`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{DiffusionCoefficient, Length, Ratio, ThermodynamicTemperature, Time};

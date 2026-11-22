@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The finite-cloud kernels, their integration limits and the triple
 //! integral. Ported from pyDOSEIA `dosefunc.py` (`adgq_single_plume`,
 //! `adgq_sector_average` inside `plumeshine_dose`) and `raddcffunc.py`
@@ -23,11 +23,14 @@
 //! difference is in `docs/pydoseia-code-to-code.md` and pinned by
 //! `tests/plume_shine_petir_vs_quadpack.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Length;
 use uom::si::length::meter;
 
-use std::cell::Cell;
+use core::cell::Cell;
 
 use super::tables::AirPhotonCoefficients;
 use crate::pydoseia::dispersion::{sigma_y, sigma_z, StabilityClass, SECTOR_WIDTH_RAD};

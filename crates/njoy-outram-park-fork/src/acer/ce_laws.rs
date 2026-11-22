@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ACE secondary-distribution blocks: AND, DLW and NU.**
 //!
@@ -92,6 +92,9 @@
 //! eV-based, so every energy is scaled on the way out and every pdf is scaled
 //! by the inverse.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
@@ -924,7 +927,7 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
         }
         let (ed, nd): (Vec<f64>, Vec<f64>) = dtab.pairs.iter().copied().unzip();
         let mut grid: Vec<f64> = nubar.energy.iter().chain(ed.iter()).copied().collect();
-        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
         grid.dedup();
         let lin = |x: &[f64], y: &[f64], e: f64| -> f64 {
             if x.is_empty() {

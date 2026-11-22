@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Particle track capture** — every phase-space state along a history.
 //! GitHub #271 scope item 2.
@@ -32,6 +32,9 @@
 //! `tests/variance_reduction_is_bit_identical_when_analog.rs` is the pattern;
 //! `track_capture_does_not_perturb_the_run` is the check for this feature.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::geometry::position::{Direction, Position};
 

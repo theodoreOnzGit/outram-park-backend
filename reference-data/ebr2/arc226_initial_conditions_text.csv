@@ -1,0 +1,34 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# Initial conditions and positions stated in the text, Sections 3.1.2-3.1.4, 3.2.2-3.2.4, 4.1.5-4.1.6
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+test,quantity,value,unit,printed_page,note
+SHRT-17,pump1_discharge_pressure_excluding_gravity_head,42.9,psi,11,
+SHRT-17,pump2_discharge_pressure_excluding_gravity_head,41.9,psi,11,
+SHRT-17,upper_plenum_pressure,6.36,psi,11,
+SHRT-17,ihx_intermediate_inlet_temperature,573.8,F,11,
+SHRT-17,full_power_hold,08:14 to 10:00,clock,9,after SHRT-26 shutdown 00:20 and restart 05:45 to 08:14
+SHRT-17,initial_decay_heat,3.36,MW,17,ANS LWR standard; decay parameters from a later run
+SHRT-17,initial_fission_power,53.93,MW,17,
+SHRT-17,control_rod_fuel_bundle_bottom_below_driver_bundle_bottom,14,in,21,fully inserted
+SHRT-17,safety_rod_fuel_bundle_bottom_below_driver_bundle_bottom,14,in,22,
+SHRT-45R,pump1_flow,4489.1,gpm at 800F,26,
+SHRT-45R,pump2_flow,4482.8,gpm at 800F,26,
+SHRT-45R,z_pipe_inlet_flow,8703.2,gpm at 800F,26,
+SHRT-45R,core_flow,8766.6,gpm at 800F,26,EBRFLOW per-SA flows total 9218 gpm and must be scaled
+SHRT-45R,pump1_discharge_pressure_excluding_gravity_head,41.84,psi,26,pump 2 not measured; assume equal
+SHRT-45R,upper_plenum_pressure,6.51,psi,26,
+SHRT-45R,ihx_intermediate_inlet_temperature,552.1,F,26,
+SHRT-45R,control_rod_fuel_bundle_bottom_below_driver_bundle_bottom,8.29,in,37,p.79 gives 21.29 cm; ARC-228 p.19 gives 21.06 cm
+SHRT-45R,safety_rod_fuel_bundle_bottom_below_driver_bundle_bottom,6.29,in,37,p.84 gives 15.94 cm; ARC-228 p.20 gives 15.97 cm
+SHRT-45R,control_rod_fuel_bundle_bottom_below_driver_bundle_bottom,21.29,cm,79,
+SHRT-45R,safety_rod_fuel_bundle_bottom_below_driver_bundle_bottom,15.94,cm,84,
+both,control_rod_travel,35.56 (14 inches),cm,79,ARC-228 p.19 gives 43.815 cm (17.25 in)
+both,safety_rod_travel,35.56 (14 inches),cm,84,ARC-228 p.20 gives 36.195 cm (14.25 in)
+SHRT-45R,pre_test_history,shut down ~1.5 months; 17.9 MW for 4.03 d; 60.0 MW for 1.64 d; 177 MW-days,-,24,simplified assumed history
+SHRT-45R,aux_em_pump_rating,0.25 psi at 500 gpm (900F sodium) with 1.4 V rectifier voltage and 9000 A,-,30,
+both,aux_em_pump_rated_head_fraction,0.5,% of nominal pump head,106,
+both,primary_mass_flow_rated,485,kg/s,3,typical operation
+both,intermediate_mass_flow_rated,315,kg/s,3,
+both,steam_mass_flow_rated,32,kg/s,3,
+both,primary_tank_sodium,approximately 340 m3 at 371C,-,3,
+both,high_pressure_plenum_flow_share,approximately 85,% of primary flow,3,

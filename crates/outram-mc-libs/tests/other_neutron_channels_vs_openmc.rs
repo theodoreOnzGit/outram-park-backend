@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The other neutron-emitting reactions are transported, on both routes, as
 //! OpenMC transports them** — GitHub #365 audit.
@@ -51,6 +51,8 @@
 //! # Results (2026-09-29)
 //!
 //! Printed by the test and recorded in the #365 thread.
+
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::position::Direction;

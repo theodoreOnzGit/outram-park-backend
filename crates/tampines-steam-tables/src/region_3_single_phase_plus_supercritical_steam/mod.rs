@@ -18,6 +18,9 @@
 //! ~0.5 K of the critical point (Tc ~= 647.096 K, pc ~= 22.064 MPa);
 //! prefer the forward `(rho,T)` equations there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const REGION_3_COEFFS: [[f64; 3]; 40] = [
     [0.0, 0.0, 0.10658070028513e1],
     [0.0, 0.0, -0.15732845290239e2],

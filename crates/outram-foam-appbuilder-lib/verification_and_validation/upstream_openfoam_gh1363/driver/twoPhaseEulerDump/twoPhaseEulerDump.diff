@@ -1,0 +1,72 @@
+--- a/twoPhaseEulerFoam.C	2026-11-13 20:17:19.803323639 +0000
++++ b/twoPhaseEulerFoam.C	2026-11-13 20:17:37.668380264 +0000
+@@ -42,6 +42,7 @@
+ #include "pimpleControl.H"
+ #include "fvOptions.H"
+ #include "fixedValueFvsPatchFields.H"
++#include "dump.H"
+ 
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+ 
+@@ -107,14 +108,14 @@
+             if (faceMomentum)
+             {
+                 #include "pUf/UEqns.H"
+-                #include "EEqns.H"
++                // EEqns.H not solved (gh:1363 row 5: rhoConst)
+                 #include "pUf/pEqn.H"
+                 #include "pUf/DDtU.H"
+             }
+             else
+             {
+                 #include "pU/UEqns.H"
+-                #include "EEqns.H"
++                // EEqns.H not solved (gh:1363 row 5: rhoConst)
+                 #include "pU/pEqn.H"
+                 #include "pU/DDtU.H"
+             }
+--- a/pU/pEqn.H	2026-11-13 20:17:19.803197201 +0000
++++ b/pU/pEqn.H	2026-11-13 20:18:01.182522449 +0000
+@@ -296,6 +296,26 @@
+           + (alpha2*psi2/rho2)*correction(fvm::ddt(p_rgh));
+     }
+ 
++    {
++        const int st = runTime.timeIndex(); const label nc = mesh.nCells(); const label nf = mesh.nInternalFaces();
++        dumpS(st, "Kd", Kd.primitiveField(), nc);
++        dumpS(st, "rAU1", rAU1.primitiveField(), nc);
++        dumpS(st, "rAU2", rAU2.primitiveField(), nc);
++        dumpV(st, "HbyA1", HbyA1.primitiveField(), nc);
++        dumpV(st, "HbyA2", HbyA2.primitiveField(), nc);
++        dumpS(st, "phiHbyA1", phiHbyA1.primitiveField(), nf);
++        dumpS(st, "phiHbyA2", phiHbyA2.primitiveField(), nf);
++        dumpS(st, "phiHbyA", phiHbyA.primitiveField(), nf);
++        dumpS(st, "rAUf", rAUf.primitiveField(), nf);
++        dumpS(st, "alphaf1", alphaf1.primitiveField(), nf);
++        dumpS(st, "phig1", phig1.primitiveField(), nf);
++        dumpS(st, "phig2", phig2.primitiveField(), nf);
++        dumpS(st, "alpharAUf1", alpharAUf1.primitiveField(), nf);
++        dumpS(st, "alpharAUf2", alpharAUf2.primitiveField(), nf);
++        dumpS(st, "ghSnGradRho", ghSnGradRho.primitiveField(), nf);
++        dumpS(st, "rho", rho.primitiveField(), nc);
++        dumpS(st, "gh", gh.primitiveField(), nc);
++    }
+     // Cache p prior to solve for density update
+     volScalarField p_rgh_0(p_rgh);
+ 
+@@ -389,6 +409,15 @@
+         }
+     }
+ 
++    {
++        const int st = runTime.timeIndex(); const label nc = mesh.nCells(); const label nf = mesh.nInternalFaces();
++        dumpS(st, "p_rgh", p_rgh.primitiveField(), nc);
++        dumpS(st, "phi1", phi1.primitiveField(), nf);
++        dumpS(st, "phi2", phi2.primitiveField(), nf);
++        dumpV(st, "U1", U1.primitiveField(), nc);
++        dumpV(st, "U2", U2.primitiveField(), nc);
++        dumpS(st, "alpha1", alpha1.primitiveField(), nc);
++    }
+     // Update and limit the static pressure
+     p = max(p_rgh + rho*gh, pMin);
+ 

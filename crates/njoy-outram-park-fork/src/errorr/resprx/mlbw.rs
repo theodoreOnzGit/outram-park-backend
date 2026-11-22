@@ -22,6 +22,9 @@
 //! `P_l(|ER|)`, which the caller re-evaluates whenever it perturbs `ER` or
 //! the scattering radius.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, PI};
 use crate::reconr::slbw::WAVE_K;

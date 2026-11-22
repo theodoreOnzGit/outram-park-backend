@@ -30,6 +30,9 @@
 //! adaptively to a tolerance; that refinement (and the liquid `cliq` small-α
 //! correction) are future accuracy work, noted where they apply.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::mf7::{interp_s_temperature, AlphaTable, IncoherentInelastic};
 use crate::common::phys::BK_EV_PER_K;
@@ -69,6 +72,34 @@ fn invert_cdf(x: &[f64], cum: &[f64], target: f64) -> f64 {
 const SABFLG: f64 = -225.0;
 
 impl IncoherentInelastic {
+    /// THERMR's **free-gas** scatterer (`iinc = 1`): `calcem`'s synthetic
+    /// 45-point `β` grid (`thermr.f90:1862-1912`), `lat = 0`, `lasym = 0`,
+    /// no table. `awr` is the PENDF's `AWR` (`az = scr(2)`), `natom` card 2's
+    /// (only so that `B(1)/natom = 1`, i.e. `smz = 1`, `:1913`).
+    pub fn free_gas(awr: f64, temp_k: f64, natom: f64) -> Self {
+        let beta = vec![
+            0.0, 0.1, 2.0, 4.0, 6.0, 8.0, 10.0, 15.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0,
+            75.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 600.0, 700.0,
+            800.0, 900.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0, 2250.0, 2500.0, 2750.0, 3000.0, 3500.0,
+        ];
+        Self {
+            lat: 0,
+            lasym: 0,
+            lln: 0,
+            b: vec![natom, 0.0, awr, 0.0, 0.0, natom],
+            temperature_k: temp_k,
+            beta,
+            s_tables: Vec::new(),
+            tabulated_temperatures_k: vec![temp_k],
+            temp_interp: Vec::new(),
+            teff_table: Vec::new(),
+            temperature_bracket: None,
+            teff_request_k: None,
+            free_gas: true,
+            secondary_sct: None,
+        }
+    }
+
     /// Mass ratio `A` of the principal scatterer (`B(3)`).
     pub fn mass_ratio(&self) -> f64 {
         self.b[2]
@@ -133,6 +164,26 @@ impl IncoherentInelastic {
         }
     }
 
+    /// THERMR's free-gas kernel, `sig` label 200 (`thermr.f90:2602-2609`):
+    /// `s = exp(-(α+β)²/(4α)) / (c√α)` with `c = √(4π)`, and
+    /// `σ = σc·sb·s` where `sb = ((A+1)/A)²` (`smz = 1`, `:1913-1914`).
+    fn free_gas_double_differential(&self, e: f64, ep: f64, mu: f64, temp_k: f64, natom: f64) -> f64 {
+        const AMIN: f64 = 1.0e-6;
+        let tev = BK_EV_PER_K * temp_k;
+        let rtev = 1.0 / tev;
+        let bb = (ep - e) * rtev;
+        let mut a = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (self.mass_ratio() * tev);
+        if a < AMIN {
+            a = AMIN;
+        }
+        let sigc = (ep / e).sqrt() * rtev / 2.0;
+        let c = (4.0 * core::f64::consts::PI).sqrt();
+        let arg = (a + bb) * (a + bb) / (4.0 * a);
+        let s = if -arg > SABFLG { (-arg).r_exp() / (c * a.sqrt()) } else { 0.0 };
+        let sig = sigc * self.sigma_bound(natom) * s;
+        if sig.is_finite() && sig > 0.0 { sig } else { 0.0 }
+    }
+
     /// [`double_differential`](Self::double_differential) against an explicit
     /// set of `S(α)` tables at their own temperature `temp_k` — the single-
     /// temperature worker the public method dispatches to.
@@ -147,6 +198,9 @@ impl IncoherentInelastic {
     ) -> f64 {
         if e <= 0.0 || ep <= 0.0 {
             return 0.0;
+        }
+        if self.free_gas {
+            return self.free_gas_double_differential(e, ep, mu, temp_k, natom);
         }
         let tev = BK_EV_PER_K * temp_k;
         let a_mass = self.mass_ratio();
@@ -267,9 +321,14 @@ impl IncoherentInelastic {
     /// A tabulated *secondary* SCT scatterer (`B(7)=0`, e.g. some polyethylene
     /// evaluations) would add a second such term with its own `σ_b2`, mass ratio
     /// and `T_eff2`; H-in-H₂O sets `B(7)=1` (free-gas oxygen, handled outside
-    /// THERMR) so `σ_b2 = 0` and only the principal term contributes. Because the
+    /// THERMR) so `σ_b2 = 0` and only the principal term contributes. ~~Because the
     /// secondary `T_eff2` table is not retained, a nonzero secondary term is
-    /// skipped with its share dropped — see the module caveats.
+    /// skipped with its share dropped — see the module caveats.~~
+    /// **CORRECTED 2026-11-14 (gh:#1375):** the second term is added when
+    /// [`secondary_sct`](super::mf7::IncoherentInelastic::secondary_sct) is set,
+    /// which THERMR's NJOY-deck path does for an ENDF-4/5 BeO (1099) or benzene
+    /// (1095) from `gatef2`. An ENDF-6 tape's own second atom is still not read
+    /// (its `T_eff2` TAB1); the deck path refuses it by name.
     ///
     /// `a_tab`, `b_tab` are the table variables the caller looked up with (α
     /// floored at `amin`, and scaled by `kT/kT₀` when `LAT = 1`); label 170
@@ -287,7 +346,7 @@ impl IncoherentInelastic {
             (a_tab, b_tab)
         };
         let sigc = (ep / e).sqrt() * rtev / 2.0;
-        let c = (4.0 * std::f64::consts::PI).sqrt();
+        let c = (4.0 * core::f64::consts::PI).sqrt();
 
         // Principal scatterer (thermr.f90 lines 2584–2587).
         // T_eff in eV, at the requested temperature where calcem reads it
@@ -298,6 +357,18 @@ impl IncoherentInelastic {
         if -arg > SABFLG {
             let s = (-arg).r_exp() / (c * (a * teff * rtev).sqrt());
             sig += sigc * self.sigma_bound(natom) * s;
+        }
+        // The second SCT atom of a mixed moderator (`thermr.f90:2588-2594`):
+        // `a=a*az/az2`, `tfff2=teff2` (in eV, `:1926`), `sig=sig+sigc*sb2*s2`
+        // (gh:#1375).
+        if let Some(s2) = self.secondary_sct {
+            if s2.sb2 > 0.0 {
+                let a2 = a * self.mass_ratio() / s2.az2;
+                let tfff2 = s2.teff2_k * BK_EV_PER_K;
+                let arg2 = (a2 - b).r_powi(2) * tev / (4.0 * a2 * tfff2) + (b + bb) / 2.0;
+                let s2v = if -arg2 > SABFLG { (-arg2).r_exp() / (c * (a2 * tfff2 * rtev).sqrt()) } else { 0.0 };
+                sig = sig + sigc * s2.sb2 * s2v;
+            }
         }
         if sig.is_finite() && sig > 0.0 {
             sig
@@ -934,12 +1005,14 @@ mod tests {
     use crate::endf::tape::Tape;
     use std::fs::File;
 
+    #[cfg(feature = "std")]
     fn al27() -> IncoherentInelastic {
         let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, 53).unwrap().incoherent_inelastic.unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn bound_cross_section_is_physical() {
         let ii = al27();
@@ -949,6 +1022,7 @@ mod tests {
         assert!((ii.mass_ratio() - 26.75).abs() < 0.1);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn double_differential_nonnegative_and_finite() {
         let ii = al27();
@@ -961,6 +1035,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn inelastic_cross_section_is_positive_and_finite() {
         let ii = al27();
@@ -974,6 +1049,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn cross_section_rises_toward_free_gas_limit() {
         // For this cold (T=20 K) crystal the incoherent-inelastic cross section is

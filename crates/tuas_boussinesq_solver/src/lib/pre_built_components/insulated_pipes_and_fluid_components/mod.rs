@@ -36,6 +36,9 @@
 //! - `tests` — verification/validation tests (private).
 //! - `tutorials` — worked user-guide examples (private).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;

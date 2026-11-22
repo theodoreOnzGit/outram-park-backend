@@ -253,6 +253,68 @@ pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 {
     )
 }
 
+/// Number of independent streams OpenMC gives each particle
+/// (`include/openmc/random_lcg.h`, `N_STREAMS`).
+pub const N_STREAMS: usize = 4;
+/// Stream used for tracking (`STREAM_TRACKING`).
+pub const STREAM_TRACKING: usize = 0;
+/// Stream used for source sampling (`STREAM_SOURCE`).
+pub const STREAM_SOURCE: usize = 1;
+/// Stream used for URR probability-table draws (`STREAM_URR_PTABLE`).
+pub const STREAM_URR_PTABLE: usize = 2;
+/// Stream used for stochastic volume calculation (`STREAM_VOLUME`).
+pub const STREAM_VOLUME: usize = 3;
+
+/// `future_seed_coefficients(n)` of OpenMC `src/random_lcg.cpp` (8f79d9d0):
+/// the `(multiplier, increment)` pair with `x_n = multiplier * x_0 + increment`
+/// (mod 2^64), by F. Brown's O(log n) algorithm. Same operation order as
+/// upstream; [`future_seed`] is this pair applied to a seed.
+pub fn future_seed_coefficients(mut n: u64) -> (u64, u64) {
+    let mut g = MULT;
+    let mut c = INC;
+    let mut g_new: u64 = 1;
+    let mut c_new: u64 = 0;
+    while n > 0 {
+        if n & 1 == 1 {
+            g_new = g_new.wrapping_mul(g);
+            c_new = c_new.wrapping_mul(g).wrapping_add(c);
+        }
+        c = c.wrapping_mul(g.wrapping_add(1));
+        g = g.wrapping_mul(g);
+        n >>= 1;
+    }
+    (g_new, c_new)
+}
+
+/// Port of `init_particle_seeds(id, seeds)` (OpenMC `src/random_lcg.cpp`,
+/// commit `8f79d9d0`): the `N_STREAMS` starting seeds of one particle,
+/// `seeds[i] = multiplier * (master_seed + i) + increment` with
+/// `(multiplier, increment) = future_seed_coefficients(id * stride)`.
+///
+/// `id` is OpenMC's *transport seed* index (see
+/// `outram_mc_libs::rng::openmc_seeding`), `stride` its `prn_stride`
+/// ([`DEFAULT_STRIDE`] unless `openmc_set_stride` was called). Equal to
+/// `init_seed(id, i, master_seed)` stream by stream, computed with one
+/// coefficient pair instead of four jump-aheads.
+///
+/// ```
+/// use petir::rng::lcg::{init_particle_seeds, init_seed, DEFAULT_STRIDE, N_STREAMS};
+/// let s = init_particle_seeds(7, 1, DEFAULT_STRIDE);
+/// for i in 0..N_STREAMS {
+///     assert_eq!(s[i], init_seed(7, i as i64, 1));
+/// }
+/// ```
+pub fn init_particle_seeds(id: i64, master_seed: i64, stride: u64) -> [u64; N_STREAMS] {
+    let (multiplier, increment) = future_seed_coefficients((id as u64).wrapping_mul(stride));
+    let mut seeds = [0u64; N_STREAMS];
+    for (i, s) in seeds.iter_mut().enumerate() {
+        *s = multiplier
+            .wrapping_mul(master_seed.wrapping_add(i as i64) as u64)
+            .wrapping_add(increment);
+    }
+    seeds
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

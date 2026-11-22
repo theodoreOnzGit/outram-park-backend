@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! **Bit-identity gate for replacing `CoreInventory` with outram-mc's
 //! `RadionuclideInventory`** (GitHub issue #951, 2026-10-17).

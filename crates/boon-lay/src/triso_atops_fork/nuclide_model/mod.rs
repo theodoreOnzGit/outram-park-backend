@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -9,7 +9,7 @@
 //                     `noble_gases`, `halogens`, `special_metals` lists)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
 //                    (DOE contract DE-AC07-05ID14517)
-// This port is distributed under GPL-3.0 as part of the combined boon-lay work;
+// This port is distributed under AGPL-3.0-only as part of boon-lay;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
 
 //! # Nuclide model — species records and transport groups
@@ -40,6 +40,9 @@
 //! [`crate::triso_atops_fork::run_selection`] (`SelectedNuclide`), which is
 //! implemented.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod nuclide_database;
 
 pub use nuclide_database::{supported_nuclides, TRISO_ATOPS_NUCLIDE_COUNT};
@@ -117,7 +120,7 @@ impl TrisoAtopsNuclide {
     #[must_use]
     pub fn decay_constant(&self) -> DecayConstant {
         let t_half_s = self.half_life.get::<second>();
-        Frequency::new::<hertz>(std::f64::consts::LN_2 / t_half_s)
+        Frequency::new::<hertz>(core::f64::consts::LN_2 / t_half_s)
     }
 
     /// The transport [`ElementGroup`] this nuclide belongs to, from its `Z`.
@@ -272,7 +275,7 @@ mod tests {
         let lam = cs137.decay_constant().get::<hertz>();
         assert_relative_eq!(
             lam,
-            std::f64::consts::LN_2 / 949_232_333.0,
+            core::f64::consts::LN_2 / 949_232_333.0,
             max_relative = 1e-12
         );
         assert_relative_eq!(lam, 7.302e-10, max_relative = 1e-3);

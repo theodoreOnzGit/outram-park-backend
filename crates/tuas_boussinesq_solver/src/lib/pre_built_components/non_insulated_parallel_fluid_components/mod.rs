@@ -22,6 +22,9 @@
 //! - [`type_conversion`] — conversion into a `FluidComponent` enum variant.
 //! - [`tests`] — verification tests for the parallel-tube treatment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;

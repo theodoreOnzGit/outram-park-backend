@@ -67,6 +67,9 @@
 //! the crate's brute force uses. Bit-identity with the brute force needs the
 //! same projection.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use petir::mathf::RealMath;
 use crate::mesh_octree::{
@@ -207,7 +210,7 @@ impl MeshOctree {
     /// sizes); it changes speed, not answers, with [`NearestSearch::Exact`].
     pub fn for_nearest_queries(points: &[Vec3], tris: &[[usize; 3]]) -> Self {
         let surf = crate::mesh_octree::TriSurf::new(points.to_vec(), tris.to_vec(), None);
-        let mut o = MeshOctree::new(std::sync::Arc::new(surf));
+        let mut o = MeshOctree::new(alloc::sync::Arc::new(surf));
         loop {
             let split: Vec<usize> = o
                 .leaves
@@ -678,7 +681,7 @@ impl MeshOctree {
         for _ in 0..4 {
             let half = Vec3::new(s, s, s);
             let bb = BoundBox::new(p.sub(half), p.add(half));
-            let mut checked = std::collections::BTreeSet::new();
+            let mut checked = alloc::collections::BTreeSet::new();
             for ci in self.leaves_in_box(&bb) {
                 let Some(r) = self.cube(ci).contained_elements else {
                     continue;
@@ -742,7 +745,7 @@ impl MeshOctree {
                     .map_or(nearest, |h| h.point);
                 np = np.add(q);
             }
-            np = np.scale(1.0 / patches.len() as f64);
+            np = np.div(patches.len() as f64);
             dist_sq = mag_sqr(np.sub(p));
             if mag_sqr(np.sub(nearest)) < tol * dist_sq {
                 break;
@@ -767,7 +770,7 @@ pub(crate) mod tests {
     use crate::mesh_octree::tests::data_octree;
     use crate::mesh_octree::TriSurf;
     use crate::shapes::{cylinder_surface, sphere_surface};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// The 48-sided demo pipe (R 10 mm, L 60 mm), regions 0 `walls`, 1
     /// `inlet` (z = 0), 2 `outlet` (z = L), as `pipeline`'s tests label it.
@@ -867,7 +870,7 @@ pub(crate) mod tests {
             let g = bb.span().scale(0.2);
             let pts = samples(10_000, bb.min.sub(g), bb.max.add(g), 12345);
 
-            let t0 = std::time::Instant::now();
+            let t0 = crate::time::Instant::now();
             let brute: Vec<(Vec3, usize)> = pts
                 .iter()
                 .map(|&p| {
@@ -878,13 +881,13 @@ pub(crate) mod tests {
                 })
                 .collect();
             let t_brute = t0.elapsed();
-            let t1 = std::time::Instant::now();
+            let t1 = crate::time::Instant::now();
             let exact: Vec<NearestHit> = pts
                 .iter()
                 .map(|&p| o.find_nearest_surface_point_with(p, NearestSearch::Exact, TriangleProjection::Ericson, None).unwrap())
                 .collect();
             let t_exact = t1.elapsed();
-            let t2 = std::time::Instant::now();
+            let t2 = crate::time::Instant::now();
             let up: Vec<NearestHit> = pts.iter().map(|&p| o.find_nearest_surface_point(p).unwrap()).collect();
             let t_up = t2.elapsed();
 
@@ -911,6 +914,7 @@ pub(crate) mod tests {
                     worst_rel = worst_rel.max((du - b) / b);
                 }
             }
+            #[cfg(feature = "std")]
             println!(
                 "{name}: {} leaves; exact: {n_point_diff} point / {n_tri_diff} triangle differences; \
                  upstream rule misses {n_up_miss} of 10000 (worst +{:.3} %); time brute {:?}, exact {:?}, upstream {:?}",
@@ -952,15 +956,15 @@ pub(crate) mod tests {
         for l in 0..n {
             let cc = o.return_leaf(l).coords;
             let all = o.find_all_leaf_neighbours(&cc);
-            let got: std::collections::BTreeSet<usize> = all.iter().flatten().copied().collect();
-            let brute: std::collections::BTreeSet<usize> =
+            let got: alloc::collections::BTreeSet<usize> = all.iter().flatten().copied().collect();
+            let brute: alloc::collections::BTreeSet<usize> =
                 (0..n).filter(|&m| m != l && touch(&boxes[l], &boxes[m], tol)).collect();
             assert_eq!(got, brute, "leaf {l} {cc:?}");
             for m in &got {
                 max_jump = max_jump.max((o.return_leaf(*m).coords.level as i32 - cc.level as i32).abs());
             }
-            let faces: std::collections::BTreeSet<usize> = o.find_neighbours_for_leaf(&cc).into_iter().flatten().collect();
-            let brute_faces: std::collections::BTreeSet<usize> = brute
+            let faces: alloc::collections::BTreeSet<usize> = o.find_neighbours_for_leaf(&cc).into_iter().flatten().collect();
+            let brute_faces: alloc::collections::BTreeSet<usize> = brute
                 .iter()
                 .copied()
                 .filter(|&m| {
@@ -992,7 +996,7 @@ pub(crate) mod tests {
         let (q, _, e) = o.find_nearest_edge_point(p, &[0, 1]).expect("rim edge found");
         assert!(q.z.abs() < 1e-15 && surf.is_region_edge(e));
         let r = (q.x * q.x + q.y * q.y).sqrt();
-        assert!(r > 0.01 * (std::f64::consts::PI / 48.0).cos() - 1e-12 && r <= 0.01 + 1e-12);
+        assert!(r > 0.01 * (core::f64::consts::PI / 48.0).cos() - 1e-12 && r <= 0.01 + 1e-12);
         let (_, _, e2) = o
             .find_nearest_point_to_edge([Vec3::new(0.0098, -0.0004, 0.0003), Vec3::new(0.0098, 0.0012, 0.0003)], [1, 0])
             .expect("edge near the line");

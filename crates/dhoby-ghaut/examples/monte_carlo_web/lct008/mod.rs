@@ -37,8 +37,7 @@ pub mod spec;
 
 /// The reflective pin cell of the recorded pitch sweep (`lct008_pitch_sweep.rs`),
 /// shared unchanged so the slider and the record transport one model.
-#[path = "../../../../outram-mc-libs/examples/common/lct008_pin_cell.rs"]
-pub mod pin_cell;
+pub use outram_mc_libs::vv::lct008 as pin_cell;
 
 /// The recorded sweep the slider's points are drawn against: outram-mc and
 /// OpenMC, 11-nuclide tier, case-1 borated water, 5000 × [50 + 200], seed 1,
@@ -351,7 +350,7 @@ impl PinRun {
             ..KeffSettings::default()
         };
         let (m, n) = (&phys.data.materials, &phys.data.nuclides);
-        let it = CsgPowerIteration::new(&geometry, m, n, pin_cell::source_box(model::R_FUEL), &settings);
+        let it = CsgPowerIteration::new(&geometry, m, n, pin_cell::pin_source_box(model::R_FUEL), &settings);
         Ok(Self { pitch, geometry, it, total: cfg.n_inactive + cfg.n_active })
     }
     pub fn step(&mut self, phys: &sim::Physics) -> Option<KinfGeneration> {

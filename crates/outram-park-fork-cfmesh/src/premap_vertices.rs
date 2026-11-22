@@ -57,6 +57,9 @@
 //! ([`NearestSearch::Upstream`], [`TriangleProjection::Upstream`]). MPI is
 //! not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::mesh_octree::{BoundBox, MeshOctree};
@@ -131,6 +134,7 @@ pub fn pre_map_vertices(mesh: &mut VolumeMesh, o: &MeshOctree, points: &[Vec3], 
     let one = vec![0usize; mesh.face_count()];
     let mut engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &one);
     let nb = engine.n_boundary_points();
+    let octree_arc = alloc::sync::Arc::new(o.clone());
     let q = SurfaceQueries::new(points, tris, regions);
     let mean_dist = |m: &VolumeMesh, e: &SurfaceEngine| {
         let s: f64 = e.boundary_points.iter().map(|&v| q.nearest(m.points[v]).sub(m.points[v]).length()).sum();
@@ -196,7 +200,8 @@ pub fn pre_map_vertices(mesh: &mut VolumeMesh, o: &MeshOctree, points: &[Vec3], 
                 c = c.add(fc.scale(w));
                 s += w;
             }
-            targets.push(c.scale(1.0 / s));
+            // `lps.coordinates() /= lps.scalarValue()`: each component divided
+            targets.push(c.div(s));
         }
         let mut n_moved = 0;
         let mut n_without = 0;
@@ -226,7 +231,7 @@ pub fn pre_map_vertices(mesh: &mut VolumeMesh, o: &MeshOctree, points: &[Vec3], 
         engine.update_geometry_all(&mesh.points);
         // meshSurfaceOptimizer(surfaceEngine_, meshOctree_).untangleSurface()
         let part = SurfacePartitioner::new(&engine);
-        let mut opt = MeshSurfaceOptimizer::new(engine.clone(), part, Some(SurfaceQueries::new(points, tris, regions)));
+        let mut opt = MeshSurfaceOptimizer::new(engine.clone(), part, Some(SurfaceQueries::new(points, tris, regions).with_octree(octree_arc.clone())));
         let u = opt.untangle_surface(&mut mesh.points, 2);
         rep.n_inverted_last = u.n_inverted_last;
         engine.update_geometry_all(&mesh.points);
@@ -258,6 +263,7 @@ mod tests {
         let mut m = cartesian_mesh_extractor(&o, &CartesianMeshOptions::default()).mesh;
         let reg = SurfaceRegions::single("defaultFaces", t.len());
         let rep = pre_map_vertices(&mut m, &o, &p, &t, &reg, 3);
+        #[cfg(feature = "std")]
         println!("preMapVertices: {rep:?}; ratio {:.4}", rep.mean_distance.1 / rep.mean_distance.0);
         assert_eq!(rep.n_iterations, 3);
         assert_eq!(rep.n_without_patch, 0);

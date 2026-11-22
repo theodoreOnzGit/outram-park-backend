@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Example 1:
 ///
 /// This example shows how to create a simple pipe
@@ -13,7 +16,7 @@
 /// This does not take inclined angles into consideration yet
 #[test]
 pub fn simple_fluid_pipe_example_1() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::pressure::pascal;
     use uom::si::pressure::kilopascal;

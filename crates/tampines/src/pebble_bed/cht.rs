@@ -94,6 +94,9 @@
 //! [`outram_park_fork_coolprop`]'s), bed pressure drop, effective conduction
 //! through the bed ([`super::zbs`]), or anything inside a pebble.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{
     DynamicViscosity, HeatTransfer, Length, LinearNumberDensity, MassDensity, Ratio,
@@ -506,8 +509,8 @@ mod tests {
 
         // independent route: count the pebbles in a cubic metre of bed
         let pebble_radius: f64 = 0.03;
-        let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * pebble_radius.r_powi(3);
-        let pebble_surface = 4.0 * std::f64::consts::PI * pebble_radius.r_powi(2);
+        let pebble_volume = 4.0 / 3.0 * core::f64::consts::PI * pebble_radius.r_powi(3);
+        let pebble_surface = 4.0 * core::f64::consts::PI * pebble_radius.r_powi(2);
         let pebbles_per_cubic_metre = (1.0 - 0.39) / pebble_volume;
         let surface_per_cubic_metre = pebbles_per_cubic_metre * pebble_surface;
         println!(

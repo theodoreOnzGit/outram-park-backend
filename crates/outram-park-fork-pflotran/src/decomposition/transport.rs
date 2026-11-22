@@ -22,6 +22,9 @@
 //! non-uniform flow, TVD, Dirichlet boundaries, and the RICHARDS/energy timesteps
 //! are the remaining op-gj5 follow-ups.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::limiters::FluxLimiter;
 use outram_park_mpi::{Communicator, MpiResult};
 

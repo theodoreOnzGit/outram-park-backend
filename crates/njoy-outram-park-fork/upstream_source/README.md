@@ -8,7 +8,12 @@
 - **Repository:** <https://github.com/njoy/NJOY2016>
 - **License:** Modified BSD 3-Clause (LANL/DOE variant)
 - **Branch tracked:** `master`
-- **Commit at last sync:** `ac5adf5f33d893e42f2eed7fb286b0d51c7580da` (version 2016.79)
+- **Commit at last sync:** ~~`ac5adf5f33d893e42f2eed7fb286b0d51c7580da` (version 2016.79)~~ **CORRECTED 2026-11-10 (gh:#1368):**
+  `ab27c6414a0f25b173f2b637e6dc7e428fdaff00` (version 2016.80, 2026-10-08). `git diff ac5adf5..ab27c64 -- src` is three files: `samm.f90`
+  (`bigeta` K0/K1 harmonic step `1./(k+1)`, fix #415), `acefc.f90` (`acelf6` `ismooth` `eout1.eq.0` guard, `7d317f8`) and `vers.f90`
+  (version string only); all of it is in the port (checked by `diff -r` of the 2016.79 and 2016.80 `src/` trees, since the
+  2016.79 tree is a `git archive`). The `file:line` citations in the port's doc comments still use 2016.79 numbering: in `samm.f90`
+  no line moved, in `acefc.f90` lines after 7547 are 3 higher in 2016.80.
 - **Clone command:** `git clone https://github.com/njoy/NJOY2016.git upstream_source/NJOY2016`
 
 ## Provenance
@@ -50,3 +55,18 @@ clone it fresh if not already present:
 ```bash
 git clone https://github.com/njoy/NJOY2016.git upstream_source/NJOY2016
 ```
+
+## Differential-test clones (2026-11-10, gh:#1366)
+
+- `upstream_source/NJOY2016/` -- sparse blobless clone (`src/` only) checked out at **2016.80**
+  `ab27c6414a0f25b173f2b637e6dc7e428fdaff00` (2026-10-08), accessed 2026-11-10; modified BSD-3 (LANL),
+  see `LICENSE.njoy`.
+- `upstream_source/NJOY2016-2016.79/src/` -- `git archive` of 2016.79 `ac5adf5f33d893e42f2eed7fb286b0d51c7580da`
+  (the port's previous baseline), for before/after comparisons.
+- Both gitignored. Used by `verification_and_validation/upstream_units/*/run.sh` (set `NJOY_UPSTREAM_SOURCE` to this folder
+  from another worktree).
+- **Full build of 2016.80 (2026-11-10, gh:#1368):** a second sparse clone of `ab27c64` (`src`, `tests/88`, `tests/resources`),
+  built with `cmake -DCMAKE_BUILD_TYPE=Release ..` and `make -j1` in `NJOY2016/build/` (gfortran 13.3.0) after switching off
+  `add_subdirectory( tests )` in the clone's root `CMakeLists.txt` (the sparse clone lacks the other 86 test directories).
+  Ran upstream test 88 (`moder; reconr; moder` on `tests/resources/n-020_Ca_040-ENDF8.0.endf`): `tape50` equals upstream's
+  `referenceTape50` byte for byte. The tape and PENDF are committed under `reference-data/endf/` and `reference-data/reconr/`.

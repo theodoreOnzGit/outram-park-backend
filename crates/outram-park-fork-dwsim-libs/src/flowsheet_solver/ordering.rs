@@ -60,6 +60,9 @@
 //! against the transcribed upstream logic and hand-traced orderings — they check
 //! "did we port it correctly?", not "does it represent physical reality?".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::{Flowsheet, ObjectId, ObjectType};
 use crate::flowsheet_solver::errors::SolverError;
 

@@ -25,6 +25,9 @@
 //! silently. **Copies elsewhere in the workspace** are named so the two cannot
 //! drift unnoticed; this crate cannot depend on those crates.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{ThermalConductivity, ThermodynamicTemperature};
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;

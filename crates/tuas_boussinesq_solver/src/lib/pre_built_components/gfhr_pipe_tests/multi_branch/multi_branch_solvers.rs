@@ -1,5 +1,8 @@
 // `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
 // semantics (gh:#989); see crate::numerical_methods.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::numerical_methods::{brent_root, relative_bracketed_root, SimpleConvergency};
 use petir::roots::BracketingMethod;
 
@@ -48,16 +51,16 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
     //
     // I will do forward and reverse flow for all branches
 
-    let pressure_change_est_vector_forward_direction: Vec<Pressure> = 
+    let pressure_change_est_vector_forward_direction: Vec<Pressure> =
         <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
         obtain_pressure_estimate_vector(
-            individual_branch_guess_upper_bound_mass_flowrate, 
+            individual_branch_guess_upper_bound_mass_flowrate,
             fluid_component_collection_vector);
 
-    let pressure_change_est_vector_backward_direction: Vec<Pressure> = 
+    let pressure_change_est_vector_backward_direction: Vec<Pressure> =
         <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
         obtain_pressure_estimate_vector(
-            -individual_branch_guess_upper_bound_mass_flowrate, 
+            -individual_branch_guess_upper_bound_mass_flowrate,
             fluid_component_collection_vector);
 
     // from these I should be able to get a vector of pressure
@@ -70,17 +73,17 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
     ]
     .concat();
 
-    let average_pressure_at_guessed_average_flow: Pressure = 
+    let average_pressure_at_guessed_average_flow: Pressure =
         <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
         obtain_average_pressure_from_vector(
             &pressure_change_forward_and_backward_est_vector);
 
-    let max_pressure_change_at_guessed_average_flow = 
+    let max_pressure_change_at_guessed_average_flow =
         <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
         obtain_maximum_pressure_from_vector(
             &pressure_change_forward_and_backward_est_vector);
 
-    let min_pressure_change_at_guessed_average_flow = 
+    let min_pressure_change_at_guessed_average_flow =
         <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
         obtain_minimum_pressure_from_vector(
             &pressure_change_forward_and_backward_est_vector);
@@ -101,6 +104,7 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
         //
 
         let iterated_pressure = Pressure::new::<pascal>(branch_pressure_change_pascals);
+        #[cfg(feature = "std")]
         dbg!(&iterated_pressure);
         // this is the buggy step
         let iterated_mass_flowrate =
@@ -111,6 +115,7 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
         let mass_flowrate_error = iterated_mass_flowrate - user_specified_mass_flowrate;
 
+        #[cfg(feature = "std")]
         dbg!(&(
             iterated_pressure,
             iterated_mass_flowrate,
@@ -267,10 +272,12 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
         match pressure_change_pascals_result_user_specified_flow {
             Ok(pressure_change_pascals_user_specified_flow) => {
+                #[cfg(feature = "std")]
                 dbg!("Brent Dekker algo successful");
                 return Pressure::new::<pascal>(pressure_change_pascals_user_specified_flow);
             }
             Err(_error_msg) => {
+                #[cfg(feature = "std")]
                 dbg!("Brent Dekker algo failed");
             }
         }
@@ -293,16 +300,19 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
             convergency.max_iter,
             "gFHR multi-branch: pressure change from mass flowrate",
         );
+        #[cfg(feature = "std")]
         dbg!("inverse quadratic algo finished");
 
         match pressure_change_pascals_result_user_specified_flow {
             Ok(pressure_change_pascals_user_specified_flow) => {
                 // note: this method is successful... I'm able to give the
                 // pressure change required across all branches
+                #[cfg(feature = "std")]
                 dbg!("inverse quadratic algo successful");
                 return Pressure::new::<pascal>(pressure_change_pascals_user_specified_flow);
             }
             Err(_error_msg) => {
+                #[cfg(feature = "std")]
                 dbg!("inverse quadratic algo failed");
             }
         }
@@ -318,6 +328,7 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
             convergency.max_iter,
             "gFHR multi-branch: pressure change from mass flowrate",
         );
+        #[cfg(feature = "std")]
         dbg!("regula falsi algo finished");
         match pressure_change_pascals_result_user_specified_flow {
             Ok(pressure_change_pascals_user_specified_flow) => {

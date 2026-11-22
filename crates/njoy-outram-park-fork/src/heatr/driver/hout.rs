@@ -13,6 +13,9 @@
 //! into MF=3 by MT, and the rest of the material is copied. With a plot unit,
 //! the energy-balance check for `viewr` is written too.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::{nint, rows_of_tab1};
 use super::nheat::line14;

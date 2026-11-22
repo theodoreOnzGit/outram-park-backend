@@ -98,7 +98,10 @@
 //!   neither of which is in this crate's scope; their IDs are still listed and
 //!   their values reported as `f64::NAN` rather than fabricated.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use uom::si::f64::{MassRate, Power};
 use uom::si::mass_rate::kilogram_per_second;
