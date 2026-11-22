@@ -60,6 +60,8 @@ use super::egs_utilities_mortran::{alias_sample1, gauss_legendre, prepare_alias_
 use super::lit;
 use super::eemf_macros_mortran::{EemfField, EemfState, EemfStepVars, InitiateInput, PiiDirections, PiiInput};
 use petir::real::Real;
+// Integer powers through PETIR in every build (maintainer, 2026-11-22, gh:#1706).
+use petir::mathf::RealMath;
 
 /// `ANNIH_AT_REST` (`egsnrc.mortran:186-224`): the particle on top of the stack
 /// (a positron that has stopped) is replaced by `2 * nbr_split` annihilation
@@ -2869,8 +2871,8 @@ pub fn rayleigh_sigma(e: f64, x: &mut [f64], f: &mut [f64]) -> f64 {
         }
         let pow_x1 = super::libm::powf(x1, 2.0 * b);
         let pow_x2 = super::libm::powf(x2, 2.0 * b);
-        let mut raysig = pow_x2 * (x2 * x2 / (b + 1.0) - (c * x2.powi(4)) / (b + 2.0) + (c2 * x2.powi(6)) / (2.0 * b + 6.0));
-        raysig -= pow_x1 * (x1 * x1 / (b + 1.0) - (c * x1.powi(4)) / (b + 2.0) + (c2 * x1.powi(6)) / (2.0 * b + 6.0));
+        let mut raysig = pow_x2 * (x2 * x2 / (b + 1.0) - (c * x2.r_powi(4)) / (b + 2.0) + (c2 * x2.r_powi(6)) / (2.0 * b + 6.0));
+        raysig -= pow_x1 * (x1 * x1 / (b + 1.0) - (c * x1.r_powi(4)) / (b + 2.0) + (c2 * x1.r_powi(6)) / (2.0 * b + 6.0));
         raysig = raysig * f[i] * f[i] / pow_x1;
         sigma += raysig;
         if x[i + 1] > xmax {
@@ -6783,7 +6785,7 @@ impl EmField {
             let mut test = e0[0] * e0[0] + e0[1] * e0[1] + e0[2] * e0[2];
             if test != 0.0 {
                 let ef = [0.0_f64; 3]; // EFXF, EFYF, EFZF: unassigned upstream
-                test = ((ef[0] - e0[0]).powi(2) + (ef[1] - e0[1]).powi(2) + (ef[2] - e0[2]).powi(2)) / test;
+                test = ((ef[0] - e0[0]).r_powi(2) + (ef[1] - e0[1]).r_powi(2) + (ef[2] - e0[2]).r_powi(2)) / test;
                 if test != 0.0 && test < 1.0 {
                     *tustep = tustep.min(self.emlmt * *tustep / Real::sqrt(test));
                 }
@@ -8959,14 +8961,7 @@ pub struct SpinFits {
 /// `petir`'s `f32` `ln` is one ulp off in about 7 % of arguments
 /// (`tests/f32_math_vs_gfortran.rs`, gh:#1688).
 fn ln32(x: f32) -> f32 {
-    #[cfg(feature = "std")]
-    {
-        x.ln()
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        super::libm::ln(f64::from(x)) as f32
-    }
+    super::libm::ln(f64::from(x)) as f32
 }
 
 /// `init_spin` (`egsnrc.mortran:3309-3706`), from the decoded records: the

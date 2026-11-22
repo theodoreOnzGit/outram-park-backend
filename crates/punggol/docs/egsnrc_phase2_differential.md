@@ -13,6 +13,13 @@ library gfortran links). Without `std` they call PETIR's `sin`, `cos`, `tan`,
 round-off; the `no_std` build agrees with the reference to round-off, not bit
 for bit, and that is accepted.
 
+**CHANGED 2026-11-22 (maintainer: "make petir default even on std, I accept
+the last ulp change"; gh:#1706):** PETIR is now the maths route in every
+build, `std` included, so the bit-identity results below describe the
+platform route as it was when they were measured. The current code agrees
+with the compiled reference to last-bit round-off. The comparisons were not
+re-run after the change (they need the compiled EGSnrc in scratch).
+
 ## How the reference was built (scratch, nothing committed)
 
 EGSnrc `bd49a47a` read from a sparse clone (`HEN_HOUSE/{src,pegs4,mortran3,
