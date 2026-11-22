@@ -75,10 +75,10 @@
 //! **2026-11-22, like for like**, seed 20261013, 4-core Intel Xeon @
 //! 2.30 GHz, 4 threads, 15.7 GiB RAM:
 //!
-//! | budget | CSG pebble (8345 TRISO, DH packing) | DhUniverse pebble | CSG − DH |
-//! |---|---|---|---|
-//! | 4000 × \[10 + 50\] (the default) | 1.68625 ± 0.00185 (415 s, 0 lost) | 1.68850 ± 0.00197 (52 s) | **−225 ± 271 pcm (−0.83σ): passes** |
-//! | 10000 × \[50 + 200\] | 1.68863 ± 0.00056 (4026 s, 0 lost) | 1.68732 ± 0.00059 (313 s) | **+131 ± 81 pcm (+1.62σ): passes** |
+//! | budget | CSG pebble k (8345 TRISO, DH packing) | CSG time | DhUniverse pebble k | DH time | whole test (incl. data loading) | CSG − DH | verdict |
+//! |---|---|---|---|---|---|---|---|
+//! | 4000 × \[10 + 50\] (default) | 1.68625 ± 0.00185 (0 lost) | 415 s | 1.68850 ± 0.00197 | 52 s | 808 s (13.5 min; ~341 s loading) | −225 ± 271 pcm (−0.83σ) | passes |
+//! | 10000 × \[50 + 200\] | 1.68863 ± 0.00056 (0 lost) | 4026 s | 1.68732 ± 0.00059 | 313 s | 4669 s (77.8 min; ~330 s loading) | +131 ± 81 pcm (+1.62σ) | passes |
 //!
 //! The prediction holds at both budgets: on the same geometry the two
 //! trackers agree within 3σ, and at high statistics a tracker defect larger

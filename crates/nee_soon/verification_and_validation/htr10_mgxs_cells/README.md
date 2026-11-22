@@ -117,10 +117,10 @@ with zero.
 
 **Result** (2026-11-22, seed 20 261 013, 4-core Xeon @ 2.30 GHz):
 
-| budget | CSG pebble | DhUniverse pebble | CSG − DH |
-|---|---|---|---|
-| 4000 x [10 + 50] (default) | 1.68625 ± 0.00185 (415 s, 0 lost) | 1.68850 ± 0.00197 (52 s) | **−225 ± 271 pcm (−0.83σ): passes** |
-| 10000 x [50 + 200] | 1.68863 ± 0.00056 (4026 s, 0 lost) | 1.68732 ± 0.00059 (313 s) | **+131 ± 81 pcm (+1.62σ): passes** |
+| budget | CSG pebble k (8345 TRISO, DH packing) | CSG time | DhUniverse pebble k | DH time | whole test (incl. data loading) | CSG − DH | verdict |
+|---|---|---|---|---|---|---|---|
+| 4000 x [10 + 50] (default) | 1.68625 ± 0.00185 (0 lost) | 415 s | 1.68850 ± 0.00197 | 52 s | 808 s (13.5 min; ~341 s loading) | −225 ± 271 pcm (−0.83σ) | passes |
+| 10000 x [50 + 200] | 1.68863 ± 0.00056 (0 lost) | 4026 s | 1.68732 ± 0.00059 | 313 s | 4669 s (77.8 min; ~330 s loading) | +131 ± 81 pcm (+1.62σ) | passes |
 
 At high statistics, a tracker difference larger than about 250 pcm is
 excluded.
