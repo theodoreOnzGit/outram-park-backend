@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A real OpenMC library, converted, against `Nuclide::from_ace` on the ACE it
 //! was built from** (GitHub #303, acceptance row 2's precondition).

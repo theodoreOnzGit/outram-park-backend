@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Slowing down in energy only**: the collision kernel of the transport
 //! loop with the geometry taken away, shared by the examples that need it.

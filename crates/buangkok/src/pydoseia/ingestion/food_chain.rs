@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The food-chain equations of pyDOSEIA's `ingestion_dose`, one nuclide at a
 //! time, written in upstream's operation order. Ported from `dosefunc.py` and
 //! `raddcffunc.py` at commit `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`,

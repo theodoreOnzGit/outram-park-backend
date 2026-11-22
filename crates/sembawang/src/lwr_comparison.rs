@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! # HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453, #464)
 //!

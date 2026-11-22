@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Second-tranche groups of the pyDOSEIA code-to-code fixture: QUADPACK,
 //! ingestion, plume shine, DCF screening, plume rise and the driver. Included
 //! by `tests/pydoseia_code_to_code.rs`; the methodology and the results are in

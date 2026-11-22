@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **How big is OpenMC's `nu_fission` interpolation on a real evaluation?** —
 //! GitHub #463 item 5.

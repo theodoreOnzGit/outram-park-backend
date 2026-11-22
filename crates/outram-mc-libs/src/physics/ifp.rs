@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Iterated fission probability (IFP)** — adjoint-weighted `β_eff` and `Λ`.
 //! GitHub #262 scope item 4.

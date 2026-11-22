@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Point-kinetics parameters from a Monte Carlo run** — the effective
 //! delayed fraction `β_eff` and the neutron generation time `Λ`. GitHub #262.

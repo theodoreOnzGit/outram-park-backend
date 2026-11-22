@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **The HTR-10 nuclear-data set, in one place: which nuclides, from which
 //! tapes, with which thermal laws, at which slots.**
 //!

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // TRISO-ATOPS fork — provenance
 // -----------------------------
@@ -8,7 +8,7 @@
 //                    (`convert_time`, `read_save_file`, `process_run_file`,
 //                     `check_run_file`, `read_profile`)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
-// Ported under GPL-3.0; see LICENSE.triso-atops and NOTICE.triso-atops.
+// Ported under AGPL-3.0-only; see LICENSE.triso-atops and NOTICE.triso-atops.
 
 //! The JSON run file: the document TRISO-ATOPS' GUI writes and its CLI reads.
 //!

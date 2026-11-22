@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The regression pin for GitHub #258** — adding variance reduction must not
 //! move a single bit of an analog run.

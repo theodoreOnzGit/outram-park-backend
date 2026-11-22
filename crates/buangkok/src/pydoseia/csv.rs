@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The minimal CSV reader the caller-supplied tables go through: no quoted
 //! fields, `#` comment lines and blank lines skipped, fields trimmed. Blank or
 //! unparsable numbers read as NaN, which is how pandas reads an empty cell.

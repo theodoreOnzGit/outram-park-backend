@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **gh:#261 — Experiment A: bin-for-bin tally-filter comparison against OpenMC
 //! 0.15.3, deterministic single-neutron beams.**

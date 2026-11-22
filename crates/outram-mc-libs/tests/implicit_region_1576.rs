@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate: a region of bare half-spaces is their implicit intersection**
 //! (GitHub #1576).

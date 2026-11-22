@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A centre-of-mass uncorrelated law (ACE `TY < 0`) is transformed to the
 //! laboratory, not dropped** — GitHub #365 audit.

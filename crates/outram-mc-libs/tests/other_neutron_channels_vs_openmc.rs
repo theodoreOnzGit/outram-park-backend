@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The other neutron-emitting reactions are transported, on both routes, as
 //! OpenMC transports them** — GitHub #365 audit.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Accident-phase release, orchestrated over `boon-lay`'s TRISO-ATOPS fork.
 //!

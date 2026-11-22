@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The correlated angle laws (ACE law 61, law 44) and the AND histogram forms
 //! are sampled as OpenMC samples them.** This is part of the GitHub #365 audit.

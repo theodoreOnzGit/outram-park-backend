@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tally filters added for GitHub #261**, ported from `src/tallies/` at
 //! OpenMC `afa7a14`. (The commit the issue cites, `608a1c33`, is unavailable

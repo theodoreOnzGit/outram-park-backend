@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **H in H2O S(a,b): moments of what each processed table samples** (GitHub
 //! #550), to be set beside the direct integral of the ENDF tape in

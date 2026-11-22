@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A nuclide built from shipped numbers is the nuclide built from the tape,
 //! bit for bit** (gh:#786).

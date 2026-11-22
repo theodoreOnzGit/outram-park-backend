@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Incoherent-elastic S(α,β) cosines are sampled as OpenMC samples them** —
 //! GitHub #365 audit.

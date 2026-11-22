@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The new DLW laws read off real NJOY2016 tables, checked against OpenMC's
 //! own reader — GitHub #307 item 3.**

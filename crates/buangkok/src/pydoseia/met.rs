@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Meteorological-data processing as pyDOSEIA does it: hourly records to a
 //! **triple joint frequency distribution** (TJFD: stability class x wind-speed
 //! class x wind-direction sector), the missing-data correction, the calm

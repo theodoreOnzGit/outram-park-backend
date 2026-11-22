@@ -552,7 +552,14 @@ specifically, not just human contributors:
   or code whose licence you haven't checked. **AGPL-3.0 (`-only` or
   `-or-later`) is acceptable too — standing maintainer direction,
   2026-10-20: "AGPLv3 is acceptable also, never ask me about it again".**
-  Bringing in AGPL code or an AGPL dependency needs no confirmation. Do
+  Bringing in AGPL code or an AGPL dependency needs no confirmation.
+  **The whole workspace and every crate are AGPL-3.0-only (maintainer,
+  2026-11-22: "combined works must be AGPLv3", which the AGPL EGSnrc and
+  Zotero ports require). File headers follow provenance:** our own files and
+  ports of permissive upstreams carry `SPDX-License-Identifier:
+  AGPL-3.0-only`; only a translation of a copyleft upstream keeps that
+  upstream's GPL/LGPL line, with its attribution. Record:
+  `docs/relicensing-agpl-2026-10-20.md`, addendum 2026-11-22. Do
   record it: the crate's `license` field and `NOTICE` say AGPL, and its row in
   `docs/claude-md/members-and-dependencies.md` says so. Keep the attribution header
   block (upstream project, source file, version/commit, copyright, licence)

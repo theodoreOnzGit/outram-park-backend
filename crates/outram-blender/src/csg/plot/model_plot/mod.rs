@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Ported from OpenMC (MIT), commit d7d3284a1 (0.16.1.dev25):
 //   openmc/model/model.py:69-75      _check_pixels

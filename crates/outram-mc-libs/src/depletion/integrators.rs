@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Depletion integrators (from PETIR), this crate's one-group operator,
 //! and transfer rates** — GitHub #266 scope items 2, 3 and 4; gh:#950.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`ThermalScattering` from an ACE table** — ACE gap 2, transport side.
 //!

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **`openmc.data.Tabulated1D` and `openmc.data.Polynomial`, evaluated exactly
 //! as upstream evaluates them on an array.**
 //!

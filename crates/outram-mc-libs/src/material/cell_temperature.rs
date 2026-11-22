@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A cell's temperature selects the temperature its material is looked up
 //! at, as OpenMC does** (GitHub #313).

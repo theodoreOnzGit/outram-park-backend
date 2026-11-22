@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **GitHub #461: the CSG k path honours variance reduction on every compute
 //! path, and analog fission banks by weight.** Found by the OpenMC-vs-outram-mc

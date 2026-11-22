@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Uranium and graphite at 296 K: the compositions of tutorial rungs 2 and 3**
 //! (GitHub #524, #525).

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **β_eff and Λ for Godiva by the k-ratio route** — GitHub #262 scope item 3.
 //!

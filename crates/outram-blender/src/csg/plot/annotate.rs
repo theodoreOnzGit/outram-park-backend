@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 // Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
 // GitHub issue #486: the plotter draws the CSG description this crate owns,
 // through the same locator transport uses. outram-mc-libs re-exports it as

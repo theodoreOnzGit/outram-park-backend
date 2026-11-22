@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **The continuous-energy data `openmc.plot_xs` sees, built from an ACE
 //! table.**
 //!

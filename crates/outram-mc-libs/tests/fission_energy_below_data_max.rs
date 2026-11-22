@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **GitHub #463 item 2: no fission neutron is born at or above the top of
 //! the data.** OpenMC's `sample_fission_neutron` resamples until

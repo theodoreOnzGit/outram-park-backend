@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """Plot k-infinity against V_mod/V_fuel for the LCT-008 pin-cell pitch sweep.
 
 Reads the committed CSVs in data/ (outram-mc rows from

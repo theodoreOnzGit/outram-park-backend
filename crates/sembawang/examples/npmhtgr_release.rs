@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! NP-MHTGR fission-product release under a prescribed heat-up: activity
 //! released per nuclide, in Bq and Ci, and as a fraction of the core inventory.

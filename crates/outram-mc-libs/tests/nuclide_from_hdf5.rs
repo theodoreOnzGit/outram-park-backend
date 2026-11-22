@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A nuclide read from an OpenMC-format `.h5` is the nuclide the ACE route
 //! builds** — GitHub #303, acceptance row 1.

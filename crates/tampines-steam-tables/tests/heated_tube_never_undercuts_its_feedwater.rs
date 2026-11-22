@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **A heated steam-generator tube must never cool its water below the
 //! feedwater** -- the minimal reproduction of gh:#319 / #343, with no steam
 //! generator, no tube metal, no helium and no plant.

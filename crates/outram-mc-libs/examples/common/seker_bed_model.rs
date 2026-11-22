@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tutorial 8's model: the full Şeker bed of HTR-10, stacked, inside the
 //! core, through the beginner API** (`outram_mc_libs::model`, epic gh #925,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Verification tests for `boon_lay::triso_atops_fork` (fork of INL TRISO-ATOPS,
 // MIT, commit de374c8). This file exercises only the public prelude API, so it

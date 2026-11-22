@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Uranium and graphite at 296 K: the pieces the rung-2 and rung-3 examples
 //! share** (GitHub #524, #525).

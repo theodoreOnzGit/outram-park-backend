@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Variance reduction** — weight cutoff, Russian roulette and survival
 //! biasing. GitHub #258.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`Nuclide::sample_fission_neutron_openmc` draws in OpenMC's order** (gh:#1386,
 //! #1444 d). OpenMC `sample_fission_neutron` (`src/physics.cpp:1081`, `8f79d9d0`).

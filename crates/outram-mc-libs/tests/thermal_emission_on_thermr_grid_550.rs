@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **H in H2O emission tables sit on THERMR's own incident-energy grid** (GitHub
 //! #550).

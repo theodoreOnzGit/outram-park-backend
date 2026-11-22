@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """Generate the TRISO-ATOPS code-to-code reference fixture for `boon-lay`.
 
 This harness drives the **upstream INL TRISO-ATOPS Python** (MIT, commit

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Every DLW law upstream reads, read here — GitHub #307 item 3.**
 //!

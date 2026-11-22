@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The secondary-neutron laws of an OpenMC `.h5`, mapped onto the SAME
 //! representation `Nuclide::from_ace` builds** (GitHub #303).

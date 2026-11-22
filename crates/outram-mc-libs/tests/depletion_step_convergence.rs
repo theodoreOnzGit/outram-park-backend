@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — step-size convergence of the predictor depletion integrator.
 //! GitHub #266, scope item 1.

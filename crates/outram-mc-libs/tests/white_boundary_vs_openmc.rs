@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — the WHITE boundary condition against OpenMC, and against the
 //! specular boundary it used to be silently aliased to. GitHub #259.

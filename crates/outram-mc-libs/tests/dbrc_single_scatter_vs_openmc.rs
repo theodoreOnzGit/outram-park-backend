@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **One elastic scatter off U-238 near its low resonances, with DBRC, against
 //! OpenMC.** GitHub #407: on the lattice, the DBRC worth is −42.6 ± 20.0 pcm in

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! `DoseFunc.ingestion_dose` exactly as upstream runs it, list indexing and
 //! output layout included. Ported from pyDOSEIA `dosefunc.py` at commit
 //! `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`, Copyright (c) 2024

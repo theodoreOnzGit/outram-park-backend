@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // NOT a port (gh:#583, 2026-10-05). Element-dependent plate-out and
 // purification rates for the TRISO-ATOPS coolant pools. The routing it

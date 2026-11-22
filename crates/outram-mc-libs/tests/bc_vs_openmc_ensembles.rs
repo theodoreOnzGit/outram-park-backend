@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** -- WHITE and PERIODIC boundary conditions against OpenMC, on
 //! seed ensembles. GitHub #259, acceptance items A and B.

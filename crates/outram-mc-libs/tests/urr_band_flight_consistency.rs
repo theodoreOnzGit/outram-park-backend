@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **One URR band per nuclide and energy serves the flight, the choice of
 //! nuclide and the reaction, as in OpenMC.** GitHub #407.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! GitHub #463 item 4: the resonance-scattering lower bound is a setting,
 //! OpenMC's `<resonance_scattering><energy_min>` (`res_scat_energy_min`,

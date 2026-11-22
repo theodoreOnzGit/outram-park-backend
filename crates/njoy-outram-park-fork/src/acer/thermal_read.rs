@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Reading a thermal S(α,β) ACE table back into physics** — the mirror of
 //! [`super::thermal`]'s writer (ACE gap 2).

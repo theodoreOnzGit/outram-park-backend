@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The HTR-10 fuel-zone infinite medium**: TRISO kernels resolved in their
 //! graphite matrix against the same atoms homogenised (tutorial rung 5,

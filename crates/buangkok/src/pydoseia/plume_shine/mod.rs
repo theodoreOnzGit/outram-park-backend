@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Plume shine: the external gamma dose from the passing cloud, by pyDOSEIA's
 //! finite-cloud model: the Gaussian plume concentration folded with a
 //! point-kernel photon flux (exponential attenuation, linear build-up

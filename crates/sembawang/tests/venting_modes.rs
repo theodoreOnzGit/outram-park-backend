@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 #![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! The three core-venting modes of `accident_release_with_venting` (GitHub

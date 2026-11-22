@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
-// This file is part of OUTRAM PARK. GPL-3.0-only; see LICENSE.
+// This file is part of OUTRAM PARK. AGPL-3.0-only; see LICENSE.
 //
 // NEW WORK (gh:#587): the wgpu side of the GPU CSG ray tracer. The shader
 // (`csg_trace.wgsl`) is an f32 transcription of this crate's CPU plotter

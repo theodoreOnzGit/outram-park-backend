@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A nuclide read from an OpenMC-format neutron `.h5`** — GitHub #303.
 //!

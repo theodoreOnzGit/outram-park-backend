@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`SpeedTier::Fast` must give exactly the numbers `SpeedTier::Standard`
 //! gives.** It is an optimization, not an approximation (GitHub #349).

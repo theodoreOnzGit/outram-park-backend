@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """DIAGNOSTIC ONLY (gh:#413 check (a)): temperature sensitivity of the MHTGR
 final releases. NOTHING HERE IS ADOPTED -- the committed #413 result stays on
 the Fig. 5 curves as digitised (kovan 066e691).

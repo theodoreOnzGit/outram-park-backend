@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **LEU-COMP-THERM-008's pin in an infinite square lattice: k∞ and the six
 //! factors against pitch** — under- and over-moderation, for tutorial rung 4

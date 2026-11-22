@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # ACE nu and yield tables WITH NON-LIN-LIN INTERPOLATION REGIONS, constructed
 # from NJOY2016 U-235 (ENDF/B-VIII.0, 293.6 K), and OpenMC's values of them,
 # for GitHub #365 audit.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # Every nu table in ENDF/B-VIII.0 is lin-lin (census 2026-09-29: 86 MT=452,
 # 86 MT=456, 84 MT=455) and the only non-lin-lin neutron yield is F-19's

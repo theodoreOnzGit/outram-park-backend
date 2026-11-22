@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Code-to-code verification of `boon_lay::triso_atops_fork` against the
 // upstream INL TRISO-ATOPS Python (MIT, commit de374c8).

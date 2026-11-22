@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **How far gh:#931 moves route 4's URR probability tables** (data, before
 //! any transport): PURR at `process`'s 20 bands / 64 ladders / 10 000

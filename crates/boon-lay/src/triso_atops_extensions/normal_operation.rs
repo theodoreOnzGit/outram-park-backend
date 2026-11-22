@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // NOT a port (gh:#583, 2026-10-05). The per-node normal-operation chain of
 // `crate::triso_atops_fork::normal_operation::normal_operation_node` (which

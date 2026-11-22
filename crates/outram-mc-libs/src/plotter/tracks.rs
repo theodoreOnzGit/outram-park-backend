@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **`openmc.Track.plot` and `openmc.Tracks.plot`**: 3-D polylines of particle
 //! tracks.
 //!

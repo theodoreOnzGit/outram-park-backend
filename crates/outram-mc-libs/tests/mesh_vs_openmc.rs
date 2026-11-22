@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — rectilinear, cylindrical and spherical tally meshes against
 //! OpenMC's own per-bin volumes, bin for bin. GitHub #260.

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact moments of OpenMC's sampling of an ACE IFENG = 1 (skewed) S(a,b) law,
 # IncoherentInelasticAEDiscrete (openmc src/secondary_thermal.cpp), for GitHub
-# #365 audit. Own work, GPL-3.0; OpenMC Python API (MIT) as a library.
+# #365 audit. Own work, AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # Bin j is chosen with upstream's skewed weights: r = xi (n-3); j = floor(r)+1
 # for r > 1 (each middle bin probability 1/(n-3)), n-2 for 0.6<r<=1 (0.4/(n-3)),

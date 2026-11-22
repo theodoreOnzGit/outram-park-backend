@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Paired P0-vs-P3 ablation on the multigroup scattering kernel** — what
 //! anisotropic MG scattering is worth on a leakage-dominated case. GitHub #265.

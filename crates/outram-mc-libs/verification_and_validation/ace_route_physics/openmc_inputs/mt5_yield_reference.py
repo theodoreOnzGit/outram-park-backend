@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # MT=5 (n,anything) neutron multiplicity y(E) as OpenMC reads it from an ACE
 # table (|TY| > 100 energy-dependent yield, openmc/data/reaction.py:1059-1062),
 # the reference for outram-mc's ACE route (GitHub #365 audit).
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 # Output rows: <nuclide>,<E eV>,<y>
 # Usage: openmc-env; python mt5_yield_reference.py <ace dir> <out.csv>
 

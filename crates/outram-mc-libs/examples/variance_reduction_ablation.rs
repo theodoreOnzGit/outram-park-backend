@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Paired analog-vs-survival-biased ablation** — is the variance reduction
 //! unbiased, and does it pay? GitHub #258.

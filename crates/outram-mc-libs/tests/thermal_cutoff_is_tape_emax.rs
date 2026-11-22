@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ENDF-route S(α,β) cutoff is the evaluation's own E_max, as in OpenMC
 //! and NJOY.** GitHub #459.

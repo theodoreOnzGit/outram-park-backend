@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // Ported from OpenMC (src/surface.cpp, src/geometry.cpp, src/particle.cpp;
@@ -6,7 +6,7 @@
 // `geometry/surface.rs` and `geometry/geometry.rs` on 2026-10-02 (GitHub
 // issue #486).
 //
-// This file is part of OUTRAM PARK. GPL-3.0-only; see LICENSE.
+// This file is part of OUTRAM PARK. AGPL-3.0-only; see LICENSE.
 
 //! **Transport-state work on the CSG types `outram-blender` owns.**
 //!

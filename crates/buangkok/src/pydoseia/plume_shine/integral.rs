@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The finite-cloud kernels, their integration limits and the triple
 //! integral. Ported from pyDOSEIA `dosefunc.py` (`adgq_single_plume`,
 //! `adgq_sector_average` inside `plumeshine_dose`) and `raddcffunc.py`

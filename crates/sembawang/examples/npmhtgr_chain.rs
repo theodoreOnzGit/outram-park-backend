@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! The joined chain in one run: NP-MHTGR fission-product release under a
 //! prescribed heat-up, carried downwind by `changi`. Reports the activity

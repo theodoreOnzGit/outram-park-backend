@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **History-event tally driver** — supplies the event-history fields of
 //! [`FilterEvent`] that the transport loop does not (GitHub #261).

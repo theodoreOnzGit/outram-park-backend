@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A minimal element scanner for the small XML files OpenMC ships beside its
 //! HDF5 libraries** — `cross_sections.xml` and the depletion chain.

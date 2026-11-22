@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Natural uranium in lumps inside graphite: `k_inf` against lump size.**
 //! Tutorial rung 3 (GitHub #525, epic #520), following rung 2's homogeneous

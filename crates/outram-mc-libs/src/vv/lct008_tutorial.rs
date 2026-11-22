@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tutorial 6's model: LEU-COMP-THERM-008 case 1 built through the
 //! beginner API** (`outram_mc_libs::model`, epic gh #925, tutorial list on

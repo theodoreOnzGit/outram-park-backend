@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Regression test: the default plume-shine integrator (petir's GSL QAGS)
 //! against the SciPy QUADPACK reference, over the code-to-code fixture's
 //! plume-shine cases.

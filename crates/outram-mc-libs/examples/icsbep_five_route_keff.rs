@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Four ICSBEP cases on outram-mc, by nuclear-data route** — the outram-mc
 //! half of the five-route study

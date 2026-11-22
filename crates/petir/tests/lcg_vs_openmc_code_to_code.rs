@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors.
 
 //! PETIR's `rng::lcg` against OpenMC's `src/random_lcg.cpp`, compiled and run

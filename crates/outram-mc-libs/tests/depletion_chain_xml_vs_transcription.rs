@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The parsed depletion chain against the hand transcription of the same
 //! file** — GitHub #270's "Depletion chain XML | read" row.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Depletion chain XML — read** — GitHub #270 scope row "Depletion chain XML
 //! | read | Feeds `outram-mc-libs`' `depletion/chain.rs`".

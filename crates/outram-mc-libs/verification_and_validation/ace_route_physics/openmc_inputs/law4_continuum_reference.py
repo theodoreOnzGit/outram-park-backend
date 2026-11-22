@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact means of OpenMC's sampling of an ACE LAW=4 continuum with its AND
 # cosine (UncorrelatedAngleEnergy), for GitHub #365 audit: outram used to drop
 # the AND cosine of a LAW=4 continuum on MT=91/16/17.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 # Tables: NJOY2016 ACE of Li-7 (ENDF/B-VIII.0) and U-238 (JENDL-3.3), built by
 # openmc_godiva_cross_code/make_ace.sh (decks there).
 #

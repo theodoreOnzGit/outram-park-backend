@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Sampling a delayed-neutron precursor group** — gh:#262 scope items 2–3.
 //!

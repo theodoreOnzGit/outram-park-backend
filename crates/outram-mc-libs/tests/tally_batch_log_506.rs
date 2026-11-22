@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The report-only per-batch tally log leaves transport untouched, and
 //! hands `TallyBatchRecorder` the per-batch sums** (GitHub #506).

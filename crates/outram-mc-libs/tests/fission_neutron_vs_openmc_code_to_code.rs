@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`Nuclide::sample_fission_neutron_openmc` against the COMPILED OpenMC
 //! `sample_fission_neutron`** (gh:#1386, #1444 d). Upstream `8f79d9d0`

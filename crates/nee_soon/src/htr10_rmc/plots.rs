@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **HTR-10 cross-section plots, drawn with the ported `openmc.Model.plot`**
 //! ([`outram_mc_libs::geometry::plot::ModelPlot`]).

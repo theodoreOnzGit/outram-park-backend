@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Which temperature does what in a CSG k-eigenvalue run** — pinned, so
 //! the answer in `docs/temperatures.md` cannot drift. Maintainer direction,

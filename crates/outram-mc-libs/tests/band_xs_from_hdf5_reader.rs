@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The band-averaged oracle, recomputed in Rust from the `.h5`** — GitHub #303.
 //!
