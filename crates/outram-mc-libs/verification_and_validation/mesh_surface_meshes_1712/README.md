@@ -142,17 +142,46 @@ Prediction 3 was written from the geometry, not from the code's labelling
 rule, which is why it missed finding A; predictions 1, 2 and 4 held (4 only on
 meshes free of B and C).
 
-## Code-to-code against OpenMC: PENDING, NOT YET RUN
+## Code-to-code against OpenMC (run 2026-11-22)
 
-The deck is `openmc_inputs/beams_mesh_surface.py` (**NOT YET RUN**): 66
-deterministic single-neutron beams through a near-transparent 20 cm box,
-`current` on a `MeshSurfaceFilter` over a rectilinear, a cylindrical (four
-partial-width phi bins on a full circle, origin off zero) and a spherical mesh
-(theta edges including pi/2, origin off zero), one run per site, as gh:#261's
-Experiment A. Run it on the OpenMC build being prepared in parallel, then add
-the Rust side (same tracks through `MeshSurfaceFilter::matches`) and record
-OpenMC version/commit, library, hardware and the per-mesh bin agreement here.
-Predicted: identical bins on every track, **including** findings A and C if
-OpenMC's `libm` rounds `cos(pi/2)` and the discriminant as PETIR's
-`RealMath` does; any disagreement on a track that crosses theta = pi/2 is
-then a `libm` difference, not a port defect.
+~~PENDING, NOT YET RUN~~ **Run 2026-11-22.** The deck
+`openmc_inputs/beams_mesh_surface.py` was run unchanged. It had been written
+before any OpenMC output existed; only its "NOT YET RUN" banner is now stale,
+and that is noted here rather than edited. Test:
+`tests/mesh_surface_vs_openmc_1712.rs`. Reference:
+`openmc_reference/` (nonzero bins only, `site bin value`; `sites.txt`).
+
+- **OpenMC:** 0.15.3, commit `27e38e89` (built from source for gh:#1711, no
+  MPI, GCC 13.3.0, HDF5 1.10.10). **Library:** the gh:#1711 O-16 library
+  (`make_o16_lib.py`, NJOY2016 `ac5adf5f`). 66 runs in 5.8 s on a 4-core
+  Intel Xeon @ 2.30 GHz, 1 thread, 15 GiB RAM, Linux, CPU only.
+- **Rust side:** the same track per site, from the source point to the box
+  exit pushed on by `TINY_BIT` (OpenMC scores a leaking track once,
+  `particle.cpp:743-748`), through `MeshSurfaceFilter::matches`. The direction
+  is renormalised as OpenMC renormalises it when reading the source
+  (`u_ref_ /= u_ref_.norm()`, `distribution_multi.cpp:47`).
+
+| mesh | nonzero bins, ours / OpenMC | misses |
+|---|---|---|
+| rectilinear | 186 / 186 | **0** |
+| cylindrical (origin off zero) | 187 / 187 | **0** |
+| spherical (theta edge at pi/2, origin off zero) | 109 / 109 | **0** |
+
+**Prediction held.** Every bin equal on every track.
+
+- **Findings A and C are OpenMC's own behaviour.** Finding A (the inward-face
+  label) shows on many crossings of the curved axes, and OpenMC labels them the
+  same. Finding C shows at site 55: the track runs from z = +3.7 to below the
+  mesh's z = 0 plane (theta = pi/2), and OpenMC does not score that crossing
+  either.
+- **The input is part of the check.** A first run of this test without the
+  renormalisation missed 12 bins, all at site 55. The direction then differed
+  from OpenMC's in the last bit, which flipped the round-off at theta = pi/2.
+  With the same input there are 0 misses. This is finding C's sensitivity,
+  seen directly.
+- **Finding B was not exercised.** The deck's meshes have full phi coverage, so
+  partial-phi behaviour has still not been checked against OpenMC.
+
+All three findings are upstream defects that the port reproduces, as the
+porting rule requires. Whether to report them upstream, or to fix them beside
+the port, is for the maintainer.
