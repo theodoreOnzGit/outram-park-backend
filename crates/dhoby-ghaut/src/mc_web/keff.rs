@@ -201,8 +201,13 @@ pub fn reference_lines(r: &Reference) -> Vec<String> {
 
 /// The five-route study's campaign summary (four ICSBEP cases × five code and
 /// data routes), read at build time so no recorded `k` is retyped here.
-const FIVE_ROUTE_SUMMARY: &str =
-    include_str!("../../../outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
+///
+/// A byte-for-byte copy of `outram-mc-libs`'
+/// `verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv`
+/// (2026-11-23): a path into another crate cannot ship in this crate's
+/// package. `five_route_summary_is_outram_mc_libs_record` fails if the two
+/// ever differ.
+const FIVE_ROUTE_SUMMARY: &str = include_str!("five_route_summary_keff.csv");
 
 /// One row of the five-route summary: `(k, standard error, seed-to-seed
 /// standard deviation)` of `case` on `route` (`route1` is OpenMC on NJOY2016
@@ -380,6 +385,18 @@ pub fn csv_points(csv: &str, x: &str, k: &str, s: &str) -> Vec<(f64, f64, f64)> 
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    /// The embedded five-route summary is the outram-mc-libs record, byte for
+    /// byte (the copy exists only so the crate can be packaged). Skips where
+    /// the workspace copy is absent (a crates.io build).
+    #[test]
+    fn five_route_summary_is_outram_mc_libs_record() {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
+        if let Ok(record) = std::fs::read_to_string(&p) {
+            assert_eq!(super::FIVE_ROUTE_SUMMARY, record, "re-copy summary_keff.csv into src/mc_web/");
+        }
+    }
+
     use super::*;
 
     fn cfg(n: usize, i: usize, a: usize) -> KeffConfig {
