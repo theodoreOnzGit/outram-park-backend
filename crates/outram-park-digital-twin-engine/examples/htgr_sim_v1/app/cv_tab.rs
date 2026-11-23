@@ -177,6 +177,18 @@ fn half_extent(placed: &[[f64; 2]]) -> ([f64; 2], f64) {
     (home, 0.5 * (hi[0] - lo[0]).max(hi[1] - lo[1]) + 1.2)
 }
 
+/// The half-extent to give a `bugis` `View` so a drawing of half-width
+/// `half_w` and half-height `half_h` (world units) fits a `size` px main
+/// view along whichever axis binds. `View::fit` fits `2 half_extent` to the
+/// view's **smaller** side, which on a wide desktop wastes the width of a
+/// wide drawing; this scales each half-size by that side over its own axis.
+/// Pure; tested.
+pub fn fit_half_extent(half_w: f64, half_h: f64, size: Vec2) -> f64 {
+    let (w, h) = (size.x.max(1.0) as f64, size.y.max(1.0) as f64);
+    let min_side = w.min(h);
+    (half_w * min_side / w).max(half_h * min_side / h)
+}
+
 /// The tab's own retained state: the view and the selected CV.
 pub struct CvTab {
     pub view: View,
@@ -219,7 +231,8 @@ pub fn draw(
 ) -> Option<String> {
     let placed = place_all(cvs);
     let (home, half) = half_extent(&placed);
-    tab.view.half_extent = half;
+    // The drawing is about twice as wide as tall: fit it by aspect.
+    tab.view.half_extent = fit_half_extent(half, 0.55 * half, rect.size());
     tab.view.home = home;
     let resp = ui.interact(rect, ui.id().with("cv_tab_view"), egui::Sense::click_and_drag());
     tab.view.handle_input(ui, &resp);
@@ -560,5 +573,11 @@ mod tests {
         let (home, half) = half_extent(&placed);
         assert!(half > 9.0 && home[0] > 0.0);
         assert!(CvTab::default().selected.is_none());
+        // A wide drawing on a wide screen fits its width; on a phone the
+        // width binds even harder.
+        let desk = fit_half_extent(10.0, 5.0, Vec2::new(1000.0, 500.0));
+        assert!((desk - 5.0).abs() < 1e-12);
+        let phone = fit_half_extent(10.0, 5.0, Vec2::new(390.0, 800.0));
+        assert!((phone - 10.0).abs() < 1e-12);
     }
 }

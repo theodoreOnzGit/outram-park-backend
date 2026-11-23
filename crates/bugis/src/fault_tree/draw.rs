@@ -122,7 +122,7 @@ pub fn draw(
         painter.line_segment([c, d], stroke);
     }
 
-    let font_px = (0.085 * px_per_unit).min(18.0);
+    let font_px = (0.13 * px_per_unit).min(18.0);
     let mut hits = Vec::with_capacity(layout.placed.len());
     for (i, p) in layout.placed.iter().enumerate() {
         let node = &diagram.nodes[p.node];
@@ -139,14 +139,18 @@ pub fn draw(
         let fill = if mark == Mark::Dim { palette.fill.gamma_multiply(0.5) } else { palette.fill };
         painter.rect_filled(label_rect, 3.0, fill);
         painter.rect_stroke(label_rect, 3.0, stroke, StrokeKind::Inside);
-        if font_px >= 6.0 {
+        // Text shrinks to fit the box's width, so a long name is smaller
+        // rather than clipped, and appears once the reader zooms in enough.
+        let name_px = fit_text_px(font_px, label_rect.width(), node.label.chars().count());
+        if name_px >= 5.5 {
             let text_colour = if mark == Mark::Dim { palette.dim } else { palette.ink };
             let name_at = if node.detail.is_empty() { label_rect.center() } else { label_rect.center() - Vec2::new(0.0, 0.28 * label_rect.height()) };
             let clip = painter.with_clip_rect(label_rect.shrink(1.0));
-            clip.text(name_at, Align2::CENTER_CENTER, &node.label, FontId::proportional(font_px), text_colour);
+            clip.text(name_at, Align2::CENTER_CENTER, &node.label, FontId::proportional(name_px), text_colour);
             if !node.detail.is_empty() {
                 let detail_at = label_rect.center() + Vec2::new(0.0, 0.25 * label_rect.height());
-                clip.text(detail_at, Align2::CENTER_CENTER, &node.detail, FontId::proportional(0.85 * font_px), text_colour);
+                let detail_px = fit_text_px(0.85 * font_px, label_rect.width(), node.detail.chars().count());
+                clip.text(detail_at, Align2::CENTER_CENTER, &node.detail, FontId::proportional(detail_px), text_colour);
             }
         }
 
@@ -178,6 +182,16 @@ pub fn draw(
         }
     }
     hits
+}
+
+/// The text size, px, that fits `chars` characters of proportional text
+/// into `width_px` (an average glyph is taken as 0.58 em wide), capped at
+/// `wanted_px`. Pure; tested.
+pub fn fit_text_px(wanted_px: f32, width_px: f32, chars: usize) -> f32 {
+    if chars == 0 {
+        return wanted_px;
+    }
+    wanted_px.min(0.92 * width_px / (0.58 * chars as f32))
 }
 
 impl Mark {
@@ -260,5 +274,10 @@ mod tests {
         assert!(r[3] - r[1] < super::super::LEVEL_H);
         assert_eq!(Mark::Selected.min_highlight(), Mark::Highlight);
         assert_eq!(Mark::Dim.min_highlight(), Mark::Dim);
+        // Short text keeps its size; long text shrinks to the width.
+        assert_eq!(fit_text_px(12.0, 100.0, 4), 12.0);
+        let px = fit_text_px(12.0, 100.0, 40);
+        assert!(px < 12.0 && (px * 0.58 * 40.0 - 92.0).abs() < 1e-3);
+        assert_eq!(fit_text_px(12.0, 100.0, 0), 12.0);
     }
 }

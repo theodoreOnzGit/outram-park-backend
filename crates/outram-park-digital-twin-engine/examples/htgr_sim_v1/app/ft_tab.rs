@@ -271,7 +271,13 @@ impl FaultTreeTab {
             Some(Ok(c)) => {
                 let centre = c.layout.centre();
                 self.view.home = centre;
-                self.view.half_extent = c.layout.half_extent();
+                let width = c.layout.leaf_count.saturating_sub(1) as f64 * ft::SLOT_W;
+                let height = c.layout.max_depth as f64 * ft::LEVEL_H;
+                self.view.half_extent = crate::app::cv_tab::fit_half_extent(
+                    0.5 * width + ft::SLOT_W,
+                    0.5 * height + ft::LEVEL_H,
+                    rect.size(),
+                );
                 self.view.handle_input(ui, &resp);
                 let view = self.view;
                 let hits = ft::draw::draw(
