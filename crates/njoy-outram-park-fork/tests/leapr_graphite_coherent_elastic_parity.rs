@@ -327,10 +327,13 @@ fn data_path_in(dir: &str, file: &str) -> Option<std::path::PathBuf> {
     if p.exists() {
         Some(p)
     } else {
-        eprintln!(
-            "SKIP leapr_graphite_coherent_elastic_parity: {file} not found under {dir} \
-             (set GRAPHITE_TSL_DIR)"
-        );
+        // One string, written once: eprintln! with arguments writes them in
+        // pieces, and the harness's "ok" on stdout landed between them, which
+        // moved the /nonexistent/ path (the CI guard's marker for this
+        // deliberate skip) onto the next log line (njoy ACE and LEAPR tests,
+        // run 45026558094, 2026-11-22).
+        let msg = format!("SKIP leapr_graphite_coherent_elastic_parity: {file} not found under {dir} (set GRAPHITE_TSL_DIR)");
+        eprintln!("{msg}");
         None
     }
 }
