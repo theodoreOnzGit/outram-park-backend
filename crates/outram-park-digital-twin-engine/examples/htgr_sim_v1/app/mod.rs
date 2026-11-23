@@ -123,6 +123,8 @@
 //! arrays' enthalpy convection is an explicit source inside the corrector loop,
 //! so the loop's Picard contraction factor *is* the Courant number.
 
+pub mod cv_tab;
+pub mod ft_tab;
 pub mod map_tab;
 pub mod panels;
 pub mod plant_v1_1;
@@ -155,6 +157,42 @@ use panels::{
     draw_schematic_panel, Panel,
 };
 use schematic::SchematicTracers;
+
+/// What the Plant Schematic tab's main view shows, chosen by the bottom tab
+/// bar (gh:#1717): the plant drawing, the model's control volumes
+/// (gh:#1718), or the fault tree (gh:#1720).
+///
+/// **Decision recorded on gh:#1717:** the top tabs (Schematic, Plots,
+/// Diagnostics, Thermal, Map) stay where they are. They are the simulator's
+/// sections; the bottom bar is the Schematic section's view selector, as the
+/// MSRE simulator's bar selects its main view. Folding all eight into one bar
+/// would not fit a 390 px phone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SchematicView {
+    #[default]
+    Plant,
+    ControlVolumes,
+    FaultTree,
+}
+
+impl SchematicView {
+    /// In bar order.
+    pub const ALL: [SchematicView; 3] = [SchematicView::Plant, SchematicView::ControlVolumes, SchematicView::FaultTree];
+
+    /// Tab text.
+    pub fn label(self) -> &'static str {
+        match self {
+            SchematicView::Plant => "Plant",
+            SchematicView::ControlVolumes => "Control volumes",
+            SchematicView::FaultTree => "Fault tree",
+        }
+    }
+
+    /// Position in [`Self::ALL`].
+    pub fn index(self) -> usize {
+        Self::ALL.iter().position(|v| *v == self).unwrap_or(0)
+    }
+}
 use state::{HtgrPlotData, HtgrSnapshot};
 
 /// Assemble the physics layer's [`PlantCommands`] from the GUI-owned scalar
@@ -305,6 +343,12 @@ pub struct HtgrSimApp {
     thread_health: ThreadHealth,
     /// Currently open panel.
     open_panel: Panel,
+    /// The Schematic tab's bottom-bar view (gh:#1717).
+    schematic_view: SchematicView,
+    /// The Control volumes view's state (gh:#1718).
+    cv_tab: cv_tab::CvTab,
+    /// The Fault tree view's state (gh:#1720).
+    ft_tab: ft_tab::FaultTreeTab,
     /// Which content the right side panel shows while [`Panel::Plots`] is
     /// open -- see [`panels::PlotsSidePanel`]. Every other tab always shows
     /// reactor controls regardless of this field.
@@ -613,6 +657,9 @@ impl HtgrSimApp {
             plots: run.plots,
             thread_health: run.thread_health,
             open_panel: Panel::Schematic,
+            schematic_view: SchematicView::default(),
+            cv_tab: cv_tab::CvTab::default(),
+            ft_tab: ft_tab::FaultTreeTab::default(),
             theme: bugis::Theme::default(),
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
@@ -765,6 +812,27 @@ impl HtgrSimApp {
     /// the choice of controls and CSV. Shared by the desktop's right-hand
     /// panel and the browser's folding one, so the two cannot drift.
     fn draw_side_controls(&mut self, ui: &mut egui::Ui, snapshot: &HtgrSnapshot, plots: &HtgrPlotData) {
+        // The Control volumes and Fault tree views put their own controls
+        // first, with the reactor controls folded below them.
+        if self.open_panel == Panel::Schematic && self.schematic_view != SchematicView::Plant {
+            let events = self.cv_tab.selected.as_deref().map(|c| self.ft_tab.events_on_cv(c)).unwrap_or_default();
+            let mut action = ft_tab::FtAction::None;
+            scrollable_controls(ui, |ui| {
+                match self.schematic_view {
+                    SchematicView::ControlVolumes => {
+                        cv_tab::side_panel(ui, &mut self.cv_tab, &snapshot.control_volumes, self.display_unit, &events)
+                    }
+                    SchematicView::FaultTree => action = self.ft_tab.side_panel(ui),
+                    SchematicView::Plant => {}
+                }
+                ui.separator();
+                egui::CollapsingHeader::new("Reactor controls").default_open(false).show(ui, |ui| {
+                    draw_controls(ui, &self.physics, snapshot, &mut self.display_unit)
+                });
+            });
+            self.apply_ft_action(action);
+            return;
+        }
         if self.open_panel == Panel::Plots {
             ui.horizontal(|ui| {
                 ui.selectable_value(
@@ -789,6 +857,98 @@ impl HtgrSimApp {
             scrollable_controls(ui, |ui| {
                 draw_controls(ui, &self.physics, snapshot, &mut self.display_unit)
             });
+        }
+    }
+}
+
+impl HtgrSimApp {
+    /// Act on what the Fault tree view asked for: select the CV a basic
+    /// event sits on, or switch to the Control volumes view.
+    fn apply_ft_action(&mut self, action: ft_tab::FtAction) {
+        match action {
+            ft_tab::FtAction::None => {}
+            ft_tab::FtAction::SelectedEvent(_, cv) => self.cv_tab.selected = cv,
+            ft_tab::FtAction::ShowCv => self.schematic_view = SchematicView::ControlVolumes,
+        }
+    }
+
+    /// The Schematic tab: the selected view in the main rect and the bottom
+    /// tab bar under it (gh:#1717). GUI drawing code, exempt from a reaching
+    /// test (it needs a live egui frame); the bar's geometry is
+    /// `bugis::tab_bar::layout`'s, the views' state their modules', tested.
+    fn draw_schematic_views(&mut self, ui: &mut egui::Ui, snapshot: &HtgrSnapshot, display_unit: LegendUnit) {
+        let full = ui.max_rect();
+        let bar = bugis::tab_bar::layout(full, SchematicView::ALL.len());
+        let main = bar.main;
+        match self.schematic_view {
+            SchematicView::Plant => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(main), |ui| self.draw_plant_view(ui, snapshot, display_unit));
+            }
+            SchematicView::ControlVolumes => {
+                let lit: Vec<String> = self.ft_tab.selected_link().and_then(|(c, _)| c).into_iter().collect();
+                let clicked = ui
+                    .scope_builder(egui::UiBuilder::new().max_rect(main), |ui| {
+                        cv_tab::draw(ui, main, &snapshot.control_volumes, &mut self.cv_tab, display_unit, &lit)
+                    })
+                    .inner;
+                if clicked.is_some() {
+                    // A CV chosen here: the Fault tree view highlights its
+                    // events rather than a previously selected event.
+                    self.ft_tab.selected_event = None;
+                }
+                #[cfg(target_arch = "wasm32")]
+                self.web_panel.reopen_button(ui, main);
+            }
+            SchematicView::FaultTree => {
+                let selected_cv = self.cv_tab.selected.clone();
+                let action = ui
+                    .scope_builder(egui::UiBuilder::new().max_rect(main), |ui| self.ft_tab.draw(ui, main, selected_cv.as_deref()))
+                    .inner;
+                self.apply_ft_action(action);
+                #[cfg(target_arch = "wasm32")]
+                self.web_panel.reopen_button(ui, main);
+            }
+        }
+        let labels: Vec<&str> = SchematicView::ALL.iter().map(|v| v.label()).collect();
+        if let Some(i) = bugis::tab_bar::tab_bar(ui, &bar, &labels, self.schematic_view.index()) {
+            self.schematic_view = SchematicView::ALL[i];
+        }
+    }
+
+    /// The plant drawing, as before the bar: natively the schematic panel;
+    /// in the browser the plant edge to edge with the live peak-fuel readout,
+    /// "Controls »" and + / − / Reset (GUI drawing code; exempt, as above).
+    fn draw_plant_view(&mut self, ui: &mut egui::Ui, snapshot: &HtgrSnapshot, display_unit: LegendUnit) {
+        #[cfg(not(target_arch = "wasm32"))]
+        draw_schematic_panel(ui, snapshot, &self.tracers, display_unit);
+        #[cfg(target_arch = "wasm32")]
+        {
+            let rect = ui.max_rect();
+            plant_v1_1::draw_plant_viewport(ui, snapshot, &self.tracers, self.web_zoom.take());
+            let top = if self.web_panel.open { 10.0 } else { 62.0 };
+            let text = format!(
+                "Peak fuel, live  {}",
+                panels::peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k)
+            );
+            let painter = ui.painter_at(rect);
+            let galley = painter.layout_no_wrap(text, egui::FontId::proportional(16.0), egui::Color32::from_rgb(230, 130, 50));
+            let at = rect.left_top() + egui::vec2(10.0, top);
+            painter.rect_filled(
+                egui::Rect::from_min_size(at, galley.size()).expand(5.0),
+                4.0,
+                ui.visuals().extreme_bg_color.gamma_multiply(0.85),
+            );
+            painter.galley(at, galley, egui::Color32::WHITE);
+            self.web_panel.reopen_button(ui, rect);
+            if let Some(z) = dhoby_ghaut::web_demo::view::zoom_buttons(ui, rect) {
+                use dhoby_ghaut::web_demo::view::Zoom;
+                self.web_zoom = Some(match z {
+                    Zoom::In => plant_v1_1::ZoomAction::In,
+                    Zoom::Out => plant_v1_1::ZoomAction::Out,
+                    Zoom::Reset => plant_v1_1::ZoomAction::Fit,
+                });
+                ui.ctx().request_repaint();
+            }
         }
     }
 }
@@ -925,32 +1085,7 @@ impl eframe::App for HtgrSimApp {
             // peak-fuel readout under it, + / − / Reset top right.
             #[cfg(target_arch = "wasm32")]
             if self.open_panel == Panel::Schematic {
-                let rect = ui.max_rect();
-                plant_v1_1::draw_plant_viewport(ui, &snapshot, &self.tracers, self.web_zoom.take());
-                let top = if self.web_panel.open { 10.0 } else { 62.0 };
-                let text = format!(
-                    "Peak fuel, live  {}",
-                    panels::peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k)
-                );
-                let painter = ui.painter_at(rect);
-                let galley = painter.layout_no_wrap(text, egui::FontId::proportional(16.0), egui::Color32::from_rgb(230, 130, 50));
-                let at = rect.left_top() + egui::vec2(10.0, top);
-                painter.rect_filled(
-                    egui::Rect::from_min_size(at, galley.size()).expand(5.0),
-                    4.0,
-                    ui.visuals().extreme_bg_color.gamma_multiply(0.85),
-                );
-                painter.galley(at, galley, egui::Color32::WHITE);
-                self.web_panel.reopen_button(ui, rect);
-                if let Some(z) = dhoby_ghaut::web_demo::view::zoom_buttons(ui, rect) {
-                    use dhoby_ghaut::web_demo::view::Zoom;
-                    self.web_zoom = Some(match z {
-                        Zoom::In => plant_v1_1::ZoomAction::In,
-                        Zoom::Out => plant_v1_1::ZoomAction::Out,
-                        Zoom::Reset => plant_v1_1::ZoomAction::Fit,
-                    });
-                    ui.ctx().request_repaint();
-                }
+                self.draw_schematic_views(ui, &snapshot, display_unit);
                 return;
             }
             // Folded: keep the row the "Controls »" button sits in clear, as
@@ -965,7 +1100,7 @@ impl eframe::App for HtgrSimApp {
             // kept out of the outer scroll area (nesting two two-axis scroll
             // areas would leave the inner one unbounded).
             if self.open_panel == Panel::Schematic {
-                draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit);
+                self.draw_schematic_views(ui, &snapshot, display_unit);
                 return;
             }
             // The viewport height, measured BEFORE entering the scroll area.

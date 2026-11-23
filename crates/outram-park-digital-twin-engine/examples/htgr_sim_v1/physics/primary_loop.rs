@@ -1009,19 +1009,6 @@ impl HeliumPrimaryLoop {
         self.secondary_isolated = isolated;
     }
 
-    /// Whether the secondary circuit is isolated at the steam generator
-    /// ([`Self::isolate_secondary`]). Read by the control-volume map
-    /// (`super::control_volumes`, gh:#1718), which draws the helium bypassing
-    /// a valved-out steam generator.
-    pub fn is_secondary_isolated(&self) -> bool {
-        self.secondary_isolated
-    }
-
-    /// Whether the helium circulator has tripped ([`Self::trip_circulator`]).
-    pub fn is_circulator_tripped(&self) -> bool {
-        self.circulator_tripped
-    }
-
     /// Helium mass flow through the steam generator's **shell side**: the
     /// loop flow, or zero while the secondary is isolated, when
     /// [`Self::advance_steam_generator`] hands the hot-duct helium straight

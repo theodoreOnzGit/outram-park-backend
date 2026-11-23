@@ -158,6 +158,7 @@ pub struct ControlVolumeMap {
 
 impl ControlVolumeMap {
     /// The entry with id `id`.
+    #[allow(dead_code)] // part of the map's API; exercised by the tests
     pub fn get(&self, id: &str) -> Option<&ControlVolume> {
         self.volumes.iter().find(|v| v.id == id)
     }
@@ -204,8 +205,8 @@ impl ControlVolumeMap {
     }
 
     /// The structural columns only (`id` .. `neighbours`), which do not
-    /// change as the plant steps: what the regression test pins and what the
-    /// fault tree's CV check reads.
+    /// change as the plant steps: what the regression test pins.
+    #[allow(dead_code)] // read by the pinned-fixture test
     pub fn structure_csv(&self) -> String {
         let mut out = String::from("id,name,circuit,medium,role,volume_m3,inside_primary_boundary,neighbours\n");
         for v in &self.volumes {
