@@ -275,8 +275,9 @@ impl CodeReview {
         self.crate_choice_ui(ui, snap);
         self.cams.entry(level).or_default().buttons(ui, rect);
         if !self.panel_open {
-            let b = Rect::from_min_size(rect.left_top() + Vec2::new(8.0, 8.0), Vec2::new(104.0, 36.0));
-            if ui.put(b, egui::Button::new("Controls »")).clicked() {
+            let b = Rect::from_min_size(rect.left_top() + Vec2::new(8.0, 8.0), Vec2::new(120.0, 36.0));
+            // Same font as the zoom bar and the panel's "« Hide" (17 pt).
+            if ui.put(b, egui::Button::new(egui::RichText::new("Controls »").size(17.0))).clicked() {
                 self.panel_open = true;
             }
         }
