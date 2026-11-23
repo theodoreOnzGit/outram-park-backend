@@ -121,7 +121,8 @@ fn mesh_surface_currents_match_openmc_on_three_mesh_types() {
     let sites = sites();
     let mut total_misses = 0;
     for (name, kind) in meshes() {
-        let f = MeshSurfaceFilter::new(kind).expect("structured mesh");
+        // The port, defects included (gh:#1715): this is the code-to-code check.
+        let f = MeshSurfaceFilter::new(kind).expect("structured mesh").with_openmc_raytrace();
         let theirs = reference(name);
         let mut ours: BTreeMap<(usize, usize), f64> = BTreeMap::new();
         for (i, s) in sites.iter().enumerate() {

@@ -641,6 +641,14 @@ pub struct MeshSurfaceFilter {
     ///
     /// [`MeshKindExt::surface_bins_crossed_openmc`]: crate::tally::mesh::MeshKindExt::surface_bins_crossed_openmc
     pub mesh: MeshKind,
+    /// Which raytrace bins the faces (gh:#1715). The default,
+    /// [`MeshSurfaceRaytrace::Corrected`], fixes three upstream defects on
+    /// curvilinear meshes; [`Self::with_openmc_raytrace`] selects the port, for
+    /// code-to-code comparison with OpenMC. The two are identical on regular
+    /// and rectilinear meshes.
+    ///
+    /// [`MeshSurfaceRaytrace::Corrected`]: crate::tally::mesh::MeshSurfaceRaytrace::Corrected
+    pub raytrace: crate::tally::mesh::MeshSurfaceRaytrace,
 }
 
 impl MeshSurfaceFilter {
@@ -655,10 +663,10 @@ impl MeshSurfaceFilter {
     pub fn new(mesh: MeshKind) -> Result<Self, String> {
         let axes_ok = |g: [usize; 3]| g.iter().all(|&n| n >= 1);
         match &mesh {
-            MeshKind::Regular(_) => Ok(Self { mesh }),
-            MeshKind::Rectilinear(m) if axes_ok(m.dimension()) => Ok(Self { mesh }),
-            MeshKind::Cylindrical(m) if axes_ok(m.dimension()) => Ok(Self { mesh }),
-            MeshKind::Spherical(m) if axes_ok(m.dimension()) => Ok(Self { mesh }),
+            MeshKind::Regular(_) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Rectilinear(m) if axes_ok(m.dimension()) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Cylindrical(m) if axes_ok(m.dimension()) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Spherical(m) if axes_ok(m.dimension()) => Ok(Self { mesh, raytrace: Default::default() }),
             MeshKind::Unstructured(_) => Err("mesh-surface currents are not implemented on an \
                  unstructured mesh (upstream fatal_errors too); returning no crossings \
                  would read as a track that crossed nothing"
@@ -675,10 +683,27 @@ impl MeshSurfaceFilter {
     /// ties at a track end differently from upstream.
     ///
     /// [`MeshKindExt::surface_bins_crossed_openmc`]: crate::tally::mesh::MeshKindExt::surface_bins_crossed_openmc
+    ///
+    /// **CHANGED 2026-11-23 (gh:#1715):** by [`Self::raytrace`], the corrected
+    /// route by default; the port is [`Self::with_openmc_raytrace`].
     pub fn matches(&self, ev: &FilterEvent) -> Vec<usize> {
-        self.mesh
-            .surface_bins_crossed_openmc(ev.position_last, ev.position, ev.direction)
-            .unwrap_or_default()
+        crate::tally::mesh::mesh_surface_bins_crossed(
+            &self.mesh,
+            ev.position_last,
+            ev.position,
+            ev.direction,
+            self.raytrace,
+        )
+        .unwrap_or_default()
+    }
+
+    /// The same filter binned by the port of upstream's `raytrace_mesh`,
+    /// defects included (gh:#1712 findings A, B, C): for code-to-code
+    /// comparison with OpenMC (gh:#1715).
+    #[must_use]
+    pub fn with_openmc_raytrace(mut self) -> Self {
+        self.raytrace = crate::tally::mesh::MeshSurfaceRaytrace::OpenMc;
+        self
     }
 }
 

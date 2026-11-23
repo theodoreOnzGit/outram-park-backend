@@ -98,7 +98,9 @@ x86_64-unknown-none`: builds (`no_std` + `alloc`).
 ### Findings: upstream behaviour the port reproduces (worth a maintainer's eye and possibly an upstream report)
 
 All three were found by the tests, read back to the upstream lines, and are
-ported **as is** (porting rule). Each is pinned by a test so a deliberate fix
+ported **as is** (porting rule). **Fixed beside the port 2026-11-23 (gh:#1715,
+maintainer: "Fix them beside the port"):** see the last section. The port is
+unchanged and is reached by `MeshSurfaceFilter::with_openmc_raytrace()`. Each is pinned by a test so a deliberate fix
 has to change it. Whether OpenMC itself shows them is what the pending
 code-to-code run decides.
 
@@ -185,3 +187,50 @@ and that is noted here rather than edited. Test:
 All three findings are upstream defects that the port reproduces, as the
 porting rule requires. Whether to report them upstream, or to fix them beside
 the port, is for the maintainer.
+
+## gh:#1715: the three defects fixed beside the port (2026-11-23)
+
+**Finding B against OpenMC first.** `openmc_inputs/beams_partial_phi.py` was
+written before it was run. It fires 45 beams at a cylindrical and a spherical
+mesh with phi in [0, 2.5]:
+- three hand-picked tracks start at phi = 3.5 and pass through the mesh;
+- two control tracks start at phi = -0.6;
+- 40 tracks are random.
+
+OpenMC 0.15.3 (`27e38e89`, same build as above, 45 runs in 3.0 s) scores
+**0 bins on all three tracks starting above phi_max**, and scores both controls.
+B is OpenMC's own behaviour, like A and C.
+
+**Fixes (`tally/mesh.rs`, `MeshSurfaceRaytrace::Corrected`, the default of
+`MeshSurfaceFilter` by the correct-physics-default rule).** This is a separate
+walker, `raytrace_surface_bins_corrected`, with its own hooks. No port function
+was edited.
+- **A.** An inward current is labelled by the face entered: the opposite of the
+  face just left, or for an entry from outside, the side the track came from.
+- **B.** A partial phi gap is one region outside the mesh, bounded by phi_min
+  going up and phi_max going down. A partial theta range keeps 0 and n + 1 as
+  they are; theta does not wrap.
+- **C.** A theta edge with |cos theta| < FP_PRECISION is crossed as the plane
+  z = 0.
+
+**Tests** (`tests/mesh_surface_corrected_1715.rs`, predictions in its module
+docs written before the first run):
+
+| check | corrected | port |
+|---|---|---|
+| regular and rectilinear meshes, 20 000 random tracks each | identical to the port, bin for bin | (reference) |
+| geometry: elements entered, read from the bins, against `MeshKind::bin` sampled every 1e-4 cm (4 curvilinear meshes x 400 tracks) | **0 mismatches** on every mesh | 0 / 41 / 53 / 53 mismatches (full-phi cylinder / partial-phi cylinder / sphere with pi/2 edge / partial theta+phi sphere) |
+| face pairs: an outward bin on face m followed by an inward bin on face !m between neighbours | **0 violations** | 199 / 39 / 342 / 9 |
+| theta = pi/2 crossing scored | yes | lost (finding C) |
+| partial-phi deck against OpenMC | scores the three tracks OpenMC loses (8 bins on the cylinder, 10 on the sphere, each) | **0 misses** against OpenMC (36 / 40 nonzero bins) |
+
+One amendment, made before any result was judged: the first pair check also
+counted a track that leaves the mesh through a theta cone and re-enters through
+the same cone in another phi sector. That is real geometry, confirmed by the
+geometry check, not a pair. The check now requires the two elements to be
+neighbours along the axis crossed. The code was not changed.
+
+**Default changed:** `MeshSurfaceFilter::new` now bins curvilinear meshes with
+the corrected route. Regular and rectilinear results do not move. The
+code-to-code tests (`mesh_surface_vs_openmc_1712.rs`, and the curvilinear tests
+that pin upstream's labels) select the port by name.

@@ -400,7 +400,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
         upper_right: [2.0, 2.0, 2.0],
         dimension: [2, 2, 2],
     };
-    let f = MeshSurfaceFilter { mesh: MeshKind::Regular(m.clone()) };
+    let f = MeshSurfaceFilter { mesh: MeshKind::Regular(m.clone()), raytrace: Default::default() };
     assert_eq!(f.n_bins(), 12 * 8, "12 surface bins per element");
 
     let ev = FilterEvent {
@@ -450,7 +450,7 @@ fn a_diagonal_track_scores_its_crossings_in_order() {
         upper_right: [3.0, 3.0, 3.0],
         dimension: [3, 3, 3],
     };
-    let f = MeshSurfaceFilter { mesh: MeshKind::Regular(m) };
+    let f = MeshSurfaceFilter { mesh: MeshKind::Regular(m), raytrace: Default::default() };
     let ev = FilterEvent {
         position_last: Position::new(0.5, 0.5, 0.5),
         position: Position::new(2.5, 2.5, 2.5),

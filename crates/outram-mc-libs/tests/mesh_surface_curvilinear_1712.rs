@@ -332,12 +332,18 @@ fn cylindrical_radial_chord_crosses_each_shell_in_and_out() {
     let b = Position::new(o.x + 4.0, o.y, o.z + 0.25);
     let r = kind.surface_bins_crossed_openmc(a, b, dir(a, b)).unwrap();
     assert_eq!(r, RADIAL_CHORD.to_vec());
-    // Through the filter, same answer and 12 bins per element.
+    // Through the filter with the port selected, same answer and 12 bins per
+    // element. (gh:#1715: the filter's default is the corrected route, which
+    // labels the core entry by the face entered, its max r face, bin 3.)
     let f = MeshSurfaceFilter::new(kind).unwrap();
     assert_eq!(f.n_bins(), 36);
     let ev = FilterEvent { position_last: a, position: b, direction: dir(a, b), ..FilterEvent::default() };
-    assert_eq!(f.matches(&ev), RADIAL_CHORD.to_vec());
-    assert_eq!(f.get_bin(&ev), Some(27));
+    let port = f.clone().with_openmc_raytrace();
+    assert_eq!(port.matches(&ev), RADIAL_CHORD.to_vec());
+    assert_eq!(port.get_bin(&ev), Some(27));
+    let mut corrected = RADIAL_CHORD.to_vec();
+    corrected[4] = 3;
+    assert_eq!(f.matches(&ev), corrected);
 }
 
 #[test]
