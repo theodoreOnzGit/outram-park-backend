@@ -200,9 +200,22 @@ impl KeffTab {
         self.split.as_ref().and_then(Split::coefficients)
     }
 
-    /// Stop the run (the data stay with the workers).
+    /// Stop the run (the data stay with the workers). GUI glue, reached only
+    /// from the Stop buttons; no test drives this tab.
+    ///
+    /// During the data phase there is no run yet: the workers are processing
+    /// the nuclear data (minutes on a first visit), `busy()` stays true until
+    /// they finish, and Stop used to do nothing (found 2026-11-23). It now
+    /// shuts that pool down. Products already finished are in the browser's
+    /// cache, so the next Run reads them back instead of processing again.
     pub fn stop(&mut self) {
         self.split = self.split.take().filter(|s| s.runs.len() == 3);
+        if self.pool.as_ref().is_some_and(|p| p.data_phase()) {
+            if let Some(p) = self.pool.take() {
+                p.terminate();
+            }
+            return;
+        }
         if let Some(p) = self.pool.as_mut() {
             p.pending = None;
             p.keff.stop_run();
