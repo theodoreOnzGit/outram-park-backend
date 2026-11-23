@@ -135,6 +135,30 @@ Per-batch values are integer counts before normalisation, so the criterion is
 relative difference `< 1e-12` (normalisation rounding only), and every cell
 must score. Prediction: passes, worst difference at the 1e-16 level.
 
-## Results
+## Results (2026-11-22/23)
 
-(Filled in after the runs.)
+Hardware: 4-core Intel Xeon @ 2.30 GHz, 15 GiB RAM, Linux, CPU only, shared
+with other runs. The agent's first runs measured P2 to P6; the agent stopped
+when the disk filled. The rows were checked again in the full suite below.
+
+| prediction | result |
+|---|---|
+| P1, bit-identical without a mesh-surface tally | **held**: `stats_move_fingerprints` passes; the hybrid `k` and its sigma are bit-identical with and without the tally |
+| P2, delta vs surface (324 bins) | **passes the fixed criterion**: `chi2 / N` **1.223**, max \|z\| **3.61** (criterion < 1.5 and < 5). Above the predicted 0.8-1.2 band, see amendment 1 |
+| Amendment 1 control, surface seed 3 vs seed 4 | `chi2 / N` **1.10**: the instrument (correlated generations) carries an excess over 1 for two independent arms too, so 1.22 is not attributed to delta tracking. Summed current delta 448.88 against surface 453.34 (ratio 0.990), not resolved at this budget |
+| P3, energy x mesh-surface summed over energy | **exact** on all 18 Experiment A sites |
+| P3, cell x mesh-surface summed over cells | exact; it checks the sum only (amendment 2) |
+| P3b, cells on the sphere | worst relative difference **5.3e-16**; all three cells score |
+| P4, hand-built bin index | **exact** |
+| P5, driver equals live | **exact** |
+| P6, OpenMC mesh-surface comparisons | **0 misses** |
+
+**Full suite on the merged code** (#1709, #1711, #1712, #1713 together):
+`cargo test --release -p outram-mc-libs --lib --tests --no-fail-fast`
+gives **205 test binaries, 1401 passed, 0 failed, 23 ignored**. This file's
+tests: 3 passed in 105 s. The `no_std` check
+`cargo check --release -p outram-mc-libs --no-default-features --lib --target x86_64-unknown-none`
+passes.
+
+**Not resolved:** the 1 % lower summed current on the delta arm is within this
+budget's noise, and a higher-statistics run would be needed to bound it.
