@@ -67,12 +67,17 @@ else
   meta=$(cargo metadata --format-version 1 --no-deps)
 fi
 
-# The split list: package names, comments and blank lines dropped.
-split_json=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$split_file" \
-  | jq -R . | jq -s .)
+# The split list: `name [batch]` per line, comments and blank lines dropped.
+# `batch` (default 1) is how many test targets share one job (2026-11-24:
+# the full-tier matrix reached 296 jobs against GitHub's 256, run
+# 45082263111). The lib shard is always alone.
+split_lines=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$split_file")
+split_json=$(awk '{print $1}' <<<"$split_lines" | jq -R . | jq -s .)
+batch_json=$(awk '{printf "%s\t%s\n", $1, ($2 == "" ? 1 : $2)}' <<<"$split_lines" \
+  | jq -R 'split("\t") | {(.[0]): (.[1] | tonumber)}' | jq -s 'add // {}')
 
 # shellcheck disable=SC2016 # jq program, not shell
-matrix=$(jq -c --argjson split "$split_json" --arg only "$package" --arg scope "$scope" '
+matrix=$(jq -c --argjson split "$split_json" --argjson batch "$batch_json" --arg only "$package" --arg scope "$scope" '
   # The features a scope enables: full = the default set, closed over the
   # features it names (plain names only: "dep:x" and "x/f" switch on
   # dependencies, never one of this package'\''s own features); fast = none,
@@ -94,6 +99,15 @@ matrix=$(jq -c --argjson split "$split_json" --arg only "$package" --arg scope "
             {shard: "\($k)/\(.name)", select: "--\($k) \(.name)", order: 1}
           else empty end ]
     | unique_by(.shard) | sort_by(.order, .shard) | map(del(.order));
+  # Test-target shards in consecutive groups of $n (the lib shard alone).
+  def batched($n):
+    (map(select(.shard == "lib"))) as $lib
+    | (map(select(.shard != "lib"))) as $rest
+    | if $n <= 1 then $lib + $rest
+      else $lib + [ range(0; $rest | length; $n) as $i | $rest[$i:$i + $n]
+                    | {shard: (if length == 1 then .[0].shard else "\(.[0].shard)+\(length - 1)" end),
+                       select: (map(.select) | join(" "))} ]
+      end;
 
   (.workspace_members) as $members
   | [ .packages[] | select(.id as $id | $members | index($id)) ] as $pkgs
@@ -108,7 +122,7 @@ matrix=$(jq -c --argjson split "$split_json" --arg only "$package" --arg scope "
       | select($only == "" or .name == $only)
       | . as $pkg
       | if ($split | index($pkg.name)) then
-          shards($pkg)[]
+          shards($pkg) | batched($batch[$pkg.name] // 1) | .[]
           | {id: ("\($pkg.name)__\(.shard)" | gsub("[^A-Za-z0-9_.-]"; "_")),
              package: $pkg.name, shard: .shard, select: .select}
         else
