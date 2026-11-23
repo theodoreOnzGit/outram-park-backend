@@ -175,6 +175,9 @@
 //! composes).
 
 pub mod control_rods;
+/// The control volumes the assembled plant has, for the CV schematic tab and
+/// the fault tree's CV check (gh:#1718).
+pub mod control_volumes;
 pub mod atmospheric_dispersion;
 pub mod bounding_air_ingress;
 pub mod decay_heat_removal;
@@ -2164,6 +2167,9 @@ impl HtgrPlant {
     /// writing only the *output* fields and leaving the GUI-owned control
     /// inputs untouched.
     pub fn write_snapshot(&self, s: &mut HtgrSnapshot) {
+        // The control-volume list, read from this assembled plant (gh:#1718).
+        s.control_volumes =
+            control_volumes::CvSnapshot::from_map(&control_volumes::control_volume_map(self));
         // Kinetics.
         s.reactor_power_mw = power_in_megawatts(self.kinetics.total_power());
         s.prompt_power_mw = power_in_megawatts(self.kinetics.prompt_power());

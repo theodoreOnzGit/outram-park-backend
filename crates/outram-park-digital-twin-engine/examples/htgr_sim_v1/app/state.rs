@@ -428,6 +428,11 @@ pub struct HtgrSnapshot {
     /// `f32`, not `f64`: this exists to drive a colour ramp, and the snapshot
     /// is cloned every frame. Empty until the first dispersion run.
     pub dispersion_grid: Vec<f32>,
+    /// The plant's control volumes, links and pressure-boundary components,
+    /// from the assembled plant on every publish (gh:#1718): what the
+    /// Control volumes tab draws and the fault tree checks against. Empty
+    /// until the first publish.
+    pub control_volumes: crate::physics::control_volumes::CvSnapshot,
     /// The basis [`Self::dispersion_grid`] was summed in.
     pub dispersion_grid_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// Cells per side of [`Self::dispersion_grid`].
@@ -970,6 +975,7 @@ impl Default for HtgrSnapshot {
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
             tede: crate::physics::tede_accumulator::TedeSnapshot::default(),
             dispersion_grid: Vec::new(),
+            control_volumes: Default::default(),
             dispersion_grid_weighting: Default::default(),
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,
