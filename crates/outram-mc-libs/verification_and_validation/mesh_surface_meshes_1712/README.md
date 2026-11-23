@@ -234,3 +234,12 @@ neighbours along the axis crossed. The code was not changed.
 the corrected route. Regular and rectilinear results do not move. The
 code-to-code tests (`mesh_surface_vs_openmc_1712.rs`, and the curvilinear tests
 that pin upstream's labels) select the port by name.
+
+**Port deprecated 2026-11-23 (maintainer: "deprecate the original port").**
+`MeshSurfaceFilter::with_openmc_raytrace`, `MeshSurfaceRaytrace::OpenMc`,
+`RegularMeshExt::surface_bins_crossed_openmc`,
+`MeshKindExt::surface_bins_crossed_openmc` and the older re-derivation
+`RegularMeshExt::surface_bins_crossed` carry `#[deprecated]` pointing at the
+corrected route. They stay callable: the code-to-code tests use them on purpose
+as the OpenMC oracle, under `#![allow(deprecated)]` with a comment saying so.
+Nothing else in the workspace calls them.

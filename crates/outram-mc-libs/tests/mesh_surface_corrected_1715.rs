@@ -42,6 +42,10 @@
 //! `verification_and_validation/mesh_surface_meshes_1712/README.md`, section
 //! "gh:#1715".
 
+// The deprecated port of OpenMC's mesh-surface raytrace (gh:#1715) is used here
+// on purpose: it is the code-to-code oracle these tests pin or compare against.
+#![allow(deprecated)]
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 

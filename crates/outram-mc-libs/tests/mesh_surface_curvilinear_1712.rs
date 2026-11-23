@@ -36,6 +36,10 @@
 //! hand count in the face label of some inward currents. Full table and the
 //! three upstream findings: the V&V README.
 
+// The deprecated port of OpenMC's mesh-surface raytrace (gh:#1715) is used here
+// on purpose: it is the code-to-code oracle these tests pin or compare against.
+#![allow(deprecated)]
+
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::tally::filter::{Filter, FilterEvent};
 use outram_mc_libs::tally::filter_extra::MeshSurfaceFilter;

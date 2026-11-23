@@ -222,6 +222,7 @@ pub trait RegularMeshExt {
     /// [`Self::surface_bins_crossed_openmc`], by
     /// `tests/mesh_surface_raytrace_1709.rs`. The mesh-surface filter uses the
     /// port.
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715): a re-derivation that breaks ties differently from upstream; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected).")]
     fn surface_bins_crossed(&self, r0: Position, r1: Position) -> Vec<usize>;
     /// Every surface bin the track `r0 -> r1` (direction `u`) crosses, in order
     /// of travel: a **port** of `StructuredMesh::raytrace_mesh` with its
@@ -237,6 +238,7 @@ pub trait RegularMeshExt {
     /// `r1` is not counted). [`MeshSurfaceFilter`] uses this one.
     ///
     /// [`MeshSurfaceFilter`]: crate::tally::filter_extra::MeshSurfaceFilter
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
     fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Vec<usize>;
 }
 
@@ -957,6 +959,7 @@ pub enum MeshSurfaceRaytrace {
     Corrected,
     /// The port of upstream's `raytrace_mesh`, defects included: for
     /// code-to-code comparison with OpenMC.
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
     OpenMc,
 }
 
@@ -1192,6 +1195,7 @@ pub fn mesh_surface_bins_crossed(
     raytrace: MeshSurfaceRaytrace,
 ) -> Option<Vec<usize>> {
     match raytrace {
+        #[allow(deprecated)] // the oracle route, selected by name
         MeshSurfaceRaytrace::OpenMc => mesh.surface_bins_crossed_openmc(r0, r1, u),
         MeshSurfaceRaytrace::Corrected => match mesh {
             MeshKind::Regular(m) => Some(raytrace_surface_bins_corrected(m, r0, r1, u)),
@@ -1335,6 +1339,7 @@ pub trait MeshKindExt {
     /// (gh:#1712), bin layout [`RegularMeshExt::surface_bin`]'s. `None` for an
     /// unstructured mesh, where upstream `fatal_error`s
     /// (`UnstructuredMesh::surface_bins_crossed`, `src/mesh.cpp:1087`).
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
     fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Option<Vec<usize>>;
     /// `StructuredMesh::n_surface_bins` (`src/mesh.cpp:1249`):
     /// [`SURFACE_BINS_PER_ELEMENT`] per element; `None` for an unstructured mesh.

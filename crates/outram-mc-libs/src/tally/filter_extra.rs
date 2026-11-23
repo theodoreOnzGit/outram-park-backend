@@ -701,8 +701,12 @@ impl MeshSurfaceFilter {
     /// defects included (gh:#1712 findings A, B, C): for code-to-code
     /// comparison with OpenMC (gh:#1715).
     #[must_use]
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
     pub fn with_openmc_raytrace(mut self) -> Self {
-        self.raytrace = crate::tally::mesh::MeshSurfaceRaytrace::OpenMc;
+        // The oracle route, kept by name.
+        #[allow(deprecated)]
+        let port = crate::tally::mesh::MeshSurfaceRaytrace::OpenMc;
+        self.raytrace = port;
         self
     }
 }

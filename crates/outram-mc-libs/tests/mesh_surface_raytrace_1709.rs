@@ -29,6 +29,10 @@
 //! (`tests/tally_filters_vs_openmc.rs`) went from 16 / 1 tie misses to 0 / 0
 //! with this port and upstream's `r_last_current` span (see the V&V README).
 
+// The deprecated port of OpenMC's mesh-surface raytrace (gh:#1715) is used here
+// on purpose: it is the code-to-code oracle these tests pin or compare against.
+#![allow(deprecated)]
+
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::tally::mesh::{RegularMesh, RegularMeshExt};
 
