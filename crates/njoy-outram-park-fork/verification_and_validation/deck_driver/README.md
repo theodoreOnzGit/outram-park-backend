@@ -1732,9 +1732,9 @@ redefines a standard; the first match wins.
 `CovarianceReactions::standards`, `mf31::run_cov_gendf_nstan`, and card 11 in
 `deck::errorr::read_errorr`.
 
-**Refused by name:** a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
+**Refused by name:** ~~a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
 window, `grist`'s later subsections); `nstan` on the PENDF route (`mfcov = 33`,
-`ngout = 0`); `nstan` with `iread = 2`.
+`ngout = 0`); `nstan` with `iread = 2`.~~ **CORRECTED 2026-11-24 (gh:#1371):** all three run now (§40, §41).
 
 **Gates** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`; prediction posted on
 gh:#1371 first). JENDL-3.3 U-235 (`J33U235`): MF=33 MT 102 refers to `(9228, 18)` with
@@ -1962,7 +1962,7 @@ NC sub-subsection still merges its two energies into `eni` but its formula is dr
 `deck::errorr::read_card8`.
 
 **Refused by name:** `iread = 1` on any route but `mfcov = 33` from a PENDF; with
-MF=32 on the tape (no deck exercises `resprx` with a card-8a list); `nmt <= 0` or
+~~MF=32 on the tape (no deck exercises `resprx` with a card-8a list)~~ (**CORRECTED 2026-11-24**, gh:#1371: runs, §41); `nmt <= 0` or
 `nek < 0`; a card 8a, 8b or 9 shorter than its count (upstream reads unset words).
 
 **Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, prediction on gh:#1371 first), deck
@@ -2169,3 +2169,62 @@ stops there by name too.
   `fndar*`, and its ACE differs from NJOY2016's in 5 of 49 285 lines, all
   equiprobable AND cosines in the 6th figure, so `fndar` contributes nothing there.
   Those 5 lines are an open residual of `newfor = 0` (gh:#1372).
+
+## 41. ERRORR `nstan` with `iread = 1/2`, card 11's third-reaction mode, `iread = 1` with MF=32 (2026-11-24, gh:#1371)
+
+**Upstream, read first.**
+- `nstan` with `iread = 1` or `2`: `gridd` (`errorr.f90:1250-1300`) and `covcal`
+  (`:1913-2030`) apply the card-8a / card-10 selection and the standards
+  independently; nothing in either is specific to the pair.
+- Third-reaction mode, card 11 `matb(1) < 0` (`:283-290`): the standard
+  `(-matb(1), -mtb(1))` must be a card-10 pair. `grist` then walks every subsection
+  of the standard when its window is open (`:1670-1675`), and an `LTY = 3`
+  sub-subsection in a later subsection with `(MAT1, MT1) = (matc(1), mtc(1))` sets
+  the module pair `ety1`/`ety2` and merges its two energies (`:1612-1628`).
+  `covcal` relabels the standard's subsection `(matc(1), mtc(1))`, reads its
+  `rdsig`, sets `kmtb` (`:1999-2008`), applies the `ety` window to the columns of
+  records with `ltyi` 0 or 2 (`:2119-2123`), and at the end sets `mats(kmtb)`,
+  `mts(kmtb)` (`:2386-2390`).
+- `iread = 1` with MF=32: `resprx` uses `mts` and `akxy` as `gridd` left them
+  (`:3626-3656`).
+- `iread = 1` from a GENDF: `ngchk` condenses each card-8a "material" `mats(i) = 0`
+  (`:11114-11128`), reaches the tape end and stops, "ngout = 92 is not a gendf
+  tape" (`:10923-10927`). Run 2026-11-24 on J33 U-235's GENDF, `mfcov = 33` and
+  `31`, binary and text: exit 77 each time. Classified (b): upstream stops.
+
+**Code.** `standards::grist` (the walk and `ety`), `Standards::third_reaction`,
+`CovarianceReactions::ety`, `covcal`'s relabel and window, `covcal::relabel_kmtb`,
+`mf31::run_cov_gendf_card10_nstan`; the deck reader's three refusals removed.
+**One defect found on the way:** on the `iread = 2` route, `rdsig(mat1, …)` with
+`mat1 = matd` (J33 U-235's MT 102 has a subsection `(9228, 18)`) gave zeros, because
+only other materials' records were kept under `other_key`. `matd`'s are now too.
+
+**An unset upstream variable, kept as upstream has it.** `ety1`/`ety2` are module
+variables never initialised; gfortran puts them in static storage, so they are 0
+until a `grist` sets them, and they persist between ERRORR runs of one job. The
+port starts each run at `(0, 0)`. A deck that sets them in one ERRORR and relies on
+them in a later one would differ; no deck here does.
+
+**Gates** (predictions in the tests' doc comments, written before the first run;
+the pre-run commit was refused by this session's permission settings, so
+predictions and results land together):
+
+| deck | what | test | result |
+|---|---|---|---|
+| `NS1` | J33 U-235 PENDF route, `nstan`, `iread = 1`, card 8a `18 102` | `deck_driver_errorr_mf40_nstan_vs_njoy2016::ns1_…` | unit 27 identical, 174 lines |
+| `NS2` | J33 U-235 GENDF route, `nstan`, `iread = 2`, card 10 `9228 18` | `…::ns2_…` | identical, 8 900 lines (`N1`: 8 654) |
+| `T1` | `NS2` with card 11 `-9228 -18 9228 4` (third reaction U-235 MT 4) | `…::t1_…` | identical, 8 768 lines |
+| `T2` | `T1` with the `nstan` tape edited: MT 18's `(9237, 18)` subsection made `(9228, 4)` with an `LTY = 3` window `[1e5, 1e7)` (synthetic) | `…::t2_…` | identical, 8 866 lines |
+| `IM1` | deck 16 (J33 U-238, MF=32 `LRF = 3`), first ERRORR with `iread = 1`, `2 18 102`, cut after it | `deck_driver_covr_vs_njoy2016::im1_…` | unit 26 identical, 385 lines |
+| `IM2` | deck 20 (Cl-35, MF=32 `LRF = 7`), ERRORR from the PENDF, `iread = 1`, card 9 MT 1 = MT 2 + MT 102 | `…::im2_…` | units 25, 26, 27 identical (749, 8 949, 26 168 lines) |
+| — | `iread = 1` from a GENDF | `…::iread1_from_a_gendf_is_refused_where_njoy_stops` | refused by name in ERRORR, naming `ngchk` |
+
+All six identical on the first run. `NS1`'s first run tripped the test helper's
+1000-line sanity floor (the comparison itself was 0 of 174); that floor is 100 for
+`NS1`. Controls: NJOY's `T2` differs from its `T1` (98 more lines), so the `ety`
+window acts; `NS2` differs from `N1`. Not ablated: the `rdsig(matd)` fix alone.
+
+**Still not done (synthetic only):** `iverf = 4` (ENDF-4 layout through `gridd`,
+`covcal` and cards 4-6), MF=34 `LVT = 1` (`egtlgc`), a sub-subsection with `NI = 0`,
+and `MAT1 /= 0` or `MT1 /= 2` (a second reaction's `rdlgnd`). Each is a port of its
+own plus a hand-built tape; none was attempted.

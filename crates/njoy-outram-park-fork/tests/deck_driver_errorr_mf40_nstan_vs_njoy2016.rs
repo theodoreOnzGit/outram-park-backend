@@ -285,3 +285,196 @@ fn n3_n4_errorr_nstan_on_the_pendf_route() {
         assert_eq!(d, 0, "n4: unit 27 differs from NJOY2016.80");
     }
 }
+
+/// [`nstan_deck`] with everything from ERRORR's card 7 on given as `cards`, so
+/// card 7's `iread` and cards 8-11 can change (gh:#1371, 2026-11-24).
+fn nstan_deck_cards(cards: &str) -> String {
+    nstan_deck("").replacen(" 0 33 1 1 -1 /\n", cards, 1)
+}
+
+/// [`nstan_pendf_deck`] with everything from ERRORR's card 7 on given as `cards`.
+fn nstan_pendf_deck_cards(cards: &str) -> String {
+    nstan_pendf_deck("").replacen(" 0 33 1 1 -1 /\n", cards, 1)
+}
+
+/// Run `deck` on J33 U-235 (unit 22) with `nstan` (unit 24, J33 U-235 itself when
+/// `None`); returns unit 27's differing lines and NJOY's line count, `None` when
+/// skipped.
+fn j33u235_case(tag: &str, deck: &str, nstan: Option<String>) -> Option<(usize, usize)> {
+    let p = njoy_root().join("tests/resources/J33U235");
+    let Ok(t) = std::fs::read_to_string(&p) else {
+        eprintln!("skip: {} not present", p.display());
+        return None;
+    };
+    let s = nstan.unwrap_or_else(|| t.clone());
+    let r = compare_on(tag, deck, &[(22, t), (24, s)], &[27])?;
+    let (_, d, n) = r[0];
+    assert!(n > 100, "{tag}: NJOY's unit 27 has only {n} lines (a 2-MT card-8a list gives ~170)");
+    Some((d, n))
+}
+
+/// J33 U-235 as the `nstan` tape of the third-reaction deck `T2`: MF=33 MT 18's
+/// third subsection (`MAT1 = 9237, MT1 = 18`, `NC = 0`, `NI = 1`) becomes
+/// `MAT1 = 9228, MT1 = 4`, `NC = 1`, with one NC-type sub-subsection `LTY = 3`,
+/// `E1 = 1e5, E2 = 1e7`, `MATS = 9228, MTS = 18`, `NEI = 1` (`XMFS = XLFSS = 0`,
+/// `E = 1e5`, `WE = 1`). Its NI-type record and everything else stay.
+fn j33u235_with_lty3_subsection(tape: &str) -> String {
+    let mut out = String::with_capacity(tape.len() + 400);
+    let mut edited = 0;
+    for l in tape.lines() {
+        let tag = l.get(66..75).unwrap_or("");
+        if tag == "922833 18" && l[22..33].trim() == "9237" && l[33..44].trim() == "18" {
+            let seq = &l[75..];
+            let line = |a: String| format!("{a}922833 18{seq}\n");
+            let z = "0.000000+0";
+            out.push_str(&line(format!(" {z} {z}{:>11}{:>11}{:>11}{:>11}", 9228, 4, 1, 1)));
+            out.push_str(&line(format!(" {z} {z}{:>11}{:>11}{:>11}{:>11}", 0, 3, 0, 0)));
+            out.push_str(&line(format!(" 1.000000+5 1.000000+7{:>11}{:>11}{:>11}{:>11}", 9228, 18, 4, 1)));
+            out.push_str(&line(format!(" {z} {z} 1.000000+5 1.000000+0{:22}", "")));
+            edited += 1;
+            continue;
+        }
+        out.push_str(l);
+        out.push('\n');
+    }
+    assert_eq!(edited, 1, "J33U235 MF=33 MT 18 has one (9237, 18) subsection");
+    out
+}
+
+/// **`NS2`: `nstan` with `iread = 2`** (gh:#1371, 2026-11-24). [`nstan_deck`] with
+/// card 7 `2 33 1 1 -1`, card 10 `9228 18/ 0/` and card 11 `0/`. U-235's MT 102
+/// has a subsection `(MAT1, MT1) = (9228, 18)`, now kept (`gridd` `:1213-1219`), whose
+/// NC-type `LTY = 2` sub-subsection stages the standard from `nstan` (`stand`).
+///
+/// # Prediction (committed before the first run, 2026-11-24)
+///
+/// Unit 27 identical. Upstream does nothing different for `iread = 2` with `nstan`.
+/// The one new step on this route is `rdsig(9228, 18)` of `matd` itself, which the
+/// port gave as zeros (a card-10 pair was looked up only among other materials' records)
+/// and now reads from `matd`'s own.
+///
+/// # Results (2026-11-24, NJOY2016.80 `ab27c64`, release)
+///
+/// Unit 27 identical, 8 900 lines, first run, as predicted. Control: `N1` (the same
+/// deck with `iread = 0`) has 8 654, so card 10 reaches the output. Not ablated: the
+/// `rdsig(matd)` lookup on its own. Record: deck-driver README §41.
+#[test]
+fn ns2_errorr_nstan_with_iread2() {
+    let deck = nstan_deck_cards(" 2 33 1 1 -1 /\n 9228 18 /\n 0 /\n 0 /\n");
+    if let Some((d, n)) = j33u235_case("ns2", &deck, None) {
+        assert_eq!(d, 0, "ns2: {d} of unit 27's {n} lines differ from NJOY2016.80");
+    }
+}
+
+/// The third-reaction deck: card 10 `9228 18/ 0/`, card 11 `-9228 -18 9228 4/ 0/`.
+fn third_reaction_deck() -> String {
+    nstan_deck_cards(" 2 33 1 1 -1 /\n 9228 18 /\n 0 /\n -9228 -18 9228 4 /\n 0 /\n")
+}
+
+/// **`T1`: card 11's third-reaction mode on held data** (gh:#1371, 2026-11-24).
+/// The standard `(9228, 18)`, a card-10 pair, stands for U-235's MT 4
+/// (`errorr.f90:283-290`). `gridd`'s `grist` walks every subsection of the
+/// standard (`:1670-1675`); `covcal` relabels MT 102's `(9228, 18)` subsection
+/// `(9228, 4)`, reads `rdsig(9228, 4)` and sets `kmtb` (`:1999-2008`); then
+/// `mats(kmtb)`, `mts(kmtb)` become `(9228, 4)` (`:2386-2390`). J33 U-235's MT 18
+/// has no `LTY = 3` sub-subsection, so `ety1`/`ety2` are never set and hold 0
+/// (gfortran's static storage), and the `ety` window removes every column of the
+/// relabelled matrix (`:2121-2123`).
+///
+/// # Prediction (committed before the first run, 2026-11-24)
+///
+/// Unit 27 identical, MT 102's `(9228, 4)` subsection written as a null matrix. If
+/// the unset `ety` pair is not 0 in NJOY's build, that subsection differs.
+///
+/// # Results (2026-11-24, NJOY2016.80 `ab27c64`, release)
+///
+/// Unit 27 identical, 8 768 lines, first run, as predicted: the port takes the unset
+/// `ety1`/`ety2` as 0 and agrees line for line (not inspected further). Record:
+/// deck-driver README §41.
+#[test]
+fn t1_errorr_third_reaction_on_held_data() {
+    if let Some((d, n)) = j33u235_case("t1", &third_reaction_deck(), None) {
+        assert_eq!(d, 0, "t1: {d} of unit 27's {n} lines differ from NJOY2016.80");
+    }
+}
+
+/// **`T2`: the third-reaction mode with an `ety` window** (gh:#1371, 2026-11-24).
+/// `T1`'s deck with the `nstan` tape edited by [`j33u235_with_lty3_subsection`]:
+/// the standard's MT 18 has a later subsection `(9228, 4)` with an `LTY = 3`
+/// sub-subsection on `[1e5, 1e7)`, so `grist` sets `ety = (1e5, 1e7)` and merges
+/// both energies (`:1612-1628`), and `covcal` keeps the relabelled matrix's
+/// columns in that window only. Unit 22 (the evaluation) is J33 U-235 unedited.
+/// The edit is synthetic: no held evaluation has such a subsection.
+///
+/// # Prediction (committed before the first run, 2026-11-24)
+///
+/// Unit 27 identical, with a non-zero `(9228, 4)` subsection in MT 102. Control:
+/// NJOY's unit 27 differs from its `T1` output.
+///
+/// # Results (2026-11-24, NJOY2016.80 `ab27c64`, release)
+///
+/// Unit 27 identical, 8 866 lines, first run, as predicted. Control: NJOY's `T1`
+/// has 8 768 lines, so the `ety` window and the merged 1e5/1e7 change the output.
+/// Record: deck-driver README §41.
+#[test]
+fn t2_errorr_third_reaction_with_ety_window() {
+    let p = njoy_root().join("tests/resources/J33U235");
+    let Ok(t) = std::fs::read_to_string(&p) else {
+        eprintln!("skip: {} not present", p.display());
+        return;
+    };
+    if let Some((d, n)) = j33u235_case("t2", &third_reaction_deck(), Some(j33u235_with_lty3_subsection(&t))) {
+        assert_eq!(d, 0, "t2: {d} of unit 27's {n} lines differ from NJOY2016.80");
+    }
+}
+
+/// **`NS1`: `nstan` with `iread = 1`, PENDF route** (gh:#1371, 2026-11-24).
+/// [`nstan_pendf_deck`] with card 7 `1 33 1 1 -1` and cards 8-8a `2 0/ 18 102/`:
+/// `gridd` skips every section not on card 8a and still calls `grist` for MT 102's
+/// `LTY = 1` sub-subsection (`:1250-1300`); `covcal` stages the standard through
+/// `stand` (`:2017-2030`); MT 102's `(9228, 18)` subsection has `iok = 0`
+/// (`MAT1 > 0`, `:1220-1225`).
+///
+/// # Prediction (committed before the first run, 2026-11-24)
+///
+/// Unit 27 identical: the port's `gridd` and `covcal` already applied the card-8a
+/// skip and the standards independently; only the deck reader refused the pair.
+///
+/// # Results (2026-11-24, NJOY2016.80 `ab27c64`, release)
+///
+/// Unit 27 identical, 174 lines (MT 18 and 102 only), as predicted. The first run
+/// tripped this file's 1000-line sanity floor, set for whole-material outputs;
+/// that floor is 100 for this case. Record: deck-driver README §41.
+#[test]
+fn ns1_errorr_nstan_with_iread1_on_the_pendf_route() {
+    let deck = nstan_pendf_deck_cards(" 1 33 1 1 -1 /\n 2 0 /\n 18 102 /\n 0 /\n");
+    if let Some((d, n)) = j33u235_case("ns1", &deck, None) {
+        assert_eq!(d, 0, "ns1: {d} of unit 27's {n} lines differ from NJOY2016.80");
+    }
+}
+
+/// **`iread = 1` from a GENDF is refused by name, where NJOY2016.80 stops**
+/// (gh:#1371, 2026-11-24). With `iread = 1`, `nmt1 > 0` and `mats(1) = 0`, so
+/// `ngchk` goes on to condense "material 0" (`errorr.f90:11114-11128`), reaches
+/// the end of the tape and stops: "ngout = 92 is not a gendf tape"
+/// (`:10923-10927`). Run on 2026-11-24 on [`nstan_deck`]'s GENDF with card 7
+/// `1 33` (and `1 31`) and cards 8-8a `2 0/ 18 102/` (`1 0/ 452/`), binary and
+/// text GENDF: NJOY2016.80 exits 77 with that message each time. The port stops in
+/// ERRORR, naming `ngchk`.
+#[test]
+fn iread1_from_a_gendf_is_refused_where_njoy_stops() {
+    let p = njoy_root().join("tests/resources/J33U235");
+    let Ok(t) = std::fs::read_to_string(&p) else {
+        eprintln!("skip: {} not present", p.display());
+        return;
+    };
+    let tmp = std::env::temp_dir().join(format!("njoy_deck_iread1_gendf_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    std::fs::write(tmp.join("tape22"), t).unwrap();
+    let deck = nstan_deck_cards(" 1 33 1 1 -1 /\n 2 0 /\n 18 102 /\n").replacen(" 22 0 92 27 0 24 /", " 22 0 92 27 0 0 /", 1);
+    let run = run_deck(&deck, &DeckOptions { workdir: Some(tmp.clone()), parse_only: false, run_date: None }).unwrap();
+    let _ = std::fs::remove_dir_all(&tmp);
+    let (module, why) = run.blocked.expect("iread = 1 from a GENDF must stop the run");
+    assert_eq!(module, "errorr");
+    assert!(why.contains("ngchk"), "refusal names ngchk: {why}");
+}

@@ -240,6 +240,60 @@ fn ni1_deck_05_with_a_second_errorr_copying_nin_ahead() {
     assert_identical("ni1", r);
 }
 
+/// **`IM1`: deck 16's first ERRORR with `iread = 1` and MF=32 on the tape**
+/// (gh:#1371, 2026-11-24). JENDL-3.3 U-238 (MF=32 `LRF = 3`, `LCOMP = 1`) from its
+/// PENDF, card 7 `1 33 1`, cards 8-8a `3 0/ 2 18 102/`; the deck is cut after that
+/// ERRORR. `resprx` runs on the card-8a reaction list: `covout` adds the
+/// resonance-parameter covariance to the pairs of MT 2, 18 and 102 it finds in
+/// `mts` (`errorr.f90:3626-3656` fold with `akxy`, the identity here).
+///
+/// # Prediction (committed before the first run, 2026-11-24)
+///
+/// Unit 26 identical: `resprx` reads `mts` and `akxy` as built by `gridd`, which
+/// `I1`/`I2` gate for `iread = 1`, and deck 16 gates `resprx` for `iread = 0`.
+///
+/// # Results
+///
+/// 2026-11-24, NJOY2016.80 `ab27c64`, release: unit 26 identical, 385 lines, first
+/// run, as predicted. Record: deck-driver README §41.
+#[test]
+fn im1_deck_16_with_errorr_iread1_and_mf32() {
+    let r = edited_deck_on("16", "J33U238", 20, &[26], |d| {
+        let e = d.replacen("\n 0 33 1 /\n", "\n 1 33 1 /\n 3 0/\n 2 18 102/\n", 1);
+        let cut = e.find("--\n-- process mf34").expect("deck 16 has its mf34 ERRORR");
+        let e = format!("{}stop\n", &e[..cut]);
+        assert!(e.contains(" 1 33 1 /\n 3 0/\n"), "deck 16 was not edited");
+        e
+    });
+    assert_identical("im1", r);
+}
+
+/// **`IM2`: deck 20's ERRORR from the PENDF, `iread = 1` with card 9, MF=32
+/// `LRF = 7`** (gh:#1371, 2026-11-24). Cl-35's last ERRORR takes the PENDF (`+23`)
+/// in place of the GENDF, card 7 `1 33 1 1 -1`, card 8 `3 1/ 1 2 102/`, card 8b
+/// `1e-5 2e7/` and card 9 making MT 1 the sum of MT 2 and MT 102. `resprx`'s SAMMY
+/// branch (`rpxsamm`) folds the sensitivities with `akxy` over `mts`
+/// (`errorr.f90:3626-3656`), so MT 1 now carries a resonance contribution.
+///
+/// # Prediction (committed before the first run, 2026-11-24)
+///
+/// Units 25 (ERRORR), 26 (COVR) and 27 (VIEWR) identical.
+///
+/// # Results
+///
+/// 2026-11-24, NJOY2016.80 `ab27c64`, release: units 25, 26 and 27 identical (749,
+/// 8 949 and 26 168 lines), first run, as predicted. Record: deck-driver README §41.
+#[test]
+fn im2_deck_20_with_errorr_iread1_card9_and_mf32_lrf7() {
+    let old = " +21 0 +91 +25 0 0 /\n 1725 4 2 1 1 /\n 1 293.6/\n 0 33 1 1 -1 /\n";
+    let new = " +21 +23 0 +25 0 0 /\n 1725 4 2 1 1 /\n 1 293.6/\n 1 33 1 1 -1 /\n 3 1/\n 1 2 102/\n 1e-5 2e7/\n 0 1 1/\n 0 1 0/\n 0 0 1/\n";
+    let r = edited_deck_on("20", "cl35rml", 20, &[25, 26, 27], |d| {
+        assert!(d.contains(old), "deck 20's ERRORR is not as expected");
+        d.replacen(old, new, 1)
+    });
+    assert_identical("im2", r);
+}
+
 /// **Deck 46 (Fe-56 JEFF-3.3, 238 groups): ERRORR `mfcov = 34` from a binary GENDF
 /// (unit 34: MF=1, MF=3/MT=251 mubar, MF=34/MT=251), whole deck.**
 #[test]
