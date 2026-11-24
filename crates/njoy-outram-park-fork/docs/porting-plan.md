@@ -404,10 +404,14 @@ further). Split by function/responsibility into a `module_name/` directory
 their functional group) rather than one flat file — see `src/samm/coulomb/`
 for the pattern (`mod.rs`, `steed.rs`, `asymptotic.rs`, `dispatch.rs`,
 `api.rs`, split from an original single 1085-line `coulomb.rs`). Applies to
-every module ported from this date forward; existing over-length files are
-tracked below and should be split opportunistically (not urgently — they
+every module ported from this date forward; existing over-length files ~~are
+tracked below~~ should be split opportunistically (not urgently — they
 work and are tested/building — but don't grow them further without splitting
-first):
+first). **CORRECTED 2026-11-24 (gh:#667):** the table below lists only the three
+files already split on 2026-09-10; it never tracked the rest. Measured with
+`wc -l` on 2026-11-24, 28 files under `src/` are over 1000 lines: `src/errorr/groups/tables.rs` (9122), `src/nuclear_data/secondary.rs` (2688), `src/reconr/mod.rs` (2644), `src/acer/build.rs` (1829), `src/leapr/generate.rs` (1754), `src/acer/read.rs` (1605), `src/acer/photon_blocks.rs` (1591), `src/acer/acelcp.rs` (1495), `src/broadr/joint.rs` (1428), `src/purr/tables.rs` (1406), `src/acer/acelf6.rs` (1365), `src/leapr/endout.rs` (1299), `src/thermr/inelastic.rs` (1282), `src/hdf5/nuclide_read.rs` (1178), `src/leapr/deck.rs` (1161), `src/acquire.rs` (1140), `src/errorr/driver.rs` (1126), `src/hdf5/nuclide_laws.rs` (1113), `src/groupr/unresolved.rs` (1104), `src/thermr/mf7.rs` (1103), `src/acer/energy/mf6.rs` (1087), `src/broadr/mod.rs` (1066), `src/deck/run.rs` (1041), `src/acer/ce_laws.rs` (1040), `src/acer/photonuclear/build.rs` (1037), `src/dtfr/deck.rs` (1025), `src/groupr/matrix_panel.rs` (1023), `src/groupr/input.rs` (1008).
+`errorr/groups/tables.rs` is data tables. Splitting the others is a refactor of
+the port and waits for the maintainer (crate `AGENTS.md`, "The port is the oracle"):
 
 | File | Lines | Status |
 |---|---|---|
