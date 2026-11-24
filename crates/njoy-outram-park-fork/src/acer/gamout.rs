@@ -37,7 +37,11 @@ fn ifield(line: &str, k: usize) -> i64 {
 /// # Errors
 /// [`NjoyError::InvalidInput`] without the material, without photon groups on the
 /// tape (`'no gamma groups on ngend.'`) or when `ngn != 30`.
+/// [`NjoyError::EndfParse`] on a corrupt card (gh:#660).
 pub fn photon_spectra(gendf: &str, mat: i32) -> Result<Vec<f64>, NjoyError> {
+    // gh:#660: `gamout` reads material `mat`'s cards with `contio`/`listio`
+    // and skips the others' as `tosend` does (their MAT/MF/MT columns only).
+    crate::endf::parse::check_gendf_text(gendf, Some(mat))?;
     let lines: Vec<&str> = gendf.lines().collect();
     let key = |l: &str| -> (i32, i32, i32) {
         let n = |a: usize, b: usize| l.get(a..b).and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(0);
