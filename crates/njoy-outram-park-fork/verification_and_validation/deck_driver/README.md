@@ -276,7 +276,8 @@ thermal class's own integer/real walk, the comment, and `throut`'s directory lin
 sections, mubar, ebar, and for `IFENG = 2` the four 3-D pages and the angle-energy pages).
 `aceth` has its own `ascll` without the "make sure amin and amax differ" step, so `tplots`
 has its own copy. Not ported (`NotPorted`): a ZAID suffix and `nxtra != 0` on a thermal
-file, `nmix > 1`, an ENDF-4/5 thermal tape, mcnpx formats, Type 2.
+file, ~~`nmix > 1`~~ (**CORRECTED 2026-11-24**, gh:#866: ported, §41), an ENDF-4/5 thermal
+tape, mcnpx formats, Type 2.
 
 **Result** (`tests/deck_driver_tapes_vs_njoy2016.rs`,
 `test_{25,49,67,68,69,70,74}_thermal_ace_and_directory`): 0 differing lines on every unit
@@ -2004,7 +2005,9 @@ name. By logic, and by what the held evaluations reach (the surveys cover
 - **`tabize`** (`acefc.f90:813-1059`): present inline. It copies an `LNU = 1`
   polynomial unchanged (`:848-856`; deck 10, `t404`, is identical whole). Its
   linearization of a tabulated nubar with `INT > 2` is reached by nothing: every
-  MF=1/MT=452/455/456 held is `INT = 2`.
+  MF=1/MT=452/455/456 held is `INT = 2`. ~~(the linearization was not ported)~~
+  **CORRECTED 2026-11-24 (gh:#1372):** ported (`acer::tabize`) and gated on a
+  synthetic nubar, §41.
 - **`cptab`** (`:2868-2975`): a copy. Its one call (`:2438`) runs with `mfh = 6`, where
   it sets `nr = 1, int = 2`, so its linearization branch is dead upstream.
 - **`terpc`** (`:15181-15213`): feeds only `consis`' listing (`nsyso`) check of the
@@ -2153,9 +2156,10 @@ except `AU`, which says so.
 MF=6 density on 7 949 and 18 661 lines. `calcem` writes to `nscr`, text when `nout`
 is (`thermr.f90:297-298`), and `tpend` scales the density read back from it; the deck
 driver skipped that read for text units. Fixed in `deck::thermr`. Decks run THERMR on
-binary units before this (01, 67-69) and are unaffected. **Open:** the sequence numbers
+binary units before this (01, 67-69) and are unaffected. ~~**Open:** the sequence numbers
 of 1 559 (unit 24) and 515 485 (unit 25) lines, where `tpend`'s copies keep a running
-count through copied SEND/FEND lines; pinned exactly by the test.
+count through copied SEND/FEND lines; pinned exactly by the test.~~ **CORRECTED
+2026-11-24 (gh:#866):** fixed; every line of units 24 and 25 is identical (§41).
 
 **`mfd = 21-26` with no MF=6 that `mfchk2` leaves alone** (an MT inside a stored range,
 e.g. O-16 `21 601`): NJOY2016 stops in `findf` (exit 77, run 2026-11-24); the port now
@@ -2169,3 +2173,14 @@ stops there by name too.
   `fndar*`, and its ACE differs from NJOY2016's in 5 of 49 285 lines, all
   equiprobable AND cosines in the 6th figure, so `fndar` contributes nothing there.
   Those 5 lines are an open residual of `newfor = 0` (gh:#1372).
+
+## 41. ACER `nmix > 1`, THERMR's sequence numbers, F-19 `newfor = 0`, `tabize` (2026-11-24, gh:#866, #1372)
+
+Each was read upstream first, predicted, then run against NJOY2016.80 (`ab27c64`).
+
+| item | upstream | port | gate | result |
+|---|---|---|---|---|
+| ACER `nmix > 1` | `thrlod` divides ITIX (`aceth.f90:830`), ITCX (`:730`) and the incoherent `sigma` (`:804`) by `nmix`, nothing else | `deck::acer_thermal::thrlod_nmix` on the finished table | deck 67 with `nmix = 2`, deck 49 with `nmix = 3` (`deck_driver_tapes_vs_njoy2016::test_{67_nmix_2,49_nmix_3}_…`) | 0 differing lines on every unit. NJOY's deck 49 table at `nmix = 3` differs from `nmix = 1` in 105 of 272 558 lines, so the gate can fail |
+| THERMR sequence numbers | a record a routine writes takes the running count; `asend` writes 99999, `afend`/`amend` 0, each restarting it; a closer `tosend`/`tofend`/`tomend`/`totend` copies takes the running count. `tpend` copies MF=1, MF=2, the kept MF=3 sections, each new MF=6 SEND (from `nscr`) and everything from MF=4 on; THERMR ends with `totend` | `deck::thermr::tpend_copied_closers`; a copied TEND (`Tape`'s `{-1, 0, 0}` mark) | `OM1` | units 24 and 25 identical in every line (was 1 559 and 515 485 lines in columns 76-80) |
+| F-19 `newfor = 0`, 5 AND lines | `pttab`'s `slpe` is a routine-level local: the `aneed < 1e-4` branch leaves it as the previous bin set it, and `p(k)` moves by it | the port reset it to 0 on every bin. **Port defect, fixed** (`acer::photon_angular::pttab`) | `acer_newfor0_and_tabize_vs_njoy2016::f19_newfor0_…` | 0 of 49 285 lines (was 5: MT=16 at 13 MeV, 6th figure) |
+| `tabize` linearization | `first` linearises a nubar TAB1 with any `INT > 2` to lin-lin (`err = 0.01`, `errlim = 1e-5`, midpoints at `sigfig(.,7)`, the midpoint pushed with its lin-lin value, `ndim = 100`, stop at 20 MeV) on `mscr`, which is text when `npend > 0` | `acer::tabize` | F-19 with a synthetic MF=1/MT=452 (`INT` 2, 3, 4, 5), binary and text units (`…::tabize_…`) | 0 of 41 950 lines on both; NJOY's NU block is `NR = 0`, 10 points (the evaluation has 6) |
