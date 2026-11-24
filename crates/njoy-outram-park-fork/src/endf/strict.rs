@@ -30,6 +30,34 @@ pub(crate) struct Refused {
     pub(crate) row: usize,
     pub(crate) lineno: usize,
     pub(crate) why: String,
+    /// Laid out as an `NDIGIT = 6` INTG card: MAT/MF/MT/NS in columns 68-81
+    /// ([`intg6_card`]), not 67-80.
+    pub(crate) intg6: bool,
+}
+
+/// Whether `line` is an `NDIGIT = 6` INTG card of the open MF=32 section
+/// `key`, and its six `e11.0`-columns read leniently if so (gh:#660).
+///
+/// `intgio` (`endf.f90:763-765`) reads such a card as
+/// `(2i5,1x,8i7,i4,i2,i3,i5)`: the eight `i7` integers end at column 67, so
+/// MAT is in columns 68-71, MF 72-73, MT 74-76 and NS 77-81, one column right
+/// of every other card. It is one only when those columns hold `key` as
+/// Fortran integers and the usual columns 67-75 do not. The walk at the
+/// section's end then requires an `NDIGIT = 6` INTG card in that row.
+pub(crate) fn intg6_card(line: &str, key: EndfKey) -> Option<[f64; 6]> {
+    let chars: Vec<char> = line.chars().map(|c| if c.is_ascii() { c } else { '?' }).collect();
+    let col = |a: usize, b: usize| -> String { (a..b).map(|i| chars.get(i).copied().unwrap_or(' ')).collect() };
+    let int = |a: usize, b: usize| parse_fortran_int(&col(a, b));
+    let shifted = (int(67, 71)?, int(71, 73)?, int(73, 76)?);
+    int(76, 81)?;
+    if shifted != (i64::from(key.mat), i64::from(key.mf), i64::from(key.mt)) {
+        return None;
+    }
+    let usual = (int(66, 70), int(70, 72), int(72, 75));
+    if usual == (Some(i64::from(key.mat)), Some(i64::from(key.mf)), Some(i64::from(key.mt))) {
+        return None;
+    }
+    crate::endf::parse::parse_line(line).ok().map(|rl| rl.fields)
 }
 
 /// How NJOY reads one MF=32 card.
@@ -257,10 +285,25 @@ pub(crate) fn check_raw_section(
         let Some(cards) = mf32_cards(rows) else {
             return Ok(());
         };
-        if let Some(r) = refused.iter().find(|r| cards.get(r.row) == Some(&Card32::Numeric)) {
+        if let Some(r) = refused.iter().find(|r| !r.intg6 && cards.get(r.row) == Some(&Card32::Numeric)) {
             return Err(refusal(key, r.lineno, &r.why));
         }
+        // An NDIGIT = 6 layout must sit where the walk has an NDIGIT = 6 card,
+        // and such a card must use that layout: read in the 80-column one,
+        // `intgio` would take MAT's first digit as the eighth integer.
+        for r in refused.iter().filter(|r| r.intg6) {
+            if cards.get(r.row) != Some(&Card32::Intg(6)) {
+                return Err(refusal(key, r.lineno, "an NDIGIT=6 INTG card layout where file32's walk has no NDIGIT=6 card"));
+            }
+        }
         for (row, card) in cards.iter().enumerate() {
+            if *card == Card32::Intg(6) && !refused.iter().any(|r| r.intg6 && r.row == row) {
+                return Err(refusal(
+                    key,
+                    first_lineno + row,
+                    "NDIGIT=6 INTG card in the 80-column layout; intgio reads it as (2i5,1x,8i7,i4,i2,i3,i5), MAT in columns 68-71",
+                ));
+            }
             if let Card32::Intg(nd) = *card {
                 let line = full.get(row).map_or("", String::as_str);
                 check_intg(line, nd).map_err(|why| refusal(key, first_lineno + row, &why))?;
