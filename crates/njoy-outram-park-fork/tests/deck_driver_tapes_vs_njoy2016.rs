@@ -1094,6 +1094,46 @@ fn charged_deck_ace(case: &str, resource: &str) -> Option<njoy_outram_park_fork:
     Some(c)
 }
 
+/// **n + H-2 (ENDF/B-VIII.0, MAT 128) `reconr; acer` at 0 K: `acelcp`'s MF=6
+/// `LAW = 6` charged-particle production for an incident neutron** (gh:#873).
+///
+/// Methodology: the deck below on NJOY2016's own `tests/resources` copy of
+/// `n-001_H_002-ENDF8.0.endf`, run by NJOY2016 and by this crate; ACE unit 24
+/// compared word for word (`acer::compare`). H-2's MT=16 (n,2n) emits its
+/// proton as MF=6 `LAW = 6` (phase space, `NPSX = 3`), which `acelcp` turns
+/// into an HPD/DLWH law-66 entry (`acefc.f90:10601-10742`,
+/// `acelcp_ext::law6_grid`/`law6_h`). The charged-particle decks (50-71) reach
+/// LAW = 6 only for an incident charged particle; this is the one held
+/// incident-neutron evaluation whose charged product is LAW = 6 (the 2026-11-24
+/// survey of `reference-data/endf/` and `tests/resources` found H-2 MT=16 only;
+/// Be-9's LAW = 7 alpha is gated by `msre_salt_nuclides_900k_vs_njoy2016`).
+/// The same table also carries the **elastic recoil** (MF=4, MT=2): the
+/// struck deuteron is H-2's second charged particle
+/// (`acelcp_ext::elastic_recoil_angular`), the only held incident-neutron
+/// case of that branch. Pass criterion: every block identical, and
+/// NJOY2016's `NXS(7) = 2` (p and d), so both branches were reached.
+///
+/// **Result (2026-11-24, NJOY2016 build at `ab27c64`): identical in every
+/// word**: NXS, JXS and all 44 572 XSS words, ESZ 3 845 words, the
+/// charged-particle blocks after `END` included; `NXS(7) = 2`. (The first
+/// run of this test expected `NXS(7) = 1` and failed on it, the word
+/// comparison already identical: the elastic-recoil deuteron had been
+/// overlooked. The assertion was corrected to NJOY2016's own count.)
+#[test]
+fn test_h2_neutron_acelcp_law6_proton_ace() {
+    let root = njoy_root();
+    let deck = "reconr\n 20 21/\n 'h-2 pendf 0K'/\n 128 0/\n .001/\n 0/\nacer\n 20 21 0 24 25/\n 1 1 1 .00 0/\n 'h-2 0K'/\n 128 0./\n 1 1/\n /\nstop\n";
+    let Some((ours, njoy)) = run_pair(&root, "h2lcp", "n-001_H_002-ENDF8.0.endf", deck) else { return };
+    let c = ace_pair(&ours, &njoy, 24);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    let theirs = njoy_outram_park_fork::acer::read::parse_type1(&std::fs::read_to_string(njoy.join("tape24")).unwrap()).unwrap();
+    assert_eq!(theirs.nxs[6], 2, "NJOY2016's table must carry two charged particles (p from MT=16, d from the elastic recoil)");
+    assert!(c.identical(), "H-2 ACE differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
 #[test]
 fn test_50_charged_particle_ace() {
     if let Some(c) = charged_deck_ace("50", "a-002_He_004-ENDF8.0.endf") {
