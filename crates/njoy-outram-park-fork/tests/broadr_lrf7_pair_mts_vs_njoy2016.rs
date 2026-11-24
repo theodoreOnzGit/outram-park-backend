@@ -124,6 +124,77 @@ fn fe57_pair_channel_above_eresh_is_broadened_as_njoy2016_does() {
     assert!(bad.is_empty(), "units differ from NJOY2016: {bad:?}");
 }
 
+/// MF=3 sections of `ours` that differ from NJOY's tape `theirs` (MAT 2634),
+/// each as "MT=n"; a section in only one of them counts.
+fn mf3_differences(ours: &njoy_outram_park_fork::reconr::ReconrResult, theirs: &Path) -> Vec<String> {
+    use njoy_outram_park_fork::endf::records::SectionCursor;
+    use njoy_outram_park_fork::endf::tape::Tape;
+    let theirs = Tape::read_file(theirs).expect("NJOY PENDF");
+    let mut diffs = Vec::new();
+    let mut their_mts = Vec::new();
+    for sec in theirs.sections().iter().filter(|s| s.key.mat == 2634 && s.key.mf == 3) {
+        their_mts.push(sec.key.mt);
+        let mut cur = SectionCursor::new(&sec.rows);
+        let _ = cur.read_cont().expect("HEAD");
+        let t = cur.read_tab1().expect("TAB1");
+        match ours.sections.iter().find(|s| s.mt.number() == sec.key.mt) {
+            Some(s) if s.pairs == t.pairs && s.qi == t.head.c2 => {}
+            _ => diffs.push(format!("MT={}", sec.key.mt)),
+        }
+    }
+    for s in &ours.sections {
+        if !their_mts.contains(&s.mt.number()) {
+            diffs.push(format!("MT={} (extra)", s.mt.number()));
+        }
+    }
+    diffs
+}
+
+/// **The library path** (`broadr::broaden_result_with_pairs`, which
+/// `process::cross_sections_at` calls with `lrf7_pair_mts`), gh:#618: the same
+/// modified Fe-57 and the same NJOY2016 run as the deck test above, our side
+/// `reconr` (tolerance 0.001, 0 K) then `broaden_result_with_pairs(r0, 293.6,
+/// &lrf7_pair_mts(&tape, 2634))`, compared section by section in every MF=3
+/// word after PENDF text, as `pendf_stages_vs_njoy2016.rs` compares.
+///
+/// Results (2026-11-24): predicted before the run, identical with the list,
+/// and MT=4 alone differing without it (as the deck ablation showed).
+/// Measured: with the list **every MF=3 word identical**; with
+/// `broaden_result` (no list) **only MT=4 differs**, which is asserted so the
+/// case keeps discriminating.
+#[test]
+fn fe57_library_path_with_pairs_is_njoy2016s() {
+    use njoy_outram_park_fork::broadr::joint::lrf7_pair_mts;
+    use njoy_outram_park_fork::broadr::{broaden_result, broaden_result_with_pairs};
+    use njoy_outram_park_fork::endf::tape::Tape;
+    use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+    let Some(bin) = njoy_binary() else {
+        eprintln!("skip: NJOY2016 binary not present (set NJOY2016_ROOT)");
+        return;
+    };
+    let Some(endf) = reference_endf_or_skip("n-026_Fe_057-ENDF8.0.endf", "Fe-57 ENDF/B-VIII.0") else { return };
+    let tape20 = fe57_with_eh(&std::fs::read_to_string(endf).unwrap(), " 1.000000+4");
+    let deck = "reconr\n20 21\n'fe57 eh 10 kev'/\n2634 0/\n.001/\n0/\n\
+                broadr\n20 21 22\n2634 1/\n.001/\n293.6/\n0/\nstop\n";
+    let dir = std::env::temp_dir().join(format!("njoy_nppmt_lib_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("tape20"), &tape20).unwrap();
+    std::fs::write(dir.join("deck"), deck).unwrap();
+    let (ok, _) = common::run_njoy_dated(&bin, &dir);
+    assert!(ok, "NJOY2016 failed on the Fe-57 deck");
+
+    let tape = Tape::from_bytes(tape20.as_bytes()).expect("modified Fe-57");
+    let r0 = reconr(&tape, &ReconrConfig { mat: 2634, tolerance: 1.0e-3, temperature: 0.0 }).expect("RECONR");
+    let pairs = lrf7_pair_mts(&tape, 2634);
+    assert_eq!(pairs, vec![2, 51, 102]);
+    let with = mf3_differences(&broaden_result_with_pairs(&r0, 293.6, &pairs).through_pendf_text(), &dir.join("tape22"));
+    let without = mf3_differences(&broaden_result(&r0, 293.6).through_pendf_text(), &dir.join("tape22"));
+    let _ = std::fs::remove_dir_all(&dir);
+    println!("Fe-57 (EH 10 keV) library path: with the list {with:?}; without {without:?}");
+    assert!(with.is_empty(), "with the pair list, sections differ from NJOY2016: {with:?}");
+    assert_eq!(without, vec!["MT=4".to_string()], "the case discriminates the list");
+}
+
 /// `lrf7_pair_mts` on the held LRF=7 tapes reads the lists named in the module
 /// doc (and none from a non-LRF=7 evaluation).
 #[test]

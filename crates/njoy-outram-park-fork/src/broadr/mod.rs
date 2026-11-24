@@ -515,9 +515,10 @@ pub fn doppler_broaden_below_with(
 /// **Not applied here: the LRF=7 particle-pair list** (`nppmt`, GitHub #618).
 /// Upstream reads it from the ENDF tape, which a [`ReconrResult`] does not
 /// carry, so an LRF=7 pair channel whose threshold is at or above the
-/// resonance range's top is not broadened here, where NJOY broadens it. The
-/// deck driver (`deck::run_deck`) reads the list and applies it
-/// ([`joint::broadr_joint_pairs`]).
+/// resonance range's top is not broadened here, where NJOY broadens it.
+/// [`broaden_result_with_pairs`] takes the list
+/// (`joint::lrf7_pair_mts(&tape, mat)`); `process::cross_sections_at` and the
+/// deck driver apply it.
 #[must_use]
 ///
 /// Since 2026-09-26 this is upstream's own form, [`joint::broadr_joint`]. It
@@ -545,19 +546,41 @@ pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
 /// joint walk only: the per-reaction fallback, taken when the result has no
 /// MT=1 section, keeps its own fixed tolerance.
 pub fn broaden_result_with_tolerance(result: &ReconrResult, temp_k: f64, errthn: f64) -> ReconrResult {
+    broaden_result_with_tolerance_and_pairs(result, temp_k, errthn, &[])
+}
+
+/// [`broaden_result`] with upstream's LRF=7 particle-pair list `nppmt`, which
+/// BROADR reads from the ENDF tape (`broadr.f90:292-330`) and forces into the
+/// broadened set (`:513-520`), gh:#618. Pass
+/// `joint::lrf7_pair_mts(&tape, mat)`; an empty list is [`broaden_result`].
+#[must_use]
+pub fn broaden_result_with_pairs(result: &ReconrResult, temp_k: f64, pair_mts: &[i32]) -> ReconrResult {
+    broaden_result_with_tolerance_and_pairs(result, temp_k, BroadnTolerances::default().errthn, pair_mts)
+}
+
+/// [`broaden_result_with_tolerance`] with the LRF=7 particle-pair list, as
+/// [`broaden_result_with_pairs`] (gh:#618). An empty list is
+/// [`broaden_result_with_tolerance`].
+#[must_use]
+pub fn broaden_result_with_tolerance_and_pairs(
+    result: &ReconrResult,
+    temp_k: f64,
+    errthn: f64,
+    pair_mts: &[i32],
+) -> ReconrResult {
     // `tempef=tempk-tempin` (`broadr.f90:605-610`, GitHub #617).
     let tempef = temp_k - result.temperature_k;
     if !(tempef > 0.0) {
         // Upstream thins only here (`thinb`, gh:#619); the cases `thinb`
         // refuses or has nothing to walk pass through (see the doc above).
         let pendf = result.through_pendf_text();
-        return match joint::broadr_joint_thinb(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5) {
+        return match joint::broadr_joint_thinb_pairs(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5, pair_mts) {
             Ok(Some(r)) => r.through_pendf_text(),
             Ok(None) | Err(_) => result.clone(),
         };
     }
     let pendf = result.through_pendf_text();
-    if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5) {
+    if let Some(r) = joint::broadr_joint_pairs(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5, true, pair_mts) {
         // BROADR writes a PENDF: energies copied above `thnmax` have been
         // through `e(k)**2/alpha` (`broadn` label 190) and are printed.
         return r.through_pendf_text();
