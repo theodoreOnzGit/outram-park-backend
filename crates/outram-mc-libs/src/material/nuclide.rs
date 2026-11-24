@@ -226,6 +226,19 @@ pub(crate) fn legacy_xs_details() -> bool {
     on
 }
 
+use crate::material::log_grid::{eval_section_located, UnionGrid};
+
+/// [`eval_section_x`] at a position found once by [`UnionGrid::locate`]
+/// (`j`): the same double, without the per-reaction search where the section
+/// allows it (gh:#1295, [`crate::material::log_grid`]). `SpeedTier::Fast`
+/// only; `Standard` keeps the search as the oracle.
+fn eval_loc(recon: &ReconrResult, grid: &UnionGrid, idx: Option<usize>, e: f64, j: Option<usize>) -> f64 {
+    match idx {
+        Some(i) => eval_section_located(recon, grid, i, e, j, eval_section_x),
+        None => 0.0,
+    }
+}
+
 /// `recon.eval_section(idx, e)` with OpenMC's extrapolation outside the
 /// nuclide's energy grid (GitHub #463 item 6; see [`legacy_xs_details`]).
 ///
@@ -321,6 +334,11 @@ enum XsSource {
         /// indexed ([`SpeedTier::Fast`]) path. Built from `recon` at
         /// construction.
         index: SectionIndex,
+        /// `recon`'s union energy grid with OpenMC's logarithmic index
+        /// (gh:#1295): the [`SpeedTier::Fast`] lookup finds the energy once per
+        /// nuclide and reads every suffix section at that position. Built from
+        /// `recon` at construction; `Standard` does not use it.
+        grid: UnionGrid,
         /// The inelastic scattering channels (MT=51…91) extracted from `recon`,
         /// precomputed once so [`Nuclide::sample_inelastic`] and the inelastic σ
         /// sum stay cheap. Empty ⇒ no resolved inelastic (falls back to elastic).
@@ -1219,6 +1237,7 @@ impl Nuclide {
     fn nu_fission_openmc(
         &self,
         recon: &ReconrResult,
+        loc: Option<(&UnionGrid, Option<usize>)>,
         section: Option<usize>,
         e: f64,
         fission: f64,
@@ -1235,7 +1254,12 @@ impl Nuclide {
         if n < 2 || e <= p[0].0 || e >= p[n - 1].0 {
             return exact;
         }
-        let hi = p.partition_point(|&(x, _)| x <= e);
+        // `SpeedTier::Fast` (gh:#1295): the same index from the union-grid
+        // position when the section is a suffix of the grid; else searched.
+        let hi = match loc.and_then(|(g, j)| Some((j?, g.offset(i)?))) {
+            Some((j, o)) if j > o => j - o,
+            _ => p.partition_point(|&(x, _)| x <= e),
+        };
         let ((e0, s0), (e1, s1)) = (p[hi - 1], p[hi]);
         if (e1 - e0).abs() < 1e-30 {
             return exact;
@@ -2640,6 +2664,7 @@ impl Nuclide {
             chi,
             xs: XsSource::Pointwise {
                 index: SectionIndex::new(&recon),
+                grid: UnionGrid::new(&recon),
                 recon,
                 inel,
                 elastic_angular,
@@ -3215,6 +3240,7 @@ impl Nuclide {
             chi,
             xs: XsSource::Pointwise {
                 index: SectionIndex::new(&recon),
+                grid: UnionGrid::new(&recon),
                 recon,
                 inel,
                 elastic_angular,
@@ -3389,11 +3415,17 @@ impl Nuclide {
 
     /// Σ of the "other" neutron-emitting channels at `e` \[eV\] on the
     /// pointwise tier (0 when ablated).
-    fn other_xs(&self, recon: &ReconrResult, e: f64) -> f64 {
+    ///
+    /// `loc` is the `SpeedTier::Fast` union-grid position (gh:#1295); `None`
+    /// searches each channel, as `Standard` does. Same value either way.
+    fn other_xs(&self, recon: &ReconrResult, loc: Option<(&UnionGrid, Option<usize>)>, e: f64) -> f64 {
         if self.other_channels_ablated {
             return 0.0;
         }
-        self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).sum()
+        match loc {
+            Some((grid, j)) => self.other_channels.iter().map(|c| eval_loc(recon, grid, Some(c.section), e, j)).sum(),
+            None => self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).sum(),
+        }
     }
 
     /// Sample a collision on the **other neutron-emitting reactions** at `e`
@@ -3420,10 +3452,17 @@ impl Nuclide {
         u: crate::geometry::position::Direction,
         seed: &mut u64,
     ) -> OtherEmission {
-        let XsSource::Pointwise { recon, .. } = &self.xs else {
+        let XsSource::Pointwise { recon, grid, .. } = &self.xs else {
             return OtherEmission { e, u, extras: [(e, u); 3], n_emit: 1, mt: 0 };
         };
-        let xs: Vec<f64> = self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).collect();
+        // `SpeedTier::Fast`: one union-grid position for every channel
+        // (gh:#1295); `Standard` searches each. Same values.
+        let xs: Vec<f64> = if self.speed.indexed_lookup() {
+            let j = grid.locate(e);
+            self.other_channels.iter().map(|c| eval_loc(recon, grid, Some(c.section), e, j)).collect()
+        } else {
+            self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).collect()
+        };
         let total: f64 = xs.iter().sum();
         let target = prn(seed) * total;
         let mut acc = 0.0;
@@ -3743,10 +3782,11 @@ impl Nuclide {
                 // Item 11: `total + thermal - elastic`, two section lookups
                 // where the channel rebuild needed ~46.
                 let (total, elastic) = match &self.xs {
-                    XsSource::Pointwise { recon, index, .. }
+                    XsSource::Pointwise { recon, index, grid, .. }
                         if self.speed.indexed_lookup() && self.multipole_at(e).is_none() =>
                     {
-                        (eval_at(recon, index.mt1, e), eval_at(recon, index.mt2, e))
+                        let j = grid.locate(e);
+                        (eval_loc(recon, grid, index.mt1, e, j), eval_loc(recon, grid, index.mt2, e, j))
                     }
                     _ => {
                         let b = self.base_xs_at_energy(e, temp_k);
@@ -3760,8 +3800,8 @@ impl Nuclide {
             return w.evaluate(e, temp_k).total();
         }
         match &self.xs {
-            XsSource::Pointwise { recon, index, .. } if self.speed.indexed_lookup() => {
-                eval_at(recon, index.mt1, e)
+            XsSource::Pointwise { recon, index, grid, .. } if self.speed.indexed_lookup() => {
+                eval_loc(recon, grid, index.mt1, e, grid.locate(e))
             }
             XsSource::Pointwise { recon, .. } => eval_mt_x(recon, MtReaction::Mt1Total, e),
             // The LOW tier already carries a tabulated total; its `MicroXS`
@@ -3861,29 +3901,31 @@ impl Nuclide {
                 }
             }
             XsSource::Pointwise {
-                recon, inel, index, ..
+                recon, inel, index, grid, ..
             } if self.speed.indexed_lookup() => {
                 // SpeedTier::Fast: the Standard arm below, term for term, with
                 // each section found by its precomputed position instead of a
-                // search. Same values, same summation order.
-                let total = eval_at(recon, index.mt1, e);
-                let elastic = eval_at(recon, index.mt2, e);
-                let fission = eval_at(recon, index.mt18, e);
-                let inelastic: f64 = inel.iter().map(|l| eval_section_x(recon, l.section, e)).sum();
-                let n2n = eval_at(recon, index.mt16, e);
-                let n3n = eval_at(recon, index.mt17, e);
-                let mt5 = eval_at(recon, index.mt5, e);
+                // search, and the energy found ONCE on the union grid for all
+                // of them (gh:#1295). Same values, same summation order.
+                let j = grid.locate(e);
+                let total = eval_loc(recon, grid, index.mt1, e, j);
+                let elastic = eval_loc(recon, grid, index.mt2, e, j);
+                let fission = eval_loc(recon, grid, index.mt18, e, j);
+                let inelastic: f64 = inel.iter().map(|l| eval_loc(recon, grid, Some(l.section), e, j)).sum();
+                let n2n = eval_loc(recon, grid, index.mt16, e, j);
+                let n3n = eval_loc(recon, grid, index.mt17, e, j);
+                let mt5 = eval_loc(recon, grid, index.mt5, e, j);
                 MicroXS {
                     total,
                     elastic,
                     fission,
-                    absorption: absorption_mt27_indexed(recon, index, fission, e),
+                    absorption: absorption_mt27_indexed(recon, index, grid, j, fission, e),
                     inelastic,
                     n2n,
                     n3n,
                     mt5,
-                    other: self.other_xs(recon, e),
-                    nu_fission: self.nu_fission_openmc(recon, index.mt18, e, fission),
+                    other: self.other_xs(recon, Some((grid, j)), e),
+                    nu_fission: self.nu_fission_openmc(recon, Some((grid, j)), index.mt18, e, fission),
                 }
             }
             XsSource::Pointwise { recon, inel, .. } => {
@@ -3911,8 +3953,8 @@ impl Nuclide {
                     n2n,
                     n3n,
                     mt5,
-                    other: self.other_xs(recon, e),
-                    nu_fission: self.nu_fission_openmc(recon, recon.section_index(MtReaction::Mt18Fission), e, fission),
+                    other: self.other_xs(recon, None, e),
+                    nu_fission: self.nu_fission_openmc(recon, None, recon.section_index(MtReaction::Mt18Fission), e, fission),
                 }
             }
         }
@@ -3940,15 +3982,17 @@ impl Nuclide {
     /// chose the group (`prob < cutoff` continues; the first `prob >= cutoff`
     /// wins). `None` draws `prn * total` (legacy).
     pub fn sample_inelastic_at(&self, e: f64, cutoff: Option<f64>, seed: &mut u64) -> Inelastic {
-        let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
+        let XsSource::Pointwise { recon, inel, grid, .. } = &self.xs else {
             return Inelastic::Continuum { q: 0.0 };
         };
-        // `SpeedTier::Fast` evaluates each level by its stored position rather
-        // than searching for it; the value is the same either way.
+        // `SpeedTier::Fast` evaluates each level by its stored position, at
+        // one union-grid position for all of them (gh:#1295), rather than
+        // searching for it; the value is the same either way.
         let indexed = self.speed.indexed_lookup();
+        let j = if indexed { grid.locate(e) } else { None };
         let level_xs = |l: &InelasticLevel| {
             if indexed {
-                eval_section_x(recon, l.section, e)
+                eval_loc(recon, grid, Some(l.section), e, j)
             } else {
                 eval_mt_x(recon, l.mt, e)
             }
@@ -4804,12 +4848,19 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
 /// [`absorption_mt27`] with the section positions resolved in advance
 /// ([`SpeedTier::Fast`]). Same rule, same terms, same summation order, so the
 /// same value to the bit.
-fn absorption_mt27_indexed(recon: &ReconrResult, index: &SectionIndex, fission: f64, e: f64) -> f64 {
-    let mt27 = eval_at(recon, index.mt27, e);
+fn absorption_mt27_indexed(
+    recon: &ReconrResult,
+    index: &SectionIndex,
+    grid: &UnionGrid,
+    j: Option<usize>,
+    fission: f64,
+    e: f64,
+) -> f64 {
+    let mt27 = eval_loc(recon, grid, index.mt27, e, j);
     if mt27 > 0.0 {
         return mt27;
     }
-    let mt101 = eval_at(recon, index.mt101, e);
+    let mt101 = eval_loc(recon, grid, index.mt101, e, j);
     if mt101 > 0.0 {
         return fission + mt101;
     }
@@ -4817,7 +4868,7 @@ fn absorption_mt27_indexed(recon: &ReconrResult, index: &SectionIndex, fission: 
         + index
             .disappearance
             .iter()
-            .map(|&i| eval_at(recon, i, e))
+            .map(|&i| eval_loc(recon, grid, i, e, j))
             .sum::<f64>()
 }
 
@@ -6177,7 +6228,9 @@ mod tests {
         let e = 1.0e6;
         assert_eq!(absorption_mt27(&recon, 0.0, e), 7.0);
         let index = SectionIndex::new(&recon);
-        assert_eq!(absorption_mt27_indexed(&recon, &index, 0.0, e), 7.0);
+        let grid = UnionGrid::new(&recon);
+        assert_eq!(absorption_mt27_indexed(&recon, &index, &grid, grid.locate(e), 0.0, e), 7.0);
+        assert_eq!(absorption_mt27_indexed(&recon, &index, &grid, None, 0.0, e), 7.0);
     }
 
     /// The exponential angular sampler must reproduce its target mean cosine μ̄ —

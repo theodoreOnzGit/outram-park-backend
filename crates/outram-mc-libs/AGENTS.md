@@ -612,7 +612,7 @@ a translation of it.
 | Particle state | `src/particle.cpp` | Phase-space state (r, u, E, wgt, seed, …) |
 | Particle bank | `src/bank.cpp` | Fission site banking for k-eigenvalue |
 | Material | `src/material.cpp` | Nuclide mixture, macroscopic XS |
-| Nuclide XS | `src/nuclide.cpp` | Point-energy grid + log-log interpolation |
+| Nuclide XS | `src/nuclide.cpp` | Point-energy grid + log-log interpolation; the logarithmic union-grid index (`init_grid`, `calculate_xs`'s search) in `material::log_grid` since 2026-11-24 (gh:#1295) |
 | Reactions | `src/reaction.cpp` | MT table, Q-value, secondary sampling |
 | S(α,β) thermal | `src/thermal.cpp` | Thermal scattering law tables |
 | Source sampling | `src/source.cpp` | External source: spatial/energy/angle |
@@ -773,6 +773,12 @@ path. `material::speed::SpeedTier`, chosen per nuclide with
     (`ReconrResult::section_index` / `eval_section`), not by a linear search
     per call. `eval_mt` delegates to the same `eval_section`, so both tiers
     run one interpolation.
+  - **since 2026-11-24 (gh:#1295):** a HIGH-tier nuclide's energy is found
+    once per lookup on its union grid with OpenMC's logarithmic index
+    (`material::log_grid`), and every reaction is read at that position.
+    Godiva transport 1.85x faster single-thread, 1.87x on 3 threads, k
+    bit-identical (Intel Xeon @ 2.10 GHz, 4 cores, 15 GB, Linux 6.18, CPU
+    only; `docs/profiling/log_grid_index_1295.md` at the workspace root).
 - **`Standard`** is the unoptimized reference, kept so `Fast` can be checked
   against it. `tests/speed_tier_fast_is_exact.rs` requires **bit identity**:
   every `MicroXS` field, `total_at_energy`, `sample_inelastic`, and
@@ -1366,6 +1372,11 @@ they are.
 - **Faster code is new code beside it**: a separate module or route that
   callers can choose, e.g. OpenMC's own logarithmic energy-grid index
   (#1295) as a new lookup route beside the current per-reaction search.
+  **Done 2026-11-24 (gh:#1295):** `material::log_grid` is that route, used by
+  `SpeedTier::Fast`; `Standard` keeps the per-reaction search, and
+  `tests/log_grid_lookup_1295.rs` / `tests/log_grid_routes_1295.rs` pin them
+  bit-identical (record: `docs/profiling/log_grid_index_1295.md` at the
+  workspace root).
 - **The port stays callable** as a named option, and every fast route is
   checked against it on the same inputs (AGENTS.md at the root,
   "Differential testing"): predict the agreement before running, require

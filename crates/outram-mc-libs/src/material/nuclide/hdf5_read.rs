@@ -350,6 +350,7 @@ impl Nuclide {
             chi: laws.chi,
             xs: XsSource::Pointwise {
                 index: SectionIndex::new(&recon),
+                grid: super::UnionGrid::new(&recon),
                 recon,
                 inel,
                 elastic_angular: laws.elastic,
