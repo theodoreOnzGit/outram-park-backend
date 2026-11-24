@@ -18,7 +18,7 @@ use crate::hash::{HashMap, HashSet};
 #[cfg(feature = "std")]
 use std::io::{BufRead, BufReader, Read, Write};
 
-use crate::endf::parse::parse_line;
+use crate::endf::parse::{parse_line, parse_line_checked};
 use crate::endf::EndfKey;
 use crate::NjoyError;
 
@@ -105,6 +105,33 @@ pub fn decode_endf_line(mut bytes: Vec<u8>) -> String {
     match String::from_utf8(bytes) {
         Ok(s) => s,
         Err(e) => e.into_bytes().iter().map(|&b| char::from(b)).collect(),
+    }
+}
+
+/// One line of a tape (line number `lineno`, the TPID being line 1).
+///
+/// Numeric records are read as NJOY2016 reads them: a field that is not a
+/// number is an error, where gfortran stops the run (gh:#660; until
+/// 2026-11-24 it read as `0.0` silently). Two kinds of line are not `e11.0`
+/// records, and there a non-numeric field still reads as `0.0`, exactly the
+/// sections whose raw text [`Tape`] keeps ([`keeps_raw`]): MF=1/MT=451, whose
+/// description NJOY reads as text (`a66`), and MF=32, whose compact (`LCOMP =
+/// 2`) INTG records pack integers into the columns (Cu-65 ENDF/B-VIII.0 line
+/// 50331 is one). That also keeps their ordinary numeric records lenient;
+/// NJOY would stop on a corrupt field there.
+fn parse_record(line: &str, lineno: usize) -> Result<crate::endf::parse::RawLine, NjoyError> {
+    match parse_line_checked(line, true) {
+        Ok(rl) => Ok(rl),
+        Err(e) => {
+            let rl = parse_line(line)?;
+            if keeps_raw(EndfKey { mat: rl.mat, mf: rl.mf, mt: rl.mt }) {
+                Ok(rl)
+            } else if let NjoyError::EndfParse(why) = e {
+                Err(NjoyError::EndfParse(format!("line {lineno}: {why}")))
+            } else {
+                Err(e)
+            }
+        }
     }
 }
 
@@ -201,9 +228,9 @@ impl Tape {
         let mut current_raw: Vec<String> = Vec::new();
         let mut raw_mf32: HashMap<EndfKey, Vec<String>> = HashMap::new();
 
-        for line_res in lines {
+        for (n, line_res) in lines.enumerate() {
             let line = line_res?;
-            let rl = parse_line(&line)?;
+            let rl = parse_record(&line, n + 2)?;
 
             // Sentinel detection: MT=0 (SEND), MF=0 (FEND), MAT=0 (MEND), MAT=-1 (TEND)
             let is_sentinel = rl.mt == 0 || rl.mf == 0 || rl.mat == 0 || rl.mat == -1;

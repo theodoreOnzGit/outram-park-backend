@@ -1364,7 +1364,7 @@ were run before a prediction was posted for them**; that is said on gh:#1369.
 |---|---|---|
 | `DECK_GETY4_GETZ` (Fe-56 JEFF-3.3) | `gety4`; ratio plot from two units (`getz`) | plot 9 241 lines, PostScript 10 275: identical |
 | `DECK_AUTO` (C-12 ENDF/B-V, `mtd = 0`) | automatic loop, passes, `rname`, `findf` up | plot 6 591, PostScript 28 075: identical |
-| `DECK_MF7` (H in H2O) | MF=7 against alpha and beta | plot 153: identical. VIEWR not compared: this port's VIEWR panics on NJOY's own plot file of it, gh:#1543 |
+| `DECK_MF7` (H in H2O) | MF=7 against alpha and beta | plot 153: identical. ~~VIEWR not compared: this port's VIEWR panics on NJOY's own plot file of it, gh:#1543~~ **CORRECTED 2026-11-24 (gh:#1543):** VIEWR unit 46 compared, 1 176 lines identical (`axis3`'s log branch now wraps `i-1` as gfortran does) |
 | deck 01 + `DECK_GENDF_TAIL` | GENDF MF=3 (coded and binary unit), flux per lethargy, MF=6 spectrum, `gg3d` | plot 172, MODER copy 1 330: identical |
 | `DECK_MF6` (Al-27 ENDF/B-VIII.0 MT=16) | `gety6` | **refused**: undefined upstream (below) |
 
