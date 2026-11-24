@@ -173,3 +173,20 @@ fn mf2_groupr_mfchk_switches_16_to_17_on_mf13() {
                 3 1/\n16 3/\n16 102/\n0/\n0/\nstop\n";
     let _ = compare_on("mf2", deck, "n-094_Pu_240-ENDF8.0.endf");
 }
+
+/// `GG1`: GROUPR's arbitrary photon structure, `igg = 1` (`gengpg`,
+/// `groupr.f90:4747-4751`: card 7a `ngg`, then 7b `ngg + 1` boundaries in eV),
+/// gh:#1370, 2026-11-24. `MF2`'s deck with `igg = 1` and five photon groups
+/// `1e4 1e5 1e6 3e6 7e6 2e7`. No upstream deck uses `igg = 1`. The boundaries reach
+/// the GENDF head (`ngg`, `egg`) and every MF=16/17 photon matrix.
+///
+/// Prediction (gh:#1370, before the first run): unit 24 identical line for line.
+/// Results: deck-driver README §40.
+#[test]
+fn gg1_groupr_arbitrary_photon_structure_igg1() {
+    let deck = "moder\n20 -21/\nreconr\n-21 -22/\n'pu240'/\n9440/\n0.01/\n0/\n\
+                groupr\n-21 -22 0 24/\n9440 3 1 3 0 1 1 1/\n'pu240 igg=1'/\n0.0/\n1.0e10/\n\
+                5/\n1.e4 1.e5 1.e6 3.e6 7.e6 2.e7/\n\
+                3 1/\n16 3/\n16 102/\n0/\n0/\nstop\n";
+    let _ = compare_on("gg1", deck, "n-094_Pu_240-ENDF8.0.endf");
+}

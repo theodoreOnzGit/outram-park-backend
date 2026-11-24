@@ -87,7 +87,7 @@ pub use covariance::{
 };
 pub use covout::{CoarseCovariance, CoarseGroupXs, ErrorrResult};
 pub use driver::ErrorrInput;
-pub use mf33::{run_mf33, Mf33Config};
+pub use mf33::{run_mf33, run_mf33_nstan, Mf33Config};
 pub use resprx::{resprx, ResonanceCovariance};
 pub use weight::ErrorrWeight;
 
