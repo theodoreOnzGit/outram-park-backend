@@ -266,3 +266,44 @@ fn be9_alone_control() {
     let diffs: Vec<usize> = r.iter().map(|&(_, d)| d).collect();
     assert_eq!(diffs, vec![6], "be1: open Be-9 residual moved from its pinned 6 lines: {r:?}");
 }
+
+/// `CP1`: GROUPR `mfd = 31-36` through `mfchk2` (gh:#1370, 2026-11-24), on O-16
+/// ENDF/B-VIII.0 (MAT 825), whose MT 600-603, 650-669, 700-709 and 800-803 give the
+/// outgoing light particle's angles in MF=4 (LCT = 2) and have no MF=6. `conver`'s
+/// `mf4r` lists (`groupr.f90:11023-11147`) make card 9's `21 600` (proton, MF=4
+/// isotropic), `25 800` (alpha, MF=4 Legendre) and `26 2`, `26 600`, `26 800` (the
+/// residual, `parts`' `law = 4` cosine flip with `aprime = awr` or `awr + 1 -
+/// aprime`) into `mfd = 31, 35, 36`; `getdis` runs with `mft = 4` and that `aprime`
+/// (`:9429`, `:9480`, `:9621-9656`), and each section is written as MF = `mfd - 10`.
+///
+/// Prediction (gh:#1370, before the first run): unit 24 identical line for line.
+/// Results: deck-driver README §40.
+#[test]
+fn cp1_groupr_charged_and_residual_production_from_mf4() {
+    let deck = "moder\n20 -21/\nreconr\n-21 -22/\n'o16'/\n825 0/\n0.005/\n0/\n\
+                groupr\n-21 -22 0 24/\n825 3 0 3 1 1 1 1/\n'o16 mf4 charged'/\n0.0/\n1.0e10/\n\
+                3 600/\n21 600/\n25 800/\n26 2/\n26 600/\n26 800/\n0/\n0/\nstop\n";
+    assert_identical("cp1", run_both("cp1", deck, &[reference("n-008_O_016-ENDF8.0.endf")], &[24]));
+}
+
+/// `AU`: GROUPR's automatic charged-particle cards `21/`, `25/`, `26/` (`nextr`,
+/// `groupr.f90:1218-1290`): each particle's MF=6 list `mf6p` as `mfd = 21-26`
+/// (`getmf6`), then its MF=4 list `mf4r` as `mfd = 31-36` (`getdis`), on O-16 and
+/// F-19 ENDF/B-VIII.0 (gh:#1370, 2026-11-24). O-16's `26/` walks MF=6 MT 16, 22,
+/// 28, 91, 108 and MF=4 MT 2, 51-57, 600-603, 650-652, 700, 800-803.
+///
+/// **Not predicted in advance:** these two decks were first run through the
+/// `njoy-deck` binary while the code was being written, before a prediction was
+/// recorded; both were identical then (O-16 909 lines, F-19 1 525). This test pins
+/// that.
+#[test]
+fn au_groupr_automatic_charged_particle_lists() {
+    for (tag, mat, tape) in [("auo", 825, "n-008_O_016-ENDF8.0.endf"), ("auf", 925, "n-009_F_019-ENDF8.0.endf")] {
+        let deck = format!(
+            "moder\n20 -21/\nreconr\n-21 -22/\n'{tag}'/\n{mat} 0/\n0.005/\n0/\n\
+             groupr\n-21 -22 0 24/\n{mat} 3 0 3 1 1 1 1/\n'{tag} auto charged'/\n0.0/\n1.0e10/\n\
+             21/\n25/\n26/\n0/\n0/\nstop\n"
+        );
+        assert_identical(tag, run_both(tag, &deck, &[reference(tape)], &[24]));
+    }
+}
