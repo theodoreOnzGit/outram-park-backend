@@ -240,7 +240,9 @@ pub fn conver_lists(nend: &Tape, mat: i32) -> Result<ConverLists, NjoyError> {
 /// **CORRECTED 2026-11-14 (gh:#1370):** the tape driver writes `mfd = 21-26` from MF=6
 /// now, and refuses an `mfd = 21-26` request for an MT with no MF=6 section, which is
 /// where `mfchk2` would have switched to `31-36` (still refused: `getdis` with a
-/// charged outgoing particle).
+/// charged outgoing particle). **CORRECTED 2026-11-24 (gh:#1370):** `mfchk2` is
+/// [`mfchk2`] on the lists of [`conver_mf4r`], and `mfd = 31-36` run through
+/// `getdis` with `parts`' outgoing mass ([`parts`]).
 pub fn mfchk(mf: i32, mt: i32, lists: &ConverLists) -> i32 {
     let (list, to) = match mf {
         13 => (&lists.mf12, 12),
@@ -409,4 +411,103 @@ mod tests {
         let f = AutoReaction { mfd: 40_000_000, mtd: 18, lfs: 0, isom: 0, card9a: false };
         assert_eq!((f.izam(), f.izar()), (-1, -1));
     }
+}
+
+/// `conver`'s `mf4r(1:6, :)` (`groupr.f90:11023-11147`): for every MF=4 section of
+/// `mat`, in tape order, the MT goes onto the list of its light outgoing particle
+/// (`[0]` proton ... `[4]` alpha, from the MT ranges at `:11040-11052`) and, unless
+/// it is MT=18, onto the residual list `[5]` when the residual's ZA
+/// `izat + 1 - za2` is above 2004. Consecutive MTs are stored as a negative range
+/// end (`itest`, as `mf12`). An MT with no light particle (`za2 < 0`) is skipped
+/// unless it is a fission MT (18-21, 38), which then has `jza2 = -1` (`:11053-11061`).
+/// `izat` is the MF=4 head's ZA; `iverf` picks the ENDF-5 or ENDF-6 MT ranges
+/// (gh:#1370, 2026-11-24).
+///
+/// # Errors
+/// A malformed MF=4 head.
+pub fn conver_mf4r(nend: &Tape, mat: i32, iverf: i32) -> Result<[Vec<i32>; 6], NjoyError> {
+    let mut l: [Vec<i32>; 6] = Default::default();
+    for s in nend.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 4) {
+        let mth = s.key.mt;
+        let mut za2 = -1i32;
+        if mth == 2 || (50..91).contains(&mth) {
+            za2 = 1;
+        }
+        let ranges: &[(i32, i32, i32)] = if iverf < 6 {
+            &[(700, 719, 1001), (720, 739, 1002), (740, 759, 1003), (760, 779, 2003), (780, 799, 2004)]
+        } else {
+            &[(600, 649, 1001), (650, 699, 1002), (700, 749, 1003), (750, 799, 2003), (800, 849, 2004), (875, 891, 1)]
+        };
+        for &(lo, hi, z) in ranges {
+            if mth >= lo && mth < hi {
+                za2 = z;
+            }
+        }
+        if za2 < 0 && !matches!(mth, 18 | 19 | 20 | 21 | 38) {
+            continue;
+        }
+        let izat = SectionCursor::new(&s.rows).read_cont()?.c1.round() as i32;
+        let jzar = izat + 1 - za2;
+        let light = match za2 {
+            1001 => Some(0),
+            1002 => Some(1),
+            1003 => Some(2),
+            2003 => Some(3),
+            2004 => Some(4),
+            _ => None,
+        };
+        if let Some(k) = light {
+            push_range(&mut l[k], mth);
+        }
+        if jzar > 2004 && mth != 18 {
+            push_range(&mut l[5], mth);
+        }
+    }
+    Ok(l)
+}
+
+/// `mfchk2` (`groupr.f90:1575-1597`), called for a card-9 request that is not
+/// automatic (`iauto = 0`, `:717`): `mfd = 21-26` becomes `mfd + 10` when `mt` is
+/// an entry of `mf4r(mfd - 20)` ([`conver_mf4r`]). Unlike [`mfchk`] it compares
+/// entries only, so an MT inside a stored range (`n, -m`) other than `n` keeps its
+/// `mfd`, as upstream does (gh:#1370, 2026-11-24).
+pub fn mfchk2(mf: i32, mt: i32, mf4r: &[Vec<i32>; 6]) -> i32 {
+    if !(21..=26).contains(&mf) {
+        return mf;
+    }
+    for &m in &mf4r[(mf - 21) as usize] {
+        if m == 0 {
+            return mf;
+        }
+        if m == mt {
+            return mf + 10;
+        }
+    }
+    mf
+}
+
+/// `parts` (`groupr.f90:7415-7525`) for `mfd = 31-36`: the outgoing particle's
+/// mass ratio `aprime` that `getdis` uses, and whether it reads the partner's
+/// angles negated (`law = 4`, `:9519`). For the light particle of an MT whose
+/// file is `mfd` (`31` proton for MT 600-649, ...) `aprime` is its mass ratio
+/// (`pnratio` ...); for the residual it is `awr + 1 - aprime`, with `law = 4`;
+/// for MT 2 and 50-91 the residual has `aprime = awr`. Any other MT keeps the
+/// defaults `aprime = 1`, `law = 0`.
+pub fn parts(mfd: i32, mtd: i32, awr: f64, iverf: i32) -> (f64, bool) {
+    use crate::common::phys::{ANRATIO, DNRATIO, HNRATIO, PNRATIO, TNRATIO};
+    let light: &[(i32, i32, f64, i32)] = if iverf < 6 {
+        &[(700, 720, PNRATIO, 31), (720, 740, DNRATIO, 32), (740, 760, TNRATIO, 33), (760, 780, HNRATIO, 34), (780, 800, ANRATIO, 35)]
+    } else {
+        &[(600, 650, PNRATIO, 31), (650, 700, DNRATIO, 32), (700, 750, TNRATIO, 33), (750, 800, HNRATIO, 34), (800, 850, ANRATIO, 35)]
+    };
+    let two_body = if iverf < 6 { mtd == 2 || (51..=91).contains(&mtd) } else { mtd == 2 || (50..=91).contains(&mtd) };
+    if two_body {
+        return if mfd != 6 { (awr, true) } else { (1.0, false) };
+    }
+    for &(lo, hi, ratio, own) in light {
+        if mtd >= lo && mtd < hi {
+            return if mfd != own { (awr + 1.0 - ratio, true) } else { (ratio, false) };
+        }
+    }
+    (1.0, false)
 }

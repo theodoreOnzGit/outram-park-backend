@@ -81,6 +81,7 @@ use crate::NjoyError;
 
 mod gendf_text;
 mod gout;
+mod charged_two_body;
 
 pub use gendf_text::{write_head, GendfText};
 
@@ -347,6 +348,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     }
     let nend_tape = crate::groupr::conver::with_mt456(&nendf_raw, inp.matb).unwrap_or_else(|| nendf_raw.clone());
     let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
+    let mf4r = crate::deck::groupr_auto::conver_mf4r(&nend_tape, inp.matb, iverf)?;
     // `nend2`, the tape `conver` writes (`:480-488`): its MF=12 `LO = 2` sections are
     // `LO = 1` yields there, and the level MF=14 sections isotropic (gh:#1517). Text
     // when `nendf` is (`:402`).
@@ -428,7 +430,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             let mut v = Vec::new();
             loop {
                 mtd_run += 1;
-                mfd_run = crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists);
+                mfd_run = crate::deck::groupr_auto::mfchk2(crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists), mtd_run, &mf4r);
                 v.push(crate::deck::groupr_auto::AutoReaction::plain(mfd_run, mtd_run));
                 if mtd_run + req0.mtd >= 0 {
                     break;
@@ -437,7 +439,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             v
         } else {
             mtd_run = req0.mtd;
-            let mfd = crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists);
+            let mfd = crate::deck::groupr_auto::mfchk2(crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists), req0.mtd, &mf4r);
             vec![crate::deck::groupr_auto::AutoReaction::plain(mfd, req0.mtd)]
         };
         for item in items {
@@ -455,6 +457,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             // `getff`'s dispatch (`:7061-7073`).
             if req.mfd == 6 && (mtd == 2 || (51..=90).contains(&mtd)) {
                 write_mf6_two_body(&mut g, &mut sh, inp, units, &pend, za, &egn, emaxx, mtd)?;
+                continue;
+            }
+            if (31..=36).contains(&req.mfd) {
+                charged_two_body::write_mf4_charged_two_body(&mut g, &mut sh, inp, units, &pend, za, &egn, emaxx, mtd, req.mfd, iverf)?;
                 continue;
             }
             if req.mfd == 6 && (6..=9).contains(&mtd) {
@@ -740,11 +746,10 @@ fn write_getmf6(
         return Err(NjoyError::NotPorted("groupr getff label 800 for fission (getyld on MT=456, nl = 1)"));
     }
     let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
-    // `mfd = 21-26` for an MT whose particle is given in MF=4: upstream's `mfchk2`
-    // (`:1575-1597`) would have made it `mfd = 31-36`, `getdis` with a charged
-    // outgoing particle; neither is translated (gh:#1370).
+    // `mfd = 21-26` for an MT with no MF=6 that `mfchk2` did not switch to `31-36`
+    // (an MT inside a stored range, gh:#1370): upstream's `getmf6` `findf` stops.
     if (21..=26).contains(&mfd) && nend.section(inp.matb, 6, mtd).is_none() {
-        return Err(NjoyError::NotPorted("groupr mfd = 21-26 without MF=6 (mfchk2 and mfd = 31-36, getdis with aprime /= 1)"));
+        return Err(NjoyError::InvalidInput(format!("groupr getmf6: no MF=6 MT={mtd} for mfd = {mfd} (findf)")));
     }
     let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
     let head = cur.read_cont()?;
