@@ -77,7 +77,8 @@ pub struct Tape {
     /// a section's own key for its SEND, `{mat, mf, mt: 0}` for the FEND of
     /// `(mat, mf)`, `{mat, mf: 0, mt: 0}` for the MEND of `mat`. RECONR's
     /// `recout` copies every non-redundant MF=3 section and the files after
-    /// it, so its PENDF numbers its lines this way (gh:#1484).
+    /// it, so its PENDF numbers its lines this way (gh:#1484). `{mat: -1, mf: 0,
+    /// mt: 0}` marks a TEND copied by `totend` (THERMR, gh:#866).
     copied_closers: HashSet<EndfKey>,
 }
 
@@ -711,8 +712,10 @@ impl Tape {
             }
         }
 
-        // TEND (`atend`).
-        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, 0)?;
+        // TEND (`atend`), or, keyed `{mat: -1, mf: 0, mt: 0}`, a TEND copied by
+        // `totend` with the running count (THERMR, `thermr.f90:451`; gh:#866).
+        let tend_seq = if self.copied_closers.contains(&EndfKey { mat: -1, mf: 0, mt: 0 }) { seq } else { 0 };
+        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, tend_seq)?;
         Ok(())
     }
 }

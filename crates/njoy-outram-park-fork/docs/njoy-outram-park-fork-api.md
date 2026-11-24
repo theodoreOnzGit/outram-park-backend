@@ -10630,7 +10630,10 @@ written the same way but no evaluation here exercises it.
 ~~multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED 2026-10-04:** all
 three `IFENG` forms are written since 2026-09-22 (`InelasticForm`,
 `ThermalAceOptions::form`; `tests/acer_thermal_ifeng_vs_njoy2016.rs`).
-Still not handled: multi-atom mixing (`nmix`, taken as 1).
+~~Still not handled: multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED
+2026-11-24 (gh:#866):** this builder writes the table for `nmix = 1`; the
+ACER deck applies `thrlod`'s division by `nmix` to it
+(`deck::acer_thermal::thrlod_nmix`, gated on decks 67 and 49).
 
 ## Prerequisite provenance
 

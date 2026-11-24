@@ -115,6 +115,7 @@ pub mod dosimetry;
 pub mod energy;
 pub mod fortran_fmt;
 pub mod nu;
+pub mod tabize;
 pub mod photoatomic;
 pub mod photon_angular;
 pub mod photon_blocks;
@@ -851,11 +852,15 @@ pub(crate) fn assemble(
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
     let emissions = crate::acer::energy::build_emissions_smooth(tape, mat, recon.material.awr, &partials, modules.newfor, !modules.pendf_binary, modules.ismooth);
-    let nu_block = crate::acer::nu::build(tape, mat)?;
+    // `first`'s `tabize` (gh:#1372): a nubar with a range of INT > 2 is
+    // linearised before `acelod` reads it; otherwise the evaluation as it is.
+    let tabized = crate::acer::tabize::tabize_tape(tape, mat, crate::acer::tabize::TABIZE_ERR, !modules.pendf_binary)?;
+    let nu_tape = tabized.as_ref().unwrap_or(tape);
+    let nu_block = crate::acer::nu::build(nu_tape, mat)?;
     // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
     // is upstream's default (`acer.f90:326`); card 6 may turn it off.
-    let delayed = crate::acer::delayed_blocks::build(tape, mat, modules.ismooth)?;
+    let delayed = crate::acer::delayed_blocks::build(nu_tape, mat, modules.ismooth)?;
     // `iopp = 0`: no photon production at all (`acefc.f90:209`, `:6256`).
     let photons = if modules.iopp { crate::acer::photon_blocks::build_with_pendf_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) } else { None };
     let mut table = AceTable::from_reconr_full_with_extras_disc(
