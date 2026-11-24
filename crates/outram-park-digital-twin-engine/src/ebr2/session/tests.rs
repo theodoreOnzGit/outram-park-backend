@@ -101,9 +101,10 @@ fn commands_reach_the_model() {
     assert_eq!(held_up.pump_override, 1.0);
     assert!(held_up.flow_fraction > 0.9, "{}", held_up.flow_fraction);
     // Release early in the coast-down (the table's SHRT-45R pump 1 is 511
-    // rpm at 4.5 s, 398 at 7 s). Released late, the speed would drop at once
-    // to the table's ~1 rpm at full power: the model has no pump or loop
-    // inertia, and the sodium leaves its range (recorded on gh:#1741).
+    // rpm at 4.5 s, 398 at 7 s). Released at 60 s, the speed drops at once
+    // from 792 to the table's ~53 rpm at full power: the model has no pump or
+    // loop inertia, and a sodium node passes 1000 K within a second
+    // (measured 2026-11-24; recorded on gh:#1741).
     let mut r = Session::new(SessionConfig::default()).expect("a plant");
     r.apply(Command::PumpSpeedRpm(Some(792.0))).expect("applies");
     r.advance(4.0).expect("steps");
