@@ -108,6 +108,13 @@ pub struct CovarianceReactions {
     /// `:1166-1169`, `:1300`); [`super::covcal::covcal`] skips the same sections
     /// (`:1913-1918`).
     pub card8: Option<Card8>,
+    /// `ety1`, `ety2`: the window [`super::standards::grist`] sets from a
+    /// third-reaction standard's `LTY = 3` sub-subsection (`errorr.f90:1622-1624`),
+    /// which [`super::covcal::covcal`] applies (`:2121-2123`), gh:#1371. `None` is
+    /// upstream's never-set module pair, `(0, 0)` in a gfortran build (static
+    /// storage), so every column fails the window. Upstream keeps the pair across
+    /// ERRORR runs of one NJOY job; a deck here starts each run with `None`.
+    pub ety: Option<(f64, f64)>,
 }
 
 /// ERRORR's cards 8-9 (`iread = 1`, `errorr.f90:862-905`): `mts(1:nmt)` and
@@ -395,6 +402,7 @@ pub fn gridd(
 
     let mfcov = reactions.mf();
     let standards = reactions.standards.clone();
+    let mut ety = reactions.ety;
     // iread = 1 (errorr.f90:877-881, gh:#1371): `mts` is card 8a, `mats = 0`.
     let card8 = reactions.card8.clone();
     if let Some(c8) = &card8 {
@@ -477,8 +485,8 @@ pub fn gridd(
                         )));
                     };
                     match lty {
-                        1 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, elh, ehh, &mut eni)?,
-                        2 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, 0.0, 0.0, &mut eni)?,
+                        1 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, elh, ehh, &mut eni, &mut ety)?,
+                        2 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, 0.0, 0.0, &mut eni, &mut ety)?,
                         _ => {}
                     }
                     continue;
@@ -533,6 +541,7 @@ pub fn gridd(
             }
         }
     }
+    reactions.ety = ety;
     // iread=2 (gh:#1369): card 10's pairs follow the reactions found
     // (`mts(nmt+1:nmt1)`, errorr.f90:1202-1209).
     if let Some(pairs) = reactions.card10.clone() {

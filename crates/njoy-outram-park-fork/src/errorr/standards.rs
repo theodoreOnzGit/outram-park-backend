@@ -20,10 +20,12 @@
 //!   [`StandardWindow::admits`] applies.
 //!
 //! Card 11 can redefine a standard, `(matb, mtb) -> (matc, mtc)`
-//! ([`Standards::redefine`]). A **negative** `matb(1)` (a third reaction
+//! ([`Standards::redefine`]). ~~A **negative** `matb(1)` (a third reaction
 //! correlated through the standard: `covcal`'s `kmtb`, `ety1`/`ety2` and
 //! `grist`'s further subsections) is refused by the deck reader and is not
-//! translated here.
+//! translated here.~~ **CORRECTED 2026-11-24 (gh:#1371):** a negative `matb(1)`
+//! (the third-reaction mode) is translated: [`grist`]'s later subsections and
+//! `ety` here, `kmtb` and the `ety` window in [`super::covcal::covcal`].
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -38,12 +40,16 @@ use crate::NjoyError;
 use super::covcal::NiRecord;
 use super::gridd::{merge, NDIG};
 
+/// `small` in `grist` (`errorr.f90:1574`).
+const SMALL: f64 = 1.0e-10;
+
 /// The `nstan` tape and card 11's redefinitions.
 #[derive(Debug, Clone)]
 pub struct Standards {
     /// The ENDF tape on unit `nstan`.
     pub tape: Arc<Tape>,
-    /// Card 11: `(matb, mtb, matc, mtc)`, at most `nasmax = 5`, every `matb > 0`.
+    /// Card 11: `(matb, mtb, matc, mtc)`, at most `nasmax = 5`. A negative first
+    /// `matb` is the third-reaction mode ([`Standards::third_reaction`]).
     pub redefine: Vec<[i32; 4]>,
 }
 
@@ -58,6 +64,13 @@ impl Standards {
             .map_or((matstd, mtstd), |r| (r[2], r[3]))
     }
 
+    /// Card 11's third-reaction entry, `(matb(1), mtb(1), matc(1), mtc(1))` with
+    /// `matb(1) < 0` (`errorr.f90:283-290`): the standard `(-matb(1), -mtb(1))`, named
+    /// on card 10, stands for the reaction `(matc(1), mtc(1))` (gh:#1371).
+    pub fn third_reaction(&self) -> Option<[i32; 4]> {
+        self.redefine.first().copied().filter(|c| c[0] < 0)
+    }
+
     /// `findf(matstd, mfcov, mtstd, nstan)` and the section HEAD.
     fn section(&self, mfcov: i32, matstd: i32, mtstd: i32) -> Result<SectionCursor<'_>, NjoyError> {
         let sec = self.tape.section(matstd, mfcov, mtstd).ok_or_else(|| {
@@ -67,54 +80,89 @@ impl Standards {
     }
 }
 
-/// `grist(matstd, mtstd, el, eh)` (`errorr.f90:1559-1679`) with card 11's
-/// `matb(1) >= 0`: merge the energies of the standard's first subsection into
-/// `eni`, inside `(el, eh)` (`merge`'s window; `(0, 0)` keeps all).
+/// `grist(matstd, mtstd, el, eh)` (`errorr.f90:1559-1679`): merge the energies of
+/// the standard's NI-type records into `eni`, inside `(el, eh)` (`merge`'s window;
+/// `(0, 0)` keeps all).
 ///
-/// Upstream stops after the first subsection that has NI-type records, which
-/// with `nas = 0` or `matb(1) >= 0` is the first one (`:1672-1675`); its NC-type
-/// records are read and skipped (`il = 1`, `:1612-1628`).
+/// Only the first subsection's NI-type records are merged (`il <= 1`,
+/// `:1640-1666`). Upstream stops after a subsection with NI-type records unless
+/// card 11 names a **third reaction** (`matb(1) < 0`), the window is open
+/// (`el <= small`) and the standard is `(-matb(1), -mtb(1))` (`:1670-1675`, gh:#1371,
+/// 2026-11-24). Then every subsection is read, and in a later one (`il > 1`) whose
+/// `(MAT1, MT1)` is `(matc(1), mtc(1))`, an NC-type sub-subsection with `LTY = 3`
+/// sets `ety = (sigfig(E1), sigfig(E2))` and merges `E1`, `E2` (`:1612-1628`).
+/// `ety` is upstream's module pair `ety1`/`ety2`, which `covcal` reads.
 ///
 /// # Errors
 /// [`NjoyError::EndfParse`] for `NL <= 0` ("standards tape bad"), `NI = 0` in
 /// the first subsection, `LB = 0`, or a malformed record;
 /// [`NjoyError::InvalidInput`] for a standard not on the tape.
-pub fn grist(std: &Standards, mfcov: i32, matstd: i32, mtstd: i32, el: f64, eh: f64, eni: &mut Vec<f64>) -> Result<(), NjoyError> {
+#[allow(clippy::too_many_arguments)]
+pub fn grist(
+    std: &Standards,
+    mfcov: i32,
+    matstd: i32,
+    mtstd: i32,
+    el: f64,
+    eh: f64,
+    eni: &mut Vec<f64>,
+    ety: &mut Option<(f64, f64)>,
+) -> Result<(), NjoyError> {
     let (matstd, mtstd) = std.resolve(matstd, mtstd);
     let mut cur = std.section(mfcov, matstd, mtstd)?;
     let head = cur.read_cont()?;
-    if head.n2 <= 0 {
+    let nsub = head.n2;
+    if nsub <= 0 {
         return Err(NjoyError::EndfParse("errorr grist: standards tape bad.".into()));
     }
-    let sub = cur.read_cont()?;
-    let (nc, ni) = (sub.n1, sub.n2);
-    for _ in 0..nc {
-        let _lty: Cont = cur.read_cont()?;
-        let _ = cur.read_list()?;
-    }
-    if ni == 0 {
-        return Err(NjoyError::EndfParse(format!("errorr grist: illegal ni=0 in the standard (matstd={matstd}, mtstd={mtstd})")));
-    }
-    for _ in 0..ni {
-        let list = cur.read_list()?;
-        let lb = list.head.l2;
-        let nx = list.head.n2.max(0) as usize;
-        if lb == 0 {
-            return Err(NjoyError::EndfParse("errorr grist: illegal lb=0.".into()));
-        }
-        if lb >= 5 && lb != 8 {
-            merge(&list.data[..nx], eni, el, eh)?;
-            if lb != 5 {
-                let nec = ((list.head.n1 - 1) / list.head.n2) as usize;
-                merge(&list.data[nx..nx + nec], eni, el, eh)?;
+    let first = std.redefine.first().copied();
+    let mut il = 0;
+    let mut idone = false;
+    while il < nsub && !idone {
+        il += 1;
+        let sub = cur.read_cont()?;
+        let (mat1, mt1, nc, ni) = (sub.l1, sub.l2, sub.n1, sub.n2);
+        // NC-type sub-subsections (`:1612-1628`): read; only `il > 1` can set `ety`.
+        for _ in 0..nc {
+            let lty = cur.read_cont()?.l2;
+            let list = cur.read_list()?;
+            if il != 1 && first.is_some_and(|c| mat1 == c[2] && mt1 == c[3]) && lty == 3 {
+                *ety = Some((sigfig(list.head.c1, NDIG, 0), sigfig(list.head.c2, NDIG, 0)));
+                merge(&[list.head.c1, list.head.c2], eni, 0.0, 0.0)?;
             }
-        } else {
-            let x: Vec<f64> = (0..nx).map(|i| list.data[2 * i]).collect();
-            let nl = list.head.l1.max(0) as usize;
-            let nx1 = nx - nl;
-            merge(&x[..nx1], eni, el, eh)?;
-            merge(&x[nx1..], eni, el, eh)?;
         }
+        if ni == 0 && il == 1 {
+            return Err(NjoyError::EndfParse(format!("errorr grist: illegal ni=0 in the standard (matstd={matstd}, mtstd={mtstd})")));
+        }
+        if ni == 0 {
+            continue;
+        }
+        for _ in 0..ni {
+            let list = cur.read_list()?;
+            if il > 1 {
+                continue;
+            }
+            let lb = list.head.l2;
+            let nx = list.head.n2.max(0) as usize;
+            if lb == 0 {
+                return Err(NjoyError::EndfParse("errorr grist: illegal lb=0.".into()));
+            }
+            if lb >= 5 && lb != 8 {
+                merge(&list.data[..nx], eni, el, eh)?;
+                if lb != 5 {
+                    let nec = ((list.head.n1 - 1) / list.head.n2) as usize;
+                    merge(&list.data[nx..nx + nec], eni, el, eh)?;
+                }
+            } else {
+                let x: Vec<f64> = (0..nx).map(|i| list.data[2 * i]).collect();
+                let nl = list.head.l1.max(0) as usize;
+                let nx1 = nx - nl;
+                merge(&x[..nx1], eni, el, eh)?;
+                merge(&x[nx1..], eni, el, eh)?;
+            }
+        }
+        // `:1670-1675`
+        idone = el > SMALL || first.is_none_or(|c| c[0] >= 0 || matstd != -c[0] || mtstd != -c[1]);
     }
     Ok(())
 }
