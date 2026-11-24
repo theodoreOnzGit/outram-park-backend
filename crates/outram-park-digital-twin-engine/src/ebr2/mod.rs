@@ -16,6 +16,8 @@
 //! | [`kinetics`] | Argonne's beta-eff, generation time and feedback coefficients (IAEA-TECDOC-1819 TABLE 37) |
 //! | [`pump`] | The NATDEMO homologous pump head curve |
 //! | [`model`] | [`model::Ebr2Model`], the stepping model: `shrt17()` / `shrt45r()`, `step(dt)`, getters and setters |
+//! | [`session`] | An operator session in plain numbers (gh:#1741): commands (pump-speed and intermediate-flow overrides, external reactivity), a flat [`session::Snapshot`] with the feedback terms, the t = 0 comparison with the cited initial conditions, the deterministic [`session::headless_csv`], and a guard that holds the plant when a step fails. No physics of its own |
+//! | `web` | The `ebr2_web` demo's engine (gh:#1741, the layering of gh:#1738, after `msre::web`): the plant `Runner`, its messages and wire codes, the browser Web Worker and the native ticker. Off Android, with the link layer it rides on |
 //!
 //! ```no_run
 //! use outram_park_digital_twin_engine::ebr2::model::Ebr2Model;
@@ -86,13 +88,19 @@
 //! acceptance bands are the maintainer's call, so no transient is
 //! validated here.
 //!
-//! GUI-free and not target-gated. It builds for `wasm32-unknown-unknown`.
+//! GUI-free and not target-gated, except `web` (off Android, with
+//! `bugis::web_demo::link`). It builds for `wasm32-unknown-unknown`.
 
 pub mod design;
 pub mod kinetics;
 pub mod model;
 pub mod pump;
+pub mod session;
 pub mod shrt;
+/// The `ebr2_web` demo's engine (gh:#1741): built on `bugis::web_demo::link`,
+/// so off Android, as `msre::web` is.
+#[cfg(not(target_os = "android"))]
+pub mod web;
 
 #[cfg(test)]
 mod csv_equality;
