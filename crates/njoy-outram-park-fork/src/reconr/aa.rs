@@ -1,11 +1,12 @@
 //! Adler-Adler (LRF=4) cross-section evaluation.
 //!
 //! Implements the zero-temperature Adler-Adler cross sections from `csaa`
-//! in NJOY2016 `reconr.f90` (lines ~4317-4439). Like [`super::slbw`]/
+//! in NJOY2016 `reconr.f90` (lines ~4317-4439). ~~Like [`super::slbw`]/
 //! [`super::rm`], only the `tempr <= 0` branch is ported — Doppler
 //! broadening is BROADR's job in this crate's architecture, and
 //! `ReconrConfig::temperature` is unused by SLBW/Reich-Moore reconstruction
-//! for the same reason.
+//! for the same reason.~~ **CORRECTED 2026-11-24 (GitHub #1323):** the
+//! `tempr > 0` branch is ported too ([`eval_aa_range_doppler`]).
 //!
 //! ## Physical model
 //!
@@ -103,6 +104,32 @@ pub struct AaSigmas {
 ///    using the resonance+background+potential-scattering sum just
 ///    computed, and leaves `elastic` at `0.0` — also ported as-is.
 pub fn eval_aa_range(e: f64, aa: &AaRange, ap: f64) -> AaSigmas {
+    eval_aa_range_with(e, aa, ap, |x, _dw| {
+        let psi = 1.0 / (1.0 + x * x);
+        (psi, x * psi)
+    })
+}
+
+/// `csaa` at `tempr > 0` (`reconr.f90:4352, 4407-4414`, GitHub #1323): the
+/// psi/chi line shapes from `quickw` (`table`, `ruina`'s `wtab`) with
+/// `delta = 1/sqrt(4*bk*tempr*e/awri)` and `theta = 2*dw*delta`, in place of
+/// the Lorentzian. Everything else is [`eval_aa_range`].
+pub(crate) fn eval_aa_range_doppler(e: f64, aa: &AaRange, ap: f64, tempr: f64, table: &crate::unresr::wfun::WTable) -> AaSigmas {
+    use crate::common::phys::{BK_EV_PER_K, PI};
+    let rpi = PI.sqrt();
+    let delta = 1.0 / (4.0 * BK_EV_PER_K * tempr * e / aa.awri).sqrt();
+    eval_aa_range_with(e, aa, ap, |x, dw| {
+        let theta = 2.0 * dw * delta;
+        let ax = theta * x / 2.0;
+        let y = theta / 2.0;
+        let (rew, aimw) = table.lookup(ax, y, true);
+        (rpi * theta * rew / 2.0, rpi * theta * aimw / 2.0)
+    })
+}
+
+/// `csaa` with the line shapes `(psi, chi) = shape(x, dw)` of each reaction's
+/// `x = (DE - E)/DW` (`reconr.f90:4401-4414`).
+fn eval_aa_range_with(e: f64, aa: &AaRange, ap: f64, shape: impl Fn(f64, f64) -> (f64, f64)) -> AaSigmas {
     if e <= 0.0 {
         return AaSigmas::default();
     }
@@ -141,20 +168,17 @@ pub fn eval_aa_range(e: f64, aa: &AaRange, ap: f64) -> AaSigmas {
     for ls in &aa.l_states {
         for res in &ls.resonances {
             let x = (res.de_total - e) / res.dw_total;
-            let psi = 1.0 / (1.0 + x * x);
-            let chi = x * psi;
+            let (psi, chi) = shape(x, res.dw_total);
             sig_total += ((res.gr_total * csf + res.gi_total * snf) * psi
                 + (res.gi_total * csf - res.gr_total * snf) * chi)
                 / res.dw_total;
 
             let x = (res.de_fission - e) / res.dw_fission;
-            let psi = 1.0 / (1.0 + x * x);
-            let chi = x * psi;
+            let (psi, chi) = shape(x, res.dw_fission);
             sig_fission += (res.gr_fission * psi + res.gi_fission * chi) / res.dw_fission;
 
             let x = (res.de_capture - e) / res.dw_capture;
-            let psi = 1.0 / (1.0 + x * x);
-            let chi = x * psi;
+            let (psi, chi) = shape(x, res.dw_capture);
             sig_capture += (res.gr_capture * psi + res.gi_capture * chi) / res.dw_capture;
         }
     }

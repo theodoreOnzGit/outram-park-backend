@@ -16,7 +16,8 @@
 //! | 2c | Reich-Moore (LRF=3, e.g. U-235) | done |
 //! | 2d | Unresolved resonances (LRU=2): UNRESR then PURR | **next to port** (blocks σ above the resolved region — 20 keV for U-238; see `docs/porting-plan.md` §8) |
 //! | 2e | R-Matrix Limited (LRF=7, via `crate::samm`) | **wired, unverified** (2026-07-07 — compiles/type-checks, not yet run against a real evaluation; see `../samm/README.md`) |
-//! | 2f | Adler-Adler (LRF=4, `crate::reconr::aa`) | **wired, unverified** (2026-07-07 — zero-temperature only, matching SLBW/Reich-Moore's Doppler-deferred-to-BROADR architecture; compiles/type-checks, not yet run against a real evaluation) |
+//! | 2f | Adler-Adler (LRF=4, `crate::reconr::aa`) | ~~**wired, unverified** (2026-07-07 — zero-temperature only, matching SLBW/Reich-Moore's Doppler-deferred-to-BROADR architecture; compiles/type-checks, not yet run against a real evaluation)~~ **CORRECTED 2026-11-24 (GitHub #1323):** 0 K and `tempr > 0` compared with NJOY2016 on a hand-built range (`tests/reconr_temperature_and_lrx_vs_njoy2016.rs`); no held evaluation is Adler-Adler |
+//! | 2g | `tempr > 0` (psi/chi, `csmlbw2`) and the LRX competitive width (`csbw`) | done 2026-11-24 (GitHub #1323, #1731); RM/RML refused at `tempr > 0` |
 //!
 //! All resolved-resonance formalisms ENDF-6 defines (LRF=1/2/3/4/7) are now
 //! parsed and reconstructed by RECONR.
@@ -37,6 +38,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod aa;
+mod csbw;
 pub mod csunr;
 pub mod linearize;
 pub mod lunion;
@@ -77,15 +79,20 @@ pub struct ReconrConfig {
     /// Reconstruction temperature \[K\]. `0.0` = 0 K (no Doppler shift).
     ///
     /// ~~(Read nowhere: any value returned 0 K data.)~~ **CHANGED 2026-11-10
-    /// (GitHub #662):** only `0.0` is accepted; [`reconr`] refuses anything
-    /// else. Upstream RECONR's `tempr > 0` Doppler-broadens SLBW and
+    /// (GitHub #662):** ~~only `0.0` is accepted; [`reconr`] refuses anything
+    /// else.~~ **CHANGED 2026-11-24 (GitHub #1323):** `T > 0` is reconstructed
+    /// as upstream does it for SLBW, MLBW and Adler-Adler, and refused for
+    /// Reich-Moore and R-Matrix Limited. Upstream RECONR's `tempr > 0`
+    /// Doppler-broadens SLBW and
     /// Adler-Adler through the ψ/χ line shapes and switches MLBW to
-    /// `csmlbw2` (`reconr.f90:2613-2618, 2775, 3167, 4352`), none of which is
-    /// ported; for Reich-Moore and R-Matrix Limited it reaches `cssammy`,
+    /// `csmlbw2` (`reconr.f90:2613-2618, 2775, 3167, 4352`), ~~none of which is
+    /// ported~~ all ported; for Reich-Moore and R-Matrix Limited it reaches `cssammy`,
     /// which never reads `tempr`, so NJOY2016 itself returns 0 K resonances
     /// under a `tempr` label there (`csrmat`'s refusal, `:3232`, is reached
     /// only when the SAMMY method is off). Reconstruct at 0 K and broaden
-    /// with [`crate::broadr`], as every caller in this workspace does.
+    /// with [`crate::broadr`], as every caller in this workspace does. Also
+    /// refused at `T > 0`: an MLBW range with `NRO != 0` or adjoining another
+    /// resolved range.
     pub temperature: f64,
 }
 
@@ -345,9 +352,13 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 ///   each other, and the unresolved walk reads the first isotope only.~~
 ///   **CORRECTED 2026-11-24 (GitHub #1324):** a multi-isotope MF=2 is
 ///   reconstructed by one walk over every section ([`sigma_walk`]); it is
-///   refused only with an R-matrix-limited range. Also refused: an SLBW/MLBW
+///   refused only with an R-matrix-limited range. ~~Also refused: an SLBW/MLBW
 ///   l-state with `LRX != 0` (competitive width, GitHub #666), which upstream
-///   adds to MT=51, to the total and to every resonance's total width.
+///   adds to MT=51, to the total and to every resonance's total width.~~
+///   **CORRECTED 2026-11-24 (GitHub #1731, #1323):** `LRX != 0` is
+///   reconstructed; `config.temperature > 0` is reconstructed for SLBW, MLBW
+///   and Adler-Adler and refused for Reich-Moore, R-matrix-limited, and an MLBW
+///   range with `NRO != 0` or adjoining another resolved range.
 /// - [`NjoyError::InvalidInput`] — a negative or non-finite temperature, or
 ///   an MF=2 `NRO ≠ 0` range upstream refuses
 ///   ([`mf2::parse_resonance_info`]).
@@ -355,19 +366,15 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     let mat = config.mat;
     let eps = config.tolerance;
     // GitHub #662: the temperature was read nowhere, so T > 0 silently gave
-    // 0 K data.
-    if config.temperature != 0.0 {
-        if config.temperature > 0.0 && config.temperature.is_finite() {
-            return Err(NjoyError::NotPorted(
-                "RECONR at temperature > 0 (the psi/chi line shapes of csslbw/csaa and \
-                 csmlbw2); reconstruct at 0 K and broaden with BROADR",
-            ));
-        }
+    // 0 K data. ~~T > 0 refused~~ ported for SLBW, MLBW and Adler-Adler
+    // (GitHub #1323, 2026-11-24); see `refuse_hot` for what stays refused.
+    if !(config.temperature >= 0.0 && config.temperature.is_finite()) {
         return Err(NjoyError::InvalidInput(format!(
-            "RECONR temperature must be 0 K, got {} K",
+            "RECONR temperature must be finite and >= 0 K, got {} K",
             config.temperature
         )));
     }
+    let bw_ctx = csbw::BwContext::new(config.temperature);
 
     // MF=1/MT=451 — material header
     let mf1_sec = tape
@@ -385,15 +392,11 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     } else {
         ResonanceInfo::default()
     };
-    // GitHub #666: `LRX != 0` gives SLBW/MLBW a competitive channel. Upstream
-    // adds it to MT=51 and the total, and its width to every resonance's
-    // total width (`reconr.f90:964-1016, 2808, 2839, 2852`); none of that is
-    // ported, so refuse rather than return elastic, capture and total wrong.
-    if res_info.resolved_slbw_ranges().any(|r| r.l_states.iter().any(|l| l.lrx != 0)) {
-        return Err(NjoyError::NotPorted(
-            "RECONR with an SLBW/MLBW competitive width (LRX != 0): csslbw/csmlbw's \
-             fifth channel (MT=51) and its width in the line shapes",
-        ));
+    // GitHub #666: `LRX != 0` gives SLBW/MLBW a competitive channel. ~~Not
+    // ported, so refused.~~ Ported 2026-11-24 (GitHub #1731, `csbw`): its
+    // width enters every resonance's total width and `sigp(5)` goes to MT=51.
+    if config.temperature > 0.0 {
+        refuse_hot(&res_info)?;
     }
 
     // AWI, the incident particle's mass ratio (MF=1/MT=451, third record);
@@ -463,6 +466,9 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     // And none when `resxs` returns early on an unresolved-only `lssf = 1`
     // material (`nrtot = 0`, `:2275-2279`; GitHub #666).
     let res_mts = if material.lrp == 1 && !bounds.no_resonance_points() { resonance_mts(&res_info) } else { Vec::new() };
+    // `itype = 5` for MT=51 when `emerge` finds `lrx != 0` (`reconr.f90:4769`).
+    let competitive_mts: Vec<i32> = if res_mts.is_empty() || csbw::final_lrx(&res_info.ranges) == 0 { Vec::new() } else { vec![51] };
+    let res_mts: Vec<i32> = res_mts.into_iter().chain(competitive_mts.iter().copied()).collect();
     let first_res = rdfil2_nodes(&res_info, &urr_ranges).first().copied();
     let first_res_for = |mt: i32| first_res.filter(|_| res_mts.contains(&mt));
     let iverf_out = tape.section(mat, 1, 451).map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
@@ -502,7 +508,8 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     } else {
         urr::SunrTable::build_rdfil2(&urr_ranges, bounds.lssf, bounds.intunr, (bounds.eresu, bounds.eresr, bounds.eresh), raw_bkg)?
     };
-    let unresolved_table = sunr.as_ref().map(|t| t.rows(material.za, material.awr, 0.0));
+    // `sunr(7)=tempr` (`reconr.f90:1657`).
+    let unresolved_table = sunr.as_ref().map(|t| t.rows(material.za, material.awr, config.temperature));
 
     // Phase 2a-ter: upstream's `mtr18` rule (`anlyzd`, `reconr.f90:557-561`).
     // When the evaluation carries MT=19, MT=18 is a REDUNDANT reaction:
@@ -523,13 +530,20 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     if one_walk {
         // NIS > 1, or a resolved-unresolved overlap: one `resxs` walk on
         // `sigma`'s sum over every section (GitHub #1324, #666).
-        sigma_walk::walk_every_section(&mut sections, &res_info, sunr.as_ref(), &bounds, eps, &raw_mf3);
+        sigma_walk::walk_every_section(&mut sections, &res_info, sunr.as_ref(), &bounds, eps, &raw_mf3, &bw_ctx, &competitive_mts);
     } else {
     // Phase 2b: add SLBW/MLBW resonance contributions
-    add_resonance_contributions(&mut sections, &res_info, eps, &raw_mf3);
+    add_resonance_contributions(&mut sections, &res_info, eps, &raw_mf3, &bw_ctx, &competitive_mts);
+    // `csnorp` (`reconr.f90:2669-2690`): an `LRU = 0` range of an `LRP = 1`
+    // material adds `4 pi AP^2` to the elastic on `[el, eh)` (GitHub #1731).
+    if material.lrp == 1 {
+        for range in res_info.ranges.iter().filter(|r| r.lru == 0) {
+            add_csnorp_range(&mut sections, range, eps, &raw_mf3);
+        }
+    }
     // `resxs` walks every resolved range in one pass, so the panel across a
     // boundary between two of them is tested too (gh:#1369 round 5, deck 17).
-    seam::refine_resolved_seams(&mut sections, &res_info, eps, &raw_mf3);
+    seam::refine_resolved_seams(&mut sections, &res_info, eps, &raw_mf3, &bw_ctx, &competitive_mts, material.lrp == 1);
 
     // Phase 2c: add the infinitely-dilute unresolved (LRU=2) contribution for
     // LSSF=0 ranges. Without this those ranges come back at ZERO cross
@@ -619,8 +633,44 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             Some(20.0e6)
         },
         unresolved_table,
-        temperature_k: 0.0,
+        temperature_k: config.temperature,
     })
+}
+
+/// What RECONR at `tempr > 0` still refuses (GitHub #1323). Reich-Moore and
+/// R-matrix-limited ranges reach `cssammy`, which never reads `tempr`
+/// (`reconr.f90:2619-2624, 2633`): NJOY2016 returns 0 K resonances under a
+/// `tempr` label there, which this port declines to copy (`csrmat`'s and
+/// `cshybr`'s own refusals, `:3232, 3638`, are reached only without SAMMY).
+/// `csmlbw2` does not skip an energy-dependent radius table (`NRO != 0`), so it
+/// would read the table as parameters (`:3054-3058`). And its stored g/h depend
+/// on the order of `sigma` calls, which the seam pass between two adjacent
+/// resolved ranges does not reproduce.
+fn refuse_hot(res_info: &ResonanceInfo) -> Result<(), NjoyError> {
+    let resolved: Vec<&EnergyRange> = res_info.ranges.iter().filter(|r| r.lru == 1).collect();
+    if resolved.iter().any(|r| matches!(r.formalism, Some(ResonanceFormalism::ReichMoore | ResonanceFormalism::RMatrixLimited))) {
+        return Err(NjoyError::NotPorted(
+            "RECONR at temperature > 0 with a Reich-Moore or R-matrix-limited range: NJOY2016's \
+             cssammy ignores tempr; reconstruct at 0 K and broaden with BROADR",
+        ));
+    }
+    let mlbw = |r: &&&EnergyRange| matches!(r.formalism, Some(ResonanceFormalism::Mlbw));
+    if resolved.iter().filter(mlbw).any(|r| r.nro != 0) {
+        return Err(NjoyError::NotPorted(
+            "RECONR at temperature > 0 for an MLBW range with an energy-dependent radius (NRO != 0): \
+             csmlbw2 does not read the radius table",
+        ));
+    }
+    let seam = resolved.iter().filter(mlbw).any(|a| {
+        res_info.ranges.iter().filter(|b| b.lru <= 1).any(|b| (a.eh - b.el).abs() <= 1.0e-10 * b.el || (b.eh - a.el).abs() <= 1.0e-10 * a.el)
+    });
+    if seam {
+        return Err(NjoyError::NotPorted(
+            "RECONR at temperature > 0 for an MLBW range adjoining another resolved range: \
+             csmlbw2's g/h state across the seam pass",
+        ));
+    }
+    Ok(())
 }
 
 /// The MF=3 sections `emerge` treats as resonance reactions (`itype != 0`,
@@ -630,8 +680,14 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 /// ~~`lrx != 0` makes MT=51 one too~~: **not ported**. This crate does not
 /// add the SLBW/MLBW competitive width to MT=51 at all, ~~and does not say so~~
 /// and since 2026-11-24 [`reconr`] refuses `LRX != 0` (GitHub #666).
+/// **CORRECTED 2026-11-24 (GitHub #1731):** [`reconr`] adds MT=51 when
+/// `emerge`'s `lrx` is non-zero (`csbw::final_lrx`).
+/// ~~Empty when every range is `LRU = 0`~~ **CORRECTED 2026-11-24 (GitHub
+/// #1731):** an `LRP = 1` material whose ranges are all `LRU = 0` still has
+/// resonance points (`csnorp`'s, `reconr.f90:2669`), so `nrtot != 0`; only a
+/// material with no range at all has none.
 fn resonance_mts(res_info: &ResonanceInfo) -> Vec<i32> {
-    if !res_info.ranges.iter().any(|r| r.lru != 0) {
+    if res_info.ranges.is_empty() {
         return Vec::new();
     }
     let mut mts = vec![2, 18, 19, 102];
@@ -1314,9 +1370,11 @@ fn add_resonance_contributions(
     res_info: &ResonanceInfo,
     eps: f64,
     raw: &RawMf3,
+    ctx: &csbw::BwContext,
+    competitive_mts: &[i32],
 ) {
     for range in res_info.resolved_slbw_ranges() {
-        add_slbw_range(sections, range, eps, raw);
+        add_slbw_range(sections, range, eps, raw, ctx, competitive_mts);
     }
     for range in res_info.resolved_rm_ranges() {
         add_rm_range(sections, range, eps, raw);
@@ -1325,8 +1383,16 @@ fn add_resonance_contributions(
         rml::add_rml_range(sections, range, eps, raw);
     }
     for range in res_info.resolved_aa_ranges() {
-        add_aa_range(sections, range, eps, raw);
+        add_aa_range(sections, range, eps, raw, ctx);
     }
+}
+
+/// `csnorp` (`reconr.f90:2669-2690`) on the per-range path: `4 pi AP^2` added to
+/// the elastic of an `LRU = 0` range, clamped and times its abundance as `sigma`
+/// does (GitHub #1731). [`sigma_walk`] has the same term.
+fn add_csnorp_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
+    let sigp2 = 4.0 * crate::common::phys::PI * range.ap * range.ap;
+    rebuild_range(sections, range.el, range.eh, Vec::new(), eps, &[], raw, range.abn, |_| RangeDelta { elastic: sigp2, ..RangeDelta::default() });
 }
 
 /// Add Adler-Adler (LRF=4) resonance contributions.
@@ -1335,7 +1401,7 @@ fn add_resonance_contributions(
 /// the whole range (not one l-state at a time) — see that function's doc
 /// comment for why Adler-Adler doesn't decompose per-l-state the way
 /// SLBW/Reich-Moore do.
-fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
+fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3, ctx: &csbw::BwContext) {
     let Some(aa) = &range.aa else { return };
     if aa.l_states.is_empty() {
         return;
@@ -1345,7 +1411,7 @@ fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     add_aa_halo_energies(&mut halo, &aa.l_states, range.el, range.eh);
 
     rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
-        let s = aa::eval_aa_range(e, aa, range.ap);
+        let s = aa_sigmas(e, aa, range.ap, ctx);
         RangeDelta {
             total: s.total,
             elastic: s.elastic,
@@ -1429,7 +1495,16 @@ impl RangeDelta {
     }
 }
 
-fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
+/// `csaa` at `ctx`'s temperature: [`aa::eval_aa_range`] at 0 K, else its psi/chi
+/// branch (GitHub #1323).
+pub(crate) fn aa_sigmas(e: f64, aa_range: &mf2::AaRange, ap: f64, ctx: &csbw::BwContext) -> aa::AaSigmas {
+    match ctx.wtab() {
+        Some((tempr, table)) => aa::eval_aa_range_doppler(e, aa_range, ap, tempr, table),
+        None => aa::eval_aa_range(e, aa_range, ap),
+    }
+}
+
+fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3, ctx: &csbw::BwContext, competitive_mts: &[i32]) {
     if range.l_states.is_empty() {
         return;
     }
@@ -1437,14 +1512,20 @@ fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f
     // Hoist the per-l-state channel radius and resonance tuples out of the
     // energy loop — they do not depend on energy. (Moved to `seam::slbw_prepare`
     // and `seam::slbw_delta` 2026-11-13, unchanged, so the seam pass and the
-    // range rebuild evaluate one function.)
-    let prepared = seam::slbw_prepare(range);
+    // range rebuild evaluate one function.) `csbw::prepare` keeps them, beside
+    // `rdf2bw`'s competitive-width table (GitHub #1731, #1323).
+    let prepared = csbw::prepare(range);
 
     let mut halo = Vec::new();
     add_resonance_halo_energies(&mut halo, &range.l_states, range.el, range.eh);
 
-    // LRF=1 -> csslbw, LRF=2 -> csmlbw (upstream `sigma`, reconr.f90:2610-2616)
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| seam::slbw_delta(range, &prepared, e));
+    // LRF=1 -> csslbw, LRF=2 -> csmlbw, or csmlbw2 at tempr > 0 (upstream
+    // `sigma`, reconr.f90:2610-2618). csmlbw2's stored g/h make the walk
+    // order matter, so that range is walked in order.
+    let opts = RebuildOpts { in_order: csbw::needs_ordered_walk(range, ctx), ..RebuildOpts::default() };
+    rebuild_range_with(sections, range.el, range.eh, halo, eps, competitive_mts, raw, opts, |e| {
+        csbw::bw_delta(range, &prepared, e, ctx).clamp_negative_to_zero().times_abundance(range.abn)
+    });
 }
 
 fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
@@ -1525,6 +1606,11 @@ pub(crate) struct RebuildOpts {
     /// `reconr.f90:2351-2353`). Only [`sigma_walk`] sets them (GitHub #666,
     /// #1324): `eresu` and `eresm` inside a stretch below `eresr`.
     pub(crate) untested_crossings: [Option<f64>; 2],
+    /// Evaluate `delta_at` in exactly the order `resxs` calls `sigma`, one
+    /// panel after another, instead of the parallel two-phase refinement:
+    /// needed when the evaluation keeps state between calls (`csmlbw2`'s g/h,
+    /// GitHub #1323). The grid is the same either way.
+    pub(crate) in_order: bool,
 }
 
 impl Default for RebuildOpts {
@@ -1533,6 +1619,7 @@ impl Default for RebuildOpts {
             widen: true,
             zero_background: None,
             untested_crossings: [None, None],
+            in_order: false,
         }
     }
 }
@@ -1607,7 +1694,11 @@ pub(crate) fn rebuild_range_with(
     // Adaptively refine so lin-lin interpolation of the resonance contribution
     // is within `eps` everywhere; returns the (denser) grid and the resonance
     // deltas already evaluated at every point (so `delta_at` is not called again).
-    let (egrid, deltas) = refine_resonance_grid(&egrid, &delta_at, eps, opts.widen, opts.untested_crossings);
+    let (egrid, deltas) = if opts.in_order {
+        refine_resonance_grid_in_order(&egrid, &delta_at, eps, opts.widen, opts.untested_crossings)
+    } else {
+        refine_resonance_grid(&egrid, &delta_at, eps, opts.widen, opts.untested_crossings)
+    };
 
     // The four fixed reactions, then the extra LRF=7 channels by MT; a
     // channel with no MF=3 section on the tape is dropped, as upstream
@@ -2351,6 +2442,45 @@ fn refine_resonance_grid(
     (out_e, out_d)
 }
 
+/// [`refine_resonance_grid`] as one sequential walk, `resxs`'s own order
+/// (`reconr.f90:2328-2470`): `sigma` at each grid point, then at the midpoints
+/// of the panel below it, depth first from the bottom, with the step-increase
+/// rule applied as each panel is accepted. For an evaluation that keeps state
+/// between calls (`csmlbw2`, GitHub #1323).
+fn refine_resonance_grid_in_order(
+    seed_grid: &[f64],
+    delta_at: &impl Fn(f64) -> RangeDelta,
+    eps: f64,
+    allow_widen: bool,
+    untested_crossings: [Option<f64>; 2],
+) -> (Vec<f64>, Vec<RangeDelta>) {
+    let mut tol = RefineTolerances::defaults(eps);
+    if let Some((errmax, errint)) = ERRTOL_OVERRIDE.with(|c| c.get()) {
+        tol.errmax = errmax;
+        tol.errint = errint;
+    }
+    let mut out_e = vec![seed_grid[0]];
+    let mut d1 = delta_at(seed_grid[0]);
+    let mut out_d = vec![d1];
+    let mut state = WalkState { written: 0, last_written: seed_grid[0] };
+    for w in seed_grid.windows(2) {
+        let (e1, e2) = (w[0], w[1]);
+        let d2 = delta_at(e2);
+        if untested_crossings.iter().flatten().any(|&c| e1 < c && e2 > c) {
+            state.written += 1;
+            state.last_written = e1;
+        } else {
+            let mut flags = Vec::new();
+            let st = if allow_widen { Some(&mut state) } else { None };
+            refine_panel(e1, d1, e2, d2, delta_at, tol, 0, st, &mut out_e, &mut out_d, &mut flags);
+        }
+        out_e.push(e2);
+        out_d.push(d2);
+        d1 = d2;
+    }
+    (out_e, out_d)
+}
+
 /// Collect all energies in `[el, eh]` already present in any section's grid.
 fn collect_background_energies(sections: &[ReconrSection], el: f64, eh: f64) -> Vec<f64> {
     let mut energies = Vec::new();
@@ -2456,8 +2586,11 @@ fn add_aa_halo_energies(
     el: f64,
     eh: f64,
 ) {
+    // ~~every J group of the first l-state~~ the first J only
+    // (**CORRECTED 2026-11-24**, GitHub #1323: `AaLState` flattened the J
+    // groups, so the code took them all while this doc said "first J").
     if let Some(ls) = l_states.first() {
-        for res in &ls.resonances {
+        for res in &ls.resonances[..ls.first_j_len.min(ls.resonances.len())] {
             let (er, hw) = (res.de_total, res.dw_total);
             if !(er > el && er <= eh) {
                 continue;

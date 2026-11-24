@@ -636,6 +636,7 @@ pub(super) fn add_unresolved_ranges(
                 widen: false,
                 zero_background: Some(zero_background),
                 untested_crossings: [None, None],
+                in_order: false,
             },
             |e| {
                 let v = table.sigunr(e);
