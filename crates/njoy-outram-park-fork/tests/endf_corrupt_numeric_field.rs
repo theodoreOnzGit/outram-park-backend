@@ -165,3 +165,87 @@ fn gendf_readers_refuse_a_corrupt_card() {
     assert!(check_gendf_text(&bad, Some(9999)).is_ok());
     assert!(check_gendf_text(&bad, Some(1306)).is_err());
 }
+
+/// Cu-65's MF=32 compact block rewritten at `NDIGIT = 6`: each 18-integer `NDIGIT = 2` card
+/// becomes one to three 8-integer cards in `intgio`'s `(2i5,1x,8i7,i4,i2,i3,i5)` layout (81
+/// columns, MAT in columns 68-71), and the block's CONT gets `NDIGIT = 6` and the new count.
+/// Returns the tape and the 1-based line of the first INTG card.
+fn cu65_at_ndigit6(original: &str) -> (String, usize) {
+    let lines: Vec<&str> = original.split('\n').collect();
+    let ci = 50327; // the compact block's CONT, line 50328
+    let c = lines[ci];
+    assert_eq!(&c[70..75], "32151");
+    assert_eq!(c[22..33].trim(), "2", "NDIGIT");
+    let nn: usize = c[44..55].trim().parse().unwrap();
+    let int = |s: &str| -> i64 {
+        let t: String = s.chars().filter(|&ch| ch != ' ').collect();
+        if t.is_empty() { 0 } else { t.parse().unwrap() }
+    };
+    let mut cards = Vec::new();
+    for card in &lines[ci + 1..ci + 1 + nn] {
+        let (ii, jj) = (int(&card[0..5]), int(&card[5..10]));
+        let vals: Vec<i64> = (0..18).map(|k| int(card.get(11 + 3 * k..14 + 3 * k).unwrap_or(""))).collect();
+        for m in (0..18).step_by(8) {
+            let mut chunk: Vec<i64> = vals[m..(m + 8).min(18)].to_vec();
+            if m > 0 && chunk.iter().all(|&v| v == 0) {
+                continue;
+            }
+            chunk.resize(8, 0);
+            let body: String = chunk.iter().map(|v| format!("{v:7}")).collect();
+            cards.push(format!("{ii:5}{:5} {body}{:4}{:2}{:3}{:5}", jj + m as i64, 2931, 32, 151, 1));
+        }
+    }
+    let cont = format!("{}{:11}{}{:11}{}", &c[..22], 6, &c[33..44], cards.len(), &c[55..]);
+    let mut out: Vec<String> = lines[..ci].iter().map(|s| s.to_string()).collect();
+    out.push(cont);
+    out.extend(cards);
+    out.extend(lines[ci + 1 + nn..].iter().map(|s| s.to_string()));
+    (out.join("\n"), ci + 2)
+}
+
+/// **`NDIGIT = 6` INTG cards follow `intgio`'s 81-column layout** (gh:#660).
+///
+/// NJOY2016.80 (`build2/njoy`) run on the tape [`cu65_at_ndigit6`] builds (the same
+/// construction in Python), with `moder 20 -21 / moder -21 22`, ran to the end (rc 0,
+/// 2026-11-24) and wrote all 4 003 INTG cards back unchanged: 81 columns, MAT in 68-71.
+/// Prediction, written before that run: exactly that. Here the same tape must read, keyed to
+/// MAT 2931 MF 32 MT 151 throughout; a corrupt `i7` integer, the card shifted back to the
+/// 80-column layout, and a corrupt MAT in columns 68-71 must each be refused.
+#[test]
+fn mf32_ndigit6_cards_follow_intgio() {
+    let Some(path) = reference_endf_or_skip("n-029_Cu_065-ENDF8.0.endf", "gh:#660 NDIGIT=6") else {
+        return;
+    };
+    let original = std::fs::read_to_string(&path).unwrap();
+    let rows0 = Tape::from_bytes(original.as_bytes()).unwrap().section(2931, 32, 151).unwrap().rows.len();
+    let (nd6, first) = cu65_at_ndigit6(&original);
+    let first_card = nd6.lines().nth(first - 1).unwrap().to_string();
+    assert_eq!(first_card.len(), 81, "{first_card:?}");
+
+    let t = Tape::from_bytes(nd6.as_bytes()).expect("the NDIGIT=6 tape reads");
+    let rows = t.section(2931, 32, 151).unwrap().rows.len();
+    println!("MF=32 rows: {rows0} at NDIGIT=2, {rows} at NDIGIT=6");
+    assert_eq!(rows, rows0 - 2943 + 4003, "every NDIGIT=6 card stays in MAT 2931 MF 32 MT 151");
+    assert_eq!(t.materials(), vec![2931]);
+
+    let with_line = |text: &str, lineno: usize, new: &str| -> String {
+        text.split('\n')
+            .enumerate()
+            .map(|(i, l)| if i + 1 == lineno { new.to_string() } else { l.to_string() })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    // A corrupt i7 integer (the first, columns 12-18).
+    let bad = format!("{}{}{}", &first_card[..11], "    -7x", &first_card[18..]);
+    let err = Tape::from_bytes(with_line(&nd6, first, &bad).as_bytes()).unwrap_err().to_string();
+    println!("i7: {err}");
+    assert!(err.contains("INTG (NDIGIT=6) integer 3"), "{err}");
+    // The same card in the 80-column layout (MAT in 67-70): intgio would misread it.
+    let left = format!("{}{}", &first_card[..66], &first_card[67..]);
+    let err = Tape::from_bytes(with_line(&nd6, first, &left).as_bytes()).unwrap_err().to_string();
+    println!("80-column: {err}");
+    assert!(err.contains("80-column layout"), "{err}");
+    // A corrupt MAT in columns 68-71.
+    let mat = format!("{}29x1{}", &first_card[..67], &first_card[71..]);
+    assert!(Tape::from_bytes(with_line(&nd6, first, &mat).as_bytes()).is_err());
+}

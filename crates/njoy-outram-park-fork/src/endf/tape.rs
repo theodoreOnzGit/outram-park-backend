@@ -19,7 +19,7 @@ use crate::hash::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
 
 use crate::endf::parse::{check_record_ids, parse_fortran_int, parse_line, parse_line_checked};
-use crate::endf::strict::{check_raw_section, Refused};
+use crate::endf::strict::{check_raw_section, intg6_card, Refused};
 use crate::endf::EndfKey;
 use crate::NjoyError;
 
@@ -259,6 +259,23 @@ impl Tape {
 
         for (n, line_res) in lines.enumerate() {
             let line = line_res?;
+            // gh:#660: an NDIGIT = 6 INTG card is 81 columns, its MAT one column
+            // to the right (`intgio`'s `(2i5,1x,8i7,i4,i2,i3,i5)`), so a card of
+            // the open MF=32 section can carry its key only in those columns.
+            if let Some(key) = current_key.filter(|k| k.mf == 32) {
+                if let Some(fields) = intg6_card(&line, key) {
+                    current_refused.push(Refused {
+                        row: current_rows.len(),
+                        lineno: n + 2,
+                        why: "an NDIGIT=6 INTG card (MAT in columns 68-71)".into(),
+                        intg6: true,
+                    });
+                    current_full.push(line.clone());
+                    current_rows.push(fields);
+                    current_raw.push(line.chars().take(66).collect());
+                    continue;
+                }
+            }
             let (rl, refused) = parse_record(&line, n + 2)?;
 
             // Sentinel detection: MT=0 (SEND), MF=0 (FEND), MAT=0 (MEND), MAT=-1 (TEND)
@@ -320,7 +337,7 @@ impl Tape {
             }
 
             if let Some(why) = refused {
-                current_refused.push(Refused { row: current_rows.len(), lineno: n + 2, why });
+                current_refused.push(Refused { row: current_rows.len(), lineno: n + 2, why, intg6: false });
             }
             if key.mf == 32 {
                 current_full.push(line.clone());
