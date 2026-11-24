@@ -294,7 +294,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs::mo95_reconr_is_bounded_and_matches_njoy2016",
     "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::case_a_and_lssf1_grid_and_flags_match_njoys_own",
     "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::case_b_stored_values_match_njoys_own",
-    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::fe58_disagreement_is_explained_by_upstreams_unfac_fall_through",
     "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::lssf1_stores_the_bare_kernel_with_no_mf3_background",
     "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::our_penetrability_clamps_l_at_two_like_uunfac",
     "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::released_and_beta_fe58_carry_the_same_unresolved_parameters",
@@ -19309,8 +19308,8 @@ uses = ["fn:a7d1e0fba65401e0"]
 test = true
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "fc93def94a76099d77c172cd58b07e9088b0d5a4"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
     "#0",
@@ -19704,7 +19703,6 @@ passed = [
     "#388",
     "#389",
     "#390",
-    "#391",
 ]
 failed = []
 
