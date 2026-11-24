@@ -285,6 +285,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         0 => None,
         n if n > 0 => {
             let t = units.text_or_file(n).ok_or_else(|| NjoyError::InvalidInput(format!("groupr: ngout1 unit {n} holds no GENDF")))?;
+            // gh:#660: NJOY reads the input GENDF's cards with `contio`/`listio`.
+            crate::endf::parse::check_gendf_text(&t, None)?;
             Some(gout::GoutIn::from_text(&t))
         }
         n => {

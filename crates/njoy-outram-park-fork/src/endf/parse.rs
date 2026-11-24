@@ -66,7 +66,9 @@ pub fn parse_endf_float_checked(s: &str) -> Option<f64> {
     } else {
         s
     };
-    if s.is_empty() {
+    // gfortran reads a field holding only a sign or a point as 0 (measured
+    // 2026-11-24 with gfortran 13.3: `'          -'`, `'+'`, `'.'` give 0.0, iostat 0).
+    if s.is_empty() || s == "+" || s == "-" || s == "." {
         return Some(0.0);
     }
 
@@ -380,18 +382,16 @@ pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
 /// true: an [`NjoyError::EndfParse`] naming the field, where NJOY2016's
 /// formatted read stops with "Bad value during floating point read"
 /// (gh:#660). With `numeric` false a non-numeric field reads `0.0`, which is
-/// right only for text (Hollerith) records.
+/// right only for text (Hollerith) records. With `numeric` true the MAT, MF,
+/// MT and sequence-number columns must be Fortran integers too (`i4,i2,i3,i5`,
+/// blanks ignored); with it false they read as before, 0 when unparsable.
 ///
 /// # Errors
 ///
-/// [`NjoyError::EndfParse`] on a non-numeric field when `numeric` is true.
+/// [`NjoyError::EndfParse`] on a non-numeric field or identifier column when
+/// `numeric` is true.
 pub fn parse_line_checked(line: &str, numeric: bool) -> Result<RawLine, NjoyError> {
-    // Pad to 80 columns so slicing is always in-bounds; one byte per column,
-    // all ASCII, so the byte slices below are always on char boundaries.
-    let mut buf = [b' '; 80];
-    for (slot, c) in buf.iter_mut().zip(line.chars()) {
-        *slot = if c.is_ascii() { c as u8 } else { b'?' };
-    }
+    let buf = columns(line);
     let s = core::str::from_utf8(&buf).map_err(|e| NjoyError::EndfParse(e.to_string()))?;
 
     let mut fields = [0.0f64; 6];
@@ -413,9 +413,15 @@ pub fn parse_line_checked(line: &str, numeric: bool) -> Result<RawLine, NjoyErro
         };
     }
 
-    let mat = s[66..70].trim().parse::<i32>().unwrap_or(0);
-    let mf = s[70..72].trim().parse::<i32>().unwrap_or(0);
-    let mt = s[72..75].trim().parse::<i32>().unwrap_or(0);
+    let (mat, mf, mt) = if numeric {
+        record_ids(s)?
+    } else {
+        (
+            s[66..70].trim().parse::<i32>().unwrap_or(0),
+            s[70..72].trim().parse::<i32>().unwrap_or(0),
+            s[72..75].trim().parse::<i32>().unwrap_or(0),
+        )
+    };
 
     Ok(RawLine {
         fields,
@@ -423,6 +429,100 @@ pub fn parse_line_checked(line: &str, numeric: bool) -> Result<RawLine, NjoyErro
         mf,
         mt,
     })
+}
+
+/// A line as 80 one-byte columns: characters, not bytes (gh:#660), a
+/// non-ASCII character read as `?`, padded with blanks. Every byte is ASCII,
+/// so byte slices of it are on char boundaries.
+fn columns(line: &str) -> [u8; 80] {
+    let mut buf = [b' '; 80];
+    for (slot, c) in buf.iter_mut().zip(line.chars()) {
+        *slot = if c.is_ascii() { c as u8 } else { b'?' };
+    }
+    buf
+}
+
+/// A Fortran `iN` read of `s` (gh:#660): blanks are ignored (`BN`), an
+/// all-blank field is 0, an optional sign then digits; anything else is
+/// `None`, where gfortran stops ("Bad value during integer read"; measured
+/// 2026-11-24: a lone sign or a letter is refused, `'1 2'` reads 12).
+///
+/// ```
+/// use njoy_outram_park_fork::endf::parse::parse_fortran_int;
+/// assert_eq!(parse_fortran_int("   "), Some(0));
+/// assert_eq!(parse_fortran_int("1 2"), Some(12));
+/// assert_eq!(parse_fortran_int("-59"), Some(-59));
+/// assert_eq!(parse_fortran_int("  -"), None);
+/// assert_eq!(parse_fortran_int("a  "), None);
+/// ```
+#[must_use]
+pub fn parse_fortran_int(s: &str) -> Option<i64> {
+    let t: String = s.chars().filter(|&c| c != ' ').collect();
+    if t.is_empty() {
+        return Some(0);
+    }
+    t.parse::<i64>().ok()
+}
+
+/// MAT, MF, MT of an 80-column line, read as NJOY2016 reads every card,
+/// `(...,i4,i2,i3,i5)` (`contio`, `hollio`, `tosend`): each must be a Fortran
+/// integer, and so must the sequence number in columns 76-80 (gh:#660).
+fn record_ids(s: &str) -> Result<(i32, i32, i32), NjoyError> {
+    let mut out = [0i32; 4];
+    for (k, (name, a, b)) in [("MAT", 66, 70), ("MF", 70, 72), ("MT", 72, 75), ("sequence number", 75, 80)]
+        .into_iter()
+        .enumerate()
+    {
+        out[k] = parse_fortran_int(&s[a..b])
+            .and_then(|v| i32::try_from(v).ok())
+            .ok_or_else(|| {
+                NjoyError::EndfParse(format!(
+                    "{name} field ({:?}, columns {}-{b}) is not an integer; NJOY2016 stops here \
+                     (Fortran i-format: bad value during integer read)",
+                    &s[a..b],
+                    a + 1
+                ))
+            })?;
+    }
+    Ok((out[0], out[1], out[2]))
+}
+
+/// Check a line's MAT, MF, MT and sequence-number columns as NJOY2016 reads
+/// them on every card, a text card included (`hollio`, `tosend`:
+/// `(16a4,a2,i4,i2,i3,i5)`), without reading its six data fields (gh:#660).
+///
+/// # Errors
+///
+/// [`NjoyError::EndfParse`] when one of them is not a Fortran integer.
+pub fn check_record_ids(line: &str) -> Result<(), NjoyError> {
+    let buf = columns(line);
+    let s = core::str::from_utf8(&buf).map_err(|e| NjoyError::EndfParse(e.to_string()))?;
+    record_ids(s).map(|_| ())
+}
+
+/// Check every card of a coded GENDF tape after its label (the TPID) as
+/// NJOY2016's `contio`/`listio` read it, `(6e11.0,i4,i2,i3,i5)`: a GENDF has
+/// no text record (its title is the TPID), so a non-numeric field or a
+/// non-integer MAT/MF/MT/sequence column is refused (gh:#660). Cards of a
+/// material other than `only_mat` (when given) have their identifier columns
+/// checked only, as NJOY's `tosend` reads them while skipping.
+///
+/// # Errors
+///
+/// [`NjoyError::EndfParse`] naming the line.
+pub fn check_gendf_text(text: &str, only_mat: Option<i32>) -> Result<(), NjoyError> {
+    for (k, line) in text.lines().enumerate().skip(1) {
+        let with_line = |e: NjoyError| match e {
+            NjoyError::EndfParse(why) => NjoyError::EndfParse(format!("GENDF line {}: {why}", k + 1)),
+            other => other,
+        };
+        check_record_ids(line).map_err(with_line)?;
+        let rl = parse_line(line)?;
+        if only_mat.is_none_or(|m| m == rl.mat) {
+            parse_line_checked(line, true).map_err(with_line)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
