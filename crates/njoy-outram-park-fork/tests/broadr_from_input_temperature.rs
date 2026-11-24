@@ -83,12 +83,30 @@ fn broadening_twice_matches_broadening_once() {
     }
 }
 
+/// Not above the input's temperature (`tempef <= 0`), BROADR only thins
+/// (`thinb`, `broadr.f90:1218-1222`).
+///
+/// ~~The data pass through unchanged, under their own temperature~~
+/// **CORRECTED 2026-11-24 (gh:#619):** that pinned the port's old pass-through,
+/// which upstream does not do. Now: the result is labelled with the requested
+/// temperature (as BROADR's output is), is sparser than its input, and
+/// reproduces the input at every input point within `errthn = 1e-3` (plus the
+/// 7-figure output rounding). Word-for-word agreement with NJOY2016's own 0 K
+/// run is `pendf_stages_vs_njoy2016::broadr_0k_thins_like_njoy2016`.
 #[test]
-fn not_above_the_input_temperature_passes_the_data_through() {
+fn not_above_the_input_temperature_only_thins() {
     let warm = broaden_result(&material_0k(), 600.0);
     for t in [600.0, 300.0, 0.0] {
         let r = broaden_result(&warm, t);
-        assert_eq!(r.temperature_k, 600.0, "still the 600 K data, asked for {t} K");
-        assert_eq!(r.sections[1].pairs, warm.sections[1].pairs);
+        assert_eq!(r.temperature_k, t, "labelled as asked, {t} K");
+        let (n_in, n_out) = (warm.sections[1].pairs.len(), r.sections[1].pairs.len());
+        println!("{t} K from 600 K: MT=2 {n_in} -> {n_out} points");
+        // Measured 2026-11-24: 896 -> 426 at each of 600, 300 and 0 K.
+        assert!(n_out < n_in, "thinned");
+        // `thinb` keeps the first point; `at` interpolates from the one below.
+        for &(e, s) in warm.sections[1].pairs.iter().skip(1) {
+            let rel = (at(&r, e) - s) / s;
+            assert!(rel.abs() < 1.0e-3 + 1.0e-6, "E = {e}: thinned {} vs {s}", at(&r, e));
+        }
     }
 }
