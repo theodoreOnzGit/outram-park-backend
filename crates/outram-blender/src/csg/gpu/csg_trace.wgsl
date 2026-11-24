@@ -269,6 +269,13 @@ fn surf_distance(s: u32, r: vec3<f32>, u: vec3<f32>, coincident: bool) -> f32 {
     let uu = u.x; let uv = u.y; let uw = u.z;
     var hint: f32 = 0.0;
     if (coincident) { hint = 1.0e-7; }
+    // A plane the point is on is never hit again (OpenMC `Plane::distance`:
+    // `coincident` returns INFTY), as the CPU does. The `hint` rule let an f32
+    // point left ~1e-6 off the plane find it again a hair away, so the
+    // virtual-crossing walk (toks_distance_complex) re-crossed one plane until
+    // it ran out of hops and returned that spot as the boundary: 9 % of
+    // pixels on gpu_csg_parity's bored model (gh:#1708, 2026-11-24).
+    if (coincident && tag <= 3u) { return INF; }
     switch (tag) {
         case 0u: {
             if (abs(uu) < 1.0e-7) { return INF; }
@@ -477,7 +484,10 @@ fn toks_distance_complex(tk: Toks, r0: vec3<f32>, u: vec3<f32>) -> Hit {
     var out = Hit(INF, NONE);
     for (var hop: u32 = 0u; hop < MAX_VIRTUAL_HOPS; hop = hop + 1u) {
         let hs = nearest_surface(tk, r, u, tok_surf != NONE);
-        if (hs.d >= INF) { break; }
+        // As the CPU (Cell::distance_complex): no surface ahead is no boundary,
+        // even after virtual crossings. Returning the last virtual crossing
+        // here sent rays from outside the model to a point past it (gh:#1708).
+        if (hs.d >= INF) { out = Hit(INF, NONE); break; }
         r = r + hs.d * u;
         total = total + hs.d;
         let n = surf_normal(hs.s, r);
