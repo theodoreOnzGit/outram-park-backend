@@ -140,7 +140,7 @@ const QW64: [f64; 32] = [
 
 /// The 64 (node, weight) pairs in upstream order (`-qp(32) .. -qp(1), qp(1)
 /// .. qp(32)` mirrored with the same weights).
-fn gauss64() -> impl Iterator<Item = (f64, f64)> {
+pub(crate) fn gauss64() -> impl Iterator<Item = (f64, f64)> {
     (0..64).map(|i| {
         if i < 32 {
             (-QP64[i], QW64[i])
@@ -230,7 +230,7 @@ pub struct LegendreAt {
 
 /// `getco` for `LTT = 1` (`groupr.f90:10547-10560`): Legendre coefficients
 /// `a_1..a_NL` straight from the LIST, `fl(1) = 1`, trimmed to `nlz`.
-fn getco_legendre(a: &[f64], nl_max: usize) -> Vec<f64> {
+pub(crate) fn getco_legendre(a: &[f64], nl_max: usize) -> Vec<f64> {
     let np = a.len() + 1;
     let mut fl = vec![0.0f64; nl_max];
     fl[0] = 1.0;
@@ -328,7 +328,7 @@ fn getco_legendre_converted(a: &[f64], nl_max: usize, toler: f64, awr: f64) -> V
 /// `getco` with `lang = 2` and `lcd = lct` (`groupr.f90:10563-10573`): `np = c(5)`
 /// (the LIST's `NW`), `fl(il) = c(il+6)` for `il <= np`, else 0, for `il = 1..nl`;
 /// `nl = nlz`, the last non-zero (at least 1). `a_0` is not renormalised.
-fn getco_law5_legendre(c: &[f64], np: usize, nl_max: usize) -> Vec<f64> {
+pub(crate) fn getco_law5_legendre(c: &[f64], np: usize, nl_max: usize) -> Vec<f64> {
     let mut fl = vec![0.0f64; nl_max];
     let mut nlz = 1;
     for il in 1..=nl_max {
@@ -691,6 +691,16 @@ impl File4Angular {
             return Ok(Self { lct: 2, isotropic, points, lo_fl, log_sign_fallback: false });
         }
         Err(NjoyError::EndfParse(format!("getfle: MF=6/MT={mt} of mat {mat} has no subsection with ZAP = {zap}")))
+    }
+
+    /// A CM distribution from records that have already been through `getco`:
+    /// `(energy, fl, TAB2 law of the panel ending there, L1)` in tape order, with
+    /// `getfle`'s carried `flo` replayed ([`crate::groupr::charged_elastic`]).
+    pub(crate) fn from_getco_records(recs: Vec<(f64, Vec<f64>, u32, i32)>, nl_max: usize) -> Self {
+        let points: Vec<EnergyPoint> = recs.into_iter().map(|(energy, fl, law, lang)| EnergyPoint { energy, fl, law, lang }).collect();
+        let isotropic = points.len() == 2 && points.iter().all(|p| p.fl.len() == 1);
+        let lo_fl = carried_lo(&points, nl_max);
+        Self { lct: 2, isotropic, points, lo_fl, log_sign_fallback: false }
     }
 
     /// An isotropic centre-of-mass distribution with no records: what `getfle`

@@ -31,7 +31,9 @@
 //! The first version of these decks used Be-9 (MAT 425) as the second material.
 //! Be-9 alone, with no card 10, differs from NJOY2016 in MF=6 MT=2
 //! ([`be9_alone_control`]): first 39 lines, from the AWR `getdis` takes (MF=4's,
-//! now followed), and then 6 lines in the 7th figure, still open.
+//! now followed), and then ~~6 lines in the 7th figure, still open~~ **CORRECTED
+//! 2026-11-24:** 6 lines from `alpha` and `thresh`, which keep `getsig`'s MF=3 AWR;
+//! now identical (see the test).
 //!
 //! Pass criterion: every compared unit identical line for line, compared as
 //! strings, and the deck runs to its `stop`. A case skips with a message when the
@@ -249,22 +251,47 @@ fn pb_groupr_charged_particle_production_from_mf6() {
     assert_identical("pb", run_both("pb", deck, &[reference("n-009_F_019-ENDF8.0.endf")], &[24]));
 }
 
-/// Control, Be-9 (MAT 425) alone in its GROUPR: MF=6 MT=2 still differs in 6
-/// lines in the 7th figure after the MF=4 AWR fix (39 before it); see the module doc.
+/// Control, Be-9 (MAT 425) alone in its GROUPR (`3/`, `6 2/`, LANL-30, `lord = 1`).
 ///
 /// ~~`#[ignore]`d pending the cause.~~ **CORRECTED 2026-11-14 (maintainer: never
-/// ignore a failing gate):** the open residual is **pinned**: exactly 6
-/// differing lines on unit 24, measured 2026-11-14. The cause is not yet found
-/// (the lines fall where Be-9's Legendre order changes; gh:#1370), so this is
-/// not an accepted tolerance. It is a tripwire. If a change fixes the residual
-/// (0 lines), tighten this to identity; if the count grows, the change made it
-/// worse.
+/// ignore a failing gate):** the open residual was **pinned** at exactly 6
+/// differing lines on unit 24 (MF=6 MT=2, 7th figure), cause unknown.
+///
+/// **CORRECTED 2026-11-24 (gh:#1370): cause found, pin tightened to 0.**
+///
+/// - **Method.** A scratch NJOY2016 build (`ab27c64`, gfortran `-O3`, the shared
+///   `build2` untouched) printed `getdis`'s `e`, `ng`, `iglo`, `nld`, `nl` and every
+///   `ff(il, ig)` at label 465, before the seven-decimal rounding, at `%.17e`. The
+///   port printed the same at the same point. Matched by energy, the two runs agreed
+///   in every value where both called `getdis`, but each made 8 994 calls with about
+///   six energies apart in each of 10 clusters, at 0.2383, 0.649, 1.771, 4.797,
+///   13.04, 35.43, 96.25 eV and on up: `egn(iech)/alpha`, the critical energies
+///   `ech`. Ours were 1.0e-6 relative above NJOY's.
+/// - **Cause.** Upstream's `getsig(e = 0)` sets `thresh` and `alpha` from the MF=3
+///   head's AWR (`groupr.f90:6717`, `:6751-6752`, 8.934780 for Be-9). `getff(e = 0)`
+///   runs after it (`:746-749`), so `getfle` overwrites the module `awr` with the
+///   MF=4 head's (`:9711-9713`, 8.934760) only for `awr2`, the cosine edges and the
+///   critical-energy formulas. The port's `TwoBodyFeed::new` took all of them from
+///   the AWR it was given, MF=4's since 2026-11-14. The panel therefore called
+///   `getdis` at slightly different energies near each `ech`, and the 7-decimal
+///   rounding of `ff` there turned that into 6 printed words. It was a port defect,
+///   not round-off.
+/// - **Fix.** `TwoBodyFeed::with_getsig_awr(MF=3 AWR)`, in the MF=6 two-body, the
+///   MT=251-253 ratio and the `mfd = 31-36` paths.
+/// - **Prediction** (written after the critical energies were seen to differ, before
+///   the fixed code was run): the `getdis` energies and `ff` bit-identical to NJOY's,
+///   and unit 24 identical.
+/// - **Result (2026-11-24, NJOY2016.80):** 8 994 `getdis` calls on both sides, the
+///   same energies, every `ff` value bit-identical; unit 24 identical, 395 of 395
+///   lines.
+///
+/// A tripwire: if the count leaves 0, a change has moved the MF=3/MF=4 AWR split.
 #[test]
 fn be9_alone_control() {
     let deck = format!("{RECONR_BE}groupr\n-21 -22 0 24/\n{}3/\n6 2/\n0/\n0/\nstop\n", g2(425, "be only"));
     let Some(r) = run_both("be1", &deck, &h2_be9(), &[24]) else { return };
     let diffs: Vec<usize> = r.iter().map(|&(_, d)| d).collect();
-    assert_eq!(diffs, vec![6], "be1: open Be-9 residual moved from its pinned 6 lines: {r:?}");
+    assert_eq!(diffs, vec![0], "be1: Be-9 differs from NJOY2016.80 again: {r:?}");
 }
 
 /// `CP1`: GROUPR `mfd = 31-36` through `mfchk2` (gh:#1370, 2026-11-24), on O-16
