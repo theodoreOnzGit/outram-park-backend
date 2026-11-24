@@ -25,8 +25,8 @@
 //! ~~`MT = 257-259, 452-456`~~ `MT = 452-456` (**CORRECTED 2026-11-13**: 257-259 are
 //! written; 452-456 used to be skipped silently and are now refused by name), `mfd = 5`,
 //! analytic `LF > 1` photon spectra, ~~and the automatic lists for `mfd` other than 3 and
-//! 16/17 (and MF=18)~~ the charged-particle automatic lists (`mfd = 21-26`; an explicit
-//! `21 mt` to `26 mt` from MF=6 is written since 2026-11-14, gh:#1370), `mfd = 31-36`, `getdis`
+//! 16/17 (and MF=18)~~ ~~the charged-particle automatic lists (`mfd = 21-26`; an explicit
+//! `21 mt` to `26 mt` from MF=6 is written since 2026-11-14, gh:#1370), `mfd = 31-36`~~ (**CORRECTED 2026-11-24, gh:#1370:** both run, `deck/groupr/charged_two_body.rs`), `getdis`
 //! with `mft = 8` (MF=6 LAW 2-5) and `getmf6` for fission.
 //! ~~the automatic reaction lists (`mtd = 0`, `nextr`)~~ **CORRECTED 2026-11-11**: `auto_reactions`.
 //! **CORRECTED 2026-11-13 (gh:#1369):** `auto_reactions` is replaced by
@@ -348,7 +348,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     }
     let nend_tape = crate::groupr::conver::with_mt456(&nendf_raw, inp.matb).unwrap_or_else(|| nendf_raw.clone());
     let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
-    let mf4r = crate::deck::groupr_auto::conver_mf4r(&nend_tape, inp.matb, iverf)?;
+    let charged = crate::deck::groupr_auto::conver_mf4r(&nend_tape, inp.matb, iverf)?;
     // `nend2`, the tape `conver` writes (`:480-488`): its MF=12 `LO = 2` sections are
     // `LO = 1` yields there, and the level MF=14 sections isotropic (gh:#1517). Text
     // when `nendf` is (`:402`).
@@ -422,7 +422,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let req0 = &req0;
         // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
-            crate::deck::groupr_auto::nextr_all(req0.mfd, &lists, &pend, inp.matb, &mut mtd_run)?
+            crate::deck::groupr_auto::nextr_any(req0.mfd, &lists, &charged, &pend, inp.matb, &mut mtd_run)?
         } else if req0.mtd < 0 {
             // `mfchk` (`:716`) rewrites `mfd` in place, so once a range switches
             // (16 to 17, 13 to 12) its later MTs keep the new file (gh:#1370).
@@ -430,7 +430,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             let mut v = Vec::new();
             loop {
                 mtd_run += 1;
-                mfd_run = crate::deck::groupr_auto::mfchk2(crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists), mtd_run, &mf4r);
+                mfd_run = crate::deck::groupr_auto::mfchk2(crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists), mtd_run, &charged);
                 v.push(crate::deck::groupr_auto::AutoReaction::plain(mfd_run, mtd_run));
                 if mtd_run + req0.mtd >= 0 {
                     break;
@@ -439,7 +439,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             v
         } else {
             mtd_run = req0.mtd;
-            let mfd = crate::deck::groupr_auto::mfchk2(crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists), req0.mtd, &mf4r);
+            let mfd = crate::deck::groupr_auto::mfchk2(crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists), req0.mtd, &charged);
             vec![crate::deck::groupr_auto::AutoReaction::plain(mfd, req0.mtd)]
         };
         for item in items {

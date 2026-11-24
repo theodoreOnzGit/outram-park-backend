@@ -285,3 +285,25 @@ fn cp1_groupr_charged_and_residual_production_from_mf4() {
                 3 600/\n21 600/\n25 800/\n26 2/\n26 600/\n26 800/\n0/\n0/\nstop\n";
     assert_identical("cp1", run_both("cp1", deck, &[reference("n-008_O_016-ENDF8.0.endf")], &[24]));
 }
+
+/// `AU`: GROUPR's automatic charged-particle cards `21/`, `25/`, `26/` (`nextr`,
+/// `groupr.f90:1218-1290`): each particle's MF=6 list `mf6p` as `mfd = 21-26`
+/// (`getmf6`), then its MF=4 list `mf4r` as `mfd = 31-36` (`getdis`), on O-16 and
+/// F-19 ENDF/B-VIII.0 (gh:#1370, 2026-11-24). O-16's `26/` walks MF=6 MT 16, 22,
+/// 28, 91, 108 and MF=4 MT 2, 51-57, 600-603, 650-652, 700, 800-803.
+///
+/// **Not predicted in advance:** these two decks were first run through the
+/// `njoy-deck` binary while the code was being written, before a prediction was
+/// recorded; both were identical then (O-16 909 lines, F-19 1 525). This test pins
+/// that.
+#[test]
+fn au_groupr_automatic_charged_particle_lists() {
+    for (tag, mat, tape) in [("auo", 825, "n-008_O_016-ENDF8.0.endf"), ("auf", 925, "n-009_F_019-ENDF8.0.endf")] {
+        let deck = format!(
+            "moder\n20 -21/\nreconr\n-21 -22/\n'{tag}'/\n{mat} 0/\n0.005/\n0/\n\
+             groupr\n-21 -22 0 24/\n{mat} 3 0 3 1 1 1 1/\n'{tag} auto charged'/\n0.0/\n1.0e10/\n\
+             21/\n25/\n26/\n0/\n0/\nstop\n"
+        );
+        assert_identical(tag, run_both(tag, &deck, &[reference(tape)], &[24]));
+    }
+}

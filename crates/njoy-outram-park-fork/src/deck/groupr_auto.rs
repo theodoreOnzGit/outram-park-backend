@@ -235,8 +235,8 @@ pub fn conver_lists(nend: &Tape, mat: i32) -> Result<ConverLists, NjoyError> {
 /// list, and `mfd = 16` becomes 17 when `mt` is in MF=13's. A list entry `-m` after
 /// `n` covers `n ..= m`. Any other `mf` is returned unchanged (gh:#1370).
 ///
-/// `mfchk2` (`:1575-1597`, `mfd = 21-26` to `31-36` for MF=4 recoils) is not
-/// translated: ~~the tape driver refuses `mfd = 21-36` before it would matter~~
+/// ~~`mfchk2` (`:1575-1597`, `mfd = 21-26` to `31-36` for MF=4 recoils) is not
+/// translated~~: ~~the tape driver refuses `mfd = 21-36` before it would matter~~
 /// **CORRECTED 2026-11-14 (gh:#1370):** the tape driver writes `mfd = 21-26` from MF=6
 /// now, and refuses an `mfd = 21-26` request for an MT with no MF=6 section, which is
 /// where `mfchk2` would have switched to `31-36` (still refused: `getdis` with a
@@ -289,7 +289,8 @@ fn expand(list: &[i32], mtd: &mut i32, mfd: i32, out: &mut Vec<AutoReaction>) {
 /// `MT = 201-202, 208-300` (`:1155-1161`).
 ///
 /// # Errors
-/// [`NjoyError::NotPorted`] for the charged-particle lists (`mfd = 21-26`).
+/// [`NjoyError::NotPorted`] for ~~the charged-particle lists (`mfd = 21-26`)~~ an `mfd`
+/// with no list here (**CORRECTED 2026-11-24:** `21-26` are [`nextr_charged`]'s).
 pub fn nextr_all(mfd: i32, lists: &ConverLists, pend: &Tape, mat: i32, mtd: &mut i32) -> Result<Vec<AutoReaction>, NjoyError> {
     let mut out = Vec::new();
     match mfd {
@@ -333,7 +334,7 @@ pub fn nextr_all(mfd: i32, lists: &ConverLists, pend: &Tape, mat: i32, mtd: &mut
                 out.push(AutoReaction { mfd: base + e.izan10, mtd: e.mt, lfs: e.lfs, isom: e.isom, card9a: false });
             }
         }
-        _ => return Err(NjoyError::NotPorted("groupr auto mode for this mfd (charged-particle lists)")),
+        _ => return Err(NjoyError::NotPorted("groupr auto mode for this mfd")),
     }
     Ok(out)
 }
@@ -413,7 +414,7 @@ mod tests {
     }
 }
 
-/// `conver`'s `mf4r(1:6, :)` (`groupr.f90:11023-11147`): for every MF=4 section of
+/// `conver`'s `mf6p` (MF=6, below) and `mf4r(1:6, :)` (`groupr.f90:11023-11147`) lists ([`ChargedLists`]): for every MF=4 section of
 /// `mat`, in tape order, the MT goes onto the list of its light outgoing particle
 /// (`[0]` proton ... `[4]` alpha, from the MT ranges at `:11040-11052`) and, unless
 /// it is MT=18, onto the residual list `[5]` when the residual's ZA
@@ -425,8 +426,37 @@ mod tests {
 ///
 /// # Errors
 /// A malformed MF=4 head.
-pub fn conver_mf4r(nend: &Tape, mat: i32, iverf: i32) -> Result<[Vec<i32>; 6], NjoyError> {
+pub fn conver_mf4r(nend: &Tape, mat: i32, iverf: i32) -> Result<ChargedLists, NjoyError> {
     let mut l: [Vec<i32>; 6] = Default::default();
+    let mut mf6p: [Vec<i32>; 6] = Default::default();
+    for s in nend.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 6) {
+        // `conver`'s MF=6 subsection record (`:11623-11697`): `mf6p(1..5)` for ZAP
+        // 1001, 1002, 1003, 2003, 2004 and `mf6p(6)` for any other non-photon,
+        // non-neutron ZAP, where MT=18 is skipped only once the list has an entry.
+        let mut cur = SectionCursor::new(&s.rows);
+        let head = cur.read_cont()?;
+        if s.key.mt == 18 && head.l1 != 0 {
+            continue;
+        }
+        for _ in 0..head.n1.max(0) {
+            let t = cur.read_tab1()?;
+            let jzap = t.head.c1.round() as i32;
+            crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, t.head.l2)?;
+            let k = match jzap {
+                0 | 1 => continue,
+                1001 => 0,
+                1002 => 1,
+                1003 => 2,
+                2003 => 3,
+                2004 => 4,
+                _ => 5,
+            };
+            if k == 5 && s.key.mt == 18 && !mf6p[5].is_empty() {
+                continue;
+            }
+            push_range_dedup(&mut mf6p[k], s.key.mt);
+        }
+    }
     for s in nend.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 4) {
         let mth = s.key.mt;
         let mut za2 = -1i32;
@@ -463,7 +493,39 @@ pub fn conver_mf4r(nend: &Tape, mat: i32, iverf: i32) -> Result<[Vec<i32>; 6], N
             push_range(&mut l[5], mth);
         }
     }
-    Ok(l)
+    Ok(ChargedLists { mf6p, mf4r: l })
+}
+
+/// `conver`'s charged-particle lists (gh:#1370, 2026-11-24): `mf6p(k)`, the MF=6
+/// MTs with a subsection for particle `k` (proton, deuteron, triton, He-3, alpha,
+/// heavier), and `mf4r(k)`, the MF=4 MTs that produce it ([`conver_mf4r`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChargedLists {
+    /// `mf6p(1:6, :)`.
+    pub mf6p: [Vec<i32>; 6],
+    /// `mf4r(1:6, :)`.
+    pub mf4r: [Vec<i32>; 6],
+}
+
+/// [`nextr_charged`] for `mfd = 21-26`, else [`nextr_all`] (gh:#1370, 2026-11-24).
+///
+/// # Errors
+/// As [`nextr_all`].
+pub fn nextr_any(mfd: i32, lists: &ConverLists, charged: &ChargedLists, pend: &Tape, mat: i32, mtd: &mut i32) -> Result<Vec<AutoReaction>, NjoyError> {
+    if (21..=26).contains(&mfd) {
+        return Ok(nextr_charged(mfd, charged, mtd));
+    }
+    nextr_all(mfd, lists, pend, mat, mtd)
+}
+
+/// `nextr` for an automatic `21/` ... `26/` card (`groupr.f90:1218-1290`): the
+/// particle's MF=6 list as `mfd`, then its MF=4 list as `mfd + 10`.
+pub fn nextr_charged(mfd: i32, lists: &ChargedLists, mtd: &mut i32) -> Vec<AutoReaction> {
+    let k = (mfd - 21) as usize;
+    let mut out = Vec::new();
+    expand(&lists.mf6p[k], mtd, mfd, &mut out);
+    expand(&lists.mf4r[k], mtd, mfd + 10, &mut out);
+    out
 }
 
 /// `mfchk2` (`groupr.f90:1575-1597`), called for a card-9 request that is not
@@ -471,7 +533,8 @@ pub fn conver_mf4r(nend: &Tape, mat: i32, iverf: i32) -> Result<[Vec<i32>; 6], N
 /// an entry of `mf4r(mfd - 20)` ([`conver_mf4r`]). Unlike [`mfchk`] it compares
 /// entries only, so an MT inside a stored range (`n, -m`) other than `n` keeps its
 /// `mfd`, as upstream does (gh:#1370, 2026-11-24).
-pub fn mfchk2(mf: i32, mt: i32, mf4r: &[Vec<i32>; 6]) -> i32 {
+pub fn mfchk2(mf: i32, mt: i32, lists: &ChargedLists) -> i32 {
+    let mf4r = &lists.mf4r;
     if !(21..=26).contains(&mf) {
         return mf;
     }

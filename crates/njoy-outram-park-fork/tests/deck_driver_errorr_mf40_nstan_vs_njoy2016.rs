@@ -271,7 +271,11 @@ fn nstan_pendf_case(tag: &str, card11: &str) -> Option<usize> {
 ///
 /// # Results (2026-11-24, NJOY2016.80 `ab27c64`, release)
 ///
-/// RESULTS_N3N4
+/// As predicted, on the first run: `N3` unit 27 identical, 8 654 lines; `N4`
+/// identical, 8 588 lines. Before this change the port refused `nstan` on the
+/// PENDF route by name; the card-11 control (NJOY's own `N1`/`N2`, 177 lines
+/// apart) carries over, since card 11 acts in `gridd`/`covcal`, shared by both
+/// routes.
 #[test]
 fn n3_n4_errorr_nstan_on_the_pendf_route() {
     if let Some(d) = nstan_pendf_case("n3", " 0 /\n") {

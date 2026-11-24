@@ -109,8 +109,10 @@ where upstream would abort on a second `allocate`.
   MF=31/33 from a GENDF, `mf31::run_cov_gendf_card10`, and upstream deck 17 is NJOY2016's
   line for line), ~~`nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`)~~ (**CORRECTED
   2026-11-14, gh:#1371:** `standards.rs` translates `grist` and `stand`, run from a GENDF
-  with card 11's `matb > 0`; a negative `matb(1)`, `nstan` on the PENDF route and with
-  `iread = 2` are refused by name; deck-driver README section 34), ~~`nin`
+  with card 11's `matb > 0`; a negative `matb(1)`, ~~`nstan` on the PENDF route~~ and with
+  `iread = 2` are refused by name; deck-driver README section 34; **CORRECTED 2026-11-24,
+  gh:#1371:** `nstan` on the PENDF route runs (`mf33::run_mf33_nstan`), and so does `nin`
+  there; deck-driver README §40), ~~`nin`
   (input covariance tape merge),~~ ~~`ngout != 0` (`colaps` from a GENDF),~~
   ~~`covadd`,~~ ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
   **CORRECTED 2026-11-13 (gh:#1369):** `covadd` is ported (`covadd.rs`, in the
