@@ -650,4 +650,3 @@ fn grid_index_matches_the_cpu_plotter() {
     );
     assert!(ci <= 0.05 && cu <= 0.05, "x-ray: {ci} / {cu}");
 }
-
