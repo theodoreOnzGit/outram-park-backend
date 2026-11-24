@@ -104,7 +104,7 @@ where upstream would abort on a second `allocate`.
 - **~~MF=31/34/~~35~~/40~~ ~~MF=40~~** (**CORRECTED 2026-11-14, gh:#1371:** MF=40 runs from a
   GENDF through `mf31::run_cov_gendf` when every section has one final state and one
   sub-subsection, `NS = NL = 1`; `NS /= 1` and `NL /= 1` are refused by name, as upstream
-  loses its place in the section there; deck-driver README section 33), ~~`iread = 1`~~ (**CORRECTED 2026-11-14, gh:#1371:** cards 8-9 run on the PENDF route with `mfcov = 33`, `gridd::Card8`; refused ~~with MF=32 or~~ on another route; deck-driver README section 37; **CORRECTED 2026-11-24, gh:#1371:** with MF=32 too (`resprx` on the card-8a list); from a GENDF it is refused by name because NJOY2016 itself stops in `ngchk` (`errorr.f90:10923-10927`, `:11114-11128`); deck-driver README §41) ~~`iread = 1/2`~~ (user reaction lists~~, extra `MAT1/MT1`
+  loses its place in the section there; deck-driver README section 33), ~~`iread = 1`~~ (**CORRECTED 2026-11-14, gh:#1371:** cards 8-9 run on the PENDF route with `mfcov = 33`, `gridd::Card8`; refused ~~with MF=32 or~~ on another route; deck-driver README section 37; **CORRECTED 2026-11-24, gh:#1371:** with MF=32 too (`resprx` on the card-8a list); from a GENDF it is refused by name because NJOY2016 itself stops in `ngchk` (`errorr.f90:10923-10927`, `:11114-11128`); deck-driver README §42) ~~`iread = 1/2`~~ (user reaction lists~~, extra `MAT1/MT1`
   pairs~~; **CORRECTED 2026-11-13, gh:#1369:** `iread = 2`'s card-10 pairs are ported for
   MF=31/33 from a GENDF, `mf31::run_cov_gendf_card10`, and upstream deck 17 is NJOY2016's
   line for line), ~~`nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`)~~ (**CORRECTED
@@ -115,7 +115,7 @@ where upstream would abort on a second `allocate`.
   there; deck-driver README §40; **CORRECTED again 2026-11-24, gh:#1371:** `nstan` with
   `iread = 1` (PENDF route) and `iread = 2` (`mf31::run_cov_gendf_card10_nstan`) run, and so
   does card 11's third-reaction mode, a negative `matb(1)` (`grist`'s `ety`,
-  `covcal::relabel_kmtb`); deck-driver README §41), ~~`nin`
+  `covcal::relabel_kmtb`); deck-driver README §42), ~~`nin`
   (input covariance tape merge),~~ ~~`ngout != 0` (`colaps` from a GENDF),~~
   ~~`covadd`,~~ ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
   **CORRECTED 2026-11-13 (gh:#1369):** `covadd` is ported (`covadd.rs`, in the

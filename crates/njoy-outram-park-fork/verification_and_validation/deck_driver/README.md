@@ -1735,7 +1735,7 @@ redefines a standard; the first match wins.
 
 **Refused by name:** ~~a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
 window, `grist`'s later subsections); `nstan` on the PENDF route (`mfcov = 33`,
-`ngout = 0`); `nstan` with `iread = 2`.~~ **CORRECTED 2026-11-24 (gh:#1371):** all three run now (§40, §41).
+`ngout = 0`); `nstan` with `iread = 2`.~~ **CORRECTED 2026-11-24 (gh:#1371):** all three run now (§40, §42).
 
 **Gates** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`; prediction posted on
 gh:#1371 first). JENDL-3.3 U-235 (`J33U235`): MF=33 MT 102 refers to `(9228, 18)` with
@@ -1963,7 +1963,7 @@ NC sub-subsection still merges its two energies into `eni` but its formula is dr
 `deck::errorr::read_card8`.
 
 **Refused by name:** `iread = 1` on any route but `mfcov = 33` from a PENDF; with
-~~MF=32 on the tape (no deck exercises `resprx` with a card-8a list)~~ (**CORRECTED 2026-11-24**, gh:#1371: runs, §41); `nmt <= 0` or
+~~MF=32 on the tape (no deck exercises `resprx` with a card-8a list)~~ (**CORRECTED 2026-11-24**, gh:#1371: runs, §42); `nmt <= 0` or
 `nek < 0`; a card 8a, 8b or 9 shorter than its count (upstream reads unset words).
 
 **Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, prediction on gh:#1371 first), deck
