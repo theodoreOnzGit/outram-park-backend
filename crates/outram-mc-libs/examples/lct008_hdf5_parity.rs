@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **LEU-COMP-THERM-008 case 1 lattice from an OpenMC HDF5 library, against the
 //! straight-from-ENDF route** -- GitHub #303 acceptance row 2.

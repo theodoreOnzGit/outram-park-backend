@@ -1,9 +1,9 @@
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """OpenMC deck: LEU-COMP-THERM-008's pin in a reflective square cell (k-infinity).
 
 Code-to-code reference for `examples/lct008_pitch_sweep.rs` (tutorial rung 4,
 GitHub #526). Written for this study on 2026-10-04 in the outram-park-backend
-repository (GPL-3.0); the material handling and physics settings are copied
+repository (AGPL-3.0-only); the material handling and physics settings are copied
 from the five-route ICSBEP deck
 `verification_and_validation/icsbep/five_route_keff/openmc_inputs/icsbep_openmc.py`
 (`lct008()` and `main()`), so the two studies run OpenMC the same way.

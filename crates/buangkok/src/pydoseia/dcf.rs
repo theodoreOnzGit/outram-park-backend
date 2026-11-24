@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Dose-coefficient (DCF) tables and pyDOSEIA's lookups into them: the age
 //! brackets, the lung-absorption-type selection for inhalation, and the
 //! short-lived-progeny correction for the external pathways.

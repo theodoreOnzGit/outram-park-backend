@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **An ACE `LNW` chain of correlated laws is a mixture selected by its
 //! applicability — GitHub #365.**

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Build a MIXED-elastic (IDPNC = 5) thermal ACE table and record OpenMC's
 # reading and sampling moments of it, for GitHub #365 audit.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # No ENDF/B-VIII.0 thermal evaluation is LTHR = 3 (scanned: 34 TSL tapes, all
 # LTHR 1 or 2 or no elastic), so NJOY cannot produce one from held data. This

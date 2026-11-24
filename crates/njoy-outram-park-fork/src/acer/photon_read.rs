@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Reading the ACE photon-production blocks: MTRP, LSIGP, SIGP, LANDP, ANDP,
 //! LDLWP, DLWP** — GitHub #307 item 5.

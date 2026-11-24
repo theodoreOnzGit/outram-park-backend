@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Route 4's data are njoy's `process`, bit for bit** (gh:#931).
 //!

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **k-eigenvalue search coupled to depletion** — an opt-in hook that, at the
 //! beginning of every burnup step, adjusts one scalar model parameter (soluble

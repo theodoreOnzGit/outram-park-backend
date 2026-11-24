@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **A published dose-versus-distance table for two HTR-10 design-basis
 //! accidents, stored as reference data. Nothing here computes a dose.**
 //!

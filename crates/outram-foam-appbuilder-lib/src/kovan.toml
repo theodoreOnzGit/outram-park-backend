@@ -861,8 +861,8 @@ path = "crate"
 path = "crate::prelude"
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "fc93def94a76099d77c172cd58b07e9088b0d5a4"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
     "#0",
@@ -891,7 +891,6 @@ passed = [
     "#23",
     "#24",
     "#25",
-    "#26",
     "#27",
     "#28",
     "#29",
@@ -921,15 +920,12 @@ passed = [
     "#53",
     "#54",
     "#55",
-    "#56",
-    "#57",
-    "#59",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
 ]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = []
 failed = []

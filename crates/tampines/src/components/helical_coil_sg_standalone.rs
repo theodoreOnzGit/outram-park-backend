@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Standalone helical-coil steam-generator harness** — the exchanger alone,
 //! with no plant attached.

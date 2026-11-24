@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tally triggers** — run until a target precision rather than for a fixed
 //! batch count. GitHub #263, first half.

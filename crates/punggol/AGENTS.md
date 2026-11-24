@@ -26,7 +26,10 @@ this crate as tracking particles through a real geometry.
   `outram-mc-libs` depend on this crate.
 - Coupled neutron-photon transport: `outram-mc-libs` records where secondary
   photons are born in its collision loop; PUNGGOL transports them.
-- Ions (fission fragments, alphas, recoil knock-ons) stay in `boon-lay`.
+- Ions (fission fragments, alphas, recoil knock-ons) stay in ~~`boon-lay`~~
+  **`kembangan`** (CHANGED 2026-11-22, gh:#1699: the RustBCA copy moved
+  there; `boon_lay::rustbca` re-exports it). PUNGGOL serves kembangan
+  (`kembangan -> punggol`), and buangkok (`buangkok -> punggol`).
 - **General numerics go to `petir`**: alias tables, RANMAR and RANLUX,
   interpolation. Do not grow a second copy here.
 
@@ -88,10 +91,15 @@ and commands an agent needs:
 - **Same RNG, same seeds.** `petir` RANMAR/RANLUX and
   `outram_mc_libs::rng::lcg` are already bit-identical; seed the reference
   explicitly (EGSnrc: `ixx=1802; jxx=9373; call init_ranmar`).
-- **Bit identity is a `std` claim** (maintainer, 2026-11-21, gh:#1682).
+- ~~**Bit identity is a `std` claim** (maintainer, 2026-11-21, gh:#1682).
   Write "bit-identical with the `std` feature": `egsnrc::libm` and the `f32`
   shims call the platform libm under `std` and PETIR without it. Describe the
-  `no_std` build as agreeing to round-off; that is accepted, not a defect.
+  `no_std` build as agreeing to round-off; that is accepted, not a defect.~~
+  **CHANGED 2026-11-22 (maintainer: "make petir default even on std, I
+  accept the last ulp change"; gh:#1706):** `egsnrc::libm`, the `f32` shims
+  and `asinh_glibc` call PETIR in every build. Describe both builds as
+  agreeing with a compiled EGSnrc to last-bit round-off; bit-identity results
+  recorded before this date were taken on the platform route.
 - **Tests are env-gated and report, they do not tune.** Each differential test
   skips unless its `*_REFERENCE_*` variable is set (see the doc for the list),
   prints worst relative differences per table or per history, and asserts only

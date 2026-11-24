@@ -48,7 +48,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use crate::geometry::position::Position;
+use crate::geometry::position::{Direction, Position};
 use crate::tally::mesh_unstructured::UnstructuredMeshExt;
 
 pub use outram_blender::spatial_mesh::*;
@@ -214,10 +214,95 @@ pub trait RegularMeshExt {
     /// crossings on all three axes and sorts them, which is equivalent for a
     /// **uniform** grid (where every plane position is known in closed form)
     /// and avoids reproducing the `TINY_BIT` nudging that the incremental form
-    /// needs. `surface_crossings_agree_with_an_incremental_walk` checks the
+    /// needs. ~~`surface_crossings_agree_with_an_incremental_walk` checks the
     /// two against each other on randomised tracks rather than asserting the
-    /// equivalence.
+    /// equivalence.~~ **CORRECTED 2026-11-22 (gh:#1709):** no such test
+    /// existed. The equivalence does **not** hold at ties (a track ending on a
+    /// plane); off ties it is checked against the port of the incremental walk,
+    /// [`Self::surface_bins_crossed_openmc`], by
+    /// `tests/mesh_surface_raytrace_1709.rs`. The mesh-surface filter uses the
+    /// port.
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715): a re-derivation that breaks ties differently from upstream; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected).")]
     fn surface_bins_crossed(&self, r0: Position, r1: Position) -> Vec<usize>;
+    /// Every surface bin the track `r0 -> r1` (direction `u`) crosses, in order
+    /// of travel: a **port** of `StructuredMesh::raytrace_mesh` with its
+    /// `SurfaceAggregator` (`src/mesh.cpp:1312-1488`, OpenMC `8f79d9d0`), and
+    /// `RegularMesh::distance_to_grid_boundary` (`:1667`) and
+    /// `get_index_in_direction` (`:1640`) for a 3-D regular mesh (gh:#1709).
+    ///
+    /// Beside the re-derivation [`Self::surface_bins_crossed`], which counts
+    /// crossings on the open interval and so differs from upstream exactly when
+    /// a track ends on a mesh plane. Upstream instead locates the start element
+    /// `TINY_BIT` along `u`, walks the planes incrementally from `r0`, and stops
+    /// once the distance travelled reaches `|r1 - r0|` (a crossing exactly at
+    /// `r1` is not counted). [`MeshSurfaceFilter`] uses this one.
+    ///
+    /// [`MeshSurfaceFilter`]: crate::tally::filter_extra::MeshSurfaceFilter
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
+    fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Vec<usize>;
+}
+
+/// OpenMC's `TINY_BIT` (`include/openmc/constants.h`).
+const TINY_BIT: f64 = 1.0e-8;
+
+/// `RegularMesh::get_index_in_direction` (`src/mesh.cpp:1640`): the 1-based
+/// index along axis `i`, 0 below the mesh and `shape + 1` above it.
+fn regular_index_in_direction(m: &RegularMesh, r: f64, i: usize, width: f64) -> i64 {
+    let shape = m.dimension[i] as i64;
+    if r <= m.lower_left[i] {
+        return if r == m.lower_left[i] { 1 } else { 0 };
+    }
+    if r >= m.upper_right[i] {
+        return if r == m.upper_right[i] { shape } else { shape + 1 };
+    }
+    ((r - m.lower_left[i]) / width).ceil() as i64
+}
+
+/// `StructuredMesh::get_indices` (`src/mesh.cpp:1180`) on a 3-D regular mesh.
+fn regular_indices(m: &RegularMesh, r: [f64; 3], width: [f64; 3]) -> ([i64; 3], bool) {
+    let mut ijk = [0i64; 3];
+    let mut in_mesh = true;
+    for i in 0..3 {
+        ijk[i] = regular_index_in_direction(m, r[i], i, width[i]);
+        if ijk[i] < 1 || ijk[i] > m.dimension[i] as i64 {
+            in_mesh = false;
+        }
+    }
+    (ijk, in_mesh)
+}
+
+/// `MeshDistance` (`include/openmc/mesh.h:314`); the default is upstream's
+/// `{0, false, INFTY}`.
+#[derive(Clone, Copy)]
+struct MeshDistance {
+    next_index: i64,
+    max_surface: bool,
+    distance: f64,
+}
+
+/// `RegularMesh::distance_to_grid_boundary` (`src/mesh.cpp:1667`). The `l`
+/// argument is unused upstream for a regular mesh, so it is not taken here.
+fn regular_distance_to_grid_boundary(
+    m: &RegularMesh,
+    ijk: [i64; 3],
+    i: usize,
+    r0: [f64; 3],
+    u: [f64; 3],
+    width: [f64; 3],
+) -> MeshDistance {
+    let mut d = MeshDistance { next_index: ijk[i], max_surface: false, distance: f64::INFINITY };
+    if u[i].abs() < FP_PRECISION {
+        return d;
+    }
+    d.max_surface = u[i] > 0.0;
+    if d.max_surface && ijk[i] <= m.dimension[i] as i64 {
+        d.next_index += 1;
+        d.distance = ((m.lower_left[i] + ijk[i] as f64 * width[i]) - r0[i]) / u[i];
+    } else if !d.max_surface && ijk[i] >= 1 {
+        d.next_index -= 1;
+        d.distance = ((m.lower_left[i] + (ijk[i] - 1) as f64 * width[i]) - r0[i]) / u[i];
+    }
+    d
 }
 
 impl RegularMeshExt for RegularMesh {
@@ -330,6 +415,795 @@ impl RegularMeshExt for RegularMesh {
             }
         }
         bins
+    }
+
+    fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Vec<usize> {
+        // gh:#1712: the walker is now generic over the four structured kinds;
+        // on a regular mesh it runs the same operations in the same order as
+        // the gh:#1709 body it replaced (pinned by
+        // `tests/mesh_surface_curvilinear_1712.rs` and the #1709 tests).
+        raytrace_surface_bins(self, r0, r1, u)
+    }
+}
+
+/// OpenMC's `INFTY` (`include/openmc/constants.h:103`): `DBL_MAX`, not `inf`.
+const INFTY: f64 = f64::MAX;
+
+/// OpenMC's `RADIAL_MESH_TOL` (`include/openmc/constants.h:59`).
+const RADIAL_MESH_TOL: f64 = 1.0e-10;
+
+/// OpenMC's `PI` (`include/openmc/constants.h:101`), equal to
+/// `core::f64::consts::PI` in `f64`.
+const PI: f64 = core::f64::consts::PI;
+
+/// `lower_bound_index` (`include/openmc/search.h:14`), **signed**: `-1` below
+/// the grid, as upstream (the crate's [`crate::tally::filter::lower_bound_index`]
+/// saturates at 0, which would put a point below the grid in element 1).
+fn lower_bound_index_signed(grid: &[f64], x: f64) -> i64 {
+    if grid[0] == x {
+        return 0;
+    }
+    grid.partition_point(|&e| e < x) as i64 - 1
+}
+
+/// `std::min(a, b)` on `MeshDistance` (`include/openmc/mesh.h:321`, compares
+/// `distance` only): `b` only when strictly smaller, else `a`.
+fn min_distance(a: MeshDistance, b: MeshDistance) -> MeshDistance {
+    if b.distance < a.distance {
+        b
+    } else {
+        a
+    }
+}
+
+/// `sanitize_angular_index` (`include/openmc/mesh.h:649`): wraps a periodic
+/// (full-circle) angular index, sends an out-of-range one to 0 otherwise.
+fn sanitize_angular_index(idx: i64, full: bool, n: i64) -> i64 {
+    if idx > 0 && idx <= n {
+        idx
+    } else if full {
+        (idx + n - 1) % n + 1
+    } else {
+        0
+    }
+}
+
+/// What `StructuredMesh::raytrace_mesh` (`src/mesh.cpp:1312`) asks of a mesh.
+/// A compile-time contract only (the walker is generic, monomorphised per
+/// mesh type; no trait objects).
+trait StructuredRaytrace {
+    /// `shape_`: elements per axis.
+    fn rt_shape(&self) -> [i64; 3];
+    /// `local_coords` (`include/openmc/mesh.h:165`, `:480`).
+    fn rt_local_coords(&self, r: [f64; 3]) -> [f64; 3];
+    /// `get_indices(r, in_mesh)` on a **global** position (1-based).
+    fn rt_indices(&self, r: [f64; 3]) -> ([i64; 3], bool);
+    /// `distance_to_grid_boundary(ijk, i, r0, u, l)` from the **local** track
+    /// start `r0`.
+    fn distance_to_grid_boundary(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], l: f64)
+        -> MeshDistance;
+}
+
+/// `StructuredMesh::get_indices` (`src/mesh.cpp:1180`) over a per-axis
+/// `get_index_in_direction`.
+fn structured_indices(shape: [i64; 3], r: [f64; 3], index: impl Fn(f64, usize) -> i64) -> ([i64; 3], bool) {
+    let mut ijk = [0i64; 3];
+    let mut in_mesh = true;
+    for i in 0..3 {
+        ijk[i] = index(r[i], i);
+        if ijk[i] < 1 || ijk[i] > shape[i] {
+            in_mesh = false;
+        }
+    }
+    (ijk, in_mesh)
+}
+
+impl StructuredRaytrace for RegularMesh {
+    fn rt_shape(&self) -> [i64; 3] {
+        [self.dimension[0] as i64, self.dimension[1] as i64, self.dimension[2] as i64]
+    }
+    fn rt_local_coords(&self, r: [f64; 3]) -> [f64; 3] {
+        r
+    }
+    fn rt_indices(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        regular_indices(self, r, self.width())
+    }
+    fn distance_to_grid_boundary(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], _l: f64) -> MeshDistance {
+        regular_distance_to_grid_boundary(self, ijk, i, r0, u, self.width())
+    }
+}
+
+impl StructuredRaytrace for RectilinearMesh {
+    fn rt_shape(&self) -> [i64; 3] {
+        let d = self.dimension();
+        [d[0] as i64, d[1] as i64, d[2] as i64]
+    }
+    fn rt_local_coords(&self, r: [f64; 3]) -> [f64; 3] {
+        r
+    }
+    /// `RectilinearMesh::get_index_in_direction` (`src/mesh.cpp:1885`):
+    /// `lower_bound_index + 1`.
+    fn rt_indices(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        structured_indices(self.rt_shape(), r, |x, i| lower_bound_index_signed(&self.grid[i], x) + 1)
+    }
+    /// `RectilinearMesh::distance_to_grid_boundary` (`src/mesh.cpp:1839`),
+    /// with `positive_grid_boundary` / `negative_grid_boundary` (`:1827-1837`).
+    fn distance_to_grid_boundary(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], _l: f64) -> MeshDistance {
+        let mut d = MeshDistance { next_index: ijk[i], max_surface: true, distance: INFTY };
+        if u[i].abs() < FP_PRECISION {
+            return d;
+        }
+        d.max_surface = u[i] > 0.0;
+        if d.max_surface && ijk[i] <= self.rt_shape()[i] {
+            d.next_index += 1;
+            d.distance = (self.grid[i][ijk[i] as usize] - r0[i]) / u[i];
+        } else if !d.max_surface && ijk[i] > 0 {
+            d.next_index -= 1;
+            d.distance = (self.grid[i][(ijk[i] - 1) as usize] - r0[i]) / u[i];
+        }
+        d
+    }
+}
+
+/// `CylindricalMesh::full_phi_` (`src/mesh.cpp`, `set_grid`).
+fn cyl_full_phi(m: &CylindricalMesh) -> bool {
+    m.phi_grid[0] == 0.0 && m.phi_grid[m.phi_grid.len() - 1] == 2.0 * PI
+}
+
+/// `CylindricalMesh::find_r_crossing` (`src/mesh.cpp:2028`).
+fn cylindrical_find_r_crossing(m: &CylindricalMesh, r: [f64; 3], u: [f64; 3], l: f64, shell: i64) -> f64 {
+    if shell < 0 || shell > m.rt_shape()[0] {
+        return INFTY;
+    }
+    let r0 = m.r_grid[shell as usize];
+    if r0 == 0.0 {
+        return INFTY;
+    }
+    let denominator = u[0] * u[0] + u[1] * u[1];
+    // Direction of flight is in z: never intersects r.
+    if denominator.abs() < FP_PRECISION {
+        return INFTY;
+    }
+    let inv_denominator = 1.0 / denominator;
+    let p = (u[0] * r[0] + u[1] * r[1]) * inv_denominator;
+    let big_r = (r[0] * r[0] + r[1] * r[1]).sqrt();
+    let mut d = p * p - (big_r - r0) * (big_r + r0) * inv_denominator;
+    if d < 0.0 {
+        return INFTY;
+    }
+    d = d.sqrt();
+    // Already on the shell surface: avoid a spurious crossing.
+    if (big_r - r0).abs() <= RADIAL_MESH_TOL * (1.0 + r0.abs()) {
+        return INFTY;
+    }
+    if -p - d > l {
+        return -p - d;
+    }
+    if -p + d > l {
+        return -p + d;
+    }
+    INFTY
+}
+
+/// `find_phi_crossing` (`src/mesh.cpp:2074` cylindrical, `:2427` spherical;
+/// the two bodies are identical but for which axis holds phi).
+fn find_phi_crossing(phi_grid: &[f64], full_phi: bool, n_phi: i64, r: [f64; 3], u: [f64; 3], l: f64, shell: i64) -> f64 {
+    // A [0, 2 pi] grid with one bin has no real surface to cross.
+    if full_phi && n_phi == 1 {
+        return INFTY;
+    }
+    let shell = sanitize_angular_index(shell, full_phi, n_phi);
+    let p0 = phi_grid[shell as usize];
+    let c0 = p0.r_cos();
+    let s0 = p0.r_sin();
+    let denominator = u[0] * s0 - u[1] * c0;
+    // Not parallel to the phi surface.
+    if denominator.abs() > FP_PRECISION {
+        let s = -(r[0] * s0 - r[1] * c0) / denominator;
+        // Forward, and on the +phi half-plane (not -phi).
+        if s > l && (c0 * (r[0] + s * u[0]) + s0 * (r[1] + s * u[1])) > 0.0 {
+            return s;
+        }
+    }
+    INFTY
+}
+
+impl StructuredRaytrace for CylindricalMesh {
+    fn rt_shape(&self) -> [i64; 3] {
+        let d = self.dimension();
+        [d[0] as i64, d[1] as i64, d[2] as i64]
+    }
+    /// `PeriodicStructuredMesh::local_coords` (`include/openmc/mesh.h:480`).
+    fn rt_local_coords(&self, r: [f64; 3]) -> [f64; 3] {
+        [r[0] - self.origin.x, r[1] - self.origin.y, r[2] - self.origin.z]
+    }
+    /// `CylindricalMesh::get_indices` (`src/mesh.cpp:1980`) with
+    /// `get_index_in_direction` (`:2196`): `in_mesh` is decided before the phi
+    /// index is sanitised, as upstream.
+    fn rt_indices(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        let r = self.rt_local_coords(r);
+        let mut mapped = [r[0].r_hypot(r[1]), 0.0, r[2]];
+        if mapped[0] < FP_PRECISION {
+            mapped[1] = 0.0;
+        } else {
+            mapped[1] = r[1].r_atan2(r[0]);
+            if mapped[1] < 0.0 {
+                mapped[1] += 2.0 * PI;
+            }
+        }
+        let grids = [&self.r_grid, &self.phi_grid, &self.z_grid];
+        let (mut idx, in_mesh) =
+            structured_indices(self.rt_shape(), mapped, |x, i| lower_bound_index_signed(grids[i], x) + 1);
+        idx[1] = sanitize_angular_index(idx[1], cyl_full_phi(self), self.rt_shape()[1]);
+        (idx, in_mesh)
+    }
+    /// `CylindricalMesh::distance_to_grid_boundary` (`src/mesh.cpp:2128`), with
+    /// `find_z_crossing` (`:2107`) inline.
+    fn distance_to_grid_boundary(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], l: f64) -> MeshDistance {
+        let shape = self.rt_shape();
+        let full = cyl_full_phi(self);
+        match i {
+            0 => min_distance(
+                MeshDistance { next_index: ijk[0] + 1, max_surface: true, distance: cylindrical_find_r_crossing(self, r0, u, l, ijk[0]) },
+                MeshDistance { next_index: ijk[0] - 1, max_surface: false, distance: cylindrical_find_r_crossing(self, r0, u, l, ijk[0] - 1) },
+            ),
+            1 => min_distance(
+                MeshDistance {
+                    next_index: sanitize_angular_index(ijk[1] + 1, full, shape[1]),
+                    max_surface: true,
+                    distance: find_phi_crossing(&self.phi_grid, full, shape[1], r0, u, l, ijk[1]),
+                },
+                MeshDistance {
+                    next_index: sanitize_angular_index(ijk[1] - 1, full, shape[1]),
+                    max_surface: false,
+                    distance: find_phi_crossing(&self.phi_grid, full, shape[1], r0, u, l, ijk[1] - 1),
+                },
+            ),
+            _ => {
+                // find_z_crossing: `MeshDistance d; d.next_index = shell;`.
+                let shell = ijk[2];
+                let mut d = MeshDistance { next_index: shell, max_surface: true, distance: INFTY };
+                if u[2].abs() < FP_PRECISION {
+                    return d;
+                }
+                d.max_surface = u[2] > 0.0;
+                if d.max_surface && shell <= shape[2] {
+                    d.next_index += 1;
+                    d.distance = (self.z_grid[shell as usize] - r0[2]) / u[2];
+                } else if !d.max_surface && shell > 0 {
+                    d.next_index -= 1;
+                    d.distance = (self.z_grid[(shell - 1) as usize] - r0[2]) / u[2];
+                }
+                d
+            }
+        }
+    }
+}
+
+/// `SphericalMesh::full_theta_`, `full_phi_` (`src/mesh.cpp`, `set_grid`).
+fn sph_full(m: &SphericalMesh) -> (bool, bool) {
+    (
+        m.theta_grid[0] == 0.0 && m.theta_grid[m.theta_grid.len() - 1] == PI,
+        m.phi_grid[0] == 0.0 && m.phi_grid[m.phi_grid.len() - 1] == 2.0 * PI,
+    )
+}
+
+/// `SphericalMesh::find_r_crossing` (`src/mesh.cpp:2332`); assumes `|u| = 1`.
+fn spherical_find_r_crossing(m: &SphericalMesh, r: [f64; 3], u: [f64; 3], l: f64, shell: i64) -> f64 {
+    if shell < 0 || shell > m.rt_shape()[0] {
+        return INFTY;
+    }
+    let r0 = m.r_grid[shell as usize];
+    if r0 == 0.0 {
+        return INFTY;
+    }
+    let p = r[0] * u[0] + r[1] * u[1] + r[2] * u[2];
+    let big_r = (r[0] * r[0] + r[1] * r[1] + r[2] * r[2]).sqrt();
+    let mut d = p * p - (big_r - r0) * (big_r + r0);
+    if (big_r - r0).abs() <= RADIAL_MESH_TOL * (1.0 + r0.abs()) {
+        return INFTY;
+    }
+    if d >= 0.0 {
+        d = d.sqrt();
+        if -p - d > l {
+            return -p - d;
+        }
+        if -p + d > l {
+            return -p + d;
+        }
+    }
+    INFTY
+}
+
+/// `SphericalMesh::find_theta_crossing` (`src/mesh.cpp:2363`).
+fn spherical_find_theta_crossing(m: &SphericalMesh, r: [f64; 3], u: [f64; 3], l: f64, shell: i64) -> f64 {
+    let (full_theta, _) = sph_full(m);
+    let n = m.rt_shape()[1];
+    if full_theta && n == 1 {
+        return INFTY;
+    }
+    let shell = sanitize_angular_index(shell, full_theta, n);
+    let cos_t = m.theta_grid[shell as usize].r_cos();
+    let sgn = cos_t.is_sign_negative();
+    let cos_t_2 = cos_t * cos_t;
+    let rdu = r[0] * u[0] + r[1] * u[1] + r[2] * u[2];
+    let rdr = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+    let a = cos_t_2 - u[2] * u[2];
+    let b = rdu * cos_t_2 - r[2] * u[2];
+    let c = rdr * cos_t_2 - r[2] * r[2];
+    // a == 0: flight parallel to the cone.
+    if a.abs() < FP_PRECISION {
+        if b.abs() < FP_PRECISION {
+            return INFTY;
+        }
+        let s = -0.5 * c / b;
+        if s > l && (r[2] + s * u[2]).is_sign_negative() == sgn {
+            return s;
+        }
+        return INFTY;
+    }
+    let p = b / a;
+    let mut d = p * p - c / a;
+    if d < 0.0 {
+        return INFTY;
+    }
+    d = d.sqrt();
+    let s = -p - d;
+    if s > l && (r[2] + s * u[2]).is_sign_negative() == sgn {
+        return s;
+    }
+    let s = -p + d;
+    if s > l && (r[2] + s * u[2]).is_sign_negative() == sgn {
+        return s;
+    }
+    INFTY
+}
+
+impl StructuredRaytrace for SphericalMesh {
+    fn rt_shape(&self) -> [i64; 3] {
+        let d = self.dimension();
+        [d[0] as i64, d[1] as i64, d[2] as i64]
+    }
+    /// `PeriodicStructuredMesh::local_coords` (`include/openmc/mesh.h:480`).
+    fn rt_local_coords(&self, r: [f64; 3]) -> [f64; 3] {
+        [r[0] - self.origin.x, r[1] - self.origin.y, r[2] - self.origin.z]
+    }
+    /// `SphericalMesh::get_indices` (`src/mesh.cpp:2278`) with
+    /// `get_index_in_direction` (`:2530`). No clamp on `acos` (upstream has
+    /// none; `sqrt(z^2) == |z|` exactly in IEEE, so `|z / r| <= 1`).
+    fn rt_indices(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        let r = self.rt_local_coords(r);
+        let mut mapped = [(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]).sqrt(), 0.0, 0.0];
+        if mapped[0] >= FP_PRECISION {
+            mapped[1] = (r[2] / mapped[0]).r_acos();
+            mapped[2] = r[1].r_atan2(r[0]);
+            if mapped[2] < 0.0 {
+                mapped[2] += 2.0 * PI;
+            }
+        }
+        let grids = [&self.r_grid, &self.theta_grid, &self.phi_grid];
+        let shape = self.rt_shape();
+        let (mut idx, in_mesh) = structured_indices(shape, mapped, |x, i| lower_bound_index_signed(grids[i], x) + 1);
+        let (full_theta, full_phi) = sph_full(self);
+        idx[1] = sanitize_angular_index(idx[1], full_theta, shape[1]);
+        idx[2] = sanitize_angular_index(idx[2], full_phi, shape[2]);
+        (idx, in_mesh)
+    }
+    /// `SphericalMesh::distance_to_grid_boundary` (`src/mesh.cpp:2460`).
+    fn distance_to_grid_boundary(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], l: f64) -> MeshDistance {
+        let shape = self.rt_shape();
+        let (full_theta, full_phi) = sph_full(self);
+        match i {
+            0 => min_distance(
+                MeshDistance { next_index: ijk[0] + 1, max_surface: true, distance: spherical_find_r_crossing(self, r0, u, l, ijk[0]) },
+                MeshDistance { next_index: ijk[0] - 1, max_surface: false, distance: spherical_find_r_crossing(self, r0, u, l, ijk[0] - 1) },
+            ),
+            1 => min_distance(
+                MeshDistance {
+                    next_index: sanitize_angular_index(ijk[1] + 1, full_theta, shape[1]),
+                    max_surface: true,
+                    distance: spherical_find_theta_crossing(self, r0, u, l, ijk[1]),
+                },
+                MeshDistance {
+                    next_index: sanitize_angular_index(ijk[1] - 1, full_theta, shape[1]),
+                    max_surface: false,
+                    distance: spherical_find_theta_crossing(self, r0, u, l, ijk[1] - 1),
+                },
+            ),
+            _ => min_distance(
+                MeshDistance {
+                    next_index: sanitize_angular_index(ijk[2] + 1, full_phi, shape[2]),
+                    max_surface: true,
+                    distance: find_phi_crossing(&self.phi_grid, full_phi, shape[2], r0, u, l, ijk[2]),
+                },
+                MeshDistance {
+                    next_index: sanitize_angular_index(ijk[2] - 1, full_phi, shape[2]),
+                    max_surface: false,
+                    distance: find_phi_crossing(&self.phi_grid, full_phi, shape[2], r0, u, l, ijk[2] - 1),
+                },
+            ),
+        }
+    }
+}
+
+/// `StructuredMesh::get_bin_from_indices` (`src/mesh.cpp:1194`), 3-D case.
+fn bin_from_indices(shape: [i64; 3], ijk: [i64; 3]) -> usize {
+    (((ijk[2] - 1) * shape[1] + (ijk[1] - 1)) * shape[0] + ijk[0] - 1) as usize
+}
+
+/// `SurfaceAggregator::surface` (`src/mesh.cpp:1474`) for `n_dimension_ = 3`.
+fn surface_bin_3d(element: usize, axis: usize, max: bool, inward: bool) -> usize {
+    SURFACE_BINS_PER_ELEMENT * element + 4 * axis + if max { 2 } else { 0 } + if inward { 1 } else { 0 }
+}
+
+/// **Port of `StructuredMesh::raytrace_mesh` with its `SurfaceAggregator`**
+/// (`src/mesh.cpp:1312-1488`, OpenMC `8f79d9d0`), generic over the four
+/// structured meshes (gh:#1712; regular-only in gh:#1709).
+///
+/// Distances are measured from `local_coords(r0)` (origin subtracted once);
+/// elements are located with `indices(r0 + s u)` on the **global** position,
+/// each mesh subtracting its own origin (upstream keeps `global_r` for
+/// exactly this). The track-length `tally.track` calls are no-ops in a
+/// `SurfaceAggregator` and are not carried.
+fn raytrace_surface_bins<M: StructuredRaytrace>(m: &M, r0: Position, r1: Position, u: Direction) -> Vec<usize> {
+    let mut bins = Vec::new();
+    let shape = m.rt_shape();
+    // Compute the length of the entire track.
+    let dr = [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z];
+    let total_distance = (dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2]).sqrt();
+    if total_distance == 0.0 {
+        return bins;
+    }
+    let global_r = [r0.x, r0.y, r0.z];
+    let local_r = m.rt_local_coords(global_r);
+    let uu = [u.u, u.v, u.w];
+    let at = |l: f64| [global_r[0] + l * uu[0], global_r[1] + l * uu[1], global_r[2] + l * uu[2]];
+    let mut traveled_distance = 0.0f64;
+    // Index of the current cell, offset a tiny bit in the direction of flight.
+    let (mut ijk, mut in_mesh) = m.rt_indices(at(TINY_BIT));
+    // A very short track is inside one cell and crosses no surface.
+    if total_distance < 2.0 * TINY_BIT {
+        return bins;
+    }
+    let mut distances = [MeshDistance { next_index: 0, max_surface: false, distance: f64::INFINITY }; 3];
+    for (k, dk) in distances.iter_mut().enumerate() {
+        *dk = m.distance_to_grid_boundary(ijk, k, local_r, uu, 0.0);
+    }
+    loop {
+        if in_mesh {
+            // The surface at minimal distance (the first one on a tie, as
+            // `std::min_element`).
+            let mut k = 0;
+            for j in 1..3 {
+                if distances[j].distance < distances[k].distance {
+                    k = j;
+                }
+            }
+            traveled_distance = distances[k].distance;
+            if traveled_distance >= total_distance {
+                return bins;
+            }
+            // Outward current from the cell being left.
+            bins.push(surface_bin_3d(bin_from_indices(shape, ijk), k, distances[k].max_surface, false));
+            ijk[k] = distances[k].next_index;
+            distances[k] = m.distance_to_grid_boundary(ijk, k, local_r, uu, traveled_distance);
+            in_mesh = ijk[k] >= 1 && ijk[k] <= shape[k];
+            // Inward current into the next cell.
+            if in_mesh {
+                bins.push(surface_bin_3d(bin_from_indices(shape, ijk), k, !distances[k].max_surface, true));
+            }
+        } else {
+            // Outside: travel the largest distance needed to cross every
+            // outer surface.
+            let mut k_max: Option<usize> = None;
+            for k in 0..3 {
+                if (ijk[k] < 1 || ijk[k] > shape[k]) && distances[k].distance > traveled_distance {
+                    traveled_distance = distances[k].distance;
+                    k_max = Some(k);
+                }
+            }
+            if k_max.is_none() {
+                traveled_distance += TINY_BIT;
+            }
+            if traveled_distance >= total_distance {
+                return bins;
+            }
+            let (n, inside) = m.rt_indices(at(traveled_distance + TINY_BIT));
+            ijk = n;
+            in_mesh = inside;
+            for (k, dk) in distances.iter_mut().enumerate() {
+                *dk = m.distance_to_grid_boundary(ijk, k, local_r, uu, traveled_distance);
+            }
+            if let (true, Some(k)) = (in_mesh, k_max) {
+                bins.push(surface_bin_3d(bin_from_indices(shape, ijk), k, !distances[k].max_surface, true));
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Corrected mesh-surface raytrace, BESIDE the port (gh:#1715).
+//
+// Maintainer, 2026-11-23: "Fix them beside the port". The port above
+// (`raytrace_surface_bins` and every routine it calls) stays exactly as
+// upstream and is reached by name (`MeshSurfaceRaytrace::OpenMc`). This route
+// fixes three defects that the code-to-code runs showed OpenMC 0.15.3
+// (`27e38e89`) itself has (gh:#1712 findings A, B, C):
+//
+// - A. The inward current is labelled by the face the particle ENTERED, not
+//   by the face it will leave through next (`mesh.cpp:1393,1427` take
+//   `!distances[k].max_surface` after the distance is recomputed). On a
+//   Cartesian axis the two are always the same face, so regular and
+//   rectilinear meshes give identical bins on both routes.
+// - B. On a partial angular axis an out-of-range index is not sent to 0
+//   (`sanitize_angular_index`, `mesh.h:649`). The gap outside a partial phi
+//   wedge is one region (phi wraps): its boundaries are phi_min going up and
+//   phi_max going down. Outside a partial theta range the boundary is
+//   theta_min from below and theta_max from above (theta does not wrap).
+// - C. A theta edge with |cos theta| < FP_PRECISION (theta = pi/2) is the plane
+//   z = 0 and is crossed as a plane; the cone quadratic is degenerate there and
+//   upstream loses the crossing to the sign of round-off.
+//
+// New work, not a port: say so where it is used.
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Which mesh-surface raytrace a [`crate::tally::filter_extra::MeshSurfaceFilter`]
+/// uses (gh:#1715).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MeshSurfaceRaytrace {
+    /// The corrected route (the default, by the correct-physics-default
+    /// rule): OpenMC's walk with its three defects fixed (gh:#1712 findings
+    /// A, B, C; see the comment above this enum in `tally/mesh.rs`). Identical
+    /// to [`Self::OpenMc`] on regular and rectilinear meshes.
+    #[default]
+    Corrected,
+    /// The port of upstream's `raytrace_mesh`, defects included: for
+    /// code-to-code comparison with OpenMC.
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
+    OpenMc,
+}
+
+/// The per-mesh hooks the corrected walker needs; the defaults are the port's
+/// own routines, which are correct on Cartesian axes (gh:#1715).
+trait CorrectedRaytrace: StructuredRaytrace {
+    /// Element indices with out-of-range angular indices kept out of range
+    /// (finding B).
+    fn rt_indices_corrected(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        self.rt_indices(r)
+    }
+    /// Distance to the next grid boundary on axis `i`, with findings B and C
+    /// fixed.
+    fn distance_corrected(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], l: f64) -> MeshDistance {
+        self.distance_to_grid_boundary(ijk, i, r0, u, l)
+    }
+}
+
+impl CorrectedRaytrace for RegularMesh {}
+impl CorrectedRaytrace for RectilinearMesh {}
+
+/// Index along a partial phi axis with the gap kept as one out-of-range
+/// region `n + 1` (finding B); a full axis wraps as upstream.
+fn corrected_phi_index(idx: i64, full: bool, n: i64) -> i64 {
+    if full {
+        sanitize_angular_index(idx, full, n)
+    } else if idx < 1 || idx > n {
+        n + 1
+    } else {
+        idx
+    }
+}
+
+/// Phi-axis distance with the gap handled (finding B): from the gap, the
+/// boundary going up is `phi_grid[0]` (entered as element 1, through its min
+/// face) and going down is `phi_grid[n]` (entered as element n, max face).
+fn corrected_phi_distance(phi_grid: &[f64], full: bool, n: i64, ijk1: i64, r0: [f64; 3], u: [f64; 3], l: f64) -> MeshDistance {
+    if !full && (ijk1 < 1 || ijk1 > n) {
+        return min_distance(
+            MeshDistance { next_index: 1, max_surface: true, distance: find_phi_crossing(phi_grid, full, n, r0, u, l, 0) },
+            MeshDistance { next_index: n, max_surface: false, distance: find_phi_crossing(phi_grid, full, n, r0, u, l, n) },
+        );
+    }
+    min_distance(
+        MeshDistance {
+            next_index: corrected_phi_index(ijk1 + 1, full, n),
+            max_surface: true,
+            distance: find_phi_crossing(phi_grid, full, n, r0, u, l, ijk1),
+        },
+        MeshDistance {
+            next_index: corrected_phi_index(ijk1 - 1, full, n),
+            max_surface: false,
+            distance: find_phi_crossing(phi_grid, full, n, r0, u, l, ijk1 - 1),
+        },
+    )
+}
+
+impl CorrectedRaytrace for CylindricalMesh {
+    fn rt_indices_corrected(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        let r = self.rt_local_coords(r);
+        let mut mapped = [r[0].r_hypot(r[1]), 0.0, r[2]];
+        if mapped[0] >= FP_PRECISION {
+            mapped[1] = r[1].r_atan2(r[0]);
+            if mapped[1] < 0.0 {
+                mapped[1] += 2.0 * PI;
+            }
+        }
+        let grids = [&self.r_grid, &self.phi_grid, &self.z_grid];
+        let shape = self.rt_shape();
+        let (mut idx, in_mesh) = structured_indices(shape, mapped, |x, i| lower_bound_index_signed(grids[i], x) + 1);
+        idx[1] = corrected_phi_index(idx[1], cyl_full_phi(self), shape[1]);
+        (idx, in_mesh)
+    }
+    fn distance_corrected(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], l: f64) -> MeshDistance {
+        if i == 1 {
+            corrected_phi_distance(&self.phi_grid, cyl_full_phi(self), self.rt_shape()[1], ijk[1], r0, u, l)
+        } else {
+            self.distance_to_grid_boundary(ijk, i, r0, u, l)
+        }
+    }
+}
+
+/// `find_theta_crossing` with finding C fixed: a theta edge with
+/// `|cos theta| < FP_PRECISION` is the plane z = 0, crossed where
+/// `r_z + s u_z = 0`. Other edges are the port's routine unchanged.
+fn corrected_theta_crossing(m: &SphericalMesh, r: [f64; 3], u: [f64; 3], l: f64, shell: i64) -> f64 {
+    let n = m.rt_shape()[1];
+    if shell < 0 || shell > n {
+        return INFTY;
+    }
+    let cos_t = m.theta_grid[shell as usize].r_cos();
+    if cos_t.abs() < FP_PRECISION {
+        if u[2].abs() < FP_PRECISION {
+            return INFTY;
+        }
+        let s = -r[2] / u[2];
+        return if s > l { s } else { INFTY };
+    }
+    spherical_find_theta_crossing(m, r, u, l, shell)
+}
+
+impl CorrectedRaytrace for SphericalMesh {
+    fn rt_indices_corrected(&self, r: [f64; 3]) -> ([i64; 3], bool) {
+        let r = self.rt_local_coords(r);
+        let mut mapped = [(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]).sqrt(), 0.0, 0.0];
+        if mapped[0] >= FP_PRECISION {
+            mapped[1] = (r[2] / mapped[0]).r_acos();
+            mapped[2] = r[1].r_atan2(r[0]);
+            if mapped[2] < 0.0 {
+                mapped[2] += 2.0 * PI;
+            }
+        }
+        let grids = [&self.r_grid, &self.theta_grid, &self.phi_grid];
+        let shape = self.rt_shape();
+        let (mut idx, in_mesh) = structured_indices(shape, mapped, |x, i| lower_bound_index_signed(grids[i], x) + 1);
+        let (full_theta, full_phi) = sph_full(self);
+        // Theta does not wrap: keep 0 (below theta_min) and n + 1 (above
+        // theta_max) as they are; a full theta range has no outside.
+        if full_theta {
+            idx[1] = sanitize_angular_index(idx[1], full_theta, shape[1]);
+        }
+        idx[2] = corrected_phi_index(idx[2], full_phi, shape[2]);
+        (idx, in_mesh)
+    }
+    fn distance_corrected(&self, ijk: [i64; 3], i: usize, r0: [f64; 3], u: [f64; 3], l: f64) -> MeshDistance {
+        let shape = self.rt_shape();
+        let (full_theta, full_phi) = sph_full(self);
+        match i {
+            1 => {
+                let n = shape[1];
+                if full_theta && n == 1 {
+                    return MeshDistance { next_index: ijk[1], max_surface: true, distance: INFTY };
+                }
+                // Below theta_min only theta_min can be crossed (going up),
+                // above theta_max only theta_max (going down).
+                let up = if ijk[1] <= n { corrected_theta_crossing(self, r0, u, l, ijk[1].max(0)) } else { INFTY };
+                let down = if ijk[1] >= 1 { corrected_theta_crossing(self, r0, u, l, (ijk[1] - 1).min(n)) } else { INFTY };
+                min_distance(
+                    MeshDistance { next_index: ijk[1].max(0) + 1, max_surface: true, distance: up },
+                    MeshDistance { next_index: ijk[1].min(n + 1) - 1, max_surface: false, distance: down },
+                )
+            }
+            2 => corrected_phi_distance(&self.phi_grid, full_phi, shape[2], ijk[2], r0, u, l),
+            _ => self.distance_to_grid_boundary(ijk, i, r0, u, l),
+        }
+    }
+}
+
+/// The corrected mesh-surface walk (gh:#1715): [`raytrace_surface_bins`] with
+/// the inward current labelled by the face entered (finding A) and the
+/// corrected per-mesh hooks (findings B, C). New work beside the port.
+fn raytrace_surface_bins_corrected<M: CorrectedRaytrace>(m: &M, r0: Position, r1: Position, u: Direction) -> Vec<usize> {
+    let mut bins = Vec::new();
+    let shape = m.rt_shape();
+    let dr = [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z];
+    let total_distance = (dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2]).sqrt();
+    if total_distance == 0.0 {
+        return bins;
+    }
+    let global_r = [r0.x, r0.y, r0.z];
+    let local_r = m.rt_local_coords(global_r);
+    let uu = [u.u, u.v, u.w];
+    let at = |l: f64| [global_r[0] + l * uu[0], global_r[1] + l * uu[1], global_r[2] + l * uu[2]];
+    let mut traveled_distance = 0.0f64;
+    let (mut ijk, mut in_mesh) = m.rt_indices_corrected(at(TINY_BIT));
+    if total_distance < 2.0 * TINY_BIT {
+        return bins;
+    }
+    let mut distances = [MeshDistance { next_index: 0, max_surface: false, distance: f64::INFINITY }; 3];
+    for (k, dk) in distances.iter_mut().enumerate() {
+        *dk = m.distance_corrected(ijk, k, local_r, uu, 0.0);
+    }
+    loop {
+        if in_mesh {
+            let mut k = 0;
+            for j in 1..3 {
+                if distances[j].distance < distances[k].distance {
+                    k = j;
+                }
+            }
+            traveled_distance = distances[k].distance;
+            if traveled_distance >= total_distance {
+                return bins;
+            }
+            let left_through_max = distances[k].max_surface;
+            bins.push(surface_bin_3d(bin_from_indices(shape, ijk), k, left_through_max, false));
+            ijk[k] = distances[k].next_index;
+            distances[k] = m.distance_corrected(ijk, k, local_r, uu, traveled_distance);
+            in_mesh = ijk[k] >= 1 && ijk[k] <= shape[k];
+            // Finding A: the face entered is opposite the one left.
+            if in_mesh {
+                bins.push(surface_bin_3d(bin_from_indices(shape, ijk), k, !left_through_max, true));
+            }
+        } else {
+            let mut k_max: Option<usize> = None;
+            let mut entered_max = false;
+            for k in 0..3 {
+                if (ijk[k] < 1 || ijk[k] > shape[k]) && distances[k].distance > traveled_distance {
+                    traveled_distance = distances[k].distance;
+                    k_max = Some(k);
+                    // Finding A: arriving from above the axis enters through
+                    // the max face, from below through the min face; on a
+                    // wrapped phi gap the boundary crossed says which.
+                    entered_max = !distances[k].max_surface;
+                }
+            }
+            if k_max.is_none() {
+                traveled_distance += TINY_BIT;
+            }
+            if traveled_distance >= total_distance {
+                return bins;
+            }
+            let (n, inside) = m.rt_indices_corrected(at(traveled_distance + TINY_BIT));
+            ijk = n;
+            in_mesh = inside;
+            for (k, dk) in distances.iter_mut().enumerate() {
+                *dk = m.distance_corrected(ijk, k, local_r, uu, traveled_distance);
+            }
+            if let (true, Some(k)) = (in_mesh, k_max) {
+                bins.push(surface_bin_3d(bin_from_indices(shape, ijk), k, entered_max, true));
+            }
+        }
+    }
+}
+
+/// Every mesh-surface bin the track `r0 -> r1` (direction `u`) crosses on
+/// `mesh`, by the chosen raytrace (gh:#1715); `None` for an unstructured mesh.
+pub fn mesh_surface_bins_crossed(
+    mesh: &MeshKind,
+    r0: Position,
+    r1: Position,
+    u: Direction,
+    raytrace: MeshSurfaceRaytrace,
+) -> Option<Vec<usize>> {
+    match raytrace {
+        #[allow(deprecated)] // the oracle route, selected by name
+        MeshSurfaceRaytrace::OpenMc => mesh.surface_bins_crossed_openmc(r0, r1, u),
+        MeshSurfaceRaytrace::Corrected => match mesh {
+            MeshKind::Regular(m) => Some(raytrace_surface_bins_corrected(m, r0, r1, u)),
+            MeshKind::Rectilinear(m) => Some(raytrace_surface_bins_corrected(m, r0, r1, u)),
+            MeshKind::Cylindrical(m) => Some(raytrace_surface_bins_corrected(m, r0, r1, u)),
+            MeshKind::Spherical(m) => Some(raytrace_surface_bins_corrected(m, r0, r1, u)),
+            MeshKind::Unstructured(_) => None,
+        },
     }
 }
 
@@ -459,6 +1333,17 @@ pub trait MeshKindExt {
     /// `(bin, length fraction)` for every bin the segment `r0 -> r1` \[cm\]
     /// crosses, or `None` where [`Self::splits_track_length`] is `false`.
     fn bins_crossed(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>>;
+    /// Every mesh-surface bin the track `r0 -> r1` (direction `u`) crosses, in
+    /// order of travel: the port of `StructuredMesh::surface_bins_crossed`
+    /// (`src/mesh.cpp:1460-1488`) on any of the four structured kinds
+    /// (gh:#1712), bin layout [`RegularMeshExt::surface_bin`]'s. `None` for an
+    /// unstructured mesh, where upstream `fatal_error`s
+    /// (`UnstructuredMesh::surface_bins_crossed`, `src/mesh.cpp:1087`).
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
+    fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Option<Vec<usize>>;
+    /// `StructuredMesh::n_surface_bins` (`src/mesh.cpp:1249`):
+    /// [`SURFACE_BINS_PER_ELEMENT`] per element; `None` for an unstructured mesh.
+    fn n_surface_bins(&self) -> Option<usize>;
 }
 
 impl MeshKindExt for MeshKind {
@@ -501,6 +1386,23 @@ impl MeshKindExt for MeshKind {
             Self::Cylindrical(m) => Some(cylindrical_bins_crossed(m, r0, r1)),
             Self::Spherical(m) => Some(spherical_bins_crossed(m, r0, r1)),
             Self::Unstructured(m) => Some(m.bins_crossed(r0, r1)),
+        }
+    }
+
+    fn surface_bins_crossed_openmc(&self, r0: Position, r1: Position, u: Direction) -> Option<Vec<usize>> {
+        match self {
+            Self::Regular(m) => Some(raytrace_surface_bins(m, r0, r1, u)),
+            Self::Rectilinear(m) => Some(raytrace_surface_bins(m, r0, r1, u)),
+            Self::Cylindrical(m) => Some(raytrace_surface_bins(m, r0, r1, u)),
+            Self::Spherical(m) => Some(raytrace_surface_bins(m, r0, r1, u)),
+            Self::Unstructured(_) => None,
+        }
+    }
+
+    fn n_surface_bins(&self) -> Option<usize> {
+        match self {
+            Self::Unstructured(_) => None,
+            other => Some(SURFACE_BINS_PER_ELEMENT * other.n_bins()),
         }
     }
 }

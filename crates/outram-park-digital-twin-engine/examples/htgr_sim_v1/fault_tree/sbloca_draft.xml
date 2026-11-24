@@ -1,0 +1,307 @@
+<?xml version="1.0"?>
+<!--
+  DRAFT: top-event definition pending Adolphus Lye (#1719).
+
+  HTR-10 small-break LOCA fault tree, a RESEARCH and TEACHING model of the
+  simulator's helium pressure boundary (gh:#1716, #1719, maintainer direction
+  2026-11-23: "U can frame it as research"). It is NOT a probabilistic safety
+  assessment of the HTR-10 or of any facility, and nothing in it is fit for
+  licensing, operation or any safety decision (RESPONSIBLE_USE.md,
+  crates/raffles/AGENTS.md).
+
+  Read by raffles::scram::mef and quantified only with existing raffles
+  functions (BDD top probability, ZBDD minimal cut sets, importance factors
+  from the BDD), through crate::fault_tree in this example.
+
+  TOP EVENT (DRAFT): a breach of the primary helium pressure boundary, of
+  equivalent break diameter inside the selected range, within one year (the
+  model's mission time, SCRAM's default 8760 h). It is the BREACH, not the
+  failure to mitigate it: whether the top event should be breach or
+  failure-to-mitigate is one of the questions for Adolphus on #1719.
+
+  PROBABILITIES. Every basic event says where its number comes from, in the
+  `data` attribute:
+    DUMMY        an order-of-magnitude placeholder chosen for illustration.
+                 NOT data. Shown with a DUMMY tag in the simulator.
+    GENERIC-LWR  a value quoted from open literature for light-water
+                 reactors, borrowed and labelled as such; not HTR-10 data.
+  A rate f [/yr] is written as an exponential of f/8760 per hour over the mission time,
+  i.e. p = 1 - exp(-f t) over the one-year mission.
+
+  BREAK-SIZE RANGE. Each break event is gated by a house event IN_SIZE_<x>
+  whose `d_min_mm` / `d_max_mm` attributes give the band of equivalent break
+  diameters that event covers. The simulator sets IN_SIZE_<x> true exactly
+  when that band overlaps the selected range (any overlap counts the whole
+  event: conservative). Bands are DRAFT; the sources of each are in its
+  `band_source` attribute. The 11.28 mm leak class is the equivalent diameter
+  of the 1 cm2 "small leak" flow section of the HTR-Module depressurisation
+  system (Kugeler, Nabielek and Buckthorpe 2017, EUR 28712 EN, s.5.12, p.84);
+  65 mm is the largest stated HTR-10 RPV penetration (fuel loading tube 62 or
+  65 mm, discharge penetration 65 mm; docs/reactor-scoping/htr10-plant-data.md
+  s.4.3) and the DN65 depressurisation of Gao and Shi (2002) s.5.3.1.
+
+  CV LINK. Each basic event names its pressure-boundary `component` and the
+  `cv` it sits on, both from the simulator's control-volume list
+  (the simulator's headless dump-cvs flag; see headless::dump_cvs). A test fails if
+  either is not in that list.
+-->
+<opsa-mef>
+  <define-fault-tree name="HTR10_SBLOCA_DRAFT">
+
+    <define-gate name="SB_LOCA">
+      <attributes>
+        <attribute name="description" value="DRAFT top event: small break of the HTR-10 primary helium pressure boundary within one year"/>
+      </attributes>
+      <or>
+        <gate name="RPV_BOUNDARY"/>
+        <gate name="CROSS_VESSEL_DUCT"/>
+        <gate name="SG_VESSEL_SIDE"/>
+        <gate name="CIRCULATOR"/>
+        <gate name="RELIEF_PATH"/>
+      </or>
+    </define-gate>
+
+    <define-gate name="RPV_BOUNDARY">
+      <attributes><attribute name="description" value="RPV shell or one of its penetrations"/></attributes>
+      <or>
+        <gate name="RPV_SHELL"/>
+        <gate name="FUEL_LOADING_TUBE"/>
+        <gate name="FUEL_DISCHARGE"/>
+        <gate name="CONTROL_ROD_NOZZLES"/>
+        <gate name="INSTRUMENT_LINES"/>
+      </or>
+    </define-gate>
+    <define-gate name="RPV_SHELL">
+      <and><house-event name="IN_SIZE_RPV_SHELL"/><basic-event name="RPV_SHELL_LEAK"/></and>
+    </define-gate>
+    <define-gate name="FUEL_LOADING_TUBE">
+      <and><house-event name="IN_SIZE_FLT"/><basic-event name="FLT_BREAK"/></and>
+    </define-gate>
+    <define-gate name="FUEL_DISCHARGE">
+      <and><house-event name="IN_SIZE_FDP"/><basic-event name="FDP_BREAK"/></and>
+    </define-gate>
+    <define-gate name="CONTROL_ROD_NOZZLES">
+      <and><house-event name="IN_SIZE_CRD"/><basic-event name="CRD_NOZZLE_BREAK"/></and>
+    </define-gate>
+    <define-gate name="INSTRUMENT_LINES">
+      <and><house-event name="IN_SIZE_INSTR"/><basic-event name="INSTR_LINE_BREAK"/></and>
+    </define-gate>
+
+    <define-gate name="CROSS_VESSEL_DUCT">
+      <attributes><attribute name="description" value="hot gas duct outer pressure tube"/></attributes>
+      <and><house-event name="IN_SIZE_HGD"/><basic-event name="HGD_TUBE_LEAK"/></and>
+    </define-gate>
+
+    <define-gate name="SG_VESSEL_SIDE">
+      <attributes><attribute name="description" value="SG pressure vessel, and SG tubes if tube rupture is counted"/></attributes>
+      <or>
+        <gate name="SG_VESSEL"/>
+        <gate name="SG_TUBES"/>
+      </or>
+    </define-gate>
+    <define-gate name="SG_VESSEL">
+      <and><house-event name="IN_SIZE_SGV"/><basic-event name="SG_VESSEL_LEAK"/></and>
+    </define-gate>
+    <define-gate name="SG_TUBES">
+      <attributes><attribute name="description" value="tube rupture is water INGRESS into the primary; counted only when COUNT_SG_TUBE_RUPTURE is set (question for Adolphus)"/></attributes>
+      <and><house-event name="COUNT_SG_TUBE_RUPTURE"/><house-event name="IN_SIZE_SGTR"/><basic-event name="SG_TUBE_RUPTURE"/></and>
+    </define-gate>
+
+    <define-gate name="CIRCULATOR">
+      <and><house-event name="IN_SIZE_CIRC"/><basic-event name="CIRC_HOUSING_LEAK"/></and>
+    </define-gate>
+
+    <define-gate name="RELIEF_PATH">
+      <attributes><attribute name="description" value="a primary safety valve opens spuriously and does not reseat"/></attributes>
+      <and><house-event name="IN_SIZE_SV"/><gate name="SAFETY_VALVE_STUCK_OPEN"/></and>
+    </define-gate>
+    <define-gate name="SAFETY_VALVE_STUCK_OPEN">
+      <or><gate name="SV1_STUCK_OPEN"/><gate name="SV2_STUCK_OPEN"/></or>
+    </define-gate>
+    <define-gate name="SV1_STUCK_OPEN">
+      <and><basic-event name="SV1_SPURIOUS_OPEN"/><basic-event name="SV1_FAILS_TO_RESEAT"/></and>
+    </define-gate>
+    <define-gate name="SV2_STUCK_OPEN">
+      <and><basic-event name="SV2_SPURIOUS_OPEN"/><basic-event name="SV2_FAILS_TO_RESEAT"/></and>
+    </define-gate>
+
+    <!-- ===== Basic events ===== -->
+
+    <define-basic-event name="RPV_SHELL_LEAK">
+      <attributes>
+        <attribute name="component" value="rpv.shell"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-6 /yr: placeholder, no open HTR-10 vessel leak frequency found in the corpus (#1719)"/>
+      </attributes>
+      <exponential><div><float value="1.0e-6"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="FLT_BREAK">
+      <attributes>
+        <attribute name="component" value="rpv.fuel_loading_tube"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-5 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-5"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="FDP_BREAK">
+      <attributes>
+        <attribute name="component" value="rpv.fuel_discharge_penetration"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-5 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-5"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="CRD_NOZZLE_BREAK">
+      <attributes>
+        <attribute name="component" value="rpv.control_rod_nozzles"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-5 /yr for all 17 nozzles together: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-5"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="INSTR_LINE_BREAK">
+      <attributes>
+        <attribute name="component" value="rpv.instrument_lines"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-4 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-4"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="HGD_TUBE_LEAK">
+      <attributes>
+        <attribute name="component" value="hgd.pressure_tube"/>
+        <attribute name="cv" value="primary.cold_duct"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-6 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-6"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="SG_VESSEL_LEAK">
+      <attributes>
+        <attribute name="component" value="sg.pressure_vessel"/>
+        <attribute name="cv" value="primary.cold_duct"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-6 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-6"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="SG_TUBE_RUPTURE">
+      <attributes>
+        <attribute name="component" value="sg.tubes"/>
+        <attribute name="cv" value="sg.he.1"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-3 /yr: placeholder; drawn on the SG's hot-inlet helium cell, the tubes span sg.he.1-8"/>
+      </attributes>
+      <exponential><div><float value="1.0e-3"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="CIRC_HOUSING_LEAK">
+      <attributes>
+        <attribute name="component" value="circulator.housing"/>
+        <attribute name="cv" value="primary.cold_duct"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-4 /yr: placeholder (housing and shaft seal)"/>
+      </attributes>
+      <exponential><div><float value="1.0e-4"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="SV1_SPURIOUS_OPEN">
+      <attributes>
+        <attribute name="component" value="primary.safety_valves"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-2 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-2"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="SV1_FAILS_TO_RESEAT">
+      <attributes>
+        <attribute name="component" value="primary.safety_valves"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="GENERIC-LWR"/>
+        <attribute name="source" value="1e-2 per demand: WASH-1400 (NUREG-75/014) Main Report p.167 (PDF p.197 of NRC ML15334A199), 'failure of safety valves (PCF) to reseat is about 10-2 per demand', an approximate general PWR value; borrowed, not HTR-10 data"/>
+      </attributes>
+      <float value="1.0e-2"/>
+    </define-basic-event>
+    <define-basic-event name="SV2_SPURIOUS_OPEN">
+      <attributes>
+        <attribute name="component" value="primary.safety_valves"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="DUMMY"/>
+        <attribute name="source" value="DUMMY 1e-2 /yr: placeholder"/>
+      </attributes>
+      <exponential><div><float value="1.0e-2"/><float value="8760"/></div><system-mission-time/></exponential>
+    </define-basic-event>
+    <define-basic-event name="SV2_FAILS_TO_RESEAT">
+      <attributes>
+        <attribute name="component" value="primary.safety_valves"/>
+        <attribute name="cv" value="primary.rpv_annuli"/>
+        <attribute name="data" value="GENERIC-LWR"/>
+        <attribute name="source" value="1e-2 per demand: WASH-1400 (NUREG-75/014) Main Report p.167 (PDF p.197 of NRC ML15334A199); borrowed, not HTR-10 data"/>
+      </attributes>
+      <float value="1.0e-2"/>
+    </define-basic-event>
+
+    <!-- ===== House events: which events count ===== -->
+
+    <define-house-event name="COUNT_SG_TUBE_RUPTURE">
+      <attributes><attribute name="description" value="count SG tube rupture (water ingress) as a pressure-boundary breach: DRAFT default false, question for Adolphus"/></attributes>
+      <constant value="false"/>
+    </define-house-event>
+
+    <define-house-event name="IN_SIZE_RPV_SHELL">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="11.28"/>
+        <attribute name="band_source" value="DRAFT: a shell LEAK, up to the 1 cm2 small-leak class (Kugeler et al. 2017 p.84); a larger vessel failure is not a small break"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_FLT">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="65"/>
+        <attribute name="band_source" value="up to the tube bore, 62 mm [S2] / 65 mm [S5] (plant-data s.4.3); the larger reading taken"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_FDP">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="65"/>
+        <attribute name="band_source" value="up to the 65 mm RPV penetration of the discharge tube [S2] s.2 (plant-data s.4.3)"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_CRD">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="65"/>
+        <attribute name="band_source" value="DUMMY band: nozzle bores NOT stated; assumed not above the largest stated penetration, 65 mm"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_INSTR">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="10"/>
+        <attribute name="band_source" value="DUMMY band: instrument-line bores NOT stated; 10 mm assumed"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_HGD">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="11.28"/>
+        <attribute name="band_source" value="DRAFT: a LEAK of the 900 mm pressure tube, up to the 1 cm2 small-leak class (Kugeler et al. 2017 p.84)"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_SGV">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="11.28"/>
+        <attribute name="band_source" value="DRAFT: a vessel LEAK, up to the 1 cm2 small-leak class (Kugeler et al. 2017 p.84)"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_SGTR">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="14"/>
+        <attribute name="band_source" value="DUMMY band: tube bore NOT stated (plant-data s.5); 14 mm is the simulator's invented illustrative tube bore"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_CIRC">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="11.28"/>
+        <attribute name="band_source" value="DRAFT: a housing or seal LEAK, up to the 1 cm2 small-leak class (Kugeler et al. 2017 p.84)"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+    <define-house-event name="IN_SIZE_SV">
+      <attributes><attribute name="d_min_mm" value="0"/><attribute name="d_max_mm" value="65"/>
+        <attribute name="band_source" value="DUMMY band: valve throat NOT stated; assumed not above the largest stated penetration, 65 mm"/></attributes>
+      <constant value="true"/>
+    </define-house-event>
+
+  </define-fault-tree>
+</opsa-mef>

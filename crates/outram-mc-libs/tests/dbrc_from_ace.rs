@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **DBRC on the ACE route: attached when the data permits, and never silently
 //! absent** — GitHub #307 item 3.

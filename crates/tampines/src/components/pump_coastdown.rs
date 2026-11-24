@@ -69,7 +69,6 @@ use petir::mathf::RealMath;
 use uom::si::angular_velocity::radian_per_second;
 use uom::si::f64::{AngularVelocity, MomentOfInertia, Ratio, Time, Torque};
 use uom::si::moment_of_inertia::kilogram_square_meter;
-use uom::si::ratio::ratio;
 use uom::si::time::second;
 use uom::si::torque::newton_meter;
 
@@ -244,6 +243,7 @@ impl InertialPumpCoastdown {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uom::si::ratio::ratio;
     use crate::htr10_primary_loop::CoastdownModel;
     use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::boundary_conditions::VelocityRundownBc;
     use uom::si::angular_velocity::revolution_per_minute;

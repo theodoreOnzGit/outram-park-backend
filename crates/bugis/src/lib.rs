@@ -124,6 +124,16 @@ pub mod app_scaffold;
 #[cfg(feature = "web_demo")]
 pub mod web_demo;
 
+/// Fault-tree diagrams (gh:#1720): a plain node/edge type and a
+/// deterministic tidy-tree layout (no_std + alloc), and the egui drawing
+/// (feature `egui`). GUI-free callers such as `raffles` convert into it.
+pub mod fault_tree;
+
+/// A bottom tab bar over a main view (gh:#1717), laid out to fit any width
+/// (feature `egui`).
+#[cfg(feature = "egui")]
+pub mod tab_bar;
+
 #[cfg(feature = "egui")]
 mod gui;
 #[cfg(feature = "egui")]

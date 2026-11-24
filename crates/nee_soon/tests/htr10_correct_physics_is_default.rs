@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **The HTR-10 model's correct physics is the DEFAULT, and this test keeps it
 //! that way** (workspace hard rule, 2026-09-20; the pattern of
 //! `crates/outram-mc-libs/tests/correct_physics_is_default.rs`).

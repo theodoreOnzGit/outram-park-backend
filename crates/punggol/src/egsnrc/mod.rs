@@ -6,13 +6,21 @@
 //! workspace and no EGSnrc text is committed). Licence: AGPL-3.0, which
 //! matches this workspace (see the crate's `NOTICE`).
 //!
-//! # Bit identity is a `std` claim
+//! # Bit identity ~~is a `std` claim~~ (CHANGED 2026-11-22)
 //!
-//! Where this port is recorded as bit-identical to a compiled EGSnrc, that is
+//! ~~Where this port is recorded as bit-identical to a compiled EGSnrc, that is
 //! **with the `std` feature**: `egsnrc::libm` and the `f32` shims call the platform
 //! libm, the one gfortran links. Without `std` they call PETIR, which agrees
 //! with glibc to last-bit round-off; the `no_std` build agrees to round-off,
-//! not bit for bit (maintainer, 2026-11-21, gh:#1682).
+//! not bit for bit (maintainer, 2026-11-21, gh:#1682).~~
+//!
+//! **CHANGED 2026-11-22 (maintainer: "make petir default even on std, I
+//! accept the last ulp change"; gh:#1706):** `egsnrc::libm`, the `f32` shims
+//! and `asinh_glibc` call PETIR in every build, `std` or not, so the
+//! workspace's no-platform-libm rule holds here too. Against a compiled
+//! EGSnrc (glibc) the port now agrees to last-bit round-off, not bit for bit,
+//! in both builds; the bit-identity records in
+//! `docs/egsnrc_phase2_differential.md` were taken with the platform route.
 //!
 //! # What is scaffolded
 //!
@@ -208,7 +216,9 @@ pub fn lit_div(constant: f64, n: f64) -> f64 {
     if cfg!(feature = "egsnrc-f32-constants") { f64::from(constant as f32 / n as f32) } else { constant / n }
 }
 
-/// `sin`, `cos` and `tan` as the platform libm computes them (gh:#1698).
+/// `sin`, `cos`, `tan`, `ln`, `exp` and `powf` for the port: PETIR's, in every
+/// build since 2026-11-22 (maintainer, gh:#1706; the text below is the
+/// record of why the platform route was used before, gh:#1698).
 ///
 /// A compiled EGSnrc calls glibc's `sin`/`cos`/`tan`; PETIR's routines are
 /// within an ulp of it but not always the same double (found 2026-11-21 in the
@@ -217,79 +227,36 @@ pub fn lit_div(constant: f64, n: f64) -> f64 {
 /// vacuum-gap history). With the `std` feature the port therefore calls the
 /// `std` functions (the same libm gfortran links); without it PETIR's.
 pub(crate) mod libm {
-    #[cfg(not(feature = "std"))]
     use petir::mathf::RealMath;
     /// `sin(x)`.
     #[inline]
     pub fn sin(x: f64) -> f64 {
-        #[cfg(feature = "std")]
-        {
-            x.sin()
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            RealMath::r_sin(x)
-        }
+        RealMath::r_sin(x)
     }
     /// `cos(x)`.
     #[inline]
     pub fn cos(x: f64) -> f64 {
-        #[cfg(feature = "std")]
-        {
-            x.cos()
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            RealMath::r_cos(x)
-        }
+        RealMath::r_cos(x)
     }
     /// `tan(x)`.
     #[inline]
     pub fn tan(x: f64) -> f64 {
-        #[cfg(feature = "std")]
-        {
-            x.tan()
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            RealMath::r_tan(x)
-        }
+        RealMath::r_tan(x)
     }
     /// `ln(x)` (Fortran `LOG`).
     #[inline]
     pub fn ln(x: f64) -> f64 {
-        #[cfg(feature = "std")]
-        {
-            x.ln()
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            RealMath::r_ln(x)
-        }
+        RealMath::r_ln(x)
     }
     /// `exp(x)`.
     #[inline]
     pub fn exp(x: f64) -> f64 {
-        #[cfg(feature = "std")]
-        {
-            x.exp()
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            RealMath::r_exp(x)
-        }
+        RealMath::r_exp(x)
     }
     /// `x ** y` (Fortran real exponent).
     #[inline]
     pub fn powf(x: f64, y: f64) -> f64 {
-        #[cfg(feature = "std")]
-        {
-            x.powf(y)
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            RealMath::r_powf(x, y)
-        }
+        RealMath::r_powf(x, y)
     }
 }
 
@@ -297,11 +264,13 @@ pub(crate) mod libm {
 mod libm_tests {
     use super::libm;
 
-    /// The libm wrappers are the platform functions (the ones a compiled
-    /// EGSnrc links) with `std`, and PETIR's within an ulp or two without.
-    /// The value pinned is the case that differed: `sin(0.2852453666859538)`.
+    /// The libm wrappers are PETIR's in every build (2026-11-22, gh:#1706), within
+    /// an ulp or two of the platform functions a compiled EGSnrc links. The
+    /// value is the case that differed: `sin(0.2852453666859538)`. (Before
+    /// 2026-11-22 they WERE the platform functions with `std`, and this test
+    /// also asserted equality there.)
     #[test]
-    fn libm_wrappers_are_the_platform_functions() {
+    fn libm_wrappers_are_petir_within_ulps_of_the_platform() {
         let a = 0.285_245_366_685_953_8_f64;
         let tol = |x: f64, y: f64| (x - y).abs() <= 4.0 * f64::EPSILON * y.abs();
         assert!(tol(libm::sin(a), a.sin()));
@@ -310,14 +279,8 @@ mod libm_tests {
         assert!(tol(libm::ln(a), a.ln()));
         assert!(tol(libm::exp(a), a.exp()));
         assert!(tol(libm::powf(1.5, 0.2), 1.5_f64.powf(0.2)));
-        #[cfg(feature = "std")]
-        {
-            assert_eq!(libm::sin(a), a.sin());
-            assert_eq!(libm::cos(a), a.cos());
-            assert_eq!(libm::tan(a), a.tan());
-            assert_eq!(libm::ln(a), a.ln());
-            assert_eq!(libm::exp(a), a.exp());
-            assert_eq!(libm::powf(1.5, 0.2), 1.5_f64.powf(0.2));
-        }
+        use petir::mathf::RealMath;
+        assert_eq!(libm::sin(a), RealMath::r_sin(a));
+        assert_eq!(libm::powf(1.5, 0.2), RealMath::r_powf(1.5, 0.2));
     }
 }

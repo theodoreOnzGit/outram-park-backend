@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Code-to-code verification of the non-geometry plotting port**
 //! (`outram_mc_libs::plotter`) against OpenMC's own Python functions:

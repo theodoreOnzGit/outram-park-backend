@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A continuous (IFENG = 2) S(α,β) ACE table is read and sampled as OpenMC
 //! samples it** — GitHub #365 audit.

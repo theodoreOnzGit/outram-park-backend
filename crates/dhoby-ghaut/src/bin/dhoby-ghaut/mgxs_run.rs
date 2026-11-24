@@ -64,7 +64,7 @@ use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid_with_progress, 
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::tally::filter::{EnergyFilter, EnergyOutFilter, FilterKind, MeshFilter};
 use outram_mc_libs::tally::mesh::MeshKind;
-use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+use outram_mc_libs::tally::tally::{Tally, TallyBin};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 

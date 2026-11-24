@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn key_value_triso_atops() {
         let u = parsed(
-            "// SPDX-License-Identifier: GPL-3.0\n//\n// TRISO-ATOPS fork — provenance\n// -----------------------------\n// Upstream project : TRISO-ATOPS (INL) — https://github.com/IdahoLabResearch/TRISO-ATOPS\n// Upstream commit  : de374c8\n// Upstream source  : trisoatops/utility_functions/calculation_functions.py\n//                    (`inventory_processing`, `release_activity`)\n// Original license : MIT\n\n//! Doc.\nfn x() {}\n",
+            "// SPDX-License-Identifier: AGPL-3.0-only\n//\n// TRISO-ATOPS fork — provenance\n// -----------------------------\n// Upstream project : TRISO-ATOPS (INL) — https://github.com/IdahoLabResearch/TRISO-ATOPS\n// Upstream commit  : de374c8\n// Upstream source  : trisoatops/utility_functions/calculation_functions.py\n//                    (`inventory_processing`, `release_activity`)\n// Original license : MIT\n\n//! Doc.\nfn x() {}\n",
         );
         assert_eq!(u.style, HeaderStyle::KeyValue);
         assert_eq!(u.line, 5);
@@ -522,7 +522,7 @@ mod tests {
     #[test]
     fn key_value_bare_upstream_gitlab() {
         let u = parsed(
-            "// SPDX-License-Identifier: GPL-3.0-only\n//\n// Derived from GeN-Foam (Generalized Nuclear Foam)\n//   Upstream: https://gitlab.com/foam-for-nuclear/GeN-Foam\n//   Upstream commit: 652b3da\n//   Upstream license: GPL-3.0\n",
+            "// SPDX-License-Identifier: AGPL-3.0-only\n//\n// Derived from GeN-Foam (Generalized Nuclear Foam)\n//   Upstream: https://gitlab.com/foam-for-nuclear/GeN-Foam\n//   Upstream commit: 652b3da\n//   Upstream license: GPL-3.0\n",
         );
         assert_eq!(u.project.as_deref(), Some("GeN-Foam"));
         assert_eq!(u.licence.as_deref(), Some("GPL-3.0"));
@@ -567,7 +567,7 @@ mod tests {
     #[test]
     fn prose_with_and_without_commit() {
         let u = parsed(
-            "// SPDX-License-Identifier: GPL-3.0-only\n//\n// Derived from OFFBEAT (https://gitlab.com/foam-for-nuclear/offbeat),\n// upstream commit 80e84450a115b0c411e1bfa5d166379f6bf6c084, GPL-3.0.\n",
+            "// SPDX-License-Identifier: AGPL-3.0-only\n//\n// Derived from OFFBEAT (https://gitlab.com/foam-for-nuclear/offbeat),\n// upstream commit 80e84450a115b0c411e1bfa5d166379f6bf6c084, GPL-3.0.\n",
         );
         assert_eq!(u.project.as_deref(), Some("OFFBEAT"));
         assert_eq!(
@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn none_and_doc_only() {
         assert_eq!(
-            scan(&lines("// SPDX-License-Identifier: GPL-3.0-only\n// Copyright (C) 2026 OUTRAM PARK contributors\n\n//! Doc.\n")),
+            scan(&lines("// SPDX-License-Identifier: AGPL-3.0-only\n// Copyright (C) 2026 OUTRAM PARK contributors\n\n//! Doc.\n")),
             Scan::None
         );
         let s = scan(&lines(

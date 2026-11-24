@@ -68,6 +68,10 @@ fn main() {}
 
 #[cfg(not(target_os = "android"))]
 mod app;
+/// The Fault tree tab's model: the DRAFT SB-LOCA tree read and quantified
+/// by `raffles::scram` (gh:#1719, #1720). GUI-free.
+#[cfg(not(target_os = "android"))]
+mod fault_tree;
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 mod headless;
 #[cfg(not(target_os = "android"))]
@@ -102,6 +106,16 @@ fn main() -> eframe::Result<()> {
     //     cargo run --release --example htgr_sim_v1 -- --bounding-air-ingress
     if args.iter().any(|a| a == "--bounding-air-ingress") {
         headless::print_bounding_air_ingress();
+        return Ok(());
+    }
+
+    // The control-volume list (gh:#1718) as CSV: id, name, volume,
+    // neighbours and the live state, after an optional number of steps.
+    //
+    //     cargo run --release --example htgr_sim_v1 -- --dump-cvs [steps]
+    if args.iter().any(|a| a == "--dump-cvs") {
+        let steps = args[1..].iter().filter_map(|a| a.parse().ok()).next().unwrap_or(0);
+        print!("{}", headless::dump_cvs(steps));
         return Ok(());
     }
 

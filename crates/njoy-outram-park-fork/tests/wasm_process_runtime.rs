@@ -1,7 +1,7 @@
 // Reads reference files or the deck work directory: needs `std` (gh:#1592).
 #![cfg(feature = "std")]
 
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 //
 // This file is part of OUTRAM PARK.

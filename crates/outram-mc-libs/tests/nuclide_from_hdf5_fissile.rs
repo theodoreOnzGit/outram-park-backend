@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A fissile nuclide written by this workspace's own `.h5` writer, converted
 //! and transported** — GitHub #303.

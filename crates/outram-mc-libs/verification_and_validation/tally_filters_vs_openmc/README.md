@@ -116,7 +116,9 @@ x 50 000 histories per code; z = (a-b)/sqrt(sa^2 + sb^2) with batch standard err
 
 The first run **missed** the registered |z| <= 2 on one bin of ten (chance ~4 %); the registered
 replication plan (8 independent seed pairs, 1001..1008) was run and pooled to 1.54, so the miss
-reads as noise, but the first-run gate stays red and is reported as such.
+reads as noise, ~~but the first-run gate stays red and is reported as such~~
+(**CORRECTED 2026-11-22**: the first-run test is a report since gh:#1711; the gate is
+the χ² on fresh seeds, last section).
 
 ## Summary of the 16 filters
 
@@ -124,7 +126,7 @@ reads as noise, but the first-run gate stays red and is reported as such.
 |---|---|---|---|
 | 1 | DISTRIBCELL | yes | exact, 0 misses |
 | 2 | CELL_INSTANCE | yes | exact, 0 misses |
-| 3 | MESH_SURFACE | yes | **miss** on ties (16 / 1 bins); off ties exact |
+| 3 | MESH_SURFACE | yes | ~~**miss** on ties (16 / 1 bins); off ties exact~~ exact, 0 misses (gh:#1709: upstream's `raytrace_mesh` and `r_last_current` span ported) |
 | 4 | MESHBORN | yes | exact, 0 misses |
 | 5 | MESH_MATERIAL | yes | **miss** as shipped (midpoint); 0 misses with splitting |
 | 6 | ENERGY_FUNCTION | yes | exact, 0 misses |
@@ -316,7 +318,59 @@ bin 2 ours 1.968699 +- 0.001685 vs OpenMC 1.965959 +- 0.001969 (z +1.06), bin 3 
 (+0.07), bin 4 5.663063 vs 5.662350 (+0.13). Worst \|z\| **1.06**, prediction held. Hardware as in
 the provenance table (4-core Xeon 2.10 GHz, shared); ours 4.4 s per 1e6 histories (O-16 run).
 
-**The red gates now.** Of the original four: `mesh_material_vs_openmc` is **green**.
+## Mesh-surface ties fixed by porting upstream (gh:#1709, 2026-11-22)
+
+The 16 / 1 mesh-surface misses above were **not** a floating-point tie that
+upstream also suffers. They had two causes, both found by reading upstream:
+
+1. **Where the raytrace starts and ends.** OpenMC scores mesh-surface currents
+   once from `p.r_last_current()` (the birth point, `particle.cpp:174`, then
+   each collision site, `:464`) to where the particle collides (`:411`), leaks
+   (pushed on by `TINY_BIT`, `:743-748`) or changes direction at a reflective
+   or periodic surface (moved back by `TINY_BIT`, `:785-788, 835-838`).
+   Crossing a transmissive surface scores nothing. Both our routes scored one
+   raytrace **per geometry segment**. Here every tile edge lies on a mesh plane,
+   so segments ended exactly on mesh planes and produced the ties. The record's
+   "upstream semantics" line ("scored per flight segment",
+   `history_events.rs`) was wrong and is struck through there.
+2. **How crossings are counted.** `RegularMesh::surface_bins_crossed` re-derived
+   `raytrace_mesh`, counting crossings on the open interval.
+   `surface_bins_crossed_openmc` now ports `raytrace_mesh` with its
+   `SurfaceAggregator`, `distance_to_grid_boundary` and
+   `get_index_in_direction` (`mesh.cpp:1312-1488, 1640, 1667`, OpenMC
+   `8f79d9d0`), and `MeshSurfaceFilter` uses it. Off ties it gives the same
+   bins as the re-derivation on 20 000 random tracks
+   (`tests/mesh_surface_raytrace_1709.rs`).
+
+**Result:** all four mesh-surface tests give **0 misses, worst scaled
+difference 0** (exact): registered mesh (2592 bins) and A2 (3240 bins), each
+for the driver and for the real runner. The `real_*` pins moved from 16 and 1
+to 0. The other Experiment A filters are unchanged (all green).
+
+The live change (`EventHistory::end_flight`, `mesh_surface_span`) only keeps
+`r_last_current`. It draws no random number and changes no decision, so no `k`
+or non-mesh-surface tally moves.
+
+## First-run statistical gates follow the registered plan (gh:#1709, 2026-11-22)
+
+**Maintainer decision ("Follow registered plan").** `b_collision_and_legendre_vs_openmc`
+and `real_b_collision_vs_openmc` gate one run bin by bin at |z| <= 2. For a
+correct code that fails about 37 % of the time on 10 bins and about 24 % on 6
+(1 - 0.9545^n). The protocol registered before either replication ran
+(amendments 2 and 5) reports a first-run miss and decides it with the 8-seed
+pooled replication at the **same** |z| <= 2. ~~The two tests now do exactly that:
+they pass on a clean first run; otherwise they run the pooled replication and
+assert on it.~~ **SUPERSEDED the same day (gh:#1711):** every seen-seed B and C
+test is now a report, and the gate is the χ² of the next section, on fresh
+seeds. The threshold, the seeds and the references are unchanged. The
+first-run |z| is still printed and is recorded here: 2.87 and 2.56, decided by
+pooled 1.54 / 1.19 and 1.39. ~~The first-run gates stay red~~ (the 18 Nov
+wording below) no longer holds.
+
+**The red gates now.** ~~Of the original four:~~ **CORRECTED 2026-11-22
+(gh:#1709): none.** The mesh-surface ties are fixed by the port above, and the
+first-run collision gates follow the registered plan. The 18 Nov text follows,
+kept as history. Of the original four: `mesh_material_vs_openmc` is **green**.
 `mesh_surface_vs_openmc` and `a2_mesh_surface_vs_openmc` (driver oracle) stay red on the tie
 misses; their real-transport twins pass only because they pin the counts 16 and 1, not zero.
 `b_collision_and_legendre_vs_openmc` (driver, first run, 2.87) stays red, and its real-transport
@@ -329,3 +383,153 @@ has no real-transport route and stays on the driver; plain MESH on a regular mes
 segment midpoint (same gap as MESH_MATERIAL had, unmeasured); PARENT_NUCLIDE, REACTION and
 PARTICLE_PRODUCTION as before; `CellFromFilter` still holds one (leaf) cell where upstream loops
 over all levels.
+
+## χ² gate on fresh seeds (gh:#1711, 2026-11-22)
+
+**Why.** Maintainer: "Bin by bin shldnt make sense". A |z| <= 2 gate on each
+of k bins fails a correct code 1 - 0.9545^k of the time, and the worst |z| of k
+bins is not a statistic the gate states a distribution for.
+
+### Methodology (registered before any fresh run)
+
+Registered in [`prediction_before_measuring.md`](prediction_before_measuring.md),
+amendment 6, commit `62de0c6a1`, before either code ran on the new seeds. The
+OpenMC references were committed next (`6e7ccccb6`), before our code ran on them.
+
+- **Statistic, per tally and per seed:** z_i = (ours_i - openmc_i) /
+  sqrt(se_ours_i² + se_openmc_i²), from each code's 20-batch mean and batch
+  standard error. χ² = Σ z_i² over the bins with nonzero combined variance.
+  k is the number of those bins. A bin with zero combined variance must hold the
+  same value in both codes.
+- **p-value:** p = P(χ²_k >= χ²) = Q(k/2, χ²/2). It comes from
+  `outram_foam_basic_lib::math::inc_gamma_ratio_q`, the workspace's DiDonato-Morris
+  port, reused rather than rewritten. It is checked against closed forms for
+  k = 1, 2 and 4, and against the tabulated 1 % point of χ²_6, by
+  `chi2_p_value_matches_closed_forms`.
+- **Gate:** p >= 0.01 for every tally on every fresh seed, each judged
+  separately. That is 16 gates, so a correct code fails at least one about 15 %
+  of the time (stated before the run).
+- **Fresh seeds:** 2001..2004. Each code ran once per seed: 20 batches x 50 000
+  histories, with the committed scripts run verbatim. Reference files:
+  `openmc_reference/exp{B,C}_*_s200{1..4}.txt`.
+- **Reported, not gated:**
+  - the pooled Σχ² over the four seeds, with 4k dof;
+  - a bias statistic Σ_i z̄_i² with z̄_i = Σ_s z_si / 2, k dof, which is
+    sensitive to a shift that repeats on every seed;
+  - our bin-to-bin batch correlation and the variance-inflation factor
+    Σρ²/k, which tests the bin-independence assumption.
+- **Tests:**
+  - `chi2_b_driver_fresh_seeds_vs_openmc` (history driver, COLLISION k = 6,
+    LEGENDRE k = 4);
+  - `chi2_real_b_fresh_seeds_vs_openmc` (real runner, COLLISION);
+  - `chi2_real_c_fresh_seeds_vs_openmc` (real runner, WEIGHT under survival
+    biasing, k = 3).
+- **Seen seeds (261, 1001..1008):** their five tests are now reports. They
+  print the z values and the χ², and they gate nothing.
+
+**Provenance of the fresh references:**
+
+- **OpenMC** 0.15.3, commit `27e38e894697bb32a1dac7848d2618818b6b8daf` (the
+  same commit as before). It was cloned from GitHub at tag v0.15.3, rebuilt here
+  with no MPI against serial HDF5 1.10.10 and GCC 13.3.0, and run with
+  `threads=2`.
+- **NJOY2016** commit `ac5adf5f33` (the same commit as before), gfortran 13.3.0.
+  The libraries were rebuilt with the committed `make_o16_lib.py` and
+  `make_li6_lib.py` from `reference-data/endf/` (ENDF/B-VIII.0).
+- **Reproduction check of the build:** seed 1001 of B and C, re-run, matches the
+  committed files to round-off, not bit for bit:
+  - means differ by at most 1.4e-15 relative;
+  - standard deviations differ by at most 2.6e-11 relative.
+  
+  A second re-run of the same seed on the same build differs from the first by
+  the same amount (means up to 1.5e-15, standard deviations up to 6.5e-11). So
+  OpenMC at 2 threads is itself not bit-reproducible run to run: threads add to
+  the shared tally sums in varying order, and the standard deviation,
+  sqrt(sum_sq/n - mean²), amplifies that. These are round-off-sized next to the
+  statistical uncertainty (~1e-3 relative).
+
+### Results (2026-11-22, `cargo test --release -p outram-mc-libs --test tally_filters_vs_openmc -- --nocapture`: 34 passed, 0 failed)
+
+| route | tally (k) | s2001 χ² / p | s2002 χ² / p | s2003 χ² / p | s2004 χ² / p | pooled Σχ² (dof) p | bias χ² (k) p |
+|---|---|---|---|---|---|---|---|
+| driver | COLLISION (6) | 5.158 / 0.524 | 2.480 / 0.871 | 5.757 / 0.451 | 3.263 / 0.775 | 16.66 (24) 0.863 | 3.55 (6) 0.737 |
+| driver | LEGENDRE (4) | 0.672 / 0.955 | 3.341 / 0.503 | 3.452 / 0.485 | 2.620 / 0.623 | 10.09 (16) 0.862 | 2.05 (4) 0.727 |
+| real runner | COLLISION (6) | 3.048 / 0.803 | 3.906 / 0.689 | 7.975 / 0.240 | 4.436 / 0.618 | 19.37 (24) 0.732 | 7.46 (6) 0.281 |
+| real runner | WEIGHT (3) | 0.973 / 0.808 | 3.995 / 0.262 | 0.689 / 0.876 | 2.407 / 0.492 | 8.06 (12) 0.780 | 4.06 (3) 0.255 |
+
+**All 16 registered gates pass.** The smallest p is 0.240. Bins 0 and 1 of WEIGHT
+are empty in both codes on every seed (0 deterministic misses), so k = 3 as
+registered. Largest single |z|: 2.05 (driver COLLISION bin 1, seed 2001). Under
+the old bin-by-bin rule that seed would have "failed"; under the registered χ²
+it gives p = 0.52.
+
+**COLLISION bin 4, the seen-seed tendency:**
+
+- The seen seeds pooled to z of +1.2 to +1.5 for this bin.
+- On the fresh seeds, z̄_4 is -0.31 (driver) and -1.52 (real runner).
+- The positive tendency does not repeat. It is consistent with the
+  noise reading.
+
+**The seen seeds through the same statistic (reports, not gates):**
+
+| seed 261 | χ² (k) | p |
+|---|---|---|
+| driver COLLISION | 11.915 (6) | 0.064 |
+| driver LEGENDRE | 5.076 (4) | 0.280 |
+| real runner COLLISION | 14.606 (6) | **0.024** |
+| real runner WEIGHT | 1.139 (3) | 0.768 |
+
+Seed 261 would also have passed the χ² gate. It is not used to judge the gate,
+because it was seen.
+
+**Independence assumption (amendment 6, item 1), measured.** These are our
+batch values: 80 batches (4 seeds x 20), driver route.
+
+- **COLLISION:**
+  - Neighbouring collision-number bins anti-correlate: ρ(0,1) = -0.37,
+    ρ(1,2) = -0.37, ρ(0,2) = -0.25.
+  - Bins 4 and 5 correlate positively: ρ = +0.34.
+  - Variance-inflation factor Σρ²/k = **1.21**.
+- **LEGENDRE:**
+  - Adjacent moments correlate: ρ(P1,P2) = +0.28, ρ(P2,P3) = +0.30,
+    ρ(P0,P1) = +0.21.
+  - Factor **1.13**.
+
+Both factors are well under the registered threshold of about 2, so the
+independent-bin χ² is adequate here. The correlation widens var(χ²) by about
+13-21 %, which slightly raises the false-alarm rate of the 0.01 gate.
+
+**Prediction check:**
+
+| prediction | outcome |
+|---|---|
+| all 16 gates pass | held |
+| χ²/k scattered around 1 | χ²/k ranged 0.17-1.33, and every pooled Σχ² was below its dof (pooled χ²/dof 0.63-0.81) |
+| pooled p > 0.05 | held (smallest 0.732) |
+| bias p > 0.05 | held (smallest 0.255) |
+| COLLISION factor above 1 | held (1.21) |
+| LEGENDRE factor about 2, "because P0 and P2 share every scatter" | **not supported**: measured 1.13, and ρ(P0,P2) = +0.01 |
+| WEIGHT factor about 1 | **not measured**: `run_fixed_source_traced` exposes no per-batch tally values on this path, so the WEIGHT correlation was not measured (the B real-runner row relies on the driver's matrix, same physics) |
+
+**What the low pooled χ² could mean.**
+
+- Low pooled χ²/dof (0.63-0.81) is what over-estimated standard errors would
+  produce.
+- It is also within chance:
+  - for 24 dof the 5 % lower point is 13.8;
+  - for 16 dof it is 7.96;
+  - none is reached.
+- Not investigated further.
+
+**Timing** (wall clock, for scale only):
+
+- **Hardware:** Intel Xeon Processor @ 2.30 GHz (family 6, model 173, KVM
+  guest), 4 logical cores (1 thread per core), 15 GB RAM, Linux 6.18.44, CPU
+  only.
+- **Load:** the test harness ran the 34 tests concurrently on the 4 cores, so
+  the host was loaded by the other tests.
+- **Ours, single thread per test:** 3.1-3.4 s per 1e6 histories (driver),
+  2.7-3.2 s (real runner).
+- **OpenMC, 2 threads, run alone before the tests:** 1.3-1.6 s per 1e6
+  histories for B and 1.1-1.2 s for C (wall, including startup).
+- **Whole test file:** 34.7 s.

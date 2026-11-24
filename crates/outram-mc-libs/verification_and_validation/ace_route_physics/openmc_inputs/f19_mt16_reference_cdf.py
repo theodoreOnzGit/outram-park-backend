@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Reference CDF of the F-19 MT=16 (n,2n) secondary-neutron energy, from
 # OpenMC's own ACE reader, for GitHub #365 (outram-mc ACE LNW mixture).
 #
-# Own work (outram-park-backend), GPL-3.0. Uses the OpenMC Python API
+# Own work (outram-park-backend), AGPL-3.0-only. Uses the OpenMC Python API
 # (MIT licence) as a library only; no OpenMC source is copied.
 #
 # What it computes

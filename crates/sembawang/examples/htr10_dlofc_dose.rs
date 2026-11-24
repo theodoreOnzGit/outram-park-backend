@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! HTR-10 depressurised loss of forced cooling: the **dose** from the
 //! `htr10_dlofc_panama_source_term` release, computed with the same dispersion

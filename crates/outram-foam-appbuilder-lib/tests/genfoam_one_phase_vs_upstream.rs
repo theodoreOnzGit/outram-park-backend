@@ -201,17 +201,6 @@ fn print_rows(rows: &Rows) {
     }
 }
 
-fn first_exceeding(rows: &Rows, tol: f64) -> Option<(usize, &'static str, f64)> {
-    for (n, _, w) in rows {
-        for (k, v) in w {
-            if *v > tol {
-                return Some((*n, *k, *v));
-            }
-        }
-    }
-    None
-}
-
 /// Round 4: the first 40 steps at the tight protocol, every step, every written field.
 ///
 /// Measured 2026-11-12 (README, Round 4): the step size is bit-identical at every step; every field

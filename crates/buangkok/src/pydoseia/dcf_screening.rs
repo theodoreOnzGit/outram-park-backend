@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Multi-source dose-coefficient screening: pyDOSEIA's `compute_max_dcf`,
 //! which looks a nuclide up in five inhalation and two ingestion coefficient
 //! compilations and reports either the coefficient of the requested lung

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Equiprobable (ACE IFENG = 0) S(α,β) tables are sampled as OpenMC samples
 //! them, by default.** GitHub #407.

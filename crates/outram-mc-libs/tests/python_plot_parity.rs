@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate — `geometry::plot::ModelPlot` against OpenMC's own Python
 //! `Model.plot`, pixel for pixel.**

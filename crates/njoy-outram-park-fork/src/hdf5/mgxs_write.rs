@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Writing OpenMC's `mgxs.h5`** — the smallest useful HDF5 round trip.
 //! GitHub #270, scope item 2.

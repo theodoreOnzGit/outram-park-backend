@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — the eight filters added for GitHub #261, against upstream's
 //! own rules at OpenMC `afa7a14`.

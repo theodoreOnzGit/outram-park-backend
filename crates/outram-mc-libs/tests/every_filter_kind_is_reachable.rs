@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The reachability gate for tally filters** — GitHub #261.
 //!
@@ -27,7 +27,7 @@
 //! 31 variants, all constructible, all dispatched, all reporting a bin count.
 
 use petir::mathf::RealMath;
-use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::particle::particle::ParticleType;
 use outram_mc_libs::tally::filter::*;
 use outram_mc_libs::tally::filter_extra::*;
@@ -389,6 +389,10 @@ fn the_particle_production_filter_can_match_one_event_many_times() {
 /// |---|---|---|---|---|
 /// | `12*0 + 0 + 2 + 0 = 2` | 0 | x | max | outward |
 /// | `12*1 + 0 + 0 + 1 = 13` | 1 | x | min | inward |
+///
+/// **2026-11-22 (gh:#1709):** the filter now walks the track with upstream's
+/// `raytrace_mesh`, which reads the direction of flight (`p.u()`), so each
+/// event here carries its `direction`; it had been left at the default.
 #[test]
 fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let m = RegularMesh {
@@ -396,12 +400,13 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
         upper_right: [2.0, 2.0, 2.0],
         dimension: [2, 2, 2],
     };
-    let f = MeshSurfaceFilter { mesh: m.clone() };
+    let f = MeshSurfaceFilter { mesh: MeshKind::Regular(m.clone()), raytrace: Default::default() };
     assert_eq!(f.n_bins(), 12 * 8, "12 surface bins per element");
 
     let ev = FilterEvent {
         position_last: Position::new(0.5, 0.5, 0.5),
         position: Position::new(1.5, 0.5, 0.5),
+        direction: Direction { u: 1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     let bins = f.matches(&ev);
@@ -412,6 +417,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let back = FilterEvent {
         position_last: Position::new(1.5, 0.5, 0.5),
         position: Position::new(0.5, 0.5, 0.5),
+        direction: Direction { u: -1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     assert_eq!(f.matches(&back), vec![12, 3], "got {:?}", f.matches(&back));
@@ -420,6 +426,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let inside = FilterEvent {
         position_last: Position::new(0.2, 0.5, 0.5),
         position: Position::new(0.8, 0.5, 0.5),
+        direction: Direction { u: 1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     assert!(f.matches(&inside).is_empty());
@@ -428,6 +435,7 @@ fn mesh_face_currents_score_both_sides_of_an_internal_crossing() {
     let out = FilterEvent {
         position_last: Position::new(1.5, 0.5, 0.5),
         position: Position::new(9.0, 0.5, 0.5),
+        direction: Direction { u: 1.0, v: 0.0, w: 0.0 },
         ..FilterEvent::default()
     };
     assert_eq!(f.matches(&out), vec![m.surface_bin(1, 0, true, false)]);
@@ -442,10 +450,11 @@ fn a_diagonal_track_scores_its_crossings_in_order() {
         upper_right: [3.0, 3.0, 3.0],
         dimension: [3, 3, 3],
     };
-    let f = MeshSurfaceFilter { mesh: m };
+    let f = MeshSurfaceFilter { mesh: MeshKind::Regular(m), raytrace: Default::default() };
     let ev = FilterEvent {
         position_last: Position::new(0.5, 0.5, 0.5),
         position: Position::new(2.5, 2.5, 2.5),
+        direction: Direction { u: 1.0 / 3f64.sqrt(), v: 1.0 / 3f64.sqrt(), w: 1.0 / 3f64.sqrt() },
         ..FilterEvent::default()
     };
     let bins = f.matches(&ev);
@@ -457,19 +466,44 @@ fn a_diagonal_track_scores_its_crossings_in_order() {
     );
 }
 
-/// A mesh with no face-crossing routine is refused, not silently reported as
-/// crossing nothing.
+/// ~~A mesh with no face-crossing routine is refused, not silently reported as
+/// crossing nothing~~ (asserted on a cylindrical mesh). **CORRECTED 2026-11-22
+/// (gh:#1712):** cylindrical, spherical and rectilinear meshes now have the
+/// ported `raytrace_mesh` (`tests/mesh_surface_curvilinear_1712.rs`), so a
+/// cylindrical mesh is **accepted**; only an unstructured mesh is still
+/// refused, as upstream `fatal_error`s (`src/mesh.cpp:1087`), and so is a grid
+/// with fewer than two points on an axis.
 #[test]
-fn a_non_regular_mesh_is_refused_for_surface_currents() {
+fn only_an_unstructured_mesh_is_refused_for_surface_currents() {
+    use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
     use outram_mc_libs::tally::mesh::CylindricalMesh;
-    let err = MeshSurfaceFilter::new(MeshKind::Cylindrical(CylindricalMesh {
+    let cyl = MeshSurfaceFilter::new(MeshKind::Cylindrical(CylindricalMesh {
         r_grid: vec![0.0, 1.0],
         phi_grid: vec![0.0, std::f64::consts::TAU],
         z_grid: vec![0.0, 1.0],
         origin: Position::new(0.0, 0.0, 0.0),
     }))
-    .unwrap_err();
-    assert!(err.contains("regular mesh"), "{err}");
+    .expect("a cylindrical mesh carries surface currents since gh:#1712");
+    assert_eq!(cyl.n_bins(), 12);
+
+    let degenerate = MeshSurfaceFilter::new(MeshKind::Cylindrical(CylindricalMesh {
+        r_grid: vec![0.0],
+        phi_grid: vec![0.0, std::f64::consts::TAU],
+        z_grid: vec![0.0, 1.0],
+        origin: Position::new(0.0, 0.0, 0.0),
+    }));
+    assert!(degenerate.is_err());
+
+    let mut pts = Vec::new();
+    for x in [0.0, 1.0] {
+        for (y, z) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
+            pts.push([x, y, z]);
+        }
+    }
+    let el = Element { kind: ElementKind::Hex8, nodes: (0..8).collect() };
+    let um = UnstructuredMesh::from_elements(LengthUnit::Centimetre, pts, vec![el], vec![], vec![]).unwrap();
+    let err = MeshSurfaceFilter::new(MeshKind::Unstructured(std::sync::Arc::new(um))).unwrap_err();
+    assert!(err.contains("unstructured"), "{err}");
 }
 
 /// **An event with no instance matches nothing, not bin 0.**

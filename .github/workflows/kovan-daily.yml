@@ -13,7 +13,10 @@
 #
 # 1. DESKTOP, on ubuntu / windows / macos: builds the three binaries (`kovan`
 #    the desktop app, `kovan-cli`, `kovan-tui`) with default features, then
-#    runs `--lib --tests` of kovan, kovan-common and kovan-web.
+#    runs `--lib --tests` of kovan, kovan-common and kovan-web, ~~in one job
+#    per OS~~ in one job per crate per OS since 2026-11-22 (maintainer:
+#    "each crate needs its own job"); the app build and the refresh timing
+#    run in the kovan job only.
 # 2. WEB, on ubuntu: builds kovan-web's `web` example for
 #    `wasm32-unknown-unknown`, the command `crates/kovan-web/web/build.sh`
 #    uses.
@@ -89,7 +92,7 @@ concurrency:
 
 jobs:
   desktop:
-    name: desktop / ${{ matrix.os }}
+    name: desktop / ${{ matrix.os }} / ${{ matrix.crate }}
     runs-on: ${{ matrix.os }}
     # A ceiling, not a measurement. ~~This job has never run.~~ CORRECTED
     # 2026-11-10: measured on run 42743415300 (ci-kovan/fix-1317-ci, develop
@@ -98,8 +101,12 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false # one platform's failure must not hide the others'
+      # One job per crate per OS (maintainer, 2026-11-22: "each crate needs
+      # its own job ... parallelise"). Was one job testing all three crates
+      # in turn. `kovan` keeps the app build and the refresh timing.
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        crate: [knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan, kovan-common, kovan-web]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -124,7 +131,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: kovan-daily-${{ matrix.os }}
+          key: kovan-daily-${{ matrix.os }}-${{ matrix.crate }}
           cache-on-failure: true
 
       # The api-docs regression tests run the real documentation pipeline.
@@ -135,6 +142,7 @@ jobs:
           cargo install rustdoc-md --version 0.2.0 --locked
 
       - name: Build the desktop app, the CLI and the TUI
+        if: matrix.crate == env.KOVAN_PKG
         shell: bash
         run: cargo build --release -p "$KOVAN_PKG" --bin kovan --bin kovan-cli --bin kovan-tui
 
@@ -147,6 +155,7 @@ jobs:
       # processes by kind; the lines go to the run's summary page. These are
       # GitHub runners, not the maintainer's machine.
       - name: Review-state refresh timing (cold and warm)
+        if: matrix.crate == env.KOVAN_PKG
         shell: bash
         env:
           KOVAN_REFRESH_TIMING_ROOT: ${{ github.workspace }}
@@ -156,9 +165,9 @@ jobs:
           cargo test --release -p "$KOVAN_PKG" --lib refresh_phases_are_timed_cold_and_warm -- --nocapture 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Test kovan, kovan-common and kovan-web
+      - name: Test ${{ matrix.crate }}
         shell: bash
-        run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
+        run: cargo test --release --no-fail-fast -p "${{ matrix.crate }}" --lib --tests
 
   web:
     name: web / wasm32

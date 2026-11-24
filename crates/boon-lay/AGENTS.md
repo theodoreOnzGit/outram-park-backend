@@ -9,7 +9,7 @@ The standalone source lives at:
 `/home/teddy0/Documents/research/boon-lay/`
 
 **Version:** ~~0.2.1~~ **CORRECTED 2026-09-21** — `Cargo.toml` says 0.1.3  
-**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): `src/rustbca/` stays GPL-3.0-or-later, `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
+**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973; every file AGPL-3.0-only since 2026-11-22, RustBCA having moved to `kembangan`). ~~As a combined work: `src/rustbca/` stays GPL-3.0-or-later,~~ `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
 
 ---
 
@@ -17,7 +17,8 @@ The standalone source lives at:
 
 Without its default `std` feature this crate is `no_std` + `alloc`, checked on
 a bare-metal target by `scripts/check-nostd.sh` (and the RustBCA copy alone by
-`scripts/check-rustbca-no-std.sh`). Keep it that way:
+`scripts/check-rustbca-no-std.sh`; the copy moved to `kembangan` 2026-11-22,
+gh:#1699). Keep it that way:
 
 - New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
   glob (outside `src/rustbca/`, whose files import `alloc` items by name).
@@ -108,6 +109,12 @@ electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
   run on 2026-10-16; its record is in
   `verification_and_validation/rustbca_cascades/`. A fragment cascade costs
   1.5–2 s on one desktop core.
+- **MOVED 2026-11-22 (gh:#1699, maintainer direction):** the RustBCA copy
+  is now `kembangan::rustbca` (`crates/kembangan/src/rustbca/`), with its
+  differential test, the cost-probe example and both V&V records.
+  `boon_lay::rustbca` re-exports it and `rustbca-std` forwards to
+  kembangan's; `boon-lay -> kembangan`, never the reverse. The rules in the
+  two bullets here now apply in kembangan.
 - **Keep the copy a copy.** Make changes to RustBCA itself in `src/rustbca/`
   only when they are needed (no_std, a bug), and record each one in the module
   docs' numbered list. Physics boon-lay adds on top, such as a layered-sphere
@@ -143,7 +150,7 @@ Covers:
 | `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. ~~**CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG~~ **CORRECTED 2026-10-20 (gh:#995):** `rand` and `rand_distr` are gone again; the RustBCA copy draws from `petir::rng`, a draw-for-draw port of the same ChaCha8 RNG |
 | `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16); since 2026-10-20 also `rng::{ChaCha8Rng, Uniform, Normal}` for that copy (gh:#995) |
 | `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
-| `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
+| ~~`serde` / `serde-xml-rs`~~ | ~~Deserialise the ENDF-8 XML into `SerdeNuclideData` structs~~ **CHANGED 2026-11-22:** `serde-xml-rs` is no longer a dependency; `openmc-endf-8-depletion-lib-b` 1.1.0 parses the XML itself (no_std, `roxmltree`). `serde` stays for the RustBCA and run-file inputs |
 | `anyhow` | Error propagation in XML parsing |
 
 ---

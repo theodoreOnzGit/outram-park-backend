@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! # pyDOSEIA code-to-code verification of `buangkok::pydoseia`
 //!
 //! **Methodology.** `verification_and_validation/pydoseia_code_to_code/

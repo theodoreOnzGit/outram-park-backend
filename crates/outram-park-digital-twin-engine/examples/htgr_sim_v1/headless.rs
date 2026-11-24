@@ -300,6 +300,21 @@ pub fn run_with_peak(cfg: &HeadlessConfig) -> (Vec<TraceRow>, PeakFuelRecord) {
     (rows, model.peak_fuel())
 }
 
+/// The control-volume list (gh:#1718) as CSV, after `steps` plant timesteps
+/// at the default controls (`0` lists the plant as constructed).
+/// Deterministic, like the trace: no wall clock, no I/O inside the loop.
+/// The `--dump-cvs [steps]` entry point prints it; the structural columns of
+/// the `0`-step list are pinned by
+/// `physics::control_volumes::tests::the_control_volume_list_matches_the_pinned_fixture`.
+pub fn dump_cvs(steps: usize) -> String {
+    let mut runtime = PlantRuntime::new();
+    runtime.submit(PlantControls::default());
+    for _ in 0..steps {
+        runtime.tick(Time::new::<second>(PLANT_TIMESTEP_S));
+    }
+    crate::physics::control_volumes::control_volume_map(runtime.plant()).to_csv()
+}
+
 /// Run and print the trace as CSV on stdout. The `--headless` entry point.
 ///
 /// The peak-fuel record is printed on stderr (not stdout, so the CSV stays
@@ -377,6 +392,17 @@ pub fn print_bounding_air_ingress() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `--dump-cvs` (gh:#1718): deterministic like the trace, headed, and
+    /// its live columns move when the plant steps.
+    #[test]
+    fn dump_cvs_is_deterministic_and_lists_the_map() {
+        let a = dump_cvs(3);
+        assert_eq!(a, dump_cvs(3), "same steps, same bytes");
+        assert!(a.starts_with(crate::physics::control_volumes::ControlVolumeMap::csv_header()));
+        assert!(a.contains("\nprimary.cold_duct,"));
+        assert_ne!(dump_cvs(0), a, "stepping moves the live columns");
+    }
 
     /// The property the reference baseline rests on. If this fails, no
     /// committed fixture means anything.

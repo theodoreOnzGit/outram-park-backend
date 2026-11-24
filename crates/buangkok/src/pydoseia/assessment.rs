@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The pyDOSEIA driver: every distance and age of a configuration through the
 //! dilution factor and all five pathways, and the summary tables upstream
 //! writes.

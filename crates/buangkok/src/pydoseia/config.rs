@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! pyDOSEIA's run configuration, as a typed Rust structure with upstream's
 //! defaults and upstream's consistency checks.
 //!

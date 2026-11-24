@@ -9,7 +9,7 @@
 
 #![allow(dead_code, clippy::all)]
 
-use tampines::components::wall_condensation::{structure_surface, structure_surface_mixture, Atmosphere, GasMixtureAtmosphere};
+use tampines::components::wall_condensation::{structure_surface, Atmosphere, GasMixtureAtmosphere};
 use tampines::control_volume::pool_surface::{exchange, exchange_mixture, Atmosphere as PoolAtmosphere, PoolState, SurfaceExchange, SurfaceGeometry};
 use tampines_steam_tables::gas_mixture::melcor_ncg::{M_H2O, R_GAS};
 

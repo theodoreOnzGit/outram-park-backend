@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A polynomial nu-bar (ACE NU `LNU = 1`) is evaluated exactly, at every
 //! energy, as OpenMC evaluates it** — GitHub #365 audit.

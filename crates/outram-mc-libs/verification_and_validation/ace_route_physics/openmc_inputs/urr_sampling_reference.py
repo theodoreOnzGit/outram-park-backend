@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # OpenMC's unresolved-resonance cross sections for given (E, xi), from OpenMC's
 # own reader of an ACE table: the reference for outram-mc's URR sampling
 # (GitHub #365 audit: interpolation between table energies, and the total as
 # the sum of partials).
 #
-# Own work (outram-park-backend), GPL-3.0. Uses the OpenMC Python API (MIT) as
+# Own work (outram-park-backend), AGPL-3.0-only. Uses the OpenMC Python API (MIT) as
 # a library only. The algorithm is a transcription of
 # `Nuclide::calculate_urr_xs` (openmc src/nuclide.cpp), lin-lin branch (every
 # table here has INT = 2, asserted):

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Pins for GitHub #948: windowed multipole (WMP) on a **pointwise** nuclide,
 //! evaluated at the lookup temperature inside its range, as OpenMC does

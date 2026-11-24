@@ -1308,19 +1308,14 @@ pub const EC_EM: f64 = lit(1.60217662e-19);
 /// formulas) is amplified to 1e-10 in the position.
 #[must_use]
 pub fn asinh_glibc(x: f64) -> f64 {
-    // with `std` the platform `asinh` is exactly what a compiled EGSnrc calls (glibc)
-    #[cfg(feature = "std")]
-    {
-        x.asinh()
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        asinh_fdlibm(x)
-    }
+    // PETIR-based fdlibm in every build since 2026-11-22 (maintainer, gh:#1706);
+    // before, `std` called the platform `asinh`, exactly glibc's
+    asinh_fdlibm(x)
 }
 
-/// The fdlibm `asinh` (glibc's algorithm) over PETIR's `log`, `log1p` and `sqrt`; the `no_std` path of
-/// [`asinh_glibc`], and compared against the platform function in the tests.
+/// The fdlibm `asinh` (glibc's algorithm) over PETIR's `log`, `log1p` and `sqrt`; what
+/// [`asinh_glibc`] calls in every build (since 2026-11-22, gh:#1706), and compared
+/// against the platform function in the tests.
 pub fn asinh_fdlibm(x: f64) -> f64 {
     let xa = x.abs();
     if xa < 3.725_290_298_461_914e-9 {
@@ -2141,8 +2136,7 @@ mod tests {
         for x in [0.0, 1.0e-10, 1.0e-3, 0.3, 1.9, 2.0, 2.5, 30.0, 1.0e3, 1.0e10, -0.7, -5.0] {
             let (a, b) = (asinh_fdlibm(x), x.asinh());
             assert!((a - b).abs() <= 4.0e-16 * b.abs().max(1e-300), "{x}: {a} vs {b}");
-            #[cfg(feature = "std")]
-            assert_eq!(asinh_glibc(x), b);
+            assert_eq!(asinh_glibc(x), a);
         }
         assert_eq!(asinh_glibc(-0.7), -asinh_glibc(0.7));
         assert_eq!(asinh_fdlibm(-0.7), -asinh_fdlibm(0.7));

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 
 //! **HTR-10 reflector zone compositions**, IAEA-TECDOC-1382 part 2, Table 4-3

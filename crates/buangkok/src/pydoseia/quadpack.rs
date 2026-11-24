@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The adaptive quadrature pyDOSEIA's plume-shine integral runs on:
 //! QUADPACK's `dqagse` (21-point Gauss-Kronrod, bisection, Wynn epsilon
 //! extrapolation), and SciPy's `tplquad` nesting of it.

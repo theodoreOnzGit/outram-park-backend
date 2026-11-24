@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! How high does the plume really fly, and what does a building do to it?
 //! pyDOSEIA's plume-rise and building-wake formulas, which upstream defines
 //! but never calls, applied to the steady plume of rung 1.

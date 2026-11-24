@@ -1,0 +1,42 @@
+id,name,circuit,medium,role,volume_m3,inside_primary_boundary,neighbours
+core.fuel,Fuel (TRISO particles),Core,Fuel,Balance,8.879575e-2,true,core.solid
+core.solid,Pebble bed solid,Core,Graphite,Balance,3.053628e0,true,core.fuel;core.helium;passive.near_wall
+core.helium,Pebble bed helium,Core,Helium,Balance,1.955085e0,true,primary.rpv_annuli;primary.hot_duct;core.solid;passive.near_wall
+primary.hot_duct,Hot plenum + hot gas duct centre tube,Primary,Helium,Balance,1.032744e0,true,core.helium;sg.he.1;primary.circulator
+primary.circulator,Helium circulator,Primary,None,NoVolume,,true,sg.he.8;primary.hot_duct;primary.cold_duct
+primary.cold_duct,Cold duct (coaxial annulus),Primary,Helium,Balance,1.696460e0,true,primary.circulator;primary.rpv_annuli
+primary.rpv_annuli,RPV annuli + risers + top plenum,Primary,Helium,Balance,7.214181e1,true,core.helium;primary.cold_duct;passive.reflector
+sg.he.1,SG helium 1/8,SteamGenerator,Helium,Balance,1.562500e-1,true,primary.hot_duct;sg.he.2;sg.metal.1
+sg.metal.1,SG tube metal 1/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.1;sg.water.1
+sg.water.1,SG water/steam 1/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.1;sg.water.2;secondary.main_steam_line
+sg.he.2,SG helium 2/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.1;sg.he.3;sg.metal.2
+sg.metal.2,SG tube metal 2/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.2;sg.water.2
+sg.water.2,SG water/steam 2/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.2;sg.water.3;sg.water.1
+sg.he.3,SG helium 3/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.2;sg.he.4;sg.metal.3
+sg.metal.3,SG tube metal 3/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.3;sg.water.3
+sg.water.3,SG water/steam 3/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.3;sg.water.4;sg.water.2
+sg.he.4,SG helium 4/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.3;sg.he.5;sg.metal.4
+sg.metal.4,SG tube metal 4/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.4;sg.water.4
+sg.water.4,SG water/steam 4/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.4;sg.water.5;sg.water.3
+sg.he.5,SG helium 5/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.4;sg.he.6;sg.metal.5
+sg.metal.5,SG tube metal 5/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.5;sg.water.5
+sg.water.5,SG water/steam 5/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.5;sg.water.6;sg.water.4
+sg.he.6,SG helium 6/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.5;sg.he.7;sg.metal.6
+sg.metal.6,SG tube metal 6/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.6;sg.water.6
+sg.water.6,SG water/steam 6/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.6;sg.water.7;sg.water.5
+sg.he.7,SG helium 7/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.6;sg.he.8;sg.metal.7
+sg.metal.7,SG tube metal 7/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.7;sg.water.7
+sg.water.7,SG water/steam 7/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.7;sg.water.8;sg.water.6
+sg.he.8,SG helium 8/8,SteamGenerator,Helium,Balance,1.562500e-1,true,sg.he.7;primary.circulator;sg.metal.8
+sg.metal.8,SG tube metal 8/8,SteamGenerator,Steel,Balance,4.956844e-2,true,sg.he.8;sg.water.8
+sg.water.8,SG water/steam 8/8,SteamGenerator,WaterSteam,Balance,5.888130e-2,false,sg.metal.8;secondary.feedwater_line;sg.water.7
+secondary.main_steam_line,Main steam line,Secondary,WaterSteam,Inventory,2.360000e-1,false,sg.water.1;secondary.turbine
+secondary.turbine,Turbine,Secondary,None,NoVolume,,false,secondary.main_steam_line;secondary.exhaust_duct
+secondary.exhaust_duct,Turbine exhaust duct,Secondary,WaterSteam,Inventory,3.200000e0,false,secondary.turbine;secondary.condenser
+secondary.condenser,Condenser,Secondary,None,NoVolume,,false,secondary.exhaust_duct;secondary.feed_pump
+secondary.feed_pump,Feed pump,Secondary,None,NoVolume,,false,secondary.condenser;secondary.feedwater_line
+secondary.feedwater_line,Condensate / feedwater line,Secondary,WaterSteam,Inventory,4.700000e-2,false,sg.water.8;secondary.feed_pump
+passive.near_wall,Near-wall node,Passive,None,Junction,,true,core.solid;core.helium;passive.reflector
+passive.reflector,Side reflector + boronated brick,Passive,Graphite,Balance,4.332440e1,true,passive.near_wall;primary.rpv_annuli;passive.rpv
+passive.rpv,Reactor pressure vessel wall,Passive,Steel,Balance,1.499482e1,false,passive.reflector;passive.rccs
+passive.rccs,RCCS (cavity cooling),Passive,None,Boundary,,false,passive.rpv

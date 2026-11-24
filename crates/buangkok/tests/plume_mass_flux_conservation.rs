@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! # Verification: the steady Gaussian plume carries exactly the release rate downwind
 //!
 //! Written for the dispersion lesson track (gh:#530, rung 1), as the check

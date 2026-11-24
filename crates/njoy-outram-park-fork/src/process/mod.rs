@@ -314,7 +314,12 @@ pub fn cross_sections_at(
     let t_k = temperature.get::<kelvin>();
     let (endf, mat, r0) = (recon.tape.as_ref(), recon.mat, &recon.reconr);
     let pendf = if t_k > 0.0 {
-        crate::broadr::broaden_result_with_tolerance(r0, t_k, settings.broadr_tolerance).through_pendf_text()
+        {
+        // The LRF=7 particle-pair list BROADR reads from the ENDF tape (gh:#618).
+        let pairs = crate::broadr::joint::lrf7_pair_mts(endf, mat);
+        crate::broadr::broaden_result_with_tolerance_and_pairs(r0, t_k, settings.broadr_tolerance, &pairs)
+            .through_pendf_text()
+    }
     } else {
         r0.through_pendf_text()
     };

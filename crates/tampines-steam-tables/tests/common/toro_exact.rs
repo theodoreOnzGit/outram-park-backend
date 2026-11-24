@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Ong Kay Chen Theodore, National University of Singapore
 //
 // This file is part of Outram Park (outram-park-backend).

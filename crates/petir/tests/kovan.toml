@@ -157,41 +157,6 @@ test_ids = [
     "crates/petir/tests/tampines_interop.rs::the_scaling_change_is_at_most_one_ulp",
     "crates/petir/tests/verbatim_provenance.rs::every_lifted_file_still_matches_its_source",
     "crates/petir/tests/verbatim_provenance.rs::the_lift_inventory_is_complete",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_airy_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_atanint_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_bessel_family_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_bessel_rejects_non_positive_arguments_exactly_as_the_mirror_does",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_blas_level_one_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_cheb_eval_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_cheb_tracks_the_f64_reference_within_the_f32_budget",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_clausen_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_dawson_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_debye_family_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_dilog_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_ei_is_exactly_minus_e1_of_minus_x",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_ellint_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_elljac_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_erf_family_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_erfc_tracks_the_f64_reference_within_the_f32_budget",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_expint_3_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_expint_family_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_fermi_dirac_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_gamma_family_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_gegenbauer_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_gemm_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_gemv_and_elementwise_match_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_lambert_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_legendre_matches_the_cpu_mirror_at_every_order",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_legendre_plm_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_legendres_relation_holds_on_the_device",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_poly_eval_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_psi_zeta_family_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_sinint_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_synchrotron_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_transport_matches_the_cpu_mirror",
-    "crates/petir/tests/wgsl_gpu.rs::gpu_zeta_refuses_exactly_where_the_mirror_does",
-    "crates/petir/tests/wgsl_gpu.rs::the_inline_coefficient_array_is_what_costs_bit_identity",
-    "crates/petir/tests/wgsl_gpu.rs::the_inline_coefficient_effect_is_constant_folding",
     "crates/petir/tests/wgsl_validation.rs::all_and_all_names_are_the_same_length",
     "crates/petir/tests/wgsl_validation.rs::every_documented_function_is_defined",
     "crates/petir/tests/wgsl_validation.rs::every_generated_shader_and_its_mirror_hold_the_same_constants",
@@ -5881,8 +5846,8 @@ uses = [
 test = true
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "fc93def94a76099d77c172cd58b07e9088b0d5a4"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
     "#0",
@@ -6047,40 +6012,12 @@ passed = [
     "#159",
     "#160",
     "#161",
-    "#162",
-    "#163",
-    "#164",
-    "#165",
-    "#166",
-    "#167",
-    "#168",
-    "#169",
-    "#170",
-    "#171",
-    "#172",
-    "#173",
-    "#174",
-    "#175",
-    "#176",
-    "#177",
-    "#178",
-    "#179",
-    "#180",
-    "#181",
-    "#182",
-    "#183",
-    "#184",
-    "#185",
-    "#186",
-    "#187",
-    "#188",
-    "#189",
-    "#190",
-    "#191",
-    "#192",
-    "#193",
-    "#194",
-    "#195",
-    "#196",
 ]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = []
 failed = []

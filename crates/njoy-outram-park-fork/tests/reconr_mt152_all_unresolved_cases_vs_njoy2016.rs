@@ -112,12 +112,9 @@
 // Reads reference files or the deck work directory: needs `std` (gh:#1592).
 #![cfg(feature = "std")]
 
-use petir::mathf::RealMath;
-use njoy_outram_park_fork::common::phys::{AMASSN_AMU, PI};
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::groupr::urr_pendf::{read_urr_from_tape, read_urr_table};
-use njoy_outram_park_fork::reconr::slbw::WAVE_K;
 use njoy_outram_park_fork::reconr::urr::build_mt152;
 use njoy_outram_park_fork::reconr::{mf1, reconr_background};
 use njoy_outram_park_fork::reference_data::{reference_file, reference_file_or_skip};
@@ -524,7 +521,11 @@ fn our_penetrability_clamps_l_at_two_like_uunfac() {
 /// to 1e-12 relative (they are the same 7-figure text values, decoded to within
 /// last-bit noise), and Fe-58 really carries an `L >= 3` state so the test cannot pass
 /// vacuously. **Result (2026-11-11): 52 of 52 identical to 1e-12 (the printed text is the same)**; the stored total
-/// still exceeds the evaluation's own MF=3 by 3113x to 139210x, which is upstream's.
+/// still exceeds the evaluation's own MF=3 by ~~3113x to 139210x~~ **CORRECTED 2026-11-24
+/// (gh:#1703):** 3008x at 350 keV to 181859x at 3 MeV, measured below against the RECONR
+/// background's MF=3 MT=1 (the 3113x-139210x figures were NJOY over the old clamped values,
+/// not over MF=3), which is upstream's. Prediction written before that measurement: between
+/// ~1500x and ~280000x, rising with energy. Gate: the ratio exceeds 1000x at all 13 energies.
 #[test]
 fn fe58_stored_values_match_njoy_including_unfac_fall_through() {
     let Some(l) = load(&FE58) else { return };
@@ -543,6 +544,33 @@ fn fe58_stored_values_match_njoy_including_unfac_fall_through() {
     // Same 7-figure text values on both sides: within 1e-12 relative, the
     // decode noise the other gates here see as 1e-13.
     compare_stored_values(&FE58, 1.0e-12);
+
+    // gh:#1703: the stored total against the evaluation's own MF=3 MT=1, which
+    // for LSSF = 1 IS the infinitely-dilute total. This gates the
+    // "exceeds MF=3 by ..." figures in the doc comment above.
+    let mine = read_urr_table(&l.rows, 0.0).expect("round-trips");
+    let (mut lo, mut hi) = (f64::INFINITY, 0.0_f64);
+    for p in mine.points() {
+        let mf3 = mf3_at(&l.mf3_mt1, p.energy_ev);
+        assert!(mf3.is_finite() && mf3 > 0.0, "no MF=3 MT=1 at E={:.6e}", p.energy_ev);
+        let ratio = p.xs[0][0] / mf3;
+        println!("  E={:.6e} stored total {:.6e} b  MF=3 MT=1 {mf3:.6e} b  ratio {ratio:.1}", p.energy_ev, p.xs[0][0]);
+        lo = lo.min(ratio);
+        hi = hi.max(ratio);
+    }
+    println!("  stored total / MF=3 MT=1: {lo:.0}x .. {hi:.0}x");
+    assert!(lo > 1000.0, "the stored total should exceed MF=3 MT=1 by > 1000x everywhere (measured 3008x..181859x); min {lo:.1}x");
+}
+
+/// Lin-lin value of a `(E, sigma)` table at `e`; NaN outside it.
+fn mf3_at(pairs: &[(f64, f64)], e: f64) -> f64 {
+    for w in pairs.windows(2) {
+        if e >= w[0].0 && e <= w[1].0 {
+            let f = if w[1].0 > w[0].0 { (e - w[0].0) / (w[1].0 - w[0].0) } else { 0.0 };
+            return w[0].1 + f * (w[1].1 - w[0].1);
+        }
+    }
+    f64::NAN
 }
 
 #[test]

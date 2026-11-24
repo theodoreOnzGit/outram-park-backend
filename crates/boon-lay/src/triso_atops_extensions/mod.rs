@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // NOT a port. boon-lay's own extensions of the TRISO-ATOPS model, written
 // 2026-10-05 (gh:#583). They are built ON the ported code in

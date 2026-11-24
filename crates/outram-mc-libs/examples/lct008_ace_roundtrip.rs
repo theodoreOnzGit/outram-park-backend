@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **LEU-COMP-THERM-008 case 1 through ACE, against the straight-from-ENDF
 //! path** — a parity check with a timing breakdown.

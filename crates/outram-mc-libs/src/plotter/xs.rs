@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **`openmc.plot_xs` and `openmc.plotter.calculate_cexs`**, continuous-energy.
 //!
 //! Ported from OpenMC `openmc/plotter.py` at commit `d7d3284a1`

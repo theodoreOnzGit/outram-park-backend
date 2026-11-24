@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 #![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! The handoff from `sembawang` to `changi`: a released source term padded by

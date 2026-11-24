@@ -34,11 +34,18 @@ use crate::NjoyError;
 
 impl IncoherentElastic {
     /// Debye-Waller integral `W'(T)` \[eV⁻¹\] at temperature `temp_k` \[K\],
-    /// linearly interpolated in `T` over the tabulated `(T, W')` table and clamped
-    /// to the end values outside the tabulated range.
+    /// ~~linearly~~ interpolated in `T` over the tabulated `(T, W')` table
+    /// under the TAB1's own law ([`interp`](IncoherentElastic::interp), with
+    /// `terpa`) and clamped to the end values outside the tabulated range.
     ///
-    /// The ENDF tables are effectively lin-lin in `T`, so a straight linear
-    /// interpolation reproduces `thermr.f90`'s `terpa` here.
+    /// ~~The ENDF tables are effectively lin-lin in `T`, so a straight linear
+    /// interpolation reproduces `thermr.f90`'s `terpa` here.~~ **CORRECTED
+    /// 2026-11-24 (gh:#636):** `iel` reads `W'` with `terpa`
+    /// (`thermr.f90:1311`), which honours `INT`; this ignored it, and
+    /// `interp` was stored but never read. On an `INT = 2` table the value
+    /// moves by at most the last bit (`terp1`'s operation order, and `y`
+    /// exactly at a tabulated `T`). THERMR's stricter read, which stops
+    /// beyond 10 % outside the table, is [`Self::iel_dwa`].
     pub fn debye_waller(&self, temp_k: f64) -> f64 {
         let t = &self.wp_of_t;
         match t.first() {
@@ -49,11 +56,7 @@ impl IncoherentElastic {
                 if temp_k >= tn {
                     return wn;
                 }
-                // Find the bracketing interval and interpolate linearly.
-                let hi = t.iter().position(|&(tt, _)| tt >= temp_k).unwrap();
-                let (t_lo, w_lo) = t[hi - 1];
-                let (t_hi, w_hi) = t[hi];
-                w_lo + (w_hi - w_lo) * (temp_k - t_lo) / (t_hi - t_lo)
+                terpa(&self.interp, t, temp_k).0
             }
         }
     }
@@ -204,6 +207,21 @@ mod tests {
         // Midpoint 348 K is halfway between 296 and 400 K.
         let mid = ie.debye_waller(348.0);
         assert!((mid - 9.5e-3).abs() < 1e-6, "linear interp, got {mid}");
+    }
+
+    /// `W'` honours the TAB1's INT through `terpa` (`thermr.f90:1311`,
+    /// gh:#636): log-log (`INT = 5`) at 348 K is
+    /// `8e-3·(348/296)^(ln(1.1e-2/8e-3)/ln(400/296))`, hand-derived, and
+    /// differs from the lin-lin 9.5e-3.
+    #[test]
+    fn debye_waller_honours_the_tab1_law() {
+        let ie = IncoherentElastic { interp: vec![(3, 5)], ..zrh_like() };
+        let want = 8.0e-3_f64 * (348.0_f64 / 296.0).powf((1.1e-2_f64 / 8.0e-3).ln() / (400.0_f64 / 296.0).ln());
+        let got = ie.debye_waller(348.0);
+        assert!((got / want - 1.0).abs() < 1e-14, "log-log W'(348) = {got}, hand {want}");
+        assert!((got - 9.5e-3).abs() > 1e-6, "not lin-lin: {got}");
+        assert_eq!(ie.debye_waller(400.0), 1.1e-2, "y exactly at a tabulated T");
+        assert_eq!(ie.iel_dwa(348.0).unwrap(), got, "the transport read is iel's");
     }
 
     #[test]

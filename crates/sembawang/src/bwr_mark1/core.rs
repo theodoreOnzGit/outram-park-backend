@@ -2306,7 +2306,6 @@ mod tests {
             n.t_fuel = 560.0;
             n.t_clad = 560.0;
         }
-        let g = geom(&Params::default());
         let dz = Params::default().active_length_m / AXIAL_NODES as f64;
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let h = |c: &Core| -> f64 {

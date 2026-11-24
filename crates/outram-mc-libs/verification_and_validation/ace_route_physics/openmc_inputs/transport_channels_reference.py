@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # OpenMC's transport channel list and fission cross section for ACE tables,
 # the reference for GitHub #366 (outram-mc ACE route sampled MT=4 with Q = 0
 # instead of the inelastic levels, and lost U-234's partial-only fission).
 #
-# Own work (outram-park-backend), GPL-3.0. Uses the OpenMC Python API (MIT) as
+# Own work (outram-park-backend), AGPL-3.0-only. Uses the OpenMC Python API (MIT) as
 # a library only.
 #
 # For each table this writes:

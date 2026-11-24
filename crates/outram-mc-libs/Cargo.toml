@@ -1,6 +1,6 @@
 [package]
 name = "outram-mc-libs"
-version = "0.0.7"
+version = "0.0.8"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -27,6 +27,15 @@ include = [
     "/TRADEMARKS.md",
     "/NUCLEAR_DATA.md",
     "/upstream_source/README.md",
+    # `src/vv/lct008.rs` embeds the LCT-008 OpenMC model with include_str!, so
+    # the published crate must carry these six files (~68 kB) or it does not
+    # build (found by the 2026-11-22 release dry run).
+    "/verification_and_validation/icsbep/leu-comp-therm-008/materials.xml",
+    "/verification_and_validation/icsbep/leu-comp-therm-008/geometry.xml",
+    "/verification_and_validation/icsbep/leu-comp-therm-008/case-2/materials.xml",
+    "/verification_and_validation/icsbep/leu-comp-therm-008/case-2/geometry.xml",
+    "/verification_and_validation/icsbep/leu-comp-therm-008/case-8/materials.xml",
+    "/verification_and_validation/icsbep/leu-comp-therm-008/case-8/geometry.xml",
 ]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer

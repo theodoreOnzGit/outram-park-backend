@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The steady Gaussian plume, one table at a time: ground-level centreline
 //! dilution factor `chi/Q` against distance for each stability class, and
 //! where its peak falls.

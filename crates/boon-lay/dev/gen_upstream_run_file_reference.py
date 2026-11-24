@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 """Code-to-code fixture for reading UPSTREAM-format TRISO-ATOPS run files (#449).
 
 For each case this writes a run file in upstream's own format, with its CSVs,

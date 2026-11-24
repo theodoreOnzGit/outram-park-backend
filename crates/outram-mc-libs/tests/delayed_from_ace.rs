@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Delayed neutrons on the ACE route, against the ENDF route** — GitHub #307
 //! item 1.

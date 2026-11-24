@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! [`WindowedMultipole::write_h5`] — **writer** for the MIT CRPG `WMP_Library`
 //! HDF5 format. GitHub #270, scope table row *"WMP library | read (today) +

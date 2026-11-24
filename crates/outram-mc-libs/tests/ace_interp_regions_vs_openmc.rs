@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The nu and yield tables are evaluated on their own interpolation regions,
 //! as OpenMC's `Tabulated1D` evaluates them.** This is part of the GitHub #365

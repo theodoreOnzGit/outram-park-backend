@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Mesh-based weight windows** — splitting above the window, Russian
 //! roulette below it, and MAGIC generation from a flux tally. GitHub #258.

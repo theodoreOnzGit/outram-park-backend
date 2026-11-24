@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The reader unpacks the tabulated laws, URR tables and the second
 //! temperature of a real OpenMC library** (GitHub #303).

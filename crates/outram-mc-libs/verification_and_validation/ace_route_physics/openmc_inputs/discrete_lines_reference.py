@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # An ACE LAW=4 table WITH DISCRETE LINES (INTT = 10*ND + LEP), constructed from
 # NJOY2016 Li-7 (ENDF/B-VIII.0, MT=16), and the exact mean of OpenMC's
 # ContinuousTabular sampling of it, for GitHub #365 audit.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # No neutron evaluation in ENDF/B-VIII.0 has discrete lines on an MF=6 LAW=1
 # neutron subsection (scanned: 2377 subsections in 557 tapes), so no NJOY-built

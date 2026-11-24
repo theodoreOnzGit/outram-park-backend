@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Independent check of changi::activity's puff-train dilution factor against
 // (a) a quadrature of the same puff kernel and (b) buangkok's pyDOSEIA

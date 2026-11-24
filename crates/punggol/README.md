@@ -13,11 +13,11 @@
 positrons, coupled to `outram-mc-libs`' neutrons, for heating, ionisation and
 shielding. The one question it answers is **"Where do the gammas and betas go,
 and where do they deposit their energy?"** Ions (fission fragments, alphas,
-recoils) stay in `boon-lay`.
+recoils) stay in ~~`boon-lay`~~ `kembangan` (moved 2026-11-22 with the RustBCA copy, gh:#1699).
 
 ## Status
 
-Stated plainly: ~~**decay-photon source spectra and a first port of OpenMC's photon samplers (`compton_scatter`, `rayleigh_scatter`, `pair_production` bit-identical to a built OpenMC for uranium: `docs/openmc_photon_phase2.md`); no transport loop yet.**~~ **CORRECTED 2026-11-21 (gh:#1682, gh:#1685):** decay-photon source spectra; the EGSnrc port (PEGS4, HATCH, the interactions, `PHOTON`/`ELECTR`/`SHOWER` transport loops, EM fields, `egs_parallel`), differentially tested against a compiled EGSnrc and bit-identical with the `std` feature (to round-off without it): `docs/egsnrc_phase2_differential.md`; and OpenMC's photon samplers, TTB and reaction sampling, differentially tested for U and H (`docs/openmc_photon_phase2.md`). **The transport loops run behind a geometry seam; this crate supplies no geometry.** AI draft, untrusted until human review.
+Stated plainly: ~~**decay-photon source spectra and a first port of OpenMC's photon samplers (`compton_scatter`, `rayleigh_scatter`, `pair_production` bit-identical to a built OpenMC for uranium: `docs/openmc_photon_phase2.md`); no transport loop yet.**~~ **CORRECTED 2026-11-21 (gh:#1682, gh:#1685):** decay-photon source spectra; the EGSnrc port (PEGS4, HATCH, the interactions, `PHOTON`/`ELECTR`/`SHOWER` transport loops, EM fields, `egs_parallel`), differentially tested against a compiled EGSnrc and ~~bit-identical with the `std` feature (to round-off without it)~~ **to last-bit round-off in every build since 2026-11-22**, when PETIR became the maths route under `std` too (gh:#1706; the bit-identical results were taken on the platform route): `docs/egsnrc_phase2_differential.md`; and OpenMC's photon samplers, TTB and reaction sampling, differentially tested for U and H (`docs/openmc_photon_phase2.md`). **The transport loops run behind a geometry seam; this crate supplies no geometry.** AI draft, untrusted until human review.
 
 | Part | State |
 |---|---|

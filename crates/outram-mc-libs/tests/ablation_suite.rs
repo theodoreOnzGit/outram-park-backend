@@ -209,10 +209,7 @@ fn mu_elastic(nuclides: &[Nuclide]) -> f64 {
 /// `draws` samples per (energy, nuclide). The continuum channel scores `μ = 0`,
 /// as does a discrete level the evaluation leaves isotropic — matching how the
 /// reference script treats both.
-fn mu_inelastic(nuclides: &[Nuclide], draws: usize) -> f64 {
-    mu_inelastic_on(nuclides, draws, &grid()).0
-}
-
+///
 /// `(⟨μ⟩ over all inelastic, ⟨μ⟩ over discrete levels only, MT=91 share)`.
 fn mu_inelastic_on(nuclides: &[Nuclide], draws: usize, g: &[f64]) -> (f64, f64, f64) {
     let (mut num, mut den) = (0.0, 0.0);

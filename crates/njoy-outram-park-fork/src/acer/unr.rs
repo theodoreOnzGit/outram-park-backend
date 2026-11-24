@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Writing the ACE UNR block** — the unresolved-range probability tables at
 //! `JXS(23)` — GitHub #325.

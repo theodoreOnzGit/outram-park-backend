@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A nuclide built from NJOY2016's ACE, against the same nuclide built from
 //! the ENDF evaluation.** GitHub #270.

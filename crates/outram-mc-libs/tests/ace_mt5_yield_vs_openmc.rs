@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ACE route reads MT=5's energy-dependent multiplicity** — GitHub #365
 //! audit.

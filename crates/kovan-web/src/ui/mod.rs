@@ -525,7 +525,11 @@ impl CodeReview {
                 ui.horizontal(|ui| {
                     ui.heading(self.panel_title());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("« Hide").on_hover_text("Fold the panel away to see the whole picture").clicked() {
+                        // The canvas controls' font and height (camera.rs's
+                        // zoom bar: 17 pt text, 36 pt tall), so it is as easy to
+                        // find as they are (maintainer, 2026-11-23).
+                        let hide_button = egui::Button::new(RichText::new("« Hide").size(17.0)).min_size(egui::vec2(0.0, 36.0));
+                        if ui.add(hide_button).on_hover_text("Fold the panel away to see the whole picture").clicked() {
                             hide = true;
                         }
                     });

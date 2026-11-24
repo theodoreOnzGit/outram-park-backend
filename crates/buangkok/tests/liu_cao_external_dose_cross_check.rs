@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Cross-check of buangkok's pyDOSEIA port against Liu and Cao (2002)'s
 // published HTR-10 doses, EXTERNAL pathways only (gh:#379).

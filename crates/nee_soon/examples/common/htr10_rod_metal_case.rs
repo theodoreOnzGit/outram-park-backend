@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **The HTR-10 rod-metal case, shared by `htr10_rod_metal_full` and
 //! `htr10_rod_metal_simplified`.**
 //!

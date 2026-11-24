@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 OUTRAM PARK contributors
 // This file is part of OUTRAM PARK. See the module header of `htr10_rmc` for
 // licence terms.
@@ -159,6 +159,20 @@ pub struct Htr10Cell {
     pub balls: Vec<([f64; 3], bool)>,
 }
 
+/// The reflective boundary of [`Htr10Cell::single_pebble_with_packing`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PebbleCellBoundary {
+    /// The 6 cm cube of [`Htr10Cell::single_pebble`], touching the pebble.
+    Cube,
+    /// A reflective sphere centred on the pebble, of radius `radius_cm`
+    /// (larger than the pebble; helium in between), as
+    /// `DhUniverse::pebble`'s coolant boundary.
+    Sphere {
+        /// Radius \[cm\].
+        radius_cm: f64,
+    },
+}
+
 impl Htr10Cell {
     /// The single pebble at the default design, delta-tracked with majorant 0.
     #[must_use]
@@ -241,6 +255,124 @@ impl Htr10Cell {
             dummy_balls: 0,
             balls: vec![([0.0; 3], true)],
         }
+    }
+
+    /// The single pebble of `design` with **explicit TRISO centres** in place
+    /// of the core's cubic lattice, inside `boundary` (gh:#1707).
+    ///
+    /// This is the like-for-like counterpart of
+    /// `outram_mc_libs::dh_universe::DhUniverse::pebble`: give it that
+    /// universe's own packing (`dh_universe::pack_in_ball` with the same
+    /// radius, fraction and seed) and
+    /// [`PebbleCellBoundary::Sphere`] at its coolant radius, and the two
+    /// models differ only in the code that tracks them. The centres (cm, in
+    /// the pebble frame) are wrapped in a tracking lattice of 10 x 10 x 10
+    /// tiles over the fuel zone (`create_triso_lattice`, as the explicit
+    /// DEM bed does) and fill the fuel zone instead of the cubic lattice;
+    /// everything else is [`Self::single_pebble_with`]'s pebble.
+    ///
+    /// For a sphere the bounding box ([`Self::source_box`],
+    /// [`Self::entropy_mesh`]) is the cube circumscribing it, so the entropy
+    /// mesh covers the whole fuel zone; the source sampler rejects initial
+    /// points outside the sphere, as it rejects every non-fissile one.
+    ///
+    /// `kind` stays [`CellKind::SinglePebble`], whose
+    /// [`CellKind::describe`] names the 6 cm cube: with a sphere boundary
+    /// that description is wrong, and the boundary is read from the
+    /// geometry, not from `kind`. (A new variant would force an arm into
+    /// the MGXS case runner, which has no use for this cell.)
+    ///
+    /// # Panics
+    /// If `design` fails `Htr10CoreDesign::check`, if a particle leaves the
+    /// tracking lattice, or if the sphere does not enclose the pebble.
+    #[must_use]
+    pub fn single_pebble_with_packing(
+        design: &Htr10CoreDesign,
+        majorant_index: usize,
+        centres: &[Position],
+        boundary: PebbleCellBoundary,
+    ) -> Self {
+        let mut cell = Self::single_pebble_with(design, majorant_index);
+        let r_part = design.triso_radii_cm[4];
+        let r_fz = design.fuel_zone_radius_cm;
+        const TILES: usize = 10;
+        let pitch = 2.0 * r_fz / TILES as f64;
+        let g = &mut cell.geometry;
+        let lattice_id = match &g.lattices[0] {
+            Lattice::Rect(l) => l.id,
+            Lattice::Hex(l) => l.id,
+        };
+        let out = outram_mc_libs::pebble_beds::triso_lattice::create_triso_lattice(
+            centres,
+            r_part,
+            TRISO_PARTICLE_UNIVERSE,
+            Position::new(-r_fz, -r_fz, -r_fz),
+            [pitch; 3],
+            [TILES; 3],
+            mat::GRAPHITE,
+            None,
+            outram_mc_libs::pebble_beds::triso_lattice::TrisoLatticeBase {
+                surface: g.surfaces.len(),
+                cell: g.cells.len(),
+                universe: g.universes.len(),
+            },
+            lattice_id,
+        );
+        assert_eq!(out.partly_outside, 0, "a TRISO particle leaves the fuel-zone lattice");
+        g.surfaces.extend(out.surfaces);
+        g.cells.extend(out.cells);
+        g.universes.extend(out.universes);
+        g.lattices[0] = Lattice::Rect(out.lattice);
+        cell.triso_particles = centres.len();
+        if let PebbleCellBoundary::Sphere { radius_cm } = boundary {
+            let r_pebble = cell.half_extent[0];
+            assert!(radius_cm > r_pebble, "boundary sphere {radius_cm} cm does not enclose the {r_pebble} cm pebble");
+            let idx = g.surfaces.len();
+            g.surfaces.push(SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r: radius_cm,
+                bc: BoundaryType::Reflective,
+            }));
+            // cell 0 is the root cell filled with the pebble universe
+            g.cells[0].region = vec![ins(idx)];
+            // The sphere's bounding box: the source sampler rejects points
+            // outside the sphere, and the entropy mesh then covers all fuel.
+            cell.half_extent = [radius_cm; 3];
+            cell.volume_cm3 = 4.0 / 3.0 * core::f64::consts::PI * radius_cm.r_powi(3);
+        }
+        cell
+    }
+
+    /// The CSG twin of `DhUniverse::pebble(params, DeltaTracking)` (gh:#1707):
+    /// the same particle centres (`dh_universe::pack_in_ball` with `params`'
+    /// OPyC radius, fuel-zone radius, packing fraction and seed, exactly the
+    /// call that constructor makes) in the same reflective sphere
+    /// (`params.coolant_radius`), on the default design's TRISO and pebble.
+    ///
+    /// # Panics
+    /// If `params` has no coolant radius, if its TRISO radii or fuel-zone
+    /// radius are not the default design's, or if the packing fails.
+    #[must_use]
+    pub fn single_pebble_like_dh_universe(params: &outram_mc_libs::dh_universe::PebbleParams, majorant_index: usize) -> Self {
+        let design = Htr10CoreDesign::default();
+        let spec = params.spec;
+        let dh_radii = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
+        for (k, (a, b)) in dh_radii.iter().zip(design.triso_radii_cm.iter()).enumerate() {
+            assert!((a - b).abs() <= 1e-12 * b, "TRISO radius {k}: DhUniverse {a} cm, CSG design {b} cm");
+        }
+        assert!(
+            (params.fuel_zone_radius - design.fuel_zone_radius_cm).abs() <= 1e-12,
+            "fuel zone: DhUniverse {} cm, CSG design {} cm",
+            params.fuel_zone_radius,
+            design.fuel_zone_radius_cm
+        );
+        let radius_cm = params.coolant_radius.expect("the DhUniverse pebble needs a coolant radius to compare with");
+        let packing = outram_mc_libs::dh_universe::pack_in_ball(spec.opyc, params.fuel_zone_radius, spec.packing_fraction, params.seed)
+            .unwrap_or_else(|e| panic!("DhUniverse packing: {e:?}"));
+        let centres: Vec<Position> = packing.packing.spheres().iter().map(|p| p.center).collect();
+        Self::single_pebble_with_packing(&design, majorant_index, &centres, PebbleCellBoundary::Sphere { radius_cm })
     }
 
     /// The Şeker cluster of `rings` (1, 2 or 3) at the default design,

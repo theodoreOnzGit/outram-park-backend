@@ -154,10 +154,21 @@ pub fn thermr_tables_lattice(
                     interpolated: ii.temperature_bracket.is_some(),
                 });
             }
+            // `thermr.f90:1814-1834`: `calcem` stops outside the `T_eff`
+            // TAB1 (gh:#636).
+            if !ii.teff_table.is_empty() {
+                ii.calcem_teff_k(temp_k)?;
+            }
             IncoherentInelastic { teff_request_k: Some(temp_k), ..ii.clone() }
         }
         None => ii.clone(),
     };
+    // An ENDF-6 tape's own second SCT atom (`B(7) = 0`, `thermr.f90:1678-1690`,
+    // `:1835-1856`), as THERMR applies it (gh:#632).
+    let mut ii = ii;
+    if let Some(s2) = ii.endf6_secondary_sct(natom, temp_k)? {
+        ii.secondary_sct = Some(s2);
+    }
     let bragg_s: Option<Vec<(f64, f64)>> = match (&mf7.coherent_elastic, incident) {
         (Some(ce), Some(_)) => Some(ce.s_of_e_rdelas(temp_k)),
         (Some(ce), None) => Some(ce.s_of_e_at(temp_k)?),

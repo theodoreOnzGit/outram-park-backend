@@ -13,8 +13,6 @@ use crate::nostd_prelude::*;
 /// The source is sampled once per source particle at the start of each history.
 use crate::geometry::position::{Direction, Position};
 use super::angle::AngleDist;
-use super::energy::EnergyDist;
-use super::spatial::SpatialDist;
 
 /// A sampled source particle state.
 #[derive(Debug, Clone, Copy, PartialEq)]

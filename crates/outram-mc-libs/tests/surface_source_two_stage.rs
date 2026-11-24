@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **A two-stage surface-source run reproduces the single-stage answer** —
 //! gh:#264 acceptance bullet 1, *"A two-stage surface-source run reproduces the

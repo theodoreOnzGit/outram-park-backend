@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **History-event tally driver** — supplies the event-history fields of
 //! [`FilterEvent`] that the transport loop does not (GitHub #261).
@@ -53,17 +53,26 @@
 //! - `n_collision`: collisions completed **before** the segment being scored
 //!   (the track-length estimator scores in `event_advance`, before
 //!   `event_collide` increments the count).
-//! - mesh-surface currents are scored per flight segment from its start to its
+//! - ~~mesh-surface currents are scored per flight segment from its start to its
 //!   end (`filter_meshsurface.cpp`), so each [`HistoryEventKind::Segment`]
-//!   carries both end points.
+//!   carries both end points.~~ **CORRECTED 2026-11-22 (gh:#1709):** mesh-surface
+//!   currents are one raytrace from `r_last_current` (birth or last collision)
+//!   to where the particle collides, leaks or changes direction
+//!   (`particle.cpp:411,743-748,785-788,835-838`), through upstream's
+//!   `raytrace_mesh`; a transmissive crossing scores nothing. Each
+//!   [`HistoryEventKind::Segment`] carries that span, if its flight ends one
+//!   ([`mesh_surface_span`]).
 //!
 //! # Limits, stated
 //!
 //! Scores supported: [`ScoreType::Flux`] on segments (`w * d`) and
 //! [`ScoreType::Current`] on crossings and, for a mesh-surface tally, on
-//! segments. A tally with a mesh-surface filter must carry no other filter
+//! segments. ~~A tally with a mesh-surface filter must carry no other filter
 //! (one event can match several faces; combining would need a product over
-//! multi-match filters). Time is not reconstructed (`time = 0`).
+//! multi-match filters).~~ **CORRECTED 2026-11-22 (gh:#1713):** a mesh-surface
+//! filter combines with single-bin filters as upstream's `FilterBinIter` does
+//! ([`mesh_surface_bins`]); a second multi-match filter beside it is still
+//! refused. Time is not reconstructed (`time = 0`).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -114,6 +123,10 @@ pub struct HistoryEvent {
     /// [`FilterEvent::position`] is the segment *midpoint* and cannot serve.
     /// For other events, equal to `ev.position`.
     pub track_end: Position,
+    /// For a segment: the mesh-surface raytrace upstream makes when this flight
+    /// ends ([`mesh_surface_span`]), `None` when it makes none (gh:#1709). For
+    /// other events, `None`.
+    pub mesh_surface_span: Option<(Position, Position)>,
 }
 
 /// OpenMC's `TINY_BIT` (`constants.h`): how far a particle is pushed past a
@@ -211,6 +224,12 @@ pub struct EventHistory {
     /// nudge [`score_mesh_surface_segment`] undoes.
     pub after_boundary: bool,
     after_collision: bool,
+    /// OpenMC's `r_last_current` (`particle_data.h:430`), where a mesh-surface
+    /// raytrace starts (gh:#1709): the birth point (`particle.cpp:174`), then
+    /// each collision site (`:464`). `None` after a reflective, white or
+    /// periodic crossing, where upstream sets `r() + TINY_BIT * u()`
+    /// (`:812,860`): the next flight's start supplies it.
+    pub r_last_current: Option<Position>,
     /// Cell and universe of each coordinate level of the current path, root
     /// first (gh:#677); see [`EventHistory::set_levels`].
     pub levels: [(usize, usize); super::filter::MAX_PATH_LEVELS],
@@ -230,6 +249,7 @@ impl Default for EventHistory {
             material_last: None,
             after_boundary: false,
             after_collision: false,
+            r_last_current: None,
             levels: [(usize::MAX, usize::MAX); super::filter::MAX_PATH_LEVELS],
             n_levels: 0,
         }
@@ -239,7 +259,28 @@ impl Default for EventHistory {
 impl EventHistory {
     /// A particle born at `r`.
     pub fn at_birth(r: Position) -> Self {
-        EventHistory { position_born: r, ..Default::default() }
+        EventHistory { position_born: r, r_last_current: Some(r), ..Default::default() }
+    }
+
+    /// The flight `r_flight + d * u` just ended, on `crossing` (`None` for a
+    /// collision or a lattice boundary) or in a collision: update
+    /// [`Self::r_last_current`] as upstream does (gh:#1709). Call it once per
+    /// flight, after the flight is scored and before [`Self::collided`] or
+    /// [`Self::crossed_boundary`].
+    pub fn end_flight(
+        &mut self,
+        geom: &Geometry,
+        crossing: Option<usize>,
+        collides: bool,
+        r_flight: Position,
+        u: Direction,
+        d: f64,
+    ) {
+        if collides {
+            self.r_last_current = Some(advance(r_flight, u, d));
+        } else if crossing.is_some_and(|sf| changes_direction(geom.surfaces[sf].bc())) {
+            self.r_last_current = None;
+        }
     }
 
     /// The loop located the particle in `cell` with `material`.
@@ -278,6 +319,61 @@ impl EventHistory {
     pub fn crossed_boundary(&mut self) {
         self.after_boundary = true;
     }
+}
+
+/// A boundary condition that sends the particle on in a new direction, where
+/// upstream scores mesh-surface currents `TINY_BIT` short of the surface and
+/// restarts `r_last_current` `TINY_BIT` past it (`particle.cpp:785-812,
+/// 835-860`; white is a reflection with a sampled direction, `:875`).
+fn changes_direction(bc: crate::geometry::surface::BoundaryType) -> bool {
+    use crate::geometry::surface::BoundaryType;
+    match bc {
+        BoundaryType::Reflective | BoundaryType::White | BoundaryType::Periodic | BoundaryType::PeriodicWith(_) => {
+            true
+        }
+        BoundaryType::Transmissive | BoundaryType::Vacuum => false,
+    }
+}
+
+/// The mesh-surface raytrace OpenMC makes when a flight ends, if it makes one
+/// (gh:#1709): `score_meshsurface_tally` from `r_last_current` to the point
+/// where the particle collides (`particle.cpp:411`), leaks (pushed on by
+/// `TINY_BIT`, `:743-748`) or changes direction at a reflective, white or
+/// periodic surface (moved back by `TINY_BIT`, `:785-788, 835-838`). A flight
+/// that ends at a transmissive surface or a lattice boundary scores nothing;
+/// its crossings are counted by the raytrace that ends the straight track.
+///
+/// `r_last_current` is the history's (`None`: the flight's own start, moved
+/// back over the transport's crossing nudge and on by `TINY_BIT`, as upstream's
+/// `r() + TINY_BIT * u()` after a reflection). Returns `(start, end)`.
+pub fn mesh_surface_span(
+    geom: &Geometry,
+    r_last_current: Option<Position>,
+    r_flight: Position,
+    u: Direction,
+    d: f64,
+    after_boundary: bool,
+    crossing: Option<usize>,
+    collides: bool,
+) -> Option<(Position, Position)> {
+    let end = advance(r_flight, u, d);
+    let r1 = if collides {
+        end
+    } else {
+        let bc = geom.surfaces[crossing?].bc();
+        if matches!(bc, crate::geometry::surface::BoundaryType::Vacuum) {
+            advance(end, u, TINY_BIT)
+        } else if changes_direction(bc) {
+            advance(end, u, -TINY_BIT)
+        } else {
+            return None;
+        }
+    };
+    let r0 = r_last_current.unwrap_or_else(|| {
+        let start = if after_boundary { advance(r_flight, u, -TRANSPORT_NUDGE) } else { r_flight };
+        advance(start, u, TINY_BIT)
+    });
+    Some((r0, r1))
 }
 
 /// The start and end of a flight as `score_surface_tally` sees them for a
@@ -371,11 +467,31 @@ pub fn score_crossing(
     }
 }
 
-/// Score the faces one flight crosses into `batch` for a tally whose only
-/// filter is a mesh-surface filter and whose score is `Current`
-/// (`filter_meshsurface.cpp`); any other tally is left alone. `crossing` is the
-/// surface the flight ended on (`None` for a collision or a lattice boundary),
-/// `collides` whether it ended in a collision.
+/// Score the mesh faces crossed since [`EventHistory::r_last_current`] into
+/// `batch`, for a tally with a mesh-surface filter and a `Current` score
+/// (`filter_meshsurface.cpp`, `tally_scoring.cpp:2612-2650`); any other tally
+/// is left alone. `crossing` is the surface the flight ended on (`None` for a
+/// collision or a lattice boundary), `collides` whether it ended in a
+/// collision.
+///
+/// ~~Scored per flight, from the flight's start to its end.~~ **CORRECTED
+/// 2026-11-22 (gh:#1709):** upstream scores one raytrace from
+/// `r_last_current` to where the particle collides, leaks or changes
+/// direction ([`mesh_surface_span`]), not one per geometry segment; per
+/// segment, every segment that ended on a mesh plane made a tie. Call
+/// [`EventHistory::end_flight`] after scoring.
+///
+/// ~~Only a tally whose only filter is the mesh-surface filter is scored.~~
+/// **CHANGED 2026-11-22 (gh:#1713):** other single-bin filters may sit beside
+/// it ([`mesh_surface_bins`]). They read the state upstream's
+/// `score_meshsurface_tally` sees (`particle.cpp:411,743,785,835`, all before
+/// the event changes it): `energy`, the cell, material and universe of the
+/// flight (`hist.material`, `universe_idx`, `cell_instance`, the levels in
+/// `hist`), and the raytrace's end point as `position`. A tally that pairs it
+/// with another multi-match filter is not scored here (the history driver
+/// [`score_history_event`] returns an error for it). Called from both the
+/// surface-tracking and the delta-tracking arm of `transport_history_vr_urr`,
+/// once per flight (delta tracking: new work, not upstream).
 #[allow(clippy::too_many_arguments)]
 pub fn score_mesh_surface_segment(
     batch: &mut [f64],
@@ -383,6 +499,8 @@ pub fn score_mesh_surface_segment(
     geom: &Geometry,
     hist: &EventHistory,
     cell_idx: usize,
+    universe_idx: usize,
+    cell_instance: Option<usize>,
     energy: f64,
     weight: f64,
     crossing: Option<usize>,
@@ -391,14 +509,21 @@ pub fn score_mesh_surface_segment(
     u: Direction,
     d: f64,
 ) {
-    let [FilterKind::MeshSurface(f)] = tally.filters.as_slice() else { return };
-    let leaks = !collides
-        && crossing.is_some_and(|sf| {
-            matches!(geom.surfaces[sf].bc(), crate::geometry::surface::BoundaryType::Vacuum)
-        });
-    let (start, track_end) = flight_track_ends(r_flight, u, d, hist.after_boundary, leaks);
+    if !tally.filters.iter().any(|f| matches!(f, FilterKind::MeshSurface(_))) {
+        return;
+    }
+    let Some((start, track_end)) =
+        mesh_surface_span(geom, hist.r_last_current, r_flight, u, d, hist.after_boundary, crossing, collides)
+    else {
+        return;
+    };
     let ev = FilterEvent {
         cell_idx,
+        material_idx: hist.material.unwrap_or(usize::MAX),
+        universe_idx,
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         energy,
         position_last: start,
         position: track_end,
@@ -407,16 +532,82 @@ pub fn score_mesh_surface_segment(
         cell_born: hist.cell_born,
         position_born: hist.position_born,
         weight,
+        cell_instance,
         ..Default::default()
     };
+    let Ok(bins) = mesh_surface_bins(tally, &ev) else { return };
     let n_scores = tally.scores.len();
-    for b in f.matches(&ev) {
+    for (b, fw) in bins {
         for (s, sc) in tally.scores.iter().enumerate() {
             if matches!(sc, ScoreType::Current) {
-                batch[b * n_scores + s] += weight;
+                batch[b * n_scores + s] += weight * fw;
             }
         }
     }
+}
+
+/// The flattened filter bins and filter weights one mesh-surface event scores
+/// into: OpenMC's `FilterBinIter` (`tally_scoring.cpp:33-60,96-141`) for a
+/// tally holding exactly one mesh-surface filter and any number of single-bin
+/// filters (gh:#1713).
+///
+/// The mesh-surface filter contributes every face
+/// [`MeshSurfaceFilter::matches`](super::filter_extra::MeshSurfaceFilter::matches)
+/// returns for `ev.position_last -> ev.position` (weight 1,
+/// `filter_meshsurface.cpp:10-22`); every other filter its one
+/// [`FilterKind::get_bin`] (weight 1), or for an
+/// [`EnergyFunctionFilter`](super::filter_extra::EnergyFunctionFilter) bin 0
+/// with weight `y(E)` (`filter_energyfunc.cpp`). The index is
+/// `sum_i bin_i * stride_i` with the last filter fastest (`tally.cpp:496-509`,
+/// the same row-major product [`score_crossing`] forms), the weight the
+/// product of the filters' weights. Any filter without a match: no bins
+/// (`tally_scoring.cpp:47-51`). With the mesh-surface filter alone this is
+/// `(face, 1.0)` per face, so a lone mesh-surface tally scores exactly what it
+/// scored before (`w * 1.0 == w`).
+///
+/// # Errors
+///
+/// No mesh-surface filter, or a second filter that can match several bins at
+/// once (another mesh-surface, mesh-material, particle-production, or a
+/// functional expansion): those combinations are not implemented.
+pub fn mesh_surface_bins(tally: &Tally, ev: &FilterEvent) -> Result<Vec<(usize, f64)>, String> {
+    let mut ms: Option<(usize, &super::filter_extra::MeshSurfaceFilter)> = None;
+    let mut base = 0usize;
+    let mut weight = 1.0f64;
+    let mut stride = 1usize;
+    let mut no_match = false;
+    for f in tally.filters.iter().rev() {
+        match f {
+            FilterKind::MeshSurface(m) => {
+                if ms.is_some() {
+                    return Err("a tally may carry only one mesh-surface filter".into());
+                }
+                ms = Some((stride, m));
+            }
+            FilterKind::MeshMaterial(_) | FilterKind::ParticleProduction(_) => {
+                return Err("a mesh-surface filter cannot be combined with another multi-match filter".into());
+            }
+            _ if f.is_expansion() => {
+                return Err("a mesh-surface filter cannot be combined with an expansion filter".into());
+            }
+            FilterKind::EnergyFunction(ef) => match ef.response(ev.energy) {
+                Some(y) => weight *= y,
+                None => no_match = true,
+            },
+            _ => match f.get_bin(ev) {
+                Some(b) => base += b * stride,
+                None => no_match = true,
+            },
+        }
+        stride *= f.n_bins();
+    }
+    let Some((ms_stride, m)) = ms else {
+        return Err("no mesh-surface filter on this tally".into());
+    };
+    if no_match {
+        return Ok(Vec::new());
+    }
+    Ok(m.matches(ev).into_iter().map(|face| (base + face * ms_stride, weight)).collect())
 }
 
 /// Rebuild the tallying events of one history from its [`TraceEvent`] stream.
@@ -450,11 +641,14 @@ pub fn history_events(
     let mut material_last: Option<usize> = None;
     // True when the current flight began at a boundary the transport nudged past.
     let mut after_boundary = false;
+    // OpenMC's `r_last_current` (gh:#1709); see [`EventHistory::r_last_current`].
+    let mut r_last_current: Option<Position> = None;
 
     for t in trace {
         match *t {
             TraceEvent::Start { r: r0, u: u0, e: e0 } => {
                 r_born = r0;
+                r_last_current = Some(r0);
                 u = u0;
                 e = e0;
             }
@@ -488,6 +682,12 @@ pub fn history_events(
                     });
                 let track_end = if leaks { advance(end, u, TINY_BIT) } else { end };
                 let start = if after_boundary { advance(r, u, -TRANSPORT_NUDGE) } else { r };
+                let span = mesh_surface_span(geom, r_last_current, r, u, d, after_boundary, surface, collides);
+                if collides {
+                    r_last_current = Some(end);
+                } else if surface.is_some_and(|sf| changes_direction(geom.surfaces[sf].bc())) {
+                    r_last_current = None;
+                }
                 let ev = FilterEvent {
                     cell_idx: cell,
                     material_idx: material.unwrap_or(usize::MAX),
@@ -503,7 +703,7 @@ pub fn history_events(
                     cell_instance: instance,
                     ..Default::default()
                 };
-                out.push(HistoryEvent { kind: HistoryEventKind::Segment { distance: d }, track_end, ev });
+                out.push(HistoryEvent { kind: HistoryEventKind::Segment { distance: d }, track_end, mesh_surface_span: span, ev });
                 // The next flight starts at a boundary unless a collision ended this one.
                 after_boundary = !collides;
                 pending = match (collides, surface) {
@@ -527,7 +727,7 @@ pub fn history_events(
                     cell_instance: instance,
                     ..Default::default()
                 };
-                out.push(HistoryEvent { kind: HistoryEventKind::Collision { scatter: false }, track_end: ev.position, ev });
+                out.push(HistoryEvent { kind: HistoryEventKind::Collision { scatter: false }, track_end: ev.position, mesh_surface_span: None, ev });
                 after_boundary = false;
                 n_coll += 1;
                 material_last = None;
@@ -561,7 +761,7 @@ pub fn history_events(
                             cell_instance: instance,
                             ..Default::default()
                         };
-                        out.push(HistoryEvent { kind: HistoryEventKind::Crossing { sign }, track_end: end, ev });
+                        out.push(HistoryEvent { kind: HistoryEventKind::Crossing { sign }, track_end: end, mesh_surface_span: None, ev });
                     }
                 }
                 if s.event == TrackEvent::Scatter {
@@ -633,23 +833,26 @@ pub fn score_history_event(
     out: &mut [f64],
 ) -> Result<(), String> {
     let n_scores = tally.scores.len();
-    let ms = tally.filters.iter().position(|f| matches!(f, FilterKind::MeshSurface(_)));
-    if let Some(i) = ms {
-        if tally.filters.len() != 1 {
-            return Err("a mesh-surface tally must carry no other filter here".into());
-        }
-        let FilterKind::MeshSurface(f) = &tally.filters[i] else { unreachable!() };
-        if let HistoryEventKind::Segment { .. } = he.kind {
+    if tally.filters.iter().any(|f| matches!(f, FilterKind::MeshSurface(_))) {
+        // ~~A mesh-surface tally must carry no other filter here.~~ **CHANGED
+        // 2026-11-22 (gh:#1713):** single-bin filters combine with it as
+        // upstream's `FilterBinIter` does ([`mesh_surface_bins`]).
+        if let (HistoryEventKind::Segment { .. }, Some((r0, r1))) = (he.kind, he.mesh_surface_span) {
             let mut ev = he.ev.clone();
-            ev.position = he.track_end;
-            for b in f.matches(&ev) {
+            ev.position_last = r0;
+            ev.position = r1;
+            for (b, fw) in mesh_surface_bins(tally, &ev)? {
                 for (s, sc) in tally.scores.iter().enumerate() {
                     match sc {
-                        ScoreType::Current => out[b * n_scores + s] += he.ev.weight,
+                        ScoreType::Current => out[b * n_scores + s] += he.ev.weight * fw,
                         _ => return Err(format!("score {sc:?} unsupported on mesh-surface")),
                     }
                 }
             }
+        } else {
+            // Refuse an unsupported combination on every event, not only on
+            // those that carry a span.
+            mesh_surface_bins(tally, &he.ev)?;
         }
         return Ok(());
     }

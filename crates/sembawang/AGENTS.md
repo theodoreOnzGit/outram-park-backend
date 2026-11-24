@@ -10,10 +10,12 @@ a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
 - New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
   glob; maps `crate::hash`, one-time initialisation `crate::sync::OnceLock`.
   Inside `bwr_mark1`, write `::core::` (the local `mod core` shadows `core`).
-- Only the OpenMC decay-data **loading** is `std`
+- ~~Only the OpenMC decay-data **loading** is `std`
   (`bwr_mark1::fp_decay::{raw_data, graph, compute}`, which read the
   `openmc-endf-8-depletion-lib-a`/`-b` crates); the committed element tables
-  (`ElementShares::committed`) the plant model uses build without it.
+  (`ElementShares::committed`) the plant model uses build without it.~~
+  **CHANGED 2026-11-22:** the decay-data loading builds without `std` too
+  (`openmc-endf-8-depletion-lib-a`/`-b` 1.1.0 are `no_std`).
 - Printing is gated one statement at a time; integration tests and examples
   are `std` only, as are the four unit tests that call `compute`.
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Build an ACE table whose fission nu-bar is a POLYNOMIAL (NU block LNU = 1),
 # from NJOY2016's U-235 table, and record OpenMC's reading of it, for GitHub
 # #365 audit (outram used to tabulate the polynomial on 1e-5 eV - 20 MeV and
 # read it lin-lin and clamped).
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # The new NU block is appended to XSS and JXS(2) pointed at it; JXS(24) (DNU)
 # is set to 0 so the single block is TOTAL nu (openmc reaction.py:257). The

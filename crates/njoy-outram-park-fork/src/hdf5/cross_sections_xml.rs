@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`cross_sections.xml` — the library index** — GitHub #270 scope item 4.
 //!

@@ -893,7 +893,7 @@ neutrons, PUNGGOL takes care of gammas and other things".
 |---|---|
 | Neutrons | **this crate**, and only neutrons |
 | Photons (gammas), electrons, positrons | **`punggol`** (PUNGGOL domain, `docs/ecosystem-naming.md`): the OpenMC photon port (gh:#975) and the EGSnrc electron/positron port as a module with provenance (gh:#976) |
-| Ions: fission fragments, alphas, recoil knock-ons | **`boon-lay`** (its RustBCA copy) |
+| Ions: fission fragments, alphas, recoil knock-ons | ~~**`boon-lay`** (its RustBCA copy)~~ **`kembangan`** (the RustBCA copy, moved from boon-lay 2026-11-22, gh:#1699; `boon_lay::rustbca` re-exports it) |
 
 - **Coupled neutron–photon transport:** this crate records where secondary
   photons are born in its collision loop (as OpenMC does), and `punggol`

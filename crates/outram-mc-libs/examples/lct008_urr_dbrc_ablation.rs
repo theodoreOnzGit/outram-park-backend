@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Is the ACE-vs-ENDF `k` agreement real, or is it two effects cancelling?**
 //! — GitHub #307.

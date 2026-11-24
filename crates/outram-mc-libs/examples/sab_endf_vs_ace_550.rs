@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **H in H2O S(a,b): this crate's tape-built table against NJOY2016's ACE**
 //! (GitHub #550, hypothesis H1b of the 2.40 cm diagnosis in

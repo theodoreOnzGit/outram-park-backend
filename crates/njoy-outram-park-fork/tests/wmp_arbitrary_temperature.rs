@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — the premise GitHub #269 rests on: that the windowed-multipole
 //! tier gives analytic Doppler broadening at an **arbitrary** temperature, so

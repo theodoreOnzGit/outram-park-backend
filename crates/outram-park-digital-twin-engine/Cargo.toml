@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-digital-twin-engine"
-version = "0.0.4"
+version = "0.0.5"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -221,7 +221,7 @@ bugis = { workspace = true, features = ["widgets", "app_scaffold", "web_demo"] }
 # stack), so this adds only what `outram-mc-libs`, already a dependency,
 # brings. No cycle: dhoby-ghaut does not depend on this crate. Both are
 # AGPL-3.0-only. Path AND version so the lockstep release can publish it.
-dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.2", default-features = false, features = ["mc_web"] }
+dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.3", default-features = false, features = ["mc_web"] }
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true

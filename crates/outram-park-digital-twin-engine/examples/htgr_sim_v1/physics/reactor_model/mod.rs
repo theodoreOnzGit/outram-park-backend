@@ -197,6 +197,20 @@ impl ReactorModel {
         }
     }
 
+    /// The bed's two-temperature control volume as the selected tier holds
+    /// it (a copy): the real one-node bed, or the one-node fallback a
+    /// placeholder tier delegates to. Read by the control-volume map
+    /// (`crate::physics::control_volumes`, gh:#1718), which therefore lists
+    /// what the model steps, not what a tier's name promises. When the
+    /// seven-node tier is implemented this becomes its node stack.
+    pub fn porous_media_node(&self) -> PebbleBedPorousMediaNode {
+        match self {
+            Self::OneNodePorousMedia(core) => *core,
+            Self::AxialSevenNode(core) => core.porous_media_node(),
+            Self::CoarseMeshGenFoam(core) => core.porous_media_node(),
+        }
+    }
+
     /// The fidelity tier currently selected.
     pub fn kind(&self) -> ReactorModelKind {
         match self {

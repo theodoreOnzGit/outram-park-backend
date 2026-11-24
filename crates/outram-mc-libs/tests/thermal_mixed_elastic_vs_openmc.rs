@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Mixed coherent + incoherent thermal elastic (ACE IDPNC = 5) is read and
 //! sampled as OpenMC does** — GitHub #365 audit.

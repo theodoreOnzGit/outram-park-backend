@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Critical boron versus burnup — the k search coupled to depletion**
 //! (GitHub #1616; epic #257). Hook: `depletion::keff_search`, after OpenMC's

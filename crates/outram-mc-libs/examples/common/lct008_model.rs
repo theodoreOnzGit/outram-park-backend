@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The std glue around the LEU-COMP-THERM-008 model.** The model itself
 //! (cards, materials, nested-lattice CSG, self-check) is in the library since

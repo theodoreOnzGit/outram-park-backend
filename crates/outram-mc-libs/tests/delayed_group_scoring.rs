@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Delayed-group-resolved `delayed-nu-fission` and `decay-rate` tallies on
 //! real ENDF/B-VIII.0 U-235 data** - gh:#262.

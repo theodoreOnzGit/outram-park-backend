@@ -502,8 +502,23 @@ pub fn doppler_broaden_below_with(
 /// broadening is a Gaussian convolution in velocity whose variances add, so
 /// 0 → 293.6 K → 900 K and 0 → 900 K agree to the thinning tolerance. When
 /// `temp_k` is not above the input's temperature (`tempef <= 0`) upstream
-/// only thins (`thinb`, `broadr.f90:1218-1222`); thinning is not ported (GitHub #619), so
-/// the input is returned unchanged, still labelled with its own temperature.
+/// only thins (`thinb`, `broadr.f90:1218-1222`); ~~thinning is not ported (GitHub #619), so
+/// the input is returned unchanged, still labelled with its own temperature.~~
+/// **CORRECTED 2026-11-24 (GitHub #619):** this now thins too, through
+/// [`joint::broadr_joint_thinb`], reading and writing the PENDF as text as at
+/// `tempef > 0`, and the result is labelled `temp_k` as upstream's output is.
+/// The input still passes through unchanged, under its own temperature, where
+/// `broadr_joint_thinb` has nothing to walk (no MT=1) or refuses one of the
+/// two cases upstream leaves undefined (a table longer than one page; a walk
+/// that ends below `thnmax`; see `broadr/joint/thinb.rs`).
+///
+/// **Not applied here: the LRF=7 particle-pair list** (`nppmt`, GitHub #618).
+/// Upstream reads it from the ENDF tape, which a [`ReconrResult`] does not
+/// carry, so an LRF=7 pair channel whose threshold is at or above the
+/// resonance range's top is not broadened here, where NJOY broadens it.
+/// [`broaden_result_with_pairs`] takes the list
+/// (`joint::lrf7_pair_mts(&tape, mat)`); `process::cross_sections_at` and the
+/// deck driver apply it.
 #[must_use]
 ///
 /// Since 2026-09-26 this is upstream's own form, [`joint::broadr_joint`]. It
@@ -531,15 +546,41 @@ pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
 /// joint walk only: the per-reaction fallback, taken when the result has no
 /// MT=1 section, keeps its own fixed tolerance.
 pub fn broaden_result_with_tolerance(result: &ReconrResult, temp_k: f64, errthn: f64) -> ReconrResult {
+    broaden_result_with_tolerance_and_pairs(result, temp_k, errthn, &[])
+}
+
+/// [`broaden_result`] with upstream's LRF=7 particle-pair list `nppmt`, which
+/// BROADR reads from the ENDF tape (`broadr.f90:292-330`) and forces into the
+/// broadened set (`:513-520`), gh:#618. Pass
+/// `joint::lrf7_pair_mts(&tape, mat)`; an empty list is [`broaden_result`].
+#[must_use]
+pub fn broaden_result_with_pairs(result: &ReconrResult, temp_k: f64, pair_mts: &[i32]) -> ReconrResult {
+    broaden_result_with_tolerance_and_pairs(result, temp_k, BroadnTolerances::default().errthn, pair_mts)
+}
+
+/// [`broaden_result_with_tolerance`] with the LRF=7 particle-pair list, as
+/// [`broaden_result_with_pairs`] (gh:#618). An empty list is
+/// [`broaden_result_with_tolerance`].
+#[must_use]
+pub fn broaden_result_with_tolerance_and_pairs(
+    result: &ReconrResult,
+    temp_k: f64,
+    errthn: f64,
+    pair_mts: &[i32],
+) -> ReconrResult {
     // `tempef=tempk-tempin` (`broadr.f90:605-610`, GitHub #617).
     let tempef = temp_k - result.temperature_k;
     if !(tempef > 0.0) {
-        // Upstream thins only here; not ported, so the data pass through
-        // under their own temperature (see the doc above).
-        return result.clone();
+        // Upstream thins only here (`thinb`, gh:#619); the cases `thinb`
+        // refuses or has nothing to walk pass through (see the doc above).
+        let pendf = result.through_pendf_text();
+        return match joint::broadr_joint_thinb_pairs(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5, pair_mts) {
+            Ok(Some(r)) => r.through_pendf_text(),
+            Ok(None) | Err(_) => result.clone(),
+        };
     }
     let pendf = result.through_pendf_text();
-    if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5) {
+    if let Some(r) = joint::broadr_joint_pairs(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5, true, pair_mts) {
         // BROADR writes a PENDF: energies copied above `thnmax` have been
         // through `e(k)**2/alpha` (`broadn` label 190) and are printed.
         return r.through_pendf_text();

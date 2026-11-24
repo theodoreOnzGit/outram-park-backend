@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Photon tables for plume shine: gamma lines per nuclide and the air
 //! attenuation coefficients. Ported from pyDOSEIA `raddcffunc.py`
 //! (`gamma_energy_abundaces`, `add_zero_energy_for_pure_beta`, `atten_coeff`,

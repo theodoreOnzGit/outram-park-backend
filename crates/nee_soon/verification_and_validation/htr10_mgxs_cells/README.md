@@ -14,6 +14,7 @@ before and after, `a1c325330bec698b` (length 11 422 660) at 14 x 12 and
 | cell | boundary | balls with a piece inside | ball fraction |
 |---|---|---|---|
 | `single_pebble()` | reflective 6 cm cube | 1 fuel | 0.5236 (simple cubic) |
+| `single_pebble_like_dh_universe(..)` (gh:#1707, 2026-11-22) | reflective sphere, r = 3.7221 cm (the cube's volume) | 1 fuel, DhUniverse's random packing (8345 TRISO) | 0.5236 |
 | `seker_cluster(1)` | reflective Wigner–Seitz hexagon of the tile lattice, one tile high | 13 fuel + 10 dummy = 23 | 0.6448 (Şeker) |
 | `seker_cluster(2)` | the same, superlattice (2, 1): 7 tiles' worth | 100 fuel + 76 dummy = 176 | 0.6448 |
 | `seker_cluster(3)` | the same, superlattice (3, 2): 19 tiles' worth | 247 fuel + 187 dummy = 434 | 0.6448 |
@@ -39,6 +40,8 @@ Every image is drawn from the assembled geometry with `render_material_slice`
 |---|---|
 | `single_pebble_xy_layer.png`, `single_pebble_xz_layer.png` | x-y at z = 0.1385 cm and x-z at y = -0.1229 cm, each through a TRISO layer near the centre |
 | `single_pebble_triso_xy.png` | 0.8 cm round one particle |
+| `single_pebble_like_dh_xy_central.png`, `single_pebble_like_dh_xz_central.png` | x-y and x-z through the centre of the like-for-like pebble (gh:#1707) |
+| `single_pebble_like_dh_xy_layer.png`, `single_pebble_like_dh_triso_xy.png` | x-y through one particle, and 0.8 cm round it |
 | `seker_cluster_r{1,2,3}_xy_basal.png` | x-y, 0.05 cm above the bottom face |
 | `seker_cluster_r{1,2,3}_xy_central.png` | x-y at z = 0 |
 | `seker_cluster_r{1,2,3}_xz.png` | x-z at y = 0 |
@@ -50,6 +53,15 @@ Every image is drawn from the assembled geometry with `render_material_slice`
 - **The single pebble.** The pebble is tangent to all four cube faces. Helium
   fills the corners. The particles fill a disc of radius about 2.45 cm, inside
   the 2.5 cm fuel zone, and none of them cross the zone boundary.
+- **The like-for-like pebble (2026-11-22, gh:#1707).** The particles are
+  scattered at random within the 2.5 cm fuel zone, and none of them is in the
+  0.5 cm shell. Helium fills the space from the 3 cm pebble out to the
+  reflective sphere at 3.7221 cm, which shows as the cut-off corners of the
+  6.2 cm frame. The run reports 8345 particles, DhUniverse's realised count.
+  The zoomed particle shows all five layers, with no overlaps between
+  neighbours. Not checked by eye: that every one of the 8345 centres equals
+  DH's. That holds by construction, since both come from the same
+  `pack_in_ball` call.
 - **The TRISO particle.** All five layers are drawn in order (kernel, buffer,
   IPyC, SiC, OPyC) inside the matrix, on the core's cubic pitch of 0.195 cm.
 - **The rings-1 slices.** The hexagon is the tile. The basal plane holds the
@@ -96,6 +108,32 @@ face to count.
 ## 3. The CSG single pebble against `DhUniverse::pebble`
 
 Test: `tests/htr10_single_pebble_vs_dh_universe.rs` (gated by `long-tests`).
+**Like for like since 2026-11-22 (gh:#1707):** both arms use the **same
+geometry**: DhUniverse's own random packing (8345 TRISO) in its reflective
+sphere (r = 3.7221 cm), built for CSG by `single_pebble_like_dh_universe`.
+They differ only in the tracking code. The materials and data are the same.
+Pass: |Δk| < 3σ combined. Prediction, made before the run: Δk consistent
+with zero.
+
+**Result** (2026-11-22, seed 20 261 013, 4-core Xeon @ 2.30 GHz):
+
+| budget | CSG pebble k (8345 TRISO, DH packing) | CSG time | DhUniverse pebble k | DH time | whole test (incl. data loading) | CSG − DH | verdict |
+|---|---|---|---|---|---|---|---|
+| 4000 x [10 + 50] (default) | 1.68625 ± 0.00185 (0 lost) | 415 s | 1.68850 ± 0.00197 | 52 s | 808 s (13.5 min; ~341 s loading) | −225 ± 271 pcm (−0.83σ) | passes |
+| 10000 x [50 + 200] | 1.68863 ± 0.00056 (0 lost) | 4026 s | 1.68732 ± 0.00059 | 313 s | 4669 s (77.8 min; ~330 s loading) | +131 ± 81 pcm (+1.62σ) | passes |
+
+At high statistics, a tracker difference larger than about 250 pcm is
+excluded.
+
+~~**Superseded (not like for like):**~~ The 2026-10-13 version compared the
+cubic lattice in a reflective cube with this random packing in the sphere.
+That mixes geometry with method, which the comparison must not do. The
+earlier text follows, struck through:
+
+<details><summary>2026-10-13 record (superseded)</summary>
+
+
+Test: `tests/htr10_single_pebble_vs_dh_universe.rs` (gated by `long-tests`).
 The methodology is in its module docs. In short, it uses the same data and
 materials in both arms. The CSG arm is the cubic lattice in a reflective cube.
 The DH arm is random packing in a reflective equal-volume sphere
@@ -115,6 +153,11 @@ The two independently built pebbles agree. **This budget does not resolve
 the prediction**, because σ = 347 pcm exceeds the 300 pcm bound. What it does
 exclude, at about 3σ, is a gross build defect, such as #316's TRISO-count
 error (+353 pcm on the core). A probe at 500 x [2 + 3] gave −12 ± 1864 pcm.
+
+At 10000 x [50 + 200] that geometry-mixed comparison gave −455 ± 82 pcm
+(2026-11-22, gh:#1707).
+
+</details>
 
 ## 4. Cell-size convergence, 1 / 7 / 19 tiles
 

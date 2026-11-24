@@ -33,7 +33,7 @@
 #[path = "../verification_and_validation/rustbca_differential/shared.rs"]
 mod shared;
 
-use boon_lay::rustbca as rb;
+use kembangan::rustbca as rb;
 use miniz_oxide::inflate::decompress_to_vec;
 use petir::rng::{ChaCha8Rng, SeedableRng};
 use std::collections::BTreeMap;

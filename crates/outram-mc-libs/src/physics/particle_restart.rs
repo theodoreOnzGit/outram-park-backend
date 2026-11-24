@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Particle restart** — replay one history, exactly. GitHub #271, scope
 //! item 1.

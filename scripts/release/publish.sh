@@ -24,6 +24,11 @@
 #
 # The crates.io token must carry the publish-new and publish-update scopes. It
 # stays in ~/.cargo/credentials.toml; this script never reads or prints it.
+#
+# HOLD="a,b,c" keeps those crates out of the release (2026-11-22, a partial
+# lockstep while the neutronics stack's tests are red): they are excluded
+# from every round and not counted as pending. Hold everything that depends on
+# a held crate too, or cargo cannot resolve the dependent's new version.
 
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -38,7 +43,9 @@ for round in $(seq 1 100); do
     excludes=()
     pending=0
     while IFS=$'\t' read -r name ver dir; do
-        if version_is_live "$name" "$ver"; then
+        if [[ ",${HOLD:-}," == *",$name,"* ]]; then
+            excludes+=(--exclude "$name")
+        elif version_is_live "$name" "$ver"; then
             excludes+=(--exclude "$name")
         else
             pending=$((pending + 1))

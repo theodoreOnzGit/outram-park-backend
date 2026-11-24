@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Distribcell offset tables** — per-instance tallies inside a repeated
 //! universe. GitHub #261, the last of its sixteen filters.

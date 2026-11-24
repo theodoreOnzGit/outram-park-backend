@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Half-life text parsing and decay constants, as pyDOSEIA does them.
 //!
 //! # Provenance

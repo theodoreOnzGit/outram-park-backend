@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Build ACE files in the layouts outram's reader did not read before the
 # GitHub #365 audit, from NJOY2016 tables, and record what OpenMC's own reader
 # (openmc/data/ace.py) decodes from each: the reference for
 # crates/njoy-outram-park-fork/tests/ace_file_formats_vs_openmc.rs.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # Variants (written to <out dir>):
 #   F19_v2header.ace   ACE 2.0.1 header (ace.py:349-359), name 9019.800nc

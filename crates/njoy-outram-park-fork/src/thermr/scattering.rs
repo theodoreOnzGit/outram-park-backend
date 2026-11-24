@@ -191,6 +191,14 @@ impl IncoherentInelasticScattering {
             .copied()
             .filter(|&n| n > 0.0)
             .unwrap_or(1.0);
+        // An ENDF-6 mixed moderator's second SCT atom (`B(7) = 0`): its term
+        // is physics the evaluation supplies, so it is on by default, as in
+        // THERMR (`thermr.f90:1678-1690`, `:2588-2594`; gh:#632). `T_eff2` is
+        // read at the requested temperature. No held tape has one.
+        let mut inelastic = inelastic;
+        if let Some(s2) = inelastic.endf6_secondary_sct(natom, target_k)? {
+            inelastic.secondary_sct = Some(s2);
+        }
         Ok(Self {
             inelastic,
             requested_temperature: temperature,
@@ -402,11 +410,20 @@ impl IncoherentInelasticScattering {
 /// see the [`mf7` module docs](super::mf7)), so the per-collision queries are
 /// plain table lookups.
 ///
-/// **Cross sections are per principal atom** (`B(6)` of the evaluation's MT=4
+/// ~~**Cross sections are per principal atom** (`B(6)` of the evaluation's MT=4
 /// section; `1` for graphite), matching [`IncoherentInelasticScattering`] so
-/// the two channels can be summed with one number density.
+/// the two channels can be summed with one number density.~~
+/// **CORRECTED 2026-11-24 (gh:#632):** the cross section is the evaluation's
+/// `S(E, T)/E`, **not** divided by `natom`. THERMR's `sigcoh` sets `scon = 1`
+/// for tabulated ENDF data (`thermr.f90:1157`) and returns `s*scon*re`
+/// (`:1190`); `/natom` appears only in its built-in lattice constants
+/// (`:1022-1036`). ACER does not divide either (`aceth.f90:735`, gh:#1369),
+/// and the THERMR deck path here (`mf3_grid::Sigcoh`) never did. So this is
+/// the value an NJOY-made PENDF or ACE file carries, and the one to sum with
+/// [`IncoherentInelasticScattering`]'s with one number density. Every held
+/// coherent tape has `B(6) = 1`, where the two agree.
 ///
-/// **Physics.** `σ_coh_el(E) = S(E, T)/(E·natom)`: zero below the Bragg
+/// **Physics.** ~~`σ_coh_el(E) = S(E, T)/(E·natom)`~~ `σ_coh_el(E) = S(E, T)/E`: zero below the Bragg
 /// cutoff (the first edge with nonzero `S` — 1.8223 meV for graphite, the
 /// (002) plane), then a `1/E` sawtooth stepping up at each edge, suppressed
 /// with rising `T` by the Debye-Waller factor. A coherent-elastic scatter keeps the neutron energy (`E_out = E_in`)
@@ -508,8 +525,10 @@ impl CoherentElasticScattering {
             .collect()
     }
 
-    /// Number of principal scattering atoms (`B(6)`; `1` for graphite). All
-    /// cross sections here are *per one* such atom.
+    /// Number of principal scattering atoms (`B(6)`; `1` for graphite).
+    /// ~~All cross sections here are *per one* such atom.~~ **CORRECTED
+    /// 2026-11-24 (gh:#632):** the coherent cross sections are not divided by
+    /// it (see the type's docs); it is reported for information.
     pub fn principal_atom_count(&self) -> f64 {
         self.natom
     }
@@ -530,9 +549,9 @@ impl CoherentElasticScattering {
     /// sawtooth onto its own energy grid.
     ///
     /// Returns one `(E_i, σ_i)` pair per tabulated Bragg edge, ascending in
-    /// `E_i`, where `E_i` is the edge energy and `σ_i = S(E_i, T)/(E_i·natom)`
-    /// is the coherent-elastic cross section **per principal atom** at that
-    /// edge — i.e. the value [`cross_section`](Self::cross_section) takes
+    /// `E_i`, where `E_i` is the edge energy and ~~`σ_i = S(E_i, T)/(E_i·natom)`~~
+    /// `σ_i = S(E_i, T)/E_i` (**CORRECTED 2026-11-24**, gh:#632) is the
+    /// coherent-elastic cross section at that edge — i.e. the value [`cross_section`](Self::cross_section) takes
     /// throughout the interval `[E_i, E_{i+1})`. Units: energy in the
     /// [`NeutronEnergy`] alias (eV in ENDF), cross section in [`CrossSection`]
     /// (barn in ENDF). ENDF/B-VIII.0 crystalline graphite tabulates 221 edges.
@@ -541,7 +560,7 @@ impl CoherentElasticScattering {
     /// - `σ(E) = σ_i·E_i / E` for `E ∈ [E_i, E_{i+1})`, and `0` below `E_0`
     ///   (the `1/E` decay between edges);
     /// - the cumulative structure factor at edge `i` is the product
-    ///   `S_i/natom = σ_i·E_i` \[eV·barn\], and the sampling weight of edge `i`
+    ///   ~~`S_i/natom`~~ `S_i = σ_i·E_i` \[eV·barn\], and the sampling weight of edge `i`
     ///   is the increment `σ_i·E_i − σ_{i−1}·E_{i−1}` (`≥ 0`, and exactly `0`
     ///   for a grid point that opens no reflection — graphite's leading
     ///   0.4556 meV point).
@@ -559,7 +578,7 @@ impl CoherentElasticScattering {
             .zip(self.s_at_t.iter())
             .map(|(&e_ev, &s)| {
                 let sigma = if e_ev > 0.0 {
-                    s / (e_ev * self.natom)
+                    s / e_ev
                 } else {
                     0.0
                 };
@@ -571,11 +590,12 @@ impl CoherentElasticScattering {
             .collect()
     }
 
-    /// Coherent-elastic cross section `σ_coh_el(E)` **per principal atom** at
-    /// incident neutron energy `e`, at the construction temperature.
+    /// Coherent-elastic cross section `σ_coh_el(E)` ~~**per principal atom**~~
+    /// at incident neutron energy `e`, at the construction temperature.
     ///
-    /// Zero below the Bragg cutoff; `S(E, T)/(E·natom)` above it (a `1/E`
-    /// sawtooth stepping up at each Bragg edge).
+    /// Zero below the Bragg cutoff; ~~`S(E, T)/(E·natom)`~~ `S(E, T)/E`
+    /// (**CORRECTED 2026-11-24**, gh:#632, as THERMR's `sigcoh`) above it (a
+    /// `1/E` sawtooth stepping up at each Bragg edge).
     pub fn cross_section(&self, e: NeutronEnergy) -> CrossSection {
         let e_ev = e.get::<electronvolt>();
         if e_ev <= 0.0 {
@@ -585,7 +605,7 @@ impl CoherentElasticScattering {
         if n_below == 0 {
             return CrossSection::new::<barn>(0.0);
         }
-        CrossSection::new::<barn>(self.s_at_t[n_below - 1] / (e_ev * self.natom))
+        CrossSection::new::<barn>(self.s_at_t[n_below - 1] / e_ev)
     }
 
     /// The **open** Bragg reflections at incident energy `e`: `(μ_i, p_i)`
@@ -790,4 +810,30 @@ fn nearest_record(table: &Iform0Table, ev: f64) -> Option<&IncidentEnergyRecord>
         }
     };
     Some(&recs[i])
+}
+
+#[cfg(test)]
+mod coherent_natom_tests {
+    use super::*;
+
+    /// Coherent elastic is `S(E)/E`, not divided by `natom` (`sigcoh`,
+    /// `thermr.f90:1157`, `:1190`; gh:#632): with `B(6) = 2` the cross section
+    /// and the edge table are what `natom = 1` gives. Hand values:
+    /// `S = 3` eV·b from the 0.01 eV edge, so `σ(0.02 eV) = 150` b.
+    #[test]
+    fn coherent_elastic_is_not_divided_by_natom() {
+        let ce = CoherentElasticScattering {
+            bragg_energies_ev: vec![0.01, 0.05],
+            s_at_t: vec![3.0, 5.0],
+            natom: 2.0,
+            requested_temperature: Temperature::new::<kelvin>(296.0),
+            resolved_temperature_k: 296.0,
+            tabulated_temperatures_k: vec![296.0],
+        };
+        let s = ce.cross_section(NeutronEnergy::new::<electronvolt>(0.02)).get::<barn>();
+        assert_eq!(s, 3.0 / 0.02);
+        let t = ce.bragg_edge_table();
+        assert_eq!(t[1].1.get::<barn>(), 5.0 / 0.05);
+        assert_eq!(ce.principal_atom_count(), 2.0);
+    }
 }

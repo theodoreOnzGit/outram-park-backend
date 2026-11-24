@@ -1,5 +1,7 @@
 # RustBCA differential: boon-lay's copy against upstream v3.0.0 (gh:#1426, epic #1336)
 
+> **MOVED 2026-11-22 (gh:#1699):** this record moved from `boon-lay` to `kembangan` with the RustBCA copy. Results below were measured as `boon_lay::rustbca`, the same code, and are kept as run.
+
 Research, education and V&V only. Not for facility operation, licensing or safety decisions
 (`RESPONSIBLE_USE.md`).
 
@@ -23,7 +25,7 @@ cp driver/driver_main.rs drv/src/main.rs && cp shared.rs drv/src/shared.rs
 ```
 
 Build in a scratch directory outside the workspace, with its own target directory (the upstream tree is
-never modified). `RBCA_DUMP_FULL=<path> cargo test --release -p boon-lay --test rustbca_upstream_differential`
+never modified). `RBCA_DUMP_FULL=<path> cargo test --release -p kembangan --test rustbca_upstream_differential`
 writes the copy's full dump, in the format of `rbca_driver --full`, for line-by-line localisation.
 
 ## Provenance and licences

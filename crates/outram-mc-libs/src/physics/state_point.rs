@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **State points and run summaries** — what a run leaves behind.
 //! GitHub #271 scope items 3 and 4.

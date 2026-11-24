@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The LEU-COMP-THERM-008 lattice model** (ICSBEP; the B&W critical
 //! lattices, a 2.459 w/o UO2 rod array in borated water).

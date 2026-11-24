@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-only
 """Second tranche of the pyDOSEIA code-to-code fixture: ingestion, plume shine,
 the QUADPACK routine behind it, multi-source DCF screening, plume rise and the
 driver (`outputfunc.dose_calculation_script` and `main.py`'s summaries).

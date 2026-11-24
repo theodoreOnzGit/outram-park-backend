@@ -44,6 +44,12 @@ done
 (( FULL )) && rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
 
+# kovan builds use every core on CI (maintainer, 2026-11-22: "ensure kovan
+# builds in parallel threads"); locally they keep PAGES_JOBS (default 3), the
+# cap that stops the 16 GB dev box running out of memory. Override with
+# KOVAN_JOBS.
+if [[ -n "${CI:-}" ]]; then KOVAN_JOBS="${KOVAN_JOBS:-$(nproc)}"; else KOVAN_JOBS="${KOVAN_JOBS:-${PAGES_JOBS:-3}}"; fi
+
 
 # ── phase static: the pages, checks, code map, ICSBEP page, citations and mdBooks ──
 phase_static() {
@@ -90,7 +96,7 @@ cp docs/site/code-map/index.html "$OUT/code-map/"
 mkdir -p "$OUT/kovan-schema"
 cp docs/site/kovan-schema/index.html "$OUT/kovan-schema/"
 code_map() {
-  cargo run --release -q -j "${PAGES_JOBS:-3}" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
+  cargo run --release -q -j "$KOVAN_JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
     code-map --workspace . "$@"
 }
 code_map --format svg -o "$OUT/code-map/code_map.svg"
@@ -548,7 +554,7 @@ done < <(grep -rhoE '(demos/|")triso-atops/\?rung=[a-z0-9_-]+' "$OUT" --include=
 # page exists. The tokeniser check fails the build if search.js would split a
 # query differently from the index.
 node docs/site/check-search.js
-cargo run --release -q -j "${PAGES_JOBS:-3}" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
+cargo run --release -q -j "$KOVAN_JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
   site-index "$OUT"
 [[ -s "$OUT/search-text.json" ]] || { echo "the full-text search index was not written" >&2; exit 1; }
 

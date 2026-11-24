@@ -123,6 +123,12 @@ pub struct LState {
     pub l: u32,
     /// All resonances in this l-state, in file order.
     pub resonances: Vec<SlbwResonance>,
+    /// `LRX` (L2 of the l-state LIST): non-zero when a competitive width
+    /// `GT - GN - GG - GF` is given. `rdf2bw`/`csslbw`/`csmlbw` then add a
+    /// fifth channel (MT=51) and its width to every resonance's total width
+    /// (`reconr.f90:964-1016, 2808, 2839, 2852`). Not ported:
+    /// [`crate::reconr::reconr`] refuses `LRX != 0` (GitHub #666).
+    pub lrx: i32,
 }
 
 // ── Reich-Moore (LRF=3) resonance types ───────────────────────────────────────
@@ -742,6 +748,7 @@ fn parse_slbw_mlbw(
         let lst = cur.read_list()?;
         let awri = lst.head.c1;
         let l = lst.head.l1 as u32;
+        let lrx = lst.head.l2;
         let nrs = lst.head.n2 as usize;
 
         let mut resonances = Vec::with_capacity(nrs);
@@ -761,6 +768,7 @@ fn parse_slbw_mlbw(
             awri,
             l,
             resonances,
+            lrx,
         });
     }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **The HTR-10 material set, in one place.**
 //!
 //! # Why this module exists

@@ -29,6 +29,30 @@ use crate::NjoyError;
 /// assert_eq!(parse_endf_float("  2-He-  4 ").unwrap(), 0.0);
 /// ```
 pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
+    // Hollerith / non-numeric content: silently return 0.0. Right for text
+    // records; a numeric record uses [`parse_endf_float_checked`] (gh:#660).
+    Ok(parse_endf_float_checked(s).unwrap_or(0.0))
+}
+
+/// [`parse_endf_float`] without the text fallback: `None` when the field is
+/// not a number a Fortran `e11.0` read accepts (gh:#660).
+///
+/// NJOY2016 reads numeric records with `(6e11.0,i4,i2,i3,i5)` and no
+/// `iostat` (`endf.f90:55`, `:852`), so gfortran stops the run on such a
+/// field ("Bad value during floating point read"); measured 2026-11-24 on a
+/// C-12 tape with `4.7x81670` in MF=3/MT=2. A blank field is `0.0`, and blanks
+/// inside a field are ignored (`BN`), as in [`parse_endf_float`].
+///
+/// ```
+/// use njoy_outram_park_fork::endf::parse::parse_endf_float_checked;
+/// assert_eq!(parse_endf_float_checked("           "), Some(0.0));
+/// assert_eq!(parse_endf_float_checked(" 4.74 8167 "), Some(4.748167));
+/// assert_eq!(parse_endf_float_checked(" 1.5D3"), Some(1500.0));
+/// assert_eq!(parse_endf_float_checked(" 4.7x81670 "), None);
+/// assert_eq!(parse_endf_float_checked("  2-He-  4 "), None);
+/// ```
+#[must_use]
+pub fn parse_endf_float_checked(s: &str) -> Option<f64> {
     let s = s.trim();
     // **CHANGED 2026-11-11 (gh:#1369, test 01 / ENDF/B-V tape 511):** a blank
     // inside a numeric field is ignored, as a Fortran formatted `read` does
@@ -43,7 +67,7 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
         s
     };
     if s.is_empty() {
-        return Ok(0.0);
+        return Some(0.0);
     }
 
     // Find the exponent separator: a `+` or `-` that is not the leading sign
@@ -56,8 +80,12 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
 
     let result = match exp_start {
         None => {
-            // No exponent separator — plain integer-like field (e.g. "0") or text
-            s.parse::<f64>().ok()
+            // No exponent separator — plain integer-like field (e.g. "0") or text.
+            // Fortran also reads an unsigned `D` exponent (`1.5D3`), which
+            // Rust's parser does not (gh:#660).
+            s.parse::<f64>()
+                .ok()
+                .or_else(|| s.replace(['D', 'd'], "e").parse::<f64>().ok())
         }
         Some(sep) => {
             // Fortran also writes an explicit exponent letter (`1.00000E-5`,
@@ -109,8 +137,7 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
         }
     };
 
-    // Hollerith / non-numeric content: silently return 0.0, matching Fortran e11.0
-    Ok(result.unwrap_or(0.0))
+    result
 }
 
 /// Format one ENDF 11-column float field — the write-side inverse of
@@ -346,6 +373,19 @@ pub struct RawLine {
 /// 80-byte copy and byte slicing panicked when a multibyte character
 /// straddled a field boundary. ASCII lines parse exactly as before.
 pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
+    parse_line_checked(line, false)
+}
+
+/// [`parse_line`], refusing a field that is not a number when `numeric` is
+/// true: an [`NjoyError::EndfParse`] naming the field, where NJOY2016's
+/// formatted read stops with "Bad value during floating point read"
+/// (gh:#660). With `numeric` false a non-numeric field reads `0.0`, which is
+/// right only for text (Hollerith) records.
+///
+/// # Errors
+///
+/// [`NjoyError::EndfParse`] on a non-numeric field when `numeric` is true.
+pub fn parse_line_checked(line: &str, numeric: bool) -> Result<RawLine, NjoyError> {
     // Pad to 80 columns so slicing is always in-bounds; one byte per column,
     // all ASCII, so the byte slices below are always on char boundaries.
     let mut buf = [b' '; 80];
@@ -356,7 +396,21 @@ pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
 
     let mut fields = [0.0f64; 6];
     for i in 0..6 {
-        fields[i] = parse_endf_float(&s[i * 11..(i + 1) * 11])?;
+        let field = &s[i * 11..(i + 1) * 11];
+        fields[i] = match parse_endf_float_checked(field) {
+            Some(v) => v,
+            None if numeric => {
+                return Err(NjoyError::EndfParse(format!(
+                    "field {} ({field:?}) of MAT {} MF {} MT {} is not a number; \
+                     NJOY2016 stops here (Fortran e11.0: bad value during floating point read)",
+                    i + 1,
+                    s[66..70].trim(),
+                    s[70..72].trim(),
+                    s[72..75].trim()
+                )))
+            }
+            None => 0.0,
+        };
     }
 
     let mat = s[66..70].trim().parse::<i32>().unwrap_or(0);

@@ -111,12 +111,28 @@ fn thinb_one_page(e: &[f64], s: &[f64], nreac: usize, errthn: f64, thnmax: f64) 
 /// [`NjoyError::InvalidInput`] for `tempef > 0` (use [`super::broadr_joint`]);
 /// [`NjoyError::NotPorted`] for the two undefined cases in the module doc (a table
 /// longer than one page; a walk that ends below `thnmax`).
-#[allow(clippy::too_many_lines)]
 pub fn broadr_joint_thinb(
     result: &ReconrResult,
     temp_k: f64,
     tol: &BroadnTolerances,
     thnmx: f64,
+) -> Result<Option<ReconrResult>, NjoyError> {
+    broadr_joint_thinb_pairs(result, temp_k, tol, thnmx, &[])
+}
+
+/// [`broadr_joint_thinb`] with the LRF=7 particle-pair list `nppmt`
+/// ([`super::lrf7_pair_mts`]), forced into the thinned set as upstream's
+/// selection does (`broadr.f90:513-520`, gh:#618).
+///
+/// # Errors
+/// As [`broadr_joint_thinb`].
+#[allow(clippy::too_many_lines)]
+pub fn broadr_joint_thinb_pairs(
+    result: &ReconrResult,
+    temp_k: f64,
+    tol: &BroadnTolerances,
+    thnmx: f64,
+    nppmt: &[i32],
 ) -> Result<Option<ReconrResult>, NjoyError> {
     const E6PT5: f64 = 6.5e6;
     const FACT: f64 = 0.99999;
@@ -162,13 +178,18 @@ pub fn broadr_joint_thinb(
 
     // Reaction selection (broadr.f90:497-562).
     let mut mtr: Vec<usize> = Vec::new();
+    let mut npp_n = 0usize;
     for (idx, sec) in secs.iter().enumerate() {
         let mt = i32::from(sec.mt.number());
         if mt == 1 || skipped(mt) || sec.pairs.is_empty() {
             continue;
         }
         let enext = section_reader(sec).get(0.0).xnext;
-        if mt == 18 || enext <= emin || (lrp == 1 && enext < eresh) {
+        if mt == 18
+            || super::nppmt::forced_pair(mt, nppmt, &mut npp_n)
+            || enext <= emin
+            || (lrp == 1 && enext < eresh)
+        {
             mtr.push(idx);
             continue;
         }

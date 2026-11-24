@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **GRsecant criticality search** — a noise-aware, adaptive-statistics secant
 //! search for the parameter `x` at which `k_eff(x) = target`. GitHub #1618

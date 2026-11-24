@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Uniform fission site (UFS) weighting** — GitHub #258 scope item 5.
 //!

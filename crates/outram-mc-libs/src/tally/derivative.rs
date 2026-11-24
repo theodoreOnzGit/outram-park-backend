@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Tally derivatives** — a sensitivity coefficient from a single run.
 //! GitHub #263 scope item 3.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Every block of an ACE table, ours against NJOY2016's own** — the
 //! reference tables in the `reference-data/ace` submodule.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The inelastic level pick inside the unresolved range with `ILF = 51`** —
 //! GitHub #463 item 3.

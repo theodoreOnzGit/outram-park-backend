@@ -225,3 +225,66 @@ interpolator wanted in PETIR — a separate issue), and any version bump. The
 EGSnrc numerics can be ported into PETIR under the same §13 combination: its
 GSL-derived GPL-3.0 files and EGSnrc-derived AGPL-3.0 files coexist in one
 crate lawfully.
+
+## Addendum 2026-11-22: file headers follow provenance (maintainer direction)
+
+**Maintainer, 2026-11-22:** "rewrite AGPLv3 workspace wide, keeping provenance
+discipline", and "combined works must be AGPLv3, esp cos of egsnrc and
+kovan's zotero ports". Every crate, and the workspace as a whole, is
+**AGPL-3.0-only**. EGSnrc (punggol) and Zotero (kovan) are AGPL themselves, so
+any combination that contains them is conveyed under the AGPL; GPLv3 §13 and
+AGPLv3 §13 are what let the GPL-licensed translations sit inside it.
+
+**What changed on this date: 438 file headers.** The 2026-10-20 pass touched no
+file header, so files that were never GPL by provenance still said
+`GPL-3.0`. Their SPDX line is now `AGPL-3.0-only` (and, where present, the
+GPL notice paragraph became the AGPL one). The rule applied, per file:
+
+- **Relabelled:** our own work, and ports of permissively licensed upstreams
+  (OpenMC, MIT; NJOY2016, BSD-3-Clause; TRISO-ATOPS, MIT; pyDOSEIA, MIT;
+  CYCLUS, BSD-3-Clause; SciPy QUADPACK, BSD). The upstream attribution headers
+  are unchanged; MIT and BSD code may be relicensed one way into the AGPL.
+- **Kept GPL-3.0 (or the upstream's own GPL/LGPL version):** every file whose
+  text names a copyleft upstream it translates (OpenFOAM, GSL, cfMesh, DWSIM,
+  FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE, Moltres, PRISMS, Octave,
+  LIGGGHTS, GeN-Foam, OFFBEAT, SCRAM, RELAP, ...). Those are translations of
+  the upstream's copyright and cannot be relicensed.
+- **Kept GPL-3.0, unresolved:** files in crates that port copyleft code whose
+  header neither names an upstream nor says they are original work (146 at
+  classification), plus three single files: `outram-mc-libs`'s
+  `thermal_profile/materials.rs` (reproduces OFFBEAT's RELAP Zircaloy fit),
+  bugis's two generated LIGGGHTS packing tables, and
+  `outram-park-fork-thermochimica/src/gem.rs` (upstream licence not checked).
+  A later pass may relabel any of them once its provenance is read.
+
+Per crate (files relabelled): 
+
+| Crate | Files |
+|---|---|
+| `outram-mc-libs` | 178 |
+| `njoy-outram-park-fork` | 59 |
+| `nee_soon` | 55 |
+| `boon-lay` | 50 |
+| `buangkok` | 34 |
+| `sembawang` | 21 |
+| `tampines` | 8 |
+| `raffles` | 7 |
+| `outram-blender` | 6 |
+| `dover` | 5 |
+| `tampines-steam-tables` | 4 |
+| `outram-park-digital-twin-engine` | 3 |
+| `petir` | 2 |
+| `kaki-bukit` | 2 |
+| `changi` | 2 |
+| `outram-park-fork-coolprop` | 1 |
+| `kovan-common` | 1 |
+
+After this pass, 1,290 files carry a GPL SPDX line, all in the kept groups
+above. `LICENSE.GPL-3.0` stays beside `LICENSE` wherever a GPL file remains
+(GPLv3 §4).
+
+**For new files:** our own code gets `SPDX-License-Identifier: AGPL-3.0-only`.
+A file that translates an upstream keeps that upstream's attribution header;
+if the upstream is copyleft (GPL/LGPL), its SPDX line names the upstream's
+licence, and if it is permissive, the file is `AGPL-3.0-only` with the
+upstream's notice kept.

@@ -238,3 +238,19 @@ version that fixed `bigeta` for Ca-40's proton emission. **Measured:** the port'
 (`tests/pendf_stages_vs_njoy2016.rs::reconr_ca40_test88_*`); before the `bigeta` sync 9 sections differed
 (31 184 points against 31 188). Record: `crates/njoy-outram-park-fork/verification_and_validation/upstream_units/samm_bigeta/README.md`.
 Data policy: derived product of the open ENDF/B-VIII.0 evaluation processed with BSD-licensed NJOY2016.
+
+## BROADR at 0 K: thinning only (`thinb`) — added 2026-11-24 (gh:#619)
+
+`tape22` of `reconr 20 21 / <mat> 0 / .001 / 0 /` then
+`broadr 20 21 22 / <mat> 1 / .001 / 0.0 / 0 /` (each deck committed beside its
+tape as `*.njoy-input`). At `tempef = 0 - 0 <= 0` BROADR does not broaden; it
+only thins (`thinb`, `broadr.f90:1218-1222`, `:1677-1760`). NJOY2016 2016.80
+(`ab27c64`), gfortran 13.3.0; generated 2026-11-24 from `../endf/`. Gate:
+`tests/pendf_stages_vs_njoy2016.rs::broadr_0k_thins_like_njoy2016`.
+
+| Tape | Material | Points in → out (NJOY listing) |
+|---|---|---|
+| `h2-ENDF8.0-broadr-0K.pendf` (61 kB) | H-2, MAT 128, ENDF/B-VIII.0 | 769 → 406 |
+| `be9-ENDF8.0-broadr-0K.pendf` (87 kB) | Be-9, MAT 425, ENDF/B-VIII.0 | 832 → 497 |
+
+Data policy: derived products of open ENDF/B-VIII.0 evaluations processed with BSD-licensed NJOY2016.

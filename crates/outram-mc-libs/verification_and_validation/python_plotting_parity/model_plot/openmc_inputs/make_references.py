@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-only
 """Reference images for the outram-mc-libs port of OpenMC's PYTHON slice plot,
 ``openmc.Model.plot`` (and ``Universe.plot``, ``Cell.plot``, ``Region.plot``).
 
@@ -22,7 +22,7 @@ Usage:  python make_references.py <out_dir>
 Provenance: OpenMC 0.16.1.dev25, commit d7d3284a1 (MIT, notice in
 ../../geometry_plotting/openmc_inputs/LICENSE.openmc), C++ library built from
 source with libpng; matplotlib 3.11.2, numpy (see README); run 2026-09-26.
-This driver is new work, GPL-3.0-only like the rest of the crate.
+This driver is new work, AGPL-3.0-only like the rest of the crate.
 """
 import os
 import sys

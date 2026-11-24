@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Writing the ACE delayed-neutron blocks: DNU, BDD, DNEDL, DNED.**
 //!

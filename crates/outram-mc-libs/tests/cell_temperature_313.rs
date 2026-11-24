@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! GitHub #313: a cell's temperature selects the temperature its material is
 //! looked up at, as OpenMC (`assign_temperatures`, `src/geometry_aux.cpp:170`;

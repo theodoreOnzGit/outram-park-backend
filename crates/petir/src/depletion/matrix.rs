@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Theodore Ong and the outram-park contributors.
 //
 // MOVED 2026-10-17 from `outram-mc-libs/src/depletion/matrix.rs` (gh:#950,

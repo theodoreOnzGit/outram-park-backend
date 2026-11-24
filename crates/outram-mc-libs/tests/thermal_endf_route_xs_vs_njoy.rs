@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The ENDF-route S(α,β) inelastic cross section is THERMR's own `calcem`
 //! integral, as NJOY writes it into the table OpenMC reads.** GitHub #188, and

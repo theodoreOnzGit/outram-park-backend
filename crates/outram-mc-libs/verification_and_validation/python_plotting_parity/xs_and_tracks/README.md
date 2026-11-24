@@ -30,7 +30,7 @@ Run with the same matplotlib, that script should write the PNG OpenMC writes.
 | U-234 | `reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U234.ace.gz` | NJOY2016 2016.79 `ac5adf5`, ENDF/B-VIII.0, RECONR+BROADR+PURR+ACER | `6dfcf9e227068f4b1647662ac234353b9a1ed982b7a8ecbcd303ce67ca94e6e9` |
 | U-235 | `.../293.6K/U235.ace.gz` | same | `42992a06809e6a160f5aa64d80b226594acbb36cb25057ca5a56da1fc8b41fe8` |
 | U-238 | `.../293.6K/U238.ace.gz` | same | `36ae9f1c0ee107fb48d0e208e15db4f024de0c83f5c0009867f03438cd52d1c1` |
-| C-12 | `data/C12.ace.gz` (committed here) | this workspace's `njoy-outram-park-fork` v0.0.3 `6b71d21+` (`NuclearDataLibrary`: RECONR, BROADR to 293.6 K, HEATR heating, ACER; ENDF/B-VIII.0 `n-006_C_012`, MAT 625), header stamp `ZA=6012 njoy-outram-park-fork v0.0.3 6b71d21+ 2026-09-26` | `80f071f0b8d972d44022c53c026b2b99a3ab8964590975fd8c21ad294c6924b1` |
+| C-12 | `data/C12.ace.gz` ~~(committed here)~~ **CORRECTED 2026-11-24:** not in git (the root `.gitignore` excludes `*.ace.gz`); regenerate with `regenerate_c12_ace`. The 2026-09-26 table recorded TYR = 0 for MT=28 and MT=91; NJOY2016 writes 1, and so does the current port, re-checked 2026-11-24 (gh:#338, `njoy-outram-park-fork`'s `tests/ace_c12_tyr_vs_njoy2016.rs`) | this workspace's `njoy-outram-park-fork` v0.0.3 `6b71d21+` (`NuclearDataLibrary`: RECONR, BROADR to 293.6 K, HEATR heating, ACER; ENDF/B-VIII.0 `n-006_C_012`, MAT 625), header stamp `ZA=6012 njoy-outram-park-fork v0.0.3 6b71d21+ 2026-09-26` | `80f071f0b8d972d44022c53c026b2b99a3ab8964590975fd8c21ad294c6924b1` |
 
 C-12 comes from the workspace's own NJOY port because no NJOY2016 table for a
 light nuclide exists in the reference set; that does not enter the
@@ -225,7 +225,7 @@ MPLBACKEND=Agg /opt/ompy312/bin/python \
 
 ```python
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Reference driver for the xs-and-tracks plotting parity check
 # (crates/outram-mc-libs/verification_and_validation/python_plotting_parity/xs_and_tracks/).

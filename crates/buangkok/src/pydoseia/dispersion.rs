@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Gaussian-plume dispersion as pyDOSEIA computes it: the Pasquill-Gifford
 //! sigmas, the release-height wind correction, the two master equations and
 //! the dilution factor (`chi/Q`) for each of pyDOSEIA's release modes.

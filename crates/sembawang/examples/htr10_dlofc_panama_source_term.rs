@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! HTR-10 depressurised loss of forced cooling: **PANAMA-I fuel failure wired
 //! into the TRISO-ATOPS release chain**, driven by the published HTR-10

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Cell temperature is the transport DEFAULT, and this test keeps it so**
 //! (GitHub #313, 2026-11-14; the `correct_physics_is_default` pattern).

@@ -105,7 +105,10 @@ pub mod prelude;
 /// `alloc`. boon-lay re-exports it here (gh:#876, item 7). The module docs
 /// carry the attribution and every local change; fragment results are
 /// illustrative until V&V'd.
-pub mod rustbca;
+///
+/// **MOVED 2026-11-22 (gh:#1699):** the copy now lives in `kembangan`
+/// (materials damage); this path is a re-export, so callers are unchanged.
+pub use kembangan::rustbca;
 
 /// Compute-backend selector (`ComputeType` / `ThreadCount`) — the runtime CPU vs
 /// wgpu resource switcher for the Walk-on-Spheres ensembles, mirroring the
@@ -120,8 +123,9 @@ pub use fission_yields_data::prelude::Nuclide::*;
 
 /// this contains the raw information
 /// based on pwr neutron spectrum
-/// `std` only (gh:#1634): parses OpenMC's XML (`serde-xml-rs`).
-#[cfg(feature = "std")]
+/// ~~`std` only (gh:#1634): parses OpenMC's XML (`serde-xml-rs`).~~
+/// **CHANGED 2026-11-22:** builds without `std` since
+/// `openmc-endf-8-depletion-lib-b` 1.1.0 parses with `roxmltree` (no_std).
 pub mod decay_xml_info_serde;
 
 /// this is the struct that converts the SerdeNuclideData to

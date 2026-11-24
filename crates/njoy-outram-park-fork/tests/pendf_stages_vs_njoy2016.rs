@@ -38,6 +38,10 @@
 //! | Cl-35 ENDF/B-VII.1 | BROADR 293.6 K | — | RML (LRF=7) |
 //! | Ar-37 TENDL-2023 (L1 last) | BROADR 293.6 K | — | MLBW + URR |
 //!
+//! Added 2026-11-24 (gh:#619): H-2 and Be-9 ENDF/B-VIII.0 at **BROADR 0 K**,
+//! `thinb` (thinning only), identical in every word too; see
+//! `broadr_0k_thins_like_njoy2016`.
+//!
 //! Earlier on 2026-09-26, what was measured before the fixes was this: the
 //! U-234 ACE grid shared 5.5 % of NJOY's energies; U-234 RECONR lacked the
 //! 1e-5 to 0.0253 eV range and differed across the unresolved range; Sr-88,
@@ -202,4 +206,31 @@ fn broadr_ar37_mlbw_urr() {
         "ar37-tendl2023-L1last-293.6K.pendf",
         Some(293.6),
     );
+}
+
+/// **BROADR at 0 K thins and does not broaden (`thinb`), gh:#619.**
+///
+/// Methodology: deck `reconr 20 21 / <mat> 0 / .001 / 0 /` then
+/// `broadr 20 21 22 / <mat> 1 / .001 / 0.0 / 0 /`. At `tempef <= 0` upstream
+/// calls `thinb` (`broadr.f90:1218-1222`): below `thnmax`, points that linear
+/// interpolation from the last kept point reproduces within `errthn` for every
+/// reaction are dropped. Our side is `reconr` then `broaden_result(r0, 0.0)`.
+/// References: `reference-data/reconr/{h2,be9}-ENDF8.0-broadr-0K.pendf`,
+/// NJOY2016 2016.80 (`ab27c64`), generated 2026-11-24 (see that README).
+/// Pass criterion as for every case here: every MF=3 word identical.
+///
+/// Results (2026-11-24): predicted before the run, every MF=3 word identical
+/// (the deck driver's `thinb` already reproduces NJOY's deck 43). Measured:
+/// **identical in every MF=3 word on both** (NJOY's listing: H-2 769 points
+/// thinned to 406, Be-9 832 to 497). Before this change `broaden_result`
+/// returned the RECONR grid unthinned at 0 K (769 / 832 points against 406 /
+/// 497), so every section differed.
+#[test]
+fn broadr_0k_thins_like_njoy2016() {
+    for (endf, mat, pendf) in [
+        ("n-001_H_002-ENDF8.0.endf", 128, "h2-ENDF8.0-broadr-0K.pendf"),
+        ("n-004_Be_009-ENDF8.0.endf", 425, "be9-ENDF8.0-broadr-0K.pendf"),
+    ] {
+        assert_same(endf, mat, "reconr", pendf, Some(0.0));
+    }
 }

@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v22.22.0",
+  "node": "v12.22.9",
   "generator": "scripts/csl-intermediate-reference.cjs",
   "sections": [
    "style",
@@ -45771,6 +45771,23 @@
      "type": "paper-conference",
      "volume": "146"
     },
+    "crank1975diffusion": {
+     "author": [
+      {
+       "family": "Crank",
+       "given": "J."
+      }
+     ],
+     "edition": "2",
+     "id": "crank1975diffusion",
+     "issued": {
+      "year": 1975
+     },
+     "publisher": "Clarendon Press",
+     "publisher-place": "Oxford",
+     "title": "The Mathematics of Diffusion",
+     "type": "book"
+    },
     "de2021ai": {
      "author": [
       {
@@ -49232,6 +49249,22 @@
      "title": "Agentic AI-assisted coding offers a unique opportunity to instill epistemic grounding during software development",
      "type": "article-journal"
     },
+    "patankar1980numerical": {
+     "author": [
+      {
+       "family": "Patankar",
+       "given": "S. V."
+      }
+     ],
+     "id": "patankar1980numerical",
+     "issued": {
+      "year": 1980
+     },
+     "publisher": "Hemisphere",
+     "publisher-place": "Washington",
+     "title": "Numerical Heat Transfer and Fluid Flow",
+     "type": "book"
+    },
     "pessiglione2025fatigue": {
      "DOI": "10.1016/j.tics.2025.02.005",
      "author": [
@@ -49811,6 +49844,30 @@
      "title": "The Neurobiology of Cognitive Fatigue and Its Influence on Effort-Based Choice",
      "type": "article-journal",
      "volume": "45"
+    },
+    "stoyer2026atops": {
+     "DOI": "10.1080/00295450.2026.2671624",
+     "author": [
+      {
+       "family": "Stoyer",
+       "given": "B."
+      },
+      {
+       "family": "Raichart",
+       "given": "A."
+      },
+      {
+       "family": "Petti",
+       "given": "D."
+      }
+     ],
+     "container-title": "Nuclear Technology",
+     "id": "stoyer2026atops",
+     "issued": {
+      "year": 2026
+     },
+     "title": "TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors",
+     "type": "article-journal"
     },
     "sun2026quality": {
      "author": [
@@ -52728,6 +52785,18 @@
         "comma-dropping-particle": "",
         "family": "Rehn",
         "given": "Daniel A."
+       }
+      }
+     ]
+    },
+    "crank1975diffusion": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Crank",
+        "given": "J."
        }
       }
      ]
@@ -56583,6 +56652,18 @@
       }
      ]
     },
+    "patankar1980numerical": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Patankar",
+        "given": "S. V."
+       }
+      }
+     ]
+    },
     "pessiglione2025fatigue": {
      "author": [
       {
@@ -57202,6 +57283,34 @@
         "comma-dropping-particle": "",
         "family": "Chib",
         "given": "Vikram S."
+       }
+      }
+     ]
+    },
+    "stoyer2026atops": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Stoyer",
+        "given": "B."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Raichart",
+        "given": "A."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Petti",
+        "given": "D."
        }
       }
      ]
@@ -62333,6 +62442,29 @@
          "particle": "",
          "plural": 0,
          "value": "09040"
+        }
+       ]
+      }
+     }
+    },
+    "crank1975diffusion": {
+     "edition": {
+      "edition": {
+       "collapsible": true,
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "var:edition",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "2"
         }
        ]
       }
@@ -67892,6 +68024,7 @@
      }
     },
     "palmblad2026agentic": {},
+    "patankar1980numerical": {},
     "pessiglione2025fatigue": {
      "page": {
       "page": {
@@ -69209,6 +69342,7 @@
       }
      }
     },
+    "stoyer2026atops": {},
     "sun2026quality": {
      "page": {
       "page": {

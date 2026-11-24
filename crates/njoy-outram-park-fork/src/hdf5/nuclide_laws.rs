@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **The secondary-distribution law hierarchy of an OpenMC neutron `.h5`** —
 //! GitHub #304.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Uranium mixed evenly through graphite: the four-factor formula, measured.**
 //! Tutorial rung 2 (GitHub #524, epic #520).

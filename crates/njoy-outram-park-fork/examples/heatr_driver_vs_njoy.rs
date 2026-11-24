@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! Instrument: run `heatr::heatr` (the full HEATR translation) on NJOY2016's
 //! own RECONR PENDF and compare every heating MT it writes with NJOY2016's

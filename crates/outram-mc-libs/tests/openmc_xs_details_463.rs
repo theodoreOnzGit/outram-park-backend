@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **Four small cross-section details, now OpenMC's** — GitHub #463 items 5, 6,
 //! 7 and 11.

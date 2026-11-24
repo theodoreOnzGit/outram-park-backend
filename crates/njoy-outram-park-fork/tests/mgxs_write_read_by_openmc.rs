@@ -1,7 +1,7 @@
 // Reads reference files or the deck work directory: needs `std` (gh:#1592).
 #![cfg(feature = "std")]
 
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **V&V gate** — an `mgxs.h5` written by this workspace, read back by
 //! **OpenMC itself**, producing the same `k`. GitHub #270.

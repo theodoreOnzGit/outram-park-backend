@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Verification of `boon_lay::triso_atops_fork`'s Booth kernel-release series
 // against the Crank closed form, at the IAEA CRP-6 Case 1 inputs this crate

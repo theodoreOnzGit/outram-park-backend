@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: AGPL-3.0-only
 
 //! **`total_at_energy` must return exactly what `xs_at_energy(..).total`
 //! returns** — it is an optimisation, not an approximation.

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact <mu> and <mu^2> of OpenMC's IncoherentElasticAEDiscrete::sample
 # (openmc src/secondary_thermal.cpp) on an ACE incoherent-elastic S(a,b)
-# table (IDPNC = 3), for GitHub #365 audit. Own work, GPL-3.0; OpenMC Python
+# table (IDPNC = 3), for GitHub #365 audit. Own work, AGPL-3.0-only; OpenMC Python
 # API (MIT) as a library.
 #
 # mu_k = mu(i,k) + f (mu(i+1,k) - mu(i,k)); smear s = d_k (u - 1/2),

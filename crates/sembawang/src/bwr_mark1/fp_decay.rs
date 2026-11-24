@@ -68,7 +68,6 @@ struct Nuc {
 /// branches)`.
 type Raw = (String, Option<f64>, Option<f64>, Vec<(String, f64)>);
 
-#[cfg(feature = "std")]
 /// Library A (`openmc-endf-8-depletion-lib-a`): one element's records as `Raw`.
 fn raw_from_lib_a(lib: openmc_endf_8_depletion_lib_a::decay_xml_info_serde::SerdeNuclideVec) -> Vec<Raw> {
     lib.nuclides
@@ -80,7 +79,6 @@ fn raw_from_lib_a(lib: openmc_endf_8_depletion_lib_a::decay_xml_info_serde::Serd
         .collect::<Vec<Raw>>()
 }
 
-#[cfg(feature = "std")]
 /// Library B (`openmc-endf-8-depletion-lib-b`): one element's records as `Raw`.
 fn raw_from_lib_b(lib: openmc_endf_8_depletion_lib_b::decay_xml_info_serde::SerdeNuclideVec) -> Vec<Raw> {
     lib.nuclides
@@ -92,11 +90,8 @@ fn raw_from_lib_b(lib: openmc_endf_8_depletion_lib_b::decay_xml_info_serde::Serd
         .collect::<Vec<Raw>>()
 }
 
-#[cfg(feature = "std")]
 fn raw_data() -> Vec<Raw> {
-    #[cfg(feature = "std")]
     use openmc_endf_8_depletion_lib_a as a;
-    #[cfg(feature = "std")]
     use openmc_endf_8_depletion_lib_b as b;
     let mut v = Vec::new();
     v.extend(raw_from_lib_a(a::decay_xml_info_serde::titanium::get_titanium_xml_serde_data()));
@@ -161,7 +156,6 @@ fn yield_name(name: &str) -> String {
     name.replace("_m1", "m").replace("_m2", "n")
 }
 
-#[cfg(feature = "std")]
 /// The decay graph in topological order (parents before daughters).
 fn graph() -> Vec<Nuc> {
     let z_of: HashMap<&str, usize> = ELEMENTS.iter().enumerate().map(|(i, (_, s))| (*s, i)).collect();
@@ -267,7 +261,6 @@ impl Summation {
     }
 }
 
-#[cfg(feature = "std")]
 /// The summation (see the module doc).
 pub fn compute(prm: &Params) -> Summation {
     let nucs = graph();

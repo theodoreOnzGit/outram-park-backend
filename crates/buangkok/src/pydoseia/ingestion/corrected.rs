@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! **Divergence from upstream**: ingestion dose computed one nuclide at a
 //! time, fixing pyDOSEIA defects D8-D11 (see `docs/pydoseia-code-to-code.md`).
 //! The equations are upstream's ([`super::food_chain`]); only the bookkeeping

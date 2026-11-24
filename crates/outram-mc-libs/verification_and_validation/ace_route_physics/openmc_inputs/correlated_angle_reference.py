@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: AGPL-3.0-only
 #
 # Exact moments of OpenMC's sampling of the ACE CORRELATED angle laws (law 61,
 # law 44) and of the AND histogram forms (intt = 1, 32 equiprobable bins), for
 # GitHub #365 audit.
 #
-# Own work (outram-park-backend), GPL-3.0; OpenMC Python API (MIT) as a library.
+# Own work (outram-park-backend), AGPL-3.0-only; OpenMC Python API (MIT) as a library.
 #
 # What outram did before the audit, and what OpenMC does (src/secondary_correlated.cpp,
 # src/secondary_kalbach.cpp, src/distribution.cpp):

@@ -98,19 +98,18 @@ fn zernike_moments_are_orthogonal_on_the_unit_disc() {
     // resolutions. Midpoint quadrature has its own error, so the question is not
     // "is the off-diagonal zero" but "does it fall like the quadrature does".
     let gram_at = |nr: usize, nt: usize| -> Vec<f64> {
-        let (NR, NT) = (nr, nt);
         let mut gram = vec![0.0f64; n * n];
-        for ir in 0..NR {
-            let rho = (ir as f64 + 0.5) / NR as f64;
-            for it in 0..NT {
-                let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / NT as f64;
+        for ir in 0..nr {
+            let rho = (ir as f64 + 0.5) / nr as f64;
+            for it in 0..nt {
+                let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / nt as f64;
                 let ev = at(Position {
                     x: rho * th.r_cos(),
                     y: rho * th.r_sin(),
                     z: 0.0,
                 });
                 let z = f.expansion_moments(&ev).expect("inside the disc");
-                let w = rho * (1.0 / NR as f64) * (2.0 * std::f64::consts::PI / NT as f64);
+                let w = rho * (1.0 / nr as f64) * (2.0 * std::f64::consts::PI / nt as f64);
                 for i in 0..n {
                     for j in 0..n {
                         gram[i * n + j] += w * z[i] * z[j];
@@ -208,19 +207,18 @@ fn spherical_harmonic_moments_are_orthonormal_on_the_sphere() {
     );
 
     let gram_at = |nmu: usize, nphi: usize| -> Vec<f64> {
-        let (NMU, NPHI) = (nmu, nphi);
         let mut gram = vec![0.0f64; n * n];
-        for im in 0..NMU {
-            let mu = -1.0 + 2.0 * (im as f64 + 0.5) / NMU as f64;
+        for im in 0..nmu {
+            let mu = -1.0 + 2.0 * (im as f64 + 0.5) / nmu as f64;
             let st = (1.0 - mu * mu).max(0.0).sqrt();
-            for ip in 0..NPHI {
+            for ip in 0..nphi {
                 let phi = -std::f64::consts::PI
-                    + 2.0 * std::f64::consts::PI * (ip as f64 + 0.5) / NPHI as f64;
+                    + 2.0 * std::f64::consts::PI * (ip as f64 + 0.5) / nphi as f64;
                 let ev = going(st * phi.r_cos(), st * phi.r_sin(), mu);
                 let y = f
                     .expansion_moments(&ev)
                     .expect("harmonics are defined everywhere");
-                let w = (2.0 / NMU as f64) * (2.0 * std::f64::consts::PI / NPHI as f64);
+                let w = (2.0 / nmu as f64) * (2.0 * std::f64::consts::PI / nphi as f64);
                 for i in 0..n {
                     for j in 0..n {
                         gram[i * n + j] += w * y[i] * y[j];

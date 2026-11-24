@@ -26,7 +26,10 @@ if [[ "$have" != "$want" ]]; then
 fi
 
 cd "$root"
-cargo build --release -j "${PAGES_JOBS:-3}" --target wasm32-unknown-unknown -p kovan-web --example web
+# kovan-web builds on every core on CI (maintainer, 2026-11-22: "ensure kovan
+# builds in parallel threads"); locally PAGES_JOBS (default 3) applies.
+if [[ -n "${CI:-}" ]]; then KOVAN_JOBS="${KOVAN_JOBS:-$(nproc)}"; else KOVAN_JOBS="${KOVAN_JOBS:-${PAGES_JOBS:-3}}"; fi
+cargo build --release -j "$KOVAN_JOBS" --target wasm32-unknown-unknown -p kovan-web --example web
 
 mkdir -p "$dist"
 rm -f "$dist"/kovan_web.js "$dist"/kovan_web_bg.wasm

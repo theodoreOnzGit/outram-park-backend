@@ -1829,6 +1829,27 @@
   {
     "author": [
       {
+        "family": "Crank",
+        "given": "J."
+      }
+    ],
+    "edition": "2",
+    "id": "crank1975diffusion",
+    "issued": {
+      "date-parts": [
+        [
+          1975
+        ]
+      ]
+    },
+    "publisher": "Clarendon Press",
+    "publisher-place": "Oxford",
+    "title": "The Mathematics of Diffusion",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
         "family": "De Cremer",
         "given": "David"
       },
@@ -5777,6 +5798,26 @@
     "type": "article-journal"
   },
   {
+    "author": [
+      {
+        "family": "Patankar",
+        "given": "S. V."
+      }
+    ],
+    "id": "patankar1980numerical",
+    "issued": {
+      "date-parts": [
+        [
+          1980
+        ]
+      ]
+    },
+    "publisher": "Hemisphere",
+    "publisher-place": "Washington",
+    "title": "Numerical Heat Transfer and Fluid Flow",
+    "type": "book"
+  },
+  {
     "DOI": "10.1016/j.tics.2025.02.005",
     "author": [
       {
@@ -6430,6 +6471,34 @@
     "title": "The Neurobiology of Cognitive Fatigue and Its Influence on Effort-Based Choice",
     "type": "article-journal",
     "volume": "45"
+  },
+  {
+    "DOI": "10.1080/00295450.2026.2671624",
+    "author": [
+      {
+        "family": "Stoyer",
+        "given": "B."
+      },
+      {
+        "family": "Raichart",
+        "given": "A."
+      },
+      {
+        "family": "Petti",
+        "given": "D."
+      }
+    ],
+    "container-title": "Nuclear Technology",
+    "id": "stoyer2026atops",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors",
+    "type": "article-journal"
   },
   {
     "author": [

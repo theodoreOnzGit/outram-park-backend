@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The three pyDOSEIA dose pathways ported in the first tranche: **inhalation**,
 //! **ground shine** (external dose from deposited activity) and
 //! **submersion** (external dose from the cloud, semi-infinite-cloud

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Theodore Ong and the outram-park contributors.
 
 //! Mechanically enforces this crate's two structural promises.
