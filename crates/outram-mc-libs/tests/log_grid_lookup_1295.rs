@@ -19,8 +19,9 @@
 //!
 //! # Results
 //!
-//! 2026-11-24 (`develop` 2637457c0 plus this change): U-238 and U-235 identical
-//! at every probe; the counts are printed by the test.
+//! 2026-11-24 (`develop` 2637457c0 plus this change): identical at every probe.
+//! U-238: union grid 155,207 points, 88,696 probes, 2,394,792 values compared;
+//! U-235: 76,027 points, 43,448 probes, 1,173,096 values.
 #![cfg(feature = "std")] // reads ENDF tapes (gh:#1605)
 
 use njoy_outram_park_fork::endf::tape::Tape;
