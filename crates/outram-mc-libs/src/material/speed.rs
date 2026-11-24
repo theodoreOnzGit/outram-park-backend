@@ -54,6 +54,12 @@ pub enum SpeedTier {
     ///   ([`Nuclide::total_at_energy`], which equals
     ///   `xs_at_energy(..).total` exactly). The interpolation arithmetic is
     ///   shared with `Standard`, not duplicated.
+    /// - **Since 2026-11-24 (gh:#1295):** a HIGH-tier nuclide's energy is found
+    ///   **once** per lookup on its union grid, with OpenMC's logarithmic
+    ///   index ([`crate::material::log_grid`]), and every reaction is read at
+    ///   that position, instead of one binary search per reaction. Bit-identical
+    ///   to `Standard`, which keeps the per-reaction search
+    ///   (`tests/log_grid_lookup_1295.rs`).
     ///
     /// [`Nuclide::total_at_energy`]: crate::material::nuclide::Nuclide::total_at_energy
     #[default]
