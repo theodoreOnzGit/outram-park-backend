@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EBR-II · Museum · OUTRAM PARK</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Experimental Breeder Reactor II (Argonne, 1964-1994) in the SHRT-17 and SHRT-45R loss-of-flow tests, in your browser: a lumped pool-type sodium fast reactor with point kinetics and feedback. For education; an AI-assisted draft, not validated.">
+<style>
+  :root { --bg: #1d2021; --fg: #ebdbb2; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+               font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+  :root[data-theme="light"] body { background: #f9f5d7; color: #3c3836; }
+  :root[data-theme="light"] #loading a { color: #076678; }
+</style>
+</head>
+<body>
+<canvas id="ebr2_canvas"></canvas>
+<div id="loading" hidden><div class="box">
+  <p><b>Experimental Breeder Reactor II</b>: loading…</p>
+  <p>The plant runs in a Web Worker, so this page stays responsive. Research, education and V&amp;V only.
+     An AI-assisted draft, NOT validated; never for operation, licensing or safety decisions.</p>
+</div></div>
+
+<script type="module">
+  // The gate first: no wasm is fetched until the reader is through it. A
+  // courtesy, not a protection: see gate.js.
+  import { unlock } from "./gate.js";
+  await unlock("EBR-II simulator");
+  document.getElementById("loading").hidden = false;
+  const init = (await import("./ebr2_web.js")).default;
+  await init({ module_or_path: "./ebr2_web_bg.wasm" });
+</script>
+</body>
+</html>
