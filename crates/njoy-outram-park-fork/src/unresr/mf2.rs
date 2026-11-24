@@ -384,6 +384,35 @@ impl<'a> Cursor<'a> {
 /// Returns [`NjoyError::EndfParse`] if a section is malformed.
 pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRange>, NjoyError> {
     let mut cur = Cursor::new(section_rows);
+    parse_lru2_isotope(&mut cur)
+}
+
+/// Every `LRU=2` range of **every** isotope of an MF=2/MT=151 section, in file
+/// order: `rdfil2`'s `do i=1,nis` loop (`reconr.f90:719-845`) puts each
+/// isotope's ranges in one section table (`isot`, `abnt`, `elt`, `eht`), and
+/// `genunr` sums every unresolved section times its abundance
+/// (`:1670-1680`). [`parse_lru2_ranges`] reads the first isotope only, as
+/// `unresr`'s `rdunf2` does. GitHub #1324.
+///
+/// `section_rows` is the whole section, from its HEAD `(ZA, AWR, 0, 0, NIS, 0)`.
+/// For `NIS = 1` the result is [`parse_lru2_ranges`] of `&section_rows[1..]`.
+///
+/// # Errors
+///
+/// Returns [`NjoyError::EndfParse`] if a section is malformed.
+pub fn parse_lru2_ranges_every_isotope(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRange>, NjoyError> {
+    let mut cur = Cursor::new(section_rows);
+    let nis = cur.cont()?.n1;
+    let mut ranges = Vec::new();
+    for _ in 0..nis.max(0) {
+        ranges.extend(parse_lru2_isotope(&mut cur)?);
+    }
+    Ok(ranges)
+}
+
+/// One isotope's `LRU=2` ranges; `cur` stands on its CONT
+/// `(ZAI, ABN, 0, LFW, NER, 0)` and is left after its last range.
+fn parse_lru2_isotope(cur: &mut Cursor<'_>) -> Result<Vec<UnresolvedRange>, NjoyError> {
     let mut ranges = Vec::new();
 
     // rdunf2:439-442 — per-isotope header CONT (ABN=C2, LFW=L2, NER=N1).
@@ -402,7 +431,7 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
         let naps = range_head.n2;
 
         if lru != 2 {
-            skip_resolved_range(&mut cur, lrf, nro)?;
+            skip_resolved_range(cur, lrf, nro)?;
             continue;
         }
         // rdunf2:515-528 — the energy-dependent scattering-radius TAB1 sits
@@ -415,11 +444,11 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
         };
 
         let (case_, lssf) = if lrf == 2 {
-            parse_case_c(&mut cur)?
+            parse_case_c(cur)?
         } else if lfw == 1 {
-            parse_case_b(&mut cur)?
+            parse_case_b(cur)?
         } else {
-            parse_case_a(&mut cur)?
+            parse_case_a(cur)?
         };
 
         ranges.push(UnresolvedRange {

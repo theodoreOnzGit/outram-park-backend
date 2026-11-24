@@ -376,6 +376,68 @@ impl SunrTable {
         }
         grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
         grid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
+        Self::build_on_grid(ranges, grid, range.lssf, stored_interpolation_law(ranges), bkg)
+    }
+
+    /// [`Self::build`] on `rdfil2`'s own `eunr` list (GitHub #666, #1324):
+    ///
+    /// - every range adds `sigfig(el,7,-1)` (unless `el` is `elow`) and
+    ///   `sigfig(eh,7,+1)` besides [`unresolved_grid`]'s nodes
+    ///   (`reconr.f90:757-775`);
+    /// - after `order`, only energies in `[eresu, eresh]` are kept, each at
+    ///   least one 7-figure unit above the one before, and those below `eresr`
+    ///   are **negated** (`:856-866`): a resolved-unresolved overlap.
+    ///   `genunr` adds no MF=3 background at a negated energy (`:1716`), and
+    ///   `sigunr` reads `abs(e)`;
+    /// - `lssf` is upstream's single variable, set by the last range read
+    ///   ([`super::sigma_walk::Rdfil2Bounds::lssf`]), not the first range's.
+    ///
+    /// `eres` is `(eresu, eresr, eresh)` as `rdfil2` leaves them, before
+    /// `eresh = eresr` for `lssf > 0` (`:353`). On every evaluation held here
+    /// (one unresolved range, above every resolved one) this is the grid
+    /// [`Self::build`] makes.
+    pub(crate) fn build_rdfil2(
+        ranges: &[UnresolvedRange],
+        lssf: i32,
+        intunr: i32,
+        eres: (f64, f64, f64),
+        bkg: impl Fn(i32, f64) -> Option<f64>,
+    ) -> Result<Option<Self>, NjoyError> {
+        const ELOW: f64 = 1.0e-5;
+        const EPS: f64 = 1.0e-10;
+        let (eresu, eresr, eresh) = eres;
+        if ranges.is_empty() {
+            return Ok(None);
+        }
+        let mut eunr: Vec<f64> = Vec::new();
+        for r in ranges {
+            eunr.extend(unresolved_grid(r));
+            if (r.el - ELOW).abs() > 1.0e-6 {
+                eunr.push(sigfig(r.el, 7, -1));
+            }
+            eunr.push(sigfig(r.eh, 7, 1));
+        }
+        super::order(&mut eunr);
+        let mut grid: Vec<f64> = Vec::with_capacity(eunr.len());
+        let mut el = 0.0;
+        for &e in &eunr {
+            if e > (1.0 - EPS) * eresu && e < (1.0 + EPS) * eresh && e >= el {
+                grid.push(if e < eresr { -e } else { e });
+                el = sigfig(e, 7, 1);
+            }
+        }
+        Self::build_on_grid(ranges, grid, lssf, intunr, bkg)
+    }
+
+    /// `genunr`'s table on `grid` (a negative energy is evaluated at its
+    /// absolute value and gets no MF=3 background, `reconr.f90:1666-1724`).
+    fn build_on_grid(
+        ranges: &[UnresolvedRange],
+        grid: Vec<f64>,
+        lssf: i32,
+        intunr: i32,
+        bkg: impl Fn(i32, f64) -> Option<f64>,
+    ) -> Result<Option<Self>, NjoyError> {
         if grid.len() < 2 {
             return Ok(None);
         }
@@ -384,7 +446,8 @@ impl SunrTable {
         // `call csunr1(0,..); call csunr2(0,..)` (`genunr`, `:1667-1668`): fresh
         // panel state, one slot per section (gh:#1448).
         let mut state = UnrState::new(ranges.len());
-        for &e in &grid {
+        for &signed_e in &grid {
+            let e = signed_e.abs();
             let mut row = [0.0_f64; 5];
             // `if (mode.ge.11.and.e.ge.elt(j).and.e.lt.eht(j))` (:1672):
             // the range's own top energy gets no unresolved contribution.
@@ -398,13 +461,17 @@ impl SunrTable {
                 }
             }
             row[4] = row[0];
-            rows.push((e, row));
+            rows.push((signed_e, row));
         }
         // reconr.f90:1694-1727 -- add the MF=3 background, LSSF=0 only, in
-        // tape order, rounding after each addition.
-        if range.lssf == 0 {
+        // tape order, rounding after each addition; none at a negated
+        // (resolved-unresolved overlap) energy, `if (e.ge.zero)` (:1716).
+        if lssf == 0 {
             for (k, mt) in [(0usize, 1i32), (1, 2), (2, 18), (3, 102)] {
                 for (e, row) in rows.iter_mut() {
+                    if *e < 0.0 {
+                        continue;
+                    }
                     if let Some(b) = bkg(mt, *e) {
                         row[k] = sigfig(row[k] + b, 7, 0);
                         if k == 0 {
@@ -416,8 +483,8 @@ impl SunrTable {
         }
         Ok(Some(SunrTable {
             rows,
-            intunr: stored_interpolation_law(ranges),
-            lssf: range.lssf,
+            intunr,
+            lssf,
         }))
     }
 
@@ -500,7 +567,7 @@ const INTUNR_DEFAULT: i32 = 5;
 ///
 /// Measured: ENDF/B-VIII.0 U-234 stores 2 (lin-lin) and U-238 stores 5
 /// (log-log); Fe-58, being Case A, takes the default 5.
-fn stored_interpolation_law(ranges: &[UnresolvedRange]) -> i32 {
+pub(super) fn stored_interpolation_law(ranges: &[UnresolvedRange]) -> i32 {
     let mut intunr = INTUNR_DEFAULT;
     for r in ranges {
         if let UnresolvedCase::CaseC { l_states, .. } = &r.case_ {
@@ -534,8 +601,12 @@ fn stored_interpolation_law(ranges: &[UnresolvedRange]) -> i32 {
 /// 1.775 keV), wrote values unrounded, and kept `eresr` = 1500 eV itself,
 /// which `lunion` drops.
 ///
-/// `LSSF = 1` ranges are skipped: `eresh = eresr` then (`:353`), so neither
-/// `resxs` nor `emerge` reaches them.
+/// ~~`LSSF = 1` ranges are skipped~~ **CORRECTED 2026-11-24 (GitHub #666):**
+/// nothing is added when upstream's one `lssf` (`lssf`, set by the last range
+/// read) is > 0: `eresh = eresr` then (`:353`), so neither `resxs` nor `emerge`
+/// reaches any unresolved range. When it is 0 every range is walked, whatever
+/// its own `LSSF`. A material with `NIS > 1` or a resolved-unresolved overlap
+/// does not come here: [`super::sigma_walk`] walks it.
 pub(super) fn add_unresolved_ranges(
     sections: &mut Vec<ReconrSection>,
     ranges: &[UnresolvedRange],
@@ -543,11 +614,16 @@ pub(super) fn add_unresolved_ranges(
     eps: f64,
     raw: &super::RawMf3,
     zero_background: (f64, f64),
+    lssf: i32,
 ) {
+    // ~~`if range.lssf != 0 { continue; }` per range~~ **CORRECTED
+    // 2026-11-24 (GitHub #666):** upstream has one `lssf`, set by the last
+    // range read; when it is > 0, `eresh = eresr` and `resxs` reaches no
+    // unresolved range, otherwise it walks every one of them.
+    if lssf != 0 {
+        return;
+    }
     for range in ranges {
-        if range.lssf != 0 {
-            continue;
-        }
         super::rebuild_range_with(
             sections,
             range.el,
@@ -559,6 +635,7 @@ pub(super) fn add_unresolved_ranges(
             super::RebuildOpts {
                 widen: false,
                 zero_background: Some(zero_background),
+                untested_crossings: [None, None],
             },
             |e| {
                 let v = table.sigunr(e);

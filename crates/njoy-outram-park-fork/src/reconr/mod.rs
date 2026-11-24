@@ -46,6 +46,7 @@ pub mod rm;
 pub mod urr;
 pub mod rml;
 mod seam;
+mod sigma_walk;
 pub mod slbw;
 
 pub use mf1::MaterialInfo;
@@ -338,10 +339,15 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 ///   **CORRECTED 2026-11-10:** Adler-Adler is reconstructed
 ///   ([`aa`]). [`NjoyError::NotPorted`] is returned for
 ///   `config.temperature > 0` (GitHub #662, see
-///   [`ReconrConfig::temperature`]) and for a multi-isotope (`NIS > 1`)
+///   [`ReconrConfig::temperature`]) ~~and for a multi-isotope (`NIS > 1`)
 ///   MF=2: the resolved ranges are rebuilt one at a time on the tape's own
 ///   background, so overlapping isotopes would replace rather than add to
-///   each other, and the unresolved walk reads the first isotope only.
+///   each other, and the unresolved walk reads the first isotope only.~~
+///   **CORRECTED 2026-11-24 (GitHub #1324):** a multi-isotope MF=2 is
+///   reconstructed by one walk over every section ([`sigma_walk`]); it is
+///   refused only with an R-matrix-limited range. Also refused: an SLBW/MLBW
+///   l-state with `LRX != 0` (competitive width, GitHub #666), which upstream
+///   adds to MT=51, to the total and to every resonance's total width.
 /// - [`NjoyError::InvalidInput`] — a negative or non-finite temperature, or
 ///   an MF=2 `NRO ≠ 0` range upstream refuses
 ///   ([`mf2::parse_resonance_info`]).
@@ -379,10 +385,14 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     } else {
         ResonanceInfo::default()
     };
-    if res_info.ranges.iter().any(|r| r.isotope > 0) {
+    // GitHub #666: `LRX != 0` gives SLBW/MLBW a competitive channel. Upstream
+    // adds it to MT=51 and the total, and its width to every resonance's
+    // total width (`reconr.f90:964-1016, 2808, 2839, 2852`); none of that is
+    // ported, so refuse rather than return elastic, capture and total wrong.
+    if res_info.resolved_slbw_ranges().any(|r| r.l_states.iter().any(|l| l.lrx != 0)) {
         return Err(NjoyError::NotPorted(
-            "RECONR on a multi-isotope (NIS > 1) MF=2: upstream sigma sums every \
-             isotope's sections at each energy; the port rebuilds ranges one at a time",
+            "RECONR with an SLBW/MLBW competitive width (LRX != 0): csslbw/csmlbw's \
+             fifth channel (MT=51) and its width in the line shapes",
         ));
     }
 
@@ -414,11 +424,18 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         })
         .collect::<Result<Vec<_>, NjoyError>>()?;
 
-    // The LRU=2 ranges, parsed once for both phases below.
+    // The LRU=2 ranges of every isotope, parsed once for both phases below.
+    // ~~`parse_lru2_ranges(&sec.rows[1..])`~~ read the first isotope only
+    // (**CORRECTED 2026-11-24**, GitHub #1324).
     let urr_ranges = match tape.section(mat, 2, 151) {
-        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?,
+        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges_every_isotope(&sec.rows)?,
         _ => Vec::new(),
     };
+    let bounds = sigma_walk::Rdfil2Bounds::new(&res_info, &urr_ranges);
+    let one_walk = bounds.needs_one_walk(&res_info);
+    if one_walk {
+        sigma_walk::check_supported(&res_info)?;
+    }
 
     let union = union_grid(tape, mat, &raw_mf3, &res_info, &urr_ranges, eps, awin, material.lrp)?;
     // `lunion` builds the grid from its in-memory TAB1s, but writes them to
@@ -443,7 +460,9 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     // `emerge`'s resonance reactions (`itype != 0`) and the first resonance
     // point (`reconr.f90:4755-4775`).
     // `nrtot = 0` for LRP != 1 (`reconr.f90:304`): no resonance reactions.
-    let res_mts = if material.lrp == 1 { resonance_mts(&res_info) } else { Vec::new() };
+    // And none when `resxs` returns early on an unresolved-only `lssf = 1`
+    // material (`nrtot = 0`, `:2275-2279`; GitHub #666).
+    let res_mts = if material.lrp == 1 && !bounds.no_resonance_points() { resonance_mts(&res_info) } else { Vec::new() };
     let first_res = rdfil2_nodes(&res_info, &urr_ranges).first().copied();
     let first_res_for = |mt: i32| first_res.filter(|_| res_mts.contains(&mt));
     let iverf_out = tape.section(mat, 1, 451).map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
@@ -476,10 +495,12 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             g.get(e).y
         })
     };
+    // ~~`SunrTable::build`~~: `rdfil2`'s `eunr` (overlap window and negation)
+    // and its one `lssf` (**CORRECTED 2026-11-24**, GitHub #666, #1324).
     let sunr = if urr_ranges.is_empty() {
         None
     } else {
-        urr::SunrTable::build(&urr_ranges, 0.0, raw_bkg)?
+        urr::SunrTable::build_rdfil2(&urr_ranges, bounds.lssf, bounds.intunr, (bounds.eresu, bounds.eresr, bounds.eresh), raw_bkg)?
     };
     let unresolved_table = sunr.as_ref().map(|t| t.rows(material.za, material.awr, 0.0));
 
@@ -499,6 +520,11 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     let before: Vec<(MtReaction, Vec<(f64, f64)>)> =
         sections.iter().map(|s| (s.mt, s.pairs.clone())).collect();
 
+    if one_walk {
+        // NIS > 1, or a resolved-unresolved overlap: one `resxs` walk on
+        // `sigma`'s sum over every section (GitHub #1324, #666).
+        sigma_walk::walk_every_section(&mut sections, &res_info, sunr.as_ref(), &bounds, eps, &raw_mf3);
+    } else {
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps, &raw_mf3);
     // `resxs` walks every resolved range in one pass, so the panel across a
@@ -509,15 +535,19 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     // LSSF=0 ranges. Without this those ranges come back at ZERO cross
     // section; see `urr`'s module doc.
     if let Some(table) = &sunr {
-        // `[eresr, eresh)` (`rdfil2`, `reconr.f90:742-846`).
-        let eresh = res_info.ranges.iter().map(|r| r.eh).fold(0.0, f64::max);
-        let eresr = res_info
-            .ranges
-            .iter()
-            .filter(|r| r.lru <= 1)
-            .map(|r| r.eh)
-            .fold(0.0, f64::max);
-        urr::add_unresolved_ranges(&mut sections, &urr_ranges, table, eps, &raw_mf3, (eresr, eresh));
+        // `[eresr, eresh)` (`rdfil2`, `reconr.f90:742-846`). ~~Each range's
+        // own LSSF~~ upstream's one `lssf`, set by the last range read
+        // (**CORRECTED 2026-11-24**, GitHub #666).
+        urr::add_unresolved_ranges(
+            &mut sections,
+            &urr_ranges,
+            table,
+            eps,
+            &raw_mf3,
+            (bounds.eresr, bounds.eresh),
+            bounds.lssf,
+        );
+    }
     }
 
     // `emerge` evaluates EVERY section at every point of the final grid --
@@ -598,7 +628,8 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 /// extra particle-pair channels (`mmtres(3..)`, MT=103-107 remapped to
 /// 600-800). Empty when the material has no resonance ranges (`nrtot = 0`).
 /// ~~`lrx != 0` makes MT=51 one too~~: **not ported**. This crate does not
-/// add the SLBW/MLBW competitive width to MT=51 at all.
+/// add the SLBW/MLBW competitive width to MT=51 at all, ~~and does not say so~~
+/// and since 2026-11-24 [`reconr`] refuses `LRX != 0` (GitHub #666).
 fn resonance_mts(res_info: &ResonanceInfo) -> Vec<i32> {
     if !res_info.ranges.iter().any(|r| r.lru != 0) {
         return Vec::new();
@@ -709,7 +740,7 @@ pub(crate) fn union_grid_without_mf3(tape: &Tape, mat: i32, eps: f64) -> Result<
         None => ResonanceInfo::default(),
     };
     let urr_ranges = match tape.section(mat, 2, 151) {
-        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?,
+        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges_every_isotope(&sec.rows)?,
         _ => Vec::new(),
     };
     union_grid(tape, mat, &[], &res_info, &urr_ranges, eps, lunion_awin(mf1_sec), material.lrp)
@@ -796,7 +827,12 @@ fn union_grid(
             eresr = eresr.max(r.eh);
         }
         if r.lru == 2 {
-            eresu = eresu.min(r.el);
+            // ~~`eresu = eresu.min(r.el)` always~~: upstream lowers it only
+            // when `el` is not `elow` (`reconr.f90:745-755`; **CORRECTED
+            // 2026-11-24**, GitHub #666).
+            if (r.el - 1.0e-5).abs() > 1.0e-6 {
+                eresu = eresu.min(r.el);
+            }
             eresm = eresm.min(r.eh);
         }
     }
@@ -806,7 +842,9 @@ fn union_grid(
     if eresr > eresh {
         eresr = eresh;
     }
-    if urr_ranges.iter().any(|r| r.lssf > 0) {
+    // ~~`urr_ranges.iter().any(|r| r.lssf > 0)`~~: upstream's one `lssf`,
+    // set by the last range read (`:353`; **CORRECTED 2026-11-24**, #666).
+    if sigma_walk::Rdfil2Bounds::new(res_info, urr_ranges).lssf > 0 {
         eresh = eresr;
     }
     // A material with LRP != 1 never reaches `rdfil2`: no nodes, and fixed
@@ -1482,6 +1520,11 @@ pub(crate) struct RebuildOpts {
     /// `[eresr, eresh)`, where `emerge` zeroes the MF=3 background of
     /// MT=1, 2, 18/19 and 102 (`:4789-4790`), or `None`.
     pub(crate) zero_background: Option<(f64, f64)>,
+    /// Energies whose crossing panel `resxs` accepts without a test, the walk
+    /// state carrying on (`if (x(2).lt.eresu.and.x(1).gt.eresu) go to 150`,
+    /// `reconr.f90:2351-2353`). Only [`sigma_walk`] sets them (GitHub #666,
+    /// #1324): `eresu` and `eresm` inside a stretch below `eresr`.
+    pub(crate) untested_crossings: [Option<f64>; 2],
 }
 
 impl Default for RebuildOpts {
@@ -1489,6 +1532,7 @@ impl Default for RebuildOpts {
         RebuildOpts {
             widen: true,
             zero_background: None,
+            untested_crossings: [None, None],
         }
     }
 }
@@ -1563,7 +1607,7 @@ pub(crate) fn rebuild_range_with(
     // Adaptively refine so lin-lin interpolation of the resonance contribution
     // is within `eps` everywhere; returns the (denser) grid and the resonance
     // deltas already evaluated at every point (so `delta_at` is not called again).
-    let (egrid, deltas) = refine_resonance_grid(&egrid, &delta_at, eps, opts.widen);
+    let (egrid, deltas) = refine_resonance_grid(&egrid, &delta_at, eps, opts.widen, opts.untested_crossings);
 
     // The four fixed reactions, then the extra LRF=7 channels by MT; a
     // channel with no MF=3 section on the tape is dropped, as upstream
@@ -2215,6 +2259,7 @@ fn refine_resonance_grid(
     delta_at: &(impl Fn(f64) -> RangeDelta + Sync),
     eps: f64,
     allow_widen: bool,
+    untested_crossings: [Option<f64>; 2],
 ) -> (Vec<f64>, Vec<RangeDelta>) {
     #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
@@ -2241,6 +2286,12 @@ fn refine_resonance_grid(
             let mut we: Vec<f64> = vec![e1];
             let mut wd: Vec<RangeDelta> = vec![d1];
             let mut wf: Vec<PanelAccept> = Vec::new();
+            // A crossing `resxs` does not test (`go to 150`, `:2351-2353`):
+            // written as it stands, never widened (GitHub #666).
+            if untested_crossings.iter().flatten().any(|&c| e1 < c && e2 > c) {
+                wf.push(PanelAccept::SigFig);
+                return (we, wd, wf);
+            }
             refine_panel(
                 e1, d1, e2, d2, delta_at, tol, 0, None, &mut we, &mut wd, &mut wf,
             );
