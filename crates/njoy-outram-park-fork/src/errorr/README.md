@@ -96,8 +96,8 @@ where upstream would abort on a second `allocate`.
   `NRO ≠ 0`, `NLRS > 0`, INTG
   correlation records in the ERRORJ branch (`rpxlc2`, `NM > 0`), `irespr =
   0` (`resprp`, the older method), an MF=2 URR that is not `LRF=2`
-  (upstream reads uninitialised `amur`), `LRF=7` with background R-matrix
-  terms (`KBK > 0`: `derext` and `samm::mf2` do not carry them), and
+  (upstream reads uninitialised `amur`), ~~`LRF=7` with background R-matrix
+  terms (`KBK > 0`: `derext` and `samm::mf2` do not carry them),~~ and
   `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
   with sammy method"). `LCOMP=1` has an oracle for `LRF=3` (JENDL-3.3
   U-238) but not for MLBW or `LRF=7`.

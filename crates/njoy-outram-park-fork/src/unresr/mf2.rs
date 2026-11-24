@@ -498,9 +498,15 @@ pub(crate) fn lru2_body_rows(rows: &[[f64; 6]], lrf: i32, lfw: i32) -> Result<us
 /// `sigfig(x, 7, 0)` — NJOY rounds range boundary energies to 7 significant
 /// figures before using them as grid nodes (`unresr.f90:449-450`), so
 /// boundary comparisons match exactly across ranges read from independently
-/// rounded ENDF values. `SIGFIG` itself lives in `util.f90` and is not yet
+/// rounded ENDF values. ~~`SIGFIG` itself lives in `util.f90` and is not yet
 /// ported as a general utility; this is the minimal 7-sig-fig rounding it
-/// needs for LRU=2 range boundaries specifically.
+/// needs for LRU=2 range boundaries specifically.~~ **CORRECTED 2026-11-24
+/// (gh:#667)** — `SIGFIG` (`util.f90:361-393`) is ported, as
+/// [`crate::mixr::mix::sigfig`]. This local rounding is **not** that port: it
+/// omits upstream's `10**(ndig-11)` nudge before `nint` and the
+/// `1.0000000000001` bias after it, so it can differ from `sigfig(x, 7, 0)` in
+/// the last bit. It is left as it is (the port is the oracle; replacing it is
+/// the deduplication gh:#667 leaves to the maintainer).
 fn sigfig7(x: f64) -> f64 {
     if x == 0.0 {
         return 0.0;

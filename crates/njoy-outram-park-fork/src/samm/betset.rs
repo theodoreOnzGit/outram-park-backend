@@ -14,7 +14,11 @@
 //! conversion (`samm.f90:2009-2041`) lives in [`crate::samm::derivs`]
 //! (`deriv_setup`), next to `babb`; the "rexternal parameters" section
 //! (`samm.f90:2048-2068`, background R-matrix terms) is not ported —
-//! [`crate::samm::mf2`] does not parse `KBK` background data.
+//! ~~[`crate::samm::mf2`] does not parse `KBK` background data.~~
+//! **CORRECTED 2026-11-24 (gh:#667):** [`crate::samm::mf2`] parses the `KBK`
+//! background ([`crate::samm::mf2::BackgroundRMatrix`]) and
+//! [`crate::samm::xsformula::setr::setr`] applies it to the cross sections;
+//! only these background *parameters'* derivative slots are not set up here.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

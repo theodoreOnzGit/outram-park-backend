@@ -14,8 +14,8 @@
 //! | 2a | MF=1/MF=2 headers, linearisation, LRU=0 (H-2) | done |
 //! | 2b | SLBW/MLBW resonance evaluation (Ar-37 LRU=1, LRF=2) | done |
 //! | 2c | Reich-Moore (LRF=3, e.g. U-235) | done |
-//! | 2d | Unresolved resonances (LRU=2): UNRESR then PURR | **next to port** (blocks σ above the resolved region — 20 keV for U-238; see `docs/porting-plan.md` §8) |
-//! | 2e | R-Matrix Limited (LRF=7, via `crate::samm`) | **wired, unverified** (2026-07-07 — compiles/type-checks, not yet run against a real evaluation; see `../samm/README.md`) |
+//! | 2d | Unresolved resonances (LRU=2): UNRESR then PURR | ~~**next to port** (blocks σ above the resolved region — 20 keV for U-238; see `docs/porting-plan.md` §8)~~ **CORRECTED 2026-11-24 (gh:#667):** done — `urr::add_unresolved_ranges` (`csunr1`/`csunr2`, `sigunr`); UNRESR and PURR are ported |
+//! | 2e | R-Matrix Limited (LRF=7, via `crate::samm`) | ~~**wired, unverified** (2026-07-07 — compiles/type-checks, not yet run against a real evaluation; see `../samm/README.md`)~~ **CORRECTED 2026-11-24 (gh:#667):** compared with NJOY2016 on Cl-35 and Sr-88 (`tests/reconr_cl35_rml_njoy_golden.rs`, `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`) |
 //! | 2f | Adler-Adler (LRF=4, `crate::reconr::aa`) | ~~**wired, unverified** (2026-07-07 — zero-temperature only, matching SLBW/Reich-Moore's Doppler-deferred-to-BROADR architecture; compiles/type-checks, not yet run against a real evaluation)~~ **CORRECTED 2026-11-24 (GitHub #1323):** 0 K and `tempr > 0` compared with NJOY2016 on a hand-built range (`tests/reconr_temperature_and_lrx_vs_njoy2016.rs`); no held evaluation is Adler-Adler |
 //! | 2g | `tempr > 0` (psi/chi, `csmlbw2`) and the LRX competitive width (`csbw`) | done 2026-11-24 (GitHub #1323, #1731); RM/RML refused at `tempr > 0` |
 //!
@@ -338,7 +338,10 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 ///
 /// Reads the material identified by `config.mat` from `tape`, linearises every
 /// MF=3 section to lin-lin within `config.tolerance`, and adds resonance
-/// contributions from MF=2 (SLBW/MLBW/Reich-Moore, Phases 2b/2c).
+/// contributions from MF=2 (~~SLBW/MLBW/Reich-Moore, Phases 2b/2c~~
+/// **CORRECTED 2026-11-24, gh:#667:** SLBW, MLBW, Reich-Moore,
+/// Adler-Adler and R-matrix-limited, and the unresolved range; see
+/// `add_resonance_contributions` and `urr::add_unresolved_ranges`).
 ///
 /// # Errors
 ///
@@ -1366,7 +1369,10 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
 
 // ── Phase 2b: resonance contribution ─────────────────────────────────────────
 
-/// Add SLBW/MLBW and Reich-Moore resonance contributions to the MF=3 background.
+/// Add ~~SLBW/MLBW and Reich-Moore~~ SLBW/MLBW, Reich-Moore,
+/// R-matrix-limited and Adler-Adler (**CORRECTED 2026-11-24, gh:#667**: the
+/// body walks all four range lists) resonance contributions to the MF=3
+/// background.
 ///
 /// For each resolved resonance range (LRU=1), builds a dense energy grid around
 /// each resonance and evaluates the cross sections. The contributions are merged

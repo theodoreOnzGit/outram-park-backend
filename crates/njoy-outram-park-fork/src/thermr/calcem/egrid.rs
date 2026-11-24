@@ -30,8 +30,8 @@ pub const THERM: f64 = 0.0253;
 
 /// `calcem`'s fixed incident-energy grid `egrid(1:118)` \[eV\], ascending —
 /// `thermr.f90:1587-1607`. Densely spaced near thermal energies (1e-5 eV to a
-/// few tenths of an eV) and coarser above ~1 eV, up to 10 MeV... actually up
-/// to 10 eV — see `EGRID[NGRID-1]` (the table does **not** reach fast-neutron
+/// few tenths of an eV) and coarser above ~1 eV, up to 10 eV — see
+/// `EGRID[NGRID-1]` (the table does **not** reach fast-neutron
 /// energies; THERMR only ever processes the thermal range). Transcribed
 /// verbatim from the Fortran `real(kr),dimension(ngrid),parameter::egrid=(/…/)`
 /// literal; do not "clean up" the values — several are intentionally

@@ -1040,6 +1040,13 @@ fn section_reader(sec: &ReconrSection) -> Gety1 {
 
 /// Upstream's "`go to 165`" list for ENDF-6 (`broadr.f90:504-513`): sections
 /// the reaction loop never broadens, whatever their threshold.
+///
+/// The pre-ENDF-6 forms (`iverf < 6`) are not ported: neither this branch
+/// (`if (mth.gt.150) go to 165`, `broadr.f90:501-502`) nor the older
+/// 700-798 particle-production ranges the MT=103-107 sums use
+/// (`:468-479`; the sums below hard-code the ENDF-6 600-849 ranges of
+/// `:458-467`). Harmless for ENDF/B-VII and VIII tapes; an ENDF-5 tape would
+/// be broadened and summed differently from NJOY (gh:#622).
 fn skipped(mt: i32) -> bool {
     (mt > 200 && mt < 600) || mt > 850 || mt == 3 || mt == 4 || (46..=49).contains(&mt) || mt == 19
 }
@@ -1049,7 +1056,10 @@ fn skipped(mt: i32) -> bool {
 /// reaction broadened together.
 ///
 /// - `thnmx` is card 3's `thnmax`; upstream's default is `6.5e6` eV
-///   (`broadr.f90:204`). The effective limit is `min(thnmx, eresh)` for a
+///   (`broadr.f90:204`, `thnmx=e6pt5`). Upstream's own header comment
+///   (`:71`, "default = 0, but see comments below") disagrees with that
+///   line; the port follows the code, not the comment (an upstream doc
+///   inconsistency, recorded gh:#622). The effective limit is `min(thnmx, eresh)` for a
 ///   resonance material, lowered to `0.99999 x` the first high threshold for
 ///   a non-resonance one.
 /// - Which reactions are broadened (`broadr.f90:500-540`): MT=18 always;
