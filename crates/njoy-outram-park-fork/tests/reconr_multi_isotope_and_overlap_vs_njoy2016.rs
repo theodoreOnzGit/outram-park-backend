@@ -57,7 +57,6 @@ use std::path::{Path, PathBuf};
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
 use njoy_outram_park_fork::endf::tape::{Section, Tape};
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
-use njoy_outram_park_fork::NjoyError;
 
 mod common;
 
@@ -233,18 +232,24 @@ fn reconr_multi_isotope_and_overlap_match_njoy2016() {
 }
 
 /// GitHub #666 item 3: an SLBW/MLBW l-state with `LRX != 0` (a competitive
-/// width) is refused, not reconstructed without its MT=51 channel and its width
-/// in the line shapes (`reconr.f90:964-1016, 2808, 2839, 2852`).
+/// width) ~~is refused, not reconstructed without its MT=51 channel and its width
+/// in the line shapes~~ **CORRECTED 2026-11-24 (GitHub #1731):** is reconstructed;
+/// the line-for-line gate against NJOY2016 is
+/// `tests/reconr_temperature_and_lrx_vs_njoy2016.rs`. Ar-37's resonances have
+/// `GT = GN + GG + GF`, so `gc = 0` (`rdf2bw`) and `LRX = 1` must change no
+/// section but MT=51 (which `emerge` then treats as a resonance reaction).
 #[test]
-fn lrx_competitive_width_is_refused() {
+fn lrx_with_zero_competitive_width_changes_no_partial() {
     let Some(ar) = ar37() else { return };
     let mut rows = mf2_rows(&ar);
     // Row 4 is the first l-state LIST head (AWRI, QX, L, LRX, 6*NRS, NRS).
     assert_eq!(rows[4][4], 30.0, "the l=0 LIST head");
+    let cfg = ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 };
+    let plain = reconr(&with_mf2(&ar, rows.clone()), &cfg).unwrap();
     rows[4][3] = 1.0;
-    let tape = with_mf2(&ar, rows);
-    match reconr(&tape, &ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 }) {
-        Err(NjoyError::NotPorted(m)) => assert!(m.contains("LRX"), "{m}"),
-        other => panic!("LRX = 1 must be refused, got {:?}", other.map(|_| ())),
+    let edited = reconr(&with_mf2(&ar, rows), &cfg).unwrap();
+    for mt in [2, 102] {
+        let get = |r: &njoy_outram_park_fork::reconr::ReconrResult| r.sections.iter().find(|s| s.mt.number() == mt).map(|s| s.pairs.clone());
+        assert_eq!(get(&plain), get(&edited), "MT={mt}");
     }
 }

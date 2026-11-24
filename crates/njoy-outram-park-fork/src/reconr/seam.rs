@@ -106,19 +106,22 @@ pub(super) fn rm_delta(range: &EnergyRange, e: f64) -> RangeDelta {
 
 /// A resolved range whose per-energy evaluation this module can call.
 enum SeamRange {
-    Slbw(Vec<SlbwLState>),
+    Slbw(super::csbw::BwRange),
     Rm,
+    /// `csnorp`'s `LRU = 0` range in an `LRP = 1` material (GitHub #1731).
+    NoParameters,
 }
 
 /// `sigma`'s contribution of one range at `e`: zero outside `[el, eh)`, else the
 /// clamped contribution times the abundance (`reconr.f90:2596-2645`).
-fn range_delta(range: &EnergyRange, kind: &SeamRange, e: f64) -> RangeDelta {
+fn range_delta(range: &EnergyRange, kind: &SeamRange, e: f64, ctx: &super::csbw::BwContext) -> RangeDelta {
     if !in_sigma_range(range.el, range.eh, e) {
         return RangeDelta::default();
     }
     let d = match kind {
-        SeamRange::Slbw(p) => slbw_delta(range, p, e),
+        SeamRange::Slbw(p) => super::csbw::bw_delta(range, p, e, ctx),
         SeamRange::Rm => rm_delta(range, e),
+        SeamRange::NoParameters => RangeDelta { elastic: 4.0 * crate::common::phys::PI * range.ap * range.ap, ..RangeDelta::default() },
     };
     d.clamp_negative_to_zero().times_abundance(range.abn)
 }
@@ -130,8 +133,8 @@ fn in_sigma_range(el: f64, eh: f64, e: f64) -> bool {
 }
 
 /// The sum `sigma` forms over two ranges at `e` (each on its own `[el, eh)`).
-fn pair_delta(a: (&EnergyRange, &SeamRange), b: (&EnergyRange, &SeamRange), e: f64) -> RangeDelta {
-    let (da, db) = (range_delta(a.0, a.1, e), range_delta(b.0, b.1, e));
+fn pair_delta(a: (&EnergyRange, &SeamRange), b: (&EnergyRange, &SeamRange), e: f64, ctx: &super::csbw::BwContext) -> RangeDelta {
+    let (da, db) = (range_delta(a.0, a.1, e, ctx), range_delta(b.0, b.1, e, ctx));
     let mut d = RangeDelta {
         total: da.total + db.total,
         elastic: da.elastic + db.elastic,
@@ -154,13 +157,28 @@ fn pair_delta(a: (&EnergyRange, &SeamRange), b: (&EnergyRange, &SeamRange), e: f
 /// the last grid point below the boundary, its upper end the first at or above it. The
 /// step-increase rule sees the point before the panel as the last one written
 /// (`res(1)`), with `in > 3`.
-pub(super) fn refine_resolved_seams(sections: &mut [ReconrSection], res_info: &ResonanceInfo, eps: f64, raw: &RawMf3) {
+///
+/// `ctx` carries the temperature and `csmlbw2`'s state (GitHub #1323; an MLBW
+/// range on a seam is refused at `tempr > 0`), and `competitive_mts` is `[51]`
+/// when `emerge` writes the competitive width to MT=51 (GitHub #1731). With
+/// `csnorp` (an `LRP = 1` material) an `LRU = 0` range takes part too: `resxs`
+/// tests the panel between it and a resolved range like any other (GitHub #1731).
+pub(super) fn refine_resolved_seams(
+    sections: &mut [ReconrSection],
+    res_info: &ResonanceInfo,
+    eps: f64,
+    raw: &RawMf3,
+    ctx: &super::csbw::BwContext,
+    competitive_mts: &[i32],
+    csnorp: bool,
+) {
     let mut ranges: Vec<(&EnergyRange, SeamRange)> = res_info
         .ranges
         .iter()
-        .filter(|r| r.lru == 1)
+        .filter(|r| r.lru == 1 || (csnorp && r.lru == 0))
         .filter_map(|r| match r.formalism {
-            Some(ResonanceFormalism::Slbw) | Some(ResonanceFormalism::Mlbw) if !r.l_states.is_empty() => Some((r, SeamRange::Slbw(slbw_prepare(r)))),
+            _ if r.lru == 0 => Some((r, SeamRange::NoParameters)),
+            Some(ResonanceFormalism::Slbw) | Some(ResonanceFormalism::Mlbw) if !r.l_states.is_empty() => Some((r, SeamRange::Slbw(super::csbw::prepare(r)))),
             Some(ResonanceFormalism::ReichMoore) if !r.rm_l_states.is_empty() => Some((r, SeamRange::Rm)),
             _ => None,
         })
@@ -184,7 +202,7 @@ pub(super) fn refine_resolved_seams(sections: &mut [ReconrSection], res_info: &R
             continue;
         }
         let (e_prev, e1, e2) = (grid[k - 2], grid[k - 1], grid[k]);
-        let delta = |e: f64| pair_delta((a, ka), (b, kb), e);
+        let delta = |e: f64| pair_delta((a, ka), (b, kb), e, ctx);
         let (d1, d2) = (delta(e1), delta(e2));
         let mut state = WalkState { written: 4, last_written: e_prev };
         let (mut out_e, mut out_d, mut flags): (Vec<f64>, Vec<RangeDelta>, Vec<PanelAccept>) = (Vec::new(), Vec::new(), Vec::new());
@@ -195,7 +213,7 @@ pub(super) fn refine_resolved_seams(sections: &mut [ReconrSection], res_info: &R
         if out_e.is_empty() {
             continue;
         }
-        write_points(sections, &out_e, &out_d, raw);
+        write_points(sections, &out_e, &out_d, raw, competitive_mts);
         rebuild_total_as_sum_of_parts(sections, &out_e);
     }
 }
@@ -238,14 +256,16 @@ fn rewalk_from(
 /// background is `gety1` of the tape's own TAB1 at `e` (else lin-lin of the section),
 /// plus the resonance term, rounded once to 7 figures, with `emerge`'s elastic floor
 /// `1e-8` (`reconr.f90:4791-4851`). MT=1 receives a placeholder the caller overwrites.
-fn write_points(sections: &mut [ReconrSection], es: &[f64], ds: &[RangeDelta], raw: &RawMf3) {
-    for mt in [
+fn write_points(sections: &mut [ReconrSection], es: &[f64], ds: &[RangeDelta], raw: &RawMf3, competitive_mts: &[i32]) {
+    let fixed = [
         MtReaction::Mt1Total,
         MtReaction::Mt2Elastic,
         MtReaction::Mt18Fission,
         MtReaction::Mt19FirstChanceFission,
         MtReaction::Mt102Capture,
-    ] {
+    ];
+    // MT=51 takes the competitive width (`itype = 5`, GitHub #1731).
+    for mt in fixed.into_iter().chain(competitive_mts.iter().map(|&m| MtReaction::from_any(m))) {
         let Some(sec) = sections.iter_mut().find(|s| s.mt == mt) else { continue };
         let bg = sec.pairs.clone();
         let mut g = raw.iter().find(|(m, _)| MtReaction::from_any(*m) == mt).map(|(_, t)| crate::endf::gety1::Gety1::new(t));
@@ -258,7 +278,8 @@ fn write_points(sections: &mut [ReconrSection], es: &[f64], ds: &[RangeDelta], r
                 MtReaction::Mt1Total => d.total,
                 MtReaction::Mt2Elastic => d.elastic,
                 MtReaction::Mt102Capture => d.capture,
-                _ => d.fission,
+                MtReaction::Mt18Fission | MtReaction::Mt19FirstChanceFission => d.fission,
+                _ => d.other[0],
             };
             let mut sn = base + add;
             if mt == MtReaction::Mt2Elastic && sn <= 1.0e-8 {

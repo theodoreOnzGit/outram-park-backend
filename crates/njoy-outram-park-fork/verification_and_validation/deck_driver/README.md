@@ -2132,3 +2132,40 @@ Repairing `cpm` would be a change to NJOY, which is the maintainer's call.
 `nina = 1, ires = 1` variants through both codes. It asserts that NJOY2016 exits non-zero
 with unit 27 empty and the recorded stop message, and that the port refuses `lib = 3` at
 POWR. If upstream ever wrote a `lib = 3` library, this test would fail and point here.
+
+## 40. Survey close-out: GROUPR `mfd = 31-36` and charged lists, `igg = 1`; ERRORR `nstan`/`nin` on the PENDF route; OpenMC's thermal deck (2026-11-24, gh:#1370, #1371, #866)
+
+Every case runs the same deck through NJOY2016.80 (`build/njoy`, `ab27c64`) and
+`run_deck`, release, compared line for line as strings. Predictions were written in
+the tests' doc comments and committed (`7caaba962`, `af6a7ec4a`) before the first run,
+except `AU`, which says so.
+
+| deck | what | gate | result |
+|---|---|---|---|
+| `GG1` | GROUPR `igg = 1` (arbitrary photon groups, `gengpg` `:4747-4751`) on Pu-240 | `deck_driver_groupr_weights_vs_njoy2016::gg1_…` | unit 24 identical, 145 lines, first run |
+| `CP1` | GROUPR `21 600`, `25 800`, `26 2`, `26 600`, `26 800` on O-16 VIII.0: `conver`'s `mf4r`, `mfchk2`, `parts`, `getdis` with `aprime /= 1` and the `law = 4` flip, written as MF = `mfd - 10` | `deck_driver_groupr_materials_vs_njoy2016::cp1_…` | unit 24 identical, 306 lines, first run |
+| `AU` | GROUPR automatic `21/`, `25/`, `26/` (`nextr`'s `mf6p` then `mf4r`) on O-16 and F-19 | `…::au_…` | identical, 909 and 1 525 lines (run before a prediction was written) |
+| `N3`, `N4` | ERRORR `nstan` on the PENDF route (`mfcov = 33`, `ngout = 0`), J33 U-235, card 11 `0/` and `9228 18 9228 102/` | `deck_driver_errorr_mf40_nstan_vs_njoy2016::n3_n4_…` | unit 27 identical, 8 654 and 8 588 lines, first run |
+| `NI1` | deck 05 plus a second ERRORR with `nin = 33` (PENDF route) | `deck_driver_covr_vs_njoy2016::ni1_…` | units 33 and 36 identical (21 471, 42 940 lines), first run |
+| `OM1` | OpenMC's `make_ace_thermal` deck, H in H2O, 293.6 and 600 K, free-gas THERMR then bound THERMR, ACER `iwt = 2`, 64 bins, all text units | `deck_driver_thermal_openmc_vs_njoy2016::om1_…` | ACE units 28-31 and BROADR's 23 identical; THERMR units 24, 25 identical in columns 1-75 after one fix; sequence numbers pinned (below) |
+
+**`OM1` missed on its first run.** Units 24 and 25 differed in the last digit of the
+MF=6 density on 7 949 and 18 661 lines. `calcem` writes to `nscr`, text when `nout`
+is (`thermr.f90:297-298`), and `tpend` scales the density read back from it; the deck
+driver skipped that read for text units. Fixed in `deck::thermr`. Decks run THERMR on
+binary units before this (01, 67-69) and are unaffected. **Open:** the sequence numbers
+of 1 559 (unit 24) and 515 485 (unit 25) lines, where `tpend`'s copies keep a running
+count through copied SEND/FEND lines; pinned exactly by the test.
+
+**`mfd = 21-26` with no MF=6 that `mfchk2` leaves alone** (an MT inside a stored range,
+e.g. O-16 `21 601`): NJOY2016 stops in `findf` (exit 77, run 2026-11-24); the port now
+stops there by name too.
+
+**Classified, not ported** (each checked 2026-11-24):
+- ERRORR `mfcov = 33` with `ngout = 0` and `npend = 0`: NJOY2016 crashes ("Fortran
+  runtime error: Missing format", deck 05 with `npend = 0`); kept refused.
+- ACER `fndar1`/`fndar2`: F-19 ENDF/B-VIII.0 MT=16 (two neutron LAW=1, LANG=1
+  subsections) with `newfor = 0` is the closest held case; the port never calls
+  `fndar*`, and its ACE differs from NJOY2016's in 5 of 49 285 lines, all
+  equiprobable AND cosines in the 6th figure, so `fndar` contributes nothing there.
+  Those 5 lines are an open residual of `newfor = 0` (gh:#1372).

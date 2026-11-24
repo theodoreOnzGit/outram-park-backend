@@ -222,6 +222,24 @@ fn i2_deck_05_with_errorr_iread1_card9() {
     assert_identical("i2", r);
 }
 
+/// **`NI1`: deck 05 with a second ERRORR that copies the first's tape ahead**
+/// (`nin = 33`, `nout = 36`; gh:#1371, 2026-11-24). `covout` copies `nin` up to its
+/// last MEND before writing the material (`errorr.f90:7144-7158`) on the PENDF route
+/// (`grpav`) exactly as on the GENDF route that deck 04 gates; the port had
+/// refused `nin /= 0` on the PENDF route. Units 33 and 36 against NJOY2016.80.
+/// Prediction (gh:#1371, before the run): both identical. Results: see the
+/// deck-driver README §40.
+#[test]
+fn ni1_deck_05_with_a_second_errorr_copying_nin_ahead() {
+    let second = "errorr\n -31 -32 0 36 33/\n 1306 -1 2 1/\n 0 0/\n 0 33/\n 1/\n 1e-5 2e7/\ncovr\n";
+    let r = edited_deck_on("05", "t511", 30, &[33, 36], |d| {
+        let e = d.replacen("covr\n", second, 1);
+        assert!(e.contains(second), "deck 05 was not edited");
+        e
+    });
+    assert_identical("ni1", r);
+}
+
 /// **Deck 46 (Fe-56 JEFF-3.3, 238 groups): ERRORR `mfcov = 34` from a binary GENDF
 /// (unit 34: MF=1, MF=3/MT=251 mubar, MF=34/MT=251), whole deck.**
 #[test]

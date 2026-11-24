@@ -230,3 +230,58 @@ fn n2_errorr_nstan_card11_redefines_the_standard() {
         assert_eq!(d, 0, "n2: unit 27 differs from NJOY2016.80");
     }
 }
+
+/// The `nstan` decks on the **PENDF route** (`ngout = 0`, gh:#1371, 2026-11-24):
+/// [`nstan_deck`]'s RECONR and BROADR, then ERRORR `22 32 0 27 0 24` straight from
+/// BROADR's PENDF (`grpav`), with the GROUPR step left out. Upstream's `gridd`
+/// (`errorr.f90:1274-1300`) and `covcal` (`:2017-2030`) read the standard the same
+/// way on both routes; only the group constants differ (`grpav` against `colaps`,
+/// `:1028-1032`).
+fn nstan_pendf_deck(card11: &str) -> String {
+    format!(
+        "reconr\n 22 42 /\n 'u235'/\n 9228 0 0 /\n 0.005 /\n 0 /\n\
+         broadr\n 22 42 32 /\n 9228 1 0 0 0 /\n 0.001 /\n 300. /\n 0 /\n\
+         errorr\n 22 32 0 27 0 24 /\n 9228 3 6 1 /\n 1 300./\n 0 33 1 1 -1 /\n{card11}stop\n"
+    )
+}
+
+/// Run a PENDF-route `nstan` deck; `None` when skipped. Returns unit 27's
+/// differing lines.
+fn nstan_pendf_case(tag: &str, card11: &str) -> Option<usize> {
+    let p = njoy_root().join("tests/resources/J33U235");
+    let Ok(t) = std::fs::read_to_string(&p) else {
+        eprintln!("skip: {} not present", p.display());
+        return None;
+    };
+    let r = compare_on(tag, &nstan_pendf_deck(card11), &[(22, t.clone()), (24, t)], &[27])?;
+    let (_, d, n) = r[0];
+    assert!(n > 1000, "{tag}: NJOY's unit 27 has only {n} lines");
+    Some(d)
+}
+
+/// **`N3`, `N4`: `nstan` on the PENDF route** (`mfcov = 33`, `ngout = 0`), card 11
+/// `0/` (`N3`) and `9228 18 9228 102/ 0/` (`N4`), on JENDL-3.3 U-235.
+///
+/// # Prediction (posted on gh:#1371 before the first run, 2026-11-24)
+///
+/// Unit 27 identical line for line in both decks: the PENDF route
+/// (`errorr::mf33::run_mf33_nstan`) shares `gridd`, `covcal` and `grpav` with the
+/// gated `N1`/`N2` GENDF route and deck 05's PENDF route, so nothing new is
+/// computed.
+///
+/// # Results (2026-11-24, NJOY2016.80 `ab27c64`, release)
+///
+/// As predicted, on the first run: `N3` unit 27 identical, 8 654 lines; `N4`
+/// identical, 8 588 lines. Before this change the port refused `nstan` on the
+/// PENDF route by name; the card-11 control (NJOY's own `N1`/`N2`, 177 lines
+/// apart) carries over, since card 11 acts in `gridd`/`covcal`, shared by both
+/// routes.
+#[test]
+fn n3_n4_errorr_nstan_on_the_pendf_route() {
+    if let Some(d) = nstan_pendf_case("n3", " 0 /\n") {
+        assert_eq!(d, 0, "n3: unit 27 differs from NJOY2016.80");
+    }
+    if let Some(d) = nstan_pendf_case("n4", " 9228 18 9228 102 /\n 0 /\n") {
+        assert_eq!(d, 0, "n4: unit 27 differs from NJOY2016.80");
+    }
+}

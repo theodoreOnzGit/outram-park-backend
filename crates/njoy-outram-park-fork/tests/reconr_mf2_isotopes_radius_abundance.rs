@@ -26,8 +26,13 @@
 //!   difference in MT=102 at every shared energy must be half the directly
 //!   evaluated resonance capture (`sig(j)=sig(j)+sigp(j)*abn`,
 //!   `reconr.f90:2641-2645`).
-//! - **#662, temperature.** `ReconrConfig::temperature > 0` is refused
-//!   (`NotPorted`: the ψ/χ path is not ported), and a negative one is invalid.
+//! - **#662, temperature.** ~~`ReconrConfig::temperature > 0` is refused
+//!   (`NotPorted`: the ψ/χ path is not ported)~~ **CORRECTED 2026-11-24
+//!   (GitHub #1323):** `T > 0` is reconstructed for SLBW, MLBW and Adler-Adler
+//!   (gated line for line against NJOY2016 in
+//!   `tests/reconr_temperature_and_lrx_vs_njoy2016.rs`) and labelled with its
+//!   temperature; a Reich-Moore range at `T > 0` is refused, and a negative
+//!   temperature is invalid.
 //!
 //! # Results (2026-11-10, ENDF data as committed)
 //!
@@ -42,7 +47,8 @@
 //! | NRO, `AP(E) = AP` | MT=1, 2, 102 bit-identical to the plain tape |
 //! | NRO, `AP(E)` 0.30 → 0.40 | 1328 shared energies, worst 8.15e-7 against the direct `csmlbw` form; MT=2 −21.57 % below 1 eV, +39.27 % above 4 keV |
 //! | ABN 0.5 vs 1 | 1337 shared energies, worst 4.38e-7 against 0.5 × resonance capture |
-//! | T = 900 K, −1 K, NaN | refused (`NotPorted`, `InvalidInput`, `InvalidInput`) |
+//! | ~~T = 900 K, −1 K, NaN~~ | ~~refused (`NotPorted`, `InvalidInput`, `InvalidInput`)~~ |
+//! | T = 900 K (Ar-37 MLBW); Si-30 RM at 900 K; −1 K, NaN (2026-11-24) | reconstructed, labelled 900 K, MT=102 differs from 0 K; refused (`NotPorted`); `InvalidInput`, `InvalidInput` |
 //!
 //! The 7-significant-figure rounding of both reconstructions bounds the
 //! residuals at about 1e-6. Nothing held in `reference-data/endf/` has
@@ -272,10 +278,23 @@ fn abundance_weights_the_resolved_contribution() {
 }
 
 #[test]
-fn reconstruction_temperature_is_refused_not_ignored() {
+fn reconstruction_temperature_is_honoured_or_refused_never_ignored() {
     let tape = ar37();
     let at = |t: f64| reconr(&tape, &ReconrConfig { mat: MAT, tolerance: 0.001, temperature: t });
-    assert!(matches!(at(900.0), Err(NjoyError::NotPorted(_))), "T > 0");
+    // ~~T > 0 refused~~ reconstructed since 2026-11-24 (GitHub #1323).
+    let hot = at(900.0).expect("MLBW at 900 K");
+    let cold = at(0.0).unwrap();
+    assert_eq!(hot.temperature_k, 900.0, "labelled with its temperature");
+    let mt102 = |r: &njoy_outram_park_fork::reconr::ReconrResult| {
+        r.sections.iter().find(|s| s.mt.number() == 102).map(|s| s.pairs.clone()).unwrap()
+    };
+    assert_ne!(mt102(&hot), mt102(&cold), "900 K capture is not the 0 K capture");
+    // Reich-Moore at T > 0: NJOY2016's `cssammy` ignores `tempr`; refused here.
+    if let Some(p) = njoy_outram_park_fork::reference_data::reference_endf("n-014_Si_030-ENDF8.0.endf") {
+        let si = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).unwrap();
+        let r = reconr(&si, &ReconrConfig { mat: 1431, tolerance: 0.001, temperature: 900.0 });
+        assert!(matches!(r, Err(NjoyError::NotPorted(_))), "RM at T > 0");
+    }
     assert!(matches!(at(-1.0), Err(NjoyError::InvalidInput(_))), "T < 0");
     assert!(matches!(at(f64::NAN), Err(NjoyError::InvalidInput(_))), "T = NaN");
     assert_eq!(at(0.0).unwrap().temperature_k, 0.0, "0 K data are labelled 0 K");

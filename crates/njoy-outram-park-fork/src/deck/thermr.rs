@@ -588,7 +588,12 @@ fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: 
                 let mut data: Vec<f64> = Vec::with_capacity(j * (nl + 1));
                 for r in &rec.rows {
                     data.push(r.ep_ev);
-                    data.push(round_xs(r.pdf * rxsec));
+                    // `calcem` writes the row to the scratch tape `nscr`, which is text
+                    // when `nout` is (`thermr.f90:297-298`); `tpend` reads the density
+                    // back at `a11`'s precision before scaling it (as
+                    // `acer::acesix::tpend_rows`; OpenMC's deck, gh:#866, 2026-11-24).
+                    let pdf = if c.nout > 0 { crate::acer::acesix::pendf_text(r.pdf)? } else { r.pdf };
+                    data.push(round_xs(pdf * rxsec));
                     data.extend_from_slice(&r.cosines);
                 }
                 rows6.push([0.0, rec.e_in_ev, 0.0, 0.0, (nl + 1) as f64 * j as f64, (nl + 1) as f64]);

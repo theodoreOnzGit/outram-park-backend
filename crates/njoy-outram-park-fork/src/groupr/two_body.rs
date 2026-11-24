@@ -312,6 +312,18 @@ impl TwoBodyFeed {
         self
     }
 
+    /// Make the outgoing particle's mass ratio `aprime` (`parts`,
+    /// `groupr.f90:7415-7525`) something other than the neutron's 1: a charged
+    /// particle or the residual of an MF=4 two-body reaction, `mfd = 31-36`
+    /// (gh:#1370, 2026-11-24). `getdis` reads it in `awr2` (`:9429`), the cosine
+    /// edges (`:9480`) and the critical energies (`:9621-9656`), all of which take
+    /// `self.aprime`. The state is reset as after `getdis(e = 0)`.
+    pub fn with_outgoing_mass(mut self, aprime: f64) -> Self {
+        self.aprime = aprime;
+        self.reset();
+        self
+    }
+
     /// Number of groups `ngn`.
     pub fn ngn(&self) -> usize {
         self.egn.len() - 1

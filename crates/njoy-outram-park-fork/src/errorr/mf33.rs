@@ -57,6 +57,7 @@ use super::gridd::{gridd, lumpmt, scan_reactions, uniong, NDIG};
 use super::groups::neutron_group_structure;
 use super::grpav::grpav;
 use super::resprx::resprx;
+use super::standards::Standards;
 use super::weight::{ErrorrWeight, WeightSampler};
 
 /// `elo`/`eps` — `egn(1)` is snapped to exactly `1e-5` eV when within
@@ -158,6 +159,19 @@ fn user_group_bounds(cfg: &Mf33Config) -> Result<Vec<f64>, NjoyError> {
 ///   in the reaction list, or malformed records.
 /// - [`NjoyError::SectionNotFound`] for a missing PENDF cross section.
 pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrResult, NjoyError> {
+    run_mf33_nstan(endf, pendf, cfg, None)
+}
+
+/// [`run_mf33`] with the `nstan` tape and card 11 ([`Standards`], gh:#1371): the
+/// PENDF route of `errorr.f90`, where `gridd` (`:1274-1300`, `grist`) and `covcal`
+/// (`:2017-2030`, `stand`) read the standard exactly as on the GENDF route
+/// ([`super::mf31::run_cov_gendf_nstan`]); only the group constants come from
+/// `grpav` instead of `colaps` (`:1028-1032`). `None` is `nstan = 0`.
+///
+/// # Errors
+/// As [`run_mf33`], and the standards' ([`super::standards::grist`],
+/// [`super::standards::stand`]).
+pub fn run_mf33_nstan(endf: &Tape, pendf: &Tape, cfg: &Mf33Config, standards: Option<Standards>) -> Result<ErrorrResult, NjoyError> {
     let matd = cfg.matd;
     let iverf = endf_version(endf, matd)?;
     if iverf <= 4 {
@@ -176,6 +190,7 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
     // dictionary + covariance energies + derivation coefficients
     let mut reactions = scan_reactions(endf, matd)?;
     reactions.card8 = cfg.card8.clone();
+    reactions.standards = standards;
     let g = gridd(endf, matd, &mut reactions)?;
     lumpmt(endf, matd, &mut reactions)?;
 

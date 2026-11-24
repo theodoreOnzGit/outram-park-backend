@@ -134,6 +134,12 @@ convention. To regenerate either in full, run the committed deck; to reduce it
 to what is committed here, keep the records whose columns 71-75 read `  2152`
 and append a SEND/FEND/MEND/TEND.
 
+**The released-VIII.0 Fe-58 file's label line was re-cut 2026-11-24 (gh:#660).** Its
+hand-written TPID label ran 4 columns into the MAT field (an 83-column line:
+`... RECONR pendf   1 0  0`), which NJOY's `tpidio` (`(16a4,a2,i4,i2,i3)`)
+would refuse and the strict reader now refuses. The label was shortened to 66
+columns (`... from NJOY2016 RECONR`); no record below it changed.
+
 They exist because the U-234 oracle beside them reaches only Case C with
 `LSSF = 0`, leaving two paths in the MT=152 writer untested:
 

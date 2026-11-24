@@ -20,7 +20,8 @@
 //! What runs (all 2026-11-13):
 //! - `mfcov = 35` with `ngout /= 0` ([`crate::errorr::mf35`]);
 //! - `mfcov = 33` from a PENDF with `ngout = 0` ([`crate::errorr::run_mf33`], its
-//!   tape by [`mf33_text`]);
+//!   tape by [`mf33_text`]); since 2026-11-24 (gh:#1371) with `nstan /= 0`
+//!   ([`crate::errorr::mf33::run_mf33_nstan`]) and `nin /= 0` copied ahead too;
 //! - `mfcov = 31`, and `33` with `ngout /= 0`, from a GENDF
 //!   ([`crate::errorr::mf31::run_cov_gendf`]), with `nin /= 0` copied ahead
 //!   ([`copy_nin_ahead`]); `mfcov = 40` the same way (2026-11-14, gh:#1371);
@@ -43,7 +44,7 @@ use crate::errorr::mf34::{run_mf34_gendf, Mf34Config};
 use crate::errorr::mf35::{run_mf35, Mf35Config};
 use crate::errorr::gridd::Card8;
 use crate::errorr::weight::ErrorrWeight;
-use crate::errorr::{run_mf33, Mf33Config};
+use crate::errorr::{run_mf33_nstan, Mf33Config};
 use crate::NjoyError;
 
 /// ERRORR's cards as read.
@@ -311,8 +312,11 @@ pub fn run_errorr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -
     if mfcov == 31 || mfcov == 40 || (mfcov == 33 && ngout != 0) {
         return run_errorr_cov_gendf(&c, units, mfcov);
     }
-    if nstan != 0 {
-        return Err(NjoyError::NotPorted("errorr nstan /= 0 other than mfcov = 31/33/40 from a GENDF"));
+    if nstan != 0 && mfcov != 33 {
+        return Err(NjoyError::NotPorted("errorr nstan /= 0 other than mfcov = 31/33/40 from a GENDF or mfcov = 33 from a PENDF"));
+    }
+    if nstan != 0 && c.card8.is_some() {
+        return Err(NjoyError::NotPorted("errorr nstan /= 0 with iread = 1 (gridd's card-8a skip and grist together; no deck exercises it)"));
     }
     if c.card7[0] == 2 {
         return Err(NjoyError::NotPorted("errorr iread = 2 other than mfcov = 31/33 from a GENDF"));
@@ -616,17 +620,18 @@ pub fn copy_nin_ahead(nin: &str, ours: &str) -> Result<String, NjoyError> {
     Ok(text)
 }
 
-/// ERRORR `mfcov = 33` from a PENDF ([`run_mf33`]), its tape on unit `nout`.
+/// ERRORR `mfcov = 33` from a PENDF ([`crate::errorr::mf33::run_mf33_nstan`]), its
+/// tape on unit `nout`, with the standards tape `nstan` and the input covariance
+/// tape `nin` (copied ahead) when given (gh:#1371, 2026-11-24).
 ///
 /// # Errors
-/// [`NjoyError::NotPorted`] for an input GENDF (`ngout /= 0`, `colaps` for MF=33),
-/// `nin /= 0`, `irespr = 0`; and whatever [`run_mf33`] refuses.
+/// [`NjoyError::NotPorted`] for ~~an input GENDF (`ngout /= 0`, `colaps` for MF=33),
+/// `nin /= 0`,~~ `npend = 0`, `irespr = 0`, `iread = 1` with MF=32 on the tape; and
+/// whatever [`crate::errorr::mf33::run_mf33_nstan`] refuses. (**CORRECTED 2026-11-24:**
+/// `ngout /= 0` never reaches this function, and `nin /= 0` is copied ahead.)
 fn run_errorr_mf33(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
-    let [nendf, npend, ngout, nout, nin, _] = c.units;
+    let [nendf, npend, ngout, nout, nin, nstan] = c.units;
     let _ = ngout; // ngout /= 0 goes to `run_errorr_cov_gendf`
-    if nin != 0 {
-        return Err(NjoyError::NotPorted("errorr nin /= 0 (input covariance tape)"));
-    }
     if npend == 0 {
         return Err(NjoyError::NotPorted("errorr mfcov = 33 with npend = 0"));
     }
@@ -650,14 +655,40 @@ fn run_errorr_mf33(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyErr
     if cfg.card8.is_some() && endf.sections().iter().any(|s| s.key.mat == cfg.matd && s.key.mf == 32) {
         return Err(NjoyError::NotPorted("errorr iread = 1 with MF=32 on the tape (resprx with a card-8a reaction list; no deck exercises it)"));
     }
-    let res = run_mf33(&endf, &pendf, &cfg)?;
+    let standards = if nstan != 0 {
+        // `grist`/`stand` read `nstan` on this route as on the GENDF one (gh:#1371)
+        units.openz(nstan, 0)?;
+        Some(Standards { tape: alloc::sync::Arc::new(units.get(nstan)?.tape.clone()), redefine: c.card11.clone() })
+    } else {
+        None
+    };
+    let res = run_mf33_nstan(&endf, &pendf, &cfg, standards)?;
     if nout != 0 {
-        units.openz(nout, 1)?;
         let t = mf33_text_labelled(&res, "", covout_first_seq(&endf, cfg.matd, nendf, res.resonance.is_some()))?;
-        let records = GendfTape { tpid: String::new(), records: t.records.clone() };
-        units.put_gendf(nout, t.text(), records);
+        let (text, records) = with_nin_ahead(units, nin, &t)?;
+        units.openz(nout, 1)?;
+        units.put_gendf(nout, text, GendfTape { tpid: String::new(), records });
     }
     Ok(())
+}
+
+/// `covout`'s output for unit `nout`: `t` alone for `nin = 0`, or with the input
+/// covariance tape `nin` copied ahead of it ([`copy_nin_ahead`], `errorr.f90:7144-7158`).
+/// `covout` copies `nin` the same way whether the group constants came from a PENDF
+/// (`grpav`) or a GENDF (`colaps`), gh:#1371.
+///
+/// # Errors
+/// [`NjoyError::InvalidInput`] when `nin` holds no covariance tape; what
+/// [`copy_nin_ahead`] refuses.
+fn with_nin_ahead(units: &mut TapeUnits, nin: i32, t: &GendfText) -> Result<(String, Vec<crate::errorr::gendf::GendfRecord>), NjoyError> {
+    if nin == 0 {
+        return Ok((t.text(), t.records.clone()));
+    }
+    let prior = units.text_or_file(nin).ok_or_else(|| NjoyError::InvalidInput(format!("errorr: unit {nin} holds no covariance tape")))?;
+    let mut recs = units.gendf(nin)?.map(|g| g.records).unwrap_or_default();
+    recs.retain(|r| r.kind != crate::errorr::gendf::GendfKind::Tend);
+    recs.extend(t.records.iter().cloned());
+    Ok((copy_nin_ahead(&prior, &t.text())?, recs))
 }
 
 /// The `nout` tape of an MF=33 run as `covout` writes it (`errorr.f90:7812-7838,

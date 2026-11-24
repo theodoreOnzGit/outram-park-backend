@@ -110,10 +110,37 @@ passes in 1.7 s, photon-block decode check included; U-234 at 293.6 K stays gate
   column from the ported HEATR, which is byte-identical to NJOY2016's on 62
   tapes (`verification_and_validation/heatr_vs_njoy2016.md` §6); a
   HEATR-on table comparison against NJOY2016 is not part of this record.
-- **Not covered:** MF=6 LAW = 5/6/7 charged particles and the elastic
+- ~~**Not covered:** MF=6 LAW = 5/6/7 charged particles and the elastic
   recoil (no five-route nuclide reaches them; they still refuse the whole
   block by name), and `unionx`'s second discontinuity pair (`edl`/`edh`,
-  for a discontinuity in MT=1 itself).
+  for a discontinuity in MT=1 itself).~~ **CORRECTED 2026-11-24 (gh:#873):**
+  all three are ported now.
+  - `acelcp`'s MF=6 LAW = 6 (`acelcp_ext::law6_grid`/`law6_h`, gh:#1485),
+    LAW = 7 (read as `topfil`'s LAW = 1 rewrite, `acelf6::law7_rewrite`,
+    gh:#1309), LAW = 5 for a product other than the projectile (upstream's
+    empty law-0 entry, `acelcp_recoil::law5_tail_is_harmless`, gh:#1490), and
+    the elastic recoil (`acelcp_ext::elastic_recoil_angular`, gh:#1485). They
+    are gated by `tests/deck_driver_tapes_vs_njoy2016.rs` (decks 14, 50-54,
+    62, 71) and `tests/acer_charged_particle.rs`; for an incident neutron,
+    H-2's MT=16 LAW = 6 proton and MT=2 recoil deuteron by
+    `test_h2_neutron_acelcp_law6_proton_ace` (44 572 XSS words identical,
+    2026-11-24) and Be-9's LAW = 7 alpha by
+    `msre_salt_nuclides_900k_vs_njoy2016`. Still refused, and reached by no
+    held tape: an MF=6 LAW = 2 product with a tabulated `LANG` other than 12.
+    Upstream takes every `LANG != 0` as tabulated, and `pttab2` rewrites its
+    `INT` to 2 (`acecm.f90:423-426`), so it writes them as `LANG = 12`
+    (`acefc.f90:9953-9973`); `mf6_supported` accepts only 0 and 12. All 1 323
+    MF=6 LAW = 2 subsections in `reference-data/endf/` and NJOY2016's
+    `tests/resources` are `LANG = 0` (survey, 2026-11-24).
+  - `unionx`'s `edl`/`edh` pair: `acer::build::unionx_grid`. No PENDF an
+    NJOY2016 module writes can reach it (none of the 43 MT=1 sections in
+    NJOY2016's tests' reference PENDFs repeats an energy), so the gate is
+    NJOY2016 test 07's PENDF edited to repeat the energy after `egh`:
+    `tests/acer_unionx_edl_edh_vs_njoy2016.rs`. The ESZ energy grid is
+    NJOY2016's in every word on three cases (5 041, 5 041 and 5 040 words);
+    without the pair the port gave 5 040 words on the second, 312 differing.
+    The cross sections at `edl`/`edh` are not compared: this crate builds an
+    incident-neutron table only from a PENDF its own run wrote.
 
 ## LCT-008's full nuclide list (2026-10-15, GitHub #875)
 

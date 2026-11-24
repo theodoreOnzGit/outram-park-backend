@@ -398,8 +398,10 @@ pub fn eval_slbw_lstate(
 /// scattering of the `J` values the spin sequence does not reach.
 ///
 /// Same parameters as [`eval_slbw_lstate`]. As there, a competitive width
-/// (`LRX ≠ 0`, `QX`) is not carried by [`super::mf2::LState`] and is not
-/// included (upstream adds `Γc·P(E+QX)/P_x` to `Γ`).
+/// (`LRX ≠ 0`, `QX`) ~~is not carried by [`super::mf2::LState`] and~~ is not
+/// included (upstream adds `Γc·P(E+QX)/P_x` to `Γ`). **CORRECTED 2026-11-24
+/// (GitHub #1731):** `LState` carries `lrx` and `qx`, and a range with
+/// `LRX ≠ 0` is evaluated by `crate::reconr::csbw` instead of this function.
 pub fn eval_mlbw_lstate(
     e: f64,
     resonances: &[(f64, f64, f64, f64, f64, f64)],

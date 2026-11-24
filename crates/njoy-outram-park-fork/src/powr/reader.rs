@@ -86,6 +86,8 @@ impl Reader {
     /// # Errors
     /// A GENDF card that does not parse.
     pub fn new(gendf: &str, lib: i32) -> Result<Self, NjoyError> {
+        // gh:#660: POWR reads the GENDF's cards with `contio`/`listio`.
+        crate::endf::parse::check_gendf_text(gendf, None)?;
         Ok(Self {
             s: EndfStream::from_text(gendf)?,
             h: Head::default(),

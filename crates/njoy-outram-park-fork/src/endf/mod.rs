@@ -35,6 +35,7 @@ pub mod interp;
 pub mod mt;
 pub mod parse;
 pub mod records;
+pub(crate) mod strict;
 pub mod tape;
 
 pub use mt::MtReaction;
