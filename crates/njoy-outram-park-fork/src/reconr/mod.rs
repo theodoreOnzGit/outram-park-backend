@@ -91,8 +91,9 @@ pub struct ReconrConfig {
     /// under a `tempr` label there (`csrmat`'s refusal, `:3232`, is reached
     /// only when the SAMMY method is off). Reconstruct at 0 K and broaden
     /// with [`crate::broadr`], as every caller in this workspace does. Also
-    /// refused at `T > 0`: an MLBW range with `NRO != 0` or adjoining another
-    /// resolved range.
+    /// refused at `T > 0`: an MLBW range with `NRO != 0` ~~or adjoining another
+    /// resolved range~~ (**CHANGED 2026-11-24, GitHub #340:** reconstructed by
+    /// the one walk).
     pub temperature: f64,
 }
 
@@ -358,7 +359,8 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 ///   **CORRECTED 2026-11-24 (GitHub #1731, #1323):** `LRX != 0` is
 ///   reconstructed; `config.temperature > 0` is reconstructed for SLBW, MLBW
 ///   and Adler-Adler and refused for Reich-Moore, R-matrix-limited, and an MLBW
-///   range with `NRO != 0` or adjoining another resolved range.
+///   range with `NRO != 0` ~~or adjoining another resolved range~~ (**CHANGED
+///   2026-11-24, GitHub #340:** that one is reconstructed by the one walk).
 /// - [`NjoyError::InvalidInput`] — a negative or non-finite temperature, or
 ///   an MF=2 `NRO ≠ 0` range upstream refuses
 ///   ([`mf2::parse_resonance_info`]).
@@ -435,7 +437,10 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         _ => Vec::new(),
     };
     let bounds = sigma_walk::Rdfil2Bounds::new(&res_info, &urr_ranges);
-    let one_walk = bounds.needs_one_walk(&res_info);
+    // `tempr > 0` with an MLBW range on a seam takes the one walk too: `csmlbw2`
+    // keeps state between `sigma` calls, and only the one walk calls it in
+    // `resxs`'s order across the seam (GitHub #340).
+    let one_walk = bounds.needs_one_walk(&res_info) || (config.temperature > 0.0 && mlbw_on_resolved_seam(&res_info));
     if one_walk {
         sigma_walk::check_supported(&res_info)?;
     }
@@ -644,8 +649,9 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 /// `cshybr`'s own refusals, `:3232, 3638`, are reached only without SAMMY).
 /// `csmlbw2` does not skip an energy-dependent radius table (`NRO != 0`), so it
 /// would read the table as parameters (`:3054-3058`). And its stored g/h depend
-/// on the order of `sigma` calls, which the seam pass between two adjacent
-/// resolved ranges does not reproduce.
+/// on the order of `sigma` calls, ~~which the seam pass between two adjacent
+/// resolved ranges does not reproduce~~ which only the one walk reproduces across
+/// a seam, so [`reconr`] takes it there (**CHANGED 2026-11-24**, GitHub #340).
 fn refuse_hot(res_info: &ResonanceInfo) -> Result<(), NjoyError> {
     let resolved: Vec<&EnergyRange> = res_info.ranges.iter().filter(|r| r.lru == 1).collect();
     if resolved.iter().any(|r| matches!(r.formalism, Some(ResonanceFormalism::ReichMoore | ResonanceFormalism::RMatrixLimited))) {
@@ -661,16 +667,23 @@ fn refuse_hot(res_info: &ResonanceInfo) -> Result<(), NjoyError> {
              csmlbw2 does not read the radius table",
         ));
     }
-    let seam = resolved.iter().filter(mlbw).any(|a| {
-        res_info.ranges.iter().filter(|b| b.lru <= 1).any(|b| (a.eh - b.el).abs() <= 1.0e-10 * b.el || (b.eh - a.el).abs() <= 1.0e-10 * a.el)
-    });
-    if seam {
-        return Err(NjoyError::NotPorted(
-            "RECONR at temperature > 0 for an MLBW range adjoining another resolved range: \
-             csmlbw2's g/h state across the seam pass",
-        ));
-    }
+    // ~~An MLBW range adjoining another resolved range refused: `csmlbw2`'s g/h
+    // state across the seam pass~~ **CHANGED 2026-11-24 (GitHub #340):** such a
+    // material takes `sigma_walk`'s one walk ([`mlbw_on_resolved_seam`]), which
+    // tests the seam panel in `resxs`'s own call order.
     Ok(())
+}
+
+/// Whether an MLBW range adjoins another `LRU <= 1` range (`eh(a) = el(b)` or the
+/// reverse). At `tempr > 0` `csmlbw2`'s stored g/h make the order of `sigma` calls
+/// part of the answer, and the per-range path tests the seam panel only after
+/// every range is rebuilt ([`seam`]), so [`reconr`] sends such a material through
+/// [`sigma_walk`]'s one walk, whose order is `resxs`'s (GitHub #340, #1323).
+fn mlbw_on_resolved_seam(res_info: &ResonanceInfo) -> bool {
+    let near = |x: f64, y: f64| (x - y).abs() <= 1.0e-10 * y;
+    res_info.ranges.iter().filter(|r| r.lru == 1 && matches!(r.formalism, Some(ResonanceFormalism::Mlbw))).any(|a| {
+        res_info.ranges.iter().filter(|b| b.lru <= 1).any(|b| near(a.eh, b.el) || near(b.eh, a.el))
+    })
 }
 
 /// The MF=3 sections `emerge` treats as resonance reactions (`itype != 0`,

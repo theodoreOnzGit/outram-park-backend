@@ -12,7 +12,8 @@
 //!
 //! The port's usual path rebuilds each resolved range on its own, on the tape's own
 //! MF=3 background, then the unresolved range the same way. That is upstream's
-//! answer only when no two sections cover the same energy. Two cases break it:
+//! answer only when no two sections cover the same energy. Two cases break it, and a
+//! third needs the one walk's call order:
 //!
 //! - **`NIS > 1`**: two isotopes' ranges over the same energies. Upstream `sigma`
 //!   adds `sigp*abn` of every section at `e` (`reconr.f90:2595-2646`); a second
@@ -20,6 +21,10 @@
 //! - **A resolved-unresolved overlap** (`eresu < eresr`). `sigma` adds `sigunr` on
 //!   top of the resolved sum for `eresu <= e < eresh` (`:2660-2666`); the
 //!   unresolved rebuild would discard the resolved part there.
+//! - **`tempr > 0` with an MLBW range on a seam** (added 2026-11-24, GitHub #340).
+//!   `csmlbw2` keeps g/h between calls, and the per-range path tests the seam panel
+//!   only after both ranges are rebuilt; the one walk calls `sigma` across the seam
+//!   in `resxs`'s order.
 //!
 //! [`walk_every_section`] does what `resxs` does in those cases: one walk from
 //! `eresl` to `eresh` on the function `sigma` returns. It reuses

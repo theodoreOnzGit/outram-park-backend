@@ -29,6 +29,12 @@
 //!   nothing (`reconr.f90:4769`).
 //! - `csnorp_below`: an `LRU = 0` range `[1e-5, 600]` eV before the MLBW range.
 //! - `csnorp_only`: one `LRU = 0` range `[1e-5, 1e5]` eV.
+//! - `csnorp_below_300`, `mlbw_split_0`, `mlbw_split_300` (GitHub #340, added
+//!   2026-11-24): an MLBW range on a seam. `csnorp_below` at 300 K, and Na-23's
+//!   MLBW range cut at 3 keV into two MLBW ranges with the same parameters
+//!   (`[600, 3000)`, `[3000, 5e5)`), the MF=1 dictionary's MF=2 count raised to
+//!   match (NJOY2016 sizes `res` from it). At `tempr > 0` such a material takes
+//!   `sigma_walk`'s one walk.
 //! - `aa`: one Adler-Adler range `[1e-5, 5000]` eV (`LI = 7`): l = 0 with two J
 //!   groups (two resonances, then one), l = 1 with one.
 //!
@@ -38,7 +44,7 @@
 //!
 //! # Results
 //!
-//! 12 cases identical line for line; the two Adler-Adler cases identical except
+//! ~~12~~ **15** cases (2026-11-24, GitHub #340) identical line for line; the two Adler-Adler cases identical except
 //! for NJOY2016's own undefined `sigp(5)`. Table and details:
 //! [`reconr_hot_and_competitive_match_njoy2016`].
 
@@ -56,6 +62,17 @@ fn njoy_root() -> PathBuf {
 }
 
 const NA: i32 = 1125;
+
+/// Na-23 with [`mlbw_split`]'s MF=2 at [`SPLIT`], its dictionary count updated.
+fn split_text(na: &Tape, base: &[[f64; 6]]) -> String {
+    let rows = mlbw_split(base, SPLIT);
+    let nc = rows.len();
+    with_mf2_count(with_mf2(na, NA, rows).to_text().unwrap(), nc)
+}
+
+/// Where [`mlbw_split`] cuts Na-23's MLBW range: on the high flank of its
+/// 2.81 keV s-wave resonance.
+const SPLIT: f64 = 3000.0;
 
 fn na23() -> Option<Tape> {
     let p = njoy_outram_park_fork::reference_data::reference_endf("n-011_Na_023-ENDF8.0.endf")?;
@@ -119,6 +136,43 @@ fn csnorp_below(base: &[[f64; 6]]) -> Vec<[f64; 6]> {
     rows.push([1.5, 0.541, 0.0, 0.0, 0.0, 0.0]);
     rows.extend_from_slice(&base[2..]);
     rows
+}
+
+/// Na-23's MLBW range split at `x` into two back-to-back MLBW ranges with the same
+/// parameters (`[600, x)` and `[x, 5e5)`): an MLBW range on a seam (GitHub #340).
+/// Each range keeps its own `res` table, so the second range's g/h stay at
+/// `rdf2bw`'s zero until `csmlbw2`'s `enow` next moves past it.
+fn mlbw_split(base: &[[f64; 6]], x: f64) -> Vec<[f64; 6]> {
+    let mut rows = vec![base[0], base[1]];
+    rows[1][4] = 2.0; // NER
+    let (mut lo, mut hi) = (base[2], base[2]);
+    assert!(x > lo[0] && x < lo[1], "split inside the range");
+    lo[1] = x;
+    hi[0] = x;
+    rows.push(lo);
+    rows.extend_from_slice(&base[3..]);
+    rows.push(hi);
+    rows.extend_from_slice(&base[3..]);
+    rows
+}
+
+/// `text` with the MF=1/MT=451 dictionary's `NC` for MF=2/MT=151 set to `nc`.
+/// NJOY2016 sizes its resonance store from that count (`maxres = 12*NC`,
+/// `reconr.f90:551`), so a case that adds MF=2 records must say so there, or
+/// `rdf2bw` stops with "res storage exceeded".
+fn with_mf2_count(text: String, nc: usize) -> String {
+    text.lines()
+        .map(|l| {
+            let dict = l.len() >= 75 && &l[70..75] == " 1451" && l[22..33].trim() == "2" && l[33..44].trim() == "151";
+            if dict {
+                format!("{}{:>11}{}", &l[..44], nc, &l[55..])
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
 }
 
 fn csnorp_only(base: &[[f64; 6]]) -> Vec<[f64; 6]> {
@@ -242,10 +296,26 @@ fn count(v: &[String], mf: &str) -> usize {
 /// | `lrx_not_last_0` | 0 K | 10 636 | **0** |
 /// | `csnorp_below` | 0 K | 10 726 | **0** |
 /// | `csnorp_only` | 0 K | 7 396 | **0** |
+/// | `csnorp_below_300` (GitHub #340) | 300 K | 10 610 | **0** |
+/// | `mlbw_split_0` / `mlbw_split_300` (GitHub #340) | 0 / 300 K | 10 474 / 10 370 | **0** / **0** |
 /// | `aa_0` / `aa_300` | 0 / 300 K | 7 572 ours, 7 600 NJOY's | see below |
 ///
 /// `mlbw_*` pass only because the walk is sequential: `csmlbw2`'s g/h are kept
 /// from earlier calls, so the order of `sigma` calls is part of the answer.
+///
+/// **The seam cases (GitHub #340, 2026-11-24).** Until this change [`run_deck`]
+/// refused `tempr > 0` with an MLBW range adjoining another resolved range: the
+/// per-range path rebuilds each range, then tests the panel across the seam
+/// afterwards (`reconr::seam`), which calls `csmlbw2` out of `resxs`'s order. Such
+/// a material now takes `sigma_walk`'s one walk. Prediction (posted on gh:#340
+/// before the run): identical line for line. Result: 0 differing lines on all
+/// three. Control, run once with the one walk switched off for these cases (the
+/// per-range path, refusal removed): `mlbw_split_300` differed in 10 096 of
+/// 10 370 lines (NJOY has 4 478 MF=3 points per section, the per-range path
+/// 4 475; range 2's g/h at the seam were its values from 5e5 eV, not `rdf2bw`'s
+/// zeros) and `csnorp_below_300` in 18 lines (MT=1 at 600.000004 eV: 3.023151
+/// against NJOY's 3.299144). So the refusal was warranted, and the one walk is
+/// what removes the need for it.
 ///
 /// What the first run found (fixed, then re-run): `csnorp_below` differed in
 /// 10 436 lines. `resxs` tests the panel across 600 eV, where the `LRU = 0` range
@@ -291,6 +361,10 @@ fn reconr_hot_and_competitive_match_njoy2016() {
         ("lrx_not_last_0", with_mf2(&na, NA, lrx(&base, false)).to_text().unwrap(), NA, 0.0),
         ("csnorp_below", with_mf2(&na, NA, csnorp_below(&base)).to_text().unwrap(), NA, 0.0),
         ("csnorp_only", with_mf2(&na, NA, csnorp_only(&base)).to_text().unwrap(), NA, 0.0),
+        // An MLBW range on a seam at `tempr > 0` (GitHub #340): the one walk.
+        ("csnorp_below_300", with_mf2(&na, NA, csnorp_below(&base)).to_text().unwrap(), NA, 300.0),
+        ("mlbw_split_0", split_text(&na, &base), NA, 0.0),
+        ("mlbw_split_300", split_text(&na, &base), NA, 300.0),
         ("aa_0", with_mf2(&na, NA, aa(&base)).to_text().unwrap(), NA, 0.0),
         ("aa_300", with_mf2(&na, NA, aa(&base)).to_text().unwrap(), NA, 300.0),
     ];
