@@ -191,13 +191,14 @@ fn nis2_with_nro_and_an_lru2_body_parses_every_range() {
     assert_eq!((r2.lru, r2.isotope, r2.abn, r2.ap), (1, 1, 0.4, 0.6), "isotope 2 after the LRU = 2 body");
     assert_eq!(r2.l_states[0].resonances[0].er, 200.0);
 
-    // RECONR does not yet sum overlapping isotopes, so it refuses NIS > 1
-    // rather than return a silently wrong answer.
+    // ~~RECONR does not yet sum overlapping isotopes, so it refuses NIS > 1
+    // rather than return a silently wrong answer.~~ **CHANGED 2026-11-24
+    // (GitHub #1324):** RECONR sums every isotope's sections in one walk, as
+    // upstream `sigma` does; it is checked against NJOY2016 in
+    // `tests/reconr_multi_isotope_and_overlap_vs_njoy2016.rs`. Here: it runs.
     let tape = with_mf2(&ar37(), |rows| *rows = sec.rows.clone());
-    match run(&tape) {
-        Err(NjoyError::NotPorted(m)) => assert!(m.contains("NIS > 1"), "{m}"),
-        other => panic!("NIS = 2 must be refused, got {:?}", other.map(|_| ())),
-    }
+    let r = run(&tape).expect("NIS = 2 is reconstructed");
+    assert!(!section(&r, 2).is_empty());
 }
 
 #[test]
