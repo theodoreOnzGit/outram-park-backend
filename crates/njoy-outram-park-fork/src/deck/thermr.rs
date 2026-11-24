@@ -310,9 +310,14 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     let mut itemp = 0usize;
     let mut i = 0usize;
     let mut seen = false;
+    // Closers NJOY copies on a coded `nout` (`tpend`'s, `tomend`'s, `totend`'s),
+    // which keep the running sequence number (gh:#866); the TEND is `totend`'s.
+    let mut copied: Vec<EndfKey> = vec![EndfKey { mat: -1, mf: 0, mt: 0 }];
     while i < secs.len() {
         if !is_head(&secs[i]) {
+            // Another material: `tomend` before matdp, `totend` after it.
             out.push(secs[i].clone());
+            copied.extend(every_closer(&secs[i]));
             i += 1;
             continue;
         }
@@ -332,7 +337,9 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
             };
             let t = block[0].rows[thead][0];
             if (t - temp).abs() <= 1.0e-4 * temp {
-                out.extend(thermr_block(block, endf, c, itemp)?);
+                let (group, mts) = thermr_block(block, endf, c, itemp)?;
+                out.extend(group);
+                copied.extend(tpend_copied_closers(block, &mts));
                 itemp += 1;
             } else if t > temp {
                 return Err(NjoyError::InvalidInput("thermr: desired temperature not on tape.".into()));
@@ -340,7 +347,9 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
                 return Err(NjoyError::NotPorted("THERMR skipping tape temperatures below the desired one"));
             }
         } else {
+            // A temperature after the last one asked for: `totend`.
             out.extend(block.iter().cloned());
+            copied.extend(block.iter().flat_map(every_closer));
         }
         i = j;
     }
@@ -349,6 +358,7 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     }
     let mut tape = Tape::from_sections(prev.tpid.clone(), out);
     tape.copy_raw_mf32_from(prev);
+    tape.set_copied_closers(copied);
     Ok(tape)
 }
 
@@ -356,7 +366,7 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
 /// (this temperature's sections of the material). Returns the block's output
 /// sections in file order. The MF=1/MT=451 description text is set on `out`'s
 /// tape by the caller's `copy_raw_mf32_from`; its length is the block's.
-fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: usize) -> Result<Vec<Section>, NjoyError> {
+fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: usize) -> Result<(Vec<Section>, Vec<i32>), NjoyError> {
     let matd = c.matdp;
     let mtref = c.mtref;
     let temp = c.temps[itemp];
@@ -674,7 +684,55 @@ fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: 
         group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref + k }, rows: r6 });
     }
     group.sort_by_key(|s| (s.key.mf, s.key.mt));
-    Ok(group)
+    Ok((group, mts))
+}
+
+/// The closing records `tpend` *copies* for one temperature block on a coded
+/// unit (`thermr.f90:2998-3385`), which carry the running sequence number
+/// ([`Tape::set_copied_closers`]; gh:#866). `input` is the block as read, `mts`
+/// the MTs THERMR writes (`mtref..`, in MF=3 and MF=6).
+///
+/// Written (`asend`/`afend`/`amend`, each restarting the count), so not listed:
+/// each new MF=3 SEND (`call asend`, label 230); MF=3's FEND when no input MF=3
+/// section follows the new ones (`afend` before label 250); MF=6's FEND when no
+/// input MF=6 section follows (the `afend` after `tosend(nscr,...)`, or
+/// `contio`'s `afend` on the FEND held in `sav` at label 295); and the MEND when
+/// the block has nothing from MF=4 on (`sav` is the MEND itself at label 295).
+///
+/// Copied: MF=1's and MF=2's SENDs and FENDs (`tofend` after `dictio`); each
+/// input MF=3 section kept before the new ones (`tosend`, label 200) and after
+/// them, with MF=3's FEND (`tofend`, label 245); each new MF=6 section's SEND,
+/// copied from the scratch unit (`tosend(nscr,nout,...)`); every input section
+/// from MF=4 on (`tosend` at label 252, or `tomend` at label 295) with the FENDs
+/// and the MEND `tomend` copies. Not modelled: input MF=4/5 sections, whose FEND
+/// `tpend` holds in `sav` and writes after MF=6 (no PENDF here carries them).
+fn tpend_copied_closers(input: &[Section], mts: &[i32]) -> Vec<EndfKey> {
+    let (Some(&first), Some(&last), Some(head)) = (mts.first(), mts.last(), input.first()) else { return Vec::new() };
+    let mat = head.key.mat;
+    let mut out = Vec::new();
+    for s in input {
+        let k = s.key;
+        let fend = EndfKey { mat, mf: k.mf, mt: 0 };
+        match k.mf {
+            1 | 2 => out.extend([k, fend]),
+            3 | 6 if k.mt < first => out.push(k),
+            3 | 6 if k.mt > last => out.extend([k, fend]),
+            3 | 6 => {}
+            _ => out.extend([k, fend]),
+        }
+        if k.mf >= 4 {
+            out.push(EndfKey { mat, mf: 0, mt: 0 });
+        }
+    }
+    out.extend(mts.iter().map(|&mt| EndfKey { mat, mf: 6, mt }));
+    out
+}
+
+/// A section's SEND, its file's FEND and its material's MEND, all copied
+/// (`tomend`/`totend`).
+fn every_closer(s: &Section) -> [EndfKey; 3] {
+    let k = s.key;
+    [k, EndfKey { mat: k.mat, mf: k.mf, mt: 0 }, EndfKey { mat: k.mat, mf: 0, mt: 0 }]
 }
 
 #[cfg(test)]
