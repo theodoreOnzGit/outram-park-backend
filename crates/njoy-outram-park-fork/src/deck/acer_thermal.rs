@@ -20,8 +20,13 @@
 //! the header as `izn/awn` (`acer.f90:289-296`; card 8a then overwrites
 //! `izn(1..nza)`, `:396-399`).
 //!
-//! Not ported (each stops the run with [`NjoyError::NotPorted`]): `nmix > 1`,
-//! an ENDF-4/5 thermal tape, a THERMR run with `iinc = 1`, mcnpx formats, ACER
+//! `nmix` (card 9, the number of atom types in a mixed moderator) divides the
+//! three cross sections `thrlod` writes, as upstream does (`aceth.f90:730`,
+//! `:804`, `:830`): [`thrlod_nmix`]. ~~Not ported: `nmix > 1`~~ **CORRECTED
+//! 2026-11-24 (gh:#866):** ported and gated on deck 67 with `nmix = 2`.
+//!
+//! Not ported (each stops the run with [`NjoyError::NotPorted`]): an ENDF-4/5
+//! thermal tape, a THERMR run with `iinc = 1`, mcnpx formats, ACER
 //! `itype != 1`.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -95,9 +100,6 @@ pub fn run_acer_thermal(c: &AcerCards, units: &mut TapeUnits, date: String) -> R
     let th = c.thermal.as_ref().ok_or_else(|| NjoyError::InvalidInput("acer: thermal cards missing".into()))?;
     if c.mcnpx || c.itype != 1 {
         return Err(NjoyError::NotPorted("ACER iopt = 2 with itype != 1 or mcnpx formats"));
-    }
-    if th.nmix != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt = 2 with nmix > 1"));
     }
     if c.nace == 0 && c.iprint == 0 {
         return Ok(());
@@ -181,6 +183,7 @@ pub fn run_acer_thermal(c: &AcerCards, units: &mut TapeUnits, date: String) -> R
         AceTable::thermal_from_thermr_elastic(&thermr, th.tname.trim(), suffix, &grid, opts.n_outgoing, opts.form, elastic)
     });
     let mut table = table?;
+    thrlod_nmix(&mut table, th.nmix);
     // `izn/awn`: card 4's pairs, then card 8a over `izn(1..nza)`.
     let mut izn = [0i32; 16];
     let mut awn = [0.0f64; 16];
@@ -203,6 +206,41 @@ pub fn run_acer_thermal(c: &AcerCards, units: &mut TapeUnits, date: String) -> R
     }
     units.put_text(c.nace, ace);
     Ok(())
+}
+
+/// `thrlod`'s division by `nmix` (`aceth.f90:730`, `:804`, `:830`): the
+/// inelastic cross section (ITIX), the primary elastic one (ITCX: the coherent
+/// cumulative `S*E`, already in MeV, or the incoherent `sigma`) and the
+/// secondary incoherent one of a mixed table (ITCXI). Upstream divides each
+/// value as it stores it (`scr(2+2*(i-1))/emev/nmix`, `scr(indx+1)/nmix`,
+/// `scr(2)/nmix`), one IEEE division of the value the table already holds, so
+/// dividing the finished table gives the same words; `nmix = 1` leaves every
+/// word as it is.
+pub(crate) fn thrlod_nmix(table: &mut AceTable, nmix: i32) {
+    use crate::acer::thermal::jxs;
+    if nmix == 1 {
+        return;
+    }
+    let d = f64::from(nmix);
+    let mut blocks: Vec<(usize, usize)> = Vec::new();
+    // ITIX follows ITIE's count `nei` (`xss(itie+nei+i)`).
+    let itie = table.jxs[jxs::ITIE];
+    if itie > 0 {
+        let nei = table.xss[itie as usize - 1] as usize;
+        blocks.push((table.jxs[jxs::ITIX] as usize, nei));
+    }
+    // ITCX/ITCXI follow their energy block's count `nee` (`xss(itce)`).
+    for (e, x) in [(jxs::ITCE, jxs::ITCX), (jxs::ITCEI, jxs::ITCXI)] {
+        let (ite, itx) = (table.jxs[e], table.jxs[x]);
+        if ite > 0 && itx > 0 {
+            blocks.push((itx as usize, table.xss[ite as usize - 1] as usize));
+        }
+    }
+    for (start, n) in blocks {
+        for v in &mut table.xss[start - 1..start - 1 + n] {
+            *v /= d;
+        }
+    }
 }
 
 #[cfg(test)]
