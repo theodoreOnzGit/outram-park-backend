@@ -89,11 +89,57 @@ be: on this 4-core host the scattered per-reaction searches did not cost more
 per thread when three threads shared the cache. Ratios hold for this host only
 (`crates/outram-mc-libs/AGENTS.md`, "Every timing carries its hardware").
 
-## Not done
+## The suffix property on other evaluations (2026-11-24, later)
 
-- **Other evaluations** (light nuclides, moderators, structural materials) were
-  not surveyed for the suffix property. Nothing depends on it holding: a
-  section that is not a suffix is searched as before. Only the speed-up would
-  be smaller.
-- No new profile was taken after the change; the remaining share of the lookup
-  is not measured.
+Same throwaway check, ENDF/B-VIII.0 at 293.6 K, tolerances 0.001: **every
+section of every nuclide is a suffix of its union grid.**
+
+| nuclide | union grid points | sections, all suffix |
+|---|---|---|
+| H-1 | 631 | 3 |
+| H-2 | 542 | 4 |
+| Be-9 | 644 | 13 |
+| B-10 | 941 | 53 |
+| C-12 | 1,615 | 22 |
+| O-16 | 3,081 | 66 |
+| F-19 | 2,322 | 33 |
+| Na-23 | 3,556 | 26 |
+| Al-27 | 5,563 | 134 |
+| Si-28 | 7,447 | 61 |
+| Cr-52 | 31,549 | 21 |
+| Fe-56 | 42,087 | 79 |
+| U-236 | 24,056 | 53 |
+
+Cu-63 could not be checked: its tape fails to process (`MF=32 MT=151`, a
+non-integer in an integer field, which NJOY2016 also stops on), unrelated to
+this change.
+
+## Profile after the change
+
+The gh:#1292 method, repeated on both builds: `gdb` stack samples every ~0.4 s
+(`bt 40`), keeping only samples inside `run_keff`, tallied by the **innermost
+frame** (inlined callees count to their caller). Godiva, single thread, 5000 x
+[40 + 1500] so that transport lasts long enough to sample. Same host as above;
+the two builds were profiled at different times, each alone on the machine
+(sampling slows the run, so these transport times are not timings).
+
+| innermost frame | before (146 samples) | after (77 samples) |
+|---|---|---|
+| `ReconrResult::eval_section` (its `partition_point` and `eval_lin_lin` inlined) | **67.1 %** | 3.9 % |
+| `nuclide::eval_section_x` | 3.4 % | - |
+| `log_grid::eval_section_located` (interpolation) | - | **29.9 %** |
+| `UnionGrid::locate` | - | **18.2 %** |
+| `::at` (a tabulated law) | 6.8 % | 10.4 % |
+| `sample_ct_table_indexed`, `sample_mf4_mu_cm` (angular laws) | 6.8 % | 13.0 % |
+
+So the cross-section lookup went from ~70 % of transport to ~52 % of a
+transport that is 1.9x shorter: the lookup itself takes about **2.6x less
+time**. Both long runs gave `k = 0.999492`, bits `3feffbd674d57da0`, before and
+after: bit identity again, over 1540 generations.
+
+**What is left, and the next step.** `locate` is now 18 %. It takes one `ln`
+(PETIR's) per nuclide per lookup. OpenMC computes the log-bin index **once per
+particle energy** for every nuclide (`i_log_union`, from the library-wide
+`E_min` and `log_spacing`) and passes it down. Doing the same needs a
+library-wide grid and a change to the call chain that picks a collision nuclide;
+filed as a follow-up, gh:#1732.
