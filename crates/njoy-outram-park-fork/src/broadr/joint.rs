@@ -55,8 +55,10 @@ use crate::{
 
 use super::BroadnTolerances;
 
+mod nppmt;
 mod thinb;
-pub use thinb::broadr_joint_thinb;
+pub use nppmt::lrf7_pair_mts;
+pub use thinb::{broadr_joint_thinb, broadr_joint_thinb_pairs};
 
 // ── SLATEC erfc (mathm.f90:447-634) ──────────────────────────────────────────
 
@@ -1053,7 +1055,9 @@ fn skipped(mt: i32) -> bool {
 /// - Which reactions are broadened (`broadr.f90:500-540`): MT=18 always;
 ///   otherwise any section starting at or below `emin`, where `emin = eresh`
 ///   for `LRP = 1` and 1 eV otherwise. Sections upstream skips outright (see
-///   [`skipped`]) are not broadened.
+///   [`skipped`]) are not broadened. Upstream also forces each MT of an
+///   LRF=7 evaluation's particle-pair list in (`:513-520`); this entry point
+///   has no list, [`broadr_joint_pairs`] takes one (gh:#618).
 /// - Output, section by section in tape order (labels 245-310):
 ///   - a broadened reaction is written on the new grid from one point before
 ///     its first non-zero value;
@@ -1080,8 +1084,11 @@ pub fn broadr_joint(
 /// the values before that rounding, so a bootstrap pass starts from
 /// `round_output = false` (gh:#1369, deck test 10: 400 MT=18 lines of the
 /// second temperature differed in the 7th figure without it).
+///
+/// No LRF=7 particle-pair list is applied here (`nppmt` is read from the ENDF
+/// tape, which a [`ReconrResult`] does not carry); [`broadr_joint_pairs`] takes
+/// it (gh:#618).
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn broadr_joint_rounding(
     result: &ReconrResult,
     temp_k: f64,
@@ -1089,13 +1096,31 @@ pub fn broadr_joint_rounding(
     thnmx: f64,
     round_output: bool,
 ) -> Option<ReconrResult> {
+    broadr_joint_pairs(result, temp_k, tol, thnmx, round_output, &[])
+}
+
+/// [`broadr_joint_rounding`] with upstream's LRF=7 particle-pair list `nppmt`
+/// ([`lrf7_pair_mts`] of the ENDF tape): each listed MT is broadened whatever
+/// its threshold, matched in list order (`broadr.f90:513-520`, gh:#618). An
+/// empty list is [`broadr_joint_rounding`].
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn broadr_joint_pairs(
+    result: &ReconrResult,
+    temp_k: f64,
+    tol: &BroadnTolerances,
+    thnmx: f64,
+    round_output: bool,
+    nppmt: &[i32],
+) -> Option<ReconrResult> {
     const E6PT5: f64 = 6.5e6;
     const FACT: f64 = 0.99999;
     let secs = &result.sections;
     let mt1 = secs.iter().find(|s| s.mt.number() == 1)?;
     // `tempef=tempk-tempin` (`broadr.f90:605-610`): broaden from the input's
     // own temperature, not from 0 K (GitHub #617). At `tempef <= 0` upstream
-    // only thins (`thinb`, `:1218-1222`), which is not ported (#619).
+    // only thins (`thinb`, `:1218-1222`): ~~not ported (#619)~~ **CORRECTED
+    // 2026-11-24:** ported beside this as [`broadr_joint_thinb`] (gh:#619).
     let tempef = temp_k - result.temperature_k;
     if mt1.pairs.len() < 2 || tempef <= 0.0 {
         return None;
@@ -1139,13 +1164,18 @@ pub fn broadr_joint_rounding(
 
     // Reaction selection (broadr.f90:497-562).
     let mut mtr: Vec<usize> = Vec::new(); // indices into secs
+    let mut npp_n = 0usize; // upstream's `n - 1` into `nppmt` (gh:#618)
     for (idx, sec) in secs.iter().enumerate() {
         let mt = i32::from(sec.mt.number());
         if mt == 1 || skipped(mt) || sec.pairs.is_empty() {
             continue;
         }
         let enext = section_reader(sec).get(0.0).xnext;
-        if mt == 18 || enext <= emin || (lrp == 1 && enext < eresh) {
+        if mt == 18
+            || nppmt::forced_pair(mt, nppmt, &mut npp_n)
+            || enext <= emin
+            || (lrp == 1 && enext < eresh)
+        {
             mtr.push(idx);
             continue;
         }

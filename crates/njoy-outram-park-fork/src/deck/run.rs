@@ -13,7 +13,7 @@ use crate::nostd_prelude::*;
 use std::path::PathBuf;
 
 use crate::broadr::broadn::BroadnTolerances;
-use crate::broadr::joint::{broadr_joint, broadr_joint_rounding};
+use crate::broadr::joint::{broadr_joint_pairs, lrf7_pair_mts};
 use crate::deck::cards::CardReader;
 use crate::acer::{build_deck, AceDeck};
 use crate::deck::modules::{
@@ -386,6 +386,9 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         if m.temp1 != 0.0 {
             src.temperature_k = m.temp1;
         }
+        // `nppmt`: the LRF=7 particle-pair MTs, from the ENDF tape on `nendf`
+        // (`broadr.f90:292-330`), forced into the broadened set (gh:#618).
+        let nppmt = lrf7_pair_mts(&units.get(c.nendf)?.tape, m.mat);
         let mut all: Vec<Section> = Vec::new();
         let mut final_out = None;
         let mut meta = input.meta.clone();
@@ -409,9 +412,9 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
                 return Err(NjoyError::NotPorted("BROADR thinb with istrap (the bootstrap scratch tape of a thinned pass)"));
             }
             let joint = if thin_only {
-                crate::broadr::joint::broadr_joint_thinb(&src, temp, &tol, m.thnmx)?
+                crate::broadr::joint::broadr_joint_thinb_pairs(&src, temp, &tol, m.thnmx, &nppmt)?
             } else {
-                broadr_joint(&src, temp, &tol, m.thnmx)
+                broadr_joint_pairs(&src, temp, &tol, m.thnmx, true, &nppmt)
             };
             let out = match joint {
                 Some(b) if text_mode => b.through_pendf_text(),
@@ -423,7 +426,7 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             // `istrap`: the next temperature broadens from this one
             // (`broadr.f90:1004-1011`); otherwise from the input's.
             if m.istrap != 0 {
-                src = broadr_joint_rounding(&src, temp, &tol, m.thnmx, false).unwrap_or_else(|| out.clone());
+                src = broadr_joint_pairs(&src, temp, &tol, m.thnmx, false, &nppmt).unwrap_or_else(|| out.clone());
             }
             meta.blocks.push((temp, out.clone()));
             final_out = Some(out);
