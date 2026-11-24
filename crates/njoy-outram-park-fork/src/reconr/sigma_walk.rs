@@ -32,7 +32,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use super::{
-    aa, rebuild_range_with, seam, urr::SunrTable, EnergyRange, RangeDelta, RawMf3, RebuildOpts, ReconrSection,
+    csbw, rebuild_range_with, seam, urr::SunrTable, EnergyRange, RangeDelta, RawMf3, RebuildOpts, ReconrSection,
     ResonanceFormalism, ResonanceInfo,
 };
 use crate::unresr::mf2::UnresolvedRange;
@@ -133,8 +133,8 @@ impl Rdfil2Bounds {
 enum SectionKind {
     /// `csnorp` (mode 0, `LRU = 0`): potential scattering `4 pi AP^2` alone.
     NoParameters,
-    /// `csslbw` / `csmlbw` (modes 1, 2).
-    Slbw(Vec<seam::SlbwLState>),
+    /// `csslbw` / `csmlbw` / `csmlbw2` (modes 1, 2).
+    Slbw(csbw::BwRange),
     /// `csrmat` (mode 3).
     Rm,
     /// `csaa` (mode 4).
@@ -142,16 +142,16 @@ enum SectionKind {
 }
 
 /// `sigp` of one section at `e` (`reconr.f90:2603-2637`), before the clamp.
-fn section_sigp(range: &EnergyRange, kind: &SectionKind, e: f64) -> RangeDelta {
+fn section_sigp(range: &EnergyRange, kind: &SectionKind, e: f64, ctx: &csbw::BwContext) -> RangeDelta {
     match kind {
         SectionKind::NoParameters => {
             RangeDelta { elastic: 4.0 * core::f64::consts::PI * range.ap * range.ap, ..RangeDelta::default() }
         }
-        SectionKind::Slbw(p) => seam::slbw_delta(range, p, e),
+        SectionKind::Slbw(p) => csbw::bw_delta(range, p, e, ctx),
         SectionKind::Rm => seam::rm_delta(range, e),
         SectionKind::Aa => match &range.aa {
             Some(aa_range) => {
-                let s = aa::eval_aa_range(e, aa_range, range.ap);
+                let s = super::aa_sigmas(e, aa_range, range.ap, ctx);
                 RangeDelta { total: s.total, elastic: s.elastic, fission: s.fission, capture: s.capture, ..RangeDelta::default() }
             }
             None => RangeDelta::default(),
@@ -175,17 +175,26 @@ pub(crate) fn check_supported(res_info: &ResonanceInfo) -> Result<(), NjoyError>
 /// `sigma` at `e`: every `LRU <= 1` section on its `[el, eh)`, clamped and times
 /// its abundance, in file order (`reconr.f90:2595-2646`), then `sigunr` for
 /// `eresu <= e < eresh` without a clamp (`:2660-2666`).
-fn sigma(sections: &[(&EnergyRange, SectionKind)], sunr: Option<&SunrTable>, eresu: f64, eresh: f64, e: f64) -> RangeDelta {
+fn sigma(
+    sections: &[(&EnergyRange, SectionKind)],
+    sunr: Option<&SunrTable>,
+    eresu: f64,
+    eresh: f64,
+    e: f64,
+    ctx: &csbw::BwContext,
+) -> RangeDelta {
     let mut sig = RangeDelta::default();
     for (range, kind) in sections {
         if !(e >= range.el && e < range.eh) {
             continue;
         }
-        let p = section_sigp(range, kind, e).clamp_negative_to_zero().times_abundance(range.abn);
+        let p = section_sigp(range, kind, e, ctx).clamp_negative_to_zero().times_abundance(range.abn);
         sig.total += p.total;
         sig.elastic += p.elastic;
         sig.fission += p.fission;
         sig.capture += p.capture;
+        // `sigp(5)`, the SLBW/MLBW competitive width (GitHub #1731).
+        sig.other[0] += p.other[0];
     }
     if let Some(t) = sunr {
         if e >= eresu && e < eresh {
@@ -207,6 +216,11 @@ fn sigma(sections: &[(&EnergyRange, SectionKind)], sunr: Option<&SunrTable>, ere
 /// [`rebuild_range_with`], with the step-increase rule on below `eresr` and the
 /// MF=3 background of MT=1, 2, 18/19 and 102 zeroed on `[eresr, eresh)`
 /// (`emerge`, `:4789-4790`).
+///
+/// `ctx` carries the temperature (GitHub #1323): a `csmlbw2` range makes the walk
+/// sequential. `competitive_mts` is `[51]` when `emerge` writes the competitive
+/// width there (GitHub #1731).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn walk_every_section(
     sections: &mut Vec<ReconrSection>,
     res_info: &ResonanceInfo,
@@ -214,6 +228,8 @@ pub(crate) fn walk_every_section(
     bounds: &Rdfil2Bounds,
     eps: f64,
     raw: &RawMf3,
+    ctx: &csbw::BwContext,
+    competitive_mts: &[i32],
 ) {
     let kinds: Vec<(&EnergyRange, SectionKind)> = res_info
         .ranges
@@ -223,7 +239,7 @@ pub(crate) fn walk_every_section(
             let kind = match (r.lru, r.formalism) {
                 (0, _) => SectionKind::NoParameters,
                 (_, Some(ResonanceFormalism::Slbw)) | (_, Some(ResonanceFormalism::Mlbw)) => {
-                    SectionKind::Slbw(seam::slbw_prepare(r))
+                    SectionKind::Slbw(csbw::prepare(r))
                 }
                 (_, Some(ResonanceFormalism::ReichMoore)) => SectionKind::Rm,
                 (_, Some(ResonanceFormalism::AdlerAdler)) => SectionKind::Aa,
@@ -246,7 +262,8 @@ pub(crate) fn walk_every_section(
     let mut edges = vec![eresl];
     edges.extend(cuts);
     edges.push(eresh);
-    let delta = |e: f64| sigma(&kinds, sunr, eresu, eresh, e);
+    let in_order = kinds.iter().any(|(r, _)| csbw::needs_ordered_walk(r, ctx));
+    let delta = |e: f64| sigma(&kinds, sunr, eresu, eresh, e, ctx);
     for w in edges.windows(2) {
         let (lo, hi) = (w[0], w[1]);
         let widen = hi <= eresr;
@@ -254,8 +271,9 @@ pub(crate) fn walk_every_section(
             widen,
             zero_background: Some((eresr, eresh)),
             untested_crossings: if widen { crossings_below } else { [None, None] },
+            in_order,
         };
-        rebuild_range_with(sections, lo, hi, Vec::new(), eps, &[], raw, opts, delta);
+        rebuild_range_with(sections, lo, hi, Vec::new(), eps, competitive_mts, raw, opts, delta);
     }
 }
 
