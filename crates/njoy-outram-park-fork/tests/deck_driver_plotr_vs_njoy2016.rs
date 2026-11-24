@@ -215,11 +215,14 @@ const DECK_GETY4_GETZ: &str = "plotr\n 41/\n /\n 1/\n 'fe56 p1'/\n /\n 3/\n /\n 
 const DECK_AUTO: &str = "plotr\n 43/\n /\n 1/\n 'auto'/\n /\n 4/\n /\n /\n /\n /\n 5 30 1306 3 0/\n /\n 99/\nviewr\n 43 44/\nstop\n";
 
 /// MF=7 `S(alpha, beta)` of H in H2O against alpha (`ntp = 1`) and against
-/// beta (`ntp = 2`, `nkh = 2`). PLOTR only: this port's VIEWR panics (an `i32`
-/// overflow at `viewr/axis.rs:263`, a log axis whose minimum is 0) on NJOY's own
-/// plot file of this deck, gh:#1543.
+/// beta (`ntp = 2`, `nkh = 2`), then VIEWR. ~~PLOTR only: this port's VIEWR panics
+/// (an `i32` overflow at `viewr/axis.rs:263`, a log axis whose minimum is 0) on
+/// NJOY's own plot file of this deck, gh:#1543.~~ **CORRECTED 2026-11-24
+/// (gh:#1543):** the beta plot's log axis with limits 0 now wraps as gfortran
+/// does, and VIEWR's PostScript (unit 46) is compared too.
 const DECK_MF7: &str = "plotr\n 45/\n /\n 1/\n 'h in h2o'/\n /\n 4/\n 1e-2 1e2/\n /\n 1e-6 1e1/\n /\n \
-6 20 1 7 4 293.6 1 1 1/\n /\n 1/\n 'beta'/\n /\n 1/\n /\n /\n /\n /\n 6 20 1 7 4 293.6 3 2 2/\n /\n 99/\nstop\n";
+6 20 1 7 4 293.6 1 1 1/\n /\n 1/\n 'beta'/\n /\n 1/\n /\n /\n /\n /\n 6 20 1 7 4 293.6 3 2 2/\n /\n 99/\n\
+viewr\n 45 46/\nstop\n";
 
 /// An MF=6 LAW=1 spectrum against secondary energy (Al-27 ENDF/B-VIII.0 MT=16,
 /// `nth = 5`): `gety6` reads its unsaved `ylast` at the first point.
@@ -256,13 +259,15 @@ fn plotr_automatic_reaction_loop() {
 }
 
 /// MF=7. Result (2026-11-13): unit 45 (153 lines) identical, first run.
+/// VIEWR's unit 46 added 2026-11-24 (gh:#1543): 0 differing lines of 1 176,
+/// the beta page's zero-limit log axis included (it panicked before).
 #[test]
 fn plotr_mf7_alpha_and_beta_curves() {
     let _ = compare(
         "mf7",
         DECK_MF7,
         &[("tsl-HinH2O-ENDF8.0-Beta6.endf", 20)],
-        &[45],
+        &[45, 46],
         &[],
         "",
     );
