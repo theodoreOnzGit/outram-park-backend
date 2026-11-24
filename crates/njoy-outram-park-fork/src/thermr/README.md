@@ -90,8 +90,16 @@ high incident energy and high-`Q` Bragg edges, outside the thermal window.
   The tolerance for snapping to a tabulated block is `rdelas`'s `T/1000+5` K,
   deliberately looser than `calcem`'s `T/500` (293.15 K → the 296 K graphite
   block, which `calcem` alone would refuse).
-- Only the **IFENG=0** (equiprobable) inelastic form is emitted — the
-  skewed/continuous **IFENG=1/2** forms are not ported.
+- ~~Only the **IFENG=0** (equiprobable) inelastic form is emitted — the
+  skewed/continuous **IFENG=1/2** forms are not ported.~~ **CORRECTED
+  2026-11-24:** all three are written (`acer::thermal::ThermalAceOptions::form`,
+  `tests/acer_thermal_ifeng_vs_njoy2016.rs`, since 2026-09-22).
+- `LASYM = 1` (asymmetric `S(α,β)`, signed-β lookup), an ENDF-6 second SCT
+  atom (`B(7) = 0`, its `T_eff2` TAB1) and the `T_eff` TAB1's `INT` law are
+  ported (gh:#632, gh:#636). No held tape reaches them; they are gated on
+  edited copies of `tsl-HinH2O` against NJOY2016
+  (`tests/deck_driver_thermr_endf6_latent_vs_njoy2016.rs`, 2026-11-24: 0
+  differing lines on each variant).
 - Multi-scatterer mixing is taken as `nmix = 1`.
 - Generating S(α,β) when an evaluation lacks it is **LEAPR**'s job (see
   `../leapr/README.md`), not THERMR's — unported, but ENDF/B ships MF=7 directly.

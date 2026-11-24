@@ -34,8 +34,10 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use super::mf7::{interp_s_temperature, AlphaTable, IncoherentInelastic};
+use super::mf7::{interp_s_temperature, AlphaTable, IncoherentInelastic, SecondarySct};
 use crate::common::phys::BK_EV_PER_K;
+use crate::endf::interp::terpa;
+use crate::NjoyError;
 
 /// Reference temperature kT₀ = 0.0253 eV (`therm`/`tevz` in `thermr.f90`).
 const TEVZ: f64 = 0.0253;
@@ -93,6 +95,9 @@ impl IncoherentInelastic {
             tabulated_temperatures_k: vec![temp_k],
             temp_interp: Vec::new(),
             teff_table: Vec::new(),
+            teff_interp: Vec::new(),
+            teff2_table: Vec::new(),
+            teff2_interp: Vec::new(),
             temperature_bracket: None,
             teff_request_k: None,
             free_gas: true,
@@ -114,9 +119,16 @@ impl IncoherentInelastic {
     }
 
     /// Principal-scatterer effective temperature `T_eff` \[eV\] at physical
-    /// temperature `temp_k` \[K\], linearly interpolated from the MF=7/MT=4
-    /// effective-temperature table ([`teff_table`]). Falls back to the physical
-    /// temperature (pure free-gas SCT) when the evaluation omits the table.
+    /// temperature `temp_k` \[K\], ~~linearly interpolated~~ interpolated
+    /// from the MF=7/MT=4 effective-temperature table ([`teff_table`]) under
+    /// its own TAB1 law ([`teff_interp`], `terpa`; **CORRECTED 2026-11-24**,
+    /// gh:#636: was always lin-lin), held at the end values outside it. Falls
+    /// back to the physical temperature (pure free-gas SCT) when the
+    /// evaluation omits the table. THERMR's stricter read, which stops outside
+    /// `[0.9·T₁, 1.1·Tₙ]`, is [`Self::calcem_teff_k`]; inside that range the
+    /// two agree to the bit.
+    ///
+    /// [`teff_interp`]: super::mf7::IncoherentInelastic::teff_interp
     ///
     /// `T_eff ≥ T` (Egelstaff–Schofield): it carries the mean squared
     /// vibrational speed of the bound atom, so the short-collision-time kernel
@@ -127,9 +139,57 @@ impl IncoherentInelastic {
         let teff_k = if self.teff_table.is_empty() {
             temp_k
         } else {
-            interp_linear(&self.teff_table, temp_k)
+            interp_tab1_held(&self.teff_table, &self.teff_interp, temp_k)
         };
         BK_EV_PER_K * teff_k
+    }
+
+    /// `calcem`'s read of the principal `T_eff` \[K\] at `temp_k`
+    /// (`thermr.f90:1814-1834`): see [`calcem_teff_from_tab1`].
+    ///
+    /// # Errors
+    /// As [`calcem_teff_from_tab1`]; also when the table is absent.
+    pub fn calcem_teff_k(&self, temp_k: f64) -> Result<f64, NjoyError> {
+        calcem_teff_from_tab1(&self.teff_interp, &self.teff_table, temp_k)
+    }
+
+    /// The **second SCT atom of an ENDF-6 mixed moderator**, as `calcem` sets
+    /// it up (gh:#632), or `None` when there is none (`sb2 = 0`):
+    ///
+    /// - `sb2 = B(8)·((B(9)+1)/B(9))²/B(12)/natom` and `az2 = B(9)` when
+    ///   `NI > 6` and `B(7) = 0` (`thermr.f90:1678-1684`;
+    ///   [`super::mf7::endf6_sb2_per_natom`]), with `natom` THERMR's card-2
+    ///   value;
+    /// - `teff2` from the second `T_eff` TAB1 at `temp_k`, read as the first
+    ///   is (`:1835-1856`, [`calcem_teff_from_tab1`]).
+    ///
+    /// `sig` label 170 then adds the second term (`:2588-2594`).
+    ///
+    /// # Errors
+    /// - [`NjoyError::InvalidInput`] for a third SCT atom (`NI > 12` and
+    ///   `B(13) = 0`), where upstream stops: "only 2 sct atoms allowed."
+    /// - [`NjoyError::EndfParse`] when `sb2 ≠ 0` and the tape has no second
+    ///   `T_eff` TAB1, and [`NjoyError::TemperatureOutOfRange`] where upstream
+    ///   stops with "bad temperature for teff2".
+    pub fn endf6_secondary_sct(&self, natom: f64, temp_k: f64) -> Result<Option<SecondarySct>, NjoyError> {
+        let b = &self.b;
+        if b.len() <= 6 {
+            return Ok(None);
+        }
+        let sb2 = super::mf7::endf6_sb2_per_natom(b) / natom;
+        if b.len() > 12 && b[12] == 0.0 {
+            return Err(NjoyError::InvalidInput("thermr: calcem: only 2 sct atoms allowed.".into()));
+        }
+        if sb2 == 0.0 {
+            return Ok(None);
+        }
+        if self.teff2_table.is_empty() {
+            return Err(NjoyError::EndfParse(
+                "MF=7 MT=4: B(7) = 0 gives a second SCT atom, but no second T_eff TAB1 follows".into(),
+            ));
+        }
+        let teff2_k = calcem_teff_from_tab1(&self.teff2_interp, &self.teff2_table, temp_k)?;
+        Ok(Some(SecondarySct { sb2, az2: b[8], teff2_k }))
     }
 
     /// The double-differential cross section `d²σ/dE'dμ` \[barn\] for scattering
@@ -230,9 +290,32 @@ impl IncoherentInelastic {
             .copied()
             .unwrap_or(0.0);
         let beta_max = self.beta.last().copied().unwrap_or(0.0);
-        if a_tab > alpha_max || b_tab > beta_max {
+        if a_tab > alpha_max {
             return self.sct_double_differential(e, ep, a_tab, b_tab, temp_k, natom);
         }
+        // `thermr.f90:2519-2531` (gh:#632). An asymmetric table (`LASYM = 1`)
+        // stores both signs of β: the signed `bbm` is tested against both
+        // ends of the grid, and the lookup is made at the signed `bbb`. A
+        // symmetric one is looked up at `|β|`.
+        //
+        //   if (lasym.eq.1) then
+        //      bbm=bb; if (lat.eq.1) bbm=bb*tev/tevz
+        //      if (bbm.gt.beta(nbeta)) go to 170
+        //      if (bbm.lt.beta(1)) go to 170
+        //   else
+        //      if (b.gt.beta(nbeta)) go to 170
+        //   ...
+        //   bbb=b; if (lasym.eq.1.and.bb.lt.zero) bbb=-b
+        if self.lasym == 1 {
+            let bbm = if self.lat == 1 { beta * tev / TEVZ } else { beta };
+            let beta_min = self.beta.first().copied().unwrap_or(0.0);
+            if bbm > beta_max || bbm < beta_min {
+                return self.sct_double_differential(e, ep, a_tab, b_tab, temp_k, natom);
+            }
+        } else if b_tab > beta_max {
+            return self.sct_double_differential(e, ep, a_tab, b_tab, temp_k, natom);
+        }
+        let b_look = if self.lasym == 1 && beta < 0.0 { -b_tab } else { b_tab };
 
         // NJOY's liquid small-α branch (`thermr.f90` `sig`, the test just before
         // label 150). Below the first tabulated α a liquid's S(α,β) follows the
@@ -272,10 +355,10 @@ impl IncoherentInelastic {
         // interpolating, so it substituted SCT in a region NJOY interpolates.
         // That is a Gaussian tail where the evaluation says essentially nothing,
         // i.e. weight added where NJOY has none. See GitHub #188.
-        if self.floored_corner(tables, a_tab, b_tab) {
+        if self.floored_corner(tables, a_tab, b_tab, b_look) {
             return self.sct_double_differential(e, ep, a_tab, b_tab, temp_k, natom);
         }
-        let ln_s = self.interp_ln_s(tables, a_tab, b_tab);
+        let ln_s = self.interp_ln_s(tables, a_tab, b_look);
         // ln of the detailed-balance factor S̃·exp(−β/2). ~~A large positive
         // value means deep downscatter into the many-phonon tail where S̃ has
         // fallen below the numerical floor — the physical product is
@@ -327,8 +410,10 @@ impl IncoherentInelastic {
     /// **CORRECTED 2026-11-14 (gh:#1375):** the second term is added when
     /// [`secondary_sct`](super::mf7::IncoherentInelastic::secondary_sct) is set,
     /// which THERMR's NJOY-deck path does for an ENDF-4/5 BeO (1099) or benzene
-    /// (1095) from `gatef2`. An ENDF-6 tape's own second atom is still not read
-    /// (its `T_eff2` TAB1); the deck path refuses it by name.
+    /// (1095) from `gatef2`. ~~An ENDF-6 tape's own second atom is still not read
+    /// (its `T_eff2` TAB1); the deck path refuses it by name.~~ **CORRECTED
+    /// 2026-11-24 (gh:#632):** an ENDF-6 tape's own second atom (`B(7) = 0`)
+    /// is read and set by [`Self::endf6_secondary_sct`].
     ///
     /// `a_tab`, `b_tab` are the table variables the caller looked up with (α
     /// floored at `amin`, and scaled by `kT/kT₀` when `LAT = 1`); label 170
@@ -688,7 +773,11 @@ impl IncoherentInelastic {
     /// `LAT = 1`), matching how they are used for the bracket search; the `α·A`
     /// in NJOY's test is the physical α times the mass ratio, which is why the
     /// mass ratio appears here rather than in the caller.
-    fn floored_corner(&self, tables: &[AlphaTable], a: f64, b: f64) -> bool {
+    ///
+    /// `b` is `|β|` (upstream's `b`, which the `test2` gate reads) and
+    /// `b_look` the β the bracket is found at (upstream's `bbb`: `-b` for a
+    /// negative β on a `LASYM = 1` table, else `b`; gh:#632).
+    fn floored_corner(&self, tables: &[AlphaTable], a: f64, b: f64, b_look: f64) -> bool {
         /// NJOY's `test2`.
         const TEST2: f64 = 30.0;
         if a * self.mass_ratio() < TEST2 && b < TEST2 {
@@ -698,7 +787,7 @@ impl IncoherentInelastic {
         if nb == 0 || tables.is_empty() {
             return false;
         }
-        let ib = match self.beta.iter().position(|&bj| b < bj) {
+        let ib = match self.beta.iter().position(|&bj| b_look < bj) {
             Some(0) => 0,
             Some(j) => j - 1,
             None => nb - 1,
@@ -825,9 +914,16 @@ impl IncoherentInelastic {
     }
 }
 
-/// Linear interpolation of a `(x, y)` table at `x = arg`, clamped to the end
-/// values outside the tabulated range. Used for the `T_eff(T)` table.
-fn interp_linear(table: &[(f64, f64)], arg: f64) -> f64 {
+/// A TAB1 `(x, y)` table at `x = arg` under its own interpolation law
+/// (`terpa`, `endf.f90:1729-1814`), held at the end values outside the
+/// tabulated range. Used for the `T_eff(T)` table.
+///
+/// ~~`interp_linear`: always lin-lin~~ **CORRECTED 2026-11-24 (gh:#636):**
+/// upstream reads `T_eff` with `terpa`, which honours the TAB1's `INT`
+/// (`thermr.f90:1824-1833`). For an `INT = 2` table the value is the same
+/// to the bit as the lin-lin it replaces (`terp1`'s grouping,
+/// `endf.f90:1431`, GitHub #866; at a tabulated `x` both give `y` exactly).
+fn interp_tab1_held(table: &[(f64, f64)], interp: &[(u32, u32)], arg: f64) -> f64 {
     match table {
         [] => arg,
         [only] => only.1,
@@ -838,20 +934,47 @@ fn interp_linear(table: &[(f64, f64)], arg: f64) -> f64 {
             if arg >= table[table.len() - 1].0 {
                 return table[table.len() - 1].1;
             }
-            let i = table.partition_point(|&(x, _)| x <= arg) - 1;
-            let (x0, y0) = table[i];
-            let (x1, y1) = table[i + 1];
-            if (x1 - x0).abs() < 1e-30 {
-                y0
-            } else {
-                // `terp1`'s grouping (`endf.f90:1431`), which `terpa` uses
-                // for `T_eff` (`thermr.f90:1833`). ~~`(arg-x0)/(x1-x0)*(y1-y0)`~~
-                // **CORRECTED 2026-10-14 (GitHub #866)**: identical at a
-                // tabulated temperature, an ulp apart between them.
-                y0 + (arg - x0) * (y1 - y0) / (x1 - x0)
-            }
+            terpa(interp, table, arg).0
         }
     }
+}
+
+/// `calcem`'s read of an effective temperature \[K\] from its TAB1 at
+/// `temp_k` (`thermr.f90:1814-1834` for `teff`, `:1836-1856` for `teff2`):
+///
+/// - one point: its value, if `|temp - T1| <= temp/10`;
+/// - more: stop outside `[dn*T1, up*Tn]` (`dn = 0.9`, `up = 1.1`,
+///   `:1618-1619`), move an end abscissa onto `temp` when `temp` lies beyond
+///   it (so the end value is held), and `terpa` under the TAB1's own law.
+///
+/// # Errors
+/// [`NjoyError::TemperatureOutOfRange`] where upstream stops with "bad
+/// temperature for teff"; [`NjoyError::EndfParse`] for an empty table.
+pub fn calcem_teff_from_tab1(interp: &[(u32, u32)], pairs: &[(f64, f64)], temp_k: f64) -> Result<f64, NjoyError> {
+    const UP: f64 = 1.1;
+    const DN: f64 = 0.9;
+    let (Some(&(tt1, y1)), Some(&(ttn, _))) = (pairs.first(), pairs.last()) else {
+        return Err(NjoyError::EndfParse("MF=7 MT=4: empty effective-temperature TAB1".into()));
+    };
+    let refuse = || NjoyError::TemperatureOutOfRange { requested_k: temp_k, min_k: tt1, max_k: ttn };
+    if pairs.len() == 1 {
+        if (temp_k - tt1).abs() > temp_k / 10.0 {
+            return Err(refuse());
+        }
+        return Ok(y1);
+    }
+    if temp_k < DN * tt1 || temp_k > UP * ttn {
+        return Err(refuse());
+    }
+    let mut p = pairs.to_vec();
+    if tt1 > temp_k {
+        p[0].0 = temp_k;
+    }
+    let n = p.len();
+    if ttn < temp_k {
+        p[n - 1].0 = temp_k;
+    }
+    Ok(terpa(interp, &p, temp_k).0)
 }
 
 /// ENDF interpolation law 2 (lin-lin) on `(x, y)` — here `y` is always `ln S`.
@@ -1002,6 +1125,85 @@ fn interp_alpha_ln_s(table: &AlphaTable, a: f64) -> f64 {
 mod tests {
     use super::super::mf7::parse_mf7;
     use super::*;
+
+    /// `T_eff` is read under its TAB1 law (`terpa`, `thermr.f90:1824-1833`,
+    /// gh:#636), and `calcem`'s read stops outside `[0.9·T1, 1.1·Tn]` and
+    /// holds the end values inside that band. Hand values: lin-log
+    /// (`INT = 3`) at 400 K between (300, 1000) and (500, 1400) is
+    /// `1000 + 400·ln(4/3)/ln(5/3)`.
+    #[test]
+    fn teff_honours_the_tab1_law_and_calcems_range() {
+        let mut ii = IncoherentInelastic::free_gas(1.0, 400.0, 1.0);
+        ii.teff_table = vec![(300.0, 1000.0), (500.0, 1400.0)];
+        ii.teff_interp = vec![(2, 3)];
+        let want = 1000.0 + 400.0 * (4.0_f64 / 3.0).ln() / (5.0_f64 / 3.0).ln();
+        let got = ii.calcem_teff_k(400.0).unwrap();
+        assert!((got / want - 1.0).abs() < 1e-15, "lin-log T_eff {got}, hand {want}");
+        assert_eq!(ii.teff_ev(400.0), BK_EV_PER_K * got, "the kernel's read is calcem's");
+        assert_eq!(ii.calcem_teff_k(280.0).unwrap(), 1000.0, "held within 0.9 T1");
+        assert_eq!(ii.calcem_teff_k(540.0).unwrap(), 1400.0, "held within 1.1 Tn");
+        assert!(ii.calcem_teff_k(260.0).is_err(), "below 0.9 T1");
+        assert!(ii.calcem_teff_k(560.0).is_err(), "above 1.1 Tn");
+        ii.teff_interp = vec![(2, 2)];
+        assert_eq!(ii.calcem_teff_k(400.0).unwrap(), 1200.0, "lin-lin");
+        ii.teff_table = vec![(400.0, 1100.0)];
+        assert_eq!(ii.calcem_teff_k(430.0).unwrap(), 1100.0, "one point within T/10");
+        assert!(ii.calcem_teff_k(450.0).is_err(), "one point beyond T/10");
+    }
+
+    /// A synthetic `S(α,β)` table (`LAT = 0`, `A = 10`) on three α nodes.
+    fn tiny(lasym: i32, beta: Vec<f64>, s_rows: Vec<[f64; 3]>) -> IncoherentInelastic {
+        let mut ii = IncoherentInelastic::free_gas(10.0, 296.0, 1.0);
+        ii.free_gas = false;
+        ii.lasym = lasym;
+        ii.b = vec![10.0, 0.0, 10.0, 0.0, 0.0, 1.0];
+        ii.beta = beta.clone();
+        ii.s_tables = beta
+            .iter()
+            .zip(s_rows)
+            .map(|(&b, s)| AlphaTable { beta: b, alpha: vec![0.1, 1.0, 10.0], s: s.to_vec() })
+            .collect();
+        ii
+    }
+
+    /// `LASYM = 1` (`thermr.f90:2517-2531`, gh:#632): a downscatter (`β < 0`)
+    /// is looked up at the signed β, so it reads the table's negative half; a
+    /// `|β|` lookup reads the positive half. Hand check: on a table whose
+    /// negative half is `S = 2` everywhere and positive half `S = 1`, the
+    /// kernel at `β < 0` is twice the symmetric table's at `|β|` (same α, same
+    /// `exp(-β/2)`), and a `β` below `beta(1)` goes to SCT (label 170).
+    #[test]
+    fn lasym1_reads_the_signed_beta() {
+        let tev = BK_EV_PER_K * 296.0;
+        let (e, mu) = (0.1, 0.5);
+        // β = -1.5: `sig`'s three-point β stencil is (-2, -1, 0) on the
+        // asymmetric table and (1, 2, 3) on the symmetric one.
+        let ep = 0.1 - 1.5 * tev;
+        let sym = tiny(0, vec![0.0, 1.0, 2.0, 3.0], vec![[1.0; 3]; 4]);
+        let asym = tiny(
+            1,
+            vec![-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0],
+            vec![[2.0; 3], [2.0; 3], [2.0; 3], [2.0; 3], [1.0; 3], [1.0; 3], [1.0; 3]],
+        );
+        let ks = sym.double_differential(e, ep, mu, 296.0, 1.0);
+        let ka = asym.double_differential(e, ep, mu, 296.0, 1.0);
+        assert!(ks > 0.0);
+        assert!((ka / ks - 2.0).abs() < 1e-12, "signed lookup: {ka} against 2 x {ks}");
+        // Upscatter (β = +1.5) reads the positive half: the same as symmetric.
+        let ep_up = 0.1 + 1.5 * tev;
+        let ks = sym.double_differential(e, ep_up, mu, 296.0, 1.0);
+        let ka = asym.double_differential(e, ep_up, mu, 296.0, 1.0);
+        assert!((ka / ks - 1.0).abs() < 1e-12, "upscatter: {ka} against {ks}");
+        // β = -1.5 below a table starting at -1: label 170 (SCT), not the table.
+        let short = tiny(1, vec![-1.0, 0.0, 1.0, 2.0], vec![[2.0; 3], [2.0; 3], [1.0; 3], [1.0; 3]]);
+        let ep_lo = 0.1 - 1.5 * tev;
+        let rtev = 1.0 / tev;
+        let b_tab = ((ep_lo - e) * rtev).abs();
+        let a_tab = (e + ep_lo - 2.0 * mu * (e * ep_lo).sqrt()) / (10.0 * tev);
+        let sct = short.sct_double_differential(e, ep_lo, a_tab, b_tab, 296.0, 1.0);
+        assert!(sct > 0.0);
+        assert_eq!(short.double_differential(e, ep_lo, mu, 296.0, 1.0), sct);
+    }
     use crate::endf::tape::Tape;
     use std::fs::File;
 

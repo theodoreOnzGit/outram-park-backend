@@ -201,6 +201,19 @@ pub struct IncoherentInelastic {
     /// atom (zero-point motion), so the SCT limit reproduces the free-gas kernel
     /// with the correct second energy moment. Empty if the evaluation omits it.
     pub teff_table: Vec<(f64, f64)>,
+    /// The TAB1 interpolation law `(NBT, INT)` of [`teff_table`](Self::teff_table).
+    /// Upstream reads `T_eff` with `terpa`, which honours it
+    /// (`thermr.f90:1824-1833`, gh:#636). Empty means lin-lin.
+    pub teff_interp: Vec<(u32, u32)>,
+    /// The **second** SCT atom's effective-temperature TAB1 `(T [K], T_eff2 [K])`
+    /// of an ENDF-6 mixed moderator: read after [`teff_table`](Self::teff_table)
+    /// only when the `B` constants give a non-zero `sb2` (`B(7) = 0`,
+    /// `thermr.f90:1678-1690`, `:1835-1856`). Empty otherwise (gh:#632).
+    /// [`IncoherentInelastic::endf6_secondary_sct`] turns it into
+    /// [`secondary_sct`](Self::secondary_sct).
+    pub teff2_table: Vec<(f64, f64)>,
+    /// The TAB1 interpolation law of [`teff2_table`](Self::teff2_table).
+    pub teff2_interp: Vec<(u32, u32)>,
     /// Present when the requested temperature fell strictly between two
     /// tabulated temperatures: the two bracketing tabulated `S(α,β)` tables
     /// and the `LI` law between them. [`super::inelastic`] evaluates the
@@ -233,7 +246,13 @@ pub struct IncoherentInelastic {
     /// (`thermr.f90:218-238`, `:422`); the NJOY-deck path does the same
     /// (`deck::thermr`, gh:#1375). An ENDF-6 tape's own second atom
     /// (`B(7) = 0`, `thermr.f90:1678-1690`, with its `T_eff2` TAB1 at
-    /// `:1835-1854`) is not represented: the deck path refuses it by name.
+    /// `:1835-1854`) ~~is not represented: the deck path refuses it by name.~~
+    /// **CORRECTED 2026-11-24 (gh:#632):** is read by the parser into
+    /// [`teff2_table`](Self::teff2_table) and set here by
+    /// [`IncoherentInelastic::endf6_secondary_sct`], which the NJOY-deck
+    /// path, [`super::on_pendf`] and
+    /// [`IncoherentInelasticScattering`](super::scattering::IncoherentInelasticScattering)
+    /// call. The parser itself leaves this `None`: `sb2` needs THERMR's `natom`.
     pub secondary_sct: Option<SecondarySct>,
 }
 
@@ -612,6 +631,32 @@ fn read_incoherent_elastic(tab1: &crate::endf::records::Tab1) -> IncoherentElast
     }
 }
 
+/// `calcem`'s `sb2` before its division by THERMR's `natom`
+/// (`thermr.f90:1678-1684`), from the MT=4 `B(1..NI)` constants:
+///
+/// ```text
+///   if (ni.gt.6) then
+///      if (scr(13).eq.zero) az2=scr(15)                 ! B(7) = 0: SCT atom
+///      if (az2.ne.zero) sb2=scr(14)*((az2+1)/az2)**2    ! B(8), B(9)
+///      sb2=sb2/scr(18)/natom                            ! B(12)
+/// ```
+///
+/// `0` when `NI ≤ 6` (no second atom). Kept literal, so a `B(12) = 0` gives
+/// what upstream's division gives.
+pub(crate) fn endf6_sb2_per_natom(b: &[f64]) -> f64 {
+    if b.len() <= 6 {
+        return 0.0;
+    }
+    let az2 = if b[6] == 0.0 { b.get(8).copied().unwrap_or(0.0) } else { 0.0 };
+    let mut sb2 = 0.0;
+    if az2 != 0.0 {
+        // gfortran's `x**2` is `x*x`.
+        let r = (az2 + 1.0) / az2;
+        sb2 = b.get(7).copied().unwrap_or(0.0) * (r * r);
+    }
+    sb2 / b.get(11).copied().unwrap_or(0.0)
+}
+
 /// Parse MF=7/MT=4 incoherent inelastic S(α,β), selecting the tabulated
 /// temperature nearest `target_k` \[K\] (`None` ⇒ base temperature `T₀`).
 ///
@@ -778,7 +823,15 @@ fn parse_inelastic(
     // Trailing principal-scatterer effective-temperature TAB1 (ENDF-6). Optional:
     // absent in some evaluations, so a read failure degrades to an empty table
     // (SCT then falls back to the physical temperature — see `inelastic`).
-    let teff_table = cur.read_tab1().map(|t| t.pairs).unwrap_or_default();
+    let (teff_interp, teff_table) = cur.read_tab1().map(|t| (t.interp, t.pairs)).unwrap_or_default();
+    // The second SCT atom's `T_eff2` TAB1 follows only when `sb2 != 0`
+    // (`thermr.f90:1678-1690`, `if (sb2.eq.zero) go to 300` at `:1835`).
+    // `natom` cannot change whether it is zero, so the test is made without it.
+    let (teff2_interp, teff2_table) = if endf6_sb2_per_natom(&b) != 0.0 {
+        cur.read_tab1().map(|t| (t.interp, t.pairs)).unwrap_or_default()
+    } else {
+        (Vec::new(), Vec::new())
+    };
 
     Ok(IncoherentInelastic {
         lat,
@@ -791,6 +844,9 @@ fn parse_inelastic(
         tabulated_temperatures_k,
         temp_interp: all_li,
         teff_table,
+        teff_interp,
+        teff2_table,
+        teff2_interp,
         temperature_bracket,
         teff_request_k: None,
         free_gas: false,
