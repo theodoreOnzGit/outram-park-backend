@@ -76,16 +76,14 @@ item = "type"
 shape = "struct"
 lines = [
     57,
-    68,
+    71,
 ]
-hash = "sha256:6cce51f21f4c57bf90914933ae03842348cbdf7c1431d3cee3f28fd7a8b569be"
+hash = "sha256:3ba211a1e1204223dfb7e5438b3d76ab96f86104078a4a1dd63e69e0c3752769"
 doc_hash = "sha256:0c693c16f63e3f79359aacb3f160462af03bd158ecc3015c9cb7fd1e08aacd34"
 uses = [
     "fn:84a1299bc3cb3a8f",
-    "fn:bad2b7979bc77d07",
     "fn:c72127dc6f402677",
     "fn:ca20cdd04e906fd1",
-    "fn:f32c12308e75fae8",
 ]
 reached_by = ["#0"]
 
@@ -96,16 +94,14 @@ qual = "SimulationRun"
 item = "type"
 shape = "struct"
 lines = [
-    70,
-    77,
+    73,
+    80,
 ]
 hash = "sha256:921432f2482728c1f1e4affd2432a603a2f83e8a2a5f0987b4469b4ac71da3be"
 doc_hash = "sha256:28c99a8bc36df51bf7f99b161e6fdf3ee72a5e20f2c4827c4d4db71a5ac6bbff"
 uses = [
-    "fn:bad2b7979bc77d07",
     "fn:c72127dc6f402677",
     "fn:ca20cdd04e906fd1",
-    "fn:f32c12308e75fae8",
 ]
 reached_by = ["#0"]
 
@@ -114,38 +110,24 @@ id = "fn:7d71791c490e0cc3"
 name = "start_simulation"
 qual = "start_simulation"
 lines = [
-    79,
-    127,
+    82,
+    130,
 ]
 hash = "sha256:95e60a73ac421be485807a89e79fd2df7800a95d3bb701de86885e77308c4341"
 doc_hash = "sha256:419d70085f2150d0961fe1143d0cc403781a7fb18f06eb0c67935340dbaa110f"
 callees = [
-    "fn:09f297bf01e748f7",
     "fn:101bd69aca500258",
-    "fn:1cbb1e7efd7f79d6",
     "fn:2b7c97d8e775cbb6",
     "fn:332dcc0a427347a6",
-    "fn:3acd1cb47a15b910",
     "fn:541ad47b331ad34e",
-    "fn:739e53c4b6e7d8a8",
-    "fn:7506547213e32720",
-    "fn:799721a1413dc73b",
-    "fn:805f53a389510e74",
     "fn:847119adb4d468b1",
-    "fn:b3c41b880fb345c9",
-    "fn:c6a3c2940b75a583",
-    "fn:da51acab1169f5ca",
-    "fn:f1939dfaaa246e8c",
 ]
 uses = [
-    "fn:18618b66b78f55f5",
     "fn:1ba0784c7e271c18",
     "fn:99b42d2b0fd7e6c1",
-    "fn:bad2b7979bc77d07",
     "fn:c72127dc6f402677",
     "fn:ca20cdd04e906fd1",
     "fn:f1f1542884f1d6d4",
-    "fn:f32c12308e75fae8",
     "fn:f669f99f7a97c4ea",
 ]
 reached_by = ["#0"]
@@ -155,10 +137,10 @@ id = "fn:b621fdc2fb590405"
 name = "new"
 qual = "DistColSimApp::new"
 lines = [
-    130,
-    139,
+    133,
+    146,
 ]
-hash = "sha256:c6d85a17290a9f0b121d7f0996546da7b7209647aa3b9b195cb2b57859a64603"
+hash = "sha256:360b9ad1b9a4181771dc5004d388dd0878408f690caa943271edfb2c2a823568"
 doc_hash = "sha256:4b0ee79d34b289ab16b778e23f5d8edd88a9b6152f0f8991b692dbcaf86de0da"
 callees = ["fn:7d71791c490e0cc3"]
 uses = [
@@ -171,15 +153,12 @@ id = "fn:3a7035d98b357803"
 name = "restart_simulation"
 qual = "DistColSimApp::restart_simulation"
 lines = [
-    141,
-    157,
+    148,
+    164,
 ]
 hash = "sha256:f59218448044b1813393d7d54bb7ec443bbd6bcf8d6f6c10307b2c790bb219ff"
 doc_hash = "sha256:6230299c388e8e5a58ade60c51594afae377523ab556aa260af30c4e3d7d327e"
-callees = [
-    "fn:3f77eafc0dd2778c",
-    "fn:7d71791c490e0cc3",
-]
+callees = ["fn:7d71791c490e0cc3"]
 uses = ["fn:6c598c92467a5a33"]
 reached_by = ["#0"]
 
@@ -188,24 +167,19 @@ id = "fn:f839c4d67763f7be"
 name = "ui"
 qual = "DistColSimApp::ui"
 lines = [
-    161,
-    203,
+    168,
+    210,
 ]
-hash = "sha256:4f9a127516cb5cf7c30797d63fbb23fec41267ad790d8d596d9b930e4c3f329c"
+hash = "sha256:40964466f200a2848755f671cf31912de3144fa7c2a5bd292a468665581dc110"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:38f5008ce789ce53",
     "fn:3a7035d98b357803",
-    "fn:69aad0578ed95a3a",
-    "fn:799721a1413dc73b",
     "fn:803087da3412e3ad",
-    "fn:c1fce80e07b9d68e",
     "fn:cff580ab2e4ce036",
-    "fn:f60c93e7137adb5f",
     "fn:fb3cee7e410afced",
 ]
 uses = [
-    "fn:3be1112e447ddebd",
     "fn:6c598c92467a5a33",
     "fn:84a1299bc3cb3a8f",
 ]
@@ -215,15 +189,13 @@ id = "fn:864e242dc1a7c6d1"
 name = "restarting_starts_a_fresh_run_and_abandons_the_old_one"
 qual = "restarting_starts_a_fresh_run_and_abandons_the_old_one"
 lines = [
-    210,
-    276,
+    217,
+    284,
 ]
-hash = "sha256:22658e2d9254b2f49db58de12ecd3061662c09db345f851b4474412346db8b15"
+hash = "sha256:d353398376ba27af62cf194f4326f9c16d279164d5bfe9b2a2c801fede5ca12c"
 doc_hash = "sha256:50a4dbcd8262304defb9fa668d4f24f2ed68912a1717dfd6a3d4c0b4a95a3d27"
 callees = [
     "fn:3a7035d98b357803",
-    "fn:3f77eafc0dd2778c",
-    "fn:799721a1413dc73b",
     "fn:7d71791c490e0cc3",
 ]
 uses = [
@@ -299,10 +271,8 @@ lines = [
 ]
 hash = "sha256:8ac8ae90869f5a7555c64bc2e8eefa839c3578370e5d4caa2dca6cbf972e4a34"
 doc_hash = "sha256:b758eafa277ffcb373d939d0eb19f876e61e25941a407c0016226b39ee5c92ce"
-callees = ["fn:b3c41b880fb345c9"]
 uses = [
     "fn:52ea19b9711b4517",
-    "fn:bad2b7979bc77d07",
     "fn:c9cd4d409829c288",
     "fn:ca20cdd04e906fd1",
 ]
@@ -342,10 +312,7 @@ lines = [
 ]
 hash = "sha256:91d0a755d0354ce998bbb4f2e7498accd919e1cc2e07ace76ed1e8b26cb9f7d6"
 doc_hash = "sha256:f4f692e0fc669d75ad942abbe9a94ffb83432b79f693931a9db5a25dd10e952f"
-uses = [
-    "fn:70f5daf8df5d99ff",
-    "fn:ca20cdd04e906fd1",
-]
+uses = ["fn:ca20cdd04e906fd1"]
 
 [module."schematic.rs"]
 path = "example:distillation_sim_v1::app::schematic"
@@ -360,17 +327,11 @@ lines = [
 ]
 hash = "sha256:2477c33c443c2e618f8dbd22fc97e64e426cdbe3ec738774113023cac37638f1"
 doc_hash = "sha256:0e0be546f9ec48f4c83841a2b253ae1088ecd68648c619918e05cf8c26e3d66b"
-callees = [
-    "fn:9e88e43bd191d827",
-    "fn:a152739189d2e83b",
-]
+callees = ["fn:a152739189d2e83b"]
 uses = [
     "fn:70f5daf8df5d99ff",
-    "fn:8a67e1933974a95d",
-    "fn:8d67e743573b6b73",
     "fn:ca20cdd04e906fd1",
     "fn:dd9d116d5dd9607e",
-    "fn:f74330c474dc0c21",
 ]
 
 [[module."schematic.rs".function]]
@@ -399,7 +360,6 @@ lines = [
 ]
 hash = "sha256:595e7b1465dbc1f16495b431fa4a2c9023000ca64c1b8106933186645120a5f6"
 doc_hash = "sha256:f2b56d5eabae1fdc20574a76ef27f3fbb46d18bb7ee2bccd9064ccb385bc8f9a"
-reached_by = ["#0"]
 
 [[module."state.rs".function]]
 id = "fn:ca20cdd04e906fd1"
@@ -430,7 +390,6 @@ uses = [
     "fn:70f5daf8df5d99ff",
     "fn:ca20cdd04e906fd1",
 ]
-reached_by = ["#0"]
 
 [[module."state.rs".function]]
 id = "fn:c72127dc6f402677"
@@ -461,7 +420,6 @@ uses = [
     "fn:c72127dc6f402677",
     "fn:ca20cdd04e906fd1",
 ]
-reached_by = ["#0"]
 
 [[module."state.rs".function]]
 id = "fn:b9af8da3d66f952b"
@@ -474,7 +432,6 @@ lines = [
 hash = "sha256:21048b2a129cff08c6dea296a6bf13be697ea9aea470fc0bdded6240a4e57f58"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 uses = ["fn:68021dc482a27991"]
-reached_by = ["#0"]
 
 [test_run]
 commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"

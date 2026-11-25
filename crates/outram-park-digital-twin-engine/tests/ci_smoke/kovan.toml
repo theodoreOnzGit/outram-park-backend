@@ -256,10 +256,7 @@ lines = [
 ]
 hash = "sha256:6eb4a4ceef92e94265dffbf12d0ab630e88e99f6b534acddebf02d0262d196fc"
 doc_hash = "sha256:feb8eb1368749e60335d8b238ac3a36f9ef40711db758b7fdf5bbdd2f3cb7925"
-uses = [
-    "fn:4d51895158b2a466",
-    "fn:9f5415a26281c12b",
-]
+uses = ["fn:9f5415a26281c12b"]
 test = true
 
 [[module."edwards.rs".function]]
@@ -273,31 +270,14 @@ lines = [
 hash = "sha256:e81111426ab52e0c05fb025f6f8bad54b44a82f371a21e51546c815d961daf5b"
 doc_hash = "sha256:1220f68953e09557d96c0b10eda32cb6ae4ad6e8b3c3036a6fa713e76bc1064a"
 callees = [
-    "fn:0360f74398bca50e",
-    "fn:0cd9ee4c995d9f8c",
-    "fn:17e208cd9e1d33cc",
-    "fn:20061c8152364ef8",
-    "fn:2f78d5001f06bbb3",
-    "fn:3573149b55510510",
-    "fn:6ae5e19702fa5641",
-    "fn:80bb963de2c29367",
-    "fn:8d962da5007cba3c",
     "fn:8fe924b5d9ce1e58",
-    "fn:9be348af53e02284",
-    "fn:9e501e5f4cce23ae",
+    "fn:a38aaa2346ace56b",
     "fn:a4a7a4dcdd60d052",
     "fn:ac6784cf9817ba8f",
-    "fn:c9986cdc9a7e6c38",
-    "fn:d05e735dfe5df81e",
-    "fn:d2de6911a62fb7b0",
-    "fn:efce3b12b9d62fb4",
-    "fn:f6c8d3a48b0471b2",
 ]
 uses = [
     "fn:1066dd603f11eba5",
-    "fn:23ce5eaf3f4f7fcb",
     "fn:2be209dfaf56d0ec",
-    "fn:37420d70c8451ed4",
     "fn:45ea23a85796e792",
     "fn:4ff9dc9a5b09af86",
     "fn:69b2d90cdd9b9275",
@@ -306,9 +286,6 @@ uses = [
     "fn:9f5415a26281c12b",
     "fn:a528878603c367b0",
     "fn:aafede2762154e0d",
-    "fn:bb0d906581f1414d",
-    "fn:d9b513789991577f",
-    "fn:ef05859ef19acee7",
     "fn:fe03fa99d3fa3b01",
 ]
 test = true
@@ -339,7 +316,6 @@ hash = "sha256:25597cc4dd11a323c17ab417961284283b85dfacac70cc57f7626f46aa27851b"
 doc_hash = "sha256:34571cde2caec8f996421c4ed5acc8a658c081959b886709aac7194a3957e2c3"
 callees = [
     "fn:0a1ba07b049a3593",
-    "fn:55f992582bf139ba",
     "fn:5f272e614dd18002",
     "fn:a4a7a4dcdd60d052",
 ]
@@ -389,14 +365,10 @@ callees = [
     "fn:0a1ba07b049a3593",
     "fn:55f992582bf139ba",
     "fn:5f272e614dd18002",
-    "fn:a137089553be23e0",
     "fn:a38aaa2346ace56b",
     "fn:bb2ab45526084ff4",
 ]
-uses = [
-    "fn:0022ac6f3fcf6fe0",
-    "fn:9f5415a26281c12b",
-]
+uses = ["fn:9f5415a26281c12b"]
 test = true
 
 [module."godiva.rs"]
@@ -426,27 +398,12 @@ lines = [
 ]
 hash = "sha256:4c3cbf4864d298bad55916bb90547591487ef6a2a642fe04140808ca0f0b4868"
 doc_hash = "sha256:cc50a161bba2fc5c506e717759f6f3249519a984776094392db916859a6a8c25"
-callees = [
-    "fn:14a6fa25c0a1f183",
-    "fn:2c945092147fdb01",
-    "fn:38e76eeb4aab2d7a",
-    "fn:4fefd35b779cf970",
-    "fn:99fdb882ad101574",
-    "fn:d548885ad98866f3",
-    "fn:f1ce5376ada95512",
-    "fn:fcb98d2fcf325c04",
-]
 uses = [
     "fn:1e02d3e9cc685b21",
     "fn:2aadd444b721d5e2",
     "fn:37ba87f6ba70291f",
-    "fn:742f516985d0f4c7",
-    "fn:770c5941dead0a7e",
-    "fn:86fec0a94b7f6b00",
     "fn:96beb9f0d290928a",
-    "fn:db39829f500f2e09",
     "fn:e7e0f39785f54b11",
-    "fn:f8778793521a3c25",
 ]
 test = true
 

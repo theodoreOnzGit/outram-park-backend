@@ -1,0 +1,174 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/twin_app"
+
+[module."main.rs"]
+path = "example:twin_app"
+
+[[module."main.rs".function]]
+id = "fn:723d0edc7c87a643"
+name = "main"
+qual = "main#1"
+lines = [
+    25,
+    28,
+]
+hash = "sha256:c348628239878455d443b135560f6ad1011acbfbfd40275fc9a811cdfb63b104"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:7f05970346797152"
+name = "MsreControls"
+qual = "MsreControls"
+item = "type"
+shape = "struct"
+lines = [
+    41,
+    46,
+]
+hash = "sha256:7a81d165c7d5439383600a864d008bb0c7a430ac5f51335e7bc3b6ae2a969c43"
+doc_hash = "sha256:894bfab624a4a02bdfdbd0cb42710dfcb161657a79979187be58c0c099542628"
+
+[[module."main.rs".function]]
+id = "fn:0a82a8cb7d70f125"
+name = "controls"
+qual = "MsreControls::controls"
+lines = [
+    49,
+    75,
+]
+hash = "sha256:ee61f45c063b788ad89f2f76cd500b3859611938027c2253bfc9754755911a81"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:7f05970346797152",
+    "fn:f5b7e8b07e0f72f5",
+    "fn:fb65b059bcaf7183",
+]
+
+[[module."main.rs".function]]
+id = "fn:9c4f85ab9c7bae83"
+name = "Ebr2Controls"
+qual = "Ebr2Controls"
+item = "type"
+shape = "struct"
+lines = [
+    78,
+    82,
+]
+hash = "sha256:1e704a84ea306dd75361d027f5d9c8dad288fecd4e0b294c7535f178344f2a78"
+doc_hash = "sha256:9bd67f201fe508667a2f92c9a8fad308175e6e1d9793a0f8e7e7ec8e86fe75c6"
+
+[[module."main.rs".function]]
+id = "fn:c7878d7d22471560"
+name = "controls"
+qual = "Ebr2Controls::controls"
+lines = [
+    85,
+    94,
+]
+hash = "sha256:4c4f8cbf574f140f0eb95123e7b090fdebfc57b3846a8a6dc970f6c260c43ea8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:963a661966aad957",
+    "fn:9c4f85ab9c7bae83",
+    "fn:e561e3fbef60ba90",
+]
+
+[[module."main.rs".function]]
+id = "fn:4fae303fbac5656e"
+name = "Window"
+qual = "Window"
+item = "type"
+shape = "struct"
+lines = [
+    97,
+    100,
+]
+hash = "sha256:e7230db34d3b8716bce6a687c0469f524b3ad730b63ac8bd7948e0acd3c09db0"
+doc_hash = "sha256:7832527d0a0bbba66194a651c54becf3a93e13e0b34e1199ecfdbb255c2a97ef"
+uses = [
+    "fn:4ef2800913944927",
+    "fn:de6e8ea7a2c0fa09",
+]
+
+[[module."main.rs".function]]
+id = "fn:1adf0126f9140675"
+name = "ui"
+qual = "Window::ui"
+lines = [
+    103,
+    106,
+]
+hash = "sha256:6554308a7748301aba8453c587674cf5f2f793b555bb7f50ba904b9c7fcc70b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c67ba66386b9f071"]
+uses = ["fn:4fae303fbac5656e"]
+
+[[module."main.rs".function]]
+id = "fn:bf194e203bbfc55b"
+name = "window_size"
+qual = "window_size"
+lines = [
+    109,
+    115,
+]
+hash = "sha256:1ce049deb78072d93dc46ec4bc4c109d25843e1cec6c45e90d6cc75d7e435a22"
+doc_hash = "sha256:80b89fc78aac1f3d72530ab78e2f36c311e1c0215945986e6d95734dc62fdb36"
+
+[[module."main.rs".function]]
+id = "fn:fb3f8781ee908402"
+name = "gui"
+qual = "gui"
+lines = [
+    117,
+    124,
+]
+hash = "sha256:7c0f9cec3dd70648a181c13bbc7645e627340e3d9d1d8a585dfcfc03a9f50367"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b7e79be65f022c2a",
+    "fn:bf194e203bbfc55b",
+]
+uses = [
+    "fn:4ef2800913944927",
+    "fn:4fae303fbac5656e",
+    "fn:de6e8ea7a2c0fa09",
+]
+
+[[module."main.rs".function]]
+id = "fn:c60734eed2bddbea"
+name = "main"
+qual = "main#2"
+lines = [
+    126,
+    161,
+]
+hash = "sha256:6db0de9feeb6853493bb82e666c88c953af5c5b0ac00155779090aa575a75240"
+doc_hash = "sha256:95bd3e7f9ead2595aed1ebc9f77748f15c3d0c6704d2e866c67719d8c46d0bb1"
+callees = [
+    "fn:395fb8b4be2c7bb6",
+    "fn:3c410dc352f4fcdc",
+    "fn:712f8444e51c8ba4",
+    "fn:bdcd6d3f4f3eac15",
+    "fn:fb3f8781ee908402",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:79bc46c4f852d68f",
+    "fn:7f05970346797152",
+    "fn:9c4f85ab9c7bae83",
+    "fn:b719bf1937fda5bc",
+]
+
+[[module."main.rs".function]]
+id = "fn:c522e4dded0579d4"
+name = "main"
+qual = "main#3"
+lines = [
+    164,
+    167,
+]
+hash = "sha256:eab316913db41076e3e3ee1f669eccf0f0f2cd15066efaa5919c54f64b4aabbb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c60734eed2bddbea"]

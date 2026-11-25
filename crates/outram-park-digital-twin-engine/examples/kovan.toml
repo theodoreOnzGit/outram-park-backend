@@ -1,0 +1,74 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples"
+
+[module."double_pipe_lf_grid.rs"]
+path = "example:double_pipe_lf_grid"
+
+[[module."double_pipe_lf_grid.rs".function]]
+id = "fn:eb6c5518ed50f149"
+name = "progress"
+qual = "progress"
+lines = [
+    14,
+    16,
+]
+hash = "sha256:2f4582c267df57b67d525259b9953b3be89538d132c16cd88ac6dc72401702a4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."double_pipe_lf_grid.rs".function]]
+id = "fn:d345780693d87c52"
+name = "main"
+qual = "main"
+lines = [
+    18,
+    28,
+]
+hash = "sha256:1a5054d0b051e9eac21fc5f34e198a2cc1341af9277da02e056879a9884d31c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a55ed82340d218b",
+    "fn:2113ed1997daa87e",
+    "fn:619ddf63bb227699",
+    "fn:eb6c5518ed50f149",
+]
+
+[module."hf_lf_double_pipe_dataset.rs"]
+path = "example:hf_lf_double_pipe_dataset"
+
+[[module."hf_lf_double_pipe_dataset.rs".function]]
+id = "fn:7b6e67d29a48dd6b"
+name = "progress"
+qual = "progress"
+lines = [
+    20,
+    22,
+]
+hash = "sha256:2f4582c267df57b67d525259b9953b3be89538d132c16cd88ac6dc72401702a4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."hf_lf_double_pipe_dataset.rs".function]]
+id = "fn:c55b7644eecef0e9"
+name = "main"
+qual = "main"
+lines = [
+    24,
+    51,
+]
+hash = "sha256:4ff6a0e1c04ed8c7fb7d4e2626e246171454c2a302e845d4796580ea1e5fb5ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e8aac4c37e5ff25",
+    "fn:311706cc96206a5b",
+    "fn:35328c07da3874e8",
+    "fn:4bd5ea3a2dce068d",
+    "fn:6caf04cfe36db0c4",
+    "fn:7b6e67d29a48dd6b",
+    "fn:872e039931d746d1",
+    "fn:9d0941e0b17851d3",
+    "fn:a61ec858d2e1c31a",
+    "fn:ea1b36e611d5a7ef",
+    "fn:efe2897ad0d6c534",
+]
+uses = ["fn:1f5eb265afdeb007"]

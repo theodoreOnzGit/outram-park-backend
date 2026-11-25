@@ -115,7 +115,6 @@ lines = [
 ]
 hash = "sha256:382319e47e6d6c77d99684fe70714a16d43c69de45db262631918123e4827a0f"
 doc_hash = "sha256:cd31cd660ac92afdee8ec3ba5545adfa8f723e7887bd8d83a698ae0f01ec7507"
-callees = ["fn:a3264904f4da2ab9"]
 uses = ["fn:8fa1d61f79295f85"]
 test = true
 
@@ -129,10 +128,7 @@ lines = [
 ]
 hash = "sha256:287be529f60e5a100815e755597c04384104cb63050d49a133c7bdeee1a95efd"
 doc_hash = "sha256:be3ff7f81db18300a1f24912b6c05791b41f51a0c49f379a23ab326616501885"
-callees = [
-    "fn:50405425c945732b",
-    "fn:b33d5be5c3168ae3",
-]
+callees = ["fn:b33d5be5c3168ae3"]
 uses = ["fn:a70fc38a274a1899"]
 test = true
 
@@ -167,10 +163,7 @@ lines = [
 ]
 hash = "sha256:7046116bc6e50541eba0891c9ba437d29d6b18f5696c9aaa506de5b764c3d2fd"
 doc_hash = "sha256:a792e8ecca9cb1d4784f5f2d353885a6386849f17a0f84c0299168313831da15"
-callees = [
-    "fn:9aa6a2ec87e1c839",
-    "fn:e8992e06514e1115",
-]
+callees = ["fn:e8992e06514e1115"]
 uses = ["fn:5d225cbd74f7f43d"]
 test = true
 
@@ -213,14 +206,11 @@ name = "ui"
 qual = "FHRSimulatorApp::ui"
 lines = [
     37,
-    134,
+    133,
 ]
-hash = "sha256:70cf0d9035e3bbb5d4b4547cb4597d071bddb5677ce93afd0444d32e5bb2ea12"
+hash = "sha256:1b57834adcccb5d61f2331d793238d99333005a3e387ddf9e4c7f3da6874bfe6"
 doc_hash = "sha256:b582ab9c4712fc1dbdfe425b9eb4cb806dfc87f9ca904ab0c49fbcad65755b06"
 callees = [
-    "fn:28565f0621e704ed",
-    "fn:2cbdd9b8136c55a6",
-    "fn:4918952818eac181",
     "fn:4ef3c9a2cd0d62eb",
     "fn:94143b462e93f315",
     "fn:a18ace2dfae76343",
@@ -234,23 +224,19 @@ id = "fn:94143b462e93f315"
 name = "main_page"
 qual = "FHRSimulatorApp::main_page"
 lines = [
-    138,
-    1046,
+    137,
+    1045,
 ]
 hash = "sha256:11a5d13f9f148392941306cc31ad65b14eb8f8c263891a57fea73d533522e895"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:4f7341877557ee22",
     "fn:51fccbc8271c260e",
-    "fn:a2e9cdb8663f304e",
-    "fn:b275174d34d3979e",
-    "fn:c2b1db5aa20c11f6",
     "fn:e9acb4c6bf02d080",
     "fn:ff7479c87285cd8e",
 ]
 uses = [
     "fn:4f1ecf71274288d9",
-    "fn:8bc029c647a9bcb5",
     "fn:8fa1d61f79295f85",
     "fn:9648355dc7b4c05b",
     "fn:dcc069fb05e667fb",
@@ -266,8 +252,8 @@ id = "fn:ee95e92deaf7a204"
 name = "powered_by_egui_and_eframe"
 qual = "powered_by_egui_and_eframe"
 lines = [
-    1049,
-    1061,
+    1048,
+    1060,
 ]
 hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -285,14 +271,6 @@ lines = [
 ]
 hash = "sha256:1be948fb3e124b0459322e0deb447d2e5e0701e575a352abf62d86715714c754"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:1b50a3c23c077cf1",
-    "fn:25a32e268aee8bef",
-    "fn:26e94fdf4f4b781d",
-    "fn:545bba729ca252ea",
-    "fn:b1cb312f3056a106",
-    "fn:fd61efaa92101915",
-]
 uses = ["fn:8fa1d61f79295f85"]
 reached_by = [
     "#0",

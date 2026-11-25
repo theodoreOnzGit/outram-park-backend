@@ -3,12 +3,1871 @@ kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src"
 crate_root = true
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mc_tab.rs::a_pair_is_read_as_what_it_measures",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::each_shell_view_is_the_old_view_that_draws_it",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/twin.rs::a_set_reaches_the_plant",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/twin.rs::the_cvs_sources_and_coefficients_are_the_plants",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/twin.rs::the_twin_plant_is_the_plant_bit_for_bit",
+    "crates/outram-park-digital-twin-engine/src/ebr2/twin/tests.rs::the_cv_map_is_the_live_plant",
+    "crates/outram-park-digital-twin-engine/src/ebr2/twin/tests.rs::the_sources_and_pages_are_named",
+    "crates/outram-park-digital-twin-engine/src/ebr2/twin/tests.rs::the_twin_plant_is_the_session_bit_for_bit",
+    "crates/outram-park-digital-twin-engine/src/msre/twin/tests.rs::the_cv_map_is_the_live_plant",
+    "crates/outram-park-digital-twin-engine/src/msre/twin/tests.rs::the_live_split_reaches_the_plant",
+    "crates/outram-park-digital-twin-engine/src/msre/twin/tests.rs::the_sources_and_pages_are_named",
+    "crates/outram-park-digital-twin-engine/src/msre/twin/tests.rs::the_split_is_the_k_eff_tabs",
+    "crates/outram-park-digital-twin-engine/src/msre/twin/tests.rs::the_twin_plant_is_the_session_bit_for_bit",
+    "crates/outram-park-digital-twin-engine/src/twin/app/tests.rs::the_app_applies_gruvbox",
+    "crates/outram-park-digital-twin-engine/src/twin/app/tests.rs::the_page_text_is_what_the_model_has",
+    "crates/outram-park-digital-twin-engine/src/twin/genfoam.rs::the_coarse_run_reports_against_the_records",
+    "crates/outram-park-digital-twin-engine/src/twin/shell.rs::a_view_is_greyed_by_its_page_or_its_sub_tab",
+    "crates/outram-park-digital-twin-engine/src/twin/shell.rs::the_layout_tiles_a_phone",
+    "crates/outram-park-digital-twin-engine/src/twin/shell.rs::the_shell_starts_on_the_plant_in_gruvbox",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::a_live_run_reaches_the_plant_only_when_sent",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::missing_pages_say_not_built_with_their_issue",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_coefficient_is_msres_arithmetic_in_si",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_cv_dump_is_the_plant_now",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_headless_flags_reach_each_output",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_local_host_runs_the_twin_off_the_ui_thread",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_page_and_role_words_are_fixed",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_plant_csv_is_deterministic_and_follows_the_script",
+]
 
 [module."lib.rs"]
 path = "crate"
 
 [module."prelude.rs"]
 path = "crate::prelude"
+
+[module."twin.rs"]
+path = "crate::twin"
+
+[[module."twin.rs".function]]
+id = "fn:6cdc4412bb8a730a"
+name = "TwinError"
+qual = "TwinError"
+item = "type"
+shape = "enum"
+lines = [
+    66,
+    79,
+]
+hash = "sha256:b8666693c1be75b311ad9e98d5315662096eb8487299aafd64fd123241311dd9"
+doc_hash = "sha256:298a53e43ee7e855472cca190fed5af330c2b5ce6e417751e31da303c2be9c19"
+uses = ["fn:a74040b55398d35f"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:8df648fecd2351e8"
+name = "fmt"
+qual = "TwinError::fmt"
+lines = [
+    82,
+    90,
+]
+hash = "sha256:06bf022727f77ed6e86862df26ff74733d749224ad923bd0903416d5dcb111d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6cdc4412bb8a730a"]
+
+[[module."twin.rs".function]]
+id = "fn:a74040b55398d35f"
+name = "TwinPage"
+qual = "TwinPage"
+item = "type"
+shape = "enum"
+lines = [
+    95,
+    114,
+]
+hash = "sha256:fcb00610856186d6b2616b7f678f588e77f7720f92ca8e5dc80e89bcb079e56d"
+doc_hash = "sha256:b14a1641e4b6ebfb8a15547e8ab9b2ada11902164b6349ab6a54cb6729dbed33"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:5ecb673a079aff7a"
+name = "tab_label"
+qual = "TwinPage::tab_label"
+lines = [
+    128,
+    142,
+]
+hash = "sha256:8db8c0904bb74ef1c2743f7af2db4e614d18620a7462ff68d3900cbde2f65a7c"
+doc_hash = "sha256:c6adae37436f23415c446ba7bf20658bd4f6569d99679942c9c18bcf54ceff08"
+uses = ["fn:a74040b55398d35f"]
+
+[[module."twin.rs".function]]
+id = "fn:b61908431e481ff2"
+name = "title"
+qual = "TwinPage::title"
+lines = [
+    144,
+    155,
+]
+hash = "sha256:4e252d4bb497ead333262dc6da04f2ded0006bfa8f8563ed92b0db7c6a40dbfb"
+doc_hash = "sha256:28fe4304648cbbce2ab533faf832c2ed67def351e43070a5e25bf398c25de29a"
+uses = ["fn:a74040b55398d35f"]
+reached_by = ["#15"]
+
+[[module."twin.rs".function]]
+id = "fn:a948e335acb6c4b0"
+name = "index"
+qual = "TwinPage::index"
+lines = [
+    157,
+    160,
+]
+hash = "sha256:6654f8c2fa90fc5b81c5d1d2d20efc8f449410e42d27e8d4c739cd070fe05f0e"
+doc_hash = "sha256:a48e99182929ae91efff891c406a45c4b3cbe5860c900ab07913a1e5cfaf9247"
+uses = ["fn:a74040b55398d35f"]
+reached_by = ["#15"]
+
+[[module."twin.rs".function]]
+id = "fn:c9f9b755a9260418"
+name = "ViewState"
+qual = "ViewState"
+item = "type"
+shape = "enum"
+lines = [
+    163,
+    169,
+]
+hash = "sha256:3f3a3dc0d6fa3599367824e3661f2a4d7c3203a2c6fc95329854d58835efabb8"
+doc_hash = "sha256:9a49fc79763352a5ba48d7e2f92267e026d6b5a2a4fda7226974a53591068255"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#18",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:bbf3da79446c1aac"
+name = "is_built"
+qual = "ViewState::is_built"
+lines = [
+    172,
+    174,
+]
+hash = "sha256:de52935eeb7a8e2c604dcf0a19ab4ee29071bf06dfe92da3b37243a16e73928b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c9f9b755a9260418"]
+reached_by = ["#15"]
+
+[[module."twin.rs".function]]
+id = "fn:c2c8c44885348699"
+name = "UNDECLARED_VIEW_ISSUE"
+qual = "UNDECLARED_VIEW_ISSUE"
+item = "const"
+shape = "const"
+lines = [
+    177,
+    178,
+]
+hash = "sha256:ce2821a9cdb6736eb772485f09a4a0b1dc38a8e24c12f2a1ba28e00904e920cd"
+doc_hash = "sha256:3c8325496131165610b88b8c4a61982695b7de897cdf4a90e6acbdf614882813"
+reached_by = ["#15"]
+
+[[module."twin.rs".function]]
+id = "fn:17fbe85b55608dd4"
+name = "TwinSnapshot"
+qual = "TwinSnapshot"
+item = "type"
+shape = "trait"
+lines = [
+    182,
+    189,
+]
+hash = "sha256:5e7e80057fb86e79e1a1ba261099df57261d40161d044d5f4e6597ecf24c33d1"
+doc_hash = "sha256:74176bca70e1f6ef1bdb10760055b7ebf8c14c02ae69c22d101ad454cb12d02d"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:820c93c25d176fed"
+name = "columns"
+qual = "TwinSnapshot::columns"
+lines = [
+    184,
+    186,
+]
+hash = "sha256:f654cac219bc7503ff5201ce497f966f234000eed1265523c21e815b569487a5"
+doc_hash = "sha256:57ba5ef83a3998f1915e84b5220b0108b7191d23bf70f7de296b7a119d346b11"
+uses = ["fn:17fbe85b55608dd4"]
+
+[[module."twin.rs".function]]
+id = "fn:336b7f0b929ae51d"
+name = "values"
+qual = "TwinSnapshot::values"
+lines = [
+    187,
+    188,
+]
+hash = "sha256:8c56c203765fb894a49ebf5f9eac7e090df3576d0bfccbb358a998c83dd63849"
+doc_hash = "sha256:60e6c6d204d7f442a17429e9c9fb0ab69ab2739c5c9ea258adf51cd6911ccf31"
+uses = ["fn:17fbe85b55608dd4"]
+
+[[module."twin.rs".function]]
+id = "fn:74f79318160fea1b"
+name = "PlantModel"
+qual = "PlantModel"
+item = "type"
+shape = "trait"
+lines = [
+    191,
+    207,
+]
+hash = "sha256:522d0c0271d65dde1efe9a1845da9c316d4d31e4d5805a65be805d7bbf763e4f"
+doc_hash = "sha256:ed55f3db7de6e861ad023b6a2043f198f3bdccfe0a5a6e4916b33fa360b7ae9b"
+uses = [
+    "fn:17fbe85b55608dd4",
+    "fn:6cdc4412bb8a730a",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:13b90ad54f2d6bc6"
+name = "apply"
+qual = "PlantModel::apply"
+lines = [
+    201,
+    202,
+]
+hash = "sha256:f5b38c4ab4734d2348e90fd77a042fd384e4aa25da92836c88c9952b53f11bca"
+doc_hash = "sha256:5206952659d5d374b7dfbebd4b3087c26a1c7b7f849ca447d087391973fc8834"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:74f79318160fea1b",
+]
+
+[[module."twin.rs".function]]
+id = "fn:d6c3c275dfb728fc"
+name = "advance"
+qual = "PlantModel::advance"
+lines = [
+    203,
+    204,
+]
+hash = "sha256:6ef54dd6a5c4993f54d57d276fe76d8ef9bb3eda901338e5ef395ef9feeeb670"
+doc_hash = "sha256:dc30a5f0e8ac8649e9a0d77ac983812e01b8d15601cc26cd4a0093caa417479f"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:74f79318160fea1b",
+]
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:3db0bbcf51fa9405"
+name = "snapshot"
+qual = "PlantModel::snapshot"
+lines = [
+    205,
+    206,
+]
+hash = "sha256:23287406f71937a6df781c2310e13d49e0b2a96d6cbe94e58dad393b8200ab10"
+doc_hash = "sha256:7f91b060d56695fbc82d57c33b2421d2404dd30accd472c1eab81ab652e02fbe"
+uses = ["fn:74f79318160fea1b"]
+
+[[module."twin.rs".function]]
+id = "fn:178eb0212c058544"
+name = "FeedbackCoupling"
+qual = "FeedbackCoupling"
+item = "type"
+shape = "trait"
+lines = [
+    209,
+    213,
+]
+hash = "sha256:516b05254fb745a3facd4144c83c6815a685da3538592c6356f9d243a513bb6c"
+doc_hash = "sha256:f5187064914cf379a80f0e8029a8c61d88ae6b554b56fb4f5fdc718c5e93fe86"
+uses = ["fn:6cdc4412bb8a730a"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:084bb40bdad339a9"
+name = "set_coefficients"
+qual = "FeedbackCoupling::set_coefficients"
+lines = [
+    212,
+    212,
+]
+hash = "sha256:d232a11c57cc1f97a28d1bdec08d516d897713edd149182a0d3c4748c8bee813"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:178eb0212c058544",
+    "fn:6cdc4412bb8a730a",
+]
+
+[[module."twin.rs".function]]
+id = "fn:388b69a6283ca793"
+name = "CvRole"
+qual = "CvRole"
+item = "type"
+shape = "enum"
+lines = [
+    217,
+    231,
+]
+hash = "sha256:759590384fa90c98a3988d61b9398c66bfcd23687656913c8e2c90cc1eea528b"
+doc_hash = "sha256:e46a2167bd0212b31770b1c1af9654ae2779f4603a37377f38a772790cb1b6e4"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:8d17e10d4cd8c2ed"
+name = "word"
+qual = "CvRole::word"
+lines = [
+    234,
+    243,
+]
+hash = "sha256:dc12b63c4c6cc29e86a3d120c07cf69576b8a59d345e40222dae818d45a18535"
+doc_hash = "sha256:fdff9d14f8b71d2c6d888a7f9be7b45caa0caed8e62546d2c40277e0d9ede90b"
+uses = ["fn:388b69a6283ca793"]
+
+[[module."twin.rs".function]]
+id = "fn:af073e5e71d936ab"
+name = "ControlVolume"
+qual = "ControlVolume"
+item = "type"
+shape = "struct"
+lines = [
+    246,
+    261,
+]
+hash = "sha256:4d4d1f0dbba176845ead4335ede15cda976e5d1420156a0508a0b396f71dbd6b"
+doc_hash = "sha256:bf2420b65c9f1efab840288e2107b6b192db2e9ceae6007020b6eecb2fdc8f49"
+uses = ["fn:388b69a6283ca793"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:3f23848193df8018"
+name = "CvLinkKind"
+qual = "CvLinkKind"
+item = "type"
+shape = "enum"
+lines = [
+    263,
+    270,
+]
+hash = "sha256:650ff4aa94bb3dc1588acc601c9c9f681935624f9cf4221f00a8496da274116b"
+doc_hash = "sha256:68347f9ff207f0e701b7ec63b628c5f71f7a67b6d8c1ca61eb36b9c75e00e596"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:1597591457a7f41e"
+name = "CvLink"
+qual = "CvLink"
+item = "type"
+shape = "struct"
+lines = [
+    272,
+    278,
+]
+hash = "sha256:8a1194c707b908ddec3aae388643fa08981f0eabd1f5dc4d14c3477e42494571"
+doc_hash = "sha256:eda99b600100af054fbb5b3edbfe2d90368c28e887993d3c7ca1a88f08fa613b"
+uses = ["fn:3f23848193df8018"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:b7a88eb5ed3fb277"
+name = "ControlVolumes"
+qual = "ControlVolumes"
+item = "type"
+shape = "struct"
+lines = [
+    280,
+    285,
+]
+hash = "sha256:48b2c176ca692752a95dde1a28492ce45f3a8663ba2a908397d023e916a0fb2a"
+doc_hash = "sha256:1f46b8a291a450954aa31c2b058c553dd8782be5ad359728ea69858fd6765541"
+uses = [
+    "fn:1597591457a7f41e",
+    "fn:af073e5e71d936ab",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:ec323ba3e531328f"
+name = "ControlVolumeMap"
+qual = "ControlVolumeMap"
+item = "type"
+shape = "trait"
+lines = [
+    287,
+    291,
+]
+hash = "sha256:a08d6f4b7274a3bfa29973fd14fa28f0cc83a36eef188c8a86246c887732c52b"
+doc_hash = "sha256:b77fdee103a96e786a1b1cfa082a427516847f135ac8e36d2e4d3c0dee27da4b"
+uses = ["fn:b7a88eb5ed3fb277"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:9aec6056410d45c9"
+name = "control_volumes"
+qual = "ControlVolumeMap::control_volumes"
+lines = [
+    290,
+    290,
+]
+hash = "sha256:178ca8db656757623b986cf643bc6bc10f1ba7dfeae650263f39ef9649489e6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:b7a88eb5ed3fb277",
+    "fn:ec323ba3e531328f",
+]
+
+[[module."twin.rs".function]]
+id = "fn:259d09f046dbce4f"
+name = "opt"
+qual = "opt"
+lines = [
+    293,
+    295,
+]
+hash = "sha256:50531cfee62ccc137e4606cd02b384d6feefaa04a0e4d3d266b85796f00af0ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#24",
+    "#25",
+]
+
+[[module."twin.rs".function]]
+id = "fn:52eb9c7ec3a381d5"
+name = "get"
+qual = "ControlVolumes::get"
+lines = [
+    303,
+    306,
+]
+hash = "sha256:1ee0b388e0faa1f84ef283ba7e7ba3fbf3840cb993cd8fdde2ff54103f63ddd4"
+doc_hash = "sha256:b3e2e84a5b40ef016d5583acf0c64aa5fbe02ac1ad2eb100dc28ec4c0aca7581"
+uses = [
+    "fn:af073e5e71d936ab",
+    "fn:b7a88eb5ed3fb277",
+]
+
+[[module."twin.rs".function]]
+id = "fn:457392740b2df73e"
+name = "dangling_links"
+qual = "ControlVolumes::dangling_links"
+lines = [
+    308,
+    311,
+]
+hash = "sha256:66a9a62e85096de90fc8d02c4a69511fc0af7d974cc64a8dc3d28e30f96c4edd"
+doc_hash = "sha256:e807873875893599a04404e08b0be25bc498b092242a9535ba064307e3a899de"
+callees = ["fn:52eb9c7ec3a381d5"]
+uses = [
+    "fn:1597591457a7f41e",
+    "fn:b7a88eb5ed3fb277",
+]
+
+[[module."twin.rs".function]]
+id = "fn:59fcc9c5ec185800"
+name = "to_csv"
+qual = "ControlVolumes::to_csv"
+lines = [
+    313,
+    342,
+]
+hash = "sha256:03ce850926a6abbe1839a2b35ba54e9064f2949ede1de2ecb4ab8258c57c11fc"
+doc_hash = "sha256:3433cb33299e029db5a5befdeb4dea658bb5665159743f35bed5462a38ed3302"
+callees = ["fn:259d09f046dbce4f"]
+uses = [
+    "fn:3f23848193df8018",
+    "fn:b7a88eb5ed3fb277",
+]
+reached_by = [
+    "#24",
+    "#25",
+]
+
+[[module."twin.rs".function]]
+id = "fn:952684a0205c3bf2"
+name = "KeffResult"
+qual = "KeffResult"
+item = "type"
+shape = "struct"
+lines = [
+    347,
+    352,
+]
+hash = "sha256:9db49575fd59e20477ed03ea89b664a61466cb57a38000bf43ffa93b2ca00676"
+doc_hash = "sha256:3e3c0177763222eeac8dc3b242ab9f21672e2c55b344bda3154343a06c819752"
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:c7f97fb115e30e6e"
+name = "KeffRun"
+qual = "KeffRun"
+item = "type"
+shape = "struct"
+lines = [
+    354,
+    363,
+]
+hash = "sha256:7770fd76fc171a2039b35f615b8dc55b4b0f75ff53e28723b1338d2e42d2e353"
+doc_hash = "sha256:3d1dba34a9b455c05bbf535867593cd86b7c51deb7dcf00012dc35c79bdaa7ca"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:3fb82adb2c112935"
+name = "Coefficient"
+qual = "Coefficient"
+item = "type"
+shape = "struct"
+lines = [
+    365,
+    370,
+]
+hash = "sha256:30eadbb9c4ee0c49de397aef402821c578ec437692d40c5545ae84e4a49a909a"
+doc_hash = "sha256:784f57b11ac57fe4f5bf0d58e61b008d35813a04b10220b970a0395c382929a3"
+reached_by = [
+    "#0",
+    "#5",
+    "#13",
+    "#23",
+]
+
+[[module."twin.rs".function]]
+id = "fn:8310bdb7b7666980"
+name = "reactivity_coefficient"
+qual = "reactivity_coefficient"
+lines = [
+    372,
+    388,
+]
+hash = "sha256:c46a8604210e91e642692f63e180576fded55c3bc5c945e8cf706485ba89ef49"
+doc_hash = "sha256:f8aa7cd1520729d780d4b11c30d065b095d3378610a4462e57a64ebef069694c"
+uses = [
+    "fn:3fb82adb2c112935",
+    "fn:952684a0205c3bf2",
+]
+reached_by = [
+    "#0",
+    "#5",
+    "#13",
+    "#23",
+]
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:823442eba919468c"
+name = "MonteCarloCase"
+qual = "MonteCarloCase"
+item = "type"
+shape = "trait"
+lines = [
+    390,
+    404,
+]
+hash = "sha256:208461a5204fce3fbfa9d28735715ed56fd06dcde13f6dd83946737768df7c9e"
+doc_hash = "sha256:3db8faf36006217d1511ee87587da505277f85dc4bd1eddb69634ce6390dce31"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:952684a0205c3bf2",
+    "fn:c7f97fb115e30e6e",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:5d72403ef0bd4b0d"
+name = "runs"
+qual = "MonteCarloCase::runs"
+lines = [
+    396,
+    397,
+]
+hash = "sha256:8d0ee7730a98adda15b334bdda23f5159fcd2413d6b9576088dd816b56b7a52b"
+doc_hash = "sha256:cafcc096add65c0d769087fcb703102ca5b0ff9e30cad75407e31b6e21f3a84b"
+uses = [
+    "fn:823442eba919468c",
+    "fn:c7f97fb115e30e6e",
+]
+
+[[module."twin.rs".function]]
+id = "fn:980c4cc627f4e0b5"
+name = "run"
+qual = "MonteCarloCase::run"
+lines = [
+    398,
+    399,
+]
+hash = "sha256:3c1cdc5e66eaed088b36c81a715aff777a92e6391d160892595b996357d19d47"
+doc_hash = "sha256:f5c32ba02889b1a7f81194e0c92ebfd380da00b8e79aefbba749b560074405a8"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:823442eba919468c",
+    "fn:952684a0205c3bf2",
+]
+
+[[module."twin.rs".function]]
+id = "fn:8c1ac989decbc271"
+name = "coefficients"
+qual = "MonteCarloCase::coefficients"
+lines = [
+    400,
+    401,
+]
+hash = "sha256:c595917cd6769d4ae93c763a5abd86f504ffe7136ca382c0f0e5dcf38982c3fc"
+doc_hash = "sha256:e70069593f18f3a5faf26c01b91badaa32e9082eb1aaed9402f59582ba11091c"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:823442eba919468c",
+    "fn:952684a0205c3bf2",
+]
+
+[[module."twin.rs".function]]
+id = "fn:b5d88f56c9ed5d20"
+name = "describe"
+qual = "MonteCarloCase::describe"
+lines = [
+    402,
+    403,
+]
+hash = "sha256:92f1af77e1856b72855594d7b4ea9a1f3be1e988121fe5942ed6cfd02447905d"
+doc_hash = "sha256:54123c1f735b07f06e2d178eec78fc379ba2aa482968cf8fd756237aa89a70ad"
+uses = ["fn:823442eba919468c"]
+
+[[module."twin.rs".function]]
+id = "fn:995fe4bb039455cd"
+name = "CoefficientSource"
+qual = "CoefficientSource"
+item = "type"
+shape = "enum"
+lines = [
+    406,
+    415,
+]
+hash = "sha256:79028ad77ee9e87dca592191a30ac132fca87a0a3d6ad4aa91004a8ea1c7967e"
+doc_hash = "sha256:2fb2fc56388fc0e5c806320d2894b76ac074a0a87268dd0075ba13e5f34ff3ef"
+uses = [
+    "fn:952684a0205c3bf2",
+    "fn:c7f97fb115e30e6e",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:c8a0b4027ac4ce8b"
+name = "value"
+qual = "CoefficientSource::value"
+lines = [
+    418,
+    425,
+]
+hash = "sha256:9c074ff8046d480abc533dd5d522f589518f1dcf917119cf1f149f29c02f419b"
+doc_hash = "sha256:528ac2c5ec333b2b8bba976002321c6669321ee75dae59396d1c722cac7c3c36"
+uses = ["fn:995fe4bb039455cd"]
+
+[[module."twin.rs".function]]
+id = "fn:ef968c44750413f9"
+name = "provenance"
+qual = "CoefficientSource::provenance"
+lines = [
+    427,
+    434,
+]
+hash = "sha256:2c638934f2994b32c86e0891bf1a0c46ca20e8d84166df4228ab0848be684069"
+doc_hash = "sha256:10214fb18f6a30714ff8e64a702883f2d1db3ff5c2c626dfbd2ccab1c790d931"
+uses = ["fn:995fe4bb039455cd"]
+
+[[module."twin.rs".function]]
+id = "fn:cfd88177c1907666"
+name = "NoMonteCarlo"
+qual = "NoMonteCarlo"
+item = "type"
+shape = "enum"
+lines = [
+    437,
+    440,
+]
+hash = "sha256:06753c29221d84fd29cc8a84eda4a691fda7b5d8be6d33764a0c59caa3c87b4b"
+doc_hash = "sha256:286e8ecf8fb31fee2a5740e3ae9784ed2a614b31c5375272b9a1d9bdb5feeaf6"
+reached_by = ["#22"]
+
+[[module."twin.rs".function]]
+id = "fn:6e6fb5a70a033ef5"
+name = "runs"
+qual = "NoMonteCarlo::runs"
+lines = [
+    444,
+    446,
+]
+hash = "sha256:dd46d298fd7e57d79185394ac51f294bca0c9b32b8ef90e8c3f5b0b88911a02d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:c7f97fb115e30e6e",
+    "fn:cfd88177c1907666",
+]
+
+[[module."twin.rs".function]]
+id = "fn:e47df1a063551022"
+name = "run"
+qual = "NoMonteCarlo::run"
+lines = [
+    447,
+    449,
+]
+hash = "sha256:4e03140ce2c60e9e5db5a4fd72c8998095a099a6fbd2a3c19c591ebdf5d410ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:952684a0205c3bf2",
+    "fn:cfd88177c1907666",
+]
+
+[[module."twin.rs".function]]
+id = "fn:4888a388f45e23e6"
+name = "coefficients"
+qual = "NoMonteCarlo::coefficients"
+lines = [
+    450,
+    452,
+]
+hash = "sha256:6f1d516eb9582c87c37b4c7b5b480550a43fe328dd1c5f56be39dce28c498c31"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:952684a0205c3bf2",
+    "fn:cfd88177c1907666",
+]
+
+[[module."twin.rs".function]]
+id = "fn:4f68ddf651603e16"
+name = "describe"
+qual = "NoMonteCarlo::describe"
+lines = [
+    453,
+    455,
+]
+hash = "sha256:f47b432a612f9616274fb426f7847380c34f9ab190a8924cd27a2e934404f43e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:cfd88177c1907666"]
+
+[[module."twin.rs".function]]
+id = "fn:3c5fcda31c82ae1f"
+name = "MultiphysicsBackend"
+qual = "MultiphysicsBackend"
+item = "type"
+shape = "enum"
+lines = [
+    460,
+    470,
+]
+hash = "sha256:708fb8248fc2bd78b579452399b1a5e420c491012970d4504eab2d70f1321602"
+doc_hash = "sha256:e22213fa68912c98f0e70c61ec60ce834701a3fcd9de03825ee7ce0822c09bf5"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:f00ec9700b87cff8"
+name = "name"
+qual = "MultiphysicsBackend::name"
+lines = [
+    473,
+    478,
+]
+hash = "sha256:1eabd2794fc347ebb1ca84197a4fa13c43ce838555a7e74aed58ea8d09685f6b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3c5fcda31c82ae1f"]
+
+[[module."twin.rs".function]]
+id = "fn:83debdb047825ae7"
+name = "MeshResolution"
+qual = "MeshResolution"
+item = "type"
+shape = "enum"
+lines = [
+    481,
+    486,
+]
+hash = "sha256:2bacc717c57a634fa1cd22572aa9927e6e69be6a1d60e24cd0d1be03ab72edcd"
+doc_hash = "sha256:85566c20b12e5c83065ec83afdb532c5d1fd3d4e28c6ec5b60abb7b02637078d"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#17",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:5d07b65c321d61bb"
+name = "page"
+qual = "MeshResolution::page"
+lines = [
+    489,
+    492,
+]
+hash = "sha256:3ec0745b4af956bb4a78265046eab31cbba822e5da10a78a48949743da7f5626"
+doc_hash = "sha256:ef23d74dddc8acee29b09b67529ed066d8e8229c017006bf1051d7e0ec7f382d"
+uses = [
+    "fn:83debdb047825ae7",
+    "fn:a74040b55398d35f",
+]
+
+[[module."twin.rs".function]]
+id = "fn:791ec49d4ddb0421"
+name = "word"
+qual = "MeshResolution::word"
+lines = [
+    494,
+    500,
+]
+hash = "sha256:06bf0f39bede520c2fa0756653e124129eac1fa31b53f793d8f919eac1754833"
+doc_hash = "sha256:cd2baa12ab56defff59440177fda4d36562c37747658a28c8325309391dcb202"
+uses = ["fn:83debdb047825ae7"]
+
+[[module."twin.rs".function]]
+id = "fn:74141e3e7f678eb6"
+name = "Availability"
+qual = "Availability"
+item = "type"
+shape = "enum"
+lines = [
+    503,
+    509,
+]
+hash = "sha256:f19a974d6ae9163f37a05d39b3b2801f5e30b6386fca571a6e5fa73516e4d864"
+doc_hash = "sha256:aba3f50ec23eb19de1eb20ac30ddf44f258ddc493570d8fe2e568d783070d47e"
+uses = ["fn:3c5fcda31c82ae1f"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:0ecf0e8502028f0b"
+name = "XsSource"
+qual = "XsSource"
+item = "type"
+shape = "enum"
+lines = [
+    511,
+    518,
+]
+hash = "sha256:c52026c23d5e9de46937b94fe4000b9c57b5fbbf3ab681a646ee2d2f3200eabe"
+doc_hash = "sha256:6ffe1761ec06d19cadd3c797c591bf6dcd6883cbe91a22b49e69acdfba93c190"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:eb9acd7f40722ac8"
+name = "MultiphysicsCase"
+qual = "MultiphysicsCase"
+item = "type"
+shape = "trait"
+lines = [
+    520,
+    530,
+]
+hash = "sha256:b4ea8b8ca50366cf4017c511062e13f22c33921718a306088ce90191c71a13d2"
+doc_hash = "sha256:19b45d166b80c733558ea42a7deee7f98ae5e7be7f36a8fc2cbf57921c938812"
+uses = [
+    "fn:0ecf0e8502028f0b",
+    "fn:6cdc4412bb8a730a",
+    "fn:74141e3e7f678eb6",
+    "fn:83debdb047825ae7",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:2104b25220dbccf0"
+name = "availability"
+qual = "MultiphysicsCase::availability"
+lines = [
+    524,
+    524,
+]
+hash = "sha256:cdf04e93d2ebd2265f5b35cc54533fe2c0e632af9e12ab1367cd1bc8f46d02f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:74141e3e7f678eb6",
+    "fn:83debdb047825ae7",
+    "fn:eb9acd7f40722ac8",
+]
+
+[[module."twin.rs".function]]
+id = "fn:10055d6a70c85e91"
+name = "cross_sections"
+qual = "MultiphysicsCase::cross_sections"
+lines = [
+    525,
+    525,
+]
+hash = "sha256:11081af828da4348edefb21d8cf96c5cc00e82da9b82783e08d638f781258f97"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0ecf0e8502028f0b",
+    "fn:eb9acd7f40722ac8",
+]
+
+[[module."twin.rs".function]]
+id = "fn:c9a3a8619c20ed01"
+name = "run"
+qual = "MultiphysicsCase::run"
+lines = [
+    526,
+    527,
+]
+hash = "sha256:6753e3be503baeb29113419932e4ded0350366b05b8ad6fe06f4a77ea4506a01"
+doc_hash = "sha256:4b788e168ad8605e0d26366d2e2440fddbe6da047741a89c8363422cedf84356"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:83debdb047825ae7",
+    "fn:eb9acd7f40722ac8",
+]
+
+[[module."twin.rs".function]]
+id = "fn:9a31abe796807175"
+name = "describe"
+qual = "MultiphysicsCase::describe"
+lines = [
+    528,
+    529,
+]
+hash = "sha256:a55e6464e69ccd3a21198d743f4b38b5429aae5f6a43e544918f6e7ef03eea5f"
+doc_hash = "sha256:e64d92db5f3cb644471b145f5a31153f53becb9d8a6a8fb4e1b0b1c43cc2ad76"
+uses = ["fn:eb9acd7f40722ac8"]
+
+[[module."twin.rs".function]]
+id = "fn:f82bae0b61758d62"
+name = "NoMultiphysics"
+qual = "NoMultiphysics"
+item = "type"
+shape = "enum"
+lines = [
+    532,
+    534,
+]
+hash = "sha256:5977e02ec8640eed5fcd99cd483fb7d24adaedf81565f1ebe4be4135affeac34"
+doc_hash = "sha256:8fef41b220cc181206db98c23cbe02e73f88d940ded3c76ba7208b45111a4235"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#22",
+]
+
+[[module."twin.rs".function]]
+id = "fn:afb335823dd39dd8"
+name = "availability"
+qual = "NoMultiphysics::availability"
+lines = [
+    538,
+    540,
+]
+hash = "sha256:48ff2016893bdcef6eb00bbcb59f04898dfdaece43ab503517b62b5b2887ddcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:74141e3e7f678eb6",
+    "fn:83debdb047825ae7",
+    "fn:f82bae0b61758d62",
+]
+
+[[module."twin.rs".function]]
+id = "fn:c2e3059046fada2f"
+name = "cross_sections"
+qual = "NoMultiphysics::cross_sections"
+lines = [
+    541,
+    543,
+]
+hash = "sha256:be2373d6a5a11485ef209180da150ac645405c24c5a8b6c8679dc5e9360376b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0ecf0e8502028f0b",
+    "fn:f82bae0b61758d62",
+]
+
+[[module."twin.rs".function]]
+id = "fn:01331c75ab04732f"
+name = "run"
+qual = "NoMultiphysics::run"
+lines = [
+    544,
+    546,
+]
+hash = "sha256:53e954e0af4c71d05675ea65cfaa89a89c56c7b895aed1e87cfeea83de61886c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:83debdb047825ae7",
+    "fn:f82bae0b61758d62",
+]
+
+[[module."twin.rs".function]]
+id = "fn:244bf2c41105a096"
+name = "describe"
+qual = "NoMultiphysics::describe"
+lines = [
+    547,
+    549,
+]
+hash = "sha256:38c329d3d11c905fe05cb45c4f88c4d8287ce9915a04bdcb170b5ea230f9eb63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:f82bae0b61758d62"]
+
+[[module."twin.rs".function]]
+id = "fn:ddee512f01643ba1"
+name = "MultiFidelityTwin"
+qual = "MultiFidelityTwin"
+item = "type"
+shape = "struct"
+lines = [
+    554,
+    577,
+]
+hash = "sha256:4580afa0bc67909cb55cf621c833ee4f26edab34119d42b42176c4309ecedbca"
+doc_hash = "sha256:c584bedca2c56ae8dd99b4beed2e4c5acb670d10f8239935aa0d9106a39bd177"
+uses = [
+    "fn:178eb0212c058544",
+    "fn:74f79318160fea1b",
+    "fn:823442eba919468c",
+    "fn:995fe4bb039455cd",
+    "fn:a74040b55398d35f",
+    "fn:c9f9b755a9260418",
+    "fn:eb9acd7f40722ac8",
+    "fn:ec323ba3e531328f",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:28634eca0be9ce0f"
+name = "new"
+qual = "MultiFidelityTwin::new"
+lines = [
+    585,
+    607,
+]
+hash = "sha256:c44678624f0244fe1106183053dfce06bc754a70b83df10f98f3cbb16ca66d9c"
+doc_hash = "sha256:b41e98f1729ad8b89c7483857a294ffb9050b9f65a5063f76c7c9d80b9e176da"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:995fe4bb039455cd",
+    "fn:a74040b55398d35f",
+    "fn:ddee512f01643ba1",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+]
+
+[[module."twin.rs".function]]
+id = "fn:bcf4a49d42557ba4"
+name = "with_monte_carlo"
+qual = "MultiFidelityTwin::with_monte_carlo"
+lines = [
+    609,
+    613,
+]
+hash = "sha256:21b6cecf26225a3b202d2fd5f849448af46c88d7ce9efa792b515e90dcc36983"
+doc_hash = "sha256:7f450863e1997bd4fe3621cd69f4a4b3aee5055f71db36024d6961b5ca60289f"
+uses = ["fn:ddee512f01643ba1"]
+
+[[module."twin.rs".function]]
+id = "fn:c05bf23e5fe99e8d"
+name = "with_view"
+qual = "MultiFidelityTwin::with_view"
+lines = [
+    615,
+    624,
+]
+hash = "sha256:b695780116dcf179a1d62011dcc53decf1a34f0f2e0e16ff93f3359cb1882e13"
+doc_hash = "sha256:4bf6b6a64c7a08e1065c1d82320c7f87ebb716b9c01670258f3e7d1720e513fa"
+uses = [
+    "fn:a74040b55398d35f",
+    "fn:c9f9b755a9260418",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#22"]
+
+[[module."twin.rs".function]]
+id = "fn:57830457a9b59ece"
+name = "with_multiphysics"
+qual = "MultiFidelityTwin::with_multiphysics"
+lines = [
+    626,
+    630,
+]
+hash = "sha256:5190f61cd1653875dd0b790ddd6d6a7e8f3af95c95bcc59afa88f0c5124adfa2"
+doc_hash = "sha256:9127be0478a5130866ca64ac1644b74d5c047b4a3dfeab967f1681b3a7b7cd31"
+uses = ["fn:ddee512f01643ba1"]
+
+[[module."twin.rs".function]]
+id = "fn:2a948bbd6e33461b"
+name = "plant"
+qual = "MultiFidelityTwin::plant"
+lines = [
+    632,
+    634,
+]
+hash = "sha256:28a33584586434159e49c2ca6993f6c92b132fe14ddc47a7849789d6ce6d6249"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ddee512f01643ba1"]
+reached_by = [
+    "#24",
+    "#26",
+]
+
+[[module."twin.rs".function]]
+id = "fn:7ed6f6b4d4c83617"
+name = "plant_mut"
+qual = "MultiFidelityTwin::plant_mut"
+lines = [
+    636,
+    638,
+]
+hash = "sha256:af05eabb27aa016c864c22b1dcbd6d487396e2a176b24076097de468ce8f852a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ddee512f01643ba1"]
+
+[[module."twin.rs".function]]
+id = "fn:7713e5014bee98be"
+name = "monte_carlo"
+qual = "MultiFidelityTwin::monte_carlo"
+lines = [
+    640,
+    642,
+]
+hash = "sha256:fff26a85a5cae14d67fca62756d46391bb72453ee98fe3b0c3b4d80f5f4605b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ddee512f01643ba1"]
+reached_by = ["#26"]
+
+[[module."twin.rs".function]]
+id = "fn:f3ade12269faf137"
+name = "multiphysics"
+qual = "MultiFidelityTwin::multiphysics"
+lines = [
+    644,
+    646,
+]
+hash = "sha256:a267d4f1b5cd691587e2b032468fb78640dab7e37c086889b0b69dead5f248b4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ddee512f01643ba1"]
+reached_by = ["#26"]
+
+[[module."twin.rs".function]]
+id = "fn:392797ed52802955"
+name = "page"
+qual = "MultiFidelityTwin::page"
+lines = [
+    648,
+    650,
+]
+hash = "sha256:7059e6bf50f96a953f3d6ab186e15b85a17cad794a0a3334e0dcddf74e86e23f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:a74040b55398d35f",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:16f4f11f9450ad4f"
+name = "set_page"
+qual = "MultiFidelityTwin::set_page"
+lines = [
+    652,
+    654,
+]
+hash = "sha256:4d1204720aa9fe7264c66e163df171745db695ffc9a9116b53b1eeb8c81976dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:a74040b55398d35f",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#22"]
+
+[[module."twin.rs".function]]
+id = "fn:461dfc62cfec04d8"
+name = "coefficients"
+qual = "MultiFidelityTwin::coefficients"
+lines = [
+    656,
+    659,
+]
+hash = "sha256:3fba75aff94869e301c6a3f5919b073b1261bdbef678d1e9fff851a09e4cd9c0"
+doc_hash = "sha256:af3ee5b2352d0506ade33281ff247410a51a25cab3d4a53c443a25476ea85e6d"
+uses = [
+    "fn:995fe4bb039455cd",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#21"]
+
+[[module."twin.rs".function]]
+id = "fn:4ae6235b6ab90220"
+name = "live_coefficients"
+qual = "MultiFidelityTwin::live_coefficients"
+lines = [
+    661,
+    664,
+]
+hash = "sha256:60ea4d41295539042b84bb294a0c8589994141500ee897364b7e11867294146a"
+doc_hash = "sha256:af09cbd51a5956237938cf36236a3b12afe7a25a9de00aa12f06e158ca46ac2b"
+uses = [
+    "fn:995fe4bb039455cd",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:59aab91cdda8ea69"
+name = "page_status"
+qual = "MultiFidelityTwin::page_status"
+lines = [
+    666,
+    689,
+]
+hash = "sha256:91f5a980377d1553854b75dba34421b257f9a236823ae1cea55f95fae3f297fe"
+doc_hash = "sha256:bf0f85e97da4a5e45ac0c3b6db4d75af36c553147e2feff8c1d22d882ed98658"
+callees = ["fn:b277b78f2a16e2a6"]
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:83debdb047825ae7",
+    "fn:a74040b55398d35f",
+    "fn:c2c8c44885348699",
+    "fn:c9f9b755a9260418",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:b277b78f2a16e2a6"
+name = "resolution_status"
+qual = "MultiFidelityTwin::resolution_status"
+lines = [
+    691,
+    702,
+]
+hash = "sha256:3271d91025e15605caef83e8a147596035985cc4f29cc6f2d9e5f7fcc204c327"
+doc_hash = "sha256:a95649a2425da6d938c1c732a48780c2947820e262ca65ca46edb747787e16a0"
+callees = ["fn:5d07b65c321d61bb"]
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:74141e3e7f678eb6",
+    "fn:83debdb047825ae7",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:691ce18b8e933cbd"
+name = "apply"
+qual = "MultiFidelityTwin::apply"
+lines = [
+    704,
+    707,
+]
+hash = "sha256:64d862bc289715a12b534c1ec01e47c44048c3772e1b6175787e0e93c9bda46e"
+doc_hash = "sha256:a0812cdcadee27d4d9474f020c95f3c5e34af641cce06abfc8892d5fd1232fa2"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:89ecdcd8131970e3"
+name = "advance"
+qual = "MultiFidelityTwin::advance"
+lines = [
+    709,
+    712,
+]
+hash = "sha256:7d64d501a2f63f6aaa99750482e0412c79314d40478b39c0364dec91c97875be"
+doc_hash = "sha256:cd91044f1c24392e44db42aa0e8f1b1f51fff97cf1d8a5bfac7fc112d567d3e0"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:909f92fd9f74cd37"
+name = "control_volumes"
+qual = "MultiFidelityTwin::control_volumes"
+lines = [
+    714,
+    717,
+]
+hash = "sha256:1143851aae5124a727ef0c4bce4c5f403977cf21e085ffc706a0f77501aa6d09"
+doc_hash = "sha256:a36aca39e1b1595d4c2ce809191df6ea67bebfa4d947c1639221bd919cebfb3c"
+uses = [
+    "fn:b7a88eb5ed3fb277",
+    "fn:ddee512f01643ba1",
+]
+reached_by = [
+    "#24",
+    "#25",
+]
+
+[[module."twin.rs".function]]
+id = "fn:4a0ab72315722fa8"
+name = "run_monte_carlo"
+qual = "MultiFidelityTwin::run_monte_carlo"
+lines = [
+    719,
+    738,
+]
+hash = "sha256:3430d5d7c7268ae2bb706dcc91db47cabd77dec489ca2fe3e2594c52c4441c4d"
+doc_hash = "sha256:ac89b9c74461a1eed9ebc276c91ef744392a518306a300bf31010e62cc5b076c"
+callees = ["fn:474a49a79a850d80"]
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:952684a0205c3bf2",
+    "fn:995fe4bb039455cd",
+    "fn:a74040b55398d35f",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#21"]
+
+[[module."twin.rs".function]]
+id = "fn:474a49a79a850d80"
+name = "record_monte_carlo"
+qual = "MultiFidelityTwin::record_monte_carlo"
+lines = [
+    740,
+    755,
+]
+hash = "sha256:7ddff0387cca613b52fd54e6b06878f35aeed7c6aed75b562c1c09728d3946da"
+doc_hash = "sha256:d4de4617ac7a4acc5a375ad55e61cbf53e4c3bb366851137e3f06194f9b7466d"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:952684a0205c3bf2",
+    "fn:995fe4bb039455cd",
+    "fn:a74040b55398d35f",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#21"]
+
+[[module."twin.rs".function]]
+id = "fn:6be3274cf56213c5"
+name = "use_coefficients"
+qual = "MultiFidelityTwin::use_coefficients"
+lines = [
+    757,
+    762,
+]
+hash = "sha256:7b8924e800ecbcddc98d4dfbb9de5d29cf9f6128ca536feb0790871350efc31c"
+doc_hash = "sha256:89ba37568c2aa0dbba53265a5525f4b8d46637f0c4efe0fa86dfd67a41381c2b"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:995fe4bb039455cd",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#21"]
+
+[[module."twin.rs".function]]
+id = "fn:01f606d77b01413c"
+name = "send_to_plant"
+qual = "MultiFidelityTwin::send_to_plant"
+lines = [
+    764,
+    774,
+]
+hash = "sha256:ab831aced5998aeb1051197c04256713b8ebbcbf86d6aec097648d6dee74ea25"
+doc_hash = "sha256:29a5069f7dc4a820d2ebdf70f1508e7de481a7e4d9c734c6765d3d9a4138860f"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:e352629c2a05c28d"
+name = "run_multiphysics"
+qual = "MultiFidelityTwin::run_multiphysics"
+lines = [
+    776,
+    780,
+]
+hash = "sha256:cf7ad3683b9cfad442c1b0290fa09d7fdf23305d86f9c1ef609c830a0e19a45e"
+doc_hash = "sha256:4dec6ce59af28c35292156b55c1f0ec650db92a67ebbd259189efea0e53b87f1"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:83debdb047825ae7",
+    "fn:ddee512f01643ba1",
+]
+
+[[module."twin.rs".function]]
+id = "fn:01ca4e447f04d1d6"
+name = "plant_csv"
+qual = "MultiFidelityTwin::plant_csv"
+lines = [
+    784,
+    808,
+]
+hash = "sha256:b51bc3d7e3f4de60702ee92d3b5e09743807c08ecfc6af6170c61f45bfd3de4e"
+doc_hash = "sha256:fc1565860fe25cb95cd011e8cf14f6777fdc81483e9342b4cc3cdb78de98589e"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+reached_by = [
+    "#25",
+    "#28",
+]
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:ac1a53cb13ade8d6"
+name = "dump_cvs"
+qual = "MultiFidelityTwin::dump_cvs"
+lines = [
+    810,
+    817,
+]
+hash = "sha256:70b8da9d247e997f5710ca8b701a220dc06aee0a9d5dad56bcbae862c05f3e2f"
+doc_hash = "sha256:ffab932d65ad7600c0816ee6a11cbdfae0e7659da5a601578ee99b16a29a3d83"
+callees = [
+    "fn:59fcc9c5ec185800",
+    "fn:909f92fd9f74cd37",
+]
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+reached_by = [
+    "#24",
+    "#25",
+]
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:5fc02fc59ac43045"
+name = "coefficient_report"
+qual = "MultiFidelityTwin::coefficient_report"
+lines = [
+    819,
+    839,
+]
+hash = "sha256:0937dddcac399b49349afa3ac40f849792ebaf9ba0f6a6e8c8ec87f26441eb28"
+doc_hash = "sha256:0db69c6cae3a1c3754f034aa87acda717e81e026fd755ea2593857212c225bd9"
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#25"]
+
+[[module."twin.rs".function]]
+id = "fn:9d11af657105e56b"
+name = "headless"
+qual = "MultiFidelityTwin::headless"
+lines = [
+    841,
+    867,
+]
+hash = "sha256:cc0e9795bf0e43c49b566be1164062b27eed91a4fa938e3431cbcd520f0ff606"
+doc_hash = "sha256:cf2d46b0c00a76f07cbbbea77dec54996ccd7d28eef37bf14738d2afe7698cda"
+callees = [
+    "fn:01ca4e447f04d1d6",
+    "fn:5fc02fc59ac43045",
+    "fn:ac1a53cb13ade8d6",
+]
+uses = [
+    "fn:6cdc4412bb8a730a",
+    "fn:ddee512f01643ba1",
+]
+reached_by = ["#25"]
+physical_interface = true
 
 [test_run]
 commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"

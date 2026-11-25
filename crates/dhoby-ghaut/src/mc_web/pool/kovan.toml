@@ -1,0 +1,82 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/mc_web/pool"
+
+[module."tests.rs"]
+path = "crate::mc_web::pool::tests"
+
+[[module."tests.rs".function]]
+id = "fn:cec3da2fb293da58"
+name = "the_dealer_is_lpt_and_deals_every_job_once"
+qual = "the_dealer_is_lpt_and_deals_every_job_once"
+lines = [
+    9,
+    21,
+]
+hash = "sha256:b56a2aa01cc18fb7c44a6a2160ffdcf4ade2b278abc329cf6d2d7e1b0cc881a7"
+doc_hash = "sha256:b45bad50a997b4abb7c02d6f4696321e8f23ded317bff925c703a2181526c2ff"
+callees = ["fn:04dbd0b9d1a3b6a9"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9f0e135041290f6f"
+name = "a_mesh_survives_its_words"
+qual = "a_mesh_survives_its_words"
+lines = [
+    23,
+    29,
+]
+hash = "sha256:5766b62d8ba2e5bececa939a84cc18515b007a43f70c5c4ae7ec67923cb1b343"
+doc_hash = "sha256:3fbe6d0fd52505cc02c53a9cc53f72a68f383f452b2ec56e36c48a15f6c74992"
+callees = [
+    "fn:28b6b1745461e4cb",
+    "fn:e128428250f52704",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:cc61ba9deb7b1a85"
+name = "every_product_reaches_every_other_worker_before_assembly"
+qual = "every_product_reaches_every_other_worker_before_assembly"
+lines = [
+    31,
+    83,
+]
+hash = "sha256:f6d0eb95be0177213160794474d12ca830cc7980b2fd6bcb6b4e0abf456048e5"
+doc_hash = "sha256:c1b5a5ffb1898cdfb96410c050d9cf9712d1602a99a28e458517e10d23e2e320"
+callees = [
+    "fn:5e6bbd70132e5fdf",
+    "fn:b24bed7bc75895d6",
+]
+uses = [
+    "fn:84f44058fba2e740",
+    "fn:89b577a83e836309",
+    "fn:cb475fb6d8f4f918",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:265d3707b9881868"
+name = "the_run_protocol_is_guarded"
+qual = "the_run_protocol_is_guarded"
+lines = [
+    85,
+    109,
+]
+hash = "sha256:1d52e76eac3a3bfb7c39ba16d7878cd8f89e4fa9a387a3861af8bc8d982e838c"
+doc_hash = "sha256:79110e7dbb7073a072190e0987b30ba8bf8c8232ae2674caff878855ee0eafea"
+callees = [
+    "fn:1395304622088990",
+    "fn:3ff6ac1a80118a0c",
+    "fn:64322d8a1177c8a2",
+    "fn:b32af864206fca44",
+    "fn:bc4a5bbea7483c6e",
+    "fn:f071ea3ca1cadfc9",
+]
+uses = [
+    "fn:0280c17de43005fc",
+    "fn:4d71cb3f5b5d56f6",
+    "fn:6f497dbea3079d47",
+]
+test = true

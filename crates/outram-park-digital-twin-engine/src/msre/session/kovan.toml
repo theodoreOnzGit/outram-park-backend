@@ -1,0 +1,359 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/msre/session"
+
+[module."tests.rs"]
+path = "crate::msre::session::tests"
+
+[[module."tests.rs".function]]
+id = "fn:4a5f9695dc060353"
+name = "an_untouched_plant_stays_in_steady_state"
+qual = "an_untouched_plant_stays_in_steady_state"
+lines = [
+    7,
+    26,
+]
+hash = "sha256:8197194cbc8bd7a6490a484679fd448a0a281c5618a821807a8484c273a2e23a"
+doc_hash = "sha256:48ea8d27a9630d30e5beed991f1f4f6340172beff134ca395bb2af1ecdde87a4"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:01d739d1e5ec5d79",
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:4c0205aeca921e04"
+name = "the_headless_demo_is_deterministic_and_bounded"
+qual = "the_headless_demo_is_deterministic_and_bounded"
+lines = [
+    28,
+    65,
+]
+hash = "sha256:86b84a3e0521403bcdd59672c6c5d77c22897f179e28dfe5ba93dd7b841356c8"
+doc_hash = "sha256:92398dcff4e9618e027aa2e1e048750f78259c27a13367d1e2c270123740e4c4"
+callees = [
+    "fn:11fd9b7b6295fcfb",
+    "fn:166fadd7bc912321",
+    "fn:896596538605b97e",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:fb65b059bcaf7183",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d3e781463c72274f"
+name = "a_trip_with_the_doors_open_freezes_the_coolant"
+qual = "a_trip_with_the_doors_open_freezes_the_coolant"
+lines = [
+    67,
+    77,
+]
+hash = "sha256:776cc51ead289a5b7323f869248f9ba01fa4bbaa3e296a14588ccc6e482612d0"
+doc_hash = "sha256:3bf12d470bd87d1457dae97476e684570301828dd5ab4dd5c5a8f70cb94ab620"
+callees = [
+    "fn:11fd9b7b6295fcfb",
+    "fn:166fadd7bc912321",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:f5b7e8b07e0f72f5",
+    "fn:fb65b059bcaf7183",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f71c19441bd16a2c"
+name = "the_liquidus_constants_are_the_cited_ones"
+qual = "the_liquidus_constants_are_the_cited_ones"
+lines = [
+    79,
+    84,
+]
+hash = "sha256:673a3786036920a23489567536cbc8749e0b50fc84c1fe51618130379d493293"
+doc_hash = "sha256:3625befcc57cf3f41a8b14e3b933737d0b9c74911e30dde842b3a56bb1171c2b"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:cd5347ececf56531"
+name = "the_servo_holds_power_against_a_cooling_change"
+qual = "the_servo_holds_power_against_a_cooling_change"
+lines = [
+    86,
+    111,
+]
+hash = "sha256:40ecd6ae08aa7238b50e8934b55c5aa6aabf2c61f63aa7e6b8abb62d09d07e54"
+doc_hash = "sha256:df1cea31cf83b03584f128a08d1a878293b06be54e15f2f4be894ef45b15da6b"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:01d739d1e5ec5d79",
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+    "fn:f5b7e8b07e0f72f5",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f3f70253bb6d90ab"
+name = "bad_inputs_are_refused_and_spans_are_capped"
+qual = "bad_inputs_are_refused_and_spans_are_capped"
+lines = [
+    113,
+    124,
+]
+hash = "sha256:b88c2039f06b1c1238dc719c017734ac97dd20efe6cb3fd5824bdc5f23ba7e3b"
+doc_hash = "sha256:6332b2427fa420982dbf76946b5fe4cb9ee093632eb11c81a189899756f5a9cb"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a6afd8abe1b99188"
+name = "pump_commands_reach_the_model"
+qual = "pump_commands_reach_the_model"
+lines = [
+    126,
+    145,
+]
+hash = "sha256:78a83b1ace130fa5166ff0a62c76e9e4e3daa3f7875aa1ab782088e810a42e8d"
+doc_hash = "sha256:a3664fc1d33070f07ffe4adcc7ccf433cea06c3e75eaed7baf29d2b0f80986b0"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:01d739d1e5ec5d79",
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+    "fn:f5b7e8b07e0f72f5",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9e8110a1e08a7ffd"
+name = "a_snapshot_round_trips_through_numbers"
+qual = "a_snapshot_round_trips_through_numbers"
+lines = [
+    147,
+    155,
+]
+hash = "sha256:98e483b51b4024934e2dba4a5414b6a2d8873a230fd6ac08b4cb524e54c25a94"
+doc_hash = "sha256:ff32859c52446c25964be2a49b32c0c96e76d2abb5c7a8b06cd0276f3c3dbbdb"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1d03763f2a158269"
+name = "the_configuration_reaches_the_model"
+qual = "the_configuration_reaches_the_model"
+lines = [
+    157,
+    169,
+]
+hash = "sha256:ad9c2ab243d5570811e52adc5dcd89972c7156461e802697e85f7062a02e8888"
+doc_hash = "sha256:1ae17d17894c29a83ec07a48685d6754cf44844f2599f13e9d1fb1d14e5cbe65"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:90957fdbc7234d63",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b01b79cdaa978581"
+name = "the_period_table_is_complete"
+qual = "the_period_table_is_complete"
+lines = [
+    171,
+    184,
+]
+hash = "sha256:381083d3926c0490bf19689fe0c3257a293fb05fb6cab250d5cb6c24a56fb0a7"
+doc_hash = "sha256:30ac96a5a78b84fa0b95bc680849e22b1c554960dc2c621d6d0ca317635f8ecf"
+callees = ["fn:7e2ade5914c2352e"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8933fa0aaa2ea73b"
+name = "freeze_a_tripped_plant"
+qual = "freeze_a_tripped_plant"
+lines = [
+    188,
+    201,
+]
+hash = "sha256:799650bc9ef92115fa621d66555885a3e38853b92c82dfb948af9a02049fb68f"
+doc_hash = "sha256:7e1095e7f1b1a0e57e0931bba7a5255f9a00c76254eb00d821c3ba993fa5149b"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:05dc35aecb7e584e",
+    "fn:21a3ded210c74352",
+    "fn:48343d791bf35c9a",
+    "fn:90957fdbc7234d63",
+    "fn:f5b7e8b07e0f72f5",
+    "fn:fb65b059bcaf7183",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d051fbc7006ef242"
+name = "the_guard_holds_the_plant_at_the_last_liquid_state"
+qual = "the_guard_holds_the_plant_at_the_last_liquid_state"
+lines = [
+    203,
+    219,
+]
+hash = "sha256:887fa2c4001da8337a2abc4d3d23146872c3362d79421b4a3900ee508e31a0a0"
+doc_hash = "sha256:281f751fc24554077a2dec66aa5236e7a03411d9642bb046a71fa34aff2902f2"
+callees = [
+    "fn:8933fa0aaa2ea73b",
+    "fn:b5feca1f495c72f9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:40ac4d177d813949"
+name = "a_frozen_plant_does_not_move"
+qual = "a_frozen_plant_does_not_move"
+lines = [
+    221,
+    232,
+]
+hash = "sha256:49fde3e3c32bce9d0bd63bf5ccca315adf9cb3af7f6073d34b64c207b6fa3177"
+doc_hash = "sha256:79c1d7f81c705f4cb36dbadda5828bfea0a61de81f3401d48c898ad72433435e"
+callees = [
+    "fn:8933fa0aaa2ea73b",
+    "fn:b5feca1f495c72f9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:4edf6d8ed59bba5f"
+name = "the_thaw_is_consumed_once_and_the_clock_runs_on"
+qual = "the_thaw_is_consumed_once_and_the_clock_runs_on"
+lines = [
+    234,
+    254,
+]
+hash = "sha256:756fcc3168026599b6875a6ac6f56906ee99f2f76407de982891a5ce8980fdb4"
+doc_hash = "sha256:71b6379055a51a95557b6daf5d104530f918d53c2912a41db5c72ec7989ab27e"
+callees = [
+    "fn:8933fa0aaa2ea73b",
+    "fn:9b28082a635d8e34",
+    "fn:b5feca1f495c72f9",
+]
+uses = ["fn:48343d791bf35c9a"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e71f272dff659678"
+name = "the_guard_is_transparent_while_the_salt_is_liquid"
+qual = "the_guard_is_transparent_while_the_salt_is_liquid"
+lines = [
+    256,
+    269,
+]
+hash = "sha256:62b885b7b0d7ca55380b304ff3b0d52694556dbfdbff6206608688aa9a2dab70"
+doc_hash = "sha256:83a2d25fcedc67eafc1f0dd7fdf17f6b8540bc837660b39c767293ea2693dfcc"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+    "fn:f5b7e8b07e0f72f5",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:43babfffa7774f58"
+name = "freeze_locations_round_trip"
+qual = "freeze_locations_round_trip"
+lines = [
+    271,
+    280,
+]
+hash = "sha256:68575c8b38ad07b97eb2dd6f848a1ba48cab2e67312b50fbe75b2b1b18c41d27"
+doc_hash = "sha256:d7ff8b4692f6edb2c697038432130ec9aaf24ff7b1677989c52c4b5508d69967"
+uses = ["fn:0355bf1ca860506f"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d6b42f5b059cbd8b"
+name = "the_pacer_turns_wall_time_into_plant_time"
+qual = "the_pacer_turns_wall_time_into_plant_time"
+lines = [
+    282,
+    298,
+]
+hash = "sha256:e74334e588038e14332303d01bc09a9e2e0ab6a1b04814ed38534b5a5198a6a7"
+doc_hash = "sha256:f83588489f94d6594a0f072099d0b3ba20fc157405b8529cb8e5c1945d8f64cf"
+callees = ["fn:20f533a36d350f47"]
+uses = ["fn:893f19fa6c3a3a25"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d5002b3c533edc02"
+name = "a_measured_split_reaches_the_plant_and_the_arithmetic_is_the_records"
+qual = "a_measured_split_reaches_the_plant_and_the_arithmetic_is_the_records"
+lines = [
+    300,
+    317,
+]
+hash = "sha256:8fa9c9ef851aca9ca15fa72f0bc8c5526037155f5159758e5e4be38719980460"
+doc_hash = "sha256:9583827f4abba787226e3d75c6838d1b9ea397aa07384df87d468e67838a65a7"
+callees = [
+    "fn:04616eed21147752",
+    "fn:749bb5af6b23cdcd",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:6997c88984c0aa87",
+    "fn:90957fdbc7234d63",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e10a848e0a00a2bc"
+name = "coefficients_switch_online_and_keep_the_state"
+qual = "coefficients_switch_online_and_keep_the_state"
+lines = [
+    319,
+    361,
+]
+hash = "sha256:0c6411856370e14c070badbbdcd280cadd3c50f880978a9048835dc32f835312"
+doc_hash = "sha256:8470ea9d37a598857fa98be640caf7056c058b336fa2fd89e20574c7ee07e72c"
+callees = [
+    "fn:09afde5551bf6bf3",
+    "fn:749bb5af6b23cdcd",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:90957fdbc7234d63",
+    "fn:f5b7e8b07e0f72f5",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:22ef7ae9bd9180fe"
+name = "at_reference_fuel_f"
+qual = "at_reference_fuel_f"
+lines = [
+    363,
+    366,
+]
+hash = "sha256:a2e5a798ae585b55a32209369de3309ab9c338cf7747f6aec39dc4a857acba46"
+doc_hash = "sha256:e976c7d12cb31b5732357fbeeb4f5a3a29808b44473c0ae04c678e87ceebb6c3"
+callees = ["fn:749bb5af6b23cdcd"]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:90957fdbc7234d63",
+]
+test = true

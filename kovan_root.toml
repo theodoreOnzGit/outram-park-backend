@@ -44,3 +44,8 @@ date = "2026-10-12"
 version = "1.98.0"
 date = "2026-10-13"
 commit = "9310d33f562c2cb25a2ed9e561e23596c9cbe908"
+
+[[code_review.rust_analyzer_used]]
+version = "1.99.1"
+date = "2026-11-25"
+commit = "05f6face1691e3e86d948a799b4e7612774f247a"

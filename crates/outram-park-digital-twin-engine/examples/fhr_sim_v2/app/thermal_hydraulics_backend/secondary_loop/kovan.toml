@@ -106,20 +106,12 @@ lines = [
 ]
 hash = "sha256:696c1278dc3062be75f37e99ded41919c5f06168d7bcfcd4137384c1c3e58d2f"
 doc_hash = "sha256:2c21d0777f18cf45f385504bf8e5abccca7340fbbac4c776b5c187a5ab6ec6a1"
-callees = [
-    "fn:1b3f6d56027dbc51",
-    "fn:1d2865f3c3a06a45",
-    "fn:4c5c8e9916515b40",
-    "fn:a35132a84396237f",
-    "fn:e3b184e79e6044fe",
-]
 uses = [
     "fn:32a7092e45bccab2",
     "fn:3e0428fa38b5085c",
     "fn:50298960ca1f61ce",
     "fn:b1a28c6d300079fc",
     "fn:e01cf59289b302b7",
-    "fn:ed7d6d3f3ea52b6e",
 ]
 
 [[module."mod.rs".function]]
@@ -130,39 +122,15 @@ lines = [
     91,
     315,
 ]
-hash = "sha256:24bac5ece53a485f974d89ba6c1773a43323514995c3b686d0a6bd5922e8bdb6"
+hash = "sha256:be735b90e757066f0cc625ff4158650e1ac16a113c66b25b146ad5109017993a"
 doc_hash = "sha256:8c7610e3e7785ba54e74cffcec168cded66aff74038de2937b5cfa0f49ecbbf1"
-callees = [
-    "fn:0707e8fb8dbb3a00",
-    "fn:2df0bc2b2c703241",
-    "fn:3390f105b0074948",
-    "fn:5a5bee728eb800cd",
-    "fn:60bc9505f708a609",
-    "fn:68614abcb2c30c3d",
-    "fn:75bb23067bbc5517",
-    "fn:8593bfd0b29144f2",
-    "fn:8862646fe4088877",
-    "fn:8b94a7a7c1140cef",
-    "fn:9aba352809b5f2a4",
-    "fn:a034500d55b2a2be",
-    "fn:a3a2492949f42920",
-    "fn:a7b13313b37a74af",
-    "fn:be2fb6277cf24ee2",
-    "fn:bf4c13927b607a0e",
-    "fn:d1c084d9ef78b882",
-    "fn:eff47085ca6952fe",
-    "fn:f09f00cc4fcef6cc",
-    "fn:f241daed20aed39e",
-    "fn:f472eb21333733c8",
-]
+callees = ["fn:d1c084d9ef78b882"]
 uses = [
-    "fn:1e9e054cc5b5a361",
     "fn:3e0428fa38b5085c",
     "fn:41062386b2648e49",
     "fn:87bb457a9eec06de",
     "fn:97fc8cbae769968e",
     "fn:b1a28c6d300079fc",
-    "fn:ed7d6d3f3ea52b6e",
     "fn:ff241ec280b187d9",
 ]
 physical_interface = true
@@ -179,7 +147,6 @@ lines = [
 ]
 hash = "sha256:17ac87e652d40b80b80778ecf522cdb30be17160aeea7c97c2494cf99cd1e9b8"
 doc_hash = "sha256:0fc133357fe121d5863c1a55ccfb8d7275ceff60c5a84d2c2d4a62dc469a7ca3"
-uses = ["fn:1e9e054cc5b5a361"]
 
 [module."pool_boiling.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop::pool_boiling"
@@ -189,10 +156,10 @@ id = "fn:9c172d4fd2ac8184"
 name = "pool_boiling_improvised_correlation_as_fraction_of_maximum"
 qual = "pool_boiling_improvised_correlation_as_fraction_of_maximum"
 lines = [
-    60,
-    80,
+    61,
+    81,
 ]
-hash = "sha256:77464c551f58844bb733e033eb31324fabb82aa954ce96097418ec1c4e561671"
+hash = "sha256:d4a972cc23a8a47ee23c7078963b68f6213ceffda125724b49b005f68c99da8b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 physical_interface = true
 
@@ -380,11 +347,6 @@ lines = [
 ]
 hash = "sha256:e32ce26ac3fc88eca79981ad57c0c6ae0a37eefb32adbbeba9fa33df47d91c13"
 doc_hash = "sha256:015d6785aae98965d7b12cb6d71b7d0ab6548b526c30dce3f344ab099d281b07"
-callees = [
-    "fn:68614abcb2c30c3d",
-    "fn:a034500d55b2a2be",
-    "fn:a7e7cd55f47c47fa",
-]
 uses = [
     "fn:59e7bfcfb240474e",
     "fn:7e6623175683fb85",
@@ -411,10 +373,6 @@ lines = [
 ]
 hash = "sha256:58372022103a653c23306771c14a8794a8452d83022c474cff7611303955b35c"
 doc_hash = "sha256:bbe08b265fb051da2c3065610f46f8987712423fe77df336c9b41efded07e738"
-callees = [
-    "fn:a034500d55b2a2be",
-    "fn:eff47085ca6952fe",
-]
 uses = [
     "fn:5b0edc27c75d472a",
     "fn:ba76f12488395cc4",
@@ -507,7 +465,6 @@ lines = [
 ]
 hash = "sha256:c97553b93e584d0a0abd2cbfc662eb8180a01dbc91d5a1bd255f230c6d703fee"
 doc_hash = "sha256:a7cf0c73608c46ef98d222f559c4b074751f49b7f525a035eee4f8f423cd2578"
-callees = ["fn:f09f00cc4fcef6cc"]
 uses = ["fn:97fc8cbae769968e"]
 test = true
 physical_interface = true
@@ -523,14 +480,12 @@ lines = [
 hash = "sha256:fedcfe2045022409c1c945443bc92f4b5211f9cacffd9a8aaa3d48f7df080f4e"
 doc_hash = "sha256:a3b951bcf3916d068afacf3519151fad05c20b780ef4aed219964ce2a6d70802"
 callees = [
-    "fn:126ee82fa03643bf",
     "fn:3f441412e7bcbef7",
     "fn:8ec4a57cbe95233f",
     "fn:c5c83b0bc8e7b699",
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
-uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -545,12 +500,10 @@ hash = "sha256:5b991fac071929c0bf06040dc37fc03de60f43f4974229842897ed5af6097e1c"
 doc_hash = "sha256:b7446ff29680b36f332e5facf98b8cf39cadce401e7f83bdfdad65d95f7ef3b7"
 callees = [
     "fn:0014b715170fce8a",
-    "fn:126ee82fa03643bf",
     "fn:3f441412e7bcbef7",
     "fn:8ec4a57cbe95233f",
     "fn:d1c084d9ef78b882",
 ]
-uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -565,12 +518,10 @@ hash = "sha256:b102b5f8086c147cf73cd877ddf7114092ff28fcf053e3625525c5eb3ccb7295"
 doc_hash = "sha256:097b117466045f4dab945bd405e54adde31fdfd9385f9149f4583bd92f2c3a8c"
 callees = [
     "fn:0014b715170fce8a",
-    "fn:126ee82fa03643bf",
     "fn:c5c83b0bc8e7b699",
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
-uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -587,7 +538,6 @@ callees = [
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
-uses = ["fn:7c5ee630dddc8820"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -604,7 +554,6 @@ callees = [
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
-uses = ["fn:7c5ee630dddc8820"]
 test = true
 
 [module."vibe_code_mass_balance.rs"]
@@ -632,13 +581,6 @@ lines = [
 ]
 hash = "sha256:0f4dc8890fe1c96df89b650dd246636c4c672245fd640a03e6d58ff11334402f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:04372eb2cb9f9bc3",
-    "fn:151aad4ebbbcd1a5",
-    "fn:6dc82a6475c2f1e2",
-    "fn:a8d2c092b653387b",
-]
-uses = ["fn:33a2eb8456953def"]
 test = true
 
 [test_run]

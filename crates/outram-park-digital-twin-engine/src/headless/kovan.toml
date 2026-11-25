@@ -5,6 +5,7 @@ dir = "crates/outram-park-digital-twin-engine/src/headless"
 test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::headless_exposes_the_peak_fuel_record",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
     "crates/outram-park-digital-twin-engine/src/headless/mod.rs::csv_has_a_header_and_one_row_per_sample",
@@ -30,12 +31,12 @@ hash = "sha256:c793fa0953b2abbc2e037a8f57609af5dab7dc5a92d6c83bfbf65059de936677"
 doc_hash = "sha256:32042d88494b6b4bf4682c558d89ecd2d8cfd2ab3bcdb6e0059e5d38a40232d8"
 reached_by = [
     "#0",
-    "#1",
     "#2",
     "#3",
     "#4",
     "#5",
     "#6",
+    "#7",
 ]
 
 [[module."mod.rs".function]]
@@ -112,12 +113,12 @@ hash = "sha256:0643af9f03d994ce2e4e44e494a64d0059f0d18ac23b8393a0a9815c0905e9f7"
 doc_hash = "sha256:348e316496f64ef6c5481a982724046c6fae37197d56895ad8b14fa9c0c37730"
 reached_by = [
     "#0",
-    "#1",
     "#2",
     "#3",
     "#4",
     "#5",
     "#6",
+    "#7",
 ]
 
 [[module."mod.rs".function]]
@@ -148,12 +149,12 @@ uses = [
 ]
 reached_by = [
     "#0",
-    "#1",
     "#2",
     "#3",
     "#4",
     "#5",
     "#6",
+    "#7",
 ]
 
 [[module."mod.rs".function]]
@@ -171,7 +172,7 @@ uses = [
     "fn:5eecfdbc87309625",
     "fn:d593ab0fbe705ff5",
 ]
-reached_by = ["#4"]
+reached_by = ["#5"]
 
 [[module."mod.rs".function]]
 id = "fn:85e738bb78b5b5b4"
@@ -188,7 +189,7 @@ uses = [
     "fn:5eecfdbc87309625",
     "fn:d593ab0fbe705ff5",
 ]
-reached_by = ["#5"]
+reached_by = ["#6"]
 
 [[module."mod.rs".function]]
 id = "fn:06b5f319705b4a46"
@@ -339,10 +340,10 @@ commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
-    "#4",
     "#5",
     "#6",
     "#7",
+    "#8",
 ]
 failed = []
 
@@ -355,6 +356,6 @@ failed = []
 targets = [
     "#0",
     "#1",
-    "#2",
     "#3",
+    "#4",
 ]
