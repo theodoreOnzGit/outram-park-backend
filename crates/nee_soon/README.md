@@ -196,6 +196,22 @@ with `htr10_rmc::explicit_bed::assemble_explicit_triso_from_centres` (added
 2026-10-05; geometry drawn in
 `verification_and_validation/htr10_dem_bed_images/`, no validated `k` on it).
 
+## Historical reactors and the Monte Carlo rungs (gh:#1735, moved here 2026-11-25)
+
+Maintainer, 2026-11-24: "the code for the rungs shld live in nee soon, then
+used in dhoby ghaut/the digital twin engine lib"; HTR-10, MSRE and EBR-II's
+high-fidelity files live in `nee_soon` and `dhoby-ghaut`. Moved verbatim
+(only paths changed); every moved test and pin passes unchanged.
+
+| Module | What | Moved from |
+|---|---|---|
+| `msre_n1` (+ `tallies`) | MSRE first criticality (N-1, gh:#1128): the full-core model, `Study`, the reference k; the engine re-exports it as `msre::first_criticality` | `outram_mc_libs::vv::msre_n1` (gh:#1737); examples `msre_n1_first_criticality`, `msre_n1_parameter_images` and the record `verification_and_validation/msre_n1_first_criticality/` came with it |
+| `ebr2_fresh_driver` (`std`) | EBR-II MARK-II fresh driver subassembly (gh:#1329) | `outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs` (gh:#1737), with `examples/ebr2_fresh_driver_kinf.rs`, `tests/model_ebr2_fresh_driver.rs` and the record `verification_and_validation/ebr2_fresh_driver/` |
+| `mc_rungs` | the model half of the Monte Carlo web demo's rungs: `CsgModel`, `godiva`, `jemima`, `hst009`, `natu`, `triso`, `ugraphite`, `lumped`, and `htr10_core` (bed codes, the DEM bed cut, the reader's pour, the recorded lattice / DEM-bed k) | `dhoby-ghaut/examples/monte_carlo_web/` (gh:#1742); the GUI half and the data builders stay there |
+
+Not moved yet (gh:#1742): `lct008`, `dhshort` and the HTR-10 fuel-zone rung,
+which build their models from `outram-mc-libs/examples/common/` files.
+
 ## What belongs here / what does not
 
 - **Belongs here:** orchestration, the object-oriented facade, cross-crate glue

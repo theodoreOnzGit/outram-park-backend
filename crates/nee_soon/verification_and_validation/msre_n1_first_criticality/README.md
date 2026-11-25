@@ -1,5 +1,11 @@
 # MSRE N-1: first criticality, U-235 (gh:#1128)
 
+> **Moved 2026-11-25 (gh:#1737)** from `crates/outram-mc-libs/verification_and_validation/`
+> with the model (~~`outram_mc_libs::vv::msre_n1`~~, now `nee_soon::msre_n1`) and
+> its two examples (now `cargo run --release -p nee_soon --example ...`). The
+> results below are the record as it was run, under the old paths; the moved
+> unit tests pass unchanged (the gh:#1737 record).
+
 > **Research, education and V&V only** (`RESPONSIBLE_USE.md`). AI draft,
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
@@ -173,7 +179,7 @@ llvmpipe / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, 4 threads, about
   The disagreement is still the finding. The band does not make +801 pcm an agreement: it is about 3–4× the measurement's ±200–270 pcm.
 - **Quantity reported:** `Δρ = (k − k_ref)/k_ref` in pcm, with `k_ref = 1/(1 − 0.0008)`. The model is rods-out at 32.78 g/L.
 
-**Model:** `outram_mc_libs::vv::msre_n1`. Every dimension and every
+**Model:** `nee_soon::msre_n1` (~~`outram_mc_libs::vv::msre_n1`~~, moved 2026-11-25, gh:#1737). Every dimension and every
 simplification is cited in that module's doc and was posted on gh:#1128
 before any run. The headline simplifications:
 
@@ -235,7 +241,7 @@ DBRC runs before them. Since then the binary's untagged rows are RVS. So:
 
 ## Geometry, drawn from the assembled CSG
 
-`cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>`
+`cargo run --release -p nee_soon --example msre_n1_first_criticality -- --draw <dir>`
 
 | image | what it shows, and what was checked |
 |---|---|
@@ -250,7 +256,7 @@ DBRC runs before them. Since then the binary's untagged rows are RVS. So:
 - the stringer count against TM-0728's 513 + 104, which the lattice does not reproduce (see gh:#1128);
 - the 2.5 in opening diameter, which comes from the figure's scale.
 
-**Measured on the assembled geometry** (`vv::msre_n1` tests, 2026-11-09):
+**Measured on the assembled geometry** (`vv::msre_n1` tests, 2026-11-09; now `nee_soon::msre_n1`):
 
 | quantity | measured | source |
 |---|---|---|
@@ -326,7 +332,7 @@ about 70 pcm low. It contains:
 
 ### N-1 residual: hot dimensions (2026-11-10, gh:#1128)
 
-**Method.** `--hot-dims` (`vv::msre_n1::Dims`): every graphite length scales
+**Method.** `--hot-dims` (`msre_n1::Dims`): every graphite length scales
 by 1 + 1.5e-6 × (1181 − 70) and every INOR-8 length by 1 + 7.8e-6 × 1111
 (TM-0728 §5.3: graphite "1.3 to 1.7 × 10⁻⁶", INOR-8 "7.8 × 10⁻⁶ in./in.-°F
 (in the 70-1200°F range)"); head volumes scale with the INOR-8 cube, solid

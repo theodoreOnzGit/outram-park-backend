@@ -74,8 +74,10 @@ pub use dhoby_ghaut::mc_web::pool::{mesh_from_words, mesh_words, schedule, thin_
 /// (gh:#1142):** each material carries its zone's temperature, which is what
 /// transport reads at a collision; this one only fills `KeffSettings`.
 pub const TEMP_K: f64 = 300.15;
-/// Rings of the bed tiling, as the recorded runs.
-pub const RINGS: usize = 14;
+/// Rings of the bed tiling, as the recorded runs (`nee_soon::mc_rungs::
+/// htr10_core::RINGS` since gh:#1742, the same 14).
+#[allow(unused_imports)]
+pub use nee_soon::mc_rungs::htr10_core::RINGS;
 /// Histories traced (every state kept) at the start of each generation.
 pub const TRACED_PER_GENERATION: usize = 4;
 /// The recorded runs' seed (`htr10_seker_2026_10_07_10k/RUN_PARAMETERS.md`).

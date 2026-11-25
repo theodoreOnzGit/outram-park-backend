@@ -41,7 +41,6 @@
 // Headless output is native-only.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
-use petir::mathf::RealMath;
 use crate::engine::Tier;
 use crate::history::History;
 use crate::keff::{console_line, sample_sites, Generation, KeffConfig, Reference, CONSOLE_HEADER};
@@ -61,48 +60,14 @@ use outram_mc_libs::physics::transport_csg::{CsgGenerationReport, CsgPowerIterat
 use outram_mc_libs::tally::mesh::RegularMesh;
 use std::marker::PhantomData;
 
-/// A thermal scattering law a case attaches to one of its nuclides.
-#[derive(Clone, Copy, Debug)]
-pub struct ThermalLaw {
-    /// Label shown while loading.
-    pub label: &'static str,
-    /// Tape in `reference-data/endf/`, or a law LEAPR generates
-    /// ([`crate::tapes::LEAPR_H_IN_H2O`], nothing downloaded).
-    pub tape: &'static str,
-    /// The law's name, e.g. `c_H_in_H2O`.
-    pub name: &'static str,
-    /// Index, in [`CsgCase::nuclides`], of the nuclide that takes it.
-    pub nuclide: usize,
-}
+// The model half of a case moved to `nee_soon::mc_rungs` (gh:#1742,
+// 2026-11-25): `CsgModel` (temperature, nuclides, thermal law, materials,
+// geometry, source and entropy boxes, fresh births) and `ThermalLaw`.
+pub use nee_soon::mc_rungs::CsgModel;
 
-/// One case: everything about the model that the shared code needs.
-pub trait CsgCase {
-    /// Material temperature, K.
-    const TEMPERATURE_K: f64;
-    /// Index of U-235 in [`Self::nuclides`] (the Watch chain's birth spectrum).
-    const N_U235: usize;
-    /// Incident energy of the fission that starts a fresh chain, eV.
-    const FRESH_INCIDENT_EV: f64;
-    /// Track states kept per history; far above what a history needs, so a
-    /// truncated track is a reportable anomaly.
-    const MAX_STATES: usize;
-    /// `(label shown, nuclide name, tape)`, in the order the materials index.
-    fn nuclides() -> &'static [(&'static str, &'static str, &'static str)];
-    /// The thermal scattering law, processed after the nuclides.
-    fn thermal() -> Option<ThermalLaw> {
-        None
-    }
-    fn materials() -> Vec<Material>;
-    fn geometry() -> Geometry;
-    /// Where the first generation of a k-eigenvalue run starts.
-    fn source_box() -> SourceBox;
-    /// The box the source-entropy mesh covers: every place a fission can
-    /// happen. The source box, unless the case fissions outside it.
-    fn entropy_box() -> SourceBox {
-        Self::source_box()
-    }
-    /// A uniformly random point of the multiplying region, for a fresh chain.
-    fn fresh_birth(rng: &mut u64) -> Position;
+/// One case: [`CsgModel`] (the model, in `nee_soon::mc_rungs`) and the
+/// recorded result the headless run prints beside its own.
+pub trait CsgCase: CsgModel {
     /// The recorded result the headless run prints beside its own.
     fn reference() -> Option<Reference>;
 }
@@ -459,29 +424,21 @@ impl<C: CsgCase> LoadedRung for Loaded<C> {
 }
 
 /// A uniform point in the sphere of radius `r` about the origin.
-pub fn uniform_in_sphere(rng: &mut u64, r: f64) -> Position {
-    use crate::triso::model::uniform;
-    loop {
-        let p = [0; 3].map(|_| (2.0 * uniform(rng) - 1.0) * r);
-        if p[0] * p[0] + p[1] * p[1] + p[2] * p[2] < r * r {
-            return Position::new(p[0], p[1], p[2]);
-        }
-    }
-}
-
-/// A uniform point in the cylinder of radius `r` about the z axis, between
-/// `z_lo` and `z_hi`.
-pub fn uniform_in_cylinder(rng: &mut u64, r: f64, z_lo: f64, z_hi: f64) -> Position {
-    use crate::triso::model::uniform;
-    let rho = r * (1.0 - 1.0e-9) * uniform(rng).sqrt();
-    let t = std::f64::consts::TAU * uniform(rng);
-    let z = z_lo + (z_hi - z_lo) * (0.001 + 0.998 * uniform(rng));
-    Position::new(rho * t.r_cos(), rho * t.r_sin(), z)
-}
+// `uniform_in_sphere` and `uniform_in_cylinder` MOVED 2026-11-25 to
+// `nee_soon::mc_rungs` (gh:#1742), unchanged, with the cases that use them.
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// The models in `nee_soon::mc_rungs` name the generated water law by the
+    /// string the data builder above compares against (gh:#1742).
+    #[test]
+    fn the_models_name_leapr_as_the_builder_does() {
+        assert_eq!(nee_soon::mc_rungs::LEAPR_H_IN_H2O, crate::tapes::LEAPR_H_IN_H2O);
+        let law = <crate::hst009::Hst009 as CsgModel>::thermal().expect("the water law");
+        assert_eq!(law.tape, crate::tapes::LEAPR_H_IN_H2O);
+    }
 
     /// A CSG generation crosses to the page with its `k`, its running mean
     /// and a production of `k` × source neutrons, with the entropy it is

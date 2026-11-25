@@ -1,7 +1,7 @@
 //! # The fresh EBR-II MARK-II driver subassembly: geometry, composition and
 //! ARC-228 Table 3.3 volume fractions (gh #1329)
 //!
-//! Reaches every function of `examples/common/ebr2_fresh_driver_model.rs`,
+//! Reaches every function of `src/ebr2_fresh_driver.rs`,
 //! the model `examples/ebr2_fresh_driver_kinf.rs` runs. Nothing is
 //! transported here (no nuclear data is processed: the tapes are read for
 //! their headers and masses only), so it is fast.
@@ -63,9 +63,10 @@
 
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
-#[path = "../examples/common/ebr2_fresh_driver_model.rs"]
-#[allow(dead_code)]
-mod ebr2;
+// The model, `nee_soon::ebr2_fresh_driver` (moved from
+// `outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs`, 2026-11-25,
+// gh:#1737).
+use nee_soon::ebr2_fresh_driver as ebr2;
 
 use ebr2::*;
 use njoy_outram_park_fork::reference_data::{ace_submodule_dir, reference_endf_dir};

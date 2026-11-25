@@ -1,6 +1,13 @@
 //! # A fresh EBR-II MARK-II driver subassembly, for k-infinity (gh #1329)
 //!
-//! Shared by `examples/ebr2_fresh_driver_kinf.rs` (the run and the pictures)
+//! **MOVED 2026-11-25 (gh:#1737)** from `outram-mc-libs/examples/common/
+//! ebr2_fresh_driver_model.rs` (pulled into its example and test by
+//! `#[path]`) to this library module, with the example, the test and the
+//! record (`verification_and_validation/ebr2_fresh_driver/`): it is a
+//! reactor model, and reactor models live in `nee_soon` (maintainer,
+//! 2026-11-24). Unchanged; `std` only (it reads tapes from folders).
+//!
+//! Used by `examples/ebr2_fresh_driver_kinf.rs` (the run and the pictures)
 //! and `tests/model_ebr2_fresh_driver.rs` (geometry, composition and the
 //! ARC-228 Table 3.3 volume fractions). Epic #1312, brief #1317 item 7,
 //! builder #1327.

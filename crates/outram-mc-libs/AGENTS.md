@@ -597,6 +597,18 @@ a translation of it.
 
 ## Scope
 
+**Reactor models live in `nee_soon`, not here (maintainer, 2026-11-24;
+gh:#1737, moved 2026-11-25).** ~~`vv::msre_n1`~~ is now `nee_soon::msre_n1`
+(with `examples/msre_n1_first_criticality.rs`, `msre_n1_parameter_images.rs`
+and `verification_and_validation/msre_n1_first_criticality/`), and
+~~`examples/common/ebr2_fresh_driver_model.rs`~~ is
+`nee_soon::ebr2_fresh_driver` (with `examples/ebr2_fresh_driver_kinf.rs`,
+`tests/model_ebr2_fresh_driver.rs` and
+`verification_and_validation/ebr2_fresh_driver/`). Neither is re-exported
+here: `nee_soon` depends on this crate, so a re-export would be a cycle.
+What stays: the ICSBEP and tutorial models that pin this crate's transport
+(`vv::{godiva, jemima, hst009, lct008, ugraphite}`, `examples/common/`).
+
 ### In scope
 | Module | C++ source | What it does |
 |---|---|---|

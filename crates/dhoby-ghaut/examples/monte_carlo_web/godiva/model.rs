@@ -18,27 +18,15 @@
 //! 0.001 data, one cached load for both modes.
 
 use crate::tapes::read_tape;
-use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
-use outram_mc_libs::geometry::geometry::Geometry;
-use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
-use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::vv::godiva;
 
-pub use godiva::{RADIUS_CM, TEMPERATURE_K};
-
-/// The three tapes, `(label shown while loading, file)`, in
-/// [`godiva::NUCLIDES`] order.
-pub const JOBS: [(&str, &str); 3] = [
-    ("U-234", godiva::NUCLIDES[0].1),
-    ("U-235", godiva::NUCLIDES[1].1),
-    ("U-238", godiva::NUCLIDES[2].1),
-];
-
-/// Index of U-235 in the nuclide list (for the Watch mode's birth spectrum).
-pub const N_U235: usize = 1;
+// The model half (tapes, U-235's index, the sphere) moved to
+// `nee_soon::mc_rungs::godiva` (gh:#1742, 2026-11-25); the data builder,
+// which processes through the browser's cache, stays here.
+pub use nee_soon::mc_rungs::godiva::{build_geometry, JOBS, N_U235, RADIUS_CM, TEMPERATURE_K};
 
 /// Incremental processing, one [`Job`] per call.
 pub struct DataBuilder {
@@ -79,18 +67,3 @@ pub struct NuclearData {
     pub material: Material,
 }
 
-/// The sphere as a CSG geometry, for the Watch mode's traced histories
-/// (`run_fixed_source_traced` needs a `Geometry`; the Run mode's
-/// `PowerIteration` builds its own sphere from the same radius). One sphere,
-/// vacuum outside, one cell of material 0 at [`TEMPERATURE_K`].
-pub fn build_geometry() -> Geometry {
-    let surfaces = vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: RADIUS_CM, bc: BoundaryType::Vacuum })];
-    let inside = vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }];
-    Geometry {
-        surfaces,
-        cells: vec![Cell::material(1, inside, 0, TEMPERATURE_K)],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
-        lattices: vec![],
-        root_universe: 0,
-    }
-}

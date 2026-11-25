@@ -1,5 +1,11 @@
 # Fresh EBR-II MARK-II driver subassembly: k-infinity and the nuclear-data gap ablation (gh #1329)
 
+> **Moved 2026-11-25 (gh:#1737)** from `crates/outram-mc-libs/verification_and_validation/`
+> with the model (~~`outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs`~~, now
+> `nee_soon::ebr2_fresh_driver`, `src/ebr2_fresh_driver.rs`), the example and the
+> test (now `-p nee_soon`). The results below are the record as it was run,
+> under the old paths.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** AI draft, unreviewed. Research, education
 > and V&V only; not for facility operation, licensing or safety decisions.
@@ -10,14 +16,14 @@ driver subassembly in an infinite lattice.
 
 **Every input is an AI transcription, not yet reviewed by a human.** The
 inputs, each with document, table and printed page, are in
-`examples/common/ebr2_fresh_driver_model.rs`. The EBR-II reports (ANL-ARC-228
+`nee_soon::ebr2_fresh_driver` (~~`outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs`~~, moved 2026-11-25, gh:#1737). The EBR-II reports (ANL-ARC-228
 Rev. 1, ANL-ARC-226 Rev. 1, IAEA-TECDOC-1819) are in the maintainer's private
 corpus and are cited under the data-policy exception for published EBR-II
 benchmark numbers (`reference-data/ebr2/README.md`).
 
 ## Methodology
 
-**Model** (`examples/common/ebr2_fresh_driver_model.rs`, built with
+**Model** (`nee_soon::ebr2_fresh_driver`, built with
 `model::HexSubassembly`):
 
 - 91 sodium-bonded U-5Fs pins (6 rings): slug 3.3655 mm, cladding OD
@@ -183,8 +189,8 @@ history on 3 threads. A smoke run of arm A (1000 × [5 + 10]) gave
 ## Reproduce
 
 ```text
-RAYON_NUM_THREADS=3 cargo run --release -p outram-mc-libs --example ebr2_fresh_driver_kinf -- 2000 20 60
-cargo test --release -p outram-mc-libs --test model_ebr2_fresh_driver
+RAYON_NUM_THREADS=3 cargo run --release -p nee_soon --example ebr2_fresh_driver_kinf -- 2000 20 60
+cargo test --release -p nee_soon --test model_ebr2_fresh_driver
 ```
 
 Needs `reference-data/endf/` and the `reference-data/ace` submodule.

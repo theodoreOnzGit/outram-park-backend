@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **Pictures of the MSRE N-1 model's new parameters** (gh:#1658, #1659),
-//! drawn from the assembled `vv::msre_n1::Study` geometry, as the
+//! drawn from the assembled `nee_soon::msre_n1::Study` geometry, as the
 //! outram-mc-libs drawing rule asks before any result on them:
 //!
 //! - `rods_xz_y_plus.png`: rods 2 and 1 (`OPENINGS[0]`, `[1]`) at insertion
@@ -13,16 +13,16 @@
 //!   upper head empty), 100 and 40 cm above the stringer bottom.
 //!
 //! ```text
-//! cargo run --release -p outram-mc-libs --example msre_n1_parameter_images -- <out dir>
+//! cargo run --release -p nee_soon --example msre_n1_parameter_images -- <out dir>
 //! ```
 //!
 //! CLI glue (writes PNGs); what it draws is the library's, reached by
-//! `vv::msre_n1`'s tests (`partly_inserted_rods_sit_where_fig_2_puts_them`,
+//! `nee_soon::msre_n1`'s tests (`partly_inserted_rods_sit_where_fig_2_puts_them`,
 //! `the_salt_level_empties_everything_above_it`).
 
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::vv::msre_n1::{self as m, Study};
+use nee_soon::msre_n1::{self as m, Study};
 use std::path::PathBuf;
 
 const COLOURS: [Rgb; 15] = [

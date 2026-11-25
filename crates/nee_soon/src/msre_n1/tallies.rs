@@ -14,11 +14,11 @@ use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::{H_CORE, R_GRAPHITE, R_VESSEL_IN, SALT_IDX};
-use crate::geometry::position::Position;
-use crate::material::nuclide::Nuclide;
-use crate::tally::filter::{EnergyFilter, FilterKind, MaterialFilter, MeshFilter};
-use crate::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt};
-use crate::tally::tally::{ScoreType, Tally, TallyBin};
+use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::material::nuclide::Nuclide;
+use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MaterialFilter, MeshFilter};
+use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt};
+use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 
 /// Axial z edges for the N-4 tally: 4 bins through the lower plenum, 32
 /// through the graphite, 4 through the upper plenum (cold dimensions).

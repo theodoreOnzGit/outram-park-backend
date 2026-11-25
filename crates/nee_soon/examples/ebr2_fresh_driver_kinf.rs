@@ -5,7 +5,7 @@
 //! continuous-energy ENDF/B-VIII.0 processed here at 293.15 K with the
 //! correct-physics defaults (URR probability tables and DBRC on; no physics
 //! ablated). Model, inputs and citations:
-//! `examples/common/ebr2_fresh_driver_model.rs`. Record:
+//! `src/ebr2_fresh_driver.rs` (`nee_soon::ebr2_fresh_driver`). Record:
 //! `verification_and_validation/ebr2_fresh_driver/README.md`.
 //!
 //! > Research, education and V&V only. Not for reactor operation, licensing
@@ -13,9 +13,9 @@
 //! > transcription.
 //!
 //! ```text
-//! RAYON_NUM_THREADS=3 cargo run --release -p outram-mc-libs --example ebr2_fresh_driver_kinf
+//! RAYON_NUM_THREADS=3 cargo run --release -p nee_soon --example ebr2_fresh_driver_kinf
 //! # particles per cycle, inactive, active (defaults 4000 30 120); arms (default all)
-//! EBR2_ARMS=A,D cargo run --release -p outram-mc-libs --example ebr2_fresh_driver_kinf -- 4000 30 120
+//! EBR2_ARMS=A,D cargo run --release -p nee_soon --example ebr2_fresh_driver_kinf -- 4000 30 120
 //! ```
 //!
 //! **What it does.** Draws the assembled geometry of arm A (three PNGs into
@@ -57,9 +57,10 @@
 //! exception); every function of the model it runs is reached by
 //! `tests/model_ebr2_fresh_driver.rs`.
 
-#[path = "common/ebr2_fresh_driver_model.rs"]
-#[allow(dead_code)]
-mod ebr2;
+// The model: `nee_soon::ebr2_fresh_driver` (moved from
+// `outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs`, 2026-11-25,
+// gh:#1737).
+use nee_soon::ebr2_fresh_driver as ebr2;
 
 use std::path::Path;
 use std::time::Instant;

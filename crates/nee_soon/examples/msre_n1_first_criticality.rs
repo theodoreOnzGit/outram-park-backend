@@ -1,19 +1,19 @@
 //! **MSRE N-1: first criticality, U-235 (gh:#1128), route 4** (outram-mc
-//! reading ENDF/B-VIII.0 directly), on [`outram_mc_libs::vv::msre_n1`]'s
+//! reading ENDF/B-VIII.0 directly), on [`nee_soon::msre_n1`] (moved from `outram_mc_libs::vv::msre_n1` 2026-11-25, gh:#1737)'s
 //! full-core model.
 //!
 //! > Research, education and V&V only. AI draft, unreviewed. The result
 //! > depends on simplifications listed in the model's doc and on gh:#1128.
 //!
 //! ```text
-//! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
-//! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
+//! cargo run --release -p nee_soon --example msre_n1_first_criticality -- --draw <dir>
+//! cargo run --release -p nee_soon --example msre_n1_first_criticality -- \
 //!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--cold-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield tm0728-full|none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path] [--minor-uranium tm0730|none]
 //! ```
 //!
 //! - **`--mo` defaults to `omitted`, but the V&V record's default model is arm
 //!   C, `--mo natural`** (README). Pass it to reproduce a recorded default
-//!   number. The library form of that default is `vv::msre_n1::Study`
+//!   number. The library form of that default is `nee_soon::msre_n1::Study`
 //!   (gh:#1571), which the MSRE simulator's k_eff tab runs.
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
 //!   material. Five slices: the whole core (x-y) at mid-height, the centre
@@ -36,7 +36,7 @@
 //! here, because they are still being measured.
 //!
 //! CLI glue (`main` and argument parsing; the workspace's exception for
-//! `main` glue): the model itself is reached by `vv::msre_n1`'s tests.
+//! `main` glue): the model itself is reached by `nee_soon::msre_n1`'s tests.
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -56,8 +56,8 @@ use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
 use outram_mc_libs::stats::convergence::SourceConvergence;
 use outram_mc_libs::tally::mesh::RegularMesh;
 use outram_mc_libs::tally::tally::Tally;
-use outram_mc_libs::vv::msre_n1 as m;
-use outram_mc_libs::vv::msre_n1::tallies::{self, axial_tally, balance_tally, salt_spectrum_tally};
+use nee_soon::msre_n1 as m;
+use nee_soon::msre_n1::tallies::{self, axial_tally, balance_tally, salt_spectrum_tally};
 
 fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
@@ -279,7 +279,7 @@ fn main() {
     };
     let csv = PathBuf::from(flag(&args, "--csv").unwrap_or_else(|| "target/msre_n1_keff.csv".into()));
     // `--temp-f`: the isothermal temperature (MSRE N-3, gh:#1129); the salt
-    // density follows `vv::msre_n1::SALT_EXPANSION_PER_F`.
+    // density follows `nee_soon::msre_n1::SALT_EXPANSION_PER_F`.
     // `--salt-temp-f` / `--graphite-temp-f` split it, for the fuel and
     // graphite components (each defaults to `--temp-f`).
     let temp_f: f64 = flag(&args, "--temp-f").map(|v| v.parse().expect("°F")).unwrap_or(m::REFERENCE_TEMPERATURE_F);
@@ -639,7 +639,7 @@ fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats
 }
 
 /// Append one run's salt absorption split by nuclide
-/// (`vv::msre_n1::tallies::salt_absorption_split`): one row per nuclide with
+/// (`nee_soon::msre_n1::tallies::salt_absorption_split`): one row per nuclide with
 /// its thermal / epithermal / fast bands, then a closure row comparing the
 /// reconstructed total with the directly tallied absorption. CLI glue (the
 /// workspace's exception for `main` glue).

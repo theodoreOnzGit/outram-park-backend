@@ -4,7 +4,7 @@
 //! **Drawn from dimensions, not traced from a drawing.** Every size and
 //! elevation below is a number stated in the text of ORNL-TM-0728
 //! (Robertson, 1965, a public US government report) or in this workspace's
-//! sourced MSRE geometry (`outram_mc_libs::vv::msre_n1`). No ORNL figure is
+//! sourced MSRE geometry (`nee_soon::msre_n1`, ~~`outram_mc_libs::vv::msre_n1`~~ until 2026-11-25). No ORNL figure is
 //! reproduced; the arrangement is this widget's own. Units are feet; the
 //! vertical axis is plant elevation (ft above sea level), so **what is
 //! higher in the drawing is higher in the plant**, and the salt's drain path

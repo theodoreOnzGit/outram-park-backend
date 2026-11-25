@@ -115,6 +115,15 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
 
 ### A new Monte Carlo rung (additive: no one else's file changes)
 
+0. **The model goes in `nee_soon::mc_rungs::<rung>` (since 2026-11-25,
+   gh:#1742; maintainer: "the code for the rungs shld live in nee soon"):**
+   geometry and CSG case (`nee_soon::mc_rungs::CsgModel`), materials, tape
+   list, bed and recorded values. The example holds only the GUI half and
+   the data builder (which goes through the browser cache). Moved so far:
+   `godiva`, `jemima`, `hst009`, `natu`, `triso`, `ugraphite`, `lumped`
+   and the `htr10` core's bed codes, DEM bed, pour model and recorded bed k
+   (`htr10_core`). Still here: `lct008`, `dhshort` and the `htr10` fuel
+   zone, which `#[path]` their models from `outram-mc-libs/examples/common/`.
 1. A directory `examples/monte_carlo_web/<rung>/` whose `mod.rs` defines a
    marker type implementing `rungs::McRung`: `INFO` (`name:`, `title:`,
    `lesson:` on one line each, `spectrum:`), `jobs` (tapes), `tier`,

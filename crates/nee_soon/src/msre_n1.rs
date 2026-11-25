@@ -4,6 +4,17 @@
 //! > Research, education and V&V only. AI draft (Claude Opus 5.5 in Claude
 //! > Code), unreviewed.
 //!
+//! **MOVED 2026-11-25 (gh:#1737)** from `outram_mc_libs::vv::msre_n1`, with
+//! its tallies, unit tests, the two examples
+//! (`examples/msre_n1_first_criticality.rs`,
+//! `examples/msre_n1_parameter_images.rs`) and the record
+//! (`verification_and_validation/msre_n1_first_criticality/`): it is a reactor
+//! model, and reactor models live in `nee_soon` (maintainer, 2026-11-24).
+//! Moved verbatim; only the `crate::` paths into `outram-mc-libs` changed.
+//! `outram-mc-libs` cannot re-export it (that would be a dependency cycle),
+//! so the old path is gone; the digital-twin engine re-exports it as
+//! `msre::first_criticality`, as before.
+//!
 //! The model, its sources and its simplifications were posted on gh:#1128
 //! before any run. Page numbers below are report pages of the scans in the
 //! MSRE repository's `literature/`.
@@ -78,13 +89,13 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
-use crate::geometry::geometry::Geometry;
-use crate::geometry::lattice::{Lattice, RectLattice};
-use crate::geometry::position::Position;
-use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
-use crate::geometry::universe::Universe;
-use crate::physics::transport_csg::SourceBox;
+use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+use outram_mc_libs::geometry::geometry::Geometry;
+use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
+use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
+use outram_mc_libs::geometry::universe::Universe;
+use outram_mc_libs::physics::transport_csg::SourceBox;
 
 /// The N-1 balance, salt-spectrum and N-4 axial tallies (moved from the
 /// example 2026-11-17).
@@ -1838,8 +1849,8 @@ impl Study {
 impl StudyPlan {
     /// The transport materials, each component pointing at its nuclide's
     /// position in [`StudyPlan::nuclides`].
-    pub fn transport_materials(&self) -> Vec<crate::material::material::Material> {
-        use crate::material::material::{Material, NuclideComponent};
+    pub fn transport_materials(&self) -> Vec<outram_mc_libs::material::material::Material> {
+        use outram_mc_libs::material::material::{Material, NuclideComponent};
         let idx = |n: &str| self.nuclides.iter().position(|j| j.name == n).expect("planned nuclide");
         self.materials
             .iter()
@@ -1857,7 +1868,7 @@ impl StudyPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::plot::{PlotBasis, SlicePlot, SliceHit};
+    use outram_mc_libs::geometry::plot::{PlotBasis, SlicePlot, SliceHit};
     use alloc::collections::BTreeMap;
 
     fn census(g: &Geometry, origin: Position, basis: PlotBasis, width: [f64; 2], px: usize) -> (Vec<usize>, usize, usize) {

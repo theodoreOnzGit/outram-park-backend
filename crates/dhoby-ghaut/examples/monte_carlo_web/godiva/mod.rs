@@ -32,11 +32,11 @@ const RECORDED_TRACKS: &[u8] = include_bytes!("data/tracks.bin.z");
 /// re-check after #527's source fix gave −7 ± 8 pcm. Quoted, not re-measured
 /// here.
 pub const REFERENCE: Reference = Reference {
-    label: "1024 seeds x 5000 x [40+120], 2026-10-05, godiva_keff_ensemble.rs at 6faff1ed8",
-    k: 0.99994,
-    sem: 0.00005,
-    sd_one_run: 0.00165,
-    histories_one_run: 5000.0 * 120.0,
+    label: nee_soon::mc_rungs::godiva::RECORDED.label,
+    k: nee_soon::mc_rungs::godiva::RECORDED.k,
+    sem: nee_soon::mc_rungs::godiva::RECORDED.sem,
+    sd_one_run: nee_soon::mc_rungs::godiva::RECORDED.sd_one_run,
+    histories_one_run: nee_soon::mc_rungs::godiva::RECORDED.histories_one_run,
     experiment: Some(("ICSBEP HEU-MET-FAST-001", outram_mc_libs::vv::godiva::BENCHMARK_K, outram_mc_libs::vv::godiva::BENCHMARK_SIGMA)),
     code: None,
 };

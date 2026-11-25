@@ -89,7 +89,7 @@ kinds and refuses `Unstructured`, as upstream `fatal_error`s
 --test mesh_surface_raytrace_1709 --test every_filter_kind_is_reachable --test
 tally_filters_vs_openmc`: 10 + 2 + 11 + 30 passed, 0 failed.
 `cargo test --release -p outram-mc-libs --lib`: 677 passed, **1 failed**,
-`vv::msre_n1::tests::plenums_and_openings_match_their_sources`, which asserts
+`vv::msre_n1::tests::plenums_and_openings_match_their_sources` (now `nee_soon::msre_n1`, moved 2026-11-25, gh:#1737), which asserts
 that the ENDF tape `n-028_Ni_058-ENDF8.0.endf` is present; this worktree does
 not have the reference-data tapes, and the test touches nothing changed here.
 `cargo check --release -p outram-mc-libs --lib --no-default-features --target
