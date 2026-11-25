@@ -1101,3 +1101,41 @@ Command for every row: the four tests `one_d_boiling_pimple_flow_tight_matches_u
 
 A fresh run of the upstream binary in this environment (`/home/user/upstream-build`, GeN-Foam binary of 2026-11-13 01:17, OpenFOAM built 2026-11-12 23:39), tight protocol, `scripts/boiling_protocol.sh`, is repeatable (two runs identical) and agrees with the committed
 `boiling_tight_full_flow` reference at steps 1-639 (iterations, endings, clocks). At step 640 it differs: dt 0.0101 s against the reference's 0.0008 s, and the run then aborts with SIGFPE (`Foam::divide`) at t = 6.35153, step 667, at both `endTime` 6.5 and 12. The committed reference run reached 12 s (6157 steps). So the reference of steps 640 onward was produced by a different build of upstream than the one now installed (the environment was rebuilt; the compiler or flags may differ), and it cannot be regenerated here. The comparison before the onset (steps 1-639) is unaffected; the steps 640-758 of this test's reference, and every post-onset reference number, are a record of one build's chaotic trajectory. Recorded on gh:#1361; not investigated further.
+
+# Round 6 (gh:#1361 item "MSFR transient"; companion gh:#1475): `2D_MSFR` `transient` stage, first 50 steps
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+## What exists in the port, and what does not (read before any run, 2026-11-25)
+
+Searched `src/genfoam` for `msfr`, `transient`, `pointKinetics`, `precursor`, `liquidFuel`, `moving`:
+
+| piece the `transient` stage needs | upstream routine | port before this round |
+|---|---|---|
+| diffusion flux + precursor transient with circulating fuel | `diffusionNeutronics::correctPhysics`, `solveNeutronics.H`, `fluxEq.H`, `precEq.H` (`eigenvalueNeutronics false`, `liquidFuel true`) | `DiffusionNeutronics::step`: single pass, stationary-fuel precursors, `k_eff` fixed, no transport, no neutron iteration; **not a translation**. `precursor_drift` is the steady (`ddt` dropped) equation only. |
+| TH region `onePhase`, `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` powerModel, `ReynoldsPower` | `solvers/onePhase`, `EEqn_1p`, cellCentered `pEqn`, `libFFSSrc2` closures | `OnePhaseFcSolver` (round 4) is a translation of the **faceCentered** path only, without turbulence; `solver::one_phase::OnePhaseSolver` is a constant-property stand-in. The coupled loop (`multi_region`) runs the lumped `MeshThermalHydraulics` (#1475). |
+| `meshToMesh cellVolumeWeight` between the two (identical) 8595-cell meshes | `meshHandler::mapTheseFields` | approximate (nearest cell + global rescale; #651) |
+| `multiPhysicsSolver::correctPhysics` Picard loop | as named | `MultiPhysicsSolver` (generic, enum-dispatched), not wired to a case reader |
+| adaptive `deltaT` (Courant from TH, `maxPowerVariation` from neutronics) | `setDeltaT.C`, `maxDeltaT` | `PseudoTimeClock`/`neutronics_max_delta_t` (neutronics half only) |
+
+So the port **cannot run the coupled MSFR transient**: the TH half (cell-centred energy equation with frozen flow, porous k-epsilon, HX power model, `ReynoldsPower`) and the case-driven `multiPhysicsSolver` are not ported; they are filed as children of #1475. What this round does instead is the **neutronics half of the transient, driven one-way by upstream's own TH fields** (an operator-split comparison): upstream's mapped `TFuel`/`rhoCool` of every step enter the port's neutronics; the port's own flux, precursor and power history is compared with upstream's, step by step. That isolates the diffusion transient, the liquid-fuel precursor transport, the cross-section feedback and the albedo boundary from the TH.
+
+## Upstream run (real unmodified `GeN-Foam` binary, built 2026-11-13, serial)
+
+`scripts/run_msfr_chain.sh` replays `Allrun`'s `setSteadyStateTH`, `setSteadyStateEN`, `setTransient` with sed/perl (`foamDictionary` is not built here). Protocol: `writePrecision 17` everywhere, so the restart state is exact; steady stages with the **shipped** solver tolerances (the transient start state is an input of both codes, as in round 3); the `transient` stage at the **tight protocol** (every linear solver `tolerance 1e-14`, `relTol 0`), `writeControl timeStep; writeInterval 1`. The sed edits only plain `tolerance x;`/`relTol x;` lines: the first attempt also rewrote the lines of the `/* ... relTol 0.01;*/` comment block of `neutroRegion/fvSolution` and removed its `*/`, which made upstream abort with "Entry 'fluxStar0' not found" (a harness defect, fixed).
+
+Measured before any port run: steadyStateTH 531 s (15 s of flow), steadyStateEN 71 s (`keff_` = 0.96031194083006322 at t = 165, `pTarget` 2e7; the tutorial's expected 0.960283 is 3.0 pcm away), transient 65 s for 142 steps to t = 166. Every step: `Multiphysics loop converged after 1 iterations`, so the neutronics of step n sees the TH state of the end of step n-1 (mapped once at the start of the step; the written `neutroRegion/<t>/TFuel`, `rhoCool` are exactly those). `U` is frozen (`fluidRegion/U` and `neutroRegion/U` identical in all steps), `fluxStar_i == flux_i` (discontinuity factors 1), `TFuel == TCool` bitwise, `rhoCool = 4125 (1 - 2e-4 (T - 900))` **bitwise** (Boussinesq). Per step: `deltaT` 0.001 then 8.1e-4, 9.8e-4, ... 7.47e-3 from step 15 (Courant-limited); the neutron iteration count is 50 (the cap) at steps 1-2, then 37, 1, 22, 1, 8 at steps 3-7, and 1 from step 8 on; the final `neutroResidual` is within 0.01 to 0.4 % of the 1e-6 stopping value at steps 2-14 (9.9967e-7 at step 3), so the iteration count is a discrete decision taken close to a threshold. **Aitken acceleration was refused at all 157 attempts and performed 0 times** (upstream declares the three integral-flux `List<scalar>` inside the loop, uninitialised: the test reads indeterminate memory). `power:` goes from 2.0000000e7 to 20003657.5 in step 1 and to 20013566 at step 50.
+
+## Predictions (written BEFORE the first port run; committed first)
+
+Inputs of the port: committed `cases/msfr_neutro` (mesh, `nuclearData`), `refs/msfr_transient.ref.txt.gz` (start state, `T` of each step, upstream's results). Port solvers at `1e-14`.
+
+| id | quantity | prediction |
+|---|---|---|
+| Q1 | per-step `power`, relative difference port - upstream, all 50 steps | `<= 1e-9`; if not, the first step above 1e-9 and its cause are the finding. Round 1 gave +0.3 pcm in `k_eff` through the same cross-section path at 6-digit inputs, so an offset of order 1e-6 from the cross sections (RBF/log law) or the albedo boundary is the alternative; I put the odds near even |
+| Q2 | neutron iteration count per step | equal at >= 45 of 50 steps; the steps 2-14 whose final residual is within 0.4 % of 1e-6 are the ones expected to differ if the port's initial-residual normalisation differs from OpenFOAM's by more than that |
+| Q3 | precursor totals `sum V prec_k` per group, per step | `<= 1e-9` relative, failing no earlier than Q1 |
+| Q4 | per-cell flux and `prec` at step 50 | worst cell `<= 1e-8` of the field maximum |
+| Q5 | power change since the start state (`power(50) - 2e7`, +1.3566e4 W upstream) | port reproduces it to 1e-6 relative of the change (the change is a 6.8e-4 effect, large against solver noise) |
+| Q6 | first quantity to diverge | the neutron iteration count at one of the near-threshold steps (3-14), not the power |
+| Q7 | wall time | port < 5 min for 50 steps |

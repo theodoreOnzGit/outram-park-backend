@@ -185,6 +185,13 @@ pub struct DiffusionNeutronics {
     /// delayed source collapses into `chi_eff`. `Some` is `liquidFuel true`;
     /// set it with [`Self::set_precursor_drift`].
     drift: Option<PrecursorTransport>,
+    /// The albedo patches imposed so far, `(patch, gamma, linearisation)`, so
+    /// that [`Self::refresh_cross_sections`] can rebuild them at the new `D`
+    /// (upstream resets `Dalbedo_ = D[energyI]` on every solve).
+    albedo_specs: Vec<(usize, f64, crate::genfoam::neutronics::albedo::AlbedoLinearisation)>,
+    /// `precStar` (precursors per unit fluid volume) of the upstream transient
+    /// step; empty until [`Self::set_prec_star`].
+    prec_star: Vec<VolScalarField>,
 }
 
 impl DiffusionNeutronics {
@@ -274,6 +281,8 @@ impl DiffusionNeutronics {
             xs: xs_fields,
             settings,
             drift: None,
+            albedo_specs: Vec::new(),
+            prec_star: Vec::new(),
         })
     }
 
@@ -350,6 +359,8 @@ impl DiffusionNeutronics {
         for (g, field) in self.state.flux_mut().iter_mut().enumerate() {
             field.boundary[patch_index] = patches[g].clone();
         }
+        self.albedo_specs.retain(|(p, _, _)| *p != patch_index);
+        self.albedo_specs.push((patch_index, gamma, linearisation));
     }
 
     /// Turn on **circulating-fuel precursor drift** — GeN-Foam's
@@ -555,3 +566,4 @@ mod eigenvalue;
 pub mod precursor_drift;
 mod pseudo_time;
 mod transient;
+pub mod upstream_transient;
