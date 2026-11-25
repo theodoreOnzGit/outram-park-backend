@@ -1775,11 +1775,12 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 - Unit 25 identical, 332 of 332 lines, first run.
 - Ablation: with CM isotropy in place of the records, 181 of 332 lines differ.
 
-**Not done:** `getdis`'s Coulomb term (`:9529-9548`). It runs only for `mtd = 2` with
+~~**Not done:** `getdis`'s Coulomb term (`:9529-9548`). It runs only for `mtd = 2` with
 `izap > 1` (an incident charged particle's elastic, File-6 `LAW = 5`), together with
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
-for every MF=6 feed), so the term is not self-contained and was not started.
+for every MF=6 feed), so the term is not self-contained and was not started.~~
+**CORRECTED 2026-11-24:** ported for `mfd = 3`, `mtd = 2`; see §43.
 
 ### 35a. GROUPR `getmf6` LAW = 4 and LAW = 5 neutrons, on a synthetic tape (2026-11-14, gh:#1370)
 
@@ -1868,9 +1869,17 @@ two-body, the MT 251-253 ratios) used the PENDF MF=3 head's AWR. Upstream `getfl
 the only tape held here, in `tests/resources` or `reference-data/endf`, where the two differ
 (checked by script over all of them). So no gated deck moves.
 - Be-9 alone at 0 K: MF=6 MT=2 differed in 39 of 395 lines; with the fix, 6.
-- The 6 remaining lines are in the 7th figure, at the energies where Be-9's Legendre
+- ~~The 6 remaining lines are in the 7th figure, at the energies where Be-9's Legendre
   order changes. They are **not resolved**; `be9_alone_control` is `#[ignore]`d with that
-  reason.
+  reason.~~ **CORRECTED 2026-11-24 (gh:#1370):** the 6 lines came from the other half of
+  the split. `getsig(e = 0)` runs first and sets `thresh` and `alpha` from the MF=3 AWR
+  (`:6751-6752`), and `getfle` replaces only the module `awr`. The port took `alpha` from
+  MF=4's AWR too, so the critical energies `ech = egn/alpha` were 1e-6 high, the panel
+  called `getdis` at about six different energies near each, and `ff`'s 7-decimal
+  rounding showed it. Found by printing `getdis`'s `ff` before rounding in a scratch
+  NJOY2016 build and in the port: every value equal where both called it, the energies
+  apart only at `ech`. `TwoBodyFeed::with_getsig_awr` fixes it; Be-9 alone is identical
+  (395 lines), and `be9_alone_control` pins 0.
 
 **Gates** (`tests/deck_driver_groupr_materials_vs_njoy2016.rs`; predictions posted on
 gh:#1370 before each run). The tapes are ENDF/B-VIII.0 H-2 (128) + Li-6 (325), joined in
@@ -1917,10 +1926,11 @@ with `3 103/ 21 103/ 21 28/ 25 22/ 25 107/`.
   `aprime /= 1` and the `mf4r` lists (`conver`, `:11000-11150`). Neither is translated, so
   an `mfd = 21-26` request for an MT with no MF=6 section is refused by name instead of
   reaching `getmf6`. `mfd = 31-36` stay refused.
-- **`getdis`'s Coulomb term** (`:9529-9548`) runs for an incident charged particle only
+- ~~**`getdis`'s Coulomb term** (`:9529-9548`) runs for an incident charged particle only
   (`izap > 1`, `mtd = 2`, `mft = 8` with `mfd = 3`). The tape driver fixes `izap = 1`,
   `aprime = 1` and the neutron `izat`, so the incident-charged sublibrary (#1511) has to
-  come first.
+  come first.~~ **CORRECTED 2026-11-24:** it did not need #1511; the `mfd = 3` path is
+  ported (§43).
 - The automatic lists `21/`-`26/` (`nextr`'s charged lists) stay refused.
 
 ## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
@@ -2243,3 +2253,82 @@ window acts; `NS2` differs from `N1`. Not ablated: the `rdsig(matd)` fix alone.
 `covcal` and cards 4-6), MF=34 `LVT = 1` (`egtlgc`), a sub-subsection with `NI = 0`,
 and `MAT1 /= 0` or `MT1 /= 2` (a second reaction's `rdlgnd`). Each is a port of its
 own plus a hand-built tape; none was attempted.
+
+## 43. GROUPR for an incident charged particle: `getdis`'s Coulomb term; the Be-9 residual (2026-11-24, gh:#1370)
+
+**The Coulomb term.** `mfd = 3`, `mtd = 2` with `izap > 1` follows upstream:
+- `conver` reads `izap = NSUB/10` and `awrp = AWI` from MF=1 and `spi` from the `LAW = 5`
+  TAB2;
+- `getsig` divides the MF=3 AWR by `awrp` and gives 1 on a `1.1 e` grid;
+- `getff` label 800 sends `getmf6` (`zad = izap`) to `getdis` with `mft = 8`;
+- `getdis` adds the Coulomb cross section, cuts the cosines at `wcut = 0.94` (`-wcut`
+  too for identical particles), adds 6 and `lord` to `npo`, and accumulates every band
+  into one column.
+
+Code: `groupr::charged_elastic` (`projectile`, `from_mf6_mt2`, `getco` label 360),
+`TwoBodyFeed::with_charged_elastic`, `deck/groupr/charged_elastic.rs`. `getco` label 360
+builds its complex coefficients with `cmplx(re, im)`, which is **single precision**
+(no `kind`): the port rounds them to `f32` and halves them in `f32`, as gfortran does.
+
+**Upstream overruns `ff` with more than two groups.** `getmf6`'s normal entry zeroes
+`ans(l, 1..ngn)` (`:7965-7969`), but `getff`'s `ff` was allocated `(nlg, ng2g = 2)` for
+`mfd = 3`. With six groups NJOY2016 aborts with `free(): invalid pointer` on p + H-1,
+p + H-2, p + H-3, d + H-2 and He-4; valgrind on a scratch `-fcheck=bounds -g` build points
+at `groupr.f90:7966`. With two groups it writes nothing out of bounds (valgrind: 0
+errors), so the gates use two groups.
+
+**Gates** (`tests/deck_driver_groupr_charged_elastic_vs_njoy2016.rs`, unit 24 compared as
+strings, 13 lines each). The ENDF/B-VIII.0 tapes are from NJOY2016's `tests/resources`.
+
+| deck | tape | records | result |
+|---|---|---|---|
+| `C1` | d + He-3 (225) | `LTP = 1` (one `LTP = 0`), `LIDP = 0` | identical (run before a prediction was written) |
+| `C2` | d + H-2 (128) | `LTP = 1`, identical particles, `SPI = 1` | identical (run before a prediction was written) |
+| `C3` | p + H-1 (125) | `LTP = 1`, identical, `SPI = 1/2` | identical, first run, as predicted |
+| `C4` | p + H-3 (131) | `LTP = 1`, `LIDP = 0` | identical, first run, as predicted |
+| `C5` | p + H-1, 0.1-1 MeV | as `C3` | identical, first run, as predicted |
+
+**Below the printed figures.** A scratch NJOY2016 build printed every `getco` label-360
+coefficient (`%.17e`); the port printed its own.
+- Of 7 210 coefficients on the four tapes, 8 differ, all `fl(1)` (which `getco` does not
+  round), by at most 1.4e-15 relative.
+- With glibc's `cos`, `sin` and `ln` in place of PETIR's, all 7 210 are bit-identical.
+  So the 8 are the transcendental's last bit, below the 1e-9 code-to-code allowance.
+- Ablation, `cmplx` in double precision: 414 coefficients move, at the 1e-8 `toler`
+  level, though none of the five decks' printed values does.
+- Ablation, no Coulomb term: both cross-section lines differ in every deck.
+
+**Refused by name:** tabulated records, `LTP > 2` (He-4, p + H-2). `conver` converts them
+through `getco` label 352, whose search reads `c(ipc+7)` past the record's last cosine,
+up to `ipm = 6 + 2 nmu`. So for each Gauss node above the last cosine (He-4 stops at
+0.94: 6 of 64 nodes) it reads words of `conver`'s `scr` left from earlier records.
+Also refused: `LCT = 1`, a `Z = 0` target, and a projectile subsection that is not
+`LAW = 5` (a recoil's `LAW = 4`, say), and `26 2/`.
+
+**The elastic matrix.** For a charged projectile, the matrix is card 9 `21 2/` to
+`25 2/`, with `zad` the projectile. NJOY2016 stops on the other requests (run 2026-11-24
+on d + He-3): `6 2/` in `findf` (there is no MF=4), `8 2/` in `getmf6` ("desired particle
+not found"), and the automatic `6/` finds no reaction. `getdis` runs with the Coulomb term,
+`wcut` and one band per sink group. Here upstream allocates `ff` for every group, so the
+gates use six groups (valgrind: 0 errors).
+Code: `deck/groupr/charged_elastic.rs::write_mt2_matrix`, `TwoBodyFeed::with_coulomb`.
+
+| deck | tape, card 9 | result |
+|---|---|---|
+| `M1` | d + He-3, `22 2/` | identical, 27 lines, first run, as predicted |
+| `M2` | p + H-1, `21 2/` | identical, 27 lines, first run, as predicted |
+| `M3` | d + H-2, `22 2/` | identical, 27 lines, first run, as predicted |
+| `M4` | p + H-3, `21 2/` | identical, 26 lines, first run, as predicted |
+
+**The Be-9 residual (§35b) is found and fixed.** Upstream's `getsig(e = 0)` sets
+`thresh` and `alpha` from the MF=3 AWR before `getfle` replaces the module `awr` with
+MF=4's. The port took `alpha` from MF=4's too, so `ech = egn/alpha` was 1e-6 high.
+Found by printing `getdis`'s `ff` before rounding in both codes:
+- the values agreed wherever both called `getdis`;
+- the energies differed only next to each `ech`.
+
+With `TwoBodyFeed::with_getsig_awr`:
+- both codes call `getdis` 8 994 times, at the same energies, with every `ff` bit-identical;
+- Be-9 alone is identical in all 395 lines.
+
+`be9_alone_control` now pins 0 lines.

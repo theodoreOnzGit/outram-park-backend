@@ -56,8 +56,11 @@ Three instruments, and **which one to quote matters more than any number here**:
 ~~**Doppler broadening is NOT verified against NJOY2016. Not to 1e-6, not at
 all.**~~
 
-Above `thnmax` neither code runs SIGMA1 (`broadr.f90:441`, ported as
-`broadr::broadening_limit`), so both tables there are the *same* unbroadened
+Above `thnmax` neither code runs SIGMA1 (`broadr.f90:441`, ~~ported as
+`broadr::broadening_limit`~~ **CORRECTED 2026-11-24 (gh:#622)**: ported in
+the pipeline as `broadr::joint::broadr_joint_pairs`' own `thnmax` derivation
+(`src/broadr/joint.rs`); `broadr::broadening_limit` is now only the
+per-reaction fallback's, for a result with no MT=1), so both tables there are the *same* unbroadened
 RECONR output. Only shared points **below** `thnmax` test the broadening. On
 all three nuclides:
 
@@ -817,8 +820,12 @@ ACER is simply not ported.
 - **Grid construction differs by rule.** `acelod` takes the ACE grid straight
   off MF=3 MT=1 of the PENDF (`acefc.f90:5343`); this port builds the union of
   elastic and every stored partial. At 0 K these nearly coincide (+1.5 %)
-  because RECONR already unionised every MT. After BROADR, which thins each MT
-  separately, ours is **67–89 % denser**:
+  because RECONR already unionised every MT. After BROADR, ~~which thins each MT
+  separately~~ (**CORRECTED 2026-11-24, gh:#622**: BROADR is now upstream's
+  joint walk on MT=1's grid, `src/broadr/joint.rs`, so it no longer thins each
+  MT separately), ours ~~is~~ was **67–89 % denser** at the time. **Not
+  re-checked:** the table below predates the joint BROADR (2026-09-26) and was
+  not re-measured in this doc-only pass; it is history, not current state:
 
   | nuclide | our MF=3 MT=1 | our ACE grid | NJOY's ACE grid |
   |---|---|---|---|

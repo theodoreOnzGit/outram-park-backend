@@ -547,7 +547,10 @@ impl NuclearDataLibrary {
 /// file, but accessible without parsing text formats.
 #[derive(Debug, Clone)]
 pub struct ContinuousEnergyData {
-    /// Z×1000 + A (e.g. 1828 for Ar-37, 9228 for U-235).
+    /// Z×1000 + A (e.g. 18037 for Ar-37, 92235 for U-235), from the
+    /// material header. ~~(e.g. 1828 for Ar-37, 9228 for U-235)~~
+    /// **CORRECTED 2026-11-24 (gh:#667)** — 1828 and 9228 are those
+    /// evaluations' MAT numbers, not their ZA.
     pub za: f64,
     /// Atomic weight ratio: target mass / neutron mass.
     pub awr: f64,

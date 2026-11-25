@@ -193,6 +193,8 @@ impl SigFeed {
                 let v = g.get(e);
                 (v.y, v.xnext, i32::from(v.idis))
             }
+            // `mtd = 2` for an incident charged particle (`:6773-6780`): 1 on a 1.1 e grid.
+            None if self.mtd == 2 => (1.0, 1.10 * e, 0),
             None => {
                 const STEP: f64 = 1.01;
                 let s = match self.mtd {

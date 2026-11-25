@@ -14,7 +14,7 @@ use crate::nostd_prelude::*;
 use crate::deck::tapes::TapeUnits;
 use crate::NjoyError;
 
-use super::{getfle_mf4_awr, GendfText, Shield};
+use super::{GendfText, Shield};
 
 /// `mfd = 31-36` (gh:#1370, 2026-11-24): a charged particle or residual whose
 /// angular distribution is the MF=4 two-body one, which `mfchk2` (`groupr.f90:717`,
@@ -63,7 +63,7 @@ pub(super) fn write_mf4_charged_two_body(
     if law4 && awr != head.c2 {
         return Err(NjoyError::NotPorted("groupr mfd = 31-36: a residual whose MF=3 and MF=4 AWR differ (parts' first call uses MF=3's)"));
     }
-    let mut tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, awr, tab.head.c2, lrflag)?.with_outgoing_mass(aprime);
+    let mut tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, awr, tab.head.c2, lrflag)?.with_getsig_awr(head.c2).with_outgoing_mass(aprime);
     if law4 {
         tb = tb.with_law4_cosine_flip();
     }
@@ -81,3 +81,10 @@ pub(super) fn write_mf4_charged_two_body(
     Ok(())
 }
 
+/// The AWR `getdis` uses with `mft = 4`: `getfle` sets the module `awr` to the
+/// MF=4 head's C2 (`groupr.f90:9711-9713`), which can differ from the MF=3 head's
+/// (Be-9 ENDF/B-VIII.0: 8.934760 against 8.934780; gh:#1370). `None` when the
+/// section is absent (then `from_tape` has already said so, or it is isotropic).
+pub(super) fn getfle_mf4_awr(nend: &crate::endf::tape::Tape, mat: i32, mt: i32) -> Option<f64> {
+    nend.section(mat, 4, mt).and_then(|s| s.rows.first()).map(|r| r[1])
+}

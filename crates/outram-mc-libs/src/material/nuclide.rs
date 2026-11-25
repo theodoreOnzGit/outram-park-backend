@@ -1504,9 +1504,17 @@ impl Nuclide {
     /// `njoy-outram-park-fork/tests/purr_u238_ptables_vs_njoy.rs` reproduces
     /// NJOY's converged Bondarenko moments to **4.2e-7 (elastic)** and
     /// **3.0e-7 (capture)**, the reference file's own 7-significant-figure
-    /// write precision. The per-bin tables are statistically equivalent rather
+    /// write precision. ~~The per-bin tables are statistically equivalent rather
     /// than bit-identical, because PURR's RNG stream is not reproduced
-    /// draw-for-draw; that file states the consequence in full.
+    /// draw-for-draw; that file states the consequence in full.~~
+    /// **CORRECTED 2026-11-24 (gh:#647)** — superseded since 2026-09-26:
+    /// `rann` and its seed are ported, so the bands are NJOY's own samples.
+    /// `UrrProbabilityTables::from_endf` (the call below) at 20/64/10 000 gives
+    /// NJOY2016's bands in every word on U-234, U-235 and U-238
+    /// (`njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs`,
+    /// `purr_generates_njoys_bands_word_for_word`), and the U-238 deck's
+    /// MT=152/153 are NJOY2016's word for word
+    /// (`purr_u238_ptables_vs_njoy.rs`, corrected there 2026-11-14).
     pub fn with_urr_probability_tables(
         mut self,
         tape: &njoy_outram_park_fork::endf::tape::Tape,
@@ -3083,9 +3091,14 @@ impl Nuclide {
             .unwrap_or_default();
 
         // 3. BROADR to the material temperature (in place of the 0 K grid),
-        //    bounded at upstream's `thnmax` (top of the resolved region) so
-        //    SIGMA1 never runs across the resolved/unresolved seam or over the
-        //    energy-averaged data above it (njoy `op-sdbk`).
+        //    bounded at upstream's `thnmax` ~~(top of the resolved region)~~
+        //    **CORRECTED 2026-11-24 (gh:#622):** the top of the resolved region
+        //    only for LRP=1 with a resolved range; the bottom of the URR for an
+        //    unresolved-only material; for LRP=0, min(6.5 MeV, EMAX,
+        //    0.99999 x the first unbroadened threshold) (njoy
+        //    `broadr::joint::broadr_joint_pairs`). So SIGMA1 never runs across
+        //    the resolved/unresolved seam or over the energy-averaged data
+        //    above it (njoy `op-sdbk`).
         let recon = broaden_result_with_tolerance(recon0, temp_k, broadr_errthn);
         crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, temp_k }
     }

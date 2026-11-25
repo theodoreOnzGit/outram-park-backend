@@ -39,6 +39,15 @@
 //! INTG lines) against NJOY2016 — `tests/errorr_mf32_cl35_rml_golden.rs`.
 //! The `LCOMP=1` reader (`errorr.f90:3389-3417`) is ported alongside but
 //! has no oracle tape.
+//!
+//! **Background R-matrix (`KBK > 0`), stated 2026-11-24 (gh:#667).** Nothing
+//! here refuses a range with a background: [`cssammy_with_derivs`] runs with
+//! the background applied to the cross sections (`samm::mf2::BackgroundRMatrix`,
+//! seeded by `samm::xsformula::setr`) but without upstream's `derext`
+//! derivatives with respect to the background parameters (`samm.f90:2048-2068`,
+//! `:3163`, `:6852-6928`), which are not ported; upstream adds those, or stops
+//! in `derext` for a background that is not SAMMY's form. No held tape with
+//! `KBK > 0` has been run through this branch against NJOY2016.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

@@ -53,8 +53,12 @@
 //! **Not ported:** the angular-distribution routines (`angle`, `lmaxxx`,
 //! `kclbsch`, `clbsch`, `setleg`) — both NJOY2016 callers hard-code
 //! `Want_Angular_Dist = .false.` (`reconr.f90:149-150`, `errorr.f90:393`),
-//! so they are dead code upstream as shipped; and `derext` (background
-//! R-matrix parameters, `KBK > 0`, which [`mf2`] does not carry).
+//! so they are dead code upstream as shipped; and `derext` (derivatives with
+//! respect to the background R-matrix parameters, `KBK > 0`). ~~[`mf2`] does
+//! not carry them~~ **CORRECTED 2026-11-24 (gh:#667):** [`mf2`] parses the
+//! background itself ([`mf2::BackgroundRMatrix`]) and
+//! [`xsformula::setr::setr`] applies it, so the cross sections carry it; only
+//! `derext`'s derivatives are missing.
 //! `run()` remains [`crate::NjoyError::NotPorted`] — it was never `samm`'s
 //! real entry point; RECONR calls [`setup::setup`] + [`xsformula::cssammy`]
 //! and ERRORR [`setup::setup_with_derivs`] + [`xsformula::cssammy_with_derivs`].

@@ -81,7 +81,9 @@ use crate::NjoyError;
 
 mod gendf_text;
 mod gout;
+mod charged_elastic;
 mod charged_two_body;
+use charged_two_body::getfle_mf4_awr;
 
 pub use gendf_text::{write_head, GendfText};
 
@@ -485,6 +487,9 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             }
             // `getff` label 800 for `mfd = 8` and the charged-particle `mfd = 21-26`
             // (`:7389`), label 810 for `mfd = 18`.
+            if charged_elastic::write_mt2_matrix(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, mtd, req.mfd, iverf)? {
+                continue;
+            }
             if req.mfd == 8 || req.mfd == 18 || (21..=26).contains(&req.mfd) {
                 write_getmf6(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
@@ -534,13 +539,16 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             let tab = cur.read_tab1()?;
             let lrflag = tab.head.l2;
             lrflag_run = lrflag;
+            if charged_elastic::write_mt2(&mut g, &mut sh, inp, &nend_tape, &egn, emaxx, za, head.c2, &tab, mtd, iverf)? {
+                continue;
+            }
             let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
             let nl1 = if mtd == 1 && sh.sigz.len() > 1 { 2 } else { 1 };
             let mut pf = if ratio {
                 let nend = &units.get(u.nendf)?.tape;
                 let ang = crate::groupr::file4::File4Angular::from_tape(nend, inp.matb, 2, crate::groupr::file4::NLD)?;
                 let awr = getfle_mf4_awr(nend, inp.matb, 2).unwrap_or(head.c2);
-                let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, &egn, awr, tab.head.c2, lrflag)?;
+                let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, &egn, awr, tab.head.c2, lrflag)?.with_getsig_awr(head.c2);
                 crate::groupr::njoy_panel::PanelFeed::TwoBody(tb.for_mf3_ratio(mtd, inp.lord.max(0) as usize))
             } else {
                 crate::groupr::njoy_panel::PanelFeed::Vector
@@ -567,14 +575,6 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         units.put_bytes(-p.ninwt.abs(), ninwt_file.bytes);
     }
     Ok(())
-}
-
-/// The AWR `getdis` uses with `mft = 4`: `getfle` sets the module `awr` to the
-/// MF=4 head's C2 (`groupr.f90:9711-9713`), which can differ from the MF=3 head's
-/// (Be-9 ENDF/B-VIII.0: 8.934760 against 8.934780; gh:#1370). `None` when the
-/// section is absent (then `from_tape` has already said so, or it is isotropic).
-fn getfle_mf4_awr(nend: &crate::endf::tape::Tape, mat: i32, mt: i32) -> Option<f64> {
-    nend.section(mat, 4, mt).and_then(|s| s.rows.first()).map(|r| r[1])
 }
 
 /// One entry of a GROUPR card-9 list, in card order: a plain card 9
@@ -871,7 +871,7 @@ fn write_mf6_two_body(
     let nend = &units.get(inp.units.nendf)?.tape;
     let ang = crate::groupr::file4::File4Angular::from_tape(nend, inp.matb, mtd, crate::groupr::file4::NLD)?;
     let awr = getfle_mf4_awr(nend, inp.matb, mtd).unwrap_or(head.c2);
-    let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, awr, tab.head.c2, lrflag)?;
+    let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, awr, tab.head.c2, lrflag)?.with_getsig_awr(head.c2);
     let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
     let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {

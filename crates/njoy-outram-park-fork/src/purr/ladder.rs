@@ -113,9 +113,11 @@ pub(super) fn chisq_quantile_index(rng: &mut Rng, scale: f64) -> usize {
 /// One resonance sequence's staged average parameters, ready for repeated
 /// ladder sampling at a fixed energy — the useful subset of what `unresx`
 /// stores into its per-sequence module globals (`purr.f90:17-30`) that
-/// [`generate_ladder`] needs. (The additional fields `unresx` stages —
+/// [`generate_ladder`] needs. ~~(The additional fields `unresx` stages —
 /// `csz`/`cth`/`cc2p`/`cs2p` — are only consumed by the not-yet-ported
-/// `unrest`, so they are not represented here.)
+/// `unrest`, so they are not represented here.)~~ **CORRECTED 2026-11-24
+/// (gh:#647)** — `unrest` is ported (`purr/unrest.rs`), and the four fields
+/// it consumes are represented below as `csz`, `cth_ref`, `cc2p` and `cs2p`.
 #[derive(Debug, Clone, Copy)]
 pub struct SequenceLadderParams {
     /// Average level spacing `D` \[eV\].
@@ -142,7 +144,9 @@ pub struct SequenceLadderParams {
     pub ndf_x: i32,
     /// `csz = abn·(4π/k²)·g_J` \[b\] — the overall elastic/capture/fission
     /// line-shape scale factor for this sequence (`unresx`'s `csz`,
-    /// `purr.f90:1455`). Needed by [`line_shape_contribution`].
+    /// `purr.f90:1455`). Needed by `unrest`'s line-shape sum (`unrest::line_shape`;
+    /// the earlier link named a `line_shape_contribution` that does not exist,
+    /// gh:#647).
     pub csz: f64,
     /// The **inverse Doppler width** `1/Δ` \[eV⁻¹\] at the reference
     /// temperature `T_ref = 300 K` (`unresx`'s `cth`, `purr.f90:1456-1458`,

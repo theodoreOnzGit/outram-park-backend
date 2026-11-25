@@ -397,6 +397,11 @@ pub fn broadening_limit(result: &ReconrResult) -> f64 {
 /// choosing `thnmax` for a non-resonance nuclide — i.e. everything it does
 /// not skip outright (`go to 165`) or always broaden (MT=18, `go to 170`).
 /// MT=1 is the union grid itself and is handled before the loop.
+///
+/// Only upstream's ENDF-6 skip list is ported (`iverf >= 6`); its
+/// pre-ENDF-6 branch (`if (mth.gt.150) go to 165`, `broadr.f90:501-502`) is
+/// not. That is harmless for ENDF/B-VII and VIII tapes, but would choose a
+/// different `thnmax` on an ENDF-5 tape (gh:#622).
 fn threshold_candidate(mt: i32) -> bool {
     !matches!(mt, 1 | 3 | 4 | 18 | 19 | 46..=49) && !(201..=599).contains(&mt) && mt <= 850
 }
@@ -404,10 +409,15 @@ fn threshold_candidate(mt: i32) -> bool {
 /// Doppler-broaden RECONR output up to `thnmax` \[eV\], copying everything
 /// above it through untouched — upstream BROADR's actual behaviour.
 ///
-/// This is the entry point the RECONR → BROADR pipeline should use; see
+/// ~~This is the entry point the RECONR → BROADR pipeline should use; see
 /// [`broaden_result`] for the one-call form that also derives `thnmax` with
-/// [`broadening_limit`]. [`doppler_broaden`] is the same kernel with no bound
-/// and exists for kernel-level tests.
+/// [`broadening_limit`].~~ **CORRECTED 2026-11-24 (gh:#622)** — the pipeline
+/// entry point is [`broaden_result`], which runs [`joint::broadr_joint_pairs`]
+/// (upstream's joint walk on MT=1's grid, with its own `thnmax`); this
+/// per-reaction form, with [`broadening_limit`], is only its fallback for a
+/// result with no MT=1 section (`broaden_result_with_tolerance_and_pairs`,
+/// `mod.rs`). [`doppler_broaden`] is the same kernel with no bound and exists
+/// for kernel-level tests.
 ///
 /// Per section, the output grid is **BROADR's own adaptive grid**
 /// ([`broadn_section`], `broadr.f90` `broadn`): nodes chosen from the input
@@ -632,9 +642,13 @@ fn nudge_duplicate_energies(pairs: &mut [(f64, f64)]) {
 /// for kernel-level tests and for callers that have already restricted the
 /// grid themselves.
 ///
-/// All sections must share the same energy grid (as produced by RECONR). The
-/// output has the same energy grid and the same MT numbers as the input, with
-/// cross sections broadened to the free-gas thermal spectrum at `temp_k` \[K\].
+/// ~~All sections must share the same energy grid (as produced by RECONR). The
+/// output has the same energy grid and the same MT numbers as the input~~
+/// **CORRECTED 2026-11-24 (gh:#622)** — the sections need not share a grid:
+/// each is broadened on its own input grid (the body builds `eu` and `sigma`
+/// per section), and each output section keeps its own input grid and MT
+/// number, with cross sections broadened to the free-gas thermal spectrum at
+/// `temp_k` \[K\].
 ///
 /// # Parameters
 /// - `sections` — pointwise (energy \[eV\], σ \[b\]) sections from RECONR.
