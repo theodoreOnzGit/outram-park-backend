@@ -23,6 +23,7 @@ use egui_plot::{Legend, Line, Plot, PlotPoints};
 use outram_park_digital_twin_engine::ebr2::design::{PUMP_RATED_SPEED_RPM, RATED_MASS_FLOWS_KG_PER_S};
 use outram_park_digital_twin_engine::ebr2::session::{Command, Initial, SessionConfig, Snapshot, VV_THERMAL_CENTRE_HEIGHT_M};
 use outram_park_digital_twin_engine::ebr2::shrt::ShrtTest;
+use outram_park_digital_twin_engine::ebr2::web::keff::KEv;
 use outram_park_digital_twin_engine::ebr2::web::{Event, Request, DEFAULT_SPEED};
 
 /// Speeds offered: plant seconds per wall second.
@@ -39,9 +40,11 @@ const EXTERNAL_PCM: std::ops::RangeInclusive<f64> = -500.0..=350.0;
 /// sketch, Graphs the trends, Kinetics the reactivity broken into its
 /// feedback terms. Greyed: Freq. and Nodes (the browser page has neither
 /// yet; the native twin has the four nodes, `ebr2::twin`; gh:#1759), CFD
-/// (gh:#1747) and MC (gh:#1313).
+/// (gh:#1747). MC is the simplified fresh full core (gh:#1762).
 pub struct App {
     shell: TwinShell,
+    /// The MC page: the simplified full core on a worker pool (gh:#1762).
+    keff: crate::keff_tab::KeffTab,
     link: Link<Request, Event>,
     view: View,
     /// The plant view's rect, for the shell's zoom buttons.
@@ -77,10 +80,12 @@ impl App {
         shell.page = match value("tab").as_deref() {
             Some("trends") => TwinPage::Graphs,
             Some("reactivity") => TwinPage::Kinetics,
+            Some("mc") => TwinPage::MonteCarlo,
             _ => TwinPage::Plant,
         };
         let mut app = Self {
             shell,
+            keff: crate::keff_tab::KeffTab::default(),
             link,
             view: View::new(plant_view::HALF_EXTENT),
             plant_rect: Rect::NOTHING,
@@ -141,6 +146,9 @@ impl App {
                 Event::Initial(f) => self.initial = Initial::from_slice(&f.to_vec()),
                 Event::Held(t, m) => self.held = Some((t, m)),
                 Event::Error(m) => self.error = Some(m),
+                // The MC page's geometry, drawn by the plant worker.
+                Event::Keff(KEv::Raster { view, w, h, ids }) => self.keff.on_raster(view, w, h, ids),
+                Event::Keff(_) => {}
             }
         }
     }
@@ -421,6 +429,10 @@ impl eframe::App for App {
             set_title(&ctx, &title);
             self.title = title;
         }
+        // The MC page's pool and drawing, while it is open or running.
+        if self.shell.page == TwinPage::MonteCarlo || self.keff.busy() {
+            self.keff.pump(&ctx, &self.link);
+        }
         let mut shell = std::mem::take(&mut self.shell);
         shell.ui(ui, self);
         self.shell = shell;
@@ -438,20 +450,37 @@ impl ShellHost for App {
             TwinPage::Plant | TwinPage::Graphs | TwinPage::Kinetics => ViewState::Built,
             TwinPage::Surrogate | TwinPage::ControlVolumes => ViewState::NotBuilt { issue: 1759 },
             TwinPage::Cfd => ViewState::NotBuilt { issue: 1747 },
-            TwinPage::MonteCarlo => ViewState::NotBuilt { issue: 1313 },
+            // The simplified fresh full core (gh:#1762).
+            TwinPage::MonteCarlo => ViewState::Built,
         }
     }
 
-    fn left(&mut self, ui: &mut egui::Ui, _at: ShellAt) {
+    fn left(&mut self, ui: &mut egui::Ui, at: ShellAt) {
+        if at.page == TwinPage::MonteCarlo {
+            self.keff.panel(ui);
+            ui.separator();
+        }
         self.side_panel(ui);
     }
 
     fn zoomable(&self, at: ShellAt) -> bool {
-        at.page == TwinPage::Plant
+        matches!(at.page, TwinPage::Plant | TwinPage::MonteCarlo)
     }
 
-    fn zoom(&mut self, _at: ShellAt, z: bugis::web_demo::view::Zoom) {
-        apply_zoom(&mut self.view, self.plant_rect, z);
+    fn zoom(&mut self, at: ShellAt, z: bugis::web_demo::view::Zoom) {
+        if at.page == TwinPage::MonteCarlo {
+            apply_zoom(&mut self.keff.geo_view, self.keff.geo_rect, z);
+        } else {
+            apply_zoom(&mut self.view, self.plant_rect, z);
+        }
+    }
+
+    fn bottom_dock(&self, at: ShellAt) -> Option<&'static str> {
+        (at.page == TwinPage::MonteCarlo).then_some("k_eff · entropy")
+    }
+
+    fn bottom(&mut self, ui: &mut egui::Ui, rect: Rect, _at: ShellAt) {
+        self.keff.keff_body(ui, rect);
     }
 
     fn central(&mut self, ui: &mut egui::Ui, rect: Rect, at: ShellAt) {
@@ -485,7 +514,8 @@ impl ShellHost for App {
                 ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.reactivity(ui, inner));
             }
             // Greyed (page_state): the shell draws their note.
-            TwinPage::Surrogate | TwinPage::ControlVolumes | TwinPage::Cfd | TwinPage::MonteCarlo => {}
+            TwinPage::MonteCarlo => self.keff.geometry_ui(ui, inner),
+            TwinPage::Surrogate | TwinPage::ControlVolumes | TwinPage::Cfd => {}
         }
     }
 }

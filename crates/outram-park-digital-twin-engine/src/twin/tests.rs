@@ -360,7 +360,7 @@ fn the_cv_dump_is_the_plant_now() {
 /// a plant compiles with the empty types and refuses the other pages.
 #[test]
 fn missing_pages_say_not_built_with_their_issue() {
-    let mut twin = full();
+    let twin = full();
     assert_eq!(twin.page_status(TwinPage::Plant), Ok(()));
     assert_eq!(twin.page_status(TwinPage::ControlVolumes), Ok(()));
     assert_eq!(twin.page_status(TwinPage::MonteCarlo), Ok(()));

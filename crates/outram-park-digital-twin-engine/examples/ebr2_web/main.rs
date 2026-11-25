@@ -40,6 +40,8 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod plant_view;
+#[cfg(not(target_os = "android"))]
+mod keff_tab;
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]
@@ -73,6 +75,13 @@ fn main() -> Result<(), String> {
         let one = Time::new::<second>(1.0);
         let out = twin.headless(&args, &twin_script(), one, Time::new::<second>(900.0)).map_err(|e| e.to_string())?;
         print!("{out}");
+        return Ok(());
+    }
+    // The MC page's tapes, stripped and compressed, for the web build
+    // (gh:#1762). CLI glue.
+    if let Some(i) = args.iter().position(|a| a == "--prepare-web-data") {
+        let dir = args.get(i + 1).ok_or("--prepare-web-data needs an output directory")?;
+        engine::keff::prepare_web_data(std::path::Path::new(dir))?;
         return Ok(());
     }
     eframe::run_native(
