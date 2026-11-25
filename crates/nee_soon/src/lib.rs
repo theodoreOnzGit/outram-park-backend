@@ -235,6 +235,10 @@ pub mod msre_n1;
 /// 2026-11-25 (gh:#1737). `std` only: it reads tapes from folders.
 #[cfg(feature = "std")]
 pub mod ebr2_fresh_driver;
+/// A simplified EBR-II full core: Run 138B's layout, fresh fuel, every
+/// subassembly homogenised (gh:#1762). `std` only, with the fresh driver.
+#[cfg(feature = "std")]
+pub mod ebr2_core;
 /// The reactor models of the Monte Carlo web demo's rungs (gh:#1742), moved
 /// from `dhoby-ghaut/examples/monte_carlo_web/` 2026-11-25.
 pub mod mc_rungs;
