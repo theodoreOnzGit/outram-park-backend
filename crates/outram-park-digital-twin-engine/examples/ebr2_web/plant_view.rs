@@ -42,7 +42,7 @@ pub const T_COLD_C: f64 = 300.0;
 pub const T_HOT_C: f64 = 700.0;
 
 /// The drawing's half-extent, drawing units (no physical length).
-pub const HALF_EXTENT: f64 = 6.0;
+pub const HALF_EXTENT: f64 = 5.6;
 
 /// Marks per tracer train: a drawing choice with no physical counterpart.
 const MARKS: usize = 6;
@@ -246,9 +246,9 @@ pub fn paint(painter: &egui::Painter, to: &impl Fn(f64, f64) -> Pos2, s: &Snapsh
     arrow(painter, to, &[[x_out, IHX[3]], [x_out, roof]], 0.5, s.intermediate_flow_kg_s, text);
     let tag = if s.intermediate_override != 0.0 { " (held)" } else { "" };
     painter.text(
-        to(x_out + 0.2, roof),
-        Align2::LEFT_BOTTOM,
-        format!("intermediate loop{tag}\n{:.0} kg/s in at {:.0} °C\n(to the steam generators, not modelled)", s.intermediate_flow_kg_s, s.intermediate_inlet_c),
+        to(x_in - 0.2, TANK[3] + 0.5),
+        Align2::RIGHT_CENTER,
+        format!("intermediate loop{tag}: {:.0} kg/s in at {:.0} °C\n(steam side not modelled)", s.intermediate_flow_kg_s, s.intermediate_inlet_c),
         font(0.26),
         text,
     );
@@ -263,7 +263,7 @@ pub fn paint(painter: &egui::Painter, to: &impl Fn(f64, f64) -> Pos2, s: &Snapsh
     let tag = if s.pump_override != 0.0 { "held" } else { "SHRT table" };
     painter.text(to(-4.4, 0.2), Align2::LEFT_TOP, format!("pumps ({tag})\n{:.0} / {:.0} rpm", s.pump1_rpm, s.pump2_rpm), font(0.28), text);
     if s.aux_em_pump_a > 0.0 {
-        painter.text(to(-3.4, -3.5), Align2::LEFT_TOP, format!("aux. EM pump {:.0} A", s.aux_em_pump_a), font(0.26), text);
+        painter.text(to(-3.2, -2.0), Align2::LEFT_TOP, format!("aux. EM pump\n{:.0} A", s.aux_em_pump_a), font(0.26), text);
     }
 
     // Tracers on the segments with an inventory.

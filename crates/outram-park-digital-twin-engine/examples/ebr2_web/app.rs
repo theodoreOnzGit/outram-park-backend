@@ -286,7 +286,12 @@ impl App {
         let top = rect.top() + if narrow { 84.0 } else { 52.0 };
         let lines = [
             format!("primary flow {:.0} kg/s ({:.1} % of initial) · power/flow {:.2}", s.primary_flow_kg_s, 100.0 * s.flow_fraction, s.power_to_flow),
-            "Indicative layout, not plant geometry: the elevations (ARC-226 Ch. 5) are not transcribed.".to_owned(),
+            if narrow {
+                "Indicative layout, not plant geometry\n(ARC-226 Ch. 5 elevations not transcribed)."
+            } else {
+                "Indicative layout, not plant geometry: the elevations (ARC-226 Ch. 5) are not transcribed."
+            }
+            .to_owned(),
         ];
         for (k, l) in lines.iter().enumerate() {
             ui.painter().text(Pos2::new(rect.center().x, top + 18.0 * k as f32), Align2::CENTER_TOP, l, FontId::proportional(if k == 0 { 13.0 } else { 11.0 }), if k == 0 { text } else { muted });
