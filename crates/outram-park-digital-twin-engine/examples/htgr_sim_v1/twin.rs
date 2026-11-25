@@ -12,7 +12,7 @@
 //! |---|---|
 //! | Plant | [`HtgrPlant`], pinned bit for bit against a bare plant |
 //! | Control volumes | `control_volume_map(&plant)`, every entry and link |
-//! | Coarse / fine multiphysics | not built yet: the GeN-Foam backend is gh:#1746 |
+//! | Coarse / fine multiphysics | GeN-Foam R-Z diffusion on the Monte Carlo MGXS records, 20 / 10 cm cells (`twin::genfoam::Htr10GenFoam`, gh:#1746): diffusion only, no TH feedback in the run, not sent to the plant |
 //! | Monte Carlo | [`Htr10PouredBed`]: BASE, KERNEL, FUEL-GRAPHITE, DUMMIES, RODS-IN on the poured bed, gh:#1174's statistics |
 //!
 //! **Coefficients** ([`Htr10Coefficients`]): fuel and moderator temperature
@@ -33,7 +33,7 @@
 
 use outram_park_digital_twin_engine::twin::{
     reactivity_coefficient, CoefficientSource, ControlVolume, ControlVolumeMap, ControlVolumes, CvLink, CvLinkKind,
-    CvRole, FeedbackCoupling, KeffResult, KeffRun, MonteCarloCase, MultiFidelityTwin, NoMultiphysics, PlantModel,
+    CvRole, FeedbackCoupling, KeffResult, KeffRun, MonteCarloCase, MultiFidelityTwin, PlantModel,
     TwinError, TwinSnapshot,
 };
 use uom::si::f64::{MassRate, TemperatureCoefficient, TemperatureInterval, ThermodynamicTemperature, Time};
@@ -43,6 +43,8 @@ use uom::si::temperature_coefficient::per_kelvin;
 use uom::si::temperature_interval::kelvin as delta_k;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
+
+use outram_park_digital_twin_engine::twin::genfoam::Htr10GenFoam;
 
 use crate::physics::control_volumes::{self as cv, control_volume_map};
 use crate::physics::{control_rods, HtgrPlant, PlantCommands, PLANT_TIMESTEP_S};
@@ -55,8 +57,8 @@ pub const MONTE_CARLO_ISSUE: u32 = 1739;
 pub const CITED: &str =
     "Chen et al. 2009 isothermal -1.4e-4 /K split by Hu et al. 2006's fuel share 0.7117; bank worth 15.24 % dk/k (IAEA-TECDOC-1382, VSOP)";
 
-/// The HTR-10 twin: plant, the poured-bed case, no multiphysics yet.
-pub type Htr10Twin = MultiFidelityTwin<Htr10Plant, Htr10PouredBed, NoMultiphysics>;
+/// The HTR-10 twin: plant, the poured-bed case, GeN-Foam multiphysics.
+pub type Htr10Twin = MultiFidelityTwin<Htr10Plant, Htr10PouredBed, Htr10GenFoam>;
 
 /// What the plant's feedback and rods run on.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -311,7 +313,7 @@ impl MonteCarloCase for Htr10PouredBed {
 pub fn htr10_twin(commands: PlantCommands, case: Htr10PouredBed) -> Result<Htr10Twin, TwinError> {
     let plant = Htr10Plant::build(commands)?;
     let cited = CoefficientSource::Cited { value: Htr10Coefficients::cited(), citation: CITED.into() };
-    Ok(MultiFidelityTwin::new(plant, cited, MONTE_CARLO_ISSUE, MULTIPHYSICS_ISSUE)?.with_monte_carlo(case))
+    Ok(MultiFidelityTwin::new(plant, cited, MONTE_CARLO_ISSUE, MULTIPHYSICS_ISSUE)?.with_monte_carlo(case).with_multiphysics(Htr10GenFoam))
 }
 
 /// `--coefficients` (CLI glue): the poured-bed case run and sent to the
@@ -345,7 +347,7 @@ impl outram_park_digital_twin_engine::twin::local::PlantControls<Htr10Plant> for
 /// its own thread at real time.
 pub fn gui() -> eframe::Result<()> {
     use outram_park_digital_twin_engine::twin::{app::TwinApp, local::LocalHost};
-    struct Window(TwinApp<LocalHost<Htr10Plant, Htr10PouredBed, NoMultiphysics, Controls>>);
+    struct Window(TwinApp<LocalHost<Htr10Plant, Htr10PouredBed, Htr10GenFoam, Controls>>);
     impl eframe::App for Window {
         fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
             self.0.ui(ui);
@@ -395,7 +397,7 @@ mod tests {
     }
 
     /// The CV page is gh:#1718's map entry for entry, with no dangling link;
-    /// the missing multiphysics pages name gh:#1746; the cited source is
+    /// the multiphysics pages have the GeN-Foam backend (gh:#1746); the cited source is
     /// named; the poured-bed coefficients follow from the five runs.
     #[test]
     fn the_cvs_sources_and_coefficients_are_the_plants() {
@@ -411,7 +413,8 @@ mod tests {
         for r in [cv::CvRole::Balance, cv::CvRole::Junction, cv::CvRole::Inventory, cv::CvRole::NoVolume, cv::CvRole::Boundary] {
             assert_eq!(format!("{:?}", role(r)), format!("{r:?}"));
         }
-        assert_eq!(twin.page_status(TwinPage::CoarseMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::CoarseMultiphysics, issue: 1746 }));
+        assert_eq!(twin.page_status(TwinPage::CoarseMultiphysics), Ok(()));
+        assert_eq!(twin.page_status(TwinPage::FineMultiphysics), Ok(()));
         assert!(twin.coefficients().provenance().starts_with("cited: Chen et al. 2009"));
         let cited = Htr10Coefficients::cited();
         assert_eq!(cited.describe().len(), 3);
