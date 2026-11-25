@@ -91,3 +91,77 @@ looks about right!
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit ded35ad893.
+
+# Review: watt (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-watt-theodoreonzgit-ddcbfd0a"
+kind = "review"
+origin = "human"
+created = "2026-11-25T15:51:08+08:00"
+modified = "2026-11-25T15:51:08+08:00"
+target = "fn:ddcbfd0af4d2a0a5"
+
+[review]
+path = "crates/outram-mc-libs/src/rng/distributions.rs::watt"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-25"
+signed_at = "2026-11-25T15:51:09+08:00"
+commit = "5730eb689d13eb0f607a89105a91f07552490dde"
+hash = "sha256:e5826c07d17b7e7e4f09779812ef1de7dea6fb143a8914ca9279e12b16222db6"
+doc_hash = "sha256:fd8dca0dc228d91581e6a51d87abe9e803eb74abca412a756ece38c4e046b540"
+cargo_lock = "sha256:4a48251d078c2265757f8e935e6bb409d9e9caff8c543ed902119772ad0d2989"
+
+[review.callees]
+"fn:681ddf6544e7b60b" = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
+"fn:80d7b4ca412b265b" = "sha256:16bc8d4c42d852500bddb77271702690b6e6af91bf647f0aef16329c367722a4"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "matches_upstream_no_error_return: follow openmc"
+independence = "someone_else"
+limits_and_guards = "matches_upstream_no_guard: follow openmc"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "mixed"
+sessions = ["https://claude.ai/code/session_012Jf5jeczK6fvKddBWDrLwE"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "03ZxwpvuUgSLKaz+7tlwZ3ic3xBmEsb/xXt5DdEhenDWZvvvt03D2uISs60Gq+u5TAOj7MqhmXqIguFGVSUTCQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+Matches openmc well:
+double watt_spectrum(double a, double b, uint64_t* seed)
+{
+  double w = maxwell_spectrum(a, seed);
+  return w + 0.25 * a * a * b +
+         uniform_distribution(-1., 1., seed) * std::sqrt(a * a * b * w);
+}
+Where uniform distribution is:
+
+
+double uniform_distribution(double a, double b, uint64_t* seed)
+{
+  return a + (b - a) * prn(seed);
+}
+
+So essentially it is identical.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit 5730eb689d.
