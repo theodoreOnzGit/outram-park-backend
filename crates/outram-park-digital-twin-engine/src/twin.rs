@@ -787,6 +787,9 @@ pub mod app;
 /// A native [`app::TwinHost`]: the twin on its own threads (gh:#1745).
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 pub mod local;
+/// The GeN-Foam multiphysics backend, for HTR-10 (gh:#1746). Native only.
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+pub mod genfoam;
 
 #[cfg(test)]
 mod tests;
