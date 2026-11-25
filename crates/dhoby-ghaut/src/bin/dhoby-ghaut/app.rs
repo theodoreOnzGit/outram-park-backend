@@ -175,9 +175,11 @@ pub struct App {
     pub s78: crate::steps78::S78,
     /// The reader's UI scale (gh:#586).
     pub ui_scale: crate::style::UiScale,
-    /// The MSRE preset's geometry review (gh:#1752): slices drawn on a
-    /// background thread (`None` until asked, `Some(empty)` while drawing).
-    pub preset_slices: std::sync::Arc<std::sync::RwLock<Option<Vec<(String, outram_mc_libs::geometry::plot::ImageData)>>>>,
+    /// A preset's geometry review (gh:#1752): slices drawn on a background
+    /// thread for the preset named (`None` until asked, `Some((p, Ok(empty)))`
+    /// while drawing, `Err` if it could not be drawn).
+    #[allow(clippy::type_complexity)]
+    pub preset_slices: std::sync::Arc<std::sync::RwLock<Option<(HistoricalPreset, Result<Vec<(String, outram_mc_libs::geometry::plot::ImageData)>, String>)>>>,
     /// Those slices as textures, once uploaded.
     pub preset_textures: Vec<(String, egui::TextureHandle)>,
 }
@@ -842,43 +844,62 @@ impl App {
             }
         });
         ui.add_space(8.0);
-        if p == HistoricalPreset::Msre {
-            self.msre_geometry_review(ui);
-        }
+        self.preset_geometry_review(ui, p);
         if ui.button("« Back").clicked() {
             self.screen = Screen::Picker;
         }
     }
 
-    /// MSRE's geometry review on the preset page (gh:#1752): the drawing
-    /// rule's slices of the assembled N-1 model, drawn on a background
-    /// thread by `workbench::presets::msre_slices` (tested in the library)
-    /// so the UI thread only draws. GUI code.
-    fn msre_geometry_review(&mut self, ui: &mut egui::Ui) {
+    /// A preset's geometry review on its page (gh:#1752): the drawing rule's
+    /// slices of the assembled model, drawn on a background thread by
+    /// `workbench::presets::{msre_slices, ebr2_slices}` (tested in the
+    /// library) so the UI thread only draws. GUI code.
+    fn preset_geometry_review(&mut self, ui: &mut egui::Ui, p: HistoricalPreset) {
         ui.label(RichText::new("Geometry review").strong());
-        let state = self.preset_slices.read().map(|g| g.as_ref().map(|v| v.len())).unwrap_or(None);
-        match state {
+        // What is held: nothing, drawing, drawn (n slices) or failed, for
+        // this preset; another preset's slices are dropped.
+        let held = self.preset_slices.read().ok().and_then(|g| g.as_ref().map(|(q, r)| (*q, r.as_ref().map(|v| v.len()).map_err(|e| e.clone()))));
+        let held = match held {
+            Some((q, r)) if q == p => Some(r),
+            Some(_) => {
+                *self.preset_slices.write().unwrap_or_else(|e| e.into_inner()) = None;
+                self.preset_textures.clear();
+                None
+            }
+            None => None,
+        };
+        match held {
             None => {
-                if ui.button("Draw the MSRE geometry (assembled N-1 model)").clicked() {
-                    *self.preset_slices.write().unwrap_or_else(|e| e.into_inner()) = Some(Vec::new());
+                let label = match p {
+                    HistoricalPreset::Msre => "Draw the MSRE geometry (assembled N-1 model)",
+                    HistoricalPreset::Ebr2 => "Draw the EBR-II driver subassembly (assembled; reads the tapes first)",
+                };
+                if ui.button(label).clicked() {
+                    *self.preset_slices.write().unwrap_or_else(|e| e.into_inner()) = Some((p, Ok(Vec::new())));
                     let out = self.preset_slices.clone();
                     let ctx = ui.ctx().clone();
                     std::thread::spawn(move || {
-                        let slices = dhoby_ghaut::workbench::presets::msre_slices(600);
-                        *out.write().unwrap_or_else(|e| e.into_inner()) = Some(slices);
+                        let slices = match p {
+                            HistoricalPreset::Msre => Ok(dhoby_ghaut::workbench::presets::msre_slices(600)),
+                            HistoricalPreset::Ebr2 => dhoby_ghaut::workbench::presets::ebr2_slices(600),
+                        };
+                        *out.write().unwrap_or_else(|e| e.into_inner()) = Some((p, slices));
                         ctx.request_repaint();
                     });
                 }
             }
-            Some(0) => {
+            Some(Err(e)) => {
+                ui.colored_label(ui.visuals().error_fg_color, format!("Could not draw: {e}"));
+            }
+            Some(Ok(0)) => {
                 ui.horizontal(|ui| {
                     ui.spinner();
                     ui.label("Drawing from the assembled model…");
                 });
             }
-            Some(_) => {
+            Some(Ok(_)) => {
                 if self.preset_textures.is_empty() {
-                    let slices = self.preset_slices.read().map(|g| g.clone().unwrap_or_default()).unwrap_or_default();
+                    let slices = self.preset_slices.read().ok().and_then(|g| g.as_ref().and_then(|(_, r)| r.as_ref().ok().cloned())).unwrap_or_default();
                     for (title, img) in slices {
                         let mut bytes = Vec::with_capacity(img.pixels.len() * 3);
                         for p in &img.pixels {

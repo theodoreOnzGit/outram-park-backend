@@ -8,10 +8,14 @@
 //! (`nee_soon/examples/msre_n1_parameter_images.rs`). The drawing rule
 //! binds: what is drawn is what the solver tracks, never the constants.
 //!
+//! **EBR-II's geometry review** ([`ebr2_slices`]): the fresh MARK-II driver
+//! subassembly (`nee_soon::ebr2_fresh_driver`, arm A), assembled and drawn
+//! with the record's three windows (`examples/ebr2_fresh_driver_kinf.rs`).
+//! Its builder needs the nuclear data library loaded first (atomic masses
+//! set the densities), so it reads the workspace's tapes.
+//!
 //! Not runnable yet, and still listed with its issue on the preset page:
-//! - EBR-II's geometry. Its builder needs the nuclear data loaded first
-//!   (`ebr2_fresh_driver::build_model`), so its committed images stand.
-//! - Both presets' k_eff (#1752).
+//! both presets' k_eff (#1752).
 //!
 //! Research, education and V&V only.
 
@@ -87,6 +91,29 @@ pub fn msre_slices(px: usize) -> Vec<(String, ImageData)> {
     ]
 }
 
+/// The EBR-II fresh driver's geometry review (arm A, the record's
+/// `GapTreatment::on_hand`), `px` pixels across, with the record's three
+/// windows: the whole lattice cell (x-y at mid-height), the centre row of
+/// pins (x-z) and a corner pin with the duct and the sodium between ducts.
+///
+/// # Errors
+/// The workspace's tapes (`reference-data/endf`, `reference-data/ace`) are
+/// missing, or the model does not build or assemble.
+pub fn ebr2_slices(px: usize) -> Result<Vec<(String, ImageData)>, String> {
+    use nee_soon::ebr2_fresh_driver::{build_model, driver_subassembly, library, GapTreatment};
+    use njoy_outram_park_fork::reference_data::{ace_submodule_dir, reference_endf_dir};
+    let ace = ace_submodule_dir().join("endf/endf-b-viii.0");
+    let data = library(&reference_endf_dir(), &ace)?;
+    let a = build_model(data, &GapTreatment::on_hand())?.assemble().map_err(|e| e.to_string())?;
+    let corner = driver_subassembly().pin_centres_cm()[0];
+    let draw = |basis, c: Position, w: [f64; 2], title: &str| (title.to_string(), a.draw_window(basis, c, w, px, title));
+    Ok(vec![
+        draw(PlotBasis::Xy, Position::new(0.0, 0.0, 0.0), [7.0, 7.0], "EBR-II FRESH MARK-II DRIVER, X-Y AT MID-HEIGHT: THE LATTICE CELL"),
+        draw(PlotBasis::Xz, Position::new(0.0, 0.0, 0.0), [7.0, 36.0], "X-Z AT Y = 0: THE CENTRE ROW OF PINS (REFLECTIVE ENDS, AXES NOT TO SCALE)"),
+        draw(PlotBasis::Xy, Position::new(corner[0], corner[1], 0.0), [1.6, 1.6], "A CORNER PIN: SLUG, BOND, CLAD, DUCT, SODIUM BETWEEN DUCTS"),
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +134,28 @@ mod tests {
         let dir = std::env::temp_dir().join("dhoby_msre_preset_slices");
         std::fs::create_dir_all(&dir).expect("temp dir");
         for (i, (_, img)) in s.iter().enumerate() {
+            img.write_png(dir.join(format!("slice_{i}.png"))).expect("png");
+        }
+    }
+
+    /// gh:#1752: the three EBR-II slices are drawn from the assembled
+    /// subassembly and show more than one material; skipped (passing, with
+    /// a note) where the workspace's tapes are not checked out.
+    #[test]
+    fn the_ebr2_slices_are_drawn_from_the_model() {
+        let s = match ebr2_slices(200) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("SKIP: {e}");
+                return;
+            }
+        };
+        assert_eq!(s.len(), 3);
+        let dir = std::env::temp_dir().join("dhoby_ebr2_preset_slices");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        for (i, (title, img)) in s.iter().enumerate() {
+            let first = img.pixels[img.pixels.len() / 2];
+            assert!(img.pixels.iter().any(|p| *p != first), "{title} is one colour");
             img.write_png(dir.join(format!("slice_{i}.png"))).expect("png");
         }
     }

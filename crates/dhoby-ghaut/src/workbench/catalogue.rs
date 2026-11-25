@@ -330,7 +330,7 @@ impl HistoricalPreset {
             ],
             Self::Ebr2 => [
                 ok("Prefill", "nee_soon::ebr2_fresh_driver: one MARK-II fresh driver subassembly, every number cited"),
-                ok("Geometry review", "drawn from the assembled CSG: nee_soon/verification_and_validation/ebr2_fresh_driver/ (xy, xz, pin)"),
+                ok("Geometry review", "drawn live on this page from the assembled subassembly (workbench::presets::ebr2_slices: lattice cell, centre row, corner pin; reads the tapes first), gh:#1752; record images in nee_soon/verification_and_validation/ebr2_fresh_driver/"),
                 ok("k_inf (one subassembly)", "k_inf of the fresh driver (ebr2_fresh_driver/README.md); no measured k_inf exists to compare against"),
                 no("k_eff, whole core", "no whole-core Monte Carlo model of EBR-II yet", 1313),
                 ok("Plant", "engine::ebr2 (SHRT-17 / SHRT-45R lumped model, Argonne VARIANT feedback), on the twin template as ebr2::twin::Ebr2Twin"),
