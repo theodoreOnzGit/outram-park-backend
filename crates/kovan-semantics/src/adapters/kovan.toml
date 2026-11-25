@@ -58,7 +58,7 @@ doc_hash = "sha256:4907262344ee6681ba36babafdd955d97d196f7dd9d62322a07aa88264b99
 uses = ["fn:85dc5410ff538180"]
 
 [test_run]
-commit = "fc93def94a76099d77c172cd58b07e9088b0d5a4"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = ["#0"]
