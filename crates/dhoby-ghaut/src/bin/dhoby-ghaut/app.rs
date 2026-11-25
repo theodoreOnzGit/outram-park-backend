@@ -182,6 +182,9 @@ pub struct App {
     pub preset_slices: std::sync::Arc<std::sync::RwLock<Option<(HistoricalPreset, Result<Vec<(String, outram_mc_libs::geometry::plot::ImageData)>, String>)>>>,
     /// Those slices as textures, once uploaded.
     pub preset_textures: Vec<(String, egui::TextureHandle)>,
+    /// The EBR-II preset's k_inf run (gh:#1752): `None` until asked, then
+    /// the progress line, the result or the failure.
+    pub preset_kinf: std::sync::Arc<std::sync::RwLock<Option<Result<String, String>>>>,
 }
 
 impl App {
@@ -231,6 +234,7 @@ impl App {
             endf_dir,
             preset_slices: std::sync::Arc::new(std::sync::RwLock::new(None)),
             preset_textures: Vec::new(),
+            preset_kinf: std::sync::Arc::new(std::sync::RwLock::new(None)),
             dialog: egui_file_dialog::FileDialog::new()
                 .add_file_filter_extensions("Recipes (kovan markdown)", vec!["md"])
                 .default_file_filter("Recipes (kovan markdown)")
@@ -845,6 +849,7 @@ impl App {
         });
         ui.add_space(8.0);
         self.preset_geometry_review(ui, p);
+        self.preset_keff(ui, p);
         if ui.button("« Back").clicked() {
             self.screen = Screen::Picker;
         }
@@ -918,6 +923,62 @@ impl App {
                         ui.image((tex.id(), egui::vec2(w, w * size.y / size.x.max(1.0))));
                     }
                 });
+            }
+        }
+        ui.add_space(8.0);
+    }
+
+    /// A preset's k step on its page (gh:#1752), GUI code. EBR-II: the
+    /// subassembly's k_inf through `nee_soon::ebr2_fresh_driver::kinf`
+    /// (tested there) on a background thread, at a stated size. MSRE: the
+    /// full core needs the pooled runner, which lives in the twin engine
+    /// (`msre::web::keff_pool`), so the page says where it runs.
+    fn preset_keff(&mut self, ui: &mut egui::Ui, p: HistoricalPreset) {
+        ui.label(RichText::new(match p {
+            HistoricalPreset::Msre => "k_eff",
+            HistoricalPreset::Ebr2 => "k_inf (one subassembly)",
+        }).strong());
+        match p {
+            HistoricalPreset::Msre => {
+                ui.label("The full-core run is many minutes even at the quickest preset and needs a worker pool: run it in the MSRE simulator's k_eff tab (msre_web) or `msre_web --coefficients`. Running it from this page is still open on gh:#1752.");
+            }
+            HistoricalPreset::Ebr2 => {
+                const SIZE: (usize, usize, usize, u64) = (1000, 10, 40, 1329);
+                let state = self.preset_kinf.read().ok().and_then(|g| g.clone());
+                match state {
+                    None => {
+                        if ui.button(format!("Run k_inf, arm A ({} × [{} + {}], seed {}; a few minutes)", SIZE.0, SIZE.1, SIZE.2, SIZE.3)).clicked() {
+                            *self.preset_kinf.write().unwrap_or_else(|e| e.into_inner()) = Some(Ok("starting".into()));
+                            let out = self.preset_kinf.clone();
+                            let ctx = ui.ctx().clone();
+                            std::thread::spawn(move || {
+                                use nee_soon::ebr2_fresh_driver::{kinf, GapTreatment};
+                                use njoy_outram_park_fork::reference_data::{ace_submodule_dir, reference_endf_dir};
+                                let ace = ace_submodule_dir().join("endf/endf-b-viii.0");
+                                let say = |l: &str| {
+                                    *out.write().unwrap_or_else(|e| e.into_inner()) = Some(Ok(format!("running: {l}")));
+                                    ctx.request_repaint();
+                                };
+                                let r = kinf(&reference_endf_dir(), &ace, &GapTreatment::on_hand(), SIZE.0, SIZE.1, SIZE.2, SIZE.3, say);
+                                *out.write().unwrap_or_else(|e| e.into_inner()) = Some(r.map(|k| {
+                                    format!("k_inf = {:.5} ± {:.5} (arm A; the record's arm A is 2.01 at 2000 × [20 + 60], no measured value exists)", k.mean, k.std)
+                                }));
+                                ctx.request_repaint();
+                            });
+                        }
+                    }
+                    Some(Ok(line)) => {
+                        ui.horizontal(|ui| {
+                            if line.starts_with("running") || line == "starting" {
+                                ui.spinner();
+                            }
+                            ui.label(line);
+                        });
+                    }
+                    Some(Err(e)) => {
+                        ui.colored_label(ui.visuals().error_fg_color, format!("k_inf failed: {e}"));
+                    }
+                }
             }
         }
         ui.add_space(8.0);

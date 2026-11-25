@@ -609,6 +609,40 @@ pub fn build_model(data: NuclearData, t: &GapTreatment) -> Result<Model, String>
     Ok(model)
 }
 
+/// **k_inf of the driver under treatment `t`, end to end** (gh:#1752): the
+/// workspace's tapes ([`library`] from `endf_dir` and `ace_endf_dir`), the
+/// model ([`build_model`]) assembled, each of its nuclides processed at
+/// [`TEMPERATURE_K`] with the library's correct-physics defaults, and
+/// `particles × [inactive + active]` at `seed`. `progress` gets a line per
+/// stage. What `examples/ebr2_fresh_driver_kinf.rs` does per arm (that
+/// example processes the union of every arm's nuclides once instead).
+///
+/// # Errors
+/// A tape missing, a nuclide the library does not hold, or a failed run.
+pub fn kinf(
+    endf_dir: &Path,
+    ace_endf_dir: &Path,
+    t: &GapTreatment,
+    particles: usize,
+    inactive: usize,
+    active: usize,
+    seed: u64,
+    progress: impl Fn(&str),
+) -> Result<Keff, String> {
+    progress("reading the tapes");
+    let data = library(endf_dir, ace_endf_dir)?;
+    let a = build_model(data.clone(), t)?.assemble().map_err(|e| e.to_string())?;
+    let mut nuclides = Vec::with_capacity(a.nuclides.len());
+    for (i, k) in a.nuclides.iter().enumerate() {
+        progress(&format!("processing {} ({}/{})", k.isotope.name(), i + 1, a.nuclides.len()));
+        nuclides.push(data.load_nuclide(k.isotope, TEMPERATURE_K, k.law).map_err(|e| e.to_string())?);
+    }
+    progress("transport");
+    let settings = KeffSettings::new(MCSettings::Custom(CustomRun { particles, inactive, active, seed }), None).silent();
+    let run = a.keff_with(&nuclides, &settings).map_err(|e| e.to_string())?;
+    Ok(run.keff())
+}
+
 /// **Volume fractions of the ASSEMBLED geometry**, fuel / steel / sodium
 /// over the lattice cell: cell lookup on an `n x n` grid at mid-height,
 /// material by the cell found (each point offset within its grid square by
