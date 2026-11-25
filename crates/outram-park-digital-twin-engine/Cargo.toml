@@ -487,6 +487,12 @@ bugis = { workspace = true, features = ["web_demo"] }
 # MOVED 2026-11-15 (gh:#1578): a normal dependency now (above, without the
 # `workbench` default), since `msre::web` in the library uses it; the
 # examples reach it through that.
+# ADDED 2026-11-25 (gh:#1763): the examples also take its `mc_demo` feature,
+# the Monte Carlo demo's app as a library, which `htgr_sim_v1`'s MC page
+# hosts (the HTR-10 whole core with its DEM pour). Example-only, so the
+# library's own build is unchanged. No cycle: dhoby-ghaut does not depend on
+# this crate.
+dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.3", default-features = false, features = ["mc_web", "mc_demo"] }
 
 # `msre::web::engine::worker` (gh:#1578): the MSRE engine's Web Worker (its
 # messages as JS objects, its timer loop, the k_eff tapes it downloads) and
@@ -515,9 +521,9 @@ web-sys = { workspace = true, features = [
   "DedicatedWorkerGlobalScope", "MessageEvent", "Performance",
   # fukushima_web / double_pipe_twin_web (moved from dhoby-ghaut 2026-11-05).
   "ErrorEvent",
-  # htgr_sim_v1's MC page: the Monte Carlo demo's HTR-10 core in a frame
-  # placed over the central view (gh:#1761).
-  "HtmlElement", "DomRect",
+  # ~~htgr_sim_v1's MC page: the Monte Carlo demo's HTR-10 core in a frame
+  # placed over the central view (gh:#1761). "HtmlElement", "DomRect"~~:
+  # removed with the frame, gh:#1763 (the page hosts the demo's app).
 ] }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────

@@ -16,6 +16,10 @@
 //!   seed, 600 → 1200 K secants; the bank is about 1.5 times the cited
 //!   15.24 %, and the record says why that is not yet explained).
 //!
+//! - [`CoefficientSet::Measured`] (gh:#1763): a set the reader measured on
+//!   the MC page's whole-core runs and sent to the plant, with where each
+//!   number came from ([`MeasuredSet`]).
+//!
 //! A switch goes through `HtgrKinetics::set_temperature_coefficients` and
 //! `HtgrPlant::set_bank_worth_dk_k`: the plant keeps its state and its
 //! reference temperatures, so a hot plant steps in reactivity at the switch
@@ -45,13 +49,33 @@ pub const POURED_BED: Option<(f64, f64, f64)> = Some((
 /// The issue the poured-bed set comes from.
 pub const POURED_BED_ISSUE: u32 = 1739;
 
-/// A coefficient set the operator can choose.
+/// A set measured on the MC page (gh:#1763): `(fuel, moderator)` \[1/K\]
+/// and the bank worth \[dk/k\], each with its σ, as the page derived
+/// them (`app::mc_tab::plant_set`), and a line saying where each came from.
 #[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MeasuredSet {
+    pub fuel: f64,
+    pub moderator: f64,
+    pub worth: f64,
+    pub fuel_sigma: f64,
+    pub moderator_sigma: f64,
+    pub worth_sigma: f64,
+    /// Whether the worth was measured on the page (else the poured-bed
+    /// record's, which the page says).
+    pub worth_measured: bool,
+}
+
+/// A coefficient set the operator can choose. (~~`Eq`~~: since gh:#1763 it
+/// can carry a measured set's numbers, so it is `PartialEq` only.)
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum CoefficientSet {
     #[default]
     Cited,
     MonteCarloPouredBed,
+    /// Measured on the MC page and sent to the plant (gh:#1763).
+    Measured(MeasuredSet),
 }
 
 impl CoefficientSet {
@@ -63,6 +87,7 @@ impl CoefficientSet {
         match self {
             Self::Cited => "Cited (Chen 2009 / Hu 2006, TECDOC-1382)",
             Self::MonteCarloPouredBed => "Monte Carlo, poured bed (gh:#1739)",
+            Self::Measured(_) => "Monte Carlo, measured on the MC page",
         }
     }
 
@@ -71,6 +96,7 @@ impl CoefficientSet {
         match self {
             Self::Cited => true,
             Self::MonteCarloPouredBed => POURED_BED.is_some(),
+            Self::Measured(_) => true,
         }
     }
 
@@ -86,6 +112,7 @@ impl CoefficientSet {
                 Some((f * a, (1.0 - f) * a, control_rods::bank_worth_dk_k()))
             }
             Self::MonteCarloPouredBed => POURED_BED,
+            Self::Measured(m) => Some((m.fuel, m.moderator, m.worth)),
         }
     }
 
@@ -95,6 +122,12 @@ impl CoefficientSet {
             Self::Cited => "Chen et al. (2009) isothermal coefficient, split by Hu et al. (2006); IAEA-TECDOC-1382 VSOP bank worth",
             Self::MonteCarloPouredBed => {
                 "nee_soon whole-core Monte Carlo on the poured DEM bed, 600 to 1200 K secants, ENDF/B-VIII.0 (gh:#1739)"
+            }
+            Self::Measured(m) if m.worth_measured => {
+                "the MC page's whole-core runs: moderator = the bed's pebbles raised together minus the poured-bed record's kernel (fuel) coefficient, which the page cannot raise alone; bank worth from a rods-out / rods-in pair (gh:#1763)"
+            }
+            Self::Measured(_) => {
+                "the MC page's whole-core runs: moderator = the bed's pebbles raised together minus the poured-bed record's kernel (fuel) coefficient, which the page cannot raise alone; bank worth the poured-bed record's (gh:#1763)"
             }
         }
     }
@@ -115,6 +148,14 @@ impl CoefficientSet {
                     TemperatureCoefficient::new::<per_kelvin>(moderator),
                 )))?;
                 plant.set_bank_worth_dk_k(Some(worth))
+            }
+            Self::Measured(m) => {
+                use uom::si::temperature_coefficient::per_kelvin;
+                plant.kinetics.set_temperature_coefficients(Some((
+                    TemperatureCoefficient::new::<per_kelvin>(m.fuel),
+                    TemperatureCoefficient::new::<per_kelvin>(m.moderator),
+                )))?;
+                plant.set_bank_worth_dk_k(Some(m.worth))
             }
         }
     }
@@ -172,6 +213,26 @@ mod tests {
         CoefficientSet::MonteCarloPouredBed.apply(&mut plant).expect("poured bed");
         let (pf, pm) = plant.kinetics.temperature_coefficients();
         assert_eq!((pf.get::<per_kelvin>(), pm.get::<per_kelvin>(), plant.bank_worth_dk_k()), (f, m, w));
+        CoefficientSet::Cited.apply(&mut plant).expect("back to cited");
+        assert_eq!(plant.bank_worth_dk_k(), crate::physics::control_rods::bank_worth_dk_k());
+    }
+
+    /// gh:#1763: a measured set reaches the plant exactly, is shown with its
+    /// own values, and the plant goes back to the cited set on request.
+    #[test]
+    fn a_measured_set_reaches_the_plant() {
+        use uom::si::temperature_coefficient::per_kelvin;
+        let m = MeasuredSet { fuel: -1.5e-5, moderator: -1.2e-4, worth: 0.2, fuel_sigma: 0.0, moderator_sigma: 0.0, worth_sigma: 0.0, worth_measured: true };
+        let set = CoefficientSet::Measured(m);
+        assert!(set.available());
+        assert_eq!(set.values(), Some((m.fuel, m.moderator, m.worth)));
+        assert!(set.source().contains("rods-out"), "{}", set.source());
+        assert!(CoefficientSet::Measured(MeasuredSet { worth_measured: false, ..m }).source().contains("record's (gh:#1763)"));
+        let mut plant = HtgrPlant::new();
+        set.apply(&mut plant).expect("measured");
+        let (pf, pm) = plant.kinetics.temperature_coefficients();
+        assert_eq!((pf.get::<per_kelvin>(), pm.get::<per_kelvin>(), plant.bank_worth_dk_k()), (m.fuel, m.moderator, m.worth));
+        assert!(!set.label().is_empty());
         CoefficientSet::Cited.apply(&mut plant).expect("back to cited");
         assert_eq!(plant.bank_worth_dk_k(), crate::physics::control_rods::bank_worth_dk_k());
     }

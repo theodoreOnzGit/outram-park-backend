@@ -65,7 +65,9 @@ Every demo here follows
 a full-page main view with on-screen zoom in, zoom out and reset buttons, and a
 collapsible side panel holding every control, folded by default on a narrow
 screen. `examples/monte_carlo_web/` (~~`examples/triso_pebble_web/`~~, renamed
-2026-10-04) is the reference implementation.
+2026-10-04) is the reference implementation; **since gh:#1763 its app,
+engine and rungs are the library's `src/mc_demo/` (feature `mc_demo`)**, and
+the example keeps only its `main` functions.
 
 ## Web demos: how a new track app and a new rung plug in
 
@@ -89,6 +91,7 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
 | rungs and lessons | `web_demo::lesson` | trait `Rung` (`all`, `name`, `title`, `lesson`), `from_query` (`?rung=`), `lesson_url`, `whats_happening`, `picker` |
 | nuclear-data cache | `web_demo::data_cache` | (gh:#818) `Record` (a processed product's exact `f64` words, key, code version, SHA-256), `Miss` (why a lookup missed, with the note the page shows), `Source` (processed now / from this browser's cache, `summarize`), `Summary`, `PutError` (quota), and `idb` (IndexedDB glue on the site's origin, wasm only). The physics side, keys and `DataStore`, is ~~`examples/common/processed_cache.rs`~~ **`dhoby_ghaut::mc_web::processed_cache` since 2026-11-14 (gh:#1572)**; the old path is a re-export |
 | browser Monte Carlo pipeline | `mc_web` (feature `mc_web`) | (2026-11-14, gh:#1572) promoted from `monte_carlo_web` so other demos can run it: `tapes` (strip, compress, wire names, LEAPR "tapes"), `processed_cache` (`DataStore`, keys), `keff` (`KeffConfig`, caps, console, summary), `pool` (`DataRelay`: deal jobs, relay products, assemble; `KeffPool<T>`: the k_eff run protocol with epochs, restarts and dead workers; `csg_source` / `csg_chunk`, the worker side of a CSG model; `schedule`, `thin_tracks`, the entropy-mesh words). **Since 2026-11-18 (gh:#1652, #1653, #1654) also the standard k_eff simulator panels**, so every k_eff simulator has the same layout (maintainer: "the same panel patterns okay for any keff simulator"): `keffplot` (k with running mean and reference bands, and Shannon entropy, for the bottom dock), `run_settings` (particles, inactive, active, seed, Defaults, Recorded, for the left panel), `rod_bank` (`RodBank` and `controls_ui` for any number of rods in the left panel; `draw_bank` for the right dock), `raster` (the CSG slicer for the main view) and, since 2026-11-20 (gh:#1677), `sweep` (`Sweep<S>`: k_eff at a list of settings run one after another on the pool, e.g. a rod worth curve, for any pool implementing the `SweepPool` trait; HTR-10's `LiveSweep` wraps it). The HTR-10 rung uses all five; build a new k_eff simulator on them rather than copying the rung. The HTR-10 core's `PoolState` wraps `DataRelay` + `KeffPool`; the examples' `tapes`, `keff` and `processed_cache` modules are re-exports. Users: `monte_carlo_web`, and `outram-park-digital-twin-engine`'s ~~`msre_web` k_eff tab (gh:#1571)~~ library module `msre::web` (the MSRE k_eff workers and pool, moved from its `msre_web` example, gh:#1578). Turn the feature on with a dev-dependency (this crate's own examples depend on themselves with `features = ["mc_web"]`), or, from a library, with `default-features = false, features = ["mc_web"]` (as the twin engine does) |
+| the Monte Carlo demo itself | `mc_demo` (feature `mc_demo`) | (2026-11-25, gh:#1763) the whole `monte_carlo_web` app, engine and rungs, moved from the example so another simulator can host it: `McApp::hosted(ctx, query)` opens it on what a URL query would (`rung=htr10&view=core`), and the host draws `McApp::controls` in its panel, `McApp::main_view` in its central view and calls `McApp::pump` each frame; the app then leaves the page's URL, title and theme alone. In the browser `set_worker_js` points its workers at the demo's own `../monte-carlo/worker.js`. `htr10::core::screen::FinishedRun` (via `McApp::core_runs`) records each finished whole-core run for a host's coefficients. First host: `outram-park-digital-twin-engine`'s `htgr_sim_v1` MC page. The example keeps only its `main` functions; the tests moved to `src/mc_demo/tests.rs` |
 | fields and residuals | `web_demo::field`, `web_demo::residual` | (gh:#1155) `field::Scale` (range + Crameri map), `polygon_mesh` / `paint` (cell polygons of a mesh section as one triangle mesh), `colour_bar`, `contains` (picking); `residual::History` (bounded, decimating history of named series), `plot_points`, `paint` (log or linear plot with legend). `foam_studio_web` is the first user (since gh:#1156 it also runs the double-pipe heat exchanger: three regions by `ChtMultiRegionFoam`, T on the slices, ε against ε-NTU; since gh:#1157 the helical coil section, with the Dean cross-section in the dock and f against Mishra & Gupta from `tampines`) |
 | platform | `web_demo::platform` | `now_s` (no `Instant` on wasm), `set_title`, `query_pairs` (URL query, or `--key value` natively), `set_query`, `autostart`, `keep_canvas_at_device_pixels` (canvas backing store = CSS size × `devicePixelRatio`; `Panel::show` calls it every frame, gh:#556) |
 
@@ -98,7 +101,7 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    `monte_carlo_web` (Android stub `main`; on wasm, `worker_main::<YourEngine>()`
    when in a worker, else start eframe on a canvas).
 2. `Request` / `Event` enums; implement `web_demo::link::Message` for both on
-   wasm (see `monte_carlo_web/engine.rs`, module `web`).
+   wasm (see ~~`monte_carlo_web/engine.rs`~~ `src/mc_demo/engine.rs`, module `web`).
 3. One engine type implementing `NativeEngine` and `WorkerEngine`. **Each
    request must be short**: split long work into steps the UI asks for (a
    generation, a batch) or yield between steps in an async task. Never hold a
@@ -124,7 +127,8 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    and the `htr10` core's bed codes, DEM bed, pour model and recorded bed k
    (`htr10_core`). Still here: `lct008`, `dhshort` and the `htr10` fuel
    zone, which `#[path]` their models from `outram-mc-libs/examples/common/`.
-1. A directory `examples/monte_carlo_web/<rung>/` whose `mod.rs` defines a
+1. A directory `src/mc_demo/<rung>/` (~~`examples/monte_carlo_web/<rung>/`~~
+   until gh:#1763, when the demo moved into the library) whose `mod.rs` defines a
    marker type implementing `rungs::McRung`: `INFO` (`name:`, `title:`,
    `lesson:` on one line each, `spectrum:`), `jobs` (tapes), `tier`,
    `job_weights`, `half_extent`, `draw`, `notes`, and optionally
@@ -186,9 +190,11 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    The macro generates the `Rung` enum and all dispatch; the engine, app,
    worker and message format need no change.~~ **CHANGED 2026-11-05 (gh:#1252,
    #1253, maintainer: "refactor out the custom macros"):** `rung_table!` is
-   gone, written out by hand in `examples/monte_carlo_web/table.rs`. A new rung
-   adds a plain `mod <module>;` line in `main.rs` (with the
-   `#[cfg(not(target_os = "android"))]` the others carry), and in `table.rs`
+   gone, written out by hand in ~~`examples/monte_carlo_web/table.rs`~~
+   `src/mc_demo/table.rs`. A new rung adds a plain `pub mod <module>;` line
+   in ~~`main.rs` (with the `#[cfg(not(target_os = "android"))]` the others
+   carry)~~ `src/mc_demo/mod.rs` (gh:#1763: the whole module is gated off
+   Android in `lib.rs`), and in `table.rs`
    one `Rung` variant, its entry in `ALL` (ladder order), a variant in
    `Builder` and in `Loaded`, and **one `match` arm in every dispatch method**
    of `Rung`, `Builder` and `Loaded` (the compiler names each `match` that is

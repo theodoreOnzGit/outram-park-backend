@@ -336,6 +336,11 @@ pub fn coefficient_picker(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snap
             ui.radio_value(&mut set, s, s.label());
         });
     }
+    // A set measured on the MC page, while the plant is on it (gh:#1763;
+    // the MC page sends it again after a switch away).
+    if let m @ crate::physics::coefficient_set::CoefficientSet::Measured(_) = snapshot.coefficient_set {
+        ui.radio_value(&mut set, m, m.label());
+    }
     if !crate::physics::coefficient_set::CoefficientSet::MonteCarloPouredBed.available() {
         ui.small("The poured-bed set is pending its committed Monte Carlo record (gh:#1739).");
     }

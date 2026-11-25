@@ -68,7 +68,8 @@ cycles, sweeps, loading and parsing.
   thread.
 - **The UI reads results without blocking.** Shared state follows the
   workspace rule (`Arc<RwLock<T>>`, e.g. the mailbox in
-  `monte_carlo_web/engine.rs`, ~~`triso_pebble_web`~~ renamed 2026-10-04).
+  `monte_carlo_web/engine.rs`, ~~`triso_pebble_web`~~ renamed 2026-10-04;
+  `crates/dhoby-ghaut/src/mc_demo/engine.rs` since gh:#1763).
   Never hold a lock across a long computation;
   take `try_read`-style snapshots for drawing.
 - **Long work streams results:** per generation, per batch, per nuclide. The
@@ -85,8 +86,9 @@ cycles, sweeps, loading and parsing.
 **Reference implementation:** `dhoby_ghaut::web_demo::link` (since
 2026-10-04: `Link`, `NativeEngine` / `start_native`, `WorkerEngine` /
 `worker_main` with the hello handshake), used by
-`crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs`
-(~~`triso_pebble_web/engine.rs`~~, renamed 2026-10-04): processing and
+~~`crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs`~~
+`crates/dhoby-ghaut/src/mc_demo/engine.rs` (the demo moved into the library,
+gh:#1763; ~~`triso_pebble_web/engine.rs`~~, renamed 2026-10-04): processing and
 transport in a worker, the page animating while the ENDF data are processed,
 and the Godiva Run k_eff running one power-iteration generation per worker
 message.

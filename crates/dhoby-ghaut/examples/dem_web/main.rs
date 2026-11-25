@@ -21,7 +21,7 @@
 //!   is the baked gh:#216 bed, shown as its own view.
 //! - `--headless <n> <steps>` runs the same engine natively, single-threaded,
 //!   and prints the cost per step: how the browser count was chosen.
-//! - `--bake-beds` writes `examples/common/htr10_beds.zz`, the lattice and
+//! - `--bake-beds` writes `src/mc_demo/htr10_beds.zz` (~~`examples/common/`~~ until gh:#1763), the lattice and
 //!   DEM beds of the `htr10` rung's liberties toggle ([`htr10_beds`]).
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`): not for reactor
@@ -31,9 +31,10 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
+// The baked beds, shared with the Monte Carlo demo's `htr10` rung: in the
+// library since gh:#1763 (~~`examples/common/htr10_beds.rs`~~).
 #[cfg(not(target_os = "android"))]
-#[path = "../common/htr10_beds.rs"]
-mod htr10_beds;
+use dhoby_ghaut::mc_demo::htr10_beds;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule: a blanked file gives "main function not found").
@@ -54,7 +55,7 @@ fn main() -> Result<(), String> {
             let csv = std::fs::read_to_string(format!("{root}/{}", htr10_beds::bake::DEM_CSV))
                 .map_err(|e| e.to_string())?;
             let (zz, report) = htr10_beds::bake::bake(&csv)?;
-            let out = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/common/htr10_beds.zz");
+            let out = concat!(env!("CARGO_MANIFEST_DIR"), "/src/mc_demo/htr10_beds.zz");
             std::fs::write(out, &zz).map_err(|e| e.to_string())?;
             for l in report {
                 println!("{l}");

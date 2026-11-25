@@ -329,12 +329,10 @@ pub struct HtgrSimApp {
     frame: Option<(HtgrSnapshot, HtgrPlotData)>,
     /// What the Map view asked for this frame, acted on after the shell.
     map_action: map_tab::MapAction,
-    /// Where the MC page's central view is this frame (`None` off it): the
-    /// browser places the Monte Carlo demo's HTR-10 core there (gh:#1761).
-    mc_rect: Option<egui::Rect>,
-    /// The core frame's last style (`mc_tab::place_core_frame`).
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-    mc_frame_style: String,
+    /// The MC page: the Monte Carlo demo's HTR-10 whole core, hosted
+    /// (gh:#1763; ~~an iframe over the central view in the browser,
+    /// gh:#1761~~), and what the reader measured on it.
+    mc: mc_tab::McPage,
     /// Shared scalar plant state (physics thread writes outputs, GUI writes
     /// control inputs).
     physics: SharedState<HtgrSnapshot>,
@@ -671,8 +669,7 @@ impl HtgrSimApp {
             shell: TwinShell::default(),
             frame: None,
             map_action: map_tab::MapAction::None,
-            mc_rect: None,
-            mc_frame_style: String::new(),
+            mc: mc_tab::McPage::default(),
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
             map_state: map_tab::MapTabState::default(),
@@ -947,13 +944,11 @@ impl eframe::App for HtgrSimApp {
         // replaced the desktop's top tab bar and right-hand panel and the
         // browser's folding panel and Schematic bottom bar.
         self.frame = Some((snapshot, self.plots.snapshot()));
-        self.mc_rect = None;
+        // The MC page's demo keeps its pools going on every page once
+        // started (gh:#1763).
+        self.mc.pump(ui.ctx());
         let mut shell = std::mem::take(&mut self.shell);
         shell.ui(ui, self);
-        // The full HTR-10 core over the MC page's central view, hidden on
-        // every other page (gh:#1761).
-        #[cfg(target_arch = "wasm32")]
-        mc_tab::place_core_frame(ui.ctx(), self.mc_rect, &mut self.mc_frame_style);
         // The Fault tree's "show the CV" asks for the Nodes page.
         if self.schematic_view == SchematicView::ControlVolumes && shell.page == TwinPage::Plant {
             shell.page = TwinPage::ControlVolumes;
@@ -1016,10 +1011,11 @@ impl ShellHost for HtgrSimApp {
         ui.small("Offline demonstration, not validated");
         ui.separator();
         if let Some((snapshot, plots)) = self.frame.take() {
-            // In the browser the MC page's central view is the full core,
-            // so the coefficient sets and the picker are here (gh:#1761).
-            if cfg!(target_arch = "wasm32") && at.page == TwinPage::MonteCarlo {
-                mc_tab::draw_sets(ui, &self.physics, &snapshot);
+            // The MC page's central view is the full core, so its controls,
+            // the measurements and the coefficient sets are here (gh:#1761,
+            // #1763).
+            if at.page == TwinPage::MonteCarlo {
+                self.mc.controls(ui, &self.physics, &snapshot);
                 ui.separator();
             }
             self.draw_side_controls(ui, &snapshot, &plots);
@@ -1060,15 +1056,7 @@ impl ShellHost for HtgrSimApp {
                 let action = self.ft_tab.draw(ui, rect, selected_cv.as_deref());
                 self.apply_ft_action(action);
             }
-            (Panel::Schematic, SchematicView::MonteCarlo) => {
-                if cfg!(target_arch = "wasm32") {
-                    // The core frame goes here (`mc_tab::place_core_frame`).
-                    self.mc_rect = Some(rect);
-                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "Loading the HTR-10 core…", egui::FontId::proportional(15.0), ui.visuals().text_color());
-                } else {
-                    mc_tab::draw(ui, &self.physics, &snapshot);
-                }
-            }
+            (Panel::Schematic, SchematicView::MonteCarlo) => self.mc.main_view(ui, rect),
             (panel, _) => {
                 let view = rect.size();
                 if panel == Panel::Map {

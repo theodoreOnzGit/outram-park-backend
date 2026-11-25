@@ -248,7 +248,7 @@ phase_demos() {
 # web-kovan's page (gh:#736): the wasm32 build of the Code Review UI.
 bash crates/kovan-web/web/build.sh "$OUT/code-review"
 # Browser demos (gh:#519, #521): ONE Monte Carlo demo with a rung table
-# (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
+# (crates/dhoby-ghaut/src/mc_demo/rungs.rs, ~~examples/monte_carlo_web/~~ until gh:#1763): wasm build, its JS
 # glue, the ENDF tapes it processes in the browser, and its geometry review
 # images. The TRISO pebble demo's old URL redirects to its rung.
 # Demo build scripts run through bash, so a clone with core.fileMode=false
@@ -488,10 +488,12 @@ done
 # table has. The table is `table.rs`, written out by hand since 2026-11-05
 # (gh:#1253; it was the `rung_table!` macro in main.rs, and this script kept
 # reading the macro, which found no rungs and would have failed the build): each
-# rung's `Rung::X => &<crate::MODULE::X as McRung>::INFO,` arm names its module.
-# Each rung's `name:` and `lesson:` lines are in its `<module>/mod.rs`, read as written.
-mc=crates/dhoby-ghaut/examples/monte_carlo_web
-rung_mods="$(grep -oE '&<crate::[a-z0-9_]+::[A-Za-z0-9]+ as McRung>::INFO' "$mc/table.rs" | sed -E 's/^&<crate::([a-z0-9_]+)::.*/\1/' | awk '!seen[$0]++')"
+# rung's `Rung::X => &<crate::mc_demo::MODULE::X as McRung>::INFO,` arm names
+# its module. Each rung's `name:` and `lesson:` lines are in its
+# `<module>/mod.rs`, read as written. Since gh:#1763 the demo is the library's
+# `dhoby_ghaut::mc_demo` (~~`examples/monte_carlo_web`~~, `&<crate::MODULE::`).
+mc=crates/dhoby-ghaut/src/mc_demo
+rung_mods="$(grep -oE '&<crate::mc_demo::[a-z0-9_]+::[A-Za-z0-9]+ as McRung>::INFO' "$mc/table.rs" | sed -E 's/^&<crate::mc_demo::([a-z0-9_]+)::.*/\1/' | awk '!seen[$0]++')"
 [[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/table.rs" >&2; exit 1; }
 rung_names=""
 for m in $rung_mods; do

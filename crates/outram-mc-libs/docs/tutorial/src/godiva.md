@@ -468,9 +468,9 @@ backend, `run_keff_cpu_single`, as an architecture map, on the [Code Review map]
 > **On the [Code Review map](../../code-review/):** start at [`run_keff_cpu_single`](../../code-review/#crates/outram-mc-libs/src/physics/keff.rs::run_keff_cpu_single). Each card opens the function's source and shows its review stamp.
 
 In the demo, the browser's worker reaches `PowerIteration::step` through
-[`godiva::sim::Keff::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/godiva/sim.rs#@@L:crates/dhoby-ghaut/examples/monte_carlo_web/godiva/sim.rs:after=impl+Keff;fn=step@@),
+[`godiva::sim::Keff::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/src/mc_demo/godiva/sim.rs#@@L:crates/dhoby-ghaut/src/mc_demo/godiva/sim.rs:after=impl+Keff;fn=step@@),
 called from
-[`Loaded::serve`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs#@@L:crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs:fn=serve@@)
+[`Loaded::serve`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/src/mc_demo/engine.rs#@@L:crates/dhoby-ghaut/src/mc_demo/engine.rs:fn=serve@@)
 when the page asks for the next generation *(filled by hand: page and worker
 talk by messages, not calls)*.
 

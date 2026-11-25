@@ -800,7 +800,7 @@ In the browser, a worker transports its chunk of a generation through the same
 history kernel, on the same random streams as the record's multi-thread
 driver:
 
-> **On the [Code Review map](../../code-review/):** start at [`CoreWorker::chunk`](../../code-review/#crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs::CoreWorker::chunk) and follow its callees (▸) to [`transport_history_vr`](../../code-review/#crates/outram-mc-libs/src/physics/transport_csg.rs::transport_history_vr). Each card opens the function's source and shows its review stamp.
+> **On the [Code Review map](../../code-review/):** start at [`CoreWorker::chunk`](../../code-review/#crates/dhoby-ghaut/src/mc_demo/htr10/core/mod.rs::CoreWorker::chunk) and follow its callees (▸) to [`transport_history_vr`](../../code-review/#crates/outram-mc-libs/src/physics/transport_csg.rs::transport_history_vr). Each card opens the function's source and shows its review stamp.
 
 
 ### The deliberate liberties
