@@ -104,7 +104,18 @@ impl TwinPage {
         TwinPage::MonteCarlo,
     ];
 
-    /// The tab label.
+    /// The short label a phone-width tab bar fits (five tabs at 390 px).
+    pub fn tab_label(self) -> &'static str {
+        match self {
+            TwinPage::Plant => "Plant",
+            TwinPage::ControlVolumes => "CVs",
+            TwinPage::CoarseMultiphysics => "Coarse",
+            TwinPage::FineMultiphysics => "Fine",
+            TwinPage::MonteCarlo => "MC",
+        }
+    }
+
+    /// The page title.
     pub fn title(self) -> &'static str {
         match self {
             TwinPage::Plant => "Plant",
@@ -636,6 +647,21 @@ where
             progress(i + 1, runs.len(), &r.label, k);
             results.push(k);
         }
+        self.record_monte_carlo(results)
+    }
+
+    /// Keep `results` (one per [`MonteCarloCase::runs`], in order) as the
+    /// live set, computed by the attached case. For a host that ran the
+    /// transport elsewhere (a worker thread, a browser pool) so the plant
+    /// kept stepping meanwhile. Not sent to the plant.
+    pub fn record_monte_carlo(&mut self, results: Vec<KeffResult>) -> Result<&CoefficientSource<M::Coefficients>, TwinError> {
+        let Some(case) = self.monte_carlo.as_ref() else {
+            return Err(TwinError::NotBuilt { page: TwinPage::MonteCarlo, issue: self.monte_carlo_issue });
+        };
+        let runs = case.runs();
+        if results.len() != runs.len() {
+            return Err(TwinError::MonteCarlo(format!("{} results for {} runs", results.len(), runs.len())));
+        }
         let value = case.coefficients(&results)?;
         self.live = Some(CoefficientSource::Live { value, runs: runs.into_iter().zip(results).collect() });
         Ok(self.live.as_ref().expect("set just above"))
@@ -753,6 +779,14 @@ where
         self.plant_csv(script, dt, end)
     }
 }
+
+/// The template's GUI: [`app::TwinApp`] over an adopter's [`app::TwinHost`]
+/// (gh:#1745). Off Android, with the rest of the egui code.
+#[cfg(not(target_os = "android"))]
+pub mod app;
+/// A native [`app::TwinHost`]: the twin on its own threads (gh:#1745).
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+pub mod local;
 
 #[cfg(test)]
 mod tests;

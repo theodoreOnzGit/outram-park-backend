@@ -160,6 +160,7 @@ impl FeedbackCoupling<()> for TestPlant {
 
 /// An analytic "Monte Carlo" case: `1/k = 1/k₀ − α_r ΔT` for the region
 /// raised, so the template must recover `α_r` to round-off.
+#[derive(Clone)]
 struct AnalyticMc {
     k0: f64,
     sigma: f64,
@@ -201,6 +202,7 @@ impl MonteCarloCase for AnalyticMc {
     }
 }
 
+#[derive(Clone)]
 struct TestMultiphysics;
 
 impl MultiphysicsCase for TestMultiphysics {
@@ -285,6 +287,14 @@ fn a_live_run_reaches_the_plant_only_when_sent() {
     assert_eq!(twin.coefficients().provenance(), "live Monte Carlo run, 3 k_eff runs this session");
     assert!(twin.live_coefficients().is_none());
 
+    // A host that ran the transport elsewhere records the same results.
+    let results: Vec<KeffResult> = match twin.coefficients() {
+        CoefficientSource::Live { runs, .. } => runs.iter().map(|r| r.1).collect(),
+        _ => unreachable!("sent above"),
+    };
+    assert!(twin.record_monte_carlo(results[..2].to_vec()).is_err(), "one result per run");
+    assert_eq!(*twin.record_monte_carlo(results).expect("record").value(), got);
+    assert_eq!(twin.send_to_plant(), Ok(true));
     let committed = CoefficientSource::Committed { value: TRUTH, record: "test record".into() };
     twin.use_coefficients(committed).expect("committed");
     assert_eq!(twin.coefficients().provenance(), "committed Monte Carlo record: test record");
@@ -404,6 +414,8 @@ fn the_headless_flags_reach_each_output() {
 /// The fixed vocabularies the pages and CSVs print.
 #[test]
 fn the_page_and_role_words_are_fixed() {
+    let tabs: Vec<&str> = TwinPage::ALL.iter().map(|p| p.tab_label()).collect();
+    assert_eq!(tabs, ["Plant", "CVs", "Coarse", "Fine", "MC"]);
     let titles: Vec<&str> = TwinPage::ALL.iter().map(|p| p.title()).collect();
     assert_eq!(titles, ["Plant", "Control volumes", "Coarse-mesh multiphysics", "Fine-mesh multiphysics", "Monte Carlo"]);
     let roles = [CvRole::Balance, CvRole::Junction, CvRole::Inventory, CvRole::NoVolume, CvRole::Boundary];
@@ -419,4 +431,58 @@ fn the_page_and_role_words_are_fixed() {
     let mut mc = AnalyticMc { k0: 1.0, sigma: 0.0, truth: TRUTH, delta_k: 1.0 };
     assert!(mc.run(9).is_err());
     assert!(mc.coefficients(&[]).is_err());
+}
+
+/// **The native host (gh:#1745).** The plant steps on its own thread
+/// (history grows, a command reaches it); a Monte Carlo request runs on
+/// another thread while the plant keeps stepping, its runs and live set
+/// show on the page's data, and "send to plant" puts it in use; a
+/// multiphysics request fills its page or says "not built"; dropping the
+/// host stops the plant thread.
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+#[test]
+fn the_local_host_runs_the_twin_off_the_ui_thread() {
+    use super::app::{TwinAction, TwinHost};
+    use super::local::{LocalHost, PlantControls};
+    struct NoControls;
+    impl PlantControls<TestPlant> for NoControls {
+        fn controls(&mut self, _ui: &mut egui::Ui, _latest: Option<&Snap>) -> Vec<Cmd> {
+            Vec::new()
+        }
+    }
+    let wait = |what: &str, done: &dyn Fn() -> bool| {
+        let t0 = std::time::Instant::now();
+        while !done() {
+            assert!(t0.elapsed().as_secs() < 30, "{what} not done in 30 s");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    };
+    let mut host = LocalHost::start(full_at(850.0), NoControls, "test twin".into(), Time::new::<second>(0.002), 1.0);
+    assert_eq!(host.title(), "test twin");
+    assert_eq!(host.columns(), Snap::columns());
+    wait("plant steps", &|| host.history().len() > 5);
+    host.send(Cmd::Rod(0.001)).expect("rod");
+    wait("rod reaches the plant", &|| host.history().last().is_some_and(|r| r[3] > 0.0));
+    assert!(host.plant_error().is_none());
+    assert!(host.monte_carlo().in_use.starts_with("cited:"));
+    assert_eq!(host.monte_carlo().runs.len(), 3);
+
+    host.act(TwinAction::RunMonteCarlo);
+    wait("Monte Carlo", &|| !host.monte_carlo_running());
+    let v = host.monte_carlo();
+    assert!(v.error.is_none(), "{:?}", v.error);
+    assert!(v.runs.iter().all(|r| r.result.is_some()));
+    assert_eq!(v.live, vec!["fuel -4.0000e-5 /K".to_string(), "moderator -3.0000e-5 /K".to_string()]);
+    host.act(TwinAction::SendToPlant);
+    assert!(host.monte_carlo().in_use.starts_with("live Monte Carlo run"));
+    let a = host.twin().read().unwrap().plant().alpha;
+    assert!(((a.fuel - TRUTH.fuel) / TRUTH.fuel).abs() < 1e-9 && ((a.moderator - TRUTH.moderator) / TRUTH.moderator).abs() < 1e-9, "{a:?}");
+
+    host.act(TwinAction::RunMultiphysics(MeshResolution::Coarse));
+    wait("coarse multiphysics", &|| host.multiphysics(MeshResolution::Coarse) == vec!["radial peaking 1.250 (test value)".to_string()]);
+    host.act(TwinAction::RunMultiphysics(MeshResolution::Fine));
+    assert_eq!(host.multiphysics(MeshResolution::Fine), vec!["Fine-mesh multiphysics is not built yet (gh:#1746)".to_string()]);
+    assert_eq!(host.page_status(TwinPage::FineMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::FineMultiphysics, issue: 1746 }));
+    assert!(host.control_volumes().get("core").is_some());
+    drop(host);
 }
