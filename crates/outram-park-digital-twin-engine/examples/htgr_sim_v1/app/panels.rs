@@ -424,7 +424,7 @@ pub fn draw_controls(
     ui.separator();
 
     coefficient_picker(ui, physics, snapshot);
-    ui.small("The sets' numbers are on the Schematic tab's Monte Carlo view.");
+    ui.small("The sets' numbers are on the MC page.");
     ui.separator();
 
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;

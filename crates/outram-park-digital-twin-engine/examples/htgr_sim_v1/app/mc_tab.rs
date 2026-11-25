@@ -1,4 +1,4 @@
-//! # The Schematic tab's Monte Carlo view (gh:#1740)
+//! # The MC page (gh:#1740; on the standard shell since gh:#1758)
 //!
 //! The coefficient sets the plant can run on, beside each other, with the
 //! picker, at the bottom bar as the MSRE simulator's k_eff tab is (maintainer,
@@ -30,9 +30,6 @@ pub fn draw(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot: &HtgrSna
     let inner = ui.max_rect().shrink(8.0);
     let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(inner));
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(&mut ui, |ui| {
-        // Clear of "Controls »" (44 px + inset) on the browser's main view.
-        #[cfg(target_arch = "wasm32")]
-        ui.add_space(super::REOPEN_ROW_PX);
         ui.heading("Monte Carlo: HTR-10 coefficient sets");
         ui.label(
             "The plant's feedback uses a fuel (kernel Doppler) and a moderator (graphite) temperature \

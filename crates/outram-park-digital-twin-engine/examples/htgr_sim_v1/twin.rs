@@ -53,6 +53,8 @@ use crate::physics::{control_rods, HtgrPlant, PlantCommands, PLANT_TIMESTEP_S};
 pub const MULTIPHYSICS_ISSUE: u32 = 1746;
 /// The issue behind the Monte Carlo case and its record.
 pub const MONTE_CARLO_ISSUE: u32 = 1739;
+/// Where the committed poured-bed set comes from.
+pub const POURED_BED_RECORD: &str = "crates/nee_soon/verification_and_validation/htr10_dem_bed_coefficients_2026_11_25/";
 /// The cited set's citation.
 pub const CITED: &str =
     "Chen et al. 2009 isothermal -1.4e-4 /K split by Hu et al. 2006's fuel share 0.7117; bank worth 15.24 % dk/k (IAEA-TECDOC-1382, VSOP)";
@@ -74,6 +76,20 @@ impl Htr10Coefficients {
     pub fn cited() -> Self {
         let (fuel, moderator) = HtgrPlant::new().kinetics.temperature_coefficients();
         Self { fuel, moderator, bank_worth_dk_k: control_rods::bank_worth_dk_k() }
+    }
+
+    /// The committed poured-bed set (gh:#1739's record, gh:#1750), as the
+    /// plant's selector has it (`coefficient_set::POURED_BED`).
+    pub fn poured_bed() -> Option<CoefficientSource<Self>> {
+        let (f, m, w) = crate::physics::coefficient_set::POURED_BED?;
+        Some(CoefficientSource::Committed {
+            value: Self {
+                fuel: TemperatureCoefficient::new::<per_kelvin>(f),
+                moderator: TemperatureCoefficient::new::<per_kelvin>(m),
+                bank_worth_dk_k: w,
+            },
+            record: POURED_BED_RECORD.into(),
+        })
     }
 
     /// One line per quantity, in pcm/K and % dk/k.
@@ -413,8 +429,9 @@ mod tests {
         for r in [cv::CvRole::Balance, cv::CvRole::Junction, cv::CvRole::Inventory, cv::CvRole::NoVolume, cv::CvRole::Boundary] {
             assert_eq!(format!("{:?}", role(r)), format!("{r:?}"));
         }
-        assert_eq!(twin.page_status(TwinPage::CoarseMultiphysics), Ok(()));
-        assert_eq!(twin.page_status(TwinPage::FineMultiphysics), Ok(()));
+        assert_eq!(twin.page_status(TwinPage::Cfd), Ok(()));
+        assert_eq!(twin.resolution_status(outram_park_digital_twin_engine::twin::MeshResolution::Coarse), Ok(()));
+        assert_eq!(twin.resolution_status(outram_park_digital_twin_engine::twin::MeshResolution::Fine), Ok(()));
         assert!(twin.coefficients().provenance().starts_with("cited: Chen et al. 2009"));
         let cited = Htr10Coefficients::cited();
         assert_eq!(cited.describe().len(), 3);
@@ -451,5 +468,12 @@ mod tests {
         twin.use_coefficients(CoefficientSource::Committed { value: set, record: "synthetic".into() }).expect("set");
         assert_eq!(twin.plant().plant().kinetics.temperature_coefficients(), (set.fuel, set.moderator));
         assert_eq!(twin.plant().plant().bank_worth_dk_k(), 0.176);
+        // gh:#1750: the committed record's set, named by its record.
+        let committed = Htr10Coefficients::poured_bed().expect("committed");
+        let v = *committed.value();
+        twin.use_coefficients(committed).expect("committed set");
+        assert!(twin.coefficients().provenance().contains("htr10_dem_bed_coefficients_2026_11_25"));
+        assert_eq!(twin.plant().plant().kinetics.temperature_coefficients(), (v.fuel, v.moderator));
+        assert_eq!(twin.plant().plant().bank_worth_dk_k(), v.bank_worth_dk_k);
     }
 }
