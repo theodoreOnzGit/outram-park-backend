@@ -323,6 +323,27 @@ fn draw_real_time_indicator(ui: &mut Ui, snapshot: &HtgrSnapshot) {
     }
 }
 
+/// The coefficient set the plant runs on (gh:#1740): one radio button per
+/// set, an entry not available yet shown disabled with its issue. Drawn in
+/// the controls and on the Monte Carlo view, so the two cannot disagree.
+/// GUI drawing code: exempt from a reaching test (it needs a live egui
+/// frame); what it sets is `CoefficientSet::apply`, tested.
+pub fn coefficient_picker(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot: &HtgrSnapshot) {
+    ui.label("Reactivity coefficients and rod-bank worth");
+    let mut set = snapshot.coefficient_set;
+    for s in crate::physics::coefficient_set::CoefficientSet::ALL {
+        ui.add_enabled_ui(s.available(), |ui| {
+            ui.radio_value(&mut set, s, s.label());
+        });
+    }
+    if !crate::physics::coefficient_set::CoefficientSet::MonteCarloPouredBed.available() {
+        ui.small("The poured-bed set is pending its committed Monte Carlo record (gh:#1739).");
+    }
+    if set != snapshot.coefficient_set {
+        physics.update(|s| s.coefficient_set = set);
+    }
+}
+
 pub fn draw_controls(
     ui: &mut Ui,
     physics: &SharedState<HtgrSnapshot>,
@@ -400,6 +421,10 @@ pub fn draw_controls(
     }
     // The achieved rate under fast forward is the real-time indicator's
     // first line, at the top of the panel (2026-10-27).
+    ui.separator();
+
+    coefficient_picker(ui, physics, snapshot);
+    ui.small("The sets' numbers are on the MC page.");
     ui.separator();
 
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;

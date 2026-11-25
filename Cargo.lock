@@ -6631,6 +6631,7 @@ dependencies = [
  "outram-mc-libs",
  "outram-park-fork-liggghts",
  "petir",
+ "rayon",
  "serde",
  "serde_json",
  "spin 0.10.1",

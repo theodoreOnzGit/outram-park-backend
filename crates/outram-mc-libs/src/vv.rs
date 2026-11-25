@@ -17,8 +17,11 @@
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod njoy_golden;
-/// MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core model.
-pub mod msre_n1;
+// ~~MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core model,
+// `pub mod msre_n1`.~~ MOVED 2026-11-25 (gh:#1737) to `nee_soon::msre_n1`, with
+// its examples and record: it is a reactor model, and reactor models live in
+// nee_soon (maintainer, 2026-11-24). Not re-exported: nee_soon depends on this
+// crate, so a re-export would be a cycle.
 /// ICSBEP LEU-COMP-THERM-008: the cards, materials, nested-lattice CSG, its
 /// self-check and the pin cell (moved from `examples/common/` 2026-11-17).
 pub mod lct008;

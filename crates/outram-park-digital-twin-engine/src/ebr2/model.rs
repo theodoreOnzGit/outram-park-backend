@@ -631,6 +631,9 @@ pub struct Ebr2Model {
     derived: DerivedGeometry,
     time: Time,
     temperatures: Temperatures,
+    /// The initial steady state's temperatures: the feedback's references
+    /// (kept when the coefficients change, gh:#1749).
+    initial_temperatures: Temperatures,
     primary_flow: MassRate,
     initial_primary_flow: MassRate,
     initial_total_power: Power,
@@ -829,6 +832,7 @@ impl Ebr2Model {
             derived,
             time: zero,
             temperatures: temps,
+            initial_temperatures: temps,
             primary_flow: flow,
             initial_primary_flow: flow,
             initial_total_power: total_power,
@@ -1015,6 +1019,29 @@ impl Ebr2Model {
                 Ok(())
             }
         }
+    }
+
+    /// Switch the running plant to these reactivity coefficients (gh:#1749,
+    /// the multifidelity twin's "send to plant"). The state is kept and
+    /// every feedback reference stays at the initial steady state, as at
+    /// construction, so the switch changes the feedback reactivity at once
+    /// by `(new − old) × (T − T_ref)` for each term: a plant away from its
+    /// initial temperatures steps in reactivity, as MSRE's
+    /// `set_temperature_coefficients` does. The configuration records the
+    /// new set. Point-kinetics mode only: tabulated power has no feedback.
+    pub fn set_reactivity_coefficients(&mut self, c: ReactivityCoefficients) -> Result<(), Ebr2Error> {
+        let PowerConfig::PointKinetics(kc) = &mut self.config.power else {
+            return Err(Ebr2Error::Invalid("tabulated power has no feedback coefficients".to_string()));
+        };
+        let PowerState::Kinetics(k) = &mut self.power else {
+            return Err(Ebr2Error::Invalid("tabulated power has no feedback coefficients".to_string()));
+        };
+        let mut next = kc.clone();
+        next.coefficients = c;
+        k.feedback = build_feedback(&next, &self.initial_temperatures)?;
+        *kc = next;
+        self.reactivity = self.evaluate_reactivity()?;
+        Ok(())
     }
 
     // ----- getters -------------------------------------------------------

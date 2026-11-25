@@ -48,7 +48,7 @@ pub enum Coefficients {
     /// (dimensions at temperature, whole shield, U-234/U-236 salt): fuel
     /// −3.79 ± 0.37, graphite −3.26 ± 0.33 × 10⁻⁵ /°F (MSRE N-3,
     /// gh:#1129, 2026-11-13; record in
-    /// `crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/README.md`).
+    /// `crates/nee_soon/verification_and_validation/msre_n1_first_criticality/README.md`).
     /// The high-fidelity level feeding the low-fidelity one.
     MonteCarloN3,
     /// Measured in this browser session on the simulator's k_eff tab

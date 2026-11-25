@@ -21,38 +21,16 @@
 //!   as every demo.
 
 use crate::tapes::read_tape;
-use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::fhr_pebble::homogeneous_cube;
 use outram_mc_libs::vv::ugraphite as vv;
 
-pub use vv::TEMPERATURE_K;
-
-/// Half-width of the reflective cube, cm: `examples/ugraphite_four_factor.rs`'s
-/// `HALF_CM`. Irrelevant to `k_inf`; it only sets how often a track meets a wall.
-pub const HALF_CM: f64 = 50.0;
-
-/// The tapes, `(label shown while loading, file)`: the five nuclides in
-/// [`vv::TAPES`] order (the order [`vv::Mix::material`] indexes), then the
-/// crystalline-graphite S(α,β) law.
-pub const JOBS: [(&str, &str); 6] = [
-    ("U-234", vv::TAPES[0].1),
-    ("U-235", vv::TAPES[1].1),
-    ("U-238", vv::TAPES[2].1),
-    ("C-12", vv::TAPES[3].1),
-    ("C-13", vv::TAPES[4].1),
-    ("graphite S(α,β)", vv::GRAPHITE_TSL.0),
-];
-
-/// Index of U-235 in the nuclide list (for the Watch mode's birth spectrum).
-pub const N_U235: usize = vv::Role::U235.tape_index();
-/// Index of U-238 (the σ(E) panel, gh:#549). The uranium slots do not move
-/// when the graphite law is bound; the carbon's do, see [`DataBuilder::finish`]
-/// and `vv::RoleIndex`.
-pub const N_U238: usize = vv::Role::U238.tape_index();
+// The model half (tapes, indices, mixture, materials, cube) moved to
+// `nee_soon::mc_rungs::ugraphite` (gh:#1742, 2026-11-25); the data builder,
+// which processes through the browser's cache, stays here.
+pub use nee_soon::mc_rungs::ugraphite::{build_geometry, materials, HALF_CM, JOBS, N_U235, N_U238, TEMPERATURE_K};
 
 /// Incremental processing, one job per call, as `load_nuclides` in
 /// `examples/common/ugraphite_common.rs` does from files: RECONR + BROADR to
@@ -104,17 +82,3 @@ impl DataBuilder {
     }
 }
 
-/// Rung 2's main case: one HTR-10 fuel pebble's uranium and carbon.
-pub fn mixture() -> vv::Mix {
-    vv::htr10_pebble_mix().0
-}
-
-/// The one material, at index 0.
-pub fn materials() -> Vec<Material> {
-    vec![mixture().material(1, "U(17 wt%) + graphite, HTR-10 pebble ratio")]
-}
-
-/// The reflective cube filled with material 0.
-pub fn build_geometry() -> Geometry {
-    homogeneous_cube(HALF_CM, 0, TEMPERATURE_K)
-}

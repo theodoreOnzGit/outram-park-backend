@@ -571,6 +571,58 @@ pub fn graphite_worth_cases(base: ThermodynamicTemperature, delta_k: f64) -> Vec
     ]
 }
 
+/// The rod-bank case beside [`graphite_worth_cases`] (gh:#1739): every zone
+/// at `base`, all ten rods fully inserted (see [`run_worth_case`]). Its worth
+/// against `BASE`, `1/k_in - 1/k_base`, is the bank's.
+#[must_use]
+pub fn rods_in_case(base: ThermodynamicTemperature) -> GraphiteWorthCase {
+    GraphiteWorthCase { name: "RODS-IN", temperatures: ZoneTemperatures::uniform(base), slots: vec![] }
+}
+
+/// The poured bed of the 2026-10-08 record from a DEM CSV's text: the
+/// centres cut to the lattice's 16 681 core balls at N = 12
+/// (`mc_rungs::htr10_core::dem_centres`), fuel by
+/// [`super::explicit_bed::paper_fuel_assignment`] (gh:#1739).
+///
+/// # Errors
+/// A malformed CSV, or too few pebbles above the floor.
+pub fn poured_bed(dem_csv: &str) -> Result<StudyBed, String> {
+    let centres = crate::mc_rungs::htr10_core::dem_centres(dem_csv)?;
+    let is_fuel = super::explicit_bed::paper_fuel_assignment(&centres);
+    Ok(StudyBed::Explicit { centres, is_fuel })
+}
+
+/// **One worth case on `bed`, end to end** (gh:#1739, gh:#1750): plan at the
+/// case's temperatures and moved slots, process every job natively on
+/// `threads` threads, transport with `statistics`. A case named `RODS-IN`
+/// ([`rods_in_case`]) has all ten rods fully inserted; every other case has
+/// them withdrawn. What `examples/htr10_graphite_zone_worth.rs` runs per
+/// case, and what the HTR-10 twin's Monte Carlo page runs.
+///
+/// # Errors
+/// [`ParametricStudy::check`] refuses the settings, or a tape fails.
+#[cfg(feature = "std")]
+pub fn run_worth_case(
+    bed: &StudyBed,
+    case: &GraphiteWorthCase,
+    statistics: SweepStatistics,
+    threads: usize,
+    progress: impl Fn(&str) + Sync,
+) -> Result<KeffResult, String> {
+    let rods = if case.name == "RODS-IN" { 1.0 } else { 0.0 };
+    let study = ParametricStudy {
+        bed: bed.clone(),
+        rod_insertions: [rods; N_CONTROL_RODS],
+        temperatures: case.temperatures,
+        statistics,
+        ..ParametricStudy::default()
+    };
+    study.check()?;
+    let plan = study.plan_with_slot_temperatures(&case.slots).map_err(|e| e.to_string())?;
+    let nuclides = study.process_all(&plan, threads, progress)?;
+    study.transport(&plan, &nuclides, threads)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -767,5 +819,42 @@ mod tests {
         let mut s = ParametricStudy::default();
         s.rod_insertions[3] = 1.5;
         assert!(s.check().is_err());
+    }
+
+    /// gh:#1739: the rod-bank case is BASE's temperatures with its own
+    /// name; the poured bed is the record's 16 681 core balls with the
+    /// paper's 57:43 split.
+    #[cfg(feature = "std")]
+    #[test]
+    fn the_rods_in_case_and_the_poured_bed_are_the_records() {
+        let base = ThermodynamicTemperature::new::<kelvin>(600.0);
+        let r = rods_in_case(base);
+        assert_eq!(r.name, "RODS-IN");
+        assert_eq!(r.temperatures, graphite_worth_cases(base, 600.0)[0].temperatures);
+        assert!(r.slots.is_empty());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv");
+        let text = std::fs::read_to_string(path).expect("the record's DEM bed");
+        match poured_bed(&text).expect("bed") {
+            StudyBed::Explicit { centres, is_fuel } => {
+                assert_eq!(centres.len(), is_fuel.len());
+                assert_eq!(is_fuel.iter().filter(|&&f| f).count(), 9_508, "the record's fuel count");
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(poured_bed("not,a,bed").is_err());
+    }
+
+    /// gh:#1739/#1750: [`run_worth_case`] end to end on the lattice at a
+    /// smoke size, BASE then RODS-IN: the rods lower k. Not a V&V number.
+    #[cfg(feature = "std")]
+    #[test]
+    #[ignore = "processes the HTR-10 nuclear data twice (tens of minutes); run with --ignored"]
+    fn a_worth_case_runs_end_to_end() {
+        let base = ThermodynamicTemperature::new::<kelvin>(600.0);
+        let stats = SweepStatistics { particles: 300, inactive: 2, active: 3, ..SweepStatistics::QUICK };
+        let bed = StudyBed::Seker { layers: DEFAULT_LAYERS };
+        let k0 = run_worth_case(&bed, &graphite_worth_cases(base, 600.0)[0], stats, 4, |_| {}).expect("base");
+        let k1 = run_worth_case(&bed, &rods_in_case(base), stats, 4, |_| {}).expect("rods in");
+        assert!(k1.k_mean < k0.k_mean, "{} against {}", k1.k_mean, k0.k_mean);
     }
 }

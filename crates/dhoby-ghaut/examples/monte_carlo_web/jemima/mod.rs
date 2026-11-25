@@ -18,23 +18,11 @@ use crate::keff::{KeffConfig, Reference};
 use crate::rungs::{McRung, RungInfo};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect, Sense, Stroke, Vec2};
-use outram_mc_libs::geometry::geometry::Geometry;
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::material::material::Material;
-use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::vv::jemima as model;
 
-/// The marker type `table.rs` names.
-pub struct Jemima;
-
-/// The three tapes, `(label shown while loading, file)`, in
-/// [`model::NUCLIDES`] order.
-pub const JOBS: [(&str, &str); 3] = [("U-234", model::NUCLIDES[0].1), ("U-235", model::NUCLIDES[1].1), ("U-238", model::NUCLIDES[2].1)];
-const NUCLIDES: [(&str, &str, &str); 3] = [
-    ("U-234", model::NUCLIDES[0].0, model::NUCLIDES[0].1),
-    ("U-235", model::NUCLIDES[1].0, model::NUCLIDES[1].1),
-    ("U-238", model::NUCLIDES[2].0, model::NUCLIDES[2].1),
-];
+/// The case and its tapes: `nee_soon::mc_rungs::jemima` (moved 2026-11-25,
+/// gh:#1742), the type `table.rs` names.
+pub use nee_soon::mc_rungs::jemima::{Jemima, JOBS};
 
 const CORE: Color32 = Color32::from_rgb(196, 92, 60);
 const REFLECTOR: Color32 = Color32::from_rgb(96, 84, 128);
@@ -43,32 +31,6 @@ const REFLECTOR: Color32 = Color32::from_rgb(96, 84, 128);
 const RECORDED_TRACKS: &[u8] = include_bytes!("data/tracks.bin.z");
 
 impl CsgCase for Jemima {
-    const TEMPERATURE_K: f64 = model::TEMPERATURE_K;
-    const N_U235: usize = 1;
-    /// A fresh chain starts from a 1 MeV-incident fission, as in Godiva.
-    const FRESH_INCIDENT_EV: f64 = 1.0e6;
-    /// A fast neutron here makes a few tens of collisions.
-    const MAX_STATES: usize = 20_000;
-    fn nuclides() -> &'static [(&'static str, &'static str, &'static str)] {
-        &NUCLIDES
-    }
-    fn materials() -> Vec<Material> {
-        model::materials()
-    }
-    fn geometry() -> Geometry {
-        model::geometry()
-    }
-    fn source_box() -> SourceBox {
-        model::source_box()
-    }
-    /// The whole assembly: the natural-uranium reflector fissions too.
-    fn entropy_box() -> SourceBox {
-        SourceBox { lower: Position::new(-model::R_OUT, -model::R_OUT, model::Z_BOT), upper: Position::new(model::R_OUT, model::R_OUT, model::Z_TOP) }
-    }
-    /// A uniform point of the core.
-    fn fresh_birth(rng: &mut u64) -> Position {
-        csgrung::uniform_in_cylinder(rng, model::R_CORE, model::Z_CORE_LO, model::Z_CORE_HI)
-    }
     fn reference() -> Option<Reference> {
         <Jemima as McRung>::reference()
     }

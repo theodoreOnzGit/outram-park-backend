@@ -38,30 +38,9 @@ pub enum CutKind {
     Plan,
 }
 
-/// A recorded native k_eff: value, 1σ, and the record it is read from.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RecordedK {
-    pub k: f64,
-    pub sigma: f64,
-    pub record: &'static str,
-}
-
-/// The lattice at N = 12 on ENDF/B-VIII.0, 10 000 × [5 + 135], recorded
-/// 2026-10-07 (`nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k/`).
-pub const LATTICE_K: RecordedK = RecordedK {
-    k: 0.995125,
-    sigma: 0.001055,
-    record: "2026-10-07, at dbb9e26eb1",
-};
-
-/// This random bed (the gh:#216 pour cut to the lattice's 16 681 balls),
-/// same driver and statistics, recorded 2026-10-08
-/// (`nee_soon/verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
-pub const RANDOM_K: RecordedK = RecordedK {
-    k: 0.989293,
-    sigma: 0.000962,
-    record: "2026-10-08, at 713cd5bb60",
-};
+// The recorded k of the two beds moved to `nee_soon::mc_rungs` (gh:#1742,
+// 2026-11-25), unchanged.
+pub use nee_soon::mc_rungs::htr10_core::{LATTICE_K, RANDOM_K};
 
 /// `(random − lattice)` in pcm and its σ.
 pub fn random_minus_lattice_pcm() -> (f64, f64) {

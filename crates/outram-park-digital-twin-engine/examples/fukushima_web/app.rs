@@ -16,9 +16,10 @@ use crate::physics::params::*;
 use crate::physics::{Frame, Mode, Unit, EVENTS};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, StrokeKind, Vec2};
 use bugis::web_demo::link::Link;
-use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, query_value, set_title};
-use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
+use bugis::web_demo::view::{apply_zoom, View};
+use outram_park_digital_twin_engine::twin::shell::{ShellAt, ShellHost, TwinShell};
+use outram_park_digital_twin_engine::twin::{TwinPage, ViewState};
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 use outram_park_digital_twin_engine::components::{
@@ -38,20 +39,18 @@ const T_MAX: f64 = 2400.0;
 /// Speeds offered (simulated seconds per wall second; 0 = as fast as it goes).
 const SPEEDS: [(f64, &str); 6] = [(1.0, "1x (real time)"), (10.0, "10x"), (60.0, "1 min/s"), (600.0, "10 min/s"), (3600.0, "1 h/s"), (0.0, "as fast as it goes")];
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tab {
-    Plant,
-    Plots,
-}
-
+/// The Fukushima simulator's pages on the standard twin shell (gh:#1760):
+/// the shell owns the Gruvbox theme, the left panel, the page bar and the
+/// greying; this app fills the slots ([`ShellHost`]). Plant is the plant,
+/// Graphs the plots; every other page is greyed until built (gh:#1760). The
+/// severe-accident sequence (core damage, hydrogen, venting) has no page of
+/// its own: it acts on every page (maintainer, 2026-11-25).
 pub struct App {
-    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
-    /// selector switches it.
-    theme: bugis::Theme,
+    shell: TwinShell,
     link: Link<Request, Event>,
-    panel: Panel,
     view: View,
-    tab: Tab,
+    /// The plant view's fit rect, for the shell's zoom buttons.
+    plant_fit: Rect,
     frame: Option<Frame>,
     history: Vec<[f64; SAMPLE_LEN]>,
     stats: [f64; 4],
@@ -127,12 +126,11 @@ impl App {
 
     fn bare(link: Link<Request, Event>) -> Self {
         Self {
-            theme: bugis::Theme::default(),
+            shell: TwinShell::default(),
             link,
-            panel: Panel::default(),
+            plant_fit: Rect::NOTHING,
             // The reactor building's outline, y = -8.2 to 27 m, plus a margin.
             view: View::new(17.9).with_home([0.0, 9.4]),
-            tab: Tab::Plant,
             frame: None,
             history: Vec::new(),
             stats: [0.0; 4],
@@ -544,50 +542,59 @@ impl eframe::App for App {
             set_title(&ctx, &title);
             self.title = title;
         }
-        let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Fukushima Daiichi Unit 1", |ui| {
-            // The shared Gruvbox Dark/Light selector (GUI drawing).
-            bugis::selector(ui, &mut self.theme);
-            self.side_panel(ui);
-        });
-        self.panel = panel;
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
-            let rect = ui.max_rect();
-            // Bottom bar: the two views.
-            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 110.0, rect.bottom() - 48.0), Vec2::new(220.0, 40.0));
-            if self.tab == Tab::Plant {
-                let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
-                // Fit between the button row and the tab bar, which take the
-                // same height top and bottom, so the centre is unchanged.
-                let fit_rect = rect.shrink2(Vec2::new(0.0, 56.0));
-                if !self.view.fitted || (!self.view.touched && self.view.fit_size != fit_rect.size()) {
-                    self.view.fit(fit_rect);
+        let mut shell = std::mem::take(&mut self.shell);
+        shell.ui(ui, self);
+        self.shell = shell;
+    }
+}
+
+impl ShellHost for App {
+    fn title(&self) -> String {
+        "Fukushima Daiichi Unit 1".into()
+    }
+
+    fn page_state(&self, page: TwinPage) -> ViewState {
+        match page {
+            TwinPage::Plant | TwinPage::Graphs => ViewState::Built,
+            _ => ViewState::NotBuilt { issue: 1760 },
+        }
+    }
+
+    fn left(&mut self, ui: &mut egui::Ui, _at: ShellAt) {
+        self.side_panel(ui);
+    }
+
+    fn zoomable(&self, at: ShellAt) -> bool {
+        at.page == TwinPage::Plant
+    }
+
+    fn zoom(&mut self, _at: ShellAt, z: bugis::web_demo::view::Zoom) {
+        apply_zoom(&mut self.view, self.plant_fit, z);
+    }
+
+    fn central(&mut self, ui: &mut egui::Ui, rect: Rect, at: ShellAt) {
+        ui.painter().rect_filled(rect, 0.0, ui.visuals().extreme_bg_color);
+        if let Some(f) = &self.frame {
+            ui.painter().text(rect.left_top() + Vec2::new(10.0, 4.0), Align2::LEFT_TOP, clock(f.t_s), FontId::proportional(15.0), ui.visuals().text_color());
+        }
+        let below = Rect::from_min_max(rect.min + Vec2::new(0.0, 24.0), rect.max);
+        match at.page {
+            TwinPage::Plant => {
+                let resp = ui.interact(below, ui.id().with("plant"), egui::Sense::click_and_drag());
+                self.plant_fit = below;
+                if !self.view.fitted || (!self.view.touched && self.view.fit_size != below.size()) {
+                    self.view.fit(below);
                 }
                 self.view.handle_input(ui, &resp);
-                self.plant(ui, rect);
-                if let Some(z) = zoom_buttons(ui, rect) {
-                    apply_zoom(&mut self.view, fit_rect, z);
-                }
-            } else {
-                let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
+                self.plant(ui, below);
+            }
+            TwinPage::Graphs => {
+                let inner = below.shrink2(Vec2::new(8.0, 4.0));
                 ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.plots(ui));
             }
-            if let Some(f) = &self.frame {
-                // Under the 52 px button row on a phone, beside it on a wide screen.
-                let at = if rect.width() < 700.0 { Vec2::new(10.0, 58.0) } else { Vec2::new(if self.panel.open { 8.0 } else { 156.0 }, 14.0) };
-                ui.painter().text(rect.left_top() + at, Align2::LEFT_TOP, clock(f.t_s), FontId::proportional(15.0), ui.visuals().text_color());
-            }
-            ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| {
-                ui.horizontal(|ui| {
-                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Plots, "Plots")] {
-                        if ui.add(egui::Button::selectable(self.tab == t, RichText::new(l).size(18.0)).min_size(Vec2::new(104.0, 38.0))).clicked() {
-                            self.tab = t;
-                        }
-                    }
-                });
-            });
-            self.panel.reopen_button(ui, rect);
-        });
+            // Greyed (page_state): the shell draws their note.
+            _ => {}
+        }
     }
 }
 

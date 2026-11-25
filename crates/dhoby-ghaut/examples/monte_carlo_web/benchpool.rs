@@ -291,7 +291,7 @@ mod tests {
         let p = &l.phys;
         let mut settings = crate::csgrung::run_settings(cfg, p.temperature_k);
         settings.compute = ComputeType::CpuMultiThread(ThreadCount::Fixed(2));
-        let mesh = crate::csgrung::pool_source((&p.geometry, &p.materials, &p.nuclides), p.source_box, <crate::jemima::Jemima as crate::csgrung::CsgCase>::entropy_box(), p.temperature_k, cfg).mesh;
+        let mesh = crate::csgrung::pool_source((&p.geometry, &p.materials, &p.nuclides), p.source_box, <crate::jemima::Jemima as nee_soon::mc_rungs::CsgModel>::entropy_box(), p.temperature_k, cfg).mesh;
         let r = run_keff_csg_par(&p.geometry, &p.materials, &p.nuclides, &[], Some(&mesh), p.source_box, &settings, None, &[], None, ThreadCount::Fixed(2));
         assert_eq!(r.k_by_generation, one, "the pool against run_keff_csg_par");
         eprintln!("  pooled Jemima 400 x [3 + 5], seed 7: k = {:?} (1 and 3 workers and run_keff_csg_par agree bit for bit)", m1);

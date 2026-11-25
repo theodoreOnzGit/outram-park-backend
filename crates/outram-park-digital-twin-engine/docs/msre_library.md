@@ -86,7 +86,7 @@ test now closes the doors after the trip, as ORNL did.
 
 ### The Core k_eff tab and the measured split (gh:#1571, #1572, #1574, 2026-11-14)
 
-**What it runs.** `outram_mc_libs::vv::msre_n1::Study` is the N-1 V&V
+**What it runs.** `nee_soon::msre_n1::Study` (~~`outram_mc_libs::vv::msre_n1`~~, moved 2026-11-25, gh:#1737) is the N-1 V&V
 default as one library call:
 - natural Mo;
 - the whole TM-0728 shield;

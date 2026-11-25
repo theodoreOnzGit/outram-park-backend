@@ -227,6 +227,17 @@ pub mod htr10_th_transient;
 #[cfg(feature = "dem_ui")]
 pub mod dem_pour;
 pub mod msre_frequency_response;
+/// MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core model.
+/// Moved from `outram_mc_libs::vv::msre_n1` 2026-11-25 (gh:#1737).
+pub mod msre_n1;
+/// A fresh EBR-II MARK-II driver subassembly, for k-infinity (gh:#1329).
+/// Moved from `outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs`
+/// 2026-11-25 (gh:#1737). `std` only: it reads tapes from folders.
+#[cfg(feature = "std")]
+pub mod ebr2_fresh_driver;
+/// The reactor models of the Monte Carlo web demo's rungs (gh:#1742), moved
+/// from `dhoby-ghaut/examples/monte_carlo_web/` 2026-11-25.
+pub mod mc_rungs;
 pub mod htr10_rmc;
 pub mod httr;
 pub mod mgxs;

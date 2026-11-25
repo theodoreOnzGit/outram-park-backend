@@ -22,63 +22,19 @@
 //!   prediction, so the cut above backs it: a pour that stands higher anyway
 //!   loses its pebbles above the line, and the page says how many.
 
-use nee_soon::htr10_rmc::core_model::HTR10_CORE_CAVITY_CM;
-use nee_soon::htr10_rmc::explicit_bed::fuel_assignment_at;
-use uom::si::f64::Length;
-use uom::si::length::centimeter;
 
-#[path = "../../../dem_web/engine.rs"]
-pub mod engine;
+// The pour engine: `nee_soon::dem_pour::engine` (gh:#1655), a library call
+// since gh:#1742 (2026-11-25); ~~`#[path = "../../../dem_web/engine.rs"]`~~.
+pub use nee_soon::dem_pour::engine;
 
-/// The highest a poured pebble's top may stand above the bed floor \[cm\]:
-/// 95 % of the core cavity (`nee_soon`'s 221.818 cm), the maintainer's limit.
-pub const HEIGHT_LIMIT_CM: f64 = 0.95 * HTR10_CORE_CAVITY_CM;
-
-/// Pebble radius \[cm\] (`htr10_fill::PEBBLE_RADIUS_M`).
-pub const R_CM: f64 = outram_park_fork_liggghts::htr10_fill::PEBBLE_RADIUS_M * 100.0;
-
-/// Whole-core φ of a fresh `htr10_fill` pour from empty (`seed_loose`'s doc,
-/// 16 890 pebbles, settled after 26 000 steps): the pour the page runs, so
-/// the cap uses it rather than the 0.6047 of the LIGGGHTS-seeded reference
-/// bed. A measured figure, not fitted to anything here.
-pub const FRESH_POUR_PHI: f64 = 0.5954;
-
-/// Pebbles centred at or below the floor (conus and tube) in the reference
-/// pour (`htr10_conus_presettled_mu10_mur00.csv`, 2 457 of 27 554; pinned by
-/// `the_cap_is_derived_from_the_reference_pour`).
-pub const BELOW_FLOOR_PEBBLES: usize = 2_457;
-
-/// Core pebbles of the record's loading the page starts at (maintainer
-/// 2026-11-05: "default to the record's loading, ~16,900 core pebbles"):
-/// HTR-10's first-criticality loading, 16 890 balls (`htr10_fill`'s
-/// settings doc).
-pub const RECORD_CORE_PEBBLES: usize = 16_890;
-
-/// The pour the page starts at: [`RECORD_CORE_PEBBLES`] in the core plus the
-/// conus and tube's [`BELOW_FLOOR_PEBBLES`] (the reference pour's count; a
-/// fresh pour's own split may differ by a few, and the page prints the core
-/// count it got).
-pub const DEFAULT_PEBBLES: usize = RECORD_CORE_PEBBLES + BELOW_FLOOR_PEBBLES;
-
-/// **Measured browser pours** (gh:#1244 record, headless Chromium, one
-/// thread, a 4-vCPU container; maintainer chose on gh:#1250, 2026-11-05, to
-/// keep the CPU pour and say how long it takes): pebbles, seconds to settle.
-/// The 4 000 and 8 000 pours ran on a loaded machine, the 30 687 on an idle
-/// one, so the table is an upper bound for a desktop of that class.
-pub const MEASURED_BROWSER_POURS: [(usize, f64); 3] = [(4_000, 242.0), (8_000, 339.0), (30_687, 1_051.0)];
-
-/// **How long a pour of `n` pebbles takes in a browser**, s: straight lines
-/// between the [`MEASURED_BROWSER_POURS`] (no fit), the first line extended
-/// below 4 000. A guide for the reader before they press Pour, not a
-/// promise: a phone or a busy machine is slower.
-pub fn expected_pour_s(n: usize) -> f64 {
-    let m = MEASURED_BROWSER_POURS;
-    let x = n as f64;
-    let seg = if n <= m[1].0 { (m[0], m[1]) } else { (m[1], m[2]) };
-    let ((x0, y0), (x1, y1)) = ((seg.0 .0 as f64, seg.0 .1), (seg.1 .0 as f64, seg.1 .1));
-    let y = y0 + (y1 - y0) * (x - x0) / (x1 - x0);
-    y.max(0.0)
-}
+// The pour model (the 95 % line, the cap, the measured pour times, the
+// poured bed) moved to `nee_soon::mc_rungs::htr10_core` (gh:#1742,
+// 2026-11-25), unchanged.
+#[allow(unused_imports)] // two are read only by this file's tests
+pub use nee_soon::mc_rungs::htr10_core::{
+    expected_pour_s, max_pebbles, poured_bed, PouredBed, BELOW_FLOOR_PEBBLES, DEFAULT_PEBBLES, FRESH_POUR_PHI, HEIGHT_LIMIT_CM,
+    MEASURED_BROWSER_POURS, MIN_PEBBLES, RECORD_CORE_PEBBLES, R_CM,
+};
 
 /// A time as the page prints it: "4 min", "about 1 min", "under a minute".
 pub fn minutes(s: f64) -> String {
@@ -90,108 +46,6 @@ pub fn minutes(s: f64) -> String {
     } else {
         format!("about {m:.0} min")
     }
-}
-
-/// The fewest pebbles the page pours: enough to fill the tube and conus and
-/// put a layer in the core.
-pub const MIN_PEBBLES: usize = 3_000;
-
-/// **The most pebbles the page lets the reader pour**: the conus and tube's
-/// [`BELOW_FLOOR_PEBBLES`] plus a core filled at [`FRESH_POUR_PHI`] to a
-/// surface at [`HEIGHT_LIMIT_CM`] (`htr10_fill`'s whole-core instrument,
-/// `φ = N V / (π R² h)`, solved for `N`).
-pub fn max_pebbles() -> usize {
-    let r_core = outram_park_fork_liggghts::htr10_fill::CORE_RADIUS_M * 100.0;
-    let v = 4.0 / 3.0 * std::f64::consts::PI * R_CM * R_CM * R_CM;
-    let core = FRESH_POUR_PHI * std::f64::consts::PI * r_core * r_core * HEIGHT_LIMIT_CM / v;
-    BELOW_FLOOR_PEBBLES + core.floor() as usize
-}
-
-/// A poured bed the core is built on.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PouredBed {
-    /// Centres, DEM frame.
-    pub centres: Vec<[Length; 3]>,
-    pub is_fuel: Vec<bool>,
-    /// Which pour this is (the page counts them), so a rebuilt slice or core
-    /// is told apart from the last one.
-    pub version: u32,
-    /// Pebbles removed for standing above [`HEIGHT_LIMIT_CM`].
-    pub cut: usize,
-    /// The fuel fraction asked for (above the floor).
-    pub fuel_fraction: f64,
-}
-
-impl PouredBed {
-    /// Pebbles centred above the floor.
-    pub fn core_balls(&self) -> usize {
-        self.centres.iter().filter(|c| c[2].value > 0.0).count()
-    }
-    /// Fuel pebbles.
-    pub fn fuel_balls(&self) -> usize {
-        self.is_fuel.iter().filter(|&&f| f).count()
-    }
-    /// The top of the highest pebble above the floor \[cm\].
-    pub fn top_cm(&self) -> f64 {
-        self.centres
-            .iter()
-            .map(|c| c[2].get::<centimeter>() + R_CM)
-            .fold(f64::NEG_INFINITY, f64::max)
-    }
-    /// The page's wire form: centres in cm (x, y, z) and the fuel flags as
-    /// 0/1, and back ([`Self::from_wire`]).
-    pub fn to_wire(&self) -> (Vec<f64>, Vec<f64>) {
-        (
-            self.centres
-                .iter()
-                .flat_map(|c| c.map(|v| v.get::<centimeter>()))
-                .collect(),
-            self.is_fuel.iter().map(|&f| f64::from(u8::from(f))).collect(),
-        )
-    }
-    pub fn from_wire(cm: &[f64], fuel: &[f64], version: u32, cut: usize, fuel_fraction: f64) -> Result<Self, String> {
-        if cm.len() != 3 * fuel.len() || fuel.is_empty() {
-            return Err(format!("poured bed: {} numbers for {} flags", cm.len(), fuel.len()));
-        }
-        Ok(Self {
-            centres: cm.chunks_exact(3).map(|c| [0, 1, 2].map(|k| Length::new::<centimeter>(c[k]))).collect(),
-            is_fuel: fuel.iter().map(|&f| f != 0.0).collect(),
-            version,
-            cut,
-            fuel_fraction,
-        })
-    }
-}
-
-/// **The pour's centres (m, `x, y, z` flattened, as the engine streams
-/// them) as the core's bed**: pebbles whose top stands above
-/// [`HEIGHT_LIMIT_CM`] removed, fuel at `fuel_fraction` of the pebbles above
-/// the floor by `fuel_assignment_at`.
-///
-/// # Errors
-/// No pebble is left above the floor.
-pub fn poured_bed(centres_m: &[f32], fuel_fraction: f64, version: u32) -> Result<PouredBed, String> {
-    let all: Vec<[Length; 3]> = centres_m
-        .chunks_exact(3)
-        .map(|c| [0, 1, 2].map(|k| Length::new::<centimeter>(f64::from(c[k]) * 100.0)))
-        .collect();
-    let n = all.len();
-    let centres: Vec<[Length; 3]> = all
-        .into_iter()
-        .filter(|c| c[2].get::<centimeter>() + R_CM <= HEIGHT_LIMIT_CM)
-        .collect();
-    let cut = n - centres.len();
-    if !centres.iter().any(|c| c[2].value > 0.0) {
-        return Err("the pour has no pebble above the bed floor".into());
-    }
-    let is_fuel = fuel_assignment_at(&centres, fuel_fraction);
-    Ok(PouredBed {
-        centres,
-        is_fuel,
-        version,
-        cut,
-        fuel_fraction: fuel_fraction.clamp(0.0, 1.0),
-    })
 }
 
 /// What the page says about a bed in a line.
@@ -578,7 +432,7 @@ pub fn render_review(csv: &str, fuel_fraction: f64, dir: &std::path::Path) -> Re
         .iter()
         .zip(&bed.is_fuel)
         .filter(|(_, f)| **f)
-        .map(|(p, _)| p.map(|v| v.get::<centimeter>()))
+        .map(|(p, _)| p.map(|v| v.get::<uom::si::length::centimeter>()))
         .min_by(|a, b| (a[2] - half).abs().total_cmp(&(b[2] - half).abs()))
         .ok_or("no fuel pebble")?;
     let shots = [

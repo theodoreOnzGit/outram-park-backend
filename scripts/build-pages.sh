@@ -331,6 +331,14 @@ bash crates/outram-park-digital-twin-engine/web/msre/build.sh "$OUT/demos/msre"
 for f in index.html msre_worker.js gate.js msre_web.js msre_web_bg.wasm; do
   [[ -f "$OUT/demos/msre/$f" ]] || { echo "missing demos/msre/$f" >&2; exit 1; }
 done
+# The EBR-II simulator (gh:#1741): the digital-twin engine's ebr2_web example,
+# ebr2::session (SHRT-17 / SHRT-45R) on the library's engine ebr2::web in a
+# Web Worker, in the same "Museum - historical reactors" section. Gated by the
+# same gate.js.
+bash crates/outram-park-digital-twin-engine/web/ebr2/build.sh "$OUT/demos/ebr2"
+for f in index.html ebr2_worker.js gate.js ebr2_web.js ebr2_web_bg.wasm; do
+  [[ -f "$OUT/demos/ebr2/$f" ]] || { echo "missing demos/ebr2/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \

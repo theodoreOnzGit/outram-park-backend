@@ -173,10 +173,10 @@ here.
 ### T-1 proper: N-3's Monte Carlo coefficients (2026-11-09, final)
 
 **Coefficients:** fuel **−3.82 ± 0.44** and graphite **−3.77 ± 0.65** ×
-10⁻⁵ /°F. They are route 4 on `outram_mc_libs::vv::msre_n1`, arm A (Mo
+10⁻⁵ /°F. They are route 4 on `nee_soon::msre_n1` (then `outram_mc_libs::vv::msre_n1`; moved 2026-11-25, gh:#1737), arm A (Mo
 omitted), with σ from the seed spread: 6 seeds at the 1131 °F baseline and
 3 per split run. Record in
-`crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/`.
+`crates/nee_soon/verification_and_validation/msre_n1_first_criticality/` (moved from `outram-mc-libs` 2026-11-25, gh:#1737).
 Run with
 `cargo run --release -p nee_soon --example msre_t1_natural_periods -- --fuel-per-f -3.82e-5 --graphite-per-f -3.77e-5`.
 

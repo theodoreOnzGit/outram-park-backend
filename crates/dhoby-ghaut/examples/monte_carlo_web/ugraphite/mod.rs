@@ -182,7 +182,7 @@ pub(crate) mod tests {
     /// cube is that mixture everywhere inside, nothing outside.
     #[test]
     fn the_cube_is_rung_twos_mixture_everywhere() {
-        assert!((model::mixture().c_per_u() - 767.2).abs() < 0.05);
+        assert!((nee_soon::mc_rungs::ugraphite::mixture().c_per_u() - 767.2).abs() < 0.05);
         let g = model::build_geometry();
         let h = model::HALF_CM;
         let dir = Direction::new(0.0, 0.0, 1.0);
