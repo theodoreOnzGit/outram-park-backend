@@ -27,8 +27,11 @@
 //!
 //! Fixed-grid quadratures (dense trapezoid over μ and a kinematically-bounded E'
 //! grid) — robust and adequate for the cross section. NJOY refines both grids
-//! adaptively to a tolerance; that refinement (and the liquid `cliq` small-α
-//! correction) are future accuracy work, noted where they apply.
+//! adaptively to a tolerance; that refinement ~~(and the liquid `cliq` small-α
+//! correction) are~~ is future accuracy work, noted where it applies.
+//! **CORRECTED 2026-11-24 (gh:#637):** the liquid `cliq` small-α correction is
+//! carried, by `liquid_small_alpha_ln_s` (this file), which the
+//! double-differential evaluation applies before interpolating.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -758,9 +761,6 @@ impl IncoherentInelastic {
             .collect()
     }
 
-    /// Interpolate `ln S̃(α, β)` at table coordinates `(a, b)` (both ≥ 0). Bilinear
-    /// in `ln S` over the `(α, β)` grid; returns [`SABFLG`] (⇒ `S ≈ 0`) outside the
-    /// tabulated range.
     /// True when NJOY would abandon the tabulated `S(α,β)` for the
     /// short-collision-time kernel because a corner of the interpolation bracket
     /// is floored — **and** the transfer is large enough for that test to apply.
@@ -876,6 +876,13 @@ impl IncoherentInelastic {
         Some(s.max(SABFLG))
     }
 
+    /// Interpolate `ln S̃(α, β)` at table coordinates `(a, b)` (both ≥ 0).
+    /// ~~Bilinear in `ln S` over the `(α, β)` grid~~ **CORRECTED 2026-11-24
+    /// (gh:#637)** — quadratic, as NJOY's `sig` does it: [`terpq`] across α
+    /// at three consecutive β slices, then `terpq` across β on those three
+    /// results (lin-lin across β when fewer than three β are tabulated).
+    /// Returns [`SABFLG`] (⇒ `S ≈ 0`) above the tabulated β or α
+    /// range. (This block used to sit, orphaned, above `floored_corner`.)
     fn interp_ln_s(&self, tables: &[AlphaTable], a: f64, b: f64) -> f64 {
         let beta = &self.beta;
         if beta.is_empty() || b > *beta.last().unwrap() {
@@ -1079,8 +1086,10 @@ fn terpq(x1: f64, y1: f64, x2: f64, y2: f64, x3: f64, y3: f64, x: f64) -> f64 {
 /// routes `α > α_max` to the short-collision-time kernel before this is reached.
 /// Below the first tabulated α the stencil's own law-3 extrapolation applies —
 /// NJOY additionally has a *liquid* small-α correction there
-/// (`s = sab(1,1) + log(alpha(1)/a)/2 - cliq*b**2/a` when `cliq ≠ 0`), which this
-/// port does not yet carry; for `tsl-HinH2O` the first α node is `1.0023e-5`, so
+/// (`s = sab(1,1) + log(alpha(1)/a)/2 - cliq*b**2/a` when `cliq ≠ 0`), ~~which this
+/// port does not yet carry~~ **CORRECTED 2026-11-24 (gh:#637):** which this port
+/// carries in `liquid_small_alpha_ln_s`, applied by the caller before this
+/// function is reached; for `tsl-HinH2O` the first α node is `1.0023e-5`, so
 /// that corner is vanishingly small.
 fn interp_alpha_ln_s(table: &AlphaTable, a: f64) -> f64 {
     let alpha = &table.alpha;

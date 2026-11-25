@@ -26,7 +26,7 @@ use crate::endf::tape::Tape;
 use crate::NjoyError;
 
 use super::colaps::{colaps, FissionWindow, UnionGendf};
-use super::covcal::covcal;
+use super::covcal::{covcal, relabel_kmtb};
 use super::covout::{covout, sigc, ErrorrResult};
 use super::gendf::{ngchk, GendfTape};
 use super::gridd::{gridd, lumpmt, scan_reactions_mf, uniong};
@@ -185,6 +185,39 @@ pub fn run_cov_gendf_card10(
     mfcov: i32,
     pairs: &[(i32, i32)],
 ) -> Result<ErrorrResult, NjoyError> {
+    run_cov_gendf_card10_nstan(endf, gendf, cfg, mfcov, pairs, None)
+}
+
+/// [`run_cov_gendf_card10`] with the `nstan` tape and card 11 ([`Standards`],
+/// gh:#1371, 2026-11-24): `nstan` with `iread = 2`, and card 11's third-reaction
+/// mode (`matb(1) < 0`, `errorr.f90:283-290`), which needs `iread = 2` because the
+/// standard must be a card-10 pair. Upstream's `gridd`, `covcal` and `sigc` do
+/// nothing different for `iread = 2` with `nstan`; the third-reaction mode adds
+/// `grist`'s walk and `ety` ([`super::standards::grist`]), `covcal`'s relabel and
+/// window, and `kmtb` ([`super::covcal::relabel_kmtb`]) before `sigc`/`covout`.
+///
+/// `rdsig(mat1, …)` reads any material on the condensed GENDF (`:2755-2786`),
+/// `matd` included; so `matd`'s own records are also kept under
+/// [`UnionGroupXs::other_key`] for a card-10 pair or third reaction with
+/// `mat1 = matd` (JENDL-3.3 U-235's MT 102 has a subsection `(9228, 18)`).
+///
+/// # Errors
+/// As [`run_cov_gendf_card10`]; [`NjoyError::InvalidInput`] for a third reaction
+/// whose material is neither `matd` nor on card 10, which upstream's `rdgout`
+/// stops on ("mat not found", `:2817-2819`), as `ngchk` condenses only those.
+pub fn run_cov_gendf_card10_nstan(
+    endf: &Tape,
+    gendf: &GendfTape,
+    cfg: &Mf33Config,
+    mfcov: i32,
+    pairs: &[(i32, i32)],
+    standards: Option<Standards>,
+) -> Result<ErrorrResult, NjoyError> {
+    if let Some(c) = standards.as_ref().and_then(|s| s.third_reaction()) {
+        if c[2] != cfg.matd && !pairs.iter().any(|p| p.0 == c[2]) {
+            return Err(NjoyError::InvalidInput(format!("errorr rdgout: mat{} not found (third reaction of card 11; only matd and card-10 materials are on the condensed GENDF)", c[2])));
+        }
+    }
     if mfcov == 40 {
         return Err(NjoyError::NotPorted("errorr iread = 2 with mfcov = 40 (card 10 pairs on MF=40)"));
     }
@@ -207,6 +240,7 @@ pub fn run_cov_gendf_card10(
     let cg_others = others.iter().map(|&m| ngchk(gendf, m, cfg.tempin).map(|c| (m, c))).collect::<Result<Vec<_>, _>>()?;
     let mut reactions = scan_reactions_mf(endf, matd, mfcov)?;
     reactions.card10 = Some(pairs.to_vec());
+    reactions.standards = standards;
     let g = gridd(endf, matd, &mut reactions)?;
     lumpmt(endf, matd, &mut reactions)?;
     let raw = if cfg.ign.abs() == 1 {
@@ -226,11 +260,16 @@ pub fn run_cov_gendf_card10(
     }
     let mut groups = union_group_xs(&u, &un);
     let flx = groups.flux_vector();
+    // `rdsig(matd, …)` for a pair or third reaction naming `matd` itself (gh:#1371)
+    let own = union_group_xs(&u, &un);
+    groups.insert_other(matd, &own);
     for (m, c) in &cg_others {
         let uo = colaps(c, &un, 0, &none)?;
         groups.insert_other(*m, &union_group_xs(&uo, &un));
     }
     let fine = covcal(endf, matd, &reactions, &groups, &flx)?;
+    // `mats(kmtb) = matc(1)`, `mts(kmtb) = mtc(1)` (errorr.f90:2386-2390), gh:#1371
+    relabel_kmtb(&fine, &mut reactions);
     let (za, awr) = if mfcov == 40 { mf40_za_awr(endf, matd) } else {
         endf
         .sections()

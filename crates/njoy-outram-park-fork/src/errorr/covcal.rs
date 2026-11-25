@@ -28,7 +28,7 @@
 //! [`CovarianceReactions::mf`] names) and `mfcov = 34` ([`super::mf34`] calls
 //! [`contribution`] with `alp` in place of `sig`), ~~`nstan = 0` (an NC-type record with `LTY` 1–3
 //! is `NotPorted`), no `matb`/`matc` standards redefinition,~~ **CORRECTED 2026-11-14
-//! (gh:#1371):** `nstan` with card 11's `matb > 0` (an NC-type record with `LTY` 1–3
+//! (gh:#1371):** `nstan` with card 11's ~~`matb > 0`~~ entries (**CORRECTED 2026-11-24**: and the third-reaction mode, `matb(1) < 0`: relabel, `ety` window, [`relabel_kmtb`]) (an NC-type record with `LTY` 1–3
 //! stages the standard's records through [`super::standards::stand`]), ENDF-5/6. The
 //! `LB = 7` law belongs to MF=35 and is rejected here as upstream does.
 
@@ -257,6 +257,20 @@ pub struct FineCovariance {
     pub nmts: usize,
     /// The blocks.
     pub blocks: Vec<FineBlock>,
+    /// `kmtb` (`errorr.f90:2008`, `:2387-2390`), gh:#1371: in the third-reaction
+    /// mode (card 11's `matb(1) < 0`), the 0-based position in `mts`/`mats` of the
+    /// card-10 standard `(-matb(1), -mtb(1))` last met, which upstream relabels
+    /// `(matc(1), mtc(1))` once `covcal` is done ([`relabel_kmtb`]). `None` otherwise.
+    pub kmtb: Option<usize>,
+}
+
+/// `covcal`'s last step (`errorr.f90:2386-2390`): with `kmtb > 0`, set
+/// `mats(kmtb) = matc(1)` and `mts(kmtb) = mtc(1)`, so `sigc` and `covout` see the
+/// third reaction where card 10 named the standard (gh:#1371).
+pub fn relabel_kmtb(fine: &FineCovariance, reactions: &mut CovarianceReactions) {
+    let (Some(k), Some(c)) = (fine.kmtb, reactions.standards.as_ref().and_then(|s| s.third_reaction())) else { return };
+    reactions.mats[k] = c[2];
+    reactions.mts[k] = c[3];
 }
 
 impl FineCovariance {
@@ -308,7 +322,11 @@ pub fn covcal(
         nunion,
         nmts: 0,
         blocks: Vec::new(),
+        kmtb: None,
     };
+    // card 11's first entry when it is the third-reaction mode (`matb(1) < 0`)
+    let third = reactions.standards.as_ref().and_then(|s| s.third_reaction());
+    let (ety1, ety2) = reactions.ety.unwrap_or((0.0, 0.0));
     if reactions.mf() == 33 && !reactions.mf33_present {
         return Ok(out); // errorr.f90:1849-1852 "temporary patch for missing mf33"
     }
@@ -353,8 +371,8 @@ pub fn covcal(
 
         for _ in 0..nl {
             let sub = cur.read_cont()?;
-            let mat1 = sub.l1;
-            let mt1 = sub.l2;
+            let mut mat1 = sub.l1;
+            let mut mt1 = sub.l2;
             let nc = sub.n1;
             let ni = sub.n2;
             if mt1 == 0 {
@@ -369,6 +387,21 @@ pub fn covcal(
                 .zip(&reactions.mats)
                 .position(|(&m, &a)| m == mt1 && a == mat1);
             let iok = kmt1.is_some();
+            // errorr.f90:1999-2008 (gh:#1371): the card-10 standard of the
+            // third-reaction mode stands for `(matc(1), mtc(1))`.
+            if let Some(c) = third {
+                if mat1 == -c[0] && mt1 == -c[1] {
+                    if !iok {
+                        return Err(NjoyError::InvalidInput(format!("errorr::covcal: must request mat1={mat1} and mt1={mt1} on card 10.")));
+                    }
+                    mat1 = c[2];
+                    mt1 = c[3];
+                    out.kmtb = kmt1;
+                }
+            }
+            // errorr.f90:2119-2123: the `ety` window on the columns, for records with
+            // `ltyi` 0 or 2, of a matrix with the third reaction.
+            let ety_window = third.is_some_and(|c| mat1 == c[2] && mt1 == c[3]);
 
             // NC-type sub-subsections (errorr.f90:2017-2030): lty=0 carries no matrix.
             // With lty 1..3 `stand` stages the standard's NI records first, each with
@@ -442,6 +475,9 @@ pub fn covcal(
                     for (r, w) in recs.iter().zip(&windows) {
                         // errorr.f90:2101-2118: a standard's record only inside its window
                         if w.is_some_and(|w| !w.admits(eg, ehr)) {
+                            continue;
+                        }
+                        if ety_window && w.is_none_or(|w| w.lty == 2) && (ehr < ety1 || ehr >= ety2) {
                             continue;
                         }
                         c += contribution(r, jg, jh, eg, ehr, dun, sig[jg], sig1[jh]);

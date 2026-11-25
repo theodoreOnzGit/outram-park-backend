@@ -38,7 +38,7 @@ use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;
 use crate::deck::groupr::GendfText;
 use crate::errorr::gendf::GendfTape;
-use crate::errorr::mf31::{run_cov_gendf, run_cov_gendf_card10, run_cov_gendf_nstan};
+use crate::errorr::mf31::{run_cov_gendf, run_cov_gendf_card10_nstan, run_cov_gendf_nstan};
 use crate::errorr::standards::Standards;
 use crate::errorr::mf34::{run_mf34_gendf, Mf34Config};
 use crate::errorr::mf35::{run_mf35, Mf35Config};
@@ -88,7 +88,7 @@ pub struct ErrorrCards {
 /// option, ENDF/B-IV cards, ~~`iread = 1`~~ (cards 8-9 are read since 2026-11-14,
 /// gh:#1371) ~~`iread = 1/2`~~ (card 10, `iread = 2`,
 /// is read since 2026-11-13, gh:#1369), ~~`nstan /= 0`~~ (card 11 is read since
-/// 2026-11-14, gh:#1371; a negative `matb(1)` is refused) ~~and `iwt = 1`~~ (card 13 is
+/// 2026-11-14, gh:#1371; ~~a negative `matb(1)` is refused~~; read since 2026-11-24, gh:#1371) ~~and `iwt = 1`~~ (card 13 is
 /// read since 2026-11-13, gh:#1371), whose further cards are not read here; and
 /// for `iwt = 1` a card 13 that `egnwtf` would cut short, or (`mfcov = 34`) two
 /// copies of card 13 or 13b that differ.
@@ -146,9 +146,8 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
             }
             card11.push([p[0], p[1], p[2], p[3]]);
         }
-        if card11.first().is_some_and(|c| c[0] < 0) {
-            return Err(NjoyError::NotPorted("errorr card 11: matb(1) < 0 (a third reaction correlated through the standard: covcal's kmtb and ety window, grist's later subsections)"));
-        }
+        // ~~A negative `matb(1)` was refused here.~~ **CORRECTED 2026-11-24
+        // (gh:#1371):** the third-reaction mode runs (`Standards::third_reaction`).
     }
     let egn = if c2[1].abs() == 1 {
         let ngn = r.read_ints(&[0])?[0].max(0) as usize;
@@ -315,9 +314,8 @@ pub fn run_errorr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -
     if nstan != 0 && mfcov != 33 {
         return Err(NjoyError::NotPorted("errorr nstan /= 0 other than mfcov = 31/33/40 from a GENDF or mfcov = 33 from a PENDF"));
     }
-    if nstan != 0 && c.card8.is_some() {
-        return Err(NjoyError::NotPorted("errorr nstan /= 0 with iread = 1 (gridd's card-8a skip and grist together; no deck exercises it)"));
-    }
+    // ~~`nstan` with `iread = 1` was refused here~~ (runs since 2026-11-24, gh:#1371:
+    // `gridd`'s card-8a skip and `grist` are independent, `:1250-1300`).
     if c.card7[0] == 2 {
         return Err(NjoyError::NotPorted("errorr iread = 2 other than mfcov = 31/33 from a GENDF"));
     }
@@ -535,7 +533,11 @@ fn run_errorr_cov_gendf(c: &ErrorrCards, units: &mut TapeUnits, mfcov: i32) -> R
         return Err(NjoyError::NotPorted("errorr irespr = 0 (MF=32 by finite differences)"));
     }
     if c.card8.is_some() {
-        return Err(NjoyError::NotPorted("errorr iread = 1 other than mfcov = 33 from a PENDF"));
+        // Upstream stops here too (gh:#1371, run 2026-11-24): with `iread = 1`,
+        // `nmt1 > 0` and `mats(1) = 0`, so `ngchk` goes on to condense "material 0"
+        // (`errorr.f90:11114-11128`), reaches the tape end, and stops with "ngout = ..
+        // is not a gendf tape" (`:10923-10927`), for binary and text GENDFs alike.
+        return Err(NjoyError::NotPorted("errorr iread = 1 from a GENDF (ngout /= 0): NJOY2016 stops in ngchk looking for mat 0, errorr.f90:10923-10927, 11114-11128"));
     }
     units.openz(nendf, 0)?;
     let endf = units.get(nendf)?.tape.clone();
@@ -554,10 +556,14 @@ fn run_errorr_cov_gendf(c: &ErrorrCards, units: &mut TapeUnits, mfcov: i32) -> R
     };
     let nstan = c.units[5];
     let res = if c.card7[0] == 2 {
-        if nstan != 0 {
-            return Err(NjoyError::NotPorted("errorr iread = 2 with nstan /= 0"));
-        }
-        run_cov_gendf_card10(&endf, &gendf, &cfg, mfcov, &c.card10)?
+        // `nstan` with `iread = 2`, and card 11's third-reaction mode (gh:#1371)
+        let standards = if nstan != 0 {
+            units.openz(nstan, 0)?;
+            Some(Standards { tape: alloc::sync::Arc::new(units.get(nstan)?.tape.clone()), redefine: c.card11.clone() })
+        } else {
+            None
+        };
+        run_cov_gendf_card10_nstan(&endf, &gendf, &cfg, mfcov, &c.card10, standards)?
     } else if nstan != 0 {
         units.openz(nstan, 0)?;
         let tape = alloc::sync::Arc::new(units.get(nstan)?.tape.clone());
@@ -652,9 +658,8 @@ fn run_errorr_mf33(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyErr
         dap: c.dap,
         card8: c.card8.clone(),
     };
-    if cfg.card8.is_some() && endf.sections().iter().any(|s| s.key.mat == cfg.matd && s.key.mf == 32) {
-        return Err(NjoyError::NotPorted("errorr iread = 1 with MF=32 on the tape (resprx with a card-8a reaction list; no deck exercises it)"));
-    }
+    // ~~`iread = 1` with MF=32 on the tape was refused here~~ (runs since
+    // 2026-11-24, gh:#1371: `resprx` takes `mts`/`akxy` from cards 8-9, `:3626-3656`).
     let standards = if nstan != 0 {
         // `grist`/`stand` read `nstan` on this route as on the GENDF one (gh:#1371)
         units.openz(nstan, 0)?;
@@ -806,15 +811,18 @@ mod tests {
     }
 
     /// Card 11 (`nstan /= 0`, gh:#1371): entries up to `matb = 0`, the last three
-    /// words carried over; a negative `matb(1)` is refused by name.
+    /// words carried over. ~~A negative `matb(1)` is refused by name.~~ **CORRECTED
+    /// 2026-11-24 (gh:#1371):** a negative `matb(1)` (the third-reaction mode) is read
+    /// as given, after card 10.
     #[test]
     fn reads_card11_up_to_matb_zero() {
         let c = read_errorr(&mut CardReader::new(" 22 0 92 27 0 24 /\n 9228 3 6 1 /\n 1 300./\n 0 33 /\n 9228 18 9228 102 /\n 0 /\n"), 6).unwrap();
         assert_eq!(c.card11, vec![[9228, 18, 9228, 102]]);
         let c = read_errorr(&mut CardReader::new(" 22 0 92 27 0 24 /\n 9228 3 6 1 /\n 1 300./\n 0 33 /\n 0 /\n"), 6).unwrap();
         assert!(c.card11.is_empty());
-        let neg = read_errorr(&mut CardReader::new(" 22 0 92 27 0 24 /\n 9228 3 6 1 /\n 1 300./\n 0 33 /\n -9228 -18 9237 102 /\n 0 /\n"), 6);
-        assert!(matches!(neg, Err(NjoyError::NotPorted(_))));
+        let neg = read_errorr(&mut CardReader::new(" 22 0 92 27 0 24 /\n 9228 3 6 1 /\n 1 300./\n 2 33 /\n 9228 18 /\n 0 /\n -9228 -18 9237 102 /\n 0 /\n"), 6).unwrap();
+        assert_eq!(neg.card10, vec![(9228, 18)]);
+        assert_eq!(neg.card11, vec![[-9228, -18, 9237, 102]]);
     }
 
     /// Card 13 (`iwt = 1`, gh:#1371): kept to its last non-zero word; read twice for

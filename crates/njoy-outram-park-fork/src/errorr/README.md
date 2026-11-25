@@ -96,23 +96,26 @@ where upstream would abort on a second `allocate`.
   `NRO ≠ 0`, `NLRS > 0`, INTG
   correlation records in the ERRORJ branch (`rpxlc2`, `NM > 0`), `irespr =
   0` (`resprp`, the older method), an MF=2 URR that is not `LRF=2`
-  (upstream reads uninitialised `amur`), `LRF=7` with background R-matrix
-  terms (`KBK > 0`: `derext` and `samm::mf2` do not carry them), and
+  (upstream reads uninitialised `amur`), ~~`LRF=7` with background R-matrix
+  terms (`KBK > 0`: `derext` and `samm::mf2` do not carry them),~~ and
   `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
   with sammy method"). `LCOMP=1` has an oracle for `LRF=3` (JENDL-3.3
   U-238) but not for MLBW or `LRF=7`.
 - **~~MF=31/34/~~35~~/40~~ ~~MF=40~~** (**CORRECTED 2026-11-14, gh:#1371:** MF=40 runs from a
   GENDF through `mf31::run_cov_gendf` when every section has one final state and one
   sub-subsection, `NS = NL = 1`; `NS /= 1` and `NL /= 1` are refused by name, as upstream
-  loses its place in the section there; deck-driver README section 33), ~~`iread = 1`~~ (**CORRECTED 2026-11-14, gh:#1371:** cards 8-9 run on the PENDF route with `mfcov = 33`, `gridd::Card8`; refused with MF=32 or another route; deck-driver README section 37) ~~`iread = 1/2`~~ (user reaction lists~~, extra `MAT1/MT1`
+  loses its place in the section there; deck-driver README section 33), ~~`iread = 1`~~ (**CORRECTED 2026-11-14, gh:#1371:** cards 8-9 run on the PENDF route with `mfcov = 33`, `gridd::Card8`; refused ~~with MF=32 or~~ on another route; deck-driver README section 37; **CORRECTED 2026-11-24, gh:#1371:** with MF=32 too (`resprx` on the card-8a list); from a GENDF it is refused by name because NJOY2016 itself stops in `ngchk` (`errorr.f90:10923-10927`, `:11114-11128`); deck-driver README §42) ~~`iread = 1/2`~~ (user reaction lists~~, extra `MAT1/MT1`
   pairs~~; **CORRECTED 2026-11-13, gh:#1369:** `iread = 2`'s card-10 pairs are ported for
   MF=31/33 from a GENDF, `mf31::run_cov_gendf_card10`, and upstream deck 17 is NJOY2016's
   line for line), ~~`nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`)~~ (**CORRECTED
   2026-11-14, gh:#1371:** `standards.rs` translates `grist` and `stand`, run from a GENDF
-  with card 11's `matb > 0`; a negative `matb(1)`, ~~`nstan` on the PENDF route~~ and with
-  `iread = 2` are refused by name; deck-driver README section 34; **CORRECTED 2026-11-24,
+  with card 11's `matb > 0`; ~~a negative `matb(1)`, `nstan` on the PENDF route and with
+  `iread = 2` are refused by name~~; deck-driver README section 34; **CORRECTED 2026-11-24,
   gh:#1371:** `nstan` on the PENDF route runs (`mf33::run_mf33_nstan`), and so does `nin`
-  there; deck-driver README §40), ~~`nin`
+  there; deck-driver README §40; **CORRECTED again 2026-11-24, gh:#1371:** `nstan` with
+  `iread = 1` (PENDF route) and `iread = 2` (`mf31::run_cov_gendf_card10_nstan`) run, and so
+  does card 11's third-reaction mode, a negative `matb(1)` (`grist`'s `ety`,
+  `covcal::relabel_kmtb`); deck-driver README §42), ~~`nin`
   (input covariance tape merge),~~ ~~`ngout != 0` (`colaps` from a GENDF),~~
   ~~`covadd`,~~ ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
   **CORRECTED 2026-11-13 (gh:#1369):** `covadd` is ported (`covadd.rs`, in the

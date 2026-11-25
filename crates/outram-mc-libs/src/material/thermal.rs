@@ -71,8 +71,13 @@ use crate::mathf::RealMath;
 /// **CORRECTED 2026-09-30 (GitHub #459):** OpenMC and NJOY use the evaluation's
 /// MF=7/MT=4 `B(4)`: 10.00008 eV for ENDF/B-VIII.0 `tsl-HinH2O`. A table built
 /// from a tape ([`ThermalScattering::from_tape`]) now uses that, and an ACE
-/// table uses its last inelastic energy. This constant remains only the
-/// fallback.
+/// table uses its last inelastic energy. ~~This constant remains only the
+/// fallback.~~ **CORRECTED 2026-11-24 (gh:#637):** nothing references this
+/// constant. The tape route's fallback is njoy's own
+/// `thermr::scattering::CALCEM_EMAX_FALLBACK_EV` (also 4 eV), reached through
+/// `IncoherentInelasticScattering::energy_max_ev()` when `B(4)` is absent
+/// (`ThermalScattering::from_tape`, `calcem_energy_max_ev(..)
+/// .unwrap_or_else(|| sab.energy_max_ev())`).
 pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 
 /// Number of incident-energy points on the pre-tabulated emission grid.

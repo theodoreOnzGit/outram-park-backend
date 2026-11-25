@@ -54,11 +54,38 @@
 //! unchanged). After the fix every line of units 24 and 25 is identical in
 //! columns 1-75.
 //!
-//! **Still open, and pinned:** the sequence numbers (columns 76-80) of 1 559 lines
+//! ~~**Still open, and pinned:** the sequence numbers (columns 76-80) of 1 559 lines
 //! of unit 24 and 515 485 of unit 25. NJOY's `tpend` copies the input PENDF's
 //! sections and its own scratch sections with a running count that the copied
 //! SEND and FEND lines do not reset; this port writes them as `asend`/`afend`
-//! would. The test asserts those counts exactly, so a fix (or a regression) shows.
+//! would. The test asserts those counts exactly, so a fix (or a regression) shows.~~
+//! **CORRECTED 2026-11-24 (gh:#866):** fixed; see below.
+//!
+//! # Sequence numbers (2026-11-24)
+//!
+//! **Upstream's rule** (`endf.f90`): every record a routine *writes* (`contio`,
+//! `listio`, `tab1io`, `tab2io`, `moreio`, `hdatio`, `dictio`) takes the running
+//! count `nsh` and increments it, wrapping 99999 to 1. A closer *written* by
+//! `asend` carries 99999, by `afend`/`amend` 0, and each restarts the count at 1.
+//! A closer *copied* by `tosend`/`tofend`/`tomend`/`totend` is rewritten with the
+//! running count, which goes on. `thermr` sets `nsh = 0` before `tpidio` and
+//! ends with `totend`, so its TEND is a copy. `tpend` copies MF=1 and MF=2
+//! (`tofend`), the input MF=3 sections it keeps (`tosend`/`tofend`), each new
+//! MF=6 section's SEND from the scratch unit `nscr` (`tosend(nscr,nout,...)`),
+//! and everything from MF=4 on (`tosend`/`tomend`); it writes each new MF=3
+//! SEND with `asend`, MF=3's and MF=6's FENDs with `afend` when nothing of that
+//! file follows, and the MEND with `amend` only when `sav` holds it. The text
+//! round trip through `nscr` changes no numbering on `nout`: `nscr` has its own
+//! counter, `nsc`, and `tosend` writes `nsh` on `nout`.
+//!
+//! **Prediction** (written before the run): every line of units 24 and 25
+//! identical, sequence numbers included, and the TEND of unit 24 numbered 1 and
+//! of unit 25 numbered 2, as NJOY2016's are.
+//!
+//! **Result** (2026-11-24, release, NJOY2016.80 `ab27c64`): as predicted. Every
+//! unit is identical in every line, sequence numbers included: 23 (1 334 lines),
+//! 24 (172 927), 25 (686 840), 28 (298 761), 30 (274 759) and both directory
+//! lines. Before the fix, 1 559 and 515 485 lines differed in columns 76-80.
 
 use std::path::{Path, PathBuf};
 
@@ -131,8 +158,7 @@ fn om1_openmc_thermal_deck_h_in_h2o_two_temperatures() {
         let _ = std::fs::remove_dir_all(&tmp);
     }
     assert!(bad.is_empty(), "OM1: units differ from NJOY2016.80 in columns 1-75: {bad:?}");
-    // Pinned, not accepted: THERMR's text PENDFs number their lines as `tpend`'s
-    // copies do (a running count through copied SEND/FEND), which this port does
-    // not reproduce yet (gh:#866). 0 here means it was fixed: tighten to identity.
-    assert_eq!(seq_only, vec![(24, 1559), (25, 515485)], "OM1: the pinned sequence-number residual moved");
+    // ~~Pinned at [(24, 1559), (25, 515485)]~~ **CORRECTED 2026-11-24 (gh:#866):**
+    // `tpend`'s copied closers are numbered as NJOY numbers them; every line is identical.
+    assert!(seq_only.is_empty(), "OM1: lines differ from NJOY2016.80 in the sequence number: {seq_only:?}");
 }

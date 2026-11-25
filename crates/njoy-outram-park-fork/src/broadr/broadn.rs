@@ -94,9 +94,15 @@ pub fn lab_threshold(q: f64, awr: f64) -> f64 {
 /// deliberate deviation in this port.** When the stack is full upstream
 /// accepts the interval unexamined (`if (is.ge.nstack) go to 150`). It
 /// never gets there in NJOY because `broadn` runs on RECONR's *union*
-/// grid, where consecutive nodes are close; this crate's RECONR keeps each
-/// reaction on its own grid (H-2 elastic: 0.0253 eV is followed by 100 eV),
-/// and eleven halvings from 100 eV only reach 0.12 eV, so the whole thermal
+/// grid, where consecutive nodes are close; ~~this crate's RECONR keeps each
+/// reaction on its own grid~~ **CORRECTED 2026-11-24 (gh:#622)** — when this
+/// was written (2026-09-10) this crate's RECONR kept each reaction on its own
+/// grid; it now writes every reaction on `lunion`'s union grid (`joint.rs`
+/// module doc; `reconr/lunion.rs`), and the pipeline runs [`super::joint`]
+/// with upstream's `nstack = 12`. The deeper stack remains for this
+/// per-reaction fallback, whose input need not be a union grid. On the old
+/// per-reaction grid (H-2 elastic: 0.0253 eV is followed by 100 eV),
+/// eleven halvings from 100 eV only reach 0.12 eV, so the whole thermal
 /// `1/v` rise was accepted as one chord (measured 2026-09-10: 6 % low at
 /// 0.059 eV vs NJOY's PENDF). With a deeper stack every interval is judged
 /// by the same `errthn`/`errmax`/`errint` test as upstream; on a grid where

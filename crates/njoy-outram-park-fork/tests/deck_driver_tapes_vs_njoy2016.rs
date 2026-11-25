@@ -1434,10 +1434,27 @@ fn thermal_acer_deck(case: &str, n: usize, res: &[(&str, u32)], units: &[u32]) -
 /// The differing lines `(unit, line numbers)` of [`thermal_acer_deck`]'s run,
 /// with this crate's run dated `date` when given (else NJOY's).
 fn thermal_acer_differences(case: &str, n: usize, res: &[(&str, u32)], units: &[u32], date: Option<&str>) -> Option<Vec<(u32, Vec<usize>)>> {
+    thermal_acer_differences_edited(case, n, res, units, date, None)
+}
+
+/// [`thermal_acer_differences`] on the deck with one card replaced, `(old, new)`
+/// (the same deck for both codes); `old` must occur in the deck exactly once.
+fn thermal_acer_differences_edited(
+    case: &str,
+    n: usize,
+    res: &[(&str, u32)],
+    units: &[u32],
+    date: Option<&str>,
+    edit: Option<(&str, &str)>,
+) -> Option<Vec<(u32, Vec<usize>)>> {
     let root = njoy_root();
-    let deck = deck_first_acers(&root, case, n)?;
+    let mut deck = deck_first_acers(&root, case, n)?;
+    if let Some((old, new)) = edit {
+        assert_eq!(deck.matches(old).count(), 1, "deck {case}: the card to edit must occur once");
+        deck = deck.replace(old, new);
+    }
+    let tag = format!("ta{case}{}{}", if date.is_some() { "d" } else { "" }, if edit.is_some() { "e" } else { "" });
     let (r0, rest) = res.split_first().unwrap();
-    let tag = format!("ta{case}{}", if date.is_some() { "d" } else { "" });
     let (ours, njoy) = run_pair_decks_dated(&root, &tag, r0.0, rest, &deck, &deck, date)?;
     let mut bad = Vec::new();
     for &u in units {
@@ -1486,6 +1503,48 @@ fn test_49_thermal_ace_and_directory() {
 #[test]
 fn test_67_thermal_ace_and_directory() {
     thermal_acer_deck("67", 2, &[("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)], &[70, 75, 71, 76, 55]);
+}
+
+/// **ACER `nmix > 1`** (gh:#866, 2026-11-24): deck 67 (D in 7LiD, mixed elastic,
+/// `iwt = 0`) with card 9's `nmix` set to 2, `221 20 222 2 2 10. 0`, run by
+/// NJOY2016.80 and by this crate; the first ACER's ACE unit 70 and directory 75,
+/// and the second ACER's (`iopt = 7`, reading 70 back) units 71, 76 and plot
+/// file 55, line by line. No upstream test deck has `nmix != 1`, so the deck is
+/// edited; `nmix` is a pure ACER card and changes nothing before it.
+///
+/// Upstream (`aceth.f90`, `thrlod`): `nmix` divides the three cross sections it
+/// stores and nothing else: ITCX `scr/emev/nmix` (`:730`), the incoherent
+/// elastic `sigma` `scr(indx+1)/nmix` (`:804`, here ITCXI of the mixed table) and
+/// ITIX `scr(2)/nmix` (`:830`). The port divides the finished table's three
+/// blocks (`deck::acer_thermal::thrlod_nmix`), the same single IEEE division.
+///
+/// Prediction (before the run): every unit identical, ITIX, ITCX and ITCXI
+/// halved against `nmix = 1`. Result (2026-11-24, release, NJOY2016.80
+/// `ab27c64`): all five units identical (0 differing lines).
+#[test]
+fn test_67_nmix_2_thermal_ace_is_njoy2016s() {
+    let res = [("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)];
+    let edit = Some(("221 20 222 2 1 10. 0", "221 20 222 2 2 10. 0"));
+    let Some(bad) = thermal_acer_differences_edited("67", 2, &res, &[70, 75, 71, 76, 55], None, edit) else { return };
+    assert!(bad.is_empty(), "deck 67, nmix = 2: units differ from NJOY2016: {bad:?}");
+}
+
+/// **ACER `nmix = 3`** (gh:#866, 2026-11-24): deck 49 (Zr in ZrH, `mte = 228`,
+/// `ielas = 0`: `iel`'s MF=3 read as Bragg edges, ITCX with `idpnc = 4`;
+/// `iwt = 2`) with card 9's `nmix` set to 3, `227 80 228 0 3 1.00022 2`. A
+/// division by 3 rounds, so this is the case where the port's order of
+/// operations has to be upstream's (`scr/emev/nmix`, not `scr/(emev*nmix)`).
+///
+/// Prediction (before the run): ACE unit 61 and directory unit 71 identical.
+/// Result (2026-11-24, release): both identical (0 differing lines). Control:
+/// NJOY2016's own ACE unit 71 at `nmix = 3` differs from its `nmix = 1` table in
+/// 105 of 272 558 lines (ITIX and ITCX), so this gate can fail.
+#[test]
+fn test_49_nmix_3_thermal_ace_is_njoy2016s() {
+    let res = [("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)];
+    let edit = Some(("227 80 228 0 1 1.00022 2", "227 80 228 0 3 1.00022 2"));
+    let Some(bad) = thermal_acer_differences_edited("49", 1, &res, &[61, 71], None, edit) else { return };
+    assert!(bad.is_empty(), "deck 49, nmix = 3: units differ from NJOY2016: {bad:?}");
 }
 
 /// Deck 68 (H in H2O, inelastic only): ACE unit 70 and directory unit 75.

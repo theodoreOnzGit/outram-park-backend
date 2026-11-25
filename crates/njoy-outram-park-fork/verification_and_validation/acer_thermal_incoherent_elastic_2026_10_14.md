@@ -129,8 +129,9 @@ relative, cosines to 1e-9).
 - Mixed elastic (`IDPNC = 5`): no `LTHR = 3` evaluation here (above).
 - Temperatures other than 296 K, the evaluation's base temperature (another
   piece of GitHub #866).
-- `nmix > 1`: ACER divides ITCX by `nmix` (`aceth.f90:804`); this port has no
-  `nmix` option and writes `nmix = 1`. Separately, the coherent block divides
+- `nmix > 1`: ACER divides ITCX by `nmix` (`aceth.f90:804`); ~~this port has no
+  `nmix` option and writes `nmix = 1`.~~ **CORRECTED 2026-11-24 (gh:#866):** the
+  ACER deck divides as upstream does (`deck::acer_thermal::thrlod_nmix`). Separately, the coherent block divides
   by `natom` where upstream divides by `nmix` (`aceth.f90:730`); the two agree
   on every gated case (`natom = 1` wherever there is coherent elastic) but are
   different inputs.
