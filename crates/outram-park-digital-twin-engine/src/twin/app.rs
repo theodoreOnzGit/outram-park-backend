@@ -7,6 +7,10 @@
 //!
 //! - a bottom tab bar of the five pages (`bugis::tab_bar`, which fits a
 //!   390 px phone), with the short labels of [`TwinPage::tab_label`];
+//! - **Gruvbox** (maintainer, 2026-11-25: the twin frontends "should use
+//!   gruvbox"): `bugis::Theme`, Gruvbox Dark by default, applied by the app
+//!   itself on its first frame, with a Dark / Light selector in the panel,
+//!   so no adopter has to remember it;
 //! - the collapsible control panel (`bugis::web_demo::panel`, folded by
 //!   default on a narrow screen) holding the adopter's plant controls and
 //!   the research-only banner;
@@ -214,21 +218,49 @@ pub struct TwinApp<H: TwinHost> {
     pub window: TrendWindow,
     /// The plant column the trend shows.
     pub column: usize,
+    /// The Gruvbox variant (Dark by default).
+    pub theme: bugis::Theme,
+    /// The variant last applied to the context; `None` before the first
+    /// frame.
+    applied: Option<bugis::Theme>,
     panel: Panel,
+}
+
+/// The theme to apply this frame: `theme` when it differs from what was
+/// last applied (always on the first frame), else nothing.
+pub fn theme_to_apply(theme: bugis::Theme, applied: Option<bugis::Theme>) -> Option<bugis::Theme> {
+    (applied != Some(theme)).then_some(theme)
 }
 
 impl<H: TwinHost> TwinApp<H> {
     /// The app on the Plant page, trending column 1 (the first after time).
     pub fn new(host: H) -> Self {
-        TwinApp { host, page: TwinPage::Plant, window: TrendWindow::default(), column: 1, panel: Panel::default() }
+        TwinApp {
+            host,
+            page: TwinPage::Plant,
+            window: TrendWindow::default(),
+            column: 1,
+            theme: bugis::Theme::default(),
+            applied: None,
+            panel: Panel::default(),
+        }
     }
 
     /// Draw one frame (GUI code). Call from `eframe::App::ui`.
     pub fn ui(&mut self, ui: &mut Ui) {
+        if let Some(t) = theme_to_apply(self.theme, self.applied) {
+            t.apply(ui.ctx());
+            self.applied = Some(t);
+        }
         let title = self.host.title();
         let mut panel = core::mem::take(&mut self.panel);
         panel.show(ui, &title, |ui| {
             ui.label(RichText::new(BANNER).small().strong());
+            ui.horizontal(|ui| {
+                for t in bugis::Theme::ALL {
+                    ui.selectable_value(&mut self.theme, t, t.label());
+                }
+            });
             ui.separator();
             self.host.controls(ui);
             ui.separator();

@@ -85,3 +85,54 @@ fn the_trend_range_does_not_magnify_round_off() {
     assert!((zero.1 - zero.0 - 1e-9).abs() < 1e-18);
     assert_eq!(y_range(&[]), None);
 }
+
+/// **Gruvbox by default** (maintainer, 2026-11-25). The theme is applied
+/// on the first frame and again only when the reader changes it; a frame
+/// of the app on a headless context leaves the context in Gruvbox Dark.
+#[test]
+fn the_app_applies_gruvbox() {
+    use bugis::Theme;
+    assert_eq!(theme_to_apply(Theme::GruvboxDark, None), Some(Theme::GruvboxDark));
+    assert_eq!(theme_to_apply(Theme::GruvboxDark, Some(Theme::GruvboxDark)), None);
+    assert_eq!(theme_to_apply(Theme::GruvboxLight, Some(Theme::GruvboxDark)), Some(Theme::GruvboxLight));
+
+    struct Quiet;
+    impl TwinHost for Quiet {
+        fn title(&self) -> String {
+            "quiet".into()
+        }
+        fn page_status(&self, _page: TwinPage) -> Result<(), TwinError> {
+            Ok(())
+        }
+        fn columns(&self) -> Vec<&'static str> {
+            vec!["time_s", "x"]
+        }
+        fn history(&self) -> Vec<Vec<f64>> {
+            vec![vec![0.0, 1.0], vec![1.0, 2.0]]
+        }
+        fn control_volumes(&self) -> ControlVolumes {
+            ControlVolumes::default()
+        }
+        fn monte_carlo(&self) -> McPageView {
+            McPageView::default()
+        }
+        fn multiphysics(&self, _r: MeshResolution) -> Vec<String> {
+            Vec::new()
+        }
+        fn controls(&mut self, _ui: &mut Ui) {}
+        fn act(&mut self, _a: TwinAction) {}
+    }
+    let ctx = egui::Context::default();
+    let mut app = TwinApp::new(Quiet);
+    assert_eq!(app.theme, Theme::GruvboxDark);
+    for page in TwinPage::ALL {
+        app.page = page;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| app.ui(ui));
+    }
+    assert_eq!(ctx.theme(), egui::Theme::Dark);
+    assert_eq!(ctx.style_of(egui::Theme::Dark).visuals.panel_fill, Theme::GruvboxDark.visuals().panel_fill);
+    app.theme = Theme::GruvboxLight;
+    let _ = ctx.run_ui(egui::RawInput::default(), |ui| app.ui(ui));
+    assert_eq!(ctx.theme(), egui::Theme::Light);
+    assert_eq!(ctx.style_of(egui::Theme::Light).visuals.panel_fill, Theme::GruvboxLight.visuals().panel_fill);
+}
