@@ -380,8 +380,17 @@ on SHRT-45R after 60 s of coast-down:
   to 1e-12 relative;
 - tabulated power (SHRT-17) refuses a new set.
 
-**Results (2026-11-25).** All three pass. The terms at 60 s, at the
-end-of-step state, were Doppler −2.9745 → −5.9452 pcm. That test
+**Results (2026-11-25).** All three pass. The terms after 80 s, at the
+end-of-step state, Argonne VARIANT → doubled:
+
+| Term | VARIANT (pcm) | Doubled (pcm) |
+|---|---|---|
+| Doppler | −2.9726 | −5.9452 |
+| Axial fuel expansion | −32.6023 | −65.2047 |
+| Sodium density | −153.5589 | −307.1177 |
+| Radial expansion | −3.9479 | −7.8958 |
+
+That test
 also observed that the reactivity `reactivity()` reports after a step is the
 feedback at the last sub-step's *start* temperatures (Numerics, step 2): it
 differed from the end-of-step evaluation by 6.4e-4 relative in Doppler. This
