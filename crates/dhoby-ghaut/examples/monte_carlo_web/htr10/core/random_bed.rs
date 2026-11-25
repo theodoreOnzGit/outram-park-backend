@@ -179,6 +179,9 @@ pub fn render_review(dir: &std::path::Path) -> Result<(), String> {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
+    use nee_soon::htr10_rmc::explicit_bed::paper_fuel_assignment;
+    use uom::si::length::meter;
 
     /// The page's pebble counts are the beds the workers build (2026-10-26,
     /// the main view shows them), and the label carries them.

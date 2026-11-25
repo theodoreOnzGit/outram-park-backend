@@ -110,6 +110,8 @@ impl McRung for Natu {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nee_soon::mc_rungs::natu::{geometry, material, BIRTH_X};
+    use outram_mc_libs::vv::jemima;
 
     /// The bar is one cell that holds its own centre and the birth point,
     /// and the material is Jemima's natural uranium, unchanged.

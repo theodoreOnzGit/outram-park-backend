@@ -430,6 +430,7 @@ impl<C: CsgCase> LoadedRung for Loaded<C> {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use nee_soon::mc_rungs::{uniform_in_cylinder, uniform_in_sphere};
 
     /// The models in `nee_soon::mc_rungs` name the generated water law by the
     /// string the data builder above compares against (gh:#1742).
