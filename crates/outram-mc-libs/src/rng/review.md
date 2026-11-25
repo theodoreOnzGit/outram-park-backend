@@ -239,3 +239,67 @@ looks legit
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit c0d377264b.
+
+# Review: isotropic_direction (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-isotropic-direction-theodoreonzgit-7988a62a"
+kind = "review"
+origin = "human"
+created = "2026-11-25T16:47:10+08:00"
+modified = "2026-11-25T16:47:10+08:00"
+target = "fn:7988a62af8c6ea5b"
+
+[review]
+path = "crates/outram-mc-libs/src/rng/distributions.rs::isotropic_direction"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-25"
+signed_at = "2026-11-25T16:47:10+08:00"
+commit = "dffd97179bfc31350e13c7e526074081eaafd29b"
+hash = "sha256:576fe9036e71d2d607368c650c190582e256534a212cb77704d2acc72253662d"
+doc_hash = "sha256:fa82d7214c781596ab2664347b7d1ef8cb7f297757987ba6f67af9284924c371"
+cargo_lock = "sha256:4a48251d078c2265757f8e935e6bb409d9e9caff8c543ed902119772ad0d2989"
+
+[review.callees]
+"fn:681ddf6544e7b60b" = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
+"fn:810110ab0e15d3a7" = "sha256:36092fde7654bdb4c9ed9083fe9bb588f4bee49ff71da7a559fb22f5abcfc634"
+"fn:d76bd3ba0e568fb8" = "sha256:4137e7fe123572c33ffc4fb51dc372d0b228b82cfdc2b8cbef8a21fee12fc462"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: unsigned u64, no need to worry about bad things, i think"
+independence = "someone_else"
+limits_and_guards = "no_limits: unsigned u64, no need to worry about bad things, i think"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "mixed"
+sessions = [
+    "https://claude.ai/code/session_012Jf5jeczK6fvKddBWDrLwE",
+    "https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "tv5UUOTRhZvc82XCAisypc3yN3EVLNm0cwkTVIKEXYMp8VoP2tBNFrPk7ms0nqHv4aGsQrvZvEtwEVDjWBNqDw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+looks about right, the spherical coordinate vector is given
+number guards also apply
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit dffd97179b.
