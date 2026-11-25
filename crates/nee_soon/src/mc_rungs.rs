@@ -42,13 +42,25 @@ use outram_mc_libs::material::material::Material;
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use petir::mathf::RealMath;
 
+/// `std` only: built on `outram_mc_libs::vv`, which is `std`-only.
+#[cfg(feature = "std")]
 pub mod godiva;
+/// `std` only: built on `outram_mc_libs::vv`, which is `std`-only.
+#[cfg(feature = "std")]
 pub mod hst009;
 pub mod htr10_core;
+/// `std` only: built on `outram_mc_libs::vv`, which is `std`-only.
+#[cfg(feature = "std")]
 pub mod jemima;
+/// `std` only: built on `outram_mc_libs::vv`, which is `std`-only.
+#[cfg(feature = "std")]
 pub mod lumped;
+/// `std` only: built on `outram_mc_libs::vv`, which is `std`-only.
+#[cfg(feature = "std")]
 pub mod natu;
 pub mod triso;
+/// `std` only: built on `outram_mc_libs::vv`, which is `std`-only.
+#[cfg(feature = "std")]
 pub mod ugraphite;
 
 /// The tape name of the H-in-H2O law LEAPR generates (nothing downloaded):
