@@ -46,7 +46,7 @@ use uom::si::temperature_interval::kelvin as kelvin_interval;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 
-use super::model::{Ebr2Config, Ebr2Error, Ebr2Model};
+use super::model::{Ebr2Config, Ebr2Error, Ebr2Model, PowerConfig, ReactivityCoefficients};
 use super::shrt::ShrtTest;
 
 /// The wall-clock pacer of a self-paced plant worker: MSRE's, reused as is
@@ -432,6 +432,21 @@ impl Session {
     /// The configuration this session started from.
     pub fn config(&self) -> SessionConfig {
         self.config
+    }
+
+    /// Switch the plant to these reactivity coefficients
+    /// ([`Ebr2Model::set_reactivity_coefficients`]; gh:#1749, the twin's
+    /// "send to plant"). SHRT-17's tabulated power refuses it.
+    pub fn set_reactivity_coefficients(&mut self, c: ReactivityCoefficients) -> Result<(), Ebr2Error> {
+        self.model.set_reactivity_coefficients(c)
+    }
+
+    /// The coefficients the plant runs on; `None` for tabulated power.
+    pub fn reactivity_coefficients(&self) -> Option<ReactivityCoefficients> {
+        match &self.model.config().power {
+            PowerConfig::PointKinetics(k) => Some(k.coefficients),
+            PowerConfig::Tabulated => None,
+        }
     }
 
     /// Apply one operator command. Errors, changing nothing, for a

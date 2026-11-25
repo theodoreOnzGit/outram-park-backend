@@ -16,6 +16,8 @@
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --headless [end_s] [every_s]
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --prepare-web-data <dir>   # the k_eff tab's tapes
+//! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --dump-cvs [steps]   # the twin's CV map (gh:#1748)
+//! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --coefficients       # the live N-3 split, sent to the plant
 //! crates/outram-park-digital-twin-engine/web/msre/build.sh   # the browser demo, into dist/
 //! ```
 //!
@@ -23,6 +25,12 @@
 //! transient (`msre::session::demo_script`: rods +10 pcm, fuel pump trip,
 //! radiator doors closed), default 1200 s sampled every 10 s. The headless
 //! rule's `[steps] [sample_every]` are plant seconds here.
+//!
+//! `--dump-cvs` and `--coefficients` go through the multifidelity twin
+//! template (`msre::twin::MsreTwin`, gh:#1744/#1748): the control volumes
+//! after `steps` plant seconds of the demonstration transient, and the N-3
+//! split at the k_eff tab's quickest preset run natively and sent to the
+//! plant (many minutes).
 //!
 //! Published, password-gated, at `demos/msre/` on the backend's Pages site
 //! (`scripts/build-pages.sh`), in the demos page's "Museum – historical
@@ -69,6 +77,19 @@ fn main() -> Result<(), String> {
         let num = |k: usize, d: f64| args.get(i + k).and_then(|s| s.parse().ok()).unwrap_or(d);
         let csv = headless_csv(SessionConfig::default(), &demo_script(), num(1, 1200.0), num(2, 10.0)).map_err(|e| e.to_string())?;
         print!("{csv}");
+        return Ok(());
+    }
+    // The multifidelity twin template's headless outputs (gh:#1744, #1748):
+    // `--dump-cvs [steps]` (the CV map after `steps` seconds of the
+    // demonstration plant) and `--coefficients` (the live N-3 split at the
+    // quickest preset, sent to the plant; many minutes).
+    if args.iter().any(|a| a == "--dump-cvs" || a == "--coefficients") {
+        use outram_park_digital_twin_engine::msre::twin::{demo_script as twin_script, msre_twin, quick_split};
+        use uom::si::{f64::Time, time::second};
+        let mut twin = msre_twin(SessionConfig::default(), quick_split()).map_err(|e| e.to_string())?;
+        let one = Time::new::<second>(1.0);
+        let out = twin.headless(&args, &twin_script(), one, Time::new::<second>(1200.0)).map_err(|e| e.to_string())?;
+        print!("{out}");
         return Ok(());
     }
     eframe::run_native(
