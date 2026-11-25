@@ -1296,7 +1296,7 @@ impl CoreScreen {
                 let mut l = format!("k = {m:.5} ± {e:.5}");
                 if let Some(r) = refs.iter().find(|r| r.sigma.is_some()) {
                     let d = (m - r.k) * 1e5;
-                    let sd = (e * e + r.sigma.unwrap_or(0.0).powi(2)).sqrt() * 1e5;
+                    let sd = (e * e + r.sigma.unwrap_or(0.0).r_powi(2)).sqrt() * 1e5;
                     l.push_str(&format!(" · you − recorded = {d:+.0} ± {sd:.0} pcm"));
                 }
                 l
