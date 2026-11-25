@@ -175,6 +175,11 @@ pub struct App {
     pub s78: crate::steps78::S78,
     /// The reader's UI scale (gh:#586).
     pub ui_scale: crate::style::UiScale,
+    /// The MSRE preset's geometry review (gh:#1752): slices drawn on a
+    /// background thread (`None` until asked, `Some(empty)` while drawing).
+    pub preset_slices: std::sync::Arc<std::sync::RwLock<Option<Vec<(String, outram_mc_libs::geometry::plot::ImageData)>>>>,
+    /// Those slices as textures, once uploaded.
+    pub preset_textures: Vec<(String, egui::TextureHandle)>,
 }
 
 impl App {
@@ -222,6 +227,8 @@ impl App {
             recipe,
             preset,
             endf_dir,
+            preset_slices: std::sync::Arc::new(std::sync::RwLock::new(None)),
+            preset_textures: Vec::new(),
             dialog: egui_file_dialog::FileDialog::new()
                 .add_file_filter_extensions("Recipes (kovan markdown)", vec!["md"])
                 .default_file_filter("Recipes (kovan markdown)")
@@ -835,9 +842,64 @@ impl App {
             }
         });
         ui.add_space(8.0);
+        if p == HistoricalPreset::Msre {
+            self.msre_geometry_review(ui);
+        }
         if ui.button("« Back").clicked() {
             self.screen = Screen::Picker;
         }
+    }
+
+    /// MSRE's geometry review on the preset page (gh:#1752): the drawing
+    /// rule's slices of the assembled N-1 model, drawn on a background
+    /// thread by `workbench::presets::msre_slices` (tested in the library)
+    /// so the UI thread only draws. GUI code.
+    fn msre_geometry_review(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Geometry review").strong());
+        let state = self.preset_slices.read().map(|g| g.as_ref().map(|v| v.len())).unwrap_or(None);
+        match state {
+            None => {
+                if ui.button("Draw the MSRE geometry (assembled N-1 model)").clicked() {
+                    *self.preset_slices.write().unwrap_or_else(|e| e.into_inner()) = Some(Vec::new());
+                    let out = self.preset_slices.clone();
+                    let ctx = ui.ctx().clone();
+                    std::thread::spawn(move || {
+                        let slices = dhoby_ghaut::workbench::presets::msre_slices(600);
+                        *out.write().unwrap_or_else(|e| e.into_inner()) = Some(slices);
+                        ctx.request_repaint();
+                    });
+                }
+            }
+            Some(0) => {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Drawing from the assembled model…");
+                });
+            }
+            Some(_) => {
+                if self.preset_textures.is_empty() {
+                    let slices = self.preset_slices.read().map(|g| g.clone().unwrap_or_default()).unwrap_or_default();
+                    for (title, img) in slices {
+                        let mut bytes = Vec::with_capacity(img.pixels.len() * 3);
+                        for p in &img.pixels {
+                            bytes.extend_from_slice(&[p.r, p.g, p.b]);
+                        }
+                        let ci = egui::ColorImage::from_rgb([img.width, img.height], &bytes);
+                        let tex = ui.ctx().load_texture(title.clone(), ci, egui::TextureOptions::LINEAR);
+                        self.preset_textures.push((title, tex));
+                    }
+                }
+                egui::ScrollArea::vertical().max_height(crate::style::em(40.0)).show(ui, |ui| {
+                    let w = ui.available_width().min(crate::style::em(40.0));
+                    for (title, tex) in &self.preset_textures {
+                        ui.small(title);
+                        let size = tex.size_vec2();
+                        ui.image((tex.id(), egui::vec2(w, w * size.y / size.x.max(1.0))));
+                    }
+                });
+            }
+        }
+        ui.add_space(8.0);
     }
 
     // ─── The wizard frame ───────────────────────────────────────────────────

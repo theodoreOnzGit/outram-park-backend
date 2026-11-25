@@ -322,7 +322,7 @@ impl HistoricalPreset {
         match self {
             Self::Msre => [
                 ok("Prefill", "nee_soon::msre_n1::Study::default(): TM-0728 / TM-0730 dimensions at temperature, the whole shield, the U-234/U-236 salt"),
-                ok("Geometry review", "drawn from the assembled CSG: nee_soon/verification_and_validation/msre_n1_first_criticality/images/ (example msre_n1_parameter_images)"),
+                ok("Geometry review", "drawn live on this page from the assembled CSG (workbench::presets::msre_slices: the whole model with the full shield, mid-height x-y, the vessel), gh:#1752; record images in nee_soon/verification_and_validation/msre_n1_first_criticality/images/"),
                 ok("k_eff", "the N-1 first-criticality record: 1.016515 ± 0.000329 on six seeds, +1571 pcm against k_ref (msre_n1_first_criticality/README.md)"),
                 ok("Temperature coefficients", "the N-3 split (fuel -3.79 ± 0.37, graphite -3.26 ± 0.33 x1e-5 /F), live through msre::twin::MsreSplit"),
                 ok("Plant", "engine::msre (TM-1070 circulating kinetics, feedback, loops), on the twin template as msre::twin::MsreTwin"),

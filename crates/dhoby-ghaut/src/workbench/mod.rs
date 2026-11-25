@@ -28,6 +28,8 @@
 //! Not built for wasm32: `kovan` is gated off the browser (see `Cargo.toml`).
 
 pub mod catalogue;
+/// The historical presets' runnable steps (gh:#1752).
+pub mod presets;
 pub mod exports;
 pub mod reactivity_map;
 pub mod multiphysics;
