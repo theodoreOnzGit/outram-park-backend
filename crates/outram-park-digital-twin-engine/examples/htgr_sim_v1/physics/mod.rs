@@ -1542,6 +1542,7 @@ impl HtgrPlant {
     }
 
     /// The bank worth in use \[dk/k\].
+    #[cfg(test)] // test-only: no GUI/headless control reads it back (gh:#1740)
     pub fn bank_worth_dk_k(&self) -> f64 {
         self.bank_worth_override.unwrap_or_else(control_rods::bank_worth_dk_k)
     }
