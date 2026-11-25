@@ -303,7 +303,7 @@ doc_hash = "sha256:0dd5432b10f4421aade953f91bda4bb7364040fb959e1084411da010f4fd6
 uses = ["fn:16732cbca27a157e"]
 
 [test_run]
-commit = "fc93def94a76099d77c172cd58b07e9088b0d5a4"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = []
