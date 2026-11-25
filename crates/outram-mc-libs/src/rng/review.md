@@ -303,3 +303,70 @@ number guards also apply
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit dffd97179b.
+
+# Review: isotropic_direction_openmc (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-isotropic-direction-openmc-theodoreonzgit-3e2c64e0"
+kind = "review"
+origin = "human"
+created = "2026-11-25T16:52:38+08:00"
+modified = "2026-11-25T16:52:38+08:00"
+target = "fn:3e2c64e02f754399"
+
+[review]
+path = "crates/outram-mc-libs/src/rng/distributions.rs::isotropic_direction_openmc"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-25"
+signed_at = "2026-11-25T16:52:38+08:00"
+commit = "fa841a98165545ce76faa0c79615ffe81cc4f3b1"
+hash = "sha256:abbfdafc74818a415d6191893f5567b45073027c8fa2625cff57fe0e35358dbe"
+doc_hash = "sha256:97705a6dfbe898decfa1a6926b789432c335354f38552d887d47fd51d61f6199"
+cargo_lock = "sha256:4a48251d078c2265757f8e935e6bb409d9e9caff8c543ed902119772ad0d2989"
+
+[review.callees]
+"fn:681ddf6544e7b60b" = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
+"fn:810110ab0e15d3a7" = "sha256:36092fde7654bdb4c9ed9083fe9bb588f4bee49ff71da7a559fb22f5abcfc634"
+"fn:d76bd3ba0e568fb8" = "sha256:4137e7fe123572c33ffc4fb51dc372d0b228b82cfdc2b8cbef8a21fee12fc462"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: unsigned u64, no need to worry about bad things, i think"
+independence = "someone_else"
+limits_and_guards = "no_limits: unsigned u64, no need to worry about bad things, i think"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "nZqLQ71TUASsGaTWb5Dem5B6FfHSji8YnfSJPvJatlsINeKemqzl6j+fIjf/KTUz3VPHCnHdep8HUKiARTE7Ag=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+Direction isotropic_direction(uint64_t* seed)
+{
+  double phi = uniform_distribution(0., 2.0 * PI, seed);
+  double mu = uniform_distribution(-1., 1., seed);
+  return {mu, std::sqrt(1.0 - mu * mu) * std::cos(phi),
+    std::sqrt(1.0 - mu * mu) * std::sin(phi)};
+}
+
+seems to match original openmc quite well
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit fa841a9816.
