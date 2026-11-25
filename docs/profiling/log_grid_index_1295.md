@@ -142,4 +142,56 @@ after: bit identity again, over 1540 generations.
 particle energy** for every nuclide (`i_log_union`, from the library-wide
 `E_min` and `log_spacing`) and passes it down. Doing the same needs a
 library-wide grid and a change to the call chain that picks a collision nuclide;
-filed as a follow-up, gh:#1732.
+filed as a follow-up, gh:#1732. **Done 2026-11-25, differently; see below.**
+
+## One `ln` per energy (gh:#1732, 2026-11-25)
+
+**What changed.** `log_grid::shared_ln(e)` keeps the last energy and its
+`ln` per thread (a one-entry memo keyed on the bits of `e`; without `std` it
+computes `ln` each time). `UnionGrid::locate` takes the bin as
+`(ln e - ln E_min) * (1 / spacing)` from it, so the `ln` is taken once per
+particle energy, not once per nuclide. Nothing is threaded through the
+`Material` port functions, so the port stays as it was (this crate's
+"the port is the oracle" rule). The bracket is still verified on every
+lookup: the bin, then its two neighbours, then a full search. A memo returns
+the same double `r_ln` would, so no value can change; the unit test checks
+`shared_ln == r_ln` bit for bit.
+
+**Why not OpenMC's library-wide `i_log_union`.** It needs one energy range for
+every nuclide and a new argument down the call chain that picks a collision
+nuclide, which is port code. The memo gives the same saving (one `ln` per
+energy) without touching it. The per-nuclide bin width stays as in gh:#1295.
+
+**Bit identity.** `tests/log_grid_lookup_1295.rs`,
+`tests/log_grid_routes_1295.rs` (all four CPU routes),
+`tests/speed_tier_fast_is_exact.rs`, `tests/total_fast_path_matches_full.rs`
+and the lib tests pass unchanged. Every timing run below gave the same k bits
+on both builds (`3feffed8b36828a3` single-thread, `3ff007f9f44a37af` on 3
+threads), the same bits as gh:#1295's before and after.
+
+**Predicted before measuring** (on gh:#1732): transport 10-15 % shorter, a
+1.10-1.17x speed-up, from removing most of `locate`'s 18 %.
+
+**Measured.** Same driver and case as above (Godiva HIGH tier, 5000 x
+[40 + 120], `run_keff`, transport time only). after = gh:#1295 (`df8eb4334`
+code), after1732 = this change (`6b18ac8c8`). Five repetitions per arm,
+interleaved, on a machine doing nothing else.
+
+**Hardware:** Intel Xeon Processor @ 2.10 GHz, 4 logical cores, 15 GB RAM,
+Linux 6.18.44 (`-fc-v880`), CPU only; a cloud container, load average 0.7
+before the runs. This is a different container from the gh:#1295 timing
+above (the same build runs about 5 % faster here), so compare only the ratios
+within each table.
+
+| threads | gh:#1295, s | gh:#1732, s | mean | mean | speed-up | paired difference |
+|---|---|---|---|---|---|---|
+| 1 | 3.42, 3.79, 3.63, 3.40, 3.73 | 3.70, 3.34, 3.83, 3.12, 3.33 | 3.59 | 3.46 | 1.04x | -0.13 +- 0.15 s (0.8 sigma) |
+| 3 | 1.61, 1.36, 1.36, 1.34, 1.35 | 1.37, 1.27, 1.29, 1.18, 1.31 | 1.40 | 1.28 | **1.09x** | -0.12 +- 0.04 s (3.3 sigma) |
+
+**The prediction was not met.** On 3 threads the gain is -8.5 %, resolved,
+just under the predicted 10-15 %. Single-thread it is -3.6 %, not resolved
+from zero at five repetitions (run-to-run scatter here is 5-8 %). So `ln`
+was a smaller part of `locate`'s 18 % than assumed: the rest is the bracket
+check and the `partition_point` inside the bin, which this change does not
+touch. Ratios hold for this host only. An earlier partial run, cut short by a
+container restart and possibly on another host, is not quoted.

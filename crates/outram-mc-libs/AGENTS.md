@@ -779,6 +779,10 @@ path. `material::speed::SpeedTier`, chosen per nuclide with
     Godiva transport 1.85x faster single-thread, 1.87x on 3 threads, k
     bit-identical (Intel Xeon @ 2.10 GHz, 4 cores, 15 GB, Linux 6.18, CPU
     only; `docs/profiling/log_grid_index_1295.md` at the workspace root).
+    **Since 2026-11-25 (gh:#1732):** the bin's `ln(E)` is taken once per
+    energy, a per-thread memo shared by every nuclide (`log_grid::shared_ln`):
+    1.09x more on 3 threads, 1.04x single-thread (not resolved), k
+    bit-identical; same record.
 - **`Standard`** is the unoptimized reference, kept so `Fast` can be checked
   against it. `tests/speed_tier_fast_is_exact.rs` requires **bit identity**:
   every `MicroXS` field, `total_at_energy`, `sample_inelastic`, and
