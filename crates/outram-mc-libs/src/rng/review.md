@@ -165,3 +165,77 @@ So essentially it is identical.
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit 5730eb689d.
+
+# Review: normal_variate (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-normal-variate-theodoreonzgit-73d31751"
+kind = "review"
+origin = "human"
+created = "2026-11-25T16:45:37+08:00"
+modified = "2026-11-25T16:45:37+08:00"
+target = "fn:73d3175114d13b5a"
+
+[review]
+path = "crates/outram-mc-libs/src/rng/distributions.rs::normal_variate"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-25"
+signed_at = "2026-11-25T16:45:37+08:00"
+commit = "c0d377264b49bb9e1c395f41e326bf966064799f"
+hash = "sha256:3d856bb6ed888639cd9db5979b48bc8ab8a6691769765b8f6ae85b1641901b53"
+doc_hash = "sha256:82d9396182c90299069f52bdd6985dddec7b158238858a3c0d7d31f31e3c7638"
+cargo_lock = "sha256:4a48251d078c2265757f8e935e6bb409d9e9caff8c543ed902119772ad0d2989"
+
+[review.callees]
+"fn:69b82be4e3b98232" = "sha256:75f540b65fc7cde1e46fa6fd0757e43d4363f85490cebc324acba5198ae12632"
+"fn:7d2c37be6eb3e8f3" = "sha256:e03a479bf5c1837af8e2aef9589eb6759382a67e74340d003406d4abfac2caa0"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: normal distributino sampler, positive or negative ok, and upstream also doesn't guard aganst NaN etc."
+independence = "someone_else"
+limits_and_guards = "no_limits: normal distributino sampler, positive or negative ok, and upstream also doesn't guard aganst NaN etc."
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "chkvVlut2e+QFs3xbMHqQmxMfH11WCsgdWD6+f7xlpe8nhDbyrM5yrJckrNHHrGnmg8O3ZiT5K9sY2ApkNydCA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+normal distributino sampler, positive or negative ok, and upstream also doesn't guard aganst NaN etc.
+
+upstream:
+double normal_variate(double mean, double standard_deviation, uint64_t* seed)
+{
+  // Sample a normal variate using Marsaglia's polar method
+  double x, y, r2;
+  do {
+    x = uniform_distribution(-1., 1., seed);
+    y = uniform_distribution(-1., 1., seed);
+    r2 = x * x + y * y;
+  } while (r2 > 1 || r2 == 0);
+  double z = std::sqrt(-2.0 * std::log(r2) / r2);
+  return mean + standard_deviation * z * x;
+}
+
+looks legit
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit c0d377264b.
