@@ -13,8 +13,18 @@
 //! ```text
 //! cargo run --release -p nee_soon --example htr10_graphite_zone_worth -- \
 //!     --base 600 --delta 600 --particles 3000 --inactive 20 --active 80 \
-//!     --threads 4 [--cases BASE,DUMMIES] [--layers 12]
+//!     --threads 4 [--cases BASE,DUMMIES] [--layers 12] \
+//!     [--dem-bed reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv] [--rods-in]
 //! ```
+//!
+//! `--dem-bed <csv>` builds every case on that poured bed instead of the
+//! Şeker lattice (gh:#1739): the DEM centres cut to the lattice's 16 681
+//! core balls at N = 12 (`mc_rungs::htr10_core::dem_centres`), fuel by
+//! `explicit_bed::paper_fuel_assignment`, as the poured-bed record
+//! (`verification_and_validation/htr10_dem_bed_keff_2026_10_08/`) builds
+//! it. `--rods-in` adds a RODS-IN case: every zone at the base temperature
+//! with all ten rods fully inserted, whose worth against BASE is the rod
+//! bank's.
 //!
 //! Prints one line per case: `k`, its standard deviation, and the worth
 //! `1/k_base - 1/k_case` in pcm with the uncorrelated standard deviation.
@@ -37,6 +47,8 @@ fn main() -> Result<(), String> {
     let (mut base, mut delta, mut threads, mut layers) = (600.0, 600.0, 4usize, 12usize);
     let mut stats = SweepStatistics { particles: 3000, inactive: 20, active: 80, ..SweepStatistics::QUICK };
     let mut only: Option<Vec<String>> = None;
+    let mut dem_bed: Option<String> = None;
+    let mut rods_in = false;
     let mut it = words.iter();
     while let Some(w) = it.next() {
         let mut val = || it.next().ok_or(format!("{w} needs a value")).cloned();
@@ -50,20 +62,40 @@ fn main() -> Result<(), String> {
             "--inactive" => stats.inactive = num(val()?)? as usize,
             "--active" => stats.active = num(val()?)? as usize,
             "--cases" => only = Some(val()?.split(',').map(String::from).collect()),
+            "--dem-bed" => dem_bed = Some(val()?),
+            "--rods-in" => rods_in = true,
             other => return Err(format!("unknown word {other:?}")),
         }
     }
+    let bed = match &dem_bed {
+        None => StudyBed::Seker { layers },
+        Some(path) => {
+            let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
+            let centres = nee_soon::mc_rungs::htr10_core::dem_centres(&text)?;
+            let is_fuel = nee_soon::htr10_rmc::explicit_bed::paper_fuel_assignment(&centres);
+            StudyBed::Explicit { centres, is_fuel }
+        }
+    };
     println!(
-        "HTR-10 graphite-zone worth: N = {layers}, base {base} K, +{delta} K, {} x [{} + {}], seed {}, {threads} threads",
+        "HTR-10 graphite-zone worth: {}, base {base} K, +{delta} K, {} x [{} + {}], seed {}, {threads} threads",
+        match &dem_bed {
+            None => format!("Seker lattice N = {layers}"),
+            Some(p) => format!("poured bed {p} cut to 16 681 core balls"),
+        },
         stats.particles, stats.inactive, stats.active, stats.seed
     );
+    let mut cases = graphite_worth_cases(ThermodynamicTemperature::new::<kelvin>(base), delta);
+    if rods_in {
+        cases.push(nee_soon::htr10_rmc::parametric::GraphiteWorthCase { name: "RODS-IN", ..cases[0].clone() });
+    }
     let mut k_base: Option<(f64, f64)> = None;
-    for case in graphite_worth_cases(ThermodynamicTemperature::new::<kelvin>(base), delta) {
+    for case in cases {
         if only.as_ref().is_some_and(|o| !o.iter().any(|n| n == case.name)) {
             continue;
         }
         let study = ParametricStudy {
-            bed: StudyBed::Seker { layers },
+            bed: bed.clone(),
+            rod_insertions: if case.name == "RODS-IN" { [1.0; nee_soon::htr10_rmc::control_rod::N_CONTROL_RODS] } else { [0.0; nee_soon::htr10_rmc::control_rod::N_CONTROL_RODS] },
             temperatures: case.temperatures,
             statistics: stats,
             ..ParametricStudy::default()
