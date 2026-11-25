@@ -21,9 +21,10 @@
 
 use crate::engine::{freeze_from_slice, Event, Request, DEFAULT_SPEED};
 use bugis::web_demo::link::Link;
-use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, set_title};
-use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
+use bugis::web_demo::view::{apply_zoom, View};
+use outram_park_digital_twin_engine::twin::shell::{ShellAt, ShellHost, TwinShell};
+use outram_park_digital_twin_engine::twin::{TwinPage, ViewState};
 use bugis::components::{MsreLayout, MsrePlantScalars, MsrePlantSchematic};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, Vec2};
 use outram_park_digital_twin_engine::msre::moltres_drift::{LoopDrift, LOOP_DRIFT_CELLS};
@@ -48,22 +49,19 @@ const SPEEDS: [(f64, &str); 5] = [(1.0, "1× (real time)"), (5.0, "5×"), (20.0,
 /// History kept for the trends: samples beyond this are thinned by half.
 const HISTORY_MAX: usize = 6000;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tab {
-    Plant,
-    Trends,
-    Periods,
-    Loop,
-    /// The full-core Monte Carlo (gh:#1571).
-    Keff,
-}
-
+/// The MSRE simulator's pages on the standard twin shell (gh:#1757): the
+/// shell owns the Gruvbox theme, the left panel, the page bar and the
+/// greying; this app fills the slots ([`ShellHost`]). Plant is the plant,
+/// Graphs the trends, Kinetics the Moltres precursor drift, Freq. the
+/// frequency response, MC the full-core k_eff. Nodes and CFD are greyed:
+/// the browser page has no control-volume view yet (the native twin has,
+/// `msre::twin`; gh:#1757) and no CFD model exists (recorded on gh:#1743).
 pub struct App {
-    theme: bugis::Theme,
+    shell: TwinShell,
     link: Link<Request, Event>,
-    panel: Panel,
     view: View,
-    tab: Tab,
+    /// The plant view's fit rect, for the shell's zoom buttons.
+    plant_fit: Rect,
     snap: Option<Snapshot>,
     history: Vec<Snapshot>,
     /// The latest Moltres drift event (`engine::Event::Drift`'s layout).
@@ -94,16 +92,15 @@ impl App {
     pub fn new(link: Link<Request, Event>) -> Self {
         let q = query_pairs();
         let mut app = Self {
-            theme: bugis::Theme::default(),
+            shell: TwinShell::default(),
             link,
-            panel: Panel::default(),
+            plant_fit: Rect::NOTHING,
             // The plant drawing (bugis MsrePlantSchematic) spans 63 x 40 ft,
             // centred on the origin; the half-extent is refitted to the
             // screen's aspect before each fit.
             view: View::new(0.5 * bugis::components::msre_plant::EXTENT_FT.0 as f64).with_home([0.0, 0.0]),
             // `?tab=keff` opens on the k_eff tab (an unattended browser
             // check, as `?krun`; gh:#1661). Any other value: Plant.
-            tab: if bugis::web_demo::platform::query_pairs().iter().any(|(k, v)| k == "tab" && v == "keff") { Tab::Keff } else { Tab::Plant },
             snap: None,
             history: Vec::new(),
             drift: None,
@@ -125,6 +122,11 @@ impl App {
             error: None,
             title: String::new(),
         };
+        // `?tab=keff` opens on the Monte Carlo page (an unattended browser
+        // check, as `?krun`; gh:#1661). Any other value: Plant.
+        if q.iter().any(|(k, v)| k == "tab" && v == "keff") {
+            app.shell.page = TwinPage::MonteCarlo;
+        }
         app.send(Request::Reset(app.config));
         app.send(Request::Periods(app.freq_fuel * 1e-5, app.freq_graphite * 1e-5));
         app.send_pace();
@@ -226,8 +228,8 @@ impl App {
         }
     }
 
-    fn side_panel(&mut self, ui: &mut egui::Ui) {
-        if self.tab == Tab::Keff {
+    fn side_panel(&mut self, ui: &mut egui::Ui, page: TwinPage) {
+        if page == TwinPage::MonteCarlo {
             self.keff.panel(ui);
             ui.separator();
         }
@@ -237,7 +239,6 @@ impl App {
         if let Some(e) = &self.error {
             ui.colored_label(ui.visuals().error_fg_color, e);
         }
-        bugis::selector(ui, &mut self.theme);
         ui.separator();
 
         ui.heading("Run");
@@ -552,77 +553,83 @@ impl eframe::App for App {
             set_title(&ctx, &title);
             self.title = title;
         }
-        let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "MSRE simulator", |ui| self.side_panel(ui));
-        self.panel = panel;
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
-            let rect = ui.max_rect();
-            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 230.0, rect.bottom() - 48.0), Vec2::new(460.0, 40.0));
-            match self.tab {
-                Tab::Plant => {
-                    let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
-                    let fit_rect = rect.shrink2(Vec2::new(0.0, 56.0));
-                    // The whole elevation view fits fit_rect, wide screen or
-                    // phone. `View::handle_input` refits against the full
-                    // `rect`, so scale the half-extent to give the same
-                    // scale there.
-                    let min_side = |r: Rect| r.width().min(r.height()).max(1.0) as f64;
-                    self.view.half_extent = MsreLayout::half_extent_to_fit(fit_rect.size()) * min_side(rect) / min_side(fit_rect);
-                    if !self.view.fitted || (!self.view.touched && self.view.fit_size != fit_rect.size()) {
-                        self.view.fit(fit_rect);
-                    }
-                    self.view.handle_input(ui, &resp);
-                    self.plant(ui, rect);
-                    if let Some(z) = zoom_buttons(ui, rect) {
-                        apply_zoom(&mut self.view, fit_rect, z);
-                    }
-                }
-                Tab::Trends => {
-                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.trends(ui));
-                }
-                Tab::Loop => {
-                    // Below the phone's Controls button and clock.
-                    let top = if rect.width() < 700.0 { 84.0 } else { 56.0 };
-                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.loop_view(ui, inner));
-                }
-                Tab::Keff => {
-                    let top = if rect.width() < 700.0 { 84.0 } else { 40.0 };
-                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.keff.view_ui(ui, inner));
-                }
-                Tab::Periods => {
-                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
-                        egui::ScrollArea::vertical().show(ui, |ui| self.period_view(ui));
-                    });
-                }
-            }
-            if let Some(s) = &self.snap {
-                let at = if rect.width() < 700.0 { Vec2::new(10.0, 58.0) } else { Vec2::new(if self.panel.open { 8.0 } else { 156.0 }, 14.0) };
-                // The status strip, on every tab: time, power, run state.
-                let state = if self.freeze.is_some() {
-                    " · HELD: salt freeze"
-                } else if self.running {
-                    ""
-                } else {
-                    " (paused)"
-                };
-                let colour = if self.freeze.is_some() { ui.visuals().error_fg_color } else { ui.visuals().text_color() };
-                ui.painter().text(rect.left_top() + at, Align2::LEFT_TOP, format!("t = {:.0} s · {:.2} MW{state}", s.time_s, s.power_mw), FontId::proportional(15.0), colour);
-            }
-            ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| {
-                ui.horizontal(|ui| {
-                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Freq."), (Tab::Loop, "Moltres"), (Tab::Keff, "k_eff")] {
-                        if ui.add(egui::Button::selectable(self.tab == t, RichText::new(l).size(17.0)).min_size(Vec2::new(84.0, 38.0))).clicked() {
-                            self.tab = t;
-                        }
-                    }
-                });
-            });
-            self.panel.reopen_button(ui, rect);
-        });
+        let mut shell = std::mem::take(&mut self.shell);
+        shell.ui(ui, self);
+        self.shell = shell;
         self.freeze_modal(&ctx);
+    }
+}
+
+impl ShellHost for App {
+    fn title(&self) -> String {
+        "MSRE simulator".into()
+    }
+
+    fn page_state(&self, page: TwinPage) -> ViewState {
+        match page {
+            TwinPage::Plant | TwinPage::Graphs | TwinPage::Kinetics | TwinPage::Surrogate | TwinPage::MonteCarlo => ViewState::Built,
+            TwinPage::ControlVolumes => ViewState::NotBuilt { issue: 1757 },
+            TwinPage::Cfd => ViewState::NotBuilt { issue: 1743 },
+        }
+    }
+
+    fn left(&mut self, ui: &mut egui::Ui, at: ShellAt) {
+        self.side_panel(ui, at.page);
+    }
+
+    fn zoomable(&self, at: ShellAt) -> bool {
+        at.page == TwinPage::Plant
+    }
+
+    fn zoom(&mut self, _at: ShellAt, z: bugis::web_demo::view::Zoom) {
+        apply_zoom(&mut self.view, self.plant_fit, z);
+    }
+
+    fn central(&mut self, ui: &mut egui::Ui, rect: Rect, at: ShellAt) {
+        ui.painter().rect_filled(rect, 0.0, ui.visuals().extreme_bg_color);
+        // The status strip, on every page: time, power, run state.
+        let strip = 24.0;
+        if let Some(s) = &self.snap {
+            let state = if self.freeze.is_some() {
+                " · HELD: salt freeze"
+            } else if self.running {
+                ""
+            } else {
+                " (paused)"
+            };
+            let colour = if self.freeze.is_some() { ui.visuals().error_fg_color } else { ui.visuals().text_color() };
+            ui.painter().text(rect.left_top() + Vec2::new(10.0, 4.0), Align2::LEFT_TOP, format!("t = {:.0} s · {:.2} MW{state}", s.time_s, s.power_mw), FontId::proportional(15.0), colour);
+        }
+        let below = Rect::from_min_max(rect.min + Vec2::new(0.0, strip), rect.max);
+        let inner = below.shrink2(Vec2::new(8.0, 4.0));
+        match at.page {
+            TwinPage::Plant => {
+                let resp = ui.interact(below, ui.id().with("plant"), egui::Sense::click_and_drag());
+                let fit_rect = below;
+                self.plant_fit = fit_rect;
+                if !self.view.fitted || (!self.view.touched && self.view.fit_size != fit_rect.size()) {
+                    self.view.half_extent = MsreLayout::half_extent_to_fit(fit_rect.size());
+                    self.view.fit(fit_rect);
+                }
+                self.view.handle_input(ui, &resp);
+                self.plant(ui, below);
+            }
+            TwinPage::Graphs => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.trends(ui));
+            }
+            TwinPage::Kinetics => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.loop_view(ui, inner));
+            }
+            TwinPage::MonteCarlo => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.keff.view_ui(ui, inner));
+            }
+            TwinPage::Surrogate => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| self.period_view(ui));
+                });
+            }
+            // Greyed (page_state): the shell draws their note, not this.
+            TwinPage::ControlVolumes | TwinPage::Cfd => {}
+        }
     }
 }
