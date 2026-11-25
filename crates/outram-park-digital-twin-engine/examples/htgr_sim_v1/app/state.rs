@@ -339,6 +339,9 @@ pub struct HtgrSnapshot {
     /// [`Self::trip_reset_requested`]. Plant reset does not need it: a new
     /// plant starts with an empty record.
     pub peak_fuel_reset_requested: bool,
+    /// The coefficient set the operator chose (gh:#1740); the physics
+    /// thread sends it to the plant when it changes.
+    pub coefficient_set: crate::physics::coefficient_set::CoefficientSet,
     /// The kernel's rise above the bed node \[K\] -- `peak_kernel - bed`,
     /// `NAN` when unresolved. Published separately because it is the quantity
     /// the Doppler channel's reactivity is proportional to, and it is far more
@@ -963,6 +966,7 @@ impl Default for HtgrSnapshot {
             peak_kernel_max_k: f64::NAN,
             peak_kernel_max_time_s: f64::NAN,
             peak_fuel_reset_requested: false,
+            coefficient_set: crate::physics::coefficient_set::CoefficientSet::Cited,
             kernel_offset_k: f64::NAN,
             kernel_doppler_dollars: 0.0,
             release_circulating_ci_per_ci: 0.0,

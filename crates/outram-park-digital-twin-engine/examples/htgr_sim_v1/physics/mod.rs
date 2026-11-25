@@ -175,6 +175,8 @@
 //! composes).
 
 pub mod control_rods;
+/// The operator's coefficient-set selector (gh:#1740).
+pub mod coefficient_set;
 /// The control volumes the assembled plant has, for the CV schematic tab and
 /// the fault tree's CV check (gh:#1718).
 pub mod control_volumes;

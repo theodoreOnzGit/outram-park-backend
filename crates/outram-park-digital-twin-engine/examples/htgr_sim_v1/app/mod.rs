@@ -476,6 +476,7 @@ fn start_simulation() -> SimulationRun {
     // growing `dt`.
     let mut pacer = RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK);
     let loop_start = Instant::now();
+    let mut applied_set = crate::physics::coefficient_set::CoefficientSet::Cited;
     spawn_physics_thread_monitored(
         "htgr-physics",
         physics.clone(),
@@ -508,6 +509,13 @@ fn start_simulation() -> SimulationRun {
             if state.read_with(|s| s.peak_fuel_reset_requested) {
                 plant.reset_peak_fuel_to_current();
                 state.update(|s| s.peak_fuel_reset_requested = false);
+            }
+            // The coefficient set (gh:#1740): sent when the operator changes
+            // it. The selector offers only available sets; a refusal leaves
+            // the plant on the set it had.
+            let wanted = state.read_with(|s| s.coefficient_set);
+            if wanted != applied_set && wanted.apply(&mut plant).is_ok() {
+                applied_set = wanted;
             }
             // Fast-forward: keep calling `plant.step` back to back, with no
             // sleep between calls, until this tick's wall-clock budget is
@@ -1540,6 +1548,8 @@ pub struct WebPhysics {
     pacer: RealTimePacer,
     /// Steps the last [`Self::tick`] took (1, or the fast-forward burst).
     last_steps: usize,
+    /// The coefficient set last sent to the plant (gh:#1740).
+    applied_set: crate::physics::coefficient_set::CoefficientSet,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1561,6 +1571,7 @@ impl WebPhysics {
             plots: HtgrPlotData::default(),
             pacer: RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK),
             last_steps: SUBSTEPS_PER_TICK,
+            applied_set: crate::physics::coefficient_set::CoefficientSet::Cited,
         }
     }
 
@@ -1602,6 +1613,10 @@ impl WebPhysics {
         if self.state.peak_fuel_reset_requested {
             self.plant.reset_peak_fuel_to_current();
             self.state.peak_fuel_reset_requested = false;
+        }
+        // The coefficient set (gh:#1740), as on the native thread.
+        if self.state.coefficient_set != self.applied_set && self.state.coefficient_set.apply(&mut self.plant).is_ok() {
+            self.applied_set = self.state.coefficient_set;
         }
 
         // Fast-forward removes the pacing sleep, never grows `dt` and never

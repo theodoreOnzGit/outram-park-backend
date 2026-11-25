@@ -402,6 +402,23 @@ pub fn draw_controls(
     // first line, at the top of the panel (2026-10-27).
     ui.separator();
 
+    // The coefficient set the plant runs on (gh:#1740). An entry that is
+    // not available yet is shown disabled with its issue.
+    ui.label("Reactivity coefficients and rod-bank worth");
+    let mut set = snapshot.coefficient_set;
+    for s in crate::physics::coefficient_set::CoefficientSet::ALL {
+        ui.add_enabled_ui(s.available(), |ui| {
+            ui.radio_value(&mut set, s, s.label());
+        });
+    }
+    if !crate::physics::coefficient_set::CoefficientSet::MonteCarloPouredBed.available() {
+        ui.small("The poured-bed set is pending its committed Monte Carlo record (gh:#1739).");
+    }
+    if set != snapshot.coefficient_set {
+        physics.update(|s| s.coefficient_set = set);
+    }
+    ui.separator();
+
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;
     let mut helium_flow = snapshot.helium_flow_setpoint_kg_per_s;
 
