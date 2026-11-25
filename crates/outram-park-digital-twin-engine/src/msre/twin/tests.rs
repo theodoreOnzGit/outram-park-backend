@@ -98,7 +98,7 @@ fn the_sources_and_pages_are_named() {
     assert_eq!(*twin_m.coefficients().value(), m);
 
     assert_eq!(twin.page_status(TwinPage::MonteCarlo), Ok(()));
-    assert_eq!(twin.page_status(TwinPage::CoarseMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::CoarseMultiphysics, issue: 1743 }));
+    assert_eq!(twin.page_status(TwinPage::Cfd), Err(TwinError::NotBuilt { page: TwinPage::Cfd, issue: 1743 }));
     assert!(twin.run_multiphysics(MeshResolution::Fine).is_err());
     assert!(matches!(MsrePlant::build(SessionConfig { power_mw: -1.0, ..SessionConfig::default() }), Err(TwinError::Plant(_))));
 }

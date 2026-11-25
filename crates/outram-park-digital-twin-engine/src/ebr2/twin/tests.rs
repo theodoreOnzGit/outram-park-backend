@@ -74,8 +74,8 @@ fn the_sources_and_pages_are_named() {
     assert_eq!(*t17.coefficients().value(), argonne);
 
     assert_eq!(twin.page_status(TwinPage::MonteCarlo), Err(TwinError::NotBuilt { page: TwinPage::MonteCarlo, issue: 1313 }));
-    assert_eq!(twin.page_status(TwinPage::FineMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::FineMultiphysics, issue: 1747 }));
+    assert_eq!(twin.page_status(TwinPage::Cfd), Err(TwinError::NotBuilt { page: TwinPage::Cfd, issue: 1747 }));
     assert!(twin.run_multiphysics(MeshResolution::Coarse).is_err());
-    assert_eq!(twin.coefficient_report().unwrap_err().to_string(), "Monte Carlo is not built yet (gh:#1313)");
+    assert_eq!(twin.coefficient_report().unwrap_err().to_string(), "Monte Carlo, full core is not built yet (gh:#1313)");
     assert!(matches!(Ebr2Plant::build(SessionConfig { thermal_centre_height_m: -1.0, ..SessionConfig::default() }), Err(TwinError::Plant(_))));
 }

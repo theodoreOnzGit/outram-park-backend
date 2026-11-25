@@ -44,7 +44,7 @@ fn the_page_text_is_what_the_model_has() {
     let lines = mc_lines(&mc);
     assert_eq!(lines[2], "C: not run");
     assert_eq!(lines[3..], ["Live set (not in use until sent):", "fuel -1 /K", "Failed: boom"]);
-    assert!(not_built(TwinPage::MonteCarlo, 1313).starts_with("Monte Carlo is not built for this twin yet. Tracked in gh:#1313."));
+    assert!(not_built(TwinPage::MonteCarlo, 1313).starts_with("Monte Carlo, full core is not built for this twin yet. Tracked in gh:#1313."));
 }
 
 /// The trend window zooms by halves and doubles inside its bounds and
@@ -124,14 +124,14 @@ fn the_app_applies_gruvbox() {
     }
     let ctx = egui::Context::default();
     let mut app = TwinApp::new(Quiet);
-    assert_eq!(app.theme, Theme::GruvboxDark);
+    assert_eq!(app.shell.theme, Theme::GruvboxDark);
     for page in TwinPage::ALL {
-        app.page = page;
+        app.shell.page = page;
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| app.ui(ui));
     }
     assert_eq!(ctx.theme(), egui::Theme::Dark);
     assert_eq!(ctx.style_of(egui::Theme::Dark).visuals.panel_fill, Theme::GruvboxDark.visuals().panel_fill);
-    app.theme = Theme::GruvboxLight;
+    app.shell.theme = Theme::GruvboxLight;
     let _ = ctx.run_ui(egui::RawInput::default(), |ui| app.ui(ui));
     assert_eq!(ctx.theme(), egui::Theme::Light);
     assert_eq!(ctx.style_of(egui::Theme::Light).visuals.panel_fill, Theme::GruvboxLight.visuals().panel_fill);

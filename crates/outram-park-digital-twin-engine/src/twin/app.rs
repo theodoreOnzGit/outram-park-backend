@@ -5,8 +5,13 @@
 //! browser worker), its plant controls, and the data each page draws. The
 //! app supplies everything else, the same way for every reactor:
 //!
-//! - a bottom tab bar of the five pages (`bugis::tab_bar`, which fits a
-//!   390 px phone), with the short labels of [`TwinPage::tab_label`];
+//! **CHANGED 2026-11-25 (gh:#1756):** the layout, theme, panel, docks and
+//! greyed page bar are now [`super::shell::TwinShell`], the one UI struct
+//! every multifidelity simulator uses; this app is the shell over a
+//! [`TwinHost`] ([`TwinContent`] fills the slots). The pages are the seven
+//! of [`TwinPage::ALL`]; the items below say what each draws.
+//!
+//! - a bottom tab bar of the seven pages, a page without its model greyed;
 //! - **Gruvbox** (maintainer, 2026-11-25: the twin frontends "should use
 //!   gruvbox"): `bugis::Theme`, Gruvbox Dark by default, applied by the app
 //!   itself on its first frame, with a Dark / Light selector in the panel,
@@ -14,14 +19,17 @@
 //! - the collapsible control panel (`bugis::web_demo::panel`, folded by
 //!   default on a narrow screen) holding the adopter's plant controls and
 //!   the research-only banner;
-//! - **Plant**: a trend of any plant column against time, with on-screen
+//! - **Plant**: the latest value of every plant column ([`latest_values`]);
+//!   its Dispersion sub-tab greyed (gh:#1756);
+//! - **Graphs**: a trend of any plant column against time, with on-screen
 //!   zoom in, zoom out and reset (`bugis::web_demo::view::zoom_buttons`) on
 //!   the time window ([`TrendWindow`]);
 //! - **Control volumes**: the live map as two tables, volumes then links;
 //! - **Monte Carlo**: the runs with `k ± σ`, the live coefficients, the set
 //!   in use with its source, and "Run" / "Send to plant" buttons;
-//! - **Coarse / fine multiphysics**: the result lines, or "not built" with
-//!   the issue.
+//! - **CFD**: coarse / fine, Run, and the result lines;
+//! - **Kinetics, Surrogate**: greyed unless the twin declares them
+//!   ([`super::MultiFidelityTwin::with_view`]).
 //!
 //! **No lag (workspace hard rule).** The app only draws and forwards
 //! [`TwinAction`]s: the host runs the plant and every Monte Carlo or
@@ -34,20 +42,17 @@
 //!
 //! Research, education and V&V only. NOT VALIDATED. AI draft (gh:#1745).
 
-use bugis::tab_bar;
-use bugis::web_demo::panel::Panel;
-use bugis::web_demo::view::{zoom_buttons, Zoom};
-use egui::{Rect, RichText, Ui, Vec2};
+use bugis::web_demo::view::Zoom;
+use egui::{Rect, Ui};
 use uom::si::mass::kilogram;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::kilowatt;
 use uom::si::thermodynamic_temperature::degree_celsius;
 
-use super::{ControlVolume, ControlVolumes, CvLink, CvLinkKind, KeffResult, MeshResolution, TwinError, TwinPage};
+use super::shell::{ShellAt, ShellHost, TwinShell};
+use super::{ControlVolume, ControlVolumes, CvLink, CvLinkKind, KeffResult, MeshResolution, TwinError, TwinPage, ViewState};
 
-/// The banner every twin shows (RESPONSIBLE_USE.md).
-pub const BANNER: &str =
-    "Research, education and V&V only. NOT VALIDATED. Not for operation, licensing or safety decisions.";
+pub use super::shell::{theme_to_apply, BANNER};
 
 /// What the reader asked for, for the host to carry out off the UI thread.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -211,58 +216,48 @@ pub fn y_range(points: &[[f64; 2]]) -> Option<(f64, f64)> {
     Some((mid - 0.5 * span, mid + 0.5 * span))
 }
 
-/// The template's app over a host. See the module docs.
-pub struct TwinApp<H: TwinHost> {
+/// The last value of each plant column (column 0 is time), as
+/// `(name, value)`; empty with no history.
+pub fn latest_values(columns: &[&'static str], history: &[Vec<f64>]) -> Vec<(&'static str, f64)> {
+    let Some(last) = history.last() else {
+        return Vec::new();
+    };
+    columns.iter().zip(last.iter()).map(|(c, v)| (*c, *v)).collect()
+}
+
+/// A [`TwinPage`]'s state for the shell, from the host's page status: a
+/// page that is not built is greyed with its issue; any other error leaves
+/// it built (the page then shows the error itself).
+pub fn page_view_state(status: Result<(), TwinError>) -> ViewState {
+    match status {
+        Err(TwinError::NotBuilt { issue, .. }) => ViewState::NotBuilt { issue },
+        _ => ViewState::Built,
+    }
+}
+
+/// What the template's app draws in the shell's slots, over a
+/// [`TwinHost`].
+pub struct TwinContent<H: TwinHost> {
     pub host: H,
-    pub page: TwinPage,
     pub window: TrendWindow,
-    /// The plant column the trend shows.
+    /// The plant column the Graphs page trends.
     pub column: usize,
-    /// The Gruvbox variant (Dark by default).
-    pub theme: bugis::Theme,
-    /// The variant last applied to the context; `None` before the first
-    /// frame.
-    applied: Option<bugis::Theme>,
-    panel: Panel,
+    /// The CFD page's mesh.
+    pub resolution: MeshResolution,
 }
 
-/// The theme to apply this frame: `theme` when it differs from what was
-/// last applied (always on the first frame), else nothing.
-pub fn theme_to_apply(theme: bugis::Theme, applied: Option<bugis::Theme>) -> Option<bugis::Theme> {
-    (applied != Some(theme)).then_some(theme)
-}
-
-impl<H: TwinHost> TwinApp<H> {
-    /// The app on the Plant page, trending column 1 (the first after time).
-    pub fn new(host: H) -> Self {
-        TwinApp {
-            host,
-            page: TwinPage::Plant,
-            window: TrendWindow::default(),
-            column: 1,
-            theme: bugis::Theme::default(),
-            applied: None,
-            panel: Panel::default(),
-        }
+impl<H: TwinHost> ShellHost for TwinContent<H> {
+    fn title(&self) -> String {
+        self.host.title()
     }
 
-    /// Draw one frame (GUI code). Call from `eframe::App::ui`.
-    pub fn ui(&mut self, ui: &mut Ui) {
-        if let Some(t) = theme_to_apply(self.theme, self.applied) {
-            t.apply(ui.ctx());
-            self.applied = Some(t);
-        }
-        let title = self.host.title();
-        let mut panel = core::mem::take(&mut self.panel);
-        panel.show(ui, &title, |ui| {
-            ui.label(RichText::new(BANNER).small().strong());
-            ui.horizontal(|ui| {
-                for t in bugis::Theme::ALL {
-                    ui.selectable_value(&mut self.theme, t, t.label());
-                }
-            });
-            ui.separator();
-            self.host.controls(ui);
+    fn page_state(&self, page: TwinPage) -> ViewState {
+        page_view_state(self.host.page_status(page))
+    }
+
+    fn left(&mut self, ui: &mut Ui, at: ShellAt) {
+        self.host.controls(ui);
+        if at.page == TwinPage::Graphs {
             ui.separator();
             let columns = self.host.columns();
             egui::ComboBox::from_label("Plant trend")
@@ -272,37 +267,37 @@ impl<H: TwinHost> TwinApp<H> {
                         ui.selectable_value(&mut self.column, i, *c);
                     }
                 });
-        });
-        self.panel = panel;
-        egui::CentralPanel::default().show(ui, |ui| {
-            let full = ui.max_rect();
-            let bar = tab_bar::layout(full, TwinPage::ALL.len());
-            // Below the "Controls »" row every demo keeps clear.
-            let main = Rect::from_min_max(bar.main.min + Vec2::new(8.0, 56.0), bar.main.max - Vec2::new(8.0, 4.0));
-            ui.scope_builder(egui::UiBuilder::new().max_rect(main), |ui| self.page_ui(ui, main));
-            if self.page == TwinPage::Plant {
-                if let Some(z) = zoom_buttons(ui, bar.main) {
-                    self.window.apply(z);
-                }
-            }
-            let labels: Vec<&str> = TwinPage::ALL.iter().map(|p| p.tab_label()).collect();
-            let selected = TwinPage::ALL.iter().position(|p| *p == self.page).unwrap_or(0);
-            if let Some(i) = tab_bar::tab_bar(ui, &bar, &labels, selected) {
-                self.page = TwinPage::ALL[i];
-            }
-            self.panel.reopen_button(ui, full);
-        });
+        }
     }
 
-    /// One page's content (GUI code).
-    fn page_ui(&mut self, ui: &mut Ui, rect: Rect) {
-        ui.heading(self.page.title());
-        if let Err(TwinError::NotBuilt { page, issue }) = self.host.page_status(self.page) {
-            ui.label(not_built(page, issue));
-            return;
-        }
-        match self.page {
+    fn zoomable(&self, at: ShellAt) -> bool {
+        at.page == TwinPage::Graphs
+    }
+
+    fn zoom(&mut self, _at: ShellAt, z: Zoom) {
+        self.window.apply(z);
+    }
+
+    fn central(&mut self, ui: &mut Ui, rect: Rect, at: ShellAt) {
+        let rect = rect.shrink(8.0);
+        let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+        let ui = &mut child;
+        ui.heading(at.page.title());
+        match at.page {
             TwinPage::Plant => {
+                let columns = self.host.columns();
+                let history = self.host.history();
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    egui::Grid::new("twin_latest").striped(true).show(ui, |ui| {
+                        for (name, v) in latest_values(&columns, &history) {
+                            ui.label(name);
+                            ui.label(format!("{v:.4}"));
+                            ui.end_row();
+                        }
+                    });
+                });
+            }
+            TwinPage::Graphs => {
                 let history = self.host.history();
                 let columns = self.host.columns();
                 let name = columns.get(self.column).copied().unwrap_or("—");
@@ -310,7 +305,7 @@ impl<H: TwinHost> TwinApp<H> {
                 ui.label(format!("{name}, last {:.0} s", self.window.seconds));
                 let (lo, hi) = y_range(&points).unwrap_or((0.0, 1.0));
                 egui_plot::Plot::new("twin_trend")
-                    .height((rect.height() - 40.0).max(120.0))
+                    .height((rect.height() - 60.0).max(120.0))
                     .include_y(lo)
                     .include_y(hi)
                     .allow_zoom(false)
@@ -363,16 +358,45 @@ impl<H: TwinHost> TwinApp<H> {
                     }
                 });
             }
-            TwinPage::CoarseMultiphysics | TwinPage::FineMultiphysics => {
-                let r = if self.page == TwinPage::CoarseMultiphysics { MeshResolution::Coarse } else { MeshResolution::Fine };
-                if ui.button("Run").clicked() {
-                    self.host.act(TwinAction::RunMultiphysics(r));
-                }
-                for l in self.host.multiphysics(r) {
+            TwinPage::Cfd => {
+                ui.horizontal(|ui| {
+                    for r in [MeshResolution::Coarse, MeshResolution::Fine] {
+                        ui.selectable_value(&mut self.resolution, r, r.word());
+                    }
+                    if ui.button("Run").clicked() {
+                        self.host.act(TwinAction::RunMultiphysics(self.resolution));
+                    }
+                });
+                for l in self.host.multiphysics(self.resolution) {
                     ui.label(l);
                 }
             }
+            TwinPage::Kinetics | TwinPage::Surrogate => {
+                ui.label("This simulator draws this page in its own app; the template's app has no generic view of it.");
+            }
         }
+    }
+}
+
+/// The template's app: the standard shell ([`TwinShell`]) over a host. See
+/// the module docs.
+pub struct TwinApp<H: TwinHost> {
+    pub shell: TwinShell,
+    pub content: TwinContent<H>,
+}
+
+impl<H: TwinHost> TwinApp<H> {
+    /// The app on the Plant page, trending column 1 (the first after time).
+    pub fn new(host: H) -> Self {
+        TwinApp {
+            shell: TwinShell::default(),
+            content: TwinContent { host, window: TrendWindow::default(), column: 1, resolution: MeshResolution::Coarse },
+        }
+    }
+
+    /// Draw one frame (GUI code). Call from `eframe::App::ui`.
+    pub fn ui(&mut self, ui: &mut Ui) {
+        self.shell.ui(ui, &mut self.content);
     }
 }
 

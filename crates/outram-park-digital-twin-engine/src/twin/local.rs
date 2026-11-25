@@ -189,7 +189,7 @@ where
         let Some(physics) = self.physics.clone() else {
             return;
         };
-        if let Err(e) = read(&self.twin).page_status(r.page()) {
+        if let Err(e) = read(&self.twin).resolution_status(r) {
             write(&self.multiphysics)[slot(r)] = vec![e.to_string()];
             return;
         }

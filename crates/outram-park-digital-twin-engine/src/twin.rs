@@ -7,11 +7,19 @@
 //!
 //! | Page ([`TwinPage`]) | Fidelity | Supplied by |
 //! |---|---|---|
-//! | Plant | lumped / 0-D, real time | [`PlantModel`] |
-//! | Control volumes | the plant's own CVs, read from the assembled model | [`ControlVolumeMap`] |
-//! | Coarse-mesh multiphysics | nodal / coarse porous media | [`MultiphysicsCase`] at [`MeshResolution::Coarse`] |
-//! | Fine-mesh multiphysics | fine finite-volume mesh | [`MultiphysicsCase`] at [`MeshResolution::Fine`] |
-//! | Monte Carlo | continuous-energy `k_eff` and coefficients | [`MonteCarloCase`] |
+//! | Plant (sub-tabs: plant, atmospheric dispersion, ...) | lumped / 0-D, real time | [`PlantModel`] |
+//! | Graphs | the plant's history | [`PlantModel`] |
+//! | Kinetics (Moltres / burnup / precursors) | the adopter's own view | declared with [`MultiFidelityTwin::with_view`] |
+//! | Surrogate (frequency response / surrogate models) | the adopter's own view | declared with [`MultiFidelityTwin::with_view`] |
+//! | Nodes (system-code nodalisation / control volumes) | the plant's own CVs, read from the assembled model | [`ControlVolumeMap`] |
+//! | CFD (coarse mesh, core / primary loop) | nodal / coarse porous media; a fine mesh where built | [`MultiphysicsCase`] at [`MeshResolution`] |
+//! | Monte Carlo (full core) | continuous-energy `k_eff` and coefficients | [`MonteCarloCase`] |
+//!
+//! **CHANGED 2026-11-25 (gh:#1756, maintainer):** five pages became these
+//! seven, the standard for every multifidelity simulator ("similar to
+//! msre"); the coarse and fine multiphysics pages are one CFD page, the
+//! resolution a choice on it. The severe-accident model has no page: it acts
+//! on all of them. The GUI shell that draws them is [`shell`].
 //!
 //! **How the levels talk.** A Monte Carlo run produces temperature
 //! coefficients ([`MonteCarloCase::coefficients`]); "send to plant"
@@ -84,33 +92,51 @@ impl core::fmt::Display for TwinError {
 
 // ------------------------------------------------------------------- pages
 
-/// The five pages, in fidelity order.
+/// The seven pages every multifidelity simulator shows, in the bottom bar's
+/// order (maintainer, 2026-11-25, gh:#1756).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TwinPage {
+    /// The plant, with sub-tabs (plant schematic, atmospheric dispersion,
+    /// and the simulator's own views).
     Plant,
+    /// The plant's history as graphs.
+    Graphs,
+    /// Moltres / burnup / precursors.
+    Kinetics,
+    /// Frequency response / surrogate models.
+    Surrogate,
+    /// System-code nodalisation: the control volumes.
     ControlVolumes,
-    CoarseMultiphysics,
-    FineMultiphysics,
+    /// CFD on a coarse mesh, usually of the core or the primary loop.
+    Cfd,
+    /// Monte Carlo on the full core.
     MonteCarlo,
 }
 
 impl TwinPage {
     /// Every page, in tab order.
-    pub const ALL: [TwinPage; 5] = [
+    pub const ALL: [TwinPage; 7] = [
         TwinPage::Plant,
+        TwinPage::Graphs,
+        TwinPage::Kinetics,
+        TwinPage::Surrogate,
         TwinPage::ControlVolumes,
-        TwinPage::CoarseMultiphysics,
-        TwinPage::FineMultiphysics,
+        TwinPage::Cfd,
         TwinPage::MonteCarlo,
     ];
 
-    /// The short label a phone-width tab bar fits (five tabs at 390 px).
+    /// The short label a phone-width bar fits (seven tabs in one row at
+    /// 390 px, the maintainer's choice); [`Self::title`] is the full name.
+    /// The Surrogate page is "Freq." as on the MSRE bar: "Surrogate" did not
+    /// fit its 51 px tab at the smallest label size (screenshot, gh:#1756).
     pub fn tab_label(self) -> &'static str {
         match self {
             TwinPage::Plant => "Plant",
-            TwinPage::ControlVolumes => "CVs",
-            TwinPage::CoarseMultiphysics => "Coarse",
-            TwinPage::FineMultiphysics => "Fine",
+            TwinPage::Graphs => "Graphs",
+            TwinPage::Kinetics => "Kinetics",
+            TwinPage::Surrogate => "Freq.",
+            TwinPage::ControlVolumes => "Nodes",
+            TwinPage::Cfd => "CFD",
             TwinPage::MonteCarlo => "MC",
         }
     }
@@ -119,13 +145,37 @@ impl TwinPage {
     pub fn title(self) -> &'static str {
         match self {
             TwinPage::Plant => "Plant",
-            TwinPage::ControlVolumes => "Control volumes",
-            TwinPage::CoarseMultiphysics => "Coarse-mesh multiphysics",
-            TwinPage::FineMultiphysics => "Fine-mesh multiphysics",
-            TwinPage::MonteCarlo => "Monte Carlo",
+            TwinPage::Graphs => "Graphs",
+            TwinPage::Kinetics => "Moltres / burnup / precursors",
+            TwinPage::Surrogate => "Frequency response / surrogate models",
+            TwinPage::ControlVolumes => "System-code nodalisation (control volumes)",
+            TwinPage::Cfd => "CFD, core and primary loop",
+            TwinPage::MonteCarlo => "Monte Carlo, full core",
         }
     }
+
+    /// Position in [`Self::ALL`].
+    pub fn index(self) -> usize {
+        Self::ALL.iter().position(|p| *p == self).unwrap_or(0)
+    }
 }
+
+/// Whether a page or sub-tab has its model: a page without one is greyed
+/// out in the bar and names the issue that tracks it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ViewState {
+    Built,
+    NotBuilt { issue: u32 },
+}
+
+impl ViewState {
+    pub fn is_built(self) -> bool {
+        self == ViewState::Built
+    }
+}
+
+/// The issue a page names when nobody declared it (gh:#1756, the shell).
+pub const UNDECLARED_VIEW_ISSUE: u32 = 1756;
 
 // ------------------------------------------------------------------- plant
 
@@ -428,7 +478,7 @@ impl MultiphysicsBackend {
     }
 }
 
-/// The two multiphysics pages.
+/// The CFD page's two mesh resolutions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MeshResolution {
     Coarse,
@@ -436,10 +486,16 @@ pub enum MeshResolution {
 }
 
 impl MeshResolution {
+    /// The page a resolution is shown on: the CFD page, for both (gh:#1756).
     pub fn page(self) -> TwinPage {
+        TwinPage::Cfd
+    }
+
+    /// The word for it.
+    pub fn word(self) -> &'static str {
         match self {
-            MeshResolution::Coarse => TwinPage::CoarseMultiphysics,
-            MeshResolution::Fine => TwinPage::FineMultiphysics,
+            MeshResolution::Coarse => "coarse",
+            MeshResolution::Fine => "fine",
         }
     }
 }
@@ -515,6 +571,9 @@ where
     /// The latest live Monte Carlo set, not yet sent to the plant.
     live: Option<CoefficientSource<M::Coefficients>>,
     page: TwinPage,
+    /// The Kinetics and Surrogate pages' states, declared by the adopter
+    /// ([`Self::with_view`]); a page not listed is not built.
+    views: Vec<(TwinPage, ViewState)>,
 }
 
 impl<P, M, F> MultiFidelityTwin<P, M, F>
@@ -543,12 +602,24 @@ where
             in_use: coefficients,
             live: None,
             page: TwinPage::Plant,
+            views: Vec::new(),
         })
     }
 
     /// Attach the Monte Carlo case.
     pub fn with_monte_carlo(mut self, case: M) -> Self {
         self.monte_carlo = Some(case);
+        self
+    }
+
+    /// Declare the state of a page whose content is the adopter's own (the
+    /// Kinetics and Surrogate pages): built, or not built with its issue.
+    /// A later declaration of the same page replaces the earlier one. The
+    /// other pages' states come from the attached models and are not
+    /// changed by this.
+    pub fn with_view(mut self, page: TwinPage, state: ViewState) -> Self {
+        self.views.retain(|(p, _)| *p != page);
+        self.views.push((page, state));
         self
     }
 
@@ -594,23 +665,39 @@ where
 
     /// Whether a page has its model; `Err` names the issue if not. The plant
     /// and control-volume pages always have one.
+    ///
+    /// The CFD page is built when the coarse mesh is (the page's own
+    /// resolution, gh:#1756); [`Self::resolution_status`] answers for each
+    /// resolution. The Kinetics and Surrogate pages are as declared with
+    /// [`Self::with_view`], not built otherwise.
     pub fn page_status(&self, page: TwinPage) -> Result<(), TwinError> {
         match page {
-            TwinPage::Plant | TwinPage::ControlVolumes => Ok(()),
+            TwinPage::Plant | TwinPage::Graphs | TwinPage::ControlVolumes => Ok(()),
             TwinPage::MonteCarlo => match self.monte_carlo {
                 Some(_) => Ok(()),
                 None => Err(TwinError::NotBuilt { page, issue: self.monte_carlo_issue }),
             },
-            TwinPage::CoarseMultiphysics | TwinPage::FineMultiphysics => {
-                let resolution = if page == TwinPage::CoarseMultiphysics { MeshResolution::Coarse } else { MeshResolution::Fine };
-                match &self.multiphysics {
-                    None => Err(TwinError::NotBuilt { page, issue: self.multiphysics_issue }),
-                    Some(f) => match f.availability(resolution) {
-                        Availability::Built(_) => Ok(()),
-                        Availability::NotBuilt { issue } => Err(TwinError::NotBuilt { page, issue }),
-                    },
+            TwinPage::Cfd => self.resolution_status(MeshResolution::Coarse),
+            TwinPage::Kinetics | TwinPage::Surrogate => {
+                match self.views.iter().find(|(p, _)| *p == page).map(|(_, s)| *s) {
+                    Some(ViewState::Built) => Ok(()),
+                    Some(ViewState::NotBuilt { issue }) => Err(TwinError::NotBuilt { page, issue }),
+                    None => Err(TwinError::NotBuilt { page, issue: UNDECLARED_VIEW_ISSUE }),
                 }
             }
+        }
+    }
+
+    /// Whether the CFD page has a model at `resolution`; `Err` names the
+    /// issue if not.
+    pub fn resolution_status(&self, resolution: MeshResolution) -> Result<(), TwinError> {
+        let page = resolution.page();
+        match &self.multiphysics {
+            None => Err(TwinError::NotBuilt { page, issue: self.multiphysics_issue }),
+            Some(f) => match f.availability(resolution) {
+                Availability::Built(_) => Ok(()),
+                Availability::NotBuilt { issue } => Err(TwinError::NotBuilt { page, issue }),
+            },
         }
     }
 
@@ -688,7 +775,7 @@ where
 
     /// Run a multiphysics case at `resolution` (blocking).
     pub fn run_multiphysics(&mut self, resolution: MeshResolution) -> Result<F::Result, TwinError> {
-        self.page_status(resolution.page())?;
+        self.resolution_status(resolution)?;
         self.multiphysics.as_mut().expect("page_status checked it").run(resolution)
     }
 
@@ -784,6 +871,10 @@ where
 /// (gh:#1745). Off Android, with the rest of the egui code.
 #[cfg(not(target_os = "android"))]
 pub mod app;
+/// The one UI struct every multifidelity simulator uses (gh:#1756): Gruvbox,
+/// left panel, right and bottom docks, central view, the seven-page bar.
+#[cfg(not(target_os = "android"))]
+pub mod shell;
 /// A native [`app::TwinHost`]: the twin on its own threads (gh:#1745).
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 pub mod local;

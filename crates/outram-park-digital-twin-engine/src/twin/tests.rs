@@ -364,8 +364,19 @@ fn missing_pages_say_not_built_with_their_issue() {
     assert_eq!(twin.page_status(TwinPage::Plant), Ok(()));
     assert_eq!(twin.page_status(TwinPage::ControlVolumes), Ok(()));
     assert_eq!(twin.page_status(TwinPage::MonteCarlo), Ok(()));
-    assert_eq!(twin.page_status(TwinPage::CoarseMultiphysics), Ok(()));
-    assert_eq!(twin.page_status(TwinPage::FineMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::FineMultiphysics, issue: 1746 }));
+    assert_eq!(twin.page_status(TwinPage::Graphs), Ok(()));
+    assert_eq!(twin.page_status(TwinPage::Cfd), Ok(()));
+    assert_eq!(twin.resolution_status(MeshResolution::Coarse), Ok(()));
+    assert_eq!(twin.resolution_status(MeshResolution::Fine), Err(TwinError::NotBuilt { page: TwinPage::Cfd, issue: 1746 }));
+    // Kinetics and Surrogate are greyed until the adopter declares them
+    // (gh:#1756); a later declaration replaces an earlier one.
+    assert_eq!(twin.page_status(TwinPage::Kinetics), Err(TwinError::NotBuilt { page: TwinPage::Kinetics, issue: UNDECLARED_VIEW_ISSUE }));
+    let mut twin = twin
+        .with_view(TwinPage::Kinetics, ViewState::NotBuilt { issue: 42 })
+        .with_view(TwinPage::Kinetics, ViewState::Built)
+        .with_view(TwinPage::Surrogate, ViewState::NotBuilt { issue: 43 });
+    assert_eq!(twin.page_status(TwinPage::Kinetics), Ok(()));
+    assert_eq!(twin.page_status(TwinPage::Surrogate), Err(TwinError::NotBuilt { page: TwinPage::Surrogate, issue: 43 }));
     assert_eq!(twin.run_multiphysics(MeshResolution::Coarse), Ok(1.25));
     assert!(twin.run_multiphysics(MeshResolution::Fine).is_err());
     assert_eq!(twin.multiphysics().map(|m| m.cross_sections()), Some(XsSource::MonteCarlo));
@@ -378,10 +389,10 @@ fn missing_pages_say_not_built_with_their_issue() {
     assert!(bare.monte_carlo().is_none() && bare.multiphysics().is_none());
     let mc = Err(TwinError::NotBuilt { page: TwinPage::MonteCarlo, issue: 1313 });
     assert_eq!(bare.page_status(TwinPage::MonteCarlo), mc);
-    assert_eq!(bare.page_status(TwinPage::CoarseMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::CoarseMultiphysics, issue: 1747 }));
+    assert_eq!(bare.page_status(TwinPage::Cfd), Err(TwinError::NotBuilt { page: TwinPage::Cfd, issue: 1747 }));
     assert!(bare.run_monte_carlo(|_, _, _, _| {}).is_err());
-    assert_eq!(bare.coefficient_report().unwrap_err().to_string(), "Monte Carlo is not built yet (gh:#1313)");
-    assert_eq!(bare.run_multiphysics(MeshResolution::Coarse).unwrap_err().to_string(), "Coarse-mesh multiphysics is not built yet (gh:#1747)");
+    assert_eq!(bare.coefficient_report().unwrap_err().to_string(), "Monte Carlo, full core is not built yet (gh:#1313)");
+    assert_eq!(bare.run_multiphysics(MeshResolution::Coarse).unwrap_err().to_string(), "CFD, core and primary loop is not built yet (gh:#1747)");
     bare.set_page(TwinPage::ControlVolumes);
     assert_eq!(bare.page(), TwinPage::ControlVolumes);
 }
@@ -415,12 +426,27 @@ fn the_headless_flags_reach_each_output() {
 #[test]
 fn the_page_and_role_words_are_fixed() {
     let tabs: Vec<&str> = TwinPage::ALL.iter().map(|p| p.tab_label()).collect();
-    assert_eq!(tabs, ["Plant", "CVs", "Coarse", "Fine", "MC"]);
+    assert_eq!(tabs, ["Plant", "Graphs", "Kinetics", "Freq.", "Nodes", "CFD", "MC"]);
     let titles: Vec<&str> = TwinPage::ALL.iter().map(|p| p.title()).collect();
-    assert_eq!(titles, ["Plant", "Control volumes", "Coarse-mesh multiphysics", "Fine-mesh multiphysics", "Monte Carlo"]);
+    assert_eq!(
+        titles,
+        [
+            "Plant",
+            "Graphs",
+            "Moltres / burnup / precursors",
+            "Frequency response / surrogate models",
+            "System-code nodalisation (control volumes)",
+            "CFD, core and primary loop",
+            "Monte Carlo, full core"
+        ]
+    );
+    assert!(TwinPage::ALL.iter().enumerate().all(|(i, p)| p.index() == i));
+    assert_eq!(MeshResolution::Coarse.page(), TwinPage::Cfd);
+    assert_eq!([MeshResolution::Coarse.word(), MeshResolution::Fine.word()], ["coarse", "fine"]);
+    assert!(ViewState::Built.is_built() && !ViewState::NotBuilt { issue: 1 }.is_built());
     let roles = [CvRole::Balance, CvRole::Junction, CvRole::Inventory, CvRole::NoVolume, CvRole::Boundary];
     assert_eq!(roles.map(|r| r.word()), ["balance", "junction", "inventory", "no-volume", "boundary"]);
-    assert_eq!(MeshResolution::Fine.page(), TwinPage::FineMultiphysics);
+    assert_eq!(MeshResolution::Fine.page(), TwinPage::Cfd);
     assert_eq!(MultiphysicsBackend::Bedok.name(), "bedok");
     assert_eq!(MultiphysicsBackend::GenFoam.name(), "GeN-Foam port");
     assert_eq!(TwinError::Plant("x".into()).to_string(), "plant model: x");
@@ -481,8 +507,8 @@ fn the_local_host_runs_the_twin_off_the_ui_thread() {
     host.act(TwinAction::RunMultiphysics(MeshResolution::Coarse));
     wait("coarse multiphysics", &|| host.multiphysics(MeshResolution::Coarse) == vec!["radial peaking 1.250 (test value)".to_string()]);
     host.act(TwinAction::RunMultiphysics(MeshResolution::Fine));
-    assert_eq!(host.multiphysics(MeshResolution::Fine), vec!["Fine-mesh multiphysics is not built yet (gh:#1746)".to_string()]);
-    assert_eq!(host.page_status(TwinPage::FineMultiphysics), Err(TwinError::NotBuilt { page: TwinPage::FineMultiphysics, issue: 1746 }));
+    assert_eq!(host.multiphysics(MeshResolution::Fine), vec!["CFD, core and primary loop is not built yet (gh:#1746)".to_string()]);
+    assert_eq!(host.page_status(TwinPage::Cfd), Ok(()));
     assert!(host.control_volumes().get("core").is_some());
     drop(host);
 }
