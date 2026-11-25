@@ -35,13 +35,14 @@
 //! licensing or safety decisions.
 
 use nee_soon::htr10_rmc::keff_vs_height::SweepStatistics;
-use nee_soon::htr10_rmc::parametric::{graphite_worth_cases, ParametricStudy, StudyBed};
+use nee_soon::htr10_rmc::parametric::{graphite_worth_cases, StudyBed};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
 /// CLI glue (exempt from the reaching-test rule: the cases are
 /// `graphite_worth_cases` and the plan `plan_with_slot_temperatures`, both
-/// tested in the library; the transport is `ParametricStudy::transport`).
+/// tested in the library; each case runs through
+/// `parametric::run_worth_case`, since gh:#1739).
 fn main() -> Result<(), String> {
     let words: Vec<String> = std::env::args().skip(1).collect();
     let (mut base, mut delta, mut threads, mut layers) = (600.0, 600.0, 4usize, 12usize);
@@ -69,12 +70,7 @@ fn main() -> Result<(), String> {
     }
     let bed = match &dem_bed {
         None => StudyBed::Seker { layers },
-        Some(path) => {
-            let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-            let centres = nee_soon::mc_rungs::htr10_core::dem_centres(&text)?;
-            let is_fuel = nee_soon::htr10_rmc::explicit_bed::paper_fuel_assignment(&centres);
-            StudyBed::Explicit { centres, is_fuel }
-        }
+        Some(path) => nee_soon::htr10_rmc::parametric::poured_bed(&std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?)?,
     };
     println!(
         "HTR-10 graphite-zone worth: {}, base {base} K, +{delta} K, {} x [{} + {}], seed {}, {threads} threads",
@@ -86,26 +82,15 @@ fn main() -> Result<(), String> {
     );
     let mut cases = graphite_worth_cases(ThermodynamicTemperature::new::<kelvin>(base), delta);
     if rods_in {
-        cases.push(nee_soon::htr10_rmc::parametric::GraphiteWorthCase { name: "RODS-IN", ..cases[0].clone() });
+        cases.push(nee_soon::htr10_rmc::parametric::rods_in_case(ThermodynamicTemperature::new::<kelvin>(base)));
     }
     let mut k_base: Option<(f64, f64)> = None;
     for case in cases {
         if only.as_ref().is_some_and(|o| !o.iter().any(|n| n == case.name)) {
             continue;
         }
-        let study = ParametricStudy {
-            bed: bed.clone(),
-            rod_insertions: if case.name == "RODS-IN" { [1.0; nee_soon::htr10_rmc::control_rod::N_CONTROL_RODS] } else { [0.0; nee_soon::htr10_rmc::control_rod::N_CONTROL_RODS] },
-            temperatures: case.temperatures,
-            statistics: stats,
-            ..ParametricStudy::default()
-        };
-        study.check()?;
         let t0 = std::time::Instant::now();
-        let plan = study.plan_with_slot_temperatures(&case.slots).map_err(|e| e.to_string())?;
-        let nuclides = study.process_all(&plan, threads, |line| eprintln!("  {line}"))?;
-        let t_data = t0.elapsed().as_secs_f64();
-        let r = study.transport(&plan, &nuclides, threads)?;
+        let r = nee_soon::htr10_rmc::parametric::run_worth_case(&bed, &case, stats, threads, |line| eprintln!("  {line}"))?;
         let worth = k_base.map(|(kb, sb)| {
             let w = 1.0 / kb - 1.0 / r.k_mean;
             let s = ((sb / (kb * kb)).powi(2) + (r.k_std / (r.k_mean * r.k_mean)).powi(2)).sqrt();
@@ -115,15 +100,14 @@ fn main() -> Result<(), String> {
             k_base = Some((r.k_mean, r.k_std));
         }
         println!(
-            "{:<14} k = {:.5} +- {:.5}  worth {}  ({} histories, {} lost, data {:.0} s, transport {:.0} s)",
+            "{:<14} k = {:.5} +- {:.5}  worth {}  ({} histories, {} lost, data and transport {:.0} s)",
             case.name,
             r.k_mean,
             r.k_std,
             worth.map_or("-".into(), |(w, s)| format!("{w:+.0} +- {s:.0} pcm ({:+.2} +- {:.2} pcm/K)", w / delta, s / delta)),
             r.histories,
             r.lost_locate,
-            t_data,
-            t0.elapsed().as_secs_f64() - t_data
+            t0.elapsed().as_secs_f64()
         );
     }
     Ok(())
