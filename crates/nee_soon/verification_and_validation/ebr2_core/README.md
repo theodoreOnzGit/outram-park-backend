@@ -64,6 +64,13 @@ The tests pin the rest:
 |---|---|---|
 | default study, 4000 × [20 + 80], seed 1 | **1.09526 ± 0.00203** | 421 s (data and transport) |
 
+**The same model in the browser** (the EBR-II simulator's MC page,
+`ebr2::web::keff` on 3 Chromium workers, `?tab=mc&krun&workers=3&kcfg=1000,5,10,1`,
+2026-11-25): data processed and the model assembled on each worker, then
+k = 1.09883 ± 0.00936 (1000 × [5 + 10], seed 1), +357 ± 958 pcm from the
+native run above. It agrees, and was run only to check the browser pipeline
+end to end; it is too short to quote.
+
 **Against the prediction** (k = 1.08, range 1.02 to 1.15): **inside the
 range**, 1.5 % above the point value.
 
