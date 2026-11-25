@@ -134,6 +134,11 @@ fn the_split_is_the_k_eff_tabs() {
 /// `MsreSplit::run` and the template's `coefficient_report`, which sends
 /// the result to the plant. Prints the report. Not a V&V result: the
 /// committed N-3 record is the number to quote.
+///
+/// **Result (2026-11-25, 4 vCPU cloud container, 3035 s):** A 1.019567 ±
+/// 0.001409, C 1.016857 ± 0.001311, D 1.019578 ± 0.001529; fuel −2.61 ±
+/// 1.86, graphite +0.01 ± 2.00 ×1e-5 /°F. Not resolved at this preset;
+/// 0.6σ and 1.6σ from the N-3 record (−3.79 ± 0.37, −3.26 ± 0.33).
 #[test]
 #[ignore = "processes the MSRE model's tapes three times and runs three full-core k_eff (many minutes); run with --ignored --nocapture"]
 fn the_live_split_reaches_the_plant() {
