@@ -349,7 +349,7 @@ fn acelod_awr(tape: &Tape, mat: i32, mtr: &[i32], awr0: f64) -> f64 {
     for ij in 1..=mtr.len() + 1 {
         let mt = if ij == 1 { 2 } else { mtr[ij - 2] };
         let mut mf = 0;
-        for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+        for &(kmf, _) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
             if mt != 18 && (kmf == 4 || kmf == 6) {
                 mf = kmf;
             } else if mt == 18 && kmf == 4 && !mt418 {
