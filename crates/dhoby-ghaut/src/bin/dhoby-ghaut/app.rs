@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dhoby_ghaut::web_demo::link::{start_native, Link};
-use dhoby_ghaut::workbench::catalogue::{Generation, HtgrCore, Mode, ReactorType, Support};
+use dhoby_ghaut::workbench::catalogue::{Generation, HistoricalPreset, HtgrCore, Mode, PresetStatus, ReactorType, Support};
 use dhoby_ghaut::workbench::recipe::{now_rfc3339, Recipe};
 use dhoby_ghaut::workbench::steps::WizardStep;
 use egui::{Color32, RichText};
@@ -46,6 +46,8 @@ pub enum Screen {
     Picker,
     ModeChoice(ReactorType),
     HtgrChoice,
+    /// A historical reactor's preset page (gh:#1736).
+    Preset(HistoricalPreset),
     Wizard,
 }
 
@@ -726,6 +728,11 @@ impl App {
                                         self.recipe.header.reactor = t.key().into();
                                         self.screen = Screen::ModeChoice(t);
                                     }
+                                    if let Some(p) = HistoricalPreset::for_type(t) {
+                                        if ui.button(format!("{} preset »", p.label())).clicked() {
+                                            self.screen = Screen::Preset(p);
+                                        }
+                                    }
                                 });
                             });
                         }
@@ -802,6 +809,34 @@ impl App {
         });
         if ui.button("« Back").clicked() {
             self.screen = Screen::ModeChoice(ReactorType::Htgr);
+        }
+    }
+
+    /// A historical preset's page (gh:#1736): per step, what it reuses or
+    /// the issue for what is missing. GUI drawing code; the table is
+    /// `HistoricalPreset::steps`, tested in the library.
+    fn preset_page(&mut self, ui: &mut egui::Ui, p: HistoricalPreset) {
+        ui.heading(format!("{}: preset", p.label()));
+        ui.label("Research, education and V&V only. The wizard's steps are built on the HTR-10 model, so this preset does not run them: each step below names the existing piece it reuses, or the issue for what is not modelled.");
+        ui.add_space(8.0);
+        egui::Grid::new("preset_steps").striped(true).num_columns(3).show(ui, |ui| {
+            ui.strong("Step");
+            ui.strong("Status");
+            ui.strong("Reuses / missing");
+            ui.end_row();
+            for s in p.steps() {
+                ui.label(s.name);
+                match s.status {
+                    PresetStatus::Available => ui.colored_label(Color32::from_rgb(30, 120, 60), "available"),
+                    PresetStatus::NotModelled { issue } => ui.colored_label(Color32::GRAY, format!("not modelled (gh:#{issue})")),
+                };
+                ui.label(s.reuses);
+                ui.end_row();
+            }
+        });
+        ui.add_space(8.0);
+        if ui.button("« Back").clicked() {
+            self.screen = Screen::Picker;
         }
     }
 
@@ -949,6 +984,9 @@ impl eframe::App for App {
             }
             Screen::HtgrChoice => {
                 egui::CentralPanel::default().show(ui, |ui| self.htgr_choice(ui));
+            }
+            Screen::Preset(p) => {
+                egui::CentralPanel::default().show(ui, |ui| self.preset_page(ui, p));
             }
             Screen::Wizard => {
                 egui::Panel::top("wizard_top").show(ui, |ui| self.top_bar(ui));
