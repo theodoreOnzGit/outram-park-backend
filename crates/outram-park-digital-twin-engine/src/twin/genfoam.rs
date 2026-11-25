@@ -191,6 +191,15 @@ mod tests {
     /// reported beside the Monte Carlo `k`. Asserts convergence, a
     /// negative isothermal coefficient and a peaking above 1; prints the
     /// rest. Not a V&V number: gh:#1187's record is the one to quote.
+    ///
+    /// **Result (2026-11-25, 1.3 s):** 792 cells; k 0.98867 at 600 K and
+    /// 0.93700 at 1200 K, **gh:#1187's recorded GeN-Foam k to every printed
+    /// digit** (its README's table: +3463 and +5173 pcm against the Monte
+    /// Carlo 0.95405 ± 0.00096 and 0.88527 ± 0.00105). So the backend runs
+    /// the record's pipeline unchanged, including its known diffusion
+    /// over-prediction. Isothermal secant −9.30 pcm/K (the Monte Carlo
+    /// records' own secant is (1/0.95405 − 1/0.88527)/600 = −13.57 pcm/K);
+    /// peaking 1.427.
     #[test]
     fn the_coarse_run_reports_against_the_records() {
         let mut g = Htr10GenFoam;
