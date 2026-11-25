@@ -957,7 +957,7 @@ doc_hash = "sha256:b565ee6b84f8cf5f67e2ee5e233ff8362f0d3813ebe2337b1bd3a99d6e786
 test = true
 
 [test_run]
-commit = "fc93def94a76099d77c172cd58b07e9088b0d5a4"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [

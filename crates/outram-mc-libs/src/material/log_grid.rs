@@ -67,6 +67,10 @@ pub struct UnionGrid {
     e_min: f64,
     /// `ln(e_max / e_min) / N_LOG_BINS`.
     spacing: f64,
+    /// `ln(e_min)` and `1 / spacing`, so `locate` takes the bin from a
+    /// shared `ln(E)` with a subtraction and a multiply (gh:#1732).
+    ln_e_min: f64,
+    inv_spacing: f64,
     /// Per section: `Some(o)` when the section's energies are exactly
     /// `energy[o..]`, else `None` (searched per reaction, as before).
     offsets: Vec<Option<usize>>,
@@ -115,7 +119,7 @@ impl UnionGrid {
             }
             grid_index.push(j as u32);
         }
-        Self { energy, grid_index, e_min, spacing, offsets }
+        Self { energy, grid_index, e_min, spacing, ln_e_min: RealMath::r_ln(e_min), inv_spacing: 1.0 / spacing, offsets }
     }
 
     /// `j`, the number of union energies `<= e`, when `energy[0] <= e <
@@ -123,20 +127,37 @@ impl UnionGrid {
     /// for `NaN`, or when the grid is empty. One bracketed search inside a
     /// log bin (`calculate_xs`, `nuclide.cpp:729-736`), verified, with a full
     /// search as the fallback.
+    ///
+    /// **One `ln` per energy, not per nuclide (gh:#1732).** OpenMC computes
+    /// the bin once per particle energy (`i_log_union`) and hands it to every
+    /// nuclide. Here the bin comes from `ln(E)` ([`shared_ln`], computed once
+    /// per energy per thread and reused by every nuclide asked about the same
+    /// energy) minus this grid's `ln(E_min)`, times `1 / spacing`. That can
+    /// round to a neighbouring bin, so the bracket is checked, then the bins
+    /// either side, then the full search: `j` is the same count in every case.
     pub fn locate(&self, e: f64) -> Option<usize> {
         let n = self.energy.len();
         if n < 2 || !(e >= self.energy[0]) || !(e < self.energy[n - 1]) {
             return None;
         }
-        let u = (RealMath::r_ln(e / self.e_min) / self.spacing) as usize;
+        let u = ((shared_ln(e) - self.ln_e_min) * self.inv_spacing).max(0.0) as usize;
         let u = u.min(N_LOG_BINS - 1);
-        let lo = self.grid_index[u] as usize;
-        let hi = (self.grid_index[u + 1] as usize + 2).min(n);
-        if lo < hi {
-            let j = lo + self.energy[lo..hi].partition_point(|&g| g <= e);
-            if j >= 1 && j < n && self.energy[j - 1] <= e && e < self.energy[j] {
-                return Some(j);
+        let bracket = |lo: usize, hi: usize| -> Option<usize> {
+            if lo >= hi {
+                return None;
             }
+            let j = lo + self.energy[lo..hi].partition_point(|&g| g <= e);
+            (j >= 1 && j < n && self.energy[j - 1] <= e && e < self.energy[j]).then_some(j)
+        };
+        let bin = |u: usize| (self.grid_index[u] as usize, (self.grid_index[u + 1] as usize + 2).min(n));
+        let (lo, hi) = bin(u);
+        if let Some(j) = bracket(lo, hi) {
+            return Some(j);
+        }
+        // a rounding of the shared `ln` can land one bin off
+        let (lo, hi) = (bin(u.saturating_sub(1)).0, bin((u + 1).min(N_LOG_BINS - 1)).1);
+        if let Some(j) = bracket(lo, hi) {
+            return Some(j);
         }
         Some(self.energy.partition_point(|&g| g <= e))
     }
@@ -154,6 +175,35 @@ impl UnionGrid {
     /// `true` when the grid is empty (every lookup is searched per reaction).
     pub fn is_empty(&self) -> bool {
         self.energy.is_empty()
+    }
+}
+
+/// `ln(e)` (PETIR's), computed once per energy and reused while the same
+/// thread keeps asking about the same `e` (every nuclide of a material at one
+/// collision, gh:#1732). A pure memo: it returns the very double
+/// `RealMath::r_ln(e)` gives, so nothing that reads it can change. Without
+/// `std` (no thread-local storage) it computes `ln` every time.
+pub fn shared_ln(e: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        use core::cell::Cell;
+        std::thread_local! {
+            static LAST: Cell<(u64, f64)> = const { Cell::new((u64::MAX, f64::NAN)) };
+        }
+        let bits = e.to_bits();
+        LAST.with(|c| {
+            let (k, v) = c.get();
+            if k == bits {
+                return v;
+            }
+            let v = RealMath::r_ln(e);
+            c.set((bits, v));
+            v
+        })
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        RealMath::r_ln(e)
     }
 }
 
@@ -250,6 +300,10 @@ mod tests {
             }
         }
         assert_eq!(g.locate(f64::NAN), None);
+        // the memo returns PETIR's `ln` to the bit, on a miss and on a hit (gh:#1732)
+        for &e in &[1.0e-5, 0.0253, 2.0e6, 0.0253] {
+            assert_eq!(shared_ln(e).to_bits(), RealMath::r_ln(e).to_bits());
+        }
         assert!(UnionGrid::new(&recon_with(alloc::vec![])).is_empty());
     }
 }
