@@ -126,6 +126,7 @@
 pub mod cv_tab;
 pub mod ft_tab;
 pub mod map_tab;
+pub mod mc_tab;
 pub mod panels;
 pub mod plant_v1_1;
 pub mod thermal_tab;
@@ -173,11 +174,15 @@ pub enum SchematicView {
     Plant,
     ControlVolumes,
     FaultTree,
+    /// The coefficient sets the plant can run on, beside each other, and
+    /// the picker (gh:#1740), as the MSRE simulator's k_eff tab.
+    MonteCarlo,
 }
 
 impl SchematicView {
     /// In bar order.
-    pub const ALL: [SchematicView; 3] = [SchematicView::Plant, SchematicView::ControlVolumes, SchematicView::FaultTree];
+    pub const ALL: [SchematicView; 4] =
+        [SchematicView::Plant, SchematicView::ControlVolumes, SchematicView::FaultTree, SchematicView::MonteCarlo];
 
     /// Tab text.
     pub fn label(self) -> &'static str {
@@ -185,6 +190,7 @@ impl SchematicView {
             SchematicView::Plant => "Plant",
             SchematicView::ControlVolumes => "Control volumes",
             SchematicView::FaultTree => "Fault tree",
+            SchematicView::MonteCarlo => "Monte Carlo",
         }
     }
 
@@ -831,7 +837,7 @@ impl HtgrSimApp {
                         cv_tab::side_panel(ui, &mut self.cv_tab, &snapshot.control_volumes, self.display_unit, &events)
                     }
                     SchematicView::FaultTree => action = self.ft_tab.side_panel(ui),
-                    SchematicView::Plant => {}
+                    SchematicView::Plant | SchematicView::MonteCarlo => {}
                 }
                 ui.separator();
                 egui::CollapsingHeader::new("Reactor controls").default_open(false).show(ui, |ui| {
@@ -913,6 +919,11 @@ impl HtgrSimApp {
                     .scope_builder(egui::UiBuilder::new().max_rect(main), |ui| self.ft_tab.draw(ui, main, selected_cv.as_deref()))
                     .inner;
                 self.apply_ft_action(action);
+                #[cfg(target_arch = "wasm32")]
+                self.web_panel.reopen_button(ui, main);
+            }
+            SchematicView::MonteCarlo => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(main), |ui| mc_tab::draw(ui, &self.physics, snapshot));
                 #[cfg(target_arch = "wasm32")]
                 self.web_panel.reopen_button(ui, main);
             }

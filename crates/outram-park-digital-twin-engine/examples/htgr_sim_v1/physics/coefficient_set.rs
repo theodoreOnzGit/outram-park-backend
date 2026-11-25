@@ -22,6 +22,8 @@
 
 use uom::si::f64::TemperatureCoefficient;
 
+use super::control_rods;
+use super::kinetics::{FeedbackSplit, HtgrKinetics};
 use super::HtgrPlant;
 
 /// The poured-bed set `(fuel, moderator, bank worth dk/k)`, from gh:#1739's
@@ -57,6 +59,31 @@ impl CoefficientSet {
         match self {
             Self::Cited => true,
             Self::MonteCarloPouredBed => POURED_BED.is_some(),
+        }
+    }
+
+    /// The set's `(fuel, moderator)` coefficients \[1/K\] and bank worth
+    /// \[dk/k\], for the Monte Carlo tab's comparison; `None` while pending.
+    /// The cited set is the plant's own defaults: Chen's isothermal
+    /// coefficient split by Hu's fuel share, and TECDOC-1382's bank.
+    pub fn values(self) -> Option<(f64, f64, f64)> {
+        match self {
+            Self::Cited => {
+                let f = FeedbackSplit::HU_FUEL_SHARE_OF_ISOTHERMAL;
+                let a = HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K;
+                Some((f * a, (1.0 - f) * a, control_rods::bank_worth_dk_k()))
+            }
+            Self::MonteCarloPouredBed => POURED_BED,
+        }
+    }
+
+    /// Where the set's numbers come from, one line.
+    pub fn source(self) -> &'static str {
+        match self {
+            Self::Cited => "Chen et al. (2009) isothermal coefficient, split by Hu et al. (2006); IAEA-TECDOC-1382 VSOP bank worth",
+            Self::MonteCarloPouredBed => {
+                "nee_soon whole-core Monte Carlo on the poured DEM bed, 600 to 1200 K secants, ENDF/B-VIII.0 (gh:#1739)"
+            }
         }
     }
 
@@ -103,5 +130,18 @@ mod tests {
             assert_eq!(plant.kinetics.temperature_coefficients(), before);
         }
         assert_eq!(CoefficientSet::ALL.map(|s| s.label().is_empty()), [false, false]);
+        assert_eq!(CoefficientSet::ALL.map(|s| s.source().is_empty()), [false, false]);
+    }
+
+    /// The Monte Carlo tab's cited row is exactly what a fresh plant runs on
+    /// (bit for bit), and the poured-bed row is the committed constant.
+    #[test]
+    fn the_tab_shows_the_values_the_plant_uses() {
+        use uom::si::temperature_coefficient::per_kelvin;
+        let plant = HtgrPlant::new();
+        let (f, m) = plant.kinetics.temperature_coefficients();
+        let (cf, cm, cw) = CoefficientSet::Cited.values().expect("cited");
+        assert_eq!((cf, cm, cw), (f.get::<per_kelvin>(), m.get::<per_kelvin>(), plant.bank_worth_dk_k()));
+        assert_eq!(CoefficientSet::MonteCarloPouredBed.values(), POURED_BED);
     }
 }
