@@ -74,13 +74,32 @@ The fitted route takes five steps.
    (`validate`) and have **positive volume** (a new gate: a cell wound
    inside out is still closed).
 
-**Pass criteria.** Each region's meshed volume equals the exact volume of
-its **faceted** body (32-gon rings, `n/2 sin(2 pi/n)` in place of `pi`) to
+6. **Snap to the true geometry** (maintainer, 2026-11-26: "snap
+   properly"; default on, `--no-snap` is the ablation). The surface reached
+   TetGen as 32 flat facets per cylinder, so every region was short by the
+   32-gon's −0.64 %. Two steps, in `meshing.rs`. `morph_to_revolved` moves
+   every point within one cell size of an interface or outer cylinder
+   radially, by a share of the facet's chord-to-circle move: the full move
+   on the facet, falling linearly to none one cell away (and beyond the
+   cylinder's ends). `snap_faces_to_revolved` then takes every surface face
+   whose normal is mostly radial (outer patches, and internal faces between
+   two regions), finds its cylinder from its radius and height, and puts all
+   its points exactly on the true radius. Disc faces keep their points. A
+   cell with non-positive volume is refused. Snapping TetGen's own vertices
+   before the dual was tried and rejected: the cells away from the
+   interfaces went from 63.8° to 87.4° and skewness 1.3 to 14.9.
+
+**Pass criteria.** Unsnapped (`--no-snap`), each region's meshed volume
+equals the exact volume of its **faceted** body (32-gon rings, `n/2 sin(2 pi/n)` in place of `pi`) to
 1e-9 relative. Every cell's vertices lie in its own region's rectangles
 (the inner radius taken at the facets' chord). The only patches are `top`,
 `bottom` and `side`. The polyMesh and cellZones read back through the
 GeN-Foam port. These are gated at 40 cm by
-`the_fitted_cht_mesh_has_exact_region_volumes` (`src/bin/dhoby-ghaut/main.rs`),
+`the_fitted_cht_mesh_has_exact_region_volumes` (`src/bin/dhoby-ghaut/main.rs`).
+Snapped (the default), every `side` point is on `r = 190 cm` to 1e-9 m, every
+cell has positive volume, and every region is at least 4× closer to its
+analytic round volume than the faceted body
+(`the_snapped_cht_mesh_is_on_the_true_cylinders`, 40 cm, 16 segments),
 and the cfMesh module by four tests in `pipeline/multi_region.rs` (two
 cubes side by side, a cube inside a cube, both routes, refusals).
 
@@ -100,8 +119,32 @@ plus this change.
 | max skewness | 6.36 | 2.54 |
 | cells not star-shaped about their centroid | 8 167 | 6 282 |
 
-**Region volumes**, meshed against the exact faceted volume (the number to
-quote, since it is what the surface encloses):
+**The reference volume.** ~~"Exact R-Z volume" was `exact_in`'s 0.5 cm
+midpoint quadrature.~~ **CORRECTED 2026-11-26:** that quadrature is off by
+up to about 0.4 % where a region edge is not on its grid (the bed's top
+and bottom). The report now uses the R-Z tiling's analytic volume (each
+rectangle revolved exactly). Against it, the unsnapped fitted mesh is short
+by exactly the 32-gon's −0.64 % in every region.
+
+**Region volumes against the analytic round volume** (the numbers to
+quote; the snapped mesh is the default):
+
+| region | fitted, snapped | fitted, `--no-snap` |
+|---|---|---|
+| `porous_bed` | **−0.02 %** | −0.64 % |
+| `fluid_upper_plenum` | **−0.03 %** | −0.64 % |
+| `fluid_lower_plenum` | **+0.01 %** | −0.64 % |
+| `solid_graphite` | **−0.00 %** | −0.64 % |
+
+Quality, snapped: max non-orthogonality 86.4°, max skewness 12.5. Both are
+at one corner ring (r ≈ 89 cm, z ≈ −63 cm), where the bed's bottom edge
+meets the r = 90 interface. The interface ends there, so the morph has to
+fade below it. Unsnapped, that same cell is the worst too, at 83.6° and
+6.36; with the surface snapped but no morph (`DHOBY_SNAP_MORPH=0`) it is
+88.7° and 32.9. The cells away from the interfaces reach 63.8° and 1.42 in
+every variant.
+
+Unsnapped, against the exact faceted volume (what that surface encloses):
 
 | region | fitted | centroid |
 |---|---|---|
@@ -110,11 +153,12 @@ quote, since it is what the surface encloses):
 | `fluid_lower_plenum` | −7.8e-16 | +2.5e-4 |
 | `solid_graphite` | +9.2e-15 | −6.0e-4 |
 
-Against the exact **round** R-Z volume, the fitted mesh is short by the
-faceting of each region's own radii (bed −0.98 %, upper plenum −0.42 %,
-lower plenum −0.31 %, solid −0.64 %). The centroid route's bed reads
-−0.03 % only because its +0.96 % stair-step cancels the −0.98 % faceting.
-That agreement is a coincidence of two errors and should not be quoted.
+Against the exact **round** R-Z volume, the unsnapped fitted mesh is short
+by ~~the faceting of each region's own radii (bed −0.98 %, upper plenum
+−0.42 %, lower plenum −0.31 %, solid −0.64 %)~~ **−0.64 % in every
+region** (CORRECTED 2026-11-26: the spread was the quadrature reference's
+error, not faceting). The centroid route's bed agreement with the
+quadrature reference is a coincidence of errors and should not be quoted.
 
 **Quality, by place** (fitted): the 13 840 cells on an interface carry the
 worst values (83.6°, 6.36). The other 171 958 cells reach 63.8° and 1.41,
@@ -160,5 +204,5 @@ as above the plane (pinned by `a_cut_through_vertices_fills_every_cell`).
 
 | file | what |
 |---|---|
-| `report_fitted.md`, `report_centroid.md` | the command's own reports |
+| `report_fitted.md` (snapped, default), `report_fitted_no_snap.md`, `report_centroid.md` | the command's own reports |
 | `images/fitted/*.png`, `images/centroid/*.png` | the slices above |

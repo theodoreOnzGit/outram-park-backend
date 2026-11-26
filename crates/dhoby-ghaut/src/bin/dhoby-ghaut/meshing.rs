@@ -380,7 +380,17 @@ pub fn build(
             k as f64 / 6.0,
         ));
         let t = Instant::now();
-        let (vm, mut notes, cell_type) = mesh_role(d, plan, role)?;
+        let (mut vm, mut notes, cell_type) = mesh_role(d, plan, role)?;
+        // Snap onto the true surface of revolution (2026-11-26, "snap
+        // properly"): the profile's cylinders and cone, not its facets.
+        let prof = match role {
+            MeshRole::Neutronics => d.neutronics_profile(),
+            MeshRole::ThermalHydraulics => d.th_profile(),
+            MeshRole::Structural => d.structural_profile(),
+        };
+        let n_seg = plan.roles[role.index()].n_seg;
+        let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { plan.roles[role.index()].cell_size_cm / 100.0 };
+        notes.push(snap_checked(&mut vm, None, &profile_segments_m(&prof), n_seg, delta).map_err(|e| format!("{}: {e}", role.name()))?);
         let um = from_volume_mesh(&vm).map_err(|e| format!("{}: {e}", role.name()))?;
         // Region of every cell, by centroid. A cell of the faceted, snapped
         // mesh whose centroid falls in a region this mesh's domain does not
@@ -821,6 +831,166 @@ pub fn fitted_cht_surface(map: &RegionMap, t: &RzTiling, n_seg: usize) -> outram
     }
 }
 
+/// **Snap a mesh's surface faces onto the true surface of revolution**, by
+/// face rather than by point (2026-11-26). The surface faces are the
+/// boundary faces and, given `cell_region`, the internal faces between two
+/// regions. A surface face whose unit normal is mostly radial (`|n_z| <
+/// 0.5`) lies on the cylinder or cone `segs[i]` whose true radius at the
+/// face centre's height `R(z_c)` satisfies `R cos(pi/n) - 1e-6 <= r_c <= R +
+/// 1e-6` (m) with `z_c` in its range: every point of that face moves
+/// radially, at its own height, to `R(z)`. Faces of the discs (`|n_z| >=
+/// 0.5`) do not move their points; a rim point shared with a cylinder face
+/// moves radially and so stays in the disc's plane. It classifies faces,
+/// not points, so a point need not lie on a facet plane (after
+/// [`morph_to_revolved`] most do not). Returns the number of points moved.
+///
+/// Original OUTRAM PARK code (dhoby-ghaut), not a port.
+pub fn snap_faces_to_revolved(mesh: &mut VolumeMesh, cell_region: Option<&[usize]>, segs: &[[[f64; 2]; 2]], n_seg: usize) -> usize {
+    use std::f64::consts::PI;
+    let cosn = (PI / n_seg as f64).r_cos();
+    let segs: Vec<[[f64; 2]; 2]> = segs.iter().copied().filter(|s| (s[1][1] - s[0][1]).abs() > 1e-9).collect();
+    let r_of = |s: &[[f64; 2]; 2], z: f64| s[0][0] + (z - s[0][1]) / (s[1][1] - s[0][1]) * (s[1][0] - s[0][0]);
+    // Segment index of every point, from the faces it is on.
+    let mut seg_of: Vec<Option<usize>> = vec![None; mesh.points.len()];
+    for f in 0..mesh.face_count() {
+        let surface = match (mesh.neighbour[f], cell_region) {
+            (None, _) => true,
+            (Some(nb), Some(reg)) => reg[nb] != reg[mesh.owner[f]],
+            (Some(_), None) => false,
+        };
+        if !surface {
+            continue;
+        }
+        let a = mesh.face_area_vector(f);
+        let al = a.length();
+        if al <= 0.0 || (a.z / al).abs() >= 0.5 {
+            continue;
+        }
+        let c = mesh.face_centroid(f);
+        let rc = (c.x * c.x + c.y * c.y).sqrt();
+        let hit = segs.iter().position(|sg| {
+            let (zl, zh) = (sg[0][1].min(sg[1][1]), sg[0][1].max(sg[1][1]));
+            if c.z < zl - 1e-9 || c.z > zh + 1e-9 {
+                return false;
+            }
+            let rt = r_of(sg, c.z);
+            rc >= rt * cosn - 1e-6 && rc <= rt + 1e-6
+        });
+        if let Some(i) = hit {
+            for &v in &mesh.faces[f] {
+                seg_of[v] = Some(i);
+            }
+        }
+    }
+    let mut moved = 0;
+    for (p, sg) in mesh.points.iter_mut().zip(&seg_of) {
+        let Some(i) = sg else { continue };
+        let r = (p.x * p.x + p.y * p.y).sqrt();
+        if r < 1e-12 {
+            continue;
+        }
+        let rt = r_of(&segs[*i], p.z);
+        if rt != r {
+            p.x *= rt / r;
+            p.y *= rt / r;
+            moved += 1;
+        }
+    }
+    moved
+}
+
+/// **Morph the band near each true cylinder** before
+/// [`snap_faces_to_revolved`] (2026-11-26). A point at radius `r`, angle
+/// `theta`, height `z` within `delta` (m) of the faceted cylinder of a
+/// vertical segment `(R, z0, z1)` moves radially by `w R (1 - c)`, where `R c`
+/// is the facet's radius at `theta` (so a point on the facet gets the full
+/// chord-to-circle move) and `w = (1 - |r - R c| / delta)` times `(1 - d_z /
+/// delta)` for a height `d_z` beyond the segment's ends, clamped to `[0, 1]`;
+/// the cylinder with the largest `w` wins. Cells next to the wall then
+/// follow the snapped wall instead of being squashed by it (moving only the
+/// surface points took one corner cell of the HTR-10 CHT mesh from 83.6 to
+/// 88.7 deg and skewness 6.4 to 32.9). Slanted segments are not morphed. Returns
+/// the number of points moved.
+pub fn morph_to_revolved(mesh: &mut VolumeMesh, segs: &[[[f64; 2]; 2]], n_seg: usize, delta: f64) -> usize {
+    use std::f64::consts::PI;
+    let w_ang = 2.0 * PI / n_seg as f64;
+    let cosn = (PI / n_seg as f64).r_cos();
+    let cyl: Vec<(f64, f64, f64)> = segs
+        .iter()
+        .filter(|s| (s[1][1] - s[0][1]).abs() > 1e-9 && (s[1][0] - s[0][0]).abs() < 1e-9)
+        .map(|s| (s[0][0], s[0][1].min(s[1][1]), s[0][1].max(s[1][1])))
+        .collect();
+    let mut moved = 0;
+    for p in mesh.points.iter_mut() {
+        let r = (p.x * p.x + p.y * p.y).sqrt();
+        if r < 1e-12 {
+            continue;
+        }
+        let th = p.y.r_atan2(p.x).rem_euclid(2.0 * PI);
+        let mid = ((th / w_ang).floor() + 0.5) * w_ang;
+        let c = cosn / (th - mid).r_cos();
+        let mut best = (0.0f64, 0.0f64);
+        for &(rr, z0, z1) in &cyl {
+            let wr = 1.0 - (r - rr * c).abs() / delta;
+            if wr <= 0.0 {
+                continue;
+            }
+            let dz = if p.z < z0 { z0 - p.z } else if p.z > z1 { p.z - z1 } else { 0.0 };
+            let w = wr * (1.0 - dz / delta).max(0.0);
+            if w > best.0 {
+                best = (w, rr * (1.0 - c));
+            }
+        }
+        if best.0 > 0.0 && best.1 != 0.0 {
+            let f = (r + best.0 * best.1) / r;
+            p.x *= f;
+            p.y *= f;
+            moved += 1;
+        }
+    }
+    moved
+}
+
+/// The non-horizontal edges of a closed R-Z profile \[cm\], in metres, for
+/// [`snap_faces_to_revolved`].
+fn profile_segments_m(profile: &[[f64; 2]]) -> Vec<[[f64; 2]; 2]> {
+    let m = to_m(profile);
+    (0..m.len()).map(|i| [m[i], m[(i + 1) % m.len()]]).collect()
+}
+
+/// Every vertical edge of `t` with different regions (or the outside) on
+/// its two sides \[m\]: the cylinders of the fitted CHT mesh, for
+/// [`snap_faces_to_revolved`].
+fn tiling_cylinders_m(t: &RzTiling) -> Vec<[[f64; 2]; 2]> {
+    let (nr, nz) = (t.nr(), t.nz());
+    let mut v = Vec::new();
+    for i in 1..=nr {
+        for j in 0..nz {
+            let inside = t.at(i - 1, j);
+            if i == nr || t.at(i, j) != inside {
+                v.push([[t.r[i] / 100.0, t.z[j] / 100.0], [t.r[i] / 100.0, t.z[j + 1] / 100.0]]);
+            }
+        }
+    }
+    v
+}
+
+/// Morph and snap `vm` ([`morph_to_revolved`], [`snap_faces_to_revolved`]) and refuse a result with a
+/// non-positive cell; a one-line note for the report.
+fn snap_checked(vm: &mut VolumeMesh, cell_region: Option<&[usize]>, segs: &[[[f64; 2]; 2]], n_seg: usize, delta: f64) -> Result<String, String> {
+    // The morph's band is measured from the facets, so it runs first; the
+    // face snap then puts every surface point exactly on the true surface.
+    let nm = if delta > 0.0 { morph_to_revolved(vm, segs, n_seg, delta) } else { 0 };
+    let n = snap_faces_to_revolved(vm, cell_region, segs, n_seg);
+    let v = outram_park_fork_cfmesh::pipeline::multi_region::cell_volumes(vm);
+    let bad = v.iter().filter(|&&x| !(x > 0.0)).count();
+    if bad > 0 {
+        return Err(format!("snapping to the true surface left {bad} cells with non-positive volume"));
+    }
+    vm.validate().map_err(|e| format!("snapped mesh: {e}"))?;
+    Ok(format!("snapped {n} surface points radially onto the true surface of revolution ({n_seg}-facet input), after morphing {nm} points within {:.1} cm of a cylinder", delta * 100.0))
+}
+
 /// [`ChtBoundaries::Centroid`]'s mesh: the whole cylinder as one closed
 /// surface, `top` / `bottom` / `side` patches, cfMesh's tet -> dual
 /// pipeline; the regions are assigned afterwards by centroid.
@@ -877,13 +1047,32 @@ fn interface_quality_note(vm: &VolumeMesh, cell_region: &[usize]) -> String {
     }
     let max = |sel: bool, v: &[f64]| v.iter().zip(&at).filter(|(_, &a)| a == sel).map(|(x, _)| *x).fold(0.0, f64::max);
     let n_at = at.iter().filter(|&&a| a).count();
+    // Where the worst cells are (r, z of their vertex average, cm).
+    let at_cm = |c: usize| {
+        let mut sum = outram_park_fork_cfmesh::math::Vec3::ZERO;
+        let mut n = 0.0f64;
+        for f in 0..vm.face_count() {
+            if vm.owner[f] == c || vm.neighbour[f] == Some(c) {
+                for &v in &vm.faces[f] {
+                    sum = sum.add(vm.points[v]);
+                    n += 1.0;
+                }
+            }
+        }
+        let p = sum.scale(1.0 / n.max(1.0));
+        ((p.x * p.x + p.y * p.y).sqrt() * 100.0, p.z * 100.0)
+    };
+    let argmax = |v: &[f64]| (0..v.len()).max_by(|&a, &b| v[a].total_cmp(&v[b])).unwrap_or(0);
+    let (cn, cs) = (argmax(&q.non_orthogonality_deg), argmax(&q.skewness));
+    let (pn, ps) = (at_cm(cn), at_cm(cs));
     format!(
-        "quality by place: {n_at} cells on a region interface, max non-orthogonality {:.1} deg, max skewness {:.2}; the other {} cells {:.1} deg, {:.2}",
+        "quality by place: {n_at} cells on a region interface, max non-orthogonality {:.1} deg, max skewness {:.2}; the other {} cells {:.1} deg, {:.2}. Worst non-orthogonality at r {:.1}, z {:.1} cm; worst skewness at r {:.1}, z {:.1} cm",
         max(true, &q.non_orthogonality_deg),
         max(true, &q.skewness),
         vm.n_cells - n_at,
         max(false, &q.non_orthogonality_deg),
-        max(false, &q.skewness)
+        max(false, &q.skewness),
+        pn.0, pn.1, ps.0, ps.1
     )
 }
 
@@ -893,7 +1082,9 @@ fn interface_quality_note(vm: &VolumeMesh, cell_region: &[usize]) -> String {
 /// Studio's default; `TetSource::CarvedCentroid` for cfMesh's carved
 /// route, centroid boundaries only), the outer surface named `top`,
 /// `bottom` and `side`, the region boundaries made as `boundaries` says,
-/// written to `out_dir/constant/polyMesh` with `cellZones`, and drawn: R-Z
+/// snapped onto the true cylinders when `snap` (the default; see
+/// [`snap_faces_to_revolved`]), written to `out_dir/constant/polyMesh`
+/// with `cellZones`, and drawn: R-Z
 /// through the axis, and X-Y through the middle of each of the three
 /// non-solid regions.
 pub fn build_cht(
@@ -902,6 +1093,7 @@ pub fn build_cht(
     n_seg: usize,
     tets: outram_park_fork_cfmesh::pipeline::TetSource,
     boundaries: ChtBoundaries,
+    snap: bool,
     out_dir: &Path,
 ) -> Result<ChtMesh, String> {
     let t = Instant::now();
@@ -910,6 +1102,10 @@ pub fn build_cht(
     let faceted_cm3 = tiling.volumes(map.regions.len(), Some(n_seg));
     let (vm, fitted_region, mut notes, interfaces) = match boundaries {
         ChtBoundaries::Fitted => {
+            // Snapping TetGen's own surface vertices before the dual was
+            // measured and rejected (2026-11-26): it took the cells away
+            // from the interfaces from 63.8 to 87.4 deg and skewness 1.3 to
+            // 14.9; the dual is snapped after, with a morph (below).
             let surf = fitted_cht_surface(&map, &tiling, n_seg);
             let m = outram_park_fork_cfmesh::pipeline::multi_region::multi_region_mesh(&surf, tets, true)?;
             (m.mesh, Some(m.cell_region), m.notes, m.interface_faces)
@@ -920,6 +1116,17 @@ pub fn build_cht(
         }
     };
     notes.push(format!("tetrahedra: {tets:?}; region boundaries: {boundaries:?}"));
+    let mut vm = vm;
+    if snap {
+        let segs = match boundaries {
+            ChtBoundaries::Fitted => tiling_cylinders_m(&tiling),
+            ChtBoundaries::Centroid => profile_segments_m(&d.neutronics_profile()),
+        };
+        let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { cell_cm / 100.0 };
+        notes.push(snap_checked(&mut vm, fitted_region.as_deref(), &segs, n_seg, delta)?);
+    } else {
+        notes.push("not snapped: the boundary stays on the faceted surface (--no-snap)".into());
+    }
     if let Some(reg) = &fitted_region {
         notes.push(interface_quality_note(&vm, reg));
     }
@@ -964,7 +1171,10 @@ pub fn build_cht(
         um.n_cells()
     ));
     let vols = outram_blender::unstructured::overlap::cell_volumes_cm3(&um);
-    let exact = exact_in(d, &map, &d.neutronics_profile(), 0.5);
+    // The tiling's volumes are analytic (each rectangle revolved exactly);
+    // `exact_in`'s 0.5 cm quadrature was off by up to 0.4 % where a region
+    // edge is not on its grid (the bed's top and bottom).
+    let exact = tiling.volumes(map.regions.len(), None);
     let regions = map
         .regions
         .iter()
@@ -1057,7 +1267,7 @@ pub fn cht_report(m: &ChtMesh, cell_cm: f64, n_seg: usize) -> String {
             ChtBoundaries::Centroid => "by cell centroid (stair-stepped at the cell size)",
         }
     ));
-    s.push_str(&format!("| cellZone | class | cells | meshed volume [m³] | exact R-Z volume [m³] | difference | faceted ({n_seg} segments) volume [m³] | difference |\n|---|---|---|---|---|---|---|---|\n"));
+    s.push_str(&format!("| cellZone | class | cells | meshed volume [m³] | exact R-Z volume (analytic) [m³] | difference | faceted ({n_seg} segments) volume [m³] | difference |\n|---|---|---|---|---|---|---|---|\n"));
     for ((id, class, n, mv, ev), fv) in m.regions.iter().zip(&m.faceted_cm3) {
         s.push_str(&format!(
             "| `{id}` | {class} | {n} | {:.4} | {:.4} | {:+.2} % | {:.4} | {:+.2e} |\n",

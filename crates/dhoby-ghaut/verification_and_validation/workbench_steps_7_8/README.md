@@ -115,6 +115,24 @@ Step 7 takes the default. Re-run with `--headless-mesh` at the same sizes
   in `mesh_thermal_hydraulics_xz.png`), at 6 324 cells, −0.93 % and 59.9°.
   The cell-centre dual gives far fewer wall faces (`cavity_wall` ~~4 024~~
   677), so there are far fewer layer cells than in the carved record.
+- **Snapped to the true geometry (2026-11-26, default; maintainer: "snap
+  properly").** Each mesh's surface is morphed and then snapped onto its
+  profile's true cylinders and cone (`morph_to_revolved`,
+  `snap_faces_to_revolved`; see the CHT record,
+  `../htr10_cht_mesh/README.md`). The CSV and images in this record are
+  the snapped ones:
+
+  | mesh | volume vs exact: carved → TetGen → **TetGen snapped** | max non-orth |
+  |---|---|---|
+  | neutronics | −1.24 % → −0.64 % → **−0.04 %** | 56.3° |
+  | thermal-hydraulics | −1.29 % → −0.93 % → **−0.24 %** | 59.2° |
+  | structural | −0.91 % → −0.64 % → **−0.11 %** | 74.5° |
+
+  The "exact" here is still `part_volumes`' midpoint quadrature, so the
+  last tenth of a percent is not resolved. The TH↔structural overlap,
+  which was exactly 0 on the faceted TetGen meshes, is 2.8e4 cm³ snapped:
+  both meshes now sit on the true r = 90 circle, but each draws its chords
+  between its own points (it was 8.1e4 cm³ on the carved meshes).
 - `the_headless_meshes_hold_what_the_hand_off_promises` (volumes within
   3 %, patches, read-back, maps) is the gate; see the test run below.
 

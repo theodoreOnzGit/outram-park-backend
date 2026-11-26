@@ -232,7 +232,10 @@ fn main() -> Result<(), String> {
             Some("centroid") => crate::meshing::ChtBoundaries::Centroid,
             Some(o) => return Err(format!("--boundaries {o}: fitted or centroid")),
         };
-        return headless::cht_mesh(&r, std::path::Path::new(&out), cell, n_seg, tets, boundaries);
+        // `--no-snap`: leave the boundary on the faceted surface (the
+        // ablation; by default it is snapped onto the true cylinders).
+        let snap = !args.iter().any(|a| a == "--no-snap");
+        return headless::cht_mesh(&r, std::path::Path::new(&out), cell, n_seg, tets, boundaries, snap);
     }
     if args.iter().any(|a| a == "--headless-mesh") || args.iter().any(|a| a == "--headless-mgxs") {
         let r = recipe.unwrap_or_else(preset::htr10);
@@ -577,11 +580,12 @@ mod headless {
         n_seg: usize,
         tets: outram_park_fork_cfmesh::pipeline::TetSource,
         boundaries: crate::meshing::ChtBoundaries,
+        snap: bool,
     ) -> Result<(), String> {
         let mut engine = Engine::default();
         let a = assemble(&mut engine, r).ok_or("assembly failed")?;
         let d = crate::meshing::domain_from(&a);
-        let m = crate::meshing::build_cht(&d, cell_cm, n_seg, tets, boundaries, out)?;
+        let m = crate::meshing::build_cht(&d, cell_cm, n_seg, tets, boundaries, snap, out)?;
         for p in crate::meshing::write_images(&m.images, &out.join("images"))? {
             eprintln!("wrote {}", p.display());
         }
@@ -815,7 +819,7 @@ mod tests {
         let a = super::headless::assemble_for_test(&mut engine, &r).expect("assembly");
         let d = crate::meshing::domain_from(&a);
         let dir = std::env::temp_dir().join(format!("dhoby_ghaut_cht_test_{}", std::process::id()));
-        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), crate::meshing::ChtBoundaries::Centroid, &dir).expect("cht mesh");
+        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), crate::meshing::ChtBoundaries::Centroid, true, &dir).expect("cht mesh");
         assert!(m.notes.iter().any(|n| n.contains("TetGen")), "{:?}", m.notes);
         let (mesh_v, exact_v): (f64, f64) = m.regions.iter().fold((0.0, 0.0), |a, r| (a.0 + r.3, a.1 + r.4));
         assert!((mesh_v / exact_v - 1.0).abs() < 0.03, "volume {mesh_v} vs {exact_v}");
@@ -851,7 +855,7 @@ mod tests {
         let a = super::headless::assemble_for_test(&mut engine, &r).expect("assembly");
         let d = crate::meshing::domain_from(&a);
         let dir = std::env::temp_dir().join(format!("dhoby_ghaut_cht_fitted_test_{}", std::process::id()));
-        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), crate::meshing::ChtBoundaries::Fitted, &dir).expect("fitted cht mesh");
+        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), crate::meshing::ChtBoundaries::Fitted, false, &dir).expect("fitted cht mesh");
         for ((id, _, n, mv, _), fv) in m.regions.iter().zip(&m.faceted_cm3) {
             assert!(*n > 0, "{id} has cells");
             assert!((mv - fv).abs() < 1e-9 * fv, "{id}: meshed {mv} vs faceted {fv}");
@@ -883,6 +887,42 @@ mod tests {
         let zones = outram_foam_appbuilder_lib::io::poly_mesh::read_cell_zones(&m.polymesh_dir).expect("cellZones read back");
         assert_eq!(zones.iter().map(|z| z.cells.len()).sum::<usize>(), m.mesh.n_cells());
         assert!(crate::meshing::cht_report(&m, 40.0, 16).contains("body-fitted"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The fitted CHT mesh **snapped to the true geometry** (default; 40 cm,
+    /// 16 segments): every point of the `side` patch is on the true
+    /// cylinder `r = r_outer` to 1e-9 m, every cell has positive volume
+    /// (`snap_checked` refuses otherwise), and every region's volume is
+    /// closer to the analytic round R-Z volume than the faceted body's, by
+    /// at least a factor of 4 (the 16-gon alone is short by 2.6 %).
+    #[test]
+    fn the_snapped_cht_mesh_is_on_the_true_cylinders() {
+        let r = super::preset::htr10();
+        let mut engine = crate::engine::Engine::default();
+        let a = super::headless::assemble_for_test(&mut engine, &r).expect("assembly");
+        let d = crate::meshing::domain_from(&a);
+        let dir = std::env::temp_dir().join(format!("dhoby_ghaut_cht_snap_test_{}", std::process::id()));
+        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), crate::meshing::ChtBoundaries::Fitted, true, &dir).expect("snapped cht mesh");
+        assert!(m.notes.iter().any(|n| n.contains("snapped")), "{:?}", m.notes);
+        for ((id, _, _, mv, ev), fv) in m.regions.iter().zip(&m.faceted_cm3) {
+            let (snapped, faceted) = ((mv - ev).abs() / ev, (fv - ev).abs() / ev);
+            assert!(snapped * 4.0 < faceted, "{id}: snapped {snapped:e} vs faceted {faceted:e}");
+        }
+        let um = &m.mesh;
+        let side = um.patches().iter().find(|p| p.name == "side").expect("side patch");
+        let ro = d.r_outer / 100.0;
+        let mut n = 0;
+        for &f in &side.faces {
+            {
+                for &v in um.face(f) {
+                    let p = um.points()[v];
+                    assert!(((p[0] * p[0] + p[1] * p[1]).sqrt() - ro).abs() < 1e-9, "side point at r {}", (p[0] * p[0] + p[1] * p[1]).sqrt());
+                    n += 1;
+                }
+            }
+        }
+        assert!(n > 0);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
