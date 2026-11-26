@@ -128,3 +128,55 @@ confirmed against upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit f6ec6b6ab7.
+
+# Review: INC (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-inc-theodoreonzgit-a4ea8cdd"
+kind = "review"
+origin = "human"
+created = "2026-11-26T12:54:13+08:00"
+modified = "2026-11-26T12:54:13+08:00"
+target = "fn:a4ea8cdd8a0e37b1"
+
+[review]
+path = "crates/petir/src/rng/lcg.rs::INC"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T12:54:13+08:00"
+commit = "520a46eb0dbbf8dd551339ec9f9d7248840b1ab5"
+hash = "sha256:ec41a8e866d35a6b2c5c642f9811ac7956f21801b96a25397f154d7a8c0e774a"
+doc_hash = "sha256:2f8267423df0f0d9c3652f25683139049cca87cdfd9cd67bc75e158b8256dc68"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "human"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "T7fkmJ7kFW6E5v1Ro63Pf9n5A/98NB4AZWxFsxUlXCi0J6UTZZNEFasdKo5xC62sOVgolJQPcEaL8cUhBjKvAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+compared against upstream
+constexpr uint64_t prn_add {1442695040888963407ULL};  // additive factor, c
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 520a46eb0d.
