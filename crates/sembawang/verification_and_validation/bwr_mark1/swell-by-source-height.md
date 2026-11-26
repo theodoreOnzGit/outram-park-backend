@@ -237,3 +237,28 @@ main steam line's creep, the SRV gaskets).
 
 **Others:** B4C reacted in 6 h 0.000 kg (the gates; 7.208 originally); UO2
 candled 3824.68 kg (3982.49 originally); Xe vented 0.9803.
+
+## Re-measured after unit V&V batch 2 (2026-11-26)
+
+After MELCOR's gray-radiation network (COR1-03, which roughly doubles the
+core's node-to-node radiation) and the mass-averaged lower-head creep
+temperature (COR2-07). Recorded, not pinned.
+
+| | per-volume swell (above) | after batch 2 |
+|---|---|---|
+| first relocation | 13238 s | **14608 s** |
+| next 60 s: peak cladding, at least | 2269.0 K | 2486.6 K |
+| next 60 s: RPV, at most | 8.285 MPa | 8.302 MPa |
+| next 60 s: heat into the water, at most | 0.122 GW | 0.0155 GW |
+| first debris through the pedestal water | 4.5133 h, 1.570 kg | 4.7200 h, 1.213 kg (steam 145.05 kg) |
+| high-pressure melt ejection | true | true |
+| BSAF RPV vs measured, mean / max | 3.4465 / 6.5989 MPa | 3.4440 / 6.5755 |
+| drywell vs measured, mean / max | 0.0595 / 0.2549 MPa | 0.0705 / 0.2717 |
+| inside the envelope: RPV / drywell | 0.5934 / 0.7912 | 0.5495 / 0.7802 |
+| H2 / Xe / I | 0.9885 / 0.7292 / 0.8125 | 0.9885 / 0.6875 / 0.8125 |
+
+**Interpretation.** The stronger radiation spreads the hottest nodes' heat
+to their neighbours, the shroud and the dome, so the first node melts
+about 23 min later, and the lower head fails later with it. The first
+relocation still does not quench the core. The melt is still ejected at
+pressure: the depressurisation path is still the open item on gh:#1810.
