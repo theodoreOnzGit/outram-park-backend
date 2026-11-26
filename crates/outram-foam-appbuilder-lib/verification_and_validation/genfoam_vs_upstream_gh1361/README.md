@@ -2505,3 +2505,52 @@ Wall of the light chain test: 125-133 s (round 14: 41 s): three coupling iterati
 ### Gates run (2026-11-26, release, targeted)
 
 `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream --test genfoam_msfr_coupled_vs_upstream --test genfoam_msfr_transient_vs_upstream`: chain 5 passed, coupled 3 passed, transient 2 passed (7 ignored extractors). `cargo test --release -p petir --test no_platform_libm` 4 passed. `bash scripts/check-nostd.sh` exit 0.
+
+---
+
+# Round 16 (gh:#1802; child of #1216, #1222): `porousKEpsilon2PhaseCorrected` two-phase turbulence, the three `1D_PSBT_SC/PhaseII_*` cases AS SHIPPED
+
+## What was read BEFORE any port code or port run (2026-11-26; upstream = GeN-Foam 652b3da on ESI v2506)
+
+- **The model is NOT a derivation of `porousKEpsilon`.** `porousKEpsilon2PhaseCorrected.H` derives from `eddyViscosity<RASModel<BasicTurbulenceModel>>` and re-implements the kEpsilon equations itself;
+  `porousKEpsilon` (the single-phase model of gh:#1775/#1812) is a separate class. So no single-phase base is ported here, and #1812 is NOT reduced by this round (to be recorded there).
+  The instantiated type is `RASModel<EddyDiffusivity<ThermalDiffusivity<PhaseCompressibleTurbulenceModel<rhoThermo>>>>` (`multiphaseCompressibleTurbulenceModels.C` +
+  ESI `compressible/turbulentFluidThermoModels/makeTurbulenceModel.H`): `EddyDiffusivity` owns `alphat` (`MUST_READ`) and `Prt`; `eddyViscosity` owns `nut` (`MUST_READ`).
+- **What the model feeds** (grep of `turbulence()` over `src/`): ONLY `UEqns_2p.H` (`nuEff = nut + mu/rho` in `alpha rho nuEff` of the laplacian AND of the `dev2(T(grad U))` term) and
+  `EEqns_2p.H` (`thermo.alphaEff(alphat) = CpByCpv (alpha_ + alphat)`). No closure (htc, drag, Re) reads `nut`, `k` or `epsilon`.
+- **Call site.** `correctFluidMechanics` = `alphaEqns_2p.H`, then `UEqns_2p.H`, whose first act is `fluid1_.turbulence().correct(); fluid2_.turbulence().correct();` with BOTH phase fractions
+  temporarily `max(alpha, residualAlpha)` (cells AND boundary values) and restored afterwards, so the momentum and energy equations see the UNLIMITED alpha but the turbulence equations the limited one.
+  `correctTightlyCoupledPhysics` does not call it.
+- **Equations** (`porousKEpsilon2PhaseCorrected.C`, `correct()`): epsilon then k; `ddt(alpha, rho, .)` with the limited current alpha and the UNLIMITED `alpha.oldTime()`; `div(alphaRhoPhi, .)` (scheme `upwind`
+  in all three cases); `laplacian(alpha rho D*Eff, .)`, `D*Eff = nut/sigma + nu` with `nu = thermo.mu()/rho`; sources multiplied by `noStructure = neg0(alpha.structure)` (1 where the structure fraction is
+  <= 0); a relaxation toward an equilibrium `k_eq = 1.5 (|U| (A Re^B + D (1 - alpha_f/(1 - alpha_s))))^2`, `eps_eq = Cmu^0.75 k_eq^1.5 / max(C Dh, SMALL)` at rate `alpha rho |U| / convergenceLength`
+  (`yesStructure = pos(structure)`, which is 1 for structure >= 0, i.e. also where there is none); `relax()`, `solve`, `bound` (ESI `bound.C`: the `fvc::average` branch).
+  `correctNut`: `nut = Cmu k^2/eps`; `alphat = rho nut/Prt` (Prt default 1); the `nutStabilization` branch only with a `DhStruct` key (none of the cases has one: refused by name).
+  `G` (production) is multiplied by `noStructure`, which is 0 in every cell of the PSBT cases (structure > 0 everywhere), so the production path is reached only by a unit test with a structure-free cell.
+- **`fvSolution`**: `k.liquid` and `epsilon.liquid` resolve to the LAST matching pattern, `"(k|epsilon|Theta).*"` (smoothSolver, symGaussSeidel, tolerance 1e-7, relTol 0, minIter 1), not to the earlier
+  `"e.*"` / `".*"` (round 13's last-match rule). `relaxationFactors.equations ".*" 1` matches them, so `fvMatrix::relax(1)` runs: it is NOT the identity (diagonal dominance is enforced,
+  `fvMatrix.C:1101`). Field relaxation (`fields`) has no `k`/`epsilon` entry.
+- **Boundary conditions of the three cases**: `k`, `epsilon`: `fixedValue` inlet, `zeroGradient` outlet and walls, `symmetry` on the `top`/`frontAndright` patch; `nut`, `alphat`: `zeroGradient` and `symmetry` only (no wall
+  function). The mesh patch `top` (390 faces) is a `symmetry` patch for EVERY field including `U`, `p`, `p_rgh`, `alpha.vapour`, `T.*`: the port has no `symmetry` entry in `scalar_bcs`/`vector_bcs`
+  (a refusal by name, found by reading, not yet by running).
+- **Searched first (CLAUDE.md "search before building")**: `outram-foam-turbulence-lib` is a Foundation-line single-phase kEpsilon over its own field types (no phase-weighted `ddt(alpha, rho, .)`,
+  no structure terms): not reusable by the two-phase driver's light `Scalar`/`Eqn`. `closures/turbulence/{porous_k_epsilon,lahey_k_epsilon,mixture_k_epsilon}.rs` are closures (coefficient formulas), not wired and
+  not the equations. The two-phase driver's `Eqn` (`fv.rs`: `ddt`, `div_upwind`, `neg_laplacian`, `sp`, `su_sp`, `su`) and `smooth_solve_sym_gauss_seidel` (the enthalpy solver) cover every operator the model needs.
+  No kovan-reviewed function is touched (no `kind = "review"` block in `solver/` or `solver/two_phase/`).
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+Upstream reference: `PhaseII_Ex1_01_5215` (the simplest: `multiRegimeBoiling`, empty `regimeMapModels`), the real unmodified binary, `scripts/psbt_shipped_protocol.sh` (`writePrecision 17`, every step written,
+every `solvers` tolerance 1e-14, `relTol 0`), first steps. Fields compared per step: `dt`, `p`, `U.*`, `T.*`, `alpha.vapour`, `k.*`, `epsilon.*`, `nut.*`, `alphat.*`, `htc.liquid.structure`.
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| X1 | the three shipped directories read | succeed with empty `deviations` once `symmetry` is ported; `DhStruct`, `LaheyKEpsilon`/`kEpsilon`/`porousKEpsilon`/`mixtureKEpsilon`, wall-function BCs refused by name | a key or BC type not read |
+| X2 | steps 1-8, single phase: `k`, `epsilon` | <= 1e-9 of the field maximum (same algorithm, same matrix, solves to 1e-14); NOT bit-identical (a different association of the source terms) | an association of the sources, or `relax` |
+| X3 | same steps: `nut`, `alphat` | <= 1e-8 (`nut = Cmu k^2/eps` doubles the relative error of `k`); `alphat/nut` = `rho` exactly (`Prt` 1) | `Prt` or `rho` boundary |
+| X4 | same steps: `p`, `T.*`, `U.*`, `dt` | at round 12's through-flow level (`p` <= 1.4e-11, `T` <= 2e-11, `U` <= 4e-10, `dt` equal), i.e. the turbulence adds nothing measurable | `nuEff` arithmetic (`alpha rho (nut + mu/rho)` vs `alpha mu`), the `symmetry` patch of `U`/`p_rgh` |
+| X5 | `bound()` | never triggers in steps 1-8 (`k`, `epsilon` stay above 1e-15) | n/a |
+| X6 | first step above the 1e-9 round-off allowance | the first nucleate-boiling evaluation of the wall (gh:#1803/#1816, `htc.liquid.structure` ~4e-9), NOT a turbulence quantity | a turbulence field first |
+| X7 | ablation: `relax(1)` omitted | `k`, `epsilon` move by <= 1e-12 where the matrix is already diagonally dominant; larger where `div(alphaRhoPhi) < -ddt` (net convergence) | n/a |
+| X8 | ablation: laminar `nuEff` (turbulence off) | `U.liquid` changes at the 1e-2 level or more within 10 steps (initial `nut = 0.09 m^2/s` from `k = 0.1`, `epsilon = 0.01`, five orders above `nu`) | n/a |
+| X9 | `regressionResults` (Ex1 at t = 5 s: `alpha.vapour` 0.123835, `T.fixedPower` 620.178) | the port reaches 5 s and lands within 5 % of both (a quasi-steady state is less sensitive than round 12's step-51 separation) OR does not reach 5 s in the allowed wall time (reported as such, not as a miss) | the Phase_Ex1_12223 separation mechanism (#1820) |
