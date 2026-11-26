@@ -48,7 +48,7 @@ fn sample() -> FolderIndex {
 }
 
 /// Methodology: split a whole index, check what each file holds, and merge
-/// the two back. Pass: the tracked text has no `lines`, `callees` or `uses`
+/// the two back. Pass: the tracked text has no `lines`; `callees`, `uses`
 /// and `reached_by` only for the reviewed function; the merge gives back
 /// the original exactly.
 ///
@@ -57,11 +57,16 @@ fn sample() -> FolderIndex {
 fn split_then_merge_gives_back_the_index() {
     let idx = sample();
     let t = tracked_text(&idx).unwrap();
-    for field in ["lines", "callees", "uses", "index_out_of_date"] {
+    for field in ["lines", "index_out_of_date"] {
         assert!(!t.contains(&format!("{field} =")), "{field} in tracked:\n{t}");
     }
-    assert!(t.contains("reaches_zeta"), "the reviewed function keeps reached_by");
-    assert!(!t.contains("reaches_alpha"), "an unreviewed one does not");
+    // The reviewed function (zeta) keeps callees, uses and reached_by;
+    // the unreviewed one (alpha) keeps none.
+    let tracked = FolderIndex::parse(&t).unwrap();
+    for (_, f) in tracked.functions() {
+        let kept = !f.callees.is_empty() && !f.uses.is_empty() && !f.reached_by.is_empty();
+        assert_eq!(kept, f.qual == "zeta", "{}", f.qual);
+    }
     // (qual, id) order in the tracked file: alpha before zeta.
     assert!(t.find("qual = \"alpha\"").unwrap() < t.find("qual = \"zeta\"").unwrap());
     let back = merge(
@@ -73,9 +78,11 @@ fn split_then_merge_gives_back_the_index() {
     assert_eq!(back, want);
 }
 
-/// Methodology: shift every function down 5 lines (an edit above them),
-/// then edit one function's body (its hash). Pass: the shift changes the
-/// cache and not the tracked text; the body edit changes the tracked text.
+/// Methodology: shift every function down 5 lines (an edit above them)
+/// and give the unreviewed one a new callee, then edit one function's body
+/// (its hash), then give the reviewed one a new callee. Pass: the shift
+/// and the unreviewed callee change the cache and not the tracked text; the
+/// body edit and the reviewed function's callee change the tracked text.
 ///
 /// Result (2026-11-26): passes.
 #[test]
@@ -85,7 +92,9 @@ fn moving_code_changes_the_cache_and_editing_it_changes_git() {
     for m in shifted.modules.values_mut() {
         for f in &mut m.functions {
             f.lines = [f.lines[0] + 5, f.lines[1] + 5];
-            f.callees.push("fn:00000000000000c2".into());
+            if f.qual == "alpha" {
+                f.callees.push("fn:00000000000000c2".into());
+            }
         }
     }
     assert_eq!(tracked_text(&shifted).unwrap(), tracked_text(&idx).unwrap());
@@ -93,6 +102,9 @@ fn moving_code_changes_the_cache_and_editing_it_changes_git() {
     let mut edited = idx.clone();
     edited.modules.get_mut("a.rs").unwrap().functions[1].hash = h('e');
     assert_ne!(tracked_text(&edited).unwrap(), tracked_text(&idx).unwrap());
+    let mut rewired = idx.clone();
+    rewired.modules.get_mut("a.rs").unwrap().functions[0].callees.push("fn:00000000000000c3".into());
+    assert_ne!(tracked_text(&rewired).unwrap(), tracked_text(&idx).unwrap(), "a reviewed function's callees are in git");
 }
 
 /// Methodology: merge a tracked file with no cache, and with a cache whose

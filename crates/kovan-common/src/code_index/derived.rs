@@ -7,9 +7,9 @@
 //!
 //! | Tracked `<dir>/kovan.toml` (in git) | Derived cache [`derived_rel`] (gitignored, under `target/`) |
 //! |---|---|
-//! | `id`, `name`, `qual`, `item`/`shape`, `hash`, `doc_hash`, `test`, `physical_interface` | `lines` |
-//! | `[test_run]`, `[targeted_run]`, `[upstream]`, `[[review]]`, `[[deleted_folder]]` | `callees`, `uses`, `index_out_of_date` |
-//! | `reached_by` of a **reviewed** function only (below) | `reached_by` of every function |
+//! | `id`, `name`, `qual`, `item`/`shape`, `hash`, `doc_hash`, `test`, `physical_interface` | `lines`, `index_out_of_date` |
+//! | `[test_run]`, `[targeted_run]`, `[upstream]`, `[[review]]`, `[[deleted_folder]]` | |
+//! | `callees`, `uses`, `reached_by` of a **reviewed** function only (below) | `callees`, `uses`, `reached_by` of every function |
 //!
 //! The cache file is the whole index in today's format, so it reads with
 //! [`FolderIndex::parse`]; [`merge`] takes only the derived fields from it,
@@ -18,12 +18,20 @@
 //! cache from older code) leaves the function marked `index_out_of_date`:
 //! shown as such, never trusted silently.
 //!
-//! **Why reached_by stays tracked for reviewed functions** (maintainer,
-//! 2026-11-26, the recommended choice on #1776): a stamp's rung is derived
-//! from the tests that reached the function **as committed at the review
-//! commit** (`kovan::stamping::states::tests_at`). Those must be in git.
-//! Only functions with a `[[review]]` entry keep it, so the churn is limited
-//! to reviewed functions whose reaching tests change.
+//! **Why a reviewed function keeps its call-graph fields** (maintainer,
+//! 2026-11-26, the recommended choice on #1776): what a stamp is judged on
+//! must be in git. Its rung is derived from the tests that reached the
+//! function **as committed at the review commit**
+//! (`kovan::stamping::states::tests_at`), and its state compares the
+//! review's recorded `callees` and `uses` with the current ones
+//! (`kovan_common::review::engine`, step 4). ~~`reached_by` only~~
+//! **Widened the same day:** with `reached_by` alone, a fresh clone (no
+//! cache) judged every stamp against empty callee lists and read it as
+//! "code changed since the review" (found by
+//! `stamping::carry_forward::tests::a_squash_merge_is_carried_forward_and_the_signature_kept`).
+//! Only functions with a `[[review]]` entry keep the three, so the churn is
+//! limited to reviewed functions, whose callees change almost only when
+//! their code does.
 //!
 //! **Order.** The tracked file lists a module's functions by `(qual, id)`,
 //! so moving code around changes the cache only; [`FolderIndex::normalise`]
@@ -71,10 +79,10 @@ pub fn tracked(idx: &FolderIndex) -> FolderIndex {
         m.functions.sort_by(|a, b| (&a.qual, &a.id).cmp(&(&b.qual, &b.id)));
         for f in &mut m.functions {
             f.lines = [0, 0];
-            f.callees.clear();
-            f.uses.clear();
             f.index_out_of_date = false;
             if !keep.contains(&f.id) {
+                f.callees.clear();
+                f.uses.clear();
                 f.reached_by.clear();
             }
         }
