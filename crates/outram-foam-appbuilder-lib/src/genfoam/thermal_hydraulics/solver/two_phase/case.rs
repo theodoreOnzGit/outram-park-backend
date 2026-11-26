@@ -467,6 +467,19 @@ pub(super) fn vector_bcs(
 }
 
 impl TwoPhaseCase {
+    /// DEPRECATED (gh:#1361 round 13): give every `perfectGas` phase the CODATA 2019 universal gas constant the port
+    /// used before round 13, in place of OpenFOAM-v2506's (`NA k` from `etc/controlDict`), which is the default.
+    /// The CODATA value makes the vapour density 8.96e-7 relative larger than the real binary's.
+    #[must_use]
+    pub fn with_codata2019_gas_constant(mut self) -> Self {
+        for f in self.fluids.iter_mut() {
+            f.thermo = f.thermo.clone().with_gas_constant(outram_foam_basic_lib::prelude::GasConstant::Codata2019);
+        }
+        self
+    }
+}
+
+impl TwoPhaseCase {
     /// DEPRECATED (gh:#1815): apply every `fixedPower` `powerTimeProfile` as the closed form `initial * prof(t)` the
     /// port used before it translated upstream's recursion `prof(t) * pdOld / prof(t - dt)`
     /// ([`FixedPower::with_closed_form_power_profile`]). Upstream's recursion is the default.
@@ -1227,6 +1240,9 @@ impl TwoPhaseCase {
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
             earlier_nusselt_association: false,
+            converged_temperature_newton: false,
+            live_thermo_residual_markers: false,
+            earlier_interfacial_flux_ratio: false,
             lazy_old_time_first_step: true,
             stale_pimple_converged_flag: false,
             p_patch_from_file: true,

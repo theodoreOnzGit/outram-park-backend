@@ -263,6 +263,24 @@ pub struct TraceBoilingModel {
     pub sub_cooled_fraction: Option<SubcooledBoilingFraction>,
 }
 
+/// One recorded evaluation of `multiRegimeBoilingTRACE` for one cell (gh:#1361 round 13 diagnostic, see
+/// [`TwoPhaseSolver::trace_probe`]): the named intermediates, in the order the model computes them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraceProbeRecord {
+    /// `"trace"` (one `multiRegimeBoilingTRACE` cell evaluation) or `"structure"` (one `structure::correct` cell).
+    pub kind: &'static str,
+    /// Time of the step being taken [s].
+    pub time: f64,
+    /// PIMPLE outer iteration (1-based) of that step.
+    pub outer_iteration: usize,
+    /// Cell index.
+    pub cell: usize,
+    /// `(name, value)` pairs (`alphai`, `Tw`, `Tf`, `Tsat`, `htcFC`, `F`, `htc2pFC`, `qFC`, `Re`, `Pr`, `kappa`, `Dh`,
+    /// `p`, `L`, `iAact`; in the boiling branch also `TONB`, `rhoOther`, `absL`, `hPBONB`, `hPB`, `f`, `qSCDmdt`,
+    /// `dmdtW`; and `ret`, the heat-transfer coefficient returned).
+    pub values: Vec<(&'static str, f64)>,
+}
+
 /// The field a `twoParameters` regime map reads on one axis (`parameter1`, `parameter2`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegimeParameter {
@@ -522,6 +540,19 @@ pub struct TwoPhaseControls {
     /// round 8 ([`FsForcedConvectionHtc::heat_transfer_coefficient_earlier_association`],
     /// [`TwoPhaseSolver::with_earlier_nusselt_association`]).
     pub earlier_nusselt_association: bool,
+    /// `false` (default): `T` comes back from `he` as `species::thermo::T` does it (one Newton iterate, stopping at
+    /// `|dT| <= 1e-4 T0`, [`PhaseThermo::t_from_he`]). `true`: the converged root the port computed before gh:#1361
+    /// round 13 ([`PhaseThermo::t_from_he_converged`], [`TwoPhaseSolver::with_converged_temperature_newton`]).
+    pub converged_temperature_newton: bool,
+    /// `false` (default): the `enthalpyStabilizationMode cutoff` clamp uses upstream's marker fields
+    /// (`aboveThermoResidualAlpha`/`belowThermoResidualAlpha`), set at the START of the outer iteration. `true`: the
+    /// port's earlier form, which tested the fractions as the alpha equation had just left them
+    /// ([`TwoPhaseSolver::with_live_thermo_residual_markers`]).
+    pub live_thermo_residual_markers: bool,
+    /// `false` (default): the interfacial heat-flux ratio of `phaseChangeModel::correct` is `dmdtIi/dmdtIi0` with
+    /// `dmdtIi = (1 - fw) dmdt`, as upstream. `true`: the port's earlier `dmdt/dmdtIi0` (the same wherever `fw = 0`, i.e.
+    /// without wall boiling; [`TwoPhaseSolver::with_earlier_interfacial_flux_ratio`]).
+    pub earlier_interfacial_flux_ratio: bool,
 }
 
 /// Time-step control (`controlDict`).
@@ -563,6 +594,12 @@ pub struct Phase {
     pub residual_alpha: f64,
     /// `thermoResidualAlpha` (default 0).
     pub thermo_residual_alpha: f64,
+    /// `fluid::aboveThermoResidualAlpha`: `pos(normalized - thermoResidualAlpha)` (1 where `>= 0`) as set by the last
+    /// `FFPair::correct`, i.e. from the fractions of the START of the outer iteration; `EEqns_2p.H`'s `cutoff`
+    /// reads it after the alpha equation has changed `normalized` (gh:#1361 round 13).
+    pub above_thermo_residual_alpha: Vec<f64>,
+    /// `fluid::belowThermoResidualAlpha`: `neg0(normalized - thermoResidualAlpha)` (1 where `<= 0`), same timing.
+    pub below_thermo_residual_alpha: Vec<f64>,
     /// `dispersedDiameterModel constant` value [m].
     pub dispersed_diameter: f64,
     /// `dispersedDiameterModel byRegime` (constant sub-models; gh:#1225); when `Some` it replaces
@@ -746,6 +783,9 @@ pub struct TwoPhaseSolver {
     pub dmdt: Vec<f64>,
     /// Latent heat [J/kg].
     pub latent_heat: Vec<f64>,
+    /// Diagnostic (gh:#1361 round 13): when `Some`, every evaluation of `multiRegimeBoilingTRACE` appends the
+    /// intermediates it computed (see [`TraceProbeRecord`]). `None` (the default) records nothing.
+    pub trace_probe: Option<Vec<TraceProbeRecord>>,
     /// Wall (sub-cooled boiling) mass-transfer source `dmdtW` [kg/(m^3 s)], written by the
     /// `multiRegimeBoilingTRACE` model in `FSPair::correct` and consumed, then zeroed, by the next
     /// `phaseChangeModel::correct` (gh:#1222).
@@ -848,6 +888,7 @@ impl TwoPhaseSolver {
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
             latent_heat: vec![0.0; n],
+            trace_probe: None,
             dmdt_w: vec![0.0; n],
             chf_bool: vec![0.0; n],
             wf_transition_boiling: vec![0.0; n],
@@ -1153,6 +1194,15 @@ impl TwoPhaseSolver {
     /// `FFPair::correct` (FFPair.C:441-730).
     fn correct_ff_pair(&mut self) {
         let n = self.geom.n_cells();
+        // `fluid::correctThermoResidualMarkers` (FFPair.C:659-660): `pos(x)` is 1 for `x >= 0`, `neg0(x)` 1 for `x <= 0`
+        for k in 0..2 {
+            let f = &mut self.fluids[k];
+            for c in 0..n {
+                let x = f.normalized[c] - f.thermo_residual_alpha;
+                f.above_thermo_residual_alpha[c] = f64::from(x >= 0.0);
+                f.below_thermo_residual_alpha[c] = f64::from(x <= 0.0);
+            }
+        }
         // dispersion, diameters (fluidDiameterModel::correctField)
         for c in 0..n {
             let d1 = self.models.dispersion_fluid1.value(&self.regime_weights[c]);
@@ -1501,10 +1551,12 @@ impl TwoPhaseSolver {
                 let q2 = ia * self.htc_ff[1][c] * (self.fluids[1].t.c[c] - self.t_interface[c]);
                 let mut d0 = (q1 + q2) / l;
                 d0 = if d0 >= 0.0 { d0.max(dmdt_min) } else { d0.min(-dmdt_min) };
-                let fr = d / d0;
                 let fw = self.dmdt_w[c] / d;
                 let dmdt_ii = (1.0 - fw) * d;
                 let dmdt_wi = fw * d;
+                // upstream: `scalar f(dmdtIi/dmdtIi0)`, the INTERFACIAL part of the (relaxed) dmdt over the
+                // energy-conservative one; the port divided the total `dmdt` (gh:#1361 round 13)
+                let fr = if self.controls.earlier_interfacial_flux_ratio { d / d0 } else { dmdt_ii / d0 };
                 let dl = dmdt_ii * l;
                 let mut c1 = (dl - fr * q2) / self.fluids[0].he.c[c];
                 let mut c2 = (dl - fr * q1) / self.fluids[1].he.c[c];
@@ -1513,6 +1565,34 @@ impl TwoPhaseSolver {
                     c1 += (dmdt_wi * l) / self.fluids[0].he.c[c];
                 } else if dmdt_wi < 0.0 {
                     c2 += (dmdt_wi * l) / self.fluids[1].he.c[c];
+                }
+                if let Some(pr) = self.trace_probe.as_mut() {
+                    pr.push(TraceProbeRecord {
+                        kind: "pc",
+                        time: self.time,
+                        outer_iteration: self.corr_in_step,
+                        cell: c,
+                        values: vec![
+                            ("dmdt", d),
+                            ("fw", fw),
+                            ("dmdtW", self.dmdt_w[c]),
+                            ("iA", ia),
+                            ("L", l),
+                            ("htc1", self.htc_ff[0][c]),
+                            ("htc2", self.htc_ff[1][c]),
+                            ("q1", q1),
+                            ("q2", q2),
+                            ("f", fr),
+                            ("dmdtI0", d0),
+                            ("c1", c1),
+                            ("c2", c2),
+                            ("he1", self.fluids[0].he.c[c]),
+                            ("he2", self.fluids[1].he.c[c]),
+                            ("iT", self.t_interface[c]),
+                            ("T1", self.fluids[0].t.c[c]),
+                            ("T2", self.fluids[1].t.c[c]),
+                        ],
+                    });
                 }
                 self.he_src[0].su_sp[c] = c1;
                 self.he_src[1].su_sp[c] = c2;
@@ -1565,7 +1645,9 @@ impl TwoPhaseSolver {
             if let Some(model) = self.models.fs_htc[k][c] {
                 match model {
                     FsHtcModel::MultiRegimeBoilingTraceChf(m) => {
-                        let r = self.trace_chf_value(k, o, c, m).map_err(|e| crate::error::AppBuilderError::Case {
+                        let probing = self.trace_probe.is_some();
+                        let r = if probing { self.trace_chf_value_probed(k, o, c, m) } else { self.trace_chf_value(k, o, c, m) }
+                            .map_err(|e| crate::error::AppBuilderError::Case {
                             case: crate::path::PathBuf::from("multiRegimeBoilingTRACECHF"),
                             msg: e,
                         })?;
@@ -1581,7 +1663,11 @@ impl TwoPhaseSolver {
                         self.htc_fs[k][c] = self.vapour_trace_value(k, c, m);
                     }
                     _ => {
-                        let (htc, q_sc) = self.fs_htc_value(k, o, c, model);
+                        let probing = self.trace_probe.is_some();
+                        let (htc, q_sc) = match model {
+                            FsHtcModel::MultiRegimeBoilingTrace(m) if probing => self.trace_boiling_value_probed(k, o, c, m),
+                            _ => self.fs_htc_value(k, o, c, model),
+                        };
                         self.htc_fs[k][c] = htc;
                         if let Some(q) = q_sc {
                             // `dmdtW[celli] = iAact*qSCDmdti/mag(L)` (multiRegimeBoilingTRACE.C)
@@ -1602,6 +1688,23 @@ impl TwoPhaseSolver {
     /// # Errors
     /// A `lookUpTableCHF` query outside its table (upstream's `FatalError`).
     fn trace_chf_value(&self, k: usize, o: usize, c: usize, m: TraceChfModel) -> Result<TraceChfResult, String> {
+        self.trace_chf_value_logged(k, o, c, m, None)
+    }
+
+    /// [`Self::trace_chf_value`] with the intermediates appended to `log` (gh:#1361 round 13 diagnostic).
+    fn trace_chf_value_logged(
+        &self,
+        k: usize,
+        o: usize,
+        c: usize,
+        m: TraceChfModel,
+        log: Option<&core::cell::RefCell<Vec<(&'static str, f64)>>>,
+    ) -> Result<TraceChfResult, String> {
+        let push = |name: &'static str, v: f64| {
+            if let Some(l) = log {
+                l.borrow_mut().push((name, v));
+            }
+        };
         let fl = &self.fluids[k];
         let ot = &self.fluids[o];
         let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
@@ -1692,6 +1795,34 @@ impl TwoPhaseSolver {
         };
         let needs_chf = tw >= tsat && tw >= t_onb(inputs.htc_2p_fc);
         let inputs = TraceChfInputs { q_chf: if needs_chf { q_chf_at(self.p.c[c])? } else { None }, ..inputs };
+        push("alphai", inputs.alpha_other);
+        push("Tw", tw);
+        push("Tf", tf);
+        push("Tsat", tsat);
+        push("htcFC", fc);
+        push("F", f);
+        push("htc2pFC", inputs.htc_2p_fc);
+        push("qFC", inputs.htc_2p_fc * (tw - tf));
+        push("Re", self.re_fs[k][c]);
+        push("Pr", pr);
+        push("kappa", fl.kappa.c[c]);
+        push("Dh", self.structure.dh[c]);
+        push("p", self.p.c[c]);
+        push("L", self.latent_heat[c]);
+        push("Area", self.structure.ia_act[c]);
+        if needs_chf {
+            push("TONB", t_onb(inputs.htc_2p_fc));
+            push("qCHF", inputs.q_chf.unwrap_or(1e15));
+            push(
+                "TCHF",
+                crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace_chf::gorenflo_t_chf(
+                    tsat,
+                    inputs.p,
+                    inputs.q_chf.unwrap_or(1e15),
+                    inputs.roughness,
+                ),
+            );
+        }
         let pool = |t_wall: f64| -> f64 {
             b.pool_boiling
                 .heat_transfer_coefficient_from_delta_t(
@@ -1739,7 +1870,32 @@ impl TwoPhaseSolver {
                 }),
             }
         };
-        Ok(multi_regime_boiling_trace_chf(&inputs, t_onb, pool, scbf, tlf, annular))
+        let r = multi_regime_boiling_trace_chf(&inputs, t_onb, pool, scbf, tlf, annular);
+        push("ret", r.htc);
+        push("chfBool", r.chf_bool);
+        push("wfTB", r.wf_tb);
+        push("TLF", r.t_leidenfrost);
+        if let Some(d) = r.dmdt_w {
+            push("dmdtW", d);
+        }
+        Ok(r)
+    }
+
+    /// [`Self::trace_chf_value`] recording its intermediates into [`Self::trace_probe`].
+    fn trace_chf_value_probed(&mut self, k: usize, o: usize, c: usize, m: TraceChfModel) -> Result<TraceChfResult, String> {
+        let log = core::cell::RefCell::new(Vec::new());
+        let r = self.trace_chf_value_logged(k, o, c, m, Some(&log))?;
+        let record = TraceProbeRecord {
+            kind: "chf",
+            time: self.time,
+            outer_iteration: self.corr_in_step,
+            cell: c,
+            values: log.into_inner(),
+        };
+        if let Some(p) = self.trace_probe.as_mut() {
+            p.push(record);
+        }
+        Ok(r)
     }
 
     /// `multiRegimeBoilingVapourTRACE::value` for cell `c` of the vapour fluid `k`: reads the
@@ -1828,6 +1984,24 @@ impl TwoPhaseSolver {
     /// the `Twall` field of the structure (zero until its first `correct`), the saturation
     /// temperature `T.interface`, the pool-boiling model the `Twall`/`T.interface` form.
     fn trace_boiling_value(&self, k: usize, o: usize, c: usize, m: TraceBoilingModel) -> (f64, Option<f64>) {
+        self.trace_boiling_value_logged(k, o, c, m, None)
+    }
+
+    /// [`Self::trace_boiling_value`] with the intermediates appended to `log` (a diagnostic; the arithmetic is the
+    /// same code, so the record cannot drift from the value).
+    fn trace_boiling_value_logged(
+        &self,
+        k: usize,
+        o: usize,
+        c: usize,
+        m: TraceBoilingModel,
+        log: Option<&core::cell::RefCell<Vec<(&'static str, f64)>>>,
+    ) -> (f64, Option<f64>) {
+        let push = |name: &'static str, v: f64| {
+            if let Some(l) = log {
+                l.borrow_mut().push((name, v));
+            }
+        };
         let fl = &self.fluids[k];
         let ot = &self.fluids[o];
         let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
@@ -1864,6 +2038,21 @@ impl TwoPhaseSolver {
             })
             .get::<ratio>();
         let htc_2p_fc = fc * f;
+        push("alphai", 1.0 - fl.normalized[c]);
+        push("Tw", tw);
+        push("Tf", tf);
+        push("Tsat", tsat);
+        push("htcFC", fc);
+        push("F", f);
+        push("htc2pFC", htc_2p_fc);
+        push("qFC", htc_2p_fc * (tw - tf));
+        push("Re", self.re_fs[k][c]);
+        push("Pr", pr);
+        push("kappa", fl.kappa.c[c]);
+        push("Dh", self.structure.dh[c]);
+        push("p", self.p.c[c]);
+        push("L", self.latent_heat[c]);
+        push("iAact", self.structure.ia_act[c]);
         let inputs = TraceBoilingInputs {
             alpha_other: 1.0 - fl.normalized[c],
             t_wall: tw,
@@ -1912,8 +2101,48 @@ impl TwoPhaseSolver {
                     .get::<ratio>()
             }
         });
-        let r = multi_regime_boiling_trace(&inputs, t_onb, pool, scbf);
+        let pool_calls = core::cell::Cell::new(0_usize);
+        let t_onb_logged = |htc: f64| -> f64 {
+            let v = t_onb(htc);
+            push("TONB", v);
+            push("rhoOther", ot.rho.c[c]);
+            push("absL", l_abs);
+            v
+        };
+        let pool_logged = |t_wall: f64| -> f64 {
+            let v = pool(t_wall);
+            let i = pool_calls.get();
+            pool_calls.set(i + 1);
+            push(if i == 0 { "hPBONB" } else { "hPB" }, v);
+            v
+        };
+        let scbf_logged = scbf.map(|fr| {
+            move |q: f64| -> f64 {
+                let v = fr(q);
+                push("f", v);
+                v
+            }
+        });
+        let r = multi_regime_boiling_trace(&inputs, t_onb_logged, pool_logged, scbf_logged);
+        push("ret", r.htc);
+        if let Some(q) = r.q_subcooled_dmdt {
+            push("qSCDmdt", q);
+            push("dmdtW", self.structure.ia_act[c] * q / self.latent_heat[c].abs());
+        }
         (r.htc, r.q_subcooled_dmdt)
+    }
+
+    /// One cell of `multiRegimeBoilingTRACE` with its intermediates recorded into [`Self::trace_probe`]
+    /// (gh:#1361 round 13); the value returned is exactly [`Self::trace_boiling_value`]'s.
+    fn trace_boiling_value_probed(&mut self, k: usize, o: usize, c: usize, m: TraceBoilingModel) -> (f64, Option<f64>) {
+        let log = core::cell::RefCell::new(Vec::new());
+        let r = self.trace_boiling_value_logged(k, o, c, m, Some(&log));
+        let values = log.into_inner();
+        let record = TraceProbeRecord { kind: "trace", time: self.time, outer_iteration: self.corr_in_step, cell: c, values };
+        if let Some(p) = self.trace_probe.as_mut() {
+            p.push(record);
+        }
+        r
     }
 
     /// `twoPhaseDragFactor::correct` (twoPhaseDragFactor.C:96-118) with
@@ -2449,6 +2678,30 @@ impl TwoPhaseSolver {
 
     // ───────────────────────── energy ─────────────────────────
 
+    /// Diagnostic (gh:#1361 round 13): record the diagonal and source of cells 20-29 of the fluid-1 energy matrix after
+    /// the named assembly stage of `EEqns_2p.H` (`S0` ddt, div, laplacian and the `alpha rho U.g` source; `S1` after the
+    /// continuity-error `SuSp`; `S2` after the `FFPair` heat sources; `S3` after the structure heat source).
+    fn push_stage_probe(
+        probe: &mut Option<Vec<TraceProbeRecord>>,
+        time: f64,
+        corr: usize,
+        stage: &'static str,
+        e: &Eqn,
+    ) {
+        let n = e.ldu.diag.len();
+        if let Some(p) = probe.as_mut() {
+            for c in 20..30.min(n) {
+                p.push(TraceProbeRecord {
+                    kind: stage,
+                    time,
+                    outer_iteration: corr,
+                    cell: c,
+                    values: vec![("diag", e.ldu.diag[c]), ("source", e.source[c])],
+                });
+            }
+        }
+    }
+
     /// `EEqns_2p.H`. Returns the initial residual of the fluid-1 solve.
     fn correct_energy(&mut self) -> f64 {
         let g = self.geom.clone();
@@ -2501,15 +2754,24 @@ impl TwoPhaseSolver {
                 }
             }
             e.su(&g, &rhs);
+            if k == 0 {
+                Self::push_stage_probe(&mut self.trace_probe, self.time, self.corr_in_step, "S0", &e);
+            }
             // contErr SuSp
             let ce: Vec<f64> = fl.cont_err.iter().map(|v| -v).collect();
             e.su_sp(&g, &ce, &fl.he.c);
+            if k == 0 {
+                Self::push_stage_probe(&mut self.trace_probe, self.time, self.corr_in_step, "S1", &e);
+            }
             // FFPair heSources (interfacial + phase change)
             let src = &self.he_src[k];
             if src.su.len() == n {
                 e.su(&g, &src.su);
                 e.sp(&g, &src.sp);
                 e.su_sp(&g, &src.su_sp, &fl.he.c);
+            }
+            if k == 0 {
+                Self::push_stage_probe(&mut self.trace_probe, self.time, self.corr_in_step, "S2", &e);
             }
             // structure linearizedSemiImplicitHeatSource
             let mut su = vec![0.0; n];
@@ -2521,6 +2783,9 @@ impl TwoPhaseSolver {
             }
             e.su(&g, &su);
             e.sp(&g, &sp);
+            if k == 0 {
+                Self::push_stage_probe(&mut self.trace_probe, self.time, self.corr_in_step, "S3", &e);
+            }
             // stabilisation source
             let t = fl.thermo_residual_alpha;
             let hei: Vec<f64> = (0..n).map(|c| fl.thermo.he(self.p.c[c], self.t_interface[c])).collect();
@@ -2537,6 +2802,46 @@ impl TwoPhaseSolver {
                 e.sp(&g, &cs);
                 e.su(&g, &cu);
             }
+            if k == 0 && self.trace_probe.is_some() {
+                let mut recs = Vec::with_capacity(n + e.ldu.upper.len());
+                for c in 0..n {
+                    recs.push(TraceProbeRecord {
+                        kind: "eqn",
+                        time: self.time,
+                        outer_iteration: self.corr_in_step,
+                        cell: c,
+                        values: vec![
+                            ("diag", e.ldu.diag[c]),
+                            ("source", e.source[c]),
+                            ("he", fl.he.c[c]),
+                            ("alphaEff", ae.c[c]),
+                            ("Cp", fl.cp.c[c]),
+                            ("rho", fl.rho.c[c]),
+                            ("T", fl.t.c[c]),
+                            ("alpha2", self.fluids[1].alpha.c[c]),
+                            ("norm2", self.fluids[1].normalized[c]),
+                            ("T2", self.fluids[1].t.c[c]),
+                            ("he2", self.fluids[1].he.c[c]),
+                            ("iT", self.t_interface[c]),
+                            ("dmdt", self.dmdt[c]),
+                            ("rho2", self.fluids[1].rho.c[c]),
+                        ],
+                    });
+                }
+                for f in 0..e.ldu.upper.len() {
+                    recs.push(TraceProbeRecord {
+                        kind: "eqnf",
+                        time: self.time,
+                        outer_iteration: self.corr_in_step,
+                        cell: f,
+                        values: vec![("upper", e.ldu.upper[f]), ("lower", e.ldu.lower[f])],
+                    });
+                }
+                if let Some(p) = self.trace_probe.as_mut() {
+                    p.extend(recs);
+                }
+            }
+            let fl = &self.fluids[k];
             let prev = fl.he.c.clone();
             let mut x = prev.clone();
             let (sweeps, ini, _) = super::one_phase::smooth_solve_sym_gauss_seidel(
@@ -2562,10 +2867,19 @@ impl TwoPhaseSolver {
                 fl.he.c[c] = prev[c] + fr * (x[c] - prev[c]);
             }
             if self.controls.he_stabilization == HeStabilization::Cutoff {
-                for c in 0..n {
-                    let pos = fl.normalized[c] - fl.thermo_residual_alpha > 0.0;
-                    let v = if pos { fl.he.c[c] } else { hei[c] };
-                    fl.he.c[c] = v.max(100.0);
+                if self.controls.live_thermo_residual_markers {
+                    for c in 0..n {
+                        let pos = fl.normalized[c] - fl.thermo_residual_alpha > 0.0;
+                        let v = if pos { fl.he.c[c] } else { hei[c] };
+                        fl.he.c[c] = v.max(100.0);
+                    }
+                } else {
+                    // `he = max(pos*he + neg*hei, 100)` with the markers of the start of the iteration
+                    for c in 0..n {
+                        let v = fl.above_thermo_residual_alpha[c] * fl.he.c[c]
+                            + fl.below_thermo_residual_alpha[c] * hei[c];
+                        fl.he.c[c] = v.max(100.0);
+                    }
                 }
             }
             fl.he.correct_bc(&g);
@@ -2587,6 +2901,15 @@ impl TwoPhaseSolver {
                 );
                 self.structure.t_act[c] = tn.get::<kelvin>();
                 self.structure.power[c] = Some(pm);
+                if let Some(p) = self.trace_probe.as_mut() {
+                    p.push(TraceProbeRecord {
+                        kind: "structure",
+                        time: self.time,
+                        outer_iteration: self.corr_in_step,
+                        cell: c,
+                        values: vec![("H", h), ("HT", ht), ("Tact", tn.get::<kelvin>())],
+                    });
+                }
             }
         }
         // `structure::correct` ends with `Twall = Tact` in its cells
@@ -2613,7 +2936,11 @@ impl TwoPhaseSolver {
         for c in 0..n {
             if init {
                 fl.he.c[c] = fl.thermo.he(p.c[c], fl.t.c[c]);
-            } else if let Some(t) = fl.thermo.t_from_he(fl.he.c[c], p.c[c], fl.t.c[c]) {
+            } else if let Some(t) = if self.controls.converged_temperature_newton {
+                fl.thermo.t_from_he_converged(fl.he.c[c], p.c[c], fl.t.c[c])
+            } else {
+                fl.thermo.t_from_he(fl.he.c[c], p.c[c], fl.t.c[c])
+            } {
                 fl.t.c[c] = t;
             }
             let pp = fl.thermo.props(p.c[c], fl.t.c[c]);
@@ -2779,6 +3106,33 @@ impl TwoPhaseSolver {
     #[must_use]
     pub fn with_earlier_nusselt_association(mut self) -> Self {
         self.controls.earlier_nusselt_association = true;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 13): return `T` from `he` as the converged Newton root
+    /// ([`TwoPhaseControls::converged_temperature_newton`] `= true`), as the port did before it translated
+    /// `species::thermo::T`'s one-iterate stopping rule. Differs from the real binary by up to 1e-8 relative in `T`.
+    #[must_use]
+    pub fn with_converged_temperature_newton(mut self) -> Self {
+        self.controls.converged_temperature_newton = true;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 13): test `normalized - thermoResidualAlpha > 0` at the time of the `cutoff` clamp
+    /// ([`TwoPhaseControls::live_thermo_residual_markers`] `= true`) instead of upstream's start-of-iteration marker
+    /// fields. A cell whose fraction crosses the threshold inside an iteration is treated differently from upstream.
+    #[must_use]
+    pub fn with_live_thermo_residual_markers(mut self) -> Self {
+        self.controls.live_thermo_residual_markers = true;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 13): use `dmdt/dmdtIi0` for the interfacial flux ratio of `phaseChangeModel::correct`
+    /// ([`TwoPhaseControls::earlier_interfacial_flux_ratio`] `= true`), the port's form before it translated upstream's
+    /// `dmdtIi/dmdtIi0`. Differs wherever wall boiling (`fw != 0`) acts in a cell with `|dmdt| > 1e-2`.
+    #[must_use]
+    pub fn with_earlier_interfacial_flux_ratio(mut self) -> Self {
+        self.controls.earlier_interfacial_flux_ratio = true;
         self
     }
 }
@@ -3162,6 +3516,8 @@ impl Phase {
             thermo,
             residual_alpha,
             thermo_residual_alpha,
+            above_thermo_residual_alpha: vec![0.0; n],
+            below_thermo_residual_alpha: vec![0.0; n],
             dispersed_diameter,
             dispersed_diameter_by_regime: None,
             alpha_rho_mag_u: vec![0.0; n],
