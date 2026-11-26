@@ -26,7 +26,11 @@ crate supplies the **cfMesh-lineage** automatic unstructured generator between
 them: `outram-blender` surface → one call → solvable polyhedral volume mesh with
 prism wall layers. Open-source, pure-Rust, GPLv3-clean tooling for that is
 genuinely lacking, so this crate **ports the proven cfMesh workflows** instead of
-reinventing them (and deliberately avoids the AGPL-licensed TetGen).
+reinventing them (~~and deliberately avoids the AGPL-licensed TetGen~~
+**CORRECTED 2026-11-26:** AGPL is acceptable since the maintainer's
+2026-10-20 direction, and TetGen 1.6.0 is being ported as the `tetgen`
+module, `src/tetgen/`, epic gh:#1789; stage 1, the exact predicates, is in,
+bit-identical to upstream, gh:#1790).
 
 ### Relationship to `outram-foam-mesh` (they overlap — read this)
 

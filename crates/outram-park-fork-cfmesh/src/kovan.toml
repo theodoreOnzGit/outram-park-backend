@@ -20288,8 +20288,8 @@ id = "fn:92e1aab0e326336d"
 name = "tetrahedralize"
 qual = "tetrahedralize"
 lines = [
-    106,
-    185,
+    111,
+    190,
 ]
 hash = "sha256:c730a0ebc5bb2bc2b920fb6f459e697c784d017e4a740ab68cefa586937d6dde"
 doc_hash = "sha256:5211d2130bc06daa3484030013dca9ba74e796a1ca28748d20fb132279b4ceba"
@@ -20339,8 +20339,8 @@ id = "fn:901421d70f9242ae"
 name = "tet_of_hex_block_is_positive_closed_and_conserves_volume"
 qual = "tet_of_hex_block_is_positive_closed_and_conserves_volume"
 lines = [
-    194,
-    236,
+    199,
+    241,
 ]
 hash = "sha256:93184a3258e76b95f94d7ffaf6e0253cbf8b2a7435a4017078956ce13a0de8ec"
 doc_hash = "sha256:9cc092fc0cec19254af8070a658bdac5939fe3080710deca5128bcbde1ce1497"
@@ -20365,8 +20365,8 @@ id = "fn:7a651d13f4bc9e01"
 name = "every_cell_is_a_four_triangle_tetrahedron"
 qual = "every_cell_is_a_four_triangle_tetrahedron"
 lines = [
-    238,
-    256,
+    243,
+    261,
 ]
 hash = "sha256:375e4a2dd795f9ab01dc33b5d65fbf44f4064a4fc1fbb2b5aa01b71e96953092"
 doc_hash = "sha256:29be42417a97b54e466c56a34221d7f6b4940e56e2c357c7547a70e4ebb4e4de"

@@ -379,6 +379,7 @@ pub mod surface_mapper_2d;
 pub mod surface_optimizer;
 pub mod symmetry_plane_optimisation;
 pub mod tet;
+pub mod tetgen;
 pub mod tet_creator_octree;
 pub mod tet_mesh_extractor_octree;
 pub mod rename_boundary_patches;

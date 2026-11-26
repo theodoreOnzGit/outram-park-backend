@@ -506,3 +506,35 @@ not for solving.
   of the pipeline.
 - `checks::cell_quality` gives per-cell non-orthogonality and skewness
   whose maxima equal the `checkMesh` report bit for bit (pinned).
+
+## The `tetgen` module: TetGen 1.6.0, ported stage by stage (epic gh:#1789, 2026-11-26)
+
+`src/tetgen/` ports Hang Si's TetGen 1.6.0 (`github.com/libigl/tetgen`,
+commit `e05aca7df74e`, AGPL-3.0-or-later; AGPL is acceptable here since the
+maintainer's 2026-10-20 direction) as a **module of this crate**, not a new
+crate. Ported files carry `SPDX-License-Identifier: AGPL-3.0-or-later` and
+the upstream attribution header (and, for `predicates.rs`, Shewchuk's
+public-domain notice).
+
+**Differential rule (binds every stage).** A stage is done when its output
+is **bit-identical** (`to_bits()` / exact integer equality, no tolerance)
+to upstream's, from the upstream `tetgen` binary or from a C harness
+compiled against the upstream source (`-ffp-contract=off`, no fast-math),
+on committed vectors the Rust test reads without a compiler. A residual is
+reported with its cause, never absorbed in a tolerance. Port line for
+line: TetGen uses the predicates' **magnitudes**, so a value-different but
+sign-equal substitute (`delaunay.rs`, `outram-blender`'s
+`boolean_predicates.rs`) is not a port.
+
+| Stage | Issue | Content | Status |
+|---|---|---|---|
+| 1 | gh:#1790 | exact predicates (`predicates.cxx`) | done: 84 000 / 84 000 bit-identical, `verification_and_validation/tetgen_predicates_gh1790/` |
+| 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insertpoint`) | not started |
+| 3 | gh:#1792 | PLC surface meshing (`meshsurface`) | not started |
+| 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
+| 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
+| 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
+| 7 | gh:#1796 | TetGen as the tet source for the tet → dual → layers route, and in Mesh Studio | not started |
+
+`tetgen::predicates::Predicates` holds what `exactinit` sets (the C
+globals of `predicates.cxx`) in place of upstream's file-scope statics.

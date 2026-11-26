@@ -39,10 +39,30 @@ voro++  —  VORONOI / POLYHEDRAL-DUAL REFERENCE
   polyhedral-dual mesh construction. Its permissive licence allows both
   reference and port; the copyright notice is retained on any derived file.
 
+--------------------------------------------------------------------------------
+TetGen  —  PORTED AS THE `tetgen` MODULE (src/tetgen/, epic gh:#1789)
+--------------------------------------------------------------------------------
+  Upstream:   https://github.com/libigl/tetgen (TetGen 1.6.0)
+  Origin:     Hang Si, Weierstrass Institute for Applied Analysis and
+              Stochastics (WIAS), Berlin. Copyright (C) 2002-2020 Hang Si.
+  Commit:     e05aca7df74e
+  Licence:    GNU Affero General Public License v3.0 or later
+              (AGPL-3.0-or-later). Ported files keep that SPDX line.
+
+  `predicates.cxx` (ported in src/tetgen/predicates.rs, gh:#1790) is
+  Jonathan Richard Shewchuk's "Routines for Arbitrary Precision
+  Floating-point Arithmetic and Fast Robust Geometric Predicates"
+  (predicates.c, May 18, 1996), placed in the public domain by its author
+  (Carnegie Mellon University), with Hang Si's modifications for TetGen
+  (static filters, the -X options, orient4d), which are under TetGen's
+  AGPL-3.0-or-later. AGPL is acceptable in this workspace (maintainer
+  direction, 2026-10-20). The upstream source is not vendored here.
+
 ================================================================================
-"cfMesh" and "voro++" identify only the upstream projects this crate derives
+"cfMesh", "voro++" and "TetGen" identify only the upstream projects this crate derives
 from. This crate is NOT affiliated with, endorsed by, or sanctioned by Creative
-Fields, the cfMesh project, LBNL, or the voro++ authors.
+Fields, the cfMesh project, LBNL, the voro++ authors, Hang Si, WIAS or
+Jonathan Shewchuk.
 
 Relicense: GPL-3.0-only -> AGPL-3.0-only, as a COMBINED WORK (2026-10-20)
 -------------------------------------------------------------------------
