@@ -627,8 +627,24 @@ mod tests {
 
     /// `(cells, fingerprint)` of [`tetgen_route_is_pinned_bit_for_bit`]:
     /// tets + 3 layers, dual + 3 layers.
+    ///
+    /// **Two builds, two pins (2026-11-26).** The test asks for
+    /// `DualKind::CellCentre`, which needs this crate's `cell-centre-dual`
+    /// feature. Without it the pipeline falls back to the per-corner median
+    /// dual (with a stage note), and the original pin, 30 413 cells, is
+    /// that fallback's. With it (any build that also compiles dhoby-ghaut,
+    /// whose dependencies turn the feature on, so `cargo test --workspace`)
+    /// the real cell-centre dual gives 7 292 cells. Measured twice, in two
+    /// processes, identical. The pin was not moved: the fallback's value is
+    /// kept and labelled, and the cell-centre one is added beside it. Found
+    /// by the integration run of 2026-11-26, the first to test this crate
+    /// together with dhoby-ghaut since the pin was taken.
+    #[cfg(not(feature = "cell-centre-dual"))]
     const PINNED_PIPE: [(usize, u64); 2] =
         [(9874, 1823749189691073978), (30413, 11390463181727383820)];
+    #[cfg(feature = "cell-centre-dual")]
+    const PINNED_PIPE: [(usize, u64); 2] =
+        [(9874, 1823749189691073978), (7292, 6244108193095638349)];
 
     /// The single-patch entry point names the one patch after
     /// `wall_patch`, so the default layer stage finds it.
