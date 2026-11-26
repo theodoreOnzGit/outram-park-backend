@@ -32,7 +32,10 @@
 //!   every weight is EXACTLY `1.0`; `mapTgtToSrc` then computes `result = result (1 - 1) + 1.0 src`, i.e. a copy.
 //!   The weight is `overlap/V` from `tetOverlapVolume`; for a cell with itself it is exactly 1 on this mesh, so it
 //!   is neither rescaled nor approximated here, and [`IdenticalMeshMap::new`] REFUSES a pair of meshes that are not
-//!   bitwise the same geometry (a different mesh needs the general supermesh, which is not ported: gh:#651).
+//!   bitwise the same geometry (~~a different mesh needs the general supermesh, which is not ported: gh:#651~~
+//!   **CORRECTED 2026-11-26 (gh:#651, round 28):** the general operator exists, [`super::cell_overlap`], bit-identical to
+//!   ESI; it is not yet wired into this type, which keeps refusing, so a loop on different meshes uses
+//!   [`super::mesh_to_mesh::MeshToMesh::cell_volume_weight`] directly).
 //! * [`adjust_delta_t`] / [`initial_delta_t`]: `setDeltaT.C`.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -268,10 +271,10 @@ impl IdenticalMeshMap {
         }
         for c in 0..src.n_cells {
             if src.cell_volumes[c].to_bits() != tgt.cell_volumes[c].to_bits() {
-                return Err(format!("cell {c}: volumes differ; the general cellVolumeWeight supermesh is not ported (gh:#651)"));
+                return Err(format!("cell {c}: volumes differ; the general cellVolumeWeight operator (multi_region::cell_overlap, gh:#651) is not wired into IdenticalMeshMap"));
             }
             if src.cell_centres[c] != tgt.cell_centres[c] {
-                return Err(format!("cell {c}: centres differ; the general cellVolumeWeight supermesh is not ported (gh:#651)"));
+                return Err(format!("cell {c}: centres differ; the general cellVolumeWeight operator (multi_region::cell_overlap, gh:#651) is not wired into IdenticalMeshMap"));
             }
         }
         Ok(Self { weights: vec![1.0; src.n_cells] })

@@ -282,6 +282,21 @@ pub struct MeshTopology {
 }
 
 impl MeshTopology {
+    /// `polyMesh::faces()`: the point labels of every face.
+    pub fn faces(&self) -> &[Vec<usize>] {
+        &self.faces
+    }
+
+    /// `polyMesh::faceOwner()`.
+    pub fn owner(&self) -> &[usize] {
+        &self.owner
+    }
+
+    /// `polyMesh::faceNeighbour()`.
+    pub fn neighbour(&self) -> &[usize] {
+        &self.neighbour
+    }
+
     /// `primitiveMesh::pointCells`.
     pub fn point_cells(&self) -> &[Vec<usize>] {
         &self.point_cells

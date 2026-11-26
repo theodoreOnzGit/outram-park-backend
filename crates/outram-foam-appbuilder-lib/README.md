@@ -443,10 +443,17 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
 
 ### GeN-Foam multi-region coupling
 
-- **Mesh-to-mesh mapping is not exactly conservative.** The `imCellVolumeWeight`
+- ~~**Mesh-to-mesh mapping is not exactly conservative.** The `imCellVolumeWeight`
   path uses nearest-cell addressing plus a global integral rescale (globally
   conservative, not the exact local polyhedral-overlap distribution) because
-  basic-lib exposes no supermesh-intersection operator.
+  basic-lib exposes no supermesh-intersection operator.~~ **CORRECTED 2026-11-26
+  (gh:#651, round 28):** `MappingMethod::CellVolumeWeight` is OpenFOAM-ESI v2506's
+  `meshToMesh` `imCellVolumeWeight` (exact tet-overlap volumes, per-cell normalisation,
+  uncovered cells keep their value, no global rescale), `multi_region::cell_overlap`,
+  bit-identical to the real code on the 3D_SmallESFR meshes. It needs an `OverlapMesh`
+  (points and faces) per region. The old form (it turned a uniform 900 K field into
+  450 K on partial overlap) is only the deprecated `NearestCellGlobalRescale`. Not yet
+  wired into the coupled loop's `IdenticalMeshMap` / `deformMesh` (gh:#1852).
 - ~~**Mesh motion is plumbed but not applied.** The `meshDisp` displacement field
   is exchanged through the coupling, but `deformMesh` / `movePoints` are not
   performed — basic-lib does not expose mutable mesh-point geometry, so points
