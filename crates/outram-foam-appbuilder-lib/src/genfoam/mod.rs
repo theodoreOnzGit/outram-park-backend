@@ -73,7 +73,7 @@
 //!   porous solver driver, all six closure families, the TH boundary
 //!   conditions, the diagnostic function objects and the bespoke hydrogen
 //!   thermophysical package are implemented with unit tests. The two-phase
-//!   (MULES) solver, `onePhaseLegacy` and the `nusselt_baffle` boundary
+//!   (~~MULES~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES is ported) solver, `onePhaseLegacy` and the `nusselt_baffle` boundary
 //!   condition remain unported. See that module's header for the per-sub-module
 //!   breakdown and the full gap list.
 //!

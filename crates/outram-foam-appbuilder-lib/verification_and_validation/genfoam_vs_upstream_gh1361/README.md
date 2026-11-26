@@ -1155,3 +1155,98 @@ both from that one fresh run of the installed binary (NOT the committed `boiling
 | M5 | steps 616-627 (onset window), alpha.vapour and dmdt, relative to their maxima | <= 1e-8 (the explicit MULES update has no linear-solver tail, unlike implicitUpwind's 3.4e-6) | limiter/flux translation difference |
 | M6 | steps 616-627, p, T, U | <= 1e-8 | |
 | M7 | first step after the onset at which any field leaves 1e-6 | in 628..649, or none by 649 | |
+
+
+## What was ported (new code only; no existing function that carries a kovan review stamp was touched)
+
+| item | upstream | port |
+|---|---|---|
+| `myMULES::limiter`, `limit(returnCorr = true)`, `explicitSolve` (6-argument form, `rho = one`, no moving mesh) | `myMULESTemplates.C` | `two_phase/mules.rs` (`limiter`, `limit_return_corr`, `explicit_update`); `limitSum` is declared by upstream but never called by GeN-Foam: not ported |
+| `Gauss vanLeer` / `upwind` / `linear` convection of `fvc::flux(phi, vf, scheme)` | ESI `LimitedScheme`, `NVDTVD`, `vanLeer`, `limitedSurfaceInterpolationScheme::weights`, `gaussGrad` | `mules.rs` (`interpolate`, `flux`, `gauss_linear_grad`) |
+| `solveAlphaMULES.H`, `solvePhase both`: `alphaPhic`, preserve-phi, `Sp`/`Su`, relaxation, clamp, `zeroSum`, sub-cycles with `oldTime` bookkeeping, `alphaRhoPhi` | `solveAlphaMULES.H` | `two_phase/alpha_mules.rs` |
+| `CoNum_` and `bothPhasesArePresent_` as `maxDeltaT` leaves them | `twoPhase::correctCourant`, `maxDeltaT` | `TwoPhaseSolver::{co_num_upstream, phases_present}` |
+| `alphaf` by linear interpolation when the alpha solver is not `implicitUpwind` | `refsAndControls_2p.H` | `correct_pressure` |
+| reader: `alpha { solver MULES; ... }`, `fvSchemes` `div(phi,alpha)` / `div(phir,alpha)`, `alpha.<fluid>` relaxation factors, `minAlphaSp` (MULES default 1e-6, not 1e-4), `nLimiterIter`, `smoothLimiter`, `extremaCoeff`, `maxSubCycles`, `nSubCycles` | | `case.rs`: `AlphaSolver`, `MulesControls` |
+
+**MULES is now the default whenever a case selects it** (`TwoPhaseCase::read` of the shipped `1D_boiling` has no deviation). The
+earlier behaviour stays callable as `TwoPhaseCase::with_alpha_solver_implicit_upwind()` (reported in `deviations`); the pinned
+`genfoam_two_phase_1d_boiling` numbers (P1-P5) are the implicitUpwind run and call it. A case with `solvePhase` set under MULES
+(`1D_HX/twoPhase`, `2D_KNS37-L22`: the single-phase `solveAlpha` lambda, `limit(returnCorr = false)`) is a hard error in the reader, not a
+silent substitution. Any other alpha-solver word is now also a hard error (it used to be replaced by implicitUpwind silently).
+
+## Defect found by the comparison, and how (translating upstream)
+
+The first run missed the onset: U.vapour was 3.3e-5 off at step 616 (alpha.vapour first > 0), against 9e-11 for the noise-floor control. The
+fields written by the real binary (`alphaPhi.*`, `phi.*`, `Kd.liquid.vapour`, `dmdt`) localised it to the vapour face fluxes of
+faces 28-30 (phi.vapour 3e-5 off, alphaPhi.vapour and alpha.vapour at the 1e-6 of the alpha noise, phi.liquid exact), and
+`Kd.liquid.vapour` (upstream 5.55 in a cell whose alpha is 0, port 1) showed a slip velocity the port did not have. The cause was in
+upstream `refsAndControls_2p.H`, read AFTER the symptom (the port's comment said "alphaf by upwind (implicitUpwind)"): **upstream uses
+`upwindScheme.interpolate(alpha)` for `alphaf` only when the alpha solver is `implicitUpwind`, and `fvc::interpolate(alpha)` (linear)
+otherwise.** The port now does the same. U.vapour at step 616: 3.3e-5 -> 9.4e-11; steps 616-627 U.liquid 1e-6 -> 3.8e-9. Only the MULES path
+changes (implicitUpwind keeps upwind `alphaf`). Predicted sign/size before the fix: not predicted (found by localisation).
+
+## Results (measured 2026-11-26, release; `tests/genfoam_two_phase_mules_vs_upstream.rs`, 6 gates; runs 3 s)
+
+Reference: ONE fresh run of the installed upstream binary (tight protocol, `writePrecision 17`, every step; the same binary that
+cannot reproduce the committed `boiling_tight_full_flow` after step 639 and aborts here at step 650: "Negative initial temperature
+T0 = -2354.9", `hPolynomialThermo`, vapour, after the flow excursion; an upstream abort, not a port result). Committed references:
+`refs/boiling_mules_tight_head.ref.txt.gz` (steps 1-70) and `boiling_mules_tight_onset.ref.txt.gz` (560-649), 0.27 and 0.36 MB. The older
+`boiling_tight_*` references are NOT used by this round. Worst relative difference over the 40 cells (39 faces), relative to the
+field's own maximum:
+
+| span | step size, sub-cycles | p | T.liquid | T.vapour | U.liquid | U.vapour | alpha.vapour | dmdt | alphaPhi.vapour | phi.vapour |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1-2 | identical | 1.4e-13 | 3.5e-16 | 3.5e-12 | 1.1e-13 | 2.0e-11 | 0 (exact) | 0 | 0 | 2.0e-11 |
+| 3-70 | identical | 1.0e-12 | 3.0e-13 | 2.3e-10 | 9.4e-12 | 1.6e-11 | 0 | 0 | 0 | 1.6e-11 |
+| 560-615 | identical | 7.9e-12 | 1.0e-11 | 3.0e-11 | 2.7e-11 | 2.7e-11 | 0 | 0 | 0 | 2.7e-11 |
+| 616-627 (onset window; vapour first > 0 at 616) | identical | 8.3e-10 | 1.4e-11 | 2.8e-11 | 3.8e-9 | 3.0e-8 | 4.0e-6 | 3.6e-6 | 4.0e-6 | 3.3e-8 |
+| 628-634 | identical | 4.1e-8 | 7.2e-10 | 2.9e-9 | 2.3e-7 | 3.8e-7 | 6.3e-6 | 5.4e-6 | 4.7e-6 | 4.1e-7 |
+
+(T.interface: 1.5e-11 at steps 1-2, 7.6e-10 at 3-70, 3.1e-11 at 560-615, 8e-9 at 628-634. alphaPhi.liquid <= 1.3e-10 to step 615, 2.1e-7 at 628-634.)
+
+**First diverging step.** The number of outer iterations equals upstream's at every step to 648 (6, 7 at step 628, then 24). Step size equal to
+1e-12 through 636, differs at **637** (3.9e-2); the number of MULES sub-cycles equals upstream's through 637, differs at **638**. The first field to
+leave 1e-6 is a FLOW field, at **step 635** (p 2.7e-4, U.vapour 8.0e-4); `alpha.vapour`/`dmdt`/`alphaPhi.vapour` are above 1e-6 already from the onset
+step 616 (1.7e-6) because the relative error of a quantity that is born at 1e-9 is the single-phase 1e-11 divided by the
+superheat (~0.015 K). Not bit-identical anywhere: the residual in the single-phase span is the p_rgh GAMG solve of upstream against the
+port's solver (round 3), inside the 1e-9 allowance (cause explained, flagged for the maintainer as CLAUDE.md asks).
+
+**Noise-floor control** (`mules_noise_floor_is_the_size_of_the_onset_window`): the port against ITSELF with the initial liquid temperature scaled by
+1 + 1e-9 (single-phase disturbance of the size port-vs-upstream shows before the onset): alpha.vapour 1.0e-6 at step 616 (port vs upstream 1.7e-6),
+the flow fields leave 1e-6 at step **636** (port vs upstream 635). At step 627 the control has p 6e-11, U.liquid 3e-10 against port-vs-upstream
+8e-10 and 4e-9: the disturbances differ in direction, which this control does not separate from a ~10x genuine difference; stated as
+not distinguished. The same ratio against round 3's implicitUpwind window (p 3.6e-10, U.liquid 1.7e-9, U.vapour 1.9e-8 at 617-627) is 2x.
+
+**What the pre-round-7 substitution misses** (`mules_ablation_to_implicit_upwind_misses_the_shipped_run_by_the_pinned_amount`): the port with
+implicitUpwind against the MULES run of the real binary: p 8.5e-5, U.liquid 2.0e-3 at step 70 (upwind `alphaf`, and an alpha equation that is
+not upstream's, change the single-phase pressure coupling), p 2.9e-4 at step 600, and the onset itself off by 1.0 of the vapour at step 616
+(the implicit vapour appears at a different step). This is the size of what "all twoPhase comparisons so far ran implicitUpwind in both
+codes" did NOT test.
+
+## Predictions: held and missed
+
+| id | result |
+|---|---|
+| M1 held | `deltaT` identical to 1e-12 for steps 1-636 (not only 1-70) |
+| M2 held | steps 1-70: every bound of round 3 holds, alpha and dmdt exactly 0 |
+| M3 held | 560-615: all <= 3.0e-11 (predicted 1e-9) |
+| M4 held | sub-cycle count equal to upstream's at every step 1-637 (first miss 638, after the trajectories separate) |
+| M5 **missed** | alpha.vapour and dmdt at the onset 1.7e-6 / 4.3e-7, not <= 1e-8: my reason ("no linear-solver tail") was wrong for the relative error, which is amplified by the superheat; the noise-floor control gives the same size |
+| M6 **missed in the second half** | p <= 1e-8 held to 627 (8.3e-10) but U.vapour (3.0e-8) and U.liquid (3.8e-9) are above 1e-8 at 627 |
+| M7 held (in the sense predicted) | first flow field > 1e-6 at step 635, inside 628..649 |
+| (not predicted) | the `alphaf` defect above, found by localisation; first run U.vapour 3.3e-5 |
+
+## Moved numbers (old -> new, cause)
+
+- Reading the shipped `1D_boiling`: `TwoPhaseCase::deviations` 1 entry -> 0, `controls.alpha` implicitUpwind -> MULES (default change as the maintainer's "correct physics is the default" rule requires).
+- No pinned V&V number moved: the implicitUpwind comparisons (rounds 3-5) construct their case with `implicitUpwind` in `fvSolution`; `genfoam_two_phase_1d_boiling` P1-P5 call `with_alpha_solver_implicit_upwind()` and are unchanged.
+- The `alphaf` change touches only the MULES path (`correct_pressure` keeps upwind for implicitUpwind).
+
+## What remains (round 7)
+
+- MULES with `solvePhase` set (`solveAlpha` lambda: `limit(returnCorr = false)`, `movingAlpha - alpha` flux, `explicitSolve` with the 9-argument limiter): used by `1D_HX/twoPhase`, `2D_KNS37-L22`; reader refuses it.
+- Coupled patches (`syncTools::syncFaceList`, `cyclic`) and `wedge` (`lambda = 0`) in the limiter; moving meshes; `rho` other than `geometricOneField`.
+- Bit-identity needs a bit-identical p_rgh solve (GAMG).
+- **The sub-cycle path (`nSubCycles > 1`) is not compared bitwise**: upstream's own run first needs 2 sub-cycles at step 637 (and 12 at step 648), after the trajectories have separated. It is checked by the count agreeing (to step 637) and by `mules_sub_cycles_restore_old_time_and_keep_the_fractions_bounded` (forced 3 sub-cycles: `oldTime` restored, fractions fill the moving volume, bounded). A case with a non-uniform initial alpha (the reader takes only `uniform` fields) would exercise the limiter at large Courant number before the chaos; not built.
+- `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated: `kovan-cli` is not built here.
+- The installed upstream build still cannot reproduce the committed post-onset references (round 5 finding); not touched.

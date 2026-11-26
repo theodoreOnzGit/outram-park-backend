@@ -19,9 +19,10 @@
 //! `system/controlDict`, `system/<region>/fvSolution` and the `0/<region>`
 //! fields, with basic-lib's `FoamFile` dictionary parser and this crate's
 //! `polyMesh` reader. **Every selection the port does not implement is a hard
-//! error naming it**, except the alpha solver (`MULES` → `implicitUpwind`),
-//! which is recorded in [`TwoPhaseCase::deviations`] because GeN-Foam ships
-//! the alternative and the substitution is the whole point of this slice.
+//! error naming it**. ~~Except the alpha solver (`MULES` → `implicitUpwind`), recorded
+//! in [`TwoPhaseCase::deviations`].~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): `MULES` is ported and is what
+//! a case that selects it runs; the old substitution is the explicit
+//! [`TwoPhaseCase::with_alpha_solver_implicit_upwind`].
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -47,6 +48,8 @@ use super::{
     ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, Structure,
     TimeControls, TwoPhaseControls, TwoPhaseModels,
 };
+use super::mules::{AlphaConvection, LimiterControls};
+use super::{AlphaSolver, MulesControls};
 #[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::ff_drag::{FfDragCoefficient, TwoPhaseDragMultiplier};
@@ -279,6 +282,30 @@ pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<
 }
 
 impl TwoPhaseCase {
+    /// The port's behaviour BEFORE gh:#1361 round 7: run GeN-Foam's `implicitUpwind` alpha solver
+    /// (`solveAlphaImplicitUpwind.H`, `solvePhase` = the vapour unless the case names one) in place of
+    /// the `MULES` the case selects, and record it in [`TwoPhaseCase::deviations`]. Not what upstream does for a
+    /// case that selects MULES (the default now); needs an `alpha.<phase>` linear-solver entry in `fvSolution`.
+    ///
+    /// # Errors
+    /// The case has no linear solver for `alpha.<solvePhase>`.
+    pub fn with_alpha_solver_implicit_upwind(mut self) -> Result<Self, crate::error::AppBuilderError> {
+        if self.controls.alpha != AlphaSolver::ImplicitUpwind {
+            if self.controls.alpha_solver_tolerance.is_nan() {
+                return Err(crate::error::AppBuilderError::Case {
+                    case: crate::path::PathBuf::new(),
+                    msg: "no linear solver for alpha.<phase> in fvSolution: implicitUpwind cannot run".into(),
+                });
+            }
+            self.controls.alpha = AlphaSolver::ImplicitUpwind;
+            self.deviations.push(format!(
+                "alpha solver `MULES` is not run; ran GeN-Foam's implicitUpwind (solveAlphaImplicitUpwind.H) with solvePhase {}",
+                self.fluids[self.controls.solve_phase].name
+            ));
+        }
+        Ok(self)
+    }
+
     /// The ablation of [`TwoPhaseControls::p_patch_from_file`]: the patch values of `p` start as `p_rgh`'s
     /// (and are reset to `p_rgh + rho gh` after the thermo construction), as the port did before gh:#1361
     /// round 5. Differs from GeN-Foam 652b3da in steps 1 and 2 only (the `U.vapour` inlet cell of an absent phase).
@@ -309,7 +336,7 @@ impl TwoPhaseCase {
         let zones = read_cell_zones(&poly)?;
         let g = Geometry::new(mesh.clone());
         let n = g.n_cells();
-        let mut deviations = Vec::new();
+        let deviations: Vec<String> = Vec::new();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
             let mut cells = Vec::new();
             for z in names.split(':') {
@@ -733,25 +760,77 @@ impl TwoPhaseCase {
         };
         let alpha_solver = ctx.word(&alpha_d, "solver")?;
         let solve_phase_name = word(&alpha_d, "solvePhase");
-        let solve_phase = match solve_phase_name {
+        let solve_phase = match solve_phase_name.clone() {
             Some(sp) => names.iter().position(|x| *x == sp).ok_or_else(|| ctx.e("unknown solvePhase"))?,
             None => {
                 // MULES solves both; implicitUpwind needs one: the vapour.
                 if fluids[0].is_liquid { 1 } else { 0 }
             }
         };
-        let (alpha_solver_tolerance, alpha_solver_rel_tol) =
-            match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
-                Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0)),
-                _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
-            };
-        if alpha_solver != "implicitUpwind" {
-            deviations.push(format!(
-                "alpha solver `{alpha_solver}` is not ported; ran GeN-Foam's implicitUpwind \
-                 (solveAlphaImplicitUpwind.H) with solvePhase {}",
-                names[solve_phase]
-            ));
-        }
+        let linear_solver = match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
+            Some(FoamEntry::SubDict(d)) => Some((ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0))),
+            _ => None,
+        };
+        let (alpha_solver_tolerance, alpha_solver_rel_tol) = match (alpha_solver.as_str(), linear_solver) {
+            (_, Some(t)) => t,
+            // MULES is explicit: no linear solver is read; NaN marks "none" (implicitUpwind refuses it).
+            ("MULES", None) => (f64::NAN, 0.0),
+            _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
+        };
+        let relax_dict = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("fields"));
+        let alpha = match alpha_solver.as_str() {
+            "implicitUpwind" => AlphaSolver::ImplicitUpwind,
+            "MULES" => {
+                if solve_phase_name.is_some() {
+                    return Err(ctx.e("MULES with `solvePhase` set (single-phase solveAlpha) is not ported"));
+                }
+                let schemes = ctx.read(&format!("system/{region}/fvSchemes"))?;
+                let div = ctx.sub(&schemes, "divSchemes")?;
+                let conv = |key: &str| -> Result<AlphaConvection, AppBuilderError> {
+                    let e = lookup_regex(div, key).ok_or_else(|| ctx.e(format!("fvSchemes: no divSchemes entry `{key}`")))?;
+                    let words: Vec<String> = match e {
+                        FoamEntry::Word(w) => vec![w.clone()],
+                        FoamEntry::Tokens(vs) => vs
+                            .iter()
+                            .filter_map(|v| match v {
+                                FoamValue::Word(w) => Some(w.clone()),
+                                _ => None,
+                            })
+                            .collect(),
+                        _ => Vec::new(),
+                    };
+                    let w: Vec<&str> = words.iter().map(String::as_str).collect();
+                    AlphaConvection::from_words(&w)
+                        .ok_or_else(|| ctx.e(format!("fvSchemes: `{key}` = {words:?} is not ported (upwind, linear, vanLeer)")))
+                };
+                let adjust = bool_entry(&alpha_d, "adjustSubCycles").unwrap_or(false);
+                let relax_of = |name: &str| -> Option<f64> {
+                    relax_dict.and_then(|r| lookup_regex(r, name)).and_then(|e| match e {
+                        FoamEntry::Scalar(x) => Some(*x),
+                        _ => None,
+                    })
+                };
+                AlphaSolver::Mules(MulesControls {
+                    min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-6),
+                    adjust_sub_cycles: adjust,
+                    alpha_max_co: if adjust { ctx.f64(&alpha_d, "alphaMaxCo")? } else { 0.49 },
+                    max_sub_cycles: scalar(&alpha_d, "maxSubCycles").unwrap_or(50.0) as usize,
+                    n_sub_cycles: scalar(&alpha_d, "nSubCycles").unwrap_or(1.0) as usize,
+                    limiter: LimiterControls {
+                        n_limiter_iter: scalar(&alpha_d, "nLimiterIter").unwrap_or(3.0) as usize,
+                        smooth_limiter: scalar(&alpha_d, "smoothLimiter").unwrap_or(0.0),
+                        extrema_coeff: scalar(&alpha_d, "extremaCoeff").unwrap_or(0.0),
+                    },
+                    phi_scheme: conv("div(phi,alpha)")?,
+                    phir_scheme: conv("div(phir,alpha)")?,
+                    relax: [
+                        relax_of(&format!("alpha.{}", names[0])),
+                        relax_of(&format!("alpha.{}", names[1])),
+                    ],
+                })
+            }
+            other => return Err(ctx.e(format!("alpha solver `{other}` is not an upstream selection (MULES, implicitUpwind)"))),
+        };
         let rc = pimple.get_dict("residualControl");
         let rc_tol = |name: &str| rc.and_then(|r| r.get_dict(name)).and_then(|d| scalar(d, "tolerance"));
         let relax = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("fields"));
@@ -765,6 +844,7 @@ impl TwoPhaseCase {
                 .unwrap_or(1.0)
         };
         let controls = TwoPhaseControls {
+            alpha,
             n_outer: scalar(pimple, "nOuterCorrectors").unwrap_or(1.0) as usize,
             n_corr: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
             correct_until_convergence: bool_entry(pimple, "correctUntilConvergence").unwrap_or(false),

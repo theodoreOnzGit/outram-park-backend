@@ -82,7 +82,12 @@ fn one_d_boiling_case_steps_through_the_solver_enum() {
     use super::super::ThermalHydraulicsSolver;
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_boiling");
     let case = TwoPhaseCase::read(&dir).expect("read vendored 1D_boiling");
-    assert_eq!(case.deviations.len(), 1, "MULES -> implicitUpwind is the only deviation");
+    assert!(case.deviations.is_empty(), "MULES is ported: the shipped case runs as shipped");
+    assert!(matches!(case.controls.alpha, super::AlphaSolver::Mules(_)));
+    // The port's earlier behaviour stays callable and is reported.
+    let old = case.clone().with_alpha_solver_implicit_upwind().expect("implicitUpwind");
+    assert_eq!(old.deviations.len(), 1, "MULES -> implicitUpwind is the only deviation");
+    assert_eq!(old.controls.alpha, super::AlphaSolver::ImplicitUpwind);
     let mut th = ThermalHydraulicsSolver::TwoPhase(super::TwoPhaseSolver::new(case));
     for _ in 0..5 {
         th.step(1e-3).expect("step");
@@ -96,4 +101,147 @@ fn one_d_boiling_case_steps_through_the_solver_enum() {
         assert!(s.fluids[0].t.c[c].is_finite() && s.p.c[c].is_finite());
     }
     assert!((s.time - 5e-3).abs() < 1e-12);
+}
+
+// ───────────────────────── myMULES (gh:#1361 round 7) ─────────────────────────
+
+use super::mules::{self, AlphaConvection, LimiterControls};
+
+/// A zeroGradient scalar on `g` with the given cell values.
+fn scalar_on(g: &Geometry, c: &[f64]) -> Scalar {
+    let mut s = Scalar::uniform(g, 0.0, g.default_bcs());
+    s.c = c.to_vec();
+    s.correct_bc(g);
+    s
+}
+
+#[test]
+fn convection_scheme_words_are_parsed() {
+    assert_eq!(AlphaConvection::from_words(&["Gauss", "vanLeer"]), Some(AlphaConvection::VanLeer));
+    assert_eq!(AlphaConvection::from_words(&["Gauss", "upwind"]), Some(AlphaConvection::Upwind));
+    assert_eq!(AlphaConvection::from_words(&["Gauss", "linear"]), Some(AlphaConvection::Linear));
+    assert_eq!(AlphaConvection::from_words(&["Gauss", "QUICK"]), None);
+}
+
+/// `Gauss linear` gradient of a linear field is its slope in the interior cells (uniform mesh, `x` direction).
+#[test]
+fn gauss_linear_gradient_is_exact_for_a_linear_field_in_the_interior() {
+    let g = line(10);
+    let c: Vec<f64> = (0..10).map(|i| 2.0 * g.mesh.cell_centres[i].x + 1.0).collect();
+    let grad = mules::gauss_linear_grad(&g, &scalar_on(&g, &c));
+    for (i, v) in grad.iter().enumerate().take(9).skip(1) {
+        assert!((v[0] - 2.0).abs() < 1e-12, "cell {i}: {v:?}");
+        assert!(v[1].abs() < 1e-14 && v[2].abs() < 1e-14);
+    }
+}
+
+/// vanLeer: on a linear profile the limiter is 1 (central differencing, the average of the two cells on a uniform
+/// mesh); in front of a step the limiter is 0 (the upwind value); `upwind` and `linear` are the selections they name.
+#[test]
+fn van_leer_is_central_on_a_linear_profile_and_upwind_at_a_step() {
+    let g = line(10);
+    let flux = vec![1.0; g.n_faces()];
+    let lin: Vec<f64> = (0..10).map(|i| 0.1 * i as f64).collect();
+    let f = mules::interpolate(&g, AlphaConvection::VanLeer, &flux, &scalar_on(&g, &lin));
+    for i in 2..7 {
+        assert!((f[i] - 0.5 * (lin[i] + lin[i + 1])).abs() < 1e-12, "face {i}: {}", f[i]);
+    }
+    let step: Vec<f64> = (0..10).map(|i| if i < 5 { 0.0 } else { 1.0 }).collect();
+    let f = mules::interpolate(&g, AlphaConvection::VanLeer, &flux, &scalar_on(&g, &step));
+    assert_eq!(f[4], 0.0, "face between the last 0 cell and the first 1 cell takes the upwind (0) value");
+    let up = mules::interpolate(&g, AlphaConvection::Upwind, &flux, &scalar_on(&g, &step));
+    assert_eq!(up[4], 0.0);
+    let fl = mules::interpolate(&g, AlphaConvection::Linear, &flux, &scalar_on(&g, &step));
+    assert!((fl[4] - 0.5).abs() < 1e-12);
+    let flx = mules::flux(&g, AlphaConvection::Upwind, &flux, &scalar_on(&g, &step));
+    assert_eq!(flx[5], 1.0);
+}
+
+/// MULES explicit step: `psi = (psi0 r + Su - div(phiPsi)) / (r - Sp)`, checked by hand on a 3-cell line.
+#[test]
+fn explicit_update_follows_the_formula() {
+    let g = line(3);
+    let v = g.mesh.cell_volumes[0];
+    let mut phi = vec![0.0; g.n_faces()];
+    phi[0] = 2.0 * v; // face 0|1
+    phi[1] = 1.0 * v; // face 1|2
+    let psi0 = [1.0, 0.5, 0.25];
+    let sp = [0.0, -2.0, 0.0];
+    let su = [0.0, 0.0, 0.3];
+    let mut psi = psi0.to_vec();
+    mules::explicit_update(&g, 4.0, &mut psi, &psi0, &phi, &sp, &su);
+    let want = [(1.0 * 4.0 - 2.0) / 4.0, (0.5 * 4.0 + (2.0 - 1.0)) / (4.0 + 2.0), (0.25 * 4.0 + 0.3 + 1.0) / 4.0];
+    for c in 0..3 {
+        assert!((psi[c] - want[c]).abs() < 1e-12, "cell {c}: {} vs {}", psi[c], want[c]);
+    }
+}
+
+/// `limit(returnCorr)` with a flux that IS the upwind flux has nothing to limit: the correction is exactly 0.
+/// With a central (anti-diffusive) flux across a step, the limited correction keeps the explicit update inside the
+/// bounds [0, 1], which the unlimited central flux does not.
+#[test]
+fn mules_limiter_returns_a_zero_correction_for_upwind_and_keeps_a_step_bounded() {
+    let g = line(10);
+    let nf = g.n_faces();
+    let area = g.mesh.face_areas[0];
+    let u = 1.0;
+    let phi: Vec<f64> = (0..nf).map(|f| if f < g.n_internal() { u * area } else { 0.0 }).collect();
+    let step: Vec<f64> = (0..10).map(|i| if i < 5 { 1.0 } else { 0.0 }).collect();
+    let psi = scalar_on(&g, &step);
+    let ctl = LimiterControls::default();
+    let dt = 0.5 * g.mesh.cell_volumes[0] / (u * area); // Courant 0.5
+    let r = 1.0 / dt;
+    let up = mules::interpolate(&g, AlphaConvection::Upwind, &phi, &psi);
+    let mut phi_up: Vec<f64> = (0..nf).map(|f| phi[f] * up[f]).collect();
+    let ones = vec![1.0; 10];
+    mules::limit_return_corr(&g, &ctl, r, &psi, &step, &phi, &mut phi_up, &ones);
+    assert!(phi_up.iter().all(|v| *v == 0.0), "{phi_up:?}");
+    // a central flux: unlimited, the explicit update overshoots; limited (BD + correction) it stays in [0, 1]
+    let lin = mules::interpolate(&g, AlphaConvection::Linear, &phi, &psi);
+    let central: Vec<f64> = (0..nf).map(|f| phi[f] * lin[f]).collect();
+    let mut x = step.clone();
+    let zero = vec![0.0; 10];
+    mules::explicit_update(&g, r, &mut x, &step, &central, &zero, &zero);
+    assert!(x.iter().any(|v| *v > 1.0 + 1e-9 || *v < -1e-9), "the unlimited central step must violate the bounds");
+    let mut corr = central.clone();
+    mules::limit_return_corr(&g, &ctl, r, &psi, &step, &phi, &mut corr, &ones);
+    let upf: Vec<f64> = (0..nf).map(|f| phi[f] * up[f]).collect();
+    let limited: Vec<f64> = (0..nf).map(|f| upf[f] + corr[f]).collect();
+    let mut y = step.clone();
+    mules::explicit_update(&g, r, &mut y, &step, &limited, &zero, &zero);
+    assert!(y.iter().all(|v| *v >= -1e-12 && *v <= 1.0 + 1e-12), "{y:?}");
+}
+
+/// The sub-cycle path of `solveAlphaMULES.H` (forced here: `adjustSubCycles false`, `nSubCycles 3`, because upstream's
+/// own run first needs 2 sub-cycles at step 637, after its trajectory and the port's have separated): the count is
+/// used, the fractions keep filling the moving volume, stay in [0, 1], and `alpha.oldTime()` is restored to the value
+/// at the start of the step (upstream resets it to `alpha10` after the cycles).
+#[cfg(feature = "std")]
+#[test]
+fn mules_sub_cycles_restore_old_time_and_keep_the_fractions_bounded() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_boiling");
+    let mut case = TwoPhaseCase::read(&dir).expect("read vendored 1D_boiling");
+    match &mut case.controls.alpha {
+        super::AlphaSolver::Mules(mc) => {
+            mc.adjust_sub_cycles = false;
+            mc.n_sub_cycles = 3;
+        }
+        super::AlphaSolver::ImplicitUpwind => panic!("the shipped case selects MULES"),
+    }
+    let mut s = super::TwoPhaseSolver::new(case);
+    for _ in 0..6 {
+        let before: Vec<Vec<f64>> = (0..2).map(|k| s.fluids[k].alpha.c.clone()).collect();
+        s.step().expect("step");
+        assert_eq!(s.alpha_sub_cycles, 3);
+        for k in 0..2 {
+            assert_eq!(s.fluids[k].alpha_old, before[k], "alpha.oldTime() is the start-of-step value after the cycles");
+        }
+        for c in 0..s.geom.n_cells() {
+            let sum = s.fluids[0].alpha.c[c] + s.fluids[1].alpha.c[c] + s.structure.alpha.c[c];
+            assert!((sum - 1.0).abs() < 1e-12, "cell {c}: {sum}");
+            for k in 0..2 {
+                assert!((0.0..=1.0).contains(&s.fluids[k].alpha.c[c]));
+            }
+        }
+    }
 }

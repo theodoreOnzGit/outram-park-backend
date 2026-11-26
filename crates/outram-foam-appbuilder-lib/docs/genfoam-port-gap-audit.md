@@ -19,7 +19,7 @@ side: `crates/outram-foam-appbuilder-lib/src/genfoam/` at branch
 > and contact partition, `structure::correct`/`linearizedSemiImplicitHeatSource`
 > for `fixedPower`, and `customPimpleControl`'s residual control and
 > `correctUntilConvergence`. Each of those rows moves from *missing* to
-> *partial*. Still missing in the solver: MULES, `pEqn_2p.H` (cell-centred),
+> *partial*. Still missing in the solver: ~~MULES~~ (**CORRECTED 2026-11-26** (gh:#1361 round 7): ported, `solvePhase both`), `pEqn_2p.H` (cell-centred),
 > the `none`/`explicit` partial-elimination branches, turbulence, tortuosity.
 
 ## How this was measured
@@ -87,8 +87,10 @@ Counts are of rows in the tables below (one row per upstream model or class).
 6. **Radial-conduction power models** (`heatedPin` 824, `nuclearFuelPin`
    1,534, `interpolatedNuclearFuelPin` 353, `lumpedNuclearStructure` 759):
    every reactor-scale tutorial that is not a pebble bed uses one.
-7. **`MULES`** (`myMULES` 1,225 + `solveAlphaMULES` 540): the alpha solver
-   1D_boiling, 1D_CHF, 2D_voidMotionNoPhaseChange and 2D_KNS37-L22 select.
+7. ~~**`MULES`** (`myMULES` 1,225 + `solveAlphaMULES` 540): the alpha solver
+   1D_boiling, 1D_CHF, 2D_voidMotionNoPhaseChange and 2D_KNS37-L22 select.~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): ported for
+   `solvePhase both` (what 1D_boiling selects); the `solvePhase vapour` branch (`solveAlpha` lambda, used by
+   1D_HX/twoPhase and 2D_KNS37-L22) is not.
 
 ## 1. `thermalHydraulics/solvers`
 
@@ -246,7 +248,8 @@ fits in `closures/phase_change`.
 
 Each is one deliverable. Sizes are upstream lines to port.
 
-1. **twoPhase solver: MULES alpha transport** (`myMULES` + `solveAlphaMULES.H`,
+1. ~~**twoPhase solver: MULES alpha transport**~~ (**CORRECTED 2026-11-26** (gh:#1361 round 7): done for `solvePhase both`, compared with the real binary
+   on 1D_boiling as shipped) (`myMULES` + `solveAlphaMULES.H`,
    1,765 lines). Port GeN-Foam's `myMULES` limiter and `solveAlphaMULES`
    (sub-cycling, `alphaMaxCo`, structure-aware bounds) as a second
    `AlphaSolver` variant beside `implicitUpwind`. Verify on 1D_boiling and

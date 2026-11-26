@@ -63,9 +63,15 @@
 //!
 //! ## What this slice does NOT port (each is a recorded gap)
 //!
-//! - **MULES** (`solveAlphaMULES.H`, `myMULES`, 1,765 lines). A case that
+//! - ~~**MULES** (`solveAlphaMULES.H`, `myMULES`, 1,765 lines). A case that
 //!   selects `MULES` is run with `implicitUpwind` and the caller is told
-//!   ([`TwoPhaseCase::deviations`]).
+//!   ([`TwoPhaseCase::deviations`]).~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES is ported
+//!   ([`mules`], `alpha_mules.rs`; `solvePhase both`, `vanLeer`/`upwind`/`linear` convection, sub-cycling)
+//!   and is what a case that selects it runs; `1D_boiling` as shipped agrees with the real binary to the
+//!   single-phase round-off (1e-11) up to the boiling onset (README "Round 7"). Still not ported: MULES with
+//!   `solvePhase` set (a hard error in [`TwoPhaseCase::read`]), `limitSum`/`nAlphaSubCycles`-style
+//!   `alphaSubCycle` variants GeN-Foam does not call. The earlier substitution is
+//!   [`TwoPhaseCase::with_alpha_solver_implicit_upwind`].
 //! - `momentumMode cellCentered` (`pEqn_2p.H`) and partial-elimination modes
 //!   other than `implicit`; `porousInterfaceSharpness != 0`.
 //! - Turbulence other than `laminar`; structure tortuosity/anisotropy, local
@@ -90,8 +96,10 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+mod alpha_mules;
 pub mod case;
 pub mod fv;
+pub mod mules;
 pub mod one_phase_fc;
 mod pbicgstab;
 pub mod thermo;
@@ -261,9 +269,46 @@ pub enum HeStabilization {
     Source,
 }
 
+/// The `alpha` solver the case selects (`fvSolution`, `alpha { solver ...; }`;
+/// upstream's `twoPhase::alphaEqnsSolver`).
+#[derive(Debug, Clone, PartialEq)]
+pub enum AlphaSolver {
+    /// `implicitUpwind` (`solveAlphaImplicitUpwind.H`, one implicit solve of `solvePhase`).
+    ImplicitUpwind,
+    /// `MULES` (`solveAlphaMULES.H` + `myMULES`, gh:#1361 round 7): the shipped
+    /// tutorials' choice and the DEFAULT whenever a case selects it.
+    Mules(MulesControls),
+}
+
+/// `fvSolution` `alpha` dictionary entries read by `solveAlphaMULES.H` / `myMULES`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MulesControls {
+    /// `minAlphaSp` (default `1e-6`; implicitUpwind's default is `1e-4`).
+    pub min_alpha_sp: f64,
+    /// `adjustSubCycles` (default false).
+    pub adjust_sub_cycles: bool,
+    /// `alphaMaxCo` when `adjustSubCycles`, else upstream's `0.49`.
+    pub alpha_max_co: f64,
+    /// `maxSubCycles` (default 50).
+    pub max_sub_cycles: usize,
+    /// `nSubCycles` (default 1), used when sub-cycles are not adjusted or only one phase is present.
+    pub n_sub_cycles: usize,
+    /// `nLimiterIter`, `smoothLimiter`, `extremaCoeff`.
+    pub limiter: mules::LimiterControls,
+    /// `divSchemes` `div(phi,alpha)`.
+    pub phi_scheme: mules::AlphaConvection,
+    /// `divSchemes` `div(phir,alpha)`.
+    pub phir_scheme: mules::AlphaConvection,
+    /// `relaxationFactors.fields` of `alpha.<fluid k>`; `None` when the field is not relaxed.
+    pub relax: [Option<f64>; 2],
+}
+
 /// PIMPLE and solver controls (`fvSolution`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TwoPhaseControls {
+    /// The alpha solver the case selects. See [`TwoPhaseCase::with_alpha_solver_implicit_upwind`]
+    /// for the port's earlier behaviour of running `implicitUpwind` in place of `MULES`.
+    pub alpha: AlphaSolver,
     /// `nOuterCorrectors`.
     pub n_outer: usize,
     /// `nCorrectors`.
@@ -562,6 +607,12 @@ pub struct TwoPhaseSolver {
     t_interface_raw0: Vec<f64>,
     /// Outer iteration (1-based) in progress.
     corr_in_step: usize,
+    /// Sub-cycles of the last MULES alpha solve (diagnostic; 0 before the first).
+    pub alpha_sub_cycles: usize,
+    /// `twoPhase::CoNum_` as the last `maxDeltaT` left it (used for the MULES sub-cycle count; gh:#1361 round 7).
+    co_num: f64,
+    /// `twoPhase::bothPhasesArePresent_` (construction: `max(alpha1 alpha2) >= 1e-4`; then `maxDeltaT`).
+    both_phases_present: bool,
     /// `customPimpleControl::converged_`, kept across steps only when
     /// [`TwoPhaseControls::stale_pimple_converged_flag`] is set.
     pimple_converged: bool,
@@ -661,6 +712,9 @@ impl TwoPhaseSolver {
             t_interface_old: vec![0.0; n],
             t_interface_raw0: vec![0.0; n],
             corr_in_step: 0,
+            alpha_sub_cycles: 0,
+            co_num: 0.0,
+            both_phases_present: false,
             pimple_converged: false,
             pimple_trace: Vec::new(),
             write_time_index: 0,
@@ -698,6 +752,14 @@ impl TwoPhaseSolver {
             s.fluids[k].alpha.correct_bc(&s.geom);
         }
         s.update_normalized();
+        s.both_phases_present = {
+            let ni0 = s.geom.n_internal();
+            let cells = (0..n).map(|c| s.fluids[0].alpha.c[c] * s.fluids[1].alpha.c[c]);
+            let faces = (ni0..nf)
+                .filter(|&f| s.geom.active[f])
+                .map(|f| s.fluids[0].alpha.b[f - ni0] * s.fluids[1].alpha.b[f - ni0]);
+            cells.chain(faces).fold(f64::MIN, f64::max) >= 1e-4
+        };
         // thermo of the initial state, then fluxes (fluid::initAlphaPhis).
         for k in 0..2 {
             s.thermo_correct(k, true);
@@ -879,6 +941,10 @@ impl TwoPhaseSolver {
         let _ = n;
         report.courant = self.courant();
         if self.time_controls.adjust_time_step {
+            // `maxDeltaT` first runs `correctCourant` and sets `bothPhasesArePresent_` (state the next
+            // step's MULES sub-cycle count reads).
+            self.co_num = self.co_num_upstream();
+            self.both_phases_present = self.phases_present();
             self.dt = self.max_delta_t(report.courant);
         }
         self.adjust_to_write_time();
@@ -1409,6 +1475,12 @@ impl TwoPhaseSolver {
     /// continuity, then `correctContErrs` and the normalised fractions
     /// (`alphaEqns_2p.H`).
     fn correct_alpha(&mut self) {
+        if let AlphaSolver::Mules(mc) = self.controls.alpha.clone() {
+            self.correct_alpha_mules(&mc);
+            self.correct_cont_errs();
+            self.update_normalized();
+            return;
+        }
         let g = self.geom.clone();
         let n = g.n_cells();
         let nf = g.n_faces();
@@ -1630,11 +1702,16 @@ impl TwoPhaseSolver {
         let nf = g.n_faces();
         let ni = g.n_internal();
         let dt = self.dt;
-        // refsAndControls_2p.H: alphaf by upwind (implicitUpwind) on phi_.
-        let af: [Vec<f64>; 2] = [
-            fv::interp_upwind(&g, &self.fluids[0].alpha, &self.phi),
-            fv::interp_upwind(&g, &self.fluids[1].alpha, &self.phi),
-        ];
+        // refsAndControls_2p.H: alphaf by upwind on phi_ for implicitUpwind, `fvc::interpolate` (linear) otherwise
+        // (MULES; gh:#1361 round 7).
+        let af: [Vec<f64>; 2] = if matches!(self.controls.alpha, AlphaSolver::ImplicitUpwind) {
+            [
+                fv::interp_upwind(&g, &self.fluids[0].alpha, &self.phi),
+                fv::interp_upwind(&g, &self.fluids[1].alpha, &self.phi),
+            ]
+        } else {
+            [fv::interp_linear(&g, &self.fluids[0].alpha), fv::interp_linear(&g, &self.fluids[1].alpha)]
+        };
         let moving_af: Vec<f64> = (0..nf).map(|f| af[0][f] + af[1][f]).collect();
         // time-derivative coefficients
         let ar_by_dt = |fl: &Phase, alpha: &[f64], rho: &[f64], ab: &[f64], rb: &[f64]| {
