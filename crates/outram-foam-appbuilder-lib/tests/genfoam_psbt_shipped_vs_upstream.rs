@@ -151,7 +151,7 @@ fn run_rows(test: &str, refs: &[&str], n_steps: usize) -> Vec<Row> {
     let dir = protocol_copy(test);
     let case = TwoPhaseCase::read(&dir).expect("read the SHIPPED PSBT case");
     // upstream's customPimpleControl defect is the specification (as in rounds 3-7)
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         let rep = s.step().expect("step");
@@ -194,7 +194,7 @@ fn psbt_shipped_dump_rows() {
 fn psbt_shipped_port_summary() {
     let dir = protocol_copy("summary");
     let case = TwoPhaseCase::read(&dir).expect("read the SHIPPED PSBT case");
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     for n in 1..=700usize {
         let rep = match s.step() {
             Ok(r) => r,
@@ -318,4 +318,31 @@ fn unported_boundary_conditions_are_refused_by_name() {
         std::fs::write(&path, original).expect("restore");
     }
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Round 13 ablation (diagnostic): `ROUND13_OFF=gas,newton,markers,flux` (any subset) switches the named round-13 translations back
+/// to the port's earlier forms, to measure how much of the agreement each one carries. Unset: upstream's forms (the defaults).
+fn round13_off(name: &str) -> bool {
+    std::env::var("ROUND13_OFF").map(|v| v.split(',').any(|x| x == name)).unwrap_or(false)
+}
+
+fn round13_case(case: TwoPhaseCase) -> TwoPhaseCase {
+    if round13_off("gas") {
+        case.with_codata2019_gas_constant()
+    } else {
+        case
+    }
+}
+
+fn round13_solver(mut s: TwoPhaseSolver) -> TwoPhaseSolver {
+    if round13_off("newton") {
+        s = s.with_converged_temperature_newton();
+    }
+    if round13_off("markers") {
+        s = s.with_live_thermo_residual_markers();
+    }
+    if round13_off("flux") {
+        s = s.with_earlier_interfacial_flux_ratio();
+    }
+    s
 }

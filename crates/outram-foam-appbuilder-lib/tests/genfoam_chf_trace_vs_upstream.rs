@@ -154,7 +154,7 @@ fn run_rows(variant: &str, refs: &[&str], n_steps: usize) -> Vec<Row> {
     let case = TwoPhaseCase::read(&dir).expect("read the closed 1D_CHF case");
     assert!(case.deviations.is_empty(), "{:?}", case.deviations);
     // upstream's customPimpleControl defect is the specification (as in rounds 3-9)
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         let rep = s.step().expect("step");
@@ -204,7 +204,7 @@ fn chf_closed_cell_dump() {
     let r = load_reference(&refs);
     let dir = protocol_copy(&variant, "cells");
     let case = TwoPhaseCase::read(&dir).expect("read");
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     for _ in 1..=step {
         s.step().expect("step");
     }
@@ -235,8 +235,8 @@ fn noise_rows(variant: &str, eps: f64, n_steps: usize) -> Vec<(usize, Vec<(&'sta
     for v in pert.fluids[0].t.b.iter_mut() {
         *v *= 1.0 + eps;
     }
-    let mut a = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
-    let mut b = TwoPhaseSolver::new(pert).with_upstream_stale_pimple_converged_flag();
+    let mut a = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
+    let mut b = round13_solver(TwoPhaseSolver::new(round13_case(pert)).with_upstream_stale_pimple_converged_flag());
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         a.step().expect("step a");
@@ -247,6 +247,44 @@ fn noise_rows(variant: &str, eps: f64, n_steps: usize) -> Vec<(usize, Vec<(&'sta
     }
     let _ = std::fs::remove_dir_all(&dir);
     rows
+}
+
+/// Round 13 diagnostic: every evaluation of `multiRegimeBoilingTRACECHF` (all cells, all outer iterations) of the first `STEPS`
+/// steps (default 3) of `VARIANT`, with its intermediates at 17 digits, written to the file `PROBE_OUT` (one line per cell
+/// evaluation: `PORT_CHF t= corr= cell= name=value ...`), for comparison with the instrumented upstream's dump
+/// (`upstream_driver/probe_boiling`).
+#[test]
+#[ignore]
+fn chf_closed_trace_probe_dump() {
+    let variant = std::env::var("VARIANT").unwrap_or_else(|_| "constant_chf".into());
+    let n: usize = std::env::var("STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(3);
+    let dir = protocol_copy(&variant, "probe");
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
+    s.trace_probe = Some(Vec::new());
+    for _ in 1..=n {
+        s.step().expect("step");
+    }
+    let mut out = String::new();
+    for r in s.trace_probe.as_ref().expect("probe on") {
+        let tag = match r.kind {
+            "chf" => "PORT_CHF",
+            "eqn" => "PORTE",
+            "eqnf" => "PORTEF",
+            "pc" => "PORT_PC",
+            "structure" => "PORTS",
+            _ => continue,
+        };
+        out.push_str(&format!("{tag} t={:.17e} corr={} cell={}", r.time, r.outer_iteration, r.cell));
+        for (k, v) in &r.values {
+            out.push_str(&format!(" {k}={v:.17e}"));
+        }
+        out.push('\n');
+    }
+    if let Ok(path) = std::env::var("PROBE_OUT") {
+        std::fs::write(path, out).expect("write probe");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Diagnostic: the noise-floor control (`VARIANT`, `EPS` default 1e-12, `STEPS` default 10).
@@ -315,7 +353,7 @@ fn chf_closed_implied_q_chf() {
     let r = load_reference(&refs);
     let dir = protocol_copy(&variant, "implied");
     let case = TwoPhaseCase::read(&dir).expect("read");
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     for _ in 1..=step {
         s.step().expect("step");
     }
@@ -493,4 +531,31 @@ fn constant_chf_case_reads_without_a_table() {
     assert!(case.models.chf_tables.is_empty());
     assert!(case.deviations.is_empty());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Round 13 ablation (diagnostic): `ROUND13_OFF=gas,newton,markers,flux` (any subset) switches the named round-13 translations back
+/// to the port's earlier forms, to measure how much of the agreement each one carries. Unset: upstream's forms (the defaults).
+fn round13_off(name: &str) -> bool {
+    std::env::var("ROUND13_OFF").map(|v| v.split(',').any(|x| x == name)).unwrap_or(false)
+}
+
+fn round13_case(case: TwoPhaseCase) -> TwoPhaseCase {
+    if round13_off("gas") {
+        case.with_codata2019_gas_constant()
+    } else {
+        case
+    }
+}
+
+fn round13_solver(mut s: TwoPhaseSolver) -> TwoPhaseSolver {
+    if round13_off("newton") {
+        s = s.with_converged_temperature_newton();
+    }
+    if round13_off("markers") {
+        s = s.with_live_thermo_residual_markers();
+    }
+    if round13_off("flux") {
+        s = s.with_earlier_interfacial_flux_ratio();
+    }
+    s
 }
