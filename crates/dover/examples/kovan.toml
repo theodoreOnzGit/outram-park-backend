@@ -10,13 +10,8 @@ path = "example:smr_cstr"
 id = "fn:af38ced3f6e83534"
 name = "main"
 qual = "main"
-lines = [
-    10,
-    30,
-]
 hash = "sha256:15d2abd7b2399ae896d2caaeb7e3e578a61b755378d9ef7ca687605de1c25ed3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:de371805f0225295"]
 
 [test_run]
 commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"

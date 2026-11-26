@@ -7,111 +7,41 @@ dir = "crates/outram-park-digital-twin-engine/src/msre/twin"
 path = "crate::msre::twin::tests"
 
 [[module."tests.rs".function]]
-id = "fn:ecbfc1d54a49baa8"
-name = "the_twin_plant_is_the_session_bit_for_bit"
-qual = "the_twin_plant_is_the_session_bit_for_bit"
-lines = [
-    8,
-    40,
-]
-hash = "sha256:f549c9dd4c06f7cf7cc65163acced9d14286375718637e08fba3282b6e441978"
-doc_hash = "sha256:63031bc1504162c25a0f239001646610e2b5ae8f1766b4ac7daad33a2654da26"
-callees = [
-    "fn:2649f52ce86a69c5",
-    "fn:395fb8b4be2c7bb6",
-    "fn:712f8444e51c8ba4",
-    "fn:749bb5af6b23cdcd",
-]
-uses = [
-    "fn:21a3ded210c74352",
-    "fn:90957fdbc7234d63",
-]
-test = true
-
-[[module."tests.rs".function]]
 id = "fn:062c92db8b4ec68d"
 name = "the_cv_map_is_the_live_plant"
 qual = "the_cv_map_is_the_live_plant"
-lines = [
-    42,
-    80,
-]
 hash = "sha256:7dfd7f587c1fbae66ed130003c37e03610768c2659bb67c68f1570d732ca8cf7"
 doc_hash = "sha256:98d48f146bf632860ce41090b927fab7feaad5fd56e7acab5842e274bd7af706"
-callees = [
-    "fn:395fb8b4be2c7bb6",
-    "fn:7129d12a239f4c4e",
-    "fn:712f8444e51c8ba4",
-    "fn:f38bc71fc182a6b1",
-]
-uses = [
-    "fn:21a3ded210c74352",
-    "fn:3f23848193df8018",
-    "fn:6e14ea506f9bce66",
-    "fn:b7a88eb5ed3fb277",
-    "fn:f5b7e8b07e0f72f5",
-]
-test = true
-
-[[module."tests.rs".function]]
-id = "fn:200ff1693e609589"
-name = "the_sources_and_pages_are_named"
-qual = "the_sources_and_pages_are_named"
-lines = [
-    82,
-    104,
-]
-hash = "sha256:5646d70bc3ebdf15ab82a8800f0821fd3da1121202c3ecfbb36bcd08465ada6d"
-doc_hash = "sha256:491402bee39e0d69d796f1acdf4b97c7e217b49663895a1fe32f428515a3c4f1"
-callees = [
-    "fn:395fb8b4be2c7bb6",
-    "fn:712f8444e51c8ba4",
-]
-uses = [
-    "fn:168e618794bf7c4c",
-    "fn:21a3ded210c74352",
-    "fn:49e2ce5bad6ff1a6",
-    "fn:995fe4bb039455cd",
-]
-test = true
-
-[[module."tests.rs".function]]
-id = "fn:2bd283bce5b2a5c7"
-name = "the_split_is_the_k_eff_tabs"
-qual = "the_split_is_the_k_eff_tabs"
-lines = [
-    106,
-    130,
-]
-hash = "sha256:72b201845fff0d108761a3070918ef7e8ed91501294f291979cdc92bcd4752ca"
-doc_hash = "sha256:7ea0b489db8f65ab4b17aa34f8e28e369136f7baaf35772521960150d20f43a7"
-callees = [
-    "fn:04616eed21147752",
-    "fn:328a2c0612cd098a",
-    "fn:395fb8b4be2c7bb6",
-    "fn:577afb8995dc88eb",
-    "fn:8310bdb7b7666980",
-]
-uses = [
-    "fn:6997c88984c0aa87",
-    "fn:74184f89a42f37cb",
-    "fn:952684a0205c3bf2",
-]
 test = true
 
 [[module."tests.rs".function]]
 id = "fn:405a62f52414b3e1"
 name = "the_live_split_reaches_the_plant"
 qual = "the_live_split_reaches_the_plant"
-lines = [
-    132,
-    150,
-]
 hash = "sha256:22c8613f8d40d408643e5b15251585c4ef8c1c199b00dc8fafd5d2d6c27da24c"
 doc_hash = "sha256:406d6d6fdaee609931bde811eb33cb5b860f6889abdd588f1d89f34549fc9b07"
-callees = [
-    "fn:395fb8b4be2c7bb6",
-    "fn:712f8444e51c8ba4",
-]
-uses = ["fn:21a3ded210c74352"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:200ff1693e609589"
+name = "the_sources_and_pages_are_named"
+qual = "the_sources_and_pages_are_named"
+hash = "sha256:5646d70bc3ebdf15ab82a8800f0821fd3da1121202c3ecfbb36bcd08465ada6d"
+doc_hash = "sha256:491402bee39e0d69d796f1acdf4b97c7e217b49663895a1fe32f428515a3c4f1"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2bd283bce5b2a5c7"
+name = "the_split_is_the_k_eff_tabs"
+qual = "the_split_is_the_k_eff_tabs"
+hash = "sha256:72b201845fff0d108761a3070918ef7e8ed91501294f291979cdc92bcd4752ca"
+doc_hash = "sha256:7ea0b489db8f65ab4b17aa34f8e28e369136f7baaf35772521960150d20f43a7"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ecbfc1d54a49baa8"
+name = "the_twin_plant_is_the_session_bit_for_bit"
+qual = "the_twin_plant_is_the_session_bit_for_bit"
+hash = "sha256:f549c9dd4c06f7cf7cc65163acced9d14286375718637e08fba3282b6e441978"
+doc_hash = "sha256:63031bc1504162c25a0f239001646610e2b5ae8f1766b4ac7daad33a2654da26"
 test = true

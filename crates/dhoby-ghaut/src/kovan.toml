@@ -14,10 +14,6 @@ name = "EXPANSION"
 qual = "EXPANSION"
 item = "const"
 shape = "const"
-lines = [
-    145,
-    151,
-]
 hash = "sha256:f2ce13ec0f3864dc85cb668ed524acf6abbafd44bb8cbc548ef89d6ad45d9ce4"
 doc_hash = "sha256:3935336482a7e007d06c92c3bd37675cef245f1fa08b5dee073598a239f41337"
 
@@ -25,10 +21,6 @@ doc_hash = "sha256:3935336482a7e007d06c92c3bd37675cef245f1fa08b5dee073598a239f41
 id = "fn:a6a5677d81b8934e"
 name = "the_expansion_is_spelled_out"
 qual = "the_expansion_is_spelled_out"
-lines = [
-    157,
-    163,
-]
 hash = "sha256:25dff37824a467ba832e906d77632822748fca335dc0d71b0ddaf7a3511b4451"
 doc_hash = "sha256:f0df04b349fe6015fb86c10ce8785423c8780efa825724fa0377e45d4bfcaeb6"
 test = true

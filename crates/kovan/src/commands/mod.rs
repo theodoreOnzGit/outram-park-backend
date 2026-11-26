@@ -28,6 +28,7 @@ pub mod gen;
 pub mod historian;
 pub mod index;
 pub mod index_control;
+pub mod derived_cache;
 pub mod index_partition;
 pub mod scip_stack;
 pub mod kloc;
