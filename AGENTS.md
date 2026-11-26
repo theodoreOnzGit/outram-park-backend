@@ -91,9 +91,15 @@ gh issue comment <number> --body "..."           # progress
     suites or the whole `develop` gate set after every stream or every
     commit.
   - **At the end**, on the combined tip that will be pushed, run the full
-    integration set once: every gate the `develop` merge rule above
-    requires, plus the full test suites of the crates the session changed.
-    Push to `develop` only when that run is green.
+    integration set: every gate the `develop` merge rule above requires,
+    plus the full test suites of the crates the session changed. **This
+    final phase is integration test AND debug** (maintainer, 2026-11-26:
+    "by final integration test I mean final integration test and debug"):
+    when a gate fails, find the cause, fix it on the combined tip, and
+    re-run, until the whole set is green. A failure that comes from two
+    streams interacting is found and fixed here. A failure is not handed
+    back as a report while it is still fixable. Push to `develop` only when
+    the set is green.
   - **Why:** the session of 2026-11-26 re-ran the full gate set (about an
     hour on 4 cores) on every intermediate tip while agents were still
     building and testing. Each run competed for the same cores and build
