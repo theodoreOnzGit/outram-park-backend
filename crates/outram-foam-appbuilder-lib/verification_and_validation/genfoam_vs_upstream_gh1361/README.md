@@ -1215,7 +1215,7 @@ Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr
 
 ### What the port still cannot do (coupled TH), filed
 
-The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` power model, `ReynoldsPower`, and `multiPhysicsSolver` with `meshToMesh cellVolumeWeight` (#1475, #651). The comparison above takes the TH state as input. Children filed on gh:#1475, see the issue comment.
+**CORRECTED 2026-11-26 (round 9): the TH half and the coupled loop now run in the port and agree with the real binary over the first 50 steps (see "Round 9 results" below); the paragraph that follows is the state at the end of round 6.** ~~The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` power model, `ReynoldsPower`, and `multiPhysicsSolver` with `meshToMesh cellVolumeWeight` (#1475, #651). The comparison above takes the TH state as input. Children filed on gh:#1475, see the issue comment.~~
 
 ### Gates
 
@@ -1615,3 +1615,88 @@ the `fvMatrix::relax` translation (copied, cited), `upstream_transient_step`, `n
 | R7 | Courant number | <= 1e-9 relative |
 | R8 | the coupling loop | converges after 1 iteration at 50 of 50 steps |
 | R9 | `Re` field at steps 1, 10, 25, 50 | <= 1e-12 relative |
+
+
+## Round 9 results (measured 2026-11-26, release; `tests/genfoam_msfr_coupled_vs_upstream.rs`, 3 tests, 15 s)
+
+Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_coupled_vs_upstream -- --nocapture`. Port: the coupled loop
+described above, run from upstream's t = 165 s restart, **nothing of upstream's per-step results used as input** (step size, power, `T` are the
+port's own). Upstream: the 50-step tight run above.
+
+### The first run, and what it found (recorded because it missed)
+
+The first coupled run gave: step 1 fluid `T` 6.7e-16, `T (avg min max)` 2.3e-16, first `h` residual 4.7e-10, power 1.5e-14, **but `deltaT` of
+step 2 = 1.2e-3 where upstream has 8.146e-4**, and every later step size, `T` (from step 2, 6.3e-7 at step 50) and power (2.4e-5) followed. The
+first diverging quantity is therefore the step size after step 1, not a field. Cause, found by reading upstream (not by tuning):
+`diffusionNeutronics::correctPhysics` sets `pTotOld_ = power()` BEFORE `solveNeutronics.H` calls `xs_.correct()`, and `power()` is
+`sum flux sigmaPow` with the `XS` object's CURRENT `sigmaPow`, which at the first step of a restart is the **reference state's** (the `XS` class
+is constructed there; chi was the same story in round 6). The reference-state `power()` is 2.06370139e7 W, 3.07 % above the 2.0003657e7 W of
+step 1, so `maxPowerVariation 0.025 / 0.0307 = 0.8146`: upstream's step-2 size is 0.8146 deltaT (the log's `deltaT = 0.00081458923923836437`),
+not 1.2 deltaT. The port's `upstream_transient_step` took `power_old` from its already-refreshed cross sections. Fix (new function,
+`DiffusionNeutronics::upstream_power_at_reference_state`; the harness uses it for step 1 only, as upstream does): all 50 step sizes agree to 4.8e-13.
+
+### The comparison (second run)
+
+| quantity (per step, 50 steps) | worst relative difference | where |
+|---|---|---|
+| step size `deltaT` (the first thing compared) | **4.8e-13** | steps 1-14 (the neutronics `maxPowerVariation` limit, then 1.2x growth); from step 15 on the Courant limit, 0 to 2.3e-16 |
+| fluid `T`, worst cell | **2.5e-14** (step 14); 6.7e-16 at step 1 | every step below 1e-13 |
+| `T (avg min max)` after each of the 5 outer iterations | **1.5e-15** | |
+| `power:` | **6.7e-14** (step 50); 1.5e-14 at step 1 | |
+| first `h` initial residual of each step | **1.3e-10** | a genuine algebraic residual of 5e-8 to 1e-7 |
+| all five `h` initial residuals (the last is ~1e-11, round-off of the sums) | 4.2e-6 (step 1, iteration 5) | not gated; the ratio of 10 per iteration is reproduced |
+| Courant number (avg, max) | **4.8e-13** | |
+| `Re` field at steps 1, 10, 25, 50 | **1.7e-15** | |
+| neutron iteration count | equal at **50 of 50** steps (50, 50, 37, 1, 22, 1, 8, then 1) | |
+| coupling loop | converged after 1 iteration at **50 of 50** steps | |
+| wall time, 50 steps | 15.4 s (upstream 35 s, serial) | |
+
+**No step diverges** once the step-size rule is as upstream's: there is no first diverging step. Bit-identity was not reached (the round-off
+allowance 1e-9 is used by nothing: the worst number is 2.5e-14). The residual differences are the linear-solver and sum-order round-off of two
+independent codes: `PBiCGStab`/`diagonal` is a translation (round 3), the matrix is assembled with `fv::Eqn`, the Courant sum runs over faces in
+the same order but `0.5 * max(...)` differs in the last bit.
+
+### Predictions: held and missed
+
+| id | held? | measured |
+|---|---|---|
+| R1 fluid `T` of the restart equals the reference `T_0` to 1e-15; port power density at t = 165 s equals upstream's to 1e-9 | **missed twice** | 3.2e-7 and 1.8e-8. Not a port defect: the neutronics region's restart `TFuel` is the fluid `T` of the step BEFORE the last one (the mapping runs at the start of a step), so the pair of restart fields is not synchronous. The port starts step 1 from upstream's own `powerDensity` file, which is what upstream maps |
+| R2 step sizes <= 1e-9, 65 % on all 50 | **missed in the first run** (step 2: 47 %), **held after the fix** (4.8e-13) | cause above: `pTotOld_` at the reference state |
+| R3 fluid `T` <= 1e-9 at all 50 steps, expected 1e-12 to 1e-10; if not, the first failing step is step 1 and a term of `EEqn_1p.H` | **held after R2's fix**; the first run failed from step 2 for the step-size reason, NOT an `EEqn` term (my ranked causes were wrong in kind); measured 2.5e-14, better than the expected range | |
+| R4 first `h` residual of step 1 to 1e-4 | **held** (4.7e-10) | |
+| R5 `T (avg min max)` <= 1e-12 | **held** (1.5e-15) | |
+| R6 power <= 1e-9 | **held after the fix** (6.7e-14) | |
+| R7 Courant <= 1e-9 | **held after the fix** (4.8e-13) | |
+| R8 loop converges in 1 iteration at 50/50 | **held** | |
+| R9 `Re` <= 1e-12 | **held** (1.7e-15) | |
+
+### Findings that are not defects, recorded because they will mislead
+
+* `meshToMesh` between the two identical meshes: weight exactly 1.0 and the identity addressing in all 4 x 8595 entries (measured on upstream),
+  not "1 up to an ulp".
+* `fluid::rho()` is the constant `rho0` for a Boussinesq EOS: reading `thermo.rho()` there (as `one_phase_fc.rs` does for its EOSs) would put a
+  2e-4 x dT density variation into `ddt(alpha rho he)` that upstream does not have.
+* `".*"` (`PBiCGStab`) beats `"h.*"` (`smoothSolver`) in `fvSolution` because OpenFOAM takes the LAST matching pattern; the port's older
+  `lookup_regex` takes the first. `one_phase_cc.rs` has its own last-match lookup; the older helper is left as it was (it is used by cases whose
+  patterns do not overlap).
+* The neutronics residual used for the loop test is `max(first-iteration group residuals, neutroResidual history)`, a lower bound of upstream's
+  `residual_` (which also takes the initial residuals of every later flux solve); both are far below 5e-5 (<= 2e-6 in all 50 steps of the log).
+  The decision "converged after 1 iteration" is therefore the same, but the VALUE of `residual_` is not reproduced.
+
+### What the port still cannot do
+
+* `solveFluidMechanics true` (UEqn/pEqn with `momentumMode cellCentered`, `porousKEpsilon` solving: `k`, `epsilon`, `nut`, `alphat` are only READ):
+  the `steadyStateTH` stage (issue 1775, filed as a child). `ReynoldsPower` is parsed and ignored (`Kd` does not enter the energy equation).
+* The general `cellVolumeWeight` supermesh (two different meshes; issue 651): `IdenticalMeshMap::new` refuses them by name.
+* More than one coupling iteration per step was exercised only by unit tests (upstream never needed it in the 50 steps), and `correctTightlyCoupledPhysics`
+  only against `correctPhysics` with one outer iteration, not against upstream.
+* Steps beyond 50 (upstream's run goes on to 142 steps at the same protocol); the energy equation's `fixedTemperature` time profile; heat exchangers.
+
+### Gates
+
+See the entries of the session record below ("Moved numbers", test counts) once the full suite has run.
+
+### Moved numbers (old to new, with cause)
+
+None. No earlier gated number depends on a function changed here: only new functions and new files were added (`one_phase_cc.rs`, `coupled_loop.rs`,
+two new methods and one new free function in `upstream_transient.rs`).

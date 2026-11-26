@@ -327,6 +327,18 @@ mod tests {
     }
 
     #[test]
+    fn identical_map_accepts_the_same_mesh_and_refuses_a_different_one() {
+        use crate::genfoam::multi_region::outer_iteration::lumped_cell_mesh;
+        let a = lumped_cell_mesh(1.0);
+        let b = lumped_cell_mesh(1.0);
+        let c = lumped_cell_mesh(2.0);
+        let m = IdenticalMeshMap::new(&a, &b).expect("same mesh");
+        assert_eq!(m.weights, vec![1.0]);
+        let e = IdenticalMeshMap::new(&a, &c).expect_err("different volume");
+        assert!(e.contains("volumes differ"), "{e}");
+    }
+
+    #[test]
     fn identical_map_is_a_copy() {
         let m = IdenticalMeshMap { weights: vec![1.0; 3] };
         let mut r = vec![7.0, -2.0, 1e300];

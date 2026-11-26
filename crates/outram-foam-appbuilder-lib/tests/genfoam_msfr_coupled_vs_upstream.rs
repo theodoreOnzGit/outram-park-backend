@@ -172,6 +172,8 @@ struct Coupled {
     p_tot_old: f64,
     neutro_iterations: usize,
     fluid_report: Option<OnePhaseCcReport>,
+    first_step: bool,
+    p_old_reference: f64,
 }
 
 fn rel(a: f64, b: f64) -> f64 {
@@ -244,6 +246,8 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
     let max_iterations = cdict.max_iterations;
     let mut dt = initial_delta_t(control_delta_t, control_delta_t);
     let p0 = 0.0;
+    let p_old_reference = neutro.upstream_power_at_reference_state(&xs, &zone_map).expect("reference-state power");
+    println!("pTotOld_ of step 1 (flux of t = 165 s, sigmaPow of the reference state): {p_old_reference:.10e}");
     let coupled = RefCell::new(Coupled {
         fluid,
         neutro,
@@ -261,6 +265,8 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
         p_tot_old: p0,
         neutro_iterations: 0,
         fluid_report: None,
+        first_step: true,
+        p_old_reference,
     });
     let mu = vec![0.01; n];
     let alphat = vec![0.01 * (1.0 / 8.0); n];
@@ -276,6 +282,9 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
     let mut worst_tstat = 0.0_f64;
     let mut worst_co = 0.0_f64;
     let mut converged_in_one = 0usize;
+    let mut worst_h1 = 0.0_f64;
+    let mut worst_re = 0.0_f64;
+    let mut iters_equal = 0usize;
     let mut per_step_t: Vec<f64> = Vec::new();
     for step in 1..=N_STEPS {
         {
@@ -329,7 +338,10 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
                         )
                         .expect("neutronics step");
                     c.p_tot = rep.power;
-                    c.p_tot_old = rep.power_old;
+                    // pTotOld_ = power() at the start of correctPhysics: at the first step of a restart the
+                    // XS object is still at its reference state (xs_.correct() runs inside solveNeutronics.H)
+                    c.p_tot_old = if c.first_step { c.p_old_reference } else { rep.power_old };
+                    c.first_step = false;
                     c.neutro_iterations = rep.neutron_iterations;
                     // residual_ = max(initial residuals of the flux solves, neutroResidual); the port exposes the
                     // first iteration's group residuals and the neutroResidual history (a lower bound, far from
@@ -397,6 +409,10 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
         if dtt > 1e-9 && first_t_bad.is_none() {
             first_t_bad = Some(step);
         }
+        worst_h1 = worst_h1.max(dh1);
+        if iters == reference[&format!("STEP_{step}")][3] as usize {
+            iters_equal += 1;
+        }
         worst_t = worst_t.max(dtt);
         worst_p = worst_p.max(dpr);
         worst_dt = worst_dt.max(dtr);
@@ -409,6 +425,7 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
             let re_port = coupled.borrow().fluid.reynolds().to_vec();
             let dre = re_port.iter().zip(re_ref).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
             println!("      Re (restart-style field after step {step}): worst rel {dre:.3e}");
+            worst_re = worst_re.max(dre);
         }
     }
     println!(
@@ -416,4 +433,55 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
         started.elapsed().as_secs_f64()
     );
     assert_eq!(converged_in_one, N_STEPS, "upstream converges after 1 iteration at every one of the first 50 steps");
+    // Gates at the measured values (2026-11-26) with a margin of at least 20x; the README records the numbers.
+    assert!(first_dt_bad.is_none() && worst_dt < 1e-11, "step sizes: worst {worst_dt:e}");
+    assert!(first_t_bad.is_none() && worst_t < 1e-12, "T: worst {worst_t:e}");
+    assert!(worst_p < 1e-12, "power: worst {worst_p:e}");
+    assert!(worst_tstat < 1e-13, "T (avg min max): worst {worst_tstat:e}");
+    assert!(worst_co < 1e-11, "Courant: worst {worst_co:e}");
+    assert!(worst_h1 < 1e-8, "first h residual of each step: worst {worst_h1:e}");
+    assert!(worst_re < 1e-12, "Re: worst {worst_re:e}");
+    assert_eq!(iters_equal, N_STEPS, "neutron iteration counts equal at every step");
+    // the mapping dictionary, in the order mapTheseFields visits it
+    let regions = vec!["fluidRegion".to_string(), "neutroRegion".to_string()];
+    let order = cdict.mapping_order(&regions);
+    assert_eq!(order.len(), 2);
+    assert_eq!((order[0].target_region.as_str(), order[0].source_region.as_str()), ("fluidRegion", "neutroRegion"));
+    assert_eq!(order[0].source_fields, vec!["secondaryPowerDensity", "powerDensity"]);
+    assert_eq!(order[0].target_fields, vec!["powerDensityNeutronics", "powerDensityNeutronicsToLiquid"]);
+    assert_eq!((order[1].target_region.as_str(), order[1].source_region.as_str()), ("neutroRegion", "fluidRegion"));
+    assert_eq!(order[1].source_fields.len(), 9);
+}
+
+/// `correctTightlyCoupledPhysics` is `correctModels` + one `correctEnergy`: it equals the first outer iteration
+/// of `correctPhysics` bit for bit. (The 50 steps above never take this branch: the loop converges in 1 iteration.)
+#[test]
+fn tightly_coupled_physics_is_one_outer_iteration() {
+    let st = stage("tight");
+    let a = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect("fluid case");
+    let mut case = a.case().clone();
+    case.controls.n_outer = 1;
+    let mut one = OnePhaseCcSolver::new(case);
+    let mut tight = a;
+    one.begin_time_step(1e-3);
+    tight.begin_time_step(1e-3);
+    let (r1, rep) = one.correct_physics();
+    let r2 = tight.correct_tightly_coupled_physics();
+    assert_eq!(r1, r2);
+    assert_eq!(rep.h_residuals.len(), 1);
+    assert_eq!(one.temperature(), tight.temperature());
+    assert_eq!(one.enthalpy(), tight.enthalpy());
+    assert_eq!(one.htc().iter().cloned().fold(0.0, f64::max), 1e4);
+    assert!(tight.max_delta_t() > 0.0);
+}
+
+/// The refusals name what is not ported (extend the port, never the refusal).
+#[test]
+fn a_case_that_solves_fluid_mechanics_is_refused_by_name() {
+    let st = stage("refuse");
+    let p = st.fluid_root.join("system/fluidRegion/fvSolution");
+    let text = std::fs::read_to_string(&p).expect("fvSolution");
+    std::fs::write(&p, text.replace("solveFluidMechanics false", "solveFluidMechanics true")).expect("write");
+    let err = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect_err("must refuse").to_string();
+    assert!(err.contains("solveFluidMechanics must be false"), "{err}");
 }

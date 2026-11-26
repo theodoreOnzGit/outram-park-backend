@@ -494,3 +494,35 @@ pub fn diffusion_max_delta_t(
     }
     max_delta_t
 }
+
+impl DiffusionNeutronics {
+    /// `power()` as upstream evaluates it BEFORE the first `xs_.correct()`: the flux of the start state times the
+    /// `sigmaPow` of the REFERENCE state of each zone (GeN-Foam's `XS` is constructed at the reference state;
+    /// `xs_.correct()` first runs inside `solveNeutronics.H`). That is `pTotOld_` of the first step of a restart,
+    /// and with it the first step's `maxPowerVariation` limit (round 9 of the gh1361 record: a 3 % difference
+    /// from the power at the restart state, so `deltaT` of step 2 is 0.81 deltaT instead of 1.2 deltaT).
+    ///
+    /// # Errors
+    /// The cross-section error for a zone or group out of range.
+    pub fn upstream_power_at_reference_state(
+        &self,
+        xs: &CrossSectionData,
+        zone_of_cell: &[usize],
+    ) -> Result<f64, NeutronicsError> {
+        let vols = &self.state.mesh().cell_volumes;
+        let mut p_tot = 0.0;
+        for (g, flux) in self.state.flux().iter().enumerate() {
+            let ph = flux.internal.as_slice();
+            let mut sp_zone = Vec::with_capacity(xs.zone_count());
+            for z in 0..xs.zone_count() {
+                sp_zone.push(xs.reference_group_constants(z, g)?.sigma_pow.value);
+            }
+            let mut integral = 0.0;
+            for c in 0..vols.len() {
+                integral += vols[c] * (ph[c] * sp_zone[zone_of_cell[c]]);
+            }
+            p_tot += integral;
+        }
+        Ok(p_tot)
+    }
+}
