@@ -483,5 +483,8 @@ fn a_case_that_solves_fluid_mechanics_is_refused_by_name() {
     let text = std::fs::read_to_string(&p).expect("fvSolution");
     std::fs::write(&p, text.replace("solveFluidMechanics false", "solveFluidMechanics true")).expect("write");
     let err = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect_err("must refuse").to_string();
-    assert!(err.contains("solveFluidMechanics must be false"), "{err}");
+    // ~~round 19 (gh:#1837) ported the turbulence-off flow: this case (turbulence true) is refused for THAT~~
+    // **CORRECTED 2026-11-26 (round 20, gh:#1838/#1839):** `turbulence true` is ported, so the reader now gets as far as the
+    // shipped `p_rgh` solver (`GAMG`, not ported: the references of rounds 18-20 replace it by `PCG`/`DIC`)
+    assert!(err.contains("solvers.p_rgh: only PCG with the DIC preconditioner is ported"), "{err}");
 }

@@ -52,7 +52,7 @@
 //!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
-//! `solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775); heat exchangers, pumps,
+//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; power models other than `fixedTemperature`
 //! (without a time profile); heat-transfer models other than `constant`; thermo other than `heRhoThermo`
 //! `hConst` `Boussinesq` `const`; `residualControl` in `PIMPLE`. `dragModels` (`ReynoldsPower`) are read but
@@ -68,7 +68,14 @@ use std::path::Path;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
-use super::fv::{self, Bc, Eqn, Geometry, Scalar};
+mod flow;
+mod turbulence;
+pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
+use flow::FlowState;
+pub use turbulence::{near_wall_dist, set_values, DiagonalBicgstab, OnePhaseTurbulenceCase, WallFunctionCoeffs};
+use turbulence::TurbState;
+
+use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
 
@@ -184,6 +191,76 @@ impl BoussinesqHConst {
     }
 }
 
+/// What to do when `solvers.p_rgh` selects `GAMG` (the shipped 2D_MSFR case does).
+///
+/// `outram_foam_basic_lib`'s GAMG is not a translation of OpenFOAM's `GAMGSolver` (algebraic `|upper|` pairing, a symmetric
+/// 2+2 V-cycle, a dense coarsest solve, an unshifted residual norm; README round 21), so the port has no faithful `GAMG`.
+/// The substitution is a named deviation, chosen by this value and reported by [`OnePhaseFlowCase::p_rgh_gamg_substituted`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GamgPolicy {
+    /// Refuse `GAMG` by name (`only PCG with the DIC preconditioner is ported`).
+    Refuse,
+    /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21).
+    #[default]
+    SubstitutePcgDic,
+}
+
+/// The `controlDict` entries a stage of the Allrun chain sets (`startTime`, `endTime`, `deltaT`), typed instead of edited.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ControlOverrides {
+    /// `startTime`.
+    pub start_time: f64,
+    /// `endTime`.
+    pub end_time: f64,
+    /// `deltaT`.
+    pub delta_t: f64,
+}
+
+/// The fluid fields at the end of a stage, in the form the next stage reads them from its start directory
+/// (`T`, `p`, `U`, `alphat`, `alphaRhoPhi`, `alphaPhi`, `T.fixedTemperature`, `htc`, `powerDensityNeutronicsToLiquid`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FluidFields {
+    /// `T` per cell.
+    pub t: Vec<f64>,
+    /// `p` per cell.
+    pub p: Vec<f64>,
+    /// `U` per cell.
+    pub u: Vec<Vector3>,
+    /// `alphat` per cell.
+    pub alphat: Vec<f64>,
+    /// `alphaRhoPhi`, every face.
+    pub alpha_rho_phi: Vec<f64>,
+    /// `alphaPhi`, every face.
+    pub alpha_phi: Vec<f64>,
+    /// `T.fixedTemperature` per cell.
+    pub t_fixed: Vec<f64>,
+    /// `htc` per cell.
+    pub htc: Vec<f64>,
+    /// `powerDensityNeutronicsToLiquid` per cell.
+    pub power_density: Vec<f64>,
+}
+
+/// How a case is read: the stage edits of `Allrun` as values, and where the start fields come from.
+#[derive(Debug, Clone)]
+pub struct CaseReadOptions {
+    /// `GAMG` for `p_rgh`.
+    pub gamg: GamgPolicy,
+    /// `solveFluidMechanics` of the stage (`None`: as `fvSolution` says). `Allrun` sets `false` for EN and transient.
+    pub solve_fluid_mechanics: Option<bool>,
+    /// The stage's `startTime`/`endTime`/`deltaT` (`None`: as `controlDict` says).
+    pub controls: Option<ControlOverrides>,
+    /// Check `controlDict.regionSolvers` (a rootCase has it empty: the stage sets it, so the driver does not check).
+    pub check_region_solvers: bool,
+    /// The start fields (`None`: read `<startTime>/fluidRegion`), the in-memory form of `cp -r steadyStateTH/15`.
+    pub fields: Option<FluidFields>,
+}
+
+impl Default for CaseReadOptions {
+    fn default() -> Self {
+        Self { gamg: GamgPolicy::Refuse, solve_fluid_mechanics: None, controls: None, check_region_solvers: true, fields: None }
+    }
+}
+
 /// A read case (all fields at the start time).
 #[derive(Debug, Clone)]
 pub struct OnePhaseCcCase {
@@ -229,6 +306,8 @@ pub struct OnePhaseCcCase {
     pub power_density: Vec<f64>,
     /// `residualFluidStructureRe` (default 10).
     pub min_re: f64,
+    /// `solveFluidMechanics true`: the momentum/pressure part of the case (`None` for the frozen-flux region).
+    pub flow: Option<OnePhaseFlowCase>,
 }
 
 /// Parse `internalField` and the `value` of the named patches of a surface (or any scalar) field file.
@@ -317,8 +396,16 @@ impl OnePhaseCcCase {
     /// # Errors
     /// [`AppBuilderError::Case`] for a missing or unreadable file and for every selection not ported (see the
     /// module documentation).
-    #[allow(clippy::too_many_lines)]
     pub fn read(root: &Path, poly_mesh_dir: &Path) -> Result<Self, AppBuilderError> {
+        Self::read_with_options(root, poly_mesh_dir, &CaseReadOptions::default())
+    }
+
+    /// [`Self::read`] with the stage edits of `Allrun` as values (see [`CaseReadOptions`]).
+    ///
+    /// # Errors
+    /// As [`Self::read`]; `GAMG` is refused unless `options.gamg` substitutes it.
+    #[allow(clippy::too_many_lines)]
+    pub fn read_with_options(root: &Path, poly_mesh_dir: &Path, options: &CaseReadOptions) -> Result<Self, AppBuilderError> {
         let ctx = Ctx { root: root.to_path_buf() };
         let region = "fluidRegion";
         let mesh = read_poly_mesh(poly_mesh_dir)?;
@@ -348,9 +435,10 @@ impl OnePhaseCcCase {
         };
 
         let cd = ctx.read("system/controlDict")?;
-        let start_time = scalar(&cd, "startTime").unwrap_or(0.0);
-        let end_time = ctx.f64(&cd, "endTime")?;
-        let delta_t = ctx.f64(&cd, "deltaT")?;
+        let (start_time, end_time, delta_t) = match options.controls {
+            Some(c) => (c.start_time, c.end_time, c.delta_t),
+            None => (scalar(&cd, "startTime").unwrap_or(0.0), ctx.f64(&cd, "endTime")?, ctx.f64(&cd, "deltaT")?),
+        };
         let include_kinetic_energy = bool_entry(&cd, "includeKineticEnergy").unwrap_or(true);
         let max_co = scalar(&cd, "maxCo").unwrap_or(1.0);
         let max_delta_t = scalar(&cd, "maxDeltaT").unwrap_or(1.0e300);
@@ -361,16 +449,17 @@ impl OnePhaseCcCase {
             .get_dict("regionSolvers")
             .map(|rs| rs.iter().any(|(_, e)| matches!(e, FoamEntry::Word(w) if w == "multiPhysicsSolver")))
             .unwrap_or(false);
-        if !is_one_phase(region) && !in_multi {
+        if options.check_region_solvers && !is_one_phase(region) && !in_multi {
             return Err(ctx.e("regionSolvers: fluidRegion is neither onePhase nor inside a multiPhysicsSolver"));
         }
 
         // ---- fvSolution
         let fs = ctx.read(&format!("system/{region}/fvSolution"))?;
         let pimple = ctx.sub(&fs, "PIMPLE")?;
-        if bool_entry(pimple, "solveFluidMechanics") != Some(false) {
-            return Err(ctx.e("PIMPLE.solveFluidMechanics must be false (UEqn/pEqn and porousKEpsilon solving are not ported, gh:#1775)"));
-        }
+        let solve_flow = match (options.solve_fluid_mechanics, bool_entry(pimple, "solveFluidMechanics")) {
+            (Some(b), _) | (None, Some(b)) => b,
+            (None, None) => return Err(ctx.e("PIMPLE.solveFluidMechanics must be given")),
+        };
         if bool_entry(pimple, "solveEnergy") != Some(true) {
             return Err(ctx.e("PIMPLE.solveEnergy must be true"));
         }
@@ -461,6 +550,8 @@ impl OnePhaseCcCase {
         let mut dh = vec![1.0; n];
         let mut ia_act = vec![0.0; n];
         let mut fixed_cells = vec![false; n];
+        let mut momentum_source = vec![Vector3::ZERO; n];
+        let mut t_fixed_default = vec![0.0; n];
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
             for refused in ["powerOffCriterionModel", "heatExchangers"] {
@@ -469,6 +560,24 @@ impl OnePhaseCcCase {
                 }
             }
             let cells = zone_cells(key)?;
+            if solve_flow {
+                if let Some(FoamEntry::List(v)) = zd.get("momentumSource") {
+                    if zd.get("momentumSourceTimeProfile").is_some() || zd.get_dict("momentumSourceTimeProfile").is_some() {
+                        return Err(ctx.e("momentumSourceTimeProfile is not ported"));
+                    }
+                    if v.len() != 3 {
+                        return Err(ctx.e("momentumSource must be a vector"));
+                    }
+                    let src = Vector3::new(
+                        v[0].as_scalar().unwrap_or(0.0),
+                        v[1].as_scalar().unwrap_or(0.0),
+                        v[2].as_scalar().unwrap_or(0.0),
+                    );
+                    for &c in &cells {
+                        momentum_source[c] = src;
+                    }
+                }
+            }
             let vf = ctx.f64(zd, "volumeFraction")?;
             let d = ctx.f64(zd, "Dh")?;
             for &c in &cells {
@@ -488,9 +597,13 @@ impl OnePhaseCcCase {
                     return Err(ctx.e("fixedTemperature temperatureTimeProfile is not ported"));
                 }
                 let ia = ctx.f64(pm, "volumetricArea")?;
+                let t_pm = scalar(pm, "T");
                 for &c in &cells {
                     ia_act[c] = ia;
                     fixed_cells[c] = true;
+                    if let Some(t) = t_pm {
+                        t_fixed_default[c] = t;
+                    }
                 }
             }
         }
@@ -507,21 +620,72 @@ impl OnePhaseCcCase {
                 htc_model[c] = Some(model);
             }
         }
-        // dragModels: read for presence only (`Kd` does not enter the energy equation).
-        let _ = ctx.sub(pm_dict, "dragModels")?;
+        // dragModels: the energy equation does not see `Kd`; the solved flow does (`ReynoldsPower` only)
+        let dragd = ctx.sub(pm_dict, "dragModels")?;
+        let mut drag: Vec<Option<ReynoldsPowerDrag>> = vec![None; n];
+        if solve_flow {
+            for (zk, e) in dragd.iter() {
+                let FoamEntry::SubDict(md) = e else { continue };
+                if ctx.word(md, "type")? != "ReynoldsPower" {
+                    return Err(ctx.e(format!("dragModels.{zk}: only ReynoldsPower is ported for the solved flow")));
+                }
+                let model = ReynoldsPowerDrag {
+                    coeff: ctx.f64(md, "coeff")?,
+                    exp: ctx.f64(md, "exp")?,
+                    constant: scalar(md, "const").unwrap_or(0.0),
+                };
+                for c in zone_cells(zk)? {
+                    drag[c] = Some(model);
+                }
+            }
+        }
         let min_re = scalar(&pp, "residualFluidStructureRe").unwrap_or(10.0);
 
         // ---- fields at the start time
         let tdir = alloc::format!("{start_time}");
         let fdir = root.join(&tdir).join(region);
         let sfield = |name: &str| read_vol_scalar_field(&fdir.join(name), n);
-        let t = sfield("T")?;
-        let p = sfield("p")?;
-        let alphat = sfield("alphat")?;
-        let t_fixed = sfield("T.fixedTemperature")?;
-        let htc0 = sfield("htc")?;
-        let power_density = sfield("powerDensityNeutronicsToLiquid")?;
-        let u = read_vol_vector_field(&fdir.join("U"), n)?;
+        let hand = options.fields.as_ref();
+        if let Some(h) = hand {
+            if [h.t.len(), h.p.len(), h.u.len(), h.alphat.len(), h.t_fixed.len(), h.htc.len(), h.power_density.len()].iter().any(|&l| l != n)
+                || h.alpha_phi.len() != g.n_faces()
+                || h.alpha_rho_phi.len() != g.n_faces()
+            {
+                return Err(ctx.e("the handed-over fluid fields do not match the mesh"));
+            }
+        }
+        let t = match hand { Some(h) => h.t.clone(), None => sfield("T")? };
+        let p = match hand { Some(h) => h.p.clone(), None => sfield("p")? };
+        let alphat = match hand { Some(h) => h.alphat.clone(), None => sfield("alphat")? };
+        // upstream creates what a ROOT case lacks: `T.fixedTemperature` (`T` of the power-model dictionary in its zone,
+        // 0 elsewhere), zero `htc` and `powerDensityNeutronicsToLiquid`; only a case that solves the flow may start
+        // from them (the frozen-flux region needs a restart, its flux comes from the file)
+        let exists = |name: &str| fdir.join(name).exists();
+        let t_fixed = if let Some(h) = hand {
+            h.t_fixed.clone()
+        } else if solve_flow && !exists("T.fixedTemperature") {
+            t_fixed_default
+        } else {
+            sfield("T.fixedTemperature")?
+        };
+        let htc0 = if let Some(h) = hand {
+            h.htc.clone()
+        } else if solve_flow && !exists("htc") {
+            vec![0.0; n]
+        } else {
+            sfield("htc")?
+        };
+        let power_density = if let Some(h) = hand {
+            h.power_density.clone()
+        } else if solve_flow && !exists("powerDensityNeutronicsToLiquid") {
+            vec![0.0; n]
+        } else {
+            sfield("powerDensityNeutronicsToLiquid")?
+        };
+        if solve_flow && pp.get_dict("fluidProperties").is_some() {
+            return Err(ctx.e("fluidProperties/initialPowerDensity/initialAlpha are not ported for the solved flow"));
+        }
+        let u = match hand { Some(h) => h.u.clone(), None => read_vol_vector_field(&fdir.join("U"), n)? };
         let patches: Vec<(String, usize)> = mesh.patches.iter().map(|q| (q.name.clone(), q.size)).collect();
         let ni = g.n_internal();
         let surface = |name: &str| -> Result<Vec<f64>, AppBuilderError> {
@@ -538,8 +702,33 @@ impl OnePhaseCcCase {
             }
             Ok(out)
         };
-        let alpha_rho_phi = surface("alphaRhoPhi")?;
-        let alpha_phi = surface("alphaPhi")?;
+        let flow = if solve_flow {
+            let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg)?;
+            fc.turbulence = turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?;
+            Some(fc)
+        } else {
+            None
+        };
+        let (alpha_rho_phi, alpha_phi) = if hand.is_none() && solve_flow && !exists("alphaPhi") {
+            // `fluid::initAlphaPhis`: alphaPhi = interpolate(alpha) phi, alphaRhoPhi = interpolate(rho0) alphaPhi
+            let fcase = flow.as_ref().expect("flow case");
+            let mut uf = Vector::uniform(&g, Vector3::ZERO);
+            uf.c = u.clone();
+            uf.bc = fcase.u_bc.clone();
+            uf.correct_bc(&g);
+            let phi = fv::flux(&g, &uf);
+            let alpha_s = Scalar {
+                c: alpha_structure.iter().map(|s| 1.0 - s).collect(),
+                b: (ni..g.n_faces()).map(|f| 1.0 - alpha_structure[mesh.owner[f]]).collect(),
+                bc: vec![Bc::Calculated; mesh.patches.len()],
+            };
+            let af = fv::interp_linear(&g, &alpha_s);
+            let ap: Vec<f64> = (0..g.n_faces()).map(|f| af[f] * phi[f]).collect();
+            let arp: Vec<f64> = ap.iter().map(|v| thermo.rho0 * v).collect();
+            (arp, ap)
+        } else {
+            match hand { Some(h) => (h.alpha_rho_phi.clone(), h.alpha_phi.clone()), None => (surface("alphaRhoPhi")?, surface("alphaPhi")?) }
+        };
 
         Ok(Self {
             mesh,
@@ -563,6 +752,7 @@ impl OnePhaseCcCase {
             alpha_phi,
             power_density,
             min_re,
+            flow,
         })
     }
 }
@@ -587,6 +777,22 @@ pub struct OnePhaseCcSolver {
     power_density: Vec<f64>,
     dt: f64,
     time: f64,
+    /// `U` (cells and boundary; frozen in the energy-only region).
+    u: Vector,
+    /// `p` (frozen in the energy-only region).
+    p: Vec<f64>,
+    /// `p.oldTime()`: `None` until first requested (OpenFOAM stores old times lazily).
+    p_old: Option<Vec<f64>>,
+    /// Reproduce the lazy first-step old-time pressure of `fvc::ddt(p_)` (default true).
+    lazy_p_old: bool,
+    steps_begun: usize,
+    alpha_rho_phi: Vec<f64>,
+    alpha_phi: Vec<f64>,
+    /// The solver's `phi_` (Courant number).
+    phi_total: Vec<f64>,
+    flow: Option<FlowState>,
+    /// `porousKEpsilon` (`turbulence true`).
+    turb: Option<TurbState>,
 }
 
 /// What one PIMPLE outer iteration of the energy equation reported.
@@ -607,12 +813,29 @@ impl OnePhaseCcSolver {
         let n = geom.n_cells();
         // fluid_ = 1.0 - structure_
         let alpha: Vec<f64> = case.alpha_structure.iter().map(|s| 1.0 - s).collect();
-        let sa = Scalar { c: alpha.clone(), b: vec![0.0; geom.n_faces() - geom.n_internal()], bc: vec![Bc::Calculated; geom.mesh.patches.len()] };
+        let ni0 = geom.n_internal();
+        let sa = Scalar {
+            c: alpha.clone(),
+            b: (ni0..geom.n_faces()).map(|f| alpha[geom.mesh.owner[f]]).collect(),
+            bc: vec![Bc::Calculated; geom.mesh.patches.len()],
+        };
         let alpha_f = fv::interp_linear(&geom, &sa);
         let he: Vec<f64> = case.t.iter().map(|&t| case.thermo.hs(t)).collect();
         // `correctContErr`: ddt(alpha, rho0) is exactly 0 at construction (old time = current).
         let dv = fv::div(&geom, &case.alpha_rho_phi);
         let cont_err: Vec<f64> = (0..n).map(|c| 0.0 + dv[c]).collect();
+        let mut u = Vector::uniform(&geom, Vector3::ZERO);
+        u.c = case.u.clone();
+        if let Some(fc) = case.flow.as_ref() {
+            u.bc = fc.u_bc.clone();
+        }
+        u.correct_bc(&geom);
+        let flow = case.flow.as_ref().map(|fc| flow::FlowState::new(&geom, &case, fc, &u));
+        let turb = case
+            .flow
+            .as_ref()
+            .and_then(|fc| fc.turbulence.as_ref().map(|tc| TurbState::new(&geom, tc, &fc.nut, &fc.nut_boundary, &case.alphat)));
+        let (case_p, case_arp, case_ap) = (case.p.clone(), case.alpha_rho_phi.clone(), case.alpha_phi.clone());
         let t_act: Vec<f64> = (0..n).map(|c| if case.ia_act[c] != 0.0 { case.t_fixed[c] } else { 0.0 }).collect();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
@@ -632,6 +855,16 @@ impl OnePhaseCcSolver {
             power_density,
             dt,
             time,
+            u,
+            p: case_p,
+            p_old: None,
+            lazy_p_old: true,
+            steps_begun: 0,
+            alpha_rho_phi: case_arp,
+            phi_total: case_ap.clone(),
+            alpha_phi: case_ap,
+            flow,
+            turb,
         };
         s.update_re();
         s
@@ -644,6 +877,23 @@ impl OnePhaseCcSolver {
     #[cfg(feature = "std")]
     pub fn from_case_dir(root: &Path, poly_mesh_dir: &Path) -> Result<Self, AppBuilderError> {
         Ok(Self::new(OnePhaseCcCase::read(root, poly_mesh_dir)?))
+    }
+
+    /// The fields as the stage writes them at its end (`alphaPhi`/`alphaRhoPhi` as last set at the start of the last `pEqn`,
+    /// the lag upstream writes): what the next stage reads from its start directory.
+    #[must_use]
+    pub fn fluid_fields(&self) -> FluidFields {
+        FluidFields {
+            t: self.t.clone(),
+            p: self.p.clone(),
+            u: self.u.c.clone(),
+            alphat: self.turb.as_ref().map_or_else(|| self.case.alphat.clone(), |t| t.alphat.c.clone()),
+            alpha_rho_phi: self.alpha_rho_phi.clone(),
+            alpha_phi: self.alpha_phi.clone(),
+            t_fixed: self.case.t_fixed.clone(),
+            htc: self.htc.clone(),
+            power_density: self.power_density.clone(),
+        }
     }
 
     /// The case as read.
@@ -700,6 +950,58 @@ impl OnePhaseCcSolver {
         self.dt = dt;
         self.time += dt;
         self.he_old = self.he.clone();
+        let uc = self.u.c.clone();
+        if let Some(fs) = self.flow.as_mut() {
+            fs.u_old = uc;
+            fs.solves.clear();
+        }
+        // `p.oldTime()` is stored at the first non-const access of a new time step; in the FIRST step OpenFOAM has no
+        // old-time copy yet and `fvc::ddt(p_)` (the energy equation) is the first request (round 3's quirk).
+        self.p_old = if self.steps_begun == 0 && self.lazy_p_old { None } else { Some(self.p.clone()) };
+        if let Some(t) = self.turb.as_mut() {
+            t.k_old = t.k.c.clone();
+            t.step_solves.clear();
+            t.epsilon_old = t.epsilon.c.clone();
+        }
+        self.steps_begun += 1;
+    }
+
+    /// DEPRECATED (gh:#1837): the old-time pressure of step 1 is the initial pressure, not the pressure after the first
+    /// `p_rgh` solve that upstream's lazy `oldTime()` gives. The ablation of the default.
+    #[must_use]
+    pub fn without_first_step_lazy_old_pressure(mut self) -> Self {
+        self.lazy_p_old = false;
+        self
+    }
+
+    /// `U` per cell.
+    #[must_use]
+    pub fn velocity(&self) -> &[Vector3] {
+        &self.u.c
+    }
+
+    /// `p` per cell [Pa].
+    #[must_use]
+    pub fn pressure(&self) -> &[f64] {
+        &self.p
+    }
+
+    /// `p_rgh` per cell [Pa] (`None` for the frozen-flux region).
+    #[must_use]
+    pub fn p_rgh(&self) -> Option<&[f64]> {
+        self.flow.as_ref().map(|f| f.p_rgh.c.as_slice())
+    }
+
+    /// `alphaPhi` on every face, as last set (at the start of the last `pEqn`).
+    #[must_use]
+    pub fn alpha_phi(&self) -> &[f64] {
+        &self.alpha_phi
+    }
+
+    /// The pressure solves of the last time step (empty without flow).
+    #[must_use]
+    pub fn pressure_solves(&self) -> &[PressureSolve] {
+        self.flow.as_ref().map_or(&[], |f| f.solves.as_slice())
     }
 
     /// `FSPair::correct` quantities that do not need the fluid dynamics: `Re` (`nu = mu/rho(T)`).
@@ -709,7 +1011,7 @@ impl OnePhaseCcSolver {
             let nu = th.mu / th.rho(self.t[c]);
             // normalized = alpha / (1 - structure)
             let norm = self.alpha[c] / (1.0 - self.case.alpha_structure[c]);
-            let re = norm * self.case.u[c].mag() * self.case.dh[c] / nu;
+            let re = norm * self.u.c[c].mag() * self.case.dh[c] / nu;
             self.re[c] = re.max(self.case.min_re);
         }
     }
@@ -717,6 +1019,7 @@ impl OnePhaseCcSolver {
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
         self.update_re();
+        self.correct_kd();
         for c in 0..self.geom.n_cells() {
             if let Some(m) = self.case.htc_model[c] {
                 self.htc[c] = m.value();
@@ -753,7 +1056,7 @@ impl OnePhaseCcSolver {
         let th = self.case.thermo.clone();
         let rho0 = th.rho0;
         let cp = th.cp;
-        let phi = &self.case.alpha_rho_phi;
+        let phi = &self.alpha_rho_phi;
         let he_scalar = Scalar {
             c: self.he.clone(),
             b: vec![0.0; g.n_faces() - ni],
@@ -772,7 +1075,7 @@ impl OnePhaseCcSolver {
         // - laplacian(interpolate(alpha) interpolate(alphaEff), he), alphaEff = alpha_thermo + alphat
         let ah = th.alpha_h();
         let ae = Scalar {
-            c: (0..n).map(|c| ah + self.case.alphat[c]).collect(),
+            c: (0..n).map(|c| ah + self.turb.as_ref().map_or(self.case.alphat[c], |t| t.alphat.c[c])).collect(),
             b: vec![0.0; g.n_faces() - ni],
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
@@ -782,9 +1085,16 @@ impl OnePhaseCcSolver {
         // right-hand side: alpha rho0 (U.g); alpha ddt(p) = 0 exactly (p is never modified)
         let mut rhs = vec![0.0; n];
         for c in 0..n {
-            rhs[c] = self.alpha[c] * rho0 * self.case.u[c].dot(self.case.gravity);
+            rhs[c] = self.alpha[c] * rho0 * self.u.c[c].dot(self.case.gravity);
         }
         e.su(&g, &rhs);
+        // `EEqn -= alpha*fvc::ddt(p_)`: `p.oldTime()` is created by this very call in step 1 (see `begin_time_step`)
+        {
+            let p_now = &self.p;
+            let p_old = self.p_old.get_or_insert_with(|| p_now.clone());
+            let dp: Vec<f64> = (0..n).map(|c| self.alpha[c] * (rdt * (p_now[c] - p_old[c]))).collect();
+            e.su(&g, &dp);
+        }
         if self.case.controls.include_kinetic_energy {
             let mut k = Scalar {
                 c: vec![0.0; n],
@@ -792,13 +1102,18 @@ impl OnePhaseCcSolver {
                 bc: vec![Bc::Calculated; g.mesh.patches.len()],
             };
             for c in 0..n {
-                let u = self.case.u[c] * 0.5;
-                k.c[c] = u.dot(self.case.u[c]);
+                let u = self.u.c[c] * 0.5;
+                k.c[c] = u.dot(self.u.c[c]);
             }
             // wedge/wall boundary values of K: the cell value (a wedge patch value is the cell value
             // rotated; the rotation preserves |U|)
             for f in ni..g.n_faces() {
-                k.b[f - ni] = k.c[g.mesh.owner[f]];
+                k.b[f - ni] = if self.flow.is_some() {
+                    let ub = self.u.b[f - ni];
+                    (ub * 0.5).dot(ub)
+                } else {
+                    k.c[g.mesh.owner[f]]
+                };
             }
             let kf = fv::interp_upwind(&g, &k, phi);
             let flux: Vec<f64> = (0..g.n_faces()).map(|f| phi[f] * kf[f]).collect();
@@ -870,8 +1185,15 @@ impl OnePhaseCcSolver {
     pub fn correct_physics(&mut self) -> (f64, OnePhaseCcReport) {
         let mut residual = 0.0_f64;
         let mut rep = OnePhaseCcReport { h_residuals: Vec::new(), t_stats: Vec::new() };
-        for _ in 0..self.case.controls.n_outer {
+        let n_outer = self.case.controls.n_outer;
+        for outer in 1..=n_outer {
             self.correct_models();
+            if self.flow.is_some() {
+                self.correct_fluid_mechanics(outer, outer == n_outer);
+                if let Some(fs) = self.flow.as_ref() {
+                    self.phi_total = fs.phi_solver.clone();
+                }
+            }
             let (r, st) = self.correct_energy();
             residual = residual.max(r);
             rep.h_residuals.push(r);
@@ -891,7 +1213,7 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn courant(&self) -> (f64, f64) {
         let g = &self.geom;
-        let sum = fv::surface_sum_mag(g, &self.case.alpha_phi);
+        let sum = fv::surface_sum_mag(g, &self.phi_total);
         let n = g.n_cells();
         let vols = &g.mesh.cell_volumes;
         let mut maxv = f64::MIN;
