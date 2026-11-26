@@ -130,7 +130,9 @@ in the demo.
   that reason until the network model is checked (the human check of the
   drawn geometry, gh:#1110); then re-bless and un-ignore them.
   One attempt was stopped at its 7000 s timeout, so a 30 h network run with
-  #1116 takes over about 2 h. The lumped fixture is unaffected.
+  #1116 takes over about 2 h. ~~The lumped fixture is unaffected.~~
+  **CORRECTED 2026-11-26:** the lumped fixture was re-blessed after the
+  swell fix (gh:#1810) and its test is now ignored too (the next item).
 - **No regression pins on `bwr_mark1` for now (2026-11-26, gh:#1810;
   maintainer: "Ignore sembawang pins for now, nothing to pin against", and
   the root `CLAUDE.md` rule "No regression pins until the physics is
