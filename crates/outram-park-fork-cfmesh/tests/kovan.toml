@@ -1601,6 +1601,276 @@ uses = [
 ]
 test = true
 
+[module."tetgen_quality_vs_upstream.rs"]
+path = "test:tetgen_quality_vs_upstream"
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:17b23a7378916d19"
+name = "gunzip"
+qual = "gunzip"
+lines = [
+    28,
+    36,
+]
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:7b3db56f9d6b30e4"
+name = "root"
+qual = "root"
+lines = [
+    38,
+    40,
+]
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:e36d44e64b0fd638"
+name = "read_gz"
+qual = "read_gz"
+lines = [
+    42,
+    46,
+]
+hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:17b23a7378916d19",
+    "fn:7b3db56f9d6b30e4",
+]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:63ec4e2ddd7a9bc7"
+name = "reference"
+qual = "reference"
+lines = [
+    48,
+    55,
+]
+hash = "sha256:54bd95418682bd3e1445596beb3eb9b8cb3f633aea9afd515cff149e44c35c70"
+doc_hash = "sha256:6522265da3d97e940695a0b4d808538b36d66423e90003794a5dc448ce4fb55a"
+callees = ["fn:e36d44e64b0fd638"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:a85086248e3e5339"
+name = "input"
+qual = "input"
+lines = [
+    57,
+    73,
+]
+hash = "sha256:b82d6ffc5f857e62202a45b0ddf739cc9a8601dd6e00ccd514c0aa99571018a7"
+doc_hash = "sha256:e53f47c688bc1e443ca9bafb9f05e7c7c9acd350dbd0e0ab7a345396792f7d11"
+callees = ["fn:e36d44e64b0fd638"]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:d49da8851d655b9d"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    75,
+    98,
+]
+hash = "sha256:bb21ebb02eb4901a97a6ff4e2002d103c71e2bd038d7241e0c34be34137c9fd4"
+doc_hash = "sha256:5deff1c544b6dfb0a422a9101001608e61d912171a162de991d9f50371bf5741"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:2aa4bb120e7d46d9"
+name = "runs"
+qual = "runs"
+lines = [
+    100,
+    132,
+]
+hash = "sha256:c6d34b8ca3aaa728c0f8f9eda4b275d26a526e607a83ba23e3e7849b5beee027"
+doc_hash = "sha256:0ef06582dad7412878955c1db75c0562410fba8b47b098386cf2d6c6749d44a2"
+callees = ["fn:a8c5ab9c55b543d9"]
+uses = ["fn:d49da8851d655b9d"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:a8c5ab9c55b543d9"
+name = "mesh_studio_runs"
+qual = "mesh_studio_runs"
+lines = [
+    134,
+    141,
+]
+hash = "sha256:9e89b8ddb53ed19fa619a1de850ddf25d1334d9281a7a4ec19bcaa14cf540f0e"
+doc_hash = "sha256:b3bb7239c91660c2c22da1e60cb791bd6b085917fb0002be0e2b29253f69df9a"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:fac37890a78792d5"
+name = "tag"
+qual = "tag"
+lines = [
+    143,
+    146,
+]
+hash = "sha256:c77a57f841c9d45fed4a683c0cd8c1f60df0061c701bf36ce6f27611ee96a8fc"
+doc_hash = "sha256:b05cbeab104799a8ff200a9010c183308ceb0913580de9f35955206177ab9303"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:800dbaa1e2b32e88"
+name = "run"
+qual = "run"
+lines = [
+    148,
+    160,
+]
+hash = "sha256:ad74ede0a2790b10dae4b2d985e504dcbd6d253b02283c6689757579172fcce8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:771e812129659e7b",
+    "fn:a85086248e3e5339",
+    "fn:ce773a8c18c56a13",
+]
+uses = [
+    "fn:8d734c21969ac0e6",
+    "fn:9d31c3e16ee6aee8",
+]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:ae511b0acd509685"
+name = "files"
+qual = "files"
+lines = [
+    162,
+    170,
+]
+hash = "sha256:bfede814f5c17e3b520575d4f5807e9370bcdf52b897c46fc8a6f78d2cf8da56"
+doc_hash = "sha256:ab052ce4e19ff2bca0b485d9cd24dd5325001e10d10b89f256c728be1955b904"
+callees = [
+    "fn:6d287bb65f177349",
+    "fn:8292c558519bd890",
+    "fn:ad77aff9f3a06e04",
+    "fn:cef9cdef0608a7e3",
+]
+uses = ["fn:8d734c21969ac0e6"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:315b33fb6d0c7905"
+name = "quality_output_matches_upstream_byte_for_byte"
+qual = "quality_output_matches_upstream_byte_for_byte"
+lines = [
+    172,
+    228,
+]
+hash = "sha256:1653939d6519564d9f9769b8068f3b3846088a8f69e32cbcee1780af543373ba"
+doc_hash = "sha256:a92f5bea1ffdbcf9eb54db19b56957722c2dfb3ee7865fd27d81ea594bc9950b"
+callees = [
+    "fn:2aa4bb120e7d46d9",
+    "fn:63ec4e2ddd7a9bc7",
+    "fn:800dbaa1e2b32e88",
+    "fn:ae511b0acd509685",
+    "fn:fac37890a78792d5",
+]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:a1a2bd94b765ad4b"
+name = "quality_statistics_match_upstream_dash_v"
+qual = "quality_statistics_match_upstream_dash_v"
+lines = [
+    230,
+    251,
+]
+hash = "sha256:6fdb0689e724198ce4dc341a3127032291697af339ed7fa14eb6b1eb108b0b25"
+doc_hash = "sha256:05f4f9e638eb51bd829ff69446c916621012dd4f93c57ceea643ad908ecabf31"
+callees = [
+    "fn:2aa4bb120e7d46d9",
+    "fn:a85086248e3e5339",
+    "fn:a8c5ab9c55b543d9",
+    "fn:ce773a8c18c56a13",
+    "fn:e36d44e64b0fd638",
+]
+uses = ["fn:9d31c3e16ee6aee8"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:9e57e14edab01278"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+lines = [
+    253,
+    269,
+]
+hash = "sha256:5a1e59d96287961498c8a86457b3ab8bce6587538152429b09dc6489999dfd8c"
+doc_hash = "sha256:98eb447734ff37afd2535b6f499b6d8edb8c48b1fec6f6174367f8458fce0a87"
+callees = [
+    "fn:771e812129659e7b",
+    "fn:a85086248e3e5339",
+    "fn:ce773a8c18c56a13",
+]
+uses = ["fn:9d31c3e16ee6aee8"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:5b30cf86da45b2ab"
+name = "ratio_and_volume"
+qual = "ratio_and_volume"
+lines = [
+    271,
+    302,
+]
+hash = "sha256:82a91525a607509b8b1e1095c92c6f0bf6762fb0bf0bc7a8013974f368eb6099"
+doc_hash = "sha256:e74e181f2fc193bed50104e39240fb70eeed6624470077821a475b4b8f19f64f"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:55abbb47f8fc7dcc"
+name = "refined_meshes_meet_their_bounds"
+qual = "refined_meshes_meet_their_bounds"
+lines = [
+    304,
+    390,
+]
+hash = "sha256:d9b2f9d9ed6a6982a4f33c4b96ddded38c139841fc342c27114c021e9dd13c65"
+doc_hash = "sha256:4e777dd55a5400e3254f721837a56f253d90437533fad90e7660d149822c1277"
+callees = [
+    "fn:2aa4bb120e7d46d9",
+    "fn:5b30cf86da45b2ab",
+    "fn:800dbaa1e2b32e88",
+    "fn:e36d44e64b0fd638",
+]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:c0a87bb6bb21dbe1"
+name = "switch_builders_equal_the_parser"
+qual = "switch_builders_equal_the_parser"
+lines = [
+    392,
+    408,
+]
+hash = "sha256:fdc3b94f40ad24bdbe0e830eeedd1886a9e71ea5e0902e12134015b177c40095"
+doc_hash = "sha256:0d638b4a20b908dcd1207b1de957c17e243458a073073eeab7c9805a1ed72ade"
+callees = [
+    "fn:0a9ec32b4ea29650",
+    "fn:2aeeca6fd7c8af77",
+    "fn:771e812129659e7b",
+    "fn:a8dd22660fd4a543",
+    "fn:ae87c27865ba83fb",
+    "fn:c0aced4fcae4688c",
+]
+uses = ["fn:9d31c3e16ee6aee8"]
+test = true
+
 [module."tetgen_recoverboundary_vs_upstream.rs"]
 path = "test:tetgen_recoverboundary_vs_upstream"
 

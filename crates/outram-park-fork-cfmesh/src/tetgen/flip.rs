@@ -43,7 +43,9 @@
 //!
 //! **Branches not ported** (not reached by boundary recovery, which never
 //! sets them): ~~`flipconstraints::remove_large_angle` (`get_tetqual`, mesh
-//! improvement, stage 6),~~ `chkencflag` queues (`enqueuesubface`,
+//! improvement, stage 6),~~ ~~`chkencflag` queues~~ (**ported in stage 6,
+//! gh:#1795:** the `chkencflag & 1` / `& 2` queues of `flip23`, `flip32`,
+//! `flip41` and `flip22`) (`enqueuesubface`,
 //! ~~`enqueuetetrahedron`,~~ Delaunay refinement), ~~element attributes
 //! and~~ volume bounds (~~`-A`,~~ `-a`). `remove_ndelaunay_edge` (the
 //! `tetprismvol` sum) and `unflip` are ported: `recoverdelaunay` (stage 5)
@@ -188,8 +190,9 @@ pub fn tetprismvol(
 pub struct FlipConstraints {
     /// `enqflag` (= flipflag).
     pub enqflag: i32,
-    /// `chkencflag` (always 0 in boundary recovery; the queues are not
-    /// ported).
+    /// `chkencflag` (always 0 in boundary recovery): bit 1 queues the
+    /// segments, bit 2 the subfaces a flip rebonds (Delaunay refinement,
+    /// stage 6), bit 4 the new tetrahedra (mesh improvement, stage 5).
     pub chkencflag: i32,
     /// `unflip`: undo the performed flips.
     pub unflip: bool,
@@ -1893,6 +1896,9 @@ impl TetgenMesh {
                     let newface = eorgoppo(&fliptets[i]);
                     self.tssbond1(&newface, &checkseg);
                     self.sstbond1(&checkseg, &newface);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
             }
             // The top three: [d,a], [d,b], [d,c]. Two tets per edge.
@@ -1907,6 +1913,9 @@ impl TetgenMesh {
                     eprevself(&mut newface);
                     self.tssbond1(&newface, &checkseg);
                     self.sstbond1(&checkseg, &newface);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
             }
             // The bot three: [a,e], [b,e], [c,e]. Two tets per edge.
@@ -1921,6 +1930,9 @@ impl TetgenMesh {
                     enextself(&mut newface);
                     self.tssbond1(&newface, &checkseg);
                     self.sstbond1(&checkseg, &newface);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
             }
         }
@@ -1932,6 +1944,9 @@ impl TetgenMesh {
                     let checksh = sesym(&self.tspivot(&topcastets[i]));
                     let newface = eorgoppo(&fliptets[i]);
                     self.tsbond(&newface, &checksh);
+                    if fc.chkencflag & 2 != 0 {
+                        self.enqueuesubface(&checksh); // (stage 6)
+                    }
                 }
             }
             for i in 0..3 {
@@ -1939,6 +1954,9 @@ impl TetgenMesh {
                     let checksh = sesym(&self.tspivot(&botcastets[i]));
                     let newface = edestoppo(&fliptets[i]);
                     self.tsbond(&newface, &checksh);
+                    if fc.chkencflag & 2 != 0 {
+                        self.enqueuesubface(&checksh); // (stage 6)
+                    }
                 }
             }
         }
@@ -2177,6 +2195,9 @@ impl TetgenMesh {
                     self.sstbond1(&checkseg, &f0);
                     self.tssbond1(&f1, &checkseg);
                     self.sstbond1(&checkseg, &f1);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
                 enextself(&mut fliptets[0]);
                 eprevself(&mut fliptets[1]);
@@ -2191,6 +2212,9 @@ impl TetgenMesh {
                     let checkseg = self.tsspivot1(&casface);
                     self.tssbond1(&newface, &checkseg);
                     self.sstbond1(&checkseg, &newface);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
                 enextself(&mut fliptets[0]);
             }
@@ -2204,6 +2228,9 @@ impl TetgenMesh {
                     let checkseg = self.tsspivot1(&casface);
                     self.tssbond1(&newface, &checkseg);
                     self.sstbond1(&checkseg, &newface);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
                 eprevself(&mut fliptets[1]);
             }
@@ -2217,6 +2244,9 @@ impl TetgenMesh {
                     let checksh = sesym(&self.tspivot(t));
                     let newface = esym(&fliptets[0]);
                     self.tsbond(&newface, &checksh);
+                    if fc.chkencflag & 2 != 0 {
+                        self.enqueuesubface(&checksh); // (stage 6)
+                    }
                 }
                 enextself(&mut fliptets[0]);
             }
@@ -2227,6 +2257,9 @@ impl TetgenMesh {
                     let checksh = sesym(&self.tspivot(t));
                     let newface = esym(&fliptets[1]);
                     self.tsbond(&newface, &checksh);
+                    if fc.chkencflag & 2 != 0 {
+                        self.enqueuesubface(&checksh); // (stage 6)
+                    }
                 }
                 eprevself(&mut fliptets[1]);
             }
@@ -2235,7 +2268,7 @@ impl TetgenMesh {
                 // Perform a 2-to-2 flip in subfaces.
                 let sp = spivot as usize;
                 let mut flipfaces = [flipshs[(sp + 1) % 3], sesym(&flipshs[(sp + 2) % 3])];
-                self.flip22(&mut flipfaces, false);
+                self.flip22_chk(&mut flipfaces, false, fc.chkencflag);
                 // Connect the flipped subfaces to flipped tets.
                 topcastets[0] = fliptets[0];
                 botcastets[0] = fliptets[1];
@@ -2569,6 +2602,9 @@ impl TetgenMesh {
                     enextself(&mut newface); // At edges [a,d], [b,d], [c,d].
                     self.tssbond1(&newface, &checkseg);
                     self.sstbond1(&checkseg, &newface);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
                 enextself(&mut fliptets[0]);
             }
@@ -2578,6 +2614,9 @@ impl TetgenMesh {
                     let f0 = fliptets[0];
                     self.tssbond1(&f0, &checkseg);
                     self.sstbond1(&checkseg, &f0);
+                    if fc.chkencflag & 1 != 0 {
+                        self.enqueuesubface(&checkseg); // (stage 6)
+                    }
                 }
                 enextself(&mut fliptets[0]);
             }
@@ -2590,6 +2629,9 @@ impl TetgenMesh {
                     let checksh = sesym(&self.tspivot(t)); // At faces [a,b,d],[b,c,d],[c,a,d]
                     let newface = esym(&fliptets[0]); // At faces [b,a,d],[c,b,d],[a,c,d]
                     self.tsbond(&newface, &checksh);
+                    if fc.chkencflag & 2 != 0 {
+                        self.enqueuesubface(&checksh); // (stage 6)
+                    }
                 }
                 enextself(&mut fliptets[0]);
             }
@@ -2597,6 +2639,9 @@ impl TetgenMesh {
                 let checksh = sesym(&self.tspivot(&botcastet)); // At face [b,a,c]
                 let f0 = fliptets[0];
                 self.tsbond(&f0, &checksh);
+                if fc.chkencflag & 2 != 0 {
+                    self.enqueuesubface(&checksh); // (stage 6)
+                }
             }
 
             if spivot >= 0 {

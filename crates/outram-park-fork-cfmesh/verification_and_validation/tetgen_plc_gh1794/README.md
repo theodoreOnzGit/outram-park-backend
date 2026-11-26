@@ -253,7 +253,9 @@ a defect to fix here.
 
 ## Not ported (with why)
 
-`-q` (`delaunayrefinement`), `-a` volume bounds, `-m`, `-R`
+~~`-q` (`delaunayrefinement`), `-a` volume bounds,~~ (**UPDATED
+2026-11-26:** `-q` and `-a#` are ported in stage 6, gh:#1795,
+`../tetgen_quality_gh1795/`; `-aa` is not) `-m`, `-R`
 (`meshcoarsening`), `-i`, `-o2`, `-c` (`b->convex`), `-H` (hole mesh),
 `-D` (CDT), `-B`, `-nn`, `-f`, `-e`, `-w`, point attributes: switches the
 `-p` route here does not take. `skipped_facet_list` (self-intersecting

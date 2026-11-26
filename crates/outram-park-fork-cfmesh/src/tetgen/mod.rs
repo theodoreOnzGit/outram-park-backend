@@ -36,7 +36,7 @@
 //! | 3 | gh:#1792 | PLC input (`.poly`/`.smesh`/`.edge`) and surface meshing (`meshsurface`) | **done: [`plc`], [`surface`]** |
 //! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | **done: [`flip`], [`recover`], [`steiner`]** |
 //! | 5 | gh:#1794 | the rest of `-p`: `carveholes`, `suppresssteinerpoints`, `recoverdelaunay`, `smooth_vertices`, `improve_mesh`, `jettisonnodes`, the `.node`/`.ele`/`.face`/`.edge` output, [`to_volume_mesh`] | **done: [`carve`], [`optimize`], [`output`], [`tetrahedralize`]** |
-//! | 6 | gh:#1795 | Delaunay refinement (`-q`, `-a`); ~~mesh improvement~~ (ported in stage 5: plain `-p` runs it) | not started |
+//! | 6 | gh:#1795 | Delaunay refinement (`-q`, `-a`); ~~mesh improvement~~ (ported in stage 5: plain `-p` runs it) | **done: [`refine`], [`quality`]** |
 //! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | not started |
 //!
 //! Stage 2 adds the mesh object ([`mesh::TetgenMesh`]: pools, records,
@@ -86,6 +86,16 @@
 //! (`verification_and_validation/tetgen_plc_gh1794/`). [`to_volume_mesh`]
 //! gives this crate's `VolumeMesh`, one patch per facet marker.
 //!
+//! Stage 6 adds Delaunay refinement ([`refine`]: `delaunayrefinement`,
+//! `repairencsegs`, `repairencfacs`, `repairbadtets`, the encroachment
+//! tests, `split_segment` / `split_subface` / `split_tetrahedron`, the
+//! facet and segment maps; `insertpoint`'s `rejflag`, insertion radii and
+//! `chkencflag` queues; [`Switches::quality`], [`Switches::max_volume`])
+//! and the `-V` statistics ([`quality`]). Under `-pq`, `-pq<r>/<a>`,
+//! `-pqa<V>` and `-pqA` its `.node`, `.ele`, `.face` and `.edge` files
+//! equal the unmodified upstream binary's byte for byte on 41 runs, with
+//! 64 reach counters equal (`verification_and_validation/tetgen_quality_gh1795/`).
+//!
 //! **The pool order is part of the answer.** Upstream numbers its output by
 //! walking its memory pools in allocation order and reuses freed records
 //! last-in first-out; [`mesh::MemoryPool`] reproduces both, and anything that
@@ -118,6 +128,8 @@ pub mod output;
 pub mod plc;
 pub mod predicates;
 pub mod recover;
+pub mod quality;
+pub mod refine;
 pub mod steiner;
 pub mod surface;
 pub mod tetrahedralize;

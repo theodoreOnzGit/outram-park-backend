@@ -51,7 +51,8 @@
 //!   (gh:#1793):** ported for boundary recovery as
 //!   [`TetgenMesh::sinsertvertex_full`]; `sinsertvertex` calls it with no
 //!   segment;
-//! - `flip22`'s `chkencflag` queues (`badsubsegs`, `badsubfacs`): always 0
+//! - ~~`flip22`'s `chkencflag` queues (`badsubsegs`, `badsubfacs`): always 0~~
+//!   (ported in stage 6, gh:#1795: `flip22_chk`); before stage 6: always 0
 //!   here; `flip31` and `sremovevertex` (not called by `meshsurface`;
 //!   **ported in stage 4**, gh:#1793, `flip.rs` and `steiner.rs`);
 //! - `sscoutsegment`'s `reporterrorflag` printouts (the results are kept);
@@ -780,6 +781,14 @@ impl TetgenMesh {
     /// `[c,d,b]`, `[d,c,a]`. `flipfaces[1]` may be reversed on return, as
     /// upstream.
     pub fn flip22(&mut self, flipfaces: &mut [Face; 2], flipflag: bool) {
+        self.flip22_chk(flipfaces, flipflag, 0);
+    }
+
+    /// `flip22(flipfaces, flipflag, chkencflag)`: [`TetgenMesh::flip22`]
+    /// with the encroachment queues of Delaunay refinement (stage 6,
+    /// gh:#1795): `chkencflag & 1` queues the four boundary segments met,
+    /// `& 2` the two flipped subfaces.
+    pub fn flip22_chk(&mut self, flipfaces: &mut [Face; 2], flipflag: bool, chkencflag: i32) {
         self.reach[31] += 1;
         let pa = self.sorg(&flipfaces[0]);
         let pb = self.sdest(&flipfaces[0]);
@@ -862,8 +871,21 @@ impl TetgenMesh {
             }
             if !bdsegs[k].is_null() {
                 self.ssbond(&bdedges[i], &bdsegs[k]);
+                if chkencflag & 1 != 0 {
+                    // Queue this segment for encroaching check.
+                    let sg = bdsegs[k];
+                    self.enqueuesubface(&sg);
+                }
             } else {
                 self.ssdissolve(&bdedges[i]);
+            }
+        }
+
+        if chkencflag & 2 != 0 {
+            // Queue the flipped subfaces for quality/encroaching checks.
+            for f in flipfaces.iter() {
+                let f = *f;
+                self.enqueuesubface(&f);
             }
         }
 

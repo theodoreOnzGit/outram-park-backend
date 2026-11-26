@@ -4,8 +4,11 @@
 //! assembled mesh, never from the named dimensions.
 //!
 //! ```text
-//! cargo run -p dhoby-ghaut --example mesh_studio --release -- --tetgen-render <dir>
+//! cargo run -p dhoby-ghaut --example mesh_studio --release -- --tetgen-render <dir> [switches]
 //! ```
+//!
+//! `switches` defaults to `pzA` (stage 5); stage 6 (gh:#1795) draws the
+//! refined meshes with `pq1.414a0.0026zA` (`-A` only colours the regions).
 //!
 //! The chain is the crate's, end to end: [`super::model::reactor_surface`]
 //! (the surface Mesh Studio meshes), `PlcInput::from_triangle_soup` with one
@@ -51,12 +54,21 @@ pub struct Drawn {
 /// # Errors
 /// When TetGen or a converter refuses the input (the message says which).
 pub fn draw(kind: GeomKind, size: f64) -> Result<Drawn, String> {
+    draw_with(kind, size, "pzA")
+}
+
+/// [`draw`] under the TetGen switches `sw` (e.g. `"pq1.414a0.0026zA"`, the
+/// Delaunay-refined mesh of stage 6, gh:#1795).
+///
+/// # Errors
+/// As [`draw`], and when `sw` is not a switch string the port takes.
+pub fn draw_with(kind: GeomKind, size: f64, sw: &str) -> Result<Drawn, String> {
     let (points, tris, labels, _walls) = reactor_surface(kind, size);
     let regions = SurfaceRegions::from_labels(&labels);
     let pts: Vec<[f64; 3]> = points.iter().map(|p| [p.x, p.y, p.z]).collect();
     let markers: Vec<i32> = regions.region_of_tri.iter().map(|&r| r as i32).collect();
     let plc = PlcInput::from_triangle_soup(&pts, &tris, &markers);
-    let b = Switches::parse("pzA")?.behavior();
+    let b = Switches::parse(sw)?.behavior();
     let r = tetrahedralize_plc(&plc, &b).map_err(|e| format!("tetgen: {e:?}"))?;
     let out = r.output.ok_or("no output")?;
     let vm = to_volume_mesh(&out, Some(&regions.names));
@@ -130,7 +142,8 @@ pub fn draw(kind: GeomKind, size: f64) -> Result<Drawn, String> {
             })
             .collect();
         let title = format!(
-            "TETGEN -PZA, {} SIZE {size}: {what}, {} CUT TETS OF {}, {} NODES",
+            "TETGEN -{}, {} SIZE {size}: {what}, {} CUT TETS OF {}, {} NODES",
+            sw.to_uppercase(),
             kind.slug().to_uppercase(),
             sections.len(),
             vm.n_cells,
@@ -197,11 +210,11 @@ fn line(img: &mut ImageData, a: (f64, f64), b: (f64, f64), c: Rgb) {
 
 /// Draw the three cases into `dir` and return one summary line each.
 /// Start-up glue for `--tetgen-render`; `draw` is what the test reaches.
-pub fn render_all(dir: &std::path::Path) -> Result<Vec<String>, String> {
+pub fn render_all(dir: &std::path::Path, sw: &str) -> Result<Vec<String>, String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let mut lines = Vec::new();
     for kind in [GeomKind::Pipe, GeomKind::FuelChannel, GeomKind::Pebble] {
-        let d = draw(kind, 2.0)?;
+        let d = draw_with(kind, 2.0, sw)?;
         for (name, img) in &d.images {
             img.write_png(dir.join(name)).map_err(|e| e.to_string())?;
         }
@@ -220,6 +233,21 @@ pub fn render_all(dir: &std::path::Path) -> Result<Vec<String>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The refined mesh (stage 6, gh:#1795) is drawn too: more cells than
+    /// the `-p` mesh, and the switches in the title.
+    #[test]
+    fn refined_sections_are_drawn() {
+        let p = draw(GeomKind::Pipe, 2.0).unwrap();
+        let q = draw_with(GeomKind::Pipe, 2.0, "pq1.414a0.0026zA").unwrap();
+        assert!(
+            q.counts.0 > 10 * p.counts.0,
+            "{} vs {}",
+            q.counts.0,
+            p.counts.0
+        );
+        assert!(q.cut_cells.iter().zip(&p.cut_cells).all(|(a, b)| a > b));
+    }
 
     /// The images are drawn from the TetGen mesh: the fuel channel's pin
     /// is a hole (one region, and the z-cut has no cell near the axis), the

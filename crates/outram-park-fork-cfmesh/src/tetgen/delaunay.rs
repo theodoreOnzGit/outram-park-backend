@@ -91,6 +91,14 @@ pub enum LocateResult {
     BadElement,
     /// `NULLCAVITY` (stage 4 on, `insertpoint`).
     NullCavity,
+    /// `SHARPCORNER` (stage 6, Delaunay refinement: a split refused at a
+    /// sharp segment or corner).
+    SharpCorner,
+    /// `FENSEDIN` (stage 6: the new point lies outside the facet, or its
+    /// tetrahedron's circumcentre is not visible).
+    FensedIn,
+    /// `NONCOPLANAR` (stage 6, `locate_on_surface`).
+    NonCoplanar,
 }
 
 /// `insertvertexflags` (the fields `insert_vertex_bw` reads).

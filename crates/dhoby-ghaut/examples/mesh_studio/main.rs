@@ -79,9 +79,11 @@ fn main() -> eframe::Result<()> {
     // or a machine with no display cannot run it at all.
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(k) = args.iter().position(|a| a == "--tetgen-render") {
-        // The TetGen -p review images (gh:#1794), into the given folder.
+        // The TetGen review images (gh:#1794, #1795), into the given folder.
         let dir = args.get(k + 1).cloned().unwrap_or_else(|| ".".into());
-        match tetgen_render::render_all(std::path::Path::new(&dir)) {
+        // Optional TetGen switches (default -pzA; stage 6, gh:#1795, draws -pq1.414a...zA).
+        let sw = args.get(k + 2).cloned().unwrap_or_else(|| "pzA".into());
+        match tetgen_render::render_all(std::path::Path::new(&dir), &sw) {
             Ok(lines) => lines.iter().for_each(|l| println!("{l}")),
             Err(e) => eprintln!("tetgen render failed: {e}"),
         }

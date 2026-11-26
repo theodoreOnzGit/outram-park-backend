@@ -79,7 +79,9 @@ pub struct PlcTetrahedralization {
 
 /// Tetrahedralise a PLC as `tetgen -p` does: ~~**up to and including
 /// boundary recovery** (`recoverboundary`)~~ **UPDATED 2026-11-26
-/// (gh:#1794): the whole `-p` route** (without `-q`): the Delaunay
+/// (gh:#1794): the whole `-p` route** (~~without `-q`~~ **UPDATED
+/// 2026-11-26 (gh:#1795):** with `b.quality`, i.e. `-q` or `-a#`,
+/// `delaunayrefinement` runs after `recoverdelaunay`): the Delaunay
 /// tetrahedralisation of the vertices, `meshsurface`, then every segment
 /// and subface recovered by flips and, where flips cannot, by Steiner
 /// points (`recoverboundary`); then `carveholes` (the exterior and the

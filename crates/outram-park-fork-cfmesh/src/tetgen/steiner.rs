@@ -43,7 +43,11 @@
 //! `create_a_shorter_edge`'s facet maps (`facet_ridge_vertex_adjacent`,
 //! `segfacetadjacent`: their lists are built only by `-D` and `-q`, so in
 //! boundary recovery upstream dereferences `NULL` there; the port returns
-//! [`TetgenError::InternalError`] at the same read).
+//! [`TetgenError::InternalError`] at the same read). **UPDATED 2026-11-26
+//! (gh:#1795):** stage 6 ports `-q`: the maps (`super::refine`), the
+//! `rejflag` 1 and 2 rejections, `check_insert_radius`, `smlenflag` and the
+//! `chkencflag` 1 and 2 queues; the maps are read when built and the
+//! `NULL` read still errors when they are not.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -77,10 +81,15 @@ pub struct InsertPointFlags {
     pub validflag: bool,
     /// `respectbdflag`.
     pub respectbdflag: bool,
-    /// `rejflag` (not ported beyond 0).
+    /// `rejflag`: bit 1 rejects a point that encroaches upon a segment
+    /// (`ENCSEGMENT`), bit 2 one that encroaches upon a subface
+    /// (`ENCSUBFACE`) (Delaunay refinement, stage 6, gh:#1795). Bit 4 (a
+    /// protecting ball of the mesh size, `-m`) is not ported.
     pub rejflag: i32,
-    /// `chkencflag`: only bit 4 (`enqueuetetrahedron`, mesh improvement,
-    /// gh:#1794) is ported; bits 1 and 2 (Delaunay refinement) are not.
+    /// `chkencflag`: bit 4 queues the new tetrahedra
+    /// (`enqueuetetrahedron`, mesh improvement, gh:#1794); bits 1 and 2
+    /// queue the segments and subfaces at the cavity (`enqueuesubface`,
+    /// Delaunay refinement, gh:#1795).
     pub chkencflag: i32,
     /// `cdtflag`.
     pub cdtflag: bool,
@@ -98,6 +107,16 @@ pub struct InsertPointFlags {
     pub refinetet: TriFace,
     /// `refinesh`.
     pub refinesh: Face,
+    /// `check_insert_radius` (Delaunay refinement, stage 6): reject the
+    /// point inside a cavity vertex's insertion radius (`ENCVERTEX`).
+    pub check_insert_radius: bool,
+    /// `smlenflag` (stage 6): return the shortest new edge in `smlen` and
+    /// its other vertex in `parentpt`.
+    pub smlenflag: bool,
+    /// `smlen`.
+    pub smlen: f64,
+    /// `parentpt` (`NULL_POINT` for `NULL`).
+    pub parentpt: Point,
 }
 
 impl Default for InsertPointFlags {
@@ -120,6 +139,10 @@ impl Default for InsertPointFlags {
             refineflag: 0,
             refinetet: TriFace::default(),
             refinesh: Face::default(),
+            check_insert_radius: false,
+            smlenflag: false,
+            smlen: 0.0,
+            parentpt: NULL_POINT,
         }
     }
 }
@@ -216,8 +239,12 @@ impl TetgenMesh {
                     createflag = true;
                 }
             } else if steiner_type == VertType::FreeFacet {
-                // facet_ridge_vertex_adjacent(): its list is NULL here.
-                return Err(TetgenError::InternalError);
+                // facet_ridge_vertex_adjacent(): its list is built by -q
+                //   (stage 6, gh:#1795); NULL in boundary recovery.
+                let parentsh = sdecode(self.point2sh(steinerpt));
+                if !self.facet_ridge_vertex_adjacent(&parentsh, nearpt)? {
+                    createflag = true;
+                }
             }
         } else if nearpt_type == VertType::FreeSeg {
             if steiner_type == VertType::FreeSeg {
@@ -227,12 +254,20 @@ impl TetgenMesh {
                     createflag = true;
                 }
             } else if steiner_type == VertType::FreeFacet {
-                // segfacetadjacent(): its list is NULL here.
-                return Err(TetgenError::InternalError);
+                // segfacetadjacent(): its list is built by -q (stage 6).
+                let paresntsh = sdecode(self.point2sh(steinerpt));
+                let parentseg = sdecode(self.point2sh(nearpt));
+                if !self.segfacetadjacent(&parentseg, &paresntsh)? {
+                    createflag = true;
+                }
             }
         } else if nearpt_type == VertType::FreeFacet {
             if steiner_type == VertType::FreeSeg {
-                return Err(TetgenError::InternalError);
+                let paresntsh = sdecode(self.point2sh(nearpt));
+                let parentseg = sdecode(self.point2sh(steinerpt));
+                if !self.segfacetadjacent(&parentseg, &paresntsh)? {
+                    createflag = true;
+                }
             } else if steiner_type == VertType::FreeFacet {
                 let s1 = sdecode(self.point2sh(nearpt));
                 let s2 = sdecode(self.point2sh(steinerpt));
@@ -493,12 +528,28 @@ impl TetgenMesh {
                     loc = LocateResult::NearVertex;
                     break;
                 }
-                // (check_insert_radius and rejflag & 4 are not set here.)
+                if ivf.check_insert_radius {
+                    // (Delaunay refinement, stage 6, gh:#1795.)
+                    let ins_radius = self.points[p].insradius;
+                    if ins_radius > 0.0
+                        && rd < ins_radius
+                        && !self.create_a_shorter_edge(insertpt, p)?
+                    {
+                        // Reject the insertion of this vertex.
+                        self.reach6[35] += 1;
+                        pts = p;
+                        loc = LocateResult::EncVertex;
+                        break;
+                    }
+                }
+                // (rejflag & 4, a protecting ball of the -m mesh size, is not
+                //   ported: without -m every point's size is 0.)
             }
             self.cavetetvertlist.clear();
 
             if pts != NULL_POINT {
-                // The point is too close to an existing vertex (NEARVERTEX).
+                // The point is too close to an existing vertex (NEARVERTEX),
+                //   or inside its insertion radius (ENCVERTEX, stage 6).
                 *searchtet = self.point2tetorg(pts);
                 self.insertpoint_abort(splitseg.as_deref(), ivf);
                 ivf.iloc = loc;
@@ -608,7 +659,12 @@ impl TetgenMesh {
                 let s = self.cavetetseglist[i];
                 self.suninfect(&s);
             }
-            // (rejflag & 1 is not set here.)
+            if ivf.rejflag & 1 != 0 && self.reject_encroached_segments(insertpt) {
+                // It encroaches upon a segment (stage 6, gh:#1795).
+                self.insertpoint_abort(splitseg.as_deref(), ivf);
+                ivf.iloc = LocateResult::EncSegment;
+                return Ok(false);
+            }
         }
 
         if self.checksubfaceflag {
@@ -633,7 +689,12 @@ impl TetgenMesh {
                 let s = self.cavetetshlist[i];
                 self.suninfect(&s);
             }
-            // (rejflag & 2 is not set here.)
+            if ivf.rejflag & 2 != 0 && self.reject_encroached_subfaces(insertpt)? {
+                // It encroaches upon a subface (stage 6, gh:#1795).
+                self.insertpoint_abort(splitseg.as_deref(), ivf);
+                ivf.iloc = LocateResult::EncSubface;
+                return Ok(false);
+            }
         }
 
         if ivf.iloc == LocateResult::Outside && ivf.refineflag != 0 {
@@ -1011,7 +1072,7 @@ impl TetgenMesh {
             }
         }
 
-        if ivf.cdtflag || ivf.validflag {
+        if ivf.cdtflag || ivf.smlenflag || ivf.validflag {
             // There may be other vertices inside C(p). Collect all vertices of C(p).
             for i in 0..self.caveoldtetlist.len() {
                 let cavetet = self.caveoldtetlist[i];
@@ -1026,6 +1087,22 @@ impl TetgenMesh {
             for i in 0..self.cavetetvertlist.len() {
                 let p = self.cavetetvertlist[i];
                 self.puninfect(p);
+            }
+            if ivf.smlenflag {
+                // Get the length of the shortest edge connecting to 'newpt'
+                //   (stage 6, gh:#1795).
+                let xi = self.x(insertpt);
+                let p0 = self.cavetetvertlist[0];
+                ivf.smlen = distance(&self.x(p0), &xi);
+                ivf.parentpt = p0;
+                for i in 1..self.cavetetvertlist.len() {
+                    let p = self.cavetetvertlist[i];
+                    let len = distance(&self.x(p), &xi);
+                    if len < ivf.smlen {
+                        ivf.smlen = len;
+                        ivf.parentpt = p;
+                    }
+                }
             }
         }
 
@@ -1405,6 +1482,12 @@ impl TetgenMesh {
             }
         }
 
+        if ivf.chkencflag & 3 != 0 {
+            // Queue the segments (bit 1) and subfaces (bit 2) at C(p) for the
+            //   encroachment checks (Delaunay refinement, gh:#1795).
+            self.queue_cavity_boundary(ivf.chkencflag, splitseg.is_some());
+        }
+
         if ivf.chkencflag & 4 != 0 {
             // Queue all new tetrahedra in C(p) (mesh improvement, gh:#1794).
             for i in 0..self.cavebdrylist.len() {
@@ -1469,7 +1552,7 @@ impl TetgenMesh {
             self.cavetetshlist.clear();
             self.caveencshlist.clear();
         }
-        if ivf.validflag {
+        if ivf.smlenflag || ivf.validflag {
             self.cavetetvertlist.clear();
         }
         if has_sh || has_seg {

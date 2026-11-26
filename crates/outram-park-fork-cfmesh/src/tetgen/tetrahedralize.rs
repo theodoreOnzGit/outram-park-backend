@@ -33,8 +33,11 @@
 //! with no output); `-YY` with Steiner points on the boundary (upstream
 //! writes the files and stops, code 200: here
 //! [`TetgenError::InternalError`]); `-m`/`-R` (`meshcoarsening`), `-i`
-//! (`insertconstrainedpoints`), `-q` (`delaunayrefinement`, stage 6,
-//! gh:#1795), `-o2` (`highorder`), `-c` (`b->convex`).
+//! (`insertconstrainedpoints`), ~~`-q` (`delaunayrefinement`, stage 6,
+//! gh:#1795)~~ (**ported in stage 6, gh:#1795:** `-q` and `-a#` run
+//! `delaunayrefinement` after `recoverdelaunay`, [`super::refine`]; `-aa`,
+//! per-region volumes, is not ported), `-o2` (`highorder`), `-c`
+//! (`b->convex`).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -48,9 +51,11 @@ use alloc::string::String;
 
 /// The command-line switches of the `-p` route, as a builder over
 /// [`Behavior`]. `Switches::new()` is `-p`; [`Switches::parse`] reads the
-/// letters `p`, `z`, `Y` (repeatable), `A`, `M`, `J`, `X`, `d` of a switch
-/// string such as `"pzAY"` (upstream's parser takes many more; the ones
-/// this route does not port are refused).
+/// letters `p`, `z`, `Y` (repeatable), `A`, `M`, `J`, `X`, `d`, and (stage
+/// 6, gh:#1795) `q` with its optional `ratio/angle` and `a` with its
+/// volume, of a switch string such as `"pzAY"` or `"pq1.414a0.1z"`
+/// (upstream's parser takes many more; the ones this route does not port
+/// are refused).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Switches {
     /// The behaviour the switches set.
@@ -98,6 +103,24 @@ impl Switches {
         self.b.nojettison = true;
         self
     }
+    /// `-q<ratio>/<min_dihedral>`: Delaunay refinement to a radius-edge
+    /// ratio bound (upstream's default 2.0) and a smallest dihedral angle
+    /// in degrees (default 3.5). `optmaxdihedral` keeps 177 with `-q`.
+    pub fn quality(mut self, ratio: f64, min_dihedral: f64) -> Self {
+        self.b.quality = true;
+        self.b.minratio = ratio;
+        self.b.mindihedral = min_dihedral;
+        self
+    }
+    /// `-a<v>`: no tetrahedron larger than `v` (implies `-q`, upstream's
+    /// `parse_commandline`).
+    pub fn max_volume(mut self, v: f64) -> Self {
+        self.b.fixedvolume = true;
+        self.b.maxvolume = v;
+        self.b.maxvolume_length = v.powf(1.0 / 3.0) / 3.0;
+        self.b.quality = true;
+        self
+    }
     /// The [`Behavior`].
     pub fn behavior(&self) -> Behavior {
         self.b
@@ -105,8 +128,27 @@ impl Switches {
     /// Parse a switch string (`"pzAY"`, with or without a leading `-`).
     pub fn parse(s: &str) -> Result<Switches, String> {
         let mut w = Switches::new();
-        for c in s.trim_start_matches('-').chars() {
+        let chars: alloc::vec::Vec<char> = s.trim_start_matches('-').chars().collect();
+        let mut j = 0;
+        while j < chars.len() {
+            let c = chars[j];
             match c {
+                'q' => {
+                    w.b.quality = true;
+                    if let Some(v) = switch_number(&chars, &mut j, "") {
+                        w.b.minratio = v;
+                    }
+                    if j + 1 < chars.len() && (chars[j + 1] == '/' || chars[j + 1] == ',') {
+                        j += 1;
+                        if let Some(v) = switch_number(&chars, &mut j, "") {
+                            w.b.mindihedral = v;
+                        }
+                    }
+                }
+                'a' => match switch_number(&chars, &mut j, "e-+") {
+                    Some(v) => w = w.max_volume(v),
+                    None => return Err("switch -a without a volume (-aa) is not ported".into()),
+                },
                 'p' => w.b.plc = true,
                 'z' => w = w.zero_index(),
                 'Y' => w = w.no_bisect(),
@@ -117,9 +159,30 @@ impl Switches {
                 'd' => w.b.diagnose = true,
                 _ => return Err(alloc::format!("switch -{c} is not ported")),
             }
+            j += 1;
         }
         Ok(w)
     }
+}
+
+/// The number `parse_commandline` reads after the switch letter at `j`:
+/// digits and `.` start it, then digits, `.` and the `extra` characters
+/// (`e`, `-`, `+` for `-a`); `strtod` of it (0 if it does not parse).
+/// `j` is left on its last character. `None` if no number follows.
+fn switch_number(chars: &[char], j: &mut usize, extra: &str) -> Option<f64> {
+    let start = *j + 1;
+    if start >= chars.len() || !(chars[start].is_ascii_digit() || chars[start] == '.') {
+        return None;
+    }
+    let mut k = start;
+    while k < chars.len()
+        && (chars[k].is_ascii_digit() || chars[k] == '.' || extra.contains(chars[k]))
+    {
+        k += 1;
+    }
+    *j = k - 1;
+    let t: String = chars[start..k].iter().collect();
+    Some(t.parse::<f64>().unwrap_or(0.0))
 }
 
 impl TetgenMesh {
@@ -138,11 +201,16 @@ impl TetgenMesh {
         // numelemattrib = in->numberoftetrahedronattributes (0 for a PLC)
         //   + (b->regionattrib > 0). The attributes are all 0.0 so far.
         self.numelemattrib = self.b.regionattrib as usize;
+        // parse_commandline: "If '-a' or '-aa' is in use, enable '-q' option
+        //   too." (stage 6, gh:#1795; `tetgen.cxx:3736`).
+        if self.b.fixedvolume && !self.b.quality {
+            self.b.quality = true;
+        }
         // parse_commandline: "If no user-specified dihedral angle bound. Use
-        //   default ones." Without -q (stage 6) the default 177 becomes 179.9
+        //   default ones." Without -q the default 177 becomes 179.9
         //   (`tetgen.cxx:3744`). Applied here so that a `Behavior` built by
         //   hand gives what the command line gives.
-        if self.b.optmaxdihedral == 177.0 {
+        if !self.b.quality && self.b.optmaxdihedral == 177.0 {
             self.b.optmaxdihedral = 179.9;
         }
         self.pointmarkerlist = input.point_markers.clone();
@@ -160,6 +228,11 @@ impl TetgenMesh {
 
         // b->plc: recover Delaunayness.
         self.recoverdelaunay()?;
+
+        if self.b.quality {
+            // -q: Delaunay refinement (stage 6, gh:#1795).
+            self.delaunayrefinement()?;
+        }
 
         if self.b.smooth_maxiter > 0 && (self.st_volref_count > 0 || self.st_facref_count > 0) {
             self.smooth_vertices()?;

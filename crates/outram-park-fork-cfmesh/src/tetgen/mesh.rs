@@ -550,6 +550,10 @@ pub struct PointRecord {
     /// `pointgeomtag` (`[pointmarkindex + 2]`): the local vertex index of
     /// `insert_vertex_bw`.
     pub geomtag: i32,
+    /// `pointinsradius` (`useinsertradius`, `-p`; stage 6, gh:#1795): the
+    /// insertion radius Delaunay refinement gives a Steiner point (0 until
+    /// set; only `-q` and `-D` set it).
+    pub insradius: f64,
 }
 
 impl PointRecord {
@@ -563,6 +567,7 @@ impl PointRecord {
         vtype: VertType::Unused,
         flags: 0,
         geomtag: 0,
+        insradius: 0.0,
     };
 }
 
@@ -952,6 +957,22 @@ pub struct Behavior {
     /// `-z`: number the output from zero (default off: from
     /// `in->firstnumber`).
     pub zeroindex: bool,
+    // -- Delaunay refinement (stage 6, gh:#1795) ---------------------------
+    /// `-q`: `quality`, refine the mesh (`delaunayrefinement`). With it
+    /// `optmaxdihedral` keeps its 177-degree default; `-a#` sets it too
+    /// (`parse_commandline`, applied by [`TetgenMesh::finish_plc`]).
+    pub quality: bool,
+    /// `-q#`: `minratio`, the radius-edge ratio bound (default 2.0).
+    pub minratio: f64,
+    /// `-q/#`: `mindihedral`, the dihedral-angle bound in degrees (default
+    /// 3.5).
+    pub mindihedral: f64,
+    /// `-a#`: `fixedvolume`, a volume bound on every tetrahedron.
+    pub fixedvolume: bool,
+    /// `-a#`: `maxvolume` (default -1).
+    pub maxvolume: f64,
+    /// `-a#`: `maxvolume_length = pow(maxvolume, 1/3) / 3` (default -1).
+    pub maxvolume_length: f64,
 }
 
 impl Default for Behavior {
@@ -994,6 +1015,12 @@ impl Default for Behavior {
             unflip_queue_limit: 1000,
             cdtrefine: 7,
             zeroindex: false,
+            quality: false,
+            minratio: 2.0,
+            mindihedral: 3.5,
+            fixedvolume: false,
+            maxvolume: -1.0,
+            maxvolume_length: -1.0,
         }
     }
 }
@@ -1230,6 +1257,15 @@ pub struct TetgenMesh {
     /// Per-routine call counts of stage 5 (the `tg5` instrumentation of
     /// `verification_and_validation/tetgen_plc_gh1794/`).
     pub reach5: [u64; 64],
+    // -- Delaunay refinement (stage 6, gh:#1795; `super::refine`) -------
+    /// The working state of `delaunayrefinement` (its pools, queues, the
+    /// facet and segment maps). Upstream keeps these as `tetgenmesh`
+    /// members that are `NULL` outside refinement; here they are one
+    /// struct, default-empty.
+    pub rf: super::refine::RefineState,
+    /// Per-routine and per-branch call counts of stage 6 (the `tg6`
+    /// instrumentation of `verification_and_validation/tetgen_quality_gh1795/`).
+    pub reach6: [u64; 64],
 }
 
 impl TetgenMesh {
@@ -1346,6 +1382,8 @@ impl TetgenMesh {
             subdomain_markers: Vec::new(),
             hull_sliver_volume: 0.0,
             reach5: [0; 64],
+            rf: super::refine::RefineState::default(),
+            reach6: [0; 64],
         }
     }
 
@@ -1425,7 +1463,8 @@ impl TetgenMesh {
         }
         let mut r = TetRecord::BLANK;
         r.v = [pa, pb, pc, pd];
-        // No volume bound (`-a`, stage 6).
+        // No volume bound (`-aa`, `varvolume`; ~~`-a`, stage 6~~ stage 6 ports
+        //   only `-a#`, which needs none, gh:#1795).
         r.marker = 0;
         // ~~The reserved word [10] is not cleared by upstream; it keeps
         // whatever the slot held (only `outelements` writes it).~~
