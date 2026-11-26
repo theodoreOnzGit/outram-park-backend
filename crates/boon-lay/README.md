@@ -22,7 +22,8 @@ started from the other side, and now carries both:
 |---|---|---|
 | **Lagrangian** | `lagrangian_decay_simulator`, `lagrangian_transmutation_and_fission_simulator` | Tracks representative atoms. Each one walks its decay chain, samples competing decay / `(n,gamma)` / `(n,2n)` / fission clocks, and diffuses through the kernel and coating shells. No burnup matrix: the population emerges from the ensemble. Built for watching radionuclide transport in real time, for outreach and open research. |
 | **Eulerian / continuum** | `triso_atops_fork` | A Rust fork of INL's **TRISO-ATOPS** (MIT, upstream commit `de374c8`). Closed-form Booth, breakthrough and attenuation release fractions; normal-operation and accident release; coolant activity and source terms for 84 nuclides. |
-| **Eulerian, extended** (NOT a port) | `triso_atops_extensions` | boon-lay's own additions to the TRISO-ATOPS model, kept apart from the port, which they do not modify. Today: plate-out and purification rates **per transport group or per element** instead of one `k_plate` and one `k_clean` per reactor, conversions from per-cycle data, and Liu & Cao's (2002) cited HTR-10 per-cycle table (GitHub #583). With upstream's rates it reproduces the port bit for bit on all 84 nuclides. |
+| **Eulerian, extended** (NOT a port) | `triso_atops_extensions` | boon-lay's own additions to the TRISO-ATOPS model, kept apart from the port, which they do not modify. Today: plate-out and purification rates **per transport group or per element** instead of one `k_plate` and one `k_clean` per reactor, conversions from per-cycle data, and Liu & Cao's (2002) cited HTR-10 per-cycle table (GitHub #583). With upstream's rates it reproduces the port bit for bit on all 84 nuclides. **CORRECTED 2026-11-26:** this row omitted `multilayer_diffusion` (since 2026-11-04, gh:#1209): a cell-centred finite-volume solver of diffusion through every layer of the particle, the numerical reference for the port's closed forms. |
+| **Analytical, multilayer** (a port) | `strato` | The exact Sturm-Liouville eigenfunction series for release from a layered sphere, ported from **STRATO by Wee Zhern Ray (`weewzr`)** (<https://github.com/weewzr/STRATO>, AGPL-3.0-only, commit `36f1a98`), `no_std` + `alloc`. It reproduces upstream bit for bit, and is the analytical reference `multilayer_diffusion` is verified against (gh:#1800). Added 2026-11-26. |
 
 The two are complements, not rivals. The Lagrangian model shows *how* atoms
 get out. The TRISO-ATOPS fork gives the release fractions that the offsite
@@ -159,6 +160,20 @@ ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
   700 °C and 1100 °C, with purification on and off and parent pools chained
   (336 cases). The element-dependent rates themselves are not validated, and
   the HTR-10 cycle time and purified flow fraction they need are not sourced.
+- **Multilayer diffusion against STRATO (2026-11-26, gh:#1800):** the
+  `strato` port reproduces upstream STRATO bit for bit (978 of 978 values),
+  and matches a homogeneous-sphere closed form (the same formula as
+  upstream's own test oracle) and the ported
+  ATOPS Booth series to round-off. `multilayer_diffusion` converges to it at
+  second order in space and first order in time on equal, two-layer,
+  five-layer and contrast (10^±6) cases, as does STRATO's own finite volume,
+  run unmodified. On layered cases the series and the FV corroborate each
+  other; neither is an independent reference for the other yet. A first run
+  failed its spatial-order gate because of the
+  test protocol; that failure is recorded with its diagnosis. Upstream
+  TRISO-ATOPS's `breakthrough_model` is a different problem (one planar
+  layer, infinite source) and is not covered. Plan, results and limitations:
+  [`verification_and_validation/strato_triso_diffusion/`](verification_and_validation/strato_triso_diffusion/README.md).
 - **Lagrangian simulator:** unit-tested. Monte Carlo half-lives are checked
   against ENDF/B-VIII.0, and the release fraction against the IAEA CRP-6
   Case 1a/1b analytical solution. There is no cross-code comparison yet.
@@ -183,6 +198,9 @@ The egui examples fall under the workspace headless-mode rule; see
 Energy Alliance (INL). Its terms are in [`LICENSE.triso-atops`](LICENSE.triso-atops)
 and [`NOTICE.triso-atops`](NOTICE.triso-atops), and the derivation is recorded in
 [`TRISO_ATOPS_DERIVATION.md`](TRISO_ATOPS_DERIVATION.md). MIT into ~~GPL-3.0~~ **AGPL-3.0-only** is one-way.
+`src/strato/` ports part of **STRATO, by Wee Zhern Ray (GitHub `weewzr`)**,
+<https://github.com/weewzr/STRATO>, which is AGPL-3.0-only like this crate;
+its provenance and local changes are in `src/strato/mod.rs`.
 
 ## Bookkeeping status
 
