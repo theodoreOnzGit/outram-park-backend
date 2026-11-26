@@ -46,8 +46,11 @@ use super::fv::{Bc, Geometry, Scalar, Vector};
 use super::thermo::PhaseThermo;
 use super::{
     ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
-    Structure, TimeControls, TraceBoilingModel, TwoPhaseControls, TwoPhaseModels,
+    ChfSelection, Structure, TimeControls, TraceBoilingModel, TraceChfModel, TwoPhaseControls, TwoPhaseModels,
 };
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::cachard::{CachardLiquid, CachardVapour};
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::LeidenfrostTemperature;
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf_table::LookUpTableChf;
 use super::mules::{AlphaConvection, LimiterControls};
 use super::{AlphaSolver, MulesControls};
 #[cfg(feature = "std")]
@@ -123,6 +126,15 @@ impl Ctx {
     pub(super) fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
         FoamFile::read(&p)
+            .map(|f| f.dict)
+            .map_err(|e| err(&self.root, format!("{rel}: {e}")))
+    }
+
+    /// As [`Ctx::read`], following `#include "file"` (the `lookUpTableCHF` table is one).
+    #[cfg(feature = "std")]
+    pub(super) fn read_with_includes(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
+        let p = self.root.join(rel);
+        FoamFile::read_with_includes(&p)
             .map(|f| f.dict)
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
@@ -388,7 +400,7 @@ impl TwoPhaseCase {
         }
 
         // phaseProperties
-        let pp = ctx.read(&format!("constant/{region}/phaseProperties"))?;
+        let pp = ctx.read_with_includes(&format!("constant/{region}/phaseProperties"))?;
         let names = [ctx.word(&pp, "fluid1")?, ctx.word(&pp, "fluid2")?];
 
         // 0/ fields
@@ -718,12 +730,13 @@ impl TwoPhaseCase {
             }
         };
         let htm = ctx.sub(pm, "heatTransferModels")?;
+        let mut chf_tables: Vec<LookUpTableChf> = Vec::new();
         let mut fs_htc: [Vec<Option<FsHtcModel>>; 2] = [vec![None; n], vec![None; n]];
         for (k, name) in names.iter().enumerate() {
             if let Some(d) = pair(name, "structure", htm) {
                 for (zk, e) in d.iter() {
                     let FoamEntry::SubDict(md) = e else { continue };
-                    let model = read_fs_htc(&ctx, md)?;
+                    let model = read_fs_htc(&ctx, md, &mut chf_tables)?;
                     for c in zone_cells(zk)? {
                         fs_htc[k][c] = Some(model);
                     }
@@ -833,6 +846,7 @@ impl TwoPhaseCase {
             fs_drag,
             two_phase_multiplier,
             fs_htc,
+            chf_tables,
             ff_htc,
             virtual_mass,
             regime_map,
@@ -1051,7 +1065,11 @@ pub(super) fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectio
 }
 
 #[cfg(feature = "std")]
-fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> {
+fn read_fs_htc(
+    ctx: &Ctx,
+    md: &FoamDict,
+    chf_tables: &mut Vec<LookUpTableChf>,
+) -> Result<FsHtcModel, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsHtcModel::Nusselt(read_nusselt(ctx, md)?)),
         "superpositionNucleateBoiling" => {
@@ -1086,9 +1104,10 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
                 suppression,
             })
         }
-        "multiRegimeBoilingTRACE" => {
+        "multiRegimeBoilingTRACE" | "multiRegimeBoilingTRACECHF" => {
+            let with_chf = ctx.word(md, "type")? == "multiRegimeBoilingTRACECHF";
             if md.get("filmCondensationModel").is_some() {
-                return Err(ctx.e("multiRegimeBoilingTRACE: filmCondensationModel is not ported"));
+                return Err(ctx.e("multiRegimeBoilingTRACE(CHF): filmCondensationModel is not ported"));
             }
             let forced_convection = read_nusselt(ctx, ctx.sub(md, "forcedConvectionModel")?)?;
             let pbd = ctx.sub(md, "poolBoilingModel")?;
@@ -1140,15 +1159,71 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
                     other => return Err(ctx.e(format!("subCooledBoilingFractionModel `{other}` not wired"))),
                 },
             };
-            Ok(FsHtcModel::MultiRegimeBoilingTrace(TraceBoilingModel {
+            let base = TraceBoilingModel {
                 forced_convection,
                 pool_boiling,
                 flow_enhancement,
                 onset,
                 sub_cooled_fraction,
+            };
+            if !with_chf {
+                return Ok(FsHtcModel::MultiRegimeBoilingTrace(base));
+            }
+            // multiRegimeBoilingTRACECHF (gh:#1223, gh:#1224)
+            let chf = match md.get_dict("criticalHeatFluxModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "constantCHF" => Some(ChfSelection::Constant(ctx.f64(d, "value")?)),
+                    "lookUpTableCHF" => {
+                        let t = LookUpTableChf::from_dict(d).map_err(|e| ctx.e(e.to_string()))?;
+                        chf_tables.push(t);
+                        Some(ChfSelection::Table(chf_tables.len() - 1))
+                    }
+                    other => return Err(ctx.e(format!("criticalHeatFluxModel `{other}` not wired"))),
+                },
+            };
+            let leidenfrost = match md.get_dict("leidenfrostModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "GroeneveldStewart" => Some(LeidenfrostTemperature::GroeneveldStewart {
+                        critical_pressure: uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(
+                            ctx.f64(d, "criticalPressure")?,
+                        ),
+                    }),
+                    other => return Err(ctx.e(format!("leidenfrostModel `{other}` not wired"))),
+                },
+            };
+            let annular = match md.get_dict("annularFlowModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "CachardLiquid" => {
+                        Some(CachardLiquid::new(ctx.f64(d, "wallEmissivity")?, ctx.f64(d, "liquidEmissivity")?))
+                    }
+                    other => {
+                        return Err(ctx.e(format!("multiRegimeBoilingTRACECHF annularFlowModel `{other}` not wired")))
+                    }
+                },
+            };
+            Ok(FsHtcModel::MultiRegimeBoilingTraceChf(TraceChfModel {
+                base,
+                chf,
+                leidenfrost,
+                annular,
+                roughness: scalar(md, "absoluteSurfaceRoughness").unwrap_or(4e-7),
             }))
         }
-        other => Err(ctx.e(format!("FS htc `{other}` not wired (multiRegimeBoilingTRACECHF/VapourTRACE are gaps)"))),
+        "multiRegimeBoilingVapourTRACE" => {
+            // upstream dereferences a null `htcAFPtr_` in the post-CHF branches when there is no
+            // `annularFlowModel`: refuse rather than reproduce a crash
+            let d = md.get_dict("annularFlowModel").ok_or_else(|| {
+                ctx.e("multiRegimeBoilingVapourTRACE without annularFlowModel (upstream dereferences a null pointer post-CHF)")
+            })?;
+            match ctx.word(d, "type")?.as_str() {
+                "CachardVapour" => Ok(FsHtcModel::MultiRegimeBoilingVapourTrace(CachardVapour::new())),
+                other => Err(ctx.e(format!("multiRegimeBoilingVapourTRACE annularFlowModel `{other}` not wired"))),
+            }
+        }
+        other => Err(ctx.e(format!("FS htc `{other}` not wired"))),
     }
 }
 

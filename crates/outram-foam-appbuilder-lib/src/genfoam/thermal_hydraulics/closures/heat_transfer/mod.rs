@@ -133,6 +133,8 @@ use crate::nostd_prelude::*;
 pub mod boiling;
 pub mod boiling_trace;
 pub mod boiling_trace_chf;
+pub mod cachard;
+pub mod chf_table;
 pub mod chf;
 pub mod ff_htc;
 pub mod fs_htc;
@@ -141,6 +143,8 @@ pub mod fs_htc;
 mod tests;
 #[cfg(test)]
 mod boiling_trace_tests;
+#[cfg(test)]
+mod chf_table_tests;
 
 use uom::si::f64::{AvailableEnergy, Ratio};
 

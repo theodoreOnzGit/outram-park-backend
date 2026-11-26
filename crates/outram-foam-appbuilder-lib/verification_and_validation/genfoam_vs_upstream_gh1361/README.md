@@ -1701,3 +1701,67 @@ the same order but `0.5 * max(...)` differs in the last bit.
 
 None. No earlier gated number depends on a function changed here: only new functions and new files were added (`one_phase_cc.rs`, `coupled_loop.rs`,
 two new methods and one new free function in `upstream_transient.rs`).
+
+
+# Round 10 (gh:#1223 `lookUpTableCHF`, gh:#1224 `CachardLiquid`/`CachardVapour`): `multiRegimeBoilingTRACECHF` and `multiRegimeBoilingVapourTRACE` wired, vs the real binary on closed `1D_CHF` variants
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Upstream: the real unmodified `GeN-Foam`
+binary (652b3da, ESI v2506, serial), the same installed build as rounds 3-9.
+
+## What was found before any code was written (read from the shipped tutorials and upstream, 2026-11-26)
+
+| claim | what the sources show |
+|---|---|
+| gh:#1223 comment: `featureCases/1D_CHF/{imposedPower,imposedTemperature}` use `chfTables` | **No.** Both select `criticalHeatFluxModel { type constantCHF; value 1.66e6; }`; only `1D_PSBT_SC/PhaseII_Ex2_04_6770` and `PhaseII_Ex3_11-0312_power_increase` (byte-identical tables, `cmp`) contain `chfTables`. `1D_CHF` exercises `multiRegimeBoilingTRACECHF` (constantCHF, `GroeneveldStewart` Leidenfrost, `CachardLiquid`) and `multiRegimeBoilingVapourTRACE` (`CachardVapour`) but NOT `lookUpTableCHF`. Its README says "no lookup tables have been implemented yet", which is stale (the class exists, upstream's `porousMedium.md` also still says "empty class"): not our file, noted. |
+| the shipped `1D_CHF` cases can run once the closures are wired | **No**, four more needs. (1) Through-flow boundary conditions: `U.liquid` `fixedValue` inlet, `pressureInletOutletVelocity` outlet, `slip` walls, `inletOutlet` alpha, `fixedFluxPressure` `p_rgh` (gh:#1801). (2) The structure power models with time profiles: `imposedPower` is `fixedPower` WITH `powerTimeProfile` (the two-phase reader refuses it: "not wired") and `imposedTemperature` is `fixedTemperature` with `temperatureTimeProfile` (the two-phase solver has only `fixedPower`). (3) Turbulence: both `turbulenceProperties.*` say `simulationType laminar` (the `LaheyKEpsilon` block is inert), so gh:#1802 is NOT needed here. (4) Run length: 77 s / 180 s of simulated time with the hysteresis ramp, far beyond what a tight-protocol step-by-step comparison can cover (upstream's own PSBT run aborts with SIGFPE after 417 steps). |
+| upstream `CachardLiquid`/`CachardVapour` bind `pi` to pressure | Confirmed by reading: `CachardLiquid...C:124` (`const scalar& pi(p_[celli])`) and `CachardVapour...C:96`, then `pow(pi/max(DRi,1e-6),2)`: `(p/0.01)^2 = 2e18` at 15 MPa. The film thickness `delta` is ~1e9 m, so `h_gamma = kappa_g/delta` is ~1e-11 and the post-CHF coefficient of the liquid is only the radiation term. |
+
+So, as in round 8, the shipped cases cannot run; the comparison is on **closed variants** (`tests/data/genfoam_chf_closed_gh1361`, `PROVENANCE.md`
+there): the shipped `imposedPower` mesh, models and initial fields; boundary conditions as in the round-8 closed PSBT case (zero-gradient
+velocities and `alpha`, fixed `p_rgh` at both ends with a 1.2e4 Pa drive); **constant** `powerDensity 5e9` instead of the shipped 5e8-3e9 ramp (the
+profile is not wired, above), chosen so the wall crosses the critical heat flux within the first few steps. Two variants:
+
+* `constant_chf`: the shipped `constantCHF 1.66e6`, `GroeneveldStewart`, `CachardLiquid`, `CachardVapour`, contact partition 1.0 as shipped. Because the shipped
+  `contactPartitionModel` gives the liquid all of the contact, the vapour-side htc is multiplied by 0 and `VapourTRACE` is invisible in the written fields.
+* `lookup_table_chf`: the same with `lookUpTableCHF` (the PSBT table and axes, `PitchToDiameter 1.32631578947`, `#include "chfTables"`) and contact partition 0.7
+  so that `VapourTRACE` shows. **Not a shipped case in any respect**; a code-to-code comparison only.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+- `grep -rniE "lookUpTable|chfTables|CachardLiquid|CachardVapour|InterpolateTable|hGammaCachard"` over `crates/`: the 1-D `ScalarInterpolateTable`
+  (`common/interpolate_table.rs`, bit-identical to upstream's 1-D table, round 3 "libCommon driver"), the pure functions `multi_regime_boiling_trace_chf` /
+  `multi_regime_boiling_vapour_trace` (round 8), `LeidenfrostTemperature::GroeneveldStewart`, `CriticalHeatFlux::Constant`. Reused. Not present: the `Field`/`FieldField`
+  instantiations of the table (new `common/interpolate_table_nd.rs`), `lookUpTableCHF::value`, the Cachard models, the solver wiring and `#include` following in `TwoPhaseCase::read`.
+- `crates/outram-foam-multiphase/src/chf.rs` has a `GroeneveldLut` (an 8 mm tube, its own table) - a different model and data, not used: upstream's `lookUpTableCHF` is the specification.
+- Upstream read in full: `lookUpTableCHF.{H,C}`, `InterpolateTableGF.H`, `InterpolateTablesGF.{H,C}`, `PtrListScalarFieldFieldINewGF.H`, `CHFModel.C`, `constantCHF.C`,
+  `CachardLiquid...C`, `CachardVapour...C`, `multiRegimeBoilingTRACECHF...C`, `multiRegimeBoilingVapourTRACE...C`, `GroeneveldStewartTLF.C`, `fixedPower.C`, `fixedTemperature.C`, `powerModel.C`.
+  No kovan-reviewed function was touched (`heat_transfer/review.md`, `two_phase` has no review block).
+
+## What was ported (new code; the old forms stay callable)
+
+* `common/interpolate_table_nd.rs`: `InterpolateTableGF::operator()` over `f64`, `Vec<f64>`, `Vec<Vec<f64>>` (one generic function; upstream's linear walk, `(1-alpha) a + alpha b` per element).
+* `closures/heat_transfer/chf_table.rs`: `LookUpTableChf::{from_dict, value}` = `lookUpTableCHF.{H,C}` (`ERROR` out-of-bounds policy as upstream's default: an `Err` naming the cell).
+* `closures/heat_transfer/cachard.rs`: `CachardLiquid`, `CachardVapour`. **Default = upstream, bit for bit, including the pressure-as-pitch defect**; the intended reading is the named option `CachardPitch::Pitch` / `with_pitch` (maintainer decision pending: gh:#1224).
+* `solver/two_phase`: `FsHtcModel::{MultiRegimeBoilingTraceChf, MultiRegimeBoilingVapourTrace}`, fields `chf_bool`, `wf_transition_boiling`, `t_leidenfrost` (what upstream's `CHFBoolMultiRegimeBoilingTRACECHF`, `wfTransitionBoiling`, `LeidenfrostTemperature` hold; upstream writes none of them), `TwoPhaseModels::chf_tables`; `TwoPhaseCase::read` follows `#include` in `phaseProperties` (`FoamFile::read_with_includes`); the liquid pair is evaluated before the vapour pair in `correct_fs_pair` as upstream's pair order, so the vapour model reads the fields of the same correction.
+* the data: `tests/data/genfoam_chf_gh1223/chfTables` (bit-identical, `PROVENANCE.md`: GeN-Foam 652b3da, GPL-3.0, Groeneveld et al. 2007; DOI not verified).
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+Upstream facts measured first (real binary, tight protocol, every step written, `scripts/chf_closed_run.sh`, endTime 0.3, serial): `constant_chf` runs 86 steps and exits
+normally (no SIGFPE); `lookup_table_chf` 226 steps, normally. The wall (`T.fixedPower`) is at ~626 K at step 1 (`T_sat` ~ 615 K) and rises ~3.7 K per step; `htc.liquid.structure`
+is ~25000 W/m2K at step 3 in `lookup_table_chf` and ~500 afterwards (the film-boiling form), so the regime changes within steps 3-6. `alpha.vapour` first exceeds 1e-3 at step 4.
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| U1 | both variants read with an empty `deviations`; `chfTables` follows the `#include` | held | a key the reader refuses |
+| U2 | `dt`, steps 1-30, both variants | equal to upstream's to 1e-9 relative | Courant / `maxDeltaT` |
+| U3 | steps 1-3 (pre-CHF, nucleate branch with `dmdtW`): `p`, `T.*`, `U.*`, `htc` | <= 1e-6 relative to the field maximum (round 8 found 7.8e-9 at its first nucleate step, grown 10x/step; the wall here heats 3.7 K/step, so faster growth) | the unexplained round-8 nucleate-boiling difference |
+| U4 | the step at which `htc.liquid.structure` first leaves its pre-CHF value (the CHF crossing) | the same step as upstream, in both variants | `T_CHF`, `q_CHF` (table), `T_LF` |
+| U5 | film-boiling steps (after the transition): `htc.liquid.structure` (= radiation + the ~1e-11 `h_gamma`) | <= 1e-8 relative (a closed form of `T_wall`, `T_sat`) | `Twall` lag, `T.interface` |
+| U6 | `lookup_table_chf`: `htc.vapour.structure` (`2 k_g/delta` with `delta` ~ 1e9: ~1e-9 W/m2K) | <= 1e-6 relative once post-CHF, 0 before | the contact partition, `kappa.vapour` placeholder (round 8) |
+| U7 | `alpha.vapour`, `dmdt.liquid.vapour`, steps 4-20 | <= 1e-3 relative (the round-8 vapour onset was 2e-3 / 2.8e-4) | `dmdtW` post-CHF branches |
+| U8 | first step at which any compared field leaves 1e-6 | step 3 to 8 (the CHF crossing amplifies the round-8 difference); none at 1 or 2 | |
+| U9 | the table: `lookUpTableCHF::value` on the 3-D table itself | bit-identical to upstream's class on a stand-alone driver (no run needed) | not run in this round: a libCommon-style driver for `lookUpTableCHF` needs `FSPair` and a mesh; deferred, recorded below |
+
+If U3 or U8 miss the first suspect is the round-8 nucleate-branch difference (sensitivity -1e-2/K to `T_ONB`), second the Gorenflo `T_CHF` evaluation
+(`3.72*pow(9.0,2)` against `3.72*9.0*9.0` in the Leidenfrost ramp, an ulp), third `kappa` of the vapour (the Cachard liquid model reads `kappa.vapour`, which upstream refreshes at the end of `EEqns`).
