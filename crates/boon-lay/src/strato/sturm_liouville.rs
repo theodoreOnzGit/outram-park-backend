@@ -40,6 +40,8 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+// LOCAL CHANGE L8: transcendentals through PETIR (see `strato/mod.rs`).
+use petir::mathf::RealMath;
 use core::f64::consts::PI;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{DiffusionCoefficient, Length, Ratio, Time};
@@ -123,7 +125,7 @@ impl Layer {
 /// Boundary: -D phi'(R)=h phi(R), Bi=hR/D.
 /// Root equation: z cot(z) = 1 - Bi.
 pub fn robin_residual(z: f64, bi: f64) -> f64 {
-    z / z.tan() - (1.0 - bi)
+    z / z.r_tan() - (1.0 - bi)
 }
 
 /// Locate positive Robin eigenvalues by bracket scanning and bisection.
@@ -175,8 +177,8 @@ pub fn robin_roots(bi: f64, count: usize) -> Vec<f64> {
 /// This is only the within-layer step. The state (u, D u') is NOT continuous across a
 /// material interface when the diffusivities differ; use `interface_state` there.
 pub fn transfer_layer(u: f64, du_flux: f64, d: f64, k: f64, length: f64) -> (f64, f64) {
-    let c = (k * length).cos();
-    let s = (k * length).sin();
+    let c = (k * length).r_cos();
+    let s = (k * length).r_sin();
     let u2 = c * u + s * du_flux / (d * k);
     let q2 = -d * k * s * u + c * du_flux;
     (u2, q2)
@@ -283,7 +285,7 @@ pub fn eigenvalue_count(lambda: f64, layers: &[Layer]) -> usize {
         let a = u;
         let b = q / (l.diffusivity * k);
         // u(s) = A sin(k s + theta0); zeros at k s + theta0 = m pi for s in (0, L].
-        let theta0 = a.atan2(b);
+        let theta0 = a.r_atan2(b);
         let length = l.outer_radius - left;
         n += ((theta0 + k * length) / PI).floor() as i64 - (theta0 / PI).floor() as i64;
         (u, q) = transfer_layer(u, q, l.diffusivity, k, length);
@@ -348,7 +350,7 @@ fn eigenvalues_of_validated_layers(
             })
             .sum()
     };
-    let mut lo = 1e-6 * (1.0 / phase_rate).powi(2);
+    let mut lo = 1e-6 * (1.0 / phase_rate).r_powi(2);
     while eigenvalue_count(lo, layers) != 0 {
         lo *= 0.01;
         if lo < 1e-300 {
@@ -389,7 +391,7 @@ fn gauss_legendre_16() -> ([f64; 16], [f64; 16]) {
     let mut x = [0.0; 16];
     let mut w = [0.0; 16];
     for i in 0..n {
-        let mut z = ((i as f64 + 0.75) / (n as f64 + 0.5) * PI).cos();
+        let mut z = ((i as f64 + 0.75) / (n as f64 + 0.5) * PI).r_cos();
         let mut dp = 1.0;
         for _ in 0..100 {
             let (mut p_prev, mut p) = (1.0, z);
@@ -496,16 +498,16 @@ impl ModalRelease {
                 let panels = ((st.k * (st.right - st.left)) / (0.5 * PI)).ceil() as usize + 1;
                 let u_at = |r: f64| {
                     let s = r - st.left;
-                    a * (st.k * s).cos() + b * (st.k * s).sin()
+                    a * (st.k * s).r_cos() + b * (st.k * s).r_sin()
                 };
-                norm += integrate(st.left, st.right, panels, |r| u_at(r).powi(2));
+                norm += integrate(st.left, st.right, panels, |r| u_at(r).r_powi(2));
                 let m = integrate(st.left, st.right, panels, |r| r * u_at(r));
                 moment += m;
                 if idx == 0 {
                     i1 = m;
                 }
             }
-            let w = 3.0 * i1 * moment / (r1.powi(3) * norm);
+            let w = 3.0 * i1 * moment / (r1.r_powi(3) * norm);
             if !w.is_finite() {
                 return Err(StratoError::NonFiniteModalWeight { lambda: lam });
             }
@@ -539,7 +541,7 @@ impl ModalRelease {
         self.eigenvalues
             .iter()
             .zip(&self.weights)
-            .map(|(l, w)| w * (-l * t).exp())
+            .map(|(l, w)| w * (-l * t).r_exp())
             .sum()
     }
 

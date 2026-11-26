@@ -28,7 +28,7 @@ and its dated corrections, is in [`PLAN.md`](PLAN.md).
 
 | Case | What | Outcome | Measured | Gate |
 |---|---|---|---|---|
-| U1 | port vs upstream STRATO Sturm-Liouville, 15 cases | **PASS** | **978 of 978 values bit-identical** | relative $\le 10^{-12}$ |
+| U1 | port vs upstream STRATO Sturm-Liouville, 15 cases | **PASS** | ~~**978 of 978 values bit-identical**~~ **2026-11-26 (local change L8, PETIR transcendentals): 767 of 978 bit-identical; worst relative $2.5 \times 10^{-14}$ on eigenvalues, weights, `lambda_covered`, `accuracy_floor`; worst $F(t)$ absolute $4.4 \times 10^{-15}$** | ~~relative $\le 10^{-12}$~~ relative $\le 10^{-12}$ on everything but $F(t)$; $F(t)$ absolute $\le 10^{-14}$ |
 | U2 | port vs STRATO's Python oracle, $F(2\times10^5\text{ s})$ | **PASS** | $2.3\times10^{-13}$ | absolute $\le 10^{-10}$ |
 | A1 | series vs homogeneous-sphere closed form | **PASS** | $1.8\times10^{-15}$ | absolute $\le 10^{-10}$ |
 | A1 | boon-lay FV: spatial orders / extrapolated error | **PASS** (FAIL in run 1) | 1.995, 1.980 / $6.6\times10^{-11}$ | [1.8, 2.2] / $\le 2\times10^{-5}$ |
@@ -249,12 +249,25 @@ uniform cells do not resolve.
 
 ## What the comparisons do and do not show
 
-- **The port reproduces upstream exactly.** U1 is bit-identical on 978 of
+- ~~**The port reproduces upstream exactly.** U1 is bit-identical on 978 of
   978 compared values. It compares eigenvalues, weights, `lambda_covered`,
   `accuracy_floor` and $F$; upstream values that are not finite would be
   skipped, and none occurred. The std build calls the same libm as
   upstream. **The no_std build is only compiled, never run**, so its
-  last-bit behaviour is unmeasured.
+  last-bit behaviour is unmeasured.~~
+  **CORRECTED 2026-11-26 (local change L8, maintainer: "petir is intended"):**
+  the port's transcendentals now go through PETIR, not the platform libm
+  upstream uses, so the std build no longer reproduces upstream bit for bit.
+  U1: 767 of 978 values bit-identical. Eigenvalues, weights,
+  `lambda_covered` and `accuracy_floor` agree to $2.5 \times 10^{-14}$
+  relative. The release fraction $F(t) = 1 - \sum w e^{-\lambda t}$ agrees to
+  $4.4 \times 10^{-15}$ absolute; its early-time values cancel to
+  $\sim 10^{-15}$ (port $-6.7 \times 10^{-16}$ against upstream
+  $2.4 \times 10^{-15}$ on `a2a_two_layer`), where a relative difference is
+  meaningless, so $F(t)$ is now gated at $10^{-14}$ absolute (maintainer
+  decision 2026-11-26). The cause is understood: one-ulp differences
+  between PETIR's and the platform's `cos`, `sin`, `exp`, ..., carried
+  through the sums.
 - **The series is independently checked only where there is no real
   interface.**
   - A1 has equal $D$, so the interface term is exactly zero.

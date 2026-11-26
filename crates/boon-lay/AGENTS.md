@@ -278,8 +278,12 @@ NOT a port.
 direction, 2026-11-26): file headers, docs, V&V reports, commit messages.
 
 - **Keep the port a port.** `src/strato/sturm_liouville.rs` keeps upstream's
-  functions, arithmetic and order of operations, so a std build is bit-identical
-  to upstream (U1 in the V&V record: 978 of 978 values). Record any change in
+  functions, arithmetic and order of operations, ~~so a std build is bit-identical
+  to upstream (U1 in the V&V record: 978 of 978 values)~~ **CORRECTED
+  2026-11-26 (local change L8):** its transcendentals go through PETIR
+  (maintainer: "petir is intended"), so a std build agrees with upstream to
+  round-off, not bit for bit (U1: 767 of 978 bit-identical, 2.5e-14 relative
+  on eigenvalues and weights, F(t) within 4.4e-15 absolute). Record any change in
   the numbered list in `src/strato/mod.rs` and mark it `LOCAL CHANGE Ln` in the
   code. boon-lay additions (the `uom` facade, `ModalRelease::single_sphere`)
   are local changes L4 and L5.

@@ -87,6 +87,17 @@
 //! 7. **L7, visibility.** Unchanged: upstream's public items stay public
 //!    and its private items (`LayerStart`, `shoot`, `gauss_legendre_16`,
 //!    `integrate`) stay private. The two helpers added in L5 are private.
+//! 8. **L8, transcendentals through PETIR** (2026-11-26, maintainer:
+//!    "petir is intended", to clear the workspace `no_platform_libm` gate).
+//!    The ten `tan`, `cos`, `sin`, `atan2`, `powi` and `exp` calls in
+//!    `sturm_liouville.rs` go through `petir::mathf::RealMath` (`r_cos`,
+//!    ...), not the platform libm that upstream's Python/NumPy uses. The
+//!    arithmetic and order of operations are unchanged. Effect on U1 (the
+//!    port against upstream, 978 values): bit-identical went from 978 to
+//!    767; eigenvalues and weights stay within 1e-12 relative; the release
+//!    fraction F(t) = 1 - sum w exp(-lambda t), whose early-time values are
+//!    cancellation noise at ~1e-15, differs by at most 4.4e-15 absolute and
+//!    is now judged absolutely (V&V record, U1).
 
 /// STRATO's analytical Sturm-Liouville series (upstream "Code C"), ported.
 pub mod sturm_liouville;

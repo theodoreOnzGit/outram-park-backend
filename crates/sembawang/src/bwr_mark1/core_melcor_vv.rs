@@ -15,6 +15,7 @@
 //! (PETIR's `exp` against `f64::exp`, a few ulp).
 
 use super::*;
+use petir::mathf::RealMath;
 
 /// Relative difference.
 fn rel(a: f64, b: f64) -> f64 {
@@ -31,8 +32,8 @@ fn rel(a: f64, b: f64) -> f64 {
 fn cor1_16_urbanic_heidrick_rate_matches_the_manual() {
     let prm = Params::default();
     let manual = |t: f64| -> f64 {
-        let lo = |t: f64| 29.6 * (-16820.0 / t).exp();
-        let hi = |t: f64| 87.9 * (-16610.0 / t).exp();
+        let lo = |t: f64| 29.6 * (-16820.0 / t).r_exp();
+        let hi = |t: f64| 87.9 * (-16610.0 / t).r_exp();
         if t < 1100.0 {
             0.0
         } else if t <= 1853.0 {
@@ -157,7 +158,7 @@ fn cor1_22_b4c_model_and_its_gates_match_the_manual() {
     assert!(rel(x[0], 0.244399227) < 1e-8 && rel(x[1], 0.755600772) < 1e-8 && rel(steam, 7.75560077) < 1e-8, "{x:?} {steam}");
     // The rate law.
     let prm = Params::default();
-    let rate = |t: f64| prm.b4c_rate_a * (-prm.b4c_rate_b / t).exp();
+    let rate = |t: f64| prm.b4c_rate_a * (-prm.b4c_rate_b / t).r_exp();
     for (t, want) in [(1200.0, 0.00105774158), (1500.0, 0.046093382), (1600.0, 0.118427708), (2000.0, 2.00861903)] {
         assert!(rel(rate(t), want) < 1e-8, "T {t}: {} vs {want}", rate(t));
     }
@@ -192,7 +193,7 @@ fn cor1_03_gray_exchange_is_melcors_network() {
     assert_eq!(cell_af(0.1, 2.0, 0.5, 80.0), 0.1 * 0.5);
     let sigma = 5.670_374_419e-8;
     let big = gray_exchange(cell_af(0.1, 1.0, 1e9, 1e9), 1e9, 0.7, 1e9, 0.7, 1500.0, 1000.0);
-    assert!(rel(big, 0.1 * sigma * (1500.0f64.powi(4) - 1000.0f64.powi(4))) < 1e-7, "{big}");
+    assert!(rel(big, 0.1 * sigma * (1500.0f64.r_powi(4) - 1000.0f64.r_powi(4))) < 1e-7, "{big}");
 }
 
 /// **COR2-07, lower-head Larson-Miller creep (MELCOR Vol. 2 §6.3, Eqs 6-23
