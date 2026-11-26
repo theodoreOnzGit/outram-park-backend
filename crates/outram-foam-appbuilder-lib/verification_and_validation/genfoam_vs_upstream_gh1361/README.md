@@ -1219,7 +1219,7 @@ The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered
 
 ### Gates
 
-`cargo test --release -p outram-foam-appbuilder-lib --lib --tests`: see the progress comment on gh:#1361 for counts. `cargo test --release -p petir --test no_platform_libm`: see the comment. No `exp`, `ln`, `pow` call was added: the new step uses only `+ - * /` and the existing `CrossSectionData` (which goes through PETIR `RealMath`).
+`cargo test --release -p outram-foam-appbuilder-lib --lib --tests` (2026-11-25): 579 passed, 0 failed, 25 ignored over 43 test binaries (lib 445 passed, 2 ignored); `cargo test --release -p petir --test no_platform_libm`: 4 passed. `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features` (the `no_std` build): clean. Children filed on gh:#1475: #1773 (cell-centred energy-only onePhase), #1774 (case-driven multiPhysicsSolver, identical-mesh meshToMesh, coupled setDeltaT), #1775 (porousKEpsilon, alphat). No `exp`, `ln`, `pow` call was added: the new step uses only `+ - * /` and the existing `CrossSectionData` (which goes through PETIR `RealMath`).
 
 ### Moved numbers (old to new, with cause)
 
