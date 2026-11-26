@@ -2,6 +2,7 @@
 # Extract refs/boiling_<name>.ref.txt.gz from a run of the real GeN-Foam binary on 1D_boiling.
 # usage: extract_boiling_reference.sh <runs/dir name> <ref name> <time-filter-regex> [step-lo step-hi]
 #   step-lo/step-hi (1-based, inclusive; round 7): keep only that contiguous range of written steps (smaller refs)
+# round 8: only the FIRST list of a field file (the internalField) is read; boundary lists after it are skipped.
 # Output lines (one per item, space separated, full doubles as written at writePrecision 17):
 #   DT <dt per step>           (log "deltaT = " after each step; step n advanced time by DT[n-1])
 #   TIMEPRINT <printed time>
@@ -37,7 +38,7 @@ for T in $(echo "$SEL" | grep -E "$FILT"); do
       V=$(grep "^internalField *uniform" "$F" | sed -E 's/^internalField *uniform *\(?([^ ;)]+).*/\1/')
       echo "F $T $f $(yes "$V" | head -n ${NC:-40} | tr '\n' ' ')" >> "$OUT"
     else
-      echo "F $T $f $(awk '/^\($/{f=1;next} /^\)$/{f=0} f{gsub(/[()]/,""); print $1}' $F | tr '\n' ' ')" >> "$OUT"
+      echo "F $T $f $(awk '/^\($/{if(!d)f=1;next} /^\)$/{if(f){f=0;d=1}} f{gsub(/[()]/,""); print $1}' $F | tr '\n' ' ')" >> "$OUT"
     fi
   done
 done

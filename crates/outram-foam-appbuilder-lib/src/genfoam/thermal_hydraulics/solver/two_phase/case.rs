@@ -973,6 +973,7 @@ impl TwoPhaseCase {
             relax_dmdt: rf(&format!("dmdt.{}.{}", names[0], names[1])),
             relax_t_interface: rf("T.interface"),
             relax_he: [rf(&format!("h.{}", names[0])), rf(&format!("h.{}", names[1]))],
+            relax_phi: [rf(&format!("phi.{}", names[0])), rf(&format!("phi.{}", names[1]))],
             min_kd_ff: scalar(pimple, "minKdFF").unwrap_or(1.0),
             min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-4),
             solve_phase,

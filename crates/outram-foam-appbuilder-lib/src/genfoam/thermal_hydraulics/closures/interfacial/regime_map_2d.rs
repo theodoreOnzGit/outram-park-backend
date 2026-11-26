@@ -325,7 +325,8 @@ impl Domain {
         Self { points, boundaries, sign: sign_, ray }
     }
 
-    /// Convex counter-clockwise `1`, clockwise `-1`, concave `0`.
+    /// Convex counter-clockwise `1`, clockwise `-1`, concave `0` (tests only).
+    #[cfg(test)]
     pub(crate) fn sign(&self) -> i32 {
         self.sign
     }

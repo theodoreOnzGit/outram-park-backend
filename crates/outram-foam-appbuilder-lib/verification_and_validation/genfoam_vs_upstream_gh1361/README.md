@@ -1466,3 +1466,79 @@ final residual of 1e-12 to 1e-13 (a round-off floor, reached in the same way as 
 
 If T5 or T6 miss, the first suspect is the SahaZuber form (upstream's no-`k` form makes `T_ld` hotter than the published one, so the sub-cooled fraction
 and with it `dmdtW` is larger), then the Gorenflo/`Twall` evaluation order.
+
+## Round 8 results (measured 2026-11-26, release; `tests/genfoam_psbt_trace_vs_upstream.rs`, 4 gates, runs 1 s)
+
+Reference: ONE fresh run of the installed upstream binary on the closed variant (tight protocol, `writePrecision 17`, every step, serial,
+`scripts/psbt_closed_protocol.sh`): 417 steps, then **upstream aborts with SIGFPE at t = 0.4925 s** (its own numerical blow-up: `T.liquid`
+max 682 K, `T.vapour` max 760 K in the last outer iteration; an upstream result, not a port result). Committed reference:
+`refs/psbt_closed_head.ref.txt.gz` (steps 1-40, 0.29 MB); the gates use steps 1-20. 75 cells. Worst relative difference over the cells,
+relative to the field's own maximum:
+
+| span | dt | p | T.liquid | T.vapour | T.fixedPower | U.liquid | U.vapour | alpha.vapour | dmdt | htc.liquid.structure | areaDensity | alphaRhoMagU.liquid |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1-8 (single phase, wall below ONB) | equal to 1e-12 | 7.9e-12 | 2.0e-11 | 8.1e-13 | 4.2e-12 | 4.7e-10 | 9.5e-9 | 0 (exact) | 0 | 2.1e-10 | 0 | 4.7e-10 |
+| 9-13 (single phase, wall above ONB: TRACE nucleate-boiling branch) | equal | 2.1e-9 | 2.0e-8 | 2.5e-10 | 5.6e-9 | 1.7e-7 | 1.6e-7 | 0 | 0 | **7.8e-9 (step 9), 6.2e-7 (step 12)** | 0 | 1.7e-7 |
+| 14 (vapour onset, both codes) | equal | 5.3e-7 | 1.5e-6 | 2.4e-8 | 1.7e-6 | 5.8e-5 | 3.9e-4 | 2.0e-3 | 2.8e-4 | 3.3e-4 | 2.8e-4 | 7.2e-5 |
+| 15-20 | <= 5e-5 | 2.0e-6 | 1.4e-6 | 2.6e-7 | 1.7e-6 | 1.9e-5 | 4.7e-4 | 9.1e-4 | 9.4e-4 | 4e-4 | 9e-4 | 2.8e-5 |
+
+Not bit-identical anywhere (the p_rgh solves differ, as in rounds 3-7). **The outer-iteration counts equal upstream's at steps 1, 2 and 3: 12, 0
+(step 2 is SKIPPED by upstream: "PIMPLE: converged in 0 iterations", its `customPimpleControl` defect, reproduced by the port) and 11.** The step size
+is equal to 1e-12 through step 14; the vapour appears at step 14 in both codes.
+
+**First diverging step: 9 (htc.liquid.structure 7.8e-9, the first value above the 1e-9 round-off allowance).** It is the first step at which the wall is above
+the onset of nucleate boiling (`Tw - TONB` = 0.4 to 0.8 K in the cells of the heated zone), i.e. the first use of the TRACE cubic superposition. From there
+the structure temperature (and with it `U`, `p`) follows and grows by about 10x per step to 1e-6 at step 12-14. **Cause: not identified.** The noise-floor
+control (`psbt_closed_noise_floor_dump`: the port against itself with the initial liquid temperature scaled by 1 + 1e-12) reaches T.fixedPower 5.3e-11 and htc
+1.1e-8 at step 13 and alpha.vapour 1.2e-8 at step 14, so the port-vs-upstream difference is ~100x (T.fixedPower, htc) and ~1e5x (alpha.vapour at 14) that of a noise-floor
+disturbance: a real, small, model difference, not chaos. It is smooth along the channel (htc 1.3e-9 at cell 5, 8e-9 at cell 20), and the sensitivity of the TRACE
+htc to the onset temperature is (1/htc) dhtc/dTONB = -1e-2/K, so it corresponds to a difference of the order 5e-7 K in `T_ONB` or `T_sat` (T.interface agrees to 1e-10 K), i.e.
+5e-7 relative in a Basu input (`rho_vapour`, `|L|`, `kappa`) or in the Gorenflo pair. Candidates not yet tested (each needs an upstream run that writes the
+intermediate field, which the real binary does not): the liquid `kappa` placeholder (upstream refreshes `fluid::kappa()` at the end of `EEqns`, the port's field
+holds the thermo value at the last `thermo_correct`), the vapour density in the cells where the vapour is below `thermoResidualAlpha`, `L` before the adjust.
+Filed as a child issue; the gate `nucleate_boiling_branch_differs_from_upstream_by_the_pinned_amount` pins the measured size.
+
+### Defects found by the comparison, and how (translating upstream)
+
+1. **`phi.*` relaxation was not ported** (found by the PISO residual sequence of step 1, outer iteration 1: upstream 1, 3.0866e-5, 1.2221e-5, 4.84e-6 (ratio 0.40 per
+   corrector); the port 1, 3.86e-5, 1.91e-5, 9.5e-6 (ratio 0.50)). Upstream: `refsAndControls_2p.H` `phi1.storePrevIter()` at the start of the outer iteration and
+   `reconstructU_2p.H` `phi1.relax()` in every corrector; `relaxationFactors.fields "phi.*" 0.8` is in every PSBT case. Ported (`TwoPhaseControls::relax_phi`). After: the sequence
+   equals upstream's (second corrector 3.08655856e-5 against 3.08655860e-5, 1.2e-8 relative; twelfth 2.9236e-9 against 2.9238e-9). Step 1 `p` 1.9e-10 -> 7.9e-12,
+   `T.fixedPower` 3.2e-11 -> 1.2e-12, step 2 `T.fixedPower` 3.9e-3 (the port ran 8 outer iterations where upstream runs none) -> 1.2e-12 (skipped in both). Predicted before the fix: not predicted.
+   No earlier ported case has a `phi.*` factor, so no pinned number moved.
+2. `Nusselt` and `NusseltAndWall` computed `nu*k/dh` and `B*(Re^C Pr^D)`; upstream is `(kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio)` (and `pow(Re*Pr, C)` when `C == D`).
+   Now upstream's association. **Measured effect: none** on the step-9 htc (7.80e-9 before and after), so it is not the cause above; kept because upstream's form is the default.
+3. `SahaZuber` (no `k`, `Basu` angle and `pow(.,3)`): in this span they influence only `dmdtW` (no vapour before step 14), so the comparison cannot yet separate the old and new
+   forms. The old `SahaZuber` is `SahaZuberPublished`, pinned by the two existing unit tests (values unchanged).
+
+### Predictions: held and missed
+
+| id | result |
+|---|---|
+| T1 held | the closed case reads with an empty `deviations` |
+| T2 held | `dt` equal to 1e-12 for steps 1-14 |
+| T3 held for steps 1-11, **missed after** | `p` <= 1e-9 to step 11 (2.4e-10), 1.1e-9 at 12, 2.1e-9 at 13; T.liquid 6.7e-10 at step 10, 9.9e-9 at 12 |
+| T4 held for steps 1-9, **missed after** | U.liquid <= 1e-8 to step 9 (2.8e-10), 1.5e-8 at step 10, 1.6e-7 at step 12 |
+| T5 held to step 9, **missed after** | htc <= 1e-8 to step 9 (7.8e-9), 2.7e-8 at step 10, 6.2e-7 at step 12: the nucleate-boiling branch |
+| T6 held | `alpha.vapour` first above 0 at step 14, as upstream |
+| T7 **missed** | alpha 2.0e-3, dmdt 2.8e-4 at the onset (predicted 1e-4); my reasoning ("amplified by the small vapour fraction") is the noise-floor argument, which the control shows does not explain it (1.2e-8) |
+| T8 **missed** | `p` <= 1e-6 held at 14 (5.3e-7), 2.0e-6 at 15; `T.liquid` 1.5e-6, `U.liquid` 5.8e-5 |
+| T9 held | nothing leaves 1e-6 before step 14 (worst 1.7e-7 at step 13) |
+
+### Moved numbers (old -> new, cause)
+
+- `SubcooledBoilingFraction::SahaZuber` now upstream's form (no `k`); the earlier form is `SahaZuberPublished`; the two unit tests that pin the published form were renamed to it, values unchanged.
+- `Nusselt` / `NusseltAndWall` htc: operation order changed to upstream's (round-off only); no gate moved (the closure tests are relative to 1e-10 or looser).
+- `TwoPhaseCase::read` of `regimeMapModels {}` (empty): `None` instead of the error "exactly one regime map is supported".
+- Basu contact angle: `deg*2*pi/360` and `pow(theta, 3.0)` (round-off).
+
+### What remains
+
+- **No shipped `1D_PSBT_SC` case runs end to end.** Through-flow boundary conditions (`fixedValue` velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet` alpha, `fixedFluxPressure`), and for the three
+  `PhaseII` cases the `porousKEpsilon2PhaseCorrected` turbulence model, are needed (child issues). `scalar_bcs` still turns `fixedFluxPressure` and `inletOutlet` into `calculated`
+  silently; it should refuse them by name (it is shared with `one_phase_fc`, whose gFHR comparison depends on the present reading, so it was not changed here).
+- The origin of the 7.8e-9 htc difference at the first nucleate-boiling step (above).
+- `TRACECHF`/`VapourTRACE` are not wired (their annular-flow models and `lookUpTableCHF` are not ported; `lookUpTableCHF` is deferred to the maintainer, the table having no licence statement).
+- `byRegime` for drag, virtual-mass, multiplier and htc models is not wired (the generic `ByRegimeModel<M>` exists).
+- The comparison stops at step 20 (gated) / 40 (reference): upstream's own run ends at step 417 with SIGFPE.
+- `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated: `kovan-cli` is not built here. The new functions are not in any `kovan.toml`.

@@ -155,35 +155,36 @@ impl FsForcedConvectionHtc {
                         }
                     }
                 }
+                // NusseltFSHeatTransferCoefficient.C: `(kappa/Dh)*(A + B*pow(Re*Pr, C)*Tratio)` and
+                // `(kappa/Dh)*(A + B*pow(Re, C)*pow(Pr, D)*Tratio)`, evaluated in that association order
+                // (gh:#1361 round 8: the earlier `nu*k/dh` and `B*(pow*pow)` differ from upstream by an ulp,
+                // which the nucleate-boiling branch of `multiRegimeBoilingTRACE` amplifies).
                 let nu = if b != 0.0 {
-                    a + b * re_pow_c_pr_pow_d(re_v, pr_v, c, d) * t_ratio
+                    if c == d {
+                        a + b * (re_v * pr_v).r_powf(c) * t_ratio
+                    } else {
+                        a + b * re_v.r_powf(c) * pr_v.r_powf(d) * t_ratio
+                    }
                 } else {
                     a
                 };
-                HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(nu * k_v / dh_v)
+                HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>((k_v / dh_v) * nu)
             }
             Self::NusseltAndWall { a, b, c, d, h_wall } => {
                 let nu = if b != 0.0 {
-                    a + b * re_pow_c_pr_pow_d(re_v, pr_v, c, d)
+                    if c == d {
+                        a + b * (re_v * pr_v).r_powf(c)
+                    } else {
+                        a + b * re_v.r_powf(c) * pr_v.r_powf(d)
+                    }
                 } else {
                     a
                 };
                 let h_fluid =
-                    HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(nu * k_v / dh_v);
+                    HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>((k_v / dh_v) * nu);
                 (h_fluid * h_wall) / (h_fluid + h_wall)
             }
         }
-    }
-}
-
-/// `Re^C * Pr^D`, using the `usePeclet_` fast path `(Re*Pr)^C` when `C == D`
-/// (`Re*Pr = Pe`, the Peclet number) exactly as upstream precomputes at
-/// construction time (`usePeclet_(C_ == D_)`).
-fn re_pow_c_pr_pow_d(re: f64, pr: f64, c: f64, d: f64) -> f64 {
-    if c == d {
-        (re * pr).r_powf(c)
-    } else {
-        re.r_powf(c) * pr.r_powf(d)
     }
 }
 

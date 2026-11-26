@@ -116,12 +116,12 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | **FS heat transfer** Nusselt, NusseltAndWall, Shah, Gorenflo | 1,193 | `closures/heat_transfer/fs_htc.rs` | ported | unit (34 in `heat_transfer/tests.rs`, shared) |
 | `multiRegimeBoiling` | 588 | `closures/heat_transfer/boiling.rs` | ported (post-CHF branch absent, as upstream: `TCHFi = 1e69`) | unit |
 | `superpositionNucleateBoiling` | 252 | `closures/heat_transfer/boiling.rs` | ported (htc combiner) | unit |
-| `multiRegimeBoilingTRACE` | 454 | — | missing (deferred in `heat_transfer/mod.rs`) | — |
-| `multiRegimeBoilingTRACECHF` | 684 | — | missing | — |
-| `multiRegimeBoilingVapourTRACE` | 304 | — | missing | — |
+| `multiRegimeBoilingTRACE` | 454 | `closures/heat_transfer/boiling_trace.rs`; wired in `solver/two_phase` (`FsHtcModel::MultiRegimeBoilingTrace`, `dmdtW`) | ported (CORRECTED 2026-11-26, gh:#1222; ~~missing~~) | unit (8, shared with TRACECHF); **upstream run** on the closed `Phase_Ex1_12223` variant: steps 1-8 agree to round-off, the nucleate-boiling branch differs by 7.8e-9 (step 9) to 6e-7 (step 12), cause open (`tests/genfoam_psbt_trace_vs_upstream.rs`, README "Round 8") |
+| `multiRegimeBoilingTRACECHF` | 684 | `closures/heat_transfer/boiling_trace_chf.rs` | pure function ported (CORRECTED 2026-11-26, gh:#1222); NOT wired into the solver: its post-CHF branches need `CachardLiquid` (missing) and the Ex2/Ex3 cases `lookUpTableCHF` (deferred) | unit |
+| `multiRegimeBoilingVapourTRACE` | 304 | `closures/heat_transfer/boiling_trace_chf.rs` | pure function ported (CORRECTED 2026-11-26, gh:#1222); not wired (reads the fields TRACECHF writes) | unit |
 | `NusseltWallAndHfromFMU` | 327 | — | missing (FMU co-simulation, out of scope) | — |
 | CHF `constantCHF` | 202 | `closures/heat_transfer/chf.rs` | ported | unit |
-| CHF `lookUpTableCHF` | 366 | — | missing | — |
+| CHF `lookUpTableCHF` | 366 | — | missing: **deferred to the maintainer** (gh:#1223, 2026-11-26): the code is only an interpolator but the Groeneveld 2006 table (`PhaseII_Ex2/Ex3` `constant/fluidRegion/chfTables`) is a case file with no licence or attribution in the GeN-Foam tree, so it was neither copied nor ported | — |
 | Leidenfrost `GroeneveldStewart` | 220 | `chf.rs` | ported | unit |
 | TONB `Basu` | 245 | `chf.rs` | ported | unit |
 | flow enhancement Chen, COBRA-TF, RezkallahSims | 641 | `chf.rs` | ported | unit |
@@ -141,8 +141,8 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | dispersion constant | 524 | `closures/interfacial/dispersion.rs` | ported | unit |
 | contact partition complementary, linear | 788 | `closures/interfacial/contact_partition.rs` | ported | unit |
 | regime map `oneParameter` | 1,115 | `closures/interfacial/regime_map.rs` | ported | unit |
-| regime map `twoParameters` (`regimeDomain2D`, `regimeBoundary2D`) | 1,501 | — | missing (deferred in `regime_map.rs`) | — |
-| templated `byRegime` dispatch | 428 | — | missing (deferred in `regime_map.rs`) | — |
+| regime map `twoParameters` (`regimeDomain2D`, `regimeBoundary2D`) | 1,501 | `closures/interfacial/regime_map_2d.rs` | ported (CORRECTED 2026-11-26, gh:#1225; ~~missing~~): incl. `Foam::Random`, `hashlittle` and `HashTable` walk order | unit (7; lookup3 vectors, g++ draws, PSBT map, concave polygon vs winding number); in the upstream comparison via the closed PSBT case |
+| templated `byRegime` dispatch | 428 | `closures/interfacial/by_regime.rs` (`ByRegimeModel<M>`); wired for dispersion, contact partition, dispersed diameter, interfacial-area density | ported for those four (CORRECTED 2026-11-26, gh:#1225); drag, virtual-mass, multiplier and htc `byRegime` not wired | unit; upstream run (closed PSBT) |
 | templated `constant` | 346 | folded into each family's `Constant` variant | ported | unit |
 | `phasePairs/FFPair.{C,H}` | 1,129 | `phase/phase_pair.rs` (`ff_reynolds`, `ff_relative_velocity_magnitude`) | partial: kinematics only | unit (3) |
 | `phasePairs/FSPair.{C,H}` | 738 | `phase/phase_pair.rs` (`fs_reynolds`) | partial: kinematics only | unit |
@@ -260,18 +260,23 @@ Each is one deliverable. Sizes are upstream lines to port.
 3. **FFPair/FSPair field assembly to parity** (1,867 lines): interface
    temperature relaxation (`maxTInterfaceDdt`), virtual mass, turbulent
    dispersion, `residualKd`, the `minMagU` floors, anisotropic FS `Kd`.
-4. **`multiRegimeBoilingTRACE` / `TRACECHF` / `VapourTRACE`** (1,442 lines). Needed
-   by every PSBT case. Verify against the committed PSBT upstream fields.
+4. ~~**`multiRegimeBoilingTRACE` / `TRACECHF` / `VapourTRACE`** (1,442 lines). Needed
+   by every PSBT case. Verify against the committed PSBT upstream fields.~~ **CORRECTED 2026-11-26** (gh:#1222): all three are ported
+   (`TRACE` also wired and compared with the real binary; `TRACECHF`/`VapourTRACE` as pure functions). The premise was wrong in two ways: only
+   `Phase_Ex1_12223` selects `TRACE` (`PhaseII_Ex1_01_5215` selects `multiRegimeBoiling`; Ex2/Ex3 select `TRACECHF`), and no PSBT case runs end to
+   end in the port because every one is a through-flow case (velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet`,
+   `fixedFluxPressure`) and the three `PhaseII` cases use `porousKEpsilon2PhaseCorrected` turbulence. Not re-checked against the committed
+   PSBT fields: those are a different (through-flow) case from the one compared.
 5. **`lookUpTableCHF`** (366 lines) with the 2006 Groeneveld table data
-   (licence to be checked). Needed by PSBT Phase II Ex 2 and 3.
+   (licence to be checked). Needed by PSBT Phase II Ex 2 and 3. **2026-11-26 (gh:#1223): licence unclear, deferred to the maintainer**; left refused.
 6. **Post-CHF `CachardLiquid`/`CachardVapour`** (560 lines): port with
    upstream's pressure-as-pitch binding reproduced and flagged, or report the
    upstream defect.
-7. **`regimeMapModels/twoParameters`** (1,501 lines). Needed by PSBT.
-8. **`templatedModels/byRegime` dispatch** (428 lines) for diameter,
-   dispersion, contact partition, area. 1D_boiling and PSBT both use it.
-9. **`phaseChangeModel` orchestration to parity** (925 lines): `dmdtW` wall
-   boiling split, `limitMassTransfer`, `latentHeatModel::adjust()`.
+7. ~~**`regimeMapModels/twoParameters`** (1,501 lines). Needed by PSBT.~~ **CORRECTED 2026-11-26** (gh:#1225): ported.
+8. ~~**`templatedModels/byRegime` dispatch** (428 lines) for diameter,
+   dispersion, contact partition, area. 1D_boiling and PSBT both use it.~~ **CORRECTED 2026-11-26** (gh:#1225): ported as `ByRegimeModel<M>` for those four.
+9. **`phaseChangeModel` orchestration to parity** (925 lines): ~~`dmdtW` wall
+   boiling split~~ (**CORRECTED 2026-11-26**, gh:#1222: `dmdtW`, `fw` and the wall part of `c1`/`c2` are ported), `limitMassTransfer`, `latentHeatModel::adjust()`.
 10. **FF heat transfer `NoKazimi`** (258 lines).
 11. **Turbulence transport**: k/ε equations and `correctNut` for the four
     porous/two-phase models (closure algebra exists; ~2,000 lines of the 3,663

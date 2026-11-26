@@ -76,10 +76,17 @@
 //!   other than `implicit`; `porousInterfaceSharpness != 0`.
 //! - Turbulence other than `laminar`; structure tortuosity/anisotropy, local
 //!   frames, pumps, heat exchangers, passive structures; `fvOptions`.
-//! - Closure selections other than those listed on [`TwoPhaseModels`]; the
+//! - Closure selections other than those listed on [`TwoPhaseModels`]; ~~the
 //!   wall-boiling mass split `dmdtW` (no ported model writes it); the
 //!   `twoParameters` regime map; `byRegime` for anything but dispersion and
-//!   contact partition.
+//!   contact partition.~~ **CORRECTED 2026-11-26** (gh:#1361 round 8): `multiRegimeBoilingTRACE` writes `dmdtW`
+//!   ([`TwoPhaseSolver::dmdt_w`]) and `phaseChangeModel::correct` consumes it; the `twoParameters` map is ported
+//!   ([`RegimeMapSelection`]); `byRegime` also covers the dispersed diameter and the interfacial-area density
+//!   ([`ByRegimeModel`]). Still refused by name: `multiRegimeBoilingTRACECHF`/`VapourTRACE` (their closures exist,
+//!   `closures::heat_transfer::boiling_trace_chf`, but their annular-flow sub-models and `lookUpTableCHF` do not),
+//!   through-flow boundary conditions (`fixedValue` velocity inlets, `pressureInletOutletVelocity`, `slip`,
+//!   `inletOutlet`, `fixedFluxPressure`) and `porousKEpsilon2PhaseCorrected` turbulence: so NONE of the shipped
+//!   `1D_PSBT_SC` cases runs end to end yet (README "Round 8").
 //!
 //! ## Wiring of the consumed models
 //!
@@ -391,6 +398,10 @@ pub struct TwoPhaseControls {
     pub relax_t_interface: f64,
     /// Field relaxation factor of `h.<fluid k>`.
     pub relax_he: [f64; 2],
+    /// Field relaxation factor of `phi.<fluid k>` (`reconstructU_2p.H`: `phik.relax()` against the `phik.storePrevIter()`
+    /// of `refsAndControls_2p.H`, i.e. the flux at the start of the outer iteration). Not applied by the port before
+    /// gh:#1361 round 8 (no earlier ported case sets one; the PSBT cases set `"phi.*" 0.8`).
+    pub relax_phi: [f64; 2],
     /// `minKdFF` (default 1).
     pub min_kd_ff: f64,
     /// `alpha.minAlphaSp` (default 1e-4).
@@ -1923,6 +1934,8 @@ impl TwoPhaseSolver {
             [fv::interp_linear(&g, &self.fluids[0].alpha), fv::interp_linear(&g, &self.fluids[1].alpha)]
         };
         let moving_af: Vec<f64> = (0..nf).map(|f| af[0][f] + af[1][f]).collect();
+        // refsAndControls_2p.H: `phi1.storePrevIter(); phi2.storePrevIter();`
+        let phi_prev_iter: [Vec<f64>; 2] = [self.fluids[0].phi.clone(), self.fluids[1].phi.clone()];
         // time-derivative coefficients
         let ar_by_dt = |fl: &Phase, alpha: &[f64], rho: &[f64], ab: &[f64], rb: &[f64]| {
             let mut s = Scalar::uniform(&g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
@@ -2088,8 +2101,14 @@ impl TwoPhaseSolver {
                         -(comp_expl[k][c] + comp_c[k][c] * (self.p_rgh.c[c] - p_rgh_0[c]) / dt);
                 }
             }
-            // reconstructU_2p.H (porousInterfaceSharpness 0)
+            // reconstructU_2p.H (porousInterfaceSharpness 0): `phik.relax()`
             for k in 0..2 {
+                let a = self.controls.relax_phi[k];
+                if a < 1.0 {
+                    for f in 0..nf {
+                        self.fluids[k].phi[f] = phi_prev_iter[k][f] + a * (self.fluids[k].phi[f] - phi_prev_iter[k][f]);
+                    }
+                }
                 let u = fv::reconstruct(&g, &self.fluids[k].phi);
                 self.fluids[k].u.c = u;
                 self.fluids[k].u.correct_bc(&g);
