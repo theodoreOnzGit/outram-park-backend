@@ -74,7 +74,8 @@
 //!   [`TwoPhaseCase::with_alpha_solver_implicit_upwind`].
 //! - `momentumMode cellCentered` (`pEqn_2p.H`) and partial-elimination modes
 //!   other than `implicit`; `porousInterfaceSharpness != 0`.
-//! - Turbulence other than `laminar`; structure tortuosity/anisotropy, local
+//! - Turbulence other than `laminar` and `RAS` `porousKEpsilon2PhaseCorrected` (gh:#1802, [`turbulence`]; every other
+//!   `RASModel`, `DhStruct`, wall-function patches refused by name); structure tortuosity/anisotropy, local
 //!   frames, pumps, heat exchangers, passive structures; `fvOptions`.
 //! - Closure selections other than those listed on [`TwoPhaseModels`]; ~~the
 //!   wall-boiling mass split `dmdtW` (no ported model writes it); the
@@ -82,11 +83,11 @@
 //!   contact partition.~~ **CORRECTED 2026-11-26** (gh:#1361 round 8): `multiRegimeBoilingTRACE` writes `dmdtW`
 //!   ([`TwoPhaseSolver::dmdt_w`]) and `phaseChangeModel::correct` consumes it; the `twoParameters` map is ported
 //!   ([`RegimeMapSelection`]); `byRegime` also covers the dispersed diameter and the interfacial-area density
-//!   ([`ByRegimeModel`]). Still refused by name: `multiRegimeBoilingTRACECHF`/`VapourTRACE` (their closures exist,
+//!   ([`ByRegimeModel`]). ~~Still refused by name: `multiRegimeBoilingTRACECHF`/`VapourTRACE` (their closures exist,
 //!   `closures::heat_transfer::boiling_trace_chf`, but their annular-flow sub-models and `lookUpTableCHF` do not),
 //!   through-flow boundary conditions (`fixedValue` velocity inlets, `pressureInletOutletVelocity`, `slip`,
 //!   `inletOutlet`, `fixedFluxPressure`) and `porousKEpsilon2PhaseCorrected` turbulence: so NONE of the shipped
-//!   `1D_PSBT_SC` cases runs end to end yet (README "Round 8").
+//!   `1D_PSBT_SC` cases runs end to end yet (README "Round 8").~~ **CORRECTED 2026-11-26** (gh:#1802, README "Round 16"): all four `1D_PSBT_SC` cases read and run; turbulence is [`turbulence`], plain `multiRegimeBoiling` is [`FsHtcModel::MultiRegimeBoiling`].
 //!
 //! ## Wiring of the consumed models
 //!
@@ -110,7 +111,9 @@ pub mod mules;
 pub mod one_phase_cc;
 pub mod one_phase_fc;
 mod pbicgstab;
+mod pcg;
 pub mod thermo;
+pub mod turbulence;
 
 #[cfg(test)]
 mod tests;
@@ -163,6 +166,7 @@ use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 pub use case::TwoPhaseCase;
 use fv::{Bc, Eqn, Geometry, Scalar, Vector};
 pub use thermo::PhaseThermo;
+pub use turbulence::PorousKEpsilon2PhaseCorrected;
 
 /// A per-cell model value that is either constant or blended by flow regime
 /// (`templatedModels/{constant,byRegime}`), here for scalar-valued models.
@@ -212,6 +216,9 @@ pub enum FsHtcModel {
         /// `suppressionFactor`.
         suppression: SuppressionFactor,
     },
+    /// plain `multiRegimeBoiling` (gh:#1802): the TRACE map with the heat fluxes superposed with exponent `n`,
+    /// `qNB = (qFC^n + (S qPB)^n)^(1/n)` when a suppression factor exists (else the TRACE `qBI` form).
+    MultiRegimeBoiling(MultiRegimeBoilingModel),
     /// `multiRegimeBoilingTRACE` (gh:#1222): see
     /// [`crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace`].
     MultiRegimeBoilingTrace(TraceBoilingModel),
@@ -248,6 +255,17 @@ pub struct TraceChfModel {
     pub roughness: f64,
 }
 
+/// The sub-models of plain `multiRegimeBoiling` (`heatFluxSuperposition true`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MultiRegimeBoilingModel {
+    /// The sub-models shared with the TRACE variants.
+    pub base: TraceBoilingModel,
+    /// `suppressionFactorModel` (absent: the TRACE `qBI` form, or plain superposition without an onset model).
+    pub suppression: Option<SuppressionFactor>,
+    /// `superpositionExponent`.
+    pub exponent: f64,
+}
+
 /// The sub-models of `multiRegimeBoilingTRACE` (`FSHeatTransferCoefficientModels`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TraceBoilingModel {
@@ -273,6 +291,19 @@ pub struct HPbicgstab {
     pub rel_tol: f64,
     /// `minIter` (default 0).
     pub min_iter: usize,
+}
+
+/// The `PCG`/`DIC` entry of the `solvers` dictionary that `p_rgh` resolves to ([`TwoPhaseControls::p_rgh_pcg`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PRghPcg {
+    /// `tolerance`.
+    pub tolerance: f64,
+    /// `relTol` (default 0).
+    pub rel_tol: f64,
+    /// `minIter` (default 0).
+    pub min_iter: usize,
+    /// `maxIter` (default 1000).
+    pub max_iter: usize,
 }
 
 /// One recorded evaluation of `multiRegimeBoilingTRACE` for one cell (gh:#1361 round 13 diagnostic, see
@@ -458,6 +489,17 @@ pub struct TwoPhaseControls {
     /// upstream's log prints: `diagonalPBiCGStab: Solving for h.liquid`), run by [`pbicgstab::pbicgstab_diagonal`]. `None`:
     /// the port's earlier `symGaussSeidel` sweeps with [`Self::h_tolerance`] ([`TwoPhaseSolver::with_smooth_solver_for_enthalpy`]).
     pub h_pbicgstab: Option<HPbicgstab>,
+    /// The linear solver `p_rgh` really gets (gh:#1361 round 17, gh:#1833). `Some`: the case selects `PCG` with the `DIC`
+    /// preconditioner, run by [`pcg::pcg_dic`] with OpenFOAM's normalised-residual stopping rule. `None`: the port's
+    /// ILU(0)-BiCGStab stopped at `||r||/||b|| < 1e-13` (every other `p_rgh` solver, `GAMG` included, which has no port;
+    /// [`TwoPhaseSolver::with_krylov_for_p_rgh`]). On an ill-conditioned `p_rgh` equation that stopping rule leaves
+    /// the solution wrong in the 10th digit of `p` (README round 17).
+    pub p_rgh_pcg: Option<PRghPcg>,
+    /// `true` (default, gh:#1361 round 17, gh:#1833): the temporary `UEqn.H()` field of `pEqnf_2p.H` carries the constraint
+    /// patch field of a `symmetry` mesh patch, so `fvc::flux(H)` through it is zero. `false`
+    /// ([`TwoPhaseSolver::with_zero_gradient_h_on_symmetry_patches`]): the port's earlier `zeroGradient`, which leaves
+    /// `Sf . H_c` there once the velocity has a component normal to the patch.
+    pub h_symmetry_constraint: bool,
     /// `residualControl.p_rgh.tolerance` (with `useFirstPISOInitialResidual`).
     pub residual_control_p_rgh: Option<f64>,
     /// `residualControl.h.<fluid1>.tolerance`.
@@ -663,6 +705,8 @@ pub struct Phase {
     pub dispersion: Vec<f64>,
     /// Fluid hydraulic diameter [m] (`fluidDiameterModel::correctField`).
     pub dh: Vec<f64>,
+    /// `RASModel porousKEpsilon2PhaseCorrected` of this fluid (gh:#1802); `None` for `simulationType laminar`.
+    pub turbulence: Option<PorousKEpsilon2PhaseCorrected>,
     /// Flow quality.
     pub quality: Vec<f64>,
     /// Lockhart-Martinelli parameter.
@@ -1070,6 +1114,9 @@ impl TwoPhaseSolver {
             f.he_old = f.he.c.clone();
             f.u_old = f.u.c.clone();
             f.phi_old = f.phi.clone();
+            if let Some(t) = f.turbulence.as_mut() {
+                t.begin_time_step();
+            }
         }
         if self.p_old_stored {
             self.p_old = self.p.c.clone();
@@ -1957,6 +2004,7 @@ impl TwoPhaseSolver {
         match model {
             FsHtcModel::Nusselt(m) => (fc(m), None),
             FsHtcModel::MultiRegimeBoilingTrace(m) => self.trace_boiling_value(k, o, c, m),
+            FsHtcModel::MultiRegimeBoiling(m) => self.multi_regime_boiling_value(k, o, c, m),
             // evaluated by `correct_fs_pair`, which keeps their side-effect fields
             FsHtcModel::MultiRegimeBoilingTraceChf(_) | FsHtcModel::MultiRegimeBoilingVapourTrace(_) => (0.0, None),
             FsHtcModel::SuperpositionNucleateBoiling {
@@ -1996,6 +2044,112 @@ impl TwoPhaseSolver {
                 (fc(forced_convection) * f + pb * s, None)
             }
         }
+    }
+
+    /// plain `multiRegimeBoiling::value` (`heatFluxSuperposition true`) for cell `c` of fluid `k` (gh:#1802), translating
+    /// `multiRegimeBoilingFSHeatTransferCoefficient.C` (`value`, `qNB`, `setDmdtW`). Returns the htc and, in the boiling branch,
+    /// `q_SC` multiplied by the sign of the latent heat so that `iAact q/|L|` equals upstream's `iAact q/L`.
+    fn multi_regime_boiling_value(&self, k: usize, o: usize, c: usize, m: MultiRegimeBoilingModel) -> (f64, Option<f64>) {
+        let b = m.base;
+        let fl = &self.fluids[k];
+        let ot = &self.fluids[o];
+        let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
+        let (tw, tf, tsat) = (self.structure.t_wall[c], fl.t.c[c], self.t_interface[c]);
+        let re = ReynoldsNumber::new::<ratio>(self.re_fs[k][c]);
+        let fc = b
+            .forced_convection
+            .heat_transfer_coefficient(
+                re,
+                Ratio::new::<ratio>(pr),
+                ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                Length::new::<meter>(fl.dh[c]),
+                Some((temperature(tw), temperature(tf))),
+            )
+            .get::<watt_per_square_meter_kelvin>();
+        let f = b
+            .flow_enhancement
+            .value(FlowEnhancementInputs {
+                inverse_lockhart_martinelli: Ratio::new::<ratio>(1.0 / fl.xlm[c]),
+                liquid_void_fraction: Ratio::new::<ratio>(fl.normalized[c]),
+                mixture_reynolds_number: ReynoldsNumber::new::<ratio>(10.0),
+                single_phase_reynolds_number: re,
+            })
+            .get::<ratio>();
+        let htc_2p_fc = fc * f;
+        if tw < tsat {
+            return (htc_2p_fc, None);
+        }
+        let l_abs = self.latent_heat[c].abs();
+        let t_onb = match b.onset {
+            Some(model) => model
+                .temperature(
+                    uom::si::f64::HeatTransfer::new::<watt_per_square_meter_kelvin>(htc_2p_fc),
+                    temperature(tf),
+                    temperature(tsat),
+                    mass_density(ot.rho.c[c]),
+                    specific_energy(l_abs),
+                    ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                )
+                .get::<kelvin>(),
+            None => tsat,
+        };
+        if tw < t_onb {
+            return (htc_2p_fc, None);
+        }
+        let pool = |t_wall: f64| -> f64 {
+            b.pool_boiling
+                .heat_transfer_coefficient_from_delta_t(
+                    uom::si::f64::TemperatureInterval::new::<uom::si::temperature_interval::kelvin>(t_wall - tsat),
+                    Pressure::new::<pascal>(self.p.c[c]),
+                )
+                .get::<watt_per_square_meter_kelvin>()
+        };
+        let q_fc = htc_2p_fc * (tw - tf);
+        let q_pb = pool(tw) * (tw - tsat);
+        let e = m.exponent;
+        let q_nb = match m.suppression {
+            Some(s) => {
+                let a = fl.normalized[c];
+                let oa = ot.normalized[c];
+                let g_mix = fl.u.c[c] * (a * fl.rho.c[c]) + ot.u.c[c] * (oa * ot.rho.c[c]);
+                let re2 = (g_mix.mag() * self.structure.dh[c] / (a * fl.mu.c[c] + oa * ot.mu.c[c])).max(10.0);
+                let sv = s
+                    .value(SuppressionInputs {
+                        mixture_reynolds_number: ReynoldsNumber::new::<ratio>(re2),
+                        t_fluid: temperature(tf),
+                        t_wall: temperature(tw),
+                        t_sat: temperature(tsat),
+                    })
+                    .get::<ratio>();
+                (q_fc.r_powf(e) + (sv * q_pb).r_powf(e)).r_powf(1.0 / e)
+            }
+            None if b.onset.is_some() => {
+                let q_bi = pool(t_onb) * (t_onb - tsat);
+                (q_fc.r_powf(e) + (q_pb - q_bi).r_powf(e)).r_powf(1.0 / e)
+            }
+            None => (q_fc.r_powf(e) + q_pb.r_powf(e)).r_powf(1.0 / e),
+        };
+        // `setDmdtW` only with a TONB model (no sub-cooled boiling otherwise)
+        let q_sc = b.onset.map(|_| {
+            let frac = match b.sub_cooled_fraction {
+                Some(model) => model
+                    .fraction(
+                        uom::si::f64::HeatFluxDensity::new::<watt_per_square_meter>(q_nb),
+                        ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                        Length::new::<meter>(self.structure.dh[c]),
+                        re,
+                        Ratio::new::<ratio>(pr),
+                        temperature(tsat),
+                        temperature(tf),
+                    )
+                    .get::<ratio>(),
+                None => 1.0,
+            };
+            frac * (q_nb - q_fc) * if self.latent_heat[c] < 0.0 { -1.0 } else { 1.0 }
+        });
+        let dt = tw - tf;
+        let dt = if dt >= 0.0 { dt.max(1e-3) } else { (-dt).min(-1e-3) };
+        (q_nb / dt, q_sc)
     }
 
     /// `multiRegimeBoilingTRACE::value` for cell `c` of fluid `k` (gh:#1222). The wall temperature is
@@ -2192,6 +2346,7 @@ impl TwoPhaseSolver {
     /// the number of PISO correctors run.
     fn correct_fluid_mechanics(&mut self) -> Result<(f64, usize), crate::error::AppBuilderError> {
         self.correct_alpha();
+        self.correct_turbulence();
         let u_eqns = [self.correct_u_eqn(0), self.correct_u_eqn(1)];
         let r = self.correct_pressure(&u_eqns);
         self.correct_cont_errs();
@@ -2378,11 +2533,24 @@ impl TwoPhaseSolver {
         e.boundary_convection(g, &fl.alpha_rho_phi, &fl.u, phis);
         // - fvm::laplacian(alpha rho nuEff, U) - fvc::div(alpha rho nuEff dev2(T(grad U)))
         let mut arn = Scalar::uniform(g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
-        for c in 0..n {
-            arn.c[c] = fl.alpha.c[c] * fl.mu.c[c];
-        }
-        for i in 0..(nf - ni) {
-            arn.b[i] = fl.alpha.b[i] * fl.mu.b[i];
+        match &fl.turbulence {
+            // `alpha rho nuEff`, `nuEff = nut + mu/rho` (gh:#1802)
+            Some(t) => {
+                for c in 0..n {
+                    arn.c[c] = fl.alpha.c[c] * fl.rho.c[c] * (t.nut.c[c] + fl.mu.c[c] / fl.rho.c[c]);
+                }
+                for i in 0..(nf - ni) {
+                    arn.b[i] = fl.alpha.b[i] * fl.rho.b[i] * (t.nut.b[i] + fl.mu.b[i] / fl.rho.b[i]);
+                }
+            }
+            None => {
+                for c in 0..n {
+                    arn.c[c] = fl.alpha.c[c] * fl.mu.c[c];
+                }
+                for i in 0..(nf - ni) {
+                    arn.b[i] = fl.alpha.b[i] * fl.mu.b[i];
+                }
+            }
         }
         let gamma = fv::interp_linear(g, &arn);
         e.eqn.neg_laplacian(g, &gamma, &zg);
@@ -2552,7 +2720,11 @@ impl TwoPhaseSolver {
             let mut phi_h = [vec![0.0; nf], vec![0.0; nf]];
             for k in 0..2 {
                 let h = u_eqns[k].h(&g, &self.fluids[k].u);
-                let mut hv = Vector::uniform(&g, Vector3::ZERO);
+                let mut hv = if self.controls.h_symmetry_constraint {
+                    Vector::uniform_with_constraint_patches(&g, Vector3::ZERO)
+                } else {
+                    Vector::uniform(&g, Vector3::ZERO)
+                };
                 hv.c = h;
                 hv.correct_bc(&g);
                 let fh = fv::flux(&g, &hv);
@@ -2616,7 +2788,13 @@ impl TwoPhaseSolver {
                 peqn.source[c] -= v * (comp_expl[0][c] + comp_expl[1][c] + dphi[c]);
             }
             let mut x = self.p_rgh.c.clone();
-            let res = solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance);
+            let res = if let Some(pc) = self.controls.p_rgh_pcg {
+                // upstream: `DICPCG: Solving for p_rgh` (the case's `solver PCG; preconditioner DIC;`)
+                pcg::pcg_dic(&peqn.ldu, &peqn.source, &mut x, pc.tolerance, pc.rel_tol, pc.max_iter, pc.min_iter)
+                    .initial_residual
+            } else {
+                solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance)
+            };
             if corr == 1 {
                 first_res = res;
             }
@@ -2758,6 +2936,15 @@ impl TwoPhaseSolver {
             }
             for i in 0..ae.b.len() {
                 ae.b[i] = if fl.cp.b[i] > 0.0 { fl.kappa.b[i] / fl.cp.b[i] } else { 0.0 };
+            }
+            // `thermo.alphaEff(alphat) = CpByCpv (alpha_ + alphat)` (gh:#1802; CpByCpv = 1 for enthalpy)
+            if let Some(t) = &fl.turbulence {
+                for c in 0..n {
+                    ae.c[c] += t.alphat.c[c];
+                }
+                for i in 0..ae.b.len() {
+                    ae.b[i] = if fl.cp.b[i] > 0.0 { fl.kappa.b[i] / fl.cp.b[i] + t.alphat.b[i] } else { 0.0 };
+                }
             }
             let a_f = fv::interp_linear(&g, &fl.alpha);
             let ae_f = fv::interp_linear(&g, &ae);
@@ -3186,6 +3373,24 @@ impl TwoPhaseSolver {
         self
     }
 
+    /// DEPRECATED (gh:#1361 round 17, gh:#1833): evaluate the `UEqn.H()` field of `pEqnf_2p.H` as `zeroGradient` on a `symmetry`
+    /// mesh patch, as the port did before it applied OpenFOAM's constraint patch field there.
+    #[must_use]
+    pub fn with_zero_gradient_h_on_symmetry_patches(mut self) -> Self {
+        self.controls.h_symmetry_constraint = false;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 17, gh:#1833): solve `p_rgh` with the port's ILU(0)-BiCGStab stopped at
+    /// `||r||_2/||b||_2 < 1e-13` even when the case selects `PCG`/`DIC`, as the port did before it translated
+    /// `PCG::scalarSolve`. On `PhaseII_Ex3` that leaves `p_rgh` wrong by 2.7e-3 Pa after the first corrector (`p` 1.5e-9 relative
+    /// at the end of the step with the symmetry constraint in place; README round 17).
+    #[must_use]
+    pub fn with_krylov_for_p_rgh(mut self) -> Self {
+        self.controls.p_rgh_pcg = None;
+        self
+    }
+
     /// DEPRECATED (gh:#1361 round 13): test `normalized - thermoResidualAlpha > 0` at the time of the `cutoff` clamp
     /// ([`TwoPhaseControls::live_thermo_residual_markers`] `= true`) instead of upstream's start-of-iteration marker
     /// fields. A cell whose fraction crosses the threshold inside an iteration is treated differently from upstream.
@@ -3605,6 +3810,7 @@ impl Phase {
             mag_u: vec![0.0; n],
             dispersion: vec![0.0; n],
             dh: vec![0.0; n],
+            turbulence: None,
             quality: vec![0.0; n],
             xlm: vec![1e4; n],
             alpha_old: alpha.c.clone(),

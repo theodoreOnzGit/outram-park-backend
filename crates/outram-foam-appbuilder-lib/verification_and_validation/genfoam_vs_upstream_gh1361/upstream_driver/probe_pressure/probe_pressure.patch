@@ -1,0 +1,149 @@
+diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/pEqnf_2p.H probe1833/classes/thermalHydraulics/solvers/twoPhase/include/pEqnf_2p.H
+--- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/pEqnf_2p.H	2026-11-13 01:06:51.451505711 +0000
++++ probe1833/classes/thermalHydraulics/solvers/twoPhase/include/pEqnf_2p.H	2026-11-26 14:17:55.267177196 +0000
+@@ -280,6 +280,67 @@
+             mag(alphaf1*alpharAUf1Star + alphaf2*alpharAUf2Star)
+         );
+ 
++        probe1833::corr()++;
++        probe1833::dumpScalar("alpha1", alpha1.primitiveField());
++        probe1833::dumpScalar("alpha2", alpha2.primitiveField());
++        probe1833::dumpScalar("rho1", rho1.primitiveField());
++        probe1833::dumpScalar("rho2", rho2.primitiveField());
++        probe1833::dumpScalar("A1cell", UEqn1.A()().primitiveField());
++        probe1833::dumpScalar("A2cell", UEqn2.A()().primitiveField());
++        probe1833::dumpVector("H1cell", UEqn1.H()().primitiveField());
++        probe1833::dumpVector("H2cell", UEqn2.H()().primitiveField());
++        probe1833::dumpVector("U1", U1.primitiveField());
++        probe1833::dumpVector("U2", U2.primitiveField());
++        probe1833::dumpScalar("Kd12", Kd12.primitiveField());
++        probe1833::dumpFace("alphaf1", alphaf1);
++        probe1833::dumpFace("alphaf2", alphaf2);
++        probe1833::dumpFace("Af1", Af1);
++        probe1833::dumpFace("Af2", Af2);
++        probe1833::dumpFace("Kdf12", Kdf12);
++        probe1833::dumpFace("alphaRhof1byDt", alphaRhof1byDt);
++        probe1833::dumpFace("alphaRhof10byDt", alphaRhof10byDt);
++        probe1833::dumpFace("rAUf1", rAUf1);
++        probe1833::dumpFace("rAUf2", rAUf2);
++        probe1833::dumpFace("alpharAUf1Star", alpharAUf1Star);
++        probe1833::dumpFace("alpharAUf2Star", alpharAUf2Star);
++        probe1833::dumpFace("phiS1", phiS1);
++        probe1833::dumpFace("phiS2", phiS2);
++        probe1833::dumpFace("phiH1", phiH1);
++        probe1833::dumpFace("phiH2", phiH2);
++        probe1833::dumpFace("phiHbyA1", phiHbyA1);
++        probe1833::dumpFace("phiHbyA2", phiHbyA2);
++        probe1833::dumpFace("phiHbyA", phiHbyA);
++        probe1833::dumpFace("rAUf", rAUf);
++        probe1833::dumpFace("phi1old", phi1.oldTime());
++        probe1833::dumpFace("phi2old", phi2.oldTime());
++        probe1833::dumpScalar("p_rgh_pre", p_rgh_.primitiveField());
++        probe1833::dumpScalar("gh", gh_.primitiveField());
++        probe1833::dumpFace("ghf", ghf_);
++        {
++            auto dumpB = [](const char* nm, const surfaceScalarField& f)
++            {
++                Foam::scalarField all(0);
++                forAll(f.boundaryField(), pi)
++                {
++                    const Foam::scalarField& v = f.boundaryField()[pi];
++                    label o = all.size();
++                    all.setSize(o + v.size());
++                    forAll(v, i) all[o + i] = v[i];
++                }
++                probe1833::dumpScalar(nm, all);
++            };
++            dumpB("B_phiHbyA", phiHbyA);
++            dumpB("B_phiH1", phiH1);
++            dumpB("B_phiHbyA1", phiHbyA1);
++            dumpB("B_phiS1", phiS1);
++            dumpB("B_rAUf", rAUf);
++            dumpB("B_alphaf1", alphaf1);
++            dumpB("B_Af1", Af1);
++            dumpB("B_rAUf1", rAUf1);
++            dumpB("B_phi1", phi1);
++            dumpB("B_alpharAUf1Star", alpharAUf1Star);
++            dumpB("B_alphaRhof10byDt", alphaRhof10byDt);
++        }
+         #include "setSnGradP_rgh_2p.H"
+ 
+         #include "calcComp_2p.H"
+@@ -298,6 +359,24 @@
+                 surfaceScalarField mSfGradp("mSfGradp", pEqnFlux/rAUf);
+ 
+                 phi_ = phiHbyA + pEqnFlux;
++                probe1833::dumpFace("phi_post", phi_);
++                probe1833::dumpScalar("pdiag", pEqn.diag());
++                probe1833::dumpScalar("c1source", pEqnComp1().source());
++                probe1833::dumpScalar("c2source", pEqnComp2().source());
++                probe1833::dumpScalar("c1diag", pEqnComp1().diag());
++                probe1833::dumpScalar("c2diag", pEqnComp2().diag());
++                probe1833::dumpScalar("divphiHbyA", (fvc::div(phiHbyA))().primitiveField());
++                probe1833::dumpScalar("isource", pEqnIncomp.source());
++                probe1833::dumpScalar("pupper", pEqn.upper());
++                probe1833::dumpScalar("psource", pEqn.source());
++                forAll(pEqn.internalCoeffs(), pi)
++                {
++                    probe1833::dumpScalar(("pint" + Foam::name(pi)).c_str(), pEqn.internalCoeffs()[pi]);
++                    probe1833::dumpScalar(("pbnd" + Foam::name(pi)).c_str(), pEqn.boundaryCoeffs()[pi]);
++                }
++                probe1833::dumpFace("pEqnFlux", pEqnFlux);
++                probe1833::dumpScalar("p_rgh_post", p_rgh_.primitiveField());
++
+                 phi1 = phiHbyA1 + alpharAUf1Star*mSfGradp;
+                 phi2 = phiHbyA2 + alpharAUf2Star*mSfGradp;
+ 
+diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/probe1833.H probe1833/classes/thermalHydraulics/solvers/twoPhase/probe1833.H
+--- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/probe1833.H	1970-01-01 00:00:00.000000000 +0000
++++ probe1833/classes/thermalHydraulics/solvers/twoPhase/probe1833.H	2026-11-26 14:04:37.652273143 +0000
+@@ -0,0 +1,38 @@
++// gh:#1833 probe: 17-digit dumps of the face-centred two-phase pressure stage (instrumented copy, NOT upstream).
++#ifndef probe1833_H
++#define probe1833_H
++#include <fstream>
++#include <cstdlib>
++#include "fvCFD.H"
++namespace probe1833
++{
++    inline std::ofstream& os()
++    {
++        static std::ofstream f(std::getenv("PROBE1833_FILE") ? std::getenv("PROBE1833_FILE") : "/tmp/probe1833.txt");
++        static bool init(false);
++        if (!init) { f.precision(17); init = true; }
++        return f;
++    }
++    inline int& corr() { static int c(0); return c; }
++    inline bool on() { return corr() <= (std::getenv("PROBE1833_MAXCORR") ? std::atoi(std::getenv("PROBE1833_MAXCORR")) : 1); }
++    inline void dumpScalar(const char* name, const Foam::scalarField& f)
++    {
++        if (!on()) return;
++        os() << "S " << corr() << " " << name;
++        forAll(f, i) os() << " " << f[i];
++        os() << "\n";
++    }
++    inline void dumpVector(const char* name, const Foam::vectorField& f)
++    {
++        if (!on()) return;
++        os() << "V " << corr() << " " << name;
++        forAll(f, i) os() << " " << f[i].x() << " " << f[i].y() << " " << f[i].z();
++        os() << "\n";
++    }
++    //- internal faces only
++    inline void dumpFace(const char* name, const Foam::surfaceScalarField& f)
++    {
++        dumpScalar(name, f.primitiveField());
++    }
++}
++#endif
+diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C probe1833/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C
+--- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C	2026-11-13 01:06:51.451505711 +0000
++++ probe1833/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C	2026-11-26 14:04:50.977105778 +0000
+@@ -38,6 +38,7 @@
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "twoPhase.H"
++#include "probe1833.H"
+ #include <chrono>
+ #include "addToRunTimeSelectionTable.H"
+ 

@@ -36,7 +36,7 @@ for T in $(echo "$SEL" | grep -E "$FILT"); do
     # or a vector): expand it to NCELLS values, else the comparison would be vacuous.
     if grep -q "^internalField *uniform" "$F"; then
       V=$(grep "^internalField *uniform" "$F" | sed -E 's/^internalField *uniform *\(?([^ ;)]+).*/\1/')
-      echo "F $T $f $(yes "$V" | head -n ${NC:-40} | tr '\n' ' ')" >> "$OUT"
+      echo "F $T $f $(yes -- "$V" | head -n ${NC:-40} | tr '\n' ' ')" >> "$OUT"
     else
       echo "F $T $f $(awk '/^\($/{if(!d)f=1;next} /^\)$/{if(f){f=0;d=1}} f{gsub(/[()]/,""); print $1}' $F | tr '\n' ' ')" >> "$OUT"
     fi
