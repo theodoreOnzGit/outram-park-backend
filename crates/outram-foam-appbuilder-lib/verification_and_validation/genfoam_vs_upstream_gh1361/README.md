@@ -1102,6 +1102,143 @@ Command for every row: the four tests `one_d_boiling_pimple_flow_tight_matches_u
 A fresh run of the upstream binary in this environment (`/home/user/upstream-build`, GeN-Foam binary of 2026-11-13 01:17, OpenFOAM built 2026-11-12 23:39), tight protocol, `scripts/boiling_protocol.sh`, is repeatable (two runs identical) and agrees with the committed
 `boiling_tight_full_flow` reference at steps 1-639 (iterations, endings, clocks). At step 640 it differs: dt 0.0101 s against the reference's 0.0008 s, and the run then aborts with SIGFPE (`Foam::divide`) at t = 6.35153, step 667, at both `endTime` 6.5 and 12. The committed reference run reached 12 s (6157 steps). So the reference of steps 640 onward was produced by a different build of upstream than the one now installed (the environment was rebuilt; the compiler or flags may differ), and it cannot be regenerated here. The comparison before the onset (steps 1-639) is unaffected; the steps 640-758 of this test's reference, and every post-onset reference number, are a record of one build's chaotic trajectory. Recorded on gh:#1361; not investigated further.
 
+# Round 6 (gh:#1361 item "MSFR transient"; companion gh:#1475): `2D_MSFR` `transient` stage, first 50 steps
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+## What exists in the port, and what does not (read before any run, 2026-11-25)
+
+Searched `src/genfoam` for `msfr`, `transient`, `pointKinetics`, `precursor`, `liquidFuel`, `moving`:
+
+| piece the `transient` stage needs | upstream routine | port before this round |
+|---|---|---|
+| diffusion flux + precursor transient with circulating fuel | `diffusionNeutronics::correctPhysics`, `solveNeutronics.H`, `fluxEq.H`, `precEq.H` (`eigenvalueNeutronics false`, `liquidFuel true`) | `DiffusionNeutronics::step`: single pass, stationary-fuel precursors, `k_eff` fixed, no transport, no neutron iteration; **not a translation**. `precursor_drift` is the steady (`ddt` dropped) equation only. |
+| TH region `onePhase`, `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` powerModel, `ReynoldsPower` | `solvers/onePhase`, `EEqn_1p`, cellCentered `pEqn`, `libFFSSrc2` closures | `OnePhaseFcSolver` (round 4) is a translation of the **faceCentered** path only, without turbulence; `solver::one_phase::OnePhaseSolver` is a constant-property stand-in. The coupled loop (`multi_region`) runs the lumped `MeshThermalHydraulics` (#1475). |
+| `meshToMesh cellVolumeWeight` between the two (identical) 8595-cell meshes | `meshHandler::mapTheseFields` | approximate (nearest cell + global rescale; #651) |
+| `multiPhysicsSolver::correctPhysics` Picard loop | as named | `MultiPhysicsSolver` (generic, enum-dispatched), not wired to a case reader |
+| adaptive `deltaT` (Courant from TH, `maxPowerVariation` from neutronics) | `setDeltaT.C`, `maxDeltaT` | `PseudoTimeClock`/`neutronics_max_delta_t` (neutronics half only) |
+
+So the port **cannot run the coupled MSFR transient**: the TH half (cell-centred energy equation with frozen flow, porous k-epsilon, HX power model, `ReynoldsPower`) and the case-driven `multiPhysicsSolver` are not ported; they are filed as children of #1475. What this round does instead is the **neutronics half of the transient, driven one-way by upstream's own TH fields** (an operator-split comparison): upstream's mapped `TFuel`/`rhoCool` of every step enter the port's neutronics; the port's own flux, precursor and power history is compared with upstream's, step by step. That isolates the diffusion transient, the liquid-fuel precursor transport, the cross-section feedback and the albedo boundary from the TH.
+
+## Upstream run (real unmodified `GeN-Foam` binary, built 2026-11-13, serial)
+
+`scripts/run_msfr_chain.sh` replays `Allrun`'s `setSteadyStateTH`, `setSteadyStateEN`, `setTransient` with sed/perl (`foamDictionary` is not built here). Protocol: `writePrecision 17` everywhere, so the restart state is exact; steady stages with the **shipped** solver tolerances (the transient start state is an input of both codes, as in round 3); the `transient` stage at the **tight protocol** (every linear solver `tolerance 1e-14`, `relTol 0`), `writeControl timeStep; writeInterval 1`. The sed edits only plain `tolerance x;`/`relTol x;` lines: the first attempt also rewrote the lines of the `/* ... relTol 0.01;*/` comment block of `neutroRegion/fvSolution` and removed its `*/`, which made upstream abort with "Entry 'fluxStar0' not found" (a harness defect, fixed).
+
+Measured before any port run: steadyStateTH 531 s (15 s of flow), steadyStateEN 71 s (`keff_` = 0.96031194083006322 at t = 165, `pTarget` 2e7; the tutorial's expected 0.960283 is 3.0 pcm away), transient 65 s for 142 steps to t = 166. Every step: `Multiphysics loop converged after 1 iterations`, so the neutronics of step n sees the TH state of the end of step n-1 (mapped once at the start of the step; the written `neutroRegion/<t>/TFuel`, `rhoCool` are exactly those). `U` is frozen (`fluidRegion/U` and `neutroRegion/U` identical in all steps), `fluxStar_i == flux_i` (discontinuity factors 1), `TFuel == TCool` bitwise, `rhoCool = 4125 (1 - 2e-4 (T - 900))` **bitwise** (Boussinesq). Per step: `deltaT` 0.001 then 8.1e-4, 9.8e-4, ... 7.47e-3 from step 15 (Courant-limited); the neutron iteration count is 50 (the cap) at steps 1-2, then 37, 1, 22, 1, 8 at steps 3-7, and 1 from step 8 on; the final `neutroResidual` is within 0.01 to 0.4 % of the 1e-6 stopping value at steps 2-14 (9.9967e-7 at step 3), so the iteration count is a discrete decision taken close to a threshold. **Aitken acceleration was refused at all 157 attempts and performed 0 times** (upstream declares the three integral-flux `List<scalar>` inside the loop, uninitialised: the test reads indeterminate memory). `power:` goes from 2.0000000e7 to 20003657.5 in step 1 and to 20013566 at step 50.
+
+## Predictions (written BEFORE the first port run; committed first)
+
+Inputs of the port: committed `cases/msfr_neutro` (mesh, `nuclearData`), `refs/msfr_transient.ref.txt.gz` (start state, `T` of each step, upstream's results). Port solvers at `1e-14`.
+
+| id | quantity | prediction |
+|---|---|---|
+| Q1 | per-step `power`, relative difference port - upstream, all 50 steps | `<= 1e-9`; if not, the first step above 1e-9 and its cause are the finding. Round 1 gave +0.3 pcm in `k_eff` through the same cross-section path at 6-digit inputs, so an offset of order 1e-6 from the cross sections (RBF/log law) or the albedo boundary is the alternative; I put the odds near even |
+| Q2 | neutron iteration count per step | equal at >= 45 of 50 steps; the steps 2-14 whose final residual is within 0.4 % of 1e-6 are the ones expected to differ if the port's initial-residual normalisation differs from OpenFOAM's by more than that |
+| Q3 | precursor totals `sum V prec_k` per group, per step | `<= 1e-9` relative, failing no earlier than Q1 |
+| Q4 | per-cell flux and `prec` at step 50 | worst cell `<= 1e-8` of the field maximum |
+| Q5 | power change since the start state (`power(50) - 2e7`, +1.3566e4 W upstream) | port reproduces it to 1e-6 relative of the change (the change is a 6.8e-4 effect, large against solver noise) |
+| Q6 | first quantity to diverge | the neutron iteration count at one of the near-threshold steps (3-14), not the power |
+| Q7 | wall time | port < 5 min for 50 steps |
+
+## Round 6, first run (2026-11-25, port with the data-driven chi): predictions Q1-Q7 mostly missed
+
+Result of the first run (`msfr_transient_neutronics_matches_upstream_over_50_steps`, 12.6 s wall): power relative difference 7.4e-6 at step 1, 6.7e-5 at step 2, 1.8e-4 from step 3 to step 50 (worst 1.84e-4); neutron iteration counts equal at 43 of 50 steps (steps 2-8 differ: 33/50, 1/37, 21/1, 1/22, 10/1, 1/8, 2/1); precursor totals up to 1.07e-4, flux integrals 1.9e-4; step-50 per-cell 1.9e-4; power change since 2e7 at step 50: port +1.0045e4 W, upstream +1.3566e4 W (26 % off). **Q1 missed, Q2 missed narrowly (43 of 50 against >= 45), Q3 missed, Q4 missed, Q5 missed, Q6 missed in kind (the power diverges at step 1), Q7 held.**
+
+How the cause was found (all diagnostics are `#[ignore]`d tests in the same file; each reads the upstream run):
+
+1. Step 1, first iteration, per-group first-solve initial residual: port `[7.35e-6, 7.83e-6, 2.51e-6, 1.94e-6, 1.56e-6, 2.05e-6]`, upstream `[9.6e-7, 1.14e-6, 1.57e-6, 1.84e-6, 1.66e-6, 1.83e-6]`: the start state (upstream's own) is out of balance in the port by 7x in the fast groups.
+2. The static eigenvalue of the port at upstream's t = 165 s state is +0.315 pcm from upstream's `keff_` (same as round 1's +0.3 pcm, never explained there); upstream's `keff_` is itself still creeping by 5e-8 per step at t = 165 s, so this alone is not a diagnosis.
+3. Geometry: `upstream_driver/dump_laplacian_geometry` (ESI `V`, `magSf`, linear weights, `nonOrthDeltaCoeffs`, `deltaCoeffs`, every patch): port equal to <= 3.6e-14 relative everywhere. Albedo coefficients: scaling any of the four patches by 1 +- 1e-3 raises the residual, minimum at 1.0. Not the cause.
+4. `upstream_driver/dump_xs` calls GeN-Foam's **own `XS` class** (`xs.correct()` on the same case) and dumps every cross section per cell at 17 digits. Port against it, 8595 cells: `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval`, `IV`, `BetaTot` **bit-identical (0 of 8595 differ)**, `sigmaFromTo` identical except 1 cell at 1.1e-15; **`chiPrompt` and `chiDelayed` differ in all 8595 cells** (worst 3.3e-5 `chiPrompt0`, 7.7e-2 `chiDelayed0`, 0.34 `chiDelayed5`).
+5. Upstream routine: `XS::init()` (`XS.C:297`) calls `.build()` on the `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval` and `sigmaFromTo` lists and **not** on `chiPromptList_`/`chiDelayedList_`; `nuclearDataOneEnergy::get` (`nuclearDataOneEnergy.C:94`) returns the reference value when `reducedParamIdx_` is empty (never built). So upstream's chi is the reference chi in every cell, though `nuclearData` supplies a chi per state. The port built and interpolated them. A port difference of the kind CLAUDE.md names ("what upstream does that we do not"), found by reading upstream after the measurement.
+
+## Round 6, second run: hypothesis and predictions (written BEFORE the second run; committed first)
+
+Change: `CrossSectionData::with_upstream_unparametrised_chi()` (new option, ~~**default unchanged: parametrised**~~ **the default since 2026-11-26**), used by this test's setup. ~~Whether upstream's omission should become the default is **deferred to the maintainer**~~ **DECIDED 2026-11-26** (maintainer: "follow upstream", "deprecate ours locally"): upstream's form is the default; the data-driven chi is `CrossSectionData::with_data_driven_chi()`, `#[deprecated]`.
+
+| id | prediction |
+|---|---|
+| H1 | with the option, `diagnose_cross_sections_against_upstream_xs_class` shows every cross-section quantity equal to upstream's at <= 1e-14 relative (chi 0 cells differ) |
+| H2 | the step-1 first-iteration group residuals fall to within 5 % of upstream's `[9.6e-7, 1.14e-6, 1.57e-6, 1.84e-6, 1.66e-6, 1.83e-6]` (they differ only by the precursor re-solve, which is the same in both) |
+| H3 | per-step power relative difference <= 1e-8 at all 50 steps (solver differences, PCG/DIC vs basic-lib CG, at 1e-14); bit-identity is not expected |
+| H4 | neutron iteration count equal at >= 48 of 50 steps (the near-threshold steps 3-8 are the risk; the first-iteration residual of step 4 is 9.9756e-7, 0.24 % under the threshold) |
+| H5 | precursor totals and flux integrals <= 1e-8 per step; step-50 per-cell <= 1e-8 of the field maximum |
+| H6 | power change since 2e7 at step 50 reproduced to 1e-5 relative |
+
+## Round 6 results (measured 2026-11-25, release; `tests/genfoam_msfr_transient_vs_upstream.rs`)
+
+Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_transient_vs_upstream -- --nocapture`. Upstream: the 50 steps of `2D_MSFR` `transient`, tight protocol, real binary. Port: `DiffusionNeutronics::upstream_transient_step` (new, translation of `solveNeutronics.H`), `CrossSectionData::with_upstream_unparametrised_chi()`, driven one-way by upstream's own per-step `TFuel`/`rhoCool`; the port advances its own flux and precursors from upstream's t = 165 s state.
+
+### The comparison (second run; chi at the reference state as upstream has it)
+
+| quantity (per step, 50 steps) | worst relative difference | where |
+|---|---|---|
+| `power:` (17 digits) | **6.2e-14** (step 50); 1.5e-14 at step 1 | no step above 1e-13 |
+| neutron iteration count | **equal at 50 of 50 steps** (50, 50, 37, 1, 22, 1, 8, then 1) | includes the near-threshold steps 3-8 |
+| per-iteration `neutroResidual` (steps 1-3, 8 iterations) | agree to 9-10 digits (1.8360963420e-6 against 1.8360963422e-6) | |
+| per-group flux integral `sum V flux_g` | 6.3e-14 (step 50) | |
+| per-group precursor total `sum V prec_k` | **1.3e-11** (step 50), 5e-14 at step 1; grows steadily | groups 5-7 (the long-lived ones); -6e-13 (group 0) to +1.3e-11 (group 6) |
+| step 50, flux per cell, relative to the field maximum | 1.9e-13 | |
+| step 50, `prec` per cell, relative to the field maximum | 3.5e-10 | |
+| `power(50) - 2e7`: port 1.356621e4 W, upstream 1.356621e4 W | 9.1e-11 | |
+| wall time, 50 steps (8595 cells, 6 groups, 8 precursor groups) | 16.0 s | |
+
+**No step diverges**: there is no first diverging step. The round-off allowance (1e-9) is used by the precursor totals and the per-cell precursors only (1.3e-11 and 3.5e-10); flagged for the maintainer per CLAUDE.md. Cause, stated as a hypothesis, not tested: the precursor equation is solved by basic-lib's BiCGStab where upstream uses `PBiCG`/`DILU`, both stopped at a normalised residual of 1e-14; the signed difference grows with the group index (longer half-life, more transport, worse conditioned), which is the signature of a convergence-limited linear solve and not of a different equation. The flux, whose solver is the same family (CG), agrees to 6e-14. Bit-identity was not reached; it would need upstream's `PBiCG` with `DILU`.
+
+### Predictions
+
+| id | held? | measured |
+|---|---|---|
+| Q1 (first run) power <= 1e-9 | **missed** | 7.4e-6 at step 1, 1.84e-4 worst: the data-driven chi |
+| Q2 (first run) iteration counts equal at >= 45 | **missed** (43) | |
+| Q3 (first run) precursor totals <= 1e-9 | **missed** | 1.07e-4 |
+| Q4 (first run) per cell <= 1e-8 | **missed** | 1.9e-4 |
+| Q5 (first run) power change to 1e-6 | **missed** | port +1.0045e4 W, upstream +1.3566e4 W |
+| Q6 (first run) the iteration count diverges first | **missed** | the power diverged at step 1 (7.4e-6) and the counts at step 2 |
+| Q7 wall < 5 min | **held** | 12.6 s then 16.0 s |
+| H1 every cross section equal to upstream's at <= 1e-14 | **held** | `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval`, `IV`, `BetaTot` and `chi` (with the option): 0 of 8595 cells differ; `sigmaFromTo` and `sigmaRemoval5`: 1 cell at 1.1e-15 |
+| H2 first-iteration group residuals within 5 % of upstream's | **held, much better** | `[9.60032217e-7, 1.13688670e-6, 1.57305138e-6, 1.83609634e-6, 1.66103678e-6, 1.83135442e-6]` against upstream's `[9.6003221720e-7, 1.1368866958e-6, 1.5730513809e-6, 1.8360963422e-6, 1.6610367771e-6, 1.8313544219e-6]`: 9 digits |
+| H3 power <= 1e-8 | **held** (6.2e-14) | 5 orders under the prediction |
+| H4 iteration counts equal at >= 48 | **held** (50) | |
+| H5 totals and per cell <= 1e-8 | **held** | 1.3e-11 and 3.5e-10 |
+| H6 power change to 1e-5 | **held** (9.1e-11) | |
+
+### Defects found and fixed (by reading upstream after the measurement pointed at it)
+
+1. **chi interpolation** (above). `XS::init()` never `build()`s `chiPromptList_`/`chiDelayedList_`; `nuclearDataOneEnergy::get` then returns the reference value. The port parametrised chi with the other cross sections. Added `CrossSectionData::with_upstream_unparametrised_chi()` (the option); the default stays data-driven (the evaluation supplies a chi per state, and the maintainer's rule is that supplied physics is on by default). ~~**Deferred to the maintainer: should upstream's omission become the default?**~~ **Decided 2026-11-26: yes** (see below). Effect of the omission on this case (the ablation, pinned in `msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount`): 1.8e-4 in power and 43/50 iteration counts. It acts through the prompt/delayed split, a 3e-5 to 0.34 relative change of chi in the hot cells.
+2. The cell-wise cross sections themselves (all other quantities) were already bit-identical: round 1's per-cell cross-section path is verified at this level for the first time.
+
+### Not defects, recorded because they will mislead
+
+* **The "+0.3 pcm" of round 1 (and `genfoam_tutorial_keff`) was never a sub-pcm measurement.** The port's static eigenvalue at upstream's t = 165 s state is +0.333 pcm from `keff_` with the unparametrised chi too (the chi option does not move it), and the transient, which uses the same operator, agrees to 1e-14: upstream's `keff_` is still creeping (5.0e-8 per 0.25 s step at t = 165 s; it was 0.96175 at t = 47.75 s, 0.9603119 at 165 s, and the tutorial's own expected value is 0.960283) so it is not the eigenvalue of its own operator at any finite time. A static `k_eff` against a pseudo-time `keff_` resolves the creep, not the operator. The check that does resolve the operator is the residual of the same equations (H2) and the transient (H3).
+* **Aitken acceleration** is refused at all 157 attempts in the 143-step upstream run (and in the first 50 steps), i.e. never performed; the port does not implement it (module documentation of `upstream_transient`). The text of `fluxEq.H` reads three uninitialised `List<scalar>`; ~~deferred to the maintainer whether to port the evident intent (persisting lists), which would change upstream's observable behaviour.~~ **Decided 2026-11-26** ("follow upstream"): not ported; the port keeps upstream's observable behaviour (no acceleration).
+
+### What the port still cannot do (coupled TH), filed
+
+The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` power model, `ReynoldsPower`, and `multiPhysicsSolver` with `meshToMesh cellVolumeWeight` (#1475, #651). The comparison above takes the TH state as input. Children filed on gh:#1475, see the issue comment.
+
+### Gates
+
+`cargo test --release -p outram-foam-appbuilder-lib --lib --tests` (2026-11-25): 579 passed, 0 failed, 25 ignored over 43 test binaries (lib 445 passed, 2 ignored); `cargo test --release -p petir --test no_platform_libm`: 4 passed. `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features` (the `no_std` build): clean. Children filed on gh:#1475: #1773 (cell-centred energy-only onePhase), #1774 (case-driven multiPhysicsSolver, identical-mesh meshToMesh, coupled setDeltaT), #1775 (porousKEpsilon, alphat). No `exp`, `ln`, `pow` call was added: the new step uses only `+ - * /` and the existing `CrossSectionData` (which goes through PETIR `RealMath`).
+
+### Moved numbers (old to new, with cause)
+
+~~None. `CrossSectionData`'s default is unchanged (data-driven chi);~~ **2026-11-26: the default changed to upstream's chi; see "Default change, 2026-11-26" below.** Before it: `genfoam_tutorial_keff`, the guided-slab and SN comparisons are unchanged because the option is off in them.
+
+### New upstream probes (committed under `upstream_driver/`, built with `wmake` against the built ESI v2506 and GeN-Foam libraries, objects not kept)
+
+`dump_laplacian_geometry` (ESI `fvMesh` geometry per face and cell), `dump_xs` (GeN-Foam's own `XS` class: every cross section per cell at 17 digits). `dump_xs` is the oracle that localised the chi defect in one run after three hypotheses (albedo, geometry, keff scaling) had been eliminated by measurement; it is reusable for ESFR and any other `nuclearData`.
+
+
+## Default change, 2026-11-26: upstream's unparametrised chi
+
+Maintainer: "follow upstream", "deprecate ours locally". `CrossSectionData::from_input` now keeps `chiPrompt`/`chiDelayed` at the reference state (GeN-Foam 652b3da `XS::init()` never builds the chi interpolators); the port's earlier data-driven chi is `with_data_driven_chi()`, marked `#[deprecated]` and kept only as the pinned ablation (`msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount`). Aitken acceleration: not ported, as upstream behaves.
+
+**Re-measured (2026-11-26, release):** every GeN-Foam target. `--lib`: 445 passed, 2 ignored. Integration: common 5, gfhr 2, godiva_sn 0 (1 ignored), msfr_transient 2 (7 ignored), neutronics 3, one_phase 5 (2 ignored), point_kinetics 2, psbt 3, pseudo_time 3, sn 2, tutorial_keff 8, two_phase_1d_boiling 3, two_phase_vs_upstream 12 (3 ignored); 0 failed. `genfoam_tutorial_keff` was run **with `GENFOAM_UPSTREAM=/home/user/upstream-build/GeN-Foam-src`** under both defaults and its printed numbers are identical (ESFR reference state +871.1 pcm, MSFR converged state -1.1 pcm, MSFR reference states 0.973858 / 0.950415 / 1.075834): **no recorded number moved.**
+
+**Finding:** without `GENFOAM_UPSTREAM` (or `/workspace/GeN-Foam`), all eight `genfoam_tutorial_keff` tests print `SKIP` and pass, so an ordinary `cargo test` run does not exercise them.
+
+
 
 
 # Round 7 (gh:#1361, 2026-11-26): MULES, `1D_boiling` AS SHIPPED against the real binary
