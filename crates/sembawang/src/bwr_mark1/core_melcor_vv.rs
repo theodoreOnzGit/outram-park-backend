@@ -133,3 +133,39 @@ fn rn_01_corsor_m_rates_match_the_manual() {
         assert!(rel(r, want) < 1e-6, "UO2 at {t} K: {r:e} /min vs {want:e}");
     }
 }
+
+/// **COR1-22 / COR2-17, MELCOR's simple B4C model (Vol. 2 COR §2.5.9,
+/// Eqs 2-197 to 2-208, COR-RM-105/106; C1005, C1006).** Methodology:
+/// `b4c_reaction(T, P_H2, P_H2O)` (atm) against the item's python values for
+/// the CO/CO2/CH4 split, steam and H2 per mol of B4C, and the heat (J/mol);
+/// the rate law `(9.973e6/60) exp(-22647.2/T)` at four temperatures; and the
+/// gates `b4c_may_react` (sheath failed below 0.9 intact steel, C1005(3); above
+/// 1500 K, C1005(4)). Results (2026-11-26): the chemistry and rate pass at
+/// 1e-6; the gates were missing (B4C reacted on intact blades at any
+/// temperature) and were added; pass.
+#[test]
+fn cor1_22_b4c_model_and_its_gates_match_the_manual() {
+    // (T, P_H2, P_H2O) -> x_CO, x_CO2, x_CH4, steam, H2, Q (J/mol)
+    let (x, steam, h2, q) = b4c_reaction(1600.0, 1.0, 1.0);
+    assert!(rel(x[0], 0.763843847) < 1e-8 && rel(x[1], 0.236155003) < 1e-8 && rel(x[2], 1.15012273e-6) < 1e-6, "{x:?}");
+    assert!(rel(steam, 7.23615385) < 1e-8 && rel(h2, 7.23615155) < 1e-8, "{steam} {h2}");
+    assert!(rel(q, 737407.806) < 1e-8, "{q}");
+    let (x, steam, h2, q) = b4c_reaction(1200.0, 1.0, 0.01);
+    assert!(rel(x[0], 0.951059606) < 1e-8 && rel(x[1], 0.00623122672) < 1e-8 && rel(x[2], 0.0427091674) < 1e-8, "{x:?}");
+    assert!(rel(steam, 6.96352206) < 1e-8 && rel(h2, 6.87810372) < 1e-8 && rel(q, 723120.737) < 1e-8, "{steam} {h2} {q}");
+    let (x, steam, _, _) = b4c_reaction(1600.0, 0.1, 1.0);
+    assert!(rel(x[0], 0.244399227) < 1e-8 && rel(x[1], 0.755600772) < 1e-8 && rel(steam, 7.75560077) < 1e-8, "{x:?} {steam}");
+    // The rate law.
+    let prm = Params::default();
+    let rate = |t: f64| prm.b4c_rate_a * (-prm.b4c_rate_b / t).exp();
+    for (t, want) in [(1200.0, 0.00105774158), (1500.0, 0.046093382), (1600.0, 0.118427708), (2000.0, 2.00861903)] {
+        assert!(rel(rate(t), want) < 1e-8, "T {t}: {} vs {want}", rate(t));
+    }
+    // The gates: intact blade, or below 1500 K, does not react.
+    let m0 = blade_per_node(&prm).0;
+    assert!(!b4c_may_react(&prm, 0.0, 1600.0), "an intact sheath holds the B4C in");
+    assert!(!b4c_may_react(&prm, 0.05 * m0, 1600.0), "95 % intact: not yet failed");
+    assert!(b4c_may_react(&prm, 0.11 * m0, 1600.0), "89 % intact: the sheath has failed");
+    assert!(!b4c_may_react(&prm, 0.11 * m0, 1500.0), "not above 1500 K");
+    assert!(!b4c_may_react(&prm, 0.11 * m0, 1200.0), "the 1200 K case of the old code");
+}

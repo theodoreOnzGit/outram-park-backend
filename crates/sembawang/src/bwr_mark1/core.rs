@@ -908,6 +908,20 @@ fn blade_per_node(prm: &Params) -> (f64, f64) {
     (prm.control_rods * prm.blade_steel_kg / NODES as f64, prm.control_rods * prm.blade_area_m2 / NODES as f64)
 }
 
+/// Whether a blade's B4C may react with steam (MELCOR Vol. 2 COR §2.5,
+/// COR-RM-89; C1005(3), C1005(4)): only after its sheath has failed, which is
+/// when the blade's intact steel (the initial mass less what has oxidised,
+/// `ss_oxidised_kg`) falls below `b4c_sheath_intact_max` of the initial, and
+/// only above `b4c_min_k`. ~~Before 2026-11-26 neither gate was applied: the
+/// B4C reacted on an intact blade at any temperature, spending the 2 % cap in
+/// about 19 s at 1200 K~~ (found by the unit V&V, COR1-22 and COR2-17).
+/// Stated: melting is not part of the intact fraction here; a melted blade
+/// relocates with its B4C (`blade_gone`), which then no longer reacts.
+fn b4c_may_react(prm: &Params, ss_oxidised_kg: f64, t_k: f64) -> bool {
+    let m0 = blade_per_node(prm).0;
+    m0 > 0.0 && (m0 - ss_oxidised_kg) / m0 < prm.b4c_sheath_intact_max && t_k > prm.b4c_min_k
+}
+
 /// MELCOR's stainless-steel oxidation rate constant in steam, (kg/m^2)^2/s
 /// (COR RM Eq 2-158, Table 2-9): zero below `ss_ox_min_k`.
 fn ss_oxidation_rate(prm: &Params, t_k: f64) -> f64 {
@@ -1604,7 +1618,9 @@ impl Core {
                     // model, at most `b4c_max_fraction` of it, in the steam
                     // left; its energy to the cladding here (MELCOR gives it
                     // to the gas, stated), its B2O3 not followed (stated).
-                    if s.b4c_oxidation && s.control_blades && tdp && !node.blade_gone && w_steam > 0.0 && node.b4c_frac < prm.b4c_max_fraction {
+                    // Only once the sheath has failed and above 1500 K
+                    // (`b4c_may_react`, C1005(3)/(4); added 2026-11-26).
+                    if s.b4c_oxidation && s.control_blades && tdp && !node.blade_gone && w_steam > 0.0 && node.b4c_frac < prm.b4c_max_fraction && b4c_may_react(prm, node.ss_ox, node.t_clad) {
                         const M_B4C: f64 = 0.055_255;
                         let m0 = prm.control_rods * prm.blade_b4c_kg / NODES as f64;
                         let df = (prm.b4c_rate_a * (-prm.b4c_rate_b / node.t_clad).r_exp() * dt).min(prm.b4c_max_fraction - node.b4c_frac);
@@ -2503,7 +2519,7 @@ mod tests {
 
     /// MELCOR's simple B4C model (COR RM §2.5.9) by hand at 1600 K: with
     /// equal H2 and steam (1 atm each) `y_CO/CO2 = exp(-3605/1600 + 3.427)` =
-    /// 3.2345 and `y_CO/CH4 = exp(-27350/1600 + 30.50)` = 6.39e5, so x_CO =
+    /// 3.2345 and `y_CO/CH4 = exp(-27350/1600 + 30.50)` = ~~6.39e5~~ 6.641e5 (corrected 2026-11-26, COR1-22), so x_CO =
     /// 0.7638, x_CO2 = 0.2362, x_CH4 ~ 1.2e-6; steam per mole 7.236, H2 7.236;
     /// energy `(0.7638 (8.238e8 - 58380 x 1600) + 0.2362 (8.674e8 - 67060 x
     /// 1600)) / 1000` = 7.374e5 J/mol. The rate at 1600 K: `9.973e6/60
