@@ -644,12 +644,23 @@ pub enum Scenario {
     /// and zero (gh:#420)~~ **since 2026-09-30:** air ingress via the Gao &
     /// Shi cavity-ventilation rate, assumed to exchange the core gas (#420).
     DlofcAtws,
+    /// **The design-basis DLOFC** (2026-11-26): the same rupture, blowdown,
+    /// isolation at 28.06 s and air ingress as [`Scenario::DlofcAtws`], and
+    /// the rods scram at **7.06 s**, as Gao & Shi (2002) s.5.3.1's DBA does
+    /// ([`depressurisation::DBA_SCRAM_AT_S`]). With the circulator stopped
+    /// and the secondary isolated, the decay heat leaves only by the passive
+    /// bed -> reflector -> RPV -> RCCS path ([`decay_heat_removal`]): the
+    /// passive-safety case.
+    DlofcScram,
 }
 
-/// The scenario an operator's accident switches select. DLOFC wins, then
+/// The scenario an operator's accident switches select. The design-basis
+/// DLOFC (scram at 7.06 s, 2026-11-26) wins, then the DLOFC + ATWS, then
 /// water ingress (each trips the circulator itself), then a plain LOFC.
-pub fn scenario_from(circulator_tripped: bool, water_ingress: bool, dlofc: bool) -> Scenario {
-    if dlofc {
+pub fn scenario_from(circulator_tripped: bool, water_ingress: bool, dlofc: bool, dlofc_scram: bool) -> Scenario {
+    if dlofc_scram {
+        Scenario::DlofcScram
+    } else if dlofc {
         Scenario::DlofcAtws
     } else if water_ingress {
         Scenario::WaterIngress
@@ -1625,8 +1636,9 @@ impl HtgrPlant {
                 Some(self.sim_time)
             }
             (Scenario::WaterIngress, Some(t0)) => Some(t0),
-            (Scenario::DlofcAtws, None) => {
-                // The DN65 tube ruptures; the circulator stops; no scram.
+            (Scenario::DlofcAtws | Scenario::DlofcScram, None) => {
+                // The DN65 tube ruptures; the circulator stops; no scram
+                // (ATWS), or the DBA's at 7.06 s (applied below).
                 self.primary.trip_circulator(true);
                 self.depressurisation = Some(depressurisation::Depressurisation::start(
                     fission_product_release::htr10_primary_helium_inventory_kg(),
@@ -1634,7 +1646,7 @@ impl HtgrPlant {
                 self.release.depressurisation_lift_off();
                 Some(self.sim_time)
             }
-            (Scenario::DlofcAtws, Some(t0)) => Some(t0),
+            (Scenario::DlofcAtws | Scenario::DlofcScram, Some(t0)) => Some(t0),
             (Scenario::Normal, _) => {
                 // Scenario cleared: put the plant back to normal operation.
                 self.primary.trip_circulator(false);
@@ -1717,7 +1729,7 @@ impl HtgrPlant {
                 Some(st) if st.circulator_tripped => MassRate::new::<kilogram_per_second>(0.0),
                 _ => helium_flow_setpoint,
             },
-            Scenario::DlofcAtws => MassRate::new::<kilogram_per_second>(0.0),
+            Scenario::DlofcAtws | Scenario::DlofcScram => MassRate::new::<kilogram_per_second>(0.0),
         };
 
         self.sim_time += dt;
@@ -1738,7 +1750,15 @@ impl HtgrPlant {
             .protection
             .effective_rod_insertion(control_rod_insertion_fraction)
             // The water-ingress scram (published 37.5 s) can only deepen it.
-            .max(ingress_step.map_or(0.0, |st| st.scram_insertion));
+            .max(ingress_step.map_or(0.0, |st| st.scram_insertion))
+            // So can the design-basis DLOFC's (published 7.06 s).
+            .max(match (scenario, scenario_started_at) {
+                (Scenario::DlofcScram, Some(t0)) => depressurisation::dba_scram_insertion(
+                    (self.sim_time - t0).get::<second>(),
+                    protection::SCRAM_INSERTION_TIME_S,
+                ),
+                _ => 0.0,
+            });
 
         // Rod position is converted to reactivity here rather than in the GUI
         // so the physics owns the conversion and an OPC-UA write of a rod
@@ -6039,6 +6059,78 @@ mod tests {
         assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
         assert!(!plant.protection.is_tripped(), "ATWS: nothing drives the rods");
         assert!(released.iter().zip(&released_at_trip).all(|(a, b)| a > b));
+    }
+
+    /// **The design-basis DLOFC scrams at 7.06 s and leaves the decay heat to
+    /// the passive path** (2026-11-26).
+    ///
+    /// Methodology: 30 s at the design commands, then
+    /// [`Scenario::DlofcScram`] for 60 s at 0.1 s. Predicted before the run:
+    /// the ledger closes to 1e-9 of each step's gross; the discharge at 60 s
+    /// is `150 (1 - exp(-60/22.8))` = 138.9 kg; the circulator is stopped;
+    /// the full bank (TECDOC-1382's ~15 % Δk/k) drops the fission power to a
+    /// few % of its pre-trip value within a minute, below the decay heat.
+    /// Correctness checks only, not a comparison with anything.
+    ///
+    /// Results: printed below.
+    #[test]
+    fn the_design_basis_dlofc_scrams_and_leaves_the_decay_heat_to_the_passive_path() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut worst = 0.0f64;
+        let mut p0 = 0.0;
+        for i in 0..900 {
+            let mut commands = design_commands();
+            if i >= 300 {
+                commands.scenario = Scenario::DlofcScram;
+            }
+            if i == 300 {
+                p0 = plant.kinetics.total_power().get::<megawatt>();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let d = plant.depressurisation.expect("running");
+        let fission = plant.kinetics.total_power().get::<megawatt>();
+        let decay = plant.kinetics.decay_heat_power().get::<megawatt>();
+        let want = 150.0 * (1.0 - petir::mathf::RealMath::r_exp(-60.0f64 / (150.0 / 6.58)));
+        println!(
+            "design-basis DLOFC, 60 s after the rupture: fission {fission:.4} MW (pre-trip {p0:.4} MW), \
+             decay {decay:.4} MW, discharged {:.2} kg (predicted {want:.2}), flow {:.3} kg/s, \
+             worst step residual {worst:.3e}",
+            d.discharged_kg,
+            plant.primary.mass_flow().get::<kilogram_per_second>()
+        );
+        assert!(worst < 1e-9, "{worst:e}");
+        assert!((d.discharged_kg - want).abs() < 1.0, "{} vs {want}", d.discharged_kg);
+        assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
+        assert!(fission < 0.05 * p0, "fission {fission} of {p0} MW");
+        assert!(decay > fission, "the decay heat dominates after the scram");
+    }
+
+    /// The operator's switches pick the scenario: the design-basis DLOFC
+    /// first, then the ATWS one, water ingress, a plain LOFC (2026-11-26).
+    #[test]
+    fn the_switches_pick_the_scenario_in_order() {
+        assert_eq!(scenario_from(false, false, false, false), Scenario::Normal);
+        assert_eq!(scenario_from(true, false, false, false), Scenario::Lofc);
+        assert_eq!(scenario_from(true, true, false, false), Scenario::WaterIngress);
+        assert_eq!(scenario_from(true, true, true, false), Scenario::DlofcAtws);
+        assert_eq!(scenario_from(true, true, true, true), Scenario::DlofcScram);
+        assert_eq!(scenario_from(false, false, false, true), Scenario::DlofcScram);
     }
 
     /// **INDICATIVE, NOT VALIDATED (#420): the default DLOFC with air

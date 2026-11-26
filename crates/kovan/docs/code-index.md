@@ -8,7 +8,8 @@
 
 | File | Where | What | Owner |
 |---|---|---|---|
-| `kovan.toml` (`kind = "code_folder"`) | every folder with indexed `.rs` files | per file, per function: stable id, location, hashes, callees, reaching tests, physical interface; the folder's `[test_run]`, cached `[upstream]` and `[[review]]` list; the crate root's deleted-folder history | machine (regenerated, never hand-edited), **committed** |
+| `kovan.toml` (`kind = "code_folder"`) | every folder with indexed `.rs` files | per file, per function: stable id, ~~location~~ name and path, hashes, ~~callees, reaching tests,~~ physical interface; the folder's `[test_run]`, cached `[upstream]` and `[[review]]` list; the crate root's deleted-folder history. **CHANGED 2026-11-26 (#1776):** `callees`, `uses` and `reached_by` only for **reviewed** functions (what a stamp is judged on) | machine (regenerated, never hand-edited), **committed** |
+| `kovan.derived.toml` (since 2026-11-26, #1777) | `target/kovan/derived/<folder>/` | the derived fields: `lines`, every function's `callees`, `uses`, `reached_by`, `index_out_of_date` (the whole index, in fact; `kovan_common::code_index::derived` merges it with the tracked file by id and hash) | machine, **gitignored**; rebuilt by `kovan-cli index`, or downloaded with `kovan-cli derived-cache-fetch` (the nightly's `kovan-derived` release, #1779) |
 | `kovan_links.json` | each crate's folder | every identifier occurrence that links to a definition: go-to-definition and find-references without rust-analyzer (#745) | machine, ships in the crates.io package |
 | `review.md` | the folder | reviews, needs-fix, highlights, upstream confirmation | **human**: ~~the index only reads it~~ **CORRECTED 2026-10-07 (#780)**: a plain `kovan-cli index` only reads it; `--fresh` (below) also creates an empty skeleton where one is missing, never overwriting one |
 
@@ -204,10 +205,10 @@ path = "crate::flexpart::thermo"
 id = "fn:5906055d16b77c5c"
 name = "saturation_vapour_pressure"
 qual = "saturation_vapour_pressure"
-lines = [22, 55]                 # written one number per line
+lines = [22, 55]                 # written one number per line; since #1777 in the cache only
 hash = "sha256:1e9515aa…"
 doc_hash = "sha256:979525d4…"
-callees = ["fn:bafb50166fd05428"]
+callees = ["fn:bafb50166fd05428"]  # since #1777: tracked only for a reviewed function
 physical_interface = true
 
 [[module."thermo.rs".function]]
@@ -302,4 +303,7 @@ outram-mc-libs and 58 of 948 changi functions.
 - Reach is computed at the current commit only. The reach at an older
   commit is the committed `kovan.toml` at that commit (`git show
   <commit>:<folder>/kovan.toml`, `reached_by`), since the files are
-  committed.
+  committed. **Since 2026-11-26 (#1776)** only a reviewed function's
+  `reached_by` is committed; that is the one the rung reads, and writing a
+  stamp updates the folder's `kovan.toml` so the desktop Save commits it
+  with the stamp.

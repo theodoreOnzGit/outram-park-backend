@@ -119,9 +119,11 @@
 //!
 //! # Scope
 //!
-//! Steady eigenvalue only. The transient form keeps the `ddt` term and is not
-//! implemented here; `DiffusionNeutronics::step` still uses the `chi_eff`
-//! collapse.
+//! Steady eigenvalue only. ~~The transient form keeps the `ddt` term and is not
+//! implemented here~~ **CORRECTED 2026-11-25** (gh:#1361 round 6): the transient
+//! form, with the `ddt` term, is
+//! [`super::DiffusionNeutronics::upstream_transient_step`]. `DiffusionNeutronics::step`
+//! still uses the `chi_eff` collapse.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

@@ -77,7 +77,10 @@ fn closed_form_velocity() -> f64 {
 /// Run the case to `t_end` and return the solver; `isothermal` switches the
 /// `fixedPower` source off first (the structure then stays at 652.15 K).
 fn run_to(dir: &std::path::Path, t_end: f64, isothermal: bool) -> TwoPhaseSolver {
-    let mut case = TwoPhaseCase::read(dir).expect("read 1D_boiling");
+    let mut case = TwoPhaseCase::read(dir)
+        .expect("read 1D_boiling")
+        .with_alpha_solver_implicit_upwind() // the pinned numbers below are the port's implicitUpwind run (before gh:#1361 round 7)
+        .expect("implicitUpwind");
     if isothermal {
         for pm in case.structure.power.iter_mut().flatten() {
             pm.power_off();
@@ -150,7 +153,10 @@ fn one_d_boiling_full_transient() {
         eprintln!("SKIP: upstream 1D_boiling not found; set GENFOAM_UPSTREAM");
         return;
     };
-    let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling");
+    let case = TwoPhaseCase::read(&dir)
+        .expect("read 1D_boiling")
+        .with_alpha_solver_implicit_upwind() // pinned P1..P5 are the implicitUpwind run
+        .expect("implicitUpwind");
     for d in &case.deviations {
         eprintln!("deviation: {d}");
     }

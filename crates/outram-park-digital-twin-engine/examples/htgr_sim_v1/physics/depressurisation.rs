@@ -35,6 +35,7 @@
 //! | discharge **shape** | exponential, `tau = 150 / 6.58 = 22.8 s` | **ASSUMED, labelled**: the paper gives the initial rate, the total and "drained within 2 min" (5 tau = 114 s) |
 //! | primary/secondary isolated | 28.06 s | Gao & Shi s.5.3.1 |
 //! | scram | **none** (ATWS) | the scenario; Gao & Shi scram at 7.06 s in their DBA |
+//! | scram, design-basis variant (`Scenario::DlofcScram`, 2026-11-26) | at **7.06 s**, the bank's `SCRAM_INSERTION_TIME_S` travel | Gao & Shi s.5.3.1 ([`DBA_SCRAM_AT_S`]) |
 //! | plate-out desorption | +2.4 x the originally present coolant activity, iodine and metals | Liu & Cao (2002) s.4.1.1.2 (after INTERATOM 1989) |
 //! | dust | Cs 5 %, Sr/Rb/Ag 20 %, I 1 % of the deposited activity on dust; 10 % of the dust released | Liu & Cao s.4.1.1.3 |
 //! | purification system | 100 % of noble gas, 10 % of iodine and metals released (isolation fails) | Liu & Cao s.4.1.1.4 |
@@ -69,6 +70,16 @@ pub const INITIAL_DISCHARGE_KG_PER_S: f64 = 6.58;
 pub const TOTAL_DISCHARGE_KG: f64 = 150.0;
 /// Primary and secondary isolated \[s\] (Gao & Shi s.5.3.1, 28.06 s).
 pub const ISOLATED_AT_S: f64 = 28.06;
+/// The design-basis DLOFC's scram \[s\] after the rupture (Gao & Shi 2002
+/// s.5.3.1, 7.06 s), used by `Scenario::DlofcScram`.
+pub const DBA_SCRAM_AT_S: f64 = 7.06;
+
+/// The design-basis DLOFC's scram demand on the bank, `[0, 1]`, `elapsed_s`
+/// after the rupture: 0 before [`DBA_SCRAM_AT_S`], then a linear travel over
+/// `travel_s` to fully inserted (the ramp the water-ingress scram uses).
+pub fn dba_scram_insertion(elapsed_s: f64, travel_s: f64) -> f64 {
+    ((elapsed_s - DBA_SCRAM_AT_S) / travel_s).clamp(0.0, 1.0)
+}
 /// Plate-out desorption multiplier on the originally present coolant
 /// activity, iodine and metals (Liu & Cao s.4.1.1.2: "approximate 2.4 times").
 pub const DESORPTION_MULTIPLE: f64 = 2.4;
@@ -275,6 +286,17 @@ impl Depressurisation {
 
 #[cfg(test)]
 mod tests {
+    /// The design-basis scram (2026-11-26): nothing before Gao & Shi's
+    /// 7.06 s, half-way one half travel later, fully in after the travel.
+    #[test]
+    fn the_dba_scram_starts_at_7_06_s_and_ends_inserted() {
+        use super::dba_scram_insertion;
+        assert_eq!(dba_scram_insertion(7.0, 2.0), 0.0);
+        assert!((dba_scram_insertion(8.06, 2.0) - 0.5).abs() < 1e-12);
+        assert_eq!(dba_scram_insertion(9.06, 2.0), 1.0);
+        assert_eq!(dba_scram_insertion(1.0e5, 2.0), 1.0);
+    }
+
     use super::*;
     use uom::si::thermodynamic_temperature::kelvin;
 

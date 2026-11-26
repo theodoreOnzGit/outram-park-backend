@@ -22,8 +22,8 @@ This crate provides:
    Per-class status against upstream `652b3da` (ported / partial / missing,
    with line counts): `docs/genfoam-port-gap-audit.md` (gh:#1217). Since
    2026-11-04 (gh:#1218) `genfoam::thermal_hydraulics::solver::two_phase` ports
-   GeN-Foam's `twoPhase` boiling solver (implicitUpwind alpha; **MULES is not
-   ported**) and runs upstream's `1D_boiling` case files end to end; its V&V
+   GeN-Foam's `twoPhase` boiling solver (implicitUpwind alpha; ~~**MULES is not
+   ported**~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES is ported and is what a case that selects it runs) and runs upstream's `1D_boiling` case files end to end; its V&V
    record is `verification_and_validation/genfoam_two_phase/README.md`, and it
    ~~is **not** compared with an upstream run (none is shipped or runnable
    here; the thermal-hydraulics stack it needs is not built yet)~~ **CORRECTED 2026-11-12** (gh:#1361 round 3):

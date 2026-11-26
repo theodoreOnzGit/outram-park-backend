@@ -19,7 +19,7 @@ side: `crates/outram-foam-appbuilder-lib/src/genfoam/` at branch
 > and contact partition, `structure::correct`/`linearizedSemiImplicitHeatSource`
 > for `fixedPower`, and `customPimpleControl`'s residual control and
 > `correctUntilConvergence`. Each of those rows moves from *missing* to
-> *partial*. Still missing in the solver: MULES, `pEqn_2p.H` (cell-centred),
+> *partial*. Still missing in the solver: ~~MULES~~ (**CORRECTED 2026-11-26** (gh:#1361 round 7): ported, `solvePhase both`), `pEqn_2p.H` (cell-centred),
 > the `none`/`explicit` partial-elimination branches, turbulence, tortuosity.
 
 ## How this was measured
@@ -87,8 +87,10 @@ Counts are of rows in the tables below (one row per upstream model or class).
 6. **Radial-conduction power models** (`heatedPin` 824, `nuclearFuelPin`
    1,534, `interpolatedNuclearFuelPin` 353, `lumpedNuclearStructure` 759):
    every reactor-scale tutorial that is not a pebble bed uses one.
-7. **`MULES`** (`myMULES` 1,225 + `solveAlphaMULES` 540): the alpha solver
-   1D_boiling, 1D_CHF, 2D_voidMotionNoPhaseChange and 2D_KNS37-L22 select.
+7. ~~**`MULES`** (`myMULES` 1,225 + `solveAlphaMULES` 540): the alpha solver
+   1D_boiling, 1D_CHF, 2D_voidMotionNoPhaseChange and 2D_KNS37-L22 select.~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): ported for
+   `solvePhase both` (what 1D_boiling selects); the `solvePhase vapour` branch (`solveAlpha` lambda, used by
+   1D_HX/twoPhase and 2D_KNS37-L22) is not.
 
 ## 1. `thermalHydraulics/solvers`
 
@@ -186,12 +188,12 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `neutronics.{C,H}` base + `include/` | 827 | `neutronics/mod.rs` (`NeutronicsModel` enum), `state.rs` | ported | unit (5) |
-| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported | unit (9); **upstream run**: MSFR +0.3 pcm, ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 6e-14 and flux per cell 6e-13 from upstream at tight tolerances (`tests/genfoam_neutronics_vs_upstream.rs`) |
+| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported; ~~transient: single pass, no neutron iteration~~ **CORRECTED 2026-11-25** (gh:#1361 round 6): `upstream_transient.rs` translates `solveNeutronics.H` for `eigenvalueNeutronics false`, `liquidFuel true` (neutron iteration, Gauss-Seidel over groups, `precEq.H` with `ddt`, transport and diffusion); `DiffusionNeutronics::step` is unchanged and remains the simple form. Aitken acceleration not ported (upstream performs it 0 times, see the module doc) | unit (9); **upstream run**: MSFR ~~+0.3 pcm~~ (a static `k_eff` against a creeping pseudo-time `keff_` resolves no better than the creep, README round 6), ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`); **real binary, `2D_MSFR` transient, 50 steps, gh:#1361 round 6 (2026-11-25)**: power 6.2e-14, iteration counts 50/50, precursor totals 1.3e-11 from upstream's own TH state (`tests/genfoam_msfr_transient_vs_upstream.rs`); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 6e-14 and flux per cell 6e-13 from upstream at tight tolerances (`tests/genfoam_neutronics_vs_upstream.rs`) |
 | `SP3/` | 1,140 | `neutronics/sp3/` | ported | unit (5); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 1.7e-13, flux per cell 2.3e-12 (SP3 ~~"unit (5)" only~~ CORRECTED, it had not been compared with an upstream run before) |
 | `SN/` | 1,323 | `neutronics/sn/` | partial: eigenvalue only, transient missing. ~~higher moments missing~~ **CORRECTED 2026-11-12** (gh:#1474): `sn/pseudo_time.rs` + `sn/quadrature_set.rs` port the case `quadratureSet` reader, P1..P7 scattering and upstream's per-step eigenvalue iteration (`SnNeutronics` itself is unchanged) | unit (6); `tests/genfoam_sn_vs_upstream.rs`: small S_N slab with Godiva's quadrature and P0..P3 scattering, step by step vs the real binary to 1e-14 (README of `verification_and_validation/genfoam_vs_upstream_gh1361`); full Godiva_SN, upstream ~7.5 min per step, 2.9 GB: see that README |
 | `albedoSP3/` | 642 | `neutronics/albedo/` | ported | unit (5); upstream run (MSFR boundary rows, ≤ 0.6 pcm) |
 | `pointKinetics/` | 2,391 | `neutronics/point_kinetics/` | ported | unit (5); inhour test |
-| `XS/` + `nuclearDataOneEnergy` | 2,722 | `neutronics/xs/` | partial: discontinuity-factor adjustment deferred | unit (13) |
+| `XS/` + `nuclearDataOneEnergy` | 2,722 | `neutronics/xs/` | partial: discontinuity-factor adjustment deferred. gh:#1361 round 6: per-cell cross sections against GeN-Foam's own `XS` class on `2D_MSFR` (`upstream_driver/dump_xs`): `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval`, `sigmaFromTo`, `IV`, `BetaTot` bit-identical; **`chiPrompt`/`chiDelayed` are interpolated here but never in upstream** (`XS::init()` does not `build()` them): `CrossSectionData::with_upstream_unparametrised_chi()`, default unchanged, default question deferred to the maintainer | unit (14) |
 | `adjointDiffusion/` | 849 | — | missing | — |
 
 ## 6. `thermoMechanics`, `multiRegion`, `common`, others
@@ -246,7 +248,8 @@ fits in `closures/phase_change`.
 
 Each is one deliverable. Sizes are upstream lines to port.
 
-1. **twoPhase solver: MULES alpha transport** (`myMULES` + `solveAlphaMULES.H`,
+1. ~~**twoPhase solver: MULES alpha transport**~~ (**CORRECTED 2026-11-26** (gh:#1361 round 7): done for `solvePhase both`, compared with the real binary
+   on 1D_boiling as shipped) (`myMULES` + `solveAlphaMULES.H`,
    1,765 lines). Port GeN-Foam's `myMULES` limiter and `solveAlphaMULES`
    (sub-cycling, `alphaMaxCo`, structure-aware bounds) as a second
    `AlphaSolver` variant beside `implicitUpwind`. Verify on 1D_boiling and

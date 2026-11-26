@@ -30,6 +30,7 @@
 //! `review.md` is human-owned: nothing here writes it.
 
 pub mod deleted;
+pub mod derived;
 pub mod folders;
 pub mod heal;
 pub mod ids;

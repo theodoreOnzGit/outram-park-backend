@@ -177,6 +177,10 @@ pub struct HtgrSnapshot {
     /// Operator has started the DLOFC + ATWS accident (gh:#402) from the Map
     /// tab. A control input; see `physics::Scenario::DlofcAtws`.
     pub dlofc_triggered: bool,
+    /// Operator has started the design-basis DLOFC (scram at 7.06 s,
+    /// 2026-11-26) from the Map tab: the passive decay-heat removal case.
+    /// See `physics::Scenario::DlofcScram`.
+    pub dlofc_scram_triggered: bool,
     /// DLOFC readouts (gh:#402), `NAN` unless it runs: helium discharged
     /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\],
     /// and (since 2026-09-30, #420) the fraction of the primary gas exchanged
@@ -910,6 +914,7 @@ impl Default for HtgrSnapshot {
             circulator_tripped: false,
             water_ingress_triggered: false,
             dlofc_triggered: false,
+            dlofc_scram_triggered: false,
             dlofc_discharged_kg: f64::NAN,
             dlofc_vented_fraction: f64::NAN,
             dlofc_graphite_oxidised_kg: f64::NAN,

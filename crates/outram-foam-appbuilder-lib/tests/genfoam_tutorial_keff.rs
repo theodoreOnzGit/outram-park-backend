@@ -81,6 +81,14 @@
 //!
 //! | MSFR, precursor drift suppressed on both sides | 0.962032 | 0.962019 | +1.4 pcm |
 //!
+//! **NOTE 2026-11-25 (gh:#1361 round 6): the +0.3 pcm is not a sub-pcm
+//! measurement.** Upstream's `keff_` is a pseudo-time value still creeping
+//! (5e-8 per step at t = 165 s; the tutorial's own `expectedKeff` is 0.960283
+//! against the 0.960312 of this run), so a static `k_eff` compared with it
+//! resolves the creep, not the operator. The operator was compared instead, per
+//! cell and in the transient, to 1e-14 (README, "Round 6"): the one cross-section
+//! difference found was chi, which this test's setup does not use the option for.
+//!
 //! **CORRECTED 2026-10-18 (gh:#952)**: the precursor-diffusion term was
 //! subtracted (anti-diffusion) and is now added; the port moved from 0.960314
 //! to 0.960315 (+0.2 to +0.3 pcm), well inside the 1 pcm gate. Diffusivity is

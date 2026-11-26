@@ -28,8 +28,11 @@
 //! stamp by an unregistered key does not count, so the two travel
 //! together). #739 names `review.md` only; including `kovan_root.toml` when
 //! kovan itself changed it this session is this module's reading, recorded
-//! for the maintainer on #771. A `kovan.toml` or source file is never
-//! committed here.
+//! for the maintainer on #771. ~~A `kovan.toml` or source file is never
+//! committed here.~~ **CHANGED 2026-11-26 (GitHub #1776, maintainer: "Save
+//! also commits it"):** a source file never is; a saved `review.md`'s own
+//! folder `kovan.toml` (the code index) is added, because the stamp's rung
+//! is judged on that file's `reached_by` as committed with the stamp.
 //!
 //! # Which branch
 //!
@@ -154,6 +157,33 @@ fn is_kovan_file(rel: &str) -> bool {
         || rel == CONNECTIONS
         || rel == REVIEW_MD
         || rel.ends_with(&format!("/{REVIEW_MD}")))
+}
+
+/// `files` plus, for each `review.md` among them, its folder's code-index
+/// `kovan.toml` (GitHub #1776, maintainer 2026-11-26: "Save also commits
+/// it"): writing a stamp updates that file's `[[review]]` list and the
+/// stamped function's `reached_by`, which the stamp's rung is judged on as
+/// committed, so both travel in one commit. Only a `kovan.toml` that is
+/// this folder's code index (`kind = "code_folder"`, its own `dir`) is
+/// added; a literature `kovan.toml` never is.
+fn with_folder_indexes(root: &Path, files: &BTreeSet<String>) -> BTreeSet<String> {
+    let mut out = files.clone();
+    for f in files {
+        let dir = if f == REVIEW_MD {
+            ""
+        } else if let Some(d) = f.strip_suffix(&format!("/{REVIEW_MD}")) {
+            d
+        } else {
+            continue;
+        };
+        let toml = if dir.is_empty() { "kovan.toml".to_string() } else { format!("{dir}/kovan.toml") };
+        let ours = std::fs::read_to_string(root.join(&toml))
+            .is_ok_and(|t| kovan_common::code_index::heal::is_own_orphan(&t, dir));
+        if ours {
+            out.insert(toml);
+        }
+    }
+    out
 }
 
 /// The code repository's connections file (GitHub #839), which the "Add
@@ -294,8 +324,9 @@ pub fn plan(root: &Path, files: &BTreeSet<String>) -> Result<CommitPlan, CommitP
     if let Some(bad) = files.iter().find(|f| !is_kovan_file(f)) {
         return Err(CommitPushError::NotKovanFile(bad.clone()));
     }
+    let files = with_folder_indexes(root, files);
     let mut changed = Vec::new();
-    for f in files {
+    for f in &files {
         let out =
             git::git(root, &["status", "--porcelain", "--", f]).map_err(CommitPushError::Git)?;
         if !out.trim().is_empty() {
