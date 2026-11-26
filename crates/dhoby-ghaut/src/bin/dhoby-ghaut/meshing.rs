@@ -10,10 +10,15 @@
 //! `cellVolumeWeight` overlap are `outram_blender::unstructured`. This file
 //! decides the domains, names the patches, assigns regions and writes files.
 //!
-//! **Region assignment is by cell centroid**: a region on a mesh is the set of
-//! cells whose centroid lies in it, so its meshed volume differs from the
-//! exact R-Z volume by a stair-step at the cell size. Each mesh's summary
-//! reports both (gh:#594 tracks body-fitted region boundaries).
+//! **Region assignment is by cell centroid** for Step 7's three meshes: a
+//! region on a mesh is the set of cells whose centroid lies in it, so its
+//! meshed volume differs from the exact R-Z volume by a stair-step at the
+//! cell size. Each mesh's summary reports both (gh:#594 tracks body-fitted
+//! region boundaries). **UPDATED 2026-11-26:** the one conjugate mesh
+//! ([`build_cht`], `--headless-cht-mesh`) is body-fitted by default
+//! ([`ChtBoundaries::Fitted`]: TetGen with the interfaces as constraints,
+//! `outram_park_fork_cfmesh::pipeline::multi_region`); Step 7's three
+//! meshes still assign by centroid.
 
 use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
@@ -22,7 +27,7 @@ use std::time::Instant;
 
 use dhoby_ghaut::workbench::meshes::{
     genfoam_default_fields, CellType, MeshMapping, MeshPlan, MeshRole, MeshSet, MeshSummary,
-    RegionClass, RegionMap, RegionVolume, RzBox, RzDomain,
+    RegionClass, RegionMap, RegionVolume, RzBox, RzDomain, RzTiling,
 };
 use outram_blender::csg::plot::{
     annotate_slice, default_colours, ImageData, LegendEntry, PlotBasis, SlicePlot,
@@ -595,6 +600,14 @@ pub struct ChtMesh {
     pub cell_region: Vec<usize>,
     /// Per region: `(id, class label, cells, meshed cm³, exact cm³)`.
     pub regions: Vec<(String, String, usize, f64, f64)>,
+    /// Per region, the exact volume of the faceted body the mesh's surface
+    /// is (`n_seg` facets around) \[cm³\]: what a body-fitted mesh must
+    /// reproduce to round-off.
+    pub faceted_cm3: Vec<f64>,
+    /// How the region boundaries were made.
+    pub boundaries: ChtBoundaries,
+    /// Per internal interface `(name, faces)` (fitted only).
+    pub interfaces: Vec<(String, usize)>,
     /// Boundary patches `(name, faces)`.
     pub patches: Vec<(String, usize)>,
     /// Cell kinds `(kind, count)`.
@@ -611,24 +624,213 @@ pub struct ChtMesh {
     pub seconds: f64,
 }
 
-/// Build [`ChtMesh`]: the whole R-Z domain (`r <= r_outer`, bottom to top)
-/// revolved with `n_seg` segments, cfMesh's tet -> dual pipeline at
-/// `cell_cm` with tetrahedra from `tets` ([`cht_tetgen`] for the TetGen
-/// port, as Mesh Studio's default; `TetSource::CarvedCentroid` for cfMesh's
-/// carved route), the outer surface named `top`, `bottom` and `side`, every cell
-/// given the region of its centroid, written to `out_dir/constant/polyMesh`
-/// with `cellZones`, and drawn: R-Z through the axis, and X-Y through the
-/// middle of each of the three non-solid regions. Region boundaries are
-/// stair-stepped at the cell size (assignment by centroid, as Step 7).
-pub fn build_cht(
+/// How [`build_cht`] makes the boundaries between regions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChtBoundaries {
+    /// **Body-fitted** (default): every region interface is a constraint
+    /// surface for TetGen, each region is dualled on its own and the duals
+    /// are stitched (`outram_park_fork_cfmesh::pipeline::multi_region`).
+    /// No cell crosses an interface. Needs the TetGen tet source.
+    Fitted,
+    /// One closed cylinder meshed as one region, each cell given the region
+    /// of its centroid: interfaces stair-stepped at the cell size (Step 7's
+    /// rule, gh:#594).
+    Centroid,
+}
+
+/// The whole cylinder as a multi-region surface for
+/// `outram_park_fork_cfmesh::pipeline::multi_region` (metres): every edge
+/// of `t` between two regions, and the outer top, bottom and side, revolved
+/// with `n_seg` segments as [`revolved_profile_surface`] revolves a profile
+/// (a vertex on the axis is one point). Collinear grid edges with the same
+/// two regions on either side, meeting at a vertex no other kept edge
+/// uses, are merged first, so a grid line that is a boundary elsewhere
+/// adds no facet edge here. Interface patches are named
+/// `<region a>_to_<region b>`. One seed per connected component of every
+/// region, at the centre of its first rectangle, at angle 0 (where the
+/// faceted rings pass through the true radii).
+pub fn fitted_cht_surface(map: &RegionMap, t: &RzTiling, n_seg: usize) -> outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface {
+    use outram_park_fork_cfmesh::math::Vec3 as V;
+    let (nr, nz) = (t.nr(), t.nz());
+    let n_reg = map.regions.len();
+    // Region on either side of a grid edge; `n_reg` = outside.
+    let cell = |i: isize, j: isize| -> usize {
+        if i < 0 || j < 0 || i >= nr as isize || j >= nz as isize {
+            n_reg
+        } else {
+            t.at(i as usize, j as usize)
+        }
+    };
+    let mut patch_names = vec!["top".to_string(), "bottom".to_string(), "side".to_string()];
+    let mut interface = vec![false, false, false];
+    let mut patch_of = |a: usize, b: usize, outer: usize| -> usize {
+        if a == n_reg || b == n_reg {
+            return outer;
+        }
+        let (a, b) = (a.min(b), a.max(b));
+        let name = format!("{}_to_{}", map.regions[a].id, map.regions[b].id);
+        match patch_names.iter().position(|n| *n == name) {
+            Some(k) => k,
+            None => {
+                patch_names.push(name);
+                interface.push(true);
+                patch_names.len() - 1
+            }
+        }
+    };
+    // Kept edges, per grid line: vertical at r[i] (i >= 1), cells (i-1, j)
+    // and (i, j); horizontal at z[j], cells (i, j-1) and (i, j).
+    // vert[i][j] / horiz[j][i] = Some(patch).
+    let mut vert = vec![vec![None; nz]; nr + 1];
+    let mut horiz = vec![vec![None; nr]; nz + 1];
+    for i in 1..=nr {
+        for j in 0..nz {
+            let (a, b) = (cell(i as isize - 1, j as isize), cell(i as isize, j as isize));
+            if a != b {
+                vert[i][j] = Some(patch_of(a, b, 2));
+            }
+        }
+    }
+    for j in 0..=nz {
+        for i in 0..nr {
+            let (a, b) = (cell(i as isize, j as isize - 1), cell(i as isize, j as isize));
+            if a != b {
+                horiz[j][i] = Some(patch_of(a, b, if j == 0 { 1 } else { 0 }));
+            }
+        }
+    }
+    // Kept-edge degree of every grid node (i, j).
+    let mut deg = vec![vec![0usize; nz + 1]; nr + 1];
+    for i in 0..=nr {
+        for j in 0..nz {
+            if vert[i][j].is_some() {
+                deg[i][j] += 1;
+                deg[i][j + 1] += 1;
+            }
+        }
+    }
+    for j in 0..=nz {
+        for i in 0..nr {
+            if horiz[j][i].is_some() {
+                deg[i][j] += 1;
+                deg[i + 1][j] += 1;
+            }
+        }
+    }
+    // Merged runs as ((i0, j0), (i1, j1), patch).
+    let mut runs: Vec<([usize; 2], [usize; 2], usize)> = Vec::new();
+    for i in 1..=nr {
+        let mut j = 0;
+        while j < nz {
+            let Some(p) = vert[i][j] else {
+                j += 1;
+                continue;
+            };
+            let j0 = j;
+            j += 1;
+            while j < nz && vert[i][j] == Some(p) && deg[i][j] == 2 {
+                j += 1;
+            }
+            runs.push(([i, j0], [i, j], p));
+        }
+    }
+    for j in 0..=nz {
+        let mut i = 0;
+        while i < nr {
+            let Some(p) = horiz[j][i] else {
+                i += 1;
+                continue;
+            };
+            let i0 = i;
+            i += 1;
+            while i < nr && horiz[j][i] == Some(p) && deg[i][j] == 2 {
+                i += 1;
+            }
+            runs.push(([i0, j], [i, j], p));
+        }
+    }
+    // Points: one ring per used grid node (one point on the axis).
+    let mut points: Vec<V> = Vec::new();
+    let mut ring: std::collections::BTreeMap<[usize; 2], Vec<usize>> = std::collections::BTreeMap::new();
+    let mut ring_of = |n: [usize; 2], points: &mut Vec<V>| -> Vec<usize> {
+        ring.entry(n)
+            .or_insert_with(|| {
+                let (r, z) = (t.r[n[0]] / 100.0, t.z[n[1]] / 100.0);
+                if n[0] == 0 {
+                    points.push(V::new(0.0, 0.0, z));
+                    vec![points.len() - 1; n_seg]
+                } else {
+                    (0..n_seg)
+                        .map(|k| {
+                            let phi = 2.0 * core::f64::consts::PI * k as f64 / n_seg as f64;
+                            points.push(V::new(r * phi.r_cos(), r * phi.r_sin(), z));
+                            points.len() - 1
+                        })
+                        .collect()
+                }
+            })
+            .clone()
+    };
+    let (mut tris, mut marker) = (Vec::new(), Vec::new());
+    for (a, b, p) in runs {
+        let (ra, rb) = (ring_of(a, &mut points), ring_of(b, &mut points));
+        for k in 0..n_seg {
+            let l = (k + 1) % n_seg;
+            for tr in [[ra[k], ra[l], rb[l]], [ra[k], rb[l], rb[k]]] {
+                if tr[0] != tr[1] && tr[1] != tr[2] && tr[0] != tr[2] {
+                    tris.push(tr);
+                    marker.push(p);
+                }
+            }
+        }
+    }
+    // Seeds: connected components of equal-region rectangles.
+    let mut comp = vec![usize::MAX; nr * nz];
+    let mut seeds = Vec::new();
+    for start in 0..nr * nz {
+        if comp[start] != usize::MAX {
+            continue;
+        }
+        let g = t.region[start];
+        let id = seeds.len();
+        let (i0, j0) = (start % nr, start / nr);
+        seeds.push((V::new(0.5 * (t.r[i0] + t.r[i0 + 1]) / 100.0, 0.0, 0.5 * (t.z[j0] + t.z[j0 + 1]) / 100.0), g));
+        let mut stack = vec![start];
+        comp[start] = id;
+        while let Some(c) = stack.pop() {
+            let (i, j) = ((c % nr) as isize, (c / nr) as isize);
+            for (di, dj) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                let (a, b) = (i + di, j + dj);
+                if a >= 0 && b >= 0 && (a as usize) < nr && (b as usize) < nz {
+                    let n = b as usize * nr + a as usize;
+                    if comp[n] == usize::MAX && t.region[n] == g {
+                        comp[n] = id;
+                        stack.push(n);
+                    }
+                }
+            }
+        }
+    }
+    outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface {
+        points,
+        tris,
+        marker,
+        patch_names,
+        interface,
+        region_names: map.regions.iter().map(|r| r.id.clone()).collect(),
+        seeds,
+    }
+}
+
+/// [`ChtBoundaries::Centroid`]'s mesh: the whole cylinder as one closed
+/// surface, `top` / `bottom` / `side` patches, cfMesh's tet -> dual
+/// pipeline; the regions are assigned afterwards by centroid.
+fn cht_centroid_mesh(
     d: &RzDomain,
     cell_cm: f64,
     n_seg: usize,
     tets: outram_park_fork_cfmesh::pipeline::TetSource,
-    out_dir: &Path,
-) -> Result<ChtMesh, String> {
-    let t = Instant::now();
-    let map = RegionMap::three_class_cht(d);
+) -> Result<(VolumeMesh, Vec<String>), String> {
     let prof = to_m(&d.neutronics_profile());
     let (p, tri) = revolved_profile_surface(&prof, n_seg);
     let (zb, zt) = (d.z_bottom / 100.0, d.z_top / 100.0);
@@ -656,12 +858,82 @@ pub fn build_cht(
             ..opts(cell_cm, 0, true)
         },
     )?;
-    let mut notes = rep.stage_notes;
-    notes.push(format!("tetrahedra: {tets:?}"));
+    Ok((vm, rep.stage_notes))
+}
+
+/// Where the worst cells of a fitted mesh are: the per-cell maxima of
+/// cfMesh's quality checks (`checks::cell_quality`, the same numbers as
+/// `check_quality`) over the cells with a face on a region interface,
+/// against the rest.
+fn interface_quality_note(vm: &VolumeMesh, cell_region: &[usize]) -> String {
+    let q = outram_park_fork_cfmesh::checks::cell_quality(vm);
+    let mut at = vec![false; vm.n_cells];
+    for f in 0..vm.face_count() {
+        if let Some(nb) = vm.neighbour[f] {
+            if cell_region[nb] != cell_region[vm.owner[f]] {
+                at[nb] = true;
+                at[vm.owner[f]] = true;
+            }
+        }
+    }
+    let max = |sel: bool, v: &[f64]| v.iter().zip(&at).filter(|(_, &a)| a == sel).map(|(x, _)| *x).fold(0.0, f64::max);
+    let n_at = at.iter().filter(|&&a| a).count();
+    format!(
+        "quality by place: {n_at} cells on a region interface, max non-orthogonality {:.1} deg, max skewness {:.2}; the other {} cells {:.1} deg, {:.2}",
+        max(true, &q.non_orthogonality_deg),
+        max(true, &q.skewness),
+        vm.n_cells - n_at,
+        max(false, &q.non_orthogonality_deg),
+        max(false, &q.skewness)
+    )
+}
+
+/// Build [`ChtMesh`]: the whole R-Z domain (`r <= r_outer`, bottom to top)
+/// revolved with `n_seg` segments, meshed tet -> dual at `cell_cm` with
+/// tetrahedra from `tets` ([`cht_tetgen`] for the TetGen port, as Mesh
+/// Studio's default; `TetSource::CarvedCentroid` for cfMesh's carved
+/// route, centroid boundaries only), the outer surface named `top`,
+/// `bottom` and `side`, the region boundaries made as `boundaries` says,
+/// written to `out_dir/constant/polyMesh` with `cellZones`, and drawn: R-Z
+/// through the axis, and X-Y through the middle of each of the three
+/// non-solid regions.
+pub fn build_cht(
+    d: &RzDomain,
+    cell_cm: f64,
+    n_seg: usize,
+    tets: outram_park_fork_cfmesh::pipeline::TetSource,
+    boundaries: ChtBoundaries,
+    out_dir: &Path,
+) -> Result<ChtMesh, String> {
+    let t = Instant::now();
+    let map = RegionMap::three_class_cht(d);
+    let tiling = map.rz_tiling(d)?;
+    let faceted_cm3 = tiling.volumes(map.regions.len(), Some(n_seg));
+    let (vm, fitted_region, mut notes, interfaces) = match boundaries {
+        ChtBoundaries::Fitted => {
+            let surf = fitted_cht_surface(&map, &tiling, n_seg);
+            let m = outram_park_fork_cfmesh::pipeline::multi_region::multi_region_mesh(&surf, tets, true)?;
+            (m.mesh, Some(m.cell_region), m.notes, m.interface_faces)
+        }
+        ChtBoundaries::Centroid => {
+            let (vm, notes) = cht_centroid_mesh(d, cell_cm, n_seg, tets)?;
+            (vm, None, notes, Vec::new())
+        }
+    };
+    notes.push(format!("tetrahedra: {tets:?}; region boundaries: {boundaries:?}"));
+    if let Some(reg) = &fitted_region {
+        notes.push(interface_quality_note(&vm, reg));
+    }
     let um = from_volume_mesh(&vm).map_err(|e| e.to_string())?;
     let mut cell_region = Vec::with_capacity(um.n_cells());
     let mut unassigned = 0;
+    if let Some(r) = fitted_region {
+        cell_region = r;
+    }
     for c in 0..um.n_cells() {
+        if boundaries == ChtBoundaries::Fitted {
+            break;
+        }
         let x = um.cell_centre(c);
         let (r, z) = ((x[0] * x[0] + x[1] * x[1]).sqrt() * 100.0, x[2] * 100.0);
         // The domain is the whole cylinder, so every centroid inside it has a
@@ -687,6 +959,11 @@ pub fn build_cht(
         })
         .collect();
     let um = Arc::new(um.with_zones(zones).map_err(|e| e.to_string())?);
+    notes.push(format!(
+        "{} of {} cells are not star-shaped about their centroid (a consumer that splits cells about the centroid must check `decomposition_is_valid`)",
+        um.n_non_star_cells(),
+        um.n_cells()
+    ));
     let vols = outram_blender::unstructured::overlap::cell_volumes_cm3(&um);
     let exact = exact_in(d, &map, &d.neutronics_profile(), 0.5);
     let regions = map
@@ -745,6 +1022,9 @@ pub fn build_cht(
         map,
         cell_region,
         regions,
+        faceted_cm3,
+        boundaries,
+        interfaces,
         patches: vm.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect(),
         quality: (q.max_non_orthogonality_deg, q.max_skewness),
         notes,
@@ -771,14 +1051,29 @@ pub fn cht_report(m: &ChtMesh, cell_cm: f64, n_seg: usize) -> String {
         m.mesh.n_faces(),
         m.seconds
     );
-    s.push_str("| cellZone | class | cells | meshed volume [m³] | exact R-Z volume [m³] | difference |\n|---|---|---|---|---|---|\n");
-    for (id, class, n, mv, ev) in &m.regions {
+    s.push_str(&format!(
+        "Region boundaries: {}.\n\n",
+        match m.boundaries {
+            ChtBoundaries::Fitted => "body-fitted (every interface is a face of the mesh)",
+            ChtBoundaries::Centroid => "by cell centroid (stair-stepped at the cell size)",
+        }
+    ));
+    s.push_str(&format!("| cellZone | class | cells | meshed volume [m³] | exact R-Z volume [m³] | difference | faceted ({n_seg} segments) volume [m³] | difference |\n|---|---|---|---|---|---|---|---|\n"));
+    for ((id, class, n, mv, ev), fv) in m.regions.iter().zip(&m.faceted_cm3) {
         s.push_str(&format!(
-            "| `{id}` | {class} | {n} | {:.4} | {:.4} | {:+.2} % |\n",
+            "| `{id}` | {class} | {n} | {:.4} | {:.4} | {:+.2} % | {:.4} | {:+.2e} |\n",
             mv * 1e-6,
             ev * 1e-6,
-            100.0 * (mv - ev) / ev.max(1e-30)
+            100.0 * (mv - ev) / ev.max(1e-30),
+            fv * 1e-6,
+            (mv - fv) / fv.max(1e-30)
         ));
+    }
+    if !m.interfaces.is_empty() {
+        s.push_str("\n| interface | faces |\n|---|---|\n");
+        for (p, n) in &m.interfaces {
+            s.push_str(&format!("| `{p}` | {n} |\n"));
+        }
     }
     s.push_str("\n| patch | faces |\n|---|---|\n");
     for (p, n) in &m.patches {
@@ -791,7 +1086,7 @@ pub fn cht_report(m: &ChtMesh, cell_cm: f64, n_seg: usize) -> String {
         m.quality.1
     ));
     let zoned = (0..m.map.regions.len()).map(|g| m.cell_region.iter().filter(|&&x| x == g).count()).sum::<usize>();
-    s.push_str(&format!("\n{} cellZones; {zoned} of {} cells are in one, by centroid.\n", m.map.regions.len(), m.mesh.n_cells()));
+    s.push_str(&format!("\n{} cellZones; {zoned} of {} cells are in one.\n", m.map.regions.len(), m.mesh.n_cells()));
     for n in &m.notes {
         s.push_str(&format!("\n- {n}"));
     }

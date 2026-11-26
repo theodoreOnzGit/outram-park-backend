@@ -123,6 +123,8 @@ use staged::{PipelineStage, StageLog};
 /// Where the tetrahedra come from: the carved grid or TetGen (gh:#1796).
 pub mod tet_source;
 pub use tet_source::TetSource;
+/// Several regions in one mesh with body-fitted internal boundaries (NOT a port).
+pub mod multi_region;
 
 /// Tuning knobs for [`surface_to_tet_dual_mesh`] and the primitive wrappers.
 ///

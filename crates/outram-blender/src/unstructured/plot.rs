@@ -144,17 +144,23 @@ fn draw_line(img: &mut ImageData, a: (f64, f64), b: (f64, f64), colour: Rgb) {
 }
 
 /// Points where the plane `x[n] = s` cuts the segments between `pts`
-/// (every pair), plus any point lying on it.
+/// (every pair).
+///
+/// A point lying exactly on the plane is taken as **above** it (simulation
+/// of simplicity), so a triangle is cut in 0 or 2 points and two triangles
+/// sharing an edge cut it at the same point. ~~plus any point lying on
+/// it~~ **CHANGED 2026-11-26:** pushing an on-plane vertex as well gave a
+/// triangle three points, the caller kept the first and last, and the
+/// even-odd fill of a cell paired the wrong crossings: cells cut through a
+/// vertex were left white (a fitted HTR-10 mesh, whose slice heights are
+/// box mid-heights where TetGen split the interface segments).
 fn plane_cut(pts: &[[f64; 3]], n: usize, s: f64) -> Vec<[f64; 3]> {
     let mut out = Vec::new();
     for i in 0..pts.len() {
         let di = pts[i][n] - s;
-        if di == 0.0 {
-            out.push(pts[i]);
-        }
         for j in (i + 1)..pts.len() {
             let dj = pts[j][n] - s;
-            if (di < 0.0 && dj > 0.0) || (di > 0.0 && dj < 0.0) {
+            if (di < 0.0) != (dj < 0.0) {
                 let t = di / (di - dj);
                 out.push([
                     pts[i][0] + t * (pts[j][0] - pts[i][0]),
@@ -248,6 +254,20 @@ pub fn render_mesh_slice_annotated(mesh: &UnstructuredMesh, slice: &MeshSlice, t
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A triangle with a vertex or an edge on the cut plane is cut in 0 or
+    /// 2 points, never 3 (the even-odd fill of a cell needs pairs). Before
+    /// the on-plane rule, an on-plane vertex was pushed as well as the
+    /// crossing points and cells cut through a vertex were left white.
+    #[test]
+    fn a_cut_through_vertices_fills_every_cell() {
+        let tri = [[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]];
+        assert_eq!(plane_cut(&tri, 2, 1.0).len(), 2, "an on-plane edge is cut at its two ends");
+        let tri = [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 2.0]];
+        assert_eq!(plane_cut(&tri, 2, 1.0).len(), 2, "an on-plane vertex counts once");
+        let tri = [[0.0, 0.0, 1.0], [1.0, 0.0, 2.0], [0.0, 1.0, 2.0]];
+        assert!(plane_cut(&tri, 2, 1.0).is_empty(), "touching from above is no cut");
+    }
     use crate::unstructured::one_d::one_d_column;
     use crate::unstructured::LengthUnit;
 

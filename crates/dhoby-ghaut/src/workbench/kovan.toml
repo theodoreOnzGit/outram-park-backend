@@ -496,7 +496,7 @@ name = "RegionMap"
 qual = "RegionMap"
 item = "type"
 shape = "struct"
-hash = "sha256:bdc1758f98dbc710184a801c155f76ba641780feff0b0c790c9b4b52a242fc7f"
+hash = "sha256:3ffc8ff6f7c7a8b7eb8e3239e7d08fc581accebea25730843bde2727186a2209"
 doc_hash = "sha256:b1847f21c8115540b21996fc0f7c3fa64722d8e70c637d09e93fd40ad8158cdd"
 
 [[module."meshes.rs".function]]
@@ -542,11 +542,25 @@ hash = "sha256:5c0a3e4425a370ce967ee6a6d93ebac618130221320e49a61f6d1f2bcf6a0c33"
 doc_hash = "sha256:534e41d8ca84341170574028f655cbfb3fa9d01e65f15ee4ab7588e523a45815"
 
 [[module."meshes.rs".function]]
+id = "fn:12a1fdea78274a54"
+name = "rz_tiling"
+qual = "RegionMap::rz_tiling"
+hash = "sha256:97f060b398f164ef2387eeaddaf5a8048623f439ccb04510187195f25825a39b"
+doc_hash = "sha256:0b296e60d62213149718a165cf50c8e59cd55395ab7e064ef3ad109a70cb3f5b"
+
+[[module."meshes.rs".function]]
 id = "fn:4c08a63a147877f9"
 name = "split_bed"
 qual = "RegionMap::split_bed"
 hash = "sha256:ec78e4a43104219b85f09bb3fdbb6c4b4b3143c5c416d018b11eaa7de50f5446"
 doc_hash = "sha256:7fc57e1e94c31fcdd48a7dd92356013593b679bb3176bc9a67d2a299e5dde320"
+
+[[module."meshes.rs".function]]
+id = "fn:cc229163e77adb55"
+name = "three_class_cht"
+qual = "RegionMap::three_class_cht"
+hash = "sha256:e151ef0d84bf189deb8b44499963a77ba2768493867c2c901081076d724a3f9e"
+doc_hash = "sha256:cdc42613d8a75781a87cdab91cb82673f4ad7bcbd0bd030c64831941762cfba9"
 
 [[module."meshes.rs".function]]
 id = "fn:193888e5c25e9aaf"
@@ -652,6 +666,43 @@ hash = "sha256:081899d23c4d45ef07cd970624ebdb08f8bed5ca5d1de14e751ba315e0f3069d"
 doc_hash = "sha256:0bae863a358ce4227e6b9438e70317d092b041a7dd03dbf21dadc0928b63a4c6"
 
 [[module."meshes.rs".function]]
+id = "fn:cf8ac78795854f99"
+name = "RzTiling"
+qual = "RzTiling"
+item = "type"
+shape = "struct"
+hash = "sha256:d7a44286fd0a28a0adcc8285e7fbb925223835abdd97a5a4d2762ee55d2c34e9"
+doc_hash = "sha256:1a281cb306454d098c88fed71b35205f0285835c817a20635e88ae245f15be3f"
+
+[[module."meshes.rs".function]]
+id = "fn:68dcc3f82a6276c0"
+name = "at"
+qual = "RzTiling::at"
+hash = "sha256:d81d8142820535926ecfb4d5b4124bfbfd2487d7edc451eb17898210a755de56"
+doc_hash = "sha256:234c61d35fd1d63a2ebd2d9db7ef95c3c709b4234ce8ef21a3919a231e18a4b6"
+
+[[module."meshes.rs".function]]
+id = "fn:fbc91b33caf2fc2b"
+name = "nr"
+qual = "RzTiling::nr"
+hash = "sha256:963692416912106724dac8621fd9bc028b4e1b8ea158539527976731650c42c9"
+doc_hash = "sha256:1297fc42841259c855e472c25b6b6609e1ec704b19a0bd52ac97e161a554ae8f"
+
+[[module."meshes.rs".function]]
+id = "fn:0673d0653495cec4"
+name = "nz"
+qual = "RzTiling::nz"
+hash = "sha256:781a9f3e01279bff2ce1ab94d70bd2121f8b38d9de44d1341a9f253b8edba57d"
+doc_hash = "sha256:3c2333741fa63db16b63e1923a1f4c893ef80faeb9dd8fbfd2f53d7916583c36"
+
+[[module."meshes.rs".function]]
+id = "fn:194ab497c3bf1fc2"
+name = "volumes"
+qual = "RzTiling::volumes"
+hash = "sha256:0a3154c2f7c5f0aa61770c277e0b40665049111f140a69177d265cf1f31d1e79"
+doc_hash = "sha256:0f079a30454c83d00553e8a815a36fe440c7716ffb5afd16b62786707a85cbbb"
+
+[[module."meshes.rs".function]]
 id = "fn:d24073789a63d561"
 name = "genfoam_default_fields"
 qual = "genfoam_default_fields"
@@ -702,6 +753,22 @@ name = "the_parts_tile_the_model"
 qual = "the_parts_tile_the_model"
 hash = "sha256:5e47ff9a1b456ac8544135d2d4a6626b8c166c949f05aa53be87c277e823a7c5"
 doc_hash = "sha256:f0c367e0dccc0b27c601327c663ecb68846e56d98628b2350014dba7e99f5fd0"
+test = true
+
+[[module."meshes.rs".function]]
+id = "fn:c47ac1702e0e9c7e"
+name = "three_class_cht_classifies_every_part"
+qual = "three_class_cht_classifies_every_part"
+hash = "sha256:3734aef19662abbc147c0a685bde317a40b1390546946a146039262cbb1786e9"
+doc_hash = "sha256:028fa053c335745f26aed0071838c9f6627466cbaee2697e32d66384cc2a5cf9"
+test = true
+
+[[module."meshes.rs".function]]
+id = "fn:08b198872be2451d"
+name = "three_class_cht_tiles_into_one_region_rectangles"
+qual = "three_class_cht_tiles_into_one_region_rectangles"
+hash = "sha256:2d498e5bf49b22d80e7ef5344faa7633b2b9103b1c29081e3c4d723b241586e2"
+doc_hash = "sha256:eaf195338be7e3206640ad26f44a9824f6e9f8e46cd38be99510957d533c8edc"
 test = true
 
 [module."mgxs.rs"]

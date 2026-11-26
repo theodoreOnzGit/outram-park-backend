@@ -42,7 +42,7 @@ doc_hash = "sha256:6ca4f5c3f746f2bf330feb80b1ac208dfdec27a1dd49420380e01df6f2743
 id = "fn:70028b10e4287377"
 name = "from_polyhedral"
 qual = "UnstructuredMesh::from_polyhedral"
-hash = "sha256:690992fea7014cd25200437f4a621e6f9afb6c096a1fe82351e18fe3955ddb13"
+hash = "sha256:6106cda8f18f5f8d71ef5b1f64be28021b0f0a7675499a3e731dbfbde01cf000"
 doc_hash = "sha256:7b601e9a1e247ccc64bd69fcb20504623bf4a9b66c1e8bf03c32ff1f4e56f630"
 
 [[module."build.rs".function]]
@@ -329,14 +329,14 @@ name = "CellLocator"
 qual = "CellLocator"
 item = "type"
 shape = "struct"
-hash = "sha256:8dafb0b345ea3f896ed2fd62ed4d89fdc1916b04c32460d8a22ac1420963cb4b"
+hash = "sha256:98fa8ffced07d2b1243a8b5ad520ce28ca56e1a770b874a1575bdda999c6a14e"
 doc_hash = "sha256:7784e8729b4e61184d51ce80b8387105a191be25aacf5f54a1f3bd83c10ad26e"
 
 [[module."locator.rs".function]]
 id = "fn:9feb0f1ee5c32982"
 name = "build"
 qual = "CellLocator::build"
-hash = "sha256:e241eaec88343a259a8ae68116f782dfbbe8e34cb61e59dd1f9590f398ecc496"
+hash = "sha256:3dfb6ddd9218fc06e5a42cbf4e74d27f23f6ac0da2029d2f87a85019ced0a0fc"
 doc_hash = "sha256:938bc9205147fcb1eaaf93109ba1e4e3ab94f0723cf75df33ff8006f6b14abc6"
 
 [[module."locator.rs".function]]
@@ -713,7 +713,7 @@ name = "MeshOverlap"
 qual = "MeshOverlap"
 item = "type"
 shape = "struct"
-hash = "sha256:2db8db0ce9317cf29582a2e551dec51a5c7b7b32d9c8517f2b6cffd40f8b0415"
+hash = "sha256:c01ca93f93e225080076d17998613177cbf1650e04a51dfd76176ffbdf18fe76"
 doc_hash = "sha256:85e01b7b1d3e00421e6486fc04dfd2deb144b29d7230b0e1191c8e62d0615115"
 
 [[module."overlap.rs".function]]
@@ -734,7 +734,7 @@ doc_hash = "sha256:8509c2e0e4bf3acc85170be8926324a2e89971d54e8ed9fbb2a3dcd1e5c77
 id = "fn:b2b4eacd7d99a429"
 name = "new"
 qual = "MeshOverlap::new"
-hash = "sha256:a36615df9622b319bf858632369b474dd4f503c0fd8b5af59886e03340a6d664"
+hash = "sha256:272314a4b443d28256924cec122eb8996e364ebdd23c4114de10b9f4c2ed1d7a"
 doc_hash = "sha256:58b917f02896b1dde7b6468869a91fc6af992e22a0d0eb92ccad08221a24c15c"
 
 [[module."overlap.rs".function]]
@@ -872,7 +872,7 @@ doc_hash = "sha256:42e81ffc0ea74e0702bae4ae2bd2d22277165fbce5f7a4c3a823cfbdfe80d
 id = "fn:e8ebad9accbab352"
 name = "cell_volumes_cm3"
 qual = "cell_volumes_cm3"
-hash = "sha256:1b40eebebde1748558538e5ac3bf1d3564d18fdd58c88e7a09d723174b99c5a6"
+hash = "sha256:31aa6cb02a302ea80e8906c787669d247842fc110f6503198d63461f842821b4"
 doc_hash = "sha256:79331f48e8fdfc8256b3fac60fe616e98a45a84c9ad6d71d3ad2b4b874cf8c19"
 
 [[module."overlap.rs".function]]
@@ -930,7 +930,7 @@ doc_hash = "sha256:fa14d5867ad57762b80306ce7bbfdfc6a85919ec8feac8d2ea9f5a49ac96a
 id = "fn:635b75c69f308171"
 name = "slice_inside"
 qual = "slice_inside"
-hash = "sha256:72b27087dbe0ef1982ebd4bd7ba58614aedb584e75ef0864225fbb8368a86125"
+hash = "sha256:1992390d41e99aee929d25992cf40cb212af30d15813492d341de5ea2e8fa602"
 doc_hash = "sha256:2662d7b1f4b70691d6d3db701f15c5db430b3dfeb733417ef61cef09a9987ec2"
 
 [[module."overlap.rs".function]]
@@ -944,7 +944,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:2cb419aee70c5714"
 name = "tet_tet_overlap"
 qual = "tet_tet_overlap"
-hash = "sha256:b52658321f018e597c2a61dcae0a7c9ef457b81cf70f050b4a68b46dc052d4f5"
+hash = "sha256:3f42fb685707366ed95e2086c3f30792f76c3215b4a646894ae388e1dcb9866c"
 doc_hash = "sha256:3706cfefe066d3f5498ec1127a07541892cd82e1dcde34e4be9be59145b004db"
 
 [[module."overlap.rs".function]]
@@ -998,6 +998,14 @@ hash = "sha256:c4cd88c15e035af991019c6bd3edaf11e2c340ca8707530850cc7013bb6aef64"
 doc_hash = "sha256:13288e6156ce17c9ae34e3fe2fe3877890d5ba1316536eaf91a299d5553cef24"
 
 [[module."plot.rs".function]]
+id = "fn:eb6f821ce8a35d96"
+name = "a_cut_through_vertices_fills_every_cell"
+qual = "a_cut_through_vertices_fills_every_cell"
+hash = "sha256:59c415c19e7eb7301ce72124680876dfacee82e746fd4f007fc9b3b10385fed5"
+doc_hash = "sha256:057aef41f08aedaf0dcabda2b1922dc3510755c87d640bf46cb00092483302f1"
+test = true
+
+[[module."plot.rs".function]]
 id = "fn:a4fdace8ff4ae9b4"
 name = "column_slice_is_filled_inside_and_white_outside"
 qual = "column_slice_is_filled_inside_and_white_outside"
@@ -1016,15 +1024,15 @@ doc_hash = "sha256:5461cf431fde610c9e3a2e06f6452a9a242523b4dd06f50b9087b545c3743
 id = "fn:b9391f46ec465b46"
 name = "fill_even_odd"
 qual = "fill_even_odd"
-hash = "sha256:8634c195d564fe5177980a7d78b36b7242efbedd043f660b80840b26368bf910"
+hash = "sha256:5f89e3aaea4ce23485cedcdf877dd383d51ba52ccd3a53433b798937b3fa1d70"
 doc_hash = "sha256:787563dec5b56dead1722ed28d52ba34fb9e76299222749bf876ebcb4295b6fd"
 
 [[module."plot.rs".function]]
 id = "fn:c1b7729465596a14"
 name = "plane_cut"
 qual = "plane_cut"
-hash = "sha256:ef66971e2dcca996d35a54482e9f64900a15b574f6fccf9f710467f9c9e6e365"
-doc_hash = "sha256:ac3360be692a4b9f690eb626bd6f2f7f7b79483a078243f672e1556b5f1dae7a"
+hash = "sha256:83179c0901de25913d30ab42452da581fdec4ec819df7f7fd51899ba52a9ba17"
+doc_hash = "sha256:c8267f21d4a66e60965b164935734d2e3cece5e4b94298d6a16edfd97fcc7491"
 
 [[module."plot.rs".function]]
 id = "fn:71f57ae70dcc8c07"
