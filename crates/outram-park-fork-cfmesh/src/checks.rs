@@ -97,6 +97,66 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
     check_mesh::check_quality(&points, &mesh.faces, &mesh.owner, &mesh.neighbour, &geom, &CheckOptions::default())
 }
 
+/// Per-cell quality: for each cell, the worst value over its **internal**
+/// faces (gh:#1766, Mesh Studio's colour map).
+///
+/// Computed from exactly what [`check_quality`] reads: the same
+/// [`check_inputs`] geometry, the same default [`CheckOptions`], and the same
+/// per-face functions ([`check_mesh::face_non_orthogonality_deg`],
+/// [`check_mesh::face_skewness`] with the internal-face floor `0.2`). So the
+/// largest entry of each vector equals the matching [`QualityReport`]
+/// maximum exactly (`tests::cell_quality_maxima_equal_the_report`). A cell
+/// with no evaluated internal face has 0.
+///
+/// Units: non-orthogonality in degrees; skewness dimensionless.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellQuality {
+    /// Per cell, the largest non-orthogonality of its internal faces \[deg\].
+    pub non_orthogonality_deg: Vec<f64>,
+    /// Per cell, the largest skewness of its internal faces.
+    pub skewness: Vec<f64>,
+}
+
+/// Compute [`CellQuality`] for `mesh`. See the type for what it measures.
+#[must_use]
+pub fn cell_quality(mesh: &VolumeMesh) -> CellQuality {
+    use check_mesh::DegenerateFaces;
+    use petir::mathf::RealMath;
+    let (points, geom) = check_inputs(mesh);
+    let opts = CheckOptions::default();
+    let n = geom.cell_volumes.len();
+    let mut non_orth = vec![0.0f64; n];
+    let mut skew = vec![0.0f64; n];
+    for f in 0..mesh.face_count() {
+        let Some(nb) = mesh.neighbour[f] else { continue };
+        let own = mesh.owner[f];
+        let sf = geom.face_areas[f];
+        let co = geom.cell_centres[own];
+        let d = geom.cell_centres[nb] - co;
+        let ang = match opts.degenerate_faces {
+            DegenerateFaces::Skip => check_mesh::face_non_orthogonality_deg(d, sf),
+            DegenerateFaces::Include => {
+                let cos = (d.dot(sf) / (d.mag() * sf.mag() + 1e-300)).clamp(-1.0, 1.0);
+                Some(cos.r_acos().to_degrees())
+            }
+        };
+        let evaluated = match opts.degenerate_faces {
+            DegenerateFaces::Skip => ang.is_some(),
+            DegenerateFaces::Include => true,
+        };
+        if let Some(a) = ang {
+            non_orth[own] = non_orth[own].max(a);
+            non_orth[nb] = non_orth[nb].max(a);
+        }
+        if evaluated {
+            let k = check_mesh::face_skewness(geom.face_centres[f], sf, co, d, 0.2, opts.skew_guard, opts.sv_hat, &mesh.faces[f], &points);
+            skew[own] = skew[own].max(k);
+            skew[nb] = skew[nb].max(k);
+        }
+    }
+    CellQuality { non_orthogonality_deg: non_orth, skewness: skew }
+}
+
 /// The faces that fail `controls` (gh:#1215; gh:#1480: calls
 /// [`outram_foam_mesh::check_mesh::faces_failing_mesh_quality`]; the port's
 /// documentation, upstream citation and the list of checks not ported are
@@ -256,6 +316,39 @@ pub fn pmg_geometry(mesh: &VolumeMesh) -> PmgGeometry {
 mod tests {
     use super::*;
     use crate::cartesian::cartesian_box;
+
+    /// The per-cell view and the report measure the same thing.
+    ///
+    /// **Methodology.** On the 1 cm pipe with 3 boundary layers (the
+    /// `pipeline` tests' pipe, h 6 mm) and on a snapped carve of a box, the
+    /// largest per-cell value must equal [`check_quality`]'s maximum
+    /// **exactly** (same geometry, options and per-face functions), and every
+    /// value must be finite and non-negative.
+    #[test]
+    fn cell_quality_maxima_equal_the_report() {
+        let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
+        let o = crate::pipeline::TetDualOptions {
+            cell_size: 0.006,
+            n_layers: 3,
+            first_layer_thickness: 3e-4,
+            expansion: 1.2,
+            layer_patches: vec!["walls".into()],
+            ..Default::default()
+        };
+        let (pipe, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        let (bp, bt) = crate::shapes::box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let boxed = snap_to_surface(&carve_box(&bp, &bt, 0.3), &bp, &bt);
+        for (name, m) in [("pipe", &pipe), ("snapped box", &boxed)] {
+            let q = check_quality(m);
+            let c = cell_quality(m);
+            assert_eq!(c.non_orthogonality_deg.len(), m.n_cells, "{name}");
+            let max_no = c.non_orthogonality_deg.iter().copied().fold(0.0, f64::max);
+            let max_sk = c.skewness.iter().copied().fold(0.0, f64::max);
+            assert!(c.non_orthogonality_deg.iter().chain(&c.skewness).all(|v| v.is_finite() && *v >= 0.0), "{name}");
+            assert_eq!(max_no.to_bits(), q.max_non_orthogonality_deg.to_bits(), "{name}: {max_no} vs {}", q.max_non_orthogonality_deg);
+            assert_eq!(max_sk.to_bits(), q.max_skewness.to_bits(), "{name}: {max_sk} vs {}", q.max_skewness);
+        }
+    }
     use crate::carve::carve_box;
     use crate::snap::snap_to_surface;
     use crate::volume_mesh::BoundaryPatch;

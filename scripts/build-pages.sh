@@ -290,6 +290,13 @@ bash crates/dhoby-ghaut/web/foam_studio/build.sh "$OUT/demos/foam-studio"
 for f in index.html worker.js foam_studio_web.js foam_studio_web_bg.wasm; do
   [[ -f "$OUT/demos/foam-studio/$f" ]] || { echo "missing demos/foam-studio/$f" >&2; exit 1; }
 done
+# Mesh Studio (gh:#1767, #1770): a closed surface volume-meshed by the cfMesh
+# port's staged tet -> dual -> layers pipeline in a Web Worker, cut and
+# coloured by layer index or quality; no data files.
+bash crates/dhoby-ghaut/web/mesh_studio/build.sh "$OUT/demos/mesh-studio"
+for f in index.html worker.js mesh_studio.js mesh_studio_bg.wasm; do
+  [[ -f "$OUT/demos/mesh-studio/$f" ]] || { echo "missing demos/mesh-studio/$f" >&2; exit 1; }
+done
 # Delta vs surface tracking, step by step (gh:#784): reads the Monte Carlo
 # demo's tapes from ../monte-carlo/data/, so it is built after that one.
 bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"

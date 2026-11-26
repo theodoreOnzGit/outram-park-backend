@@ -219,6 +219,28 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    bytes) and build it with `tapes::leapr_h_in_h2o`, as `hst009/` and
    `lct008/` do.
 
+## Mesh Studio: the cfMesh pipeline, stage by stage (gh:#1765–#1771, 2026-11-26)
+
+`examples/mesh_studio/` is one app with two targets, built on
+`web_demo` like the other demos: native (eframe, plus `--headless`) and
+the browser (`web/mesh_studio/`, published as `demos/mesh-studio/`). The
+engine (`engine.rs`) builds through `outram_park_fork_cfmesh::pipeline::staged`
+and answers cuts of any stage; the app only draws.
+
+- **Shapes**: the four primitives (the headless sweep and its fixture use
+  only these, `GeomKind::PRIMITIVES`) and three illustrative reactor
+  shapes (pipe, fuel pin in a channel, pebble in a channel) built as
+  revolved profiles with named patches; layers grow on the wall patches
+  only.
+- **Review images** are `verification_and_validation/mesh_studio_gh1771/`
+  (`render.mjs` regenerates them). Wall layers are 1-2 px wide at the
+  fitted zoom: a review set must include zoomed wall views
+  (`?at=x,y&zoom=f`), and the report's "Wall layers total" line states the
+  grown thickness against the asked one (back-off keeps ~10 % on the
+  reactor shapes).
+- The headless-sweep fixture test fails on HEAD for reasons that predate
+  Mesh Studio (gh:#1772); do not re-pin it without that issue's answer.
+
 ## The high-fidelity workbench (gh:#561)
 
 **Behind the default `workbench` feature since 2026-11-15 (gh:#1578):** the

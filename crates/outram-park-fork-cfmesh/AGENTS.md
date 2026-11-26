@@ -487,3 +487,22 @@ Rules this taught:
   `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
   `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own
   (`makeFaceCentresAndAreas`), used for cell centres. Do not swap them.
+
+## The staged tet-dual route: every stage kept for viewing (gh:#1765, 2026-11-26)
+
+`pipeline::staged` (`surface_to_tet_dual_mesh_staged`,
+`surface_to_tet_dual_mesh_multipatch_staged`) runs the same pipeline as the
+plain entry points through `run_pipeline_observed`, keeping a
+`StageSnapshot` of the mesh after every stage, and the
+`boundary_layer_index` (core 0, k = k-th layer from the wall). It is for
+showing the pipeline (Mesh Studio, `dhoby-ghaut/examples/mesh_studio/`),
+not for solving.
+
+- **It must stay bit-identical to the plain route**:
+  `staged::tests::staged_route_is_bit_identical_to_the_plain_route`
+  compares the fingerprint and the report (timings blanked). The plain
+  route calls `run_pipeline_observed` with `None`, so a new stage is
+  recorded by one `staged::record` call after it, never by a second copy
+  of the pipeline.
+- `checks::cell_quality` gives per-cell non-orthogonality and skewness
+  whose maxima equal the `checkMesh` report bit for bit (pinned).

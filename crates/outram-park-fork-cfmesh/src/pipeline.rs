@@ -118,6 +118,9 @@ pub mod cartesian_2d_mesh;
 /// cfMesh's `pMesh` workflow (`voronoiMeshGenerator`, gh:#1273).
 pub mod p_mesh;
 
+pub mod staged;
+use staged::{PipelineStage, StageLog};
+
 /// Tuning knobs for [`surface_to_tet_dual_mesh`] and the primitive wrappers.
 ///
 /// Every optional stage can be turned off. Lengths are in **metres**, angles in
@@ -587,6 +590,21 @@ pub(crate) fn run_pipeline(
     regions: Option<&SurfaceRegions>,
     upper_triangular: bool,
 ) -> Result<(VolumeMesh, TetDualReport), String> {
+    run_pipeline_observed(points, tris, opts, regions, upper_triangular, None)
+}
+
+/// [`run_pipeline`] with an optional [`StageLog`] (gh:#1765). With `None` it is
+/// `run_pipeline` exactly: the log only receives clones of meshes the stages
+/// already produced, so it cannot change the result
+/// (`staged::tests::staged_route_is_bit_identical_to_the_plain_route`).
+pub(crate) fn run_pipeline_observed(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    opts: &TetDualOptions,
+    regions: Option<&SurfaceRegions>,
+    upper_triangular: bool,
+    mut log: Option<&mut StageLog>,
+) -> Result<(VolumeMesh, TetDualReport), String> {
     if opts.cell_size <= 0.0 {
         return Err(format!("cell_size must be > 0 (got {})", opts.cell_size));
     }
@@ -608,12 +626,14 @@ pub(crate) fn run_pipeline(
     if mesh.cell_count() == 0 {
         return Err("carve produced 0 cells — try a smaller cell_size or check the surface is closed and outward-wound".into());
     }
+    staged::record(&mut log, PipelineStage::Carve, true, &mesh);
 
     // Stage 2 — snap to the surface.
     if opts.snap {
         let snapped = snap_to_surface(&mesh, points, tris);
         let (m, kept) = keep_if_ok(mesh, snapped);
         mesh = m;
+        staged::record(&mut log, PipelineStage::Snap, kept, &mesh);
         if !kept {
             notes.push(
                 "snap-to-surface skipped — it would tangle a wall cell on this geometry".into(),
@@ -630,6 +650,7 @@ pub(crate) fn run_pipeline(
         let tets = tetrahedralize(&mesh);
         let (m, kept) = keep_if_ok(mesh, tets);
         mesh = m;
+        staged::record(&mut log, PipelineStage::Tetrahedralise, kept, &mesh);
         if !kept {
             notes.push(
                 "tetrahedralization skipped — it produced inverted cells on this geometry".into(),
@@ -642,6 +663,7 @@ pub(crate) fn run_pipeline(
         let flipped = flip_to_delaunay(&mesh, opts.max_flips);
         let (m, kept) = keep_if_ok(mesh, flipped);
         mesh = m;
+        staged::record(&mut log, PipelineStage::Delaunay, kept, &mesh);
         if !kept {
             notes.push(
                 "Delaunay improvement skipped — no valid improving flips on this geometry".into(),
@@ -652,6 +674,7 @@ pub(crate) fn run_pipeline(
     // Stage 5 — polyhedral dual. The new kinds (gh:#1240) first; on failure
     // they fall back to the per-corner median dual with a note.
     let mut dual_done = false;
+    let mut dual_applied = false;
     if opts.dual && opts.dual_kind != DualKind::MedianPerCorner {
         // Name the tet boundary first, so the dual sees the patch seams.
         let named = match regions {
@@ -666,6 +689,7 @@ pub(crate) fn run_pipeline(
             Ok(d) if acceptable(&d) => {
                 mesh = d;
                 dual_done = true;
+                dual_applied = true;
             }
             Ok(_) => notes.push(format!("{:?} dual skipped — it would invalidate the mesh; fell back to the per-corner median dual", opts.dual_kind)),
             Err(e) => notes.push(format!("{:?} dual skipped — {e}; fell back to the per-corner median dual", opts.dual_kind)),
@@ -678,6 +702,7 @@ pub(crate) fn run_pipeline(
             if acceptable(&d) {
                 mesh = d;
                 placed = true;
+                dual_applied = true;
             }
         }
         if !placed {
@@ -690,11 +715,15 @@ pub(crate) fn run_pipeline(
                 }
                 mesh = d;
                 placed = true;
+                dual_applied = true;
             }
         }
         if !placed {
             notes.push("polyhedral dual skipped — both dual variants would invalidate the mesh on this geometry".into());
         }
+    }
+    if opts.dual {
+        staged::record(&mut log, PipelineStage::Dual, dual_applied, &mesh);
     }
 
     // Stage 6 — smart-Laplacian smoothing (never inverts; conserves volume).
@@ -702,6 +731,7 @@ pub(crate) fn run_pipeline(
         let smoothed = laplacian_smooth(&mesh, opts.smooth_passes);
         let (m, kept) = keep_if_ok(mesh, smoothed);
         mesh = m;
+        staged::record(&mut log, PipelineStage::Smooth, kept, &mesh);
         if !kept {
             notes.push("smoothing skipped — unexpectedly invalid (should not happen)".into());
         }
@@ -738,6 +768,7 @@ pub(crate) fn run_pipeline(
         }
         let (m, kept) = keep_if_ok(mesh, mapped);
         mesh = m;
+        staged::record(&mut log, PipelineStage::FeatureCapture, kept, &mesh);
         if !kept {
             notes.push("feature-edge capture (untangleSurface) skipped — the mapped and smoothed boundary would invalidate the mesh".into());
         }
@@ -772,6 +803,7 @@ pub(crate) fn run_pipeline(
         };
         let (m, kept) = keep_if_ok(mesh, mapped);
         mesh = m;
+        staged::record(&mut log, PipelineStage::FeatureCapture, kept, &mesh);
         if !kept {
             notes.push("feature-edge capture skipped — mapping the boundary onto the patches would invalidate the mesh".into());
         } else if n_reverted > 0 {
@@ -791,6 +823,7 @@ pub(crate) fn run_pipeline(
         notes.extend(n);
         let (m, kept) = keep_if_ok(mesh, optimised);
         mesh = m;
+        staged::record(&mut log, PipelineStage::OptimiseFinalMesh, kept, &mesh);
         if !kept {
             notes.push("optimiseFinalMesh skipped — it would invalidate the mesh".into());
         }
@@ -815,6 +848,7 @@ pub(crate) fn run_pipeline(
                     let before = mesh.cell_count();
                     let (m, kept) = keep_if_ok(mesh, layered);
                     mesh = m;
+                    staged::record_layers(&mut log, kept, before, &names, &mesh);
                     let strategy = outcome.strategy;
                     layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
                     if !kept {
@@ -852,6 +886,7 @@ pub(crate) fn run_pipeline(
             let before = mesh.cell_count();
             let (m, kept) = keep_if_ok(mesh, layered);
             mesh = m;
+            staged::record_layers(&mut log, kept, before, &[opts.wall_patch.as_str()], &mesh);
             let strategy = outcome.strategy;
             layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
             if !kept {
@@ -876,8 +911,14 @@ pub(crate) fn run_pipeline(
     // that no input face corresponds to). See `crate::patches`.
     if let Some(regions) = regions {
         match assign_patches_by_region(&mesh, points, tris, regions) {
-            Ok(named) => mesh = named,
-            Err(e) => notes.push(format!("named boundary patches skipped — {e}")),
+            Ok(named) => {
+                mesh = named;
+                staged::record(&mut log, PipelineStage::NamePatches, true, &mesh);
+            }
+            Err(e) => {
+                notes.push(format!("named boundary patches skipped — {e}"));
+                staged::record(&mut log, PipelineStage::NamePatches, false, &mesh);
+            }
         }
     }
 
@@ -889,6 +930,7 @@ pub(crate) fn run_pipeline(
     if upper_triangular {
         mesh = crate::renumber_mesh::upper_triangular(&mesh);
     }
+    staged::record(&mut log, PipelineStage::Final, true, &mesh);
 
     // Final gate — never hand back a mesh that is not closed.
     if let Err(e) = mesh.validate() {
