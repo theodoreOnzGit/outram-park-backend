@@ -71,6 +71,10 @@ The reasoning was that U-238 resonance capture in the narrow peaks above
   `OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS=1`.
   - That knob is the ablation back to the pre-#589 log-grid majorant,
     `Majorant::over_indices_without_breakpoints`.
+  - **REMOVED 2026-11-26 (gh:#1819)** (maintainer: "it's wasting space"): the knob and
+    that function no longer exist, so the control can be rerun only on a
+    build at `625e964655` or earlier, and `run_control.sh` now refuses. The
+    results below were measured with it and stand.
   - It separates the majorant's effect from everything else that changed
     since the old record: other code changes between `f888cfd98e` and
     `e09030a3cf`, the toolchain and the hardware.

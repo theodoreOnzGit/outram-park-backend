@@ -28278,19 +28278,9 @@ pub struct Majorant {
   Build the majorant `Σ_maj(E) ≥ max_m Σ_t,m(E)` over `materials`, on the
 
 - ```rust
-  pub fn from_materials_without_breakpoints(materials: &[Material], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
-  ```
-  **ABLATION — not a bound on resonance data.** The pre-#589
-
-- ```rust
   pub fn over_indices(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
   ```
   **A majorant bounding only the materials a REGION can reach.**
-
-- ```rust
-  pub fn over_indices_without_breakpoints(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
-  ```
-  **ABLATION — not a bound on resonance data.** [`Self::over_indices`] on
 
 - ```rust
   pub fn bounding(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize, margin: f64) -> Self { /* ... */ }
