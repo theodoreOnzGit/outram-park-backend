@@ -104,6 +104,8 @@ pub struct OnePhaseFlowCase {
     pub p_rgh: PRghPcg,
     /// The `p_rghFinal` entry, used by the last corrector of the last outer iteration.
     pub p_rgh_final: PRghPcg,
+    /// `true` when `solvers.p_rgh` selected `GAMG` and `PCG`/`DIC` ran in its place (the named deviation of [`super::GamgPolicy`]).
+    pub p_rgh_gamg_substituted: bool,
     /// `relaxationFactors.equations` for `U` (`None` if absent).
     pub relax_u: Option<f64>,
     /// `pMin` [Pa].
@@ -388,6 +390,7 @@ pub(super) fn read_flow_case(
     pp: &FoamDict,
     momentum_source: Vec<Vector3>,
     drag: Vec<Option<ReynoldsPowerDrag>>,
+    gamg: super::GamgPolicy,
 ) -> Result<OnePhaseFlowCase, AppBuilderError> {
     let n = g.n_cells();
     let ni = g.n_internal();
@@ -406,6 +409,7 @@ pub(super) fn read_flow_case(
         }
     }
     let solvers = ctx.sub(fs, "solvers")?;
+    let substituted = core::cell::Cell::new(false);
     let pcg_entry = |name: &str, fallback: Option<PRghPcg>| -> Result<PRghPcg, AppBuilderError> {
         match last_match(solvers, name) {
             Some(FoamEntry::SubDict(d)) => {
@@ -414,10 +418,13 @@ pub(super) fn read_flow_case(
                     (None, Some(f)) => f.tolerance,
                     (None, None) => return Err(ctx.e(format!("solvers.{name}: no tolerance"))),
                 };
-                if fallback.is_none()
-                    && (word(d, "solver").as_deref() != Some("PCG") || word(d, "preconditioner").as_deref() != Some("DIC"))
-                {
-                    return Err(ctx.e(format!("solvers.{name}: only PCG with the DIC preconditioner is ported")));
+                if fallback.is_none() {
+                    let is_gamg = word(d, "solver").as_deref() == Some("GAMG");
+                    if is_gamg && gamg == super::GamgPolicy::SubstitutePcgDic {
+                        substituted.set(true);
+                    } else if word(d, "solver").as_deref() != Some("PCG") || word(d, "preconditioner").as_deref() != Some("DIC") {
+                        return Err(ctx.e(format!("solvers.{name}: only PCG with the DIC preconditioner is ported (GAMG: see GamgPolicy)")));
+                    }
                 }
                 Ok(PRghPcg {
                     tolerance,
@@ -501,6 +508,7 @@ pub(super) fn read_flow_case(
         correct_until_convergence: bool_entry(pimple, "correctUntilConvergence").unwrap_or(false),
         p_rgh,
         p_rgh_final,
+        p_rgh_gamg_substituted: substituted.get(),
         relax_u,
         p_min: ctx.f64(pp, "pMin")?,
         p_ref_cell: scalar(pp, "pRefCell").unwrap_or(0.0) as usize,

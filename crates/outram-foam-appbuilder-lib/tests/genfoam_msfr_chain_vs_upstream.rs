@@ -168,11 +168,10 @@ fn the_case_inputs_are_read_from_files() {
     assert!(((stage.fluid.case().thermo.alpha_h() - 0.01 / 8.0) / (0.01 / 8.0)).abs() < 1e-15);
 }
 
-/// `steadyStateTH` and the other stages without a port are refused by name.
+/// The stages without a port are refused by name (`steadyStateTH` is ported since gh:#1841, round 21).
 #[test]
 fn stages_without_a_port_are_refused_by_name() {
     for (stage, name) in [
-        (EigenvalueStage::SteadyStateTh, "steadyStateTH"),
         (EigenvalueStage::Sn, "SN eigenvalue -> transient"),
         (EigenvalueStage::PointKinetics, "pointKinetics eigenvalue"),
     ] {

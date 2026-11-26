@@ -191,6 +191,76 @@ impl BoussinesqHConst {
     }
 }
 
+/// What to do when `solvers.p_rgh` selects `GAMG` (the shipped 2D_MSFR case does).
+///
+/// `outram_foam_basic_lib`'s GAMG is not a translation of OpenFOAM's `GAMGSolver` (algebraic `|upper|` pairing, a symmetric
+/// 2+2 V-cycle, a dense coarsest solve, an unshifted residual norm; README round 21), so the port has no faithful `GAMG`.
+/// The substitution is a named deviation, chosen by this value and reported by [`OnePhaseFlowCase::p_rgh_gamg_substituted`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GamgPolicy {
+    /// Refuse `GAMG` by name (`only PCG with the DIC preconditioner is ported`).
+    Refuse,
+    /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21).
+    #[default]
+    SubstitutePcgDic,
+}
+
+/// The `controlDict` entries a stage of the Allrun chain sets (`startTime`, `endTime`, `deltaT`), typed instead of edited.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ControlOverrides {
+    /// `startTime`.
+    pub start_time: f64,
+    /// `endTime`.
+    pub end_time: f64,
+    /// `deltaT`.
+    pub delta_t: f64,
+}
+
+/// The fluid fields at the end of a stage, in the form the next stage reads them from its start directory
+/// (`T`, `p`, `U`, `alphat`, `alphaRhoPhi`, `alphaPhi`, `T.fixedTemperature`, `htc`, `powerDensityNeutronicsToLiquid`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FluidFields {
+    /// `T` per cell.
+    pub t: Vec<f64>,
+    /// `p` per cell.
+    pub p: Vec<f64>,
+    /// `U` per cell.
+    pub u: Vec<Vector3>,
+    /// `alphat` per cell.
+    pub alphat: Vec<f64>,
+    /// `alphaRhoPhi`, every face.
+    pub alpha_rho_phi: Vec<f64>,
+    /// `alphaPhi`, every face.
+    pub alpha_phi: Vec<f64>,
+    /// `T.fixedTemperature` per cell.
+    pub t_fixed: Vec<f64>,
+    /// `htc` per cell.
+    pub htc: Vec<f64>,
+    /// `powerDensityNeutronicsToLiquid` per cell.
+    pub power_density: Vec<f64>,
+}
+
+/// How a case is read: the stage edits of `Allrun` as values, and where the start fields come from.
+#[derive(Debug, Clone)]
+pub struct CaseReadOptions {
+    /// `GAMG` for `p_rgh`.
+    pub gamg: GamgPolicy,
+    /// `solveFluidMechanics` of the stage (`None`: as `fvSolution` says). `Allrun` sets `false` for EN and transient.
+    pub solve_fluid_mechanics: Option<bool>,
+    /// The stage's `startTime`/`endTime`/`deltaT` (`None`: as `controlDict` says).
+    pub controls: Option<ControlOverrides>,
+    /// Check `controlDict.regionSolvers` (a rootCase has it empty: the stage sets it, so the driver does not check).
+    pub check_region_solvers: bool,
+    /// The start fields (`None`: read `<startTime>/fluidRegion`), the in-memory form of `cp -r steadyStateTH/15`.
+    pub fields: Option<FluidFields>,
+}
+
+impl Default for CaseReadOptions {
+    fn default() -> Self {
+        Self { gamg: GamgPolicy::Refuse, solve_fluid_mechanics: None, controls: None, check_region_solvers: true, fields: None }
+    }
+}
+
 /// A read case (all fields at the start time).
 #[derive(Debug, Clone)]
 pub struct OnePhaseCcCase {
@@ -326,8 +396,16 @@ impl OnePhaseCcCase {
     /// # Errors
     /// [`AppBuilderError::Case`] for a missing or unreadable file and for every selection not ported (see the
     /// module documentation).
-    #[allow(clippy::too_many_lines)]
     pub fn read(root: &Path, poly_mesh_dir: &Path) -> Result<Self, AppBuilderError> {
+        Self::read_with_options(root, poly_mesh_dir, &CaseReadOptions::default())
+    }
+
+    /// [`Self::read`] with the stage edits of `Allrun` as values (see [`CaseReadOptions`]).
+    ///
+    /// # Errors
+    /// As [`Self::read`]; `GAMG` is refused unless `options.gamg` substitutes it.
+    #[allow(clippy::too_many_lines)]
+    pub fn read_with_options(root: &Path, poly_mesh_dir: &Path, options: &CaseReadOptions) -> Result<Self, AppBuilderError> {
         let ctx = Ctx { root: root.to_path_buf() };
         let region = "fluidRegion";
         let mesh = read_poly_mesh(poly_mesh_dir)?;
@@ -357,9 +435,10 @@ impl OnePhaseCcCase {
         };
 
         let cd = ctx.read("system/controlDict")?;
-        let start_time = scalar(&cd, "startTime").unwrap_or(0.0);
-        let end_time = ctx.f64(&cd, "endTime")?;
-        let delta_t = ctx.f64(&cd, "deltaT")?;
+        let (start_time, end_time, delta_t) = match options.controls {
+            Some(c) => (c.start_time, c.end_time, c.delta_t),
+            None => (scalar(&cd, "startTime").unwrap_or(0.0), ctx.f64(&cd, "endTime")?, ctx.f64(&cd, "deltaT")?),
+        };
         let include_kinetic_energy = bool_entry(&cd, "includeKineticEnergy").unwrap_or(true);
         let max_co = scalar(&cd, "maxCo").unwrap_or(1.0);
         let max_delta_t = scalar(&cd, "maxDeltaT").unwrap_or(1.0e300);
@@ -370,16 +449,16 @@ impl OnePhaseCcCase {
             .get_dict("regionSolvers")
             .map(|rs| rs.iter().any(|(_, e)| matches!(e, FoamEntry::Word(w) if w == "multiPhysicsSolver")))
             .unwrap_or(false);
-        if !is_one_phase(region) && !in_multi {
+        if options.check_region_solvers && !is_one_phase(region) && !in_multi {
             return Err(ctx.e("regionSolvers: fluidRegion is neither onePhase nor inside a multiPhysicsSolver"));
         }
 
         // ---- fvSolution
         let fs = ctx.read(&format!("system/{region}/fvSolution"))?;
         let pimple = ctx.sub(&fs, "PIMPLE")?;
-        let solve_flow = match bool_entry(pimple, "solveFluidMechanics") {
-            Some(b) => b,
-            None => return Err(ctx.e("PIMPLE.solveFluidMechanics must be given")),
+        let solve_flow = match (options.solve_fluid_mechanics, bool_entry(pimple, "solveFluidMechanics")) {
+            (Some(b), _) | (None, Some(b)) => b,
+            (None, None) => return Err(ctx.e("PIMPLE.solveFluidMechanics must be given")),
         };
         if bool_entry(pimple, "solveEnergy") != Some(true) {
             return Err(ctx.e("PIMPLE.solveEnergy must be true"));
@@ -566,16 +645,39 @@ impl OnePhaseCcCase {
         let tdir = alloc::format!("{start_time}");
         let fdir = root.join(&tdir).join(region);
         let sfield = |name: &str| read_vol_scalar_field(&fdir.join(name), n);
-        let t = sfield("T")?;
-        let p = sfield("p")?;
-        let alphat = sfield("alphat")?;
+        let hand = options.fields.as_ref();
+        if let Some(h) = hand {
+            if [h.t.len(), h.p.len(), h.u.len(), h.alphat.len(), h.t_fixed.len(), h.htc.len(), h.power_density.len()].iter().any(|&l| l != n)
+                || h.alpha_phi.len() != g.n_faces()
+                || h.alpha_rho_phi.len() != g.n_faces()
+            {
+                return Err(ctx.e("the handed-over fluid fields do not match the mesh"));
+            }
+        }
+        let t = match hand { Some(h) => h.t.clone(), None => sfield("T")? };
+        let p = match hand { Some(h) => h.p.clone(), None => sfield("p")? };
+        let alphat = match hand { Some(h) => h.alphat.clone(), None => sfield("alphat")? };
         // upstream creates what a ROOT case lacks: `T.fixedTemperature` (`T` of the power-model dictionary in its zone,
         // 0 elsewhere), zero `htc` and `powerDensityNeutronicsToLiquid`; only a case that solves the flow may start
         // from them (the frozen-flux region needs a restart, its flux comes from the file)
         let exists = |name: &str| fdir.join(name).exists();
-        let t_fixed = if solve_flow && !exists("T.fixedTemperature") { t_fixed_default } else { sfield("T.fixedTemperature")? };
-        let htc0 = if solve_flow && !exists("htc") { vec![0.0; n] } else { sfield("htc")? };
-        let power_density = if solve_flow && !exists("powerDensityNeutronicsToLiquid") {
+        let t_fixed = if let Some(h) = hand {
+            h.t_fixed.clone()
+        } else if solve_flow && !exists("T.fixedTemperature") {
+            t_fixed_default
+        } else {
+            sfield("T.fixedTemperature")?
+        };
+        let htc0 = if let Some(h) = hand {
+            h.htc.clone()
+        } else if solve_flow && !exists("htc") {
+            vec![0.0; n]
+        } else {
+            sfield("htc")?
+        };
+        let power_density = if let Some(h) = hand {
+            h.power_density.clone()
+        } else if solve_flow && !exists("powerDensityNeutronicsToLiquid") {
             vec![0.0; n]
         } else {
             sfield("powerDensityNeutronicsToLiquid")?
@@ -583,7 +685,7 @@ impl OnePhaseCcCase {
         if solve_flow && pp.get_dict("fluidProperties").is_some() {
             return Err(ctx.e("fluidProperties/initialPowerDensity/initialAlpha are not ported for the solved flow"));
         }
-        let u = read_vol_vector_field(&fdir.join("U"), n)?;
+        let u = match hand { Some(h) => h.u.clone(), None => read_vol_vector_field(&fdir.join("U"), n)? };
         let patches: Vec<(String, usize)> = mesh.patches.iter().map(|q| (q.name.clone(), q.size)).collect();
         let ni = g.n_internal();
         let surface = |name: &str| -> Result<Vec<f64>, AppBuilderError> {
@@ -601,13 +703,13 @@ impl OnePhaseCcCase {
             Ok(out)
         };
         let flow = if solve_flow {
-            let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag)?;
+            let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg)?;
             fc.turbulence = turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?;
             Some(fc)
         } else {
             None
         };
-        let (alpha_rho_phi, alpha_phi) = if solve_flow && !exists("alphaPhi") {
+        let (alpha_rho_phi, alpha_phi) = if hand.is_none() && solve_flow && !exists("alphaPhi") {
             // `fluid::initAlphaPhis`: alphaPhi = interpolate(alpha) phi, alphaRhoPhi = interpolate(rho0) alphaPhi
             let fcase = flow.as_ref().expect("flow case");
             let mut uf = Vector::uniform(&g, Vector3::ZERO);
@@ -625,7 +727,7 @@ impl OnePhaseCcCase {
             let arp: Vec<f64> = ap.iter().map(|v| thermo.rho0 * v).collect();
             (arp, ap)
         } else {
-            (surface("alphaRhoPhi")?, surface("alphaPhi")?)
+            match hand { Some(h) => (h.alpha_rho_phi.clone(), h.alpha_phi.clone()), None => (surface("alphaRhoPhi")?, surface("alphaPhi")?) }
         };
 
         Ok(Self {
@@ -775,6 +877,23 @@ impl OnePhaseCcSolver {
     #[cfg(feature = "std")]
     pub fn from_case_dir(root: &Path, poly_mesh_dir: &Path) -> Result<Self, AppBuilderError> {
         Ok(Self::new(OnePhaseCcCase::read(root, poly_mesh_dir)?))
+    }
+
+    /// The fields as the stage writes them at its end (`alphaPhi`/`alphaRhoPhi` as last set at the start of the last `pEqn`,
+    /// the lag upstream writes): what the next stage reads from its start directory.
+    #[must_use]
+    pub fn fluid_fields(&self) -> FluidFields {
+        FluidFields {
+            t: self.t.clone(),
+            p: self.p.clone(),
+            u: self.u.c.clone(),
+            alphat: self.turb.as_ref().map_or_else(|| self.case.alphat.clone(), |t| t.alphat.c.clone()),
+            alpha_rho_phi: self.alpha_rho_phi.clone(),
+            alpha_phi: self.alpha_phi.clone(),
+            t_fixed: self.case.t_fixed.clone(),
+            htc: self.htc.clone(),
+            power_density: self.power_density.clone(),
+        }
     }
 
     /// The case as read.
