@@ -117,17 +117,17 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | `multiRegimeBoiling` | 588 | `closures/heat_transfer/boiling.rs` | ported (post-CHF branch absent, as upstream: `TCHFi = 1e69`) | unit |
 | `superpositionNucleateBoiling` | 252 | `closures/heat_transfer/boiling.rs` | ported (htc combiner) | unit |
 | `multiRegimeBoilingTRACE` | 454 | `closures/heat_transfer/boiling_trace.rs`; wired in `solver/two_phase` (`FsHtcModel::MultiRegimeBoilingTrace`, `dmdtW`) | ported (CORRECTED 2026-11-26, gh:#1222; ~~missing~~) | unit (8, shared with TRACECHF); **upstream run** on the closed `Phase_Ex1_12223` variant: steps 1-8 agree to round-off, the nucleate-boiling branch differs by 7.8e-9 (step 9) to 6e-7 (step 12), cause open (`tests/genfoam_psbt_trace_vs_upstream.rs`, README "Round 8") |
-| `multiRegimeBoilingTRACECHF` | 684 | `closures/heat_transfer/boiling_trace_chf.rs` | pure function ported (CORRECTED 2026-11-26, gh:#1222); NOT wired into the solver: its post-CHF branches need `CachardLiquid` (missing) and the Ex2/Ex3 cases `lookUpTableCHF` (deferred) | unit |
-| `multiRegimeBoilingVapourTRACE` | 304 | `closures/heat_transfer/boiling_trace_chf.rs` | pure function ported (CORRECTED 2026-11-26, gh:#1222); not wired (reads the fields TRACECHF writes) | unit |
+| `multiRegimeBoilingTRACECHF` | 684 | `closures/heat_transfer/boiling_trace_chf.rs`; wired in `solver/two_phase` (`FsHtcModel::MultiRegimeBoilingTraceChf`, fields `chf_bool`, `wf_transition_boiling`, `t_leidenfrost`, `dmdtW`) | ported and wired (**CORRECTED 2026-11-26**, gh:#1223/#1224/#1361 round 10; ~~pure function ported, NOT wired: its post-CHF branches need `CachardLiquid` (missing) and the Ex2/Ex3 cases `lookUpTableCHF` (deferred)~~) | unit (8, shared with TRACE); **upstream run** on closed `1D_CHF` variants (`tests/genfoam_chf_trace_vs_upstream.rs`): `constant_chf` agrees to <= 4.3e-5 over steps 1-40 (transition then film boiling), parts at a threshold event at step 41; `lookup_table_chf` to <= 8e-4 over steps 1-3, parts at step 4 (README "Round 10") |
+| `multiRegimeBoilingVapourTRACE` | 304 | `closures/heat_transfer/boiling_trace_chf.rs`; wired (`FsHtcModel::MultiRegimeBoilingVapourTrace`) | ported and wired (**CORRECTED 2026-11-26**, gh:#1224; ~~not wired~~) | unit; upstream run: `htc.vapour.structure` in `lookup_table_chf` (contact partition 0.7) to 4.3e-4 over steps 1-3 |
 | `NusseltWallAndHfromFMU` | 327 | — | missing (FMU co-simulation, out of scope) | — |
 | CHF `constantCHF` | 202 | `closures/heat_transfer/chf.rs` | ported | unit |
-| CHF `lookUpTableCHF` | 366 | — | missing: **deferred to the maintainer** (gh:#1223, 2026-11-26): the code is only an interpolator but the Groeneveld 2006 table (`PhaseII_Ex2/Ex3` `constant/fluidRegion/chfTables`) is a case file with no licence or attribution in the GeN-Foam tree, so it was neither copied nor ported | — |
+| CHF `lookUpTableCHF` | 366 | `closures/heat_transfer/chf_table.rs` on `common/interpolate_table_nd.rs` | ported (**CORRECTED 2026-11-26**, gh:#1223, maintainer decision of the same day: the table is GeN-Foam's own GPL-3.0 case file, ported with citation, `tests/data/genfoam_chf_gh1223/PROVENANCE.md`; ~~missing: deferred to the maintainer, no licence statement~~). **The premise that `1D_CHF` uses it was wrong:** `1D_CHF` selects `constantCHF`; only `PhaseII_Ex2/Ex3` select the table | unit (8, incl. the shipped table: knots, midpoints, K1/K2, out-of-range); upstream run only through a `lookUpTableCHF` variant of `1D_CHF` (a modified case, README "Round 10") |
 | Leidenfrost `GroeneveldStewart` | 220 | `chf.rs` | ported | unit |
 | TONB `Basu` | 245 | `chf.rs` | ported | unit |
 | flow enhancement Chen, COBRA-TF, RezkallahSims | 641 | `chf.rs` | ported | unit |
 | suppression Chen, COBRA-TF | 434 | `chf.rs` | ported | unit |
 | sub-cooled boiling fraction SahaZuber, constant | 442 | `chf.rs` | ported | unit |
-| post-CHF `CachardLiquid`, `CachardVapour` | 560 | — | missing. The port's stated reason was checked against upstream and holds: `CachardLiquidFSHeatTransferCoefficient.C:124` binds `pi` to `p_[celli]` (pressure) and uses it as a pitch in `pow(pi/max(DRi,1e-6),2)` (line 136) | — |
+| post-CHF `CachardLiquid`, `CachardVapour` | 560 | `closures/heat_transfer/cachard.rs` | ported (**CORRECTED 2026-11-26**, gh:#1224; ~~missing~~). The upstream defect was re-read and holds: `CachardLiquidFSHeatTransferCoefficient.C:124` and `CachardVapourFSHeatTransferCoefficient.C:101` bind `pi` to `p_[celli]` (pressure) and use it as a pitch in `pow(pi/max(DRi,1e-6),2)`. **Default = upstream, bit for bit** (the film is ~1e9 m thick, so `h_gamma` ~ 1e-11 and the post-CHF coefficient is radiation); the intended pitch is the named option `CachardPitch::Pitch`; the maintainer decides which is the default (gh:#1224) | unit; upstream run (both models, through TRACECHF/VapourTRACE) |
 | **FF heat transfer** Nusselt | 269 | `closures/heat_transfer/ff_htc.rs` | ported | unit |
 | FF `NoKazimi` | 258 | — | missing (deferred in `ff_htc.rs`) | — |
 | FF `constant` (templated) | — | `ff_htc.rs` / templated | ported as a value | unit |
@@ -267,11 +267,11 @@ Each is one deliverable. Sizes are upstream lines to port.
    end in the port because every one is a through-flow case (velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet`,
    `fixedFluxPressure`) and the three `PhaseII` cases use `porousKEpsilon2PhaseCorrected` turbulence. Not re-checked against the committed
    PSBT fields: those are a different (through-flow) case from the one compared.
-5. **`lookUpTableCHF`** (366 lines) with the 2006 Groeneveld table data
-   (licence to be checked). Needed by PSBT Phase II Ex 2 and 3. **2026-11-26 (gh:#1223): licence unclear, deferred to the maintainer**; left refused.
-6. **Post-CHF `CachardLiquid`/`CachardVapour`** (560 lines): port with
+5. ~~**`lookUpTableCHF`** (366 lines) with the 2006 Groeneveld table data
+   (licence to be checked). Needed by PSBT Phase II Ex 2 and 3. **2026-11-26 (gh:#1223): licence unclear, deferred to the maintainer**; left refused.~~ **CORRECTED 2026-11-26** (gh:#1223, maintainer: "Port can use table with proper citation"): ported (`chf_table.rs`), table vendored with provenance.
+6. ~~**Post-CHF `CachardLiquid`/`CachardVapour`** (560 lines): port with
    upstream's pressure-as-pitch binding reproduced and flagged, or report the
-   upstream defect.
+   upstream defect.~~ **CORRECTED 2026-11-26** (gh:#1224): ported with upstream's binding as the default and the pitch as a named option; reporting the defect upstream and the choice of default remain with the maintainer.
 7. ~~**`regimeMapModels/twoParameters`** (1,501 lines). Needed by PSBT.~~ **CORRECTED 2026-11-26** (gh:#1225): ported.
 8. ~~**`templatedModels/byRegime` dispatch** (428 lines) for diameter,
    dispersion, contact partition, area. 1D_boiling and PSBT both use it.~~ **CORRECTED 2026-11-26** (gh:#1225): ported as `ByRegimeModel<M>` for those four.

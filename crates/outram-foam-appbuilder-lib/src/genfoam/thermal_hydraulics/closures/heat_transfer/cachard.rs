@@ -32,7 +32,7 @@
 //! Both models compute the vapour-film thickness
 //! `delta = Dh/2 (sqrt(1 + alpha (4/pi (pi_/DR)^2 - 1)) - 1)` with `DR = 0.01` m (a rod diameter)
 //! and `pi_` meant to be a rod pitch. Upstream binds `pi_` to the cell PRESSURE
-//! (`const scalar& pi(p_[celli])`, `CachardLiquid...C:124`, `CachardVapour...C:96`), so
+//! (`const scalar& pi(p_[celli])`, `CachardLiquid...C:124`, `CachardVapour...C:101`), so
 //! `(p/DR)^2` is about `2e18` at 15 MPa and `delta` is enormous: the film thickness is wrong by
 //! many orders of magnitude and `h = 2 k_g / delta` is tiny.
 //!

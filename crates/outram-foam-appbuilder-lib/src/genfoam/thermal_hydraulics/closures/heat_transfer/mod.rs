@@ -90,31 +90,23 @@
 //!   **CORRECTED 2026-11-26** (gh:#1222): ported as [`boiling_trace`] (also wired into the `twoPhase` solver and
 //!   compared with the real binary) and [`boiling_trace_chf`] (`multiRegimeBoilingTRACECHF` and
 //!   `multiRegimeBoilingVapourTRACE` as pure functions; their annular-flow sub-models `CachardLiquid`/`CachardVapour`
-//!   remain missing, below, and `lookUpTableCHF` is deferred to the maintainer: gh:#1223).
+//!   were missing and `lookUpTableCHF` deferred: both ported 2026-11-26, gh:#1223, gh:#1224, round 10).
 //! - **`NusseltWallAndHfromFMU`** — couples to an external FMU (Functional
 //!   Mock-up Unit) co-simulation; out of scope for a pure-algebra port.
-//! - **CHF `lookUpTableCHF`** — a 3-D (pressure, mass-flux, quality) table
-//!   interpolation over externally-supplied tabulated data
-//!   (`InterpolateTablesGF`/`interpolation2DTable` infrastructure); porting it
-//!   faithfully needs that table-interpolation machinery (out of scope here)
-//!   and real published table data to verify against. [`chf::CriticalHeatFlux`]
-//!   only ports `constantCHF`.
-//! - **Post-CHF `CachardLiquid`/`CachardVapour`** (inverted-annular-flow film
-//!   models) — both compute a vapour-film thickness from a term
+//! - ~~**CHF `lookUpTableCHF`** — a 3-D (pressure, mass-flux, quality) table
+//!   interpolation over externally-supplied tabulated data; porting it faithfully needs that table-interpolation
+//!   machinery (out of scope here) and real published table data to verify against.~~ **CORRECTED 2026-11-26** (gh:#1223):
+//!   ported as [`chf_table`] on [`crate::genfoam::common::interpolate_table_nd`]; the table is case data (shipped in
+//!   `tests/data/genfoam_chf_gh1223/`, provenance there).
+//! - ~~**Post-CHF `CachardLiquid`/`CachardVapour`** (inverted-annular-flow film models)~~ **CORRECTED 2026-11-26**
+//!   (gh:#1224): ported as [`cachard`]. The reading below of `pi` stays true: upstream binds it to the cell
+//!   **pressure** (`CachardLiquid...C:124`, `CachardVapour...C:101`; re-read 2026-11-26) and the port's DEFAULT reproduces that
+//!   (`CachardPitch::UpstreamPressure`), the intended pitch being the named option `CachardPitch::Pitch`. The earlier remark that `uom` refuses
+//!   the expression is moot here: the models take raw scalars at the closure boundary like the rest of the TRACE family.
+//!   Original note: both compute a vapour-film thickness from a term
 //!   `pow(pi/max(DRi,1e-6),2)` where, reading the constructor,
 //!   `pi` is bound to `p_[celli]`, the cell **pressure** field (`"p"` in the
-//!   OpenFOAM registry) — not the rod pitch, despite the physically sensible
-//!   reading (a pitch-to-diameter ratio) being what the surrounding
-//!   dimensionless bracket `1 + alpha*(...)` requires, and despite a sibling
-//!   model in the same family (`lookUpTableCHF`) taking an explicit
-//!   `PitchToDiameter` dictionary parameter for exactly this purpose. Divided
-//!   by a diameter, `pressure / DR` is not dimensionless — `uom` correctly
-//!   refuses to compile the literal expression (`1.0 + Ratio::something`
-//!   requires the something to be dimensionless), which is exactly the class
-//!   of bug this port's type system exists to catch. Resolving which field
-//!   was actually intended needs the upstream `structure`/`FSPair` classes,
-//!   which are out of this bead's scope, so both models are omitted rather
-//!   than guessed at.
+//!   OpenFOAM registry), not the rod pitch.
 //! - **`multiRegimeBoiling`'s post-CHF branch** — upstream's own `value()`
 //!   hardcodes `TCHFi = 1e69` with the comment "needs dedicated model for its
 //!   setting", i.e. the branch is unreachable and undocumented even upstream.

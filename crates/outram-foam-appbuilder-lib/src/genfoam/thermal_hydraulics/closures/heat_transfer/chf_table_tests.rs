@@ -182,7 +182,7 @@ fn cachard_liquid_is_radiation_plus_film_conduction_and_writes_h_gamma() {
     let rad = 5.670e-8 * (900.0 * 900.0 + 615.0 * 615.0) * (900.0 + 615.0) / (1.0 / a + b).max(1e-6);
     assert!(h_gamma >= 0.0);
     assert!((h - (h_gamma + rad)).abs() < 1e-9 * h.abs().max(1.0), "h {h} = {h_gamma} + {rad}");
-    assert!(rad > 1.0e3 && rad < 1.0e5, "radiation htc {rad}");
+    assert!(rad > 10.0 && rad < 1.0e3, "radiation htc {rad}");
     // the intended pitch gives a finite film and so a finite conduction term; upstream's gives ~ 0
     let fixed = m.with_pitch(0.0127);
     assert_eq!(fixed.pitch, CachardPitch::Pitch(0.0127));
