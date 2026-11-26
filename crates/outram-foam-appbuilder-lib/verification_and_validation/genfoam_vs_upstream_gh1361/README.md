@@ -3297,3 +3297,56 @@ Upstream reference: GeN-Foam's `solvers::legacyThermoMechanics` (library `libThe
 * **Q4** (`meshDisp`): bit-identical wherever `disp`, `fuelDisp`, `CRDisp` are (it is five multiplications and additions per cell); its worst difference is bounded by that of `disp` and `fuelDisp`.
 * **Q5** (`Max sigmaEq`, `residual_`): `residual_` equals the first-corrector initial residual of the LAST step to the digits the solves agree; `Max sigmaEq` equal to 1e-13 relative (it is a max over a boundary-inclusive set, so it exposes the boundary gradient correction).
 * **Q6** (substituted `GAMG`, measured separately in "Results"): at the SHIPPED tolerances (`TStruct` GAMG `1e-6`/`relTol 1e-3`, `disp` PCG `relTol 1e-3`) the port (`PBiCG`/`DILU`, `PCG`) differs from upstream by no more than the solver tolerance on that step: `TStruct` within `1e-3 |T^n - T^{n-1}|` (a few K x 1e-3, so under 1e-2 K) and `disp` within 1e-3 of its step increment.
+
+## Round 23 results (2026-11-26, release; `tests/genfoam_legacy_thermo_mechanics_vs_upstream.rs`, 5 tests, ~6 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `legacyThermoMechanics.C` constructor, `solveThermalMechanics.H`, `calculateStress.H`, `thermoMechanics.C` constructor (`fuelDisp`, `CRDisp`, `meshDisp`) | `genfoam::thermo_mechanics::legacy_fvm::LegacyFvmThermoMechanics` (`correct_physics`, `set_coupling_fields`, the `fuel_displacement`/`control_rod_displacement`/`mesh_displacement` feedback outputs) |
+| `PBiCG::solve`, `DILUPreconditioner`, `lduMatrix::Tmul`, `losortAddr` | `legacy_fvm::pbicg::pbicg_dilu` |
+| `thermoMechanicalProperties`, `fvSchemes`, `fvSolution`, `controlDict`, `0/` fields, `polyMesh`, `cellZones` | `legacy_fvm::case::LegacyFvmCase::read` (std; every unported selection refused by name) |
+| `fvMatrix::operator*=(volScalarField::Internal)` / `lduMatrix::operator*=`, `operator-=`, `fvm::ddt(rho, T)`, `gaussLaplacianSchemes` (scalar gamma), `correctedSnGrad::correction`, `gaussConvectionScheme::fvmDiv` + `upwind`, `leastSquaresGrad<vector>` + `gaussGrad::correctBoundaryConditions` | the operation order inside `legacy_fvm` (cited in the module and function docs); the scalar `leastSquares` gradient, `correctedSnGrad::fullGradCorrection`, `interpolate`, `surfaceIntegrate`, PCG/DIC are the earlier bit-identical ports, re-used |
+
+New library surface: one `mod` line (`two_phase::pcg` is now `pub(crate)`). The three coupling inputs, the six default values of `ZoneCard`, and the refusal list are in the module documentation. The older `MechanicsMeshSolver` is untouched.
+
+### Comparisons (all measured by the test above; `exact` counts bit-equal values, `+0 == -0`)
+
+| comparison | fields compared | linear solves | result |
+|---|---|---|---|
+| **Real class, tight protocol** (`legacyTmDump` driver, imposed coupling fields), 3 steps x 3 correctors | `TStruct`, `disp` (3 components), `fuelDisp`, `CRDisp`, `meshDisp` (3): 23340 / 70020 / 23340 / 23340 / 70020 values per step, 630,180 in all | 36: initial residual, final residual and iteration count of every one | **every value bit-identical at every step; 36/36 solves identical (iteration counts 113-139 for `PCG`, 2-6 for `PBiCG`); `Max sigmaEq` (cells and boundary faces) and `residual_` identical to all 17 digits** |
+| **Real `GeN-Foam` executable**, single region (`regionSolvers { thermoMechanicalRegion legacyThermoMechanics; }`, library through `libs`), the fields it WROTE at `writePrecision 17`, steps 1 and 3 kept | the same five fields (`TStruct` is forced to 1 K by `isPorous = 1`; max `fuelDisp` 7.34e-3 m, `CRDisp` 1.48e-2 m, `disp` 7.0e-3 m) | 36/36 identical | **bit-identical (10/10 tallies exact); `Max sigmaEq` (printed with 14 digits) equal** |
+| Control: `Gauss linear` gradients instead of `leastSquares` | step 1 | 3 corrector residuals differ | `disp` differs by **1.7e-2** of its max (0 of 70020 values equal), `meshDisp` 1.3e-3, `Max sigmaEq` 1.2e-3 relative, worst initial residual 3.2e-2; `TStruct`, `fuelDisp`, `CRDisp` unchanged (they use no displacement gradient) |
+| Control: `uncorrected` Laplacian instead of `corrected` | step 1 | residuals differ | `disp` differs by **2.7e-7** of its max (0 of 70020 equal), `meshDisp` 3.5e-7, `Max sigmaEq` 1.1e-6, worst initial residual 2.1e-6: the non-orthogonal correction is real on this mesh (small), and the comparison sees it |
+| **Shipped solver settings** (tutorial `fvSolution`: `PCG` `1e-6`/`relTol 1e-3`, expansions `PBiCG` `1e-5`/`0.01`, `TStruct` `GAMG` `1e-6`/`0.001`) against the port with `TStruct` `PBiCG`/`DILU` (the named substitute), step 1 | five fields | 23 of 24 iteration counts equal (the `TStruct` one differs: upstream's `GAMG` stops after 1 cycle) | `TStruct` worst **1.42e-2 K** (1.4e-5 of max `T`); `disp` worst **1.9e-8 m** (2.2e-6 of max); `meshDisp` 1.9e-8 (2.8e-6); `fuelDisp` exact; `CRDisp` 2.6e-13 (6.9e-11); `Max sigmaEq` 4.6e-6 relative. Step 2 (a development run; its reference is not kept, for size): `TStruct` 1.39e-2 K, `disp` 1.9e-8 m (2.4e-6), `CRDisp` 2.3e-10, `Max sigmaEq` 3.8e-6 |
+
+The agreement is a property of the operation order, not of the solver: PCG/DIC, PBiCG/DILU, the corrected-Laplacian explicit term, the row scaling and the boundary-corrected `grad(disp)` all reproduce upstream's arithmetic. No round-off allowance was needed and none is claimed; nothing is flagged for the maintainer under the 1e-9 rule.
+
+### Predictions: held and missed
+
+* **Q1 held**: the cell centres (and so the imposed inputs) are bit-identical (`TStruct` exact at step 1).
+* **Q2 held**: `TStruct`, `fuelDisp`, `CRDisp` bit-identical at all steps with equal iteration counts.
+* **Q3 MISSED**: I predicted `disp` would NOT be bit-identical on all cells, with a first divergence in the first `dispx` solve at 1e-16 to 1e-12 relative. It is bit-identical in all 210,060 values and in all 27 displacement solves. I expected the new pieces (field-valued gamma, component-wise corrections, the `leastSquares` vector gradient built from three scalar gradients, the patch-normal boundary delta on the non-axis-aligned side faces) to cost a last bit somewhere; they did not, because each reuses an operator already verified bit-identical or reproduces upstream's expression order.
+* **Q4 held** (bounded by `disp`/`fuelDisp`; exact).
+* **Q5 held, tighter than predicted**: `residual_` and `Max sigmaEq` equal to all 17 digits (predicted 1e-13).
+* **Q6 partly missed**: the stated bound "under 1e-2 K" for the `TStruct` difference MISSED (1.42e-2 K); the formulated bound (1e-3 of the step change, up to 381 K, so 0.38 K) held by a factor 27, and "`disp` within 1e-3 of its step increment" held by more than 400 (2.2e-6 of the step-1 displacement).
+
+### Deviations from upstream (all named) and what is not covered
+
+* `TStruct` `GAMG` -> `PBiCG`/`DILU` (`TStructSolver::GamgSubstitutedByPbicgDilu`, `LegacyFvmThermoMechanics::t_struct_gamg_substituted`; the faithful `GAMG` is gh:#1843). Measured above at the shipped tolerance. At the tight protocol upstream's own case also selects `PBiCG`/`DILU`, so that row has no deviation in the solver.
+* The tutorial's `GFTractionDisplacement` patches are `fixedValue`/`zeroGradient` here (gh:#1235); the zone cards differ from the tutorial's (identical in the tutorial); the coupling inputs are imposed (driver, test) or the constructor defaults (executable). The coupled ESFR run (TH and neutronics regions) is gh:#1846.
+* Refused by name, not ported: `compactNormalStress no` and transient `d2dt2` (gh:#1845), `Limited` Laplacian, `cellLimited`/`fourth` gradients, non-uniform initial fields, non-`zeroGradient` `TStruct` patches, `extendedThermoMechanics` (needs the lost offbeat API), `deformMesh`/`movePoints` (gh:#1784), `correctBaffleLessFields` (no baffles).
+* Comparisons are on ONE mesh (23340 hex cells; `corrected` vs `uncorrected` differ by 2.7e-7, so it is mildly non-orthogonal) and 3 steps; bit-identity says the operation order matches on this mesh, not that every branch (e.g. a `Limited` scheme, a cyclic patch) is exercised.
+
+### Moved numbers
+
+None. No pin, gate or tolerance of an existing test changed. `two_phase::mod.rs`: `mod pcg;` -> `pub(crate) mod pcg;`.
+
+### Reproduction
+
+`scripts/build_and_run_legacy_tm_dump.sh <nSteps> <out.txt>` (builds `libThermoMechanicsSolvers` and the driver, runs it; `SHIPPED=1` selects the tutorial `fvSolution`), `scripts/extract_legacy_tm_log.sh`, `scripts/extract_legacy_tm_written.sh` (the executable's written fields), `scripts/make_legacy_tm_case.sh` (stages the case from the upstream tutorial; `cases/legacy_tm_esfr` is its output, `cases/legacy_tm_esfr_shipped` the tutorial's own `fvSolution`). Upstream objects are deleted after each link; the run directories under `/home/user/upstream-build/gh1781` are scratch. The staged mesh is 684 KB gzipped; the references total 8.1 MB gzipped (`refs/legacy_tm_esfr*.ref.txt.gz`), kept at 17 digits so that the comparison is exact.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed (6 s); `--lib thermo_mechanics` 22 passed (7 new in `legacy_fvm::tests`); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` compiles `outram-foam-appbuilder-lib` for `x86_64-unknown-none`. Not run: the other suites of the crate and the workspace (the parent's integration run covers them); `docs/outram-foam-appbuilder-lib-api.md` (the generated mirror) was not regenerated.

@@ -72,7 +72,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 }
 
 /// Stage `cases/legacy_tm_esfr` with its polyMesh gunzipped.
-fn stage(tag: &str) -> PathBuf {
+fn stage(tag: &str, shipped: bool) -> PathBuf {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1781_{tag}"));
     let _ = std::fs::remove_dir_all(&root);
     copy_dir(&vv_dir().join("cases/legacy_tm_esfr"), &root);
@@ -81,6 +81,14 @@ fn stage(tag: &str) -> PathBuf {
         let gz = poly.join(format!("{f}.gz"));
         std::fs::write(poly.join(f), gunzip(&gz)).expect("write polyMesh");
         std::fs::remove_file(gz).expect("rm gz");
+    }
+    if shipped {
+        // the tutorial's own fvSolution: shipped tolerances, `GAMG` for `TStruct`
+        std::fs::copy(
+            vv_dir().join("cases/legacy_tm_esfr_shipped/system/thermoMechanicalRegion/fvSolution"),
+            root.join("system/thermoMechanicalRegion/fvSolution"),
+        )
+        .expect("shipped fvSolution");
     }
     root
 }
@@ -174,12 +182,35 @@ struct Run {
     residual: Vec<(usize, f64, f64)>,
 }
 
-fn run(tag: &str, n_steps: usize) -> Run {
-    let root = stage(tag);
-    let case = LegacyFvmCase::read(&root, "thermoMechanicalRegion", TStructGamgPolicy::SubstitutePbicgDilu).expect("case");
+fn run(tag: &str, n_steps: usize, tweak: impl Fn(&mut LegacyFvmCase)) -> Run {
+    run_with(tag, n_steps, Variant::Tight, tweak)
+}
+
+/// Which upstream run the port is compared with.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Variant {
+    /// `legacyTmDump` driver, tight protocol (`refs/legacy_tm_esfr*`): the coupling fields are imposed.
+    Tight,
+    /// The driver with the tutorial's own `fvSolution` (shipped tolerances, `GAMG` `TStruct`; `refs/..._shipped*`).
+    Shipped,
+    /// The REAL `GeN-Foam` executable, single region, tight protocol (`refs/..._binary*`): the coupling fields keep
+    /// the constructor's defaults (`TStructFromTH = TFuel = 1`, `powerDensityNeutronics = 0`).
+    Binary,
+}
+
+fn run_with(tag: &str, n_steps: usize, variant: Variant, tweak: impl Fn(&mut LegacyFvmCase)) -> Run {
+    let shipped = variant == Variant::Shipped;
+    let root = stage(tag, shipped);
+    let (fields_ref, log_ref) = match variant {
+        Variant::Tight => ("refs/legacy_tm_esfr.ref.txt.gz", "refs/legacy_tm_esfr_log.ref.txt.gz"),
+        Variant::Shipped => ("refs/legacy_tm_esfr_shipped.ref.txt.gz", "refs/legacy_tm_esfr_shipped_log.ref.txt.gz"),
+        Variant::Binary => ("refs/legacy_tm_esfr_binary.ref.txt.gz", "refs/legacy_tm_esfr_binary_log.ref.txt.gz"),
+    };
+    let mut case = LegacyFvmCase::read(&root, "thermoMechanicalRegion", TStructGamgPolicy::SubstitutePbicgDilu).expect("case");
+    tweak(&mut case);
     let mut tm = case.build().expect("solver");
-    let refs = read_fields(&vv_dir().join("refs/legacy_tm_esfr.ref.txt.gz"));
-    let log_text = String::from_utf8(gunzip(&vv_dir().join("refs/legacy_tm_esfr_log.ref.txt.gz"))).unwrap();
+    let refs = read_fields(&vv_dir().join(fields_ref));
+    let log_text = String::from_utf8(gunzip(&vv_dir().join(log_ref))).unwrap();
     // per-step reference records
     let mut ref_steps: Vec<Vec<Vec<String>>> = Vec::new();
     for line in log_text.lines() {
@@ -192,15 +223,22 @@ fn run(tag: &str, n_steps: usize) -> Run {
     }
     let mut out = Run { tallies: Vec::new(), solves: Vec::new(), sigma_eq: Vec::new(), residual: Vec::new() };
     for step in 1..=n_steps {
-        let (th, fuel, pow) = coupling(&case.mesh, &case.zones, step);
-        tm.set_coupling_fields(&th, &fuel, &pow);
+        if variant != Variant::Binary {
+            let (th, fuel, pow) = coupling(&case.mesh, &case.zones, step);
+            tm.set_coupling_fields(&th, &fuel, &pow);
+        }
         let log: PhysicsLog = tm.correct_physics();
-        let get = |name: &str| refs.get(&(step, name.to_string())).unwrap_or_else(|| panic!("ref {step} {name}"));
-        out.tallies.push((step, "TStruct", compare(tm.t_struct(), get("TStruct"))));
-        out.tallies.push((step, "disp", compare(&flatten(tm.displacement()), get("disp"))));
-        out.tallies.push((step, "fuelDisp", compare(tm.fuel_displacement(), get("fuelDisp"))));
-        out.tallies.push((step, "CRDisp", compare(tm.control_rod_displacement(), get("CRDisp"))));
-        out.tallies.push((step, "meshDisp", compare(&flatten(tm.mesh_displacement()), get("meshDisp"))));
+        // a field is compared at the steps the reference holds (the shipped and binary references keep fewer, for size)
+        let mut tally = |name: &'static str, mine: &[f64]| {
+            if let Some(theirs) = refs.get(&(step, name.to_string())) {
+                out.tallies.push((step, name, compare(mine, theirs)));
+            }
+        };
+        tally("TStruct", tm.t_struct());
+        tally("disp", &flatten(tm.displacement()));
+        tally("fuelDisp", tm.fuel_displacement());
+        tally("CRDisp", tm.control_rod_displacement());
+        tally("meshDisp", &flatten(tm.mesh_displacement()));
         let recs = &ref_steps[step - 1];
         let ref_solves: Vec<&Vec<String>> = recs.iter().filter(|r| r[0] == "S").collect();
         assert_eq!(log.solves.len(), ref_solves.len(), "step {step}: number of linear solves");
@@ -246,16 +284,77 @@ fn report(r: &Run) {
     }
 }
 
-/// The whole comparison: prints every tally (`--nocapture`); the pass criterion is stated in the README, "Round 23".
+/// The whole comparison, bit for bit: every field of every step, every linear solve's initial and final residual and
+/// iteration count, `Max sigmaEq` and `residual_` (README "Round 23", results: all identical).
 #[test]
-fn legacy_thermo_mechanics_esfr_three_steps_vs_the_real_class() {
-    let r = run("main", 3);
+fn legacy_thermo_mechanics_esfr_three_steps_is_bit_identical_to_the_real_class() {
+    let r = run("main", 3, |_| {});
     report(&r);
-    // Gate (README Round 23): see the results section for what it is and why.
     for (step, name, t) in &r.tallies {
-        assert!(t.worst_rel <= GATE_REL, "step {step} {name}: worst rel {:.3e} > gate {GATE_REL:e}", t.worst_rel);
+        assert_eq!(t.exact, t.n, "step {step} {name}: {} of {} values differ, worst rel {:.3e}", t.n - t.exact, t.n, t.worst_rel);
     }
+    assert!(r.solves.iter().all(|s| s.2 && s.3 && s.4), "a linear solve differs from upstream's");
+    assert!(r.sigma_eq.iter().all(|(_, a, b)| a == b), "Max sigmaEq");
+    assert!(r.residual.iter().all(|(_, a, b)| a == b), "residual_");
+    assert_eq!(r.solves.len(), 36);
 }
 
-/// The relative-to-max-norm gate on the fields, set from the measurement (README Round 23, results).
-const GATE_REL: f64 = 1e-9;
+/// Control: the tally CAN fail. The same run with `Gauss linear` gradients instead of the case's `leastSquares` (the
+/// scheme the explicit non-orthogonal correction and `grad(disp)` use) differs from the reference, so agreement above is
+/// not an artefact of the comparison; the size of the difference is the ablation of the gradient scheme.
+#[test]
+fn control_gauss_linear_gradients_differ_from_the_least_squares_reference() {
+    use outram_foam_appbuilder_lib::io::fv_schemes::GradScheme;
+    let r = run("ctl_grad", 1, |c| c.settings.grad = GradScheme::GaussLinear);
+    report(&r);
+    let worst = r.tallies.iter().filter(|(_, n, _)| *n == "disp").map(|(_, _, t)| t.worst_rel).fold(0.0_f64, f64::max);
+    assert!(worst > 1e-8, "the control must be distinguishable from the reference: {worst:e}");
+}
+
+/// Control: dropping the non-orthogonal correction (`uncorrected`) changes the answer, so the correction is exercised.
+#[test]
+fn control_uncorrected_laplacian_differs_from_the_corrected_reference() {
+    use outram_foam_appbuilder_lib::solvers::non_orthogonal::LaplacianCorrection;
+    let r = run("ctl_lap", 1, |c| c.settings.laplacian = LaplacianCorrection::Uncorrected);
+    report(&r);
+    let worst = r.tallies.iter().filter(|(_, n, _)| *n == "disp").map(|(_, _, t)| t.worst_rel).fold(0.0_f64, f64::max);
+    assert!(worst > 1e-8, "the control must be distinguishable from the reference: {worst:e}");
+}
+
+/// The SHIPPED solver settings of the tutorial (`PCG` `1e-6`/`relTol 1e-3` for `disp`, `PBiCG` `1e-5`/`0.01` for the
+/// expansions, `GAMG` `1e-6`/`0.001` for `TStruct`), where the port runs `PBiCG`/`DILU` for `TStruct` (the named
+/// deviation, `TStructSolver::GamgSubstitutedByPbicgDilu`). Measures what the substitution and the loose tolerance cost.
+/// Prints every tally; gates are the README's prediction Q6 as measured (see "Round 23 results").
+#[test]
+fn shipped_tolerances_measure_the_gamg_substitution() {
+    let case_root = stage("shipped_probe", true);
+    let c = LegacyFvmCase::read(&case_root, "thermoMechanicalRegion", TStructGamgPolicy::SubstitutePbicgDilu).expect("case");
+    assert!(c.settings.t_solver_kind == outram_foam_appbuilder_lib::genfoam::thermo_mechanics::legacy_fvm::TStructSolver::GamgSubstitutedByPbicgDilu);
+    assert!(c.build().expect("solver").t_struct_gamg_substituted());
+    let r = run_with("shipped", 2, Variant::Shipped, |_| {});
+    report(&r);
+    let step1_t = r.tallies.iter().find(|(s, n, _)| *s == 1 && *n == "TStruct").map(|(_, _, t)| t.clone()).unwrap();
+    // |T^1 - T^0| is at most max|T| - 668 ~ 381 K here; Q6: within 1e-3 of the step change
+    assert!(step1_t.worst_abs < 1e-3 * 400.0, "TStruct: worst abs {:.3e} K", step1_t.worst_abs);
+}
+
+/// The REAL, unmodified `GeN-Foam` executable (`regionSolvers { thermoMechanicalRegion legacyThermoMechanics; }`, the
+/// library loaded through `controlDict` `libs`), single region, 3 steps, tight protocol, the fields it WROTE at
+/// `writePrecision 17` (`scripts/extract_legacy_tm_written.sh`). With no other region the coupling fields keep the
+/// constructor's defaults, which is what the port starts from too: `TStruct` is forced to 1 K, `fuelDisp`/`CRDisp`
+/// are driven by `TFuel = TStruct = 1` below their reference temperatures, and the displacement by the zone-wise
+/// `threeKalpha (T - Tref)`. Steps 1 and 3 are kept in the reference. Every linear solve's residuals and iteration
+/// count are compared too.
+#[test]
+fn real_geni_foam_executable_single_region_is_bit_identical() {
+    let r = run_with("binary", 3, Variant::Binary, |_| {});
+    report(&r);
+    assert_eq!(r.tallies.len(), 10, "steps 1 and 3 of five fields");
+    for (step, name, t) in &r.tallies {
+        assert_eq!(t.exact, t.n, "step {step} {name}: {} of {} values differ, worst rel {:.3e}", t.n - t.exact, t.n, t.worst_rel);
+    }
+    assert!(r.solves.iter().all(|s| s.2 && s.3 && s.4), "a linear solve differs from the executable's");
+    assert_eq!(r.solves.len(), 36);
+    // `Max sigmaEq` is printed with 14 significant digits by the executable
+    assert!(r.sigma_eq.iter().all(|(_, a, b)| (a - b).abs() <= 1e-13 * b.abs()), "Max sigmaEq");
+}

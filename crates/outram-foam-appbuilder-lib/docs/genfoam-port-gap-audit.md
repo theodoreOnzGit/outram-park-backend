@@ -200,7 +200,7 @@ Counts are of rows in the tables below (one row per upstream model or class).
 
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
-| `thermoMechanics.{C,H}` + `legacyThermoMechanics/` | 1,424 | `thermo_mechanics/` | partial: isotropic stiffness, no traction BC, no non-orthogonal correction | unit (16) |
+| `thermoMechanics.{C,H}` + `legacyThermoMechanics/` | 1,424 | `thermo_mechanics/` (`MechanicsMeshSolver`, the older solver) and `thermo_mechanics/legacy_fvm/` (`LegacyFvmThermoMechanics`) | ~~partial: isotropic stiffness, no traction BC, no non-orthogonal correction~~ **CORRECTED 2026-11-26 (gh:#1781, round 23; read from `legacyThermoMechanics.C`, then measured):** upstream's legacy class is ITSELF isotropic (scalar `mu_`, `lambda_`, `threeK_` volFields; no stiffness tensor), and non-orthogonal correction is the `Gauss linear corrected` Laplacian scheme the case selects, not a model feature; both were ported as part of `legacy_fvm`: per-zone field-valued properties from `cellZones`, `TStructFromTH`/`isPorous` forcing with the row-scaled asymmetric `TEqn` (`PBiCG`/`DILU` ported), `compactNormalStress yes` with `leastSquares` or `Gauss linear` gradients and the explicit non-orthogonal correction, `fuelDispEqn`/`CRDispEqn` (`Gauss upwind` along `pinDirection`) and `meshDisp`. **Still missing:** `GFTractionDisplacement`/`gapContact` patches (gh:#1235), `compactNormalStress no` and transient `d2dt2` (gh:#1845), `deformMesh` -> `movePoints` (gh:#1784), `GAMG` (named substitute; gh:#1843), the finite-element version (gh:#1782). | unit (22); **real class and real `GeN-Foam` executable, 3D_SmallESFR mechanics region, 23340 cells, 3 steps: every field bit-identical** (README round 23) |
 | `extendedThermoMechanics/` | 455 | — | missing (also excluded from the upstream build: needs the lost `offbeat` API) | — |
 | `tractionDisplacement/` (`GFTractionDisplacement`, `gapContact`) | 1,035 | — | missing | — |
 | `multiRegion/meshHandler` | 1,194 | `multi_region/coupling_fields.rs`, `mesh_to_mesh.rs`, `rbf_mapping.rs` | partial: no `movePoints` mesh deformation. **ADDED 2026-11-26 (round 9, issue 1774):** `coupled_loop::IdenticalMeshMap` (`cellVolumeWeight` between two identical meshes: measured on upstream, identity with weight exactly 1.0; refuses a different mesh), `CouplingDict` (reader); the general supermesh is still missing (issue 651) | unit (15) |
@@ -299,7 +299,7 @@ Each is one deliverable. Sizes are upstream lines to port.
 16. **`customPimpleControl`** (615 lines): `correctUntilConvergence` and
     residual control, shared by `onePhase` and `twoPhase`.
 17. **`adjointDiffusion`** (849 lines) and the SN transient.
-18. **thermoMechanics**: traction / gap-contact BCs (1,035 lines).
+18. **thermoMechanics**: traction / gap-contact BCs (1,035 lines; gh:#1235). ~~The legacy FVM solver itself~~ **ADDED 2026-11-26 (round 23):** `legacy_fvm` is compared bit for bit with the real class on the ESFR mechanics region.
 19. **`common`**: `mergeOrSplitBaffles`, `latticeMap` (923 lines), when the
     multi-region layer needs them.
 20. **`openFoamImportedSolvers`**: `compressibleInterFoam`, `scalarTransportFoam`

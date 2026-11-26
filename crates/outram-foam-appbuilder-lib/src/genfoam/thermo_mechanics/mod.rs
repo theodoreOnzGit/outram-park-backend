@@ -67,12 +67,26 @@
 //! alone against analytical benchmarks (see the `#[test]` V&V cases in each
 //! submodule, and the coupled field-solve V&V in [`mesh_solve`]).
 //!
+//! ## Parity with upstream: [`legacy_fvm`] (gh:#1781, round 23)
+//!
+//! [`legacy_fvm::LegacyFvmThermoMechanics`] is the line-by-line translation of upstream's
+//! `solvers::legacyThermoMechanics::correctPhysics()` on a finite-volume mesh: per-zone properties from
+//! `cellZones`, the `isPorous`-scaled asymmetric `TEqn`, the `compactNormalStress` displacement loop with
+//! `leastSquares`/`Gauss linear` gradients and the explicit non-orthogonal correction of
+//! `Gauss linear corrected`, the axial `fuelDisp`/`CRDisp` expansion equations and `meshDisp`. It agrees with the
+//! real class, and with the real `GeN-Foam` executable, bit for bit on the 3D_SmallESFR mechanics region
+//! (`verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 23"). It is the type a later
+//! finite-element mechanics (gh:#1782) is selected beside by an enum. [`MechanicsMeshSolver`] below is the older,
+//! simpler solver and is NOT upstream's algorithm.
+//!
 //! ## Still deferred
 //!
-//! An anisotropic stiffness (needs a tensor-coefficient Laplacian), a traction
-//! (`σ·n = 0`) boundary condition on `D`, non-orthogonal gradient correction,
-//! and the multi-region mapping of the 1-D axial fuel/CR expansion onto a shared
-//! mesh — see the limitations note in [`mesh_solve`].
+//! ~~An anisotropic stiffness (needs a tensor-coefficient Laplacian)~~ **CORRECTED 2026-11-26:** upstream's
+//! `legacyThermoMechanics` has no anisotropic stiffness (isotropic `mu_`, `lambda_`), so there is nothing to port;
+//! ~~non-orthogonal gradient correction~~ **ADDED** in [`legacy_fvm`]. Still deferred: the traction
+//! (`GFTractionDisplacement`) and `gapContact` boundary conditions on `D` (gh:#1235), `compactNormalStress no`
+//! and transient `d2dt2` (gh:#1845), and `movePoints` of the other regions' meshes (gh:#1784); the multi-region
+//! mapping of the expansion onto a shared mesh — see the limitations note in [`mesh_solve`].
 //!
 //! ## Interface expected from `genfoam::common` (ported in parallel)
 //!

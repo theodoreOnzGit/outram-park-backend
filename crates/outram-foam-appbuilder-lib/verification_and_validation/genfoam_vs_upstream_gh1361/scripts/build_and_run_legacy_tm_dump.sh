@@ -33,7 +33,7 @@ fi
 rm -rf $W/driver; mkdir $W/driver
 cp -r $HERE/upstream_driver/legacy_tm_dump/. $W/driver/
 (cd $W/driver && wmake > $W/build-driver.log 2>&1; echo "driver exit $?"; find . -name '*.o' -delete)
-bash $HERE/scripts/make_legacy_tm_case.sh $W/case >/dev/null
+bash $HERE/scripts/make_legacy_tm_case.sh $W/case >/dev/null   # SHIPPED=1 in the environment selects the tutorial fvSolution
 export LD_LIBRARY_PATH=$W/lib:$LD_LIBRARY_PATH
 S0=$(date +%s)
 legacyTmDump -case $W/case "$2" "$1" > $W/case/log.legacyTmDump 2>&1

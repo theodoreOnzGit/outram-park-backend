@@ -1,7 +1,7 @@
 #!/bin/bash
 # gh:#1781 round 23: stage the `legacyThermoMechanics` differential case from upstream's
 # Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/legacySolver (thermoMechanicalRegion).
-# usage: make_legacy_tm_case.sh <out case dir>
+# usage: [SHIPPED=1] make_legacy_tm_case.sh <out case dir>   (SHIPPED=1: the tutorial's own fvSolution, i.e. the shipped tolerances and GAMG for TStruct)
 # The ONLY edits to the tutorial's thermoMechanicalRegion (each one stated in README "Round 23"):
 #   1. D boundary conditions: `GFTractionDisplacement` (gh:#1235, not ported) -> fixedValue 0 on zeroDispl,
 #      bottom, bottomCR; zeroGradient on top, topCR, defaultFaces;
@@ -45,6 +45,7 @@ timePrecision   8;
 runTimeModifiable no;
 EOF
 } > "$OUT/system/controlDict"
+if [ -n "$SHIPPED" ]; then cp "$SRC/system/thermoMechanicalRegion/fvSolution" "$OUT/system/thermoMechanicalRegion/fvSolution"; else
 { hdr dictionary fvSolution; cat <<'EOF'
 solvers
 {
@@ -92,6 +93,7 @@ relaxationFactors
 }
 EOF
 } > "$OUT/system/thermoMechanicalRegion/fvSolution"
+fi
 mat() { # name E nu alpha [extra lines]
   cat <<EOF
     $1
