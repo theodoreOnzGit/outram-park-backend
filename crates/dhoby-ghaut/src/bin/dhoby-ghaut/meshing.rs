@@ -582,6 +582,223 @@ pub fn build(
     })
 }
 
+/// One conjugate mesh of the whole HTR-10 (maintainer request, 2026-11-26):
+/// solid graphite, fluid upper and lower plenums and the porous pebble bed
+/// in ONE polyMesh, the regions as `cellZones`
+/// ([`RegionMap::three_class_cht`]).
+pub struct ChtMesh {
+    /// The mesh (metres), one zone per region.
+    pub mesh: Arc<UnstructuredMesh>,
+    /// The region map it was assigned with.
+    pub map: RegionMap,
+    /// Region index of every cell.
+    pub cell_region: Vec<usize>,
+    /// Per region: `(id, class label, cells, meshed cm³, exact cm³)`.
+    pub regions: Vec<(String, String, usize, f64, f64)>,
+    /// Boundary patches `(name, faces)`.
+    pub patches: Vec<(String, usize)>,
+    /// Cell kinds `(kind, count)`.
+    pub kinds: Vec<(String, usize)>,
+    /// cfMesh quality: max non-orthogonality \[deg\], max skewness.
+    pub quality: (f64, f64),
+    /// The pipeline's notes, plus region-assignment notes.
+    pub notes: Vec<String>,
+    /// The `constant/polyMesh` directory written.
+    pub polymesh_dir: PathBuf,
+    /// Review images `(file stem, image)`.
+    pub images: Vec<(String, ImageData)>,
+    /// Wall time \[s\].
+    pub seconds: f64,
+}
+
+/// Build [`ChtMesh`]: the whole R-Z domain (`r <= r_outer`, bottom to top)
+/// revolved with `n_seg` segments, cfMesh's tet -> dual pipeline at
+/// `cell_cm` with tetrahedra from `tets` ([`cht_tetgen`] for the TetGen
+/// port, as Mesh Studio's default; `TetSource::CarvedCentroid` for cfMesh's
+/// carved route), the outer surface named `top`, `bottom` and `side`, every cell
+/// given the region of its centroid, written to `out_dir/constant/polyMesh`
+/// with `cellZones`, and drawn: R-Z through the axis, and X-Y through the
+/// middle of each of the three non-solid regions. Region boundaries are
+/// stair-stepped at the cell size (assignment by centroid, as Step 7).
+pub fn build_cht(
+    d: &RzDomain,
+    cell_cm: f64,
+    n_seg: usize,
+    tets: outram_park_fork_cfmesh::pipeline::TetSource,
+    out_dir: &Path,
+) -> Result<ChtMesh, String> {
+    let t = Instant::now();
+    let map = RegionMap::three_class_cht(d);
+    let prof = to_m(&d.neutronics_profile());
+    let (p, tri) = revolved_profile_surface(&prof, n_seg);
+    let (zb, zt) = (d.z_bottom / 100.0, d.z_top / 100.0);
+    let labels: Vec<&str> = tri
+        .iter()
+        .map(|f| {
+            let c = (p[f[0]].z + p[f[1]].z + p[f[2]].z) / 3.0;
+            let flat = (p[f[0]].z - p[f[1]].z).abs() < 1e-12 && (p[f[1]].z - p[f[2]].z).abs() < 1e-12;
+            if flat && (c - zt).abs() < 1e-9 {
+                "top"
+            } else if flat && (c - zb).abs() < 1e-9 {
+                "bottom"
+            } else {
+                "side"
+            }
+        })
+        .collect();
+    let surf = SurfaceRegions::from_labels(&labels);
+    let (vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(
+        &p,
+        &tri,
+        &surf,
+        &TetDualOptions {
+            tet_source: tets,
+            ..opts(cell_cm, 0, true)
+        },
+    )?;
+    let mut notes = rep.stage_notes;
+    notes.push(format!("tetrahedra: {tets:?}"));
+    let um = from_volume_mesh(&vm).map_err(|e| e.to_string())?;
+    let mut cell_region = Vec::with_capacity(um.n_cells());
+    let mut unassigned = 0;
+    for c in 0..um.n_cells() {
+        let x = um.cell_centre(c);
+        let (r, z) = ((x[0] * x[0] + x[1] * x[1]).sqrt() * 100.0, x[2] * 100.0);
+        // The domain is the whole cylinder, so every centroid inside it has a
+        // part; one that the faceted surface puts outside takes solid.
+        match map.region_at(d, r.min(d.r_outer - 1e-9), z.clamp(d.z_bottom + 1e-9, d.z_top - 1e-9)) {
+            Some(g) => cell_region.push(g),
+            None => {
+                unassigned += 1;
+                cell_region.push(3);
+            }
+        }
+    }
+    if unassigned > 0 {
+        notes.push(format!("{unassigned} cells had no R-Z part at their centroid and were put in solid_graphite"));
+    }
+    let zones: Vec<Zone> = map
+        .regions
+        .iter()
+        .enumerate()
+        .map(|(g, r)| Zone {
+            name: r.id.clone(),
+            cells: (0..um.n_cells()).filter(|&c| cell_region[c] == g).collect(),
+        })
+        .collect();
+    let um = Arc::new(um.with_zones(zones).map_err(|e| e.to_string())?);
+    let vols = outram_blender::unstructured::overlap::cell_volumes_cm3(&um);
+    let exact = exact_in(d, &map, &d.neutronics_profile(), 0.5);
+    let regions = map
+        .regions
+        .iter()
+        .enumerate()
+        .map(|(g, r)| {
+            let cells: Vec<usize> = (0..um.n_cells()).filter(|&c| cell_region[c] == g).collect();
+            (
+                r.id.clone(),
+                r.class.label().to_string(),
+                cells.len(),
+                cells.iter().map(|&c| vols[c]).sum::<f64>(),
+                exact[g],
+            )
+        })
+        .collect();
+    let q = outram_park_fork_cfmesh::checks::check_quality(&vm);
+    let dir = out_dir.join("constant").join("polyMesh");
+    outram_park_fork_cfmesh::foam::write_polymesh(&vm, &dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    std::fs::write(dir.join("cellZones"), cell_zones_text(&map, &cell_region)).map_err(|e| e.to_string())?;
+    // Images. Heights: bed middle, middle of the cavity above the bed, and
+    // middle of the hot plenum's first box.
+    let z_bed = 0.5 * (d.conus_top + d.bed_top);
+    let z_up = 0.5 * (d.bed_top + d.cavity_top);
+    let z_low = d
+        .boxes
+        .iter()
+        .find(|b| RegionMap::HOT_PLENUM_ZONES.contains(&b.zone))
+        .map(|b| 0.5 * (b.z[0] + b.z[1]));
+    let title = |w: &str| format!("HTR-10 SOLID / FLUID / POROUS MESH, {} CELLS: {w}", um.n_cells());
+    let mut images = vec![
+        ("cht_regions_rz".to_string(), draw_region_map(d, &map, 900)),
+        (
+            "cht_mesh_xz".to_string(),
+            draw(&um, &map, PlotBasis::Xz, [0.0, 0.0, 0.0], &title("X-Z THROUGH THE AXIS"), 900),
+        ),
+        (
+            "cht_mesh_xy_bed".to_string(),
+            draw(&um, &map, PlotBasis::Xy, [0.0, 0.0, z_bed], &title(&format!("X-Y AT Z = {z_bed:.1} CM (BED MIDDLE)")), 900),
+        ),
+        (
+            "cht_mesh_xy_upper_plenum".to_string(),
+            draw(&um, &map, PlotBasis::Xy, [0.0, 0.0, z_up], &title(&format!("X-Y AT Z = {z_up:.1} CM (CAVITY MIDDLE)")), 900),
+        ),
+    ];
+    if let Some(z) = z_low {
+        images.push((
+            "cht_mesh_xy_lower_plenum".to_string(),
+            draw(&um, &map, PlotBasis::Xy, [0.0, 0.0, z], &title(&format!("X-Y AT Z = {z:.1} CM (HOT PLENUM MIDDLE)")), 900),
+        ));
+    }
+    Ok(ChtMesh {
+        kinds: kinds(&um),
+        mesh: um,
+        map,
+        cell_region,
+        regions,
+        patches: vm.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect(),
+        quality: (q.max_non_orthogonality_deg, q.max_skewness),
+        notes,
+        polymesh_dir: dir,
+        images,
+        seconds: t.elapsed().as_secs_f64(),
+    })
+}
+
+/// TetGen as the tet source at cell size `cell_cm`, with Mesh Studio's
+/// defaults (gh:#1796): radius-edge ratio 1.414 and the volume of a regular
+/// tetrahedron of edge `cell_cm`, `h^3 / (6 sqrt 2)`.
+pub fn cht_tetgen(cell_cm: f64) -> outram_park_fork_cfmesh::pipeline::TetSource {
+    let h = cell_cm / 100.0;
+    outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(h * h * h / (6.0 * 2f64.sqrt())))
+}
+
+/// [`ChtMesh`] as a short markdown report (regions, patches, quality).
+pub fn cht_report(m: &ChtMesh, cell_cm: f64, n_seg: usize) -> String {
+    let mut s = format!(
+        "HTR-10 solid / fluid / porous mesh: {} cells, {} points, {} faces; tet -> dual at {cell_cm} cm, {n_seg} segments; {:.1} s\n\n",
+        m.mesh.n_cells(),
+        m.mesh.points().len(),
+        m.mesh.n_faces(),
+        m.seconds
+    );
+    s.push_str("| cellZone | class | cells | meshed volume [m³] | exact R-Z volume [m³] | difference |\n|---|---|---|---|---|---|\n");
+    for (id, class, n, mv, ev) in &m.regions {
+        s.push_str(&format!(
+            "| `{id}` | {class} | {n} | {:.4} | {:.4} | {:+.2} % |\n",
+            mv * 1e-6,
+            ev * 1e-6,
+            100.0 * (mv - ev) / ev.max(1e-30)
+        ));
+    }
+    s.push_str("\n| patch | faces |\n|---|---|\n");
+    for (p, n) in &m.patches {
+        s.push_str(&format!("| `{p}` | {n} |\n"));
+    }
+    s.push_str(&format!(
+        "\nCell kinds: {}. Max non-orthogonality {:.1} deg, max skewness {:.2}.\n",
+        m.kinds.iter().map(|(k, n)| format!("{k} {n}")).collect::<Vec<_>>().join(", "),
+        m.quality.0,
+        m.quality.1
+    ));
+    let zoned = (0..m.map.regions.len()).map(|g| m.cell_region.iter().filter(|&&x| x == g).count()).sum::<usize>();
+    s.push_str(&format!("\n{} cellZones; {zoned} of {} cells are in one, by centroid.\n", m.map.regions.len(), m.mesh.n_cells()));
+    for n in &m.notes {
+        s.push_str(&format!("\n- {n}"));
+    }
+    s.push('\n');
+    s
+}
+
 /// The R-Z region map drawn directly from [`RegionMap::region_at`] (what the
 /// mesh cells are assigned from), for the Step 7 main view and review.
 pub fn draw_region_map(d: &RzDomain, map: &RegionMap, px: usize) -> ImageData {

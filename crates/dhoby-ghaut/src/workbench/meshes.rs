@@ -509,6 +509,84 @@ impl RegionMap {
         }
     }
 
+    /// IAEA-TECDOC-1382 Fig. 4.10 zone of the cold-gas plenum under the top
+    /// reflector (`z_T` 95-105 cm, `r` 0-90 cm; 84 % void by its carbon
+    /// density, 0.014535 against solid graphite's 0.0882418 atoms/b-cm,
+    /// `nee_soon::htr10_rmc::reflector`).
+    pub const COLD_PLENUM_ZONE: usize = 3;
+
+    /// Fig. 4.10 zones of the hot-gas plenum below the bottom reflector
+    /// (`z_T` 465-495 cm, `r` 41.75-90 cm; 39 % and 62 % void by carbon
+    /// density). They sit where IAEA-TECDOC-1694 Tab. 2.3 places the hot
+    /// plenum (`r` 25-90 cm, 30 cm high, 295-325 cm below the full-core bed
+    /// top, i.e. `z_T` 467-497 with Fig. 4.10's full-core top at 171.698).
+    /// Fig. 4.10's `r` 25-41.75 cm column there is zone 12, solid-density
+    /// graphite, so it stays solid.
+    pub const HOT_PLENUM_ZONES: [usize; 2] = [14, 15];
+
+    /// The three-class preset for one conjugate mesh of the whole reactor
+    /// (maintainer request, 2026-11-26): **solid graphite** everywhere except
+    /// a **porous** pebble bed and two **fluid** plenums.
+    ///
+    /// - `porous_bed` ([`RegionClass::PebbleBed`]): the pebble bed above
+    ///   the conus.
+    /// - `fluid_upper_plenum` ([`RegionClass::Fluid`]): the cavity above
+    ///   the bed plus the cold-gas plenum, zone [`Self::COLD_PLENUM_ZONE`].
+    /// - `fluid_lower_plenum` ([`RegionClass::Fluid`]): the hot-gas plenum,
+    ///   zones [`Self::HOT_PLENUM_ZONES`].
+    /// - `solid_graphite` ([`RegionClass::Solid`]): everything else. That
+    ///   includes the conus and the discharge tube (dummy-ball columns,
+    ///   placed with the graphite by the maintainer's choice), and the
+    ///   homogenised channel bands (control rods, KLAK, coolant risers),
+    ///   whose voids this mesh does not resolve.
+    ///
+    /// **Idealisations, stated:** the plenum zones are homogenised in
+    /// Fig. 4.10 and still hold graphite (16 % of zone 3, 61 % and 38 % of
+    /// zones 14 and 15 by carbon density); here they are taken as all gas.
+    #[must_use]
+    pub fn three_class_cht(d: &RzDomain) -> Self {
+        let regions = vec![
+            rg("porous_bed", "Pebble bed (porous)", RegionClass::PebbleBed, true),
+            rg(
+                "fluid_upper_plenum",
+                "Upper plenum: cavity above the bed + cold-gas plenum (fluid)",
+                RegionClass::Fluid,
+                true,
+            ),
+            rg(
+                "fluid_lower_plenum",
+                "Lower plenum: hot-gas plenum (fluid)",
+                RegionClass::Fluid,
+                false,
+            ),
+            rg("solid_graphite", "Graphite and carbon brick (solid)", RegionClass::Solid, false),
+        ];
+        let box_region = d
+            .boxes
+            .iter()
+            .map(|b| {
+                if b.zone == Self::COLD_PLENUM_ZONE {
+                    1
+                } else if Self::HOT_PLENUM_ZONES.contains(&b.zone) {
+                    2
+                } else {
+                    3
+                }
+            })
+            .collect();
+        Self {
+            mode: RegionMode::Advanced,
+            regions,
+            box_region,
+            conus: 3,
+            conus_graphite: 3,
+            tube: 3,
+            cavity: 1,
+            bed_split: [1, 1],
+            bed_first: 0,
+        }
+    }
+
     /// Split the bed into `radial x axial` equal-height, equal-radius
     /// sub-regions (Advanced). `[1, 1]` restores one bed region. Region
     /// indices after the bed are renumbered.
@@ -945,6 +1023,46 @@ pub(crate) mod tests {
         assert_eq!(d.part_at(10.0, -200.0), Some(RzPart::DischargeTube));
         assert_eq!(d.part_at(85.0, -125.0), Some(RzPart::ConusGraphite));
         assert_eq!(d.part_at(20.0, -125.0), Some(RzPart::Conus));
+    }
+
+    /// The three-class preset puts each part where `three_class_cht` says:
+    /// bed porous, cavity and cold plenum fluid (upper), hot plenum fluid
+    /// (lower), everything else, conus and tube included, solid.
+    #[test]
+    fn three_class_cht_classifies_every_part() {
+        let mut d = htr10_like();
+        d.boxes.push(RzBox {
+            zone: RegionMap::COLD_PLENUM_ZONE,
+            r: [0.0, 90.0],
+            z: [140.0, 150.0],
+        });
+        d.boxes.push(RzBox {
+            zone: 14,
+            r: [41.75, 70.75],
+            z: [-300.0, -270.0],
+        });
+        d.boxes.push(RzBox {
+            zone: 15,
+            r: [70.75, 90.0],
+            z: [-300.0, -270.0],
+        });
+        let m = RegionMap::three_class_cht(&d);
+        let id = |r: f64, z: f64| m.region_at(&d, r, z).map(|g| m.regions[g].id.as_str());
+        assert_eq!(id(10.0, -50.0), Some("porous_bed"));
+        assert_eq!(id(10.0, 50.0), Some("fluid_upper_plenum"));
+        assert_eq!(id(50.0, 145.0), Some("fluid_upper_plenum"));
+        assert_eq!(id(60.0, -285.0), Some("fluid_lower_plenum"));
+        assert_eq!(id(80.0, -285.0), Some("fluid_lower_plenum"));
+        assert_eq!(id(150.0, 0.0), Some("solid_graphite"));
+        assert_eq!(id(20.0, -125.0), Some("solid_graphite"));
+        assert_eq!(id(10.0, -200.0), Some("solid_graphite"));
+        assert_eq!(id(85.0, -125.0), Some("solid_graphite"));
+        assert_eq!(m.regions.len(), 4);
+        let classes: Vec<RegionClass> = m.regions.iter().map(|r| r.class).collect();
+        assert_eq!(
+            classes,
+            [RegionClass::PebbleBed, RegionClass::Fluid, RegionClass::Fluid, RegionClass::Solid]
+        );
     }
 
     /// Splitting the bed renumbers the regions after it consistently, and

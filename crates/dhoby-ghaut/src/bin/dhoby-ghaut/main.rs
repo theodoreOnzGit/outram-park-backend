@@ -212,6 +212,21 @@ fn main() -> Result<(), String> {
     if args.iter().any(|a| a == "--headless-map") {
         return headless_map::run(&args, recipe);
     }
+    if args.iter().any(|a| a == "--headless-cht-mesh") {
+        // One conjugate mesh: solid graphite, fluid upper and lower plenums,
+        // porous bed (2026-11-26). `--cell` cm (default 10), `--segments`.
+        let r = recipe.unwrap_or_else(preset::htr10);
+        let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out/htr10_cht_mesh".into());
+        let cell = arg("--cell").and_then(|v| v.parse::<f64>().ok()).unwrap_or(10.0);
+        let n_seg = arg("--segments").and_then(|v| v.parse::<usize>().ok()).unwrap_or(32);
+        // `--tets tetgen` (default: the TetGen port) or `--tets carved`.
+        let tets = match arg("--tets").as_deref() {
+            None | Some("tetgen") => crate::meshing::cht_tetgen(cell),
+            Some("carved") => outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
+            Some(o) => return Err(format!("--tets {o}: tetgen or carved")),
+        };
+        return headless::cht_mesh(&r, std::path::Path::new(&out), cell, n_seg, tets);
+    }
     if args.iter().any(|a| a == "--headless-mesh") || args.iter().any(|a| a == "--headless-mgxs") {
         let r = recipe.unwrap_or_else(preset::htr10);
         let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out/genfoam_case".into());
@@ -544,6 +559,31 @@ mod headless {
         })
     }
 
+    /// `--headless-cht-mesh`: assemble, build [`crate::meshing::build_cht`]
+    /// into `out` (the polyMesh with cellZones under `constant/polyMesh`, the
+    /// images under `images/`, `report.md`), and print the report. CLI glue:
+    /// the mesh itself is tested in `tests::the_cht_mesh_holds_three_classes`.
+    pub fn cht_mesh(
+        r: &Recipe,
+        out: &Path,
+        cell_cm: f64,
+        n_seg: usize,
+        tets: outram_park_fork_cfmesh::pipeline::TetSource,
+    ) -> Result<(), String> {
+        let mut engine = Engine::default();
+        let a = assemble(&mut engine, r).ok_or("assembly failed")?;
+        let d = crate::meshing::domain_from(&a);
+        let m = crate::meshing::build_cht(&d, cell_cm, n_seg, tets, out)?;
+        for p in crate::meshing::write_images(&m.images, &out.join("images"))? {
+            eprintln!("wrote {}", p.display());
+        }
+        let report = crate::meshing::cht_report(&m, cell_cm, n_seg);
+        std::fs::write(out.join("report.md"), &report).map_err(|e| e.to_string())?;
+        println!("{report}");
+        println!("polyMesh + cellZones: {}", m.polymesh_dir.display());
+        Ok(())
+    }
+
     pub fn mesh_and_mgxs(
         r: &Recipe,
         out: &Path,
@@ -756,6 +796,39 @@ mod tests {
     ///   The region volumes differ from exact by up to +90 % for the 10 cm
     ///   cold-gas plenum band on the 30 cm neutronics mesh (centroid
     ///   assignment, gh:#594); the bed is within 0.3 %.
+    /// The one-mesh solid / fluid / porous HTR-10 (2026-11-26), coarse
+    /// (40 cm): the whole cylinder is meshed, the bed, the upper plenum and
+    /// the graphite each get cells, every cell is in exactly one cellZone,
+    /// and the polyMesh and cellZones read back through the GeN-Foam port.
+    #[test]
+    fn the_cht_mesh_holds_three_classes() {
+        let r = super::preset::htr10();
+        let mut engine = crate::engine::Engine::default();
+        let a = super::headless::assemble_for_test(&mut engine, &r).expect("assembly");
+        let d = crate::meshing::domain_from(&a);
+        let dir = std::env::temp_dir().join(format!("dhoby_ghaut_cht_test_{}", std::process::id()));
+        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), &dir).expect("cht mesh");
+        assert!(m.notes.iter().any(|n| n.contains("TetGen")), "{:?}", m.notes);
+        let (mesh_v, exact_v): (f64, f64) = m.regions.iter().fold((0.0, 0.0), |a, r| (a.0 + r.3, a.1 + r.4));
+        assert!((mesh_v / exact_v - 1.0).abs() < 0.03, "volume {mesh_v} vs {exact_v}");
+        for id in ["porous_bed", "fluid_upper_plenum", "solid_graphite"] {
+            assert!(m.regions.iter().any(|r| r.0 == id && r.2 > 0), "{id} has cells");
+        }
+        for p in ["top", "bottom", "side"] {
+            assert!(m.patches.iter().any(|q| q.0 == p && q.1 > 0), "patch {p}");
+        }
+        let fv = outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh(&m.polymesh_dir).expect("polyMesh reads back");
+        assert_eq!(fv.n_cells, m.mesh.n_cells());
+        let zones = outram_foam_appbuilder_lib::io::poly_mesh::read_cell_zones(&m.polymesh_dir).expect("cellZones read back");
+        assert_eq!(zones.iter().map(|z| z.cells.len()).sum::<usize>(), m.mesh.n_cells());
+        let report = crate::meshing::cht_report(&m, 40.0, 16);
+        assert!(report.contains("porous_bed") && report.contains("| `side` |"));
+        assert!(m.images.len() >= 4);
+        assert_eq!(m.cell_region.len(), m.mesh.n_cells());
+        assert_eq!(m.map.regions.len(), 4);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn the_headless_meshes_hold_what_the_hand_off_promises() {
         use dhoby_ghaut::workbench::meshes::{MeshPlan, MeshRole};
