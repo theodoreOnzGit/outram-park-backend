@@ -1805,7 +1805,7 @@ None above 1e-9 in any gated quantity. The largest differences, in order: the `h
 
 ### Gates
 
-Run (2026-11-26, release): see the final gate list in the commit message of the commit that adds this section; the numbers above come from the run of `msfr_eigenvalue_then_transient_chain_matches_upstream` (244.7 s) and `msfr_steady_state_en_first_steps_match_upstream` (9.6 s).
+**Run (2026-11-26, release, `GENFOAM_UPSTREAM` set):** `cargo test --release -p outram-foam-appbuilder-lib --lib --tests --no-fail-fast`: 47 test binaries, **629 passed, 0 failed, 36 ignored** (the ignored ones are the crate's pre-existing `#[ignore]`s, not touched here), including rounds 6 and 9 unchanged and the new chain tests (`msfr_eigenvalue_then_transient_chain_matches_upstream` 245 s, `msfr_steady_state_en_first_steps_match_upstream`, the two `workflow_chain_*` unit tests, three `reactor_state` tests); `cargo test --release -p petir --test no_platform_libm`: 4 passed; `bash scripts/check-nostd.sh`: exit 0 (it first caught `CouplingDict::correct_only_energy` sitting in the `std`-only impl; moved out).
 
 ### Moved numbers (old to new, with cause)
 
