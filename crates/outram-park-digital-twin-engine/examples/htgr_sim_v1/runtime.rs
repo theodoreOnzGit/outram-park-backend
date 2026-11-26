@@ -68,6 +68,8 @@ pub struct PlantControls {
     pub water_ingress: bool,
     /// Operator has started the DLOFC + ATWS accident (gh:#402).
     pub dlofc: bool,
+    /// Operator has started the design-basis DLOFC (scram at 7.06 s).
+    pub dlofc_scram: bool,
     pub feedwater_manual: bool,
     pub feedwater_manual_flow_kg_per_s: f64,
     pub feedwater_target_steam_temp_k: f64,
@@ -97,6 +99,7 @@ impl PlantControls {
             circulator_tripped: s.circulator_tripped,
             water_ingress: s.water_ingress_triggered,
             dlofc: s.dlofc_triggered,
+            dlofc_scram: s.dlofc_scram_triggered,
             feedwater_manual: s.feedwater_manual,
             feedwater_manual_flow_kg_per_s: s.feedwater_manual_flow_kg_per_s,
             feedwater_target_steam_temp_k: s.feedwater_target_steam_temp_k,
@@ -124,6 +127,7 @@ impl PlantControls {
                 self.circulator_tripped,
                 self.water_ingress,
                 self.dlofc,
+                self.dlofc_scram,
             ),
             secondary: SecondaryCommands {
                 feedwater: if self.feedwater_manual {
@@ -169,6 +173,7 @@ impl Default for PlantControls {
             circulator_tripped: d.scenario == crate::physics::Scenario::Lofc,
             water_ingress: d.scenario == crate::physics::Scenario::WaterIngress,
             dlofc: d.scenario == crate::physics::Scenario::DlofcAtws,
+            dlofc_scram: d.scenario == crate::physics::Scenario::DlofcScram,
             feedwater_manual: manual,
             feedwater_manual_flow_kg_per_s: manual_flow,
             feedwater_target_steam_temp_k: target_t,

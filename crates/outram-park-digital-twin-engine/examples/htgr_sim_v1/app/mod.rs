@@ -230,6 +230,7 @@ pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
             s.circulator_tripped,
             s.water_ingress_triggered,
             s.dlofc_triggered,
+            s.dlofc_scram_triggered,
         ),
         secondary: SecondaryCommands {
             feedwater: if s.feedwater_manual {
@@ -742,6 +743,7 @@ impl HtgrSimApp {
                 self.physics.update(|s| s.water_ingress_triggered = true)
             }
             map_tab::MapAction::StartDlofc => self.physics.update(|s| s.dlofc_triggered = true),
+            map_tab::MapAction::StartDlofcScram => self.physics.update(|s| s.dlofc_scram_triggered = true),
         }
     }
 }
