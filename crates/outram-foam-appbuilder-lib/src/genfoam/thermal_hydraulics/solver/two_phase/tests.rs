@@ -339,3 +339,77 @@ fn velocity_patches_evaluate_like_the_esi_classes() {
     let cf = fx.patch_coeffs(&g, g.mesh.patches[inlet].start, [&[], &[]]);
     assert_eq!((cf.value_internal, cf.value_boundary[0]), ([0.0; 3], 4.0));
 }
+
+// ---- gh:#1802: porousKEpsilon2PhaseCorrected building blocks ----
+
+use super::turbulence::{bound, convective_inflow2, production_invariant, regex_full_match, relax_equation};
+
+/// OpenFOAM's `solvers` patterns: `"(k|epsilon|Theta).*"` takes `k.liquid` and `epsilon.vapour`, `"e.*"` takes `epsilon.*`
+/// too (which is why the LAST match rule matters), `"alpha"` is exact, an escaped bracket is a literal.
+#[test]
+fn keyword_regex_matches_the_solver_patterns() {
+    assert!(regex_full_match("(k|epsilon|Theta).*", "k.liquid"));
+    assert!(regex_full_match("(k|epsilon|Theta).*", "epsilon.vapour"));
+    assert!(!regex_full_match("(k|epsilon|Theta).*", "h.liquid"));
+    assert!(regex_full_match("e.*", "epsilon.liquid"));
+    assert!(regex_full_match(".*", "anything"));
+    assert!(regex_full_match("alpha", "alpha") && !regex_full_match("alpha", "alpha.vapour"));
+    assert!(regex_full_match("div\\(phi\\)", "div(phi)") && !regex_full_match("div\\(phi\\)", "divXphiX"));
+    assert!(regex_full_match("a|b.*", "bcd") && !regex_full_match("a|b.*", "ccd"));
+}
+
+/// `bound` (ESI `bound.C`): untouched above the limit; below it, a non-positive cell takes the average of its bounded
+/// neighbours (the mean of the two interpolated faces) and nothing ends below the limit.
+#[test]
+fn bound_replaces_the_non_positive_cell_by_the_neighbour_average() {
+    let g = line(5);
+    let mut s = Scalar::uniform(&g, 1.0, g.default_bcs());
+    assert!(!bound(&g, &mut s, 1e-15), "nothing below the limit: nothing done");
+    s.c[2] = -3.0;
+    s.c[1] = 2.0;
+    s.c[3] = 4.0;
+    assert!(bound(&g, &mut s, 1e-15));
+    // the bounded field is (1, 2, 1e-15, 4, 1): faces of cell 2 interpolate to (2 + 1e-15)/2 and (1e-15 + 4)/2
+    let avg = ((2.0 + 1e-15) / 2.0 + (1e-15 + 4.0) / 2.0) / 2.0;
+    assert!((s.c[2] - avg).abs() < 1e-12, "{} vs {avg}", s.c[2]);
+    assert!(s.c.iter().all(|v| *v >= 1e-15));
+    assert_eq!(s.c[1], 2.0);
+}
+
+/// `fvMatrix::relax(alpha)`: a cell whose diagonal is below the sum of its off-diagonals is raised to it (then divided by alpha),
+/// and the source gains `(D' - D) psi`; a convective inflow through a non-fixed patch counts twice its magnitude.
+#[test]
+fn relax_enforces_diagonal_dominance_and_adds_the_source() {
+    let g = line(3);
+    let mut e = Eqn::new(&g);
+    e.ldu.diag = vec![1.0, 0.5, 4.0];
+    e.ldu.upper = vec![-1.0, -1.0];
+    e.ldu.lower = vec![-1.0, -1.0];
+    let psi = vec![2.0, 3.0, 5.0];
+    let inflow2 = vec![0.0; 3];
+    relax_equation(&g, &mut e, 1.0, &inflow2, &psi);
+    // sumOff = (1, 2, 1); D' = max(|D|, sumOff)
+    assert_eq!(e.ldu.diag, vec![1.0, 2.0, 4.0]);
+    assert_eq!(e.source, vec![0.0, 1.5 * 3.0, 0.0]);
+    // alpha <= 0 is a no-op
+    let before = e.ldu.diag.clone();
+    relax_equation(&g, &mut e, 0.0, &inflow2, &psi);
+    assert_eq!(e.ldu.diag, before);
+    let mut phi = g.surface_zeros();
+    phi[g.n_internal()] = -0.25;
+    let s = Scalar::uniform(&g, 0.0, g.default_bcs());
+    let inf = convective_inflow2(&g, &phi, &s);
+    assert_eq!(inf.iter().sum::<f64>(), 0.5);
+}
+
+/// `G = nut (dev(twoSymm(grad U)) && grad U)` of a pure shear `dU_y/dx = a` is `nut a^2` (`twoSymm` has `a` in both off-diagonals,
+/// `grad U` only in one); a uniform dilatation has no deviatoric part.
+#[test]
+fn production_of_a_pure_shear_is_a_squared() {
+    let a = 3.0;
+    let mut t = [[0.0; 3]; 3];
+    t[0][1] = a;
+    assert_eq!(production_invariant(&t), a * a);
+    let d = [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]];
+    assert!(production_invariant(&d).abs() < 1e-14);
+}

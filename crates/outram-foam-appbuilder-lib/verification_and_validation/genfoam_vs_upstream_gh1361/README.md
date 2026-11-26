@@ -2554,3 +2554,105 @@ every `solvers` tolerance 1e-14, `relTol 0`), first steps. Fields compared per s
 | X7 | ablation: `relax(1)` omitted | `k`, `epsilon` move by <= 1e-12 where the matrix is already diagonally dominant; larger where `div(alphaRhoPhi) < -ddt` (net convergence) | n/a |
 | X8 | ablation: laminar `nuEff` (turbulence off) | `U.liquid` changes at the 1e-2 level or more within 10 steps (initial `nut = 0.09 m^2/s` from `k = 0.1`, `epsilon = 0.01`, five orders above `nu`) | n/a |
 | X9 | `regressionResults` (Ex1 at t = 5 s: `alpha.vapour` 0.123835, `T.fixedPower` 620.178) | the port reaches 5 s and lands within 5 % of both (a quasi-steady state is less sensitive than round 12's step-51 separation) OR does not reach 5 s in the allowed wall time (reported as such, not as a miss) | the Phase_Ex1_12223 separation mechanism (#1820) |
+
+## Round 16 results (measured 2026-11-26, release; upstream = the real unmodified binary, serial; `tests/genfoam_psbt2_turbulence_vs_upstream.rs`, 9 tests, 206 s)
+
+### What was ported (new code; every earlier form is unchanged for a case that does not select it)
+
+| piece | upstream | port |
+|---|---|---|
+| the model | `porousKEpsilon2PhaseCorrected.{C,H}` (`correct`, `correctNut`), `UEqns_2p.H` call site (limited alpha) | `solver/two_phase/turbulence.rs`: `PorousKEpsilon2PhaseCorrected`, `TwoPhaseSolver::correct_turbulence`; `Phase::turbulence` (None = laminar) |
+| `nuEff` / `alphaEff` | `UEqns_2p.H` `alpha rho (nut + mu/rho)`, `EEqns_2p.H` `CpByCpv (alpha_ + alphat)` | `correct_u_eqn`, `correct_energy` (laminar arithmetic untouched) |
+| `bound`, `fvMatrix::relax(alpha)` | ESI `bound.C`, `fvMatrix.C:1101` | `bound`, `relax_equation` (the diagonal-dominance form with the boundary-inflow term) |
+| `solvers` pattern lookup | OpenFOAM regex, LAST matching pattern (`"(k|epsilon|Theta).*"`) | `regex_full_match` (the old `key_matches` knew only `.*`) |
+| reading | `turbulenceProperties.<fluid>`, `0/*/{k,epsilon,nut,alphat}.<fluid>` | `read_porous_k_epsilon_2phase`; refused by name: other `RASModel`s, `simulationType` other than laminar/RAS, `DhStruct`, wall-function patches, `calculated` k/epsilon, a `relTol != 0` or non-`symGaussSeidel` solver for k/epsilon |
+| **found necessary by running the shipped cases (not in the issue)** | | |
+| `symmetry` patches | `symmetryFvPatchField` (scalar: zeroGradient coefficients; vector: `basicSymmetry`, as `slip`) | `scalar_bcs` (`p` stays `calculated`, the others `ZeroGradient`), `vector_bcs` (`Slip`); only on a mesh patch of kind `symmetry` |
+| `zeroGradient` with leftover `phi`/`inletValue` on `alpha.*` | `zeroGradient` reads no keyword but `value` | accepted on phase fractions only |
+| plain `multiRegimeBoiling` (`heatFluxSuperposition true`) | `multiRegimeBoilingFSHeatTransferCoefficient.C` (`value`, `qNB`, `setDmdtW`): the TRACE map with `qNB = (qFC^n + (S qPB)^n)^(1/n)` when a suppression factor exists | `FsHtcModel::MultiRegimeBoiling`, `multi_regime_boiling_value`; `heatFluxSuperposition false` and `filmCondensationModel` refused by name |
+| `powerDensity` absent from the `fixedPower` dictionary | `fixedPower::powerDensity_` READ_IF_PRESENT from `0/fluidRegion/powerDensity.fixedPower` (nonuniform) | read with `read_vol_scalar_field` (Ex2, Ex3) |
+
+### The finding that shaped the round: the REFERENCE protocol had to change, and a flow baseline remains
+
+1. **GAMG cannot reach 1e-14 on this mesh.** On the 1170-cell PhaseII mesh the shipped `GAMG` `p_rgh` solve stops at its 1000-iteration cap at a residual of 2e-10
+   (initial 4e-4), taking 16 s per step. The first reference run used it. The protocol now replaces `solver GAMG; smoother DIC;` by `solver PCG; preconditioner DIC;`
+   (`scripts/psbt2_pcg_protocol.sh`; a solver setting, same matrix): PCG reaches 7e-15 in ~200 iterations, 40 steps in 35 s. The two references differ by nothing the port
+   resolves (the control run below gave identical numbers with both), so the difference to upstream is NOT the unconverged GAMG. The GAMG reference is retired.
+2. **Iteration counts equal upstream's for all 25 steps** (10, 9, 10, 9, ... 9; `PIMPLE: converged in N iterations`), and the step size equals upstream's to 1e-12.
+3. **The turbulence solves match upstream's.** Step 1, outer iteration 1: the smoothSolver initial residuals and sweep counts of epsilon.liquid, k.liquid, epsilon.vapour, k.vapour are
+   upstream's (1, 0.99999999999998268, 0.99999999999999845, 0.99999999999999978; 2 sweeps each; `bound` acts on epsilon.vapour and k.vapour in the same solve as upstream's log
+   "bounding epsilon.vapour, min: 5.8e-22"). From outer iteration 2 on the liquid residuals differ by 2e-4 (0.0040593 against 0.0040584), because the flow of iteration 1 differs.
+   **`PhaseII_Ex3` step 1 runs ONE outer iteration: there `k`, `epsilon`, `nut`, `alphat` of both fluids agree with upstream to <= 6e-16 while `p` (1.9e-5) and `U.liquid` (7.8e-5) do not.**
+   That isolates the difference to the flow solution, not the model.
+4. **A control with `turbulence off` in both codes** (`scripts/psbt2_pcg_protocol.sh` with `TURB_OFF=1`, `nut = alphat = 0`, `nuEff = nu`; `refs/psbt2_ex1_off.ref.txt.gz`) shows the same baseline:
+   `p` 7.4e-7 at step 1 (with turbulence 8.0e-7), 3.8e-6 at step 8, `U.liquid` 1.8e-6 and 3.8e-5. **The baseline is therefore not the turbulence model's.** It builds in the first 0.3 m of the unheated inlet zone
+   (`U` difference 6e-7 at x = 0.06 m, -7.1e-6 at 0.3 m, then constant), at the outlet cells `dgdt` differs most (2.6e-5 of the maximum); `psi`/`icoPolynomial`, `Kd`, `Re`
+   (equal at step 1 in Ex3), the `p` patch (`without_p_patch_from_file`: identical numbers) and the first-step lazy old-time handling (`without_first_step_lazy_old_time`: 1e-3, much worse)
+   were each checked and are not it. Not located. Filed as a child issue; the three PhaseII cases are the first ones with a non-hydrostatic initial `p` (uniform 14.74 MPa) AND a 3-D mesh.
+
+### Per-step comparison, `PhaseII_Ex1_01_5215` (25 steps, tight, PCG reference; worst relative difference over the 1170 cells, relative to the field's own maximum)
+
+| step | p | T.liquid | T.vapour | U.liquid | dgdt.liquid | htc.liquid.structure | k.liquid | epsilon.liquid | nut.liquid | alphat.liquid | k.vapour | nut.vapour |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 8.0e-7 | 1.3e-10 | 1.2e-7 | 1.9e-6 | 2.9e-5 | 1.5e-6 | 3.8e-6 | 6.7e-6 | 6.6e-7 | 6.6e-7 | 1.1e-3 | 1.3e-3 |
+| 3 | 2.1e-6 | 1.1e-10 | 2.9e-7 | 7.8e-6 | 5.9e-6 | 6.3e-6 | 1.2e-5 | 1.7e-5 | 6.2e-6 | 6.2e-6 | 1.7e-3 | 2.1e-3 |
+| 8 | 5.1e-6 | 4.3e-9 | 7.0e-7 | 4.6e-5 | 3.6e-5 | 3.7e-5 | 5.6e-5 | 7.7e-5 | 3.4e-5 | 3.4e-5 | 3.8e-3 | 4.7e-3 |
+| 12 | 8.5e-6 | 3.2e-8 | 1.2e-6 | 1.3e-4 | 9.4e-5 | 1.0e-4 | 1.4e-4 | 1.9e-4 | 8.7e-5 | 8.7e-5 | 7.1e-3 | 8.6e-3 |
+| 19 | 1.6e-5 | 4.9e-7 | 6.8e-6 | 4.9e-4 | 3.4e-4 | 4.0e-4 | 5.6e-4 | 7.7e-4 | 3.2e-4 | 3.2e-4 | 1.9e-2 | 2.2e-2 |
+| 25 | 2.2e-5 | 2.6e-6 | 3.0e-6 | 1.1e-3 | 6.0e-4 | 9.5e-4 | 1.5e-3 | 2.1e-3 | 8.1e-4 | 8.0e-4 | 3.8e-2 | 4.7e-2 |
+
+`dt` equal (0) at every step; `alpha.vapour` 0 in both codes through step 25 (no vapour yet: **the boiling onset, the earlier rounds' first divergence, is not reached**). The vapour turbulence fields
+(an absent phase: `alpha` limited to 1e-6) are the worst because their equations are scaled by 1e-6 and `bound` acts on them. Ablations over the same 25 steps (`ABLATE`):
+
+| ablation | `U.liquid` at step 25 | `k.liquid` | `T.liquid` | reading |
+|---|---|---|---|---|
+| none (the default, as upstream) | 1.1e-3 | 1.5e-3 | 2.6e-6 | the baseline above |
+| `turbulence off` (`nut = alphat = 0`) | **4.6e-2** | **0.99** | 1.7e-3 | 40x worse in `U`; the model carries the physics. Note `nut` starts at 0.09 m^2/s (`k = 0.1`, `epsilon = 0.01`) |
+| `without_equation_relaxation` (`fvMatrix::relax(1)` omitted) | identical to the printed digits (gate: <= 1e-12 over 4 steps) | same | same | `relax(1)` is a no-op here: the matrices are diagonally dominant (upwind + `ddt`) |
+
+`Ex2` (TRACECHF + lookUpTableCHF + VapourTRACE; first step 5e-3 s) and `Ex3` run and read: 5 steps against the real binary, `dt` equal, `p` 2.7e-5 .. 3.8e-5 (Ex2), 1.2e-5 .. 1.9e-5 (Ex3),
+`U.liquid` 1.4e-4 .. 7.9e-4 (Ex2), 7.8e-5 .. 3.4e-4 (Ex3), `T.liquid` <= 3e-7; Ex3 step 1 turbulence 6e-16 (above). The two cases did not reach the CHF (5 steps).
+
+### The tutorial's own `regressionResults` check (a separate check, not a step comparison)
+
+`PhaseII_Ex1` AS SHIPPED (no protocol edit; the port's own solvers; adjustable run time, `maxCo 1`, `maxCoTwoPhase 0.3`) to t = 5 s: **1065 steps, 216 s wall.**
+
+| quantity (cell 394 = line 418 of the t = 5 s file, the tutorial's `Alltest`) | port | `regressionResults` | relative |
+|---|---|---|---|
+| `alpha.vapour` | 0.124575 | 0.123835 | +0.60 % |
+| `T.fixedPower` | 620.1682 K | 620.178 K | -0.0016 % |
+
+Both are inside the tutorial's own 1 % criterion (gate `psbt2_regression_results_at_5_s`). Honest reading: a quasi-steady state at t = 5 s (the vapour fraction maximum is 0.124575 at every logged step from 800 to 1065, t = 3.9 to 5 s)
+is insensitive to the transient baseline above; it is NOT evidence that the transient agrees. The 0.6 % residual in the vapour fraction is the same size as the model's own uncertainty and is not attributed.
+
+### Predictions: held and missed
+
+| id | result |
+|---|---|
+| X1 held, with more work than predicted | the three directories read with empty `deviations`; for it the port also needed `symmetry`, plain `multiRegimeBoiling`, `powerDensity.fixedPower` and the `zeroGradient` leftovers (none was in the issue). Refusals by name pinned (`RASModel kEpsilon`, `DhStruct`, `nutkWallFunction`, `simulationType LES`) |
+| X2 **missed** | `k`, `epsilon` <= 1e-9 predicted; measured 3.8e-6 / 6.7e-6 at step 1, 1.5e-3 / 2.1e-3 at step 25: inherited from the flow baseline (the first outer iteration's solves are upstream's; Ex3 step 1 is at 6e-16) |
+| X3 **missed in size, held in kind** | `nut`, `alphat` <= 1e-8 predicted; 6.6e-7 at step 1. `alphat/nut = rho` exactly (`Prt` 1) holds by construction |
+| X4 **missed** | the turbulence was predicted to add nothing to `p`, `U`, `T` at round 12's level (`p` 1.4e-11); the shipped PhaseII case differs from upstream by 8e-7 at step 1 with or without turbulence (control): a pre-existing, unlocated flow difference of the 3-D, non-hydrostatic-start case |
+| X5 **missed** | `bound` DOES act in step 1: on `epsilon.vapour` and `k.vapour` (an absent phase, min 5.8e-22), as in upstream's log; not on the liquid fields |
+| X6 **missed** | the first step above 1e-9 is step 1 and the quantity is `p`, not the boiling htc: there is no vapour through step 25 in either code |
+| X7 held | `relax(1)` omitted: identical to 1e-12 |
+| X8 held | `turbulence off`: `U.liquid` misses by 4.6e-2 against 1.1e-3 (predicted >= 1e-2 within 10 steps; held by step 25, 4.6e-2) |
+| X9 held | 0.60 % and -0.0016 % at t = 5 s, inside the 1 % criterion |
+
+### What is deliberately not the same as upstream, and what remains
+
+- `Prt` etc. come from the `RAS` dictionary when there is no `porousKEpsilon2PhaseCorrectedCoeffs` sub-dictionary (`optionalSubDict`), as upstream.
+- The `relaxationFactors.equations` lookup uses the non-`Final` name (`k.liquid`); every shipped case has `".*" 1`.
+- `heatFluxSuperposition false`, `filmCondensationModel`, `DhStruct`, wall functions, `LaheyKEpsilon`, `mixtureKEpsilon`, `kEpsilon`, single-phase `porousKEpsilon` (gh:#1775/#1812: NOT reduced by this round, the model is not its derivation): refused by name.
+- The flow baseline of the PhaseII cases (above) is open: it caps what any PhaseII comparison can show.
+- Ex2/Ex3 beyond 5 steps (the CHF and the TRACECHF/VapourTRACE branches against upstream) were not compared; `docs/<crate>-api.md` mirror not regenerated (`kovan-cli` is not built here).
+
+### Moved numbers
+
+None. The laminar arithmetic is untouched (`Phase::turbulence` is `None` for them); `genfoam_psbt_shipped_vs_upstream` (4 passed, 3 ignored), the 30 `two_phase` unit tests (26 old + 4 new) pass unchanged.
+
+### Gates run (2026-11-26, release, targeted)
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_psbt2_turbulence_vs_upstream`: 9 passed, 2 ignored diagnostics (206 s, of which the 5 s regression run 200 s);
+`--lib two_phase`: 30 passed; `--test genfoam_psbt_shipped_vs_upstream`: 4 passed, 3 ignored; `cargo test --release -p petir --test no_platform_libm`: 4 passed; `bash scripts/check-nostd.sh`: exit 0.
+The parent runs the full suite.

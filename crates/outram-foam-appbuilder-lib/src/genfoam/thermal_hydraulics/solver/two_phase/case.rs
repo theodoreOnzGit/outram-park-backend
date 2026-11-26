@@ -52,7 +52,7 @@ use crate::genfoam::thermal_hydraulics::closures::heat_transfer::cachard::{Cacha
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::LeidenfrostTemperature;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf_table::LookUpTableChf;
 use super::mules::{AlphaConvection, LimiterControls};
-use super::{AlphaSolver, MulesControls};
+use super::{AlphaSolver, MulesControls, MultiRegimeBoilingModel};
 #[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::ff_drag::{FfDragCoefficient, TwoPhaseDragMultiplier};
@@ -345,7 +345,14 @@ pub(super) fn scalar_bcs_with(
                 Bc::Fixed(vec![v; p.size])
             }
             "zeroGradient" => {
-                refuse_keys(&["value"])?;
+                // ESI `zeroGradientFvPatchField` reads no entry but `value`: the leftover `phi`/`inletValue` of an
+                // `inletOutlet` patch the user switched to `zeroGradient` (PhaseII_Ex*'s `alpha.vapour.outlet`) are
+                // never looked up, so they are ignored on a phase fraction (gh:#1802)
+                if ff.name.starts_with("alpha.") {
+                    refuse_keys(&["value", "phi", "inletValue"])?;
+                } else {
+                    refuse_keys(&["value"])?;
+                }
                 Bc::ZeroGradient
             }
             // `calculated` is set by field algebra (the misspelling `calulated`, which 1D_boiling's
@@ -378,6 +385,12 @@ pub(super) fn scalar_bcs_with(
                     .as_scalar()
                     .ok_or_else(|| ctx.e("inletOutlet needs a uniform scalar inletValue"))?;
                 Bc::InletOutlet { inlet_value: vec![iv; p.size], phi_index }
+            }
+            // a `symmetry` patch evaluates to the owner value for a scalar (`basicSymmetry<scalar>`; transformFvPatchField
+            // coefficients are those of zeroGradient); `p` is set by algebra on every patch, so it stays `calculated` there
+            "symmetry" if p.kind == PatchKind::Symmetry => {
+                refuse_keys(&["value"])?;
+                if ff.name == "p" { Bc::Calculated } else { Bc::ZeroGradient }
             }
             other => {
                 return Err(ctx.e(format!(
@@ -445,6 +458,11 @@ pub(super) fn vector_bcs(
                 VectorBc::Fixed(vec![v; p.size])
             }
             "slip" => {
+                refuse_keys(&["value"])?;
+                VectorBc::Slip
+            }
+            // ESI `symmetryFvPatchField` derives from `basicSymmetry`, as `slip` does (gh:#1802)
+            "symmetry" if p.kind == PatchKind::Symmetry => {
                 refuse_keys(&["value"])?;
                 VectorBc::Slip
             }
@@ -653,6 +671,7 @@ impl TwoPhaseCase {
         let a0 = alphas[0].unwrap_or(1.0 - alphas[1].unwrap_or(0.0));
         let a1 = alphas[1].unwrap_or(1.0 - a0);
         let mut dd_tables: Vec<(usize, String, Vec<(String, f64)>)> = Vec::new();
+        let mut turb_dicts: Vec<FoamDict> = Vec::new();
         for (k, name) in names.iter().enumerate() {
             let props = ctx.sub(&pp, &format!("{name}Properties"))?;
             let state = ctx.word(props, "stateOfMatter")?;
@@ -682,9 +701,7 @@ impl TwoPhaseCase {
             };
             let thermo = read_thermo(&ctx, &format!("constant/{region}/thermophysicalProperties.{name}"))?;
             let tp = ctx.read(&format!("constant/{region}/turbulenceProperties.{name}"))?;
-            if word(&tp, "simulationType").as_deref() != Some("laminar") {
-                return Err(ctx.e(format!("{name}: only laminar turbulence is ported")));
-            }
+            turb_dicts.push(tp);
             let t_f = read_field(&ctx, &format!("{zero}/T.{name}"))?;
             let t_bc = scalar_bcs(&ctx, &g, &t_f)?;
             let he_bc: Vec<Bc> = t_bc
@@ -763,6 +780,7 @@ impl TwoPhaseCase {
         let mut dh_s = vec![1.0; n];
         let mut power: Vec<Option<FixedPower>> = vec![None; n];
         let mut power_off = None;
+        let mut power_density_file: Option<Vec<f64>> = None;
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
             if key == "powerOffCriterionModel" {
@@ -805,8 +823,21 @@ impl TwoPhaseCase {
                 };
                 let ia = ctx.f64(pm, "volumetricArea")?;
                 let t0 = ctx.f64(pm, "T")?;
-                let q = ctx.f64(pm, "powerDensity")?;
+                // `powerDensity` of the dictionary, else the cell values of `0/<region>/powerDensity.fixedPower`
+                // (`fixedPower::powerDensity_` is READ_IF_PRESENT; `setRegionField` overrides it only where the key exists; gh:#1802)
+                let q_dict = scalar(pm, "powerDensity");
+                if q_dict.is_none() && power_density_file.is_none() {
+                    let path = root.join(format!("0/{region}/powerDensity.fixedPower"));
+                    let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field(&path, mesh.clone())
+                        .map_err(|e| ctx.e(format!("fixedPower has no `powerDensity` and {}: {e}", path.display())))?;
+                    power_density_file = Some(f.internal.as_slice().to_vec());
+                }
                 for &c in &cells {
+                    let q = match (q_dict, &power_density_file) {
+                        (Some(q), _) => q,
+                        (None, Some(file)) => file[c],
+                        (None, None) => unreachable!("loaded above"),
+                    };
                     // fixedPower.C: alphaRhoCp = max(alpha rhoCp, 1e-69)
                     let model = FixedPower::new(
                         Ratio::new::<ratio>(pa),
@@ -1311,6 +1342,21 @@ impl TwoPhaseCase {
             }
         }
 
+        // turbulence (gh:#1802): the structure regions and their volume fractions are needed
+        let mut regions: Vec<(String, Vec<usize>, f64)> = Vec::new();
+        for (key, e) in sp.iter() {
+            if let FoamEntry::SubDict(zd) = e {
+                if key != "powerOffCriterionModel" {
+                    regions.push((key.to_string(), zone_cells(key)?, ctx.f64(zd, "volumeFraction")?));
+                }
+            }
+        }
+        for (k, fl) in fluids.iter_mut().enumerate() {
+            fl.turbulence = super::turbulence::read_porous_k_epsilon_2phase(
+                &ctx, &g, region, &names[k], &turb_dicts[k], &fs, &regions,
+            )?;
+        }
+
         Ok(Self {
             mesh,
             gravity,
@@ -1454,10 +1500,16 @@ fn read_fs_htc(
                 suppression,
             })
         }
-        "multiRegimeBoilingTRACE" | "multiRegimeBoilingTRACECHF" => {
+        "multiRegimeBoiling" | "multiRegimeBoilingTRACE" | "multiRegimeBoilingTRACECHF" => {
             let with_chf = ctx.word(md, "type")? == "multiRegimeBoilingTRACECHF";
+            let plain = ctx.word(md, "type")? == "multiRegimeBoiling";
             if md.get("filmCondensationModel").is_some() {
-                return Err(ctx.e("multiRegimeBoilingTRACE(CHF): filmCondensationModel is not ported"));
+                return Err(ctx.e("multiRegimeBoiling(TRACE,CHF): filmCondensationModel is not ported"));
+            }
+            if plain && !bool_entry(md, "heatFluxSuperposition").unwrap_or(false) {
+                return Err(ctx.e(
+                    "multiRegimeBoiling: `heatFluxSuperposition false` (htc superposition with the cached htcNBi) is not ported",
+                ));
             }
             let forced_convection = read_nusselt(ctx, ctx.sub(md, "forcedConvectionModel")?)?;
             let pbd = ctx.sub(md, "poolBoilingModel")?;
@@ -1481,11 +1533,17 @@ fn read_fs_htc(
                 "Chen" => FlowEnhancementFactor::Chen { max_value },
                 other => return Err(ctx.e(format!("multiRegimeBoilingTRACE flow enhancement `{other}` not wired"))),
             };
-            // upstream constructs the suppression model (and never evaluates it): it must exist
-            match ctx.word(ctx.sub(md, "suppressionFactorModel")?, "type")?.as_str() {
-                "Chen" | "COBRA-TF" => {}
-                other => return Err(ctx.e(format!("multiRegimeBoilingTRACE suppression `{other}` not wired"))),
-            }
+            // TRACE constructs the suppression model (and never evaluates it): it must exist; the plain
+            // `multiRegimeBoiling` evaluates it when present (gh:#1802)
+            let suppression = match md.get_dict("suppressionFactorModel") {
+                None if plain => None,
+                None => ctx.sub(md, "suppressionFactorModel").map(|_| None)?,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "Chen" => Some(SuppressionFactor::Chen),
+                    "COBRA-TF" => Some(SuppressionFactor::CobraTf),
+                    other => return Err(ctx.e(format!("multiRegimeBoiling suppression `{other}` not wired"))),
+                },
+            };
             let onset = match md.get_dict("nucleateBoilingOnsetModel") {
                 None => None,
                 Some(d) => match ctx.word(d, "type")?.as_str() {
@@ -1516,6 +1574,13 @@ fn read_fs_htc(
                 onset,
                 sub_cooled_fraction,
             };
+            if plain {
+                return Ok(FsHtcModel::MultiRegimeBoiling(MultiRegimeBoilingModel {
+                    base,
+                    suppression,
+                    exponent: ctx.f64(md, "superpositionExponent")?,
+                }));
+            }
             if !with_chf {
                 return Ok(FsHtcModel::MultiRegimeBoilingTrace(base));
             }
