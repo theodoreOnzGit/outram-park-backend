@@ -3341,7 +3341,7 @@ mod tests {
     /// (1.00 MPa), leaks more. 1540 s with three other network runs beside
     /// it.
     #[test]
-    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run; ~~~20 min~~ 94 min measured 2026-11-26, 5616 s in release beside the rest of the suite for its first 15 min); runs by default, skipped under --no-default-features")]
     fn the_network_plant_over_30_hours() {
         // The bounds and balances, at every step (see the doc above). The
         // values pinned at 26 h are in `the_network_plant_over_30_hours_pins`.
