@@ -13,6 +13,8 @@ test_ids = [
     "crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::unknown_and_unparseable_names_are_reported_not_panicked",
     "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::accident_final_releases_port_upstream_and_paper",
     "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::accident_series_port_matches_upstream_for_figs_6_and_7",
+    "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::atops2026paper_against_the_papers_printed_releases",
+    "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::paper_variant_with_upstream_readings_is_upstream_bit_for_bit",
     "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::port_against_the_paper_tables_is_reported",
     "crates/boon-lay/tests/mhtgr_stoyer_workflow.rs::port_matches_upstream_on_both_mhtgr_cases",
     "crates/boon-lay/tests/triso_atops_code_to_code.rs::accident_case_nodal_graphite_matches_upstream",
@@ -32,6 +34,12 @@ test_ids = [
     "crates/sembawang/src/htr10.rs::only_silver_carries_floored_negative_windows",
     "crates/sembawang/src/htr10.rs::the_estimated_cooldown_parameters_cannot_move_the_release",
     "crates/sembawang/src/htr10.rs::the_panama_seam_changes_the_release_and_the_ablation_proves_it",
+    "crates/sembawang/src/inventory.rs::a_nuclide_with_the_wrong_ring_count_is_rejected",
+    "crates/sembawang/src/inventory.rs::every_triso_atops_name_round_trips_through_an_isotope",
+    "crates/sembawang/src/inventory.rs::names_come_back_in_order_for_the_selection_call",
+    "crates/sembawang/src/inventory.rs::only_ring_or_whole_core_inventories_have_a_ring_count",
+    "crates/sembawang/src/inventory.rs::the_axial_distribution_conserves_the_ring_total",
+    "crates/sembawang/src/inventory.rs::the_unit_inventory_is_one_curie_per_ring_per_nuclide",
     "crates/sembawang/src/lwr_comparison.rs::a_near_isothermal_air_ingress_still_vents",
     "crates/sembawang/src/lwr_comparison.rs::bounding_comparison_carries_the_severe_loca_arm",
     "crates/sembawang/tests/accident_release.rs::a_cooler_shorter_transient_does_not_differentiate_them_either",
@@ -46,6 +54,8 @@ test_ids = [
     "crates/sembawang/tests/chain_handoff.rs::noble_gases_deposit_exactly_zero_and_the_others_do_not",
     "crates/sembawang/tests/chain_handoff.rs::padding_adds_no_activity_and_partitions_the_run_from_zero",
     "crates/sembawang/tests/chain_handoff.rs::the_chain_is_linear_in_the_inventory",
+    "crates/sembawang/tests/depletion_to_source_term.rs::a_depleted_inventory_runs_through_the_release_chain",
+    "crates/sembawang/tests/inventory_handoff_fingerprints.rs::every_inventory_handoff_case_is_bit_identical",
     "crates/sembawang/tests/normal_operation_pools_code_to_code.rs::sembawang_with_real_pools_matches_upstream_accident_case_on_mhtgr_case_a",
     "crates/sembawang/tests/nuclide_names_code_to_code.rs::nuclide_names_are_handled_as_upstream_does",
     "crates/sembawang/tests/venting_modes.rs::a_bad_prescription_is_an_error_not_a_clamp",
@@ -125,6 +135,62 @@ name = "normalise_nuclide_name"
 qual = "normalise_nuclide_name"
 hash = "sha256:6f1cce1318935d762a5e95055133dcd60b18d8b2d565afcb4649635a43a0d0db"
 doc_hash = "sha256:8ba7cbafe9285b5b5618d182a98ed1776e881434530ffd03e58e7c2924bf6cc6"
+uses = ["fn:4ef295f5b3d28b64"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+]
 
 [[module."mod.rs".function]]
 id = "fn:6cf7d8f9152ffe08"
@@ -148,6 +214,57 @@ name = "select_nuclides"
 qual = "select_nuclides"
 hash = "sha256:88f57a620fcad0a9ad2c3a1dd178c5e0c248335e82ec9259d7aae14506c5ada5"
 doc_hash = "sha256:4aad173b57721dbb50ce64846945b43664e527663b2fcbad7850c80ab48712dd"
+callees = [
+    "fn:2ac3393d97ea6d61",
+    "fn:3292f77e069a4060",
+    "fn:e1cb570a455c31b8",
+]
+uses = [
+    "fn:153ff318fdebeb23",
+    "fn:4ef295f5b3d28b64",
+    "fn:720763535406a854",
+]
+reached_by = [
+    "#0",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#20",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -156,6 +273,55 @@ name = "select_nuclides_accident"
 qual = "select_nuclides_accident"
 hash = "sha256:b64465272106ee396d691f1630588ea4b5129a3d60820a756aac7ab81dcc4787"
 doc_hash = "sha256:a4ee8adaca48d98dd4606b2ff2667309ecdbae390667b121e4cda44079528e93"
+callees = [
+    "fn:3292f77e069a4060",
+    "fn:e1cb570a455c31b8",
+]
+uses = [
+    "fn:4ef295f5b3d28b64",
+    "fn:546333a5363bc5a2",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -172,6 +338,11 @@ name = "sort_parents_before_daughters"
 qual = "sort_parents_before_daughters"
 hash = "sha256:6022a10a17bf072b5a59f7c050d40bbdf24ee661420a5b50571c9fe2a2184120"
 doc_hash = "sha256:9e15d049d71610b499b5004e1496696337476ed057f60215309a9d3aba3120bc"
+callees = ["fn:e1cb570a455c31b8"]
+reached_by = [
+    "#5",
+    "#21",
+]
 
 [[module."mod.rs".function]]
 id = "fn:1ae19b31018680ce"
@@ -203,8 +374,6 @@ passed = [
     "#7",
     "#8",
     "#9",
-    "#10",
-    "#11",
     "#12",
     "#13",
     "#14",
@@ -213,6 +382,8 @@ passed = [
     "#17",
     "#18",
     "#19",
+    "#20",
+    "#21",
 ]
 failed = []
 
@@ -231,8 +402,6 @@ passed = [
     "#7",
     "#8",
     "#9",
-    "#10",
-    "#11",
     "#12",
     "#13",
     "#14",
@@ -241,17 +410,11 @@ passed = [
     "#17",
     "#18",
     "#19",
-    "#26",
-    "#27",
+    "#20",
+    "#21",
     "#28",
     "#29",
     "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
     "#37",
     "#38",
     "#39",
@@ -266,7 +429,15 @@ passed = [
     "#48",
     "#49",
     "#50",
-    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
 ]
 failed = []
 targets = [
@@ -280,8 +451,6 @@ targets = [
     "#7",
     "#8",
     "#9",
-    "#10",
-    "#11",
     "#12",
     "#13",
     "#14",
@@ -301,12 +470,6 @@ targets = [
     "#28",
     "#29",
     "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
     "#37",
     "#38",
     "#39",
@@ -321,5 +484,33 @@ targets = [
     "#48",
     "#49",
     "#50",
-    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
 ]
+
+[[review]]
+function = "fn:2db20ac5ca82f2df"
+by = "github:theodoreOnzGit"
+artifact = "review-select-nuclides-theodoreonzgit-2db20ac5"
+
+[[review]]
+function = "fn:3292f77e069a4060"
+by = "github:theodoreOnzGit"
+artifact = "review-normalise-nuclide-name-theodoreonzgit-3292f77e"
+
+[[review]]
+function = "fn:65fc83dc4226d102"
+by = "github:theodoreOnzGit"
+artifact = "review-sort-parents-before-daughters-theodoreonzgit-65fc83dc"
+
+[[review]]
+function = "fn:ee64ea353c7ab103"
+by = "github:theodoreOnzGit"
+artifact = "review-select-nuclides-accident-theodoreonzgit-ee64ea35"

@@ -57,7 +57,7 @@ path = "crate::nuclide_reaction_and_decay_data::decay_library::indexing_using_nu
 id = "fn:094c1bcb03a9b17f"
 name = "try_match_nuclides_to_decay_data"
 qual = "DecayLibrary::try_match_nuclides_to_decay_data"
-hash = "sha256:6d4aa0134301c34e39a74bf37fc1e97433aacbde78a816c72eb20b530d49e6aa"
+hash = "sha256:bddd6a8b2792c6cf57a73be48da916a3c7113a2650f3c6f9de212933cf5e940b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [module."mod.rs"]
@@ -86,7 +86,7 @@ path = "crate::nuclide_reaction_and_decay_data::decay_library::tests"
 id = "fn:13658084c79a513b"
 name = "index_tritium"
 qual = "index_tritium"
-hash = "sha256:9894d140ef12edb236e0564931699b268aa4c01bf8cd878e5e2ca3a85cdbb12c"
+hash = "sha256:adbc846c7667520103bca0021eddf7072dddd34427fbf5f90fe5fc1385c2523f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 

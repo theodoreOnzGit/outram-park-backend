@@ -46,14 +46,14 @@ name = "ThreadCount"
 qual = "ThreadCount"
 item = "type"
 shape = "enum"
-hash = "sha256:75acbbfd84d290a6e7e5458ed699a614a09a0ca5c07c711ca034e79d4579fe44"
+hash = "sha256:b3df7d8f45a578adee518eab91ce94a331f321b7782d6164c06c60304c4e7916"
 doc_hash = "sha256:f4afb44adf83586f5469d954929d7fbf25859d274a1782d90b171515a0b8c012"
 
 [[module."compute.rs".function]]
 id = "fn:ef85d35748487780"
 name = "resolve"
 qual = "ThreadCount::resolve"
-hash = "sha256:e6fb24c21707ee73e67c44e8974abbc92f5be2ee192dfc83e60158c9c786dd06"
+hash = "sha256:925d3307f1ce786ddf054eafe3cd9f5a84e947ccb7033475d49e9fb8be41f53c"
 doc_hash = "sha256:e87881a9c694abf374cd58e38f0031e6d45d1891f54e3a617d12bfc795d841b7"
 
 [[module."compute.rs".function]]
@@ -122,14 +122,14 @@ name = "GpuError"
 qual = "GpuError"
 item = "type"
 shape = "enum"
-hash = "sha256:25275dcc58c65a4b3e04e4b5c88a99ddfabd02506152eb80c1f6080be5f0b949"
+hash = "sha256:7ffc9c4350310440b7ead1afd7356965b4ed6094120100d4f20e0202d3b29c10"
 doc_hash = "sha256:5678f8731726e407b2c9b5880514d42b6e77c1160a158dd9b5335a372d40d3e1"
 
 [[module."gpu.rs".function]]
 id = "fn:9fe62a3fed45b702"
 name = "fmt"
 qual = "GpuError::fmt"
-hash = "sha256:a7b9255cc9cd31b8bdea80ddf3e4bfb9244462c889e344aea1daa4973e148ae6"
+hash = "sha256:d74f14224b66934e7500edf55cb1b978b66032d63829f9518bb8542b608ad543"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."gpu.rs".function]]
@@ -206,7 +206,7 @@ test = true
 id = "fn:185234af90dc43a5"
 name = "block_on"
 qual = "block_on"
-hash = "sha256:c2fc0b6e423dd59fe4ee71e0a9bbd518bcf569db0e7d3da915d65e8a1edb59c4"
+hash = "sha256:960551f531db63c6337d49c123e0741c6ae057d6044b0ac3d6b35ebe2e9a0d5e"
 doc_hash = "sha256:b8588282ba0f86b29bac36bee5503867b7c5c3babddf75e78d501c778ee69450"
 
 [[module."gpu.rs".function]]
@@ -265,7 +265,7 @@ physical_interface = true
 id = "fn:ff3e3b2a962f8dbb"
 name = "layer_diffusion_um2_s"
 qual = "layer_diffusion_um2_s"
-hash = "sha256:65dca151bb8c48129226baa38b1f31887f7994780e233159f53bde6e274adc9c"
+hash = "sha256:6e80073a8ca750d2c54050f9305fff966ebd2b7d171e6e85576e4ac5014ae0ef"
 doc_hash = "sha256:d946f5dcce212589134b2268d12aca844ada2049b3e41aa1387049f86f35b4e9"
 
 [[module."gpu.rs".function]]
@@ -301,7 +301,7 @@ test = true
 id = "fn:dd203631fea52642"
 name = "try_advance_multilayer_gpu"
 qual = "try_advance_multilayer_gpu"
-hash = "sha256:dae8d46258c354f15548d9bc15e486946abe44c527f2be8d65d7353e9c371423"
+hash = "sha256:673b0992ba29fc3c9ecaeaa517fd8b2e685058fe35bc77e3e806d058a801ba54"
 doc_hash = "sha256:0fddaccbc7e3cdc55827bc542d7d7b6a8a97c7f8d03ed1acda66d9993ecb0dfa"
 physical_interface = true
 
@@ -315,6 +315,68 @@ physical_interface = true
 
 [module."lib.rs"]
 path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:9791fb9d9a3ef7ab"
+name = "OnceLock"
+qual = "OnceLock"
+item = "type"
+shape = "struct"
+hash = "sha256:8c35ae18e8b156c703768fd1bd2dffc058f116ff15ca0259fa0f65d793937635"
+doc_hash = "sha256:9cc9768f31ec654fe99a40bc7bc6ebfde24747e23464e1e09916d3e48c8d1e09"
+
+[[module."lib.rs".function]]
+id = "fn:94ebc48ea92a0527"
+name = "get_or_init"
+qual = "OnceLock::get_or_init"
+hash = "sha256:2f5572ea4edadb3e59bd5d8ea89ce978e4d0bb7bb68657a53fe9e90a1b015efd"
+doc_hash = "sha256:8ec5a3e78094d936fab3dbaff14ee1cb38d895457cc16e0d8b731ae138e08eff"
+
+[[module."lib.rs".function]]
+id = "fn:570bb70aae37c594"
+name = "new"
+qual = "OnceLock::new"
+hash = "sha256:970a3ddcfc0f1c0a62cf751251a46e33d3c32d9c072d5aa0f668792447536b64"
+doc_hash = "sha256:db3a9ad6ee7a7749540f8f207f14ebaaacd040cbe9038089a8de8ceb0b069d37"
+
+[[module."lib.rs".function]]
+id = "fn:2aadac1a92ab7c24"
+name = "SystemTime"
+qual = "SystemTime"
+item = "type"
+shape = "struct"
+hash = "sha256:12b177e0bee81350221a11382eea248d20b8e5f973b444a401b807f750545a5a"
+doc_hash = "sha256:834a190dc9c7fc26b69db49b82fac5449b509a95525186c394ecbcfd1c5c3458"
+
+[[module."lib.rs".function]]
+id = "fn:68a16b8b8d2d8641"
+name = "duration_since"
+qual = "SystemTime::duration_since"
+hash = "sha256:3887fcc1f41880f378ef1fb8170c4b4ed077498b1e425bea66297ce5d2c5b75f"
+doc_hash = "sha256:7ecfcaa64d1143754cbce81a35bbfbe93650bf90a60da9a1d107f31fac77f618"
+
+[[module."lib.rs".function]]
+id = "fn:cca39a661122c137"
+name = "elapsed"
+qual = "SystemTime::elapsed"
+hash = "sha256:01f1725310dba6c3c8594571c6626d534c3e2deb19065f0d88975d7bcbf2a003"
+doc_hash = "sha256:7ecfcaa64d1143754cbce81a35bbfbe93650bf90a60da9a1d107f31fac77f618"
+
+[[module."lib.rs".function]]
+id = "fn:3de5d02bab391fc4"
+name = "now"
+qual = "SystemTime::now"
+hash = "sha256:fb750bfae084262226a4ac344078f3db059457ca435c52b5920d225a00e9060d"
+doc_hash = "sha256:99b9f762e668795c718ea1002e9dfd5dd02f05a920c114a66c0d4e0839afecd1"
+
+[[module."lib.rs".function]]
+id = "fn:2e6e788e0858cfe0"
+name = "UNIX_EPOCH"
+qual = "UNIX_EPOCH"
+item = "const"
+shape = "const"
+hash = "sha256:453ba96df4a1f60e5d3449e67fe0798ac6bcc9c0bdf34335e633039bdeb05953"
+doc_hash = "sha256:9ed7e16434acbcb0b0464bb850fc9aa2a0f6e599a0ec051ceeecfaab5474f008"
 
 [module."wasm_par.rs"]
 path = "crate::wasm_par"

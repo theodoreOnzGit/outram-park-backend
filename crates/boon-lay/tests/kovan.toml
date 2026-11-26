@@ -76,6 +76,58 @@ test_ids = [
     "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
 ]
 
+[module."kr_buffer_missing_diffusion_data.rs"]
+path = "test:kr_buffer_missing_diffusion_data"
+
+[[module."kr_buffer_missing_diffusion_data.rs".function]]
+id = "fn:274e963045c5b115"
+name = "bounded"
+qual = "bounded"
+hash = "sha256:4c220ae8aa7aa3747c8bb15738ab07b3c31e6beec7ad6cddf4aa7bee6844a3f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kr_buffer_missing_diffusion_data.rs".function]]
+id = "fn:0e57db1f766bde8f"
+name = "celsius"
+qual = "celsius"
+hash = "sha256:0b9eba265522a5e6fc92404ff4cadac2ef20631f7d7b00cfb3987b9d510f2c2d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."kr_buffer_missing_diffusion_data.rs".function]]
+id = "fn:aa571e724bcedb8e"
+name = "kr85_walk_does_not_panic"
+qual = "kr85_walk_does_not_panic"
+hash = "sha256:13b418e6ca681ecf4c562da44908d67d28deb36a1d6c3a50cc942b2496d07cff"
+doc_hash = "sha256:037748194066793cc1ab780d4fee15bf162ad1a78c8267ad2437fb30fd577c9a"
+test = true
+
+[[module."kr_buffer_missing_diffusion_data.rs".function]]
+id = "fn:da494be3b4a135cf"
+name = "kr85_walker_proceeds_through_the_buffer"
+qual = "kr85_walker_proceeds_through_the_buffer"
+hash = "sha256:2f77d071e0bfc470aa0be4340f49c882083325bc9319e12add859b652a15133f"
+doc_hash = "sha256:1bc586c5b8f091859a24fecb7bd7c99f78ed5f5e49e7babd9aee36d49e0d89b2"
+test = true
+
+[[module."kr_buffer_missing_diffusion_data.rs".function]]
+id = "fn:84f56deb7d3533e1"
+name = "kr_buffer_is_the_cited_german_value"
+qual = "kr_buffer_is_the_cited_german_value"
+hash = "sha256:53e7f3c9d9dc1f8f0990dac3ddfcc15d2e9e7653c2d596e231a8481a7a21ce86"
+doc_hash = "sha256:7f0ac5de6964a57f78c345351397da025a7c54a80223e229b005a205eb857851"
+test = true
+
+[[module."kr_buffer_missing_diffusion_data.rs".function]]
+id = "fn:f3543a8b676c9491"
+name = "kr_lookup_is_typed_error_only_for_graphite"
+qual = "kr_lookup_is_typed_error_only_for_graphite"
+hash = "sha256:97a47589b1d9aca3813e31a8b533e9c2340c2cf24160ddc840eef62d760dbfa8"
+doc_hash = "sha256:45738fa19176a57a49b23686663579a7e4d544e53f3c237ed0efe9080ebe23f3"
+test = true
+
 [module."mhtgr_stoyer_workflow.rs"]
 path = "test:mhtgr_stoyer_workflow"
 
@@ -87,6 +139,16 @@ item = "const"
 shape = "const"
 hash = "sha256:b8d4303f659750e972945ee910c028255321b71167786ea163a0198687360e69"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:518b88272fe2b144"
+name = "CaseScore"
+qual = "CaseScore"
+item = "type"
+shape = "struct"
+hash = "sha256:cc5accd453a9fd750d6ebafbfc7459377ed9f51c9e3aaaa52f8bacc316f4db76"
+doc_hash = "sha256:a3d35fcf2b857954719f27a3cf5408870aea907f654be1dee604e5b430adcf0b"
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -127,6 +189,17 @@ item = "type"
 shape = "alias"
 hash = "sha256:1974b3b6d9593fc3081a314edfdf47d0314b8114563edac6d64dba38b1987cbb"
 doc_hash = "sha256:69b89cca399f885b06fdadedcd2ab7b74c535107ce093a3ad4110f0900da190b"
+uses = ["fn:dcb6acb5e841b5b0"]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:e95381509718b938"
+name = "PAPER_POLICY"
+qual = "PAPER_POLICY"
+item = "const"
+shape = "const"
+hash = "sha256:bd2d0163823daca920081b40fa42e0e840f5ff475e31dca41e6b9e9e87f11010"
+doc_hash = "sha256:c9a5ad10017f514b1e3d1f254636acf126a41c479373727bb3b6b3201e6305b4"
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -137,6 +210,30 @@ item = "type"
 shape = "alias"
 hash = "sha256:773d24db91ae5910200fd9060f3bedee67bce16d86c437bf02caea9ddccd8f9d"
 doc_hash = "sha256:b6133ad395df2a9c2e69146a9df3f19dca356a0f68c34ae8a86396a3698e4c44"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:b872687bd30a967d"
+name = "Setup"
+qual = "Setup"
+item = "type"
+shape = "struct"
+hash = "sha256:a0ebdf17d87a0897d282f8e148ec15e3648cb75a06fbbb453256f89835cd2337"
+doc_hash = "sha256:f5ec0b4732a50579359855fe23370d826281a6a3e2b50ae7bbf611758fb1f964"
+uses = [
+    "fn:720763535406a854",
+    "fn:8a156c01e50ca527",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:b754ff5f79ad8f15"
+name = "UPSTREAM"
+qual = "UPSTREAM"
+item = "const"
+shape = "const"
+hash = "sha256:00edbc37903be951dbce5ac1e770eee50e2db7c005ea359b3a612e7b3cc237f4"
+doc_hash = "sha256:f7d6d2bf2427e8b0ddd556122c1f5271bd539f06e458e4633fc38d3fc4042164"
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -163,6 +260,49 @@ name = "accident_series_port_matches_upstream_for_figs_6_and_7"
 qual = "accident_series_port_matches_upstream_for_figs_6_and_7"
 hash = "sha256:a87eec029eaff63db1d417298b458c5d2028411771ff1df112ef6c757432c324"
 doc_hash = "sha256:34771c9ee9e11e3b772ae86db7a8d56d10285d3fef054fe3e29c9b41c0ef96a0"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:9511bb6f3a667d6e"
+name = "atops2026paper_against_the_papers_printed_releases"
+qual = "atops2026paper_against_the_papers_printed_releases"
+hash = "sha256:0d9dafd6dd06d36a7b6612a14099543bd73b3d7b22d2e4177ffdc5144915f20a"
+doc_hash = "sha256:02c4afe6bbdca37b16088976ccb16a16c7ab17acc4990f7a706e2fe9aa4ca24b"
+callees = [
+    "fn:0a906b3f44704108",
+    "fn:9ebac061e78bab77",
+    "fn:cdad051795ac6be8",
+    "fn:fe6fb33576d54327",
+]
+uses = [
+    "fn:8a156c01e50ca527",
+    "fn:b754ff5f79ad8f15",
+    "fn:b872687bd30a967d",
+    "fn:e95381509718b938",
+    "fn:fb5529d08b5edfef",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:0a906b3f44704108"
+name = "configurations"
+qual = "configurations"
+hash = "sha256:0477dcbfb31598d520ea9a9d75e03cdea025f049280a530db210ff1ea2e067e0"
+doc_hash = "sha256:38ac9afbc266def61574a7dd8bb076fdfd0592c862f5ef1286c0c70679dd8706"
+uses = [
+    "fn:04cbe7e951a3ef50",
+    "fn:05c53aa09e3542da",
+    "fn:24e4f2d2ea7f17f4",
+    "fn:3e752b3c15c4e4fe",
+    "fn:459395474c5875ce",
+    "fn:51ce89820d2bb919",
+    "fn:7c47d7977a8d550b",
+    "fn:b31dc309195e5890",
+    "fn:b4300d995422f7cf",
+    "fn:b872687bd30a967d",
+    "fn:d1e19251526ae55a",
+    "fn:e95381509718b938",
+]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -198,11 +338,35 @@ doc_hash = "sha256:775e2f7a53e61f96d6f5e82bf70db1a59d90d7449df309a15332a06193018
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:51d55903b47f3832"
+name = "paper_variant_with_upstream_readings_is_upstream_bit_for_bit"
+qual = "paper_variant_with_upstream_readings_is_upstream_bit_for_bit"
+hash = "sha256:842cc6b22129896dc0409b11785efd16d0a24cc3e2c9a2cdea1f14833387863d"
+doc_hash = "sha256:d9a37489920b1bea584471a86cc7aa590dc5f148a0fcf0d950b52594ba786b1f"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:b6670ce65d1534e4"
+name = "paper_with"
+qual = "paper_with"
+hash = "sha256:508f9ad6180dc30fa3ca4821e7a704a5852bef8691ecee82828ec72da3d394fa"
+doc_hash = "sha256:e249849654de69a8948142651ee03d024d9e9266dc7fe967e28302525b8981d3"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
 id = "fn:3b3ff14f82ecd222"
 name = "port_accident_curve"
 qual = "port_accident_curve"
-hash = "sha256:ea2bbba2de1c841b5f1f03951450002ed243549823c4802d841964b994e09691"
+hash = "sha256:c4dafacc69da7ff049cdff0a289495a10b556674f13a6773665ff0e816904228"
 doc_hash = "sha256:cd8af30a47a6767b6bb2c80b54831bfc6eefc72e2f29120529268ae93dd06de5"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:a9d6067f3b73c4cd"
+name = "port_accident_curve_with"
+qual = "port_accident_curve_with"
+hash = "sha256:82cbbe2f03087f1695dd434babf4270b47fa9f192d2fa9b1265be0f0c784312d"
+doc_hash = "sha256:f0bbbfc85ea8eeabab7f38ba401830f807cbac7196c568045c068e9dfea0ab06"
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -225,8 +389,38 @@ test = true
 id = "fn:4d4282c04b9be5a5"
 name = "port_case_nodal"
 qual = "port_case_nodal"
-hash = "sha256:b39f208b26ba1aedc7fce0fd79d1556672a3c6e1d7746de20af18cd6bf785dcf"
+hash = "sha256:4d8a7196c4042fb90524ee6dae0175b66eda873ab00934887f2bd411cc6fea50"
 doc_hash = "sha256:d3016674c9204a28a819c166f16251bc1811204720c234d87548f5a2cec15ad3"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:bb7fcdf324b9356c"
+name = "port_case_nodal_with"
+qual = "port_case_nodal_with"
+hash = "sha256:c390e6f85216eeb903eb29aaec79d521c2299aed1985dd1dafab5a5dedb7ecf2"
+doc_hash = "sha256:c5c133236683cb5716ba66f30500586a82bcc9ddd34673363696d769cc82a210"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:2db20ac5ca82f2df",
+    "fn:383734307cced06a",
+    "fn:44fd31aa536c0e7c",
+    "fn:5a33f79b407cf341",
+    "fn:9a8a6835861d321b",
+]
+uses = [
+    "fn:24b9b78394837b0c",
+    "fn:2816dd8674f2b148",
+    "fn:3dab844bc23ea2bd",
+    "fn:49cbfd358a6976d4",
+    "fn:4c0db62d31d996d2",
+    "fn:515e6933ab0603f9",
+    "fn:79f7794a2eef219f",
+    "fn:8f6c972c90fdceff",
+    "fn:9b0d7758d9e3ac90",
+    "fn:b872687bd30a967d",
+    "fn:dcb6acb5e841b5b0",
+]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -246,11 +440,59 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:cdad051795ac6be8"
+name = "score_case"
+qual = "score_case"
+hash = "sha256:a9dec292637eb605ac407d9868d6cad55812ee390eb9f93ac35c12775f64271e"
+doc_hash = "sha256:5e580611dd19e71b56a8fd381e80d5377d0034441d779a8c1ad0a8fc806d1882"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:51a1aaede9ebe26d",
+    "fn:9ebac061e78bab77",
+    "fn:a8aed3662b6bb636",
+    "fn:a9d6067f3b73c4cd",
+    "fn:bb7fcdf324b9356c",
+]
+uses = [
+    "fn:518b88272fe2b144",
+    "fn:b872687bd30a967d",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
 id = "fn:1baee06ed91589b2"
 name = "table"
 qual = "table"
 hash = "sha256:906c8fb45b9ce4759492ee1f3e113bcbf209fa53a912c0003642e686e8cfe2af"
 doc_hash = "sha256:9064bb0ecf34b62ab4b1dabf3f86db1fb9fa27dcc8002d3d8632a7eb4d88b7f0"
+uses = ["fn:8e508796566df4fe"]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:fe6fb33576d54327"
+name = "table19"
+qual = "table19"
+hash = "sha256:46f138d56ce352b44596af49695c291d91336b112f064f5295c2d69556342815"
+doc_hash = "sha256:81f35c539e8fba2e69f81190a3ec4c946517e6c11013b3bd8c1bd87e65b297dd"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:2db20ac5ca82f2df",
+    "fn:383734307cced06a",
+    "fn:44fd31aa536c0e7c",
+    "fn:5a33f79b407cf341",
+    "fn:9a8a6835861d321b",
+]
+uses = [
+    "fn:24b9b78394837b0c",
+    "fn:2816dd8674f2b148",
+    "fn:49cbfd358a6976d4",
+    "fn:515e6933ab0603f9",
+    "fn:8f6c972c90fdceff",
+    "fn:b872687bd30a967d",
+    "fn:dcb6acb5e841b5b0",
+]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -259,6 +501,426 @@ name = "upstream"
 qual = "upstream"
 hash = "sha256:538b6eea075af3a5d7c39745773931c10cdf7b332f63a19603868f0b8449c583"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+]
+uses = ["fn:3dab844bc23ea2bd"]
+test = true
+
+[module."strato_triso_diffusion_verification.rs"]
+path = "test:strato_triso_diffusion_verification"
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:edf1903424af537b"
+name = "D5"
+qual = "D5"
+item = "const"
+shape = "const"
+hash = "sha256:ed8b629465ebfe4b2df2dacea0699ffecbe44dc75e31de777bbae0468c6eda2b"
+doc_hash = "sha256:97b1df97c615c0d6ccde1b9f0605512eecfd72191b608de3bc903f8818e083ac"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:9dd30189ed3274f4"
+name = "EPS"
+qual = "EPS"
+item = "const"
+shape = "const"
+hash = "sha256:a66e71b82d56f7801a0a8f617e4149c817f264421ca8f5a3dab1efff5eea3a64"
+doc_hash = "sha256:e16367a38d6852cf0a0453d2af132d0a473bfbd5df3d7f12c306a113eb0ba203"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:b31575615d7645ce"
+name = "FvRun"
+qual = "FvRun"
+item = "type"
+shape = "struct"
+hash = "sha256:3a9823d7721e9f9eb1f59279b934d52454f75c87cd99c7361a83322c36f7a7fc"
+doc_hash = "sha256:2f1faecfceb7959eb4880d7dae3abdf17d50322ad7f66eadda1f685de05ff22f"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:9a95ae898a09a982"
+name = "G5"
+qual = "G5"
+item = "const"
+shape = "const"
+hash = "sha256:d48a0e243e9dd19b97778635fca3091ffcb5bb1f6919eab77d86e370e5fa7fbe"
+doc_hash = "sha256:109a15aea18c49849ef728e346d045a5a04e9a87723b76f2a3ce5e9d963b6953"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:f11b821bd20c457b"
+name = "GATE_A1_ABS"
+qual = "GATE_A1_ABS"
+item = "const"
+shape = "const"
+hash = "sha256:c60c2aa51c439c86c00ad8fcefcc16b36d7681e3a912150f5596efb43dbf557f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:2a328c0279f4953f"
+name = "GATE_A4_FLOOR"
+qual = "GATE_A4_FLOOR"
+item = "const"
+shape = "const"
+hash = "sha256:d9bd77736a1ad3a7732e8f01cc2584d67eda73e7790a652b16cafa5d636afc47"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:8c62e62d5931391b"
+name = "GATE_A7_CHANGE"
+qual = "GATE_A7_CHANGE"
+item = "const"
+shape = "const"
+hash = "sha256:0133c856f63b57a2e80d0e60253792f8b88ea0e1196c0a6ed9cb388bed73d13c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:87a3c223636c948d"
+name = "GATE_B2_ABS"
+qual = "GATE_B2_ABS"
+item = "const"
+shape = "const"
+hash = "sha256:c60c2aa51c439c86c00ad8fcefcc16b36d7681e3a912150f5596efb43dbf557f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:79ff0b438c4fab20"
+name = "GATE_FV_EXTRAP_ABS"
+qual = "GATE_FV_EXTRAP_ABS"
+item = "const"
+shape = "const"
+hash = "sha256:1273e06a94b8cd540c83240f7ccd8f7992e2f12c439102b4a1a70bee13f77790"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:d2e00477a63ce020"
+name = "GATE_SPACE_ORDER"
+qual = "GATE_SPACE_ORDER"
+item = "const"
+shape = "const"
+hash = "sha256:c379f01b6a8ce1ecf6ca3070eec481578e20b05f037dc3d8c43e1ad68f5df593"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:0e4e47c328b36064"
+name = "GATE_TIME_ORDER"
+qual = "GATE_TIME_ORDER"
+item = "const"
+shape = "const"
+hash = "sha256:7a945f8ac9e61c53b18dc851c74c3e4ea66ea342877d5566c5d21f49be0c9718"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:62ee2c246e5a73a7"
+name = "GATE_U1_FT_ABS"
+qual = "GATE_U1_FT_ABS"
+item = "const"
+shape = "const"
+hash = "sha256:69075f984461994a47a4b26f105b7dd5b66a595335d81f0e319012b1f85933d9"
+doc_hash = "sha256:a88ac9e2d0b2e0e91e2d15f542fad74e2bda6a4f51a71440d279d118fe342f7e"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:7a6b0e5807eedbd4"
+name = "GATE_U1_REL"
+qual = "GATE_U1_REL"
+item = "const"
+shape = "const"
+hash = "sha256:0133c856f63b57a2e80d0e60253792f8b88ea0e1196c0a6ed9cb388bed73d13c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:7d322a0c87239709"
+name = "GATE_U2_ABS"
+qual = "GATE_U2_ABS"
+item = "const"
+shape = "const"
+hash = "sha256:c60c2aa51c439c86c00ad8fcefcc16b36d7681e3a912150f5596efb43dbf557f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:814fc978d8ae3d4a"
+name = "MAX_MODES"
+qual = "MAX_MODES"
+item = "const"
+shape = "const"
+hash = "sha256:0d0717af7e4fe59fed98d59ce747c6043aefffa37f1d9ed04284637884b100ae"
+doc_hash = "sha256:e05a9e7e5e28df05c006d31e80a190bec17928c9c2365a282ea020d8d44ceda7"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:0c24b036a47b94e3"
+name = "SL_CASES"
+qual = "SL_CASES"
+item = "const"
+shape = "const"
+hash = "sha256:58927698648c5cb3c4661170dee701308fc8dc5d708a59c48254c8b7f74aa189"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:051d5ead31278d77"
+name = "TIMES"
+qual = "TIMES"
+item = "const"
+shape = "const"
+hash = "sha256:888fce98c4e5ba9ec070b268eab38ff59ab9e49ec11ac9c1176f07c627364336"
+doc_hash = "sha256:914c4f7fb4803e17757e059bcb6616c48dc17b10ad3b24f1726780700172b0de"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:8940cae13c7f092b"
+name = "T_END"
+qual = "T_END"
+item = "const"
+shape = "const"
+hash = "sha256:fc2329c517c75540d204f9f1bd377fffe0b0b5c355583a96a40cdc421ee5ea6a"
+doc_hash = "sha256:e11ea9c8733e7d5a521763ba254704819944763924de1618ebf91b70b7168573"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:bf30eb77257ed05d"
+name = "a1_homogeneous_sphere_against_closed_form"
+qual = "a1_homogeneous_sphere_against_closed_form"
+hash = "sha256:d2a1d408c9b7348df0c626ed13b113548d6c4867f9a4fb1ee0a6c18aab1c586c"
+doc_hash = "sha256:aff80e88558bf4d0581fe0e2f9ac63734a550a35894988aef0a09cbb22532500"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:11fcbd1f8d91119f"
+name = "a2a_two_layer_fv_against_sturm_liouville"
+qual = "a2a_two_layer_fv_against_sturm_liouville"
+hash = "sha256:2ccb2c6d87ed07fec92f1654bc4f26b120d29becae96e6934b75662269b4cdeb"
+doc_hash = "sha256:4fc3e16b2ca26c5bf92f3c2666dec0e88385bdc93b1159dca2f39b32ea08a74e"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:7f507102536a92ef"
+name = "a2b_two_layer_reversed_fv_against_sturm_liouville"
+qual = "a2b_two_layer_reversed_fv_against_sturm_liouville"
+hash = "sha256:44a9b2afbcc6c9b82851572ad5acb41e48a5fcd73e443f09e4e45dfda63d9a67"
+doc_hash = "sha256:6427ef9b91809596fe3132e015d56adb36b39f40ca4d0108f996a716cee7f2df"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:992619502d274cc3"
+name = "a3_a5_five_layer_mesh_refinement_against_sturm_liouville"
+qual = "a3_a5_five_layer_mesh_refinement_against_sturm_liouville"
+hash = "sha256:bc9bf43f42e14d2d91c6c75b941998dad7ab2d4a12e445e5d8e97096a72c8d12"
+doc_hash = "sha256:38c3b6dc9de2de70e8fcf52ab648bdbe3fe4794ca66c186cecee74186c238877"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:bdd5b0e9da295eed"
+name = "a4_diffusivity_contrast_sweep"
+qual = "a4_diffusivity_contrast_sweep"
+hash = "sha256:c0257868282c008bf655d84f332708836d06d370438161eceea5a9d412c84c95"
+doc_hash = "sha256:21ae52a16937ec80e065ae84e6727e6b3a037ac14a847319edc1ad5da2e879a1"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:29ddc95f7a079bc8"
+name = "a6_temporal_refinement"
+qual = "a6_temporal_refinement"
+hash = "sha256:9cb58358ae440a40379c9bc00999fbbb8d0b789593ee489bfa3b085482a2ed85"
+doc_hash = "sha256:d0ffa80fc60308b58ec6ce151ee9a5ba9a7b6bf61d98f4cbfe275efe7dd94988"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:6e494b8988e31876"
+name = "a7_modal_convergence"
+qual = "a7_modal_convergence"
+hash = "sha256:8acef1de0374f46167345f7b04127800b33b5986a0181d2e3938f65be75ae519"
+doc_hash = "sha256:a605cf0f50550e287f0d1f58ca78535d761f9af48abb1166559f02f20da84ba7"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:e3c03751df3ea94d"
+name = "b1_strato_fv_against_boon_lay_fv"
+qual = "b1_strato_fv_against_boon_lay_fv"
+hash = "sha256:1622c6b242d357fd22ef6e61f46266a23aea0d84dfd701667fe2979d5e3d4e9d"
+doc_hash = "sha256:51849da00fc463e8b5e6094ca3e77d843bab6b37bfcb0402cf729809f2ee36f4"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:bc1b01c978fc3e49"
+name = "b2_atops_booth_against_sturm_liouville_single_sphere"
+qual = "b2_atops_booth_against_sturm_liouville_single_sphere"
+hash = "sha256:375588e6892ba959c6575aed13f6c205caed408eff4bc8f689f066005844305b"
+doc_hash = "sha256:4598910605d763338d810667425ed232bf4b51cecf313f317a71da775aad6e5f"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:8a33e84d4bb6ee17"
+name = "boon_lay_fv"
+qual = "boon_lay_fv"
+hash = "sha256:447c3ddc5566cbfdfe203fd10ec98475d8b1afe0b6daa3ac190c8439c861dca0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:a0ac7fa371635622"
+name = "case_layers"
+qual = "case_layers"
+hash = "sha256:f3bc9ab8c8b38e7e7c7402bac20cf9acbd178d27162d928db166208249b41eb8"
+doc_hash = "sha256:0f44c5fb828b852325acdefe5d1d7515d2910e000b0445381771231de0255ea0"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:57fafb32270a88f7"
+name = "check_fv_diagnostics"
+qual = "check_fv_diagnostics"
+hash = "sha256:1c340cdd74c270f5649c10b6c91a2fd58fc61c0237cf6281e42a69dbbce62807"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:1156f5ff2f579a46"
+name = "closed_form_remaining"
+qual = "closed_form_remaining"
+hash = "sha256:e8e93bcb250e41ea7227e8750a03cfc8f82182a0f376bfe2fa449dc116e72671"
+doc_hash = "sha256:d05b623d6916d1d8ebd2e3d3112cfa7497ba59d075bd240f58243975513e5f89"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:5d629378bc99c622"
+name = "csv_rows"
+qual = "csv_rows"
+hash = "sha256:9fad54c230a59641d8d24316bcc03a57f9e9650bfc6acbf4886cf28179ee2ab4"
+doc_hash = "sha256:357efd9b6b4a89f7849058883b54a69b9c5cb69243e5501f9de5a7ebd3b23dd5"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:abf5a51b7fb7844a"
+name = "data_dir"
+qual = "data_dir"
+hash = "sha256:b5e91d98d78f638345b231c82031fd22bf2e68eaebc76eed36d9c2352219462a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:1a40e4ff6e7bc954"
+name = "extrap_space"
+qual = "extrap_space"
+hash = "sha256:c7c3bb1fe795c800793740f02d187650fc54316088915dd4814a06ce0c537bd7"
+doc_hash = "sha256:11667d374a36d705374c3e27b4a2b813227de0250bd5a0f823f5e2d14ca1a99a"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:b732089336d48840"
+name = "extrap_time2"
+qual = "extrap_time2"
+hash = "sha256:6005a385ee660d072792d6ae38063534e5ba6ed54d18d0b16f27da51da3a99e1"
+doc_hash = "sha256:6d26102e6967e2a7184af2af09f31c3ba6034f8b92727d7d3ffd77888193b897"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:55b6e021665799aa"
+name = "fv_against_reference"
+qual = "fv_against_reference"
+hash = "sha256:5b74198bb3aec5b747b0613db78d3f0f109f1cca1a7b725842eb56436f8243d0"
+doc_hash = "sha256:3f6f68aff9ac93f27d519d0962ca70373017c183509d6b68d731e7daf6879eac"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:8104a2f83fb1ae26"
+name = "hardware"
+qual = "hardware"
+hash = "sha256:20e4f2eb91d8e38de689e571a3527ab0f25214c07f27ce9b86d90d5303d3dcfc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:afe69fedca12d6c7"
+name = "interface_conditions"
+qual = "interface_conditions"
+hash = "sha256:9b78a81af150345e5b89fefd1200adc9c857c1ee0a91454147d09db616b1dd09"
+doc_hash = "sha256:57af86f8792abaea2ec28f10b040f1e623dbdb01735c7baa9857686d9a19bd6f"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:f5ba91cbc91a23bc"
+name = "layers"
+qual = "layers"
+hash = "sha256:f2f8f32b95a1674311df51023260ef527e480c9eedcf9435052ca729caaa0cd8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:85013e8ec9829db4"
+name = "meta"
+qual = "meta"
+hash = "sha256:ef5bf0fe1fbb3e413d432438f95d6a670081f601bf29257bdf042b96074224a3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:5d933f3b03c0fce1"
+name = "num"
+qual = "num"
+hash = "sha256:e7f058d49e2f9fe566a653e43bc7a39a93a929e92c6903a26e702d13048f5198"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:1fbebbdee5729855"
+name = "protocol_steps"
+qual = "protocol_steps"
+hash = "sha256:ae4a496983c3a35c26d8d3e03e5f075f918e773bd514ef9c64ffc0936f813be8"
+doc_hash = "sha256:10ff743b7d87f6d76ef369190b22e58f53307e1cca1a5aa334ded08f46b781fe"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:92461e304c73ddf5"
+name = "rel_diff"
+qual = "rel_diff"
+hash = "sha256:6c3ed178717c77dab42ad2ed0faf5260d63634da983d3a19fc2353ad13b495e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:af27164867279ae4"
+name = "series"
+qual = "series"
+hash = "sha256:aeb60ca60d2a3cb1d7fc725c2416dde5711e20bc1fc919e9c1a554b7be9937de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:173b7db6b9bef310"
+name = "two_layer"
+qual = "two_layer"
+hash = "sha256:4c87c4cd76329faa0c35d9b992fef576ecbabd96865a61bb5d55079a6edc5bc8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:b75946b7dd9ef31c"
+name = "u1_port_matches_upstream_sturm_liouville"
+qual = "u1_port_matches_upstream_sturm_liouville"
+hash = "sha256:ae20b23430a0e76f3012007f65598c11f26aa63002fc08a876eec2f620923eaf"
+doc_hash = "sha256:6a4b2b4f71798861e0a7e071277c23b3fd55a6744e7d84b2b12a1116e557473d"
+test = true
+
+[[module."strato_triso_diffusion_verification.rs".function]]
+id = "fn:5374779e24021bb6"
+name = "u2_port_matches_upstream_python_oracle"
+qual = "u2_port_matches_upstream_python_oracle"
+hash = "sha256:d70dd24596d2fea1bed49729e3ce7a04ec31d6dddbd9a155a0e4b468ce3ca549"
+doc_hash = "sha256:cdf3d3b400c108dff91665006e83b1cac2b93da5aab5a554db6a5a850b00e3a7"
 test = true
 
 [module."triso_atops_booth_vs_crp6.rs"]
@@ -268,7 +930,7 @@ path = "test:triso_atops_booth_vs_crp6"
 id = "fn:5de16f80358d1fea"
 name = "booth_longlived_has_the_predicted_truncation_floor_at_small_tau"
 qual = "booth_longlived_has_the_predicted_truncation_floor_at_small_tau"
-hash = "sha256:afbc4730817b6f449a48b19962188d1c37b6da16ebb7d963643faa12c36c849c"
+hash = "sha256:73636c547a992913477ef5ffc77d377c38f4aab73ce9ed45a29cc43e3095e3c6"
 doc_hash = "sha256:92533dfbbe4bfa0fe66095d8d6837e3ae007527df25f5d5a2009dd4d799e8669"
 test = true
 
@@ -485,7 +1147,7 @@ test = true
 id = "fn:28bc3349e76eef99"
 name = "booth_transient_zero_floor_is_unreachable"
 qual = "booth_transient_zero_floor_is_unreachable"
-hash = "sha256:5dd1cbc21ce3f3d2c8dc4270cec5b83afffbfede65ba8c3a19862e81a163a0f6"
+hash = "sha256:824fd102f4380da73ec8a6eb7ea4168dfc60c9c477d1611edd5532bfa41d9e37"
 doc_hash = "sha256:b3c557c89f1cd4636396ce4f94c182f40d7d3953ab068e4c830cb1a52d5f6466"
 test = true
 
@@ -776,7 +1438,7 @@ test = true
 id = "fn:fb570feb65c11787"
 name = "node_outputs"
 qual = "node_outputs"
-hash = "sha256:0f7f9f2237765d1d4b8bc05f0b455cc5c5ead2173aca60d4248fe9d2f155bd29"
+hash = "sha256:d2f53e395793e62964793bb188855e5da8868d9b33160abe49accc70d8be5723"
 doc_hash = "sha256:c605d916e7ca60d6989800ab4b794a63f684790a564a042c2d1ff365fa7af2cc"
 test = true
 
@@ -990,7 +1652,7 @@ test = true
 id = "fn:3a2d7413b6651ded"
 name = "normal_operation_node_i131_via_prelude"
 qual = "normal_operation_node_i131_via_prelude"
-hash = "sha256:6f8794750a912aedca8ea0b5bf55bd2e883d191eedce03956832152642c5bad3"
+hash = "sha256:dc5e19e40a807713f2ccf5eb01eee9964000d699db77d522517649db18d60717"
 doc_hash = "sha256:d4b22c21f99a5da12510cc6cd905650133e011cea7d820150f745007479305d7"
 test = true
 
@@ -1330,3 +1992,68 @@ targets = [
     "#66",
     "#67",
 ]
+
+[[review]]
+function = "fn:03f4100244ab1727"
+by = "github:theodoreOnzGit"
+artifact = "review-f-theodoreonzgit-03f41002"
+
+[[review]]
+function = "fn:0a906b3f44704108"
+by = "github:theodoreOnzGit"
+artifact = "review-configurations-theodoreonzgit-0a906b3f"
+
+[[review]]
+function = "fn:1baee06ed91589b2"
+by = "github:theodoreOnzGit"
+artifact = "review-table-theodoreonzgit-1baee06e"
+
+[[review]]
+function = "fn:24b9b78394837b0c"
+by = "github:theodoreOnzGit"
+artifact = "review-year-s-theodoreonzgit-24b9b783"
+
+[[review]]
+function = "fn:4c0db62d31d996d2"
+by = "github:theodoreOnzGit"
+artifact = "review-nodal-theodoreonzgit-4c0db62d"
+
+[[review]]
+function = "fn:79f7794a2eef219f"
+by = "github:theodoreOnzGit"
+artifact = "review-n-axial-theodoreonzgit-79f7794a"
+
+[[review]]
+function = "fn:8d25b16bb87e33c6"
+by = "github:theodoreOnzGit"
+artifact = "review-upstream-theodoreonzgit-8d25b16b"
+
+[[review]]
+function = "fn:9511bb6f3a667d6e"
+by = "github:theodoreOnzGit"
+artifact = "review-atops2026paper-against-the-papers-printed-releases-theodoreonzgit-9511bb6f"
+
+[[review]]
+function = "fn:9b0d7758d9e3ac90"
+by = "github:theodoreOnzGit"
+artifact = "review-n-radial-theodoreonzgit-9b0d7758"
+
+[[review]]
+function = "fn:b872687bd30a967d"
+by = "github:theodoreOnzGit"
+artifact = "review-setup-theodoreonzgit-b872687b"
+
+[[review]]
+function = "fn:bb7fcdf324b9356c"
+by = "github:theodoreOnzGit"
+artifact = "review-port-case-nodal-with-theodoreonzgit-bb7fcdf3"
+
+[[review]]
+function = "fn:cdad051795ac6be8"
+by = "github:theodoreOnzGit"
+artifact = "review-score-case-theodoreonzgit-cdad0517"
+
+[[review]]
+function = "fn:fe6fb33576d54327"
+by = "github:theodoreOnzGit"
+artifact = "review-table19-theodoreonzgit-fe6fb335"

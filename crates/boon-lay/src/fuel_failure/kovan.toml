@@ -165,6 +165,7 @@ test_ids = [
     "crates/sembawang/src/htr10.rs::thermal_decomposition_takes_over_where_the_report_says_it_does",
     "crates/sembawang/src/lwr_comparison.rs::a_near_isothermal_air_ingress_still_vents",
     "crates/sembawang/src/lwr_comparison.rs::bounding_comparison_carries_the_severe_loca_arm",
+    "crates/sembawang/tests/inventory_handoff_fingerprints.rs::every_inventory_handoff_case_is_bit_identical",
 ]
 
 [module."booth.rs"]
@@ -192,7 +193,7 @@ doc_hash = "sha256:604355e76e0cceb43d6cb3d6adfd6531b6a8d3ed6f646a01ff8bd01096569
 id = "fn:bfe601a4207afd91"
 name = "booth_release_function"
 qual = "booth_release_function"
-hash = "sha256:f88086857b4f0ba1f32fb6d38632be5193c001538a88297c598ea6c9ef6ee9a7"
+hash = "sha256:af2fbc773364e60fc02a79c0a8f34ca5ee860ea15b75d8b7520f37d7ea74d81a"
 doc_hash = "sha256:580d5f01bff332f3b0b2679ce67f7b45e4ac9613da202cedd3f68cf7626da5e1"
 physical_interface = true
 
@@ -248,7 +249,7 @@ test = true
 id = "fn:5995df5bbcafd0cf"
 name = "f_literal"
 qual = "f_literal"
-hash = "sha256:47c5b052f01ea1d067c745adbed7e8c3034fd5994a8ed4f8da97e6a5aa576945"
+hash = "sha256:b08ae4dc0484936d6af973b5cac61bf845618b56a8cae7c016e0845560d17eba"
 doc_hash = "sha256:86f064815f1f98b5d9afc39764d6940ad6fbe4844e2ea7589b46614980718384"
 test = true
 
@@ -272,7 +273,7 @@ physical_interface = true
 id = "fn:306f497064beb1d0"
 name = "the_analytic_limits_are_recovered"
 qual = "the_analytic_limits_are_recovered"
-hash = "sha256:95ef177637014c07fe9c5db4d164e0ff09f7ebaa467ef77defb9dd2c90e5798d"
+hash = "sha256:39a0b539f511bbc475912b9c0107dd0b78c94bb61ddad41ccc0f8ae5af5ecbf8"
 doc_hash = "sha256:0725f13ca1ac1a1474fe298b67a2b9dd4743ed6a01cf4589f860b1328e37ab5f"
 test = true
 
@@ -280,7 +281,7 @@ test = true
 id = "fn:440b7b31c742833f"
 name = "the_literal_grouping_is_excluded"
 qual = "the_literal_grouping_is_excluded"
-hash = "sha256:f857051b415b0d5282d07be84c26b6400c463586a3491ea0d5bb6d2cbef8f84a"
+hash = "sha256:20af3f0e16cb4d7603251ccaae42cd295bb4fae1aaccc4f926cc5ffc6be7bbf2"
 doc_hash = "sha256:ebf9e679b856d967693b84ceb049f5258425fe4f30da0922b630e5b47dc0038b"
 test = true
 
@@ -288,7 +289,7 @@ test = true
 id = "fn:9a5ab2a8afb92931"
 name = "the_thousand_term_cap_is_the_binding_one"
 qual = "the_thousand_term_cap_is_the_binding_one"
-hash = "sha256:28f7b51096a14df908e0bd7dbfa1b7696466b58f363e7b1e5cd25661bad6ccae"
+hash = "sha256:65da0c568c82d9a5a6a0f565dfd4c21d75d0446580e4bba4018c1b354177d13c"
 doc_hash = "sha256:c715d89274070db0a613a1b1471b5175b9570dd0784dfeae63f5df3d8e6ef95c"
 test = true
 
@@ -350,7 +351,7 @@ physical_interface = true
 id = "fn:40743e02d9be145f"
 name = "corrosion_rate_with"
 qual = "corrosion_rate_with"
-hash = "sha256:4d3e873d1cb3276e4514b1bd2eaf89ffbe5ee3839b4963d98efe6b6a6969d84e"
+hash = "sha256:9675f0ac94ce3091c8ef14ba23f0a97662d3b33b7de1a9683939bbb87b79aba5"
 doc_hash = "sha256:b0be69d6ef1507e99ae74847ca2044db9f57ba0b383d5947bbf193cb7bff3dee"
 physical_interface = true
 
@@ -422,6 +423,18 @@ item = "const"
 shape = "const"
 hash = "sha256:4d690dabf809ed9503d9c21e7af20297826988582604507134200ef1d52deefc"
 doc_hash = "sha256:7357f1a117b2fec44da23039debb9dab5038199ac34d790880f7ee9a6dc3ca6f"
+reached_by = [
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#35",
+    "#37",
+    "#48",
+    "#50",
+]
 
 [[module."decomposition.rs".function]]
 id = "fn:61c6b4b343818095"
@@ -431,6 +444,18 @@ item = "const"
 shape = "const"
 hash = "sha256:b4238d507203a351f1fbb97ec7c4ed9e7ea38eda17eac315b922d9f035a740de"
 doc_hash = "sha256:f3a4b55e6f289b80f65d03c87da47b8ff460e270440fe62ffa78027ea0e298e0"
+reached_by = [
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#35",
+    "#37",
+    "#48",
+    "#50",
+]
 
 [[module."decomposition.rs".function]]
 id = "fn:0ff5919b4f43fbe7"
@@ -438,14 +463,14 @@ name = "DecompositionCalibration"
 qual = "DecompositionCalibration"
 item = "type"
 shape = "enum"
-hash = "sha256:ae7c5f29fbc8a19a7efcab033b218095ea8b3671b26e82593c360667cfade270"
+hash = "sha256:fb7e273adeb8315ed484cadf0647af4941fa65187b329410c12d23ea0b4a98a3"
 doc_hash = "sha256:52289933675a1075ef4bc45b76909d10c44bf6e28d3fd6b2d226443f0eebf6ed"
 
 [[module."decomposition.rs".function]]
 id = "fn:e111bee9d0a2a666"
 name = "alpha"
 qual = "DecompositionCalibration::alpha"
-hash = "sha256:35c16630ab9340dc7c3ffa17756f9228f8d5636b2210f4317b651e828efda49b"
+hash = "sha256:bc4689a8d76ab2605ac6a38a8ad7ee12bac7f4b0ff1d1418ee8efbd4386e99b9"
 doc_hash = "sha256:09fa9f50a523cc3df89f40d1d09b43273978cf70abc7e60bb28cf50bab045b87"
 
 [[module."decomposition.rs".function]]
@@ -475,7 +500,7 @@ physical_interface = true
 id = "fn:0620a1915009e138"
 name = "alpha_ln2_makes_unit_action_the_median"
 qual = "alpha_ln2_makes_unit_action_the_median"
-hash = "sha256:61229fc74b1e8379b732991abb745a1d71026e83a5c9bd3df1553eeaa0f82824"
+hash = "sha256:679389947661c4b04785fc750e733ce8fe367b5249094d690b6fab2e1893b1c3"
 doc_hash = "sha256:27bab907319c31404048be04ce3cd9458af9324269158b9fd0b090116c44aa99"
 test = true
 
@@ -492,8 +517,25 @@ physical_interface = true
 id = "fn:cc9ce8689ab25b4c"
 name = "decomposition_rate_constant"
 qual = "decomposition_rate_constant"
-hash = "sha256:a45c39928c95292a5b23d425cb03245cd3604401d794bfeffefae189fe9d3e4f"
+hash = "sha256:befc16c52e08e1c566e3664d5a362243eb5c319f3c6f86d46e07a25062b10908"
 doc_hash = "sha256:ab8a886101c3beda7599d616eb738377c2031a88087c79976907bb0e9717ad59"
+uses = [
+    "fn:61c6b4b343818095",
+    "fn:754a22a9ab4477c6",
+    "fn:99695b80bb110520",
+]
+reached_by = [
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#35",
+    "#37",
+    "#48",
+    "#50",
+]
 physical_interface = true
 
 [[module."decomposition.rs".function]]
@@ -540,7 +582,7 @@ test = true
 id = "fn:e059ac2df28645af"
 name = "the_activation_energy_spans_benzs_measurement_range"
 qual = "the_activation_energy_spans_benzs_measurement_range"
-hash = "sha256:a2b6fe4c21c1f03b2db12862150c702deec122f4c035eb00ad9779faf67376f6"
+hash = "sha256:176983e64dd23c990d473baf4ef70e3b1f678780006022ef13514e725f1429ce"
 doc_hash = "sha256:b1b3248d03458a672b094ab1f3a30cd22e01ecefad5e88f4685daac182932859"
 test = true
 
@@ -564,7 +606,7 @@ physical_interface = true
 id = "fn:65f1617f2ff8ce5c"
 name = "thermal_decomposition_failure_fraction_with"
 qual = "thermal_decomposition_failure_fraction_with"
-hash = "sha256:8443ea256f44047d7aaa0db9709cd473947022ce4c7252341457cd1869d82882"
+hash = "sha256:a475cf12aa38f02c7a6b631394132aede5fde8a24e2fca002f97987db6f9cb87"
 doc_hash = "sha256:17944b18c8fd802078af29d8c2d918c92fc6d38fbf148e98132d8030d6ebe23e"
 physical_interface = true
 
@@ -593,7 +635,7 @@ doc_hash = "sha256:32c9d7f42a74beae315dc4773d1ff56cdf88a11cea8c5e45cf20e3d657b13
 id = "fn:4a942db7f01159f7"
 name = "log_ds"
 qual = "log_ds"
-hash = "sha256:6730b848b5e9429a07698be474d9a2884dd46c71cc8bec7136594643639b06fc"
+hash = "sha256:a1b26dc5292e7fd915ff3c816526f254cd47a0187d0e629cb38839706deca4b1"
 doc_hash = "sha256:c4fb40a0be94a6c1ad2f870c4003b2822038410bb83c94f94598e0fccb3b4444"
 test = true
 
@@ -601,7 +643,7 @@ test = true
 id = "fn:4572354618656f02"
 name = "reduced_diffusion_coefficient"
 qual = "reduced_diffusion_coefficient"
-hash = "sha256:a40acd013509c5c974215d9afc79190b9029b24459c42ed98288af3f1b6dd439"
+hash = "sha256:8ffa0f45c0e01c7cbb90105c82d835bf3add3018c8a3b7a704f0ffa436657d7e"
 doc_hash = "sha256:0f3c0bc5e864126c83a97c64f226f71186996901897953b0fa01cd5829aa6eef"
 physical_interface = true
 
@@ -617,7 +659,7 @@ test = true
 id = "fn:f76e5503e7e4fa19"
 name = "the_degenerate_inputs_are_limits_not_nans"
 qual = "the_degenerate_inputs_are_limits_not_nans"
-hash = "sha256:d3a1a5f0cc20e14100566f7d91b59791777699cbffdef0d95979cc47e44a7de0"
+hash = "sha256:1be116cd545090a1e9692143b905fa8c5be24146131d458e157840878834afb1"
 doc_hash = "sha256:86cb3447e0bd8c4dac662a0033e8b970ac2be5d0e696951387acce622f3a0155"
 test = true
 
@@ -641,7 +683,7 @@ test = true
 id = "fn:b6b8912ecb2f51ac"
 name = "the_uo2_equation_sits_above_the_figures_dashed_curve"
 qual = "the_uo2_equation_sits_above_the_figures_dashed_curve"
-hash = "sha256:484fa9fb79563d54948c2a49cf9d457c690b4df3002d2594b380c1ecbe1d2ac6"
+hash = "sha256:23340d9b9c29ff9d56e598d0eb0e08b61bf2bf89da4ee830cc188dec96285469"
 doc_hash = "sha256:c7955c07e7ddc41ad3353b9b40e1a3981b4720e54f9a710e55efebbca4a35201"
 test = true
 
@@ -654,15 +696,23 @@ name = "CorrosionInputError"
 qual = "CorrosionInputError"
 item = "type"
 shape = "enum"
-hash = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+hash = "sha256:1a7f51cd489f5bcf8e3d6152fe758165bef71d80de9dce8a474fa3997d0b83a7"
 doc_hash = "sha256:a11a990604096ceabc7b47f6e3423499347c6c160220e82c0545ccae83904284"
+reached_by = [
+    "#26",
+    "#56",
+    "#73",
+    "#74",
+    "#75",
+]
 
 [[module."geometry.rs".function]]
 id = "fn:e9002514133b6a4c"
 name = "fmt"
 qual = "CorrosionInputError::fmt"
-hash = "sha256:9c52f5b79847b414393dd715f3650bb94037d52e330f6e7bcd260eca579573f7"
+hash = "sha256:0d06abe9f88ae4d0c63f19f81b03dcf11516ed23122136e9d540dea3dc377b9f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:62323e762b03b9bf"]
 
 [[module."geometry.rs".function]]
 id = "fn:5b2b33cb94ca9a56"
@@ -670,7 +720,7 @@ name = "SicLayer"
 qual = "SicLayer"
 item = "type"
 shape = "struct"
-hash = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+hash = "sha256:7ff9b2a5892dca4bfeec223f3a0c85ba6a15332eac2b331f0e94c6699764f399"
 doc_hash = "sha256:906929f0b67869b164723095932403455a17afd7412cfaa864313375a0637108"
 reached_by = [
     "#25",
@@ -692,87 +742,12 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#53",
     "#54",
     "#56",
     "#72",
     "#73",
     "#74",
     "#75",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -781,6 +756,7 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 
 [[module."geometry.rs".function]]
@@ -789,109 +765,38 @@ name = "actual_thickness"
 qual = "SicLayer::actual_thickness"
 hash = "sha256:055f7daeb9d4f808015285dd822cd2196733ba27bc5da8ccdab88f9f8638129f"
 doc_hash = "sha256:fcc46d4a2475f0a9dc8ec378c1ad4fd945de789808c34d2dce69178f528fb108"
+callees = ["fn:fcce2a003b237da0"]
+uses = [
+    "fn:5b2b33cb94ca9a56",
+    "fn:62323e762b03b9bf",
+]
+reached_by = [
+    "#26",
+    "#73",
+]
 physical_interface = true
 
 [[module."geometry.rs".function]]
 id = "fn:2b07126502aff09a"
 name = "cbrt_mean_radius"
 qual = "SicLayer::cbrt_mean_radius"
-hash = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
+hash = "sha256:ca60c36142570cdb62c6dc0371a4debd43fdb702c2c703de9ed4495f3ffa95d2"
 doc_hash = "sha256:06721c64aa730efe26eecb58063b6785470b0de8e279edb2af5142d7a15f7890"
 uses = ["fn:5b2b33cb94ca9a56"]
 reached_by = [
     "#25",
     "#35",
     "#37",
-    "#39",
     "#40",
-    "#42",
     "#43",
-    "#46",
     "#48",
-    "#49",
     "#50",
     "#51",
-    "#52",
     "#54",
     "#56",
-    "#72",
     "#73",
     "#74",
     "#75",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -900,6 +805,7 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 physical_interface = true
 
@@ -911,101 +817,19 @@ hash = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
 doc_hash = "sha256:0a1635e772bae07a3d0e21bdf5e1820a0bc4be1022588ce829d675d67a17db7d"
 uses = ["fn:5b2b33cb94ca9a56"]
 reached_by = [
-    "#25",
     "#26",
     "#35",
     "#37",
-    "#39",
     "#40",
-    "#42",
     "#43",
-    "#46",
     "#48",
-    "#49",
     "#50",
     "#51",
-    "#52",
-    "#53",
     "#54",
     "#56",
-    "#72",
     "#73",
     "#74",
     "#75",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -1014,6 +838,7 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 physical_interface = true
 
@@ -1024,10 +849,7 @@ qual = "SicLayer::inner_radius"
 hash = "sha256:ffd77532a13d71570ed4abfd96d862326985edb735a43ebb38d8602172fe4ae4"
 doc_hash = "sha256:9621f3edd59f767ddb4c4ccfcc52a8b0281dfea7c877aecde8292e15d0942db9"
 uses = ["fn:5b2b33cb94ca9a56"]
-reached_by = [
-    "#25",
-    "#27",
-]
+reached_by = ["#25"]
 physical_interface = true
 
 [[module."geometry.rs".function]]
@@ -1036,6 +858,11 @@ name = "isothermal_thinning_factor"
 qual = "SicLayer::isothermal_thinning_factor"
 hash = "sha256:c8e5ee6a302c3857ee1377d1b0ab0fdd0d3caf0315d2aea4d482b5cab08bacf5"
 doc_hash = "sha256:d84a53ea55504c85e5f3dccf58d3a62ddac9ac308d42b26f6569c104d3a69382"
+callees = ["fn:fcce2a003b237da0"]
+uses = [
+    "fn:5b2b33cb94ca9a56",
+    "fn:62323e762b03b9bf",
+]
 physical_interface = true
 
 [[module."geometry.rs".function]]
@@ -1068,87 +895,12 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#53",
     "#54",
     "#56",
     "#72",
     "#73",
     "#74",
     "#75",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -1157,6 +909,7 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 physical_interface = true
 
@@ -1167,10 +920,7 @@ qual = "SicLayer::outer_radius"
 hash = "sha256:935e0917fd06aff0afb7130e62d19601da998c566f5d6517b6215dc4560eb136"
 doc_hash = "sha256:01bb0209c5cc7e043bfbc2c601d65ed01ed01f468b290c307cf6035835574d04"
 uses = ["fn:5b2b33cb94ca9a56"]
-reached_by = [
-    "#25",
-    "#27",
-]
+reached_by = ["#25"]
 physical_interface = true
 
 [[module."geometry.rs".function]]
@@ -1179,7 +929,7 @@ name = "SicLayerError"
 qual = "SicLayerError"
 item = "type"
 shape = "enum"
-hash = "sha256:cac43f9f475f58b14059cc80467030488465fb3e65af4bb412a8bd7492080689"
+hash = "sha256:b56676cf1eb85b37fee86863e207b9225b80d19b3eeafb6e03a6b3aa73cb1607"
 doc_hash = "sha256:c8e79ddd48a039ad8f13f9692ee0b6c42d3d71225563929b57abe5e3988f96aa"
 reached_by = [
     "#25",
@@ -1201,87 +951,12 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#53",
     "#54",
     "#56",
     "#72",
     "#73",
     "#74",
     "#75",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -1290,13 +965,14 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 
 [[module."geometry.rs".function]]
 id = "fn:8b48ef30aabd6ed1"
 name = "fmt"
 qual = "SicLayerError::fmt"
-hash = "sha256:8ffe22a3277f083e611ebed49974ed8a61ffc1e7b5b01c584718b2a5672a2067"
+hash = "sha256:d96b3bc9d3b422aeb83a57c9a6c02d1bee8e482cf8d7456e1533f593dda4bf19"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 uses = ["fn:f4afa171b919e323"]
 
@@ -1383,7 +1059,7 @@ physical_interface = true
 id = "fn:7781b886142bf15d"
 name = "corroded_weibull_modulus"
 qual = "corroded_weibull_modulus"
-hash = "sha256:1181631a0893d27f0c37d4cc839be10449ed332eb43f474d76a9b86c76d5e586"
+hash = "sha256:eed24981423d4917f10257d53355e7908ee0528d2619e76230b688322ac62dd9"
 doc_hash = "sha256:b6ad9c8f658cdd57d7cea435447a1318231a77b7f8f67b34d92329b60bd2125d"
 physical_interface = true
 
@@ -1391,7 +1067,7 @@ physical_interface = true
 id = "fn:2094566683b2cadb"
 name = "corrosion_lifts_the_failure_fraction_as_figs_7_and_8_show"
 qual = "corrosion_lifts_the_failure_fraction_as_figs_7_and_8_show"
-hash = "sha256:8054a0d7fef62dd76840759ad3e2206447ae3f68957121cd6944019c189e6470"
+hash = "sha256:d36982538bec8ad0773a0f2936b95f06e6fc9c35127677742b7736211271213a"
 doc_hash = "sha256:855c887d98f67cb230d90a3741e28f0c9069a169b8e279c6c69a30446f0eab5e"
 test = true
 
@@ -1415,7 +1091,7 @@ test = true
 id = "fn:9181df540ca8823b"
 name = "grain_boundary_corrosion_rate"
 qual = "grain_boundary_corrosion_rate"
-hash = "sha256:48f0fbd6dad48408932efaf48f35fb9a50240585f4af2aadfc4592e12fc47038"
+hash = "sha256:57867278c3060ffc4c3782aadf845fffa9d1955210c79cadac570b61209c0d5d"
 doc_hash = "sha256:38fe81ae0d39278d48a374b278f9c1e2ee7495aea0d1a162287d265ac42f1b8f"
 physical_interface = true
 
@@ -1608,7 +1284,7 @@ physical_interface = true
 id = "fn:6245fb9084048f98"
 name = "figure_6_recovers_one_common_stress_history"
 qual = "figure_6_recovers_one_common_stress_history"
-hash = "sha256:a364af0393387820b7cefa2ec5c88c3dc36c4799d43bdcb139a50bf1aa8bb20c"
+hash = "sha256:3b4b7c17d1a8703139161c0d74fe25ea4d5a7def34cf31398a43657bdea1ecf2"
 doc_hash = "sha256:9e7d1cdaf7ee6e679fde3e7382fea5199a0f8fb620ad3e26eb9d1b0e30c062cf"
 test = true
 
@@ -1616,7 +1292,7 @@ test = true
 id = "fn:8f0e932672a6ecc9"
 name = "figure_7_brackets_the_measurement"
 qual = "figure_7_brackets_the_measurement"
-hash = "sha256:2066628813dec0464540cb1fba61ba73b64a0ae8799dea33e49e8eab443cdb81"
+hash = "sha256:1f1313b6d583120f33ea7887b0afcf978a1accb20933fb707caf2db0737859cf"
 doc_hash = "sha256:b3566b5197bec6062e63eadcbee8e87f89d13a8de6f49029d4fb69c1226cd8c8"
 test = true
 
@@ -1624,7 +1300,7 @@ test = true
 id = "fn:54fc9e64461ec5df"
 name = "figure_7_redigitised_brackets_the_measurement"
 qual = "figure_7_redigitised_brackets_the_measurement"
-hash = "sha256:fc2f5b532a6f62eb1ddb82c74c133e68dfe90480ac2973fe1a8b9cd4647b02b4"
+hash = "sha256:ac5234d4bee5781bcaa5af5c1e00dd7cc5a35c46af3ed2b679a8505c368a9101"
 doc_hash = "sha256:f26eb0bee6db34163204e3c8431b062f28673f6bb6ee2a58e5befb3722914fe0"
 test = true
 
@@ -1632,7 +1308,7 @@ test = true
 id = "fn:0690457ffd495d24"
 name = "figure_7_redigitised_reproduces_the_staged_history_then_drifts"
 qual = "figure_7_redigitised_reproduces_the_staged_history_then_drifts"
-hash = "sha256:1c16eb3b1b02458545ae95d0ccb5451b67ba3fa201d5a156b358c604fa31a5e9"
+hash = "sha256:13d12afe26e75acb771451cb88cdbe82d04d82a90f25ca15f7c2ea3ad02d1f1e"
 doc_hash = "sha256:dc09a715bc9e48f9d22ffcc2e8db7e3a04ed3524621e646884249be13d3312b0"
 test = true
 
@@ -1640,7 +1316,7 @@ test = true
 id = "fn:758957c30bc5872c"
 name = "figure_7_redigitised_two_curves_connect_at_the_true_scale"
 qual = "figure_7_redigitised_two_curves_connect_at_the_true_scale"
-hash = "sha256:8cbd3ea1752619e16069745653418e8a3931f49ccfcee34f94ca62dcffe69175"
+hash = "sha256:1d946a2557076b74e3a9385bab6d6e0d3034f8532ace20f34493d12624c61c8c"
 doc_hash = "sha256:2be6ae780bd21043fc86a2f097e09192177eafc341fc9b2aa1433672425898f1"
 test = true
 
@@ -1648,7 +1324,7 @@ test = true
 id = "fn:7f914f40e6540d86"
 name = "figure_7_reproduces_the_staged_history_then_drifts"
 qual = "figure_7_reproduces_the_staged_history_then_drifts"
-hash = "sha256:6292a9fbdddb26eb709a72dc5ddbe8a841c035383ab95397c9f45a2127c82a97"
+hash = "sha256:a34caf102f694f3dfc5ef05fc43bb390fc0bcc4f30540985156e3f16f3d46139"
 doc_hash = "sha256:0bb47246efab72f40ce5362221ff979c7ad0018b3fce7f53ac5c1c716e0f9be2"
 test = true
 
@@ -1656,7 +1332,7 @@ test = true
 id = "fn:93b6115c76e69966"
 name = "figure_8_brackets_the_measurement"
 qual = "figure_8_brackets_the_measurement"
-hash = "sha256:ef3a117ca31426137c579c0b51e4912476f3047b57adced84847a880d6036871"
+hash = "sha256:0859a647892bfabb0f83a71d68e343ea7f5778f29c0c0e8b839371835b76ca56"
 doc_hash = "sha256:b7bc9045a3706b15a52cd749b1db8fb2d2f0396f0bc84fbd08d814a4d71507f6"
 test = true
 
@@ -1664,7 +1340,7 @@ test = true
 id = "fn:6dae0e66c90e4195"
 name = "figure_8_excludes_the_uranium_oxide_oxygen_correlation"
 qual = "figure_8_excludes_the_uranium_oxide_oxygen_correlation"
-hash = "sha256:6dec4d3f3716774307e69def390d105ec119b1fc726c2c5a2d3d35cd6429356e"
+hash = "sha256:44eee0a972eb1f48c4ac027455561aa090cb46b6c088f5448da6fdf9858812dc"
 doc_hash = "sha256:3e5cab4dd7e1862a5753a1ff09831f576c251a4d98fd350b7f40227e0d249e00"
 test = true
 
@@ -1672,7 +1348,7 @@ test = true
 id = "fn:b7caee3f470ac622"
 name = "figure_8_isothermal_drift_reappears"
 qual = "figure_8_isothermal_drift_reappears"
-hash = "sha256:11c95631c5d9aa334eba8e811aa4bbeea82482b9b580f734ad6bfda9578f45cf"
+hash = "sha256:f596e1e0d42c82163c1c4304f5c7d469a7890a86f78693e6def781ab38ee791e"
 doc_hash = "sha256:c412d897c32ebf89b2075673c6bea0af9a97409792a94232208ed77809155d63"
 test = true
 
@@ -1680,7 +1356,7 @@ test = true
 id = "fn:9bd26144aff88378"
 name = "figure_8_redigitised_brackets_the_measurement"
 qual = "figure_8_redigitised_brackets_the_measurement"
-hash = "sha256:925ab36ae5e4c51e5c89112990cff8e502d1a742c376ee36a2787c7b523de93f"
+hash = "sha256:53d00634d1015f63d16c0fdd79c6ecf33e480e673ae1f080666e15ea1443f7c7"
 doc_hash = "sha256:e8ffc7a22a5a908584b7f884e3115bb727d1191195bf2b27c61354aa5796f8c3"
 test = true
 
@@ -1696,7 +1372,7 @@ test = true
 id = "fn:e09fe9c5b994602e"
 name = "figure_8_redigitised_isothermal_drift_reappears"
 qual = "figure_8_redigitised_isothermal_drift_reappears"
-hash = "sha256:5f515cf7dc9e60d89209d7d2e5e9668cdc18400234842b76ae6c30f4a324811c"
+hash = "sha256:9eb460487c5542330259b04a40e2e27c9397a0e7ef9a2a61ef27e21ba1dea3fb"
 doc_hash = "sha256:ac776392e98cf2a899e10f0f44b63842f16d0f6611212dfdc31d6d4423a0d347"
 test = true
 
@@ -1704,7 +1380,7 @@ test = true
 id = "fn:5c92af276a269380"
 name = "figure_8_redigitised_two_curves_connect_at_the_true_scale"
 qual = "figure_8_redigitised_two_curves_connect_at_the_true_scale"
-hash = "sha256:4d07493c7d912e52f2e16c130f00b59b782fcf45e4b86ec6293d76d77d46716d"
+hash = "sha256:c861c8dcb27c1a36d75e00f7ab15132bbe5262810cab05ed22afdef1cd70b835"
 doc_hash = "sha256:c9ab992caed5c1f738be9bff6833194a416b6045e812db0eab1c41d256517684"
 test = true
 
@@ -1712,7 +1388,7 @@ test = true
 id = "fn:262b755505ae2b47"
 name = "figure_8_two_curves_expose_a_log_axis_calibration_error"
 qual = "figure_8_two_curves_expose_a_log_axis_calibration_error"
-hash = "sha256:35592b0edd366e4f18763b6215af0c3e9978f788ba11fd1a1e12aec334355250"
+hash = "sha256:bf570bfd9acd04248380facec44332df533a92f6be79ef7832d6cc9d9b37ce29"
 doc_hash = "sha256:2136430bcd17e8c4e09c9747727382c96511e72ece1251d14b9c4c5992d11a44"
 test = true
 
@@ -1795,7 +1471,7 @@ test = true
 id = "fn:0ebfede84be7f89a"
 name = "stress_implied_by"
 qual = "stress_implied_by"
-hash = "sha256:fe94bb6b9be9330c24a61714e70aa3c678be9e18625871f16f2b8c20dc1a37a6"
+hash = "sha256:bd2f7051b747f15f158492aa5bd601ca4c4bb4d44c13d4d8e7f48391f94bd0da"
 doc_hash = "sha256:157db98ea07887c6d48ad61de340f900c391abbc509856c14271be4438a0ee08"
 test = true
 physical_interface = true
@@ -1875,84 +1551,9 @@ reached_by = [
     "#54",
     "#55",
     "#56",
-    "#76",
     "#77",
     "#78",
     "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -1961,6 +1562,7 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 
 [[module."mod.rs".function]]
@@ -2121,7 +1723,7 @@ test = true
 id = "fn:847c6ffd8ed92f23"
 name = "oxygen_per_fission_thoria"
 qual = "oxygen_per_fission_thoria"
-hash = "sha256:c4863b88b281f24eab024ec5aad5bd9543be21f186af8f3fbf45256b4266fcca"
+hash = "sha256:ad09c17c20e15a95113a971c77bd6f388b65d338cd49d1353f91749df6807212"
 doc_hash = "sha256:99ee37adfaaaacc758067dc526e1912fcced7bf83ef8e7044a1e0808127fc30e"
 physical_interface = true
 
@@ -2137,7 +1739,7 @@ physical_interface = true
 id = "fn:f9b3f4e65964c7ad"
 name = "oxygen_per_fission_uo2"
 qual = "oxygen_per_fission_uo2"
-hash = "sha256:74cead6c708d535ad4520177557d19e3755bc2430b11e2ec7debab83b1e0b649"
+hash = "sha256:dd8aaebe5939eff649e38ae448d65ce592cac876e8210ffc2f3eeefca232514f"
 doc_hash = "sha256:2bf337fb51a44d0877f2fb5588a058623c7ee4b75d2bd0a107891b77ed7c3cc4"
 physical_interface = true
 
@@ -2153,7 +1755,7 @@ test = true
 id = "fn:7ebaed893b98e8da"
 name = "table_2_oxygen_per_fission_is_reproduced"
 qual = "table_2_oxygen_per_fission_is_reproduced"
-hash = "sha256:8fb68a4b21d31341297c5c61edc399fbd8d0ebbb5139326de681869095a01f18"
+hash = "sha256:7d71733bd00582ea9768bf99e3aa389f42d9b064dd86221bdaea30a98f4c8178"
 doc_hash = "sha256:1f8d890f7151c10dbb235ba84a7e54f898e28dc16c1d9149ed29bb71425a0885"
 test = true
 
@@ -2177,7 +1779,7 @@ test = true
 id = "fn:e301b5002581361e"
 name = "the_thoria_curve_has_the_right_temperature_dependence"
 qual = "the_thoria_curve_has_the_right_temperature_dependence"
-hash = "sha256:bb9b572919df40f38a4e2527cd056fb1802fe264a35f253261b7b9ae4c1d9ab2"
+hash = "sha256:650934875431fa7fe0cfe46ada3635500cfb988dafefec6c40c2b17ff9515a29"
 doc_hash = "sha256:63c27473d765b35ce88b193db86a2a109dc13d62535ff998fe18c5ac5e578fda"
 test = true
 
@@ -2200,6 +1802,43 @@ item = "const"
 shape = "const"
 hash = "sha256:a4d46079c620d78bb95f6e108f6fef62c1948182777a691249dd418440b8df04"
 doc_hash = "sha256:ce586729a9c5019df12c47edbc7413728a034bd5922a43cccc9e2a48200dde13"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#28",
+    "#30",
+    "#35",
+    "#36",
+    "#37",
+    "#40",
+    "#43",
+    "#44",
+    "#45",
+    "#48",
+    "#50",
+    "#51",
+    "#54",
+    "#56",
+    "#66",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+]
 
 [[module."pressure.rs".function]]
 id = "fn:13379f3b658fa25e"
@@ -2246,6 +1885,40 @@ item = "const"
 shape = "const"
 hash = "sha256:e79a1918ddea29db328b79d1f61ac7a89bbddf2396e70cc1896ed20e40cd870b"
 doc_hash = "sha256:52623f996a46bce1811961eec8a0533fb16ea7830d3fecd780f426eba6b5aa1c"
+reached_by = [
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#54",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+]
 
 [[module."strength.rs".function]]
 id = "fn:72601fd84f0cb0d8"
@@ -2255,21 +1928,121 @@ item = "const"
 shape = "const"
 hash = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
 doc_hash = "sha256:7624115720911050e9ac3bb545f86a25864dd6b0d9bf12548994c32a3e29c0fb"
+reached_by = [
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#54",
+    "#67",
+    "#68",
+    "#71",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+]
 
 [[module."strength.rs".function]]
 id = "fn:6d19c034ff85e598"
 name = "irradiated_strength"
 qual = "irradiated_strength"
-hash = "sha256:733e8c62dfa9749bfc5dfe4c68b5b0697f611b7d2c2498c551e8b1466d6f0ee5"
+hash = "sha256:a8882ed3e16873f7443d986d1d248f008b8bdc7611698763d0a26a031e1cbafd"
 doc_hash = "sha256:6b9b571c1947f910d8898e6a0ab49a572145ca464707fe80c488af82523c3a0a"
+uses = ["fn:28160a5b4e94007b"]
+reached_by = [
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#54",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+]
 physical_interface = true
 
 [[module."strength.rs".function]]
 id = "fn:ff16d9bf9f457f13"
 name = "irradiated_weibull_modulus"
 qual = "irradiated_weibull_modulus"
-hash = "sha256:57b7d596ab143da4a49bd6837cf26bb2e0736b7a99b61b3a931b3afeb2c9b180"
+hash = "sha256:d4e81461f1e1289642ed5895eb0efafab5d9185794f936b91210a5b8b1fb4055"
 doc_hash = "sha256:e9557486f5536531c87d37fd5d7f97a47ce47e4204b8fe4a95073ffe5dee0161"
+uses = ["fn:72601fd84f0cb0d8"]
+reached_by = [
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#54",
+    "#67",
+    "#68",
+    "#71",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+]
 physical_interface = true
 
 [[module."strength.rs".function]]
@@ -2321,6 +2094,7 @@ name = "a_negative_corrosion_rate_is_refused_by_both_routes"
 qual = "a_negative_corrosion_rate_is_refused_by_both_routes"
 hash = "sha256:bb785b7051ca14f3db8d34b7f85695b83ae87107280ece3669b4a2ceec60fa3c"
 doc_hash = "sha256:6f71882f491f8ffc92ed8911f3ecc1bad96a88e86faaab7335bdc857c8e4abed"
+callees = ["fn:29fd23a48ca756df"]
 test = true
 
 [[module."stress.rs".function]]
@@ -2329,6 +2103,20 @@ name = "induced_stress"
 qual = "induced_stress"
 hash = "sha256:dd8d0e1854a1c7fe6a126c017cd5e6d289aaa4fbe9b8edbd82d62b7108fce2e1"
 doc_hash = "sha256:46d013e338a45a1f0160beb8480856e8db7007cd177da0d0ae351ec7b177c7a3"
+callees = [
+    "fn:2b07126502aff09a",
+    "fn:fcce2a003b237da0",
+]
+uses = [
+    "fn:5b2b33cb94ca9a56",
+    "fn:62323e762b03b9bf",
+]
+reached_by = [
+    "#56",
+    "#73",
+    "#74",
+    "#75",
+]
 physical_interface = true
 
 [[module."stress.rs".function]]
@@ -2337,6 +2125,12 @@ name = "induced_stress_exact"
 qual = "induced_stress_exact"
 hash = "sha256:19bcf0ea7122ec816b6337fe91e61431c34361bcd05fc24fcecdf5d6b289e34d"
 doc_hash = "sha256:b60114464cd95855e4abd1ee01ea1a827bb30aa96ce3e24cdcb61d7901e9f5b7"
+callees = ["fn:2b07126502aff09a"]
+uses = [
+    "fn:5b2b33cb94ca9a56",
+    "fn:62323e762b03b9bf",
+]
+reached_by = ["#74"]
 physical_interface = true
 
 [[module."stress.rs".function]]
@@ -2345,6 +2139,30 @@ name = "induced_stress_with_thinning_factor"
 qual = "induced_stress_with_thinning_factor"
 hash = "sha256:df990056b7c16e15de2eabb7091840c8d26efb6792d907e9ac6021a69bfb7562"
 doc_hash = "sha256:b5a62bbfd2d05ee79a50dbde20c2d8a5004ed4ad7ef7f122b717fa4ffdfab467"
+callees = [
+    "fn:2b07126502aff09a",
+    "fn:fcce2a003b237da0",
+]
+uses = ["fn:5b2b33cb94ca9a56"]
+reached_by = [
+    "#35",
+    "#37",
+    "#40",
+    "#43",
+    "#48",
+    "#50",
+    "#51",
+    "#54",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+]
 physical_interface = true
 
 [[module."stress.rs".function]]
@@ -2371,6 +2189,11 @@ name = "the_two_routes_to_the_stress_agree_exactly"
 qual = "the_two_routes_to_the_stress_agree_exactly"
 hash = "sha256:e97229bf787a9f190f74599a33369ba5d76157bbfba083b98f3d9789387ff7c5"
 doc_hash = "sha256:2241d0c8ebd9b6be73f4658e666b972f3434534ce6098b14ea128badf924be31"
+callees = [
+    "fn:29fd23a48ca756df",
+    "fn:c04cf2b3db90cf92",
+    "fn:cc30818aa7756c33",
+]
 test = true
 
 [[module."stress.rs".function]]
@@ -2390,7 +2213,6 @@ name = "a_larger_modulus_sharpens_the_transition"
 qual = "a_larger_modulus_sharpens_the_transition"
 hash = "sha256:6742eb3ad47c54c18cc85b2a0de3997c2571eed14d9e205d2701c5fdc05e022c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:dd41ff2953124783"]
 test = true
 
 [[module."weibull.rs".function]]
@@ -2406,7 +2228,7 @@ test = true
 id = "fn:81bac657a46a4b00"
 name = "median_is_the_scale_parameter"
 qual = "median_is_the_scale_parameter"
-hash = "sha256:4e214aa2d7bff7f54dd7ba87724af2f77bcdcdb2f86eceef60680c9fe5d2a6be"
+hash = "sha256:6ae8e9033ae97fc9d22248aa99955daf8ea999c468fb3d7fdcceefc225496801"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:dd41ff2953124783"]
 test = true
@@ -2415,7 +2237,7 @@ test = true
 id = "fn:dd41ff2953124783"
 name = "weibull_failure_fraction"
 qual = "weibull_failure_fraction"
-hash = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
+hash = "sha256:d2802c4e6f46392d259572f66ad4603b2ee504c088e946db89cb8b3df29be89d"
 doc_hash = "sha256:52c13390871b8991d976b786d6612153fdd5adfbc946875a3e173157e8b39949"
 uses = ["fn:91b8101ebd5b4ec6"]
 reached_by = [
@@ -2423,95 +2245,13 @@ reached_by = [
     "#32",
     "#35",
     "#37",
-    "#39",
-    "#40",
-    "#42",
-    "#43",
-    "#46",
     "#48",
-    "#49",
     "#50",
     "#51",
-    "#52",
     "#54",
     "#56",
-    "#76",
     "#77",
     "#78",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
     "#154",
     "#155",
     "#156",
@@ -2520,6 +2260,7 @@ reached_by = [
     "#159",
     "#160",
     "#161",
+    "#162",
 ]
 physical_interface = true
 
@@ -2800,6 +2541,16 @@ targets = [
 ]
 
 [[review]]
+function = "fn:1b50c85b20be031b"
+by = "github:theodoreOnzGit"
+artifact = "review-a-negative-corrosion-rate-is-refused-by-both-routes-theodoreonzgit-1b50c85b"
+
+[[review]]
+function = "fn:28160a5b4e94007b"
+by = "github:theodoreOnzGit"
+artifact = "review-min-tensile-strength-mpa-theodoreonzgit-28160a5b"
+
+[[review]]
 function = "fn:29fd23a48ca756df"
 by = "github:theodoreOnzGit"
 artifact = "review-layer-theodoreonzgit-29fd23a4"
@@ -2825,9 +2576,24 @@ by = "github:theodoreOnzGit"
 artifact = "review-siclayer-theodoreonzgit-5b2b33cb"
 
 [[review]]
+function = "fn:61c6b4b343818095"
+by = "github:theodoreOnzGit"
+artifact = "review-decomposition-front-velocity-m-per-s-theodoreonzgit-61c6b4b3"
+
+[[review]]
+function = "fn:62323e762b03b9bf"
+by = "github:theodoreOnzGit"
+artifact = "review-corrosioninputerror-theodoreonzgit-62323e76"
+
+[[review]]
 function = "fn:687b102a57f570d9"
 by = "github:theodoreOnzGit"
 artifact = "review-outer-radius-theodoreonzgit-687b102a"
+
+[[review]]
+function = "fn:6d19c034ff85e598"
+by = "github:theodoreOnzGit"
+artifact = "review-irradiated-strength-theodoreonzgit-6d19c034"
 
 [[review]]
 function = "fn:6e81554d3518df88"
@@ -2835,9 +2601,24 @@ by = "github:theodoreOnzGit"
 artifact = "review-a-larger-modulus-sharpens-the-transition-theodoreonzgit-6e81554d"
 
 [[review]]
+function = "fn:72601fd84f0cb0d8"
+by = "github:theodoreOnzGit"
+artifact = "review-min-weibull-modulus-theodoreonzgit-72601fd8"
+
+[[review]]
+function = "fn:754a22a9ab4477c6"
+by = "github:theodoreOnzGit"
+artifact = "review-gas-constant-j-per-mol-k-theodoreonzgit-754a22a9"
+
+[[review]]
 function = "fn:81bac657a46a4b00"
 by = "github:theodoreOnzGit"
 artifact = "review-median-is-the-scale-parameter-theodoreonzgit-81bac657"
+
+[[review]]
+function = "fn:85780296f48ec680"
+by = "github:theodoreOnzGit"
+artifact = "review-isothermal-thinning-factor-theodoreonzgit-85780296"
 
 [[review]]
 function = "fn:8b48ef30aabd6ed1"
@@ -2850,14 +2631,54 @@ by = "github:theodoreOnzGit"
 artifact = "review-failurefraction-theodoreonzgit-91b8101e"
 
 [[review]]
+function = "fn:99695b80bb110520"
+by = "github:theodoreOnzGit"
+artifact = "review-decomposition-activation-j-per-mol-theodoreonzgit-99695b80"
+
+[[review]]
+function = "fn:bb12bcfe4e38d67a"
+by = "github:theodoreOnzGit"
+artifact = "review-induced-stress-with-thinning-factor-theodoreonzgit-bb12bcfe"
+
+[[review]]
+function = "fn:c04cf2b3db90cf92"
+by = "github:theodoreOnzGit"
+artifact = "review-induced-stress-theodoreonzgit-c04cf2b3"
+
+[[review]]
+function = "fn:c110fac8ce3e9964"
+by = "github:theodoreOnzGit"
+artifact = "review-actual-thickness-theodoreonzgit-c110fac8"
+
+[[review]]
 function = "fn:c57b58c2e76f63ae"
 by = "github:theodoreOnzGit"
 artifact = "review-new-theodoreonzgit-c57b58c2"
 
 [[review]]
+function = "fn:cc30818aa7756c33"
+by = "github:theodoreOnzGit"
+artifact = "review-induced-stress-exact-theodoreonzgit-cc30818a"
+
+[[review]]
+function = "fn:cc9ce8689ab25b4c"
+by = "github:theodoreOnzGit"
+artifact = "review-decomposition-rate-constant-theodoreonzgit-cc9ce868"
+
+[[review]]
 function = "fn:dd41ff2953124783"
 by = "github:theodoreOnzGit"
 artifact = "review-weibull-failure-fraction-theodoreonzgit-dd41ff29"
+
+[[review]]
+function = "fn:e9002514133b6a4c"
+by = "github:theodoreOnzGit"
+artifact = "review-fmt-theodoreonzgit-e9002514"
+
+[[review]]
+function = "fn:edf75b062b8f2cd5"
+by = "github:theodoreOnzGit"
+artifact = "review-the-two-routes-to-the-stress-agree-exactly-theodoreonzgit-edf75b06"
 
 [[review]]
 function = "fn:f4afa171b919e323"
@@ -2868,3 +2689,8 @@ artifact = "review-siclayererror-theodoreonzgit-f4afa171"
 function = "fn:fcce2a003b237da0"
 by = "github:theodoreOnzGit"
 artifact = "review-initial-thickness-theodoreonzgit-fcce2a00"
+
+[[review]]
+function = "fn:ff16d9bf9f457f13"
+by = "github:theodoreOnzGit"
+artifact = "review-irradiated-weibull-modulus-theodoreonzgit-ff16d9bf"

@@ -46,12 +46,28 @@ test_ids = [
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions"
 
 [[module."mod.rs".function]]
+id = "fn:ee51cbefc2b3f84b"
+name = "MissingDiffusionData"
+qual = "MissingDiffusionData"
+item = "type"
+shape = "struct"
+hash = "sha256:328a9ba910aaa9bb47b8c48e2d47659f58c8fb66e9985122cd948eba04a66350"
+doc_hash = "sha256:a1bcd6a0f62ae8f3b9d245c7c1f8e7c76551c47d67fa67f58889c5c78acf50ff"
+
+[[module."mod.rs".function]]
+id = "fn:66cd2cba2412f490"
+name = "fmt"
+qual = "MissingDiffusionData::fmt"
+hash = "sha256:3b73a6e32a0ef64804c6d96008a55243691056851a29c50f05ad7033b10b6983"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
 id = "fn:359972b9e99804c1"
 name = "TrisoPebbleLayerMaterial"
 qual = "TrisoPebbleLayerMaterial"
 item = "type"
 shape = "enum"
-hash = "sha256:119b93b427498c60884d91557ceb0e1c78e37ade04eedddac043312faa950c34"
+hash = "sha256:87c6f741dd17d184f3ba3317554a159a228e1f7aa127c5e042509d426069a2f5"
 doc_hash = "sha256:b82840c4dbdc4b6d72b66686e34a08c8c93f1c8ac7179db052bbecbf2ac73d75"
 
 [[module."mod.rs".function]]
@@ -71,10 +87,25 @@ doc_hash = "sha256:7e9ea5ed29bc6a79f47fba1c71a5eef32a40c6c3cf2b35b9d3f439ac69566
 physical_interface = true
 
 [[module."mod.rs".function]]
+id = "fn:c8d6da6f5c678c7d"
+name = "get_diffusion_coeff_jiang"
+qual = "get_diffusion_coeff_jiang"
+hash = "sha256:1335ce5be96c1b73e86ff1c2bcb615dd57d7f14c46907997471cb231b9adbac3"
+doc_hash = "sha256:40aa069e1f3ea7426bcb4db48e308b3107a2e9b7a693d6de0be8cb8642f8acf2"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ea0ab112fe227048"
+name = "krypton_has_cited_coefficients"
+qual = "krypton_has_cited_coefficients"
+hash = "sha256:f3941ebdfbf321995238c83bc0bfaa6b6dc656ef8b3d223572f2233dd99eaed1"
+doc_hash = "sha256:9f72cdf53ff01bc12de790563c50b83a878b1315f22908770b7c20eb24d6c679"
+
+[[module."mod.rs".function]]
 id = "fn:00b02544ed3837b7"
 name = "mean_speed"
 qual = "mean_speed"
-hash = "sha256:bb70755e8187c6438a5e00b3e801762c8c5cf4977829885fbb0060369f3e350a"
+hash = "sha256:866ddddfa795ae8939b81198edc7a06319589485257455fcc13bb11277800387"
 doc_hash = "sha256:43f3df791175ee67afba1456a93b6d9f2eca20d622e57a4ea5496ae0737dfd33"
 physical_interface = true
 
@@ -82,8 +113,8 @@ physical_interface = true
 id = "fn:4bdea64528f551f6"
 name = "try_get_diffusion_coeff_jiang"
 qual = "try_get_diffusion_coeff_jiang"
-hash = "sha256:bce08405506ba1231a62a45e85043e1a23f3a129ba6bc1275b3b9d75f8510b97"
-doc_hash = "sha256:c42b903c63f5996b47e34daf9acc58bc654fb5a3351682b079d8259f856989c1"
+hash = "sha256:b5f32e0add2c85a1ed7760e28fe148b67e3c16a395afc3cce5a55074a07d19f7"
+doc_hash = "sha256:066470f01bbdd27a02b67f967f4f744d808f982162e878227309284bff556c2b"
 physical_interface = true
 
 [test_run]

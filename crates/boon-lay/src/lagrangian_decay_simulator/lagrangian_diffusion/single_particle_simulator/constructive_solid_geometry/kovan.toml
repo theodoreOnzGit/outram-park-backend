@@ -48,7 +48,7 @@ physical_interface = true
 id = "fn:051f5afa8daefede"
 name = "sphere_first_crossing_uom"
 qual = "sphere_first_crossing_uom"
-hash = "sha256:07465c39904ee69ebef7f88d63477ef57044889a653835d0b5be117c6fdb26e3"
+hash = "sha256:c8c2e7e104949c128627a796fd6a9f4a728822394082d4b6dba98544dbf011bc"
 doc_hash = "sha256:c350c58c914c3e439b79e57ee9933510940609ffe53ebf9f6633bc17ced1c36b"
 physical_interface = true
 
@@ -94,7 +94,7 @@ name = "TrisoCell"
 qual = "TrisoCell"
 item = "type"
 shape = "struct"
-hash = "sha256:2124e3984ee3fe7a506859798bb43a586c48d1b8e4bf406ada8cbc9cf0e171e5"
+hash = "sha256:67bb2cf1e08d0dc31bddef850bc91db770a5f66b6c976e6007de98caf67ead73"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mod.rs".function]]
@@ -103,6 +103,14 @@ name = "get_buffer_radius"
 qual = "TrisoCell::get_buffer_radius"
 hash = "sha256:e247487812bb93f5cc2bbdb39db4e7405ad30a70a1d3f41b47018662567e6481"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:02e14246eb8e28e3"
+name = "get_diffusion_coefficient"
+qual = "TrisoCell::get_diffusion_coefficient"
+hash = "sha256:fb198e0aac6ad9be9438e004281de223bc00cecab09bbaa893706ceaa83dec7f"
+doc_hash = "sha256:f14399a87733ff27b5c6af9f12626531a24ca89ea40aebd80767c3d5e296ea5a"
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -157,7 +165,7 @@ physical_interface = true
 id = "fn:90f6ecd8264da133"
 name = "get_triso_region"
 qual = "TrisoCell::get_triso_region"
-hash = "sha256:9b1359d374e574afa12e061f27be3130ddbdc65ba2617d3b1e7bdcc1e269cd0f"
+hash = "sha256:b5f9066a57c56d58e756d6161b097317aa30c5436516125f82844f1334133c55"
 doc_hash = "sha256:8f3825cc2a40a583d83cc519c1803fc31351d286e2f60cb892c34f7bf3516368"
 physical_interface = true
 
@@ -196,8 +204,8 @@ physical_interface = true
 id = "fn:26c97e03e84fc754"
 name = "try_get_diffusion_coefficient"
 qual = "TrisoCell::try_get_diffusion_coefficient"
-hash = "sha256:f20293f4d60bce578a2b90080fe5298aee88a4ef3876a4f4e26cc0cb0396e659"
-doc_hash = "sha256:e68cc15938ca99a19219b4c368a869fa3cbb3c78f25cafd195081d7f2381b4c7"
+hash = "sha256:a336f07982fe4fb5d2242cdda134ce5207ce004184b524bf70deccbfe36205d0"
+doc_hash = "sha256:e364e6b9adea300759534f46ec1d8119751ca9014a7995d34f9b027d594a18a9"
 physical_interface = true
 
 [[module."mod.rs".function]]

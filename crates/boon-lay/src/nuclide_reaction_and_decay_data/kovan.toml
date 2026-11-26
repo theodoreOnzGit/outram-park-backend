@@ -361,14 +361,14 @@ name = "DecayType"
 qual = "DecayType"
 item = "type"
 shape = "enum"
-hash = "sha256:b700711c6bcd48a65d880e10de23c151e30044737cf0bf5bfc0d38ad86257a4e"
+hash = "sha256:6f16084a5b2419564a65f6908d74bbedf1320350a84f9e4ab53e6439a25d742c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mod.rs".function]]
 id = "fn:54d1d7bde3083944"
 name = "parse_from_string"
 qual = "DecayType::parse_from_string"
-hash = "sha256:aebf3c0e31f2aa69cdcee7f1bc20a4fbd934466ad667995e167ab21c2b850521"
+hash = "sha256:7e629d11a30b0184dfbf131d74d355057d12add3259d84fc1b8a1f7ffc853c85"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mod.rs".function]]

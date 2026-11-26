@@ -22,6 +22,269 @@ test_ids = [
 [module."mod.rs"]
 path = "crate::triso_atops_extensions"
 
+[module."multilayer_diffusion.rs"]
+path = "crate::triso_atops_extensions::multilayer_diffusion"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:535a811743bc5d69"
+name = "LayeredDiffusion"
+qual = "LayeredDiffusion"
+item = "type"
+shape = "struct"
+hash = "sha256:0766dd6ce68ecc4d600ac7688f2017e374845aa58b768068f747dfb622ff1184"
+doc_hash = "sha256:83763f166eb2a09e0fdc51e252b1816d9b1089cd50944fe6d6446c2aee3e1560"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:2373daad6fe82705"
+name = "cell_atoms"
+qual = "LayeredDiffusion::cell_atoms"
+hash = "sha256:b7fdf63cc1f3e3e858a10ea5be9876788e11050430e01b40bbc4c3234fd096d5"
+doc_hash = "sha256:f90b4bc1999f126932c57dfe36c4b222f4163271c08163b1f7936b777ea235fd"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:b23a0b6ea1cb4174"
+name = "decayed_fraction"
+qual = "LayeredDiffusion::decayed_fraction"
+hash = "sha256:acdf44d35f614e77d95c1c2e4595a7448ca821f5863bcfd729021196c4158cb8"
+doc_hash = "sha256:9f7f8967ba4b14f6ec36f1dd1b158faaff695e6e1c9ed927f0ac99d2de611b9a"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:a933128380660aa8"
+name = "elapsed"
+qual = "LayeredDiffusion::elapsed"
+hash = "sha256:7d1a041ecff2d51dd1c4e8bec7eaceb0c5aac61d17162dec99a940e4b128cf58"
+doc_hash = "sha256:72db17c1cb31a0274e8092de20bd471ccda43023bf61168393ebac8df8e51586"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:20144c57fee48d80"
+name = "inside_by_layer"
+qual = "LayeredDiffusion::inside_by_layer"
+hash = "sha256:d7a5bc2220ea46699b52d3eeb63d1aa2723dd4cfce9567900dffe69064667c83"
+doc_hash = "sha256:3baf4d0205025ec6b8b360593a7455ee1cb1e3c19a7645102f2fc8a59ea79990"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:2e5d8ae82cce03d4"
+name = "released_fraction"
+qual = "LayeredDiffusion::released_fraction"
+hash = "sha256:a95de088e65346e1555ec0c774649c8feba845cbcd370eacec0eb1cfe8111dac"
+doc_hash = "sha256:3d73a1e4bb7e110ede061b5369470a6f25e3ffc23ee641b2df39d9fb3f6834ce"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:640562b7b6f687f9"
+name = "sphere"
+qual = "LayeredDiffusion::sphere"
+hash = "sha256:719a800ed2251460782105f801b54ae3b8571b2edc2d0542532e2b58c8c00abe"
+doc_hash = "sha256:26e97e0adf22026f55abff9860fbf584fd888fc5409be7c60a189e9e0367af18"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:c4b9d50e1489a745"
+name = "step"
+qual = "LayeredDiffusion::step"
+hash = "sha256:b491328955fb4c6bf73d1b736a55bdb5f05c80d6e25e23a671713acfb30f032d"
+doc_hash = "sha256:e91bb9a416b84adab1bc37693b67581aa8ae44e6912cd199593f39f4e5d70454"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:eb32491210590f0a"
+name = "uniform_in_first_layers"
+qual = "LayeredDiffusion::uniform_in_first_layers"
+hash = "sha256:e76781f36cccd8a8a45e05ddfe644183dc3c513159fc04a664868dc314257ad8"
+doc_hash = "sha256:a4e8d40fa7cad21fb2633cc041e7c55df2bf6b7a520e66e68153eaa35e9fda59"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:a4ec540d9cd5ced4"
+name = "uniform_in_kernel"
+qual = "LayeredDiffusion::uniform_in_kernel"
+hash = "sha256:10f3dc4c8ece732893c53d3d549bb8cdcdc257b6f8dd4528908e955bbeded8bc"
+doc_hash = "sha256:76b65ef88bf323e97cb713770ca2f5af593e751fbbb5ad57a3e60be9a9972e84"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:a21467293b1c8535"
+name = "LayeredSphere"
+qual = "LayeredSphere"
+item = "type"
+shape = "struct"
+hash = "sha256:03aadd8eb7d632465a51c64f352a36fcebba1fd5dcaa1b10fe021ec6b867f895"
+doc_hash = "sha256:cb6c6732fce206c5049941fada7fc791bd55245fa4fe7d909dbdc20a81beee71"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:ff86b0b4e4f94007"
+name = "cells"
+qual = "LayeredSphere::cells"
+hash = "sha256:215c1f663544957c145616c058d0c42fdc90eaf09e92a4e6437d2178f2235939"
+doc_hash = "sha256:886d1c4c84e0db99b2835e74fe3e058a53b95565a9970a02fd45839ca18c70c5"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:28d8494d454a0288"
+name = "centres_m"
+qual = "LayeredSphere::centres_m"
+hash = "sha256:d79e5d189aa7d972a51faa0c7667953b3a501b8f1133338cfb58ef361c245fe3"
+doc_hash = "sha256:e62a3ea2f72be54736cdb0d759b55ca83ff7ded622aad4341f7ad3b9a90dace8"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:e7455194f0b86ce0"
+name = "conductances"
+qual = "LayeredSphere::conductances"
+hash = "sha256:427c02681bac039fe96a09d3080772e98a928ceff6e1fe6eee1fc0064a16343d"
+doc_hash = "sha256:9cca0f53f2440f25c9e7e6eee9aaab30a38618cb2b5e00d52bb3d32a29756ae0"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:8a73d7701f8c050e"
+name = "d_values"
+qual = "LayeredSphere::d_values"
+hash = "sha256:e9362764c80073fca99d64036a75291427dd829eb0cdcc313be7192b199a39b5"
+doc_hash = "sha256:f5c2a71fed2d03f21c5832ca64002ec761280a7ef748d102624f427f7d02cd17"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:e87548be9b420ed8"
+name = "kernel_volume"
+qual = "LayeredSphere::kernel_volume"
+hash = "sha256:8a2ee88164889a1e66260383e6c2a9bc1981602d2d830e0b7180dc5b7d6d5117"
+doc_hash = "sha256:ce6fad9eff184e92d5232ce555de044242dfc7cf34f47ed9e5bad359b9d67ea7"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:d379905763076c4e"
+name = "layers"
+qual = "LayeredSphere::layers"
+hash = "sha256:47583f778d4a9c9d85a15a93a9af4c8c2bef579d8c400663617da3232013da02"
+doc_hash = "sha256:9d104cabcf20d98807ac5ea3368f937266eb5d547b134b9462d0b06f5dee8ab8"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:c8203be48edc5383"
+name = "mean_exit_time"
+qual = "LayeredSphere::mean_exit_time"
+hash = "sha256:dd33d452124e156b0c21b920fa6069cf994c225ef2a2e9dd8335e5f695bdbc10"
+doc_hash = "sha256:b28f334d94a0ffba545f253ffea70cd583b74a1d48b3de66e31d49013ce7b9a7"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:1f8ac76a60cd7f54"
+name = "new"
+qual = "LayeredSphere::new"
+hash = "sha256:51b8f23779ab9e9ac13d9dde93ad802ff5b74c594dd9c868dc4d9ef0f20b3525"
+doc_hash = "sha256:4a1dd3fa52a3205383a16edd7fa74092e357ebb2e3133de7602292c9c731e505"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:27bc408dfb3a01ff"
+name = "steady_release_to_birth"
+qual = "LayeredSphere::steady_release_to_birth"
+hash = "sha256:dd95f7ee61a05f62fa8ffbf88b6f2a843ee899b7dbfe99a22f197f259251c987"
+doc_hash = "sha256:e68755e6dbfcdfab76dcaaa97c81566256148cff11d1a5779f7a79f395fedc95"
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:637126b50d16604d"
+name = "system"
+qual = "LayeredSphere::system"
+hash = "sha256:c798183604ed3b5978e8ffa07f225c2805bbe437685ab6195866542e392c7fdb"
+doc_hash = "sha256:ff9fc7efed34e03f40ea131e3b1fe95ca615ab679e1b7c5717ba38fc4aeb0d46"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:c38be4b962658eec"
+name = "MultilayerDiffusionError"
+qual = "MultilayerDiffusionError"
+item = "type"
+shape = "enum"
+hash = "sha256:797f20b9b5917c01ac3a716b6980ae3d521b0c95e89d4f78886aeeed0347e0ac"
+doc_hash = "sha256:14c19c01f909b08b965c87500215aaf88d6ad83c9602448240d711e32399ae9d"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:90af31fcc5198a31"
+name = "SphereLayer"
+qual = "SphereLayer"
+item = "type"
+shape = "struct"
+hash = "sha256:698556cf12ae3bfd7f3a56cb0f4822be296635f1f69932fa1b324ab7928e9cea"
+doc_hash = "sha256:8854a09d6afa0bcbb070a22ab07001e7c7831f9472cbb2bf47ce3f43a8ff8087"
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:4394df29a37b9905"
+name = "atoms_are_conserved"
+qual = "atoms_are_conserved"
+hash = "sha256:95d737ce4300e91a2bda19b503cc3029773b999c2d494e92f45c44a29b431a55"
+doc_hash = "sha256:f7dfe49af7f96a39e241ae0ece63b0497ab8cc8155489f7a5f1002b6d8805bb0"
+test = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:c79b4952f9a32aae"
+name = "bad_inputs_are_refused"
+qual = "bad_inputs_are_refused"
+hash = "sha256:4f8c09d62e82c046cab3f9e9fa31b108a6e8ae635c58f6235e7540b43c0ae425"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:7ddd74cf933a5a49"
+name = "bare_error"
+qual = "bare_error"
+hash = "sha256:b3f5e707e894274f50d69bcc256c21189a69f220ca7553585665d529b67bbf48"
+doc_hash = "sha256:868b482333fdd8e5362a4f9f88d14109893482ee2b00feab7da162365f944500"
+test = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:b811410334e6ae00"
+name = "dco"
+qual = "dco"
+hash = "sha256:0159305fe591277ad2806c07bcb5a75dd47fa09e8e19e24ab1beb2a3df928c7a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:30fddddedb0338a7"
+name = "hz"
+qual = "hz"
+hash = "sha256:5e245b8a9d610e4666e1704e7e4c5922aed0d85388eddb2d3fd4612dffc64423"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:ecea2c300511a95e"
+name = "mean_exit_time_against_the_layered_formula"
+qual = "mean_exit_time_against_the_layered_formula"
+hash = "sha256:30d64c35b28f058449bd9045003a5be44090f09204ae0ed5a996d77c611234d3"
+doc_hash = "sha256:75ed0ed40effe0488c3e2732782a475bd691c27e8fce501c3488431625b22314"
+test = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:51f92e249a2d6311"
+name = "one_sphere_against_crank"
+qual = "one_sphere_against_crank"
+hash = "sha256:8d7a99bf69054dd95abb69fde6876abb3178e4bc611afc3fb5c07359d3af27eb"
+doc_hash = "sha256:c083f2076eb4fea32668ad6efa59a7df702c1773a3f799de6e918addbfec0e27"
+test = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:062e036b0a9217fe"
+name = "s"
+qual = "s"
+hash = "sha256:f14c909ae4b26f730573a5a8701a704cea33afbce669d3294b4abfc5d18e4bc3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:b50d64fea8690828"
+name = "steady_release_to_birth_against_booth"
+qual = "steady_release_to_birth_against_booth"
+hash = "sha256:020a078f8c0ecf91128cf8efd09a60c1f3ba148829fbcedbaf8767ab8167379d"
+doc_hash = "sha256:98dc326b0094c3a671dac68a77a238031526247f1a6a6c25337df28bead4c324"
+test = true
+
+[[module."multilayer_diffusion.rs".function]]
+id = "fn:363ae947ba6b6deb"
+name = "um"
+qual = "um"
+hash = "sha256:e4fdd1228ead2d984130b28d0ca9062a8ad9dae34eb8241226dd824a51e69476"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
 [module."normal_operation.rs"]
 path = "crate::triso_atops_extensions::normal_operation"
 
@@ -71,7 +334,7 @@ test = true
 id = "fn:52a4c3498d3ff7ab"
 name = "plant"
 qual = "plant"
-hash = "sha256:af39c49bd36a456a49b789fb1bab45b9a34694bdf1b728c16a08c6dd41483395"
+hash = "sha256:81c81de8bba0218ea32f638d42858a463e50af8ca4f0d5141ccab7a2767c08da"
 doc_hash = "sha256:8488c32813ef30f462c92cf124b2f7e89bf13a69972f6db90b07989e138cba51"
 test = true
 
@@ -102,6 +365,12 @@ item = "type"
 shape = "struct"
 hash = "sha256:d6d770394902b2f63bb63bddaa43255a0b3186070ab82ad33b2add80be0f28c4"
 doc_hash = "sha256:dd24517fce09bdf9e7567b9cc7e1a2975d3d9d55ccb8019b2b8d9bf1aa1f35ed"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+]
 
 [[module."removal_rates.rs".function]]
 id = "fn:7f7ae797bf59c901"
@@ -228,7 +497,7 @@ doc_hash = "sha256:55252535d9d2027930cee855103a3376ead33c8298dcb95f0a6dcb6ec6b1a
 id = "fn:34b6a366b3371e1e"
 name = "per_cycle_fractions_become_first_order_rates"
 qual = "per_cycle_fractions_become_first_order_rates"
-hash = "sha256:e116f3203ec42aeef693c12632d14197b2353a738c631ca73ebcfaf16cdd6a41"
+hash = "sha256:d206897b2b21646b2d6fb5b2c98449c283074ad01e71f2af905f08c5b56b76c0"
 doc_hash = "sha256:fb1b8bae64efa4908e109119552880ab1493eb792981a1876bde24a336a76c23"
 test = true
 
@@ -244,7 +513,7 @@ physical_interface = true
 id = "fn:a121cb5bbac3e82f"
 name = "rate_from_fraction_per_cycle"
 qual = "rate_from_fraction_per_cycle"
-hash = "sha256:1cd9d73f755df0a1cbb22a00f8211ef3dc98898e0c1e1076a59314309eea9034"
+hash = "sha256:7c95a6aff5dfef419e18ba49c700dd1a86f932dcf0fe62bc8cef337cd0881621"
 doc_hash = "sha256:3ee5c6646af48ff05645719ef0b459f32e25d6f00df7d07cb236a634bfd30cb0"
 physical_interface = true
 
@@ -295,3 +564,8 @@ targets = [
     "#12",
     "#13",
 ]
+
+[[review]]
+function = "fn:db2f598905bf3f45"
+by = "github:theodoreOnzGit"
+artifact = "review-grouprates-theodoreonzgit-db2f5989"
