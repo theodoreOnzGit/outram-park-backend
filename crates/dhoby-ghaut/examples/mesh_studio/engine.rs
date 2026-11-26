@@ -19,6 +19,7 @@ use outram_foam_mesh::block_mesh::PolyMesh;
 use outram_park_fork_cfmesh::dual::DualKind;
 use outram_park_fork_cfmesh::layers::LayerQualityStrategy;
 use outram_park_fork_cfmesh::pipeline::staged::PipelineStage;
+use outram_park_fork_cfmesh::pipeline::tet_source::WallGrade;
 use outram_park_fork_cfmesh::pipeline::TetSource;
 
 use crate::model::{build, Built, Cleanup, GeomKind, Params};
@@ -53,11 +54,14 @@ fn stage_of(c: f64) -> PipelineStage {
         .unwrap_or(PipelineStage::Final)
 }
 
-/// The layer strategies the page offers, in wire order.
-pub const STRATEGIES: [LayerQualityStrategy; 3] = [
+/// The layer strategies the page offers, in wire order. The last,
+/// cfMesh's `tetMesh` route (gh:#1824), is the one that grows layers on
+/// TetGen's tetrahedra (`strategy=tetmesh`).
+pub const STRATEGIES: [LayerQualityStrategy; 4] = [
     LayerQualityStrategy::BackOffOnly,
     LayerQualityStrategy::CfMeshOptimise,
     LayerQualityStrategy::SnappyCollapse,
+    LayerQualityStrategy::CfMeshTetMesh,
 ];
 
 /// The dual kinds the page offers, in wire order.
@@ -98,6 +102,12 @@ pub struct Design {
     /// TetGen's largest tetrahedron \[m³\] (`-a`); `None` derives it from
     /// the cell size ([`Design::tet_volume`]).
     pub max_volume: Option<f64>,
+    /// TetGen's wall grading (gh:#1825): the `-m` size at the walls \[m\],
+    /// or `None` (the default) for none. The size grows by
+    /// [`Design::wall_growth`] away from the walls up to the cell size.
+    pub wall_size: Option<f64>,
+    /// The cell-to-cell growth away from the walls of a graded design.
+    pub wall_growth: f64,
 }
 
 impl Default for Design {
@@ -117,6 +127,8 @@ impl Default for Design {
             tetgen: true,
             radius_edge: Self::DEFAULT_RADIUS_EDGE,
             max_volume: None,
+            wall_size: None,
+            wall_growth: WallGrade::DEFAULT_GROWTH,
         }
     }
 }
@@ -147,14 +159,39 @@ impl Design {
     /// The `-a` bound this design meshes with \[m³\]: the one asked for,
     /// or the regular tetrahedron of the cell size.
     pub fn tet_volume(&self) -> f64 {
-        self.max_volume
-            .unwrap_or_else(|| Self::regular_tet_volume(self.cell_size))
+        self.max_volume.unwrap_or_else(|| match self.wall_grade() {
+            // Graded (gh:#1825): the interior size bounds the volume, so
+            //   the grading, not `-a`, sets the cells inside.
+            Some(g) => Self::regular_tet_volume(g.interior_size),
+            None => Self::regular_tet_volume(self.cell_size),
+        })
+    }
+
+    /// The wall size `?grade=on` asks for, as a fraction of the cell size
+    /// (gh:#1825): half. A quarter made the fuel channel 6x the tetrahedra
+    /// of the ungraded mesh (399 k against 65 k at a half, measured with
+    /// the upstream binary), too many for a phone.
+    pub const DEFAULT_WALL_FRACTION: f64 = 0.5;
+
+    /// The size far from the walls of a graded design, as a multiple of
+    /// the cell size (gh:#1825).
+    pub const INTERIOR_FACTOR: f64 = 2.0;
+
+    /// The wall grading this design asks TetGen for, if any: the wall
+    /// size, the growth, and [`Design::INTERIOR_FACTOR`] cell sizes inside.
+    pub fn wall_grade(&self) -> Option<WallGrade> {
+        self.wall_size.map(|w| WallGrade {
+            wall_size: w,
+            growth: self.wall_growth,
+            interior_size: (Self::INTERIOR_FACTOR * self.cell_size).max(w),
+        })
     }
 
     /// The tet source this design asks the pipeline for.
     pub fn tet_source(&self) -> TetSource {
         if self.tetgen {
             TetSource::tetgen(self.radius_edge, Some(self.tet_volume()))
+                .with_wall_grade(self.wall_grade())
         } else {
             TetSource::CarvedCentroid
         }
@@ -189,6 +226,7 @@ impl Design {
             Some("cfmesh") => design.strategy = STRATEGIES[1],
             Some("snappy") => design.strategy = STRATEGIES[2],
             Some("backoff") => design.strategy = STRATEGIES[0],
+            Some("tetmesh") => design.strategy = STRATEGIES[3],
             _ => {}
         }
         match get("mesh").as_deref() {
@@ -213,7 +251,30 @@ impl Design {
         if let Some(v) = get("vol").and_then(|s| s.parse::<f64>().ok()) {
             design.max_volume = Some(v);
         }
-        design.clamped()
+        // `grade=on|off|<wall size m>[,<growth>]` (gh:#1825); `on` is a
+        //   fraction of the clamped cell size, so it is set after clamping.
+        let mut on = false;
+        if let Some(g) = get("grade") {
+            let mut it = g.split(',');
+            match it.next() {
+                Some("on") => on = true,
+                Some("off") => design.wall_size = None,
+                Some(w) => {
+                    if let Ok(w) = w.parse::<f64>() {
+                        design.wall_size = Some(w);
+                    }
+                }
+                None => {}
+            }
+            if let Some(r) = it.next().and_then(|s| s.parse::<f64>().ok()) {
+                design.wall_growth = r;
+            }
+        }
+        let mut design = design.clamped();
+        if on {
+            design.wall_size = Some(Self::DEFAULT_WALL_FRACTION * design.cell_size);
+        }
+        design
     }
 
     /// Clamp to what a phone can mesh in seconds and to valid layer values.
@@ -239,6 +300,22 @@ impl Design {
                 v_hi
             }
         });
+        // Wall grading: between a quarter of the cell size (a quarter
+        // already gives the fuel channel about 400 k tetrahedra) and the
+        // cell size; growth 1 to 2.
+        let (w_lo, w_hi) = (0.25 * self.cell_size, self.cell_size);
+        self.wall_size = self.wall_size.map(|w| {
+            if w.is_finite() {
+                w.clamp(w_lo, w_hi)
+            } else {
+                w_hi
+            }
+        });
+        self.wall_growth = if self.wall_growth.is_finite() {
+            self.wall_growth.clamp(1.0, 2.0)
+        } else {
+            WallGrade::DEFAULT_GROWTH
+        };
         self
     }
 
@@ -617,6 +694,8 @@ impl Request {
                 f64::from(u8::from(d.tetgen)),
                 d.radius_edge,
                 d.max_volume.unwrap_or(0.0),
+                d.wall_size.unwrap_or(0.0),
+                d.wall_growth,
             ],
             Request::Section {
                 id,
@@ -654,6 +733,9 @@ impl Request {
                 let radius_edge = w.next()?;
                 // 0 on the wire: derived from the cell size.
                 let max_volume = Some(w.next()?).filter(|&v| v > 0.0);
+                // 0 on the wire: no wall grading (gh:#1825).
+                let wall_size = Some(w.next()?).filter(|&v| v > 0.0);
+                let wall_growth = w.next()?;
                 Ok(Request::Build {
                     id,
                     design: Design {
@@ -670,6 +752,8 @@ impl Request {
                         tetgen,
                         radius_edge,
                         max_volume,
+                        wall_size,
+                        wall_growth,
                     },
                 })
             }
@@ -945,6 +1029,9 @@ mod tests {
     /// pebble's dual; the report's stage notes say so, and so does the
     /// pinned `notes` check. `CfMeshOptimise` grows all three on the
     /// pebble's dual (`cfmesh_layers_grow_on_the_tetgen_dual_of_the_pebble`).
+    /// On the tetrahedra, cfMesh's `tetMesh` steps (`strategy=tetmesh`,
+    /// gh:#1824) do grow them on the pipe and the fuel channel
+    /// (`tet_mesh_layers_grow_on_tetgen_tets_of_the_reactor_shapes`).
     #[test]
     fn every_mesh_type_on_tetgen_tets_of_the_reactor_shapes() {
         for (shape, tets, dual, dual_layers) in [
@@ -1089,6 +1176,80 @@ mod tests {
         assert_eq!(got, vec![want, vec![3562]]);
     }
 
+    /// Tets + layers (gh:#1824): cfMesh's `tetMesh` layer steps
+    /// (`strategy=tetmesh`) on TetGen's tetrahedra of the three reactor
+    /// shapes.
+    ///
+    /// **Methodology.** `shape=<s>&tets=tetgen&mesh=tet&n=3&strategy=tetmesh`
+    /// (page defaults otherwise: first layer 20 mm, x 1.3), against the same
+    /// design with `n=0`. Asserts properties, not counts (the no-pins rule,
+    /// root `AGENTS.md`): no negative cell on any shape; where layers grow,
+    /// the tetrahedra are the core unchanged, every wall face carries one
+    /// cell in each of layers 1-3, and the volume is kept within 1e-3; where
+    /// they do not, the report says the acceptance gate refused them.
+    ///
+    /// **Results (2026-11-26, release, native, three builds at a time).**
+    ///
+    /// | shape | tets | per layer | max non-ortho | max skew | build |
+    /// |---|---|---|---|---|---|
+    /// | pipe | 18020 | 2111 | 65.8° | 0.90 | 1.3 s |
+    /// | fuel channel | 30804 | 5105 | 73.8° | 1.08 | 71 s |
+    /// | pebble | 35347 | **refused** (6 inverted cells left) | | | 237 s |
+    ///
+    /// Most of the fuel channel's and the pebble's time is the port's
+    /// `untangleBoundaryLayer`, which makes them worse and is not kept
+    /// (see `outram_park_fork_cfmesh::pipeline::tet_layers`).
+    #[test]
+    fn tet_mesh_layers_grow_on_tetgen_tets_of_the_reactor_shapes() {
+        for shape in ["pipe", "fuel-channel", "pebble"] {
+            let build_n = |n: &str, strategy: &str| {
+                let q: Vec<(String, String)> = [
+                    ("shape", shape),
+                    ("tets", "tetgen"),
+                    ("mesh", "tet"),
+                    ("n", n),
+                    ("strategy", strategy),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
+                let mut e = Engine::default();
+                let Event::Built(s) = serve_one(
+                    &mut e,
+                    Request::Build {
+                        id: 1,
+                        design: Design::from_query(&q),
+                    },
+                ) else {
+                    panic!("no build: {shape} n={n}")
+                };
+                s
+            };
+            let bare = build_n("0", "tetmesh");
+            let s = build_n("3", "tetmesh");
+            assert_eq!(s.negative_cells, 0, "{shape}");
+            if s.layer_counts.len() == 1 {
+                assert!(
+                    s.notes.contains("refused by the acceptance gate"),
+                    "{shape}: no layer and no reason: {}",
+                    s.notes
+                );
+                continue;
+            }
+            assert_eq!(
+                s.layer_counts[0], bare.cells,
+                "{shape}: the tetrahedra are the core"
+            );
+            let k = s.layer_counts[1];
+            assert!(k > 0, "{shape}");
+            assert_eq!(s.layer_counts, vec![bare.cells, k, k, k], "{shape}");
+            assert_eq!(s.cells, bare.cells + 3 * k, "{shape}");
+            let dv = s.volume / bare.volume - 1.0;
+            assert!(dv.abs() < 1e-3, "{shape}: volume moved by {dv:.2e}");
+            assert!(s.layer_thickness[1] > 0.0, "{shape}");
+        }
+    }
+
     /// The query keys of gh:#1796 (`tets`, `q`, `vol`) and the clamps.
     #[test]
     fn the_tet_source_query_keys_and_clamps() {
@@ -1121,6 +1282,31 @@ mod tests {
                 d.span() / Design::MIN_CELLS_ACROSS
             ))
         );
+        // Wall grading (gh:#1825): off unless asked; `on` is half the cell
+        //   size; a size and growth are clamped to what a phone meshes.
+        assert_eq!(q(&[]).wall_grade(), None);
+        let d = q(&[("shape", "pipe"), ("grade", "on")]);
+        let g = d.wall_grade().unwrap();
+        assert_eq!(g.wall_size, 0.5 * d.cell_size);
+        assert_eq!((g.growth, g.interior_size), (1.2, 2.0 * d.cell_size));
+        // Graded, the derived `-a` is the regular tetrahedron of the
+        //   interior size, not of the cell size.
+        assert_eq!(
+            d.tet_volume(),
+            Design::regular_tet_volume(2.0 * d.cell_size)
+        );
+        assert_eq!(
+            d.tet_source(),
+            TetSource::tetgen(1.414, Some(d.tet_volume())).with_wall_grade(Some(g))
+        );
+        assert!(d.tet_source().switches().unwrap().ends_with('m'));
+        let d = q(&[("grade", "1e-9,9")]);
+        assert_eq!(d.wall_size, Some(0.25 * d.cell_size));
+        assert_eq!(d.wall_growth, 2.0);
+        assert_eq!(
+            q(&[("grade", "on"), ("tets", "carved")]).tet_source(),
+            TetSource::CarvedCentroid
+        );
         // The crate's default is untouched: the headless sweep stays carved.
         assert_eq!(
             crate::model::Params::default().opts.tet_source,
@@ -1150,6 +1336,18 @@ mod tests {
                     tetgen,
                     radius_edge: 1.7,
                     max_volume,
+                    ..Design::default()
+                },
+            };
+            assert_eq!(Request::from_wire(&req.to_wire()).unwrap(), req);
+        }
+        // The wall grading (gh:#1825), off and on.
+        for (wall_size, wall_growth) in [(None, 1.2), (Some(0.07), 1.35)] {
+            let req = Request::Build {
+                id: 9,
+                design: Design {
+                    wall_size,
+                    wall_growth,
                     ..Design::default()
                 },
             };

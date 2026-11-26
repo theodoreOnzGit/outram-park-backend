@@ -1,0 +1,172 @@
+diff --git a/tetgen.cxx b/tetgen.cxx
+index 8e2d734..d0b9583 100644
+--- a/tetgen.cxx
++++ b/tetgen.cxx
+@@ -49,6 +49,7 @@
+ long tg_reach[64];
+ long tg5[64];
+ long tg6[64];
++long tgm[32];
+ void tg6_write();
+ 
+ 
+@@ -9393,6 +9394,7 @@ int tetgenmesh::insertpoint(point insertpt, triface *searchtet, face *splitsh,
+       if (rejptflag) {
+         // Is the point encroaches upon an existing point?
+         if (rd < (0.5 * (*parypt)[pointmtrindex])) {
++          tgm[6]++;
+           pts = parypt;
+           loc = ENCVERTEX; 
+           break;
+@@ -9421,6 +9423,7 @@ int tetgenmesh::insertpoint(point insertpt, triface *searchtet, face *splitsh,
+ 
+ 
+   if (ivf->assignmeshsize) {
++    tgm[14]++;
+     // Assign mesh size for the new point.
+     if (bgm != NULL) {
+       // Interpolate the mesh size from the background mesh. 
+@@ -10751,6 +10754,7 @@ void tetgenmesh::transfernodes()
+     }
+     // Read the point metric tensor.
+     for (j = 0; j < in->numberofpointmtrs; j++) {
++      tgm[18]++;
+       mtr = in->pointmtrlist[mtrindex++] * b->metric_scale;
+       pointloop[pointmtrindex + j] = mtr; // in->pointmtrlist[mtrindex++];
+     }
+@@ -19677,6 +19681,7 @@ int tetgenmesh::add_steinerpt_in_schoenhardtpoly(triface *abtets, int n,
+     ivf.assignmeshsize = b->metric;
+     if (ivf.assignmeshsize) {
+       // Search the tet containing 'steinerpt' for size interpolation.
++      tgm[15]++;
+       locate(steinerpt, &(abtets[0]));
+       worktet = abtets[0];
+     }
+@@ -23045,6 +23050,7 @@ int tetgenmesh::suppressbdrysteinerpoint(point steinerpt)
+     ivf.assignmeshsize = b->metric; 
+     if (ivf.assignmeshsize) {
+       // Search the tet containing 'steinerpt' for size interpolation.
++      tgm[16]++;
+       locate(newsteiners[i], &searchtet);
+     }
+ 
+@@ -25491,6 +25497,7 @@ REAL tetgenmesh::getpointmeshsize(point searchpt, triface *searchtet, int iloc)
+   int i;
+ 
+   size = 0;
++  tgm[0]++;
+ 
+   if (iloc == (int) INTETRAHEDRON) {
+     pts = (point *) &(searchtet->tet[4]);
+@@ -25498,6 +25505,7 @@ REAL tetgenmesh::getpointmeshsize(point searchpt, triface *searchtet, int iloc)
+     if ((pts[0][pointmtrindex] > 0) && (pts[1][pointmtrindex] > 0) &&
+         (pts[2][pointmtrindex] > 0) && (pts[3][pointmtrindex] > 0)) {
+       // P1 interpolation.
++      tgm[1]++;
+       volume = orient3dfast(pts[0], pts[1], pts[2], pts[3]);
+       vol[0] = orient3dfast(searchpt, pts[1], pts[2], pts[3]);
+       vol[1] = orient3dfast(pts[0], searchpt, pts[2], pts[3]);
+@@ -25514,6 +25522,7 @@ REAL tetgenmesh::getpointmeshsize(point searchpt, triface *searchtet, int iloc)
+     pc = apex(*searchtet);
+     if ((pa[pointmtrindex] > 0) && (pb[pointmtrindex] > 0) &&
+         (pc[pointmtrindex] > 0)) {
++      tgm[2]++;
+       volume = triarea(pa, pb, pc);
+       vol[0] = triarea(searchpt, pb, pc);
+       vol[1] = triarea(pa, searchpt, pc);
+@@ -25526,6 +25535,7 @@ REAL tetgenmesh::getpointmeshsize(point searchpt, triface *searchtet, int iloc)
+     pa = org(*searchtet);
+     pb = dest(*searchtet);
+     if ((pa[pointmtrindex] > 0) && (pb[pointmtrindex] > 0)) {
++      tgm[3]++;
+       volume = distance(pa, pb);
+       vol[0] = distance(searchpt, pb);
+       vol[1] = distance(pa, searchpt);
+@@ -25535,9 +25545,11 @@ REAL tetgenmesh::getpointmeshsize(point searchpt, triface *searchtet, int iloc)
+   } else if (iloc == (int) ONVERTEX) {
+     pa = org(*searchtet);
+     if (pa[pointmtrindex] > 0) {
++      tgm[4]++;
+       size = pa[pointmtrindex];
+     }
+   }
++  if (size == 0) tgm[5]++;
+ 
+   return size;
+ }
+@@ -25888,6 +25900,7 @@ void tetgenmesh::collectremovepoints(arraypool *remptlist)
+         continue;
+       }
+       if (ptloop[pointmtrindex] > 0) {
++        tgm[8]++;
+         // Get the smallest edge length at this vertex.
+         getvertexstar(1, ptloop, cavetetlist, cavetetvertlist, NULL);
+         parypt = (point *) fastlookup(cavetetvertlist, 0);
+@@ -25902,6 +25915,7 @@ void tetgenmesh::collectremovepoints(arraypool *remptlist)
+         cavetetvertlist->restart();
+         cavetetlist->restart();
+         if (smlen < ptloop[pointmtrindex]) {
++          tgm[9]++;
+           pinfect(ptloop);
+           remptlist->newindex((void **) &parypt);
+           *parypt = ptloop;
+@@ -25923,6 +25937,7 @@ void tetgenmesh::collectremovepoints(arraypool *remptlist)
+     while (ptloop != NULL) {
+       if (index < in->numberofpoints) {
+         if (in->pointmarkerlist[index] == -1) {
++          tgm[13]++;
+           pinfect(ptloop);
+           remptlist->newindex((void **) &parypt);
+           *parypt = ptloop;
+@@ -26009,6 +26024,7 @@ void tetgenmesh::meshcoarsening()
+     delete remptlist;
+     return;
+   }
++  tgm[10]++;
+ 
+   if (b->verbose) {
+     if (remptlist->objects > 0l) {
+@@ -26037,6 +26053,7 @@ void tetgenmesh::meshcoarsening()
+     for (i = 0; i < remptlist->objects; i++) {
+       parypt = (point *) fastlookup(remptlist, i);
+       if (removevertexbyflips(*parypt)) {
++        tgm[11]++;
+         // Move the last entry to the current place.
+         plastpt = (point *) fastlookup(remptlist, remptlist->objects - 1);
+         *parypt = *plastpt;
+@@ -26069,6 +26086,7 @@ void tetgenmesh::meshcoarsening()
+   } // while (1)
+ 
+   if (remptlist->objects > 0l) {
++    tgm[12] += remptlist->objects;
+     if (b->verbose) {
+       printf("  %ld points are not removed !\n", remptlist->objects);
+     }
+@@ -28688,6 +28706,7 @@ bool tetgenmesh::checktet4split(triface *chktet, REAL* param, int& qflag)
+     for (i = 0; i < 4; i++) {
+       if (ppt[i][pointmtrindex] > 0) {
+         if (rd > ppt[i][pointmtrindex]) {
++          tgm[7]++;
+           qflag = 1; // Enforce mesh size.
+           return true;
+         }
+@@ -34041,6 +34060,7 @@ void tetgenmesh::outmetrics(tetgenio* out)
+   if (msize == 0) {
+     return;
+   }
++  tgm[17]++;
+ 
+   if (out == (tetgenio *) NULL) {
+     strcpy(outmtrfilename, b->outfilename);
+@@ -36856,6 +36876,11 @@ void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
+   }
+   tg5_write();
+   tg6_write();
++  if (getenv("TG_REACHM")) {
++    FILE *g = fopen(getenv("TG_REACHM"), "w");
++    for (int i = 0; i < 32; i++) fprintf(g, "%ld%c", tgm[i], i == 31 ? '\n' : ' ');
++    fclose(g);
++  }
+ }
+ 
+ #ifndef TETLIBRARY

@@ -273,6 +273,9 @@ impl TetDualSpec {
             L::BackOffOnly => 0.0,
             L::CfMeshOptimise => 1.0,
             L::SnappyCollapse => 2.0,
+            // gh:#1824: not offered here (Foam Studio meshes the dual), but
+            // the wire round-trips every strategy.
+            L::CfMeshTetMesh => 3.0,
         };
         let r = match self.route {
             CfMeshRoute::UpstreamNoLaplace => 0.0,
@@ -301,6 +304,7 @@ impl TetDualSpec {
             0 => L::BackOffOnly,
             1 => L::CfMeshOptimise,
             2 => L::SnappyCollapse,
+            3 => L::CfMeshTetMesh,
             k => return Err(format!("unknown layer strategy code {k}")),
         };
         let route = match c[3] as u8 {

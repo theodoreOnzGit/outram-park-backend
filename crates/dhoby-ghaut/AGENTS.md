@@ -250,6 +250,24 @@ and answers cuts of any stage; the app only draws.
   mesh-type table for any query; the table is in the review README.
   `Design::MAX_LAYERS` is 25: back-off grows none of a 20-layer stack on
   the pipe, `CfMeshOptimise` grows all 20.
+- **Wall grading (gh:#1825).** `?grade=on|off|<wall size m>[,<growth>]`
+  (`Design::wall_size`, `wall_growth`; panel: "grade toward the walls"):
+  TetGen's `-m` sizes graded from the walls (the layer patches), `on`
+  being half the cell size at the walls, growth 1.2, twice the cell size
+  inside, and the derived `-a` the regular tetrahedron of that interior
+  size. **Off by default**, so the TetGen pins do not move (switching it on
+  by default needs the maintainer). Cost: 27 k / 65 k / 45 k tetrahedra
+  (pipe, fuel channel, pebble) against 18 k / 31 k / 35 k ungraded; a
+  quarter of the cell size at the walls gave the fuel channel 399 k, so the
+  wall size is clamped to at least a quarter. `--tetgen-render <dir>
+  graded` draws the raw graded meshes coloured by edge length; the
+  `*_graded_*` views of `render.mjs` the page's.
+- **Tets + layers (gh:#1824)** build through cfMesh's `tetMesh` layer
+  steps, `strategy=tetmesh` (`LayerQualityStrategy::CfMeshTetMesh`): the
+  only strategy that grows layers on TetGen's tetrahedra (pipe and fuel
+  channel; the pebble is refused with 6 inverted cells). The page's
+  default strategy stays back-off, so `mesh=tet` without `strategy=tetmesh`
+  still grows none; the panel's note says so.
 - The headless-sweep fixture test fails on HEAD for reasons that predate
   Mesh Studio (gh:#1772); do not re-pin it without that issue's answer.
 

@@ -1,4 +1,4 @@
-# Mesh Studio review images (gh:#1771, gh:#1796)
+# Mesh Studio review images (gh:#1771, gh:#1796, gh:#1825)
 
 > **Research, education and V&V only.** Not for reactor design, licensing,
 > operation or safety decisions. AI-assisted draft: untrusted until a human
@@ -68,6 +68,7 @@ valid (the pipeline refuses an invalid stage) with **0 negative cells**.
 | pipe | TetGen | tet | 18020 | 62.6° | 0.99 | n/a | 0.3 s |
 | pipe | TetGen | tet + BL, back-off | 18020 | 62.6° | 0.99 | **none** | 0.9 s |
 | pipe | TetGen | tet + BL, cfMesh | 18020 | 62.6° | 0.99 | **none** (stage refused) | 117 s |
+| pipe | TetGen | tet + BL, **tetMesh** (gh:#1824) | 24353 | 65.8° | 0.90 | 3, 117 % (2111 per layer) | 1.3 s |
 | pipe | TetGen | dual | 3562 | 49.5° | 1.37 | n/a | 0.4 s |
 | pipe | TetGen | dual + BL, back-off | 6826 | 69.9° | 2.01 | 3, 17 % | 0.5 s |
 | pipe | TetGen | dual + BL, cfMesh | 6826 | 54.7° | 2.20 | 3, 75 % | 22 s |
@@ -80,6 +81,7 @@ valid (the pipeline refuses an invalid stage) with **0 negative cells**.
 | fuel channel | TetGen | tet | 30804 | 67.7° | 1.00 | n/a | 0.5 s |
 | fuel channel | TetGen | tet + BL, back-off | 30804 | 67.7° | 1.00 | **none** | 1.9 s |
 | fuel channel | TetGen | tet + BL, cfMesh | 30804 | 67.7° | 1.00 | **none** (stage refused) | 451 s |
+| fuel channel | TetGen | tet + BL, **tetMesh** (gh:#1824) | 46119 | 73.8° | 1.08 | 3, 65 % (5105 per layer) | 71 s |
 | fuel channel | TetGen | dual | 6399 | 60.7° | 1.65 | n/a | 0.7 s |
 | fuel channel | TetGen | dual + BL, back-off | 14313 | 74.5° | 2.94 | 3, 12 % | 1.1 s |
 | fuel channel | TetGen | dual + BL, cfMesh | 14313 | 63.3° | 2.84 | 3, 45 % | 57 s |
@@ -92,6 +94,7 @@ valid (the pipeline refuses an invalid stage) with **0 negative cells**.
 | pebble | TetGen | tet | 35347 | 72.2° | 1.53 | n/a | 0.7 s |
 | pebble | TetGen | tet + BL, back-off | 35347 | 72.2° | 1.53 | **none** | 3.4 s |
 | pebble | TetGen | tet + BL, cfMesh | 35347 | 72.2° | 1.53 | **none** (stage refused) | 413 s |
+| pebble | TetGen | tet + BL, **tetMesh** (gh:#1824) | 35347 | 72.2° | 1.53 | **none** (refused: 6 inverted cells) | 237 s |
 | pebble | TetGen | dual | 7186 | 67.8° | 1.78 | n/a | 1.2 s |
 | pebble | TetGen | dual + BL, back-off | 7186 | 67.8° | 1.78 | **none** | 2.7 s |
 | pebble | TetGen | dual + BL, cfMesh | 15052 | 68.7° | 3.20 | 3, 31 % | 93 s |
@@ -108,12 +111,28 @@ thickness. Not investigated here.)
 
 **What it says.**
 
-- **No layer grows on TetGen's tetrahedra**, with either strategy, on any
+- ~~**No layer grows on TetGen's tetrahedra**, with either strategy, on any
   shape: back-off backs off to zero and `CfMeshOptimise`'s result is
   refused by the pipeline's gate. Some wall tetrahedra have all four
   vertices on the boundary (146 on the 1 cm test pipe, none on the carved
   route; `tet_source::tests::diagnose_boundary_tets_of_both_sources`).
-  The report and the panel say so. **Use the dual for layers.**
+  The report and the panel say so. **Use the dual for layers.**~~
+  **CORRECTED 2026-11-26 (gh:#1824):** back-off and `CfMeshOptimise`
+  still grow none there, but cfMesh's own `tetMesh` layer steps
+  (`strategy=tetmesh`, `LayerQualityStrategy::CfMeshTetMesh`) grow all 3
+  on every wall face of the **pipe** and the **fuel channel**, with no
+  inverted cell (rows above). The **pebble** is still refused: 6 cells
+  stay inverted. The all-boundary tetrahedra were not the cause (none of
+  the cells the layer inverts is one); back-off is blocked by its
+  whole-mesh `minDeterminant 0.001` check, which TetGen's bare tets fail.
+  The methodology and the step-by-step measurement are in
+  `outram-park-fork-cfmesh/src/pipeline/tet_layers.rs`.
+- **The tetMesh route's thickness is upstream's** (half the local wall
+  edge, thinned by `optimiseLayer` where a cell would invert), so the
+  column medians are 117 % (pipe) and 65 % (fuel channel) of the 79.8 mm
+  asked; the requested 20 mm only caps the first layer. Its time is mostly
+  the port's `untangleBoundaryLayer`, which on the fuel channel would have
+  inverted 1463 cells and is not kept (the module's one non-upstream rule).
 - **On TetGen's dual** back-off grows thicker layers than on the carved
   dual (pipe 17 % against 9 %, fuel channel 12 % against 6 %) and
   `CfMeshOptimise` is 2–4× faster than on the carved dual and grows layers
@@ -150,16 +169,16 @@ asked thickness and 80–88° non-orthogonality.
 | image | view | cells |
 |---|---|---|
 | `pipe_tetgen_tets.png` | pipe · TetGen tets · z · non-orth · 3× | 18020 |
-| `pipe_tetgen_tets_layers_zoom.png` | pipe · TetGen tets + 3 layers asked · 30× at the wall | 18020 (no layer) |
+| `pipe_tetgen_tets_layers_zoom.png` | pipe · TetGen tets + 3 layers, **tetMesh route** (gh:#1824) · 30× at the wall | 24353 (~~18020, no layer~~); 1.65 s in the browser |
 | `pipe_tetgen_dual.png` | pipe · TetGen dual · z · non-orth · 3× | 3562 |
 | `pipe_tetgen_dual_layers_zoom.png` | pipe · TetGen dual + 3 layers (back-off) · 30× at the wall | 6826 |
 | `pipe_tetgen_dual_20_layers_zoom.png` | pipe · TetGen dual + 20 layers (cfMesh) · 20× at the wall | 25322 |
 | `fuel_channel_tetgen_tets.png` | fuel channel · TetGen tets · 1.5× | 30804 |
-| `fuel_channel_tetgen_tets_layers_zoom.png` | fuel channel · TetGen tets + 3 asked · 20× at the pin | 30804 (no layer) |
+| `fuel_channel_tetgen_tets_layers_zoom.png` | fuel channel · TetGen tets + 3, **tetMesh route** · 20× at the pin | 46119 (~~30804, no layer~~); 107 s in the browser |
 | `fuel_channel_tetgen_dual.png` | fuel channel · TetGen dual · 1.5× | 6399 |
 | `fuel_channel_tetgen_dual_layers_zoom.png` | fuel channel · TetGen dual + 3 (back-off) · 20× at the pin | 14313 |
 | `pebble_tetgen_tets.png` | pebble · TetGen tets · 1.5× | 35200 |
-| `pebble_tetgen_tets_layers_zoom.png` | pebble · TetGen tets + 3 asked · 20× at the pebble | 35200 (no layer) |
+| `pebble_tetgen_tets_layers_zoom.png` | pebble · TetGen tets + 3, **tetMesh route** · 20× at the pebble | 35200 (no layer: refused, 12 cells inverted in the browser's mesh); 305 s in the browser |
 | `pebble_tetgen_dual.png` | pebble · TetGen dual · 1.5× | 7158 |
 | `pebble_tetgen_dual_layers_zoom.png` | pebble · TetGen dual + 3 (cfMesh) · 20× at the pebble | 14958 |
 | `pair_pipe_dual_carved.png` / `pair_pipe_dual_tetgen.png` | pipe dual, carved / TetGen, same 3× view, non-orth | 7153 / 3562 |
@@ -188,8 +207,17 @@ native.
   the wall: on the pipe wall, the fuel pin (growing outward) and the
   pebble (growing outward into the coolant). The 20-layer stack is 20 thin
   bands, thinnest at the wall, ending in polyhedra.
-- The tet + layers views show tets against the wall and **no** layer,
-  with the report's "boundary layers added none" note.
+- ~~The tet + layers views show tets against the wall and **no** layer,
+  with the report's "boundary layers added none" note.~~ **CORRECTED
+  2026-11-26 (gh:#1824, re-rendered with `strategy=tetmesh`):** the pipe
+  and fuel-channel views show three prism layers on the wall, green
+  (layer 1) at the wall, then orange, then pink, each one cell per wall
+  face, under unstructured tets; on the pin they grow outward into the
+  coolant. The report: 0 negative cells, max non-orthogonality 65.8° /
+  73.7°, skewness 0.90 / 1.08, 2111 / 5105 cells per layer. The pebble
+  view shows tets against the pebble and no layer; its report says the
+  acceptance gate refused the layer and why (12 inverted cells remain on
+  the browser's mesh, 6 on the native one).
 - At phone width the controls fold, the zoom buttons and report remain,
   and the pebble hole is centred.
 
@@ -214,6 +242,48 @@ The frame gaps during a build match those of the same drag with nothing
 building: the cost is the software-rendered drawing, not the worker. The
 largest gap seen on page load (333 ms) is before the build starts (the
 wasm starting).
+
+## gh:#1825: TetGen's tetrahedra graded toward the walls (2026-11-26)
+
+`?grade=on` (panel: "grade toward the walls (TetGen -m)"): TetGen `-m`
+sizes half the cell size h at the walls (the layer patches), growing 1.2
+per cell to 2h inside, on the PLC points and on a jittered lattice of seed
+points in the volume; `-a` derived from 2h. Off by default (the gh:#1796
+pins stay). The port of `-m` is byte-identical to upstream's binary
+(`outram-park-fork-cfmesh/verification_and_validation/tetgen_sizing_gh1825/`,
+with the grading measured and the native raw-mesh images coloured by edge
+length).
+
+| shape | grade | tets | dual cells | native tets / dual [s] | browser tets / dual [s] |
+|---|---|---|---|---|---|
+| pipe | off | 18 020 | 3 562 | 0.33 / 0.68 | — |
+| pipe | on | 26 963 | 5 594 | 0.33 / 0.53 | 0.71 / 0.90 |
+| fuel channel | off | 30 804 | 6 399 | 0.63 / 0.62 | — |
+| fuel channel | on | 65 097 | 13 104 | 0.88 / 1.31 | 1.84 / 2.29 |
+| pebble | off | 35 347 | 7 186 | 0.67 / 0.95 | — |
+| pebble | on | 45 321 (browser 45 176) | 9 220 (9 180) | 0.74 / 1.11 | 1.24 / 1.86 |
+
+(Native: `mesh_studio --measure --shape <s> --tets tetgen --mesh tet|poly
+--n 0 --grade on|off`, one run. Browser: the report's "meshed in" of the
+`render.mjs` views, headless Chromium, this container. The pebble differs
+between native and browser as gh:#1823 records for the ungraded mesh.)
+
+**Views** (`render.mjs ... _graded_`): `{pipe,fuel_channel,pebble}_graded_tets_{z,x}.png`,
+`*_graded_dual_{z,x}.png`, `*_graded_dual_wall_zoom.png`, and
+`pipe_ungraded_dual_wall_zoom.png` beside `pipe_graded_dual_wall_zoom.png`.
+
+**Checked, by looking at the images, against the reference description
+(gh:#1796: "irregular polyhedra whose size grades down toward the walls"):**
+the pipe's x-cut has its smallest polyhedra along both walls and its
+largest on the axis, the inlet and outlet (not walls) keep large cells; the
+wall zoom shows the polyhedra shrinking toward the wall, where the ungraded
+zoom's are the same size throughout; the pebble's finest cells hug the
+pebble and the channel wall is finer than mid-gap. **Does not match yet:**
+the fuel channel's grading is weak (interior / wall mean edge 1.18): its
+0.5 m annulus leaves the size only 0.25 m to grow; a smaller wall size
+grades it more at a quadratic cost in cells (a quarter of h: 399 k
+tetrahedra). The grading is also gentler than the sizes ask (1.66 against
+2.6 on the pipe axis).
 
 ## ~~Results (2026-11-26, branch `claude/outram-blender-mggk7u`)~~
 

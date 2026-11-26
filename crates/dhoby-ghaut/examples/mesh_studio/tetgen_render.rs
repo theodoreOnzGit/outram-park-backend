@@ -19,13 +19,21 @@
 //! tetrahedron is one polygon, filled by its region attribute and outlined,
 //! so the element edges, the regions and any hole are visible.
 //!
+//! `graded` as the switches (gh:#1825) draws the page's wall-graded TetGen
+//! meshes instead (`?grade=on`: the design's `-pq1.414a<V>m` and the
+//! `-m` sizes and seed points of `pipeline::tet_source::tetgen_plc`, with
+//! `-A` for the colours), adding a zoom of the z-cut at the walls.
+//!
 //! Native only (it writes PNGs with `outram_blender`'s plot image).
 
 use super::model::{reactor_surface, GeomKind};
 use super::section::{cut, to_poly};
 use outram_blender::csg::plot::{annotate_image, ImageData, LegendEntry, Rgb};
 use outram_park_fork_cfmesh::patches::SurfaceRegions;
-use outram_park_fork_cfmesh::tetgen::{tetrahedralize_plc, to_volume_mesh, PlcInput, Switches};
+use outram_park_fork_cfmesh::pipeline::tet_source::tetgen_plc;
+use outram_park_fork_cfmesh::tetgen::{
+    tetrahedralize_plc, to_volume_mesh, Behavior, PlcInput, Switches,
+};
 
 const BG: Rgb = Rgb::new(255, 255, 255);
 const EDGE: Rgb = Rgb::new(30, 30, 30);
@@ -36,6 +44,63 @@ const REGION: [Rgb; 4] = [
     Rgb::new(170, 230, 160),
     Rgb::new(230, 160, 210),
 ];
+
+/// Mean-edge colours of a graded mesh, small (dark) to large (light).
+const SIZE: [Rgb; 6] = [
+    Rgb::new(68, 1, 84),
+    Rgb::new(65, 68, 135),
+    Rgb::new(42, 120, 142),
+    Rgb::new(34, 168, 132),
+    Rgb::new(122, 209, 81),
+    Rgb::new(253, 231, 37),
+];
+
+/// The mean edge length of every cell of a tetrahedral mesh, from its
+/// faces (each cell's distinct vertices, every pair an edge).
+fn cell_mean_edges(vm: &outram_park_fork_cfmesh::volume_mesh::VolumeMesh) -> Vec<f64> {
+    let mut verts: Vec<Vec<usize>> = vec![Vec::new(); vm.n_cells];
+    for (f, face) in vm.faces.iter().enumerate() {
+        let mut add = |c: usize| {
+            for &v in face {
+                if !verts[c].contains(&v) {
+                    verts[c].push(v);
+                }
+            }
+        };
+        add(vm.owner[f]);
+        if let Some(n) = vm.neighbour[f] {
+            add(n);
+        }
+    }
+    verts
+        .iter()
+        .map(|v| {
+            let (mut s, mut n) = (0.0, 0usize);
+            for i in 0..v.len() {
+                for j in i + 1..v.len() {
+                    s += vm.points[v[i]].sub(vm.points[v[j]]).length();
+                    n += 1;
+                }
+            }
+            s / n.max(1) as f64
+        })
+        .collect()
+}
+
+/// The log bin of `x` in `[lo, hi]`, `0..SIZE.len()`.
+fn size_bin(x: f64, lo: f64, hi: f64) -> usize {
+    let t = if hi > lo {
+        (x / lo).ln() / (hi / lo).ln()
+    } else {
+        0.0
+    };
+    ((t * SIZE.len() as f64) as usize).min(SIZE.len() - 1)
+}
+
+/// The lower edge of log bin `k` (the upper of `k - 1`).
+fn bin_edge(k: usize, lo: f64, hi: f64) -> f64 {
+    lo * (hi / lo).powf(k as f64 / SIZE.len() as f64)
+}
 
 /// One case's mesh and what the image reports about it.
 pub struct Drawn {
@@ -69,7 +134,49 @@ pub fn draw_with(kind: GeomKind, size: f64, sw: &str) -> Result<Drawn, String> {
     let markers: Vec<i32> = regions.region_of_tri.iter().map(|&r| r as i32).collect();
     let plc = PlcInput::from_triangle_soup(&pts, &tris, &markers);
     let b = Switches::parse(sw)?.behavior();
-    let r = tetrahedralize_plc(&plc, &b).map_err(|e| format!("tetgen: {e:?}"))?;
+    draw_plc(kind, size, &plc, &b, &regions, sw, "", false)
+}
+
+/// The page's wall-graded TetGen mesh of `kind` (gh:#1825): the design
+/// `shape=<kind>&grade=on` (walls half the cell size, growth 1.2, the
+/// cell size inside), its PLC with the `-m` sizes and seed points
+/// ([`tetgen_plc`]), plus `-A` for the colours; drawn as [`draw_with`]
+/// does, with a third image zoomed on the z-cut at the walls.
+///
+/// # Errors
+/// As [`draw`].
+pub fn draw_graded(kind: GeomKind, size: f64) -> Result<Drawn, String> {
+    let q: Vec<(String, String)> = [("shape", kind.slug()), ("grade", "on")]
+        .iter()
+        .map(|(a, b)| (a.to_string(), b.to_string()))
+        .collect();
+    let mut d = super::engine::Design::from_query(&q);
+    d.size = size;
+    let src = d.tet_source();
+    let (points, tris, labels, walls) = reactor_surface(kind, size);
+    let regions = SurfaceRegions::from_labels(&labels);
+    let run = tetgen_plc(&points, &tris, Some(&regions), "walls", &walls, src)?;
+    let mut b = run.behavior;
+    b.regionattrib = true;
+    let sw = src.switches().unwrap_or_default() + "A";
+    draw_plc(kind, size, &run.plc, &b, &regions, &sw, "_graded", true)
+}
+
+/// Mesh `plc` under `b` and draw its z- and x-cuts (and, with `zoom`, the
+/// z-cut at the walls: the box from 0.45 to 1.02 of the channel radius in
+/// x, a quarter of it either side in y). `label` goes into the file names.
+#[allow(clippy::too_many_arguments)]
+fn draw_plc(
+    kind: GeomKind,
+    size: f64,
+    plc: &PlcInput,
+    b: &Behavior,
+    regions: &SurfaceRegions,
+    sw: &str,
+    label: &str,
+    zoom: bool,
+) -> Result<Drawn, String> {
+    let r = tetrahedralize_plc(plc, b).map_err(|e| format!("tetgen: {e:?}"))?;
     let out = r.output.ok_or("no output")?;
     let vm = to_volume_mesh(&out, Some(&regions.names));
     let attrs = out.tet_attributes.clone().unwrap_or_default();
@@ -80,7 +187,23 @@ pub fn draw_with(kind: GeomKind, size: f64, sw: &str) -> Result<Drawn, String> {
         }
     }
     distinct.sort_by(|a, b| a.total_cmp(b));
+    // A graded mesh (gh:#1825) is coloured by each tetrahedron's mean
+    //   edge length (log bins between the mesh's extremes), so that the
+    //   grading is read off the colours; others by region.
+    let sizes = if zoom {
+        Some(cell_mean_edges(&vm))
+    } else {
+        None
+    };
+    let size_bins = sizes.as_ref().map(|m| {
+        let lo = m.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = m.iter().copied().fold(0.0, f64::max);
+        (lo, hi)
+    });
     let colour_of = |c: usize| {
+        if let (Some(m), Some((lo, hi))) = (&sizes, size_bins) {
+            return SIZE[size_bin(m[c], lo, hi)];
+        }
         let a = attrs.get(c).copied().unwrap_or(0.0);
         let k = distinct.iter().position(|&d| d == a).unwrap_or(0);
         REGION[k % REGION.len()]
@@ -91,22 +214,40 @@ pub fn draw_with(kind: GeomKind, size: f64, sw: &str) -> Result<Drawn, String> {
     let xoff = 1e-3 * size;
     let mut images = Vec::new();
     let mut cut_cells = Vec::new();
-    for (axis, offset, tag, what) in [
-        (2u8, zmid, "z", format!("Z = {zmid:.3} M (MID-HEIGHT)")),
+    let rc = 0.5 * size;
+    let mut views = vec![
+        (
+            2u8,
+            zmid,
+            "z",
+            format!("Z = {zmid:.3} M (MID-HEIGHT)"),
+            None,
+        ),
         (
             0u8,
             xoff,
             "x",
             format!("X = {xoff:.3} M (THROUGH THE AXIS)"),
+            None,
         ),
-    ] {
+    ];
+    if zoom {
+        views.push((
+            2u8,
+            zmid,
+            "zoom",
+            format!("Z = {zmid:.3} M, ZOOM AT THE WALLS"),
+            Some(([0.45 * rc, 1.02 * rc], [-0.25 * rc, 0.25 * rc])),
+        ));
+    }
+    for (axis, offset, tag, what, window) in views {
         let sections = cut(&poly, axis, offset);
         cut_cells.push(sections.len());
         // In-plane extent: (x, y) for a z-cut, (y, z) for an x-cut.
-        let (u, v) = if axis == 2 {
-            ([lo[0], hi[0]], [lo[1], hi[1]])
-        } else {
-            ([lo[1], hi[1]], [lo[2], hi[2]])
+        let (u, v) = match window {
+            Some(w) => w,
+            None if axis == 2 => ([lo[0], hi[0]], [lo[1], hi[1]]),
+            None => ([lo[1], hi[1]], [lo[2], hi[2]]),
         };
         let scale = 760.0 / (u[1] - u[0]).max(v[1] - v[0]);
         let (w, h) = (
@@ -130,17 +271,26 @@ pub fn draw_with(kind: GeomKind, size: f64, sw: &str) -> Result<Drawn, String> {
                 line(&mut img, ring[k], ring[(k + 1) % ring.len()], EDGE);
             }
         }
-        let legend: Vec<LegendEntry> = distinct
-            .iter()
-            .enumerate()
-            .map(|(k, a)| {
-                let n = attrs.iter().filter(|&&x| x == *a).count();
-                LegendEntry::new(
-                    REGION[k % REGION.len()],
-                    format!("REGION ATTRIBUTE {a} ({n} TETS)"),
-                )
-            })
-            .collect();
+        let legend: Vec<LegendEntry> = match (&sizes, size_bins) {
+            (Some(m), Some((lo, hi))) => (0..SIZE.len())
+                .map(|k| {
+                    let (a, b) = (bin_edge(k, lo, hi), bin_edge(k + 1, lo, hi));
+                    let n = m.iter().filter(|&&x| size_bin(x, lo, hi) == k).count();
+                    LegendEntry::new(SIZE[k], format!("MEAN EDGE {a:.3} TO {b:.3} M ({n} TETS)"))
+                })
+                .collect(),
+            _ => distinct
+                .iter()
+                .enumerate()
+                .map(|(k, a)| {
+                    let n = attrs.iter().filter(|&&x| x == *a).count();
+                    LegendEntry::new(
+                        REGION[k % REGION.len()],
+                        format!("REGION ATTRIBUTE {a} ({n} TETS)"),
+                    )
+                })
+                .collect(),
+        };
         let title = format!(
             "TETGEN -{}, {} SIZE {size}: {what}, {} CUT TETS OF {}, {} NODES",
             sw.to_uppercase(),
@@ -150,7 +300,7 @@ pub fn draw_with(kind: GeomKind, size: f64, sw: &str) -> Result<Drawn, String> {
             out.points.len()
         );
         images.push((
-            format!("{}_{tag}_cut.png", kind.slug()),
+            format!("{}{label}_{tag}_cut.png", kind.slug()),
             annotate_image(&img, &title, &legend),
         ));
     }
@@ -214,7 +364,11 @@ pub fn render_all(dir: &std::path::Path, sw: &str) -> Result<Vec<String>, String
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let mut lines = Vec::new();
     for kind in [GeomKind::Pipe, GeomKind::FuelChannel, GeomKind::Pebble] {
-        let d = draw_with(kind, 2.0, sw)?;
+        let d = if sw == "graded" {
+            draw_graded(kind, 2.0)?
+        } else {
+            draw_with(kind, 2.0, sw)?
+        };
         for (name, img) in &d.images {
             img.write_png(dir.join(name)).map_err(|e| e.to_string())?;
         }
@@ -247,6 +401,23 @@ mod tests {
             p.counts.0
         );
         assert!(q.cut_cells.iter().zip(&p.cut_cells).all(|(a, b)| a > b));
+    }
+
+    /// The wall-graded mesh (gh:#1825) is drawn: three images (the zoom at
+    /// the walls among them) from more tetrahedra than the ungraded mesh
+    /// at the same volume bound. That the cells shrink toward the walls is
+    /// the cfMesh crate's property test
+    /// (`tetgen_tets_shrink_toward_the_walls_when_graded`) and the images.
+    #[test]
+    fn graded_sections_are_drawn_with_a_wall_zoom() {
+        let g = draw_graded(GeomKind::Pipe, 2.0).unwrap();
+        let u = draw_with(GeomKind::Pipe, 2.0, "pq1.414a0.00184zA").unwrap();
+        assert_eq!(g.images.len(), 3);
+        assert!(g
+            .images
+            .iter()
+            .any(|(n, _)| n == "pipe_graded_zoom_cut.png"));
+        assert!(g.counts.0 > u.counts.0, "{} vs {}", g.counts.0, u.counts.0);
     }
 
     /// The images are drawn from the TetGen mesh: the fuel channel's pin

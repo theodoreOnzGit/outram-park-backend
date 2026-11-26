@@ -51,8 +51,22 @@
 //! the seams between markers as segments, so the tet mesh's patches are the
 //! surface's regions ([`crate::tetgen::to_volume_mesh`] names them).
 //!
+//! # Wall grading (gh:#1825)
+//!
+//! `-pq<r>a<V>` alone refines only where the surface triangles are small
+//! (near the pebble), not toward the pipe or channel walls. With
+//! `wall_grade: Some(..)` ([`WallGrade`], [`wall_grade`]) every PLC point,
+//! plus seed points inside the volume, gets a TetGen `-m` size graded from
+//! the walls, and TetGen runs with `-m` (`-pq<r>/<d>[a<V>]m`). The walls are
+//! the regions named in `walls` ([`tetgen_tets_graded`], the pipeline's
+//! [`super::TetDualOptions::layer_patches`]), or the whole surface when it
+//! is empty. Off (`None`) by default.
+//!
 //! **Untrusted AI-assisted draft pending human V&V.** Education, research
 //! and V&V only, per the workspace `RESPONSIBLE_USE.md`.
+
+pub mod wall_grade;
+pub use wall_grade::WallGrade;
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -85,6 +99,9 @@ pub enum TetSource {
         /// no volume bound (the tetrahedra then grade from the surface
         /// triangles' size only).
         max_volume: Option<f64>,
+        /// Sizes graded from the walls (`-m`, gh:#1825; see the module
+        /// docs), or `None` (the default) for none.
+        wall_grade: Option<WallGrade>,
     },
 }
 
@@ -94,18 +111,42 @@ impl TetSource {
     pub const TETGEN_DEFAULT_MIN_DIHEDRAL: f64 = 3.5;
 
     /// TetGen with radius-edge bound `radius_edge`, TetGen's default
-    /// dihedral bound, and an optional volume bound \[m³\].
+    /// dihedral bound, an optional volume bound \[m³\], and no wall
+    /// grading.
     #[must_use]
     pub fn tetgen(radius_edge: f64, max_volume: Option<f64>) -> Self {
         TetSource::TetGen {
             radius_edge,
             min_dihedral: Self::TETGEN_DEFAULT_MIN_DIHEDRAL,
             max_volume,
+            wall_grade: None,
         }
     }
 
-    /// The TetGen command-line switches this source runs (`"pq1.414/3.5a0.0026"`),
-    /// or `None` for the carved route. For the report and the stage note.
+    /// This source with the wall grading `grade` (gh:#1825); the carved
+    /// route is returned unchanged (it has its own near-wall refinement,
+    /// [`super::TetDualOptions::refinement_levels`]).
+    #[must_use]
+    pub fn with_wall_grade(self, grade: Option<WallGrade>) -> Self {
+        match self {
+            TetSource::CarvedCentroid => self,
+            TetSource::TetGen {
+                radius_edge,
+                min_dihedral,
+                max_volume,
+                ..
+            } => TetSource::TetGen {
+                radius_edge,
+                min_dihedral,
+                max_volume,
+                wall_grade: grade,
+            },
+        }
+    }
+
+    /// The TetGen command-line switches this source runs (`"pq1.414/3.5a0.0026"`,
+    /// with a trailing `m` when wall-graded), or `None` for the carved
+    /// route. For the report and the stage note.
     #[must_use]
     pub fn switches(&self) -> Option<String> {
         match *self {
@@ -114,10 +155,14 @@ impl TetSource {
                 radius_edge,
                 min_dihedral,
                 max_volume,
-            } => Some(match max_volume {
-                Some(v) => alloc::format!("pq{radius_edge}/{min_dihedral}a{v}"),
-                None => alloc::format!("pq{radius_edge}/{min_dihedral}"),
-            }),
+                wall_grade,
+            } => {
+                let m = if wall_grade.is_some() { "m" } else { "" };
+                Some(match max_volume {
+                    Some(v) => alloc::format!("pq{radius_edge}/{min_dihedral}a{v}{m}"),
+                    None => alloc::format!("pq{radius_edge}/{min_dihedral}{m}"),
+                })
+            }
         }
     }
 }
@@ -232,10 +277,90 @@ pub fn tetgen_tets(
     wall_patch: &str,
     source: TetSource,
 ) -> Result<(VolumeMesh, String), String> {
+    tetgen_tets_graded(points, tris, regions, wall_patch, &[], source)
+}
+
+/// [`tetgen_tets`] with the walls of a wall-graded source named: the
+/// triangles of the regions in `walls`, or every triangle when `walls` is
+/// empty or the surface has no regions (gh:#1825). Without a
+/// [`WallGrade`] in `source`, `walls` is not read.
+///
+/// # Errors
+/// As [`tetgen_tets`], and a [`WallGrade`] out of range
+/// ([`WallGrade::check`]).
+pub fn tetgen_tets_graded(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: Option<&SurfaceRegions>,
+    wall_patch: &str,
+    walls: &[String],
+    source: TetSource,
+) -> Result<(VolumeMesh, String), String> {
+    let run = tetgen_plc(points, tris, regions, wall_patch, walls, source)?;
+    let r = tetrahedralize_plc(&run.plc, &run.behavior)
+        .map_err(|e| alloc::format!("TetGen refused the surface: {e:?}"))?;
+    let out = r
+        .output
+        .ok_or("TetGen wrote no output (diagnose mode is not used here)")?;
+    let mesh = to_volume_mesh(&out, Some(&run.names));
+    let mut note = alloc::format!(
+        "tet source TetGen -{}: {} tetrahedra on {} nodes; carve, snap and the Delaunay flips not run \
+         (TetGen's constrained Delaunay refinement replaces them)",
+        source.switches().unwrap_or_default(),
+        out.tets.len(),
+        out.points.len()
+    );
+    if let TetSource::TetGen {
+        wall_grade: Some(g),
+        ..
+    } = source
+    {
+        note += &alloc::format!(
+            "; wall-graded sizes {:.4} m at the walls, x{} growth, {:.4} m inside ({} seed points)",
+            g.wall_size,
+            g.growth,
+            g.interior_size,
+            run.n_seeds
+        );
+    }
+    Ok((mesh, note))
+}
+
+/// What [`tetgen_plc`] hands TetGen: the PLC (with hole points and, when
+/// wall-graded, the seed points and every point's `-m` size), the
+/// switches, the patch name of every facet marker, and the number of seed
+/// points appended after the surface's points.
+#[derive(Debug, Clone)]
+pub struct TetgenRun {
+    /// The PLC (`.smesh` + `.mtr`, [`PlcInput::to_smesh`]).
+    pub plc: PlcInput,
+    /// The behaviour: `-pq<r>/<d>`, with `a<V>` and `m` as the source asks.
+    pub behavior: crate::tetgen::Behavior,
+    /// The patch name of each facet marker.
+    pub names: Vec<String>,
+    /// Seed points appended to [`PlcInput::points`] (0 without grading).
+    pub n_seeds: usize,
+}
+
+/// The PLC and switches [`tetgen_tets_graded`] runs TetGen on (public so
+/// that the V&V record can write the same input for the upstream binary,
+/// gh:#1825).
+///
+/// # Errors
+/// As [`tetgen_tets_graded`].
+pub fn tetgen_plc(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: Option<&SurfaceRegions>,
+    wall_patch: &str,
+    walls: &[String],
+    source: TetSource,
+) -> Result<TetgenRun, String> {
     let TetSource::TetGen {
         radius_edge,
         min_dihedral,
         max_volume,
+        wall_grade,
     } = source
     else {
         return Err("tetgen_tets called with the carved tet source".into());
@@ -267,20 +392,27 @@ pub fn tetgen_tets(
     };
     let mut plc = PlcInput::from_triangle_soup(&pts, tris, &markers);
     plc.holes = hole_points(points, tris);
-    let r = tetrahedralize_plc(&plc, &sw.behavior())
-        .map_err(|e| alloc::format!("TetGen refused the surface: {e:?}"))?;
-    let out = r
-        .output
-        .ok_or("TetGen wrote no output (diagnose mode is not used here)")?;
-    let mesh = to_volume_mesh(&out, Some(&names));
-    let note = alloc::format!(
-        "tet source TetGen -{}: {} tetrahedra on {} nodes; carve, snap and the Delaunay flips not run \
-         (TetGen's constrained Delaunay refinement replaces them)",
-        source.switches().unwrap_or_default(),
-        out.tets.len(),
-        out.points.len()
-    );
-    Ok((mesh, note))
+    let mut n_seeds = 0;
+    if let Some(g) = wall_grade {
+        g.check()?;
+        let is_wall: Vec<bool> = (0..tris.len())
+            .map(|i| match regions {
+                Some(r) if !walls.is_empty() => walls.contains(&r.names[r.region_of_tri[i]]),
+                _ => true,
+            })
+            .collect();
+        let (seeds, sizes) = wall_grade::wall_graded_sizes(points, tris, &is_wall, &g);
+        n_seeds = seeds.len();
+        plc.points.extend(seeds.iter().map(|p| [p.x, p.y, p.z]));
+        plc.point_mtrs = sizes;
+        sw = sw.metric(1.0);
+    }
+    Ok(TetgenRun {
+        plc,
+        behavior: sw.behavior(),
+        names,
+        n_seeds,
+    })
 }
 
 #[cfg(test)]
@@ -330,6 +462,7 @@ mod tests {
                 radius_edge: 1.414,
                 min_dihedral: 95.0,
                 max_volume: None,
+                wall_grade: None,
             },
         ] {
             assert!(tetgen_tets(&p, &t, None, "walls", s).is_err(), "{s:?}");

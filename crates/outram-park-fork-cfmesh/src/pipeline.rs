@@ -123,6 +123,8 @@ use staged::{PipelineStage, StageLog};
 /// Where the tetrahedra come from: the carved grid or TetGen (gh:#1796).
 pub mod tet_source;
 pub use tet_source::TetSource;
+/// cfMesh's `tetMesh` layer steps on the pipeline's tetrahedra (gh:#1824).
+pub mod tet_layers;
 
 /// Tuning knobs for [`surface_to_tet_dual_mesh`] and the primitive wrappers.
 ///
@@ -383,6 +385,9 @@ fn grow_layers(mesh: &VolumeMesh, patches: &[&str], opts: &TetDualOptions, surfa
             add_boundary_layers_cfmesh_on_surface(mesh, patches, n, t, e, &c, surface)
         }
         LayerQualityStrategy::SnappyCollapse => add_boundary_layers_snappy(mesh, patches, n, t, e, &opts.snappy_layers),
+        // gh:#1824: upstream's tetMesh steps; the whole optimiseFinalMesh
+        // only when asked for (`tet_layers` module docs).
+        LayerQualityStrategy::CfMeshTetMesh => tet_layers::add_boundary_layers_cfmesh_tet_mesh(mesh, patches, n, t, e, &opts.cfmesh_layer_optimisation, surface.filter(|_| opts.optimise_final_mesh)),
     }
 }
 
@@ -708,8 +713,16 @@ pub(crate) fn run_pipeline_observed(
     let mut mesh = if opts.tet_source == TetSource::CarvedCentroid {
         carve_snap_split(points, tris, opts, &mut notes, &mut log)?
     } else {
-        let (tets, note) =
-            tet_source::tetgen_tets(points, tris, regions, &opts.wall_patch, opts.tet_source)?;
+        // The walls of a wall-graded TetGen run are the layer patches
+        //   (gh:#1825).
+        let (tets, note) = tet_source::tetgen_tets_graded(
+            points,
+            tris,
+            regions,
+            &opts.wall_patch,
+            &opts.layer_patches,
+            opts.tet_source,
+        )?;
         notes.push(note);
         let nothing = tet_source::empty_mesh();
         staged::record(&mut log, PipelineStage::Carve, false, &nothing);
@@ -868,7 +881,9 @@ pub(crate) fn run_pipeline_observed(
 
     // Stage 6c — cfMesh's optimiseFinalMesh on the bare mesh (gh:#1283),
     // unless the CfMeshOptimise layer stage will run it.
-    let cfmesh_layers = opts.n_layers > 0 && opts.layer_strategy == LayerQualityStrategy::CfMeshOptimise;
+    // (gh:#1824: the CfMeshTetMesh layer runs it too, after its layer, as
+    // tetMeshGenerator does.)
+    let cfmesh_layers = opts.n_layers > 0 && matches!(opts.layer_strategy, LayerQualityStrategy::CfMeshOptimise | LayerQualityStrategy::CfMeshTetMesh);
     if let (true, false, Some(regions)) = (opts.optimise_final_mesh, cfmesh_layers, regions) {
         let mut optimised = mesh.clone();
         let n = crate::final_mesh::optimise_final_mesh(&mut optimised, points, tris, regions, &opts.cfmesh_layer_optimisation);
@@ -902,6 +917,10 @@ pub(crate) fn run_pipeline_observed(
                     mesh = m;
                     staged::record_layers(&mut log, kept, before, &names, &mesh);
                     let strategy = outcome.strategy;
+                    // gh:#1824: say what cfMesh's tetMesh steps did before the gate refused them.
+                    if !kept && strategy == LayerQualityStrategy::CfMeshTetMesh {
+                        notes.push(format!("refused by the acceptance gate: {}", layer_note(&outcome)));
+                    }
                     layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
                     if !kept {
                         notes.push("boundary layers skipped — the wall is too tight for any valid layer".into());
@@ -940,6 +959,10 @@ pub(crate) fn run_pipeline_observed(
             mesh = m;
             staged::record_layers(&mut log, kept, before, &[opts.wall_patch.as_str()], &mesh);
             let strategy = outcome.strategy;
+            // gh:#1824: say what cfMesh's tetMesh steps did before the gate refused them.
+            if !kept && strategy == LayerQualityStrategy::CfMeshTetMesh {
+                notes.push(format!("refused by the acceptance gate: {}", layer_note(&outcome)));
+            }
             layer_outcome = Some(if kept { outcome } else { LayerOutcome::none(strategy, opts.n_layers) });
             if !kept {
                 notes.push(

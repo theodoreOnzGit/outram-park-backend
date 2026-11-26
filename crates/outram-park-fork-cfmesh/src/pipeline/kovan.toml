@@ -349,7 +349,7 @@ test = true
 id = "fn:0c8cb60919a2408f"
 name = "ref_boundary_layers"
 qual = "ref_boundary_layers"
-hash = "sha256:88b1f6fc0b23904b8f9d5357f86ec1b37af24a3d4e24378716e5db5f580dd316"
+hash = "sha256:6b82c51ae935d8f912644f1edb06e12904482969ff0fffdf8274397dc240c7de"
 doc_hash = "sha256:acacc0468119bbc58c664abae48945d356436d39ee6beeecab453ce4c12dcbf7"
 
 [[module."cartesian_mesh.rs".function]]
@@ -389,6 +389,13 @@ name = "trace_points"
 qual = "trace_points"
 hash = "sha256:fc322331819ed598e7399c5ca2a72e917ebe49895eff99b65f04aab8e11fa160"
 doc_hash = "sha256:9e833de6f8f5d95af1ee2395d1ebf7688c4c2b111d8aa1f92507f15bc357edbe"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:9a182ba8f29a21e2"
+name = "untangle_refined_layer"
+qual = "untangle_refined_layer"
+hash = "sha256:60be97b9d793264e4332193103a27f21b6a097acc911fcec578352ff485b7e6f"
+doc_hash = "sha256:6bda6aa53242c325beb22d34275fc3df9e714510398c31d0a3342bd36cd8ad98"
 
 [module."p_mesh.rs"]
 path = "crate::pipeline::p_mesh"
@@ -648,6 +655,85 @@ hash = "sha256:effaccfd8ed015b68a45c5670a37fe2ac5637e0b4db68333d1e5869537b550a5"
 doc_hash = "sha256:ec9bfa12f0e55d685bf395796c264c7209412734dcf6adaf46f3f96bb17ffd1e"
 test = true
 
+[module."tet_layers.rs"]
+path = "crate::pipeline::tet_layers"
+
+[[module."tet_layers.rs".function]]
+id = "fn:bfec84030551522b"
+name = "add_boundary_layers_cfmesh_tet_mesh"
+qual = "add_boundary_layers_cfmesh_tet_mesh"
+hash = "sha256:c9083b5aae2a29c131c01386fdd7284f87b46d62b27496b35c56bcf2e5f97a4a"
+doc_hash = "sha256:a439204991f504a1a2b0bf1cff0968010e7655cc352df7f302fe70dd2901f2aa"
+
+[[module."tet_layers.rs".function]]
+id = "fn:4c31b08645bfaf88"
+name = "assert_layered"
+qual = "assert_layered"
+hash = "sha256:689313e37f998b918c56614d5586a8841060c753d15b8f9423d7d5d61561fa3e"
+doc_hash = "sha256:623ec2c6b7d5228c202014b5e3f07d8b210c305ff96c5b1ea743ec57b67b37fc"
+test = true
+
+[[module."tet_layers.rs".function]]
+id = "fn:935bee545fcc7a89"
+name = "diagnose_cfmesh_tet_mesh_steps_on_tetgen_tets"
+qual = "diagnose_cfmesh_tet_mesh_steps_on_tetgen_tets"
+hash = "sha256:33f5184b3bed4a159f4e60053d4b6e6f7f8ef50fffc9465d09d988f7984252cd"
+doc_hash = "sha256:b86236be0c66153ffb800509f0239647771909f29a60be4df60325260f4643a1"
+test = true
+
+[[module."tet_layers.rs".function]]
+id = "fn:9e6ab2c75c18c714"
+name = "keep_unless_more_inverted"
+qual = "keep_unless_more_inverted"
+hash = "sha256:98e1d3294cc006f9fae99e01808ff7bbc0f0ab23ca00232d187f2fd78a642142"
+doc_hash = "sha256:11f4ad47244dcff0c8753fa5b80395416e279a2775e026467e26e13ae6b40c96"
+
+[[module."tet_layers.rs".function]]
+id = "fn:1e6bcfc8c9b923ef"
+name = "layer_face_centres"
+qual = "layer_face_centres"
+hash = "sha256:dd5407eca7c509c5c63d82aa762a8f20badff380927d843049f40a199cbcae85"
+doc_hash = "sha256:c8f02d05be85e03b9a786c8d22b885925db2ef72b53947ff92b184dbee3f70ed"
+
+[[module."tet_layers.rs".function]]
+id = "fn:4e4503aa289e45d5"
+name = "refine_settings"
+qual = "refine_settings"
+hash = "sha256:f5862cf14d0992456d369b533aaed0068e204740d160d7758ae3f4348d15456d"
+doc_hash = "sha256:8c9b5d4773108c440b944b6ac3d2d429524bbfeadbe125ad9c286e934335d821"
+
+[[module."tet_layers.rs".function]]
+id = "fn:2f6b20786616f185"
+name = "tet_mesh_layers_grow_on_every_wall_face_of_tetgen_tets"
+qual = "tet_mesh_layers_grow_on_every_wall_face_of_tetgen_tets"
+hash = "sha256:4c65cb32f9434c822181d2abc1873e6de5c792235659c514927f9b8b8f58e54c"
+doc_hash = "sha256:a870ece0786e501d2981a274f48ed000f5592d858df5f387ed14bf843fe44c23"
+test = true
+
+[[module."tet_layers.rs".function]]
+id = "fn:4d8f23fa5d2b64fc"
+name = "tet_mesh_layers_on_a_tetgen_box_keep_its_volume"
+qual = "tet_mesh_layers_on_a_tetgen_box_keep_its_volume"
+hash = "sha256:6680031ed89d8705c370d3c8958dd9397d9c843c09d60f35d37f9e4eb02cda91"
+doc_hash = "sha256:abf2c415590aa7148040cbbd10abb5b2071ab6d972f1c0276a05aba49b53174f"
+test = true
+
+[[module."tet_layers.rs".function]]
+id = "fn:2c020e7cd9d19b96"
+name = "tet_opts"
+qual = "tet_opts"
+hash = "sha256:33e79c6c516e91c65798dcf01bd945c8e8d2c8435c65e6f897a340b83c8d28dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tet_layers.rs".function]]
+id = "fn:93fb020e2d500d47"
+name = "zero_layers_return_the_mesh_unchanged"
+qual = "zero_layers_return_the_mesh_unchanged"
+hash = "sha256:93189303bb47b0a7a5e27cad1ec3e7403b20ac7d06829e4801510224bb046af1"
+doc_hash = "sha256:938259125cb311dd80c7f3c5330ec27d3b519b306f9f2f811ed627dee47743eb"
+test = true
+
 [module."tet_mesh.rs"]
 path = "crate::pipeline::tet_mesh"
 
@@ -760,7 +846,7 @@ doc_hash = "sha256:7097a46a76447eca2356a91e7eeef1515b1ca8adfea0b29b19feb770a8e3b
 id = "fn:8742f353ece5152d"
 name = "generator_optimise_final_mesh"
 qual = "generator_optimise_final_mesh"
-hash = "sha256:bcaa38c2c4ed7715ba5bdf31f57090f0d4461b3551adc59113844c003bb58b83"
+hash = "sha256:77e5c079e3d62a2461c74934a08c62994f0ff517d18ceb2863092d24b9a93255"
 doc_hash = "sha256:aa3ea5d82e6e06e4864ec3df7a1cd2552d6d8cb83360fa4f775e7f2d3d683097"
 
 [[module."tet_mesh.rs".function]]
@@ -843,22 +929,38 @@ name = "TetSource"
 qual = "TetSource"
 item = "type"
 shape = "enum"
-hash = "sha256:7bac4a0a57cd14b82be3f07ecb7a46a6905373dfcc498ce79b22a25d5f7c1a67"
+hash = "sha256:975beed86088cebc362bf1d5ca4f93e491c3cde34863345a8bac45995f20c9fd"
 doc_hash = "sha256:0bb100a59c4420826e1b7ad3a4fa7ebced00d8d0c93fb460a2fdebdec63d31be"
 
 [[module."tet_source.rs".function]]
 id = "fn:40376a1b70a04900"
 name = "switches"
 qual = "TetSource::switches"
-hash = "sha256:efc0cc70a16f02e81e00fcad2777fc051305d9c336b23185edd4065d0d671671"
-doc_hash = "sha256:d4265c02058d508fe188f30d8a0323250630d41cbdb92e678b7a7ae5a1b827f2"
+hash = "sha256:e85ac5012dc05d867b3ca4d45c55ced01fdad8acd7e13206e2a796928dadbc37"
+doc_hash = "sha256:eec0b5265f58a38b4d5807034c539d84f3c014bd097dc4d306583204af0a7337"
 
 [[module."tet_source.rs".function]]
 id = "fn:3167d3287b888114"
 name = "tetgen"
 qual = "TetSource::tetgen"
-hash = "sha256:64f7065dda3f761bac120e45eb4eb72bd7efabe92ed46a29401be93ab1ff9995"
-doc_hash = "sha256:c3d1174f0044aebdd31709586d65ee05c7d7d9e737c5fd623a2c3d0e4357e7d0"
+hash = "sha256:01a347126be7086333af22627527af5cd663600200d41a775583a4a671fc56a5"
+doc_hash = "sha256:ce9f646c29608c09a8464e494754fccc3a3ec0a2d0382e0c255e872a121d3ff3"
+
+[[module."tet_source.rs".function]]
+id = "fn:a39c5df5a04fcba0"
+name = "with_wall_grade"
+qual = "TetSource::with_wall_grade"
+hash = "sha256:1c5207e957d697ecc8148bba21ad61ae614f117962fe29963438a82968c9964c"
+doc_hash = "sha256:4a74350c15b5ead0120bd0a002bc02767c798a80915649d15f976881bb1ba78f"
+
+[[module."tet_source.rs".function]]
+id = "fn:425c8abcfa2562c0"
+name = "TetgenRun"
+qual = "TetgenRun"
+item = "type"
+shape = "struct"
+hash = "sha256:939af18969c6607afffb7ffbd7f1fbd0b5649cee57f2c9816fcba48bd92b959a"
+doc_hash = "sha256:d9a77eb73acac9a0783ebbcbdc589c75c7e209c50463f2db4991636c6b19cf2e"
 
 [[module."tet_source.rs".function]]
 id = "fn:99441daccaf60d24"
@@ -872,7 +974,7 @@ test = true
 id = "fn:f6ad934b36bb5ad8"
 name = "bad_bounds_are_refused"
 qual = "bad_bounds_are_refused"
-hash = "sha256:f21a81d68b2d76dfaee98f43fe9ce8686daca3c9b443151dd896fa6df0ec33a5"
+hash = "sha256:4d78eeadb3e2f7b6827f163e17cbbb8c4a90889d446f931c192181013d692c96"
 doc_hash = "sha256:50b229ec35f605185262eca1cdc1c67bf58dc51bf40743f7f62a68506be149bb"
 test = true
 
@@ -915,6 +1017,13 @@ doc_hash = "sha256:7e22b8e5f818e41ab20647d9a4956126b7f18d6de9e84f668570a525c3f58
 test = true
 
 [[module."tet_source.rs".function]]
+id = "fn:dde41ef89cfff64e"
+name = "tetgen_plc"
+qual = "tetgen_plc"
+hash = "sha256:ac7df87e70e446c973fc846bcaad0c3a0154ed60392150eaa5c2fef9fb674128"
+doc_hash = "sha256:f2109a07c3e7d96c27a92feae72788e68bc17314a87217884b57996f490f927e"
+
+[[module."tet_source.rs".function]]
 id = "fn:e806f1edfd298c6f"
 name = "tetgen_route_is_pinned_bit_for_bit"
 qual = "tetgen_route_is_pinned_bit_for_bit"
@@ -934,8 +1043,15 @@ test = true
 id = "fn:73346f1542750292"
 name = "tetgen_tets"
 qual = "tetgen_tets"
-hash = "sha256:7cc67cbcba0b8baba7a1fd6ac05ecbed0b0824c65275b2dd4c34987e8045a850"
+hash = "sha256:6dca0cea2741ad52f420ff33076318dac272dd8934e32abe8830cfdacf237cc3"
 doc_hash = "sha256:dfed29102cde4e6e61d1727ca97d8f66e9997d43d588738e0cf90f817fc111a1"
+
+[[module."tet_source.rs".function]]
+id = "fn:b2a89f6289dfc485"
+name = "tetgen_tets_graded"
+qual = "tetgen_tets_graded"
+hash = "sha256:9932d02a19d1879340065634654579ab321be64e6fe23825493d29c81b6e2da6"
+doc_hash = "sha256:fcee867543ad3d721821d62242d22c48cc6c20f3e66dc639144b586aba4e7467"
 
 [[module."tet_source.rs".function]]
 id = "fn:c0f0144969af312e"

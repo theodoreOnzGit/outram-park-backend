@@ -1068,10 +1068,22 @@ pub struct OptimizeBoundaryLayerReport {
 ///
 /// Not ported: the buffer layer ([`OptimizeBoundaryLayerSettings::add_buffer_layer`]).
 pub fn optimize_boundary_layer(mesh: &mut VolumeMesh, s: &OptimizeBoundaryLayerSettings) -> OptimizeBoundaryLayerReport {
+    let (mut rep, layer_cells) = optimise_layer_hairs(mesh, s);
+    if rep.ran {
+        rep.optimisation = untangle_locked_layer(mesh, &layer_cells, &s.untangle);
+    }
+    rep
+}
+
+/// The first half of [`optimize_boundary_layer`] (split out unchanged for
+/// gh:#1824): detect the layer and run `optimiseLayer` on its hairs.
+/// Returns the report (`optimisation` empty) and the layer cells the
+/// second half, [`untangle_locked_layer`], locks.
+pub(crate) fn optimise_layer_hairs(mesh: &mut VolumeMesh, s: &OptimizeBoundaryLayerSettings) -> (OptimizeBoundaryLayerReport, Vec<usize>) {
     let mut rep = OptimizeBoundaryLayerReport::default();
     if !s.optimise_layer {
         rep.notes.push("optimiseLayer is off: optimizeBoundaryLayer returns at once, as upstream".into());
-        return rep;
+        return (rep, Vec::new());
     }
     if s.add_buffer_layer {
         rep.notes.push("addBufferLayer: refineBoundaryLayers::activateSpecialMode is not ported; no buffer layer".into());
@@ -1082,7 +1094,7 @@ pub fn optimize_boundary_layer(mesh: &mut VolumeMesh, s: &OptimizeBoundaryLayerS
     rep.n_layer_cells = layer_cells.len();
     if hairs.hairs.is_empty() {
         rep.notes.push("detectBoundaryLayers found no layer".into());
-        return rep;
+        return (rep, Vec::new());
     }
     let mut patch_of = vec![usize::MAX; mesh.face_count()];
     for (bf, &f) in hairs.engine.boundary_faces.iter().enumerate() {
@@ -1092,14 +1104,20 @@ pub fn optimize_boundary_layer(mesh: &mut VolumeMesh, s: &OptimizeBoundaryLayerS
     rep.passes = optimise_layer(mesh, &mut hairs, &s.controls, &patch_of, &base_patch_of);
     rep.n_thinned = hairs.thinned.iter().filter(|&&t| t).count();
     rep.ran = true;
-    // clearSurface(); lockCells(bndLayerCells)
+    (rep, layer_cells)
+}
+
+/// The second half of [`optimize_boundary_layer`] (gh:#1824): with
+/// `layer_cells` locked (`clearSurface(); lockCells(bndLayerCells)`),
+/// `optimizeMeshFV(5, 1, 50, 0)` and `untangleMeshFV(2, 50, 0)`, then
+/// `removeUserConstraints`. Returns the two reports.
+pub(crate) fn untangle_locked_layer(mesh: &mut VolumeMesh, layer_cells: &[usize], untangle: &UntangleControls) -> Vec<crate::mesh_optimizer::OptimiserReport> {
     let mut opt = MeshOptimizer::new(mesh);
-    opt.lock_cells(mesh, &layer_cells);
-    let with = |g: usize, i: usize, sf: usize| UntangleControls { max_global_iterations: g, max_iterations: i, max_surface_iterations: sf, ..s.untangle };
-    rep.optimisation.push(opt.optimize_mesh_fv(mesh, 5, &with(1, 50, 0)).unwrap_or_else(|e| e.report));
-    rep.optimisation.push(opt.untangle_mesh_fv(mesh, &with(2, 50, 0)).unwrap_or_else(|e| e.report));
+    opt.lock_cells(mesh, layer_cells);
+    let with = |g: usize, i: usize, sf: usize| UntangleControls { max_global_iterations: g, max_iterations: i, max_surface_iterations: sf, ..*untangle };
+    let out = alloc::vec![opt.optimize_mesh_fv(mesh, 5, &with(1, 50, 0)).unwrap_or_else(|e| e.report), opt.untangle_mesh_fv(mesh, &with(2, 50, 0)).unwrap_or_else(|e| e.report)];
     opt.remove_user_constraints();
-    rep
+    out
 }
 
 /// cfMesh `meshOptimizer::untangleBoundaryLayer` with `untangleLayers`

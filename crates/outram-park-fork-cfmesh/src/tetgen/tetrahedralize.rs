@@ -32,7 +32,9 @@
 //! `carveholes`: here [`TetgenMesh::finish_plc`] returns after recovery,
 //! with no output); `-YY` with Steiner points on the boundary (upstream
 //! writes the files and stops, code 200: here
-//! [`TetgenError::InternalError`]); `-m`/`-R` (`meshcoarsening`), `-i`
+//! [`TetgenError::InternalError`]); ~~`-m`/`-R` (`meshcoarsening`)~~
+//! (**`-m` ported 2026-11-26, gh:#1825:** `meshcoarsening` runs after the
+//! Steiner-point suppression, [`super::sizing`]; `-R` is not ported), `-i`
 //! (`insertconstrainedpoints`), ~~`-q` (`delaunayrefinement`, stage 6,
 //! gh:#1795)~~ (**ported in stage 6, gh:#1795:** `-q` and `-a#` run
 //! `delaunayrefinement` after `recoverdelaunay`, [`super::refine`]; `-aa`,
@@ -51,9 +53,10 @@ use alloc::string::String;
 
 /// The command-line switches of the `-p` route, as a builder over
 /// [`Behavior`]. `Switches::new()` is `-p`; [`Switches::parse`] reads the
-/// letters `p`, `z`, `Y` (repeatable), `A`, `M`, `J`, `X`, `d`, and (stage
+/// letters `p`, `z`, `Y` (repeatable), `A`, `M`, `J`, `X`, `d`, (stage
 /// 6, gh:#1795) `q` with its optional `ratio/angle` and `a` with its
-/// volume, of a switch string such as `"pzAY"` or `"pq1.414a0.1z"`
+/// volume, and (gh:#1825) `m` with its optional scale, of a switch string
+/// such as `"pzAY"` or `"pq1.414a0.1mz"`
 /// (upstream's parser takes many more; the ones this route does not port
 /// are refused).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -121,6 +124,14 @@ impl Switches {
         self.b.quality = true;
         self
     }
+    /// `-m<scale>`: apply the input points' mesh sizes
+    /// ([`PlcInput::point_mtrs`], a `.mtr` file), each multiplied by
+    /// `scale` (upstream's default 1.0; gh:#1825). It does not imply `-q`.
+    pub fn metric(mut self, scale: f64) -> Self {
+        self.b.metric = true;
+        self.b.metric_scale = scale;
+        self
+    }
     /// The [`Behavior`].
     pub fn behavior(&self) -> Behavior {
         self.b
@@ -149,6 +160,12 @@ impl Switches {
                     Some(v) => w = w.max_volume(v),
                     None => return Err("switch -a without a volume (-aa) is not ported".into()),
                 },
+                'm' => {
+                    w.b.metric = true;
+                    if let Some(v) = switch_number(&chars, &mut j, "e-+") {
+                        w.b.metric_scale = v;
+                    }
+                }
                 'p' => w.b.plc = true,
                 'z' => w = w.zero_index(),
                 'Y' => w = w.no_bisect(),
@@ -224,6 +241,11 @@ impl TetgenMesh {
         if self.b.nobisect > 1 && (self.st_segref_count > 0 || self.st_facref_count > 0) {
             // -YY: "Boundary contains Steiner points (-YY option)."
             return Err(TetgenError::InternalError);
+        }
+
+        if self.b.metric {
+            // -m: mesh coarsening (gh:#1825; -R is not ported).
+            self.meshcoarsening()?;
         }
 
         // b->plc: recover Delaunayness.

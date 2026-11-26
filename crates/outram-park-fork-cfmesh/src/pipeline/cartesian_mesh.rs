@@ -191,24 +191,33 @@ pub(crate) fn ref_boundary_layers(m: &mut VolumeMesh, s: &RefineBoundaryLayersSe
                     eprintln!("RFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
                 }
             }
-            let lp = points_in_bnd_layer(m, &rr);
-            let mut opt = MeshOptimizer::new(m);
-            opt.lock_points(&lp);
-            let a = opt.optimize_low_quality_faces(m, 10);
-            opt.remove_user_constraints();
-            let c = UntangleControls { max_global_iterations: 2, max_iterations: 50, max_surface_iterations: 1, relaxed: true, ..*controls };
-            let b = opt.untangle_mesh_fv(m, &c).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
-            Ok((
-                format!(
-                    "boundaryLayerRefinement: refineBoundaryLayers split {} cells; untangleBoundaryLayer: optimizeLowQualityFaces {} -> {} ({} points locked), untangleMeshFV(2, 50, 1, relaxed) {} -> {}",
-                    rr.n_cells_split, a.flagged_before, a.flagged_after, lp.len(), b.flagged_before, b.flagged_after
-                ),
-                None,
-                lp.len(),
-            ))
+            let (line, n_locked) = untangle_refined_layer(m, &rr, controls)?;
+            Ok((format!("boundaryLayerRefinement: refineBoundaryLayers split {} cells; {line}", rr.n_cells_split), None, n_locked))
         }
         Err(RefineError::NotPorted(msg)) => Ok((format!("boundaryLayerRefinement: refineBoundaryLayers NOT PORTED for this mesh ({msg}); the layer is left unrefined"), Some(msg), 0)),
     }
+}
+
+/// The second half of [`ref_boundary_layers`] (split out unchanged for
+/// gh:#1824): lock `pointsInBndLayer` of the refinement `rr`, then
+/// `untangleBoundaryLayer` (`optimizeLowQualityFaces`,
+/// `removeUserConstraints`, `untangleMeshFV(2, 50, 1, true)`). Returns the
+/// report text and the number of points locked.
+pub(crate) fn untangle_refined_layer(m: &mut VolumeMesh, rr: &crate::layers::refine_boundary_layers::RefineReport, controls: &UntangleControls) -> Result<(String, usize), String> {
+    let lp = points_in_bnd_layer(m, rr);
+    let mut opt = MeshOptimizer::new(m);
+    opt.lock_points(&lp);
+    let a = opt.optimize_low_quality_faces(m, 10);
+    opt.remove_user_constraints();
+    let c = UntangleControls { max_global_iterations: 2, max_iterations: 50, max_surface_iterations: 1, relaxed: true, ..*controls };
+    let b = opt.untangle_mesh_fv(m, &c).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    Ok((
+        format!(
+            "untangleBoundaryLayer: optimizeLowQualityFaces {} -> {} ({} points locked), untangleMeshFV(2, 50, 1, relaxed) {} -> {}",
+            a.flagged_before, a.flagged_after, lp.len(), b.flagged_before, b.flagged_after
+        ),
+        lp.len(),
+    ))
 }
 
 impl Default for CartesianMeshGeneratorOptions {

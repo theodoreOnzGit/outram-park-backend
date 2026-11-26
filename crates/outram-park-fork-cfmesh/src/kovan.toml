@@ -677,10 +677,17 @@ hash = "sha256:b3592c69bbeefa79b97387656f70b345eab317c90d1b73641ed34cf9a8c82fed"
 doc_hash = "sha256:1a73436323cde866641883a6579389d454a7c5f5e69cb83c8b6e1f3077a4729c"
 
 [[module."boundary_layer_optimisation.rs".function]]
+id = "fn:44844de7e2810873"
+name = "optimise_layer_hairs"
+qual = "optimise_layer_hairs"
+hash = "sha256:5b10c30c1471f44abc284f4fbe275fe3816d3003c6e80021da21bb666bef94d2"
+doc_hash = "sha256:0543fa2bc32a844bf1f6e3412bd0f59b27bb3066c91ffdbd6d1c6e880021dc8d"
+
+[[module."boundary_layer_optimisation.rs".function]]
 id = "fn:c4b44ede28fc782f"
 name = "optimize_boundary_layer"
 qual = "optimize_boundary_layer"
-hash = "sha256:b16986a2fd57e4aba52200112641494ee3a5f28f041c364f82087af756de153a"
+hash = "sha256:96ebea30cf03dcdd15eab497bbc3b8a8e1edda4b32fac185e9b1a7129dce5ef6"
 doc_hash = "sha256:6183f331eaf183cb5b5c850bd98fae4dc1ec21fb7228e0700374b82a3a1f667e"
 
 [[module."boundary_layer_optimisation.rs".function]]
@@ -724,6 +731,13 @@ name = "untangle_boundary_layer"
 qual = "untangle_boundary_layer"
 hash = "sha256:1f08e3db410ea8ada9ccf5f1d732a123114066937984107a2c7dc7e1b5034eb4"
 doc_hash = "sha256:559e2fff371f5b274be86f9230a1cbbdf4dcbf8370af2d3e9922ccbd3782c69d"
+
+[[module."boundary_layer_optimisation.rs".function]]
+id = "fn:3626298198f61f12"
+name = "untangle_locked_layer"
+qual = "untangle_locked_layer"
+hash = "sha256:e8b89d1e4cf5b99e64d6418a3fccebc9ae3cb87d4cb41903ec8b6f6d846fd253"
+doc_hash = "sha256:78ea87ce846bffe46201e6a8d2d9d1eba492d5265a772266794b21eebd808ccc"
 
 [[module."boundary_layer_optimisation.rs".function]]
 id = "fn:2b50e452a7933764"
@@ -1299,7 +1313,7 @@ doc_hash = "sha256:e806fc90210cca9078ce13c8fdae9b6d6adfba60276bf169ab0e76280d647
 id = "fn:c7c214928c5c464b"
 name = "inside"
 qual = "inside"
-hash = "sha256:3952e06b2c631ffc48941b378199073fa817ac5b4253f0ebac9900c8ad21be5a"
+hash = "sha256:ad5331ad9ac77de3429b5284d4ee5e4d4fdb3cf3f2342ead111d862a8ea63e4f"
 doc_hash = "sha256:57d8cab34756901c7804945e4b9ea31fe74b6c499a0dbda552571ca7a06eeb9a"
 
 [[module."carve.rs".function]]
@@ -2728,7 +2742,7 @@ name = "LayerQualityStrategy"
 qual = "LayerQualityStrategy"
 item = "type"
 shape = "enum"
-hash = "sha256:fdc00ca3f4f722f6b856b0fca9c3a5b5c2518cdfaae15033f1f1568870f0ea79"
+hash = "sha256:bebbfa6b2b991d9c51e023ace62554b24d2cfd3a024027fb9765d5673ee4df5f"
 doc_hash = "sha256:650ebd7edb64ff3ed26707bc9cc9be2f16435bd51309b5b671205b490d666ec2"
 
 [[module."layers.rs".function]]
@@ -7491,7 +7505,7 @@ doc_hash = "sha256:0a5e3c6a68c6a5cd6351f2e7015bffeec6b8f487f09caf568984b447e04af
 id = "fn:1d202b45135af0f4"
 name = "grow_layers"
 qual = "grow_layers"
-hash = "sha256:a4bd856eb328569cc92a618852b2a28a263f51bb3839f5f880c915a02a9e8fc3"
+hash = "sha256:47345c36da5388b3c6211692e32d9505fbccd6b1dd8fca2b8311b92b0077c70c"
 doc_hash = "sha256:59b5eb5f6ca2d59e04ae02c05ff8dbd76406ad541d7680cf7713714845883976"
 
 [[module."pipeline.rs".function]]
@@ -7615,7 +7629,7 @@ doc_hash = "sha256:2bd9afb4890880f2d492f46968a17590c53ddd63cbc87e46ed0d3816b4725
 id = "fn:3f1edf0b7e274ede"
 name = "run_pipeline_observed"
 qual = "run_pipeline_observed"
-hash = "sha256:f2a68f810b6fb3ef5e708ba26688b111fc3773ec464e2b2880962d32053c1414"
+hash = "sha256:89b7ec0fefde4eb5941055673d9916bce2c8b94e94fcc93a41bf92628677200e"
 doc_hash = "sha256:5e7c64738ab57b3d97fc28ac7d08fa68f56af6c79eb8423966e66f040e7573fb"
 
 [[module."pipeline.rs".function]]

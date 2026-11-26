@@ -83,8 +83,9 @@ pub struct InsertPointFlags {
     pub respectbdflag: bool,
     /// `rejflag`: bit 1 rejects a point that encroaches upon a segment
     /// (`ENCSEGMENT`), bit 2 one that encroaches upon a subface
-    /// (`ENCSUBFACE`) (Delaunay refinement, stage 6, gh:#1795). Bit 4 (a
-    /// protecting ball of the mesh size, `-m`) is not ported.
+    /// (`ENCSUBFACE`) (Delaunay refinement, stage 6, gh:#1795), bit 4 one
+    /// inside half a cavity vertex's mesh size (`ENCVERTEX`, `-m`,
+    /// gh:#1825).
     pub rejflag: i32,
     /// `chkencflag`: bit 4 queues the new tetrahedra
     /// (`enqueuetetrahedron`, mesh improvement, gh:#1794); bits 1 and 2
@@ -117,6 +118,9 @@ pub struct InsertPointFlags {
     pub smlen: f64,
     /// `parentpt` (`NULL_POINT` for `NULL`).
     pub parentpt: Point,
+    /// `assignmeshsize` (`-m`, gh:#1825): give the new point a size
+    /// interpolated from its location ([`TetgenMesh::getpointmeshsize`]).
+    pub assignmeshsize: bool,
 }
 
 impl Default for InsertPointFlags {
@@ -143,6 +147,7 @@ impl Default for InsertPointFlags {
             smlenflag: false,
             smlen: 0.0,
             parentpt: NULL_POINT,
+            assignmeshsize: false,
         }
     }
 }
@@ -542,8 +547,16 @@ impl TetgenMesh {
                         break;
                     }
                 }
-                // (rejflag & 4, a protecting ball of the -m mesh size, is not
-                //   ported: without -m every point's size is 0.)
+                if ivf.rejflag & 4 != 0 {
+                    // Is the point encroaches upon an existing point (-m,
+                    //   gh:#1825)?
+                    if rd < 0.5 * self.points[p].mtr {
+                        self.reachm[6] += 1;
+                        pts = p;
+                        loc = LocateResult::EncVertex;
+                        break;
+                    }
+                }
             }
             self.cavetetvertlist.clear();
 
@@ -555,6 +568,14 @@ impl TetgenMesh {
                 ivf.iloc = loc;
                 return Ok(false);
             }
+        }
+
+        if ivf.assignmeshsize {
+            // Assign mesh size for the new point (-m, gh:#1825; no
+            //   background mesh).
+            self.reachm[14] += 1;
+            let size = self.getpointmeshsize(insertpt, searchtet, loc);
+            self.points[insertpt].mtr = size;
         }
 
         if ivf.bowywat != 0 {
@@ -1784,6 +1805,7 @@ impl TetgenMesh {
             ivf.splitbdflag = false;
             ivf.validflag = true;
             ivf.respectbdflag = true;
+            ivf.assignmeshsize = self.b.metric;
             if self.insertpoint(steinerpt, &mut worktet, None, None, &mut ivf)? {
                 if self.flippool_items() > 0 {
                     self.recoverdelaunay()?;
@@ -1907,7 +1929,16 @@ impl TetgenMesh {
             let mut worktet = abtets[0]; // No need point location.
             ivf.iloc = LocateResult::InStar;
             ivf.chkencflag = chkencflag;
-            // (assignmeshsize, -m: not set.)
+            ivf.assignmeshsize = self.b.metric;
+            if ivf.assignmeshsize {
+                // Search the tet containing 'steinerpt' for size
+                //   interpolation (-m, gh:#1825). Upstream's located
+                //   `abtets[0]` becomes the start; `insertpoint` with
+                //   INSTAR then gives the point size 0.
+                self.reachm[15] += 1;
+                self.locate(steinerpt, &mut abtets[0], false)?;
+                worktet = abtets[0];
+            }
             if self.insertpoint(steinerpt, &mut worktet, None, None, &mut ivf)? {
                 self.st_volref_count += 1;
                 if self.steinerleft > 0 {
@@ -2085,6 +2116,7 @@ impl TetgenMesh {
             splitbdflag: false,
             validflag: true,
             respectbdflag: true,
+            assignmeshsize: self.b.metric,
             ..Default::default()
         };
 
@@ -2489,6 +2521,7 @@ impl TetgenMesh {
                 splitbdflag: false,
                 validflag: true,
                 respectbdflag: true,
+                assignmeshsize: self.b.metric,
                 ..Default::default()
             };
 
@@ -2615,6 +2648,7 @@ impl TetgenMesh {
             splitbdflag: false,
             validflag: true,
             respectbdflag: true,
+            assignmeshsize: self.b.metric,
             ..Default::default()
         };
 
@@ -2719,6 +2753,7 @@ impl TetgenMesh {
             ivf.splitbdflag = false;
             ivf.validflag = true;
             ivf.respectbdflag = true;
+            ivf.assignmeshsize = self.b.metric;
 
             // searchsh may contain a missing segment.
             let mut misseg = self.sspivot(searchsh);

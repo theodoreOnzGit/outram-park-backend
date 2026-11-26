@@ -1,0 +1,83 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-cfmesh"
+dir = "crates/outram-park-fork-cfmesh/src/pipeline/tet_source"
+
+[module."wall_grade.rs"]
+path = "crate::pipeline::tet_source::wall_grade"
+
+[[module."wall_grade.rs".function]]
+id = "fn:2a36af3729da06a9"
+name = "WallGrade"
+qual = "WallGrade"
+item = "type"
+shape = "struct"
+hash = "sha256:295b02415e72355188c75496e5ce27c2ac2a39574bdbc574993b35e7a9e52f85"
+doc_hash = "sha256:7559452ed2b7da558321936e0866d373b5104ade5aa6aadf84aa8339ccc07c7b"
+
+[[module."wall_grade.rs".function]]
+id = "fn:c29081d39dc2b734"
+name = "check"
+qual = "WallGrade::check"
+hash = "sha256:0818bf17db8770a9b19c7b0d7a53a42706d31d06b61ed3915e46ac4098deb704"
+doc_hash = "sha256:381d74f98d4587a60c905730f51443dd36f14791f4b0f7ed4322a775dcc27827"
+
+[[module."wall_grade.rs".function]]
+id = "fn:ff98bd1d7559abcd"
+name = "size_at"
+qual = "WallGrade::size_at"
+hash = "sha256:90e6cccddad0a389c80567bf0299b994bae1bd492b444e00ade9942baa986ef2"
+doc_hash = "sha256:38693c9dfb0995097c1f36e29b86129266e5404ba529404dab033aa03678a3c3"
+
+[[module."wall_grade.rs".function]]
+id = "fn:4d09389a677e74df"
+name = "distance_to"
+qual = "distance_to"
+hash = "sha256:84edb3339bec761f91db2ccd5fb6245d1188c75718e7e4826c811286e6c01cbf"
+doc_hash = "sha256:d5d7b8c58314833444a1af4c318b0200a9db8122d53c589731b889b3b5ed4a65"
+
+[[module."wall_grade.rs".function]]
+id = "fn:9de82156f92cc999"
+name = "pipe_edges"
+qual = "pipe_edges"
+hash = "sha256:98e6788368d86b7db120064fda37fe64705f44b69dbed0ce364696de9bea8102"
+doc_hash = "sha256:638f93a14c9b395f428837471282b91a04418f72991b46bf488508af9221d848"
+test = true
+
+[[module."wall_grade.rs".function]]
+id = "fn:dd01d06076ee09ee"
+name = "seeds_lie_inside_and_take_the_size_of_their_wall_distance"
+qual = "seeds_lie_inside_and_take_the_size_of_their_wall_distance"
+hash = "sha256:16e02e7c79c6fc6e774f05b3483a752ae9d718a0d960d1d097d3144ef7fc7e76"
+doc_hash = "sha256:f907a6b7ddc15e721f64aebf0534abdeb394e09ef5411b3785068fe9221b4948"
+test = true
+
+[[module."wall_grade.rs".function]]
+id = "fn:6418ff82b51c3648"
+name = "size_grows_linearly_from_the_wall_to_the_cap"
+qual = "size_grows_linearly_from_the_wall_to_the_cap"
+hash = "sha256:c65e2bb3d32f62306ba5fccc2fa2e6a7875598b63eddbd3c5761b941a80eb151"
+doc_hash = "sha256:f645421dba5df8c123b0e9cd73abf2c99e96ec6267026f61bd7b352956cfbae6"
+test = true
+
+[[module."wall_grade.rs".function]]
+id = "fn:dcafc942ef189fa2"
+name = "tetgen_tets_shrink_toward_the_walls_when_graded"
+qual = "tetgen_tets_shrink_toward_the_walls_when_graded"
+hash = "sha256:69918878f1757501dce67aa171d1b54e9dc479aae48ed651c744ee5b2759e309"
+doc_hash = "sha256:750cb0df01783a81440bb98be2d80e8f0f9398ca2da0754e511728f338170866"
+test = true
+
+[[module."wall_grade.rs".function]]
+id = "fn:4c2d268a5aa73d29"
+name = "unit_hash"
+qual = "unit_hash"
+hash = "sha256:232c339e08b1eb44b01edaccbd862c1536e655d57fe7895cbc15befe5320aee3"
+doc_hash = "sha256:cb5dce88774af09b4f3d1ce958d43a1ec6f1088090aed3560fbe995f64c5dfa8"
+
+[[module."wall_grade.rs".function]]
+id = "fn:0918c4e106bb354f"
+name = "wall_graded_sizes"
+qual = "wall_graded_sizes"
+hash = "sha256:4e79fb2d1c5b70f1708113528819151a7df53f011c67b38e4b71125fce725d96"
+doc_hash = "sha256:a53dd9f7dae2069b3a90f528b5715074845716bd4f8260d3900310e6efaa6daa"

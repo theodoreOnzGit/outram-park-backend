@@ -17,13 +17,18 @@
 //! `stage=<label>`, `layers=<k>` (growth slider), `colour=layer|nonorth|skew`,
 //! `axis=x|y|z`, `h=<cell size, m>`, `n=<layers>`, `first=<first layer, m>`,
 //! `ratio=<layer growth ratio>`,
-//! `strategy=backoff|cfmesh|snappy`, `dual=corner|point|centre`,
+//! `strategy=backoff|cfmesh|snappy|tetmesh` (`tetmesh`: cfMesh's `tetMesh`
+//! layer steps, the route that grows layers on TetGen's tetrahedra, gh:#1824),
+//! `dual=corner|point|centre`,
 //! `mesh=tet|poly` (the mesh type; `n=0` for no boundary layers),
 //! `tets=tetgen|carved` (the tet source, gh:#1796: TetGen's unstructured
 //! tetrahedra, the page's default, or the carved structured grid),
 //! `q=<TetGen radius-edge ratio>` (default 1.414), `vol=<TetGen max tet
 //! volume, m³>` (default: a regular tetrahedron of the cell size,
-//! `h³/(6√2)`), `at=<x,y cm>&zoom=<f>` (a view, applied once).
+//! `h³/(6√2)`), `grade=on|off|<wall size, m>[,<growth>]` (TetGen's `-m`
+//! sizes graded from the walls, gh:#1825: off by default, `on` is half the
+//! cell size at the walls growing 1.2 per cell to the cell size),
+//! `at=<x,y cm>&zoom=<f>` (a view, applied once).
 
 use bugis::web_demo::dock::{Dock, Edge};
 use bugis::web_demo::field::{self, ColourMap, Scale};
@@ -319,15 +324,45 @@ impl MeshApp {
                 );
                 d.max_volume = Some(v);
             }
+            // Wall grading (gh:#1825): TetGen `-m` sizes graded from the
+            //   walls, off by default.
+            let mut graded = d.wall_size.is_some();
+            ui.checkbox(&mut graded, "grade toward the walls (TetGen -m)");
+            if graded {
+                let h = d.cell_size;
+                let mut w = d.wall_size.unwrap_or(Design::DEFAULT_WALL_FRACTION * h);
+                ui.add(
+                    egui::Slider::new(&mut w, 0.25 * h..=h)
+                        .logarithmic(true)
+                        .text("wall size [m]"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut d.wall_growth, 1.0..=2.0).text("growth from the wall"),
+                );
+                d.wall_size = Some(w);
+            } else {
+                d.wall_size = None;
+            }
             ui.label(
                 egui::RichText::new(format!(
-                    "TetGen -pq{:.3}a{:.2e}: carve, snap and the Delaunay flips are not run.",
+                    "TetGen -pq{:.3}a{:.2e}{}: carve, snap and the Delaunay flips are not run.",
                     d.radius_edge,
-                    d.tet_volume()
+                    d.tet_volume(),
+                    if d.wall_size.is_some() { "m" } else { "" }
                 ))
                 .small()
                 .weak(),
             );
+            if let Some(g) = d.wall_grade() {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "Sizes {:.3} m at the walls growing x{:.2} to {:.3} m inside, on seed points in the volume (finer walls cost quadratically: the fuel channel has 65 k tetrahedra at half the cell size).",
+                        g.wall_size, g.growth, g.interior_size
+                    ))
+                    .small()
+                    .weak(),
+                );
+            }
         }
 
         ui.add_space(6.0);
@@ -732,6 +767,7 @@ fn strategy_label(s: outram_park_fork_cfmesh::layers::LayerQualityStrategy) -> &
         L::BackOffOnly => "back off (fast)",
         L::CfMeshOptimise => "cfMesh layer optimiser",
         L::SnappyCollapse => "snappy collapse",
+        L::CfMeshTetMesh => "cfMesh tetMesh route (for tetrahedra)",
     }
 }
 
@@ -751,11 +787,14 @@ fn strategy_note(d: &Design) -> Option<&'static str> {
     if d.n_layers == 0 {
         return None;
     }
-    if d.tetgen && !d.polyhedral {
-        // gh:#1796: measured on the pipe, fuel channel and pebble.
-        return Some("No layer grows on TetGen's tetrahedra with back-off or cfMesh's optimiser (measured on all three reactor shapes; the report says so). Use the polyhedra for layers.");
+    if d.tetgen && !d.polyhedral && d.strategy != L::CfMeshTetMesh {
+        // gh:#1796, #1824: measured on the pipe, fuel channel and pebble.
+        return Some("On TetGen's tetrahedra only the cfMesh tetMesh route grows layers (back-off and cfMesh's optimiser grow none on all three reactor shapes; the report says so). Pick it above, or use the polyhedra.");
     }
     match d.strategy {
+        L::CfMeshTetMesh => Some(
+            "cfMesh tetMesh route (gh:#1824): boundaryLayers adds one layer at half the local wall edge, optimiseLayer thins it where it would invert a cell, refineBoundaryLayers splits it. The total thickness is upstream's, not first x growth: the first layer is capped at the first-layer value. Measured natively (2026-11-26) on TetGen's tetrahedra: pipe about 1 s, fuel channel about 70 s, every wall face layered; on the pebble 6 cells stay inverted and the layers are refused.",
+        ),
         L::CfMeshOptimise if d.tetgen => Some(
             "cfMesh's layer optimiser on TetGen's polyhedra: measured natively (2026-11-26) about 20 s on the pipe, 60 s on the fuel channel, 90 s on the pebble, several times that in a browser. Cancel stops it. It is the only strategy here that grows layers on the pebble, and the one that grows a 20-layer stack.",
         ),

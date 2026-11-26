@@ -988,14 +988,14 @@ name = "TetDualSpec"
 qual = "TetDualSpec"
 item = "type"
 shape = "struct"
-hash = "sha256:f5a12129a9b6cdc479b4d6e23304a0622b9abccea4d2d18244a6bd7abb262779"
+hash = "sha256:85ef66dd62d7ec6e09ffe13218507680a9697396b35d9e504efa3c3ab01cc117"
 doc_hash = "sha256:b07086f9bb9efe2f7f7e14b42a239711cb2266563e9dbd0492c08442a624af5b"
 
 [[module."engine.rs".function]]
 id = "fn:82230810a161ce4f"
 name = "choice_codes"
 qual = "TetDualSpec::choice_codes"
-hash = "sha256:137b31ff6b56ad3880786ea5981e8348ff90c4e75bab7c8727c9d0d84af830b6"
+hash = "sha256:778a9d75eb49a774b4ecd68dc483ce08bbe909766c97a2be002c89868e588eea"
 doc_hash = "sha256:2155c244a05dd0dca80f4ef5b2f4235e54c31183a64612a6a95c8ac2bcc82d2c"
 
 [[module."engine.rs".function]]
@@ -1023,7 +1023,7 @@ doc_hash = "sha256:10fe2a22f0340269ac31c15105185c4819ed9849f29a556d14e7b2c579022
 id = "fn:3ef5e4f568f45f99"
 name = "with_choice_codes"
 qual = "TetDualSpec::with_choice_codes"
-hash = "sha256:cf7b59a5b865b95f62c0ed703f4fce943bc5eaf6bd505d870fbb33ea9e1fa47a"
+hash = "sha256:f2ce2e0d91cc078eccad1af1a7f940d7867c5c58356891da3a62b7a208db9000"
 doc_hash = "sha256:08ff7d4b6ac5fdfadb09c705c4b163fe84a9e235119d7838d58c660f8efc69ca"
 
 [[module."engine.rs".function]]

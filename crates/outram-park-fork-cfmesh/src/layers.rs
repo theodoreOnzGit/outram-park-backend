@@ -436,6 +436,17 @@ pub enum LayerQualityStrategy {
     CfMeshOptimise,
     /// snappyHexMesh `snappyLayerDriver::addLayers` (local layer collapse).
     SnappyCollapse,
+    /// cfMesh `tetMesh`'s own layer steps (gh:#1824):
+    /// `boundaryLayers::addLayerForPatch` (one layer at half the local
+    /// boundary edge), `optimizeBoundaryLayer` with `optimiseLayer 1`
+    /// (`boundaryLayerOptimisation`'s local thinning), then
+    /// `refineBoundaryLayers` into the requested layers and
+    /// `untangleBoundaryLayer`
+    /// ([`crate::pipeline::tet_layers`]). Unlike the three above it does not
+    /// start from [`layer_setup`]'s columns: the thickness is upstream's,
+    /// and the requested first thickness only caps the first layer. The
+    /// route that grows layers on TetGen's tetrahedra.
+    CfMeshTetMesh,
 }
 
 /// What a layer stage did, per wall point and per wall face (gh:#1215): the

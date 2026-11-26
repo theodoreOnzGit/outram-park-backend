@@ -54,8 +54,10 @@
 //! cavity vertex than that vertex's radius is rejected (`ENCVERTEX`).
 //!
 //! **Branches left out, and why:** `-r` with an `.elem` list (no `-r`
-//! here); `-m` mesh sizes (`rejflag & 4`, the `pointmtrindex` tests of
-//! `checktet4split`: without `-m` every size is 0, so these never fire);
+//! here); ~~`-m` mesh sizes (`rejflag & 4`, the `pointmtrindex` tests of
+//! `checktet4split`: without `-m` every size is 0, so these never fire)~~
+//! (**ported 2026-11-26, gh:#1825:** `checktet4split`'s size test and the
+//! splits' `rejflag & 4` and `assignmeshsize`, [`super::sizing`]);
 //! `-aa` per-region volumes (`varvolume`, `volumebound`); `-S#` Steiner
 //! limits and `-r#` element limits (`steinerleft` stays -1, `elem_limit`
 //! 0: the branches are kept, unreached); `-c` (`b->convex`);
@@ -1124,12 +1126,14 @@ impl TetgenMesh {
             bowywat: 3, // Preserve subsegments and subfaces.
             validflag: true,
             lawson: 2,
-            rejflag: 0,
+            // Do check encroachment of protecting balls (-m, gh:#1825).
+            rejflag: if self.b.metric { 4 } else { 0 },
             chkencflag,
             sloc: LocateResult::InStar,
             sbowywat: 3,
             splitbdflag: true,
             respectbdflag: true,
+            assignmeshsize: self.b.metric,
             smlenflag: true, // useinsertradius
             check_insert_radius: qflag == 0,
             parentpt: NULL_POINT,
@@ -1659,13 +1663,16 @@ impl TetgenMesh {
             iloc: sloc,
             bowywat: 3,
             lawson: 2,
-            rejflag: 1, // Do check the encroachment of segments.
+            // Do check the encroachment of segments, and (-m, gh:#1825) of
+            //   protecting balls.
+            rejflag: if self.b.metric { 1 | 4 } else { 1 },
             chkencflag: chkencflag & !1,
             sloc: LocateResult::InStar,
             sbowywat: 3,
             splitbdflag: true,
             validflag: true,
             respectbdflag: true,
+            assignmeshsize: self.b.metric,
             refineflag: 2,
             refinesh: *splitfac,
             smlenflag: true, // useinsertradius
@@ -1937,6 +1944,21 @@ impl TetgenMesh {
                 return Ok(true);
             }
         }
+
+        if self.b.metric {
+            // -m option. Check mesh size (gh:#1825).
+            // Check if the ccent lies outside one of the prot.balls at vertices.
+            for &p in v.iter() {
+                let m = self.points[p].mtr;
+                if m > 0.0 && rd > m {
+                    self.reachm[7] += 1;
+                    *qflag = 1; // Enforce mesh size.
+                    return Ok(true);
+                }
+            }
+        }
+
+        // (in->tetunsuitable, a library callback, is not ported.)
 
         // Check the radius-edge ratio. Set by -q#.
         if self.b.minratio > 0.0 {
@@ -2251,12 +2273,16 @@ impl TetgenMesh {
         ivf.bowywat = 3;
         ivf.lawson = 2;
         ivf.rejflag = 3; // Do check for encroached segments and subfaces.
+        if self.b.metric {
+            ivf.rejflag |= 4; // Reject it if it lies in some protecting balls.
+        }
         ivf.chkencflag = chkencflag & !3;
         ivf.sloc = LocateResult::Unknown;
         ivf.sbowywat = 0;
         ivf.splitbdflag = false;
         ivf.validflag = true;
         ivf.respectbdflag = true;
+        ivf.assignmeshsize = self.b.metric;
         ivf.refineflag = 1;
         ivf.refinetet = *splittet;
         ivf.smlenflag = true; // useinsertradius
