@@ -147,11 +147,16 @@ fn port_fields(s: &TwoPhaseSolver) -> Vec<(&'static str, Vec<f64>)> {
 type Row = (usize, f64, usize, Vec<(&'static str, f64)>);
 
 fn run_rows(test: &str, refs: &[&str], n_steps: usize) -> Vec<Row> {
+    run_rows_with(test, refs, n_steps, &round13_flags())
+}
+
+/// [`run_rows`] with the round-13 translations named in `off` (`gas`, `newton`, `markers`, `flux`) switched back to the earlier forms.
+fn run_rows_with(test: &str, refs: &[&str], n_steps: usize, off: &[String]) -> Vec<Row> {
     let refs: Vec<Reference> = refs.iter().map(|r| load_reference(r)).collect();
     let dir = protocol_copy(test);
     let case = TwoPhaseCase::read(&dir).expect("read the SHIPPED PSBT case");
     // upstream's customPimpleControl defect is the specification (as in rounds 3-7)
-    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
+    let mut s = round13_solver_f(TwoPhaseSolver::new(round13_case_f(case, off)).with_upstream_stale_pimple_converged_flag(), off);
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         let rep = s.step().expect("step");
@@ -281,16 +286,51 @@ fn shipped_through_flow_case_matches_upstream_to_the_onset_and_beyond() {
     }
 }
 
-/// The measured end of agreement (gh:#1361 round 12, `psbt_shipped_cell_dump`): at step 51 the port's `T.vapour` in cells 64-68 (vapour
-/// fraction 4.4e-3, below `thermoResidualAlpha` 1e-2 of the vapour) leaves upstream's saturated 613.8 K for 640-725 K, and the two
-/// trajectories separate. This pins the measured size of that difference (a recorded, unexplained defect), so that a change that fixes it is noticed.
+/// Round 13 (README "Round 13", gh:#1820): the shipped case now agrees with the real binary through ALL 407 steps of its run to t = 0.6 s
+/// (upstream exits 0), where round 12 had `T.vapour` leave 613.8 K for 640-725 K in cells 64-68 at step 51 (1.8e-1 of the maximum), a
+/// different transient by step 100 and the regime map's out-of-bounds refusal at step 520. Measured over the compared steps (1-60 and
+/// 100, 200, 300, 407; release 2026-11-26): steps 51-407 p <= 5.1e-9, T.liquid <= 5.9e-11, T.vapour <= 1.5e-9, U.liquid <= 1.2e-8,
+/// alpha.vapour <= 6.8e-9, dmdt <= 7.7e-9, htc <= 4.9e-8, dt <= 5.3e-9; the vapour-onset step 13 differs in `alpha.vapour` by 7.6e-4 of a
+/// field that is still about 1e-6 in absolute terms (the sub-cooled boiling fraction `f` is linear in a difference near zero), and the next
+/// step agrees to 4.0e-7. Causes (each pinned by the next test): the interfacial flux ratio `dmdtIi/dmdtIi0` of `phaseChangeModel::correct`,
+/// the `thermoResidualAlpha` marker timing, `species::thermo::T`'s stopping rule, the vapour gas constant.
 #[test]
-fn shipped_case_vapour_temperature_separates_at_step_51() {
-    let rows = run_rows("gate51", &["psbt_shipped_head"], 51);
-    let before = worst_over(&rows, 40, 50, "T.vapour");
+fn shipped_case_agrees_with_upstream_through_all_407_steps() {
+    let rows = run_rows(
+        "gate407",
+        &["psbt_shipped_head", "psbt_shipped_s100", "psbt_shipped_s200", "psbt_shipped_s300", "psbt_shipped_s407"],
+        407,
+    );
+    assert!(rows.iter().any(|r| r.0 == 407), "the port must run all 407 steps (upstream does, to t = 0.6 s)");
+    for (n, dt_rel, _, w) in &rows {
+        assert!(*dt_rel < 1e-7 || *n <= 9 && *dt_rel < 1e-9, "step {n}: dt differs by {dt_rel:e}");
+        for (k, v) in w {
+            let vapour = matches!(*k, "alpha.vapour" | "dmdt.liquid.vapour" | "areaDensity.interface" | "U.vapour" | "phi.vapour");
+            let lim = if *n <= 12 {
+                1e-8
+            } else if *n == 13 {
+                if vapour { 5e-3 } else { 1e-7 } // the onset step: the vapour fields are ~1e-6 absolute
+            } else if vapour {
+                1e-5
+            } else if *k == "htc.liquid.structure" {
+                1e-6
+            } else {
+                1e-7
+            };
+            assert!(*v <= lim, "step {n} {k}: {v:e} exceeds {lim:e}");
+        }
+    }
+}
+
+/// With the four round-13 translations switched back (`gas`, `newton`, `markers`, `flux`) the port shows round 12's failure at step 51: the
+/// vapour temperature in the cells whose fraction is below `thermoResidualAlpha` leaves saturation (measured `T.vapour` 1.8e-1 of its maximum,
+/// `alpha.vapour` 6.2e-2), after agreeing to 1e-6 through step 50 only for the early part. Pins that the earlier forms stay selectable.
+#[test]
+fn shipped_case_with_the_earlier_forms_separates_at_step_51() {
+    let all: Vec<String> = ["gas", "newton", "markers", "flux"].iter().map(|x| x.to_string()).collect();
+    let rows = run_rows_with("gate51", &["psbt_shipped_head"], 51, &all);
     let at = worst_over(&rows, 51, 51, "T.vapour");
-    assert!(before < 1e-6, "T.vapour steps 40-50: {before:e}");
-    assert!(at > 1e-2, "T.vapour at step 51 should show the recorded separation, measured 1.8e-1: {at:e}");
+    assert!(at > 1e-2, "T.vapour at step 51 with the earlier forms should show the recorded separation, measured 1.8e-1: {at:e}");
 }
 
 /// gh:#1801: a boundary condition the solver does not implement is refused BY NAME on every field (it used to become `calculated`
@@ -322,27 +362,35 @@ fn unported_boundary_conditions_are_refused_by_name() {
 
 /// Round 13 ablation (diagnostic): `ROUND13_OFF=gas,newton,markers,flux` (any subset) switches the named round-13 translations back
 /// to the port's earlier forms, to measure how much of the agreement each one carries. Unset: upstream's forms (the defaults).
-fn round13_off(name: &str) -> bool {
-    std::env::var("ROUND13_OFF").map(|v| v.split(',').any(|x| x == name)).unwrap_or(false)
+fn round13_flags() -> Vec<String> {
+    std::env::var("ROUND13_OFF").map(|v| v.split(',').map(str::to_string).collect()).unwrap_or_default()
 }
 
-fn round13_case(case: TwoPhaseCase) -> TwoPhaseCase {
-    if round13_off("gas") {
+fn round13_case_f(case: TwoPhaseCase, off: &[String]) -> TwoPhaseCase {
+    if off.iter().any(|x| x == "gas") {
         case.with_codata2019_gas_constant()
     } else {
         case
     }
 }
 
-fn round13_solver(mut s: TwoPhaseSolver) -> TwoPhaseSolver {
-    if round13_off("newton") {
+fn round13_solver_f(mut s: TwoPhaseSolver, off: &[String]) -> TwoPhaseSolver {
+    if off.iter().any(|x| x == "newton") {
         s = s.with_converged_temperature_newton();
     }
-    if round13_off("markers") {
+    if off.iter().any(|x| x == "markers") {
         s = s.with_live_thermo_residual_markers();
     }
-    if round13_off("flux") {
+    if off.iter().any(|x| x == "flux") {
         s = s.with_earlier_interfacial_flux_ratio();
     }
     s
+}
+
+fn round13_case(case: TwoPhaseCase) -> TwoPhaseCase {
+    round13_case_f(case, &round13_flags())
+}
+
+fn round13_solver(s: TwoPhaseSolver) -> TwoPhaseSolver {
+    round13_solver_f(s, &round13_flags())
 }
