@@ -58,6 +58,7 @@ use super::plc::PlcInput;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::Write;
+use petir::mathf::RealMath;
 
 /// The result of [`tetrahedralize_plc`]: ~~the mesh after boundary
 /// recovery~~ **UPDATED 2026-11-26 (gh:#1794):** the mesh at the end of the
@@ -1757,7 +1758,7 @@ impl TetgenMesh {
 
         self.boundary_recovery_flag = true;
         self.cos_collinear_ang_tol =
-            (self.b.collinear_ang_tol / 180.0 * core::f64::consts::PI).cos();
+            (self.b.collinear_ang_tol / 180.0 * core::f64::consts::PI).r_cos();
 
         if self.segmentendpointslist.is_empty() {
             // We need segment adjacent information during flips.

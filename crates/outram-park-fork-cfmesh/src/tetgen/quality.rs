@@ -36,6 +36,7 @@ use super::mesh::{TetgenMesh, TriFace, DUMMYPOINT};
 use alloc::string::String;
 use core::f64::consts::PI;
 use core::fmt::Write;
+use petir::mathf::RealMath;
 
 #[inline]
 fn dot(v1: &[f64; 3], v2: &[f64; 3]) -> f64 {
@@ -265,7 +266,7 @@ impl TetgenMesh {
                 } else if c > 1.0 {
                     c = 1.0;
                 }
-                alldihed[k] = c.acos() / PI * 180.0;
+                alldihed[k] = c.r_acos() / PI * 180.0;
             }
             for &ad in &alldihed {
                 if ad < smallestdiangle {

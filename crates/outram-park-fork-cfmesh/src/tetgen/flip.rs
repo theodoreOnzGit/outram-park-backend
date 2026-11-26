@@ -67,6 +67,7 @@ use super::mesh::{
     SNEXTPIVOT, STBONDTBL, STPIVOTTBL, TSBONDTBL, TSPIVOTTBL, VER2EDGE,
 };
 use alloc::vec::Vec;
+use petir::mathf::RealMath;
 
 // ---------------------------------------------------------------------------
 // enum interresult (as the integers `types[]` carries).
@@ -674,7 +675,7 @@ impl TetgenMesh {
         } else if costheta < -1.0 {
             costheta = -1.0; // Roundoff.
         }
-        let mut theta = costheta.acos();
+        let mut theta = costheta.r_acos();
         if let Some(n) = n {
             // Get a point above the face (o, p1, p2);
             let np = [o[0] + n[0], o[1] + n[1], o[2] + n[2]];
