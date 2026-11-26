@@ -1387,3 +1387,82 @@ codes" did NOT test.
 - **The sub-cycle path (`nSubCycles > 1`) is not compared bitwise**: upstream's own run first needs 2 sub-cycles at step 637 (and 12 at step 648), after the trajectories have separated. It is checked by the count agreeing (to step 637) and by `mules_sub_cycles_restore_old_time_and_keep_the_fractions_bounded` (forced 3 sub-cycles: `oldTime` restored, fractions fill the moving volume, bounded). A case with a non-uniform initial alpha (the reader takes only `uniform` fields) would exercise the limiter at large Courant number before the chaos; not built.
 - `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated: `kovan-cli` is not built here.
 - The installed upstream build still cannot reproduce the committed post-onset references (round 5 finding); not touched.
+
+
+# Round 8 (gh:#1222, gh:#1225): TRACE wall boiling, `twoParameters` regime map, `byRegime` dispatch
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Upstream: the real
+unmodified `GeN-Foam` binary (652b3da0cc55, ESI v2506, serial), the same installed build as rounds 3-7.
+
+## What was found before any code was written (read from the shipped tutorials, 2026-11-26)
+
+| claim in #1222, #1225 and the gap audit | what the tutorials show |
+|---|---|
+| "every PSBT case selects `multiRegimeBoilingTRACE`" | **No.** `PhaseII_Ex1_01_5215` (the case the closure comparison of round 3 used) selects `multiRegimeBoiling` (ported), a EMPTY `regimeMapModels {}` and `porousKEpsilon2PhaseCorrected` turbulence. `Phase_Ex1_12223` selects `multiRegimeBoilingTRACE`, `twoParameters`, `byRegime` (dispersion, vapour diameter, interfacial area), `Bestion` drag, `LockhartMartinelli`, `waterTRACE` and is LAMINAR. `PhaseII_Ex2_04_6770` and `PhaseII_Ex3_11-0312` select `multiRegimeBoilingTRACECHF` + `lookUpTableCHF` + `multiRegimeBoilingVapourTRACE` and RAS turbulence. |
+| "the PSBT cases can run once these closures are ported" | **No.** Every PSBT case is a through-flow case: `U` `fixedValue` inlet, `pressureInletOutletVelocity` outlet, `slip` walls, `inletOutlet` `alpha`, `fixedFluxPressure` `p_rgh`. `TwoPhaseCase::read` refuses the velocity types by name, and `scalar_bcs` turns `fixedFluxPressure` and `inletOutlet` into `calculated` SILENTLY. The three `PhaseII` cases additionally need the `porousKEpsilon2PhaseCorrected` turbulence model, which the two-phase solver does not have (laminar only). **None of the four shipped `1D_PSBT_SC` cases can run end to end in the port.** Filed as child issues (below), not worked around. |
+
+So the end-to-end goal of the task is NOT met; this round ports what the two issues name, wires it into the solver, and
+compares it with the real binary on a **closed variant** of `Phase_Ex1_12223`: the same mesh, models, power and initial fields,
+with only the boundary-condition files changed to the types `1D_boiling` (the case the solver was built for) uses
+(`tests/data/genfoam_psbt_closed_gh1361/PROVENANCE.md`). That is a code-to-code comparison on a pressure-driven variant of the
+PSBT channel, not the PSBT experiment and not the shipped tutorial.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+- `grep -rniE "twoParameters|regimeDomain|regimeBoundary|byRegime|hashlittle|Rand48|lookup3" crates/**/*.rs`: the port had `RegimeMap1D`
+  (`closures/interfacial/regime_map.rs`, `oneParameter`, which says in its module doc that `twoParameters` and the
+  `byRegime` dispatch are deferred), a hand-written `ByRegime` (`f64`, dispersion and contact partition only) in
+  `solver/two_phase/mod.rs`, and no hash, `Random` or polygon code anywhere. Reused: `RegimeInterpolationMode` and the
+  `(name, weight)` list `regime_weights` returns.
+- Heat-transfer closures: `closures/heat_transfer/{boiling,chf,fs_htc}.rs` already had Gorenflo, Basu, RezkallahSims, Chen, SahaZuber
+  and the `multiRegimeBoiling` pure function. Reused (Gorenflo and Basu through the solver, SahaZuber changed, below).
+  `multi_regime_boiling_htc` itself does not compose (it carries the heat-flux-superposition exponent and a suppression factor
+  TRACE does not use, and returns no `q_SC`), so `multiRegimeBoilingTRACE` is a new function.
+- Upstream read in full: `regimeMapModel.{H,C}`, `regimeMapModelTemplates.C`, `twoParameters.{H,C}`, `regimeDomain2D.{H,C}`,
+  `regimeBoundary2D.{H,C}`, `byRegimeModel.{H,C}`, `byRegimeModels.C`, `multiRegimeBoilingTRACE`, `...TRACECHF`, `...VapourTRACE`,
+  `GorenfloFSHeatTransferCoefficient.C`, `BasuTONB.C`, `TONBModel.C`, `SahaZuberSubCooledBoilingFraction.C`, `RezkallahSims...C`,
+  `phaseChangeModel.C` (`correct`, `limitMassTransfer`), `heatDrivenPhaseChange.C`, `FSPair.C` `correct`, `structure.C`
+  (`Twall_`), `fluid.C` (`correctAlphaRhoMagU`), `reconstructU_2p.H`, ESI `Random`, `Rand48`, `Vector2D`, `Hasher.C`,
+  `HashTable.C`. No kovan-reviewed function was touched (no `kind = "review"` block in `closures/` or `solver/`).
+
+## What upstream does that the port did not (found by reading, before any comparison)
+
+1. **`twoParameters` walks a `HashTable<regimeDomain2D, word>`** to find the first polygon that contains the point. That order is
+   the bucket order of Jenkins' `hashlittle` of the regime name in a 128-bucket table, newest-first within a bucket, not the
+   dictionary order. A point on a shared edge belongs to whichever polygon the walk meets first.
+2. `sign_` and the test ray of a polygon are computed from the UNNORMALISED points; the ray is `Foam::Random(69 (id+1917))` (a `drand48`
+   generator through libstdc++'s `generate_canonical`), a fresh ray per boundary, the last one kept; and `Vector2D(rng.sample01(),
+   rng.sample01())` draws `y` first (GCC evaluates arguments right to left: measured with a g++ -O3 probe, `tests` doc).
+3. `multiRegimeBoilingTRACE` reads **`Twall`, a separate field** (`T.wall`), zero until the first `structure::correct`, which copies `Tact`.
+   It hard-wires the cubic flux superposition, never evaluates its suppression model, and writes `dmdtW = iAact q_SC / |L|`.
+4. `phaseChangeModel::correct` adds `dmdtW` to `dmdt`, splits `dmdt` into `(1-fw) dmdt` and `fw dmdt` (`fw = dmdtW/dmdt` where `|dmdt| > 1e-2`),
+   adds the wall part to `c1` or `c2` by sign, and zeroes `dmdtW` after use.
+5. `SahaZuber` (`SahaZuberSubCooledBoilingFraction.C`) is `T_ld = max(T_sat - q Dh/(0.0065 max(Re Pr, 7e4)), 0)` with NO division by the
+   thermal conductivity. The port had added the `k` of the published correlation and claimed to "deviate from upstream's literal C++".
+   Per the maintainer's 2026-11-26 "follow upstream", upstream's form is now the default (`SubcooledBoilingFraction::SahaZuber`) and the
+   earlier form is `SahaZuberPublished`. The two existing unit tests of the published formula now name `SahaZuberPublished` (values unchanged).
+6. `BasuTONB.C` converts the contact angle as `deg*2.0*pi/360.0` and cubes it with `pow(.,3)`; the port used a `uom` degree conversion and `powi`.
+   Now `deg*2.0*pi/360.0` and `r_powf(3.0)`.
+7. `alphaRhoMagU.<fluid>` (`fluid::correctAlphaRhoMagU`, in `reconstructU_2p.H`) is the second axis of the PSBT regime map; the port had no such field.
+
+## Predictions (written BEFORE the first port run on this case; committed first)
+
+Upstream facts measured first (real binary, tight protocol, every step written, `scripts/psbt_closed_protocol.sh`, endTime 0.6, serial):
+the vapour first appears at **step 14** (t = 0.1399 s, max `alpha.vapour` 3.8e-3), 0.22 at t = 0.38 s; the step size starts at 5e-3 and
+falls to 7.8e-4 by t = 0.375 s (`maxCoTwoPhase 0.5`); the GAMG `p_rgh` solve at tolerance 1e-14 often stops at its 1000-iteration cap with a
+final residual of 1e-12 to 1e-13 (a round-off floor, reached in the same way as the `1D_boiling` tight runs).
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| T1 | `TwoPhaseCase::read` of the closed case | succeeds with an empty `deviations` | a model key the reader still refuses |
+| T2 | step size `dt`, steps 1-13 | equal to upstream's to 1e-9 relative | `Courant` / `maxDeltaT` differences |
+| T3 | steps 1-13 (single phase): `p`, `T.liquid`, `T.fixedPower` | <= 1e-9 relative to the field maximum | the round-3 GAMG-vs-port p_rgh floor |
+| T4 | steps 1-13: `U.liquid`, `alphaRhoMagU.liquid` | <= 1e-8 | same |
+| T5 | steps 1-13: `htc.liquid.structure` (TRACE, single phase but wall above saturation) | <= 1e-8 | a wrong branch of the TRACE map, `Twall` lag, Basu/Gorenflo/RezkallahSims arithmetic |
+| T6 | the step at which the port's `alpha.vapour` first exceeds 0 | step 14 (the same as upstream's) | `dmdtW`/`SahaZuber` form |
+| T7 | steps 14-30: `alpha.vapour`, `dmdt.liquid.vapour`, `areaDensity.interface` | <= 1e-4 relative (amplified by the small vapour fraction, as in round 7) | regime weights, `byRegime` area, `fw` split |
+| T8 | steps 14-30: `p`, `T.liquid`, `U.liquid` | <= 1e-6 | |
+| T9 | first step at which any compared field leaves 1e-6 | at or after step 14; none before | |
+
+If T5 or T6 miss, the first suspect is the SahaZuber form (upstream's no-`k` form makes `T_ld` hotter than the published one, so the sub-cooled fraction
+and with it `dmdtW` is larger), then the Gorenflo/`Twall` evaluation order.
