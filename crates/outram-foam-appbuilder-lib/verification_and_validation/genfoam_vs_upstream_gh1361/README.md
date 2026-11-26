@@ -2763,3 +2763,64 @@ The 5 s `regressionResults` check (`psbt2_regression_results_at_5_s`, 200 s) was
 
 `--test genfoam_psbt2_turbulence_vs_upstream -- --skip regression`: 8 passed, 2 ignored (diagnostics); `--lib two_phase`: 33 passed (30 + the 3 `pcg` tests); `--test genfoam_psbt_shipped_vs_upstream` 4 passed + 3 ignored; `--test genfoam_chf_shipped_vs_upstream` 2 + 2 ignored; `--test genfoam_psbt_trace_vs_upstream` 7 + 7 ignored; `--test genfoam_chf_trace_vs_upstream` 5 + 6 ignored;
 `--test genfoam_two_phase_vs_upstream` 12 + 3 ignored; `cargo test --release -p petir --test no_platform_libm` 4 passed; `bash scripts/check-nostd.sh` exit 0. The parent runs the full suite.
+
+
+---
+
+# Round 18 (2026-11-26): the cell-centred `onePhase` fluid-mechanics solve and single-phase `porousKEpsilon` (gh:#1812, children of gh:#1775 / gh:#1475)
+
+Goal: the `steadyStateTH` stage of `Tutorials/reactorCases/2D_MSFR` (`solveFluidMechanics true`, `momentumMode cellCentered`,
+`partialEliminationMode implicit`, `porousKEpsilon` SOLVING), so that `EigenvalueStage::SteadyStateTh` (gh:#1814) can be un-refused.
+
+## What was read BEFORE any port code or port run (GeN-Foam 652b3da on ESI v2506)
+
+* `onePhase.C::correctPhysics`: per PIMPLE outer iteration `correctModels(true, true)` (`FSPair::correct`), then, if
+  `solveFluidMechanics`, `UEqn_1p.H` + `pEqn_1p.H` (`momentumMode != faceCentered`), `correctContErr`, and then `correctEnergy`.
+* `UEqn_1p.H`: `fluid_.turbulence().correct()` FIRST (so `k`, `epsilon`, `nut`, `alphat` are solved inside the momentum assembly,
+  once per outer iteration); `UEqn = div(alphaRhoPhi,U) + SuSp(-contErr,U) - laplacian(alpha rho nuEff, U) - div(alpha rho nuEff
+  dev2(T(grad U)), "div(alphaRhoPhiNu,U)") + Sp(tr(Kd)/3, U) + (dev(Kd) & U) == fvOptions`; `+ ddt(alpha, rho, U)` for cell-centred;
+  `UEqn.relax()` (0.9, `relaxationFactors.equations ".*"`). There is NO velocity predictor.
+* `pEqn_1p.H`: `rAU = 1/UEqn.A()`; per PISO corrector `p_rgh = p - rho gh`, `correctBoundaryFlux_1p.H`, `HbyA = rAU UEqn.H()`,
+  `phiSbyA = -alpharAUf ghf snGrad(rho(true)) magSf (+ alpharAUf flux(momentumSource))` (the PUMP is `momentumSource (0 0 -300000)`),
+  `phiHbyA = alphaf (flux(HbyA) + phiSbyA)`, `rAUf = |alphaf alpharAUf|`, `fixedFluxPressure` gradient from `(phiHbyA - alphaf phi)/(magSf rAUf)`,
+  `pEqn = pEqnComp + div(phiHbyA) - laplacian(rAUf, p_rgh)`, `setReference(pRefCell 0, pRefValue 1e5)` (Boussinesq: `psi = 0`, so
+  NOT compressible and the reference VALUE is imposed), `U = HbyA + reconstruct(alpharAUf flux/rAUf + phiSbyA)`, `updatePP_rghRho_1p.H`
+  (`p = max(p_rgh + rho gh, pMin)`; closed-volume mass correction is skipped for Boussinesq).
+* `porousKEpsilon::correct()` (one-phase) is NOT the 2-phase class: `epsilon` equation first, `epsilon_.boundaryFieldRef().updateCoeffs()`
+  (wall-function `G` and cell-value weights), `boundaryManipulate`, solved by the catch-all `PBiCGStab`/`diagonal`; then `k`; `nut = Cmu k^2/epsilon`
+  then `alphat = rho nut/Prt`. The structure zone `hx` (volumeFraction 0.6) switches production/dissipation OFF (`noStructure`) and relaxes to
+  `equilibriumK`/`equilibriumEpsilon` with `alphaRhoConv = alpha rho |U|/convergenceLength`.
+* Case: `2D_MSFR/rootCase` wedge mesh (8595 cells per the patch table, `front`/`back` wedge, 4 wall patches `topwall`, `bottomwall`, `reflector`, `hx` with
+  `kqRWallFunction`, `epsilonWallFunction`, `nutkWallFunction`, `fixedFluxPressure`); `ReynoldsPower` drag `coeff 0.5 exp -0.25` on `hx`;
+  `Boussinesq` `rho0 4125 T0 900 beta 2e-4`, `mu 0.01`; `nCorrectors 6`, `nOuterCorrectors 5`, `correctUntilConvergence true`.
+
+## What the workspace already had (searched before writing; reuse)
+
+`one_phase_cc.rs` (round 9: energy only, `FSPair` Re/htc, `Boussinesq hConst`, last-match solver lookup); `two_phase::fv` (`Eqn`, `VecEqn`, `Scalar`, `Vector`
+and their boundary coefficients, `interp_*`, `reconstruct`); `two_phase::pcg` (PCG/DIC), `pbicgstab`; `two_phase::turbulence` (`bound`, `relax_equation`,
+`convective_inflow2`, `velocity_gradient`, `regex_full_match`); `closures::fs_drag` (`ReynoldsPower`); `closures::turbulence::porous_k_epsilon`
+(equilibrium k, epsilon). **NOT in the workspace**: any wall function that acts on a field (`outram-foam-turbulence-lib::wall_functions` is a set of
+standalone helpers, "untested"; `kqRWallFunction`/`epsilonWallFunction`/`nutkWallFunction` patches are refused by name by the two-phase reader), and a
+`wedge` VECTOR patch field (the energy-only region only needs the scalar one, a zero-gradient).
+
+## Reference protocol (`scripts/run_msfr_th_tight.sh`; the upstream binary is unmodified)
+
+`steadyStateTH` replayed from `Allrun` (`foamDictionary` is not built here); the ONLY changes are: every linear-solver `tolerance 1e-14`, `relTol 0`;
+`p_rgh` `GAMG`/`DIC` -> `PCG`/`DIC` (GAMG does not reach 1e-14: a solver-only change, justified exactly as in round 16, and the same solver the port
+already has in `two_phase/pcg.rs`); write every step at `writePrecision 17`; `endTime 0.06` (14 adaptive steps, `dt` growing 1.2x from 1e-3; 15-19 s
+wall each). Two variants: `TURB=off` (`turbulence false`: isolates `UEqn`/`pEqn` from the turbulence model, the round-17 bisect) and `TURB=on`.
+The upstream run directories are deleted after the references are extracted.
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+P1. The flow starts from rest and is driven ONLY by the pump `momentumSource` and the Boussinesq buoyancy; step 1 of `th_off` will show `p_rgh` and `U`
+    far from the restart values, and the first PISO residual of the first outer iteration will be ~1 (upstream log: 0.984).
+P2. With `turbulence false`, a faithful `UEqn`/`pEqn` translation reproduces `U`, `p_rgh`, `p`, `phi` per cell to <= 1e-9 relative in step 1 (PCG/DIC on
+    both sides, same iteration count to within one); the wedge `U` patch (`faceT`/`cellT` transform) is the most likely first divergence if it is wrong.
+P3. With `turbulence true` the first diverging quantity is `epsilon` in the wall-adjacent cells (the `epsilonWallFunction` cell-weight / `G` modification,
+    which exists nowhere in the workspace), then `k`, `nut`, `alphat`, then everything downstream; predicted size at step 1: 1e-3 to 1e-1 relative in the
+    wall cells, <= 1e-8 elsewhere until the coupling spreads it.
+P4. Everything the energy equation sees (`T`) stays within 1e-9 of upstream for the first ~3 steps even when `epsilon` is off, because `T` is
+    900 K everywhere (`T0`, uniform) and the `hx` zone is at `T = 900`: the stage is flow-only at first (upstream log: T min/max 899.9996/900.0005).
+P5. A wall-function-free translation that the maintainer's "stay close to upstream" rule forbids as a default would still be informative as an ablation:
+    predicted `nut` change at the wall cells of > 10 % when the wall function is dropped.
