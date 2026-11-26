@@ -131,7 +131,7 @@ pub struct FemSettings {
     pub normalisation: StiffnessNormalisation,
     /// Element choice.
     pub element: FemElementChoice,
-    /// The linear solve (default: CG + ILU(0), relative tolerance `1e-12`).
+    /// The linear solve (default: CG + ILU(0), relative tolerance `1e-11`).
     pub linear: FemLinearSolverSettings,
 }
 
@@ -141,7 +141,9 @@ impl Default for FemSettings {
             plane_stress: false,
             normalisation: StiffnessNormalisation::default(),
             element: FemElementChoice::default(),
-            linear: FemLinearSolverSettings::default(),
+            // farrer-park's default is 1e-12; the true relative residual of CG + ILU(0) stalls at about 1e-12 on the
+            // 2e11 Pa stiffness (a 1.005e-12 > 1e-12 refusal was measured on the thick-cylinder mesh), so 1e-11.
+            linear: FemLinearSolverSettings { tolerance: 1.0e-11, ..FemLinearSolverSettings::default() },
         }
     }
 }

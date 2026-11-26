@@ -3581,3 +3581,70 @@ Relative = divided by the amplitude (max |u|) of the exact or reference field.
 * **P7 external FEM code** (scikit-fem, Q1 hexahedra and P1 tetrahedra, same mesh, same eigenstrain, same BCs, run in a
   scratch venv): agreement to round-off, `< 1e-8` relative in nodal displacement, for the same element. A larger
   difference is a bug in one of them.
+
+## Round 25 results (2026-11-26, release, shared 4-core machine; `tests/genfoam_fem_thermo_mechanics_gh1782.rs`, 8 tests, 13 s; `--nocapture` prints every table)
+
+The prediction list above was committed (f0e3c9977) before any run of the finite-element code. Held / missed, with the
+numbers:
+
+| # | Prediction | Result | |
+|---|---|---|---|
+| P1 | free thermal expansion exact to `< 1e-9` | Hex8 `4.4e-13`, Tet4 `5.6e-13` (displacement, relative); stress `5.7e-13` / `9.0e-13` of `3K alpha dT` | held |
+| P2 | clamped bar: Hex8 order `2.0 +- 0.15`, Tet4 `1.5 - 2.2`, FVM `2.0 +- 0.15`, FEM-FVM shrinks at order 2 | see "Protocol correction" below. Against the 1-D closed form: Hex8 and FVM `1.703e-2, 4.148e-3, 1.030e-3, 2.572e-4` (n = 10..80), orders `2.04, 2.01, 2.00`, **identical to 1e-12 in `u_x`** (same 1-D discrete solution). Tet4 on that mesh `4.4e-2, 3.1e-2, 1.8e-2, 9.7e-3` (orders `0.49, 0.80, 0.87`) | Hex8, FVM held; Tet4 missed; "FEM-FVM shrinks at order 2" missed (they are the same to round-off) |
+| P2b | (added) exactly 1-D bar, `nu = 0.3`, only lateral components held, FEM | Hex8 = Tet4 (stretched and cubic cells) `1.7028e-2, 4.1480e-3, 1.0303e-3`, orders `2.04, 2.01` | held (the Tet4 shortfall of P2 is not the element) |
+| P3 | Lame `u_r` order `2.0 +- 0.2`; `sigma_theta` order `1.0 +- 0.3`; Tet4 `u_r` order `>= 1.5`, error larger | Hex8 (nr = 4, 8, 16, 32) `u_r` `9.87e-3, 2.52e-3, 6.33e-4, 1.58e-4` (orders `1.97, 1.99, 2.00`); `sigma_theta` `4.39e-3, 1.12e-3, 2.82e-4, 7.07e-5` (orders **`1.97, 1.99, 2.00`**); Tet4 `u_r` `6.18e-2, 1.95e-2, 5.80e-3` (orders `1.67, 1.75`), `sigma_theta` orders `1.30, 0.49`; Tet4 error 9x Hex8's at nr = 16 | `u_r` and Tet4 held; **`sigma_theta` order missed**: the cell-averaged stress converges at order 2, not 1 (an element average of a bilinear-in-`xi` stress is a Gauss-type sample, super-convergent; the order-1 expectation was for the stress at a node or point) |
+| P4 | Timoshenko `u_r` order `1.8 - 2.2` | `6.96e-3, 2.06e-3, 5.62e-4, 1.47e-4`, orders `1.76, 1.87, 1.94` (approaching 2 from below) | held at the last pair |
+| P5 | clamped block, FEM order `1.8 - 2.2`, FVM `1.6 - 2.2`, FEM-FVM `< 1 %` at n = 16, falling `3 - 5x` per halving | FEM vs n = 32 reference `2.03e-1, 4.60e-2, 1.20e-2` (orders `2.15, 1.94`); FVM `1.72e-1, 4.83e-2, 1.50e-2` (orders `1.83, 1.69`, drifting down); FEM-FVM `8.5e-2, 3.0e-2, 1.29e-2` (factors `2.83, 2.33`, orders `1.50, 1.22`) | orders held; **FEM-FVM `< 1 %` and `3 - 5x` missed**: the two converge to the same field but the difference falls at order 1.2 - 1.5, the finite-volume side being the slower (clamped-wall treatment, not investigated) |
+| P6 | ESFR: `TStruct`, `fuelDisp`, `CRDisp` bit-identical; injection bit-identical; `disp_x,y` `10 - 60 %`; `disp_z` `1 - 15 %`; Max `sigmaEq` ratio `0.3 - 3`; Physical vs normalised `5 - 40 %` | bit-identical (all four, incl. injected `meshDisp` x, y, z and `fuelDisp`); `disp_x` `14.58 %`, `disp_y` `14.58 %`, **`disp_z` `37.5 %`**; Max `sigmaEq` FVM `9.899e6`, FEM `1.031e7` Pa (ratio `1.042`); Physical vs normalised `5.13 %` | `disp_z` missed; the rest held (the `5 %` edge only just) |
+| P7 | scikit-fem agrees `< 1e-8` | Hex8 `1.2e-13`, Tet4 `5.5e-13` (max nodal difference / max `|u|`, 140 nodes, two zones with `rho != 1`, pressure, thermal load, symmetry planes, curved-edge hexes) | held |
+
+### Protocol correction (P2, found by the first run)
+
+The first P2 run gave `0.97` of the amplitude as the error of ALL THREE codes, equal to each other to three figures: the
+closed form was the one at fault. A `fixedValue` side patch holds `u_x` as well as `u_y`, `u_z` (the bar was clamped on its
+sides), so the 1-D solution was not the solution. Neither code was changed. The problem was redefined, not the tolerance:
+(i) `nu = 0`, free sides (`zeroGradient` for the finite-volume solver, the natural condition for the finite-element one), so
+the 1-D state satisfies both; (ii) P2b, the exactly 1-D case with `FixedComponents` (finite element only; the finite-volume
+solver cannot hold one component). Even (i) is not exactly 1-D: with traction-free sides the bar expands laterally,
+`u_y = alpha dT(x) y`, which creates a shear coupling of `O((h/L)^2)`; so P2's "error against the 1-D closed form" for Tet4 is
+not a convergence study (the reference is not that problem's exact solution) and no order is claimed from it. The unexplained
+part is why Tet4's difference from the 1-D reference does not fall while Hex8's does (on `nu = 0.3` P2b all three agree and
+converge at order 2); likely the constant-strain tetrahedra of the cone decomposition cannot follow the lateral expansion
+that varies from cell to cell, not investigated, filed.
+
+### The finding that matters: `zeroGradient` does not carry the thermal expansion
+
+In P2 the finite-element bar expands laterally (`max |u_y| = 1.5e-4 m`, `alpha dT y` with `dT` up to 500 K) and the
+finite-volume bar does not (`max |u_y| = 1e-18`): `zeroGradient` on `D` imposes `dD/dn = 0`, the thermal load
+`grad(3K alpha (T - Tref))` has no component across the side, and nothing else asks the side to move. GeN-Foam's own cases
+use `GFTractionDisplacement` there, which carries the thermal stress in the boundary condition (gh:#1235, being ported); with
+a plain `zeroGradient` the finite-volume solver omits the free lateral expansion. On the ESFR the same difference, plus the
+coarse mesh, is why `disp_z` differs by `37.5 %`: with every patch `fixedValue 0` (identical PDE and identical Dirichlet
+condition on both sides) the difference falls to `13.5 %` (x, y) and `3.6 %` (z), `max |u|` `3.07e-3` (FVM) and `3.15e-3`
+(FEM) m, which is the discretisation difference on 23 340 prisms cut into 70 020 tetrahedra.
+
+### Other measured facts
+
+* ESFR finite-element solve: `Tet4`, 70 020 elements, 39 879 dofs, 167 CG iterations (ILU(0), residual `7.7e-12`), 1.4 s with
+  assembly. Stiffness tolerance: `farrer-park`'s `1e-12` refused a `1.005e-12` true residual on the thick cylinder (stagnation
+  of the true residual); the default here is `1e-11`.
+* `Physical` stiffness (`E = rhoE`) vs GeN-Foam's `E = rhoE/rho`: `5.13 %` of the ESFR displacement.
+* P6's `Max sigmaEq` is the von Mises stress of the cell-averaged stress, scaled by `rho` as `calculateStress.H` does.
+* Round 23's own test (5 tests) passes unchanged: nothing in `legacy_fvm` was edited but one `mod external_displacement;` line.
+
+### External differential test (P7), status: done
+
+Instrument: scikit-fem 12.0.2 (numpy 2.4.6, scipy sparse direct solver), a scratch venv, `scripts/fem_differential_scikit_fem.py`
+reading the dump `fem_differential_dump` writes (mesh, per-element `E/rho`, `nu`, `alpha`, `Tref`, `T`, constrained
+components, pressure facets, the Rust nodal displacement). It assembles the same weak form with its own `ElementHex1`
+(2x2x2 Gauss) and `ElementTetP1`; the pressure load is its own numpy implementation. A first run read `1.14` for the hexahedron:
+the script's vertex permutation was wrong (scikit-fem's hexahedron vertex order is not the tensor order; the element volume was
+half the true one). The permutation was read off `MeshHex.init_tensor`, checked by volume, and only then re-run: `1.2e-13`.
+Not a differential against MOOSE or code_aster: neither is built here (`which ccx code_aster moose-opt` empty; `farrer-park`
+was verified against closed forms and manufactured solutions only, never run against MOOSE).
+
+### Not done (filed from this round)
+
+Nodal (continuous) temperature input, mixed-element meshes, reduced-integration or B-bar `Hex8` for nearly incompressible
+zones, `GFTractionDisplacement`/`gapContact` in the finite-element branch (gh:#1235), transient inertia (gh:#1845), a
+traction-free-versus-`zeroGradient` investigation of the finite-volume side (above), the Tet4 shortfall in P2.

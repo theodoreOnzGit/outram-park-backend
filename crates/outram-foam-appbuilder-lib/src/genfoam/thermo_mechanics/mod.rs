@@ -76,8 +76,19 @@
 //! `Gauss linear corrected`, the axial `fuelDisp`/`CRDisp` expansion equations and `meshDisp`. It agrees with the
 //! real class, and with the real `GeN-Foam` executable, bit for bit on the 3D_SmallESFR mechanics region
 //! (`verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 23"). It is the type a later
-//! finite-element mechanics (gh:#1782) is selected beside by an enum. [`MechanicsMeshSolver`] below is the older,
+//! finite-element mechanics ([`fem`], gh:#1782) is selected beside by [`StructuralDiscretisation`]
+//! ([`ThermoMechanicsRegion`], finite volume the default). [`MechanicsMeshSolver`] below is the older,
 //! simpler solver and is NOT upstream's algorithm.
+//!
+//! ## Finite elements beside finite volumes: [`fem`], [`structural_region`] (gh:#1782, round 25)
+//!
+//! [`fem::FemThermoElastic`] solves steady small-strain thermo-elasticity by finite elements on the same `polyMesh`
+//! and the same per-zone cards and `TStruct`, reusing `farrer-park` (`Hex8`, or `Tet4` by a conforming cone
+//! decomposition of prisms and polyhedra). [`StructuralDiscretisation`] selects it; [`ThermoMechanicsRegion`] runs the
+//! chosen one and feeds ITS displacement to the finite-volume solver's own `fuelDisp` / `CRDisp` / `meshDisp` code, so
+//! the feedback path is identical. Verified by closed forms, against the finite-volume solver and against scikit-fem:
+//! `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 25". `zeroGradient` becomes the natural
+//! (traction-free) condition, which is NOT the same condition; read the module documentation of [`fem`].
 //!
 //! ## Still deferred
 //!
