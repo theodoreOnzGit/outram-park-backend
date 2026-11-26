@@ -3403,3 +3403,55 @@ The second-solve residual uses OpenFOAM's normalisation but is a different numbe
 
 ### Gates run (2026-11-26, release, targeted; the parent runs the full integration test)
 `--test genfoam_msfr_coupled_vs_upstream` (6 passed, 1 ignored in 178 s; the ignored 452-step C test re-run with its final gates: passed, 1064 s), `--test genfoam_msfr_chain_vs_upstream msfr_light_chain` (1 passed, 84 s), `-p petir --test no_platform_libm`, `bash scripts/check-nostd.sh` (exit 0).
+
+
+## Round 24 (gh:#1235): `GFTractionDisplacement` and `gapContact`, against GeN-Foam's own class
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26, **predictions committed BEFORE the first run of the traction code**.
+
+### What was searched before writing anything (CLAUDE.md "search before building")
+
+* Upstream, the whole of `src/classes/thermoMechanics/tractionDisplacement/` (1,035 lines): `GFTractionDisplacementFvPatchVectorField.{C,H}` (465) and `gapContactFvPatchVectorField.{C,H}` (570). Nothing else in GeN-Foam 652b3da derives from them; `extendedThermoMechanics` and `offbeat/solvers/fuelBehaviour` only mention `gapContact`. No tutorial uses `gapContact`; the `3D_SmallESFR` tutorials use `GFTractionDisplacement` on every `disp` patch but `zeroDispl`.
+* `solvers::solid_displacement_foam` (ESI `solidDisplacementFoam`, bit-identical, gh:#1383) refuses `tractionDisplacement` by name (module doc, line 67): checked, nothing to reuse (ESI's `tractionDisplacement` is a different class: uniform `E`/`nu`, `rho` factored differently, no thermal term, no pressure).
+* `genfoam::thermo_mechanics::MechanicsMeshSolver` (older port): `mesh_solve.rs` line 113 mentions a "`tractionDisplacement` boundary" as a traction surface of a different, scalar solver; rejected as the base in round 23 and still.
+* `outram-park-fork-offbeat/src/gap/contact.rs`: a port of OFFBEAT's `contactFvPatchVectorField` (radial gap, `boundaryStiffness = K A / V`); GeN-Foam's `gapContact` is a different class (`boundaryStiffness = gMin(2 (2 mu + lambda) deltaCoeffs)` over the patch, gap width `0.5 (own + interpolated neighbour)`, a face-normal gap). Checked and not reusable; the two share only the idea of a penalty pressure.
+* `outram-foam-basic-lib::BoundaryCondition::FixedGradient(T)`: one uniform gradient per patch whose `snGrad` is that constant; `GFTractionDisplacement`'s gradient is a per-face field recomputed at every `updateCoeffs()` from the solution, so it cannot be expressed there. Rejected; the new type lives beside the round-23 solver and is written so that the finite-element version (gh:#1782) can call it.
+* No kovan-reviewed function is edited: `thermo_mechanics/review.md` and the `legacy_fvm` folder hold no `kind = "review"` block (re-checked 2026-11-26).
+
+### What upstream's class does (read before any code), and what I expect it to do
+
+`updateCoeffs()` (`GFTractionDisplacementFvPatchVectorField.C` lines 143-212) runs once per `fvMatrix` construction of `disp` (the matrix constructor calls `psi.boundaryFieldRef().updateCoeffs()`; a patch updates once until its `evaluate()` resets `updated()`):
+
+```
+E = rhoE/rho;  mu = E/(2(1+nu));  lambda = nu E/((1+nu)(1-2nu));  twoMuLambda = 2 mu + lambda
+gradient = ((traction - pressure n)/rho + twoMuLambda snGrad - (n & sigmaD))/twoMuLambda
+gradient += n threeKalpha (TStruct - TStructRef)/twoMuLambda
+```
+
+with `snGrad` the *base-class* `fvPatchField<vector>::snGrad()` (`deltaCoeffs (value - internal)`), `sigmaD` the registered `sigmaD` patch field, and `evaluate()` setting `value = internal + gradient/deltaCoeffs` AFTER the solve, with the gradient of the matrix construction.
+
+Two findings from reading, both to be tested rather than assumed:
+
+* **`planeStress` typo.** The BC reads `thermoMechanicalProperties.found("rheologyOptions") ? subDict("rhelogyOptions").get<bool>("planeStress") : false` (lines 160-164): the guard says `rheologyOptions`, the sub-dictionary is spelled `rhelogyOptions`, and `legacyThermoMechanics` itself reads `rheologyOption` (singular). So the BC is plane strain whatever the case says, and a case with a `rheologyOptions` key would abort (`rhelogyOptions` not found). The port follows upstream (plane strain always; a `rheologyOptions` key is refused by name); the intended form is kept as a named option `traction_bc_honours_plane_stress`, used as a control.
+* **Two objects are called `E`.** `legacyThermoMechanics` registers `rhoE_` (object name `E`, declared first) and `E_` (also `E`, declared seven members later). The BC does `lookupPatchField("E")` and divides by `rho`. If the registry keeps the first, that is `rhoE/rho`, the Young's modulus per density; if it kept the second, the BC would divide `E/rho` by `rho` again. The port takes `rhoE/rho`.
+
+### The cases (staged by `scripts/make_legacy_tm_case.sh`; every deviation from the tutorial stated)
+
+Same case, mesh, zone cards, coupling functions and tight protocol as round 23, except:
+
+* **T0 "tutorial form"**: `0/disp` is the tutorial's OWN file, unedited: `zeroDispl` `fixedValue`, five `GFTractionDisplacement` patches with `traction 0`, `pressure 0`. Round 23's replacement is gone.
+* **T1 "loaded"**: T0 with nonzero inputs, so that `traction_` and `pressure_` are exercised and not only the thermal and `sigmaD` terms: `top` traction `(1e5 -2e5 3e5)` Pa; `topCR` pressure per face `5e4 (1 + 0.01 i)` Pa; `bottom` traction per face `(1e5 (1 + 0.001 i), 5e4, -5e4)` Pa and pressure `1e4` Pa; `bottomCR` traction `(5e4 0 0)` Pa; `defaultFaces` traction `(2e4 0 0)` Pa and pressure `2e5` Pa (`i` the face index in the patch; a per-face list on two patches so a face-order error cannot hide).
+* **T2**: T1 with `rheologyOption { planeStress yes; }` (one step): the BC must still be plane strain.
+* **`maxIter 100000`** for every linear solver (round 23: the default 1000). With the bottom released only the six `zeroDispl` faces constrain the body, so the displacement system is far worse conditioned than round 23's; a breached iteration cap would be a breached bound, and the protocol is fixed (cap raised), never the tolerance (`1e-14`, `relTol 0`).
+* The driver now also dumps, for every `GFTractionDisplacement` patch, the boundary `value` and the `gradient` (`F <step> dispB_<patch>`, `F <step> gradB_<patch>`).
+
+### Predictions (written BEFORE the first run; committed first)
+
+* **Q1** (the `E` lookup): the registry keeps `rhoE_`, so the port's `rhoE/rho` is right and the first loaded step agrees. A miss (the registry kept `E_`) would show as a boundary gradient wrong by the factor `rho` (1e3) in the `traction/rho` term and in `mu`, i.e. a worst `disp` difference at the 1e-3..1e-1 level of max |disp| at step 1, not round-off; I would then switch the port to upstream's form and record the correction.
+* **Q2** (bit-identity, T0): **every `disp` and `meshDisp` value at all 3 steps identical, 36 of 36 linear solves with identical initial/final residuals and iteration counts, `Max sigmaEq` and `residual_` identical, the boundary `gradient` and `value` of all five patches identical.** Confidence about 60 %: the BC is a short chain of exactly translated expressions, but the order of `updateCoeffs()` against `evaluate()`, and any `correctBoundaryConditions()` that the driver or the base classes call before the first corrector, are things I read rather than measured. If it is not identical: first divergence in step 1, first corrector, `dispx` (the state is simplest there: `disp = 0`, `sigmaD = 0`, so the gradient is the thermal term alone); worst relative difference to max |disp| between 1e-15 and 1e-10 if it is an operation-order difference in the gradient expression, above 1e-6 if it is a sequencing error (an `updateCoeffs()` before the first corrector, or after the solve).
+* **Q3** (T1): as Q2. If T0 is identical and T1 is not, the culprit is the `traction/pressure` term (the `(traction - pressure n)/rho` order) or the per-face reading.
+* **Q4** (iteration counts): the `dispx|y|z` PCG solves need between 300 and 5000 iterations at step 1 (round 23: 113-139), all below the cap of 100000.
+* **Q5** (size of the answer): max |`disp`| at step 3 of T0 is between 3e-3 and 3e-2 m (round 23's replacement run: 7.0e-3 m; the released bottom lets the column expand both ways). T1 differs from T0 by between 1e-3 and 1e-1 of max |`disp`|, the loads being 1e5..3e5 Pa on `E` of 5e8..2e9 Pa.
+* **Q6** (controls; each must be distinguishable from the reference): (a) round 23's replacement (`fixedValue 0` on `bottom`, `bottomCR`; `zeroGradient` elsewhere) against the T0 reference: worst `disp` difference above 0.1 of max |disp| (a fixed bottom against a free one); (b) the port with `pressure` zeroed against the T1 reference: above 1e-4; (c) the port with the traction zeroed against T1: above 1e-4; (d) the port with `traction_bc_honours_plane_stress` against the T2 reference: above 1e-3 (plane-stress `lambda` is 0.33 E against plane-strain 0.58 E at nu = 0.3, so `twoMuLambda` differs by about 20 %).
+* **Q7** (T2): bit-identical to upstream when the port follows upstream (plane strain in the BC); the cells use the plane-stress `lambda`, the BC does not, and that mismatch is upstream's.
+* **Q8** (`gapContact`): no differential test is possible standalone: it needs a `regionCoupled` patch pair, the neighbour region's `disp` and `meshDisp`, and the AMI interpolation between two meshes (coupled-region infrastructure, gh:#1846). The arithmetic (`gapWidth`, `boundaryStiffness`, the interface pressure) is ported as pure functions on face arrays, tested against hand-computed values (not against upstream), and a `type gapContact` patch in a case is REFUSED by name. A follow-up issue is filed.
