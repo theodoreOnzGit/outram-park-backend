@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Reference-data generator: runs UNMODIFIED upstream STRATO (Wee Zhern Ray,
+# GitHub `weewzr`, https://github.com/weewzr/STRATO, AGPL-3.0-only) at commit
+# 36f1a98848bec9d66fe515994e075cff09d6cefb and writes the CSV files that
+# boon-lay's STRATO tests read (`crates/boon-lay/tests/data/strato_reference/`).
+#
+# NOT a member of the outer outram-park-backend workspace: the empty
+# `[workspace]` table below makes this package its own workspace root, so the
+# outer `cargo build --workspace` never sees it or its dependencies.
+# See README.md for how to clone upstream into `upstream/STRATO`.
+
+[package]
+name = "strato-reference"
+version = "0.0.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+description = "Runs unmodified upstream STRATO and writes boon-lay's STRATO reference CSVs."
+
+[dependencies]
+strato = { path = "upstream/STRATO" }
+
+[workspace]

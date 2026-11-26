@@ -289,7 +289,7 @@ fn u1_port_matches_upstream_sturm_liouville() {
 #[test]
 fn u2_port_matches_upstream_python_oracle() {
     let row = &csv_rows("oracle.csv")[0];
-    let (t, oracle) = (num(&row[0]), num(&row[1]));
+    let (t, oracle) = (num(&row[1]), num(&row[2]));
     let f = series(&D5, &G5, t).release_fraction(t);
     let diff = (f - oracle).abs();
     println!("U2: F({t:.0e} s) port {f:.16} oracle {oracle:.16} |diff| {diff:.3e} (gate {GATE_U2_ABS:.0e})");
