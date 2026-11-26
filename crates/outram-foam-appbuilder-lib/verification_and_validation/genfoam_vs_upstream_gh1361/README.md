@@ -2133,3 +2133,9 @@ None of an earlier pinned number moved: `zeroGradient` patches follow the previo
 - `one_phase_fc` still reads only `zeroGradient` velocity and `fixedValue`/`zeroGradient`/`calculated` scalars (it now says so by name for the others); `flowRateInletVelocity` and `partialSlip` are not ported.
 - `tangentialVelocity` of `pressureInletOutletVelocity`, virtual mass together with non-`zeroGradient` U patches, MULES together with `inletOutlet`: refused by name.
 - `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated (`kovan-cli` is not built here); the new functions are in no `kovan.toml`.
+
+## Gates run (2026-11-26, release)
+
+`GENFOAM_UPSTREAM=/home/user/upstream-build/GeN-Foam-src cargo test --release -p outram-foam-appbuilder-lib --lib --tests --no-fail-fast`: 50 test binaries, **650 passed, 0 failed, 46 ignored** (the lib alone 490 passed, 588 s);
+`cargo test --release -p petir --test no_platform_libm`: 4 passed; `bash scripts/check-nostd.sh`: every crate incl. `outram-foam-appbuilder-lib` checks. New tests: 3 + 2 in the two `*_shipped_vs_upstream` files (plus the
+refusal test), 3 in `two_phase/tests.rs`, 1 in `power_model.rs`. Issues filed: #1820 (PSBT step 51), #1821 (CHF 10-10.125 s), #1822 (fixedTemperature profile, remaining BC types, API mirror).
