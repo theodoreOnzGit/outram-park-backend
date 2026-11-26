@@ -2733,8 +2733,12 @@ mod tests {
             plant.step_inline(&mut core, &mut cont);
         }
         let (kg, gases) = core.b4c_tally();
-        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9 && (kg - 8.821).abs() < 1e-3, "{kg}");
-        assert!((gases[1] - 152.51).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
+        // MELCOR's cap is a physics bound and stays asserted.
+        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9, "{kg}");
+        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until the physics is right"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Were 8.821 kg and CO2 152.51 mol; 7.208 kg after the swell fix.
+        #[cfg(feature = "std")]
+        println!("B4C reacted {kg:.3} kg; CO, CO2, CH4 {gases:?} mol");
     }
 
     /// Debris falling through the pedestal's water (`fdi_lpme`, MELCOR FDI
@@ -2764,9 +2768,19 @@ mod tests {
             }
         }
         let (h, kg) = first.unwrap();
-        assert!((h - 5.4844).abs() < 1e-3 && (kg - 8.07).abs() < 0.01, "{h} {kg}");
         let k = plant.frame().containment;
-        assert!((k.fdi_steam_kg - 74.75).abs() < 0.01 && !k.fdi_hpme, "{k:?}");
+        // ~~Low-pressure ejection: no high-pressure melt ejection~~ printed,
+        // not asserted (2026-11-26, gh:#1810): with the swell fix the RPV is
+        // no longer depressurised before the head fails (the earlier
+        // depressurisation at 4.958 h followed the false quench's 12.6 MPa
+        // spike), so the head fails at pressure, 5.565 h, and ejects at
+        // high pressure. A finding to investigate, not a check.
+        #[cfg(feature = "std")]
+        println!("high-pressure melt ejection: {}", k.fdi_hpme);
+        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until the physics is right"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Were 5.4844 h, 8.07 kg, steam 74.75 kg; 5.5653 h, 0.449 kg after the swell fix.
+        #[cfg(feature = "std")]
+        println!("first debris through the pedestal water at {h:.4} h, {kg:.3} kg; steam {:.2} kg", k.fdi_steam_kg);
     }
 
     /// The core and containment work from snapshots that cross a worker
@@ -2969,6 +2983,7 @@ mod tests {
     /// reproduces the old default byte for byte. Re-bless with
     /// `FUKUSHIMA_BLESS=1` as above.
     #[test]
+    #[ignore = "a regression pin on physics still being corrected (root CLAUDE.md, \"No regression pins until the physics is right\"; maintainer 2026-11-26: \"Ignore sembawang pins for now, nothing to pin against\"). Last re-blessed with the swell fix, gh:#1810 (024ec1191)"]
     fn the_lumped_headless_run_matches_its_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h_lumped.csv");
         let start = std::time::Instant::now();
@@ -3182,8 +3197,12 @@ mod tests {
         // 3.38e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.94e-4).abs() < 1e-5 && (k.xe_ww - 3.38e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02318).abs() < 1e-5, "{f:?}");
+        // The failed head leaves no noble gas in the vessel (a state, kept).
+        assert!(f.xe_vessel < 1e-9, "{f:?}");
+        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until the physics is right"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Were drywell 4.94e-4, wetwell 3.38e-4, building 0.02318.
+        #[cfg(feature = "std")]
+        println!("Xe positions: drywell {:.4e}, wetwell {:.4e}, building {:.5}", k.xe_dw, k.xe_ww, k.xe_building);
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
@@ -3193,7 +3212,9 @@ mod tests {
         // with the blades' diffusion limit; 0.0416, CO 0.0036, with the
         // two-sided equalising; 0.0329, CO 0.0028, with the blades' B4C;
         // 0.0394, CO 0.0035, with UO2 carried by candling Zr.
-        assert!((k.rb_burn_y - 0.0394).abs() < 1e-4 && (k.rb_co_fraction - 0.0035).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
+        // (Was pinned at Y 0.0394, CO 0.0035; printed now, gh:#1810.)
+        #[cfg(feature = "std")]
+        println!("building Le Chatelier Y {:.4}, CO {:.4}, exploded {}", k.rb_burn_y, k.rb_co_fraction, k.rb_exploded);
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -3210,7 +3231,9 @@ mod tests {
         // 0.9813 with the control blades; 0.9843 with their heat of
         // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
         // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C; 0.9735 with UO2 carried by candling Zr; 0.9733 with SPARC's atan through PETIR.)
-        assert!((k.xe_vented - 0.9733).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // (Was pinned at 0.9733; printed now, gh:#1810.)
+        #[cfg(feature = "std")]
+        println!("Xe vented {:.4}, wetwell peak {peak_ww:.3}", k.xe_vented);
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

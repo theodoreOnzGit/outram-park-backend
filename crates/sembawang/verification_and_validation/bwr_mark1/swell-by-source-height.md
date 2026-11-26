@@ -147,6 +147,32 @@ With the fix, the model's H2 history is:
 So the model is below all nine codes from 6 h. Oxidation stops by 5 h, once
 most of the core has relocated.
 
+**A second behaviour that rested on the defect: the melt ejection.** Before
+the fix, the RPV depressurised at 4.958 h. That appears to have followed the
+false quench's 12.6 MPa spike at 3.7 h. Now nothing depressurises Unit 1
+before the lower head fails. The head fails at pressure, at 5.565 h
+(`depressurised_h == lower_head_h`), and the melt is ejected at high
+pressure (`fdi_hpme`, which `the_debris_falls_through_the_pedestal_water`
+had asserted false). The debris through the pedestal water falls from 8.07
+to 0.449 kg, and its steam from 74.75 to 48.37 kg.
+
+Unit 1 is generally understood to have depressurised before the head
+failed, so the depressurisation path (the main steam line's creep, the
+SRVs' gaskets) is the other item for gh:#1810.
+
+**The pins (2026-11-26).** Maintainer: "Ignore sembawang pins for now,
+nothing to pin against". The root `CLAUDE.md` now says "No regression pins
+until the physics is right".
+
+- **Ignored:** the lumped fixture test and
+  `compare::the_uncalibrated_baseline_is_pinned`. The baseline moved: H2 at
+  25 h 470.75 → 338.04 kg; drywell peak 0.81294607 → 0.77562553 MPa; lower
+  head 5.4839 → 5.5647 h; depressurised 4.9578 → 5.5647 h.
+- **Printed, not asserted:** the BSAF numbers and the value pins inside
+  six other tests. Their old values are kept in the code.
+- **Still asserted:** conservation (UO2 to 1e-9, noble gas to 1e-12), the
+  B4C cap, the hand-off identities and the first relocation's bounds.
+
 Maintainer, 2026-11-26: "right physics before right answers". The fix
 stands, and the H2 shortfall is the next item to investigate under gh:#1810.
 Candidates:

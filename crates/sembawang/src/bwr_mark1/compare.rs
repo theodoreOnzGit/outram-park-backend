@@ -1393,6 +1393,7 @@ mod tests {
     /// network plant, now the default, is pinned by
     /// `the_network_baseline_is_pinned`.
     #[test]
+    #[ignore = "a regression pin on physics still being corrected (root CLAUDE.md, \"No regression pins until the physics is right\"; maintainer 2026-11-26: \"Ignore sembawang pins for now, nothing to pin against\"). Moved by the swell fix, gh:#1810: H2 at 25 h 470.75 -> 338.04 kg, drywell peak 0.81294607 -> 0.77562553 MPa, lower head 5.4839 -> 5.5647 h"]
     fn the_uncalibrated_baseline_is_pinned() {
         let measure = |m: Mechanisms| measure(m.without_network_containment());
         // `measure_with` too (it was missed when gh:#1099 shadowed `measure`,

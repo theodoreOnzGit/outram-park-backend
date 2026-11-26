@@ -298,10 +298,11 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // agreement rested on the defect (the false quench drove steam through
     // the hot core); now the model's H2 stops at 338 kg by 5 h, below all
     // nine codes (398-1315 kg) from 6 h. Under investigation, gh:#1810.
-    assert!((rpv.mean_abs - 0.9590).abs() < 1e-3 && (rpv.max_abs - 1.5196).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.1581).abs() < 1e-3 && (dw.max_abs - 0.3567).abs() < 1e-3, "{dw:?}");
-    let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.1648) && near(e_dw, 0.3846) && near(e_h2, 0.1034) && near(e_xe, 0.8750) && near(e_i, 0.9167));
+    // **Printed, not asserted, since 2026-11-26** (root CLAUDE.md, "No
+    // regression pins until the physics is right"; maintainer: "Ignore
+    // sembawang pins for now, nothing to pin against"). The numbers above
+    // are the record; the counts of compared points stay asserted (they
+    // check the data, not the model).
 }
 
 /// The network-plant half of [`the_model_against_the_digitised_bsaf_figures`], split out on 2026-11-04 so the
