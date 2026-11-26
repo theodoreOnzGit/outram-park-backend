@@ -58,8 +58,13 @@
 //! `symmetry`/`symmetryPlane`/`wedge`/`empty`/`cyclic`/`cyclicAMI`/`processor` patches (point constraints and coupled boundaries are not
 //! ported), a displacement patch condition other than `zeroGradient` or `fixedValue`, any key but `displacementField` in a
 //! `meshDeformation` entry, and `removeBaffles` on a deformed region (upstream moves the original mesh only, the baffle-less copy
-//! keeps its points). `fvMesh::movePoints` also sets `meshPhi` and the old-time volumes `V0`/`V00`, which `ddt` of a moving mesh
-//! consumes in the thermal-hydraulics solver: NOT ported (gh:#1846).
+//! keeps its points). ~~`fvMesh::movePoints` also sets `meshPhi` and the old-time volumes `V0`/`V00`, which `ddt` of a moving mesh
+//! consumes in the thermal-hydraulics solver: NOT ported (gh:#1846).~~ **CORRECTED 2026-11-26 (gh:#1852, round 30):** ported,
+//! bit-identical to ESI v2506: [`DeformableMesh::move_points_at`] / [`DeformableMesh::deform_mesh_at`] keep `moving()`,
+//! `oldPoints`, `V0`, `V00` (lazy, as `fvMesh::V00()`) and `meshPhi` (reusing `outram_foam_mesh::dynamic_mesh::mesh_phi`), and
+//! [`DeformableMesh::euler_fvm_ddt`] is the moving-mesh `EulerDdtScheme::fvmDdt` that consumes `V` and `V0`. GeN-Foam itself
+//! references none of them (no `meshPhi`, `makeRelative`, `V0` or `V00` in `src/`); `ddt` is their only consumer. The older
+//! [`DeformableMesh::move_points`] / [`DeformableMesh::deform_mesh`] are the time-less, geometry-only form of round 26.
 //!
 //! ## Units
 //!
@@ -236,6 +241,20 @@ pub struct VolDisplacement {
 }
 
 impl VolDisplacement {
+    /// The displacement of a `volVectorField` as `deformMesh()` reads it: the cell values and, patch after patch, the boundary
+    /// values the field holds (after `correctBoundaryConditions()`).
+    ///
+    /// # Errors
+    /// [`MeshDeformationError::Invalid`] never today; reserved for size checks against a mesh in [`DeformableMesh::deform_mesh_at`].
+    pub fn from_vol_field(field: &outram_foam_basic_lib::fields::vol_field::VolVectorField) -> Result<Self, MeshDeformationError> {
+        let cells = field.internal.as_slice().to_vec();
+        let mut boundary = Vec::new();
+        for p in &field.boundary {
+            boundary.extend_from_slice(p.values.as_slice());
+        }
+        Ok(VolDisplacement { cells, boundary })
+    }
+
     /// Cell values plus `correctBoundaryConditions()` of the given patch conditions.
     ///
     /// # Errors
@@ -466,6 +485,52 @@ pub struct DeformableMesh {
     points: Vec<Vector3>,
     mesh: Arc<FvMesh>,
     face_centres: Vec<Vector3>,
+    state: MovingMeshState,
+}
+
+/// The time `fvMesh::movePoints` reads from `Time`: `time().timeIndex()` (incremented by `runTime++`) and `time().deltaTValue()`
+/// (gh:#1852). The mesh is read at time index 0, as upstream's `fvMesh` constructor takes `curTimeIndex_(time().timeIndex())`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StepClock {
+    /// `time().timeIndex()`: 1 after the first `runTime++`.
+    pub time_index: i64,
+    /// `time().deltaTValue()`, seconds.
+    pub delta_t: f64,
+}
+
+/// What `fvMesh` / `polyMesh` remember between `movePoints` calls (gh:#1852): `moving_`, `curMotionTimeIndex_` and `oldPoints_`
+/// (`polyMesh.C:1160-1198`), `curTimeIndex_`, `V0_` and `V00_` (`fvMesh.C:164-216`), and the mesh motion flux `meshPhi`
+/// (`fvMesh.C:905-925`, `fvGeometryScheme.C:44-95`). Private: read it through [`DeformableMesh`]'s accessors.
+#[derive(Debug, Clone, PartialEq)]
+struct MovingMeshState {
+    /// `fvMesh::curTimeIndex_`.
+    cur_time_index: i64,
+    /// `polyMesh::curMotionTimeIndex_`.
+    cur_motion_time_index: i64,
+    /// `polyMesh::moving()`: false until the first `movePoints`, true for good after.
+    moving: bool,
+    /// `V0_` (null until the first `storeOldVol`).
+    v0: Option<Vec<f64>>,
+    /// `V00_` (null until something asks for `V00()`; afterwards `storeOldVol` keeps it up to date).
+    v00: Option<Vec<f64>>,
+    /// `oldPointsPtr_`: the points at the start of the time step in which the mesh last moved.
+    old_points: Option<Vec<Vector3>>,
+    /// `phiPtr_`: `meshPhi`, internal faces then boundary faces in face order (null until the first `movePoints`).
+    mesh_phi: Option<Vec<f64>>,
+}
+
+impl MovingMeshState {
+    fn at_time_index(time_index: i64) -> Self {
+        MovingMeshState {
+            cur_time_index: time_index,
+            cur_motion_time_index: time_index,
+            moving: false,
+            v0: None,
+            v00: None,
+            old_points: None,
+            mesh_phi: None,
+        }
+    }
 }
 
 impl DeformableMesh {
@@ -531,7 +596,14 @@ impl DeformableMesh {
             boundary_slot,
         });
         let (mesh, face_centres) = Self::geometry(&topology, &points)?;
-        Ok(DeformableMesh { topology, original_points: points.clone(), points, mesh, face_centres })
+        Ok(DeformableMesh {
+            topology,
+            original_points: points.clone(),
+            points,
+            mesh,
+            face_centres,
+            state: MovingMeshState::at_time_index(0),
+        })
     }
 
     /// Read `constant/<region>/polyMesh` (std). Refuses what [`DeformableMesh::new`] refuses, and by raw patch `type` name
@@ -648,6 +720,177 @@ impl DeformableMesh {
             .collect();
         self.move_points(moved)?;
         Ok(pd)
+    }
+
+    /// The mesh was read at time index `time_index` instead of 0 (`curTimeIndex_(time().timeIndex())`,
+    /// `curMotionTimeIndex_(time().timeIndex())`). Only for a mesh built after `runTime++`.
+    #[must_use]
+    pub fn at_time_index(mut self, time_index: i64) -> Self {
+        self.state = MovingMeshState::at_time_index(time_index);
+        self
+    }
+
+    /// `fvMesh::moving()`: false until the first [`move_points_at`](Self::move_points_at), true afterwards.
+    #[must_use]
+    pub fn moving(&self) -> bool {
+        self.state.moving
+    }
+
+    /// `fvMesh::V0()`: the cell volumes at the start of the time step in which the mesh last moved; `None` before the first move
+    /// (upstream: `FatalError "V0 is not available"`).
+    #[must_use]
+    pub fn v0(&self) -> Option<&[f64]> {
+        self.state.v0.as_deref()
+    }
+
+    /// `fvMesh::V00()`: built from `V0()` the first time it is asked for (`fvMeshGeometry.C:233`), updated by every later
+    /// `storeOldVol`.
+    ///
+    /// # Errors
+    /// [`MeshDeformationError::Invalid`] ("V0 is not available") before the first move.
+    pub fn v00(&mut self) -> Result<&[f64], MeshDeformationError> {
+        if self.state.v00.is_none() {
+            let v0 = self
+                .state
+                .v0
+                .as_ref()
+                .ok_or_else(|| MeshDeformationError::Invalid("V0 is not available".into()))?;
+            self.state.v00 = Some(v0.clone());
+        }
+        Ok(self.state.v00.as_deref().unwrap_or(&[]))
+    }
+
+    /// `polyMesh::oldPoints()`: the points at the start of the time step in which the mesh last moved (`None` before any move).
+    #[must_use]
+    pub fn old_points(&self) -> Option<&[Vector3]> {
+        self.state.old_points.as_deref()
+    }
+
+    /// `fvMesh::phi()` (`meshPhi`): the swept volume of every face over `deltaT`, internal faces then boundary faces; `None`
+    /// before the first move.
+    #[must_use]
+    pub fn mesh_phi(&self) -> Option<&[f64]> {
+        self.state.mesh_phi.as_deref()
+    }
+
+    /// `fvMesh::Vsc()` without sub-cycling: `V()`.
+    #[must_use]
+    pub fn vsc(&self) -> &[f64] {
+        &self.mesh.cell_volumes
+    }
+
+    /// `fvMesh::Vsc0()` without sub-cycling: `V0()`.
+    ///
+    /// # Errors
+    /// [`MeshDeformationError::Invalid`] ("V0 is not available") before the first move.
+    pub fn vsc0(&self) -> Result<&[f64], MeshDeformationError> {
+        self.state.v0.as_deref().ok_or_else(|| MeshDeformationError::Invalid("V0 is not available".into()))
+    }
+
+    /// `fvMesh::movePoints(p)` with its time bookkeeping (`fvMesh.C:891-955`, `polyMesh.C:1160-1238`,
+    /// `fvGeometryScheme.C:44-95`), in upstream's order:
+    ///
+    /// 1. if `curTimeIndex_ < timeIndex`: `storeOldVol(V())` (`V00 = V0` when `V00` exists; `V0 = V`);
+    /// 2. create `meshPhi` (zero) on the first call;
+    /// 3. `polyMesh::movePoints`: `moving = true`; once per time index, the CURRENT points become `oldPoints`; then the points are
+    ///    replaced and the geometry recomputed ([`move_points`](Self::move_points));
+    /// 4. `setMeshPhi`: `meshPhi[f] = f.sweptVol(oldPoints, points) * (1.0/deltaT)`, every face (the reused, ESI-bit-identical
+    ///    `outram_foam_mesh::dynamic_mesh::mesh_phi`).
+    ///
+    /// Called again within the same time index (a Picard iteration of `multiPhysicsSolver::correctPhysics`), `V0` and `oldPoints`
+    /// stay those of the step start and `meshPhi` is the swept volume from the step start to the new points.
+    ///
+    /// # Errors
+    /// [`MeshDeformationError::Invalid`] for a wrong point count or `delta_t <= 0`;
+    /// [`MeshDeformationError::Refused`] for the first move at the time index the mesh was read at (upstream's `oldPoints()` would
+    /// then be the already-moved points; `runTime++` comes before `deformMesh()` in every GeN-Foam loop).
+    pub fn move_points_at(&mut self, new_points: Vec<Vector3>, clock: StepClock) -> Result<(), MeshDeformationError> {
+        if new_points.len() != self.points.len() {
+            return Err(MeshDeformationError::Invalid(format!(
+                "Size of newPoints {} does not correspond to current mesh points size {}",
+                new_points.len(),
+                self.points.len()
+            )));
+        }
+        if !(clock.delta_t > 0.0) {
+            return Err(MeshDeformationError::Invalid(format!("deltaT must be positive, got {}", clock.delta_t)));
+        }
+        if self.state.old_points.is_none() && self.state.cur_motion_time_index == clock.time_index {
+            return Err(refused(
+                "movePoints at the time index the mesh was read at",
+                "polyMesh::oldPoints() would be the moved points; increment the time (runTime++) first, as GeN-Foam.C does",
+            ));
+        }
+        // fvMesh::movePoints (1): storeOldVol(V())
+        if self.state.cur_time_index < clock.time_index {
+            if self.state.v00.is_some() {
+                if let Some(v0) = &self.state.v0 {
+                    self.state.v00 = Some(v0.clone());
+                }
+            }
+            self.state.v0 = Some(self.mesh.cell_volumes.clone());
+            self.state.cur_time_index = clock.time_index;
+        }
+        // (2) the meshPhi field is created, zero, on the first call
+        let n_faces = self.topology.faces.len();
+        if self.state.mesh_phi.is_none() {
+            self.state.mesh_phi = Some(vec![0.0; n_faces]);
+        }
+        // (3) polyMesh::movePoints
+        self.state.moving = true;
+        if self.state.cur_motion_time_index != clock.time_index {
+            self.state.old_points = Some(self.points.clone());
+            self.state.cur_motion_time_index = clock.time_index;
+        }
+        self.move_points(new_points)?;
+        // (4) fvGeometryScheme::setMeshPhi
+        let raw = |p: &[Vector3]| -> Vec<[f64; 3]> { p.iter().map(|q| [q.x, q.y, q.z]).collect() };
+        let old = raw(self.state.old_points.as_deref().unwrap_or(&[]));
+        let cur = raw(&self.points);
+        self.state.mesh_phi = Some(outram_foam_mesh::dynamic_mesh::mesh_phi(&self.topology.faces, &old, &cur, clock.delta_t));
+        Ok(())
+    }
+
+    /// `deformMesh()` with the time state: `movePoints(originalPoints_ + volPointInterpolation::interpolate(disp))` through
+    /// [`move_points_at`](Self::move_points_at). Returns the interpolated point displacement.
+    ///
+    /// # Errors
+    /// As [`DeformableMesh::move_points_at`].
+    pub fn deform_mesh_at(&mut self, disp: &VolDisplacement, clock: StepClock) -> Result<Vec<Vector3>, MeshDeformationError> {
+        let pd = self.interpolate_displacement(disp);
+        let moved = self
+            .original_points
+            .iter()
+            .zip(&pd)
+            .map(|(o, d)| Vector3::new(o.x + d.x, o.y + d.y, o.z + d.z))
+            .collect();
+        self.move_points_at(moved, clock)?;
+        Ok(pd)
+    }
+
+    /// `EulerDdtScheme::fvmDdt(rho, vf)` for a `volScalarField` coefficient (`EulerDdtScheme.C:437-471`): the matrix `diag` and
+    /// `source`, the consumer of `V`, `V0` and `moving()` in the neutronics region's flux and precursor equations.
+    /// `diag = rDeltaT*rho*Vsc`; `source = rDeltaT*rho0*vf0*Vsc0` on a moving mesh, `... *Vsc` on a static one.
+    ///
+    /// # Errors
+    /// [`MeshDeformationError::Invalid`] for a wrong size.
+    pub fn euler_fvm_ddt(
+        &self,
+        delta_t: f64,
+        rho: &[f64],
+        rho_old: &[f64],
+        vf_old: &[f64],
+    ) -> Result<(Vec<f64>, Vec<f64>), MeshDeformationError> {
+        let n = self.mesh.n_cells;
+        if rho.len() != n || rho_old.len() != n || vf_old.len() != n {
+            return Err(MeshDeformationError::Invalid("ddt field size does not match the mesh".into()));
+        }
+        let r_delta_t = 1.0 / delta_t;
+        let vsc = self.vsc();
+        let vsc_old: &[f64] = if self.state.moving { self.vsc0()? } else { vsc };
+        let diag = (0..n).map(|c| r_delta_t * rho[c] * vsc[c]).collect();
+        let source = (0..n).map(|c| r_delta_t * rho_old[c] * vf_old[c] * vsc_old[c]).collect();
+        Ok((diag, source))
     }
 }
 
@@ -851,5 +1094,84 @@ mod tests {
     fn move_points_refuses_a_wrong_size() {
         let mut m = mesh(2, PointCellsOrder::CellAscending);
         assert!(m.move_points(vec![Vector3::ZERO; 3]).is_err());
+    }
+
+    fn expansion(m: &DeformableMesh, k: f64) -> VolDisplacement {
+        let c = vec![DispPatchCondition::ZeroGradient; 6];
+        let cells = m.mesh().cell_centres.iter().map(|x| Vector3::new(k * x.x, 0.5 * k * x.y, 0.0)).collect::<Vec<_>>();
+        VolDisplacement::from_cells(m, cells, &c).unwrap()
+    }
+
+    #[test]
+    fn moving_state_follows_fvmesh_move_points() {
+        let mut m = mesh(3, PointCellsOrder::CellAscending);
+        let v_orig = m.mesh().cell_volumes.clone();
+        let p_orig = m.points().to_vec();
+        assert!(!m.moving() && m.v0().is_none() && m.mesh_phi().is_none() && m.old_points().is_none());
+        assert!(m.v00().is_err() && m.vsc0().is_err());
+        // movePoints before runTime++ is refused (oldPoints would be the moved points)
+        let d1 = expansion(&m, 0.01);
+        assert!(matches!(m.deform_mesh_at(&d1, StepClock { time_index: 0, delta_t: 0.5 }), Err(MeshDeformationError::Refused { .. })));
+        // step 1
+        m.deform_mesh_at(&d1, StepClock { time_index: 1, delta_t: 0.5 }).unwrap();
+        assert!(m.moving());
+        assert_eq!(m.v0().unwrap(), v_orig.as_slice());
+        assert_eq!(m.old_points().unwrap(), p_orig.as_slice());
+        let v1 = m.mesh().cell_volumes.clone();
+        assert_eq!(m.v00().unwrap(), v_orig.as_slice()); // built lazily from V0
+        // meshPhi is the swept volume over deltaT: its sum over a cell's faces tracks V - V0 (planar hex faces: up to round-off)
+        let phi = m.mesh_phi().unwrap().to_vec();
+        assert_eq!(phi.len(), m.topology().faces().len());
+        let mut net = vec![0.0; v1.len()];
+        for (f, &o) in m.topology().owner().iter().enumerate() {
+            net[o] += phi[f] * 0.5;
+        }
+        for (f, &n) in m.topology().neighbour().iter().enumerate() {
+            net[n] -= phi[f] * 0.5;
+        }
+        for c in 0..v1.len() {
+            assert!((net[c] - (v1[c] - v_orig[c])).abs() < 1e-12, "cell {c}");
+        }
+        // second call in the SAME time index (a Picard iteration): V0 and oldPoints stay
+        let d15 = expansion(&m, 0.015);
+        m.deform_mesh_at(&d15, StepClock { time_index: 1, delta_t: 0.5 }).unwrap();
+        assert_eq!(m.v0().unwrap(), v_orig.as_slice());
+        assert_eq!(m.old_points().unwrap(), p_orig.as_slice());
+        assert_ne!(m.mesh().cell_volumes, v1);
+        // step 2: V0 <- V of the end of step 1; V00 <- the old V0
+        let v_end1 = m.mesh().cell_volumes.clone();
+        let p_end1 = m.points().to_vec();
+        let d2 = expansion(&m, 0.02);
+        m.deform_mesh_at(&d2, StepClock { time_index: 2, delta_t: 0.5 }).unwrap();
+        assert_eq!(m.v0().unwrap(), v_end1.as_slice());
+        assert_eq!(m.old_points().unwrap(), p_end1.as_slice());
+        assert_eq!(m.v00().unwrap(), v_orig.as_slice());
+        // the time-less deform_mesh keeps no state
+        let mut n = mesh(3, PointCellsOrder::CellAscending);
+        let dn = expansion(&n, 0.01);
+        n.deform_mesh(&dn).unwrap();
+        assert!(!n.moving() && n.v0().is_none());
+        // a bad deltaT is refused
+        let same = n.points().to_vec();
+        assert!(n.move_points_at(same, StepClock { time_index: 1, delta_t: 0.0 }).is_err());
+    }
+
+    #[test]
+    fn euler_ddt_uses_v_and_v0_on_a_moving_mesh_and_v_on_a_static_one() {
+        let mut m = mesh(2, PointCellsOrder::CellAscending);
+        let n = m.mesh().n_cells;
+        let (rho, old) = (vec![2.0; n], vec![3.0; n]);
+        let (d, s) = m.euler_fvm_ddt(0.5, &rho, &rho, &old).unwrap();
+        assert_eq!(d[0], 2.0 * 2.0 * 1.0);
+        assert_eq!(s[0], 2.0 * 2.0 * 3.0 * 1.0);
+        let dd = expansion(&m, 0.05);
+        m.deform_mesh_at(&dd, StepClock { time_index: 1, delta_t: 0.5 }).unwrap();
+        let (d, s) = m.euler_fvm_ddt(0.5, &rho, &rho, &old).unwrap();
+        for c in 0..n {
+            assert_eq!(d[c], 2.0 * 2.0 * m.mesh().cell_volumes[c]);
+            assert_eq!(s[c], 2.0 * 2.0 * 3.0 * m.v0().unwrap()[c]);
+            assert_ne!(d[c] / 4.0, s[c] / 12.0);
+        }
+        assert!(m.euler_fvm_ddt(0.5, &rho[..1], &rho, &old).is_err());
     }
 }

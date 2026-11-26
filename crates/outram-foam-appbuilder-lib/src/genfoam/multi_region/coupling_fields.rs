@@ -87,6 +87,13 @@ pub enum CouplingError {
     MissingOverlapGeometry(String),
     /// Building the mapping failed.
     Mapping(MeshToMeshError),
+    /// `correctBoundaryConditions()` after a map is ported for `zeroGradient` and `fixedValue` patches only.
+    UnsupportedBoundary {
+        /// The target field.
+        field: String,
+        /// The patch index.
+        patch: usize,
+    },
 }
 
 impl core::fmt::Display for CouplingError {
@@ -102,6 +109,10 @@ impl core::fmt::Display for CouplingError {
                 "region '{r}' has no polyhedral overlap geometry (CouplingRegion::with_overlap_mesh), which CellVolumeWeight needs"
             ),
             CouplingError::Mapping(e) => write!(f, "{e}"),
+            CouplingError::UnsupportedBoundary { field, patch } => write!(
+                f,
+                "field '{field}' patch {patch}: correctBoundaryConditions() after a meshToMesh map is ported for zeroGradient and fixedValue patches only"
+            ),
         }
     }
 }
@@ -419,6 +430,8 @@ impl MeshHandler {
                     };
                     let tgt = self.regions[ti].scalar_mut(&field.target).ok_or(missing)?;
                     self.mappings[m].mapper.map_scalar(&src, field.combine, tgt);
+                    // meshHandlerTemplates.C:93: tgtField.correctBoundaryConditions()
+                    correct_boundary_conditions(&tgt.mesh.clone(), &mut tgt.boundary, &tgt.internal, &tgt.name)?;
                 }
                 FieldKind::Vector => {
                     let src = self.regions[si]
@@ -434,6 +447,7 @@ impl MeshHandler {
                     };
                     let tgt = self.regions[ti].vector_mut(&field.target).ok_or(missing)?;
                     self.mappings[m].mapper.map_vector(&src, field.combine, tgt);
+                    correct_boundary_conditions(&tgt.mesh.clone(), &mut tgt.boundary, &tgt.internal, &tgt.name)?;
                 }
             }
         }
@@ -455,6 +469,48 @@ impl MeshHandler {
             field: field.to_string(),
         })?;
         Ok(MeshToMesh::integral(r.mesh(), f))
+    }
+}
+
+/// `GeometricField::correctBoundaryConditions()` as `meshHandler::map` calls it after `mapTgtToSrc`
+/// (`meshHandlerTemplates.C:93`). `meshToMesh` is built with `interpAllPatches = false`, so the map itself touches no
+/// patch (`meshToMesh.C:732`); the whole boundary treatment is this call. Ported for `zeroGradient` (the owner cell value)
+/// and the fixed-value patches (unchanged); anything else is refused by name rather than guessed.
+///
+/// # Errors
+/// [`CouplingError::UnsupportedBoundary`] for another patch condition.
+pub fn correct_boundary_conditions<T: Clone>(
+    mesh: &FvMesh,
+    boundary: &mut [outram_foam_basic_lib::fields::boundary::bc::PatchField<T>],
+    internal: &outram_foam_basic_lib::fields::field::Field<T>,
+    field_name: &str,
+) -> Result<(), CouplingError> {
+    use outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition;
+    for (pi, pf) in boundary.iter_mut().enumerate() {
+        match &pf.bc {
+            BoundaryCondition::ZeroGradient => {
+                let p = &mesh.patches[pi];
+                for i in 0..p.size {
+                    pf.values[i] = internal[mesh.owner[p.start + i]].clone();
+                }
+            }
+            BoundaryCondition::FixedValue(_) | BoundaryCondition::FixedField(_) | BoundaryCondition::Empty => {}
+            _ => return Err(CouplingError::UnsupportedBoundary { field: field_name.to_string(), patch: pi }),
+        }
+    }
+    Ok(())
+}
+
+impl CouplingRegion {
+    /// A region on the CURRENT geometry of a [`DeformableMesh`](super::mesh_deformation::DeformableMesh), with its polyhedral
+    /// geometry attached (what [`MappingMethod::CellVolumeWeight`] needs). Build the mappings BEFORE the mesh is deformed:
+    /// upstream's `meshToMesh` objects are made once, on the undeformed meshes, and never rebuilt.
+    ///
+    /// # Errors
+    /// [`CouplingError::MissingOverlapGeometry`] if the polyhedral mesh cannot be built.
+    pub fn from_deformable(name: &str, mesh: &super::mesh_deformation::DeformableMesh) -> Result<Self, CouplingError> {
+        let overlap = OverlapMesh::from_deformable(mesh).map_err(|_| CouplingError::MissingOverlapGeometry(name.to_string()))?;
+        Ok(Self::new(name, mesh.mesh().clone()).with_overlap_mesh(Arc::new(overlap)))
     }
 }
 
@@ -661,5 +717,31 @@ mod tests {
         .unwrap();
         let err = h.interpolate_coupling_fields().unwrap_err();
         assert!(matches!(err, CouplingError::MissingField { .. }));
+    }
+
+    /// `correctBoundaryConditions()` after a map (`meshHandlerTemplates.C:93`): a `zeroGradient` patch takes the owner cell value, a
+    /// `fixedValue` patch is untouched, any other condition is refused by name.
+    #[test]
+    fn boundary_values_follow_the_mapped_cells_after_a_map() {
+        let mut h = two_region_handler();
+        h.interpolate_coupling_fields().unwrap();
+        let fluid = h.region("fluid").unwrap();
+        let q = fluid.scalar("powerDensityNeutronics").unwrap();
+        for (pi, p) in q.mesh.patches.iter().enumerate() {
+            for i in 0..p.size {
+                assert_eq!(q.boundary[pi].values[i], q.internal[q.mesh.owner[p.start + i]], "patch {pi} face {i}");
+            }
+        }
+        // a fixedValue patch keeps its value
+        let mut f = VolScalarField::uniform("x", fluid.mesh().clone(), 1.0);
+        f.boundary[0] = outram_foam_basic_lib::fields::boundary::bc::PatchField::fixed_value(1, 42.0);
+        f.internal[0] = 7.0;
+        correct_boundary_conditions(&f.mesh.clone(), &mut f.boundary, &f.internal, "x").unwrap();
+        assert_eq!(f.boundary[0].values[0], 42.0);
+        // anything else is refused
+        f.boundary[1].bc = outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition::FixedGradient(1.0);
+        let e = correct_boundary_conditions(&f.mesh.clone(), &mut f.boundary, &f.internal, "x").unwrap_err();
+        assert!(matches!(e, CouplingError::UnsupportedBoundary { patch: 1, .. }), "{e}");
+        assert!(format!("{e}").contains("zeroGradient"));
     }
 }

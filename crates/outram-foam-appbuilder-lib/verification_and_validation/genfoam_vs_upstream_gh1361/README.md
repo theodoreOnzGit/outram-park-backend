@@ -4116,3 +4116,75 @@ Thresholds are taken from upstream's logged initial residuals of the base run (r
 * **P5 (controls; each must FAIL).** (a) the port with `residualControl` ignored (`without_residual_control`) against `rc_a`, `rc_b`, `rc_d`, `rc_stop`: step 1 differs by 1e-4 to 1e-2 (max-norm relative) in `k`, `epsilon`, `U`, `p_rgh`, `T` by 1e-9 to 1e-6; for `rc_stop` (2 against 5 iterations) 1e-2 to 1e-1; and the counts differ. (b) the port with the `default` entries ignored (`without_relaxation_default`) against `rel_def`: differs by 1e-4 to 1e-2 (no relaxation against 0.9); against `rel_mix` for `k`/`epsilon` (none against 0.8). (c) the stock `Final` selection (`with_stock_final_iteration_selection`) against `rc_c`: differs (selects `Final` in iteration 5), 1e-4 to 1e-2. (d) the old `p_rghFinal`-on-the-last-outer-iteration-only behaviour against `fin_prgh`: sixth-corrector iteration counts differ in outers 1 to 4; fields 1e-6 to 1e-4.
 * **P6 (nothing earlier moves).** Rounds 19-21, 29: unchanged to the last digit (no `residualControl`, no `default`, `p_rghFinal` equal to `p_rgh` there).
 * **P7 (cost / size).** Upstream: about a minute per variant (3 steps, turbulence on); reference per variant under 0.3 MB (every 11th cell of `U k epsilon p_rgh T` at 3 steps plus the solve log).
+
+## Round 30 results (2026-11-26, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_coupled_deformation_vs_upstream.rs`, 4 tests, 47 s; `--nocapture` prints every tally)
+
+### What was ported / wired (upstream -> Rust)
+
+| upstream (GeN-Foam 652b3da, OpenFOAM-ESI v2506) | port |
+|---|---|
+| `fvMesh::movePoints` (`fvMesh.C:891-955`), `storeOldVol` (`:164-216`), `polyMesh::movePoints` oldPoints (`polyMesh.C:1160-1198`), `fvGeometryScheme::setMeshPhi` (`fvGeometryScheme.C:44-95`), lazy `V00()` (`fvMeshGeometry.C:233`) | `DeformableMesh::{move_points_at, deform_mesh_at, moving, v0, v00, old_points, mesh_phi, vsc, vsc0}`, `StepClock`; `meshPhi` reuses `outram_foam_mesh::dynamic_mesh::mesh_phi` (gh:#1380, new normal dependency of this crate, no cycle, no_std) |
+| `EulerDdtScheme::fvmDdt(rho, vf)` moving branch (`EulerDdtScheme.C:437-471`) | `DeformableMesh::euler_fvm_ddt` |
+| `multiPhysicsSolver::correctPhysics` (`deformMesh()` before each solver's `correctPhysics()`, every iteration) | `correct_physics_loop_with_deformation` (the old `correct_physics_loop` now delegates to it with a no-op deform) |
+| `neutronics.C::deformMesh()` (region listed in `meshDeformation`, field looked up in the region) | `deform_region_mesh` (+ `VolDisplacement::from_vol_field`); `MeshDeformationDict::without_deformation` is the ablation |
+| `meshHandler.C:192-201` objects for non-identical meshes | `RegionMeshMap` (general operator with the polyhedral meshes, `IdenticalMeshMap` without), `CouplingRegion::from_deformable`; `MeshHandler::add_mapping(.., CellVolumeWeight, ..)` is the five shipped objects |
+| `meshHandlerTemplates.C:93` `tgtField.correctBoundaryConditions()` (the whole boundary treatment: `interpAllPatches = false`, `meshToMesh.C:732`) | `coupling_fields::correct_boundary_conditions` (zeroGradient, fixedValue; other patches refused by name), called by `MeshHandler::run_mapping` |
+| `mapSrcToTgt` (`heatExchanger.C:265-267`) scalar and vector | `MeshToMesh::{map_reverse_scalar, map_reverse_vector}`, `CellVolumeWeightAddressing::map_src_to_tgt_vector`, `RegionMeshMap::map_reverse_scalar` |
+
+### Comparison (upstream = real meshes, real `meshToMesh`, real `movePoints`; `deltaT = 0.05`; calls 1, 2, 3 = three time steps, call 4 = a second iteration of step 3 with a changed `meshDisp`)
+
+Every value of the 50 MB full dump (`GENFOAM_COUPLED_DEFORM_DUMP`) compared: **2,492,490 values, all bit-identical (worst relative difference 0), first diverging item: none**; the committed 797 KB sample (every 31st item plus the last, 80,638 values) also passes.
+
+| quantity (all 4 calls unless noted) | values | worst rel. diff. |
+|---|---|---|
+| mapped `disp` on neutroRegion, cells and boundary (the full handler path, from the mechanics `meshDisp`, patch 0 `fixedValue`, the rest `zeroGradient`) | 279,864 + 49,176 | 0 |
+| the other ten mapped fields of the five shipped objects, cells and boundary (fluid <- neutro, neutro <- fluid, mech <- fluid, mech <- neutro; 18 uncovered mechanics cells keep their value) | 950,436 | 0 |
+| `points`, `oldPoints`, `V`, `V0`, `V00` | 159,264 x 2 + 93,288 x 3 | 0 |
+| `meshPhi` internal and boundary | 225,024 + 16,392 | 0 |
+| `moving()`, `timeIndex` | 4 states | equal |
+| `fvm::ddt` `diag`, `source`, old flux | 3 x 93,288 | 0 |
+| reverse `mapSrcToTgt` vector (neutro `disp` -> mech list) and scalar (neutro `TCool` -> fluid list) | 70,020 + 23,322 | 0 |
+
+Values by call as observed: `V0` is the undeformed `V` at call 1, call 1's `V` at call 2, call 2's `V` at call 3 and STILL call 2's `V` at call 4 (same time index); `V00` lags one step behind; `oldPoints` likewise; `meshPhi` at call 4 spans the whole step.
+
+### Controls (each fails the same comparison)
+
+* **a, no-deformation ablation** (`without_deformation`, mesh left at its original points, `deform_region_mesh` returns `false`): `V` of call 1 against upstream: 0 of 23322 equal, worst relative difference 3.06e-2.
+* **b, stale `V0`** (not refreshed after step 1): `V0` at call 2 against upstream: 0 of 23322 equal, worst 3.06e-2.
+* **c, `V0` refreshed on EVERY `movePoints`** (ignoring the time index): `V0` at call 4: 0 of 23322 equal, worst 3.17e-2; `oldPoints` at call 4: 1391 of 39816 equal, worst 29.8 (relative to near-zero coordinates).
+* **d, mapping REBUILT on the moved neutro mesh** (upstream never does): mapped `disp` at call 2: 126 of 69966 equal, worst relative 1.76 (relative to near-zero displacements).
+* **e, one ulp in one `meshPhi`**: found, 1 of 56256.
+* **Not a control but recorded**: geometric conservation `|sum(meshPhi dt) - (V - V0)| / |V - V0|` on call 1: median 4.0e-13, 99 % 2.7e-12, max 6.4e-12.
+
+### Predictions: held and missed
+
+* **R1 held** (mapped `disp` and the other ten fields, cells and boundary, bit-identical). **R2 held. R3 held** (the V0/V00/oldPoints schedule exactly as predicted, including call 4). **R4 held in kind** (meshPhi bit-identical, call 4 spans the step); the recorded GCL residual is far smaller than the bound I gave (median below 1e-2, max below 0.2): **MISSED in size by about ten orders** (median 4e-13): the swept volume of a hex face with the central decomposition closes the cell volume to round-off even on these warped cells. **R5 held. R7 held. R8 held** (`RegionMeshMap` general equals identical bit for bit on identical meshes; the existing coupled tests pass with unchanged numbers).
+* **R6 held in kind, MISSED in size**: a/b predicted worst about 3e-3 (round 26's mean/max volume change), observed 3.06e-2: the driver's `disp` has patch 0 (`top`) `fixedValue 0` (a non-zeroGradient patch on purpose), which pins the top boundary points and strains the cells beside it; round 26's `disp` was zeroGradient there. c predicted about 5e-4, observed 3.2e-2 (same cause). d predicted 1e-3 to 1e-1, observed 1.76 (worst cell, near-zero upstream value). The controls fail by more than predicted, never by less.
+* **R9 held**: whole test (three DeformableMeshes, five addressings, two reverse objects, one control object) 47 s, release, 2 jobs.
+
+### Findings
+
+* GeN-Foam consumes `meshPhi`, `V0`, `V00` nowhere (no `makeRelative`/`makeAbsolute` in `src/`); only OpenFOAM's `ddt` does, in the neutronics flux and precursor equations (`fvm::ddt` with `Vsc0()` on a moving mesh). So `V0`/`meshPhi` matter for the coupled ESFR run only once the Rust neutronics transient takes its volumes from the moving mesh: NOT done, filed (see below). `DeformableMesh::euler_fvm_ddt` is the bit-identical operator it must call.
+* `deformMesh()` runs in every Picard iteration (`multiPhysicsSolver.C:176`), so `V0`/`oldPoints` must be keyed by time index, not refreshed per call (control c).
+* `meshToMesh` objects are built once on the undeformed meshes and never rebuilt (control d).
+* The GCL residual is round-off, so `meshPhi` and the volumes are mutually consistent.
+
+### Deviations from upstream and what is not covered
+
+* The octree `findInside` first seed stays the lowest-index containing cell (named deviation of round 28). Not attempted: no mesh here makes the two choices differ, so there is nothing to test an octree port against (prediction text above).
+* `meshHandler` itself is not built here; the driver transcribes its `map<>()` (three lines). The mechanics, fluid and neutronics solvers are not run: their fields are closed-form. `fvMesh`es, `meshToMesh`, `movePoints`, `V0`/`V00`, `meshPhi`, `fvm::ddt` are the real ESI code.
+* `meshPhi` old-time field (`phiPtr_->oldTime()`) is not modelled (no consumer here); `V00` is created on first request exactly as upstream; sub-cycling `Vsc`/`Vsc0` branches not ported (refused nowhere: not reachable from GeN-Foam).
+* `removeBaffles` `mappingMeshes_` and boundary patches other than `zeroGradient`/`fixedValue` after a map: refused by name. Moving the baffle-less copies: upstream does not move them, not modelled.
+* The Rust neutronics/TH region solvers do not yet take `V`/`V0` from the moving mesh (issue filed); `deform_region_mesh` and the loop variant are the sequence, not yet driven by a region solver.
+
+### Moved numbers
+
+None. The `multi_region` lib tests (56 pass), the round 26 and 28 integration tests and `genfoam_msfr_coupled_vs_upstream` (6 pass, 1 ignored) pass with their numbers unchanged. `correct_physics_loop` is now a one-line delegation to the new function with a no-op deform. Pre-existing flake noticed, not caused here: the six tests of `genfoam_mesh_deformation_vs_upstream.rs` share one staging directory and can race at the default thread count (passes with `--test-threads=2`).
+
+### Reproduction
+
+`scripts/build_and_run_coupled_deform_dump.sh <dump.txt>` (21 s; scratch `/home/user/upstream-build/gh1852`, delete after comparing), `scripts/subsample_coupled_deform_dump.py <dump> refs/coupled_deform_esfr.ref.txt.gz 31`, then `GENFOAM_COUPLED_DEFORM_DUMP=<dump> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_coupled_deformation_vs_upstream -- --nocapture`.
+
+### Gates run (2026-11-26, release, targeted)
+
+`--lib multi_region` 56 passed; `--test genfoam_coupled_deformation_vs_upstream` 4 passed (full dump and sample); `--test genfoam_mesh_deformation_vs_upstream` 6, `--test genfoam_mesh_to_mesh_vs_upstream` 5, `--test genfoam_msfr_coupled_vs_upstream` 6 passed; `-p petir --test no_platform_libm` 4 passed (after a forced rebuild: the cached test binary had a stale `CARGO_MANIFEST_DIR`); `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean (the full `check-nostd.sh` loop was not run: disk).

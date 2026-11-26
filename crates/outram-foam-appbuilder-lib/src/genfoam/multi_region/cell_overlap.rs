@@ -955,6 +955,31 @@ impl CellVolumeWeightAddressing {
     }
 }
 
+impl CellVolumeWeightAddressing {
+    /// `mapSrcToTgt` for a vector cell list (`meshToMeshTemplates.C:40`): the operations of
+    /// [`map_src_to_tgt_scalar`](Self::map_src_to_tgt_scalar) per component (`weight * y` is a per-component product).
+    ///
+    /// # Panics
+    /// As [`map_src_to_tgt_scalar`](Self::map_src_to_tgt_scalar).
+    pub fn map_src_to_tgt_vector(&self, src_field: &[Vector3], result: &mut [Vector3]) {
+        assert_eq!(result.len(), self.tgt_to_src_addr.len(), "Supplied field size is not equal to target mesh size");
+        assert_eq!(src_field.len(), self.src_to_tgt_addr.len(), "source field is not sized to the source mesh");
+        for (celli, res) in result.iter_mut().enumerate() {
+            let addr = &self.tgt_to_src_addr[celli];
+            let wght = &self.tgt_to_src_wght[celli];
+            if !addr.is_empty() {
+                let f = 1.0 - sum_list(wght);
+                *res = Vector3::new(res.x * f, res.y * f, res.z * f);
+                for (i, &src) in addr.iter().enumerate() {
+                    let w = wght[i];
+                    let y = src_field[src];
+                    *res = Vector3::new(res.x + w * y.x, res.y + w * y.y, res.z + w * y.z);
+                }
+            }
+        }
+    }
+}
+
 /// `meshToMeshMethod::intersect`: whether the cells overlap by more than `1e-6` of the source cell's volume.
 fn intersect(src: &OverlapMesh, sc: usize, tgt: &OverlapMesh, tc: usize, s: &mut TetScratch) -> bool {
     let threshold = OVERLAP_TOLERANCE * src.cell_volumes[sc];

@@ -80,9 +80,12 @@
 //!   (gh:#1784, round 26):** no basic-lib change was needed. [`mesh_deformation`] ports
 //!   upstream's `deformMesh()` (`volPointInterpolation` + `fvMesh::movePoints`; upstream's
 //!   `meshHandler` itself has no `movePoints`), bit-identical to OpenFOAM-ESI v2506 on the
-//!   3D_SmallESFR meshes. It is NOT yet called from [`outer_iteration`]'s loop: the loop's
+//!   3D_SmallESFR meshes. ~~It is NOT yet called from [`outer_iteration`]'s loop: the loop's
 //!   regions own no `DeformableMesh`, and the `meshToMesh` supermesh that maps `meshDisp`
-//!   onto the neutronics mesh is gh:#651; `meshPhi`/`V0` are gh:#1846.
+//!   onto the neutronics mesh is gh:#651; `meshPhi`/`V0` are gh:#1846.~~ **CORRECTED 2026-11-26 (gh:#1852, #1854, round 30):**
+//!   `meshPhi`/`V0`/`V00` are ported, [`coupled_loop::deform_region_mesh`] and
+//!   [`coupled_loop::correct_physics_loop_with_deformation`] are the upstream sequence (map, `deformMesh()`, solve) and the whole
+//!   coupled path is bit-identical to ESI; the region SOLVERS of [`outer_iteration`] still own no mesh (issue filed).
 //!
 //! Neither hack was applied to work around these — the mapping is honest about
 //! its fidelity and the loop is honest about not moving points.
@@ -117,7 +120,8 @@ pub mod reactivity_feedback;
 // Curated re-exports (human interface layer): the handful of types a user needs
 // to build a coupled multi-region run without hunting through submodules.
 pub use coupling_fields::{CouplingError, CouplingField, CouplingRegion, FieldKind, MeshHandler};
-pub use mesh_deformation::{DeformableMesh, MeshDeformationDict, MeshDeformationError, VolDisplacement};
+pub use mesh_deformation::{DeformableMesh, MeshDeformationDict, MeshDeformationError, StepClock, VolDisplacement};
+pub use coupled_loop::{correct_physics_loop_with_deformation, deform_region_mesh, RegionMeshMap};
 pub use mesh_region::{MeshNeutronics, MeshThermalHydraulics};
 pub use cell_overlap::{CellVolumeWeightAddressing, OverlapMesh};
 pub use mesh_to_mesh::{MapCombine, MappingMethod, MeshToMesh, MeshToMeshError};

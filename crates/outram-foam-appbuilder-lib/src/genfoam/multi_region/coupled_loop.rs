@@ -34,8 +34,11 @@
 //!   is neither rescaled nor approximated here, and [`IdenticalMeshMap::new`] REFUSES a pair of meshes that are not
 //!   bitwise the same geometry (~~a different mesh needs the general supermesh, which is not ported: gh:#651~~
 //!   **CORRECTED 2026-11-26 (gh:#651, round 28):** the general operator exists, [`super::cell_overlap`], bit-identical to
-//!   ESI; it is not yet wired into this type, which keeps refusing, so a loop on different meshes uses
-//!   [`super::mesh_to_mesh::MeshToMesh::cell_volume_weight`] directly).
+//!   ESI; ~~it is not yet wired into this type, which keeps refusing, so a loop on different meshes uses
+//!   `MeshToMesh::cell_volume_weight` directly~~ **CORRECTED 2026-11-26 (gh:#1854, round 30):** [`RegionMeshMap`] is the wiring:
+//!   with the regions' polyhedral meshes it is the general operator, without them it is this type). Also here:
+//!   [`correct_physics_loop_with_deformation`] (`deformMesh()` before each solver's `correctPhysics()`) and
+//!   [`deform_region_mesh`] (`deformMesh()` of one region, from the mapped `disp`).
 //! * [`adjust_delta_t`] / [`initial_delta_t`]: `setDeltaT.C`.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -45,6 +48,11 @@ use crate::nostd_prelude::*;
 use std::path::Path;
 
 use outram_foam_basic_lib::mesh::FvMesh;
+use outram_foam_basic_lib::prelude::Vector3;
+
+use super::cell_overlap::{CellVolumeWeightAddressing, OverlapMesh};
+use super::coupling_fields::MeshHandler;
+use super::mesh_deformation::{DeformableMesh, MeshDeformationDict, MeshDeformationError, StepClock, VolDisplacement};
 #[cfg(feature = "std")]
 use outram_foam_basic_lib::io::dict::FoamFile;
 #[cfg(feature = "std")]
@@ -198,12 +206,34 @@ pub fn correct_physics_loop<M, C, R>(
     min_residual: f64,
     max_iterations: usize,
     correct_only_energy: &[bool],
+    map: M,
+    correct: C,
+    residual_of: R,
+) -> LoopOutcome
+where
+    M: FnMut(),
+    C: FnMut(usize, bool),
+    R: FnMut(usize) -> f64,
+{
+    correct_physics_loop_with_deformation(min_residual, max_iterations, correct_only_energy, map, |_| {}, correct, residual_of)
+}
+
+/// `multiPhysicsSolver::correctPhysics` WITH the `deformMesh()` call upstream makes in every iteration
+/// (`multiPhysicsSolver.C:174-186`): `mapTheseFields()`; per solver `deformMesh()` THEN `correctPhysics()` (or the tight
+/// variant) THEN `correctBaffleLessFields()`. `deform(i)` is solver `i`'s `deformMesh()` (a no-op for a region not listed in
+/// `meshDeformation`, see [`deform_region_mesh`]). [`correct_physics_loop`] is this with no deformation.
+pub fn correct_physics_loop_with_deformation<M, D, C, R>(
+    min_residual: f64,
+    max_iterations: usize,
+    correct_only_energy: &[bool],
     mut map: M,
+    mut deform: D,
     mut correct: C,
     mut residual_of: R,
 ) -> LoopOutcome
 where
     M: FnMut(),
+    D: FnMut(usize),
     C: FnMut(usize, bool),
     R: FnMut(usize) -> f64,
 {
@@ -212,6 +242,7 @@ where
     loop {
         map();
         for (i, &only_energy) in correct_only_energy.iter().enumerate() {
+            deform(i);
             correct(i, iter_n > 0 && only_energy);
         }
         for i in 0..correct_only_energy.len() {
@@ -223,6 +254,109 @@ where
         }
     }
     LoopOutcome { iterations: iter_n, residual, converged: residual < min_residual }
+}
+
+/// `deformMesh()` of one region (`neutronics.C:363-408`): when `meshDeformation` lists `region`, take the displacement field it
+/// names (`displacementField`) from the region's coupling fields (`mesh_.lookupObject<volVectorField>`) and move the region's mesh
+/// to `originalPoints_ + volPointInterpolation::interpolate(disp)` with the time state of `fvMesh::movePoints`
+/// ([`DeformableMesh::deform_mesh_at`]). Returns whether the mesh moved (a region not listed is left alone, as upstream).
+///
+/// # Errors
+/// [`MeshDeformationError::Invalid`] if the named field is missing or not sized to the mesh, or as
+/// [`DeformableMesh::deform_mesh_at`].
+pub fn deform_region_mesh(
+    dict: &MeshDeformationDict,
+    region: &str,
+    mesh: &mut DeformableMesh,
+    handler: &MeshHandler,
+    clock: StepClock,
+) -> Result<bool, MeshDeformationError> {
+    let Some(field_name) = dict.displacement_field(region) else {
+        return Ok(false);
+    };
+    let field = handler
+        .region(region)
+        .and_then(|r| r.vector(field_name))
+        .ok_or_else(|| MeshDeformationError::Invalid(format!("region {region} has no vector field `{field_name}`")))?;
+    let disp = VolDisplacement::from_vol_field(field)?;
+    mesh.deform_mesh_at(&disp, clock)?;
+    Ok(true)
+}
+
+/// The `meshToMesh` `cellVolumeWeight` map between two region meshes (gh:#1854), whatever their cells.
+///
+/// With the regions' polyhedral meshes ([`OverlapMesh`]) it is upstream's general operator, built once as `meshHandler.C:192-201`
+/// does (see [`MeshToMesh::cell_volume_weight`]). Without them it is [`IdenticalMeshMap`], which refuses a pair that is not
+/// bitwise the same cells. The two agree bit for bit on identical meshes (unit test).
+#[derive(Debug, Clone, PartialEq)]
+pub enum RegionMeshMap {
+    /// Two identical meshes: weights exactly 1.
+    Identical(IdenticalMeshMap),
+    /// The exact overlap addressing; upstream's source is the RECEIVING region.
+    General(CellVolumeWeightAddressing),
+}
+
+impl RegionMeshMap {
+    /// Build the map that moves a field of `provider` onto `receiver`.
+    ///
+    /// # Errors
+    /// A message naming what is missing or differs.
+    pub fn new(
+        provider: &FvMesh,
+        receiver: &FvMesh,
+        geometry: Option<(&OverlapMesh, &OverlapMesh)>,
+    ) -> Result<Self, String> {
+        match geometry {
+            Some((provider_geometry, receiver_geometry)) => {
+                if provider_geometry.n_cells() != provider.n_cells || receiver_geometry.n_cells() != receiver.n_cells {
+                    return Err("an OverlapMesh does not have the cell count of its FvMesh".into());
+                }
+                Ok(Self::General(CellVolumeWeightAddressing::new_normalised(receiver_geometry, provider_geometry)))
+            }
+            None => IdenticalMeshMap::new(provider, receiver)
+                .map(Self::Identical)
+                .map_err(|e| format!("{e} (pass the polyhedral meshes: RegionMeshMap::new(.., Some((provider, receiver))))")),
+        }
+    }
+
+    /// `mapTgtToSrc(provider_field, plusEqOp, receiver_field)` for a scalar cell list.
+    pub fn map_scalar(&self, provider_field: &[f64], receiver_field: &mut [f64]) {
+        match self {
+            Self::Identical(m) => m.map(provider_field, receiver_field),
+            Self::General(a) => a.map_tgt_to_src_scalar(provider_field, receiver_field),
+        }
+    }
+
+    /// `mapTgtToSrc` for a vector cell list.
+    ///
+    /// # Panics
+    /// Panics on mismatched sizes.
+    pub fn map_vector(&self, provider_field: &[Vector3], receiver_field: &mut [Vector3]) {
+        match self {
+            Self::Identical(m) => {
+                assert_eq!(provider_field.len(), receiver_field.len(), "identical meshes: sizes must match");
+                for c in 0..receiver_field.len() {
+                    let f = 1.0 - m.weights[c];
+                    let r = receiver_field[c];
+                    let p = provider_field[c];
+                    let w = m.weights[c];
+                    receiver_field[c] = Vector3::new(r.x * f + w * p.x, r.y * f + w * p.y, r.z * f + w * p.z);
+                }
+            }
+            Self::General(a) => a.map_tgt_to_src_vector(provider_field, receiver_field),
+        }
+    }
+
+    /// `mapSrcToTgt(receiver_field, plusEqOp, provider_field)`: the other direction (`heatExchanger.C:265-267`). Scalars.
+    ///
+    /// # Panics
+    /// Panics on mismatched sizes.
+    pub fn map_reverse_scalar(&self, receiver_field: &[f64], provider_field: &mut [f64]) {
+        match self {
+            Self::Identical(m) => m.map(receiver_field, provider_field),
+            Self::General(a) => a.map_src_to_tgt_scalar(receiver_field, provider_field),
+        }
+    }
 }
 
 /// `setDeltaT(runTime, solvers)`: the initial step `min(deltaT_now, controlDict deltaT)`.
@@ -350,5 +484,62 @@ mod tests {
         let mut r = vec![7.0, -2.0, 1e300];
         m.map(&[1.0, 2.0, 3.0], &mut r);
         assert_eq!(r, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn loop_with_deformation_calls_deform_before_correct_for_each_solver_in_every_iteration() {
+        let events: core::cell::RefCell<Vec<String>> = core::cell::RefCell::new(Vec::new());
+        let mut k = 0;
+        let out = correct_physics_loop_with_deformation(
+            5e-5,
+            2,
+            &[true, false],
+            || events.borrow_mut().push("map".into()),
+            |i| events.borrow_mut().push(format!("deform{i}")),
+            |i, t| events.borrow_mut().push(format!("correct{i}{}", if t { "T" } else { "" })),
+            |_| {
+                k += 1;
+                1.0
+            },
+        );
+        assert_eq!((out.iterations, out.converged), (2, false));
+        assert_eq!(
+            events.borrow().as_slice(),
+            ["map", "deform0", "correct0", "deform1", "correct1", "map", "deform0", "correct0T", "deform1", "correct1"]
+        );
+    }
+
+    #[test]
+    fn region_mesh_map_general_equals_identical_on_identical_meshes_and_refuses_otherwise() {
+        use crate::genfoam::multi_region::outer_iteration::lumped_cell_mesh;
+        let (a, b) = (lumped_cell_mesh(1.0), lumped_cell_mesh(1.0));
+        let g = OverlapMesh::box_grid(1, 1, 1, [0.0; 3], [1.0; 3]);
+        let identical = RegionMeshMap::new(&a, &b, None).unwrap();
+        let general = RegionMeshMap::new(&a, &b, Some((&g, &g))).unwrap();
+        assert!(matches!(identical, RegionMeshMap::Identical(_)) && matches!(general, RegionMeshMap::General(_)));
+        let (mut r1, mut r2) = ([7.5], [7.5]);
+        identical.map_scalar(&[3.25], &mut r1);
+        general.map_scalar(&[3.25], &mut r2);
+        assert_eq!(r1[0].to_bits(), r2[0].to_bits());
+        let (mut v1, mut v2) = ([Vector3::new(1.0, 2.0, 3.0)], [Vector3::new(1.0, 2.0, 3.0)]);
+        identical.map_vector(&[Vector3::new(-1.0, 0.5, 9.0)], &mut v1);
+        general.map_vector(&[Vector3::new(-1.0, 0.5, 9.0)], &mut v2);
+        assert_eq!(v1, v2);
+        let (mut b1, mut b2) = ([1.0], [1.0]);
+        identical.map_reverse_scalar(&[4.0], &mut b1);
+        general.map_reverse_scalar(&[4.0], &mut b2);
+        assert_eq!(b1[0].to_bits(), b2[0].to_bits());
+        // a different mesh needs the polyhedral geometry; a wrong cell count is refused
+        let c = lumped_cell_mesh(2.0);
+        let e = RegionMeshMap::new(&a, &c, None).unwrap_err();
+        assert!(e.contains("volumes differ") && e.contains("pass the polyhedral meshes"), "{e}");
+        let g2 = OverlapMesh::box_grid(2, 1, 1, [0.0; 3], [1.0; 3]);
+        assert!(RegionMeshMap::new(&a, &c, Some((&g, &g2))).is_err());
+        // different meshes with their geometry: the receiver cell takes the provider's value (one overlap, weight 1)
+        let half = OverlapMesh::box_grid(1, 1, 1, [0.0; 3], [0.5, 1.0, 1.0]);
+        let m = RegionMeshMap::new(&a, &c, Some((&g, &half))).unwrap();
+        let mut r = [100.0];
+        m.map_scalar(&[8.0], &mut r);
+        assert_eq!(r[0], 8.0);
     }
 }

@@ -121,6 +121,9 @@ pub enum MappingMethod {
 pub enum MeshToMeshError {
     /// [`MappingMethod::CellVolumeWeight`] was requested from [`MeshToMesh::new`], which only has [`FvMesh`]es.
     MissingOverlapGeometry,
+    /// [`MeshToMesh::map_reverse_scalar`] / [`MeshToMesh::map_reverse_vector`] exist for [`MappingMethod::CellVolumeWeight`] only
+    /// (upstream's `mapSrcToTgt` of the one `meshToMesh` GeN-Foam builds).
+    ReverseNeedsCellVolumeWeight,
     /// An [`OverlapMesh`] does not have the cell count of the [`FvMesh`] it is meant to describe.
     CellCountMismatch {
         /// Which mesh (`"source"` or `"target"`).
@@ -139,6 +142,9 @@ impl core::fmt::Display for MeshToMeshError {
                 f,
                 "CellVolumeWeight needs polyhedral geometry (points and faces): build it with MeshToMesh::cell_volume_weight from two OverlapMesh"
             ),
+            MeshToMeshError::ReverseNeedsCellVolumeWeight => {
+                write!(f, "the reverse (mapSrcToTgt) map exists for CellVolumeWeight only")
+            }
             MeshToMeshError::CellCountMismatch { which, fv_cells, overlap_cells } => {
                 write!(f, "the {which} OverlapMesh has {overlap_cells} cells but its FvMesh has {fv_cells}")
             }
@@ -434,6 +440,47 @@ impl MeshToMesh {
                 MapCombine::Accumulate => target_field.internal[cell] += acc,
             }
         }
+    }
+
+    /// `meshToMesh::mapSrcToTgt(srcField, plusEqOp, result)` of upstream's object: a field on this mapping's TARGET (the
+    /// receiving region, upstream's source) moved onto `provider_field` on this mapping's SOURCE (upstream's target), as
+    /// `heatExchanger.C:265,267` does with its `mappingPtr_`. Same operator as the forward map with the other pair of lists:
+    /// `result *= (1 - sum w); result += w * value` per overlap, uncovered cells keep their value.
+    ///
+    /// # Errors
+    /// [`MeshToMeshError::ReverseNeedsCellVolumeWeight`] for any other method.
+    ///
+    /// # Panics
+    /// Panics if `receiver_field` / `provider_field` are not sized to this mapping's target / source meshes.
+    pub fn map_reverse_scalar(
+        &self,
+        receiver_field: &VolScalarField,
+        provider_field: &mut VolScalarField,
+    ) -> Result<(), MeshToMeshError> {
+        let cvw = self.cell_volume_weight.as_ref().ok_or(MeshToMeshError::ReverseNeedsCellVolumeWeight)?;
+        assert_eq!(receiver_field.internal.len(), self.target.n_cells, "field does not match the mapping's target mesh");
+        assert_eq!(provider_field.internal.len(), self.source.n_cells, "field does not match the mapping's source mesh");
+        cvw.map_src_to_tgt_scalar(receiver_field.internal.as_slice(), provider_field.internal.as_mut_slice());
+        Ok(())
+    }
+
+    /// Vector form of [`MeshToMesh::map_reverse_scalar`] (`mapSrcToTgt` per component).
+    ///
+    /// # Errors
+    /// [`MeshToMeshError::ReverseNeedsCellVolumeWeight`] for any other method.
+    ///
+    /// # Panics
+    /// As [`MeshToMesh::map_reverse_scalar`].
+    pub fn map_reverse_vector(
+        &self,
+        receiver_field: &VolVectorField,
+        provider_field: &mut VolVectorField,
+    ) -> Result<(), MeshToMeshError> {
+        let cvw = self.cell_volume_weight.as_ref().ok_or(MeshToMeshError::ReverseNeedsCellVolumeWeight)?;
+        assert_eq!(receiver_field.internal.len(), self.target.n_cells, "field does not match the mapping's target mesh");
+        assert_eq!(provider_field.internal.len(), self.source.n_cells, "field does not match the mapping's source mesh");
+        cvw.map_src_to_tgt_vector(receiver_field.internal.as_slice(), provider_field.internal.as_mut_slice());
+        Ok(())
     }
 
     /// Interpolate a scalar field, returning a fresh field on the target mesh.
