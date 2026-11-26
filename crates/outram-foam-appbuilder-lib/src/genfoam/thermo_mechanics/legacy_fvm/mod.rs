@@ -57,8 +57,11 @@
 //!
 //! ## Deliberate omissions, each refused by name (children of gh:#1781)
 //!
-//! `compactNormalStress no` (needs `fvMatrix::flux()`), transient `d2dt2`, the `GFTractionDisplacement` and
-//! `gapContact` patch types (gh:#1235), `meshDisp` -> `movePoints` (gh:#1784), `tractionDisplacement`, non-zeroGradient
+//! `compactNormalStress no` (needs `fvMatrix::flux()`), transient `d2dt2`, ~~the `GFTractionDisplacement` and
+//! `gapContact` patch types~~ **CORRECTED 2026-11-26 (gh:#1235)**: `GFTractionDisplacement` is ported ([`traction`], default form of
+//! `disp` patches, bit-identical to the real class); `gapContact` (needs the `regionCoupled` coupling, gh:#1846) is refused by
+//! name in [`case::LegacyFvmCase`] and only its arithmetic is ported; `Gauss linear` gradients with a traction patch,
+//! `meshDisp` -> `movePoints` (gh:#1784), ESI's `tractionDisplacement`, non-zeroGradient
 //! `TStruct` patches, `GAMG` (named substitute below), `planeStress` needs nothing (a flag).
 //!
 //! ## `GAMG` is substituted, by name
@@ -92,6 +95,8 @@ use crate::solvers::non_orthogonal::LaplacianCorrection;
 
 pub mod pbicg;
 use pbicg::pbicg_dilu;
+pub mod traction;
+use traction::{base_sn_grad, evaluate_value, GfTractionDisplacement, TractionInputs};
 
 #[cfg(feature = "std")]
 pub mod case;
@@ -156,15 +161,17 @@ impl ZoneCard {
 
 /// Boundary condition of the displacement `disp` on one patch.
 ///
-/// `GFTractionDisplacement` and `gapContact` (gh:#1235) are NOT here: adding them later adds variants, and the
-/// matches over this enum are in this module only.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// `gapContact` (gh:#1235) is NOT here: it needs the `regionCoupled` two-region coupling (gh:#1846); its arithmetic is
+/// [`traction::GapContact`]. The matches over this enum are in this module only.
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum DispPatch {
     /// `fixedValue`, uniform (m).
     FixedValue(Vector3),
     /// `zeroGradient`.
     ZeroGradient,
+    /// GeN-Foam's `GFTractionDisplacement` (a `fixedGradient` patch with a recomputed gradient), see [`traction`].
+    GfTractionDisplacement(GfTractionDisplacement),
 }
 
 /// Boundary condition of a scalar field (`fuelDisp`, `CRDisp`) on one patch.
@@ -238,6 +245,10 @@ pub struct LegacyFvmSettings {
     pub t_solver: LinearSolverSettings,
     /// Which solver `TStruct` runs.
     pub t_solver_kind: TStructSolver,
+    /// `false` (the default, and upstream's behaviour): the `GFTractionDisplacement` patches are plane strain whatever
+    /// `planeStress` says, because upstream's lookup of the flag is misspelled (see [`traction`]). `true` is a named
+    /// CONTROL (the intended behaviour), never upstream's.
+    pub traction_bc_honours_plane_stress: bool,
 }
 
 /// One linear solve, as upstream logs it (`DICPCG: Solving for dispx, Initial residual = ...`).
@@ -404,6 +415,8 @@ pub struct LegacyFvmThermoMechanics {
     gamg_substituted: bool,
     // per-cell material fields (`zeroGradient` volScalarFields)
     rho: Vec<f64>,
+    rho_e: Vec<f64>,
+    nu: Vec<f64>,
     c: Vec<f64>,
     rho_k: Vec<f64>,
     t_struct_ref: Vec<f64>,
@@ -485,6 +498,23 @@ impl LegacyFvmThermoMechanics {
         }
         let np = mesh.patches.len();
         let n = mesh.n_cells;
+        let has_traction = disp_patches.iter().any(|b| matches!(b, DispPatch::GfTractionDisplacement(_)));
+        if has_traction && settings.grad == GradScheme::GaussLinear {
+            return Err(AppBuilderError::UnsupportedScheme {
+                family: "gradSchemes",
+                scheme: "Gauss linear with GFTractionDisplacement".to_string(),
+                reason: "grad(disp)'s boundary correction needs the patch snGrad() (= gradient_, exactly); the shared Gauss route computes deltaCoeffs*(b - P); use leastSquares",
+            });
+        }
+        if disp_patches.iter().zip(mesh.patches.iter()).any(|(b, p)| match b {
+            DispPatch::GfTractionDisplacement(t) => t.len() != p.size,
+            _ => false,
+        }) {
+            return Err(AppBuilderError::Case {
+                case: crate::path::PathBuf::new(),
+                msg: "GFTractionDisplacement: traction and pressure need one entry per patch face".to_string(),
+            });
+        }
         if disp_patches.len() != np
             || fuel_patches.len() != np
             || cr_patches.len() != np
@@ -555,7 +585,8 @@ impl LegacyFvmThermoMechanics {
             .zip(&disp_patches)
             .map(|(p, bc)| match bc {
                 DispPatch::FixedValue(v) => vec![*v; p.size],
-                DispPatch::ZeroGradient => vec![Vector3::ZERO; p.size],
+                // `fvPatchVectorField::operator=(patchInternalField())` of the constructor, `disp` starting at 0
+                DispPatch::ZeroGradient | DispPatch::GfTractionDisplacement(_) => vec![Vector3::ZERO; p.size],
             })
             .collect();
         let gamg_substituted = settings.t_solver_kind == TStructSolver::GamgSubstitutedByPbicgDilu;
@@ -564,6 +595,8 @@ impl LegacyFvmThermoMechanics {
             delta_t,
             gamg_substituted,
             rho,
+            rho_e,
+            nu,
             c,
             rho_k,
             t_struct_ref,
@@ -596,7 +629,7 @@ impl LegacyFvmThermoMechanics {
             settings,
             mesh,
         };
-        s.correct_disp_boundary();
+        s.extrapolate_disp_boundary();
         s.initial_div_sigma_exp();
         Ok(s)
     }
@@ -604,6 +637,16 @@ impl LegacyFvmThermoMechanics {
     /// Whether the `TStruct` equation runs the named `GAMG` substitute (`PBiCG`/`DILU`).
     pub fn t_struct_gamg_substituted(&self) -> bool {
         self.gamg_substituted
+    }
+
+    /// The boundary values of `disp`, per patch and face (for `GFTractionDisplacement`: `internal + gradient/deltaCoeffs`).
+    pub fn displacement_boundary(&self) -> &[Vec<Vector3>] {
+        &self.disp_b
+    }
+
+    /// The condition of patch `pi` of `disp` (for `GFTractionDisplacement` it carries the current gradient).
+    pub fn disp_patch(&self, pi: usize) -> &DispPatch {
+        &self.disp_patches[pi]
     }
 
     /// The displacement field, one vector per cell (m).
@@ -662,14 +705,96 @@ impl LegacyFvmThermoMechanics {
     // ---------------------------------------------------------------------------------------------------------
     // fields and gradients
 
-    /// `disp_.correctBoundaryConditions()`: `zeroGradient` patches take the owner-cell value.
-    fn correct_disp_boundary(&mut self) {
+    /// The constructor state: `zeroGradient` and `GFTractionDisplacement` patches hold the owner-cell value
+    /// (`fvPatchVectorField::operator=(patchInternalField())`); NO `updateCoeffs()` has run, the gradient is zero.
+    fn extrapolate_disp_boundary(&mut self) {
         for (pi, p) in self.mesh.patches.iter().enumerate() {
-            if self.disp_patches[pi] == DispPatch::ZeroGradient {
+            if matches!(self.disp_patches[pi], DispPatch::ZeroGradient | DispPatch::GfTractionDisplacement(_)) {
                 for fi in 0..p.size {
                     self.disp_b[pi][fi] = self.disp[self.mesh.owner[p.start + fi]];
                 }
             }
+        }
+    }
+
+    /// The registry lookups of `GFTractionDisplacementFvPatchVectorField::updateCoeffs()` for patch `pi`
+    /// (boundary values of zeroGradient fields are the owner-cell values).
+    fn traction_inputs(&self, pi: usize) -> TractionInputs {
+        let mesh = &self.mesh;
+        let p = &mesh.patches[pi];
+        let owners: Vec<usize> = (0..p.size).map(|fi| mesh.owner[p.start + fi]).collect();
+        let pick = |v: &[f64]| -> Vec<f64> { owners.iter().map(|&o| v[o]).collect() };
+        TractionInputs {
+            rho: pick(&self.rho),
+            rho_e: pick(&self.rho_e),
+            nu: pick(&self.nu),
+            n: (0..p.size)
+                .map(|fi| {
+                    let sf = mesh.face_area_vectors[p.start + fi];
+                    let mag = sf.mag();
+                    Vector3::new(sf.x / mag, sf.y / mag, sf.z / mag)
+                })
+                .collect(),
+            sn_grad: (0..p.size)
+                .map(|fi| base_sn_grad(self.geo.dc_boundary[pi][fi], self.disp_b[pi][fi], self.disp[owners[fi]]))
+                .collect(),
+            sigma_d: self.sigma_d_b[pi].clone(),
+            three_k_alpha: pick(&self.three_k_alpha),
+            t_struct: pick(&self.t_struct),
+            t_struct_ref: pick(&self.t_struct_ref),
+            honour_plane_stress: self.settings.traction_bc_honours_plane_stress,
+            plane_stress: self.settings.plane_stress,
+        }
+    }
+
+    /// `disp_.boundaryFieldRef().updateCoeffs()` (what constructing an `fvMatrix` of `disp` does): every
+    /// `GFTractionDisplacement` patch not yet updated recomputes its gradient.
+    fn update_disp_coeffs(&mut self) {
+        for pi in 0..self.disp_patches.len() {
+            if matches!(self.disp_patches[pi], DispPatch::GfTractionDisplacement(_)) {
+                let inputs = self.traction_inputs(pi);
+                if let DispPatch::GfTractionDisplacement(t) = &mut self.disp_patches[pi] {
+                    t.update_gradient(&inputs);
+                }
+            }
+        }
+    }
+
+    /// `disp_.correctBoundaryConditions()`: `zeroGradient` patches take the owner-cell value; a
+    /// `GFTractionDisplacement` patch `evaluate()`s: `updateCoeffs()` first if it has not run since the last
+    /// `evaluate()`, then `value = internal + gradient/deltaCoeffs`, then `updated()` is cleared.
+    fn correct_disp_boundary(&mut self) {
+        for pi in 0..self.mesh.patches.len() {
+            let (start, size) = (self.mesh.patches[pi].start, self.mesh.patches[pi].size);
+            match &self.disp_patches[pi] {
+                DispPatch::ZeroGradient => {
+                    for fi in 0..size {
+                        self.disp_b[pi][fi] = self.disp[self.mesh.owner[start + fi]];
+                    }
+                }
+                DispPatch::GfTractionDisplacement(_) => {
+                    let inputs = self.traction_inputs(pi);
+                    if let DispPatch::GfTractionDisplacement(t) = &mut self.disp_patches[pi] {
+                        t.update_gradient(&inputs);
+                        for fi in 0..size {
+                            self.disp_b[pi][fi] =
+                                evaluate_value(self.disp[self.mesh.owner[start + fi]], t.gradient()[fi], self.geo.dc_boundary[pi][fi]);
+                        }
+                        t.clear_updated();
+                    }
+                }
+                DispPatch::FixedValue(_) => {}
+            }
+        }
+    }
+
+    /// `snGrad()` of the `disp` patch field on face `fi` of patch `pi`.
+    fn disp_patch_sn_grad(&self, pi: usize, fi: usize) -> Vector3 {
+        let own = self.mesh.owner[self.mesh.patches[pi].start + fi];
+        match &self.disp_patches[pi] {
+            DispPatch::ZeroGradient => Vector3::ZERO,
+            DispPatch::FixedValue(_) => vscale(self.geo.dc_boundary[pi][fi], self.disp_b[pi][fi] - self.disp[own]),
+            DispPatch::GfTractionDisplacement(t) => t.gradient()[fi],
         }
     }
 
@@ -680,9 +805,11 @@ impl LegacyFvmThermoMechanics {
             .iter()
             .enumerate()
             .map(|(pi, _)| PatchField {
-                bc: match self.disp_patches[pi] {
-                    DispPatch::FixedValue(v) => BoundaryCondition::FixedValue(v),
+                bc: match &self.disp_patches[pi] {
+                    DispPatch::FixedValue(v) => BoundaryCondition::FixedValue(*v),
                     DispPatch::ZeroGradient => BoundaryCondition::ZeroGradient,
+                    // refused with `Gauss linear` in `new`; `leastSquares` reads only the face values
+                    DispPatch::GfTractionDisplacement(_) => BoundaryCondition::Calculated(Field::new(self.disp_b[pi].clone())),
                 },
                 values: Field::new(self.disp_b[pi].clone()),
             })
@@ -741,13 +868,7 @@ impl LegacyFvmThermoMechanics {
                             n.x * gg.xy + n.y * gg.yy + n.z * gg.zy,
                             n.x * gg.xz + n.y * gg.yz + n.z * gg.zz,
                         );
-                        let sn = match self.disp_patches[pi] {
-                            DispPatch::ZeroGradient => Vector3::ZERO,
-                            DispPatch::FixedValue(_) => {
-                                let d = self.disp_b[pi][fi] - self.disp[own];
-                                vscale(self.geo.dc_boundary[pi][fi], d)
-                            }
-                        };
+                        let sn = self.disp_patch_sn_grad(pi, fi);
                         let r = sn - ng;
                         Tensor::new(
                             gg.xx + n.x * r.x,
@@ -889,12 +1010,7 @@ impl LegacyFvmThermoMechanics {
                 (0..p.size)
                     .map(|fi| {
                         let gf = p.start + fi;
-                        let sn = match self.disp_patches[pi] {
-                            DispPatch::ZeroGradient => Vector3::ZERO,
-                            DispPatch::FixedValue(_) => {
-                                vscale(self.geo.dc_boundary[pi][fi], self.disp_b[pi][fi] - self.disp[mesh.owner[gf]])
-                            }
-                        };
+                        let sn = self.disp_patch_sn_grad(pi, fi);
                         vscale(self.geo.mag_sf[gf], vscale(gb[pi][fi], sn))
                     })
                     .collect()
@@ -995,6 +1111,8 @@ impl LegacyFvmThermoMechanics {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
         let n_if = mesh.n_internal_faces;
+        // `fvm::d2dt2(disp_)` constructs an fvMatrix of `disp`: `updateCoeffs()` of every patch
+        self.update_disp_coeffs();
         let lap = self.laplacian_parts(&self.two_mu_lambda);
         // B = fvm::laplacian(...) + divSigmaExp_ : source = (0 - V div(gammaMagSf corr)) - V divSigmaExp
         let mut b_source = vec![Vector3::ZERO; n];
@@ -1031,19 +1149,36 @@ impl LegacyFvmThermoMechanics {
         // fvMatrix::solveSegregated: diag += internalCoeffs, source += boundaryCoeffs (patch by patch)
         let mut bnd_src = src.clone();
         for (pi, p) in mesh.patches.iter().enumerate() {
-            if let DispPatch::FixedValue(v) = self.disp_patches[pi] {
-                for fi in 0..p.size {
-                    let gf = p.start + fi;
-                    let cell = mesh.owner[gf];
-                    let g_mag_sf = lap.gamma_mag_sf_boundary[pi][fi];
-                    let dc = self.geo.dc_boundary[pi][fi];
-                    a.diag[cell] += g_mag_sf * dc;
-                    bnd_src[cell] = Vector3::new(
-                        bnd_src[cell].x + g_mag_sf * (dc * v.x),
-                        bnd_src[cell].y + g_mag_sf * (dc * v.y),
-                        bnd_src[cell].z + g_mag_sf * (dc * v.z),
-                    );
+            match &self.disp_patches[pi] {
+                DispPatch::FixedValue(v) => {
+                    for fi in 0..p.size {
+                        let gf = p.start + fi;
+                        let cell = mesh.owner[gf];
+                        let g_mag_sf = lap.gamma_mag_sf_boundary[pi][fi];
+                        let dc = self.geo.dc_boundary[pi][fi];
+                        a.diag[cell] += g_mag_sf * dc;
+                        bnd_src[cell] = Vector3::new(
+                            bnd_src[cell].x + g_mag_sf * (dc * v.x),
+                            bnd_src[cell].y + g_mag_sf * (dc * v.y),
+                            bnd_src[cell].z + g_mag_sf * (dc * v.z),
+                        );
+                    }
                 }
+                // fixedGradient: internalCoeffs 0 (nothing added to the diagonal), boundaryCoeffs of `A == B`:
+                // `0 - (-pGamma*gradient)`, added to the source of the face's cell, patch by patch, face by face
+                DispPatch::GfTractionDisplacement(t) => {
+                    for fi in 0..p.size {
+                        let cell = mesh.owner[p.start + fi];
+                        let g_mag_sf = lap.gamma_mag_sf_boundary[pi][fi];
+                        let g = t.gradient()[fi];
+                        bnd_src[cell] = Vector3::new(
+                            bnd_src[cell].x + g_mag_sf * g.x,
+                            bnd_src[cell].y + g_mag_sf * g.y,
+                            bnd_src[cell].z + g_mag_sf * g.z,
+                        );
+                    }
+                }
+                DispPatch::ZeroGradient => {}
             }
         }
         let names = ["dispx", "dispy", "dispz"];
@@ -1252,6 +1387,14 @@ impl LegacyFvmThermoMechanics {
             // disp_ *= 0.0, fuelDisp_ *= 0.0, CRDisp_ *= 0.0, meshDisp_ *= 0.0
             for d in self.disp.iter_mut() {
                 *d = Vector3::ZERO;
+            }
+            // `fvPatchField::operator*=(0.0)` is live on a fixedGradient patch (fixedValue/zeroGradient ignore it)
+            for pi in 0..self.disp_patches.len() {
+                if matches!(self.disp_patches[pi], DispPatch::GfTractionDisplacement(_)) {
+                    for v in self.disp_b[pi].iter_mut() {
+                        *v = Vector3::new(v.x * 0.0, v.y * 0.0, v.z * 0.0);
+                    }
+                }
             }
             self.correct_disp_boundary();
             for v in self.fuel_disp.iter_mut().chain(self.cr_disp.iter_mut()) {

@@ -72,9 +72,26 @@ public:
         scal(f, step, "fuelDisp", fuelDisp_);
         scal(f, step, "CRDisp", CRDisp_);
         vec(f, step, "meshDisp", meshDisp_);
+        // gh:#1235 (round 24): the boundary value and the gradient of every GFTractionDisplacement patch
+        forAll(disp_.boundaryField(), pi)
+        {
+            const fvPatchVectorField& pf = disp_.boundaryField()[pi];
+            if (pf.type() == "GFTractionDisplacement")
+            {
+                const fixedGradientFvPatchVectorField& fg = refCast<const fixedGradientFvPatchVectorField>(pf);
+                vecField(f, step, (word("dispB_") + pf.patch().name()).c_str(), pf);
+                vecField(f, step, (word("gradB_") + pf.patch().name()).c_str(), fg.gradient());
+            }
+        }
     }
 
 private:
+    static void vecField(FILE* f, label step, const char* name, const vectorField& v)
+    {
+        std::fprintf(f, "F %d %s", int(step), name);
+        forAll(v, c) std::fprintf(f, " %.17g %.17g %.17g", v[c].x(), v[c].y(), v[c].z());
+        std::fprintf(f, "\n");
+    }
     static void scal(FILE* f, label step, const char* name, const volScalarField& v)
     {
         std::fprintf(f, "F %d %s", int(step), name);

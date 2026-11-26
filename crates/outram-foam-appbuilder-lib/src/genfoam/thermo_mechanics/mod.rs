@@ -83,8 +83,8 @@
 //!
 //! ~~An anisotropic stiffness (needs a tensor-coefficient Laplacian)~~ **CORRECTED 2026-11-26:** upstream's
 //! `legacyThermoMechanics` has no anisotropic stiffness (isotropic `mu_`, `lambda_`), so there is nothing to port;
-//! ~~non-orthogonal gradient correction~~ **ADDED** in [`legacy_fvm`]. Still deferred: the traction
-//! (`GFTractionDisplacement`) and `gapContact` boundary conditions on `D` (gh:#1235), `compactNormalStress no`
+//! ~~non-orthogonal gradient correction~~ **ADDED** in [`legacy_fvm`]. ~~the traction
+//! (`GFTractionDisplacement`) boundary condition~~ **ADDED 2026-11-26 (gh:#1235, round 24)** in [`legacy_fvm::traction`], bit-identical to the real class. Still deferred: the `gapContact` boundary condition on `D` (its arithmetic is ported, the two-region coupling is gh:#1846), `compactNormalStress no`
 //! and transient `d2dt2` (gh:#1845), and `movePoints` of the other regions' meshes (gh:#1784); the multi-region
 //! mapping of the expansion onto a shared mesh — see the limitations note in [`mesh_solve`].
 //!

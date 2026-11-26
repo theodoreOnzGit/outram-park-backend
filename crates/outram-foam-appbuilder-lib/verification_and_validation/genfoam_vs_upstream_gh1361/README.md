@@ -3335,7 +3335,7 @@ The agreement is a property of the operation order, not of the solver: PCG/DIC, 
 ### Deviations from upstream (all named) and what is not covered
 
 * `TStruct` `GAMG` -> `PBiCG`/`DILU` (`TStructSolver::GamgSubstitutedByPbicgDilu`, `LegacyFvmThermoMechanics::t_struct_gamg_substituted`; the faithful `GAMG` is gh:#1843). Measured above at the shipped tolerance. At the tight protocol upstream's own case also selects `PBiCG`/`DILU`, so that row has no deviation in the solver.
-* The tutorial's `GFTractionDisplacement` patches are `fixedValue`/`zeroGradient` here (gh:#1235); the zone cards differ from the tutorial's (identical in the tutorial); the coupling inputs are imposed (driver, test) or the constructor defaults (executable). The coupled ESFR run (TH and neutronics regions) is gh:#1846.
+* ~~The tutorial's `GFTractionDisplacement` patches are `fixedValue`/`zeroGradient` here (gh:#1235)~~ **CORRECTED 2026-11-26 (round 24, gh:#1235): ported; the round-23 tests keep the replacement (their references were made with it), the traction form is `tests/genfoam_traction_displacement_vs_upstream.rs`**; the zone cards differ from the tutorial's (identical in the tutorial); the coupling inputs are imposed (driver, test) or the constructor defaults (executable). The coupled ESFR run (TH and neutronics regions) is gh:#1846.
 * Refused by name, not ported: `compactNormalStress no` and transient `d2dt2` (gh:#1845), `Limited` Laplacian, `cellLimited`/`fourth` gradients, non-uniform initial fields, non-`zeroGradient` `TStruct` patches, `extendedThermoMechanics` (needs the lost offbeat API), `deformMesh`/`movePoints` (gh:#1784), `correctBaffleLessFields` (no baffles).
 * Comparisons are on ONE mesh (23340 hex cells; `corrected` vs `uncorrected` differ by 2.7e-7, so it is mildly non-orthogonal) and 3 steps; bit-identity says the operation order matches on this mesh, not that every branch (e.g. a `Limited` scheme, a cyclic patch) is exercised.
 
@@ -3455,6 +3455,68 @@ Same case, mesh, zone cards, coupling functions and tight protocol as round 23, 
 * **Q6** (controls; each must be distinguishable from the reference): (a) round 23's replacement (`fixedValue 0` on `bottom`, `bottomCR`; `zeroGradient` elsewhere) against the T0 reference: worst `disp` difference above 0.1 of max |disp| (a fixed bottom against a free one); (b) the port with `pressure` zeroed against the T1 reference: above 1e-4; (c) the port with the traction zeroed against T1: above 1e-4; (d) the port with `traction_bc_honours_plane_stress` against the T2 reference: above 1e-3 (plane-stress `lambda` is 0.33 E against plane-strain 0.58 E at nu = 0.3, so `twoMuLambda` differs by about 20 %).
 * **Q7** (T2): bit-identical to upstream when the port follows upstream (plane strain in the BC); the cells use the plane-stress `lambda`, the BC does not, and that mismatch is upstream's.
 * **Q8** (`gapContact`): no differential test is possible standalone: it needs a `regionCoupled` patch pair, the neighbour region's `disp` and `meshDisp`, and the AMI interpolation between two meshes (coupled-region infrastructure, gh:#1846). The arithmetic (`gapWidth`, `boundaryStiffness`, the interface pressure) is ported as pure functions on face arrays, tested against hand-computed values (not against upstream), and a `type gapContact` patch in a case is REFUSED by name. A follow-up issue is filed.
+
+
+## Round 24 results (2026-11-26, release; `tests/genfoam_traction_displacement_vs_upstream.rs`, 7 tests, ~4 s wall for all)
+
+### What was ported (upstream file -> Rust)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `GFTractionDisplacementFvPatchVectorField.C` `updateCoeffs()` (lines 143-212), constructors (value = internal, gradient 0), `evaluate()` of `fixedGradientFvPatchField` | `legacy_fvm::traction::{GfTractionDisplacement::update_gradient, base_sn_grad, evaluate_value, TractionInputs}` (mesh-free, so the finite-element version, gh:#1782, can call them); wiring in `legacy_fvm/mod.rs` (`DispPatch::GfTractionDisplacement`; `update_disp_coeffs` = the `fvMatrix` constructor's `updateCoeffs()`; `correct_disp_boundary` = `evaluate()`; the `fixedGradient` `boundaryCoeffs` of `A == B`; the patch `snGrad()` in `grad(disp)` and `fvc::laplacian`) |
+| the reading of `traction`, `pressure` (`uniform` and `nonuniform List`) | `legacy_fvm::case::face_field`; a `gapContact` patch and a `rheologyOptions` key are refused by name |
+| `gapContactFvPatchVectorField.C` `gapWidth()`, `boundaryStiffness()`, the owner-side part of `updateCoeffs()` | `legacy_fvm::traction::GapContact::{gap_width, boundary_stiffness, update_owner}`: pure functions; the neighbour-side arrays are inputs; **no upstream comparison** |
+
+### Comparisons (all bit-for-bit: `exact` counts equal values)
+
+| case | what was compared | linear solves | result |
+|---|---|---|---|
+| **T0** tutorial `disp` unedited (zero traction/pressure), 3 steps | `disp` (70020 values x 3 steps), `meshDisp` step 3, boundary `value` and `gradient` of the five patches (12,330 values each per step, steps 1 and 3) | 36: initial residual, final residual, iteration count of every one | **every value identical (0 of ~329,000 compared values differ); 36/36 solves identical (`dispx|y|z` 163-175 iterations); `Max sigmaEq` and `residual_` identical to all 17 digits** |
+| **T1** loaded (nonzero traction and pressure, per-face lists) | the same | 36 | **identical in every value and every solve** |
+| **T2** T1 with `planeStress yes`, 1 step | `disp`, patch gradients and values | 12 | **identical**: upstream's BC stays plane strain, and the port reproduces that |
+| Control (a): round 23's replacement (`fixedValue 0` on `zeroDispl`/`bottom`/`bottomCR`, `zeroGradient` elsewhere) against the T0 reference | `disp` step 1 | | worst difference **1.07** of max `|disp|` |
+| Control (b): `pressure` zeroed against the T1 reference | `disp` step 1 | | **7.7e-3** |
+| Control (c): `traction` zeroed against the T1 reference | `disp` step 1 | | **0.76** |
+| Control (d): the INTENDED plane-stress lookup (`traction_bc_honours_plane_stress`) against the T2 reference | `disp` step 1 | | **0.167** |
+
+There is no first diverging step: nothing differs anywhere. No round-off allowance was needed and none is claimed; nothing is flagged under the 1e-9 rule. The agreement covers the new quantities directly (the boundary gradient and value of every patch, bit for bit, at the first and last step), not only their effect on `disp`.
+
+Sizes (for the reader): max |`disp`| T0 7.25e-3 m (step 1), 9.65e-3 m (step 3); T1 2.67e-2 m, 4.60e-2 m; T1 differs from T0 by 2.8 (step 1) and 4.2 (step 3) of T0's max |`disp`|. The loads are large for this model because only the six `zeroDispl` faces hold the body: the unbalanced load is carried through that patch.
+
+### Predictions: held and missed
+
+* **Q1 held** (the registry keeps `rhoE_` for `E`): the port's `rhoE/rho` agrees to the last bit; had `E_` been kept the boundary gradient would be wrong by `rho` = 1000.
+* **Q2 held, T0 bit-identical** (60 % confidence stated): including the sequencing (no `updateCoeffs()` before the first corrector; gradient of the matrix construction used by `evaluate()`; the boundary gradient and value identical, which is the direct evidence).
+* **Q3 held** (T1 identical).
+* **Q4 MISSED**: I predicted 300-5000 PCG iterations for `dispx|y|z` at step 1; upstream needed **171, 173, 172** (T0; T1 171-173; T2 172-175). The released bottom did not make the system as ill-conditioned as I expected, so `maxIter 100000` was not needed (the default 1000 would have sufficed; I kept it because the protocol was fixed before the run, and it was never reached). No cap was breached.
+* **Q5 half held, half MISSED**: max |`disp`| of T0 at step 3 is 9.65e-3 m (predicted 3e-3..3e-2, held). T1 differs from T0 by **2.8-4.2 of max |disp|**, predicted 1e-3..1e-1: missed by two orders of magnitude, because the loads (up to 3e5 Pa on a body held by six faces) are not small against `E` = 5e8-2e9 Pa over metre-scale lengths. It does not change a conclusion, but the loaded case is thereby a much larger perturbation than I intended.
+* **Q6 held** with margin: (a) 1.07 (> 0.1), (b) 7.7e-3 (> 1e-4), (c) 0.76 (> 1e-4), (d) 0.167 (> 1e-3). The plane-stress control (d) is smaller than the 20 % in `twoMuLambda` would suggest because the BC term is only part of the solution.
+* **Q7 held** (T2 identical).
+* **Q8 held** (no differential test of `gapContact`; arithmetic unit-tested; refused in cases).
+
+### Findings about upstream (both now documented in `traction.rs` and kept)
+
+1. `GFTractionDisplacement` reads `found("rheologyOptions") ? subDict("rhelogyOptions")... : false`: misspelled, so the BC is **always plane strain**; `planeStress yes` changes the cells' `lambda` and `threeK` but not the BC's (T2 measures this on the real class). A `rheologyOptions` key would abort upstream; the port refuses it by name.
+2. Two objects named `E` (`rhoE_` and `E_`) are constructed in `legacyThermoMechanics`; the registry keeps the first, which is what the BC needs; had the declaration order been the other way the BC would silently divide by `rho` twice.
+
+### Deviations from upstream (all named) and what is not covered
+
+* `gapContact`: not run against upstream (needs `regionCoupled` patches, the neighbour region's `disp`/`meshDisp` and AMI interpolation: gh:#1846). Its three formulas are checked against hand-computed values only. Its `neighbour()` field lookup, the `gapWidth` volScalarField write, `autoMap`/`rmap` and `write` are not ported.
+* `Gauss linear` gradients with a traction patch are REFUSED by name (the shared Gauss route computes the boundary `snGrad` as `deltaCoeffs (b - P)` and not as the patch `gradient()`); the ESFR case uses `leastSquares`.
+* Only `uniform` and `nonuniform List` `traction`/`pressure` are read; the `value` entry is ignored, as upstream does. Mapping, `write()` and the `fixedGradient` `evaluate()` entry through `correctBoundaryConditions` outside the solver are not exercised beyond the `mechanicsSolver off` branch (unit-tested for the multiplication by zero, not against upstream).
+* One mesh (23340 hex cells), 3 steps, coupling functions imposed; the BC on a non-axis-aligned patch is exercised on `defaultFaces` only.
+
+### Moved numbers
+
+None. Round 23's five tests are unchanged and pass (their references were made with the replacement patches; `LegacyFvmSettings` gained one field, default `false`).
+
+### Reproduction
+
+`TRACTION=t0|t1 [PLANE_STRESS=1] MAXITER=100000 scripts/build_and_run_legacy_tm_dump.sh <nSteps> <out.txt>` (the driver rebuild is automatic; it links the round-23 library, which already contained `GFTractionDisplacement`); `scripts/make_traction_disp.sh` writes the two `disp` files (committed under `cases/legacy_tm_esfr_traction/`, with the `fvSolution`); the references are `refs/legacy_tm_traction_{t0,t1,t2}{,_log}.ref.txt.gz` (5.6 MB gzipped in all: `disp` every step, `meshDisp` step 3, patch values/gradients steps 1 and 3).
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_traction_displacement_vs_upstream` 7 passed (4 s); `--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed; `--lib thermo_mechanics` 25 passed (3 new); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` exit 0. Not run: the other suites of the crate and the workspace (the parent's integration run covers them); `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated.
 
 # Round 25 (gh:#1782, child of #1216): finite-element small-strain thermo-elasticity, selectable beside the finite-volume solver by enum
 

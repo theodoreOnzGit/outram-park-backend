@@ -32,6 +32,7 @@ fn settings(grad: GradScheme, laplacian: LaplacianCorrection) -> LegacyFvmSettin
         cr_solver: LinearSolverSettings::tight(1e-14),
         t_solver: LinearSolverSettings::tight(1e-14),
         t_solver_kind: TStructSolver::PbicgDilu,
+        traction_bc_honours_plane_stress: false,
     }
 }
 
@@ -219,6 +220,131 @@ fn unported_selections_are_refused() {
         1.0,
     );
     assert!(matches!(r, Err(AppBuilderError::Case { .. })));
+}
+
+fn one_face_inputs(rho: f64, rho_e: f64, nu: f64) -> traction::TractionInputs {
+    traction::TractionInputs {
+        rho: vec![rho],
+        rho_e: vec![rho_e],
+        nu: vec![nu],
+        n: vec![Vector3::new(0.0, 0.0, 1.0)],
+        sn_grad: vec![Vector3::ZERO],
+        sigma_d: vec![SymmTensor::ZERO],
+        three_k_alpha: vec![0.0],
+        t_struct: vec![700.0],
+        t_struct_ref: vec![700.0],
+        honour_plane_stress: false,
+        plane_stress: false,
+    }
+}
+
+/// `GFTractionDisplacement::updateCoeffs` on one face, against the formula worked by hand (gh:#1235): `rho 1000`,
+/// `rhoE 1e9`, `nu 0.25` give `E = 1e6`, `mu = 4e5`, `lambda = 4e5`, `2 mu + lambda = 1.2e6`; traction `1e5` and
+/// pressure `2e4` on a `+z` face: `gradient_z = (1e5 - 2e4)/1000/1.2e6`. The thermal term adds
+/// `threeKalpha (T - Tref)/(2 mu + lambda)` along `n`; `updated()` makes a second call a no-op; the plane-stress
+/// control changes `lambda` only when asked.
+#[test]
+fn traction_gradient_matches_the_hand_computation() {
+    let mut t = traction::GfTractionDisplacement::new(vec![Vector3::new(0.0, 0.0, 1e5)], vec![2e4]).unwrap();
+    let mut inp = one_face_inputs(1000.0, 1e9, 0.25);
+    assert!(!t.is_updated() && t.gradient()[0] == Vector3::ZERO);
+    assert!(t.update_gradient(&inp));
+    assert!((t.gradient()[0].z - 80.0 / 1.2e6).abs() < 1e-18, "{:?}", t.gradient());
+    assert!(t.gradient()[0].x == 0.0 && t.gradient()[0].y == 0.0);
+    assert!(!t.update_gradient(&inp), "updated() is true: nothing recomputed");
+    t.clear_updated();
+    inp.three_k_alpha = vec![3.0e6];
+    inp.t_struct = vec![800.0];
+    assert!(t.update_gradient(&inp));
+    assert!((t.gradient()[0].z - (80.0 / 1.2e6 + 3.0e6 * 100.0 / 1.2e6)).abs() < 1e-12);
+    // plane stress honoured only on request: lambda = nu E/((1+nu)(1-nu)) = 0.25e6/0.9375
+    t.clear_updated();
+    inp.plane_stress = true;
+    t.update_gradient(&inp);
+    let strain = t.gradient()[0].z;
+    t.clear_updated();
+    inp.honour_plane_stress = true;
+    t.update_gradient(&inp);
+    assert!(t.gradient()[0].z != strain, "the intended plane-stress form differs from upstream's plane strain");
+    // base-class snGrad and evaluate
+    let g = traction::base_sn_grad(2.0, Vector3::new(3.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0));
+    assert_eq!(g, Vector3::new(4.0, 0.0, 0.0));
+    assert_eq!(traction::evaluate_value(Vector3::new(1.0, 0.0, 0.0), Vector3::new(4.0, 0.0, 0.0), 2.0), Vector3::new(3.0, 0.0, 0.0));
+    assert!(traction::GfTractionDisplacement::new(vec![Vector3::ZERO], vec![]).is_err());
+    let u = traction::GfTractionDisplacement::uniform(3, Vector3::ZERO, 1.0);
+    assert!(u.len() == 3 && !u.is_empty() && u.pressure() == [1.0, 1.0, 1.0] && u.traction().len() == 3);
+}
+
+/// `gapContact` arithmetic by hand (not compared with upstream: gh:#1846): gap `((nbr - own) & n) - offset`, the
+/// patch stiffness `min(2 (2 mu + lambda) deltaCoeffs)`, the averaged gap and the clipped penalty pressure.
+#[test]
+fn gap_contact_arithmetic_matches_the_hand_computation() {
+    let gc = traction::GapContact { penalty_factor: 0.1, offset: 0.05 };
+    let own = [Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)];
+    let nbr = [Vector3::new(0.0, 0.0, 0.4), Vector3::new(1.0, 0.0, 0.5)];
+    let n = [Vector3::new(0.0, 0.0, 1.0), Vector3::new(0.0, 0.0, 1.0)];
+    let w = gc.gap_width(&own, &nbr, &n);
+    assert!((w[0] - 0.35).abs() < 1e-15 && (w[1] - 0.45).abs() < 1e-15, "{w:?}");
+    let k = traction::GapContact::boundary_stiffness(&[1.0, 2.0], &[1.0, 1.0], &[10.0, 3.0]);
+    assert_eq!(k, 2.0 * (2.0 * 2.0 + 1.0) * 3.0, "min over faces: 60 and 30");
+    let (gap, p) = gc.update_owner(&[-0.2, 0.1], &[-0.4, 0.3], 100.0, 50.0);
+    assert!((gap[0] + 0.3).abs() < 1e-15 && (gap[1] - 0.2).abs() < 1e-15);
+    assert!((p[0] - 1.5).abs() < 1e-12 && p[1] == 0.0, "penetration charges -0.1*50*(-0.3), an open gap nothing: {p:?}");
+    assert_eq!(traction::GapContact::default().penalty_factor, 1.0e-2);
+}
+
+/// The solver with a `GFTractionDisplacement` patch: after one corrector the `right` patch's gradient is
+/// `traction/rho/(2 mu + lambda)` (state still zero when `updateCoeffs` ran), its face value is
+/// `internal + gradient/deltaCoeffs`, the `top` patch is a `zeroGradient` of the same field; `Gauss linear` is
+/// refused; a wrong list length is refused; the `mechanicsSolver off` branch zeroes `disp` and re-evaluates the patch.
+#[test]
+fn traction_patch_in_the_solver() {
+    let mesh = block();
+    let zones = vec![("all".to_string(), (0..mesh.n_cells).collect::<Vec<usize>>())];
+    let patches = |len_ok: bool| -> Vec<DispPatch> {
+        mesh.patches
+            .iter()
+            .map(|p| match p.name.as_str() {
+                "left" => DispPatch::FixedValue(Vector3::ZERO),
+                "right" => DispPatch::GfTractionDisplacement(traction::GfTractionDisplacement::uniform(
+                    if len_ok { p.size } else { p.size + 1 },
+                    Vector3::new(1.0e6, 0.0, 0.0),
+                    0.0,
+                )),
+                _ => DispPatch::ZeroGradient,
+            })
+            .collect()
+    };
+    let scalar = vec![ScalarPatch::ZeroGradient; mesh.patches.len()];
+    let make = |s: LegacyFvmSettings, ok: bool| {
+        LegacyFvmThermoMechanics::new(mesh.clone(), s, &zones, &[card()], patches(ok), scalar.clone(), scalar.clone(), vec![700.0; mesh.n_cells], 1.0)
+    };
+    assert!(matches!(make(settings(GradScheme::GaussLinear, LaplacianCorrection::Corrected), true), Err(AppBuilderError::UnsupportedScheme { .. })));
+    assert!(matches!(make(settings(GradScheme::LeastSquares, LaplacianCorrection::Corrected), false), Err(AppBuilderError::Case { .. })));
+    let mut s = settings(GradScheme::LeastSquares, LaplacianCorrection::Corrected);
+    s.n_correctors = 1;
+    let mut tm = make(s.clone(), true).expect("build");
+    let n = mesh.n_cells;
+    tm.set_coupling_fields(&vec![700.0; n], &vec![700.0; n], &vec![0.0; n]);
+    tm.correct_physics();
+    let ri = mesh.patches.iter().position(|p| p.name == "right").unwrap();
+    let (rho, e, nu) = (7854.0, 2e11 / 7854.0, 0.3);
+    let two_mu_lambda = 2.0 * (e / (2.0 * (1.0 + nu))) + nu * e / ((1.0 + nu) * (1.0 - 2.0 * nu));
+    let want = 1.0e6 / rho / two_mu_lambda;
+    let DispPatch::GfTractionDisplacement(t) = tm.disp_patch(ri) else { panic!("patch kind") };
+    assert!(!t.is_updated(), "evaluate() cleared updated()");
+    for (fi, g) in t.gradient().iter().enumerate() {
+        assert!((g.x - want).abs() <= 1e-12 * want && g.y == 0.0 && g.z == 0.0, "face {fi}: {g:?} vs {want:e}");
+        let own = mesh.owner[mesh.patches[ri].start + fi];
+        let b = tm.displacement_boundary()[ri][fi];
+        assert!(b.x > tm.displacement()[own].x, "the face value is ahead of the cell by gradient/deltaCoeffs");
+    }
+    // mechanicsSolver off
+    s.solve_displacement = false;
+    let mut off = make(s, true).expect("build");
+    off.set_coupling_fields(&vec![700.0; n], &vec![700.0; n], &vec![0.0; n]);
+    off.correct_physics();
+    assert!(off.displacement().iter().all(|d| d.x == 0.0 && d.y == 0.0 && d.z == 0.0));
 }
 
 /// `ZoneCard::new` carries upstream's `getOrDefault` defaults.

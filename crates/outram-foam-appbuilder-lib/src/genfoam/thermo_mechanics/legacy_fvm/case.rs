@@ -17,7 +17,7 @@ use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use super::{
-    DispPatch, LegacyFvmSettings, LegacyFvmThermoMechanics, LinearSolverSettings, ScalarPatch, TStructSolver, ZoneCard,
+    traction::GfTractionDisplacement, DispPatch, LegacyFvmSettings, LegacyFvmThermoMechanics, LinearSolverSettings, ScalarPatch, TStructSolver, ZoneCard,
 };
 use crate::error::AppBuilderError;
 use crate::io::fv_schemes::GradScheme;
@@ -185,6 +185,18 @@ fn uniform_numbers(root: &Path, d: &FoamDict, key: &str, field: &str) -> Result<
     Ok(numbers(e))
 }
 
+/// A `Field<Type>` entry (`uniform v` or `nonuniform List<Type> N (...)`) of `width` components, as `n` faces of
+/// flattened numbers.
+fn face_field(root: &Path, d: &FoamDict, key: &str, field: &str, n: usize, width: usize) -> Result<Vec<f64>, AppBuilderError> {
+    let e = d.get(key).ok_or_else(|| err(root, format!("{field}: missing `{key}`")))?;
+    let nums = numbers(e);
+    match words(e).first().map(String::as_str) {
+        Some("uniform") if nums.len() == width => Ok((0..n).flat_map(|_| nums.iter().copied()).collect()),
+        Some("nonuniform") if nums.len() == n * width + 1 && nums[0] == n as f64 => Ok(nums[1..].to_vec()),
+        _ => Err(err(root, format!("{field}: `{key}` must be `uniform` or a `nonuniform List` of {n} entries"))),
+    }
+}
+
 impl LegacyFvmCase {
     /// Read the region `region` of the case at `root` (holding `0/`, `constant/`, `system/`), with the `polyMesh`
     /// as PLAIN files (gunzip a shipped mesh first).
@@ -211,6 +223,13 @@ impl LegacyFvmCase {
             Some(r) => switch(r, "planeStress", false).map_err(|m| err(root, m))?,
             None => false,
         };
+        if tp.get("rheologyOptions").is_some() {
+            return Err(unsupported(
+                "thermoMechanicalProperties",
+                "rheologyOptions".to_string(),
+                "upstream's GFTractionDisplacement then looks up the misspelled `rhelogyOptions` and aborts",
+            ));
+        }
         let mats = tp.get_dict("materials").ok_or_else(|| err(root, "thermoMechanicalProperties: no materials"))?;
         let mut cards = Vec::new();
         for (name, e) in mats.iter() {
@@ -350,11 +369,25 @@ impl LegacyFvmCase {
                     DispPatch::FixedValue(Vector3::new(v[0], v[1], v[2]))
                 }
                 "zeroGradient" => DispPatch::ZeroGradient,
+                "GFTractionDisplacement" => {
+                    let n = mesh.patches[disp_patches.len()].size;
+                    let t = face_field(root, d, "traction", "disp", n, 3)?;
+                    let p = face_field(root, d, "pressure", "disp", n, 1)?;
+                    let traction = t.chunks(3).map(|c| Vector3::new(c[0], c[1], c[2])).collect();
+                    DispPatch::GfTractionDisplacement(GfTractionDisplacement::new(traction, p)?)
+                }
+                "gapContact" => {
+                    return Err(unsupported(
+                        "boundaryField",
+                        "disp: gapContact".to_string(),
+                        "needs the regionCoupled two-region coupling (gh:#1846); the arithmetic is traction::GapContact",
+                    ))
+                }
                 other => {
                     return Err(unsupported(
                         "boundaryField",
                         format!("disp: {other}"),
-                        "only fixedValue and zeroGradient (GFTractionDisplacement and gapContact are gh:#1235)",
+                        "only fixedValue, zeroGradient and GFTractionDisplacement",
                     ))
                 }
             });
@@ -408,6 +441,7 @@ impl LegacyFvmCase {
             cr_solver,
             t_solver,
             t_solver_kind,
+            traction_bc_honours_plane_stress: false,
         };
         Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t })
     }

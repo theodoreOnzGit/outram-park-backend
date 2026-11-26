@@ -9,7 +9,9 @@
 #   3. tight protocol: every linear solver tolerance 1e-14, relTol 0, TStruct GAMG -> PBiCG/DILU (named deviation: the row-scaled TEqn is asymmetric, PCG is refused by OpenFOAM),
 #      writePrecision 17, writeControl timeStep;
 #   4. TStruct initial field 668 K (READ_IF_PRESENT), instead of 0 K.
+# gh:#1235 round 24: TRACTION=t0|t1 uses the GFTractionDisplacement disp of make_traction_disp.sh (t0 = the tutorial's own file); PLANE_STRESS=1 sets planeStress yes; MAXITER=n sets maxIter of every linear solver (default 1000).
 set -e
+[ -n "$PLANE_STRESS" ] && PLANE_STRESS_WORD=yes
 SRC=/home/user/upstream-build/GeN-Foam-src/Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/legacySolver
 OUT=$1
 rm -rf "$OUT"
@@ -46,7 +48,7 @@ runTimeModifiable no;
 EOF
 } > "$OUT/system/controlDict"
 if [ -n "$SHIPPED" ]; then cp "$SRC/system/thermoMechanicalRegion/fvSolution" "$OUT/system/thermoMechanicalRegion/fvSolution"; else
-{ hdr dictionary fvSolution; cat <<'EOF'
+{ hdr dictionary fvSolution; cat <<EOF
 solvers
 {
     ".*"
@@ -54,6 +56,7 @@ solvers
         solver          PCG;
         preconditioner  DIC;
         tolerance       1e-14;
+        maxIter         ${MAXITER:-1000};
         relTol          0;
     }
     "fuelDisp"
@@ -61,6 +64,7 @@ solvers
         solver          PBiCG;
         preconditioner  DILU;
         tolerance       1e-14;
+        maxIter         ${MAXITER:-1000};
         relTol          0;
     }
     "CRDisp"
@@ -68,6 +72,7 @@ solvers
         solver          PBiCG;
         preconditioner  DILU;
         tolerance       1e-14;
+        maxIter         ${MAXITER:-1000};
         relTol          0;
     }
     "TStruct"
@@ -75,6 +80,7 @@ solvers
         solver          PBiCG;
         preconditioner  DILU;
         tolerance       1e-14;
+        maxIter         ${MAXITER:-1000};
         relTol          0;
     }
 }
@@ -112,7 +118,7 @@ $8
     }
 EOF
 }
-{ hdr dictionary solverDict; cat <<'EOF'
+{ hdr dictionary solverDict; cat <<EOF
 thermalSolver       on;
 mechanicsSolver     on;
 globalOptions
@@ -122,7 +128,7 @@ globalOptions
 }
 rheologyOption
 {
-    planeStress 	no;
+    planeStress 	${PLANE_STRESS_WORD:-no};
 }
 materials
 {
@@ -166,4 +172,5 @@ boundaryField
 }
 EOF
 } > "$OUT/0/thermoMechanicalRegion/disp"
+[ -n "$TRACTION" ] && bash "$(dirname "$0")/make_traction_disp.sh" "$TRACTION" "$OUT/0/thermoMechanicalRegion/disp"
 echo "staged $OUT"
