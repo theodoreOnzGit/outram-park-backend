@@ -266,7 +266,7 @@ fn main() {
     let fv_cases: [(&str, [f64; 5]); 2] = [("a1_homogeneous", [1.0e-12; 5]), ("a3_g5d5", D5)];
     for (case, d) in &fv_cases {
         for cells in [10usize, 20, 40, 80, 160] {
-            for dt in [500.0, 250.0] {
+            for dt in [500.0, 250.0, 200.0, 100.0, 50.0] {
                 let wall = fv_case(&dir, case, d, cells, dt);
                 let _ = writeln!(timing, "{case},{cells},{},{wall:.6}", dt as u64);
             }

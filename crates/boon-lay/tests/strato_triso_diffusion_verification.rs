@@ -522,7 +522,8 @@ fn b1_strato_fv_against_boon_lay_fv() {
             [(e[n - 3].abs() / e[n - 2].abs()).log2(), (e[n - 2].abs() / e[n - 1].abs()).log2()]
         };
         let (os, ob) = (order(&strato_err), order(&boon_err));
-        println!("B1 {case}: time-extrapolated errors STRATO {strato_err:.3e?}, boon-lay {boon_err:.3e?}");
+        let fmt = |e: &[f64]| e.iter().map(|x| format!("{x:+.3e}")).collect::<Vec<_>>().join(", ");
+        println!("B1 {case}: time-extrapolated errors (cells 10..160) STRATO [{}], boon-lay [{}]", fmt(&strato_err), fmt(&boon_err));
         println!("B1 {case}: spatial orders STRATO {os:.3?}, boon-lay {ob:.3?} (gate {GATE_SPACE_ORDER:?})");
         for o in os.into_iter().chain(ob) {
             assert!(o >= GATE_SPACE_ORDER.0 && o <= GATE_SPACE_ORDER.1, "B1 {case}: order {o:.3}");

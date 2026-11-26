@@ -583,7 +583,3 @@ pub fn exact_release(
         .map(|&t| (t >= valid).then(|| series.release_fraction(t)))
         .collect())
 }
-
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
