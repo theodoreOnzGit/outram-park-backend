@@ -4071,3 +4071,48 @@ Driver `upstream_driver/coupled_deform_dump/coupledDeformDump.C` (new, ours): bu
 * **R8 (the general map in the existing coupled code).** `IdenticalMeshMap` stays; the new `RegionMeshMap` returns bit-identical numbers on identical meshes (tested) and works on non-identical ones. The three `multi_region` tests that map across meshes keep their assertion bounds. No existing number moves.
 * **R9 (cost).** Port, release, 2 jobs: building the three `OverlapMesh`es and five addressings about 25 to 45 s (round 28: 38 s for seven objects); one `deformMesh()` plus `meshPhi` on 23322 cells under 1 s.
 * **Not attempted, and why.** The octree `findInside` of the FIRST seed (`cellVolumeWeightMethod::findInitialSeeds` -> `indexedOctree<treeDataCell>`): it chooses among several cells that contain one point by octree-leaf traversal order, and the only observable is the ENTRY ORDER of a list (so the last bit of one sum); round 28 found equal order on all seven objects. Without a mesh that makes the two choices differ there is nothing to test a port of the octree against, so the named deviation stays. `removeBaffles` `mappingMeshes_` (the ESFR `controlDict` has no `removeBaffles`): refused by name if requested.
+
+# Round 31 (gh:#1855; child of #1216, follow-up of round 29): `relaxationFactors` `default`, `PIMPLE.residualControl` (customPimpleControl) and the `Final` selection it causes, cell-centred `onePhase`
+
+## Read before any port code (GeN-Foam 652b3da on OpenFOAM-ESI v2506)
+
+* `customPimpleControl.{H,C,I.H}`, ESI `pimpleControl.{C,H,I.H}`, `solutionControl.{C,H}`, `meshState` (`setSolverPerformance`), `solution.C` (`relaxField`, `relaxEquation`), `fvMatrix::relax()`, `GeometricField::relax()`, `myOps.C`, `onePhase.C`, `EEqn_1p.H`, `UEqn_1p.H`, `pEqn_1p.H`, `solveP_rgh_1p.H`, `FSPair.C`.
+* **`solverPerformanceDict` keeps a `Pair` (first, last) of initial residuals per field, per time step** (`meshStateTemplates.C`), not a list. `maxResidual().last()` is the initial residual of the MOST RECENT solve of that field; `U` is never solved in `onePhase`, so it is never checked. Entries are created in first-solve order (epsilon, k, p_rgh, h); this order matters only for `stopIfFirstResRelChangeAboveRelTol` (`stopLoop_` set by one field passes every later one).
+* `criteriaSatisfied`: `corr_` is the shadowing one; `storeInitialResiduals()` is the base inline (base `corr_` = 0): always false, so `relative = last/(0 + SMALL)`, i.e. `relTol` is inert (round 5 found the same for twoPhase). `finalIter()` = `converged_`. A flagged iteration runs with `finalIteration` true; the next `loop()` ends the step; flagged at `corr == nOuterCorrectors` leaves `converged_` set (the stale flag): the NEXT step's first `loop()` ends at once, so that step runs zero outer iterations.
+* `fvMatrix::relax()` / `GeometricField::relax()`: the name is `psi.select(isFinalIteration)`, so in the flagged iteration the lookup is `hFinal`; when no key or pattern matches it, `default` is used if present, else NO relaxation (the factor of plain `h` is NOT consulted). `relaxEquation(name, factor)`: exact key, else last matching pattern, else `default`. `fvMatrix::relax(alpha)` returns for `alpha <= 0`; `GeometricField::relax(alpha)` is `prevIter() + alpha*(*this - prevIter())` with no guard.
+* **A defect of the port found while reading:** `p_rgh` is solved with `p_rgh.select(pimple_.finalInnerIter())`; `finalInnerIter()` is `corrPISO_ == nCorrPISO_ && corrNonOrtho_ == nNonOrthCorr_+1`, AND `finalIter()` only when `finalOnLastPimpleIterOnly` (default false). So `p_rghFinal` is the solver of the last corrector of EVERY outer iteration. The port used it on the last outer iteration only. Invisible so far because every shipped and round 19-29 case has `p_rghFinal` identical to `p_rgh`.
+* `fields`: `he.relax()` (name `h`), `p_rgh_.relax()`, and in `FSPair::correct` `Kd_.relax()` and `htc_.relax()` (`Kd`, `htc`), with `prevIter` stored at each `loop()` for every registered field with `relaxField(name)` (`default` makes that every field) and by `myOps::storePrevIterIfRelax` for `Kd`, `htc`.
+
+## Searched before writing (reuse)
+
+`two_phase/mod.rs` already has `customPimpleControl::loop` for `twoPhase` (round 4/5: stale flag, `converged_` flag, `criteria_satisfied` for `p_rgh`/`h.liquid` only, no `Final`) and `one_phase_fc.rs` the same for the face-centred form; both hard-wire their two fields. The cell-centred port had no loop state at all (`for outer in 1..=n_outer`) and refused `residualControl`. New code: `one_phase_cc/pimple.rs` (the control, the performance dict, the relaxation lookup), written for the cell-centred region; `twoPhase`'s `Final` uses are NOT touched (gh:#1855 item 3 stays open: `solveP_rgh_2p.H` and `EEqns_2p.H` use the same selectors).
+
+## Case variants (`cases/msfr_th_variants_r31/`, `scripts/make_msfr_th_pimple_variants.sh`; `turbulence true`, tight, three steps)
+
+Thresholds are taken from upstream's logged initial residuals of the base run (round 29's `refs/msfr_th_opt_fin_norelax`, step 1, table in the script header), NOT from a port run. Every `rc_*` variant also carries distinct `Final` entries: `hFinal`, `kFinal`, `epsilonFinal` solvers with `relTol 0.1` (iteration counts show which entry ran), `hFinal 0.6`, `UFinal 0.7`, `kFinal 0.5`, `epsilonFinal 0.5` relaxation.
+
+| variant | what it is |
+|---|---|
+| `rc_a` | `h` 0.25, `p_rgh` 0.004 first-PISO |
+| `rc_b` | `h` 0.1, `p_rgh` 0.0015 first-PISO (flag at the last outer iteration) |
+| `rc_c` | `h` 1e-3, `p_rgh` 1e-6 (never met) |
+| `rc_d` | `h` 0.25, `p_rgh` 5e-4 (last corrector), `k` 0.2, `epsilon` 0.07, `relTol 0.5` on all |
+| `rc_rel` | tolerances 1e-30, `relTol 0.99` (only `relTol` could fire) |
+| `rc_stop` | `p_rgh` `stopIfFirstResRelChangeAboveRelTol` + `h` |
+| `rc_fin_prgh` | `rc_a` + `p_rghFinal relTol 0.05` + `finalOnLastPimpleIterOnly true` |
+| `fin_prgh` | no `residualControl`, `p_rghFinal relTol 0.05` |
+| `rel_def` | `equations { default 0.9; }` only |
+| `rel_mix` | `default 0.8; h 0.6; "U.*" 0.7` |
+| `rel_fin` | `rel_mix` + `rc_a` thresholds + Final solvers |
+| `fld_def` | `fields { default 0.8; }` |
+| `fld_mix` | `fields { p_rgh 0.7; h 0.85; }` |
+
+## Predictions (written BEFORE any upstream run of these variants and BEFORE any port code of this round; committed first)
+
+* **P1 (outer-iteration counts, step 1; exact, from the base log).** `rc_a`: 4 (criteria first true at the start of iteration 4: `h(3)` = 0.218 < 0.25 and `p(3)` = 0.00321 < 0.004; at 3, `h(2)` = 0.99995). `rc_d`: 4 (`h` 0.218, `p` last 7e-5, `k` 0.1385 < 0.2, `epsilon` 0.0588 < 0.07). `rc_b`: 5, flagged AT the last iteration, so the stale flag follows: **step 2 runs zero outer iterations** (no solve lines, fields of step 2 equal those of step 1 to the bit; `U k epsilon p_rgh T`), step 3 runs normally. `rc_c`, `rc_rel`: 5 in every step, bit-equal to the base run of the same case (`Final` entries never selected; `relTol` inert). `rc_stop`: 2 in every step (at iteration 2 the first-PISO pair is (0, r1), `r1/0 = inf >= 0.5`; later steps: ratio near 1 >= 0.5). `rc_fin_prgh`: 4, like `rc_a`.
+* **P2 (steps 2 and 3 of `rc_a`, `rc_d`).** Not derivable from the base log (their initial states differ from the base's). Expectation only: 3 to 5 iterations, never 2 (`h(1)` is 0.5 at the start of a step), at least one step exits early and the counts need not equal step 1's. The PORT's counts must equal upstream's exactly, whatever they are.
+* **P3 (which entry ran).** In the flagged iteration the `h` solve takes about 8 to 12 iterations (`relTol 0.1`) against 21 to 27 in the others; `k`/`epsilon` likewise; in `rel_fin` the flagged iteration relaxes `h` with 0.8 (`default`), not 0.6, and `U` with 0.7 (`U.*` matches `UFinal`). In `fin_prgh` the sixth `p_rgh` solve of EVERY outer iteration takes fewer iterations than the fifth; in `rc_fin_prgh` only the flagged iteration's sixth does.
+* **P4 (bit identity).** Every variant: port equals upstream to <= 1e-12 max-norm on `U k epsilon p_rgh T` at all three steps, outer-iteration counts and all per-solve iteration counts equal. Risk: the `fields` variants (`fld_*`): the old `Kd`/`htc` before the first relaxation (`Kd` zero, `htc` the start value) is an assumption not read from the constructor; if wrong the first diverging step is step 1 and the cause is that initial value.
+* **P5 (controls; each must FAIL).** (a) the port with `residualControl` ignored (`without_residual_control`) against `rc_a`, `rc_b`, `rc_d`, `rc_stop`: step 1 differs by 1e-4 to 1e-2 (max-norm relative) in `k`, `epsilon`, `U`, `p_rgh`, `T` by 1e-9 to 1e-6; for `rc_stop` (2 against 5 iterations) 1e-2 to 1e-1; and the counts differ. (b) the port with the `default` entries ignored (`without_relaxation_default`) against `rel_def`: differs by 1e-4 to 1e-2 (no relaxation against 0.9); against `rel_mix` for `k`/`epsilon` (none against 0.8). (c) the stock `Final` selection (`with_stock_final_iteration_selection`) against `rc_c`: differs (selects `Final` in iteration 5), 1e-4 to 1e-2. (d) the old `p_rghFinal`-on-the-last-outer-iteration-only behaviour against `fin_prgh`: sixth-corrector iteration counts differ in outers 1 to 4; fields 1e-6 to 1e-4.
+* **P6 (nothing earlier moves).** Rounds 19-21, 29: unchanged to the last digit (no `residualControl`, no `default`, `p_rghFinal` equal to `p_rgh` there).
+* **P7 (cost / size).** Upstream: about a minute per variant (3 steps, turbulence on); reference per variant under 0.3 MB (every 11th cell of `U k epsilon p_rgh T` at 3 steps plus the solve log).

@@ -1,0 +1,125 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    p_rgh
+    {
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance        1e-14;
+        relTol           0;
+    }
+
+    p_rghFinal
+    {
+        $p_rgh;
+        relTol           0;
+    }
+
+    "e.*"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance        1e-14;
+        relTol           0;
+        minIter         0;
+    }
+
+    "h.*"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance        1e-14;
+        relTol           0;
+        minIter         0;
+    }
+
+    ".*"
+    {
+        solver          PBiCGStab;
+        preconditioner  diagonal;
+        tolerance        1e-14;
+        relTol           0;
+    }
+
+    hFinal
+    {
+        solver          PBiCGStab;
+        preconditioner  diagonal;
+        tolerance       1e-14;
+        relTol          0.1;
+    }
+
+    kFinal
+    {
+        solver          PBiCGStab;
+        preconditioner  diagonal;
+        tolerance       1e-14;
+        relTol          0.1;
+    }
+
+    epsilonFinal
+    {
+        solver          PBiCGStab;
+        preconditioner  diagonal;
+        tolerance       1e-14;
+        relTol          0.1;
+    }
+}
+
+PIMPLE
+{
+    solveEnergy                 true;
+    solveFluidMechanics         true;
+    nCorrectors                 6;
+    nOuterCorrectors            5;
+    nNonOrthogonalCorrectors    0;
+    correctUntilConvergence     true;
+    partialEliminationMode      implicit;
+    momentumMode                cellCentered;
+
+    residualControl
+    {
+        p_rgh
+        {
+            tolerance   1e-30;
+            relTol      0.5;
+            useFirstPISOInitialResidual true;
+            stopIfFirstResRelChangeAboveRelTol true;
+        }
+        h
+        {
+            tolerance   1e-30;
+            relTol      0.5;
+        }
+    }
+}
+
+relaxationFactors
+{
+    equations
+    {
+        ".*"            0.9;
+        hFinal          0.6;
+        UFinal          0.7;
+        kFinal          0.5;
+        epsilonFinal    0.5;
+    }
+}
+
+// ************************************************************************* //
