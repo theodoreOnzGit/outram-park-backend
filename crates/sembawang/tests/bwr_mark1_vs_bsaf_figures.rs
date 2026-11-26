@@ -288,10 +288,20 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // drywell 0.0706/0.2709 MPa; envelopes RPV 0.5165, drywell 0.7033.
     // With uo2 carried by candling zr: RPV 3.4388/6.5826, drywell 0.0670/0.2573
     // MPa; envelopes RPV 0.6154, drywell 0.6703.
-    assert!((rpv.mean_abs - 3.4388).abs() < 1e-3 && (rpv.max_abs - 6.5826).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.0670).abs() < 1e-3 && (dw.max_abs - 0.2573).abs() < 1e-3, "{dw:?}");
+    // **With the swell by source height (2026-11-26, gh:#1810: vapour voids
+    // only the water above where it is raised; the old whole-vessel swell
+    // quenched the uncovered core at the first relocation, 2499 -> 701 K,
+    // RPV 8.1 -> 12.7 MPa):** RPV 3.4388/6.5826 -> **0.9590/1.5196** MPa;
+    // drywell 0.0670/0.2573 -> **0.1581/0.3567** MPa; envelopes RPV 0.6154
+    // -> 0.1648, drywell 0.6703 -> 0.3846, **H2 0.9885 -> 0.1034**, Xe
+    // 0.8125 -> 0.8750, I 0.8542 -> 0.9167. Recorded, not tuned: the H2
+    // agreement rested on the defect (the false quench drove steam through
+    // the hot core); now the model's H2 stops at 338 kg by 5 h, below all
+    // nine codes (398-1315 kg) from 6 h. Under investigation, gh:#1810.
+    assert!((rpv.mean_abs - 0.9590).abs() < 1e-3 && (rpv.max_abs - 1.5196).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.1581).abs() < 1e-3 && (dw.max_abs - 0.3567).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.6154) && near(e_dw, 0.6703) && near(e_h2, 0.9885) && near(e_xe, 0.8125) && near(e_i, 0.8542));
+    assert!(near(e_rpv, 0.1648) && near(e_dw, 0.3846) && near(e_h2, 0.1034) && near(e_xe, 0.8750) && near(e_i, 0.9167));
 }
 
 /// The network-plant half of [`the_model_against_the_digitised_bsaf_figures`], split out on 2026-11-04 so the
