@@ -2436,6 +2436,32 @@ pub(crate) mod tests {
     /// per-corner dual owns 7 632 wall faces on 1 288 wall cells, the
     /// per-point and cell-centre duals 1 320 (`OnFeatureEdge`) or 1 304
     /// (`Corners`), at most 2 per cell. Needs `cell-centre-dual`.
+    /// Per internal face, the non-orthogonality (deg) as [`check_quality`]
+    /// measures it; per boundary face of `patch`, the angle between its normal
+    /// and the line from its owner's centre to its centre (what a prism stacked
+    /// on it inherits); and the number of `patch` faces each owner has.
+    #[cfg(feature = "cell-centre-dual")]
+    fn face_angles(m: &VolumeMesh, patch: &str) -> (Vec<f64>, Vec<f64>, alloc::collections::BTreeMap<usize, usize>) {
+        let (_, c) = crate::checks::cell_geometry(m);
+        let mut internal = Vec::new();
+        for f in 0..m.face_count() {
+            if let Some(nb) = m.neighbour[f] {
+                let (d, s) = (c[nb].sub(c[m.owner[f]]), m.face_area_vector(f));
+                internal.push((d.dot(s) / (d.length() * s.length())).clamp(-1.0, 1.0).acos().to_degrees());
+            }
+        }
+        let mut wall = Vec::new();
+        let mut per_cell = alloc::collections::BTreeMap::new();
+        if let Some(w) = m.patches.iter().find(|q| q.name == patch) {
+            for f in w.start_face..w.start_face + w.n_faces {
+                *per_cell.entry(m.owner[f]).or_insert(0usize) += 1;
+                let (d, s) = (m.face_centroid(f).sub(c[m.owner[f]]), m.face_area_vector(f));
+                wall.push((d.dot(s) / (d.length() * s.length())).clamp(-1.0, 1.0).acos().to_degrees());
+            }
+        }
+        (internal, wall, per_cell)
+    }
+
     #[cfg(feature = "cell-centre-dual")]
     #[test]
     fn dual_kinds_are_pinned_bit_for_bit() {
