@@ -124,13 +124,19 @@ use crate::genfoam::thermal_hydraulics::closures::ff_drag::{
     FfDragCoefficient, FfInterfacialState, TwoPhaseDragMultiplier,
 };
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace::{
+    multi_regime_boiling_trace, TraceBoilingInputs,
+};
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::{
-    FlowEnhancementFactor, FlowEnhancementInputs, SuppressionFactor, SuppressionInputs,
+    FlowEnhancementFactor, FlowEnhancementInputs, OnsetOfNucleateBoilingTemperature, SubcooledBoilingFraction,
+    SuppressionFactor, SuppressionInputs,
 };
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::{
     FsForcedConvectionHtc, PoolBoilingHtc,
 };
+use crate::genfoam::thermal_hydraulics::closures::interfacial::by_regime::ByRegimeModel;
 use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::RegimeMap1D;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map_2d::RegimeMap2D;
 use crate::genfoam::thermal_hydraulics::closures::phase_change::{
     LatentHeatModel, PhaseChangeRateModel, SaturationModel,
 };
@@ -190,6 +196,49 @@ pub enum FsHtcModel {
         /// `suppressionFactor`.
         suppression: SuppressionFactor,
     },
+    /// `multiRegimeBoilingTRACE` (gh:#1222): see
+    /// [`crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace`].
+    MultiRegimeBoilingTrace(TraceBoilingModel),
+}
+
+/// The sub-models of `multiRegimeBoilingTRACE` (`FSHeatTransferCoefficientModels`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TraceBoilingModel {
+    /// `forcedConvectionModel`.
+    pub forced_convection: FsForcedConvectionHtc,
+    /// `poolBoilingModel` (read with the `Twall`/`T.interface` form, `useExplicitHeatFlux false`).
+    pub pool_boiling: PoolBoilingHtc,
+    /// `flowEnhancementFactorModel`.
+    pub flow_enhancement: FlowEnhancementFactor,
+    /// `nucleateBoilingOnsetModel` (absent: `T_ONB = T_sat`).
+    pub onset: Option<OnsetOfNucleateBoilingTemperature>,
+    /// `subCooledBoilingFractionModel` (absent: `f = 1`).
+    pub sub_cooled_fraction: Option<SubcooledBoilingFraction>,
+}
+
+/// The field a `twoParameters` regime map reads on one axis (`parameter1`, `parameter2`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegimeParameter {
+    /// `normalized.alpha.<fluid>`: the index of the fluid.
+    NormalizedAlpha(usize),
+    /// `alphaRhoMagU.<fluid>`: the index of the fluid.
+    AlphaRhoMagU(usize),
+}
+
+/// The `regimeMapModels` entry of a case.
+#[derive(Debug, Clone)]
+pub enum RegimeMapSelection {
+    /// `oneParameter`, with the index of the fluid whose `normalized` fraction is its parameter.
+    OneParameter(RegimeMap1D, usize),
+    /// `twoParameters` (gh:#1225).
+    TwoParameters {
+        /// The map.
+        map: RegimeMap2D,
+        /// `parameter1` (the x axis).
+        parameter1: RegimeParameter,
+        /// `parameter2` (the y axis).
+        parameter2: RegimeParameter,
+    },
 }
 
 /// Fluid-fluid (interfacial) heat-transfer model of one fluid
@@ -247,7 +296,7 @@ pub struct TwoPhaseModels {
     pub virtual_mass: Option<f64>,
     /// `regimeMapModels` (one `oneParameter` map) and the index of the fluid
     /// whose `normalized` phase fraction is its parameter.
-    pub regime_map: Option<(RegimeMap1D, usize)>,
+    pub regime_map: Option<RegimeMapSelection>,
     /// Dispersion of fluid 1 (`dispersionModel`: `1` = fluid 1 dispersed).
     pub dispersion_fluid1: ByRegime,
     /// Contact partition: the fluid index the model is given for and the
@@ -255,6 +304,9 @@ pub struct TwoPhaseModels {
     pub contact_partition: (usize, ByRegime),
     /// `interfacialAreaDensityModel spherical` `cutoffAlpha` (default 0.9).
     pub spherical_cutoff_alpha: f64,
+    /// `interfacialAreaDensityModel byRegime` with a `spherical` model per regime: its `cutoffAlpha`
+    /// (gh:#1225). When `Some`, it replaces [`TwoPhaseModels::spherical_cutoff_alpha`].
+    pub interfacial_area_by_regime: Option<ByRegimeModel<f64>>,
     /// `phaseChangeModel`, if present.
     pub phase_change: Option<PhaseChangeConfig>,
 }
@@ -455,6 +507,11 @@ pub struct Phase {
     pub thermo_residual_alpha: f64,
     /// `dispersedDiameterModel constant` value [m].
     pub dispersed_diameter: f64,
+    /// `dispersedDiameterModel byRegime` (constant sub-models; gh:#1225); when `Some` it replaces
+    /// [`Phase::dispersed_diameter`].
+    pub dispersed_diameter_by_regime: Option<ByRegimeModel<f64>>,
+    /// `alphaRhoMagU.<fluid>` = `alpha rho |U|` (`fluid::correctAlphaRhoMagU`; the mass flux a regime map reads).
+    pub alpha_rho_mag_u: Vec<f64>,
     /// Phase fraction (of the whole cell volume).
     pub alpha: Scalar,
     /// Phase fraction normalised by the fluid (moving) fraction.
@@ -522,8 +579,10 @@ pub struct Structure {
     pub power: Vec<Option<FixedPower>>,
     /// Active-structure interfacial area density [1/m] (`iAact`).
     pub ia_act: Vec<f64>,
-    /// Active-structure surface temperature [K] (`Tact`, `Twall`).
+    /// Active-structure surface temperature [K] (`Tact`).
     pub t_act: Vec<f64>,
+    /// `Twall` (`structure::Twall_`, `T.wall`): zero until the first `structure::correct`, which copies `Tact`.
+    pub t_wall: Vec<f64>,
     /// `powerOffCriterionModel`.
     pub power_off: Option<PowerOffCriterion>,
     /// Whether power has been switched off.
@@ -629,6 +688,10 @@ pub struct TwoPhaseSolver {
     pub dmdt: Vec<f64>,
     /// Latent heat [J/kg].
     pub latent_heat: Vec<f64>,
+    /// Wall (sub-cooled boiling) mass-transfer source `dmdtW` [kg/(m^3 s)], written by the
+    /// `multiRegimeBoilingTRACE` model in `FSPair::correct` and consumed, then zeroed, by the next
+    /// `phaseChangeModel::correct` (gh:#1222).
+    pub dmdt_w: Vec<f64>,
     /// Fluid-fluid drag coefficient [kg/(m^3 s)].
     pub kd_ff: Vec<f64>,
     /// Interfacial htc of each fluid [W/(m^2 K)].
@@ -721,6 +784,7 @@ impl TwoPhaseSolver {
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
             latent_heat: vec![0.0; n],
+            dmdt_w: vec![0.0; n],
             kd_ff: vec![0.0; n],
             htc_ff: [vec![0.0; n], vec![0.0; n]],
             kd_fs: [vec![0.0; n], vec![0.0; n]],
@@ -771,6 +835,10 @@ impl TwoPhaseSolver {
             s.fluids[k].alpha_rho_phi = (0..nf).map(|f| rf[f] * ap[f]).collect();
             s.fluids[k].alpha_phi = ap;
             s.fluids[k].mag_u = s.fluids[k].u.c.iter().map(|v| v.mag()).collect();
+            // fluid::initAlphaPhis: `alphaRhoMagU_ = (*this)*this->rho()*magU_` (no file for it)
+            s.fluids[k].alpha_rho_mag_u = (0..n)
+                .map(|c| s.fluids[k].alpha.c[c] * s.fluids[k].rho.c[c] * s.fluids[k].mag_u[c])
+                .collect();
         }
         s.phi = (0..nf)
             .map(|f| s.fluids[0].alpha_phi[f] + s.fluids[1].alpha_phi[f])
@@ -911,7 +979,7 @@ impl TwoPhaseSolver {
                 report.converged_at = corr;
             }
             self.corr_in_step = corr;
-            self.correct_models();
+            self.correct_models()?;
             let (p_res, n_piso) = self.correct_fluid_mechanics()?;
             let _ = n_piso;
             report.p_rgh_initial_residual = p_res;
@@ -971,12 +1039,32 @@ impl TwoPhaseSolver {
 
     /// `twoPhase::correctModels`: regime maps, `FFPair`, both `FSPair`s and
     /// `twoPhaseDragFactor`.
-    fn correct_models(&mut self) {
+    fn correct_models(&mut self) -> Result<(), crate::error::AppBuilderError> {
         let n = self.geom.n_cells();
-        // oneParameter::correct
-        if let Some((map, k)) = &self.models.regime_map {
-            for c in 0..n {
-                self.regime_weights[c] = map.regime_weights(self.fluids[*k].normalized[c]);
+        // oneParameter::correct / twoParameters::correct
+        match &self.models.regime_map {
+            None => {}
+            Some(RegimeMapSelection::OneParameter(map, k)) => {
+                for c in 0..n {
+                    self.regime_weights[c] = map.regime_weights(self.fluids[*k].normalized[c]);
+                }
+            }
+            Some(RegimeMapSelection::TwoParameters { map, parameter1, parameter2 }) => {
+                let field = |par: &RegimeParameter, c: usize| match *par {
+                    RegimeParameter::NormalizedAlpha(k) => self.fluids[k].normalized[c],
+                    RegimeParameter::AlphaRhoMagU(k) => self.fluids[k].alpha_rho_mag_u[c],
+                };
+                let mut weights = Vec::with_capacity(n);
+                for c in 0..n {
+                    let w = map
+                        .regime_weights(field(parameter1, c), field(parameter2, c))
+                        .map_err(|e| crate::error::AppBuilderError::Case {
+                            case: crate::path::PathBuf::from("twoParameters regime map"),
+                            msg: e,
+                        })?;
+                    weights.push(w);
+                }
+                self.regime_weights = weights;
             }
         }
         self.correct_ff_pair();
@@ -984,6 +1072,7 @@ impl TwoPhaseSolver {
             self.correct_fs_pair(k);
         }
         self.correct_two_phase_drag_factor();
+        Ok(())
     }
 
     /// `FFPair::correct` (FFPair.C:441-730).
@@ -1003,7 +1092,11 @@ impl TwoPhaseSolver {
                 self.fluids[k].dh[c] = if d == 0.0 {
                     dhs
                 } else {
-                    d * self.fluids[k].dispersed_diameter + (1.0 - d) * dhs
+                    let dd = match &self.fluids[k].dispersed_diameter_by_regime {
+                        Some(m) => m.value(&self.regime_weights[c], |v| *v),
+                        None => self.fluids[k].dispersed_diameter,
+                    };
+                    d * dd + (1.0 - d) * dhs
                 };
             }
             let (f1, f2) = (&self.fluids[0], &self.fluids[1]);
@@ -1015,13 +1108,19 @@ impl TwoPhaseSolver {
             // spherical::value
             let a_sum = self.alpha_dispersed[c] + alpha_cont;
             let a = self.alpha_dispersed[c] / a_sum;
-            let cut = self.models.spherical_cutoff_alpha;
-            self.interfacial_area[c] = a_sum
-                * if a < cut {
-                    6.0 * a / self.dh_dispersed[c]
-                } else {
-                    6.0 * a / self.dh_dispersed[c] * (1.0 - a) / (1.0 - cut)
-                };
+            let dh_d = self.dh_dispersed[c];
+            let spherical = |cut: f64| {
+                a_sum
+                    * if a < cut {
+                        6.0 * a / dh_d
+                    } else {
+                        6.0 * a / dh_d * (1.0 - a) / (1.0 - cut)
+                    }
+            };
+            self.interfacial_area[c] = match &self.models.interfacial_area_by_regime {
+                Some(m) => m.value(&self.regime_weights[c], |cut| spherical(*cut)),
+                None => spherical(self.models.spherical_cutoff_alpha),
+            };
             self.rho_continuous[c] = f1.rho.c[c] * d2 + f2.rho.c[c] * d1;
             let nu1 = f1.mu.c[c] / f1.rho.c[c];
             let nu2 = f2.mu.c[c] / f2.rho.c[c];
@@ -1279,6 +1378,8 @@ impl TwoPhaseSolver {
                 .rate
                 .mass_transfer_rate(power_density(q1), power_density(q2), specific_energy(l))
                 .value;
+            // `dmdt_ = dmdtI_ + dmdtW_` (phaseChangeModel::correct)
+            dmdt[c] += self.dmdt_w[c];
         }
         // limitMassTransfer
         let div1 = fv::div(&self.geom, &self.fluids[0].alpha_rho_phi);
@@ -1303,7 +1404,8 @@ impl TwoPhaseSolver {
         for c in 0..n {
             self.dmdt[c] = dmdt_prev[c] + f * (dmdt[c] - dmdt_prev[c]);
         }
-        // energy-conservative heSources (fw = 0: no ported model writes dmdtW)
+        // energy-conservative heSources; fw = dmdtW/dmdt where |dmdt| > dmdtMin (gh:#1222: the
+        // `multiRegimeBoilingTRACE` model writes dmdtW; with no such model dmdtW = 0 and fw = 0)
         let dmdt_min = 1e-2;
         for k in 0..2 {
             self.he_src[k] = EnergySource {
@@ -1325,9 +1427,20 @@ impl TwoPhaseSolver {
                 let mut d0 = (q1 + q2) / l;
                 d0 = if d0 >= 0.0 { d0.max(dmdt_min) } else { d0.min(-dmdt_min) };
                 let fr = d / d0;
-                let dl = d * l;
-                self.he_src[0].su_sp[c] = (dl - fr * q2) / self.fluids[0].he.c[c];
-                self.he_src[1].su_sp[c] = (dl - fr * q1) / self.fluids[1].he.c[c];
+                let fw = self.dmdt_w[c] / d;
+                let dmdt_ii = (1.0 - fw) * d;
+                let dmdt_wi = fw * d;
+                let dl = dmdt_ii * l;
+                let mut c1 = (dl - fr * q2) / self.fluids[0].he.c[c];
+                let mut c2 = (dl - fr * q1) / self.fluids[1].he.c[c];
+                // wall contribution
+                if dmdt_wi > 0.0 {
+                    c1 += (dmdt_wi * l) / self.fluids[0].he.c[c];
+                } else if dmdt_wi < 0.0 {
+                    c2 += (dmdt_wi * l) / self.fluids[1].he.c[c];
+                }
+                self.he_src[0].su_sp[c] = c1;
+                self.he_src[1].su_sp[c] = c2;
                 zeroed[c] = true;
             }
             // fvm::Sp(dmdt12, he1) - dmdt21 he1I  /  fvm::Sp(dmdt21, he2) - dmdt12 he2I
@@ -1336,6 +1449,10 @@ impl TwoPhaseSolver {
             self.he_src[0].su[c] += d21 * he1i;
             self.he_src[1].sp[c] += d21;
             self.he_src[1].su[c] += d12 * he2i;
+        }
+        // `dmdtW_` is reset after use: the wall models write it again in `FSPair::correct`
+        for v in &mut self.dmdt_w {
+            *v = 0.0;
         }
     }
 
@@ -1371,7 +1488,12 @@ impl TwoPhaseSolver {
         // htc
         for c in 0..n {
             if let Some(model) = self.models.fs_htc[k][c] {
-                self.htc_fs[k][c] = self.fs_htc_value(k, o, c, model);
+                let (htc, q_sc) = self.fs_htc_value(k, o, c, model);
+                self.htc_fs[k][c] = htc;
+                if let Some(q) = q_sc {
+                    // `dmdtW[celli] = iAact*qSCDmdti/mag(L)` (multiRegimeBoilingTRACE.C)
+                    self.dmdt_w[c] = self.structure.ia_act[c] * q / self.latent_heat[c].abs();
+                }
             }
         }
         for c in 0..n {
@@ -1380,7 +1502,10 @@ impl TwoPhaseSolver {
     }
 
     /// One cell of a fluid-structure htc model.
-    fn fs_htc_value(&self, k: usize, o: usize, c: usize, model: FsHtcModel) -> f64 {
+    ///
+    /// Returns the htc and, for `multiRegimeBoilingTRACE` in its boiling branch, the sub-cooled
+    /// boiling term `q_SC` the model turns into `dmdtW`.
+    fn fs_htc_value(&self, k: usize, o: usize, c: usize, model: FsHtcModel) -> (f64, Option<f64>) {
         let fl = &self.fluids[k];
         let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
         let tw = self.structure.t_act[c];
@@ -1396,7 +1521,8 @@ impl TwoPhaseSolver {
             .get::<watt_per_square_meter_kelvin>()
         };
         match model {
-            FsHtcModel::Nusselt(m) => fc(m),
+            FsHtcModel::Nusselt(m) => (fc(m), None),
+            FsHtcModel::MultiRegimeBoilingTrace(m) => self.trace_boiling_value(k, o, c, m),
             FsHtcModel::SuperpositionNucleateBoiling {
                 forced_convection,
                 pool_boiling,
@@ -1431,9 +1557,93 @@ impl TwoPhaseSolver {
                         Pressure::new::<pascal>(self.p.c[c]),
                     )
                     .get::<watt_per_square_meter_kelvin>();
-                fc(forced_convection) * f + pb * s
+                (fc(forced_convection) * f + pb * s, None)
             }
         }
+    }
+
+    /// `multiRegimeBoilingTRACE::value` for cell `c` of fluid `k` (gh:#1222). The wall temperature is
+    /// the `Twall` field of the structure (zero until its first `correct`), the saturation
+    /// temperature `T.interface`, the pool-boiling model the `Twall`/`T.interface` form.
+    fn trace_boiling_value(&self, k: usize, o: usize, c: usize, m: TraceBoilingModel) -> (f64, Option<f64>) {
+        let fl = &self.fluids[k];
+        let ot = &self.fluids[o];
+        let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
+        let tw = self.structure.t_wall[c];
+        let tf = fl.t.c[c];
+        let tsat = self.t_interface[c];
+        let fc = m
+            .forced_convection
+            .heat_transfer_coefficient(
+                ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+                Ratio::new::<ratio>(pr),
+                ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                Length::new::<meter>(fl.dh[c]),
+                Some((temperature(tw), temperature(tf))),
+            )
+            .get::<watt_per_square_meter_kelvin>();
+        // flow enhancement (Chen needs XLM, RezkallahSims the liquid fraction; COBRA-TF is not
+        // reachable from this reader)
+        let f = m
+            .flow_enhancement
+            .value(FlowEnhancementInputs {
+                inverse_lockhart_martinelli: Ratio::new::<ratio>(1.0 / fl.xlm[c]),
+                liquid_void_fraction: Ratio::new::<ratio>(fl.normalized[c]),
+                mixture_reynolds_number: ReynoldsNumber::new::<ratio>(10.0),
+                single_phase_reynolds_number: ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+            })
+            .get::<ratio>();
+        let htc_2p_fc = fc * f;
+        let inputs = TraceBoilingInputs {
+            alpha_other: 1.0 - fl.normalized[c],
+            t_wall: tw,
+            t_fluid: tf,
+            t_sat: tsat,
+            htc_2p_fc,
+            htc_film_condensation: None,
+            has_onb_model: m.onset.is_some(),
+        };
+        let l_abs = self.latent_heat[c].abs();
+        let t_onb = |htc: f64| -> f64 {
+            match m.onset {
+                Some(model) => model
+                    .temperature(
+                        uom::si::f64::HeatTransfer::new::<watt_per_square_meter_kelvin>(htc),
+                        temperature(tf),
+                        temperature(tsat),
+                        mass_density(ot.rho.c[c]),
+                        specific_energy(l_abs),
+                        ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                    )
+                    .get::<kelvin>(),
+                None => tsat,
+            }
+        };
+        let pool = |t_wall: f64| -> f64 {
+            m.pool_boiling
+                .heat_transfer_coefficient_from_delta_t(
+                    uom::si::f64::TemperatureInterval::new::<uom::si::temperature_interval::kelvin>(t_wall - tsat),
+                    Pressure::new::<pascal>(self.p.c[c]),
+                )
+                .get::<watt_per_square_meter_kelvin>()
+        };
+        let scbf = m.sub_cooled_fraction.map(|model| {
+            move |q: f64| -> f64 {
+                model
+                    .fraction(
+                        uom::si::f64::HeatFluxDensity::new::<watt_per_square_meter>(q),
+                        ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                        Length::new::<meter>(self.structure.dh[c]),
+                        ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+                        Ratio::new::<ratio>(pr),
+                        temperature(tsat),
+                        temperature(tf),
+                    )
+                    .get::<ratio>()
+            }
+        });
+        let r = multi_regime_boiling_trace(&inputs, t_onb, pool, scbf);
+        (r.htc, r.q_subcooled_dmdt)
     }
 
     /// `twoPhaseDragFactor::correct` (twoPhaseDragFactor.C:96-118) with
@@ -1884,6 +2094,10 @@ impl TwoPhaseSolver {
                 self.fluids[k].u.c = u;
                 self.fluids[k].u.correct_bc(&g);
                 self.fluids[k].mag_u = self.fluids[k].u.c.iter().map(|v| v.mag()).collect();
+                // fluid::correctAlphaRhoMagU
+                self.fluids[k].alpha_rho_mag_u = (0..n)
+                    .map(|c| self.fluids[k].alpha.c[c] * self.fluids[k].rho.c[c] * self.fluids[k].mag_u[c])
+                    .collect();
             }
             // updatePP_rghRho_2p.H
             for c in 0..n {
@@ -2056,6 +2270,8 @@ impl TwoPhaseSolver {
                 self.structure.power[c] = Some(pm);
             }
         }
+        // `structure::correct` ends with `Twall = Tact` in its cells
+        self.structure.t_wall = self.structure.t_act.clone();
         if self.structure_old_time_stale {
             // fixedPower::correct: `T_.oldTime()` is created in outer iteration 1
             // with a stale time index; the first request of outer iteration 2
@@ -2531,6 +2747,8 @@ impl Phase {
             residual_alpha,
             thermo_residual_alpha,
             dispersed_diameter,
+            dispersed_diameter_by_regime: None,
+            alpha_rho_mag_u: vec![0.0; n],
             normalized: vec![0.0; n],
             phi: vec![0.0; nf],
             alpha_phi: vec![0.0; nf],
@@ -2603,6 +2821,7 @@ impl Structure {
             power,
             ia_act,
             t_act: vec![0.0; n],
+            t_wall: vec![0.0; n],
             power_off,
             powered_off: false,
         }

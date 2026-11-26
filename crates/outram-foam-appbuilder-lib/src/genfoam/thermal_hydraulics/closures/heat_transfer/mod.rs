@@ -127,12 +127,16 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod boiling;
+pub mod boiling_trace;
+pub mod boiling_trace_chf;
 pub mod chf;
 pub mod ff_htc;
 pub mod fs_htc;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod boiling_trace_tests;
 
 use uom::si::f64::{AvailableEnergy, Ratio};
 
