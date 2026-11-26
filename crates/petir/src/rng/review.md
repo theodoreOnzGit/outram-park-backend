@@ -21,7 +21,7 @@ id = "review-prn-theodoreonzgit-681ddf65"
 kind = "review"
 origin = "human"
 created = "2026-11-26T10:45:44+08:00"
-modified = "2026-11-26T10:45:44+08:00"
+modified = "2026-11-26T12:51:52+08:00"
 target = "fn:681ddf6544e7b60b"
 
 [review]
@@ -29,11 +29,11 @@ path = "crates/petir/src/rng/lcg.rs::prn"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-11-26"
-signed_at = "2026-11-26T10:45:44+08:00"
-commit = "acaf7c11d6bb0176085df1fa033424d61e377e6d"
+signed_at = "2026-11-26T12:51:53+08:00"
+commit = "4388cb3b1acf65f713bd65b5b24e37036ab75095"
 hash = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
 doc_hash = "sha256:a4d8953a61b38a9b837f9d98df8be2e4afe68134124aa929247c69e8a094c5c0"
-cargo_lock = "sha256:4a48251d078c2265757f8e935e6bb409d9e9caff8c543ed902119772ad0d2989"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
 
 [review.callees]
 "fn:753a37cf1d65784f" = "sha256:d299a82397336967bc828c6fc316000582411eb0d21e12313ad3f06bede79899"
@@ -53,13 +53,10 @@ unintended_function = "no"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "mixed"
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "X0RN4TtjETnKlSItRs78l64Nyspf1Nz/z+zl8gda4ihEUeuVA3iQEmyuSCYKJyFJqkj3nK38lnX+8wNQtBIoDw=="
+value = "P6MEUYj1C6PoeXHvdl0yMieeNfewFi8hm9siutxJBkJc41xo4Iff8ri8v59T0d9eD1Bscr1j78F13a1TGoNsAQ=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
@@ -79,4 +76,4 @@ just like openmc source code
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit acaf7c11d6.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 4388cb3b1a.
