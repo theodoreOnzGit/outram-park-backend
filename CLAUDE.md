@@ -378,39 +378,10 @@ on gh:#1614. A new one needs 1e-9.
 
 ### No regression pins until there is concrete V&V at unit-test level (HARD RULE)
 
-**Maintainer direction, 2026-11-26:** "Don't need to pin until we get all
-physics right", refined the same day: "No pins until there are concrete AI
-v&v being done at unit test level." A **regression pin** asserts a model's
-own output equals its current value: a re-blessed fixture compared byte for
-byte, or a "pinned to the first run" number checked to 1e-3.
-
-**When a pin is allowed.** Only once the pieces the pinned output depends on
-have **concrete V&V at the unit-test level**. That means unit tests checking
-each piece (a correlation, a closure, a balance, a coupling) against a
-reference from outside the model: an analytic solution, the upstream code,
-or published data. Each test records its methodology and results (the V&V
-rule above). Until then, do not add a pin, and do not re-pin one after a
-change. A pin on
-unfinished physics fails exactly when the physics gets fixed, and making it
-pass again means re-asserting whatever the model now says, which checks
-nothing.
-
-- **Record the numbers instead,** in the V&V doc and the commit: measured,
-  dated, with old and new values and the interpretation (the V&V rule
-  above). The record is the evidence; the assert is not needed for it.
-- **An existing pin on such a model** is `#[ignore]`d with this reason (or
-  turned into a printed record) when a physics change moves it, not
-  re-blessed. Un-ignore it and re-bless it once its pieces have that
-  unit-level V&V, and say which tests provide it.
-- **Not covered, and still required:**
-  - correctness checks: energy and mass ledgers, physical invariants, bounds
-    derived from the physics (for example "the first relocation does not
-    quench the core");
-  - code-to-code bit identity against an upstream;
-  - correct-physics-is-default tests;
-  - benchmark gates designed to be able to fail, and headless determinism
-    (same run, same bytes).
-- **First use:** `sembawang::bwr_mark1` after the swell fix (gh:#1810).
+**Maintainer, 2026-11-26.** No pin on a model's own output until the pieces
+it depends on have concrete V&V at the unit-test level. The full rule, with
+what it does and does not cover, is in [`AGENTS.md`](AGENTS.md#no-regression-pins-until-there-is-concrete-vv-at-unit-test-level-hard-rule)
+(moved there the same day, maintainer: "Move to agents md pls").
 
 ## Search the workspace before building anything (HARD RULE)
 

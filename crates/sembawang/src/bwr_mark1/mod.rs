@@ -2735,7 +2735,7 @@ mod tests {
         let (kg, gases) = core.b4c_tally();
         // MELCOR's cap is a physics bound and stays asserted.
         assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9, "{kg}");
-        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
         // Were 8.821 kg and CO2 152.51 mol; 7.208 kg after the swell fix.
         #[cfg(feature = "std")]
         println!("B4C reacted {kg:.3} kg; CO, CO2, CH4 {gases:?} mol");
@@ -2777,7 +2777,7 @@ mod tests {
         // high pressure. A finding to investigate, not a check.
         #[cfg(feature = "std")]
         println!("high-pressure melt ejection: {}", k.fdi_hpme);
-        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
         // Were 5.4844 h, 8.07 kg, steam 74.75 kg; 5.5653 h, 0.449 kg after the swell fix.
         #[cfg(feature = "std")]
         println!("first debris through the pedestal water at {h:.4} h, {kg:.3} kg; steam {:.2} kg", k.fdi_steam_kg);
@@ -2983,7 +2983,7 @@ mod tests {
     /// reproduces the old default byte for byte. Re-bless with
     /// `FUKUSHIMA_BLESS=1` as above.
     #[test]
-    #[ignore = "a regression pin on physics still being corrected (root CLAUDE.md, \"No regression pins until there is concrete V&V at unit-test level\"; maintainer 2026-11-26: \"Ignore sembawang pins for now, nothing to pin against\"). Last re-blessed with the swell fix, gh:#1810 (024ec1191)"]
+    #[ignore = "a regression pin on physics still being corrected (root AGENTS.md, \"No regression pins until there is concrete V&V at unit-test level\"; maintainer 2026-11-26: \"Ignore sembawang pins for now, nothing to pin against\"). Last re-blessed with the swell fix, gh:#1810 (024ec1191)"]
     fn the_lumped_headless_run_matches_its_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h_lumped.csv");
         let start = std::time::Instant::now();
@@ -3199,7 +3199,7 @@ mod tests {
         let k = &f.containment;
         // The failed head leaves no noble gas in the vessel (a state, kept).
         assert!(f.xe_vessel < 1e-9, "{f:?}");
-        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
         // Were drywell 4.94e-4, wetwell 3.38e-4, building 0.02318.
         #[cfg(feature = "std")]
         println!("Xe positions: drywell {:.4e}, wetwell {:.4e}, building {:.5}", k.xe_dw, k.xe_ww, k.xe_building);

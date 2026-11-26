@@ -258,7 +258,7 @@ mod tests {
         }
         let f = h.cs_released[h.cs_released.len() - 1];
         assert!((total(&st, 0) / (f * cs) - 1.0).abs() < 1e-4, "{} vs {}", total(&st, 0), f * cs);
-        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
         // Were I 1.358e18, Xe 2.895e18, Cs 7.4755e13, I 9.7700e16 Bq.
         #[cfg(feature = "std")]
         println!("inventory I {i:e} Xe {xe:e}; released Cs {:e} I {:e}", total(&st, 0), total(&st, 1));
@@ -335,7 +335,7 @@ mod tests {
         // equalising, 1.301e8 and 1.425e9; by the blades' B4C, 1.648e8 and
         // 1.487e9; by the debris falling through the pedestal's water,
         // 1.646e8 and 1.486e9; with UO2 carried by candling Zr, 1.289e8 and 1.682e9.
-        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
         // Were Xe-133 1.2954e11 / 4.3676e12, Cs-137 1.2888e8, I-131 1.6817e9.
         #[cfg(feature = "std")]
         println!("downwind Xe-133 {:e} {:e}, Cs-137 {:e}, I-131 ground {:e}", air(0, 2), air(3, 2), air(3, 0), ground(3, 1));

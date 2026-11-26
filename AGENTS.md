@@ -107,6 +107,41 @@ gh issue comment <number> --body "..."           # progress
   `macro_rules!`. kovan reads `mod` lines without expanding macros, so a
   macro-declared module is missing from review. Full rule: `CLAUDE.md`.
 
+## No regression pins until there is concrete V&V at unit-test level (HARD RULE)
+
+**Maintainer direction, 2026-11-26:** "Don't need to pin until we get all
+physics right", refined the same day: "No pins until there are concrete AI
+v&v being done at unit test level." A **regression pin** asserts a model's
+own output equals its current value: a re-blessed fixture compared byte for
+byte, or a "pinned to the first run" number checked to 1e-3.
+
+**When a pin is allowed.** Only once the pieces the pinned output depends on
+have **concrete V&V at the unit-test level**. That means unit tests checking
+each piece (a correlation, a closure, a balance, a coupling) against a
+reference from outside the model: an analytic solution, the upstream code,
+or published data. Each test records its methodology and results (the
+"Verification & validation documentation" rule in `CLAUDE.md`). Until then,
+do not add a pin, and do not re-pin one after a change. A pin on unfinished
+physics fails exactly when the physics gets fixed, and making it pass again
+means re-asserting whatever the model now says, which checks nothing.
+
+- **Record the numbers instead,** in the V&V doc and the commit: measured,
+  dated, with old and new values and the interpretation (the same V&V
+  rule). The record is the evidence; the assert is not needed for it.
+- **An existing pin on such a model** is `#[ignore]`d with this reason (or
+  turned into a printed record) when a physics change moves it, not
+  re-blessed. Un-ignore it and re-bless it once its pieces have that
+  unit-level V&V, and say which tests provide it.
+- **Not covered, and still required:**
+  - correctness checks: energy and mass ledgers, physical invariants, bounds
+    derived from the physics (for example "the first relocation does not
+    quench the core");
+  - code-to-code bit identity against an upstream;
+  - correct-physics-is-default tests;
+  - benchmark gates designed to be able to fail, and headless determinism
+    (same run, same bytes).
+- **First use:** `sembawang::bwr_mark1` after the swell fix (gh:#1810).
+
 ## Crate-level interfaces may follow SOLID principles (maintainer, 2026-11-03)
 
 **Maintainer direction:** "At the crate level I am ok with interfaces using
