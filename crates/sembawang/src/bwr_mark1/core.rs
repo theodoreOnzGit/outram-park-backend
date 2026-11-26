@@ -525,18 +525,22 @@ impl HeadWall {
 }
 
 /// Zircaloy emissivity against oxide thickness, after MELCOR's C1104 (Vol.
-/// 2, COR §2.1, Eqs 2-7 to 2-10): 0.325 bare, 0.808 at 3.88 um, 0.759 at
+/// 2, COR §2.1, Eqs 2-7 to 2-10): 0.325 bare, ~~0.808 at 3.88 um, 0.759 at~~ 0.808448 at 3.88 um and 0.758642 at
 /// 1 mm and beyond, linear between; above 1500 K multiplied by
 /// `exp((1500 - T)/300)`, no lower than 0.325. MELCOR degrades on the
 /// highest temperature the surface has reached; this uses the present one
 /// (stated simplification).
 fn zr_emissivity(oxide_m: f64, t_k: f64) -> f64 {
-    let e = if oxide_m <= 3.88e-6 {
-        0.325 + (0.808 - 0.325) * oxide_m / 3.88e-6
+    // MELCOR's Eqs 2-7 and 2-8 (Vol. 2 COR §2.1.1, COR-RM-28/29; C1104):
+    // 0.325 + 0.1246e6 dr up to dr = 3.8799999e-6 m, then 0.808642 - 50 dr
+    // to 1 mm, constant beyond. ~~Linear between the rounded endpoints 0.808
+    // and 0.759~~ (corrected by the unit V&V of 2026-11-26, COR1-01).
+    let e = if oxide_m <= 3.8799999e-6 {
+        0.325 + 0.1246e6 * oxide_m
     } else if oxide_m <= 1.0e-3 {
-        0.808 + (0.759 - 0.808) * (oxide_m - 3.88e-6) / (1.0e-3 - 3.88e-6)
+        0.808642 - 50.0 * oxide_m
     } else {
-        0.759
+        0.808642 - 50.0 * 1.0e-3
     };
     let e = if t_k > 1500.0 { (e * ((1500.0 - t_k) / 300.0).r_exp()).max(0.325) } else { e };
     e.clamp(1.0e-4, 0.9999)
@@ -1118,9 +1122,16 @@ fn steam_enthalpy_above_298(t_k: f64, p_pa: f64) -> f64 {
 /// for a bed `height` m deep.
 pub fn lipinski_dryout_flux(prm: &Params, p_pa: f64, height: f64) -> f64 {
     let sat = super::steam::sat_from_tables(p_pa.clamp(super::steam::P_MIN_PA, super::steam::P_MAX_PA));
-    let (rho_l, rho_v, h_lv) = (1.0 / sat.v_f, 1.0 / sat.v_g, sat.h_g - sat.h_f);
-    let d = prm.debris_particle_m;
-    let eps = prm.debris_porosity.max(0.15);
+    lipinski_dryout_flux_with(1.0 / sat.v_f, 1.0 / sat.v_g, sat.h_g - sat.h_f, prm.debris_particle_m, prm.debris_porosity, height)
+}
+
+/// Lipinski's 0-D dryout flux, W/m^2, from the water's properties (`rho_l`,
+/// `rho_v` kg/m^3, `h_lv` J/kg), the particle diameter `d` and porosity `eps`
+/// (floored at 0.15) of a bed `height` m tall: MELCOR Vol. 2 COR §2.3.8,
+/// Eqs 2-114 and 2-115 (COR-RM-69/70), C1244 = 0.756, 0.089 m, 0.15. Split
+/// out of [`lipinski_dryout_flux`] for the unit V&V (COR1-12, 2026-11-26).
+pub fn lipinski_dryout_flux_with(rho_l: f64, rho_v: f64, h_lv: f64, d: f64, eps: f64, height: f64) -> f64 {
+    let eps = eps.max(0.15);
     let lambda_c = 0.089 * 5.0e-4 / d;
     let num = rho_v * (rho_l - rho_v) * 9.81 * d * eps.r_powi(3) * (1.0 + lambda_c / height.max(1e-3));
     let den = (1.0 - eps) * (1.0 + (rho_v / rho_l).r_powf(0.25)).r_powi(4);
@@ -1199,17 +1210,23 @@ pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64
 /// inventory per hour (2.6e-7 /min at 1173 K), so the holdup moves the
 /// release by under 1e-5.
 pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 {
-    const CAL: f64 = 4.184;
-    prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
+    prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol / (CORSOR_R_KCAL_PER_MOL_K * t_k)).r_exp()
 }
+
+/// The gas constant CORSOR-M's coefficients were fitted with, kcal/(mol K):
+/// 1.987e-3, as the manual states beside Eq 2-11 (Vol. 2 RN §2.3.1.2,
+/// RN-RM-19). The correlation is defined with it, so it is used here rather
+/// than CODATA's R (~~`Q x 4184 / 8.314462`~~, an effective 1.98720e-3,
+/// which moved the rates by 0.14 to 0.33 %; found by the unit V&V of
+/// 2026-11-26, `melcor-unit-vv/rn-aerosol-sparc-mp.md` RN-01).
+pub const CORSOR_R_KCAL_PER_MOL_K: f64 = 1.987e-3;
 
 /// Fractional release rate of UO2 itself from fuel at `t_k`, 1/s: CORSOR-M's
 /// row for La and UO2 (Vol. 2, RN §2.3.1, C7102), `k0 exp(-Q/(R T))` per
 /// minute. The released UO2 is the aerosol the vapours condense on
 /// (gh:#1047); its inventory is the fuel's UO2.
 pub fn uo2_release_rate(prm: &Params, t_k: f64) -> f64 {
-    const CAL: f64 = 4.184;
-    prm.corsor_uo2_k0_per_min / 60.0 * (-prm.corsor_uo2_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
+    prm.corsor_uo2_k0_per_min / 60.0 * (-prm.corsor_uo2_q_kcal_per_mol / (CORSOR_R_KCAL_PER_MOL_K * t_k)).r_exp()
 }
 
 /// Dittus-Boelter heat transfer coefficient for steam at `t_film` and `p`,
@@ -2222,6 +2239,12 @@ impl CoreResult {
     }
 }
 
+// The unit V&V against MELCOR 2.2's manuals (2026-11-26): each test checks
+// one item of `verification_and_validation/bwr_mark1/melcor-unit-vv/`.
+#[cfg(test)]
+#[path = "core_melcor_vv.rs"]
+mod melcor_vv;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2530,15 +2553,17 @@ mod tests {
     }
 
     /// Radiation (gh:#1037): MELCOR's Zircaloy emissivity points (0.325
-    /// bare, 0.808 at 3.88 um, 0.759 at 1 mm), its degradation above 1500 K
+    /// bare, 0.808448 at 3.88 um, 0.758642 at 1 mm, Eqs 2-7 and 2-8 since 2026-11-26), its degradation above 1500 K
     /// floored at 0.325, steel's linear law at 616.48 K, and the gray-body
     /// exchange's sign and symmetry.
     #[test]
     fn radiation_follows_melcors_emissivities_and_conserves() {
         assert!((zr_emissivity(0.0, 1000.0) - 0.325).abs() < 1e-12);
-        assert!((zr_emissivity(3.88e-6, 1000.0) - 0.808).abs() < 1e-12);
-        assert!((zr_emissivity(2.0e-3, 1000.0) - 0.759).abs() < 1e-12);
-        assert!((zr_emissivity(2.0e-3, 1600.0) - 0.759 * (-1.0f64 / 3.0).exp()).abs() < 1e-9);
+        // The manual's Eqs 2-7 and 2-8 (since 2026-11-26; were the rounded
+        // 0.808 and 0.759): 0.808448 at 3.88 um, 0.758642 from 1 mm.
+        assert!((zr_emissivity(3.8799999e-6, 1000.0) - 0.808448).abs() < 1e-6);
+        assert!((zr_emissivity(2.0e-3, 1000.0) - 0.758642).abs() < 1e-12);
+        assert!((zr_emissivity(2.0e-3, 1600.0) - 0.758642 * (-1.0f64 / 3.0).exp()).abs() < 1e-9);
         assert_eq!(zr_emissivity(2.0e-3, 3000.0), 0.325);
         assert!((steel_emissivity(616.48) - 0.25617).abs() < 1e-12);
         let x = gray_exchange(1.0, 0.8, 0.5, 1500.0, 1000.0);

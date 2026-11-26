@@ -281,8 +281,10 @@ capillary head is adjusted for particle size; Eq 2-115 gives `lambda_c ~ 1/d`).
 
 **Test cases** (rho_l = 915, rho_v = 2.67 kg/m^3, h_lv = 2.108e6 J/kg, g = 9.81, L = 1 m):
 d = 0.01 m, eps = 0.4: lambda_c = 0.00445 m, **q_d = 5.309088e6 W/m^2**; d = 0.5 mm, eps = 0.4:
-lambda_c = 0.089 m, q_d = 1.236103e6; eps = 0.05 -> floored to 0.15: 1.024314e6 (same as
-eps = 0.15). Side check of Eq 2-115 with water at 373 K (sigma 0.0589 N/m, cos = 1,
+lambda_c = 0.089 m, q_d = 1.236103e6; ~~eps = 0.05 -> floored to 0.15: 1.024314e6~~
+**CORRECTED 2026-11-26 (found by the unit test):** 1.024314e6 is for **d = 0.01 m**,
+eps = 0.05 -> floored to 0.15 (`calc/calc_c2.py` computes that case); the text had
+paired it with d = 0.5 mm, where the floored value is 2.384887e5. Side check of Eq 2-115 with water at 373 K (sigma 0.0589 N/m, cos = 1,
 eps = 0.4, d = 0.5 mm): lambda_c = 0.1129 m, the same order as the 0.089 m default.
 
 **Our code.** `S/core.rs:1119` `lipinski_dryout_flux`; test `lipinski_dryout_matches_a_hand_value`

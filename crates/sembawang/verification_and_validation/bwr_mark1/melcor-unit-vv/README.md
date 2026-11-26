@@ -52,9 +52,12 @@ Updated as the tests are written. A pin on any output that depends on an
 item is allowed only once that item's test exists and passes (root
 `AGENTS.md`).
 
-| Item | Test | Result |
+| Item | Test (`sembawang`, `--lib`) | Result (2026-11-26) |
 |---|---|---|
-| (filled as tests land) | | |
+| COR1-16 Urbanic-Heidrick | `core::melcor_vv::cor1_16_urbanic_heidrick_rate_matches_the_manual` | pass at 1e-12 against the equation, 1e-6 against the printed values |
+| COR1-01 Zr emissivity | `core::melcor_vv::cor1_01_zircaloy_emissivity_matches_the_manual` | **failed** (rounded table, up to 4e-4); code fixed to Eqs 2-7/2-8; pass |
+| COR1-12 Lipinski | `core::melcor_vv::cor1_12_lipinski_dryout_flux_matches_the_manual` | pass at 1e-6; **the item's own floor case was mislabelled** (corrected there) |
+| RN-01 CORSOR-M | `core::melcor_vv::rn_01_corsor_m_rates_match_the_manual` | **failed** (CODATA R, 0.14-0.33 %); code fixed to the correlation's R = 1.987e-3 kcal/(mol K); pass |
 
 ## Discrepancies found, for decision (not fixed in this extraction)
 
