@@ -32,14 +32,26 @@
 //! | Stage | Issue | Content | Status |
 //! |---|---|---|---|
 //! | 1 | gh:#1790 | exact geometric predicates (`predicates.cxx`) | **done: [`predicates`]** |
-//! | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insertpoint`) | not started |
+//! | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insert_vertex_bw`) and the mesh data structure | **done: [`mesh`], [`delaunay`]** |
 //! | 3 | gh:#1792 | PLC surface meshing (`meshsurface`) | not started |
 //! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
 //! | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
 //! | 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
 //! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | not started |
 //!
-//! Only the predicates exist so far.
+//! Stage 2 adds the mesh object ([`mesh::TetgenMesh`]: pools, records,
+//! `triface` and every orientation table, with indices for pointers) and
+//! [`delaunay_tetrahedralize`], whose `.node`/`.ele` output is identical to
+//! `tetgen -zQ` on twelve cases (`verification_and_validation/tetgen_delaunay_gh1791/`).
+//!
+//! **The pool order is part of the answer.** Upstream numbers its output by
+//! walking its memory pools in allocation order and reuses freed records
+//! last-in first-out; [`mesh::MemoryPool`] reproduces both, and anything that
+//! creates or frees a tetrahedron or a point must go through it
+//! ([`mesh::TetgenMesh::maketetrahedron2`], `tetrahedrondealloc`,
+//! `makepoint`, `pointdealloc`), never a `Vec::push`. Likewise the C
+//! library's `rand()` (glibc, [`mesh::GlibcRand`]) and TetGen's own
+//! `randomnation` are part of the answer.
 //!
 //! ## Why the predicates are ported, not reused
 //!
@@ -55,4 +67,11 @@
 //! `-X` options decide which value is returned. Only a line-for-line port
 //! reproduces those values to the bit.
 
+pub mod delaunay;
+pub mod mesh;
 pub mod predicates;
+
+pub use delaunay::{
+    delaunay_tetrahedralize, delaunay_tetrahedralize_with, TetgenError, Tetrahedralization,
+};
+pub use mesh::{Behavior, TetgenMesh};

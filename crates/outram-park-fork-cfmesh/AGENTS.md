@@ -529,7 +529,7 @@ sign-equal substitute (`delaunay.rs`, `outram-blender`'s
 | Stage | Issue | Content | Status |
 |---|---|---|---|
 | 1 | gh:#1790 | exact predicates (`predicates.cxx`) | done: 84 000 / 84 000 bit-identical, `verification_and_validation/tetgen_predicates_gh1790/` |
-| 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insertpoint`) | not started |
+| 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, ~~`insertpoint`~~ `insert_vertex_bw`) and the mesh data structure | done: 12 / 12 cases identical to `tetgen -zQ` (165 124 tets, order and vertex order), `verification_and_validation/tetgen_delaunay_gh1791/` |
 | 3 | gh:#1792 | PLC surface meshing (`meshsurface`) | not started |
 | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
 | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
@@ -538,3 +538,29 @@ sign-equal substitute (`delaunay.rs`, `outram-blender`'s
 
 `tetgen::predicates::Predicates` holds what `exactinit` sets (the C
 globals of `predicates.cxx`) in place of upstream's file-scope statics.
+
+**Stage 2 (gh:#1791)** adds `tetgen::mesh` (the `tetgenmesh` object later
+stages extend: `TetRecord` with upstream's twelve words, the subface and
+subsegment slots `seg`/`sub` reserved; `PointRecord`; `TriFace` with `ver`
+in `0..12` and every orientation table transcribed one for one, including
+the subface ones stages 3 on need) and `tetgen::delaunay`
+(`delaunay_tetrahedralize`). ~~`insertpoint`~~ **CORRECTED 2026-11-26:**
+upstream's point-set path inserts with `insert_vertex_bw` (Bowyer-Watson),
+not `insertpoint`; `insertpoint` and its flips are first used by stage 3
+and are not ported yet (`locate` is). Rules it taught:
+
+- **Pool order is part of the answer.** `.ele` order is upstream's pool
+  traversal (allocation slot order, dead records skipped) and a freed
+  record is reused LIFO first. Create and free tetrahedra and points only
+  through `MemoryPool` (`maketetrahedron2`, `tetrahedrondealloc`,
+  `makepoint`, `pointdealloc`), never with a plain `Vec::push`.
+- **The C library's `rand()` is part of the answer** (the vertex
+  permutation, `locate_dt`'s face choice, the new `recenttet`).
+  `mesh::GlibcRand` is glibc's; upstream built against another libc gives
+  another valid mesh. TetGen's own `randomnation` (seed in the mesh) is
+  separate; both are ported.
+- **Raw-pointer reads are emulated, not "fixed".** `insert_vertex_bw` tests
+  `((point *) point2tet(p))[6] == insertpt` on a handle that may carry a
+  version (the first tet's four points); upstream's read then lands
+  mid-record and never matches, and the port says so in
+  `point2tet_apex_is`.
