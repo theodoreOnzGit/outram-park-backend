@@ -3027,3 +3027,73 @@ S4. Round 18 P5 (dropping the wall function moves `nut` in the wall cells by > 1
 S5. Changing the viscosity in `UEqn` from `mu/rho(T)` (round 19) to upstream's `mu/rho0` moves the round-19 numbers by < 1e-10 (relative change of `rho(T)` is `beta |T - T0|` ~ 7e-11).
 S6. PBiCGStab iteration counts of `k`/`epsilon`: equal within +-2 for the first solves of each step (initial residual > 1e-6); the late ones, which start near the
     round-off floor, are not gated (the round 19 Q2 lesson).
+
+## Round 20 results (2026-11-26; measured by `tests/genfoam_msfr_th_vs_upstream.rs`, release, 8 tests, ~16 s)
+
+**`turbulence true` agrees with the real binary from the FIRST run, to round-off, in all nine fields, at every step checked (1-3, 6, 9, 14) and in every
+`k`/`epsilon` solve of all 14 steps.** Reference: the real unmodified binary at the tight protocol (`TURB=on`, 19 s; fields `refs/msfr_th_on_head.ref.txt.gz` steps 1-3,
+new `refs/msfr_th_on_later.ref.txt.gz` U, p_rgh, k, epsilon, nut at steps 6, 9, 14, new `refs/msfr_th_on_log.ref.txt.gz` every solve of all 14 steps). The port
+starts from the root case, takes its own time steps and uses nothing of upstream's results as input.
+
+| step (t) | `U` | `p` | `p_rgh` | `T` (rel. 900 K) | `k` | `epsilon` | `nut` | `alphat` | `alphaPhi` |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 (0.001) | 4.9e-12 | 6.1e-13 | 6.5e-13 | 7.6e-16 | 3.1e-14 | 3.3e-13 | 3.1e-14 | 3.1e-14 | 1.0e-11 |
+| 2 (0.0022) | 1.0e-12 | 4.5e-13 | 4.8e-13 | 8.8e-16 | 5.4e-14 | 3.0e-13 | 2.3e-14 | 2.3e-14 | 2.9e-12 |
+| 3 (0.00364) | 9.2e-13 | 3.3e-13 | 3.5e-13 | 1.1e-15 | 8.3e-14 | 2.5e-13 | 1.7e-14 | 1.7e-14 | 3.6e-12 |
+| 6 (0.00993) | 8.9e-13 | | 4.3e-13 | | 1.3e-13 | 1.5e-13 | 6.7e-15 | | |
+| 9 (0.0208) | 1.2e-12 | | 8.7e-13 | | 1.4e-13 | 4.4e-13 | 6.5e-15 | | |
+| 14 (0.0592) | 6.0e-13 | | 4.2e-13 | | 3.4e-13 | 5.8e-13 | 4.0e-14 | | |
+
+(`max|port - upstream| / max|upstream|` per field; gate 1e-9; `alphat` equals `nut` to the digit because `alphat = rho0 nut/Prt`, `Prt = 1`.) All 70 `epsilon` and 70 `k` solves of
+the 14 steps (initial residual > 1e-9): residual to 1.1e-11 / 5.9e-12 relative, iteration counts equal in all but one `k` solve (differs by 2, step 13); `T (avg min max)` of
+all 70 outer iterations to 1.0e-15 of 900 K. The first solve of step 1: `epsilon` 1.4680897178119755e-5 (upstream 1.4680897178119777e-5), `k` 0.9999999997221586
+(upstream 0.99999999972215847), 2 and 2 iterations. **First diverging step: none above round-off; no cause to find.**
+
+### Predictions S1-S7
+
+* **S1 held** (residuals to 1.5e-15 relative, iteration counts equal). **S2 held** on the first run for all nine fields (the wall `y`, the cell weights, `G0`, `nutw` and the
+  `setValues` row are all right; nothing to bisect). **S3 held** (`T` 7.6e-16 to 1.1e-15 of 900 K). **S6 held**: counts equal or within 2, for ALL 140 solves (the late solves
+  start at 1e-4 to 1e-6 here, not at the round-off floor of round 19's pressure correctors, so the count does carry information).
+* **S4 held** (the ablation `without_wall_functions`, kept as a named deprecated option, measured, not tuned): after step 1, `max |nut_abl - nut|/|nut|` over the cells is 1.0e3, far
+  above the predicted 10 %. It is a statement that the wall cells carry the wall function, not a quality measure of either run.
+* **S5 MISSED, in its premise.** I predicted `UEqn`'s viscosity to move by < 1e-10 if changed from `mu/rho(T)` to `mu/rho0` (the model's own `rho_` IS the `rho0` field).
+  Measured: the turbulence-off `U` got better (1.4e-11 to 2.5e-12) and the turbulence-on `U` got worse (1e-11 to 5e-11 and 1e-10 at step 3); the opposite signs said the premise
+  was wrong, not which way to tune, so the source was read again: `TurbulenceModel::nu() = transport_.nu()` and `PhaseCompressibleTurbulenceModel` does NOT override it (only
+  `CompressibleTurbulenceModel` defines `mu/rho_`), so `nu` is the thermo's `mu/rho(T)` (cells; faces: the thermo's patch value, the owner's for `zeroGradient` `T`), while `alphat = rho_ nut/Prt` uses `rho0`.
+  With that reading both runs are at round-off and round 19's numbers did not move (the `rho0` experiment was reverted, not kept).
+* **S7 (added during the round): the lazy first-step `epsilon.oldTime()` is IMMATERIAL.** `oldTime()` is first requested by `fvm::ddt` AFTER `updateCoeffs` overwrote the wall cells, so
+  step 1's old `epsilon` differs from the initial uniform field exactly in the wall cells; but `boundaryManipulate` replaces those cells' rows, so the old value never enters (the step-1
+  `epsilon` was identical to the last bit with either old time; the option written to ablate it was removed because an option that changes nothing documents nothing).
+
+### What was ported (new code; the turbulence-off region is unchanged and re-checked)
+
+`one_phase_cc/turbulence.rs`: `porousKEpsilon::correct()` (`G`, the `epsilon` and `k` equations with `noStructure`/`yesStructure`/`alphaRhoConv`/equilibrium terms, `relax(0.9)`, `bound`,
+`correctNut`, `alphat`), `epsilonWallFunction` (weights `1/nWallFaces(cell)`, `G` and `epsilon` overwritten in every wall cell, patch value = `epsilon0`, STEPWISE blender, `lowReCorrection false`),
+`nutkWallFunction::calcNut` (`yPlusLam` by the upstream fixed-point iteration), `kqRWallFunction` (zero gradient), `nearWallDist` (`useCombinedWallPatch`: point-neighbour wall faces, face-fan
+distance), `fvMatrix::setValues` (`boundaryManipulate`), and the reading of `turbulenceProperties`/`porousKEpsilonProperties`/`k`/`epsilon`/`nut`/`alphat` with the last-match solver lookup (`".*"`
+wins over `"e.*"` for `epsilon`). Called at the top of `correct_fluid_mechanics` (`UEqn_1p.H`); `UEqn`'s `nuEff` and the energy equation's `alphaEff` read the live `nut`/`alphat`. The staged mesh
+now carries the fluid region's own `boundary` (`cases/msfr_th/polyMesh/boundary`, `type wall` on the four wall patches, the only difference from the neutro mesh, `cmp`-checked).
+Refused by name: `DhStruct`, wall-function entries beyond `type`/`value`, `k`/`epsilon`/`nut` patch types other than the three wall functions and `wedge`, a `Final` solver or relaxation entry that differs,
+`RASModel` other than `porousKEpsilon`.
+
+### Regression and tests
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_th_vs_upstream`: 8 passed (turbulence off 3 steps and its log: **numbers identical to round 19's table**, U 1.4e-11 / 7.2e-12 / 9.2e-13;
+turbulence on steps 1-3; 14 steps vs the log and fields at 6, 9, 14; the wall-function ablation; two refusals; the lazy old pressure ablation). Unit tests of the new module (`yPlusLam`,
+point-triangle and quad distance). The other `genfoam_msfr_*` files: see "Gates run" below.
+
+### Moved numbers
+
+None. The turbulence-off numbers are identical (the staged mesh now says `wall` instead of `patch`; nothing in the turbulence-off path reads it).
+
+### Remaining
+
+`EigenvalueStage::SteadyStateTh` (gh:#1841: the stage driver, the `multiRegionCouplingDict_steadyStateTH` mapping, a run to the stage end), `DhStruct` nut stabilisation, `lowReCorrection` and the other
+wall-function blenders, wall-function dictionary entries (`Cmu`, `kappa`, `E`), anisotropic `Kd`/tortuosity, steps beyond 14 (the reference ends at `endTime 0.06`).
+
+### Gates run (2026-11-26, release, targeted)
+
+`--test genfoam_msfr_th_vs_upstream` 8 passed; `--test genfoam_msfr_coupled_vs_upstream` 3 passed (the refusal test now expects the next refusal, the shipped `p_rgh` `GAMG`:
+`turbulence true` no longer refuses); `--test genfoam_msfr_chain_vs_upstream` 5 passed (237 s); `--test genfoam_msfr_transient_vs_upstream` 2 passed, 7 ignored diagnostics;
+`--lib turbulence::` 19 passed (3 new); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` `outram-foam-appbuilder-lib` section compiles for `x86_64-unknown-none`
+(the script was stopped after that crate). The full crate and workspace suites were NOT run (parent's integration run).

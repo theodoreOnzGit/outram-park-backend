@@ -49,7 +49,7 @@
 //!
 //! ## What is NOT ported (refused by name when the case is read)
 //!
-//! `turbulence true` (gh:#1838 wall functions, gh:#1839 `porousKEpsilon::correct`), `momentumMode` other than
+//! ~~`turbulence true` (gh:#1838 wall functions, gh:#1839 `porousKEpsilon::correct`)~~ **CORRECTED 2026-11-26 (round 20): ported, see [`super::turbulence`]**; `momentumMode` other than
 //! `cellCentered`, `nNonOrthogonalCorrectors != 0`, `porousInterfaceSharpness != 0`, `minKdFS != 0`, a
 //! `momentumSourceTimeProfile`, drag models other than `ReynoldsPower`, tortuosity, `fvOptions`.
 
@@ -131,6 +131,8 @@ pub struct OnePhaseFlowCase {
     pub momentum_source: Vec<Vector3>,
     /// The `ReynoldsPower` drag per cell (`None` outside the drag zones).
     pub drag: Vec<Option<ReynoldsPowerDrag>>,
+    /// `turbulence true`: `porousKEpsilon` with the wall functions (`None` with `turbulence false`).
+    pub turbulence: Option<super::OnePhaseTurbulenceCase>,
 }
 
 /// One pressure solve of the PISO loop, as upstream's log prints it (`DICPCG: Solving for p_rgh`).
@@ -384,19 +386,11 @@ pub(super) fn read_flow_case(
     pimple: &FoamDict,
     fs: &FoamDict,
     pp: &FoamDict,
-    tp: &FoamDict,
     momentum_source: Vec<Vector3>,
     drag: Vec<Option<ReynoldsPowerDrag>>,
 ) -> Result<OnePhaseFlowCase, AppBuilderError> {
     let n = g.n_cells();
     let ni = g.n_internal();
-    if let Some(ras) = tp.get_dict("RAS") {
-        if bool_entry(ras, "turbulence") != Some(false) {
-            return Err(ctx.e(
-                "RAS turbulence true is not ported with solveFluidMechanics true (wall functions gh:#1838,                  porousKEpsilon::correct gh:#1839): set `turbulence false`",
-            ));
-        }
-    }
     let mode = word(pimple, "momentumMode").unwrap_or_else(|| "cellCentered".to_string());
     if mode != "cellCentered" {
         return Err(ctx.e(format!("PIMPLE.momentumMode `{mode}` is not ported (cellCentered only)")));
@@ -520,6 +514,7 @@ pub(super) fn read_flow_case(
         nut_boundary,
         momentum_source,
         drag,
+        turbulence: None,
     })
 }
 
@@ -586,15 +581,21 @@ impl OnePhaseCcSolver {
 
         // ---- UEqn_1p.H ---------------------------------------------------------------------------------------
         // nuEff = nut + nu, nu = mu/rho(T) of the thermo; gamma = alpha rho nuEff (boundary: the patch values)
+        // fluid_.turbulence().correct() FIRST (`porousKEpsilon::correct`), then `nuEff = nut + mu/rho0`
+        self.correct_turbulence(&fs.phi);
+        let (nut_c, nut_b) = match self.turb.as_ref() {
+            Some(t) => (t.nut.c.clone(), t.nut.b.clone()),
+            None => (fc.nut.clone(), fc.nut_boundary.clone()),
+        };
         let mut arn = Scalar { c: vec![0.0; n], b: vec![0.0; nb], bc: vec![Bc::Calculated; npatch] };
         for c in 0..n {
             let nu = th.mu / th.rho(self.t[c]);
-            arn.c[c] = self.alpha[c] * rho0 * (fc.nut[c] + nu);
+            arn.c[c] = self.alpha[c] * rho0 * (nut_c[c] + nu);
         }
         for i in 0..nb {
             let o = m.owner[ni + i];
             let nu = th.mu / th.rho(self.t[o]);
-            arn.b[i] = self.alpha[o] * rho0 * (fc.nut_boundary[i] + nu);
+            arn.b[i] = self.alpha[o] * rho0 * (nut_b[i] + nu);
         }
         let gamma = fv::interp_linear(&g, &arn);
         let zg = Scalar::uniform(&g, 0.0, g.default_bcs());

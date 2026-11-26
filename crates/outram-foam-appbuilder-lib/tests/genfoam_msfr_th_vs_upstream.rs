@@ -81,10 +81,13 @@ fn stage(tag: &str) -> (PathBuf, PathBuf) {
     }
     let poly = tmp.join("polyMesh");
     std::fs::create_dir_all(&poly).expect("mkdir");
+    // the fluidRegion mesh: identical to the neutroRegion mesh (checked with `cmp`) except that its four wall patches are
+    // `type wall` (a wall function needs that), so `boundary` is the fluid region's own file
     let src = vv_dir().join("cases/msfr_neutro/polyMesh");
-    for f in ["points", "faces", "owner", "neighbour", "boundary", "cellZones"] {
+    for f in ["points", "faces", "owner", "neighbour", "cellZones"] {
         std::fs::write(poly.join(f), gunzip(&src.join(format!("{f}.gz")))).expect("polyMesh");
     }
+    std::fs::copy(vv_dir().join("cases/msfr_th/polyMesh/boundary"), poly.join("boundary")).expect("boundary");
     (root, poly)
 }
 
@@ -253,13 +256,184 @@ fn ablating_the_lazy_old_pressure_moves_t_by_millikelvin() {
     assert!((mx - mn) > 1e-4, "{}", mx - mn);
 }
 
-/// The solved flow refuses what is not ported: `turbulence true` (gh:#1838, gh:#1839).
-#[test]
-fn turbulence_true_is_refused_by_name() {
-    let (root, poly) = stage("refuse");
+/// `turbulence true` is switched on in the staged root case (the stored case is the `TURB=off` one).
+fn switch_turbulence_on(root: &Path) {
     let p = root.join("constant/fluidRegion/turbulenceProperties");
     let text = std::fs::read_to_string(&p).expect("turbulenceProperties");
+    assert!(text.contains("turbulence      false;"));
     std::fs::write(&p, text.replace("turbulence      false;", "turbulence      true;")).expect("write");
+}
+
+/// The solved flow still refuses what is not ported: the nut stabilisation `DhStruct` of `porousKEpsilonProperties`.
+#[test]
+fn nut_stabilisation_is_refused_by_name() {
+    let (root, poly) = stage("refuse");
+    switch_turbulence_on(&root);
+    let p = root.join("constant/fluidRegion/turbulenceProperties");
+    let text = std::fs::read_to_string(&p).expect("turbulenceProperties");
+    std::fs::write(&p, text.replace("convergenceLength           0.5;", "convergenceLength           0.5;\n        DhStruct 0.01;")).expect("write");
     let err = OnePhaseCcSolver::from_case_dir(&root, &poly).expect_err("must refuse").to_string();
-    assert!(err.contains("turbulence true is not ported"), "{err}");
+    assert!(err.contains("DhStruct"), "{err}");
+}
+
+/// The wall-function entries beyond `type`/`value` are refused by name rather than silently ignored.
+#[test]
+fn wall_function_entries_are_refused_by_name() {
+    let (root, poly) = stage("refuse_kappa");
+    switch_turbulence_on(&root);
+    let p = root.join("0/fluidRegion/nut");
+    let text = std::fs::read_to_string(&p).expect("nut");
+    std::fs::write(&p, text.replacen("type            nutkWallFunction;", "type            nutkWallFunction;\n\tkappa 0.4;", 1)).expect("write");
+    let err = OnePhaseCcSolver::from_case_dir(&root, &poly).expect_err("must refuse").to_string();
+    assert!(err.contains("kappa"), "{err}");
+}
+
+/// Per-step, per-field max-norm relative differences of the nine fields against `refs/msfr_th_on_head.ref.txt.gz`.
+fn run_on(solver: &mut OnePhaseCcSolver, steps: usize) -> Vec<[f64; 9]> {
+    let (rf, _) = read_ref(&vv_dir().join("refs/msfr_th_on_head.ref.txt.gz"));
+    let mut dt = solver.case().delta_t;
+    let timeprint = rf["TIMEPRINT"].clone();
+    let mut out = Vec::new();
+    for s in 0..steps {
+        solver.begin_time_step(dt);
+        let (_res, _rep) = solver.correct_physics();
+        let key = |name: &str| format!("{name} {}", timeprint[s]);
+        let u: Vec<f64> = solver.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).collect();
+        let ni = rf[&key("alphaPhi")].len();
+        let r = [
+            rel_max(&u, &rf[&key("U")]),
+            rel_max(solver.pressure(), &rf[&key("p")]),
+            rel_max(solver.p_rgh().expect("flow"), &rf[&key("p_rgh")]),
+            rel_max(solver.temperature(), &rf[&key("T")]),
+            rel_max(solver.turbulent_kinetic_energy().expect("k"), &rf[&key("k")]),
+            rel_max(solver.turbulent_dissipation().expect("eps"), &rf[&key("epsilon")]),
+            rel_max(solver.turbulent_viscosity().expect("nut"), &rf[&key("nut")]),
+            rel_max(solver.turbulent_thermal_diffusivity().expect("alphat"), &rf[&key("alphat")]),
+            rel_max(&solver.alpha_phi()[..ni], &rf[&key("alphaPhi")]),
+        ];
+        println!(
+            "step {} t={}: U {:.2e} p {:.2e} p_rgh {:.2e} T {:.2e} k {:.2e} eps {:.2e} nut {:.2e} alphat {:.2e} alphaPhi {:.2e}",
+            s + 1,
+            timeprint[s],
+            r[0],
+            r[1],
+            r[2],
+            r[3],
+            r[4],
+            r[5],
+            r[6],
+            r[7],
+            r[8]
+        );
+        out.push(r);
+        dt = adjust_delta_t(true, &[solver.max_delta_t()], 1e-300, dt).expect("adjustable");
+    }
+    out
+}
+
+const FIELDS: [&str; 9] = ["U", "p", "p_rgh", "T", "k", "epsilon", "nut", "alphat", "alphaPhi"];
+
+/// Steps 1-3 of `steadyStateTH` with `turbulence true` (wall functions + `porousKEpsilon::correct`) against the real binary.
+#[test]
+fn steady_state_th_turbulence_on_matches_the_real_binary() {
+    let (root, poly) = stage("on");
+    switch_turbulence_on(&root);
+    let mut solver = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("rootCase");
+    let res = run_on(&mut solver, 3);
+    for (s, r) in res.iter().enumerate() {
+        for (i, name) in FIELDS.iter().enumerate() {
+            assert!(r[i] <= TOL_ON, "step {} {name} {:e}", s + 1, r[i]);
+        }
+    }
+}
+
+/// Gate of the turbulence-on differential (relative to the field's max-norm).
+const TOL_ON: f64 = 1e-9;
+
+/// All 14 steps to `endTime 0.06`: every `epsilon` and `k` solve (initial residual and iteration count) and every
+/// `T (avg min max)` line against the log, and the fields at steps 6, 9 and 14 against `refs/msfr_th_on_later.ref.txt.gz`.
+///
+/// Residuals: initial residuals above 1e-9 to 1e-6 relative (below that they sit at the round-off floor of the previous
+/// solve and carry no information, round 19 Q2); iteration counts within 2 for those; `T` lines to 1e-9 of 900 K.
+#[test]
+fn fourteen_steps_follow_the_upstream_log_and_later_fields() {
+    let (root, poly) = stage("on_14");
+    switch_turbulence_on(&root);
+    let mut solver = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("rootCase");
+    let text = String::from_utf8(gunzip(&vv_dir().join("refs/msfr_th_on_log.ref.txt.gz"))).expect("utf8");
+    let (later, _) = read_ref(&vv_dir().join("refs/msfr_th_on_later.ref.txt.gz"));
+    let mut dt = solver.case().delta_t;
+    let mut worst_res = [0.0_f64; 2];
+    let mut worst_it = [0_i64; 2];
+    let mut worst_t = 0.0_f64;
+    let mut gated = [0usize; 2];
+    let times = [6usize, 9, 14];
+    for step in 1..=14usize {
+        solver.begin_time_step(dt);
+        let (_r, rep) = solver.correct_physics();
+        let solves = solver.turbulence_solves().expect("solves").to_vec();
+        assert_eq!(solves.len(), 5);
+        for line in text.lines() {
+            let w: Vec<&str> = line.split_whitespace().collect();
+            if w[0] == "TSTAT" && w[1].parse::<usize>().unwrap() == step {
+                let o = w[2].parse::<usize>().unwrap();
+                let (a, mn, mx) = rep.t_stats[o - 1];
+                for (x, y) in [(a, w[3]), (mn, w[4]), (mx, w[5])] {
+                    worst_t = worst_t.max((x - y.parse::<f64>().unwrap()).abs() / 900.0);
+                }
+            }
+            if (w[0] == "EPS" || w[0] == "K") && w[1].parse::<usize>().unwrap() == step {
+                let which = usize::from(w[0] == "K");
+                let o = w[2].parse::<usize>().unwrap();
+                let (ini, it) = (w[3].parse::<f64>().unwrap(), w[4].parse::<i64>().unwrap());
+                let (r, n) = solves[o - 1][which];
+                if ini > 1e-9 {
+                    worst_res[which] = worst_res[which].max(((r - ini) / ini).abs());
+                    worst_it[which] = worst_it[which].max((n as i64 - it).abs());
+                    gated[which] += 1;
+                }
+            }
+        }
+        if times.contains(&step) {
+            let tp = later["TIMEPRINT"][times.iter().position(|&t| t == step).unwrap()];
+            let key = |name: &str| format!("{name} {tp}");
+            let u: Vec<f64> = solver.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).collect();
+            let r = [
+                rel_max(&u, &later[&key("U")]),
+                rel_max(solver.p_rgh().expect("flow"), &later[&key("p_rgh")]),
+                rel_max(solver.turbulent_kinetic_energy().expect("k"), &later[&key("k")]),
+                rel_max(solver.turbulent_dissipation().expect("eps"), &later[&key("epsilon")]),
+                rel_max(solver.turbulent_viscosity().expect("nut"), &later[&key("nut")]),
+            ];
+            println!("step {step} t={tp}: U {:.2e} p_rgh {:.2e} k {:.2e} eps {:.2e} nut {:.2e}", r[0], r[1], r[2], r[3], r[4]);
+            for (i, name) in ["U", "p_rgh", "k", "epsilon", "nut"].iter().enumerate() {
+                assert!(r[i] <= TOL_ON, "step {step} {name} {:e}", r[i]);
+            }
+        }
+        dt = adjust_delta_t(true, &[solver.max_delta_t()], 1e-300, dt).expect("adjustable");
+    }
+    println!(
+        "14 steps: epsilon/k solves gated {gated:?}: worst residual rel diff {worst_res:?}, worst iteration diff {worst_it:?}; worst T-line diff {worst_t:e}"
+    );
+    assert!(worst_res[0] <= 1e-6 && worst_res[1] <= 1e-6, "{worst_res:?}");
+    assert!(worst_it[0] <= 2 && worst_it[1] <= 2, "{worst_it:?}");
+    assert!(worst_t <= 1e-9, "{worst_t:e}");
+}
+
+/// Round 18 P5 / round 20 S4: dropping the wall functions moves `nut` in the wall cells.
+#[test]
+fn ablating_the_wall_functions_moves_nut_in_the_wall_cells() {
+    let (root, poly) = stage("no_wf");
+    switch_turbulence_on(&root);
+    let mut a = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("rootCase");
+    let mut b = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("rootCase").without_wall_functions();
+    for s in [&mut a, &mut b] {
+        s.begin_time_step(1e-3);
+        let _ = s.correct_physics();
+    }
+    let (na, nb) = (a.turbulent_viscosity().expect("nut"), b.turbulent_viscosity().expect("nut"));
+    let worst = na.iter().zip(nb).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs() / x.abs().max(1e-300)));
+    println!("ablation: max relative change of nut after step 1: {worst:e}");
+    assert!(worst > 0.10, "{worst:e}");
+    let _ = FIELDS;
 }

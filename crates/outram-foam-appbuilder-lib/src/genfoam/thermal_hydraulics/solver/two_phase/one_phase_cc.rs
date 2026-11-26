@@ -52,7 +52,7 @@
 //!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
-//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); `turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
+//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; power models other than `fixedTemperature`
 //! (without a time profile); heat-transfer models other than `constant`; thermo other than `heRhoThermo`
 //! `hConst` `Boussinesq` `const`; `residualControl` in `PIMPLE`. `dragModels` (`ReynoldsPower`) are read but
@@ -69,8 +69,11 @@ use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
 mod flow;
+mod turbulence;
 pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
+pub use turbulence::{near_wall_dist, set_values, DiagonalBicgstab, OnePhaseTurbulenceCase, WallFunctionCoeffs};
+use turbulence::TurbState;
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
@@ -598,7 +601,9 @@ impl OnePhaseCcCase {
             Ok(out)
         };
         let flow = if solve_flow {
-            Some(flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, &tp, momentum_source, drag)?)
+            let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag)?;
+            fc.turbulence = turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?;
+            Some(fc)
         } else {
             None
         };
@@ -684,6 +689,8 @@ pub struct OnePhaseCcSolver {
     /// The solver's `phi_` (Courant number).
     phi_total: Vec<f64>,
     flow: Option<FlowState>,
+    /// `porousKEpsilon` (`turbulence true`).
+    turb: Option<TurbState>,
 }
 
 /// What one PIMPLE outer iteration of the energy equation reported.
@@ -722,6 +729,10 @@ impl OnePhaseCcSolver {
         }
         u.correct_bc(&geom);
         let flow = case.flow.as_ref().map(|fc| flow::FlowState::new(&geom, &case, fc, &u));
+        let turb = case
+            .flow
+            .as_ref()
+            .and_then(|fc| fc.turbulence.as_ref().map(|tc| TurbState::new(&geom, tc, &fc.nut, &fc.nut_boundary, &case.alphat)));
         let (case_p, case_arp, case_ap) = (case.p.clone(), case.alpha_rho_phi.clone(), case.alpha_phi.clone());
         let t_act: Vec<f64> = (0..n).map(|c| if case.ia_act[c] != 0.0 { case.t_fixed[c] } else { 0.0 }).collect();
         let htc = case.htc0.clone();
@@ -751,6 +762,7 @@ impl OnePhaseCcSolver {
             phi_total: case_ap.clone(),
             alpha_phi: case_ap,
             flow,
+            turb,
         };
         s.update_re();
         s
@@ -827,6 +839,11 @@ impl OnePhaseCcSolver {
         // `p.oldTime()` is stored at the first non-const access of a new time step; in the FIRST step OpenFOAM has no
         // old-time copy yet and `fvc::ddt(p_)` (the energy equation) is the first request (round 3's quirk).
         self.p_old = if self.steps_begun == 0 && self.lazy_p_old { None } else { Some(self.p.clone()) };
+        if let Some(t) = self.turb.as_mut() {
+            t.k_old = t.k.c.clone();
+            t.step_solves.clear();
+            t.epsilon_old = t.epsilon.c.clone();
+        }
         self.steps_begun += 1;
     }
 
@@ -939,7 +956,7 @@ impl OnePhaseCcSolver {
         // - laplacian(interpolate(alpha) interpolate(alphaEff), he), alphaEff = alpha_thermo + alphat
         let ah = th.alpha_h();
         let ae = Scalar {
-            c: (0..n).map(|c| ah + self.case.alphat[c]).collect(),
+            c: (0..n).map(|c| ah + self.turb.as_ref().map_or(self.case.alphat[c], |t| t.alphat.c[c])).collect(),
             b: vec![0.0; g.n_faces() - ni],
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
