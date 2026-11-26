@@ -197,10 +197,10 @@ possible, which is why the gate is $10^{-12}$ and not equality.
 | Case | Inputs | Compared | Gate | Prediction |
 |---|---|---|---|---|
 | A1 | G5 radii, all $D = 10^{-12}$ | SL vs closed form; boon-lay FV vs both | SL vs closed form: absolute $\le 10^{-10}$ at $t \ge$ `min_valid_time` | ~$10^{-13}$ |
-| A2a | $R_1 = 200$ µm with $D_1 = 10^{-12}$; $R_2 = 450$ µm with $D_2 = 10^{-14}$ | SL vs boon-lay FV; SL eigenfunction interface checks | $c$ and $D\,\partial c/\partial r$ continuous at $R_1$, relative $\le 10^{-12}$; FV gates as A5 | pass |
+| A2a | $R_1 = 200$ µm with $D_1 = 10^{-12}$; $R_2 = 450$ µm with $D_2 = 10^{-14}$ | SL vs boon-lay FV; SL eigenfunction interface checks | $c$ and $D\,\partial c/\partial r$ continuous at $R_1$, relative $\le 10^{-12}$; FV gates as A5. **Note 2026-11-26:** the interface check was not implemented until run 3 (review finding 1). | pass |
 | A2b | as A2a with $D_1 \leftrightarrow D_2$ | as A2a | as A2a | pass |
 | A3 | G5/D5 | SL vs boon-lay FV, Richardson-extrapolated in space and time | absolute $\le 2\times10^{-5}$ at $t = 2\times10^5$ s (upstream's gate for the same quantity) | pass |
-| A4 | G5 radii, $D = 10^{-12}$ except SiC $D = 10^{-12}\rho$, $\rho \in \{10^{-6}, 10^{-4}, 10^{-2}, 10^{2}, 10^{4}, 10^{6}\}$; times $0.5\bar\tau$, $\bar\tau$, $2\bar\tau$ with the exact mean exit time $\bar\tau = R_1^2/(15 D_1) + \sum_l (R_{o,l}^2 - R_{i,l}^2)/(6 D_l)$ | SL `accuracy_floor`; SL vs extrapolated boon-lay FV | SL usable as reference iff `accuracy_floor` $\le 10^{-8}$; then absolute $\le 2\times10^{-5}$ | floor grows with contrast; all six usable; FV gate may be hardest at $\rho = 10^{-6}$ |
+| A4 | G5 radii, $D = 10^{-12}$ except SiC $D = 10^{-12}\rho$, $\rho \in \{10^{-6}, 10^{-4}, 10^{-2}, 10^{2}, 10^{4}, 10^{6}\}$; times $0.5\bar{\tau}$, $\bar{\tau}$, $2\bar{\tau}$ with the exact mean exit time $\bar{\tau} = R_1^2/(15 D_1) + \sum_l (R_{o,l}^2 - R_{i,l}^2)/(6 D_l)$ | SL `accuracy_floor`; SL vs extrapolated boon-lay FV | SL usable as reference iff `accuracy_floor` $\le 10^{-8}$; then absolute $\le 2\times10^{-5}$ | floor grows with contrast; all six usable; FV gate may be hardest at $\rho = 10^{-6}$ |
 | A5 | G5/D5, 10, 20, 40, 80, 160 cells per layer; ~~each mesh at $\Delta t$ and $\Delta t/2$, time-extrapolated (BE order 1)~~ **CORRECTED 2026-11-26, see below:** each mesh at $\Delta t$, $\Delta t/2$, $\Delta t/4$ with $\Delta t = T/1000$, two-step Richardson | spatial error vs SL at $t = 2\times10^5$ s | observed order on the two finest pairs in [1.8, 2.2] (unchanged) | 2.0 |
 | A6 | G5/D5, 160 cells per layer; $\Delta t = T/50, T/100, \dots, T/1600$, $T = 2\times10^5$ s | temporal self-convergence of $F(T)$ | order in [0.8, 1.2] on the finest triples | 1.0 (BE; the initial discontinuity has been smoothed by $T$) |
 | A7 | G5/D5 SL with $\lambda_{max} = m/t_{min}$, $m \in \{10, 20, 30, 45, 60\}$ | $F$ at the A times vs $m$; earliest valid time 40/`lambda_covered` | for $t \ge$ `min_valid_time`: successive-$m$ change $\le 10^{-12}$. Values at earlier times are reported as unresolved, never compared. | pass |
@@ -254,9 +254,14 @@ spatial-order gate [1.8, 2.2].
 - A3 measured 1.94 and 1.80.
 - B1 measured STRATO $-0.04$ and $-0.01$, and boon-lay $-0.29$ and $-0.06$.
 
-**Diagnosis, from the run's own numbers.** On A1 both FV codes, which are
-independent implementations, plateau at the **same** time-extrapolated
-error, $+2.5\times10^{-7}$, at every mesh from 20 cells per layer up. Their
+**Diagnosis, from the run's own numbers.** On A1 both FV codes ~~, which are
+independent implementations,~~ plateau at the **same** time-extrapolated
+error, $+2.5\times10^{-7}$, ~~at every mesh from 20 cells per layer up~~
+**CORRECTED 2026-11-26 (review finding 4):** STRATO from 20 cells up, and
+boon-lay from 80 cells up (boon-lay gave $+2.3\times10^{-8}$ at 20 and
+$+1.9\times10^{-7}$ at 40). The two codes are separate implementations of the
+**same method**, so the shared floor alone could not tell a time error from a
+shared method error; the quantitative check below does. Their
 mutual difference falls at order 2.00 ($8.5\times10^{-7}$,
 $2.1\times10^{-7}$, $5.3\times10^{-8}$, $1.3\times10^{-8}$,
 $3.3\times10^{-9}$). A floor shared by two codes and independent of the mesh
@@ -264,6 +269,16 @@ is not a spatial error. It is the $O(\Delta t^2)$ remainder that one-step
 Richardson at $\Delta t = 500, 250$ s leaves behind:
 
 $$F(\Delta t) = F + a \Delta t + b \Delta t^2$$
+
+**Quantitative check, added 2026-11-26 after review.** From run 2's A1
+values at 160 cells ($\Delta t$ = 200, 100, 50 s), with
+$F(h) = F + a h + b h^2$:
+
+$$(F_{100} - F_{200}) - 2 (F_{50} - F_{100}) = -15000 \, b$$
+
+This gives $b = -1.98\times10^{-12}\ \text{s}^{-2}$. One-step Richardson
+leaves $-b h^2/2$, which at $h = 500$ s is $+2.48\times10^{-7}$: run 1's
+plateau.
 
 The protocol, not either solver and not the gate, was wrong. The plan had
 assumed one-step Richardson removed the temporal error well below the
@@ -285,3 +300,17 @@ original 20 files regenerated byte for byte identical, and are kept.
 - A1's residual falls to around $10^{-9}$ or below.
 
 If a gate still fails, it is reported as a failure.
+
+## Review corrections, 2026-11-26 (after run 2; gates unchanged)
+
+An independent review found the following, and they were fixed before run 3:
+- The A2 interface-continuity gate had never been run although A2 was
+  reported PASS. It now runs (`interface_conditions`).
+- The minimum-concentration diagnostic started at 0 and could not show a
+  positive minimum. It now starts at $+\infty$.
+- A4, A6 and B1 did not print the FV diagnostics. They now do.
+- The B2 boon-lay FV leg listed above had not been run. It now runs and is
+  reported. B2 gave FV no tolerance, so it is not gated.
+
+**A4 prediction missed:** the hardest contrast was $\rho = 10^{6}$, not
+$10^{-6}$. See the README.

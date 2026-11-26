@@ -162,11 +162,14 @@ ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
   the HTR-10 cycle time and purified flow fraction they need are not sourced.
 - **Multilayer diffusion against STRATO (2026-11-26, gh:#1800):** the
   `strato` port reproduces upstream STRATO bit for bit (978 of 978 values),
-  and matches an independent homogeneous-sphere closed form and the ported
+  and matches a homogeneous-sphere closed form (the same formula as
+  upstream's own test oracle) and the ported
   ATOPS Booth series to round-off. `multilayer_diffusion` converges to it at
   second order in space and first order in time on equal, two-layer,
   five-layer and contrast (10^±6) cases, as does STRATO's own finite volume,
-  run unmodified. A first run failed its spatial-order gate because of the
+  run unmodified. On layered cases the series and the FV corroborate each
+  other; neither is an independent reference for the other yet. A first run
+  failed its spatial-order gate because of the
   test protocol; that failure is recorded with its diagnosis. Upstream
   TRISO-ATOPS's `breakthrough_model` is a different problem (one planar
   layer, infinite source) and is not covered. Plan, results and limitations:

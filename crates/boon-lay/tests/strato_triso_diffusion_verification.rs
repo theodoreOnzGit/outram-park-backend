@@ -36,7 +36,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use boon_lay::strato::sturm_liouville::{Layer, ModalRelease};
+use boon_lay::strato::sturm_liouville::{interface_state, transfer_layer, Layer, ModalRelease};
 use boon_lay::triso_atops_extensions::multilayer_diffusion::{LayeredDiffusion, LayeredSphere, SphereLayer};
 use boon_lay::triso_atops_fork::release_models::steady_state::booth_longlived;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -113,7 +113,11 @@ fn rel_diff(a: f64, b: f64) -> f64 {
 /// Homogeneous sphere of radius `r`, diffusivity `d`, inventory starting in
 /// `r < r1`: the remaining fraction, from `u_n = sin(k_n r)`, `k_n = n pi / R`.
 /// Written for this study from the formulas in PLAN.md; shares no code with
-/// STRATO or boon-lay. Summed until the terms are below 1e-30 of the first.
+/// boon-lay. **It is, however, the same formula as upstream STRATO's own
+/// test oracle** (`homogeneous_kernel_release` in upstream
+/// `sturm_liouville.rs` tests, ported as
+/// `modal_release_matches_closed_form_for_equal_diffusivity`). So A1 largely
+/// repeats an upstream check rather than adding a new one (review finding 3). Summed until the terms are below 1e-30 of the first.
 fn closed_form_remaining(r1: f64, r: f64, d: f64, t: f64) -> f64 {
     let pi = std::f64::consts::PI;
     let mut sum = 0.0;
@@ -161,7 +165,9 @@ fn boon_lay_fv(d: &[f64], r: &[f64], cells: usize, dt: f64, times: &[f64], unifo
     let mut run = LayeredDiffusion::uniform_in_first_layers(sphere, uniform_layers);
     let t0 = Instant::now();
     let mut f_at = Vec::new();
-    let (mut worst_balance, mut min_atoms_rel) = (0.0_f64, 0.0_f64);
+    // Starts at +inf so the diagnostic is a measurement, not the starting
+    // value (review finding 8, 2026-11-26).
+    let (mut worst_balance, mut min_atoms_rel) = (0.0_f64, f64::INFINITY);
     let end = times.iter().copied().fold(0.0, f64::max);
     let steps = (end / dt).round() as usize;
     for s in 1..=steps {
@@ -353,7 +359,7 @@ fn fv_against_reference<F: Fn(f64) -> f64>(label: &str, d: &[f64], r: &[f64], re
             runs[1].f_at[0],
             runs[2].f_at[0],
             runs.iter().map(|x| x.worst_balance).fold(0.0, f64::max),
-            runs.iter().map(|x| x.min_atoms_rel).fold(0.0, f64::min),
+            runs.iter().map(|x| x.min_atoms_rel).fold(f64::INFINITY, f64::min),
             runs.iter().map(|x| x.wall_s).sum::<f64>()
         );
         errs.push(e);
@@ -363,7 +369,7 @@ fn fv_against_reference<F: Fn(f64) -> f64>(label: &str, d: &[f64], r: &[f64], re
     let orders = [(errs[n - 3].abs() / errs[n - 2].abs()).log2(), (errs[n - 2].abs() / errs[n - 1].abs()).log2()];
     let fx = extrap_space(f_time_extrap[n - 2], f_time_extrap[n - 1]);
     let ex = (fx - exact).abs();
-    println!("{label}: spatial orders (40->80, 80->160) = {:.3}, {:.3} (gate {:?}); extrapolated F {fx:.12}, |error| {ex:.3e} (gate {GATE_FV_EXTRAP_ABS:.0e})", orders[0], orders[1], GATE_SPACE_ORDER);
+    println!("{label}: spatial orders (40->80, 80->160) = {:.3}, {:.3} (gate {:?}); extrapolated F {fx:.12}, |error| {ex:.3e} (gate {GATE_FV_EXTRAP_ABS:.0e}), relative {:.3e}, relative at 160 cells before spatial extrapolation {:.3e}", orders[0], orders[1], GATE_SPACE_ORDER, ex / exact.abs(), errs[n - 1].abs() / exact.abs());
     println!("{label}: hardware {}", hardware());
     for o in orders {
         assert!(o >= GATE_SPACE_ORDER.0 && o <= GATE_SPACE_ORDER.1, "{label}: spatial order {o:.3}");
@@ -390,7 +396,50 @@ fn two_layer(label: &str, d: [f64; 2]) {
     let r = [2.0e-4, 4.5e-4];
     let s = series(&d, &r, TIMES[0]);
     println!("{label}: {} modes, accuracy_floor {:.3e}", s.eigenvalues.len(), s.accuracy_floor());
+    interface_conditions(label, &d, &r, &s);
     fv_against_reference(label, &d, &r, |t| s.release_fraction(t));
+}
+
+/// A2 interface gate (PLAN.md: `c` and `D dc/dr` continuous at `R1`,
+/// relative 1e-12). Missed in runs 1 and 2 and added after review finding 1
+/// (2026-11-26). For every eigenvalue of the series it re-shoots the mode
+/// here, from the public `transfer_layer` only, and checks in terms of
+/// `phi = u / r`:
+/// - `c = phi` continuous at `R1`. This holds by construction, since `u` is
+///   carried across unchanged.
+/// - the physical flux `D phi' = D (u' - u/r) / r` continuous at `R1`, with
+///   the right-hand `u'` taken from the port's `interface_state`. This checks
+///   that the port's rule is the right one, flux continuity rather than
+///   continuity of `D u'`. That `D u'` jumps is reported, not gated.
+/// - `u(R) = 0` at the surface for each eigenvalue: the eigenvalue is
+///   reported with its residual relative to the largest `|u|` on the
+///   shooting nodes. Not gated.
+fn interface_conditions(label: &str, d: &[f64; 2], r: &[f64; 2], s: &ModalRelease) {
+    let (mut worst_c, mut worst_flux, mut max_du_jump, mut worst_ur) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    for &lam in &s.eigenvalues {
+        let (k0, k1) = ((lam / d[0]).sqrt(), (lam / d[1]).sqrt());
+        // Regular centre: u(0) = 0, q = D u' = 1 (any scale).
+        let (u_l, q_l) = transfer_layer(0.0, 1.0, d[0], k0, r[0]);
+        let q_r = interface_state(q_l, u_l, d[0], d[1], r[0]);
+        let u_r = u_l;
+        let (phi_l, phi_r) = (u_l / r[0], u_r / r[0]);
+        let flux_l = d[0] * (q_l / d[0] - u_l / r[0]) / r[0];
+        let flux_r = d[1] * (q_r / d[1] - u_r / r[0]) / r[0];
+        let scale_c = phi_l.abs().max(phi_r.abs()).max(f64::MIN_POSITIVE);
+        let scale_f = (d[0] * q_l / d[0]).abs().max((d[1] * u_l / r[0]).abs()).max(f64::MIN_POSITIVE) / r[0];
+        worst_c = worst_c.max((phi_l - phi_r).abs() / scale_c);
+        worst_flux = worst_flux.max((flux_l - flux_r).abs() / scale_f);
+        max_du_jump = max_du_jump.max((q_r - q_l).abs() / q_l.abs().max(q_r.abs()).max(f64::MIN_POSITIVE));
+        let (u_out, _) = transfer_layer(u_r, q_r, d[1], k1, r[1] - r[0]);
+        let umax = u_l.abs().max(u_out.abs()).max((q_l / (d[0] * k0)).abs()).max((q_r / (d[1] * k1)).abs());
+        worst_ur = worst_ur.max(u_out.abs() / umax);
+    }
+    println!(
+        "{label} interface, {} modes: |c jump| rel {worst_c:.2e}, |D dphi/dr jump| rel {worst_flux:.2e} (gate 1e-12 each); \
+         D u' jumps by up to {max_du_jump:.2e} rel (expected, not continuous); worst u(R)/max|u| {worst_ur:.2e} (reported)",
+        s.eigenvalues.len()
+    );
+    assert!(worst_c <= 1e-12 && worst_flux <= 1e-12, "{label}: interface continuity");
 }
 
 /// A3 and A5: the five-layer synthetic TRISO, mesh refinement.
@@ -406,7 +455,7 @@ fn a3_a5_five_layer_mesh_refinement_against_sturm_liouville() {
 /// A4: SiC diffusivity contrast sweep.
 #[test]
 fn a4_diffusivity_contrast_sweep() {
-    println!("| rho | mean exit time [s] | modes | accuracy_floor | usable | FV extrapolated error at 2 tau |");
+    println!("| rho | mean exit time [s] | modes | accuracy_floor | usable | FV extrapolated error, worst of 0.5, 1, 2 tau | worst balance | balance bound | min c rel |");
     for rho in [1e-6, 1e-4, 1e-2, 1e2, 1e4, 1e6] {
         let mut d = [1e-12; 5];
         d[3] = 1e-12 * rho;
@@ -419,6 +468,7 @@ fn a4_diffusivity_contrast_sweep() {
         let floor = s.accuracy_floor();
         let usable = floor <= GATE_A4_FLOOR;
         let mut worst = f64::NAN;
+        let (mut bal, mut bound, mut minc) = (0.0_f64, 0.0_f64, f64::INFINITY);
         if usable {
             // A5 protocol at the three times, with the end time 2 tau.
             let mut fe = Vec::new();
@@ -426,6 +476,9 @@ fn a4_diffusivity_contrast_sweep() {
                 let runs: Vec<FvRun> = protocol_steps(times[2]).iter().map(|&dt| boon_lay_fv(&d, &G5, cells, dt, &times, 1)).collect();
                 for run in &runs {
                     check_fv_diagnostics(&format!("A4 rho {rho:e} c{cells}"), run);
+                    bal = bal.max(run.worst_balance);
+                    bound = bound.max(run.balance_bound);
+                    minc = minc.min(run.min_atoms_rel);
                 }
                 fe.push((0..times.len()).map(|k| extrap_time2(runs[0].f_at[k], runs[1].f_at[k], runs[2].f_at[k])).collect::<Vec<_>>());
             }
@@ -435,7 +488,7 @@ fn a4_diffusivity_contrast_sweep() {
                 worst = worst.max((fx - s.release_fraction(t)).abs());
             }
         }
-        println!("| {rho:.0e} | {tau:.4e} | {} | {floor:.3e} | {usable} | {worst:.3e} |", s.eigenvalues.len());
+        println!("| {rho:.0e} | {tau:.4e} | {} | {floor:.3e} | {usable} | {worst:.3e} | {bal:.1e} | {bound:.1e} | {minc:.1e} |", s.eigenvalues.len());
         assert!(usable, "A4 rho {rho:e}: accuracy floor {floor:.3e} above {GATE_A4_FLOOR:.0e}");
         assert!(worst <= GATE_FV_EXTRAP_ABS, "A4 rho {rho:e}: FV extrapolated error {worst:.3e}");
     }
@@ -448,11 +501,20 @@ fn a4_diffusivity_contrast_sweep() {
 fn a6_temporal_refinement() {
     let s = series(&D5, &G5, TIMES[0]);
     let mut f = Vec::new();
-    println!("| dt [s] | F(T) | F(T) - SL |");
+    println!("| dt [s] | F(T) | F(T) - SL | balance | bound | min c rel | wall [s] |");
     for div in [50, 100, 200, 400, 800, 1600] {
         let run = boon_lay_fv(&D5, &G5, 160, T_END / div as f64, &[T_END], 1);
         check_fv_diagnostics(&format!("A6 dt T/{div}"), &run);
-        println!("| {:.1} | {:.12} | {:+.3e} |", T_END / div as f64, run.f_at[0], run.f_at[0] - s.release_fraction(T_END));
+        println!(
+            "| {:.1} | {:.12} | {:+.3e} | {:.1e} | {:.1e} | {:.1e} | {:.2} |",
+            T_END / div as f64,
+            run.f_at[0],
+            run.f_at[0] - s.release_fraction(T_END),
+            run.worst_balance,
+            run.balance_bound,
+            run.min_atoms_rel,
+            run.wall_s
+        );
         f.push(run.f_at[0]);
     }
     let orders: Vec<f64> = f.windows(3).map(|w| ((w[0] - w[1]).abs() / (w[1] - w[2]).abs()).log2()).collect();
@@ -498,7 +560,7 @@ fn b1_strato_fv_against_boon_lay_fv() {
         let s = series(&d, &G5, TIMES[0]);
         let exact = s.release_fraction(T_END);
         println!("B1 {case} at t = {T_END:.0e} s, SL {exact:.12}:");
-        println!("| cells/layer | dt [s] | STRATO FV | boon-lay FV | STRATO - SL | boon-lay - SL | STRATO - boon-lay | STRATO balance | STRATO min c |");
+        println!("| cells/layer | dt [s] | STRATO FV | boon-lay FV | STRATO - SL | boon-lay - SL | STRATO - boon-lay | STRATO balance | STRATO min c | boon-lay balance | boon-lay min c rel |");
         let mut strato_err = Vec::new();
         let mut boon_err = Vec::new();
         for cells in [10, 20, 40, 80, 160] {
@@ -511,13 +573,15 @@ fn b1_strato_fv_against_boon_lay_fv() {
                 let ours = boon_lay_fv(&d, &G5, cells, dt, &[T_END], 1);
                 check_fv_diagnostics(&format!("B1 {case} c{cells} dt{dt}"), &ours);
                 println!(
-                    "| {cells} | {dt} | {strato:.12} | {:.12} | {:+.3e} | {:+.3e} | {:+.3e} | {} | {} |",
+                    "| {cells} | {dt} | {strato:.12} | {:.12} | {:+.3e} | {:+.3e} | {:+.3e} | {} | {} | {:.1e} | {:.1e} |",
                     ours.f_at[0],
                     strato - exact,
                     ours.f_at[0] - exact,
                     strato - ours.f_at[0],
                     row[4],
-                    row[5]
+                    row[5],
+                    ours.worst_balance,
+                    ours.min_atoms_rel
                 );
                 fe[k] = strato;
                 be[k] = ours.f_at[0];
@@ -542,7 +606,8 @@ fn b1_strato_fv_against_boon_lay_fv() {
 // ---------------------------------------------------------------- B2
 
 /// B2: ATOPS's ported Booth series against the Sturm-Liouville one-sphere
-/// adapter and boon-lay FV (one layer, uniform start).
+/// adapter (gated), and boon-lay FV on the same sphere (reported only; one
+/// layer, uniform start).
 #[test]
 fn b2_atops_booth_against_sturm_liouville_single_sphere() {
     let (r, d) = (4.5e-4, 1e-12);
@@ -567,4 +632,16 @@ fn b2_atops_booth_against_sturm_liouville_single_sphere() {
     }
     println!("B2 worst |booth - SL| = {worst:.3e} (gate {GATE_B2_ABS:.0e})");
     assert!(worst <= GATE_B2_ABS);
+    // The FV leg PLAN.md lists for B2 (missing until review finding 11):
+    // boon-lay FV on one layer with a uniform start, 160 cells, two-step
+    // Richardson in time with the end time 1 * R^2/D. Reported, not gated:
+    // PLAN.md gave B2 no FV tolerance.
+    let times: Vec<f64> = taus.iter().map(|tau| tau * r * r / d).collect();
+    let runs: Vec<FvRun> = protocol_steps(times[3]).iter().map(|&dt| boon_lay_fv(&[d], &[r], 160, dt, &times, 1)).collect();
+    println!("| D t / R^2 | SL | boon-lay FV (time-extrapolated, 160 cells) | FV - SL |");
+    for (k, &t) in times.iter().enumerate() {
+        check_fv_diagnostics("B2 FV", &runs[0]);
+        let fe = extrap_time2(runs[0].f_at[k], runs[1].f_at[k], runs[2].f_at[k]);
+        println!("| {:.0e} | {:.12} | {fe:.12} | {:+.3e} |", taus[k], s.release_fraction(t), fe - s.release_fraction(t));
+    }
 }
