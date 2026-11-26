@@ -64,3 +64,57 @@ position follows upstream openmc
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 995ac7daca.
+
+# Review: Position::new (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-new-theodoreonzgit-cb1fc1a6"
+kind = "review"
+origin = "human"
+created = "2026-11-26T13:08:36+08:00"
+modified = "2026-11-26T13:08:36+08:00"
+target = "fn:cb1fc1a67d38f99a"
+
+[review]
+path = "crates/outram-blender/src/csg/position.rs::Position::new"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T13:08:37+08:00"
+commit = "05e5485cb5c1d2eb96304bd877f2cdd1151cd4d0"
+hash = "sha256:f790c9da3f10cbda1553ed41644b4801ff19f4f8daa06a9cbcb0447510b628a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:006d55971bc9e1e3" = "sha256:6f2d4f486afa1490d642f0e58cf39c0aa8e3f10ca27a00c80e35d20a1f2bb7c1"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "matches_upstream_no_error_return: constructor"
+independence = "someone_else"
+limits_and_guards = "matches_upstream_no_guard: just a constructor"
+maintainability = "yes"
+numerical_hazards = "other: upstream port doesn't guard, but yes"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "33U5SNjuLvkZvn6hezMseAiuzaX+VjKr/FLO99R+CO8YOQpHDDNLLTOIHu1WGdOnVs24DZCEYMRagTyHxe6ODQ=="
+```
+
+constructor
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 05e5485cb5.
