@@ -3097,3 +3097,62 @@ wall-function blenders, wall-function dictionary entries (`Cmu`, `kappa`, `E`), 
 `turbulence true` no longer refuses); `--test genfoam_msfr_chain_vs_upstream` 5 passed (237 s); `--test genfoam_msfr_transient_vs_upstream` 2 passed, 7 ignored diagnostics;
 `--lib turbulence::` 19 passed (3 new); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` `outram-foam-appbuilder-lib` section compiles for `x86_64-unknown-none`
 (the script was stopped after that crate). The full crate and workspace suites were NOT run (parent's integration run).
+
+# Round 21 (2026-11-26): `steadyStateTH -> steadyStateEN -> transient` from the ROOT case in the port, no upstream restart file (gh:#1841, child of gh:#1837 / gh:#1814)
+
+Goal: un-refuse `EigenvalueStage::SteadyStateTh`; run the whole `Tutorials/reactorCases/2D_MSFR/Allrun` chain (`endTimeTH 15`, `endTimeEN 165`, `endTimeTransient 175`) in the port
+starting from `rootCase` (`0/fluidRegion` uniform `T = 900`, `U = 0`, `p_rgh = 1e5`; `0/neutroRegion` `defaultFlux = 1`; `0/uniform/reactorState`), with the 15 s thermal-hydraulic state
+handed over IN MEMORY to the `steadyStateEN` stage that round 11 started from the stored upstream `cases/msfr_fluid/restart_15`. The Allrun edits (`endTime`, `deltaT 1e-3`,
+`adjustTimeStep true`, `writeInterval 1`, `regionSolvers` per stage, `solveFluidMechanics false` for EN and transient, the `multiRegionCouplingDict_<stage>` copy) are typed
+settings of the stage drivers, not file edits.
+
+## Read before any port code (GeN-Foam 652b3da on ESI v2506)
+
+* `GeN-Foam/GeN-Foam.C` (loop: `runTime++`, `mapAllFields`, `correctPhysics` of every region, `adjustDeltaT`, `write`), `include/setDeltaT.C` (the first `setDeltaT(min(deltaT, controlDict deltaT))` with `adjust = true`;
+  `adjustDeltaT` = `min(1.2 deltaT, min maxDeltaT)` with `setDeltaT(.., adjust = true)`), ESI `Time::adjustDeltaT` (`wcAdjustableRunTime`: `nSteps = timeToNextWrite/deltaT`, `max(1, round(nSteps))`, growth capped at x2, shrink at x0.2),
+  `Time::operator++` (`writeTimeIndex`), `Time::run` (`value < endTime - 0.5 deltaT`). The rootCase's `writeControl` is `adjustableRunTime`; the Allrun sets `writeInterval 1`, so every second of the 15 s is a write time and the
+  step that reaches each integer second is shortened to land on it.
+* `Allrun`: `setSteadyStateTH` removes `0/neutroRegion`, `constant/neutroRegion`, `system/neutroRegion`, `0/uniform` and the fine meshes, sets `regionSolvers { fluidRegion onePhase; }`, copies `multiRegionCouplingDict_steadyStateTH`
+  (`mappings { fluidRegion { } }`: no mapping at all). `setSteadyStateEN` clones `rootCase`, copies `steadyStateTH/15` in, adds `0/neutroRegion` and `0/uniform`, sets `solveFluidMechanics false`.
+* The shipped `p_rgh` solver is `GAMG`/`DIC` at `tolerance 1e-7`; the shipped `h`, `k`, `epsilon` solvers are the ported `PBiCGStab`/`diagonal` entries (the last match is `".*"`).
+
+## The `p_rgh` linear-solver decision (GAMG): found, then decided
+
+`outram_foam_basic_lib::ldu_matrix::solvers::gamg` (used by `FvMatrix::solve_gamg_with_guess`) is **not a translation of OpenFOAM's `GAMGSolver`**. Its own doc comment says "algebraic" pair agglomeration with face weights `|upper|`
+(OpenFOAM's `faceAreaPair` weights by the face-area magnitude), a symmetric V-cycle with 2 Gauss-Seidel pre- AND 2 post-sweeps (OpenFOAM: `nPreSweeps 0`, `nPostSweeps 2`, `nFinestSweeps 2`, the `DIC` smoother of this case,
+with `scaleCorrection`), a dense-LU coarsest solve (OpenFOAM: `directSolveCoarsest false`, a PCG/DIC coarsest-level correction), and the plain `||r||_2/||b||_2` stopping rule (OpenFOAM: the `xRef`-shifted `normFactor` of `lduMatrix::solver`).
+It converges to a tolerance but through different iterates, so even at the shipped tolerance it would not reproduce upstream's iterates; the faithful port (agglomeration addressing, interfaces, the `DIC` smoother, `scaleCorrection`, `coarsestLevelCorr`) is a module of its own.
+**Decision:** the stage runs `p_rgh` with the already-gated `PCG`/`DIC` (`pcg_dic`, round 17) as an EXPLICIT, NAMED deviation: `GamgPolicy::SubstitutePcgDic` (the default of the stage drivers; `GamgPolicy::Refuse` refuses `GAMG` by name as before).
+The substitution keeps `tolerance` and `relTol` of the case entry and is reported by the stage result (`deviations`). A GAMG-port issue is filed.
+
+## Searched before writing (reuse)
+
+`OnePhaseCcSolver`/`OnePhaseCcCase::read` (it already builds the root-case fields: `initAlphaPhis`, `T.fixedTemperature`, zero `htc`/power density), `neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, adjust_delta_t}` (the `Time` clock with
+`adjustableRunTime` alignment and `setDeltaT.C`), `multi_region::coupled_loop::{adjust_delta_t, CouplingDict}`, `workflow::{EnergyNeutroDiffusion, EnergyNeutroTransient, ReactorState}`, `tests/genfoam_msfr_th_vs_upstream.rs` (staging helpers),
+`tests/genfoam_msfr_chain_vs_upstream.rs`. Not found, so written here: the TH stage driver, the in-memory fluid hand-over, the `multiRegionCouplingDict_steadyStateTH` check, the rootCase chain object.
+
+## Reference protocol
+
+Upstream = the real unmodified binary, serial. `scripts/run_msfr_th_tight.sh` with `END_TIME=15 TURB=on WRITE=adjustable PSOLVER=pcg` (new knobs `WRITE`, `TOLERANCE`): the whole of `steadyStateTH` at every linear-solver tolerance 1e-14 / `relTol 0`,
+`p_rgh` `GAMG -> PCG/DIC` (round 16: GAMG does not reach 1e-14), the rootCase's `adjustableRunTime`/`writeInterval 1`. Then `scripts/run_msfr_chain.sh steadyStateEN` and `transient` with `PROTOCOL=tight` from THAT stage's own `15` output
+(the round-11 chain started the EN stage from the SHIPPED-tolerance GAMG 15 s state). Seen in the upstream log before these predictions were written, and nothing else: the time step is Courant-limited at `dt` ~8.3e-3 around t = 1 s (maxCo 5), so ~1800 steps to 15 s.
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+T1. **Un-refusal.** `EigenvalueStage::SteadyStateTh` runs from the root case and returns a typed state; no file of the reference is read by the port.
+T2. **Time steps.** The step count of the port's `steadyStateTH` (tight, PCG) equals upstream's exactly, and every `dt` agrees to <= 1e-9 relative, INCLUDING the write-time alignment (`adjustableRunTime`: the last step lands on 15 and every integer second is a step end).
+    Risk named: `round(nSteps)` is a discrete branch; a flip needs a `dt` within ~1e-10 of a half-integer ratio, so I expect none in ~1800 steps.
+T3. **Fields over ~1800 steps, tight protocol.** `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi` at every integer second 1..15 agree to <= 1e-9 relative to the field max-norm (measured at 14 steps: 1e-12 to 6e-13). The flow is damped
+    toward its 15 s state (viscous and drag), so last-bit differences should not grow; the worst field is `epsilon` or `U` at ~1e-10 by t = 15 s. The first thing to break, if anything, is the STEPWISE wall-function blender (`yPlus` against `yPlusLam`)
+    flipping in one wall cell, which would show as a jump in `nut` in that cell.
+T4. **`T`** stays within 1e-9 of 900 K relative (the stage has no heat source), and the meaningful scale `max|T - 900|` agrees to <= 1e-5 relative.
+T5. **Run time.** The port needs more than 5 minutes for the 15 s stage at 4 shared cores (so the long comparison is `long-tests`): ~1 s per step in upstream, the port is of the same order (0.5 to 2 s per step), 15 to 60 min.
+T6. **Shipped protocol (the deviation, measured).** The port with `SubstitutePcgDic` at the SHIPPED tolerances (all `1e-7`) against the real binary with its real `GAMG`: the 15 s fields do NOT agree to round-off. Expected at 15 s:
+    `p`, `p_rgh` <= 1e-6 relative to the max-norm (the 1e5 Pa offset dominates that scale), `U` between 1e-5 and 1e-2 (the `p_rgh` gradient carries the solver-tolerance error amplified by the conditioning of the pressure equation, ~1e3), `T` <= 1e-9 of 900 K.
+    The two codes' step counts may differ by a few (the Courant-limited `dt` follows `U`). This is the agreement to expect from the substitution, and the number to quote for "the port's chain from rootCase at shipped settings"; the tight comparison is the verification.
+T7. **`steadyStateEN` from the port's own 15 s state, tight.** Per-step `keff_` agrees with upstream's EN stage started from upstream's own tight 15 s state to <= 1e-9 relative at all 600 steps (round 11, IDENTICAL start state: 2.2e-13; a TH state
+    off by 1e-10 enters through `T`, `rho(T)` and the frozen-`U` precursor drift, linearly), `power:` <= 1e-9, final `keff_` <= 1e-9. Final `keff_` within 1 pcm of round 11's 0.96031514 (the shipped GAMG 15 s state and the tight 15 s state differ by flow differences only), i.e. still +3.3 pcm from the Allrun's 0.960282.
+T8. **`transient` (50 steps) from the port's own 165 s state** agrees with upstream's transient on its own 165 s state: `T` <= 1e-11, `power:` <= 1e-9, `dt` <= 1e-9 (round 11 gates 1e-12/1e-11/1e-11 on an identical start; the 1e-10 start-state difference propagates at O(1)).
+T9. **Hand-over.** The fields handed to the EN stage (`T`, `U`, `p`, `alphat`, `alphaPhi`, `alphaRhoPhi`, `htc`, `T.fixedTemperature`) equal the TH solver's state bitwise, and equal upstream's written `15` files (17 digits, round-trip exact) to the T3 gate; `powerDensityNeutronicsToLiquid` is zero.
+T10. **Failure modes I expect to find, in order of likelihood:** (a) the TH `alphaPhi` written lag (round 19 Q7) is wrong at the LAST step, which would show first in EN step 1's `h` residual; (b) `phi_` of the frozen-flux EN region (`phi_ = alphaPhi`) is taken from the wrong state;
+    (c) `Re`/`htc` of the hand-over differ, which cannot matter since both are recomputed in `correctModels`.
