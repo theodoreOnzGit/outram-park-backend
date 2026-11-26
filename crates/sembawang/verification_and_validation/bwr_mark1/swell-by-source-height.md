@@ -162,7 +162,8 @@ SRVs' gaskets) is the other item for gh:#1810.
 
 **The pins (2026-11-26).** Maintainer: "Ignore sembawang pins for now,
 nothing to pin against". The root `CLAUDE.md` now says "No regression pins
-until the physics is right".
+until there is concrete V&V at unit-test level" (refined the same day:
+"No pins until there are concrete AI v&v being done at unit test level").
 
 - **Ignored:** the lumped fixture test and
   `compare::the_uncalibrated_baseline_is_pinned`. The baseline moved: H2 at

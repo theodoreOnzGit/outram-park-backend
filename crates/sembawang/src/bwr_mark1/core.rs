@@ -2633,7 +2633,7 @@ mod tests {
         }
         let lowest = c.nodes.iter().map(|n| n.fuel_kg / g.m_fuel).fold(f64::MAX, f64::min);
         let highest = c.nodes.iter().map(|n| n.fuel_kg / g.m_fuel).fold(0.0, f64::max);
-        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until the physics is right"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Pins printed, not asserted (root CLAUDE.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
         // Was 3982.49 kg and 0.9366 / 1.6176; 3119.07 kg after the swell fix.
         #[cfg(feature = "std")]
         println!("UO2 candled {:.2} kg; nodes hold {lowest:.4} to {highest:.4} of their fuel", c.uo2_candled_kg);

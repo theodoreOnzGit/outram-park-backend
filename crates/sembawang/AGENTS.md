@@ -135,8 +135,8 @@ in the demo.
   swell fix (gh:#1810) and its test is now ignored too (the next item).
 - **No regression pins on `bwr_mark1` for now (2026-11-26, gh:#1810;
   maintainer: "Ignore sembawang pins for now, nothing to pin against", and
-  the root `CLAUDE.md` rule "No regression pins until the physics is
-  right").** The lumped fixture test, `compare::the_uncalibrated_baseline_is_pinned`
+  the root `CLAUDE.md` rule "No regression pins until there is concrete V&V at
+  unit-test level").** The lumped fixture test, `compare::the_uncalibrated_baseline_is_pinned`
   and the BSAF comparison's numbers are ignored or printed, not asserted;
   value pins inside other tests print their values. Conservation, physics
   bounds (the B4C cap, the first relocation not quenching the core),
