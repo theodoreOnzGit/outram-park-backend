@@ -514,6 +514,8 @@ struct FullCfg {
     profile: bool,
     /// the earlier harness' stand-in for the neutronics `residual_` (deprecated, ablation)
     lower_bound_residual: bool,
+    /// stop after this many steps (`None`: every step of the reference)
+    max_steps: Option<usize>,
 }
 
 #[derive(Debug, Default)]
@@ -567,7 +569,7 @@ fn run_full(cfg: &FullCfg) -> FullSummary {
     let reference = read_ref(&vv_dir().join("refs/msfr_transient.ref.txt.gz"));
     let fref = read_ref(&vv_dir().join("refs/msfr_chain_transient.ref.txt.gz"));
     let full = read_ref(&vv_dir().join(format!("refs/{}.ref.txt.gz", cfg.ref_name)));
-    let n_steps = full["N"][0] as usize;
+    let n_steps = cfg.max_steps.unwrap_or(full["N"][0] as usize).min(full["N"][0] as usize);
 
     let cdict = CouplingDict::read(&st.fluid_root, "energyNeutroLoop").expect("multiRegionCouplingDict");
     let only_energy = cdict.correct_only_energy();
@@ -822,6 +824,7 @@ fn msfr_full_transient_to_175_s_matches_upstream() {
         max_iterations: None,
         profile: false,
         lower_bound_residual: false,
+        max_steps: None,
     });
     assert_eq!(s.cpiter_equal, s.n_steps, "coupling iterations equal at every step");
     assert!(s.port_cpiter.iter().all(|&c| c == 1));
@@ -852,6 +855,7 @@ fn msfr_multi_iteration_coupling_matches_upstream() {
         max_iterations: Some("6"),
         profile: false,
         lower_bound_residual: false,
+        max_steps: None,
     });
     let n = s.n_steps;
     let upstream_iters: Vec<usize> = (1..=n).map(|k| full[&format!("CPITER_{k}")][0] as usize).collect();
@@ -873,32 +877,56 @@ fn msfr_multi_iteration_coupling_matches_upstream() {
     assert!(s.worst_resid < 4e-5, "residual_ {:e}", s.worst_resid);
 }
 
-/// Part 4 of gh:#1813 (the part that `2D_MSFR` can exercise): `temperatureTimeProfile` on the `hx` `fixedTemperature`
-/// power model, a table of scaling factors `(0 1)(165 1)(175 0.95)`: the heat-sink surface falls from 900 K to 855 K over the
-/// transient. Energy-only region, tutorial coupling dictionary. Heat exchangers (`structureProperties.<zone>.heatExchangers`)
-/// are NOT exercised: no case runs them in both codes (README, "Round 22 results").
-#[test]
-fn msfr_fixed_temperature_time_profile_matches_upstream() {
-    let full = read_ref(&vv_dir().join("refs/msfr_full_c.ref.txt.gz"));
-    let a = read_ref(&vv_dir().join("refs/msfr_full_a.ref.txt.gz"));
-    let s = run_full(&FullCfg {
-        tag: "fullC",
+fn profile_case(max_steps: Option<usize>) -> FullSummary {
+    run_full(&FullCfg {
+        tag: if max_steps.is_some() { "fullC20" } else { "fullC" },
         ref_name: "msfr_full_c",
         min_residual: None,
         max_iterations: None,
         profile: true,
         lower_bound_residual: false,
-    });
+        max_steps,
+    })
+}
+
+/// Part 4 of gh:#1813 (the part that `2D_MSFR` can exercise): `temperatureTimeProfile` on the `hx` `fixedTemperature`
+/// power model, a table of scaling factors `(0 1)(165 1)(175 0.95)`: the heat-sink surface falls from 900 K to 855 K over the
+/// transient. Energy-only region, tutorial coupling dictionary. The upstream run was stopped at step 452 (t = 167.9 s) because
+/// the cooling drives a power excursion (+5 %) in which the neutron loop hits its cap of 50 and the coupling loop its cap of 3
+/// at 300 of the 452 steps. This is the first 20 steps (the `T` field at steps 1, 10, 20); the whole 452 steps are
+/// [`msfr_fixed_temperature_time_profile_452_steps_match_upstream`]. Heat exchangers
+/// (`structureProperties.<zone>.heatExchangers`) are NOT exercised: no case runs them in both codes (README, "Round 22").
+#[test]
+fn msfr_fixed_temperature_time_profile_matches_upstream() {
+    let s = profile_case(Some(20));
+    assert_eq!(s.cpiter_equal, 20);
+    assert_eq!(s.neutron_iters_equal, 20);
+    // measured 2026-11-26: see the README; gates ~2.5x outward
+    assert!(s.first_dt_bad.is_none() && s.worst_dt < 3e-13, "dt {:e}", s.worst_dt);
+    assert!(s.worst_t_field < 1e-14, "T field {:e}", s.worst_t_field);
+    assert!(s.worst_tstat < 1e-13, "T stats {:e}", s.worst_tstat);
+    assert!(s.worst_power < 1e-12, "power {:e}", s.worst_power);
+    assert!(s.worst_co < 3e-13, "Courant {:e}", s.worst_co);
+}
+
+/// As above for all 452 steps of the reference. **Hour-scale: plain `#[ignore]`, 1090 s wall (2026-11-26, release, shared
+/// 4-core machine)**; run with `--ignored`. Measured: README, "Round 22 results".
+#[test]
+#[ignore = "1090 s wall; run with --ignored"]
+fn msfr_fixed_temperature_time_profile_452_steps_match_upstream() {
+    let full = read_ref(&vv_dir().join("refs/msfr_full_c.ref.txt.gz"));
+    let a = read_ref(&vv_dir().join("refs/msfr_full_a.ref.txt.gz"));
+    let s = profile_case(None);
     let n = s.n_steps;
+    assert_eq!(n, 452);
     assert_eq!(s.cpiter_equal, n);
     assert_eq!(s.neutron_iters_equal, n);
-    // the profile matters (the test is not vacuous): the upstream runs with and without it differ in power
-    let k = 1000;
-    let (pc, pa) = (full[&format!("POWER_{k}")][0], a[&format!("POWER_{k}")][0]);
-    assert!(((pc - pa) / pa).abs() > 1e-4, "profile changes the power at step {k} by {:e}", ((pc - pa) / pa).abs());
-    assert!(s.first_dt_bad.is_none() && s.worst_dt < 1e-11, "dt {:e}", s.worst_dt);
-    assert!(s.worst_t_field < 1e-11, "T field {:e}", s.worst_t_field);
-    assert!(s.worst_tstat < 1e-11, "T stats {:e}", s.worst_tstat);
-    assert!(s.worst_power < 1e-10, "power {:e}", s.worst_power);
-    assert!(s.worst_co < 1e-11, "Courant {:e}", s.worst_co);
+    // the profile matters (the test is not vacuous): the upstream runs with and without it differ in power by > 1e-4
+    let (pc, pa) = (full["POWER_452"][2], a["POWER_452"][0]);
+    assert!(((pc - pa) / pa).abs() > 1e-4, "profile changes the power at step 452 by {:e}", ((pc - pa) / pa).abs());
+    assert!(s.first_dt_bad.is_none() && s.worst_dt < 3e-13, "dt {:e}", s.worst_dt);
+    assert!(s.worst_t_field < 5e-12, "T field {:e}", s.worst_t_field);
+    assert!(s.worst_tstat < 5e-12, "T stats {:e}", s.worst_tstat);
+    assert!(s.worst_power < 9e-11, "power {:e}", s.worst_power);
+    assert!(s.worst_co < 3e-13, "Courant {:e}", s.worst_co);
 }

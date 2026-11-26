@@ -1692,9 +1692,9 @@ the same order but `0.5 * max(...)` differs in the last bit.
 * `solveFluidMechanics true` (UEqn/pEqn with `momentumMode cellCentered`, `porousKEpsilon` solving: `k`, `epsilon`, `nut`, `alphat` are only READ):
   the `steadyStateTH` stage (issue 1775, filed as a child). `ReynoldsPower` is parsed and ignored (`Kd` does not enter the energy equation).
 * The general `cellVolumeWeight` supermesh (two different meshes; issue 651): `IdenticalMeshMap::new` refuses them by name.
-* More than one coupling iteration per step was exercised only by unit tests (upstream never needed it in the 50 steps), and `correctTightlyCoupledPhysics`
-  only against `correctPhysics` with one outer iteration, not against upstream.
-* Steps beyond 50 (upstream's run goes on to 142 steps at the same protocol); the energy equation's `fixedTemperature` time profile; heat exchangers.
+* ~~More than one coupling iteration per step was exercised only by unit tests (upstream never needed it in the 50 steps), and `correctTightlyCoupledPhysics`
+  only against `correctPhysics` with one outer iteration, not against upstream.~~ **CORRECTED 2026-11-26 (round 15 for 3 unconverged iterations, round 22 for 6 iterations with threshold crossings): compared against the real binary.**
+* ~~Steps beyond 50 (upstream run goes on to 142 steps at the same protocol); the energy equation `fixedTemperature` time profile~~ **CORRECTED 2026-11-26 (round 22): all 1347 steps to 175 s and the `fixedTemperature` time profile (452 steps) are compared; the upstream run is 1347 steps, not 142.** Still not ported: heat exchangers.
 
 ### Gates
 
@@ -3350,3 +3350,56 @@ None. No pin, gate or tolerance of an existing test changed. `two_phase::mod.rs`
 ### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
 
 `--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed (6 s); `--lib thermo_mechanics` 22 passed (7 new in `legacy_fvm::tests`); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` compiles `outram-foam-appbuilder-lib` for `x86_64-unknown-none`. Not run: the other suites of the crate and the workspace (the parent's integration run covers them); `docs/outram-foam-appbuilder-lib-api.md` (the generated mirror) was not regenerated.
+
+
+## Round 22 results (measured 2026-11-26, release, shared 4-core machine; upstream = the real unmodified binary, serial, tight; tests in `tests/genfoam_msfr_coupled_vs_upstream.rs`)
+
+**Upstream runs** (scratch under `/home/user/upstream-build/gh1813/`, deleted after extraction): `steadyStateTH` (shipped tolerances), tight `steadyStateEN` to 165 s, then three tight `transient` runs from that state. `scripts/reap_fluid_T.sh` saved `T` and deleted each step directory (10 MB per step). The references are `refs/msfr_full_{a,b,c}.ref.txt.gz` (every step's `deltaT`, every `h` initial residual, every `T (avg min max)` triple, Courant, every `power:`, neutron iteration counts, final `neutroResidual` and second-solve residuals per coupling iteration, `T` at selected steps; 1.3, 1.4 and 0.8 MB).
+
+**Finding 1 (the issue's step count was wrong).** The tutorial's `endTime 175` from the 165 s state is **1347 steps**, not 142 (the step size is capped at `maxDeltaT` = 7.4725e-3 s from step 15 on, and 10 s / 7.47e-3 s is about 1340). 142 steps reach t = 166.0 s. Part 1 therefore compares 1347 steps.
+
+| part, case | steps | worst `dt` | worst `T` field (kept steps) | worst `T` stats | worst `power:` | worst Courant | coupling / neutron iteration counts equal | `residual_` worst | wall |
+|---|---|---|---|---|---|---|---|---|---|
+| 1. A: tutorial dictionary, to 175 s (`msfr_full_transient_to_175_s_matches_upstream`) | 1347 | 9.3e-14 | 1.64e-12 (step 700; 9.2e-13 at the end) | 1.65e-12 | 1.29e-11 | 9.4e-14 | 1347/1347 (all 1) / 1347/1347 (all 1) | 1.46e-5 | 171 s |
+| 2. B: `minResidual 1e-7`, `maxIterations 6`, 276 steps to 167 s (`msfr_multi_iteration_coupling_matches_upstream`) | 276 | 9.3e-14 | 1.46e-12 | 1.05e-12 | 2.37e-11 | 9.4e-14 | 276/276 (1 at steps 1-10, **6 at 11-263, 1 from 264**) / 276/276 | 1.68e-5 | 168 s |
+| 4. C: `temperatureTimeProfile` on `hx`, 452 steps to 167.9 s (`..._452_steps_match_upstream`, `#[ignore]`) | 452 | 9.3e-14 | 1.98e-12 | 1.98e-12 | 3.51e-11 | 9.4e-14 | 452/452 (3 iterations at 300 steps) / 452/452 (cap of 50 reached) | 2.22e-6 | 1090 s |
+| 4. C, first 20 steps (`msfr_fixed_temperature_time_profile_matches_upstream`, every `cargo test`) | 20 | 9.3e-14 | 2.1e-15 | 1.1e-15 | 6.7e-15 | 9.4e-14 | 20/20 / 20/20 | 6.4e-8 | 2.6 s |
+
+No step is a "first diverging step": nothing exceeds 1e-9 anywhere. Bit identity is not reached; the differences are linear-solver round-off accumulated over hundreds of steps (`T` peaks near 2e-12 and decays again in A and B; in C it grows monotonically because the power excursion amplifies round-off). A model difference would show at 1e-6 or more immediately. The five `h` residuals of iteration 1 agree to 1.2e-5 (A, as in round 9; cancellation-dominated numbers, not gated); the single `h` residual of coupling iterations 2-6 in B to 1.65e-3 (a near-converged solve, 1e-11 absolute; printed, not gated); in C to 1.4e-8.
+
+### Part 2: what the multi-iteration case shows
+Upstream's first `h` residual crosses 1e-7 between steps 10 (8.89e-8) and 11 (1.058e-7), so the loop turns on at step 11, and the running-max residual (never reset) is below 1e-7 again only from step 264. The port reproduces BOTH switches and every iteration count (276/276), which tests the residual VALUE at two crossings, and `correctTightlyCoupledPhysics` (iterations 2-6 of the fluid: one `correctModels` and one `correctEnergy`) at 253 steps x 5 iterations. B is not a vacuous case: its `power:` at step 276 differs from A's by **3.3e-5** relative (19999008.2496 vs 19999660.4701), so the extra iterations change the answer.
+
+### Part 3: the neutronics `residual_` value
+`UpstreamTransientStep::residual` now carries upstream's `residual_`: `max(second-solve initial residual of every group of every neutron iteration, final neutroResidual)`; it is the default in `EnergyNeutroTransient`, and the round 9 stand-in stays as `residual_lower_bound_form` / `with_lower_bound_neutro_residual()`. Against the value computed from upstream's log (`RESID_n`, per coupling iteration): worst relative difference **1.46e-5 (A), 1.68e-5 (B), 2.2e-6 (C)**. The final `neutroResidual` (1e-8 scale in A and B, up to 1e-4 in C) dominates; the second-solve term is at the solver tolerance in both codes (upstream max 1.04e-14, port max 3.4e-15): the same order, **not** equal (two different linear solvers' round-off), and never the larger term in any compared step, so it cannot change a decision. It would matter only if the neutron loop converged below the solver tolerance. The old harness form equals the new one whenever the neutron loop takes one iteration (all steps of A and B: `NITER` is 1 everywhere in the references) and is larger otherwise; on the light chain (residual 1e-4 against 5e-5) both take the same decision and the step-1 power is bit for bit the same (asserted in `msfr_light_chain_matches_upstream`).
+
+### Part 4: what is done and what is not
+Done: `fixedTemperature`'s `temperatureTimeProfile` (`T_ = f(t) T_old / f(t - deltaT)`, applied at the end of each `correctEnergy` as `structure::correct` does, and once at construction, `T_old` stored once per step), reading the table through the existing `read_table_time_profile`; the earlier refusal "temperatureTimeProfile is not ported" is gone. **Not done: heat exchangers** (`structureProperties.<zone>.heatExchangers`; a child issue is filed): they need the primary/secondary zone `meshToMesh` mapping and the secondary region's `htc`/`T` (`heatExchanger.C`), and no case of this stack runs them in both codes (`OnePhaseCcCase::read` still refuses them by name). A time-profile `type` other than `table` (`fmi`, `constant`, `sine`) is refused by name, as in round 12.
+
+### Predictions: held and missed
+| id | held? | measured |
+|---|---|---|
+| V1 about 142 steps | **MISSED (the premise was wrong)** | 1347 steps to 175 s; 142 steps reach 166.0 s |
+| V2 loop converges after 1 iteration at every step of A | **held** | 1347/1347 |
+| V3 levels (dt, T, T stats, power, Courant 1e-11/1e-12/1e-12/1e-11/1e-11, counts equal everywhere) | **partly missed** | dt, Courant (9e-14) and counts (1347/1347) held; `T` field 1.64e-12, `T` stats 1.65e-12 and `power:` 1.29e-11 exceeded my 1e-12 / 1e-12 / 1e-11 (the prediction was made for 142 steps; the drift is over 1347). All far below 1e-9. Gates are the measured values x about 2.5 |
+| R1 `residual_` vs log value <= 1e-4, expected 1e-6..1e-5 | **held** | 1.5e-5 (A), 1.7e-5 (B, just above the expected band); the second-solve term is not reproduced, as predicted |
+| R2 old and new value equal in A | **held by construction** | one neutron iteration at every step; not a separate per-step measurement |
+| R3 light chain: same coupling decision | **held** | 3 unconverged iterations, step-1 power bit for bit equal (2.485079e7); the old-time-snapshot ablation still misses by 1.131e-2 |
+| M1 B: 1 iteration at steps 1-10, 6 from step 11 | **held, and more** | also back to 1 from step 264 (a second switch I did not predict); the port reproduces both |
+| M2 B levels | **mostly held** | dt, T, power (2.4e-11 against 1e-10), Courant held; **missed**: the later-iteration `h` residual, 1.65e-3 against the predicted 1e-6 |
+| M3 B differs from A by 1e-9..1e-6 | **MISSED in size** | 3.3e-5; the "not vacuous" condition held |
+| F1 C: T <= 1e-12, dt 1e-11, power 1e-11 | **partly missed** | dt 9.3e-14 held; `T` 1.98e-12 and `power:` 3.5e-11 are over, because C is a power excursion (+5 % in 2.9 s; the neutron loop reaches its cap of 50 and the coupling loop its cap of 3 at 300 of 452 steps) that amplifies round-off. The first 20 steps agree to 2e-15 / 7e-15, so the order of the profile update was right on the first run |
+| F2 C: the profile matters | **held, far above** | `power:` at step 452 is 2.1009e7 against A's 1.9999e7 (+5 %) |
+| H1 heat exchangers | not exercised | filed |
+| W1 wall times (A < 40 s, B < 150 s, C < 40 s) | **missed** | A 171 s, B 168 s, C 1090 s (the 50-iteration neutron cap); C's full comparison is `#[ignore]`, its first 20 steps run in every `cargo test` (2.6 s) |
+
+C was stopped at 452 steps on purpose (167.9 s): upstream's rate fell to 0.6 steps/s once the neutron loop hit its cap, and the remaining ~900 steps were not needed for the question asked. The reference records exactly the 452 complete steps (`N 452`).
+
+### Moved numbers
+None of an earlier gated number. `UpstreamTransientStep` gained three fields (no struct literal elsewhere). The neutronics `residual_` the workflow feeds to the loop changed from the stand-in to upstream's form; the coupling decision is the same in every compared case, and the light chain is unchanged (`dt` 2.0e-11, step-1 power 2.485079e7, as in round 15). `solve_twice` is untouched (`solve_twice_residuals` is new).
+
+### What is deliberately not the same as upstream, and what remains
+The second-solve residual uses OpenFOAM's normalisation but is a different number from upstream's (a different PCG; both sit at the solver tolerance). `T (avg min max)` of coupling iterations 2+ is not reported by the port (`correct_tightly_coupled_physics` returns only the residual), so those triples are checked through `T` at the kept steps only. Heat exchangers are not ported. Aitken acceleration remains not performed (round 6 decision).
+
+### Gates run (2026-11-26, release, targeted; the parent runs the full integration test)
+See the final line of this section, written after the runs: `--test genfoam_msfr_coupled_vs_upstream`, `--test genfoam_msfr_chain_vs_upstream msfr_light_chain` (1 passed, 84 s), `-p petir --test no_platform_libm`, `bash scripts/check-nostd.sh` (exit 0).
