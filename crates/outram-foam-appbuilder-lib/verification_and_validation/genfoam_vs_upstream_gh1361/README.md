@@ -1694,7 +1694,8 @@ the same order but `0.5 * max(...)` differs in the last bit.
 
 ### Gates
 
-See the entries of the session record below ("Moved numbers", test counts) once the full suite has run.
+**Run (2026-11-26, release):** `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_coupled_vs_upstream`: 3 passed, 0 failed (the 50-step comparison, `correctTightlyCoupledPhysics` against one outer iteration, the refusal by name); `cargo check --release -p outram-foam-appbuilder-lib --lib`: clean.
+**NOT run, not claimed:** the full `cargo test --release -p outram-foam-appbuilder-lib --tests --no-fail-fast`, the crate's `--lib` unit tests (the new ones in `coupled_loop.rs` and `one_phase_cc.rs`), `cargo test --release -p petir --test no_platform_libm`, and the `--no-default-features` (`no_std`) check. The shared target directory's build lock was held for hours by another session's `cargo test -p dhoby-ghaut`, and a private target directory did not get through the dev-dependency build (`faer`, `outram-blender`, `dwsim-libs`) on the machine's remaining capacity and disk. The new files were written to the `no_std` rules (`alloc::`, `core::`, file access under `std`) but that is not checked. To be run by whoever has the machine.
 
 ### Moved numbers (old to new, with cause)
 
