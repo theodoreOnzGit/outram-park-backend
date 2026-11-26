@@ -144,6 +144,10 @@ pub struct CrossSectionData {
     do_not_parametrize: Vec<usize>,
     zones: Vec<ZoneNuclearData>,
     zone_index: HashMap<String, usize>,
+    /// Whether `chiPrompt`/`chiDelayed` follow the feedback state (the default) or
+    /// stay at the reference state like upstream's do; see
+    /// [`Self::with_upstream_unparametrised_chi`].
+    chi_parametrised: bool,
 }
 
 impl CrossSectionData {
@@ -209,6 +213,7 @@ impl CrossSectionData {
             do_not_parametrize: input.do_not_parametrize.clone(),
             zones,
             zone_index,
+            chi_parametrised: true,
         };
 
         // --- register each state's data points ----------------------------
@@ -269,6 +274,38 @@ impl CrossSectionData {
             .zip(raw_parameters)
             .map(|(var, &raw)| var.law.transform(raw))
             .collect()
+    }
+
+    /// Evaluate `chiPrompt` and `chiDelayed` at the **reference** state whatever the
+    /// feedback state, as GeN-Foam 652b3da does (gh:#1361, round 6).
+    ///
+    /// `nuclearData` supplies a chi per state, and the port interpolates it with
+    /// the other cross sections by default. Upstream's `XS::init()` (`XS.C:297`)
+    /// `build()`s the `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval` and
+    /// `sigmaFromTo` interpolators and **not** the `chiPrompt`/`chiDelayed`
+    /// ones, and `nuclearDataOneEnergy::get` returns the reference value when its
+    /// interpolator was never built (`reducedParamIdx_.size() == 0`,
+    /// `nuclearDataOneEnergy.C:94`). So upstream's chi is the reference chi at every
+    /// cell: measured on `2D_MSFR` at t = 165 s (GeN-Foam's own `XS` class, 17
+    /// digits), the port's parametrised chi differs in all 8595 cells by up to
+    /// 3.3e-5 (`chiPrompt0`), 7.7e-2 (`chiDelayed0`) and 0.34 (`chiDelayed5`) relative;
+    /// every other cross section is bit-identical.
+    ///
+    /// The default stays the data-driven form (correct physics default-on: the
+    /// evaluation supplies it). Whether upstream's omission should become the
+    /// default is deferred to the maintainer; the V&V that compares with the real
+    /// binary sets this option.
+    #[must_use]
+    pub fn with_upstream_unparametrised_chi(mut self) -> Self {
+        self.chi_parametrised = false;
+        self
+    }
+
+    /// Whether `chiPrompt`/`chiDelayed` follow the feedback state
+    /// (see [`Self::with_upstream_unparametrised_chi`]).
+    #[must_use]
+    pub fn chi_is_parametrised(&self) -> bool {
+        self.chi_parametrised
     }
 
     /// Whether energy group `group` is parametrised (has feedback applied), i.e.
@@ -359,8 +396,16 @@ impl CrossSectionData {
             nu_sigma_f: macroscopic_cross_section(z.nu_sigma_f(group, &params, parametrize)),
             sigma_pow: energy_release_cross_section(z.sigma_pow(group, &params, parametrize)),
             sigma_removal: macroscopic_cross_section(z.sigma_removal(group, &params, parametrize)),
-            chi_prompt: dimensionless(z.chi_prompt(group, &params, parametrize)),
-            chi_delayed: dimensionless(z.chi_delayed(group, &params, parametrize)),
+            chi_prompt: dimensionless(z.chi_prompt(
+                group,
+                &params,
+                parametrize && self.chi_parametrised,
+            )),
+            chi_delayed: dimensionless(z.chi_delayed(
+                group,
+                &params,
+                parametrize && self.chi_parametrised,
+            )),
             inverse_velocity: inverse_velocity(z.inverse_velocity(group)),
             disc_factor: dimensionless(z.disc_factor(group)),
         })

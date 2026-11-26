@@ -129,7 +129,7 @@ pub struct UpstreamTransientFeedback<'a> {
 }
 
 /// What one transient step reports (the lines the upstream log prints).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UpstreamTransientStep {
     /// `power()` before the step (`pTotOld_`).
     pub power_old: f64,
@@ -141,6 +141,12 @@ pub struct UpstreamTransientStep {
     pub neutron_iterations: usize,
     /// The final `neutroResidual`.
     pub neutro_residual: f64,
+    /// `neutroResidual` after each neutron iteration (the log's `neutroResidual
+    /// (neutroIter: k)` lines).
+    pub residual_history: Vec<f64>,
+    /// The first-solve initial residual of each group in the first neutron
+    /// iteration (the `Solving for fluxStarG, Initial residual` lines).
+    pub first_iteration_group_residuals: Vec<f64>,
 }
 
 /// `fvm::ddt(coeff, psi)` of `EulerDdtScheme::fvmDdt(vsf, vf)`, operation
@@ -277,6 +283,8 @@ impl DiffusionNeutronics {
 
         let mut neutro_iter = 0usize;
         let mut neutro_residual;
+        let mut residual_history = Vec::new();
+        let mut first_iteration_group_residuals = Vec::new();
         loop {
             // fluxEq.H
             neutro_residual = 0.0_f64;
@@ -327,6 +335,9 @@ impl DiffusionNeutronics {
                 let (sol, init_res) =
                     solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
                 neutro_residual = neutro_residual.max(init_res);
+                if neutro_iter == 0 {
+                    first_iteration_group_residuals.push(init_res);
+                }
                 self.write_group_flux(gg, &sol);
 
                 // neutroSource_ += nuSigmaEff[g] * flux_[g] * (1 - eigenvalueNeutronics_)
@@ -343,6 +354,7 @@ impl DiffusionNeutronics {
             self.accumulate_delayed_source(&mut delayed);
 
             neutro_iter += 1;
+            residual_history.push(neutro_residual);
             if !(neutro_residual > controls.neutron_iteration_residual
                 && neutro_iter < controls.max_neutron_iterations)
             {
@@ -357,6 +369,8 @@ impl DiffusionNeutronics {
             k_eff: keff,
             neutron_iterations: neutro_iter,
             neutro_residual,
+            residual_history,
+            first_iteration_group_residuals,
         })
     }
 

@@ -1139,3 +1139,28 @@ Inputs of the port: committed `cases/msfr_neutro` (mesh, `nuclearData`), `refs/m
 | Q5 | power change since the start state (`power(50) - 2e7`, +1.3566e4 W upstream) | port reproduces it to 1e-6 relative of the change (the change is a 6.8e-4 effect, large against solver noise) |
 | Q6 | first quantity to diverge | the neutron iteration count at one of the near-threshold steps (3-14), not the power |
 | Q7 | wall time | port < 5 min for 50 steps |
+
+## Round 6, first run (2026-11-25, port with the data-driven chi): predictions Q1-Q7 mostly missed
+
+Result of the first run (`msfr_transient_neutronics_matches_upstream_over_50_steps`, 12.6 s wall): power relative difference 7.4e-6 at step 1, 6.7e-5 at step 2, 1.8e-4 from step 3 to step 50 (worst 1.84e-4); neutron iteration counts equal at 43 of 50 steps (steps 2-8 differ: 33/50, 1/37, 21/1, 1/22, 10/1, 1/8, 2/1); precursor totals up to 1.07e-4, flux integrals 1.9e-4; step-50 per-cell 1.9e-4; power change since 2e7 at step 50: port +1.0045e4 W, upstream +1.3566e4 W (26 % off). **Q1 missed, Q2 missed narrowly (43 of 50 against >= 45), Q3 missed, Q4 missed, Q5 missed, Q6 missed in kind (the power diverges at step 1), Q7 held.**
+
+How the cause was found (all diagnostics are `#[ignore]`d tests in the same file; each reads the upstream run):
+
+1. Step 1, first iteration, per-group first-solve initial residual: port `[7.35e-6, 7.83e-6, 2.51e-6, 1.94e-6, 1.56e-6, 2.05e-6]`, upstream `[9.6e-7, 1.14e-6, 1.57e-6, 1.84e-6, 1.66e-6, 1.83e-6]`: the start state (upstream's own) is out of balance in the port by 7x in the fast groups.
+2. The static eigenvalue of the port at upstream's t = 165 s state is +0.315 pcm from upstream's `keff_` (same as round 1's +0.3 pcm, never explained there); upstream's `keff_` is itself still creeping by 5e-8 per step at t = 165 s, so this alone is not a diagnosis.
+3. Geometry: `upstream_driver/dump_laplacian_geometry` (ESI `V`, `magSf`, linear weights, `nonOrthDeltaCoeffs`, `deltaCoeffs`, every patch): port equal to <= 3.6e-14 relative everywhere. Albedo coefficients: scaling any of the four patches by 1 +- 1e-3 raises the residual, minimum at 1.0. Not the cause.
+4. `upstream_driver/dump_xs` calls GeN-Foam's **own `XS` class** (`xs.correct()` on the same case) and dumps every cross section per cell at 17 digits. Port against it, 8595 cells: `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval`, `IV`, `BetaTot` **bit-identical (0 of 8595 differ)**, `sigmaFromTo` identical except 1 cell at 1.1e-15; **`chiPrompt` and `chiDelayed` differ in all 8595 cells** (worst 3.3e-5 `chiPrompt0`, 7.7e-2 `chiDelayed0`, 0.34 `chiDelayed5`).
+5. Upstream routine: `XS::init()` (`XS.C:297`) calls `.build()` on the `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval` and `sigmaFromTo` lists and **not** on `chiPromptList_`/`chiDelayedList_`; `nuclearDataOneEnergy::get` (`nuclearDataOneEnergy.C:94`) returns the reference value when `reducedParamIdx_` is empty (never built). So upstream's chi is the reference chi in every cell, though `nuclearData` supplies a chi per state. The port built and interpolated them. A port difference of the kind CLAUDE.md names ("what upstream does that we do not"), found by reading upstream after the measurement.
+
+## Round 6, second run: hypothesis and predictions (written BEFORE the second run; committed first)
+
+Change: `CrossSectionData::with_upstream_unparametrised_chi()` (new option, **default unchanged: parametrised**), used by this test's setup. Whether upstream's omission should become the default is **deferred to the maintainer** (the data-driven chi is what the evaluation supplies; upstream ignores it).
+
+| id | prediction |
+|---|---|
+| H1 | with the option, `diagnose_cross_sections_against_upstream_xs_class` shows every cross-section quantity equal to upstream's at <= 1e-14 relative (chi 0 cells differ) |
+| H2 | the step-1 first-iteration group residuals fall to within 5 % of upstream's `[9.6e-7, 1.14e-6, 1.57e-6, 1.84e-6, 1.66e-6, 1.83e-6]` (they differ only by the precursor re-solve, which is the same in both) |
+| H3 | per-step power relative difference <= 1e-8 at all 50 steps (solver differences, PCG/DIC vs basic-lib CG, at 1e-14); bit-identity is not expected |
+| H4 | neutron iteration count equal at >= 48 of 50 steps (the near-threshold steps 3-8 are the risk; the first-iteration residual of step 4 is 9.9756e-7, 0.24 % under the threshold) |
+| H5 | precursor totals and flux integrals <= 1e-8 per step; step-50 per-cell <= 1e-8 of the field maximum |
+| H6 | power change since 2e7 at step 50 reproduced to 1e-5 relative |
