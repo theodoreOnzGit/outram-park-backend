@@ -4,7 +4,9 @@ crate = "petir"
 dir = "crates/petir/src/rng"
 test_ids = [
     "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/expected_inventory.rs::cram48_matches_bateman_on_the_th232_chain",
     "crates/boon-lay/src/lagrangian_decay_simulator/expected_inventory.rs::monte_carlo_mean_matches_cram48_expected_inventory",
+    "crates/boon-lay/src/lagrangian_decay_simulator/expected_inventory.rs::stable_start_and_bad_inputs",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs::diffusion_gaussian_sum",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs::isotropic_scattering_time_summation",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_simulator.rs::chat_gpt_sim",
@@ -49,13 +51,19 @@ test_ids = [
     "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
     "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
     "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/tests.rs::index_tritium",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::branching_ratios_sum_to_one_within_1e_9",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::he5_alpha_without_target_does_not_panic",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::lookup_never_panics_for_any_known_nuclide",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::stochastic_chain_from_u238_does_not_panic",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_decay_chain",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_rng",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::u238_spontaneous_fission_has_no_tracked_daughter",
     "crates/boon-lay/tests/kr_buffer_missing_diffusion_data.rs::kr85_walk_does_not_panic",
     "crates/boon-lay/tests/kr_buffer_missing_diffusion_data.rs::kr85_walker_proceeds_through_the_buffer",
     "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
     "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_ba137m_branching_agrees_with_the_decay_library",
     "crates/changi/tests/flexpart_stochastic_advance.rs::advance_statistics_match_flexpart_real4",
     "crates/changi/tests/flexpart_stochastic_advance.rs::advance_statistics_match_flexpart_real8",
     "crates/changi/tests/flexpart_stochastic_redist.rs::redist_statistics_match_flexpart_real4",
@@ -128,9 +136,11 @@ test_ids = [
     "crates/dhoby-ghaut/tests/gpu_csg_parity.rs::htr10_views_gpu_match_cpu",
     "crates/dhoby-ghaut/tests/lesson_barriers.rs::the_walker_probe_stays_inside",
     "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::a_gaussian_step_jumps_layers_and_wos_does_not",
+    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::decay_library_and_branches",
     "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::release_against_crank",
     "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::sampled_futures_follow_the_simulator_and_cram",
     "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::decay_chains_from_boon_lay",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::half_lives",
     "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::monte_carlo_against_booth",
     "crates/nee_soon/src/htr10_coupling_tests.rs::power_mesh_and_refusals",
     "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_free_paths_agree_and_per_material_binding_matches_the_legacy_slot",
@@ -193,6 +203,15 @@ test_ids = [
     "crates/outram-mc-libs/src/dh_universe.rs::scls_window_is_a_transport_mfp_not_a_chord_length",
     "crates/outram-mc-libs/src/geometry/crossing/rotational_periodic_tests.rs::folded_straight_lines_stay_consistent_over_many_crossings",
     "crates/outram-mc-libs/src/geometry/crossing/tests.rs::reflective_concentric_shells_do_not_leak",
+    "crates/outram-mc-libs/src/gpu/batched_event.rs::cpu_mirror_event_is_deterministic",
+    "crates/outram-mc-libs/src/gpu/batched_event.rs::cpu_mirror_event_makes_progress",
+    "crates/outram-mc-libs/src/gpu/batched_event.rs::gpu_event_matches_cpu_mirror",
+    "crates/outram-mc-libs/src/gpu/batched_flight.rs::cpu_lcg_advance_bit_exact",
+    "crates/outram-mc-libs/src/gpu/batched_flight.rs::cpu_mirror_headon_collision_and_zero_xs_leak",
+    "crates/outram-mc-libs/src/gpu/batched_flight.rs::cpu_mirror_outward_leak",
+    "crates/outram-mc-libs/src/gpu/batched_flight.rs::gpu_flight_matches_cpu_mirror",
+    "crates/outram-mc-libs/src/gpu/batched_flight.rs::gpu_lcg_state_matches_cpu",
+    "crates/outram-mc-libs/src/gpu/batched_flight.rs::mirror_and_gpu_resolve_the_sphere_surface_as_openmc",
     "crates/outram-mc-libs/src/material/nuclide.rs::a_histogram_incident_grid_uses_the_lower_table_only",
     "crates/outram-mc-libs/src/material/nuclide.rs::continuous_tabular_hardens_with_incident_energy",
     "crates/outram-mc-libs/src/material/nuclide.rs::evaporation_lf9_matches_theoretical_mean_and_respects_restriction",
@@ -266,6 +285,7 @@ test_ids = [
     "crates/outram-mc-libs/src/physics/nbody.rs::six_bodies_is_refused",
     "crates/outram-mc-libs/src/physics/particle_restart.rs::replay_reproduces_the_stream_bit_exactly",
     "crates/outram-mc-libs/src/physics/particle_restart.rs::streams_do_not_overlap_within_a_stride",
+    "crates/outram-mc-libs/src/physics/particle_restart.rs::the_seed_matches_the_transport_derivation",
     "crates/outram-mc-libs/src/physics/physics_mg.rs::mg_infinite_medium_matches_analytic_kinf",
     "crates/outram-mc-libs/src/physics/physics_mg.rs::multiplicity_weights_by_the_row_and_matches_analytic_kinf",
     "crates/outram-mc-libs/src/physics/reactor_physics.rs::machinery_invariants_fast_pincell",
@@ -320,6 +340,7 @@ test_ids = [
     "crates/outram-mc-libs/src/physics/weight_windows.rs::the_absolute_cutoff_kills_outright",
     "crates/outram-mc-libs/src/physics/weight_windows.rs::the_birth_normalisation_rescales_the_window",
     "crates/outram-mc-libs/src/physics/weight_windows.rs::the_split_cascade_terminates_because_daughters_inherit_their_parent",
+    "crates/outram-mc-libs/src/rng/openmc_seeding.rs::openmc_history_seeds_are_init_particle_seeds_of_the_transport_seed",
     "crates/outram-mc-libs/src/source/distribution.rs::statistical_sanity",
     "crates/outram-mc-libs/src/source/energy.rs::tabulated_energy_handles_degenerate_tables",
     "crates/outram-mc-libs/src/source/energy.rs::tabulated_energy_inverts_a_linear_cdf",
@@ -463,8 +484,15 @@ test_ids = [
     "crates/outram-mc-libs/tests/godiva_csg_kernel_sets_paired.rs::godiva_csg_openmc_vs_legacy_kernels_paired",
     "crates/outram-mc-libs/tests/godiva_fission_banking_paired.rs::godiva_csg_per_collision_vs_at_fission_banking_paired",
     "crates/outram-mc-libs/tests/gpu_batched_per_collision_banking.rs::batched_driver_banks_per_collision_by_default_and_legacy_reproduces_old_run",
+    "crates/outram-mc-libs/tests/gpu_direction_norm_drift_guard.rs::a_graphite_event_walk_keeps_every_direction_unit_on_the_mirror",
+    "crates/outram-mc-libs/tests/gpu_direction_norm_drift_guard.rs::gpu_and_mirror_agree_on_one_guarded_rotation",
+    "crates/outram-mc-libs/tests/gpu_direction_norm_drift_guard.rs::mirror_walks_stay_unit_with_the_guard_and_drift_without_it",
     "crates/outram-mc-libs/tests/gpu_fused_event_per_collision_banking.rs::fused_event_mirror_banks_per_collision_like_the_cpu_default",
     "crates/outram-mc-libs/tests/gpu_fused_event_per_collision_banking.rs::g2_g4_fused_gpu_banks_per_collision",
+    "crates/outram-mc-libs/tests/gpu_fused_event_per_collision_banking.rs::g3_mirror_banks_at_collisions_not_at_fission_events",
+    "crates/outram-mc-libs/tests/gpu_fused_event_per_collision_banking.rs::g5_mirror_leaks_neutrons_leaving_through_the_surface",
+    "crates/outram-mc-libs/tests/gpu_lcg_advance_directly.rs::gpu_a_long_chain_stays_locked_to_the_cpu_stream",
+    "crates/outram-mc-libs/tests/gpu_lcg_advance_directly.rs::gpu_lcg_advance_is_bit_exact_against_the_cpu_lcg",
     "crates/outram-mc-libs/tests/gpu_lcg_advance_directly.rs::the_reference_is_sound_without_a_gpu",
     "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::bound_graphite_and_free_gas_agree_once_target_motion_is_sampled",
     "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::diagnose_thermal_spectrum_reach",
@@ -561,10 +589,14 @@ test_ids = [
     "crates/outram-mc-libs/tests/openmc_seeding_sphere_and_fixed_source.rs::sphere_serial_and_parallel_drivers_are_bit_identical_under_openmc_seeding",
     "crates/outram-mc-libs/tests/openmc_seeding_sphere_and_fixed_source.rs::sphere_source_sits_on_openmc_source_stream_seeds",
     "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::bank_comb_matches_openmc_synchronize_bank",
+    "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::history_indexing_is_openmc_one_based",
+    "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::init_particle_seeds_equals_init_seed_per_stream",
+    "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::init_particle_seeds_honours_the_stride",
     "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::init_particle_seeds_matches_openmc",
     "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::isotropic_direction_matches_openmc",
     "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::openmc_seeding_makes_sequential_and_parallel_drivers_agree",
     "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::openmc_seeding_mode_is_named_pinned_and_not_the_default",
+    "crates/outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs::source_stream_seed_is_init_seed_of_the_source_id",
     "crates/outram-mc-libs/tests/openmc_xs_details_463.rs::sab_is_in_force_at_exactly_its_cutoff",
     "crates/outram-mc-libs/tests/other_neutron_channels_vs_openmc.rs::other_channels_match_openmc_on_both_routes",
     "crates/outram-mc-libs/tests/particle_clock.rs::a_polar_filter_on_a_track_length_tally_sees_the_real_direction",
@@ -755,8 +787,11 @@ test_ids = [
     "crates/petir/src/rng/lcg.rs::serial_correlation_lags_1_to_8",
     "crates/petir/src/wgsl/mirror_lcg.rs::the_emulated_advance_is_bit_exact_against_the_cpu_lcg",
     "crates/petir/src/wgsl/mirror_lcg.rs::the_emulated_multiply_is_exact",
+    "crates/petir/tests/lcg_vs_openmc_code_to_code.rs::advance_prn_seed_composition_matches_openmc",
     "crates/petir/tests/lcg_vs_openmc_code_to_code.rs::full_streams_and_strides_match_openmc",
     "crates/petir/tests/lcg_vs_openmc_code_to_code.rs::future_prn_composition_matches_openmc",
+    "crates/petir/tests/lcg_vs_openmc_code_to_code.rs::future_seed_matches_openmc",
+    "crates/petir/tests/lcg_vs_openmc_code_to_code.rs::init_seed_matches_openmc",
     "crates/petir/tests/lcg_vs_openmc_code_to_code.rs::prn_matches_openmc_1000_draws_per_seed",
     "crates/punggol/src/decay_spectrum.rs::resolved_spectrum_integral_ignores_and_sampling",
     "crates/punggol/src/openmc_photon/tests.rs::ablations_remove_their_physics",
@@ -775,6 +810,7 @@ test_ids = [
     "crates/punggol/tests/openmc_photon_multi_element_vs_openmc.rs::sample_element_picks_by_cumulative_macro_cross_section",
     "crates/punggol/tests/openmc_photon_multi_element_vs_openmc.rs::two_element_material_against_compiled_openmc",
     "crates/punggol/tests/openmc_photon_vs_openmc.rs::photon_samplers_against_compiled_openmc",
+    "crates/raffles/src/abc.rs::a_failing_simulator_makes_a_point_impossible",
     "crates/raffles/src/abc.rs::a_smaller_tolerance_tightens_the_posterior",
     "crates/raffles/src/abc.rs::abc_matching_the_observed_sample_size_recovers_the_right_width",
     "crates/raffles/src/abc.rs::an_oversampled_simulator_makes_the_posterior_over_confident",
@@ -1409,220 +1445,6 @@ item = "const"
 shape = "const"
 hash = "sha256:d299a82397336967bc828c6fc316000582411eb0d21e12313ad3f06bede79899"
 doc_hash = "sha256:b322aaf628324c09b57586a330cafd0dfa0906059b481e3f1915a6d87c7de0ff"
-
-[[module."lcg.rs".function]]
-id = "fn:d1109a180942d6e6"
-name = "N_STREAMS"
-qual = "N_STREAMS"
-item = "const"
-shape = "const"
-hash = "sha256:e88d304eca91608047cd8f2c2583152859b824dfe51939cc6ff4af5a3067b5fe"
-doc_hash = "sha256:83487ad242955b6a8edb411a3c7b7eb8661914d393dc11a3d30f46d414fc7002"
-
-[[module."lcg.rs".function]]
-id = "fn:902eafae69219a7e"
-name = "PCG_PERM_MULT"
-qual = "PCG_PERM_MULT"
-item = "const"
-shape = "const"
-hash = "sha256:8953807ced646a71ef314fdeb41301812fc0f1d781d673bbef3e2cadfdc6a8d2"
-doc_hash = "sha256:bde6fa6c66b685f32ed25f033d2f71c4f98140bdd2d8d55310115ec3408503b1"
-
-[[module."lcg.rs".function]]
-id = "fn:aaf8dba3a10e616f"
-name = "STREAM_SOURCE"
-qual = "STREAM_SOURCE"
-item = "const"
-shape = "const"
-hash = "sha256:45461bc197d4378dd403d33457a1fa38eb5acdbc9a1bc7769a659cd40c42b76a"
-doc_hash = "sha256:1212fac3eca1aea51c93ad1f6eb42f72f5b5fdb2599badf13a82998de43502e5"
-
-[[module."lcg.rs".function]]
-id = "fn:ceb8d69db0deaa03"
-name = "STREAM_TRACKING"
-qual = "STREAM_TRACKING"
-item = "const"
-shape = "const"
-hash = "sha256:55922d70fee2703be4265116e6b7736a8c01671da5c41425a21a905ab4c7b72d"
-doc_hash = "sha256:908c1ddf6afaeb9cf5031b48f2a0ccd9884a5bef0f6066995391cebaab7c2d0b"
-
-[[module."lcg.rs".function]]
-id = "fn:b9820540faa39681"
-name = "STREAM_URR_PTABLE"
-qual = "STREAM_URR_PTABLE"
-item = "const"
-shape = "const"
-hash = "sha256:1fba0217c1208464f6c0a2ea135aa119eb08f382185bf5d94d463b493951c232"
-doc_hash = "sha256:df8a5c6640af61a847cbaf1fb8dbfc5f2cdbe7e755b271f3fe38fc98141cc315"
-
-[[module."lcg.rs".function]]
-id = "fn:ac5cec52fb8b5daa"
-name = "STREAM_VOLUME"
-qual = "STREAM_VOLUME"
-item = "const"
-shape = "const"
-hash = "sha256:7de2928f91964ccdb15b9e11085118907ab9bd75ab27528aed6f5024582721d6"
-doc_hash = "sha256:c5ec95304242d91217e7f7e22048878ba7d49b323a162351759b5d5614806d50"
-
-[[module."lcg.rs".function]]
-id = "fn:213a61f9e9edfc96"
-name = "assert_no_hyperplane_structure"
-qual = "assert_no_hyperplane_structure"
-hash = "sha256:bee98daac69f680974ae0f68093c2f8557d714eea9e6faa36204244b533a322b"
-doc_hash = "sha256:dfe6735e4df03391c86d0c23a2e634f5dcaabec408618439ed57b03a6e9a4722"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:5588ae5bc6d57efa"
-name = "draw"
-qual = "draw"
-hash = "sha256:e80b4415a42a96df2cebeb8c4f8fa1d9183d435439f0dbfff4f1940dc0a5e5d4"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:29ba906c738ce07c"
-name = "equidistribution_1d_2d_3d"
-qual = "equidistribution_1d_2d_3d"
-hash = "sha256:2ab48c79251a237ea1608f313bc7fc1cab4c34d557791dc26e741a9d828fae24"
-doc_hash = "sha256:2080a9d5530dd7450ea461ad3bdd25f535e6fdaded30819d3b5c11db0d5e6a12"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:1d6e49b7835ece3d"
-name = "equidistribution_chi2"
-qual = "equidistribution_chi2"
-hash = "sha256:fce6825aa3b2352e2f1fd3caddad2e5c578099acb7e9193f1b297d9ff0e10f44"
-doc_hash = "sha256:ccf316238468f1aaaf9ed123d506dd44e291ddabd95a50d7147a0f3f59754ce7"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:c18707f1370d3347"
-name = "future_seed"
-qual = "future_seed"
-hash = "sha256:962b128136c7bc85d8cba4f5cbc9ab48a0c2c900c0ce872793308fe46a7888df"
-doc_hash = "sha256:4f05d927264c95cd41f3371402b8e7c06995ed656e97bcd652a7f32a2fb32589"
-
-[[module."lcg.rs".function]]
-id = "fn:f7b7459eab97d547"
-name = "future_seed_coefficients"
-qual = "future_seed_coefficients"
-hash = "sha256:0d46f7896adc6d44b1f6dd3edfd67adffbbe9ee1346205e24386f61e48a027f4"
-doc_hash = "sha256:f1ccc8af54112686c685d4301ad5bea2c41277080ad0f4b17137c66c82b5c746"
-
-[[module."lcg.rs".function]]
-id = "fn:05278d0a3178d103"
-name = "future_seed_matches_sequential"
-qual = "future_seed_matches_sequential"
-hash = "sha256:f359c2656ee6f2feee6b53edd4e447180601de683227f36c356eb80058e2b4ed"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:a4470f55cba83afe"
-name = "future_seed_n_steps"
-qual = "future_seed_n_steps"
-hash = "sha256:b5c77212496f72ac269128622866b2fbedf8339398a149d6dea485de608f6a1f"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:8b84693df2fa745b"
-name = "hyperplane_stat"
-qual = "hyperplane_stat"
-hash = "sha256:ac4afc649cb10c826726f599b16e025a21fb838bab189677c173429ba354ad6a"
-doc_hash = "sha256:1637fe8abc0cf765f77208ffee7aec1c295cefe0731fa13e98aae1b02618328a"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:0d9f01373250e307"
-name = "init_particle_seeds"
-qual = "init_particle_seeds"
-hash = "sha256:9d65b057a2691a2d622adb8aa81de44c7ac3963c393d6870a8dfb20f0f44ea8d"
-doc_hash = "sha256:a9188ad2fad9f643a5389b4282e84b3b10834fff78c2e9fe8b4d03dd0784ffe5"
-
-[[module."lcg.rs".function]]
-id = "fn:dd52820befcbb8b1"
-name = "init_seed"
-qual = "init_seed"
-hash = "sha256:dd2ad9648d0338f284648a37a72d523825335f4d7f9dbbbba28ea3e9229f6961"
-doc_hash = "sha256:211e28f6c36a0c3a971f97b33b7a52b3a8bf3cf5c81051e0378a4407c2c0a967"
-
-[[module."lcg.rs".function]]
-id = "fn:abf8ae01aac3a550"
-name = "init_seed_consecutive_ids_are_one_full_stride_apart"
-qual = "init_seed_consecutive_ids_are_one_full_stride_apart"
-hash = "sha256:a5853635d36b6bd01073a26acd6b989895e79791e1da347a7808d44ca04de156"
-doc_hash = "sha256:04408c603e4f0108fc30b95f93b7fc8b4c341b54b6c53d2209586f62b9e198ab"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:53e26366ccd1a798"
-name = "init_seed_matches_openmc_golden_values"
-qual = "init_seed_matches_openmc_golden_values"
-hash = "sha256:79b44f7e8ef85a2f855ea59389a351bf2acd2ce74d3ec793085e3f37bb3a38ee"
-doc_hash = "sha256:3280b872db7bd68e415ced555408df4e92ed61d2a44264f99b35aaa606b3c8e2"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:f22bf18813b7457b"
-name = "init_seed_offset_selects_an_independent_run"
-qual = "init_seed_offset_selects_an_independent_run"
-hash = "sha256:73b76e85e3c5016cf5ebe0781d5b71f8f015fed188b3a85bc8c8ffd9c45e024b"
-doc_hash = "sha256:bd3a7a4181f4a59e30658d67d61e858bb701d982378bed81e7e75ca86ed31b91"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:d1f713048a634b10"
-name = "init_seed_streams_do_not_overlap"
-qual = "init_seed_streams_do_not_overlap"
-hash = "sha256:a5e4e6ababe61ae5dcda0e4167c5e8805d563ba473618eb473666b4b27bd96ee"
-doc_hash = "sha256:12221d25a5117af71c179483b9b00b0bd5ff8eaf9ec6258c4a52c1bf1317d7b8"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:e38b46e3169c129f"
-name = "lattice_structure_lag1"
-qual = "lattice_structure_lag1"
-hash = "sha256:e84dddcd981e6554bbe0b9a2488cd0b8daf933649c2e590f89626618da6a7fe3"
-doc_hash = "sha256:0eda4e267c10bde7452a4e194114619317b7c91ac7e9dcacb1fb3949858a0b5d"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:2233267c21c4b7b7"
-name = "lattice_structure_lag2"
-qual = "lattice_structure_lag2"
-hash = "sha256:105b54704b17d94a8e900ad62a91a5e48964d2d30d4192e6f5d5525ee56937ca"
-doc_hash = "sha256:f8899953f370fba7be0f1122eea9d531d70d00a3d40aa08ad2c7f3c0f73104e1"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:6d22359dd3a4e69d"
-name = "moved_stream_is_pinned"
-qual = "moved_stream_is_pinned"
-hash = "sha256:392c9a0a09e511071b314d64b4bb42a478a15671cbe3234c4775c41c33d70ef4"
-doc_hash = "sha256:6af475994ea2b546570b438da6f63c21b144fdcbf138f20fa1bd37b8d0984084"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:9590190fe7b8ce75"
-name = "output_does_not_expose_internal_state"
-qual = "output_does_not_expose_internal_state"
-hash = "sha256:877585f4c737e64511a6b2ac624c865b5326473e6053535a371ef3698070d9e8"
-doc_hash = "sha256:e9f9cc89d484f7e043873d374b62de49704e611845f9897a1b7c8c47bae936d1"
-test = true
-
-[[module."lcg.rs".function]]
-id = "fn:681ddf6544e7b60b"
-name = "prn"
-qual = "prn"
-hash = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
-doc_hash = "sha256:a4d8953a61b38a9b837f9d98df8be2e4afe68134124aa929247c69e8a094c5c0"
-uses = [
-    "fn:753a37cf1d65784f",
-    "fn:902eafae69219a7e",
-    "fn:a4ea8cdd8a0e37b1",
-]
 reached_by = [
     "#0",
     "#1",
@@ -2364,6 +2186,8 @@ reached_by = [
     "#737",
     "#738",
     "#739",
+    "#740",
+    "#741",
     "#742",
     "#743",
     "#744",
@@ -2372,6 +2196,8 @@ reached_by = [
     "#747",
     "#748",
     "#749",
+    "#750",
+    "#751",
     "#752",
     "#753",
     "#754",
@@ -2496,6 +2322,1130 @@ reached_by = [
     "#873",
     "#874",
     "#875",
+    "#876",
+    "#877",
+    "#878",
+    "#879",
+    "#880",
+    "#881",
+    "#882",
+    "#883",
+    "#884",
+    "#885",
+    "#886",
+    "#887",
+    "#888",
+    "#889",
+    "#890",
+    "#891",
+    "#892",
+    "#893",
+    "#894",
+    "#895",
+    "#896",
+    "#897",
+    "#898",
+    "#899",
+    "#900",
+    "#901",
+    "#902",
+    "#903",
+    "#904",
+    "#905",
+    "#906",
+    "#907",
+    "#908",
+    "#909",
+    "#910",
+    "#911",
+]
+
+[[module."lcg.rs".function]]
+id = "fn:d1109a180942d6e6"
+name = "N_STREAMS"
+qual = "N_STREAMS"
+item = "const"
+shape = "const"
+hash = "sha256:e88d304eca91608047cd8f2c2583152859b824dfe51939cc6ff4af5a3067b5fe"
+doc_hash = "sha256:83487ad242955b6a8edb411a3c7b7eb8661914d393dc11a3d30f46d414fc7002"
+
+[[module."lcg.rs".function]]
+id = "fn:902eafae69219a7e"
+name = "PCG_PERM_MULT"
+qual = "PCG_PERM_MULT"
+item = "const"
+shape = "const"
+hash = "sha256:8953807ced646a71ef314fdeb41301812fc0f1d781d673bbef3e2cadfdc6a8d2"
+doc_hash = "sha256:bde6fa6c66b685f32ed25f033d2f71c4f98140bdd2d8d55310115ec3408503b1"
+
+[[module."lcg.rs".function]]
+id = "fn:aaf8dba3a10e616f"
+name = "STREAM_SOURCE"
+qual = "STREAM_SOURCE"
+item = "const"
+shape = "const"
+hash = "sha256:45461bc197d4378dd403d33457a1fa38eb5acdbc9a1bc7769a659cd40c42b76a"
+doc_hash = "sha256:1212fac3eca1aea51c93ad1f6eb42f72f5b5fdb2599badf13a82998de43502e5"
+
+[[module."lcg.rs".function]]
+id = "fn:ceb8d69db0deaa03"
+name = "STREAM_TRACKING"
+qual = "STREAM_TRACKING"
+item = "const"
+shape = "const"
+hash = "sha256:55922d70fee2703be4265116e6b7736a8c01671da5c41425a21a905ab4c7b72d"
+doc_hash = "sha256:908c1ddf6afaeb9cf5031b48f2a0ccd9884a5bef0f6066995391cebaab7c2d0b"
+
+[[module."lcg.rs".function]]
+id = "fn:b9820540faa39681"
+name = "STREAM_URR_PTABLE"
+qual = "STREAM_URR_PTABLE"
+item = "const"
+shape = "const"
+hash = "sha256:1fba0217c1208464f6c0a2ea135aa119eb08f382185bf5d94d463b493951c232"
+doc_hash = "sha256:df8a5c6640af61a847cbaf1fb8dbfc5f2cdbe7e755b271f3fe38fc98141cc315"
+
+[[module."lcg.rs".function]]
+id = "fn:ac5cec52fb8b5daa"
+name = "STREAM_VOLUME"
+qual = "STREAM_VOLUME"
+item = "const"
+shape = "const"
+hash = "sha256:7de2928f91964ccdb15b9e11085118907ab9bd75ab27528aed6f5024582721d6"
+doc_hash = "sha256:c5ec95304242d91217e7f7e22048878ba7d49b323a162351759b5d5614806d50"
+
+[[module."lcg.rs".function]]
+id = "fn:213a61f9e9edfc96"
+name = "assert_no_hyperplane_structure"
+qual = "assert_no_hyperplane_structure"
+hash = "sha256:bee98daac69f680974ae0f68093c2f8557d714eea9e6faa36204244b533a322b"
+doc_hash = "sha256:dfe6735e4df03391c86d0c23a2e634f5dcaabec408618439ed57b03a6e9a4722"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:5588ae5bc6d57efa"
+name = "draw"
+qual = "draw"
+hash = "sha256:e80b4415a42a96df2cebeb8c4f8fa1d9183d435439f0dbfff4f1940dc0a5e5d4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:29ba906c738ce07c"
+name = "equidistribution_1d_2d_3d"
+qual = "equidistribution_1d_2d_3d"
+hash = "sha256:2ab48c79251a237ea1608f313bc7fc1cab4c34d557791dc26e741a9d828fae24"
+doc_hash = "sha256:2080a9d5530dd7450ea461ad3bdd25f535e6fdaded30819d3b5c11db0d5e6a12"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:1d6e49b7835ece3d"
+name = "equidistribution_chi2"
+qual = "equidistribution_chi2"
+hash = "sha256:fce6825aa3b2352e2f1fd3caddad2e5c578099acb7e9193f1b297d9ff0e10f44"
+doc_hash = "sha256:ccf316238468f1aaaf9ed123d506dd44e291ddabd95a50d7147a0f3f59754ce7"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:c18707f1370d3347"
+name = "future_seed"
+qual = "future_seed"
+hash = "sha256:962b128136c7bc85d8cba4f5cbc9ab48a0c2c900c0ce872793308fe46a7888df"
+doc_hash = "sha256:4f05d927264c95cd41f3371402b8e7c06995ed656e97bcd652a7f32a2fb32589"
+
+[[module."lcg.rs".function]]
+id = "fn:f7b7459eab97d547"
+name = "future_seed_coefficients"
+qual = "future_seed_coefficients"
+hash = "sha256:0d46f7896adc6d44b1f6dd3edfd67adffbbe9ee1346205e24386f61e48a027f4"
+doc_hash = "sha256:f1ccc8af54112686c685d4301ad5bea2c41277080ad0f4b17137c66c82b5c746"
+
+[[module."lcg.rs".function]]
+id = "fn:05278d0a3178d103"
+name = "future_seed_matches_sequential"
+qual = "future_seed_matches_sequential"
+hash = "sha256:f359c2656ee6f2feee6b53edd4e447180601de683227f36c356eb80058e2b4ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:a4470f55cba83afe"
+name = "future_seed_n_steps"
+qual = "future_seed_n_steps"
+hash = "sha256:b5c77212496f72ac269128622866b2fbedf8339398a149d6dea485de608f6a1f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:8b84693df2fa745b"
+name = "hyperplane_stat"
+qual = "hyperplane_stat"
+hash = "sha256:ac4afc649cb10c826726f599b16e025a21fb838bab189677c173429ba354ad6a"
+doc_hash = "sha256:1637fe8abc0cf765f77208ffee7aec1c295cefe0731fa13e98aae1b02618328a"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:0d9f01373250e307"
+name = "init_particle_seeds"
+qual = "init_particle_seeds"
+hash = "sha256:9d65b057a2691a2d622adb8aa81de44c7ac3963c393d6870a8dfb20f0f44ea8d"
+doc_hash = "sha256:a9188ad2fad9f643a5389b4282e84b3b10834fff78c2e9fe8b4d03dd0784ffe5"
+
+[[module."lcg.rs".function]]
+id = "fn:dd52820befcbb8b1"
+name = "init_seed"
+qual = "init_seed"
+hash = "sha256:dd2ad9648d0338f284648a37a72d523825335f4d7f9dbbbba28ea3e9229f6961"
+doc_hash = "sha256:211e28f6c36a0c3a971f97b33b7a52b3a8bf3cf5c81051e0378a4407c2c0a967"
+
+[[module."lcg.rs".function]]
+id = "fn:abf8ae01aac3a550"
+name = "init_seed_consecutive_ids_are_one_full_stride_apart"
+qual = "init_seed_consecutive_ids_are_one_full_stride_apart"
+hash = "sha256:a5853635d36b6bd01073a26acd6b989895e79791e1da347a7808d44ca04de156"
+doc_hash = "sha256:04408c603e4f0108fc30b95f93b7fc8b4c341b54b6c53d2209586f62b9e198ab"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:53e26366ccd1a798"
+name = "init_seed_matches_openmc_golden_values"
+qual = "init_seed_matches_openmc_golden_values"
+hash = "sha256:79b44f7e8ef85a2f855ea59389a351bf2acd2ce74d3ec793085e3f37bb3a38ee"
+doc_hash = "sha256:3280b872db7bd68e415ced555408df4e92ed61d2a44264f99b35aaa606b3c8e2"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:f22bf18813b7457b"
+name = "init_seed_offset_selects_an_independent_run"
+qual = "init_seed_offset_selects_an_independent_run"
+hash = "sha256:73b76e85e3c5016cf5ebe0781d5b71f8f015fed188b3a85bc8c8ffd9c45e024b"
+doc_hash = "sha256:bd3a7a4181f4a59e30658d67d61e858bb701d982378bed81e7e75ca86ed31b91"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:d1f713048a634b10"
+name = "init_seed_streams_do_not_overlap"
+qual = "init_seed_streams_do_not_overlap"
+hash = "sha256:a5e4e6ababe61ae5dcda0e4167c5e8805d563ba473618eb473666b4b27bd96ee"
+doc_hash = "sha256:12221d25a5117af71c179483b9b00b0bd5ff8eaf9ec6258c4a52c1bf1317d7b8"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:e38b46e3169c129f"
+name = "lattice_structure_lag1"
+qual = "lattice_structure_lag1"
+hash = "sha256:e84dddcd981e6554bbe0b9a2488cd0b8daf933649c2e590f89626618da6a7fe3"
+doc_hash = "sha256:0eda4e267c10bde7452a4e194114619317b7c91ac7e9dcacb1fb3949858a0b5d"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:2233267c21c4b7b7"
+name = "lattice_structure_lag2"
+qual = "lattice_structure_lag2"
+hash = "sha256:105b54704b17d94a8e900ad62a91a5e48964d2d30d4192e6f5d5525ee56937ca"
+doc_hash = "sha256:f8899953f370fba7be0f1122eea9d531d70d00a3d40aa08ad2c7f3c0f73104e1"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:6d22359dd3a4e69d"
+name = "moved_stream_is_pinned"
+qual = "moved_stream_is_pinned"
+hash = "sha256:392c9a0a09e511071b314d64b4bb42a478a15671cbe3234c4775c41c33d70ef4"
+doc_hash = "sha256:6af475994ea2b546570b438da6f63c21b144fdcbf138f20fa1bd37b8d0984084"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:9590190fe7b8ce75"
+name = "output_does_not_expose_internal_state"
+qual = "output_does_not_expose_internal_state"
+hash = "sha256:877585f4c737e64511a6b2ac624c865b5326473e6053535a371ef3698070d9e8"
+doc_hash = "sha256:e9f9cc89d484f7e043873d374b62de49704e611845f9897a1b7c8c47bae936d1"
+test = true
+
+[[module."lcg.rs".function]]
+id = "fn:681ddf6544e7b60b"
+name = "prn"
+qual = "prn"
+hash = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
+doc_hash = "sha256:a4d8953a61b38a9b837f9d98df8be2e4afe68134124aa929247c69e8a094c5c0"
+uses = [
+    "fn:753a37cf1d65784f",
+    "fn:902eafae69219a7e",
+    "fn:a4ea8cdd8a0e37b1",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#52",
+    "#53",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#134",
+    "#135",
+    "#136",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+    "#266",
+    "#267",
+    "#268",
+    "#269",
+    "#270",
+    "#271",
+    "#272",
+    "#273",
+    "#274",
+    "#275",
+    "#276",
+    "#277",
+    "#278",
+    "#279",
+    "#280",
+    "#281",
+    "#283",
+    "#284",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#293",
+    "#294",
+    "#295",
+    "#296",
+    "#297",
+    "#298",
+    "#299",
+    "#300",
+    "#301",
+    "#302",
+    "#303",
+    "#304",
+    "#305",
+    "#306",
+    "#307",
+    "#308",
+    "#309",
+    "#310",
+    "#311",
+    "#312",
+    "#313",
+    "#314",
+    "#315",
+    "#316",
+    "#317",
+    "#318",
+    "#319",
+    "#320",
+    "#321",
+    "#322",
+    "#323",
+    "#324",
+    "#325",
+    "#326",
+    "#327",
+    "#328",
+    "#329",
+    "#330",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#336",
+    "#338",
+    "#339",
+    "#340",
+    "#341",
+    "#342",
+    "#343",
+    "#344",
+    "#345",
+    "#346",
+    "#347",
+    "#348",
+    "#349",
+    "#350",
+    "#351",
+    "#352",
+    "#353",
+    "#354",
+    "#355",
+    "#356",
+    "#357",
+    "#358",
+    "#359",
+    "#360",
+    "#361",
+    "#362",
+    "#363",
+    "#364",
+    "#365",
+    "#366",
+    "#367",
+    "#368",
+    "#369",
+    "#370",
+    "#371",
+    "#372",
+    "#373",
+    "#374",
+    "#375",
+    "#376",
+    "#377",
+    "#378",
+    "#379",
+    "#380",
+    "#381",
+    "#382",
+    "#383",
+    "#384",
+    "#385",
+    "#386",
+    "#387",
+    "#388",
+    "#389",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#398",
+    "#399",
+    "#400",
+    "#401",
+    "#402",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#419",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#430",
+    "#431",
+    "#432",
+    "#433",
+    "#434",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#442",
+    "#443",
+    "#444",
+    "#445",
+    "#446",
+    "#447",
+    "#448",
+    "#449",
+    "#450",
+    "#451",
+    "#452",
+    "#453",
+    "#454",
+    "#455",
+    "#456",
+    "#457",
+    "#458",
+    "#459",
+    "#460",
+    "#461",
+    "#462",
+    "#463",
+    "#464",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+    "#470",
+    "#471",
+    "#472",
+    "#473",
+    "#474",
+    "#475",
+    "#476",
+    "#477",
+    "#478",
+    "#479",
+    "#480",
+    "#484",
+    "#485",
+    "#490",
+    "#491",
+    "#492",
+    "#493",
+    "#494",
+    "#495",
+    "#496",
+    "#497",
+    "#498",
+    "#499",
+    "#500",
+    "#501",
+    "#502",
+    "#503",
+    "#504",
+    "#505",
+    "#506",
+    "#507",
+    "#508",
+    "#509",
+    "#510",
+    "#511",
+    "#512",
+    "#513",
+    "#514",
+    "#515",
+    "#516",
+    "#517",
+    "#518",
+    "#519",
+    "#520",
+    "#521",
+    "#522",
+    "#523",
+    "#524",
+    "#525",
+    "#526",
+    "#527",
+    "#528",
+    "#529",
+    "#530",
+    "#531",
+    "#532",
+    "#533",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+    "#538",
+    "#539",
+    "#540",
+    "#541",
+    "#542",
+    "#543",
+    "#544",
+    "#545",
+    "#546",
+    "#547",
+    "#548",
+    "#549",
+    "#550",
+    "#551",
+    "#552",
+    "#553",
+    "#554",
+    "#555",
+    "#556",
+    "#557",
+    "#558",
+    "#559",
+    "#560",
+    "#561",
+    "#562",
+    "#563",
+    "#564",
+    "#565",
+    "#566",
+    "#567",
+    "#568",
+    "#569",
+    "#570",
+    "#571",
+    "#572",
+    "#573",
+    "#574",
+    "#575",
+    "#576",
+    "#577",
+    "#578",
+    "#579",
+    "#580",
+    "#581",
+    "#582",
+    "#583",
+    "#584",
+    "#585",
+    "#589",
+    "#590",
+    "#591",
+    "#592",
+    "#594",
+    "#595",
+    "#596",
+    "#597",
+    "#598",
+    "#599",
+    "#600",
+    "#601",
+    "#602",
+    "#603",
+    "#604",
+    "#605",
+    "#606",
+    "#607",
+    "#608",
+    "#609",
+    "#610",
+    "#611",
+    "#612",
+    "#613",
+    "#614",
+    "#615",
+    "#616",
+    "#617",
+    "#618",
+    "#619",
+    "#620",
+    "#621",
+    "#622",
+    "#623",
+    "#624",
+    "#625",
+    "#626",
+    "#627",
+    "#628",
+    "#629",
+    "#630",
+    "#631",
+    "#632",
+    "#633",
+    "#634",
+    "#635",
+    "#636",
+    "#637",
+    "#638",
+    "#639",
+    "#640",
+    "#641",
+    "#642",
+    "#643",
+    "#644",
+    "#645",
+    "#646",
+    "#647",
+    "#648",
+    "#649",
+    "#650",
+    "#651",
+    "#652",
+    "#653",
+    "#654",
+    "#655",
+    "#656",
+    "#657",
+    "#658",
+    "#659",
+    "#660",
+    "#661",
+    "#662",
+    "#663",
+    "#664",
+    "#665",
+    "#666",
+    "#667",
+    "#668",
+    "#669",
+    "#670",
+    "#671",
+    "#672",
+    "#673",
+    "#674",
+    "#675",
+    "#676",
+    "#677",
+    "#678",
+    "#679",
+    "#680",
+    "#681",
+    "#682",
+    "#683",
+    "#684",
+    "#685",
+    "#686",
+    "#687",
+    "#688",
+    "#689",
+    "#690",
+    "#691",
+    "#692",
+    "#693",
+    "#694",
+    "#695",
+    "#696",
+    "#697",
+    "#698",
+    "#699",
+    "#700",
+    "#701",
+    "#702",
+    "#703",
+    "#704",
+    "#705",
+    "#706",
+    "#707",
+    "#708",
+    "#709",
+    "#710",
+    "#711",
+    "#712",
+    "#713",
+    "#714",
+    "#715",
+    "#716",
+    "#717",
+    "#718",
+    "#719",
+    "#720",
+    "#721",
+    "#722",
+    "#723",
+    "#724",
+    "#725",
+    "#726",
+    "#727",
+    "#728",
+    "#729",
+    "#730",
+    "#731",
+    "#732",
+    "#733",
+    "#734",
+    "#735",
+    "#736",
+    "#737",
+    "#738",
+    "#739",
+    "#740",
+    "#741",
+    "#742",
+    "#743",
+    "#744",
+    "#745",
+    "#746",
+    "#747",
+    "#748",
+    "#749",
+    "#750",
+    "#751",
+    "#752",
+    "#753",
+    "#754",
+    "#755",
+    "#756",
+    "#757",
+    "#758",
+    "#759",
+    "#760",
+    "#761",
+    "#762",
+    "#763",
+    "#764",
+    "#765",
+    "#766",
+    "#767",
+    "#768",
+    "#769",
+    "#770",
+    "#771",
+    "#774",
+    "#775",
+    "#776",
+    "#777",
+    "#778",
+    "#779",
+    "#780",
+    "#781",
+    "#785",
+    "#786",
+    "#789",
+    "#790",
+    "#791",
+    "#792",
+    "#793",
+    "#794",
+    "#795",
+    "#796",
+    "#797",
+    "#798",
+    "#799",
+    "#800",
+    "#801",
+    "#802",
+    "#803",
+    "#804",
+    "#805",
+    "#806",
+    "#808",
+    "#809",
+    "#810",
+    "#811",
+    "#812",
+    "#813",
+    "#814",
+    "#815",
+    "#816",
+    "#817",
+    "#818",
+    "#819",
+    "#820",
+    "#821",
+    "#822",
+    "#823",
+    "#824",
+    "#825",
+    "#826",
+    "#827",
+    "#828",
+    "#829",
+    "#830",
+    "#831",
+    "#832",
+    "#833",
+    "#834",
+    "#835",
+    "#836",
+    "#837",
+    "#838",
+    "#839",
+    "#840",
+    "#841",
+    "#842",
+    "#843",
+    "#844",
+    "#845",
+    "#846",
+    "#847",
+    "#848",
+    "#849",
+    "#850",
+    "#851",
+    "#852",
+    "#853",
+    "#854",
+    "#855",
+    "#856",
+    "#857",
+    "#858",
+    "#859",
+    "#860",
+    "#861",
+    "#862",
+    "#863",
+    "#864",
+    "#865",
+    "#866",
+    "#867",
+    "#868",
+    "#869",
+    "#870",
+    "#871",
+    "#872",
+    "#873",
+    "#874",
+    "#875",
+    "#876",
+    "#877",
+    "#878",
+    "#879",
+    "#880",
+    "#881",
+    "#882",
+    "#883",
+    "#884",
+    "#885",
+    "#886",
+    "#887",
+    "#888",
+    "#889",
+    "#890",
+    "#891",
+    "#892",
+    "#893",
+    "#894",
+    "#895",
+    "#896",
+    "#897",
+    "#898",
+    "#899",
+    "#900",
+    "#901",
+    "#902",
+    "#903",
+    "#904",
+    "#905",
+    "#906",
+    "#907",
+    "#908",
+    "#909",
+    "#910",
+    "#911",
 ]
 
 [[module."lcg.rs".function]]
@@ -3568,21 +4518,21 @@ commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
-    "#737",
-    "#738",
-    "#739",
-    "#740",
-    "#741",
-    "#742",
-    "#743",
-    "#744",
-    "#745",
-    "#746",
-    "#747",
-    "#748",
-    "#749",
-    "#750",
-    "#751",
+    "#769",
+    "#770",
+    "#771",
+    "#772",
+    "#773",
+    "#774",
+    "#775",
+    "#776",
+    "#777",
+    "#778",
+    "#779",
+    "#780",
+    "#781",
+    "#782",
+    "#783",
 ]
 failed = []
 
@@ -3593,18 +4543,23 @@ suite = "targeted"
 passed = []
 failed = []
 targets = [
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#70",
-    "#71",
-    "#72",
     "#73",
     "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
 ]
 
 [[review]]
 function = "fn:681ddf6544e7b60b"
 by = "github:theodoreOnzGit"
 artifact = "review-prn-theodoreonzgit-681ddf65"
+
+[[review]]
+function = "fn:753a37cf1d65784f"
+by = "github:theodoreOnzGit"
+artifact = "review-mult-theodoreonzgit-753a37cf"

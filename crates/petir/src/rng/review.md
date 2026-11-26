@@ -77,3 +77,54 @@ just like openmc source code
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 4388cb3b1a.
+
+# Review: MULT (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-mult-theodoreonzgit-753a37cf"
+kind = "review"
+origin = "human"
+created = "2026-11-26T12:53:18+08:00"
+modified = "2026-11-26T12:53:18+08:00"
+target = "fn:753a37cf1d65784f"
+
+[review]
+path = "crates/petir/src/rng/lcg.rs::MULT"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T12:53:18+08:00"
+commit = "f6ec6b6ab71aba17750c8c2e118683b919186697"
+hash = "sha256:d299a82397336967bc828c6fc316000582411eb0d21e12313ad3f06bede79899"
+doc_hash = "sha256:b322aaf628324c09b57586a330cafd0dfa0906059b481e3f1915a6d87c7de0ff"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "human"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "K+VZeTnW33dHkEXMesWujKo8y1jN3uASLC/A3RlQHn4kOnzS7jRBAMBHlkcFBeiAQu8I29XMi1ODz1VnFxT0Ag=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+confirmed against upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit f6ec6b6ab7.
