@@ -7919,7 +7919,7 @@ pub struct Nuclide {
   Sample a fission-neutron birth energy \[eV\] given the incident energy
 
 - ```rust
-  pub fn native_energy_grid(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
+  pub fn native_energy_grid_with_thinning(self: &Self, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
   ```
   The native energy breakpoints \[eV\] this nuclide's cross-section data
 
@@ -24770,7 +24770,7 @@ between its log-spaced nodes; its fidelity is bounded by `n_points`.
 
 [`UnionTotalXs::tabulate_native`] (beads op-u6s.7) builds the genuine
 **native-breakpoint union grid**: it gathers every energy node the underlying
-nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid`]
+nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid_with_thinning`]
 — reconstructed section grids for the HIGH tier; WMP window edges + fast-group
 bounds for the LOW/analytic tier), merges them with a log-spaced backbone
 floor (so it is never coarser than the equal-size dense grid), and

@@ -127,8 +127,14 @@ fn main() {
         e_top: 10.0e3,
         e_bot: 1.0,
     };
-    let mut grid = nuclides[1].native_energy_grid(band.e_bot * 0.9, band.e_top * 1.1);
-    grid.extend_from_slice(&nuclides[0].native_energy_grid(band.e_bot * 0.9, band.e_top * 1.1));
+    let mut grid = match nuclides[1].native_energy_grid_with_thinning(band.e_bot * 0.9, band.e_top * 1.1, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    };
+    grid.extend_from_slice(&match nuclides[0].native_energy_grid_with_thinning(band.e_bot * 0.9, band.e_top * 1.1, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    });
     grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
     grid.dedup_by(|a, b| (*a - *b).abs() <= 1e-12 * b.abs());
 

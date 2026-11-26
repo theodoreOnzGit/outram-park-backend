@@ -6302,14 +6302,9 @@ pub struct Nuclide {
   Whether fission sampling applies delayed-neutron spectra: `true` when the
 
 - ```rust
-  pub fn native_energy_grid(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
-  ```
-  The native energy breakpoints \[eV\] this nuclide's cross-section data
-
-- ```rust
   pub fn native_energy_grid_with_thinning(self: &Self, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
   ```
-  The native energy grid of [`Self::native_energy_grid`] with the
+  The native energy breakpoints \[eV\] this nuclide's cross-section data
 
 - ```rust
   pub fn majorant_breakpoints(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
@@ -47953,7 +47948,7 @@ pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult { /* ... */ }
 Build a [`SlowingDownGrid`] from real nuclear data.
 
 `grid_ev` supplies the *energy* resolution — pass the union of the nuclides'
-own [`Nuclide::native_energy_grid`]s, which resolves every resonance the
+own [`Nuclide::native_energy_grid_with_thinning`]s, which resolves every resonance the
 reconstruction resolved. This function then supplies the *lethargy*
 resolution the solver needs, subdividing any interval wider than
 `ε_min / steps_per_window` (see [`solve_on_grid`] for why that matters).
@@ -77981,7 +77976,7 @@ between its log-spaced nodes; its fidelity is bounded by `n_points`.
 
 [`UnionTotalXs::tabulate_native`] (beads op-u6s.7) builds the genuine
 **native-breakpoint union grid**: it gathers every energy node the underlying
-nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid`]
+nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid_with_thinning`]
 — reconstructed section grids for the HIGH tier; WMP window edges + fast-group
 bounds for the LOW/analytic tier), merges them with a log-spaced backbone
 floor (so it is never coarser than the equal-size dense grid), and

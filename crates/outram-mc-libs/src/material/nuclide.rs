@@ -4707,30 +4707,62 @@ impl Nuclide {
     ///   grid (`ReconrSection::pairs`, the energy of each `(E, σ)` pair) is
     ///   unioned — these are the real pointwise nodes σ(E) is tabulated on.
     ///
+    /// # Thinning: explicit, and off by default
+    /// - `thin_tol = None` (or `Some(0.0)`): sort, drop exactly equal
+    ///   energies, and keep every distinct node in `[e_min_ev, e_max_ev]`.
+    /// - `thin_tol = Some(tol)`: also drop a node `e` when
+    ///   `|e - last| <= tol * max(|last|, 1.0)`, `last` being the last node
+    ///   kept. The test is **absolute below 1 eV** (a spacing of `tol` eV) and
+    ///   **relative above it**.
+    ///
+    /// Thinning a unionized grid follows Leppänen (2009) and the Serpent
+    /// user's manual, §5.3; see [`thin_energy_nodes`] for the
+    /// references and what has not been checked against them.
+    ///
+    /// The node rule is [`thin_energy_nodes`]. Every caller in the workspace
+    /// passes `Some(1e-12)`, the rule the deleted `native_energy_grid` always
+    /// applied (maintainer, 2026-11-26: "for all codes, we can use thinning
+    /// of 1e-12, so nothing moves").
+    ///
+    /// **Thinning may discard a real breakpoint.** A dropped node is one at
+    /// which `Sigma_t` can bend or step, so a grid built with `Some(tol)` is
+    /// not covered by the pointwise upper-bound argument of
+    /// [`crate::pebble_beds::delta_tracking::Majorant::bounding`], which
+    /// needs every breakpoint as a node. `Majorant::from_materials` reaches
+    /// this grid at `Some(1e-12)` through [`Self::majorant_breakpoints`].
+    ///
     /// # Guarantees
-    /// The result is always finite, strictly ascending, and clamped to
-    /// `[e_min_ev, e_max_ev]`, with both endpoints included; it therefore has at
-    /// least 2 entries (never empty / single-point). Nodes closer than a tiny
-    /// relative epsilon (`1e-12`) are treated as duplicates and dropped, so the
-    /// grid is strictly increasing as required for binary-search interpolation
-    /// downstream. Pure — no RNG, no I/O.
+    /// The result is finite, strictly ascending (binary-search interpolation
+    /// downstream needs it), and clamped to `[e_min_ev, e_max_ev]`, with both
+    /// endpoints included in either mode (one node when they are equal).
+    /// Pure: no RNG, no I/O.
+    ///
+    /// # Errors
+    /// [`NjoyError::InvalidInput`] for a negative or non-finite `thin_tol`,
+    /// a non-finite endpoint, or `e_min_ev > e_max_ev`.
     ///
     /// # Reference
     /// J. Leppänen (2009), "Two practical methods for unionized energy grid
     /// construction in continuous-energy Monte Carlo neutron transport
     /// calculation", *Annals of Nuclear Energy* 36(7), 878-885: the
     /// unionized-grid construction this grid feeds. Not in the kovan corpus;
-    /// whether the `1e-12` thinning above matches the paper's method is not
-    /// checked here. Added 2026-11-26 at the maintainer's request.
+    /// whether the `1e-12` thinning matches the paper's method is not checked
+    /// here. Added 2026-11-26 at the maintainer's request.
     ///
-    /// The thinning is explicit in [`Self::native_energy_grid_with_thinning`]:
-    /// this method gives the same grid as `Some(1e-12)` there (pinned on
-    /// U-238 by `native_energy_grid_equals_thinning_at_1e_12`), except that
-    /// here a node within `1e-12` below `e_max_ev` can displace `e_max_ev`
-    /// from the end of the grid, which the new method does not allow. Every existing
-    /// caller keeps it (maintainer, 2026-11-26: "for all codes, we can use
-    /// thinning of 1e-12, so nothing moves").
-    pub fn native_energy_grid(&self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> {
+    /// # History
+    /// ~~`native_energy_grid(e_min_ev, e_max_ev) -> Vec<f64>`, thinning at a
+    /// fixed `1e-12`~~ **REMOVED 2026-11-26 (gh:#1827)** (maintainer: "just
+    /// delete it, yes i want the result in, it's nicer"). Its node collection
+    /// is this method's; it was reviewed at rung 3 (`fn:b11e6f88048217e3`,
+    /// 2026-11-26). One difference: it could drop `e_max_ev` when a node lay
+    /// within `1e-12` below it, despite documenting both endpoints as
+    /// included; this method keeps `e_max_ev` and drops that node instead.
+    pub fn native_energy_grid_with_thinning(
+        &self,
+        e_min_ev: f64,
+        e_max_ev: f64,
+        thin_tol: Option<f64>,
+    ) -> Result<Vec<f64>, NjoyError> {
         let mut nodes: Vec<f64> = Vec::new();
         match &self.xs {
             XsSource::Core { wmp, fast, .. } => {
@@ -4756,94 +4788,20 @@ impl Nuclide {
                 }
             }
         }
-
-        // Keep only finite nodes inside the requested band, then pin the endpoints
-        // so the grid always spans exactly [e_min_ev, e_max_ev].
-        nodes.retain(|&e| e.is_finite() && e >= e_min_ev && e <= e_max_ev);
-        nodes.push(e_min_ev);
-        nodes.push(e_max_ev);
-        nodes.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-        // Deduplicate: drop any node within a tiny relative epsilon of the last
-        // kept node, so the grid is strictly increasing (binary search needs it).
-        const REL_EPS: f64 = 1.0e-12;
-        let mut grid: Vec<f64> = Vec::with_capacity(nodes.len());
-        for e in nodes {
-            match grid.last() {
-                Some(&last) if (e - last).abs() <= REL_EPS * last.abs().max(1.0) => {}
-                _ => grid.push(e),
-            }
-        }
-        grid
-    }
-
-    /// The native energy grid of [`Self::native_energy_grid`] with the
-    /// near-duplicate thinning made explicit, and off by default.
-    ///
-    /// - `thin_tol = None` (or `Some(0.0)`): sort, drop exactly equal
-    ///   energies, and keep every distinct node in `[e_min_ev, e_max_ev]`.
-    /// - `thin_tol = Some(tol)`: also drop a node `e` when
-    ///   `|e - last| <= tol * max(|last|, 1.0)`, `last` being the last node
-    ///   kept. The test is **absolute below 1 eV** (a spacing of `tol` eV) and
-    ///   **relative above it**. `Some(1e-12)` gives
-    ///   [`Self::native_energy_grid`]'s grid, except that `e_max_ev` is
-    ///   always kept here.
-    ///
-    /// Both requested endpoints are kept in either mode (one node when they
-    /// are equal). The node rule is [`thin_energy_nodes`].
-    ///
-    /// **Thinning may discard a real breakpoint.** A dropped node is one at
-    /// which `Sigma_t` can bend or step, so a grid built with `Some(tol)` is
-    /// not covered by the pointwise upper-bound argument of
-    /// [`crate::pebble_beds::delta_tracking::Majorant::bounding`], which
-    /// needs every breakpoint as a node. `Majorant::from_materials` still
-    /// reaches the `1e-12` grid through [`Self::majorant_breakpoints`]
-    /// (maintainer, 2026-11-26: "for all codes, we can use thinning of
-    /// 1e-12, so nothing moves").
-    ///
-    /// # Errors
-    /// [`NjoyError::InvalidInput`] for a negative or non-finite `thin_tol`,
-    /// a non-finite endpoint, or `e_min_ev > e_max_ev`.
-    pub fn native_energy_grid_with_thinning(
-        &self,
-        e_min_ev: f64,
-        e_max_ev: f64,
-        thin_tol: Option<f64>,
-    ) -> Result<Vec<f64>, NjoyError> {
-        let mut nodes: Vec<f64> = Vec::new();
-        match &self.xs {
-            XsSource::Core { wmp, fast, .. } => {
-                // WMP window edges, uniform in sqrt(E), as in native_energy_grid.
-                if wmp.inv_spacing > 0.0 {
-                    let sqrt_emin = wmp.e_min.sqrt();
-                    for i in 0..=wmp.windows.len() {
-                        let s = sqrt_emin + i as f64 / wmp.inv_spacing;
-                        nodes.push(s * s);
-                    }
-                }
-                if let Some(mg) = fast {
-                    nodes.extend_from_slice(&mg.group_bounds);
-                }
-            }
-            XsSource::Pointwise { recon, .. } => {
-                for sec in &recon.sections {
-                    nodes.extend(sec.pairs.iter().map(|&(e, _)| e));
-                }
-            }
-        }
         thin_energy_nodes(nodes, e_min_ev, e_max_ev, thin_tol)
     }
 
     /// Every energy \[eV\] in `[e_min_ev, e_max_ev]` at which
     /// [`Self::total_upper_bound`] changes form, unsorted and possibly with
-    /// duplicates: [`Self::native_energy_grid`] (the pointwise section grids,
+    /// duplicates: [`Self::native_energy_grid_with_thinning`] at `Some(1e-12)`
+    /// (the pointwise section grids,
     /// or the WMP window edges and group bounds), the WMP pole peak energies
     /// `Re(p)^2` on the LOW tier, the range ends, window edges and pole peaks
     /// of WMP attached to a pointwise nuclide (GitHub #948), plus the S(alpha,beta)
     /// [`ThermalScattering::breakpoints`] and the URR table energies and range
     /// ends.
     ///
-    /// Kept separate from `native_energy_grid` on purpose: that grid is
+    /// Kept separate from the native grid on purpose: that grid is
     /// compared node for node against NJOY's (`u238_recon_fingerprint`,
     /// `u238_resonance_integral`), and the thermal and URR nodes are not part
     /// of a reconstructed section.
@@ -4852,8 +4810,18 @@ impl Nuclide {
     /// put a node wherever `Sigma_t` can bend or step, which is what makes the
     /// majorant a bound by construction on the pointwise and thermal parts
     /// (GitHub #585).
+    ///
+    /// # Panics
+    /// On a non-finite or inverted band (`e_min_ev > e_max_ev`); see the
+    /// justification in the body.
     pub fn majorant_breakpoints(&self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> {
-        let mut v = self.native_energy_grid(e_min_ev, e_max_ev);
+        // Panic justified: the tolerance is a fixed valid constant, so this
+        // fails only on a non-finite or inverted band, for which no breakpoint
+        // list exists; every caller passes an ascending grid's ends.
+        let mut v = match self.native_energy_grid_with_thinning(e_min_ev, e_max_ev, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("majorant_breakpoints: {err}"),
+        };
         // LOW tier: the WMP form has no pointwise grid, but every resonance
         // sits at a pole. A pole `p` in sqrt(E) space peaks near
         // `E = Re(p)^2`, so put a node there. Between poles the Doppler shape
@@ -4894,6 +4862,24 @@ impl Nuclide {
 /// last kept node, it replaces that node rather than being dropped (unless
 /// that node is `e_min_ev`, which stays). `Some(0.0)` is the same as `None`.
 /// The rule behind [`Nuclide::native_energy_grid_with_thinning`].
+///
+/// # References
+/// - J. Leppänen (2009), "Two practical methods for unionized energy grid
+///   construction in continuous-energy Monte Carlo neutron transport
+///   calculation", *Annals of Nuclear Energy* 36(7), 878-885: unionized-grid
+///   construction, with thinning of near-duplicate points to bound the
+///   grid's size.
+/// - J. Leppänen, *Serpent: a Continuous-energy Monte Carlo Reactor Physics
+///   Burnup Calculation Code, User's Manual*, VTT Technical Research Centre
+///   of Finland (2015), §5.3 (section given by the maintainer, 2026-11-26):
+///   thinning the unionized energy grid. In the input the tolerance is set
+///   with the `set egrid` card (from memory, not re-checked here).
+///
+/// Neither is in the kovan corpus, and this rule has not been checked
+/// against either one: whether Serpent's tolerance is relative everywhere,
+/// where this one is absolute below 1 eV, is not verified here. The
+/// `1e-12` every caller passes is this workspace's own value, not Serpent's
+/// default. Added 2026-11-26 at the maintainer's request.
 ///
 /// # Errors
 /// [`NjoyError::InvalidInput`] for a negative or non-finite `thin_tol`, a
@@ -6653,7 +6639,7 @@ mod tests {
     ///
     /// *Methodology.* Build the LOW-tier (`from_core`) nuclide U-238 — the CORE
     /// WMP set's richest window structure — and ask for its native energy grid on
-    /// `[1e-3, 2e7]` eV. This exercises [`Nuclide::native_energy_grid`]'s `Core`
+    /// `[1e-3, 2e7]` eV. This exercises [`Nuclide::native_energy_grid_with_thinning`]'s `Core`
     /// arm: the WMP window edges (uniform in `√E`) plus the fast MGXS
     /// `group_bounds`, clamped to the band with both endpoints pinned. Pass
     /// criterion: the returned grid is (a) strictly ascending (required for
@@ -6673,7 +6659,10 @@ mod tests {
     fn native_energy_grid_is_sorted_and_bounded() {
         let nuc = Nuclide::from_core("U238").expect("U238 in CORE WMP set");
         let (e_min, e_max) = (1.0e-3_f64, 2.0e7_f64);
-        let grid = nuc.native_energy_grid(e_min, e_max);
+        let grid = match nuc.native_energy_grid_with_thinning(e_min, e_max, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band and tolerance: {err}"),
+        };
 
         assert!(
             grid.len() >= 3,
@@ -6702,6 +6691,14 @@ mod tests {
         }
     }
 
+    /// [`thin_energy_nodes`] on inputs the test knows are valid.
+    fn thinned(nodes: Vec<f64>, lo: f64, hi: f64, tol: Option<f64>) -> Vec<f64> {
+        match thin_energy_nodes(nodes, lo, hi, tol) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band and tolerance: {err}"),
+        }
+    }
+
     /// **Explicit thinning (2026-11-26).** Two distinct energies 5e-13
     /// apart (relative) at 1 keV, plus an exact duplicate. Prediction: the
     /// duplicate goes in both modes; the default (`None`) and `Some(0.0)`
@@ -6711,11 +6708,11 @@ mod tests {
         let (a, b) = (1.0e3_f64, 1.0e3 * (1.0 + 5.0e-13));
         assert!(b > a && (b - a).abs() <= 1.0e-12 * a, "the old rule merges a and b");
         let nodes = vec![b, a, a];
-        let none = thin_energy_nodes(nodes.clone(), 1.0, 1.0e4, None).unwrap();
+        let none = thinned(nodes.clone(), 1.0, 1.0e4, None);
         assert_eq!(none, vec![1.0, a, b, 1.0e4]);
-        let zero = thin_energy_nodes(nodes.clone(), 1.0, 1.0e4, Some(0.0)).unwrap();
+        let zero = thinned(nodes.clone(), 1.0, 1.0e4, Some(0.0));
         assert_eq!(zero, none);
-        let thin = thin_energy_nodes(nodes, 1.0, 1.0e4, Some(1.0e-12)).unwrap();
+        let thin = thinned(nodes, 1.0, 1.0e4, Some(1.0e-12));
         assert_eq!(thin, vec![1.0, a, 1.0e4]);
     }
 
@@ -6727,16 +6724,16 @@ mod tests {
         let near_hi = hi * (1.0 - 5.0e-13);
         let near_lo = lo + 5.0e-13; // within 1e-12 eV absolute, far relatively
         for tol in [None, Some(1.0e-12)] {
-            let g = thin_energy_nodes(vec![near_lo, 1.0, near_hi], lo, hi, tol).unwrap();
+            let g = thinned(vec![near_lo, 1.0, near_hi], lo, hi, tol);
             assert_eq!(g[0], lo, "{tol:?}");
             assert_eq!(*g.last().unwrap(), hi, "{tol:?}");
         }
-        let thin = thin_energy_nodes(vec![near_lo, 1.0, near_hi], lo, hi, Some(1.0e-12)).unwrap();
+        let thin = thinned(vec![near_lo, 1.0, near_hi], lo, hi, Some(1.0e-12));
         assert_eq!(thin, vec![lo, 1.0, hi]);
-        let none = thin_energy_nodes(vec![near_lo, 1.0, near_hi], lo, hi, None).unwrap();
+        let none = thinned(vec![near_lo, 1.0, near_hi], lo, hi, None);
         assert_eq!(none, vec![lo, near_lo, 1.0, near_hi, hi]);
-        assert_eq!(thin_energy_nodes(vec![], 3.0, 3.0, Some(1.0)).unwrap(), vec![3.0]);
-        assert_eq!(thin_energy_nodes(vec![], 3.0, 3.5, Some(1.0)).unwrap(), vec![3.0, 3.5]);
+        assert_eq!(thinned(vec![], 3.0, 3.0, Some(1.0)), vec![3.0]);
+        assert_eq!(thinned(vec![], 3.0, 3.5, Some(1.0)), vec![3.0, 3.5]);
     }
 
     /// Negative and non-finite tolerances, and a bad band, are refused.
@@ -6752,17 +6749,21 @@ mod tests {
         assert!(thin_energy_nodes(vec![1.0], 0.1, f64::NAN, None).is_err());
     }
 
-    /// `native_energy_grid` (kept for every existing caller) equals
-    /// `native_energy_grid_with_thinning(.., Some(1e-12))` on U-238's CORE
-    /// grid, and the unthinned grid holds every node of the thinned one.
+    /// On U-238's CORE grid the unthinned grid holds every node of the
+    /// `Some(1e-12)` one, and a bad tolerance is refused through the method.
     #[test]
-    fn native_energy_grid_equals_thinning_at_1e_12() {
+    fn unthinned_native_grid_holds_every_thinned_node() {
         let nuc = Nuclide::from_core("U238").expect("U238 in CORE WMP set");
         let (e_min, e_max) = (1.0e-3_f64, 2.0e7_f64);
-        let old = nuc.native_energy_grid(e_min, e_max);
-        let thin = nuc.native_energy_grid_with_thinning(e_min, e_max, Some(1.0e-12)).unwrap();
-        assert_eq!(old, thin);
-        let full = nuc.native_energy_grid_with_thinning(e_min, e_max, None).unwrap();
+        let thin = match nuc.native_energy_grid_with_thinning(e_min, e_max, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band and tolerance: {err}"),
+        };
+        let full = match nuc.native_energy_grid_with_thinning(e_min, e_max, None) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band: {err}"),
+        };
+        assert!(full.len() >= thin.len());
         assert!(full.windows(2).all(|w| w[1] > w[0]));
         assert!(thin.iter().all(|e| full.binary_search_by(|x| x.partial_cmp(e).unwrap()).is_ok()));
         assert!(nuc.native_energy_grid_with_thinning(e_min, e_max, Some(-1.0)).is_err());

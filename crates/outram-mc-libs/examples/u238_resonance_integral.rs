@@ -146,7 +146,10 @@ fn main() {
         );
 
         for &(lo, hi, name) in BANDS {
-            let our_grid = ours.native_energy_grid(lo, hi);
+            let our_grid = match ours.native_energy_grid_with_thinning(lo, hi, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            };
             let our_sig = |e: f64| {
                 let x = ours.xs_at_energy(e, TEMP);
                 if mt == 18 {
@@ -184,7 +187,10 @@ fn main() {
 
         if let Some(pairs) = &njoy_pairs {
             let (lo, hi) = (0.5, 1.0e5);
-            let our_grid = ours.native_energy_grid(lo, hi);
+            let our_grid = match ours.native_energy_grid_with_thinning(lo, hi, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            };
             let njoy_grid = clip_grid(pairs.iter().map(|&(e, _)| e), lo, hi);
             let our_sig = |e: f64| {
                 let x = ours.xs_at_energy(e, TEMP);
@@ -414,7 +420,7 @@ fn integrate_1_over_e<F: Fn(f64) -> f64>(grid: &[f64], sigma: F) -> f64 {
 }
 
 /// The grid points of an ascending source inside `[lo, hi]`, with both endpoints
-/// pinned — the same contract as `Nuclide::native_energy_grid`, so the two grids
+/// pinned — the same contract as `Nuclide::native_energy_grid_with_thinning`, so the two grids
 /// are compared on equal terms.
 fn clip_grid<I: Iterator<Item = f64>>(src: I, lo: f64, hi: f64) -> Vec<f64> {
     let mut g: Vec<f64> = src
