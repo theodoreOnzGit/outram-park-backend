@@ -107,6 +107,20 @@ gh issue comment <number> --body "..."           # progress
   - **This changes when the gates run, not what they are.** Nothing merges
     to `develop` without the full set green on the exact commit being
     merged.
+  - **Run the final integration test from one checkout, with no other
+    build sharing its target directory.** Agent worktrees share the
+    workspace `target/`, and a test binary records the
+    `CARGO_MANIFEST_DIR` of the checkout that built it. If an agent
+    rebuilds a crate's tests while the final run is going, the run can
+    execute the agent's binary. That binary reads case files through the
+    agent's worktree path, so the tests fail with `NotFound` once that
+    worktree is removed. This happened twice on 2026-11-26, in
+    `genfoam_msfr_*` and in the `outram-foam-appbuilder-lib` unit tests,
+    with paths under `.claude/worktrees/agent-*`. Either finish or pause
+    the streams before the final run, or give them their own
+    `CARGO_TARGET_DIR`. A `NotFound` path under another checkout is this
+    fault, not a code defect: rebuild from the integration checkout and
+    re-run.
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,
