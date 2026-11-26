@@ -3402,4 +3402,4 @@ None of an earlier gated number. `UpstreamTransientStep` gained three fields (no
 The second-solve residual uses OpenFOAM's normalisation but is a different number from upstream's (a different PCG; both sit at the solver tolerance). `T (avg min max)` of coupling iterations 2+ is not reported by the port (`correct_tightly_coupled_physics` returns only the residual), so those triples are checked through `T` at the kept steps only. Heat exchangers are not ported. Aitken acceleration remains not performed (round 6 decision).
 
 ### Gates run (2026-11-26, release, targeted; the parent runs the full integration test)
-See the final line of this section, written after the runs: `--test genfoam_msfr_coupled_vs_upstream`, `--test genfoam_msfr_chain_vs_upstream msfr_light_chain` (1 passed, 84 s), `-p petir --test no_platform_libm`, `bash scripts/check-nostd.sh` (exit 0).
+`--test genfoam_msfr_coupled_vs_upstream` (6 passed, 1 ignored in 178 s; the ignored 452-step C test re-run with its final gates: passed, 1064 s), `--test genfoam_msfr_chain_vs_upstream msfr_light_chain` (1 passed, 84 s), `-p petir --test no_platform_libm`, `bash scripts/check-nostd.sh` (exit 0).
