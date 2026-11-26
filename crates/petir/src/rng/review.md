@@ -232,3 +232,60 @@ confirmed against upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 59f6cc936c.
+
+# Review: PCG_PERM_MULT (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-pcg-perm-mult-theodoreonzgit-902eafae"
+kind = "review"
+origin = "human"
+created = "2026-11-26T12:56:01+08:00"
+modified = "2026-11-26T12:56:01+08:00"
+target = "fn:902eafae69219a7e"
+
+[review]
+path = "crates/petir/src/rng/lcg.rs::PCG_PERM_MULT"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T12:56:02+08:00"
+commit = "04dcbcd63600b5db847d41db82464103e86ec5d2"
+hash = "sha256:8953807ced646a71ef314fdeb41301812fc0f1d781d673bbef3e2cadfdc6a8d2"
+doc_hash = "sha256:bde6fa6c66b685f32ed25f033d2f71c4f98140bdd2d8d55310115ec3408503b1"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "g9VeUjLOh1fGGpWz9lv/3gwwFTN7buWL7yiwpVa5oCfVgcM1RCUwWBSkfpYLTkfmsjOBwTc9RRNdXd2w1YIbDQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+// Permute the output
+  uint64_t word =
+    ((*seed >> ((*seed >> 59u) + 5u)) ^ *seed) * 12605985483714917081ull;
+  uint64_t result = (word >> 43u) ^ word;
+
+
+confirmed against upstream here
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 04dcbcd636.
