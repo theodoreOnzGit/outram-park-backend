@@ -1528,7 +1528,12 @@ Filed as a child issue; the gate `nucleate_boiling_branch_differs_from_upstream_
 ### Moved numbers (old -> new, cause)
 
 - `SubcooledBoilingFraction::SahaZuber` now upstream's form (no `k`); the earlier form is `SahaZuberPublished`; the two unit tests that pin the published form were renamed to it, values unchanged.
-- `Nusselt` / `NusseltAndWall` htc: operation order changed to upstream's (round-off only); no gate moved (the closure tests are relative to 1e-10 or looser).
+- `Nusselt` / `NusseltAndWall` htc: operation order changed to upstream's `(kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio)` (an ulp; the earlier `nu*k/dh` stays callable as
+  `FsForcedConvectionHtc::heat_transfer_coefficient_earlier_association`, selected per solver by `TwoPhaseSolver::with_earlier_nusselt_association`). **One pin is affected:**
+  the 12 s `1D_boiling` transient of `tests/genfoam_two_phase_1d_boiling.rs` (`one_d_boiling_full_transient`, implicitUpwind, P1-P5) runs through the chaotic post-onset flow excursion
+  and, with upstream's order, ends in `Diverged` (the step size collapses to NaN) where it earlier ran to the end: a one-ulp change moved a qualitative outcome, which is not a "moved pin for rounding" within the
+  1e-4 propagated allowance. Not accepted as a move: the test selects the earlier order (no value, tolerance or gate changed; recorded in the test) and **this is flagged for the maintainer**. The other 1D_boiling gates
+  (rounds 3-7, which compare with the real binary up to the onset) pass under the upstream order. All 610 tests of the crate pass (35 ignored).
 - `TwoPhaseCase::read` of `regimeMapModels {}` (empty): `None` instead of the error "exactly one regime map is supported".
 - Basu contact angle: `deg*2*pi/360` and `pow(theta, 3.0)` (round-off).
 

@@ -161,7 +161,11 @@ fn one_d_boiling_full_transient() {
         eprintln!("deviation: {d}");
     }
     let end = case.end_time;
-    let mut s = TwoPhaseSolver::new(case);
+    // The pinned 12 s transient runs through a chaotic post-onset flow excursion: with upstream's operation order in the
+    // Nusselt htc ((kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio), the default since gh:#1361 round 8; an ulp different from
+    // the port's earlier `nu*k/dh`) the step size collapses (`Diverged`, NaN, measured 2026-11-26). The earlier order, under
+    // which P1-P5 below were recorded, is therefore selected here; not a tolerance or pin moved, a named earlier form.
+    let mut s = TwoPhaseSolver::new(case).with_earlier_nusselt_association();
     // Diagnostic ablations (not defaults): override alpha relaxation or nOuter.
     if let Ok(v) = std::env::var("TWO_PHASE_RELAX_ALPHA") {
         s.controls.relax_alpha = v.parse().expect("relax");

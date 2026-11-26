@@ -195,3 +195,32 @@ fn trace_chf_without_a_leidenfrost_model_has_no_hysteresis_zone() {
     assert_eq!(r.htc, 7.0);
     assert_eq!(r.t_leidenfrost, inp.t_wall);
 }
+
+/// gh:#1361 round 8: upstream's operation order for the Nusselt htc is the default; the port's earlier order stays callable
+/// and differs by at most a few ulp (it is what the pinned 12 s `1D_boiling` transient runs under).
+#[test]
+fn nusselt_upstream_order_and_earlier_order_agree_to_a_few_ulp() {
+    use super::fs_htc::FsForcedConvectionHtc;
+    use uom::si::f64::{Ratio, ThermalConductivity, ThermodynamicTemperature};
+    use uom::si::heat_transfer::watt_per_square_meter_kelvin as w;
+    let m = FsForcedConvectionHtc::Nusselt { a: 0.0, b: 0.023, c: 0.8, d: 0.4, e: 0.0 };
+    let mut differing = 0;
+    for i in 0..200 {
+        let re = uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0e4 + 977.3 * f64::from(i));
+        let pr = Ratio::new::<uom::si::ratio::ratio>(0.9 + 0.0137 * f64::from(i));
+        let k = ThermalConductivity::new::<uom::si::thermal_conductivity::watt_per_meter_kelvin>(0.55 + 0.0011 * f64::from(i));
+        let dh = Length::new::<meter>(0.0078395462 + 1e-6 * f64::from(i));
+        let tt: Option<(ThermodynamicTemperature, ThermodynamicTemperature)> = None;
+        let up = m.heat_transfer_coefficient(re, pr, k, dh, tt).get::<w>();
+        let old = m.heat_transfer_coefficient_earlier_association(re, pr, k, dh, tt).get::<w>();
+        // upstream: (kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D))
+        let expect = (k.get::<uom::si::thermal_conductivity::watt_per_meter_kelvin>() / dh.get::<meter>())
+            * (0.0 + 0.023 * re.get::<uom::si::ratio::ratio>().powf(0.8) * pr.get::<uom::si::ratio::ratio>().powf(0.4));
+        assert!((up - expect).abs() <= 4e-16 * expect, "upstream order: {up} vs {expect}");
+        assert!((up - old).abs() <= 1e-15 * up, "orders differ by more than a few ulp: {up} vs {old}");
+        if up != old {
+            differing += 1;
+        }
+    }
+    assert!(differing > 0, "the two orders must actually differ somewhere (else the option is pointless)");
+}

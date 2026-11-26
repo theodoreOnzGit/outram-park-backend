@@ -980,6 +980,7 @@ impl TwoPhaseCase {
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
+            earlier_nusselt_association: false,
             lazy_old_time_first_step: true,
             stale_pimple_converged_flag: false,
             p_patch_from_file: true,

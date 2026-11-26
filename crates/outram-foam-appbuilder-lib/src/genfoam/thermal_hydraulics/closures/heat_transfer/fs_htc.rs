@@ -186,6 +186,46 @@ impl FsForcedConvectionHtc {
             }
         }
     }
+
+    /// The operation order this port used for [`FsForcedConvectionHtc::heat_transfer_coefficient`] before
+    /// gh:#1361 round 8: `nu * k / dh` with `B * (Re^C * Pr^D)` (upstream is `(k/dh) * (A + B * Re^C * Pr^D * Tratio)`
+    /// with `B * Re^C * Pr^D` accumulated left to right). Mathematically identical, an ulp different. It stays
+    /// callable because the pinned 12 s `1D_boiling` transient (`genfoam_two_phase_1d_boiling`) runs through a
+    /// chaotic post-onset flow excursion and takes a different path with the upstream order (its step size
+    /// collapses): that test selects this form via [`crate::genfoam::thermal_hydraulics::solver::two_phase::TwoPhaseSolver::with_earlier_nusselt_association`].
+    #[must_use]
+    pub fn heat_transfer_coefficient_earlier_association(
+        &self,
+        re: ReynoldsNumber,
+        pr: PrandtlNumber,
+        k: ThermalConductivity,
+        d_h: Length,
+        wall_fluid_temperatures: Option<(ThermodynamicTemperature, ThermodynamicTemperature)>,
+    ) -> HeatTransferCoefficient {
+        let (re_v, pr_v) = (re.get::<ratio>(), pr.get::<ratio>());
+        let (k_v, dh_v) = (k.get::<watt_per_meter_kelvin>(), d_h.get::<meter>());
+        let re_pow_c_pr_pow_d = |c: f64, d: f64| if c == d { (re_v * pr_v).r_powf(c) } else { re_v.r_powf(c) * pr_v.r_powf(d) };
+        match *self {
+            Self::Nusselt { a, b, c, d, e } => {
+                let mut t_ratio = 1.0_f64;
+                if e != 0.0 {
+                    if let Some((t_wall, t_fluid)) = wall_fluid_temperatures {
+                        let tw = t_wall.get::<kelvin>();
+                        if tw > 0.0 {
+                            t_ratio = (tw / t_fluid.get::<kelvin>()).r_powf(e);
+                        }
+                    }
+                }
+                let nu = if b != 0.0 { a + b * re_pow_c_pr_pow_d(c, d) * t_ratio } else { a };
+                HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(nu * k_v / dh_v)
+            }
+            Self::NusseltAndWall { a, b, c, d, h_wall } => {
+                let nu = if b != 0.0 { a + b * re_pow_c_pr_pow_d(c, d) } else { a };
+                let h_fluid = HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(nu * k_v / dh_v);
+                (h_fluid * h_wall) / (h_fluid + h_wall)
+            }
+        }
+    }
 }
 
 /// Saturated pool-boiling heat-transfer coefficient.

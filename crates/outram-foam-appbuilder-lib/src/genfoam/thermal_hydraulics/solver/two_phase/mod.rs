@@ -475,6 +475,11 @@ pub struct TwoPhaseControls {
     /// port's earlier behaviour,
     /// [`TwoPhaseSolver::with_exact_alpha_solve`]).
     pub alpha_solver_openfoam: bool,
+    /// `false` (default): the forced-convection Nusselt htc uses upstream's operation order
+    /// `(kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio)`. `true`: the order the port used before gh:#1361
+    /// round 8 ([`FsForcedConvectionHtc::heat_transfer_coefficient_earlier_association`],
+    /// [`TwoPhaseSolver::with_earlier_nusselt_association`]).
+    pub earlier_nusselt_association: bool,
 }
 
 /// Time-step control (`controlDict`).
@@ -1522,13 +1527,18 @@ impl TwoPhaseSolver {
         let tw = self.structure.t_act[c];
         let tf = fl.t.c[c];
         let fc = |m: FsForcedConvectionHtc| {
-            m.heat_transfer_coefficient(
+            let (re, prn, kap, dh, tt) = (
                 ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
                 Ratio::new::<ratio>(pr),
                 ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
                 Length::new::<meter>(fl.dh[c]),
                 Some((temperature(tw), temperature(tf))),
-            )
+            );
+            if self.controls.earlier_nusselt_association {
+                m.heat_transfer_coefficient_earlier_association(re, prn, kap, dh, tt)
+            } else {
+                m.heat_transfer_coefficient(re, prn, kap, dh, tt)
+            }
             .get::<watt_per_square_meter_kelvin>()
         };
         match model {
@@ -1583,16 +1593,24 @@ impl TwoPhaseSolver {
         let tw = self.structure.t_wall[c];
         let tf = fl.t.c[c];
         let tsat = self.t_interface[c];
-        let fc = m
-            .forced_convection
-            .heat_transfer_coefficient(
+        let fc = if self.controls.earlier_nusselt_association {
+            m.forced_convection.heat_transfer_coefficient_earlier_association(
                 ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
                 Ratio::new::<ratio>(pr),
                 ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
                 Length::new::<meter>(fl.dh[c]),
                 Some((temperature(tw), temperature(tf))),
             )
-            .get::<watt_per_square_meter_kelvin>();
+        } else {
+            m.forced_convection.heat_transfer_coefficient(
+                ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+                Ratio::new::<ratio>(pr),
+                ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                Length::new::<meter>(fl.dh[c]),
+                Some((temperature(tw), temperature(tf))),
+            )
+        }
+        .get::<watt_per_square_meter_kelvin>();
         // flow enhancement (Chen needs XLM, RezkallahSims the liquid fraction; COBRA-TF is not
         // reachable from this reader)
         let f = m
@@ -2463,6 +2481,16 @@ impl TwoPhaseSolver {
     #[must_use]
     pub fn with_upstream_stale_pimple_converged_flag(mut self) -> Self {
         self.controls.stale_pimple_converged_flag = true;
+        self
+    }
+}
+
+impl TwoPhaseSolver {
+    /// Evaluate the Nusselt forced-convection htc in the operation order of the port before gh:#1361 round 8
+    /// ([`TwoPhaseControls::earlier_nusselt_association`] `= true`); an ulp different from upstream's.
+    #[must_use]
+    pub fn with_earlier_nusselt_association(mut self) -> Self {
+        self.controls.earlier_nusselt_association = true;
         self
     }
 }
