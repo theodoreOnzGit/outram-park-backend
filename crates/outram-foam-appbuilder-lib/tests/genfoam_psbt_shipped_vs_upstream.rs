@@ -292,3 +292,30 @@ fn shipped_case_vapour_temperature_separates_at_step_51() {
     assert!(before < 1e-6, "T.vapour steps 40-50: {before:e}");
     assert!(at > 1e-2, "T.vapour at step 51 should show the recorded separation, measured 1.8e-1: {at:e}");
 }
+
+/// gh:#1801: a boundary condition the solver does not implement is refused BY NAME on every field (it used to become `calculated`
+/// silently), and the shipped selections read with no deviation.
+#[test]
+fn unported_boundary_conditions_are_refused_by_name() {
+    let dir = protocol_copy("refuse");
+    let shipped = TwoPhaseCase::read(&dir).expect("the shipped case reads");
+    assert!(shipped.deviations.is_empty());
+    let cases = [
+        ("p_rgh", "fixedFluxPressure", "totalPressure"),
+        ("T.liquid", "fixedValue", "inletOutlet"),
+        ("alpha.vapour", "inletOutlet", "fixedValue"),
+        ("U.liquid", "slip", "partialSlip"),
+        ("U.liquid", "fixedValue", "flowRateInletVelocity"),
+    ];
+    for (file, from, to) in cases {
+        let path = dir.join("0/fluidRegion").join(file);
+        let original = std::fs::read_to_string(&path).expect("field file");
+        assert!(original.contains(from), "{file} has no {from}");
+        std::fs::write(&path, original.replacen(from, to, 1)).expect("write");
+        let err = TwoPhaseCase::read(&dir).err().unwrap_or_else(|| panic!("{file}: {to} must be refused"));
+        let msg = format!("{err:?}");
+        assert!(msg.contains(to) && msg.contains(file), "{file}: the refusal names neither field nor type: {msg}");
+        std::fs::write(&path, original).expect("restore");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

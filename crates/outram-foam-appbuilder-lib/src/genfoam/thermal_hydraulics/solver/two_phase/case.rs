@@ -467,6 +467,18 @@ pub(super) fn vector_bcs(
 }
 
 impl TwoPhaseCase {
+    /// DEPRECATED (gh:#1815): apply every `fixedPower` `powerTimeProfile` as the closed form `initial * prof(t)` the
+    /// port used before it translated upstream's recursion `prof(t) * pdOld / prof(t - dt)`
+    /// ([`FixedPower::with_closed_form_power_profile`]). Upstream's recursion is the default.
+    #[must_use]
+    pub fn with_closed_form_power_profile(mut self) -> Self {
+        self.structure.power =
+            self.structure.power.into_iter().map(|p| p.map(FixedPower::with_closed_form_power_profile)).collect();
+        self
+    }
+}
+
+impl TwoPhaseCase {
     /// The port's behaviour BEFORE gh:#1361 round 7: run GeN-Foam's `implicitUpwind` alpha solver
     /// (`solveAlphaImplicitUpwind.H`, `solvePhase` = the vapour unless the case names one) in place of
     /// the `MULES` the case selects, and record it in [`TwoPhaseCase::deviations`]. Not what upstream does for a
@@ -756,9 +768,13 @@ impl TwoPhaseCase {
                 if word(pm, "type").as_deref() != Some("fixedPower") {
                     return Err(ctx.e("only the fixedPower powerModel is ported"));
                 }
-                if pm.get("powerTimeProfile").is_some() {
-                    return Err(ctx.e("fixedPower powerTimeProfile is not wired"));
-                }
+                let power_profile = match pm.get_dict("powerTimeProfile") {
+                    Some(d) => Some(read_table_time_profile(&ctx, d, "powerTimeProfile")?),
+                    None if pm.get("powerTimeProfile").is_some() => {
+                        return Err(ctx.e("powerTimeProfile must be a dictionary"))
+                    }
+                    None => None,
+                };
                 let pa = scalar(pm, "volumeFraction").unwrap_or(vf);
                 let rho_cp = match (scalar(pm, "rho"), scalar(pm, "Cp"), scalar(pm, "rhoCp")) {
                     (Some(r), Some(cp), _) => r * cp,
@@ -770,7 +786,7 @@ impl TwoPhaseCase {
                 let q = ctx.f64(pm, "powerDensity")?;
                 for &c in &cells {
                     // fixedPower.C: alphaRhoCp = max(alpha rhoCp, 1e-69)
-                    power[c] = Some(FixedPower::new(
+                    let model = FixedPower::new(
                         Ratio::new::<ratio>(pa),
                         uom::si::f64::ReciprocalLength::new::<reciprocal_meter>(ia),
                         uom::si::f64::VolumetricPowerDensity::new::<watt_per_cubic_meter>(q),
@@ -778,7 +794,11 @@ impl TwoPhaseCase {
                             (pa * rho_cp).max(1e-69),
                         ),
                         ThermodynamicTemperature::new::<kelvin>(t0),
-                    ));
+                    );
+                    power[c] = Some(match &power_profile {
+                        Some(pr) => model.with_power_profile(pr.clone()),
+                        None => model,
+                    });
                 }
             }
         }
@@ -1267,6 +1287,52 @@ impl TwoPhaseCase {
             deviations,
         })
     }
+}
+
+#[cfg(feature = "std")]
+/// A `timeProfile` dictionary of GeN-Foam (`timeProfile.C`): `type table;`, optional `startTime` (default 0), and
+/// `table table ((t0 v0) (t1 v1) ...);` (ESI `Function1::Table`, linear, clamped outside the table). Every other
+/// entry and every other `type` (`fmi`, `constant`, `sine`, ...) is refused by name.
+pub(super) fn read_table_time_profile(
+    ctx: &Ctx,
+    d: &FoamDict,
+    what: &str,
+) -> Result<crate::genfoam::common::TimeProfile, AppBuilderError> {
+    for (k, _) in d.iter() {
+        if !matches!(k, "type" | "startTime" | "table") {
+            return Err(ctx.e(format!("{what}.{k} is not ported (only `type table`, `startTime` and `table`)")));
+        }
+    }
+    let ty = ctx.word(d, "type")?;
+    if ty != "table" {
+        return Err(ctx.e(format!("{what}: time profile type `{ty}` is not ported (only `table`)")));
+    }
+    let start = scalar(d, "startTime").unwrap_or(0.0);
+    let rows: Vec<FoamValue> = match d.get("table") {
+        Some(FoamEntry::List(l)) => l.clone(),
+        Some(FoamEntry::Tokens(t)) => t
+            .iter()
+            .find_map(|v| if let FoamValue::List(l) = v { Some(l.clone()) } else { None })
+            .ok_or_else(|| ctx.e(format!("{what}.table holds no list")))?,
+        _ => return Err(ctx.e(format!("{what}.table is missing"))),
+    };
+    let mut times = Vec::new();
+    let mut values = Vec::new();
+    for r in &rows {
+        let FoamValue::List(pair) = r else {
+            return Err(ctx.e(format!("{what}.table rows must be (time value)")));
+        };
+        match (pair.first().and_then(FoamValue::as_scalar), pair.get(1).and_then(FoamValue::as_scalar), pair.len()) {
+            (Some(t), Some(v), 2) => {
+                times.push(Time::new::<second>(t));
+                values.push(v);
+            }
+            _ => return Err(ctx.e(format!("{what}.table rows must be (time value)"))),
+        }
+    }
+    let profile = crate::genfoam::common::TimeProfile::table(times, values)
+        .map_err(|e| ctx.e(format!("{what}.table: {e:?}")))?;
+    Ok(profile.with_start_time(Time::new::<second>(start)))
 }
 
 #[cfg(feature = "std")]
