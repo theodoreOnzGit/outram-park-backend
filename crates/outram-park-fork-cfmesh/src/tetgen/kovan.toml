@@ -54,7 +54,7 @@ doc_hash = "sha256:6a35de81c39da74feeb64ef79a556aa5dbb15bb7d210c2bdbe2395aa36d29
 id = "fn:b41504c7adce22d5"
 name = "suppressbdrysteinerpoint"
 qual = "TetgenMesh::suppressbdrysteinerpoint"
-hash = "sha256:e4f24c8a833c7ef672bfa17c8d5c660793da97fe1da9f08c1f1f68694cc0d571"
+hash = "sha256:88002569768b83ba75623ec6f408651a88883d51e5c3fc7e28d46930ec52d5ee"
 doc_hash = "sha256:9d3140848a42055e56db16d292b6fb3e29ea0cdbbb5d7305e34b4b1d6b398d44"
 
 [[module."carve.rs".function]]
@@ -1058,14 +1058,14 @@ name = "Behavior"
 qual = "Behavior"
 item = "type"
 shape = "struct"
-hash = "sha256:35c65f3c5c26cf6aefac943b216bf2e20ab3070313cb59e5842e3ee9a48c7005"
+hash = "sha256:cd56f60886c16fc527455106d3ff5f23d4c6e3c14bdc4fcaf85ba44581c4e550"
 doc_hash = "sha256:694cbdd1dda5c031e0b65942b871146838add738809dd5329bdcd09b1af0d12e"
 
 [[module."mesh.rs".function]]
 id = "fn:b900974cab7da26b"
 name = "default"
 qual = "Behavior::default"
-hash = "sha256:bc8d72fe413547ae7935d95c9f48c8c28c0f95e8d37eb622fd97480a0e67305c"
+hash = "sha256:88992eae24e4069c643239dac4a69f921db28d5a0c64bbd764f6b7bfc718b154"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mesh.rs".function]]
@@ -1376,7 +1376,7 @@ name = "PointRecord"
 qual = "PointRecord"
 item = "type"
 shape = "struct"
-hash = "sha256:b862f347f612b8a34ed7c7b2590380f7ddb578b3164de25072e93ba9ad5c1146"
+hash = "sha256:04f22fa3f9b9ff0f72fd596b5722a3e33f66c5f7528ff9882f8805e20b6d6c27"
 doc_hash = "sha256:7344aa8eb695c5eb5cf3bcc0475827d7feaaa5b2cea43cfe1a60d7f1bf4b8e8b"
 
 [[module."mesh.rs".function]]
@@ -1511,7 +1511,7 @@ name = "TetgenMesh"
 qual = "TetgenMesh"
 item = "type"
 shape = "struct"
-hash = "sha256:bf03d9418eb4e6ddc902c7e0530c0afc71f9b61ced6325efa8a6b45385744b61"
+hash = "sha256:31e75849d90bdb99487b164441f9da06b683d4ed593afe150b0b319c7c7294ef"
 doc_hash = "sha256:eca7aa86ab2e5ce7b2c4ba3e6b8d8244a2985a14542904afa1aea08b9c3d762c"
 
 [[module."mesh.rs".function]]
@@ -1637,7 +1637,7 @@ doc_hash = "sha256:2689458e12c83183dd5f7f083c4d1449c030db4a2ea28f4df403115bf7b00
 id = "fn:4cf28bfab50880ed"
 name = "new"
 qual = "TetgenMesh::new"
-hash = "sha256:b086d3769d2b01fa0bf5ccce9cf4dbf98d2d9a237c1d0103a3cd67c54d4e44bc"
+hash = "sha256:dbceaffac5a83758971d1a80f60869c4780edb0e3a3142a90fe9d2f3a7aa8f13"
 doc_hash = "sha256:a3f0e016db79a9579bff7df56dbb0e2a6f29b8b37fd5acfae330314cb73d45c7"
 
 [[module."mesh.rs".function]]
@@ -2183,7 +2183,7 @@ doc_hash = "sha256:57f20357f91f5c15ea723d575abec0ebdb699f1eaf0284c9f97850110d81f
 id = "fn:82a47333bd90c044"
 name = "output_plc"
 qual = "TetgenMesh::output_plc"
-hash = "sha256:a3579a93501ff17dec9837db5e8f40c9c9cf649a6673794712091ce092916fe3"
+hash = "sha256:a6db072c8d660ed0dcccd979e67cd34e33265e8c3ba4cbc53aadf43f025c0213"
 doc_hash = "sha256:075ecbd36e4f6d09649c0097f906a00f60c8eaa64e0c9d75098dcccdb0a1178b"
 
 [[module."output.rs".function]]
@@ -2192,7 +2192,7 @@ name = "TetgenOutput"
 qual = "TetgenOutput"
 item = "type"
 shape = "struct"
-hash = "sha256:08ebf1485f5488724f5833b39ae181908675535f0af9e43410e032fae4b1be5b"
+hash = "sha256:8b987903d21ac1e9e37296efb940f59f182ebfbe903698419e6095d7b80218a5"
 doc_hash = "sha256:8e99ccb1bdfc93e0141d8f9403dbdbaa09ffaa892efc1faa53ccd1eeff13a9f7"
 
 [[module."output.rs".function]]
@@ -2217,11 +2217,32 @@ hash = "sha256:471f1b06b217ee855bb3a9865b096138a27d698b93c883cbf9006968ebbd10db"
 doc_hash = "sha256:53027b6d1e0a4da781006140547892d806351a403eb9ff37008b3f809bb76b32"
 
 [[module."output.rs".function]]
+id = "fn:0c028ea39d6d7d61"
+name = "mtr_text"
+qual = "TetgenOutput::mtr_text"
+hash = "sha256:1275c3fb4d18579027b4d44ff737cb5ef855b5a8692da49a4e2beea411ec8c7b"
+doc_hash = "sha256:6e93f8608dc8c36f009e29f808f40692e3135ecabaf06d49621af689c77b852e"
+
+[[module."output.rs".function]]
 id = "fn:8292c558519bd890"
 name = "node_text"
 qual = "TetgenOutput::node_text"
 hash = "sha256:bcc432c8d8ba34b4c1cc6fa2bc521930e1c530f372e5d20a10f55a887b6214c1"
 doc_hash = "sha256:ab7396ee3f50d1eeb5a7a819ad6d98a8b41b97467784c9636e18fd2c10951e4b"
+
+[[module."output.rs".function]]
+id = "fn:e06356f3ced210b0"
+name = "p2t_text"
+qual = "TetgenOutput::p2t_text"
+hash = "sha256:6d05dce3a4dc51a7461d6059b3251ded804042879455de04a4149a073f013410"
+doc_hash = "sha256:7b70f081d91fdaabc7a0298b118226053b011077fc2b163dafc56c4019545062"
+
+[[module."output.rs".function]]
+id = "fn:2b9c83066973870c"
+name = "fmt_e8_left16"
+qual = "fmt_e8_left16"
+hash = "sha256:895d4099b20cb2576ef43e8f4ce82e8ed1feeb2fdd61b113239a17944f5d4f8f"
+doc_hash = "sha256:bac6a8d3b7545a0545184d0449b83a89f9027767ed03948be80d1b0936eba16d"
 
 [[module."output.rs".function]]
 id = "fn:b731f04c9371780b"
@@ -2294,14 +2315,14 @@ name = "PlcInput"
 qual = "PlcInput"
 item = "type"
 shape = "struct"
-hash = "sha256:339e5dbbb05e9b35ff692b5521e2c1dd058ea7a727d0f441be818083f637b538"
+hash = "sha256:ea78004e031de011b9e00d444803dfe43f59ab0d4b909ee596331c34bb8e3e17"
 doc_hash = "sha256:bffc5dec23edf4b3650ffe52a2c1cf070ab45ebc932922d0af2125bf93eb6a0d"
 
 [[module."plc.rs".function]]
 id = "fn:069f38ad2ce15d48"
 name = "from_triangle_soup"
 qual = "PlcInput::from_triangle_soup"
-hash = "sha256:ab71f57bcc968a829ddfe52e6ac6a7127c638e3cef59d400e4979d41ec81c0bb"
+hash = "sha256:479a35111cee94cc73f58c61b8aa3560851ccbdf13c179a5fec6cbe2e96ee016"
 doc_hash = "sha256:224ae25c219a84d42a831360217822873315ae3d7989b3a8f321443160753f75"
 
 [[module."plc.rs".function]]
@@ -2317,6 +2338,13 @@ name = "read_edge"
 qual = "PlcInput::read_edge"
 hash = "sha256:b86ac4c8dbfedbd0687f294386c180da68bd77ba1dd7175ee8e1f39e8fb97408"
 doc_hash = "sha256:fdc42911a1e16967d9bac48244596830fde1fd96ce214db251b1d2cc036b18ff"
+
+[[module."plc.rs".function]]
+id = "fn:61590e12efb819b1"
+name = "read_mtr"
+qual = "PlcInput::read_mtr"
+hash = "sha256:4371b2f4f8743c28d55bdafc742fc3e484efd22792e6122b33a66766818431c2"
+doc_hash = "sha256:aa38394d088d097bbd7310cb53aaf5997288060cb367dbce4274032d559bba7d"
 
 [[module."plc.rs".function]]
 id = "fn:c2641d2283c245b5"
@@ -3008,7 +3036,7 @@ doc_hash = "sha256:35efde938ee97cac34275a6cd66bc39b991d80cc5df5a99422eaed2a13474
 id = "fn:c3283fe536fe9685"
 name = "checktet4split"
 qual = "TetgenMesh::checktet4split"
-hash = "sha256:7b35fcfbda80713768d4213bfda37162d9d5b1d9fd3c2335db8d982c5d1a0c3e"
+hash = "sha256:ca3b4e5b1672a19ecc08e5f0b4a8c08052ffe1745b807251337900ddc3d5a202"
 doc_hash = "sha256:ee2d6def3a9560439ac2e96212f1c0199eaf00038bcb2988b5ba571269f13804"
 
 [[module."refine.rs".function]]
@@ -3211,21 +3239,21 @@ doc_hash = "sha256:8e26b6bb7ecb9e82782147fdf8c4ddc2d146ee30f1a21c02be1df15725382
 id = "fn:04ca2959dcfaf428"
 name = "split_segment"
 qual = "TetgenMesh::split_segment"
-hash = "sha256:cfa2518fb0e4264e87c15c7d8cbd6d46c22b1048b15a83e8055907199bbcd25b"
+hash = "sha256:cfd2a96d5737e79e2ec16e17b4679c1f939a2cff694b0c06bd2bd12fe2aaa42f"
 doc_hash = "sha256:4600e3d2e2f7fa1160ca5b22142ea3b62acc6be8a71bf7a8189cbbc4a01f637e"
 
 [[module."refine.rs".function]]
 id = "fn:f9c5f2b106165f5c"
 name = "split_subface"
 qual = "TetgenMesh::split_subface"
-hash = "sha256:de2533f6da4be5d91cfb1b47d8eee177caf9d3b21657d469a8bc1efbc4a4f84a"
+hash = "sha256:4b327a7af93d5a6e88794f7a41e481bbe0585f0181b39d37f7287073ee0712c6"
 doc_hash = "sha256:509fe6909eba85549d0cbd232021bf82b1f566ffb63c0045628f6e0213ba37ec"
 
 [[module."refine.rs".function]]
 id = "fn:de487a53406b78a1"
 name = "split_tetrahedron"
 qual = "TetgenMesh::split_tetrahedron"
-hash = "sha256:91c2add854676625ef7f7315a16cad4bd23c2098d103bfcdeeee19b678a3d6bc"
+hash = "sha256:5be0310e700f1ac33cc38d7ba10db3d3e427132fe648ebaa0c8226c3e3e8e529"
 doc_hash = "sha256:c132559990443acb9740fe2c75066fafeccd82675419fa15d343fb2022550a8b"
 
 [[module."refine.rs".function]]
@@ -3340,6 +3368,72 @@ qual = "senext2"
 hash = "sha256:6a4bb4315338e14d99cbc9e3309862c7c2aed21b8a293eca886bd22cf3bfba02"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
+[module."sizing.rs"]
+path = "crate::tetgen::sizing"
+
+[[module."sizing.rs".function]]
+id = "fn:46182ba4ab300042"
+name = "collectremovepoints"
+qual = "TetgenMesh::collectremovepoints"
+hash = "sha256:e4f01c5f07b8add4f87a531ee2190bbbb6058c10715fb61368a3612a1663132e"
+doc_hash = "sha256:ba33edff21ae6bb05bbdc75e0960c8ee80037b703137e083e355055265ff4ee0"
+
+[[module."sizing.rs".function]]
+id = "fn:1c3fc7b26b538869"
+name = "getpointmeshsize"
+qual = "TetgenMesh::getpointmeshsize"
+hash = "sha256:4e882798a507faeec40c6790df6f0bab2c2848d4b359c9e26ec4cb8c4ca58350"
+doc_hash = "sha256:985dfda15ef88e3ba605b82da875f02e05c8b37eb41f2edfceb285a14a8046b9"
+
+[[module."sizing.rs".function]]
+id = "fn:7d146037575645da"
+name = "meshcoarsening"
+qual = "TetgenMesh::meshcoarsening"
+hash = "sha256:921996da2b0042803e2e755d26694b7f37c790205c9e6a662a87c7b8b6d7a933"
+doc_hash = "sha256:af8ddf6dd91662daf5e27d5319b2f015b9a4b3cb1c9e143e0f5faf9047935006"
+
+[[module."sizing.rs".function]]
+id = "fn:2a48144b6004e1ad"
+name = "transfer_point_mtrs"
+qual = "TetgenMesh::transfer_point_mtrs"
+hash = "sha256:7e0835ed40c8f8458f7efb00762ff1019e6285f0126edfa546c2a403f73e236e"
+doc_hash = "sha256:084f76180d280f9b14d14dedcde1e8dc9b4b7bcf85223220b54be29981428e21"
+
+[[module."sizing.rs".function]]
+id = "fn:ec52f4b6c7360179"
+name = "cross"
+qual = "cross"
+hash = "sha256:35718d0c30167c9aedb612bdd815e044482aa87035316de75ed05f18fa507048"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."sizing.rs".function]]
+id = "fn:49b17bf4c1d1b982"
+name = "distance"
+qual = "distance"
+hash = "sha256:ffd0bd45bf9964647f025e3e29e3bff5087e21013c082e0770a9790a25f52db9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."sizing.rs".function]]
+id = "fn:dc93b7083779108a"
+name = "dot"
+qual = "dot"
+hash = "sha256:54b6db95506aa8f00a71d3c9bca4321da59af10198d08bc585577ed738c77bae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."sizing.rs".function]]
+id = "fn:c804e80d12a06a06"
+name = "orient3dfast"
+qual = "orient3dfast"
+hash = "sha256:e44af150b5f3f81e54b294dbc4ba1cbe10ee10d48101e1c29aa997505f623b1d"
+doc_hash = "sha256:da4e9f5316e555c11e74e625a772c6c125f6690ff1349cf8504ff0e5f1fdde25"
+
+[[module."sizing.rs".function]]
+id = "fn:1c2eda5e632d49bf"
+name = "triarea"
+qual = "triarea"
+hash = "sha256:588087b04dad27f57c550ccc7c5012786cb27732398e13377d926e4ed3a1d60e"
+doc_hash = "sha256:f216e360866c80ce326a91168dacdff306b6aff70567b4df833abb4453cb30ce"
+
 [module."steiner.rs"]
 path = "crate::tetgen::steiner"
 
@@ -3349,14 +3443,14 @@ name = "InsertPointFlags"
 qual = "InsertPointFlags"
 item = "type"
 shape = "struct"
-hash = "sha256:d9df8a4176a5d9badf97cef40e041b79c539c180be6ea1a1c73f9f5138151e19"
+hash = "sha256:c2438a70795455b36217ad15202fedc1ac0be5ed4ce0e79d8c8d754a382de8f2"
 doc_hash = "sha256:395b8eb2406fac2be0b9a777f3733819770ce0ff34971424dcae159c1b9ca104"
 
 [[module."steiner.rs".function]]
 id = "fn:8f20e856928b4ec2"
 name = "default"
 qual = "InsertPointFlags::default"
-hash = "sha256:20b2d56af0beeadf7c1d9d1431bfb9401eaaf3c85acf3afa3081ae8a8dc14f5b"
+hash = "sha256:4be84535f39bf622c9d2ba1c8f110f0e74ac4bf35a51c9ff381718a55531ba2f"
 doc_hash = "sha256:b12726fa0c9d63384253b77b5fc5472791d301fd875bfb9ed21d6ce9adb1a010"
 
 [[module."steiner.rs".function]]
@@ -3379,21 +3473,21 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:cbda173148dc2070"
 name = "add_steinerpt_in_schoenhardtpoly"
 qual = "TetgenMesh::add_steinerpt_in_schoenhardtpoly"
-hash = "sha256:5058ff8edc9e624f0862891ca77a0a3fd69c68fd3e5ada3a4fcdf7e52f9e667f"
+hash = "sha256:21c9c18490d4b8f6205df9f10b284667082a10e6bb50dd257fa09ba522df7ce8"
 doc_hash = "sha256:e1d6e53a7026e419bfe92755c686f5e65072bba42e4de2402f6e7946a609a59a"
 
 [[module."steiner.rs".function]]
 id = "fn:02b458af1e4c46f7"
 name = "add_steinerpt_in_segment"
 qual = "TetgenMesh::add_steinerpt_in_segment"
-hash = "sha256:02a02c848649a3f9c4b15cbb828a606bd9c4e01e197944f50378bf9c2b6fe042"
+hash = "sha256:c8502048610e2b48728a19abb30d3342d057fb8200f1420e6905319c661123c6"
 doc_hash = "sha256:4cabb14a766e37a0221481510e9efd1c41f418c1cd96134646e17e078bf03b3b"
 
 [[module."steiner.rs".function]]
 id = "fn:cb7dd0ee552b2d3a"
 name = "add_steinerpt_to_recover_edge"
 qual = "TetgenMesh::add_steinerpt_to_recover_edge"
-hash = "sha256:00270730a1e3a25d784a9751c3a143c258f596bf8bfc216595aabb7ec49d1cae"
+hash = "sha256:aac7157dafacd89c050ece7826cb5013bbfaec89ce428886d4cd15877f169712"
 doc_hash = "sha256:8271d73f8ad3810c8f5e53b29a24dc017b0af7d06d439497ca922ed0a87f3a13"
 
 [[module."steiner.rs".function]]
@@ -3442,7 +3536,7 @@ doc_hash = "sha256:b0f4138eaf7775ee6a064247aaa17747a54c9a2cc27c451a62db88e004b67
 id = "fn:e468ef61b5dafa45"
 name = "insertpoint"
 qual = "TetgenMesh::insertpoint"
-hash = "sha256:89d151fb6a53f10cec60c2e74c73d9888a760ff3b7912ce3b7a71cf6cc07087e"
+hash = "sha256:9ba9aa32b9b1036e0e38f07687eaa0330f224db7e2d08f38e7891bdb92b3b8b6"
 doc_hash = "sha256:515d895898f0bc1bc7bb25971a782d7ddbae8c32abc97e32c474e217d0a9ee6a"
 
 [[module."steiner.rs".function]]
@@ -3491,14 +3585,14 @@ doc_hash = "sha256:0e70458ffca2f5f4166f7bae78efeea3e3393084d14b841435bfff57c9126
 id = "fn:7e8b2f0a36e2b99e"
 name = "recoversubfaces_steiner_in_face"
 qual = "TetgenMesh::recoversubfaces_steiner_in_face"
-hash = "sha256:9f0141d768b25e29544b9d2f02c61f1ce7da8d2f2fff9790cd9043f4ea706161"
+hash = "sha256:7276eb3ce5dae71b2785e9c74d4025f605b082ab68ee3869c2b6aea2310408c9"
 doc_hash = "sha256:13c2c70aff92230ccdf3b1afbd812fd115345e06bacb89a44cc5b2dd0fb16fd9"
 
 [[module."steiner.rs".function]]
 id = "fn:e310608d3eda7271"
 name = "recoversubfaces_steiner_on_edge"
 qual = "TetgenMesh::recoversubfaces_steiner_on_edge"
-hash = "sha256:31b9193b0e022280e11e60a3065b83fda5e081e32b80019d49ebd00b87fb912a"
+hash = "sha256:ab486b68f62e8916c90c993e68ee1ab3f626bd23db6e0d037da57597214c0ffa"
 doc_hash = "sha256:500d85f379a225abe00b4711d99e80d30746225fce8e5793178169bd1c186182"
 
 [[module."steiner.rs".function]]
@@ -3652,7 +3746,7 @@ doc_hash = "sha256:9e11e67b7e80ec0cf35874498b358c68f4966d596e9246ccd69f126b5aea8
 id = "fn:223474fc6eacbf42"
 name = "from_plc"
 qual = "TetgenMesh::from_plc"
-hash = "sha256:534a94ebd4daf088b1b67edd98b11f4ae8d692536ff09c95512089cebb091e74"
+hash = "sha256:ecde871aa8c79845f0288beff5f715def5dc7fc21f87b09585e4b15625d29469"
 doc_hash = "sha256:a442b32a43b994ad95cc1f6768a42404b92ecb2492d659ce5a6a703f0ac99dfb"
 
 [[module."surface.rs".function]]
@@ -4066,8 +4160,8 @@ name = "Switches"
 qual = "Switches"
 item = "type"
 shape = "struct"
-hash = "sha256:0ed5e2fafe78e38bf374c68b62cc73c3e9aedf8550465f1a122e86b71f4fcb53"
-doc_hash = "sha256:4610c71913a06d1ee1b07ba6c0d195a6f5b27e25d5f22f87924674529f25bbc7"
+hash = "sha256:9cf44a6cee965e14aaffa5bad46ac44c676def8f9983361a8a4676a818cf6417"
+doc_hash = "sha256:4a52680b495cf5ac31230fa89a31019c658d6e4cc6336f6ad4ac4e26b35e8c06"
 
 [[module."tetrahedralize.rs".function]]
 id = "fn:ae87c27865ba83fb"
@@ -4089,6 +4183,13 @@ name = "max_volume"
 qual = "Switches::max_volume"
 hash = "sha256:95c4710381bfeada6d4ecac54d34da8f8e4fad6d87f4e0e98f29a945566d4f37"
 doc_hash = "sha256:cdd098b84a02cde2e0bc28b3f471ab2c86c8a9e30a8d1c0f92499ebcab7f50a3"
+
+[[module."tetrahedralize.rs".function]]
+id = "fn:f475c585671b51ee"
+name = "metric"
+qual = "Switches::metric"
+hash = "sha256:8f7f25b75ce86a9be392443e4b0a2852cca6e92a57372b0fbfdd20390aac51b2"
+doc_hash = "sha256:ab7c80268d9e1d9f20ea2e972fb36e728f6216246d8ae0da21ac383a9d6b9584"
 
 [[module."tetrahedralize.rs".function]]
 id = "fn:0a9ec32b4ea29650"
@@ -4122,7 +4223,7 @@ doc_hash = "sha256:7295c8399deda35952c317e36279bc09d6337a3d77399fd2ad5ae7b12693e
 id = "fn:771e812129659e7b"
 name = "parse"
 qual = "Switches::parse"
-hash = "sha256:4063e8adfba15021f05279e4f65799bd41e19039b8b72c45deed26cf0967ab38"
+hash = "sha256:b8b3e86f90213856293e9e77a26921af07522619b00b8d049a891df112de498f"
 doc_hash = "sha256:8e080ea385a8ca78b7cc470e7ff88598ed50947fd0f8682a0f7587b701a7abc2"
 
 [[module."tetrahedralize.rs".function]]
@@ -4150,7 +4251,7 @@ doc_hash = "sha256:e676f95f7728dc098a607ffdb84134b8612275497edc81c50b0429d7844d2
 id = "fn:528204e9fc5a8e8e"
 name = "finish_plc"
 qual = "TetgenMesh::finish_plc"
-hash = "sha256:985ce368e89f819bdd8e0cf085b3b9ddf2b0d823e2780339c1f028e570a8ac80"
+hash = "sha256:2f98b8c34f79076d249fc580b676beb2d8028387785441ac53bd12602a4ad8b1"
 doc_hash = "sha256:a2cc7cd36d11df5404847374fea6dcae7284773b513e6b0b92c82ba733162b7f"
 
 [[module."tetrahedralize.rs".function]]

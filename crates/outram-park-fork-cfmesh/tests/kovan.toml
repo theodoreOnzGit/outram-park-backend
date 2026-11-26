@@ -1034,3 +1034,170 @@ qual = "write_port_dumps"
 hash = "sha256:9d5efae37a49f0fd1954c37177b7bb1fce71d0842e4505db92b3824d04ac57a4"
 doc_hash = "sha256:6f16bbbbf6c404ea859ba841528fa27693b11b3ac27499ea851783f3cf2c83d0"
 test = true
+
+[module."tetgen_sizing_vs_upstream.rs"]
+path = "test:tetgen_sizing_vs_upstream"
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:3994354e7622fc47"
+name = "Run"
+qual = "Run"
+item = "type"
+shape = "struct"
+hash = "sha256:86ec8e787dacf1f615c9a7c8c35b2a0344e5ed9f18b07711dc890d593cc40bd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:40ed4c5e9f09c39c"
+name = "WALL_FRACTION"
+qual = "WALL_FRACTION"
+item = "const"
+shape = "const"
+hash = "sha256:adbff84824d6f3e321f28cc7fb48ab6f5435800bea4e58c97dc317891e1eae50"
+doc_hash = "sha256:2f904b4eeaf806a8acece66400147e5342c48287671c08e4f98c2b985d1b252a"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:66e340eca051a297"
+name = "counters"
+qual = "counters"
+hash = "sha256:7c3d2e2f31ad2a1776c55b9bd794bed462836e585fff9a85a6003337459ecd6c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:e9d535c57706f48a"
+name = "files"
+qual = "files"
+hash = "sha256:aac003ca90b6e3b96917262147280fb5fbc7c553bd663c41042992cfd0be2e34"
+doc_hash = "sha256:0f9751376e4f3cda74c04c118a4ba73cc85216e3e20c7ff8b6bef11fc6b5805c"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:9c19e39f17fa62fc"
+name = "geometry"
+qual = "geometry"
+hash = "sha256:11aedb7dd58e9ca388326e4028526f348eb8764312c4ec9466df6f4db683a5f9"
+doc_hash = "sha256:19a474553cf081acebf29655b56244957454c25fae03964a786201e29f185b57"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:8937655a972bff0c"
+name = "gunzip"
+qual = "gunzip"
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:e48d77dc1d44a653"
+name = "input"
+qual = "input"
+hash = "sha256:af069297c911cd2d1b33a0bc1b08cc8e7f4cbaee43ce84099f13f99b23ce1cf1"
+doc_hash = "sha256:a85c7078c8420cff61e32d3d511972c8082ada5912042ce1d816a634a6a61b9b"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:3c8dc8ce40f6271f"
+name = "mesh_studio_runs"
+qual = "mesh_studio_runs"
+hash = "sha256:039516bb97788fb007e9eedc1d0b2492a5c4e2a252e38a566b08e3295acf95dc"
+doc_hash = "sha256:fbaa9cf5317b857677cde91644e90943c92a60474511ff7e0d60911f6e27697e"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:6d0bc8777700cf7c"
+name = "read_gz"
+qual = "read_gz"
+hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:ba411d33e4bde550"
+name = "reference"
+qual = "reference"
+hash = "sha256:29f5a7026d261333d23b66e1522c4cea943f933c369972f769f1b21d796d8842"
+doc_hash = "sha256:9346630333d98e2019705bfeff0976de373bb1159d38a1acfa937cfbce68791e"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:5216912159586ec9"
+name = "root"
+qual = "root"
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:a64be5edda9504ed"
+name = "rule_size"
+qual = "rule_size"
+hash = "sha256:374ca9a108408f82fa7026550fc7dc07e3c7b1cccf8ee931e1e26e9475c94230"
+doc_hash = "sha256:df6bd43d87a9a3c08a0ff59f661955aeeea36d81279ca8034b9feef84f23a5cd"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:b45350c48743beb3"
+name = "run"
+qual = "run"
+hash = "sha256:1400fa11ce0eacd62fcc09623429599d9cd8ac63626ad21fae61792a4b8621df"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:5d4e33cb6b9bcd20"
+name = "runs"
+qual = "runs"
+hash = "sha256:fa93ba7ce94818327f24436f479d7dfe9cf5edafc74e44d3ca3024fd13dec3f5"
+doc_hash = "sha256:cf86497fefc83d7ee4b45bf8433bef73f8c23f6f40556010d8a4c57e6b43fd63"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:65ba4fc676cbf012"
+name = "sizing_output_matches_upstream_byte_for_byte"
+qual = "sizing_output_matches_upstream_byte_for_byte"
+hash = "sha256:380a832c8994d6067ad558b99e9386247857cf49520711e6e7b66afad546a999"
+doc_hash = "sha256:5eae9d1d0d6ae4190fcfb221daf9b792e5c2623433c0093bf3f27cea497b0ed7"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:4eb0af4f54c80343"
+name = "soup"
+qual = "soup"
+hash = "sha256:f8773edd00a73fcd0c667d5dc8fc081a8efa4f453c5a7f3ec3940c44aeb472e1"
+doc_hash = "sha256:3a4833ccf0abfd0fe94335e68d0b2043ac88ef788fdda604c24247f2d0a48343"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:04968e36f9dc48dc"
+name = "switches_and_mtr_reading_follow_upstream"
+qual = "switches_and_mtr_reading_follow_upstream"
+hash = "sha256:2e2c74ba58a788e380b00b8f782b3f792a5a1e9890317d569e7c985496e2e246"
+doc_hash = "sha256:6271a232cb3a70b93762aa5cd94b1b150b8471a9049ed67260d7cd03c3fbd71d"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:a3b85e47d02fb877"
+name = "tag"
+qual = "tag"
+hash = "sha256:c77a57f841c9d45fed4a683c0cd8c1f60df0061c701bf36ce6f27611ee96a8fc"
+doc_hash = "sha256:b05cbeab104799a8ff200a9010c183308ceb0913580de9f35955206177ab9303"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:7f4bf579f66daaec"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+hash = "sha256:67b6248bb9aca783f47ae1917d0913d3d6361804689de194258a013e46c52743"
+doc_hash = "sha256:6fce0c83087a49731bbdc8408d2ce78fa53ed080334498e26a56e9835a5441ba"
+test = true
+
+[[module."tetgen_sizing_vs_upstream.rs".function]]
+id = "fn:1e1cc414c7212cae"
+name = "write_sizing_inputs"
+qual = "write_sizing_inputs"
+hash = "sha256:0cd2ad60afc860226cc082a8e503b8a65a5a0455df38055d6ec7f67a50be1a4d"
+doc_hash = "sha256:7a06e2d7a4c1baf689a3a56128e8c3ca06b070e218ed4b6f4c400f80e2795454"
+test = true
