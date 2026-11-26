@@ -337,6 +337,7 @@ pub struct EnergyNeutroTransient {
     dt: f64,
     p_old_reference: f64,
     first_step: bool,
+    per_call_old_time: bool,
 }
 
 impl EnergyNeutroTransient {
@@ -350,7 +351,16 @@ impl EnergyNeutroTransient {
     pub fn new(inner: EnergyNeutroDiffusion, settings: TransientSettings) -> Result<Self, WorkflowError> {
         let p_old_reference = inner.neutro.upstream_power_at_reference_state(&inner.xs, &inner.zone_map)?;
         let dt = settings.control_delta_t;
-        Ok(Self { inner, settings, dt, p_old_reference, first_step: true })
+        Ok(Self { inner, settings, dt, p_old_reference, first_step: true, per_call_old_time: false })
+    }
+
+    /// ABLATION, the form before gh:#1832: every coupling iteration snapshots the neutronics' old-time flux and
+    /// `precStar` from the last iterate instead of the previous time step. Wrong whenever the coupling loop
+    /// runs more than once in a step; kept as a named option to measure what the fix carries.
+    #[must_use]
+    pub fn with_per_call_old_time_snapshot(mut self) -> Self {
+        self.per_call_old_time = true;
+        self
     }
 
     /// The step the next [`Self::step`] takes.
@@ -368,6 +378,13 @@ impl EnergyNeutroTransient {
     pub fn step(&mut self) -> Result<TransientRecord, WorkflowError> {
         let dt = self.dt;
         self.inner.fluid.begin_time_step(dt);
+        // `runTime++`: OpenFOAM stores the old-time flux and `precStar` once per time step, so the later
+        // iterations of an unconverged coupling loop integrate from them too (gh:#1832)
+        if self.per_call_old_time {
+            self.inner.neutro.clear_old_times();
+        } else {
+            self.inner.neutro.store_old_times();
+        }
         let only_energy = self.settings.coupling.correct_only_energy();
         let (min_residual, max_iterations) = (self.settings.coupling.min_residual, self.settings.coupling.max_iterations);
         struct Work {

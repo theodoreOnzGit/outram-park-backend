@@ -2412,7 +2412,7 @@ The ablation pin of `msfr_transient_with_data_driven_chi_misses_by_the_pinned_am
 
 Inputs are the committed ones of the long chain (`restart_15`, `msfr_neutro`, `defaultFlux`, `reactorState`); references `refs/msfr_en20.ref.txt.gz` (upstream tight `steadyStateEN` 15 -> 20 s, written at 20 s: `EN_END=20 EN_WRITE=5`; its `KEFF`/`POWER` of the 20 steps are identical to the first 20 of `msfr_en`) and `refs/msfr_chain20_transient.ref.txt.gz` (upstream tight `transient` from that 20 s directory, first 10 steps). It gates: 20 EN steps (`keff_` 2.2e-13, `power:` 2.2e-13, first `h` residual 2.6e-9, `T` statistics 3.6e-14, time exact), the fields at 20 s (`powerDensity` 1.0e-10, `T` 3.6e-14, and `keff_` at 20 s, flux and `precStar` at <= 1e-9), then the typed hand-over `NormalisedState::start_transient` and 10 transient steps of the port's OWN 20 s state (`dt` 1.1e-11, `T` 3.7e-14, `power:` 3.9e-13, first `h` residual 1.1e-11), `keff_` frozen. Gates: as the long chain, except `dt` 2e-10 (measured 1.1e-11; the long chain keeps 1e-11, measured 6.0e-14 in round 11).
 
-**What the 20 s state is, and why the light transient is run with `maxIterations 1`.** The 20 s state is far from critical (`keff_` is still climbing), so the transient is a prompt-supercritical excursion: `power:` rises from 2.0e7 to 3.0e7 in 10 steps of 20-350 microseconds, the neutron iteration hits its cap of 50 at every step with a residual of 1e-4 (not 1e-6), and, with the tutorial's `maxIterations 3`, upstream's coupling loop does all 3 iterations at every step without converging. **The port does NOT match that: with `maxIterations 3` the first run of the light chain gave step-1 `power:` 2.5132e7 against upstream's 2.4851e7 (1.1e-2), `dt` 10 %, `T` 3.6e-7, growing to 8 % in power by step 10** (not gated, not fixed; filed as #1832). The first coupling iteration agrees (it is the only one in the next run); what differs is a later iteration of an unconverged coupling loop, a regime that round 9 never reached (its loop converged after 1 iteration at every step). So the light chain runs both codes with `maxIterations 1` (`COUPLING_ITERS=1` in the script, the same text replacement in the test); in that regime the port agrees as above. The long chain, which starts from the converged 165 s state, keeps the tutorial's dictionary.
+**What the 20 s state is, and why the light transient is run with `maxIterations 1`.** The 20 s state is far from critical (`keff_` is still climbing), so the transient is a prompt-supercritical excursion: `power:` rises from 2.0e7 to 3.0e7 in 10 steps of 20-350 microseconds, the neutron iteration hits its cap of 50 at every step with a residual of 1e-4 (not 1e-6), and, with the tutorial's `maxIterations 3`, upstream's coupling loop does all 3 iterations at every step without converging. ~~**The port does NOT match that: with `maxIterations 3` the first run of the light chain gave step-1 `power:` 2.5132e7 against upstream's 2.4851e7 (1.1e-2), `dt` 10 %, `T` 3.6e-7, growing to 8 % in power by step 10** (not gated, not fixed; filed as #1832).~~ **CORRECTED 2026-11-26 (round 15, gh:#1832): fixed; the cause was the port's old-time snapshot, see Round 15.** The light chain now runs the tutorial's `maxIterations 3`. The first coupling iteration agrees (it is the only one in the next run); what differs is a later iteration of an unconverged coupling loop, a regime that round 9 never reached (its loop converged after 1 iteration at every step). ~~So the light chain runs both codes with `maxIterations 1` (`COUPLING_ITERS=1` in the script, the same text replacement in the test); in that regime the port agrees as above.~~ (superseded by round 15; `COUPLING_ITERS=1` remains an option of the script.) The long chain, which starts from the converged 165 s state, keeps the tutorial's dictionary.
 
 ### Predictions: held and missed
 
@@ -2466,3 +2466,42 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | H4 | a field the mapping writes at the top of iteration 2 (`TFuel`, `rhoCool`, `alphat`, `mu`, `powerDensityNeutronicsToLiquid`) is stale in the port | possible but not seen in the reading: `map_all_fields` is called at the top of every iteration by `correct_physics_loop` and `neutro_power_density` is refreshed after each neutron step. Predicted: not a cause. |
 
 Probe plan: fix H1 (store the old times once per step and use them when stored; the old per-call snapshot stays the default for callers that never store, which is the form rounds 6 and 9's direct tests use), regenerate upstream's reference at the tutorial's `maxIterations 3` (the real unmodified binary, `COUPLING_ITERS` unset), and compare all 10 steps. If a residual remains, build the instrumented upstream of round 13's pattern and dump per-iteration power. Rounds 9 and 11 converge after 1 iteration: predicted to move by exactly 0 (bit for bit), because a single call per step snapshots the same values the stored form does.
+
+
+## Round 15 results (measured 2026-11-26, release; upstream = the real unmodified binary, serial, tutorial `maxIterations 3`)
+
+**Cause (H1, confirmed).** `DiffusionNeutronics::upstream_transient_step` took its old-time flux and `precStar` from the current state at EVERY call. OpenFOAM stores the old time once per time step (`storeOldTimes()` at the first access of a new time index), so iterations 2 and 3 of upstream's coupling loop still integrate `fvm::ddt` from the previous STEP; the port integrated them from the previous ITERATE, i.e. it advanced the excursion by one extra `dt` per extra iteration. H2 (`pTotOld_` re-taken per iteration), H3 (fluid old-time `h`) and H4 (stale mapped fields) were read as already identical and are confirmed by the result: with only H1 changed every compared quantity agrees at the round 14 level, so no instrumented upstream (round 13 pattern) was needed.
+
+**Fix.** `DiffusionNeutronics::store_old_times()` (called by `EnergyNeutroTransient::step` right after `begin_time_step`, i.e. at `runTime++`) holds the flux and `precStar` of the previous step; `upstream_transient_step` reads them when stored. Callers that never store (the direct round 6 / coupled tests, which call it once per step) keep the per-call snapshot, bit for bit. The pre-fix form stays as the named ablation `EnergyNeutroTransient::with_per_call_old_time_snapshot()` (and `clear_old_times()`), asserted to still miss in the light chain test.
+
+**Upstream reference.** `steadyStateTH` re-run (606 s; the scratch dir had been deleted), tight `steadyStateEN` 15 -> 20 s: byte-identical to the committed `msfr_en20` (`cmp`); tight `transient` with the tutorial's `maxIterations 3` (no `COUPLING_ITERS`), first 10 steps extracted into `refs/msfr_chain20_transient.ref.txt.gz` (REPLACED; the `maxIterations 1` reference is gone). Upstream's log: 3 iterations at every step, never converged; step-1 `power:` after iterations 1, 2, 3 = 2.1584e7, 2.3239e7, 2.4851e7 (the iterates differ by 8 %, which is why the old-time handling matters). Run dir deleted afterwards.
+
+| light chain, 10 steps from the port's own 20 s state, `maxIterations 3` | before (round 14 first run) | after |
+|---|---|---|
+| step-1 `power:` rel. to upstream | 1.1e-2 (2.5132e7 vs 2.4851e7) | **1.07e-13** (2.4850785967e7) |
+| worst `power:` over 10 steps | 8e-2 | 9.9e-12 (grows monotonically with the excursion: 1e-13 at step 1, 1e-12 at step 2, 1e-11 at step 10) |
+| worst `dt` | 10 % | 4.4e-11 (gate 2e-10 unchanged) |
+| worst `T` | 3.6e-7 | 3.9e-14 |
+| worst first `h` residual | not recorded | 2.9e-11 |
+| coupling loop | (not converged, 3) | (not converged, 3) in both codes at 10/10 steps |
+| ablation (pre-fix form, step 1) | | 1.131e-2: reproduces the issue's 1.1e-2 |
+
+No tolerance was moved: the `power:` gate 1e-11 holds but at step 10 with only a 1 % margin (9.94e-12); the growth is the amplification of last-bit differences by the prompt-supercritical excursion, not a model difference (step 1 is at 1e-13). A longer light chain would need a looser gate or a different horizon: not done here, flagged.
+
+**Rounds 6, 9, 11 (single call per step or loop converged after 1 iteration): unchanged.** Round 6 `power:` 5.625e-14, totals 1.296e-11, flux integrals 6.364e-14, counts equal 50/50, ablation 7.947e-6 / 49 of 50 / -145.04 vs +13.899 W; round 9 `dt` 9.348e-14, `T` 7.905e-15, `power:` 5.737e-14, `T` stats 2.105e-15, Courant 9.362e-14, `h` 1.178e-5; round 11 long chain `dt` 6.002e-14, `T` 4.470e-14, `power:` 1.054e-13, `h1` 2.240e-9. All equal the round 14 / round 11 values to the printed digits, as predicted (exactly 0 moved).
+
+### Predictions: held and missed
+
+| id | held? | measured |
+|---|---|---|
+| H1 sign (port power higher) and fix removes the miss to <= 1e-11 | **held** | step 1 at 1.07e-13; the ablation misses by +1.131e-2 (port higher) |
+| H1 size (true step-1 growth ~0.5-1 %) | **held, loosely** | upstream step-1 growth 2.0e7 -> 2.4851e7 is far larger (the 20 s state is violently supercritical): my size estimate of the true growth was wrong, but the claim that the miss is of the order of the growth of one iteration was not tested separately |
+| H2, H3, H4 not causes | **held** | nothing but H1 was changed |
+| rounds 9 / 11 move by exactly 0 | **held** | see above |
+| (implicit) light chain gates unchanged | **held, one at 1 % margin** | `power:` 9.94e-12 vs 1e-11 |
+
+Wall of the light chain test: 125-133 s (round 14: 41 s): three coupling iterations per step with up to 50 neutron iterations each, plus the ablation step.
+
+### Gates run (2026-11-26, release, targeted)
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream --test genfoam_msfr_coupled_vs_upstream --test genfoam_msfr_transient_vs_upstream`: chain 5 passed, coupled 3 passed, transient 2 passed (7 ignored extractors). `cargo test --release -p petir --test no_platform_libm` 4 passed. `bash scripts/check-nostd.sh` exit 0.

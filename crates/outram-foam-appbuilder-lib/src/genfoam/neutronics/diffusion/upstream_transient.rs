@@ -193,6 +193,23 @@ impl DiffusionNeutronics {
         Ok(())
     }
 
+    /// `runTime++`: store the old-time flux and `precStar` that every [`Self::upstream_transient_step`] call of
+    /// this time step integrates from (OpenFOAM's `storeOldTimes()` runs once per time index, so the second
+    /// and third iteration of an unconverged `multiPhysicsSolver` loop still use the values of the previous
+    /// step; gh:#1832). Call it once at the start of each step.
+    pub fn store_old_times(&mut self) {
+        let flux = self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
+        let prec_star = self.prec_star_values();
+        self.old_time = Some(super::UpstreamOldTime { flux, prec_star });
+    }
+
+    /// Back to the per-call snapshot form (each [`Self::upstream_transient_step`] call takes its old-time
+    /// values from the current state): the form before gh:#1832, kept as a named option. It is wrong when a
+    /// step is solved by more than one call.
+    pub fn clear_old_times(&mut self) {
+        self.old_time = None;
+    }
+
     /// `precStar` per group, per cell (empty before [`Self::set_prec_star`]).
     #[must_use]
     pub fn prec_star_values(&self) -> Vec<Vec<f64>> {
@@ -266,11 +283,17 @@ impl DiffusionNeutronics {
             }
         }
 
-        // Old-time values of this step (`oldTime()` is stored at the first
-        // modification in the time step).
-        let flux_old: Vec<Vec<f64>> =
-            self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
-        let prec_star_old: Vec<Vec<f64>> = self.prec_star_values();
+        // Old-time values of this step. `oldTime()` is stored once per time step, at the first access of a
+        // new time index: with [`Self::store_old_times`] called at the start of the step, every coupling
+        // iteration of the step reads those (gh:#1832). Without it the values are snapshotted here from the
+        // current state at every call (the earlier form, right for a step solved by one call).
+        let (flux_old, prec_star_old): (Vec<Vec<f64>>, Vec<Vec<f64>>) = match self.old_time.as_ref() {
+            Some(o) => (o.flux.clone(), o.prec_star.clone()),
+            None => (
+                self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+                self.prec_star_values(),
+            ),
+        };
 
         let one_minus_beta: Vec<f64> =
             self.xs.beta_tot.internal.as_slice().iter().map(|b| 1.0 - b).collect();
