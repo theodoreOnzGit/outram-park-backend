@@ -6307,6 +6307,11 @@ pub struct Nuclide {
   The native energy breakpoints \[eV\] this nuclide's cross-section data
 
 - ```rust
+  pub fn native_energy_grid_with_thinning(self: &Self, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
+  ```
+  The native energy grid of [`Self::native_energy_grid`] with the
+
+- ```rust
   pub fn majorant_breakpoints(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
   ```
   Every energy \[eV\] in `[e_min_ev, e_max_ev]` at which
@@ -6800,6 +6805,17 @@ free label: `Ok`, unchecked.
 
 ```rust
 pub fn check_name_against_za(name: &str, za: f64) -> Result<(), njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
+#### Function `thin_energy_nodes`
+
+Clip `nodes` to `[e_min_ev, e_max_ev]`, add both endpoints, sort, and drop
+duplicates: exactly equal energies always, and with `thin_tol = Some(tol)`
+also any node within `tol * max(|last|, 1.0)` of the last kept one
+(absolute below 1 eV, relative above). Non-finite nodes are dropped.
+
+```rust
+pub fn thin_energy_nodes(nodes: Vec<f64>, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
 ```
 
 #### Function `zero_kelvin_companion_candidates`
