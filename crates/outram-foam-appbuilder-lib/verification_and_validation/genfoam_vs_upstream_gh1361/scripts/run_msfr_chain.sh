@@ -10,7 +10,7 @@ source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1
 STAGE=$1
 R=${2:-/home/user/upstream-build/gh1361/runs/msfr}
 cd "$R" || exit 1
-endTimeTH=15; endTimeEN=165; endTimeTransient=175
+endTimeTH=15; endTimeEN=${EN_END:-165}; endTimeTransient=175   # gh:#1814 round 14: EN_END, EN_WRITE override the EN end time and write interval (the light chain uses 20 and 20)
 tighten_solvers() {
   for f in $1/system/*/fvSolution; do
     # only plain `tolerance x;` / `relTol x;` lines: the neutroRegion file has a /* ... relTol 0.01;*/ block
@@ -31,7 +31,7 @@ elif [ "$STAGE" = steadyStateEN ]; then
   rm -rf steadyStateEN; cp -r rootCase steadyStateEN; C=steadyStateEN
   cp -r steadyStateTH/$endTimeTH $C/$endTimeTH; cp -r $C/0/neutroRegion $C/$endTimeTH/; cp -r $C/0/uniform $C/$endTimeTH/
   rm -r $C/constant/neutroRegion/polyMeshFine $C/constant/fluidRegion/polyMeshFine
-  ctl $C startTime $endTimeTH; ctl $C endTime $endTimeEN; ctl $C deltaT 0.25; ctl $C adjustTimeStep false; ctl $C writeInterval 50
+  ctl $C startTime $endTimeTH; ctl $C endTime $endTimeEN; ctl $C deltaT 0.25; ctl $C adjustTimeStep false; ctl $C writeInterval ${EN_WRITE:-50}
   blk $C regionSolvers "    fluidRegion onePhase;\n    neutroRegion diffusionNeutronics;"
   blk $C removeBaffles "    fluidRegion false;\n    neutroRegion false;"
   sed -i 's/^\( *\)solveFluidMechanics .*/\1solveFluidMechanics false;/' $C/system/fluidRegion/fvSolution

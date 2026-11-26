@@ -2323,3 +2323,46 @@ Scripts carry the author's scratch paths; adjust them. The scratch tree itself i
 `genfoam_chf_trace_vs_upstream` 5, `genfoam_psbt_shipped_vs_upstream` 4, `genfoam_psbt_trace_vs_upstream` 7 (ignored dumps not run).
 `cargo test -p petir --test no_platform_libm` 4 passed. `bash scripts/check-nostd.sh` exit 0. The remaining integration test files were
 NOT run by this stream (an aborted full run had passed everything up to `genfoam_two_phase_*` except the two tests fixed here).
+
+
+# Round 14 (gh:#1814, child of #1216): rounds 6 and 9 re-baselined onto the tight-solver eigenvalue restart; a light chain test for CI
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+**Maintainer decisions, 2026-11-26 (comment on #1814, on the round 11 report):** (1) re-baseline rounds 6 and 9 onto a tight-solver eigenvalue restart; (2) keep `msfr_eigenvalue_then_transient_chain_matches_upstream` (245 s) under `long-tests` and add a light (~20-step) variant that runs in every `cargo test`.
+
+## Why (the round 11 finding, R11-4)
+
+The t = 165 s state that rounds 6 and 9 start from was written by upstream's `steadyStateEN` at the SHIPPED linear-solver tolerances. Round 11 showed it is critical at `pTarget` only to ~2e-4 (the transient's step-1 `power:` jumps 2.0000000e7 -> 20003657.5), whereas the same stage at the tight protocol (every linear solver 1e-14 / relTol 0) gives a state critical to 1.3e-8 (step-1 `power:` 19999999.74). The rounds 6 and 9 comparisons are code-to-code, so a loosely normalised start was still a legitimate common input; but their step-1 power jump, their 50-step power drift (+1.3566e4 W) and their neutron iteration counts (50, 50, 37, ...) were properties of that loose state, not of the transient physics. From round 14 the start state is the tight one.
+
+## What is replaced, and what is kept
+
+| item | before (shipped-tolerance EN state) | round 14 |
+|---|---|---|
+| `refs/msfr_transient.ref.txt.gz` (round 6 reference: `START_*`, `T_0`, per-step upstream `TFuel`, `power:`, iteration counts, per-group totals) | shipped EN state | regenerated from the tight EN state by the ignored test `extract_msfr_transient_reference` (same format, same name) |
+| `cases/msfr_fluid/restart_165/` (round 9 fluid restart fields) | shipped EN state | regenerated from the tight EN state's `165/fluidRegion` |
+| `refs/msfr_fluid_transient.ref.txt.gz` (round 9 per-step reference) | shipped EN state | removed if the regenerated file equals `refs/msfr_chain_transient.ref.txt.gz` (round 11's tight chain reference is the same run); round 9 then reads `msfr_chain_transient` (see "Results") |
+| `refs/msfr_en.ref.txt.gz`, `refs/msfr_chain_transient.ref.txt.gz` (round 11) | tight | unchanged unless the re-run differs (checked, see U1) |
+
+No test still needs the shipped-tolerance 165 s state: the round 6 ablation (`msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount`) is re-measured on the tight baseline and re-pinned with this cause.
+
+## Predictions (written BEFORE the upstream re-run and BEFORE any port run of this round; committed first)
+
+Inputs already known from round 11 (upstream data, not port results): tight `transient` 50 steps, `POWER_1` = 19999999.7416, `POWER_50` = 20000013.8988, `DT` (step 2) = 8.0991567e-4.
+
+| id | quantity | prediction |
+|---|---|---|
+| U1 | the upstream re-run (serial, deterministic) of `steadyStateTH` -> tight `steadyStateEN` -> tight `transient` | reproduces round 11's `msfr_en` and `msfr_chain_transient` references to <= 1e-12 relative in every number, most likely bit for bit; the re-run's `15` fluid output equals the committed `restart_15` |
+| P6-1 | round 6, per-step `power:` port vs upstream, 50 steps | <= 1e-9 at every step, expected <= 1e-12 (round 6 gave 6.2e-14): the agreement level is unchanged by the start state |
+| P6-2 | round 6, step-1 `power:` against `pTarget` | within 1e-6 of 2e7 in BOTH upstream and port: the +1.8e-4 step-1 jump disappears |
+| P6-3 | round 6, power change since 2e7 at step 50 | upstream +13.9 W (against +1.3566e4 W); the port reproduces it to <= 1e-5 relative of the change (the change is now a 7e-7 effect on the power: a stricter test than before, not a laxer one) |
+| P6-4 | round 6, neutron iteration counts | equal at >= 48 of 50 steps; the counts at steps 1 and 2 are below the cap of 50 (the loose state hit the cap) in upstream. Confidence 65 %: the residuals of the first steps should now be far from the 1e-6 stopping value, but I have not seen the new log |
+| P6-5 | round 6, per-group precursor totals, flux integrals, per-cell fields at step 50 | <= 1e-8 (round 6: 1.3e-11, 6.3e-14, 3.5e-10 per cell), the same order of magnitude |
+| P6-6 | round 6 ablation (data-driven chi) on the new baseline | the worst power difference stays in the 1e-4 to 4e-4 band (the chi effect is an operator difference, not a property of the start state) and the iteration counts are equal at < 48 of 50. 55 % on the band; if it moves out, the old pin was partly the loose state, which is a finding |
+| P9-1 | round 9, `deltaT` after step 1 | 8.0992e-4 (upstream's `DT[0]`): `pTotOld_` is the reference-state power 2.0637e7 and `pTot` = 2.0e7, so `maxPowerVariation` gives 0.025 / (1 - 2e7/2.0637e7) = 0.8099 of 1e-3; all 50 step sizes <= 1e-11 |
+| P9-2 | round 9, fluid `T`, `power:`, `T (avg min max)`, Courant, first `h` residual, `Re` | every gate of the round 9 test (T 1e-12, power 1e-12, `T` stats 1e-13, Courant 1e-11, `h1` 1e-8, `Re` 1e-12) still holds with the gates UNCHANGED |
+| P9-3 | round 9, R1 (restart `T` and `powerDensity` synchronous) | missed again, as in round 9: the neutronics region's restart `TFuel` is one step older than the fluid `T` by construction of `mapAllFields` (the mapping runs at the start of a step); the difference is of order 1e-7, not <= 1e-9. Printed, not gated |
+| P9-4 | round 9, iteration counts and coupling | equal at 50 of 50 steps; the loop converges after 1 iteration at 50 of 50 |
+| L-1 | light chain, 20 EN steps from `restart_15`, fields at t = 20 s | `keff_`, `power:` <= 1e-11, `h` residual <= 1e-7, `T` stats <= 1e-12 (the 600-step gates; measured on the first 20 steps already: 2.2e-13); flux, `precStar`, `powerDensity` <= 1e-9, `T` <= 1e-12 |
+| L-2 | light chain, transient of the port's OWN 20 s state, 10 steps | `dt`, `T`, `power` <= 1e-11 / 1e-12 / 1e-11 as in the 50-step chain test. The 20 s state is far from critical (keff_ is still climbing towards 0.96), so unlike the 165 s state its step-1 `power:` is NOT near `pTarget`: a real, large power change, a harder test than the 165 s one. 70 %; the risk is a neutron-iteration count at the 1e-6 threshold |
+| L-3 | light chain wall time | < 30 s in release on this machine (600 EN steps took 239 s, 0.4 s per step: 20 steps ~ 8 s, 10 transient steps ~ 2 s, plus setup) |
