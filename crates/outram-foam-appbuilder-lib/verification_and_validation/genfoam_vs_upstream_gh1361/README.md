@@ -1547,3 +1547,71 @@ Filed as a child issue; the gate `nucleate_boiling_branch_differs_from_upstream_
 - `byRegime` for drag, virtual-mass, multiplier and htc models is not wired (the generic `ByRegimeModel<M>` exists).
 - The comparison stops at step 20 (gated) / 40 (reference): upstream's own run ends at step 417 with SIGFPE.
 - `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated: `kovan-cli` is not built here. The new functions are not in any `kovan.toml`.
+
+
+
+
+# Round 9 (issue 1361; issues 1773, 1774, 1775): the `2D_MSFR` transient stage, COUPLED
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+`OnePhaseFcSolver` (`solver/two_phase/one_phase_fc.rs`: faceCentered path, refuses `momentumMode cellCentered`, turbulence,
+`Boussinesq`, `fixedTemperature`), `solver::one_phase::OnePhaseSolver` (constant-property stand-in, no reader),
+`MultiPhysicsSolver`/`MeshHandler`/`MeshToMesh` (`multi_region/`: lumped region models with `Time`/uom, nearest-cell plus a global
+rescale), `PseudoTimeClock`/`neutronics_max_delta_t`/`adjust_delta_t` (neutronics-only, one solver, a clock that starts at 0),
+`closures/` (no `constant` FS htc model; `ReynoldsPower` exists but only feeds `Kd`), `structure::power_model::FixedTemperature`
+(an uom-typed model, not a field), `fv.rs`/`pbicgstab.rs`/`thermo.rs` (reused). **Reused:** `fv::{Geometry, Eqn}`, `pbicgstab_diagonal`,
+the `fvMatrix::relax` translation (copied, cited), `upstream_transient_step`, `neutronics_max_delta_t`'s formula. **New:**
+`one_phase_cc.rs`, `multi_region/coupled_loop.rs`, `dump_mesh_to_mesh`.
+
+## What upstream does, read BEFORE any port code (the specification)
+
+* `onePhase::correctPhysics` (`onePhase.C:134`): `while (pimple_.loop()) { if (solveFluidMechanics or solveEnergy) correctModels(true,true);
+  if (solveFluidMechanics) correctFluidMechanics(); if (solveEnergy) correctEnergy(); }`. **`turbulence().correct()` is in `UEqn_1p.H:12`
+  only**: with `solveFluidMechanics false` it never runs, so `k`, `epsilon`, `nut`, `alphat` are READ from the restart and frozen (the open
+  question of #1775, answered). `EEqn_1p.H:10`: `alphaEff = thermo.alphaEff(turbulence().alphat())` = `CpByCpv (alpha_thermo + alphat)`,
+  `CpByCpv = 1` for an enthalpy form, `alpha_thermo = mu rPr` (constTransport).
+* **`fluid::rho()` returns `rho0` (constant) for a Boussinesq EOS** (`fluid.C:795`): the equation's `ddt(alpha, rho, he)`, `alpha rho (U.g)`
+  and `ddt(alpha, rho, K)` use `rho0 = 4125`; only the thermo's own `rho(T)` (mapped to the neutronics as `rhoCool`) varies. `Boussinesq::H = 0`
+  in v2506, so `hs = Cp (T - Tstd)`.
+* `".*"` is the LAST pattern of `fvSolution.solvers`, so `h` is solved by `PBiCGStab`/`diagonal` (the log's `diagonalPBiCGStab`), not by the
+  `"h.*"` smoothSolver above it (OpenFOAM takes the last matching pattern). `relaxationFactors.equations ".*" 0.9`.
+* `contErr` is computed once at construction (`div(alphaRhoPhi)`, the `ddt` part is exactly 0) and never again with `solveFluidMechanics false`.
+  The wedge patches carry a ~1e-11 residual flux in the restart; it enters `div`, `contErr`, the `K` flux and the Courant number.
+* Structure: `fixedTemperature` powerModel (`correct()` is empty; `correctT` copies the restart `T.fixedTemperature`); source
+  `iAact Hs (Tact - T + he/Cp)` explicit and `Sp(iAact Hs/Cp, he)` implicit; `htc = value` on the model zone (`constantModel`).
+  `dragModels` (`ReynoldsPower`) only fill `Kd`, a momentum coefficient: not evaluated by the port (it does not enter the energy equation).
+* `multiPhysicsSolver::correctPhysics`: `residual` is declared once and only `max`-ed; `mapTheseFields` at the top of each iteration; a
+  `correctOnlyEnergy_` solver runs `correctTightlyCoupledPhysics` from iteration 2 on. The fluid's `getResidual` is the `max` of the five
+  `h` initial residuals, the neutronics' `max(flux-solve initial residuals, neutroResidual)`.
+* `meshHandler`: `meshToMesh(src, tgt, imCellVolumeWeight, pmAABB, normalise = false)`; `mapTgtToSrc` with `plusEqOp`:
+  `result *= 1 - sum(w); result += w src`. **Measured** (`upstream_driver/dump_mesh_to_mesh`, built with `wmake` against the built ESI v2506,
+  objects not kept; overlap volume 0.30568267086529161 both ways): in both directions, for all 8595 cells, one overlap, the cell itself,
+  weight EXACTLY `1.0` (0 cells differ). The issue's "weight = 1 up to an ulp" was a guess; the weight is 1, the map is a copy.
+* `setDeltaT.C`: `adjustDeltaT` takes `min` over the solvers' `maxDeltaT()` (here the one `multiPhysicsSolver`'s `min` of its two),
+  `min(1.2 deltaT, limit)`; `Time::setDeltaT` then adjusts only for `writeControl adjustableRunTime` (not this case).
+  `onePhase::maxDeltaT`: `Co = 0.5 max(surfaceSum(|alphaPhi|)/alpha/V) dt`, `fact = min(min(maxCo/(Co+SMALL), 1+0.1 maxCo/(Co+SMALL)), 1.2)`;
+  `diffusionNeutronics::maxDeltaT`: the power-variation form, only for `time > controlDict deltaT`.
+
+## Upstream run (real unmodified binary, serial, 2026-11-26)
+
+`PROTOCOL=tight END_TIME=165.31 scripts/run_msfr_chain.sh transient <root>` from upstream's own t = 165 s restart (the round-6 start state):
+50 steps, 35 s wall, `Multiphysics loop converged after 1 iterations` at every step. `scripts/extract_msfr_fluid_reference.sh` writes
+`refs/msfr_fluid_transient.ref.txt.gz` (fluid `T` of every step, `deltaT` after every step, the five `h` initial residuals and
+`T (avg min max)` lines, Courant numbers and `power:`).
+
+## Predictions (written BEFORE the first coupled run; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| R1 | start state | fluid `T` of the restart equals the neutronics reference `T_0` to 1e-15; the port's `sum_g flux sigmaPow` at t = 165 s equals upstream's restart `powerDensity` to <= 1e-9 (risk: the restart field was written with the previous step's cross sections) |
+| R2 | step sizes (the first thing compared) | step 1 is exactly 1e-3; every later step size agrees to <= 1e-9 relative (power-variation limited to step 14, Courant limited from step 15 on); I put 65 % on all 50 |
+| R3 | fluid `T` per step, worst cell relative difference | <= 1e-9 at all 50 steps, expected 1e-12 to 1e-10, growing slowly with the step (same algorithm, PBiCGStab and the same relaxation; sources differ only in operation order). If a step is above 1e-9 the first one is step 1 and the cause is a term of `EEqn_1p.H` (ranked: kinetic-energy term, `relax`, the wedge boundary terms) |
+| R4 | the five `h` initial residuals of each step | the first of step 1 agrees to 1e-4 relative (it is a genuine algebraic residual, 5.45e-8, not round-off), the factor of 10 between iterations is reproduced |
+| R5 | `T (avg min max)` after each outer iteration | <= 1e-12 relative |
+| R6 | power per step | <= 1e-9 relative at all 50 steps (round 6 gave 6e-14 with upstream's T as input; the T agreement of R3 carries over) |
+| R7 | Courant number | <= 1e-9 relative |
+| R8 | the coupling loop | converges after 1 iteration at 50 of 50 steps |
+| R9 | `Re` field at steps 1, 10, 25, 50 | <= 1e-12 relative |

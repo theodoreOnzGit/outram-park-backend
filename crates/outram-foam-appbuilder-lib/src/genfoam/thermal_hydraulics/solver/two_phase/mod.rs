@@ -107,6 +107,7 @@ mod alpha_mules;
 pub mod case;
 pub mod fv;
 pub mod mules;
+pub mod one_phase_cc;
 pub mod one_phase_fc;
 mod pbicgstab;
 pub mod thermo;

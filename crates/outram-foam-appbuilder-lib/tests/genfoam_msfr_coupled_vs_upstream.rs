@@ -1,0 +1,419 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//! # `2D_MSFR` transient stage, COUPLED, against the real binary (gh:#1361 round 9; issues 1773, 1774, 1775)
+//!
+//! AI-written, not human-reviewed. Research, education and V&V only.
+//!
+//! ## Methodology
+//!
+//! Upstream: GeN-Foam `652b3da0cc55` on OpenFOAM-ESI v2506, `reactorCases/2D_MSFR`, `transient` stage
+//! (`scripts/run_msfr_chain.sh transient`, `PROTOCOL=tight`, `END_TIME=165.31`: 50 steps; every linear solver
+//! 1e-14 / relTol 0, `writePrecision 17`, one write per step), `multiPhysicsSolver` = `onePhase`
+//! (`solveFluidMechanics false`, frozen flux, `porousKEpsilon` fields read) + `diffusionNeutronics`.
+//! The reference (`refs/msfr_fluid_transient.ref.txt.gz`, `scripts/extract_msfr_fluid_reference.sh`) holds the
+//! fluid `T` after every step, the time step of every step, and from the log the five `h` initial residuals,
+//! the five `T (avg min max)` lines, the Courant numbers and `power:` of every step.
+//!
+//! The port starts from upstream's t = 165 s state (fluid fields: `cases/msfr_fluid/restart_165`; neutronics:
+//! `refs/msfr_transient.ref.txt.gz` `START_*`) and runs ITS OWN coupled loop: `correct_physics_loop`
+//! (`multiPhysicsSolver::correctPhysics`), the cell-centred energy-only `OnePhaseCcSolver`, the neutronics
+//! `upstream_transient_step`, the identical-mesh `cellVolumeWeight` map ([`IdenticalMeshMap`]), and `adjustDeltaT`
+//! with `onePhase::maxDeltaT` and `diffusionNeutronics::maxDeltaT`. Nothing of upstream's per-step results is an
+//! input: not the step size, not the power, not the temperature.
+//!
+//! Predictions: README, "Round 9", committed before the first run. Results: README, "Round 9 results".
+
+// Reads case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use miniz_oxide::inflate::decompress_to_vec;
+use outram_foam_appbuilder_lib::genfoam::multi_region::coupled_loop::{
+    adjust_delta_t, correct_physics_loop, initial_delta_t, CouplingDict, IdenticalMeshMap,
+};
+use outram_foam_appbuilder_lib::genfoam::neutronics::albedo::AlbedoLinearisation;
+use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::upstream_transient::{
+    diffusion_max_delta_t, UpstreamTransientControls, UpstreamTransientFeedback,
+};
+use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
+    DiffusionNeutronics, DiffusionSettings, PrecursorTransport,
+};
+use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{
+    OnePhaseCcReport, OnePhaseCcSolver,
+};
+use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
+use outram_foam_appbuilder_lib::io::poly_mesh::{read_cell_zones, read_poly_mesh, zone_of_cell};
+use outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition;
+use outram_foam_basic_lib::fields::field::Field;
+use outram_foam_basic_lib::fields::vol_field::VolVectorField;
+use outram_foam_basic_lib::fv_operators::fvc;
+use outram_foam_basic_lib::ldu_matrix::SolverSettings;
+use outram_foam_basic_lib::mesh::{FvMesh, PatchKind};
+use outram_foam_basic_lib::primitives::Vector3;
+
+const N_STEPS: usize = 50;
+
+fn vv_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361")
+}
+
+fn gunzip(path: &Path) -> Vec<u8> {
+    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    decompress_to_vec(&bytes[10..bytes.len() - 8]).expect("inflate")
+}
+
+fn read_ref(path: &Path) -> HashMap<String, Vec<f64>> {
+    let text = String::from_utf8(gunzip(path)).expect("utf8");
+    let mut m = HashMap::new();
+    for line in text.lines() {
+        let mut it = line.split_whitespace();
+        if let Some(key) = it.next() {
+            m.insert(key.to_string(), it.map(|w| w.parse().expect("number")).collect());
+        }
+    }
+    m
+}
+
+fn copy_dir(src: &Path, dst: &Path) {
+    std::fs::create_dir_all(dst).expect("mkdir");
+    for e in std::fs::read_dir(src).expect("read_dir") {
+        let e = e.expect("entry");
+        let (s, d) = (e.path(), dst.join(e.file_name()));
+        if s.is_dir() {
+            copy_dir(&s, &d);
+        } else {
+            std::fs::copy(&s, &d).expect("copy");
+        }
+    }
+}
+
+/// Stage the fluid case (dictionaries, gunzipped restart fields, polyMesh) and the neutronics case.
+struct Staged {
+    fluid_root: PathBuf,
+    poly: PathBuf,
+    neutro: PathBuf,
+}
+
+fn stage(tag: &str) -> Staged {
+    let tmp = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1361_r9_{tag}"));
+    let _ = std::fs::remove_dir_all(&tmp);
+    let fluid_root = tmp.join("fluid");
+    copy_dir(&vv_dir().join("cases/msfr_fluid/constant"), &fluid_root.join("constant"));
+    copy_dir(&vv_dir().join("cases/msfr_fluid/system"), &fluid_root.join("system"));
+    let fdir = fluid_root.join("165/fluidRegion");
+    std::fs::create_dir_all(&fdir).expect("mkdir");
+    for e in std::fs::read_dir(vv_dir().join("cases/msfr_fluid/restart_165")).expect("restart dir") {
+        let p = e.expect("entry").path();
+        let name = p.file_name().unwrap().to_string_lossy().trim_end_matches(".gz").to_string();
+        std::fs::write(fdir.join(name), gunzip(&p)).expect("write field");
+    }
+    let src = vv_dir().join("cases/msfr_neutro");
+    let poly = tmp.join("polyMesh");
+    std::fs::create_dir_all(&poly).expect("mkdir");
+    for f in ["points", "faces", "owner", "neighbour", "boundary", "cellZones"] {
+        std::fs::write(poly.join(f), gunzip(&src.join("polyMesh").join(format!("{f}.gz")))).expect("polyMesh");
+    }
+    let neutro = tmp.join("neutro");
+    std::fs::create_dir_all(&neutro).expect("mkdir");
+    std::fs::copy(src.join("nuclearData"), neutro.join("nuclearData")).expect("nuclearData");
+    Staged { fluid_root, poly, neutro }
+}
+
+fn alpha_cells() -> Vec<f64> {
+    let csv = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_msfr_precursor_cells.csv"))
+        .expect("precursor cell fixture");
+    csv.lines()
+        .filter(|l| !(l.starts_with('#') || l.starts_with("alpha,") || l.trim().is_empty()))
+        .map(|l| l.split(',').next().unwrap().parse::<f64>().unwrap())
+        .collect()
+}
+
+/// `phi = fvc::flux(U alpha)` on the neutronics mesh (wedge patches carry no flux), as in round 6.
+fn face_flux(mesh: &Arc<FvMesh>, u: &[f64], alpha: &[f64]) -> PrecursorTransport {
+    let n = mesh.n_cells;
+    let mut field = VolVectorField::uniform("U", mesh.clone(), Vector3::new(0.0, 0.0, 0.0));
+    field.internal = Field::new(
+        (0..n).map(|c| Vector3::new(u[3 * c] * alpha[c], u[3 * c + 1] * alpha[c], u[3 * c + 2] * alpha[c])).collect(),
+    );
+    let phi = fvc::flux(&field);
+    let phi_internal: Vec<f64> = (0..mesh.n_internal_faces).map(|f| phi.internal[f]).collect();
+    let phi_boundary: Vec<Vec<f64>> = mesh
+        .patches
+        .iter()
+        .enumerate()
+        .map(|(pi, p)| {
+            (0..p.size).map(|fi| if p.kind == PatchKind::Wedge { 0.0 } else { phi.boundary[pi].values[fi] }).collect()
+        })
+        .collect();
+    PrecursorTransport::new(mesh, alpha.to_vec(), phi_internal, phi_boundary, vec![0.0; n])
+}
+
+/// The coupled state the three loop closures share.
+struct Coupled {
+    fluid: OnePhaseCcSolver,
+    neutro: DiffusionNeutronics,
+    xs: CrossSectionData,
+    zone_map: Vec<usize>,
+    map: IdenticalMeshMap,
+    controls: UpstreamTransientControls,
+    /// `powerDensity` of the neutronics region (what the fluid's `powerDensityNeutronicsToLiquid` is mapped from).
+    neutro_power_density: Vec<f64>,
+    /// the neutronics region's `TFuel`/`rhoCool` (mapped from the fluid).
+    neutro_t: Vec<f64>,
+    neutro_rho: Vec<f64>,
+    dt: f64,
+    fluid_residual: f64,
+    neutro_residual: f64,
+    p_tot: f64,
+    p_tot_old: f64,
+    neutro_iterations: usize,
+    fluid_report: Option<OnePhaseCcReport>,
+}
+
+fn rel(a: f64, b: f64) -> f64 {
+    ((a - b) / b).abs()
+}
+
+#[test]
+fn msfr_coupled_transient_matches_upstream_over_50_steps() {
+    let st = stage("coupled");
+    let reference = read_ref(&vv_dir().join("refs/msfr_transient.ref.txt.gz"));
+    let fref = read_ref(&vv_dir().join("refs/msfr_fluid_transient.ref.txt.gz"));
+
+    // ---- the case-driven multiPhysicsSolver
+    let cdict = CouplingDict::read(&st.fluid_root, "energyNeutroLoop").expect("multiRegionCouplingDict");
+    assert_eq!(cdict.solvers, vec![("fluidRegion".into(), "onePhase".into()), ("neutroRegion".into(), "diffusionNeutronics".into())]);
+    assert_eq!((cdict.min_residual, cdict.max_iterations), (5e-5, 3));
+    let only_energy = cdict.correct_only_energy();
+
+    // ---- neutronics (as round 6)
+    let mesh: Arc<FvMesh> = read_poly_mesh(&st.poly).expect("polyMesh");
+    let input = read_nuclear_data(&st.neutro.join("nuclearData")).expect("nuclearData");
+    let xs = CrossSectionData::from_input(&input).expect("cross sections");
+    let zones = read_cell_zones(&st.poly).expect("cellZones");
+    let order: Vec<&str> = (0..xs.zone_count()).map(|i| xs.zone(i).expect("zone").name()).collect();
+    let zone_map = zone_of_cell(&zones, &order, mesh.n_cells).expect("zone map");
+    let n = mesh.n_cells;
+    let groups = xs.energy_groups();
+    let precs = xs.prec_groups();
+    let flux_boundary: Vec<BoundaryCondition<f64>> = mesh.patches.iter().map(|_| BoundaryCondition::ZeroGradient).collect();
+    let settings = DiffusionSettings {
+        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+        ..DiffusionSettings::default()
+    };
+
+    // ---- fluid
+    let fluid = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect("fluid case");
+    let t_start: Vec<f64> = fluid.temperature().to_vec();
+    let t0_ref = &reference["T_0"];
+    let dstart = t_start.iter().zip(t0_ref).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+    println!("start state: fluid T (restart) against the reference T_0: worst rel {dstart:.3e}");
+    let rho_start = fluid.thermo_density();
+    let params0: Vec<f64> = t_start.iter().zip(&rho_start).flat_map(|(&t, &r)| [t, r]).collect();
+    let mut neutro = DiffusionNeutronics::new_with_cell_parameters(mesh.clone(), &xs, &zone_map, &params0, &flux_boundary, settings)
+        .expect("diffusion model");
+    for (name, gamma) in [("topwall", 0.1), ("bottomwall", 0.1), ("reflector", 0.1), ("hx", 0.5)] {
+        let idx = mesh.patches.iter().position(|p| p.name == name).expect("patch");
+        neutro.set_albedo_boundary(idx, gamma, AlbedoLinearisation::CellValue);
+    }
+    neutro.set_precursor_drift(face_flux(&mesh, &reference["START_U"], &alpha_cells()));
+    let flux0: Vec<Vec<f64>> = (0..groups).map(|g| reference[&format!("START_flux{g}")].clone()).collect();
+    neutro.set_initial_guess(&flux0, reference["START_keff"][0]);
+    let prec_star0: Vec<Vec<f64>> = (0..precs).map(|k| reference[&format!("START_precStar{k}")].clone()).collect();
+    neutro.set_prec_star(&prec_star0).expect("precStar");
+
+    // the identical-mesh cellVolumeWeight map (fluid mesh and neutronics mesh are the same mesh)
+    let fluid_mesh = fluid.case().mesh.clone();
+    let map = IdenticalMeshMap::new(&fluid_mesh, &mesh).expect("identical meshes");
+
+    // upstream's powerDensity at t = 165 s is what step 1 maps (the neutronics region reads it from its restart)
+    let pd_start = fref["START_powerDensity"].clone();
+    let pd_port = neutro.upstream_power_density();
+    println!(
+        "start state: neutronics powerDensity from the port's flux and cross sections against upstream's restart field: worst rel {:.3e}",
+        pd_port.iter().zip(&pd_start).filter(|(_, b)| **b != 0.0).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max)
+    );
+
+    let control_delta_t = fluid.case().delta_t;
+    let max_delta_t = fluid.case().controls.max_delta_t;
+    let min_residual = cdict.min_residual;
+    let max_iterations = cdict.max_iterations;
+    let mut dt = initial_delta_t(control_delta_t, control_delta_t);
+    let p0 = 0.0;
+    let coupled = RefCell::new(Coupled {
+        fluid,
+        neutro,
+        xs,
+        zone_map,
+        map,
+        controls: UpstreamTransientControls { neutron_iteration_residual: 1e-6, max_neutron_iterations: 50, sc_no: 1.0 },
+        neutro_power_density: pd_start,
+        neutro_t: t_start.clone(),
+        neutro_rho: rho_start,
+        dt,
+        fluid_residual: 0.0,
+        neutro_residual: 0.0,
+        p_tot: p0,
+        p_tot_old: p0,
+        neutro_iterations: 0,
+        fluid_report: None,
+    });
+    let mu = vec![0.01; n];
+    let alphat = vec![0.01 * (1.0 / 8.0); n];
+    let started = std::time::Instant::now();
+
+    println!("step  dt_port           dt_ref            rel_dt     maxrel_T      power_port       rel_P      rel_h1res  iters");
+    let mut first_dt_bad = None;
+    let mut first_t_bad = None;
+    let mut worst_t = 0.0_f64;
+    let mut worst_p = 0.0_f64;
+    let mut worst_dt = 0.0_f64;
+    let mut worst_hres = 0.0_f64;
+    let mut worst_tstat = 0.0_f64;
+    let mut worst_co = 0.0_f64;
+    let mut converged_in_one = 0usize;
+    let mut per_step_t: Vec<f64> = Vec::new();
+    for step in 1..=N_STEPS {
+        {
+            let mut c = coupled.borrow_mut();
+            c.dt = dt;
+            c.fluid.begin_time_step(dt);
+        }
+        // mapAllFields(runTime) at the top of the step, then correctPhysics (which maps again at every iteration)
+        let outcome = correct_physics_loop(
+            min_residual,
+            max_iterations,
+            &only_energy,
+            || {
+                let mut c = coupled.borrow_mut();
+                // fluidRegion <- neutroRegion: powerDensity -> powerDensityNeutronicsToLiquid
+                let mut pd = c.fluid.case().power_density.clone();
+                let src = c.neutro_power_density.clone();
+                c.map.map(&src, &mut pd);
+                c.fluid.set_power_density(&pd);
+                // neutroRegion <- fluidRegion: T -> TFuel (TCool), thermo:rho -> rhoCool
+                let t = c.fluid.temperature().to_vec();
+                let rho = c.fluid.thermo_density();
+                let mut nt = c.neutro_t.clone();
+                let mut nr = c.neutro_rho.clone();
+                c.map.map(&t, &mut nt);
+                c.map.map(&rho, &mut nr);
+                c.neutro_t = nt;
+                c.neutro_rho = nr;
+            },
+            |i, tight| {
+                let mut guard = coupled.borrow_mut();
+                let c = &mut *guard;
+                if i == 0 {
+                    if tight {
+                        c.fluid_residual = c.fluid.correct_tightly_coupled_physics();
+                    } else {
+                        let (r, rep) = c.fluid.correct_physics();
+                        c.fluid_residual = r;
+                        c.fluid_report = Some(rep);
+                    }
+                } else {
+                    let params: Vec<f64> = c.neutro_t.iter().zip(&c.neutro_rho).flat_map(|(&t, &r)| [t, r]).collect();
+                    let rep = c
+                        .neutro
+                        .upstream_transient_step(
+                            &c.xs,
+                            &c.zone_map,
+                            UpstreamTransientFeedback { cell_parameters: &params, rho_cool: &c.neutro_rho, alphat: &alphat, mu: &mu },
+                            c.dt,
+                            &c.controls,
+                        )
+                        .expect("neutronics step");
+                    c.p_tot = rep.power;
+                    c.p_tot_old = rep.power_old;
+                    c.neutro_iterations = rep.neutron_iterations;
+                    // residual_ = max(initial residuals of the flux solves, neutroResidual); the port exposes the
+                    // first iteration's group residuals and the neutroResidual history (a lower bound, far from
+                    // the 5e-5 threshold: <= 2e-6 at every step of the reference)
+                    c.neutro_residual = rep
+                        .first_iteration_group_residuals
+                        .iter()
+                        .chain(rep.residual_history.iter())
+                        .copied()
+                        .fold(0.0, f64::max);
+                    c.neutro_power_density = c.neutro.upstream_power_density();
+                }
+            },
+            |i| {
+                let c = coupled.borrow();
+                if i == 0 { c.fluid_residual } else { c.neutro_residual }
+            },
+        );
+        if outcome.iterations == 1 && outcome.converged {
+            converged_in_one += 1;
+        }
+        // adjustDeltaT
+        let (t_port, rep, power, iters, p_tot, p_tot_old, fluid_max_dt, time) = {
+            let c = coupled.borrow();
+            (
+                c.fluid.temperature().to_vec(),
+                c.fluid_report.clone().expect("fluid report"),
+                c.p_tot,
+                c.neutro_iterations,
+                c.p_tot,
+                c.p_tot_old,
+                c.fluid.max_delta_t(),
+                c.fluid.time(),
+            )
+        };
+        let neutro_max = diffusion_max_delta_t(time, control_delta_t, max_delta_t, 0.025, dt, p_tot, p_tot_old);
+        let dt_before = dt;
+        if let Some(new_dt) = adjust_delta_t(true, &[fluid_max_dt, neutro_max], f64::MIN_POSITIVE, dt) {
+            dt = new_dt;
+        }
+        // ---- compare step `step`
+        let t_ref = &fref[&format!("T_{step}")];
+        let dt_ref_next = fref["DT"][step - 1];
+        let dtr = rel(dt, dt_ref_next);
+        let dtt = t_port.iter().zip(t_ref).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+        let p_ref = fref[&format!("POWER_{step}")][0];
+        let dpr = rel(power, p_ref);
+        let hres_ref = &fref[&format!("HRES_{step}")];
+        let dh1 = rel(rep.h_residuals[0], hres_ref[0]);
+        let dh = rep.h_residuals.iter().zip(hres_ref).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+        let tstat_ref = &fref[&format!("TSTAT_{step}")];
+        let mut dts = 0.0_f64;
+        for (k, (a, mn, mx)) in rep.t_stats.iter().enumerate() {
+            dts = dts.max(rel(*a, tstat_ref[3 * k])).max(rel(*mn, tstat_ref[3 * k + 1])).max(rel(*mx, tstat_ref[3 * k + 2]));
+        }
+        let co_ref = &fref[&format!("CO_{step}")];
+        let co_port = coupled.borrow().fluid.courant();
+        let dco = rel(co_port.0, co_ref[1]).max(rel(co_port.1, co_ref[0]));
+        println!(
+            "{step:4}  {dt_before:.10e}->{dt:.10e}  {dt_ref_next:.10e}  {dtr:.2e}  {dtt:.3e}  {power:.10e}  {dpr:.2e}  {dh1:.2e}  {iters:3}  (hres {dh:.1e}, Tstat {dts:.1e}, Co {dco:.1e})"
+        );
+        if dtr > 1e-9 && first_dt_bad.is_none() {
+            first_dt_bad = Some(step);
+        }
+        if dtt > 1e-9 && first_t_bad.is_none() {
+            first_t_bad = Some(step);
+        }
+        worst_t = worst_t.max(dtt);
+        worst_p = worst_p.max(dpr);
+        worst_dt = worst_dt.max(dtr);
+        worst_hres = worst_hres.max(dh);
+        worst_tstat = worst_tstat.max(dts);
+        worst_co = worst_co.max(dco);
+        per_step_t.push(dtt);
+        if step == 1 || step == 10 || step == 25 || step == 50 {
+            let re_ref = &fref[&format!("RE_{step}")];
+            let re_port = coupled.borrow().fluid.reynolds().to_vec();
+            let dre = re_port.iter().zip(re_ref).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+            println!("      Re (restart-style field after step {step}): worst rel {dre:.3e}");
+        }
+    }
+    println!(
+        "SUMMARY worst rel: dt {worst_dt:.3e}, T {worst_t:.3e}, power {worst_p:.3e}, h residuals {worst_hres:.3e}, T(avg,min,max) {worst_tstat:.3e}, Courant {worst_co:.3e}; first dt > 1e-9 at {first_dt_bad:?}, first T > 1e-9 at {first_t_bad:?}; coupling converged after 1 iteration at {converged_in_one}/{N_STEPS} steps; wall {:.1} s",
+        started.elapsed().as_secs_f64()
+    );
+    assert_eq!(converged_in_one, N_STEPS, "upstream converges after 1 iteration at every one of the first 50 steps");
+}

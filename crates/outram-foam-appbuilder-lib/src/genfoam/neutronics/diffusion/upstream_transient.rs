@@ -448,3 +448,49 @@ impl DiffusionNeutronics {
         Ok(())
     }
 }
+
+impl DiffusionNeutronics {
+    /// `powerDensity_` after `solveNeutronics.H`: `sum_g flux_g sigmaPow_g`, divided by
+    /// `max(fuelFraction, SMALL) (1 - fractionToSecondaryPower)` (both 1 and 0 in the `2D_MSFR` `nuclearData`:
+    /// `fuelFraction 1` in every zone, no `fractionToSecondaryPower`, so the division is by exactly 1). This is
+    /// what the multi-region mapping hands the fluid as `powerDensityNeutronicsToLiquid` (gh:#1774).
+    #[must_use]
+    pub fn upstream_power_density(&self) -> Vec<f64> {
+        let n = self.state.mesh().n_cells;
+        let mut pd = vec![0.0; n];
+        for (g, flux) in self.state.flux().iter().enumerate() {
+            let sp = self.xs.sigma_pow[g].internal.as_slice();
+            let ph = flux.internal.as_slice();
+            for c in 0..n {
+                pd[c] += ph[c] * sp[c];
+            }
+        }
+        pd
+    }
+}
+
+/// `diffusionNeutronics::maxDeltaT()` (`diffusionNeutronics.C:220`): the step the power variation of the step
+/// allows, only once `time > controlDict deltaT`; else `controlDict maxDeltaT`.
+///
+/// `time` is `runTime.value()`, `delta_t_now` the step just taken, `p_tot` and `p_tot_old` the power after
+/// and before it. (The same formula as `pseudo_time::neutronics_max_delta_t`, which needs a clock that starts
+/// at time 0; a restart at t = 165 s needs the plain form.)
+#[must_use]
+pub fn diffusion_max_delta_t(
+    time: f64,
+    control_delta_t: f64,
+    max_delta_t: f64,
+    max_power_variation: f64,
+    delta_t_now: f64,
+    p_tot: f64,
+    p_tot_old: f64,
+) -> f64 {
+    const SMALL: f64 = 1.0e-15;
+    if time > control_delta_t {
+        let power_variation = ((p_tot - p_tot_old) / (p_tot_old + SMALL)).abs();
+        let fact = (max_power_variation / (power_variation + SMALL)).abs();
+        let delta_t_neutro_fact = (fact.min(1.0 + 0.1 * fact)).min(1.2);
+        return (delta_t_neutro_fact * delta_t_now).min(max_delta_t);
+    }
+    max_delta_t
+}
