@@ -78,6 +78,35 @@ gh issue comment <number> --body "..."           # progress
   cannot see a target-gated dependency. Compiling is the bar here, not
   running: a wasm compile does not make a crate wasm-ready (root
   `CLAUDE.md`, Portability).
+- **HARD RULE: with several parallel streams in one session, run the full
+  integration test ONCE, at the end, before pushing** (maintainer,
+  2026-11-26: "if working on multiple parallel streams and many changes in
+  the same session, pls only run the final integration test at the end
+  before pushing").
+  - **While the streams are in flight**, each one runs only the checks for
+    what it touched: the tests of the changed crate or module, its new
+    tests, and the cheap static gates it could break, such as
+    `cargo test --release -p petir --test no_platform_libm` or
+    `bash scripts/check-nostd.sh`. Do not run the full workspace
+    suites or the whole `develop` gate set after every stream or every
+    commit.
+  - **At the end**, on the combined tip that will be pushed, run the full
+    integration set: every gate the `develop` merge rule above requires,
+    plus the full test suites of the crates the session changed. **This
+    final phase is integration test AND debug** (maintainer, 2026-11-26:
+    "by final integration test I mean final integration test and debug"):
+    when a gate fails, find the cause, fix it on the combined tip, and
+    re-run, until the whole set is green. A failure that comes from two
+    streams interacting is found and fixed here. A failure is not handed
+    back as a report while it is still fixable. Push to `develop` only when
+    the set is green.
+  - **Why:** the session of 2026-11-26 re-ran the full gate set (about an
+    hour on 4 cores) on every intermediate tip while agents were still
+    building and testing. Each run competed for the same cores and build
+    lock, and the next tip superseded it within the hour.
+  - **This changes when the gates run, not what they are.** Nothing merges
+    to `develop` without the full set green on the exact commit being
+    merged.
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,
