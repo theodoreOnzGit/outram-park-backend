@@ -3790,3 +3790,73 @@ None. No pin, gate or tolerance of an existing test changed; no function of `leg
 ### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
 
 `--lib mesh_deformation` 8 passed; `--test genfoam_mesh_deformation_vs_upstream` 6 passed (1.4 s, with the full dump); `-p petir --test no_platform_libm` 4 passed; the `check-nostd.sh` command for this crate (`cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`) compiles (the script itself, which loops over every converted crate, was not run in full: disk). Not run: the other suites of the crate and the workspace (the parent's integration run covers them); the generated `docs/outram-foam-appbuilder-lib-api.md` mirror was not regenerated.
+
+## Round 27 results (2026-11-26, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_legacy_tm_flux_d2dt2_vs_upstream.rs`, 7 tests, ~3 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust, all in `genfoam::thermo_mechanics::legacy_fvm`)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `solveThermalMechanics.H` `if (!compactNormalStress_) divSigmaExp_ = fvc::div(DEqn.flux())` and `divSigmaExp_ += fvc::div(sigmaD_)` | `displacement_corrector` (flux straight after the solve, with the coefficients stored at assembly) |
+| `fvMatrix::flux()` (`fvMatrix.C:1422`), `lduMatrix::faceH`, `fvMatrix::operator-=` (negated `faceFluxCorrection`), `gaussLaplacianSchemes.C` (`faceFluxCorrection = gammaMagSf*correction`, stored because `setFluxRequired`) | `LegacyFvmThermoMechanics::flux_divergence` |
+| `legacyThermoMechanics.C` constructor non-compact branch (`div(sigmaD) - div((2mu+lambda)*grad(disp), "div(sigmaD)")`) | `initial_div_sigma_exp` |
+| `EulerD2dt2Scheme::fvmD2dt2` (non-moving), lazy `oldTime()`/`oldTime().oldTime()`, `Time::operator++` `deltaT0` | `D2dt2Scheme`, `with_d2dt2`, `d2dt2_terms`, `store_old_displacements`, `advance_time_levels` |
+| `fvSchemes.d2dt2Schemes`, `fvSolution.stressAnalysis.compactNormalStress` | `LegacyFvmCase::read` (`case.d2dt2`); `backward` and anything else refused by name: it does not exist in v2506 |
+
+`LegacyFvmSettings` is unchanged (`d2dt2` is a builder). The refusal of `compactNormalStress no` and of transient `d2dt2` is gone; the unit test that asserted it now asserts the build succeeds.
+
+### Comparisons (all bit for bit; `exact` counts equal values)
+
+| case | steps | fields compared | linear solves | result |
+|---|---|---|---|---|
+| F: `compactNormalStress no`, `steadyState`, dt 1 s | 3 | `disp` at 3 steps; `TStruct`, `fuelDisp`, `CRDisp`, `meshDisp` at step 3: 210,060 + 140,040 values | 36 | **every value bit-identical**; 36/36 solves identical (initial, final residual, iterations); `Max sigmaEq`, `residual_` identical |
+| E: compact, `Euler`, dt 1e-3 s constant | 4 | `disp` at 4 steps, the rest at step 4 | 48 | **bit-identical**, 48/48 solves, `Max sigmaEq` identical at all 4 steps |
+| FE: `no` + `Euler`, dt x1.3 per step (dt0 != dt from step 2) | 4 | same | 48 | **bit-identical**, 48/48 solves, `Max sigmaEq` identical |
+
+Worst relative difference: 0 in every field, step and residual. No round-off allowance used; nothing flagged under the 1e-9 rule. First diverging step: none.
+
+### Controls (each shows the tally can fail)
+
+| control | result |
+|---|---|
+| port with `compactNormalStress yes` against F reference, step 1 | `disp` 0/70020 equal, worst 2.13e-2 of max; worst initial residual differs 0.73 relative; `Max sigmaEq` 11 % off |
+| port with `steadyState` against E reference, step 1 | `disp` 0/70020 equal, worst 0.86 of max (inertia dominates at dt 1e-3: E max step-1 `disp` 5.2e-3 m against 8.9e-3 m steady) |
+| port that ignores the step schedule (constant dt) against FE reference | step 1 bit-identical (as it must be), step 2 `disp` 0/70020 equal, worst 5.5e-2; step 3 2.6e-2; `Max sigmaEq` 1.7e-2 off at step 3 |
+
+Unit tests (`legacy_fvm::tests`, 5 new, `--lib thermo_mechanics`: 33 passed): flux form and compact form both reproduce the linear stretch; they differ when loaded; Euler coefficients against hand evaluation (dt0 = dt and dt0 = 2 dt); old/old-old shift once per step and `deltaT0` tracking; steady scheme stores nothing; inertia lags the quasi-static solution.
+
+### Predictions: held and missed
+
+* **X1, X2 held** (bit-identical F; stated 65 %).
+* **X3 held**: control difference 2.1e-2 of max (predicted 1e-4 to 1e-1).
+* **X4 held** (E bit-identical, stated 65 %); **X5 held** (0.86 >> 0.1; Euler max `disp` smaller than steady, 5.2e-3 vs 8.9e-3).
+* **X6** (no separate control) as stated; the shift is evidenced by X4 at steps 3 and 4.
+* **X7 held** (FE bit-identical, stated 55 %); **X8 held** (5.5e-2 > 1e-3).
+* **X9, X10 held** (`TStruct`, `fuelDisp`, `CRDisp`, `Max sigmaEq`, `residual_` bit-identical).
+* **X11 held**: all 7 tests take 3 s together. **X12 held**: no case diverged.
+* Missed: none. The unit test `euler_d2dt2_lags_the_quasi_static_displacement` failed at first because MY test built the solver with `deltaT = 1` s and so used `deltaT0 = 1` s for step 1 with `dt = 1e-6`; that is upstream's behaviour (`Time::deltaT0` = initial `deltaT`), fixed in the test, not in the port. Its first form also used the maximum `disp`, which sits against the imposed boundary value; the mean is used.
+
+### Findings about upstream (now documented in the code)
+
+* ESI v2506 has **no `backward` d2dt2 scheme**: only `steadyState` and `Euler`. The issue's "backward" cannot exist upstream.
+* With `Euler` the old and old-old displacement are created lazily at the first step as copies of the current field (so `oldold = old = disp(0)` at step 1) and shift once per time step; `deltaT0` of step 1 is the controlDict `deltaT`. A solver built with a `deltaT` different from the first step's gets `deltaT0 != deltaT` at step 1 exactly as upstream's `Time` does.
+* The `faceFluxCorrection` is the one stored at assembly (from the displacement before the solve); the `GFTractionDisplacement` gradient used in the flux is likewise the one stored when `DEqn` was built.
+
+### Deviations and what is not covered
+
+* Static mesh only (`EulerD2dt2Scheme`'s `mesh().moving()` branch with `V0`/`V00` is not ported; a coupled run that moves this region's mesh needs it, gh:#1784 territory).
+* Non-zero initial `disp` is not supported by the port (already refused), so the "old = oldold = initial field" rule is exercised only from zero; the shift is exercised from step 2.
+* Tested on the fixedValue/zeroGradient `disp` patches of the round-23 case; `GFTractionDisplacement` with the flux form is built (boundary term `0*P - gMagSf*gradient`, from `fixedGradientFvPatchField`'s coefficients) but not compared with a reference. Filed.
+* `DEqn.relax()` remains refused (no relaxation entry matches `disp`).
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed. Refs added (gzip -9): `legacy_tm_flux_f*` 1.9 MB, `legacy_tm_d2dt2_e*` 2.3 MB, `legacy_tm_flux_d2dt2_fe*` 2.4 MB (`disp` every step, other fields at the last step; logs 1 KB). `scripts/extract_legacy_tm_log.sh` now matches non-integer time names.
+
+### Reproduction
+
+`COMPACT=no LEGACY_TM_DISP_ONLY=1 bash scripts/build_and_run_legacy_tm_dump.sh 3 F.txt` (F); `D2DT2=Euler DELTAT=1e-3 LEGACY_TM_DISP_ONLY=1 ... 4 E.txt` (E); `COMPACT=no D2DT2=Euler DELTAT=1e-3 LEGACY_TM_DT_RATIO=1.3 LEGACY_TM_DISP_ONLY=1 ... 4 FE.txt` (FE); logs through `scripts/extract_legacy_tm_log.sh`; `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_legacy_tm_flux_d2dt2_vs_upstream -- --nocapture`.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_legacy_tm_flux_d2dt2_vs_upstream` 7 passed; `--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed and `--test genfoam_traction_displacement_vs_upstream` 7 passed (unchanged, still bit-identical); `--lib thermo_mechanics` 33 passed; `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` see hand-off. Not run: the other suites of the crate and the workspace.
