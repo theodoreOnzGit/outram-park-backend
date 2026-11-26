@@ -3431,6 +3431,58 @@ mod tests {
         assert!((swollen - want).abs() < 0.03, "{swollen} vs {want}");
     }
 
+    /// **The first relocation does not quench the core** (2026-11-26,
+    /// gh:#1810), step by step, where the 600 s fixture sees nothing.
+    ///
+    /// Methodology: the default plant (every mechanism on) stepped at 1 s
+    /// to its first relocation and 60 s on, every step recorded. Before the
+    /// fix, the plate quench swelled the whole vessel's water into the core
+    /// (`swollen_level_from_sources`): peak cladding fell from 2499 K to
+    /// 701 K in 4 s and the RPV rose from 8.1 to 12.67 MPa. With each
+    /// source voiding only the water above it, the uncovered core (the
+    /// collapsed level ~0.3 m above the plate) keeps its heat.
+    ///
+    /// Pass criteria, written before the run and placed between the two
+    /// behaviours, not fitted: over the 60 s after the first relocation the
+    /// peak cladding stays above 2000 K (the remaining nodes were at
+    /// 2300-2500 K and are not wetted; one node's fall does not cool them
+    /// by hundreds of kelvin), and the RPV stays below 9 MPa (the relief
+    /// valves hold it near their setpoint when the source is one node's
+    /// heat, about 2 GJ). A regression harness on this defect, not a
+    /// validation.
+    ///
+    /// Results (2026-11-26): printed; first relocation at 13225 s, peak
+    /// cladding no lower than 2310 K, RPV at most 8.31 MPa (one 2 s valve
+    /// lift at ~370 kg/s).
+    #[test]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (~3 min to the first relocation)")]
+    fn the_first_relocation_does_not_quench_the_core() {
+        let mut plant = Plant::with_mechanisms(Mode::Historical, Mechanisms::default());
+        let (mut core, mut cont) = plant.parts();
+        let mut first = None;
+        let (mut min_clad, mut max_p, mut max_q) = (f64::INFINITY, 0.0f64, 0.0f64);
+        for _ in 0..30_000usize {
+            plant.step_inline(&mut core, &mut cont);
+            let f = plant.frame();
+            if first.is_none() && f.core.relocated > 0.0 {
+                first = Some(f.t_s);
+            }
+            if let Some(t0) = first {
+                min_clad = min_clad.min(f.core.peak_clad_k);
+                max_p = max_p.max(f.vessel.p_pa / 1e6);
+                max_q = max_q.max(f.core.q_fluid_w);
+                if f.t_s >= t0 + 60.0 {
+                    break;
+                }
+            }
+        }
+        let t0 = first.expect("the core relocates within 30 000 s");
+        #[cfg(feature = "std")]
+        println!("first relocation at {t0:.0} s; next 60 s: peak cladding >= {min_clad:.1} K, RPV <= {max_p:.3} MPa, heat into the water <= {:.3e} W", max_q);
+        assert!(min_clad > 2000.0, "the core quenched: peak cladding fell to {min_clad} K");
+        assert!(max_p < 9.0, "the RPV spiked to {max_p} MPa");
+    }
+
     /// The mixture's choked-flux factor: 1 for steam, `sqrt(M_H2/M_H2O)`
     /// (about 0.335) for hydrogen, falling between.
     #[test]
