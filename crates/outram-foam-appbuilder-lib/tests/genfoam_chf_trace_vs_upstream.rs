@@ -149,12 +149,17 @@ fn port_fields(s: &TwoPhaseSolver) -> Vec<(&'static str, Vec<f64>)> {
 type Row = (usize, f64, usize, f64, Vec<(&'static str, f64)>);
 
 fn run_rows(variant: &str, refs: &[&str], n_steps: usize) -> Vec<Row> {
+    run_rows_with(variant, refs, n_steps, &round13_flags())
+}
+
+/// [`run_rows`] with the round-13 translations named in `off` (`gas`, `newton`, `markers`, `flux`) switched back to the earlier forms.
+fn run_rows_with(variant: &str, refs: &[&str], n_steps: usize, off: &[String]) -> Vec<Row> {
     let refs: Vec<Reference> = refs.iter().map(|r| load_reference(r)).collect();
     let dir = protocol_copy(variant, "rows");
     let case = TwoPhaseCase::read(&dir).expect("read the closed 1D_CHF case");
     assert!(case.deviations.is_empty(), "{:?}", case.deviations);
     // upstream's customPimpleControl defect is the specification (as in rounds 3-9)
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver_f(TwoPhaseSolver::new(round13_case_f(case, off)).with_upstream_stale_pimple_converged_flag(), off);
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         let rep = s.step().expect("step");
@@ -204,7 +209,7 @@ fn chf_closed_cell_dump() {
     let r = load_reference(&refs);
     let dir = protocol_copy(&variant, "cells");
     let case = TwoPhaseCase::read(&dir).expect("read");
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     for _ in 1..=step {
         s.step().expect("step");
     }
@@ -235,8 +240,8 @@ fn noise_rows(variant: &str, eps: f64, n_steps: usize) -> Vec<(usize, Vec<(&'sta
     for v in pert.fluids[0].t.b.iter_mut() {
         *v *= 1.0 + eps;
     }
-    let mut a = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
-    let mut b = TwoPhaseSolver::new(pert).with_upstream_stale_pimple_converged_flag();
+    let mut a = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
+    let mut b = round13_solver(TwoPhaseSolver::new(round13_case(pert)).with_upstream_stale_pimple_converged_flag());
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         a.step().expect("step a");
@@ -247,6 +252,44 @@ fn noise_rows(variant: &str, eps: f64, n_steps: usize) -> Vec<(usize, Vec<(&'sta
     }
     let _ = std::fs::remove_dir_all(&dir);
     rows
+}
+
+/// Round 13 diagnostic: every evaluation of `multiRegimeBoilingTRACECHF` (all cells, all outer iterations) of the first `STEPS`
+/// steps (default 3) of `VARIANT`, with its intermediates at 17 digits, written to the file `PROBE_OUT` (one line per cell
+/// evaluation: `PORT_CHF t= corr= cell= name=value ...`), for comparison with the instrumented upstream's dump
+/// (`upstream_driver/probe_boiling`).
+#[test]
+#[ignore]
+fn chf_closed_trace_probe_dump() {
+    let variant = std::env::var("VARIANT").unwrap_or_else(|_| "constant_chf".into());
+    let n: usize = std::env::var("STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(3);
+    let dir = protocol_copy(&variant, "probe");
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
+    s.trace_probe = Some(Vec::new());
+    for _ in 1..=n {
+        s.step().expect("step");
+    }
+    let mut out = String::new();
+    for r in s.trace_probe.as_ref().expect("probe on") {
+        let tag = match r.kind {
+            "chf" => "PORT_CHF",
+            "eqn" => "PORTE",
+            "eqnf" => "PORTEF",
+            "pc" => "PORT_PC",
+            "structure" => "PORTS",
+            _ => continue,
+        };
+        out.push_str(&format!("{tag} t={:.17e} corr={} cell={}", r.time, r.outer_iteration, r.cell));
+        for (k, v) in &r.values {
+            out.push_str(&format!(" {k}={v:.17e}"));
+        }
+        out.push('\n');
+    }
+    if let Ok(path) = std::env::var("PROBE_OUT") {
+        std::fs::write(path, out).expect("write probe");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Diagnostic: the noise-floor control (`VARIANT`, `EPS` default 1e-12, `STEPS` default 10).
@@ -315,7 +358,7 @@ fn chf_closed_implied_q_chf() {
     let r = load_reference(&refs);
     let dir = protocol_copy(&variant, "implied");
     let case = TwoPhaseCase::read(&dir).expect("read");
-    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut s = round13_solver(TwoPhaseSolver::new(round13_case(case)).with_upstream_stale_pimple_converged_flag());
     for _ in 1..=step {
         s.step().expect("step");
     }
@@ -439,17 +482,49 @@ fn constant_chf_transition_and_film_boiling_agree_with_upstream_to_step_40() {
     }
 }
 
-/// Round 10, gate 2: past step 40 the two codes part (a discrete event at step 41: in cells 5-7 the vapour fraction crosses
-/// `thermoResidualAlpha` (1e-2 of the normalised fraction) within the step, and the port keeps the solved vapour enthalpy
-/// (`T.vapour` 631.9 K) where upstream's cutoff leaves it at saturation (613.9 K)). Pinned so a change is noticed: the measured
-/// worst relative `T.vapour` difference at step 41 is 2.9e-2 and `alpha.vapour` 2.7e-2 (README "Round 10": cause consistent with, not proven to be, the threshold).
+/// Round 13 (README "Round 13"): the vapour-threshold event of step 41 no longer parts the two codes. Round 10 had the port keep a
+/// solved vapour enthalpy (`T.vapour` 631.9 K) where upstream's `cutoff` left it at saturation (613.9 K) from step 41 on (`T.vapour`
+/// 2.9e-2, `alpha.vapour` 2.7e-2 at step 41, `p` 5.6e-3 and `alpha` 2.1 by step 86). Cause (ablation: only switching `flux` back
+/// restores it): the interfacial flux ratio `dmdtIi/dmdtIi0` of `phaseChangeModel::correct`, which the port computed from the total `dmdt`;
+/// in film boiling the wall share `fw` is far from 0, so the energy split of the cells that cross the vapour threshold was wrong. Measured over steps 41-86
+/// (the whole reference, release 2026-11-26): `p` 2.7e-9, `T.liquid` 4.5e-9, `T.vapour` 6.1e-10, `T.fixedPower` 2.9e-7, `U.liquid` 2.0e-6,
+/// `U.vapour` 1.8e-6, `alpha.vapour` 3.3e-6, `dmdt` 2.2e-6, `htc.liquid.structure` 2.2e-7, `dt` 8.1e-7. The step-1 seed of gate 1 (1e-6 in `U`
+/// and `alpha`, transition boiling at once) is NOT explained: the TRACECHF closure intermediates agree to <= 1e-9 through the 4th outer
+/// iteration (README "Round 13", `chf_closed_trace_probe_dump`).
 #[test]
-fn constant_chf_parts_from_upstream_at_the_vapour_threshold_event_of_step_41() {
-    let rows = run_rows("constant_chf", &["chf_constant_all"], 41);
+fn constant_chf_agrees_with_upstream_through_the_whole_reference_to_step_86() {
+    let rows = run_rows("constant_chf", &["chf_constant_all"], 86);
+    assert_eq!(rows.len(), 86);
+    let bounds: [(&str, f64); 10] = [
+        ("p", 1e-7),
+        ("T.liquid", 1e-7),
+        ("T.vapour", 1e-7),
+        ("T.fixedPower", 3e-6),
+        ("U.liquid", 1e-4),
+        ("U.vapour", 1e-4),
+        ("alpha.vapour", 1e-4),
+        ("dmdt.liquid.vapour", 1e-4),
+        ("htc.liquid.structure", 1e-5),
+        ("areaDensity.interface", 1e-4),
+    ];
+    for (name, bound) in bounds {
+        let w = worst_of(&rows, 41, 86, name);
+        assert!(w <= bound, "{name}: worst {w:.3e} over steps 41-86 exceeds {bound:.0e}");
+    }
+    let dt = rows.iter().map(|r| r.1).fold(0.0, f64::max);
+    assert!(dt <= 1e-5, "dt relative difference {dt:.3e}");
+}
+
+/// The earlier form of the flux ratio stays selectable: with `dmdt/dmdtIi0` back the constant-CHF run parts at the vapour-threshold
+/// event of step 41 as in round 10 (`T.vapour` 2.9e-2 and `alpha.vapour` 2.7e-2 of their maxima there; steps 1-40 agree to 1e-6).
+#[test]
+fn constant_chf_with_the_earlier_flux_ratio_parts_at_step_41_as_in_round_10() {
+    let off: Vec<String> = vec!["flux".to_string()];
+    let rows = run_rows_with("constant_chf", &["chf_constant_all"], 41, &off);
     let t_vap = worst_of(&rows, 41, 41, "T.vapour");
     let alpha = worst_of(&rows, 41, 41, "alpha.vapour");
-    assert!(t_vap > 1e-2 && t_vap < 1e-1, "T.vapour step 41: {t_vap:.3e}");
-    assert!(alpha > 1e-2 && alpha < 1e-1, "alpha.vapour step 41: {alpha:.3e}");
+    assert!(t_vap > 1e-2 && t_vap < 1e-1, "T.vapour step 41 with the earlier flux ratio: {t_vap:.3e}");
+    assert!(alpha > 1e-2 && alpha < 1e-1, "alpha.vapour step 41 with the earlier flux ratio: {alpha:.3e}");
     assert!(worst_of(&rows, 1, 40, "T.vapour") < 1e-7);
 }
 
@@ -493,4 +568,42 @@ fn constant_chf_case_reads_without_a_table() {
     assert!(case.models.chf_tables.is_empty());
     assert!(case.deviations.is_empty());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Round 13 ablation (diagnostic): `ROUND13_OFF=gas,newton,markers,flux` (any subset) switches the named round-13 translations back
+/// to the port's earlier forms, to measure how much of the agreement each one carries. Unset: upstream's forms (the defaults).
+fn round13_flags() -> Vec<String> {
+    std::env::var("ROUND13_OFF").map(|v| v.split(',').map(str::to_string).collect()).unwrap_or_default()
+}
+
+fn round13_case_f(case: TwoPhaseCase, off: &[String]) -> TwoPhaseCase {
+    if off.iter().any(|x| x == "gas") {
+        case.with_codata2019_gas_constant()
+    } else {
+        case
+    }
+}
+
+fn round13_solver_f(mut s: TwoPhaseSolver, off: &[String]) -> TwoPhaseSolver {
+    if off.iter().any(|x| x == "newton") {
+        s = s.with_converged_temperature_newton();
+    }
+    if off.iter().any(|x| x == "markers") {
+        s = s.with_live_thermo_residual_markers();
+    }
+    if off.iter().any(|x| x == "flux") {
+        s = s.with_earlier_interfacial_flux_ratio();
+    }
+    if off.iter().any(|x| x == "hsolver") {
+        s = s.with_smooth_solver_for_enthalpy();
+    }
+    s
+}
+
+fn round13_case(case: TwoPhaseCase) -> TwoPhaseCase {
+    round13_case_f(case, &round13_flags())
+}
+
+fn round13_solver(s: TwoPhaseSolver) -> TwoPhaseSolver {
+    round13_solver_f(s, &round13_flags())
 }

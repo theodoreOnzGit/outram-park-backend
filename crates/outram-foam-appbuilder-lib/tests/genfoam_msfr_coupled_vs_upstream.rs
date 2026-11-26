@@ -7,14 +7,14 @@
 //! ## Methodology
 //!
 //! Upstream: GeN-Foam `652b3da0cc55` on OpenFOAM-ESI v2506, `reactorCases/2D_MSFR`, `transient` stage
-//! (`scripts/run_msfr_chain.sh transient`, `PROTOCOL=tight`, `END_TIME=165.31`: 50 steps; every linear solver
+//! (`scripts/run_msfr_chain.sh transient`, `PROTOCOL=tight`, `END_TIME=165.31`: 50 steps, started from the tight `steadyStateEN` output, i.e. round 11's `msfr_chain_transient` reference; every linear solver
 //! 1e-14 / relTol 0, `writePrecision 17`, one write per step), `multiPhysicsSolver` = `onePhase`
 //! (`solveFluidMechanics false`, frozen flux, `porousKEpsilon` fields read) + `diffusionNeutronics`.
-//! The reference (`refs/msfr_fluid_transient.ref.txt.gz`, `scripts/extract_msfr_fluid_reference.sh`) holds the
+//! The reference (`refs/msfr_chain_transient.ref.txt.gz`, `scripts/extract_msfr_fluid_reference.sh`) holds the
 //! fluid `T` after every step, the time step of every step, and from the log the five `h` initial residuals,
 //! the five `T (avg min max)` lines, the Courant numbers and `power:` of every step.
 //!
-//! The port starts from upstream's t = 165 s state (fluid fields: `cases/msfr_fluid/restart_165`; neutronics:
+//! The port starts from upstream's t = 165 s state (round 14: the TIGHT-solver `steadyStateEN` output, critical at `pTarget` to 1.3e-8; the shipped-tolerance state this test used before was only critical to ~2e-4) (fluid fields: `cases/msfr_fluid/restart_165`; neutronics:
 //! `refs/msfr_transient.ref.txt.gz` `START_*`) and runs ITS OWN coupled loop: `correct_physics_loop`
 //! (`multiPhysicsSolver::correctPhysics`), the cell-centred energy-only `OnePhaseCcSolver`, the neutronics
 //! `upstream_transient_step`, the identical-mesh `cellVolumeWeight` map ([`IdenticalMeshMap`]), and `adjustDeltaT`
@@ -184,7 +184,7 @@ fn rel(a: f64, b: f64) -> f64 {
 fn msfr_coupled_transient_matches_upstream_over_50_steps() {
     let st = stage("coupled");
     let reference = read_ref(&vv_dir().join("refs/msfr_transient.ref.txt.gz"));
-    let fref = read_ref(&vv_dir().join("refs/msfr_fluid_transient.ref.txt.gz"));
+    let fref = read_ref(&vv_dir().join("refs/msfr_chain_transient.ref.txt.gz"));
 
     // ---- the case-driven multiPhysicsSolver
     let cdict = CouplingDict::read(&st.fluid_root, "energyNeutroLoop").expect("multiRegionCouplingDict");

@@ -304,35 +304,128 @@ fn msfr_eigenvalue_then_transient_chain_matches_upstream() {
     let mut run = normalised.start_transient(TransientStart::EnergyNeutro(settings)).expect("transient");
     let frozen = run.k_eff();
     println!("transient starts at keff_ {frozen:.17}");
-    let (mut worst_dt, mut worst_t, mut worst_p, mut worst_h1) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
-    let (mut first_t_bad, mut first_dt_bad) = (None, None);
-    for step in 1..=50usize {
+    let rep = compare_transient(&mut run, &tr, 50, (true, 1), 1e-11);
+    // R11-4: the tight EN state is critical at the target to 1e-6 (upstream's POWER_1 is 19999999.74)
+    assert!(rel(rep.first_power, 2e7) < 1e-6, "step-1 power {}", rep.first_power);
+    assert_eq!(run.k_eff(), frozen, "keff_ is frozen in the transient");
+    println!(
+        "TRANSIENT 50 steps: worst rel dt {:.3e} (first > 1e-9: {:?}), T {:.3e} (first > 1e-9: {:?}), power {:.3e}, h1 {:.3e}",
+        rep.worst_dt, rep.first_dt_bad, rep.worst_t, rep.first_t_bad, rep.worst_p, rep.worst_h1
+    );
+}
+
+struct TransientReport {
+    worst_dt: f64,
+    worst_t: f64,
+    worst_p: f64,
+    worst_h1: f64,
+    first_dt_bad: Option<usize>,
+    first_t_bad: Option<usize>,
+    first_power: f64,
+}
+
+/// Step `run` through `steps` transient steps and compare each with the `tr` reference (`DT`, `T_n`, `POWER_n`,
+/// `HRES_n`); asserts that the coupling loop converged after one iteration, as upstream's did at every step, and the
+/// gates of the 50-step test (measured 2026-11-26 with a margin of >= 20x; README "Round 11 results").
+fn compare_transient(run: &mut TransientRun, tr: &HashMap<String, Vec<f64>>, steps: usize, upstream_loop: (bool, usize), dt_gate: f64) -> TransientReport {
+    let mut rep = TransientReport {
+        worst_dt: 0.0,
+        worst_t: 0.0,
+        worst_p: 0.0,
+        worst_h1: 0.0,
+        first_dt_bad: None,
+        first_t_bad: None,
+        first_power: 0.0,
+    };
+    for step in 1..=steps {
         let rec = run.step_adjustable().expect("transient step");
-        let TransientRun::EnergyNeutroDiffusion(t) = &run else { unreachable!() };
+        let TransientRun::EnergyNeutroDiffusion(t) = &*run else { unreachable!() };
         let dtr = rel(rec.next_delta_t, tr["DT"][step - 1]);
         let dtt = worst_rel(t.inner.fluid.temperature(), &tr[&format!("T_{step}")]);
         let dpr = rel(rec.power, tr[&format!("POWER_{step}")][0]);
         let dh1 = rel(rec.fluid_report.h_residuals[0], tr[&format!("HRES_{step}")][0]);
         println!("step {step:3} dt rel {dtr:.2e}  T rel {dtt:.2e}  power {:.10e} rel {dpr:.2e}  h1 rel {dh1:.2e}", rec.power);
-        if dtr > 1e-9 && first_dt_bad.is_none() {
-            first_dt_bad = Some(step);
+        if dtr > 1e-9 && rep.first_dt_bad.is_none() {
+            rep.first_dt_bad = Some(step);
         }
-        if dtt > 1e-9 && first_t_bad.is_none() {
-            first_t_bad = Some(step);
+        if dtt > 1e-9 && rep.first_t_bad.is_none() {
+            rep.first_t_bad = Some(step);
         }
-        worst_dt = worst_dt.max(dtr);
-        worst_t = worst_t.max(dtt);
-        worst_p = worst_p.max(dpr);
-        worst_h1 = worst_h1.max(dh1);
-        assert!(rec.coupling_converged && rec.coupling_iterations == 1);
+        rep.worst_dt = rep.worst_dt.max(dtr);
+        rep.worst_t = rep.worst_t.max(dtt);
+        rep.worst_p = rep.worst_p.max(dpr);
+        rep.worst_h1 = rep.worst_h1.max(dh1);
+        assert_eq!((rec.coupling_converged, rec.coupling_iterations), upstream_loop, "coupling loop at step {step}");
         if step == 1 {
-            // R11-4: the tight EN state is critical at the target to 1e-6 (upstream's POWER_1 is 19999999.74)
-            assert!(rel(rec.power, 2e7) < 1e-6, "step-1 power {}", rec.power);
+            rep.first_power = rec.power;
         }
     }
-    assert!(worst_dt < 1e-11 && worst_t < 1e-12 && worst_p < 1e-11 && worst_h1 < 1e-7);
+    assert!(
+        rep.worst_dt < dt_gate && rep.worst_t < 1e-12 && rep.worst_p < 1e-11 && rep.worst_h1 < 1e-7,
+        "transient: dt {:e}, T {:e}, power {:e}, h1 {:e}",
+        rep.worst_dt,
+        rep.worst_t,
+        rep.worst_p,
+        rep.worst_h1
+    );
+    rep
+}
+
+/// The light chain, for every `cargo test` (gh:#1814 round 14): 20 EN steps from the 15 s fluid restart (15 -> 20 s,
+/// `msfr_en20` reference, upstream tight protocol), then 10 transient steps of the port's OWN 20 s state against
+/// upstream's `transient` started from ITS 20 s output (`msfr_chain20_transient`). Same committed inputs as the long
+/// chain (no `GENFOAM_UPSTREAM`), same typed hand-over, gates as the 600 + 50-step test. The 20 s state is far from
+/// critical (`keff_` still climbing), so the transient is a large power change, not the near-null one of 165 s.
+#[test]
+fn msfr_light_chain_matches_upstream() {
+    let st = stage("light");
+    // upstream ran this stage with `maxIterations 1` (COUPLING_ITERS=1): at the 20 s state the loop never converges (README Round 14)
+    let cd = st.fluid_root.join("constant/multiRegionCouplingDict");
+    let text = std::fs::read_to_string(&cd).expect("multiRegionCouplingDict");
+    std::fs::write(&cd, text.replace("maxIterations 3;", "maxIterations 1;")).expect("write");
+    let en = read_ref(&vv_dir().join("refs/msfr_en20.ref.txt.gz"));
+    let tr = read_ref(&vv_dir().join("refs/msfr_chain20_transient.ref.txt.gz"));
+    let (stage, settings) = build(&st);
+    let started = std::time::Instant::now();
+    let normalised = EigenvalueStage::EnergyNeutroDiffusion {
+        stage,
+        controls: EigenvalueRunControls { start_time: 15.0, end_time: 20.0, delta_t: 0.25 },
+    }
+    .run()
+    .expect("eigenvalue stage");
+    let NormalisedState::EnergyNeutroDiffusion { stage: s, history } = normalised else { unreachable!() };
+    assert_eq!(history.len(), 20);
+    let rep = compare_en(&history, &en, false);
+    println!(
+        "EN 20 steps: worst rel keff {:.3e}, power {:.3e}, h1 {:.3e}, T(avg,min,max) {:.3e}, time {:.3e}",
+        rep.worst_keff, rep.worst_power, rep.worst_h1, rep.worst_tstat, rep.worst_time
+    );
+    assert!(rep.first_keff_bad.is_none() && rep.worst_keff < 1e-11, "keff: worst {:e}", rep.worst_keff);
+    assert!(rep.worst_power < 1e-11 && rep.worst_time == 0.0);
+    assert!(rep.worst_h1 < 1e-7 && rep.worst_tstat < 1e-12);
+    let k_end = s.reactor.k_eff;
+    assert!(rel(k_end, en["END_KEFF"][0]) < 1e-11, "keff_ at 20 s: {k_end:e}");
+    for g in 0..s.neutro.energy_groups() {
+        let flux = s.neutro.state().flux()[g].internal.as_slice().to_vec();
+        let d = worst_rel(&flux, &en[&format!("END_flux{g}")]);
+        assert!(d < 1e-9, "flux{g}: {d:e}");
+    }
+    for (k, p) in s.neutro.prec_star_values().iter().enumerate() {
+        let d = worst_rel(p, &en[&format!("END_precStar{k}")]);
+        assert!(d < 1e-9, "precStar{k}: {d:e}");
+    }
+    let dpd = worst_rel(&s.neutro_power_density, &en["END_powerDensity"]);
+    let dt_end = worst_rel(s.fluid.temperature(), &en["END_T"]);
+    println!("fields at 20 s: powerDensity worst rel {dpd:.3e}, T {dt_end:.3e}");
+    assert!(dpd < 1e-9 && dt_end < 1e-12);
+
+    let normalised = NormalisedState::EnergyNeutroDiffusion { stage: s, history };
+    let mut run = normalised.start_transient(TransientStart::EnergyNeutro(settings)).expect("transient");
+    let frozen = run.k_eff();
+    let trep = compare_transient(&mut run, &tr, 10, (false, 1), 2e-10);
     assert_eq!(run.k_eff(), frozen, "keff_ is frozen in the transient");
     println!(
-        "TRANSIENT 50 steps: worst rel dt {worst_dt:.3e} (first > 1e-9: {first_dt_bad:?}), T {worst_t:.3e} (first > 1e-9: {first_t_bad:?}), power {worst_p:.3e}, h1 {worst_h1:.3e}"
+        "LIGHT CHAIN: transient 10 steps worst rel dt {:.3e}, T {:.3e}, power {:.3e}, h1 {:.3e}; step-1 power {:.6e}; wall {:.1} s",
+        trep.worst_dt, trep.worst_t, trep.worst_p, trep.worst_h1, trep.first_power, started.elapsed().as_secs_f64()
     );
 }

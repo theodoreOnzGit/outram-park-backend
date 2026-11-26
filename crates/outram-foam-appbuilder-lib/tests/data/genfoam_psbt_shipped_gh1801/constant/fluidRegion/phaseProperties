@@ -1,0 +1,376 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ------------------------------------------------------------------------- //
+// --- FLUID PROPERTIES ---------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+fluid1 "liquid";
+fluid2 "vapour";
+
+liquidProperties
+{
+    stateOfMatter   liquid;
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.001;
+    }
+    thermoResidualAlpha 1e-6;
+}
+
+vapourProperties
+{
+    stateOfMatter   gas;
+
+    dispersedDiameterModel
+    {
+        type        byRegime;
+        regimeMap   "preCHFTraceRegimeMap";
+
+        "dispersedBubble"
+        {
+            type constant;
+            value 0.001;
+        }
+        "capSlugBubble"
+        {
+            type constant;
+            value 0.01;
+        }
+        "annularMist"
+        {
+            type constant;
+            value 0.001;
+        }
+    }
+    thermoResidualAlpha 1e-2;
+}
+
+// ------------------------------------------------------------------------- //
+// --- STRUCTURES PROPERTIES ----------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+structureProperties
+{
+    "dummyIn"
+    {
+        volumeFraction  0.5655077285; //0.4464738237;
+        Dh              0.0078395462; //0.0117778432
+    }
+
+    "heated"
+    {
+        volumeFraction  0.5655077285; //0.4464738237;
+        Dh              0.0078395462; // 0.0117778432;//
+
+        powerModel
+        {
+            type            fixedPower;
+
+            //- The heater "coats" 0.85 mm of the 4.75 mm radius pin, and
+            //  for simplicity it is thus treated as a fixedPower source
+            //  with a volume fraction equal to the total heater volume
+            //  fraction (with respect to the total mesh volume).
+            volumeFraction  0.0937099273; //0.145493575;
+            volumetricArea  121.08049093;//121.08049093; //187.9889784;  //=heating surface area/cellzone volume
+            powerDensity    1943301220;
+            T               592.75;
+            Cp              500;
+            rho             7700;
+
+            /*
+            // This is an example on how to provide a linear variation of power
+            // from zero to nominal
+            powerTimeProfile
+            {
+                type                            table;
+
+                //- Time after which the time table is applied
+                startTime                       0;
+
+                //- Left column is time elapsed since the startTime defined
+                //  above
+                table       table
+                (
+                    (   0   #eval{ 1943301220 * 0 }  )
+                    (   0.6   #eval{ 1943301220 * 1 }   )
+
+                );
+            }
+            */
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- REGIME MAP MODELS --------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+regimeMapModels
+{
+    "preCHFTraceRegimeMap"
+    {
+        type twoParameters;
+
+        //- Vapour phase fraction
+        parameter1      "normalized.alpha.vapour";
+
+        //- Liquid mass flux
+        parameter2      "alphaRhoMagU.liquid";
+
+        interpolationWidth  0.125;
+
+        interpolationMode linear;
+
+        //- This is an approximation to the TRACE pre-CHF flow regime map
+        //  described at page 201 (225 of the PDF) in
+        //  https://www.nrc.gov/docs/ML1200/ML120060218.pdf
+        //  It is an approximation as there is no possibility do define
+        //  as explicit interpolation region between alpha 0.5 and alpha
+        //  0.75, as interpolation regions are automatically built across
+        //  all regime boundaries and have a thickness (in the normalized
+        //  regime map wherein both parameter1 and parameter2 vary in the
+        //  [0-1] range) of interpolationWidth specified above. Thus, in
+        //  in this regime map, the explicit interpolation area has been
+        //  split in and divided between the three regimes. This map
+        //  thus looks like the following
+        /*
+            ^ parameter2 (massFlux)
+            |
+            |
+            |
+            6------------------5------------4
+            |                  |            |
+            | dispersedBubble  |            |
+            |                  |            |
+            |             8----9            |
+            |            /     |            |
+            |           /      |            |
+            |          /       |annularMist |
+            |         /        |            |
+            |        7         |            |
+            |        |         |            |
+            |        |capSlugBu|            |
+            0--------1---------2------------3--------> parameter1 (void)
+        */
+        //- Nonetheless, consider that the TRACE map is an approixmation
+        //  itself, so this is fine and is still consistent with the
+        //  Choe-Weismann cap/slug to bubbly transition criteria
+        regimePoints
+        {
+            p0 (0 0);
+            p1 (0.3 0);
+            p2 (0.625 0);
+            p3 (1.0 0);
+            p4 (1.0 6000);
+            p5 (0.625 6000);
+            p6 (0 6000);
+            p7 (0.3 2000);
+            p8 (0.5 2700);
+            p9 (0.625 2700);
+        }
+        regimes
+        {
+            "dispersedBubble" (p0 p1 p7 p8 p9 p5 p6);
+            "capSlugBubble" (p1 p2 p9 p8 p7);
+            "annularMist" (p2 p3 p4 p5 p9);
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- PHYSICS MODELS ------------------------------------------------------ //
+// ------------------------------------------------------------------------- //
+
+physicsModels
+{
+    dragModels
+    {
+        "liquid.vapour"
+        {
+            type    Bestion;
+        }
+
+        "liquid.structure"
+        {
+            "dummyIn:heated"
+            {
+                type    ReynoldsPower;
+                coeff   0.316;
+                exp     -0.25;
+            }
+        }
+    }
+
+    twoPhaseDragMultiplierModel
+    {
+        type                LockhartMartinelli;
+        multiplierFluid     "liquid";
+    }
+
+    heatTransferModels
+    {
+        "liquid.structure"
+        {
+            "heated"
+            {
+                /*
+                type    Nusselt;
+                const   2.0;
+                coeff   0.6;
+                expRe   0.5;
+                expPr   0.33;
+                */
+                type    multiRegimeBoilingTRACE;
+                forcedConvectionModel
+                {
+                    type    NusseltReynoldsPrandtlPower;
+                    const   0.0;
+                    coeff   0.023;
+                    expRe   0.8;
+                    expPr   0.4;
+                }
+                poolBoilingModel
+                {
+                    type    Gorenflo;
+                }
+                flowEnhancementFactorModel
+                {
+                    type    RezkallahSims;
+                    exp     0.8;
+                }
+                suppressionFactorModel
+                {
+                    type    Chen;
+                }
+                nucleateBoilingOnsetModel
+                {
+                    type            Basu;
+                    surfaceTension  8e-3;   //- In N/m
+                    contactAngle    38;     //- In degrees
+                }
+                subCooledBoilingFractionModel
+                {
+                    type            SahaZuber;  //constant;//
+                    //value           0.5;
+                }
+                superpositionExponent 3;
+                heatFluxSuperposition true;
+            }
+        }
+        "liquid.vapour"
+        {
+            "liquid"
+            {
+                type    NusseltReynoldsPrandtlPower;
+                const   2.0;
+                coeff   0.6;
+                expRe   0.5;
+                expPr   0.33;
+            }
+            "vapour"
+            {
+                type    constant;
+                value   1e3;
+            }
+        }
+    }
+
+    phaseChangeModel
+    {
+        type                        heatDriven;
+        mode                        conductionLimited;
+        residualInterfacialArea     1e-3;
+        latentHeatModel
+        {
+            type                    water;
+        }
+        saturationModel
+        {
+            type                    waterTRACE;
+        }
+    }
+
+    pairGeometryModels
+    {
+        "liquid.vapour"
+        {
+            dispersionModel
+            {
+                type        byRegime;
+                regimeMap   "preCHFTraceRegimeMap";
+
+                "dispersedBubble"
+                {
+                    type constant;
+                    dispersedPhase  "vapour";
+                }
+                "capSlugBubble"
+                {
+                    type constant;
+                    dispersedPhase  "vapour";
+                }
+                "annularMist"
+                {
+                    type constant;
+                    dispersedPhase  "liquid";
+                }
+
+            }
+
+            interfacialAreaDensityModel
+            {
+                type        byRegime;
+                regimeMap   "preCHFTraceRegimeMap";
+
+                "dispersedBubble"
+                {
+                    type        spherical;
+                }
+                "capSlugBubble"
+                {
+                    type        spherical;
+                }
+                "annularMist"
+                {
+                    type        spherical;
+                }
+            }
+        }
+
+        "liquid.structure"
+        {
+            contactPartitionModel
+            {
+                type    constant;
+                value   1.0;
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- MISCELLANEA --------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+pMin                    10000;
+pRefCell                0;
+pRefValue               100000;
+residualKd              1;
+
+// ************************************************************************* //

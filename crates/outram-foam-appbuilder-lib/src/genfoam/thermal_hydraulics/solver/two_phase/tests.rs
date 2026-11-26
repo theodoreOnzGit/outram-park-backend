@@ -245,3 +245,97 @@ fn mules_sub_cycles_restore_old_time_and_keep_the_fractions_bounded() {
         }
     }
 }
+
+/// The boundary patch of `line(n)` that faces `+x` (the outlet) and the one that faces `-x` (the inlet).
+fn end_patches(g: &Geometry) -> (usize, usize) {
+    let mut inlet = usize::MAX;
+    let mut outlet = usize::MAX;
+    for (pi, p) in g.mesh.patches.iter().enumerate() {
+        if p.kind != PatchKind::Empty {
+            if g.mesh.face_centres[p.start].x < 0.5 {
+                inlet = pi;
+            } else {
+                outlet = pi;
+            }
+        }
+    }
+    (inlet, outlet)
+}
+
+/// gh:#1801: `fixedGradient` (`fixedFluxPressure`) evaluates `c + g/deltaCoeffs`, assembles `+gamma |Sf| g` into the
+/// `-laplacian` source and gives the boundary flux `-gamma |Sf| g` exactly.
+#[test]
+fn fixed_gradient_patch_evaluates_assembles_and_fluxes() {
+    let g = line(4);
+    let (inlet, _) = end_patches(&g);
+    let mut bc = g.default_bcs();
+    bc[inlet] = Bc::FixedGradient(vec![2.5]);
+    let mut p = Scalar::uniform(&g, 10.0, bc);
+    let f = g.mesh.patches[inlet].start;
+    assert!((p.b[f - g.n_internal()] - (10.0 + 2.5 / g.delta[f])).abs() < 1e-12);
+    p.correct_bc(&g);
+    assert!(p.is_fixed_gradient(&g, f) && !p.is_fixed(&g, f));
+    let gamma = vec![3.0; g.n_faces()];
+    let mut e = Eqn::new(&g);
+    e.neg_laplacian(&g, &gamma, &p);
+    assert!((e.source[0] - 3.0 * g.mesh.face_areas[f] * 2.5).abs() < 1e-14);
+    let flux = Eqn::laplacian_flux(&g, &gamma, &p);
+    assert!((flux[f] + 3.0 * g.mesh.face_areas[f] * 2.5).abs() < 1e-14);
+}
+
+/// gh:#1801: `inletOutlet` takes `inletValue` where the NAMED flux is negative and the owner value otherwise, and its
+/// convection coefficients follow (`valueFraction = neg(phi)`).
+#[test]
+fn inlet_outlet_patch_follows_the_sign_of_its_flux() {
+    let g = line(4);
+    let (inlet, _) = end_patches(&g);
+    let mut bc = g.default_bcs();
+    bc[inlet] = Bc::InletOutlet { inlet_value: vec![0.25], phi_index: 1 };
+    let mut a = Scalar { c: vec![0.5; 4], b: vec![0.5; g.n_faces() - g.n_internal()], bc };
+    let f = g.mesh.patches[inlet].start;
+    let mut inflow = vec![0.0; g.n_faces()];
+    inflow[f] = -1.0;
+    let mut outflow = vec![0.0; g.n_faces()];
+    outflow[f] = 1.0;
+    a.correct_bc_with_flux(&g, [&[], &inflow]);
+    assert_eq!(a.b[f - g.n_internal()], 0.25);
+    assert_eq!(a.convection_coeffs(&g, f, [&[], &inflow]), (0.0, 0.25));
+    a.correct_bc_with_flux(&g, [&[], &outflow]);
+    assert_eq!(a.b[f - g.n_internal()], 0.5);
+    assert_eq!(a.convection_coeffs(&g, f, [&[], &outflow]), (1.0, 0.0));
+}
+
+/// gh:#1801: `slip` removes the normal component, `fixedValue` imposes its value and sets a fixedValue flux patch,
+/// `pressureInletOutletVelocity` is `zeroGradient` on outflow and keeps only the normal component on inflow; their matrix
+/// coefficients follow `transformFvPatchField` (`1 - |n|`, `-deltaCoeffs |n|`).
+#[test]
+fn velocity_patches_evaluate_like_the_esi_classes() {
+    use super::fv::{Vector, VectorBc};
+    let g = line(4);
+    let (inlet, outlet) = end_patches(&g);
+    let mut u = Vector::uniform(&g, Vector3::new(2.0, 3.0, 0.0));
+    u.bc[inlet] = VectorBc::Slip;
+    u.bc[outlet] = VectorBc::PressureInletOutletVelocity { phi_index: 0 };
+    let fi = g.mesh.patches[inlet].start - g.n_internal();
+    let fo = g.mesh.patches[outlet].start - g.n_internal();
+    let mut out = vec![0.0; g.n_faces()];
+    out[g.mesh.patches[outlet].start] = 1.0;
+    let mut inn = vec![0.0; g.n_faces()];
+    inn[g.mesh.patches[outlet].start] = -1.0;
+    u.correct_bc_with_flux(&g, [&out, &[]]);
+    assert!((u.b[fi].x).abs() < 1e-14 && (u.b[fi].y - 3.0).abs() < 1e-14, "slip: {:?}", u.b[fi]);
+    assert_eq!(u.b[fo], Vector3::new(2.0, 3.0, 0.0), "outflow is zeroGradient");
+    u.correct_bc_with_flux(&g, [&inn, &[]]);
+    assert!((u.b[fo].x - 2.0).abs() < 1e-14 && u.b[fo].y.abs() < 1e-14, "inflow keeps the normal part: {:?}", u.b[fo]);
+    let c = u.patch_coeffs(&g, g.mesh.patches[inlet].start, [&out, &[]]);
+    assert_eq!(c.value_internal, [0.0, 1.0, 1.0]);
+    assert_eq!(c.gradient_internal_diag, [1.0, 0.0, 0.0]);
+    assert!(u.flux_is_fixed(&g, g.mesh.patches[inlet].start) && !u.flux_is_fixed(&g, g.mesh.patches[outlet].start));
+    let mut fx = Vector::uniform(&g, Vector3::new(1.0, 0.0, 0.0));
+    fx.bc[inlet] = VectorBc::Fixed(vec![Vector3::new(4.0, 0.0, 0.0)]);
+    fx.correct_bc(&g);
+    assert_eq!(fx.b[fi].x, 4.0);
+    assert!(fx.has_non_zero_gradient_patch());
+    let cf = fx.patch_coeffs(&g, g.mesh.patches[inlet].start, [&[], &[]]);
+    assert_eq!((cf.value_internal, cf.value_boundary[0]), ([0.0; 3], 4.0));
+}

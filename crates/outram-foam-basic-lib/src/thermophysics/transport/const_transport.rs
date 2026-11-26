@@ -45,6 +45,15 @@ pub struct ConstTransport<T: ThermoModel> {
     rpr: f64, // 1/Pr (dimensionless)
 }
 
+impl ConstTransport<crate::thermophysics::thermo::HConstThermo<crate::thermophysics::eos::PerfectGas>> {
+    /// The same model with the perfect gas's universal gas constant set to `gas_constant` (gh:#1361 round 13).
+    #[must_use]
+    pub fn with_gas_constant(mut self, gas_constant: crate::thermophysics::constants::GasConstant) -> Self {
+        self.thermo = self.thermo.with_gas_constant(gas_constant);
+        self
+    }
+}
+
 impl<T: ThermoModel> ConstTransport<T> {
     /// Construct a constant-viscosity / constant-Prandtl transport model wrapping
     /// `thermo`, with dynamic viscosity `mu` `[Pa·s]` and Prandtl number `pr` `[-]`.

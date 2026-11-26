@@ -9,7 +9,8 @@
 //! Upstream: GeN-Foam `652b3da0cc55` on OpenFOAM-ESI v2506, the unmodified
 //! `GeN-Foam.C`, running `reactorCases/2D_MSFR` through `Allrun`'s three stages
 //! (`scripts/run_msfr_chain.sh`): `steadyStateTH` (15 s), `steadyStateEN` (to
-//! t = 165 s, `keff_` = 0.96031194083006322), then `transient`
+//! t = 165 s; ~~shipped solver tolerances, `keff_` = 0.96031194083006322~~ **CORRECTED 2026-11-26 (round 14): the tight
+//! protocol, every linear solver 1e-14 / relTol 0, `keff_` = 0.96031513866399976, critical at `pTarget` to 1.3e-8**), then `transient`
 //! (`eigenvalueNeutronics false`, `multiPhysicsSolver`: `onePhase` +
 //! `diffusionNeutronics`, 1 coupling iteration per step) at the tight protocol
 //! (every linear solver 1e-14 / relTol 0, `writePrecision 17`, one write per step).
@@ -278,6 +279,11 @@ fn run_port(s: &Setup, reference: &HashMap<String, Vec<f64>>, n_steps: usize) ->
     }
 }
 
+/// `power:` of upstream's step 1.
+fn up_power_1(reference: &HashMap<String, Vec<f64>>) -> f64 {
+    reference["STEP_1"][2]
+}
+
 fn rel(a: f64, b: f64) -> f64 {
     ((a - b) / b).abs()
 }
@@ -375,6 +381,8 @@ fn msfr_transient_neutronics_matches_upstream_over_50_steps() {
     assert!(worst_prec <= 1e-8 && worst_flux <= 1e-8, "H5: precursor totals {worst_prec:e}, flux integrals {worst_flux:e}");
     assert!(worst_cell <= 1e-8 && worst_cell_prec <= 1e-8, "H5: per cell {worst_cell:e} / {worst_cell_prec:e}");
     assert!(rel(port_dp, up_dp) <= 1e-5, "H6: power change {port_dp} vs {up_dp}");
+    // Round 14 (P6-2): the tight EN state is critical at `pTarget` to 1.3e-8; the step-1 jump of the loose state (+1.8e-4) is gone.
+    assert!(rel(up_power_1(&reference), 2.0e7) < 1e-6 && rel(run.steps[0].power, 2.0e7) < 1e-6, "step-1 power not at pTarget");
 }
 
 /// Ablation, pinned at its measured miss: the same 50 steps with the port's
@@ -382,11 +390,15 @@ fn msfr_transient_neutronics_matches_upstream_over_50_steps() {
 /// (`CrossSectionData::with_data_driven_chi`). Upstream never interpolates chi, so this
 /// is the port differing from upstream by exactly that one thing.
 ///
-/// Measured 2026-11-25: worst power difference 1.838e-4 (first step 7.4e-6, from
-/// step 3 on 1.75e-4 to 1.84e-4), neutron iteration counts equal at 43 of 50, power
-/// change at step 50 +1.0045e4 W against upstream's +1.3566e4 W. Bounds below are
-/// the measured values rounded outward by about 2x; they pin that the one option
-/// is what closes the gap, not a tolerance on a quantity to be matched.
+/// ~~Measured 2026-11-25 (shipped-tolerance EN start state): worst power difference 1.838e-4 (first step 7.4e-6,
+/// from step 3 on 1.75e-4 to 1.84e-4), neutron iteration counts equal at 43 of 50, power change at step 50 +1.0045e4 W
+/// against upstream's +1.3566e4 W; bounds were `1e-4..4e-4`, `< 48`.~~ **RE-PINNED 2026-11-26 (round 14), cause: the
+/// start state moved to the tight-solver EN state (critical at `pTarget` to 1.3e-8, not ~2e-4), which the maintainer
+/// approved on gh:#1814.** Measured on it: worst power difference 7.947e-6 (23x smaller: most of the old 1.8e-4 was
+/// the loose state meeting the chi change, not chi alone), iteration counts equal at 49 of 50, power change at step 50
+/// -145.0 W against upstream's +13.9 W. Bounds below are the measured values rounded outward by about 2.5x; they pin
+/// that the one option is what opens the gap (it is no longer 0 in any of the three), not a tolerance on a quantity to
+/// be matched. The prediction of round 14 (P6-6: stays in 1e-4..4e-4) MISSED.
 #[test]
 fn msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount() {
     let reference = read_ref(&vv_dir().join("refs/msfr_transient.ref.txt.gz"));
@@ -404,8 +416,8 @@ fn msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount() {
     let up_dp = reference["STEP_50"][2] - 2.0e7;
     let port_dp = run.steps[N_STEPS - 1].power - 2.0e7;
     println!("data-driven chi: worst power {worst:.3e}, iteration counts equal {equal}/50, change {port_dp:.4e} vs {up_dp:.4e}");
-    assert!((1e-4..4e-4).contains(&worst), "worst power difference {worst:e}");
-    assert!(equal < 48, "iteration counts equal at {equal}/50");
+    assert!((3e-6..2e-5).contains(&worst), "worst power difference {worst:e}");
+    assert!(equal < N_STEPS, "iteration counts equal at {equal}/50");
     assert!((port_dp / up_dp - 1.0).abs() > 0.1, "power change {port_dp} vs {up_dp}");
 }
 
