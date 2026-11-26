@@ -1701,3 +1701,38 @@ the same order but `0.5 * max(...)` differs in the last bit.
 
 None. No earlier gated number depends on a function changed here: only new functions and new files were added (`one_phase_cc.rs`, `coupled_loop.rs`,
 two new methods and one new free function in `upstream_transient.rs`).
+
+
+# Round 11 (gh:#1814, child of #1216): eigenvalue -> transient, chained in one call (`genfoam::workflow`)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+**Maintainer request, 2026-11-26:** "in GeNFoam, usually an eigenvalue calculation is done first to normalize the transient calculation. Make a module to automate this."
+
+## What was searched, and what upstream does (read before writing)
+
+Searched `src/genfoam` for `eigenvalue`, `reactorState`, `pTarget`, `pseudo_time`, `steadyState`, `correct_physics_loop`: the stationary-fuel pseudo-time driver (`neutronics/pseudo_time.rs`, `run_pseudo_time_eigenvalue`, `calc_keff`) exists for diffusion, SP3 and SN; the coupled transient loop and the energy-only `onePhase` exist from rounds 6 and 9. **Not present:** the circulating-fuel eigenvalue step (`diffusion/pseudo_time.rs` returns `PseudoTimeError::LiquidFuel`), anything that runs `steadyStateEN` (fluid + neutronics together), and anything that hands one stage's state to the next. Round 9 started its transient from upstream's own 165 s restart.
+
+Upstream (`GeN-Foam.C`, `solveNeutronics.H`, `fluxEq.H`, `precEq.H`, `calcKeff.H`, `normFluxes.H`, `meshHandler.C`, `Allrun`), read, not assumed:
+
+* **What carries over `steadyStateTH -> steadyStateEN -> transient`:** the time directory (all fields), `uniform/reactorState` (`keff`, `pTarget`; `keff_` is the only number the transient divides `nuSigmaEff` by), the flux and `precStar` (read if present, else `defaultFlux`/`defaultPrec` = 1), the fluid `T`, `U`, `p`, `htc`, `Re`, fluxes. `0/uniform` is copied into the `15` directory of `steadyStateEN` (that is where `keff 0.930537; pTarget 2e7` comes from).
+* **What changes:** `eigenvalueNeutronics true -> false`; `regionSolvers { fluidRegion onePhase; neutroRegion diffusionNeutronics; }` (each region once per step, ONE `mapAllFields` at the top: no coupling loop) -> `energyNeutroLoop multiPhysicsSolver` (`correctPhysics` loop, the map inside it); `adjustTimeStep false`, `deltaT 0.25` -> `adjustTimeStep true`; `writeInterval 50 -> 10`; `solveFluidMechanics false` in both.
+* **The eigenvalue step is NOT the transient step with `keff_` updated.** With `eigenvalueNeutronics_` the `ddt` coefficients are `(1 - 1) = 0` (flux AND `precStar`), the prompt-fission `Sp` vanishes, the neutron-iteration loop runs once (`&& !eigenvalueNeutronics_`), `precEq.H` is solved before and after the flux solves with the SAME `neutroSource_`, `powerDensity_` is evaluated BEFORE `normFluxes.H` (so the fluid is heated with `pTot`, not `pTarget_`, until `keff_` has converged), `calcKeff.H` does `keff_ *= pTot/pTarget_` clamped to `[0.1, 5]`, and on the first step of the run `normFluxes.H` is applied before the solve (`timeIndex - startTimeIndex == 1`). The precursors are not rescaled.
+* **Time:** fixed `deltaT 0.25` from 15 to 165: 600 steps (OpenFOAM `value < end - 0.5 deltaT`).
+
+## Plan, and the upstream runs
+
+1. Upstream, real binary, `scripts/run_msfr_chain.sh` with the `PROTOCOL=tight` option now also applied to the `steadyStateEN` stage (linear solvers only, `writeInterval` stays 50): `steadyStateTH` (shipped tolerances; its t = 15 s output is the INPUT of both codes, committed as `cases/msfr_fluid/restart_15`), `steadyStateEN` tight (the reference of comparison 1; measured upstream cost of this stage at SHIPPED tolerances: 71 s for all 600 steps, so the full 150 s protocol is used, nothing shortened), `transient` tight for 50 steps from that tight EN state (the reference of comparison 2).
+2. Port comparison 1: `EigenvalueStage::EnergyNeutroDiffusion` from the 15 s restart: `keff_` after every step, `power:`, `h` residuals, `T (avg min max)`, then at 165 s the flux of every group, `precStar`, `powerDensity` and `T` against the written fields, and the final `keff_` against upstream's tight value and the Allrun's "expected keff: 0.960282".
+3. Port comparison 2: `NormalisedState::start_transient` on the port's OWN 165 s state (no upstream restart is an input), 50 steps against upstream's `transient`, as round 9 (`dt`, `T`, `power`, `h` residuals, Courant).
+
+## Predictions (written BEFORE any port run; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| R11-1 | `keff_` per step, all 600, port vs upstream tight | `<= 1e-9` relative at every step. The pseudo-time iteration is a contraction (the `keff_` error of one step does not grow), the transport terms are the round-6/9 ones, and both solve every system to `1e-14`. About 55 % confidence; the alternative is a first-step difference (the `precStar` BiCGStab at `1e-14` absolute vs relative stopping) of order 1e-8 that then decays |
+| R11-2 | final `keff_` vs the Allrun's 0.960282 | tight upstream and port agree with each other to `<= 1e-9`; BOTH are within 5 pcm of 0.960282 (the shipped-tolerance upstream run gave 0.96031194, +3.0 pcm; the tight value is unknown to me and I expect it within about 1 pcm of that). Neither "equals 0.960282", and I will not report it as if it should |
+| R11-3 | flux, `precStar`, `powerDensity`, `T` at 165 s | worst relative difference `<= 1e-8` (a field integrates 600 steps of round-off, but the iteration damps it); `T` `<= 1e-10` |
+| R11-4 | does the eigenvalue iteration reach a steady `keff_` by 165 s | not fully: the transient's `power:` starts at 2.0000000e7 and rises to 20003657.5 in step 1 in the shipped run, so the state is NOT exactly critical-at-target. I expect the port's step-1 `power` to show the same +1.8e-4 relative jump |
+| R11-5 | comparison 2: `dt`, `T`, `power` of all 50 steps | `<= 1e-9` relative at every step; the first step above that, if any, is the finding. Round 9 had 1e-12 from an identical start; the start state now differs by comparison 1's difference, which the transient neither amplifies nor damps by much in 50 steps |
+| R11-6 | in-memory handover vs a restart from the written 165 directory | identical to round-off: the only restart-vs-memory difference I know of is `he = hs(T)` recomputed from `T` instead of carried (`<= 1e-15` relative). Not separately gated; visible in R11-5 if wrong |
