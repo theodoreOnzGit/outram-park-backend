@@ -118,3 +118,52 @@ constructor
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 05e5485cb5.
+
+# Review: Direction (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-direction-theodoreonzgit-675edefa"
+kind = "review"
+origin = "human"
+created = "2026-11-26T13:09:51+08:00"
+modified = "2026-11-26T13:09:51+08:00"
+target = "fn:675edefa7ec82788"
+
+[review]
+path = "crates/outram-blender/src/csg/position.rs::Direction"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T13:09:52+08:00"
+commit = "6b792a1e7328ae46958e1e0c4a9c95dcba2d91f3"
+hash = "sha256:a3f83ba6b25ab5e805efb5428ad1965e9fb5e1853850960a89f9f3c03180fc81"
+doc_hash = "sha256:b2a38c0bb19baa819bb8db6e58cf44581b4cd92e52d5805cbed0ecf44c7c643c"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "yes_nothing_stops"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "MtDU6/pmsPy70dPGah8gnFGrXMgcj517WvkQLWxQhoGzQREyiwUIefbc4WSDjBB8d7v+LNppNyPtSjBZirmmCw=="
+```
+
+direction vector struct. nothing big about it, similar to openmc
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 6b792a1e73.
