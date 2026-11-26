@@ -180,3 +180,55 @@ constexpr uint64_t prn_add {1442695040888963407ULL};  // additive factor, c
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 520a46eb0d.
+
+# Review: DEFAULT_STRIDE (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-default-stride-theodoreonzgit-243e3b4d"
+kind = "review"
+origin = "human"
+created = "2026-11-26T12:55:10+08:00"
+modified = "2026-11-26T12:55:10+08:00"
+target = "fn:243e3b4d8f0a431d"
+
+[review]
+path = "crates/petir/src/rng/lcg.rs::DEFAULT_STRIDE"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T12:55:10+08:00"
+commit = "59f6cc936cfe036a4ac10d2a3a8a25e43ae440d4"
+hash = "sha256:4878131359ba5f6635a525ca71f8a11f37e84f5a4574519129516cd1a42dfe3b"
+doc_hash = "sha256:ad8fd851be09f1c7cb344f4726a937069e664e62a621630ecb358a2ed51a8814"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "human"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "BZkH7gxtbWEEthUL46eFpfiFW9+j0RhpcCbRFgawh5xXb+nyMMwVOSdQyfD6tkar/7HmHbGd7NdJSZ+bQKV3BA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+constexpr uint64_t DEFAULT_STRIDE {152917ULL};
+confirmed against upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 59f6cc936c.
