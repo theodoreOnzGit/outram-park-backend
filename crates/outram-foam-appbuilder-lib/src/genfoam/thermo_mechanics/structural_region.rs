@@ -73,8 +73,8 @@ pub enum ThermoMechanicsRegion {
 /// `zeroGradient` becomes the natural, traction-free condition (a model difference, `fem` module documentation).
 ///
 /// # Errors
-/// [`AppBuilderError::UnsupportedScheme`] for a patch type the finite-volume solver gained that has no finite-element
-/// counterpart yet (named, not substituted).
+/// [`AppBuilderError::UnsupportedScheme`] for a patch type with no finite-element counterpart yet
+/// (`GFTractionDisplacement`, `gapContact`): named, not substituted.
 pub fn fem_patches_from_disp_patches(patches: &[DispPatch]) -> Result<Vec<FemPatch>, AppBuilderError> {
     patches
         .iter()
@@ -85,7 +85,7 @@ pub fn fem_patches_from_disp_patches(patches: &[DispPatch]) -> Result<Vec<FemPat
             _ => Err(AppBuilderError::UnsupportedScheme {
                 family: "boundaryField disp",
                 scheme: format!("{p:?}"),
-                reason: "no finite-element counterpart ported (traction / gap contact: gh:#1235)",
+                reason: "no finite-element counterpart ported yet: GFTractionDisplacement is ported for the finite-volume solver only (gh:#1235); a finite-element traction patch is filed",
             }),
         })
         .collect()

@@ -156,6 +156,7 @@ fn fvm_settings(n_correctors: usize, tol: f64) -> LegacyFvmSettings {
         cr_solver: LinearSolverSettings::tight(1e-14),
         t_solver: LinearSolverSettings::tight(1e-14),
         t_solver_kind: TStructSolver::PbicgDilu,
+        traction_bc_honours_plane_stress: false,
     }
 }
 
