@@ -376,6 +376,34 @@ on gh:#1614. A new one needs 1e-9.
   supersedes 1e-8 there too.
 
 
+### No regression pins until the physics is right (HARD RULE)
+
+**Maintainer direction, 2026-11-26:** "Don't need to pin until we get all
+physics right." A **regression pin** asserts a model's own output equals its
+current value: a re-blessed fixture compared byte for byte, or a "pinned to
+the first run" number checked to 1e-3. While a model's physics is still being
+corrected, do not add one, and do not re-pin one after a change. A pin on
+unfinished physics fails exactly when the physics gets fixed, and making it
+pass again means re-asserting whatever the model now says, which checks
+nothing.
+
+- **Record the numbers instead,** in the V&V doc and the commit: measured,
+  dated, with old and new values and the interpretation (the V&V rule
+  above). The record is the evidence; the assert is not needed for it.
+- **An existing pin on such a model** is `#[ignore]`d with this reason (or
+  turned into a printed record) when a physics change moves it, not
+  re-blessed. Un-ignore it, re-bless it and say so once the maintainer calls
+  that model's physics settled.
+- **Not covered, and still required:**
+  - correctness checks: energy and mass ledgers, physical invariants, bounds
+    derived from the physics (for example "the first relocation does not
+    quench the core");
+  - code-to-code bit identity against an upstream;
+  - correct-physics-is-default tests;
+  - benchmark gates designed to be able to fail, and headless determinism
+    (same run, same bytes).
+- **First use:** `sembawang::bwr_mark1` after the swell fix (gh:#1810).
+
 ## Search the workspace before building anything (HARD RULE)
 
 **Before attempting a solution — and before briefing an agent on one — scan
