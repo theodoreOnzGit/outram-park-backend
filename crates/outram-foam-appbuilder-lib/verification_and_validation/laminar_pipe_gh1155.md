@@ -4079,9 +4079,278 @@ and `_xz_corner` as before. The `pre_gh1298_*` images are unchanged.
 petir --test no_platform_libm`: 4 passed. No cfMesh code changed, so no
 cfMesh pin was run.
 
+## Layers grown first, the only layer route (gh:#1829, 2026-11-26)
+
+**Maintainer, 2026-11-26:** "Don't make it opt in, make it default. Hard
+rule for this crate. Take out the old option." The cfMesh pipeline grows its
+prism layers **first**, from TetGen's wall triangulation, and TetGen meshes
+the inner region face to face (`outram_park_fork_cfmesh::pipeline::layers_first`).
+Every layer strategy of the earlier sections (gh:#1215 back-off,
+`CfMeshOptimise`, `SnappyCollapse`; gh:#1824 `CfMeshTetMesh`) is removed
+from the pipeline, and Foam Studio's `layer_quality` control and `layerq=`
+key with it. The layered route needs TetGen for the inside, so **Foam
+Studio's layered meshes moved from the carved tet source to TetGen**; its
+bare meshes stay carved (every bare record above stands:
+`headless_unstructured_pipe_runs_and_is_pinned`, h 4 mm bare, 6353 cells,
+0.8925 / 1.0326, passes unchanged).
+
+**Methodology.** As the gh:#1298 section: the demo pipe (R 10 mm, L 200 mm,
+48 sides), Re 100, steady, 200 steps, `headless`; the default spec
+(`TetDualSpec::default_for(0.01)`: h 5 mm, 3 layers from 0.3 mm at 1.2,
+cell-centre dual with corners, upstream's route without the Laplace pass).
+Ablations in `engine::tests::diagnose_layers_first_default` (`--ignored`):
+the pre-gh:#1298 route, 1 layer, bare on TetGen (`FOAM_TET_SOURCE=tetgen`),
+bare carved. **Prediction (written before the first run):** u_c/2U
+0.93–0.95, dp/dz 1.00–1.02 × HP, like the old default's 0.9394 / 1.0062
+(both carry three ~1 mm layers at h 5 mm); bands asserted by the test:
+u_c/2U 0.85–1.05, dp/dz 0.95–1.10.
+
+**Results (2026-11-26, release, native):**
+
+| mesh (h 5 mm) | cells | max non-orth | mesh time | u_c/2U | dp/dz / HP | f Re |
+|---|---|---|---|---|---|---|
+| ~~old default: carved dual + `CfMeshOptimise` 3 layers, upstream route (gh:#1298)~~ | 7049 | | about 6 s | 0.9394 | 1.0062 | |
+| **new default: layers first (3), TetGen, upstream route** | 28121 | 62.7° | 15.3 s | **0.8820** | **1.1067** | 70.83 |
+| layers first (3), TetGen, pre-gh:#1298 route | 28121 | 54.5° | 3.0 s | 0.8815 | 1.1051 | 70.73 |
+| layers first (1), TetGen, upstream route | 15486 | 61.1° | 8.2 s | 0.8802 | 1.1322 | 72.46 |
+| bare, TetGen | 9103 | 63.4° | 6.4 s | 0.8717 | 1.1354 | 72.66 |
+| bare, carved | 3113 | 50.7° | 1.2 s | 0.9099 | 1.0296 | 65.89 |
+
+(HP: f Re = 64.)
+
+**The prediction missed, and the gate fails.** The new default's dp/dz
+is 1.107 × HP, outside the 0.95–1.10 band written before the run (u_c/2U
+0.882 is inside its band but below the predicted 0.93–0.95), so
+`headless_unstructured_default_is_pinned` **fails**; the band was not moved.
+It is 10 % off Hagen–Poiseuille in dp/dz where the removed route was 0.6 %.
+**Where it comes from (the ablations):** not the layers. On the same TetGen
+source, the bare mesh is 1.135, one layer 1.132, three layers 1.107: the
+layers grown first move the result *toward* HP. The loss is the tet source:
+the bare dual of TetGen's tetrahedra (9103 cells) is 1.135 where the bare
+carved dual (3113 cells) is 1.030, at three times the cells. The upstream
+route (surface untangling, `optimiseFinalMesh`) changes nothing measurable
+here (1.1067 against 1.1051) and costs 12 s of the 15 s. Not investigated
+further in this change: why the dual of TetGen's tetrahedra at `-a` the
+regular tetrahedron of h does worse on this solver than the carved dual
+(candidates: the cell-centre dual's non-planar faces on unstructured tets,
+the cell-length and gradient scheme tuned on the carved dual, the 0.65–0.85
+L dp/dz window). This needs the maintainer's call: the carved source cannot
+take layers grown first (it does not keep the layers' top surface).
+**REFINED 2026-11-26 (the investigation below):** "the loss is the tet
+source" holds only at equal h. The cause is the convection scheme's
+discretisation error in the pipe's core, whose cells TetGen leaves at
+≈ 3.9 mm while its extra cells crowd the wall ring; at equal core
+resolution, and with central convection, the TetGen dual is as close to
+Hagen–Poiseuille as the carved one or closer.
+
+**Old numbers this replaces:** the gh:#1298 default's pin (7049 cells,
+0.9394, 1.0062) and the panel note that quoted it; the layer strategies'
+tables above (gh:#1202, #1215, #1240, #1283) record routes that no longer
+exist.
+
+### Why the layered default misses: the investigation (gh:#1829, 2026-11-26)
+
+**Maintainer's decision:** find the cause before touching the band; the
+band (dp/dz 0.95–1.10 × HP) is the check and does not move, and no input is
+tuned until the comparison passes.
+
+**Hypotheses and predictions (written before any measurement, ranked).**
+Known beforehand: the bare TetGen dual (9 103 cells) 1.135 against the bare
+carved dual (3 113 cells) 1.030, both under the demo's settings
+(`div(phi,U) Gauss linearUpwind grad(U)`, `grad(U) cellLimited Gauss
+linear 1`, `corrected`, 2 non-orthogonal correctors; max non-orthogonality
+63° and 51°, below the 70° switch to `limited`); and from gh:#1202 that on
+the carved dual `Gauss linear` convection approaches HP from below while
+`linearUpwind` + `cellLimited` sits above it.
+
+| | hypothesis | prediction (sign, size) |
+|---|---|---|
+| g (added, 1st) | cross-stream false diffusion of the convection scheme on faces oblique to the flow (`cellLimited` minmod clips `linearUpwind` back toward upwind), larger on TetGen's randomly oriented faces than on the lattice-aligned carved dual | the excess grows with Re: at Re 10 the TetGen dual is within 3 % of the carved dual's Re 10 value; with central `Gauss linear` convection at Re 100 it falls by ≥ 0.08 (to ≤ 1.05) |
+| a (2nd) | plain discretisation error | the TetGen dual converges toward 1 under refinement, at order ≤ 1 (h 5 → 3.5 mm: 1.135 → ≥ 1.08) |
+| b (3rd) | non-orthogonality | 2 → 5 correctors moves dp/dz < 0.005; `uncorrected` moves it a few %, not 0.1 |
+| c (4th) | wall faces of the dual with `Corners` | the force balance closes (τ_w/HP within 3 % of dp/dz/HP: a real flatter profile, not a wall-metric defect); wall-cell normal distance / V^(1/3) within 30 % between the duals |
+| f (5th) | faceted cross-section (area loss) | the meshed section within 0.5 % between the duals; contribution < 0.01 |
+| d (6th) | development length / window | dp/dz over 0.40–0.60, 0.65–0.85 and 0.75–0.90 L agree within 0.02; cannot explain a source difference |
+| e (7th) | radial resolution | **not** the cause: TetGen has 3× the cells, so ~1.4× per radius |
+
+**Methodology.** New `--ignored` diagnostics in
+`dhoby-ghaut/examples/foam_studio_web/engine.rs`:
+`diagnose_tetgen_dual_miss` (cases from `FOAM_DIAG_CASES`, each
+`source/h_mm/layers/Re/div/laplacian/correctors`) runs the headless pipe of
+the default spec (R 10 mm, L 200 mm, 48 sides, steady, Co 4 under the
+viscous cap, at most 4 000 steps) and prints, per case: cells, max and
+mean non-orthogonality, the fraction of internal faces within 10° of axial
+or transverse, slab area, wall-cell normal distance / V^(1/3), mean
+V^(1/3) and cell count in five radial bins of the 0.65–0.85 L slab, the
+inlet flux area |Σ S·ẑ|/πR², and u_c/2U, dp/dz/HP over three windows,
+τ_w/HP and the profile RMS (the instruments of the sections above,
+`cases::laminar_pipe`). `diagnose_dual_gradient_consistency` measures the
+`Gauss linear` gradient against the exact gradients of manufactured fields
+(z/R, x/R, 1 − r²/R², exact values on every patch) and the face skewness.
+New native knob `FOAM_TETGEN_A=<m³>` (or `FOAM_TET_SOURCE=tetgen:<m³>`)
+sets TetGen's `-a` bound directly, to refine the core without changing
+anything else. Release, native, this host, 2026-11-26.
+
+**Results.**
+
+*Re dependence (bare duals, h 5 mm, demo schemes):*
+
+| Re | TetGen dual: u_c/2U, dp/dz/HP, τ_w/HP | carved dual: u_c/2U, dp/dz/HP, τ_w/HP |
+|---|---|---|
+| 10 | 0.9792, **0.9860**, 0.9870 | 0.9522, 0.9607, 0.9638 |
+| 30 | 0.9392, 1.0287, 1.0307 | 0.9362, 0.9822, 0.9852 |
+| 100 | 0.8717, **1.1354**, 1.1474 | 0.9099, 1.0296, 1.0324 |
+
+The layered default (28 121 cells) at Re 10: u_c/2U **0.9896**, dp/dz
+**0.9934**, τ_w 0.9950. The miss appears only with convection.
+
+*Convection and Laplacian ablations (Re 100, h 5 mm):*
+
+| case | TetGen bare: u_c/2U, dp/dz | carved bare: u_c/2U, dp/dz |
+|---|---|---|
+| demo (`linearUpwind` + `cellLimited` 1) | 0.8717, 1.1354 | 0.9099, 1.0296 |
+| `linearUpwind`, unlimited | 0.9507, 1.0822 | 0.9121, 1.0328 |
+| `upwind` | 0.7220, 1.9606 | — |
+| `Gauss linear` at Co 4 | diverged at step 0 | diverged at step 0 |
+| `Gauss linear` at Co 1 (`FOAM_MAX_CO=1`) | **1.0032, 0.9885** (τ_w 0.9780) | 0.9709, 0.9546 |
+| demo at Co 1 (control) | 0.8718, 1.1360 | — |
+| demo, 5 correctors | 0.8717, 1.1354 (same to every digit) | — |
+| demo, `uncorrected` | 0.8519, 1.0426 | — |
+| layered default, `uncorrected` | 0.8792, 1.0560 (default 0.8820, 1.1067) | — |
+
+The Co 1 runs stopped at the 4 000-step cap without the steady flag; the
+demo-scheme control at Co 1 reproduces its Co 4 steady numbers to 3 digits
+(1.1360 against 1.1354), so the cap left them at their steady values, but
+the `Gauss linear` rows are not certified steady by the flag.
+
+*Mesh (h 5 mm, 0.65–0.85 L slab):*
+
+| | TetGen bare | carved bare | TetGen, 3 layers (default) |
+|---|---|---|---|
+| mean V^(1/3) [mm] / cells, r/R 0–0.2, 0.2–0.4, 0.4–0.6, 0.6–0.8, 0.8–1 | 3.82/5, 4.00/28, 3.81/47, 2.85/118, **1.26/1588** | 4.59/8, 1.68/32, 3.34/100, 1.71/96, 2.15/387 | 4.22/7, 3.81/28, 3.08/95, 1.89/498, 0.87/4832 |
+| internal faces within 10° of axial / transverse | 0.029 / 0.179 | 0.111 / 0.318 | |
+| mean / max non-orthogonality | 17.1° / 63.4° | 15.3° / 50.7° | — / 62.7° |
+| face skewness mean / max | 0.078 / 0.401 | 0.062 / 0.239 | |
+| `Gauss linear` gradient error, interior cells, RMS (z/R, x/R, 1−r²/R²) | 0.039, 0.041, 0.049 | 0.045, 0.059, 0.062 | |
+| wall-cell normal distance / V^(1/3) | 0.304 | 0.243 | |
+| inlet flux area / πR² | 0.99308 | 0.99196 | 0.99350 |
+| dp/dz over 0.40–0.60 / 0.65–0.85 / 0.75–0.90 L | 1.1615 / 1.1354 / 1.1618 | 1.0419 / 1.0296 / 1.0295 | 1.1204 / 1.1067 / 1.1157 |
+
+89 % of the bare TetGen dual's slab cells sit in the outer fifth of the
+radius at 1.26 mm: TetGen keeps the input's 48 wall facets (1.31 mm wide)
+and its radius-edge bound (`-q 1.414`) grades the tetrahedra up from them,
+so its threefold cell count goes to the wall ring. The core stays at the
+`-a` bound, ≈ 3.9 mm, no finer than the carved dual's.
+
+*Refinement of the core (`FOAM_TETGEN_A`, Re 100, demo schemes; the
+regular tetrahedron of h 5 mm, the default bound, is 1.47e-8 m³):*
+
+| `-a` [m³] | core V^(1/3), r < 0.6 R [mm] | TetGen bare: cells, u_c/2U, dp/dz, τ_w | TetGen 3 layers: cells, u_c/2U, dp/dz, τ_w |
+|---|---|---|---|
+| 1.47e-8 (default) | 3.8–4.0 | 9 103, 0.8717, 1.1354, 1.1474 | 28 121, 0.8820, **1.1067**, 1.1099 |
+| 5.0e-9 (regular tet of 3.5 mm) | 2.6–2.7 | 10 043, 0.9363, 1.0713, 1.0645 | 28 710, 0.9276, 1.0726, 1.0702 |
+| 1.84e-9 (regular tet of 2.5 mm) | 1.8–1.9 | 14 326, 0.9780, **1.0240**, 1.0221 | 31 346, 0.9735, **1.0309**, 1.0275 |
+
+Through the spec's h (which sets the same bound): TetGen bare h 3.5 mm
+10 075 cells, 0.9304, 1.0562; TetGen 3 layers h 3.5 mm 28 789 cells,
+0.9311, 1.0746; carved bare h 3.5 mm 8 900 cells (core 1.6–1.9 mm),
+0.9478, **1.0375** (its h 5 mm 1.0296 is therefore not a converged value).
+h below R/3 (3.33 mm) is clamped by the spec, so the h study stops there;
+the `-a` study is the refinement.
+
+**Against the predictions.**
+
+| | prediction | result | verdict |
+|---|---|---|---|
+| g | Re 10 within 3 % of carved; central ≤ 1.05 | Re 10: TetGen 0.986, carved 0.961 (TetGen **closer** to HP); central at Co 1: 0.989 (−0.147) | **held**: the excess is convective; without the upwind-biased limited scheme the TetGen dual is within 1.2 % |
+| a | converges, order ≤ 1 | converges: 1.135 → 1.071 → 1.024 bare, 1.107 → 1.073 → 1.031 layered, as the core goes 3.9 → 2.6 → 1.85 mm; apparent order 1.6 then 3.2 (bare), 1.0 then 2.3 (layered) | held in kind; order higher than predicted and, from three points with ±0.02 window noise, not reliable |
+| b | correctors < 0.005; `uncorrected` a few % | 5 correctors: no change; `uncorrected` −0.093 bare, −0.051 layered, with u_c unchanged or lower | correctors held; **`uncorrected` missed**: it lowers dp/dz without restoring the profile (u_c 0.852, 0.879), a compensating error, not a fix; upstream's unstructured tutorials (`elbow`, `flange`) run `corrected` |
+| c | force balance within 3 %; wall distance within 30 % | τ_w/HP 1.147 against dp/dz 1.135; 0.304 against 0.243 | held: the profile really is flatter |
+| f | area within 0.5 % between the duals | 0.99308 against 0.99196 (layered 0.99350) | held: not the cause |
+| d | windows within 0.02 | TetGen bare 1.162 / 1.135 / 1.162, carved 1.042 / 1.030 / 1.030 | missed narrowly on TetGen (the 0.65–0.85 L window reads ~0.025 *lower* than its neighbours): window noise, not development, and no source difference |
+| e | not the cause | **missed**: the core resolution is the controlling length; TetGen's extra cells are in the wall ring | the cause, with g |
+| k (checked while measuring) | `Gauss linear` gradient inconsistent on the more skewed dual | interior gradient error 4–5 % on TetGen, 4–6 % on carved | not the cause |
+
+**The cause.** The demo's convection scheme, `Gauss linearUpwind grad(U)`
+with `grad(U) cellLimited Gauss linear 1` (chosen from the tutorials in
+gh:#1202, unchanged here), adds cross-stream numerical diffusion in the
+pipe's core that grows with the core cell size and with Re; it flattens the
+developed profile (u_c/2U 0.87–0.88) and raises the wall shear and dp/dz
+together. On TetGen's tetrahedra at the default `-a` bound the core cells
+are ≈ 3.9 mm, no finer than the carved dual's, while TetGen's threefold
+cell count crowds the outer fifth of the radius, held there by the 48 wall
+facets; and its randomly oriented faces (3 % near-axial against 11 %)
+carry more of this diffusion per cell than the lattice-aligned carved dual.
+At Re 10, or with central convection at Re 100, the same TetGen meshes are
+within 1.5 % of Hagen–Poiseuille, closer than the carved dual; under core
+refinement the layered default converges toward HP (1.031 at a 1.85 mm
+core, 31 346 cells, +11 %). **No defect was found** in the mesh (area, wall
+metric, non-orthogonality, gradient consistency) or in the port of the
+schemes (gh:#1202 records their unit tests; upstream's
+`correctedSnGrad<vector>::correction` also takes the `grad(U)` scheme, read
+2026-11-26 from OpenFOAM-dev master `correctedSnGrads.C` and
+`correctedSnGrad.C`, so the limited gradient entering the momentum
+Laplacian's correction is upstream's behaviour). This is discretisation
+error at the default resolution.
+
+**No fix is made; options for the maintainer.** The band and the default
+are unchanged, and `headless_unstructured_default_is_pinned` still fails
+(1.1067). Nothing here is a port defect to correct, and choosing a
+convection scheme or an `-a` bound now, after seeing which passes, would be
+the tuning the process rule forbids. What the measurements support, for a
+decision on its merits:
+
+1. **Resolve the core.** The default's `-a` (the regular tetrahedron of h)
+   leaves the core at ≈ 0.8 h while the wall ring is at 1.3 mm. A bound set
+   from the core resolution the flow needs (the regular tetrahedron of
+   R/4, 1.84e-9 m³ here: +11 % cells, meshing 15 → 23 s native) gives
+   1.031; the browser cost is not measured.
+2. **The convection scheme.** `cellLimited` minmod reverts `linearUpwind`
+   to first-order upwind at the centreline maximum (gh:#1202); unlimited
+   `linearUpwind` gives 1.082 on the bare TetGen dual, and central `Gauss
+   linear` 0.989 but diverges at the demo's Co 4. The tutorials' bounded
+   alternative `limitedLinearV 1` is not ported.
+
+Both change what is compared, so they are the maintainer's call; the
+record above is what each would start from.
+
+### Decision: the core is sized from R (maintainer, gh:#1829, 2026-11-26)
+
+The maintainer chose option 1. A layered pipe's TetGen `-a` bound is now
+the regular tetrahedron of edge min(h, R/4)
+(`foam_studio_web/engine.rs::core_tet_volume`). The rule is a resolution
+requirement on the core: about four tetrahedron edges per radius. It was
+stated after the investigation above and is recorded as such. The band
+(0.95–1.10) and the convection scheme are unchanged.
+
+**Result**, `headless_unstructured_default_is_pinned`, native, release,
+2026-11-26:
+
+| quantity | value |
+|---|---|
+| cells | 31 293 (28 121 before, +11 %) |
+| meshing time | 15.7 s (the investigation's estimate was 23 s; 15.3 s before) |
+| u_c/2U at 0.75 L | 0.9738 (0.8820 before) |
+| dp/dz over 0.65–0.85 L | 1.0271 × HP (1.1067 before) |
+| f Re | 65.73 |
+| max non-orthogonality | 63.1° |
+
+The test passes. The browser time has not been measured.
+
+The +2.7 % that remains is consistent with the refinement study above
+(1.031 at a 1.85 mm core), which still had not converged. It is the same
+convective discretisation error, now smaller; it has not been removed.
+
 ## Reproduce
 
 ```bash
+# gh:#1829, the layered default and its ablations
+cargo test --release -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_layers_first_default
+# gh:#1829, the investigation (cases: source/h_mm/layers/Re/div/laplacian/correctors)
+FOAM_DIAG_CASES="tetgen/5/0/100/lul/def/def,carved/5/0/100/lul/def/def,tetgen/5/0/10/lul/def/def" cargo test --release -j2 -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_tetgen_dual_miss
+FOAM_MAX_CO=1 FOAM_DIAG_CASES="tetgen/5/0/100/lin/def/def" cargo test --release -j2 -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_tetgen_dual_miss
+FOAM_TETGEN_A=1.84e-9 FOAM_DIAG_CASES="tetgen/5/3/100/lul/def/def" cargo test --release -j2 -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_tetgen_dual_miss
+cargo test --release -j2 -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_dual_gradient_consistency
 cargo test --release -p outram-foam-appbuilder-lib --test laminar_pipe_hagen_poiseuille \
     -- --ignored --nocapture measure_gh1155
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-mesh

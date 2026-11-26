@@ -37,7 +37,8 @@
 //! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | **done: [`flip`], [`recover`], [`steiner`]** |
 //! | 5 | gh:#1794 | the rest of `-p`: `carveholes`, `suppresssteinerpoints`, `recoverdelaunay`, `smooth_vertices`, `improve_mesh`, `jettisonnodes`, the `.node`/`.ele`/`.face`/`.edge` output, [`to_volume_mesh`] | **done: [`carve`], [`optimize`], [`output`], [`tetrahedralize`]** |
 //! | 6 | gh:#1795 | Delaunay refinement (`-q`, `-a`); ~~mesh improvement~~ (ported in stage 5: plain `-p` runs it) | **done: [`refine`], [`quality`]** |
-//! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | **done: [`crate::pipeline::TetSource::TetGen`]** (`pipeline/tet_source.rs`; ~~the crate default stays the carved route~~ the crate default since 2026-11-26, as `TetSource::TetGenAtCellSize`) |
+//! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | **done: [`crate::pipeline::TetSource::TetGen`]** (`pipeline/tet_source.rs`; the crate default stays the carved route) |
+//! | `-m` | gh:#1825 | `.mtr` point sizes (`-m`): size-driven refinement, `meshcoarsening`, `.mtr`/`.p2t` output; wall grading of the TetGen tet source | **done: [`sizing`]** (and `pipeline/tet_source/wall_grade.rs`) |
 //!
 //! Stage 2 adds the mesh object ([`mesh::TetgenMesh`]: pools, records,
 //! `triface` and every orientation table, with indices for pointers) and
@@ -96,6 +97,15 @@
 //! equal the unmodified upstream binary's byte for byte on 41 runs, with
 //! 64 reach counters equal (`verification_and_validation/tetgen_quality_gh1795/`).
 //!
+//! `-m` (gh:#1825) adds point mesh sizes ([`sizing`]; [`PlcInput::read_mtr`],
+//! [`Switches::metric`]): `checktet4split` splits a tetrahedron whose
+//! circumradius exceeds a vertex's size, `insertpoint` rejects a point inside
+//! half a vertex's size and interpolates a size for every new point, and
+//! `meshcoarsening` removes interior vertices closer than their size. Its
+//! `.node`, `.ele`, `.face`, `.edge`, `.mtr` and `.p2t` files equal the
+//! unmodified upstream binary's byte for byte on 28 runs, with every reach
+//! counter equal (`verification_and_validation/tetgen_sizing_gh1825/`).
+//!
 //! **The pool order is part of the answer.** Upstream numbers its output by
 //! walking its memory pools in allocation order and reuses freed records
 //! last-in first-out; [`mesh::MemoryPool`] reproduces both, and anything that
@@ -130,6 +140,7 @@ pub mod predicates;
 pub mod recover;
 pub mod quality;
 pub mod refine;
+pub mod sizing;
 pub mod steiner;
 pub mod surface;
 pub mod tetrahedralize;

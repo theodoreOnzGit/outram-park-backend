@@ -237,23 +237,50 @@ and answers cuts of any stage; the app only draws.
   fitted zoom: a review set must include zoomed wall views
   (`?at=x,y&zoom=f`), and the report's "Wall layers total" line states the
   grown thickness against the asked one (~~back-off keeps ~10 % on the
-  reactor shapes~~ **CORRECTED 2026-11-26, gh:#1796:** back-off keeps
-  6–9 % on the carved dual and 12–17 % on the TetGen dual of the pipe and
-  fuel channel, and grows none on the pebble).
+  reactor shapes~~ **CORRECTED 2026-11-26, gh:#1796:** ~~back-off keeps~~
+  ~~6–9 % on the carved dual and 12–17 % on the TetGen dual of the pipe and
+  fuel channel, and grows none on the pebble~~ **CORRECTED again
+  2026-11-26, gh:#1829:** layers grown first keep the full asked thickness
+  on all three reactor shapes at the page's defaults).
 - **Tet source (gh:#1796).** The page's default is TetGen
   (`Design::tetgen`, `?tets=tetgen|carved`, `?q=` radius-edge ratio,
   default 1.414, `?vol=` max tet volume, default the regular tetrahedron
   of the cell size `h³/(6√2)`); ~~the cfMesh crate's default, and so
-  `Params::default` and the headless sweep, stay on the carved route.~~
-  **CHANGED 2026-11-26** (maintainer: "set the default crate wide to
-  tetgen"): the cfMesh default is TetGen at the cell size
-  (`TetSource::TetGenAtCellSize`), so `Params::default` and the headless
-  sweep are on TetGen too; `?tets=carved` keeps the carved route. On
+  `Params::default` and the headless sweep, stay on the carved route~~
+  (gh:#1829: TetGen is now the cfMesh crate's default too, so
+  `Params::default` and the headless sweep mesh on TetGen). On
   TetGen's tets the carve and snap stages are listed as skipped and cut
   empty. `--measure` (`headless::measure`) prints one row of the
   mesh-type table for any query; the table is in the review README.
-  `Design::MAX_LAYERS` is 25: back-off grows none of a 20-layer stack on
-  the pipe, `CfMeshOptimise` grows all 20.
+  `Design::MAX_LAYERS` is 25: ~~back-off grows none of a 20-layer stack on
+  the pipe, `CfMeshOptimise` grows all 20~~ (gh:#1829: layers first grow
+  all 20 at the full thickness).
+- **Wall grading (gh:#1825).** `?grade=on|off|<wall size m>[,<growth>]`
+  (`Design::wall_size`, `wall_growth`; panel: "grade toward the walls"):
+  TetGen's `-m` sizes graded from the walls (the layer patches), `on`
+  being half the cell size at the walls, growth 1.2, twice the cell size
+  inside, and the derived `-a` the regular tetrahedron of that interior
+  size. **Off by default**, so the TetGen pins do not move (switching it on
+  by default needs the maintainer). Cost: 27 k / 65 k / 45 k tetrahedra
+  (pipe, fuel channel, pebble) against 18 k / 31 k / 35 k ungraded; a
+  quarter of the cell size at the walls gave the fuel channel 399 k, so the
+  wall size is clamped to at least a quarter. `--tetgen-render <dir>
+  graded` draws the raw graded meshes coloured by edge length; the
+  `*_graded_*` views of `render.mjs` the page's.
+- ~~**Tets + layers (gh:#1824)** build through cfMesh's `tetMesh` layer
+  steps, `strategy=tetmesh` (`LayerQualityStrategy::CfMeshTetMesh`): the
+  only strategy that grows layers on TetGen's tetrahedra (pipe and fuel
+  channel; the pebble is refused with 6 inverted cells). The page's
+  default strategy stays back-off, so `mesh=tet` without `strategy=tetmesh`
+  still grows none; the panel's note says so.~~
+- **Layers grown first (gh:#1829, 2026-11-26, the cfMesh crate's HARD
+  RULE):** the strategy picker and the `strategy=` key are gone (the key is
+  ignored). Prisms are grown from TetGen's wall triangulation and TetGen
+  meshes the inside face to face; `mesh=poly` is the dual of both. The
+  carved source (`tets=carved`) takes no layers: with `n>0` the build is
+  refused and the panel says so. The stage stepper lists `boundary layers`
+  before `polyhedral dual`. Measurements and images: the gh:#1829 section
+  of `verification_and_validation/mesh_studio_gh1771/README.md`.
 - The headless-sweep fixture test fails on HEAD for reasons that predate
   Mesh Studio (gh:#1772); do not re-pin it without that issue's answer.
 

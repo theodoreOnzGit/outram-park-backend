@@ -554,6 +554,12 @@ pub struct PointRecord {
     /// insertion radius Delaunay refinement gives a Steiner point (0 until
     /// set; only `-q` and `-D` set it).
     pub insradius: f64,
+    /// `pt[pointmtrindex]` (`-m`, gh:#1825): the point's mesh size, 0 for
+    /// none. Only the first of a `.mtr` row's columns is ported (one
+    /// column; the anisotropic 3 and 6 are refused,
+    /// [`super::PlcInput::read_mtr`]). `makepoint` clears it, as upstream's
+    /// clears the `sizeoftensor` words.
+    pub mtr: f64,
 }
 
 impl PointRecord {
@@ -568,6 +574,7 @@ impl PointRecord {
         flags: 0,
         geomtag: 0,
         insradius: 0.0,
+        mtr: 0.0,
     };
 }
 
@@ -973,6 +980,16 @@ pub struct Behavior {
     pub maxvolume: f64,
     /// `-a#`: `maxvolume_length = pow(maxvolume, 1/3) / 3` (default -1).
     pub maxvolume_length: f64,
+    /// `-m`: `metric`, apply the point mesh sizes of the input's `.mtr`
+    /// list (gh:#1825, [`super::sizing`]): `checktet4split` splits a
+    /// tetrahedron whose circumradius exceeds a vertex's size, `insertpoint`
+    /// rejects a point inside half a vertex's size and gives each new point
+    /// a size interpolated from its tetrahedron, and `meshcoarsening` runs.
+    /// Without `-q` it only coarsens (upstream's `-m` does not imply `-q`).
+    pub metric: bool,
+    /// `-m#`: `metric_scale`, every input size is multiplied by it
+    /// (default 1.0).
+    pub metric_scale: f64,
 }
 
 impl Default for Behavior {
@@ -1021,6 +1038,8 @@ impl Default for Behavior {
             fixedvolume: false,
             maxvolume: -1.0,
             maxvolume_length: -1.0,
+            metric: false,
+            metric_scale: 1.0,
         }
     }
 }
@@ -1266,6 +1285,9 @@ pub struct TetgenMesh {
     /// Per-routine and per-branch call counts of stage 6 (the `tg6`
     /// instrumentation of `verification_and_validation/tetgen_quality_gh1795/`).
     pub reach6: [u64; 64],
+    /// Per-branch call counts of the `-m` mesh sizes (gh:#1825, the `tgm`
+    /// instrumentation of `verification_and_validation/tetgen_sizing_gh1825/`).
+    pub reachm: [u64; 32],
 }
 
 impl TetgenMesh {
@@ -1384,6 +1406,7 @@ impl TetgenMesh {
             reach5: [0; 64],
             rf: super::refine::RefineState::default(),
             reach6: [0; 64],
+            reachm: [0; 32],
         }
     }
 

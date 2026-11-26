@@ -143,12 +143,12 @@ impl FoamApp {
                 bugis::web_demo::platform::query_value(&q, "h"),
                 bugis::web_demo::platform::query_value(&q, "layers"),
             );
-            // `&dual=point|centre`, `&fp=corners`, `&layerq=cfmesh|snappy`
-            // (gh:#1240 browser controls).
+            // `&dual=point|centre`, `&fp=corners` (gh:#1240 browser
+            // controls; ~~`&layerq=cfmesh|snappy`~~ removed 2026-11-26,
+            // gh:#1829: the layers are grown first, one route).
             app.unstructured = app.unstructured.with_query(
                 bugis::web_demo::platform::query_value(&q, "dual"),
                 bugis::web_demo::platform::query_value(&q, "fp"),
-                bugis::web_demo::platform::query_value(&q, "layerq"),
             );
             // `&route=legacy|upstream` (gh:#1298): the pre-gh:#1298 cfMesh
             // route (the ablation) or upstream's sequence (the default).
@@ -473,7 +473,6 @@ impl FoamApp {
                 touched |= ui.add(egui::Slider::new(&mut s.expansion, 1.0..=1.5).text("expansion")).changed();
                 // gh:#1240 / #1215 mesher choices, as on the native knobs.
                 {
-                    use outram_blender::foam_mesh::LayerQualityStrategy as L;
                     use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
                     ui.label(RichText::new("wall faces of the dual").small());
                     ui.horizontal_wrapped(|ui| {
@@ -488,12 +487,6 @@ impl FoamApp {
                             touched = true;
                         }
                     }
-                    ui.label(RichText::new("bad layer cells").small());
-                    ui.horizontal_wrapped(|ui| {
-                        for (k, label) in [(L::BackOffOnly, "back off"), (L::CfMeshOptimise, "cfMesh optimise"), (L::SnappyCollapse, "snappy collapse")] {
-                            touched |= ui.selectable_value(&mut s.layer_quality, k, label).changed();
-                        }
-                    });
                     // gh:#1298: upstream's sequence around the dual (the
                     // default) or the route before it (the ablation).
                     let mut upstream = s.route == crate::engine::CfMeshRoute::UpstreamNoLaplace;
@@ -1054,70 +1047,39 @@ impl eframe::App for FoamApp {
     }
 }
 
-/// The warning the mesh panel shows under the layer controls: what the V&V
-/// record (`laminar_pipe_gh1155.md`, gh:#1202, #1215, #1240) measured for
-/// this many layers with these mesher choices, at the demo pipe. `None` when
-/// there is nothing to warn about.
+/// The note the mesh panel shows under the layer controls. ~~What the V&V
+/// record measured for this many layers with each layer strategy (back-off,
+/// cfMesh optimise, snappy collapse; gh:#1202, #1215, #1240, #1298)~~
+/// **CHANGED 2026-11-26 (gh:#1829, maintainer HARD RULE for the cfMesh
+/// crate):** the layers are grown first, from TetGen's wall triangulation,
+/// and TetGen meshes the inside; the old strategies and their records are
+/// gone. The note gives the re-measured default (the gh:#1829 section of
+/// `laminar_pipe_gh1155.md`). `None` for a bare mesh.
 fn layer_warning(c: &TetDualSpec) -> Option<&'static str> {
-    use outram_blender::foam_mesh::LayerQualityStrategy as L;
-    use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
-    let polydual_corners = c.dual != D::MedianPerCorner && c.feature_points == F::Corners;
-    let upstream = c.route == crate::engine::CfMeshRoute::UpstreamNoLaplace;
-    match (c.n_layers, c.layer_quality) {
-        (0, _) => None,
-        (_, L::CfMeshOptimise) if upstream => Some(
-            "cfMesh's layer optimiser with upstream's sequence (the default): about 6 s natively at 5 mm with 3 layers, about 22 s in a browser (gh:#1298). On the cell-centre dual, corners only, it ran at u_c/2U 0.939, dp/dz 1.006 x Hagen-Poiseuille, with 0 bad faces; the layers come out about 0.9 mm for 0.98 mm asked.",
-        ),
-        (_, L::CfMeshOptimise) => Some(
-            "cfMesh's layer optimiser takes minutes (140-370 s natively at 5 mm, 3 layers; slower in a browser) and makes the layers thicker than asked (its thickness control is not ported). With the cell-centre dual, corners only, 3 layers ran at 5 mm: u_c/2U 0.931, dp/dz 1.005 x Hagen-Poiseuille (gh:#1240).",
-        ),
-        (_, L::SnappyCollapse) => Some("snappy's collapse removes every layer at 2 or more on these meshes (and most at 1): you get a bare mesh (gh:#1215, #1240)."),
-        (_, L::BackOffOnly) if c.dual != D::MedianPerCorner && c.feature_points == F::OnFeatureEdge => {
-            Some("with this dual and every edge point kept, the back-off grows no layer on the pipe (collinear rim points cap the thickness at 0): tick \"keep corners only\" (gh:#1240).")
-        }
-        (n, L::BackOffOnly) if n >= 3 => Some(if polydual_corners {
-            "3 layers with the back-off diverge in the solve on these duals too (gh:#1240); use cfMesh optimise for 3, or 1-2 layers here."
-        } else {
-            "3 layers: the solve diverges on the meshes tried (one dual cell over the layer stack, gh:#1202). 0-2 layers run."
-        }),
-        (2, L::BackOffOnly) => Some("2 layers run; on this mesh they do not bring the pipe closer to Hagen–Poiseuille than a finer bare mesh (gh:#1202)."),
-        _ => None,
+    if c.n_layers == 0 {
+        return None;
     }
+    Some(LAYERS_FIRST_NOTE)
 }
+
+/// The panel's note for a layered mesh (gh:#1829).
+const LAYERS_FIRST_NOTE: &str = "Wall layers are grown first (gh:#1829): prisms at the asked thickness from TetGen's wall triangulation, then TetGen meshes the inside and the dual is taken of both. At the default (5 mm, 3 layers) it measured u_c/2U 0.882 and dp/dz 1.107 x Hagen-Poiseuille, against 0.939 and 1.006 for the removed layer optimiser on carved tets: the loss comes from TetGen's tets (bare TetGen 1.135, bare carved 1.030), not the layers (gh:#1829, laminar_pipe_gh1155.md). A bare mesh uses the carved tetrahedra it always did.";
 
 #[cfg(test)]
 mod tests {
     use super::layer_warning;
     use crate::engine::TetDualSpec;
 
-    /// The mesh panel warns according to the recorded results (gh:#1202,
-    /// #1215, #1240, #1283): nothing for a bare mesh, the minutes for cfMesh
-    /// on the pre-gh:#1298 route and its seconds on upstream's sequence,
-    /// the zero-thickness cap for a polyDualMesh dual with every edge point
-    /// kept, and the 3-layer back-off divergence. The cases name every
-    /// choice (gh:#1298 changed the defaults); `None` in the URL helpers
-    /// below means the pre-gh:#1298 choice.
+    /// The mesh panel's note (gh:#1829): nothing for a bare mesh, the
+    /// layers-first note for any layered one, whatever the dual or route.
     #[test]
     fn layer_warning_matches_the_record() {
-        let spec = |n: usize, dual: Option<&str>, fp: Option<&str>, lq: Option<&str>| {
-            TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) }
-                .with_query(Some(dual.unwrap_or("corner")), Some(fp.unwrap_or("edges")), Some(lq.unwrap_or("backoff")))
-                .with_route_query(Some("legacy"))
-        };
         let default_with = |n: usize| TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) };
         assert!(layer_warning(&default_with(0)).is_none());
-        // gh:#1298: the default itself (h 5 mm, 3 layers) shows the
-        // upstream-sequence note, with the gh:#1298 record's numbers.
-        let note = layer_warning(&TetDualSpec::default_for(0.01).clamped(0.01, 0.2)).unwrap();
-        assert!(note.contains("upstream's sequence (the default)") && note.contains("about 6 s") && note.contains("0.939") && note.contains("1.006"), "{note}");
-        assert_eq!(layer_warning(&default_with(3)), Some(note));
-        assert!(layer_warning(&spec(0, None, None, Some("cfmesh"))).is_none());
-        assert!(layer_warning(&spec(1, None, None, None)).is_none());
-        assert!(layer_warning(&spec(2, None, None, None)).unwrap().contains("2 layers run"));
-        assert!(layer_warning(&spec(3, None, None, None)).unwrap().contains("diverges"));
-        assert!(layer_warning(&spec(3, Some("centre"), Some("corners"), Some("cfmesh"))).unwrap().contains("minutes"));
-        assert!(layer_warning(&spec(1, Some("point"), None, None)).unwrap().contains("keep corners only"));
-        assert!(layer_warning(&spec(3, Some("centre"), Some("corners"), None)).unwrap().contains("cfMesh optimise for 3"));
-        assert!(layer_warning(&spec(2, None, None, Some("snappy"))).unwrap().contains("removes every layer"));
+        for n in [1, 2, 3] {
+            assert!(layer_warning(&default_with(n)).unwrap().contains("grown first"));
+            let legacy = default_with(n).with_query(Some("corner"), Some("edges")).with_route_query(Some("legacy"));
+            assert!(layer_warning(&legacy).unwrap().contains("grown first"));
+        }
     }
 }

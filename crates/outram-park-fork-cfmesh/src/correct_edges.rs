@@ -367,7 +367,7 @@ mod tests {
         use crate::pipeline::tests::{mesh_fingerprint, pipe_surface};
         use crate::pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions};
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..crate::pipeline::TetDualOptions::carved() };
+        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, tet_source: crate::pipeline::TetSource::CarvedCentroid, ..Default::default() };
         let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let (pre, _) = crate::surface_mapper::map_vertices_onto_surface_untangled(&bare, &p, &t, 10);
         let given = crate::surface_mapper::boundary_face_regions(&pre, &p, &t, &regions);

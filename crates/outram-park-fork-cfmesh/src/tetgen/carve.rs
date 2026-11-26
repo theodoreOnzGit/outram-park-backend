@@ -28,8 +28,9 @@
 //! **Branches not ported** (each needs a switch the `-p` route here does
 //! not take): `-c` (`b->convex`: exterior tetrahedra kept and marked `-1`),
 //! the hole mesh (`-H`, `hole_mesh_filename`), volume bounds of regions
-//! (`-a`, `setvolumebound`), the `-m` size interpolation of
-//! `suppressbdrysteinerpoint` (`ivf.assignmeshsize`).
+//! (`-a`, `setvolumebound`), ~~the `-m` size interpolation of
+//! `suppressbdrysteinerpoint` (`ivf.assignmeshsize`)~~ (**ported
+//! 2026-11-26, gh:#1825**, with `-m`: `super::sizing`).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -937,10 +938,16 @@ impl TetgenMesh {
 
             let mut ivf = InsertPointFlags {
                 iloc: LocateResult::InStar, // No need point location.
+                assignmeshsize: self.b.metric,
                 ..Default::default()
             };
             searchtet = neightet;
-            // (ivf.assignmeshsize = b->metric: -m is not ported.)
+            if ivf.assignmeshsize {
+                // Search the tet containing 'steinerpt' for size
+                //   interpolation (-m, gh:#1825; INSTAR then gives size 0).
+                self.reachm[16] += 1;
+                self.locate(newsteiners[i], &mut searchtet, false)?;
+            }
             if self.insertpoint(newsteiners[i], &mut searchtet, None, None, &mut ivf)? {
                 // The vertex has been inserted.
                 self.st_volref_count += 1;

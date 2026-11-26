@@ -318,6 +318,8 @@ impl TetgenMesh {
         let mut m = TetgenMesh::new(bb);
         m.firstnumber = input.firstnumber;
         m.transfernodes(&input.points)?;
+        // transfernodes' "Read the point metric tensor" (-m, gh:#1825).
+        m.transfer_point_mtrs(&input.point_mtrs);
         m.incrementaldelaunay()?;
         let mut work = input.clone();
         m.meshsurface(&mut work)?;

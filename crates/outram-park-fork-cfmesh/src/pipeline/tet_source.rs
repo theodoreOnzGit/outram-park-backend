@@ -9,10 +9,8 @@
 //! **Where the tet -> dual -> layers pipeline gets its tetrahedra**
 //! (gh:#1796, stage 7 of the TetGen epic gh:#1789).
 //!
-//! [`TetSource::CarvedCentroid`] is the pipeline's historical route and
-//! ~~the default~~ was the default until 2026-11-26 (now
-//! [`TetSource::TetGenAtCellSize`], maintainer: "set the default crate wide
-//! to tetgen"): carve a Cartesian grid, snap its boundary to the surface and
+//! [`TetSource::CarvedCentroid`] is the pipeline's historical route and the
+//! default: carve a Cartesian grid, snap its boundary to the surface and
 //! split every hexahedron into tetrahedra about its centroid
 //! ([`crate::tet::tetrahedralize`]). Its interior is a regular lattice, so
 //! its dual is a regular truncated-octahedron lattice.
@@ -53,8 +51,22 @@
 //! the seams between markers as segments, so the tet mesh's patches are the
 //! surface's regions ([`crate::tetgen::to_volume_mesh`] names them).
 //!
+//! # Wall grading (gh:#1825)
+//!
+//! `-pq<r>a<V>` alone refines only where the surface triangles are small
+//! (near the pebble), not toward the pipe or channel walls. With
+//! `wall_grade: Some(..)` ([`WallGrade`], [`wall_grade`]) every PLC point,
+//! plus seed points inside the volume, gets a TetGen `-m` size graded from
+//! the walls, and TetGen runs with `-m` (`-pq<r>/<d>[a<V>]m`). The walls are
+//! the regions named in `walls` ([`tetgen_tets_graded`], the pipeline's
+//! [`super::TetDualOptions::layer_patches`]), or the whole surface when it
+//! is empty. Off (`None`) by default.
+//!
 //! **Untrusted AI-assisted draft pending human V&V.** Education, research
 //! and V&V only, per the workspace `RESPONSIBLE_USE.md`.
+
+pub mod wall_grade;
+pub use wall_grade::WallGrade;
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -67,28 +79,12 @@ use crate::volume_mesh::VolumeMesh;
 
 /// Which tetrahedra the tet -> dual -> layers pipeline starts from
 /// ([`super::TetDualOptions::tet_source`]). See the module docs.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum TetSource {
     /// Carve a Cartesian grid, snap it, split each hexahedron about its
-    /// centroid. ~~The default, unchanged (changing it needs the
-    /// maintainer).~~ **CHANGED 2026-11-26 (maintainer: "set the default
-    /// crate wide to tetgen"):** no longer the default; the route is
-    /// unchanged and kept callable, and the carved-route pins name it.
+    /// centroid. The default, unchanged (changing it needs the maintainer).
+    #[default]
     CarvedCentroid,
-    /// **The default since 2026-11-26**: TetGen (as [`TetSource::TetGen`])
-    /// with the volume bound taken from the run's own
-    /// [`super::TetDualOptions::cell_size`] `h`: `h^3 / (6 sqrt 2)`, the
-    /// volume of a regular tetrahedron of edge `h` (Mesh Studio's rule,
-    /// gh:#1796). Resolved by [`TetSource::resolve`] when the pipeline
-    /// starts, so `TetDualOptions { cell_size, ..Default::default() }`
-    /// sizes its tetrahedra by `cell_size`.
-    TetGenAtCellSize {
-        /// Radius-edge ratio bound (default `1.414`).
-        radius_edge: f64,
-        /// Smallest dihedral angle bound, degrees (default
-        /// [`TetSource::TETGEN_DEFAULT_MIN_DIHEDRAL`]).
-        min_dihedral: f64,
-    },
     /// TetGen's quality tetrahedralisation of the surface:
     /// `-pq<radius_edge>/<min_dihedral>`, and `-a<max_volume>` when given.
     TetGen {
@@ -103,18 +99,10 @@ pub enum TetSource {
         /// no volume bound (the tetrahedra then grade from the surface
         /// triangles' size only).
         max_volume: Option<f64>,
+        /// Sizes graded from the walls (`-m`, gh:#1825; see the module
+        /// docs), or `None` (the default) for none.
+        wall_grade: Option<WallGrade>,
     },
-}
-
-impl Default for TetSource {
-    /// [`TetSource::TetGenAtCellSize`] with radius-edge `1.414` and
-    /// TetGen's dihedral default (maintainer, 2026-11-26).
-    fn default() -> Self {
-        TetSource::TetGenAtCellSize {
-            radius_edge: Self::DEFAULT_RADIUS_EDGE,
-            min_dihedral: Self::TETGEN_DEFAULT_MIN_DIHEDRAL,
-        }
-    }
 }
 
 impl TetSource {
@@ -122,60 +110,59 @@ impl TetSource {
     /// (`tetgenbehavior::mindihedral`, `tetgen.h`).
     pub const TETGEN_DEFAULT_MIN_DIHEDRAL: f64 = 3.5;
 
-    /// The default's radius-edge bound, `1.414` (Mesh Studio's default,
-    /// gh:#1796; `sqrt 2`, the usual quality choice).
-    pub const DEFAULT_RADIUS_EDGE: f64 = 1.414;
-
-    /// The volume of a regular tetrahedron of edge `h`, `h^3 / (6 sqrt 2)`:
-    /// the `-a` bound [`TetSource::TetGenAtCellSize`] uses.
-    #[must_use]
-    pub fn regular_tet_volume(h: f64) -> f64 {
-        h * h * h / (6.0 * petir::real::Real::sqrt(2.0))
-    }
-
-    /// This source with [`TetSource::TetGenAtCellSize`] turned into
-    /// [`TetSource::TetGen`] at cell size `cell_size`; the other sources
-    /// unchanged.
-    #[must_use]
-    pub fn resolve(self, cell_size: f64) -> TetSource {
-        match self {
-            TetSource::TetGenAtCellSize { radius_edge, min_dihedral } => TetSource::TetGen {
-                radius_edge,
-                min_dihedral,
-                max_volume: Some(Self::regular_tet_volume(cell_size)),
-            },
-            other => other,
-        }
-    }
-
     /// TetGen with radius-edge bound `radius_edge`, TetGen's default
-    /// dihedral bound, and an optional volume bound \[m³\].
+    /// dihedral bound, an optional volume bound \[m³\], and no wall
+    /// grading.
     #[must_use]
     pub fn tetgen(radius_edge: f64, max_volume: Option<f64>) -> Self {
         TetSource::TetGen {
             radius_edge,
             min_dihedral: Self::TETGEN_DEFAULT_MIN_DIHEDRAL,
             max_volume,
+            wall_grade: None,
         }
     }
 
-    /// The TetGen command-line switches this source runs (`"pq1.414/3.5a0.0026"`),
-    /// or `None` for the carved route. For the report and the stage note.
+    /// This source with the wall grading `grade` (gh:#1825); the carved
+    /// route is returned unchanged (it has its own near-wall refinement,
+    /// [`super::TetDualOptions::refinement_levels`]).
     #[must_use]
-    pub fn switches(&self) -> Option<String> {
-        match *self {
-            TetSource::CarvedCentroid => None,
-            TetSource::TetGenAtCellSize { radius_edge, min_dihedral } => {
-                Some(alloc::format!("pq{radius_edge}/{min_dihedral}a<h^3/(6 sqrt 2)>"))
-            }
+    pub fn with_wall_grade(self, grade: Option<WallGrade>) -> Self {
+        match self {
+            TetSource::CarvedCentroid => self,
             TetSource::TetGen {
                 radius_edge,
                 min_dihedral,
                 max_volume,
-            } => Some(match max_volume {
-                Some(v) => alloc::format!("pq{radius_edge}/{min_dihedral}a{v}"),
-                None => alloc::format!("pq{radius_edge}/{min_dihedral}"),
-            }),
+                ..
+            } => TetSource::TetGen {
+                radius_edge,
+                min_dihedral,
+                max_volume,
+                wall_grade: grade,
+            },
+        }
+    }
+
+    /// The TetGen command-line switches this source runs (`"pq1.414/3.5a0.0026"`,
+    /// with a trailing `m` when wall-graded), or `None` for the carved
+    /// route. For the report and the stage note.
+    #[must_use]
+    pub fn switches(&self) -> Option<String> {
+        match *self {
+            TetSource::CarvedCentroid => None,
+            TetSource::TetGen {
+                radius_edge,
+                min_dihedral,
+                max_volume,
+                wall_grade,
+            } => {
+                let m = if wall_grade.is_some() { "m" } else { "" };
+                Some(match max_volume {
+                    Some(v) => alloc::format!("pq{radius_edge}/{min_dihedral}a{v}{m}"),
+                    None => alloc::format!("pq{radius_edge}/{min_dihedral}{m}"),
+                })
+            }
         }
     }
 }
@@ -290,10 +277,90 @@ pub fn tetgen_tets(
     wall_patch: &str,
     source: TetSource,
 ) -> Result<(VolumeMesh, String), String> {
+    tetgen_tets_graded(points, tris, regions, wall_patch, &[], source)
+}
+
+/// [`tetgen_tets`] with the walls of a wall-graded source named: the
+/// triangles of the regions in `walls`, or every triangle when `walls` is
+/// empty or the surface has no regions (gh:#1825). Without a
+/// [`WallGrade`] in `source`, `walls` is not read.
+///
+/// # Errors
+/// As [`tetgen_tets`], and a [`WallGrade`] out of range
+/// ([`WallGrade::check`]).
+pub fn tetgen_tets_graded(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: Option<&SurfaceRegions>,
+    wall_patch: &str,
+    walls: &[String],
+    source: TetSource,
+) -> Result<(VolumeMesh, String), String> {
+    let run = tetgen_plc(points, tris, regions, wall_patch, walls, source)?;
+    let r = tetrahedralize_plc(&run.plc, &run.behavior)
+        .map_err(|e| alloc::format!("TetGen refused the surface: {e:?}"))?;
+    let out = r
+        .output
+        .ok_or("TetGen wrote no output (diagnose mode is not used here)")?;
+    let mesh = to_volume_mesh(&out, Some(&run.names));
+    let mut note = alloc::format!(
+        "tet source TetGen -{}: {} tetrahedra on {} nodes; carve, snap and the Delaunay flips not run \
+         (TetGen's constrained Delaunay refinement replaces them)",
+        source.switches().unwrap_or_default(),
+        out.tets.len(),
+        out.points.len()
+    );
+    if let TetSource::TetGen {
+        wall_grade: Some(g),
+        ..
+    } = source
+    {
+        note += &alloc::format!(
+            "; wall-graded sizes {:.4} m at the walls, x{} growth, {:.4} m inside ({} seed points)",
+            g.wall_size,
+            g.growth,
+            g.interior_size,
+            run.n_seeds
+        );
+    }
+    Ok((mesh, note))
+}
+
+/// What [`tetgen_plc`] hands TetGen: the PLC (with hole points and, when
+/// wall-graded, the seed points and every point's `-m` size), the
+/// switches, the patch name of every facet marker, and the number of seed
+/// points appended after the surface's points.
+#[derive(Debug, Clone)]
+pub struct TetgenRun {
+    /// The PLC (`.smesh` + `.mtr`, [`PlcInput::to_smesh`]).
+    pub plc: PlcInput,
+    /// The behaviour: `-pq<r>/<d>`, with `a<V>` and `m` as the source asks.
+    pub behavior: crate::tetgen::Behavior,
+    /// The patch name of each facet marker.
+    pub names: Vec<String>,
+    /// Seed points appended to [`PlcInput::points`] (0 without grading).
+    pub n_seeds: usize,
+}
+
+/// The PLC and switches [`tetgen_tets_graded`] runs TetGen on (public so
+/// that the V&V record can write the same input for the upstream binary,
+/// gh:#1825).
+///
+/// # Errors
+/// As [`tetgen_tets_graded`].
+pub fn tetgen_plc(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: Option<&SurfaceRegions>,
+    wall_patch: &str,
+    walls: &[String],
+    source: TetSource,
+) -> Result<TetgenRun, String> {
     let TetSource::TetGen {
         radius_edge,
         min_dihedral,
         max_volume,
+        wall_grade,
     } = source
     else {
         return Err("tetgen_tets called with the carved tet source".into());
@@ -325,20 +392,27 @@ pub fn tetgen_tets(
     };
     let mut plc = PlcInput::from_triangle_soup(&pts, tris, &markers);
     plc.holes = hole_points(points, tris);
-    let r = tetrahedralize_plc(&plc, &sw.behavior())
-        .map_err(|e| alloc::format!("TetGen refused the surface: {e:?}"))?;
-    let out = r
-        .output
-        .ok_or("TetGen wrote no output (diagnose mode is not used here)")?;
-    let mesh = to_volume_mesh(&out, Some(&names));
-    let note = alloc::format!(
-        "tet source TetGen -{}: {} tetrahedra on {} nodes; carve, snap and the Delaunay flips not run \
-         (TetGen's constrained Delaunay refinement replaces them)",
-        source.switches().unwrap_or_default(),
-        out.tets.len(),
-        out.points.len()
-    );
-    Ok((mesh, note))
+    let mut n_seeds = 0;
+    if let Some(g) = wall_grade {
+        g.check()?;
+        let is_wall: Vec<bool> = (0..tris.len())
+            .map(|i| match regions {
+                Some(r) if !walls.is_empty() => walls.contains(&r.names[r.region_of_tri[i]]),
+                _ => true,
+            })
+            .collect();
+        let (seeds, sizes) = wall_grade::wall_graded_sizes(points, tris, &is_wall, &g);
+        n_seeds = seeds.len();
+        plc.points.extend(seeds.iter().map(|p| [p.x, p.y, p.z]));
+        plc.point_mtrs = sizes;
+        sw = sw.metric(1.0);
+    }
+    Ok(TetgenRun {
+        plc,
+        behavior: sw.behavior(),
+        names,
+        n_seeds,
+    })
 }
 
 #[cfg(test)]
@@ -349,17 +423,16 @@ mod tests {
     use crate::pipeline::{surface_to_tet_dual_mesh, TetDualOptions};
     use crate::shapes::box_surface;
 
-    /// ~~The default is the carved route~~ **CHANGED 2026-11-26
-    /// (maintainer):** the default is TetGen sized by the run's own cell
-    /// size (`1.414`, `3.5`, `-a h^3/(6 sqrt 2)`), and the switch string is
-    /// upstream's command line.
+    /// ~~The default is the carved route~~ **CHANGED 2026-11-26 (gh:#1829):**
+    /// the default is TetGen `-pq1.414/3.5` (the layers, grown first, need
+    /// it), and the switch string is upstream's command line.
     #[test]
-    fn the_default_is_tetgen_at_the_cell_size_and_switches_read_as_upstream() {
-        let o = TetDualOptions { cell_size: 0.1, ..TetDualOptions::default() };
-        assert_eq!(o.tet_source, TetSource::TetGenAtCellSize { radius_edge: 1.414, min_dihedral: 3.5 });
-        let v = 0.1 * 0.1 * 0.1 / (6.0 * 2f64.sqrt());
-        assert_eq!(o.tet_source.resolve(o.cell_size), TetSource::tetgen(1.414, Some(v)));
-        assert_eq!(TetSource::CarvedCentroid.resolve(0.1), TetSource::CarvedCentroid);
+    fn the_default_is_tetgen_and_switches_read_as_upstream() {
+        assert_eq!(
+            TetDualOptions::default().tet_source,
+            TetSource::tetgen(1.414, None)
+        );
+        assert_eq!(TetSource::default(), TetSource::CarvedCentroid);
         assert_eq!(TetSource::CarvedCentroid.switches(), None);
         assert_eq!(
             TetSource::tetgen(1.414, Some(0.0026)).switches().as_deref(),
@@ -379,43 +452,6 @@ mod tests {
         assert_eq!(parsed, built);
     }
 
-    /// **The crate default runs TetGen** (2026-11-26), sized by the run's
-    /// cell size: a unit box at `h = 0.25` and the test pipe at
-    /// `h = 0.006` with three back-off layers asked for, through the plain
-    /// default options. Both are closed, the box keeps its volume exactly,
-    /// and the stage note names TetGen with the resolved `-a` bound. The
-    /// pipe's layer outcome is printed, not asserted.
-    ///
-    /// **Measured 2026-11-26 (release):** the pipe gives 30 460 cells from
-    /// 9 908 tetrahedra on 2 506 nodes, and the layer stage reports
-    /// 27 954 layer cells (all three layers grew on its wall faces). The
-    /// AGENTS.md note that no back-off layer grows on TetGen's
-    /// **tetrahedra** is about a tet mesh (dual off); on the default
-    /// median dual they grow.
-    #[test]
-    fn the_default_route_is_tetgen_at_the_cell_size() {
-        use crate::pipeline::{box_tet_dual, surface_to_tet_dual_mesh_multipatch};
-        let o = TetDualOptions { cell_size: 0.25, ..TetDualOptions::default() };
-        let (m, rep) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &o).unwrap();
-        m.validate().unwrap();
-        assert!((m.total_volume() - 1.0).abs() < 1e-9, "box volume {}", m.total_volume());
-        let want = TetSource::tetgen(1.414, Some(TetSource::regular_tet_volume(0.25))).switches().unwrap();
-        assert!(rep.stage_notes.iter().any(|n| n.contains(&alloc::format!("TetGen -{want}"))), "{:?}", rep.stage_notes);
-        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        let o = TetDualOptions {
-            cell_size: 0.006,
-            n_layers: 3,
-            first_layer_thickness: 3e-4,
-            expansion: 1.2,
-            layer_patches: alloc::vec!["walls".into()],
-            ..TetDualOptions::default()
-        };
-        let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
-        m.validate().unwrap();
-        #[cfg(feature = "std")]
-        std::println!("default pipe: {} cells, layers {:?}, notes {:?}", m.n_cells, rep.layers.as_ref().map(|l| l.faces.iter().map(|f| f.1).sum::<usize>()), rep.stage_notes);
-    }
-
     /// Bad bounds and the carved source are errors, not fallbacks.
     #[test]
     fn bad_bounds_are_refused() {
@@ -428,6 +464,7 @@ mod tests {
                 radius_edge: 1.414,
                 min_dihedral: 95.0,
                 max_volume: None,
+                wall_grade: None,
             },
         ] {
             assert!(tetgen_tets(&p, &t, None, "walls", s).is_err(), "{s:?}");
@@ -516,13 +553,17 @@ mod tests {
     /// **Methodology.** The 1 cm pipe of the crate's other pipeline tests
     /// (`pipe_surface(0.01, 0.06, 48)`, patches `inlet`, `outlet`, `walls`),
     /// TetGen `-pq1.414/3.5a2e-8` (2e-8 m³ is about h³/6 at h = 5 mm),
-    /// cell-centre dual with corner feature points, back-off layers (3,
-    /// first 0.3 mm, x 1.2) on `walls` only. **Results (2026-11-26,
-    /// release):** every mesh type is valid with no negative cell. On the
-    /// dual, back-off grows all 3 layers on every wall face; on the
-    /// tetrahedra it grows **none** (the stage is kept, adds no cell, and
-    /// the report's note says so). Cell counts and fingerprints are pinned
-    /// in [`tetgen_route_is_pinned_bit_for_bit`].
+    /// cell-centre dual with corner feature points, ~~back-off~~ layers (3,
+    /// first 0.3 mm, x 1.2) on `walls` only. ~~**Results (2026-11-26,
+    /// release):** on the dual, back-off grows all 3 layers on every wall
+    /// face; on the tetrahedra it grows **none**; pinned in
+    /// `tetgen_route_is_pinned_bit_for_bit`.~~ **CHANGED 2026-11-26
+    /// (gh:#1829):** the layers are grown first; with layers the
+    /// tetrahedralise stage records TetGen's mesh of the input surface (the
+    /// wall triangulation the layers grow from). Every mesh type is valid
+    /// with no negative cell, and every wall face carries all 3 layers, on
+    /// the prisms and tetrahedra and inside their dual (asserted, not
+    /// pinned).
     #[test]
     fn tetgen_route_runs_every_mesh_type_on_the_pipe() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -564,87 +605,28 @@ mod tests {
                 assert!(names.contains(&want), "{what}: {names:?}");
             }
             assert!(
-                s.report.stage_notes[0].starts_with("tet source TetGen -pq1.414/3.5a0.00000002"),
+                s.report.stage_notes[0].contains("tet source TetGen -pq1.414/3.5a0.00000002"),
                 "{what}: {:?}",
                 s.report.stage_notes
             );
-            if n > 0 && dual {
-                let walls: usize = s
-                    .mesh
-                    .patches
-                    .iter()
-                    .filter(|q| q.name == "walls")
-                    .map(|q| q.n_faces)
-                    .sum();
-                let first = s.first_layer_cell.expect("layers grew");
-                assert_eq!(
-                    s.mesh.n_cells - first,
-                    n * walls,
-                    "{what}: every wall face, every layer"
-                );
-            } else if n > 0 {
-                // Back-off grows nothing on TetGen's tetrahedra (every
-                // thickness it tries leaves an invalid mesh), and the
-                // report says so rather than passing it off as layered.
-                assert!(s.first_layer_cell.is_none(), "{what}");
-                assert!(
-                    s.report
-                        .stage_notes
-                        .iter()
-                        .any(|x| x.starts_with("boundary layers added none")),
-                    "{what}: {:?}",
-                    s.report.stage_notes
-                );
+            if n > 0 {
+                // gh:#1829: the layers are grown first, on every wall face,
+                // as prisms (no dual) or inside the dual.
+                let lo = s.report.layers.as_ref().expect("layers grown");
+                assert_eq!(lo.full_coverage(), 1.0, "{what}");
+                if !dual {
+                    let walls: usize = s.mesh.patches.iter().filter(|q| q.name == "walls").map(|q| q.n_faces).sum();
+                    let first = s.first_layer_cell.expect("layers grew");
+                    assert_eq!(s.mesh.n_cells - first, n * walls, "{what}: every wall face, every layer");
+                }
             }
         }
     }
 
-    /// The TetGen route is reproducible across processes: its fingerprints
-    /// are recorded once and asserted (as the carved route's are in
-    /// `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`).
-    ///
-    /// **Methodology.** The pipe of the test above, dual with 3 back-off
-    /// layers and tets with 3 layers. **Results (2026-11-26, release):**
-    /// tets + 3 layers 9874 cells (TetGen's tetrahedra; back-off grew no
-    /// layer), dual + 3 layers 30413 cells; fingerprints below.
-    #[test]
-    fn tetgen_route_is_pinned_bit_for_bit() {
-        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        let src = TetSource::tetgen(1.414, Some(2e-8));
-        let mut got = Vec::new();
-        for dual in [false, true] {
-            let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(
-                &p,
-                &t,
-                &regions,
-                &pipe_opts(src, dual, 3),
-            )
-            .unwrap();
-            got.push((m.n_cells, mesh_fingerprint(&m)));
-        }
-        assert_eq!(got, PINNED_PIPE);
-    }
-
-    /// `(cells, fingerprint)` of [`tetgen_route_is_pinned_bit_for_bit`]:
-    /// tets + 3 layers, dual + 3 layers.
-    ///
-    /// **Two builds, two pins (2026-11-26).** The test asks for
-    /// `DualKind::CellCentre`, which needs this crate's `cell-centre-dual`
-    /// feature. Without it the pipeline falls back to the per-corner median
-    /// dual (with a stage note), and the original pin, 30 413 cells, is
-    /// that fallback's. With it (any build that also compiles dhoby-ghaut,
-    /// whose dependencies turn the feature on, so `cargo test --workspace`)
-    /// the real cell-centre dual gives 7 292 cells. Measured twice, in two
-    /// processes, identical. The pin was not moved: the fallback's value is
-    /// kept and labelled, and the cell-centre one is added beside it. Found
-    /// by the integration run of 2026-11-26, the first to test this crate
-    /// together with dhoby-ghaut since the pin was taken.
-    #[cfg(not(feature = "cell-centre-dual"))]
-    const PINNED_PIPE: [(usize, u64); 2] =
-        [(9874, 1823749189691073978), (30413, 11390463181727383820)];
-    #[cfg(feature = "cell-centre-dual")]
-    const PINNED_PIPE: [(usize, u64); 2] =
-        [(9874, 1823749189691073978), (7292, 6244108193095638349)];
+    // ~~`tetgen_route_is_pinned_bit_for_bit` (tets + 3 back-off layers 9874
+    // cells, dual + 3 layers 30413)~~ REMOVED 2026-11-26 (gh:#1829): it
+    // pinned the layers-last route, which is gone, and the new route gets
+    // no regression pin before unit-level V&V (root AGENTS.md).
 
     /// The single-patch entry point names the one patch after
     /// `wall_patch`, so the default layer stage finds it.

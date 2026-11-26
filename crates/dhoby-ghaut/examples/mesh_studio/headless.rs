@@ -84,7 +84,7 @@ pub fn run(case: Option<&str>) -> String {
 }
 
 /// Header of [`measure`]'s row.
-pub const MEASURE_HEADER: &str = "shape,tets,mesh,n,strategy,dual,rule,cells,neg_cells,max_non_orth_deg,max_skewness,layers_deep,layer_cells,layer1_cells,thickness_median_over_asked,build_s,notes";
+pub const MEASURE_HEADER: &str = "shape,tets,mesh,n,layers,dual,rule,cells,neg_cells,max_non_orth_deg,max_skewness,layers_deep,layer_cells,layer1_cells,thickness_median_over_asked,build_s,notes";
 
 /// One build of the design a query describes (the page's own keys, see
 /// [`crate::engine::Design::from_query`], plus `rule=edge|corners` for a
@@ -106,12 +106,13 @@ pub fn measure(q: &[(String, String)]) -> String {
     let r = build(&p);
     let secs = t0.elapsed().as_secs_f64();
     let head = format!(
-        "{},{},{},{},{:?},{:?},{}",
+        "{},{},{},{},{},{:?},{}",
         d.kind.slug(),
         if d.tetgen { "tetgen" } else { "carved" },
         if d.polyhedral { "dual" } else { "tet" },
         d.n_layers,
-        d.strategy,
+        // gh:#1829: one layer route, grown first.
+        if d.n_layers > 0 { "first" } else { "none" },
         d.dual,
         rule.unwrap_or("corners"),
     );

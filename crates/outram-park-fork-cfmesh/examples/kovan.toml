@@ -406,7 +406,7 @@ doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679
 id = "fn:74359d4ef3cfc2de"
 name = "main"
 qual = "main"
-hash = "sha256:3afe99be98b3bf15641970f124559cd4f75c5d5fa01c3ac50f771bff61a17b93"
+hash = "sha256:1da5e24b1a371dee5ce40789cf04530b752f2db3c64be2465f4b796a2a0e804e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."edge_extractor_images.rs".function]]

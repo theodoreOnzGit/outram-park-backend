@@ -17,8 +17,8 @@
 use outram_blender::foam_mesh::TetDualOptions;
 use outram_foam_mesh::block_mesh::PolyMesh;
 use outram_park_fork_cfmesh::dual::DualKind;
-use outram_park_fork_cfmesh::layers::LayerQualityStrategy;
 use outram_park_fork_cfmesh::pipeline::staged::PipelineStage;
+use outram_park_fork_cfmesh::pipeline::tet_source::WallGrade;
 use outram_park_fork_cfmesh::pipeline::TetSource;
 
 use crate::model::{build, Built, Cleanup, GeomKind, Params};
@@ -31,11 +31,12 @@ pub const STAGES: [PipelineStage; 11] = [
     PipelineStage::Snap,
     PipelineStage::Tetrahedralise,
     PipelineStage::Delaunay,
+    // gh:#1829: the layers are grown first, before the dual.
+    PipelineStage::Layers,
     PipelineStage::Dual,
     PipelineStage::Smooth,
     PipelineStage::FeatureCapture,
     PipelineStage::OptimiseFinalMesh,
-    PipelineStage::Layers,
     PipelineStage::NamePatches,
     PipelineStage::Final,
 ];
@@ -53,12 +54,11 @@ fn stage_of(c: f64) -> PipelineStage {
         .unwrap_or(PipelineStage::Final)
 }
 
-/// The layer strategies the page offers, in wire order.
-pub const STRATEGIES: [LayerQualityStrategy; 3] = [
-    LayerQualityStrategy::BackOffOnly,
-    LayerQualityStrategy::CfMeshOptimise,
-    LayerQualityStrategy::SnappyCollapse,
-];
+// ~~`STRATEGIES`: the layer strategies the page offered (`strategy=`
+// backoff | cfmesh | snappy | tetmesh)~~ REMOVED 2026-11-26 (gh:#1829,
+// maintainer: "Don't make it opt in, make it default. Hard rule for this
+// crate. Take out the old option."): the cfMesh pipeline grows its layers
+// first, and there is no layer strategy to pick.
 
 /// The dual kinds the page offers, in wire order.
 pub const DUALS: [DualKind; 3] = [
@@ -82,7 +82,6 @@ pub struct Design {
     pub first_layer: f64,
     /// Layer-to-layer growth ratio.
     pub expansion: f64,
-    pub strategy: LayerQualityStrategy,
     pub dual: DualKind,
     /// The mesh type: `true` for the polyhedral dual of the tetrahedra,
     /// `false` for the tetrahedra themselves (layers, when asked for, grow
@@ -98,6 +97,12 @@ pub struct Design {
     /// TetGen's largest tetrahedron \[m³\] (`-a`); `None` derives it from
     /// the cell size ([`Design::tet_volume`]).
     pub max_volume: Option<f64>,
+    /// TetGen's wall grading (gh:#1825): the `-m` size at the walls \[m\],
+    /// or `None` (the default) for none. The size grows by
+    /// [`Design::wall_growth`] away from the walls up to the cell size.
+    pub wall_size: Option<f64>,
+    /// The cell-to-cell growth away from the walls of a graded design.
+    pub wall_growth: f64,
 }
 
 impl Default for Design {
@@ -111,12 +116,13 @@ impl Default for Design {
             n_layers: p.opts.n_layers,
             first_layer: p.opts.first_layer_thickness,
             expansion: p.opts.expansion,
-            strategy: p.opts.layer_strategy,
             dual: p.opts.dual_kind,
             polyhedral: p.opts.dual,
             tetgen: true,
             radius_edge: Self::DEFAULT_RADIUS_EDGE,
             max_volume: None,
+            wall_size: None,
+            wall_growth: WallGrade::DEFAULT_GROWTH,
         }
     }
 }
@@ -147,14 +153,39 @@ impl Design {
     /// The `-a` bound this design meshes with \[m³\]: the one asked for,
     /// or the regular tetrahedron of the cell size.
     pub fn tet_volume(&self) -> f64 {
-        self.max_volume
-            .unwrap_or_else(|| Self::regular_tet_volume(self.cell_size))
+        self.max_volume.unwrap_or_else(|| match self.wall_grade() {
+            // Graded (gh:#1825): the interior size bounds the volume, so
+            //   the grading, not `-a`, sets the cells inside.
+            Some(g) => Self::regular_tet_volume(g.interior_size),
+            None => Self::regular_tet_volume(self.cell_size),
+        })
+    }
+
+    /// The wall size `?grade=on` asks for, as a fraction of the cell size
+    /// (gh:#1825): half. A quarter made the fuel channel 6x the tetrahedra
+    /// of the ungraded mesh (399 k against 65 k at a half, measured with
+    /// the upstream binary), too many for a phone.
+    pub const DEFAULT_WALL_FRACTION: f64 = 0.5;
+
+    /// The size far from the walls of a graded design, as a multiple of
+    /// the cell size (gh:#1825).
+    pub const INTERIOR_FACTOR: f64 = 2.0;
+
+    /// The wall grading this design asks TetGen for, if any: the wall
+    /// size, the growth, and [`Design::INTERIOR_FACTOR`] cell sizes inside.
+    pub fn wall_grade(&self) -> Option<WallGrade> {
+        self.wall_size.map(|w| WallGrade {
+            wall_size: w,
+            growth: self.wall_growth,
+            interior_size: (Self::INTERIOR_FACTOR * self.cell_size).max(w),
+        })
     }
 
     /// The tet source this design asks the pipeline for.
     pub fn tet_source(&self) -> TetSource {
         if self.tetgen {
             TetSource::tetgen(self.radius_edge, Some(self.tet_volume()))
+                .with_wall_grade(self.wall_grade())
         } else {
             TetSource::CarvedCentroid
         }
@@ -185,12 +216,8 @@ impl Design {
         if let Some(r) = get("ratio").and_then(|s| s.parse().ok()) {
             design.expansion = r;
         }
-        match get("strategy").as_deref() {
-            Some("cfmesh") => design.strategy = STRATEGIES[1],
-            Some("snappy") => design.strategy = STRATEGIES[2],
-            Some("backoff") => design.strategy = STRATEGIES[0],
-            _ => {}
-        }
+        // ~~`strategy=backoff|cfmesh|snappy|tetmesh`~~ (gh:#1829: one layer
+        //   route, grown first; the key is ignored).
         match get("mesh").as_deref() {
             Some("tet") => design.polyhedral = false,
             Some("poly") => design.polyhedral = true,
@@ -213,7 +240,30 @@ impl Design {
         if let Some(v) = get("vol").and_then(|s| s.parse::<f64>().ok()) {
             design.max_volume = Some(v);
         }
-        design.clamped()
+        // `grade=on|off|<wall size m>[,<growth>]` (gh:#1825); `on` is a
+        //   fraction of the clamped cell size, so it is set after clamping.
+        let mut on = false;
+        if let Some(g) = get("grade") {
+            let mut it = g.split(',');
+            match it.next() {
+                Some("on") => on = true,
+                Some("off") => design.wall_size = None,
+                Some(w) => {
+                    if let Ok(w) = w.parse::<f64>() {
+                        design.wall_size = Some(w);
+                    }
+                }
+                None => {}
+            }
+            if let Some(r) = it.next().and_then(|s| s.parse::<f64>().ok()) {
+                design.wall_growth = r;
+            }
+        }
+        let mut design = design.clamped();
+        if on {
+            design.wall_size = Some(Self::DEFAULT_WALL_FRACTION * design.cell_size);
+        }
+        design
     }
 
     /// Clamp to what a phone can mesh in seconds and to valid layer values.
@@ -239,6 +289,22 @@ impl Design {
                 v_hi
             }
         });
+        // Wall grading: between a quarter of the cell size (a quarter
+        // already gives the fuel channel about 400 k tetrahedra) and the
+        // cell size; growth 1 to 2.
+        let (w_lo, w_hi) = (0.25 * self.cell_size, self.cell_size);
+        self.wall_size = self.wall_size.map(|w| {
+            if w.is_finite() {
+                w.clamp(w_lo, w_hi)
+            } else {
+                w_hi
+            }
+        });
+        self.wall_growth = if self.wall_growth.is_finite() {
+            self.wall_growth.clamp(1.0, 2.0)
+        } else {
+            WallGrade::DEFAULT_GROWTH
+        };
         self
     }
 
@@ -268,7 +334,6 @@ impl Design {
                 n_layers: d.n_layers,
                 first_layer_thickness: d.first_layer,
                 expansion: d.expansion,
-                layer_strategy: d.strategy,
                 dual_kind: d.dual,
                 dual: d.polyhedral,
                 tet_source: d.tet_source(),
@@ -608,15 +673,13 @@ impl Request {
                 d.n_layers as f64,
                 d.first_layer,
                 d.expansion,
-                STRATEGIES
-                    .iter()
-                    .position(|&s| s == d.strategy)
-                    .unwrap_or(0) as f64,
                 DUALS.iter().position(|&s| s == d.dual).unwrap_or(0) as f64,
                 f64::from(u8::from(d.polyhedral)),
                 f64::from(u8::from(d.tetgen)),
                 d.radius_edge,
                 d.max_volume.unwrap_or(0.0),
+                d.wall_size.unwrap_or(0.0),
+                d.wall_growth,
             ],
             Request::Section {
                 id,
@@ -647,13 +710,15 @@ impl Request {
                 let (size, cell_size) = (w.next()?, w.next()?);
                 let n_layers = w.count()?;
                 let (first_layer, expansion) = (w.next()?, w.next()?);
-                let strategy = *STRATEGIES.get(w.count()?).ok_or("bad strategy")?;
                 let dual = *DUALS.get(w.count()?).ok_or("bad dual")?;
                 let polyhedral = w.next()? != 0.0;
                 let tetgen = w.next()? != 0.0;
                 let radius_edge = w.next()?;
                 // 0 on the wire: derived from the cell size.
                 let max_volume = Some(w.next()?).filter(|&v| v > 0.0);
+                // 0 on the wire: no wall grading (gh:#1825).
+                let wall_size = Some(w.next()?).filter(|&v| v > 0.0);
+                let wall_growth = w.next()?;
                 Ok(Request::Build {
                     id,
                     design: Design {
@@ -664,12 +729,13 @@ impl Request {
                         n_layers,
                         first_layer,
                         expansion,
-                        strategy,
                         dual,
                         polyhedral,
                         tetgen,
                         radius_edge,
                         max_volume,
+                        wall_size,
+                        wall_growth,
                     },
                 })
             }
@@ -879,128 +945,89 @@ mod tests {
     /// layers.
     ///
     /// **Methodology.** The default 2 m box (cell size 0.5 m, 3 layers
-    /// when asked for), built through the engine on the **carved** tet
-    /// source (`tetgen: false`; the TetGen source is pinned in
-    /// `every_mesh_type_on_tetgen_tets_of_the_reactor_shapes`).
-    /// **Results (2026-11-26, structured carve-and-split tets):**
-    ///
-    /// | mesh type | core cells | per layer |
-    /// |---|---|---|
-    /// | tets | 2304 | none |
-    /// | tets + 3 layers | 2304 | 384 |
-    /// | dual | 429 | none |
-    /// | dual + 3 layers | 429 | 1152 |
-    ///
-    /// 384 = 6 faces × 64 boundary triangles; 1152 = the dual's wall faces.
-    /// Pinned so a change to either route is seen.
+    /// from 20 mm at 1.3 when asked for). ~~On the carved tet source~~
+    /// **CHANGED 2026-11-26 (gh:#1829):** layers are grown first and need
+    /// TetGen, so the layered builds are TetGen's (`-pq1.414` bounded by the
+    /// regular tetrahedron of the cell size) and the carved source is built
+    /// bare, where its counts (2304 tets, 429 dual cells, unchanged code)
+    /// stay pinned; carved with layers is an error, not a fall-back.
+    /// Layered builds are checked by property (the no-pins rule): every wall
+    /// face carries all 3 layers (one cell per wall face per layer on the
+    /// prisms, one per wall point per layer on the dual), no negative cell.
     #[test]
     fn every_mesh_type_builds_a_valid_mesh() {
-        for (polyhedral, n_layers, want) in [
-            (false, 0, vec![2304]),
-            (false, 3, vec![2304, 384, 384, 384]),
-            (true, 0, vec![429]),
-            (true, 3, vec![429, 1152, 1152, 1152]),
-        ] {
-            let d = Design {
-                polyhedral,
-                n_layers,
-                tetgen: false,
-                ..Design::default()
-            };
+        for (polyhedral, want) in [(false, vec![2304]), (true, vec![429])] {
+            let d = Design { polyhedral, n_layers: 0, tetgen: false, ..Design::default() };
             let mut e = Engine::default();
             let Event::Built(s) = serve_one(&mut e, Request::Build { id: 1, design: d }) else {
-                panic!("no build for polyhedral={polyhedral}, n={n_layers}")
+                panic!("no build for carved polyhedral={polyhedral}")
             };
-            assert_eq!(s.negative_cells, 0, "polyhedral={polyhedral}, n={n_layers}");
-            assert_eq!(
-                s.layer_counts, want,
-                "polyhedral={polyhedral}, n={n_layers}"
-            );
+            assert_eq!(s.negative_cells, 0, "polyhedral={polyhedral}");
+            assert_eq!(s.layer_counts, want, "polyhedral={polyhedral}");
             let dual = s.stages.iter().find(|x| x.stage == PipelineStage::Dual);
             assert_eq!(dual.is_some_and(|x| x.applied), polyhedral, "dual stage");
         }
+        let carved_layers = Design { n_layers: 3, tetgen: false, ..Design::default() };
+        let mut e = Engine::default();
+        let Event::Error(msg) = serve_one(&mut e, Request::Build { id: 1, design: carved_layers }) else {
+            panic!("carved + layers must be refused")
+        };
+        assert!(msg.contains("TetGen"), "{msg}");
+        for polyhedral in [false, true] {
+            let d = Design { polyhedral, n_layers: 3, ..Design::default() };
+            let mut e = Engine::default();
+            let Event::Built(s) = serve_one(&mut e, Request::Build { id: 1, design: d }) else {
+                panic!("no layered build for polyhedral={polyhedral}")
+            };
+            assert_eq!(s.negative_cells, 0, "polyhedral={polyhedral}");
+            assert_eq!(s.layer_counts.len(), 4, "polyhedral={polyhedral}: {:?}", s.layer_counts);
+            assert!(s.layer_counts[1] > 0 && s.layer_counts[1..].iter().all(|&k| k == s.layer_counts[1]), "{:?}", s.layer_counts);
+            let [asked, lo, _, hi] = s.layer_thickness;
+            assert!((asked - 0.0798).abs() < 1e-12 && hi <= asked * (1.0 + 1e-12) && lo > 0.0, "{:?}", s.layer_thickness);
+        }
     }
 
-    /// The four mesh types on TetGen's tetrahedra (gh:#1796), on the three
-    /// reactor shapes, with the page's defaults.
+    /// The two bare mesh types on TetGen's tetrahedra (gh:#1796), on the
+    /// three reactor shapes, with the page's defaults.
     ///
     /// **Methodology.** `Design::from_query` with `shape=<s>&tets=tetgen`
-    /// and `mesh=tet|poly`, `n=0|3`: size 2 m, TetGen `-pq1.414` with
-    /// `-a` the regular tetrahedron of the cell size (pipe h 0.25 m, so
-    /// 1.84e-3 m³; fuel channel and pebble h 1/6 m, 5.46e-4 m³),
-    /// cell-centre dual with corner feature points, back-off layers (first
-    /// 20 mm, x 1.3) on the walls. Pinned: the cells per layer index
-    /// (entry 0 the core), and that every mesh is free of negative cells.
+    /// and `mesh=tet|poly`, `n=0`: size 2 m, TetGen `-pq1.414` with `-a`
+    /// the regular tetrahedron of the cell size (pipe h 0.25 m, so 1.84e-3
+    /// m³; fuel channel and pebble h 1/6 m, 5.46e-4 m³), cell-centre dual
+    /// with corner feature points. Pinned: the cell counts (an unchanged
+    /// code path), and that every mesh is free of negative cells.
     ///
-    /// **Results (2026-11-26, release, native).**
-    ///
-    /// | shape | tets | tets + 3 | dual | dual + 3 |
-    /// |---|---|---|---|---|
-    /// | pipe | 18020 | 18020, **no layer** | 3562 | 3562 + 3 × 1088 |
-    /// | fuel channel | 30804 | 30804, **no layer** | 6399 | 6399 + 3 × 2638 |
-    /// | pebble | 35347 | 35347, **no layer** | 7186 | 7186, **no layer** |
-    ///
-    /// Back-off grows no layer on any TetGen tetrahedral mesh (nor does
-    /// `CfMeshOptimise`, measured: the stage is refused), nor on the
-    /// pebble's dual; the report's stage notes say so, and so does the
-    /// pinned `notes` check. `CfMeshOptimise` grows all three on the
-    /// pebble's dual (`cfmesh_layers_grow_on_the_tetgen_dual_of_the_pebble`).
+    /// **Results (2026-11-26, release, native).** Tets / dual: pipe 18020 /
+    /// 3562, fuel channel 30804 / 6399, pebble 35347 / 7186. ~~With 3
+    /// back-off layers: no layer on any tetrahedral mesh nor on the
+    /// pebble's dual; 3 × 1088 and 3 × 2638 on the pipe's and fuel
+    /// channel's duals.~~ (gh:#1829: the layers are grown first;
+    /// `layers_first_on_the_reactor_shapes`.)
     #[test]
     fn every_mesh_type_on_tetgen_tets_of_the_reactor_shapes() {
-        for (shape, tets, dual, dual_layers) in [
-            ("pipe", 18020, 3562, Some(1088)),
-            ("fuel-channel", 30804, 6399, Some(2638)),
-            ("pebble", 35347, 7186, None),
-        ] {
-            for (mesh, n) in [("tet", 0usize), ("tet", 3), ("poly", 0), ("poly", 3)] {
-                let q: Vec<(String, String)> =
-                    [("shape", shape), ("tets", "tetgen"), ("mesh", mesh)]
-                        .iter()
-                        .map(|(k, v)| (k.to_string(), v.to_string()))
-                        .chain([("n".to_string(), n.to_string())])
-                        .collect();
+        for (shape, tets, dual) in [("pipe", 18020, 3562), ("fuel-channel", 30804, 6399), ("pebble", 35347, 7186)] {
+            for mesh in ["tet", "poly"] {
+                let q: Vec<(String, String)> = [("shape", shape), ("tets", "tetgen"), ("mesh", mesh), ("n", "0")]
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect();
                 let d = Design::from_query(&q);
-                assert!(d.tetgen && d.n_layers == n, "{q:?}");
-                let what = format!("{shape} {mesh} n={n}");
+                assert!(d.tetgen && d.n_layers == 0, "{q:?}");
+                let what = format!("{shape} {mesh}");
                 let mut e = Engine::default();
                 let Event::Built(s) = serve_one(&mut e, Request::Build { id: 1, design: d }) else {
                     panic!("no build: {what}")
                 };
                 assert_eq!(s.negative_cells, 0, "{what}");
                 let core = if mesh == "tet" { tets } else { dual };
-                let want = match (mesh, n, dual_layers) {
-                    ("poly", 3, Some(k)) => vec![core, k, k, k],
-                    _ => vec![core],
-                };
-                assert_eq!(s.layer_counts, want, "{what}");
-                if n > 0 && want.len() == 1 {
-                    assert!(
-                        s.notes.contains("boundary layers added none"),
-                        "{what}: {}",
-                        s.notes
-                    );
-                }
-                assert!(
-                    s.notes.starts_with("tet source TetGen -pq1.414/3.5a"),
-                    "{what}: {}",
-                    s.notes
-                );
-                let carve = s
-                    .stages
-                    .iter()
-                    .find(|x| x.stage == PipelineStage::Carve)
-                    .unwrap();
+                assert_eq!(s.layer_counts, vec![core], "{what}");
+                assert!(s.notes.starts_with("tet source TetGen -pq1.414/3.5a"), "{what}: {}", s.notes);
+                let carve = s.stages.iter().find(|x| x.stage == PipelineStage::Carve).unwrap();
                 assert!(!carve.applied && carve.n_cells == 0, "{what}");
                 // A cut of the stage TetGen replaced is empty, not an error.
                 let Event::Section(c) = serve_one(
                     &mut e,
-                    Request::Section {
-                        id: 1,
-                        stage: PipelineStage::Carve,
-                        axis: 2,
-                        offset: 0.0,
-                        colouring: Colouring::Layer,
-                    },
+                    Request::Section { id: 1, stage: PipelineStage::Carve, axis: 2, offset: 0.0, colouring: Colouring::Layer },
                 ) else {
                     panic!("{what}: no cut")
                 };
@@ -1009,84 +1036,80 @@ mod tests {
         }
     }
 
-    /// `CfMeshOptimise` grows every layer on the pebble's TetGen dual,
-    /// where back-off grows none (gh:#1796's "Pebble" question).
+    /// Layers grown first (gh:#1829) on the three reactor shapes, as
+    /// prisms + tetrahedra and as their cell-centre dual, with the page's
+    /// defaults (size 2 m, TetGen `-pq1.414` bounded by the regular
+    /// tetrahedron of the cell size, 3 layers from 20 mm at 1.3 on the
+    /// walls, asked total 79.8 mm).
     ///
-    /// **Methodology.** `shape=pebble&tets=tetgen&mesh=poly&n=3&strategy=cfmesh`,
-    /// otherwise as `every_mesh_type_on_tetgen_tets_of_the_reactor_shapes`.
-    /// **Results (2026-11-26, release, native):** 15052 cells, 7186 core
-    /// and 2622 per layer, median column 31 % of the 79.8 mm asked, max
-    /// non-orthogonality 68.7°, skewness 3.20, 93 s with two other builds
-    /// running (the carved pebble's dual: 2354 per layer, 37 %, 78.2°,
-    /// 216 s, four runs at a time).
+    /// **Methodology.** `shape=<s>&mesh=tet|poly&n=3` against the same
+    /// design with `n=0`. Predictions (written before the first run): every
+    /// wall face of TetGen's wall triangulation carries all 3 layers; every
+    /// column at the full 79.8 mm (the gaps are 0.4 m, pebble to channel,
+    /// and 0.5 m, pin to channel, so the proximity cap 0.4 × gap is at least
+    /// 160 mm); the volume of the prisms + tetrahedra equals the bare
+    /// TetGen mesh's to 1e-9 relative (the layers repartition TetGen's
+    /// mesh of the same surface); no negative cell. Asserted by property,
+    /// not pinned (root `AGENTS.md`, no regression pins before unit-level
+    /// V&V). The measured table is in the gh:#1829 section of
+    /// `dhoby-ghaut/verification_and_validation/mesh_studio_gh1771/README.md`
+    /// (`--measure` prints the rows).
     #[test]
-    fn cfmesh_layers_grow_on_the_tetgen_dual_of_the_pebble() {
-        let q: Vec<(String, String)> = [
-            ("shape", "pebble"),
-            ("tets", "tetgen"),
-            ("mesh", "poly"),
-            ("n", "3"),
-            ("strategy", "cfmesh"),
-        ]
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
-        let mut e = Engine::default();
-        let Event::Built(s) = serve_one(
-            &mut e,
-            Request::Build {
-                id: 1,
-                design: Design::from_query(&q),
-            },
-        ) else {
-            panic!("no build")
+    fn layers_first_on_the_reactor_shapes() {
+        let build_q = |pairs: &[(&str, &str)]| {
+            let q: Vec<(String, String)> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+            let mut e = Engine::default();
+            let Event::Built(s) = serve_one(&mut e, Request::Build { id: 1, design: Design::from_query(&q) }) else {
+                panic!("no build: {pairs:?}")
+            };
+            s
         };
-        assert_eq!(s.negative_cells, 0);
-        assert_eq!(s.layer_counts, vec![7186, 2622, 2622, 2622]);
+        for shape in ["pipe", "fuel-channel", "pebble"] {
+            let bare = build_q(&[("shape", shape), ("mesh", "tet"), ("n", "0")]);
+            for mesh in ["tet", "poly"] {
+                let s = build_q(&[("shape", shape), ("mesh", mesh), ("n", "3")]);
+                let what = format!("{shape} {mesh}");
+                assert_eq!(s.negative_cells, 0, "{what}");
+                assert_eq!(s.layer_counts.len(), 4, "{what}: {:?}", s.layer_counts);
+                let k = s.layer_counts[1];
+                assert!(k > 0 && s.layer_counts[1..].iter().all(|&x| x == k), "{what}: {:?}", s.layer_counts);
+                let [asked, lo, _, hi] = s.layer_thickness;
+                assert!((asked - 0.0798).abs() < 1e-12, "{what}");
+                assert!(lo >= asked * (1.0 - 1e-12) && hi <= asked * (1.0 + 1e-12), "{what}: {:?}", s.layer_thickness);
+                if mesh == "tet" {
+                    let dv = s.volume / bare.volume - 1.0;
+                    assert!(dv.abs() < 1e-9, "{what}: volume moved by {dv:.2e}");
+                    assert_eq!(s.cells, s.layer_counts[0] + 3 * k, "{what}");
+                }
+                assert!(s.notes.contains("layers-first"), "{what}: {}", s.notes);
+            }
+        }
     }
 
-    /// A 20-layer stack on the pipe's TetGen dual (the maintainer's
-    /// reference shows about 20 thin layers, gh:#1796).
+    /// A 20-layer stack on the pipe (the maintainer's reference shows about
+    /// 20 thin layers, gh:#1796), grown first (gh:#1829).
     ///
-    /// **Methodology.** `shape=pipe&tets=tetgen&mesh=poly&n=20&first=0.002&ratio=1.1`
-    /// (asked total 114.5 mm) under each strategy. **Results (2026-11-26,
-    /// release, native):** `CfMeshOptimise` grows all 20 layers on every
-    /// wall face (3562 core + 20 × 1088 = 25322 cells, median column 52 %
-    /// of the asked thickness, max non-orthogonality 54.7°, skewness 2.20,
-    /// about 11 s); back-off grows **none** (it grows all 3 of a 3-layer
-    /// stack on the same mesh).
+    /// **Methodology.** `shape=pipe&mesh=tet|poly&n=20&first=0.002&ratio=1.1`
+    /// (asked total 114.5 mm). ~~Results: `CfMeshOptimise` grows all 20
+    /// layers at a median 52 % of the asked thickness, back-off none~~
+    /// (layers-last, removed). Prediction: all 20 layers on every wall face
+    /// at the full 114.5 mm (the pipe's radius is 1 m), no negative cell.
     #[test]
-    fn twenty_layers_grow_on_the_pipe_with_the_cfmesh_optimiser() {
-        let mut got = Vec::new();
-        for strategy in ["cfmesh", "backoff"] {
-            let q: Vec<(String, String)> = [
-                ("shape", "pipe"),
-                ("tets", "tetgen"),
-                ("mesh", "poly"),
-                ("n", "20"),
-                ("first", "0.002"),
-                ("ratio", "1.1"),
-                ("strategy", strategy),
-            ]
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect();
+    fn twenty_layers_grow_on_the_pipe() {
+        for mesh in ["tet", "poly"] {
+            let q: Vec<(String, String)> = [("shape", "pipe"), ("mesh", mesh), ("n", "20"), ("first", "0.002"), ("ratio", "1.1")]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
             let mut e = Engine::default();
-            let Event::Built(s) = serve_one(
-                &mut e,
-                Request::Build {
-                    id: 1,
-                    design: Design::from_query(&q),
-                },
-            ) else {
+            let Event::Built(s) = serve_one(&mut e, Request::Build { id: 1, design: Design::from_query(&q) }) else {
                 panic!("no build")
             };
-            assert_eq!(s.negative_cells, 0, "{strategy}");
-            got.push(s.layer_counts);
+            assert_eq!(s.negative_cells, 0, "{mesh}");
+            assert_eq!(s.layer_counts.len(), 21, "{mesh}");
+            let [asked, lo, _, hi] = s.layer_thickness;
+            assert!(lo >= asked * (1.0 - 1e-12) && hi <= asked * (1.0 + 1e-12), "{mesh}: {:?}", s.layer_thickness);
         }
-        let mut want = vec![3562];
-        want.extend([1088; 20]);
-        assert_eq!(got, vec![want, vec![3562]]);
     }
 
     /// The query keys of gh:#1796 (`tets`, `q`, `vol`) and the clamps.
@@ -1121,15 +1144,38 @@ mod tests {
                 d.span() / Design::MIN_CELLS_ACROSS
             ))
         );
+        // Wall grading (gh:#1825): off unless asked; `on` is half the cell
+        //   size; a size and growth are clamped to what a phone meshes.
+        assert_eq!(q(&[]).wall_grade(), None);
+        let d = q(&[("shape", "pipe"), ("grade", "on")]);
+        let g = d.wall_grade().unwrap();
+        assert_eq!(g.wall_size, 0.5 * d.cell_size);
+        assert_eq!((g.growth, g.interior_size), (1.2, 2.0 * d.cell_size));
+        // Graded, the derived `-a` is the regular tetrahedron of the
+        //   interior size, not of the cell size.
+        assert_eq!(
+            d.tet_volume(),
+            Design::regular_tet_volume(2.0 * d.cell_size)
+        );
+        assert_eq!(
+            d.tet_source(),
+            TetSource::tetgen(1.414, Some(d.tet_volume())).with_wall_grade(Some(g))
+        );
+        assert!(d.tet_source().switches().unwrap().ends_with('m'));
+        let d = q(&[("grade", "1e-9,9")]);
+        assert_eq!(d.wall_size, Some(0.25 * d.cell_size));
+        assert_eq!(d.wall_growth, 2.0);
+        assert_eq!(
+            q(&[("grade", "on"), ("tets", "carved")]).tet_source(),
+            TetSource::CarvedCentroid
+        );
         // ~~The crate's default is untouched: the headless sweep stays
-        // carved.~~ CHANGED 2026-11-26 (maintainer: "set the default crate
-        // wide to tetgen"): the headless sweep takes the crate default,
-        // TetGen sized by its cell size.
+        // carved.~~ gh:#1829: the cfMesh crate's default is TetGen (layers
+        // are grown first and need it), so the headless sweep meshes on it.
         assert_eq!(
             crate::model::Params::default().opts.tet_source,
-            TetSource::default()
+            TetSource::tetgen(1.414, None)
         );
-        assert!(matches!(TetSource::default(), TetSource::TetGenAtCellSize { .. }));
     }
 
     /// Requests and events survive the wire exactly (every `f64` is carried
@@ -1140,7 +1186,6 @@ mod tests {
             id: 7,
             design: Design {
                 n_layers: 2,
-                strategy: LayerQualityStrategy::SnappyCollapse,
                 polyhedral: false,
                 ..Design::default()
             },
@@ -1154,6 +1199,18 @@ mod tests {
                     tetgen,
                     radius_edge: 1.7,
                     max_volume,
+                    ..Design::default()
+                },
+            };
+            assert_eq!(Request::from_wire(&req.to_wire()).unwrap(), req);
+        }
+        // The wall grading (gh:#1825), off and on.
+        for (wall_size, wall_growth) in [(None, 1.2), (Some(0.07), 1.35)] {
+            let req = Request::Build {
+                id: 9,
+                design: Design {
+                    wall_size,
+                    wall_growth,
                     ..Design::default()
                 },
             };
@@ -1213,8 +1270,11 @@ mod tests {
     /// `every_mesh_type_on_tetgen_tets_of_the_reactor_shapes`).
     #[test]
     fn the_engine_reports_the_build_and_cuts_each_stage() {
+        // Bare: the carved source takes no layers (gh:#1829); the layer
+        //   thickness on the default (TetGen) design is checked below.
         let carved = Design {
             tetgen: false,
+            n_layers: 0,
             ..Design::default()
         };
         let mut e = Engine::default();
@@ -1235,9 +1295,13 @@ mod tests {
             Some(PipelineStage::Carve)
         );
         assert_eq!(s.stages.last().map(|x| x.stage), Some(PipelineStage::Final));
-        assert!(s.stages.last().unwrap().has_layers && !s.stages[0].has_layers);
+        assert!(!s.stages[0].has_layers);
         let d = Design::default();
-        let [asked, lo, med, hi] = s.layer_thickness;
+        let Event::Built(layered) = serve_one(&mut Engine::default(), Request::Build { id: 4, design: d.clone() }) else {
+            panic!("no layered build")
+        };
+        assert!(layered.stages.last().unwrap().has_layers);
+        let [asked, lo, med, hi] = layered.layer_thickness;
         assert_eq!(
             asked,
             requested_thickness(d.n_layers, d.first_layer, d.expansion)
@@ -1245,7 +1309,7 @@ mod tests {
         assert!(
             0.0 < lo && lo <= med && med <= hi && hi <= asked * (1.0 + 1e-12),
             "{:?}",
-            s.layer_thickness
+            layered.layer_thickness
         );
 
         let cut_of = |e: &mut Engine, stage| match serve_one(

@@ -146,12 +146,12 @@ pub struct MultiRegionMesh {
 
 /// TetGen's switches for `source`, with `-A` (region attributes) added.
 fn switches(source: TetSource) -> Result<Switches, String> {
-    let TetSource::TetGen { radius_edge, min_dihedral, max_volume } = source else {
-        if let TetSource::TetGenAtCellSize { .. } = source {
-            return Err("multi-region meshing has no cell size: pass TetSource::TetGen, or resolve() the default first".into());
-        }
+    let TetSource::TetGen { radius_edge, min_dihedral, max_volume, wall_grade } = source else {
         return Err("multi-region meshing needs TetSource::TetGen (the carved route cannot fit internal boundaries)".into());
     };
+    if wall_grade.is_some() {
+        return Err("multi-region meshing does not take TetGen's -m wall grading (gh:#1825); pass wall_grade: None".into());
+    }
     if !(radius_edge > 1.0 && radius_edge.is_finite()) {
         return Err(format!("TetGen radius-edge bound must be > 1 (got {radius_edge})"));
     }
@@ -295,6 +295,9 @@ fn region_subset(out: &TetgenOutput, region: &[usize], g: usize) -> TetgenOutput
         face_markers,
         edges: Vec::new(),
         edge_markers: Vec::new(),
+        // No `-m` sizes on this route (wall grading is refused above).
+        point_mtrs: None,
+        point2tet: None,
     }
 }
 

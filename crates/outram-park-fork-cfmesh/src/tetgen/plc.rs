@@ -75,6 +75,10 @@ pub struct PlcInput {
     pub edges: Vec<[i32; 2]>,
     /// `edgemarkerlist` (`None`: identified edges get the marker -2).
     pub edge_markers: Option<Vec<i32>>,
+    /// `pointmtrlist` (from a `.mtr` file, [`PlcInput::read_mtr`], or set
+    /// by the caller, gh:#1825): one mesh size per point, read by `-m`.
+    /// Empty for none (`numberofpointmtrs` 0).
+    pub point_mtrs: Vec<f64>,
 }
 
 /// A `.poly` / `.smesh` / `.edge` text upstream refuses (or that the port
@@ -651,6 +655,56 @@ impl PlcInput {
         Ok(())
     }
 
+    /// Read a `.mtr` file's text into [`PlcInput::point_mtrs`]
+    /// (`tetgenio::load_mtr`, which `load_plc` calls after the `.poly`;
+    /// gh:#1825): a line with the number of points and of columns, then one
+    /// line of sizes per point (no index). As upstream, a point count that
+    /// is not [`PlcInput::points`]' length, or a column count other than
+    /// 1, 3 or 6, is ignored: `Ok(false)` and no sizes. Only one column is
+    /// ported (upstream's `-m` reads only the first anyway, but writes all
+    /// of them to its `.mtr` output): 3 or 6 are refused.
+    ///
+    /// # Errors
+    /// An empty file, a missing value, or 3 or 6 columns.
+    pub fn read_mtr(&mut self, text: &str) -> Result<bool, PlcReadError> {
+        let mut lines = Lines::new(text);
+        // Read the number of points.
+        let Some(s) = lines.readnumberline() else {
+            return err("Error:  Empty .mtr file.");
+        };
+        let (ptnum, k) = strtol(s, 0);
+        if ptnum != self.points.len() as i64 {
+            // "!! Point numbers are not equal. Ignored."
+            return Ok(false);
+        }
+        // Read the number of columns (1, 3, or 6).
+        let mut numberofpointmtrs = 0;
+        let k = findnextnumber(s, k); // Skip number of points.
+        if at(s, k) != 0 {
+            numberofpointmtrs = strtol(s, k).0;
+        }
+        if numberofpointmtrs != 1 && numberofpointmtrs != 3 && numberofpointmtrs != 6 {
+            // "!! Metric size does not match (1, 3, or 6). Ignored."
+            return Ok(false);
+        }
+        if numberofpointmtrs != 1 {
+            return err("anisotropic .mtr metrics (3 or 6 columns) are not ported");
+        }
+        let mut mtrs = Vec::with_capacity(self.points.len());
+        for _ in 0..self.points.len() {
+            // Read metrics.
+            let Some(s) = lines.readnumberline() else {
+                return err("Error:  Unexpected end of file in the metric list.");
+            };
+            if at(s, 0) == 0 {
+                return err("Error:  Metric is missing a value.");
+            }
+            mtrs.push(strtod(s, 0).0);
+        }
+        self.point_mtrs = mtrs;
+        Ok(true)
+    }
+
     /// A PLC from a triangle soup: every triangle a facet of one polygon
     /// with its marker (0-based indices, `firstnumber` 0, no holes).
     ///
@@ -678,6 +732,7 @@ impl PlcInput {
             regions: Vec::new(),
             edges: Vec::new(),
             edge_markers: None,
+            point_mtrs: Vec::new(),
         }
     }
 

@@ -239,7 +239,12 @@ mod tests {
     /// cut cell. Cut at a non-node height so no face lies on the plane.
     #[test]
     fn a_mid_plane_cut_of_the_carved_box_has_the_box_area() {
-        let b = build(&Params::default()).expect("build");
+        // The carved source, bare (gh:#1829: TetGen is the default, and the
+        //   carved source takes no layers).
+        let mut p = Params::default();
+        p.opts.tet_source = outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid;
+        p.opts.n_layers = 0;
+        let b = build(&p).expect("build");
         let carve = &b
             .stages
             .iter()

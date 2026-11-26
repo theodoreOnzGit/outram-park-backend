@@ -318,7 +318,7 @@ Remaining roadmap (beads under the `op-hzs` epic):
     ~~still to do: feature-aware layers and **local layer collapse** (three
     layers on the pipe diverge in the solver; the interface to the dual sits
     at 75–84°, and only a local collapse, snappy-style, can meet upstream's
-    relaxed `maxNonOrtho 75`)~~ **UPDATED 2026-11-04 (gh:#1215):** both
+    relaxed `maxNonOrtho 75`)~~ ~~**UPDATED 2026-11-04 (gh:#1215):** both
     upstream repairs are ported beside the crate's own back-off and
     selectable by `TetDualOptions::layer_strategy`
     (`layers::LayerQualityStrategy`): `BackOffOnly` (default, unchanged),
@@ -328,7 +328,13 @@ Remaining roadmap (beads under the `op-hzs` epic):
     (snappyHexMesh's per-point `extrudeMode` and `checkAndUnmark` loop with
     `meshQualityDict`'s limits, modules `snappy_layers`,
     `checks::faces_failing_mesh_quality`); the layer builder takes a
-    per-point layer count (`layers::build_layered_variable`). The
+    per-point layer count (`layers::build_layered_variable`).~~
+    **CHANGED 2026-11-26 (gh:#1829, maintainer HARD RULE):** the pipeline
+    grows its layers **first**, from TetGen's wall triangulation, and TetGen
+    meshes the inside face to face (`pipeline::layers_first`); the
+    `layer_strategy` option, `snappy_layers` and `pipeline::tet_layers` are
+    deleted. The back-off and `boundary_layer_optimisation` stay as library
+    functions (the cfMesh workflow ports use the latter). The
     differential results are in
     `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`
     (gh:#1215 section). Also found: the tet-dual pipeline was not

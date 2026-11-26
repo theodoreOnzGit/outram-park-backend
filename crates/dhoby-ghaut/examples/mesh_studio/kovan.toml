@@ -48,7 +48,7 @@ name = "MeshApp"
 qual = "MeshApp"
 item = "type"
 shape = "struct"
-hash = "sha256:41c25d16cfc96bb38cb3d2c4c2e5daa8e38a514e9b6529a93c9722f83cb6ee55"
+hash = "sha256:fe5be17f1b9cf97b6991b0cb847016263ea7539f986ae23cf66e141f32c9ac4f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."app.rs".function]]
@@ -125,7 +125,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:8394419ad6731e40"
 name = "side_panel"
 qual = "MeshApp::side_panel"
-hash = "sha256:48160e08554789938547b6f101e1127319c90ea64e1c233d5a6c1d76227651c6"
+hash = "sha256:805c3a7ecc267364eb7bd34c91674b3c242a4d0f66940cb3f20567848d626236"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."app.rs".function]]
@@ -202,18 +202,11 @@ hash = "sha256:43b50ca502dcfc4cbe2feadb912ebd796649cdb93e8ea42c76024f5750984796"
 doc_hash = "sha256:1c932551d568ea9be96871a753adae19918a4eff7ed1d0db25366d88592860d2"
 
 [[module."app.rs".function]]
-id = "fn:1e6e4ceb156136eb"
-name = "strategy_label"
-qual = "strategy_label"
-hash = "sha256:874f5958782d66b7f309d23f8a8a91b4f418fc06f8293eea96e59cdc519a13cd"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."app.rs".function]]
 id = "fn:d8a6dbc916f952cb"
 name = "strategy_note"
 qual = "strategy_note"
-hash = "sha256:f99f5b3c11441d389617b267c3ea65ad2a89f166e3fbea95b18334914df7d878"
-doc_hash = "sha256:4af29efaf2966badba130dbe99a5c9d59caecb26ece7dd2bc4c6a7cc19f20782"
+hash = "sha256:2aaecc88cdfc05733e13db3803defd8a346988928b652a8b7990dc81e286ae38"
+doc_hash = "sha256:f5ac0d7fbf85b88441e9c5c7186750fdfe8d19a85d33f60594e372b5ff7f3944"
 
 [[module."app.rs".function]]
 id = "fn:293361647f2f64df"
@@ -258,35 +251,35 @@ name = "Design"
 qual = "Design"
 item = "type"
 shape = "struct"
-hash = "sha256:f6d15ea8f25119e1ed8a8b0e1b69e2d4c3a34dc047f82262403c9e1b10613d76"
+hash = "sha256:840bb543b4363c23ff125c89789f538ca2bffc0f146c88620f855d8cfa3735b4"
 doc_hash = "sha256:67229b0123b34f8b593d3d5f5c8b04831d5319a80927e090c8f30480b1a36e3d"
 
 [[module."engine.rs".function]]
 id = "fn:9979f71aa5348642"
 name = "clamped"
 qual = "Design::clamped"
-hash = "sha256:d6ece895c1debbcf7be5e08d2ad201b016dfa8e880ea3cde080e3863d8c97556"
+hash = "sha256:0bc9746f42170e655d076ccc0f2ef082f767fb87580825c8d23630a0bd11b9ec"
 doc_hash = "sha256:b863e46cb7310b8aa82ccf3d23bba3d086f28e9b966f332d94c3227480b98649"
 
 [[module."engine.rs".function]]
 id = "fn:235fa7cfe59f7073"
 name = "default"
 qual = "Design::default"
-hash = "sha256:e27c9af74f4012467143c16ce0e6be19109e3e55431135dd56c6c1334c247c68"
+hash = "sha256:0856591a11216e9e0f5d35ceb5671af00f8d2cac439f1136ab77d6608f05213a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."engine.rs".function]]
 id = "fn:d0bace194ffaa3d0"
 name = "from_query"
 qual = "Design::from_query"
-hash = "sha256:2896e21ba5f7ba36143fba4c31c4dc2e12f28f0158aaa70972d3a13c257f6097"
+hash = "sha256:65df72dafb3bf0318db7dc6eae98a4be966be56a733491e0e6e28a02e8178aae"
 doc_hash = "sha256:dba43391d3c256afda7bf067e17896e5cbb3cd7d115ba24860358b21ca34f4cd"
 
 [[module."engine.rs".function]]
 id = "fn:a92c41d6419aa284"
 name = "params"
 qual = "Design::params"
-hash = "sha256:5a380b1671a71acffb7915d1561442b8d9a74ac94763a272aaeff63b91e65f96"
+hash = "sha256:8f29e6cf5a01e1c7d51495a60ad60734a2e010cb8479d4546e531aea381bf58a"
 doc_hash = "sha256:6c666ebf9ce83d5c41f59b15843e9835ef7b8b8ea2659ccce4552a677c9c19be"
 
 [[module."engine.rs".function]]
@@ -307,15 +300,22 @@ doc_hash = "sha256:3ceb8e8f46a3388313abeadc9c57e4064df7f69f287f872bceaa713d16345
 id = "fn:ec6948adf44381fa"
 name = "tet_source"
 qual = "Design::tet_source"
-hash = "sha256:5dc3aaee5dfdcf808a302c3f809095ceb841e1e4568394b4be9aa82446fb11bf"
+hash = "sha256:27ccf6a20b7dd504d7d8a0c88e70d831330964a640ed75c237fc01294b907eda"
 doc_hash = "sha256:6cace22a694354eab78ffa5e869bc748d56bd940728c70fac8f9de4012f3f208"
 
 [[module."engine.rs".function]]
 id = "fn:1af6725c28b61a13"
 name = "tet_volume"
 qual = "Design::tet_volume"
-hash = "sha256:9c6e850fc52926d9a07f4255a8514f826644b6c206b847ca9d44d799b4eed31d"
+hash = "sha256:b454133128d33be023466ea9fae0ac47a332cc17a87c7e61ae12fb3e7a2ca773"
 doc_hash = "sha256:f7552b506a5ff24651318012c92d1ce960944cd71f67e09f2114dd38eb180b9d"
+
+[[module."engine.rs".function]]
+id = "fn:aa505f99997268bf"
+name = "wall_grade"
+qual = "Design::wall_grade"
+hash = "sha256:1dfc65950ffbf5d5a3a9d7165b9567d98b7289cb7e17b8994155c2df1688be25"
+doc_hash = "sha256:6957423c827383dc385d9c97a0601ea51679a242378775ef9be76163ad046218"
 
 [[module."engine.rs".function]]
 id = "fn:7cc28e252ab6f3f9"
@@ -418,7 +418,7 @@ name = "Request"
 qual = "Request"
 item = "type"
 shape = "enum"
-hash = "sha256:ea5b0f15e7a6a1a2d2a01ad311141d9f392c30e8ad36dbd304e98c6fd0cdd15e"
+hash = "sha256:b3450c390cb6077c0886b7617b082f87c8861463e103f49fcf28db5269001ea9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."engine.rs".function]]
@@ -432,7 +432,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:ec3b50313bd99409"
 name = "from_wire"
 qual = "Request::from_wire"
-hash = "sha256:c56f94f7c98746ea7c11a71b90070600443f6da696c562ae67a792f51a419f5e"
+hash = "sha256:8aab2aaa65fddf0670fd2ee0ad1b609934c82e52991bdc216a296993a9dae8b5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."engine.rs".function]]
@@ -446,7 +446,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:13dbbb9d1b13fc00"
 name = "to_wire"
 qual = "Request::to_wire"
-hash = "sha256:ee9bfd4c2f9802bc002cd91c2d9330ed8bef6170633227f8a2486a1cd12e0fe9"
+hash = "sha256:c348c896ecf54c3ee7bc3a2eeb4eb3fa728e140f6b9c9f9d423b9c5108233cdf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."engine.rs".function]]
@@ -455,17 +455,8 @@ name = "STAGES"
 qual = "STAGES"
 item = "const"
 shape = "const"
-hash = "sha256:9261d7816fe1ffb97ad3f3c3a5e78afa04d662b02c8ddb4811c2dcb079a5d699"
+hash = "sha256:df3edab652f1f0a5ef7657a1f6a557bfe060aaf72e98d96fca166ddea2735948"
 doc_hash = "sha256:45a8716809216ab0e8ba80539b428a68a450997a0a33c1f23fb8aef6a8512645"
-
-[[module."engine.rs".function]]
-id = "fn:d9c2bafb2460c4b9"
-name = "STRATEGIES"
-qual = "STRATEGIES"
-item = "const"
-shape = "const"
-hash = "sha256:8b97cf8e2f4e6c2339499a9d1b33a3be049b4c333ae2d1e86650962d4dd01ae1"
-doc_hash = "sha256:0b07117fd07cecaf8cc8aa0144de635fb29201e8e103fdad976b0f77fffce617"
 
 [[module."engine.rs".function]]
 id = "fn:0142138bc7419b45"
@@ -509,14 +500,6 @@ hash = "sha256:57e089662c28a7a546fb43bc062df606174411a4d14b9e748273a2f3d2b22b3f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."engine.rs".function]]
-id = "fn:4aa29447274c2be7"
-name = "cfmesh_layers_grow_on_the_tetgen_dual_of_the_pebble"
-qual = "cfmesh_layers_grow_on_the_tetgen_dual_of_the_pebble"
-hash = "sha256:17d5c7d42e10cbbbd6a7ca9f3c2696a5243633cb22380cd6b370a1735b243967"
-doc_hash = "sha256:cb44412ad92ca7f906ff8c9ea118a87871edaf0634e079d33ba45e4f0964fe53"
-test = true
-
-[[module."engine.rs".function]]
 id = "fn:91e56381ed925ace"
 name = "cleanup_code"
 qual = "cleanup_code"
@@ -527,16 +510,16 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:f471aa3af07cbbe9"
 name = "every_mesh_type_builds_a_valid_mesh"
 qual = "every_mesh_type_builds_a_valid_mesh"
-hash = "sha256:cbfda364ab6936d494744f284a48a2855e3aa38775b9fabd74356f5f91eeea1d"
-doc_hash = "sha256:d35282a53dcdfdedafeb0a439926f8b8375532918204f40c3f2bfdc55ffea1bd"
+hash = "sha256:b026d829a4ce88d7da8cd7b5ea99b5b0aaa071dd01e237ef9d3b629e41a5bd54"
+doc_hash = "sha256:dc99f927eb639bbcdaa1f2d0e15932f76400b8d0233bf7683824a24c9ab490c8"
 test = true
 
 [[module."engine.rs".function]]
 id = "fn:2b7fe1b12b8093a2"
 name = "every_mesh_type_on_tetgen_tets_of_the_reactor_shapes"
 qual = "every_mesh_type_on_tetgen_tets_of_the_reactor_shapes"
-hash = "sha256:2246803362198ed61a6fe7aec4e3c8a22718f6fe4a896ed08efa1825d4919e8c"
-doc_hash = "sha256:25eb7f8b3e41589a8f7a215fb87bcc6d6fe6580454063d161655b2f81fff98e7"
+hash = "sha256:4d7539c9b634ff585ac075b12e60fd6c5a4ab15f366ba455a47d226402523b74"
+doc_hash = "sha256:51ea00638a4bc8ea9708ed6172e6056ff3b340aecdd3e3a0ee104cf28d38a0fb"
 test = true
 
 [[module."engine.rs".function]]
@@ -552,6 +535,14 @@ name = "layer_thickness"
 qual = "layer_thickness"
 hash = "sha256:da84ae978ee2501758051a41b2243db3ea918ed092cd2290ac0bf4c17d03f59a"
 doc_hash = "sha256:cda5919bcd474e321991a558c3a06b4379566e060ae36b3b60f6aa5b5a6b36d8"
+
+[[module."engine.rs".function]]
+id = "fn:dd0b88fc71ee0dfa"
+name = "layers_first_on_the_reactor_shapes"
+qual = "layers_first_on_the_reactor_shapes"
+hash = "sha256:ca327edf12fccc7c777fb49d6451915c5435e286b6953999066239b5ababe0db"
+doc_hash = "sha256:3284721aeb66064f750e9ef96f020b10aa35f6c6867369cc282b40afe14e4414"
+test = true
 
 [[module."engine.rs".function]]
 id = "fn:a72e333133c7233c"
@@ -586,7 +577,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:30dfa5fe02935001"
 name = "the_engine_reports_the_build_and_cuts_each_stage"
 qual = "the_engine_reports_the_build_and_cuts_each_stage"
-hash = "sha256:15af26d14ae0b495daa4793f5ad1c6b3af5bb25fcce7d7c7cc9d196015bfdbf4"
+hash = "sha256:af1d4ca83ee5fef7186a62fae3a16c572ee95ae4c2a6a093cdbc729a4b015201"
 doc_hash = "sha256:cab74840aaddfed4d67c982c5e7230557eb29ed8fba72f21bcc28ee6caa9f2b7"
 test = true
 
@@ -602,7 +593,7 @@ test = true
 id = "fn:c8f41bd001aa07bb"
 name = "the_tet_source_query_keys_and_clamps"
 qual = "the_tet_source_query_keys_and_clamps"
-hash = "sha256:932e69403b1499f2ec6a8b2a02660666cbdc66eb0715034c0468affe7d457b94"
+hash = "sha256:8fe59dd047e411cfc6704f2602c3b5dd26d7a9044fc4d484f383e18ff839dd1a"
 doc_hash = "sha256:13488aacbca73312bd6b7465d6eacba00302ce54466ea9095f30219ff494ff2f"
 test = true
 
@@ -610,16 +601,16 @@ test = true
 id = "fn:cd80f9fe9727a1a0"
 name = "the_wire_format_round_trips"
 qual = "the_wire_format_round_trips"
-hash = "sha256:98d3ee734ec13d0ddfb9f35e66ade723561d9c5451ee2539c3ad8c4ea7c6c65e"
+hash = "sha256:b6ed749bec264f399a832493d3c7e677c55aa3ff81c94ea530ba54647e95c375"
 doc_hash = "sha256:22ec4a064efb10b6a2e6f1f862c24feb6aa9bfc80e040ee58de4b59052c06d7f"
 test = true
 
 [[module."engine.rs".function]]
-id = "fn:c770e7d23f71497e"
-name = "twenty_layers_grow_on_the_pipe_with_the_cfmesh_optimiser"
-qual = "twenty_layers_grow_on_the_pipe_with_the_cfmesh_optimiser"
-hash = "sha256:88caf90eb2ed29261a77674740eb42e627cf2a5d90f15791f9cc5bf2f69edbd8"
-doc_hash = "sha256:4878db36d5ba2753c3837b1cd3ac32cfdc8c5b274c16cde56df4635908d4fd99"
+id = "fn:9afdd389b4f1f458"
+name = "twenty_layers_grow_on_the_pipe"
+qual = "twenty_layers_grow_on_the_pipe"
+hash = "sha256:dd9d95bf10db500fa43647b05ad83e1c2e001bce90134f61a991a313ee77a53a"
+doc_hash = "sha256:984028ef751692cf5a5714cb180da3b733909b48e48a5c8b2007bdbe71c432d9"
 test = true
 
 [[module."engine.rs".function]]
@@ -647,14 +638,14 @@ name = "MEASURE_HEADER"
 qual = "MEASURE_HEADER"
 item = "const"
 shape = "const"
-hash = "sha256:b3fc4aea1311f6d04e311aae5cb026d919198128b7c0a4e85f251e0b398b4a62"
+hash = "sha256:e706c112808035fac9df0016f1ed08f8af8bc8373ca11a26802d7d8897c9a3f4"
 doc_hash = "sha256:95422e2854ecc64926e30d67fe7cd9189674b890c28b46c3324500451fe9b194"
 
 [[module."headless.rs".function]]
 id = "fn:415a3ab0c167e254"
 name = "measure"
 qual = "measure"
-hash = "sha256:8660006859b0d566deb4af37d58a2aebfe791cf9b6bd461d269def90138253d8"
+hash = "sha256:9d6456a3165f3b7aea386ee66683ddc0b3b24c265610d274a136a563b7897da4"
 doc_hash = "sha256:9486b4e2b7e2dbb32127b6186909d4d786c28e9c19fcf2afdef3214e000aea1c"
 
 [[module."headless.rs".function]]
@@ -723,8 +714,8 @@ doc_hash = "sha256:81b8f6e199bc73013d2e330a7e4a3e1b71182045741f6ca6e42da6f9b55df
 id = "fn:f9a967f450d97de4"
 name = "reactor_shapes_mesh_with_named_patches_and_wall_layers"
 qual = "reactor_shapes_mesh_with_named_patches_and_wall_layers"
-hash = "sha256:554d9e7866451a5cf2d27d522a26e1a7478f8fd83506d3495a3beb607235c266"
-doc_hash = "sha256:cd681c3e7338c7a8b387106cdc630649c4834c6c1ccfde7c88a104211da2b507"
+hash = "sha256:33b89e8552cfc83994282236fc1f1a73392f25dc851ed3acbd2938e551ed6e01"
+doc_hash = "sha256:5b2b87c4ba9984aac299ad116e9e714d6ae6849c3edd622018a7bb3e35bfc966"
 test = true
 
 [[module."main.rs".function]]
@@ -932,7 +923,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:d9fd19aa175cab3a"
 name = "a_mid_plane_cut_of_the_carved_box_has_the_box_area"
 qual = "a_mid_plane_cut_of_the_carved_box_has_the_box_area"
-hash = "sha256:dee221b1eafbb6a1dd8333efb04d06ee582037cf6c4dec927fe1530b14f11563"
+hash = "sha256:01f8e0b796d4dc3c6925b1c7378a4685fc3e0d316aea47d2c3483f8684a2cdaf"
 doc_hash = "sha256:14e2565b78193f428a46282a7e606f04d7bbb5302dac0ea23c91126299804916"
 test = true
 
@@ -1035,6 +1026,29 @@ hash = "sha256:258ba9a5e9259ca69cc2f754bc6adcfc09b7de73082fc15689bd22dfddb998a1"
 doc_hash = "sha256:183b35da7f489e9a15a75cc9cc235a48dd76ffd0280bdc012df5cabc66ae5a5d"
 
 [[module."tetgen_render.rs".function]]
+id = "fn:48691a013b84ac92"
+name = "SIZE"
+qual = "SIZE"
+item = "const"
+shape = "const"
+hash = "sha256:fcf1ca3a3bb9d70fcba70f3208f7d58fed446335094c5ace56b5b30f36bc9ce1"
+doc_hash = "sha256:4be76d000629a8c7228bbe2d96ba92ce47e23af2ac481e57bcf8a597da67c474"
+
+[[module."tetgen_render.rs".function]]
+id = "fn:421b368218c65b3d"
+name = "bin_edge"
+qual = "bin_edge"
+hash = "sha256:4e1b13407fd760d5268214edeb0ab85d87398f6e62dc6dfd2c14d5313facf42d"
+doc_hash = "sha256:5d8fc9d89b470b29ceadb5d1fc39f10c472a7485b831b96a3da1983e47e0a48e"
+
+[[module."tetgen_render.rs".function]]
+id = "fn:388ecaea8d79c5b3"
+name = "cell_mean_edges"
+qual = "cell_mean_edges"
+hash = "sha256:51a1867bcb96d51e5a2c47c0ebf27da54addf4884495854da128f9a8401e6278"
+doc_hash = "sha256:712d3b94888add99bb65f03ad172820247a2a1fc63ce4f22cf1bde15721f1edf"
+
+[[module."tetgen_render.rs".function]]
 id = "fn:a83dfe1f5371e6d9"
 name = "draw"
 qual = "draw"
@@ -1042,10 +1056,24 @@ hash = "sha256:a479d2872e86df3594d28bcdf931369d91b3012f6558a58f37376823369e96b8"
 doc_hash = "sha256:4eba18ecd03ee24d05c39cf53fcc8f3f852504c9180a30c4f6f3fb8720288aaf"
 
 [[module."tetgen_render.rs".function]]
+id = "fn:1d544c9dcc0b568c"
+name = "draw_graded"
+qual = "draw_graded"
+hash = "sha256:983fd867333101fed865eee69d14cc10ec66e5783a5a1e677fb78c53de68ad10"
+doc_hash = "sha256:488cfe15ffba2f7c11bf1b4ce38398e9f5771461ae0215f6a0a83adf1de8bdb8"
+
+[[module."tetgen_render.rs".function]]
+id = "fn:80f2eab5e1db6b76"
+name = "draw_plc"
+qual = "draw_plc"
+hash = "sha256:c2b0c44b9ddc0bd51d7983cbb3136738052f23b5150ed51a5002dbfe6621d0e0"
+doc_hash = "sha256:b8f681c6f41151118da6f7bc1f78fb19e8037a1f32485ef938542572b5512435"
+
+[[module."tetgen_render.rs".function]]
 id = "fn:12199a6e90681c4d"
 name = "draw_with"
 qual = "draw_with"
-hash = "sha256:009b0466407dbfde9cf5309c3bbc8456fb4a9153ce71a57e719ad7b95ae1367d"
+hash = "sha256:bccf57956bb20e361e9cbb450e30a35d9c675e58be97827115f0a0b63124ebd0"
 doc_hash = "sha256:4076d231e3d47dac0a58a8b68cec6a0c1887a72642caf2e98d3e7edea0e89036"
 
 [[module."tetgen_render.rs".function]]
@@ -1054,6 +1082,14 @@ name = "fill_polygon"
 qual = "fill_polygon"
 hash = "sha256:fb82cad522bbeb774ff6eb9f312e9527541a9d28ca0693cfb2d5d6c08ee968ca"
 doc_hash = "sha256:01617e038f0f244fb5e6946d841a82569e5df450993be9efca973c7a6a2ac9a2"
+
+[[module."tetgen_render.rs".function]]
+id = "fn:054a763d56c35903"
+name = "graded_sections_are_drawn_with_a_wall_zoom"
+qual = "graded_sections_are_drawn_with_a_wall_zoom"
+hash = "sha256:ce91d409e0a086cf7a74a97cb91e15a41c799bad1dcc1dbeeb42d00ca7ef997f"
+doc_hash = "sha256:d4154500c837a9342bac6f7c745f42c31cfab02f32a0e5ace9d2574a56ca1588"
+test = true
 
 [[module."tetgen_render.rs".function]]
 id = "fn:d35b1e21605b2d68"
@@ -1074,8 +1110,15 @@ test = true
 id = "fn:c8e29a5298d1263d"
 name = "render_all"
 qual = "render_all"
-hash = "sha256:7a60555c1a49b6988c38ea6a523be9e852e0de8980c5c99277028e039ec74b4b"
+hash = "sha256:c421a42d7476517bdeab4559524cfe434df7d8b898c542cc169b07ec9c75c58d"
 doc_hash = "sha256:5e931d0d449b6e22227c88ae89de84ceb87a78ce9de863f9c1c7e99ef54cf3c9"
+
+[[module."tetgen_render.rs".function]]
+id = "fn:2832189d37e6b603"
+name = "size_bin"
+qual = "size_bin"
+hash = "sha256:1b5ea983b4d26f729a9ff567301fbfea734450fe6c876098ebdc481684e39ec1"
+doc_hash = "sha256:913bac4ed49b51f4f0a3aa7d9c2d145b9104fcae2e5f2618f5fa02c7e065e5cd"
 
 [[module."tetgen_render.rs".function]]
 id = "fn:fb8bdccb08e12747"

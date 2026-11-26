@@ -37,7 +37,7 @@ use outram_blender::foam_mesh::{revolved_profile_surface, TetDualOptions, Volume
 use outram_blender::unstructured::convert::cfmesh::from_volume_mesh;
 use outram_blender::unstructured::overlap::MeshOverlap;
 use outram_blender::unstructured::{render_mesh_slice, MeshColourBy, MeshSlice, UnstructuredMesh, Zone};
-use outram_park_fork_cfmesh::patches::SurfaceRegions;
+use outram_park_fork_cfmesh::patches::{assign_patches_by_region, SurfaceRegions};
 
 use crate::engine::AssemblyInfo;
 
@@ -98,6 +98,9 @@ fn opts(cell_cm: f64, refine: u8, dual: bool) -> TetDualOptions {
         dual,
         dual_min_faces: dual,
         n_layers: 0,
+        // The carved, octree-graded source `refine` drives (gh:#1829 made
+        //   TetGen the default; these meshes take no layers).
+        tet_source: outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
         ..TetDualOptions::default()
     }
 }
@@ -204,35 +207,36 @@ fn mesh_role(
                 })
                 .collect();
             let regions = SurfaceRegions::from_labels(&labels);
-            // Boundary layers on the fluid's wall only (maintainer default:
-            // fluid = tet-dual + layers, porous = tet-dual), grown by the
-            // pipeline's own layer stage on the named patch. ~~The carved
-            // route's tets with `layers::add_boundary_layers_adaptive` after
-            // the pipeline~~ CHANGED 2026-11-26: cfMesh's default became
-            // TetGen, on whose default dual the back-off layerer grew none of
-            // the 3 layers here (20 952 -> 4 860 cells); the maintainer chose
-            // Mesh Studio's measured combination for layers on TetGen tets:
-            // the cell-centre dual with corner feature points and
-            // `CfMeshOptimise` (cfMesh AGENTS.md, gh:#1796).
-            let o = TetDualOptions {
-                n_layers: s.layers,
-                first_layer_thickness: s.first_layer_cm / 100.0,
-                expansion: s.expansion.max(1.0),
-                layer_patches: vec!["cavity_wall".into()],
-                layer_strategy: outram_park_fork_cfmesh::layers::LayerQualityStrategy::CfMeshOptimise,
-                dual_kind: outram_park_fork_cfmesh::dual::DualKind::CellCentre,
-                dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners,
-                ..opts(s.cell_size_cm, s.refine, true)
-            };
-            let (vm, rep) =
-                outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o)?;
+            let (vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(
+                &p,
+                &t,
+                &regions,
+                &opts(s.cell_size_cm, s.refine, true),
+            )?;
             let mut notes = rep.stage_notes;
-            let layer_cells: usize = rep.layers.as_ref().map_or(0, |l| l.faces.iter().map(|f| f.1).sum());
+            // Boundary layers on the fluid's wall only (maintainer default:
+            // fluid = tet-dual + layers, porous = tet-dual). The pipeline grows
+            // layers before naming patches, so they are grown here, on the
+            // named patch, and the patches re-named after (the layerer
+            // rebuilds the mesh).
             if s.layers > 0 {
-                notes.push(format!("boundary layers on cavity_wall: {layer_cells} layer cells ({} asked per face)", s.layers));
-                if layer_cells > 0 {
-                    return Ok((vm, notes, CellType::TetDualWithLayers));
+                let before = vm.n_cells;
+                let layered = outram_park_fork_cfmesh::layers::add_boundary_layers_adaptive(
+                    &vm,
+                    "cavity_wall",
+                    s.layers,
+                    s.first_layer_cm / 100.0,
+                    s.expansion.max(1.0),
+                );
+                let named = assign_patches_by_region(&layered, &p, &t, &regions)?;
+                let q = outram_park_fork_cfmesh::checks::check_quality(&named);
+                if named.validate().is_ok() && q.n_negative_volume_cells == 0 {
+                    if named.n_cells == before {
+                        notes.push("boundary layers added none on cavity_wall (the adaptive layerer backed off)".into());
+                    }
+                    return Ok((named, notes, CellType::TetDualWithLayers));
                 }
+                notes.push("boundary layers skipped: they would invalidate the mesh".into());
             }
             Ok((vm, notes, CellType::TetDual))
         }

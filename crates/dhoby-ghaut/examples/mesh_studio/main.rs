@@ -352,6 +352,12 @@ mod tests {
     /// only because the cavity gets a TetGen hole point
     /// (`outram_park_fork_cfmesh::pipeline::tet_source::hole_points`;
     /// without one TetGen meshed the pebble's inside, found by this test).
+    ///
+    /// **CHANGED 2026-11-26 (gh:#1829):** the layers are grown first and
+    /// need TetGen, so the carved source is meshed bare (patches and volume
+    /// still checked) and the layered builds are TetGen's; on TetGen all
+    /// three shapes, the pebble included, now carry all 3 layers (the
+    /// figures above are the removed back-off route's).
     #[test]
     fn reactor_shapes_mesh_with_named_patches_and_wall_layers() {
         for tetgen in [false, true] {
@@ -367,7 +373,7 @@ mod tests {
                 (
                     GeomKind::Pebble,
                     vec!["channel", "inlet", "outlet", "pebble"],
-                    false,
+                    true,
                 ),
             ] {
                 let d = Design {
@@ -375,6 +381,7 @@ mod tests {
                     cell_size: kind.default_cell_size(2.0),
                     dual: kind.default_dual(),
                     tetgen,
+                    n_layers: if tetgen { 3 } else { 0 },
                     ..Design::default()
                 };
                 let p = d.params();
@@ -395,7 +402,7 @@ mod tests {
                     b.report.total_volume
                 );
                 assert_eq!(b.layer_index.unreached, 0, "{kind:?}");
-                if layered {
+                if layered && tetgen {
                     assert_eq!(
                         b.layer_index.max,
                         3,

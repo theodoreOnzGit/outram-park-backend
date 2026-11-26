@@ -296,7 +296,7 @@ pub fn create_octree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Surf
 /// `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)` (acts only
 /// with `optimiseLayer`, off by default; gh:#1476), `untangleMeshFV`.
 /// Returns the report line.
-fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>, octree: Option<&MeshOctree>) -> Result<String, String> {
+pub(crate) fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>, octree: Option<&MeshOctree>) -> Result<String, String> {
     let given = face_regions(m, reg);
     if kind == Template::Voronoi {
         // meshSurfaceOptimizer(mse, octree)::optimizeSurface on its own
@@ -785,7 +785,7 @@ pub(crate) mod tests {
 
     /// Baseline of the differential: the crate's own tets at `cell_size`.
     fn baseline(p: &[Vec3], t: &[[usize; 3]], cell_size: f64) -> (VolumeMesh, f64) {
-        let opts = TetDualOptions { cell_size, dual: false, n_layers: 0, delaunay: true, feature_edges: false, ..crate::pipeline::TetDualOptions::carved() };
+        let opts = TetDualOptions { cell_size, dual: false, n_layers: 0, delaunay: true, feature_edges: false, ..Default::default() };
         let t0 = Instant::now();
         let (m, _) = surface_to_tet_dual_mesh(p, t, &opts).unwrap();
         (m, t0.elapsed().as_secs_f64())
