@@ -87,3 +87,4 @@ pub mod multi_region;
 pub mod neutronics;
 pub mod thermal_hydraulics;
 pub mod thermo_mechanics;
+pub mod workflow;

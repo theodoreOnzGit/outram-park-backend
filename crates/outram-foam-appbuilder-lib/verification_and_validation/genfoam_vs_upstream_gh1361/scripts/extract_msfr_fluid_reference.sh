@@ -13,7 +13,7 @@
 #   RE_n     fluidRegion/Re  after step n, for n in 1 10 25 50
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 R=$1/transient
-N=${2:-50}
+N=${2:-50}   # third argument (gh:#1814): output name, default msfr_fluid_transient
 L=$R/log.GeN-Foam
 OUT=$(mktemp)
 fld() { awk '/^\($/{f=1;next} /^\)$/{exit} f{gsub(/[()]/,""); print $1}' "$1" | tr '\n' ' '; }
@@ -38,6 +38,6 @@ for T in $ALLT; do
   echo "T_$i $(fld $R/$T/fluidRegion/T)" >> "$OUT"
   case $i in 1|10|25|50) echo "RE_$i $(fld $R/$T/fluidRegion/Re)" >> "$OUT";; esac
 done
-gzip -9 -n -c "$OUT" > "$HERE/refs/msfr_fluid_transient.ref.txt.gz"
+gzip -9 -n -c "$OUT" > "$HERE/refs/${3:-msfr_fluid_transient}.ref.txt.gz"
 rm -f "$OUT"
-ls -l "$HERE/refs/msfr_fluid_transient.ref.txt.gz"
+ls -l "$HERE/refs/${3:-msfr_fluid_transient}.ref.txt.gz"

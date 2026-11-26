@@ -279,7 +279,7 @@ impl DiffusionNeutronics {
         let mut neutro_source = vec![0.0; n];
         self.accumulate_neutro_source(&mut neutro_source);
         // precEq.H, then initializeDelayedNeutroSource.H
-        self.upstream_prec_eq(&neutro_source, keff, &prec_star_old, &volumes, dt)?;
+        self.upstream_prec_eq(&neutro_source, keff, &prec_star_old, &volumes, dt, true)?;
         let mut delayed = vec![0.0; n];
         self.accumulate_delayed_source(&mut delayed);
 
@@ -351,7 +351,7 @@ impl DiffusionNeutronics {
             }
 
             // precEq.H, initializeDelayedNeutroSource.H
-            self.upstream_prec_eq(&neutro_source, keff, &prec_star_old, &volumes, dt)?;
+            self.upstream_prec_eq(&neutro_source, keff, &prec_star_old, &volumes, dt, true)?;
             delayed.iter_mut().for_each(|d| *d = 0.0);
             self.accumulate_delayed_source(&mut delayed);
 
@@ -377,7 +377,7 @@ impl DiffusionNeutronics {
     }
 
     /// `neutroSource_ *= 0; neutroSource_ += nuSigmaEff[g]*flux_[g]`.
-    fn accumulate_neutro_source(&self, out: &mut [f64]) {
+    pub(super) fn accumulate_neutro_source(&self, out: &mut [f64]) {
         for (g, flux) in self.state.flux().iter().enumerate() {
             let nf = self.xs.nu_sigma_f[g].internal.as_slice();
             let ph = flux.internal.as_slice();
@@ -388,7 +388,7 @@ impl DiffusionNeutronics {
     }
 
     /// `delayedNeutroSource_ += lambda[k]*prec_[k]`.
-    fn accumulate_delayed_source(&self, out: &mut [f64]) {
+    pub(super) fn accumulate_delayed_source(&self, out: &mut [f64]) {
         for (k, prec) in self.state.precursors().iter().enumerate() {
             let lam = self.xs.lambda[k].internal.as_slice();
             let p = prec.internal.as_slice();
@@ -402,13 +402,18 @@ impl DiffusionNeutronics {
     /// `ddt(alpha, precStar) + Sp(lambda alpha, precStar) - neutroSource/keff*Beta
     ///  + div(phi, precStar) - laplacian(diffCoeffPrec, precStar)` once, then
     /// `prec = precStar*alpha`.
-    fn upstream_prec_eq(
+    ///
+    /// `with_ddt` is `1 - eigenvalueNeutronics_`: `false` drops the time derivative (its coefficient
+    /// `alpha*(1-1)` is exactly zero, so the matrix is unchanged bit for bit); used by
+    /// [`super::upstream_eigenvalue`].
+    pub(super) fn upstream_prec_eq(
         &mut self,
         neutro_source: &[f64],
         keff: f64,
         prec_star_old: &[Vec<f64>],
         volumes: &[f64],
         dt: f64,
+        with_ddt: bool,
     ) -> Result<(), NeutronicsError> {
         let n = neutro_source.len();
         let Some(drift) = self.drift.as_ref() else {
@@ -424,11 +429,15 @@ impl DiffusionNeutronics {
             let lambda_alpha: Vec<f64> = (0..n).map(|c| lambda[c] * alpha[c]).collect();
             let source: Vec<f64> = (0..n).map(|c| (neutro_source[c] / keff) * beta[c]).collect();
             let c_star = &self.prec_star[k];
-            let ddt = euler_ddt(&alpha, &prec_star_old[k], volumes, dt, c_star);
+            let head = if with_ddt {
+                euler_ddt(&alpha, &prec_star_old[k], volumes, dt, c_star)
+                    + fvm::sp(&field_like(&alpha_field, lambda_alpha), c_star)
+            } else {
+                fvm::sp(&field_like(&alpha_field, lambda_alpha), c_star)
+            };
             // Sign (gh:#952): `fvm::laplacian*` here is the POSITIVE -div(D grad),
             // so it is ADDED; upstream's `- fvm::laplacian` is OpenFOAM's negative one.
-            let eqn = ddt
-                + fvm::sp(&field_like(&alpha_field, lambda_alpha), c_star)
+            let eqn = head
                 - fvm::su(&field_like(&alpha_field, source), c_star)
                 + fvm::div(&phi, c_star)
                 + fvm::laplacian_with_delta(&diffusivity_face, c_star, self.settings.delta_coeff);

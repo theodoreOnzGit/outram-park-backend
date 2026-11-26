@@ -374,3 +374,40 @@ fn warm_start_reaches_the_same_k_in_fewer_iterations() {
     assert!((r1.k_eff - r0.k_eff).abs() < 1e-7);
     assert!(r1.outer_iterations * 5 < r0.outer_iterations);
 }
+
+/// gh:#1814: the eigenvalue -> transient chain (`genfoam::workflow`) on the bare one-group slab: the pseudo-time
+/// stage reaches the static eigenvalue and normalises the flux to `pTarget`; the transient built from the
+/// normalised state starts with `keff_` frozen and holds the target power under a null perturbation.
+#[test]
+fn workflow_chain_normalises_to_p_target_and_holds_it() {
+    use crate::genfoam::neutronics::pseudo_time::PseudoTimeControls;
+    use crate::genfoam::workflow::{EigenvalueStage, TransientStart};
+    let gc = OneGroup { d: 0.02, nu_sigma_f: 0.30, sigma_a: 0.10 };
+    let xs = one_group_xs(&gc);
+    let mesh = slab_mesh(100);
+    let bc = vec![BoundaryCondition::FixedValue(0.0), BoundaryCondition::FixedValue(0.0)];
+    let zone_of_cell = vec![0usize; mesh.n_cells];
+    let build = || {
+        DiffusionNeutronics::new(mesh.clone(), &xs, &zone_of_cell, &[], &bc, DiffusionSettings::default()).unwrap()
+    };
+    let mut reference = build();
+    let k_static = reference.solve_eigenvalue().unwrap().k_eff;
+
+    let p_target = 3.0e6;
+    let controls = PseudoTimeControls::guided(1.0, 300.0, 10.0, 10.0, 0.5, p_target);
+    let normalised = EigenvalueStage::Diffusion { model: build(), controls }.run().expect("eigenvalue stage");
+    let reactor = normalised.reactor_state();
+    assert_eq!(reactor.p_target, p_target);
+    assert!(((reactor.k_eff - k_static) / k_static).abs() < 1e-5, "{} vs {k_static}", reactor.k_eff);
+    let mut run = normalised.start_transient(TransientStart::Plain).expect("transient");
+    assert_eq!(run.k_eff(), reactor.k_eff, "keff_ is frozen into the transient");
+    let p0 = run.power();
+    assert!(((p0 - p_target) / p_target).abs() < 1e-9, "normalised to pTarget: {p0}");
+    for _ in 0..50 {
+        run.step_fixed(Time::new::<second>(1.0e-3)).expect("step");
+    }
+    assert!(((run.power() - p0) / p0).abs() < 1e-5, "null transient drifted: {} vs {p0}", run.power());
+    assert_eq!(run.k_eff(), reactor.k_eff);
+    // the coupled stepper refuses a stationary-fuel run, by name
+    assert!(run.step_adjustable().is_err());
+}

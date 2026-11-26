@@ -1,0 +1,274 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ------------------------------------------------------------------------- //
+// --- FLUID PROPERTIES ---------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+fluid1 "liquid";
+fluid2 "vapour";
+
+liquidProperties
+{
+    stateOfMatter   liquid;
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.001;
+    }
+    thermoResidualAlpha 1e-6;
+}
+
+vapourProperties
+{
+    stateOfMatter   gas;
+
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.001;
+    }
+    thermoResidualAlpha 1e-2;
+}
+
+// ------------------------------------------------------------------------- //
+// --- STRUCTURES PROPERTIES ----------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+structureProperties
+{
+    "dummyIn"
+    {
+        volumeFraction  0.5655077285; //0.4464738237;
+        Dh              0.0078395462; //0.0117778432
+    }
+
+    "heated"
+    {
+        volumeFraction  0.5655077285; //0.4464738237;
+        Dh              0.0078395462; // 0.0117778432;
+
+        powerModel
+        {
+            type            fixedPower;
+
+            //- The heater "coats" 0.85 mm of the 4.75 mm radius pin, and
+            //  for simplicity it is thus treated as a constantPower source
+            //  with a volume fraction equal to the total heater volume
+            //  fraction (with respect to the total mesh volume).
+            volumeFraction  0.0937099273; //0.145493575;
+            volumetricArea  121.08049093;//121.08049093;  //=heating surface area/cellzone volume
+            powerDensity    5e9;//3.65e9;
+            T               615;
+            Cp              500;
+            rho             7700;
+            //  powerTimeProfile removed in the closed variant: constant power density (see PROVENANCE.md)
+
+
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- REGIME MAP MODELS --------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+regimeMapModels
+{}
+
+// ------------------------------------------------------------------------- //
+// --- PHYSICS MODELS ------------------------------------------------------ //
+// ------------------------------------------------------------------------- //
+
+physicsModels
+{
+    dragModels
+    {
+        "liquid.vapour"
+        {
+            type    Bestion;
+        }
+
+        "liquid.structure"
+        {
+            "dummyIn:heated"
+            {
+                type    ReynoldsPower;
+                coeff   0.316;
+                exp     -0.25;
+            }
+        }
+    }
+
+    twoPhaseDragMultiplierModel
+    {
+        type                LockhartMartinelli;
+        multiplierFluid     "liquid";
+    }
+
+    heatTransferModels
+    {
+        "liquid.structure"
+        {
+            "heated"
+            {
+                /*
+		type    NusseltReynoldsPrandtlPower;
+                	const   0.0;
+                	coeff   0.023;//0.023;
+                	expRe   0.8;
+                	expPr   0.4;
+                */
+                type    multiRegimeBoilingTRACECHF;
+                forcedConvectionModel
+                {
+                	type    NusseltReynoldsPrandtlPower;
+                	const   0.0;
+                	coeff   0.023;//0.023;
+                	expRe   0.8;
+                	expPr   0.4;
+                }
+                poolBoilingModel
+                {
+                    type    Gorenflo;
+                }
+                flowEnhancementFactorModel
+                {
+                    type    RezkallahSims;
+                    exp     0.8;
+                }
+                suppressionFactorModel
+                {
+                    type    Chen;
+                }
+                nucleateBoilingOnsetModel
+                {
+                    type            Basu;
+                    surfaceTension  8e-3;//8e-3;   //- In N/m
+                    contactAngle    38;     //- In degrees
+                }
+                subCooledBoilingFractionModel
+                {
+                    type            SahaZuber;  //constant;//
+                    //value           0.5;
+                }
+                criticalHeatFluxModel
+                {
+                    type constantCHF;
+                    value 1.66e6;//1e9;5e8;
+                }
+                leidenfrostModel
+                {
+                    type GroeneveldStewart;
+                    criticalPressure 2.209e7;
+                }
+                annularFlowModel
+                {
+                    type                CachardLiquid;
+                    wallEmissivity      0.84; //Inconel 600
+                    liquidEmissivity    0.95; //Water ?
+                }
+            }
+        }
+        "liquid.vapour"
+        {
+            "liquid"
+            {
+                type    NusseltReynoldsPrandtlPower;
+                const   2.0;
+                coeff   0.6;
+                expRe   0.5;
+                expPr   0.33;
+            }
+            "vapour"
+            {
+                type    constant;
+                value   1e3;
+                //type    NusseltReynoldsPrandtlPower;
+                //const   2.0;
+                //coeff   0.6;
+                //expRe   0.5;
+                //expPr   0.33;
+
+            }
+        }
+        "vapour.structure"
+        {
+            "heated"
+            {
+                type    multiRegimeBoilingVapourTRACE;
+                annularFlowModel
+                {
+                    type                CachardVapour;
+                }
+            }
+        }
+
+    }
+
+    phaseChangeModel
+    {
+        type                        heatDriven;
+        mode                        conductionLimited;
+        residualInterfacialArea     1e-3;
+        latentHeatModel
+        {
+            type                    water;
+        }
+        saturationModel
+        {
+            type                    waterTRACE;
+        }
+    }
+
+    pairGeometryModels
+    {
+        "liquid.vapour"
+        {
+            dispersionModel
+            {
+                type            constant;
+                dispersedPhase  "vapour";
+            }
+
+            interfacialAreaDensityModel
+            {
+                type        spherical;
+            }
+        }
+
+        "liquid.structure"
+        {
+            contactPartitionModel
+            {
+                type    constant;
+                value   1.0;
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- MISCELLANEA --------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+pMin                    10000;
+pRefCell                0;
+pRefValue               100000;
+residualKd              1;
+
+// ************************************************************************* //

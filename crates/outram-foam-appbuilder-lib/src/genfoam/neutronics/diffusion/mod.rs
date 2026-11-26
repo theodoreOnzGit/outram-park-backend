@@ -568,4 +568,5 @@ mod eigenvalue;
 pub mod precursor_drift;
 mod pseudo_time;
 mod transient;
+pub mod upstream_eigenvalue;
 pub mod upstream_transient;

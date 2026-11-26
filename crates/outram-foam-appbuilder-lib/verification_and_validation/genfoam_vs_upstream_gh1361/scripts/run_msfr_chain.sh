@@ -11,6 +11,12 @@ STAGE=$1
 R=${2:-/home/user/upstream-build/gh1361/runs/msfr}
 cd "$R" || exit 1
 endTimeTH=15; endTimeEN=165; endTimeTransient=175
+tighten_solvers() {
+  for f in $1/system/*/fvSolution; do
+    # only plain `tolerance x;` / `relTol x;` lines: the neutroRegion file has a /* ... relTol 0.01;*/ block
+    sed -i -E 's/^( *)tolerance +[0-9.e+-]+; *$/\1tolerance        1e-14;/; s/^( *)relTol +[0-9.e+-]+; *(\/\/.*)?$/\1relTol           0;/' "$f"
+  done
+}
 ctl() { sed -i "s/^$2 .*/$2 $3;/" "$1/system/controlDict"; }
 blk() { # blk <case> <name> <body>: replace the top-level "name { ... }" block of controlDict
   perl -0pi -e "s/^$2\s*\{[^}]*\}/$2\n{\n$3\n}/m" "$1/system/controlDict"; }
@@ -31,6 +37,9 @@ elif [ "$STAGE" = steadyStateEN ]; then
   sed -i 's/^\( *\)solveFluidMechanics .*/\1solveFluidMechanics false;/' $C/system/fluidRegion/fvSolution
   cp $C/constant/multiRegionCouplingDict_steadyStateEN $C/constant/multiRegionCouplingDict
   rm $C/constant/multiRegionCouplingDict_*
+  # gh:#1814 round 11: PROTOCOL=tight for the EN stage tightens the linear solvers only (writeInterval stays 50:
+  # a write per step of 600 steps would not fit the disk); the per-step numbers come from the log at precision 17.
+  if [ "$PROTOCOL" = tight ]; then tighten_solvers "$C"; fi
 elif [ "$STAGE" = transient ]; then
   rm -rf transient; cp -r rootCase transient; C=transient
   cp -r steadyStateEN/$endTimeEN $C/$endTimeEN
@@ -43,10 +52,7 @@ elif [ "$STAGE" = transient ]; then
   cp $C/constant/multiRegionCouplingDict_transient $C/constant/multiRegionCouplingDict
   rm $C/constant/multiRegionCouplingDict_*
   if [ "$PROTOCOL" = tight ]; then
-    for f in $C/system/*/fvSolution; do
-      # only plain `tolerance x;` / `relTol x;` lines: the neutroRegion file has a /* ... relTol 0.01;*/ block
-      sed -i -E 's/^( *)tolerance +[0-9.e+-]+; *$/\1tolerance        1e-14;/; s/^( *)relTol +[0-9.e+-]+; *(\/\/.*)?$/\1relTol           0;/' "$f"
-    done
+    tighten_solvers "$C"
     sed -i 's/^writeControl .*/writeControl    timeStep;/; s/^writeInterval .*/writeInterval   1;/' $C/system/controlDict
   fi
 else echo "unknown stage $STAGE"; exit 2; fi

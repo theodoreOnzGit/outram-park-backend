@@ -39,10 +39,14 @@
 //!
 //! ## What is NOT here
 //!
-//! The annular-flow models themselves (`CachardLiquid`, `CachardVapour`: gap-audit item 6, whose upstream
+//! ~~The annular-flow models themselves (`CachardLiquid`, `CachardVapour`: gap-audit item 6, whose upstream
 //! binds a pitch to the PRESSURE field) and `lookUpTableCHF` (the Groeneveld table, deferred to the
 //! maintainer: gh:#1223). With only `constantCHF` a case reaches the post-CHF branches only through
-//! its `q_CHF`.
+//! its `q_CHF`.~~ **CORRECTED 2026-11-26** (gh:#1223, gh:#1224, gh:#1361 round 10): `CachardLiquid`/`CachardVapour`
+//! are [`super::cachard`] (upstream's pressure-as-pitch binding is the default, the pitch a named option), `lookUpTableCHF`
+//! is [`super::chf_table`] (the table is case data, maintainer decision of 2026-11-26), and both pure functions here are wired
+//! into the `twoPhase` solver (`FsHtcModel::MultiRegimeBoilingTraceChf` / `MultiRegimeBoilingVapourTrace`) and compared with the
+//! real binary on closed `1D_CHF` variants.
 //!
 //! The Leidenfrost model is [`super::chf::LeidenfrostTemperature`] and the wall temperature seen by
 //! the side models is the argument of each closure.

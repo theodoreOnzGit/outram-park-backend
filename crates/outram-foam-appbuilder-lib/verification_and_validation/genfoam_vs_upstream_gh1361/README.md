@@ -1701,3 +1701,248 @@ the same order but `0.5 * max(...)` differs in the last bit.
 
 None. No earlier gated number depends on a function changed here: only new functions and new files were added (`one_phase_cc.rs`, `coupled_loop.rs`,
 two new methods and one new free function in `upstream_transient.rs`).
+
+
+# Round 11 (gh:#1814, child of #1216): eigenvalue -> transient, chained in one call (`genfoam::workflow`)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+**Maintainer request, 2026-11-26:** "in GeNFoam, usually an eigenvalue calculation is done first to normalize the transient calculation. Make a module to automate this."
+
+## What was searched, and what upstream does (read before writing)
+
+Searched `src/genfoam` for `eigenvalue`, `reactorState`, `pTarget`, `pseudo_time`, `steadyState`, `correct_physics_loop`: the stationary-fuel pseudo-time driver (`neutronics/pseudo_time.rs`, `run_pseudo_time_eigenvalue`, `calc_keff`) exists for diffusion, SP3 and SN; the coupled transient loop and the energy-only `onePhase` exist from rounds 6 and 9. **Not present:** the circulating-fuel eigenvalue step (`diffusion/pseudo_time.rs` returns `PseudoTimeError::LiquidFuel`), anything that runs `steadyStateEN` (fluid + neutronics together), and anything that hands one stage's state to the next. Round 9 started its transient from upstream's own 165 s restart.
+
+Upstream (`GeN-Foam.C`, `solveNeutronics.H`, `fluxEq.H`, `precEq.H`, `calcKeff.H`, `normFluxes.H`, `meshHandler.C`, `Allrun`), read, not assumed:
+
+* **What carries over `steadyStateTH -> steadyStateEN -> transient`:** the time directory (all fields), `uniform/reactorState` (`keff`, `pTarget`; `keff_` is the only number the transient divides `nuSigmaEff` by), the flux and `precStar` (read if present, else `defaultFlux`/`defaultPrec` = 1), the fluid `T`, `U`, `p`, `htc`, `Re`, fluxes. `0/uniform` is copied into the `15` directory of `steadyStateEN` (that is where `keff 0.930537; pTarget 2e7` comes from).
+* **What changes:** `eigenvalueNeutronics true -> false`; `regionSolvers { fluidRegion onePhase; neutroRegion diffusionNeutronics; }` (each region once per step, ONE `mapAllFields` at the top: no coupling loop) -> `energyNeutroLoop multiPhysicsSolver` (`correctPhysics` loop, the map inside it); `adjustTimeStep false`, `deltaT 0.25` -> `adjustTimeStep true`; `writeInterval 50 -> 10`; `solveFluidMechanics false` in both.
+* **The eigenvalue step is NOT the transient step with `keff_` updated.** With `eigenvalueNeutronics_` the `ddt` coefficients are `(1 - 1) = 0` (flux AND `precStar`), the prompt-fission `Sp` vanishes, the neutron-iteration loop runs once (`&& !eigenvalueNeutronics_`), `precEq.H` is solved before and after the flux solves with the SAME `neutroSource_`, `powerDensity_` is evaluated BEFORE `normFluxes.H` (so the fluid is heated with `pTot`, not `pTarget_`, until `keff_` has converged), `calcKeff.H` does `keff_ *= pTot/pTarget_` clamped to `[0.1, 5]`, and on the first step of the run `normFluxes.H` is applied before the solve (`timeIndex - startTimeIndex == 1`). The precursors are not rescaled.
+* **Time:** fixed `deltaT 0.25` from 15 to 165: 600 steps (OpenFOAM `value < end - 0.5 deltaT`).
+
+## Plan, and the upstream runs
+
+1. Upstream, real binary, `scripts/run_msfr_chain.sh` with the `PROTOCOL=tight` option now also applied to the `steadyStateEN` stage (linear solvers only, `writeInterval` stays 50): `steadyStateTH` (shipped tolerances; its t = 15 s output is the INPUT of both codes, committed as `cases/msfr_fluid/restart_15`), `steadyStateEN` tight (the reference of comparison 1; measured upstream cost of this stage at SHIPPED tolerances: 71 s for all 600 steps, so the full 150 s protocol is used, nothing shortened), `transient` tight for 50 steps from that tight EN state (the reference of comparison 2).
+2. Port comparison 1: `EigenvalueStage::EnergyNeutroDiffusion` from the 15 s restart: `keff_` after every step, `power:`, `h` residuals, `T (avg min max)`, then at 165 s the flux of every group, `precStar`, `powerDensity` and `T` against the written fields, and the final `keff_` against upstream's tight value and the Allrun's "expected keff: 0.960282".
+3. Port comparison 2: `NormalisedState::start_transient` on the port's OWN 165 s state (no upstream restart is an input), 50 steps against upstream's `transient`, as round 9 (`dt`, `T`, `power`, `h` residuals, Courant).
+
+## Predictions (written BEFORE any port run; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| R11-1 | `keff_` per step, all 600, port vs upstream tight | `<= 1e-9` relative at every step. The pseudo-time iteration is a contraction (the `keff_` error of one step does not grow), the transport terms are the round-6/9 ones, and both solve every system to `1e-14`. About 55 % confidence; the alternative is a first-step difference (the `precStar` BiCGStab at `1e-14` absolute vs relative stopping) of order 1e-8 that then decays |
+| R11-2 | final `keff_` vs the Allrun's 0.960282 | tight upstream and port agree with each other to `<= 1e-9`; BOTH are within 5 pcm of 0.960282 (the shipped-tolerance upstream run gave 0.96031194, +3.0 pcm; the tight value is unknown to me and I expect it within about 1 pcm of that). Neither "equals 0.960282", and I will not report it as if it should |
+| R11-3 | flux, `precStar`, `powerDensity`, `T` at 165 s | worst relative difference `<= 1e-8` (a field integrates 600 steps of round-off, but the iteration damps it); `T` `<= 1e-10` |
+| R11-4 | does the eigenvalue iteration reach a steady `keff_` by 165 s | not fully: the transient's `power:` starts at 2.0000000e7 and rises to 20003657.5 in step 1 in the shipped run, so the state is NOT exactly critical-at-target. I expect the port's step-1 `power` to show the same +1.8e-4 relative jump |
+| R11-5 | comparison 2: `dt`, `T`, `power` of all 50 steps | `<= 1e-9` relative at every step; the first step above that, if any, is the finding. Round 9 had 1e-12 from an identical start; the start state now differs by comparison 1's difference, which the transient neither amplifies nor damps by much in 50 steps |
+| R11-6 | in-memory handover vs a restart from the written 165 directory | identical to round-off: the only restart-vs-memory difference I know of is `he = hs(T)` recomputed from `T` instead of carried (`<= 1e-15` relative). Not separately gated; visible in R11-5 if wrong |
+
+
+## Round 11 results (measured 2026-11-26, release; `tests/genfoam_msfr_chain_vs_upstream.rs`)
+
+Upstream runs (this machine, serial, `run_msfr_chain.sh`, scratch under `/home/user/upstream-build/gh1361/runs/msfr_r11`, not committed): `steadyStateTH` 540 s (shipped tolerances; its t = 15 s output is the committed `cases/msfr_fluid/restart_15`, 1.2 MB), `steadyStateEN` tight **173 s** for all 600 steps (the full protocol: nothing was shortened), `transient` tight 22 s for 50 steps. Port: 600 EN steps 239 s (fluid + neutronics, `1e-14` solvers), 50 transient steps a few seconds.
+
+**API.** `EigenvalueStage::EnergyNeutroDiffusion { stage, controls }.run()` returns `NormalisedState` (`reactor_state()` = `keff`, `pTarget`; the fields stay in the typed stage); `NormalisedState::start_transient(TransientStart::EnergyNeutro(settings))` returns a `TransientRun` whose `step_adjustable()` is round 9's coupled step. `ReactorState::{read, write}` is `<time>/uniform/reactorState`.
+
+### Comparison 1: the port's `steadyStateEN` from upstream's 15 s TH output against the real binary (600 steps)
+
+| quantity | worst relative difference, port - upstream |
+|---|---|
+| time of every step | exactly equal (all 600) |
+| `keff_` after every step (600) | **2.2e-13** (step 1; 4e-14 from step 50 on); first step above 1e-9: none |
+| `power:` of every step | 2.2e-13 |
+| first `h` initial residual of every step | 2.6e-9 at step 1, <= 1e-10 after (a residual of a converged solve: solver-noise measure, not a state) |
+| `T (avg, min, max)` after the last outer iteration, every step | 4.1e-14 |
+| `T` field at 165 s | 4.4e-14 |
+| flux, groups 0-5, at 165 s (8595 cells each) | 9.6e-11, 1.3e-10, 1.3e-10, 9.3e-11, 8.8e-11, 9.5e-11 |
+| `precStar0..7` at 165 s | 8.0e-10, 6.7e-10, 6.3e-10, 5.6e-10, 5.3e-10, 5.2e-10, 6.0e-10, 6.4e-10 |
+| `powerDensity` at 165 s | 1.1e-10 |
+| final `keff_` | port 0.96031513866395668, upstream tight 0.96031513866399976: 4.5e-14 |
+
+**Final `keff_` against the Allrun's "expected keff: 0.960282":** both codes give 0.960315139, i.e. **+3.3 pcm** from 0.960282 (the earlier shipped-tolerance upstream run gave 0.96031194, +3.0 pcm). The port reproduces the upstream value, not the Allrun's comment: the comment is the value of an older build or older solver settings, and neither code should be expected to hit it. `keff_` is still creeping at t = 165 s (-1.75e-8 per 0.25 s step at the last step: the 150 s of the tutorial is not a converged eigenvalue, to about 1e-5).
+
+### Comparison 2: the chained transient (the port's OWN 165 s state, no upstream restart as input) against upstream's `transient`, 50 steps
+
+| quantity | worst relative difference over 50 steps |
+|---|---|
+| next `deltaT` (after `adjustDeltaT`) | 6.0e-14 (first above 1e-9: none) |
+| fluid `T` field | 4.5e-14 (first above 1e-9: none) |
+| `power:` | 1.1e-13 |
+| first `h` residual of each step | 2.2e-9 |
+| coupling | converged after 1 iteration at every step, as upstream |
+| `keff_` | bit-identical before and after the 50 steps (frozen) |
+
+Round 9, started from upstream's 165 s restart, gave 6e-14 (T), 1e-13 (power); chaining the port's own eigenvalue state costs nothing measurable.
+
+### Predictions
+
+| id | outcome |
+|---|---|
+| R11-1 | **held, by four orders of magnitude** (2.2e-13 vs 1e-9) |
+| R11-2 | **held**: port and tight upstream agree to 4.5e-14; both +3.3 pcm from 0.960282 (inside the 5 pcm bound; my "within about 1 pcm of the shipped-tolerance run" held too: +0.3 pcm) |
+| R11-3 | **held**: worst 8.0e-10 (`precStar`, predicted <= 1e-8), `T` 4.4e-14 (predicted <= 1e-10) |
+| R11-4 | **MISSED, and the cause is informative.** I expected the step-1 transient `power` to show the +1.8e-4 jump of the shipped-tolerance run (2.0000000e7 -> 20003657.5). With the tight EN stage the transient's step-1 `power:` is 19999999.74 (-1.3e-8 of `pTarget`), in upstream and in the port. The 1.8e-4 jump of the earlier run was the loose linear solvers of its EN stage (flux relTol), not the physics of the eigenvalue iteration: a tight-solver eigenvalue stage hands the transient a state that is critical at the target to 1e-8. Round 6/9's transient start state (shipped-tolerance EN) is therefore NOT a normalised state to better than 2e-4 |
+| R11-5 | **held, by four orders** (<= 1e-13 vs 1e-9) |
+| R11-6 | **held**: carrying `he` in memory instead of recomputing `hs(T)` from a restart file is invisible at 1e-13 in 50 steps (no separate restart-vs-memory test was run: it is bounded by R11-5, not measured on its own) |
+
+### Where the first difference is
+
+None above 1e-9 in any gated quantity. The largest differences, in order: the `h` initial residual of step 1 (2.6e-9: a residual of a solve that reaches 1e-14 absolute, so it divides two round-off-sized numbers), `precStar` at 165 s (8e-10: the precursor solves are BiCGStab-vs-PBiCG to 1e-14, 600 steps of accumulated solver noise), flux at 165 s (1.3e-10). Round-off allowance (1e-9 direct, 1e-4 propagated) is not needed.
+
+### What is deliberately not the same as upstream
+
+* the linear solvers (basic-lib PCG / BiCGStab vs `PCG`/`DIC`, `PBiCG`/`DILU`): at the tight protocol they agree to the numbers above, not bit for bit;
+* discontinuity factors are 1 (the MSFR case: `adjustDiscFactors false`);
+* `0/neutroRegion` is assumed to hold only `defaultFlux` (uniform 1) and `defaultPrec` (uniform 1), as the tutorial's does; `flux<g>`/`precStar<k>` files are not read yet (so a restart from upstream's written 165 s neutronics, as round 9 does by hand, still goes through `set_initial_guess`/`set_prec_star`);
+* `uniform/reactorState` is read and written by `ReactorState`, but the chain does not write whole time directories: only the in-memory state is handed over.
+
+### What the chain still cannot do
+
+* `steadyStateTH` (fluid mechanics, gh:#1812): refused by name (`WorkflowError::NotPorted`).
+* SN has an eigenvalue driver and no transient; point kinetics has no eigenvalue stage: both refused by name.
+* The stationary-fuel diffusion and SP3 chains (`EigenvalueStage::Diffusion`, `::Sp3`) are tested for the contract (normalised to `pTarget`, `keff_` frozen, null transient holds) on a one-group slab and an infinite medium, NOT against the real binary: their transient steps are the port's older single-pass schemes, "not a translation" (round 6).
+* Circulating-fuel SP3, `integralPredictor`/`implicitPredictor` in the transient, a case reader for the whole chain (the test builds the stage from the case files by hand: `read_albedo_patches`, `ReactorState::read`, `OnePhaseCcSolver::from_case_dir`).
+
+### Gates
+
+**Run (2026-11-26, release, `GENFOAM_UPSTREAM` set):** `cargo test --release -p outram-foam-appbuilder-lib --lib --tests --no-fail-fast`: 47 test binaries, **629 passed, 0 failed, 36 ignored** (the ignored ones are the crate's pre-existing `#[ignore]`s, not touched here), including rounds 6 and 9 unchanged and the new chain tests (`msfr_eigenvalue_then_transient_chain_matches_upstream` 245 s, `msfr_steady_state_en_first_steps_match_upstream`, the two `workflow_chain_*` unit tests, three `reactor_state` tests); `cargo test --release -p petir --test no_platform_libm`: 4 passed; `bash scripts/check-nostd.sh`: exit 0 (it first caught `CouplingDict::correct_only_energy` sitting in the `std`-only impl; moved out).
+
+### Moved numbers (old to new, with cause)
+
+None. `upstream_prec_eq` gained a `with_ddt` argument (`true` in the transient path, bit-identical: the same matrix expression); the round 6 and round 9 tests are re-run in the gate list.
+
+# Round 10 (gh:#1223 `lookUpTableCHF`, gh:#1224 `CachardLiquid`/`CachardVapour`): `multiRegimeBoilingTRACECHF` and `multiRegimeBoilingVapourTRACE` wired, vs the real binary on closed `1D_CHF` variants
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Upstream: the real unmodified `GeN-Foam`
+binary (652b3da, ESI v2506, serial), the same installed build as rounds 3-9.
+
+## What was found before any code was written (read from the shipped tutorials and upstream, 2026-11-26)
+
+| claim | what the sources show |
+|---|---|
+| gh:#1223 comment: `featureCases/1D_CHF/{imposedPower,imposedTemperature}` use `chfTables` | **No.** Both select `criticalHeatFluxModel { type constantCHF; value 1.66e6; }`; only `1D_PSBT_SC/PhaseII_Ex2_04_6770` and `PhaseII_Ex3_11-0312_power_increase` (byte-identical tables, `cmp`) contain `chfTables`. `1D_CHF` exercises `multiRegimeBoilingTRACECHF` (constantCHF, `GroeneveldStewart` Leidenfrost, `CachardLiquid`) and `multiRegimeBoilingVapourTRACE` (`CachardVapour`) but NOT `lookUpTableCHF`. Its README says "no lookup tables have been implemented yet", which is stale (the class exists, upstream's `porousMedium.md` also still says "empty class"): not our file, noted. |
+| the shipped `1D_CHF` cases can run once the closures are wired | **No**, four more needs. (1) Through-flow boundary conditions: `U.liquid` `fixedValue` inlet, `pressureInletOutletVelocity` outlet, `slip` walls, `inletOutlet` alpha, `fixedFluxPressure` `p_rgh` (gh:#1801). (2) The structure power models with time profiles: `imposedPower` is `fixedPower` WITH `powerTimeProfile` (the two-phase reader refuses it: "not wired") and `imposedTemperature` is `fixedTemperature` with `temperatureTimeProfile` (the two-phase solver has only `fixedPower`). (3) Turbulence: both `turbulenceProperties.*` say `simulationType laminar` (the `LaheyKEpsilon` block is inert), so gh:#1802 is NOT needed here. (4) Run length: 77 s / 180 s of simulated time with the hysteresis ramp, far beyond what a tight-protocol step-by-step comparison can cover (upstream's own PSBT run aborts with SIGFPE after 417 steps). |
+| upstream `CachardLiquid`/`CachardVapour` bind `pi` to pressure | Confirmed by reading: `CachardLiquid...C:124` (`const scalar& pi(p_[celli])`) and `CachardVapour...C:101`, then `pow(pi/max(DRi,1e-6),2)`: `(p/0.01)^2 = 2e18` at 15 MPa. The film thickness `delta` is ~1e9 m, so `h_gamma = kappa_g/delta` is ~1e-11 and the post-CHF coefficient of the liquid is only the radiation term. |
+
+So, as in round 8, the shipped cases cannot run; the comparison is on **closed variants** (`tests/data/genfoam_chf_closed_gh1361`, `PROVENANCE.md`
+there): the shipped `imposedPower` mesh, models and initial fields; boundary conditions as in the round-8 closed PSBT case (zero-gradient
+velocities and `alpha`, fixed `p_rgh` at both ends with a 1.2e4 Pa drive); **constant** `powerDensity 5e9` instead of the shipped 5e8-3e9 ramp (the
+profile is not wired, above), chosen so the wall crosses the critical heat flux within the first few steps. Two variants:
+
+* `constant_chf`: the shipped `constantCHF 1.66e6`, `GroeneveldStewart`, `CachardLiquid`, `CachardVapour`, contact partition 1.0 as shipped. Because the shipped
+  `contactPartitionModel` gives the liquid all of the contact, the vapour-side htc is multiplied by 0 and `VapourTRACE` is invisible in the written fields.
+* `lookup_table_chf`: the same with `lookUpTableCHF` (the PSBT table and axes, `PitchToDiameter 1.32631578947`, `#include "chfTables"`) and contact partition 0.7
+  so that `VapourTRACE` shows. **Not a shipped case in any respect**; a code-to-code comparison only.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+- `grep -rniE "lookUpTable|chfTables|CachardLiquid|CachardVapour|InterpolateTable|hGammaCachard"` over `crates/`: the 1-D `ScalarInterpolateTable`
+  (`common/interpolate_table.rs`, bit-identical to upstream's 1-D table, round 3 "libCommon driver"), the pure functions `multi_regime_boiling_trace_chf` /
+  `multi_regime_boiling_vapour_trace` (round 8), `LeidenfrostTemperature::GroeneveldStewart`, `CriticalHeatFlux::Constant`. Reused. Not present: the `Field`/`FieldField`
+  instantiations of the table (new `common/interpolate_table_nd.rs`), `lookUpTableCHF::value`, the Cachard models, the solver wiring and `#include` following in `TwoPhaseCase::read`.
+- `crates/outram-foam-multiphase/src/chf.rs` has a `GroeneveldLut` (an 8 mm tube, its own table) - a different model and data, not used: upstream's `lookUpTableCHF` is the specification.
+- Upstream read in full: `lookUpTableCHF.{H,C}`, `InterpolateTableGF.H`, `InterpolateTablesGF.{H,C}`, `PtrListScalarFieldFieldINewGF.H`, `CHFModel.C`, `constantCHF.C`,
+  `CachardLiquid...C`, `CachardVapour...C`, `multiRegimeBoilingTRACECHF...C`, `multiRegimeBoilingVapourTRACE...C`, `GroeneveldStewartTLF.C`, `fixedPower.C`, `fixedTemperature.C`, `powerModel.C`.
+  No kovan-reviewed function was touched (`heat_transfer/review.md`, `two_phase` has no review block).
+
+## What was ported (new code; the old forms stay callable)
+
+* `common/interpolate_table_nd.rs`: `InterpolateTableGF::operator()` over `f64`, `Vec<f64>`, `Vec<Vec<f64>>` (one generic function; upstream's linear walk, `(1-alpha) a + alpha b` per element).
+* `closures/heat_transfer/chf_table.rs`: `LookUpTableChf::{from_dict, value}` = `lookUpTableCHF.{H,C}` (`ERROR` out-of-bounds policy as upstream's default: an `Err` naming the cell).
+* `closures/heat_transfer/cachard.rs`: `CachardLiquid`, `CachardVapour`. **Default = upstream, bit for bit, including the pressure-as-pitch defect**; the intended reading is the named option `CachardPitch::Pitch` / `with_pitch` (maintainer decision pending: gh:#1224).
+* `solver/two_phase`: `FsHtcModel::{MultiRegimeBoilingTraceChf, MultiRegimeBoilingVapourTrace}`, fields `chf_bool`, `wf_transition_boiling`, `t_leidenfrost` (what upstream's `CHFBoolMultiRegimeBoilingTRACECHF`, `wfTransitionBoiling`, `LeidenfrostTemperature` hold; upstream writes none of them), `TwoPhaseModels::chf_tables`; `TwoPhaseCase::read` follows `#include` in `phaseProperties` (`FoamFile::read_with_includes`); the liquid pair is evaluated before the vapour pair in `correct_fs_pair` as upstream's pair order, so the vapour model reads the fields of the same correction.
+* the data: `tests/data/genfoam_chf_gh1223/chfTables` (bit-identical, `PROVENANCE.md`: GeN-Foam 652b3da, GPL-3.0, Groeneveld et al. 2007; DOI not verified).
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+Upstream facts measured first (real binary, tight protocol, every step written, `scripts/chf_closed_run.sh`, endTime 0.3, serial): `constant_chf` runs 86 steps and exits
+normally (no SIGFPE); `lookup_table_chf` 226 steps, normally. The wall (`T.fixedPower`) is at ~626 K at step 1 (`T_sat` ~ 615 K) and rises ~3.7 K per step; `htc.liquid.structure`
+is ~25000 W/m2K at step 3 in `lookup_table_chf` and ~500 afterwards (the film-boiling form), so the regime changes within steps 3-6. `alpha.vapour` first exceeds 1e-3 at step 4.
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| U1 | both variants read with an empty `deviations`; `chfTables` follows the `#include` | held | a key the reader refuses |
+| U2 | `dt`, steps 1-30, both variants | equal to upstream's to 1e-9 relative | Courant / `maxDeltaT` |
+| U3 | steps 1-3 (pre-CHF, nucleate branch with `dmdtW`): `p`, `T.*`, `U.*`, `htc` | <= 1e-6 relative to the field maximum (round 8 found 7.8e-9 at its first nucleate step, grown 10x/step; the wall here heats 3.7 K/step, so faster growth) | the unexplained round-8 nucleate-boiling difference |
+| U4 | the step at which `htc.liquid.structure` first leaves its pre-CHF value (the CHF crossing) | the same step as upstream, in both variants | `T_CHF`, `q_CHF` (table), `T_LF` |
+| U5 | film-boiling steps (after the transition): `htc.liquid.structure` (= radiation + the ~1e-11 `h_gamma`) | <= 1e-8 relative (a closed form of `T_wall`, `T_sat`) | `Twall` lag, `T.interface` |
+| U6 | `lookup_table_chf`: `htc.vapour.structure` (`2 k_g/delta` with `delta` ~ 1e9: ~1e-9 W/m2K) | <= 1e-6 relative once post-CHF, 0 before | the contact partition, `kappa.vapour` placeholder (round 8) |
+| U7 | `alpha.vapour`, `dmdt.liquid.vapour`, steps 4-20 | <= 1e-3 relative (the round-8 vapour onset was 2e-3 / 2.8e-4) | `dmdtW` post-CHF branches |
+| U8 | first step at which any compared field leaves 1e-6 | step 3 to 8 (the CHF crossing amplifies the round-8 difference); none at 1 or 2 | |
+| U9 | the table: `lookUpTableCHF::value` on the 3-D table itself | bit-identical to upstream's class on a stand-alone driver (no run needed) | not run in this round: a libCommon-style driver for `lookUpTableCHF` needs `FSPair` and a mesh; deferred, recorded below |
+
+If U3 or U8 miss the first suspect is the round-8 nucleate-branch difference (sensitivity -1e-2/K to `T_ONB`), second the Gorenflo `T_CHF` evaluation
+(`3.72*pow(9.0,2)` against `3.72*9.0*9.0` in the Leidenfrost ramp, an ulp), third `kappa` of the vapour (the Cachard liquid model reads `kappa.vapour`, which upstream refreshes at the end of `EEqns`).
+
+
+## Round 10 results (measured 2026-11-26, release; `tests/genfoam_chf_trace_vs_upstream.rs`)
+
+Reference: ONE fresh run of the installed upstream binary per variant (`scripts/chf_closed_run.sh`, tight protocol, `writePrecision 17`, every step, serial, endTime 0.3):
+`constant_chf` 86 steps (exit 0), `lookup_table_chf` 226 steps (exit 0); committed `refs/chf_constant_all.ref.txt.gz` (steps 1-86) and
+`refs/chf_lookup_head.ref.txt.gz` (steps 1-120). 17 cells (cells 0-1 unheated). Worst relative difference over the cells, relative to the field's own maximum
+(`chfBool` is the port's own regime code in cell 5: upstream writes none of the three TRACECHF fields):
+
+| variant, span | regime (cell 5) | dt | p | T.liquid | T.fixedPower | U.liquid | U.vapour | alpha.vapour | dmdt | htc.liquid.structure | htc.vapour.structure |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `constant_chf`, step 1 | transition | equal | 2.2e-8 | 3.2e-9 | 7.2e-11 | 9.8e-7 | 6.9e-6 | 9.1e-7 | 5.3e-8 | 1.4e-7 | 0 (contact 1.0) |
+| `constant_chf`, 2-6 | transition (2-3), film (4-6) | 9.3e-7 | 2.4e-8 | 3.3e-9 | 1.4e-8 | 1.3e-6 | 9.2e-6 | 1.5e-6 | 4.3e-6 | 3.7e-6 | 0 |
+| `constant_chf`, 7-40 | film boiling | 3.6e-6 | 2.3e-8 | 3.1e-9 | 2.9e-7 | 3.9e-6 | 4.3e-5 | 7.3e-6 | 3.9e-5 | 7.7e-7 | 0 |
+| `constant_chf`, 41-86 | film boiling | up to 0.58 | 5.6e-3 | 9.8e-3 | 1.5e-2 | 0.22 | 1.4 | 2.1 | 1.3 | 0.28 | 0 |
+| `lookup_table_chf`, 1-3 | transition | 8.7e-5 | 3.3e-6 | 4.8e-7 | 2.6e-6 | 1.3e-4 | 7.0e-4 | 5.6e-4 | 6.0e-4 | 8.0e-4 | 4.3e-4 |
+| `lookup_table_chf`, 4-6 | transition (port) | 6.9e-2 | 4.8e-3 | 1.9e-5 | 2.4e-4 | 7.1e-2 | 11 | 0.11 | 5.5e-3 | 0.10 | 4.5e-2 |
+| `lookup_table_chf`, 41-120 | film boiling | 8.6e-4 | 1.0e-5 | 4.4e-6 | 6.9e-5 | 1.9e-3 | 6.2e-2 | 6.3e-2 | 0.24 | 6.2e-3 | 2.2e-2 |
+
+Not bit-identical anywhere (the `p_rgh` solves differ, as in rounds 3-9). The outer-iteration count is 12 in every step of both. The tables were produced by
+`tests/genfoam_chf_trace_vs_upstream.rs` (`chf_closed_dump_rows`, ignored diagnostic). The `unit` figures are in the module tests.
+
+**First diverging step (above the 1e-9 allowance): step 1 in both variants** (the wall is already above the critical heat flux at the first step: `T_CHF` 617.7 K,
+`T_LF` 636.1 K, `T_wall` 626.0 K, so the first steps are transition boiling: steps 1-3 in `constant_chf`, 1-6 in `lookup_table_chf`). **Cause: not identified**, and not noise: the noise-floor control (the port against itself, initial liquid
+temperature scaled by 1 + 1e-12; 1 + 3e-9, the size of the port-upstream `T.liquid` difference) gives at step 1 `alpha.vapour` 1.8e-10 (2.0e-8), `U.liquid` 1.9e-10 (7.2e-10),
+`htc` 3.2e-10 (4.7e-8), `p` 3.4e-12 (2.3e-11), against 9.1e-7, 9.8e-7, 1.4e-7 and 2.2e-8 measured: one to three decades above it, and the pressure and velocity signatures
+are not those of a temperature perturbation. It is the same family as round 8's unexplained 7.8e-9 at the first nucleate-boiling step (the first step the TRACE map leaves
+single-phase convection); here that step is step 1, the transition branch amplifies a wall-temperature difference by `1/(T_CHF - T_LF)` (`wf = ((T_w - T_LF)/(T_CHF - T_LF))^2`, 0.3 to 0.45), and the vapour
+appears at once, so the difference grows from 1e-9 to 1e-6 in the first step. Per cell it is smooth along the channel (htc 5e-8 at cell 2, 1.4e-7 at cell 9). Filed as a child issue with
+round 8's.
+
+**What the CHF value is, measured without an upstream probe.** Upstream does not write `qCHF`. In the transition branch the written `htc` obeys
+`htc = q_CHF wf/(T_w - T_f) + (1 - wf) h_min`, one equation in `q_CHF` (the Gorenflo `T_CHF(q)`, `T_LF` and the Cachard `h_min` being the port's own, checked in
+`chf_closed_implied_q_chf`): solving it from upstream's `htc.liquid.structure` and `T.fixedPower` gives, for `constant_chf`, 1.6605e6 .. 1.6607e6 against the case's 1.66e6 (the method's
+resolution is therefore about 4e-4), and for `lookup_table_chf` step 1 / 3 cells 2, 5, 10, 16: 4.151e6 / 4.224e6 / 4.335e6 / 4.420e6 and 3.854e6 / 4.104e6 / 4.351e6 / 4.574e6 against the port's
+4.125e6 / 4.211e6 / 4.345e6 / 4.447e6 and 3.844e6 / 4.094e6 / 4.345e6 / 4.576e6: differences of -6.3e-3 .. +6.2e-3 at step 1 and -2.6e-3 .. +0.6e-3 at step 3, of mixed sign. **The table lookup is
+therefore not shown to differ from upstream's at the 3e-3 level; a smaller difference cannot be excluded this way.** A table scaled by 1 + 1e-6 changes the port's step-1 `htc` by 2.4e-6 (`chf_closed_two_case_dump`):
+the transition branch does not amplify a table error much, so the lookup variant's larger step-1 difference (8e-4 against 1.4e-7) is not a small error in `q_CHF` alone; it is the same unidentified seed amplified
+by a stronger coupling (the table CHF depends on the local pressure, mass flux and quality, so the wall temperature, the flow and the CHF form a loop that `constantCHF` does not have).
+
+**The step at which the two codes part.** `constant_chf`: step 41 (nothing above 4.3e-5 before). At step 41 the vapour fraction in cells 5-7 reaches 4.4e-3 of the cell, i.e. `thermoResidualAlpha 1e-2` of the
+normalised fraction (4.345e-3): the port keeps the solved vapour enthalpy there (`T.vapour` 631.9 K) where upstream's cutoff leaves the vapour at saturation (613.9 K): a discrete
+threshold event on a 2.7e-2 difference of a 1e-2 threshold-crossing fraction; **consistent with, not proven to be, the cause** (the port crossing a fraction of a step earlier within the outer iterations).
+`lookup_table_chf`: step 4 (above 1e-3; 1.3e-4 and below at steps 1-3). Upstream's `htc.liquid.structure` in cell 5 falls 59332, 42800, 26796, 13922, 5622, 1377, 294 over steps 1-7 (transition into film boiling:
+the wall `T.fixedPower` 625.0 .. 636.3 K crosses `T_LF` 636.03 K between steps 6 and 7) and the port's regime code in that cell switches from 2 to 1 at step 7: **the regime change is at the same step in both**. What grows at steps 4-6 is the
+transition-branch amplification (`wf` falls 0.44 to 0, the wall heats 2 K per step, the vapour fraction rises), starting from the unidentified step-1 seed; by step 6 `alpha.vapour` differs by 0.11.
+
+### Predictions: held and missed
+
+| id | result |
+|---|---|
+| U1 held | both variants read with an empty `deviations`; the `lookup_table_chf` case reads its table through `#include "chfTables"` (`case.models.chf_tables.len() == 1`) |
+| U2 **missed for `lookup_table_chf`**, held for `constant_chf` | `dt` equal to 1e-9 was predicted; `constant_chf` 3.6e-6 (steps 1-40), `lookup_table_chf` 8.7e-5 (steps 1-3): neither within 1e-9 (a step-size consequence of the 1e-6 differences), the first within 1e-5 |
+| U3 **missed** | steps 1-3 were predicted pre-CHF nucleate boiling with differences <= 1e-6: the wall is ALREADY in the transition regime at step 1 (my reading of the written fields was wrong: `htc` 25000 at step 3 is the transition value). `constant_chf` step 1-3 worst 9.8e-7 (U.liquid) and 3.7e-6 (htc): held in size by luck, missed in regime; `lookup_table_chf` 8.0e-4: missed |
+| U4 held | the regime change at the same step as upstream: `lookup_table_chf` yes, step 7 in both (inferred from upstream's written `htc`, which falls to its film value at step 7; the port's regime code switches at step 7); `constant_chf` unobservable (no regime field is written) but its `htc` agrees to 3.7e-6 through the change |
+| U5 **missed** | film-boiling `htc.liquid.structure` <= 1e-8 was predicted; measured 7.7e-7 (steps 7-40, `constant_chf`); the prediction ignored the sensitivity of the radiation term to `alpha` (`a = eps sqrt(1 - alpha)`) and `T_w` |
+| U6 **missed** | `htc.vapour.structure` of `lookup_table_chf` to 1e-6: measured 4.3e-4 at steps 1-3 (it is `2 k_g/delta` with `delta` ~ 1e9, the film thickness from the pressure-as-pitch defect; its sensitivity is that of the vapour fraction) |
+| U7 **missed** | `alpha.vapour`, `dmdt` <= 1e-3 over steps 4-20: `constant_chf` 7.3e-6, 3.9e-5: held; `lookup_table_chf` 0.11 and 5.5e-3 at steps 4-6: missed |
+| U8 **missed** | the first step above 1e-6 was predicted at 3 to 8 and none at 1 or 2: it is step 1 (above 1e-9 and 1e-6 in `U.vapour`, `U.liquid`) in both variants |
+| U9 not run | a stand-alone `lookUpTableCHF` driver (needs `FSPair` and a mesh) was not built; the table is exercised through the case and by the implied-`q_CHF` check above |
+
+### Moved numbers
+
+None of an earlier pinned number moved by this change: it adds model types, a reader branch (`#include` in `phaseProperties`, no earlier case has one) and fields; `correct_fs_pair` now returns a `Result`
+(the error path is the table's out-of-range). The existing 1D_boiling and closed-PSBT gates are in the full-suite run recorded in the hand-off.
+
+### What remains (round 10)
+
+- The shipped `1D_CHF/{imposedPower,imposedTemperature}` do not run: through-flow boundary conditions (gh:#1801), `powerTimeProfile` on `fixedPower` and the `fixedTemperature` power model with `temperatureTimeProfile` in the two-phase solver (filed), and the 77-180 s run length.
+- The seed of the step-1 difference (above).
+- A stand-alone `lookUpTableCHF` driver against the upstream class (needs `FSPair`).
+- `CachardPitch::Pitch` (the intended reading) is not exercised against upstream, which cannot run it; the maintainer decides the default and whether to report the defect upstream (gh:#1224).
+- `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated (`kovan-cli` is not built here); the new functions are in no `kovan.toml`.

@@ -135,6 +135,14 @@ use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace::{
     multi_regime_boiling_trace, TraceBoilingInputs,
 };
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace_chf::{
+    multi_regime_boiling_trace_chf, multi_regime_boiling_vapour_trace, TraceChfInputs, TraceChfResult,
+};
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::cachard::{
+    CachardLiquid, CachardLiquidInputs, CachardVapour,
+};
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::LeidenfrostTemperature;
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf_table::{LookUpTableChf, LookUpTableChfInputs};
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::{
     FlowEnhancementFactor, FlowEnhancementInputs, OnsetOfNucleateBoilingTemperature, SubcooledBoilingFraction,
     SuppressionFactor, SuppressionInputs,
@@ -207,6 +215,37 @@ pub enum FsHtcModel {
     /// `multiRegimeBoilingTRACE` (gh:#1222): see
     /// [`crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace`].
     MultiRegimeBoilingTrace(TraceBoilingModel),
+    /// `multiRegimeBoilingTRACECHF` (gh:#1223, gh:#1224): TRACE with the critical-heat-flux and
+    /// post-CHF branches, see
+    /// [`crate::genfoam::thermal_hydraulics::closures::heat_transfer::boiling_trace_chf`].
+    MultiRegimeBoilingTraceChf(TraceChfModel),
+    /// `multiRegimeBoilingVapourTRACE` (gh:#1224): the vapour side, reading the fields the
+    /// liquid-side `TRACECHF` model wrote in the same correction.
+    MultiRegimeBoilingVapourTrace(CachardVapour),
+}
+
+/// The critical-heat-flux model of `multiRegimeBoilingTRACECHF`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ChfSelection {
+    /// `constantCHF`: `q_CHF` [W/m^2].
+    Constant(f64),
+    /// `lookUpTableCHF`: index into [`TwoPhaseModels::chf_tables`].
+    Table(usize),
+}
+
+/// The sub-models of `multiRegimeBoilingTRACECHF`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TraceChfModel {
+    /// The sub-models shared with `multiRegimeBoilingTRACE`.
+    pub base: TraceBoilingModel,
+    /// `criticalHeatFluxModel` (absent: `q_CHF = 1e15`).
+    pub chf: Option<ChfSelection>,
+    /// `leidenfrostModel` (absent: `T_LF = T_wall`).
+    pub leidenfrost: Option<LeidenfrostTemperature>,
+    /// `annularFlowModel` (absent: `h_FB = 0`).
+    pub annular: Option<CachardLiquid>,
+    /// `absoluteSurfaceRoughness` (default 4e-7 m).
+    pub roughness: f64,
 }
 
 /// The sub-models of `multiRegimeBoilingTRACE` (`FSHeatTransferCoefficientModels`).
@@ -298,6 +337,8 @@ pub struct TwoPhaseModels {
     pub two_phase_multiplier: Option<(TwoPhaseDragMultiplier, usize, f64)>,
     /// Fluid-structure htc per fluid per cell.
     pub fs_htc: [Vec<Option<FsHtcModel>>; 2],
+    /// The `lookUpTableCHF` tables the htc models refer to ([`ChfSelection::Table`]).
+    pub chf_tables: Vec<LookUpTableChf>,
     /// Interfacial htc per fluid.
     pub ff_htc: [Option<FfHtcModel>; 2],
     /// `virtualMassCoefficientModel constant` value, if present.
@@ -709,6 +750,12 @@ pub struct TwoPhaseSolver {
     /// `multiRegimeBoilingTRACE` model in `FSPair::correct` and consumed, then zeroed, by the next
     /// `phaseChangeModel::correct` (gh:#1222).
     pub dmdt_w: Vec<f64>,
+    /// `CHFBoolMultiRegimeBoilingTRACECHF`: 0 pre-CHF, 1 post-CHF film boiling, 2 transition.
+    pub chf_bool: Vec<f64>,
+    /// `wfTransitionBoiling`.
+    pub wf_transition_boiling: Vec<f64>,
+    /// `LeidenfrostTemperature`.
+    pub t_leidenfrost: Vec<f64>,
     /// Fluid-fluid drag coefficient [kg/(m^3 s)].
     pub kd_ff: Vec<f64>,
     /// Interfacial htc of each fluid [W/(m^2 K)].
@@ -802,6 +849,9 @@ impl TwoPhaseSolver {
             dmdt: vec![0.0; n],
             latent_heat: vec![0.0; n],
             dmdt_w: vec![0.0; n],
+            chf_bool: vec![0.0; n],
+            wf_transition_boiling: vec![0.0; n],
+            t_leidenfrost: vec![0.0; n],
             kd_ff: vec![0.0; n],
             htc_ff: [vec![0.0; n], vec![0.0; n]],
             kd_fs: [vec![0.0; n], vec![0.0; n]],
@@ -1086,7 +1136,7 @@ impl TwoPhaseSolver {
         }
         self.correct_ff_pair();
         for k in 0..2 {
-            self.correct_fs_pair(k);
+            self.correct_fs_pair(k)?;
         }
         self.correct_two_phase_drag_factor();
         Ok(())
@@ -1474,7 +1524,7 @@ impl TwoPhaseSolver {
     }
 
     /// `FSPair::correct` for fluid `k` (FSPair.C:285-456).
-    fn correct_fs_pair(&mut self, k: usize) {
+    fn correct_fs_pair(&mut self, k: usize) -> Result<(), crate::error::AppBuilderError> {
         let n = self.geom.n_cells();
         let o = 1 - k;
         for c in 0..n {
@@ -1505,17 +1555,197 @@ impl TwoPhaseSolver {
         // htc
         for c in 0..n {
             if let Some(model) = self.models.fs_htc[k][c] {
-                let (htc, q_sc) = self.fs_htc_value(k, o, c, model);
-                self.htc_fs[k][c] = htc;
-                if let Some(q) = q_sc {
-                    // `dmdtW[celli] = iAact*qSCDmdti/mag(L)` (multiRegimeBoilingTRACE.C)
-                    self.dmdt_w[c] = self.structure.ia_act[c] * q / self.latent_heat[c].abs();
+                match model {
+                    FsHtcModel::MultiRegimeBoilingTraceChf(m) => {
+                        let r = self.trace_chf_value(k, o, c, m).map_err(|e| crate::error::AppBuilderError::Case {
+                            case: crate::path::PathBuf::from("multiRegimeBoilingTRACECHF"),
+                            msg: e,
+                        })?;
+                        self.htc_fs[k][c] = r.htc;
+                        if let Some(d) = r.dmdt_w {
+                            self.dmdt_w[c] = d;
+                        }
+                        self.chf_bool[c] = r.chf_bool;
+                        self.wf_transition_boiling[c] = r.wf_tb;
+                        self.t_leidenfrost[c] = r.t_leidenfrost;
+                    }
+                    FsHtcModel::MultiRegimeBoilingVapourTrace(m) => {
+                        self.htc_fs[k][c] = self.vapour_trace_value(k, c, m);
+                    }
+                    _ => {
+                        let (htc, q_sc) = self.fs_htc_value(k, o, c, model);
+                        self.htc_fs[k][c] = htc;
+                        if let Some(q) = q_sc {
+                            // `dmdtW[celli] = iAact*qSCDmdti/mag(L)` (multiRegimeBoilingTRACE.C)
+                            self.dmdt_w[c] = self.structure.ia_act[c] * q / self.latent_heat[c].abs();
+                        }
+                    }
                 }
             }
         }
         for c in 0..n {
             self.htc_fs[k][c] *= self.contact[k][c];
         }
+        Ok(())
+    }
+
+    /// `multiRegimeBoilingTRACECHF::value` for cell `c` of fluid `k` (gh:#1223, gh:#1224).
+    ///
+    /// # Errors
+    /// A `lookUpTableCHF` query outside its table (upstream's `FatalError`).
+    fn trace_chf_value(&self, k: usize, o: usize, c: usize, m: TraceChfModel) -> Result<TraceChfResult, String> {
+        let fl = &self.fluids[k];
+        let ot = &self.fluids[o];
+        let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
+        let tw = self.structure.t_wall[c];
+        let tf = fl.t.c[c];
+        let tsat = self.t_interface[c];
+        let b = m.base;
+        let fc_in = (
+            ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+            Ratio::new::<ratio>(pr),
+            ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+            Length::new::<meter>(fl.dh[c]),
+            Some((temperature(tw), temperature(tf))),
+        );
+        let fc = if self.controls.earlier_nusselt_association {
+            b.forced_convection.heat_transfer_coefficient_earlier_association(fc_in.0, fc_in.1, fc_in.2, fc_in.3, fc_in.4)
+        } else {
+            b.forced_convection.heat_transfer_coefficient(fc_in.0, fc_in.1, fc_in.2, fc_in.3, fc_in.4)
+        }
+        .get::<watt_per_square_meter_kelvin>();
+        let f = b
+            .flow_enhancement
+            .value(FlowEnhancementInputs {
+                inverse_lockhart_martinelli: Ratio::new::<ratio>(1.0 / fl.xlm[c]),
+                liquid_void_fraction: Ratio::new::<ratio>(fl.normalized[c]),
+                mixture_reynolds_number: ReynoldsNumber::new::<ratio>(10.0),
+                single_phase_reynolds_number: ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+            })
+            .get::<ratio>();
+        let l_abs = self.latent_heat[c].abs();
+        // the critical heat flux (only evaluated where upstream reaches it: above the onset of
+        // nucleate boiling; the table can be out of range elsewhere without being asked)
+        let q_chf_at = |p_c: f64| -> Result<Option<f64>, String> {
+            match m.chf {
+                None => Ok(None),
+                Some(ChfSelection::Constant(v)) => Ok(Some(v)),
+                Some(ChfSelection::Table(i)) => {
+                    let f0 = &self.fluids[0];
+                    let inp = LookUpTableChfInputs {
+                        flow_quality: fl.quality[c],
+                        p: p_c,
+                        rho_liquid: fl.rho.c[c],
+                        rho_vapour: ot.rho.c[c],
+                        mag_u_liquid: fl.mag_u[c],
+                        mag_u_vapour: ot.mag_u[c],
+                        alpha_liquid: fl.normalized[c],
+                        dh: self.structure.dh[c],
+                        h_liquid_saturated: f0.thermo.he(p_c, tsat),
+                        latent_heat: l_abs,
+                        h_liquid: f0.he.c[c],
+                    };
+                    self.models.chf_tables[i].value(&inp).map(Some).map_err(|e| {
+                        format!("cell {c}, p = {p_c} Pa, T_sat = {tsat} K, G = {}: {e}", inp.rho_liquid * inp.mag_u_liquid)
+                    })
+                }
+            }
+        };
+        let inputs = TraceChfInputs {
+            alpha_other: 1.0 - fl.normalized[c],
+            t_wall: tw,
+            t_fluid: tf,
+            t_sat: tsat,
+            p: self.p.c[c],
+            area: self.structure.ia_act[c],
+            latent_heat: l_abs,
+            htc_2p_fc: fc * f,
+            htc_film_condensation: None,
+            has_onb_model: b.onset.is_some(),
+            q_chf: None,
+            roughness: m.roughness,
+        };
+        // `qCHFi` is evaluated only above the onset of nucleate boiling: decide that first with
+        // the same inputs, then fill it in
+        let t_onb = |htc: f64| -> f64 {
+            match b.onset {
+                Some(model) => model
+                    .temperature(
+                        uom::si::f64::HeatTransfer::new::<watt_per_square_meter_kelvin>(htc),
+                        temperature(tf),
+                        temperature(tsat),
+                        mass_density(ot.rho.c[c]),
+                        specific_energy(l_abs),
+                        ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                    )
+                    .get::<kelvin>(),
+                None => tsat,
+            }
+        };
+        let needs_chf = tw >= tsat && tw >= t_onb(inputs.htc_2p_fc);
+        let inputs = TraceChfInputs { q_chf: if needs_chf { q_chf_at(self.p.c[c])? } else { None }, ..inputs };
+        let pool = |t_wall: f64| -> f64 {
+            b.pool_boiling
+                .heat_transfer_coefficient_from_delta_t(
+                    uom::si::f64::TemperatureInterval::new::<uom::si::temperature_interval::kelvin>(t_wall - tsat),
+                    Pressure::new::<pascal>(self.p.c[c]),
+                )
+                .get::<watt_per_square_meter_kelvin>()
+        };
+        let scbf = b.sub_cooled_fraction.map(|model| {
+            move |q: f64| -> f64 {
+                model
+                    .fraction(
+                        uom::si::f64::HeatFluxDensity::new::<watt_per_square_meter>(q),
+                        ThermalConductivity::new::<watt_per_meter_kelvin>(fl.kappa.c[c]),
+                        Length::new::<meter>(self.structure.dh[c]),
+                        ReynoldsNumber::new::<ratio>(self.re_fs[k][c]),
+                        Ratio::new::<ratio>(pr),
+                        temperature(tsat),
+                        temperature(tf),
+                    )
+                    .get::<ratio>()
+            }
+        });
+        let tlf = m.leidenfrost.map(|model| {
+            move || {
+                model
+                    .temperature(Pressure::new::<pascal>(self.p.c[c]), temperature(tsat))
+                    .get::<kelvin>()
+            }
+        });
+        let annular = |t_wall: f64| -> (f64, f64) {
+            match m.annular {
+                None => (0.0, 0.0),
+                Some(model) => model.value(&CachardLiquidInputs {
+                    t_wall,
+                    t_sat: tsat,
+                    t_liquid: tf,
+                    alpha_vapour: ot.normalized[c],
+                    p: self.p.c[c],
+                    rho_liquid: fl.rho.c[c],
+                    rho_vapour: ot.rho.c[c],
+                    kappa_vapour: ot.kappa.c[c],
+                    mu_vapour: ot.mu.c[c],
+                    dh_vapour: ot.dh[c],
+                }),
+            }
+        };
+        Ok(multi_regime_boiling_trace_chf(&inputs, t_onb, pool, scbf, tlf, annular))
+    }
+
+    /// `multiRegimeBoilingVapourTRACE::value` for cell `c` of the vapour fluid `k`: reads the
+    /// fields `trace_chf_value` wrote for the liquid pair of this correction.
+    fn vapour_trace_value(&self, k: usize, c: usize, m: CachardVapour) -> f64 {
+        let fl = &self.fluids[k];
+        let annular = |_t_wall: f64| -> f64 { m.value(fl.normalized[c], self.p.c[c], fl.kappa.c[c], fl.dh[c]) };
+        multi_regime_boiling_vapour_trace(
+            self.structure.t_wall[c],
+            self.chf_bool[c],
+            self.wf_transition_boiling[c],
+            self.t_leidenfrost[c],
+            annular,
+        )
     }
 
     /// One cell of a fluid-structure htc model.
@@ -1545,6 +1775,8 @@ impl TwoPhaseSolver {
         match model {
             FsHtcModel::Nusselt(m) => (fc(m), None),
             FsHtcModel::MultiRegimeBoilingTrace(m) => self.trace_boiling_value(k, o, c, m),
+            // evaluated by `correct_fs_pair`, which keeps their side-effect fields
+            FsHtcModel::MultiRegimeBoilingTraceChf(_) | FsHtcModel::MultiRegimeBoilingVapourTrace(_) => (0.0, None),
             FsHtcModel::SuperpositionNucleateBoiling {
                 forced_convection,
                 pool_boiling,

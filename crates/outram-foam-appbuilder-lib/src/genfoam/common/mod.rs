@@ -62,6 +62,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod interpolate_table;
+pub mod interpolate_table_nd;
 pub mod rbf;
 pub mod time_profile;
 
