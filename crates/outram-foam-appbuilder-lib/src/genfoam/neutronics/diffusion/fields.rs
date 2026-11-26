@@ -51,7 +51,10 @@
 //! uniform and static. Per-cell feedback driven by live thermal-hydraulics
 //! fields — GeN-Foam's `xs_.correct(TFuel_, ...)` each time step — needs the
 //! TH / multi-region coupling layer and is deferred (see the `neutronics` epic
-//! and the `xs` module docs). For a benchmark whose `nuclearData` declares no
+//! and the `xs` module docs). ~~deferred~~ **CORRECTED 2026-11-25** (gh:#1361
+//! round 6): the re-evaluation per step exists as
+//! [`super::DiffusionNeutronics::refresh_cross_sections`]; what is still deferred
+//! is the coupled TH region that would produce the feedback fields (gh:#1475). For a benchmark whose `nuclearData` declares no
 //! feedback variables, pass `raw_parameters = &[]` and every value equals the
 //! `reference` state.
 

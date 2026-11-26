@@ -32,7 +32,7 @@
 //! |---|---|---|---|
 //! | [`porous_drag`] | [`PorousDrag`] — the isotropic `Kd` drag-coefficient assembly from the wall-friction closure | `physicsModels/dragModels/FSDragFactor` | **Ported + V&V** |
 //! | [`one_phase`] | [`OnePhaseSolver`] — porous `UEqn`/`pEqn`/`EEqn` driver | `solvers/onePhase/**` | **Ported + V&V** (constant-property slice; see its docs) |
-//! | [`two_phase`] | [`TwoPhaseSolver`] — two-fluid alpha/U/p_rgh/EEqns driver with boiling | `solvers/twoPhase/**` | **Ported, implicitUpwind alpha only** (MULES not ported); V&V `verification_and_validation/genfoam_two_phase/` |
+//! | [`two_phase`] | [`TwoPhaseSolver`] — two-fluid alpha/U/p_rgh/EEqns driver with boiling | `solvers/twoPhase/**` | **Ported** (implicitUpwind and MULES alpha; ~~MULES not ported~~ **CORRECTED 2026-11-26** (gh:#1361 round 7)); V&V `verification_and_validation/genfoam_two_phase/` |
 //!
 //! ## Dispatch: no trait objects
 //!
@@ -91,6 +91,6 @@ impl ThermalHydraulicsSolver {
     }
 }
 
-// TODO(genfoam): port solvers/onePhaseLegacy (bead op-p6p.7.11 follow-up) and
-// the MULES alpha solver of solvers/twoPhase (gh:#1216 child issue); the
-// twoPhase driver itself is `two_phase` (gh:#1218).
+// TODO(genfoam): port solvers/onePhaseLegacy (bead op-p6p.7.11 follow-up); the
+// twoPhase driver itself is `two_phase` (gh:#1218), and its MULES alpha solver is
+// `two_phase::mules` (gh:#1361 round 7; MULES with `solvePhase` set is still open).

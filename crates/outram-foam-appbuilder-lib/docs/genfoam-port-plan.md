@@ -241,8 +241,8 @@ Still **deferred** in thermal-hydraulics:
 
 - ~~The **two-phase (MULES) solver** and `onePhaseLegacy`.~~ **CORRECTED
   2026-11-04 (gh:#1218):** the two-phase solver is ported as
-  `solver::two_phase` with the `implicitUpwind` alpha solver; **MULES** and
-  `onePhaseLegacy` remain. Per-class status: `docs/genfoam-port-gap-audit.md`.
+  `solver::two_phase` with the `implicitUpwind` alpha solver; ~~**MULES** and
+  `onePhaseLegacy` remain~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES is ported too; `onePhaseLegacy` remains. Per-class status: `docs/genfoam-port-gap-audit.md`.
 - Wiring `thermophysical` in as `solver::one_phase`'s fluid package — the
   driver still runs on constant properties (`he = Cp·T`).
 - `NusseltThermalBaffle1D` (`boundary_conditions::nusselt_baffle`) — every
