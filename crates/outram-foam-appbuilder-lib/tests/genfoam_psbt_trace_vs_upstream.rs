@@ -310,6 +310,35 @@ fn psbt_closed_branch_dump() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Round 13 diagnostic: every evaluation of `multiRegimeBoilingTRACE` (all cells, all outer iterations) of the first `STEPS`
+/// steps (default 14), with its intermediates at 17 digits, written to the file `PROBE_OUT` (one line per cell evaluation:
+/// `PORT t= corr= cell= name=value ...`), for comparison with the instrumented upstream's dump
+/// (`upstream_driver/probe_boiling`). Gate part: the recorded `ret` equals the stored htc of the same step.
+#[test]
+#[ignore]
+fn psbt_closed_trace_probe_dump() {
+    let n: usize = std::env::var("STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(14);
+    let dir = protocol_copy("probe");
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    s.trace_probe = Some(Vec::new());
+    for _ in 1..=n {
+        s.step().expect("step");
+    }
+    let mut out = String::new();
+    for r in s.trace_probe.as_ref().expect("probe on") {
+        out.push_str(&format!("PORT t={:.17e} corr={} cell={}", r.time, r.outer_iteration, r.cell));
+        for (k, v) in &r.values {
+            out.push_str(&format!(" {k}={v:.17e}"));
+        }
+        out.push('\n');
+    }
+    if let Ok(path) = std::env::var("PROBE_OUT") {
+        std::fs::write(path, out).expect("write probe");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Diagnostic: the port's per-outer-iteration residuals (p_rgh initial, h.liquid initial) of step `STEP`
 /// (default 1), as upstream prints them ("abs tol") at the start of the next iteration.
 #[test]

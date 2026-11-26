@@ -263,6 +263,22 @@ pub struct TraceBoilingModel {
     pub sub_cooled_fraction: Option<SubcooledBoilingFraction>,
 }
 
+/// One recorded evaluation of `multiRegimeBoilingTRACE` for one cell (gh:#1361 round 13 diagnostic, see
+/// [`TwoPhaseSolver::trace_probe`]): the named intermediates, in the order the model computes them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraceProbeRecord {
+    /// Time of the step being taken [s].
+    pub time: f64,
+    /// PIMPLE outer iteration (1-based) of that step.
+    pub outer_iteration: usize,
+    /// Cell index.
+    pub cell: usize,
+    /// `(name, value)` pairs (`alphai`, `Tw`, `Tf`, `Tsat`, `htcFC`, `F`, `htc2pFC`, `qFC`, `Re`, `Pr`, `kappa`, `Dh`,
+    /// `p`, `L`, `iAact`; in the boiling branch also `TONB`, `rhoOther`, `absL`, `hPBONB`, `hPB`, `f`, `qSCDmdt`,
+    /// `dmdtW`; and `ret`, the heat-transfer coefficient returned).
+    pub values: Vec<(&'static str, f64)>,
+}
+
 /// The field a `twoParameters` regime map reads on one axis (`parameter1`, `parameter2`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegimeParameter {
@@ -746,6 +762,9 @@ pub struct TwoPhaseSolver {
     pub dmdt: Vec<f64>,
     /// Latent heat [J/kg].
     pub latent_heat: Vec<f64>,
+    /// Diagnostic (gh:#1361 round 13): when `Some`, every evaluation of `multiRegimeBoilingTRACE` appends the
+    /// intermediates it computed (see [`TraceProbeRecord`]). `None` (the default) records nothing.
+    pub trace_probe: Option<Vec<TraceProbeRecord>>,
     /// Wall (sub-cooled boiling) mass-transfer source `dmdtW` [kg/(m^3 s)], written by the
     /// `multiRegimeBoilingTRACE` model in `FSPair::correct` and consumed, then zeroed, by the next
     /// `phaseChangeModel::correct` (gh:#1222).
@@ -848,6 +867,7 @@ impl TwoPhaseSolver {
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
             latent_heat: vec![0.0; n],
+            trace_probe: None,
             dmdt_w: vec![0.0; n],
             chf_bool: vec![0.0; n],
             wf_transition_boiling: vec![0.0; n],
@@ -1581,7 +1601,11 @@ impl TwoPhaseSolver {
                         self.htc_fs[k][c] = self.vapour_trace_value(k, c, m);
                     }
                     _ => {
-                        let (htc, q_sc) = self.fs_htc_value(k, o, c, model);
+                        let probing = self.trace_probe.is_some();
+                        let (htc, q_sc) = match model {
+                            FsHtcModel::MultiRegimeBoilingTrace(m) if probing => self.trace_boiling_value_probed(k, o, c, m),
+                            _ => self.fs_htc_value(k, o, c, model),
+                        };
                         self.htc_fs[k][c] = htc;
                         if let Some(q) = q_sc {
                             // `dmdtW[celli] = iAact*qSCDmdti/mag(L)` (multiRegimeBoilingTRACE.C)
@@ -1828,6 +1852,24 @@ impl TwoPhaseSolver {
     /// the `Twall` field of the structure (zero until its first `correct`), the saturation
     /// temperature `T.interface`, the pool-boiling model the `Twall`/`T.interface` form.
     fn trace_boiling_value(&self, k: usize, o: usize, c: usize, m: TraceBoilingModel) -> (f64, Option<f64>) {
+        self.trace_boiling_value_logged(k, o, c, m, None)
+    }
+
+    /// [`Self::trace_boiling_value`] with the intermediates appended to `log` (a diagnostic; the arithmetic is the
+    /// same code, so the record cannot drift from the value).
+    fn trace_boiling_value_logged(
+        &self,
+        k: usize,
+        o: usize,
+        c: usize,
+        m: TraceBoilingModel,
+        log: Option<&core::cell::RefCell<Vec<(&'static str, f64)>>>,
+    ) -> (f64, Option<f64>) {
+        let push = |name: &'static str, v: f64| {
+            if let Some(l) = log {
+                l.borrow_mut().push((name, v));
+            }
+        };
         let fl = &self.fluids[k];
         let ot = &self.fluids[o];
         let pr = fl.cp.c[c] * fl.mu.c[c] / fl.kappa.c[c];
@@ -1864,6 +1906,21 @@ impl TwoPhaseSolver {
             })
             .get::<ratio>();
         let htc_2p_fc = fc * f;
+        push("alphai", 1.0 - fl.normalized[c]);
+        push("Tw", tw);
+        push("Tf", tf);
+        push("Tsat", tsat);
+        push("htcFC", fc);
+        push("F", f);
+        push("htc2pFC", htc_2p_fc);
+        push("qFC", htc_2p_fc * (tw - tf));
+        push("Re", self.re_fs[k][c]);
+        push("Pr", pr);
+        push("kappa", fl.kappa.c[c]);
+        push("Dh", self.structure.dh[c]);
+        push("p", self.p.c[c]);
+        push("L", self.latent_heat[c]);
+        push("iAact", self.structure.ia_act[c]);
         let inputs = TraceBoilingInputs {
             alpha_other: 1.0 - fl.normalized[c],
             t_wall: tw,
@@ -1912,8 +1969,48 @@ impl TwoPhaseSolver {
                     .get::<ratio>()
             }
         });
-        let r = multi_regime_boiling_trace(&inputs, t_onb, pool, scbf);
+        let pool_calls = core::cell::Cell::new(0_usize);
+        let t_onb_logged = |htc: f64| -> f64 {
+            let v = t_onb(htc);
+            push("TONB", v);
+            push("rhoOther", ot.rho.c[c]);
+            push("absL", l_abs);
+            v
+        };
+        let pool_logged = |t_wall: f64| -> f64 {
+            let v = pool(t_wall);
+            let i = pool_calls.get();
+            pool_calls.set(i + 1);
+            push(if i == 0 { "hPBONB" } else { "hPB" }, v);
+            v
+        };
+        let scbf_logged = scbf.map(|fr| {
+            move |q: f64| -> f64 {
+                let v = fr(q);
+                push("f", v);
+                v
+            }
+        });
+        let r = multi_regime_boiling_trace(&inputs, t_onb_logged, pool_logged, scbf_logged);
+        push("ret", r.htc);
+        if let Some(q) = r.q_subcooled_dmdt {
+            push("qSCDmdt", q);
+            push("dmdtW", self.structure.ia_act[c] * q / self.latent_heat[c].abs());
+        }
         (r.htc, r.q_subcooled_dmdt)
+    }
+
+    /// One cell of `multiRegimeBoilingTRACE` with its intermediates recorded into [`Self::trace_probe`]
+    /// (gh:#1361 round 13); the value returned is exactly [`Self::trace_boiling_value`]'s.
+    fn trace_boiling_value_probed(&mut self, k: usize, o: usize, c: usize, m: TraceBoilingModel) -> (f64, Option<f64>) {
+        let log = core::cell::RefCell::new(Vec::new());
+        let r = self.trace_boiling_value_logged(k, o, c, m, Some(&log));
+        let values = log.into_inner();
+        let record = TraceProbeRecord { time: self.time, outer_iteration: self.corr_in_step, cell: c, values };
+        if let Some(p) = self.trace_probe.as_mut() {
+            p.push(record);
+        }
+        r
     }
 
     /// `twoPhaseDragFactor::correct` (twoPhaseDragFactor.C:96-118) with

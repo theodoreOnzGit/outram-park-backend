@@ -2139,3 +2139,47 @@ None of an earlier pinned number moved: `zeroGradient` patches follow the previo
 `GENFOAM_UPSTREAM=/home/user/upstream-build/GeN-Foam-src cargo test --release -p outram-foam-appbuilder-lib --lib --tests --no-fail-fast`: 50 test binaries, **650 passed, 0 failed, 46 ignored** (the lib alone 490 passed, 588 s);
 `cargo test --release -p petir --test no_platform_libm`: 4 passed; `bash scripts/check-nostd.sh`: every crate incl. `outram-foam-appbuilder-lib` checks. New tests: 3 + 2 in the two `*_shipped_vs_upstream` files (plus the
 refusal test), 3 in `two_phase/tests.rs`, 1 in `power_model.rs`. Issues filed: #1820 (PSBT step 51), #1821 (CHF 10-10.125 s), #1822 (fixedTemperature profile, remaining BC types, API mirror).
+
+---
+
+# Round 13 (gh:#1803, #1816, #1820, #1821; child of #1216): an INSTRUMENTED upstream, to find the cause of the boiling-branch seed
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+## The question, and the method
+
+Four comparisons agree with the real binary to ~1e-10 until the FIRST evaluation of a boiling branch of `multiRegimeBoilingTRACE` / `multiRegimeBoilingTRACECHF`, then separate at 1e-9..1e-5,
+far above a measured self-perturbation noise floor (#1803 step 9, #1816 step 1, #1820 step 9 then the step-51 vapour-temperature jump, #1821 10.0-10.125 s). Rounds 8, 10 and 12 each recorded
+"cause not identified" and listed the suspects already excluded (the `Nusselt` operation order, the Basu angle and cube, the `Twall` lag, `T.interface`, the CHF table scale). They all needed an
+upstream field the real binary does not write. **This round builds that upstream:** a scratch copy of `thermalHydraulics/src` (outside `GeN-Foam-src`, so the reference binary stays pristine) whose
+`multiRegimeBoilingTRACE::value`, `multiRegimeBoilingTRACECHF::value` and `BasuTONB::value` write every intermediate at 17 digits (`upstream_driver/probe_boiling/`: the patch, the build script), built as
+`libFFSSrc2.so` into a SEPARATE `FOAM_USER_LIBBIN` and put first on `LD_LIBRARY_PATH` for one run; the installed libraries are untouched. The port gets the matching diagnostic
+(`TwoPhaseSolver::trace_probe`, `TraceProbeRecord`, the same arithmetic via `trace_boiling_value_logged`), and the two dumps are compared call by call, term by term.
+
+## What was read BEFORE any probe run (2026-11-26)
+
+- `multiRegimeBoilingTRACE::value` takes `Tw = structure.Twall()` (a field), `Tf = fluid.thermo().T()`, `Tsat = FFPair.iT()`; `htcFC*F`; the Gorenflo pool-boiling model is evaluated TWICE per cell, once with the
+  `Twall` entry overwritten by `T_ONB` (a `const_cast`), once with the true wall temperature; `qNB = pow(pow(qFC,3) + pow(qPB-qBI,3), 1.0/3.0)`.
+- `BasuTONB::value` reads `fluidRef().T()`, `Tsat_` (`T.interface`), the OTHER fluid's `rho()`, `mag(L.<pair>)` and `fluidRef().kappa()` (the PLACEHOLDER field, refreshed at the END of `EEqns_2p.H` after
+  `structure_.correct`); the constant `A_ = 2 sigma / sqr(1 - exp(-pow(theta,3) - 0.5 theta))`.
+- `Nusselt::value` reads `kappa()` (placeholder), `Pr()` (placeholder), `fluid.Dh()`, `Twall`, `thermo().T()`; the single-phase htc therefore contains `kappa`, `Pr`, `Re`, `Dh`, and agrees to 2e-10, so
+  an error in any of those inputs of >= 1e-9 is already excluded; what the BOILING branch adds is `rho_vapour`, `|L|`, `A_`, the Gorenflo pair and the cubic superposition.
+- Sensitivity (round 8): `(1/htc) dhtc/dT_ONB = -1e-2 /K`, so the 7.8e-9 htc difference is `|dT_ONB| ~ 8e-7 K`; with `T_ONB = T_l + (sqrt(d) + sqrt(d + 4 (T_sat - T_l)))^2/4`,
+  `dT_ONB/d ln d = sqrt(d) (sqrt(d)+sqrt(d+4 dT))^2 / (4 sqrt(d+4 dT))`, about 6 K for a wall a few K above saturation, i.e. `delta d / d` ~ 1e-7 in `d = A htc T_sat / (rho_v |L| kappa)`.
+
+## Predictions (written BEFORE the first probe run; committed first)
+
+The first diverging term is looked for at the first call of the boiling branch (#1803, step 9, the first outer iteration in which `Tw > T_ONB`).
+
+| id | hypothesis | predicted result at the first diverging cell | confidence |
+|---|---|---|---|
+| R1 | the inputs `Tw`, `Tf`, `Tsat`, `htcFC`, `F`, `Re`, `Pr`, `kappa`, `Dh`, `p` agree to <= 1e-9 relative in every call of steps 1-9 | held (they are in the single-phase htc, which agrees to 2e-10) | 90 % |
+| R2 | `rhoOther` (the vapour density the Basu model reads) differs between the codes by 1e-7 .. 1e-6 relative in cells whose vapour fraction is below `thermoResidualAlpha`; a larger `rho_v` lowers `d`, hence `T_ONB`, hence raises the htc | the first term above round-off; sign: port's htc LOWER than upstream's if the port's `rho_v` is lower | 40 % |
+| R3 | `|L|` (the latent heat after `adjust`) differs by 1e-7 .. 1e-6 | first term above round-off | 20 % |
+| R4 | the Basu constant `A_` (`sqr` against `r_powi(2)`, `exp` of the cube) differs | **rejected**: <= 3e-16 relative; cannot make 1e-7 | 90 % that it is NOT the cause |
+| R5 | Gorenflo `hPB` and `hPBONB` (`pow(.,n)`, `pow(.,1/(1-n))`) differ | agree to <= 1e-14 given equal `Tw`, `Tsat`, `p` | 80 % |
+| R6 | the cubic `pow(pow(qFC,3)+pow(qPB-qBI,3),1/3)`: port `r_powf` against glibc `pow` differs by <= 1 ulp (2e-16), amplified by no cancellation | <= 1e-15, not the cause | 90 % |
+| R7 | the same first-term as R2/R3 explains #1816 (TRACECHF transition branch) and #1821 once the CHF-branch intermediates are compared | one cause, two sites | 50 % |
+| R8 | the #1820 step-51 `T.vapour` jump is a separate cause (the `cutoff` clamp / `thermoResidualAlpha` boundary), not visible in the closure intermediates | held | 60 % |
+
+If R2 and R3 both miss and R1 holds, the seed is not in the closure at all and the next place is the structure update (`structure::correct`, `fixedPower::correct` with `H`, `HT`) and the `linearizedSemiImplicitHeatSource`.
