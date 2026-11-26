@@ -1215,7 +1215,7 @@ Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr
 
 ### What the port still cannot do (coupled TH), filed
 
-The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` power model, `ReynoldsPower`, and `multiPhysicsSolver` with `meshToMesh cellVolumeWeight` (#1475, #651). The comparison above takes the TH state as input. Children filed on gh:#1475, see the issue comment.
+**CORRECTED 2026-11-26 (round 9): the TH half and the coupled loop now run in the port and agree with the real binary over the first 50 steps (see "Round 9 results" below); the paragraph that follows is the state at the end of round 6.** ~~The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` power model, `ReynoldsPower`, and `multiPhysicsSolver` with `meshToMesh cellVolumeWeight` (#1475, #651). The comparison above takes the TH state as input. Children filed on gh:#1475, see the issue comment.~~
 
 ### Gates
 
@@ -1387,3 +1387,317 @@ codes" did NOT test.
 - **The sub-cycle path (`nSubCycles > 1`) is not compared bitwise**: upstream's own run first needs 2 sub-cycles at step 637 (and 12 at step 648), after the trajectories have separated. It is checked by the count agreeing (to step 637) and by `mules_sub_cycles_restore_old_time_and_keep_the_fractions_bounded` (forced 3 sub-cycles: `oldTime` restored, fractions fill the moving volume, bounded). A case with a non-uniform initial alpha (the reader takes only `uniform` fields) would exercise the limiter at large Courant number before the chaos; not built.
 - `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated: `kovan-cli` is not built here.
 - The installed upstream build still cannot reproduce the committed post-onset references (round 5 finding); not touched.
+
+
+# Round 8 (gh:#1222, gh:#1225): TRACE wall boiling, `twoParameters` regime map, `byRegime` dispatch
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Upstream: the real
+unmodified `GeN-Foam` binary (652b3da0cc55, ESI v2506, serial), the same installed build as rounds 3-7.
+
+## What was found before any code was written (read from the shipped tutorials, 2026-11-26)
+
+| claim in #1222, #1225 and the gap audit | what the tutorials show |
+|---|---|
+| "every PSBT case selects `multiRegimeBoilingTRACE`" | **No.** `PhaseII_Ex1_01_5215` (the case the closure comparison of round 3 used) selects `multiRegimeBoiling` (ported), a EMPTY `regimeMapModels {}` and `porousKEpsilon2PhaseCorrected` turbulence. `Phase_Ex1_12223` selects `multiRegimeBoilingTRACE`, `twoParameters`, `byRegime` (dispersion, vapour diameter, interfacial area), `Bestion` drag, `LockhartMartinelli`, `waterTRACE` and is LAMINAR. `PhaseII_Ex2_04_6770` and `PhaseII_Ex3_11-0312` select `multiRegimeBoilingTRACECHF` + `lookUpTableCHF` + `multiRegimeBoilingVapourTRACE` and RAS turbulence. |
+| "the PSBT cases can run once these closures are ported" | **No.** Every PSBT case is a through-flow case: `U` `fixedValue` inlet, `pressureInletOutletVelocity` outlet, `slip` walls, `inletOutlet` `alpha`, `fixedFluxPressure` `p_rgh`. `TwoPhaseCase::read` refuses the velocity types by name, and `scalar_bcs` turns `fixedFluxPressure` and `inletOutlet` into `calculated` SILENTLY. The three `PhaseII` cases additionally need the `porousKEpsilon2PhaseCorrected` turbulence model, which the two-phase solver does not have (laminar only). **None of the four shipped `1D_PSBT_SC` cases can run end to end in the port.** Filed as child issues (below), not worked around. |
+
+So the end-to-end goal of the task is NOT met; this round ports what the two issues name, wires it into the solver, and
+compares it with the real binary on a **closed variant** of `Phase_Ex1_12223`: the same mesh, models, power and initial fields,
+with only the boundary-condition files changed to the types `1D_boiling` (the case the solver was built for) uses
+(`tests/data/genfoam_psbt_closed_gh1361/PROVENANCE.md`). That is a code-to-code comparison on a pressure-driven variant of the
+PSBT channel, not the PSBT experiment and not the shipped tutorial.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+- `grep -rniE "twoParameters|regimeDomain|regimeBoundary|byRegime|hashlittle|Rand48|lookup3" crates/**/*.rs`: the port had `RegimeMap1D`
+  (`closures/interfacial/regime_map.rs`, `oneParameter`, which says in its module doc that `twoParameters` and the
+  `byRegime` dispatch are deferred), a hand-written `ByRegime` (`f64`, dispersion and contact partition only) in
+  `solver/two_phase/mod.rs`, and no hash, `Random` or polygon code anywhere. Reused: `RegimeInterpolationMode` and the
+  `(name, weight)` list `regime_weights` returns.
+- Heat-transfer closures: `closures/heat_transfer/{boiling,chf,fs_htc}.rs` already had Gorenflo, Basu, RezkallahSims, Chen, SahaZuber
+  and the `multiRegimeBoiling` pure function. Reused (Gorenflo and Basu through the solver, SahaZuber changed, below).
+  `multi_regime_boiling_htc` itself does not compose (it carries the heat-flux-superposition exponent and a suppression factor
+  TRACE does not use, and returns no `q_SC`), so `multiRegimeBoilingTRACE` is a new function.
+- Upstream read in full: `regimeMapModel.{H,C}`, `regimeMapModelTemplates.C`, `twoParameters.{H,C}`, `regimeDomain2D.{H,C}`,
+  `regimeBoundary2D.{H,C}`, `byRegimeModel.{H,C}`, `byRegimeModels.C`, `multiRegimeBoilingTRACE`, `...TRACECHF`, `...VapourTRACE`,
+  `GorenfloFSHeatTransferCoefficient.C`, `BasuTONB.C`, `TONBModel.C`, `SahaZuberSubCooledBoilingFraction.C`, `RezkallahSims...C`,
+  `phaseChangeModel.C` (`correct`, `limitMassTransfer`), `heatDrivenPhaseChange.C`, `FSPair.C` `correct`, `structure.C`
+  (`Twall_`), `fluid.C` (`correctAlphaRhoMagU`), `reconstructU_2p.H`, ESI `Random`, `Rand48`, `Vector2D`, `Hasher.C`,
+  `HashTable.C`. No kovan-reviewed function was touched (no `kind = "review"` block in `closures/` or `solver/`).
+
+## What upstream does that the port did not (found by reading, before any comparison)
+
+1. **`twoParameters` walks a `HashTable<regimeDomain2D, word>`** to find the first polygon that contains the point. That order is
+   the bucket order of Jenkins' `hashlittle` of the regime name in a 128-bucket table, newest-first within a bucket, not the
+   dictionary order. A point on a shared edge belongs to whichever polygon the walk meets first.
+2. `sign_` and the test ray of a polygon are computed from the UNNORMALISED points; the ray is `Foam::Random(69 (id+1917))` (a `drand48`
+   generator through libstdc++'s `generate_canonical`), a fresh ray per boundary, the last one kept; and `Vector2D(rng.sample01(),
+   rng.sample01())` draws `y` first (GCC evaluates arguments right to left: measured with a g++ -O3 probe, `tests` doc).
+3. `multiRegimeBoilingTRACE` reads **`Twall`, a separate field** (`T.wall`), zero until the first `structure::correct`, which copies `Tact`.
+   It hard-wires the cubic flux superposition, never evaluates its suppression model, and writes `dmdtW = iAact q_SC / |L|`.
+4. `phaseChangeModel::correct` adds `dmdtW` to `dmdt`, splits `dmdt` into `(1-fw) dmdt` and `fw dmdt` (`fw = dmdtW/dmdt` where `|dmdt| > 1e-2`),
+   adds the wall part to `c1` or `c2` by sign, and zeroes `dmdtW` after use.
+5. `SahaZuber` (`SahaZuberSubCooledBoilingFraction.C`) is `T_ld = max(T_sat - q Dh/(0.0065 max(Re Pr, 7e4)), 0)` with NO division by the
+   thermal conductivity. The port had added the `k` of the published correlation and claimed to "deviate from upstream's literal C++".
+   Per the maintainer's 2026-11-26 "follow upstream", upstream's form is now the default (`SubcooledBoilingFraction::SahaZuber`) and the
+   earlier form is `SahaZuberPublished`. The two existing unit tests of the published formula now name `SahaZuberPublished` (values unchanged).
+6. `BasuTONB.C` converts the contact angle as `deg*2.0*pi/360.0` and cubes it with `pow(.,3)`; the port used a `uom` degree conversion and `powi`.
+   Now `deg*2.0*pi/360.0` and `r_powf(3.0)`.
+7. `alphaRhoMagU.<fluid>` (`fluid::correctAlphaRhoMagU`, in `reconstructU_2p.H`) is the second axis of the PSBT regime map; the port had no such field.
+
+## Predictions (written BEFORE the first port run on this case; committed first)
+
+Upstream facts measured first (real binary, tight protocol, every step written, `scripts/psbt_closed_protocol.sh`, endTime 0.6, serial):
+the vapour first appears at **step 14** (t = 0.1399 s, max `alpha.vapour` 3.8e-3), 0.22 at t = 0.38 s; the step size starts at 5e-3 and
+falls to 7.8e-4 by t = 0.375 s (`maxCoTwoPhase 0.5`); the GAMG `p_rgh` solve at tolerance 1e-14 often stops at its 1000-iteration cap with a
+final residual of 1e-12 to 1e-13 (a round-off floor, reached in the same way as the `1D_boiling` tight runs).
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| T1 | `TwoPhaseCase::read` of the closed case | succeeds with an empty `deviations` | a model key the reader still refuses |
+| T2 | step size `dt`, steps 1-13 | equal to upstream's to 1e-9 relative | `Courant` / `maxDeltaT` differences |
+| T3 | steps 1-13 (single phase): `p`, `T.liquid`, `T.fixedPower` | <= 1e-9 relative to the field maximum | the round-3 GAMG-vs-port p_rgh floor |
+| T4 | steps 1-13: `U.liquid`, `alphaRhoMagU.liquid` | <= 1e-8 | same |
+| T5 | steps 1-13: `htc.liquid.structure` (TRACE, single phase but wall above saturation) | <= 1e-8 | a wrong branch of the TRACE map, `Twall` lag, Basu/Gorenflo/RezkallahSims arithmetic |
+| T6 | the step at which the port's `alpha.vapour` first exceeds 0 | step 14 (the same as upstream's) | `dmdtW`/`SahaZuber` form |
+| T7 | steps 14-30: `alpha.vapour`, `dmdt.liquid.vapour`, `areaDensity.interface` | <= 1e-4 relative (amplified by the small vapour fraction, as in round 7) | regime weights, `byRegime` area, `fw` split |
+| T8 | steps 14-30: `p`, `T.liquid`, `U.liquid` | <= 1e-6 | |
+| T9 | first step at which any compared field leaves 1e-6 | at or after step 14; none before | |
+
+If T5 or T6 miss, the first suspect is the SahaZuber form (upstream's no-`k` form makes `T_ld` hotter than the published one, so the sub-cooled fraction
+and with it `dmdtW` is larger), then the Gorenflo/`Twall` evaluation order.
+
+## Round 8 results (measured 2026-11-26, release; `tests/genfoam_psbt_trace_vs_upstream.rs`, 4 gates, runs 1 s)
+
+Reference: ONE fresh run of the installed upstream binary on the closed variant (tight protocol, `writePrecision 17`, every step, serial,
+`scripts/psbt_closed_protocol.sh`): 417 steps, then **upstream aborts with SIGFPE at t = 0.4925 s** (its own numerical blow-up: `T.liquid`
+max 682 K, `T.vapour` max 760 K in the last outer iteration; an upstream result, not a port result). Committed reference:
+`refs/psbt_closed_head.ref.txt.gz` (steps 1-40, 0.29 MB); the gates use steps 1-20. 75 cells. Worst relative difference over the cells,
+relative to the field's own maximum:
+
+| span | dt | p | T.liquid | T.vapour | T.fixedPower | U.liquid | U.vapour | alpha.vapour | dmdt | htc.liquid.structure | areaDensity | alphaRhoMagU.liquid |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1-8 (single phase, wall below ONB) | equal to 1e-12 | 7.9e-12 | 2.0e-11 | 8.1e-13 | 4.2e-12 | 4.7e-10 | 9.5e-9 | 0 (exact) | 0 | 2.1e-10 | 0 | 4.7e-10 |
+| 9-13 (single phase, wall above ONB: TRACE nucleate-boiling branch) | equal | 2.1e-9 | 2.0e-8 | 2.5e-10 | 5.6e-9 | 1.7e-7 | 1.6e-7 | 0 | 0 | **7.8e-9 (step 9), 6.2e-7 (step 12)** | 0 | 1.7e-7 |
+| 14 (vapour onset, both codes) | equal | 5.3e-7 | 1.5e-6 | 2.4e-8 | 1.7e-6 | 5.8e-5 | 3.9e-4 | 2.0e-3 | 2.8e-4 | 3.3e-4 | 2.8e-4 | 7.2e-5 |
+| 15-20 | <= 5e-5 | 2.0e-6 | 1.4e-6 | 2.6e-7 | 1.7e-6 | 1.9e-5 | 4.7e-4 | 9.1e-4 | 9.4e-4 | 4e-4 | 9e-4 | 2.8e-5 |
+
+Not bit-identical anywhere (the p_rgh solves differ, as in rounds 3-7). **The outer-iteration counts equal upstream's at steps 1, 2 and 3: 12, 0
+(step 2 is SKIPPED by upstream: "PIMPLE: converged in 0 iterations", its `customPimpleControl` defect, reproduced by the port) and 11.** The step size
+is equal to 1e-12 through step 14; the vapour appears at step 14 in both codes.
+
+**First diverging step: 9 (htc.liquid.structure 7.8e-9, the first value above the 1e-9 round-off allowance).** It is the first step at which the wall is above
+the onset of nucleate boiling (`Tw - TONB` = 0.4 to 0.8 K in the cells of the heated zone), i.e. the first use of the TRACE cubic superposition. From there
+the structure temperature (and with it `U`, `p`) follows and grows by about 10x per step to 1e-6 at step 12-14. **Cause: not identified.** The noise-floor
+control (`psbt_closed_noise_floor_dump`: the port against itself with the initial liquid temperature scaled by 1 + 1e-12) reaches T.fixedPower 5.3e-11 and htc
+1.1e-8 at step 13 and alpha.vapour 1.2e-8 at step 14, so the port-vs-upstream difference is ~100x (T.fixedPower, htc) and ~1e5x (alpha.vapour at 14) that of a noise-floor
+disturbance: a real, small, model difference, not chaos. It is smooth along the channel (htc 1.3e-9 at cell 5, 8e-9 at cell 20), and the sensitivity of the TRACE
+htc to the onset temperature is (1/htc) dhtc/dTONB = -1e-2/K, so it corresponds to a difference of the order 5e-7 K in `T_ONB` or `T_sat` (T.interface agrees to 1e-10 K), i.e.
+5e-7 relative in a Basu input (`rho_vapour`, `|L|`, `kappa`) or in the Gorenflo pair. Candidates not yet tested (each needs an upstream run that writes the
+intermediate field, which the real binary does not): the liquid `kappa` placeholder (upstream refreshes `fluid::kappa()` at the end of `EEqns`, the port's field
+holds the thermo value at the last `thermo_correct`), the vapour density in the cells where the vapour is below `thermoResidualAlpha`, `L` before the adjust.
+Filed as a child issue; the gate `nucleate_boiling_branch_differs_from_upstream_by_the_pinned_amount` pins the measured size.
+
+### Defects found by the comparison, and how (translating upstream)
+
+1. **`phi.*` relaxation was not ported** (found by the PISO residual sequence of step 1, outer iteration 1: upstream 1, 3.0866e-5, 1.2221e-5, 4.84e-6 (ratio 0.40 per
+   corrector); the port 1, 3.86e-5, 1.91e-5, 9.5e-6 (ratio 0.50)). Upstream: `refsAndControls_2p.H` `phi1.storePrevIter()` at the start of the outer iteration and
+   `reconstructU_2p.H` `phi1.relax()` in every corrector; `relaxationFactors.fields "phi.*" 0.8` is in every PSBT case. Ported (`TwoPhaseControls::relax_phi`). After: the sequence
+   equals upstream's (second corrector 3.08655856e-5 against 3.08655860e-5, 1.2e-8 relative; twelfth 2.9236e-9 against 2.9238e-9). Step 1 `p` 1.9e-10 -> 7.9e-12,
+   `T.fixedPower` 3.2e-11 -> 1.2e-12, step 2 `T.fixedPower` 3.9e-3 (the port ran 8 outer iterations where upstream runs none) -> 1.2e-12 (skipped in both). Predicted before the fix: not predicted.
+   No earlier ported case has a `phi.*` factor, so no pinned number moved.
+2. `Nusselt` and `NusseltAndWall` computed `nu*k/dh` and `B*(Re^C Pr^D)`; upstream is `(kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio)` (and `pow(Re*Pr, C)` when `C == D`).
+   Now upstream's association. **Measured effect: none** on the step-9 htc (7.80e-9 before and after), so it is not the cause above; kept because upstream's form is the default.
+3. `SahaZuber` (no `k`, `Basu` angle and `pow(.,3)`): in this span they influence only `dmdtW` (no vapour before step 14), so the comparison cannot yet separate the old and new
+   forms. The old `SahaZuber` is `SahaZuberPublished`, pinned by the two existing unit tests (values unchanged).
+
+### Predictions: held and missed
+
+| id | result |
+|---|---|
+| T1 held | the closed case reads with an empty `deviations` |
+| T2 held | `dt` equal to 1e-12 for steps 1-14 |
+| T3 held for steps 1-11, **missed after** | `p` <= 1e-9 to step 11 (2.4e-10), 1.1e-9 at 12, 2.1e-9 at 13; T.liquid 6.7e-10 at step 10, 9.9e-9 at 12 |
+| T4 held for steps 1-9, **missed after** | U.liquid <= 1e-8 to step 9 (2.8e-10), 1.5e-8 at step 10, 1.6e-7 at step 12 |
+| T5 held to step 9, **missed after** | htc <= 1e-8 to step 9 (7.8e-9), 2.7e-8 at step 10, 6.2e-7 at step 12: the nucleate-boiling branch |
+| T6 held | `alpha.vapour` first above 0 at step 14, as upstream |
+| T7 **missed** | alpha 2.0e-3, dmdt 2.8e-4 at the onset (predicted 1e-4); my reasoning ("amplified by the small vapour fraction") is the noise-floor argument, which the control shows does not explain it (1.2e-8) |
+| T8 **missed** | `p` <= 1e-6 held at 14 (5.3e-7), 2.0e-6 at 15; `T.liquid` 1.5e-6, `U.liquid` 5.8e-5 |
+| T9 held | nothing leaves 1e-6 before step 14 (worst 1.7e-7 at step 13) |
+
+### Moved numbers (old -> new, cause)
+
+- `SubcooledBoilingFraction::SahaZuber` now upstream's form (no `k`); the earlier form is `SahaZuberPublished`; the two unit tests that pin the published form were renamed to it, values unchanged.
+- `Nusselt` / `NusseltAndWall` htc: operation order changed to upstream's `(kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio)` (an ulp; the earlier `nu*k/dh` stays callable as
+  `FsForcedConvectionHtc::heat_transfer_coefficient_earlier_association`, selected per solver by `TwoPhaseSolver::with_earlier_nusselt_association`). **One pin is affected:**
+  the 12 s `1D_boiling` transient of `tests/genfoam_two_phase_1d_boiling.rs` (`one_d_boiling_full_transient`, implicitUpwind, P1-P5) runs through the chaotic post-onset flow excursion
+  and, with upstream's order, ends in `Diverged` (the step size collapses to NaN) where it earlier ran to the end: a one-ulp change moved a qualitative outcome, which is not a "moved pin for rounding" within the
+  1e-4 propagated allowance. ~~Not accepted as a move: the test selects the earlier order (no value, tolerance or gate changed; recorded in the test) and **this is flagged for the maintainer**.~~ **DECIDED 2026-11-26** (maintainer, "1b"): the test runs upstream's order and its divergence is a recorded failure, gh:#1811; it is `#[ignore]`d with that reason (re-measured: `Diverged { iter: 0, residual: NaN }`), and `one_d_boiling_earlier_nusselt_association_is_selectable` reaches the earlier order. Upstream's own build aborts on this case after the onset (rounds 3 and 7), so the sensitivity is shared. The other 1D_boiling gates
+  (rounds 3-7, which compare with the real binary up to the onset) pass under the upstream order. All 610 tests of the crate pass (35 ignored).
+- `TwoPhaseCase::read` of `regimeMapModels {}` (empty): `None` instead of the error "exactly one regime map is supported".
+- Basu contact angle: `deg*2*pi/360` and `pow(theta, 3.0)` (round-off).
+
+### What remains
+
+- **No shipped `1D_PSBT_SC` case runs end to end.** Through-flow boundary conditions (`fixedValue` velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet` alpha, `fixedFluxPressure`), and for the three
+  `PhaseII` cases the `porousKEpsilon2PhaseCorrected` turbulence model, are needed (child issues). `scalar_bcs` still turns `fixedFluxPressure` and `inletOutlet` into `calculated`
+  silently; it should refuse them by name (it is shared with `one_phase_fc`, whose gFHR comparison depends on the present reading, so it was not changed here).
+- The origin of the 7.8e-9 htc difference at the first nucleate-boiling step (above).
+- `TRACECHF`/`VapourTRACE` are not wired (their annular-flow models and `lookUpTableCHF` are not ported; `lookUpTableCHF` is deferred to the maintainer, the table having no licence statement).
+- `byRegime` for drag, virtual-mass, multiplier and htc models is not wired (the generic `ByRegimeModel<M>` exists).
+- The comparison stops at step 20 (gated) / 40 (reference): upstream's own run ends at step 417 with SIGFPE.
+- `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated: `kovan-cli` is not built here. The new functions are not in any `kovan.toml`.
+
+
+
+
+# Round 9 (issue 1361; issues 1773, 1774, 1775): the `2D_MSFR` transient stage, COUPLED
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+`OnePhaseFcSolver` (`solver/two_phase/one_phase_fc.rs`: faceCentered path, refuses `momentumMode cellCentered`, turbulence,
+`Boussinesq`, `fixedTemperature`), `solver::one_phase::OnePhaseSolver` (constant-property stand-in, no reader),
+`MultiPhysicsSolver`/`MeshHandler`/`MeshToMesh` (`multi_region/`: lumped region models with `Time`/uom, nearest-cell plus a global
+rescale), `PseudoTimeClock`/`neutronics_max_delta_t`/`adjust_delta_t` (neutronics-only, one solver, a clock that starts at 0),
+`closures/` (no `constant` FS htc model; `ReynoldsPower` exists but only feeds `Kd`), `structure::power_model::FixedTemperature`
+(an uom-typed model, not a field), `fv.rs`/`pbicgstab.rs`/`thermo.rs` (reused). **Reused:** `fv::{Geometry, Eqn}`, `pbicgstab_diagonal`,
+the `fvMatrix::relax` translation (copied, cited), `upstream_transient_step`, `neutronics_max_delta_t`'s formula. **New:**
+`one_phase_cc.rs`, `multi_region/coupled_loop.rs`, `dump_mesh_to_mesh`.
+
+## What upstream does, read BEFORE any port code (the specification)
+
+* `onePhase::correctPhysics` (`onePhase.C:134`): `while (pimple_.loop()) { if (solveFluidMechanics or solveEnergy) correctModels(true,true);
+  if (solveFluidMechanics) correctFluidMechanics(); if (solveEnergy) correctEnergy(); }`. **`turbulence().correct()` is in `UEqn_1p.H:12`
+  only**: with `solveFluidMechanics false` it never runs, so `k`, `epsilon`, `nut`, `alphat` are READ from the restart and frozen (the open
+  question of #1775, answered). `EEqn_1p.H:10`: `alphaEff = thermo.alphaEff(turbulence().alphat())` = `CpByCpv (alpha_thermo + alphat)`,
+  `CpByCpv = 1` for an enthalpy form, `alpha_thermo = mu rPr` (constTransport).
+* **`fluid::rho()` returns `rho0` (constant) for a Boussinesq EOS** (`fluid.C:795`): the equation's `ddt(alpha, rho, he)`, `alpha rho (U.g)`
+  and `ddt(alpha, rho, K)` use `rho0 = 4125`; only the thermo's own `rho(T)` (mapped to the neutronics as `rhoCool`) varies. `Boussinesq::H = 0`
+  in v2506, so `hs = Cp (T - Tstd)`.
+* `".*"` is the LAST pattern of `fvSolution.solvers`, so `h` is solved by `PBiCGStab`/`diagonal` (the log's `diagonalPBiCGStab`), not by the
+  `"h.*"` smoothSolver above it (OpenFOAM takes the last matching pattern). `relaxationFactors.equations ".*" 0.9`.
+* `contErr` is computed once at construction (`div(alphaRhoPhi)`, the `ddt` part is exactly 0) and never again with `solveFluidMechanics false`.
+  The wedge patches carry a ~1e-11 residual flux in the restart; it enters `div`, `contErr`, the `K` flux and the Courant number.
+* Structure: `fixedTemperature` powerModel (`correct()` is empty; `correctT` copies the restart `T.fixedTemperature`); source
+  `iAact Hs (Tact - T + he/Cp)` explicit and `Sp(iAact Hs/Cp, he)` implicit; `htc = value` on the model zone (`constantModel`).
+  `dragModels` (`ReynoldsPower`) only fill `Kd`, a momentum coefficient: not evaluated by the port (it does not enter the energy equation).
+* `multiPhysicsSolver::correctPhysics`: `residual` is declared once and only `max`-ed; `mapTheseFields` at the top of each iteration; a
+  `correctOnlyEnergy_` solver runs `correctTightlyCoupledPhysics` from iteration 2 on. The fluid's `getResidual` is the `max` of the five
+  `h` initial residuals, the neutronics' `max(flux-solve initial residuals, neutroResidual)`.
+* `meshHandler`: `meshToMesh(src, tgt, imCellVolumeWeight, pmAABB, normalise = false)`; `mapTgtToSrc` with `plusEqOp`:
+  `result *= 1 - sum(w); result += w src`. **Measured** (`upstream_driver/dump_mesh_to_mesh`, built with `wmake` against the built ESI v2506,
+  objects not kept; overlap volume 0.30568267086529161 both ways): in both directions, for all 8595 cells, one overlap, the cell itself,
+  weight EXACTLY `1.0` (0 cells differ). The issue's "weight = 1 up to an ulp" was a guess; the weight is 1, the map is a copy.
+* `setDeltaT.C`: `adjustDeltaT` takes `min` over the solvers' `maxDeltaT()` (here the one `multiPhysicsSolver`'s `min` of its two),
+  `min(1.2 deltaT, limit)`; `Time::setDeltaT` then adjusts only for `writeControl adjustableRunTime` (not this case).
+  `onePhase::maxDeltaT`: `Co = 0.5 max(surfaceSum(|alphaPhi|)/alpha/V) dt`, `fact = min(min(maxCo/(Co+SMALL), 1+0.1 maxCo/(Co+SMALL)), 1.2)`;
+  `diffusionNeutronics::maxDeltaT`: the power-variation form, only for `time > controlDict deltaT`.
+
+## Upstream run (real unmodified binary, serial, 2026-11-26)
+
+`PROTOCOL=tight END_TIME=165.31 scripts/run_msfr_chain.sh transient <root>` from upstream's own t = 165 s restart (the round-6 start state):
+50 steps, 35 s wall, `Multiphysics loop converged after 1 iterations` at every step. `scripts/extract_msfr_fluid_reference.sh` writes
+`refs/msfr_fluid_transient.ref.txt.gz` (fluid `T` of every step, `deltaT` after every step, the five `h` initial residuals and
+`T (avg min max)` lines, Courant numbers and `power:`).
+
+## Predictions (written BEFORE the first coupled run; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| R1 | start state | fluid `T` of the restart equals the neutronics reference `T_0` to 1e-15; the port's `sum_g flux sigmaPow` at t = 165 s equals upstream's restart `powerDensity` to <= 1e-9 (risk: the restart field was written with the previous step's cross sections) |
+| R2 | step sizes (the first thing compared) | step 1 is exactly 1e-3; every later step size agrees to <= 1e-9 relative (power-variation limited to step 14, Courant limited from step 15 on); I put 65 % on all 50 |
+| R3 | fluid `T` per step, worst cell relative difference | <= 1e-9 at all 50 steps, expected 1e-12 to 1e-10, growing slowly with the step (same algorithm, PBiCGStab and the same relaxation; sources differ only in operation order). If a step is above 1e-9 the first one is step 1 and the cause is a term of `EEqn_1p.H` (ranked: kinetic-energy term, `relax`, the wedge boundary terms) |
+| R4 | the five `h` initial residuals of each step | the first of step 1 agrees to 1e-4 relative (it is a genuine algebraic residual, 5.45e-8, not round-off), the factor of 10 between iterations is reproduced |
+| R5 | `T (avg min max)` after each outer iteration | <= 1e-12 relative |
+| R6 | power per step | <= 1e-9 relative at all 50 steps (round 6 gave 6e-14 with upstream's T as input; the T agreement of R3 carries over) |
+| R7 | Courant number | <= 1e-9 relative |
+| R8 | the coupling loop | converges after 1 iteration at 50 of 50 steps |
+| R9 | `Re` field at steps 1, 10, 25, 50 | <= 1e-12 relative |
+
+
+## Round 9 results (measured 2026-11-26, release; `tests/genfoam_msfr_coupled_vs_upstream.rs`, 3 tests, 15 s)
+
+Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_coupled_vs_upstream -- --nocapture`. Port: the coupled loop
+described above, run from upstream's t = 165 s restart, **nothing of upstream's per-step results used as input** (step size, power, `T` are the
+port's own). Upstream: the 50-step tight run above.
+
+### The first run, and what it found (recorded because it missed)
+
+The first coupled run gave: step 1 fluid `T` 6.7e-16, `T (avg min max)` 2.3e-16, first `h` residual 4.7e-10, power 1.5e-14, **but `deltaT` of
+step 2 = 1.2e-3 where upstream has 8.146e-4**, and every later step size, `T` (from step 2, 6.3e-7 at step 50) and power (2.4e-5) followed. The
+first diverging quantity is therefore the step size after step 1, not a field. Cause, found by reading upstream (not by tuning):
+`diffusionNeutronics::correctPhysics` sets `pTotOld_ = power()` BEFORE `solveNeutronics.H` calls `xs_.correct()`, and `power()` is
+`sum flux sigmaPow` with the `XS` object's CURRENT `sigmaPow`, which at the first step of a restart is the **reference state's** (the `XS` class
+is constructed there; chi was the same story in round 6). The reference-state `power()` is 2.06370139e7 W, 3.07 % above the 2.0003657e7 W of
+step 1, so `maxPowerVariation 0.025 / 0.0307 = 0.8146`: upstream's step-2 size is 0.8146 deltaT (the log's `deltaT = 0.00081458923923836437`),
+not 1.2 deltaT. The port's `upstream_transient_step` took `power_old` from its already-refreshed cross sections. Fix (new function,
+`DiffusionNeutronics::upstream_power_at_reference_state`; the harness uses it for step 1 only, as upstream does): all 50 step sizes agree to 4.8e-13.
+
+### The comparison (second run)
+
+| quantity (per step, 50 steps) | worst relative difference | where |
+|---|---|---|
+| step size `deltaT` (the first thing compared) | **4.8e-13** | steps 1-14 (the neutronics `maxPowerVariation` limit, then 1.2x growth); from step 15 on the Courant limit, 0 to 2.3e-16 |
+| fluid `T`, worst cell | **2.5e-14** (step 14); 6.7e-16 at step 1 | every step below 1e-13 |
+| `T (avg min max)` after each of the 5 outer iterations | **1.5e-15** | |
+| `power:` | **6.7e-14** (step 50); 1.5e-14 at step 1 | |
+| first `h` initial residual of each step | **1.3e-10** | a genuine algebraic residual of 5e-8 to 1e-7 |
+| all five `h` initial residuals (the last is ~1e-11, round-off of the sums) | 4.2e-6 (step 1, iteration 5) | not gated; the ratio of 10 per iteration is reproduced |
+| Courant number (avg, max) | **4.8e-13** | |
+| `Re` field at steps 1, 10, 25, 50 | **1.7e-15** | |
+| neutron iteration count | equal at **50 of 50** steps (50, 50, 37, 1, 22, 1, 8, then 1) | |
+| coupling loop | converged after 1 iteration at **50 of 50** steps | |
+| wall time, 50 steps | 15.4 s (upstream 35 s, serial) | |
+
+**No step diverges** once the step-size rule is as upstream's: there is no first diverging step. Bit-identity was not reached (the round-off
+allowance 1e-9 is used by nothing: the worst number is 2.5e-14). The residual differences are the linear-solver and sum-order round-off of two
+independent codes: `PBiCGStab`/`diagonal` is a translation (round 3), the matrix is assembled with `fv::Eqn`, the Courant sum runs over faces in
+the same order but `0.5 * max(...)` differs in the last bit.
+
+### Predictions: held and missed
+
+| id | held? | measured |
+|---|---|---|
+| R1 fluid `T` of the restart equals the reference `T_0` to 1e-15; port power density at t = 165 s equals upstream's to 1e-9 | **missed twice** | 3.2e-7 and 1.8e-8. Not a port defect: the neutronics region's restart `TFuel` is the fluid `T` of the step BEFORE the last one (the mapping runs at the start of a step), so the pair of restart fields is not synchronous. The port starts step 1 from upstream's own `powerDensity` file, which is what upstream maps |
+| R2 step sizes <= 1e-9, 65 % on all 50 | **missed in the first run** (step 2: 47 %), **held after the fix** (4.8e-13) | cause above: `pTotOld_` at the reference state |
+| R3 fluid `T` <= 1e-9 at all 50 steps, expected 1e-12 to 1e-10; if not, the first failing step is step 1 and a term of `EEqn_1p.H` | **held after R2's fix**; the first run failed from step 2 for the step-size reason, NOT an `EEqn` term (my ranked causes were wrong in kind); measured 2.5e-14, better than the expected range | |
+| R4 first `h` residual of step 1 to 1e-4 | **held** (4.7e-10) | |
+| R5 `T (avg min max)` <= 1e-12 | **held** (1.5e-15) | |
+| R6 power <= 1e-9 | **held after the fix** (6.7e-14) | |
+| R7 Courant <= 1e-9 | **held after the fix** (4.8e-13) | |
+| R8 loop converges in 1 iteration at 50/50 | **held** | |
+| R9 `Re` <= 1e-12 | **held** (1.7e-15) | |
+
+### Findings that are not defects, recorded because they will mislead
+
+* `meshToMesh` between the two identical meshes: weight exactly 1.0 and the identity addressing in all 4 x 8595 entries (measured on upstream),
+  not "1 up to an ulp".
+* `fluid::rho()` is the constant `rho0` for a Boussinesq EOS: reading `thermo.rho()` there (as `one_phase_fc.rs` does for its EOSs) would put a
+  2e-4 x dT density variation into `ddt(alpha rho he)` that upstream does not have.
+* `".*"` (`PBiCGStab`) beats `"h.*"` (`smoothSolver`) in `fvSolution` because OpenFOAM takes the LAST matching pattern; the port's older
+  `lookup_regex` takes the first. `one_phase_cc.rs` has its own last-match lookup; the older helper is left as it was (it is used by cases whose
+  patterns do not overlap).
+* The neutronics residual used for the loop test is `max(first-iteration group residuals, neutroResidual history)`, a lower bound of upstream's
+  `residual_` (which also takes the initial residuals of every later flux solve); both are far below 5e-5 (<= 2e-6 in all 50 steps of the log).
+  The decision "converged after 1 iteration" is therefore the same, but the VALUE of `residual_` is not reproduced.
+
+### What the port still cannot do
+
+* `solveFluidMechanics true` (UEqn/pEqn with `momentumMode cellCentered`, `porousKEpsilon` solving: `k`, `epsilon`, `nut`, `alphat` are only READ):
+  the `steadyStateTH` stage (issue 1775, filed as a child). `ReynoldsPower` is parsed and ignored (`Kd` does not enter the energy equation).
+* The general `cellVolumeWeight` supermesh (two different meshes; issue 651): `IdenticalMeshMap::new` refuses them by name.
+* More than one coupling iteration per step was exercised only by unit tests (upstream never needed it in the 50 steps), and `correctTightlyCoupledPhysics`
+  only against `correctPhysics` with one outer iteration, not against upstream.
+* Steps beyond 50 (upstream's run goes on to 142 steps at the same protocol); the energy equation's `fixedTemperature` time profile; heat exchangers.
+
+### Gates
+
+**Run (2026-11-26, release):** `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_coupled_vs_upstream`: 3 passed, 0 failed (the 50-step comparison, `correctTightlyCoupledPhysics` against one outer iteration, the refusal by name); `cargo check --release -p outram-foam-appbuilder-lib --lib`: clean.
+**NOT run, not claimed:** the full `cargo test --release -p outram-foam-appbuilder-lib --tests --no-fail-fast`, the crate's `--lib` unit tests (the new ones in `coupled_loop.rs` and `one_phase_cc.rs`), `cargo test --release -p petir --test no_platform_libm`, and the `--no-default-features` (`no_std`) check. The shared target directory's build lock was held for hours by another session's `cargo test -p dhoby-ghaut`, and a private target directory did not get through the dev-dependency build (`faer`, `outram-blender`, `dwsim-libs`) on the machine's remaining capacity and disk. The new files were written to the `no_std` rules (`alloc::`, `core::`, file access under `std`) but that is not checked. To be run by whoever has the machine.
+
+### Moved numbers (old to new, with cause)
+
+None. No earlier gated number depends on a function changed here: only new functions and new files were added (`one_phase_cc.rs`, `coupled_loop.rs`,
+two new methods and one new free function in `upstream_transient.rs`).

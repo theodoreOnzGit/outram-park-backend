@@ -54,9 +54,13 @@ pub mod area;
 pub mod contact_partition;
 pub mod diameter;
 pub mod dispersion;
+pub mod by_regime;
 pub mod regime_map;
+pub mod regime_map_2d;
 pub mod units;
 pub mod virtual_mass;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod regime_map_2d_tests;

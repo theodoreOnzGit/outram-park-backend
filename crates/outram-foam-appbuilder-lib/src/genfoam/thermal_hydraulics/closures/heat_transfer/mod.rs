@@ -83,10 +83,14 @@
 //!
 //! ## What is deferred (not ported; omitted rather than half-stubbed)
 //!
-//! - **`multiRegimeBoilingTRACE`, `multiRegimeBoilingTRACECHF`,
+//! - ~~**`multiRegimeBoilingTRACE`, `multiRegimeBoilingTRACECHF`,
 //!   `multiRegimeBoilingVapourTRACE`** — TRACE-specific variants layered on
 //!   top of the base `multiRegimeBoiling` dispatcher with additional CHF/
-//!   post-CHF wiring this port does not include (see next point).
+//!   post-CHF wiring this port does not include (see next point).~~
+//!   **CORRECTED 2026-11-26** (gh:#1222): ported as [`boiling_trace`] (also wired into the `twoPhase` solver and
+//!   compared with the real binary) and [`boiling_trace_chf`] (`multiRegimeBoilingTRACECHF` and
+//!   `multiRegimeBoilingVapourTRACE` as pure functions; their annular-flow sub-models `CachardLiquid`/`CachardVapour`
+//!   remain missing, below, and `lookUpTableCHF` is deferred to the maintainer: gh:#1223).
 //! - **`NusseltWallAndHfromFMU`** — couples to an external FMU (Functional
 //!   Mock-up Unit) co-simulation; out of scope for a pure-algebra port.
 //! - **CHF `lookUpTableCHF`** — a 3-D (pressure, mass-flux, quality) table
@@ -127,12 +131,16 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod boiling;
+pub mod boiling_trace;
+pub mod boiling_trace_chf;
 pub mod chf;
 pub mod ff_htc;
 pub mod fs_htc;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod boiling_trace_tests;
 
 use uom::si::f64::{AvailableEnergy, Ratio};
 
