@@ -2982,3 +2982,48 @@ None. No pin, gate or tolerance changed.
 
 Steps beyond 3 (reference has 14; the zero-iteration `convergedPISO` branch is first reached late in a steady state), un-refusing `EigenvalueStage::SteadyStateTh` (#1814), turbulence ON
 (#1838 wall functions, #1839 `porousKEpsilon::correct`; with it the `nut` wall patches stop being the read `0.1`), anisotropic `Kd` / local frames, tortuosity.
+
+# Round 20 (2026-11-26): `turbulence true` for the cell-centred `onePhase` region: wall functions (gh:#1838) and `porousKEpsilon::correct()` (gh:#1839), child of gh:#1812 / gh:#1837
+
+Goal: port `porousKEpsilon::correct()` (single phase, called from `UEqn_1p.H`) with the three 2D_MSFR wall functions (`kqRWallFunction`,
+`epsilonWallFunction`, `nutkWallFunction`) and difference it against `refs/msfr_th_on_head.ref.txt.gz` (U, p, p_rgh, T, k, epsilon, nut, alphat,
+alphaPhi, steps 1-3) and the new `refs/msfr_th_on_log.ref.txt.gz` (every linear solve's initial residual and iteration count of all 14 steps,
+extracted by `scripts/extract_msfr_th_log.sh` from a fresh `TURB=on` run of `scripts/run_msfr_th_tight.sh`, 19 s). Round 19's turbulence-off test must not move.
+
+## Read before any port code (GeN-Foam 652b3da on ESI v2506)
+
+* `porousKEpsilon.C` (`correct`, `correctNut`, constructor), `porousKEpsilon.H` (`DkEff`/`DepsilonEff` = `nut/sigma + nu()`), `fluid.C` (the model is built with
+  `this->rho()` = the constant `rho0` field under Boussinesq, so `nu() = mu/rho0` and `alphat = rho0 nut/Prt`), `scalarImpl.H` (`pos(s) = s > 0`, `neg0(s) = s <= 0`).
+* ESI `epsilonWallFunctionFvPatchScalarField.C` (cell weights over ALL wall faces of a cell, `G` and `epsilon` overwritten in every wall-adjacent cell by
+  `updateCoeffs`, patch value = `epsilon0` of the cell, `manipulateMatrix` = `setValues(faceCells, patchInternalField)`; constructor from a dictionary
+  calls `extrapolateInternal`), `nutkWallFunctionFvPatchScalarField.C` (`nutw = nutLog - nu` above `yPlusLam`, `nutw = nutVis - nu = 0` below; STEPWISE blender,
+  `log(max(E yPlus, 1 + 1e-4))`), `wallFunctionCoefficients.C` (`Cmu 0.09, kappa 0.41, E 9.8, yPlusLam` by 10 fixed-point iterations from 11),
+  `nearWallDist.C` + `cellDistFuncs` (`useCombinedWallPatch true`: y = smallest distance from the wall-cell centre to the faces sharing a point with the wall face),
+  `fvMatrix::{relax, setValuesFromList}`, `bound`.
+* The `solvers` patterns of the stage: for `k` and `epsilon` the LAST match is `".*"` (`PBiCGStab`/`diagonal`; `"e.*"` also matches `epsilon` but comes earlier).
+  `relaxationFactors.equations ".*" 0.9` relaxes both equations. The mesh `fluidRegion/polyMesh/boundary` has `type wall` on the four wall patches (the neutro
+  mesh the earlier tests stage has `patch`; every other mesh file is identical, checked with `cmp`): a wall function needs `wall`, so the staged mesh now carries
+  the fluid boundary file.
+* No `turbulence->validate()` anywhere in GeN-Foam: `nut` starts at its FILE value (cells 0, wall patches 0.1), so step 1's first `G` is 0 in the cells and the
+  wall `G0` uses `nutw = 0.1`.
+
+## Searched before writing (reuse)
+
+`two_phase::turbulence` (`bound`, `relax_equation`, `convective_inflow2`, `velocity_gradient`, `production_invariant`, last-match lookup), `pbicgstab_diagonal`,
+`closures::turbulence::porous_k_epsilon` (the equilibrium formulas are re-written per cell inline, as round 16 did), `fv::{Eqn, Scalar}`. NOT found: any wall
+function acting on a field (`outram-foam-turbulence-lib::wall_functions` is untested standalone helpers with hard-coded kappa/E), `nearWallDist`, `fvMatrix::setValues`.
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+S1. Step 1, outer iteration 1: the `epsilon` solve's initial residual is 1.4680897e-5 (upstream log) and `k`'s 0.99999999972; both reproduced to 1e-6 relative,
+    iteration counts equal within 1. (The `epsilon` residual is small because the uniform restart `epsilon` is already at equilibrium: everything it measures is the
+    wall cells.)
+S2. Steps 1-3: all nine fields agree with the real binary to <= 1e-9 of the field max-norm on the first run ONLY if `y`, the cell weights, `G0`, `nutw` and the
+    `setValues` row are all right. If not, the first diverging step is step 1 and the first diverging field `epsilon` in the wall cells (round 18 P3), then `k`, `nut`,
+    `alphat`, `U`.
+S3. `T` agrees to <= 1e-9 relative to 900 K (round 18 P4 / round 19 Q5 hold: the stage is flow-only; `alphat` enters only through the `h` laplacian of a ~1e-7 K field).
+S4. Round 18 P5 (dropping the wall function moves `nut` in the wall cells by > 10 %): measured with a named ablation (`without_wall_functions`: wall patches `zeroGradient`
+    for `k`/`epsilon`, `nut` wall values as read), not tuned.
+S5. Changing the viscosity in `UEqn` from `mu/rho(T)` (round 19) to upstream's `mu/rho0` moves the round-19 numbers by < 1e-10 (relative change of `rho(T)` is `beta |T - T0|` ~ 7e-11).
+S6. PBiCGStab iteration counts of `k`/`epsilon`: equal within +-2 for the first solves of each step (initial residual > 1e-6); the late ones, which start near the
+    round-off floor, are not gated (the round 19 Q2 lesson).
