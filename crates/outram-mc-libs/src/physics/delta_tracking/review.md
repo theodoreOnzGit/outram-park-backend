@@ -314,3 +314,73 @@ uniform majorant, straightforward constructor
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 8bf0462208.
+
+# Review: Majorant::at (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-at-theodoreonzgit-553674e2"
+kind = "review"
+origin = "human"
+created = "2026-11-26T16:08:51+08:00"
+modified = "2026-11-26T16:08:51+08:00"
+target = "fn:553674e261568aad"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs::Majorant::at"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T16:08:51+08:00"
+commit = "5c55600784ee46c5873b766b9729da4a26051ded"
+hash = "sha256:a80da642b1173b9a7fa9c0f13c5f7c17660635791409e408ff463594a4312a8d"
+doc_hash = "sha256:e70ecafdcb6a4624e08412d3eefe977675f8c302abced2ff0f7867140f3e036c"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.callees]
+"fn:2e2d54b40872e265" = "sha256:5134e803bd674f3ace50a897a04dea4a6cb009c073d7fca0b9d774d7dc278b00"
+"fn:89dd813310599ab0" = "sha256:7bdf8ffb9a6314a160402eea825a229d7152f5e9f4e4f0ca0fd65d9ce0fbcedd"
+"fn:ff4dfa6416cdd4fc" = "sha256:6050a5483d7a80c62698ff825cb454f251e2726e6cc145c8af51f8d29f282ad9"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: openmc has no guards or error return, following that as we are"
+independence = "someone_else"
+limits_and_guards = "guard_waived_research: openmc has no guards, following that standard"
+maintainability = "yes"
+numerical_hazards = "other: openmc has no guards or error return, following that as we are"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_017j6t92YEuE649Nx5e7k8nD",
+    "https://claude.ai/code/session_01FbFYNpJxPtK8cotkuBZyPU",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "OUvkd5ISmd8Zn+UUuvEf0yP2o0Hps2GH1q3P2FW7Jp2bnPYu8Nh/wLfbikrDvT3FmSboys+sXlHmVB62aLnkCw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+majorants are captured on finite energy grid. 
+if the energy happens to be in between two grid points,
+we take the larger of the majorant cross sections
+
+of course, there is a chance that cross sections in between the grid are larger than both
+
+not quite sure how that is handled. 
+but for this case, i think it works
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 5c55600784.
