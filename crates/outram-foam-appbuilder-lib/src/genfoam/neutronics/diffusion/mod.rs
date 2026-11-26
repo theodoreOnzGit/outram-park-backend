@@ -379,9 +379,11 @@ impl DiffusionNeutronics {
     ///
     /// # Note
     ///
-    /// Only the eigenvalue solve honours this. [`Self::step`] (the transient)
-    /// still uses the `chi_eff` collapse, because the transient precursor
-    /// equation keeps a time derivative this does not yet carry.
+    /// Only the eigenvalue solve and [`Self::upstream_transient_step`] honour
+    /// this. [`Self::step`] (the simple transient) still uses the `chi_eff`
+    /// collapse. ~~because the transient precursor equation keeps a time
+    /// derivative this does not yet carry~~ **CORRECTED 2026-11-25**: the
+    /// time-derivative form is `upstream_transient_step`.
     pub fn set_precursor_drift(&mut self, transport: PrecursorTransport) {
         self.drift = Some(transport);
     }
