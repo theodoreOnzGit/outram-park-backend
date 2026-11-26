@@ -2440,3 +2440,29 @@ Round 6: power change at step 50 (+1.3566e4 -> +13.8988 W), iteration counts (50
 ### Gates run (2026-11-26, release, targeted per the parallel-streams rule; the full integration run is the parent's)
 
 `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream --test genfoam_msfr_transient_vs_upstream --test genfoam_msfr_coupled_vs_upstream`: chain 5 passed (including the 235 s long chain and the new light chain), coupled 3 passed, transient 2 passed + 7 ignored diagnostics/extractor.
+
+
+# Round 15 (gh:#1832, child of #1361): iterations 2+ of an unconverged coupling loop
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+**The question.** On the `2D_MSFR` transient started from the port's own 20 s eigenvalue state, upstream's `multiPhysicsSolver` loop runs all `maxIterations 3` at every step (the neutron loop hits its cap of 50). With `maxIterations 1` the port agrees to 1e-13; with 3 it is 1.1e-2 off in step-1 power and 10 % in `dt`. Iteration 1 is right, iterations 2+ differ.
+
+## What was read BEFORE any run (2026-11-26; upstream = GeN-Foam 652b3da)
+
+- `multiPhysicsSolver::correctPhysics`: `mapTheseFields` at the top of EVERY iteration; `iterN > 0 && correctOnlyEnergy_[i]` selects `correctTightlyCoupledPhysics`; `residual` is NOT reset between iterations (a running max over the whole loop); `while(residual > minResidual_ && iterN < maxIterations_)`. The port's `correct_physics_loop` is the same text (checked line by line): same order, same running max, same exit test.
+- `diffusionNeutronics::correctPhysics` = `pTotOld_ = power(); residual_ = 0; #include "solveNeutronics.H"`, and `correctTightlyCoupledPhysics() { correctPhysics(); }`. So **`pTotOld_` is re-taken at the start of every coupling iteration** (iteration 2's `pTotOld_` is the power after iteration 1, with `xs_` already corrected), and the whole step is re-solved by every iteration, starting from the flux / `precStar` that the previous iteration left. The port does the same for `pTotOld_` (`power_old = self.upstream_power()` at the top of `upstream_transient_step`, and the workflow takes `rep.power_old` after the first call).
+- `solveNeutronics.H` / `createFluxMatrices.H` / `precEq.H`: the time derivatives are `fvm::ddt(IV/discFactor, fluxStar_[g])` and `fvm::ddt(alpha, precStar_[k])`. `fvm::ddt` of a field reads `vf.oldTime()`; OpenFOAM stores the old time ONCE per time step (the first access with a new `timeIndex`: `storeOldTimes()`), so iterations 2 and 3 of the same step still use the values of the END OF THE PREVIOUS TIME STEP as old-time values, while the field itself carries the iterate. `keff_` is not touched in a transient (`calcKeff.H` is inside `if (eigenvalueNeutronics_)`).
+- `onePhase::correctTightlyCoupledPhysics` = `correctModels(true,true)` + `correctEnergy()` (no PIMPLE loop, no fluid mechanics); `EEqn_1p.H` builds `fvm::ddt(alpha, rho, he)` from `he.oldTime()`, again stored once per step. The port's fluid keeps `he_old` from `begin_time_step` (`self.he_old = self.he.clone()` once per step) and re-solves from the iterate, so it already has the upstream structure.
+- **In the port, `upstream_transient_step` takes `flux_old` and `prec_star_old` from the CURRENT state at every call** (the "Old-time values of this step" snapshot at the top of the function). On a step's first call that is the previous step's end state (right); on a second or third call it is the previous ITERATE (wrong: the time derivative then integrates from the iterate, not from `t_n`).
+
+## Hypotheses (written BEFORE any measurement)
+
+| id | hypothesis | predicted sign and size |
+|---|---|---|
+| H1 | the port re-snapshots the neutron flux and `precStar` old-time values from the last iterate at each coupling iteration, instead of holding the values of the previous time step | **sign: the port's power is HIGHER than upstream's** (each extra iteration advances the excursion by one more `dt` of growth: the old-time source is the already-grown flux), which is the observed sign (2.5132e7 vs 2.4851e7). Size: the port's step-1 growth relative to the start is roughly `n_iter` times upstream's, so the miss is of the order of 1-2 x the true step-1 growth; with the miss at 1.1e-2 of the power, the true step-1 growth is ~0.5-1 %. The `dt` error (10 %) follows from a different iterate-2 -> iterate-3 power change feeding `maxPowerVariation`. Fix the old-time snapshot and step-1 power matches to <= 1e-11. |
+| H2 | `pTotOld_` handling differs (upstream re-takes it per iteration) | NOT a cause: read above, the port does the same. Predicted: no change. If H1's fix leaves a residual in `dt` only, this is the next suspect. |
+| H3 | the fluid's old-time enthalpy or the fluid's re-solve differs between iterations | NOT a cause: read above, same structure. Predicted: no change. |
+| H4 | a field the mapping writes at the top of iteration 2 (`TFuel`, `rhoCool`, `alphat`, `mu`, `powerDensityNeutronicsToLiquid`) is stale in the port | possible but not seen in the reading: `map_all_fields` is called at the top of every iteration by `correct_physics_loop` and `neutro_power_density` is refreshed after each neutron step. Predicted: not a cause. |
+
+Probe plan: fix H1 (store the old times once per step and use them when stored; the old per-call snapshot stays the default for callers that never store, which is the form rounds 6 and 9's direct tests use), regenerate upstream's reference at the tutorial's `maxIterations 3` (the real unmodified binary, `COUPLING_ITERS` unset), and compare all 10 steps. If a residual remains, build the instrumented upstream of round 13's pattern and dump per-iteration power. Rounds 9 and 11 converge after 1 iteration: predicted to move by exactly 0 (bit for bit), because a single call per step snapshots the same values the stored form does.
