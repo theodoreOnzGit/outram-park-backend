@@ -253,3 +253,64 @@ for convenience
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit fc56519933.
+
+# Review: Majorant::uniform (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-uniform-theodoreonzgit-ab058d19"
+kind = "review"
+origin = "human"
+created = "2026-11-26T13:19:28+08:00"
+modified = "2026-11-26T13:19:28+08:00"
+target = "fn:ab058d1967bb2b6b"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs::Majorant::uniform"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T13:19:29+08:00"
+commit = "8bf046220823844e1f31ed7f53a8a1c6799f4b0d"
+hash = "sha256:5bfacb853e6df6e62af3b004a119e0ecb6bd1e524427e71046417edd6fd5803d"
+doc_hash = "sha256:bf30e1985c5d15445d4077e2fa20a2298ceef6b8f814abec4bb5b9c4f0a381b3"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.callees]
+"fn:ff4dfa6416cdd4fc" = "sha256:384c76e3606efc4bb63b1bb0317e83f1886a0c15e52f14f9643819f62e122f83"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: don't think much can go wrong, it's a simple constructor"
+independence = "someone_else"
+limits_and_guards = "guard_waived_research: OpenMC doesn't have guards for such constructors. may want to shim in future"
+maintainability = "yes"
+numerical_hazards = "other: don't think much can go wrong, it's a simple constructor. use for research"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_017j6t92YEuE649Nx5e7k8nD",
+    "https://claude.ai/code/session_01FbFYNpJxPtK8cotkuBZyPU",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "JaLWfaY9mtJGr25/SNJfpYJMynxtUIzHnHKvBkK/0R7V7N/2EcGKhsuzadfpYP6uNSEefyQunbF+wQmNdbWHAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking"
+kind = "implements"
+```
+
+uniform majorant, straightforward constructor
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 8bf0462208.
