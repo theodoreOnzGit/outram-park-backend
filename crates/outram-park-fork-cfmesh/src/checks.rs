@@ -333,7 +333,7 @@ mod tests {
             first_layer_thickness: 3e-4,
             expansion: 1.2,
             layer_patches: vec!["walls".into()],
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (pipe, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let (bp, bt) = crate::shapes::box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));

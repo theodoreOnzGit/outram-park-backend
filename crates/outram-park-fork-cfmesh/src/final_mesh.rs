@@ -261,7 +261,7 @@ mod tests {
     /// its points in face order).
     fn small_pipe() -> (Vec<Vec3>, Vec<[usize; 3]>, SurfaceRegions, VolumeMesh) {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.04, 24);
-        let o = TetDualOptions { cell_size: 0.005, n_layers: 0, ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.005, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
         let (m, _) = crate::pipeline::run_pipeline(&p, &t, &o, Some(&regions), false).unwrap();
         (p, t, regions, m)
     }
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn foam_studio_default_mesh_keeps_its_fingerprint() {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
-        let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         assert_eq!(m.cell_count(), 6353);
         assert_eq!(crate::pipeline::tests::mesh_fingerprint(&m), 13281953444677737411);
@@ -470,7 +470,7 @@ pub(crate) mod diagnose_gh1283 {
             layer_strategy: LayerQualityStrategy::CfMeshOptimise,
             dual_kind: DualKind::CellCentre,
             dual_feature_points: FeaturePointRule::Corners,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let c = base.cfmesh_layer_optimisation.clone();
         let bm = BoundaryLayerOptimisationControls { untangle_boundary_moves: true, ..c.clone() };

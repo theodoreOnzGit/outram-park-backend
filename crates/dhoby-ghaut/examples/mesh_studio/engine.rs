@@ -1121,11 +1121,15 @@ mod tests {
                 d.span() / Design::MIN_CELLS_ACROSS
             ))
         );
-        // The crate's default is untouched: the headless sweep stays carved.
+        // ~~The crate's default is untouched: the headless sweep stays
+        // carved.~~ CHANGED 2026-11-26 (maintainer: "set the default crate
+        // wide to tetgen"): the headless sweep takes the crate default,
+        // TetGen sized by its cell size.
         assert_eq!(
             crate::model::Params::default().opts.tet_source,
-            TetSource::CarvedCentroid
+            TetSource::default()
         );
+        assert!(matches!(TetSource::default(), TetSource::TetGenAtCellSize { .. }));
     }
 
     /// Requests and events survive the wire exactly (every `f64` is carried

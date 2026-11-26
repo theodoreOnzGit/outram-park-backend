@@ -725,10 +725,14 @@ pub fn mesh_unstructured_dual(
     };
     // Native-only isolation knob for the V&V record (gh:#1202):
     // FOAM_CFMESH_STAGES=carve (carve + snap: hexahedra) or tet (no dual).
+    // Both stop the carved route, on which that record was measured, so
+    // they name it (cfMesh's default became TetGen on 2026-11-26).
+    #[cfg(not(target_arch = "wasm32"))]
+    let carved = outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid;
     #[cfg(not(target_arch = "wasm32"))]
     let opts = match std::env::var("FOAM_CFMESH_STAGES").as_deref() {
-        Ok("carve") => TetDualOptions { dual: false, delaunay: false, n_layers: 0, ..opts },
-        Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
+        Ok("carve") => TetDualOptions { dual: false, delaunay: false, n_layers: 0, tet_source: carved, ..opts },
+        Ok("tet") => TetDualOptions { dual: false, n_layers: 0, tet_source: carved, ..opts },
         _ => opts,
     };
     let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, dual_feature_points: s.feature_points, ..opts };

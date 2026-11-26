@@ -243,8 +243,12 @@ and answers cuts of any stage; the app only draws.
 - **Tet source (gh:#1796).** The page's default is TetGen
   (`Design::tetgen`, `?tets=tetgen|carved`, `?q=` radius-edge ratio,
   default 1.414, `?vol=` max tet volume, default the regular tetrahedron
-  of the cell size `h³/(6√2)`); the cfMesh crate's default, and so
-  `Params::default` and the headless sweep, stay on the carved route. On
+  of the cell size `h³/(6√2)`); ~~the cfMesh crate's default, and so
+  `Params::default` and the headless sweep, stay on the carved route.~~
+  **CHANGED 2026-11-26** (maintainer: "set the default crate wide to
+  tetgen"): the cfMesh default is TetGen at the cell size
+  (`TetSource::TetGenAtCellSize`), so `Params::default` and the headless
+  sweep are on TetGen too; `?tets=carved` keeps the carved route. On
   TetGen's tets the carve and snap stages are listed as skipped and cut
   empty. `--measure` (`headless::measure`) prints one row of the
   mesh-type table for any query; the table is in the review README.

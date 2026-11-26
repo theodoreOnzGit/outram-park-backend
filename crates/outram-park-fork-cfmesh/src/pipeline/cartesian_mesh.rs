@@ -769,7 +769,7 @@ pub(crate) mod tests {
         #[cfg(feature = "std")]
         println!("{}", row("sphere", "carve_box + snap", &cs, exact, t0.elapsed().as_secs_f64()));
         let t0 = Instant::now();
-        let td = TetDualOptions { cell_size: 0.5, n_layers: 0, ..Default::default() };
+        let td = TetDualOptions { cell_size: 0.5, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
         let (tdm, _) = surface_to_tet_dual_mesh(&p, &t, &td).unwrap();
         #[cfg(feature = "std")]
         println!("{}", row("sphere", "tet-dual (no layers)", &tdm, exact, t0.elapsed().as_secs_f64()));
@@ -819,7 +819,7 @@ pub(crate) mod tests {
             #[cfg(feature = "std")]
             println!("{}", row(name, "carve_box + snap", &cs, exact, t0.elapsed().as_secs_f64()));
             let t0 = Instant::now();
-            let td = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let td = TetDualOptions { cell_size: h, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
             let (tdm, _) = surface_to_tet_dual_mesh(&p, &t, &td).unwrap();
             #[cfg(feature = "std")]
             println!("{}", row(name, "tet-dual (no layers)", &tdm, exact, t0.elapsed().as_secs_f64()));

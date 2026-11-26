@@ -1270,7 +1270,7 @@ pub(crate) mod tests {
             dual_kind: DualKind::CellCentre,
             dual_feature_points: FeaturePointRule::Corners,
             feature_edges: false,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &r, &o).unwrap();
         let (pre, _) = crate::surface_optimizer::map_mesh_to_surface(&m, &p, &t, &r);

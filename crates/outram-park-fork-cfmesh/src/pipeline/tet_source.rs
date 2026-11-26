@@ -357,7 +357,7 @@ mod tests {
     fn the_default_is_tetgen_at_the_cell_size_and_switches_read_as_upstream() {
         let o = TetDualOptions { cell_size: 0.1, ..TetDualOptions::default() };
         assert_eq!(o.tet_source, TetSource::TetGenAtCellSize { radius_edge: 1.414, min_dihedral: 3.5 });
-        let v = 0.001 / (6.0 * 2f64.sqrt());
+        let v = 0.1 * 0.1 * 0.1 / (6.0 * 2f64.sqrt());
         assert_eq!(o.tet_source.resolve(o.cell_size), TetSource::tetgen(1.414, Some(v)));
         assert_eq!(TetSource::CarvedCentroid.resolve(0.1), TetSource::CarvedCentroid);
         assert_eq!(TetSource::CarvedCentroid.switches(), None);
@@ -377,6 +377,43 @@ mod tests {
             .max_volume(0.0026)
             .behavior();
         assert_eq!(parsed, built);
+    }
+
+    /// **The crate default runs TetGen** (2026-11-26), sized by the run's
+    /// cell size: a unit box at `h = 0.25` and the test pipe at
+    /// `h = 0.006` with three back-off layers asked for, through the plain
+    /// default options. Both are closed, the box keeps its volume exactly,
+    /// and the stage note names TetGen with the resolved `-a` bound. The
+    /// pipe's layer outcome is printed, not asserted.
+    ///
+    /// **Measured 2026-11-26 (release):** the pipe gives 30 460 cells from
+    /// 9 908 tetrahedra on 2 506 nodes, and the layer stage reports
+    /// 27 954 layer cells (all three layers grew on its wall faces). The
+    /// AGENTS.md note that no back-off layer grows on TetGen's
+    /// **tetrahedra** is about a tet mesh (dual off); on the default
+    /// median dual they grow.
+    #[test]
+    fn the_default_route_is_tetgen_at_the_cell_size() {
+        use crate::pipeline::{box_tet_dual, surface_to_tet_dual_mesh_multipatch};
+        let o = TetDualOptions { cell_size: 0.25, ..TetDualOptions::default() };
+        let (m, rep) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &o).unwrap();
+        m.validate().unwrap();
+        assert!((m.total_volume() - 1.0).abs() < 1e-9, "box volume {}", m.total_volume());
+        let want = TetSource::tetgen(1.414, Some(TetSource::regular_tet_volume(0.25))).switches().unwrap();
+        assert!(rep.stage_notes.iter().any(|n| n.contains(&alloc::format!("TetGen -{want}"))), "{:?}", rep.stage_notes);
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        let o = TetDualOptions {
+            cell_size: 0.006,
+            n_layers: 3,
+            first_layer_thickness: 3e-4,
+            expansion: 1.2,
+            layer_patches: alloc::vec!["walls".into()],
+            ..TetDualOptions::default()
+        };
+        let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
+        m.validate().unwrap();
+        #[cfg(feature = "std")]
+        std::println!("default pipe: {} cells, layers {:?}, notes {:?}", m.n_cells, rep.layers.as_ref().map(|l| l.faces.iter().map(|f| f.1).sum::<usize>()), rep.stage_notes);
     }
 
     /// Bad bounds and the carved source are errors, not fallbacks.

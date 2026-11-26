@@ -179,6 +179,9 @@ pub fn mesh_cfmesh(cell_size: f64, n_layers: usize, n_seg: usize) -> (Unstructur
         cell_size,
         n_layers,
         first_layer_thickness: 0.1 * cell_size,
+        // The record in README.md was measured on the carved route, the
+        // crate default until 2026-11-26 (now TetGen); kept so it reproduces.
+        tet_source: outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
         ..TetDualOptions::default()
     };
     let (vm, report) = surface_to_tet_dual_mesh_multipatch(&pts, &tris, &regions, &opts).expect("cfMesh pipe");

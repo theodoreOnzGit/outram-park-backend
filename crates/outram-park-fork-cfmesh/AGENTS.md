@@ -531,13 +531,26 @@ diagonal; an unpaired interface face is an error). Needs
 ## TetGen as the tet source (gh:#1796, 2026-11-26)
 
 `TetDualOptions::tet_source` picks where the tet → dual → layers route
-gets its tetrahedra: `TetSource::CarvedCentroid` (default, unchanged:
-carve, snap, centroid split, Delaunay flips) or `TetSource::TetGen {
+gets its tetrahedra: `TetSource::CarvedCentroid` (~~default, unchanged~~
+the default until 2026-11-26: carve, snap, centroid split, Delaunay
+flips) or `TetSource::TetGen {
 radius_edge, min_dihedral, max_volume }` (`pipeline/tet_source.rs`: the
 surface becomes a PLC through `PlcInput::from_triangle_soup` with the
 region index as marker, `tetrahedralize_plc` under `-pq<r>/<d>[a<V>]`,
 `to_volume_mesh` names the patches). Changing the default needs the
 maintainer.
+
+**The default is TetGen since 2026-11-26** (maintainer: "set the default
+crate wide to tetgen"): `TetSource::TetGenAtCellSize { 1.414, 3.5 }`,
+resolved when the pipeline starts to `-a h^3/(6 sqrt 2)` from the run's
+own `cell_size` (Mesh Studio's rule), so `..Default::default()` callers are
+sized by their cell size. `refinement_levels`, `snap` and `max_flips` do
+nothing on it. **Every test fixture written before that date builds its
+options from `TetDualOptions::carved()`**, so the carved route's pins and
+recorded numbers still pin what they pinned; the default has its own
+tests (`tet_source::tests::the_default_*`). Open: on the TetGen default
+`SnappyCollapse`'s layer index (541 cells) disagrees with its layer stage
+(598) on the test pipe (`staged::tests`).
 
 - **Carve, snap and the Delaunay flips are not run** on TetGen's tets; the
   staged log records carve and snap with `applied: false` and an empty

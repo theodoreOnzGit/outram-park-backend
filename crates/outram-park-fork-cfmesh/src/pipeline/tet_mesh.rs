@@ -785,7 +785,7 @@ pub(crate) mod tests {
 
     /// Baseline of the differential: the crate's own tets at `cell_size`.
     fn baseline(p: &[Vec3], t: &[[usize; 3]], cell_size: f64) -> (VolumeMesh, f64) {
-        let opts = TetDualOptions { cell_size, dual: false, n_layers: 0, delaunay: true, feature_edges: false, ..Default::default() };
+        let opts = TetDualOptions { cell_size, dual: false, n_layers: 0, delaunay: true, feature_edges: false, ..crate::pipeline::TetDualOptions::carved() };
         let t0 = Instant::now();
         let (m, _) = surface_to_tet_dual_mesh(p, t, &opts).unwrap();
         (m, t0.elapsed().as_secs_f64())

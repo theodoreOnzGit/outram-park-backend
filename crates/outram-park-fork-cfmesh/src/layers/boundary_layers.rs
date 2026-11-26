@@ -1492,7 +1492,7 @@ pub(crate) mod tests {
         use crate::pipeline::tests::pipe_surface;
         use crate::pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions};
         let (p, t, regions) = pipe_surface(0.01, l, 48);
-        let o = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+        let o = TetDualOptions { cell_size: h, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
         surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap().0
     }
 

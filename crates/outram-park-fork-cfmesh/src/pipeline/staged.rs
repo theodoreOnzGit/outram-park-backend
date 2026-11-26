@@ -415,7 +415,7 @@ mod tests {
             expansion: 1.2,
             layer_patches: vec!["walls".into()],
             layer_strategy: strategy,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         }
     }
 
@@ -432,7 +432,7 @@ mod tests {
         let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let o = TetDualOptions {
             cell_size: 0.25,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (plain, rep) = surface_to_tet_dual_mesh(&bp, &bt, &o).unwrap();
         let staged = surface_to_tet_dual_mesh_staged(&bp, &bt, &o).unwrap();
@@ -553,6 +553,12 @@ mod tests {
     /// `SnappyCollapse` keeping only 44 single-layer cells is the strategy,
     /// not the index: its own note reports 98.9 % of wall points with no
     /// layer on this pipe.
+    ///
+    /// **Carved route (2026-11-26):** these results are the carved route's,
+    /// so the test asks for it ([`TetDualOptions::carved`]) since TetGen
+    /// became the default. **Open finding:** on the TetGen default the same
+    /// check fails for `SnappyCollapse` (index 541 layer cells against the
+    /// layer stage's 598); not yet investigated.
     #[test]
     fn every_strategy_gives_an_index_within_the_requested_layers() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);

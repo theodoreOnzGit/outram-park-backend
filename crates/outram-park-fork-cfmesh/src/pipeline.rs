@@ -301,6 +301,18 @@ pub struct TetDualOptions {
     pub tet_source: TetSource,
 }
 
+impl TetDualOptions {
+    /// [`TetDualOptions::default`] with the **carved** tet source
+    /// ([`TetSource::CarvedCentroid`]): the crate's default before
+    /// 2026-11-26. The route every pin and V&V number recorded before that
+    /// date was measured on; tests that pin it build their options from
+    /// here, so they keep pinning what they pinned.
+    #[must_use]
+    pub fn carved() -> Self {
+        TetDualOptions { tet_source: TetSource::CarvedCentroid, ..TetDualOptions::default() }
+    }
+}
+
 impl Default for TetDualOptions {
     /// Sensible defaults for a metre-scale primitive (e.g. a radius-3 m sphere):
     /// `cell_size = 0.6 m`, **uniform** (`refinement_levels = 0`), snap on,
@@ -1112,7 +1124,7 @@ pub(crate) mod tests {
         let opts = TetDualOptions {
             cell_size: 0.5,
             first_layer_thickness: 0.02,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (mesh, rep) =
             box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &opts).expect("box meshes");
@@ -1150,7 +1162,7 @@ pub(crate) mod tests {
         let opts = TetDualOptions {
             cell_size: 0.5,
             n_layers: 0,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (mesh, rep) =
             box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &opts).expect("box meshes");
@@ -1191,7 +1203,7 @@ pub(crate) mod tests {
         let opts = TetDualOptions {
             cell_size: 0.8,
             first_layer_thickness: 0.04,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (mesh, rep) = sphere_tet_dual(Vec3::ZERO, 2.0, 16, 32, &opts).expect("sphere meshes");
 
@@ -1239,7 +1251,7 @@ pub(crate) mod tests {
         let opts = TetDualOptions {
             cell_size: 0.7,
             first_layer_thickness: 0.04,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (mesh, rep) =
             cylinder_tet_dual(Vec3::ZERO, 1.5, 4.0, 32, &opts).expect("cylinder meshes");
@@ -1291,7 +1303,7 @@ pub(crate) mod tests {
 
         let bad = TetDualOptions {
             cell_size: -1.0,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         assert!(
             surface_to_tet_dual_mesh(&p, &t, &bad).is_err(),
@@ -1301,7 +1313,7 @@ pub(crate) mod tests {
         let huge = TetDualOptions {
             cell_size: 100.0,
             n_layers: 0,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         assert!(
             surface_to_tet_dual_mesh(&p, &t, &huge).is_err(),
@@ -1313,7 +1325,7 @@ pub(crate) mod tests {
             cell_size: 0.5,
             dual: false,
             n_layers: 0,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (mesh, rep) = surface_to_tet_dual_mesh(&p, &t, &no_dual).expect("tet-only meshes");
         mesh.validate().expect("tet-only mesh valid");
@@ -1440,7 +1452,7 @@ pub(crate) mod tests {
         let common = TetDualOptions {
             delaunay: false,
             n_layers: 0,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
 
         let uniform = TetDualOptions {
@@ -1501,7 +1513,7 @@ pub(crate) mod tests {
         let uniform = TetDualOptions {
             cell_size: 0.5,
             first_layer_thickness: 0.02,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         assert_eq!(uniform.refinement_levels, 0, "grading is off by default");
         let (_, a) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &uniform).expect("meshes");
@@ -1591,7 +1603,7 @@ pub(crate) mod tests {
         let opts = TetDualOptions {
             cell_size: 0.5,
             first_layer_thickness: 0.02,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         let (mesh, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts)
             .expect("multipatch box meshes");
@@ -1696,21 +1708,21 @@ pub(crate) mod tests {
         let opts = TetDualOptions {
             cell_size: 0.5,
             n_layers: 0,
-            ..Default::default()
+            ..crate::pipeline::TetDualOptions::carved()
         };
         assert!(surface_to_tet_dual_mesh_multipatch(&p, &t, &wrong, &opts).is_err());
     }
 
     /// V&V — the default options produce a valid mesh on the default-scale sphere
     /// (radius 3 m), the mesh-studio default geometry. Confirms
-    /// `TetDualOptions::default()` is self-consistent end-to-end. Measured
+    /// `crate::pipeline::TetDualOptions::carved()` is self-consistent end-to-end. Measured
     /// 2026-08-03: valid; 0 negative; 20551 cells; volume ≈ 110.66 m³ (≈ 2.2 % low
     /// vs `(4/3)π·27 ≈ 113.10 m³`); max non-orthogonality ≈ 88.0°; max skewness
     /// ≈ 30.8 (finer curved BL layers raise both further than the coarse sphere —
     /// still no folded/degenerate faces).
     #[test]
     fn defaults_mesh_the_studio_sphere() {
-        let opts = TetDualOptions::default();
+        let opts = crate::pipeline::TetDualOptions::carved();
         let (mesh, rep) =
             sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &opts).expect("default sphere meshes");
         mesh.validate().expect("closed");
@@ -1801,10 +1813,10 @@ pub(crate) mod tests {
     fn upper_triangular_order_moves_no_geometry() {
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
         let mut cases = vec![
-            ("h4 bare", TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() }),
-            ("h5 bare", TetDualOptions { cell_size: 0.005, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() }),
-            ("h6 bare", TetDualOptions { cell_size: 0.006, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() }),
-            ("h5 n3", TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() }),
+            ("h4 bare", TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() }),
+            ("h5 bare", TetDualOptions { cell_size: 0.005, n_layers: 0, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() }),
+            ("h6 bare", TetDualOptions { cell_size: 0.006, n_layers: 0, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() }),
+            ("h5 n3", TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() }),
         ];
         if cfg!(feature = "cell-centre-dual") {
             cases.push((
@@ -1815,7 +1827,7 @@ pub(crate) mod tests {
                     layer_patches: vec!["walls".into()],
                     dual_kind: DualKind::CellCentre,
                     dual_feature_points: FeaturePointRule::Corners,
-                    ..Default::default()
+                    ..crate::pipeline::TetDualOptions::carved()
                 },
             ));
         }
@@ -1891,7 +1903,7 @@ pub(crate) mod tests {
     fn render_gh1285_face_order() {
         let dir = crate::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/upper_triangular_gh1285").to_string());
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
-        let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
         for (name, ordered) in [("before", false), ("after", true)] {
             let (m, _) = run_pipeline(&p, &t, &o, Some(&regions), ordered).unwrap();
             let (w, h) = (700usize, 700usize);
@@ -1943,7 +1955,7 @@ pub(crate) mod tests {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
         let mut got = Vec::new();
         for (h, n) in [(0.006, 1), (0.006, 2), (0.006, 3), (0.004, 1), (0.004, 2), (0.004, 3)] {
-            let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
             let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             got.push((format!("pipe h {h} n {n}"), m.cell_count(), mesh_fingerprint(&m)));
         }
@@ -1962,7 +1974,7 @@ pub(crate) mod tests {
             })
             .collect();
         let br = SurfaceRegions::from_labels(&labels);
-        let o = TetDualOptions { cell_size: 0.005, n_layers: 2, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.005, n_layers: 2, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &br, &o).unwrap();
         got.push(("box duct h 0.005 n 2".into(), m.cell_count(), mesh_fingerprint(&m)));
         // gh:#1285, old -> new: ~~7691211397797103741~~, ~~6777344945964783458~~,
@@ -2061,7 +2073,7 @@ pub(crate) mod tests {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
         let mut got = Vec::new();
         for strategy in [LayerQualityStrategy::CfMeshOptimise, LayerQualityStrategy::SnappyCollapse] {
-            let o = TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, ..Default::default() };
+            let o = TetDualOptions { cell_size: 0.005, n_layers: 3, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, ..crate::pipeline::TetDualOptions::carved() };
             let (a, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             let (b, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             assert_eq!(mesh_fingerprint(&a), mesh_fingerprint(&b), "{strategy:?}");
@@ -2099,7 +2111,7 @@ pub(crate) mod tests {
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
         let (bp, bt, br) = box_duct_surface(0.02, 0.2);
         for (name, sp, st, sr, h) in [("pipe h5", &p, &t, &regions, 0.005), ("pipe h4", &p, &t, &regions, 0.004), ("duct h5", &bp, &bt, &br, 0.005)] {
-            let o = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let o = TetDualOptions { cell_size: h, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
             let (m, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
             let (_, centres) = crate::checks::cell_geometry(&m);
             let walls = m.patches.iter().find(|q| q.name == "walls").unwrap();
@@ -2165,7 +2177,7 @@ pub(crate) mod tests {
                 }
                 let mut snappy = SnappyLayerControls::default();
                 snappy.feature_angle_deg = fa;
-                let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, snappy_layers: snappy, ..Default::default() };
+                let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, snappy_layers: snappy, ..crate::pipeline::TetDualOptions::carved() };
                 let t0 = crate::time::Instant::now();
                 let (m, rep) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
                 let secs = t0.elapsed().as_secs_f64();
@@ -2325,7 +2337,7 @@ pub(crate) mod tests {
         // (volume kept to round-off; the bound below is the larger of the
         // wrapped band, now ~0, and 1e-9).
         let (p, t, regions) = pipe_surface(r, l, 48);
-        let base = TetDualOptions { cell_size: 0.004, n_layers: 0, ..Default::default() };
+        let base = TetDualOptions { cell_size: 0.004, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
         let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
         let opts = TetDualOptions {
             n_layers: 3,
@@ -2397,7 +2409,7 @@ pub(crate) mod tests {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = pipe_surface(r, l, 48);
         for (h, n) in [(0.006, 0), (0.004, 0), (0.00334, 0), (0.006, 1), (0.005, 1), (0.005, 2), (0.004, 2), (0.005, 3), (0.004, 3)] {
-            let base = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let base = TetDualOptions { cell_size: h, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
             let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
             // Inlet / outlet projected areas against pi R^2, and the volume per
             // length of the middle half against pi R^2 (cells by centre).
@@ -2479,7 +2491,7 @@ pub(crate) mod tests {
         };
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
         for (h, n) in [(0.006, 1), (0.004, 1), (0.004, 2)] {
-            let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             check(&m, &format!("pipe h {h} layers {n} ({:?})", rep.stage_notes));
         }
@@ -2499,7 +2511,7 @@ pub(crate) mod tests {
             .collect();
         let bregions = SurfaceRegions::from_labels(&labels);
         for n in [1, 2] {
-            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&bp, &bt, &bregions, &o).unwrap();
             check(&m, &format!("box duct layers {n} ({:?})", rep.stage_notes));
         }
@@ -2518,7 +2530,7 @@ pub(crate) mod tests {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = pipe_surface(r, l, 48);
         for (h, n) in [(0.005, 1), (0.005, 2), (0.005, 3), (0.004, 1), (0.004, 2), (0.004, 3)] {
-            let base = TetDualOptions { cell_size: h, n_layers: 0, ..Default::default() };
+            let base = TetDualOptions { cell_size: h, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
             let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &base).unwrap();
             let opts = TetDualOptions { n_layers: n, first_layer_thickness: 0.0003, expansion: 1.2, layer_patches: vec!["walls".into()], ..base.clone() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
@@ -2665,7 +2677,7 @@ pub(crate) mod tests {
                             // CFMESH_LPU=1: the LP meshUntangler (gh:#1260).
                             untangle_mesh_untangler: env("CFMESH_LPU").as_deref() == Some("1"),
                             ..Default::default()
-                        }, ..Default::default() };
+                        }, ..crate::pipeline::TetDualOptions::carved() };
                         let t0 = crate::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,
@@ -2812,7 +2824,7 @@ pub(crate) mod tests {
         let (p, t, regions) = pipe_surface(r, l, 48);
         let off = MeshQualityControls { max_non_ortho_deg: 180.0, max_boundary_skewness: -1.0, max_internal_skewness: -1.0, min_tet_quality: None, min_twist: -2.0, min_determinant: -1.0, min_face_weight: -1.0, min_vol_ratio: -1.0 };
         for n in [0usize, 3] {
-            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..Default::default() };
+            let o = TetDualOptions { cell_size: 0.005, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], ..crate::pipeline::TetDualOptions::carved() };
             let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).expect("pipe meshes");
             let all = vec![true; m.face_count()];
             let cmp = |name: &str, cf: &[bool], of: &[bool]| {
@@ -2850,7 +2862,7 @@ pub(crate) mod tests {
         let h: f64 = crate::env::var("CFMESH_H").ok().and_then(|v| v.parse().ok()).unwrap_or(0.005);
         for kind in [DualKind::MedianPerCorner, DualKind::MedianPerPoint, DualKind::CellCentre] {
             let fp = if crate::env::var("CFMESH_FP").as_deref() == Ok("corners") { FeaturePointRule::Corners } else { FeaturePointRule::OnFeatureEdge };
-            let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
+            let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..crate::pipeline::TetDualOptions::carved() };
             let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             for n in [1usize, 3] {
                 let s = crate::layers::layer_setup(&bare, &["walls"], n, 3e-4, 1.2).unwrap();
@@ -2893,7 +2905,7 @@ pub(crate) mod tests {
     #[ignore]
     fn diagnose_per_point_bad_faces() {
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
-        let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: DualKind::MedianPerPoint, ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: DualKind::MedianPerPoint, ..crate::pipeline::TetDualOptions::carved() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let (_, c) = crate::checks::cell_geometry(&m);
         let patch = |f: usize| m.patches.iter().find(|q| f >= q.start_face && f < q.start_face + q.n_faces).map_or("-", |q| q.name.as_str());
@@ -2948,7 +2960,7 @@ pub(crate) mod tests {
         ];
         let mut got = Vec::new();
         for (kind, fp, n_wall, pin) in cases {
-            let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
+            let o = TetDualOptions { cell_size: 0.005, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..crate::pipeline::TetDualOptions::carved() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             assert!(rep.stage_notes.iter().all(|n| !n.contains("dual skipped")), "{kind:?}: {:?}", rep.stage_notes);
             assert_eq!(m.cell_count(), 3113, "{kind:?}");
@@ -2987,7 +2999,7 @@ pub(crate) mod tests {
                 }
                 {
                     // Wall-face non-planarity of the bare mesh against the layers' thickness.
-                    let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+                    let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, ..crate::pipeline::TetDualOptions::carved() };
                     let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
                     let mut warp: Vec<f64> = patch_faces(&bare, "walls")
                         .iter()
@@ -3025,7 +3037,7 @@ pub(crate) mod tests {
                             dual_kind: kind,
                             dual_feature_points: FeaturePointRule::Corners,
                             snappy_layers: SnappyLayerControls { face_cells: rule, ..Default::default() },
-                            ..Default::default()
+                            ..crate::pipeline::TetDualOptions::carved()
                         };
                         let t0 = crate::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o) {
@@ -3077,7 +3089,7 @@ pub(crate) mod tests {
     #[test]
     fn correct_edges_runs_in_the_pipeline_and_is_off_by_default() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..crate::pipeline::TetDualOptions::carved() };
         let (bare, rep0) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         assert!(rep0.stage_notes.iter().all(|n| !n.starts_with("correctEdgesBetweenPatches")));
         let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &TetDualOptions { correct_edges: true, ..o }).unwrap();
@@ -3107,7 +3119,7 @@ pub(crate) mod tests {
         let (bp, bt) = crate::shapes::box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let oct = refine_near_boundary_banded(&bp, &bt, 0.25, 2, 1.0);
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        let o = TetDualOptions { cell_size: 0.006, refinement_levels: 1, n_layers: 0, ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.006, refinement_levels: 1, n_layers: 0, ..crate::pipeline::TetDualOptions::carved() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let got = (oct.cell_count(), mesh_fingerprint(&oct), m.cell_count(), mesh_fingerprint(&m));
         #[cfg(feature = "std")]
@@ -3174,7 +3186,7 @@ pub(crate) mod tests {
         for h in hs {
             for kind in [DualKind::MedianPerPoint, DualKind::CellCentre] {
                 for (fe, ce) in [(false, false), (true, false), (true, true)] {
-                    let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, feature_edges: fe, correct_edges: ce, ..Default::default() };
+                    let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, feature_edges: fe, correct_edges: ce, ..crate::pipeline::TetDualOptions::carved() };
                     let t0 = crate::time::Instant::now();
                     let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
                     if !fe && crate::env::var("CFMESH_STEPS").is_ok() {
