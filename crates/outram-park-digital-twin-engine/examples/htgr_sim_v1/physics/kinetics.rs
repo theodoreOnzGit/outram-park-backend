@@ -362,6 +362,11 @@ pub struct FeedbackSplit {
     fuel_share: f64,
     /// `T_bed,ref` — the bed temperature at which the moderator term is zero.
     bed_reference_temperature: ThermodynamicTemperature,
+    /// Explicit `(alpha_fuel, alpha_mod)` \[1/K\], set by
+    /// [`HtgrKinetics::set_temperature_coefficients`] (gh:#1740, a Monte
+    /// Carlo set sent to the plant); `None`, the default, is the published
+    /// split `f alpha_iso`, `(1 - f) alpha_iso`.
+    explicit: Option<(f64, f64)>,
 }
 
 impl FeedbackSplit {
@@ -425,23 +430,30 @@ impl FeedbackSplit {
         Self {
             fuel_share: Self::HU_FUEL_SHARE_OF_ISOTHERMAL,
             bed_reference_temperature,
+            explicit: None,
         }
     }
 
     /// `alpha_fuel = f alpha_iso` \[1/K\] — carried by the Nordheim-Fuchs node.
     pub fn fuel_coefficient(&self) -> TemperatureCoefficient {
         use uom::si::temperature_coefficient::per_kelvin;
-        TemperatureCoefficient::new::<per_kelvin>(
-            self.fuel_share * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
-        )
+        match self.explicit {
+            Some((fuel, _)) => TemperatureCoefficient::new::<per_kelvin>(fuel),
+            None => TemperatureCoefficient::new::<per_kelvin>(
+                self.fuel_share * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
+            ),
+        }
     }
 
     /// `alpha_mod = (1 - f) alpha_iso` \[1/K\] — applied to the bed.
     pub fn moderator_coefficient(&self) -> TemperatureCoefficient {
         use uom::si::temperature_coefficient::per_kelvin;
-        TemperatureCoefficient::new::<per_kelvin>(
-            (1.0 - self.fuel_share) * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
-        )
+        match self.explicit {
+            Some((_, moderator)) => TemperatureCoefficient::new::<per_kelvin>(moderator),
+            None => TemperatureCoefficient::new::<per_kelvin>(
+                (1.0 - self.fuel_share) * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
+            ),
+        }
     }
 
     /// The moderator channel's reactivity in dollars at bed temperature
@@ -970,6 +982,42 @@ impl HtgrKinetics {
     pub fn set_fuel_share(&mut self, fuel_share: f64) {
         self.feedback_split.fuel_share = fuel_share.clamp(1.0e-3, 1.0);
         self.prompt.fuel_feedback_coefficient = self.feedback_split.fuel_coefficient();
+    }
+
+    /// **Send a coefficient set to the plant** (gh:#1740, as MSRE's
+    /// `MsreModel::set_temperature_coefficients`): the fuel coefficient goes
+    /// to the Nordheim-Fuchs node, the moderator coefficient to the bed.
+    /// The state is kept, and so are both reference temperatures, so a
+    /// plant away from them steps in reactivity by `(new - old) (T - T_ref)`
+    /// per channel. `None` returns to the published split (Chen 2009 total,
+    /// Hu 2006 share). Refused (nothing changes) for a non-finite value or a
+    /// fuel coefficient that is not negative: the closed form divides by it.
+    pub fn set_temperature_coefficients(
+        &mut self,
+        coefficients: Option<(TemperatureCoefficient, TemperatureCoefficient)>,
+    ) -> Result<(), String> {
+        use uom::si::temperature_coefficient::per_kelvin;
+        let explicit = match coefficients {
+            None => None,
+            Some((fuel, moderator)) => {
+                let (f, m) = (fuel.get::<per_kelvin>(), moderator.get::<per_kelvin>());
+                if !(f.is_finite() && m.is_finite()) {
+                    return Err(format!("coefficients must be finite, got {f}, {m} /K"));
+                }
+                if f >= 0.0 {
+                    return Err(format!("the fuel coefficient must be negative, got {f} /K"));
+                }
+                Some((f, m))
+            }
+        };
+        self.feedback_split.explicit = explicit;
+        self.prompt.fuel_feedback_coefficient = self.feedback_split.fuel_coefficient();
+        Ok(())
+    }
+
+    /// The `(fuel, moderator)` coefficients in use \[1/K\].
+    pub fn temperature_coefficients(&self) -> (TemperatureCoefficient, TemperatureCoefficient) {
+        (self.feedback_split.fuel_coefficient(), self.feedback_split.moderator_coefficient())
     }
 
     /// The feedback split, for display and for tests.

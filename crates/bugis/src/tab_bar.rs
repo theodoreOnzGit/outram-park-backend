@@ -109,9 +109,62 @@ pub fn tab_bar(ui: &mut egui::Ui, layout: &TabBarLayout, labels: &[&str], select
     clicked
 }
 
+/// The label size, px, that fits `label` on one line in a tab `width` px
+/// wide: 16 px where it fits, shrinking to no less than 11 px (seven tabs at
+/// 390 px leave about 51 px a tab, gh:#1756). An estimate at 0.58 em a
+/// character, about the proportional font's average, inside the button's
+/// 2 × 4 px padding and a 2 px margin. Measured at 390 px: "Kinetics" fits
+/// at 11 px; "Surrogate" did not, so that tab is labelled "Freq.".
+pub fn fitted_text_px(width: f32, label: &str) -> f32 {
+    let chars = label.chars().count().max(1) as f32;
+    ((width - 10.0) / (0.58 * chars)).clamp(11.0, 16.0)
+}
+
+/// [`tab_bar`] with some tabs **greyed out** (maintainer, 2026-11-25: "If
+/// something is not available, then grey it out"): a tab whose `greyed`
+/// entry is true is drawn in the theme's weak text colour, still selectable,
+/// so a reader on a phone (no hover) can tap it and be told why; the caller
+/// draws that note in the main view. `greyed` shorter than the labels counts
+/// the rest as not greyed.
+///
+/// GUI drawing code, exempt from a reaching test as [`tab_bar`] is; which
+/// tabs are greyed is the caller's, tested there.
+pub fn tab_bar_greyed(ui: &mut egui::Ui, layout: &TabBarLayout, labels: &[&str], selected: usize, greyed: &[bool]) -> Option<usize> {
+    ui.painter().rect_filled(layout.bar, 0.0, ui.visuals().panel_fill);
+    let weak = ui.visuals().weak_text_color();
+    let mut clicked = None;
+    for (i, (rect, label)) in layout.tabs.iter().zip(labels.iter()).enumerate() {
+        let mut text = RichText::new(*label).size(fitted_text_px(rect.width(), label));
+        if greyed.get(i).copied().unwrap_or(false) {
+            text = text.color(weak);
+        }
+        // One line always: a label that does not fit is cut, never wrapped
+        // into two half-words (seen at 390 px, gh:#1756).
+        let button = egui::Button::selectable(i == selected, text).wrap_mode(egui::TextWrapMode::Truncate);
+        if ui.put(*rect, button).clicked() {
+            clicked = Some(i);
+        }
+    }
+    clicked
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Seven tabs fit a 390 px phone; a long label shrinks, never below
+    /// 11 px, and a short one keeps 16 px (gh:#1756).
+    #[test]
+    fn seven_tabs_fit_a_phone_with_fitted_labels() {
+        let l = layout(rect(390.0, 844.0), 7);
+        assert!(l.tabs.iter().all(|t| t.left() >= 0.0 && t.right() <= 390.0 && t.height() >= 36.0));
+        let w = l.tabs[0].width();
+        assert!(w > 45.0, "{w}");
+        assert_eq!(fitted_text_px(w, "MC"), 16.0);
+        let s = fitted_text_px(w, "Graphs");
+        assert!((11.0..16.0).contains(&s), "{s}");
+        assert_eq!(fitted_text_px(10.0, "Surrogate"), 11.0);
+    }
 
     fn rect(w: f32, h: f32) -> Rect {
         Rect::from_min_size(Pos2::ZERO, Vec2::new(w, h))

@@ -1,0 +1,241 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/examples/lesson_triso_kernel"
+test_ids = [
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::kernel_conduction",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::monte_carlo_against_booth",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::the_codes_lumping",
+]
+
+[module."kernel.rs"]
+path = "example:lesson_triso_kernel::kernel"
+
+[[module."kernel.rs".function]]
+id = "fn:5595bd59735d1e4b"
+name = "SYMBOLS"
+qual = "SYMBOLS"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    49,
+]
+hash = "sha256:daa9b0eed950213b9c2b75ec1947318d65f7f21360e0445fcac80db1d8a58e03"
+doc_hash = "sha256:42fea80060f1979a1990becb2db4fe45b2eb54c1a11ee86bd4db9882688058bb"
+
+[[module."kernel.rs".function]]
+id = "fn:96023f50ae061c73"
+name = "group_name"
+qual = "group_name"
+lines = [
+    51,
+    54,
+]
+hash = "sha256:8d295f025cfac5693e79ce5494b60aa3a0b89f3bed9efc264bf45551a2c7c2ec"
+doc_hash = "sha256:565377c15287462a94b38c96a18310866d2ddae8256d231802495e2ffb95f356"
+
+[[module."kernel.rs".function]]
+id = "fn:ffce564d22c3a6f1"
+name = "plates_out"
+qual = "plates_out"
+lines = [
+    56,
+    61,
+]
+hash = "sha256:0e4f72aa67f125ab3f6743f10446a4d839bc54f74854021f3fd183a1d9772f1e"
+doc_hash = "sha256:86809405326013e108a2f15315656337ecca25745e7541c031b2d667364a169e"
+
+[[module."kernel.rs".function]]
+id = "fn:6dc2e5216e289a88"
+name = "DClass"
+qual = "DClass"
+item = "type"
+shape = "struct"
+lines = [
+    63,
+    70,
+]
+hash = "sha256:c62d964d03a5c7b5f6de8e2d30db44305cc72e1a42f5e2a87837f3e779b16669"
+doc_hash = "sha256:c613d09cedfc4e278ef2bfd234394d68ac578a6ec31ff918dadcd441013e2092"
+reached_by = ["#2"]
+
+[[module."kernel.rs".function]]
+id = "fn:14293847005ba042"
+name = "d_curves"
+qual = "d_curves"
+lines = [
+    72,
+    81,
+]
+hash = "sha256:03419b5a100f377488494853659c6169072a863c54bb69bb5f472f3736e9e41a"
+doc_hash = "sha256:b9ad502c6b10cf21a71079d3dd6c0a07e62611e0536def6e2098506344970d27"
+reached_by = ["#2"]
+
+[[module."kernel.rs".function]]
+id = "fn:746041cc20f9a897"
+name = "d_classes"
+qual = "d_classes"
+lines = [
+    83,
+    95,
+]
+hash = "sha256:59b42378afa7e99b610a7adbfc5bee964b659a4eb5efaf2f0e3cc30dbb983016"
+doc_hash = "sha256:659f59c6ef6c2d0424b0ac3bb3fc8e4035e79488001ba3a8bbed7aa8f41f3528"
+callees = ["fn:14293847005ba042"]
+uses = ["fn:6dc2e5216e289a88"]
+reached_by = ["#2"]
+
+[[module."kernel.rs".function]]
+id = "fn:ee8568d6bb70c0f5"
+name = "booth_fraction"
+qual = "booth_fraction"
+lines = [
+    97,
+    106,
+]
+hash = "sha256:3adb18b47ff3f81312a6c86161bef9b0fbcb6b6e442474836e10a3bb4ec791c5"
+doc_hash = "sha256:f2d43d229d173fa43b066fa52ae654347f3e5803eb4581e35a01ce4f52b1d024"
+reached_by = ["#1"]
+
+[[module."kernel.rs".function]]
+id = "fn:06c8cf05e15150a0"
+name = "booth_rb"
+qual = "booth_rb"
+lines = [
+    108,
+    117,
+]
+hash = "sha256:1f0e8696ec2a5066a216269ca0a3ba42f1026fc5d7070a16e3cf319083d8e2bf"
+doc_hash = "sha256:523d952b128518152014743a361d424d868e59f065662157146cda208c3c493f"
+
+[[module."kernel.rs".function]]
+id = "fn:de214b4aaa9ec1d4"
+name = "mc_vs_booth"
+qual = "mc_vs_booth"
+lines = [
+    119,
+    128,
+]
+hash = "sha256:e23571a05aed10203e8dc79bc1f5311ec7c2837c856c7421625d70c35077cc54"
+doc_hash = "sha256:4f23cbb51a00d42a6e53351777322709cde499520a8062e5cd0415ce6c5e0c61"
+callees = ["fn:ee8568d6bb70c0f5"]
+reached_by = ["#1"]
+
+[[module."kernel.rs".function]]
+id = "fn:3823bad86a3d5b5e"
+name = "htr10_kernel_power_density"
+qual = "htr10_kernel_power_density"
+lines = [
+    130,
+    142,
+]
+hash = "sha256:bd42d6daf086c4d4d3ee16a6e694ceac3fbeeafa84623a5aa39bb28d4a3b7483"
+doc_hash = "sha256:900394e056be252ec723aa5f4b8992379328cab9c853b8855c4e4a94a7c1505f"
+reached_by = ["#0"]
+
+[[module."kernel.rs".function]]
+id = "fn:f9053ad5e39bcf5b"
+name = "k_uo2"
+qual = "k_uo2"
+lines = [
+    144,
+    150,
+]
+hash = "sha256:811860ab11dee6ee35470eab4527bcc095e0a33261e2bd96149289aebbdc88a0"
+doc_hash = "sha256:826abac0e90fe6e5c10535355ef335c7df37b3373e637bda21b78c001609bf88"
+reached_by = ["#0"]
+
+[[module."kernel.rs".function]]
+id = "fn:73a5b155881f5f05"
+name = "sphere_profile"
+qual = "sphere_profile"
+lines = [
+    152,
+    169,
+]
+hash = "sha256:8d8ffd169c676ad914aba3b7c2273a53c5330b6b294864cd94a94fde697755e1"
+doc_hash = "sha256:a6b6c0b0d5685c04dbf6c0a2d8cd96373fe5927c7341bf3c5f2dafcb3e6b308e"
+reached_by = ["#0"]
+
+[[module."kernel.rs".function]]
+id = "fn:e00c6691557d3a0b"
+name = "tampines_particle"
+qual = "tampines_particle"
+lines = [
+    171,
+    178,
+]
+hash = "sha256:0984ec123989ea192eab4d2162858274763d8f13a729493e34781dfbd1cdc3c5"
+doc_hash = "sha256:66ac90acca493de25b08b0dcd355856944dcc56ca5a46389043dcf79601b56f9"
+reached_by = ["#0"]
+
+[[module."kernel.rs".function]]
+id = "fn:a044b34072f39056"
+name = "half_life_s"
+qual = "half_life_s"
+lines = [
+    180,
+    183,
+]
+hash = "sha256:97c40b33511f5957393d17b47625b918698ffce49c9b97c7f44268a89e77eb74"
+doc_hash = "sha256:8cdd63bcd08b4896f2ec279b0787241bfcea14d9fb64ae30ba234544075d6c80"
+
+[module."main.rs"]
+path = "example:lesson_triso_kernel"
+
+[[module."main.rs".function]]
+id = "fn:f7cb1f0f0ee9f36c"
+name = "main"
+qual = "main#1"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:f52ebaec8c20eb6f"
+name = "main"
+qual = "main#2"
+lines = [
+    56,
+    59,
+]
+hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6145c6b36fd40d3e"]
+
+[[module."main.rs".function]]
+id = "fn:445f36bb4c7bda54"
+name = "arr"
+qual = "arr"
+lines = [
+    69,
+    72,
+]
+hash = "sha256:95f90145ea3d6f225e9ef992dcca0730c90c68cb9843f97a9950d407eeea94da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:6145c6b36fd40d3e"
+name = "run"
+qual = "run"
+lines = [
+    74,
+    167,
+]
+hash = "sha256:3a77b497b7ddd79eec2ec83c9964fd0bc71bac05940ebcd1f3e463c367ab9bc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3823bad86a3d5b5e",
+    "fn:73a5b155881f5f05",
+    "fn:746041cc20f9a897",
+    "fn:a044b34072f39056",
+    "fn:de214b4aaa9ec1d4",
+    "fn:e00c6691557d3a0b",
+    "fn:f9053ad5e39bcf5b",
+    "fn:ffce564d22c3a6f1",
+]
+uses = ["fn:5595bd59735d1e4b"]

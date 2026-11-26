@@ -1,0 +1,594 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/bin/ciet_educational_simulator_v2/ciet_simulator_v2/app/panels_and_pages/full_simulation"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/bin/ciet_educational_simulator_v2/ciet_simulator_v2/app/panels_and_pages/full_simulation/stepper.rs::flows_solved_from_snapshots_are_the_flows_solved_in_the_step",
+    "crates/outram-park-digital-twin-engine/src/bin/ciet_educational_simulator_v2/ciet_simulator_v2/app/panels_and_pages/full_simulation/stepper.rs::the_stepper_is_deterministic_and_inline_equals_threaded",
+]
+
+[module."diagnostics.rs"]
+path = "example:ciet_web::diagnostics"
+
+[[module."diagnostics.rs".function]]
+id = "fn:c2fcd9d068c858a4"
+name = "pri_loop_heater_temperature_diagnostics_ver_4"
+qual = "pri_loop_heater_temperature_diagnostics_ver_4"
+lines = [
+    23,
+    76,
+]
+hash = "sha256:34099ea0a2e15c38ad5a179d8f83bd8f2f0d362485a241186e0cfbf9936f7d02"
+doc_hash = "sha256:32d3a92e3c5269a8e89140695257ee6ee90718a34b1d9da85ed5e50038405e38"
+physical_interface = true
+
+[module."fluid_solvers.rs"]
+path = "example:ciet_web::fluid_solvers"
+
+[[module."fluid_solvers.rs".function]]
+id = "fn:f7a14e51a9c5f204"
+name = "three_branch_pri_loop_flowrates_parallel_ver_4"
+qual = "three_branch_pri_loop_flowrates_parallel_ver_4"
+lines = [
+    56,
+    249,
+]
+hash = "sha256:342b9ecf7faec047babc806cdd55bdd0859beac1af46e92f5ef4b465881d8f53"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7416ea62df99f07a",
+    "fn:b2c9f7de2edc5dec",
+]
+physical_interface = true
+
+[module."fork.rs"]
+path = "example:ciet_web::fork"
+
+[[module."fork.rs".function]]
+id = "fn:d506420cec17e214"
+name = "Forked"
+qual = "Forked"
+item = "type"
+shape = "enum"
+lines = [
+    10,
+    17,
+]
+hash = "sha256:31a1c71739f214291567faa5a341179c83f905a14d1e74bdc5c07ea407618ebf"
+doc_hash = "sha256:e6652fad9bbb5595dc25d8026273121daabbcff9a3d2c8846ea0d2ee64c50076"
+
+[[module."fork.rs".function]]
+id = "fn:b2c9f7de2edc5dec"
+name = "fork"
+qual = "fork"
+lines = [
+    19,
+    28,
+]
+hash = "sha256:89efced082d5b2690489612533912b02b1d9e79ec587895bcc09759d29775e10"
+doc_hash = "sha256:7a7684f473d94697b5bde13c07d76d350de836c0047e1e09bf642314f6900181"
+callees = ["fn:4e82d4aa9b90af1c"]
+uses = ["fn:d506420cec17e214"]
+
+[[module."fork.rs".function]]
+id = "fn:7416ea62df99f07a"
+name = "join"
+qual = "Forked::join"
+lines = [
+    31,
+    43,
+]
+hash = "sha256:390a19614cb472841febe3af8f50f9b09784d7d11af04e9c29a7773a19adeb2f"
+doc_hash = "sha256:6a7b08b76734223429636b48684cecc9e5b9bae3b6f181b7510927290a2165b0"
+uses = ["fn:d506420cec17e214"]
+
+[[module."fork.rs".function]]
+id = "fn:4e82d4aa9b90af1c"
+name = "inline"
+qual = "inline"
+lines = [
+    51,
+    56,
+]
+hash = "sha256:dbeca2577af0d883b920eaf822ea10b0b101ec1572e069bb75415346dfdf6754"
+doc_hash = "sha256:3b23d2ef32087e4de635363843ba9b492a89c370360104dab71388fbe55d408a"
+
+[[module."fork.rs".function]]
+id = "fn:8baff9b82ae4c840"
+name = "set_inline"
+qual = "set_inline"
+lines = [
+    58,
+    63,
+]
+hash = "sha256:8caab6ff59811a7bdcce7843edfc18200cc2ad2d73468c95823bb96949c40a1f"
+doc_hash = "sha256:f4d0891954059ad3d9b865708f316e9035e056e4fc981cbb634a2bc131661933"
+reached_by = ["#1"]
+
+[module."heat_transfer_solvers.rs"]
+path = "example:ciet_web::heat_transfer_solvers"
+
+[[module."heat_transfer_solvers.rs".function]]
+id = "fn:96c2ebf67d05d0b2"
+name = "ciet_pri_loop_three_branch_link_up_components_ver_4"
+qual = "ciet_pri_loop_three_branch_link_up_components_ver_4"
+lines = [
+    41,
+    748,
+]
+hash = "sha256:c7292f1b608101e335436e26cfcc224b375911f07253679613b5d859ec1022b0"
+doc_hash = "sha256:d371634b388eefbd8baf3c6048cfe18793a80350bf76cdb544dbc87c5a3a6feb"
+physical_interface = true
+
+[[module."heat_transfer_solvers.rs".function]]
+id = "fn:638b6fbb05a7c8d7"
+name = "pri_loop_three_branch_advance_timestep_except_dhx_ver_4"
+qual = "pri_loop_three_branch_advance_timestep_except_dhx_ver_4"
+lines = [
+    750,
+    846,
+]
+hash = "sha256:6e480171302cb2dafc5801cdf05d92c04ef937134c42d9a80ca8d05152932260"
+doc_hash = "sha256:f016e9da4b17c6cca4edf2093ad4ec3ba6c306a46c87d15ff6a08d85c60540ac"
+physical_interface = true
+
+[module."stepper.rs"]
+path = "example:ciet_web::stepper"
+
+[[module."stepper.rs".function]]
+id = "fn:3f4301ef1bd1b122"
+name = "DHX_HEAT_LOSS_TO_AMBIENT_WATTS_PER_M2_KELVIN"
+qual = "DHX_HEAT_LOSS_TO_AMBIENT_WATTS_PER_M2_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:922add700195141f899bf3dd015198ac1781a469bb3336f5bbed01410aa99ac6"
+doc_hash = "sha256:40a0ea3bc4c459be83242d15070177bf8ed9cf31db428ec5fa60114d5af0b856"
+
+[[module."stepper.rs".function]]
+id = "fn:c74821758429fc42"
+name = "max_timestep"
+qual = "max_timestep"
+lines = [
+    99,
+    102,
+]
+hash = "sha256:43dfcee2b79dd18aecc002799029a5407a346588e3df699824b0fbaedb477309"
+doc_hash = "sha256:e869a430eb16ff25e47d1d8b438345100ee2f0720ffc91cc9ed9b946589b4098"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."stepper.rs".function]]
+id = "fn:65eca611ccbbe32c"
+name = "FlowSource"
+qual = "FlowSource"
+item = "type"
+shape = "enum"
+lines = [
+    104,
+    113,
+]
+hash = "sha256:ba8534aeec45e38841d6a4c69e28ccc481a516621ffc18aa07c7a6f067a27e71"
+doc_hash = "sha256:8357e7c0f00f7cf9516c790495fa686baf23ade5df50efa72e19a4c2bc7ba9a7"
+reached_by = ["#0"]
+
+[[module."stepper.rs".function]]
+id = "fn:a5b1fa5b54610ec1"
+name = "GivenFlows"
+qual = "GivenFlows"
+item = "type"
+shape = "struct"
+lines = [
+    115,
+    126,
+]
+hash = "sha256:d300f38d4d92ce9d4d69af63fac46dd55bcd685f4b76c02d9e6b96e75df3e1b0"
+doc_hash = "sha256:d75dc33c2fc6b73dfe839a55e970b4cf891e707f7b32aa99d48a79b6d22b2f34"
+reached_by = ["#0"]
+
+[[module."stepper.rs".function]]
+id = "fn:fe9b14f5d81669e1"
+name = "from_kg_per_s"
+qual = "GivenFlows::from_kg_per_s"
+lines = [
+    129,
+    133,
+]
+hash = "sha256:eff20149ac278573a3e9d07d616c24597b407ff0abf777f60947b559d388507e"
+doc_hash = "sha256:001d23302a1ce9953ddfbe7528df17df09ce996276c39e6e5c4fa3c8eb226d1f"
+uses = ["fn:a5b1fa5b54610ec1"]
+
+[[module."stepper.rs".function]]
+id = "fn:2fe5ff283afefc8c"
+name = "FlowSnapshot"
+qual = "FlowSnapshot"
+item = "type"
+shape = "struct"
+lines = [
+    136,
+    146,
+]
+hash = "sha256:9cc678db003b8a6260dd1e9febfc3649965d1ff88bf8ea06b281a884e2759482"
+doc_hash = "sha256:ec97dd9ca29dd450d11888b4bc9940147c9a3d345d7e56fc4d0d97e4965140f8"
+reached_by = ["#0"]
+
+[[module."stepper.rs".function]]
+id = "fn:bcff7ce7fb0775d8"
+name = "push_temperatures"
+qual = "push_temperatures"
+lines = [
+    148,
+    158,
+]
+hash = "sha256:1d337d552f153eeeba73f748f18ee20c51def8a5ac053d29228fbffd4d2eecc5"
+doc_hash = "sha256:5695a9080a548dee7bdd401b9d57320ae334e3126be9cc99be91a0ca03c1de8b"
+reached_by = ["#0"]
+
+[[module."stepper.rs".function]]
+id = "fn:64e617b3efc3fe74"
+name = "set_temperatures"
+qual = "set_temperatures"
+lines = [
+    160,
+    170,
+]
+hash = "sha256:81149f62e512ec49381f5b5f7ad9663973a5f6bce4c812baed226d5c5133303e"
+doc_hash = "sha256:26e60ae9922d917da8b443e645b5e46d4f3e4360a661b739b1e8e6157247e7c0"
+
+[[module."stepper.rs".function]]
+id = "fn:cd7676b9f2d3c34b"
+name = "CietLoop"
+qual = "CietLoop"
+item = "type"
+shape = "struct"
+lines = [
+    172,
+    243,
+]
+hash = "sha256:18d8009d125e74bea96c9fb6dd75270ec36adf3b90624b6c8eda9cda63a7de9b"
+doc_hash = "sha256:bfbc8f37705f454514da490d4e4951a93dd88e12d6d637d151ae522c6b53545b"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."stepper.rs".function]]
+id = "fn:200c040ba43bc72c"
+name = "new"
+qual = "CietLoop::new"
+lines = [
+    246,
+    696,
+]
+hash = "sha256:3079840f4ca514632c238b1386edc6f29f12c0152da67a0c41975baf0b0d2ac8"
+doc_hash = "sha256:2f802c643a80cdcdb89c50be3c871c3615b0c50ffaabf9eae2fcaadfbf3912ea"
+uses = [
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."stepper.rs".function]]
+id = "fn:8b5da32b012325f3"
+name = "dracs_flow"
+qual = "CietLoop::dracs_flow"
+lines = [
+    698,
+    725,
+]
+hash = "sha256:688191c9488a7a89725c2842328b91ec0ab8353dba7b3fac578b799188c70575"
+doc_hash = "sha256:02dbfb552c4a5abca2cafb8a72ef8dae7b0c6438dd01fbf643ab8105215e009c"
+uses = ["fn:cd7676b9f2d3c34b"]
+physical_interface = true
+
+[[module."stepper.rs".function]]
+id = "fn:91b273e03a5c3530"
+name = "primary_flows"
+qual = "CietLoop::primary_flows"
+lines = [
+    727,
+    845,
+]
+hash = "sha256:c486ab8d511c80ac743e0ca1c01bab26d7fd93e5e9a94dabd4bb25bd94bffdd1"
+doc_hash = "sha256:46a5a875739b3e9a664df23cb171a3275894dcbf0fa420e1dcc13766c9f277a4"
+callees = ["fn:f7a14e51a9c5f204"]
+uses = [
+    "fn:9fcd8afc16597201",
+    "fn:cd7676b9f2d3c34b",
+]
+physical_interface = true
+
+[[module."stepper.rs".function]]
+id = "fn:e3138025dd89a9f3"
+name = "dracs_fluid_arrays"
+qual = "CietLoop::dracs_fluid_arrays"
+lines = [
+    847,
+    868,
+]
+hash = "sha256:608492a09c5e43d1132e06b9d713aa21f0bbf68c2dc596aba5951fa764e3de9f"
+doc_hash = "sha256:cf85241b11a817e1f2a20ce2366edaf239721c13d819846a4e05d29f86921c51"
+uses = ["fn:cd7676b9f2d3c34b"]
+
+[[module."stepper.rs".function]]
+id = "fn:c14845b3d275d933"
+name = "dracs_fluid_arrays_mut"
+qual = "CietLoop::dracs_fluid_arrays_mut"
+lines = [
+    870,
+    890,
+]
+hash = "sha256:ae4e86b33fd654457885e8e89dea02b2bd00161976a51b3d417dbdf555236494"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:cd7676b9f2d3c34b"]
+
+[[module."stepper.rs".function]]
+id = "fn:0d578bbc4ea1061b"
+name = "primary_fluid_arrays"
+qual = "CietLoop::primary_fluid_arrays"
+lines = [
+    892,
+    937,
+]
+hash = "sha256:335616016729e2bfa8a19611e122cf0009acab96af2098ed1fdb07cb65a925ea"
+doc_hash = "sha256:029c8054d85f9268746ac16ee5f10bfcb7727ed90e5c3e693ac14c875f229e38"
+uses = ["fn:cd7676b9f2d3c34b"]
+
+[[module."stepper.rs".function]]
+id = "fn:aa8e1ee70f75a06b"
+name = "primary_fluid_arrays_mut"
+qual = "CietLoop::primary_fluid_arrays_mut"
+lines = [
+    939,
+    982,
+]
+hash = "sha256:7c344d2a51dd19b1b629afc74526bf925b54d6984f5567bf58bcec96139c27a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:cd7676b9f2d3c34b"]
+
+[[module."stepper.rs".function]]
+id = "fn:cc633cce2d84f197"
+name = "flow_snapshot"
+qual = "CietLoop::flow_snapshot"
+lines = [
+    984,
+    1008,
+]
+hash = "sha256:31681a8a168fe8b3f14fe0356abf2071f7d4d93ce60fe4e18e7163cec51bc64e"
+doc_hash = "sha256:7a2387ac334c1a548e4d2ef4eb074966e6e2c0e1517b0e324bd8e4e01a61a924"
+callees = ["fn:bcff7ce7fb0775d8"]
+uses = [
+    "fn:2fe5ff283afefc8c",
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+reached_by = ["#0"]
+
+[[module."stepper.rs".function]]
+id = "fn:3c46e9ec55bdaa22"
+name = "solve_dracs_snapshot"
+qual = "CietLoop::solve_dracs_snapshot"
+lines = [
+    1010,
+    1025,
+]
+hash = "sha256:fea2bc5cff8edcf9e91682c4b6925e7a81d9f01a23c84fd83681196f37bfdf35"
+doc_hash = "sha256:92806a253f2a22fdd55d2bdac07a362e5c0a803de060443bb192b28c2af4b7ef"
+callees = [
+    "fn:64e617b3efc3fe74",
+    "fn:8b5da32b012325f3",
+]
+uses = ["fn:cd7676b9f2d3c34b"]
+
+[[module."stepper.rs".function]]
+id = "fn:3701b8ce32c7bf3f"
+name = "solve_primary_snapshot"
+qual = "CietLoop::solve_primary_snapshot"
+lines = [
+    1027,
+    1054,
+]
+hash = "sha256:e3a9f343911edfa23971a6ddd997171b215f84005efcb3c7b9bc18ff6a690974"
+doc_hash = "sha256:62d6d87a00e29e761d1c44ee41dd31f1e10c79d85cab950f7364e31cafe65dd0"
+callees = [
+    "fn:64e617b3efc3fe74",
+    "fn:91b273e03a5c3530",
+]
+uses = [
+    "fn:9fcd8afc16597201",
+    "fn:cd7676b9f2d3c34b",
+]
+
+[[module."stepper.rs".function]]
+id = "fn:d1f07a1299b767b0"
+name = "simulation_time"
+qual = "CietLoop::simulation_time"
+lines = [
+    1056,
+    1059,
+]
+hash = "sha256:f2ab377821fd926fc15c0816b12b7095785922ebbc5466fc004121ce99bab165"
+doc_hash = "sha256:5b3f45e61880d6de62670607d3c9695c9392270da6037534ee395c3b78fa035b"
+uses = ["fn:cd7676b9f2d3c34b"]
+physical_interface = true
+
+[[module."stepper.rs".function]]
+id = "fn:3d2b2efc08540784"
+name = "branch_flows_kg_per_s"
+qual = "CietLoop::branch_flows_kg_per_s"
+lines = [
+    1061,
+    1073,
+]
+hash = "sha256:3c3af46db09590e16be01765bd9f3ebff9d53f1f0bd7d5bcd74a17ff3890d714"
+doc_hash = "sha256:9750822eb25373792f046a570115d58323b1f58336c10853903c8339dd25f757"
+uses = ["fn:cd7676b9f2d3c34b"]
+
+[[module."stepper.rs".function]]
+id = "fn:01de187d44d320f1"
+name = "step"
+qual = "CietLoop::step"
+lines = [
+    1075,
+    1085,
+]
+hash = "sha256:17406e8f4e734c9fb7fa7aa731625ebe212f0ad11f6afa951e083c11f73a3023"
+doc_hash = "sha256:6780b7354890c9b2dfbc2da7a1bb0a984f4afd8e76b3e8462afe360b06f03ff1"
+callees = ["fn:191e465a7bfe5ba4"]
+uses = [
+    "fn:65eca611ccbbe32c",
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+physical_interface = true
+
+[[module."stepper.rs".function]]
+id = "fn:191e465a7bfe5ba4"
+name = "step_with"
+qual = "CietLoop::step_with"
+lines = [
+    1087,
+    2322,
+]
+hash = "sha256:200372c0d3b2962a1cfe14df280fc334ec4bf25dcafb186355d44bf9f2a46dc3"
+doc_hash = "sha256:b2668290620101d8f3d1008137e60e334501bce4aea243ebb2b4f302dedc257f"
+callees = [
+    "fn:0011d428e1f9d2ce",
+    "fn:042c0485199a950a",
+    "fn:0960b45df6218448",
+    "fn:2ce1a4deff3c6d32",
+    "fn:3ab9477bb1a2d004",
+    "fn:638b6fbb05a7c8d7",
+    "fn:88b583fc022cd5cc",
+    "fn:8a4fff1fac851df0",
+    "fn:92db4ce4c2055275",
+    "fn:96c2ebf67d05d0b2",
+    "fn:b2c9f7de2edc5dec",
+    "fn:c2fcd9d068c858a4",
+]
+uses = [
+    "fn:3f4301ef1bd1b122",
+    "fn:65eca611ccbbe32c",
+    "fn:9fcd8afc16597201",
+    "fn:a5b1fa5b54610ec1",
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+physical_interface = true
+
+[[module."stepper.rs".function]]
+id = "fn:3ab9477bb1a2d004"
+name = "finish_step"
+qual = "CietLoop::finish_step"
+lines = [
+    2324,
+    2343,
+]
+hash = "sha256:77fb7c69a43b627060bc06ed59c677d9a40af032f4f53cf72903eb27ac078c22"
+doc_hash = "sha256:f6bae9e391bf97033793d4a3ec0c433f95ae418d12f9fc0821c9843e30807249"
+uses = [
+    "fn:a5b1fa5b54610ec1",
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+
+[[module."stepper.rs".function]]
+id = "fn:7f01f8f559e4557e"
+name = "heated_plant"
+qual = "heated_plant"
+lines = [
+    2350,
+    2357,
+]
+hash = "sha256:edeae3ecccec82a2a85f4acbd70fe6a48e1645178a7db95589f4e4c6dd8ac500"
+doc_hash = "sha256:0d4b3d6c50222f73b80025f1240336e14fdc5baf5dc60d3ac6a0d5ee9272ef16"
+uses = ["fn:cce1108d65dbf700"]
+test = true
+
+[[module."stepper.rs".function]]
+id = "fn:77d81412d32ddf4b"
+name = "run"
+qual = "run"
+lines = [
+    2359,
+    2371,
+]
+hash = "sha256:9ec874a384292c6e39dc3a31681518203772cf6c4fb5cb38ce1384f8948b82a8"
+doc_hash = "sha256:1aada73d51429f68521f27f70433f8352f1bc39f9d03e2b132742461ef508b8e"
+callees = [
+    "fn:200c040ba43bc72c",
+    "fn:7f01f8f559e4557e",
+    "fn:c74821758429fc42",
+]
+uses = [
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+test = true
+
+[[module."stepper.rs".function]]
+id = "fn:7e43b3b5d8544b31"
+name = "the_stepper_is_deterministic_and_inline_equals_threaded"
+qual = "the_stepper_is_deterministic_and_inline_equals_threaded"
+lines = [
+    2373,
+    2414,
+]
+hash = "sha256:474029080f040781be093a5c7a9cb45e0dc1b49731aae1f2c89cbf41162e2575"
+doc_hash = "sha256:29ae9a52ba45c0f2004e4562c87480c4dab7eef6c6575a9bad9237a21d6f70d7"
+callees = [
+    "fn:77d81412d32ddf4b",
+    "fn:8baff9b82ae4c840",
+]
+test = true
+
+[[module."stepper.rs".function]]
+id = "fn:7783531d056a5f4b"
+name = "run_with_pump"
+qual = "run_with_pump"
+lines = [
+    2416,
+    2442,
+]
+hash = "sha256:42455ccc980aa7a78503287c3e7e130ca64201694b48eeac936ae0cd5f394d7f"
+doc_hash = "sha256:aad9bcba34d0d90d7fcd05a606ac92d39811d508d9953df5a4526b88b6f0fd30"
+callees = [
+    "fn:200c040ba43bc72c",
+    "fn:7f01f8f559e4557e",
+    "fn:c74821758429fc42",
+]
+uses = [
+    "fn:65eca611ccbbe32c",
+    "fn:a5b1fa5b54610ec1",
+    "fn:cce1108d65dbf700",
+    "fn:cd7676b9f2d3c34b",
+]
+test = true
+
+[[module."stepper.rs".function]]
+id = "fn:621bb6508bcae213"
+name = "flows_solved_from_snapshots_are_the_flows_solved_in_the_step"
+qual = "flows_solved_from_snapshots_are_the_flows_solved_in_the_step"
+lines = [
+    2444,
+    2481,
+]
+hash = "sha256:d2291394b06defad3b3bb10a530991f06354ef4789b90383764636a1db631c27"
+doc_hash = "sha256:1914dd8e91a2455be9eb993f226c68fad5836936829a922b812a61b7ca8a948a"
+callees = [
+    "fn:200c040ba43bc72c",
+    "fn:7783531d056a5f4b",
+    "fn:7f01f8f559e4557e",
+    "fn:cc633cce2d84f197",
+]
+uses = ["fn:cd7676b9f2d3c34b"]
+test = true

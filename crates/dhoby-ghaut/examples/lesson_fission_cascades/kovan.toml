@@ -1,0 +1,489 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/examples/lesson_fission_cascades"
+test_ids = [
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::decay_chains_from_boon_lay",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::diffusion_series_from_boon_lay",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::kinematics_hand_cases",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::nudat_masses_read",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::rounding_and_q_intervals",
+]
+
+[module."boonlay.rs"]
+path = "example:lesson_fission_cascades::boonlay"
+
+[[module."boonlay.rs".function]]
+id = "fn:e05fcca98b475e9e"
+name = "Step"
+qual = "Step"
+item = "type"
+shape = "struct"
+lines = [
+    21,
+    41,
+]
+hash = "sha256:062f28f578b4edeb760109ba61b45fe0d0c52d08aa6a32dcf9e84bfd4e5d1c60"
+doc_hash = "sha256:2ac8aee16fe74ec972733b921c9cd8066b84428c98da7b68f914822de6075a5e"
+reached_by = ["#0"]
+
+[[module."boonlay.rs".function]]
+id = "fn:6744af45f9ac567d"
+name = "half_life_s"
+qual = "half_life_s"
+lines = [
+    43,
+    47,
+]
+hash = "sha256:97c40b33511f5957393d17b47625b918698ffce49c9b97c7f44268a89e77eb74"
+doc_hash = "sha256:dc3f1f88f27f13a8c7b9116fd143c30243eeb32a9153768e92c64f9c9ad3134a"
+
+[[module."boonlay.rs".function]]
+id = "fn:6931fad2eaa25645"
+name = "main_path"
+qual = "main_path"
+lines = [
+    49,
+    83,
+]
+hash = "sha256:0b7d1bf3992d20e70bba99b447aa6bc2e4afc9785359aeb0c44673ea7fa95126"
+doc_hash = "sha256:82226254596cf9aa073ff81a5fc0b42f1058aefbb8d591059007f894f43d8d3d"
+uses = ["fn:e05fcca98b475e9e"]
+reached_by = ["#0"]
+
+[[module."boonlay.rs".function]]
+id = "fn:36c2a65a6774334e"
+name = "branch_of"
+qual = "branch_of"
+lines = [
+    85,
+    93,
+]
+hash = "sha256:f23ea883b20d0147f6b5b087cbed952148ce0d704a1de6323738e461e7bc2515"
+doc_hash = "sha256:c725f4d2ce2d619048ce7b8e447a58daa6ef0399b20aaa37fc7af16881a6bb6e"
+reached_by = ["#0"]
+
+[[module."boonlay.rs".function]]
+id = "fn:8e64668ce3818d6f"
+name = "sample_histories"
+qual = "sample_histories"
+lines = [
+    95,
+    121,
+]
+hash = "sha256:67c09467bb10ad801ca9de6528e6c5a96918c524f8d101eb3dda884962f51338"
+doc_hash = "sha256:2461fa715276c60a5d63e4aa551d00182def48328ff7e65002255e093b97dae7"
+reached_by = ["#0"]
+
+[[module."boonlay.rs".function]]
+id = "fn:014def70bbda3e1c"
+name = "Series"
+qual = "Series"
+item = "type"
+shape = "struct"
+lines = [
+    123,
+    135,
+]
+hash = "sha256:8ea34493c79e6b16dd37c4dc0af706069dd9c2e2c2fc802419c3f4c07cd19c91"
+doc_hash = "sha256:f6a8be753ef4811a27614dbc5f1b1a9fa3d7c9c56b0129c31886d2d784eac38c"
+reached_by = ["#1"]
+
+[[module."boonlay.rs".function]]
+id = "fn:6e0a9b3043858836"
+name = "flat_up_to"
+qual = "flat_up_to"
+lines = [
+    137,
+    149,
+]
+hash = "sha256:0a5e1f8ea033efe98943551e07842324fb933008cf175fcbad7be7828bcd3fe8"
+doc_hash = "sha256:dbb252a8b3aca0a1fdf2ce69d843a84753a319c0ea8eb64956156bb89db2e7f2"
+reached_by = ["#1"]
+
+[[module."boonlay.rs".function]]
+id = "fn:abd1d9660af7865e"
+name = "diffusion_series"
+qual = "diffusion_series"
+lines = [
+    151,
+    173,
+]
+hash = "sha256:5f987cedb4a79abcbd1cc7ca2b6c903f3288bb4211dd5b99c29e6015f1ba924a"
+doc_hash = "sha256:01a7456d93c849d75ae40cc68f915f31b7f83136a1be9cd0ecbe49bc7c2d246a"
+callees = ["fn:6e0a9b3043858836"]
+uses = ["fn:014def70bbda3e1c"]
+reached_by = ["#1"]
+
+[module."main.rs"]
+path = "example:lesson_fission_cascades"
+
+[[module."main.rs".function]]
+id = "fn:e32de1186f7780b4"
+name = "main"
+qual = "main#1"
+lines = [
+    91,
+    92,
+]
+hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:59d548b68dd0f28e"
+name = "main"
+qual = "main#2"
+lines = [
+    94,
+    97,
+]
+hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7ee0dab410c8189a"]
+
+[[module."main.rs".function]]
+id = "fn:3aedd68dd1c8e305"
+name = "arr"
+qual = "arr"
+lines = [
+    109,
+    112,
+]
+hash = "sha256:9bfe6e72c9b2697996ea2318927a13d7c4d109da4b1affb2558316c533b756c4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:5313ec32832e6ace"
+name = "span"
+qual = "span"
+lines = [
+    113,
+    115,
+]
+hash = "sha256:e9a48f0e18b3eaed3f58a22d6bf2a3f6e539ceda2e08326efed2676dafd6a067"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3aedd68dd1c8e305"]
+uses = ["fn:810ecaf9eece853b"]
+
+[[module."main.rs".function]]
+id = "fn:3c01b25a17eac3c0"
+name = "delta"
+qual = "delta"
+lines = [
+    116,
+    118,
+]
+hash = "sha256:6b7ec60510f6f3b8bb44c048eb4e2957ef8c1f337651cb5bedc1b05500128ce8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:63560c23c21fb17c"
+name = "map_span"
+qual = "map_span"
+lines = [
+    119,
+    122,
+]
+hash = "sha256:24648d4d11da1bd5719473c958064467a2f9dcbdb90fd436974022da60856899"
+doc_hash = "sha256:7cf8013bb0acd4dfc223ca58027a10a6f6b7c8ff7f556ae34be3744b4be048f5"
+uses = ["fn:810ecaf9eece853b"]
+
+[[module."main.rs".function]]
+id = "fn:7ee0dab410c8189a"
+name = "run"
+qual = "run"
+lines = [
+    124,
+    284,
+]
+hash = "sha256:75058fa9676207c0f90fdb47c9ba2b6344d23689d4ff1c3c2271bb586cd4a9c4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:182ee6dbcea51230",
+    "fn:1d08793bcee63aea",
+    "fn:2159d992ff519e78",
+    "fn:36c2a65a6774334e",
+    "fn:3c01b25a17eac3c0",
+    "fn:469bd0beb2688bff",
+    "fn:4b1d83be50a066bf",
+    "fn:63560c23c21fb17c",
+    "fn:6744af45f9ac567d",
+    "fn:6931fad2eaa25645",
+    "fn:79ba56b4ef75a21b",
+    "fn:8e64668ce3818d6f",
+    "fn:a96c5c168ae9a40d",
+    "fn:abd1d9660af7865e",
+    "fn:b5c9e38d5147574f",
+    "fn:dc5ecb48645c7535",
+    "fn:e042faf599675ada",
+    "fn:e78e92923dda6184",
+]
+uses = ["fn:6236c40382c98eca"]
+
+[module."physics.rs"]
+path = "example:lesson_fission_cascades::physics"
+
+[[module."physics.rs".function]]
+id = "fn:fe1bfeba7f7f6c6f"
+name = "U_KEV"
+qual = "U_KEV"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    35,
+]
+hash = "sha256:c073195955218263f5825da60a3211085c533de62cd44d2515e0d6979bf0fbcd"
+doc_hash = "sha256:e6b5801e8e63bb573c084cedc3097884054fda9675ff0a941ef3b40dfcb765c7"
+
+[[module."physics.rs".function]]
+id = "fn:6236c40382c98eca"
+name = "ME_KEV"
+qual = "ME_KEV"
+item = "const"
+shape = "const"
+lines = [
+    36,
+    37,
+]
+hash = "sha256:1cc1b691c6cb033c00e1bd69a67f5b273ef39ad4f642176e8b8781a32a3cce58"
+doc_hash = "sha256:0f9fa42591b459f51cc9469121432705f205f9e88c8943f6789040d1e82e45fe"
+
+[[module."physics.rs".function]]
+id = "fn:7b48a2c16addc631"
+name = "C_M_S"
+qual = "C_M_S"
+item = "const"
+shape = "const"
+lines = [
+    38,
+    39,
+]
+hash = "sha256:3335c9a7b7aedcf3ead58a79d7e2e486d896e51e112a116e32bd641da089c0e9"
+doc_hash = "sha256:84199bc8c93cdd5ba57702b3d53a6553e8da1b470b87b28006fae3b2fce8499c"
+reached_by = ["#2"]
+
+[[module."physics.rs".function]]
+id = "fn:1d08793bcee63aea"
+name = "fission_yields_data_src"
+qual = "fission_yields_data_src"
+lines = [
+    41,
+    60,
+]
+hash = "sha256:ee20e6093c0afb343f63cc64a56a6e4c4a8387732aed75bf00f9f89c8a5d8235"
+doc_hash = "sha256:064214883f4a1caeb58d6d532d6e25375900c265295fa9ddf76c0ccd6bdb006c"
+reached_by = ["#3"]
+
+[[module."physics.rs".function]]
+id = "fn:e78e92923dda6184"
+name = "mass_excess_table"
+qual = "mass_excess_table"
+lines = [
+    62,
+    80,
+]
+hash = "sha256:ccd9eecef9ca20efeb6f743ba0e368be3429aefb2cff9a23e608dd9842d0c008"
+doc_hash = "sha256:2413ec838c20fc4d5993d5d277ac206eb33414572aff3767c0cfeaa6d6324309"
+reached_by = ["#3"]
+
+[[module."physics.rs".function]]
+id = "fn:2bced08751035b3d"
+name = "rounding_half_unit_kev"
+qual = "rounding_half_unit_kev"
+lines = [
+    82,
+    90,
+]
+hash = "sha256:302e8637224e30f172dc98242a5d2579fa488c96ca4d44dc43d6aabb824290d1"
+doc_hash = "sha256:d5a426af43858fc9706b681656e0c6e2887d414106d19408399140dae680fd83"
+reached_by = ["#4"]
+
+[[module."physics.rs".function]]
+id = "fn:810ecaf9eece853b"
+name = "Span"
+qual = "Span"
+item = "type"
+shape = "alias"
+lines = [
+    92,
+    93,
+]
+hash = "sha256:5ffea702d651b2bcdc16a33dd90689572a74793f5e2ae3c354c37d060b9ab373"
+doc_hash = "sha256:a1878de5e8e73fa18d1d6be18051111e2a3e69337225d15fbdd7a2ae244392ac"
+reached_by = ["#4"]
+
+[[module."physics.rs".function]]
+id = "fn:b5c9e38d5147574f"
+name = "q_from_excesses"
+qual = "q_from_excesses"
+lines = [
+    95,
+    105,
+]
+hash = "sha256:2ef4c0b68daae1a8d4cb8fca49835c733ab56bc2d8b378acd20e58fd69eacc5a"
+doc_hash = "sha256:c1a397c3005eea1b8aed2e5566ae12cc9d38b8ce35f07d0948d67c6b0c501109"
+callees = ["fn:2bced08751035b3d"]
+uses = ["fn:810ecaf9eece853b"]
+reached_by = ["#4"]
+
+[[module."physics.rs".function]]
+id = "fn:e042faf599675ada"
+name = "atomic_mass_kev"
+qual = "atomic_mass_kev"
+lines = [
+    107,
+    110,
+]
+hash = "sha256:394ac33655d42c8141185d5fc32309eb080616ff0c02b1913ff8619cf2920a05"
+doc_hash = "sha256:b9f3840b05b48da2c2daea9a3a82bf998256bd87555474fe9f776be54c9d2250"
+uses = ["fn:fe1bfeba7f7f6c6f"]
+
+[[module."physics.rs".function]]
+id = "fn:469bd0beb2688bff"
+name = "pc_kev"
+qual = "pc_kev"
+lines = [
+    112,
+    116,
+]
+hash = "sha256:06335d1902b89c0c8a2ba0f3cf0a81f8b5d046b960f25e38eba9e2ac398a5337"
+doc_hash = "sha256:70b676ca64ec3f55a7909429d9342aada4da558ccf676a639d1bb92726266551"
+reached_by = ["#2"]
+
+[[module."physics.rs".function]]
+id = "fn:3966e46aabeac998"
+name = "recoil_from_pc_kev"
+qual = "recoil_from_pc_kev"
+lines = [
+    118,
+    122,
+]
+hash = "sha256:bd09cafd6390f659e1766536bfad77a7d297891fde9640a861f129c85ff5bf5b"
+doc_hash = "sha256:591c39373fd41de256c94723cb12720d623175a78a25c9789eccc154d521f73a"
+
+[[module."physics.rs".function]]
+id = "fn:4b1d83be50a066bf"
+name = "beta_recoil_max_kev"
+qual = "beta_recoil_max_kev"
+lines = [
+    124,
+    131,
+]
+hash = "sha256:8f0f6320e9751b1f791ec1f324e4bd455017541c0d8552d9199f64aa082372e7"
+doc_hash = "sha256:b460f7f8d8f97963e9e4de4bd4a432c13f1434b38d889f46a0ded9d17829ec2c"
+callees = [
+    "fn:3966e46aabeac998",
+    "fn:469bd0beb2688bff",
+]
+uses = ["fn:6236c40382c98eca"]
+
+[[module."physics.rs".function]]
+id = "fn:2159d992ff519e78"
+name = "gamma_recoil_kev"
+qual = "gamma_recoil_kev"
+lines = [
+    133,
+    137,
+]
+hash = "sha256:e970272a83ad4110ef37c545837e84f5082a38ec457ebc50a6ae6c1b3f9cd657"
+doc_hash = "sha256:c6bf6b46b5dea9cc7f9f1921cbadc1a07b447f2559d20ff493654fa89fb41d3c"
+callees = ["fn:3966e46aabeac998"]
+
+[[module."physics.rs".function]]
+id = "fn:dc5ecb48645c7535"
+name = "two_body_recoil_kev"
+qual = "two_body_recoil_kev"
+lines = [
+    139,
+    146,
+]
+hash = "sha256:b9a21e5bd0587096cf89e2f21cec35c26dccb022f806524d7afd5312d5a10412"
+doc_hash = "sha256:d511ac56345ca4c7d0732d595d7fd5b5c8dd7cf32535173aa066f5ab242c25bc"
+
+[[module."physics.rs".function]]
+id = "fn:79ba56b4ef75a21b"
+name = "fragment_energies_ev"
+qual = "fragment_energies_ev"
+lines = [
+    148,
+    155,
+]
+hash = "sha256:5d8b63deb3ad0f72c91fea2313a2c6932f714b4f72cdd0ec399057b0e7201b9f"
+doc_hash = "sha256:49ebd4f84ff62f85bebdd13c0abc030ed1c40f042303ff3ee7073d86ad358ddb"
+reached_by = ["#2"]
+
+[[module."physics.rs".function]]
+id = "fn:1c7aa7e42fa535ab"
+name = "speed_m_s"
+qual = "speed_m_s"
+lines = [
+    157,
+    162,
+]
+hash = "sha256:5616dc2be09469979eb017aec0c21ab4c1ddbd13aa02c78b359b0d32f38f1030"
+doc_hash = "sha256:61753a3f17aed3c3e5732028de7924ce0796eb565ed0f98cf0d8714c0b568d0c"
+uses = ["fn:7b48a2c16addc631"]
+reached_by = ["#2"]
+
+[[module."physics.rs".function]]
+id = "fn:a96c5c168ae9a40d"
+name = "in_flight_kick"
+qual = "in_flight_kick"
+lines = [
+    164,
+    172,
+]
+hash = "sha256:d6745d5830af077969ac26575134331be0888c36b8202a26daae6bb567a8f10b"
+doc_hash = "sha256:dcc5e3aae580da4261748479036d950ce7214626d1a4ed9cae5175a7edb06d93"
+callees = [
+    "fn:1c7aa7e42fa535ab",
+    "fn:469bd0beb2688bff",
+]
+uses = ["fn:7b48a2c16addc631"]
+reached_by = ["#2"]
+
+[[module."physics.rs".function]]
+id = "fn:dbcf7e64fef26d38"
+name = "endf_float"
+qual = "endf_float"
+lines = [
+    174,
+    192,
+]
+hash = "sha256:dab2f63371e7c811075196bec1780fa648a0dfa1fe531cdd746cdf0cf62f73b1"
+doc_hash = "sha256:559f829b2b1e756489bd6923c6188547dcff999f40610ba4173ceebd7802cf0d"
+
+[[module."physics.rs".function]]
+id = "fn:182ee6dbcea51230"
+name = "mt458_efr_enp"
+qual = "mt458_efr_enp"
+lines = [
+    194,
+    203,
+]
+hash = "sha256:6eb76cd10cea06312dd2438bd7ca8ae65c9390e9021ac93d172698a014ce1e70"
+doc_hash = "sha256:4dde80f537e5bf171a76975cb575e86a52b1fe37e25b0f85ef6fc2fc869dddcc"
+callees = ["fn:dbcf7e64fef26d38"]
+
+[[module."physics.rs".function]]
+id = "fn:e1acb2d7102a6ba7"
+name = "pretty_name"
+qual = "pretty_name"
+lines = [
+    205,
+    211,
+]
+hash = "sha256:dbb8dee9694366720bb380ff943f65f74296fab659ac6949b7e333ec6a44bf68"
+doc_hash = "sha256:ef2111859f4d8f2208f071e7063cfc8e0303a06a5a6c4f462195fbcba49d9569"
+
+[[module."physics.rs".function]]
+id = "fn:be7c92770b234506"
+name = "mode_label"
+qual = "mode_label"
+lines = [
+    213,
+    223,
+]
+hash = "sha256:65d180b3424bedaf220c9e1a96f483b070811a7d95329ceccc43f63a56355c16"
+doc_hash = "sha256:2d890f7552e5f06dcd1454dc528d0a27560576c48a38cb18c62230d293b36c11"

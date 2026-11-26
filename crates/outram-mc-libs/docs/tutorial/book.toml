@@ -2,7 +2,7 @@
 # Built by scripts/build-pages.sh (docs/site/tutorials.txt) into the backend's
 # GitHub Pages site under tutorials/monte-carlo/. One page per rung of the
 # ladder; each page links to the demo at its rung, and the demo's rung table
-# (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs) links back.
+# (crates/dhoby-ghaut/src/mc_demo/rungs.rs; examples/monte_carlo_web/ until gh:#1763) links back.
 #
 # How the pages are written: docs/lessons/lesson-philosophy.md.
 # Adding a rung's page: add `src/<rung>.md`, list it in src/SUMMARY.md, point

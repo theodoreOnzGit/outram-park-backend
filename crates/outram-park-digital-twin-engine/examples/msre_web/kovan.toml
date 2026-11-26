@@ -1,0 +1,927 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/msre_web"
+
+[module."app.rs"]
+path = "example:msre_web::app"
+
+[[module."app.rs".function]]
+id = "fn:d73d64de9f9884ba"
+name = "T_COLD_F"
+qual = "T_COLD_F"
+item = "const"
+shape = "const"
+lines = [
+    44,
+    45,
+]
+hash = "sha256:f5fd0ac50e81f0746092b6dba2fe00b97ca2b841d24c5e32a8ea95a5e84bd928"
+doc_hash = "sha256:be383e8726950fa89229f6db11c4314fa3428b93bf1439b537efd4406308359a"
+
+[[module."app.rs".function]]
+id = "fn:e8240269ae6af3e7"
+name = "T_HOT_F"
+qual = "T_HOT_F"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    46,
+]
+hash = "sha256:344ddabd2b413c25c1d995876e97187bbe69984adfb6b920d8c3b0c7e0d2b567"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."app.rs".function]]
+id = "fn:1704bfb91bd4b943"
+name = "SPEEDS"
+qual = "SPEEDS"
+item = "const"
+shape = "const"
+lines = [
+    47,
+    48,
+]
+hash = "sha256:00e6f634a3942f1d621bf5cf84378c208a68049d9a3278c78c397a82d24c788f"
+doc_hash = "sha256:20e0bc43c4cf50e552823a91ca05d2fea404baa20d76f22093a6301a50959734"
+
+[[module."app.rs".function]]
+id = "fn:b1ded3b13c017913"
+name = "HISTORY_MAX"
+qual = "HISTORY_MAX"
+item = "const"
+shape = "const"
+lines = [
+    49,
+    50,
+]
+hash = "sha256:785a49e87111290f19c4cd1f91a1a560912a27b48953bf862c222b80e46c0fc9"
+doc_hash = "sha256:0ecfcc5f0b98659c6c90c19889434cb40b3c055d2b6c9fd4c7060f704e513c6c"
+
+[[module."app.rs".function]]
+id = "fn:6c9b0bb7139f3ca3"
+name = "App"
+qual = "App"
+item = "type"
+shape = "struct"
+lines = [
+    52,
+    89,
+]
+hash = "sha256:8038e80adcdf794b3f3340a7e5fda64065565ccbe27356ee494bd6f511808aad"
+doc_hash = "sha256:da04d6ee3a7629585f85f93132b132bf63c0b7a69a6e05c33bd9b74f811c1cc0"
+uses = [
+    "fn:05dc35aecb7e584e",
+    "fn:21a3ded210c74352",
+    "fn:3cd5b3aaac60872d",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:4f7e94c51e71f7df",
+    "fn:6e078e0b5c261530",
+    "fn:cc69e5b101902f98",
+    "fn:fb65b059bcaf7183",
+]
+
+[[module."app.rs".function]]
+id = "fn:731b06b829db6aa2"
+name = "new"
+qual = "App::new"
+lines = [
+    92,
+    134,
+]
+hash = "sha256:90290fb6db31fe631d60e95801f5aadbbf2b1b1068efe406a6054efd07add581"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12dd55fac5cb00b5",
+    "fn:3e463b68b0e13e18",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:3cd5b3aaac60872d",
+    "fn:4f7e94c51e71f7df",
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+    "fn:a74040b55398d35f",
+    "fn:cc69e5b101902f98",
+    "fn:fc1b4960cb56105e",
+]
+
+[[module."app.rs".function]]
+id = "fn:12dd55fac5cb00b5"
+name = "send_pace"
+qual = "App::send_pace"
+lines = [
+    136,
+    139,
+]
+hash = "sha256:5a8c48b7588da982e25b9adf1bca2b32d1f08a1267fa8c1f3b25d71918b2f4fb"
+doc_hash = "sha256:a6173562303df685f3106b8ee8a65e4a4ec77e4d17481cdbf5a0659890ac3699"
+callees = ["fn:3e463b68b0e13e18"]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+]
+
+[[module."app.rs".function]]
+id = "fn:3e463b68b0e13e18"
+name = "send"
+qual = "App::send"
+lines = [
+    141,
+    143,
+]
+hash = "sha256:bd54298744424f079bd28b85eb61e2190043a54121283a7155e606d365cd84fb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+]
+
+[[module."app.rs".function]]
+id = "fn:e5e1d25dd17b10d5"
+name = "reset"
+qual = "App::reset"
+lines = [
+    145,
+    154,
+]
+hash = "sha256:7c36c11973da081d9e206adaf655e774915e58b08e1393bfcf38a557a2a5435e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3e463b68b0e13e18"]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+]
+
+[[module."app.rs".function]]
+id = "fn:0319e878f141c8e1"
+name = "handle"
+qual = "App::handle"
+lines = [
+    156,
+    196,
+]
+hash = "sha256:466b0136668b49258a13b8e470f6c6759643fba66b6eca5bd8c401d5242e5275"
+doc_hash = "sha256:e3e3d932c498dbe5e8c7491cbe313a7d61f763b359c5b9f34f39ca8605c638d9"
+callees = ["fn:e9e676e922c5af0e"]
+uses = [
+    "fn:2117a20932c06f26",
+    "fn:6c9b0bb7139f3ca3",
+    "fn:b1ded3b13c017913",
+    "fn:cc69e5b101902f98",
+    "fn:fb65b059bcaf7183",
+]
+
+[[module."app.rs".function]]
+id = "fn:5ce26859258e2996"
+name = "freeze_modal"
+qual = "App::freeze_modal"
+lines = [
+    198,
+    229,
+]
+hash = "sha256:71301b91ded3dec534e5693bf0b26d539763fe0cc60ec9f7a67b434a19cdf3c1"
+doc_hash = "sha256:210192fa88852bcc07302bfbd1f5196422b4682d6d70d0882cb277b5c24abb3a"
+callees = [
+    "fn:3e463b68b0e13e18",
+    "fn:e5e1d25dd17b10d5",
+]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+]
+
+[[module."app.rs".function]]
+id = "fn:f77ff243da177968"
+name = "side_panel"
+qual = "App::side_panel"
+lines = [
+    231,
+    316,
+]
+hash = "sha256:b06e0ab4edaaf0b201713d904ef9bfe975b352212740daeb1183aa1a00ef6d08"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12dd55fac5cb00b5",
+    "fn:26a1150675b7ed4e",
+    "fn:32741ff1d22b5144",
+    "fn:3e463b68b0e13e18",
+    "fn:e5e1d25dd17b10d5",
+]
+uses = [
+    "fn:1704bfb91bd4b943",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+    "fn:a74040b55398d35f",
+    "fn:f5b7e8b07e0f72f5",
+]
+
+[[module."app.rs".function]]
+id = "fn:7b9272da53e8d23e"
+name = "plant"
+qual = "App::plant"
+lines = [
+    318,
+    383,
+]
+hash = "sha256:9be77ea4d3e23e631c2fb9565c32eb200cb0558b89e5e668b88271bb66d74628"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:876688fa7eab712a",
+    "fn:d73d64de9f9884ba",
+    "fn:e8240269ae6af3e7",
+    "fn:f6d797fd3fe35277",
+]
+
+[[module."app.rs".function]]
+id = "fn:35e33444fa060d61"
+name = "loop_view"
+qual = "App::loop_view"
+lines = [
+    385,
+    462,
+]
+hash = "sha256:cfad1f04db2b2ee49d8eab13ef97b726a3d319fa47d9fd3c48a34844257854dc"
+doc_hash = "sha256:05750d4f812569b2df20f0359ac6a305cfbffc41690a13b4797b2fef99edcdb2"
+callees = ["fn:c0069ce70e68fb02"]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:bffc3dd20d9362ac",
+]
+
+[[module."app.rs".function]]
+id = "fn:599a32b2e39d31de"
+name = "trends"
+qual = "App::trends"
+lines = [
+    464,
+    486,
+]
+hash = "sha256:99af087ab641b9874d74211366e966befbf01be55fd8d0f43b55f9826a73c098"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:d73d64de9f9884ba",
+    "fn:e8240269ae6af3e7",
+    "fn:fb65b059bcaf7183",
+]
+
+[[module."app.rs".function]]
+id = "fn:6e85b395441e2eb7"
+name = "period_view"
+qual = "App::period_view"
+lines = [
+    488,
+    530,
+]
+hash = "sha256:fc35fdb714c36093d23d54ba91d6ed3316ea9be545f4d7ab497a4ae8a27b9513"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3e463b68b0e13e18"]
+uses = [
+    "fn:6025dc8d0f1dafae",
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+    "fn:8bd81f9283dadb96",
+]
+
+[[module."app.rs".function]]
+id = "fn:14dd5cc94e2b8546"
+name = "ui"
+qual = "App::ui"
+lines = [
+    534,
+    560,
+]
+hash = "sha256:de1f6d86e22af573b98feb096726e4efc79752fbfc57f2295cbeff9d3c392bc5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0319e878f141c8e1",
+    "fn:21aeeb06d3659e32",
+    "fn:3e463b68b0e13e18",
+    "fn:5ce26859258e2996",
+    "fn:e2a761b74d57fd13",
+]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:6e078e0b5c261530",
+    "fn:f5b7e8b07e0f72f5",
+]
+
+[[module."app.rs".function]]
+id = "fn:5e43a745438ba599"
+name = "title"
+qual = "App::title"
+lines = [
+    564,
+    566,
+]
+hash = "sha256:36ac472f68dbcf4f2469511131d4b6bab0d6c16ca86209f448c371d6263f41bd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6c9b0bb7139f3ca3"]
+
+[[module."app.rs".function]]
+id = "fn:e37826fff9a49e1c"
+name = "page_state"
+qual = "App::page_state"
+lines = [
+    568,
+    574,
+]
+hash = "sha256:60c882b0af4ef7e3773b3f2e00f52e2bf1a8877ab3099c28d3c01164e8ff458c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:a74040b55398d35f",
+    "fn:c9f9b755a9260418",
+]
+
+[[module."app.rs".function]]
+id = "fn:66bc2fa7a7f22392"
+name = "left"
+qual = "App::left"
+lines = [
+    576,
+    578,
+]
+hash = "sha256:e773f8aa10b94508a1183c96d2271fe9c8b02a3ca26a6ec81e980b6448729408"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f77ff243da177968"]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:b004084ff343bf28",
+]
+
+[[module."app.rs".function]]
+id = "fn:a63067ddd75ca6e6"
+name = "zoomable"
+qual = "App::zoomable"
+lines = [
+    580,
+    582,
+]
+hash = "sha256:773606326cca4bb61a0dfbf109fe2047daa1d9cb7981d5175195308cd2780571"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:a74040b55398d35f",
+    "fn:b004084ff343bf28",
+]
+
+[[module."app.rs".function]]
+id = "fn:2388958e995e5eba"
+name = "zoom"
+qual = "App::zoom"
+lines = [
+    584,
+    586,
+]
+hash = "sha256:0a82be051a5aa60c2de816b0c3c8c974055fa10293a421b90754474b6424025e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:b004084ff343bf28",
+]
+
+[[module."app.rs".function]]
+id = "fn:3d015f92a231fc5b"
+name = "central"
+qual = "App::central"
+lines = [
+    588,
+    634,
+]
+hash = "sha256:ce0756b271be230931ecdebfcbc895cd64ef0e3fb1163a5ee296b2627155c242"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:35e33444fa060d61",
+    "fn:599a32b2e39d31de",
+    "fn:6e85b395441e2eb7",
+    "fn:7b9272da53e8d23e",
+    "fn:d0e175c19d8edabf",
+]
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:a74040b55398d35f",
+    "fn:b004084ff343bf28",
+]
+
+[module."keff_tab.rs"]
+path = "example:msre_web::keff_tab"
+
+[[module."keff_tab.rs".function]]
+id = "fn:3cd5b3aaac60872d"
+name = "KeffTab"
+qual = "KeffTab"
+item = "type"
+shape = "struct"
+lines = [
+    41,
+    90,
+]
+hash = "sha256:71506a4c7cce166c66bc14ea1c51585dee2bf82e9e40c8a742a406e3d9cf2134"
+doc_hash = "sha256:85fd3e21f656cdc67b2b6222008485918707e32e4b890e462a438ad495d9480f"
+uses = [
+    "fn:0280c17de43005fc",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:5552d7c97c0a210b",
+    "fn:55ac7408d1ec5eba",
+    "fn:74c81e3daa2fc5d6",
+    "fn:859e99f2e2d2578c",
+    "fn:f9283d8a521ef3ea",
+    "fn:fd2a5e655b02213e",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:e8ffc893830c74bf"
+name = "RECORD_RUN"
+qual = "RECORD_RUN"
+item = "const"
+shape = "const"
+lines = [
+    92,
+    93,
+]
+hash = "sha256:4f86509b48c720c90712ab4db4a81344f40b1821322ee4a29fd59ff3ef8ed4ff"
+doc_hash = "sha256:967d15abe85f2cceb5e793aed4b6d6746574fd306f226da6256ac7ee2a9ac8f0"
+uses = ["fn:0280c17de43005fc"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:58b9978e9c08ea9a"
+name = "ROD_LABELS"
+qual = "ROD_LABELS"
+item = "const"
+shape = "const"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:0557410a8d0f48d3811699dff8530c15e5399e4ddd54e51b964a5b61af296ce9"
+doc_hash = "sha256:b45239b3dc0fe92cc6f6c7154ddb6c0befb533f80c50412906e1bafd71376c22"
+
+[[module."keff_tab.rs".function]]
+id = "fn:0247516e6d63f595"
+name = "default"
+qual = "KeffTab::default"
+lines = [
+    100,
+    129,
+]
+hash = "sha256:9af40f7e150f3618b25ba707f4177f29791136d7f828bc5776d6e2fa25b067ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7df97de61a5a2a72",
+    "fn:bffac63d0278b8cc",
+    "fn:d2a9a871001d2e10",
+    "fn:f4ea99e5949efb78",
+]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:55ac7408d1ec5eba",
+    "fn:fd2a5e655b02213e",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:d2a9a871001d2e10"
+name = "query"
+qual = "query"
+lines = [
+    132,
+    135,
+]
+hash = "sha256:0b811197bd857b50b2de9f10e2f407cea44a789a2bb8dd1b65b3146b8e619f68"
+doc_hash = "sha256:fc19558421a02ff39c05bd1e781118d972d8cfc088eddc043214940618e8cde6"
+
+[[module."keff_tab.rs".function]]
+id = "fn:bf8ed54d971f5871"
+name = "workers"
+qual = "workers"
+lines = [
+    137,
+    140,
+]
+hash = "sha256:36da2e11cc02ffd96cb20f43fe2aa1ea52a80f3b11d918982e9d862b4bcc71a1"
+doc_hash = "sha256:fbe5098babc48748bb3f75821d6ed0a40632520bd52fb06272c432bf7306fe23"
+callees = [
+    "fn:d2a9a871001d2e10",
+    "fn:f13b97a2ba4e80b4",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:f4ea99e5949efb78"
+name = "custom_from_query"
+qual = "KeffTab::custom_from_query"
+lines = [
+    143,
+    149,
+]
+hash = "sha256:774f70a4e611b6db8c9a14914201efc887a5b517a806a1cee7d663071e6438a1"
+doc_hash = "sha256:a3e77f743d73a255adf3a39facef05a1c32afbf2519930f958cac1df1f9a28ae"
+callees = ["fn:d2a9a871001d2e10"]
+uses = [
+    "fn:0280c17de43005fc",
+    "fn:3cd5b3aaac60872d",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:61ef755183af1ce8"
+name = "cfg"
+qual = "KeffTab::cfg"
+lines = [
+    151,
+    154,
+]
+hash = "sha256:9fb4b7ded7c0bc45b5d0fc9993147d1b0721c0698fbf054cda15401b395bfc2b"
+doc_hash = "sha256:7bb7fb3d0ef4c3ab7cc7e7a80438d2c1b371c9830b0f9c61bea953438b484f23"
+uses = [
+    "fn:0280c17de43005fc",
+    "fn:3cd5b3aaac60872d",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:604e005026d2341b"
+name = "busy"
+qual = "KeffTab::busy"
+lines = [
+    156,
+    159,
+]
+hash = "sha256:086ed6c6b0b836975a05009786293dc5318ce5f7082b35b8af98cb97dfdfab47"
+doc_hash = "sha256:70ec42d859ba00795343166c75785ed4ce279b886bef514f569de8211c2b867a"
+uses = ["fn:3cd5b3aaac60872d"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:080db5b84c4a4287"
+name = "run"
+qual = "KeffTab::run"
+lines = [
+    161,
+    182,
+]
+hash = "sha256:ca81bc0939b28ef7cd6cc66f13010050909f11075030db7257cf5595ed305bb5"
+doc_hash = "sha256:fddb25bce9592f5d7f5d57d2352bc348c889d37cd2906157a2f40689a7c50950"
+callees = [
+    "fn:4515569b007b3634",
+    "fn:bf8ed54d971f5871",
+]
+uses = [
+    "fn:0280c17de43005fc",
+    "fn:3cd5b3aaac60872d",
+    "fn:859e99f2e2d2578c",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:d0c4f1471328beb0"
+name = "measure"
+qual = "KeffTab::measure"
+lines = [
+    184,
+    191,
+]
+hash = "sha256:dc784fd1c97d977a9ffcb065feebe7e90e0c6be8c34708e5baf0be7209b3e135"
+doc_hash = "sha256:82d42ac0b70bab0ded7fa3ddcddf908b53458b4aadc93768530f2fd686389465"
+callees = [
+    "fn:080db5b84c4a4287",
+    "fn:61ef755183af1ce8",
+    "fn:b4a542a1e5038c6c",
+]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:5552d7c97c0a210b",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:e2a761b74d57fd13"
+name = "take_send"
+qual = "KeffTab::take_send"
+lines = [
+    193,
+    196,
+]
+hash = "sha256:ae920fa77d276b5bc3dc224b1ac49e27079ede58c77644f9b6f64b5736cb9f1a"
+doc_hash = "sha256:abd3d837af3d344e6eb15cbd09bda8871078b2848d07581b31b90aea8295fb3c"
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:49e2ce5bad6ff1a6",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:26a1150675b7ed4e"
+name = "measured"
+qual = "KeffTab::measured"
+lines = [
+    198,
+    201,
+]
+hash = "sha256:cb1f13a4a6404782f9f7bc87b9710a9949647ff1bdd9d8f9e600fb6d01e2c3dd"
+doc_hash = "sha256:e6ef4e48f46e6f2919d34ef9bb2823dc798d6f18c6be870e6eee57024f87843f"
+callees = ["fn:3348aadaf48f4cb3"]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:49e2ce5bad6ff1a6",
+    "fn:5552d7c97c0a210b",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:289b2455237eef9a"
+name = "stop"
+qual = "KeffTab::stop"
+lines = [
+    203,
+    223,
+]
+hash = "sha256:c7d8b0270d3848ac4aa5afb84864abadcea3a8ff48d8cac98995f2319ee047cd"
+doc_hash = "sha256:08b6dc36e71d713113a9a8beaeb29e7411b7a7753f14744ebe75048d00d03592"
+uses = ["fn:3cd5b3aaac60872d"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:21aeeb06d3659e32"
+name = "pump"
+qual = "KeffTab::pump"
+lines = [
+    225,
+    283,
+]
+hash = "sha256:15bb43db02f385aa4f4fd6934caa3051db2f224ff91035582cd9426987c208ee"
+doc_hash = "sha256:3b05f3b011bf4d6c7a0a53c29b236bd4cb1ee5668dde4336397d1aae44894c14"
+callees = [
+    "fn:080db5b84c4a4287",
+    "fn:61ef755183af1ce8",
+    "fn:d0c4f1471328beb0",
+    "fn:f87154a5a56b8b56",
+]
+uses = [
+    "fn:2721325e96695632",
+    "fn:3cd5b3aaac60872d",
+    "fn:6e078e0b5c261530",
+    "fn:74c81e3daa2fc5d6",
+    "fn:82f904cde5cef462",
+    "fn:cc69e5b101902f98",
+    "fn:ecc1a033946780e7",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:b9674be77b3110fb"
+name = "on_raster"
+qual = "KeffTab::on_raster"
+lines = [
+    285,
+    293,
+]
+hash = "sha256:f4780e55748db31fa1c00dbd14fe8bfaa32859cdee54acddcf04cc74aa8c4fbf"
+doc_hash = "sha256:899fb62034ef4d979798dc67095bfa17e7015eb69ba6dee2f77ae426b6d28ebc"
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:fd2a5e655b02213e",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:32741ff1d22b5144"
+name = "panel"
+qual = "KeffTab::panel"
+lines = [
+    295,
+    422,
+]
+hash = "sha256:523acb7514f679455f148abf4f46d2c51a270340209e659a1559b78aa71369a7"
+doc_hash = "sha256:d09f884f909d9b0530a2a62c85ed74102281cdecaeea014d5dc762e8d5108712"
+callees = [
+    "fn:080db5b84c4a4287",
+    "fn:26a1150675b7ed4e",
+    "fn:289b2455237eef9a",
+    "fn:6028e4a39c0774e3",
+    "fn:604e005026d2341b",
+    "fn:61ef755183af1ce8",
+    "fn:a1ddb16015d33d0c",
+    "fn:bd57587a795e8c78",
+    "fn:bffac63d0278b8cc",
+    "fn:d0c4f1471328beb0",
+]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:58b9978e9c08ea9a",
+    "fn:76adf6cabcaf8433",
+    "fn:e8ffc893830c74bf",
+    "fn:ecc1a033946780e7",
+    "fn:fd1a8b6eb33f550f",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:f87154a5a56b8b56"
+name = "sync_loading"
+qual = "KeffTab::sync_loading"
+lines = [
+    424,
+    449,
+]
+hash = "sha256:12c4073a52a9d35ad8b8df5abb14bfeb4464bd36ca90db09c4c2905d62fbf981"
+doc_hash = "sha256:b2b9a14bf708782c22029b6e4695bd502a2658923a2b927114fa4e9c6b85d2d7"
+callees = [
+    "fn:8ad9ad244cbcc46a",
+    "fn:bfef0975a4234b36",
+]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:3ff780231497a046",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:d0e175c19d8edabf"
+name = "view_ui"
+qual = "KeffTab::view_ui"
+lines = [
+    451,
+    495,
+]
+hash = "sha256:dc77548f27985fa17c24e9e39d570e1eec17c389ee1b0a9105d775a35f72d346"
+doc_hash = "sha256:4b4c222fb7a2f810d4cdd55031f2c2634fb0157f47116487de6576d5b8aa4c34"
+callees = [
+    "fn:0dd56d071ca7b14c",
+    "fn:583b40d521054aa5",
+    "fn:8d6036fd9e41051e",
+    "fn:d7e542f61083642c",
+]
+uses = ["fn:3cd5b3aaac60872d"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:583b40d521054aa5"
+name = "run_buttons"
+qual = "KeffTab::run_buttons"
+lines = [
+    497,
+    511,
+]
+hash = "sha256:4e2393e116e2e45726b770761a19921e754fe90cfc1f6c1efbb8f17930ed9dff"
+doc_hash = "sha256:026af5aed4140666537adeb912fb7db19fd9dba3d21f4cc9c5e635e49a5599df"
+callees = [
+    "fn:080db5b84c4a4287",
+    "fn:289b2455237eef9a",
+    "fn:604e005026d2341b",
+    "fn:61ef755183af1ce8",
+]
+uses = ["fn:3cd5b3aaac60872d"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:0dd56d071ca7b14c"
+name = "keff_body"
+qual = "KeffTab::keff_body"
+lines = [
+    513,
+    541,
+]
+hash = "sha256:f9be9c2261e0671cc1904d0ceaccf5ac4afd19910b5097ae469eaad842884448"
+doc_hash = "sha256:11c90a81990b9e0ea45fd4ccf95f4d7dbbde2bae0513f18dbde4f66f1cc6b721"
+callees = [
+    "fn:2434a6fe18dedb90",
+    "fn:6085d41832d28e6c",
+    "fn:61ef755183af1ce8",
+    "fn:b6eadcb904425adb",
+    "fn:ebdd09acf4981734",
+]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:614d950d403c55b4",
+    "fn:693ac2c108e2a907",
+    "fn:8b407f67b682cdd3",
+    "fn:92cefd69f2f4b6d7",
+    "fn:bc45a1abc1bfcac3",
+    "fn:d3728798893ea1c5",
+    "fn:da41f660c1b6e6e7",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:d7e542f61083642c"
+name = "rods_ui"
+qual = "KeffTab::rods_ui"
+lines = [
+    543,
+    569,
+]
+hash = "sha256:59e0a5aeafebeec05c0b377c66bcef507d389727d4dcbda67119f7d8f82aef6c"
+doc_hash = "sha256:0a871b6b74caca7644e9b9ae3f6249d952d7f755f53584fbba61ace338154d55"
+callees = ["fn:1ee3b9c6d6b3737c"]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:57167cf1753c5e4f",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:8d6036fd9e41051e"
+name = "geometry_ui"
+qual = "KeffTab::geometry_ui"
+lines = [
+    571,
+    630,
+]
+hash = "sha256:512b5bd768561c3977ed7a6f1916ff611a6fe2ad8533adc24f8a9b5362d34ecd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b2e75f21320f6379"]
+uses = [
+    "fn:3cd5b3aaac60872d",
+    "fn:fd2a5e655b02213e",
+]
+
+[[module."keff_tab.rs".function]]
+id = "fn:6028e4a39c0774e3"
+name = "processing_line"
+qual = "processing_line"
+lines = [
+    633,
+    650,
+]
+hash = "sha256:9a1fbf86976993a3888a8ac83dc9d90aa7638382ed83cb161fc09b3043527cde"
+doc_hash = "sha256:16bd50dac8684fdfb23dd96eb762c1825ed5344b7fa3429e2d245281fda89e1a"
+uses = ["fn:859e99f2e2d2578c"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:3ff780231497a046"
+name = "PHONE_SLOWDOWN"
+qual = "PHONE_SLOWDOWN"
+item = "const"
+shape = "const"
+lines = [
+    652,
+    655,
+]
+hash = "sha256:faee911e7b08cc12e598d25172f3a08d31b8a24d7e8016d0fb518a6a434b6f54"
+doc_hash = "sha256:089dd7a3c422673753db6252c4a478a8d7d43771889171047a43446a780df772"
+
+[[module."keff_tab.rs".function]]
+id = "fn:bfef0975a4234b36"
+name = "job_label"
+qual = "job_label"
+lines = [
+    657,
+    664,
+]
+hash = "sha256:0e30b5232368e936c73f0d8898bb2ae6171b8beb81a30614c4ee6d4483b09828"
+doc_hash = "sha256:0bed4da53dc9d0c14785dbf6fe67c58c8c39eef54a1733caca9e134de8b50d55"
+uses = ["fn:78432090acdbd373"]
+
+[[module."keff_tab.rs".function]]
+id = "fn:b2e75f21320f6379"
+name = "colour"
+qual = "colour"
+lines = [
+    666,
+    692,
+]
+hash = "sha256:df6237df2b2d7c6ce43799f9a5b7cfd1dc88bb8c27664de8cf1065caa6dadbc4"
+doc_hash = "sha256:843182358b5819138b6200f2f06a2d7f97b796e091174300a8a45a2788ae4a05"
+
+[module."main.rs"]
+path = "example:msre_web"
+
+[[module."main.rs".function]]
+id = "fn:eb08290d34727815"
+name = "main"
+qual = "main#1"
+lines = [
+    60,
+    64,
+]
+hash = "sha256:723e3de804a47114dccfa94d39e806207e3ba51f41bc717a3048eb3090fb2803"
+doc_hash = "sha256:fcd2b504ba6382396c5769ae1de48e9c1735ae33001bb8d8cff8f9e62875ec0e"
+
+[[module."main.rs".function]]
+id = "fn:77dfb33bcb2f39ac"
+name = "main"
+qual = "main#2"
+lines = [
+    66,
+    107,
+]
+hash = "sha256:e7196065cb67c32ea05aba14f1d31fcdd2bda36b086a105cb31374540d25308a"
+doc_hash = "sha256:8d0309771976b31c4e96a2f485e6baa99934af57a2a84af952fdb16c952b0b4b"
+callees = [
+    "fn:166fadd7bc912321",
+    "fn:2649f52ce86a69c5",
+    "fn:395fb8b4be2c7bb6",
+    "fn:712f8444e51c8ba4",
+    "fn:731b06b829db6aa2",
+    "fn:896596538605b97e",
+    "fn:cb674234b4057250",
+    "fn:f65554ff136a1964",
+]
+uses = [
+    "fn:21a3ded210c74352",
+    "fn:6c9b0bb7139f3ca3",
+    "fn:7650471d03b0cae2",
+]
+
+[[module."main.rs".function]]
+id = "fn:5707108817b962a9"
+name = "main"
+qual = "main#3"
+lines = [
+    109,
+    147,
+]
+hash = "sha256:844845dc4a341904a4ef8f55e449acc2c23a15011187658768a20ec12b23fb63"
+doc_hash = "sha256:4480af1ba96df698ff9b654ebcfe6fd96254484b73eb32a1357d79aa72be26b1"
+uses = [
+    "fn:6c9b0bb7139f3ca3",
+    "fn:7650471d03b0cae2",
+    "fn:cc69e5b101902f98",
+]

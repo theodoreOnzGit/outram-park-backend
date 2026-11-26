@@ -292,9 +292,9 @@ on the [Code Review map](../../code-review/): unfold its callees (▸) level by 
 
 In the demo, the worker runs the same transport, one neutron per call,
 through
-[`ugraphite::sim::Chain::run_next`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/ugraphite/sim.rs#@@L:crates/dhoby-ghaut/examples/monte_carlo_web/ugraphite/sim.rs:fn=run_next@@)
+[`ugraphite::sim::Chain::run_next`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/src/mc_demo/ugraphite/sim.rs#@@L:crates/dhoby-ghaut/src/mc_demo/ugraphite/sim.rs:fn=run_next@@)
 on the cell of
-[`lumped::model::build_geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/lumped/model.rs#@@L:crates/dhoby-ghaut/examples/monte_carlo_web/lumped/model.rs:fn=build_geometry@@)
+[`nee_soon::mc_rungs::lumped::build_geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/src/mc_rungs/lumped.rs#@@L:crates/nee_soon/src/mc_rungs/lumped.rs:fn=build_geometry@@)
 *(filled by hand: page and worker talk by messages, not calls)*.
 
 ---

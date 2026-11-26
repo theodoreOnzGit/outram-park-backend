@@ -209,3 +209,17 @@ fn every_arm_assembles_and_the_assembled_fractions_match_table_3_3() {
         }
     }
 }
+
+/// gh:#1752: `kinf` runs arm A end to end at a smoke size (300 × [3 + 5]),
+/// as the workbench's EBR-II preset page runs it; k_inf is finite and
+/// above 1 (the record's arm A is 2.01). Not a V&V number.
+/// **Result (2026-11-25, 449 s, 4 vCPU container):** 2.07207 ± 0.04628.
+#[test]
+#[ignore = "processes the driver's nuclides (about 5 minutes); run with --ignored --nocapture"]
+fn kinf_runs_end_to_end() {
+    let Some((endf, ace)) = dirs() else { return };
+    let k = kinf(&endf, &ace, &GapTreatment::on_hand(), 300, 3, 5, 1329, |l| eprintln!("  {l}")).expect("k_inf");
+    println!("arm A smoke k_inf = {:.5} +- {:.5}", k.mean, k.std);
+    assert!(k.mean.is_finite() && k.mean > 1.0, "{}", k.mean);
+}
+

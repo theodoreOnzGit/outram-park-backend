@@ -96,6 +96,9 @@ pub mod kinetics;
 pub mod model;
 pub mod pump;
 pub mod session;
+/// EBR-II on the multifidelity twin template (gh:#1749): the session as
+/// the plant; Monte Carlo and multiphysics not built. Adapters only.
+pub mod twin;
 pub mod shrt;
 /// The `ebr2_web` demo's engine (gh:#1741): built on `bugis::web_demo::link`,
 /// so off Android, as `msre::web` is.

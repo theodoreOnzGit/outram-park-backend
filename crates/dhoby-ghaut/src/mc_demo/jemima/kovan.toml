@@ -1,0 +1,281 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/mc_demo/jemima"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_demo/app.rs::a_stopped_run_drops_its_late_generation",
+    "crates/dhoby-ghaut/src/mc_demo/benchpool.rs::a_pooled_run_is_run_keff_csg_par_on_any_number_of_workers",
+    "crates/dhoby-ghaut/src/mc_demo/benchpool.rs::godiva_runs_on_the_pool_with_the_lesson_counts",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/mod.rs::the_pooled_kinf_is_run_keff_delta_par_in_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_demo/prime_pool.rs::a_load_is_dealt_once_each_and_only_when_it_pays",
+    "crates/dhoby-ghaut/src/mc_demo/prime_pool.rs::a_prime_pool_processes_every_job_once_then_is_done",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::a_history_crosses_the_worker_boundary_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::every_godiva_history_leaks_or_is_absorbed_inside_the_sphere",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::every_history_ends_physically_inside_the_cell",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_engine_thread_runs_the_headless_sequence",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_godiva_keff_run_counts_close_and_crosses_the_worker_boundary",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_headless_run_matches_the_committed_fixture",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_hst009_rung_thermalises_and_runs_its_keff",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_jemima_rung_tracks_neutrons_and_runs_its_keff",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_lct008_rung_runs_a_whole_core_keff",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_natural_uranium_rung_tracks_whole_histories_inside_the_bar",
+]
+
+[module."mod.rs"]
+path = "crate::mc_demo::jemima"
+
+[[module."mod.rs".function]]
+id = "fn:f540e4d592e5fe3f"
+name = "CORE"
+qual = "CORE"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    27,
+]
+hash = "sha256:9eb0623803273fac926b6d805d7228d9e01ba180700c27198c4fb8483a8cf4fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:62b4b5cdec9999da"
+name = "REFLECTOR"
+qual = "REFLECTOR"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    28,
+]
+hash = "sha256:a1d5d545dc037bd801b07e71c73b8c5898370dead1b1587a5a68c3ae90d5f92d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:1e10b06e9da1ff5a"
+name = "RECORDED_TRACKS"
+qual = "RECORDED_TRACKS"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    31,
+]
+hash = "sha256:a0b768c3ed6f34613ea8e585593ea49cdcde0b963f7785b587f34011b395cbf7"
+doc_hash = "sha256:ac0cec5bc3fa2ba0c689415b6d8ddd8d2aec21c36c8743b89357704b88b8fb08"
+
+[[module."mod.rs".function]]
+id = "fn:8c9a510ca2366940"
+name = "reference"
+qual = "Jemima::reference#1"
+lines = [
+    34,
+    36,
+]
+hash = "sha256:674e357cee740a8a1871d8f4503e07da63d95eef3514dd88fadc3537a802d738"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:47b1bed0155450e9"]
+uses = [
+    "fn:c42b6a5c8f490262",
+    "fn:f6778163d159a73f",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f4d012e21835dc87"
+name = "jobs"
+qual = "Jemima::jobs"
+lines = [
+    48,
+    50,
+]
+hash = "sha256:cea2b898215efe6006f6fc30c29bc043dd0515ada032895a38163c1f47a8a288"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:07944b2486fe84f4"
+name = "tier"
+qual = "Jemima::tier"
+lines = [
+    51,
+    55,
+]
+hash = "sha256:956a8be6ce9dc64ef9d6d866b7eadae611ea100f53c4128c2f95a8992688022f"
+doc_hash = "sha256:516efac3402bf4edb3bf292badab5f5960522789b3da7e12e48152de8ec78ea4"
+uses = ["fn:4fd30594fc348183"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:07af9a8487c04b88"
+name = "job_weights"
+qual = "Jemima::job_weights"
+lines = [
+    56,
+    64,
+]
+hash = "sha256:633917947242e8bda42711c90aeea3a6e486f5fcf7cd2bb4c4e1de4cfd338be8"
+doc_hash = "sha256:fd8a0cd4460a96c95473f54843641a8eb7959fc1c8ddebce82a89b2b6ec57387"
+uses = ["fn:4fd30594fc348183"]
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:32029930ea92d26d"
+name = "half_extent"
+qual = "Jemima::half_extent"
+lines = [
+    65,
+    67,
+]
+hash = "sha256:bc884e32ea4f79f8f941e7cceefd165f76862cfb0e953415641b85f004ce4259"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:b3c5540ec03fc88a"
+name = "draw"
+qual = "Jemima::draw"
+lines = [
+    68,
+    84,
+]
+hash = "sha256:4e4d00891150b71876fe9cc6d928d5da099fbaf69a27a89166ff192215ca466e"
+doc_hash = "sha256:f89c4e52af2827a162abd65a02932d6c4c1b485542dd03909e5d785b488dd44a"
+uses = [
+    "fn:62b4b5cdec9999da",
+    "fn:f540e4d592e5fe3f",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6ea3c18eb1fa1650"
+name = "notes"
+qual = "Jemima::notes"
+lines = [
+    85,
+    97,
+]
+hash = "sha256:424fa7b2a8253b006e1e1bf84b77ebe75853b75b8feb3de10fc612d17494a732"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:dc76decd6b93e683"
+name = "run_default"
+qual = "Jemima::run_default"
+lines = [
+    98,
+    102,
+]
+hash = "sha256:2e0875270abd5ecfd95fa8abac75b4e546fa57670aabc3b5fccc034c77b9dc00"
+doc_hash = "sha256:2a87e3a0c1931944f08595ec80b9d177c85c7d22e9cc543be9fd41cfceba2f79"
+uses = ["fn:0280c17de43005fc"]
+
+[[module."mod.rs".function]]
+id = "fn:4234ca2c4e907b23"
+name = "watch_generations"
+qual = "Jemima::watch_generations"
+lines = [
+    103,
+    105,
+]
+hash = "sha256:05d293df3c6189696d9d5b9adcfcbbc2c1ed1d63b8b5c84069e7b4d1a0e0dbee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0280c17de43005fc"]
+
+[[module."mod.rs".function]]
+id = "fn:47b1bed0155450e9"
+name = "reference"
+qual = "Jemima::reference#2"
+lines = [
+    106,
+    116,
+]
+hash = "sha256:12954808a158892ba5e198af5f91df682d19a22ea7b38410aaec53aeccea9f7c"
+doc_hash = "sha256:6df21757b2b489640212d4f295d96bca5e5d54a5f5c05863ee79dcecc2bccf40"
+callees = ["fn:bfca614de3ab5020"]
+uses = [
+    "fn:335178ea086747ce",
+    "fn:f6778163d159a73f",
+]
+reached_by = [
+    "#0",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e0dc9c998f555f23"
+name = "loading_note"
+qual = "Jemima::loading_note"
+lines = [
+    117,
+    122,
+]
+hash = "sha256:a3d704a1d698c8a6e7e1858b43cb24be75d89e026f0ca61d562ec97834a5af53"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4fd30594fc348183"]
+
+[[module."mod.rs".function]]
+id = "fn:9e9df24f7e4f7993"
+name = "legend"
+qual = "Jemima::legend"
+lines = [
+    123,
+    132,
+]
+hash = "sha256:198ca9e64f38b8d6c097550f1d085e6f4bcf6485c68709e2c31affc985cf506b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:62b4b5cdec9999da",
+    "fn:f540e4d592e5fe3f",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b8f453455ff287b4"
+name = "run_pool_mb"
+qual = "Jemima::run_pool_mb"
+lines = [
+    133,
+    152,
+]
+hash = "sha256:7f1b9e2e9dafa514d0d5277b09a48e014f1d5c9b217c64945baeee0aed5b9260"
+doc_hash = "sha256:1f1086550d364c9334090b8e96567e99ea47d12e6561be9a848e9452efa8c665"
+
+[[module."mod.rs".function]]
+id = "fn:cb4478673eb35a15"
+name = "recorded_tracks"
+qual = "Jemima::recorded_tracks"
+lines = [
+    153,
+    155,
+]
+hash = "sha256:d148a21ed812f31eb31033af0944a63a9a04c2c1c43c79d4c338057cc9a1737b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1e10b06e9da1ff5a"]
+
+[module."render.rs"]
+path = "crate::mc_demo::jemima::render"
+
+[[module."render.rs".function]]
+id = "fn:cdc348108cbb7c3f"
+name = "render_all"
+qual = "render_all"
+lines = [
+    17,
+    40,
+]
+hash = "sha256:4b65437d3aad7b897296f4accb8d0a86cf20811a78ba396c4897f658d8d09e4c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

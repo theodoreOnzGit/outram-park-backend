@@ -1,0 +1,175 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/examples/lesson_breathing"
+test_ids = [
+    "crates/dhoby-ghaut/tests/lesson_breathing.rs::release_present_from_the_start_vents_exactly_one_minus_t0_over_t",
+    "crates/dhoby-ghaut/tests/lesson_breathing.rs::well_mixed_matches_the_formula_and_stays_below_the_product",
+]
+
+[module."breath.rs"]
+path = "example:lesson_breathing::breath"
+
+[[module."breath.rs".function]]
+id = "fn:f28b931ce903af19"
+name = "NUCLIDES"
+qual = "NUCLIDES"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    33,
+]
+hash = "sha256:00b4e4e96f1412a63af3011e034e0ba106afacdf85b011d1983a1917926a59e9"
+doc_hash = "sha256:8a150f55c01eb2d664c1e1949417a2fa9856ce2ebccc125d1cefa373e4fd4f0d"
+
+[[module."breath.rs".function]]
+id = "fn:8367b72680f08c19"
+name = "Breath"
+qual = "Breath"
+item = "type"
+shape = "struct"
+lines = [
+    35,
+    52,
+]
+hash = "sha256:1499d04f31b6a78130733fb8bfd1e0e0c80ddc98fd6e82856772a3275e2fce93"
+doc_hash = "sha256:3be6666f6d246d04516b3c4201571b292685d512cd884dadca7b2d0558b2d842"
+reached_by = ["#1"]
+
+[[module."breath.rs".function]]
+id = "fn:781e8f7d3aa8c187"
+name = "well_mixed"
+qual = "well_mixed"
+lines = [
+    54,
+    77,
+]
+hash = "sha256:bbbe166fc93e383e07dfaaa44fb069532cf9a399867c3f1875846031ba4cfb45"
+doc_hash = "sha256:4171cefcbdef3e2ce9d5714fed9465a847b930ec006dc7d55e1bf70b89ef9ee2"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."breath.rs".function]]
+id = "fn:cb9938afca87edfa"
+name = "breath"
+qual = "breath"
+lines = [
+    79,
+    99,
+]
+hash = "sha256:e21ae5097ca66684c96fcd530a333a3784c43cfa06c1f6fe774900661070c52c"
+doc_hash = "sha256:247eb01f3aed3a0fd722462de5c0fa80718583eed7a3c4927889cf30d105260d"
+callees = [
+    "fn:109324f79b4e5741",
+    "fn:2b671335eac42f62",
+    "fn:7269e05e1ddc8099",
+    "fn:781e8f7d3aa8c187",
+]
+uses = ["fn:8367b72680f08c19"]
+reached_by = ["#1"]
+
+[[module."breath.rs".function]]
+id = "fn:b2f56c313cbd3760"
+name = "mixed_formula"
+qual = "mixed_formula"
+lines = [
+    101,
+    131,
+]
+hash = "sha256:dc03d2cfcaa6044014e3c7b124745b7ce74fda7ce96b720d4845fb68628ced73"
+doc_hash = "sha256:923a3b7d8703a95aa650bee7fe4d07c0a7ebc20dd46542cb5ed279dc52e323b5"
+reached_by = ["#1"]
+
+[module."main.rs"]
+path = "example:lesson_breathing"
+
+[[module."main.rs".function]]
+id = "fn:c84d9457a24b1fe4"
+name = "main"
+qual = "main#1"
+lines = [
+    78,
+    79,
+]
+hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:4c4161b108df14a6"
+name = "main"
+qual = "main#2"
+lines = [
+    81,
+    84,
+]
+hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:47b9753ee76f776d"]
+
+[[module."main.rs".function]]
+id = "fn:eb615bd1d12da793"
+name = "PEAKS"
+qual = "PEAKS"
+item = "const"
+shape = "const"
+lines = [
+    91,
+    91,
+]
+hash = "sha256:58cead5a522e037761b90c77a66f4907d21abb22ae0e8040998c914bb6c04da5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:3a53a2cb9718f995"
+name = "e"
+qual = "e"
+lines = [
+    93,
+    95,
+]
+hash = "sha256:1d1f4a652994175bc42c17d7a544e3a1d9ac29b3a8eaa59ed48b7e460223c5cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:dc3d78990bbd3437"
+name = "arr"
+qual = "arr"
+lines = [
+    96,
+    98,
+]
+hash = "sha256:0ac130cd012bc7ee43acd6b5847a0a898f2e8639c80a695e8254639b1d3cbc64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:a4cf07795082dcb0"
+name = "opt"
+qual = "opt"
+lines = [
+    99,
+    101,
+]
+hash = "sha256:001e8b8b07f0d0fe9746939c23c37727e4419315c34cc749e94a06c98cad8d19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:47b9753ee76f776d"
+name = "run"
+qual = "run"
+lines = [
+    103,
+    140,
+]
+hash = "sha256:90cb8b24ab8fb22c1798dbef0dccb3e944f0878d6b6950b13a8daba6217d428a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b2f56c313cbd3760",
+    "fn:cb9938afca87edfa",
+]
+uses = [
+    "fn:eb615bd1d12da793",
+    "fn:f28b931ce903af19",
+]

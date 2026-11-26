@@ -2,7 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/pri_loop_fluid_mechanics_calc_fns"
-test_ids = ["crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/mod.rs::the_ua_slider_crossed_partway_up_at_the_nominal_operating_point"]
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/mod.rs::the_ua_slider_crossed_partway_up_at_the_nominal_operating_point",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/pri_loop_fluid_mechanics_calc_fns/parallel_branch_flow_calculator.rs::finds_root_with_reversed_bracket",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/pri_loop_fluid_mechanics_calc_fns/parallel_branch_flow_calculator.rs::large_root_converges_at_the_floating_point_floor",
+]
 
 [module."mod.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::pri_loop_fluid_mechanics_calc_fns"
@@ -17,24 +21,6 @@ lines = [
 ]
 hash = "sha256:f20d6ae04af24539aa5cde9cb5db8f62ba5fe7269406a2978360deffa5ddd7d5"
 doc_hash = "sha256:f0251f511343d3201ad8a9415b99917b88d04c1bdb7722e153e63def55536312"
-callees = [
-    "fn:134aefb246f7d585",
-    "fn:352eae89cdf05026",
-    "fn:3b175c51dad51671",
-    "fn:49b3f3e819a00739",
-    "fn:74172f53fcffc1fc",
-    "fn:89b98b3aca1482a0",
-    "fn:928c1745ab947694",
-    "fn:93844cc452449d04",
-    "fn:e79236623dec9507",
-]
-uses = [
-    "fn:0a50e017198e2657",
-    "fn:77026588fa2ba602",
-    "fn:9b373dcfa52e169e",
-    "fn:ca62ba45b75e81ac",
-    "fn:ebf3ac43832118cf",
-]
 reached_by = ["#0"]
 physical_interface = true
 
@@ -48,11 +34,6 @@ lines = [
 ]
 hash = "sha256:540f24d6392468cfb045dc026691fa55473e195c39288c058af659304caa2504"
 doc_hash = "sha256:abca4430233c4f89f23601365b91450b3e41be9295c980cc9e5d40031dc43c1f"
-callees = [
-    "fn:134aefb246f7d585",
-    "fn:74172f53fcffc1fc",
-]
-uses = ["fn:ca62ba45b75e81ac"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -65,11 +46,6 @@ lines = [
 ]
 hash = "sha256:befa3cbc5813d11133f3e9eac0135f5c14a2666573671ade76485ed683fdce90"
 doc_hash = "sha256:61de3d473064616c2b3c8a93cad6e5a1a6e0a98df117e1378a818ecdaaa0394c"
-callees = [
-    "fn:134aefb246f7d585",
-    "fn:74172f53fcffc1fc",
-]
-uses = ["fn:ca62ba45b75e81ac"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -82,20 +58,7 @@ lines = [
 ]
 hash = "sha256:ec9cf78abb82d0646ee1f78c9fa076e05de6e7865ffcdf111dd6872cc29f231d"
 doc_hash = "sha256:61de3d473064616c2b3c8a93cad6e5a1a6e0a98df117e1378a818ecdaaa0394c"
-callees = [
-    "fn:352eae89cdf05026",
-    "fn:89b98b3aca1482a0",
-    "fn:93844cc452449d04",
-    "fn:e79236623dec9507",
-    "fn:ef6bceea2d0aab7d",
-]
-uses = [
-    "fn:77026588fa2ba602",
-    "fn:9b373dcfa52e169e",
-    "fn:ca62ba45b75e81ac",
-    "fn:d4b239bd4b67db13",
-    "fn:ebf3ac43832118cf",
-]
+callees = ["fn:ef6bceea2d0aab7d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -108,23 +71,6 @@ lines = [
 ]
 hash = "sha256:19a9ec3f6b0a90dc1a4d32b3c61a682f483c6c6c16daeb818cd8e8113a567442"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:32f411937a5c1d1b",
-    "fn:352eae89cdf05026",
-    "fn:49b3f3e819a00739",
-    "fn:89b98b3aca1482a0",
-    "fn:93844cc452449d04",
-    "fn:c5b03a40b86a1ce1",
-    "fn:e79236623dec9507",
-]
-uses = [
-    "fn:77026588fa2ba602",
-    "fn:9b373dcfa52e169e",
-    "fn:9cd1446ef56c9f1c",
-    "fn:ca62ba45b75e81ac",
-    "fn:d4b239bd4b67db13",
-    "fn:ebf3ac43832118cf",
-]
 physical_interface = true
 
 [module."parallel_branch_flow_calculator.rs"]
@@ -135,20 +81,12 @@ id = "fn:d77011bd87415bc6"
 name = "calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1"
 qual = "calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1"
 lines = [
-    24,
-    425,
+    25,
+    426,
 ]
 hash = "sha256:7e45e96b6af74f0e924f9135c017dc41fedc98644810a3096259f635431a11b5"
 doc_hash = "sha256:a30eb110f3455394c6a50d875ce2a6a4babdbf7e0e0a669d49f5878c3eaaaf52"
-callees = [
-    "fn:b96c71a8e07cc6c4",
-    "fn:cea03dd5d2c74e29",
-    "fn:fcc353ad9d38724f",
-]
-uses = [
-    "fn:c077ceedfafe83f6",
-    "fn:ca62ba45b75e81ac",
-]
+callees = ["fn:fcc353ad9d38724f"]
 physical_interface = true
 
 [[module."parallel_branch_flow_calculator.rs".function]]
@@ -156,16 +94,14 @@ id = "fn:fcc353ad9d38724f"
 name = "calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_custom"
 qual = "calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_custom"
 lines = [
-    427,
-    607,
+    428,
+    609,
 ]
-hash = "sha256:ffc2335d8dc42cb7eb867a9f93723c82b8b88edf83337e6ece8887567bbe69f2"
+hash = "sha256:ec9aca608cb85e7e460e15917b3871155871f9d4419a90214cbc179e1bca6acf"
 doc_hash = "sha256:b70ce41aeba37853aab4021b1a50c03bcfa4986138b42918e7e1440fa0408135"
-callees = ["fn:f73b416dd3607b29"]
-uses = [
-    "fn:c077ceedfafe83f6",
-    "fn:ca62ba45b75e81ac",
-    "fn:ebf3ac43832118cf",
+callees = [
+    "fn:ae373e6dd6c31185",
+    "fn:f73b416dd3607b29",
 ]
 physical_interface = true
 
@@ -174,16 +110,12 @@ id = "fn:f73b416dd3607b29"
 name = "calculate_mass_flowrate_from_pressure_change_for_parallel_branches"
 qual = "calculate_mass_flowrate_from_pressure_change_for_parallel_branches"
 lines = [
-    609,
-    654,
+    611,
+    656,
 ]
 hash = "sha256:45763f22f136c39c7c266d7ddbb0527c3340092a4ed61f266dd5f5e03e373594"
 doc_hash = "sha256:fed086ae12c2abc3eeba5ceefcdbe1c05a093351cfb708cef74b9e72d7e59525"
-callees = [
-    "fn:758bc5578ccfb600",
-    "fn:c2db3a3641ad77e2",
-]
-uses = ["fn:ebf3ac43832118cf"]
+callees = ["fn:c2db3a3641ad77e2"]
 physical_interface = true
 
 [[module."parallel_branch_flow_calculator.rs".function]]
@@ -191,17 +123,84 @@ id = "fn:c2db3a3641ad77e2"
 name = "calculate_mass_flowrate_from_pressure_change_for_single_branch"
 qual = "calculate_mass_flowrate_from_pressure_change_for_single_branch"
 lines = [
-    656,
-    917,
+    658,
+    922,
 ]
-hash = "sha256:72360a76e38a31956263597b71258164e6d41a330604c648722dcf50dfdf1df3"
+hash = "sha256:595f58e7459f5c7b589357c309494834c231566925aef2b5c6c15202b74e0b99"
 doc_hash = "sha256:65a1f41af51af65e696dc5c0f9a000596aeb8715c3c04fe5f4d32f26567ae3b1"
-uses = [
-    "fn:5bcbbf392051e369",
-    "fn:d4b239bd4b67db13",
-    "fn:ebf3ac43832118cf",
-]
+callees = ["fn:ae373e6dd6c31185"]
 physical_interface = true
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:48f892c86dd3174b"
+name = "BRENT_FLOOR_EPSREL"
+qual = "BRENT_FLOOR_EPSREL"
+item = "const"
+shape = "const"
+lines = [
+    924,
+    926,
+]
+hash = "sha256:5081913cd55902a2577da279820b8b9c1069d4d330a760c6554330352c1b5d6e"
+doc_hash = "sha256:d82a1ed4518b0a1badb558b573884cbda769c4053eec6e3645eff8af7d0a7984"
+reached_by = [
+    "#1",
+    "#2",
+]
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:ae373e6dd6c31185"
+name = "find_root_brent_petir"
+qual = "find_root_brent_petir"
+lines = [
+    928,
+    975,
+]
+hash = "sha256:a2882cc2a7227c0b03541752dc54d9557cea24960c21bfd98039b3d8aed58195"
+doc_hash = "sha256:4db6b8204cabfd035808fd88ddf70f40efd90487907b83ad4d25666a7e9f7f20"
+uses = ["fn:48f892c86dd3174b"]
+reached_by = [
+    "#1",
+    "#2",
+]
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:32bf3e02d26816e6"
+name = "finds_root_with_reversed_bracket"
+qual = "finds_root_with_reversed_bracket"
+lines = [
+    981,
+    988,
+]
+hash = "sha256:5c71289d8cd614beb1b780ad649563ac5bad34cf6d108b8cdf2ea2d1d6dd1296"
+doc_hash = "sha256:4d03b73c85bc6d25a14faabeb1314d7fa4759d3cc0da392d85256d427f533209"
+callees = ["fn:ae373e6dd6c31185"]
+test = true
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:5d10d90edd21dac5"
+name = "large_root_converges_at_the_floating_point_floor"
+qual = "large_root_converges_at_the_floating_point_floor"
+lines = [
+    990,
+    998,
+]
+hash = "sha256:02d1ef3f36b1cba147a70f985b3ab2d2d31d40824b2534ee5408faf3ef77dc9f"
+doc_hash = "sha256:65030b10c851f4a6407b9eeb4850817c0314192b4d7352ba3a5b872673f5ff0c"
+callees = ["fn:ae373e6dd6c31185"]
+test = true
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:dabdd3e8b5b0fd76"
+name = "unbracketed_interval_is_an_error"
+qual = "unbracketed_interval_is_an_error"
+lines = [
+    1000,
+    1008,
+]
+hash = "sha256:bece23cb0fd5ff7a2bc03164b24291ee60ee717bcb47e815b5741176bb3c0648"
+doc_hash = "sha256:5b023883253fea5ba8e74121f836fb19bdc108b1caad22fec7a96d419dfee3b3"
+test = true
 
 [test_run]
 commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"

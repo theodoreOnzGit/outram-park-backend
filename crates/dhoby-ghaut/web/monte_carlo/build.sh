@@ -49,7 +49,7 @@ cargo run --release -p dhoby-ghaut --example monte_carlo_web -- --prepare-web-da
 
 # The geometry review images (the crate's drawing rule), with a page to view
 # them, so the geometry is checkable from the web next to the demo.
-geo_src="$root/crates/dhoby-ghaut/examples/monte_carlo_web/geometry"
+geo_src="$root/crates/dhoby-ghaut/src/mc_demo/geometry"
 mkdir -p "$dist/geometry"
 cp "$geo_src"/*.png "$dist/geometry/"
 {

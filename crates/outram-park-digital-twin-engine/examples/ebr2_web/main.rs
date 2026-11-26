@@ -13,6 +13,7 @@
 //! ```text
 //! cargo run --release -p outram-park-digital-twin-engine --example ebr2_web
 //! cargo run --release -p outram-park-digital-twin-engine --example ebr2_web -- --headless [end_s] [every_s] [--shrt17]
+//! cargo run --release -p outram-park-digital-twin-engine --example ebr2_web -- --dump-cvs [steps] [--shrt17]   # the twin's CV map (gh:#1749)
 //! crates/outram-park-digital-twin-engine/web/ebr2/build.sh   # the browser demo, into dist/
 //! ```
 //!
@@ -39,6 +40,8 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod plant_view;
+#[cfg(not(target_os = "android"))]
+mod keff_tab;
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]
@@ -60,6 +63,25 @@ fn main() -> Result<(), String> {
         let cfg = SessionConfig { test, ..Default::default() };
         let csv = headless_csv(cfg, &demo_script(), num(1, 900.0), num(2, 10.0)).map_err(|e| e.to_string())?;
         print!("{csv}");
+        return Ok(());
+    }
+    // The multifidelity twin template's CV map (gh:#1744, #1749): the
+    // control volumes after `steps` plant seconds of the test.
+    if args.iter().any(|a| a == "--dump-cvs") {
+        use outram_park_digital_twin_engine::ebr2::twin::{demo_script as twin_script, ebr2_twin};
+        use uom::si::{f64::Time, time::second};
+        let test = if args.iter().any(|a| a == "--shrt17") { ShrtTest::Shrt17 } else { ShrtTest::Shrt45r };
+        let mut twin = ebr2_twin(SessionConfig { test, ..Default::default() }).map_err(|e| e.to_string())?;
+        let one = Time::new::<second>(1.0);
+        let out = twin.headless(&args, &twin_script(), one, Time::new::<second>(900.0)).map_err(|e| e.to_string())?;
+        print!("{out}");
+        return Ok(());
+    }
+    // The MC page's tapes, stripped and compressed, for the web build
+    // (gh:#1762). CLI glue.
+    if let Some(i) = args.iter().position(|a| a == "--prepare-web-data") {
+        let dir = args.get(i + 1).ok_or("--prepare-web-data needs an output directory")?;
+        engine::keff::prepare_web_data(std::path::Path::new(dir))?;
         return Ok(());
     }
     eframe::run_native(

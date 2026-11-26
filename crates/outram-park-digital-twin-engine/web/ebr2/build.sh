@@ -36,5 +36,7 @@ mkdir -p "$dist"
 wasm-bindgen --target web --no-typescript --out-dir "$dist" --out-name ebr2_web \
   "$root/target/wasm32-unknown-unknown/release/examples/ebr2_web.wasm"
 cp "$here/index.html" "$here/ebr2_worker.js" "$dist/"
+# The MC page's tapes (gh:#1762), as MSRE's build publishes its k_eff tab's.
+cargo run --release -p outram-park-digital-twin-engine --example ebr2_web -- --prepare-web-data "$dist/data"
 cp "$root/crates/outram-park-digital-twin-engine/web/gate.js" "$dist/"
 echo "EBR-II demo built in $dist"

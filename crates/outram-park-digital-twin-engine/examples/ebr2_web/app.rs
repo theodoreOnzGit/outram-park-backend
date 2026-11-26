@@ -3,8 +3,10 @@
 //!
 //! Built on `bugis::web_demo` (the folding side panel, the main view's zoom
 //! buttons, the link to the engine) and `bugis::tab_bar` (the bottom bar,
-//! gh:#1717). Three tabs: the Plant sketch (`plant_view`), the Trends, and
-//! the Reactivity broken into its feedback terms.
+//! gh:#1717). ~~Three tabs: the Plant sketch (`plant_view`), the Trends, and
+//! the Reactivity broken into its feedback terms.~~ **Since 2026-11-25
+//! (gh:#1759)** on the standard twin shell (`twin::shell`): the plant sketch
+//! on Plant, the trends on Graphs, the reactivity terms on Kinetics.
 //!
 //! GUI drawing code: reached by no test (needs a window), per the workspace
 //! exception for GUI code. What it draws is tested in `ebr2::session`,
@@ -12,14 +14,16 @@
 
 use crate::plant_view::{self, Tracers};
 use bugis::web_demo::link::Link;
-use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, set_title};
-use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
+use bugis::web_demo::view::{apply_zoom, View};
+use outram_park_digital_twin_engine::twin::shell::{ShellAt, ShellHost, TwinShell};
+use outram_park_digital_twin_engine::twin::{TwinPage, ViewState};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, Vec2};
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 use outram_park_digital_twin_engine::ebr2::design::{PUMP_RATED_SPEED_RPM, RATED_MASS_FLOWS_KG_PER_S};
 use outram_park_digital_twin_engine::ebr2::session::{Command, Initial, SessionConfig, Snapshot, VV_THERMAL_CENTRE_HEIGHT_M};
 use outram_park_digital_twin_engine::ebr2::shrt::ShrtTest;
+use outram_park_digital_twin_engine::ebr2::web::keff::KEv;
 use outram_park_digital_twin_engine::ebr2::web::{Event, Request, DEFAULT_SPEED};
 
 /// Speeds offered: plant seconds per wall second.
@@ -30,30 +34,21 @@ const HISTORY_MAX: usize = 6000;
 /// worth (beta-eff is 705 pcm; the upper end is about half a dollar).
 const EXTERNAL_PCM: std::ops::RangeInclusive<f64> = -500.0..=350.0;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tab {
-    Plant,
-    Trends,
-    Reactivity,
-}
-
-impl Tab {
-    const ALL: [Tab; 3] = [Tab::Plant, Tab::Trends, Tab::Reactivity];
-    fn label(self) -> &'static str {
-        match self {
-            Tab::Plant => "Plant",
-            Tab::Trends => "Trends",
-            Tab::Reactivity => "Reactivity",
-        }
-    }
-}
-
+/// The EBR-II simulator's pages on the standard twin shell (gh:#1759):
+/// the shell owns the Gruvbox theme, the left panel, the page bar and the
+/// greying; this app fills the slots ([`ShellHost`]). Plant is the plant
+/// sketch, Graphs the trends, Kinetics the reactivity broken into its
+/// feedback terms. Greyed: Freq. and Nodes (the browser page has neither
+/// yet; the native twin has the four nodes, `ebr2::twin`; gh:#1759), CFD
+/// (gh:#1747). MC is the simplified fresh full core (gh:#1762).
 pub struct App {
-    theme: bugis::Theme,
+    shell: TwinShell,
+    /// The MC page: the simplified full core on a worker pool (gh:#1762).
+    keff: crate::keff_tab::KeffTab,
     link: Link<Request, Event>,
-    panel: Panel,
     view: View,
-    tab: Tab,
+    /// The plant view's rect, for the shell's zoom buttons.
+    plant_rect: Rect,
     snap: Option<Snapshot>,
     history: Vec<Snapshot>,
     initial: Option<Initial>,
@@ -81,17 +76,19 @@ impl App {
         if value("test").as_deref() == Some("shrt17") {
             config.test = ShrtTest::Shrt17;
         }
-        let tab = match value("tab").as_deref() {
-            Some("trends") => Tab::Trends,
-            Some("reactivity") => Tab::Reactivity,
-            _ => Tab::Plant,
+        let mut shell = TwinShell::default();
+        shell.page = match value("tab").as_deref() {
+            Some("trends") => TwinPage::Graphs,
+            Some("reactivity") => TwinPage::Kinetics,
+            Some("mc") => TwinPage::MonteCarlo,
+            _ => TwinPage::Plant,
         };
         let mut app = Self {
-            theme: bugis::Theme::default(),
+            shell,
+            keff: crate::keff_tab::KeffTab::default(),
             link,
-            panel: Panel::default(),
             view: View::new(plant_view::HALF_EXTENT),
-            tab,
+            plant_rect: Rect::NOTHING,
             snap: None,
             history: Vec::new(),
             initial: None,
@@ -149,6 +146,9 @@ impl App {
                 Event::Initial(f) => self.initial = Initial::from_slice(&f.to_vec()),
                 Event::Held(t, m) => self.held = Some((t, m)),
                 Event::Error(m) => self.error = Some(m),
+                // The MC page's geometry, drawn by the plant worker.
+                Event::Keff(KEv::Raster { view, w, h, ids }) => self.keff.on_raster(view, w, h, ids),
+                Event::Keff(_) => {}
             }
         }
     }
@@ -167,7 +167,6 @@ impl App {
         if let Some(e) = &self.error {
             ui.colored_label(ui.visuals().error_fg_color, e);
         }
-        bugis::selector(ui, &mut self.theme);
         ui.separator();
 
         ui.heading("Test");
@@ -268,6 +267,7 @@ impl App {
     }
 
     fn plant(&mut self, ui: &mut egui::Ui, rect: Rect) {
+        self.plant_rect = rect;
         let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
         if !self.view.fitted || (!self.view.touched && self.view.fit_size != rect.size()) {
             self.view.fit(rect);
@@ -283,7 +283,7 @@ impl App {
         plant_view::paint(&ui.painter().with_clip_rect(rect), &to, &s, &self.tracers, text, muted);
         // Readouts and the colour key, on the main view.
         let narrow = rect.width() < 700.0;
-        let top = rect.top() + if narrow { 84.0 } else { 52.0 };
+        let top = rect.top() + 28.0;
         let lines = [
             format!("primary flow {:.0} kg/s ({:.1} % of initial) · power/flow {:.2}", s.primary_flow_kg_s, 100.0 * s.flow_fraction, s.power_to_flow),
             if narrow {
@@ -305,9 +305,6 @@ impl App {
         }
         ui.painter().text(k.left_bottom() + Vec2::new(0.0, 2.0), Align2::LEFT_TOP, format!("{:.0} °C", plant_view::T_COLD_C), FontId::proportional(12.0), text);
         ui.painter().text(k.right_bottom() + Vec2::new(0.0, 2.0), Align2::RIGHT_TOP, format!("{:.0} °C", plant_view::T_HOT_C), FontId::proportional(12.0), text);
-        if let Some(z) = zoom_buttons(ui, rect) {
-            apply_zoom(&mut self.view, rect, z);
-        }
     }
 
     fn trends(&self, ui: &mut egui::Ui) {
@@ -432,51 +429,93 @@ impl eframe::App for App {
             set_title(&ctx, &title);
             self.title = title;
         }
-        let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "EBR-II simulator", |ui| self.side_panel(ui));
-        self.panel = panel;
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
-            let full = ui.max_rect();
-            let bar = bugis::tab_bar::layout(full, Tab::ALL.len());
-            let main = bar.main;
-            let narrow = main.width() < 700.0;
-            match self.tab {
-                Tab::Plant => self.plant(ui, main),
-                Tab::Trends => {
-                    let inner = Rect::from_min_max(main.min + Vec2::new(8.0, if narrow { 84.0 } else { 44.0 }), main.max - Vec2::new(8.0, 4.0));
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| egui::ScrollArea::vertical().show(ui, |ui| self.trends(ui)));
-                }
-                Tab::Reactivity => {
-                    let inner = Rect::from_min_max(main.min + Vec2::new(8.0, if narrow { 84.0 } else { 44.0 }), main.max - Vec2::new(8.0, 4.0));
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.reactivity(ui, inner));
-                }
-            }
-            // The status strip, on every tab, shown with the panel folded.
-            if let Some(s) = &self.snap {
-                let at = if narrow { Vec2::new(10.0, 58.0) } else { Vec2::new(if self.panel.open { 8.0 } else { 156.0 }, 14.0) };
-                let state = if self.held.is_some() {
-                    " · HELD"
-                } else if self.running {
-                    ""
-                } else {
-                    " (paused)"
-                };
-                let colour = if self.held.is_some() { ui.visuals().error_fg_color } else { ui.visuals().text_color() };
-                ui.painter().text(
-                    full.left_top() + at,
-                    Align2::LEFT_TOP,
-                    format!("{} · t = {:.0} s · {:.1} MW{state} · NOT VALIDATED", self.config.test.name(), s.time_s, s.total_mw),
-                    FontId::proportional(14.0),
-                    colour,
-                );
-            }
-            let labels: Vec<&str> = Tab::ALL.iter().map(|t| t.label()).collect();
-            let selected = Tab::ALL.iter().position(|t| *t == self.tab).unwrap_or(0);
-            if let Some(i) = bugis::tab_bar::tab_bar(ui, &bar, &labels, selected) {
-                self.tab = Tab::ALL[i];
-            }
-            self.panel.reopen_button(ui, full);
-        });
+        // The MC page's pool and drawing, while it is open or running.
+        if self.shell.page == TwinPage::MonteCarlo || self.keff.busy() {
+            self.keff.pump(&ctx, &self.link);
+        }
+        let mut shell = std::mem::take(&mut self.shell);
+        shell.ui(ui, self);
+        self.shell = shell;
         self.held_modal(&ctx);
+    }
+}
+
+impl ShellHost for App {
+    fn title(&self) -> String {
+        "EBR-II simulator".into()
+    }
+
+    fn page_state(&self, page: TwinPage) -> ViewState {
+        match page {
+            TwinPage::Plant | TwinPage::Graphs | TwinPage::Kinetics => ViewState::Built,
+            TwinPage::Surrogate | TwinPage::ControlVolumes => ViewState::NotBuilt { issue: 1759 },
+            TwinPage::Cfd => ViewState::NotBuilt { issue: 1747 },
+            // The simplified fresh full core (gh:#1762).
+            TwinPage::MonteCarlo => ViewState::Built,
+        }
+    }
+
+    fn left(&mut self, ui: &mut egui::Ui, at: ShellAt) {
+        if at.page == TwinPage::MonteCarlo {
+            self.keff.panel(ui);
+            ui.separator();
+        }
+        self.side_panel(ui);
+    }
+
+    fn zoomable(&self, at: ShellAt) -> bool {
+        matches!(at.page, TwinPage::Plant | TwinPage::MonteCarlo)
+    }
+
+    fn zoom(&mut self, at: ShellAt, z: bugis::web_demo::view::Zoom) {
+        if at.page == TwinPage::MonteCarlo {
+            apply_zoom(&mut self.keff.geo_view, self.keff.geo_rect, z);
+        } else {
+            apply_zoom(&mut self.view, self.plant_rect, z);
+        }
+    }
+
+    fn bottom_dock(&self, at: ShellAt) -> Option<&'static str> {
+        (at.page == TwinPage::MonteCarlo).then_some("k_eff · entropy")
+    }
+
+    fn bottom(&mut self, ui: &mut egui::Ui, rect: Rect, _at: ShellAt) {
+        self.keff.keff_body(ui, rect);
+    }
+
+    fn central(&mut self, ui: &mut egui::Ui, rect: Rect, at: ShellAt) {
+        ui.painter().rect_filled(rect, 0.0, ui.visuals().extreme_bg_color);
+        // The status strip, on every page.
+        if let Some(s) = &self.snap {
+            let state = if self.held.is_some() {
+                " · HELD"
+            } else if self.running {
+                ""
+            } else {
+                " (paused)"
+            };
+            let colour = if self.held.is_some() { ui.visuals().error_fg_color } else { ui.visuals().text_color() };
+            ui.painter().text(
+                rect.left_top() + Vec2::new(10.0, 4.0),
+                Align2::LEFT_TOP,
+                format!("{} · t = {:.0} s · {:.1} MW{state} · NOT VALIDATED", self.config.test.name(), s.time_s, s.total_mw),
+                FontId::proportional(14.0),
+                colour,
+            );
+        }
+        let below = Rect::from_min_max(rect.min + Vec2::new(0.0, 24.0), rect.max);
+        let inner = below.shrink2(Vec2::new(8.0, 4.0));
+        match at.page {
+            TwinPage::Plant => self.plant(ui, below),
+            TwinPage::Graphs => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| egui::ScrollArea::vertical().show(ui, |ui| self.trends(ui)));
+            }
+            TwinPage::Kinetics => {
+                ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.reactivity(ui, inner));
+            }
+            // Greyed (page_state): the shell draws their note.
+            TwinPage::MonteCarlo => self.keff.geometry_ui(ui, inner),
+            TwinPage::Surrogate | TwinPage::ControlVolumes | TwinPage::Cfd => {}
+        }
     }
 }

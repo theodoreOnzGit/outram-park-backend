@@ -101,7 +101,7 @@ physics, per the crate rule:
 Plus a small `web_demo::residual` for the log-y convergence plot. **Both must
 be hand-drawn with the `egui::Painter`**: `egui_plot` is declared only in
 `dhoby-ghaut`'s native-only dev-dependency table and is *not* available on
-wasm. `examples/monte_carlo_web/sweep.rs` is the worked example to copy — grid,
+wasm. ~~`examples/monte_carlo_web/sweep.rs`~~ `crates/dhoby-ghaut/src/mc_demo/sweep.rs` (gh:#1763) is the worked example to copy — grid,
 axes, error bars, and `LineStyle::{Ours, Reference}` as dotted vs dashed, which
 is already the house convention for "our result against the reference".
 

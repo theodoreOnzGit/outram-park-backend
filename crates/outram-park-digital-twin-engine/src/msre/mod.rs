@@ -60,6 +60,9 @@ pub mod model;
 pub mod moltres_drift;
 pub mod pumps;
 pub mod session;
+/// The MSRE on the multifidelity twin template (gh:#1748): the session as
+/// the plant, the N-3 split as the Monte Carlo case. Adapters only.
+pub mod twin;
 /// The simulator's engine, k_eff workers and pool as a library (gh:#1578):
 /// built on `dhoby_ghaut::mc_web` and `bugis::web_demo`, so off Android.
 #[cfg(not(target_os = "android"))]

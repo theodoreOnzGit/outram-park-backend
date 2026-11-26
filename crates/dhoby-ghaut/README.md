@@ -293,7 +293,12 @@ Limits, each with an issue:
 images at `demos/monte-carlo/geometry/`). `?rung=godiva&mode=run` opens the
 Godiva Run k_eff (likewise `jemima`, `hst009` and `lct008`, gh:#859); `?rung=triso` the pebble. The old
 `demos/triso-pebble/` URL redirects to `?rung=triso`. The rung table, and the
-lesson page each rung links to, is `examples/monte_carlo_web/rungs.rs`.
+lesson page each rung links to, is `src/mc_demo/rungs.rs` and `src/mc_demo/table.rs`.
+**Since gh:#1763 the demo's app, engine and rungs are the library's
+`dhoby_ghaut::mc_demo`** (feature `mc_demo`; ~~`examples/monte_carlo_web/`~~),
+so another simulator can host it: `outram-park-digital-twin-engine`'s
+`htgr_sim_v1` draws the HTR-10 whole core on its MC page. The example keeps
+only its `main` functions.
 
 **Godiva (rung 1, gh:#521).** ICSBEP HEU-MET-FAST-001 from
 `outram_mc_libs::vv::godiva`, the model of the recorded result. *Watch* shows
@@ -308,7 +313,7 @@ NJOY's tolerance 0.001 so the `k` is comparable. Natively (i9-13900K, one
 thread, 2026-10-04) the data took 62 s and the 800 000 histories 2.9 s, giving
 k = 0.99942 ± 0.00183 (seed 1).
 
-**TRISO pebble.** `examples/monte_carlo_web/triso/` puts a pebble on screen and sends neutrons into it
+**TRISO pebble.** `src/mc_demo/triso/` puts a pebble on screen and sends neutrons into it
 **one at a time**, drawing each track coloured by energy as the neutron slows
 down in the graphite, until it is captured or causes a fission. Start and stop
 it, step one neutron, zoom in until the five TRISO coating layers are visible.
@@ -358,10 +363,11 @@ python3 -m http.server -d crates/dhoby-ghaut/web/monte_carlo/dist 8000
 Both are written down once, in this crate's
 [`CLAUDE.md`](CLAUDE.md#web-demos-how-a-new-track-app-and-a-new-rung-plug-in).
 In short: a **Monte Carlo rung** is a directory
-`examples/monte_carlo_web/<rung>/` implementing `rungs::McRung`, plus ~~two
+`src/mc_demo/<rung>/` (~~`examples/monte_carlo_web/<rung>/`~~ until gh:#1763)
+implementing `rungs::McRung`, plus ~~two
 lines in `main.rs` (a plain `mod <rung>;`, never declared by the macro, and
 its entry in the `rung_table!`)~~ **CHANGED 2026-11-05:** a plain `mod <rung>;`
-line in `main.rs` and, in `examples/monte_carlo_web/table.rs` (the
+line in ~~`main.rs`~~ `src/mc_demo/mod.rs` (gh:#1763) and, in `src/mc_demo/table.rs` (the
 `rung_table!` macro is gone), one enum variant and one `match` arm per
 dispatch method, plus its lesson page; a **new track's
 demo** is a new example built on the library's `dhoby_ghaut::web_demo`
@@ -370,7 +376,7 @@ card, rung table and lesson links), whose module docs walk through it.
 
 **Geometry review images** (the crate's drawing rule), rendered from the
 assembled geometry with the OpenMC-parity plotter, are committed under
-[`examples/monte_carlo_web/geometry/`](examples/monte_carlo_web/geometry/):
+[`src/mc_demo/geometry/`](src/mc_demo/geometry/) (moved with the demo, gh:#1763):
 the whole TRISO cell, a quadrant, one particle, two axial slices, and the
 Godiva sphere in x-y and x-z. Regenerate them with `-- --render-geometry <dir>`
 whenever the geometry changes.

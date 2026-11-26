@@ -1,0 +1,296 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/mc_demo/hst009"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_demo/app.rs::a_stopped_run_drops_its_late_generation",
+    "crates/dhoby-ghaut/src/mc_demo/benchpool.rs::a_pooled_run_is_run_keff_csg_par_on_any_number_of_workers",
+    "crates/dhoby-ghaut/src/mc_demo/benchpool.rs::godiva_runs_on_the_pool_with_the_lesson_counts",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/mod.rs::the_pooled_kinf_is_run_keff_delta_par_in_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_demo/prime_pool.rs::a_load_is_dealt_once_each_and_only_when_it_pays",
+    "crates/dhoby-ghaut/src/mc_demo/prime_pool.rs::a_prime_pool_processes_every_job_once_then_is_done",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::a_history_crosses_the_worker_boundary_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::every_godiva_history_leaks_or_is_absorbed_inside_the_sphere",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::every_history_ends_physically_inside_the_cell",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_engine_thread_runs_the_headless_sequence",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_godiva_keff_run_counts_close_and_crosses_the_worker_boundary",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_headless_run_matches_the_committed_fixture",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_hst009_rung_thermalises_and_runs_its_keff",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_jemima_rung_tracks_neutrons_and_runs_its_keff",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_lct008_rung_runs_a_whole_core_keff",
+    "crates/dhoby-ghaut/src/mc_demo/tests.rs::the_natural_uranium_rung_tracks_whole_histories_inside_the_bar",
+]
+
+[module."mod.rs"]
+path = "crate::mc_demo::hst009"
+
+[[module."mod.rs".function]]
+id = "fn:1c1128916cf535b7"
+name = "SOLUTION"
+qual = "SOLUTION"
+item = "const"
+shape = "const"
+lines = [
+    31,
+    31,
+]
+hash = "sha256:ed78a22ea2285183a135e35d5ed27ce89ca867cf3ffbe6b0dd9c31ba5ba38385"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:4d39c9ec1be7f781"
+name = "TANK"
+qual = "TANK"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    32,
+]
+hash = "sha256:2e24a6db1ce5c751e5da3600b228eb05c489ad034a05e236208f55e70c3a61a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:c495d1b382a796b7"
+name = "WATER"
+qual = "WATER"
+item = "const"
+shape = "const"
+lines = [
+    33,
+    33,
+]
+hash = "sha256:da59f55757fabbcc7065719e121a640c894e18de13cea3ac1bdcb6c2ed795e24"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:cff61f39d1527df6"
+name = "RECORDED_TRACKS"
+qual = "RECORDED_TRACKS"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    36,
+]
+hash = "sha256:a0b768c3ed6f34613ea8e585593ea49cdcde0b963f7785b587f34011b395cbf7"
+doc_hash = "sha256:703f9a77e46f5403736650fac6149e54ae5e3821eb549b53a8e81b1192d36eb5"
+
+[[module."mod.rs".function]]
+id = "fn:b57d518e47f6c310"
+name = "reference"
+qual = "Hst009::reference#1"
+lines = [
+    39,
+    41,
+]
+hash = "sha256:3016c49f8c41a0616d2c019b62793c41f95450fce4e2cbc45e732418458f0e52"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c0ee1906e7195a23"]
+uses = [
+    "fn:c42b6a5c8f490262",
+    "fn:f6778163d159a73f",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a7bd9a463ef398b5"
+name = "jobs"
+qual = "Hst009::jobs"
+lines = [
+    53,
+    55,
+]
+hash = "sha256:cea2b898215efe6006f6fc30c29bc043dd0515ada032895a38163c1f47a8a288"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:257b9155216c74c8"
+name = "tier"
+qual = "Hst009::tier"
+lines = [
+    56,
+    60,
+]
+hash = "sha256:956a8be6ce9dc64ef9d6d866b7eadae611ea100f53c4128c2f95a8992688022f"
+doc_hash = "sha256:516efac3402bf4edb3bf292badab5f5960522789b3da7e12e48152de8ec78ea4"
+uses = ["fn:4fd30594fc348183"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4b68e76a782a63d2"
+name = "job_weights"
+qual = "Hst009::job_weights"
+lines = [
+    61,
+    72,
+]
+hash = "sha256:4f30b9711681247c31fc2e3d58358ba6643e62d912b31fe67710fd5f1a3e4220"
+doc_hash = "sha256:b073fca6daf772f93b84fa7e66f374c5147ebc3128c4cb41c1f6b80f5a5cf351"
+uses = ["fn:4fd30594fc348183"]
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e128c42adfe01952"
+name = "half_extent"
+qual = "Hst009::half_extent"
+lines = [
+    73,
+    75,
+]
+hash = "sha256:38d512af913ea291d29eb073ea606c8a41cdf94419a36991aac521fec5b29d6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:46cd8aa6ee4d13af"
+name = "draw"
+qual = "Hst009::draw"
+lines = [
+    76,
+    91,
+]
+hash = "sha256:3508bdb8c5aa438425e8eb61b7b46bd91406dbc6ed85ee1420e20430dc19fc17"
+doc_hash = "sha256:cad11ee6d5375734aff6e5444bed0414f90a59707ebf40903d010634591ad24d"
+uses = [
+    "fn:1c1128916cf535b7",
+    "fn:4d39c9ec1be7f781",
+    "fn:c495d1b382a796b7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0ea222eae6afc8ac"
+name = "notes"
+qual = "Hst009::notes"
+lines = [
+    92,
+    105,
+]
+hash = "sha256:d4c8077f1396c5e4b31d6f0bea555a04d4d81ce28377d835ccc5bbacac2d11b5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:accb1e56c9ea338a"
+name = "run_default"
+qual = "Hst009::run_default"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:2e0875270abd5ecfd95fa8abac75b4e546fa57670aabc3b5fccc034c77b9dc00"
+doc_hash = "sha256:2a87e3a0c1931944f08595ec80b9d177c85c7d22e9cc543be9fd41cfceba2f79"
+uses = ["fn:0280c17de43005fc"]
+
+[[module."mod.rs".function]]
+id = "fn:b66230d63f2f0ec7"
+name = "watch_generations"
+qual = "Hst009::watch_generations"
+lines = [
+    111,
+    113,
+]
+hash = "sha256:05d293df3c6189696d9d5b9adcfcbbc2c1ed1d63b8b5c84069e7b4d1a0e0dbee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0280c17de43005fc"]
+
+[[module."mod.rs".function]]
+id = "fn:c0ee1906e7195a23"
+name = "reference"
+qual = "Hst009::reference#2"
+lines = [
+    114,
+    124,
+]
+hash = "sha256:75b2c0fbe8476c73647ca93f23fa1a0959eb3fca124d123fce7d6edac6728665"
+doc_hash = "sha256:6df21757b2b489640212d4f295d96bca5e5d54a5f5c05863ee79dcecc2bccf40"
+callees = ["fn:bfca614de3ab5020"]
+uses = [
+    "fn:335178ea086747ce",
+    "fn:f6778163d159a73f",
+]
+reached_by = [
+    "#0",
+    "#12",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6ca1818ab00c92dc"
+name = "loading_note"
+qual = "Hst009::loading_note"
+lines = [
+    125,
+    127,
+]
+hash = "sha256:c42067a70e846673a98fb727d407da678fa9f0388470ce382cc4b17a2ad2ab90"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4fd30594fc348183"]
+
+[[module."mod.rs".function]]
+id = "fn:d48d67d7436f4a5f"
+name = "legend"
+qual = "Hst009::legend"
+lines = [
+    128,
+    137,
+]
+hash = "sha256:9ab5923bd7b0b31d87a1ad28a5bfaccd96472dd2cd2f8675938b74102e0391c8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1c1128916cf535b7",
+    "fn:4d39c9ec1be7f781",
+    "fn:c495d1b382a796b7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:feb3bc1a7a837491"
+name = "run_pool_mb"
+qual = "Hst009::run_pool_mb"
+lines = [
+    138,
+    143,
+]
+hash = "sha256:81c6e7d9841ea36dfb8b6694e8d0eceb1308436b2ee14ebff7b98c7aac26f84c"
+doc_hash = "sha256:b6e6f03cad1cda66fae52a965ab4035bf4ce838afbfee309ab373197bedfc97b"
+
+[[module."mod.rs".function]]
+id = "fn:c43e212b92442816"
+name = "recorded_tracks"
+qual = "Hst009::recorded_tracks"
+lines = [
+    144,
+    146,
+]
+hash = "sha256:d148a21ed812f31eb31033af0944a63a9a04c2c1c43c79d4c338057cc9a1737b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:cff61f39d1527df6"]
+
+[module."render.rs"]
+path = "crate::mc_demo::hst009::render"
+
+[[module."render.rs".function]]
+id = "fn:835952ace48026b4"
+name = "render_all"
+qual = "render_all"
+lines = [
+    17,
+    48,
+]
+hash = "sha256:a050adc32c1db3e29a6e2605dd4721fd1f17eceb9a97ba7c24cc26df4b0aab6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

@@ -45,11 +45,6 @@ lines = [
 ]
 hash = "sha256:13bbe99d34c046607a90b39b85332d1ef245e30c15fe4c866859c6e6edd6ccd0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-]
 
 [[module."mod.rs".function]]
 id = "fn:3136c8d7d19cf6ad"
@@ -109,15 +104,7 @@ lines = [
 ]
 hash = "sha256:fd95312ad93d0e1c277ccc14911081e7e14c190f51c884e9565528dcf8ce8da6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:4e942b99d2831cd4",
-    "fn:5d225cbd74f7f43d",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-]
+uses = ["fn:5d225cbd74f7f43d"]
 
 [module."update.rs"]
 path = "example:fhr_sim_v2::app::graph_data::update"

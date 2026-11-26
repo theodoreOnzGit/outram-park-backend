@@ -23,6 +23,11 @@
 
 use bugis::web_demo::link::Floats;
 
+/// The MC page's workers: the simplified full core on a pool (gh:#1762).
+pub mod keff;
+/// The page side of the MC page's pool (gh:#1762).
+pub mod keff_pool;
+
 use super::session::{Advance, Command, Pacer, Session, SessionConfig, MAX_ADVANCE_S};
 
 #[derive(Clone)]
@@ -36,6 +41,8 @@ pub enum Request {
     Cmd(Command),
     /// Start over from a fresh steady state with this configuration.
     Reset(SessionConfig),
+    /// A request to the MC page's k_eff worker (gh:#1762).
+    Keff(keff::KReq),
 }
 
 #[derive(Clone)]
@@ -50,11 +57,15 @@ pub enum Event {
     Held(f64, String),
     /// A refused command, or a plant that could not be built.
     Error(String),
+    /// What the MC page's k_eff worker posts (gh:#1762).
+    Keff(keff::KEv),
 }
 
 /// The engine's state: the plant and its clock.
 pub struct Runner {
     session: Option<Session>,
+    /// The MC page's k_eff worker (gh:#1762).
+    pub keff: keff::KeffWorker,
     pacer: Pacer,
     /// The browser worker's timer loop has been started ([`worker`]).
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -67,7 +78,7 @@ pub const DEFAULT_SPEED: f64 = 2.0;
 
 impl Default for Runner {
     fn default() -> Self {
-        Self { session: Session::new(SessionConfig::default()).ok(), pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
+        Self { session: Session::new(SessionConfig::default()).ok(), keff: keff::KeffWorker::default(), pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
     }
 }
 
@@ -107,6 +118,18 @@ impl Runner {
                 },
                 None => vec![Event::Error("no plant: reset it".into())],
             },
+            Request::Keff(k) => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut out = Vec::new();
+                    self.keff.answer_native(k, &mut |e| out.push(Event::Keff(e)));
+                    out
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    self.keff.answer_now(k).into_iter().map(Event::Keff).collect()
+                }
+            }
         }
     }
 
@@ -138,6 +161,10 @@ impl bugis::web_demo::link::NativeEngine for Runner {
     type Req = Request;
     type Ev = Event;
     fn handle(&mut self, req: Request, post: &mut impl FnMut(Event)) {
+        // A k_eff job posts as it goes (each product when it is done).
+        if let Request::Keff(k) = req {
+            return self.keff.answer_native(k, &mut |e| post(Event::Keff(e)));
+        }
         for e in self.answer(req) {
             post(e);
         }
@@ -194,8 +221,12 @@ pub mod worker {
 
     impl Message for Request {
         fn to_js(&self) -> JsValue {
+            if let Request::Keff(k) = self {
+                return keff_req_to_js(k);
+            }
             let o = js::object();
             let kind = match *self {
+                Request::Keff(_) => "",
                 Request::Tick(w) => {
                     js::set(&o, "v", js::f64s(&[w]));
                     "tick"
@@ -217,9 +248,13 @@ pub mod worker {
             o.into()
         }
         fn from_js(v: &JsValue) -> Result<Self, String> {
+            let kind = js::get_str(v, "kind");
+            if kind.starts_with("k_") {
+                return keff_req_from_js(&kind, v).map(Request::Keff);
+            }
             let n = js::get_f64s(v, "v");
             let g = |i: usize| n.get(i).copied().unwrap_or(0.0);
-            Ok(match js::get_str(v, "kind").as_str() {
+            Ok(match kind.as_str() {
                 "tick" => Request::Tick(g(0)),
                 "pace" => Request::Pace(g(0), g(1) != 0.0),
                 "cmd" => Request::Cmd(command_from_code(&n).ok_or("bad command")?),
@@ -250,11 +285,13 @@ pub mod worker {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
                 }
+                Event::Keff(e) => return keff_ev_to_js(e),
             }
             o.into()
         }
         fn from_js(v: &JsValue) -> Result<Self, String> {
             match js::get_str(v, "kind").as_str() {
+                k if k.starts_with("k_") => keff_ev_from_js(k, v).map(Event::Keff),
                 "frame" => Ok(Event::Frame(Floats::get(v, "v").ok_or("no frame")?)),
                 "initial" => Ok(Event::Initial(Floats::get(v, "v").ok_or("no initial")?)),
                 "held" => Ok(Event::Held(js::get_f64(v, "t").unwrap_or(f64::NAN), js::get_str(v, "message"))),
@@ -268,6 +305,10 @@ pub mod worker {
         type Req = Request;
         type Ev = Event;
         fn handle(state: &Arc<RwLock<Self>>, req: Request, post: Poster<Event>) {
+            // A k_eff pool worker never starts the plant's clock.
+            if let Request::Keff(k) = req {
+                return keff_handle(state, k, post);
+            }
             let (events, start) = match state.write() {
                 Ok(mut r) => {
                     let start = !r.ticking;
@@ -286,6 +327,240 @@ pub mod worker {
         fn error(message: String) -> Event {
             Event::Error(message)
         }
+    }
+
+    // ─── The k_eff pool's messages (gh:#1762, after MSRE's, gh:#1571) ──────────────────────────────
+
+    use super::keff::{cfg_from_slice, cfg_to_vec, study_from_slice, study_to_vec, tape_url, KEv, KReq, View};
+    use bugis::web_demo::link::Floats;
+
+    fn keff_req_to_js(k: &KReq) -> JsValue {
+        let o = js::object();
+        let kind = match k {
+            KReq::Process { study, jobs } => {
+                js::set(&o, "study", js::f64s(&study_to_vec(study)));
+                js::set(&o, "jobs", js::f64s(&jobs.iter().map(|&j| j as f64).collect::<Vec<_>>()));
+                "k_process"
+            }
+            KReq::Product { job, data } => {
+                js::set(&o, "job", *job as f64);
+                js::set(&o, "data", data.js());
+                "k_product"
+            }
+            KReq::Assemble { study } => {
+                js::set(&o, "study", js::f64s(&study_to_vec(study)));
+                "k_assemble"
+            }
+            KReq::Source { cfg, epoch } => {
+                js::set(&o, "cfg", js::f64s(&cfg_to_vec(cfg)));
+                js::set(&o, "epoch", *epoch as f64);
+                "k_source"
+            }
+            KReq::Chunk { cfg, data, epoch } => {
+                js::set(&o, "cfg", js::f64s(&cfg_to_vec(cfg)));
+                js::set(&o, "data", data.js());
+                js::set(&o, "epoch", *epoch as f64);
+                "k_chunk"
+            }
+            KReq::Raster { study, view, px } => {
+                js::set(&o, "study", js::f64s(&study_to_vec(study)));
+                js::set(&o, "view", view.code());
+                js::set(&o, "px", *px as f64);
+                "k_raster"
+            }
+        };
+        js::set(&o, "kind", kind);
+        o.into()
+    }
+
+    fn keff_req_from_js(kind: &str, v: &JsValue) -> Result<KReq, String> {
+        let g = |k: &str| js::get_f64(v, k).unwrap_or(0.0);
+        Ok(match kind {
+            "k_process" => KReq::Process { study: study_from_slice(&js::get_f64s(v, "study")), jobs: js::get_f64s(v, "jobs").iter().map(|&x| x as usize).collect() },
+            "k_product" => KReq::Product { job: g("job") as usize, data: Floats::get(v, "data").ok_or("no product")? },
+            "k_assemble" => KReq::Assemble { study: study_from_slice(&js::get_f64s(v, "study")) },
+            "k_source" => KReq::Source { cfg: cfg_from_slice(&js::get_f64s(v, "cfg")), epoch: g("epoch") as u32 },
+            "k_chunk" => KReq::Chunk { cfg: cfg_from_slice(&js::get_f64s(v, "cfg")), data: Floats::get(v, "data").ok_or("no chunk")?, epoch: g("epoch") as u32 },
+            "k_raster" => KReq::Raster { study: study_from_slice(&js::get_f64s(v, "study")), view: View::from_code(g("view")), px: g("px") as usize },
+            k => return Err(format!("unknown k_eff request '{k}'")),
+        })
+    }
+
+    fn keff_ev_to_js(e: &KEv) -> JsValue {
+        let o = js::object();
+        let kind = match e {
+            KEv::Started { job } => {
+                js::set(&o, "job", *job as f64);
+                "k_started"
+            }
+            KEv::Product { job, secs, data, cached_ms } => {
+                js::set(&o, "job", *job as f64);
+                js::set(&o, "secs", *secs);
+                js::set(&o, "data", data.js());
+                js::set(&o, "cached", cached_ms.unwrap_or(f64::NAN));
+                "k_product"
+            }
+            KEv::Assembled(a) => {
+                js::set(&o, "nuclides", a.nuclides as f64);
+                js::set(&o, "materials", a.materials as f64);
+                js::set(&o, "secs", a.secs);
+                "k_assembled"
+            }
+            KEv::Source { sites, seed, mesh, epoch } => {
+                js::set(&o, "sites", sites.js());
+                // A u64 stream state: exact as a string, not as a JS number.
+                js::set(&o, "seed", seed.to_string());
+                js::set(&o, "mesh", js::f64s(mesh));
+                js::set(&o, "epoch", *epoch as f64);
+                "k_source"
+            }
+            KEv::ChunkDone { data, secs, epoch } => {
+                js::set(&o, "data", data.js());
+                js::set(&o, "secs", *secs);
+                js::set(&o, "epoch", *epoch as f64);
+                "k_chunk_done"
+            }
+            KEv::Failed { message, epoch } => {
+                js::set(&o, "message", message.as_str());
+                js::set(&o, "epoch", *epoch as f64);
+                "k_failed"
+            }
+            KEv::Raster { view, w, h, ids } => {
+                js::set(&o, "view", view.code());
+                js::set(&o, "w", *w as f64);
+                js::set(&o, "h", *h as f64);
+                js::set(&o, "ids", js::u8s(ids));
+                "k_raster"
+            }
+        };
+        js::set(&o, "kind", kind);
+        o.into()
+    }
+
+    fn keff_ev_from_js(kind: &str, v: &JsValue) -> Result<KEv, String> {
+        let g = |k: &str| js::get_f64(v, k).unwrap_or(0.0);
+        Ok(match kind {
+            "k_started" => KEv::Started { job: g("job") as usize },
+            "k_product" => KEv::Product {
+                job: g("job") as usize,
+                secs: g("secs"),
+                data: Floats::get(v, "data").ok_or("no product")?,
+                cached_ms: js::get_f64(v, "cached").filter(|x| x.is_finite()),
+            },
+            "k_assembled" => KEv::Assembled(super::keff::Assembly { nuclides: g("nuclides") as usize, materials: g("materials") as usize, secs: g("secs") }),
+            "k_source" => {
+                let m = js::get_f64s(v, "mesh");
+                let mut mesh = [0.0; 9];
+                for (d, x) in mesh.iter_mut().zip(m) {
+                    *d = x;
+                }
+                KEv::Source {
+                    sites: Floats::get(v, "sites").ok_or("no sites")?,
+                    seed: js::get_str(v, "seed").parse().map_err(|e| format!("source seed: {e}"))?,
+                    mesh,
+                    epoch: g("epoch") as u32,
+                }
+            }
+            "k_chunk_done" => KEv::ChunkDone { data: Floats::get(v, "data").ok_or("no chunk")?, secs: g("secs"), epoch: g("epoch") as u32 },
+            "k_failed" => KEv::Failed { message: js::get_str(v, "message"), epoch: g("epoch") as u32 },
+            "k_raster" => KEv::Raster { view: View::from_code(g("view")), w: g("w") as usize, h: g("h") as usize, ids: js::get_u8s(v, "ids") },
+            k => return Err(format!("unknown k_eff event '{k}'")),
+        })
+    }
+
+    /// A k_eff request in the browser worker. Processing and assembly
+    /// download tapes (`data/<wire name>`), so they run as async tasks that
+    /// post as they go; the processed-data cache is the browser's IndexedDB
+    /// (`processed_cache::web`), read before each job and written after.
+    fn keff_handle(state: &Arc<RwLock<Runner>>, k: KReq, post: Poster<Event>) {
+        match k {
+            KReq::Process { study, jobs } => {
+                let state = state.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    if let Err(message) = keff_process(&state, study, &jobs, post).await {
+                        post.post(Event::Keff(KEv::Failed { message, epoch: 0 }));
+                    }
+                });
+            }
+            KReq::Assemble { study } => {
+                let state = state.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let e = match keff_assemble(&state, study).await {
+                        Ok(a) => KEv::Assembled(a),
+                        Err(message) => KEv::Failed { message, epoch: 0 },
+                    };
+                    post.post(Event::Keff(e));
+                });
+            }
+            other => {
+                let events = match state.write() {
+                    Ok(mut r) => r.keff.answer_now(other),
+                    Err(_) => vec![KEv::Failed { message: "engine state poisoned".into(), epoch: 0 }],
+                };
+                for e in events {
+                    post.post(Event::Keff(e));
+                }
+            }
+        }
+    }
+
+    /// A tape's stripped bytes, downloaded beside the page.
+    async fn tape_bytes(path: &str) -> Result<Vec<u8>, String> {
+        let url = tape_url(path);
+        let z = bugis::web_demo::link::fetch_bytes(&url).await?;
+        dhoby_ghaut::mc_web::tapes::decompress(&z)
+    }
+
+    /// Take the worker's store out of its state for an `await` (no lock is
+    /// held across one), and put it back.
+    fn take_store(state: &Arc<RwLock<Runner>>) -> dhoby_ghaut::mc_web::processed_cache::DataStore {
+        state.write().map(|mut r| std::mem::replace(&mut r.keff.store, dhoby_ghaut::mc_web::processed_cache::DataStore::browser())).unwrap_or_else(|_| dhoby_ghaut::mc_web::processed_cache::DataStore::browser())
+    }
+    fn put_store(state: &Arc<RwLock<Runner>>, store: dhoby_ghaut::mc_web::processed_cache::DataStore) {
+        if let Ok(mut r) = state.write() {
+            r.keff.store = store;
+        }
+    }
+
+    async fn keff_process(state: &Arc<RwLock<Runner>>, study: nee_soon::ebr2_core::Study, jobs: &[usize], post: Poster<Event>) -> Result<(), String> {
+        use dhoby_ghaut::mc_web::processed_cache::web as cache;
+        let list = super::keff::jobs(&study);
+        let mut health = cache::Health::default();
+        for &j in jobs {
+            post.post(Event::Keff(KEv::Started { job: j }));
+            let t = bugis::web_demo::platform::now_s();
+            let job = list.get(j).copied().ok_or_else(|| format!("no job {j}"))?;
+            let bytes = tape_bytes(job.tape()).await?;
+            let mut store = take_store(state);
+            cache::before_step(&mut store, &bytes, &mut health).await;
+            put_store(state, store);
+            let (words, src) = state.write().map_err(|_| "engine state poisoned".to_string())?.keff.process(&study, j, &bytes)?;
+            let mut store = take_store(state);
+            cache::after_step(&mut store, &mut health).await;
+            put_store(state, store);
+            post.post(Event::Keff(KEv::Product {
+                job: j,
+                secs: bugis::web_demo::platform::now_s() - t,
+                data: Floats::from_vec(words),
+                cached_ms: match src {
+                    dhoby_ghaut::web_demo::data_cache::Source::Cached { created_ms, .. } => Some(created_ms),
+                    dhoby_ghaut::web_demo::data_cache::Source::Processed => None,
+                },
+            }));
+        }
+        Ok(())
+    }
+
+    async fn keff_assemble(state: &Arc<RwLock<Runner>>, study: nee_soon::ebr2_core::Study) -> Result<super::keff::Assembly, String> {
+        let mut tapes = std::collections::BTreeMap::new();
+        for j in super::keff::jobs(&study) {
+            let tp = j.tape();
+            if !tapes.contains_key(tp) {
+                tapes.insert(tp, tape_bytes(tp).await?);
+            }
+        }
+        let mut r = state.write().map_err(|_| "engine state poisoned".to_string())?;
+        r.keff.assemble(&study, |p| tapes.get(p).cloned().ok_or_else(|| format!("{p}: not downloaded")), bugis::web_demo::platform::now_s)
     }
 
     /// The worker's own clock, as MSRE's (`msre::web::engine::worker`):
@@ -376,7 +651,7 @@ mod tests {
         assert!(matches!(r.answer(Request::Cmd(Command::ExternalPcm(5.0)))[0], Event::Error(_)));
         assert!((last_frame(&r.run(2.5)).time_s - 2.5).abs() < 1e-9);
         assert!(matches!(r.answer(Request::Reset(SessionConfig { thermal_centre_height_m: -1.0, ..Default::default() }))[0], Event::Error(_)));
-        let mut empty = Runner { session: None, pacer: Pacer::new(1.0, false), ticking: false };
+        let mut empty = Runner { session: None, keff: keff::KeffWorker::default(), pacer: Pacer::new(1.0, false), ticking: false };
         assert!(empty.run(1.0).is_empty());
         assert!(matches!(empty.answer(Request::Cmd(Command::ExternalPcm(0.0)))[0], Event::Error(_)));
     }

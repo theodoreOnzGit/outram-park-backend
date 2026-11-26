@@ -27,12 +27,13 @@
 //! Education and research only, per the workspace `RESPONSIBLE_USE.md`. Not
 //! for reactor operation, licensing, or safety-critical decisions.
 
+// The Monte Carlo demo's `triso` model and the tape helpers, from the
+// library since gh:#1763 (they were `#[path]` modules of
+// `examples/monte_carlo_web/`, which moved to `dhoby_ghaut::mc_demo`).
 #[cfg(not(target_os = "android"))]
-#[path = "../monte_carlo_web/triso/model.rs"]
-mod model;
+use dhoby_ghaut::mc_demo::triso::model;
 #[cfg(not(target_os = "android"))]
-#[path = "../monte_carlo_web/tapes.rs"]
-mod tapes;
+use dhoby_ghaut::mc_web::tapes;
 // The processed nuclear data every demo shares, cached in the browser
 // (gh:#818): this demo reads the products the Monte Carlo demo's `triso`
 // rung made (same tapes, settings and keys), and the other way round.

@@ -293,5 +293,9 @@ name = "msre_n1_parameter_images"
 required-features = ["std"]
 
 [[example]]
+name = "ebr2_core_images"
+required-features = ["std"]
+
+[[example]]
 name = "ebr2_fresh_driver_kinf"
 required-features = ["std"]

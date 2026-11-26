@@ -126,6 +126,10 @@
 pub mod cv_tab;
 pub mod ft_tab;
 pub mod map_tab;
+pub mod mc_tab;
+
+use outram_park_digital_twin_engine::twin::shell::{ShellAt, ShellHost, SubTab, TwinShell, ATMOSPHERIC_DISPERSION, PLANT_SCHEMATIC};
+use outram_park_digital_twin_engine::twin::{TwinPage, ViewState};
 pub mod panels;
 pub mod plant_v1_1;
 pub mod thermal_tab;
@@ -145,7 +149,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::{
-    panel_selector_compact, panel_selector_ui, show_crash_modal_with_restart, spawn_physics_thread_monitored,
+    show_crash_modal_with_restart, spawn_physics_thread_monitored,
     CrashModalOutcome, RealTimePacer, SharedState, ThreadHealth,
 };
 use outram_park_digital_twin_engine::components::LegendUnit;
@@ -173,26 +177,11 @@ pub enum SchematicView {
     Plant,
     ControlVolumes,
     FaultTree,
+    /// The coefficient sets the plant can run on, beside each other, and
+    /// the picker (gh:#1740), as the MSRE simulator's k_eff tab.
+    MonteCarlo,
 }
 
-impl SchematicView {
-    /// In bar order.
-    pub const ALL: [SchematicView; 3] = [SchematicView::Plant, SchematicView::ControlVolumes, SchematicView::FaultTree];
-
-    /// Tab text.
-    pub fn label(self) -> &'static str {
-        match self {
-            SchematicView::Plant => "Plant",
-            SchematicView::ControlVolumes => "Control volumes",
-            SchematicView::FaultTree => "Fault tree",
-        }
-    }
-
-    /// Position in [`Self::ALL`].
-    pub fn index(self) -> usize {
-        Self::ALL.iter().position(|v| *v == self).unwrap_or(0)
-    }
-}
 use state::{HtgrPlotData, HtgrSnapshot};
 
 /// Assemble the physics layer's [`PlantCommands`] from the GUI-owned scalar
@@ -330,9 +319,20 @@ fn plant_time_per_tick() -> Time {
 
 /// The HTGR simulator `eframe::App`.
 pub struct HtgrSimApp {
-    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
-    /// selector switches it.
-    theme: bugis::Theme,
+    /// The standard twin shell (gh:#1758): the Gruvbox theme, the left
+    /// panel, the seven-page bar and the Plant sub-tabs. Native and browser
+    /// alike; it replaced the desktop's top tab bar and right-hand panel and
+    /// the browser's own folding panel and Schematic bottom bar.
+    shell: TwinShell,
+    /// This frame's snapshot and plots, for the shell's slots (taken in
+    /// `ui`, read by the `ShellHost` methods).
+    frame: Option<(HtgrSnapshot, HtgrPlotData)>,
+    /// What the Map view asked for this frame, acted on after the shell.
+    map_action: map_tab::MapAction,
+    /// The MC page: the Monte Carlo demo's HTR-10 whole core, hosted
+    /// (gh:#1763; ~~an iframe over the central view in the browser,
+    /// gh:#1761~~), and what the reader measured on it.
+    mc: mc_tab::McPage,
     /// Shared scalar plant state (physics thread writes outputs, GUI writes
     /// control inputs).
     physics: SharedState<HtgrSnapshot>,
@@ -373,8 +373,6 @@ pub struct HtgrSimApp {
     /// "Controls »" button on the main view (the mobile-first HARD RULE).
     /// The desktop build keeps its always-open right-hand panel; a phone only
     /// ever runs the browser build.
-    #[cfg(target_arch = "wasm32")]
-    web_panel: dhoby_ghaut::web_demo::panel::Panel,
     /// The browser's + / − / Reset pressed last frame, for the plant viewport.
     #[cfg(target_arch = "wasm32")]
     web_zoom: Option<plant_v1_1::ZoomAction>,
@@ -476,6 +474,7 @@ fn start_simulation() -> SimulationRun {
     // growing `dt`.
     let mut pacer = RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK);
     let loop_start = Instant::now();
+    let mut applied_set = crate::physics::coefficient_set::CoefficientSet::Cited;
     spawn_physics_thread_monitored(
         "htgr-physics",
         physics.clone(),
@@ -508,6 +507,13 @@ fn start_simulation() -> SimulationRun {
             if state.read_with(|s| s.peak_fuel_reset_requested) {
                 plant.reset_peak_fuel_to_current();
                 state.update(|s| s.peak_fuel_reset_requested = false);
+            }
+            // The coefficient set (gh:#1740): sent when the operator changes
+            // it. The selector offers only available sets; a refusal leaves
+            // the plant on the set it had.
+            let wanted = state.read_with(|s| s.coefficient_set);
+            if wanted != applied_set && wanted.apply(&mut plant).is_ok() {
+                applied_set = wanted;
             }
             // Fast-forward: keep calling `plant.step` back to back, with no
             // sleep between calls, until this tick's wall-clock budget is
@@ -638,7 +644,7 @@ impl HtgrSimApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let app = Self::start();
         // Gruvbox Dark from the first frame (native and browser).
-        app.theme.apply(&cc.egui_ctx);
+        app.shell.theme.apply(&cc.egui_ctx);
         app
     }
 
@@ -660,15 +666,16 @@ impl HtgrSimApp {
             schematic_view: SchematicView::default(),
             cv_tab: cv_tab::CvTab::default(),
             ft_tab: ft_tab::FaultTreeTab::default(),
-            theme: bugis::Theme::default(),
+            shell: TwinShell::default(),
+            frame: None,
+            map_action: map_tab::MapAction::None,
+            mc: mc_tab::McPage::default(),
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
             map_state: map_tab::MapTabState::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             plant_clock_rate: PlantClockRate::default(),
-            #[cfg(target_arch = "wasm32")]
-            web_panel: dhoby_ghaut::web_demo::panel::Panel::default(),
             #[cfg(target_arch = "wasm32")]
             web_zoom: None,
         }
@@ -799,14 +806,6 @@ impl PlantClockRate {
     }
 }
 
-/// Below this width the browser build folds the controls and shortens the
-/// title. dhoby-ghaut's panel uses the same 700 px, so the two agree.
-const NARROW_PX: f32 = 700.0;
-/// Height kept clear at the top of the main view for "Controls »" (44 px
-/// button + 8 px inset), matching every dhoby-ghaut demo.
-#[cfg(target_arch = "wasm32")]
-const REOPEN_ROW_PX: f32 = 52.0;
-
 impl HtgrSimApp {
     /// The controls panel's body: the reactor controls, or on the plots tab
     /// the choice of controls and CSV. Shared by the desktop's right-hand
@@ -823,7 +822,7 @@ impl HtgrSimApp {
                         cv_tab::side_panel(ui, &mut self.cv_tab, &snapshot.control_volumes, self.display_unit, &events)
                     }
                     SchematicView::FaultTree => action = self.ft_tab.side_panel(ui),
-                    SchematicView::Plant => {}
+                    SchematicView::Plant | SchematicView::MonteCarlo => {}
                 }
                 ui.separator();
                 egui::CollapsingHeader::new("Reactor controls").default_open(false).show(ui, |ui| {
@@ -872,49 +871,6 @@ impl HtgrSimApp {
         }
     }
 
-    /// The Schematic tab: the selected view in the main rect and the bottom
-    /// tab bar under it (gh:#1717). GUI drawing code, exempt from a reaching
-    /// test (it needs a live egui frame); the bar's geometry is
-    /// `bugis::tab_bar::layout`'s, the views' state their modules', tested.
-    fn draw_schematic_views(&mut self, ui: &mut egui::Ui, snapshot: &HtgrSnapshot, display_unit: LegendUnit) {
-        let full = ui.max_rect();
-        let bar = bugis::tab_bar::layout(full, SchematicView::ALL.len());
-        let main = bar.main;
-        match self.schematic_view {
-            SchematicView::Plant => {
-                ui.scope_builder(egui::UiBuilder::new().max_rect(main), |ui| self.draw_plant_view(ui, snapshot, display_unit));
-            }
-            SchematicView::ControlVolumes => {
-                let lit: Vec<String> = self.ft_tab.selected_link().and_then(|(c, _)| c).into_iter().collect();
-                let clicked = ui
-                    .scope_builder(egui::UiBuilder::new().max_rect(main), |ui| {
-                        cv_tab::draw(ui, main, &snapshot.control_volumes, &mut self.cv_tab, display_unit, &lit)
-                    })
-                    .inner;
-                if clicked.is_some() {
-                    // A CV chosen here: the Fault tree view highlights its
-                    // events rather than a previously selected event.
-                    self.ft_tab.selected_event = None;
-                }
-                #[cfg(target_arch = "wasm32")]
-                self.web_panel.reopen_button(ui, main);
-            }
-            SchematicView::FaultTree => {
-                let selected_cv = self.cv_tab.selected.clone();
-                let action = ui
-                    .scope_builder(egui::UiBuilder::new().max_rect(main), |ui| self.ft_tab.draw(ui, main, selected_cv.as_deref()))
-                    .inner;
-                self.apply_ft_action(action);
-                #[cfg(target_arch = "wasm32")]
-                self.web_panel.reopen_button(ui, main);
-            }
-        }
-        let labels: Vec<&str> = SchematicView::ALL.iter().map(|v| v.label()).collect();
-        if let Some(i) = bugis::tab_bar::tab_bar(ui, &bar, &labels, self.schematic_view.index()) {
-            self.schematic_view = SchematicView::ALL[i];
-        }
-    }
-
     /// The plant drawing, as before the bar: natively the schematic panel;
     /// in the browser the plant edge to edge with the live peak-fuel readout,
     /// "Controls »" and + / − / Reset (GUI drawing code; exempt, as above).
@@ -925,7 +881,7 @@ impl HtgrSimApp {
         {
             let rect = ui.max_rect();
             plant_v1_1::draw_plant_viewport(ui, snapshot, &self.tracers, self.web_zoom.take());
-            let top = if self.web_panel.open { 10.0 } else { 62.0 };
+            let top = 6.0;
             let text = format!(
                 "Peak fuel, live  {}",
                 panels::peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k)
@@ -939,16 +895,6 @@ impl HtgrSimApp {
                 ui.visuals().extreme_bg_color.gamma_multiply(0.85),
             );
             painter.galley(at, galley, egui::Color32::WHITE);
-            self.web_panel.reopen_button(ui, rect);
-            if let Some(z) = dhoby_ghaut::web_demo::view::zoom_buttons(ui, rect) {
-                use dhoby_ghaut::web_demo::view::Zoom;
-                self.web_zoom = Some(match z {
-                    Zoom::In => plant_v1_1::ZoomAction::In,
-                    Zoom::Out => plant_v1_1::ZoomAction::Out,
-                    Zoom::Reset => plant_v1_1::ZoomAction::Fit,
-                });
-                ui.ctx().request_repaint();
-            }
         }
     }
 }
@@ -992,162 +938,165 @@ impl eframe::App for HtgrSimApp {
         self.tracers
             .advance(Time::new::<second>(frame_dt * rate), &snapshot);
 
-        // A phone gets a short title and a tab row that wraps: the full title
-        // wrapped onto a dozen lines at 390 px and the tab row ran off the
-        // right edge, so the plant started below the fold (seen in Chromium
-        // at phone width, gh:#986). The desktop keeps the full title.
-        //
-        // CHANGED 2026-10-27 (maintainer: "Can we have a similar UI to the
-        // htr10 keff demo"): the BROWSER build has no top bar at all, like
-        // dhoby-ghaut's Monte Carlo demo. The title, theme and tabs are at the
-        // top of the folding side panel, and the Plant tab is the drawing edge
-        // to edge with "Controls »" and + / − / Reset over it (below). (An
-        // intermediate one-row phone top bar, earlier the same day, is kept
-        // for a narrow desktop window only.)
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let narrow = ui.max_rect().width() < NARROW_PX;
-            egui::Panel::top("htgr_top").show(ui, |ui| {
-                if narrow {
-                    ui.horizontal(|ui| {
-                        panel_selector_compact(ui, &mut self.open_panel);
-                    });
-                    ui.small("HTGR Simulator v1.1 · offline demonstration, not validated");
-                } else {
-                    ui.heading(
-                        "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
-                    );
-                    ui.horizontal_wrapped(|ui| {
-                        panel_selector_ui(ui, &mut self.open_panel);
-                    });
-                    ui.separator();
-                }
-            });
+        // The standard twin shell draws the frame (gh:#1758): the theme,
+        // the left panel with the controls, the page bar and the Plant
+        // sub-tabs; this app fills the slots (`ShellHost` below). It
+        // replaced the desktop's top tab bar and right-hand panel and the
+        // browser's folding panel and Schematic bottom bar.
+        self.frame = Some((snapshot, self.plots.snapshot()));
+        // The MC page's demo keeps its pools going on every page once
+        // started (gh:#1763).
+        self.mc.pump(ui.ctx());
+        let mut shell = std::mem::take(&mut self.shell);
+        shell.ui(ui, self);
+        // The Fault tree's "show the CV" asks for the Nodes page.
+        if self.schematic_view == SchematicView::ControlVolumes && shell.page == TwinPage::Plant {
+            shell.page = TwinPage::ControlVolumes;
         }
-
-        // Snapshotted once, up front, and shared by both the right panel
-        // (when Panel::Plots + PlotsSidePanel::Csv) and the central panel
-        // (when Panel::Plots) below -- avoids cloning the plot buffers twice
-        // in the same frame for the one tab that can show them in two
-        // places at once.
-        let plots = self.plots.snapshot();
-
-        // The controls. Desktop: the always-open right-hand panel it has
-        // always had. Browser: dhoby-ghaut's folding panel, folded under
-        // 700 px, so a phone opens on the plant rather than on a wall of
-        // sliders (which is what the first browser build showed at 390 px).
-        // The body is the same function either way.
-        #[cfg(not(target_arch = "wasm32"))]
-        egui::Panel::right("htgr_controls").show(ui, |ui| {
-            // The shared Gruvbox Dark/Light selector (GUI drawing).
-            bugis::selector(ui, &mut self.theme);
-            self.draw_side_controls(ui, &snapshot, &plots);
-        });
-        #[cfg(target_arch = "wasm32")]
-        {
-            // Taken out for the call so the closure can borrow the rest of
-            // `self`; put straight back.
-            let mut panel = std::mem::take(&mut self.web_panel);
-            // The panel heading names the demo, as the Monte Carlo demo's
-            // names its rung: `draw_controls` already heads its own section
-            // "Controls", and passing that here drew it twice.
-            panel.show(ui, "HTGR Simulator v1.1", |ui| {
-                // What the desktop's top bar holds, at the top of the panel,
-                // as the Monte Carlo demo puts its rung and mode pickers.
-                ui.small("Offline demonstration, not validated");
-                bugis::selector(ui, &mut self.theme);
-                ui.separator();
-                panel_selector_ui(ui, &mut self.open_panel);
-                ui.separator();
-                self.draw_side_controls(ui, &snapshot, &plots);
-            });
-            self.web_panel = panel;
-        }
-
-        // Copied out before the closures below borrow `self` -- the unit is a
-        // `Copy` display setting, so the panels take it by value.
-        let display_unit = self.display_unit;
-        // What the Map tab asked for this frame, acted on after the panel
-        // closure releases its borrow of `self` (gh:#400).
-        let mut map_action = map_tab::MapAction::None;
-        // The browser's Plant tab is drawn edge to edge, with no panel margin.
-        #[cfg(target_arch = "wasm32")]
-        let central = if self.open_panel == Panel::Schematic {
-            egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().panel_fill))
-        } else {
-            egui::CentralPanel::default()
-        };
-        #[cfg(not(target_arch = "wasm32"))]
-        let central = egui::CentralPanel::default();
-        central.show(ui, |ui| {
-            // The browser's Plant tab, as the Monte Carlo demo's main view:
-            // the plant fills the view; "Controls »" top left, the live
-            // peak-fuel readout under it, + / − / Reset top right.
-            #[cfg(target_arch = "wasm32")]
-            if self.open_panel == Panel::Schematic {
-                self.draw_schematic_views(ui, &snapshot, display_unit);
-                return;
-            }
-            // Folded: keep the row the "Controls »" button sits in clear, as
-            // every dhoby-ghaut demo does, and draw the button.
-            #[cfg(target_arch = "wasm32")]
-            if !self.web_panel.open {
-                let rect = ui.max_rect();
-                self.web_panel.reopen_button(ui, rect);
-                ui.add_space(REOPEN_ROW_PX);
-            }
-            // The schematic tab brings its own pan-and-zoom viewport, so it is
-            // kept out of the outer scroll area (nesting two two-axis scroll
-            // areas would leave the inner one unbounded).
-            if self.open_panel == Panel::Schematic {
-                self.draw_schematic_views(ui, &snapshot, display_unit);
-                return;
-            }
-            // The viewport height, measured BEFORE entering the scroll area.
-            // Inside one, `available_height` is the scrolled content's own
-            // budget rather than the window's, so a panel that sized itself
-            // from in there would grow every frame it filled.
-            let view = ui.available_size();
-            // The Map tab is wider than the window at its minimum sizes (map
-            // + graph, the wide tables), so its scroll bars are SOLID there:
-            // always drawn when the content overflows, rather than egui's
-            // default floating bars that appear only on hover and read as "it
-            // does not scroll sideways" (maintainer, 2026-10-01). The tables
-            // inside inherit the style for their own horizontal scrolls.
-            if self.open_panel == Panel::Map {
-                ui.style_mut().spacing.scroll = egui::style::ScrollStyle::solid();
-            }
-            egui::ScrollArea::both()
-                .auto_shrink([false; 2])
-                .show(ui, |ui| match self.open_panel {
-                    Panel::Schematic => {} // drawn above, outside this scroll area
-                    Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
-                    Panel::Diagnostics => {
-                        draw_diagnostics_panel(ui, &self.physics, &snapshot, display_unit)
-                    }
-                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot, display_unit),
-                    Panel::Map => {
-                        map_action = map_tab::draw_map(
-                            ui,
-                            &self.physics,
-                            &snapshot,
-                            &mut self.map_state,
-                            view,
-                        )
-                    }
-                });
-        });
-
-        self.apply_map_action(map_action);
+        self.shell = shell;
+        self.frame = None;
+        let action = core::mem::replace(&mut self.map_action, map_tab::MapAction::None);
+        self.apply_map_action(action);
 
         // Keep animating while physics runs on its own threads.
         ui.ctx().request_repaint();
     }
 }
 
+/// The HTR-10 Plant page's sub-tabs (maintainer, 2026-11-25: the fault
+/// tree, thermal and diagnostics views are Plant sub-tabs; atmospheric
+/// dispersion is the Map).
+pub const PLANT_SUBTABS: [&str; 5] = [PLANT_SCHEMATIC, ATMOSPHERIC_DISPERSION, "Fault tree", "Thermal", "Diagnostics"];
+
+/// The app's own view state for a shell position: which of the old panels
+/// and schematic views it is, so the controls and the views drawn keep
+/// their behaviour.
+pub fn views_for(at: ShellAt) -> (Panel, SchematicView) {
+    match at.page {
+        TwinPage::Plant => match at.sub {
+            1 => (Panel::Map, SchematicView::Plant),
+            2 => (Panel::Schematic, SchematicView::FaultTree),
+            3 => (Panel::Thermal, SchematicView::Plant),
+            4 => (Panel::Diagnostics, SchematicView::Plant),
+            _ => (Panel::Schematic, SchematicView::Plant),
+        },
+        TwinPage::Graphs => (Panel::Plots, SchematicView::Plant),
+        TwinPage::ControlVolumes => (Panel::Schematic, SchematicView::ControlVolumes),
+        TwinPage::MonteCarlo => (Panel::Schematic, SchematicView::MonteCarlo),
+        TwinPage::Kinetics | TwinPage::Surrogate | TwinPage::Cfd => (Panel::Schematic, SchematicView::Plant),
+    }
+}
+
+impl ShellHost for HtgrSimApp {
+    fn title(&self) -> String {
+        "HTGR Simulator v1.1".into()
+    }
+
+    /// Greyed: Kinetics, Freq. and CFD (gh:#1758). The GeN-Foam coarse R-Z
+    /// run exists in the native twin (`--twin`, `twin::genfoam`), not in
+    /// this app yet.
+    fn page_state(&self, page: TwinPage) -> ViewState {
+        match page {
+            TwinPage::Plant | TwinPage::Graphs | TwinPage::ControlVolumes | TwinPage::MonteCarlo => ViewState::Built,
+            TwinPage::Kinetics | TwinPage::Surrogate | TwinPage::Cfd => ViewState::NotBuilt { issue: 1758 },
+        }
+    }
+
+    fn plant_subtabs(&self) -> Vec<SubTab> {
+        PLANT_SUBTABS.iter().map(|l| SubTab { label: l, state: ViewState::Built }).collect()
+    }
+
+    fn left(&mut self, ui: &mut egui::Ui, at: ShellAt) {
+        (self.open_panel, self.schematic_view) = views_for(at);
+        ui.small("Offline demonstration, not validated");
+        ui.separator();
+        if let Some((snapshot, plots)) = self.frame.take() {
+            // The MC page's central view is the full core, so its controls,
+            // the measurements and the coefficient sets are here (gh:#1761,
+            // #1763).
+            if at.page == TwinPage::MonteCarlo {
+                self.mc.controls(ui, &self.physics, &snapshot);
+                ui.separator();
+            }
+            self.draw_side_controls(ui, &snapshot, &plots);
+            self.frame = Some((snapshot, plots));
+        }
+    }
+
+    fn zoomable(&self, at: ShellAt) -> bool {
+        cfg!(target_arch = "wasm32") && at.page == TwinPage::Plant && at.sub == 0
+    }
+
+    fn zoom(&mut self, _at: ShellAt, _z: bugis::web_demo::view::Zoom) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            use bugis::web_demo::view::Zoom;
+            self.web_zoom = Some(match _z {
+                Zoom::In => plant_v1_1::ZoomAction::In,
+                Zoom::Out => plant_v1_1::ZoomAction::Out,
+                Zoom::Reset => plant_v1_1::ZoomAction::Fit,
+            });
+        }
+    }
+
+    fn central(&mut self, ui: &mut egui::Ui, rect: egui::Rect, at: ShellAt) {
+        (self.open_panel, self.schematic_view) = views_for(at);
+        let Some((snapshot, plots)) = self.frame.take() else { return };
+        let display_unit = self.display_unit;
+        match (self.open_panel, self.schematic_view) {
+            (Panel::Schematic, SchematicView::Plant) => self.draw_plant_view(ui, &snapshot, display_unit),
+            (Panel::Schematic, SchematicView::ControlVolumes) => {
+                let lit: Vec<String> = self.ft_tab.selected_link().and_then(|(c, _)| c).into_iter().collect();
+                if cv_tab::draw(ui, rect, &snapshot.control_volumes, &mut self.cv_tab, display_unit, &lit).is_some() {
+                    self.ft_tab.selected_event = None;
+                }
+            }
+            (Panel::Schematic, SchematicView::FaultTree) => {
+                let selected_cv = self.cv_tab.selected.clone();
+                let action = self.ft_tab.draw(ui, rect, selected_cv.as_deref());
+                self.apply_ft_action(action);
+            }
+            (Panel::Schematic, SchematicView::MonteCarlo) => self.mc.main_view(ui, rect),
+            (panel, _) => {
+                let view = rect.size();
+                if panel == Panel::Map {
+                    ui.style_mut().spacing.scroll = egui::style::ScrollStyle::solid();
+                }
+                let inner = rect.shrink(6.0);
+                let mut child = ui.new_child(egui::UiBuilder::new().max_rect(inner));
+                egui::ScrollArea::both().auto_shrink([false; 2]).show(&mut child, |ui| match panel {
+                    Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
+                    Panel::Diagnostics => draw_diagnostics_panel(ui, &self.physics, &snapshot, display_unit),
+                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot, display_unit),
+                    Panel::Map => self.map_action = map_tab::draw_map(ui, &self.physics, &snapshot, &mut self.map_state, view),
+                    Panel::Schematic => {}
+                });
+            }
+        }
+        self.frame = Some((snapshot, plots));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// gh:#1758: every shell position maps to the old panel and schematic
+    /// view whose code draws it, and the five Plant sub-tabs are the
+    /// maintainer's (plant, dispersion, fault tree, thermal, diagnostics).
+    #[test]
+    fn each_shell_view_is_the_old_view_that_draws_it() {
+        let at = |page, sub| ShellAt { page, sub };
+        assert_eq!(views_for(at(TwinPage::Plant, 0)), (Panel::Schematic, SchematicView::Plant));
+        assert_eq!(views_for(at(TwinPage::Plant, 1)), (Panel::Map, SchematicView::Plant));
+        assert_eq!(views_for(at(TwinPage::Plant, 2)), (Panel::Schematic, SchematicView::FaultTree));
+        assert_eq!(views_for(at(TwinPage::Plant, 3)), (Panel::Thermal, SchematicView::Plant));
+        assert_eq!(views_for(at(TwinPage::Plant, 4)), (Panel::Diagnostics, SchematicView::Plant));
+        assert_eq!(views_for(at(TwinPage::Graphs, 0)), (Panel::Plots, SchematicView::Plant));
+        assert_eq!(views_for(at(TwinPage::ControlVolumes, 0)), (Panel::Schematic, SchematicView::ControlVolumes));
+        assert_eq!(views_for(at(TwinPage::MonteCarlo, 0)), (Panel::Schematic, SchematicView::MonteCarlo));
+        assert_eq!(PLANT_SUBTABS, ["Plant", "Dispersion", "Fault tree", "Thermal", "Diagnostics"]);
+    }
 
     /// The tracers' clock follows the plant clock: about 1 at real time, the
     /// burst factor under fast-forward, 0 when the plant stops, and it starts
@@ -1540,6 +1489,8 @@ pub struct WebPhysics {
     pacer: RealTimePacer,
     /// Steps the last [`Self::tick`] took (1, or the fast-forward burst).
     last_steps: usize,
+    /// The coefficient set last sent to the plant (gh:#1740).
+    applied_set: crate::physics::coefficient_set::CoefficientSet,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1561,6 +1512,7 @@ impl WebPhysics {
             plots: HtgrPlotData::default(),
             pacer: RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK),
             last_steps: SUBSTEPS_PER_TICK,
+            applied_set: crate::physics::coefficient_set::CoefficientSet::Cited,
         }
     }
 
@@ -1602,6 +1554,10 @@ impl WebPhysics {
         if self.state.peak_fuel_reset_requested {
             self.plant.reset_peak_fuel_to_current();
             self.state.peak_fuel_reset_requested = false;
+        }
+        // The coefficient set (gh:#1740), as on the native thread.
+        if self.state.coefficient_set != self.applied_set && self.state.coefficient_set.apply(&mut self.plant).is_ok() {
+            self.applied_set = self.state.coefficient_set;
         }
 
         // Fast-forward removes the pacing sleep, never grows `dt` and never
