@@ -69,3 +69,62 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-05, commit 1bc36e4bd6.
+
+# Review: sample_delta_distance (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-sample-delta-distance-theodoreonzgit-cf0e7187"
+kind = "review"
+origin = "human"
+created = "2026-11-26T09:13:13+08:00"
+modified = "2026-11-26T09:13:13+08:00"
+target = "fn:cf0e718778dac441"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/delta_tracking/flight.rs::sample_delta_distance"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T09:13:13+08:00"
+commit = "1e60e87f36ff0151869b61daabce8a6d134e2085"
+hash = "sha256:e82973a5a7502d89f7151b4e86021f4613a1c70fb5d38782069532be9d4f36b8"
+doc_hash = "sha256:df31b2fcc46420b09a0704c35cc364429611cc82ccddb86a38a048f58b7900e1"
+cargo_lock = "sha256:4a48251d078c2265757f8e935e6bb409d9e9caff8c543ed902119772ad0d2989"
+
+[review.callees]
+"fn:681ddf6544e7b60b" = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
+"fn:7d2c37be6eb3e8f3" = "sha256:e03a479bf5c1837af8e2aef9589eb6759382a67e74340d003406d4abfac2caa0"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: well, you are only given majorant and seed, seed is unsigned u64, only positive. majorant has number guards for negative number (fails loudly), infinite flight"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: well, you are only given majorant and seed, seed is unsigned u64, only positive. majorant has number guards for negative number (fails loudly), infinite flight"
+maintainability = "yes"
+numerical_hazards = "handled"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FbFYNpJxPtK8cotkuBZyPU"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "edXLSTLAKzhWbGDJlI6vb41a56lHVW4JwGeZISFi/yqt9x/Nw9nZHQvT43dOwTnr3jI7SJHRq8onMN91qcFlCg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking"
+kind = "implements"
+```
+
+the delta distance sampler, quite straightforward. Looks physically correct with some number guards.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 1e60e87f36.
