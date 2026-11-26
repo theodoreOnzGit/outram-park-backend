@@ -128,3 +128,69 @@ the delta distance sampler, quite straightforward. Looks physically correct with
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 1e60e87f36.
+
+# Review: next_variate (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-next-variate-theodoreonzgit-819ac0ea"
+kind = "review"
+origin = "human"
+created = "2026-11-26T12:59:05+08:00"
+modified = "2026-11-26T12:59:05+08:00"
+target = "fn:819ac0ea2f3f4f14"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/delta_tracking/flight.rs::next_variate"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T12:59:05+08:00"
+commit = "5736b6aefca2bbff79686ff72db2e52427eb1eff"
+hash = "sha256:d3fcbe68cfe290a3feb7960d144ac0faaf1b0371f0ae411ef65c07b8cdc8ae83"
+doc_hash = "sha256:15d931682aeb085f427749c2200c0d40fff17a5353c6ee425383b498397488eb"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.callees]
+"fn:681ddf6544e7b60b" = "sha256:17638ea97982299a8f568290be2092c01c5d16f34183e2d73318e4c404ae4734"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "matches_upstream_no_error_return: just wraps prn without advancing seed"
+independence = "someone_else"
+limits_and_guards = "matches_upstream_no_guard: just wraps prn without advancing seed"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FbFYNpJxPtK8cotkuBZyPU"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Z3frTdr6glTx+P4bzDbCXjAXfgfBBV6H0WW1VyrEB/2r8d81u2ZdMcS6NWhhCjFcG61GMzLg6He0vR6eZIulDg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+just wraps prn without advancing seed
+
+upstream is:
+
+double future_prn(int64_t n, uint64_t seed)
+{
+  uint64_t fseed = future_seed(static_cast<uint64_t>(n), seed);
+  return prn(&fseed);
+}
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 5736b6aefc.
