@@ -32,15 +32,8 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
-    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_stage_ladder_shows_one_card_per_stage",
-    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_tab_never_describes_an_explosion",
-    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_tab_owns_the_clock_that_advances_the_annotation",
-    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_trigger_source_changes_what_can_be_reported",
-    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_physics_path_draws_unpainted_with_its_pressure",
-    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_air_states_come_from_the_coolprop_psychrometrics",
     "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_physics_path_draws_no_plume_and_no_approach",
-    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/excursion.rs::a_healthy_reactor_is_not_annotated",
     "crates/outram-park-digital-twin-engine/src/components/excursion.rs::alphas_saturate_instead_of_wrapping",
     "crates/outram-park-digital-twin-engine/src/components/excursion.rs::no_release_is_drawn_where_retention_is_demonstrated",
@@ -57,16 +50,13 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_arrangement_round_trips_through_the_physics_enum",
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_end_brackets_are_the_two_ends_of_the_log_mean",
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_physics_path_draws_its_arrangement_but_paints_no_temperature",
-    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/pipe.rs::length_is_proportional_to_run_length",
-    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::the_art_carries_the_pipes_cells_and_draws",
     "crates/outram-park-digital-twin-engine/src/components/pipe.rs::thickness_is_proportional_to_cross_sectional_area",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::residence_time_is_length_over_velocity",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
-    "crates/outram-park-digital-twin-engine/src/components/pump.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/pump.rs::wrapping_a_tampines_pump_invents_no_state",
     "crates/outram-park-digital-twin-engine/src/components/reactor_archetype.rs::delayed_fractions_are_near_the_u235_value",
     "crates/outram-park-digital-twin-engine/src/components/reactor_archetype.rs::every_archetype_builds_a_valid_kinetics_model",
@@ -76,33 +66,13 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/components/reactor_vessel.rs::fuel_temperature_drives_the_fill_hotness",
     "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_constructor_starts_isothermal_until_told_otherwise",
     "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_path_reads_the_live_secondary_temperature",
-    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_scalar_path_reaches_the_art_and_draws",
     "crates/outram-park-digital-twin-engine/src/components/turbine.rs::fresh_preset_starts_at_rest",
     "crates/outram-park-digital-twin-engine/src/components/turbine.rs::generator_variant_reports_no_casing_temperature",
     "crates/outram-park-digital-twin-engine/src/components/turbine.rs::rotor_angle_is_omega_times_time",
-    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::the_scalar_path_and_builders_reach_the_art",
-    "crates/outram-park-digital-twin-engine/src/components/valve.rs::the_valve_opening_comes_from_the_physics",
 ]
 
 [module."condenser.rs"]
 path = "crate::components::condenser"
-
-[[module."condenser.rs".function]]
-id = "fn:1e11dc0875df892e"
-name = "CondenserVisualState"
-qual = "CondenserVisualState"
-item = "type"
-shape = "enum"
-lines = [
-    24,
-    40,
-]
-hash = "sha256:8ef8b8c37464c05707e05701b0075ceb7f731b44ca81e7cb283d4dbb288af2b0"
-doc_hash = "sha256:a2aebcd25a3a88e82e5cd65e8a7e0a6a49c8062caf80a597d8f7dfd770c30fbd"
-reached_by = [
-    "#33",
-    "#34",
-]
 
 [[module."condenser.rs".function]]
 id = "fn:728541793befe267"
@@ -110,258 +80,136 @@ name = "CondenserVisual"
 qual = "CondenserVisual"
 item = "type"
 shape = "struct"
-lines = [
-    42,
-    54,
-]
 hash = "sha256:393415b1d261921cea3d17aca7e2493de158a78abebcad368082ab8ea27378bf"
 doc_hash = "sha256:737f5f0ac269ec49806c85168b0607e4d0478a6d18a463e9c25c4f39ac18f029"
-uses = ["fn:1e11dc0875df892e"]
-reached_by = [
-    "#33",
-    "#34",
-]
 
 [[module."condenser.rs".function]]
-id = "fn:b857f03162d32b22"
-name = "new"
-qual = "CondenserVisual::new"
-lines = [
-    57,
-    75,
-]
-hash = "sha256:e5c6e882b95f99ddfb543f279733be93c4f863c42559b4b6c5aec0e5907c2e7f"
-doc_hash = "sha256:37a0900deaedbb3284c69dc82c9955a553248a271669151eeafb1e3028ae1863"
-uses = [
-    "fn:1e11dc0875df892e",
-    "fn:728541793befe267",
-]
-reached_by = ["#33"]
+id = "fn:156096ddc2361101"
+name = "art"
+qual = "CondenserVisual::art"
+hash = "sha256:8a1bc42dc09e53c06e2bd1c7112dc836fdb7eb9a25db63a40b132f9cd271f6e4"
+doc_hash = "sha256:b8d914ed90654fc449c7e85938fc2711f40ecbe1b80b82d4f2f055278957a857"
 
 [[module."condenser.rs".function]]
 id = "fn:15c67d0f070a8c28"
 name = "from_scalars"
 qual = "CondenserVisual::from_scalars"
-lines = [
-    77,
-    90,
-]
 hash = "sha256:91fee2be99b9cc13c403318fbf1e9449d7da2086ff9884508da10e01bdc5dc59"
 doc_hash = "sha256:1baf693394cec33b46829ca5344bc6bfa210b2d755a8cc885f9db2938f5c3a22"
-uses = [
-    "fn:1e11dc0875df892e",
-    "fn:728541793befe267",
-]
-reached_by = ["#34"]
+
+[[module."condenser.rs".function]]
+id = "fn:2d3882189dcbb02e"
+name = "kind"
+qual = "CondenserVisual::kind"
+hash = "sha256:de9881862e11f507613c34ffb748fa30f8d7c499b2c6b25a89141fffd298b4d4"
+doc_hash = "sha256:23c9e27637b2348006266e99734666b4dd0bdd1a207806e6790658c9515b49ad"
+
+[[module."condenser.rs".function]]
+id = "fn:b857f03162d32b22"
+name = "new"
+qual = "CondenserVisual::new"
+hash = "sha256:e5c6e882b95f99ddfb543f279733be93c4f863c42559b4b6c5aec0e5907c2e7f"
+doc_hash = "sha256:37a0900deaedbb3284c69dc82c9955a553248a271669151eeafb1e3028ae1863"
+
+[[module."condenser.rs".function]]
+id = "fn:2073207c36047767"
+name = "operating_pressure"
+qual = "CondenserVisual::operating_pressure"
+hash = "sha256:1477e4535b832fb5d005d95694d46e15c9d8aaed0eb2326f2200302fef218652"
+doc_hash = "sha256:e6b6b98b773fe9e0eac2ea1332210dee98ad51d5c5e2468cfe05afe4afeb6032"
+physical_interface = true
+
+[[module."condenser.rs".function]]
+id = "fn:4b85c0a574a1afd4"
+name = "ports"
+qual = "CondenserVisual::ports"
+hash = "sha256:ad6c972aeebab6634e472e6b1f499d6d148994c69f4469697363eb27f6739842"
+doc_hash = "sha256:74a74a6c79a22c5b4980ae95c5deb83ebc85347244903e9bc50822642169e59c"
+
+[[module."condenser.rs".function]]
+id = "fn:62410c131f5a77a9"
+name = "scalars"
+qual = "CondenserVisual::scalars"
+hash = "sha256:2d2448c91b1fc3d260cc844732a0213bfa575d29614839c4961fd66b64093a5a"
+doc_hash = "sha256:fa056231b531156dc27087fe69292d75fa12f872990eb55440bf6041f013ca1c"
+
+[[module."condenser.rs".function]]
+id = "fn:36ca5de2f378bbf9"
+name = "size"
+qual = "CondenserVisual::size"
+hash = "sha256:60662e386def23180a03424382bd32f9e997571bfdadc1209ecee5fc8b211d83"
+doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
+
+[[module."condenser.rs".function]]
+id = "fn:7eda3db49b8d2233"
+name = "state"
+qual = "CondenserVisual::state"
+hash = "sha256:fd0977047cf9141db2880258a2fd8a7e670e266f48bec8cbd33ae07abc474ed4"
+doc_hash = "sha256:9b12b651d3a3821700e4e41a9cfadded071122f2f8e0a7fcde4f6d6583547530"
+
+[[module."condenser.rs".function]]
+id = "fn:a00914966e64d922"
+name = "target_outlet_quality"
+qual = "CondenserVisual::target_outlet_quality"
+hash = "sha256:831a7eac362d733bc3e0e7ca7949069c3b4cdedc7055a72750f0cbd71e355ee9"
+doc_hash = "sha256:5442238b1075ccb6ebabbf0fe36f3f3dd086c0fd87661d5de137d7a2ade1dc6e"
+
+[[module."condenser.rs".function]]
+id = "fn:6b39115bb928959a"
+name = "ui"
+qual = "CondenserVisual::ui"
+hash = "sha256:361f5744ae1800929e82d487a3a69be75db4a8d2f956505feaad8ce9212f4d8d"
+doc_hash = "sha256:c712447beec8ac4a1c3c197b2a8d23acfed5108773fb481702466706a0997749"
 
 [[module."condenser.rs".function]]
 id = "fn:4f3b0c00032b02fe"
 name = "with_kind"
 qual = "CondenserVisual::with_kind"
-lines = [
-    92,
-    96,
-]
 hash = "sha256:682d01263e472a51f767cca0c68c0b80d607b2f8acf44215c6c1c0543d5f6f3d"
 doc_hash = "sha256:a2de93273f1ff6d91306b1c0a8ed806c2f9eba0e0624d757039fcc1e67b77a07"
-uses = ["fn:728541793befe267"]
-reached_by = ["#34"]
 
 [[module."condenser.rs".function]]
 id = "fn:9393d67f084fc4fa"
 name = "with_operating_pressure"
 qual = "CondenserVisual::with_operating_pressure"
-lines = [
-    98,
-    105,
-]
 hash = "sha256:ab3a2a17ea5bff5cd42125d3d932bac16152bc11d8fc63d15ad21a33bed84cbc"
 doc_hash = "sha256:84786f68ad5de6cbefaba510382d2488e27a50fa8b0af6b6d7cdb6719916257b"
-uses = ["fn:728541793befe267"]
-reached_by = ["#34"]
 physical_interface = true
 
 [[module."condenser.rs".function]]
 id = "fn:808ea6ebc3caad43"
 name = "without_labels"
 qual = "CondenserVisual::without_labels"
-lines = [
-    107,
-    111,
-]
 hash = "sha256:5ee231d33db7185530c9442135a0657ffa67edc0d736f62f86ea365ce5589771"
 doc_hash = "sha256:54fda030d10fb8b6d4793909cf8e2eec8cc8b2d230482c7fb41fe3655a26dba1"
-uses = ["fn:728541793befe267"]
-reached_by = ["#34"]
 
 [[module."condenser.rs".function]]
-id = "fn:2d3882189dcbb02e"
-name = "kind"
-qual = "CondenserVisual::kind"
-lines = [
-    113,
-    116,
-]
-hash = "sha256:de9881862e11f507613c34ffb748fa30f8d7c499b2c6b25a89141fffd298b4d4"
-doc_hash = "sha256:23c9e27637b2348006266e99734666b4dd0bdd1a207806e6790658c9515b49ad"
-uses = ["fn:728541793befe267"]
-
-[[module."condenser.rs".function]]
-id = "fn:36ca5de2f378bbf9"
-name = "size"
-qual = "CondenserVisual::size"
-lines = [
-    118,
-    121,
-]
-hash = "sha256:60662e386def23180a03424382bd32f9e997571bfdadc1209ecee5fc8b211d83"
-doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
-uses = ["fn:728541793befe267"]
-
-[[module."condenser.rs".function]]
-id = "fn:7eda3db49b8d2233"
-name = "state"
-qual = "CondenserVisual::state"
-lines = [
-    123,
-    126,
-]
-hash = "sha256:fd0977047cf9141db2880258a2fd8a7e670e266f48bec8cbd33ae07abc474ed4"
-doc_hash = "sha256:9b12b651d3a3821700e4e41a9cfadded071122f2f8e0a7fcde4f6d6583547530"
-uses = [
-    "fn:1e11dc0875df892e",
-    "fn:728541793befe267",
-]
-
-[[module."condenser.rs".function]]
-id = "fn:62410c131f5a77a9"
-name = "scalars"
-qual = "CondenserVisual::scalars"
-lines = [
-    128,
-    136,
-]
-hash = "sha256:2d2448c91b1fc3d260cc844732a0213bfa575d29614839c4961fd66b64093a5a"
-doc_hash = "sha256:fa056231b531156dc27087fe69292d75fa12f872990eb55440bf6041f013ca1c"
-uses = [
-    "fn:1e11dc0875df892e",
-    "fn:728541793befe267",
-]
-
-[[module."condenser.rs".function]]
-id = "fn:2073207c36047767"
-name = "operating_pressure"
-qual = "CondenserVisual::operating_pressure"
-lines = [
-    138,
-    144,
-]
-hash = "sha256:1477e4535b832fb5d005d95694d46e15c9d8aaed0eb2326f2200302fef218652"
-doc_hash = "sha256:e6b6b98b773fe9e0eac2ea1332210dee98ad51d5c5e2468cfe05afe4afeb6032"
-uses = ["fn:728541793befe267"]
-physical_interface = true
-
-[[module."condenser.rs".function]]
-id = "fn:a00914966e64d922"
-name = "target_outlet_quality"
-qual = "CondenserVisual::target_outlet_quality"
-lines = [
-    146,
-    159,
-]
-hash = "sha256:831a7eac362d733bc3e0e7ca7949069c3b4cdedc7055a72750f0cbd71e355ee9"
-doc_hash = "sha256:5442238b1075ccb6ebabbf0fe36f3f3dd086c0fd87661d5de137d7a2ade1dc6e"
-uses = [
-    "fn:1e11dc0875df892e",
-    "fn:728541793befe267",
-]
-
-[[module."condenser.rs".function]]
-id = "fn:156096ddc2361101"
-name = "art"
-qual = "CondenserVisual::art"
-lines = [
-    161,
-    164,
-]
-hash = "sha256:8a1bc42dc09e53c06e2bd1c7112dc836fdb7eb9a25db63a40b132f9cd271f6e4"
-doc_hash = "sha256:b8d914ed90654fc449c7e85938fc2711f40ecbe1b80b82d4f2f055278957a857"
-uses = ["fn:728541793befe267"]
-
-[[module."condenser.rs".function]]
-id = "fn:4b85c0a574a1afd4"
-name = "ports"
-qual = "CondenserVisual::ports"
-lines = [
-    166,
-    170,
-]
-hash = "sha256:ad6c972aeebab6634e472e6b1f499d6d148994c69f4469697363eb27f6739842"
-doc_hash = "sha256:74a74a6c79a22c5b4980ae95c5deb83ebc85347244903e9bc50822642169e59c"
-uses = ["fn:728541793befe267"]
-
-[[module."condenser.rs".function]]
-id = "fn:6b39115bb928959a"
-name = "ui"
-qual = "CondenserVisual::ui"
-lines = [
-    174,
-    178,
-]
-hash = "sha256:361f5744ae1800929e82d487a3a69be75db4a8d2f956505feaad8ce9212f4d8d"
-doc_hash = "sha256:c712447beec8ac4a1c3c197b2a8d23acfed5108773fb481702466706a0997749"
-uses = ["fn:728541793befe267"]
+id = "fn:1e11dc0875df892e"
+name = "CondenserVisualState"
+qual = "CondenserVisualState"
+item = "type"
+shape = "enum"
+hash = "sha256:8ef8b8c37464c05707e05701b0075ceb7f731b44ca81e7cb283d4dbb288af2b0"
+doc_hash = "sha256:a2aebcd25a3a88e82e5cd65e8a7e0a6a49c8062caf80a597d8f7dfd770c30fbd"
 
 [[module."condenser.rs".function]]
 id = "fn:04984ee1297948b0"
 name = "the_physics_path_draws_unpainted_with_its_pressure"
 qual = "the_physics_path_draws_unpainted_with_its_pressure"
-lines = [
-    188,
-    218,
-]
 hash = "sha256:a2b5e05c5a623137d2dea6254e759d2fbe73665887967afc2ffa361d041178b7"
 doc_hash = "sha256:2ef8352276d2b3357aca091841d09f555da06d01f40ad585590173a57af35609"
-callees = ["fn:b857f03162d32b22"]
-uses = ["fn:728541793befe267"]
 test = true
 
 [[module."condenser.rs".function]]
 id = "fn:8d0a45193a6e6625"
 name = "the_scalar_path_and_builders_reach_the_art"
 qual = "the_scalar_path_and_builders_reach_the_art"
-lines = [
-    220,
-    259,
-]
 hash = "sha256:b7c0406c8f70cd1c3f9d6b4390b229209c72aee9185a6b3410ea34256ddce89e"
 doc_hash = "sha256:ff477ff9cfe905ef5ff56f1afe0598ed33264bef8e204a1129f5deb6f432d2f7"
-callees = [
-    "fn:15c67d0f070a8c28",
-    "fn:4f3b0c00032b02fe",
-    "fn:808ea6ebc3caad43",
-    "fn:9393d67f084fc4fa",
-]
-uses = ["fn:728541793befe267"]
 test = true
 
 [module."cooling_tower.rs"]
 path = "crate::components::cooling_tower"
-
-[[module."cooling_tower.rs".function]]
-id = "fn:b3ae77e0c2c6344c"
-name = "air_readout"
-qual = "air_readout"
-lines = [
-    26,
-    34,
-]
-hash = "sha256:14e9c2845b270dcfc7f84227b1e9b515d09da18d0138e48542abc459890616c6"
-doc_hash = "sha256:2aeac4ad910d986b7b41e57a327e9b54b9123a12c8e3a7b89d8f54be976adc62"
-reached_by = [
-    "#36",
-    "#37",
-]
 
 [[module."cooling_tower.rs".function]]
 id = "fn:e14dcff28a2dc7af"
@@ -369,48 +217,15 @@ name = "CoolingTowerScalars"
 qual = "CoolingTowerScalars"
 item = "type"
 shape = "struct"
-lines = [
-    36,
-    62,
-]
 hash = "sha256:e7243b2535b0bd2db54bb928c03940e270ed4b1ef3fd800822f6c2d7a01ea0b0"
 doc_hash = "sha256:62919e1a82fb8141264f10add23f74fead69ddc12e174926b65ff2c46eb98b96"
-reached_by = [
-    "#36",
-    "#37",
-]
 
 [[module."cooling_tower.rs".function]]
 id = "fn:33f114339b881f0e"
 name = "to_art"
 qual = "CoolingTowerScalars::to_art"
-lines = [
-    65,
-    75,
-]
 hash = "sha256:3400c26b1d4d1dbea4efaa1ac8056a00922b7a8a4ccb63f8f9b042233cd5587e"
 doc_hash = "sha256:7346970e3c330b6dc968ea3817d67c45fdb9af0c8de0fd4cda547a6cb95b9651"
-callees = ["fn:b3ae77e0c2c6344c"]
-uses = ["fn:e14dcff28a2dc7af"]
-reached_by = ["#37"]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:5a96d87c41eee3d3"
-name = "CoolingTowerVisualState"
-qual = "CoolingTowerVisualState"
-item = "type"
-shape = "enum"
-lines = [
-    78,
-    90,
-]
-hash = "sha256:23cc5ab0d033996490cde048c2d579b3282fc69efea12e93e06d9ceaa9fa53ec"
-doc_hash = "sha256:14908dc9a1befeb41db11f676f8662957e53569dd9676f8962d5fde8bc1db06f"
-uses = ["fn:e14dcff28a2dc7af"]
-reached_by = [
-    "#36",
-    "#37",
-]
 
 [[module."cooling_tower.rs".function]]
 id = "fn:9d6adbd80e881ff6"
@@ -418,407 +233,220 @@ name = "CoolingTowerVisual"
 qual = "CoolingTowerVisual"
 item = "type"
 shape = "struct"
-lines = [
-    92,
-    100,
-]
 hash = "sha256:67de061dd143e8a35c9e28eb27fb65095dfeba92ddfd560c1d26fb4ab8765e86"
 doc_hash = "sha256:225b8793fcf1fde79a71ca7718738264db1075d1b2fbe490755e3221386134ba"
-uses = ["fn:5a96d87c41eee3d3"]
-reached_by = [
-    "#36",
-    "#37",
-]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:e016c247ddbdae17"
-name = "new"
-qual = "CoolingTowerVisual::new"
-lines = [
-    103,
-    129,
-]
-hash = "sha256:6187ba716dbe424d0dc11842988fecda4c1773f450dd335c2c508dbbffbac6a1"
-doc_hash = "sha256:9ee7884591bed6255900e90e9b8854ca3bf59a70f7d330b5af8d64b4feb0fcc1"
-callees = ["fn:b3ae77e0c2c6344c"]
-uses = [
-    "fn:5a96d87c41eee3d3",
-    "fn:9d6adbd80e881ff6",
-]
-reached_by = ["#36"]
-physical_interface = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:4370aadac453fd24"
-name = "from_scalars"
-qual = "CoolingTowerVisual::from_scalars"
-lines = [
-    131,
-    152,
-]
-hash = "sha256:f654b18547e1881911a0c50421eace909cf4f22c3c905d39635f2551816b5138"
-doc_hash = "sha256:92ac81e0db6ccd9a2894de2d3f498f15e1825184e5aa005fe8e64dd1d5146aa7"
-callees = ["fn:33f114339b881f0e"]
-uses = [
-    "fn:5a96d87c41eee3d3",
-    "fn:9d6adbd80e881ff6",
-    "fn:e14dcff28a2dc7af",
-]
-reached_by = ["#37"]
-physical_interface = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:b46631103f47d6a5"
-name = "with_kind"
-qual = "CoolingTowerVisual::with_kind"
-lines = [
-    154,
-    158,
-]
-hash = "sha256:ffe6b171336169898c7845d394f45d7196c8a9a0f9d6787c70e9dc8c02311e8a"
-doc_hash = "sha256:c86f1a84f3a22f5f98778a418762ac35a995c6e0d888e576876ef7af29ed6d73"
-uses = ["fn:9d6adbd80e881ff6"]
-reached_by = ["#37"]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:4df8bf05abbfde69"
-name = "with_fan_speed"
-qual = "CoolingTowerVisual::with_fan_speed"
-lines = [
-    160,
-    164,
-]
-hash = "sha256:3a4b11a3046744965e004f7f460aa9690f089a6efd81171fee4c9cfebf4dc148"
-doc_hash = "sha256:f1ab3e735cfa2b2f9c8fc1386e053c67c98be5f38ed877853f41ae3f825e09c7"
-uses = ["fn:9d6adbd80e881ff6"]
-reached_by = ["#37"]
-physical_interface = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:77f6b4f603e949d4"
-name = "at_time"
-qual = "CoolingTowerVisual::at_time"
-lines = [
-    166,
-    171,
-]
-hash = "sha256:b3a5ca25c5a9e3779dbd104d0aa538c472ce5bfa0206673ae40b09887ce6abea"
-doc_hash = "sha256:05fcc95d42f762d169af2ce0bf8de7e2bdb4cb69745c8da04de7b8eb254e48b5"
-uses = ["fn:9d6adbd80e881ff6"]
-reached_by = ["#37"]
-physical_interface = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:9bfa149d92d271b5"
-name = "without_labels"
-qual = "CoolingTowerVisual::without_labels"
-lines = [
-    173,
-    177,
-]
-hash = "sha256:5ee231d33db7185530c9442135a0657ffa67edc0d736f62f86ea365ce5589771"
-doc_hash = "sha256:357ed35a71cdc636ffdc0ef092b63753eaf7b231e43524a4f86545ce77d7ee2a"
-uses = ["fn:9d6adbd80e881ff6"]
-reached_by = ["#37"]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:ba3ee440d634b768"
-name = "kind"
-qual = "CoolingTowerVisual::kind"
-lines = [
-    179,
-    182,
-]
-hash = "sha256:0e5e8e6994c57eebd6e2fb3dd307917976fd11678c0f63df121d1fd0808aa8d7"
-doc_hash = "sha256:b5e48226fb5b79f6bc15a8e20604de9e100772aa7c10423f0d59505f035b7dfe"
-uses = ["fn:9d6adbd80e881ff6"]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:0a883e1de7c5b43f"
-name = "size"
-qual = "CoolingTowerVisual::size"
-lines = [
-    184,
-    187,
-]
-hash = "sha256:60662e386def23180a03424382bd32f9e997571bfdadc1209ecee5fc8b211d83"
-doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
-uses = ["fn:9d6adbd80e881ff6"]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:f91f1bcfacf009cc"
-name = "state"
-qual = "CoolingTowerVisual::state"
-lines = [
-    189,
-    192,
-]
-hash = "sha256:60ac3e1cdd461794dddf57c72840750b105a50ae7653f880df354a102a562eb3"
-doc_hash = "sha256:9b12b651d3a3821700e4e41a9cfadded071122f2f8e0a7fcde4f6d6583547530"
-uses = [
-    "fn:5a96d87c41eee3d3",
-    "fn:9d6adbd80e881ff6",
-]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:30968b6f04da9ee8"
-name = "scalars"
-qual = "CoolingTowerVisual::scalars"
-lines = [
-    194,
-    201,
-]
-hash = "sha256:4f05c98175f13adddee4d5f22cc6046d73e4a5e3a06fb979272652a2d0d4020d"
-doc_hash = "sha256:5928f4b5e4c194f52587d279e5ad48d2bb4ab16f4260057f1eef86075280057a"
-uses = [
-    "fn:5a96d87c41eee3d3",
-    "fn:9d6adbd80e881ff6",
-    "fn:e14dcff28a2dc7af",
-]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:b748edbeec2f002b"
-name = "physics"
-qual = "CoolingTowerVisual::physics"
-lines = [
-    203,
-    209,
-]
-hash = "sha256:6c1d75029fa5629c05522434f539bd87b6b95245a42570c162131cc63281a820"
-doc_hash = "sha256:30cee4dc5761fd36e4b7c50e855d387f979f03421e72f587fc3e0d714d3e3a6f"
-uses = [
-    "fn:5a96d87c41eee3d3",
-    "fn:9d6adbd80e881ff6",
-]
-
-[[module."cooling_tower.rs".function]]
-id = "fn:9a44067d3097084d"
-name = "fan_angle"
-qual = "CoolingTowerVisual::fan_angle"
-lines = [
-    211,
-    215,
-]
-hash = "sha256:642cd3b343993548614b7851aa66716cee537d5ec171271652a09807d1ffdedd"
-doc_hash = "sha256:d24bb3512ff1a27bd474b038783f1d107252876977f946ee83c3c148e9ee25b1"
-uses = ["fn:9d6adbd80e881ff6"]
-physical_interface = true
 
 [[module."cooling_tower.rs".function]]
 id = "fn:ce8816ebe199b84f"
 name = "approach"
 qual = "CoolingTowerVisual::approach"
-lines = [
-    217,
-    221,
-]
 hash = "sha256:781bd23b8303b9af1d1e70051bf66999826e96da3f109f14b52b980e012b60ce"
 doc_hash = "sha256:ce41abcf6bde9492643e7407c381b6e3c52e6d40db856f7368713373965906d6"
-uses = ["fn:9d6adbd80e881ff6"]
-physical_interface = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:f5b00bafb70311e0"
-name = "target_approach"
-qual = "CoolingTowerVisual::target_approach"
-lines = [
-    223,
-    227,
-]
-hash = "sha256:6aa503ec13f821890f427913b38ddab7e8f9436380c8d121db415c54cc71035b"
-doc_hash = "sha256:9978e8a2d4e612066ec810c9117ae9f450f1928505c12b8900598d21bb881d24"
-uses = ["fn:9d6adbd80e881ff6"]
-physical_interface = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:7b0b6e146bb61c74"
-name = "cooling_range"
-qual = "CoolingTowerVisual::cooling_range"
-lines = [
-    229,
-    233,
-]
-hash = "sha256:f0312354806a0c7f95103d879f2fbb5a1e640644fd2eba29819866c85d7859db"
-doc_hash = "sha256:ca982ad2ee7d8cfe0b263be42a2f847e718cd867d13089701bc535767d2e6417"
-uses = ["fn:9d6adbd80e881ff6"]
 physical_interface = true
 
 [[module."cooling_tower.rs".function]]
 id = "fn:fe3578328d8224de"
 name = "art"
 qual = "CoolingTowerVisual::art"
-lines = [
-    235,
-    238,
-]
 hash = "sha256:2a997c7e97aaf3a36219a3f3dcf93fe34900e814d517d40af9d4486ce1707125"
 doc_hash = "sha256:b8d914ed90654fc449c7e85938fc2711f40ecbe1b80b82d4f2f055278957a857"
-uses = ["fn:9d6adbd80e881ff6"]
-reached_by = ["#36"]
+
+[[module."cooling_tower.rs".function]]
+id = "fn:77f6b4f603e949d4"
+name = "at_time"
+qual = "CoolingTowerVisual::at_time"
+hash = "sha256:b3a5ca25c5a9e3779dbd104d0aa538c472ce5bfa0206673ae40b09887ce6abea"
+doc_hash = "sha256:05fcc95d42f762d169af2ce0bf8de7e2bdb4cb69745c8da04de7b8eb254e48b5"
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:7b0b6e146bb61c74"
+name = "cooling_range"
+qual = "CoolingTowerVisual::cooling_range"
+hash = "sha256:f0312354806a0c7f95103d879f2fbb5a1e640644fd2eba29819866c85d7859db"
+doc_hash = "sha256:ca982ad2ee7d8cfe0b263be42a2f847e718cd867d13089701bc535767d2e6417"
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:9a44067d3097084d"
+name = "fan_angle"
+qual = "CoolingTowerVisual::fan_angle"
+hash = "sha256:642cd3b343993548614b7851aa66716cee537d5ec171271652a09807d1ffdedd"
+doc_hash = "sha256:d24bb3512ff1a27bd474b038783f1d107252876977f946ee83c3c148e9ee25b1"
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:4370aadac453fd24"
+name = "from_scalars"
+qual = "CoolingTowerVisual::from_scalars"
+hash = "sha256:f654b18547e1881911a0c50421eace909cf4f22c3c905d39635f2551816b5138"
+doc_hash = "sha256:92ac81e0db6ccd9a2894de2d3f498f15e1825184e5aa005fe8e64dd1d5146aa7"
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:ba3ee440d634b768"
+name = "kind"
+qual = "CoolingTowerVisual::kind"
+hash = "sha256:0e5e8e6994c57eebd6e2fb3dd307917976fd11678c0f63df121d1fd0808aa8d7"
+doc_hash = "sha256:b5e48226fb5b79f6bc15a8e20604de9e100772aa7c10423f0d59505f035b7dfe"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:e016c247ddbdae17"
+name = "new"
+qual = "CoolingTowerVisual::new"
+hash = "sha256:6187ba716dbe424d0dc11842988fecda4c1773f450dd335c2c508dbbffbac6a1"
+doc_hash = "sha256:9ee7884591bed6255900e90e9b8854ca3bf59a70f7d330b5af8d64b4feb0fcc1"
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:b748edbeec2f002b"
+name = "physics"
+qual = "CoolingTowerVisual::physics"
+hash = "sha256:6c1d75029fa5629c05522434f539bd87b6b95245a42570c162131cc63281a820"
+doc_hash = "sha256:30cee4dc5761fd36e4b7c50e855d387f979f03421e72f587fc3e0d714d3e3a6f"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:30968b6f04da9ee8"
+name = "scalars"
+qual = "CoolingTowerVisual::scalars"
+hash = "sha256:4f05c98175f13adddee4d5f22cc6046d73e4a5e3a06fb979272652a2d0d4020d"
+doc_hash = "sha256:5928f4b5e4c194f52587d279e5ad48d2bb4ab16f4260057f1eef86075280057a"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:0a883e1de7c5b43f"
+name = "size"
+qual = "CoolingTowerVisual::size"
+hash = "sha256:60662e386def23180a03424382bd32f9e997571bfdadc1209ecee5fc8b211d83"
+doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:f91f1bcfacf009cc"
+name = "state"
+qual = "CoolingTowerVisual::state"
+hash = "sha256:60ac3e1cdd461794dddf57c72840750b105a50ae7653f880df354a102a562eb3"
+doc_hash = "sha256:9b12b651d3a3821700e4e41a9cfadded071122f2f8e0a7fcde4f6d6583547530"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:f5b00bafb70311e0"
+name = "target_approach"
+qual = "CoolingTowerVisual::target_approach"
+hash = "sha256:6aa503ec13f821890f427913b38ddab7e8f9436380c8d121db415c54cc71035b"
+doc_hash = "sha256:9978e8a2d4e612066ec810c9117ae9f450f1928505c12b8900598d21bb881d24"
+physical_interface = true
 
 [[module."cooling_tower.rs".function]]
 id = "fn:5199a4ce1d7112de"
 name = "ui"
 qual = "CoolingTowerVisual::ui"
-lines = [
-    242,
-    245,
-]
 hash = "sha256:361f5744ae1800929e82d487a3a69be75db4a8d2f956505feaad8ce9212f4d8d"
 doc_hash = "sha256:347d3609ccc471e6e597511e321057c31b00fdf1c89f6f7e95ae3ca952660860"
-uses = ["fn:9d6adbd80e881ff6"]
+
+[[module."cooling_tower.rs".function]]
+id = "fn:4df8bf05abbfde69"
+name = "with_fan_speed"
+qual = "CoolingTowerVisual::with_fan_speed"
+hash = "sha256:3a4b11a3046744965e004f7f460aa9690f089a6efd81171fee4c9cfebf4dc148"
+doc_hash = "sha256:f1ab3e735cfa2b2f9c8fc1386e053c67c98be5f38ed877853f41ae3f825e09c7"
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:b46631103f47d6a5"
+name = "with_kind"
+qual = "CoolingTowerVisual::with_kind"
+hash = "sha256:ffe6b171336169898c7845d394f45d7196c8a9a0f9d6787c70e9dc8c02311e8a"
+doc_hash = "sha256:c86f1a84f3a22f5f98778a418762ac35a995c6e0d888e576876ef7af29ed6d73"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:9bfa149d92d271b5"
+name = "without_labels"
+qual = "CoolingTowerVisual::without_labels"
+hash = "sha256:5ee231d33db7185530c9442135a0657ffa67edc0d736f62f86ea365ce5589771"
+doc_hash = "sha256:357ed35a71cdc636ffdc0ef092b63753eaf7b231e43524a4f86545ce77d7ee2a"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:5a96d87c41eee3d3"
+name = "CoolingTowerVisualState"
+qual = "CoolingTowerVisualState"
+item = "type"
+shape = "enum"
+hash = "sha256:23cc5ab0d033996490cde048c2d579b3282fc69efea12e93e06d9ceaa9fa53ec"
+doc_hash = "sha256:14908dc9a1befeb41db11f676f8662957e53569dd9676f8962d5fde8bc1db06f"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:16331310cde9219e"
+name = "air"
+qual = "air"
+hash = "sha256:50fecb771d36f839f80fd0fd7bcf9670cfeb87b3f3c5b4482a4f2f03ef1b4ac5"
+doc_hash = "sha256:876ce34f7e6194188312685aa422c80a6af23c09a336b93c5c7d8c1ef28cf8c8"
+test = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:b3ae77e0c2c6344c"
+name = "air_readout"
+qual = "air_readout"
+hash = "sha256:14e9c2845b270dcfc7f84227b1e9b515d09da18d0138e48542abc459890616c6"
+doc_hash = "sha256:2aeac4ad910d986b7b41e57a327e9b54b9123a12c8e3a7b89d8f54be976adc62"
 
 [[module."cooling_tower.rs".function]]
 id = "fn:c7b614117831ec1a"
 name = "degc"
 qual = "degc"
-lines = [
-    261,
-    263,
-]
 hash = "sha256:ee84ef7b3d67ba379a568a10958b33d486cdba67b79072cecd34e177894809fa"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 physical_interface = true
 
 [[module."cooling_tower.rs".function]]
-id = "fn:16331310cde9219e"
-name = "air"
-qual = "air"
-lines = [
-    265,
-    273,
-]
-hash = "sha256:50fecb771d36f839f80fd0fd7bcf9670cfeb87b3f3c5b4482a4f2f03ef1b4ac5"
-doc_hash = "sha256:876ce34f7e6194188312685aa422c80a6af23c09a336b93c5c7d8c1ef28cf8c8"
-callees = ["fn:c7b614117831ec1a"]
+id = "fn:0821b033d22cf981"
+name = "physics_tower"
+qual = "physics_tower"
+hash = "sha256:36a329bfb117b6a3029447485a2ca751348be28f455bb9006b9d7c9bc73dc916"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cooling_tower.rs".function]]
 id = "fn:bad0d5f5388f9cbd"
 name = "scalars"
 qual = "scalars"
-lines = [
-    275,
-    287,
-]
 hash = "sha256:8f7aa44f7b864643401f607183abec60b7fe90bc935a565a327e9fd067d5b022"
 doc_hash = "sha256:fb23d5377929ad7d13fba6f90bcddacd6a5004589f0d16a50822f75f43084865"
-callees = [
-    "fn:16331310cde9219e",
-    "fn:c7b614117831ec1a",
-]
-uses = ["fn:e14dcff28a2dc7af"]
-test = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:0821b033d22cf981"
-name = "physics_tower"
-qual = "physics_tower"
-lines = [
-    289,
-    296,
-]
-hash = "sha256:36a329bfb117b6a3029447485a2ca751348be28f455bb9006b9d7c9bc73dc916"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:16331310cde9219e",
-    "fn:c7b614117831ec1a",
-]
-test = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:6fa2bcda8610a360"
-name = "the_physics_path_draws_no_plume_and_no_approach"
-qual = "the_physics_path_draws_no_plume_and_no_approach"
-lines = [
-    298,
-    345,
-]
-hash = "sha256:b98730e326ae0ad76b240fb1d21f253a4948a455b002f81a55ffadb2dfb807e2"
-doc_hash = "sha256:6f8761dde4aa93c87a0f199ebd0ff2b189922d7e5ff0b54bfd6f383ed028b90b"
-callees = [
-    "fn:0821b033d22cf981",
-    "fn:c7b614117831ec1a",
-    "fn:e016c247ddbdae17",
-    "fn:fe3578328d8224de",
-]
-uses = ["fn:9d6adbd80e881ff6"]
-test = true
-
-[[module."cooling_tower.rs".function]]
-id = "fn:8491ce6234190abc"
-name = "the_scalar_path_and_builders_reach_the_art"
-qual = "the_scalar_path_and_builders_reach_the_art"
-lines = [
-    347,
-    372,
-]
-hash = "sha256:7e2ba26d27980bbc85eaaa090e2fe1e1c550a1df9f6febc072dce397190e4fdf"
-doc_hash = "sha256:dd5c4d4120f5c00e54c20083a5d42eace805f491f7cd7780e315b54e7f37c7b5"
-callees = [
-    "fn:4370aadac453fd24",
-    "fn:4df8bf05abbfde69",
-    "fn:77f6b4f603e949d4",
-    "fn:9bfa149d92d271b5",
-    "fn:b46631103f47d6a5",
-    "fn:bad0d5f5388f9cbd",
-    "fn:c7b614117831ec1a",
-]
-uses = ["fn:9d6adbd80e881ff6"]
 test = true
 
 [[module."cooling_tower.rs".function]]
 id = "fn:5e981be808310f83"
 name = "the_air_states_come_from_the_coolprop_psychrometrics"
 qual = "the_air_states_come_from_the_coolprop_psychrometrics"
-lines = [
-    374,
-    424,
-]
 hash = "sha256:fba646dcf6fc9f142958c397505fd8678c9608a517af458e0755c81546d5fdeb"
 doc_hash = "sha256:23f43ed0172d009ade8ca9cf8346037bec4fd718f3de2d0cbb504075d9a89478"
-callees = ["fn:16331310cde9219e"]
+test = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:6fa2bcda8610a360"
+name = "the_physics_path_draws_no_plume_and_no_approach"
+qual = "the_physics_path_draws_no_plume_and_no_approach"
+hash = "sha256:b98730e326ae0ad76b240fb1d21f253a4948a455b002f81a55ffadb2dfb807e2"
+doc_hash = "sha256:6f8761dde4aa93c87a0f199ebd0ff2b189922d7e5ff0b54bfd6f383ed028b90b"
+test = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:8491ce6234190abc"
+name = "the_scalar_path_and_builders_reach_the_art"
+qual = "the_scalar_path_and_builders_reach_the_art"
+hash = "sha256:7e2ba26d27980bbc85eaaa090e2fe1e1c550a1df9f6febc072dce397190e4fdf"
+doc_hash = "sha256:dd5c4d4120f5c00e54c20083a5d42eace805f491f7cd7780e315b54e7f37c7b5"
 test = true
 
 [module."excursion.rs"]
 path = "crate::components::excursion"
 
 [[module."excursion.rs".function]]
-id = "fn:94ebe2c915c2ef27"
-name = "RELEASE_INTENSITY"
-qual = "RELEASE_INTENSITY"
+id = "fn:bf4f4e727e77cbf6"
+name = "BANNER"
+qual = "BANNER"
 item = "const"
 shape = "const"
-lines = [
-    118,
-    133,
-]
-hash = "sha256:87885eb6c6028ebcca4485d1ab5a853e5d9e27af137925589d74b4159d201d71"
-doc_hash = "sha256:fbfa125af4d57fe6df7acafd40c088a0df9b74fe37beea033af3ec7dbe379f76"
-reached_by = [
-    "#29",
-    "#32",
-    "#40",
-    "#50",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:2630adb377484ed1"
-name = "RELEASE_RAMP_SECONDS"
-qual = "RELEASE_RAMP_SECONDS"
-item = "const"
-shape = "const"
-lines = [
-    135,
-    145,
-]
-hash = "sha256:9933e031384e80a84cbfdd18676600b5ba2cd5e5b04b28baa15754c2a17f2b2c"
-doc_hash = "sha256:2049e07626b9deec022025c8ade22ac73ae3903bfaf28cecedec99422bc43917"
-reached_by = [
-    "#31",
-    "#46",
-]
+hash = "sha256:cde024564e8feae3f86a22e551b5a4e3acad80cce17cbeee754b8775881fcbbb"
+doc_hash = "sha256:96727cb8345132c7dcc0339d9f40b30da34ce4e392deb0f1c12e31934767bfa8"
 
 [[module."excursion.rs".function]]
 id = "fn:f298e88e687b7249"
@@ -826,13 +454,214 @@ name = "BANNER_PULSE_HZ"
 qual = "BANNER_PULSE_HZ"
 item = "const"
 shape = "const"
-lines = [
-    147,
-    149,
-]
 hash = "sha256:db8a2bf0f1be59647f42a73b416485841344c1b42faced1b31d54cb82ef55042"
 doc_hash = "sha256:df0cf1586f14132b7304a1af5dfd4fec17ea5ab65408e246fbd1c9db4aa0a2fe"
-reached_by = ["#42"]
+
+[[module."excursion.rs".function]]
+id = "fn:47a956867551c83d"
+name = "ExcursionOverlay"
+qual = "ExcursionOverlay"
+item = "type"
+shape = "struct"
+hash = "sha256:d442b4b2beb2c27a4be7c3b66deb5d5033627f8f789a5313566dacea2ab1959c"
+doc_hash = "sha256:7eb81989f937ad305ac992ae433903152123c4146151aa8b9cdad3dbd8e791db"
+
+[[module."excursion.rs".function]]
+id = "fn:5a4e5ccf345682e3"
+name = "draw_banner"
+qual = "ExcursionOverlay::draw_banner"
+hash = "sha256:14f7b784d7079350b829d87d50a89c53c0859e4fbcc649bcdc64da5317e63efc"
+doc_hash = "sha256:129538906f54cb8817e81dd48845ee09de3128b1a419048a825cead7acde1e0e"
+
+[[module."excursion.rs".function]]
+id = "fn:df54515a903be4e5"
+name = "draw_limit_warning"
+qual = "ExcursionOverlay::draw_limit_warning"
+hash = "sha256:91fcac463cabc52f1984d82bafacce539c827873b4a331b799be592e682e2a4f"
+doc_hash = "sha256:db32162d0c4bf09497114616de525e7fef6be746b23fcfdf7005928826667fb6"
+
+[[module."excursion.rs".function]]
+id = "fn:e649ee9ca83d709e"
+name = "draw_release"
+qual = "ExcursionOverlay::draw_release"
+hash = "sha256:802b92796489b90c91dc2fd52319ae9d9d5bb804fc9172de358d8347c7da962d"
+doc_hash = "sha256:ad55ecc69063bbc383bee6e916c6c2349c986e1098a12ba66b92a709e5346085"
+
+[[module."excursion.rs".function]]
+id = "fn:c979e038845fd26e"
+name = "intensity"
+qual = "ExcursionOverlay::intensity"
+hash = "sha256:e846d159d19f8d032cb3bf62fb81cff7a8bf3d67151ae9dbc2e0699c837e5dad"
+doc_hash = "sha256:752343b012f286cee6efa3e1d8206229f8d35196400858279e3f9333b9d1d755"
+
+[[module."excursion.rs".function]]
+id = "fn:c21edf5c81d0dad0"
+name = "named_species"
+qual = "ExcursionOverlay::named_species"
+hash = "sha256:48dd5fdaafd53a2eb19ddbcd343741e4df49921251b3165b52dd476f3eb69aaa"
+doc_hash = "sha256:29c956604fdc58b3bf144f3499d74569d4556a1cf250d4f6b483656a77c66e90"
+
+[[module."excursion.rs".function]]
+id = "fn:91b29f94aed56404"
+name = "new"
+qual = "ExcursionOverlay::new"
+hash = "sha256:ec7da4a4ea4b8abcfdb14682dea36a2cad2c783f7ba5447fba3abf3fe14096eb"
+doc_hash = "sha256:a2e60a9f2e6a6e17f6aa52ca8f65f66e159c9f22828d5716ea78782e4a2d553b"
+
+[[module."excursion.rs".function]]
+id = "fn:e219c4309180f097"
+name = "overshoot_kelvin"
+qual = "ExcursionOverlay::overshoot_kelvin"
+hash = "sha256:982815b3f175906edf195fa21006bbe17323a6a3408b2a5b5a12aac98e16bf3f"
+doc_hash = "sha256:a3cb31e83bd4643895818c9b8690fc0e84d40900dcaa7d494d64da220657434a"
+
+[[module."excursion.rs".function]]
+id = "fn:727938cab1acc6c4"
+name = "phase"
+qual = "ExcursionOverlay::phase"
+hash = "sha256:95db58aef0d41cc1532d9dba16c5b14c78f78b3c5b790e2bd8ea2717f7eda942"
+doc_hash = "sha256:35f3bb94f91a2610aa8fb0b4b240b54d7ada0522fcf54e91e55aa97f40cd9552"
+
+[[module."excursion.rs".function]]
+id = "fn:740c6b90475664f6"
+name = "since_trigger"
+qual = "ExcursionOverlay::since_trigger"
+hash = "sha256:f94d2db2f7141b4eea89442c132f10251224e051740aca7f45ca897f2054541a"
+doc_hash = "sha256:7c1fcbfe4fc4829dca1ef1a5fa525f3b40001bd8b8046ab20ec24b9ad4a0d41a"
+physical_interface = true
+
+[[module."excursion.rs".function]]
+id = "fn:854224242f26eb40"
+name = "size"
+qual = "ExcursionOverlay::size"
+hash = "sha256:0f4b0b800662b68b971c6b541786359997c35a54b12e4bb974f0b99fcd82cbbf"
+doc_hash = "sha256:720bb10da62f0e6c065b82346c3b7f868ff984143d0079d77312a800d04abd12"
+
+[[module."excursion.rs".function]]
+id = "fn:a4ade9fc07d5c63f"
+name = "stage"
+qual = "ExcursionOverlay::stage"
+hash = "sha256:0cd17218873e53bc3ee8ea931e465c9e68f60d4274a20044fcab4d65113e881c"
+doc_hash = "sha256:2b75e828aa0bbf677c77456911840acd742d38de6fd77c3afe69f8c027d99371"
+
+[[module."excursion.rs".function]]
+id = "fn:6d2aed26c98c6dbd"
+name = "text"
+qual = "ExcursionOverlay::text"
+hash = "sha256:91ee0d690edb9a4c70be8efc59f92ee287747407024830aa85ecce465e3325be"
+doc_hash = "sha256:f0d011f570eaf42dc4d6de26b2c638531edbb07945ab6252ee67c8661990b95e"
+
+[[module."excursion.rs".function]]
+id = "fn:333c8b66af7fc226"
+name = "trigger"
+qual = "ExcursionOverlay::trigger"
+hash = "sha256:48a615b65b08074dcbf6d765c7c26734f6dc1b93966989e8923758138d1f7ff4"
+doc_hash = "sha256:a76b322b847a1f1e5bb7edd4e468ced32bc96bd6616b40cdad7234ee27e66aa3"
+
+[[module."excursion.rs".function]]
+id = "fn:080934d639c1b6f9"
+name = "ui"
+qual = "ExcursionOverlay::ui"
+hash = "sha256:40d0cb3974e5434d1ada0c5b5331981b4a7f58c11723330227211d06a9df05ba"
+doc_hash = "sha256:3a6c6ab3f8966d35240bc00220568672695b6ea87a12758292c110296d9d6bec"
+
+[[module."excursion.rs".function]]
+id = "fn:3d02b183f03062d4"
+name = "with_subject"
+qual = "ExcursionOverlay::with_subject"
+hash = "sha256:01041c1a0dc764a57a674c3e3ad3a10745f3307c3add799976a086851dbd24f5"
+doc_hash = "sha256:949596cafd1351c174a6259b6aef9ab6550bb994512de60fb6c5b7d2a69e2bd5"
+
+[[module."excursion.rs".function]]
+id = "fn:144c9da3f8202f5c"
+name = "without_labels"
+qual = "ExcursionOverlay::without_labels"
+hash = "sha256:e90cfe0ceebdae8dd8bb2fd42a031819e4419a06f89fa0ba47463613103ad320"
+doc_hash = "sha256:a8e80c44d894cc5e5c621bcfc98ca592c596e6b034af5b223b3aa0bcbc47bd93"
+
+[[module."excursion.rs".function]]
+id = "fn:4634cbc21fd00408"
+name = "ExcursionStage"
+qual = "ExcursionStage"
+item = "type"
+shape = "enum"
+hash = "sha256:840b00c283bb40bf1e8c3b30d0f61534b6ffc6467fa0091ba0b09942d8a79977"
+doc_hash = "sha256:ad2b9d5ff52b72c2f2724db657467a9d996466fc9c4c6095d7b0d298552d2f2b"
+
+[[module."excursion.rs".function]]
+id = "fn:69565c78d21588db"
+name = "caption"
+qual = "ExcursionStage::caption"
+hash = "sha256:931d03afb561dafc6d6aa68a79ced5fe659acf33ed6eff2d051e518ef5ba7bed"
+doc_hash = "sha256:00e4d93446bec29bffe60c045116e724493cbedc4327c76d89fe33a568912ecb"
+
+[[module."excursion.rs".function]]
+id = "fn:27bc542a81315ca7"
+name = "from_intensity"
+qual = "ExcursionStage::from_intensity"
+hash = "sha256:b62f3919a08d70b2185b0e67403662fd7355ae8dc2c476ba0fb201df72e8cafd"
+doc_hash = "sha256:e3b33bbe328204746e2cb7f92d42c08ceebdfd7fe65180bbb953243e2882ade7"
+
+[[module."excursion.rs".function]]
+id = "fn:c018125d16d680c7"
+name = "is_drawn"
+qual = "ExcursionStage::is_drawn"
+hash = "sha256:7656cf7b3c4489d5195dde98b7171ce73ae9d0def9b05f772189aaab0e9b0a30"
+doc_hash = "sha256:8b7669468e31cf992f9c736268ad4fbbf89dfe35b77ea3895c9cbe484b18c49e"
+
+[[module."excursion.rs".function]]
+id = "fn:0661701f8b26e76a"
+name = "label"
+qual = "ExcursionStage::label"
+hash = "sha256:44070011a05b7fbd41edbe6e462a444a3c321b6c25641bceaf4cf61ac1f4fc01"
+doc_hash = "sha256:d5a25e1252296857d43211496cc06e867943134be51806803508776656c70c2f"
+
+[[module."excursion.rs".function]]
+id = "fn:737ccb342c3629b0"
+name = "mechanism"
+qual = "ExcursionStage::mechanism"
+hash = "sha256:7d3ae6515315188c501d588174bc5cfd0a4ca20064ebea945963c737486ba0a5"
+doc_hash = "sha256:1ba6d2923f5204dd022f64fc60043aff43344e847b214e9f6cb2b8cce2126a96"
+
+[[module."excursion.rs".function]]
+id = "fn:dc35bd1d6d16dc90"
+name = "ExcursionTrigger"
+qual = "ExcursionTrigger"
+item = "type"
+shape = "enum"
+hash = "sha256:9c5c644320cd08aaff5c79018f6478a492fa4abd1d5d3bc1787c1fd440e37e6a"
+doc_hash = "sha256:ec80fea6b8f58596830fe7c6e2f2fde08c21e976b8344bc9fa65df104e5a764f"
+
+[[module."excursion.rs".function]]
+id = "fn:2bd706bba8f42b7c"
+name = "fuel_temperature"
+qual = "ExcursionTrigger::fuel_temperature"
+hash = "sha256:c01a12c93e0e1c2d4b3277bae093c43296e5847cdea7bce3f75086e9a9886bf0"
+doc_hash = "sha256:2ee2d49b265cb4a3deefabaeeac5eb109a7cd797d95cd2205fc91f63b6613030"
+physical_interface = true
+
+[[module."excursion.rs".function]]
+id = "fn:53a1f7fe8353eb38"
+name = "htr10_fuel_temperature"
+qual = "ExcursionTrigger::htr10_fuel_temperature"
+hash = "sha256:66ae0ef37e4b1936848a25cc5108a4d005c1c16753498895b56b56c2bdbcde17"
+doc_hash = "sha256:2f9d97e13823ad43ed302ddc7d7461ec06efe265cb94a6bfd2ad2ea19bdb9afa"
+physical_interface = true
+
+[[module."excursion.rs".function]]
+id = "fn:52106cb4990a4c15"
+name = "intensity"
+qual = "ExcursionTrigger::intensity"
+hash = "sha256:8430f73cfcce533e99327a1638f8651f2395eacad74093ad08473582d138efeb"
+doc_hash = "sha256:e4b73dbd2ca8f7abae23faf669bf7e0d6fcbc08bbeb1e546d3dcbe2b414d177b"
+
+[[module."excursion.rs".function]]
+id = "fn:942f889f4295db63"
+name = "limit"
+qual = "ExcursionTrigger::limit"
+hash = "sha256:aa61a2d5bfa13d7187f528f55ccaf363bfeadc7429e9cdc577cf284809a95cc7"
+doc_hash = "sha256:7b984e141445931f86e2ff077a6da588c4cea45734cd11fc8166be9ad54401af"
+physical_interface = true
 
 [[module."excursion.rs".function]]
 id = "fn:78f70c81a3d84f04"
@@ -840,10 +669,6 @@ name = "HAZARD"
 qual = "HAZARD"
 item = "const"
 shape = "const"
-lines = [
-    157,
-    158,
-]
 hash = "sha256:1ef4909e3a2e9b9193f4de0b39b7fd383f2c465a2ff8b024e9a2dd453e8e1360"
 doc_hash = "sha256:f35d968265e7fb27650a2afb1469ae845092e2e1e0f0676c654dd78f488a930f"
 
@@ -853,12 +678,44 @@ name = "INCANDESCENT"
 qual = "INCANDESCENT"
 item = "const"
 shape = "const"
-lines = [
-    159,
-    160,
-]
 hash = "sha256:c9db0bcee9b864aaee348631f310e916829d7e25817f59d01eb23382463197d7"
 doc_hash = "sha256:3368bf022938fa33479f80199e09de146aa0f5864b60ce6b5bcf1156636de449"
+
+[[module."excursion.rs".function]]
+id = "fn:94ebe2c915c2ef27"
+name = "RELEASE_INTENSITY"
+qual = "RELEASE_INTENSITY"
+item = "const"
+shape = "const"
+hash = "sha256:87885eb6c6028ebcca4485d1ab5a853e5d9e27af137925589d74b4159d201d71"
+doc_hash = "sha256:fbfa125af4d57fe6df7acafd40c088a0df9b74fe37beea033af3ec7dbe379f76"
+
+[[module."excursion.rs".function]]
+id = "fn:f00f3a114c584871"
+name = "RELEASE_ORDER"
+qual = "RELEASE_ORDER"
+item = "const"
+shape = "const"
+hash = "sha256:b9e713cc17805e3260cf2ff5d5ebac5878f42a782f136c3015d97bf87abe43ff"
+doc_hash = "sha256:f80e6354307573846e46ea812667c95bf0416d3cd1f3d85af75f023717b0477a"
+
+[[module."excursion.rs".function]]
+id = "fn:2630adb377484ed1"
+name = "RELEASE_RAMP_SECONDS"
+qual = "RELEASE_RAMP_SECONDS"
+item = "const"
+shape = "const"
+hash = "sha256:9933e031384e80a84cbfdd18676600b5ba2cd5e5b04b28baa15754c2a17f2b2c"
+doc_hash = "sha256:2049e07626b9deec022025c8ade22ac73ae3903bfaf28cecedec99422bc43917"
+
+[[module."excursion.rs".function]]
+id = "fn:2033eba50701cf66"
+name = "ReleaseSpecies"
+qual = "ReleaseSpecies"
+item = "type"
+shape = "struct"
+hash = "sha256:efec56ad9863b62094b9c99245a57f24ad5e4f8af5e84c8a30f114815b37684f"
+doc_hash = "sha256:54e4c0f2f4a6d09e6651fd6879e011795e428dbca0b8aa09785bab4703e8af94"
 
 [[module."excursion.rs".function]]
 id = "fn:033e4dc44ac83a68"
@@ -866,10 +723,6 @@ name = "SHROUD"
 qual = "SHROUD"
 item = "const"
 shape = "const"
-lines = [
-    161,
-    164,
-]
 hash = "sha256:ec1ff1d8ca5b9a4cf4d4ad2123ba2e4e2938616300b1420e249445211022b246"
 doc_hash = "sha256:5351613c32761b7d021cdfd614215e154897123edaf259d07b255798413c3fd1"
 
@@ -879,911 +732,206 @@ name = "TEXT"
 qual = "TEXT"
 item = "const"
 shape = "const"
-lines = [
-    165,
-    166,
-]
 hash = "sha256:f121364d1d0ea4d11c0e78448b2eafe813d234ee7d3f051135c723b7b30a08c3"
 doc_hash = "sha256:163aef63594c427c0c42567a51d316cf006644a4a150e0343bf1fa3958574ed7"
 
 [[module."excursion.rs".function]]
-id = "fn:bf4f4e727e77cbf6"
-name = "BANNER"
-qual = "BANNER"
-item = "const"
-shape = "const"
-lines = [
-    167,
-    168,
-]
-hash = "sha256:cde024564e8feae3f86a22e551b5a4e3acad80cce17cbeee754b8775881fcbbb"
-doc_hash = "sha256:96727cb8345132c7dcc0339d9f40b30da34ce4e392deb0f1c12e31934767bfa8"
-
-[[module."excursion.rs".function]]
-id = "fn:125d73678cb1f3d7"
-name = "excursion_intensity"
-qual = "excursion_intensity"
-lines = [
-    172,
-    208,
-]
-hash = "sha256:d0e7eac77ddc5263b76356152e7e9caa2fb09b5694407002888b5edaf5e7ec76"
-doc_hash = "sha256:4bccdee5fefb2aa8f2984ec6e48e630447a6f3bc9fb44a1fcd9e90b6c36c0ed7"
-reached_by = [
-    "#40",
-    "#43",
-    "#44",
-]
-physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:dc35bd1d6d16dc90"
-name = "ExcursionTrigger"
-qual = "ExcursionTrigger"
-item = "type"
-shape = "enum"
-lines = [
-    210,
-    237,
-]
-hash = "sha256:9c5c644320cd08aaff5c79018f6478a492fa4abd1d5d3bc1787c1fd440e37e6a"
-doc_hash = "sha256:ec80fea6b8f58596830fe7c6e2f2fde08c21e976b8344bc9fa65df104e5a764f"
-reached_by = [
-    "#31",
-    "#38",
-    "#40",
-    "#43",
-    "#45",
-    "#46",
-    "#49",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:53a1f7fe8353eb38"
-name = "htr10_fuel_temperature"
-qual = "ExcursionTrigger::htr10_fuel_temperature"
-lines = [
-    240,
-    265,
-]
-hash = "sha256:66ae0ef37e4b1936848a25cc5108a4d005c1c16753498895b56b56c2bdbcde17"
-doc_hash = "sha256:2f9d97e13823ad43ed302ddc7d7461ec06efe265cb94a6bfd2ad2ea19bdb9afa"
-callees = [
-    "fn:7224cc62a2e10668",
-    "fn:7de6786c70630156",
-]
-uses = [
-    "fn:8cb0bd5101d36233",
-    "fn:dc35bd1d6d16dc90",
-]
-reached_by = [
-    "#31",
-    "#40",
-    "#43",
-    "#45",
-    "#46",
-    "#49",
-]
-physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:52106cb4990a4c15"
-name = "intensity"
-qual = "ExcursionTrigger::intensity"
-lines = [
-    267,
-    283,
-]
-hash = "sha256:8430f73cfcce533e99327a1638f8651f2395eacad74093ad08473582d138efeb"
-doc_hash = "sha256:e4b73dbd2ca8f7abae23faf669bf7e0d6fcbc08bbeb1e546d3dcbe2b414d177b"
-callees = ["fn:125d73678cb1f3d7"]
-uses = ["fn:dc35bd1d6d16dc90"]
-reached_by = [
-    "#40",
-    "#43",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:2bd706bba8f42b7c"
-name = "fuel_temperature"
-qual = "ExcursionTrigger::fuel_temperature"
-lines = [
-    285,
-    293,
-]
-hash = "sha256:c01a12c93e0e1c2d4b3277bae093c43296e5847cdea7bce3f75086e9a9886bf0"
-doc_hash = "sha256:2ee2d49b265cb4a3deefabaeeac5eb109a7cd797d95cd2205fc91f63b6613030"
-uses = ["fn:dc35bd1d6d16dc90"]
-physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:942f889f4295db63"
-name = "limit"
-qual = "ExcursionTrigger::limit"
-lines = [
-    295,
-    302,
-]
-hash = "sha256:aa61a2d5bfa13d7187f528f55ccaf363bfeadc7429e9cdc577cf284809a95cc7"
-doc_hash = "sha256:7b984e141445931f86e2ff077a6da588c4cea45734cd11fc8166be9ad54401af"
-uses = ["fn:dc35bd1d6d16dc90"]
-reached_by = ["#43"]
-physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:4634cbc21fd00408"
-name = "ExcursionStage"
-qual = "ExcursionStage"
-item = "type"
-shape = "enum"
-lines = [
-    307,
-    336,
-]
-hash = "sha256:840b00c283bb40bf1e8c3b30d0f61534b6ffc6467fa0091ba0b09942d8a79977"
-doc_hash = "sha256:ad2b9d5ff52b72c2f2724db657467a9d996466fc9c4c6095d7b0d298552d2f2b"
-reached_by = [
-    "#29",
-    "#30",
-    "#40",
-    "#41",
-    "#50",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:27bc542a81315ca7"
-name = "from_intensity"
-qual = "ExcursionStage::from_intensity"
-lines = [
-    346,
-    363,
-]
-hash = "sha256:b62f3919a08d70b2185b0e67403662fd7355ae8dc2c476ba0fb201df72e8cafd"
-doc_hash = "sha256:e3b33bbe328204746e2cb7f92d42c08ceebdfd7fe65180bbb953243e2882ade7"
-uses = [
-    "fn:4634cbc21fd00408",
-    "fn:94ebe2c915c2ef27",
-]
-reached_by = [
-    "#29",
-    "#40",
-    "#50",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:c018125d16d680c7"
-name = "is_drawn"
-qual = "ExcursionStage::is_drawn"
-lines = [
-    365,
-    368,
-]
-hash = "sha256:7656cf7b3c4489d5195dde98b7171ce73ae9d0def9b05f772189aaab0e9b0a30"
-doc_hash = "sha256:8b7669468e31cf992f9c736268ad4fbbf89dfe35b77ea3895c9cbe484b18c49e"
-uses = ["fn:4634cbc21fd00408"]
-
-[[module."excursion.rs".function]]
-id = "fn:0661701f8b26e76a"
-name = "label"
-qual = "ExcursionStage::label"
-lines = [
-    370,
-    377,
-]
-hash = "sha256:44070011a05b7fbd41edbe6e462a444a3c321b6c25641bceaf4cf61ac1f4fc01"
-doc_hash = "sha256:d5a25e1252296857d43211496cc06e867943134be51806803508776656c70c2f"
-uses = ["fn:4634cbc21fd00408"]
-
-[[module."excursion.rs".function]]
-id = "fn:69565c78d21588db"
-name = "caption"
-qual = "ExcursionStage::caption"
-lines = [
-    379,
-    396,
-]
-hash = "sha256:931d03afb561dafc6d6aa68a79ced5fe659acf33ed6eff2d051e518ef5ba7bed"
-doc_hash = "sha256:00e4d93446bec29bffe60c045116e724493cbedc4327c76d89fe33a568912ecb"
-uses = ["fn:4634cbc21fd00408"]
-
-[[module."excursion.rs".function]]
-id = "fn:737ccb342c3629b0"
-name = "mechanism"
-qual = "ExcursionStage::mechanism"
-lines = [
-    398,
-    410,
-]
-hash = "sha256:7d3ae6515315188c501d588174bc5cfd0a4ca20064ebea945963c737486ba0a5"
-doc_hash = "sha256:1ba6d2923f5204dd022f64fc60043aff43344e847b214e9f6cb2b8cce2126a96"
-uses = ["fn:4634cbc21fd00408"]
-
-[[module."excursion.rs".function]]
-id = "fn:2033eba50701cf66"
-name = "ReleaseSpecies"
-qual = "ReleaseSpecies"
-item = "type"
-shape = "struct"
-lines = [
-    415,
-    427,
-]
-hash = "sha256:efec56ad9863b62094b9c99245a57f24ad5e4f8af5e84c8a30f114815b37684f"
-doc_hash = "sha256:54e4c0f2f4a6d09e6651fd6879e011795e428dbca0b8aa09785bab4703e8af94"
-reached_by = ["#49"]
-
-[[module."excursion.rs".function]]
-id = "fn:f00f3a114c584871"
-name = "RELEASE_ORDER"
-qual = "RELEASE_ORDER"
-item = "const"
-shape = "const"
-lines = [
-    429,
-    463,
-]
-hash = "sha256:b9e713cc17805e3260cf2ff5d5ebac5878f42a782f136c3015d97bf87abe43ff"
-doc_hash = "sha256:f80e6354307573846e46ea812667c95bf0416d3cd1f3d85af75f023717b0477a"
-uses = ["fn:2033eba50701cf66"]
-reached_by = ["#49"]
-
-[[module."excursion.rs".function]]
-id = "fn:457a7ef4b2901312"
-name = "species_visible"
-qual = "species_visible"
-lines = [
-    465,
-    477,
-]
-hash = "sha256:ceaa8ad3f977d8c6f335a885349ab9e80b8d3e08e389f48bab98791a24a5e966"
-doc_hash = "sha256:e10d6ad7766eb1b128c147860fb2e139ae8fd1a6437230e223bfbbbe83dbfabd"
-uses = ["fn:f00f3a114c584871"]
-reached_by = ["#49"]
-
-[[module."excursion.rs".function]]
-id = "fn:e75dcaeb009d22d4"
-name = "release_phase"
-qual = "release_phase"
-lines = [
-    481,
-    494,
-]
-hash = "sha256:6f37692d3a34f8f4c95044b0aa692a3de03cf206403222647a1e8c747aa546b2"
-doc_hash = "sha256:9d70f8f5eb5b3831e043c7d734499e073bf01f56c9016171b3cd42544083eb50"
-uses = ["fn:2630adb377484ed1"]
-reached_by = [
-    "#31",
-    "#46",
-]
-physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:191e9d62ce9cd48d"
-name = "release_reach"
-qual = "release_reach"
-lines = [
-    496,
-    510,
-]
-hash = "sha256:a6c1dab6ce7ac95c80a094e909777efc6c82cc1518063a7642e5a32e3f9c0b7f"
-doc_hash = "sha256:6ecb083eb1ed639dddbb498c191e2da46cf8784d0c17b2321190e3c9cf65a650"
-reached_by = ["#47"]
-
-[[module."excursion.rs".function]]
-id = "fn:b036c299a7764b61"
-name = "banner_pulse"
-qual = "banner_pulse"
-lines = [
-    512,
-    526,
-]
-hash = "sha256:b98cc194984e23e1f26765ecf6ea7f1dd0aed9a54df127f79c9397b27842f560"
-doc_hash = "sha256:2661bdbafb578fdcfb58ee31b0a9bb23867505e73ca707c566d3f221861008cd"
-uses = ["fn:f298e88e687b7249"]
-reached_by = ["#42"]
-physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:dc2883d976d7bbe9"
-name = "release_hash"
-qual = "release_hash"
-lines = [
-    530,
-    550,
-]
-hash = "sha256:9a7d580a14adea48f5598155a83108e6363c94cf86c28bf79bbe2e7b1fe532a8"
-doc_hash = "sha256:164704385363e350890c603fb28b46cea245425a8189c6ee25bb3cba1a7d152b"
-reached_by = ["#48"]
-
-[[module."excursion.rs".function]]
-id = "fn:7495479df52f4c2a"
-name = "translucent"
-qual = "translucent"
-lines = [
-    552,
-    555,
-]
-hash = "sha256:5d5c640ffe3f433d0c251b5d85e6b254beaa037cd316b1bb92b997fd87d739f3"
-doc_hash = "sha256:90278527352f4a1705954afb947ea3d3039210ddf14357916874f85afdb026e0"
+id = "fn:37bd38f471f7bb63"
+name = "a_healthy_reactor_is_not_annotated"
+qual = "a_healthy_reactor_is_not_annotated"
+hash = "sha256:74f29bb369a57a84dfe3d4fcb60809fe40a2201fde14898f43d691297c2c1109"
+doc_hash = "sha256:f5dc04cf76a57dc3265659621b30d3d2ce25e094e726ab602a555d0192ba6197"
+test = true
 
 [[module."excursion.rs".function]]
 id = "fn:429617b731940a80"
 name = "alpha"
 qual = "alpha"
-lines = [
-    557,
-    563,
-]
 hash = "sha256:d5b23e38a68f613869d6f8625c7c2e836f49f0a4cca311ba1e03a04010a766f6"
 doc_hash = "sha256:e0bfec509db9df6dee90f64c02d1f424c7a470a3123f6c8d8cdf715045730c31"
 
 [[module."excursion.rs".function]]
-id = "fn:47a956867551c83d"
-name = "ExcursionOverlay"
-qual = "ExcursionOverlay"
-item = "type"
-shape = "struct"
-lines = [
-    567,
-    596,
-]
-hash = "sha256:d442b4b2beb2c27a4be7c3b66deb5d5033627f8f789a5313566dacea2ab1959c"
-doc_hash = "sha256:7eb81989f937ad305ac992ae433903152123c4146151aa8b9cdad3dbd8e791db"
-uses = ["fn:dc35bd1d6d16dc90"]
-reached_by = [
-    "#31",
-    "#38",
-    "#45",
-    "#46",
-    "#49",
-]
+id = "fn:b002a00308c7da39"
+name = "alphas_saturate_instead_of_wrapping"
+qual = "alphas_saturate_instead_of_wrapping"
+hash = "sha256:a56542f5cb3baea1427418cfa28192477769316ef6799d6f9d6cd645ff1ae19b"
+doc_hash = "sha256:6c68dfd89c281e31dcd5e484888128be67683aea719331b7af7e776e18ca7ab8"
+test = true
 
 [[module."excursion.rs".function]]
-id = "fn:91b29f94aed56404"
-name = "new"
-qual = "ExcursionOverlay::new"
-lines = [
-    599,
-    617,
-]
-hash = "sha256:ec7da4a4ea4b8abcfdb14682dea36a2cad2c783f7ba5447fba3abf3fe14096eb"
-doc_hash = "sha256:a2e60a9f2e6a6e17f6aa52ca8f65f66e159c9f22828d5716ea78782e4a2d553b"
-uses = [
-    "fn:47a956867551c83d",
-    "fn:dc35bd1d6d16dc90",
-]
-reached_by = [
-    "#31",
-    "#45",
-    "#46",
-    "#49",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:740c6b90475664f6"
-name = "since_trigger"
-qual = "ExcursionOverlay::since_trigger"
-lines = [
-    619,
-    631,
-]
-hash = "sha256:f94d2db2f7141b4eea89442c132f10251224e051740aca7f45ca897f2054541a"
-doc_hash = "sha256:7c1fcbfe4fc4829dca1ef1a5fa525f3b40001bd8b8046ab20ec24b9ad4a0d41a"
-uses = ["fn:47a956867551c83d"]
-reached_by = [
-    "#31",
-    "#45",
-    "#46",
-    "#49",
-]
+id = "fn:b036c299a7764b61"
+name = "banner_pulse"
+qual = "banner_pulse"
+hash = "sha256:b98cc194984e23e1f26765ecf6ea7f1dd0aed9a54df127f79c9397b27842f560"
+doc_hash = "sha256:2661bdbafb578fdcfb58ee31b0a9bb23867505e73ca707c566d3f221861008cd"
 physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:3d02b183f03062d4"
-name = "with_subject"
-qual = "ExcursionOverlay::with_subject"
-lines = [
-    633,
-    640,
-]
-hash = "sha256:01041c1a0dc764a57a674c3e3ad3a10745f3307c3add799976a086851dbd24f5"
-doc_hash = "sha256:949596cafd1351c174a6259b6aef9ab6550bb994512de60fb6c5b7d2a69e2bd5"
-uses = ["fn:47a956867551c83d"]
-reached_by = [
-    "#31",
-    "#45",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:144c9da3f8202f5c"
-name = "without_labels"
-qual = "ExcursionOverlay::without_labels"
-lines = [
-    642,
-    648,
-]
-hash = "sha256:e90cfe0ceebdae8dd8bb2fd42a031819e4419a06f89fa0ba47463613103ad320"
-doc_hash = "sha256:a8e80c44d894cc5e5c621bcfc98ca592c596e6b034af5b223b3aa0bcbc47bd93"
-uses = ["fn:47a956867551c83d"]
-reached_by = ["#31"]
-
-[[module."excursion.rs".function]]
-id = "fn:333c8b66af7fc226"
-name = "trigger"
-qual = "ExcursionOverlay::trigger"
-lines = [
-    650,
-    653,
-]
-hash = "sha256:48a615b65b08074dcbf6d765c7c26734f6dc1b93966989e8923758138d1f7ff4"
-doc_hash = "sha256:a76b322b847a1f1e5bb7edd4e468ced32bc96bd6616b40cdad7234ee27e66aa3"
-uses = [
-    "fn:47a956867551c83d",
-    "fn:dc35bd1d6d16dc90",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:c979e038845fd26e"
-name = "intensity"
-qual = "ExcursionOverlay::intensity"
-lines = [
-    655,
-    658,
-]
-hash = "sha256:e846d159d19f8d032cb3bf62fb81cff7a8bf3d67151ae9dbc2e0699c837e5dad"
-doc_hash = "sha256:752343b012f286cee6efa3e1d8206229f8d35196400858279e3f9333b9d1d755"
-callees = ["fn:52106cb4990a4c15"]
-uses = ["fn:47a956867551c83d"]
-
-[[module."excursion.rs".function]]
-id = "fn:a4ade9fc07d5c63f"
-name = "stage"
-qual = "ExcursionOverlay::stage"
-lines = [
-    660,
-    663,
-]
-hash = "sha256:0cd17218873e53bc3ee8ea931e465c9e68f60d4274a20044fcab4d65113e881c"
-doc_hash = "sha256:2b75e828aa0bbf677c77456911840acd742d38de6fd77c3afe69f8c027d99371"
-callees = [
-    "fn:27bc542a81315ca7",
-    "fn:c979e038845fd26e",
-]
-uses = [
-    "fn:4634cbc21fd00408",
-    "fn:47a956867551c83d",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:727938cab1acc6c4"
-name = "phase"
-qual = "ExcursionOverlay::phase"
-lines = [
-    665,
-    668,
-]
-hash = "sha256:95db58aef0d41cc1532d9dba16c5b14c78f78b3c5b790e2bd8ea2717f7eda942"
-doc_hash = "sha256:35f3bb94f91a2610aa8fb0b4b240b54d7ada0522fcf54e91e55aa97f40cd9552"
-callees = ["fn:e75dcaeb009d22d4"]
-uses = ["fn:47a956867551c83d"]
-reached_by = [
-    "#31",
-    "#46",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:854224242f26eb40"
-name = "size"
-qual = "ExcursionOverlay::size"
-lines = [
-    670,
-    673,
-]
-hash = "sha256:0f4b0b800662b68b971c6b541786359997c35a54b12e4bb974f0b99fcd82cbbf"
-doc_hash = "sha256:720bb10da62f0e6c065b82346c3b7f868ff984143d0079d77312a800d04abd12"
-uses = ["fn:47a956867551c83d"]
-
-[[module."excursion.rs".function]]
-id = "fn:e219c4309180f097"
-name = "overshoot_kelvin"
-qual = "ExcursionOverlay::overshoot_kelvin"
-lines = [
-    675,
-    684,
-]
-hash = "sha256:982815b3f175906edf195fa21006bbe17323a6a3408b2a5b5a12aac98e16bf3f"
-doc_hash = "sha256:a3cb31e83bd4643895818c9b8690fc0e84d40900dcaa7d494d64da220657434a"
-uses = ["fn:47a956867551c83d"]
-
-[[module."excursion.rs".function]]
-id = "fn:c21edf5c81d0dad0"
-name = "named_species"
-qual = "ExcursionOverlay::named_species"
-lines = [
-    686,
-    704,
-]
-hash = "sha256:48dd5fdaafd53a2eb19ddbcd343741e4df49921251b3165b52dd476f3eb69aaa"
-doc_hash = "sha256:29c956604fdc58b3bf144f3499d74569d4556a1cf250d4f6b483656a77c66e90"
-callees = [
-    "fn:457a7ef4b2901312",
-    "fn:727938cab1acc6c4",
-    "fn:a4ade9fc07d5c63f",
-]
-uses = [
-    "fn:2033eba50701cf66",
-    "fn:4634cbc21fd00408",
-    "fn:47a956867551c83d",
-    "fn:f00f3a114c584871",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:6d2aed26c98c6dbd"
-name = "text"
-qual = "ExcursionOverlay::text"
-lines = [
-    706,
-    718,
-]
-hash = "sha256:91ee0d690edb9a4c70be8efc59f92ee287747407024830aa85ecce465e3325be"
-doc_hash = "sha256:f0d011f570eaf42dc4d6de26b2c638531edbb07945ab6252ee67c8661990b95e"
-uses = ["fn:47a956867551c83d"]
-
-[[module."excursion.rs".function]]
-id = "fn:080934d639c1b6f9"
-name = "ui"
-qual = "ExcursionOverlay::ui"
-lines = [
-    722,
-    744,
-]
-hash = "sha256:40d0cb3974e5434d1ada0c5b5331981b4a7f58c11723330227211d06a9df05ba"
-doc_hash = "sha256:3a6c6ab3f8966d35240bc00220568672695b6ea87a12758292c110296d9d6bec"
-callees = [
-    "fn:5a4e5ccf345682e3",
-    "fn:a4ade9fc07d5c63f",
-    "fn:c018125d16d680c7",
-    "fn:df54515a903be4e5",
-    "fn:e649ee9ca83d709e",
-]
-uses = [
-    "fn:4634cbc21fd00408",
-    "fn:47a956867551c83d",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:df54515a903be4e5"
-name = "draw_limit_warning"
-qual = "ExcursionOverlay::draw_limit_warning"
-lines = [
-    748,
-    789,
-]
-hash = "sha256:91fcac463cabc52f1984d82bafacce539c827873b4a331b799be592e682e2a4f"
-doc_hash = "sha256:db32162d0c4bf09497114616de525e7fef6be746b23fcfdf7005928826667fb6"
-callees = [
-    "fn:429617b731940a80",
-    "fn:7495479df52f4c2a",
-    "fn:c979e038845fd26e",
-]
-uses = [
-    "fn:47a956867551c83d",
-    "fn:78f70c81a3d84f04",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:e649ee9ca83d709e"
-name = "draw_release"
-qual = "ExcursionOverlay::draw_release"
-lines = [
-    791,
-    895,
-]
-hash = "sha256:802b92796489b90c91dc2fd52319ae9d9d5bb804fc9172de358d8347c7da962d"
-doc_hash = "sha256:ad55ecc69063bbc383bee6e916c6c2349c986e1098a12ba66b92a709e5346085"
-callees = [
-    "fn:191e9d62ce9cd48d",
-    "fn:429617b731940a80",
-    "fn:727938cab1acc6c4",
-    "fn:7495479df52f4c2a",
-    "fn:c21edf5c81d0dad0",
-    "fn:c979e038845fd26e",
-    "fn:dc2883d976d7bbe9",
-]
-uses = [
-    "fn:033e4dc44ac83a68",
-    "fn:47a956867551c83d",
-    "fn:78f70c81a3d84f04",
-    "fn:bfd8ceab479cdc7b",
-]
-
-[[module."excursion.rs".function]]
-id = "fn:5a4e5ccf345682e3"
-name = "draw_banner"
-qual = "ExcursionOverlay::draw_banner"
-lines = [
-    897,
-    968,
-]
-hash = "sha256:14f7b784d7079350b829d87d50a89c53c0859e4fbcc649bcdc64da5317e63efc"
-doc_hash = "sha256:129538906f54cb8817e81dd48845ee09de3128b1a419048a825cead7acde1e0e"
-callees = [
-    "fn:0661701f8b26e76a",
-    "fn:2bd706bba8f42b7c",
-    "fn:429617b731940a80",
-    "fn:69565c78d21588db",
-    "fn:6d2aed26c98c6dbd",
-    "fn:737ccb342c3629b0",
-    "fn:7495479df52f4c2a",
-    "fn:942f889f4295db63",
-    "fn:b036c299a7764b61",
-    "fn:e219c4309180f097",
-]
-uses = [
-    "fn:4634cbc21fd00408",
-    "fn:47a956867551c83d",
-    "fn:4bfaab8fa0659d15",
-    "fn:78f70c81a3d84f04",
-    "fn:bf4f4e727e77cbf6",
-]
 
 [[module."excursion.rs".function]]
 id = "fn:3668af6af0f0605c"
 name = "degc"
 qual = "degc"
-lines = [
-    975,
-    977,
-]
 hash = "sha256:ee84ef7b3d67ba379a568a10958b33d486cdba67b79072cecd34e177894809fa"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 physical_interface = true
 
 [[module."excursion.rs".function]]
-id = "fn:4d7d2ec30d10744c"
-name = "seconds"
-qual = "seconds"
-lines = [
-    979,
-    981,
-]
-hash = "sha256:abe0d869f8b3ddf01acdd6c0e3e79b3229f5e2c2f1ae33d0d4747e6bf6f45908"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
+id = "fn:125d73678cb1f3d7"
+name = "excursion_intensity"
+qual = "excursion_intensity"
+hash = "sha256:d0e7eac77ddc5263b76356152e7e9caa2fb09b5694407002888b5edaf5e7ec76"
+doc_hash = "sha256:4bccdee5fefb2aa8f2984ec6e48e630447a6f3bc9fb44a1fcd9e90b6c36c0ed7"
 physical_interface = true
-
-[[module."excursion.rs".function]]
-id = "fn:6b6ef490b28ddddb"
-name = "the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure"
-qual = "the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure"
-lines = [
-    983,
-    1043,
-]
-hash = "sha256:a64252edc353f345e2bebd24b8130b42637ad41d1fdaf7c154e9b067a0c48002"
-doc_hash = "sha256:98ef04f6cb620cee6a3a450d616f8ceac41e1f0d98070bf699131843ffdb67ec"
-callees = [
-    "fn:3668af6af0f0605c",
-    "fn:52106cb4990a4c15",
-    "fn:53a1f7fe8353eb38",
-    "fn:942f889f4295db63",
-]
-uses = ["fn:dc35bd1d6d16dc90"]
-test = true
 
 [[module."excursion.rs".function]]
 id = "fn:760d4ba5fdd68138"
 name = "no_release_is_drawn_where_retention_is_demonstrated"
 qual = "no_release_is_drawn_where_retention_is_demonstrated"
-lines = [
-    1045,
-    1115,
-]
 hash = "sha256:5ca52cc7225a2dceecbc5f28f19b7ab9d29a0ab99b9e7bad52b3649e9ffd3e92"
 doc_hash = "sha256:bc8e0dd9a853c7a211cfe601a3df0c15c7c3d9e189ea279dd0150cfcb23a0be1"
-callees = [
-    "fn:27bc542a81315ca7",
-    "fn:3668af6af0f0605c",
-    "fn:52106cb4990a4c15",
-    "fn:53a1f7fe8353eb38",
-]
-uses = [
-    "fn:4634cbc21fd00408",
-    "fn:dc35bd1d6d16dc90",
-]
 test = true
 
 [[module."excursion.rs".function]]
 id = "fn:10badb9e187cf0ef"
 name = "no_stage_describes_an_explosion"
 qual = "no_stage_describes_an_explosion"
-lines = [
-    1117,
-    1164,
-]
 hash = "sha256:7c07cc2cc998b64a5d1b0e17fc259737849736ee6832ed6583f33437bb1096a5"
 doc_hash = "sha256:e073a1ab2d899344134776e2b8513c78888530386a7c5b2bb40e2ab58ec17dc6"
-uses = ["fn:4634cbc21fd00408"]
 test = true
 
 [[module."excursion.rs".function]]
-id = "fn:021ee91725a32b4e"
-name = "the_species_are_named_in_the_order_the_heating_tests_report"
-qual = "the_species_are_named_in_the_order_the_heating_tests_report"
-lines = [
-    1166,
-    1244,
-]
-hash = "sha256:00f49996439cd5e3d6f997a1df1a8f8f4792ba30109b121330f1e3691f07b32f"
-doc_hash = "sha256:d5379fab16302669ee79f3a2d170a874229b8eb3993dd94c95b508bef2fae2ed"
-callees = [
-    "fn:3668af6af0f0605c",
-    "fn:457a7ef4b2901312",
-    "fn:4d7d2ec30d10744c",
-    "fn:53a1f7fe8353eb38",
-    "fn:740c6b90475664f6",
-    "fn:91b29f94aed56404",
-]
-uses = [
-    "fn:47a956867551c83d",
-    "fn:dc35bd1d6d16dc90",
-    "fn:f00f3a114c584871",
-]
+id = "fn:dc2883d976d7bbe9"
+name = "release_hash"
+qual = "release_hash"
+hash = "sha256:9a7d580a14adea48f5598155a83108e6363c94cf86c28bf79bbe2e7b1fe532a8"
+doc_hash = "sha256:164704385363e350890c603fb28b46cea245425a8189c6ee25bb3cba1a7d152b"
+
+[[module."excursion.rs".function]]
+id = "fn:e75dcaeb009d22d4"
+name = "release_phase"
+qual = "release_phase"
+hash = "sha256:6f37692d3a34f8f4c95044b0aa692a3de03cf206403222647a1e8c747aa546b2"
+doc_hash = "sha256:9d70f8f5eb5b3831e043c7d734499e073bf01f56c9016171b3cd42544083eb50"
+physical_interface = true
+
+[[module."excursion.rs".function]]
+id = "fn:191e9d62ce9cd48d"
+name = "release_reach"
+qual = "release_reach"
+hash = "sha256:a6c1dab6ce7ac95c80a094e909777efc6c82cc1518063a7642e5a32e3f9c0b7f"
+doc_hash = "sha256:6ecb083eb1ed639dddbb498c191e2da46cf8784d0c17b2321190e3c9cf65a650"
+
+[[module."excursion.rs".function]]
+id = "fn:4d7d2ec30d10744c"
+name = "seconds"
+qual = "seconds"
+hash = "sha256:abe0d869f8b3ddf01acdd6c0e3e79b3229f5e2c2f1ae33d0d4747e6bf6f45908"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."excursion.rs".function]]
+id = "fn:457a7ef4b2901312"
+name = "species_visible"
+qual = "species_visible"
+hash = "sha256:ceaa8ad3f977d8c6f335a885349ab9e80b8d3e08e389f48bab98791a24a5e966"
+doc_hash = "sha256:e10d6ad7766eb1b128c147860fb2e139ae8fd1a6437230e223bfbbbe83dbfabd"
+
+[[module."excursion.rs".function]]
+id = "fn:fb20c389a0601447"
+name = "the_banner_pulse_is_bounded_and_deterministic"
+qual = "the_banner_pulse_is_bounded_and_deterministic"
+hash = "sha256:32ada8382a668d7fba237830046b0ab145d7cfd9eed45a94f1a656acd72da6b4"
+doc_hash = "sha256:74039f355d43e65a2dd472686d7f45c9e6e3bd975b4c63107484b34e0713e996"
+test = true
+
+[[module."excursion.rs".function]]
+id = "fn:6b6ef490b28ddddb"
+name = "the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure"
+qual = "the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure"
+hash = "sha256:a64252edc353f345e2bebd24b8130b42637ad41d1fdaf7c154e9b067a0c48002"
+doc_hash = "sha256:98ef04f6cb620cee6a3a450d616f8ceac41e1f0d98070bf699131843ffdb67ec"
 test = true
 
 [[module."excursion.rs".function]]
 id = "fn:b865277b8436da90"
 name = "the_intensity_is_zero_within_the_limit_and_escalates_on_nonsense"
 qual = "the_intensity_is_zero_within_the_limit_and_escalates_on_nonsense"
-lines = [
-    1246,
-    1311,
-]
 hash = "sha256:06e7643bfefe7ff1f3a5542dca83c8da56b943d9baaf539ecd892b79fbac0b91"
 doc_hash = "sha256:213fd5591fcef5e339c1d445dd4d79c7fcdc8c8f58083377177d4a2555f4928b"
-callees = [
-    "fn:125d73678cb1f3d7",
-    "fn:3668af6af0f0605c",
-]
-test = true
-
-[[module."excursion.rs".function]]
-id = "fn:c7f46d1d96561c31"
-name = "the_stage_escalates_only_at_the_documented_threshold"
-qual = "the_stage_escalates_only_at_the_documented_threshold"
-lines = [
-    1313,
-    1380,
-]
-hash = "sha256:fc9a14305d2b764d6d811eb6fb155ecdeb4f06d607e554134ddebaab56d3c889"
-doc_hash = "sha256:647fd0d6e48ee208117b174cb67b1036c1467b2d13281a8a64538ebe2b266091"
-callees = ["fn:27bc542a81315ca7"]
-uses = ["fn:4634cbc21fd00408"]
-test = true
-
-[[module."excursion.rs".function]]
-id = "fn:6766d80dc6fd5287"
-name = "the_phase_comes_from_the_application_clock_and_does_not_reverse"
-qual = "the_phase_comes_from_the_application_clock_and_does_not_reverse"
-lines = [
-    1382,
-    1430,
-]
-hash = "sha256:6531202e0cdf7860aa0f51550b8caae5183cc2c9f6bcef811b0272cde280d7da"
-doc_hash = "sha256:86f8515178c628afb064d751330d7d35c0dc06b1551cc54beaa64274ea1096f5"
-callees = [
-    "fn:3668af6af0f0605c",
-    "fn:4d7d2ec30d10744c",
-    "fn:53a1f7fe8353eb38",
-    "fn:727938cab1acc6c4",
-    "fn:740c6b90475664f6",
-    "fn:91b29f94aed56404",
-    "fn:e75dcaeb009d22d4",
-]
-uses = [
-    "fn:47a956867551c83d",
-    "fn:dc35bd1d6d16dc90",
-]
-test = true
-
-[[module."excursion.rs".function]]
-id = "fn:a917c16e3018db35"
-name = "the_release_marks_drift_outward_and_settle"
-qual = "the_release_marks_drift_outward_and_settle"
-lines = [
-    1432,
-    1487,
-]
-hash = "sha256:f066c4341c46d8cb35d1a9a2019e8503c7db71174a2503593ce8168f4646571a"
-doc_hash = "sha256:756cbb89aa83a5f0ebd0435448ab5a3de4ce58e0cacc062f4a26b2abf5ac0c45"
-callees = ["fn:191e9d62ce9cd48d"]
-test = true
-
-[[module."excursion.rs".function]]
-id = "fn:fb20c389a0601447"
-name = "the_banner_pulse_is_bounded_and_deterministic"
-qual = "the_banner_pulse_is_bounded_and_deterministic"
-lines = [
-    1489,
-    1524,
-]
-hash = "sha256:32ada8382a668d7fba237830046b0ab145d7cfd9eed45a94f1a656acd72da6b4"
-doc_hash = "sha256:74039f355d43e65a2dd472686d7f45c9e6e3bd975b4c63107484b34e0713e996"
-callees = [
-    "fn:4d7d2ec30d10744c",
-    "fn:b036c299a7764b61",
-]
-test = true
-
-[[module."excursion.rs".function]]
-id = "fn:a48213a208ce4e58"
-name = "the_release_scatter_is_deterministic"
-qual = "the_release_scatter_is_deterministic"
-lines = [
-    1526,
-    1575,
-]
-hash = "sha256:b3593a7c8385181f5c4f95592b0eee6e800c953d61045099ebf2599c91439efe"
-doc_hash = "sha256:2e56b9db3d8838abd6a4273c18f3087ffe5a7627f54091d858888ea7ef33868f"
-callees = ["fn:dc2883d976d7bbe9"]
 test = true
 
 [[module."excursion.rs".function]]
 id = "fn:c9c63ce1075e2d3a"
 name = "the_overlay_reports_the_numbers_behind_it"
 qual = "the_overlay_reports_the_numbers_behind_it"
-lines = [
-    1577,
-    1612,
-]
 hash = "sha256:a120a98ae11ee3ba96434ea2e3f3276442419f420186233c03c08bbdda75a088"
 doc_hash = "sha256:8e369546246904ad1756e757cc49c9c56e016507f404c3f58c84b85ae4448dd8"
-callees = [
-    "fn:3668af6af0f0605c",
-    "fn:3d02b183f03062d4",
-    "fn:4d7d2ec30d10744c",
-    "fn:53a1f7fe8353eb38",
-    "fn:740c6b90475664f6",
-    "fn:91b29f94aed56404",
-]
-uses = [
-    "fn:47a956867551c83d",
-    "fn:dc35bd1d6d16dc90",
-]
 test = true
 
 [[module."excursion.rs".function]]
-id = "fn:37bd38f471f7bb63"
-name = "a_healthy_reactor_is_not_annotated"
-qual = "a_healthy_reactor_is_not_annotated"
-lines = [
-    1614,
-    1633,
-]
-hash = "sha256:74f29bb369a57a84dfe3d4fcb60809fe40a2201fde14898f43d691297c2c1109"
-doc_hash = "sha256:f5dc04cf76a57dc3265659621b30d3d2ce25e094e726ab602a555d0192ba6197"
-callees = ["fn:3668af6af0f0605c"]
-uses = [
-    "fn:47a956867551c83d",
-    "fn:dc35bd1d6d16dc90",
-]
+id = "fn:6766d80dc6fd5287"
+name = "the_phase_comes_from_the_application_clock_and_does_not_reverse"
+qual = "the_phase_comes_from_the_application_clock_and_does_not_reverse"
+hash = "sha256:6531202e0cdf7860aa0f51550b8caae5183cc2c9f6bcef811b0272cde280d7da"
+doc_hash = "sha256:86f8515178c628afb064d751330d7d35c0dc06b1551cc54beaa64274ea1096f5"
 test = true
 
 [[module."excursion.rs".function]]
-id = "fn:b002a00308c7da39"
-name = "alphas_saturate_instead_of_wrapping"
-qual = "alphas_saturate_instead_of_wrapping"
-lines = [
-    1635,
-    1644,
-]
-hash = "sha256:a56542f5cb3baea1427418cfa28192477769316ef6799d6f9d6cd645ff1ae19b"
-doc_hash = "sha256:6c68dfd89c281e31dcd5e484888128be67683aea719331b7af7e776e18ca7ab8"
+id = "fn:a917c16e3018db35"
+name = "the_release_marks_drift_outward_and_settle"
+qual = "the_release_marks_drift_outward_and_settle"
+hash = "sha256:f066c4341c46d8cb35d1a9a2019e8503c7db71174a2503593ce8168f4646571a"
+doc_hash = "sha256:756cbb89aa83a5f0ebd0435448ab5a3de4ce58e0cacc062f4a26b2abf5ac0c45"
 test = true
+
+[[module."excursion.rs".function]]
+id = "fn:a48213a208ce4e58"
+name = "the_release_scatter_is_deterministic"
+qual = "the_release_scatter_is_deterministic"
+hash = "sha256:b3593a7c8385181f5c4f95592b0eee6e800c953d61045099ebf2599c91439efe"
+doc_hash = "sha256:2e56b9db3d8838abd6a4273c18f3087ffe5a7627f54091d858888ea7ef33868f"
+test = true
+
+[[module."excursion.rs".function]]
+id = "fn:021ee91725a32b4e"
+name = "the_species_are_named_in_the_order_the_heating_tests_report"
+qual = "the_species_are_named_in_the_order_the_heating_tests_report"
+hash = "sha256:00f49996439cd5e3d6f997a1df1a8f8f4792ba30109b121330f1e3691f07b32f"
+doc_hash = "sha256:d5379fab16302669ee79f3a2d170a874229b8eb3993dd94c95b508bef2fae2ed"
+test = true
+
+[[module."excursion.rs".function]]
+id = "fn:c7f46d1d96561c31"
+name = "the_stage_escalates_only_at_the_documented_threshold"
+qual = "the_stage_escalates_only_at_the_documented_threshold"
+hash = "sha256:fc9a14305d2b764d6d811eb6fb155ecdeb4f06d607e554134ddebaab56d3c889"
+doc_hash = "sha256:647fd0d6e48ee208117b174cb67b1036c1467b2d13281a8a64538ebe2b266091"
+test = true
+
+[[module."excursion.rs".function]]
+id = "fn:7495479df52f4c2a"
+name = "translucent"
+qual = "translucent"
+hash = "sha256:5d5c640ffe3f433d0c251b5d85e6b254beaa037cd316b1bb92b997fd87d739f3"
+doc_hash = "sha256:90278527352f4a1705954afb947ea3d3039210ddf14357916874f85afdb026e0"
 
 [module."heat_exchanger.rs"]
 path = "crate::components::heat_exchanger"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:a4c93cbe05154213"
+name = "arrangement"
+qual = "HeatExchangerKind::arrangement"
+hash = "sha256:498e59387c2ef97afc0359c209d2b0ea04d1f2c8979ede6e779f82efe3d47b15"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:7e0e7b8c5d9026f0"
+name = "from_arrangement"
+qual = "HeatExchangerKind::from_arrangement"
+hash = "sha256:e6e8f2afa6fb8ac0547766c9433eb81fcf03499c7dec1db5c990a21e8a6b43bb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:109ff4843bb14d59"
@@ -1791,76 +939,22 @@ name = "HeatExchangerKindArrangement"
 qual = "HeatExchangerKindArrangement"
 item = "type"
 shape = "trait"
-lines = [
-    25,
-    38,
-]
 hash = "sha256:2d635b63f6a051b29f282fe4f62d0986d7385c401e92763a5d525fd544bfc8b0"
 doc_hash = "sha256:a748b6ca253495403e594ed9c49dc1306291b797320ba977b60f9457aaeca1a0"
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:f49f6c6a8b6cf31c"
-name = "from_arrangement"
-qual = "HeatExchangerKindArrangement::from_arrangement"
-lines = [
-    31,
-    33,
-]
-hash = "sha256:a35251b854158d5c88632b2780f5da912a6b90d544d873e91eee68f61e6cabfe"
-doc_hash = "sha256:1dcc182681e006abfd1ee8f9f896b4423487a37e6476347a9d2de1e4cf0cb60e"
-uses = ["fn:109ff4843bb14d59"]
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:87cc8b81f6579a87"
 name = "arrangement"
 qual = "HeatExchangerKindArrangement::arrangement"
-lines = [
-    35,
-    37,
-]
 hash = "sha256:8fe721f7b373a0f2b2ac572f1f58df1944b452412bbb3e21a1e8b851a9285e3e"
 doc_hash = "sha256:fd3e490942280997698d42756e18ae7768429fb623c90d38adda916aed4e295d"
-uses = ["fn:109ff4843bb14d59"]
 
 [[module."heat_exchanger.rs".function]]
-id = "fn:7e0e7b8c5d9026f0"
+id = "fn:f49f6c6a8b6cf31c"
 name = "from_arrangement"
-qual = "HeatExchangerKind::from_arrangement"
-lines = [
-    41,
-    46,
-]
-hash = "sha256:e6e8f2afa6fb8ac0547766c9433eb81fcf03499c7dec1db5c990a21e8a6b43bb"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#53"]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:a4c93cbe05154213"
-name = "arrangement"
-qual = "HeatExchangerKind::arrangement"
-lines = [
-    48,
-    53,
-]
-hash = "sha256:498e59387c2ef97afc0359c209d2b0ea04d1f2c8979ede6e779f82efe3d47b15"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:dc46d49de5be2c57"
-name = "HeatExchangerVisualState"
-qual = "HeatExchangerVisualState"
-item = "type"
-shape = "enum"
-lines = [
-    56,
-    69,
-]
-hash = "sha256:d017318918e04e9da08f88ed1ca7da4c4aec53daebd4b0553d782af443faff97"
-doc_hash = "sha256:9ffd5619d88cb81bd60bd690f0c8a878b29f6e419b644a151e84af533ebd2c54"
-reached_by = [
-    "#53",
-    "#54",
-]
+qual = "HeatExchangerKindArrangement::from_arrangement"
+hash = "sha256:a35251b854158d5c88632b2780f5da912a6b90d544d873e91eee68f61e6cabfe"
+doc_hash = "sha256:1dcc182681e006abfd1ee8f9f896b4423487a37e6476347a9d2de1e4cf0cb60e"
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:342fdb8c73785b6b"
@@ -1868,266 +962,153 @@ name = "HeatExchangerVisual"
 qual = "HeatExchangerVisual"
 item = "type"
 shape = "struct"
-lines = [
-    71,
-    77,
-]
 hash = "sha256:54f7544f75dd796d8671c766d0c7e9f78ff2cfd9d4693d531ec9c2e752332632"
 doc_hash = "sha256:91829480ff2f4a11494c396a16da913bb73a0898ee1bca82ba8793a1463021cb"
-uses = ["fn:dc46d49de5be2c57"]
-reached_by = [
-    "#53",
-    "#54",
-]
 
 [[module."heat_exchanger.rs".function]]
-id = "fn:a09c768500c4b652"
-name = "new"
-qual = "HeatExchangerVisual::new"
-lines = [
-    80,
-    98,
-]
-hash = "sha256:9fac280f9e98ad15843a63602e94fc55d1273aa8fe9655cb95224a29b6843d2a"
-doc_hash = "sha256:2ace5d6d34479a608c1595d41e3192055d6bd0f6eec03d530c7cd90a6a907695"
-callees = ["fn:7e0e7b8c5d9026f0"]
-uses = [
-    "fn:342fdb8c73785b6b",
-    "fn:dc46d49de5be2c57",
-]
-reached_by = ["#53"]
+id = "fn:096ac3b0549d298e"
+name = "approaches"
+qual = "HeatExchangerVisual::approaches"
+hash = "sha256:e2a5b81d012d32e03e026ef48833314d0fe77a767a406fe20d14414f02049eac"
+doc_hash = "sha256:0ff9092b912d29d8c368ac08f9dc27576447d65ed344280171a9226c7d62e102"
+physical_interface = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:2583abd6d2e86e08"
+name = "art"
+qual = "HeatExchangerVisual::art"
+hash = "sha256:93e4f28b2f143c49c6200274d14eebe14caff5abe938ee2aff979d2f5446ceba"
+doc_hash = "sha256:b8d914ed90654fc449c7e85938fc2711f40ecbe1b80b82d4f2f055278957a857"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:bb1987e401c2c237"
+name = "construction"
+qual = "HeatExchangerVisual::construction"
+hash = "sha256:a91b9d777c64ebfdfef0fdc254ed1295fd3055670e31aa4c811635c13ee2d219"
+doc_hash = "sha256:bbe8310ea86a1b891cd2b5eceae42e1d0e8eca7a229d87e5ab93f3ee8458ecbc"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:c32c3b21b6d80e70"
+name = "duty"
+qual = "HeatExchangerVisual::duty"
+hash = "sha256:0619c5da6c68ef3514f091ce71f697ac303415479430e14c58026917e03157c3"
+doc_hash = "sha256:4bbbbdcfd00d9afe2cd63e26d9f20a1353778d8c31b4981328a54b855b484a08"
+physical_interface = true
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:f518a0b608a997d4"
 name = "from_scalars"
 qual = "HeatExchangerVisual::from_scalars"
-lines = [
-    100,
-    113,
-]
 hash = "sha256:ba0b9c141b56fd2e167fe5d0dbeae47e6653a255e79d2cae51500c3e5b7cf465"
 doc_hash = "sha256:15da4cf255110876e245b3c0ecabeb008df0c31ba4c9a997b8e78cb63acbc303"
-uses = [
-    "fn:342fdb8c73785b6b",
-    "fn:dc46d49de5be2c57",
-]
-reached_by = ["#54"]
 
 [[module."heat_exchanger.rs".function]]
-id = "fn:2ca3d916e4d16f1c"
-name = "with_kind"
-qual = "HeatExchangerVisual::with_kind"
-lines = [
-    115,
-    119,
-]
-hash = "sha256:f0eb5819c2f5cd6de9c29d8beff6e860e7fed69d09c0b8e690c8f3cea3254a14"
-doc_hash = "sha256:62481460507879b4b4f08d5dcca18f6e472d717053addf273f0036ce0e9cbb9e"
-uses = ["fn:342fdb8c73785b6b"]
-reached_by = ["#54"]
+id = "fn:4ef6d12601161532"
+name = "heat_transfer_area"
+qual = "HeatExchangerVisual::heat_transfer_area"
+hash = "sha256:8de187595a0a6260f15ad8d94b92a5917a1a25582a1c8ebbf2903e61bcc30038"
+doc_hash = "sha256:6099adfeea33e9f043217d523040295bc704772a97d87ceb6f98a19ce3f423eb"
+physical_interface = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:7d061c2b5de22809"
+name = "kind"
+qual = "HeatExchangerVisual::kind"
+hash = "sha256:2d36ae662497db8d2852a8a4cc26b1942489a6e379ff6c91eb780e61262057c0"
+doc_hash = "sha256:d79917a20d83baf0ef6693c04a1e82d59effa744605c7058acee2f137cc5497c"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:a09c768500c4b652"
+name = "new"
+qual = "HeatExchangerVisual::new"
+hash = "sha256:9fac280f9e98ad15843a63602e94fc55d1273aa8fe9655cb95224a29b6843d2a"
+doc_hash = "sha256:2ace5d6d34479a608c1595d41e3192055d6bd0f6eec03d530c7cd90a6a907695"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:dab1c08f7b1569ce"
+name = "overall_coefficient"
+qual = "HeatExchangerVisual::overall_coefficient"
+hash = "sha256:47bf7f40911397256c6c3b542253a9e16f1f8a90b3f9c70dff6b41b9afa62803"
+doc_hash = "sha256:01c7b701a4f5bcd6f554648f23eac1c12077dc390d2df89c1c6ca1e8ae7bae45"
+physical_interface = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:8949ec3f236a1613"
+name = "scalars"
+qual = "HeatExchangerVisual::scalars"
+hash = "sha256:b48a818a6e9aee628f294b28b8f19b353465803aad7555f98deec9f5e71e0ab3"
+doc_hash = "sha256:5928f4b5e4c194f52587d279e5ad48d2bb4ab16f4260057f1eef86075280057a"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:85e371021b3bd187"
+name = "size"
+qual = "HeatExchangerVisual::size"
+hash = "sha256:60662e386def23180a03424382bd32f9e997571bfdadc1209ecee5fc8b211d83"
+doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:1026bfe77fb7aa12"
+name = "state"
+qual = "HeatExchangerVisual::state"
+hash = "sha256:d3e6bbce1feef98d97b7224e77c516264c0f6342a903fcfa5baa1e25f1df20da"
+doc_hash = "sha256:9b12b651d3a3821700e4e41a9cfadded071122f2f8e0a7fcde4f6d6583547530"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:4ffae5aaa5742048"
+name = "ui"
+qual = "HeatExchangerVisual::ui"
+hash = "sha256:361f5744ae1800929e82d487a3a69be75db4a8d2f956505feaad8ce9212f4d8d"
+doc_hash = "sha256:61ce689e687eb06ef13561cd7fe9274e25f04d60f0709cb7cccac73cf787fdcf"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:3bcd99264ae95be3"
+name = "verdict"
+qual = "HeatExchangerVisual::verdict"
+hash = "sha256:a50863e7168a98276454e52825bd5e935ad70534d51ee0bf39af9d896b5f625c"
+doc_hash = "sha256:4e26c36248f639cf80ef0173fdd971ba7e8cef841dbbdb798fdd309b64555d92"
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:b7355099d9428766"
 name = "with_construction"
 qual = "HeatExchangerVisual::with_construction"
-lines = [
-    121,
-    125,
-]
 hash = "sha256:1bf03ab90cf608f6b8a91d8dd3e36b8e5452bcbfe134e2b6ddd5ffd1c38a1494"
 doc_hash = "sha256:d37c599330e055974e997683190df804681dde1110b58ad2d5b7836b260569ed"
-uses = ["fn:342fdb8c73785b6b"]
-reached_by = ["#54"]
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:2ca3d916e4d16f1c"
+name = "with_kind"
+qual = "HeatExchangerVisual::with_kind"
+hash = "sha256:f0eb5819c2f5cd6de9c29d8beff6e860e7fed69d09c0b8e690c8f3cea3254a14"
+doc_hash = "sha256:62481460507879b4b4f08d5dcca18f6e472d717053addf273f0036ce0e9cbb9e"
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:1edd74116c7c0b6d"
 name = "with_surface"
 qual = "HeatExchangerVisual::with_surface"
-lines = [
-    127,
-    131,
-]
 hash = "sha256:8d49d9e2edcd23b7077445c85f99d680a5bc6bfb9fb18016f652b806ce47cd68"
 doc_hash = "sha256:043330cc758a0b3667ca2fd563761463c685fb51a0f49a7b38a07f324134fb71"
-uses = ["fn:342fdb8c73785b6b"]
-reached_by = ["#54"]
 physical_interface = true
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:8fc8939147aadc33"
 name = "without_labels"
 qual = "HeatExchangerVisual::without_labels"
-lines = [
-    133,
-    137,
-]
 hash = "sha256:5ee231d33db7185530c9442135a0657ffa67edc0d736f62f86ea365ce5589771"
 doc_hash = "sha256:54fda030d10fb8b6d4793909cf8e2eec8cc8b2d230482c7fb41fe3655a26dba1"
-uses = ["fn:342fdb8c73785b6b"]
-reached_by = ["#54"]
 
 [[module."heat_exchanger.rs".function]]
-id = "fn:7d061c2b5de22809"
-name = "kind"
-qual = "HeatExchangerVisual::kind"
-lines = [
-    139,
-    142,
-]
-hash = "sha256:2d36ae662497db8d2852a8a4cc26b1942489a6e379ff6c91eb780e61262057c0"
-doc_hash = "sha256:d79917a20d83baf0ef6693c04a1e82d59effa744605c7058acee2f137cc5497c"
-uses = ["fn:342fdb8c73785b6b"]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:bb1987e401c2c237"
-name = "construction"
-qual = "HeatExchangerVisual::construction"
-lines = [
-    144,
-    147,
-]
-hash = "sha256:a91b9d777c64ebfdfef0fdc254ed1295fd3055670e31aa4c811635c13ee2d219"
-doc_hash = "sha256:bbe8310ea86a1b891cd2b5eceae42e1d0e8eca7a229d87e5ab93f3ee8458ecbc"
-uses = ["fn:342fdb8c73785b6b"]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:85e371021b3bd187"
-name = "size"
-qual = "HeatExchangerVisual::size"
-lines = [
-    149,
-    152,
-]
-hash = "sha256:60662e386def23180a03424382bd32f9e997571bfdadc1209ecee5fc8b211d83"
-doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
-uses = ["fn:342fdb8c73785b6b"]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:1026bfe77fb7aa12"
-name = "state"
-qual = "HeatExchangerVisual::state"
-lines = [
-    154,
-    157,
-]
-hash = "sha256:d3e6bbce1feef98d97b7224e77c516264c0f6342a903fcfa5baa1e25f1df20da"
-doc_hash = "sha256:9b12b651d3a3821700e4e41a9cfadded071122f2f8e0a7fcde4f6d6583547530"
-uses = [
-    "fn:342fdb8c73785b6b",
-    "fn:dc46d49de5be2c57",
-]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:8949ec3f236a1613"
-name = "scalars"
-qual = "HeatExchangerVisual::scalars"
-lines = [
-    159,
-    166,
-]
-hash = "sha256:b48a818a6e9aee628f294b28b8f19b353465803aad7555f98deec9f5e71e0ab3"
-doc_hash = "sha256:5928f4b5e4c194f52587d279e5ad48d2bb4ab16f4260057f1eef86075280057a"
-uses = [
-    "fn:342fdb8c73785b6b",
-    "fn:dc46d49de5be2c57",
-]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:4ef6d12601161532"
-name = "heat_transfer_area"
-qual = "HeatExchangerVisual::heat_transfer_area"
-lines = [
-    168,
-    171,
-]
-hash = "sha256:8de187595a0a6260f15ad8d94b92a5917a1a25582a1c8ebbf2903e61bcc30038"
-doc_hash = "sha256:6099adfeea33e9f043217d523040295bc704772a97d87ceb6f98a19ce3f423eb"
-uses = ["fn:342fdb8c73785b6b"]
-physical_interface = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:dab1c08f7b1569ce"
-name = "overall_coefficient"
-qual = "HeatExchangerVisual::overall_coefficient"
-lines = [
-    173,
-    176,
-]
-hash = "sha256:47bf7f40911397256c6c3b542253a9e16f1f8a90b3f9c70dff6b41b9afa62803"
-doc_hash = "sha256:01c7b701a4f5bcd6f554648f23eac1c12077dc390d2df89c1c6ca1e8ae7bae45"
-uses = ["fn:342fdb8c73785b6b"]
-physical_interface = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:c32c3b21b6d80e70"
-name = "duty"
-qual = "HeatExchangerVisual::duty"
-lines = [
-    178,
-    181,
-]
-hash = "sha256:0619c5da6c68ef3514f091ce71f697ac303415479430e14c58026917e03157c3"
-doc_hash = "sha256:4bbbbdcfd00d9afe2cd63e26d9f20a1353778d8c31b4981328a54b855b484a08"
-uses = ["fn:342fdb8c73785b6b"]
-physical_interface = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:096ac3b0549d298e"
-name = "approaches"
-qual = "HeatExchangerVisual::approaches"
-lines = [
-    183,
-    187,
-]
-hash = "sha256:e2a5b81d012d32e03e026ef48833314d0fe77a767a406fe20d14414f02049eac"
-doc_hash = "sha256:0ff9092b912d29d8c368ac08f9dc27576447d65ed344280171a9226c7d62e102"
-uses = ["fn:342fdb8c73785b6b"]
-physical_interface = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:3bcd99264ae95be3"
-name = "verdict"
-qual = "HeatExchangerVisual::verdict"
-lines = [
-    189,
-    193,
-]
-hash = "sha256:a50863e7168a98276454e52825bd5e935ad70534d51ee0bf39af9d896b5f625c"
-doc_hash = "sha256:4e26c36248f639cf80ef0173fdd971ba7e8cef841dbbdb798fdd309b64555d92"
-uses = ["fn:342fdb8c73785b6b"]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:2583abd6d2e86e08"
-name = "art"
-qual = "HeatExchangerVisual::art"
-lines = [
-    195,
-    198,
-]
-hash = "sha256:93e4f28b2f143c49c6200274d14eebe14caff5abe938ee2aff979d2f5446ceba"
-doc_hash = "sha256:b8d914ed90654fc449c7e85938fc2711f40ecbe1b80b82d4f2f055278957a857"
-uses = ["fn:342fdb8c73785b6b"]
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:4ffae5aaa5742048"
-name = "ui"
-qual = "HeatExchangerVisual::ui"
-lines = [
-    202,
-    205,
-]
-hash = "sha256:361f5744ae1800929e82d487a3a69be75db4a8d2f956505feaad8ce9212f4d8d"
-doc_hash = "sha256:61ce689e687eb06ef13561cd7fe9274e25f04d60f0709cb7cccac73cf787fdcf"
-uses = ["fn:342fdb8c73785b6b"]
+id = "fn:dc46d49de5be2c57"
+name = "HeatExchangerVisualState"
+qual = "HeatExchangerVisualState"
+item = "type"
+shape = "enum"
+hash = "sha256:d017318918e04e9da08f88ed1ca7da4c4aec53daebd4b0553d782af443faff97"
+doc_hash = "sha256:9ffd5619d88cb81bd60bd690f0c8a878b29f6e419b644a151e84af533ebd2c54"
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:b9f112f9ff56fe0a"
 name = "degc"
 qual = "degc"
-lines = [
-    220,
-    222,
-]
 hash = "sha256:ee84ef7b3d67ba379a568a10958b33d486cdba67b79072cecd34e177894809fa"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
@@ -2137,87 +1118,48 @@ physical_interface = true
 id = "fn:74b8f2701694f474"
 name = "range"
 qual = "range"
-lines = [
-    224,
-    229,
-]
 hash = "sha256:db8c63f5294299355b0828cda24dff38159353b53b1cc3c9bc72cb1e3580d1ac"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:b9f112f9ff56fe0a"]
 test = true
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:a45579162fc83bc2"
 name = "scalars"
 qual = "scalars"
-lines = [
-    231,
-    242,
-]
 hash = "sha256:df1fcae126acd268548d7a1e55730a5f8e0df4872bb7ca1e5370b006bfe67239"
 doc_hash = "sha256:6ecb0566552e10cd0366747331d36b38f1ddae09f7f1a60a27d6e3068d784320"
-callees = ["fn:b9f112f9ff56fe0a"]
-test = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:eb7350ba264e747e"
-name = "the_physics_path_draws_its_arrangement_but_paints_no_temperature"
-qual = "the_physics_path_draws_its_arrangement_but_paints_no_temperature"
-lines = [
-    244,
-    285,
-]
-hash = "sha256:f31571a5b86c0f8523672e0328112466f77295ad52a850f0b56583f7821dec88"
-doc_hash = "sha256:247f678d53c001c41230c6c31251dccae029444c11a495c2e17843c57462722c"
-callees = ["fn:a09c768500c4b652"]
-uses = ["fn:342fdb8c73785b6b"]
-test = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:5f1da18e6d932445"
-name = "the_scalar_path_and_builders_reach_the_art"
-qual = "the_scalar_path_and_builders_reach_the_art"
-lines = [
-    287,
-    313,
-]
-hash = "sha256:f497d3f370e9a1e3c2ba678b4dfe9b42b7c7e9b7a68f08e97631774720f9b81a"
-doc_hash = "sha256:9b77741727985756a369962235ebd7a6d397949235ee42dabc95c6112e8abad6"
-callees = [
-    "fn:1edd74116c7c0b6d",
-    "fn:2ca3d916e4d16f1c",
-    "fn:74b8f2701694f474",
-    "fn:8fc8939147aadc33",
-    "fn:a45579162fc83bc2",
-    "fn:b7355099d9428766",
-    "fn:f518a0b608a997d4",
-]
-uses = ["fn:342fdb8c73785b6b"]
-test = true
-
-[[module."heat_exchanger.rs".function]]
-id = "fn:0cf20b52bef69da8"
-name = "the_end_brackets_are_the_two_ends_of_the_log_mean"
-qual = "the_end_brackets_are_the_two_ends_of_the_log_mean"
-lines = [
-    315,
-    392,
-]
-hash = "sha256:1cea0f6dbcd828d0493b35ea8e6e6501dd3ef95dd3acb600297e99c8e257feac"
-doc_hash = "sha256:c525ba4e93a590724dd8efacbc1b62699364feb4d613be8ec1ab33031b123d5d"
-callees = ["fn:a45579162fc83bc2"]
 test = true
 
 [[module."heat_exchanger.rs".function]]
 id = "fn:ccc9a3a8e8a1a78b"
 name = "the_arrangement_round_trips_through_the_physics_enum"
 qual = "the_arrangement_round_trips_through_the_physics_enum"
-lines = [
-    394,
-    412,
-]
 hash = "sha256:fe1032f02033fd91dae814991df4be3a803bd94e3c2782a6940f5a26c2cc7d35"
 doc_hash = "sha256:75ee24d4fbdc8d6bfc55b284ee192db62d62bc7035f9e9fe53e59d2247324ca6"
+test = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:0cf20b52bef69da8"
+name = "the_end_brackets_are_the_two_ends_of_the_log_mean"
+qual = "the_end_brackets_are_the_two_ends_of_the_log_mean"
+hash = "sha256:1cea0f6dbcd828d0493b35ea8e6e6501dd3ef95dd3acb600297e99c8e257feac"
+doc_hash = "sha256:c525ba4e93a590724dd8efacbc1b62699364feb4d613be8ec1ab33031b123d5d"
+test = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:eb7350ba264e747e"
+name = "the_physics_path_draws_its_arrangement_but_paints_no_temperature"
+qual = "the_physics_path_draws_its_arrangement_but_paints_no_temperature"
+hash = "sha256:f31571a5b86c0f8523672e0328112466f77295ad52a850f0b56583f7821dec88"
+doc_hash = "sha256:247f678d53c001c41230c6c31251dccae029444c11a495c2e17843c57462722c"
+test = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:5f1da18e6d932445"
+name = "the_scalar_path_and_builders_reach_the_art"
+qual = "the_scalar_path_and_builders_reach_the_art"
+hash = "sha256:f497d3f370e9a1e3c2ba678b4dfe9b42b7c7e9b7a68f08e97631774720f9b81a"
+doc_hash = "sha256:9b77741727985756a369962235ebd7a6d397949235ee42dabc95c6112e8abad6"
 test = true
 
 [module."mod.rs"]
@@ -2227,10 +1169,6 @@ path = "crate::components"
 id = "fn:014708f9a18f8b19"
 name = "a_crude_plant_snapshot_drives_the_widget"
 qual = "a_crude_plant_snapshot_drives_the_widget"
-lines = [
-    72,
-    109,
-]
 hash = "sha256:7eee8d9ea993a881a20e6464e1073ffcab83b89a3799fa29b54e4cd2e49edaac"
 doc_hash = "sha256:92d3a6d7fad3d37db330dfa381a09b2f93199f7053e48de39e993d43fcfdab69"
 test = true
@@ -2239,367 +1177,174 @@ test = true
 path = "crate::components::pipe"
 
 [[module."pipe.rs".function]]
-id = "fn:f5a459cd3aad81dd"
-name = "PipeVisualState"
-qual = "PipeVisualState"
-item = "type"
-shape = "enum"
-lines = [
-    28,
-    39,
-]
-hash = "sha256:3739188d44bec36fdc0b386335fc2a67f488a39a1b548a92c2d6224f74afe548"
-doc_hash = "sha256:fdc3398a571d84b85f8488ecea81d92adafcd795443399ed2d63f4b0736fd7a6"
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
-
-[[module."pipe.rs".function]]
 id = "fn:738edb175b4c2a9c"
 name = "PipeVisual"
 qual = "PipeVisual"
 item = "type"
 shape = "struct"
-lines = [
-    41,
-    83,
-]
 hash = "sha256:3b969d78f86ce1efc69a49394dd1831c94dac220347693da29c1d43b1667f23f"
 doc_hash = "sha256:a3c440159537a3bbc35946966b91a1c5c771a3edc5e27ed093f35757a32aa5f7"
-uses = ["fn:f5a459cd3aad81dd"]
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
 
 [[module."pipe.rs".function]]
-id = "fn:74391452dfb0c25c"
-name = "new"
-qual = "PipeVisual::new"
-lines = [
-    86,
-    107,
-]
-hash = "sha256:49e42e74372f0b1770353522e3dac5639df6957e1d452919c9175369b2e943ff"
-doc_hash = "sha256:736a043776a7f6ee8552c83aa37062156da674d0e6c8e3b28b0d4e3d9fd695ab"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
+id = "fn:8b17943e73710133"
+name = "art"
+qual = "PipeVisual::art"
+hash = "sha256:207eac29adcbbb4e53bee0da4bcd6aae1418fdba7479f50edd8f1e3597260ad6"
+doc_hash = "sha256:6fb727f6ab4496a60e502adee6949f2cc92a7c918e3e6f6eeaf8cb3da226b454"
+
+[[module."pipe.rs".function]]
+id = "fn:5f6f859dab213001"
+name = "cell_temperatures"
+qual = "PipeVisual::cell_temperatures"
+hash = "sha256:44e00c0c0c78d515f0ccac009f1eb5ba4c6d20e0fcbb182ca4a288c8263b10c3"
+doc_hash = "sha256:eb3bbac3de5bc7c7894e8193f7a379b9232e794968b0fa724334349886728230"
 physical_interface = true
-
-[[module."pipe.rs".function]]
-id = "fn:a96ebc756aa4fd90"
-name = "from_scalars"
-qual = "PipeVisual::from_scalars"
-lines = [
-    109,
-    129,
-]
-hash = "sha256:876ad43f7a098c9c975d0abcbc62c7c182c5f4433ef5c1dcbcc14f0c330f8624"
-doc_hash = "sha256:92eb352331e2ac46920d2f4cff8cd7b3f76686755846e039b3fb33daff6d3095"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
-physical_interface = true
-
-[[module."pipe.rs".function]]
-id = "fn:19f699f8cc9438f8"
-name = "with_mark_at"
-qual = "PipeVisual::with_mark_at"
-lines = [
-    131,
-    136,
-]
-hash = "sha256:2f36d854fb854b2b5fc5ecbc1e822d4004488ea2f8cf9f858e14cbdff2d5447d"
-doc_hash = "sha256:5d62a97a20a2782e5fd55c0c6b35dd8bb0dca6a2e8c2352f170bc717e2456659"
-uses = ["fn:738edb175b4c2a9c"]
-
-[[module."pipe.rs".function]]
-id = "fn:c115412ea773f249"
-name = "with_wall_alarm"
-qual = "PipeVisual::with_wall_alarm"
-lines = [
-    138,
-    144,
-]
-hash = "sha256:908d5ed73276803a42fb4c787915b52f7fcd51d0d50a27ba3dfefe0b5a6e9a83"
-doc_hash = "sha256:d1a600542fb35a31f236928a35e76dcfe37cce03ac0c887af3467b38a253f36c"
-uses = ["fn:738edb175b4c2a9c"]
-physical_interface = true
-
-[[module."pipe.rs".function]]
-id = "fn:874cc73b3fcfe883"
-name = "with_scale"
-qual = "PipeVisual::with_scale"
-lines = [
-    146,
-    150,
-]
-hash = "sha256:4392eb91af95f881fa578be05667e5c2259db2745a75134ff38b559789211b2a"
-doc_hash = "sha256:2d38dcae6e362ac8394e45a733f30d4d482de1bf4c4d1c004901d69bfbc5e957"
-uses = ["fn:738edb175b4c2a9c"]
-
-[[module."pipe.rs".function]]
-id = "fn:4b21dded2ef613fa"
-name = "with_tracer"
-qual = "PipeVisual::with_tracer"
-lines = [
-    152,
-    157,
-]
-hash = "sha256:23f30900998a5fd41f54e4795e007233c7eff7c88a83ea5526479649a9787f34"
-doc_hash = "sha256:daa37efd5d342b04d96d58a4c2e88e925e87958acdc7288027bbe56afc3b79df"
-uses = ["fn:738edb175b4c2a9c"]
 
 [[module."pipe.rs".function]]
 id = "fn:857c2fe28dc6ded9"
 name = "cross_sectional_area"
 qual = "PipeVisual::cross_sectional_area"
-lines = [
-    159,
-    172,
-]
 hash = "sha256:dc562385018fb1f66fe5c2746efd7424bf16f2141c7f5927e4018afef6461de5"
 doc_hash = "sha256:2db009575d8ee3e89b9923d98bbedef67249ee41d491ac871152998cc8ff0176"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
 physical_interface = true
 
 [[module."pipe.rs".function]]
-id = "fn:f9a596dfa25b57c0"
-name = "run_length"
-qual = "PipeVisual::run_length"
-lines = [
-    174,
-    180,
-]
-hash = "sha256:288af225bd2aa2625cfee7fea1f62ccdcfb9417ce0fa4b42a6d3689c3f88c42c"
-doc_hash = "sha256:d76b23a34cfc9cc517627fc4383d75026ec0e5bc090ebcf81d8150f7ea749728"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
+id = "fn:33063e9adaf8b736"
+name = "drawn_size"
+qual = "PipeVisual::drawn_size"
+hash = "sha256:704425866a67a79eb1eca9ad0e1084cad76676830b29218b56e4dec5c2571474"
+doc_hash = "sha256:003b01495b48e70d6ff301c49f6d0381d857bcaadf235aa22d93112ce7d067c2"
+
+[[module."pipe.rs".function]]
+id = "fn:a96ebc756aa4fd90"
+name = "from_scalars"
+qual = "PipeVisual::from_scalars"
+hash = "sha256:876ad43f7a098c9c975d0abcbc62c7c182c5f4433ef5c1dcbcc14f0c330f8624"
+doc_hash = "sha256:92eb352331e2ac46920d2f4cff8cd7b3f76686755846e039b3fb33daff6d3095"
 physical_interface = true
 
 [[module."pipe.rs".function]]
 id = "fn:892560ab22da6e7a"
 name = "inclination"
 qual = "PipeVisual::inclination"
-lines = [
-    182,
-    188,
-]
 hash = "sha256:bafb73a3151ef9d789b154c7480a7cf123e5b4f3ca196402ad8e13a31bd0b34d"
 doc_hash = "sha256:6fb9349de2846196f21a69600b568c04cf1282c89c57701f77e5a6824042f018"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
 physical_interface = true
 
 [[module."pipe.rs".function]]
-id = "fn:6bad9bae7aed204c"
-name = "wall_temperatures"
-qual = "PipeVisual::wall_temperatures"
-lines = [
-    190,
-    211,
-]
-hash = "sha256:5fea23299c766ac738dfbb75f8d39f4c9412faa1583a6e40ce747057e79518ae"
-doc_hash = "sha256:bcab9349f321e9c5ebd7bfece06f0061034f17696ea76fbbff2541315c298739"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
+id = "fn:74391452dfb0c25c"
+name = "new"
+qual = "PipeVisual::new"
+hash = "sha256:49e42e74372f0b1770353522e3dac5639df6957e1d452919c9175369b2e943ff"
+doc_hash = "sha256:736a043776a7f6ee8552c83aa37062156da674d0e6c8e3b28b0d4e3d9fd695ab"
 physical_interface = true
 
 [[module."pipe.rs".function]]
 id = "fn:bcfce3338676d437"
 name = "peak_wall_temperature"
 qual = "PipeVisual::peak_wall_temperature"
-lines = [
-    213,
-    216,
-]
 hash = "sha256:7fe679ab81782302531d86b5e8613c9903271882b0b0a119f392960e37ca18da"
 doc_hash = "sha256:d68990f973b9c8b51b8e039586fb84cdcfdab193611056688bfe63610c4e5c61"
-callees = ["fn:8b17943e73710133"]
-uses = ["fn:738edb175b4c2a9c"]
 physical_interface = true
 
 [[module."pipe.rs".function]]
 id = "fn:434f1208c4173c32"
 name = "phase_shade"
 qual = "PipeVisual::phase_shade"
-lines = [
-    218,
-    235,
-]
 hash = "sha256:be3ff26c85a12fb102a87bcc2970e38eac7d9272d0126b771d8fe140cbb94ecf"
 doc_hash = "sha256:b39e861f55309109d6e186c0127b3ac1867fbf869f965a0f232ff488978507c1"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
 
 [[module."pipe.rs".function]]
-id = "fn:33063e9adaf8b736"
-name = "drawn_size"
-qual = "PipeVisual::drawn_size"
-lines = [
-    237,
-    241,
-]
-hash = "sha256:704425866a67a79eb1eca9ad0e1084cad76676830b29218b56e4dec5c2571474"
-doc_hash = "sha256:003b01495b48e70d6ff301c49f6d0381d857bcaadf235aa22d93112ce7d067c2"
-callees = ["fn:8b17943e73710133"]
-uses = ["fn:738edb175b4c2a9c"]
-reached_by = [
-    "#55",
-    "#57",
-]
-
-[[module."pipe.rs".function]]
-id = "fn:5f6f859dab213001"
-name = "cell_temperatures"
-qual = "PipeVisual::cell_temperatures"
-lines = [
-    243,
-    280,
-]
-hash = "sha256:44e00c0c0c78d515f0ccac009f1eb5ba4c6d20e0fcbb182ca4a288c8263b10c3"
-doc_hash = "sha256:eb3bbac3de5bc7c7894e8193f7a379b9232e794968b0fa724334349886728230"
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
+id = "fn:f9a596dfa25b57c0"
+name = "run_length"
+qual = "PipeVisual::run_length"
+hash = "sha256:288af225bd2aa2625cfee7fea1f62ccdcfb9417ce0fa4b42a6d3689c3f88c42c"
+doc_hash = "sha256:d76b23a34cfc9cc517627fc4383d75026ec0e5bc090ebcf81d8150f7ea749728"
 physical_interface = true
-
-[[module."pipe.rs".function]]
-id = "fn:8b17943e73710133"
-name = "art"
-qual = "PipeVisual::art"
-lines = [
-    282,
-    316,
-]
-hash = "sha256:207eac29adcbbb4e53bee0da4bcd6aae1418fdba7479f50edd8f1e3597260ad6"
-doc_hash = "sha256:6fb727f6ab4496a60e502adee6949f2cc92a7c918e3e6f6eeaf8cb3da226b454"
-callees = [
-    "fn:434f1208c4173c32",
-    "fn:5f6f859dab213001",
-    "fn:6bad9bae7aed204c",
-]
-uses = [
-    "fn:738edb175b4c2a9c",
-    "fn:f5a459cd3aad81dd",
-]
-reached_by = [
-    "#55",
-    "#56",
-    "#57",
-]
 
 [[module."pipe.rs".function]]
 id = "fn:bbb0460f9ede5174"
 name = "ui"
 qual = "PipeVisual::ui"
-lines = [
-    320,
-    324,
-]
 hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
 doc_hash = "sha256:5f43607a870cf0bfd514f8a72a080858039b21b263d3229c95cd477b4b42d831"
-callees = ["fn:8b17943e73710133"]
-uses = ["fn:738edb175b4c2a9c"]
 
 [[module."pipe.rs".function]]
-id = "fn:a62ec17bd51d9693"
-name = "physics_pipe"
-qual = "physics_pipe"
-lines = [
-    332,
-    375,
-]
-hash = "sha256:119f609867b4094f4f0f2bd0f19ab7777ae243fd56c46df227ecfb3e27c68842"
-doc_hash = "sha256:28eefac72d94af918709727529dc233c5d18a44854a8374cbb629aaaa28619d8"
-callees = ["fn:74391452dfb0c25c"]
-uses = ["fn:738edb175b4c2a9c"]
-test = true
+id = "fn:6bad9bae7aed204c"
+name = "wall_temperatures"
+qual = "PipeVisual::wall_temperatures"
+hash = "sha256:5fea23299c766ac738dfbb75f8d39f4c9412faa1583a6e40ce747057e79518ae"
+doc_hash = "sha256:bcab9349f321e9c5ebd7bfece06f0061034f17696ea76fbbff2541315c298739"
+physical_interface = true
 
 [[module."pipe.rs".function]]
-id = "fn:7f1ffc2d95591b1f"
-name = "thickness_is_proportional_to_cross_sectional_area"
-qual = "thickness_is_proportional_to_cross_sectional_area"
-lines = [
-    377,
-    403,
-]
-hash = "sha256:bece1cf2c085ba90678cafa017405b97ed472bdb30fa2a81f50e37963d475645"
-doc_hash = "sha256:0924f9bb5c5e236a251db91b752cf0cbfa08a899ad81321f13153d7bc4c3a19b"
-callees = [
-    "fn:33063e9adaf8b736",
-    "fn:a62ec17bd51d9693",
-]
-test = true
+id = "fn:19f699f8cc9438f8"
+name = "with_mark_at"
+qual = "PipeVisual::with_mark_at"
+hash = "sha256:2f36d854fb854b2b5fc5ecbc1e822d4004488ea2f8cf9f858e14cbdff2d5447d"
+doc_hash = "sha256:5d62a97a20a2782e5fd55c0c6b35dd8bb0dca6a2e8c2352f170bc717e2456659"
+
+[[module."pipe.rs".function]]
+id = "fn:874cc73b3fcfe883"
+name = "with_scale"
+qual = "PipeVisual::with_scale"
+hash = "sha256:4392eb91af95f881fa578be05667e5c2259db2745a75134ff38b559789211b2a"
+doc_hash = "sha256:2d38dcae6e362ac8394e45a733f30d4d482de1bf4c4d1c004901d69bfbc5e957"
+
+[[module."pipe.rs".function]]
+id = "fn:4b21dded2ef613fa"
+name = "with_tracer"
+qual = "PipeVisual::with_tracer"
+hash = "sha256:23f30900998a5fd41f54e4795e007233c7eff7c88a83ea5526479649a9787f34"
+doc_hash = "sha256:daa37efd5d342b04d96d58a4c2e88e925e87958acdc7288027bbe56afc3b79df"
+
+[[module."pipe.rs".function]]
+id = "fn:c115412ea773f249"
+name = "with_wall_alarm"
+qual = "PipeVisual::with_wall_alarm"
+hash = "sha256:908d5ed73276803a42fb4c787915b52f7fcd51d0d50a27ba3dfefe0b5a6e9a83"
+doc_hash = "sha256:d1a600542fb35a31f236928a35e76dcfe37cce03ac0c887af3467b38a253f36c"
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:f5a459cd3aad81dd"
+name = "PipeVisualState"
+qual = "PipeVisualState"
+item = "type"
+shape = "enum"
+hash = "sha256:3739188d44bec36fdc0b386335fc2a67f488a39a1b548a92c2d6224f74afe548"
+doc_hash = "sha256:fdc3398a571d84b85f8488ecea81d92adafcd795443399ed2d63f4b0736fd7a6"
 
 [[module."pipe.rs".function]]
 id = "fn:4cdde9a4dff43cc6"
 name = "length_is_proportional_to_run_length"
 qual = "length_is_proportional_to_run_length"
-lines = [
-    405,
-    410,
-]
 hash = "sha256:3123bd316ff65f53ed96c16e8dbdac2477ee7bb0efa0d425ca03c3b78c59b929"
 doc_hash = "sha256:57d5b0305bbc50fbe7d244c9c920bf3de212353302859d7ea890afe46150a111"
-callees = [
-    "fn:33063e9adaf8b736",
-    "fn:a62ec17bd51d9693",
-]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:a62ec17bd51d9693"
+name = "physics_pipe"
+qual = "physics_pipe"
+hash = "sha256:119f609867b4094f4f0f2bd0f19ab7777ae243fd56c46df227ecfb3e27c68842"
+doc_hash = "sha256:28eefac72d94af918709727529dc233c5d18a44854a8374cbb629aaaa28619d8"
 test = true
 
 [[module."pipe.rs".function]]
 id = "fn:fa1b3742192f568d"
 name = "the_art_carries_the_pipes_cells_and_draws"
 qual = "the_art_carries_the_pipes_cells_and_draws"
-lines = [
-    412,
-    423,
-]
 hash = "sha256:b7e598ca3176fbc68cbb181cde154a912c127adc1db6cdf13f63fcc69bbb3434"
 doc_hash = "sha256:08e59a31509ba73a81a26590adde219d0ff02a09c9910e5ff9b91d03874c7cae"
-callees = [
-    "fn:8b17943e73710133",
-    "fn:a62ec17bd51d9693",
-]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:7f1ffc2d95591b1f"
+name = "thickness_is_proportional_to_cross_sectional_area"
+qual = "thickness_is_proportional_to_cross_sectional_area"
+hash = "sha256:bece1cf2c085ba90678cafa017405b97ed472bdb30fa2a81f50e37963d475645"
+doc_hash = "sha256:0924f9bb5c5e236a251db91b752cf0cbfa08a899ad81321f13153d7bc4c3a19b"
 test = true
 
 [module."pipe_component.rs"]
@@ -2611,211 +1356,101 @@ name = "PipeComponent"
 qual = "PipeComponent"
 item = "type"
 shape = "struct"
-lines = [
-    45,
-    65,
-]
 hash = "sha256:c366c197026968b9c66064ff12d738588dcae17c1f742bc1bcd4051c042c9478"
 doc_hash = "sha256:541b5d4c7742271c1c5eccacc929463c25b7d1dd284dba8971c2a9612d184fd1"
-reached_by = [
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-]
 
 [[module."pipe_component.rs".function]]
 id = "fn:504522d3ef0d2dec"
 name = "new"
 qual = "PipeComponent::new"
-lines = [
-    68,
-    86,
-]
 hash = "sha256:6c36a91bcdca6c844659dc98e4840509d02983baac2842141a6422083b90af6a"
 doc_hash = "sha256:40f0dac7bba571d37e15a625744d0b3642c0a2fea54424e1112bf0ea78caa52a"
-uses = ["fn:4751f13056ea9818"]
-reached_by = [
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-]
 physical_interface = true
-
-[[module."pipe_component.rs".function]]
-id = "fn:495b619c2e715211"
-name = "with_wall_alarm"
-qual = "PipeComponent::with_wall_alarm"
-lines = [
-    88,
-    93,
-]
-hash = "sha256:908d5ed73276803a42fb4c787915b52f7fcd51d0d50a27ba3dfefe0b5a6e9a83"
-doc_hash = "sha256:c1c7444596560aa0dc9373f8196b0de7b610aba5405528a25c2a7ac559ac9e1a"
-uses = ["fn:4751f13056ea9818"]
-physical_interface = true
-
-[[module."pipe_component.rs".function]]
-id = "fn:dee202061d01a13d"
-name = "with_scale"
-qual = "PipeComponent::with_scale"
-lines = [
-    95,
-    99,
-]
-hash = "sha256:4392eb91af95f881fa578be05667e5c2259db2745a75134ff38b559789211b2a"
-doc_hash = "sha256:2d38dcae6e362ac8394e45a733f30d4d482de1bf4c4d1c004901d69bfbc5e957"
-uses = ["fn:4751f13056ea9818"]
 
 [[module."pipe_component.rs".function]]
 id = "fn:b9b6be612b1c3a4a"
 name = "residence_time"
 qual = "PipeComponent::residence_time"
-lines = [
-    101,
-    104,
-]
 hash = "sha256:aa40105ba5bd1b6db4596dbb91a85c05e509d5319512d14bdb5a16c6c8600a81"
 doc_hash = "sha256:153443e25b2cbac04102d5d45cd60aa7cf3ce93130b3f3c9035cdcf18b9ba1ce"
-uses = ["fn:4751f13056ea9818"]
-reached_by = [
-    "#60",
-    "#61",
-    "#62",
-]
 physical_interface = true
 
 [[module."pipe_component.rs".function]]
 id = "fn:6c3178ae276ae101"
 name = "step"
 qual = "PipeComponent::step"
-lines = [
-    106,
-    130,
-]
 hash = "sha256:ea705f4756d2145443eea63c995103ef90decd73fc709fb138e5f6797fab30a2"
 doc_hash = "sha256:2822da435ff02c53a190d15a7796bb77f796f8779fec88838c700d34ba2f5e5f"
-callees = ["fn:b9b6be612b1c3a4a"]
-uses = ["fn:4751f13056ea9818"]
-reached_by = [
-    "#60",
-    "#61",
-    "#62",
-]
 physical_interface = true
 
 [[module."pipe_component.rs".function]]
 id = "fn:3b45e1ba4cc94494"
 name = "visual"
 qual = "PipeComponent::visual"
-lines = [
-    132,
-    157,
-]
 hash = "sha256:c825eb208ffe41ee6bfb324882d5e76a8eea870c32d29aeeba062b613e060c17"
 doc_hash = "sha256:752b11a7ed85c7b3dab26886d365e8259f7cd541c9e182742b4abb3a94da385a"
-callees = [
-    "fn:19f699f8cc9438f8",
-    "fn:74391452dfb0c25c",
-    "fn:874cc73b3fcfe883",
-    "fn:b9b6be612b1c3a4a",
-    "fn:c115412ea773f249",
-]
-uses = [
-    "fn:4751f13056ea9818",
-    "fn:738edb175b4c2a9c",
-]
+
+[[module."pipe_component.rs".function]]
+id = "fn:dee202061d01a13d"
+name = "with_scale"
+qual = "PipeComponent::with_scale"
+hash = "sha256:4392eb91af95f881fa578be05667e5c2259db2745a75134ff38b559789211b2a"
+doc_hash = "sha256:2d38dcae6e362ac8394e45a733f30d4d482de1bf4c4d1c004901d69bfbc5e957"
+
+[[module."pipe_component.rs".function]]
+id = "fn:495b619c2e715211"
+name = "with_wall_alarm"
+qual = "PipeComponent::with_wall_alarm"
+hash = "sha256:908d5ed73276803a42fb4c787915b52f7fcd51d0d50a27ba3dfefe0b5a6e9a83"
+doc_hash = "sha256:c1c7444596560aa0dc9373f8196b0de7b610aba5405528a25c2a7ac559ac9e1a"
+physical_interface = true
 
 [[module."pipe_component.rs".function]]
 id = "fn:dc173de8a92cbb19"
 name = "component"
 qual = "component"
-lines = [
-    175,
-    206,
-]
 hash = "sha256:0a2509f92b6fedff195a20b16e6938b98fcdca4b7ff8da907a0304aaed050eed"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:504522d3ef0d2dec"]
-uses = ["fn:4751f13056ea9818"]
-test = true
-
-[[module."pipe_component.rs".function]]
-id = "fn:fd73b618d1e77f3b"
-name = "stepping_advances_the_backend"
-qual = "stepping_advances_the_backend"
-lines = [
-    208,
-    215,
-]
-hash = "sha256:d622da59e6f8516e16ad79451975f318df8554cdcc3e79ee073a2a6bee3e4f4a"
-doc_hash = "sha256:37f0cf001d9f68558a8a85f7a5b324ac6e18f20c74472c69fc4055f90d13865c"
-callees = [
-    "fn:6c3178ae276ae101",
-    "fn:dc173de8a92cbb19",
-]
 test = true
 
 [[module."pipe_component.rs".function]]
 id = "fn:4cfbeb78bc1da29e"
 name = "non_positive_timestep_is_rejected"
 qual = "non_positive_timestep_is_rejected"
-lines = [
-    217,
-    225,
-]
 hash = "sha256:c3883ed641f26d13df102fa00f5e823ad164983edd1fb62e95c1130d69dd44e2"
 doc_hash = "sha256:3a6f989017dbd18b5b14b8023e85b6b3b30f1377dc78d1e264d1b6f6584b6919"
-callees = ["fn:dc173de8a92cbb19"]
 test = true
 
 [[module."pipe_component.rs".function]]
 id = "fn:bea5181ecbf869a6"
 name = "residence_time_is_length_over_velocity"
 qual = "residence_time_is_length_over_velocity"
-lines = [
-    227,
-    233,
-]
 hash = "sha256:2f8b5468b92033f04681a0c464e6f296d4936e38eb4cbd06cc00ab1e50f3a89d"
 doc_hash = "sha256:03886322f01feb3595916507013c7f0fce16a2229362430ab6bf83bef33201ec"
-callees = ["fn:dc173de8a92cbb19"]
-test = true
-
-[[module."pipe_component.rs".function]]
-id = "fn:46147f419356610c"
-name = "tracer_phase_persists_across_steps"
-qual = "tracer_phase_persists_across_steps"
-lines = [
-    235,
-    254,
-]
-hash = "sha256:27fb433421330940746d47155559d224fb82c9df8e0b2d71f0f9b2e736272204"
-doc_hash = "sha256:527b4ca26d1f420d6b5b91812cea3ddac58f3e7d6ca29f8fd670ae58c4af47fb"
-callees = [
-    "fn:6c3178ae276ae101",
-    "fn:b9b6be612b1c3a4a",
-    "fn:dc173de8a92cbb19",
-]
 test = true
 
 [[module."pipe_component.rs".function]]
 id = "fn:9deb00567214b0e3"
 name = "stagnant_run_places_no_mark"
 qual = "stagnant_run_places_no_mark"
-lines = [
-    256,
-    262,
-]
 hash = "sha256:ef7e8d8dde6b10b252e51126ed5742ef52a695296095eff69a604404fec41397"
 doc_hash = "sha256:4049371f4ce91061a4ae3819585c6ed29a740e8f71528c7ad3f4496d97318e5c"
-callees = [
-    "fn:6c3178ae276ae101",
-    "fn:dc173de8a92cbb19",
-]
+test = true
+
+[[module."pipe_component.rs".function]]
+id = "fn:fd73b618d1e77f3b"
+name = "stepping_advances_the_backend"
+qual = "stepping_advances_the_backend"
+hash = "sha256:d622da59e6f8516e16ad79451975f318df8554cdcc3e79ee073a2a6bee3e4f4a"
+doc_hash = "sha256:37f0cf001d9f68558a8a85f7a5b324ac6e18f20c74472c69fc4055f90d13865c"
+test = true
+
+[[module."pipe_component.rs".function]]
+id = "fn:46147f419356610c"
+name = "tracer_phase_persists_across_steps"
+qual = "tracer_phase_persists_across_steps"
+hash = "sha256:27fb433421330940746d47155559d224fb82c9df8e0b2d71f0f9b2e736272204"
+doc_hash = "sha256:527b4ca26d1f420d6b5b91812cea3ddac58f3e7d6ca29f8fd670ae58c4af47fb"
 test = true
 
 [module."pump.rs"]
@@ -2827,245 +1462,138 @@ name = "PumpVisual"
 qual = "PumpVisual"
 item = "type"
 shape = "struct"
-lines = [
-    20,
-    50,
-]
 hash = "sha256:93f9f71e8005561fffdddc7064d557cea7a6497843ce9470638e4ca0b176d2e6"
 doc_hash = "sha256:93364cc8a65d4663093cfa62231e2126472fb6b89b70726c3574acd5959e7b27"
-reached_by = [
-    "#63",
-    "#64",
-]
-
-[[module."pump.rs".function]]
-id = "fn:1b643149887eae91"
-name = "new"
-qual = "PumpVisual::new"
-lines = [
-    53,
-    61,
-]
-hash = "sha256:1102940b184a080fe253c283f144030d54ad240371f465b3e77260bf9ef53cb8"
-doc_hash = "sha256:c3f65059513f6bc43921b25fc4cb9bef54a509f420595a43b75bbcf3dce30952"
-callees = ["fn:14a92a4a00d86fd2"]
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#64"]
-
-[[module."pump.rs".function]]
-id = "fn:2d4b760cc2115c52"
-name = "from_scalars"
-qual = "PumpVisual::from_scalars"
-lines = [
-    63,
-    89,
-]
-hash = "sha256:a5d0aaf4e2a8a5856117c0b336f8a4467bac397653ea88e2af3a0dcb5a2f9879"
-doc_hash = "sha256:c8a2894316a5d112c254c17cfab87b0c9b8ad7e5887074ee5411982a0668e062"
-callees = ["fn:14a92a4a00d86fd2"]
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#63"]
-physical_interface = true
-
-[[module."pump.rs".function]]
-id = "fn:14a92a4a00d86fd2"
-name = "from_art"
-qual = "PumpVisual::from_art"
-lines = [
-    91,
-    104,
-]
-hash = "sha256:d53ac337443aaf210107ff24eb505a3f199585ff3bfa4db66135cdd53498153f"
-doc_hash = "sha256:05f87d17dad73c71a23f0353e64104d5da3bc436e117c173248cf87265bb3cd8"
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = [
-    "#63",
-    "#64",
-]
-
-[[module."pump.rs".function]]
-id = "fn:95c54fbd2c576f25"
-name = "with_kind"
-qual = "PumpVisual::with_kind"
-lines = [
-    106,
-    110,
-]
-hash = "sha256:264ff2608a4711189bf51f46902efe120fe42d3f533c4c3129824ca2369d2c5b"
-doc_hash = "sha256:db791b31feced51fda4c0c6a0fa5cd78f385ad34b7f51bf713f97e21d244c810"
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#63"]
-
-[[module."pump.rs".function]]
-id = "fn:380229decaf8e29f"
-name = "with_shaft_speed"
-qual = "PumpVisual::with_shaft_speed"
-lines = [
-    112,
-    116,
-]
-hash = "sha256:ac699cdf123555371a7a1d0a505ec921523e2147e1127e4031d1d62084f1a226"
-doc_hash = "sha256:4d7d9d443105eff29d8f1e7888245a3cbfe96edfa1f8dca9ecb482e70915c6a0"
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#63"]
-physical_interface = true
-
-[[module."pump.rs".function]]
-id = "fn:61ae869c7d2c0b04"
-name = "at_time"
-qual = "PumpVisual::at_time"
-lines = [
-    118,
-    123,
-]
-hash = "sha256:2229e74bfd11d317b03350736d17e5d65365d100b493bff41c82bc7bfd5aeb28"
-doc_hash = "sha256:a46d1460d5d68c30057a75c6ef5e469ef0a13416e362bf1f8933821c1f53886a"
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#63"]
-physical_interface = true
-
-[[module."pump.rs".function]]
-id = "fn:7af6973fcd9c931a"
-name = "with_fluid_temperature"
-qual = "PumpVisual::with_fluid_temperature"
-lines = [
-    125,
-    129,
-]
-hash = "sha256:4d8ee1a7c431c7c432903253a82a2cb2f685eb2e982202ac4ec9bcb0955a5a83"
-doc_hash = "sha256:038935e6e9f29ae47c1ddc83d6d45ef87a2a75e0da58090cf0d68d3831e5fda7"
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#63"]
-physical_interface = true
-
-[[module."pump.rs".function]]
-id = "fn:f15688789cef0caf"
-name = "with_temperature_range"
-qual = "PumpVisual::with_temperature_range"
-lines = [
-    131,
-    140,
-]
-hash = "sha256:639457f62e55f5a826549c15261a8cbefc8f53a206d1007eddd2cf363e1f8a77"
-doc_hash = "sha256:c66c08132139202a2fff9dbad555a210891536d26dfe4e4d8771368232de2373"
-uses = ["fn:ec16e2d73e087ec7"]
-reached_by = ["#63"]
-physical_interface = true
 
 [[module."pump.rs".function]]
 id = "fn:da8bded01ce1b62c"
 name = "art"
 qual = "PumpVisual::art"
-lines = [
-    142,
-    154,
-]
 hash = "sha256:2076e17dfe08d569289c8669cd3cf25fc1763a1d5c3ae33a58e954ebc92a66f5"
 doc_hash = "sha256:93f6244c1d14890c9a648b26508cf5e0774acfccde6b574f0d92cbebb9b87ef5"
-uses = ["fn:ec16e2d73e087ec7"]
 
 [[module."pump.rs".function]]
-id = "fn:c46fae7391097a4a"
-name = "rotor_angle"
-qual = "PumpVisual::rotor_angle"
-lines = [
-    156,
-    159,
-]
-hash = "sha256:d7fe81e79707531bde028f6f9805ef1835092ba6d2dcd8af46efa0035558999c"
-doc_hash = "sha256:0d385621ac5b0436567d936e383fdece5e43e550fb70a5a7646ccaa25eded930"
-callees = ["fn:da8bded01ce1b62c"]
-uses = ["fn:ec16e2d73e087ec7"]
+id = "fn:61ae869c7d2c0b04"
+name = "at_time"
+qual = "PumpVisual::at_time"
+hash = "sha256:2229e74bfd11d317b03350736d17e5d65365d100b493bff41c82bc7bfd5aeb28"
+doc_hash = "sha256:a46d1460d5d68c30057a75c6ef5e469ef0a13416e362bf1f8933821c1f53886a"
+physical_interface = true
+
+[[module."pump.rs".function]]
+id = "fn:f752f1d940324c04"
+name = "centrifugal_ports"
+qual = "PumpVisual::centrifugal_ports"
+hash = "sha256:20c830270bad83f571a06e25b76a9cb9cc48812db2d1486d7641121fe04f6ade"
+doc_hash = "sha256:346bb02711ac87d26bb905dc7f1c0feab8530ced105765457435581b42da901a"
+
+[[module."pump.rs".function]]
+id = "fn:830c9c3700b176a2"
+name = "fluid_colour"
+qual = "PumpVisual::fluid_colour"
+hash = "sha256:147d061ab8307d468b64f34b2fb5428b996ec5ec19caba8d7dbb9f31d78da526"
+doc_hash = "sha256:6d89625616a752ed60cd4997096b05a90140466a948871da565073d7f8128422"
+
+[[module."pump.rs".function]]
+id = "fn:14a92a4a00d86fd2"
+name = "from_art"
+qual = "PumpVisual::from_art"
+hash = "sha256:d53ac337443aaf210107ff24eb505a3f199585ff3bfa4db66135cdd53498153f"
+doc_hash = "sha256:05f87d17dad73c71a23f0353e64104d5da3bc436e117c173248cf87265bb3cd8"
+
+[[module."pump.rs".function]]
+id = "fn:2d4b760cc2115c52"
+name = "from_scalars"
+qual = "PumpVisual::from_scalars"
+hash = "sha256:a5d0aaf4e2a8a5856117c0b336f8a4467bac397653ea88e2af3a0dcb5a2f9879"
+doc_hash = "sha256:c8a2894316a5d112c254c17cfab87b0c9b8ad7e5887074ee5411982a0668e062"
 physical_interface = true
 
 [[module."pump.rs".function]]
 id = "fn:a353935a9d831528"
 name = "is_turning"
 qual = "PumpVisual::is_turning"
-lines = [
-    161,
-    164,
-]
 hash = "sha256:40e426d5482f73baa9f1cc17e0ec472706b969c4e3ed5a7c31deebb9c1b62f78"
 doc_hash = "sha256:46236112c5a320e2f6c0d5a04b789e2ddb4a151751d88d741131e5eb1ae0b1d3"
-callees = ["fn:da8bded01ce1b62c"]
-uses = ["fn:ec16e2d73e087ec7"]
 
 [[module."pump.rs".function]]
-id = "fn:830c9c3700b176a2"
-name = "fluid_colour"
-qual = "PumpVisual::fluid_colour"
-lines = [
-    166,
-    169,
-]
-hash = "sha256:147d061ab8307d468b64f34b2fb5428b996ec5ec19caba8d7dbb9f31d78da526"
-doc_hash = "sha256:6d89625616a752ed60cd4997096b05a90140466a948871da565073d7f8128422"
-callees = ["fn:da8bded01ce1b62c"]
-uses = ["fn:ec16e2d73e087ec7"]
+id = "fn:1b643149887eae91"
+name = "new"
+qual = "PumpVisual::new"
+hash = "sha256:1102940b184a080fe253c283f144030d54ad240371f465b3e77260bf9ef53cb8"
+doc_hash = "sha256:c3f65059513f6bc43921b25fc4cb9bef54a509f420595a43b75bbcf3dce30952"
 
 [[module."pump.rs".function]]
-id = "fn:f752f1d940324c04"
-name = "centrifugal_ports"
-qual = "PumpVisual::centrifugal_ports"
-lines = [
-    171,
-    175,
-]
-hash = "sha256:20c830270bad83f571a06e25b76a9cb9cc48812db2d1486d7641121fe04f6ade"
-doc_hash = "sha256:346bb02711ac87d26bb905dc7f1c0feab8530ced105765457435581b42da901a"
-uses = ["fn:ec16e2d73e087ec7"]
+id = "fn:c46fae7391097a4a"
+name = "rotor_angle"
+qual = "PumpVisual::rotor_angle"
+hash = "sha256:d7fe81e79707531bde028f6f9805ef1835092ba6d2dcd8af46efa0035558999c"
+doc_hash = "sha256:0d385621ac5b0436567d936e383fdece5e43e550fb70a5a7646ccaa25eded930"
+physical_interface = true
 
 [[module."pump.rs".function]]
 id = "fn:bcf37b9932ce5533"
 name = "ui"
 qual = "PumpVisual::ui"
-lines = [
-    179,
-    182,
-]
 hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
 doc_hash = "sha256:b133da50f4a50736129965b6e2c03a940b3f0a4b183f144b54bd9ce01637401a"
-callees = ["fn:da8bded01ce1b62c"]
-uses = ["fn:ec16e2d73e087ec7"]
 
 [[module."pump.rs".function]]
-id = "fn:b081d943145cbe78"
-name = "wrapping_a_tampines_pump_invents_no_state"
-qual = "wrapping_a_tampines_pump_invents_no_state"
-lines = [
-    195,
-    215,
-]
-hash = "sha256:f3685d3e03b1395de4481c2ff96b3dc7726e041f3cacd5d24d16132e5ad22fff"
-doc_hash = "sha256:44ac3ba9ca010bd9bafa158dae12a332475943b6e28b38f4ddc66c9880dacdb0"
-callees = ["fn:1b643149887eae91"]
-uses = ["fn:ec16e2d73e087ec7"]
-test = true
+id = "fn:7af6973fcd9c931a"
+name = "with_fluid_temperature"
+qual = "PumpVisual::with_fluid_temperature"
+hash = "sha256:4d8ee1a7c431c7c432903253a82a2cb2f685eb2e982202ac4ec9bcb0955a5a83"
+doc_hash = "sha256:038935e6e9f29ae47c1ddc83d6d45ef87a2a75e0da58090cf0d68d3831e5fda7"
+physical_interface = true
+
+[[module."pump.rs".function]]
+id = "fn:95c54fbd2c576f25"
+name = "with_kind"
+qual = "PumpVisual::with_kind"
+hash = "sha256:264ff2608a4711189bf51f46902efe120fe42d3f533c4c3129824ca2369d2c5b"
+doc_hash = "sha256:db791b31feced51fda4c0c6a0fa5cd78f385ad34b7f51bf713f97e21d244c810"
+
+[[module."pump.rs".function]]
+id = "fn:380229decaf8e29f"
+name = "with_shaft_speed"
+qual = "PumpVisual::with_shaft_speed"
+hash = "sha256:ac699cdf123555371a7a1d0a505ec921523e2147e1127e4031d1d62084f1a226"
+doc_hash = "sha256:4d7d9d443105eff29d8f1e7888245a3cbfe96edfa1f8dca9ecb482e70915c6a0"
+physical_interface = true
+
+[[module."pump.rs".function]]
+id = "fn:f15688789cef0caf"
+name = "with_temperature_range"
+qual = "PumpVisual::with_temperature_range"
+hash = "sha256:639457f62e55f5a826549c15261a8cbefc8f53a206d1007eddd2cf363e1f8a77"
+doc_hash = "sha256:c66c08132139202a2fff9dbad555a210891536d26dfe4e4d8771368232de2373"
+physical_interface = true
 
 [[module."pump.rs".function]]
 id = "fn:6c4647a78f252bfb"
 name = "the_scalar_path_and_builders_reach_the_art"
 qual = "the_scalar_path_and_builders_reach_the_art"
-lines = [
-    217,
-    247,
-]
 hash = "sha256:4241299f6d1bb4412a5806c85d07b72234d46f72c69f3b5c63b6a2aaf90a04e0"
 doc_hash = "sha256:a078f1a51ebe35904fc88af65315bbd9598ded59764c25f7ae8cbf2850257fa8"
-callees = [
-    "fn:2d4b760cc2115c52",
-    "fn:380229decaf8e29f",
-    "fn:61ae869c7d2c0b04",
-    "fn:7af6973fcd9c931a",
-    "fn:95c54fbd2c576f25",
-    "fn:f15688789cef0caf",
-]
-uses = ["fn:ec16e2d73e087ec7"]
+test = true
+
+[[module."pump.rs".function]]
+id = "fn:b081d943145cbe78"
+name = "wrapping_a_tampines_pump_invents_no_state"
+qual = "wrapping_a_tampines_pump_invents_no_state"
+hash = "sha256:f3685d3e03b1395de4481c2ff96b3dc7726e041f3cacd5d24d16132e5ad22fff"
+doc_hash = "sha256:44ac3ba9ca010bd9bafa158dae12a332475943b6e28b38f4ddc66c9880dacdb0"
 test = true
 
 [module."reactor_archetype.rs"]
 path = "crate::components::reactor_archetype"
+
+[[module."reactor_archetype.rs".function]]
+id = "fn:22b4b9de486936a5"
+name = "illustrative_kinetics"
+qual = "ReactorArchetype::illustrative_kinetics"
+hash = "sha256:5b1f038eb2e5077b8513b252e67279cdb7b897ff2d52c62cf8c11e4369cbbf41"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."reactor_archetype.rs".function]]
 id = "fn:72960c049f8b6dbc"
@@ -3073,10 +1601,6 @@ name = "ReactorArchetypeKinetics"
 qual = "ReactorArchetypeKinetics"
 item = "type"
 shape = "trait"
-lines = [
-    22,
-    66,
-]
 hash = "sha256:f51b944219c5dd704dea453bf04fe9fa987d7b1cab5c4864567bba85441ba9d2"
 doc_hash = "sha256:478446b6b580c880488ceb8964b800d86df4f95827aaf867f178f36a4628e374"
 
@@ -3084,91 +1608,47 @@ doc_hash = "sha256:478446b6b580c880488ceb8964b800d86df4f95827aaf867f178f36a4628e
 id = "fn:79ee1079eca9cee2"
 name = "illustrative_kinetics"
 qual = "ReactorArchetypeKinetics::illustrative_kinetics"
-lines = [
-    25,
-    65,
-]
 hash = "sha256:d4679df702f96e7796555de8ef5e77e86e3c9e06da53e565c890f55780f3418a"
 doc_hash = "sha256:de95c46f2593fe0b7ef9326165dc606674f5419c8aa0bd5dac64e91abce72ead"
-uses = ["fn:72960c049f8b6dbc"]
 
 [[module."reactor_archetype.rs".function]]
-id = "fn:22b4b9de486936a5"
-name = "illustrative_kinetics"
-qual = "ReactorArchetype::illustrative_kinetics"
-lines = [
-    69,
-    102,
-]
-hash = "sha256:5b1f038eb2e5077b8513b252e67279cdb7b897ff2d52c62cf8c11e4369cbbf41"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = [
-    "#67",
-    "#68",
-    "#69",
-]
+id = "fn:f1d478bc0bdbb666"
+name = "delayed_fractions_are_near_the_u235_value"
+qual = "delayed_fractions_are_near_the_u235_value"
+hash = "sha256:a5033a9eb7cd8ba0e1902e51295bb95c06118957b2b430289f86ffc172eacbcf"
+doc_hash = "sha256:8d9317845653612669632f6694d6f1c700771657d4e79cffead447ff9478f001"
+test = true
 
 [[module."reactor_archetype.rs".function]]
 id = "fn:9240060e17c28a14"
 name = "every_archetype_builds_a_valid_kinetics_model"
 qual = "every_archetype_builds_a_valid_kinetics_model"
-lines = [
-    109,
-    127,
-]
 hash = "sha256:f1a2b73663eb73ff1097d6d5ed297d57daaa3e31b70e43eb356d835bb11a4f53"
 doc_hash = "sha256:346990eee6d80bbe51cc8366d352ed8f3ac09ae009e60a49d411720c4f0ae18c"
-test = true
-
-[[module."reactor_archetype.rs".function]]
-id = "fn:468a448a290dfdc8"
-name = "the_fast_reactor_has_a_far_shorter_generation_time"
-qual = "the_fast_reactor_has_a_far_shorter_generation_time"
-lines = [
-    129,
-    162,
-]
-hash = "sha256:3edfb3bc237ff55b0162410727627cd0c7340fa573bef6274303306c599553a8"
-doc_hash = "sha256:c096ce82b361fdb27e20dee2a9e45a04b3e193f3cc4f56065691e5b56bcc7095"
-callees = ["fn:22b4b9de486936a5"]
 test = true
 
 [[module."reactor_archetype.rs".function]]
 id = "fn:c82eea926cc54560"
 name = "graphite_moderated_cases_are_slower_than_light_water_cases"
 qual = "graphite_moderated_cases_are_slower_than_light_water_cases"
-lines = [
-    164,
-    189,
-]
 hash = "sha256:fcc2ba627f28ee445d766ae4960b7b941273ef6610d5a21001fcde4e025f4da6"
 doc_hash = "sha256:bfb33626f8affa6ea799d6d990d0e49593a816a9f88506d31445e82055ae0fb1"
-callees = ["fn:22b4b9de486936a5"]
-test = true
-
-[[module."reactor_archetype.rs".function]]
-id = "fn:f1d478bc0bdbb666"
-name = "delayed_fractions_are_near_the_u235_value"
-qual = "delayed_fractions_are_near_the_u235_value"
-lines = [
-    191,
-    206,
-]
-hash = "sha256:a5033a9eb7cd8ba0e1902e51295bb95c06118957b2b430289f86ffc172eacbcf"
-doc_hash = "sha256:8d9317845653612669632f6694d6f1c700771657d4e79cffead447ff9478f001"
 test = true
 
 [[module."reactor_archetype.rs".function]]
 id = "fn:403c4834a8f2d902"
 name = "heat_capacity_scales_with_thermal_power"
 qual = "heat_capacity_scales_with_thermal_power"
-lines = [
-    208,
-    219,
-]
 hash = "sha256:f349136785a5ce65f3fc63045178d9c22086f4cff172b176065cbcfd1bbed4e4"
 doc_hash = "sha256:7ac08b39442610a3ab721c7ea324f1e318fa1ed6320eabb511e27f40ee58919c"
-callees = ["fn:22b4b9de486936a5"]
+test = true
+
+[[module."reactor_archetype.rs".function]]
+id = "fn:468a448a290dfdc8"
+name = "the_fast_reactor_has_a_far_shorter_generation_time"
+qual = "the_fast_reactor_has_a_far_shorter_generation_time"
+hash = "sha256:3edfb3bc237ff55b0162410727627cd0c7340fa573bef6274303306c599553a8"
+doc_hash = "sha256:c096ce82b361fdb27e20dee2a9e45a04b3e193f3cc4f56065691e5b56bcc7095"
 test = true
 
 [module."reactor_vessel.rs"]
@@ -3180,65 +1660,37 @@ name = "ReactorVesselVisual"
 qual = "ReactorVesselVisual"
 item = "type"
 shape = "struct"
-lines = [
-    18,
-    38,
-]
 hash = "sha256:eed0c2da35172466e129b7405a27c6326f22db6aaecfcd90cdef1ee6511e7fdf"
 doc_hash = "sha256:8f2fc5a88b2bfd023157236dbe4edf4de6c1f05a72adfe9ff8a3980c0ec5b0b3"
-reached_by = ["#70"]
-
-[[module."reactor_vessel.rs".function]]
-id = "fn:6e05b6e746d3d024"
-name = "new"
-qual = "ReactorVesselVisual::new"
-lines = [
-    41,
-    61,
-]
-hash = "sha256:edff87afb6a6c70e6241d3076824ff27408973282923eb6129b150e0f1d9d240"
-doc_hash = "sha256:ab5f9285a087f2738f01b06a6008532b16bb45bb6885bf3ed2fc7bc89d6a623b"
-uses = ["fn:ac5096d50e5c1dc2"]
-reached_by = ["#70"]
-physical_interface = true
 
 [[module."reactor_vessel.rs".function]]
 id = "fn:d9856aea731ca2c3"
 name = "art"
 qual = "ReactorVesselVisual::art"
-lines = [
-    63,
-    72,
-]
 hash = "sha256:86c8d50fe76263aa6d1c9270fb58e88cb707df33663a08743c2931e2ec50921b"
 doc_hash = "sha256:93ba0ebebde2714e25244c61c90faa0a1c4f7b8de334e4d1d742eee8cf65d7b7"
-uses = ["fn:ac5096d50e5c1dc2"]
+
+[[module."reactor_vessel.rs".function]]
+id = "fn:6e05b6e746d3d024"
+name = "new"
+qual = "ReactorVesselVisual::new"
+hash = "sha256:edff87afb6a6c70e6241d3076824ff27408973282923eb6129b150e0f1d9d240"
+doc_hash = "sha256:ab5f9285a087f2738f01b06a6008532b16bb45bb6885bf3ed2fc7bc89d6a623b"
+physical_interface = true
 
 [[module."reactor_vessel.rs".function]]
 id = "fn:e94ac59f4a855f97"
 name = "ui"
 qual = "ReactorVesselVisual::ui"
-lines = [
-    76,
-    81,
-]
 hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
 doc_hash = "sha256:5794fe6b388ca339522b80f04015411b20650edd555526a5d66e02522dc88719"
-callees = ["fn:d9856aea731ca2c3"]
-uses = ["fn:ac5096d50e5c1dc2"]
 
 [[module."reactor_vessel.rs".function]]
 id = "fn:62957dce07a67895"
 name = "fuel_temperature_drives_the_fill_hotness"
 qual = "fuel_temperature_drives_the_fill_hotness"
-lines = [
-    90,
-    115,
-]
 hash = "sha256:f95b04e7e7cf1db6e573aa7e1db856c63b076886b10a763601665d241590c9d6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:6e05b6e746d3d024"]
-uses = ["fn:ac5096d50e5c1dc2"]
 test = true
 
 [module."steam_generator.rs"]
@@ -3250,49 +1702,8 @@ name = "SteamGeneratorPhysicsState"
 qual = "SteamGeneratorPhysicsState"
 item = "type"
 shape = "struct"
-lines = [
-    16,
-    44,
-]
 hash = "sha256:85267305ba2671d48f6167855a989046802af970f61e0bbdd4f0a66afb520240"
 doc_hash = "sha256:64ccfa1dd3a6fa66a74a5669d6108fd8d78b659a68c63ff55325c3e91ee20844"
-reached_by = [
-    "#71",
-    "#72",
-    "#73",
-]
-
-[[module."steam_generator.rs".function]]
-id = "fn:e931fd83e3c0011f"
-name = "SteamGeneratorVisualState"
-qual = "SteamGeneratorVisualState"
-item = "type"
-shape = "enum"
-lines = [
-    46,
-    58,
-]
-hash = "sha256:42bc447f504f6064480c8938db6d83295576aea711f86bbea219075b96189167"
-doc_hash = "sha256:212e60f5657610c0c67e820c7f3c348ab47edcf621d6ea96e29ca405872f060e"
-uses = ["fn:8f151b01cef02ce1"]
-reached_by = [
-    "#71",
-    "#72",
-    "#73",
-]
-
-[[module."steam_generator.rs".function]]
-id = "fn:1d17d9146d6bbb83"
-name = "resolve"
-qual = "SteamGeneratorVisualState::resolve"
-lines = [
-    61,
-    78,
-]
-hash = "sha256:1765620201b5381024dfc17151c0f9fd07cf0ceea7c3210db8316067e76b9e0a"
-doc_hash = "sha256:0a84ee95fe3bb45a54a297a785d490df24339cd423569506b80cc482ed242bb2"
-uses = ["fn:e931fd83e3c0011f"]
-reached_by = ["#71"]
 
 [[module."steam_generator.rs".function]]
 id = "fn:d62dcab26294263c"
@@ -3300,287 +1711,148 @@ name = "SteamGeneratorVisual"
 qual = "SteamGeneratorVisual"
 item = "type"
 shape = "struct"
-lines = [
-    81,
-    92,
-]
 hash = "sha256:add63369ea7cf7b03afe5d4e4689e553cb3abe84904968361632db83ee33150f"
 doc_hash = "sha256:d1ab8b28b14523dc1b977aaf495814f3a5c5d533ac74fe534ea93059e93958bb"
-uses = ["fn:e931fd83e3c0011f"]
-reached_by = [
-    "#71",
-    "#72",
-    "#73",
-]
 
 [[module."steam_generator.rs".function]]
-id = "fn:ba27f2331523e90e"
-name = "new"
-qual = "SteamGeneratorVisual::new"
-lines = [
-    95,
-    137,
-]
-hash = "sha256:90083b6910192fbe812e6afb5d81abb7421f3616b070deb7d9a3d04bdd67798f"
-doc_hash = "sha256:f1761c46cf4e5ba7f3330876003a9db35784b7f4189b48930e03b9871e45355d"
-uses = [
-    "fn:8f151b01cef02ce1",
-    "fn:d62dcab26294263c",
-    "fn:e931fd83e3c0011f",
-]
-reached_by = [
-    "#71",
-    "#72",
-]
-physical_interface = true
+id = "fn:60487d07ea3fe957"
+name = "art"
+qual = "SteamGeneratorVisual::art"
+hash = "sha256:1c79d204fc9b571f3db7f5c0e27740559faf2ccd8e7240b5813bc409a36f9229"
+doc_hash = "sha256:8b583442a270a082b59d12cf7c0bd29ec903e983ad7450998f5ad1efe85e3a69"
 
 [[module."steam_generator.rs".function]]
 id = "fn:44c793fbe4898089"
 name = "from_scalars"
 qual = "SteamGeneratorVisual::from_scalars"
-lines = [
-    139,
-    158,
-]
 hash = "sha256:c6fdb9930f8f0e2fd5807272aec955a353b94c5526d3cc59fc055887ca503ea8"
 doc_hash = "sha256:84d3940cb4b774233bcac5141d8b90fce5dc0ff7a55b477ec96fe740cf1d820b"
-uses = [
-    "fn:d62dcab26294263c",
-    "fn:e931fd83e3c0011f",
-]
-reached_by = ["#73"]
+physical_interface = true
+
+[[module."steam_generator.rs".function]]
+id = "fn:f559fdd192df68b0"
+name = "kind"
+qual = "SteamGeneratorVisual::kind"
+hash = "sha256:87c70f1b58d65b40efc0cb95ec6ca4c8a4a4aee07b2d48dd6ddb50f1ef74b8d3"
+doc_hash = "sha256:712f12be1c36a2dd1af0d6b690e72386c9eac25f835ef569dad1d8e879a78acc"
+
+[[module."steam_generator.rs".function]]
+id = "fn:ba27f2331523e90e"
+name = "new"
+qual = "SteamGeneratorVisual::new"
+hash = "sha256:90083b6910192fbe812e6afb5d81abb7421f3616b070deb7d9a3d04bdd67798f"
+doc_hash = "sha256:f1761c46cf4e5ba7f3330876003a9db35784b7f4189b48930e03b9871e45355d"
+physical_interface = true
+
+[[module."steam_generator.rs".function]]
+id = "fn:5a16bc37c4a66ad6"
+name = "scalars"
+qual = "SteamGeneratorVisual::scalars"
+hash = "sha256:c54ea1c603010ec73bd252f6be0c61eccc97bd4eb8d406583a5d91ad0db42ba9"
+doc_hash = "sha256:0a01af8d610ebb442bf861adea5647ca92e11e078e9f51edb1c30cfe6481c310"
+
+[[module."steam_generator.rs".function]]
+id = "fn:29d1bb26b6588d87"
+name = "size"
+qual = "SteamGeneratorVisual::size"
+hash = "sha256:0f4b0b800662b68b971c6b541786359997c35a54b12e4bb974f0b99fcd82cbbf"
+doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
+
+[[module."steam_generator.rs".function]]
+id = "fn:bd1b369ebfa120fc"
+name = "ui"
+qual = "SteamGeneratorVisual::ui"
+hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
+doc_hash = "sha256:c3a6111a4d215263924cd431d97ea63ac64d5c70c5559f60a90b0ea5dfa653a9"
+
+[[module."steam_generator.rs".function]]
+id = "fn:07ad7302817e8a81"
+name = "with_feedwater_temperature"
+qual = "SteamGeneratorVisual::with_feedwater_temperature"
+hash = "sha256:4312baf2178601329988667640283eefcc0c021291602ec65d1c51ce349fddc1"
+doc_hash = "sha256:f2fb127c7db7ee99cb7064c6504eb5c282ca6662aa65a889e34e89839d514d11"
 physical_interface = true
 
 [[module."steam_generator.rs".function]]
 id = "fn:1cfcacce634148c0"
 name = "with_kind"
 qual = "SteamGeneratorVisual::with_kind"
-lines = [
-    160,
-    164,
-]
 hash = "sha256:06b41745ffcd9df72140b56d18c4ebeff4af8ca44939e4540465e0bbcfbeed1b"
 doc_hash = "sha256:3f1ac4c799b28c57841250bb6d53f5b52385db5d8d2c57e26f3923126a10aa73"
-uses = ["fn:d62dcab26294263c"]
-reached_by = ["#71"]
 
 [[module."steam_generator.rs".function]]
 id = "fn:c1834812e6440045"
 name = "with_primary_temperatures"
 qual = "SteamGeneratorVisual::with_primary_temperatures"
-lines = [
-    166,
-    185,
-]
 hash = "sha256:ff96d14d9419ecca9260bccde3b86a4966964d9eaf0e727ea43edc4a6fa835d7"
 doc_hash = "sha256:b4bb6ed14dd97e6b3989dcfa9462d162b80ca5bad047ee4fd215aca5a22bce72"
-uses = [
-    "fn:d62dcab26294263c",
-    "fn:e931fd83e3c0011f",
-]
-reached_by = ["#71"]
-physical_interface = true
-
-[[module."steam_generator.rs".function]]
-id = "fn:07ad7302817e8a81"
-name = "with_feedwater_temperature"
-qual = "SteamGeneratorVisual::with_feedwater_temperature"
-lines = [
-    187,
-    194,
-]
-hash = "sha256:4312baf2178601329988667640283eefcc0c021291602ec65d1c51ce349fddc1"
-doc_hash = "sha256:f2fb127c7db7ee99cb7064c6504eb5c282ca6662aa65a889e34e89839d514d11"
-uses = [
-    "fn:d62dcab26294263c",
-    "fn:e931fd83e3c0011f",
-]
-reached_by = ["#71"]
 physical_interface = true
 
 [[module."steam_generator.rs".function]]
 id = "fn:d5169b0a7691be83"
 name = "with_water_level"
 qual = "SteamGeneratorVisual::with_water_level"
-lines = [
-    196,
-    203,
-]
 hash = "sha256:8e4239d40116847a60e7c4d5d7e8b5a5f246d189a9854dae0314a0687317c04e"
 doc_hash = "sha256:0271583f9b93f79058b782eb11a28c9c0441b3837057f361b1f747696a42a158"
-uses = [
-    "fn:d62dcab26294263c",
-    "fn:e931fd83e3c0011f",
-]
-reached_by = ["#73"]
 
 [[module."steam_generator.rs".function]]
 id = "fn:ca98bf4f64175c53"
 name = "without_labels"
 qual = "SteamGeneratorVisual::without_labels"
-lines = [
-    205,
-    209,
-]
 hash = "sha256:e90cfe0ceebdae8dd8bb2fd42a031819e4419a06f89fa0ba47463613103ad320"
 doc_hash = "sha256:54fda030d10fb8b6d4793909cf8e2eec8cc8b2d230482c7fb41fe3655a26dba1"
-uses = ["fn:d62dcab26294263c"]
-reached_by = ["#73"]
 
 [[module."steam_generator.rs".function]]
-id = "fn:f559fdd192df68b0"
-name = "kind"
-qual = "SteamGeneratorVisual::kind"
-lines = [
-    211,
-    214,
-]
-hash = "sha256:87c70f1b58d65b40efc0cb95ec6ca4c8a4a4aee07b2d48dd6ddb50f1ef74b8d3"
-doc_hash = "sha256:712f12be1c36a2dd1af0d6b690e72386c9eac25f835ef569dad1d8e879a78acc"
-uses = ["fn:d62dcab26294263c"]
+id = "fn:e931fd83e3c0011f"
+name = "SteamGeneratorVisualState"
+qual = "SteamGeneratorVisualState"
+item = "type"
+shape = "enum"
+hash = "sha256:42bc447f504f6064480c8938db6d83295576aea711f86bbea219075b96189167"
+doc_hash = "sha256:212e60f5657610c0c67e820c7f3c348ab47edcf621d6ea96e29ca405872f060e"
 
 [[module."steam_generator.rs".function]]
-id = "fn:29d1bb26b6588d87"
-name = "size"
-qual = "SteamGeneratorVisual::size"
-lines = [
-    216,
-    219,
-]
-hash = "sha256:0f4b0b800662b68b971c6b541786359997c35a54b12e4bb974f0b99fcd82cbbf"
-doc_hash = "sha256:a17aeb8c79a5349c26726ee9eab33e025f2978af3d918524a10df76c893c2372"
-uses = ["fn:d62dcab26294263c"]
-
-[[module."steam_generator.rs".function]]
-id = "fn:5a16bc37c4a66ad6"
-name = "scalars"
-qual = "SteamGeneratorVisual::scalars"
-lines = [
-    221,
-    224,
-]
-hash = "sha256:c54ea1c603010ec73bd252f6be0c61eccc97bd4eb8d406583a5d91ad0db42ba9"
-doc_hash = "sha256:0a01af8d610ebb442bf861adea5647ca92e11e078e9f51edb1c30cfe6481c310"
-callees = ["fn:1d17d9146d6bbb83"]
-uses = ["fn:d62dcab26294263c"]
-reached_by = ["#71"]
-
-[[module."steam_generator.rs".function]]
-id = "fn:60487d07ea3fe957"
-name = "art"
-qual = "SteamGeneratorVisual::art"
-lines = [
-    226,
-    241,
-]
-hash = "sha256:1c79d204fc9b571f3db7f5c0e27740559faf2ccd8e7240b5813bc409a36f9229"
-doc_hash = "sha256:8b583442a270a082b59d12cf7c0bd29ec903e983ad7450998f5ad1efe85e3a69"
-callees = ["fn:5a16bc37c4a66ad6"]
-uses = ["fn:d62dcab26294263c"]
-
-[[module."steam_generator.rs".function]]
-id = "fn:bd1b369ebfa120fc"
-name = "ui"
-qual = "SteamGeneratorVisual::ui"
-lines = [
-    245,
-    248,
-]
-hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
-doc_hash = "sha256:c3a6111a4d215263924cd431d97ea63ac64d5c70c5559f60a90b0ea5dfa653a9"
-callees = ["fn:60487d07ea3fe957"]
-uses = ["fn:d62dcab26294263c"]
+id = "fn:1d17d9146d6bbb83"
+name = "resolve"
+qual = "SteamGeneratorVisualState::resolve"
+hash = "sha256:1765620201b5381024dfc17151c0f9fd07cf0ceea7c3210db8316067e76b9e0a"
+doc_hash = "sha256:0a84ee95fe3bb45a54a297a785d490df24339cd423569506b80cc482ed242bb2"
 
 [[module."steam_generator.rs".function]]
 id = "fn:c61a76b021d8c0a6"
 name = "degc"
 qual = "degc"
-lines = [
-    265,
-    267,
-]
 hash = "sha256:ee84ef7b3d67ba379a568a10958b33d486cdba67b79072cecd34e177894809fa"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 physical_interface = true
 
 [[module."steam_generator.rs".function]]
-id = "fn:df41112f1d2191a0"
-name = "the_physics_path_reads_the_live_secondary_temperature"
-qual = "the_physics_path_reads_the_live_secondary_temperature"
-lines = [
-    269,
-    339,
-]
-hash = "sha256:0a13748c0d536767c8b4b8b90dd725b7296fff4b028215a804a5ba9539826055"
-doc_hash = "sha256:67fc1bf1b48c686dafa3c83ce8805e1e765eb2df849d10e7f66887e433789f1f"
-callees = [
-    "fn:ba27f2331523e90e",
-    "fn:c61a76b021d8c0a6",
-]
-uses = ["fn:d62dcab26294263c"]
-test = true
-
-[[module."steam_generator.rs".function]]
 id = "fn:c79be6b0b163216e"
 name = "the_physics_constructor_starts_isothermal_until_told_otherwise"
 qual = "the_physics_constructor_starts_isothermal_until_told_otherwise"
-lines = [
-    341,
-    385,
-]
 hash = "sha256:5ae04cbf3a3d7313fd23439e03d671861f0a3ad87fd659eca6e04edfa77aaeaa"
 doc_hash = "sha256:bb901e6642ff7ceeba2716fc1c18143b12fbd8ff0e1244bb241b7ff78ffea95a"
-callees = [
-    "fn:07ad7302817e8a81",
-    "fn:1cfcacce634148c0",
-    "fn:5a16bc37c4a66ad6",
-    "fn:ba27f2331523e90e",
-    "fn:c1834812e6440045",
-    "fn:c61a76b021d8c0a6",
-]
-uses = ["fn:d62dcab26294263c"]
+test = true
+
+[[module."steam_generator.rs".function]]
+id = "fn:df41112f1d2191a0"
+name = "the_physics_path_reads_the_live_secondary_temperature"
+qual = "the_physics_path_reads_the_live_secondary_temperature"
+hash = "sha256:0a13748c0d536767c8b4b8b90dd725b7296fff4b028215a804a5ba9539826055"
+doc_hash = "sha256:67fc1bf1b48c686dafa3c83ce8805e1e765eb2df849d10e7f66887e433789f1f"
 test = true
 
 [[module."steam_generator.rs".function]]
 id = "fn:123a4fa3e1106045"
 name = "the_scalar_path_reaches_the_art_and_draws"
 qual = "the_scalar_path_reaches_the_art_and_draws"
-lines = [
-    387,
-    411,
-]
 hash = "sha256:7f6da171ef4a9ef886c78a81ce5f5ef1b51290b2e1c7b7dd5d32b68d359ed7db"
 doc_hash = "sha256:2728be48f1c01424ca21038577cb9cb08c0a224e209a417c05177d2da2332d71"
-callees = [
-    "fn:44c793fbe4898089",
-    "fn:c61a76b021d8c0a6",
-    "fn:ca98bf4f64175c53",
-    "fn:d5169b0a7691be83",
-]
-uses = ["fn:d62dcab26294263c"]
 test = true
 
 [module."turbine.rs"]
 path = "crate::components::turbine"
-
-[[module."turbine.rs".function]]
-id = "fn:1b9d9f947d159402"
-name = "TurbineVisualState"
-qual = "TurbineVisualState"
-item = "type"
-shape = "enum"
-lines = [
-    28,
-    52,
-]
-hash = "sha256:0a5fd676964eb38a7e62ec46d5d0e617aea37498bc0f11698a59bf66e1c2ad28"
-doc_hash = "sha256:cc1d39890e61f7fcd25931cbe1df320ac38e0ad0549ffcf85482884f2e2159f3"
-reached_by = [
-    "#74",
-    "#76",
-    "#77",
-]
 
 [[module."turbine.rs".function]]
 id = "fn:fcebb72ba81f6382"
@@ -3588,313 +1860,163 @@ name = "TurbineVisual"
 qual = "TurbineVisual"
 item = "type"
 shape = "struct"
-lines = [
-    54,
-    72,
-]
 hash = "sha256:f13f84d40370afb3b037d099a68d7160c85b28de4b1a82b09d03330d8f7357b4"
 doc_hash = "sha256:e738a3c207b667d8d6d64dc80d109fc2cc7229804e461c7dfbf0ec8a412954f9"
-uses = ["fn:1b9d9f947d159402"]
-reached_by = [
-    "#74",
-    "#76",
-    "#77",
-]
 
 [[module."turbine.rs".function]]
-id = "fn:0b3b3ecdfebb3749"
-name = "new_generator"
-qual = "TurbineVisual::new_generator"
-lines = [
-    75,
-    98,
-]
-hash = "sha256:df5884d831d8ee9a8c518b89b6c01f28a430abed1a1b43ceb5de72fecc993f81"
-doc_hash = "sha256:c8219838afe3bcd3d4f5d5d8294d06496a669c2e62787d84e645f3fe8ad6724e"
-uses = [
-    "fn:1b9d9f947d159402",
-    "fn:fcebb72ba81f6382",
-]
-reached_by = [
-    "#74",
-    "#76",
-]
-physical_interface = true
-
-[[module."turbine.rs".function]]
-id = "fn:5fcb0cef17ae0b87"
-name = "new_thermo"
-qual = "TurbineVisual::new_thermo"
-lines = [
-    100,
-    121,
-]
-hash = "sha256:0e99f8971ff4789a395b483c8eb92fd44b51551926b029b0dd92bcdac94a3707"
-doc_hash = "sha256:1e59194b4403ceff2d868675f4b036f2d0bceeed69aaf99ee4ca472aaad07b62"
-uses = [
-    "fn:1b9d9f947d159402",
-    "fn:fcebb72ba81f6382",
-]
-physical_interface = true
-
-[[module."turbine.rs".function]]
-id = "fn:457e5a1062fb668f"
-name = "from_scalars"
-qual = "TurbineVisual::from_scalars"
-lines = [
-    123,
-    145,
-]
-hash = "sha256:57f32647d3889739c163c4ec21a09b2f3538ced882e12fe7ecbe108a570502d3"
-doc_hash = "sha256:a69483220356312a55e86eef550ecf8ea9ef0930d8dff666870f6dfcbf90891b"
-uses = [
-    "fn:1b9d9f947d159402",
-    "fn:fcebb72ba81f6382",
-]
-reached_by = ["#77"]
-physical_interface = true
+id = "fn:f776b950bd5124df"
+name = "art"
+qual = "TurbineVisual::art"
+hash = "sha256:f10164bc4b19accb441f0d13b1102da9d9210a83466be457685a684e9121e8e6"
+doc_hash = "sha256:dbe474ac3f70807ee132a5a3ebdb3e9c75412581fc7ebdfd3ea6c1554331cf47"
 
 [[module."turbine.rs".function]]
 id = "fn:611c656ac7565066"
 name = "at_time"
 qual = "TurbineVisual::at_time"
-lines = [
-    147,
-    151,
-]
 hash = "sha256:2229e74bfd11d317b03350736d17e5d65365d100b493bff41c82bc7bfd5aeb28"
 doc_hash = "sha256:ff66c6ca04dbc033a0a277aa47bbc81fcdafbcf2e90ffb625c5c4f77d4c80186"
-uses = ["fn:fcebb72ba81f6382"]
-reached_by = [
-    "#74",
-    "#76",
-    "#77",
-]
-physical_interface = true
-
-[[module."turbine.rs".function]]
-id = "fn:9f2b3096b492af8a"
-name = "with_flow_path"
-qual = "TurbineVisual::with_flow_path"
-lines = [
-    153,
-    157,
-]
-hash = "sha256:13b3dcedf7aebb958c94700c91d3c2866d6b721a6143135d7ae8fa84723dcde4"
-doc_hash = "sha256:daa9cf2d86b763c56749d3f5f7d371f0caff151ea70944dbe181b8ba97ff8cc9"
-uses = ["fn:fcebb72ba81f6382"]
-reached_by = ["#77"]
-
-[[module."turbine.rs".function]]
-id = "fn:1b286e0145158ae1"
-name = "shaft_speed"
-qual = "TurbineVisual::shaft_speed"
-lines = [
-    159,
-    168,
-]
-hash = "sha256:b787e90afb027d484ac56136b1c4ca97f28ce8bef591b1a6820b60729e04e0e1"
-doc_hash = "sha256:91b198dc1fb811d8f841b544ba45130befc0c134520159745d48f7ada7cf38c6"
-uses = [
-    "fn:1b9d9f947d159402",
-    "fn:fcebb72ba81f6382",
-]
-reached_by = ["#77"]
 physical_interface = true
 
 [[module."turbine.rs".function]]
 id = "fn:d1425cb81820ef26"
 name = "casing_temperature"
 qual = "TurbineVisual::casing_temperature"
-lines = [
-    170,
-    181,
-]
 hash = "sha256:132783c860c8138a7bbfcb54807722753f1a73def7de2cd2ffcd7ee3edb714f7"
 doc_hash = "sha256:fd5c23a6861a6623af1379d29e423c8f5982a026d31a5f8119c7c8cf0857f20d"
-uses = [
-    "fn:1b9d9f947d159402",
-    "fn:fcebb72ba81f6382",
-]
-reached_by = ["#77"]
 physical_interface = true
 
 [[module."turbine.rs".function]]
-id = "fn:f776b950bd5124df"
-name = "art"
-qual = "TurbineVisual::art"
-lines = [
-    183,
-    195,
-]
-hash = "sha256:f10164bc4b19accb441f0d13b1102da9d9210a83466be457685a684e9121e8e6"
-doc_hash = "sha256:dbe474ac3f70807ee132a5a3ebdb3e9c75412581fc7ebdfd3ea6c1554331cf47"
-callees = [
-    "fn:1b286e0145158ae1",
-    "fn:d1425cb81820ef26",
-]
-uses = ["fn:fcebb72ba81f6382"]
-reached_by = ["#77"]
-
-[[module."turbine.rs".function]]
-id = "fn:e1a115be3a425b8a"
-name = "rotor_angle"
-qual = "TurbineVisual::rotor_angle"
-lines = [
-    197,
-    200,
-]
-hash = "sha256:d7fe81e79707531bde028f6f9805ef1835092ba6d2dcd8af46efa0035558999c"
-doc_hash = "sha256:db0890efcbae8927f33036f807d691380856e3454fc14f0e774de3394c7bd8f9"
-callees = ["fn:f776b950bd5124df"]
-uses = ["fn:fcebb72ba81f6382"]
+id = "fn:457e5a1062fb668f"
+name = "from_scalars"
+qual = "TurbineVisual::from_scalars"
+hash = "sha256:57f32647d3889739c163c4ec21a09b2f3538ced882e12fe7ecbe108a570502d3"
+doc_hash = "sha256:a69483220356312a55e86eef550ecf8ea9ef0930d8dff666870f6dfcbf90891b"
 physical_interface = true
 
 [[module."turbine.rs".function]]
-id = "fn:1024670138ae1fe5"
-name = "stage_quality"
-qual = "TurbineVisual::stage_quality"
-lines = [
-    202,
-    205,
-]
-hash = "sha256:0be7dc98bbb386efeda9772fc6f58801fb6ca96177f99e0070be43a74f9696b2"
-doc_hash = "sha256:e21e468b6f5b31820571b1b6019875bbca213bddadf5b8af04e92718a7307c45"
-callees = ["fn:f776b950bd5124df"]
-uses = ["fn:fcebb72ba81f6382"]
+id = "fn:0b3b3ecdfebb3749"
+name = "new_generator"
+qual = "TurbineVisual::new_generator"
+hash = "sha256:df5884d831d8ee9a8c518b89b6c01f28a430abed1a1b43ceb5de72fecc993f81"
+doc_hash = "sha256:c8219838afe3bcd3d4f5d5d8294d06496a669c2e62787d84e645f3fe8ad6724e"
+physical_interface = true
 
 [[module."turbine.rs".function]]
-id = "fn:9587422c6b30850d"
-name = "stage_angles"
-qual = "TurbineVisual::stage_angles"
-lines = [
-    207,
-    210,
-]
-hash = "sha256:bb533bc3e795f5771f8b0ff3c7149f4534ce5c9827dc993a8304ef05201075a3"
-doc_hash = "sha256:fc08be33b286b9377742f163e94f4df35572c2e211997e67a0d1d7700d4636a0"
-callees = ["fn:f776b950bd5124df"]
-uses = ["fn:fcebb72ba81f6382"]
+id = "fn:5fcb0cef17ae0b87"
+name = "new_thermo"
+qual = "TurbineVisual::new_thermo"
+hash = "sha256:0e99f8971ff4789a395b483c8eb92fd44b51551926b029b0dd92bcdac94a3707"
+doc_hash = "sha256:1e59194b4403ceff2d868675f4b036f2d0bceeed69aaf99ee4ca472aaad07b62"
+physical_interface = true
 
 [[module."turbine.rs".function]]
 id = "fn:f4dff2dd566ecd34"
 name = "ports"
 qual = "TurbineVisual::ports"
-lines = [
-    212,
-    219,
-]
 hash = "sha256:66c4806af0f03e0bae2a77bc750af31c8b66803f71cb15dbc405c87e0eba54a3"
 doc_hash = "sha256:d8adf044dcd901e361cb4c54c7ad039e2f3c2f1d696a4844200f438f8ca26f1c"
-uses = ["fn:fcebb72ba81f6382"]
+
+[[module."turbine.rs".function]]
+id = "fn:e1a115be3a425b8a"
+name = "rotor_angle"
+qual = "TurbineVisual::rotor_angle"
+hash = "sha256:d7fe81e79707531bde028f6f9805ef1835092ba6d2dcd8af46efa0035558999c"
+doc_hash = "sha256:db0890efcbae8927f33036f807d691380856e3454fc14f0e774de3394c7bd8f9"
+physical_interface = true
+
+[[module."turbine.rs".function]]
+id = "fn:1b286e0145158ae1"
+name = "shaft_speed"
+qual = "TurbineVisual::shaft_speed"
+hash = "sha256:b787e90afb027d484ac56136b1c4ca97f28ce8bef591b1a6820b60729e04e0e1"
+doc_hash = "sha256:91b198dc1fb811d8f841b544ba45130befc0c134520159745d48f7ada7cf38c6"
+physical_interface = true
+
+[[module."turbine.rs".function]]
+id = "fn:9587422c6b30850d"
+name = "stage_angles"
+qual = "TurbineVisual::stage_angles"
+hash = "sha256:bb533bc3e795f5771f8b0ff3c7149f4534ce5c9827dc993a8304ef05201075a3"
+doc_hash = "sha256:fc08be33b286b9377742f163e94f4df35572c2e211997e67a0d1d7700d4636a0"
+
+[[module."turbine.rs".function]]
+id = "fn:1024670138ae1fe5"
+name = "stage_quality"
+qual = "TurbineVisual::stage_quality"
+hash = "sha256:0be7dc98bbb386efeda9772fc6f58801fb6ca96177f99e0070be43a74f9696b2"
+doc_hash = "sha256:e21e468b6f5b31820571b1b6019875bbca213bddadf5b8af04e92718a7307c45"
 
 [[module."turbine.rs".function]]
 id = "fn:9531de072fd92801"
 name = "ui"
 qual = "TurbineVisual::ui"
-lines = [
-    223,
-    226,
-]
 hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
 doc_hash = "sha256:0f6a278ba5f15a31879e546c856be1ee520ee1e5545b7805497afb6d970b9116"
-callees = ["fn:f776b950bd5124df"]
-uses = ["fn:fcebb72ba81f6382"]
 
 [[module."turbine.rs".function]]
-id = "fn:afae7fce8f159368"
-name = "range"
-qual = "range"
-lines = [
-    237,
-    242,
-]
-hash = "sha256:40d4c8041dea49c1a4d3214e53d2df33ba1e02e15c489c0d04710d27e0890778"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-physical_interface = true
+id = "fn:9f2b3096b492af8a"
+name = "with_flow_path"
+qual = "TurbineVisual::with_flow_path"
+hash = "sha256:13b3dcedf7aebb958c94700c91d3c2866d6b721a6143135d7ae8fa84723dcde4"
+doc_hash = "sha256:daa9cf2d86b763c56749d3f5f7d371f0caff151ea70944dbe181b8ba97ff8cc9"
 
 [[module."turbine.rs".function]]
-id = "fn:f01842855bae87be"
-name = "generator_visual"
-qual = "generator_visual"
-lines = [
-    244,
-    249,
-]
-hash = "sha256:bceb642ddd1ad0bb32edc88fb3a0f5cf870475e22955f39207768ff6cf1c24df"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:0b3b3ecdfebb3749",
-    "fn:afae7fce8f159368",
-]
-uses = ["fn:fcebb72ba81f6382"]
-test = true
+id = "fn:1b9d9f947d159402"
+name = "TurbineVisualState"
+qual = "TurbineVisualState"
+item = "type"
+shape = "enum"
+hash = "sha256:0a5fd676964eb38a7e62ec46d5d0e617aea37498bc0f11698a59bf66e1c2ad28"
+doc_hash = "sha256:cc1d39890e61f7fcd25931cbe1df320ac38e0ad0549ffcf85482884f2e2159f3"
 
 [[module."turbine.rs".function]]
-id = "fn:4a314f039b6897bb"
-name = "rotor_angle_is_omega_times_time"
-qual = "rotor_angle_is_omega_times_time"
-lines = [
-    251,
-    263,
-]
-hash = "sha256:8ebd8e59ec728ee7567dd17401e4f1492e868f5270c29813326427b9885a1461"
-doc_hash = "sha256:c4736dbaa58bd24451404deaa01512553760fd4dde7e2410254dce3448a9bbf2"
-callees = [
-    "fn:611c656ac7565066",
-    "fn:f01842855bae87be",
-]
+id = "fn:2f4acc45e30e1d60"
+name = "fresh_preset_starts_at_rest"
+qual = "fresh_preset_starts_at_rest"
+hash = "sha256:917ef79ea1902d9179199651c67bb5355d9ebe0e9f6c88254cb1c12464a1907b"
+doc_hash = "sha256:08263cafe26b4616b97a4ce1e89704485b12a83208eb4288d36a68a71d84e54a"
 test = true
 
 [[module."turbine.rs".function]]
 id = "fn:7ddeea2af70e7882"
 name = "generator_variant_reports_no_casing_temperature"
 qual = "generator_variant_reports_no_casing_temperature"
-lines = [
-    265,
-    271,
-]
 hash = "sha256:6d37ba177040cd670b4c3e2debe71592479a30aeb903cd5b78e4166c5fd54e1f"
 doc_hash = "sha256:76c9960cefb492015188472fbfd5626dda335bd64eed3945c29cd21db1d4e8b2"
 test = true
 
 [[module."turbine.rs".function]]
-id = "fn:2f4acc45e30e1d60"
-name = "fresh_preset_starts_at_rest"
-qual = "fresh_preset_starts_at_rest"
-lines = [
-    273,
-    282,
-]
-hash = "sha256:917ef79ea1902d9179199651c67bb5355d9ebe0e9f6c88254cb1c12464a1907b"
-doc_hash = "sha256:08263cafe26b4616b97a4ce1e89704485b12a83208eb4288d36a68a71d84e54a"
-callees = [
-    "fn:0b3b3ecdfebb3749",
-    "fn:611c656ac7565066",
-    "fn:afae7fce8f159368",
-]
-uses = ["fn:fcebb72ba81f6382"]
+id = "fn:f01842855bae87be"
+name = "generator_visual"
+qual = "generator_visual"
+hash = "sha256:bceb642ddd1ad0bb32edc88fb3a0f5cf870475e22955f39207768ff6cf1c24df"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."turbine.rs".function]]
+id = "fn:afae7fce8f159368"
+name = "range"
+qual = "range"
+hash = "sha256:40d4c8041dea49c1a4d3214e53d2df33ba1e02e15c489c0d04710d27e0890778"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."turbine.rs".function]]
+id = "fn:4a314f039b6897bb"
+name = "rotor_angle_is_omega_times_time"
+qual = "rotor_angle_is_omega_times_time"
+hash = "sha256:8ebd8e59ec728ee7567dd17401e4f1492e868f5270c29813326427b9885a1461"
+doc_hash = "sha256:c4736dbaa58bd24451404deaa01512553760fd4dde7e2410254dce3448a9bbf2"
 test = true
 
 [[module."turbine.rs".function]]
 id = "fn:017e0e532b4c7f99"
 name = "the_scalar_path_and_builders_reach_the_art"
 qual = "the_scalar_path_and_builders_reach_the_art"
-lines = [
-    284,
-    309,
-]
 hash = "sha256:ce0ec7a4f141ad4405f6a90d38d39674eed5cfb6e1adabb5ee14fbf614a1ffda"
 doc_hash = "sha256:9b77741727985756a369962235ebd7a6d397949235ee42dabc95c6112e8abad6"
-callees = [
-    "fn:457e5a1062fb668f",
-    "fn:611c656ac7565066",
-    "fn:9f2b3096b492af8a",
-    "fn:afae7fce8f159368",
-    "fn:f776b950bd5124df",
-]
-uses = ["fn:fcebb72ba81f6382"]
 test = true
 
 [module."valve.rs"]
@@ -3906,64 +2028,36 @@ name = "ValveVisual"
 qual = "ValveVisual"
 item = "type"
 shape = "struct"
-lines = [
-    18,
-    26,
-]
 hash = "sha256:2c4f162ce6fc0bffda813736bc9d0270b058f75c27d293f153a2e8f1a3b958f1"
 doc_hash = "sha256:4198154dab30fe0d6ce34d7d763ae95f837d0e119b45ae4987052531343f8f28"
-reached_by = ["#78"]
-
-[[module."valve.rs".function]]
-id = "fn:7eb1524531dadb09"
-name = "new"
-qual = "ValveVisual::new"
-lines = [
-    29,
-    36,
-]
-hash = "sha256:0f3bff3af28c80ba9e2e0a0b358df3e632aee8b3e52b6c4946757b4a73e9538d"
-doc_hash = "sha256:3f1c7f29184971c8065f019b423042870a1e81bc0f9872db3f670be5aaafdcf8"
-uses = ["fn:c352321b27bf4e7f"]
-reached_by = ["#78"]
 
 [[module."valve.rs".function]]
 id = "fn:3033c67efb080bf9"
 name = "art"
 qual = "ValveVisual::art"
-lines = [
-    38,
-    43,
-]
 hash = "sha256:8ab8e13565a5c10fc3f79378d14b9ab54c33befc447da731a964923250712cb8"
 doc_hash = "sha256:ed81e175f041e890885e591435f25306dea2c820d2f6910798dc14ed5138ec3c"
-uses = ["fn:c352321b27bf4e7f"]
+
+[[module."valve.rs".function]]
+id = "fn:7eb1524531dadb09"
+name = "new"
+qual = "ValveVisual::new"
+hash = "sha256:0f3bff3af28c80ba9e2e0a0b358df3e632aee8b3e52b6c4946757b4a73e9538d"
+doc_hash = "sha256:3f1c7f29184971c8065f019b423042870a1e81bc0f9872db3f670be5aaafdcf8"
 
 [[module."valve.rs".function]]
 id = "fn:cea29e1d82a0d44d"
 name = "ui"
 qual = "ValveVisual::ui"
-lines = [
-    47,
-    50,
-]
 hash = "sha256:49968955b15e9ef17484a1c58bd557d6e9802837f9b9c61a2587bb2ff26c7c34"
 doc_hash = "sha256:59067e1d5dbc3001084754a00de01e0d4c929c36944e6b24af3237bda75f607e"
-callees = ["fn:3033c67efb080bf9"]
-uses = ["fn:c352321b27bf4e7f"]
 
 [[module."valve.rs".function]]
 id = "fn:ef363a074985201b"
 name = "the_valve_opening_comes_from_the_physics"
 qual = "the_valve_opening_comes_from_the_physics"
-lines = [
-    61,
-    72,
-]
 hash = "sha256:e49c7fb2f39d8657e84fc1c5ea21bb3237303a462fbe87f8e78b2584975299e7"
 doc_hash = "sha256:0c6f0d50a911602cf68a6238eccb18d4166a9ef3b9ae85a7483f2fd6a96fd972"
-callees = ["fn:7eb1524531dadb09"]
-uses = ["fn:c352321b27bf4e7f"]
 test = true
 
 [test_run]
@@ -3971,8 +2065,15 @@ commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
     "#35",
     "#36",
+    "#37",
     "#38",
     "#39",
     "#40",
@@ -3989,25 +2090,18 @@ passed = [
     "#51",
     "#52",
     "#53",
+    "#54",
     "#55",
+    "#56",
     "#57",
     "#58",
     "#59",
     "#60",
     "#61",
     "#62",
+    "#63",
     "#64",
     "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#74",
-    "#75",
-    "#76",
 ]
 failed = []
 

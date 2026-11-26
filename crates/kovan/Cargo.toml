@@ -294,6 +294,8 @@ kovan-web = { workspace = true, optional = true }
 # workspace's proxy check (`--target aarch64-linux-android` without the NDK)
 # does not have; on Android a lookup reports "not available on this target".
 ureq = { workspace = true, optional = true }
+# The derived kovan.toml cache bundle (GitHub #1779): pure-Rust deflate.
+zip = { workspace = true }
 
 # `rust-analyzer scip` gets a 64 MB main-thread stack: on unix through
 # `setrlimit(RLIMIT_STACK)` before exec (`src/commands/scip_stack.rs`).

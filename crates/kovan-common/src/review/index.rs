@@ -8,6 +8,12 @@
 //! module only reads and writes it and reports, with [`IndexError`], why a
 //! file could not be read.
 //!
+//! **Split on disk since 2026-11-26 (GitHub #1776, #1777):** the example
+//! below is the whole index, as held in memory and in the derived cache. The
+//! tracked `kovan.toml` in git leaves out `lines`, `callees`, `uses`,
+//! `index_out_of_date` and the `reached_by` of unreviewed functions; see
+//! [`crate::code_index::derived`].
+//!
 //! It is a **new kind** of `kovan.toml` (`kind = "code_folder"`), so the
 //! literature entity `kovan.toml` files (`kind = "paper"`, …) are untouched,
 //! and [`FolderIndex::parse`] refuses one of those with
@@ -170,6 +176,13 @@ pub struct FunctionIndex {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shape: Option<ItemShape>,
     /// 1-based inclusive line range, doc comment included.
+    ///
+    /// Added 2026-11-26 (GitHub #1777, additive): optional on disk. The
+    /// tracked `kovan.toml` leaves it out (it shifts on any edit above the
+    /// function) and the derived cache holds it
+    /// ([`crate::code_index::derived`]); `[0, 0]` in memory means not
+    /// known yet. A file written before keeps it inline and reads as before.
+    #[serde(default, skip_serializing_if = "lines_unknown")]
     pub lines: [u32; 2],
     pub hash: String,
     pub doc_hash: String,
@@ -216,6 +229,11 @@ impl FunctionIndex {
 
 fn is_fn(k: &ItemKind) -> bool {
     *k == ItemKind::Fn
+}
+
+/// `lines` of `[0, 0]`: not known (a tracked file without the cache).
+pub fn lines_unknown(l: &[u32; 2]) -> bool {
+    *l == [0, 0]
 }
 
 /// `[module."<file>.rs"]`.
@@ -478,8 +496,12 @@ impl FolderIndex {
     /// Sort everything this module owns (module doc, Determinism).
     pub fn normalise(&mut self) {
         for m in self.modules.values_mut() {
-            m.functions
-                .sort_by(|a, b| (a.lines[0], &a.id).cmp(&(b.lines[0], &b.id)));
+            // By first line when every line is known; otherwise the order
+            // given is kept (the tracked file's, [`crate::code_index::derived`]).
+            if m.functions.iter().all(|f| !lines_unknown(&f.lines)) {
+                m.functions
+                    .sort_by(|a, b| (a.lines[0], &a.id).cmp(&(b.lines[0], &b.id)));
+            }
             for f in &mut m.functions {
                 f.callees.sort();
                 f.callees.dedup();

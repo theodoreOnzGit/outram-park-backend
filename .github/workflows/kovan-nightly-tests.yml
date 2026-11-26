@@ -158,9 +158,60 @@ jobs:
       kovan-record: true
       cache-prefix: kovan-nightly
 
+  # ── 1b. The derived kovan.toml cache (GitHub #1776, #1779) ───────────────
+  # Tracked kovan.toml files no longer carry callees / uses / lines / most
+  # reached_by; `kovan-cli index` rebuilds them into target/kovan/derived/
+  # (partitioned rust-analyzer scip, one partition at a time, 14 GiB cap).
+  # The zip goes to the record job (the targeted pass needs reached_by) and
+  # to the `kovan-derived` release, which `kovan-cli derived-cache-fetch`
+  # downloads on machines without the cache.
+  derived:
+    needs: tests
+    if: always() && needs.tests.outputs.sha != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tests.outputs.sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          components: rust-analyzer, rust-src
+      - uses: actions/download-artifact@v4
+        with:
+          name: kovan-cli
+          path: ${{ runner.temp }}/kovan-cli
+      - name: Build the derived cache
+        env:
+          KOVAN_INDEX_JOBS: "1"
+          KOVAN_INDEX_MEMORY_MIB: "14336"
+        run: |
+          set -euo pipefail
+          chmod +x "$RUNNER_TEMP/kovan-cli/kovan-cli"
+          start=$(date +%s)
+          "$RUNNER_TEMP/kovan-cli/kovan-cli" index --workspace .
+          "$RUNNER_TEMP/kovan-cli/kovan-cli" derived-cache-pack --workspace . --out kovan-derived.zip --commit "${{ needs.tests.outputs.sha }}"
+          echo "derived cache built in $(( ($(date +%s) - start) / 60 )) min, $(du -h kovan-derived.zip | cut -f1)" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kovan-derived
+          path: kovan-derived.zip
+      - name: Publish as the kovan-derived release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view kovan-derived >/dev/null 2>&1 || gh release create kovan-derived \
+            --prerelease --target "${{ needs.tests.outputs.sha }}" --title "kovan derived cache (nightly)" \
+            --notes "The derived kovan.toml cache (GitHub #1779), rebuilt nightly; \`kovan-cli derived-cache-fetch\` downloads it. Its kovan-derived.json names the commit it was built at."
+          gh release upload kovan-derived kovan-derived.zip --clobber
+
   # ── 2. Merge the per-crate records, run the targeted pass, open the PR ────
   record:
-    needs: tests
+    needs: [tests, derived]
     # Failing tests are part of the record (a failing reaching test blocks its
     # stamp), so this runs whatever the tests concluded, as long as a commit
     # was fixed.
@@ -255,6 +306,23 @@ jobs:
             echo "- \`$crate\`: $(wc -l < "$RUNNER_TEMP/list.txt") kovan.toml file(s)" >> "$GITHUB_STEP_SUMMARY"
           done
           git status --short -- ':(glob)**/kovan.toml' | head -20
+
+      # The derived cache (GitHub #1779): the targeted pass finds each
+      # pending stamp's reaching tests in it. Without it (the derived job
+      # failed) the pass finds none and says so.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: kovan-derived
+          path: ${{ runner.temp }}/derived
+      - name: Unpack the derived cache
+        run: |
+          if [ -f "$RUNNER_TEMP/derived/kovan-derived.zip" ]; then
+            unzip -oq "$RUNNER_TEMP/derived/kovan-derived.zip" 'target/kovan/derived/*'
+            echo "derived cache: $(find target/kovan/derived -type f | wc -l) file(s)" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=kovan nightly::no derived cache: pending stamps' reaching tests are unknown this run"
+          fi
 
       # Unchanged from before gh:#1337: the reaching tests of the stamps STILL
       # pending a workspace test after the per-crate records above (mostly

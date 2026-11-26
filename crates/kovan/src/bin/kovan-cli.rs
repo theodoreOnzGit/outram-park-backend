@@ -545,6 +545,38 @@ enum Command {
     /// workspace member in exactly one partition whose dependency closure
     /// stays within `--max-closure` packages (memory grows with the
     /// closure). Writes the plan as JSON (stdout, or `--out`).
+    /// Zips the derived kovan.toml cache (`target/kovan/derived/`, GitHub
+    /// #1779) with a manifest naming `--commit` (default `HEAD`): what the
+    /// nightly publishes for machines without the cache.
+    DerivedCachePack {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        commit: Option<String>,
+    },
+    /// Downloads a derived-cache zip (default: the `kovan-derived` release
+    /// of the GitHub `origin`) into `target/kovan/derived/` (GitHub #1779),
+    /// instead of a full `rust-analyzer scip` run. A fixed `kovan` user
+    /// agent; nothing about the user is sent.
+    DerivedCacheFetch {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        #[arg(long)]
+        url: Option<String>,
+    },
+    /// Splits every code-folder kovan.toml as it stands into the tracked
+    /// fields and the derived cache (GitHub #1780, the one-time migration):
+    /// no source read, no hash recomputed; each split is verified to load
+    /// back the same index before it is written.
+    DerivedCacheMigrate {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
     IndexPlan {
         /// Workspace root; found from the current directory when omitted.
         #[arg(long)]
@@ -1057,6 +1089,29 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::call_graph::run_keys(&root, crates.as_deref().map(commands::call_graph::parse_crates))
+        }
+        Command::DerivedCachePack { workspace, out, commit } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let commit = match commit {
+                Some(c) => c,
+                None => git_out(&root, &["rev-parse", "HEAD"])?,
+            };
+            let m = commands::derived_cache::pack(&root, &commit, &out)?;
+            println!("derived-cache: {} file(s) at {} -> {}", m.files, m.commit, out.display());
+            Ok(())
+        }
+        Command::DerivedCacheMigrate { workspace } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let m = commands::derived_cache::migrate(&root)?;
+            println!("derived-cache-migrate: {} code-folder kovan.toml file(s), {} rewritten to the tracked fields", m.files, m.rewritten);
+            Ok(())
+        }
+        Command::DerivedCacheFetch { workspace, url } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            derived_cache_fetch(&root, url)
         }
         Command::IndexPlan { workspace, max_closure, max_members, out, matrix } => {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
@@ -1633,4 +1688,48 @@ mod tests {
         assert!(about("test").starts_with("Runs `cargo test"), "{}", about("test"));
         assert!(about("index").starts_with("Builds the code index"), "{}", about("index"));
     }
+}
+
+/// `git <args>` in `root`, trimmed stdout. CLI glue.
+fn git_out(root: &std::path::Path, args: &[&str]) -> Result<String, String> {
+    let o = std::process::Command::new("git").args(args).current_dir(root).output().map_err(|e| format!("git: {e}"))?;
+    if !o.status.success() {
+        return Err(format!("git {}: {}", args.join(" "), String::from_utf8_lossy(&o.stderr).trim()));
+    }
+    Ok(String::from_utf8_lossy(&o.stdout).trim().to_string())
+}
+
+/// `derived-cache-fetch`: CLI glue over `commands::derived_cache::fetch`
+/// (its unpacking is tested; the download is not run in tests).
+#[cfg(all(feature = "lookup-net", not(target_os = "android")))]
+fn derived_cache_fetch(root: &std::path::Path, url: Option<String>) -> Result<(), String> {
+    let url = match url {
+        Some(u) => u,
+        None => {
+            let origin = git_out(root, &["remote", "get-url", "origin"])?;
+            commands::derived_cache::default_url(&origin)
+                .ok_or_else(|| format!("origin {origin:?} is not a GitHub repository: pass --url"))?
+        }
+    };
+    let m = commands::derived_cache::fetch(root, &url)?;
+    let head = git_out(root, &["rev-parse", "HEAD"]).unwrap_or_default();
+    let behind = git_out(root, &["rev-list", "--count", &format!("{}..HEAD", m.commit)]).ok();
+    println!(
+        "derived-cache: {} file(s) from {} (built at {}{}); functions changed since read \"index out of date\" until `kovan-cli index`",
+        m.files,
+        url,
+        m.commit,
+        match behind {
+            Some(_) if m.commit == head => " = HEAD".to_string(),
+            Some(n) => format!(", {n} commit(s) behind HEAD"),
+            None => ", not in this clone's history".to_string(),
+        }
+    );
+    Ok(())
+}
+
+/// Without the network feature there is no download.
+#[cfg(not(all(feature = "lookup-net", not(target_os = "android"))))]
+fn derived_cache_fetch(_root: &std::path::Path, _url: Option<String>) -> Result<(), String> {
+    Err("derived-cache-fetch needs kovan built with the `lookup-net` feature".into())
 }

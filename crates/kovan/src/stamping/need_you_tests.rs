@@ -553,10 +553,16 @@ fn commit_and_push_lands_on_develop_refuses_main_and_merges_a_moved_remote() {
     assert!(msg.starts_with("kovan review: 1 stamp (#771)"), "{msg}");
     assert!(!msg.contains("Claude"), "{msg}");
     let shown = r.git(&["show", "--name-only", "--format=", "HEAD"]);
+    // ~~review.md and kovan_root.toml only~~ CHANGED 2026-11-26 (GitHub
+    // #1776, maintainer: "Save also commits it"): the folder's code index
+    // travels with the stamp, holding its [[review]] (and the stamped
+    // function's reached_by, which the rung is judged on as committed).
     assert_eq!(
         shown.lines().collect::<BTreeSet<_>>(),
-        BTreeSet::from([ROOT_FILE, "crates/demo/src/review.md"])
+        BTreeSet::from([ROOT_FILE, "crates/demo/src/review.md", "crates/demo/src/kovan.toml"])
     );
+    let committed = r.git(&["show", "HEAD:crates/demo/src/kovan.toml"]);
+    assert!(committed.contains("[[review]]"), "{committed}");
     assert!(
         r.git(&["status", "--porcelain"]).contains("NOTES.txt"),
         "the unrelated edit stays"

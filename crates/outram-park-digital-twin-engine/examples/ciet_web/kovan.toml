@@ -2,436 +2,9 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/examples/ciet_web"
-test_ids = [
-    "crates/outram-park-digital-twin-engine/examples/ciet_web/main.rs::the_browser_plant_is_the_desktop_stepper",
-    "crates/outram-park-digital-twin-engine/examples/ciet_web/main.rs::the_headless_trace_is_deterministic",
-    "crates/outram-park-digital-twin-engine/examples/ciet_web/main.rs::the_three_worker_step_is_the_one_worker_step",
-]
 
 [module."main.rs"]
 path = "example:ciet_web"
-
-[[module."main.rs".function]]
-id = "fn:7ae94bdf63ade5e6"
-name = "FIELDS"
-qual = "FIELDS"
-item = "const"
-shape = "const"
-lines = [
-    52,
-    137,
-]
-hash = "sha256:a6aa5de4b7925c2ef95e17ac489e15069f02413210ccd465a79c30cb0ab947d3"
-doc_hash = "sha256:74a7b3e3e61d2e0e621657ef54e6caaefc960bdb63260de29e48649d0e3114cf"
-reached_by = [
-    "#0",
-    "#1",
-]
-
-[[module."main.rs".function]]
-id = "fn:d615603a32a78248"
-name = "Plant"
-qual = "Plant"
-item = "type"
-shape = "struct"
-lines = [
-    139,
-    149,
-]
-hash = "sha256:8de978bc21036c9ca696dfde34d633dd4fd9244cc8c275b2ad37009954f8e2c7"
-doc_hash = "sha256:d20ccefce4610627867ffbfc7f97abf5dbcb20a550b6d4179b99b3a5483c5328"
-uses = ["fn:cce1108d65dbf700"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-]
-
-[[module."main.rs".function]]
-id = "fn:dd84ac7d0c7da4be"
-name = "default"
-qual = "Plant::default"
-lines = [
-    152,
-    154,
-]
-hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:d9cd508e68afd34d"]
-uses = ["fn:d615603a32a78248"]
-
-[[module."main.rs".function]]
-id = "fn:d9cd508e68afd34d"
-name = "new"
-qual = "Plant::new"
-lines = [
-    158,
-    166,
-]
-hash = "sha256:04281b6e54877d63ecc4f60f0144c7e6fca6168b91d7abfe3dba09ec53ef93c5"
-doc_hash = "sha256:d1a7f2ac5de38a22636b27b86aaef4c2f875ac6848c02dcad656b166b64829b5"
-uses = [
-    "fn:cce1108d65dbf700",
-    "fn:d615603a32a78248",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-]
-
-[[module."main.rs".function]]
-id = "fn:914baf0316db6171"
-name = "set"
-qual = "Plant::set"
-lines = [
-    168,
-    206,
-]
-hash = "sha256:65afc5cd1db90933b7dac9862a40a066aa8b1f17b71ae56aa7dd4236488bba29"
-doc_hash = "sha256:f35c5efd80c71b0660337f4c75ec07526af338de75702cdcd870d72a46e2ca85"
-callees = [
-    "fn:88b583fc022cd5cc",
-    "fn:ab4ef63877db09a9",
-    "fn:dc35bb524ab77a1f",
-]
-uses = [
-    "fn:9fcd8afc16597201",
-    "fn:d615603a32a78248",
-]
-reached_by = [
-    "#0",
-    "#1",
-]
-
-[[module."main.rs".function]]
-id = "fn:64f18056f3b2102d"
-name = "timestep"
-qual = "Plant::timestep"
-lines = [
-    208,
-    217,
-]
-hash = "sha256:e2923b5645a96fa5968a38143f87b5ee68f95c6982dc1e5c2168d326c0625372"
-doc_hash = "sha256:8916e30e6148f1393106d821cf8eaff3ed181c2ab19d7aa2192d679474bbdd2f"
-callees = ["fn:91b835b593c80280"]
-uses = ["fn:d615603a32a78248"]
-physical_interface = true
-
-[[module."main.rs".function]]
-id = "fn:6b30b1c6a4659e82"
-name = "advance"
-qual = "Plant::advance"
-lines = [
-    219,
-    226,
-]
-hash = "sha256:dd044611ae62a65c391a4f05d93850db8b1beec03d8d1b5ea98af05527d48eb1"
-doc_hash = "sha256:43e34ef40542c8ee8bf41c36872ee7ca819b817847f34aafff6be98bee85e0fb"
-uses = ["fn:d615603a32a78248"]
-reached_by = ["#0"]
-
-[[module."main.rs".function]]
-id = "fn:b214ba9950e3c778"
-name = "snapshot"
-qual = "Plant::snapshot"
-lines = [
-    228,
-    232,
-]
-hash = "sha256:421fe7b633a82b006dc441cf4ec8d2db2b0fa7ab6b518b277a6858785d9fc665"
-doc_hash = "sha256:0e46960bf8bc0e33f39599bd3fc2a046cf833536c2fac451f168b2630ef7f511"
-uses = ["fn:d615603a32a78248"]
-
-[[module."main.rs".function]]
-id = "fn:c0e2160f4527f812"
-name = "begin_step"
-qual = "Plant::begin_step"
-lines = [
-    234,
-    239,
-]
-hash = "sha256:fa97a61e2fd6ad20a38b19cadd0d3a131d145937894c748c70cd66195092dc4f"
-doc_hash = "sha256:ef0ff278ad08c6ebe5e45f1ecddb3867a9db33abc835881783dc474a917fdd50"
-callees = ["fn:64f18056f3b2102d"]
-uses = ["fn:d615603a32a78248"]
-
-[[module."main.rs".function]]
-id = "fn:b56a7eae707907b8"
-name = "finish"
-qual = "Plant::finish"
-lines = [
-    241,
-    245,
-]
-hash = "sha256:5ce437782331aabbe1a93843ad473ee31b5f07ea7f72560dc33840517d2e6e91"
-doc_hash = "sha256:d0ae066271eafde946c49a297a4be0a7f65c520a8e40e3e85e1d704e3734ded9"
-uses = ["fn:d615603a32a78248"]
-
-[[module."main.rs".function]]
-id = "fn:07e6aee8382a6cd7"
-name = "simulation_time_s"
-qual = "Plant::simulation_time_s"
-lines = [
-    247,
-    250,
-]
-hash = "sha256:f2e688186365142a0470e8062fd61fc8d6f48997ad1e84fa05960a4e3fcd9ecf"
-doc_hash = "sha256:a7c50894a7b1ae854d59db355d771fb2fc5298e114746a987ede807c93cf0cd2"
-uses = ["fn:d615603a32a78248"]
-
-[[module."main.rs".function]]
-id = "fn:de1e00789367641f"
-name = "readout"
-qual = "Plant::readout"
-lines = [
-    252,
-    339,
-]
-hash = "sha256:0706ce2f90e21e93c183a3ca0ce79f885171104f8b4a022b3e2a0cb5bf2dff88"
-doc_hash = "sha256:f86a5219df2b8fab7c82029bba881657fb558517db6ffbe4949339469a7f5619"
-uses = ["fn:d615603a32a78248"]
-reached_by = ["#0"]
-
-[[module."main.rs".function]]
-id = "fn:d12fb36872ff06ea"
-name = "FlowSolver"
-qual = "FlowSolver"
-item = "type"
-shape = "struct"
-lines = [
-    342,
-    345,
-]
-hash = "sha256:3eb1342ae683c88dd6dde6382b5135ee93903207fd3ab0cc79bc428274b096c4"
-doc_hash = "sha256:ed659c3743b3fd55dd536d073c7aba3bb7d6f5eced602b246b32bd961f73a4ed"
-reached_by = ["#2"]
-
-[[module."main.rs".function]]
-id = "fn:c3739afd0cd19c29"
-name = "default"
-qual = "FlowSolver::default"
-lines = [
-    348,
-    350,
-]
-hash = "sha256:47cf8125a48d0778204de5a102f3a8b95ddc494e10e19c893ff8a42a2f5ba888"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:cce1108d65dbf700",
-    "fn:d12fb36872ff06ea",
-]
-
-[[module."main.rs".function]]
-id = "fn:a10f6958eda1251a"
-name = "dracs"
-qual = "FlowSolver::dracs"
-lines = [
-    354,
-    361,
-]
-hash = "sha256:7b7ab5dfa7be29a572bcc8ffb1ef9bf3098620e92fd00735c9da335de30c891e"
-doc_hash = "sha256:eaf6460f3610774a8c2035018d8ab95f29b3d22a7c8d35f635b04c8effae2d93"
-uses = ["fn:d12fb36872ff06ea"]
-
-[[module."main.rs".function]]
-id = "fn:9b3fc70a0e8a7a66"
-name = "primary"
-qual = "FlowSolver::primary"
-lines = [
-    363,
-    371,
-]
-hash = "sha256:2024ed476426be0db048b560e538c8dcaeb7b57b7689b42a7e24ab687f730722"
-doc_hash = "sha256:103d65c7f92f402d8a099ae65d16423e004126f0cd9b7142d24daf8fef592ade"
-uses = ["fn:d12fb36872ff06ea"]
-
-[[module."main.rs".function]]
-id = "fn:748dc9ef0819c935"
-name = "trace_csv"
-qual = "trace_csv"
-lines = [
-    374,
-    392,
-]
-hash = "sha256:938ab83efa8f2a8bedc74e258349db686c38ade3aaa3c02e6657e1cde834a468"
-doc_hash = "sha256:0c954738de13fc4180f0d40d5b9419d500e4c9946137e6c21e7096ba515212fd"
-callees = [
-    "fn:914baf0316db6171",
-    "fn:d9cd508e68afd34d",
-]
-uses = [
-    "fn:7ae94bdf63ade5e6",
-    "fn:d615603a32a78248",
-]
-reached_by = ["#1"]
-
-[[module."main.rs".function]]
-id = "fn:f43620368ec285b0"
-name = "main"
-qual = "main#1"
-lines = [
-    394,
-    406,
-]
-hash = "sha256:bf968a0e13153643dbde623a28aa06edc95a0164d9b93a577d7e8e562cdc90f0"
-doc_hash = "sha256:bebce501142b8a22c473198e43790fc6efa098685a0182a352113e1daec33395"
-
-[[module."main.rs".function]]
-id = "fn:db2b7c530c17b003"
-name = "main"
-qual = "main#2"
-lines = [
-    408,
-    410,
-]
-hash = "sha256:7939c45d3592283d9b100418c34b2e8fe7c353804eece033322d95802cf94fe7"
-doc_hash = "sha256:aab56c9484d4111957dfcefc608049d81109be73ed1188763f64cad3296d0003"
-
-[[module."main.rs".function]]
-id = "fn:84b823aa37541b05"
-name = "CietWeb"
-qual = "CietWeb"
-item = "type"
-shape = "struct"
-lines = [
-    416,
-    418,
-]
-hash = "sha256:e10dd8e83f6252db20b382c257a1380e25e001497c4030a4fa6aa9307fdebb5c"
-doc_hash = "sha256:64270f070a199c884a0ca93e36892f826e73ee6ddc41475bcdfbb7eff9499459"
-
-[[module."main.rs".function]]
-id = "fn:839a5a30a2beca48"
-name = "new"
-qual = "CietWeb::new"
-lines = [
-    422,
-    426,
-]
-hash = "sha256:f3a01945d5be921efb144d78eaa0807a4b613af5160630375e0b2713b8555b5f"
-doc_hash = "sha256:ceeb2e4bb851560fda67079dd1c7872df689a0e3e75759a38ee620233e0f87aa"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:4a42a3a5f10144d4"
-name = "fields"
-qual = "CietWeb::fields"
-lines = [
-    428,
-    431,
-]
-hash = "sha256:a6877fe176d460c485a633c14c5607a2b9395b421b0386768d3607a0464dbeb3"
-doc_hash = "sha256:0112c2837dc596878d5f803d919ee68c80b3e1d9f2b589beaef6c0260df48cb8"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:5fb6dfde2bafebfc"
-name = "set"
-qual = "CietWeb::set"
-lines = [
-    433,
-    436,
-]
-hash = "sha256:245a4335afb4dd8db3550d72fc3d909d6f8aa62a4648b35beecbf093daaf5dcf"
-doc_hash = "sha256:c1ba88292e75bdc1a0c7bd1d5aa8201af51ee2092cb068d241a410008dac2f14"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:bfe653840395a859"
-name = "advance"
-qual = "CietWeb::advance"
-lines = [
-    438,
-    441,
-]
-hash = "sha256:b123296cec42f60bb88eed97ddc363de49c348524123857159a6074b8431022c"
-doc_hash = "sha256:bf6e9cd7bf665980a03898749bb31c770d0855887d52906d4ad9432d8a0d79c7"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:bd19308c32efbceb"
-name = "timestep_s"
-qual = "CietWeb::timestep_s"
-lines = [
-    443,
-    446,
-]
-hash = "sha256:543a642ddb06a3178e5c7c8a9ad31a6deac89b324b85e5ff330bc5a73307bcff"
-doc_hash = "sha256:2a3a3f83706bbecf3d18c9e94ec0a946d9e52baee6a7d41e2d1821e88ee0e544"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:fd88c588bdff1452"
-name = "simulation_time_s"
-qual = "CietWeb::simulation_time_s"
-lines = [
-    448,
-    451,
-]
-hash = "sha256:2a8f770bbd36b46cd5824d7bce4789d8319c27bf8439470d5d153e4141aa6f51"
-doc_hash = "sha256:205cb785968092ee96c648050d5c32061912b34c5d0b57a7b257fce0d4ac71b1"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:f2103f2908478077"
-name = "readout"
-qual = "CietWeb::readout"
-lines = [
-    453,
-    456,
-]
-hash = "sha256:0c685cc775c631d2542a978f14741d586457ae540faa76e21eec597909143043"
-doc_hash = "sha256:df7248eda5114ffb0bc74333ab64a6c1d2fec359d0bb4af1f3a39d48deb70309"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:258226ef78180c7e"
-name = "snapshot_dracs"
-qual = "CietWeb::snapshot_dracs"
-lines = [
-    457,
-    460,
-]
-hash = "sha256:db145c318ed77447c1695e7cd7a993d9866dcceaf2aed139ba97b59deb097bdb"
-doc_hash = "sha256:7e38b3a8aa8b3846873ff747fec5afd5140b936131148b0ccae3746a0cfe18ba"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:1299c40e65c501e3"
-name = "snapshot_primary"
-qual = "CietWeb::snapshot_primary"
-lines = [
-    462,
-    465,
-]
-hash = "sha256:cf5d98fb8f43cff0aefeac4099ab6a75b9009760272ef6ae6f099a7f4311dbc7"
-doc_hash = "sha256:c85d228c0efe88cdd60b5dc5407021801868386c336134cdc3c303714701f892"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:14918bba9894b6aa"
-name = "begin_step"
-qual = "CietWeb::begin_step"
-lines = [
-    467,
-    470,
-]
-hash = "sha256:9e2d7ea5c228ce1d693e7351a6594f8b2717de6c1ac43baf5a2c5a5d18c0d5bb"
-doc_hash = "sha256:1988f52714125fa3ed518799b228b9b703721b1c4edc60dfc786fb5d09e9dfd6"
-uses = ["fn:84b823aa37541b05"]
-
-[[module."main.rs".function]]
-id = "fn:5d75ff49f768fdd9"
-name = "finish"
-qual = "CietWeb::finish"
-lines = [
-    472,
-    475,
-]
-hash = "sha256:c2997ffd9bdb83d90fdccb8cefcc5322adf1c7b922e9309fe7c90e91b107874f"
-doc_hash = "sha256:34b1fff0ab3151bf405519f4091bd017852a4a01df8bfa95309a831ebb23580d"
-uses = ["fn:84b823aa37541b05"]
 
 [[module."main.rs".function]]
 id = "fn:f353aa1e4314aefd"
@@ -439,98 +12,276 @@ name = "CietFlow"
 qual = "CietFlow"
 item = "type"
 shape = "struct"
-lines = [
-    478,
-    480,
-]
 hash = "sha256:dae1e9b4ef73c3b4edcc5f41e16d925d223d4ea2934554bda91135160bac409f"
 doc_hash = "sha256:34a1b75a670d966e50905f80cf8a53d722caf73bd87bfd1e8eb878924c258ef8"
-
-[[module."main.rs".function]]
-id = "fn:e958cca5386c67f5"
-name = "new"
-qual = "CietFlow::new"
-lines = [
-    484,
-    488,
-]
-hash = "sha256:f4dd8dc2105823641f1a3d512dbd765e4cfde4446c5b4c6d44bb46fb285f76d2"
-doc_hash = "sha256:5899b3390c4c89ae69e8ddf5fab9753b5ea1307618117e7d218abfbcbec47062"
-uses = ["fn:f353aa1e4314aefd"]
 
 [[module."main.rs".function]]
 id = "fn:5429e68af24bc54d"
 name = "dracs"
 qual = "CietFlow::dracs"
-lines = [
-    490,
-    493,
-]
 hash = "sha256:01c86bdfd2b3b0ac28b91c4666722984cb37b2341499eea716e4e2daeb5c43c6"
 doc_hash = "sha256:ff281ff4f4e43aac2bfdc93264addfca31291dc22fceee4b0a22b637a9003653"
-uses = ["fn:f353aa1e4314aefd"]
+
+[[module."main.rs".function]]
+id = "fn:e958cca5386c67f5"
+name = "new"
+qual = "CietFlow::new"
+hash = "sha256:f4dd8dc2105823641f1a3d512dbd765e4cfde4446c5b4c6d44bb46fb285f76d2"
+doc_hash = "sha256:5899b3390c4c89ae69e8ddf5fab9753b5ea1307618117e7d218abfbcbec47062"
 
 [[module."main.rs".function]]
 id = "fn:2026d5918d41e4bf"
 name = "primary"
 qual = "CietFlow::primary"
-lines = [
-    495,
-    498,
-]
 hash = "sha256:d509a3e6223b1367ebd03e2d50324cfc067bbc37609549699253b4ccc5407e84"
 doc_hash = "sha256:dbfb6197e6bc0ec9903692441f9a2936c4605a5dba96d7512b3b34060db0a64f"
-uses = ["fn:f353aa1e4314aefd"]
+
+[[module."main.rs".function]]
+id = "fn:84b823aa37541b05"
+name = "CietWeb"
+qual = "CietWeb"
+item = "type"
+shape = "struct"
+hash = "sha256:e10dd8e83f6252db20b382c257a1380e25e001497c4030a4fa6aa9307fdebb5c"
+doc_hash = "sha256:64270f070a199c884a0ca93e36892f826e73ee6ddc41475bcdfbb7eff9499459"
+
+[[module."main.rs".function]]
+id = "fn:bfe653840395a859"
+name = "advance"
+qual = "CietWeb::advance"
+hash = "sha256:b123296cec42f60bb88eed97ddc363de49c348524123857159a6074b8431022c"
+doc_hash = "sha256:bf6e9cd7bf665980a03898749bb31c770d0855887d52906d4ad9432d8a0d79c7"
+
+[[module."main.rs".function]]
+id = "fn:14918bba9894b6aa"
+name = "begin_step"
+qual = "CietWeb::begin_step"
+hash = "sha256:9e2d7ea5c228ce1d693e7351a6594f8b2717de6c1ac43baf5a2c5a5d18c0d5bb"
+doc_hash = "sha256:1988f52714125fa3ed518799b228b9b703721b1c4edc60dfc786fb5d09e9dfd6"
+
+[[module."main.rs".function]]
+id = "fn:4a42a3a5f10144d4"
+name = "fields"
+qual = "CietWeb::fields"
+hash = "sha256:a6877fe176d460c485a633c14c5607a2b9395b421b0386768d3607a0464dbeb3"
+doc_hash = "sha256:0112c2837dc596878d5f803d919ee68c80b3e1d9f2b589beaef6c0260df48cb8"
+
+[[module."main.rs".function]]
+id = "fn:5d75ff49f768fdd9"
+name = "finish"
+qual = "CietWeb::finish"
+hash = "sha256:c2997ffd9bdb83d90fdccb8cefcc5322adf1c7b922e9309fe7c90e91b107874f"
+doc_hash = "sha256:34b1fff0ab3151bf405519f4091bd017852a4a01df8bfa95309a831ebb23580d"
+
+[[module."main.rs".function]]
+id = "fn:839a5a30a2beca48"
+name = "new"
+qual = "CietWeb::new"
+hash = "sha256:f3a01945d5be921efb144d78eaa0807a4b613af5160630375e0b2713b8555b5f"
+doc_hash = "sha256:ceeb2e4bb851560fda67079dd1c7872df689a0e3e75759a38ee620233e0f87aa"
+
+[[module."main.rs".function]]
+id = "fn:f2103f2908478077"
+name = "readout"
+qual = "CietWeb::readout"
+hash = "sha256:0c685cc775c631d2542a978f14741d586457ae540faa76e21eec597909143043"
+doc_hash = "sha256:df7248eda5114ffb0bc74333ab64a6c1d2fec359d0bb4af1f3a39d48deb70309"
+
+[[module."main.rs".function]]
+id = "fn:5fb6dfde2bafebfc"
+name = "set"
+qual = "CietWeb::set"
+hash = "sha256:245a4335afb4dd8db3550d72fc3d909d6f8aa62a4648b35beecbf093daaf5dcf"
+doc_hash = "sha256:c1ba88292e75bdc1a0c7bd1d5aa8201af51ee2092cb068d241a410008dac2f14"
+
+[[module."main.rs".function]]
+id = "fn:fd88c588bdff1452"
+name = "simulation_time_s"
+qual = "CietWeb::simulation_time_s"
+hash = "sha256:2a8f770bbd36b46cd5824d7bce4789d8319c27bf8439470d5d153e4141aa6f51"
+doc_hash = "sha256:205cb785968092ee96c648050d5c32061912b34c5d0b57a7b257fce0d4ac71b1"
+
+[[module."main.rs".function]]
+id = "fn:258226ef78180c7e"
+name = "snapshot_dracs"
+qual = "CietWeb::snapshot_dracs"
+hash = "sha256:db145c318ed77447c1695e7cd7a993d9866dcceaf2aed139ba97b59deb097bdb"
+doc_hash = "sha256:7e38b3a8aa8b3846873ff747fec5afd5140b936131148b0ccae3746a0cfe18ba"
+
+[[module."main.rs".function]]
+id = "fn:1299c40e65c501e3"
+name = "snapshot_primary"
+qual = "CietWeb::snapshot_primary"
+hash = "sha256:cf5d98fb8f43cff0aefeac4099ab6a75b9009760272ef6ae6f099a7f4311dbc7"
+doc_hash = "sha256:c85d228c0efe88cdd60b5dc5407021801868386c336134cdc3c303714701f892"
+
+[[module."main.rs".function]]
+id = "fn:bd19308c32efbceb"
+name = "timestep_s"
+qual = "CietWeb::timestep_s"
+hash = "sha256:543a642ddb06a3178e5c7c8a9ad31a6deac89b324b85e5ff330bc5a73307bcff"
+doc_hash = "sha256:2a3a3f83706bbecf3d18c9e94ec0a946d9e52baee6a7d41e2d1821e88ee0e544"
+
+[[module."main.rs".function]]
+id = "fn:7ae94bdf63ade5e6"
+name = "FIELDS"
+qual = "FIELDS"
+item = "const"
+shape = "const"
+hash = "sha256:a6aa5de4b7925c2ef95e17ac489e15069f02413210ccd465a79c30cb0ab947d3"
+doc_hash = "sha256:74a7b3e3e61d2e0e621657ef54e6caaefc960bdb63260de29e48649d0e3114cf"
+
+[[module."main.rs".function]]
+id = "fn:d12fb36872ff06ea"
+name = "FlowSolver"
+qual = "FlowSolver"
+item = "type"
+shape = "struct"
+hash = "sha256:3eb1342ae683c88dd6dde6382b5135ee93903207fd3ab0cc79bc428274b096c4"
+doc_hash = "sha256:ed659c3743b3fd55dd536d073c7aba3bb7d6f5eced602b246b32bd961f73a4ed"
+
+[[module."main.rs".function]]
+id = "fn:c3739afd0cd19c29"
+name = "default"
+qual = "FlowSolver::default"
+hash = "sha256:47cf8125a48d0778204de5a102f3a8b95ddc494e10e19c893ff8a42a2f5ba888"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:a10f6958eda1251a"
+name = "dracs"
+qual = "FlowSolver::dracs"
+hash = "sha256:7b7ab5dfa7be29a572bcc8ffb1ef9bf3098620e92fd00735c9da335de30c891e"
+doc_hash = "sha256:eaf6460f3610774a8c2035018d8ab95f29b3d22a7c8d35f635b04c8effae2d93"
+
+[[module."main.rs".function]]
+id = "fn:9b3fc70a0e8a7a66"
+name = "primary"
+qual = "FlowSolver::primary"
+hash = "sha256:2024ed476426be0db048b560e538c8dcaeb7b57b7689b42a7e24ab687f730722"
+doc_hash = "sha256:103d65c7f92f402d8a099ae65d16423e004126f0cd9b7142d24daf8fef592ade"
+
+[[module."main.rs".function]]
+id = "fn:d615603a32a78248"
+name = "Plant"
+qual = "Plant"
+item = "type"
+shape = "struct"
+hash = "sha256:8de978bc21036c9ca696dfde34d633dd4fd9244cc8c275b2ad37009954f8e2c7"
+doc_hash = "sha256:d20ccefce4610627867ffbfc7f97abf5dbcb20a550b6d4179b99b3a5483c5328"
+
+[[module."main.rs".function]]
+id = "fn:6b30b1c6a4659e82"
+name = "advance"
+qual = "Plant::advance"
+hash = "sha256:dd044611ae62a65c391a4f05d93850db8b1beec03d8d1b5ea98af05527d48eb1"
+doc_hash = "sha256:43e34ef40542c8ee8bf41c36872ee7ca819b817847f34aafff6be98bee85e0fb"
+
+[[module."main.rs".function]]
+id = "fn:c0e2160f4527f812"
+name = "begin_step"
+qual = "Plant::begin_step"
+hash = "sha256:fa97a61e2fd6ad20a38b19cadd0d3a131d145937894c748c70cd66195092dc4f"
+doc_hash = "sha256:ef0ff278ad08c6ebe5e45f1ecddb3867a9db33abc835881783dc474a917fdd50"
+
+[[module."main.rs".function]]
+id = "fn:dd84ac7d0c7da4be"
+name = "default"
+qual = "Plant::default"
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:b56a7eae707907b8"
+name = "finish"
+qual = "Plant::finish"
+hash = "sha256:5ce437782331aabbe1a93843ad473ee31b5f07ea7f72560dc33840517d2e6e91"
+doc_hash = "sha256:d0ae066271eafde946c49a297a4be0a7f65c520a8e40e3e85e1d704e3734ded9"
+
+[[module."main.rs".function]]
+id = "fn:d9cd508e68afd34d"
+name = "new"
+qual = "Plant::new"
+hash = "sha256:04281b6e54877d63ecc4f60f0144c7e6fca6168b91d7abfe3dba09ec53ef93c5"
+doc_hash = "sha256:d1a7f2ac5de38a22636b27b86aaef4c2f875ac6848c02dcad656b166b64829b5"
+
+[[module."main.rs".function]]
+id = "fn:de1e00789367641f"
+name = "readout"
+qual = "Plant::readout"
+hash = "sha256:0706ce2f90e21e93c183a3ca0ce79f885171104f8b4a022b3e2a0cb5bf2dff88"
+doc_hash = "sha256:f86a5219df2b8fab7c82029bba881657fb558517db6ffbe4949339469a7f5619"
+
+[[module."main.rs".function]]
+id = "fn:914baf0316db6171"
+name = "set"
+qual = "Plant::set"
+hash = "sha256:65afc5cd1db90933b7dac9862a40a066aa8b1f17b71ae56aa7dd4236488bba29"
+doc_hash = "sha256:f35c5efd80c71b0660337f4c75ec07526af338de75702cdcd870d72a46e2ca85"
+
+[[module."main.rs".function]]
+id = "fn:07e6aee8382a6cd7"
+name = "simulation_time_s"
+qual = "Plant::simulation_time_s"
+hash = "sha256:f2e688186365142a0470e8062fd61fc8d6f48997ad1e84fa05960a4e3fcd9ecf"
+doc_hash = "sha256:a7c50894a7b1ae854d59db355d771fb2fc5298e114746a987ede807c93cf0cd2"
+
+[[module."main.rs".function]]
+id = "fn:b214ba9950e3c778"
+name = "snapshot"
+qual = "Plant::snapshot"
+hash = "sha256:421fe7b633a82b006dc441cf4ec8d2db2b0fa7ab6b518b277a6858785d9fc665"
+doc_hash = "sha256:0e46960bf8bc0e33f39599bd3fc2a046cf833536c2fac451f168b2630ef7f511"
+
+[[module."main.rs".function]]
+id = "fn:64f18056f3b2102d"
+name = "timestep"
+qual = "Plant::timestep"
+hash = "sha256:e2923b5645a96fa5968a38143f87b5ee68f95c6982dc1e5c2168d326c0625372"
+doc_hash = "sha256:8916e30e6148f1393106d821cf8eaff3ed181c2ab19d7aa2192d679474bbdd2f"
+physical_interface = true
+
+[[module."main.rs".function]]
+id = "fn:f43620368ec285b0"
+name = "main"
+qual = "main#1"
+hash = "sha256:bf968a0e13153643dbde623a28aa06edc95a0164d9b93a577d7e8e562cdc90f0"
+doc_hash = "sha256:bebce501142b8a22c473198e43790fc6efa098685a0182a352113e1daec33395"
+
+[[module."main.rs".function]]
+id = "fn:db2b7c530c17b003"
+name = "main"
+qual = "main#2"
+hash = "sha256:7939c45d3592283d9b100418c34b2e8fe7c353804eece033322d95802cf94fe7"
+doc_hash = "sha256:aab56c9484d4111957dfcefc608049d81109be73ed1188763f64cad3296d0003"
 
 [[module."main.rs".function]]
 id = "fn:7b75bee2d946e792"
 name = "the_browser_plant_is_the_desktop_stepper"
 qual = "the_browser_plant_is_the_desktop_stepper"
-lines = [
-    506,
-    552,
-]
 hash = "sha256:5f53c58c42776cc40695aa29ab6f5e0274affb2e1eb42d7b664aea23973f9acf"
 doc_hash = "sha256:49b66cfc094159cbcc9275b95135ca604fa3eeeaac4feb94dafac1a89444f538"
-callees = [
-    "fn:6b30b1c6a4659e82",
-    "fn:914baf0316db6171",
-    "fn:d9cd508e68afd34d",
-    "fn:de1e00789367641f",
-]
-uses = [
-    "fn:7ae94bdf63ade5e6",
-    "fn:cce1108d65dbf700",
-    "fn:d615603a32a78248",
-]
-test = true
-
-[[module."main.rs".function]]
-id = "fn:82f4225d391df97a"
-name = "the_three_worker_step_is_the_one_worker_step"
-qual = "the_three_worker_step_is_the_one_worker_step"
-lines = [
-    554,
-    584,
-]
-hash = "sha256:8d61dcf6a51bbdbe589434cd40d6a57c36f0a7c5477865122f11195248e984ee"
-doc_hash = "sha256:2c1b90899119f1d7f08598eadfe740b864f6c5e621bfc0e37c6a500db604544b"
-callees = ["fn:d9cd508e68afd34d"]
-uses = [
-    "fn:d12fb36872ff06ea",
-    "fn:d615603a32a78248",
-]
 test = true
 
 [[module."main.rs".function]]
 id = "fn:0cbea742b1fce241"
 name = "the_headless_trace_is_deterministic"
 qual = "the_headless_trace_is_deterministic"
-lines = [
-    586,
-    599,
-]
 hash = "sha256:03be569ae5ef50b0279926fe9f9ee5e0c115982d1379664f6c908662ab07c18b"
 doc_hash = "sha256:541132646c98ec9ee429798f28205210a8ec4c4a4031a3ff59428e9d47ce8d13"
-callees = ["fn:748dc9ef0819c935"]
 test = true
+
+[[module."main.rs".function]]
+id = "fn:82f4225d391df97a"
+name = "the_three_worker_step_is_the_one_worker_step"
+qual = "the_three_worker_step_is_the_one_worker_step"
+hash = "sha256:8d61dcf6a51bbdbe589434cd40d6a57c36f0a7c5477865122f11195248e984ee"
+doc_hash = "sha256:2c1b90899119f1d7f08598eadfe740b864f6c5e621bfc0e37c6a500db604544b"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:748dc9ef0819c935"
+name = "trace_csv"
+qual = "trace_csv"
+hash = "sha256:938ab83efa8f2a8bedc74e258349db686c38ade3aaa3c02e6657e1cde834a468"
+doc_hash = "sha256:0c954738de13fc4180f0d40d5b9419d500e4c9946137e6c21e7096ba515212fd"
