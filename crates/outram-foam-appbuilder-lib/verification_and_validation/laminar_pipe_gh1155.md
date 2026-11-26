@@ -4300,6 +4300,33 @@ decision on its merits:
 Both change what is compared, so they are the maintainer's call; the
 record above is what each would start from.
 
+### Decision: the core is sized from R (maintainer, gh:#1829, 2026-11-26)
+
+The maintainer chose option 1. A layered pipe's TetGen `-a` bound is now
+the regular tetrahedron of edge min(h, R/4)
+(`foam_studio_web/engine.rs::core_tet_volume`). The rule is a resolution
+requirement on the core: about four tetrahedron edges per radius. It was
+stated after the investigation above and is recorded as such. The band
+(0.95–1.10) and the convection scheme are unchanged.
+
+**Result**, `headless_unstructured_default_is_pinned`, native, release,
+2026-11-26:
+
+| quantity | value |
+|---|---|
+| cells | 31 293 (28 121 before, +11 %) |
+| meshing time | 15.7 s (the investigation's estimate was 23 s; 15.3 s before) |
+| u_c/2U at 0.75 L | 0.9738 (0.8820 before) |
+| dp/dz over 0.65–0.85 L | 1.0271 × HP (1.1067 before) |
+| f Re | 65.73 |
+| max non-orthogonality | 63.1° |
+
+The test passes. The browser time has not been measured.
+
+The +2.7 % that remains is consistent with the refinement study above
+(1.031 at a 1.85 mm core), which still had not converged. It is the same
+convective discretisation error, now smaller; it has not been removed.
+
 ## Reproduce
 
 ```bash

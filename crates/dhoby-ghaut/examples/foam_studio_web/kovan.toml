@@ -1019,7 +1019,7 @@ id = "fn:89ef04ede36fb359"
 name = "default_for"
 qual = "TetDualSpec::default_for"
 hash = "sha256:1030a4d90674f036a4114595c68c3c1b320d8d0e12c446fcaba9e65d8781eed9"
-doc_hash = "sha256:734e714768a578a3cb235c6a33242041c3b9d1027c53180b33186c2e7041fdb4"
+doc_hash = "sha256:39c80bcc9bfed3463684d572a93ee2890a699599d0f942bf820f5334e3807e92"
 
 [[module."engine.rs".function]]
 id = "fn:0396774d86c091e1"
@@ -1122,6 +1122,13 @@ name = "coil_grid"
 qual = "coil_grid"
 hash = "sha256:8b03494be576e8e3456d8366cce0b93c16e90446e613c1e0fead947d986c4b95"
 doc_hash = "sha256:4bb00925ae6d20615cfb5c801486a81f018c3dfea58d573e33c27e10fe0db37a"
+
+[[module."engine.rs".function]]
+id = "fn:79409ccf9becaf7b"
+name = "core_tet_volume"
+qual = "core_tet_volume"
+hash = "sha256:05c9c8a122f4819acad71e983ae2c773d4e17e61e95d5404c58065d2fd9cc707"
+doc_hash = "sha256:6a2689a69158d6189e31da1f5b5c1a456f601024760234674ec6774783eb288e"
 
 [[module."engine.rs".function]]
 id = "fn:b1cc436700068327"
@@ -1364,7 +1371,7 @@ doc_hash = "sha256:509f2497266fed2f19e97d97c2301f76aeb951f33c89edf6df9f1a55069e4
 id = "fn:e725baf75a31241a"
 name = "mesh_unstructured_dual"
 qual = "mesh_unstructured_dual"
-hash = "sha256:45822386f3a04afb093324a096a8f4cbd118182e5c645c73f37a5fbb67958508"
+hash = "sha256:50e96f48dc4fc13da77f01cb257f83c965c4592da43c52e99444c22f8516e965"
 doc_hash = "sha256:1a9f42134c5cb3ec8fc64a109b8d1963a8873a365d0e950aee3b5b6461037307"
 
 [[module."engine.rs".function]]

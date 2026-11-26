@@ -408,6 +408,11 @@ impl TetDualSpec {
     /// convection scheme's discretisation error in the core, whose cells
     /// TetGen's `-a` bound leaves at ≈ 3.9 mm; 0.9934 at Re 10, 1.0309 with
     /// the core refined to 1.85 mm; the V&V record's gh:#1829 section).
+    /// **DECIDED 2026-11-26 (maintainer, gh:#1829):** a layered pipe's
+    /// TetGen `-a` bound is [`core_tet_volume`] (regular tetrahedron of
+    /// edge min(h, R/4)): 31 293 cells, meshed in 15.7 s natively,
+    /// u_c/2U 0.9738, dp/dz 1.0271 × HP, f Re 65.73 (inside the unchanged
+    /// band; the test passes).
     pub fn default_for(radius: f64) -> Self {
         Self { cell_size: 0.5 * radius, n_layers: 3, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
@@ -707,7 +712,7 @@ pub fn mesh_unstructured_dual(
         //   of the cell size); a bare mesh keeps the carved source every
         //   bare record here was taken on.
         tet_source: if s.n_layers > 0 {
-            TetDualOptions::default().tet_source
+            outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(core_tet_volume(radius, s.cell_size)))
         } else {
             outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid
         },
@@ -2242,6 +2247,29 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
     }
     out.push(format!("# {} steps, {:.2} s wall in the solve", e.steps, wall));
     Ok(out)
+}
+
+
+/// TetGen's `-a` volume bound for a layered pipe (gh:#1829, maintainer
+/// decision 2026-11-26): the regular tetrahedron whose edge is the smaller
+/// of the cell size and `R/4`, `a³/(6√2)`.
+///
+/// **Why R/4.** With layers grown first, TetGen spends its points on the
+/// wall ring and its `-a` bound alone sets the core; at the regular
+/// tetrahedron of the cell size (0.5 R) the core cells stay ≈ 3.9 mm on
+/// the R = 10 mm demo pipe and the default `linearUpwind` +
+/// `cellLimited grad(U)` convection's cross-stream diffusion flattens the
+/// profile: dp/dz 1.107 × Hagen–Poiseuille, u_c/2U 0.882. The rule is a
+/// resolution requirement on the core (about four tetrahedron edges per
+/// radius), stated after the gh:#1829 investigation, which measured core
+/// edges 3.9 → 2.6 → 1.85 mm giving dp/dz 1.107 → 1.073 → 1.031 and
+/// established the cause (Re 10: 0.993; central differencing: 0.989).
+/// It was chosen as a mesh-design rule, not tuned to the band: the record
+/// is the gh:#1829 section of
+/// `outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+pub fn core_tet_volume(radius: f64, cell_size: f64) -> f64 {
+    let a = cell_size.min(0.25 * radius);
+    a * a * a / (6.0 * core::f64::consts::SQRT_2)
 }
 
 #[cfg(test)]
