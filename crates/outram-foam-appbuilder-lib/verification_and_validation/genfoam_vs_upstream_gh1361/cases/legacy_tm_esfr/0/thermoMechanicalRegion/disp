@@ -1,0 +1,19 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      disp;
+}
+
+dimensions      [0 1 0 0 0 0 0];
+internalField   uniform (0 0 0);
+boundaryField
+{
+    zeroDispl { type fixedValue; value uniform (0 0 0); }
+    bottom    { type fixedValue; value uniform (0 0 0); }
+    bottomCR  { type fixedValue; value uniform (0 0 0); }
+    top       { type zeroGradient; }
+    topCR     { type zeroGradient; }
+    defaultFaces { type zeroGradient; }
+}

@@ -67,6 +67,10 @@ use std::path::Path;
 
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
+use uom::si::f64::Time;
+use uom::si::time::second;
+
+use crate::genfoam::common::TimeProfile;
 
 mod flow;
 mod turbulence;
@@ -80,7 +84,7 @@ use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
 
 #[cfg(feature = "std")]
-use super::case::{bool_entry, scalar, word, Ctx};
+use super::case::{bool_entry, scalar, word, Ctx, read_table_time_profile};
 #[cfg(feature = "std")]
 use crate::io::field_reader::{read_vol_scalar_field, read_vol_vector_field};
 #[cfg(feature = "std")]
@@ -286,6 +290,8 @@ pub struct OnePhaseCcCase {
     pub ia_act: Vec<f64>,
     /// `T.fixedTemperature` (read from the start directory) per cell.
     pub t_fixed: Vec<f64>,
+    /// `temperatureTimeProfile` of each `fixedTemperature` zone (gh:#1813): the cells of the zone and the table of scaling factors.
+    pub t_profiles: Vec<(Vec<usize>, TimeProfile)>,
     /// `heatTransferModels` per cell.
     pub htc_model: Vec<Option<FsHtcModel>>,
     /// `htc` read from the start directory (cells outside the model zones keep it).
@@ -552,6 +558,7 @@ impl OnePhaseCcCase {
         let mut fixed_cells = vec![false; n];
         let mut momentum_source = vec![Vector3::ZERO; n];
         let mut t_fixed_default = vec![0.0; n];
+        let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
             for refused in ["powerOffCriterionModel", "heatExchangers"] {
@@ -593,8 +600,12 @@ impl OnePhaseCcCase {
                 if word(pm, "type").as_deref() != Some("fixedTemperature") {
                     return Err(ctx.e("only the fixedTemperature powerModel is ported here"));
                 }
-                if pm.get("temperatureTimeProfile").is_some() || pm.get_dict("temperatureTimeProfile").is_some() {
-                    return Err(ctx.e("fixedTemperature temperatureTimeProfile is not ported"));
+                match pm.get_dict("temperatureTimeProfile") {
+                    Some(d) => t_profiles.push((cells.clone(), read_table_time_profile(&ctx, d, "temperatureTimeProfile")?)),
+                    None if pm.get("temperatureTimeProfile").is_some() => {
+                        return Err(ctx.e("temperatureTimeProfile must be a dictionary"))
+                    }
+                    None => {}
                 }
                 let ia = ctx.f64(pm, "volumetricArea")?;
                 let t_pm = scalar(pm, "T");
@@ -742,6 +753,7 @@ impl OnePhaseCcCase {
             dh,
             ia_act,
             t_fixed,
+            t_profiles,
             htc_model,
             htc0,
             t,
@@ -771,6 +783,8 @@ pub struct OnePhaseCcSolver {
     t: Vec<f64>,
     /// `Tact`: `T.fixedTemperature` on the power-model cells, 0 elsewhere.
     t_act: Vec<f64>,
+    /// `T_.oldTime()` of the `fixedTemperature` models: `Tact` at the start of the time step (gh:#1813).
+    t_act_old: Vec<f64>,
     htc: Vec<f64>,
     re: Vec<f64>,
     cont_err: Vec<f64>,
@@ -837,6 +851,7 @@ impl OnePhaseCcSolver {
             .and_then(|fc| fc.turbulence.as_ref().map(|tc| TurbState::new(&geom, tc, &fc.nut, &fc.nut_boundary, &case.alphat)));
         let (case_p, case_arp, case_ap) = (case.p.clone(), case.alpha_rho_phi.clone(), case.alpha_phi.clone());
         let t_act: Vec<f64> = (0..n).map(|c| if case.ia_act[c] != 0.0 { case.t_fixed[c] } else { 0.0 }).collect();
+        let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
@@ -849,6 +864,7 @@ impl OnePhaseCcSolver {
             he,
             t,
             t_act,
+            t_act_old,
             htc,
             re,
             cont_err,
@@ -866,6 +882,8 @@ impl OnePhaseCcSolver {
             flow,
             turb,
         };
+        // the structure constructor calls `correctT` once, which runs `temperatureUpdate()` at the start time
+        s.temperature_update();
         s.update_re();
         s
     }
@@ -950,6 +968,7 @@ impl OnePhaseCcSolver {
         self.dt = dt;
         self.time += dt;
         self.he_old = self.he.clone();
+        self.t_act_old = self.t_act.clone();
         let uc = self.u.c.clone();
         if let Some(fs) = self.flow.as_mut() {
             fs.u_old = uc;
@@ -1013,6 +1032,19 @@ impl OnePhaseCcSolver {
             let norm = self.alpha[c] / (1.0 - self.case.alpha_structure[c]);
             let re = norm * self.u.c[c].mag() * self.case.dh[c] / nu;
             self.re[c] = re.max(self.case.min_re);
+        }
+    }
+
+    /// `fixedTemperature::temperatureUpdate` (gh:#1813): for each zone with a `temperatureTimeProfile`,
+    /// `T_[c] = f(t) * (T_old[c] / f(t - deltaT))` with `t = timeOutputValue()`, `T_old` the value at the start of the step
+    /// (`T_.oldTime()`, stored once per step, so repeating it within a step gives the same result). Then `Tact` takes it.
+    fn temperature_update(&mut self) {
+        for (cells, profile) in &self.case.t_profiles {
+            let f_now = profile.value(Time::new::<second>(self.time));
+            let f_old = profile.value(Time::new::<second>(self.time - self.dt));
+            for &c in cells {
+                self.t_act[c] = f_now * (self.t_act_old[c] / f_old);
+            }
         }
     }
 
@@ -1176,6 +1208,8 @@ impl OnePhaseCcSolver {
             tmin = tmin.min(self.t[c]);
             tmax = tmax.max(self.t[c]);
         }
+        // `structure_.correct(Hs*T.prevIter(), Hs)` runs at the END of EEqn_1p.H: `fixedTemperature::correctT` -> `temperatureUpdate`
+        self.temperature_update();
         (perf.initial_residual, (st / sv, tmin, tmax))
     }
 

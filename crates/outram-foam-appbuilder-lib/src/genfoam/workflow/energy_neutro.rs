@@ -338,6 +338,7 @@ pub struct EnergyNeutroTransient {
     p_old_reference: f64,
     first_step: bool,
     per_call_old_time: bool,
+    lower_bound_residual: bool,
 }
 
 impl EnergyNeutroTransient {
@@ -351,7 +352,7 @@ impl EnergyNeutroTransient {
     pub fn new(inner: EnergyNeutroDiffusion, settings: TransientSettings) -> Result<Self, WorkflowError> {
         let p_old_reference = inner.neutro.upstream_power_at_reference_state(&inner.xs, &inner.zone_map)?;
         let dt = settings.control_delta_t;
-        Ok(Self { inner, settings, dt, p_old_reference, first_step: true, per_call_old_time: false })
+        Ok(Self { inner, settings, dt, p_old_reference, first_step: true, per_call_old_time: false, lower_bound_residual: false })
     }
 
     /// ABLATION, the form before gh:#1832: every coupling iteration snapshots the neutronics' old-time flux and
@@ -360,6 +361,15 @@ impl EnergyNeutroTransient {
     #[must_use]
     pub fn with_per_call_old_time_snapshot(mut self) -> Self {
         self.per_call_old_time = true;
+        self
+    }
+
+    /// DEPRECATED (gh:#1813): use the round 9 stand-in for the neutronics `residual_` (`max` of the first-iteration group
+    /// residuals and the whole `neutroResidual` history, larger than upstream's value when the neutron loop iterates more
+    /// than once) instead of upstream's form (`fluxEq.H:29` second-solve residuals and the final `neutroResidual`).
+    #[must_use]
+    pub fn with_lower_bound_neutro_residual(mut self) -> Self {
+        self.lower_bound_residual = true;
         self
     }
 
@@ -408,6 +418,7 @@ impl EnergyNeutroTransient {
             first_step: self.first_step,
         });
         let p_old_reference = self.p_old_reference;
+        let lower_bound_residual = self.lower_bound_residual;
         let this = RefCell::new(&mut self.inner);
         let outcome = correct_physics_loop(
             min_residual,
@@ -446,12 +457,8 @@ impl EnergyNeutroTransient {
                             w.p_tot_old = if w.first_step { p_old_reference } else { rep.power_old };
                             w.first_step = false;
                             w.neutron_iterations = rep.neutron_iterations;
-                            w.neutro_residual = rep
-                                .first_iteration_group_residuals
-                                .iter()
-                                .chain(rep.residual_history.iter())
-                                .copied()
-                                .fold(0.0, f64::max);
+                            w.neutro_residual =
+                                if lower_bound_residual { rep.residual_lower_bound_form } else { rep.residual };
                             c.neutro_power_density = c.neutro.upstream_power_density();
                         }
                         Err(e) => {

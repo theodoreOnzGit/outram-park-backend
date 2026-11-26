@@ -187,6 +187,11 @@ since 2026-11-01 a normal edge `tampines → farrer-park` (gh:#1069:
 `tampines::fem1d` takes its Gauss line rule from
 `farrer_park::quadrature::facet_rule`; farrer-park's own dependencies were
 already in tampines's tree, and farrer-park does not depend on tampines). **Both edges, `tampines → outram-foam-*` and `tampines → farrer-park`, are approved by the maintainer (2026-11-01: "Tampines can depend on outram-foam and farrer park").**;
+**`outram-foam-appbuilder-lib → farrer-park` (2026-11-26, gh:#1782, a normal edge, the maintainer asking for a finite-element
+structural mechanics "selectable by enum"):** `genfoam::thermo_mechanics::fem` reuses farrer-park's mesh, `Hex8`/`Tet4`,
+quadrature, `BMatrix`, CSR assembly, Dirichlet elimination and CG + ILU(0). farrer-park depends only on petir, uom,
+thiserror-nostd, hashbrown and outram-foam-basic-lib, so no cycle; checked: `cargo check --no-default-features --target
+x86_64-unknown-none` and `--target wasm32-unknown-unknown` on the appbuilder both pass with the edge;
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD

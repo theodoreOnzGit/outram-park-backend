@@ -433,7 +433,13 @@ fn msfr_light_chain_matches_upstream() {
     let ablated = rel(rec.power, tr["POWER_1"][0]);
     println!("ABLATION per-iteration old-time snapshot: step-1 power rel {ablated:.3e}");
     assert!(ablated > 1e-3, "the pre-gh:#1832 form must still miss: {ablated:e}");
+    // DEPRECATED neutronics `residual_` stand-in (gh:#1813): above 5e-5 here (residual 1e-4), so upstream's form and the
+    // stand-in take the same decision (3 unconverged coupling iterations) and the step is bit for bit the same
+    let mut lb = TransientRun::EnergyNeutroDiffusion(t0.clone().with_lower_bound_neutro_residual());
+    let rec_lb = lb.step_adjustable().expect("stand-in residual step");
+    assert_eq!((rec_lb.coupling_iterations, rec_lb.coupling_converged), (3, false));
     let trep = compare_transient(&mut run, &tr, 5, (false, 3), 2e-10);
+    assert_eq!(rec_lb.power, trep.first_power, "the stand-in residual changes nothing when the loop is unconverged either way");
     assert_eq!(run.k_eff(), frozen, "keff_ is frozen in the transient");
     println!(
         "LIGHT CHAIN: transient 5 steps worst rel dt {:.3e}, T {:.3e}, power {:.3e}, h1 {:.3e}; step-1 power {:.6e}; wall {:.1} s",

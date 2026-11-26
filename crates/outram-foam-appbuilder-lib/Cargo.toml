@@ -49,6 +49,10 @@ serde = { workspace = true, optional = true }
 outram-foam-basic-lib = { workspace = true }
 outram-foam-turbulence-lib = { workspace = true }
 outram-foam-multiphase = { workspace = true }
+# gh:#1782: the finite-element thermo-mechanics (`genfoam::thermo_mechanics::fem`) reuses farrer-park's mesh, elements,
+# quadrature, B matrix, CSR assembly, Dirichlet elimination and ILU-preconditioned CG. farrer-park depends only on
+# petir, uom, thiserror-nostd, hashbrown and outram-foam-basic-lib, so no cycle; no_std + alloc without `std`.
+farrer-park = { workspace = true }
 
 [features]
 default = ["std", "long-tests"]
@@ -62,6 +66,7 @@ std = [
     "outram-foam-basic-lib/std",
     "outram-foam-turbulence-lib/std",
     "outram-foam-multiphase/std",
+    "farrer-park/std",
 ]
 # Tests over 5 minutes (root CLAUDE.md "Slow tests and CI"): on by default,
 # skipped by `cargo quick-test`. ADDED 2026-11-03 for the HTR-10 R-Z mesh

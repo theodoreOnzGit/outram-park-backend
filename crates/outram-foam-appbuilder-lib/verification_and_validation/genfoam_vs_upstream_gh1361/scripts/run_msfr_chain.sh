@@ -51,6 +51,14 @@ elif [ "$STAGE" = transient ]; then
   sed -i 's/^\( *\)solveFluidMechanics .*/\1solveFluidMechanics false;/' $C/system/fluidRegion/fvSolution
   # gh:#1814 round 14: COUPLING_ITERS overrides maxIterations of the coupling loop (the light chain uses 1)
   if [ -n "$COUPLING_ITERS" ]; then sed -i "s/^\( *\)maxIterations .*/\1maxIterations $COUPLING_ITERS;/" $C/constant/multiRegionCouplingDict_transient; fi
+  # gh:#1813 round 22: MIN_RESIDUAL overrides minResidual of the coupling loop (an entry of upstream's own dictionary)
+  if [ -n "$MIN_RESIDUAL" ]; then sed -i "s/^\( *\)minResidual .*/\1minResidual $MIN_RESIDUAL;/" $C/constant/multiRegionCouplingDict_transient; fi
+  # gh:#1813 round 22: HX_TEMPERATURE_PROFILE=1 adds a `temperatureTimeProfile` (a table of scaling factors, the form of
+  # fixedTemperature.H's own example) to the `hx` fixedTemperature powerModel: 1 until 165 s, then a linear ramp to 0.95 at 175 s
+  if [ "$HX_TEMPERATURE_PROFILE" = 1 ]; then
+    perl -0pi -e 's/(type\s+fixedTemperature;\n\s+volumetricArea\s+200;\n\s+T\s+900;\n)/$1            temperatureTimeProfile\n            {\n                type            table;\n                startTime       0;\n                table           table\n                (\n                    (0 1)\n                    (165 1)\n                    (175 0.95)\n                );\n            }\n/' $C/constant/fluidRegion/phaseProperties
+    grep -c temperatureTimeProfile $C/constant/fluidRegion/phaseProperties
+  fi
   cp $C/constant/multiRegionCouplingDict_transient $C/constant/multiRegionCouplingDict
   rm $C/constant/multiRegionCouplingDict_*
   if [ "$PROTOCOL" = tight ]; then

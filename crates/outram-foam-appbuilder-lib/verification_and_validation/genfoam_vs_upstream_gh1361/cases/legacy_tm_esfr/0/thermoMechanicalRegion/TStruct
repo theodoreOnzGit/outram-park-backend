@@ -1,0 +1,17 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      TStruct;
+}
+
+dimensions      [0 0 0 1 0 0 0];
+internalField   uniform 668;
+boundaryField
+{
+    ".*"
+    {
+        type            zeroGradient;
+    }
+}

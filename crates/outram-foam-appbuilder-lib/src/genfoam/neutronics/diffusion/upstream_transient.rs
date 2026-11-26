@@ -82,7 +82,7 @@ use outram_foam_basic_lib::ldu_matrix::solvers::krylov_solve::KrylovOptions;
 use outram_foam_basic_lib::prelude::{fvm, Field, FvMatrix, VolScalarField};
 
 use super::DiffusionNeutronics;
-use crate::genfoam::neutronics::pseudo_time::{field_like, solve_twice};
+use crate::genfoam::neutronics::pseudo_time::{field_like, solve_twice_residuals};
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::neutronics::NeutronicsError;
 
@@ -149,6 +149,16 @@ pub struct UpstreamTransientStep {
     /// The first-solve initial residual of each group in the first neutron
     /// iteration (the `Solving for fluxStarG, Initial residual` lines).
     pub first_iteration_group_residuals: Vec<f64>,
+    /// `residual_` of upstream's `diffusionNeutronics` after this call (gh:#1813): `max` over every group of every neutron
+    /// iteration of the SECOND solve's initial residual (`fluxEq.H:29`) and the final iteration's `neutroResidual`
+    /// (`solveNeutronics.H:138`; `neutroResidual` is reset at the top of every iteration).
+    pub residual: f64,
+    /// The second-solve term of [`Self::residual`] alone (the already-solved system's initial residual; at the tight
+    /// protocol it is at the solver tolerance, far below the other term).
+    pub second_solve_residual: f64,
+    /// DEPRECATED form of `residual`, what the round 9 harness used: `max(first-iteration group residuals, whole
+    /// neutroResidual history)`. Equal to `residual` when the neutron loop takes one iteration, larger otherwise.
+    pub residual_lower_bound_form: f64,
 }
 
 /// `fvm::ddt(coeff, psi)` of `EulerDdtScheme::fvmDdt(vsf, vf)`, operation
@@ -310,6 +320,7 @@ impl DiffusionNeutronics {
         let mut neutro_residual;
         let mut residual_history = Vec::new();
         let mut first_iteration_group_residuals = Vec::new();
+        let mut second_solve_residual = 0.0_f64;
         loop {
             // fluxEq.H
             neutro_residual = 0.0_f64;
@@ -357,9 +368,10 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, prompt), flux_g)
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
-                let (sol, init_res) =
-                    solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
+                let (sol, init_res, second_res) =
+                    solve_twice_residuals(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
                 neutro_residual = neutro_residual.max(init_res);
+                second_solve_residual = second_solve_residual.max(second_res);
                 if neutro_iter == 0 {
                     first_iteration_group_residuals.push(init_res);
                 }
@@ -388,6 +400,12 @@ impl DiffusionNeutronics {
         }
 
         self.update_derived_fields();
+        let residual_lower_bound_form = first_iteration_group_residuals
+            .iter()
+            .chain(residual_history.iter())
+            .copied()
+            .fold(0.0, f64::max);
+        let residual = second_solve_residual.max(neutro_residual);
         Ok(UpstreamTransientStep {
             power_old,
             power: self.upstream_power(),
@@ -396,6 +414,9 @@ impl DiffusionNeutronics {
             neutro_residual,
             residual_history,
             first_iteration_group_residuals,
+            residual,
+            second_solve_residual,
+            residual_lower_bound_form,
         })
     }
 

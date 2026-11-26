@@ -67,12 +67,37 @@
 //! alone against analytical benchmarks (see the `#[test]` V&V cases in each
 //! submodule, and the coupled field-solve V&V in [`mesh_solve`]).
 //!
+//! ## Parity with upstream: [`legacy_fvm`] (gh:#1781, round 23)
+//!
+//! [`legacy_fvm::LegacyFvmThermoMechanics`] is the line-by-line translation of upstream's
+//! `solvers::legacyThermoMechanics::correctPhysics()` on a finite-volume mesh: per-zone properties from
+//! `cellZones`, the `isPorous`-scaled asymmetric `TEqn`, the `compactNormalStress` displacement loop with
+//! `leastSquares`/`Gauss linear` gradients and the explicit non-orthogonal correction of
+//! `Gauss linear corrected`, the axial `fuelDisp`/`CRDisp` expansion equations and `meshDisp`. It agrees with the
+//! real class, and with the real `GeN-Foam` executable, bit for bit on the 3D_SmallESFR mechanics region
+//! (`verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 23"). It is the type a later
+//! finite-element mechanics ([`fem`], gh:#1782) is selected beside by [`StructuralDiscretisation`]
+//! ([`ThermoMechanicsRegion`], finite volume the default). [`MechanicsMeshSolver`] below is the older,
+//! simpler solver and is NOT upstream's algorithm.
+//!
+//! ## Finite elements beside finite volumes: [`fem`], [`structural_region`] (gh:#1782, round 25)
+//!
+//! [`fem::FemThermoElastic`] solves steady small-strain thermo-elasticity by finite elements on the same `polyMesh`
+//! and the same per-zone cards and `TStruct`, reusing `farrer-park` (`Hex8`, or `Tet4` by a conforming cone
+//! decomposition of prisms and polyhedra). [`StructuralDiscretisation`] selects it; [`ThermoMechanicsRegion`] runs the
+//! chosen one and feeds ITS displacement to the finite-volume solver's own `fuelDisp` / `CRDisp` / `meshDisp` code, so
+//! the feedback path is identical. Verified by closed forms, against the finite-volume solver and against scikit-fem:
+//! `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 25". `zeroGradient` becomes the natural
+//! (traction-free) condition, which is NOT the same condition; read the module documentation of [`fem`].
+//!
 //! ## Still deferred
 //!
-//! An anisotropic stiffness (needs a tensor-coefficient Laplacian), a traction
-//! (`σ·n = 0`) boundary condition on `D`, non-orthogonal gradient correction,
-//! and the multi-region mapping of the 1-D axial fuel/CR expansion onto a shared
-//! mesh — see the limitations note in [`mesh_solve`].
+//! ~~An anisotropic stiffness (needs a tensor-coefficient Laplacian)~~ **CORRECTED 2026-11-26:** upstream's
+//! `legacyThermoMechanics` has no anisotropic stiffness (isotropic `mu_`, `lambda_`), so there is nothing to port;
+//! ~~non-orthogonal gradient correction~~ **ADDED** in [`legacy_fvm`]. ~~the traction
+//! (`GFTractionDisplacement`) boundary condition~~ **ADDED 2026-11-26 (gh:#1235, round 24)** in [`legacy_fvm::traction`], bit-identical to the real class. Still deferred: the `gapContact` boundary condition on `D` (its arithmetic is ported, the two-region coupling is gh:#1846), `compactNormalStress no`
+//! and transient `d2dt2` (gh:#1845), and `movePoints` of the other regions' meshes (gh:#1784); the multi-region
+//! mapping of the expansion onto a shared mesh — see the limitations note in [`mesh_solve`].
 //!
 //! ## Interface expected from `genfoam::common` (ported in parallel)
 //!
@@ -94,9 +119,12 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod feedback;
+pub mod fem;
+pub mod legacy_fvm;
 pub mod material;
 pub mod mesh_solve;
 pub mod stress;
+pub mod structural_region;
 
 // Curated re-exports (human interface layer): the types a user needs to build
 // and query a thermo-mechanics model without hunting through submodules.
@@ -105,6 +133,8 @@ pub use material::{
     BulkModulusTerm, Displacement, ElasticMaterial, LameLambda, MaterialError, RheologyOption,
     ShearModulus, Stress, ThermalDiffusivity, ThermalExpansionCoeff, YoungsModulus,
 };
+pub use legacy_fvm::LegacyFvmThermoMechanics;
+pub use structural_region::{StructuralDiscretisation, ThermoMechanicsRegion};
 pub use mesh_solve::{DisplacementReport, MechanicsMeshSolver};
 pub use stress::{
     deviatoric_plus_volumetric_stress, hydrostatic_stress, thermal_stress, von_mises_stress,

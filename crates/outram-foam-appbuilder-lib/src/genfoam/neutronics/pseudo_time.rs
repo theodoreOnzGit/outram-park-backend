@@ -314,6 +314,24 @@ pub(crate) fn solve_twice(
     (second, initial)
 }
 
+/// As [`solve_twice`], and also returns the SECOND solve's initial residual (`fluxEq.H:29`:
+/// `residual_ = max(neutroEq.solve().max().initialResidual(), residual_)`), which is the residual of the
+/// already solved system in OpenFOAM's normalisation, `LduMatrix::openfoam_initial_residual` of the first
+/// solve's result. Returns `(field after the second solve, first initial residual, second initial residual)`.
+pub(crate) fn solve_twice_residuals(
+    eqn: &FvMatrix,
+    name: &str,
+    start: &VolScalarField,
+    settings: SolverSettings,
+) -> (VolScalarField, f64, f64) {
+    let b: Vec<f64> = eqn.source.iter().copied().collect();
+    let initial = eqn.ldu.openfoam_initial_residual(start.internal.as_slice(), &b);
+    let (first, _) = eqn.solve_cg_with_guess(name.to_string(), start, settings);
+    let second_initial = eqn.ldu.openfoam_initial_residual(first.internal.as_slice(), &b);
+    let (second, _) = eqn.solve_cg_with_guess(name.to_string(), &first, settings);
+    (second, initial, second_initial)
+}
+
 /// A coefficient or source field of `values` on the mesh of `template`, with
 /// zero-gradient patches. (A coefficient such as `D` is a field whose boundary
 /// value is the cell value, as the cross-section fields of upstream are; a
