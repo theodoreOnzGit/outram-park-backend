@@ -105,6 +105,26 @@ fn opts(cell_cm: f64, refine: u8, dual: bool) -> TetDualOptions {
     }
 }
 
+/// [`opts`] on TetGen's tetrahedra (the cfMesh default, sized by the cell
+/// size), unless `refine > 0` asks for the octree only the carved route
+/// has. The neutronics and thermal-hydraulics meshes (maintainer,
+/// 2026-11-26: "TetGen dual"); the structural Tet4 mesh stays carved.
+fn opts_tetgen(cell_cm: f64, refine: u8, dual: bool) -> TetDualOptions {
+    let o = opts(cell_cm, refine, dual);
+    if refine > 0 {
+        return o;
+    }
+    TetDualOptions { tet_source: TetDualOptions::default().tet_source, ..o }
+}
+
+/// Step 7's snapping settings: on unless `DHOBY_NO_SNAP=1`; the morph band is
+/// one cell (`DHOBY_SNAP_MORPH=0` turns the morph off).
+fn step7_snap(cell_cm: f64) -> (bool, f64) {
+    let on = std::env::var("DHOBY_NO_SNAP").as_deref() != Ok("1");
+    let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { cell_cm / 100.0 };
+    (on, delta)
+}
+
 fn to_m(profile: &[[f64; 2]]) -> Vec<[f64; 2]> {
     profile
         .iter()
@@ -156,7 +176,7 @@ fn mesh_role(
     d: &RzDomain,
     plan: &MeshPlan,
     role: MeshRole,
-) -> Result<(VolumeMesh, Vec<String>, CellType), String> {
+) -> Result<(VolumeMesh, Vec<String>, CellType, bool), String> {
     let s = &plan.roles[role.index()];
     match role {
         MeshRole::Neutronics => {
@@ -165,9 +185,9 @@ fn mesh_role(
             let (vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh(
                 &p,
                 &t,
-                &opts(s.cell_size_cm, s.refine, true),
+                &opts_tetgen(s.cell_size_cm, s.refine, true),
             )?;
-            Ok((vm, rep.stage_notes, CellType::TetDual))
+            Ok((vm, rep.stage_notes, CellType::TetDual, false))
         }
         MeshRole::Structural => {
             let prof = to_m(&d.structural_profile());
@@ -179,7 +199,7 @@ fn mesh_role(
             };
             let (vm, rep) =
                 outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh(&p, &t, &o)?;
-            Ok((vm, rep.stage_notes, CellType::Tet4))
+            Ok((vm, rep.stage_notes, CellType::Tet4, false))
         }
         MeshRole::ThermalHydraulics => {
             let prof = to_m(&d.th_profile());
@@ -207,13 +227,25 @@ fn mesh_role(
                 })
                 .collect();
             let regions = SurfaceRegions::from_labels(&labels);
-            let (vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(
+            let (mut vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(
                 &p,
                 &t,
                 &regions,
-                &opts(s.cell_size_cm, s.refine, true),
+                &opts_tetgen(s.cell_size_cm, s.refine, true),
             )?;
             let mut notes = rep.stage_notes;
+            // Snap the bare dual FIRST (2026-11-26, maintainer: "snap the
+            // layered TH mesh properly"), then grow the layers on the true
+            // wall, so every layer column is built from the snapped surface
+            // rather than moved after it (snapping a layered mesh took its
+            // worst face to 92.7 deg). After the layers, only the surface
+            // faces are snapped again (no morph): the layerer's untangling
+            // may move a wall point off the cylinder.
+            let segs = profile_segments_m(&d.th_profile());
+            let (snap_on, delta) = step7_snap(s.cell_size_cm);
+            if snap_on {
+                notes.push(snap_checked(&mut vm, None, &segs, s.n_seg, delta)?);
+            }
             // Boundary layers on the fluid's wall only (maintainer default:
             // fluid = tet-dual + layers, porous = tet-dual). The pipeline grows
             // layers before naming patches, so they are grown here, on the
@@ -253,17 +285,26 @@ fn mesh_role(
                     100.0 * lo.full_coverage(),
                     s.layers
                 ));
-                let named = assign_patches_by_region(&layered, &p, &t, &regions)?;
+                let mut named = assign_patches_by_region(&layered, &p, &t, &regions)?;
                 let q = outram_park_fork_cfmesh::checks::check_quality(&named);
                 if named.validate().is_ok() && q.n_negative_volume_cells == 0 {
                     if named.n_cells == before {
                         notes.push("boundary layers added none on cavity_wall (the adaptive layerer backed off)".into());
                     }
-                    return Ok((named, notes, CellType::TetDualWithLayers));
+                    if snap_on {
+                        match snap_checked(&mut named.clone(), None, &segs, s.n_seg, 0.0) {
+                            Ok(_) => {
+                                let n = snap_checked(&mut named, None, &segs, s.n_seg, 0.0)?;
+                                notes.push(format!("after the layers: {n}"));
+                            }
+                            Err(e) => notes.push(format!("after the layers, the surface re-snap was refused ({e}); the layered mesh is kept as grown on the snapped wall")),
+                        }
+                    }
+                    return Ok((named, notes, CellType::TetDualWithLayers, snap_on));
                 }
                 notes.push("boundary layers skipped: they would invalidate the mesh".into());
             }
-            Ok((vm, notes, CellType::TetDual))
+            Ok((vm, notes, CellType::TetDual, snap_on))
         }
     }
 }
@@ -409,7 +450,7 @@ pub fn build(
             k as f64 / 6.0,
         ));
         let t = Instant::now();
-        let (mut vm, mut notes, cell_type) = mesh_role(d, plan, role)?;
+        let (mut vm, mut notes, cell_type, already_snapped) = mesh_role(d, plan, role)?;
         // Snap onto the true surface of revolution (2026-11-26, "snap
         // properly"): the profile's cylinders and cone, not its facets.
         let prof = match role {
@@ -419,14 +460,10 @@ pub fn build(
         };
         let n_seg = plan.roles[role.index()].n_seg;
         // `DHOBY_NO_SNAP=1` is the ablation (Step 7 has no flag of its own).
-        let snap_on = std::env::var("DHOBY_NO_SNAP").as_deref() != Ok("1");
-        let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { plan.roles[role.index()].cell_size_cm / 100.0 };
-        // A mesh with prism layers is not snapped (measured 2026-11-26 on
-        // the TH mesh: snapped, its worst face reaches 92.7 deg, over 90,
-        // whatever the morph band (1, 2 or 3 cells); unsnapped 89.6). The
-        // layer columns would have to move as units; not done yet.
-        if snap_on && cell_type == CellType::TetDualWithLayers {
-            notes.push("not snapped: a mesh with prism layers stays on the faceted surface (snapping took the TH mesh's worst face over 90 deg)".into());
+        let (snap_on, delta) = step7_snap(plan.roles[role.index()].cell_size_cm);
+        // The TH mesh snaps itself, before its layers (`mesh_role`).
+        let _ = cell_type;
+        if already_snapped {
         } else if snap_on {
             notes.push(snap_checked(&mut vm, None, &profile_segments_m(&prof), n_seg, delta).map_err(|e| format!("{}: {e}", role.name()))?);
         } else {
@@ -877,8 +914,8 @@ pub fn fitted_cht_surface(map: &RegionMap, t: &RzTiling, n_seg: usize) -> outram
 /// boundary faces and, given `cell_region`, the internal faces between two
 /// regions. A surface face whose unit normal is mostly radial (`|n_z| <
 /// 0.5`) lies on the cylinder or cone `segs[i]` whose true radius at the
-/// face centre's height `R(z_c)` satisfies `R cos(pi/n) - 1e-6 <= r_c <= R +
-/// 1e-6` (m) with `z_c` in its range: every point of that face moves
+/// face centre's height `R(z_c)` satisfies `R cos(pi/n) - 0.005 R <= r_c <= R
+/// + 0.005 R` with `z_c` in its range: every point of that face moves
 /// radially, at its own height, to `R(z)`. Faces of the discs (`|n_z| >=
 /// 0.5`) do not move their points; a rim point shared with a cylinder face
 /// moves radially and so stays in the disc's plane. It classifies faces,
@@ -914,8 +951,13 @@ pub fn snap_faces_to_revolved(mesh: &mut VolumeMesh, cell_region: Option<&[usize
             if c.z < zl - 1e-9 || c.z > zh + 1e-9 {
                 return false;
             }
+            // Margin 0.5 % of R either side: a face the layerer's untangler
+            // pushed off the cylinder (0.8 mm out on the 90 cm TH wall,
+            // 2026-11-26) is still recognised; neighbouring cylinders of these
+            // profiles are at least 5 % apart.
             let rt = r_of(sg, c.z);
-            rc >= rt * cosn - 1e-6 && rc <= rt + 1e-6
+            let m = 5e-3 * rt;
+            rc >= rt * cosn - m && rc <= rt + m
         });
         if let Some(i) = hit {
             for &v in &mesh.faces[f] {

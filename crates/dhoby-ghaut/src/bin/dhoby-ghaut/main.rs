@@ -956,6 +956,32 @@ mod tests {
         for p in ["inlet", "outlet", "cavity_wall", "bed_wall"] {
             assert!(th.patches.iter().any(|q| q.0 == p && q.1 > 0), "TH patch {p}");
         }
+        // Snapped (2026-11-26): every point of the TH mesh's side walls,
+        // layered or not, is on the true cylinder r = core radius to 1e-9 m
+        // (the dual was snapped before its layers grew, the surface again
+        // after), and the neutronics mesh's outer wall on r = r_outer.
+        let ro = d.r_outer / 100.0;
+        let rc = d.core_radius / 100.0;
+        let on_cylinder = |m: &outram_blender::unstructured::UnstructuredMesh, patch: &str, r: f64| {
+            let pt = m.patches().iter().find(|q| q.name == patch).expect("patch");
+            let mut n = 0;
+            for &f in &pt.faces {
+                for &v in m.face(f) {
+                    let x = m.points()[v];
+                    let rr = (x[0] * x[0] + x[1] * x[1]).sqrt();
+                    // Only the side wall (not the disc faces of the same patch).
+                    if (rr - r).abs() < 0.02 * r {
+                        assert!((rr - r).abs() < 1e-9, "{patch}: point at r {rr}, want {r}");
+                        n += 1;
+                    }
+                }
+            }
+            n
+        };
+        let thm = &b.meshes[MeshRole::ThermalHydraulics.index()];
+        assert!(on_cylinder(thm, "cavity_wall", rc) > 0 && on_cylinder(thm, "bed_wall", rc) > 0);
+        assert!(on_cylinder(&b.meshes[MeshRole::Neutronics.index()], "walls", ro) > 0);
+        assert_eq!(th.cell_type, dhoby_ghaut::workbench::meshes::CellType::TetDualWithLayers, "TH layers grew");
         assert!(th.regions.iter().all(|r| r.cells == 0 || plan.regions.regions[r.region].in_core));
         for to in [MeshRole::ThermalHydraulics, MeshRole::Structural] {
             let m = b.set.mapping(MeshRole::Neutronics, to).unwrap();

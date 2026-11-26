@@ -83,48 +83,49 @@ and anything off the two planes drawn.
 
 ### Re-measured 2026-11-26: snapped to the true geometry; TH layers restored
 
-**What changed.** Step 7 stays on the **carved** route (`opts()`: gh:#1829
-made TetGen the cfMesh default, and Step 7 asks for the carved source
-explicitly, as the octree refinement `refine` needs it). Two changes on
-2026-11-26:
+**Current state (later on 2026-11-26; maintainer: "Snap the layered TH mesh
+properly too and neutronics. Tetgen dual").** The neutronics and TH meshes
+are TetGen tet-duals (`opts_tetgen`: the cfMesh default, sized by the cell
+size; carved only if a role asks for octree refinement). The structural
+mesh stays carved Tet4, for the FEM. All three are snapped onto the true
+cylinders and cone.
 
-- **Snapped to the true geometry** (maintainer: "snap properly"): the
-  neutronics and structural meshes are morphed and then snapped onto their
-  profile's true cylinders and cone (`morph_to_revolved`,
-  `snap_faces_to_revolved`; method in `../htr10_cht_mesh/README.md`). The
-  TH mesh, which has prism layers, is **not** snapped: snapped, its worst
-  face reached 92.7° (over 90°) for a morph band of 1, 2 or 3 cells;
-  unsnapped it is 89.6°. Snapping a layered wall would need the layer
-  columns moved as units; not done. `DHOBY_NO_SNAP=1` is the ablation.
-- **The TH mesh's layers are back.** Since gh:#1215's layer quality check
-  (2026-11-04), this crate's back-off layerer shrank every column of
-  `cavity_wall` to nothing ("added none"), so the TH mesh had 9 384 cells
-  and no layer. It now uses cfMesh's `boundaryLayerOptimisation`
-  (`add_boundary_layers_cfmesh`) with its untangling passes (boundary
-  moves, LP untangler, Laplace). Without them 2 of the 20 952 cells came out
-  inverted and the layers were refused. TetGen's layers-first route
-  (gh:#1829) refuses this mesh: a column at the `cavity_wall` / `bed_wall`
-  seam at the bed top would be thinner than 1 % of the asked thickness.
-  Cost: the TH layering takes about 3 minutes (the whole `--headless-mesh`
-  run 3 m 40 s on a 4-vCPU Xeon @ 2.10 GHz, against 15–26 s before).
+- **The TH mesh is snapped before its layers grow.** The bare TetGen dual
+  is morphed and snapped, then cfMesh's `boundaryLayerOptimisation` (with its
+  untangling passes) grows the 3 layers on `cavity_wall` from the true wall,
+  so every layer column is built from the snapped surface. Then the surface
+  faces alone are snapped again (no morph), because the untangler moved a
+  wall point 0.8 mm off the cylinder. The face snap recognises a face within
+  0.5 % of R of its cylinder; the HTR-10 radii are at least 5.4 % apart.
+  TetGen's layers-first route (gh:#1829) still refuses this mesh at the
+  `cavity_wall` / `bed_wall` seam, so it is not used.
+- The gate test now asserts that every side-wall point of the TH mesh
+  (layered and not) and of the neutronics outer wall is on its true radius
+  to 1e-9 m, and that the TH layers grew.
 
-| mesh | cells | volume vs exact: record → now | non-star cells | max non-orth |
+| mesh | cells | volume vs exact: 2026-10-05 record → now | non-star cells | max non-orth |
 |---|---|---|---|---|
-| neutronics | 14 041 polyhedra | −1.24 % → **−0.40 %** (snapped) | 390 | 72.4° |
-| thermal-hydraulics | 20 952 (with layers) | −1.29 % → −0.87 % (not snapped) | 67 | 89.6° |
-| structural | 94 392 Tet4 | −0.91 % → **−0.18 %** (snapped) | 0 | 88.0° |
+| neutronics (TetGen dual) | ~~14 041~~ 7 657 polyhedra | −1.24 % → **−0.04 %** | 313 | 56.3° |
+| thermal-hydraulics (TetGen dual + 3 layers) | ~~20 952~~ 12 582 (7 722 layer cells = 3 × 2 574 wall faces) | −1.29 % → **−0.15 %** | 0 | **80.9°** |
+| structural (carved Tet4) | 94 392 | −0.91 % → **−0.16 %** | 0 | 88.0° |
 
-Without snapping (`DHOBY_NO_SNAP=1`) the neutronics and structural meshes
-are the record's exactly (−1.24 %, 73.5°; −0.91 %, 88.0°). The TH mesh is
-now −0.87 % and 89.6°; the record's −1.29 % and 86.5° came from the 2026-10-05
-back-off layers. The "exact" is still `part_volumes`' midpoint quadrature,
-so the last tenth of a percent is not resolved. The TH↔structural overlap
-is 6.5e4 cm³ (record 8.1e4). Files: `meshes_snapped_2026-11-26.csv`,
-`images/snapped_2026-11-26/`. In the TH X-Z image, a small notch at the
-`cavity_wall` / `bed_wall` seam (x ≈ 89–90 cm, z ≈ 52–62 cm) is left
-white: the layer columns' edge points slide along the unlayered bed wall
-there and pull the boundary in. The 2026-10-05 record's image shows the
-same notch; its volume is inside the −0.87 %.
+Whole `--headless-mesh` run: 2 m 34 s on a 4-vCPU Xeon @ 2.10 GHz. The
+TH↔structural overlap is 8.1e4 cm³ (record 8.1e4; both meshes are on the
+true r = 90 cm circle, each with its own chords). The TH X-Z image shows
+the layers on both cavity walls, tapering into the seam at the bed top; the
+notch of the carved mesh is gone. Files: `meshes_snapped_2026-11-26.csv`,
+`images/snapped_2026-11-26/`.
+
+~~**Earlier the same day (merged to `develop` as `d5619c4f0`):** Step 7 on
+the carved route; the neutronics and structural meshes snapped (−0.40 %,
+72.4°; −0.18 %, 88.0°); the TH mesh with its layers restored by cfMesh's
+`boundaryLayerOptimisation` (20 952 cells) but **not snapped**, because
+snapping a layered mesh after the fact took its worst face to 92.7° for
+any morph band (unsnapped 89.6°). It showed a small notch at the seam.~~
+Superseded by snapping before the layers grow, above. The finding still
+holds for the layered carved mesh: snapping after the layers is not safe.
+The TH layers had been missing since gh:#1215's quality check (2026-11-04):
+the back-off layerer shrank every column to nothing.
 
 ~~**Measured earlier the same day on TetGen** (this branch's TetGen
 default before develop's gh:#1829 was merged; not shipped): neutronics 7 657
