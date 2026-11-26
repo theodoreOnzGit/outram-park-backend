@@ -569,6 +569,28 @@ not for solving.
 - `checks::cell_quality` gives per-cell non-orthogonality and skewness
   whose maxima equal the `checkMesh` report bit for bit (pinned).
 
+## Multi-region meshes with fitted interfaces (2026-11-26, NOT a port)
+
+`pipeline::multi_region` meshes several regions in one mesh with every
+interface a set of faces: a `MultiRegionSurface` (outer and interface
+triangles, patch markers, one seed per region component) goes to TetGen
+`-pq..A`; `multi_region_tet_mesh` returns the tetrahedra,
+`multi_region_dual_mesh` duals each region on its own and stitches the
+duals at the interfaces (points merged within 1e-9 of the bounding-box
+diagonal; an unpaired interface face is an error). Needs
+`TetSource::TetGen` with no `-m` wall grading; it does not touch
+`surface_to_tet_dual_mesh*` and grows no layers.
+
+- **The dual's centroid winding can leave a non-convex cell open** (a
+  vertex on a re-entrant edge). `rewind_dual` re-winds from the primal
+  geometry, which is exact for a tet primal; `dual.rs` is unchanged.
+- **`validate` checks closure only**: a cell wound inside out passes. Both
+  multi-region routes also refuse a non-positive cell volume.
+- Only the per-corner boundary rule is stitched; the interface cells carry
+  the worst quality. Record and images (HTR-10, dhoby-ghaut
+  `--headless-cht-mesh`):
+  `crates/dhoby-ghaut/verification_and_validation/htr10_cht_mesh/`.
+
 ## TetGen as the tet source (gh:#1796, 2026-11-26)
 
 > **CHANGED 2026-11-26 (gh:#1829):** TetGen is the pipeline's default tet

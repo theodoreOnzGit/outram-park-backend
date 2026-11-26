@@ -613,6 +613,236 @@ qual = "top_of"
 hash = "sha256:83df9bd293a5aab52a5b75c2f47edf09ce0b5535be5b7803a786590d36be8e20"
 doc_hash = "sha256:17b916b7e2de233921c6cf4c4ab48843d4af2b67481e6bfe01e88dd21b4195a1"
 
+[module."multi_region.rs"]
+path = "?"
+
+[[module."multi_region.rs".function]]
+id = "fn:2225508b4ce8b611"
+name = "MultiRegionMesh"
+qual = "MultiRegionMesh"
+item = "type"
+shape = "struct"
+hash = "sha256:2939cc75a54c6222c6a8becc7be11b589e2cf0db6f4f08ff9d2f3f479bd76648"
+doc_hash = "sha256:4dca23ed8e69546ce8036ce940d90ea0de0aff0493dead798b9b99fe98d5f772"
+
+[[module."multi_region.rs".function]]
+id = "fn:586e7a08aa65b08b"
+name = "MultiRegionSurface"
+qual = "MultiRegionSurface"
+item = "type"
+shape = "struct"
+hash = "sha256:000b24c1fc8486da2c4f91f1806a1b33f5ffb30e9737940eab2fd2065663f905"
+doc_hash = "sha256:79f9eccb674fec8125f7fe67e50cbbaf6622c2ffd88294b3bb3502af94b009ab"
+
+[[module."multi_region.rs".function]]
+id = "fn:e25d6101686f839d"
+name = "validate"
+qual = "MultiRegionSurface::validate"
+hash = "sha256:d4f19c3406728f4b16b9c6f9c1f6b45d7f2f212a00c454fe41cea549cb2adb24"
+doc_hash = "sha256:9096c44fdb0c752bd9b32ced364e6c2526c3a01dc5be82f50e06332cb650bb86"
+
+[[module."multi_region.rs".function]]
+id = "fn:aec49eb0ca39a91b"
+name = "PointMerge"
+qual = "PointMerge"
+item = "type"
+shape = "struct"
+hash = "sha256:8a4ce36b2704143fb9c4eb91903b4a14d1d4a238ecbc29ffe47dd532cf271dc8"
+doc_hash = "sha256:a30525da1b5bf39085cdc8f96e61edd74b2db6225b412a31e1504a4cc66924d1"
+
+[[module."multi_region.rs".function]]
+id = "fn:0c2e2b0790a58cde"
+name = "find_or_insert"
+qual = "PointMerge::find_or_insert"
+hash = "sha256:c203dace3130a4ff9a7fca3c6e519a4d61f05e839cb2a6edef151b4809d618ea"
+doc_hash = "sha256:047df0b9b923e74530ad9eb46dd34011c4cb6800ce6c89777f3af6fd180222a3"
+
+[[module."multi_region.rs".function]]
+id = "fn:11beaaae1ced8acc"
+name = "key"
+qual = "PointMerge::key"
+hash = "sha256:48d4efb85ec896670e4780d4fa9a6c37d8abf4cfe53384debd70ed9d03caadc0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."multi_region.rs".function]]
+id = "fn:4cdbae12a02a2d17"
+name = "a_missing_seed_and_the_carved_source_are_refused"
+qual = "a_missing_seed_and_the_carved_source_are_refused"
+hash = "sha256:16201a66153d90b7504095ed146a9b017d699db6c6a1df17f2983043ec2469a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:b7be588a21c4f39f"
+name = "box_faces"
+qual = "box_faces"
+hash = "sha256:64cce01b8db6ee9d9ffe3774f1b0b608fd0657e73cfadb3027a27be9dd0736ed"
+doc_hash = "sha256:c6b2f566893513c14f419e467428fb897b34f47e64b22ff4d57b1b55c87555ed"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:580e53eec4b33095"
+name = "cell_volumes"
+qual = "cell_volumes"
+hash = "sha256:6d3d6dfcfb8bbcf75551165f7fa5837b42e42f55e3ad3880de8262f2b05706cb"
+doc_hash = "sha256:7044e4e40e3fcd608c833df6e9f3fd0e14ac911ca4a956548798634a01883afb"
+
+[[module."multi_region.rs".function]]
+id = "fn:599d7cf6f84f2445"
+name = "cells_stay_inside"
+qual = "cells_stay_inside"
+hash = "sha256:235905f09b44ca6dd7edd0be2ddde888ca0c123380b45b3080b91516d058b175"
+doc_hash = "sha256:391a3df587037b4492b7e524a5dc976f9235e5cb3c0b640d2c15638d1c02c4a6"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:b0a5bc4cbe0f196e"
+name = "check"
+qual = "check"
+hash = "sha256:342ac7be87e33fdd281baf5e44d360c69cedb521579f5c6f984dec4e4dc9f853"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:653578ee9cf93c31"
+name = "check_positive_volumes"
+qual = "check_positive_volumes"
+hash = "sha256:c3fc1dd0fef717bf0dac591b0b23437a39d3b1bec347f3899a97032b9b079b4e"
+doc_hash = "sha256:0d5eb8f019e22b7f1dec759bfbe1a2dc21eab7733dd74b2c5ac0d9b082212ebc"
+
+[[module."multi_region.rs".function]]
+id = "fn:f9a6a15fe59f9079"
+name = "interface_counts_by_marker"
+qual = "interface_counts_by_marker"
+hash = "sha256:77141a9d053383627f1781388b9ef1cb679afb13e2c6ca75219005791f956cbd"
+doc_hash = "sha256:9887f67b30d78dea6c4705ef230cdab973bb28d2a165ca97975623c0c5f7a2f2"
+
+[[module."multi_region.rs".function]]
+id = "fn:b285745e3593d712"
+name = "multi_region_dual_mesh"
+qual = "multi_region_dual_mesh"
+hash = "sha256:b70ff28975e06f1fb93066ec5b67244645119b39706e1cf049492069f0863ec9"
+doc_hash = "sha256:0e4e3544a6979658bee228d8794ac5ece1add5ca628ffe5d23430afdf0e87e86"
+
+[[module."multi_region.rs".function]]
+id = "fn:0db39f18f712179b"
+name = "multi_region_mesh"
+qual = "multi_region_mesh"
+hash = "sha256:182d8925c2b0419157cecbf702bd23ba5261e35b7e37a38e662c7542d9ed6151"
+doc_hash = "sha256:cf9ab17b981d41cca798481bc53ede6da6d9cafb471c64982e82f28a26db32d8"
+
+[[module."multi_region.rs".function]]
+id = "fn:369e65f60dccb365"
+name = "multi_region_tet_mesh"
+qual = "multi_region_tet_mesh"
+hash = "sha256:51c955c751098bd59981d65c9b92824fc2010b3798746bc73f03a3698bcad463"
+doc_hash = "sha256:d4b2452f2e9b0b27a052fe551283f754da9c9105658ac423d25d20a35e6728fa"
+
+[[module."multi_region.rs".function]]
+id = "fn:ecfa5aa30a11e8b8"
+name = "multi_region_tetgen"
+qual = "multi_region_tetgen"
+hash = "sha256:6079f108ae7864214754b1969804687751f6a6e9e0582fe5427292dbef69b36d"
+doc_hash = "sha256:69fbc5b13c59fb0d2369684564ff1c75f968703e43a3515be4f09a405007cfa7"
+
+[[module."multi_region.rs".function]]
+id = "fn:ecd2ced55e32ce5e"
+name = "nested_cubes"
+qual = "nested_cubes"
+hash = "sha256:7c92c67f045b91fdb1d67321d304ae3327208d488957bf557fc78d954a7c19f7"
+doc_hash = "sha256:e12ba8e3382194b6223729fd817aafd63a9e7d28b9fe8bb14e6a0b3446ee9145"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:b93e4a4166bf23a3"
+name = "nested_cubes_both_routes"
+qual = "nested_cubes_both_routes"
+hash = "sha256:d89982afc5b29404ddaaccbb2442db416944ca377e8fa5b20aff4c8c17a55e62"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:e743ced5d957121a"
+name = "quad"
+qual = "quad"
+hash = "sha256:dc0da50c08d50483cbabc582a057a06606ad738a521ee480c3b3e1eaa62cabda"
+doc_hash = "sha256:ff766d331613838dc0658fac3d3ba632a036dc9eb4550a3431699c221b53a5c6"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:3f8a3ce3d101e3b7"
+name = "region_dual"
+qual = "region_dual"
+hash = "sha256:d4d870371986299154588a94d0a5328e8307034b3682dc37d236330b291e3317"
+doc_hash = "sha256:bfee1c44f77c7e7bb073f18b846fa71dc9a78bcdaa0ffb9543f35e386d35e8e2"
+
+[[module."multi_region.rs".function]]
+id = "fn:8f192bda3a71ab58"
+name = "region_subset"
+qual = "region_subset"
+hash = "sha256:4bd187e5267a16dece006d20db53e566d6ea235efb5d84063157e2b126884719"
+doc_hash = "sha256:440097b82a97abeabf37e7706cbc378b5916b3f48387cb9f9fd9e8ef250fa454"
+
+[[module."multi_region.rs".function]]
+id = "fn:6f43b8fc35bdec71"
+name = "region_volumes"
+qual = "region_volumes"
+hash = "sha256:3ff6964c44cab7f8574de7b720e31cda8bff6944fab2458f9cf9c0b21fb18791"
+doc_hash = "sha256:760b3565ec63ab1c5143cb09c67357ec6de5c0351c54de17d2e9cbe835f1539b"
+
+[[module."multi_region.rs".function]]
+id = "fn:76a5f9d53b8ad989"
+name = "regions_of"
+qual = "regions_of"
+hash = "sha256:369edb15be453bc2eb276873a751d932cf9764f567a6ffd951b805f28c8c4cd1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."multi_region.rs".function]]
+id = "fn:1fb6cce794421767"
+name = "rewind_dual"
+qual = "rewind_dual"
+hash = "sha256:1d63dfabe8bc3eb13ecbdec0118d76d8061571b482bb6ad39562d5674af79d79"
+doc_hash = "sha256:fd147968c5ccd9dc75eecf07ed62f2d5944a4abb391d6360b0506a16ce30d961"
+
+[[module."multi_region.rs".function]]
+id = "fn:78429374ea7998ba"
+name = "source"
+qual = "source"
+hash = "sha256:48914719e186905c1eba7360f05e2f395384580f19071c247f74f38704b4f49e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:fd897c30a50aa941"
+name = "switches"
+qual = "switches"
+hash = "sha256:9c511fb5538b6b13f6e748925f3fd1f8985bc0dfd32c802af383b70c3cab7e65"
+doc_hash = "sha256:69a27cfa9edad41f2bcee81622e3f6d2639fb20f63a897ed3c687a838e37e1ef"
+
+[[module."multi_region.rs".function]]
+id = "fn:dc7f12bac7718bab"
+name = "two_cubes"
+qual = "two_cubes"
+hash = "sha256:e2f6a0d429b66056997c28744903bdae85e987e78defc19e11c09ee5f1fe3874"
+doc_hash = "sha256:4136e3d13b6d6e6cd466c934f27270f493938b765fbefb59ba04dd732e1189a3"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:45606ef20423c5f2"
+name = "two_cubes_dual_mesh_is_fitted_and_stitched"
+qual = "two_cubes_dual_mesh_is_fitted_and_stitched"
+hash = "sha256:564e36d2159636a48007a85ecfeca4269a8093603afb02f54089aa299ffe0dc2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."multi_region.rs".function]]
+id = "fn:4f0e993d9072fea0"
+name = "two_cubes_tet_mesh_is_fitted_at_the_interface"
+qual = "two_cubes_tet_mesh_is_fitted_at_the_interface"
+hash = "sha256:a5e8ebca1cfa3aea1b99cbad5253db16c14cfa3e4d70f3ebd6d5ee1f63dda2f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
 [module."p_mesh.rs"]
 path = "crate::pipeline::p_mesh"
 

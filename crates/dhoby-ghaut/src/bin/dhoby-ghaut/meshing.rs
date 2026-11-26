@@ -219,15 +219,40 @@ fn mesh_role(
             // layers before naming patches, so they are grown here, on the
             // named patch, and the patches re-named after (the layerer
             // rebuilds the mesh).
+            // ~~`layers::add_boundary_layers_adaptive` (this crate's global
+            // back-off)~~ CHANGED 2026-11-26: since gh:#1215's quality check
+            // the back-off shrank every column of `cavity_wall` to nothing
+            // ("added none"; the 2026-10-05 record had 11 568 layer hexes).
+            // cfMesh's own `boundaryLayerOptimisation` thins locally instead
+            // (the layerer left callable by gh:#1829 for this workbench).
+            // TetGen's layers-first route is not used: it refuses this mesh
+            // at the cavity_wall / bed_wall seam (a column thinner than 1 %
+            // of the asked thickness).
             if s.layers > 0 {
                 let before = vm.n_cells;
-                let layered = outram_park_fork_cfmesh::layers::add_boundary_layers_adaptive(
+                let (layered, lo) = outram_park_fork_cfmesh::boundary_layer_optimisation::add_boundary_layers_cfmesh(
                     &vm,
-                    "cavity_wall",
+                    &["cavity_wall"],
                     s.layers,
                     s.first_layer_cm / 100.0,
                     s.expansion.max(1.0),
+                    // With cfMesh's untangling passes (the boundary moves,
+                    // the LP untangler, the Laplace pass): without them 2 of
+                    // the 20 952 cells came out inverted and the layers were
+                    // refused (measured 2026-11-26).
+                    &outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
+                        untangle_boundary_moves: true,
+                        untangle_mesh_untangler: true,
+                        optimize_mesh_fv_laplace: true,
+                        ..Default::default()
+                    },
                 );
+                notes.push(format!(
+                    "boundary layers (cfMesh boundaryLayerOptimisation) on cavity_wall: {} layer cells, {:.1} % of wall faces with all {}",
+                    lo.faces.iter().map(|f| f.1).sum::<usize>(),
+                    100.0 * lo.full_coverage(),
+                    s.layers
+                ));
                 let named = assign_patches_by_region(&layered, &p, &t, &regions)?;
                 let q = outram_park_fork_cfmesh::checks::check_quality(&named);
                 if named.validate().is_ok() && q.n_negative_volume_cells == 0 {
@@ -393,8 +418,20 @@ pub fn build(
             MeshRole::Structural => d.structural_profile(),
         };
         let n_seg = plan.roles[role.index()].n_seg;
+        // `DHOBY_NO_SNAP=1` is the ablation (Step 7 has no flag of its own).
+        let snap_on = std::env::var("DHOBY_NO_SNAP").as_deref() != Ok("1");
         let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { plan.roles[role.index()].cell_size_cm / 100.0 };
-        notes.push(snap_checked(&mut vm, None, &profile_segments_m(&prof), n_seg, delta).map_err(|e| format!("{}: {e}", role.name()))?);
+        // A mesh with prism layers is not snapped (measured 2026-11-26 on
+        // the TH mesh: snapped, its worst face reaches 92.7 deg, over 90,
+        // whatever the morph band (1, 2 or 3 cells); unsnapped 89.6). The
+        // layer columns would have to move as units; not done yet.
+        if snap_on && cell_type == CellType::TetDualWithLayers {
+            notes.push("not snapped: a mesh with prism layers stays on the faceted surface (snapping took the TH mesh's worst face over 90 deg)".into());
+        } else if snap_on {
+            notes.push(snap_checked(&mut vm, None, &profile_segments_m(&prof), n_seg, delta).map_err(|e| format!("{}: {e}", role.name()))?);
+        } else {
+            notes.push("not snapped: the boundary stays on the faceted surface (DHOBY_NO_SNAP=1)".into());
+        }
         let um = from_volume_mesh(&vm).map_err(|e| format!("{}: {e}", role.name()))?;
         // Region of every cell, by centroid. A cell of the faceted, snapped
         // mesh whose centroid falls in a region this mesh's domain does not

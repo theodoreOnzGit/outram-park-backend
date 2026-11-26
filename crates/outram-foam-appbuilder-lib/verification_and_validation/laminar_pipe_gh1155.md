@@ -1203,10 +1203,11 @@ what is still open:
 > wall face's layers as the most of its points'. Since gh:#1241 the cells
 > are built by upstream's `nFaceLayers` rule (`FaceLayerCells::Upstream`,
 > the default), which gives a pinched face fewer. Where faces were pinched,
-> the figures are therefore **upper bounds**. The outcome reports the built
-> count since 2026-11-26 (`snappy_layers.rs`; found when the layer index
-> read 541 layer cells against the outcome's 598 on TetGen's test pipe).
-> The figures were not re-measured. The cell counts, volumes, quality and
+> the figures are therefore **upper bounds**. Found when the layer index
+> read 541 layer cells against the outcome's 598 on TetGen's test pipe. The
+> `SnappyCollapse` route itself was removed the same day (gh:#1829: layers
+> are grown first, and no layers-last strategy is left), so the figures
+> cannot be re-measured on the current code; they were not re-measured. The cell counts, volumes, quality and
 > flow results are unaffected (they are measured on the mesh itself), and
 > so are the back-off and `CfMeshOptimise` figures.
 
