@@ -2980,7 +2980,7 @@ None. No pin, gate or tolerance changed.
 
 ### Remaining (child issues of #1837)
 
-Steps beyond 3 (reference has 14; the zero-iteration `convergedPISO` branch is first reached late in a steady state), un-refusing `EigenvalueStage::SteadyStateTh` (#1814), turbulence ON
+Steps beyond 3 (reference has 14; the zero-iteration `convergedPISO` branch is first reached late in a steady state) ~~, un-refusing `EigenvalueStage::SteadyStateTh` (#1814)~~ **(both done in round 21: 1965 steps, SteadyStateTh runs)**, turbulence ON
 (#1838 wall functions, #1839 `porousKEpsilon::correct`; with it the `nut` wall patches stop being the read `0.1`), anisotropic `Kd` / local frames, tortuosity.
 
 # Round 20 (2026-11-26): `turbulence true` for the cell-centred `onePhase` region: wall functions (gh:#1838) and `porousKEpsilon::correct()` (gh:#1839), child of gh:#1812 / gh:#1837
@@ -3088,7 +3088,7 @@ None. The turbulence-off numbers are identical (the staged mesh now says `wall` 
 
 ### Remaining
 
-`EigenvalueStage::SteadyStateTh` (gh:#1841: the stage driver, the `multiRegionCouplingDict_steadyStateTH` mapping, a run to the stage end), `DhStruct` nut stabilisation, `lowReCorrection` and the other
+~~`EigenvalueStage::SteadyStateTh` (gh:#1841: the stage driver, the `multiRegionCouplingDict_steadyStateTH` mapping, a run to the stage end)~~ **DONE 2026-11-26 (round 21)**, `DhStruct` nut stabilisation, `lowReCorrection` and the other
 wall-function blenders, wall-function dictionary entries (`Cmu`, `kappa`, `E`), anisotropic `Kd`/tortuosity, steps beyond 14 (the reference ends at `endTime 0.06`).
 
 ### Gates run (2026-11-26, release, targeted)
@@ -3156,3 +3156,72 @@ T8. **`transient` (50 steps) from the port's own 165 s state** agrees with upstr
 T9. **Hand-over.** The fields handed to the EN stage (`T`, `U`, `p`, `alphat`, `alphaPhi`, `alphaRhoPhi`, `htc`, `T.fixedTemperature`) equal the TH solver's state bitwise, and equal upstream's written `15` files (17 digits, round-trip exact) to the T3 gate; `powerDensityNeutronicsToLiquid` is zero.
 T10. **Failure modes I expect to find, in order of likelihood:** (a) the TH `alphaPhi` written lag (round 19 Q7) is wrong at the LAST step, which would show first in EN step 1's `h` residual; (b) `phi_` of the frozen-flux EN region (`phi_ = alphaPhi`) is taken from the wrong state;
     (c) `Re`/`htc` of the hand-over differ, which cannot matter since both are recomputed in `correctModels`.
+
+## Round 21 results (2026-11-26, release, 4 shared cores; `tests/genfoam_msfr_allrun_vs_upstream.rs`)
+
+**The whole `Allrun` chain runs in the port from `rootCase` with no upstream restart file, and agrees with the real binary at round-off at every stage, from the FIRST run.**
+Reference: the real unmodified binary at the tight protocol (every linear solver 1e-14 / `relTol 0`, `p_rgh` `GAMG -> PCG/DIC`, `adjustableRunTime` `writeInterval 1`): `steadyStateTH` to 15 s (1965 steps, 2025 s wall), then
+`steadyStateEN` (600 steps, 175 s) and `transient` (50 steps, 25 s) from THAT run's own `15` and `165` outputs. New references: `refs/msfr_th15_log` (step count, every `deltaT`), `refs/msfr_th15_fields`
+(nine fields + `alphaRhoPhi`, `htc`, `T.fixedTemperature` at 5 and 15 s; `U`, `p_rgh`, `epsilon`, `T` at 1 and 10 s), `refs/msfr_en_root`, `refs/msfr_root_transient`. The port: `RootCase::steady_state_th` -> `run()` ->
+`steady_state_en(th)` -> `run()` -> `start_transient(TransientStart::EnergyNeutro(root.transient_settings()))`, 2175 s in all (TH 1931 s, EN 237 s, transient 7 s). The test is `#[ignore]` (hour-scale): `cargo test --release -p outram-foam-appbuilder-lib
+--test genfoam_msfr_allrun_vs_upstream -- --ignored`.
+
+| stage | quantity | worst relative difference |
+|---|---|---|
+| `steadyStateTH`, 1965 steps | step count; every `deltaT` (incl. the write-time alignment, last step lands on 15.00000000000000000) | equal (1965); **0 (bit-identical)** |
+| t = 1 s | `U`, `p_rgh`, `T`, `epsilon` | 3.3e-14, 1.8e-13, 1.5e-15, 1.3e-13 |
+| t = 5 s | `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi`, `alphaRhoPhi` | 4.0e-14, 1.0e-13, 9.7e-14, 2.7e-15, 7.3e-14, 1.2e-13, 4.4e-14, 4.4e-14, 5.0e-14, 5.0e-14 |
+| t = 10 s | `U`, `p_rgh`, `T`, `epsilon` | 4.1e-14, 5.7e-14, 3.9e-15, 1.2e-13 |
+| t = 15 s | the same ten | 2.8e-14, 2.7e-13, 2.5e-13, 6.3e-15, 8.2e-14, 9.5e-14, 5.9e-14, 5.9e-14, 4.8e-14, 4.8e-14; `htc` and `T.fixedTemperature`: 0 (bitwise) |
+| `steadyStateEN`, 600 steps | `keff_` per step, `power:`, first `h` residual, `T (avg min max)`, `Time` | 2.2e-13, 2.2e-13, 2.4e-9, 3.8e-14, 0 |
+| at 165 s | final `keff_` 0.96031516102217651 (upstream 0.96031516102221959); `powerDensity`; `T` | 4.5e-14; 1.1e-10; 4.0e-14 |
+| `transient`, 50 steps | `deltaT`, `T`, `power:`, first `h` residual | 6.5e-14, 4.1e-14, 7.1e-14, 4.2e-9 |
+
+(`max|port - upstream| / max|upstream|` per field; `keff_`/`power:`/`dt` scalar relative.) The `h`-residual numbers are initial residuals near 1e-9..1e-12 whose relative value is noise. **First diverging step: none above round-off; no cause to find.**
+The final `keff_` is 0.960315161, **+3.3 pcm** from the Allrun's 0.960282 (as round 11/14: 0.960315139 from the shipped-GAMG 15 s state; the two 15 s states differ by 2.3e-8 in `keff_`, 0.002 pcm).
+
+### Shipped protocol: what the GAMG substitution costs (prediction T6, `shipped_protocol_gamg_substitution_agreement_at_fifteen_seconds`, 533 s)
+
+Upstream with its real `GAMG`/`DIC` at the shipped `tolerance 1e-7` (every solver at its shipped tolerance, `scripts/run_msfr_th_tight.sh` with `PSOLVER=gamg TOLERANCE=shipped`, 551 s, 1965 steps) against the port with
+`GamgPolicy::SubstitutePcgDic` at the same tolerance: **step count equal (1965)**; worst over t = 1, 5, 10, 15 s: `p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10 (of 900 K), `U` 4.1e-6, `k` 1.0e-5, `epsilon` 5.2e-6, `nut` and
+`alphat` 1.2e-5, `alphaPhi`/`alphaRhoPhi` 3.6e-6; `htc`, `T.fixedTemperature` 0. **This is the agreement to expect from the substitution at shipped settings: 1e-7 to 1e-5, and it does not grow with t (t = 15 s: `U` 1.3e-6).**
+The Allrun's own TH stage is that case; the tight comparison above is the verification and this table is the disclosure of the deviation.
+
+### Predictions T1-T10: held and missed
+
+* **T1 held.** **T2 held** (1965 = 1965 steps; `deltaT` bit-identical, including the `adjustableRunTime` alignment: no `round(nSteps)` flip in 1965 steps). **T3 held** (worst 2.7e-13 against the predicted 1e-9; the STEPWISE wall-function blender never flipped).
+* **T4 held** for `T` to 900 K (6.3e-15); the second half (`max|T - 900|` scale to 1e-5) was NOT measured: `T - 900` at 15 s was not extracted separately. Not re-checked.
+* **T5 held** (> 5 min: 1931 s; the predicted 15 to 60 min): the port is 5 % FASTER than the real binary on the tight stage (1931 s vs 2025 s, both serial, the machine shared).
+* **T6 PARTLY MISSED, in the favourable direction.** Held: `p`, `p_rgh` <= 1e-6 (5.1e-7), `T` <= 1e-9. Missed: `U` was predicted between 1e-5 and 1e-2 and is 4.1e-6 at worst (1.3e-6 at 15 s): the solver-tolerance error is not amplified by the pressure
+  conditioning as much as I assumed (I guessed ~1e3; the residual `1e-7` is relative to the `xRef`-shifted norm, which is large here). The step counts did not differ (predicted: maybe by a few).
+* **T7 held** (EN `keff_` 2.2e-13 against 1e-9; final 4.5e-14; within 0.002 pcm of round 11's, predicted 1 pcm). **T8 held** (`T` 4.1e-14 against 1e-11, `power:` 7.1e-14 against 1e-9, `dt` 6.5e-14).
+* **T9 held**: `alphaRhoPhi` 4.8e-14 against upstream's written file, `htc` and `T.fixedTemperature` bitwise; the in-memory hand-over is bitwise the TH solver's state and `powerDensity` is zero (`the_fluid_fields_of_the_th_stage_start_the_en_stage_bitwise`).
+* **T10**: none of (a), (b), (c) occurred.
+
+### What was done, and what is deliberately not the same as upstream
+
+* `EigenvalueStage::SteadyStateTh { stage, controls }` (was a refusal), `NormalisedState::SteadyStateTh { stage, history, deviations }`, `workflow::steady_state_th::{SteadyStateTh, ThRunControls, ThRecord, Deviation}`
+  (the `GeN-Foam.C` loop on the `Time` clock `PseudoTimeClock`: `Time::adjustDeltaT` write alignment, `setDeltaT.C`), `workflow::allrun::{RootCase, AllrunEdits}`
+  (`steady_state_th`, `steady_state_en(th)`, `transient_settings`; `check_steady_state_th_mapping`: `multiRegionCouplingDict_steadyStateTH` must map nothing), `OnePhaseCcCase::read_with_options`
+  (`CaseReadOptions`: `GamgPolicy`, `solve_fluid_mechanics`, `ControlOverrides`, `check_region_solvers`, in-memory start `FluidFields`), `OnePhaseCcSolver::fluid_fields`. The existing readers and every earlier path are unchanged
+  (`read` = `read_with_options(default)`). The case `cases/msfr_root` is `rootCase` without its meshes (192 KB).
+* **Named deviation:** `p_rgh` `GAMG` -> `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (`GamgPolicy::SubstitutePcgDic`, the default of `AllrunEdits`; `GamgPolicy::Refuse` refuses by name). Reported by `NormalisedState::SteadyStateTh.deviations`
+  and `OnePhaseFlowCase::p_rgh_gamg_substituted`. A faithful `GAMGSolver` is gh:#1843.
+* `NormalisedState::reactor_state()` of a TH state is `keff = pTarget = 1` (`setSteadyStateTH` removes `0/uniform`; upstream's `lookupOrDefault`).
+* The EN neutron linear solver is the tight 1e-14 of rounds 11/14 (`AllrunEdits::neutron_linear`), not the shipped `neutroRegion/fvSolution` tolerance; the neutron iteration controls (1e-6, 50, `ScNo 1`) are typed in `AllrunEdits`, not read from `neutronicsProperties`.
+* `AllrunEdits` does not read `endTimeTH`, `endTimeEN`, `endTimeTransient` from the Allrun script: they are its defaults (15, 165, 175).
+* The extension of gh:#1840 (steps 4-14 of the TH stage): already gated by round 20 at steps 6, 9, 14 and, through the stage driver, again here; it is superseded by the 1965-step comparison.
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed; the one existing test edited (`stages_without_a_port_are_refused_by_name`) lost its `steadyStateTH` entry because that stage is no longer refused. New gates are at the measured values with a margin of >= 20x.
+
+### Remaining
+
+GAMG port (gh:#1843); `AllrunEdits` from the Allrun/`neutronicsProperties` files; the shipped-tolerance EN and transient stages (only the shipped TH stage was run against upstream); `max|T - 900|` of the TH stage; general `cellVolumeWeight` (gh:#651).
+
+### Gates run (2026-11-26, release, targeted)
+
+`--test genfoam_msfr_allrun_vs_upstream` 4 passed (16 s) + 2 `--ignored` passed (the chain 2175 s, the shipped comparison 533 s); `--test genfoam_msfr_th_vs_upstream` 8 passed; `--test genfoam_msfr_coupled_vs_upstream` 3 passed;
+`--test genfoam_msfr_chain_vs_upstream stages_without_a_port` 1 passed; `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` `outram-foam-appbuilder-lib` compiles for `x86_64-unknown-none`.
+The rest of `genfoam_msfr_chain_vs_upstream` and the other suites were NOT re-run (they do not touch the changed paths beyond `read` delegating to `read_with_options`; the parent's integration run covers them).

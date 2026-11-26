@@ -259,3 +259,200 @@ fn refusals_are_by_name() {
     assert_eq!(settings.control_delta_t, 1e-3);
     let _ = ThRunControls { end_time: 1.0, delta_t: 1.0, adjust_time_step: true, write_interval: None };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The whole chain (hour-scale: see the doc comment)
+// ---------------------------------------------------------------------------------------------------------------------
+
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
+use outram_foam_appbuilder_lib::genfoam::workflow::{EnergyEigenvalueRecord, TransientRun, TransientStart};
+
+fn rel(a: f64, b: f64) -> f64 {
+    ((a - b) / b).abs()
+}
+
+fn worst_rel(a: &[f64], b: &[f64]) -> f64 {
+    assert_eq!(a.len(), b.len());
+    a.iter().zip(b).filter(|(_, y)| **y != 0.0).map(|(x, y)| rel(*x, *y)).fold(0.0, f64::max)
+}
+
+/// Every field of `refs/msfr_th15_fields` present at `tp`, compared with the solver's state: `(name, max-norm relative difference)`.
+fn compare_th_fields(f: &OnePhaseCcSolver, rf: &HashMap<String, Vec<f64>>, tp: &str) -> Vec<(&'static str, f64)> {
+    let key = |name: &str| format!("{name} {tp}");
+    let u: Vec<f64> = f.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).collect();
+    let fields = f.fluid_fields();
+    let mut out = Vec::new();
+    let mut put = |name: &'static str, mine: &[f64]| {
+        if let Some(r) = rf.get(&key(name)) {
+            out.push((name, rel_max(&mine[..r.len()], r)));
+        }
+    };
+    put("U", &u);
+    put("p", f.pressure());
+    put("p_rgh", f.p_rgh().expect("flow"));
+    put("T", f.temperature());
+    put("k", f.turbulent_kinetic_energy().expect("k"));
+    put("epsilon", f.turbulent_dissipation().expect("epsilon"));
+    put("nut", f.turbulent_viscosity().expect("nut"));
+    put("alphat", &fields.alphat);
+    put("alphaPhi", &fields.alpha_phi);
+    put("alphaRhoPhi", &fields.alpha_rho_phi);
+    put("htc", &fields.htc);
+    put("T.fixedTemperature", &fields.t_fixed);
+    out
+}
+
+fn compare_en(history: &[EnergyEigenvalueRecord], r: &HashMap<String, Vec<f64>>) -> [f64; 5] {
+    let mut w = [0.0_f64; 5];
+    for (i, rec) in history.iter().enumerate() {
+        let hres = &r[&format!("HRES_{}", i + 1)];
+        let ts = &r[&format!("TSTAT_{}", i + 1)];
+        let last = rec.t_stats.last().expect("t stats");
+        w[0] = w[0].max(rel(rec.k_eff, r["KEFF"][i]));
+        w[1] = w[1].max(rel(rec.power, r["POWER"][i]));
+        w[2] = w[2].max(rel(rec.h_residuals[0], hres[0]));
+        w[3] = w[3].max(rel(last.0, ts[12]).max(rel(last.1, ts[13])).max(rel(last.2, ts[14])));
+        w[4] = w[4].max((rec.time - r["TIME"][i]).abs() / r["TIME"][i]);
+    }
+    w
+}
+
+/// `steadyStateTH -> steadyStateEN -> transient` from `cases/msfr_root`, tight protocol, against the upstream chain run with
+/// `scripts/run_msfr_th_tight.sh` (`END_TIME=15 WRITE=adjustable PSOLVER=pcg`) and `scripts/run_msfr_chain.sh` (`PROTOCOL=tight`)
+/// from THAT run's own `15`: references `msfr_th15_log`, `msfr_th15_fields`, `msfr_en_root`, `msfr_root_transient`
+/// (`extract_*.sh`). Hour-scale (~1800 TH steps at ~1 s, 600 EN steps, 50 transient steps), so a plain `#[ignore]`:
+/// `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_allrun_vs_upstream -- --ignored --nocapture`.
+/// Gates at the measured values with a margin of >= 20x (2026-11-26: TH fields 2.7e-13, dt bit-identical, EN `keff_` 2.2e-13,
+/// transient `power:` 7.1e-14; the predicted 1e-9 gates were never close). Results: README "Round 21 results".
+#[test]
+#[ignore = "hour-scale: the 15 s steadyStateTH stage is ~1800 steps; run with --ignored"]
+fn msfr_allrun_chain_from_the_root_case_matches_upstream() {
+    let started = std::time::Instant::now();
+    let root = stage("chain", true);
+    let edits = AllrunEdits::default();
+    let th_log = read_ref(&vv_dir().join("refs/msfr_th15_log.ref.txt.gz"));
+    let th_fields = read_ref(&vv_dir().join("refs/msfr_th15_fields.ref.txt.gz"));
+    let EigenvalueStage::SteadyStateTh { stage: mut th_stage, controls } = root.steady_state_th(&edits).expect("rootCase") else {
+        unreachable!()
+    };
+    let mut samples: Vec<(String, Vec<(&'static str, f64)>)> = Vec::new();
+    let history = th_stage
+        .run(&controls, |rec, st| {
+            if rec.write_time {
+                for tp in ["1", "5", "10", "15"] {
+                    let t: f64 = tp.parse().expect("time");
+                    if (rec.time - t).abs() < 1e-9 && th_fields.contains_key(&format!("U {tp}")) {
+                        let r = compare_th_fields(&st.fluid, &th_fields, tp);
+                        println!("t={tp}: {r:?}");
+                        samples.push((tp.to_string(), r));
+                    }
+                }
+            }
+        })
+        .expect("TH stage");
+    println!("TH stage: {} steps in {:.0} s", history.len(), started.elapsed().as_secs_f64());
+    let n_ref = th_log["N"][0] as usize;
+    let dts: Vec<f64> = history.iter().map(|r| r.next_delta_t).collect();
+    let worst_dt = dts.iter().zip(&th_log["DT"]).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+    println!("TH steps: port {} upstream {n_ref}; worst dt rel {worst_dt:.3e}; last time {:.17}", history.len(), history.last().expect("steps").time);
+    assert_eq!(history.len(), n_ref, "step count");
+    assert!(worst_dt <= 1e-12, "dt: {worst_dt:e}");
+    assert_eq!(samples.len(), 4, "the four sampled write times");
+    for (tp, r) in &samples {
+        for (name, d) in r {
+            assert!(*d <= 1e-11, "t={tp} {name}: {d:e}");
+        }
+    }
+    let th = NormalisedState::SteadyStateTh { stage: th_stage, history, deviations: vec![Deviation::PressureGamgSubstitutedByPcgDic] };
+
+    let en_ref = read_ref(&vv_dir().join("refs/msfr_en_root.ref.txt.gz"));
+    let EigenvalueStage::EnergyNeutroDiffusion { stage: en_stage, controls } = root.steady_state_en(th, &edits).expect("EN stage") else {
+        unreachable!()
+    };
+    let normalised = EigenvalueStage::EnergyNeutroDiffusion { stage: en_stage, controls }.run().expect("EN run");
+    println!("EN stage done at {:.0} s", started.elapsed().as_secs_f64());
+    let NormalisedState::EnergyNeutroDiffusion { stage: s, history } = normalised else { unreachable!() };
+    assert_eq!(history.len(), 600);
+    let w = compare_en(&history, &en_ref);
+    println!("EN 600 steps: worst rel keff {:.3e}, power {:.3e}, h1 {:.3e}, T {:.3e}, time {:.3e}", w[0], w[1], w[2], w[3], w[4]);
+    let k_final = s.reactor.k_eff;
+    println!("final keff_ {k_final:.17} (upstream {:.17}); rel {:.3e}", en_ref["END_KEFF"][0], rel(k_final, en_ref["END_KEFF"][0]));
+    assert!(w[0] <= 1e-11 && w[1] <= 1e-11 && w[2] <= 1e-7 && w[3] <= 1e-12 && w[4] == 0.0, "EN: {w:?}");
+    assert!(rel(k_final, en_ref["END_KEFF"][0]) <= 1e-11);
+    let dpd = worst_rel(&s.neutro_power_density, &en_ref["END_powerDensity"]);
+    let dt_end = worst_rel(s.fluid.temperature(), &en_ref["END_T"]);
+    println!("fields at 165 s: powerDensity {dpd:.3e}, T {dt_end:.3e}");
+    assert!(dpd <= 1e-8 && dt_end <= 1e-12);
+
+    let tr = read_ref(&vv_dir().join("refs/msfr_root_transient.ref.txt.gz"));
+    let settings = root.transient_settings(&edits).expect("transient settings");
+    let mut run = NormalisedState::EnergyNeutroDiffusion { stage: s, history }
+        .start_transient(TransientStart::EnergyNeutro(settings))
+        .expect("transient");
+    let frozen = run.k_eff();
+    let mut worst = [0.0_f64; 4];
+    for step in 1..=50usize {
+        let rec = run.step_adjustable().expect("transient step");
+        let TransientRun::EnergyNeutroDiffusion(t) = &run else { unreachable!() };
+        let d = [
+            rel(rec.next_delta_t, tr["DT"][step - 1]),
+            worst_rel(t.inner.fluid.temperature(), &tr[&format!("T_{step}")]),
+            rel(rec.power, tr[&format!("POWER_{step}")][0]),
+            rel(rec.fluid_report.h_residuals[0], tr[&format!("HRES_{step}")][0]),
+        ];
+        println!("transient step {step}: dt {:.2e} T {:.2e} power {:.2e} h1 {:.2e}", d[0], d[1], d[2], d[3]);
+        for i in 0..4 {
+            worst[i] = worst[i].max(d[i]);
+        }
+    }
+    assert_eq!(run.k_eff(), frozen);
+    println!("TRANSIENT 50 steps: worst dt {:.3e} T {:.3e} power {:.3e} h1 {:.3e}; total {:.0} s", worst[0], worst[1], worst[2], worst[3], started.elapsed().as_secs_f64());
+    assert!(worst[0] <= 1e-11 && worst[1] <= 1e-12 && worst[2] <= 1e-11 && worst[3] <= 1e-7, "{worst:?}");
+}
+
+/// The SHIPPED protocol (all linear solvers at their shipped `1e-7`; upstream with its real `GAMG`, the port with the named
+/// `SubstitutePcgDic` deviation): the 15 s `steadyStateTH` stage is NOT expected to agree to round-off. This test measures
+/// and prints the agreement (README "Round 21 results", prediction T6) and asserts bounds at 20x the measured agreement (2026-11-26: p/p_rgh <= 5.1e-7, T 1.2e-10, U 4.1e-6, k/nut/alphat 1.2e-5; the pre-run prediction was looser).
+/// References: `msfr_th15_shipped_{log,fields}` (`scripts/run_msfr_th_tight.sh` with `PSOLVER=gamg TOLERANCE=shipped`).
+#[test]
+#[ignore = "~20 minutes: the 15 s steadyStateTH stage; run with --ignored"]
+fn shipped_protocol_gamg_substitution_agreement_at_fifteen_seconds() {
+    let root = stage("shipped", false);
+    let edits = AllrunEdits::default();
+    let log = read_ref(&vv_dir().join("refs/msfr_th15_shipped_log.ref.txt.gz"));
+    let fields = read_ref(&vv_dir().join("refs/msfr_th15_shipped_fields.ref.txt.gz"));
+    let EigenvalueStage::SteadyStateTh { stage: mut th_stage, controls } = root.steady_state_th(&edits).expect("rootCase") else {
+        unreachable!()
+    };
+    let mut samples: Vec<(String, Vec<(&'static str, f64)>)> = Vec::new();
+    let history = th_stage
+        .run(&controls, |rec, st| {
+            if rec.write_time {
+                for tp in ["1", "5", "10", "15"] {
+                    let t: f64 = tp.parse().expect("time");
+                    if (rec.time - t).abs() < 1e-9 {
+                        samples.push((tp.to_string(), compare_th_fields(&st.fluid, &fields, tp)));
+                    }
+                }
+            }
+        })
+        .expect("TH stage");
+    let n_ref = log["N"][0] as usize;
+    println!("SHIPPED: port {} steps, upstream {n_ref} steps", history.len());
+    for (tp, r) in &samples {
+        println!("SHIPPED t={tp}: {r:?}");
+    }
+    assert_eq!(samples.len(), 4);
+    for (tp, r) in &samples {
+        for (name, d) in r {
+            let bound = match *name {
+                "U" => 1e-4,
+                "k" | "epsilon" | "nut" | "alphat" | "alphaPhi" | "alphaRhoPhi" => 3e-4,
+                "p" | "p_rgh" => 1e-5,
+                "T" => 3e-9,
+                _ => 1e-9,
+            };
+            assert!(*d <= bound, "t={tp} {name}: {d:e} (predicted <= {bound:e})");
+        }
+    }
+}

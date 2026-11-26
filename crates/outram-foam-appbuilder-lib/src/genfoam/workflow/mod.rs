@@ -60,8 +60,10 @@
 //! | SP3, stationary fuel | `pseudo_time` | `Sp3Neutronics::step` | eigenvalue yes; transient no |
 //! | diffusion, circulating fuel + energy-only `onePhase` | `steadyStateEN` ([`EnergyNeutroDiffusion`]) | `energyNeutroLoop` ([`EnergyNeutroTransient`]) | both (round 11) |
 //!
-//! Refused by name: `steadyStateTH` (fluid mechanics, gh:#1812), SN (no transient path), point kinetics (no
-//! eigenvalue: its `keff_` is not iterated upstream).
+//! ~~Refused by name: `steadyStateTH` (fluid mechanics, gh:#1812)~~ **CORRECTED 2026-11-26 (gh:#1841, round 21):** `steadyStateTH`
+//! ([`SteadyStateTh`]) runs, and [`allrun::RootCase`] chains `steadyStateTH -> steadyStateEN -> transient` from `rootCase` with
+//! the fluid fields handed over in memory; its `p_rgh` `GAMG` is a named deviation ([`Deviation`]). Refused by name: SN (no
+//! transient path), point kinetics (no eigenvalue: its `keff_` is not iterated upstream).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
