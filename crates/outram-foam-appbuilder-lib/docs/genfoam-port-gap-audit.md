@@ -146,7 +146,7 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | templated `constant` | 346 | folded into each family's `Constant` variant | ported | unit |
 | `phasePairs/FFPair.{C,H}` | 1,129 | `phase/phase_pair.rs` (`ff_reynolds`, `ff_relative_velocity_magnitude`) | partial: kinematics only | unit (3) |
 | `phasePairs/FSPair.{C,H}` | 738 | `phase/phase_pair.rs` (`fs_reynolds`) | partial: kinematics only | unit |
-| **turbulence** porousKEpsilon, porousKEpsilon2PhaseCorrected, LaheyKEpsilon, mixtureKEpsilon | 3,663 | `closures/turbulence/*.rs` | partial: closure algebra only; k/ε transport and `correctNut` missing | unit (12) |
+| **turbulence** porousKEpsilon, porousKEpsilon2PhaseCorrected, LaheyKEpsilon, mixtureKEpsilon | 3,663 | `closures/turbulence/*.rs` | partial: closure algebra only; k/ε transport and `correctNut` missing. **ADDED 2026-11-26 (gh:#1802, README round 16):** `solver/two_phase/turbulence.rs` solves `porousKEpsilon2PhaseCorrected` in `solver::two_phase` (`correct()`, `correctNut`, ESI `bound`, `fvMatrix::relax`; feeds `nuEff` to the momentum and `alphaEff` to the energy equation); it is NOT a derivation of `porousKEpsilon` (it derives from `eddyViscosity<RASModel>`), so the single-phase `porousKEpsilon` (gh:#1775/#1812) is still missing, as are `LaheyKEpsilon`, `mixtureKEpsilon`, plain `kEpsilon`, `nutStabilization` (`DhStruct`) and wall-function patches (refused by name). Against the real binary on `PhaseII_Ex1` the turbulence solves of the first outer iteration agree with upstream's to the printed residuals and Ex3's one-iteration step 1 to 6e-16, but the flow differs by a baseline (`p` 8e-7 at step 1, 2e-5 at step 25) with `turbulence off` as well: not the model's | unit (12 + 4: regex, `bound`, `relax`, `G`); `tests/genfoam_psbt2_turbulence_vs_upstream.rs` (vs the real binary) |
 
 ## 3. `thermalHydraulics/src/phaseModels`
 
@@ -271,8 +271,8 @@ Each is one deliverable. Sizes are upstream lines to port.
    the through-flow boundary conditions are ported (`fixedValue`/`slip`/`pressureInletOutletVelocity` velocity patches with `fixedValue`
    flux patches, `inletOutlet` phase fractions with implicitUpwind, `fixedFluxPressure` with `setSnGradP_rgh_2p.H`/`correctBoundaryFlux_2p.H`),
    and `Phase_Ex1_12223` runs AS SHIPPED, compared with the real binary step by step (agreement to 1e-8 through step 9, to the vapour onset at
-   step 13 and on to step 50; the two runs separate at step 51, README "Round 12"). The three `PhaseII` cases still need the two-phase
-   `porousKEpsilon2PhaseCorrected` turbulence model (gh:#1802) and are refused by name. Every other velocity or scalar boundary-condition
+   step 13 and on to step 50; the two runs separate at step 51, README "Round 12"). ~~The three `PhaseII` cases still need the two-phase
+   `porousKEpsilon2PhaseCorrected` turbulence model (gh:#1802) and are refused by name.~~ **CORRECTED 2026-11-26 (round 16):** all three read and run (turbulence ported; plain `multiRegimeBoiling`, `symmetry` patches and `powerDensity.fixedPower` added); read in `tests/genfoam_psbt2_turbulence_vs_upstream.rs`. Every other velocity or scalar boundary-condition
    type is now refused by name too (`scalar_bcs` used to turn them into `calculated` silently).
 5. ~~**`lookUpTableCHF`** (366 lines) with the 2006 Groeneveld table data
    (licence to be checked). Needed by PSBT Phase II Ex 2 and 3. **2026-11-26 (gh:#1223): licence unclear, deferred to the maintainer**; left refused.~~ **CORRECTED 2026-11-26** (gh:#1223, maintainer: "Port can use table with proper citation"): ported (`chf_table.rs`), table vendored with provenance.

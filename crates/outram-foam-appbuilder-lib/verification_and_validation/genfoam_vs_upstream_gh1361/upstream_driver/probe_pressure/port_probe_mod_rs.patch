@@ -1,0 +1,134 @@
+--- /home/user/outram-park-backend/.claude/worktrees/agent-a87e6a256ab6ce699/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/mod.rs	2026-11-26 14:20:21.643091825 +0000
++++ /tmp/claude-0/-home-user-outram-park-backend/7cef3b0b-c239-561b-8dd4-50ffa1885b0f/scratchpad/r17/mod_with_probe.rs	2026-11-26 14:20:21.630283922 +0000
+@@ -2601,6 +2601,10 @@
+         e
+     }
+ 
++    fn time_index_probe(&self) -> usize {
++        usize::from(self.time < 0.0051)
++    }
++
+     /// `pEqnf_2p.H`, implicit partial elimination, with
+     /// `refsAndControls_2p.H`, `calcPhiS_2p.H`, `calcComp_2p.H`,
+     /// `solveP_rgh_2p.H`, `reconstructU_2p.H`, `updatePP_rghRho_2p.H`.
+@@ -2756,6 +2760,63 @@
+                     }
+                 }
+             }
++            // TEMP gh:#1833 probe dump (reverted before commit)
++            if let Ok(path) = std::env::var("PROBE1833_FILE") {
++                let mx: usize = std::env::var("PROBE1833_MAXCORR").ok().and_then(|v| v.parse().ok()).unwrap_or(2);
++                if corr <= mx && self.time_index_probe() == 1 {
++                    use std::io::Write;
++                    let mut fh = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("probe");
++                    let mut ds = |name: &str, v: &[f64]| {
++                        let mut line = format!("S {corr} {name}");
++                        for x in v {
++                            line.push_str(&format!(" {x:.17e}"));
++                        }
++                        writeln!(fh, "{line}").expect("w");
++                    };
++                    let hcell: Vec<Vec<Vector3>> = (0..2).map(|k| {
++                        let h = u_eqns[k].h(&g, &self.fluids[k].u);
++                        h
++                    }).collect();
++                    for k in 0..2 {
++                        let kk = k + 1;
++                        ds(&format!("alpha{kk}"), &self.fluids[k].alpha.c);
++                        ds(&format!("rho{kk}"), &self.fluids[k].rho.c);
++                        ds(&format!("A{kk}cell"), &u_eqns[k].eqn.a(&g));
++                        let hx: Vec<f64> = hcell[k].iter().flat_map(|v| [v.x, v.y, v.z]).collect();
++                        ds(&format!("H{kk}cell"), &hx);
++                        let ux: Vec<f64> = self.fluids[k].u.c.iter().flat_map(|v| [v.x, v.y, v.z]).collect();
++                        ds(&format!("U{kk}"), &ux);
++                        ds(&format!("alphaf{kk}"), &af[k][..ni]);
++                        ds(&format!("Af{kk}"), &afk[k][..ni]);
++                        ds(&format!("alphaRhof{kk}byDt"), &arf[k][..ni]);
++                        ds(&format!("alphaRhof{kk}0byDt"), &arf0[k][..ni]);
++                        ds(&format!("rAUf{kk}"), &rauf[k][..ni]);
++                        ds(&format!("alpharAUf{kk}Star"), &star[k][..ni]);
++                        ds(&format!("phiS{kk}"), &phi_s[k][..ni]);
++                        ds(&format!("phiH{kk}"), &phi_h[k][..ni]);
++                        ds(&format!("phiHbyA{kk}"), &phi_hbya[k][..ni]);
++                        ds(&format!("phi{kk}old"), &self.fluids[k].phi_old[..ni]);
++                    }
++                    ds("Kd12", &self.kd_ff);
++                    ds("B_phiHbyA", &phi_hbya_mix[ni..]);
++                    ds("B_phiH1", &phi_h[0][ni..]);
++                    ds("B_phiHbyA1", &phi_hbya[0][ni..]);
++                    ds("B_phiS1", &phi_s[0][ni..]);
++                    ds("B_rAUf", &rau_mix[ni..]);
++                    ds("B_alphaf1", &af[0][ni..]);
++                    ds("B_Af1", &afk[0][ni..]);
++                    ds("B_rAUf1", &rauf[0][ni..]);
++                    ds("B_phi1", &self.fluids[0].phi[ni..]);
++                    ds("B_alpharAUf1Star", &star[0][ni..]);
++                    ds("B_alphaRhof10byDt", &arf0[0][ni..]);
++                    ds("Kdf12", &kdf[..ni]);
++                    ds("phiHbyA", &phi_hbya_mix[..ni]);
++                    ds("rAUf", &rau_mix[..ni]);
++                    ds("p_rgh_pre", &self.p_rgh.c);
++                    ds("gh", &self.gh.c);
++                    ds("ghf", &self.ghf[..ni]);
++                }
++            }
+             // calcComp_2p.H
+             let p_rgh_0 = self.p_rgh.c.clone();
+             let mut comp_expl = [vec![0.0; n], vec![0.0; n]];
+@@ -2787,6 +2848,31 @@
+                 peqn.source[c] += v * cc / dt * p_rgh_0[c];
+                 peqn.source[c] -= v * (comp_expl[0][c] + comp_expl[1][c] + dphi[c]);
+             }
++            if let Ok(path) = std::env::var("PROBE1833_FILE") {
++                if corr <= 2 && self.time_index_probe() == 1 {
++                    use std::io::Write;
++                    let mut fh = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("probe");
++                    let mut ds = |name: &str, v: &[f64]| {
++                        let mut line = format!("S {corr} {name}");
++                        for x in v {
++                            line.push_str(&format!(" {x:.17e}"));
++                        }
++                        writeln!(fh, "{line}").expect("w");
++                    };
++                    ds("pdiag", &peqn.ldu.diag);
++                    for kk in 0..2 {
++                        let cs: Vec<f64> = (0..n).map(|c| -g.mesh.cell_volumes[c] * comp_expl[kk][c] + g.mesh.cell_volumes[c] * comp_c[kk][c] / dt * p_rgh_0[c]).collect();
++                        let cd: Vec<f64> = (0..n).map(|c| g.mesh.cell_volumes[c] * comp_c[kk][c] / dt).collect();
++                        ds(&format!("c{}source", kk + 1), &cs);
++                        ds(&format!("c{}diag", kk + 1), &cd);
++                    }
++                    let dphi_v: Vec<f64> = dphi.iter().enumerate().map(|(c, v)| v * g.mesh.cell_volumes[c]).collect();
++                    ds("divphiHbyA", &dphi); let _ = &dphi_v;
++                    ds("pupper", &peqn.ldu.upper);
++                    ds("plower", &peqn.ldu.lower);
++                    ds("psource", &peqn.source);
++                }
++            }
+             let mut x = self.p_rgh.c.clone();
+             let res = if let Some(pc) = self.controls.p_rgh_pcg {
+                 // upstream: `DICPCG: Solving for p_rgh` (the case's `solver PCG; preconditioner DIC;`)
+@@ -2802,6 +2888,24 @@
+             self.p_rgh.correct_bc(&g);
+             // fluxes
+             let p_flux = Eqn::laplacian_flux(&g, &rau_mix, &self.p_rgh);
++            if let Ok(path) = std::env::var("PROBE1833_FILE") {
++                let mx: usize = std::env::var("PROBE1833_MAXCORR").ok().and_then(|v| v.parse().ok()).unwrap_or(2);
++                if corr <= mx && self.time_index_probe() == 1 {
++                    use std::io::Write;
++                    let mut fh = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("probe");
++                    let mut ds = |name: &str, v: &[f64]| {
++                        let mut line = format!("S {corr} {name}");
++                        for x in v {
++                            line.push_str(&format!(" {x:.17e}"));
++                        }
++                        writeln!(fh, "{line}").expect("w");
++                    };
++                    let phi_post: Vec<f64> = (0..ni).map(|f| phi_hbya_mix[f] + p_flux[f]).collect();
++                    ds("phi_post", &phi_post);
++                    ds("pEqnFlux", &p_flux[..ni]);
++                    ds("p_rgh_post", &self.p_rgh.c);
++                }
++            }
+             for f in 0..nf {
+                 if !g.active[f] {
+                     continue;

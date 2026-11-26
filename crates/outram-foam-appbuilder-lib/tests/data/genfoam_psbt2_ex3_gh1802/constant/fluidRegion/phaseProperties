@@ -1,0 +1,594 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ------------------------------------------------------------------------- //
+// --- FLUID PROPERTIES ---------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+fluid1 "liquid";
+fluid2 "vapour";
+
+liquidProperties
+{
+    stateOfMatter   liquid;
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.001;
+    }
+    thermoResidualAlpha 1e-6;
+}
+
+vapourProperties
+{
+    stateOfMatter   gas;
+
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.001;
+    }
+    thermoResidualAlpha 1e-2;
+}
+
+// ------------------------------------------------------------------------- //
+// --- STRUCTURES PROPERTIES ----------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+structureProperties
+{
+    "inletcorner"
+    {
+        volumeFraction  0.3860632848;
+        Dh              0.0079178195;
+    }
+
+    "inletside"
+    {
+        volumeFraction  0.4151712309;
+        Dh              0.0094095898;
+    }
+
+    "inletcenter"
+    {
+        volumeFraction  0.4464738237;
+        Dh              0.0117778432;
+    }
+
+    "heatedcorner"
+    {
+        volumeFraction  0.3860632848;
+        Dh              0.0079178195;
+
+        powerModel
+        {
+            type            fixedPower;
+            volumeFraction  0.0984300962;
+            volumetricArea  162.553;
+//            powerDensity    5e8; //provided in powerDensity.fixedPower
+            T               564.15 ;
+            Cp              500;
+            rho             7700;
+            powerTimeProfile
+            {
+                type                            table;
+                //- Time after which the time table is applied
+                startTime                       0;
+                //- Left column is time elapsed since the startTime defined
+                //  above
+                table       table
+                (
+                    (   0   1    )
+                    (   1   1    )
+                    (   10   1.0    )
+                    (   11   2.5    )
+                    (   20  2.5    )
+                    (   21  2.5  )
+                    (   30  2.5  )
+                    (   31  2.5    )
+                    (   40  2.5    )
+                    (   41  2.5  )
+                    (   50  2.5  )
+                    (   51  2.5  )
+                    (   60  2.5  )
+                    (   61  2.5  )
+                    (   62	2.52 )
+                    (   63	2.55 )
+                    (   64	2.58 )
+                    (   65	2.61 )
+                    (   66	2.64 )
+                    (   67	2.67 )
+                    (   68	2.70 )
+                    (   69	2.73 )
+                    (   70	2.75 )
+                    (   71	2.78 )
+                    (   72	2.81 )
+                    (   73	2.83 )
+                    (   74	2.86 )
+                    (   75	2.88 )
+                    (   76	2.91 )
+                    (   77	2.94 )
+                    (   78	2.98 )
+                    (   79	3.01 )
+                    (   80	3.04 )
+                    (   81	3.05 )
+                    (   82	3.08 )
+                    (   83	3.11 )
+                    (   84	3.14 )
+                    (   85	3.17 )
+                    (   86	3.21 )
+                    (   87	3.23 )
+                    (   88	3.26 )
+                    (   89	3.29 )
+                    (   90	3.33 )
+                    (   91	3.35 )
+                    (   92	3.39 )
+                    (   93	3.41 )
+                    (   94	3.44 )
+                    (   95	3.46 )
+                    (   96	3.50 )
+                    (   97	3.53 )
+                    (   98	3.55 )
+                    (   99	3.58 )
+                    (   100	3.61 )
+                    (   101	3.64 )
+                    (   102	3.67 )
+                    (   103	3.69 )
+                    (   104	3.72 )
+                    (   105	3.75 )
+                    (   106	3.78 )
+                    (   107	3.81 )
+                    (   108	3.83 )
+                    (   109	3.86 )
+                    (   110	3.89 )
+                    (   111	3.92 )
+                    (   112	3.95 )
+                    (   113	3.98 )
+                    (   114	4.01 )
+                    (   115	4.04 )
+                    (   116	4.07 )
+                    (   117	4.13 )
+                    (   118	4.16 )
+                    (   119	4.19 )
+                    (   120	4.22 )
+                    (   121	4.25 )
+                    (   122	4.28 )
+                    (   123	4.31 )
+                    (   124	4.37 )
+                    (   125	4.4 )
+                    (   180 4.4 )
+                    );
+            }
+        }
+    }
+
+    "heatedside"
+    {
+        volumeFraction  0.4151712309;
+        Dh              0.0094095898;
+
+        powerModel
+        {
+            type            fixedPower;
+            volumeFraction  0.1058514130;
+            volumetricArea  174.809;
+            T               564.15 ;
+            Cp              500;
+            rho             7700;
+            powerTimeProfile
+            {
+                type                            table;
+                //- Time after which the time table is applied
+                startTime                       0;
+                //- Left column is time elapsed since the startTime defined
+                //  above
+                table       table
+                (
+                    (   0   1    )
+                    (   1   1    )
+                    (   10   1.0    )
+                    (   11   2.5    )
+                    (   20  2.5    )
+                    (   21  2.5  )
+                    (   30  2.5  )
+                    (   31  2.5    )
+                    (   40  2.5    )
+                    (   41  2.5  )
+                    (   50  2.5  )
+                    (   51  2.5  )
+                    (   60  2.5  )
+                    (   61  2.5  )
+                    (   62	2.52 )
+                    (   63	2.55 )
+                    (   64	2.58 )
+                    (   65	2.61 )
+                    (   66	2.64 )
+                    (   67	2.67 )
+                    (   68	2.70 )
+                    (   69	2.73 )
+                    (   70	2.75 )
+                    (   71	2.78 )
+                    (   72	2.81 )
+                    (   73	2.83 )
+                    (   74	2.86 )
+                    (   75	2.88 )
+                    (   76	2.91 )
+                    (   77	2.94 )
+                    (   78	2.98 )
+                    (   79	3.01 )
+                    (   80	3.04 )
+                    (   81	3.05 )
+                    (   82	3.08 )
+                    (   83	3.11 )
+                    (   84	3.14 )
+                    (   85	3.17 )
+                    (   86	3.21 )
+                    (   87	3.23 )
+                    (   88	3.26 )
+                    (   89	3.29 )
+                    (   90	3.33 )
+                    (   91	3.35 )
+                    (   92	3.39 )
+                    (   93	3.41 )
+                    (   94	3.44 )
+                    (   95	3.46 )
+                    (   96	3.50 )
+                    (   97	3.53 )
+                    (   98	3.55 )
+                    (   99	3.58 )
+                    (   100	3.61 )
+                    (   101	3.64 )
+                    (   102	3.67 )
+                    (   103	3.69 )
+                    (   104	3.72 )
+                    (   105	3.75 )
+                    (   106	3.78 )
+                    (   107	3.81 )
+                    (   108	3.83 )
+                    (   109	3.86 )
+                    (   110	3.89 )
+                    (   111	3.92 )
+                    (   112	3.95 )
+                    (   113	3.98 )
+                    (   114	4.01 )
+                    (   115	4.04 )
+                    (   116	4.07 )
+                    (   117	4.13 )
+                    (   118	4.16 )
+                    (   119	4.19 )
+                    (   120	4.22 )
+                    (   121	4.25 )
+                    (   122	4.28 )
+                    (   123	4.31 )
+                    (   124	4.37 )
+                    (   125	4.4 )
+                    (   180 4.4 )
+                    );
+            }
+        }
+    }
+
+    "heatedcenter"
+    {
+        volumeFraction  0.4464738237;
+        Dh              0.0117778432;
+
+        powerModel
+        {
+            type            fixedPower;
+            volumeFraction  0.1138322735;
+            volumetricArea  187.989;
+            T               564.15 ;
+            Cp              500;
+            rho             7700;
+                        powerTimeProfile
+            {
+                type                            table;
+                //- Time after which the time table is applied
+                startTime                       0;
+                //- Left column is time elapsed since the startTime defined
+                //  above
+                table       table
+                (
+                    (   0   1    )
+                    (   1   1    )
+                    (   10   1.0    )
+                    (   11   2.5    )
+                    (   20  2.5    )
+                    (   21  2.5  )
+                    (   30  2.5  )
+                    (   31  2.5    )
+                    (   40  2.5    )
+                    (   41  2.5  )
+                    (   50  2.5  )
+                    (   51  2.5  )
+                    (   60  2.5  )
+                    (   61  2.5  )
+                    (   62	2.52 )
+                    (   63	2.55 )
+                    (   64	2.58 )
+                    (   65	2.61 )
+                    (   66	2.64 )
+                    (   67	2.67 )
+                    (   68	2.70 )
+                    (   69	2.73 )
+                    (   70	2.75 )
+                    (   71	2.78 )
+                    (   72	2.81 )
+                    (   73	2.83 )
+                    (   74	2.86 )
+                    (   75	2.88 )
+                    (   76	2.91 )
+                    (   77	2.94 )
+                    (   78	2.98 )
+                    (   79	3.01 )
+                    (   80	3.04 )
+                    (   81	3.05 )
+                    (   82	3.08 )
+                    (   83	3.11 )
+                    (   84	3.14 )
+                    (   85	3.17 )
+                    (   86	3.21 )
+                    (   87	3.23 )
+                    (   88	3.26 )
+                    (   89	3.29 )
+                    (   90	3.33 )
+                    (   91	3.35 )
+                    (   92	3.39 )
+                    (   93	3.41 )
+                    (   94	3.44 )
+                    (   95	3.46 )
+                    (   96	3.50 )
+                    (   97	3.53 )
+                    (   98	3.55 )
+                    (   99	3.58 )
+                    (   100	3.61 )
+                    (   101	3.64 )
+                    (   102	3.67 )
+                    (   103	3.69 )
+                    (   104	3.72 )
+                    (   105	3.75 )
+                    (   106	3.78 )
+                    (   107	3.81 )
+                    (   108	3.83 )
+                    (   109	3.86 )
+                    (   110	3.89 )
+                    (   111	3.92 )
+                    (   112	3.95 )
+                    (   113	3.98 )
+                    (   114	4.01 )
+                    (   115	4.04 )
+                    (   116	4.07 )
+                    (   117	4.13 )
+                    (   118	4.16 )
+                    (   119	4.19 )
+                    (   120	4.22 )
+                    (   121	4.25 )
+                    (   122	4.28 )
+                    (   123	4.31 )
+                    (   124	4.37 )
+                    (   125	4.4 )
+                    (   180 4.4 )
+                    );
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- REGIME MAP MODELS --------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+regimeMapModels
+{}
+
+// ------------------------------------------------------------------------- //
+// --- PHYSICS MODELS ------------------------------------------------------ //
+// ------------------------------------------------------------------------- //
+
+physicsModels
+{
+    dragModels
+    {
+        "liquid.vapour"
+        {
+            type    Bestion;
+        }
+
+        "liquid.structure"
+        {
+            "inletcorner:inletside:inletcenter:heatedcorner:heatedside:heatedcenter"
+            {
+                type    ReynoldsPower;
+                coeff   0.316;
+                exp     -0.25;
+            }
+        }
+    }
+
+    twoPhaseDragMultiplierModel
+    {
+        type                LockhartMartinelli;
+        multiplierFluid     "liquid";
+    }
+
+    heatTransferModels
+    {
+        "liquid.structure"
+        {
+            "heatedcorner:heatedside:heatedcenter"
+            {
+                type    multiRegimeBoilingTRACECHF;
+                forcedConvectionModel
+                {
+                	type    NusseltReynoldsPrandtlPower;
+                	const   0.0;
+                	coeff   0.023;
+                	expRe   0.8;
+                	expPr   0.4;
+                }
+                poolBoilingModel
+                {
+                    type    Gorenflo;
+                }
+                flowEnhancementFactorModel
+                {
+                    type    RezkallahSims;
+                    exp     0.8;
+                }
+                suppressionFactorModel
+                {
+                    type    Chen;
+                }
+                nucleateBoilingOnsetModel
+                {
+                    type            Basu;
+                    surfaceTension  8e-3;//0.012260695;//8e-3;   //- In N/m
+                    contactAngle    38;     //- In degrees
+                }
+                subCooledBoilingFractionModel
+                {
+                    type            SahaZuber;  //constant;//
+                    //value           0.5;
+                }
+                criticalHeatFluxModel
+                {
+                    type lookUpTableCHF;
+                    PitchToDiameter 1.32631578947;
+                    pressureValues (
+                        100.0   300.0   500.0    1000.0   2000.0   3000.0
+                        5000.0  7000.0  10000.0  12000.0  14000.0  16000.0
+                        18000.0 20000.0 21000.0);
+
+                    massFlowRateValues (
+                        0.0    50.0    100.0   300.0   500.0
+                        750.0  1000.0  1500.0  2000.0  2500.0
+                        3000.0 3500.0  4000.0  4500.0  5000.0
+                        5500.0 6000.0  6500.0  7000.0  7500.0
+                        8000.0);
+
+                    qualityValues (
+                        -0.50 -0.40 -0.30 -0.20 -0.15
+                        -0.10 -0.05 0.00 0.05 0.10
+                        0.15 0.20 0.25 0.30 0.35
+                        0.40 0.45 0.50 0.60 0.70
+                        0.80 0.90 1.0
+                         );
+
+                    #include "chfTables"
+                }
+                leidenfrostModel
+                {
+                    type GroeneveldStewart;
+                    criticalPressure 2.209e7;
+                }
+                annularFlowModel
+                {
+                    type                CachardLiquid;
+                    wallEmissivity      0.84; //Inconel 600
+                    liquidEmissivity    0.95; //Water ?
+                }
+            }
+        }
+        "liquid.vapour"
+        {
+            "liquid"
+            {
+                type    NusseltReynoldsPrandtlPower;
+                const   2.0;
+                coeff   0.6;
+                expRe   0.5;
+                expPr   0.33;
+            }
+            "vapour"
+            {
+                type    constant;
+                value   1e3;
+                //type    NusseltReynoldsPrandtlPower;
+                //const   2.0;
+                //coeff   0.6;
+                //expRe   0.5;
+                //expPr   0.33;
+
+            }
+        }
+        "vapour.structure"
+        {
+            "heatedcorner:heatedside:heatedcenter"
+            {
+                type    multiRegimeBoilingVapourTRACE;
+                annularFlowModel
+                {
+                    type                CachardVapour;
+                }
+            }
+        }
+
+    }
+
+    phaseChangeModel
+    {
+        type                        heatDriven;
+        mode                        conductionLimited;
+        residualInterfacialArea     1e-3;
+        latentHeatModel
+        {
+            type                    water;
+        }
+        saturationModel
+        {
+            type                    waterTRACE;
+        }
+    }
+
+    pairGeometryModels
+    {
+        "liquid.vapour"
+        {
+            dispersionModel
+            {
+                type            constant;
+                dispersedPhase  "vapour";
+            }
+
+            interfacialAreaDensityModel
+            {
+                type        spherical;
+            }
+        }
+
+        "liquid.structure"
+        {
+            contactPartitionModel
+            {
+                type    constant;
+                value   1.0;
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- MISCELLANEA --------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+pMin                    10000;
+pRefCell                0;
+pRefValue               100000;
+residualKd              1;
+
+// ************************************************************************* //

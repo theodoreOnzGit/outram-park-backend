@@ -372,17 +372,21 @@ fn compare_transient(run: &mut TransientRun, tr: &HashMap<String, Vec<f64>>, ste
 }
 
 /// The light chain, for every `cargo test` (gh:#1814 round 14): 20 EN steps from the 15 s fluid restart (15 -> 20 s,
-/// `msfr_en20` reference, upstream tight protocol), then 10 transient steps of the port's OWN 20 s state against
+/// `msfr_en20` reference, upstream tight protocol), then ~~10~~ 5 transient steps of the port's OWN 20 s state against
 /// upstream's `transient` started from ITS 20 s output (`msfr_chain20_transient`). Same committed inputs as the long
 /// chain (no `GENFOAM_UPSTREAM`), same typed hand-over, gates as the 600 + 50-step test. The 20 s state is far from
 /// critical (`keff_` still climbing), so the transient is a large power change, not the near-null one of 165 s.
+/// Round 15 (gh:#1832): runs the tutorial's `maxIterations 3` (upstream never converges the loop here); step-1 `power:` 1.1e-13, worst of 10 steps 9.9e-12, `dt` 4.4e-11; the pre-fix old-time form is asserted to miss by 1.1e-2.
+/// CHANGED 2026-11-26 (parent session): the transient horizon is 5 steps, not 10. Reason: the light test's purpose is a
+/// CI-light check "well under a minute" (gh:#1814 brief), and at 3 unconverged coupling iterations per step 10 steps took
+/// 125-133 s; in this prompt-supercritical excursion last-bit differences grow ~1.7x per step (1.1e-13 at step 1 to
+/// 9.9e-12 at step 10, recorded above), so the 10-step worst sat at 1 % of the unchanged 1e-11 gate. No tolerance was
+/// changed; steps 6-10 remain in the committed reference, and the long chain (`long-tests`) still gates 50 steps at 165 s. Measured at 5 steps (2026-11-26, 4 shared cores): `dt` 2.0e-11, T 3.7e-14, `power:` 3.5e-12,
+/// first `h` residual 1.3e-11, wall 72 s including the 20 EN steps and the ablation step.
 #[test]
 fn msfr_light_chain_matches_upstream() {
     let st = stage("light");
-    // upstream ran this stage with `maxIterations 1` (COUPLING_ITERS=1): at the 20 s state the loop never converges (README Round 14)
-    let cd = st.fluid_root.join("constant/multiRegionCouplingDict");
-    let text = std::fs::read_to_string(&cd).expect("multiRegionCouplingDict");
-    std::fs::write(&cd, text.replace("maxIterations 3;", "maxIterations 1;")).expect("write");
+    // the tutorial's `maxIterations 3` (gh:#1832, README Round 15): at the 20 s state the coupling loop never converges, so upstream runs all 3 iterations at every step
     let en = read_ref(&vv_dir().join("refs/msfr_en20.ref.txt.gz"));
     let tr = read_ref(&vv_dir().join("refs/msfr_chain20_transient.ref.txt.gz"));
     let (stage, settings) = build(&st);
@@ -422,10 +426,18 @@ fn msfr_light_chain_matches_upstream() {
     let normalised = NormalisedState::EnergyNeutroDiffusion { stage: s, history };
     let mut run = normalised.start_transient(TransientStart::EnergyNeutro(settings)).expect("transient");
     let frozen = run.k_eff();
-    let trep = compare_transient(&mut run, &tr, 10, (false, 1), 2e-10);
+    // ABLATION (before the transient is advanced): the pre-gh:#1832 form re-snapshots the old-time flux and `precStar`
+    // at every coupling iteration; it must MISS upstream's step 1 by the round 15 amount
+    let TransientRun::EnergyNeutroDiffusion(t0) = &run else { unreachable!() };
+    let mut old_form = TransientRun::EnergyNeutroDiffusion(t0.clone().with_per_call_old_time_snapshot());
+    let rec = old_form.step_adjustable().expect("ablated step");
+    let ablated = rel(rec.power, tr["POWER_1"][0]);
+    println!("ABLATION per-iteration old-time snapshot: step-1 power rel {ablated:.3e}");
+    assert!(ablated > 1e-3, "the pre-gh:#1832 form must still miss: {ablated:e}");
+    let trep = compare_transient(&mut run, &tr, 5, (false, 3), 2e-10);
     assert_eq!(run.k_eff(), frozen, "keff_ is frozen in the transient");
     println!(
-        "LIGHT CHAIN: transient 10 steps worst rel dt {:.3e}, T {:.3e}, power {:.3e}, h1 {:.3e}; step-1 power {:.6e}; wall {:.1} s",
+        "LIGHT CHAIN: transient 5 steps worst rel dt {:.3e}, T {:.3e}, power {:.3e}, h1 {:.3e}; step-1 power {:.6e}; wall {:.1} s",
         trep.worst_dt, trep.worst_t, trep.worst_p, trep.worst_h1, trep.first_power, started.elapsed().as_secs_f64()
     );
 }

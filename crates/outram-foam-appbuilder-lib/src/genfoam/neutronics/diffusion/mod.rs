@@ -192,6 +192,17 @@ pub struct DiffusionNeutronics {
     /// `precStar` (precursors per unit fluid volume) of the upstream transient
     /// step; empty until [`Self::set_prec_star`].
     prec_star: Vec<VolScalarField>,
+    /// The old-time `fluxStar_` / `precStar_` of the current time step, once [`Self::store_old_times`] ran
+    /// (gh:#1832); `None` is the per-call snapshot form.
+    old_time: Option<UpstreamOldTime>,
+}
+
+/// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
+/// `precStar`, one value per cell (gh:#1832).
+#[derive(Debug, Clone)]
+struct UpstreamOldTime {
+    flux: Vec<Vec<f64>>,
+    prec_star: Vec<Vec<f64>>,
 }
 
 impl DiffusionNeutronics {
@@ -283,6 +294,7 @@ impl DiffusionNeutronics {
             drift: None,
             albedo_specs: Vec::new(),
             prec_star: Vec::new(),
+            old_time: None,
         })
     }
 
