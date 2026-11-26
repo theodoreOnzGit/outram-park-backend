@@ -117,6 +117,9 @@ pub(super) struct CachedReview {
 pub(super) struct CachedFolder {
     pub(super) cached_at: SystemTime,
     pub(super) toml: Seen,
+    /// The folder's derived cache (#1778), `None` when there was none: a
+    /// rewritten or new cache refreshes the folder too.
+    pub(super) derived: Option<Seen>,
     /// The folder's `.rs` files by name.
     pub(super) files: BTreeMap<String, Seen>,
     /// Hash of the folder's `review.md` text; `None` without one.
@@ -172,6 +175,13 @@ impl CachedFolder {
             && names.len() == self.files.len()
             && names.iter().all(|n| self.files.contains_key(n))
             && self.toml.still(&at(super::KOVAN_TOML), self.cached_at)
+            && {
+                let d = root.join(kovan_common::code_index::derived::derived_rel(dir));
+                match &self.derived {
+                    Some(seen) => seen.still(&d, self.cached_at),
+                    None => !d.exists(),
+                }
+            }
             && self.files.iter().all(|(n, s)| s.still(&at(n), self.cached_at))
             && Self::relevant(dir, &self.prior_ids, &self.fresh, all_claims) == self.claims
     }
