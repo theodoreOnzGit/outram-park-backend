@@ -1196,6 +1196,20 @@ what is still open:
 
 ## Layer quality: cfMesh thinning against snappyHexMesh collapse, differentially (gh:#1215)
 
+> **Not re-checked: SnappyCollapse coverage figures (2026-11-26).** Every
+> `SnappyCollapse` coverage figure in this and the next two sections
+> (gh:#1215, #1240, #1241: "% of wall faces with all N layers",
+> "covered", "coverage") came from `LayerOutcome::faces`. That counted a
+> wall face's layers as the most of its points'. Since gh:#1241 the cells
+> are built by upstream's `nFaceLayers` rule (`FaceLayerCells::Upstream`,
+> the default), which gives a pinched face fewer. Where faces were pinched,
+> the figures are therefore **upper bounds**. The outcome reports the built
+> count since 2026-11-26 (`snappy_layers.rs`; found when the layer index
+> read 541 layer cells against the outcome's 598 on TetGen's test pipe).
+> The figures were not re-measured. The cell counts, volumes, quality and
+> flow results are unaffected (they are measured on the mesh itself), and
+> so are the back-off and `CfMeshOptimise` figures.
+
 **Issue:** gh:#1215, the follow-up of gh:#1202's step 3 (3 layers diverge,
 one shrunk dual cell over the layer stack, 75–84° at the top-prism/dual
 interface; uniform thinning does not lower it). **Maintainer direction:**

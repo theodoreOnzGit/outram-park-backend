@@ -452,7 +452,10 @@ pub struct LayerOutcome {
     /// Per wall point: (position on the wall, layers at the point, total
     /// thickness [m] of its column, the cap [m] the column was allowed).
     pub points: Vec<(Vec3, usize, f64, f64)>,
-    /// Per wall face: (centre, layers of the face = the most of its points).
+    /// Per wall face: (centre, layers of the face): the layer cells built on
+    /// it. For back-off and cfMesh's optimiser, the most of its points';
+    /// for `SnappyCollapse`, the count its `FaceLayerCells` rule built
+    /// (upstream's `nFaceLayers` by default, fewer on a pinched face).
     pub faces: Vec<(Vec3, usize)>,
     /// Iterations the strategy's loop ran (back-off tries, snappy layer
     /// iterations, cfMesh `optimiseLayer` passes).

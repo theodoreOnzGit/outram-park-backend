@@ -427,7 +427,7 @@ pub fn add_boundary_layers_snappy(
     }
     notes.push(format!("handleNonManifolds: {n_nm} points; handleFeatureAngle: {n_feat} edges"));
 
-    let mut last: Option<(VolumeMesh, BTreeMap<usize, usize>, BTreeMap<usize, f64>)> = None;
+    let mut last: Option<(VolumeMesh, BTreeMap<usize, usize>, BTreeMap<usize, f64>, Vec<usize>)> = None;
     let mut iterations = 0;
     let mut remaining = 0;
     let mut converged = false;
@@ -483,7 +483,17 @@ pub fn add_boundary_layers_snappy(
             wrong.iter().filter(|&&b| b).count(),
             status.iter().filter(|&&m| m != ExtrudeMode::NoExtrude).count()
         ));
-        last = Some((layered, counts, totals));
+        // The layer count each wall face was BUILT with, for the outcome.
+        let built: Vec<usize> = pp
+            .faces
+            .iter()
+            .enumerate()
+            .map(|(fi, f)| match controls.face_cells {
+                FaceLayerCells::Upstream => face_layers[fi],
+                FaceLayerCells::MostOfItsPoints => f.iter().map(|&p| point_layers[p]).max().unwrap_or(0),
+            })
+            .collect();
+        last = Some((layered, counts, totals, built));
         if n_changed == 0 {
             converged = true;
             break;
@@ -492,8 +502,16 @@ pub fn add_boundary_layers_snappy(
             grow_no_extrusion(&pp, &mut status, &mut pnl);
         }
     }
-    let (layered, counts, totals) = last.expect("nLayerIter >= 1");
+    let (layered, counts, totals, built) = last.expect("nLayerIter >= 1");
     let mut outcome = LayerOutcome::from_columns(strategy, mesh, &s, &counts, &totals, iterations);
+    // `from_columns` gives a face the most of its points' layers; the cells
+    // were built by `controls.face_cells` (upstream's `nFaceLayers` by
+    // default), which gives a pinched face fewer. Report what was built
+    // (2026-11-26: on TetGen's pipe the outcome read 598 layer cells for 541
+    // built; `pp.faces` is `s.wall_faces` in order).
+    for (f, n) in outcome.faces.iter_mut().zip(&built) {
+        f.1 = *n;
+    }
     outcome.remaining_bad_faces = remaining;
     let n_collapsed = status.iter().filter(|&&m| m == ExtrudeMode::NoExtrude).count();
     notes.push(format!(

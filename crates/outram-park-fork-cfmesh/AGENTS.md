@@ -548,9 +548,15 @@ sized by their cell size. `refinement_levels`, `snap` and `max_flips` do
 nothing on it. **Every test fixture written before that date builds its
 options from `TetDualOptions::carved()`**, so the carved route's pins and
 recorded numbers still pin what they pinned; the default has its own
-tests (`tet_source::tests::the_default_*`). Open: on the TetGen default
+tests (`tet_source::tests::the_default_*`). ~~Open: on the TetGen default
 `SnappyCollapse`'s layer index (541 cells) disagrees with its layer stage
-(598) on the test pipe (`staged::tests`).
+(598) on the test pipe (`staged::tests`).~~ **FIXED 2026-11-26:**
+`LayerOutcome::faces` counted a face's layers as the most of its points',
+while `SnappyCollapse` builds by upstream's `nFaceLayers` (fewer on a
+pinched face); the outcome now reports what was built
+(`staged::tests::every_strategy_gives_an_index_on_the_tetgen_default`).
+SnappyCollapse coverage figures recorded before this date are upper bounds
+(marked in `laminar_pipe_gh1155.md`).
 
 - **Carve, snap and the Delaunay flips are not run** on TetGen's tets; the
   staged log records carve and snap with `applied: false` and an empty

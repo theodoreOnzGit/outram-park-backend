@@ -556,9 +556,13 @@ mod tests {
     ///
     /// **Carved route (2026-11-26):** these results are the carved route's,
     /// so the test asks for it ([`TetDualOptions::carved`]) since TetGen
-    /// became the default. **Open finding:** on the TetGen default the same
-    /// check fails for `SnappyCollapse` (index 541 layer cells against the
-    /// layer stage's 598); not yet investigated.
+    /// became the default. ~~**Open finding:** on the TetGen default the
+    /// same check fails for `SnappyCollapse` (index 541 layer cells against
+    /// the layer stage's 598); not yet investigated.~~ **FIXED 2026-11-26:**
+    /// the outcome counted a face's layers as the most of its points', the
+    /// cells were built by upstream's `nFaceLayers` (fewer on a pinched
+    /// face); the outcome now reports what was built. The TetGen default is
+    /// checked by [`every_strategy_gives_an_index_on_the_tetgen_default`].
     #[test]
     fn every_strategy_gives_an_index_within_the_requested_layers() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -581,6 +585,32 @@ mod tests {
             assert_eq!(li.unreached, 0, "{s:?}");
             assert!((1..=3).contains(&li.max), "{s:?}: max {}", li.max);
             assert!(li.counts()[1] > 0, "{s:?}");
+        }
+    }
+
+    /// The same check on the **TetGen default** (2026-11-26). Before the
+    /// outcome reported what `SnappyCollapse` built, it failed there: index
+    /// 541 layer cells, outcome 598 (pinched faces counted at their
+    /// deepest point). Counts are printed for the record.
+    #[test]
+    fn every_strategy_gives_an_index_on_the_tetgen_default() {
+        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
+        for s in STRATEGIES {
+            let o = TetDualOptions { tet_source: crate::pipeline::TetSource::default(), ..pipe_opts(s, 3) };
+            let staged = surface_to_tet_dual_mesh_multipatch_staged(&p, &t, &regions, &o).unwrap();
+            let li = &staged.layer_index;
+            #[cfg(feature = "std")]
+            std::println!("{s:?}: per-index {:?}", li.counts());
+            if staged.first_layer_cell.is_none() {
+                assert_eq!(li.max, 0, "{s:?}");
+                continue;
+            }
+            let lo = staged.report.layers.as_ref().unwrap();
+            let face_sum: usize = lo.faces.iter().map(|f| f.1).sum();
+            let layer_cells: usize = li.counts()[1..].iter().sum();
+            assert_eq!(layer_cells, face_sum, "{s:?}: index vs LayerOutcome");
+            assert_eq!(li.unreached, 0, "{s:?}");
+            assert!((1..=3).contains(&li.max), "{s:?}: max {}", li.max);
         }
     }
 
