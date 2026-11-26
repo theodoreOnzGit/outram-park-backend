@@ -3216,7 +3216,8 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 213);
+        // 215 since 2026-11-26: the B4C gates (b4c_sheath_intact_max, b4c_min_k).
+        assert_eq!(Params::INPUTS.len(), 215);
     }
 
     /// gh:#1101: the Unit 2 and 3 values derived from sourced ones

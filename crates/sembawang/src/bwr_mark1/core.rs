@@ -2065,12 +2065,18 @@ impl Core {
         }
         // The shroud: held at saturation where the collapsed level covers it
         // (water on both faces), otherwise heated by the outer ring's
-        // radiation, its outer face adiabatic (stated).
+        // radiation, its outer face adiabatic (stated). A covered level
+        // passes the radiation it receives on to the water. ~~It was
+        // dropped~~ until 2026-11-26: a leak of 27.1 W in a covered core at
+        // 20 MW once the radiation followed MELCOR's network (COR1-03; about
+        // half that before, estimated, not measured), found by
+        // `a_covered_core_hands_its_decay_heat_to_the_water`.
         if s.core_radiation {
             let m_level = shroud_mass_per_level(prm, dz);
             for j in 0..AXIAL_NODES {
                 let z_mid = (j as f64 + 0.5) * dz;
                 self.shroud_k[j] = if s.level_m >= z_mid {
+                    q_fluid += q_shroud[j];
                     s.t_sat_k
                 } else {
                     steel_t(steel_h(self.shroud_k[j]) + q_shroud[j] * dt / m_level)
@@ -2382,6 +2388,8 @@ mod tests {
         for _ in 0..3000 {
             r = c.step(&s);
         }
+        // Since 2026-11-26 the covered shroud passes its radiation on to the
+        // water; it was dropped (19999972.9 W here, 1.4e-6 short).
         assert!((r.q_fluid_w - 20.0e6).abs() < 20.0e6 * 1e-6, "{}", r.q_fluid_w);
         assert!(r.peak_clad_k < 562.0 && r.h2_kg_s == 0.0, "{}", r.peak_clad_k);
     }
@@ -2590,9 +2598,14 @@ mod tests {
 
     /// The bottom of the core's radiation (`bottom_radiation`) by hand:
     /// fresh cladding at 1500 K (emissivity 0.325) over water at 560 K
-    /// (0.95), across `FLPUP` 0.25 of the 9.29 m^2 core, gives
-    /// `0.25 x 9.29 x 5.6704e-8 (1500^4 - 560^4) / (1/0.325 + 1/0.95 - 1)`
-    /// = 0.2089 MW. A ring whose lowest node is relocated radiates from the
+    /// (0.95). ~~`0.25 x 9.29 x 5.6704e-8 (1500^4 - 560^4) / (1/0.325 +
+    /// 1/0.95 - 1)` = 0.2089 MW~~ (the old gray form, until 2026-11-26).
+    /// MELCOR's network (unit V&V COR1-03), per ring of the three:
+    /// rod surface 97.19 m^2 a node, cell 3.0968 m^2, `AF = 0.25 x 3.0968`,
+    /// `sigma dT^4 / [(1 - 0.325)/(97.19 x 0.325) + 1/(0.25 x 3.0968) +
+    /// 0.05/(0.95 x 3.0968)]`, three rings: **0.63491 MW** (python, from
+    /// the constants; the rods' resistance takes 1.6 % off the 0.6453 MW
+    /// of the space resistance alone). A ring whose lowest node is relocated radiates from the
     /// next node up instead; a ring whose lowest standing node is covered
     /// radiates nothing; debris held on the plate blocks the view.
     #[test]
@@ -2604,7 +2617,7 @@ mod tests {
         }
         let dz = prm.active_length_m / AXIAL_NODES as f64;
         let (q, down) = c.bottom_radiation(&prm, -1.0, 560.0, dz, false);
-        assert!((down / 0.2089e6 - 1.0).abs() < 1e-3, "{down}");
+        assert!((down / 0.634914774828127e6 - 1.0).abs() < 1e-9, "{down}");
         assert!((q.iter().sum::<f64>() + down).abs() < 1e-6 * down);
         assert!(q[0] < 0.0 && q[1] == 0.0);
         c.nodes[0].relocated = true;
