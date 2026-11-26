@@ -83,6 +83,14 @@ pub enum LocateResult {
     NonRegular,
     /// `ENCSEGMENT` (only from `slocate` with `cflag` off, stage 3).
     EncSegment,
+    /// `ENCVERTEX` (stage 4 on, `insertpoint`).
+    EncVertex,
+    /// `INSTAR` (stage 4 on: the cavity is given).
+    InStar,
+    /// `BADELEMENT` (stage 4 on, `insertpoint`).
+    BadElement,
+    /// `NULLCAVITY` (stage 4 on, `insertpoint`).
+    NullCavity,
 }
 
 /// `insertvertexflags` (the fields `insert_vertex_bw` reads).
@@ -115,6 +123,10 @@ pub enum TetgenError {
     /// location walk found no face below the point, or the symbolic
     /// perturbation of `insphere_s` was degenerate.
     InternalError,
+    /// The input self-intersects where upstream stops with
+    /// `terminatetetgen(this, 3)` (stage 4 on: `scoutsegment`,
+    /// `scoutsubface`).
+    SelfIntersection,
 }
 
 /// The output of [`delaunay_tetrahedralize`]: what `-z` writes to `.node`
@@ -726,6 +738,7 @@ impl TetgenMesh {
         }
         let loc;
         let (mut torg, mut tdest, mut tapex);
+        self.reach[36] += 1;
 
         if searchtet.tet == NULL_TET {
             searchtet.tet = self.recenttet.tet;
@@ -853,9 +866,12 @@ impl TetgenMesh {
                 esymself(searchtet);
             }
             if chkencflag {
-                // issubface(*searchtet): no tetrahedron holds a subface
-                //   before stage 4 (`tsbond`).
-                if self.tets[searchtet.tet].sub != usize::MAX {
+                // issubface(*searchtet). ~~no tetrahedron holds a subface
+                //   before stage 4 (`tsbond`)~~ CORRECTED 2026-11-26
+                //   (gh:#1793): the test was "the tet has a subface array";
+                //   upstream tests the entry at this face, which stage 4's
+                //   `tsbond` fills ([`TetgenMesh::issubface`]).
+                if self.issubface(searchtet) {
                     loc = LocateResult::EncSubface;
                     break;
                 }

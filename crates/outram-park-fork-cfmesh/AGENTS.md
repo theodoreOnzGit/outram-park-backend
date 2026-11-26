@@ -531,7 +531,7 @@ sign-equal substitute (`delaunay.rs`, `outram-blender`'s
 | 1 | gh:#1790 | exact predicates (`predicates.cxx`) | done: 84 000 / 84 000 bit-identical, `verification_and_validation/tetgen_predicates_gh1790/` |
 | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, ~~`insertpoint`~~ `insert_vertex_bw`) and the mesh data structure | done: 12 / 12 cases identical to `tetgen -zQ` (165 124 tets, order and vertex order), `verification_and_validation/tetgen_delaunay_gh1791/` |
 | 3 | gh:#1792 | PLC input (`.poly`/`.smesh`/`.edge`, `PlcInput`) and surface meshing (`meshsurface`) | done: 13 / 13 cases identical to an instrumented upstream (39 207 dump lines: every subface, subsegment, tet and point slot with its links, the dead-item stacks, the random state), `verification_and_validation/tetgen_meshsurface_gh1792/` |
-| 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
+| 4 | gh:#1793 | boundary recovery (`recoverboundary`, `tetrahedralize_plc`) | done: 38 / 38 runs (19 cases x `-p`, `-pY`) identical to an instrumented upstream (86 291 dump lines, 55 reach counters), `verification_and_validation/tetgen_recoverboundary_gh1793/` |
 | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
 | 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
 | 7 | gh:#1796 | TetGen as the tet source for the tet → dual → layers route, and in Mesh Studio | not started |
@@ -547,9 +547,11 @@ the subface ones stages 3 on need) and `tetgen::delaunay`
 (`delaunay_tetrahedralize`). ~~`insertpoint`~~ **CORRECTED 2026-11-26:**
 upstream's point-set path inserts with `insert_vertex_bw` (Bowyer-Watson),
 not `insertpoint`; `insertpoint` and its flips are first used by ~~stage 3~~
-stage 4 (`delaunizesegments`; **CORRECTED 2026-11-26, gh:#1792:**
-`meshsurface` calls neither) and are not ported yet (`locate` is). Rules it
-taught:
+stage 4 (~~`delaunizesegments`~~ **CORRECTED 2026-11-26, gh:#1793:**
+`recoverboundary`'s Steiner points; `delaunizesegments` is the `-D` path and
+is not ported; **CORRECTED 2026-11-26, gh:#1792:** `meshsurface` calls
+neither) and ~~are not ported yet~~ are ported in stage 4 (`locate` was
+already). Rules it taught:
 
 - **Pool order is part of the answer.** `.ele` order is upstream's pool
   traversal (allocation slot order, dead records skipped) and a freed
@@ -595,3 +597,40 @@ calls), with the subface and subsegment pools in `mesh.rs` (`ShellRecord`,
   `TetgenError::InternalError`.** `fin_crash.poly` segfaults upstream in
   `unifysegments` (a fin edge inside a facet, not on a segment); the port
   errors at the same read (pinned).
+
+**Stage 4 (gh:#1793)** adds `tetgen::flip` (the tet-subface / tet-segment
+links and their `tet2subpool` / `tet2segpool`, `flip23`, `flip32`,
+`flip41`, `flip31`, `flipnm`, `flipnm_post`, `tri_edge_test`,
+`checkflipeligibility`, `removeedgebyflips`, `removefacebyflips`),
+`tetgen::recover` (`recoverboundary`, `recoversegments`,
+`recoveredgebyflips`, `recoversubfaces`, `recoverfacebyflips`,
+`finddirection`, `getedge`, `makesegmentendpointsmap`, the dump, and the
+entry `tetrahedralize_plc`) and `tetgen::steiner` (`insertpoint`, the
+`add_steinerpt_*` routines, `smoothpoint`, `removevertexbyflips`,
+`sremovevertex`, `lawsonflip3d`, `recoverdelaunay`). Rules it taught:
+
+- **`recoverboundary` reaches stage 5's `recoverdelaunay`** (after every
+  Steiner point), so it is ported here; stage 5 reuses it. The CDT routines
+  (`-D`: `delaunizesegments`, `formregion`, `formcavity`, `fillcavity`,
+  `scoutsubface`, `scoutsegment`, ...) are **not** reached by
+  `recoverboundary`; only `scoutsegment` and `scoutsubface` are ported
+  (unit-tested), the cavity routines are not.
+- **Reference runs are without `-Q`.** Upstream wraps a few
+  `terminatetetgen` calls inside its `!b->quiet` warning blocks, so `-Q`
+  changes control flow; the port follows the default and collects the
+  warnings in `TetgenMesh::warnings`.
+- **Count branches, not just routines.** The instrumentation's `tg_reach`
+  counters (55: every recovery routine plus the Steiner and flip branches)
+  are part of the comparison; a case that does not move a counter does not
+  test that path. Not reached by any committed case (say so if you rely on
+  them): `removevertexbyflips`' 4-to-1 (`INTETRAHEDRON`) and
+  shift-into-volume branches, duplicated facets (upstream segfaults on the
+  overlapping-facet input tried), `splitsliverflag`, `lawsonflip3d`'s
+  non-convex hull branch (`nonconvex` is set by `carveholes`, stage 5), and
+  the `unflip` branches of `flipnm` / `flipnm_post` (mesh improvement).
+- **Where upstream reads a `NULL` list**, the port errors at the same read:
+  `create_a_shorter_edge`'s facet maps are built only by `-D` and `-q`.
+- **`flipstack` is one list upstream** (surface `flipshpush` and tet
+  `flippush` items); here `flipstack` and `tflipstack`, never both non-empty
+  on the paths ported. Keep it so, or merge them.
+

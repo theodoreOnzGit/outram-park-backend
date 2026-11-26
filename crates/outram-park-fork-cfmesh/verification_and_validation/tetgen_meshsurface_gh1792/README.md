@@ -37,7 +37,8 @@ ported here. `markacutevertices` does not exist in 1.6.0.
 
 **Branches not ported** (none reached with default switches on this call
 path; each is named in the module doc of `surface.rs`): `sinsertvertex`'s
-`splitseg` and `INSTAR` branches (`triangulate` passes `NULL` and
+`splitseg` and `INSTAR` branches (**ported in stage 4, gh:#1793**,
+`sinsertvertex_full`) (`triangulate` passes `NULL` and
 `bowywat = 1`); `flip22`'s `chkencflag` queues (always 0 here); `flip31` and
 `sremovevertex` (not called); the `reporterrorflag` printouts of
 `sscoutsegment`; area and length bounds (`checkconstraints`, `-q` with
@@ -197,7 +198,10 @@ segments, the point types (`RIDGEVERTEX`, `FACETVERTEX`), `insegments`, the
 tet-subface table (`TSBONDTBL`, `STPIVOTTBL`, ...), `locate`, and the
 stage 2 Bowyer-Watson insertion.
 
-Missing: the tet-to-subface and tet-to-segment pools (`tet2subpool`,
+~~Missing~~ **UPDATED 2026-11-26 (gh:#1793): all ported in stage 4
+(`verification_and_validation/tetgen_recoverboundary_gh1793/`), except the
+`-D` routines `delaunizesegments` and `getsteinerptonsegment`, which
+`recoverboundary` does not call.** Was missing: the tet-to-subface and tet-to-segment pools (`tet2subpool`,
 `tet2segpool`: `tsbond`, `tspivot`, `tssbond1`, `tsspivot1`, `sstbond1`,
 ...; `meshsurface` does not touch them), `insertpoint` with its flips
 (`flip23`, `flip32`, `flip41`, `flipnm`, `flipinsertfacet`),

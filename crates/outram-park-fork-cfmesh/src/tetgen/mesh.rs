@@ -907,6 +907,19 @@ pub struct Behavior {
     pub diagnose: bool,
     /// `-x`: subfaces and subsegments per pool block (default 4092).
     pub shellfaceperblock: usize,
+    /// `fliplinklevel` (default -1: automatic, `autofliplinklevel`).
+    /// Boundary recovery changes it while it runs, as upstream does.
+    pub fliplinklevel: i32,
+    /// `flipstarsize` (default -1: no limit).
+    pub flipstarsize: i32,
+    /// `fliplinklevelinc` (default 1).
+    pub fliplinklevelinc: i32,
+    /// `-p/`: `collinear_ang_tol` in degrees (default 179.9).
+    pub collinear_ang_tol: f64,
+    /// `-Y/`: `supsteiner_level` (default 2).
+    pub supsteiner_level: i32,
+    /// `-S`: `steinerleft` (default -1: no limit).
+    pub steinerleft: i64,
 }
 
 impl Default for Behavior {
@@ -931,6 +944,12 @@ impl Default for Behavior {
             nobisect: 0,
             diagnose: false,
             shellfaceperblock: 4092,
+            fliplinklevel: -1,
+            flipstarsize: -1,
+            fliplinklevelinc: 1,
+            collinear_ang_tol: 179.9,
+            supsteiner_level: 2,
+            steinerleft: -1,
         }
     }
 }
@@ -1037,6 +1056,95 @@ pub struct TetgenMesh {
     /// The warnings upstream prints during `meshsurface` (skipped facets,
     /// invalid vertices, ...), in order.
     pub warnings: Vec<alloc::string::String>,
+    // -- boundary recovery (stage 4, gh:#1793) ------------------------------
+    /// The tet-to-segment arrays (`tet2segpool` items: six encoded
+    /// subsegment pointers, one per edge), by pool slot; a tetrahedron's
+    /// [`TetRecord::seg`] is a slot here.
+    pub tet2seg: Vec<[ShellFace; 6]>,
+    /// `tet2segpool` (the pool bookkeeping).
+    pub tet2segpool: MemoryPool,
+    /// The tet-to-subface arrays (`tet2subpool` items: four encoded subface
+    /// pointers, one per face), by pool slot ([`TetRecord::sub`]).
+    pub tet2sub: Vec<[ShellFace; 4]>,
+    /// `tet2subpool` (the pool bookkeeping).
+    pub tet2subpool: MemoryPool,
+    /// `checksubsegflag`: flips keep the tet-segment links.
+    pub checksubsegflag: bool,
+    /// `checksubfaceflag`: flips keep the tet-subface links.
+    pub checksubfaceflag: bool,
+    /// `boundary_recovery_flag`.
+    pub boundary_recovery_flag: bool,
+    /// `cos_collinear_ang_tol`.
+    pub cos_collinear_ang_tol: f64,
+    /// `segmentendpointslist` (two points per segment).
+    pub segmentendpointslist: Vec<Point>,
+    /// `idx_segment_ridge_vertex_list`.
+    pub idx_segment_ridge_vertex_list: Vec<i32>,
+    /// `segment_ridge_vertex_list`.
+    pub segment_ridge_vertex_list: Vec<Point>,
+    /// `subsegstack` (an `arraypool` used as a stack).
+    pub subsegstack: Vec<Face>,
+    /// `subfacstack`.
+    pub subfacstack: Vec<Face>,
+    /// `subvertstack`: the Steiner points to be removed later.
+    pub subvertstack: Vec<Point>,
+    /// `autofliplinklevel`.
+    pub autofliplinklevel: i32,
+    /// `st_segref_count`: Steiner points on segments.
+    pub st_segref_count: i64,
+    /// `st_facref_count`: Steiner points on facets.
+    pub st_facref_count: i64,
+    /// `st_volref_count`: Steiner points in the volume.
+    pub st_volref_count: i64,
+    /// `steinerleft` (the mesh's, initially -1).
+    pub steinerleft: i64,
+    /// `flip23count`.
+    pub flip23count: i64,
+    /// `flip32count`.
+    pub flip32count: i64,
+    /// `flip41count`.
+    pub flip41count: i64,
+    /// `flip31count`.
+    pub flip31count: i64,
+    /// `flip14count`.
+    pub flip14count: i64,
+    /// `flip26count`.
+    pub flip26count: i64,
+    /// `flipn2ncount`.
+    pub flipn2ncount: i64,
+    /// `cavetetlist`.
+    pub cavetetlist: Vec<TriFace>,
+    /// `duplicated_facets_count`.
+    pub duplicated_facets_count: i64,
+    /// `skipped_segment_list` (segments that self-intersect).
+    pub skipped_segment_list: Vec<Face>,
+    /// `skipped_facet_list` (subfaces that self-intersect); upstream keeps
+    /// it as `NULL` until the first one.
+    pub skipped_facet_list: Option<Vec<Face>>,
+    /// The tetrahedral flip stack (`flippush`'s `badface` items), top last.
+    /// Upstream keeps these and `flipshpush`'s on one linked list
+    /// (`flipstack`); the two are never non-empty at once on the paths
+    /// ported here.
+    pub tflipstack: Vec<TriFace>,
+    /// `caveoldtetlist` (`insertpoint`).
+    pub caveoldtetlist: Vec<TriFace>,
+    /// `cavetetshlist`.
+    pub cavetetshlist: Vec<Face>,
+    /// `cavetetseglist`.
+    pub cavetetseglist: Vec<Face>,
+    /// `cavetetvertlist`.
+    pub cavetetvertlist: Vec<Point>,
+    /// `later_unflip_queue` (`recoverdelaunay`): `(tt, forg, fdest, fapex)`.
+    pub later_unflip_queue: Vec<(TriFace, Point, Point, Point)>,
+    /// `tetprism_vol_sum`.
+    pub tetprism_vol_sum: f64,
+    /// `flip44count`.
+    pub flip44count: i64,
+    /// `recover_delaunay_count`.
+    pub recover_delaunay_count: i64,
+    /// Per-routine call counts of the recovery code (the `tg_reach`
+    /// instrumentation of `verification_and_validation/tetgen_recoverboundary_gh1793/`).
+    pub reach: [u64; 64],
 }
 
 impl TetgenMesh {
@@ -1097,6 +1205,46 @@ impl TetgenMesh {
             insegments: 0,
             flip22count: 0,
             warnings: Vec::new(),
+            tet2seg: Vec::new(),
+            tet2segpool: MemoryPool::new(b.shellfaceperblock),
+            tet2sub: Vec::new(),
+            tet2subpool: MemoryPool::new(b.shellfaceperblock),
+            checksubsegflag: false,
+            checksubfaceflag: false,
+            boundary_recovery_flag: false,
+            cos_collinear_ang_tol: (179.9 / 180.0 * core::f64::consts::PI).cos(),
+            segmentendpointslist: Vec::new(),
+            idx_segment_ridge_vertex_list: Vec::new(),
+            segment_ridge_vertex_list: Vec::new(),
+            subsegstack: Vec::new(),
+            subfacstack: Vec::new(),
+            subvertstack: Vec::new(),
+            autofliplinklevel: 1,
+            st_segref_count: 0,
+            st_facref_count: 0,
+            st_volref_count: 0,
+            steinerleft: -1,
+            flip23count: 0,
+            flip32count: 0,
+            flip41count: 0,
+            flip31count: 0,
+            flip14count: 0,
+            flip26count: 0,
+            flipn2ncount: 0,
+            cavetetlist: Vec::new(),
+            duplicated_facets_count: 0,
+            skipped_segment_list: Vec::new(),
+            skipped_facet_list: None,
+            tflipstack: Vec::new(),
+            caveoldtetlist: Vec::new(),
+            cavetetshlist: Vec::new(),
+            cavetetseglist: Vec::new(),
+            cavetetvertlist: Vec::new(),
+            later_unflip_queue: Vec::new(),
+            tetprism_vol_sum: 0.0,
+            flip44count: 0,
+            recover_delaunay_count: 0,
+            reach: [0; 64],
         }
     }
 
@@ -1192,7 +1340,15 @@ impl TetgenMesh {
     /// `tetrahedrondealloc(t)`: set `v[0]` to `NULL` and free the slot.
     pub fn tetrahedrondealloc(&mut self, tet: usize) {
         self.tets[tet].v[0] = NULL_POINT;
-        // `[8]`/`[9]` (tet2segpool, tet2subpool) are unused in stage 2.
+        // Dealloc the space to subfaces/subsegments (stage 4 on; `[8]` and
+        // `[9]` are `NULL` before boundary recovery). Upstream leaves the
+        // two words as they were in the dead record.
+        if self.tets[tet].seg != usize::MAX {
+            self.tet2segpool.dealloc(self.tets[tet].seg);
+        }
+        if self.tets[tet].sub != usize::MAX {
+            self.tet2subpool.dealloc(self.tets[tet].sub);
+        }
         self.tetpool.dealloc(tet);
     }
 

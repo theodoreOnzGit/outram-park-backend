@@ -34,7 +34,7 @@
 //! | 1 | gh:#1790 | exact geometric predicates (`predicates.cxx`) | **done: [`predicates`]** |
 //! | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insert_vertex_bw`) and the mesh data structure | **done: [`mesh`], [`delaunay`]** |
 //! | 3 | gh:#1792 | PLC input (`.poly`/`.smesh`/`.edge`) and surface meshing (`meshsurface`) | **done: [`plc`], [`surface`]** |
-//! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
+//! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | **done: [`flip`], [`recover`], [`steiner`]** |
 //! | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
 //! | 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
 //! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | not started |
@@ -58,6 +58,20 @@
 //! point slot with its links, the dead-item stacks and the random state)
 //! equals an instrumented upstream's on thirteen cases
 //! (`verification_and_validation/tetgen_meshsurface_gh1792/`).
+//!
+//! Stage 4 adds boundary recovery ([`tetrahedralize_plc`]: `tetgen -p` up to
+//! and including `recoverboundary`): the tetrahedron-subface and
+//! tetrahedron-segment links with their `tet2subpool` / `tet2segpool`, the 3D
+//! flips (`flip23`, `flip32`, `flip41`, `flipnm`, `flipnm_post`,
+//! `removeedgebyflips`, `removefacebyflips`, [`flip`]), segment and facet
+//! recovery by flips (`recoveredgebyflips`, `recoverfacebyflips`,
+//! `recoversegments`, `recoversubfaces`, [`recover`]) and the Steiner-point
+//! fallbacks (`insertpoint`, `add_steinerpt_*`, `removevertexbyflips`,
+//! `sremovevertex`, `recoverdelaunay`, [`steiner`]). Its state after
+//! recovery equals an instrumented upstream's on 19 cases under `-p` and
+//! `-pY` (`verification_and_validation/tetgen_recoverboundary_gh1793/`). The
+//! CDT routines (`-D`: `delaunizesegments`, `formcavity`, `fillcavity`, ...)
+//! are not reached by `recoverboundary` and are not ported.
 //!
 //! **The pool order is part of the answer.** Upstream numbers its output by
 //! walking its memory pools in allocation order and reuses freed records
@@ -83,9 +97,12 @@
 //! reproduces those values to the bit.
 
 pub mod delaunay;
+pub mod flip;
 pub mod mesh;
 pub mod plc;
 pub mod predicates;
+pub mod recover;
+pub mod steiner;
 pub mod surface;
 
 pub use delaunay::{
@@ -93,4 +110,6 @@ pub use delaunay::{
 };
 pub use mesh::{Behavior, TetgenMesh};
 pub use plc::{PlcFacet, PlcInput, PlcReadError};
+pub use recover::{tetrahedralize_plc, PlcTetrahedralization};
+pub use steiner::InsertPointFlags;
 pub use surface::{plc_meshsurface, plc_meshsurface_with, PlcSurface};

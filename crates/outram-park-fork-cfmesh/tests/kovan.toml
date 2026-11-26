@@ -1372,3 +1372,228 @@ uses = [
     "fn:e0e300220659122c",
 ]
 test = true
+
+[module."tetgen_recoverboundary_vs_upstream.rs"]
+path = "test:tetgen_recoverboundary_vs_upstream"
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:c894e93f56ab32a2"
+name = "gunzip"
+qual = "gunzip"
+lines = [
+    62,
+    70,
+]
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:b14ce0425bf2e4e7"
+name = "root"
+qual = "root"
+lines = [
+    72,
+    74,
+]
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:7b8c7af985c69f98"
+name = "read_gz"
+qual = "read_gz"
+lines = [
+    76,
+    80,
+]
+hash = "sha256:aeab576b7fdd8fb35da027edf8b5f86d174efef05f5dc64d04c6ea098c37f448"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b14ce0425bf2e4e7",
+    "fn:c894e93f56ab32a2",
+]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:581b01ebd6aeba3c"
+name = "input"
+qual = "input"
+lines = [
+    82,
+    100,
+]
+hash = "sha256:2adb97516d16fa3ed093ab6113158c060327d21f40ef9e0116fb45731d59cde5"
+doc_hash = "sha256:105c53d57df2a1dfe2c489d8001aea190b5f47839213e266aaf2b17300471968"
+callees = [
+    "fn:7b8c7af985c69f98",
+    "fn:b14ce0425bf2e4e7",
+]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:af66049f78c7b56d"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    102,
+    122,
+]
+hash = "sha256:5af825b9af077e7a1dff1534bd164be5b898567a283edd837b982300983c1da6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:0122b8f662ea0454"
+name = "switches"
+qual = "switches"
+lines = [
+    124,
+    130,
+]
+hash = "sha256:39e5bed2c43f4d298f9fef34b35593aa671a954b8d1161dddfc55070c40cef10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e9ddd52c7b968431"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:54e03b0d2d4cb94e"
+name = "run"
+qual = "run"
+lines = [
+    132,
+    144,
+]
+hash = "sha256:7f259ce7ddfc6a90ab7058c06dafd5cfc76c24b86f8eed7a755c25ade85ac248"
+doc_hash = "sha256:b8c692272d9ac8d9384d4eae3070058de9bf2ec0bc8dd278e63aa720e6fb2379"
+callees = [
+    "fn:0122b8f662ea0454",
+    "fn:223474fc6eacbf42",
+    "fn:581b01ebd6aeba3c",
+]
+uses = ["fn:0a6b04436513fcba"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:7e37ab5fa1882ad9"
+name = "check"
+qual = "check"
+lines = [
+    146,
+    171,
+]
+hash = "sha256:5cc1e75b5149c17e81b5717b0b431485dd42579cdd57aa88e28415d08975bfba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:54e03b0d2d4cb94e",
+    "fn:7b8c7af985c69f98",
+]
+uses = ["fn:0a6b04436513fcba"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:c9dca786e96d1955"
+name = "recoverboundary_matches_upstream_on_every_case"
+qual = "recoverboundary_matches_upstream_on_every_case"
+lines = [
+    173,
+    193,
+]
+hash = "sha256:6571b6a5e572378d59f87e47d0325037b1100129fe19a158dbe0801b5a665f66"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7e37ab5fa1882ad9"]
+uses = ["fn:af66049f78c7b56d"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:9e7046b5ff4f8a6e"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+lines = [
+    195,
+    207,
+]
+hash = "sha256:8ba0659280991321fee29e95970d337f8107a49a1d0629442d9ea451ba76d8d7"
+doc_hash = "sha256:1cdd3d4ae354f90d4920b3624e08ca4aff9305e827e1a3a027354e10916f8d03"
+callees = [
+    "fn:0122b8f662ea0454",
+    "fn:581b01ebd6aeba3c",
+    "fn:7b8c7af985c69f98",
+    "fn:ce773a8c18c56a13",
+]
+uses = ["fn:e9ddd52c7b968431"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:adbba9be4ca08133"
+name = "recovered_boundary_is_in_the_mesh"
+qual = "recovered_boundary_is_in_the_mesh"
+lines = [
+    209,
+    341,
+]
+hash = "sha256:3dc9c4bf5d39d453512e75b23c8038bbf49ddae9bc5bfece12be57b27cd80046"
+doc_hash = "sha256:f94e2140fbcea2b0f4d68f661ab3484a848ca85d9cd216d5fb335fe4bf3ee097"
+callees = [
+    "fn:0122b8f662ea0454",
+    "fn:581b01ebd6aeba3c",
+    "fn:ce773a8c18c56a13",
+]
+uses = [
+    "fn:12aef5334fbdc77b",
+    "fn:72fc7088c9254309",
+    "fn:9d48e1eadc990e51",
+    "fn:af66049f78c7b56d",
+    "fn:eb811f9606bcca5f",
+]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:42b366ed146c6bee"
+name = "scout_routines_find_edges_and_faces"
+qual = "scout_routines_find_edges_and_faces"
+lines = [
+    343,
+    408,
+]
+hash = "sha256:49af54062fb4b7cc971d4e906bab2f18b747acc4c50fbcfac069759c0ae026b6"
+doc_hash = "sha256:192f8ec16d5b7cab9f307cd18429efc85c80769e75150ba369f8eea197422e46"
+callees = [
+    "fn:0122b8f662ea0454",
+    "fn:18cc4e94bfe5b7fa",
+    "fn:223474fc6eacbf42",
+    "fn:4cf28bfab50880ed",
+    "fn:581b01ebd6aeba3c",
+    "fn:87f0023b00d82759",
+    "fn:a0da348487986b81",
+]
+uses = [
+    "fn:0a6b04436513fcba",
+    "fn:12aef5334fbdc77b",
+    "fn:6417764398f5c36a",
+    "fn:72fc7088c9254309",
+    "fn:995baef364d34cb3",
+    "fn:9d48e1eadc990e51",
+    "fn:a48597066f5cf547",
+    "fn:e9ddd52c7b968431",
+    "fn:eb811f9606bcca5f",
+    "fn:fd400f620bc29024",
+]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:a5449f9ec0d57167"
+name = "write_port_dumps"
+qual = "write_port_dumps"
+lines = [
+    410,
+    421,
+]
+hash = "sha256:9d5efae37a49f0fd1954c37177b7bb1fce71d0842e4505db92b3824d04ac57a4"
+doc_hash = "sha256:6f16bbbbf6c404ea859ba841528fa27693b11b3ac27499ea851783f3cf2c83d0"
+callees = ["fn:54e03b0d2d4cb94e"]
+test = true

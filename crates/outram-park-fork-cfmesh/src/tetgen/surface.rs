@@ -46,10 +46,14 @@
 //! **Branches not ported**, none reached with default switches and the
 //! `meshsurface` call path:
 //!
-//! - `sinsertvertex`'s `splitseg` and `bowywat == 3` (`INSTAR`) branches:
-//!   `triangulate` passes `NULL` and `bowywat = 1`;
+//! - ~~`sinsertvertex`'s `splitseg` and `bowywat == 3` (`INSTAR`) branches:
+//!   `triangulate` passes `NULL` and `bowywat = 1`~~ **CORRECTED 2026-11-26
+//!   (gh:#1793):** ported for boundary recovery as
+//!   [`TetgenMesh::sinsertvertex_full`]; `sinsertvertex` calls it with no
+//!   segment;
 //! - `flip22`'s `chkencflag` queues (`badsubsegs`, `badsubfacs`): always 0
-//!   here; `flip31` and `sremovevertex` (not called);
+//!   here; `flip31` and `sremovevertex` (not called by `meshsurface`;
+//!   **ported in stage 4**, gh:#1793, `flip.rs` and `steiner.rs`);
 //! - `sscoutsegment`'s `reporterrorflag` printouts (the results are kept);
 //! - the area and length bounds (`checkconstraints`, `-q` with
 //!   `facetconstraintlist` / `segmentconstraintlist`);
@@ -776,6 +780,7 @@ impl TetgenMesh {
     /// `[c,d,b]`, `[d,c,a]`. `flipfaces[1]` may be reversed on return, as
     /// upstream.
     pub fn flip22(&mut self, flipfaces: &mut [Face; 2], flipflag: bool) {
+        self.reach[31] += 1;
         let pa = self.sorg(&flipfaces[0]);
         let pb = self.sdest(&flipfaces[0]);
         let pc = self.sapex(&flipfaces[0]);
@@ -1115,15 +1120,49 @@ impl TetgenMesh {
         bowywat: i32,
         rflag: bool,
     ) -> LocateResult {
-        let mut loc = iloc;
-        if loc == LocateResult::Outside {
-            // Do point location in surface mesh.
-            if searchsh.is_null() {
-                *searchsh = self.recentsh;
+        self.sinsertvertex_full(insertpt, searchsh, None, iloc, bowywat, rflag)
+    }
+
+    /// `sinsertvertex(insertpt, searchsh, splitseg, iloc, bowywat, rflag)`
+    /// with every branch (stage 4, gh:#1793): a segment to split
+    /// (`splitseg`, the two new subsegments are returned in
+    /// `cavesegshlist`) and `bowywat == 3` (`INSTAR`: the sub-cavity was
+    /// formed by the caller). [`TetgenMesh::sinsertvertex`] is this with no
+    /// segment.
+    pub fn sinsertvertex_full(
+        &mut self,
+        insertpt: Point,
+        searchsh: &mut Face,
+        mut splitseg: Option<&mut Face>,
+        iloc: LocateResult,
+        bowywat: i32,
+        rflag: bool,
+    ) -> LocateResult {
+        self.reach[28] += 1;
+        let mut loc = LocateResult::Outside;
+        if bowywat == 3 {
+            loc = LocateResult::InStar;
+        }
+        let has_seg = splitseg.as_ref().is_some_and(|s| !s.is_null());
+        if has_seg {
+            // A segment is going to be split, no point location.
+            *searchsh = self.spivot(splitseg.as_ref().unwrap());
+            if loc != LocateResult::InStar {
+                loc = LocateResult::OnEdge;
             }
-            // Search the vertex. An above point must be provided ('aflag' = 1).
-            let sp = *self.xyz(insertpt);
-            loc = self.slocate(&sp, insertpt, searchsh, true, true, rflag);
+        } else {
+            if loc != LocateResult::InStar {
+                loc = iloc;
+            }
+            if loc == LocateResult::Outside {
+                // Do point location in surface mesh.
+                if searchsh.is_null() {
+                    *searchsh = self.recentsh;
+                }
+                // Search the vertex. An above point must be provided ('aflag' = 1).
+                let sp = *self.xyz(insertpt);
+                loc = self.slocate(&sp, insertpt, searchsh, true, true, rflag);
+            }
         }
 
         let senext = |f: &Face| Face {
@@ -1140,7 +1179,13 @@ impl TetgenMesh {
             self.smarktest(searchsh);
             self.caveshlist.push(*searchsh);
         } else if loc == LocateResult::OnEdge {
-            let pa = self.sorg(searchsh);
+            let pa = if has_seg {
+                let sg = splitseg.as_mut().unwrap();
+                sg.shver = 0;
+                self.sorg(sg)
+            } else {
+                self.sorg(searchsh)
+            };
             if !searchsh.is_null() {
                 // Collect all subfaces share at this edge.
                 let mut neighsh = *searchsh;
@@ -1253,7 +1298,10 @@ impl TetgenMesh {
                         // The adjacent face exists.
                         if !self.smarktested(&neighsh) {
                             if bowywat != 0 {
-                                let s = if !self.isshtet(&neighsh) {
+                                let s = if loc == LocateResult::InStar {
+                                    // It must be a boundary edge.
+                                    1.0
+                                } else if !self.isshtet(&neighsh) {
                                     // Check if the subface is non-Delaunay wrt. the new pt.
                                     self.incircle3d(
                                         self.sorg(&neighsh),
@@ -1428,7 +1476,7 @@ impl TetgenMesh {
             }
         }
 
-        if loc == LocateResult::OnEdge || !self.cavesegshlist.is_empty() {
+        if loc == LocateResult::OnEdge || has_seg || !self.cavesegshlist.is_empty() {
             // An edge is being split. In case (2) the edge is on the boundary
             //   of the cavity, and degenerated new faces must be removed.
             let nseg = self.cavesegshlist.len();
@@ -1472,6 +1520,74 @@ impl TetgenMesh {
                 }
             }
 
+            let mut newsegs = [Face::default(); 2];
+            if has_seg {
+                let sg = splitseg.as_mut().unwrap();
+                if loc != LocateResult::InStar {
+                    self.smarktest(sg); // Mark it as being processed.
+                }
+                self.reach[51] += 1;
+                let pa = self.sorg(sg);
+                let pb = self.sdest(sg);
+
+                // Insert the new point p.
+                let aseg = self.makeshellface(ShPool::Seg);
+                let bseg = self.makeshellface(ShPool::Seg);
+                self.setshvertices(&aseg, pa, insertpt, NULL_POINT);
+                self.setshvertices(&bseg, insertpt, pb, NULL_POINT);
+                let mk = self.shellmark(sg);
+                self.setshellmark(&aseg, mk);
+                self.setshellmark(&bseg, mk);
+                // useinsertradius (-p): the segment index.
+                let fi = self.shr(sg).facetindex;
+                self.shr_mut(&aseg).facetindex = fi;
+                self.shr_mut(&bseg).facetindex = fi;
+
+                // Connect [#, a]<->[a, p].
+                let boutseg = self.spivot(&senext2(sg)); // Temporarily use boutseg.
+                if !boutseg.is_null() {
+                    let aoutseg = senext2(&aseg);
+                    self.sbond(&boutseg, &aoutseg);
+                }
+                // Connect [p, b]<->[b, #].
+                let aoutseg = self.spivot(&senext(sg));
+                if !aoutseg.is_null() {
+                    let boutseg = senext(&bseg);
+                    self.sbond(&boutseg, &aoutseg);
+                }
+                // Connect [a, p] <-> [p, b].
+                let aoutseg = senext(&aseg);
+                let boutseg = senext2(&bseg);
+                self.sbond(&aoutseg, &boutseg);
+
+                // Connect subsegs [a, p] and [p, b] to adjacent new subfaces.
+                for i in 0..self.cavesegshlist.len() {
+                    let parysh = self.cavesegshlist[i];
+                    let mut neighsh = self.spivot(&parysh);
+                    // neighsh is a degenerated new face.
+                    if self.sorg(&neighsh) != pa {
+                        neighsh.shver ^= 1;
+                    }
+                    let newsh = self.spivot(&senext2(&neighsh)); // The edge [p, a] in newsh
+                    self.ssbond(&newsh, &aseg);
+                    let newsh = self.spivot(&senext(&neighsh)); // The edge [b, p] in newsh
+                    self.ssbond(&newsh, &bseg);
+                }
+
+                // Let the point remember the segment it lies on.
+                if self.pointtype(insertpt) == VertType::FreeSeg {
+                    self.points[insertpt].point2sh = sencode(&aseg);
+                }
+                // Update the point-to-seg map.
+                if self.pointtype(pa) == VertType::FreeSeg {
+                    self.points[pa].point2sh = sencode(&aseg);
+                }
+                if self.pointtype(pb) == VertType::FreeSeg {
+                    self.points[pb].point2sh = sencode(&bseg);
+                }
+                newsegs = [aseg, bseg];
+            }
+
             // Delete all degenerated new faces.
             for i in 0..self.cavesegshlist.len() {
                 let p = self.spivot(&self.cavesegshlist[i]);
@@ -1481,6 +1597,12 @@ impl TetgenMesh {
                 }
             }
             self.cavesegshlist.clear();
+
+            if has_seg {
+                // Return the two new subsegments (for further process).
+                self.cavesegshlist.push(newsegs[0]);
+                self.cavesegshlist.push(newsegs[1]);
+            }
         }
 
         loc
