@@ -339,7 +339,11 @@ asked thickness and 80–88° non-orthogonality.
 and 7158 dual cells against 35347 and 7186; 2600 cfMesh cells per layer
 against 2622): the port's `acos`/`cos`/`ln`/`powf` come from the
 platform's `libm` (gh:#1823). Pipe and fuel channel agree. The pins are
-native.
+native. **UPDATED 2026-11-26 (gh:#1823):** the TetGen port now computes its
+transcendentals through PETIR (maintainer: "petir is intended"), the same
+bits on every target, so the browser pebble is expected to match native.
+**Not re-checked:** the browser images and counts on this page were taken
+before the change and have not been re-rendered.
 
 **Checked, by looking at the images:**
 

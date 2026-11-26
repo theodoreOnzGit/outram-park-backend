@@ -65,6 +65,7 @@ use super::mesh::{
 };
 use alloc::string::String;
 use alloc::vec::Vec;
+use petir::mathf::RealMath;
 
 /// `insertvertexflags`, every field `insertpoint` reads.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -2085,7 +2086,7 @@ impl TetgenMesh {
                 // Reduce the angle tolerance to detect collinear event.
                 self.b.collinear_ang_tol = new_ang_tol;
                 self.cos_collinear_ang_tol =
-                    (self.b.collinear_ang_tol / 180.0 * core::f64::consts::PI).cos();
+                    (self.b.collinear_ang_tol / 180.0 * core::f64::consts::PI).r_cos();
             } else {
                 // Report a self-intersection event due to epsilon.
                 idir = SELF_INTERSECT;
@@ -2305,7 +2306,7 @@ impl TetgenMesh {
                         if new_ang_tol < 180.0 {
                             self.b.collinear_ang_tol = new_ang_tol;
                             self.cos_collinear_ang_tol =
-                                (self.b.collinear_ang_tol / 180.0 * core::f64::consts::PI).cos();
+                                (self.b.collinear_ang_tol / 180.0 * core::f64::consts::PI).r_cos();
                             // This segment can be recovered by a 2-3 flip.
                             self.subsegstack.push(ms);
                             return Ok((true, idir));

@@ -246,8 +246,54 @@ fn quality_statistics_match_upstream_dash_v() {
             "{case} -{sw}: largest radius-edge ratio {:.6}, dihedral {:.4} .. {:.4}\n{ours}",
             q.radius_edge_ratio[1], q.dihedral[0], q.dihedral[1]
         );
-        assert_eq!(ours, theirs, "{case} -{sw}");
+        let moved = PETIR_ACOS_RIGHT_ANGLE_MOVES.iter().find(|m| m.0 == case && m.1 == sw).map_or(0, |m| m.2);
+        assert_eq!(ours, with_right_angles_moved(&theirs, moved), "{case} -{sw}");
     }
+}
+
+/// Face angles that the port bins on the other side of 90 degrees than
+/// upstream does: `(case, switches, faces moved from 80-90 to 90-100)`.
+///
+/// **Cause (gh:#1823, maintainer decision 2026-11-26: "petir is intended").**
+/// `interiorangle` computes `acos` through PETIR (`RealMath::r_acos`), not
+/// the platform libm that upstream's binary links (glibc). The two differ
+/// by one ulp on 7.5 % of inputs in [-1, 1] (152 330 of a 2.02 M probe), so
+/// a right angle on the bin edge can land in the other bin. Only the `-V`
+/// histogram moves: every mesh file of every differential stays
+/// byte-identical to upstream. Anything else that differs fails the test.
+const PETIR_ACOS_RIGHT_ANGLE_MOVES: [(&str, &str, i64); 2] = [("fuel_channel", "pqz", 2), ("pebble", "pqz", -1)];
+
+/// Upstream's `-V` text with `k` face angles moved from the 80-90 bin into
+/// the 90-100 bin (both counts sit on the same histogram line pair).
+fn with_right_angles_moved(theirs: &str, k: i64) -> String {
+    if k == 0 {
+        return theirs.to_string();
+    }
+    let shift = |line: &str, label: &str, d: i64| -> String {
+        let at = line.find(label).expect("histogram label");
+        let colon = at + line[at..].find(':').unwrap();
+        let rest = &line[colon + 1..];
+        let digits_start = colon + 1 + rest.find(|c: char| c.is_ascii_digit()).unwrap();
+        let digits_end = digits_start + line[digits_start..].find(|c: char| !c.is_ascii_digit()).unwrap_or(line.len() - digits_start);
+        let width = digits_end - (colon + 1);
+        let n: i64 = line[digits_start..digits_end].parse().unwrap();
+        format!("{}{:>width$}{}", &line[..colon + 1], n + d, &line[digits_end..])
+    };
+    theirs
+        .lines()
+        .map(|l| {
+            let mut l = l.to_string();
+            if l.contains("90 - 100 degrees") {
+                l = shift(&l, "90 - 100 degrees", k);
+            }
+            if l.contains("80 -  90 degrees") {
+                l = shift(&l, "80 -  90 degrees", -k);
+            }
+            l
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + if theirs.ends_with('\n') { "\n" } else { "" }
 }
 
 /// The comparison can fail: the volume bound perturbed from 0.0026 to

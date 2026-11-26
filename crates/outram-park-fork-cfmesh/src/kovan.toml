@@ -7402,7 +7402,7 @@ id = "fn:4c9625ce94d18903"
 name = "dual_kinds_are_pinned_bit_for_bit"
 qual = "dual_kinds_are_pinned_bit_for_bit"
 hash = "sha256:2ebd1276bee6e1c5dc10f632b18776bab244ec971d94da8c8e3d87333972b298"
-doc_hash = "sha256:831fd73877f622176d516fc7ebe794dd3535d788caed4a659a1ff6d6b3be4e80"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."pipeline.rs".function]]
@@ -7419,6 +7419,14 @@ name = "every_boundary_face_points_outward_on_layered_pipes_and_ducts"
 qual = "every_boundary_face_points_outward_on_layered_pipes_and_ducts"
 hash = "sha256:3976b910de2c69ce5cf0c5b576fbab549ad63d93d716c82e5c92a346092e86f6"
 doc_hash = "sha256:257a1ad638f2f9d85e1350d41fa2f1518543481197f5e28dc9524b96e9b06c97"
+test = true
+
+[[module."pipeline.rs".function]]
+id = "fn:f6715f252705913c"
+name = "face_angles"
+qual = "face_angles"
+hash = "sha256:90e9254ff4dd1089523c7a36bab02b0ee5d477307a605af0b7d298f51b7d7d49"
+doc_hash = "sha256:f7914a101a9522abb84f50296a287caf28e825828e273327af3201a7b5d8ed22"
 test = true
 
 [[module."pipeline.rs".function]]

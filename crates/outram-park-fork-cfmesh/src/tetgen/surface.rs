@@ -78,6 +78,7 @@ use super::plc::PlcInput;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::Write;
+use petir::mathf::RealMath;
 
 /// `enum interresult` (the values `sscoutsegment` returns).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -597,7 +598,7 @@ impl TetgenMesh {
         } else if costheta < -1.0 {
             costheta = -1.0;
         }
-        let mut theta = costheta.acos();
+        let mut theta = costheta.r_acos();
         let ori = self.orient3d_p(pa, pb, pc1, pc2);
         if ori > 0.0 {
             theta = 2.0 * core::f64::consts::PI - theta;
@@ -2276,7 +2277,7 @@ impl TetgenMesh {
                     } else if cosang < -1.0 {
                         cosang = -1.0;
                     }
-                    let ang = cosang.acos();
+                    let ang = cosang.r_acos();
                     // Record the smallest input dihedral angle.
                     if ang < self.minfacetdihed {
                         self.minfacetdihed = ang;
@@ -2397,7 +2398,7 @@ impl TetgenMesh {
     pub fn mergefacets(&mut self) {
         let pi = core::f64::consts::PI;
         // First, remove coplanar segments.
-        let cosang_tol = (self.b.facet_separate_ang_tol / 180.0 * pi).cos();
+        let cosang_tol = (self.b.facet_separate_ang_tol / 180.0 * pi).r_cos();
 
         let mut segloop = Face {
             pool: ShPool::Seg,
@@ -2448,8 +2449,8 @@ impl TetgenMesh {
         }
 
         // Second, remove ridge segments at small angles.
-        let cosang_tol = (self.b.facet_small_ang_tol / 180.0 * pi).cos();
-        let cosang_sep_tol = ((self.b.facet_separate_ang_tol - 5.0) / 180.0 * pi).cos();
+        let cosang_tol = (self.b.facet_small_ang_tol / 180.0 * pi).r_cos();
+        let cosang_sep_tol = ((self.b.facet_separate_ang_tol - 5.0) / 180.0 * pi).r_cos();
 
         // shloop.shver is not reset between subfaces: after a removal the
         //   next subface starts from the version the loop broke at.

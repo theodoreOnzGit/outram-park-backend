@@ -50,6 +50,7 @@ use super::mesh::{Behavior, TetgenMesh};
 use super::output::TetgenOutput;
 use super::plc::PlcInput;
 use alloc::string::String;
+use petir::mathf::RealMath;
 
 /// The command-line switches of the `-p` route, as a builder over
 /// [`Behavior`]. `Switches::new()` is `-p`; [`Switches::parse`] reads the
@@ -120,7 +121,7 @@ impl Switches {
     pub fn max_volume(mut self, v: f64) -> Self {
         self.b.fixedvolume = true;
         self.b.maxvolume = v;
-        self.b.maxvolume_length = v.powf(1.0 / 3.0) / 3.0;
+        self.b.maxvolume_length = v.r_powf(1.0 / 3.0) / 3.0;
         self.b.quality = true;
         self
     }

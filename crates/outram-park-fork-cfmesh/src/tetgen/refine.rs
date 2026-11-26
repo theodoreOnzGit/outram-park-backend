@@ -79,6 +79,7 @@ use super::steiner::InsertPointFlags;
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::f64::consts::PI;
+use petir::mathf::RealMath;
 
 // ---------------------------------------------------------------------------
 // Small vector helpers (tetgen.h inlines).
@@ -476,7 +477,7 @@ impl TetgenMesh {
                 } else if costheta < -1.0 {
                     costheta = -1.0;
                 }
-                sum_theta += costheta.acos();
+                sum_theta += costheta.r_acos();
             }
             self.fnextself(&mut spintet);
             let neighsh = self.tspivot(&spintet);
@@ -2621,11 +2622,11 @@ impl TetgenMesh {
         let mut param = [0.0f64; 6];
 
         // Used in locate_on_surface(): -p/#.
-        self.rf.cos_facet_separate_ang_tol = (self.b.facet_separate_ang_tol / 180.0 * PI).cos();
+        self.rf.cos_facet_separate_ang_tol = (self.b.facet_separate_ang_tol / 180.0 * PI).r_cos();
         // Used in is_collinear_at(): -p///#.
-        self.cos_collinear_ang_tol = (self.b.collinear_ang_tol / 180.0 * PI).cos();
+        self.cos_collinear_ang_tol = (self.b.collinear_ang_tol / 180.0 * PI).r_cos();
         // The cosine value of the min dihedral angle (-q/#) for tetrahedra.
-        self.rf.cosmindihed = (self.b.mindihedral / 180.0 * PI).cos();
+        self.rf.cosmindihed = (self.b.mindihedral / 180.0 * PI).r_cos();
         self.rf.smallest_insradius = 1.0e30;
 
         self.steinerleft = self.b.steinerleft; // Upperbound of # Steiner points (by -S#).

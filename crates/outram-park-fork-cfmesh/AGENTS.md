@@ -658,11 +658,20 @@ maintainer.
   (fuel channel: its 0.5 m annulus leaves no room to grow), 1.85 (pebble),
   against 0.99, 1.04, 1.37 ungraded. Pinned by property
   (`tetgen_tets_shrink_toward_the_walls_when_graded`), not by counts.
-- **TetGen output differs between native and wasm** on the pebble (35 347
+- ~~**TetGen output differs between native and wasm** on the pebble (35 347
   tetrahedra natively, 35 200 in the browser): the port calls `acos`,
   `cos`, `ln` and `powf` through the platform's `libm`, not PETIR, so a
   last-bit difference changes a refinement decision (gh:#1823). Pins are
-  native.
+  native.~~ **CHANGED 2026-11-26 (gh:#1823, maintainer: "petir is
+  intended"):** the port's 21 transcendental calls in `src/tetgen/` go
+  through `petir::mathf::RealMath`, so native and wasm compute the same
+  bits. PETIR's `acos` differs from glibc's (upstream's) by one ulp on
+  7.5 % of inputs. Every mesh file of every TetGen differential is still
+  byte-identical to upstream. Only the `-V` face-angle histogram moves:
+  right angles on the 90-degree bin edge, 2 faces on the fuel channel and
+  1 on the pebble `-pqz` run. `tetgen_quality_vs_upstream.rs`'s
+  `PETIR_ACOS_RIGHT_ANGLE_MOVES` allows exactly those, nothing else.
+  Use PETIR for any new transcendental in the port.
 
 ## The `tetgen` module: TetGen 1.6.0, ported stage by stage (epic gh:#1789, 2026-11-26)
 

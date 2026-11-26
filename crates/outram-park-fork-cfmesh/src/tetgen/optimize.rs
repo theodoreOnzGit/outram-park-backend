@@ -49,6 +49,7 @@ use super::steiner::InsertPointFlags;
 use super::surface::{facenormal, lu_decmp, lu_solve};
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
+use petir::mathf::RealMath;
 
 const PI: f64 = core::f64::consts::PI;
 
@@ -124,7 +125,7 @@ impl BadTetQueue {
     }
     /// `enqueue_badtet(bf)`.
     fn enqueue(&mut self, bf: &BadFace) {
-        let qual = 1.0 / bf.key.ln();
+        let qual = 1.0 / bf.key.r_ln();
         let mut queuenumber: i32 = 0;
         if qual < 1.0 {
             queuenumber = (64.0 * (1.0 - qual)) as i32;
@@ -1023,14 +1024,14 @@ impl TetgenMesh {
         let mut q = BadTetQueue::new();
         self.badtetrahedrons = Some(Vec::new());
 
-        self.cos_large_dihed = (135.0 / 180.0 * PI).cos(); // used in get_tetqual
-        self.cosmaxdihed = (self.b.optmaxdihedral / 180.0 * PI).cos(); // set by -o/#
+        self.cos_large_dihed = (135.0 / 180.0 * PI).r_cos(); // used in get_tetqual
+        self.cosmaxdihed = (self.b.optmaxdihedral / 180.0 * PI).r_cos(); // set by -o/#
                                                                        // The smallest dihedral angle to identify slivers.
         let mut sliver_ang_tol = self.b.optmaxdihedral - 5.0;
         if sliver_ang_tol < 172.0 {
             sliver_ang_tol = 172.0;
         }
-        self.cossmtdihed = (sliver_ang_tol / 180.0 * PI).cos();
+        self.cossmtdihed = (sliver_ang_tol / 180.0 * PI).r_cos();
         // The smallest dihedral angle to split slivers.
         let mut split_sliver_ang_tol = self.b.optmaxdihedral + 10.0;
         if split_sliver_ang_tol < 179.0 {
@@ -1038,7 +1039,7 @@ impl TetgenMesh {
         } else if split_sliver_ang_tol > 180.0 {
             split_sliver_ang_tol = 179.9;
         }
-        self.cosslidihed = (split_sliver_ang_tol / 180.0 * PI).cos();
+        self.cosslidihed = (split_sliver_ang_tol / 180.0 * PI).r_cos();
         self.opt_max_sliver_asp_ratio = self.b.opt_max_asp_ratio * 10.0; // set by -o//#
 
         // Put all bad tetrahedra into array. (-c is not ported.)

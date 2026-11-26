@@ -76,6 +76,7 @@ use crate::nostd_prelude::*;
 
 use super::predicates::Predicates;
 use alloc::vec::Vec;
+use petir::mathf::RealMath;
 
 /// An encoded tetrahedron handle (upstream's `tetrahedron`, a pointer with
 /// the version in its four low bits): `((slot + 1) << 4) | ver`; `0` is
@@ -1355,7 +1356,7 @@ impl TetgenMesh {
             checksubsegflag: false,
             checksubfaceflag: false,
             boundary_recovery_flag: false,
-            cos_collinear_ang_tol: (179.9 / 180.0 * core::f64::consts::PI).cos(),
+            cos_collinear_ang_tol: (179.9 / 180.0 * core::f64::consts::PI).r_cos(),
             segmentendpointslist: Vec::new(),
             idx_segment_ridge_vertex_list: Vec::new(),
             segment_ridge_vertex_list: Vec::new(),

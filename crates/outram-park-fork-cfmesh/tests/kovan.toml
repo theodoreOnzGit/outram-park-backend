@@ -799,6 +799,16 @@ doc_hash = "sha256:5deff1c544b6dfb0a422a9101001608e61d912171a162de991d9f50371bf5
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:80508ce0c7ff4941"
+name = "PETIR_ACOS_RIGHT_ANGLE_MOVES"
+qual = "PETIR_ACOS_RIGHT_ANGLE_MOVES"
+item = "const"
+shape = "const"
+hash = "sha256:f346cb24a22e31abc1de60aaddd039ca800f54ef907c91a03ca88b1618420e95"
+doc_hash = "sha256:3682a1b738cfa8342fadd54f1acedd466edb0f99480bdb0acfe51f5c83292006"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:ae511b0acd509685"
 name = "files"
 qual = "files"
@@ -842,7 +852,7 @@ test = true
 id = "fn:a1a2bd94b765ad4b"
 name = "quality_statistics_match_upstream_dash_v"
 qual = "quality_statistics_match_upstream_dash_v"
-hash = "sha256:6fdb0689e724198ce4dc341a3127032291697af339ed7fa14eb6b1eb108b0b25"
+hash = "sha256:32894a6a72b6ea47d354ac89e94a3e94435ac84383f3261b26054c07d72a6bb6"
 doc_hash = "sha256:05f4f9e638eb51bd829ff69446c916621012dd4f93c57ceea643ad908ecabf31"
 test = true
 
@@ -924,6 +934,14 @@ name = "the_comparison_can_fail"
 qual = "the_comparison_can_fail"
 hash = "sha256:5a1e59d96287961498c8a86457b3ab8bce6587538152429b09dc6489999dfd8c"
 doc_hash = "sha256:98eb447734ff37afd2535b6f499b6d8edb8c48b1fec6f6174367f8458fce0a87"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:bc4614a1e18409a4"
+name = "with_right_angles_moved"
+qual = "with_right_angles_moved"
+hash = "sha256:2b3554bd93c92ce0cbbce6d42ec577e78c62bcd44c623aa3e202e039efa5221c"
+doc_hash = "sha256:15f050216381e4a9509345c9262001bbdd18e30d296d79215858f804797e41b6"
 test = true
 
 [module."tetgen_recoverboundary_vs_upstream.rs"]
