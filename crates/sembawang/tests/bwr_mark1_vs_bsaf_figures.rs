@@ -298,6 +298,11 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // agreement rested on the defect (the false quench drove steam through
     // the hot core); now the model's H2 stops at 338 kg by 5 h, below all
     // nine codes (398-1315 kg) from 6 h. Under investigation, gh:#1810.
+    // **With MELCOR's per-volume swell (`swollen_level_by_volume`, the same
+    // day, replacing the source-height form) and the B4C gates:** RPV
+    // 3.4465/6.5989 MPa; drywell **0.0595/0.2549** MPa; envelopes RPV 0.5934,
+    // drywell **0.7912**, **H2 0.9885**, Xe 0.7292, I 0.8125. The H2 miss was
+    // the source-height form's (it overswelled the core).
     // **Printed, not asserted, since 2026-11-26** (root CLAUDE.md, "No
     // regression pins until the physics is right"; maintainer: "Ignore
     // sembawang pins for now, nothing to pin against"). The numbers above

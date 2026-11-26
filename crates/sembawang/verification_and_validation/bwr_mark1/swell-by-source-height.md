@@ -1,5 +1,18 @@
 # The swollen level by source height (gh:#1810, 2026-11-26)
 
+> **SUPERSEDED the same day by MELCOR's per-control-volume form**
+> (`bwr_mark1::swollen_level_by_volume`), after the unit V&V against the
+> MELCOR manuals (`melcor-unit-vv/cvh-dch-hs.md`, CVH-02 and the special
+> question). The source-height form fixed the defect, but it still let
+> lower-plenum vapour swell the core, it doubled the mean void for a source
+> at the bottom, and it capped the void locally. The defect case gives the
+> ~~same 0.517 m either way, because the void hits its cap~~ (corrected
+by the test: the per-volume mean void is 0.262, under the cap, giving
+0.4203 m; the source-height form reached its cap only locally, at the
+bottom). The record below
+> is of the first fix; the re-measured numbers are under "Re-measured with
+> the per-volume swell".
+
 > Research, education and V&V only. AI draft, unreviewed. Not validated.
 
 ## The defect
@@ -183,3 +196,44 @@ Candidates:
 - the debris oxidation's steam supply in a dry plenum;
 - whether MELCOR's later-phase H2 comes from the lower plenum, the core
   plate or the remaining standing rods.
+
+## Re-measured with the per-volume swell (2026-11-26)
+
+These numbers are from `swollen_level_by_volume` (MELCOR's per-volume form)
+and the B4C gates (COR1-22). They are recorded, not pinned.
+
+**At the first relocation** (`the_first_relocation_does_not_quench_the_core`):
+the first relocation is at 13238 s. Over the next 60 s, peak cladding stays
+at or above 2269.0 K and the RPV stays at or below 8.285 MPa, with no relief
+lift. Heat into the water peaks at 0.122 GW. Pass.
+
+**BSAF, lumped plant to 26 h.** The source-height column is the first fix,
+which overswelled the core.
+
+| | original (defect) | source-height fix | per-volume (MELCOR) |
+|---|---|---|---|
+| RPV vs measured, mean / max | 3.4388 / 6.5826 MPa | 0.9590 / 1.5196 | 3.4465 / 6.5989 |
+| drywell vs measured, mean / max | 0.0670 / 0.2573 MPa | 0.1581 / 0.3567 | **0.0595 / 0.2549** |
+| inside the envelope: RPV | 0.6154 | 0.1648 | 0.5934 |
+| drywell | 0.6703 | 0.3846 | **0.7912** |
+| H2 | 0.9885 | 0.1034 | **0.9885** |
+| Xe | 0.8125 | 0.8750 | 0.7292 |
+| I | 0.8542 | 0.9167 | 0.8125 |
+
+**The H2 shortfall was the source-height form's.** That form overswelled
+the core: lower-plenum vapour swelled the core water, and a bottom source
+got twice MELCOR's void. On MELCOR's form, H2 at 25 h is 443.97 kg, back
+inside the nine codes (470.75 with the original defect, 338.04 with the
+source-height form).
+
+**The melt ejection is still at high pressure.** The lower head fails at
+4.5128 h, at pressure (`depressurised_h == lower_head_h`), and
+`fdi_hpme` = true. The first debris goes through the pedestal water at
+4.5133 h (1.570 kg, steam 1.57 kg). Originally the RPV depressurised at
+4.958 h, before the head failed at 5.484 h. That depressurisation came
+from the false quench's spike, and no form without the defect brings it
+back. This is the open item for gh:#1810: the depressurisation path (the
+main steam line's creep, the SRV gaskets).
+
+**Others:** B4C reacted in 6 h 0.000 kg (the gates; 7.208 originally); UO2
+candled 3824.68 kg (3982.49 originally); Xe vented 0.9803.

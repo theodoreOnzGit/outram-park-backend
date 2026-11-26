@@ -17,6 +17,12 @@ are less unit-testable or not used by our code.
 
 ## SPECIAL QUESTION: MELCOR's pool swell vs `swollen_level_from_sources`
 
+> **RESOLVED 2026-11-26:** the plant now uses `swollen_level_by_volume`,
+> MELCOR's per-control-volume form, so points 1 to 4 below no longer apply.
+> Points 5 to 7 (flashing, the quench-front split, dynamics) remain and are
+> stated in its doc. Test: `bwr_mark1::tests::cvh_02_the_pool_swells_per_control_volume_as_melcor_does`.
+> The analysis below is kept as the record of the comparison.
+
 **(a) Vapour sources that swell a pool.** The pool's vapour content is a
 state derived from the pool's enthalpy, not from a heat rate: the vapour mass
 in the pool is `M_v = M_P (h_P - h_l)/(h_v - h_l)` (Eq 5-30, CVH/FL-RM-48),

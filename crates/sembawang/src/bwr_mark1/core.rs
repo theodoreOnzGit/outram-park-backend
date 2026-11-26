@@ -240,8 +240,8 @@ pub struct CoreResult {
     /// (relocated nodes: NaN).
     pub clad_k: Vec<f64>,
     /// `q_pool_w` by where in the pool its vapour is raised (2026-11-26):
-    /// the swollen level voids only the water ABOVE each source
-    /// (`swollen_level_from_sources`). At the bottom of the lower plenum:
+    /// each swells only the control volume it is raised in, as MELCOR's per
+    /// volume pool model does (`swollen_level_by_volume`). At the bottom of the lower plenum:
     /// its debris quench, its blades' steel and the wet lower head. At the
     /// core plate (the bottom of active fuel): the plate's debris. In the
     /// core: each covered axial row's boiling, bottom to top, all rings

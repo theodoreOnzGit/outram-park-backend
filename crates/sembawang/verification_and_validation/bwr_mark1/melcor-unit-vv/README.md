@@ -58,6 +58,7 @@ item is allowed only once that item's test exists and passes (root
 | COR1-01 Zr emissivity | `core::melcor_vv::cor1_01_zircaloy_emissivity_matches_the_manual` | **failed** (rounded table, up to 4e-4); code fixed to Eqs 2-7/2-8; pass |
 | COR1-12 Lipinski | `core::melcor_vv::cor1_12_lipinski_dryout_flux_matches_the_manual` | pass at 1e-6; **the item's own floor case was mislabelled** (corrected there) |
 | RN-01 CORSOR-M | `core::melcor_vv::rn_01_corsor_m_rates_match_the_manual` | **failed** (CODATA R, 0.14-0.33 %); code fixed to the correlation's R = 1.987e-3 kcal/(mol K); pass |
+| CVH-02 pool swell | `tests::cvh_02_the_pool_swells_per_control_volume_as_melcor_does` | **the source-height form failed** (bottom sources twice MELCOR's void; lower-plenum vapour swelled the core; local cap): replaced by `swollen_level_by_volume`, MELCOR's per-volume form; pass at 1e-9 m. Plant re-measured: `swell-by-source-height.md` (H2 back inside the codes) |
 | COR1-22 / COR2-17 B4C | `core::melcor_vv::cor1_22_b4c_model_and_its_gates_match_the_manual` | chemistry and rate pass at 1e-8; **the gates were missing** (C1005(3) sheath failure below 0.9 intact steel, C1005(4) above 1500 K): added (`b4c_may_react`, `Params::b4c_sheath_intact_max`, `b4c_min_k`); pass. The plant's B4C reacted over 6 h falls 7.208 → 0.201 kg |
 
 ## Discrepancies found, for decision (not fixed in this extraction)
