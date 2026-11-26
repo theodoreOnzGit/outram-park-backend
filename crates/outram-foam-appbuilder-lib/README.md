@@ -447,10 +447,15 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   path uses nearest-cell addressing plus a global integral rescale (globally
   conservative, not the exact local polyhedral-overlap distribution) because
   basic-lib exposes no supermesh-intersection operator.
-- **Mesh motion is plumbed but not applied.** The `meshDisp` displacement field
+- ~~**Mesh motion is plumbed but not applied.** The `meshDisp` displacement field
   is exchanged through the coupling, but `deformMesh` / `movePoints` are not
   performed — basic-lib does not expose mutable mesh-point geometry, so points
-  do not actually move.
+  do not actually move.~~ **CORRECTED 2026-11-26 (gh:#1784, round 26):** upstream's
+  `deformMesh()` (`volPointInterpolation` + `movePoints`) is ported as
+  `genfoam::multi_region::mesh_deformation::DeformableMesh` and no basic-lib change
+  was needed; it is compared with OpenFOAM-ESI's own code on the 3D_SmallESFR meshes
+  (README of `verification_and_validation/genfoam_vs_upstream_gh1361`, round 26). The
+  coupled loop does not call it yet (gh:#1846).
 - **Cross-section feedback is mesh-mean, not per-cell.** Doppler feedback uses a
   domain-mean temperature into the XS; per-cell XS feedback awaits a neutronics
   API addition.

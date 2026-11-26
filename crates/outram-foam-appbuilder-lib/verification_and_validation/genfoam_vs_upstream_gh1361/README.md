@@ -3726,3 +3726,67 @@ Why `deltaT 1e-3`: with `rho = 800..1500`, `E = 0.5..2 GPa` the wave speed is ab
 | X10 | `Max sigmaEq`, `residual_` | equal to all printed digits when `disp` is bit-identical |
 | X11 | cost | port, release: F about 4 s, E about 4 s, FE about 4 s (round 23: 3 steps in ~1.2 s each test) |
 | X12 | stability | no case diverges; the lagged explicit term is stabilised by the inertia diagonal in E and FE, and `nCorrectors 3` is kept |
+
+## Round 26 results (2026-11-26, release, shared 4-core machine; `tests/genfoam_mesh_deformation_vs_upstream.rs`, 6 tests, 1.4 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust)
+
+| upstream (GeN-Foam 652b3da, OpenFOAM-ESI v2506) | port (`genfoam::multi_region::mesh_deformation`) |
+|---|---|
+| `neutronics.C:363`, `thermalHydraulicsModel.C:380`, `thermoMechanics.C:353` `deformMesh()` | `DeformableMesh::deform_mesh` |
+| `multiRegionCouplingDict/meshDeformation` | `MeshDeformationDict::from_coupling_dict` (+ `without_deformation()` ablation) |
+| `volPointInterpolation::makeInternalWeights`, `makeBoundaryWeights`, normalisation (`makeWeights`) | `VolPointInterpolation::build` |
+| `volPointInterpolation::interpolateInternalField`, `interpolateBoundaryField`, `flatBoundaryField` | `VolPointInterpolation::interpolate` |
+| `primitiveMesh::calcPointCells` (cell sweep; `pointFaces` walk) | `PointCellsOrder::{CellAscending, PointFaceWalk}` |
+| `PrimitivePatch::calcPointFaces`, `meshPoints` of the boundary | `MeshTopology` (`boundary_points`, `boundary_point_faces`) |
+| `fvMesh::movePoints` -> `basicFvGeometryScheme::movePoints` -> `primitiveMesh::updateGeom` | `DeformableMesh::move_points`, re-using `io::poly_mesh::{compute_face_geometry, compute_cell_geometry}` (basic-lib's bit-identical `face_centre_and_area`, `cell_geometry_from_faces`) |
+| the `disp` `volVectorField`, `correctBoundaryConditions()` of `zeroGradient`/`fixedValue` | `VolDisplacement::from_cells`, `parse_disp_patch_conditions` |
+| unported (refused by name) | symmetry/wedge/empty/cyclic/processor patches, other displacement patch types, extra `meshDeformation` keys; not ported and not refused (a different feature): `meshPhi`, `V0`/`V00`, `removeBaffles` copies |
+
+### Comparisons (upstream = real `volPointInterpolation` and `movePoints`; the mechanics region goes through the REAL compiled `legacyThermoMechanics::deformMesh()`)
+
+Closed-form displacement `n x` (shape above), steps `n = 1, 2`, original cell centres, bit-exact `+ - * /`. Every number is a tally of values bit-equal to upstream's 17-digit output (`exact == compared`; `+0 == -0`).
+
+| region (cells, points) | quantity | full dump compared (both steps) | worst relative difference |
+|---|---|---|---|
+| `neutroRegion` (23322, 13272) | pointDisp, points, Cf, Sf, C, V | 39816 / 39816 / 181062 / 181062 / 69966 / 23322 values per step, **all exact** | **0** |
+| `fluidRegion` (23322, 13272; `fixedValue` on `bottom`, `mappedWall` baffle patches) | the same | 39816 / 39816 / 212940 / 212940 / 69966 / 23322, **all exact** | **0** |
+| `thermoMechanicalRegion` (23340, 13293; real class method; `fixedValue 0` on three patches) | the same | 39879 / 39879 / 181224 / 181224 / 70020 / 23340, **all exact** | **0** |
+| all three | `pointCells` (whole lists, 13272 / 13272 / 13293 points) | identical lists; cache state before first use `hasCellPoints=0 hasPointFaces=0 hasPointCells=0 hasCells=0` | n/a |
+
+3,338,820 values compared in all (both steps, three regions); first diverging item: none. The committed reference (`refs/mesh_deform_esfr.ref.txt.gz`, 3.3 MB) holds every 13th item (plus the last) of each field and the whole `pointCells`; the test compares that alone when the full 73 MB dump is absent, and everything when `GENFOAM_MESH_DEFORM_DUMP` names it (`scripts/build_and_run_mesh_deform_dump.sh 2 <file>`). **The numbers above are from the full dump.** No round-off allowance was needed or claimed; nothing is flagged for the maintainer under the 1e-9 rule.
+
+### Controls (the comparison can fail)
+
+* **A, one ulp**: a single reference cell volume (cell 91) changed by one unit in the last place is found, and only it (1 of 1795 values differs; worst relative 1.5e-16), at the right index.
+* **B, stale weights** (weights of the ORIGINAL geometry applied at step 2, what a port that forgot the mesh object's `movePoints()` would do): **1 of 3066** sampled point displacements equals upstream's, the worst differs by `9.3e-6` of `max |pointDisp|`. The weights of the moved geometry reproduce all 3066. So the second-step re-weighting is real and is what upstream does.
+* **C, `pointCells` order**: the `PointFaceWalk` order is a different list from ESI's on all three meshes (asserted); the two orders agree to under 1e-15 on a small block (unit test), so a different cache state upstream would move the last bit, not more.
+
+### Predictions: held and missed
+
+* **R1 held**: ESI's `pointCells` is the cell-sweep order on a freshly read `fvMesh` (no `cellPoints`, no `pointFaces` cached).
+* **R2, R3, R4 held**: point displacement, points, face centres, face area vectors, cell centres and cell volumes are bit-identical on all three meshes and both steps, including the warped quad faces (the polygon branch with non-zero `sumA`).
+* **R5 held in kind, MISSED in size**: step 2 is bit-identical and stale weights do not reproduce it; but I predicted a stale-weight error "of order 1e-3 of `max |pointDisp|`", and it is `9.3e-6` (about 100 times smaller): the geometry change is 3e-3 relative, and the displacement field varies slowly over a cell, so the weights' change feeds through at a much smaller factor than the geometry's.
+* **R6 held**: the real `legacyThermoMechanics::deformMesh()` and the port agree bit for bit, so the transcription used for the other two regions is the same operation.
+* **R7 held**: `max |pointDisp|` 3.67e-3 m at step 1 (predicted about 4e-3) and 7.34e-3 m at step 2 (twice, not cumulative); mean cell-volume change +2.05e-3 (step 1), +4.11e-3 (step 2); max +3.18e-3 and +6.36e-3 (predicted of order 3e-3 and 6e-3); positive mean (dilatation).
+* **R8 held**: refusals by name are tested (`refuses_constraint_patches_by_name`, `patch_conditions_are_read_and_unported_ones_refused`, `dictionary_reader_and_ablation`, `unported_patch_types_are_refused_by_name`).
+
+### Deviations from upstream and what is not covered
+
+* `neutroRegion` and `fluidRegion` are driven by the five upstream lines transcribed into the driver, not by `solvers::neutronics`/`thermalHydraulicsModel` (their libraries are not part of this build); the mechanics region, through the real method, agrees bit for bit with the same transcription.
+* The displacement is closed-form on each mesh, not the mapped `meshDisp`: in the shipped case `neutroRegion/disp` is `meshToMesh` (`cellVolumeWeight`) of the mechanics region's `meshDisp`, and the two meshes differ (23340 vs 23322 cells). That mapping is the supermesh of gh:#651, NOT done here. Round 24's `disp`/`meshDisp` references live on the mechanics mesh only.
+* `deformMesh` is not yet called from the coupled loop (`multi_region::outer_iteration`'s regions own no mesh, and the displacement mapping above is missing); `fvMesh::movePoints` also sets `meshPhi` and the old-time volumes `V0`/`V00`, which `ddt` of a moving mesh uses in the TH solver: not ported (gh:#1846). `removeBaffles` copies (`createBaffleLessMeshes`) are not moved by upstream and are not modelled.
+* Meshes: all-hexahedral (the polygon branch is exercised by the warped faces), serial, plain/wall/`mappedWall` patches, two steps; `symmetryPlane`, `wedge`, `empty`, `cyclic*` and `processor` patches (the point constraints and coupled-boundary normalisation of `volPointInterpolation`) are refused, not tested against upstream.
+* The committed reference is a 1-in-13 sample; the full comparison needs the dump (73 MB, regenerated in 2 s once the upstream libraries exist).
+
+### Moved numbers
+
+None. No pin, gate or tolerance of an existing test changed; no function of `legacy_fvm` or of any reviewed code was edited (`mod.rs` of `multi_region` gained one `pub mod` line, one re-export line and corrected docs).
+
+### Reproduction
+
+`scripts/build_and_run_legacy_tm_dump.sh 1 /dev/null` first (builds round 23's `libThermoMechanicsSolvers`), then `scripts/build_and_run_mesh_deform_dump.sh 2 <dump.txt>` (builds `upstream_driver/mesh_deform_dump/meshDeformDump.C`, stages the case with `scripts/make_mesh_deform_case.sh`, runs 2 steps in 2 s), `scripts/subsample_mesh_deform_dump.py <dump> refs/mesh_deform_esfr.ref.txt.gz 13`. The case files committed under `cases/mesh_deform_esfr` are the neutro and fluid `polyMesh` (points, faces, owner, neighbour, boundary; 1.3 MB) and their `disp` fields; the mechanics region reuses `cases/legacy_tm_esfr`.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--lib mesh_deformation` 8 passed; `--test genfoam_mesh_deformation_vs_upstream` 6 passed (1.4 s, with the full dump); `-p petir --test no_platform_libm` 4 passed; the `check-nostd.sh` command for this crate (`cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`) compiles (the script itself, which loops over every converted crate, was not run in full: disk). Not run: the other suites of the crate and the workspace (the parent's integration run covers them); the generated `docs/outram-foam-appbuilder-lib-api.md` mirror was not regenerated.

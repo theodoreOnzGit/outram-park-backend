@@ -32,6 +32,7 @@
 //! | [`coupling_fields`] | `meshHandler` region registry + `mappings` / `mapAllFields` | The [`MeshHandler`]: region meshes, their named coupling fields, and the pairwise mappings; [`MeshHandler::interpolate_coupling_fields`] is `interpolateCouplingFields`. |
 //! | [`outer_iteration`] | `multiPhysicsSolver::correctPhysics` | The tightly-coupled Picard loop ([`MultiPhysicsSolver`]) advancing the regions and exchanging feedback to convergence, enum-dispatched over [`RegionModel`] (no `dyn`). |
 //! | [`mesh_region`] | region-solver dispatch → `diffusionNeutronics` / `thermalHydraulics` | The **mesh-based** [`RegionModel`] variants: [`MeshNeutronics`] drives the real multigroup-diffusion solver with cross-section temperature feedback; [`MeshThermalHydraulics`] is the per-cell energy-balance seam for the full TH solver. |
+//! | [`mesh_deformation`] | `neutronics.C`/`thermalHydraulicsModel.C`/`thermoMechanics.C` `deformMesh()` + ESI `volPointInterpolation`, `fvMesh::movePoints` | [`DeformableMesh`]: moves a region's mesh by an interpolated displacement field (gh:#1784). |
 //! | [`reactivity_feedback`] | `pointKineticNeutronics` feedback assembly | The [`ReactivityFeedback`] layer: turns the mesh temperature / density feedback fields into a scalar reactivity `Δρ` (Doppler + expansion + coolant density), generalising the lumped `α(T−T_ref)` to spatial fields. |
 //!
 //! **Start with an example**, not the API: the loop wired end-to-end (0-D
@@ -64,10 +65,16 @@
 //!   port uses nearest-cell addressing plus a global integral rescale — globally
 //!   conservative, but not the exact local overlap distribution. Exact overlap
 //!   awaits a basic-lib supermesh operator.
-//! - **`deformMesh` / `movePoints`.** Applying `meshDisp` to actually move mesh
+//! - ~~**`deformMesh` / `movePoints`.** Applying `meshDisp` to actually move mesh
 //!   points (upstream `deformMesh`) needs mutable mesh-point geometry on
 //!   `FvMesh`, which basic-lib does not expose. The loop plumbs the displacement
-//!   field through the coupling but does not yet move points.
+//!   field through the coupling but does not yet move points.~~ **CORRECTED 2026-11-26
+//!   (gh:#1784, round 26):** no basic-lib change was needed. [`mesh_deformation`] ports
+//!   upstream's `deformMesh()` (`volPointInterpolation` + `fvMesh::movePoints`; upstream's
+//!   `meshHandler` itself has no `movePoints`), bit-identical to OpenFOAM-ESI v2506 on the
+//!   3D_SmallESFR meshes. It is NOT yet called from [`outer_iteration`]'s loop: the loop's
+//!   regions own no `DeformableMesh`, and the `meshToMesh` supermesh that maps `meshDisp`
+//!   onto the neutronics mesh is gh:#651; `meshPhi`/`V0` are gh:#1846.
 //!
 //! Neither hack was applied to work around these — the mapping is honest about
 //! its fidelity and the loop is honest about not moving points.
@@ -91,6 +98,7 @@
 use crate::nostd_prelude::*;
 pub mod coupled_loop;
 pub mod coupling_fields;
+pub mod mesh_deformation;
 pub mod mesh_region;
 pub mod mesh_to_mesh;
 pub mod outer_iteration;
@@ -100,6 +108,7 @@ pub mod reactivity_feedback;
 // Curated re-exports (human interface layer): the handful of types a user needs
 // to build a coupled multi-region run without hunting through submodules.
 pub use coupling_fields::{CouplingError, CouplingField, CouplingRegion, FieldKind, MeshHandler};
+pub use mesh_deformation::{DeformableMesh, MeshDeformationDict, MeshDeformationError, VolDisplacement};
 pub use mesh_region::{MeshNeutronics, MeshThermalHydraulics};
 pub use mesh_to_mesh::{MapCombine, MappingMethod, MeshToMesh};
 pub use outer_iteration::{
