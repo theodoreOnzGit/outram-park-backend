@@ -81,6 +81,43 @@ neutronics mesh and the 8 cm coolant band is a row of whole cells. **What the
 images cannot show:** the explicit borings (not in the meshes at all, gh:#594)
 and anything off the two planes drawn.
 
+### Re-measured 2026-11-26: cfMesh's default became TetGen
+
+The tables above are the **carved route's**, the cfMesh default when they
+were taken; their images and `meshes.csv` are kept as run. On 2026-11-26
+the crate default became TetGen sized by the cell size (maintainer: "set
+the default crate wide to tetgen"; `TetSource::TetGenAtCellSize`), and
+Step 7 takes the default. Re-run with `--headless-mesh` at the same sizes
+(cloud container, 4 vCPU Xeon @ 2.10 GHz, 64 s wall time). Files:
+`meshes_tetgen_default_2026-11-26.csv`, `images/tetgen_default_2026-11-26/`.
+
+| mesh | cells | volume vs exact | non-star cells | max non-orth |
+|---|---|---|---|---|
+| neutronics | ~~14 041~~ 7 657 polyhedra | ~~−1.24 %~~ −0.64 % | ~~354~~ 322 | ~~73.5°~~ 56.8° |
+| thermal-hydraulics | ~~20 952~~ 6 324 (with layers) | ~~−1.29 %~~ −0.93 % | ~~224~~ 191 | ~~86.5°~~ 59.9° |
+| structural | ~~94 392~~ 69 825 Tet4 | ~~−0.91 %~~ −0.64 % | 0 | ~~88.0°~~ 74.7° |
+
+- **Volumes:** the neutronics and structural meshes are now at the
+  32-gon's own −0.64 %, because TetGen's boundary is the surface (no carve,
+  no snap). The TH↔structural overlap, a 8.1e4 cm³ sliver on the carved
+  meshes, is now exactly 0, as it should be: the two domains only touch.
+- **Region volumes by centroid move both ways** on the coarser neutronics
+  mesh (e.g. the cold-gas plenum ~~+89.6 %~~ +7.8 %, the coolant band
+  ~~−3.1 %~~ +29.6 %). Assignment by centroid is still a stair-step at
+  the cell size (gh:#594).
+- **The TH mesh's layers.** On the plain TetGen default (back-off layerer
+  run after the pipeline, as before) the 3 prism layers did not grow:
+  4 860 cells, no layer in the image. The carved record had 11 568 layer
+  hexes. The maintainer chose Mesh Studio's measured combination for
+  layers on TetGen tetrahedra: the cell-centre dual with corner feature
+  points and `CfMeshOptimise`, grown by the pipeline's own layer stage on
+  `cavity_wall`. With it the layers are back (visible on both cavity walls
+  in `mesh_thermal_hydraulics_xz.png`), at 6 324 cells, −0.93 % and 59.9°.
+  The cell-centre dual gives far fewer wall faces (`cavity_wall` ~~4 024~~
+  677), so there are far fewer layer cells than in the carved record.
+- `the_headless_meshes_hold_what_the_hand_off_promises` (volumes within
+  3 %, patches, read-back, maps) is the gate; see the test run below.
+
 ## Step 8: MGXS at two state points
 
 **Methodology.** At each temperature the nuclear data are processed with every

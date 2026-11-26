@@ -158,7 +158,10 @@ tampines = { workspace = true, optional = true, features = ["std"] }
 # farrer-park FEM bridge, mesh-to-mesh overlap, mesh plots); the cfMesh port
 # itself (named patches, boundary layers on one patch, polyMesh writer,
 # quality checks), and the GeN-Foam port's nuclearData writer/reader.
-outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export"], optional = true }
+# `cell-centre-dual` (gh:#1240): Step 7's thermal-hydraulics mesh grows its
+# layers on TetGen's cell-centre dual (cfMesh's default became TetGen,
+# 2026-11-26); pure Rust, and this table is already off Android and wasm.
+outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export", "cell-centre-dual"], optional = true }
 outram-foam-appbuilder-lib = { workspace = true, optional = true, features = ["std"] }
 # Step 10's spatial neutronics (gh:#591): the flux boundary conditions and the
 # FvMesh the GeN-Foam port's DiffusionNeutronics is built on.
