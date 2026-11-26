@@ -1154,7 +1154,7 @@ How the cause was found (all diagnostics are `#[ignore]`d tests in the same file
 
 ## Round 6, second run: hypothesis and predictions (written BEFORE the second run; committed first)
 
-Change: `CrossSectionData::with_upstream_unparametrised_chi()` (new option, **default unchanged: parametrised**), used by this test's setup. Whether upstream's omission should become the default is **deferred to the maintainer** (the data-driven chi is what the evaluation supplies; upstream ignores it).
+Change: `CrossSectionData::with_upstream_unparametrised_chi()` (new option, ~~**default unchanged: parametrised**~~ **the default since 2026-11-26**), used by this test's setup. ~~Whether upstream's omission should become the default is **deferred to the maintainer**~~ **DECIDED 2026-11-26** (maintainer: "follow upstream", "deprecate ours locally"): upstream's form is the default; the data-driven chi is `CrossSectionData::with_data_driven_chi()`, `#[deprecated]`.
 
 | id | prediction |
 |---|---|
@@ -1205,13 +1205,13 @@ Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr
 
 ### Defects found and fixed (by reading upstream after the measurement pointed at it)
 
-1. **chi interpolation** (above). `XS::init()` never `build()`s `chiPromptList_`/`chiDelayedList_`; `nuclearDataOneEnergy::get` then returns the reference value. The port parametrised chi with the other cross sections. Added `CrossSectionData::with_upstream_unparametrised_chi()` (the option); the default stays data-driven (the evaluation supplies a chi per state, and the maintainer's rule is that supplied physics is on by default). **Deferred to the maintainer: should upstream's omission become the default?** Effect of the omission on this case (the ablation, pinned in `msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount`): 1.8e-4 in power and 43/50 iteration counts. It acts through the prompt/delayed split, a 3e-5 to 0.34 relative change of chi in the hot cells.
+1. **chi interpolation** (above). `XS::init()` never `build()`s `chiPromptList_`/`chiDelayedList_`; `nuclearDataOneEnergy::get` then returns the reference value. The port parametrised chi with the other cross sections. Added `CrossSectionData::with_upstream_unparametrised_chi()` (the option); the default stays data-driven (the evaluation supplies a chi per state, and the maintainer's rule is that supplied physics is on by default). ~~**Deferred to the maintainer: should upstream's omission become the default?**~~ **Decided 2026-11-26: yes** (see below). Effect of the omission on this case (the ablation, pinned in `msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount`): 1.8e-4 in power and 43/50 iteration counts. It acts through the prompt/delayed split, a 3e-5 to 0.34 relative change of chi in the hot cells.
 2. The cell-wise cross sections themselves (all other quantities) were already bit-identical: round 1's per-cell cross-section path is verified at this level for the first time.
 
 ### Not defects, recorded because they will mislead
 
 * **The "+0.3 pcm" of round 1 (and `genfoam_tutorial_keff`) was never a sub-pcm measurement.** The port's static eigenvalue at upstream's t = 165 s state is +0.333 pcm from `keff_` with the unparametrised chi too (the chi option does not move it), and the transient, which uses the same operator, agrees to 1e-14: upstream's `keff_` is still creeping (5.0e-8 per 0.25 s step at t = 165 s; it was 0.96175 at t = 47.75 s, 0.9603119 at 165 s, and the tutorial's own expected value is 0.960283) so it is not the eigenvalue of its own operator at any finite time. A static `k_eff` against a pseudo-time `keff_` resolves the creep, not the operator. The check that does resolve the operator is the residual of the same equations (H2) and the transient (H3).
-* **Aitken acceleration** is refused at all 157 attempts in the 143-step upstream run (and in the first 50 steps), i.e. never performed; the port does not implement it (module documentation of `upstream_transient`). The text of `fluxEq.H` reads three uninitialised `List<scalar>`; deferred to the maintainer whether to port the evident intent (persisting lists), which would change upstream's observable behaviour.
+* **Aitken acceleration** is refused at all 157 attempts in the 143-step upstream run (and in the first 50 steps), i.e. never performed; the port does not implement it (module documentation of `upstream_transient`). The text of `fluxEq.H` reads three uninitialised `List<scalar>`; ~~deferred to the maintainer whether to port the evident intent (persisting lists), which would change upstream's observable behaviour.~~ **Decided 2026-11-26** ("follow upstream"): not ported; the port keeps upstream's observable behaviour (no acceleration).
 
 ### What the port still cannot do (coupled TH), filed
 
@@ -1223,8 +1223,17 @@ The TH half of the stage was not run: `onePhase` with `momentumMode cellCentered
 
 ### Moved numbers (old to new, with cause)
 
-None. `CrossSectionData`'s default is unchanged (data-driven chi); `genfoam_tutorial_keff`, the guided-slab and SN comparisons are unchanged because the option is off in them.
+~~None. `CrossSectionData`'s default is unchanged (data-driven chi);~~ **2026-11-26: the default changed to upstream's chi; see "Default change, 2026-11-26" below.** Before it: `genfoam_tutorial_keff`, the guided-slab and SN comparisons are unchanged because the option is off in them.
 
 ### New upstream probes (committed under `upstream_driver/`, built with `wmake` against the built ESI v2506 and GeN-Foam libraries, objects not kept)
 
 `dump_laplacian_geometry` (ESI `fvMesh` geometry per face and cell), `dump_xs` (GeN-Foam's own `XS` class: every cross section per cell at 17 digits). `dump_xs` is the oracle that localised the chi defect in one run after three hypotheses (albedo, geometry, keff scaling) had been eliminated by measurement; it is reusable for ESFR and any other `nuclearData`.
+
+
+## Default change, 2026-11-26: upstream's unparametrised chi
+
+Maintainer: "follow upstream", "deprecate ours locally". `CrossSectionData::from_input` now keeps `chiPrompt`/`chiDelayed` at the reference state (GeN-Foam 652b3da `XS::init()` never builds the chi interpolators); the port's earlier data-driven chi is `with_data_driven_chi()`, marked `#[deprecated]` and kept only as the pinned ablation (`msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount`). Aitken acceleration: not ported, as upstream behaves.
+
+**Re-measured (2026-11-26, release):** every GeN-Foam target. `--lib`: 445 passed, 2 ignored. Integration: common 5, gfhr 2, godiva_sn 0 (1 ignored), msfr_transient 2 (7 ignored), neutronics 3, one_phase 5 (2 ignored), point_kinetics 2, psbt 3, pseudo_time 3, sn 2, tutorial_keff 8, two_phase_1d_boiling 3, two_phase_vs_upstream 12 (3 ignored); 0 failed. `genfoam_tutorial_keff` was run **with `GENFOAM_UPSTREAM=/home/user/upstream-build/GeN-Foam-src`** under both defaults and its printed numbers are identical (ESFR reference state +871.1 pcm, MSFR converged state -1.1 pcm, MSFR reference states 0.973858 / 0.950415 / 1.075834): **no recorded number moved.**
+
+**Finding:** without `GENFOAM_UPSTREAM` (or `/workspace/GeN-Foam`), all eight `genfoam_tutorial_keff` tests print `SKIP` and pass, so an ordinary `cargo test` run does not exercise them.

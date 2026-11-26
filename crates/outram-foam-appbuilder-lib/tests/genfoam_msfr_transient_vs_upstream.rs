@@ -111,15 +111,15 @@ fn setup() -> Setup {
     setup_with(true)
 }
 
-/// `upstream_chi false` is the port's default data-driven chi (the ablation).
+/// `upstream_chi false` is the port's earlier data-driven chi (the ablation;
+/// deprecated since 2026-11-26, when upstream's form became the default).
+#[allow(deprecated)]
 fn setup_with(upstream_chi: bool) -> Setup {
     let dir = stage_case();
     let mesh: Arc<FvMesh> = read_poly_mesh(&dir.join("polyMesh")).expect("polyMesh");
     let input = read_nuclear_data(&dir.join("nuclearData")).expect("nuclearData");
     let mut xs = CrossSectionData::from_input(&input).expect("cross sections");
-    if upstream_chi {
-        xs = xs.with_upstream_unparametrised_chi();
-    }
+    xs = if upstream_chi { xs.with_upstream_unparametrised_chi() } else { xs.with_data_driven_chi() };
     let zones = read_cell_zones(&dir.join("polyMesh")).expect("cellZones");
     let order: Vec<&str> = (0..xs.zone_count()).map(|i| xs.zone(i).expect("zone").name()).collect();
     let zone_map = zone_of_cell(&zones, &order, mesh.n_cells).expect("zone map");
@@ -378,8 +378,8 @@ fn msfr_transient_neutronics_matches_upstream_over_50_steps() {
 }
 
 /// Ablation, pinned at its measured miss: the same 50 steps with the port's
-/// default **data-driven chi** (`CrossSectionData` without
-/// `with_upstream_unparametrised_chi`). Upstream never interpolates chi, so this
+/// ~~default~~ **deprecated (since 2026-11-26)** **data-driven chi**
+/// (`CrossSectionData::with_data_driven_chi`). Upstream never interpolates chi, so this
 /// is the port differing from upstream by exactly that one thing.
 ///
 /// Measured 2026-11-25: worst power difference 1.838e-4 (first step 7.4e-6, from

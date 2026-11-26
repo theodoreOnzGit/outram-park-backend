@@ -64,9 +64,11 @@
 //!   ("Round 6") the test failed ("Aitken not performed because of diverging
 //!   series") at all 157 attempts and never passed, so the observable
 //!   behaviour of the binary is "no acceleration"; translating the text
-//!   literally would need the contents of uninitialised memory. Whether to
+//!   literally would need the contents of uninitialised memory. ~~Whether to
 //!   port the evident intent (lists that persist across iterations) is
-//!   deferred to the maintainer.
+//!   deferred to the maintainer.~~ **DECIDED 2026-11-26** (maintainer: "follow
+//!   upstream"): the port keeps upstream's observable behaviour, no Aitken
+//!   acceleration; the evident intent is not ported.
 //! * Discontinuity factors are 1 (`adjustDiscFactors false` in the MSFR case):
 //!   `fluxStar_ = flux_`.
 //! * The linear solvers are basic-lib's (PCG for the flux, BiCGStab for the

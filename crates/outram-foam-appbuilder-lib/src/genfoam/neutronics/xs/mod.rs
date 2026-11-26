@@ -144,8 +144,9 @@ pub struct CrossSectionData {
     do_not_parametrize: Vec<usize>,
     zones: Vec<ZoneNuclearData>,
     zone_index: HashMap<String, usize>,
-    /// Whether `chiPrompt`/`chiDelayed` follow the feedback state (the default) or
-    /// stay at the reference state like upstream's do; see
+    /// Whether `chiPrompt`/`chiDelayed` follow the feedback state (the deprecated
+    /// [`Self::with_data_driven_chi`]) or stay at the reference state like
+    /// upstream's do (the default since 2026-11-26); see
     /// [`Self::with_upstream_unparametrised_chi`].
     chi_parametrised: bool,
 }
@@ -213,7 +214,9 @@ impl CrossSectionData {
             do_not_parametrize: input.do_not_parametrize.clone(),
             zones,
             zone_index,
-            chi_parametrised: true,
+            // Upstream's form is the default (maintainer, 2026-11-26: "follow
+            // upstream"); see `with_upstream_unparametrised_chi`.
+            chi_parametrised: false,
         };
 
         // --- register each state's data points ----------------------------
@@ -291,13 +294,35 @@ impl CrossSectionData {
     /// 3.3e-5 (`chiPrompt0`), 7.7e-2 (`chiDelayed0`) and 0.34 (`chiDelayed5`) relative;
     /// every other cross section is bit-identical.
     ///
-    /// The default stays the data-driven form (correct physics default-on: the
+    /// ~~The default stays the data-driven form (correct physics default-on: the
     /// evaluation supplies it). Whether upstream's omission should become the
     /// default is deferred to the maintainer; the V&V that compares with the real
-    /// binary sets this option.
+    /// binary sets this option.~~ **CHANGED 2026-11-26** (maintainer: "follow
+    /// upstream", "deprecate ours locally"): this upstream form IS the default
+    /// now, so calling this is a no-op kept for existing callers. The port's
+    /// earlier data-driven chi is [`Self::with_data_driven_chi`], deprecated.
     #[must_use]
     pub fn with_upstream_unparametrised_chi(mut self) -> Self {
         self.chi_parametrised = false;
+        self
+    }
+
+    /// **Deprecated:** the port's earlier default, interpolating
+    /// `chiPrompt`/`chiDelayed` with the feedback state like the other cross
+    /// sections. GeN-Foam 652b3da does not (see
+    /// [`Self::with_upstream_unparametrised_chi`]), and the maintainer chose
+    /// upstream's form on 2026-11-26 ("follow upstream", "deprecate ours
+    /// locally"). Kept callable only as the ablation that the MSFR transient
+    /// V&V pins (`tests/genfoam_msfr_transient_vs_upstream.rs`: worst power
+    /// difference 1.838e-4 against the real binary with this form, 6.2e-14
+    /// without it).
+    #[deprecated(
+        since = "2026-11-26",
+        note = "GeN-Foam keeps chi at the reference state; the default now follows upstream"
+    )]
+    #[must_use]
+    pub fn with_data_driven_chi(mut self) -> Self {
+        self.chi_parametrised = true;
         self
     }
 
