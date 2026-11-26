@@ -559,7 +559,7 @@ doc_hash = "sha256:557bf4a25ae108f6145d075c27e04aa976170187f405ea591c8a0bafa78ab
 id = "fn:a3e119bdf6185be8"
 name = "interiorangle"
 qual = "TetgenMesh::interiorangle"
-hash = "sha256:6f8975413a10b31c5afe9c561f40fad35af3573a6494475e3d32d46c0bb98e0b"
+hash = "sha256:0bd66565aee03866fbfb7d39dae89077d65fe604206c8a89d8c044ec1af70b54"
 doc_hash = "sha256:3baf64cb464909de40a57dfdc8e8370ffe4a761fe4b550863cd122239383ed72"
 
 [[module."flip.rs".function]]
@@ -1511,7 +1511,7 @@ name = "TetgenMesh"
 qual = "TetgenMesh"
 item = "type"
 shape = "struct"
-hash = "sha256:31e75849d90bdb99487b164441f9da06b683d4ed593afe150b0b319c7c7294ef"
+hash = "sha256:6d847d6ef3f250a1672b0cfd1621d39153863d50b4ba69e40692544830c59ab4"
 doc_hash = "sha256:eca7aa86ab2e5ce7b2c4ba3e6b8d8244a2985a14542904afa1aea08b9c3d762c"
 
 [[module."mesh.rs".function]]
@@ -1637,7 +1637,7 @@ doc_hash = "sha256:2689458e12c83183dd5f7f083c4d1449c030db4a2ea28f4df403115bf7b00
 id = "fn:4cf28bfab50880ed"
 name = "new"
 qual = "TetgenMesh::new"
-hash = "sha256:dbceaffac5a83758971d1a80f60869c4780edb0e3a3142a90fe9d2f3a7aa8f13"
+hash = "sha256:01c627bc24c3f817fea8415b048e2ea328adc5e5179b923ce94c395ebe006952"
 doc_hash = "sha256:a3f0e016db79a9579bff7df56dbb0e2a6f29b8b37fd5acfae330314cb73d45c7"
 
 [[module."mesh.rs".function]]
@@ -1996,7 +1996,7 @@ name = "BadTetQueue"
 qual = "BadTetQueue"
 item = "type"
 shape = "struct"
-hash = "sha256:8448f3a6d7d26400fbfef426fcbe3ebf5c01f7e2da663a30164f00ab8a3f0237"
+hash = "sha256:6985811372934f8788f4448b87df77b286e3b5c35850fa16b6d2c8d3e4ec8c9b"
 doc_hash = "sha256:d40c75a6f9fab4f295d20f2d0a93fa7e80afd6ba9aadd92b4cba59130a0905e5"
 
 [[module."optimize.rs".function]]
@@ -2010,7 +2010,7 @@ doc_hash = "sha256:dd22ea4900ed3b272e59bcc18deca7f915de852bf39ddf9ab2f21041f1d06
 id = "fn:132dbf19c86e01e8"
 name = "enqueue"
 qual = "BadTetQueue::enqueue"
-hash = "sha256:8eb569b5e4fbcc731557da169da73486a66ac487e17f9c55b7f6b5cb5b4a282a"
+hash = "sha256:e4f50c5dad5cfc8ce75c1c983f771a0464b773c798fdef7ebbf2cc1db2f72293"
 doc_hash = "sha256:c97e46ae0ae726c9a3d646335f944c2fe823ce66d4eb17e8b34d1558e5578fdc"
 
 [[module."optimize.rs".function]]
@@ -2117,7 +2117,7 @@ doc_hash = "sha256:588348963563087426573dc1316b6bda7964fc81dc15cedb161a62826effe
 id = "fn:b564cb06edb0c514"
 name = "improve_mesh"
 qual = "TetgenMesh::improve_mesh"
-hash = "sha256:04f77cba0dad092930b509b7b1dab57efce1e4fcefddfc2fbc7d4b62a546b416"
+hash = "sha256:a65d09d4b7aa0deeb6d93a13fb6bbf951414a651fed8d10c5d5166178427c012"
 doc_hash = "sha256:234a9fc3831a4d88aa5f6f7b38b7cd3c21d7db7cc7bafe9f445f26b61f7d4211"
 
 [[module."optimize.rs".function]]
@@ -2769,7 +2769,7 @@ doc_hash = "sha256:270f30e61451f2b026d1ddd7c6f8aebec8e3934e665fc05c428e209f86e64
 id = "fn:e843b58b409afca2"
 name = "quality_numbers"
 qual = "TetgenMesh::quality_numbers"
-hash = "sha256:261e4b11bd08f05061f8accfcca0fc15cabd70dfc38e61a8ae6c609a7b9405c4"
+hash = "sha256:d0b178a3e4ccd8045657a64d0d053462201cb0dbe6b6499ac0d165f6f73240d4"
 doc_hash = "sha256:90f1f7c785842a4221998a1931f4e8c4e1efee75872fe721d2674ea040548311"
 
 [[module."quality.rs".function]]
@@ -2873,7 +2873,7 @@ doc_hash = "sha256:7c28780b9df035f084a300ecd4dc4e9360d1867d561d5fd51ce2777bb1c81
 id = "fn:1ad7be8d8852f336"
 name = "recoverboundary"
 qual = "TetgenMesh::recoverboundary"
-hash = "sha256:f18760f242b31bac78e348c6646fae35390c46819c5de0fa49248bae40d3bc3a"
+hash = "sha256:e73940b582a62fa821fc005c3f414b9607e71127d4012d5c1fe14e0db97dc392"
 doc_hash = "sha256:8f093f8dcbfc0f1c6ee92be7b0941900069944ff8ff3e18750bab222f7ec5e75"
 
 [[module."recover.rs".function]]
@@ -3057,7 +3057,7 @@ doc_hash = "sha256:f15f3697a7c0d4dc634ce618d14798dadc154d3cb79111d81c7a98779d386
 id = "fn:bc55b78a96d8ef15"
 name = "delaunayrefinement"
 qual = "TetgenMesh::delaunayrefinement"
-hash = "sha256:a707dc8ffe9abf76390f24ec6ef001ef6588f8defd45ad360b4331a747fc14f6"
+hash = "sha256:e9c88c4aa3de472e806a64676dff733366e15cc50b6036d594706954a9b56ed1"
 doc_hash = "sha256:f9d94e0fa9e244c6b66b1f54556505d7617f4d35d9b98ff0c1fb69e5bc5a3086"
 
 [[module."refine.rs".function]]
@@ -3099,7 +3099,7 @@ doc_hash = "sha256:73ccf59f89eea0f647430f8cf8a8e8d436e4c98c705d1fc1f29f5af22f620
 id = "fn:957435d6d8301955"
 name = "get_min_diahedral_angle"
 qual = "TetgenMesh::get_min_diahedral_angle"
-hash = "sha256:ccd8b56d9824ae83725ce255f86e2cae108ca76db4d5db8aefb10db8e2ce28a0"
+hash = "sha256:39f5763d04c920bf59b7a276449a370feb71f092f7ccbf4e83c9c0fd8e4f479a"
 doc_hash = "sha256:aaa5e52282f1dcef068ccd925552d44ac5dabcfd048f29e6976e289082e84267"
 
 [[module."refine.rs".function]]
@@ -3480,14 +3480,14 @@ doc_hash = "sha256:e1d6e53a7026e419bfe92755c686f5e65072bba42e4de2402f6e7946a609a
 id = "fn:02b458af1e4c46f7"
 name = "add_steinerpt_in_segment"
 qual = "TetgenMesh::add_steinerpt_in_segment"
-hash = "sha256:c8502048610e2b48728a19abb30d3342d057fb8200f1420e6905319c661123c6"
+hash = "sha256:855a972c6f2e82e37b3df93d6af4ded8cef97e0e4525dce4ebe02d4421bad256"
 doc_hash = "sha256:4cabb14a766e37a0221481510e9efd1c41f418c1cd96134646e17e078bf03b3b"
 
 [[module."steiner.rs".function]]
 id = "fn:cb7dd0ee552b2d3a"
 name = "add_steinerpt_to_recover_edge"
 qual = "TetgenMesh::add_steinerpt_to_recover_edge"
-hash = "sha256:aac7157dafacd89c050ece7826cb5013bbfaec89ce428886d4cd15877f169712"
+hash = "sha256:84bb78ae68ef8efbe10bb36e88bc5a69305edb071848f2e0509accfef5a4a82f"
 doc_hash = "sha256:8271d73f8ad3810c8f5e53b29a24dc017b0af7d06d439497ca922ed0a87f3a13"
 
 [[module."steiner.rs".function]]
@@ -3711,7 +3711,7 @@ doc_hash = "sha256:0a18f9d9378780fd972d437263820e5cea3952f378af4d3be8be404a71109
 id = "fn:a0095bba4ff51a0f"
 name = "facedihedral"
 qual = "TetgenMesh::facedihedral"
-hash = "sha256:d6b43908cf6ebfab2c20efb5567c9f9f715c5b56636402d001612888a00d56c8"
+hash = "sha256:a086db9e11955eb93c3da8dcfd5932133577c2396aa4178c68e357879e589529"
 doc_hash = "sha256:6d3d12d64a7aedd984cb949afc8ddc2381211f9288f0d9f264a52fdcb8abb4fc"
 
 [[module."surface.rs".function]]
@@ -3809,7 +3809,7 @@ doc_hash = "sha256:24c6b358e369b4b970e0045386c7a1ffeb06289d1f80671bd10a4ebcdf064
 id = "fn:b87e27e5be859458"
 name = "mergefacets"
 qual = "TetgenMesh::mergefacets"
-hash = "sha256:d606fcf5b7838fa34339c28db52432a73a558cf1fb09d8e6d998443d7ec2cccc"
+hash = "sha256:666959a7dd1ad1e044ecf47f7249f455e55dce07ab28de490619a0824176d921"
 doc_hash = "sha256:38cf19322515c41566687634e9065fc2afb19d761a0d9bcaf07baf995b0aed1e"
 
 [[module."surface.rs".function]]
@@ -4054,7 +4054,7 @@ doc_hash = "sha256:41883ae1b4abcfdd6dc14af48cdfd612833e8d99d7d9cc45d1f242a453103
 id = "fn:ec62920074d8c64e"
 name = "unifysegments"
 qual = "TetgenMesh::unifysegments"
-hash = "sha256:841c3189722501d448a5d5c45611f02e05a234b3a0bfd66060057965e157118f"
+hash = "sha256:cf7e3457f79b4034a4fd013d257e8bb76ff8764ee78deb2299cb1b3af54265f9"
 doc_hash = "sha256:268c2dd2569fd8e40dd1c03379344445f73fffc3e910794275b9b401334d02b0"
 
 [[module."surface.rs".function]]
@@ -4160,7 +4160,7 @@ name = "Switches"
 qual = "Switches"
 item = "type"
 shape = "struct"
-hash = "sha256:9cf44a6cee965e14aaffa5bad46ac44c676def8f9983361a8a4676a818cf6417"
+hash = "sha256:b2b264771529ce2942631de6249e99a8fb8be6371274d39f4179e93d889c8241"
 doc_hash = "sha256:4a52680b495cf5ac31230fa89a31019c658d6e4cc6336f6ad4ac4e26b35e8c06"
 
 [[module."tetrahedralize.rs".function]]
@@ -4181,7 +4181,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:2aeeca6fd7c8af77"
 name = "max_volume"
 qual = "Switches::max_volume"
-hash = "sha256:95c4710381bfeada6d4ecac54d34da8f8e4fad6d87f4e0e98f29a945566d4f37"
+hash = "sha256:f48422b1f360a54fc89b7e117761fe38fe0126b456d254f2be6e3470d02c668a"
 doc_hash = "sha256:cdd098b84a02cde2e0bc28b3f471ab2c86c8a9e30a8d1c0f92499ebcab7f50a3"
 
 [[module."tetrahedralize.rs".function]]
