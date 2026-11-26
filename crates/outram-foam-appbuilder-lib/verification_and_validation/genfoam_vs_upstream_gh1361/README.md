@@ -1946,3 +1946,58 @@ None of an earlier pinned number moved by this change: it adds model types, a re
 - A stand-alone `lookUpTableCHF` driver against the upstream class (needs `FSPair`).
 - `CachardPitch::Pitch` (the intended reading) is not exercised against upstream, which cannot run it; the maintainer decides the default and whether to report the defect upstream (gh:#1224).
 - `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated (`kovan-cli` is not built here); the new functions are in no `kovan.toml`.
+
+---
+
+# Round 12 (gh:#1801, child of #1216; gh:#1815): through-flow boundary conditions, `1D_PSBT_SC/Phase_Ex1_12223` AS SHIPPED
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Upstream: the real unmodified `GeN-Foam` binary
+(652b3da0cc55, ESI v2506, serial), the same installed build as rounds 3-10. Round 8 ran only a closed variant of this case because of the
+boundary conditions; this round ports them and runs the shipped files.
+
+## Upstream facts measured BEFORE any port code ran (2026-11-26, one fresh run of the installed binary)
+
+The shipped `Phase_Ex1_12223` with ONLY the round-8 protocol applied (`scripts/psbt_shipped_protocol.sh`: `writePrecision 17`, every step written,
+every linear-solver tolerance in `solvers` 1e-14, `relTol 0`, `endTime 0.6`; boundary conditions, mesh, closures, power and every initial field are the
+shipped files), `scripts/run_tutorial.sh featureCases/1D_PSBT_SC/Phase_Ex1_12223 psbt_shipped`, serial, 222 s:
+
+- **Exit 0, 407 steps, t = 0.600185 s** (the closed variant of round 8 aborted with SIGFPE at 0.49 s; the through-flow case does not).
+- Step size: 5e-3, then x1.1 per step to 8.9e-3 at step 6, then falls (2.2e-3 at step 14, 1.8e-3 at 60, 1.2e-3 at 100) to 9.7e-4 from step ~160 (`maxCoTwoPhase 0.5`).
+- Outer iterations (`refs/psbt_shipped_pimple.txt.gz`): step 1 "not converged within 12", **step 2 "converged in 0 iterations" (the `customPimpleControl` defect of round 5,
+  step 2 is skipped)**, steps 3-6 11, steps 7-9 10, steps 10-12 "not converged within 12"; 245 of the 407 steps run all 12.
+- **The vapour first appears at step 13** (t = 0.122614 s, max `alpha.vapour` 6.0e-8; 1.4e-4 at step 14, 1.6e-2 at step 60, 0.0955 at step 100, 0.1337 from step 200 to 407: a
+  quasi-steady state). `U.liquid` max 4.8 m/s at step 10, 6.7-7.2 m/s later; inlet cell 4.4671 throughout.
+- The GAMG `p_rgh` solve at tolerance 1e-14 stops at its 1000-iteration cap with a final residual of 2e-12..1e-11 (the round-off floor, as in rounds 3-8).
+
+References committed: `refs/psbt_shipped_head.ref.txt.gz` (steps 1-60, 0.52 MB, 16 fields incl. `phi.liquid`, `phi.vapour` on the INTERNAL faces), single steps
+`psbt_shipped_s{100,200,300,407}.ref.txt.gz`, `psbt_shipped_pimple.txt.gz`. The run directory (112 MB) was deleted after extraction.
+
+## What was read before any code was written (2026-11-26)
+
+- `fluid.C` 540-575: the `phi.<fluid>` boundary patch is `fixedValueFvsPatchScalarField` where the velocity patch is `fixedValue`, `slip` or `partialSlip`, else `calculated`.
+- `correctBoundaryFlux_2p.H`, `setSnGradP_rgh_2p.H`, `pEqnf_2p.H` (implicit branch, which every PSBT case selects), `reconstructU_2p.H`, `updatePP_rghRho_2p.H`, `solveAlphaImplicitUpwind.H`.
+- ESI v2506: `inletOutletFvPatchField.C` (`valueFraction = neg(phi)`), `pressureInletOutletVelocityFvPatchVectorField.C`,
+  `directionMixedFvPatchField.C`, `fixedFluxPressureFvPatchScalarField.C`, `fixedGradientFvPatchField`, `basicSymmetryFvPatchField`, `transformFvPatchField`, `fvPatch::delta`.
+- `scalar_bcs` (shared with `one_phase_fc`, whose cases use only `fixedValue`, `zeroGradient`, `calculated` and `empty` on these fields) turned every
+  unknown type into `calculated`.
+- No kovan-reviewed function is touched (no `kind = "review"` block in `solver/` or `solver/two_phase/`). Searched for existing patch-field code first: `outram-foam-basic-lib` has the general-purpose
+  patch fields as classes tied to its own `GeometricField`; the two-phase driver's own light `Scalar`/`Vector` storage (`two_phase/fv.rs`) cannot call them, so the ESI ones are
+  re-translated here and cite the same upstream files.
+
+## Predictions (written BEFORE the first port run on this case; committed first)
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| V1 | `TwoPhaseCase::read` of the shipped directory | succeeds, empty `deviations` | a key the reader still refuses |
+| V2 | `dt`, outer-iteration counts steps 1-12 | `dt` equal to 1e-9 relative; counts 12, 0, 11, 11, 11, 11, 10, 10, 10, then 12 (not converged) | a BC difference in the p_rgh residual |
+| V3 | steps 1-8 (single phase, wall below the onset of nucleate boiling, as round 8 steps 1-8): `p`, `p_rgh`, `T.*`, `U.liquid`, `phi.liquid` | `p`, `T.*` <= 1e-9, `U.*`, `phi.*` <= 1e-8 of the field maximum | a boundary-face coefficient in the momentum A() or H() (the `slip` walls: `cmptAv` of the transform diagonal) |
+| V4 | the inlet: `U.liquid` cell 0 and `phi.liquid` of face 0, steps 1-8 | <= 1e-9 (a wrong `fixedFluxPressure` gradient, `phi` boundary or velocity inlet shows at step 1 as >= 1e-6) | the through-flow BC set |
+| V5 | first step where any compared field leaves 1e-8 | step 9 with `htc.liquid.structure` ~ 8e-9 (round 8's #1803 at the first nucleate-boiling evaluation, the same mechanism, which is independent of the boundary conditions) | if EARLIER than 9: a BC defect; if LATER or smaller: the BC change moved #1803 |
+| V6 | the step at which the port's `alpha.vapour` first exceeds 0 | step 13 (as upstream) | the onset reaches the inlet/outlet `inletOutlet` differently |
+| V7 | steps 13-20: `alpha.vapour`, `dmdt` | <= 1e-2 relative (round 8: 2e-3 at the onset); `p`, `T.liquid` <= 1e-5, `U.*` <= 1e-3 | #1803 amplification |
+| V8 | the port runs to t = 0.6 s without `Diverged` | yes, 407 steps +/- 5 | a stability difference after the onset (the closed variant blew up in upstream, not the port) |
+| V9 | steps 100, 200, 300, 407 (upstream quasi-steady, `alpha.vapour` max 0.1337): worst relative `alpha.vapour`, `U.liquid` | <= 5e-2 of the field maximum; `p` <= 1e-4, `T.liquid` <= 1e-4 | the final state depends on the path through the post-onset excursion |
+| V10 | `scalar_bcs` after the change | refuses by name any patch type other than `fixedValue`, `zeroGradient`, `calculated` (and, per field, the ones ported here); the 1D_onephase and 1D_boiling cases still read | a case relied on the silent `calculated` |
+
+If V3/V4 miss, the first suspects are (a) the transform-patch `cmptAv` part of A() and H() on the 300 `slip` wall faces, (b) the `fixedFluxPressure` gradient sign, (c) `phi` of the `fixedValue` inlet
+written as `Sf . U_b`.
