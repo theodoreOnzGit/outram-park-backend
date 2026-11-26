@@ -1736,3 +1736,77 @@ Upstream (`GeN-Foam.C`, `solveNeutronics.H`, `fluxEq.H`, `precEq.H`, `calcKeff.H
 | R11-4 | does the eigenvalue iteration reach a steady `keff_` by 165 s | not fully: the transient's `power:` starts at 2.0000000e7 and rises to 20003657.5 in step 1 in the shipped run, so the state is NOT exactly critical-at-target. I expect the port's step-1 `power` to show the same +1.8e-4 relative jump |
 | R11-5 | comparison 2: `dt`, `T`, `power` of all 50 steps | `<= 1e-9` relative at every step; the first step above that, if any, is the finding. Round 9 had 1e-12 from an identical start; the start state now differs by comparison 1's difference, which the transient neither amplifies nor damps by much in 50 steps |
 | R11-6 | in-memory handover vs a restart from the written 165 directory | identical to round-off: the only restart-vs-memory difference I know of is `he = hs(T)` recomputed from `T` instead of carried (`<= 1e-15` relative). Not separately gated; visible in R11-5 if wrong |
+
+
+## Round 11 results (measured 2026-11-26, release; `tests/genfoam_msfr_chain_vs_upstream.rs`)
+
+Upstream runs (this machine, serial, `run_msfr_chain.sh`, scratch under `/home/user/upstream-build/gh1361/runs/msfr_r11`, not committed): `steadyStateTH` 540 s (shipped tolerances; its t = 15 s output is the committed `cases/msfr_fluid/restart_15`, 1.2 MB), `steadyStateEN` tight **173 s** for all 600 steps (the full protocol: nothing was shortened), `transient` tight 22 s for 50 steps. Port: 600 EN steps 239 s (fluid + neutronics, `1e-14` solvers), 50 transient steps a few seconds.
+
+**API.** `EigenvalueStage::EnergyNeutroDiffusion { stage, controls }.run()` returns `NormalisedState` (`reactor_state()` = `keff`, `pTarget`; the fields stay in the typed stage); `NormalisedState::start_transient(TransientStart::EnergyNeutro(settings))` returns a `TransientRun` whose `step_adjustable()` is round 9's coupled step. `ReactorState::{read, write}` is `<time>/uniform/reactorState`.
+
+### Comparison 1: the port's `steadyStateEN` from upstream's 15 s TH output against the real binary (600 steps)
+
+| quantity | worst relative difference, port - upstream |
+|---|---|
+| time of every step | exactly equal (all 600) |
+| `keff_` after every step (600) | **2.2e-13** (step 1; 4e-14 from step 50 on); first step above 1e-9: none |
+| `power:` of every step | 2.2e-13 |
+| first `h` initial residual of every step | 2.6e-9 at step 1, <= 1e-10 after (a residual of a converged solve: solver-noise measure, not a state) |
+| `T (avg, min, max)` after the last outer iteration, every step | 4.1e-14 |
+| `T` field at 165 s | 4.4e-14 |
+| flux, groups 0-5, at 165 s (8595 cells each) | 9.6e-11, 1.3e-10, 1.3e-10, 9.3e-11, 8.8e-11, 9.5e-11 |
+| `precStar0..7` at 165 s | 8.0e-10, 6.7e-10, 6.3e-10, 5.6e-10, 5.3e-10, 5.2e-10, 6.0e-10, 6.4e-10 |
+| `powerDensity` at 165 s | 1.1e-10 |
+| final `keff_` | port 0.96031513866395668, upstream tight 0.96031513866399976: 4.5e-14 |
+
+**Final `keff_` against the Allrun's "expected keff: 0.960282":** both codes give 0.960315139, i.e. **+3.3 pcm** from 0.960282 (the earlier shipped-tolerance upstream run gave 0.96031194, +3.0 pcm). The port reproduces the upstream value, not the Allrun's comment: the comment is the value of an older build or older solver settings, and neither code should be expected to hit it. `keff_` is still creeping at t = 165 s (-1.75e-8 per 0.25 s step at the last step: the 150 s of the tutorial is not a converged eigenvalue, to about 1e-5).
+
+### Comparison 2: the chained transient (the port's OWN 165 s state, no upstream restart as input) against upstream's `transient`, 50 steps
+
+| quantity | worst relative difference over 50 steps |
+|---|---|
+| next `deltaT` (after `adjustDeltaT`) | 6.0e-14 (first above 1e-9: none) |
+| fluid `T` field | 4.5e-14 (first above 1e-9: none) |
+| `power:` | 1.1e-13 |
+| first `h` residual of each step | 2.2e-9 |
+| coupling | converged after 1 iteration at every step, as upstream |
+| `keff_` | bit-identical before and after the 50 steps (frozen) |
+
+Round 9, started from upstream's 165 s restart, gave 6e-14 (T), 1e-13 (power); chaining the port's own eigenvalue state costs nothing measurable.
+
+### Predictions
+
+| id | outcome |
+|---|---|
+| R11-1 | **held, by four orders of magnitude** (2.2e-13 vs 1e-9) |
+| R11-2 | **held**: port and tight upstream agree to 4.5e-14; both +3.3 pcm from 0.960282 (inside the 5 pcm bound; my "within about 1 pcm of the shipped-tolerance run" held too: +0.3 pcm) |
+| R11-3 | **held**: worst 8.0e-10 (`precStar`, predicted <= 1e-8), `T` 4.4e-14 (predicted <= 1e-10) |
+| R11-4 | **MISSED, and the cause is informative.** I expected the step-1 transient `power` to show the +1.8e-4 jump of the shipped-tolerance run (2.0000000e7 -> 20003657.5). With the tight EN stage the transient's step-1 `power:` is 19999999.74 (-1.3e-8 of `pTarget`), in upstream and in the port. The 1.8e-4 jump of the earlier run was the loose linear solvers of its EN stage (flux relTol), not the physics of the eigenvalue iteration: a tight-solver eigenvalue stage hands the transient a state that is critical at the target to 1e-8. Round 6/9's transient start state (shipped-tolerance EN) is therefore NOT a normalised state to better than 2e-4 |
+| R11-5 | **held, by four orders** (<= 1e-13 vs 1e-9) |
+| R11-6 | **held**: carrying `he` in memory instead of recomputing `hs(T)` from a restart file is invisible at 1e-13 in 50 steps (no separate restart-vs-memory test was run: it is bounded by R11-5, not measured on its own) |
+
+### Where the first difference is
+
+None above 1e-9 in any gated quantity. The largest differences, in order: the `h` initial residual of step 1 (2.6e-9: a residual of a solve that reaches 1e-14 absolute, so it divides two round-off-sized numbers), `precStar` at 165 s (8e-10: the precursor solves are BiCGStab-vs-PBiCG to 1e-14, 600 steps of accumulated solver noise), flux at 165 s (1.3e-10). Round-off allowance (1e-9 direct, 1e-4 propagated) is not needed.
+
+### What is deliberately not the same as upstream
+
+* the linear solvers (basic-lib PCG / BiCGStab vs `PCG`/`DIC`, `PBiCG`/`DILU`): at the tight protocol they agree to the numbers above, not bit for bit;
+* discontinuity factors are 1 (the MSFR case: `adjustDiscFactors false`);
+* `0/neutroRegion` is assumed to hold only `defaultFlux` (uniform 1) and `defaultPrec` (uniform 1), as the tutorial's does; `flux<g>`/`precStar<k>` files are not read yet (so a restart from upstream's written 165 s neutronics, as round 9 does by hand, still goes through `set_initial_guess`/`set_prec_star`);
+* `uniform/reactorState` is read and written by `ReactorState`, but the chain does not write whole time directories: only the in-memory state is handed over.
+
+### What the chain still cannot do
+
+* `steadyStateTH` (fluid mechanics, gh:#1812): refused by name (`WorkflowError::NotPorted`).
+* SN has an eigenvalue driver and no transient; point kinetics has no eigenvalue stage: both refused by name.
+* The stationary-fuel diffusion and SP3 chains (`EigenvalueStage::Diffusion`, `::Sp3`) are tested for the contract (normalised to `pTarget`, `keff_` frozen, null transient holds) on a one-group slab and an infinite medium, NOT against the real binary: their transient steps are the port's older single-pass schemes, "not a translation" (round 6).
+* Circulating-fuel SP3, `integralPredictor`/`implicitPredictor` in the transient, a case reader for the whole chain (the test builds the stage from the case files by hand: `read_albedo_patches`, `ReactorState::read`, `OnePhaseCcSolver::from_case_dir`).
+
+### Gates
+
+Run (2026-11-26, release): see the final gate list in the commit message of the commit that adds this section; the numbers above come from the run of `msfr_eigenvalue_then_transient_chain_matches_upstream` (244.7 s) and `msfr_steady_state_en_first_steps_match_upstream` (9.6 s).
+
+### Moved numbers (old to new, with cause)
+
+None. `upstream_prec_eq` gained a `with_ddt` argument (`true` in the transient path, bit-identical: the same matrix expression); the round 6 and round 9 tests are re-run in the gate list.

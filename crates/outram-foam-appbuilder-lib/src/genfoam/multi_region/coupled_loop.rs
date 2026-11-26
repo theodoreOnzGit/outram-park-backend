@@ -149,7 +149,10 @@ impl CouplingDict {
         let f = FoamFile::read(&p).map_err(|er| AppBuilderError::Case { case: case.to_path_buf(), msg: format!("multiRegionCouplingDict: {er}") })?;
         Self::from_dict(&f.dict, name, case)
     }
+}
 
+// The accessors below need no files: available without `std` (gh:#1814: the workflow module uses them).
+impl CouplingDict {
     /// `correctOnlyEnergy_` per solver: true unless the region is in `includeFluidMechanicsInLoop`.
     #[must_use]
     pub fn correct_only_energy(&self) -> Vec<bool> {
