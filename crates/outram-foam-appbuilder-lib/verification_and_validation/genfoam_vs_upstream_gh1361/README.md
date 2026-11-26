@@ -2824,3 +2824,47 @@ P4. Everything the energy equation sees (`T`) stays within 1e-9 of upstream for 
     900 K everywhere (`T0`, uniform) and the `hx` zone is at `T = 900`: the stage is flow-only at first (upstream log: T min/max 899.9996/900.0005).
 P5. A wall-function-free translation that the maintainer's "stay close to upstream" rule forbids as a default would still be informative as an ablation:
     predicted `nut` change at the wall cells of > 10 % when the wall function is dropped.
+
+## Round 18 results (2026-11-26): what was done, and what was NOT (the stage does not run in the port yet)
+
+**Honest status: `EigenvalueStage::SteadyStateTh` is STILL refused by name; no step of `steadyStateTH` was run in the port.** The round
+produced the reference, the decomposition, and one building block. Nothing below is a port-vs-upstream comparison, so the
+predictions P1-P5 are neither held nor missed: they stand, unmeasured, for the round that ports `UEqn_1p`/`pEqn_1p`.
+
+### Upstream reference (the real unmodified binary, serial, tight; measured 2026-11-26)
+
+`scripts/run_msfr_th_tight.sh` (README protocol above), 14 adaptive steps to `t = 0.0592` (`dt` 1.0e-3 growing x1.2 per step to 1.28e-2), 15 s
+wall with `turbulence false`, 19 s with `true`. Extracted to `refs/msfr_th_off_head.ref.txt.gz` and `refs/msfr_th_on_head.ref.txt.gz` (first 3 steps; U, p,
+p_rgh, T, k, epsilon, nut, alphat, alphaPhi per cell; `p_rgh` solved by `DICPCG`, 237-261 iterations per solve, 6 solves per outer iteration, 5 outer).
+Observed in the log (these CONFIRM the reading above, they are not port results): step 1 first-corrector `p_rgh` initial residual 0.984; `k`
+initial residual 1.0 and `epsilon` 1.5e-5 in the first outer iteration (the restart `k = 0.1`, `epsilon = 0.01` is uniform, so `epsilon` is already at its
+equilibrium and `k` is not); `T` min/max 899.9996/900.0005 K after step 1 (P4's premise); step-1 `U` ~1e-4 m/s (driven by the pump source and
+buoyancy only); Courant (max) 1.5e-3 at step 1, 0.17 at step 10.
+The rootCase starts with `p_rgh = 1e5` at the reference cell and `p` from `p_rgh + rho0 gh` (66 kPa to 140 kPa across the vessel).
+
+### What was ported (new code; every earlier form is unchanged)
+
+* `fv::VectorBc::Wedge`, `fv::wedge_velocity_bc`, `fv::rotation_tensor`: ESI `wedgePolyPatch::calcGeometry` (`n = gAverage(faceNormals)`, `centreNormal` from the
+  coordinate-plane rule, `faceT = rotationTensor(centreNormal, n)`, `cellT = faceT & faceT`) and `wedgeFvPatchField` (value `faceT & U_c`; `snGrad = 0.5 deltaCoeffs (cellT.U_c - U_c)`;
+  `snGradTransformDiag = 0.5 diag(I - cellT)`; boundary coefficients through the existing `transformFvPatchField` form). The 2D_MSFR mesh has
+  two 8595-face wedge patches, so every vector equation of the stage needs this.
+* Not yet wired: `Vector::uniform_with_constraint_patches` does not yet turn a wedge patch into a constraint patch of a temporary field (#1836), and
+  `dev2_div` still takes `(U_b - U_c) deltaCoeffs` as the boundary `snGrad`, which is wrong for a wedge (right for `slip`). Both are listed in the child issue.
+
+### Tests (targeted, release)
+
+`cargo test --release -p outram-foam-appbuilder-lib --lib wedge_`: 3 passed (`wedge_rotation_tensor_is_the_rotation_of_the_centre_normal_onto_the_patch_normal`:
+the 3-4-5 rotation maps `n1` onto `n2`, is orthogonal, and `cellT` rotates by `2a` (0.96, 0.28), to 1e-15; `wedge_patch_on_a_coordinate_axis_is_the_identity_transform`;
+and the pre-existing `surface_field_text_with_wedge_values_parses`). The wedge value/coefficient code is gated ANALYTICALLY only: there is no wedge differential
+against the real binary until `UEqn_1p` runs on the 2D_MSFR mesh.
+
+### Why the round stops here, and the decomposition (children of #1812)
+
+The cell-centred momentum/pressure solve, single-phase `porousKEpsilon` and the wall-function patches are three independent pieces, none of which has a
+usable predecessor in the workspace (`one_phase_cc.rs` is a frozen-flux energy region; `one_phase_fc.rs` is face-centred on a 1D channel with only `zeroGradient` U; `two_phase`'s
+`porousKEpsilon2PhaseCorrected` is a different class and refuses wall functions). Each is filed as a child issue with the exact upstream order of operations
+(gh:#1837 `UEqn_1p`/`pEqn_1p`, gh:#1838 wall-function patch fields, gh:#1839 single-phase `porousKEpsilon::correct`). The turbulence-off flow is the first thing to port, because it can be differenced against `th_off` with no wall function.
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed.

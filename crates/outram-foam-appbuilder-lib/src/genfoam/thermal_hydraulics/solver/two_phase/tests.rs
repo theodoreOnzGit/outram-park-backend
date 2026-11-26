@@ -340,6 +340,27 @@ fn velocity_patches_evaluate_like_the_esi_classes() {
     assert_eq!((cf.value_internal, cf.value_boundary[0]), ([0.0; 3], 4.0));
 }
 
+/// gh:#1812: a `wedge` patch whose normal lies ON the coordinate axis (`centreNormal = n`) has `faceT = cellT = I`: the
+/// patch value is the cell value and the matrix coefficients are those of `zeroGradient` (`snGradTransformDiag = 0`).
+/// This reaches [`fv::wedge_velocity_bc`], the `Wedge` evaluation and its coefficients; the rotation itself is gated by
+/// `wedge_rotation_tensor_is_the_rotation_of_the_centre_normal_onto_the_patch_normal`.
+#[test]
+fn wedge_patch_on_a_coordinate_axis_is_the_identity_transform() {
+    use super::fv::{Vector, VectorBc};
+    let g = line(4);
+    let (inlet, _) = end_patches(&g);
+    let bc = fv::wedge_velocity_bc(&g, inlet);
+    assert!(matches!(bc, VectorBc::Wedge { .. }));
+    let mut u = Vector::uniform(&g, Vector3::new(2.0, 3.0, 0.0));
+    u.bc[inlet] = bc;
+    u.correct_bc(&g);
+    let fi = g.mesh.patches[inlet].start - g.n_internal();
+    assert_eq!(u.b[fi], Vector3::new(2.0, 3.0, 0.0));
+    let c = u.patch_coeffs(&g, g.mesh.patches[inlet].start, [&[], &[]]);
+    assert_eq!(c.value_internal, [1.0; 3]);
+    assert_eq!(c.gradient_internal_diag, [0.0; 3]);
+}
+
 // ---- gh:#1802: porousKEpsilon2PhaseCorrected building blocks ----
 
 use super::turbulence::{bound, convective_inflow2, production_invariant, regex_full_match, relax_equation};
@@ -412,4 +433,34 @@ fn production_of_a_pure_shear_is_a_squared() {
     assert_eq!(production_invariant(&t), a * a);
     let d = [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]];
     assert!(production_invariant(&d).abs() < 1e-14);
+}
+
+/// gh:#1812: `rotationTensor(n1, n2)` of the wedge patch maps `n1` onto `n2`, is orthogonal, and `cellT = faceT & faceT`
+/// rotates twice (analytic 3-4-5 angle: `cos a = 0.8`, `sin a = 0.6`, so `cos 2a = 0.28`, `sin 2a = 0.96`).
+#[test]
+fn wedge_rotation_tensor_is_the_rotation_of_the_centre_normal_onto_the_patch_normal() {
+    let n1 = [0.0, 0.0, 1.0];
+    let n2 = [0.6, 0.0, 0.8];
+    let r = fv::rotation_tensor(n1, n2);
+    let rn1 = [r[0][2], r[1][2], r[2][2]];
+    for c in 0..3 {
+        assert!((rn1[c] - n2[c]).abs() < 1e-15, "R n1 = n2, component {c}");
+    }
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut rrt = 0.0;
+            for k in 0..3 {
+                rrt += r[i][k] * r[j][k];
+            }
+            let id = if i == j { 1.0 } else { 0.0 };
+            assert!((rrt - id).abs() < 1e-15, "R R^T = I at ({i},{j})");
+        }
+    }
+    let mut r2n1 = [0.0; 3];
+    for i in 0..3 {
+        for k in 0..3 {
+            r2n1[i] += r[i][k] * rn1[k];
+        }
+    }
+    assert!((r2n1[0] - 0.96).abs() < 1e-15 && r2n1[1].abs() < 1e-15 && (r2n1[2] - 0.28).abs() < 1e-15);
 }

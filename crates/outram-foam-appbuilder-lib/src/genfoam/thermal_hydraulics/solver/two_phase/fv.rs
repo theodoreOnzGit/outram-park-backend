@@ -328,6 +328,99 @@ pub enum VectorBc {
         /// `0`: fluid 1's `phi`, `1`: fluid 2's.
         phi_index: usize,
     },
+    /// `wedge` (ESI `wedgeFvPatchField`, a `transformFvPatchField`): the face value is `faceT & U_c` and the
+    /// matrix coefficients follow `snGradTransformDiag = 0.5 diag(I - cellT)` (gh:#1812). Build it with
+    /// [`wedge_velocity_bc`].
+    Wedge {
+        /// `wedgePolyPatch::faceT()`, row-major.
+        face_t: [[f64; 3]; 3],
+        /// `wedgePolyPatch::cellT() = faceT & faceT`, row-major.
+        cell_t: [[f64; 3]; 3],
+    },
+}
+
+/// `tensor & vector`, row-major.
+fn tensor_dot(t: &[[f64; 3]; 3], v: [f64; 3]) -> [f64; 3] {
+    [
+        t[0][0] * v[0] + t[0][1] * v[1] + t[0][2] * v[2],
+        t[1][0] * v[0] + t[1][1] * v[1] + t[1][2] * v[2],
+        t[2][0] * v[0] + t[2][1] * v[1] + t[2][2] * v[2],
+    ]
+}
+
+/// OpenFOAM `sign(s)`: `+1` for `s >= 0`.
+fn foam_sign(s: f64) -> f64 {
+    if s >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
+}
+
+/// `rotationTensor(n1, n2)` of ESI `transform.H` (the rotation of `n1` onto `n2`), row-major.
+#[must_use]
+pub fn rotation_tensor(n1: [f64; 3], n2: [f64; 3]) -> [[f64; 3]; 3] {
+    const SMALL: f64 = 1e-15;
+    let s = n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2];
+    let n3 = [
+        n1[1] * n2[2] - n1[2] * n2[1],
+        n1[2] * n2[0] - n1[0] * n2[2],
+        n1[0] * n2[1] - n1[1] * n2[0],
+    ];
+    let mag_sqr = n3[0] * n3[0] + n3[1] * n3[1] + n3[2] * n3[2];
+    let mut out = [[0.0; 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            let id = if i == j { 1.0 } else { 0.0 };
+            out[i][j] = if mag_sqr > SMALL {
+                // s I + (1 - s) sqr(n3)/|n3|^2 + (n2 n1 - n1 n2)
+                s * id + (1.0 - s) * (n3[i] * n3[j]) / mag_sqr + (n2[i] * n1[j] - n1[i] * n2[j])
+            } else if s < 0.0 {
+                id + 2.0 * (n1[i] * n2[j])
+            } else {
+                id
+            };
+        }
+    }
+    out
+}
+
+/// `wedgePolyPatch::calcGeometry` for patch `pi`: `n = gAverage(faceNormals)`, `centreNormal` the coordinate-plane
+/// direction implied by `n`, `faceT = rotationTensor(centreNormal, n)`, `cellT = faceT & faceT`.
+///
+/// # Panics
+/// A patch that is not a wedge plane (zero `centreNormal`).
+#[must_use]
+pub fn wedge_velocity_bc(g: &Geometry, pi: usize) -> VectorBc {
+    let p = &g.mesh.patches[pi];
+    let mut n = [0.0; 3];
+    for k in 0..p.size {
+        let u = unit_normal(g, p.start + k);
+        for c in 0..3 {
+            n[c] += u[c];
+        }
+    }
+    let sz = p.size as f64;
+    for c in &mut n {
+        *c /= sz;
+    }
+    let mut cn = [0.0; 3];
+    for c in 0..3 {
+        cn[c] = foam_sign(n[c]) * (n[c].abs().max(0.5) - 0.5);
+    }
+    let m = (cn[0] * cn[0] + cn[1] * cn[1] + cn[2] * cn[2]).sqrt();
+    assert!(m > 1e-15, "wedge patch {pi}: no centre plane");
+    for c in &mut cn {
+        *c /= m;
+    }
+    let face_t = rotation_tensor(cn, n);
+    let mut cell_t = [[0.0; 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            cell_t[i][j] = face_t[i][0] * face_t[0][j] + face_t[i][1] * face_t[1][j] + face_t[i][2] * face_t[2][j];
+        }
+    }
+    VectorBc::Wedge { face_t, cell_t }
 }
 
 /// The four boundary coefficients of one velocity patch face (OpenFOAM `valueInternalCoeffs`,
@@ -471,6 +564,10 @@ impl Vector {
                         let r = symm_dot(reflection(unit_normal(g, f)), comp3(pif));
                         Vector3::new((pif.x + r[0]) / 2.0, (pif.y + r[1]) / 2.0, (pif.z + r[2]) / 2.0)
                     }
+                    VectorBc::Wedge { face_t, .. } => {
+                        let r = tensor_dot(face_t, comp3(pif));
+                        Vector3::new(r[0], r[1], r[2])
+                    }
                     VectorBc::PressureInletOutletVelocity { phi_index } => {
                         let phi = phi[*phi_index];
                         assert!(
@@ -539,6 +636,14 @@ impl Vector {
                 let r = symm_dot(reflection(n), pif);
                 let h = delta / 2.0;
                 let sn = [(r[0] - pif[0]) * h, (r[1] - pif[1]) * h, (r[2] - pif[2]) * h];
+                transform(d, sn)
+            }
+            VectorBc::Wedge { cell_t, .. } => {
+                // `snGradTransformDiag = 0.5 (I - cellT).diag()`, `snGrad = (0.5 deltaCoeffs)(cellT.U_c - U_c)`
+                let d = [0.5 * (1.0 - cell_t[0][0]), 0.5 * (1.0 - cell_t[1][1]), 0.5 * (1.0 - cell_t[2][2])];
+                let r = tensor_dot(cell_t, pif);
+                let h = 0.5 * delta;
+                let sn = [h * (r[0] - pif[0]), h * (r[1] - pif[1]), h * (r[2] - pif[2])];
                 transform(d, sn)
             }
             VectorBc::PressureInletOutletVelocity { phi_index } => {
