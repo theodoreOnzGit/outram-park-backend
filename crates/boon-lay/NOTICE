@@ -32,3 +32,16 @@ under, forever; this affects future versions only. No version was bumped.
 
 The per-crate record is `docs/relicensing-agpl-2026-10-20.md`; the audit it
 rests on is the first comment on GitHub issue #973.
+
+
+STRATO (added 2026-11-26, GitHub issue #1800)
+---------------------------------------------
+
+`src/strato/` is a port of part of STRATO, by Wee Zhern Ray (GitHub:
+weewzr), https://github.com/weewzr/STRATO, licensed AGPL-3.0-only (the same
+licence as this crate), read at commit
+36f1a98848bec9d66fe515994e075cff09d6cefb. The upstream module ported is
+`src/analytical/sturm_liouville.rs`; the numbered list of local changes is in
+`src/strato/mod.rs`. `dev/strato_reference/` runs unmodified upstream STRATO
+(cloned separately; not vendored here) to write the reference data in
+`tests/data/strato_reference/`.

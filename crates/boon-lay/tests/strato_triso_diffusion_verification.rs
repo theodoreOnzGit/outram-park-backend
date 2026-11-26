@@ -193,9 +193,17 @@ fn hardware() -> String {
     outram_mc_libs::perf_report::HardwareInfo::detect().headline()
 }
 
-/// Richardson in time (backward Euler, order 1): 2 F(dt/2) - F(dt).
-fn extrap_time(f_dt: f64, f_half: f64) -> f64 {
-    2.0 * f_half - f_dt
+/// Two-step Richardson in time, removing the O(dt) and O(dt^2) terms of
+/// backward Euler: (F(dt) - 6 F(dt/2) + 8 F(dt/4)) / 3. The protocol since
+/// the 2026-11-26 correction in PLAN.md; one-step Richardson `2 F(dt/2) - F(dt)` alone left an
+/// O(dt^2) floor of 2.5e-7 that masked the spatial order (run 1).
+fn extrap_time2(f_dt: f64, f_half: f64, f_quarter: f64) -> f64 {
+    (f_dt - 6.0 * f_half + 8.0 * f_quarter) / 3.0
+}
+
+/// The corrected protocol's three steps for an end time `t_end`: T/1000, T/2000, T/4000.
+fn protocol_steps(t_end: f64) -> [f64; 3] {
+    [t_end / 1000.0, t_end / 2000.0, t_end / 4000.0]
 }
 
 /// Richardson in space (order 2, cells doubled): (4 F(h/2) - F(h)) / 3.
@@ -325,27 +333,28 @@ fn a1_homogeneous_sphere_against_closed_form() {
 /// `reference`; then the spatial extrapolation of the two finest.
 /// Returns the extrapolated value and its error.
 fn fv_against_reference<F: Fn(f64) -> f64>(label: &str, d: &[f64], r: &[f64], reference: F) -> (f64, f64) {
-    let dt = T_END / 400.0;
+    let steps = protocol_steps(T_END);
     let exact = reference(T_END);
     let mut errs = Vec::new();
     let mut f_time_extrap = Vec::new();
     println!("{label} boon-lay FV at t = {T_END:.0e} s (reference {exact:.12}):");
-    println!("| cells/layer | F(dt) | F(dt/2) | time-extrapolated | error | order | balance | min c rel | wall [s] |");
+    println!("| cells/layer | F(T/1000) | F(T/2000) | F(T/4000) | time-extrapolated | error | order | balance | min c rel | wall [s] |");
     for cells in [10, 20, 40, 80, 160] {
-        let a = boon_lay_fv(d, r, cells, dt, &[T_END], 1);
-        let b = boon_lay_fv(d, r, cells, dt / 2.0, &[T_END], 1);
-        check_fv_diagnostics(&format!("{label} c{cells}"), &a);
-        check_fv_diagnostics(&format!("{label} c{cells}/2"), &b);
-        let fe = extrap_time(a.f_at[0], b.f_at[0]);
+        let runs: Vec<FvRun> = steps.iter().map(|&dt| boon_lay_fv(d, r, cells, dt, &[T_END], 1)).collect();
+        for (k, run) in runs.iter().enumerate() {
+            check_fv_diagnostics(&format!("{label} c{cells} dt{}", steps[k]), run);
+        }
+        let fe = extrap_time2(runs[0].f_at[0], runs[1].f_at[0], runs[2].f_at[0]);
         let e = fe - exact;
         let order = errs.last().map_or(f64::NAN, |&p: &f64| (p.abs() / e.abs()).log2());
         println!(
-            "| {cells} | {:.12} | {:.12} | {fe:.12} | {e:+.3e} | {order:.3} | {:.1e} | {:.1e} | {:.2} |",
-            a.f_at[0],
-            b.f_at[0],
-            a.worst_balance.max(b.worst_balance),
-            a.min_atoms_rel.min(b.min_atoms_rel),
-            a.wall_s + b.wall_s
+            "| {cells} | {:.12} | {:.12} | {:.12} | {fe:.12} | {e:+.3e} | {order:.3} | {:.1e} | {:.1e} | {:.2} |",
+            runs[0].f_at[0],
+            runs[1].f_at[0],
+            runs[2].f_at[0],
+            runs.iter().map(|x| x.worst_balance).fold(0.0, f64::max),
+            runs.iter().map(|x| x.min_atoms_rel).fold(0.0, f64::min),
+            runs.iter().map(|x| x.wall_s).sum::<f64>()
         );
         errs.push(e);
         f_time_extrap.push(fe);
@@ -412,14 +421,13 @@ fn a4_diffusivity_contrast_sweep() {
         let mut worst = f64::NAN;
         if usable {
             // A5 protocol at the three times, with the end time 2 tau.
-            let dt = times[2] / 400.0;
             let mut fe = Vec::new();
             for cells in [80, 160] {
-                let a = boon_lay_fv(&d, &G5, cells, dt, &times, 1);
-                let b = boon_lay_fv(&d, &G5, cells, dt / 2.0, &times, 1);
-                check_fv_diagnostics(&format!("A4 rho {rho:e} c{cells}"), &a);
-                check_fv_diagnostics(&format!("A4 rho {rho:e} c{cells}/2"), &b);
-                fe.push(a.f_at.iter().zip(&b.f_at).map(|(x, y)| extrap_time(*x, *y)).collect::<Vec<_>>());
+                let runs: Vec<FvRun> = protocol_steps(times[2]).iter().map(|&dt| boon_lay_fv(&d, &G5, cells, dt, &times, 1)).collect();
+                for run in &runs {
+                    check_fv_diagnostics(&format!("A4 rho {rho:e} c{cells}"), run);
+                }
+                fe.push((0..times.len()).map(|k| extrap_time2(runs[0].f_at[k], runs[1].f_at[k], runs[2].f_at[k])).collect::<Vec<_>>());
             }
             worst = 0.0;
             for (k, &t) in times.iter().enumerate() {
@@ -494,9 +502,9 @@ fn b1_strato_fv_against_boon_lay_fv() {
         let mut strato_err = Vec::new();
         let mut boon_err = Vec::new();
         for cells in [10, 20, 40, 80, 160] {
-            let mut fe = [0.0; 2];
-            let mut be = [0.0; 2];
-            for (k, dt) in [500.0, 250.0].into_iter().enumerate() {
+            let mut fe = [0.0; 3];
+            let mut be = [0.0; 3];
+            for (k, dt) in protocol_steps(T_END).into_iter().enumerate() {
                 let rows = csv_rows(&format!("fv_{case}_c{cells}_dt{}.csv", dt as u64));
                 let row = rows.iter().find(|r| rel_diff(num(&r[0]), T_END) < 1e-9).expect("end row");
                 let strato = num(&row[1]);
@@ -514,8 +522,8 @@ fn b1_strato_fv_against_boon_lay_fv() {
                 fe[k] = strato;
                 be[k] = ours.f_at[0];
             }
-            strato_err.push(extrap_time(fe[0], fe[1]) - exact);
-            boon_err.push(extrap_time(be[0], be[1]) - exact);
+            strato_err.push(extrap_time2(fe[0], fe[1], fe[2]) - exact);
+            boon_err.push(extrap_time2(be[0], be[1], be[2]) - exact);
         }
         let order = |e: &[f64]| -> [f64; 2] {
             let n = e.len();
