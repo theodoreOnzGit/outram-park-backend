@@ -105,7 +105,12 @@ fn protocol_copy_of(test: &str, data: &str) -> PathBuf {
         if line.starts_with("PIMPLE") {
             in_solvers = false;
         }
-        if in_solvers && t.starts_with("tolerance") {
+        if in_solvers && t.starts_with("solver") && t.contains("GAMG") {
+            // scripts/psbt2_pcg_protocol.sh: the reference runs `PCG`/`DIC` (GAMG cannot reach 1e-14 on this mesh)
+            out.push_str("        solver          PCG;\n");
+        } else if in_solvers && t.starts_with("smoother") && t.contains("DIC") {
+            out.push_str("        preconditioner  DIC;\n");
+        } else if in_solvers && t.starts_with("tolerance") {
             out.push_str("        tolerance       1e-14;\n");
         } else if in_solvers && t.starts_with("relTol") {
             out.push_str("        relTol          0;\n");
@@ -168,7 +173,7 @@ fn run_rows_of(test: &str, data: &str, dt0: f64, refs: &[&str], n_steps: usize, 
     let refs: Vec<Reference> = refs.iter().map(|r| load_reference(r)).collect();
     let dir = protocol_copy_of(test, data);
     let mut case = TwoPhaseCase::read(&dir).expect("read the SHIPPED PhaseII case");
-    if ablate == "off" {
+    if ablate.starts_with("off") {
         for f in case.fluids.iter_mut() {
             if let Some(t) = f.turbulence.as_mut() {
                 t.turbulence = false;
@@ -186,6 +191,12 @@ fn run_rows_of(test: &str, data: &str, dt0: f64, refs: &[&str], n_steps: usize, 
     let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
     if ablate == "nolazy" {
         s = s.without_first_step_lazy_old_time();
+    }
+    if ablate.contains("krylov") {
+        s = s.with_krylov_for_p_rgh();
+    }
+    if ablate.contains("h0") {
+        s = s.with_zero_gradient_h_on_symmetry_patches();
     }
     let mut rows = Vec::new();
     for n in 1..=n_steps {
@@ -300,16 +311,42 @@ fn psbt2_regression_results_at_5_s() {
     assert!((s.structure.t_act[394] / 620.178 - 1.0).abs() < 0.01, "T.fixedPower {}", s.structure.t_act[394]);
 }
 
-/// The control of README round 16: with `turbulence off` in BOTH codes (`refs/psbt2_ex1_off.ref.txt.gz`, `scripts/psbt2_pcg_protocol.sh`
-/// with `TURB_OFF=1`) the port still differs from upstream by the same flow baseline (`p` 3.8e-6 and `U.liquid` 3.8e-5 at step 8, measured),
-/// i.e. that baseline is not the turbulence model's.
+/// The control of README round 16 (`turbulence off` in BOTH codes, `refs/psbt2_ex1_off.ref.txt.gz`, `scripts/psbt2_pcg_protocol.sh` with
+/// `TURB_OFF=1`), which in round 16 showed a flow baseline of `p` 3.8e-6 and `U.liquid` 3.8e-5 at step 8 and was pinned there (gh:#1833).
+/// Round 17 found the cause (the `UEqn.H()` field has the CONSTRAINT patch field on a `symmetry` mesh patch, so its flux through the patch is
+/// zero; plus `p_rgh` solved by upstream's `PCG`/`DIC` stopping rule). Measured 2026-11-26, release, steps 1-8: `p` 5.1e-12, `U.liquid` 9.0e-12,
+/// `T.liquid` 3.3e-15, `T.vapour` 3.4e-13, `htc.liquid.structure` 4.4e-12; the gate is the measured worst with about 1.5-2x margin. This is the
+/// agreement gate; round 16's was a pin of the disagreement.
 #[test]
-fn control_without_turbulence_has_the_same_flow_baseline() {
+fn control_without_turbulence_agrees_with_upstream_to_round_off() {
     let rows = run_rows("ctl", &["psbt2_ex1_off"], 8, "off");
     let worst = |f: &str| rows.iter().flat_map(|r| r.3.iter().filter(|(k, _)| *k == f).map(|(_, v)| *v)).fold(0.0, f64::max);
-    assert!(worst("p") <= 6e-6 && worst("p") >= 1e-6, "p {:e}", worst("p"));
-    assert!(worst("U.liquid") <= 6e-5 && worst("U.liquid") >= 1e-5, "U {:e}", worst("U.liquid"));
-    assert!(worst("T.liquid") <= 6e-9, "T.liquid {:e}", worst("T.liquid"));
+    assert!(worst("p") <= 1e-11, "p {:e}", worst("p"));
+    assert!(worst("U.liquid") <= 2e-11, "U {:e}", worst("U.liquid"));
+    assert!(worst("U.vapour") <= 2e-11, "U.vapour {:e}", worst("U.vapour"));
+    assert!(worst("T.liquid") <= 1e-14, "T.liquid {:e}", worst("T.liquid"));
+    assert!(worst("T.vapour") <= 1e-12, "T.vapour {:e}", worst("T.vapour"));
+    assert!(worst("htc.liquid.structure") <= 1e-11, "htc {:e}", worst("htc.liquid.structure"));
+}
+
+/// The two causes of the round 16 flow baseline, each switched back alone on the Ex3 first step (turbulence off, one outer iteration; gh:#1833).
+/// Measured 2026-11-26: both on `p` 6.1e-13 / `U.liquid` 5.0e-12; `with_zero_gradient_h_on_symmetry_patches` alone `p` 5.1e-6 / `U.liquid` 2.3e-5
+/// (the old baseline); `with_krylov_for_p_rgh` alone `p` 1.5e-9 / `U.liquid` 1.3e-8. The reference is `refs/psbt2_ex3_off.ref.txt.gz`
+/// (`scripts/psbt2_pcg_protocol.sh`, `TURB_OFF=1`, first step).
+#[test]
+fn symmetry_constraint_on_h_and_pcg_for_p_rgh_each_carry_their_share_of_the_baseline() {
+    let first = |ablate: &str, name: &str| {
+        let rows = run_rows_of(name, "genfoam_psbt2_ex3_gh1802", 5e-3, &["psbt2_ex3_off"], 1, ablate);
+        let w = &rows[0].3;
+        let g = |f: &str| w.iter().find(|(k, _)| *k == f).map(|(_, v)| *v).expect("field");
+        (g("p"), g("U.liquid"))
+    };
+    let (p0, u0) = first("off", "abl0");
+    assert!(p0 <= 3e-12 && u0 <= 2e-11, "defaults: p {p0:e} U {u0:e}");
+    let (p1, u1) = first("off+h0", "abl1");
+    assert!(p1 >= 1e-6 && u1 >= 1e-5, "zero-gradient H on the symmetry patch: p {p1:e} U {u1:e}");
+    let (p2, u2) = first("off+krylov", "abl2");
+    assert!(p2 >= 1e-10 && p2 <= 1e-8 && u2 >= 1e-9 && u2 <= 1e-7, "ILU-BiCGStab for p_rgh: p {p2:e} U {u2:e}");
 }
 
 /// Which of the three shipped PhaseII cases `TwoPhaseCase::read` accepts (README round 16, X1); prints the refusal otherwise.
@@ -405,36 +442,40 @@ fn structure_free_cells_switch_the_production_terms_on() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Round 16 gate (README "Round 16"): `PhaseII_Ex1_01_5215` AS SHIPPED with RAS `porousKEpsilon2PhaseCorrected` against the real binary,
-/// 25 tight-tolerance steps (single phase). Step sizes and the outer-iteration counts are upstream's. The field bounds are the MEASURED
-/// worst of the 25 steps with about 1.5x margin; they are NOT round-off level because the flow itself differs from upstream by 7e-7
-/// (`p`) at step 1 and growing, with `turbulence off` as well (the control run), i.e. independently of the turbulence model; the
-/// turbulence solves of the first outer iteration agree with upstream's to the printed residuals (README "Round 16", open issue).
+/// Round 16 gate, tightened in round 17 (README "Round 17", gh:#1833): `PhaseII_Ex1_01_5215` AS SHIPPED with RAS `porousKEpsilon2PhaseCorrected`
+/// against the real binary, 25 tight-tolerance steps (single phase). Step sizes and the outer-iteration counts are upstream's. The field bounds
+/// are the MEASURED worst of the 25 steps (2026-11-26) with about 1.5x margin. Round 16 pinned `p` 4e-5 and `U.liquid` 2e-3 here (a flow
+/// baseline whose cause was the missing `symmetry` constraint on `UEqn.H()`); measured now `p` 1.5e-9, `U.liquid` 6.7e-7, `T.liquid` 5.9e-9.
+/// What remains is NOT round-off: with turbulence ON the liquid fields grow from 1e-10 (step 1) to 1e-6 (step 25) and the ABSENT vapour
+/// phase's `k`, `epsilon`, `nut`, `alphat` differ by up to 5e-2 of their own (tiny) maximum, from the second outer iteration of step 1; with
+/// turbulence OFF the same 25-step span agrees to 1e-11 (the control test), so the remainder belongs to the vapour turbulence solve (open).
 /// The ablation `turbulence off` misses upstream by 40x more in `U.liquid` and by O(1) in `k`.
 #[test]
 fn phase_ii_ex1_turbulence_agrees_with_upstream_at_the_flow_baseline_and_the_ablation_misses() {
     let on = run_rows("on", &["psbt2_ex1_head"], 25, "");
-    let up_iters = [10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 9, 9, 9, 9, 9];
+    // upstream's `PIMPLE: converged in N iterations`, re-read 2026-11-26 from a fresh run of the real binary (steps 1-20: 10 9 10 9 ... 10 9 9 9;
+    // round 16 had a 10 at step 19 and 9 from step 20, which the port then matched; at step 19 the real binary does 9, as the port now does)
+    let up_iters = [10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 10, 9, 9, 9, 9, 9, 9, 9, 9];
     assert_eq!(on.iter().map(|r| r.2).collect::<Vec<_>>(), up_iters, "outer iterations per step");
     let limits = [
-        ("p", 4e-5),
-        ("p_rgh", 4e-5),
-        ("T.liquid", 5e-6),
-        ("T.vapour", 1.5e-5),
-        ("T.fixedPower", 3e-5),
-        ("U.liquid", 2e-3),
-        ("U.vapour", 2e-3),
+        ("p", 2.5e-9),
+        ("p_rgh", 2.5e-9),
+        ("T.liquid", 9e-9),
+        ("T.vapour", 3e-10),
+        ("T.fixedPower", 7e-9),
+        ("U.liquid", 1e-6),
+        ("U.vapour", 1e-6),
         ("alpha.vapour", 0.0),
-        ("dgdt.liquid", 1e-3),
-        ("htc.liquid.structure", 2e-3),
-        ("k.liquid", 3e-3),
-        ("epsilon.liquid", 4e-3),
-        ("nut.liquid", 2e-3),
-        ("alphat.liquid", 2e-3),
-        ("k.vapour", 8e-2),
-        ("epsilon.vapour", 6e-2),
-        ("nut.vapour", 9e-2),
-        ("alphat.vapour", 9e-2),
+        ("dgdt.liquid", 2e-6),
+        ("htc.liquid.structure", 6e-7),
+        ("k.liquid", 1.1e-6),
+        ("epsilon.liquid", 1.2e-6),
+        ("nut.liquid", 6e-7),
+        ("alphat.liquid", 6e-7),
+        ("k.vapour", 6e-2),
+        ("epsilon.vapour", 4.5e-2),
+        ("nut.vapour", 7e-2),
+        ("alphat.vapour", 7e-2),
     ];
     for (n, dt_rel, _, w) in &on {
         assert!(*dt_rel < 1e-12, "step {n}: dt differs by {dt_rel:e}");
@@ -451,16 +492,17 @@ fn phase_ii_ex1_turbulence_agrees_with_upstream_at_the_flow_baseline_and_the_abl
 }
 
 /// `PhaseII_Ex2_04_6770` and `PhaseII_Ex3_11-0312_power_increase` AS SHIPPED (TRACECHF + lookUpTableCHF + VapourTRACE, `powerDensity` from
-/// `0/fluidRegion/powerDensity.fixedPower`, `symmetry`-like `frontAndright` patch) against the real binary, 5 tight steps each (first step 5e-3 s;
+/// `0/fluidRegion/powerDensity.fixedPower`, `symmetry` `frontAndright` patch) against the real binary, 5 tight steps each (first step 5e-3 s;
 /// `refs/psbt2_ex{2,3}_head.ref.txt.gz`). Step sizes equal upstream's. Ex3's step 1 runs ONE outer iteration, so the turbulence solves see the
-/// initial fields only: `k`, `epsilon`, `nut`, `alphat` of both fluids agree with upstream to round-off (<= 1e-12; measured <= 6e-16) while `p`
-/// (1.9e-5) and `U` (7.8e-5) already differ: the flow baseline of README round 16, not the turbulence model. Later steps are bounded by the
-/// measured worst (about 1.5x margin).
+/// initial fields only: `k`, `epsilon`, `nut`, `alphat` of both fluids agree with upstream to round-off (<= 1e-12; measured <= 6e-16), and since
+/// round 17 so do `p` (1.4e-12; round 16: 1.9e-5) and `U` (1.1e-11; round 16: 7.8e-5). Over the 5 steps the measured worst (2026-11-26) is Ex2
+/// `p` 2.6e-10, `U.liquid` 1.4e-7, `T.liquid` 1.2e-11; Ex3 `p` 1.9e-10, `U.liquid` 1.5e-7, `T.liquid` 1.6e-12 (round 16 pins: `p` 6e-5/2.5e-5,
+/// `U` 1.2e-3/6e-4); the bounds below are those with about 1.5x margin. The growth after step 1 is the vapour-turbulence remainder of the Ex1 gate.
 #[test]
-fn phase_ii_ex2_and_ex3_run_and_agree_at_the_flow_baseline() {
+fn phase_ii_ex2_and_ex3_run_and_agree_with_upstream() {
     for (name, data, dt0, p_lim, u_lim) in [
-        ("psbt2_ex2_head", "genfoam_psbt2_ex2_gh1802", 5e-3, 6e-5, 1.2e-3),
-        ("psbt2_ex3_head", "genfoam_psbt2_ex3_gh1802", 5e-3, 2.5e-5, 6e-4),
+        ("psbt2_ex2_head", "genfoam_psbt2_ex2_gh1802", 5e-3, 4e-10, 2.2e-7),
+        ("psbt2_ex3_head", "genfoam_psbt2_ex3_gh1802", 5e-3, 3e-10, 2.3e-7),
     ] {
         let rows = run_rows_of(name, data, dt0, &[name], 5, "");
         assert_eq!(rows.len(), 5, "{name}");
@@ -471,7 +513,7 @@ fn phase_ii_ex2_and_ex3_run_and_agree_at_the_flow_baseline() {
                     "p" | "p_rgh" => p_lim,
                     "U.liquid" | "U.vapour" => u_lim,
                     "alpha.vapour" => 0.0,
-                    "T.liquid" | "T.fixedPower" => 2.5e-6,
+                    "T.liquid" | "T.fixedPower" => 5e-11,
                     _ => continue,
                 };
                 assert!(*v <= lim, "{name} step {n} {k}: {v:e} exceeds {lim:e}");
@@ -479,6 +521,12 @@ fn phase_ii_ex2_and_ex3_run_and_agree_at_the_flow_baseline() {
         }
         if name == "psbt2_ex3_head" {
             for (k, v) in &rows[0].3 {
+                if matches!(*k, "p" | "p_rgh") {
+                    assert!(*v <= 3e-12, "Ex3 step 1 {k}: {v:e}");
+                }
+                if matches!(*k, "U.liquid" | "U.vapour") {
+                    assert!(*v <= 3e-11, "Ex3 step 1 {k}: {v:e}");
+                }
                 if matches!(*k, "k.liquid" | "k.vapour" | "epsilon.liquid" | "epsilon.vapour" | "nut.liquid" | "nut.vapour" | "alphat.liquid" | "alphat.vapour") {
                     assert!(*v <= 1e-12, "Ex3 step 1 {k}: {v:e}");
                 }

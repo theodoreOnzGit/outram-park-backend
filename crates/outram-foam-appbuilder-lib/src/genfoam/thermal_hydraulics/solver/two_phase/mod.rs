@@ -111,6 +111,7 @@ pub mod mules;
 pub mod one_phase_cc;
 pub mod one_phase_fc;
 mod pbicgstab;
+mod pcg;
 pub mod thermo;
 pub mod turbulence;
 
@@ -290,6 +291,19 @@ pub struct HPbicgstab {
     pub rel_tol: f64,
     /// `minIter` (default 0).
     pub min_iter: usize,
+}
+
+/// The `PCG`/`DIC` entry of the `solvers` dictionary that `p_rgh` resolves to ([`TwoPhaseControls::p_rgh_pcg`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PRghPcg {
+    /// `tolerance`.
+    pub tolerance: f64,
+    /// `relTol` (default 0).
+    pub rel_tol: f64,
+    /// `minIter` (default 0).
+    pub min_iter: usize,
+    /// `maxIter` (default 1000).
+    pub max_iter: usize,
 }
 
 /// One recorded evaluation of `multiRegimeBoilingTRACE` for one cell (gh:#1361 round 13 diagnostic, see
@@ -475,6 +489,17 @@ pub struct TwoPhaseControls {
     /// upstream's log prints: `diagonalPBiCGStab: Solving for h.liquid`), run by [`pbicgstab::pbicgstab_diagonal`]. `None`:
     /// the port's earlier `symGaussSeidel` sweeps with [`Self::h_tolerance`] ([`TwoPhaseSolver::with_smooth_solver_for_enthalpy`]).
     pub h_pbicgstab: Option<HPbicgstab>,
+    /// The linear solver `p_rgh` really gets (gh:#1361 round 17, gh:#1833). `Some`: the case selects `PCG` with the `DIC`
+    /// preconditioner, run by [`pcg::pcg_dic`] with OpenFOAM's normalised-residual stopping rule. `None`: the port's
+    /// ILU(0)-BiCGStab stopped at `||r||/||b|| < 1e-13` (every other `p_rgh` solver, `GAMG` included, which has no port;
+    /// [`TwoPhaseSolver::with_krylov_for_p_rgh`]). On an ill-conditioned `p_rgh` equation that stopping rule leaves
+    /// the solution wrong in the 10th digit of `p` (README round 17).
+    pub p_rgh_pcg: Option<PRghPcg>,
+    /// `true` (default, gh:#1361 round 17, gh:#1833): the temporary `UEqn.H()` field of `pEqnf_2p.H` carries the constraint
+    /// patch field of a `symmetry` mesh patch, so `fvc::flux(H)` through it is zero. `false`
+    /// ([`TwoPhaseSolver::with_zero_gradient_h_on_symmetry_patches`]): the port's earlier `zeroGradient`, which leaves
+    /// `Sf . H_c` there once the velocity has a component normal to the patch.
+    pub h_symmetry_constraint: bool,
     /// `residualControl.p_rgh.tolerance` (with `useFirstPISOInitialResidual`).
     pub residual_control_p_rgh: Option<f64>,
     /// `residualControl.h.<fluid1>.tolerance`.
@@ -2695,7 +2720,11 @@ impl TwoPhaseSolver {
             let mut phi_h = [vec![0.0; nf], vec![0.0; nf]];
             for k in 0..2 {
                 let h = u_eqns[k].h(&g, &self.fluids[k].u);
-                let mut hv = Vector::uniform(&g, Vector3::ZERO);
+                let mut hv = if self.controls.h_symmetry_constraint {
+                    Vector::uniform_with_constraint_patches(&g, Vector3::ZERO)
+                } else {
+                    Vector::uniform(&g, Vector3::ZERO)
+                };
                 hv.c = h;
                 hv.correct_bc(&g);
                 let fh = fv::flux(&g, &hv);
@@ -2759,7 +2788,13 @@ impl TwoPhaseSolver {
                 peqn.source[c] -= v * (comp_expl[0][c] + comp_expl[1][c] + dphi[c]);
             }
             let mut x = self.p_rgh.c.clone();
-            let res = solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance);
+            let res = if let Some(pc) = self.controls.p_rgh_pcg {
+                // upstream: `DICPCG: Solving for p_rgh` (the case's `solver PCG; preconditioner DIC;`)
+                pcg::pcg_dic(&peqn.ldu, &peqn.source, &mut x, pc.tolerance, pc.rel_tol, pc.max_iter, pc.min_iter)
+                    .initial_residual
+            } else {
+                solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance)
+            };
             if corr == 1 {
                 first_res = res;
             }
@@ -3335,6 +3370,24 @@ impl TwoPhaseSolver {
     #[must_use]
     pub fn with_smooth_solver_for_enthalpy(mut self) -> Self {
         self.controls.h_pbicgstab = None;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 17, gh:#1833): evaluate the `UEqn.H()` field of `pEqnf_2p.H` as `zeroGradient` on a `symmetry`
+    /// mesh patch, as the port did before it applied OpenFOAM's constraint patch field there.
+    #[must_use]
+    pub fn with_zero_gradient_h_on_symmetry_patches(mut self) -> Self {
+        self.controls.h_symmetry_constraint = false;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 17, gh:#1833): solve `p_rgh` with the port's ILU(0)-BiCGStab stopped at
+    /// `||r||_2/||b||_2 < 1e-13` even when the case selects `PCG`/`DIC`, as the port did before it translated
+    /// `PCG::scalarSolve`. On `PhaseII_Ex3` that leaves `p_rgh` wrong by 2.7e-3 Pa after the first corrector (`p` 1.5e-9 relative
+    /// at the end of the step with the symmetry constraint in place; README round 17).
+    #[must_use]
+    pub fn with_krylov_for_p_rgh(mut self) -> Self {
+        self.controls.p_rgh_pcg = None;
         self
     }
 

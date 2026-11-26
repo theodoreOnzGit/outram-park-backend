@@ -413,6 +413,21 @@ impl Vector {
         }
     }
 
+    /// A uniform vector field as OpenFOAM constructs a temporary one (`UEqn.H()`: `extrapolatedCalculated`): ordinary
+    /// patches extrapolate (`zeroGradient`), but a mesh patch of a CONSTRAINT type keeps its constraint patch field whatever
+    /// patch field type was requested (`fvPatchField::New`: a `symmetry` mesh patch always gets `symmetryFvPatchField`,
+    /// i.e. `basicSymmetry`, `(U_c + (I - 2nn) U_c)/2`, whose flux through the patch is zero). gh:#1833.
+    #[must_use]
+    pub fn uniform_with_constraint_patches(g: &Geometry, v: Vector3) -> Self {
+        let mut out = Self::uniform(g, v);
+        for (pi, p) in g.mesh.patches.iter().enumerate() {
+            if p.kind == PatchKind::Symmetry {
+                out.bc[pi] = VectorBc::Slip;
+            }
+        }
+        out
+    }
+
     /// `true` when the flux patch that belongs to boundary face `f` is a `fixedValue` `fvsPatchField`
     /// (`fluid.C`: the velocity patch is `fixedValue`, `slip` or `partialSlip`): such a flux is set
     /// to `Sf . U_b` by `correctBoundaryFlux_2p.H` and is not overwritten by `phi = phiHbyA + ...`.

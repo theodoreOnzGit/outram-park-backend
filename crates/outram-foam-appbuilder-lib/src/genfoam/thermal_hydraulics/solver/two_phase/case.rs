@@ -45,7 +45,7 @@ use uom::si::volumetric_power_density::watt_per_cubic_meter;
 use super::fv::{Bc, Geometry, Scalar, Vector, VectorBc};
 use super::thermo::PhaseThermo;
 use super::{
-    ByRegime, HPbicgstab, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
+    ByRegime, HPbicgstab, PRghPcg, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
     ChfSelection, Structure, TimeControls, TraceBoilingModel, TraceChfModel, TwoPhaseControls, TwoPhaseModels,
 };
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::cachard::{CachardLiquid, CachardVapour};
@@ -1177,6 +1177,20 @@ impl TwoPhaseCase {
             }
             _ => None,
         };
+        // upstream resolves `p_rgh` to the exact keyword, else the LAST matching pattern; `PCG` + `DIC` is run as OpenFOAM does
+        let p_rgh_pcg = match lookup_pattern_last(solvers, "p_rgh") {
+            Some(FoamEntry::SubDict(d))
+                if word(d, "solver").as_deref() == Some("PCG") && word(d, "preconditioner").as_deref() == Some("DIC") =>
+            {
+                Some(PRghPcg {
+                    tolerance: ctx.f64(d, "tolerance")?,
+                    rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                    min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                    max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                })
+            }
+            _ => None,
+        };
         let alpha_d = match lookup_regex(solvers, "alpha") {
             Some(FoamEntry::SubDict(d)) => d.clone(),
             _ => return Err(ctx.e("no alpha solver dictionary")),
@@ -1275,6 +1289,8 @@ impl TwoPhaseCase {
             h_tolerance: h_tol,
             h_min_iter: h_min,
             h_pbicgstab,
+            p_rgh_pcg,
+            h_symmetry_constraint: true,
             residual_control_p_rgh: rc_tol("p_rgh"),
             residual_control_h1: rc_tol(&format!("h.{}", names[0])),
             mass_transfer_safety_factor: scalar(pimple, "massTransferSafetyFactor"),
