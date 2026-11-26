@@ -2001,3 +2001,25 @@ References committed: `refs/psbt_shipped_head.ref.txt.gz` (steps 1-60, 0.52 MB, 
 
 If V3/V4 miss, the first suspects are (a) the transform-patch `cmptAv` part of A() and H() on the 300 `slip` wall faces, (b) the `fixedFluxPressure` gradient sign, (c) `phi` of the `fixedValue` inlet
 written as `Sf . U_b`.
+
+## Part B (gh:#1815): `1D_CHF/imposedPower` AS SHIPPED, `powerTimeProfile` on `fixedPower`
+
+**What was read first (2026-11-26).** `fixedPower.C` `powerUpdate` (`prof(t) * (powerDensity_.oldTime() / prof(t - dt))`, per cell, called by `correct` in EVERY
+outer iteration, so the old-time value is the one stored at the start of the step, not the previous iteration's), `timeProfile.C` (`Function1::value(t - startTime)`, the
+ESI `table` clamps outside its range), the shipped table (`startTime 0`, absolute values: 5e8 up to t = 10 s, then ramps 1e9, 1.5e9, ...). The port had
+`power_model.rs::FixedPower::power_density` = the closed form `initial * prof(t)` (gh:#1815) and `TwoPhaseCase::read` refused `powerTimeProfile`.
+Translated: `FixedPower::correct` now evaluates upstream's recursion by default (state `power_density_now`, cloned from the old-time copy each outer iteration like `power_old`);
+the closed form stays as the deprecated `FixedPower::with_closed_form_power_profile`. Reader: `powerTimeProfile` of `type table` (any other type or key refused by name).
+`fixedTemperature` with `temperatureTimeProfile` (the other half of #1815) is NOT done: the two-phase `Structure` still has no `fixedTemperature` (filed as a child issue).
+
+**Upstream facts measured before any port run** (one fresh run, `scripts/chf_shipped_protocol.sh`: `writePrecision 17`, `writeInterval 1`, `endTime 13`, linear solvers 1e-14, serial 211 s,
+exit 0, 1984 steps, `refs/chf_shipped_t13.ref.txt.gz`, written times 1..13, 17 cells): no vapour up to t = 10 s (`alpha.vapour` max 0, `T.fixedPower` max 615.94 K,
+`powerDensity.fixedPower` max 5e8); at t = 11 s `alpha.vapour` max 0.0535 and `powerDensity.fixedPower` max **9.975e8** (the profile's value at 11 s is 1e9: upstream's density is 0.25 % below
+it at the written time); 0.0695 and 9.975e8 at t = 12 and 13 s; step size 5.5e-3 growing to 1.06e-2 by step 100 and 2.67e-3 from step ~1000; 419 steps "not converged within 12".
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| W1 | `TwoPhaseCase::read` of the shipped `imposedPower` | succeeds, empty `deviations` | a key the reader refuses |
+| W2 | t = 1..10 s (~1000 single-phase steps, constant power, through-flow BCs): `p`, `T.*`, `U.*`, `phi.*`, `htc` | <= 1e-6 of the field maximum (no vapour; round 8 steps 1-9 were 1e-8; the longer run accumulates) | #1803/#1816 at the first boiling evaluation |
+| W3 | `powerDensity.fixedPower` at t = 11, 12, 13 s | equal to upstream's to 1e-9 (the recursion, including its 0.25 % shortfall below the profile at the written time); the deprecated closed form would be off by 2.5e-3 at t = 11 s | the recursion's old-time/lag handling |
+| W4 | t = 11..13 s (power doubles, vapour 0.05-0.07): `alpha.vapour`, `T.fixedPower` | <= 5e-2 of the field maximum; `p`, `T.liquid` <= 1e-4 | chaotic amplification as in round 8 step >= 51 |
