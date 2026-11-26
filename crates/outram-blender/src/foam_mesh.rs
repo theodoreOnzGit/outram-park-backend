@@ -512,8 +512,11 @@ fn check_surface(
 ///   classifies cells by ray parity, which silently mis-classifies on a leaky
 ///   surface (see the module docs).
 /// - **Meshing failure** — `cell_size <= 0`, the carve produced zero cells (cell
-///   size too large for the geometry), or — should not happen — the final mesh is
-///   not closed.
+///   size too large for the geometry; carved tet source only), boundary layers
+///   asked of the carved tet source (since gh:#1829 the cfMesh pipeline grows
+///   its layers first and needs TetGen, its default, for the inside; see
+///   `outram_park_fork_cfmesh::pipeline::layers_first`), TetGen refused the
+///   surface, or — should not happen — the final mesh is not closed.
 ///
 /// # Examples
 ///

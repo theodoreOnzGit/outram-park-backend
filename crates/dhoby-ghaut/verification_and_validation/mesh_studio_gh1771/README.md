@@ -1,4 +1,4 @@
-# Mesh Studio review images (gh:#1771, gh:#1796, gh:#1825)
+# Mesh Studio review images (gh:#1771, gh:#1796, gh:#1825, gh:#1829)
 
 > **Research, education and V&V only.** Not for reactor design, licensing,
 > operation or safety decisions. AI-assisted draft: untrusted until a human
@@ -49,6 +49,157 @@ stage, coloured by boundary-layer index or cell quality.
 - **How to regenerate.** Run `render.mjs`; the commands are in its header.
   It prints each page title (shape and cell count), so a re-run can be
   compared with the table below.
+
+## gh:#1829: boundary layers grown FIRST (2026-11-26)
+
+> **HARD RULE (maintainer, 2026-11-26):** "Don't make it opt in, make it
+> default. Hard rule for this crate. Take out the old option." The cfMesh
+> pipeline now grows its prism layers first, from TetGen's wall
+> triangulation, and TetGen meshes the inner region with `-Y` (no point on
+> the boundary), so the tetrahedra meet the prisms face to face
+> (`outram_park_fork_cfmesh::pipeline::layers_first`). The layers-last
+> strategies (back-off, `CfMeshOptimise`, snappy, `CfMeshTetMesh`) and the
+> page's `strategy=` key are gone; the rows of the gh:#1796 table below that
+> name them are the record of the removed routes. The carved tet source
+> takes no layers (the build is refused).
+
+### Methodology
+
+`mesh_studio --measure --shape <s> --mesh tet|poly --n <n>` (native,
+release, `headless::measure`), the page's defaults otherwise: size 2 m,
+TetGen `-pq1.414` with `-a` the regular tetrahedron of the cell size (pipe
+h 0.25 m, fuel channel and pebble 1/6 m), cell-centre dual with corner
+feature points, 3 layers from 20 mm at ×1.3 (79.8 mm asked). "Thickness" is
+the median grown column over the asked total (the report's "Wall layers
+total" line gives the least, median and greatest; every column is listed in
+the stage note). Inverted cells are `checkMesh`'s negative-volume count.
+Property tests (no pins, root `AGENTS.md`):
+`engine::tests::layers_first_on_the_reactor_shapes`,
+`engine::tests::twenty_layers_grow_on_the_pipe`, and the cfMesh crate's
+`pipeline::layers_first::tests`.
+
+**Predictions (written before the first run):** every wall face of TetGen's
+wall triangulation carries all 3 layers at the full 79.8 mm on all three
+shapes (the gaps are 0.4 m pebble to channel and 0.5 m pin to channel, so
+the proximity cap 0.4 × gap is at least 160 mm); no inverted cell; the
+prisms + tetrahedra keep the volume of TetGen's bare mesh to 1e-9.
+**Result: all held** (asserted by the tests above).
+
+### Comparison with the layers-last routes (native)
+
+The old rows are copied from the gh:#1796 table below (same shapes, same
+defaults, same machine class); the new rows were measured 2026-11-26.
+
+| shape | mesh | route | cells | layers grown | thickness / asked | inverted | max non-orth | max skew | native |
+|---|---|---|---|---|---|---|---|---|---|
+| pipe | tet + BL | back-off (removed) | 18020 | **none** | 0 | 0 | 62.6° | 0.99 | 0.9 s |
+| pipe | tet + BL | `CfMeshOptimise` (removed) | 18020 | **none** (refused) | 0 | 0 | 62.6° | 0.99 | 117 s |
+| pipe | tet + BL | `CfMeshTetMesh` (removed) | 24353 | 3 | 117 % | 0 | 65.8° | 0.90 | 1.3 s |
+| pipe | tet + BL | **layers first** | 22057 | 3 (2111 per layer) | **100 %** | 0 | 67.2° | 1.02 | 0.50 s |
+| pipe | dual + BL | back-off (removed) | 6826 | 3 | 17 % | 0 | 69.9° | 2.01 | 0.5 s |
+| pipe | dual + BL | `CfMeshOptimise` (removed) | 6826 | 3 | 75 % | 0 | 54.7° | 2.20 | 22 s |
+| pipe | dual + BL | **layers first** | 6458 | 3 (1088 per layer) | **100 %** | 0 | 60.1° | 1.37 | 0.52 s |
+| fuel channel | tet + BL | back-off (removed) | 30804 | **none** | 0 | 0 | 67.7° | 1.00 | 1.9 s |
+| fuel channel | tet + BL | `CfMeshOptimise` (removed) | 30804 | **none** (refused) | 0 | 0 | 67.7° | 1.00 | 451 s |
+| fuel channel | tet + BL | `CfMeshTetMesh` (removed) | 46119 | 3 | 65 % | 0 | 73.8° | 1.08 | 71 s |
+| fuel channel | tet + BL | **layers first** | 37561 | 3 (5105 per layer) | **100 %** | 0 | 74.1° | 1.13 | 0.87 s |
+| fuel channel | dual + BL | back-off (removed) | 14313 | 3 | 12 % | 0 | 74.5° | 2.94 | 1.1 s |
+| fuel channel | dual + BL | `CfMeshOptimise` (removed) | 14313 | 3 | 45 % | 0 | 63.3° | 2.84 | 57 s |
+| fuel channel | dual + BL | **layers first** | 12937 | 3 (2638 per layer) | **100 %** | 0 | 64.5° | 1.41 | 1.20 s |
+| pebble | tet + BL | back-off (removed) | 35347 | **none** | 0 | 0 | 72.2° | 1.53 | 3.4 s |
+| pebble | tet + BL | `CfMeshOptimise` (removed) | 35347 | **none** (refused) | 0 | 0 | 72.2° | 1.53 | 413 s |
+| pebble | tet + BL | `CfMeshTetMesh` (removed) | 35347 | **none** (6 inverted, refused) | 0 | 0 | 72.2° | 1.53 | 237 s |
+| pebble | tet + BL | **layers first** | 43768 | 3 (5118 per layer) | **100 %** | 0 | 75.3° | 1.45 | 1.43 s |
+| pebble | dual + BL | back-off (removed) | 7186 | **none** | 0 | 0 | 67.8° | 1.78 | 2.7 s |
+| pebble | dual + BL | `CfMeshOptimise` (removed) | 15052 | 3 | 31 % | 0 | 68.7° | 3.20 | 93 s |
+| pebble | dual + BL | **layers first** | 13951 | 3 (2622 per layer) | **100 %** | 0 | 60.4° | 1.44 | 1.48 s |
+| pipe, 20 layers (114.5 mm) | dual + BL | `CfMeshOptimise` (removed) | 25322 | 20 | 52 % | 0 | 54.7° | 2.20 | 11 s |
+| pipe, 20 layers | dual + BL | back-off (removed) | 3562 | **none** | 0 | 0 | 49.5° | 1.37 | |
+| pipe, 20 layers | tet + BL | **layers first** | 56846 | 20 (2111 per layer) | **100 %** | 0 | 63.1° | 0.96 | 0.67 s |
+| pipe, 20 layers | dual + BL | **layers first** | 24778 | 20 (1088 per layer) | **100 %** | 0 | 80.0° | 1.41 | 1.71 s |
+
+Browser times: see the image table (each page's report).
+
+**What it says.** Layers grown first give the requested count and
+thickness on every wall face of all three shapes, the pebble included
+(which no layers-last route managed on its tetrahedra), with no inverted
+cell, in about a second natively. On the dual of the prisms and tetrahedra
+the first dual cell at the wall is centred on the wall point, so it spans
+half the first prism (the dual's layer `k` is the dual cell of the `k-1`-th
+column point); the column thickness is the prisms'. Costs: TetGen runs
+twice (once for the wall triangulation, once for the inside). The worst
+non-orthogonality moves up on the tetrahedra (pipe 62.6° → 67.2°, pebble
+72.2° → 75.3°) and down on the dual (pipe 69.9° → 60.1°, pebble 67.8° →
+60.4°). The 20-layer dual reaches 80.0°.
+
+### Images (browser, 2026-11-26; `render.mjs '^lf_'`)
+
+Each is the real page (wasm, mesh built in the Web Worker), coloured by
+layer index unless named `nonorth`. Browser build times are the page
+report's "meshed in"; cell counts are the page titles (the pebble differs
+from native, 43580 against 43768, because TetGen calls the platform's
+`libm`, gh:#1823).
+
+| file | what | cells | browser |
+|---|---|---|---|
+| `lf_pipe_tets_layers_zoom.png` | pipe, prisms + tets, 30× at the wall | 22057 | 0.76 s |
+| `lf_pipe_dual_layers_zoom.png` | pipe, dual of both, 30× at the wall | 6458 | 0.82 s |
+| `lf_pipe_tets_nonorth_zoom.png` | pipe, prisms + tets, non-orthogonality, 15× | 22057 | |
+| `lf_pipe_tets_inlet_rim.png` | pipe, x-cut at the inlet rim, 25× | 22057 | 0.69 s |
+| `lf_pipe_tets_20_layers_zoom.png` / `lf_pipe_dual_20_layers_zoom.png` | pipe, 20 layers (114.5 mm), 20× | 56846 / 24778 | / 1.91 s |
+| `lf_fuel_channel_tets.png` | fuel channel, prisms + tets, 1.5× | 37561 | |
+| `lf_fuel_channel_tets_pin_zoom.png` / `_channel_zoom` | at the pin / the channel wall, 20× | 37561 | 1.32 s |
+| `lf_fuel_channel_dual_pin_zoom.png` / `_channel_zoom` | dual, at the pin / the channel wall | 12937 | |
+| `lf_pebble_tets_x.png` | pebble, prisms + tets, axial x-cut | 43580 | 1.67 s |
+| `lf_pebble_tets_zoom.png`, `lf_pebble_gap_zoom.png` | pebble wall 20×; the pebble-to-channel gap 5× | 43580 | |
+| `lf_pebble_dual_zoom.png`, `lf_pebble_dual_nonorth.png` | dual at the pebble; non-orthogonality across the gap | 13853 | 2.33 s |
+
+**What was checked in them.** Pipe: three layers of 20, 26 and 33.8 mm
+stand on every wall face of the cut, and the tetrahedra's faces meet the
+top prism face along its edges (no hanging vertex where a tet edge crosses
+the top face); on the dual the wall-nearest dual layer is half the first
+prism, as the cell-centre dual must give. Inlet rim: the layers run straight
+down to the inlet plane and end flat on it (the side faces lie in the
+inlet). Pebble axial cut: the pebble is a hole (not meshed), ringed by three
+layers, and the channel walls carry three layers each, with tetrahedra
+filling the gap; the gap zoom shows both walls' three layers with
+tetrahedra between them and no layer touching the other. Fuel channel: three layers outward from the pin. 20-layer
+pipe dual: twenty layers, each one cell per column, report 114.55 mm every
+column. **Not checked:** the images not opened (`lf_pipe_tets_nonorth_zoom`,
+`lf_fuel_channel_tets`, `_channel_zoom`, the dual pin and channel zooms,
+`lf_pebble_tets_zoom`, `lf_pebble_dual_nonorth`,
+`lf_pipe_tets_20_layers_zoom`) beyond their page titles; the old
+`*_tetgen_*_layers_zoom.png` files show the removed routes and were not
+re-rendered.
+
+### Where the geometry has no room: thinning, and where it fails
+
+**Methodology.** The gaps forced: `n=10&first=0.02&ratio=1.2` (519.2 mm
+asked, more than the 0.4 m pebble gap and the 0.5 m pin gap).
+**Prediction:** columns facing the far wall capped at 0.4 × the gap
+(160 mm pebble, 200 mm fuel channel), so 31–39 % of the request there; no
+inverted cell; the dual possibly harder. **Results (2026-11-26):**
+
+| shape | mesh | cells | layers | median thickness / asked | thinnest | capped by proximity | thinned for validity | inverted | max non-orth |
+|---|---|---|---|---|---|---|---|---|---|
+| pebble | tet + BL | 65576 | 10 | 55 % | 16.8 % | 1750 of 2622 | 841 (8 passes) | 0 | 85.4° |
+| fuel channel | tet + BL | 60504 | 10 | 38 % | 9.2 % | 2633 of 2638 | 70 (7 passes) | 0 | 84.3° |
+| pebble / fuel channel | dual + BL | **dual refused** | | | | | | | |
+
+Against the prediction: the proximity cap held (fuel channel median 38 %,
+inside the predicted 31–39 %; the pebble's 55 % median includes the columns
+on the channel's far side and the ends, which face no close wall), but the
+**thinnest columns went below it** (16.8 % and 9.2 %): the validity pass
+thinned 841 and 70 columns further where prisms or the top surface would
+otherwise fold, which the prediction did not foresee. The prism + tet
+meshes are valid with every layer present, thinned where
+the gap demands it, and the report gives the counts. **The dual of these
+thinned meshes fails**: `polyDualMesh` (and the median dual) produce
+inverted cells, the pipeline keeps the prisms and tetrahedra, and the stage
+notes say "CellCentre dual skipped — it would invalidate the mesh". Not
+investigated further here (likely the steep thickness changes the slope
+limit allows, `layers_first::limit_slope`, slope 1); at the page's defaults
+the dual is valid on all three shapes.
 
 ## gh:#1796: TetGen's tetrahedra, every mesh type (2026-11-26)
 

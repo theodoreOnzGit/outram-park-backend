@@ -1647,7 +1647,7 @@ doc_hash = "sha256:8d7b6c7297abbf3c9620986f9c49f46d73a2a8618be72b7d0b4e903ef131c
 id = "fn:60635683af8a5287"
 name = "correct_edges_is_pinned_bit_for_bit"
 qual = "correct_edges_is_pinned_bit_for_bit"
-hash = "sha256:113c3dc7a1d6f86a435f8a645cbebfc35869f87aef088e93979e1df7965defb9"
+hash = "sha256:11c031dbb76a705209b5edd4fa55e1311d607aa52c705d785452908fb2ead470"
 doc_hash = "sha256:10526e74003b76bf5918bb376a7e6245a6d0c676e0c39d214727cccc27660d84"
 test = true
 
@@ -2295,7 +2295,7 @@ doc_hash = "sha256:5999a33cdc84b97f07e18a6be2af1f56afded70a2253b284dee441be4fc9a
 id = "fn:096aba297ad0bafa"
 name = "foam_studio_premapped"
 qual = "foam_studio_premapped"
-hash = "sha256:ff94f39de1fbf83cbfa14c8cdf1a3370725d4e6825c59fa0c11be8e0764e89d0"
+hash = "sha256:4c2532eec4302a2c392c52c3ea8989da44cfd299885ec62d4e39df3cdb40fd6b"
 doc_hash = "sha256:b1c0e9c28634c91f3b89df55eb9e576a63bd38acf3a63ec47ed0bbb4609df959"
 test = true
 
@@ -2408,7 +2408,7 @@ test = true
 id = "fn:0bec285e6ddbd138"
 name = "foam_studio_default_mesh_keeps_its_fingerprint"
 qual = "foam_studio_default_mesh_keeps_its_fingerprint"
-hash = "sha256:9fe4ffaca6f565f923b17dbb56042d545257de51a7eb95e068e65b313f2d2599"
+hash = "sha256:684e90e7ea1ed7a7ba742e47d93863028a05d198f10cda59f5b8ce898bc52c22"
 doc_hash = "sha256:c4fbbd170fcd48bb0c77e0fc902af6ec60f6fad56436ced24c0d300128db2cce"
 test = true
 
@@ -2486,7 +2486,7 @@ test = true
 id = "fn:015bbb536f552e8c"
 name = "small_pipe"
 qual = "small_pipe"
-hash = "sha256:28a9aced4e5f1168aba7985da73009f17733771a91ce4f3047550b195252932d"
+hash = "sha256:ea42fe99223539288912cb0f8b101fe27b3765482d7730ef3e8c54d11a8dd669"
 doc_hash = "sha256:0e0d7984cf98c0971452adadaff9c2de886a2ea913b70ca6f19daa3e370fad57"
 test = true
 
@@ -2501,7 +2501,7 @@ doc_hash = "sha256:474d38a442c25113a29b3d81c41690458747b36b2980a783955fe5f3e3dc5
 id = "fn:5950b766d953a627"
 name = "variant"
 qual = "variant"
-hash = "sha256:2e69c8a34d482d08862d2fd8f61c2a5c42d9ae9406941febab5d116a88364069"
+hash = "sha256:2806ee15a0703085add61df3f727223bfdc9e890d2013d9a4aebf8e0fadfb687"
 doc_hash = "sha256:b203b0e6e31313efb335b4550c2980f2dace011d84f19de227642fdd9688888d"
 test = true
 
@@ -2742,8 +2742,8 @@ name = "LayerQualityStrategy"
 qual = "LayerQualityStrategy"
 item = "type"
 shape = "enum"
-hash = "sha256:bebbfa6b2b991d9c51e023ace62554b24d2cfd3a024027fb9765d5673ee4df5f"
-doc_hash = "sha256:650ebd7edb64ff3ed26707bc9cc9be2f16435bd51309b5b671205b490d666ec2"
+hash = "sha256:5dd451f2bce38c91a7a81130b32c6ef1a7c14aed2d1dfb43bba633f543e0e4bc"
+doc_hash = "sha256:d13b109608a88fd02d70e7bbb9cc6ab7490cce0d43b4bf697a7e36ab298be3da"
 
 [[module."layers.rs".function]]
 id = "fn:22a90bd3a781e77c"
@@ -2831,13 +2831,6 @@ doc_hash = "sha256:bc89fd2049ffa106214b13b294fb1bbc9d51fc17ba88e5692eede2d1fc438
 test = true
 
 [[module."layers.rs".function]]
-id = "fn:219cb633d3536e23"
-name = "build_layered_faces"
-qual = "build_layered_faces"
-hash = "sha256:d3eb3c184a3da5fdf4cd0919937536cea5f39595f85b9635c3636f8f8abc68e4"
-doc_hash = "sha256:c99aa49fe77ceedd3ceee78ee8f0bb4a09eaf4eac6cf9116ab3fd79a47834909"
-
-[[module."layers.rs".function]]
 id = "fn:86cb03cdb916788e"
 name = "build_layered_variable"
 qual = "build_layered_variable"
@@ -2885,14 +2878,6 @@ name = "meets_layer_quality"
 qual = "meets_layer_quality"
 hash = "sha256:f1e6b52978bad895d114ff2c7e71193484dece3a8a9e842e84d00d35a45701e4"
 doc_hash = "sha256:0119d099e01efa7d04725aa7829933ec779a68c743f12b5078f76c7893357064"
-
-[[module."layers.rs".function]]
-id = "fn:9c7c19e502e91ef4"
-name = "per_face_layer_counts_conform_and_repartition"
-qual = "per_face_layer_counts_conform_and_repartition"
-hash = "sha256:bf0505c36253df7c6400047fbe84a398c6ca79ce8ada957488bec3d6a3246a61"
-doc_hash = "sha256:0f858bd939ef1b4510dcf306e506a1d5c7d8aa8eecc0bf60fe42588153902f00"
-test = true
 
 [[module."layers.rs".function]]
 id = "fn:caf082c800451a17"
@@ -5880,7 +5865,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:63d5aa859fea2592"
 name = "diagnose_laplace_pc_against_smart_laplacian"
 qual = "diagnose_laplace_pc_against_smart_laplacian"
-hash = "sha256:3b3b6cae1cc1bb4a9a55d2d3c74fab5e9c4d5668964c223f2931e4f15c68d38c"
+hash = "sha256:eded3cdf753c81b9471ce08bba96aa44d2cc33ca6e980071efa83118cea01846"
 doc_hash = "sha256:a85d081eb9e85f6af562f7d4fd240f64ab3ae5da608c66c3cc5b0f54d1a2fd93"
 test = true
 
@@ -7242,29 +7227,19 @@ doc_hash = "sha256:f1e6c77a201b316280a2e0b9c6fd9c49965c4f1315081156544a84f899aca
 test = true
 
 [[module."pipeline.rs".function]]
-id = "fn:8c5025ae264c1922"
-name = "STRATEGIES"
-qual = "STRATEGIES"
-item = "const"
-shape = "const"
-hash = "sha256:bf2cd4da08081973876d2b381615c889ccac68d7926493513967859851771102"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."pipeline.rs".function]]
 id = "fn:be7013441700cacd"
 name = "TetDualOptions"
 qual = "TetDualOptions"
 item = "type"
 shape = "struct"
-hash = "sha256:dcc9357148b89c373cb433f86f971574a06509bb1676d4bba1daa8623c2ff718"
+hash = "sha256:4bf9f20cf79a98e0f144bc9225a1b38c89c676837dcc7334bf1a82b9d2b3459c"
 doc_hash = "sha256:31dc88efb13947c63512f47f22d5f7c72a007ca5480720f022bb1d8864e6d1e6"
 
 [[module."pipeline.rs".function]]
 id = "fn:a82f9af2fb84e735"
 name = "default"
 qual = "TetDualOptions::default"
-hash = "sha256:4d296db429e9399c7700f17ee003534aaaab9262d653d5fb36511feb03d3e4a3"
+hash = "sha256:165d1cc3e3e6d273b1519b37d6247073d4fa226cfdda4609549dbb869b293e47"
 doc_hash = "sha256:5f9bae32f9744baf9bba030d65adb84c3979930376d8c1adf5061a95d4eb7fd4"
 
 [[module."pipeline.rs".function]]
@@ -7282,14 +7257,6 @@ name = "acceptable"
 qual = "acceptable"
 hash = "sha256:6249c1613174379a3e6b2f2c045152c0af75fa7c1e98f139c9c7321a85c400fd"
 doc_hash = "sha256:87f6ea810f3951ad08358e585aac29c954cc2ddf0f533b4cb9a87e7579ad61ca"
-
-[[module."pipeline.rs".function]]
-id = "fn:4f72e4dca7e6cbcc"
-name = "back_off_only_layers_are_pinned_bit_for_bit"
-qual = "back_off_only_layers_are_pinned_bit_for_bit"
-hash = "sha256:00dc88afddbedfe0526413230723b5b369e21e0bab4ea91bb3920bbc84bf30e1"
-doc_hash = "sha256:ad44b06c44a060942632fc417785bcd21193dad63c9bd7ea87fa818aba672673"
-test = true
 
 [[module."pipeline.rs".function]]
 id = "fn:4b180c3831e0222c"
@@ -7310,7 +7277,7 @@ doc_hash = "sha256:9730354f7654eef073fd7c9f9f48fce50da7af8c4ecabf8138524b44b1ed7
 id = "fn:4c7641dadec12062"
 name = "box_tet_dual_is_valid_and_conserves_volume_exactly"
 qual = "box_tet_dual_is_valid_and_conserves_volume_exactly"
-hash = "sha256:6988e8813ac2de182fe9b0fa8a68c29d8e4117028096205ba327c83a9a0a1988"
+hash = "sha256:dea950cd3fc90334b86e6d84b43a5e315a8486a09c7cec5f67f64cbe07ed503d"
 doc_hash = "sha256:d03c4e7b2a64ff769beb283d20f063d5378695b379d8b10dfe422eef165553b9"
 test = true
 
@@ -7347,7 +7314,7 @@ doc_hash = "sha256:dfc6ee6b7b3f2c04f84b6c249fcca0b0c78eb29ce3029c9492b2dda9e30aa
 id = "fn:07b7a9d69396ae28"
 name = "correct_edges_runs_in_the_pipeline_and_is_off_by_default"
 qual = "correct_edges_runs_in_the_pipeline_and_is_off_by_default"
-hash = "sha256:d903d3ed94a1c17a78bd1f5a058a0a7b18acaf42282e850c4395edd3bb0dbc72"
+hash = "sha256:91c1fe71efd79df87c4db4933bae7663b9d5c7a2124e8c7a5ead1f22f4859e3a"
 doc_hash = "sha256:05c9c2c5e055891110f583060bfdc34eb97a698205bf377cada727f23cf2a7bb"
 test = true
 
@@ -7378,7 +7345,7 @@ test = true
 id = "fn:d2bbfafb3370fec8"
 name = "diagnose_back_off_on_dual_kinds"
 qual = "diagnose_back_off_on_dual_kinds"
-hash = "sha256:5c3010c0e0db14939c1d31cebbbdf3461843be372d1a3a1bbc622aa563aebf47"
+hash = "sha256:8b4c2d097f30fe5218f44af724325e3ed265ced8f0901b47c745aa5d8779caad"
 doc_hash = "sha256:94e48938f94128dd9894957cdb9376b7bbb4b6b027a4a559499f855d45b360ee"
 test = true
 
@@ -7394,16 +7361,8 @@ test = true
 id = "fn:11832b597e49418b"
 name = "diagnose_corners_rim"
 qual = "diagnose_corners_rim"
-hash = "sha256:4d41e3d0407e50ccb2c5b65697ff2b00043f1bd551fda327ab7ab4656714a4bd"
+hash = "sha256:1da2c2188b46d58e64ed5839b933f65aac9df3f6be338c8731e7dd9b3bd04320"
 doc_hash = "sha256:1cee5cb9b85fc47e97b78d6ab058a39d362b753979772e5da6f0992c99c2b6ee"
-test = true
-
-[[module."pipeline.rs".function]]
-id = "fn:9da3bb9042fe41ee"
-name = "diagnose_dual_kinds_differential"
-qual = "diagnose_dual_kinds_differential"
-hash = "sha256:f4a9cae5ae8f5398db6e6181293e89a73e439fe80dca8f86cfc974412ef6b687"
-doc_hash = "sha256:fa84ef5d2529fdded1c5211e302ba0d1494446a604e6bd4b9eb3f3e873e300f3"
 test = true
 
 [[module."pipeline.rs".function]]
@@ -7423,34 +7382,18 @@ doc_hash = "sha256:0491e1045ee5738aa8d28da4573bb8d22e563b414d3413492a04d0793fc4c
 test = true
 
 [[module."pipeline.rs".function]]
-id = "fn:331e68db3d71a4df"
-name = "diagnose_layer_strategies_differential"
-qual = "diagnose_layer_strategies_differential"
-hash = "sha256:1f436f8646d7a04ca64dff3f4f8524a1dac6298e076ebde99c7a10b320fd947d"
-doc_hash = "sha256:4d6587e5b70a08cf7d1586d9597fb783519c34c4969496659353c2243ebae05e"
-test = true
-
-[[module."pipeline.rs".function]]
 id = "fn:8a74169047868d4b"
 name = "diagnose_per_point_bad_faces"
 qual = "diagnose_per_point_bad_faces"
-hash = "sha256:9db2067c163e7cfc299f28ac738ce721ae4fbeda89c83d0387418d6a69e4276c"
+hash = "sha256:8dfbd7020c4507ddf421b128661edc58e264c2f6f643c8794c26425e17217045"
 doc_hash = "sha256:ee6c6193da9bb9ac36dd09b0f315099e7845d51209aed8edbe394a6ca17bc5c7"
-test = true
-
-[[module."pipeline.rs".function]]
-id = "fn:93e1ea432af075a0"
-name = "diagnose_snappy_cascade"
-qual = "diagnose_snappy_cascade"
-hash = "sha256:967b0effcd94ad4ee9dcf9bd10529402ea8ecd4750e1618850fecaf429110e11"
-doc_hash = "sha256:7272f9f69ca80001ec58e3084c9a45f59a850066382064a62d58f56d29789df3"
 test = true
 
 [[module."pipeline.rs".function]]
 id = "fn:5e2a7b7d65932b8b"
 name = "diagnose_wall_faces_per_dual_cell"
 qual = "diagnose_wall_faces_per_dual_cell"
-hash = "sha256:6569702c78b99e3ddc2a67171e9f7c46d5589ca358a31729d879b3e9c00938cd"
+hash = "sha256:4f05d9e066a2fbd819ccc00a6d3f47cc2aa6cb41bf6b19c8b9ae03ca9a1f040f"
 doc_hash = "sha256:37090149b716d9c8ac229ea7d7d666e11186b0c7dd3ffea5673b2c3e49294046"
 test = true
 
@@ -7458,7 +7401,7 @@ test = true
 id = "fn:4c9625ce94d18903"
 name = "dual_kinds_are_pinned_bit_for_bit"
 qual = "dual_kinds_are_pinned_bit_for_bit"
-hash = "sha256:9d98091c78bcd9aa8e426820c5771e9128c86b9362bfd20b402c3611c7e4a920"
+hash = "sha256:2ebd1276bee6e1c5dc10f632b18776bab244ec971d94da8c8e3d87333972b298"
 doc_hash = "sha256:831fd73877f622176d516fc7ebe794dd3535d788caed4a659a1ff6d6b3be4e80"
 test = true
 
@@ -7466,7 +7409,7 @@ test = true
 id = "fn:2971cf2dfd4b4db1"
 name = "error_paths_and_dual_toggle"
 qual = "error_paths_and_dual_toggle"
-hash = "sha256:873ccac8b635437175844f822734116384e1d773b0a09e4cb46b59f85e2b1fd9"
+hash = "sha256:da54f3d33f963f990234555c6c212e33ffa983a8ee3e29daff49e234611c5ce6"
 doc_hash = "sha256:d29a2a2a7eac13c8d00c4bbfc6178a0188ea8955e02b614d4ae1da669156ec98"
 test = true
 
@@ -7479,22 +7422,6 @@ doc_hash = "sha256:257a1ad638f2f9d85e1350d41fa2f1518543481197f5e28dc9524b96e9b06
 test = true
 
 [[module."pipeline.rs".function]]
-id = "fn:31fc4d731627dd7d"
-name = "every_strategy_leaves_a_good_box_duct_alone"
-qual = "every_strategy_leaves_a_good_box_duct_alone"
-hash = "sha256:5b325c715b8f13198e1103303db5aee2b3f6a4bc38829d52d9a48e952ed84166"
-doc_hash = "sha256:c4b1f1e0bf4a445f46d2097b52a42a38de4eae0d2fdf7241fbe18925f832fb2b"
-test = true
-
-[[module."pipeline.rs".function]]
-id = "fn:123fae24d018bd63"
-name = "face_angles"
-qual = "face_angles"
-hash = "sha256:5a7b11d90c772143ef342bc4d54e3407bf8bb76852d2a376a96e58f4323ee65e"
-doc_hash = "sha256:83380b0015e21c998c0c487f6f36cbfff6fa46038bce0aa90defc91e5b9484f7"
-test = true
-
-[[module."pipeline.rs".function]]
 id = "fn:d19d8273657b43af"
 name = "faces_are_non_degenerate"
 qual = "faces_are_non_degenerate"
@@ -7502,33 +7429,11 @@ hash = "sha256:550c958b0add8ea8ccbc1b0e4039bb08d4ecd2a98a5559a4b4933dd98f0a7ab4"
 doc_hash = "sha256:0a5e3c6a68c6a5cd6351f2e7015bffeec6b8f487f09caf568984b447e04af477"
 
 [[module."pipeline.rs".function]]
-id = "fn:1d202b45135af0f4"
-name = "grow_layers"
-qual = "grow_layers"
-hash = "sha256:47345c36da5388b3c6211692e32d9505fbccd6b1dd8fca2b8311b92b0077c70c"
-doc_hash = "sha256:59b5eb5f6ca2d59e04ae02c05ff8dbd76406ad541d7680cf7713714845883976"
-
-[[module."pipeline.rs".function]]
 id = "fn:c0fbd19c8c8f7871"
 name = "keep_if_ok"
 qual = "keep_if_ok"
 hash = "sha256:6bdf2791f9ab5cf7a75c86016ecbda507779ba3c891ae00532ef58ff950c86fd"
 doc_hash = "sha256:8ddcac41f5a1f3ed1353ca095006843e669cc1fbfc08ffe7a2ae92edd9623aa4"
-
-[[module."pipeline.rs".function]]
-id = "fn:2fec7b642ea76dd9"
-name = "layer_note"
-qual = "layer_note"
-hash = "sha256:0588b1d8c06181da45b41af0defa556752fa4081a9709bbd55bd2ee4299bbcca"
-doc_hash = "sha256:9a9a9bed72cef40f2e88c3a9e942434b89252db5b3e7175c96723b7ba405f88a"
-
-[[module."pipeline.rs".function]]
-id = "fn:2cb9f4ac3c575e5d"
-name = "layer_strategies_are_deterministic"
-qual = "layer_strategies_are_deterministic"
-hash = "sha256:094c9542e222709b0bd093e49bf2e7002ec1549db47472a2e1109508f39f30d4"
-doc_hash = "sha256:a308451795fe5cf836a2c9edc02761106158f3920325be78fedcd51d26e4a010"
-test = true
 
 [[module."pipeline.rs".function]]
 id = "fn:b60a0bafc33f2f8a"
@@ -7558,7 +7463,7 @@ test = true
 id = "fn:5db930051325c089"
 name = "octree_grading_beats_the_uniform_carve_on_cells_per_accuracy"
 qual = "octree_grading_beats_the_uniform_carve_on_cells_per_accuracy"
-hash = "sha256:54232499b9d87f8fa320cc5b9b7246a8c910d2628e30fdc64599e6e390c4001b"
+hash = "sha256:40a8f895aa55efc0b498fde68e84bf39f79d9ab2a58e0f3d5fd8b5fef61d12d1"
 doc_hash = "sha256:deb28af0b1cfe2a6457f10f1872a1fdb5f218371bf3ba382dcc8ed7ddf5d23fe"
 test = true
 
@@ -7566,7 +7471,7 @@ test = true
 id = "fn:31f62b73b7c11766"
 name = "octree_path_is_pinned_bit_for_bit"
 qual = "octree_path_is_pinned_bit_for_bit"
-hash = "sha256:4f96af836c223c124ac017858532e16d270a4de0502739a5c0ea8a33af75d644"
+hash = "sha256:58867c708a6a8cfd2a50e3f86b1bafad2523c35edc47b88d91956e6a4fbbb4d8"
 doc_hash = "sha256:2ba6f2de360f5189e91afaba544b3e024c12b959604c5b38a2e801ec6f7c80e8"
 test = true
 
@@ -7595,18 +7500,10 @@ doc_hash = "sha256:3de1cc8e7ec36a36a116abb1e8f2ff0a36f7f9cc0ec3ef5e8b7bcd99e2e54
 test = true
 
 [[module."pipeline.rs".function]]
-id = "fn:ad894dd210f906ee"
-name = "quantile"
-qual = "quantile"
-hash = "sha256:aea9d3485fcd0b166ac76823ab80c6d779d5016bd0ac67399a4d3e899cbfe1dd"
-doc_hash = "sha256:718f74e42748d523731528873b3c336df7212e9c2c061383adcb08ecac9b3b90"
-test = true
-
-[[module."pipeline.rs".function]]
 id = "fn:0286995f67948383"
 name = "refinement_level_zero_is_the_uniform_path"
 qual = "refinement_level_zero_is_the_uniform_path"
-hash = "sha256:f40c4bf0db05328be40f9cd2354faa1dc50f71ba9079ed3d1de84b5819832db2"
+hash = "sha256:d912dbcf0852ce5eed2f1dfd247d243f8c66e4520315d6939045105ae9e7545d"
 doc_hash = "sha256:d6f80dc3e4efc469fccc554bc6a5cf146cb2e5b88fcffb2dcc837b6155a04c85"
 test = true
 
@@ -7614,9 +7511,16 @@ test = true
 id = "fn:0a0a1b8d0455c038"
 name = "render_gh1285_face_order"
 qual = "render_gh1285_face_order"
-hash = "sha256:ad401b27a8fe55ab147cb6117431db6e717263d3c9c786b1a4052c0732540280"
+hash = "sha256:23e8df72cf14e33c92a05dd3b80ace2a505d24321f6e8a4a5b51f70f4cf88b51"
 doc_hash = "sha256:5838310a546074f544323c6e37405957b1e86f86f959969f0395ebfe02431712"
 test = true
+
+[[module."pipeline.rs".function]]
+id = "fn:4ed9f719cf2279b4"
+name = "resolved_tet_source"
+qual = "resolved_tet_source"
+hash = "sha256:d9c36f5e27612a77ceeb08fab584ceb325f8afb014bdddab83025fc4c2eb3bc7"
+doc_hash = "sha256:af8cb07066ba1e4beb333285010674e5552470b2a6ace08bae10d504c907edbd"
 
 [[module."pipeline.rs".function]]
 id = "fn:d42eadaa332cc97b"
@@ -7629,7 +7533,7 @@ doc_hash = "sha256:2bd9afb4890880f2d492f46968a17590c53ddd63cbc87e46ed0d3816b4725
 id = "fn:3f1edf0b7e274ede"
 name = "run_pipeline_observed"
 qual = "run_pipeline_observed"
-hash = "sha256:89b7ec0fefde4eb5941055673d9916bce2c8b94e94fcc93a41bf92628677200e"
+hash = "sha256:6cf7134b7f09b8a28390a25248da9d45dfc1c6ac9019178034abcd1220e91288"
 doc_hash = "sha256:5e7c64738ab57b3d97fc28ac7d08fa68f56af6c79eb8423966e66f040e7573fb"
 
 [[module."pipeline.rs".function]]
@@ -7643,7 +7547,7 @@ doc_hash = "sha256:b55de97e15a830d7b371bcb28ec5058efad89cce49f8b9d6d4185666092d5
 id = "fn:424ab6e25324f333"
 name = "sphere_tet_dual_is_valid_and_near_analytic_volume"
 qual = "sphere_tet_dual_is_valid_and_near_analytic_volume"
-hash = "sha256:ccf6e11356088e2903cee31f41090584dc0e032d2e614a2757f99d2f32b79ebe"
+hash = "sha256:b6e56b9e82178e98addc5ed8ad1c3321e54ae5a6b7e96e32090afd97c671d722"
 doc_hash = "sha256:d39e85ff0fd8ff4d0b3515a8265fd9459493b9bafde8432ef6c4f33bd0429d35"
 test = true
 
@@ -7652,7 +7556,7 @@ id = "fn:b73523c434d191e6"
 name = "surface_to_tet_dual_mesh"
 qual = "surface_to_tet_dual_mesh"
 hash = "sha256:daa79cc81042405ed6260202ad54753efcc93aa73025795e5f3d451bd3fa74d9"
-doc_hash = "sha256:dfac75e2c873f37f90e35f3e4fe7e82b8015287ec3bab63ab83609bec32e462f"
+doc_hash = "sha256:fde7e23f6d3d30ffd62b57a6be58f5e20a519786222b858f5b5bab391e311e27"
 
 [[module."pipeline.rs".function]]
 id = "fn:c20c6aebcf3533d9"
@@ -7673,7 +7577,7 @@ test = true
 id = "fn:4beaa49049108884"
 name = "upper_triangular_order_moves_no_geometry"
 qual = "upper_triangular_order_moves_no_geometry"
-hash = "sha256:f4af6d7a93f3b9ffe15c8eb2ec9d86e0bd6b34588fffff1b947ef26da4422786"
+hash = "sha256:03137435b646a6c971fa6e1453da56b0b0b20767b8a4af2f3b6ca497194b2b2b"
 doc_hash = "sha256:8861d7214bde076478195491b348a7f3faf99370844e7d882664f3463535dc63"
 test = true
 
@@ -7681,8 +7585,8 @@ test = true
 id = "fn:1fc0229442f0e0dc"
 name = "wall_only_layers_end_on_the_pipe_ends"
 qual = "wall_only_layers_end_on_the_pipe_ends"
-hash = "sha256:b7cd467b31e8ce427087d5a7a0d65e09d83b17f4ab81929a8ab8684f5ff358ae"
-doc_hash = "sha256:58656e93f859158b66256ccff191ee093cbf4a254aceb8423b0dc6806e305aae"
+hash = "sha256:182c8ff0dc75f80ea0a35740f9114a2751de50615dae278e88c9a33799876a91"
+doc_hash = "sha256:446795c41db3abb615fb738c5b311fcd2aa1b5d8de9a0cc4e1a639aa4e492198"
 test = true
 
 [[module."pipeline.rs".function]]
@@ -8653,139 +8557,6 @@ hash = "sha256:d10d7413a8ffa30c220f02c3d14edc47c34a25ac562f28c2d5cd574d3d3a43a6"
 doc_hash = "sha256:fdee8f5081895daee0c49a7b6a96be7c064dc376dd590d8d61bd44b7aedb4538"
 test = true
 
-[module."snappy_layers.rs"]
-path = "crate::snappy_layers"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:7ccad0efa2da3efc"
-name = "ExtrudeMode"
-qual = "ExtrudeMode"
-item = "type"
-shape = "enum"
-hash = "sha256:52e6a00c14e7d7e8fcc120e3f5d4f6b549aa69e9b355a64c7dcd71cf2407d5c8"
-doc_hash = "sha256:713952856c9ddb1ecd43d518b06698abc49affbe6fb70404a969829ba51a5de1"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:be75b9d1ebcdf7e6"
-name = "FaceLayerCells"
-qual = "FaceLayerCells"
-item = "type"
-shape = "enum"
-hash = "sha256:79d0977b46a3e514e793be54638270ab5109d907a3e409f478a1a1c794568fc9"
-doc_hash = "sha256:48918bd8dc6a0088ee5679c1778c9e216f424eb4d8f6df780b04fb92612740ec"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:a596b6148e9b70c0"
-name = "Patch"
-qual = "Patch"
-item = "type"
-shape = "struct"
-hash = "sha256:b46e16fbf10889ca806542a71a4e3dbf7a8dc2e5efcdcf57bc79b05706b7b42e"
-doc_hash = "sha256:7bd4947f4d4417f4210b2adc3b5e64fb1b077035024f4138ea808b8c3574f51c"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:ac22fb8211711232"
-name = "new"
-qual = "Patch::new"
-hash = "sha256:d0cc32e9a3c46b56c155bae94ed9281422048f4465ab434f316a27770c135ae9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:209d71cd2a5716fd"
-name = "SnappyLayerControls"
-qual = "SnappyLayerControls"
-item = "type"
-shape = "struct"
-hash = "sha256:2650f29c3f56416b11f6820951a55566ea6c9daeb4153fef8b2afa52ae228082"
-doc_hash = "sha256:d05035e59b80636274eaa9d201bb0f2e4aef653c4fc47d5b5234db22a4a40469"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:2076aa4e58144e17"
-name = "default"
-qual = "SnappyLayerControls::default"
-hash = "sha256:7411c6f511379fba00307e5ea75f6bd19330c1eb3f466a67acf5a54274308d45"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:30a25ac61d8b8cc9"
-name = "add_boundary_layers_snappy"
-qual = "add_boundary_layers_snappy"
-hash = "sha256:c1a087e761c30c6257473da02bd9b718d07085756d975c63e596c8b042ebb65d"
-doc_hash = "sha256:93e4478cd4c0fec583df08fa41f96ea50b1a94075184434b41b2aaeadb8e79c1"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:8f8167c56a1b5c7f"
-name = "grow_and_pinch_follow_upstream"
-qual = "grow_and_pinch_follow_upstream"
-hash = "sha256:44b21731c21df678f88579c22ad70d928620b0b6754a4c0214a122381b5b914a"
-doc_hash = "sha256:c6ca2b3eb827ed3a8c84cf75d7c9c30d13ff74b25c86a98fbecc40ba9bbf7a2e"
-test = true
-
-[[module."snappy_layers.rs".function]]
-id = "fn:cd990dd669fb074d"
-name = "grow_no_extrusion"
-qual = "grow_no_extrusion"
-hash = "sha256:dc7d5ca62091a6b3c2768ce401aea0c332311c9e4c555fe76ba31bdb9245d5f5"
-doc_hash = "sha256:cfbecb839f7b606411b6f52d99a90a8f7f1e92f7c46718861cb0c0db46e45fd0"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:66fb6f8e41ca0783"
-name = "handle_feature_angle"
-qual = "handle_feature_angle"
-hash = "sha256:4b8d63db2fe245e659f36c72215709b61a739a3080d895eff8054e20cb962334"
-doc_hash = "sha256:6f7ca61c5601e14fe6f5e5af8729fb727d0465fa423195221bb1edd7e5eebc89"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:ab197fc69afe305f"
-name = "handle_non_manifolds"
-qual = "handle_non_manifolds"
-hash = "sha256:bbfabbfaff29018615aa970b6254dfed6b3b933c26a31c7f9a1497d898f6c893"
-doc_hash = "sha256:1dd7af0c5640f5e0a30fbf2bdf5ef7038355008a000c682871a01e25b1eedd59"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:ee987865bc2cfeff"
-name = "layer_info_truncation_tapers_as_upstream"
-qual = "layer_info_truncation_tapers_as_upstream"
-hash = "sha256:fbbd2f333a990cc760779cd649b0dd60c909c5bd734a47ac7f056677ff62b2bc"
-doc_hash = "sha256:0ab4fcd44353115cd3fe0faa3d0fa1c645bd7d40883c4d7059aa913a4eb01f30"
-test = true
-
-[[module."snappy_layers.rs".function]]
-id = "fn:05bb4bf0a31eaa3c"
-name = "setup_layer_info_truncation"
-qual = "setup_layer_info_truncation"
-hash = "sha256:1fd34c8f4723629edf6f710a560d4eef4c6bc28cc5e53f9321176a0e2c1ff2ed"
-doc_hash = "sha256:020a2ddb297c1944fef0509f7f763c06700a284103389f04ea2e85695dcfcb33"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:f8624f88ad75e221"
-name = "strip"
-qual = "strip"
-hash = "sha256:16e4a53884780687009ebe8429fcfccdfd3cd004651a7d45260f413aba31016b"
-doc_hash = "sha256:4712790e58ec981f992c907b9c9face4916811d1ed957afff3c09ad2014fef46"
-test = true
-
-[[module."snappy_layers.rs".function]]
-id = "fn:911b6ae276069d53"
-name = "truncate_displacement"
-qual = "truncate_displacement"
-hash = "sha256:e62314d02623ad032cf686fe75556c33c50973964fd4579fd683944d08a3b41a"
-doc_hash = "sha256:fe7741f621a0d8b6b6f4859bc26382b667b9c630d1ab199034022e891a0c3a23"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:b1854e1d271630af"
-name = "unmark"
-qual = "unmark"
-hash = "sha256:168d5aa2046befc01b0bbd0eec1b4775dd257e3b4ed783de801dde027e9b8d04"
-doc_hash = "sha256:007c18f119f5f70afb60c259447fcc827f5bccd8bee166a9cdbf4b603e18a4f8"
-
-[[module."snappy_layers.rs".function]]
-id = "fn:d107b7a15c20a1db"
-name = "unmark_face"
-qual = "unmark_face"
-hash = "sha256:bcc2fae47858c72f993c9f6ef678959b3e1e2e17b4153059ee9830aae3ac691a"
-doc_hash = "sha256:ab44230e311a7e4b94cb191b710a2272ecc1d2aee4e52c8df6b4e4c30a799278"
-
 [module."surface.rs"]
 path = "crate::surface"
 
@@ -8946,7 +8717,7 @@ test = true
 id = "fn:30303f72a920a9d9"
 name = "engine_matches_the_crates_earlier_boundary_maps_on_the_pipe"
 qual = "engine_matches_the_crates_earlier_boundary_maps_on_the_pipe"
-hash = "sha256:e31ed2fd2f115f869a4b7af8eae73cba04731565be4c981d76f0189f84baec46"
+hash = "sha256:0977a044ded2ea0084d05b1cfd61d9743d991c38b8311823a624313443fb9e3c"
 doc_hash = "sha256:7b3b6e68554fc91ddb1def9f198bd2160209b014096772e8bf0f404ef8c4dc8d"
 test = true
 
@@ -9760,7 +9531,7 @@ test = true
 id = "fn:7b82526dc9c188ae"
 name = "diagnose_reflex_dual_faces"
 qual = "diagnose_reflex_dual_faces"
-hash = "sha256:f99e2609bc4e777ca1f839251f112883a1070bc0cf1661d43cd3734f94d648fc"
+hash = "sha256:5cc7eda97dafd1ab989a841edb56e197194af3efed8d509b6c04af0de4bb50c6"
 doc_hash = "sha256:fee770ba9917cb71f1fe2e6bbd963c046388cceba463605c252fc4cb077c0aae"
 test = true
 
@@ -9768,7 +9539,7 @@ test = true
 id = "fn:ea77d42be828328b"
 name = "diagnose_untangle_surface_differential"
 qual = "diagnose_untangle_surface_differential"
-hash = "sha256:cca1c42771a6ef07906eb5e8583afcb8a4a4f2dc02487b2a50ad639c85c2280f"
+hash = "sha256:6f6899f02c16554203f7519f9be12a833c8373c43d4d3db108c1a9ee6c880425"
 doc_hash = "sha256:16ad3418da46cd639e4d1a087e6d50a19a98ff5e486fa70fdfcbacaef2d7ee61"
 test = true
 
@@ -9813,7 +9584,7 @@ test = true
 id = "fn:387d83d0166bc6b6"
 name = "inverted_vertices_against_nonpositive_pyramids_on_the_pipe"
 qual = "inverted_vertices_against_nonpositive_pyramids_on_the_pipe"
-hash = "sha256:eb3636b8e1a707de4b757be0078d0d1e68723feacee8b6320e2224116773d758"
+hash = "sha256:b8415a18838704d4e9632ca92ca96757b45950b06bf0156194cd549b57bb2112"
 doc_hash = "sha256:dfff05513fdc34232a364e11e57ea94845b6369a3e3938ff82d636ae047a20b4"
 test = true
 
@@ -9921,7 +9692,7 @@ doc_hash = "sha256:7b8629ab85c57984b0f65a5741164031cb57c7e46481288cc0db3f8ed479c
 id = "fn:ddc4e1d8a576c1c9"
 name = "render_untangle_surface_inlets"
 qual = "render_untangle_surface_inlets"
-hash = "sha256:d12ee8ba39dc2f1825a1a13733713069e089a56fdda07fa4218a4796c158cb91"
+hash = "sha256:12188ed0dd6f501912c1c9101521bcaacd30424296bd3774ddd0e6181602c65d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -9965,7 +9736,7 @@ doc_hash = "sha256:4c5e3dccaa481d6acb2c9c9d60e3521d2a8f6b2c23f0e0e69caa99fbb6cf7
 id = "fn:8b6b35fb5376e2b9"
 name = "untangle_surface_option_is_off_by_default_and_runs"
 qual = "untangle_surface_option_is_off_by_default_and_runs"
-hash = "sha256:cad3e34ba80063b36cf42ad7eb4d15b090190912227b7913605f80124c2de917"
+hash = "sha256:33b1ea3f5416bf5ad26823a5ff5c661a279578db7e2f9bda759a61538e4060c2"
 doc_hash = "sha256:545a00656f5bb5553a4a73c4c4d55d6e599d11ec35408979bb6150957193db03"
 test = true
 

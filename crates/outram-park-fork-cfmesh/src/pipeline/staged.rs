@@ -31,14 +31,16 @@
 //! layer cells (a breadth-first search, so a cell's index is its smallest
 //! number of face crossings from the wall plus one). Core cells are 0.
 //!
-//! **Where the index is exact and where it is not.** In a uniform column
-//! stack (every wall face gets every layer) each cell's depth is its layer,
-//! checked in `tests::uniform_layers_have_one_cell_per_wall_face_per_layer`.
-//! Where a strategy gives neighbouring columns different heights (back-off is
-//! global, but `CfMeshOptimise` and `SnappyCollapse` vary per point), a cell
-//! can touch a shallower neighbour column sideways, and its index is then the
-//! smaller depth. The index never exceeds the layers requested
-//! (`tests::every_strategy_gives_an_index_within_the_requested_layers`).
+//! **Where the index is exact.** ~~In a uniform column stack each cell's
+//! depth is its layer; where a strategy gives neighbouring columns
+//! different heights (`CfMeshOptimise`, `SnappyCollapse`) a cell can touch a
+//! shallower column sideways and take the smaller depth.~~ **Since
+//! gh:#1829** the layers are grown first and every wall face carries every
+//! layer, so the prisms' index is exact (one cell per wall face per layer,
+//! `tests::uniform_layers_have_one_cell_per_wall_face_per_layer`). On the
+//! **dual** of the layered mesh the index is not searched: the pipeline
+//! records each dual cell's primal point's place in its column
+//! ([`record_layer_index`]), so layer `k` holds one cell per wall point.
 //!
 //! # Cost
 //!
@@ -76,6 +78,11 @@ pub enum PipelineStage {
     Tetrahedralise,
     /// Edge flips toward a Delaunay tetrahedralisation.
     Delaunay,
+    /// Prism boundary layers grown on the wall patches. ~~After the dual
+    /// and the optimiser~~ **MOVED 2026-11-26 (gh:#1829):** grown first,
+    /// from TetGen's wall triangulation, with TetGen's tetrahedra of the
+    /// inner region; the snapshot is the prisms and tetrahedra together.
+    Layers,
     /// The polyhedral dual of the tetrahedra: one polyhedral cell per
     /// tetrahedron vertex.
     Dual,
@@ -83,10 +90,8 @@ pub enum PipelineStage {
     Smooth,
     /// The boundary mapped onto the surface patches and their feature edges.
     FeatureCapture,
-    /// cfMesh's `optimiseFinalMesh` on the mesh without layers.
+    /// cfMesh's `optimiseFinalMesh`.
     OptimiseFinalMesh,
-    /// Prism boundary layers grown on the wall patches.
-    Layers,
     /// Boundary faces named after the surface's regions.
     NamePatches,
     /// The finished mesh, in OpenFOAM's upper-triangular face order. Always
@@ -137,6 +142,9 @@ pub struct StageLog {
     first_layer_cell: Option<usize>,
     /// The patches the layers grew on.
     layer_patches: Vec<String>,
+    /// Every cell's layer, when the pipeline knows it outright (gh:#1829:
+    /// the dual of a layered mesh, whose cells are its points).
+    per_cell: Option<Vec<u32>>,
 }
 
 /// Record a stage, if a log is being kept.
@@ -175,6 +183,16 @@ pub(crate) fn record_layers(
             applied: grew,
             mesh: mesh.clone(),
         });
+    }
+}
+
+/// Record every cell's layer outright (gh:#1829): the dual of a mesh whose
+/// layers were grown first has one cell per primal point, and a cell's
+/// layer is its point's place in its column. Overrides the search from
+/// [`record_layers`].
+pub(crate) fn record_layer_index(log: &mut Option<&mut StageLog>, per_cell: Vec<u32>) {
+    if let Some(l) = log.as_deref_mut() {
+        l.per_cell = Some(per_cell);
     }
 }
 
@@ -292,24 +310,31 @@ pub struct StagedMesh {
     /// The boundary-layer index of every cell of [`Self::mesh`].
     pub layer_index: LayerIndex,
     /// The label of the first layer cell of [`Self::mesh`], or `None` when
-    /// the layer stage added no cell.
+    /// the layer stage added no cell, or (gh:#1829) when the mesh is the
+    /// dual of a layered mesh, whose layer cells are not a contiguous range
+    /// ([`Self::layer_index`] has them).
     pub first_layer_cell: Option<usize>,
 }
 
 fn finish(mesh: VolumeMesh, report: TetDualReport, log: StageLog) -> StagedMesh {
-    let layer_index = match log.first_layer_cell {
-        Some(first) => {
+    let contiguous = log.per_cell.is_none();
+    let layer_index = match (log.per_cell, log.first_layer_cell) {
+        (Some(per_cell), _) if per_cell.len() == mesh.n_cells => {
+            let max = per_cell.iter().copied().max().unwrap_or(0);
+            LayerIndex { per_cell, max, unreached: 0 }
+        }
+        (_, Some(first)) => {
             let names: Vec<&str> = log.layer_patches.iter().map(String::as_str).collect();
             boundary_layer_index(&mesh, first, &names)
         }
-        None => LayerIndex::none(mesh.n_cells),
+        _ => LayerIndex::none(mesh.n_cells),
     };
     StagedMesh {
         mesh,
         report,
         stages: log.stages,
         layer_index,
-        first_layer_cell: log.first_layer_cell,
+        first_layer_cell: log.first_layer_cell.filter(|_| contiguous),
     }
 }
 
@@ -349,16 +374,9 @@ pub fn surface_to_tet_dual_mesh_multipatch_staged(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layers::LayerQualityStrategy;
     use crate::pipeline::tests::{mesh_fingerprint, pipe_surface};
     use crate::pipeline::{surface_to_tet_dual_mesh, surface_to_tet_dual_mesh_multipatch};
     use crate::shapes::box_surface;
-
-    const STRATEGIES: [LayerQualityStrategy; 3] = [
-        LayerQualityStrategy::BackOffOnly,
-        LayerQualityStrategy::CfMeshOptimise,
-        LayerQualityStrategy::SnappyCollapse,
-    ];
 
     /// The report with the wall-clock durations in its notes (the stage notes
     /// and the layer outcome's) blanked
@@ -407,14 +425,19 @@ mod tests {
         out
     }
 
-    fn pipe_opts(strategy: LayerQualityStrategy, n_layers: usize) -> TetDualOptions {
+    /// The 1 cm pipe's options (h 6 mm, TetGen bounded by the regular
+    /// tetrahedron of h), `n_layers` layers from 0.3 mm at 1.2 on `walls`,
+    /// the cell-centre dual when `dual`.
+    fn pipe_opts(dual: bool, n_layers: usize) -> TetDualOptions {
         TetDualOptions {
             cell_size: 0.006,
             n_layers,
             first_layer_thickness: 3e-4,
             expansion: 1.2,
             layer_patches: vec!["walls".into()],
-            layer_strategy: strategy,
+            dual,
+            dual_kind: crate::dual::DualKind::CellCentre,
+            dual_feature_points: crate::dual::FeaturePointRule::Corners,
             ..Default::default()
         }
     }
@@ -425,8 +448,10 @@ mod tests {
     /// staged one and compare `mesh_fingerprint` (every point's bits, every
     /// face, owner, neighbour and patch — the hash the crate's own pins use)
     /// and the report. Cases: the default options on a box (single-patch
-    /// route) and a 1 cm pipe with 3 layers under each of the three layer
-    /// strategies (multipatch route).
+    /// route, layers first, median dual) and a 1 cm pipe with 3 layers grown
+    /// first, as prisms and tetrahedra and as their cell-centre dual
+    /// (multipatch route). ~~Under each of the three layer strategies~~
+    /// (gh:#1829: there is one layer route).
     #[test]
     fn staged_route_is_bit_identical_to_the_plain_route() {
         let (bp, bt) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
@@ -448,19 +473,19 @@ mod tests {
         );
 
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        for s in STRATEGIES {
-            let o = pipe_opts(s, 3);
+        for dual in [false, true] {
+            let o = pipe_opts(dual, 3);
             let (plain, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             let staged = surface_to_tet_dual_mesh_multipatch_staged(&p, &t, &regions, &o).unwrap();
             assert_eq!(
                 mesh_fingerprint(&plain),
                 mesh_fingerprint(&staged.mesh),
-                "pipe {s:?}"
+                "pipe dual={dual}"
             );
             assert_eq!(
                 without_timings(&rep),
                 without_timings(&staged.report),
-                "pipe {s:?} report"
+                "pipe dual={dual} report"
             );
         }
     }
@@ -474,7 +499,7 @@ mod tests {
             &p,
             &t,
             &regions,
-            &pipe_opts(LayerQualityStrategy::BackOffOnly, 3),
+            &pipe_opts(true, 3),
         )
         .unwrap();
         let order: Vec<PipelineStage> = staged.stages.iter().map(|s| s.stage).collect();
@@ -493,13 +518,16 @@ mod tests {
         assert_eq!(mesh_fingerprint(last), mesh_fingerprint(&staged.mesh));
     }
 
-    /// Uniform layers: one cell per wall face per layer.
+    /// Layers grown first: one cell per wall face per layer, and on their
+    /// dual one cell per wall point per layer.
     ///
-    /// **Methodology.** Back-off layering on the pipe wall grows every layer on
-    /// every wall face when the wall is not tight (the pipeline itself checks
-    /// `cells added = n_layers x wall faces` for this strategy). The index must
-    /// then put exactly one cell per wall face in each of layers 1..=n, reach
-    /// every layer cell, and make every layer-1 cell own a wall face.
+    /// **Methodology.** Layers-first (gh:#1829) gives every wall face all
+    /// `n` prisms. On the prisms and tetrahedra the index must put exactly
+    /// one cell per wall face in each of layers 1..=n, reach every layer
+    /// cell, and count the tetrahedra as core. On the cell-centre dual a
+    /// cell is its primal point's, so layer `k` holds one cell per wall
+    /// point (the `k-1`-th point of each column); the wall points are the
+    /// layer stage's own record ([`crate::layers::LayerOutcome::points`]).
     #[test]
     fn uniform_layers_have_one_cell_per_wall_face_per_layer() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -508,7 +536,7 @@ mod tests {
                 &p,
                 &t,
                 &regions,
-                &pipe_opts(LayerQualityStrategy::BackOffOnly, n),
+                &pipe_opts(false, n),
             )
             .unwrap();
             let m = &staged.mesh;
@@ -528,53 +556,14 @@ mod tests {
             for k in 1..=n {
                 assert_eq!(counts[k], wall_faces, "n {n}: layer {k}");
             }
-        }
-    }
-
-    /// Every strategy: an index inside the layers asked for, every layer
-    /// cell reached, layer 1 never empty, and the layer-cell total equal to
-    /// the layer stage's own count.
-    ///
-    /// **Methodology.** The 1 cm pipe (h 6 mm, 3 layers, first 0.3 mm, x 1.2)
-    /// under each strategy. The cross-check is independent of the index: the
-    /// layer stage's [`LayerOutcome`](crate::layers::LayerOutcome) records the
-    /// layers each wall face got, and their sum must equal the cells the index
-    /// numbers 1 or more.
-    ///
-    /// **Results (measured 2026-11-25, release).** Cells per index
-    /// `[core, 1, 2, 3]`, on 1420 wall faces:
-    ///
-    /// | strategy | per-index counts | layer stage's face sum |
-    /// |---|---|---|
-    /// | `BackOffOnly` | 605, 1420, 1420, 1420 | 4260 |
-    /// | `CfMeshOptimise` | 605, 1420, 1420, 1420 | 4260 |
-    /// | `SnappyCollapse` | 605, 44 | 44 |
-    ///
-    /// `SnappyCollapse` keeping only 44 single-layer cells is the strategy,
-    /// not the index: its own note reports 98.9 % of wall points with no
-    /// layer on this pipe.
-    #[test]
-    fn every_strategy_gives_an_index_within_the_requested_layers() {
-        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        for s in STRATEGIES {
-            let staged =
-                surface_to_tet_dual_mesh_multipatch_staged(&p, &t, &regions, &pipe_opts(s, 3))
-                    .unwrap();
-            let li = &staged.layer_index;
-            if staged.first_layer_cell.is_none() {
-                assert_eq!(li.max, 0, "{s:?}");
-                continue;
+            let dual = surface_to_tet_dual_mesh_multipatch_staged(&p, &t, &regions, &pipe_opts(true, n)).unwrap();
+            assert!(dual.first_layer_cell.is_none(), "n {n}: the dual's layer cells are not a range");
+            let wall_points = dual.report.layers.as_ref().unwrap().points.len();
+            let dc = dual.layer_index.counts();
+            assert_eq!(dc.len(), n + 1, "n {n}");
+            for k in 1..=n {
+                assert_eq!(dc[k], wall_points, "n {n}: dual layer {k}");
             }
-            // Independent cross-check: the layer stage's own per-face layer
-            // counts must add up to the number of cells the index calls layer
-            // cells.
-            let lo = staged.report.layers.as_ref().unwrap();
-            let face_sum: usize = lo.faces.iter().map(|f| f.1).sum();
-            let layer_cells: usize = li.counts()[1..].iter().sum();
-            assert_eq!(layer_cells, face_sum, "{s:?}: index vs LayerOutcome");
-            assert_eq!(li.unreached, 0, "{s:?}");
-            assert!((1..=3).contains(&li.max), "{s:?}: max {}", li.max);
-            assert!(li.counts()[1] > 0, "{s:?}");
         }
     }
 
@@ -586,7 +575,7 @@ mod tests {
             &p,
             &t,
             &regions,
-            &pipe_opts(LayerQualityStrategy::BackOffOnly, 0),
+            &pipe_opts(true, 0),
         )
         .unwrap();
         assert!(staged.first_layer_cell.is_none());

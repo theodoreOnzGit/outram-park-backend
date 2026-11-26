@@ -175,10 +175,17 @@ pub fn mesh_cfmesh(cell_size: f64, n_layers: usize, n_seg: usize) -> (Unstructur
         })
         .collect();
     let regions = SurfaceRegions::from_labels(&labels);
+    // gh:#1829: layers are grown first and need TetGen (the cfMesh crate's
+    //   default); a bare pipe keeps the carved source it was recorded on.
     let opts = TetDualOptions {
         cell_size,
         n_layers,
         first_layer_thickness: 0.1 * cell_size,
+        tet_source: if n_layers > 0 {
+            TetDualOptions::default().tet_source
+        } else {
+            outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid
+        },
         ..TetDualOptions::default()
     };
     let (vm, report) = surface_to_tet_dual_mesh_multipatch(&pts, &tris, &regions, &opts).expect("cfMesh pipe");

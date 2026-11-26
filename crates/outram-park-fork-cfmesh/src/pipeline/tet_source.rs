@@ -423,14 +423,16 @@ mod tests {
     use crate::pipeline::{surface_to_tet_dual_mesh, TetDualOptions};
     use crate::shapes::box_surface;
 
-    /// The default is the carved route, and the switch string is
-    /// upstream's command line.
+    /// ~~The default is the carved route~~ **CHANGED 2026-11-26 (gh:#1829):**
+    /// the default is TetGen `-pq1.414/3.5` (the layers, grown first, need
+    /// it), and the switch string is upstream's command line.
     #[test]
-    fn the_default_is_the_carved_route_and_switches_read_as_upstream() {
+    fn the_default_is_tetgen_and_switches_read_as_upstream() {
         assert_eq!(
             TetDualOptions::default().tet_source,
-            TetSource::CarvedCentroid
+            TetSource::tetgen(1.414, None)
         );
+        assert_eq!(TetSource::default(), TetSource::CarvedCentroid);
         assert_eq!(TetSource::CarvedCentroid.switches(), None);
         assert_eq!(
             TetSource::tetgen(1.414, Some(0.0026)).switches().as_deref(),
@@ -551,13 +553,17 @@ mod tests {
     /// **Methodology.** The 1 cm pipe of the crate's other pipeline tests
     /// (`pipe_surface(0.01, 0.06, 48)`, patches `inlet`, `outlet`, `walls`),
     /// TetGen `-pq1.414/3.5a2e-8` (2e-8 m³ is about h³/6 at h = 5 mm),
-    /// cell-centre dual with corner feature points, back-off layers (3,
-    /// first 0.3 mm, x 1.2) on `walls` only. **Results (2026-11-26,
-    /// release):** every mesh type is valid with no negative cell. On the
-    /// dual, back-off grows all 3 layers on every wall face; on the
-    /// tetrahedra it grows **none** (the stage is kept, adds no cell, and
-    /// the report's note says so). Cell counts and fingerprints are pinned
-    /// in [`tetgen_route_is_pinned_bit_for_bit`].
+    /// cell-centre dual with corner feature points, ~~back-off~~ layers (3,
+    /// first 0.3 mm, x 1.2) on `walls` only. ~~**Results (2026-11-26,
+    /// release):** on the dual, back-off grows all 3 layers on every wall
+    /// face; on the tetrahedra it grows **none**; pinned in
+    /// `tetgen_route_is_pinned_bit_for_bit`.~~ **CHANGED 2026-11-26
+    /// (gh:#1829):** the layers are grown first; with layers the
+    /// tetrahedralise stage records TetGen's mesh of the input surface (the
+    /// wall triangulation the layers grow from). Every mesh type is valid
+    /// with no negative cell, and every wall face carries all 3 layers, on
+    /// the prisms and tetrahedra and inside their dual (asserted, not
+    /// pinned).
     #[test]
     fn tetgen_route_runs_every_mesh_type_on_the_pipe() {
         let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
@@ -599,71 +605,28 @@ mod tests {
                 assert!(names.contains(&want), "{what}: {names:?}");
             }
             assert!(
-                s.report.stage_notes[0].starts_with("tet source TetGen -pq1.414/3.5a0.00000002"),
+                s.report.stage_notes[0].contains("tet source TetGen -pq1.414/3.5a0.00000002"),
                 "{what}: {:?}",
                 s.report.stage_notes
             );
-            if n > 0 && dual {
-                let walls: usize = s
-                    .mesh
-                    .patches
-                    .iter()
-                    .filter(|q| q.name == "walls")
-                    .map(|q| q.n_faces)
-                    .sum();
-                let first = s.first_layer_cell.expect("layers grew");
-                assert_eq!(
-                    s.mesh.n_cells - first,
-                    n * walls,
-                    "{what}: every wall face, every layer"
-                );
-            } else if n > 0 {
-                // Back-off grows nothing on TetGen's tetrahedra (every
-                // thickness it tries leaves an invalid mesh), and the
-                // report says so rather than passing it off as layered.
-                assert!(s.first_layer_cell.is_none(), "{what}");
-                assert!(
-                    s.report
-                        .stage_notes
-                        .iter()
-                        .any(|x| x.starts_with("boundary layers added none")),
-                    "{what}: {:?}",
-                    s.report.stage_notes
-                );
+            if n > 0 {
+                // gh:#1829: the layers are grown first, on every wall face,
+                // as prisms (no dual) or inside the dual.
+                let lo = s.report.layers.as_ref().expect("layers grown");
+                assert_eq!(lo.full_coverage(), 1.0, "{what}");
+                if !dual {
+                    let walls: usize = s.mesh.patches.iter().filter(|q| q.name == "walls").map(|q| q.n_faces).sum();
+                    let first = s.first_layer_cell.expect("layers grew");
+                    assert_eq!(s.mesh.n_cells - first, n * walls, "{what}: every wall face, every layer");
+                }
             }
         }
     }
 
-    /// The TetGen route is reproducible across processes: its fingerprints
-    /// are recorded once and asserted (as the carved route's are in
-    /// `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`).
-    ///
-    /// **Methodology.** The pipe of the test above, dual with 3 back-off
-    /// layers and tets with 3 layers. **Results (2026-11-26, release):**
-    /// tets + 3 layers 9874 cells (TetGen's tetrahedra; back-off grew no
-    /// layer), dual + 3 layers 30413 cells; fingerprints below.
-    #[test]
-    fn tetgen_route_is_pinned_bit_for_bit() {
-        let (p, t, regions) = pipe_surface(0.01, 0.06, 48);
-        let src = TetSource::tetgen(1.414, Some(2e-8));
-        let mut got = Vec::new();
-        for dual in [false, true] {
-            let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(
-                &p,
-                &t,
-                &regions,
-                &pipe_opts(src, dual, 3),
-            )
-            .unwrap();
-            got.push((m.n_cells, mesh_fingerprint(&m)));
-        }
-        assert_eq!(got, PINNED_PIPE);
-    }
-
-    /// `(cells, fingerprint)` of [`tetgen_route_is_pinned_bit_for_bit`]:
-    /// tets + 3 layers, dual + 3 layers.
-    const PINNED_PIPE: [(usize, u64); 2] =
-        [(9874, 1823749189691073978), (30413, 11390463181727383820)];
+    // ~~`tetgen_route_is_pinned_bit_for_bit` (tets + 3 back-off layers 9874
+    // cells, dual + 3 layers 30413)~~ REMOVED 2026-11-26 (gh:#1829): it
+    // pinned the layers-last route, which is gone, and the new route gets
+    // no regression pin before unit-level V&V (root AGENTS.md).
 
     /// The single-patch entry point names the one patch after
     /// `wall_patch`, so the default layer stage finds it.

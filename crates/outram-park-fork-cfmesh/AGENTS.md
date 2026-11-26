@@ -16,6 +16,45 @@ a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
 - Files and printing are `#[cfg(feature = "std")]` (one attribute per
   `println!`), and so is any test or example that reads files.
 
+## Boundary layers are grown FIRST, then the interior is meshed (HARD RULE, gh:#1829, 2026-11-26)
+
+**Maintainer, 2026-11-26:** "Isnt it easier to grow BL first and then
+tet/dual the inside" → "Do it now before merging to develop" → "Don't make
+it opt in, make it default. Hard rule for this crate. Take out the old
+option."
+
+- **The tet → dual pipeline** (`surface_to_tet_dual_mesh*`,
+  `pipeline::staged`) **grows its boundary layers first**:
+  `pipeline::layers_first` extrudes `n_layers` prisms inward from TetGen's
+  wall triangulation (at the requested first thickness and ratio, thinned
+  only where the geometry has no room, and the report says where), then
+  TetGen meshes the inner region with `-Y` (and `-M`, `-J`) so the
+  tetrahedra meet the prisms face to face. The optional dual is taken of
+  the prisms and tetrahedra together.
+- **No layers-last route is to be reintroduced into this pipeline**: not
+  back-off, not cfMesh's `boundaryLayerOptimisation` as a pipeline layer
+  stage, not snappy's collapse, not cfMesh `tetMesh`'s layer steps on the
+  pipeline's tetrahedra. `TetDualOptions::layer_strategy` and
+  `snappy_layers` are gone, with `snappy_layers.rs` and
+  `pipeline/tet_layers.rs`.
+- **The inner region needs TetGen.** `TetDualOptions::default().tet_source`
+  is `TetSource::tetgen(1.414, None)` (bounded in the pipeline by the
+  regular tetrahedron of `cell_size`); the carved source with
+  `n_layers > 0` is an error, never a fall-back. The carved source stays
+  for bare meshes.
+- **The upstream cfMesh workflow ports are not this pipeline** and keep
+  upstream's layers-after order (`pipeline::tet_mesh`, `p_mesh`,
+  `cartesian_mesh`, `cartesian_2d_mesh` with `layers::boundary_layers`,
+  `refine_boundary_layers`, `boundary_layer_optimisation`): they are
+  differential ports of upstream cfMesh. The back-off
+  (`layers::add_boundary_layers_back_off` and friends) and
+  `boundary_layer_optimisation::add_boundary_layers_cfmesh*` stay callable
+  as library functions (the workflow ports' tests and `dhoby-ghaut`'s
+  workbench use them); no pipeline option calls them.
+- **No regression pins of the new route's output** (root `AGENTS.md`): its
+  tests assert properties (exact layer count, thickness against the
+  request, no inverted cell, volume kept, face-to-face interface, closure).
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -73,20 +112,26 @@ defined here; the converters live in `outram_blender::unstructured::convert`.
 
 ## Layer quality: three strategies, kept side by side (gh:#1215, 2026-11-04)
 
-`TetDualOptions::layer_strategy` picks how the layer stage meets upstream's
+> **SUPERSEDED 2026-11-26 (gh:#1829, HARD RULE above):** the pipeline grows
+> its layers first and has no layer strategy; `TetDualOptions::layer_strategy`,
+> `SnappyCollapse` (`snappy_layers.rs`) and `CfMeshTetMesh`
+> (`pipeline/tet_layers.rs`) are deleted. What follows is the history of the
+> layers-last routes; the struck sentences are no longer true.
+
+~~`TetDualOptions::layer_strategy` picks how the layer stage meets upstream's
 mesh-quality limits: `BackOffOnly` (default; this crate's global uniform
 back-off), `CfMeshOptimise` (port of cfMesh v1.1 `boundaryLayerOptimisation`
 and `meshOptimizer`, from `github.com/DAFoam/cfmesh` `e944f6ba695f`, because
 `wyldckat/cfMesh` v1.0 has no `boundaryLayerOptimisation`) and
 `SnappyCollapse` (port of OpenFOAM-dev `852527377c7e` `snappyLayerDriver`'s
-per-point `extrudeMode` loop). They share `layers::layer_setup` and
+per-point `extrudeMode` loop).~~ They share `layers::layer_setup` and
 `layers::build_layered_variable`; never give one strategy its own copy of the
 column geometry. Keep all three callable: the maintainer's differential-testing
 rule (`AGENTS.md`) compares them on the same inputs, and the comparison table
 lives in the gh:#1215 section of
 `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
-Changing the default needs the maintainer, and re-measuring every number that
-depends on it.
+~~Changing the default needs the maintainer, and re-measuring every number that
+depends on it.~~ (The maintainer changed it, 2026-11-26: layers first.)
 
 cfMesh's own **creation** route (`boundaryLayers::addLayerForPatch`, one
 layer at half the local edge) is `layers::boundary_layers`, and its split
@@ -104,25 +149,28 @@ the one-group route and `addWrapperLayer` still build through it.
 pipe it inverts cells. The record is in the gh:#1270 and gh:#1271 sections
 of the same V&V file.
 
-**A fourth strategy, `CfMeshTetMesh` (gh:#1824),** does not start from
+~~**A fourth strategy, `CfMeshTetMesh` (gh:#1824),** does not start from
 `layer_setup`'s columns: it runs cfMesh `tetMesh`'s layer steps
 (`pipeline::tet_layers`) and is the route that grows layers on TetGen's
 tetrahedra. Its thickness is upstream's (half the local boundary edge),
 not the requested total; the requested first thickness only caps the
-first layer (`maxFirstLayerThickness`).
+first layer (`maxFirstLayerThickness`).~~ (Deleted 2026-11-26, gh:#1829.)
 
-`SnappyCollapse` builds layer cells by upstream's `nFaceLayers` rule
+~~`SnappyCollapse` builds layer cells by upstream's `nFaceLayers` rule
 (`layers::build_layered_faces`, `FaceLayerCells::Upstream`, gh:#1241); the
 gh:#1215 rule (`MostOfItsPoints`, cells pinched at an unextruded point) is
-a port defect kept callable for the comparison. cfMesh's
+a port defect kept callable for the comparison.~~ (Deleted with
+`snappy_layers.rs` and `build_layered_faces`, 2026-11-26, gh:#1829.) cfMesh's
 `correctEdgesBetweenPatches` is `correct_edges.rs`, opt-in through
 `TetDualOptions::correct_edges` (gh:#1241: it does not repair the
 `Corners` rim, and costs 13–330 s on the demo pipe).
 
 **Reproducibility is pinned across processes, not just within one.** A test
 that runs the pipeline twice in one process cannot see `HashMap` iteration
-order (seeded per process); `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
-asserts fingerprints recorded once. ~~`octree.rs` still numbers cells in
+order (seeded per process); ~~`pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
+asserts fingerprints recorded once~~ (removed with the back-off pipeline
+route, 2026-11-26, gh:#1829; `octree_path_is_pinned_bit_for_bit` and
+`dual_kinds_are_pinned_bit_for_bit`, bare carved meshes, still do). ~~`octree.rs` still numbers cells in
 `HashSet` order (the `refinement_levels > 0` path): not yet fixed.~~
 **FIXED 2026-11-05 (gh:#1241):** the octree's leaves are a `BTreeSet`;
 `pipeline::tests::octree_path_is_pinned_bit_for_bit` pins it (before the
@@ -505,6 +553,13 @@ plain entry points through `run_pipeline_observed`, keeping a
 showing the pipeline (Mesh Studio, `dhoby-ghaut/examples/mesh_studio/`),
 not for solving.
 
+- **Layers-first (gh:#1829)** records the stages Carve and Snap
+  (skipped), Tetrahedralise (TetGen's mesh of the input surface, the wall
+  triangulation the layers grow from), Delaunay (skipped), Layers (prisms
+  and tetrahedra), then Dual and the rest; `PipelineStage::Layers` now sits
+  before `Dual`. On a dual of the layered mesh the layer index is each dual
+  cell's primal point's place in its column (`record_layer_index`), and
+  `first_layer_cell` is `None` (the layer cells are not a range).
 - **It must stay bit-identical to the plain route**:
   `staged::tests::staged_route_is_bit_identical_to_the_plain_route`
   compares the fingerprint and the report (timings blanked). The plain
@@ -516,8 +571,14 @@ not for solving.
 
 ## TetGen as the tet source (gh:#1796, 2026-11-26)
 
+> **CHANGED 2026-11-26 (gh:#1829):** TetGen is the pipeline's default tet
+> source (layers are grown first and need it for the inner region); the
+> carved source takes no layers. The struck measurements below are of the
+> removed layers-last strategies.
+
 `TetDualOptions::tet_source` picks where the tet → dual → layers route
-gets its tetrahedra: `TetSource::CarvedCentroid` (default, unchanged:
+gets its tetrahedra: `TetSource::CarvedCentroid` (~~default, unchanged~~
+`TetSource`'s own `Default`, and the bare carved route:
 carve, snap, centroid split, Delaunay flips) or `TetSource::TetGen {
 radius_edge, min_dihedral, max_volume }` (`pipeline/tet_source.rs`: the
 surface becomes a PLC through `PlcInput::from_triangle_soup` with the
@@ -536,7 +597,9 @@ maintainer.
   encloses, e.g. the pebble in its channel) gets one. Without it TetGen
   meshed the pebble's inside and the `pebble` patch disappeared into
   internal faces.
-- **Measured (Mesh Studio, 2026-11-26):** ~~no layer grows on TetGen's
+- ~~**Measured (Mesh Studio, 2026-11-26):**~~ (layers-last, removed
+  2026-11-26, gh:#1829; layers-first grows every layer on all three
+  shapes, the gh:#1829 section of `mesh_studio_gh1771/README.md`) ~~no layer grows on TetGen's
   **tetrahedra** with back-off or `CfMeshOptimise` on any of pipe, fuel
   channel, pebble (some wall tets have all four vertices on the boundary;
   `tet_source::tests::diagnose_boundary_tets_of_both_sources`).~~
@@ -560,7 +623,7 @@ maintainer.
   (31–75 %) and 20 on the pipe. The cell-centre dual with corner feature
   points was kept by measurement against `MedianPerPoint` (same layers,
   7–18× slower under `CfMeshOptimise`) and `MedianPerCorner` (4–6× the wall
-  faces, max non-orthogonality 80–88°).
+  faces, max non-orthogonality 80–88°).~~
 - **Wall grading (gh:#1825).** `TetSource::TetGen { wall_grade:
   Option<WallGrade> }` (`None` from `TetSource::tetgen`, so nothing moves
   unless asked): every PLC point and a jittered lattice of seed points

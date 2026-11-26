@@ -677,7 +677,7 @@ mod tests {
     #[test]
     fn engine_matches_the_crates_earlier_boundary_maps_on_the_pipe() {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
-        let o = crate::pipeline::TetDualOptions { cell_size: 0.005, n_layers: 0, ..Default::default() };
+        let o = crate::pipeline::TetDualOptions { cell_size: 0.005, n_layers: 0, tet_source: crate::pipeline::TetSource::CarvedCentroid, ..Default::default() };
         let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let e = SurfaceEngine::new(&m);
         // layer_setup's map.

@@ -427,6 +427,8 @@ fn main() {
             dual_kind: DualKind::CellCentre,
             dual_feature_points: FeaturePointRule::Corners,
             feature_edges: false,
+            // The carved source these images were drawn on (gh:#1829).
+            tet_source: outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
             ..Default::default()
         };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &r, &o).expect("dual");

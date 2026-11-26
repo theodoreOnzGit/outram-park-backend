@@ -74,6 +74,28 @@ const views = [
   ["pebble_graded_dual_z", `shape=pebble&${T}&grade=on&mesh=poly&n=0&colour=nonorth&axis=z&at=0,0&zoom=1.5`],
   ["pebble_graded_dual_x", `shape=pebble&${T}&grade=on&mesh=poly&n=0&colour=nonorth&axis=x`],
   ["pebble_graded_dual_wall_zoom", `shape=pebble&${T}&grade=on&mesh=poly&n=0&colour=nonorth&axis=z&at=80,0&zoom=6`],
+  // gh:#1829: layers grown FIRST (prisms from TetGen's wall triangulation,
+  // then TetGen's tets of the inside, face to face; the dual of both). Per
+  // reactor shape: tets + 3 layers and dual + 3 layers zoomed at each wall,
+  // an axial view at the inlet rim (the prisms' side faces lie in the
+  // inlet), non-orthogonality at the wall, and the 20-layer pipe. The
+  // `strategy=` views above are the removed layers-last routes' records.
+  ["lf_pipe_tets_layers_zoom", `shape=pipe&${T}&mesh=tet&n=3&colour=layer&axis=z&at=97,0&zoom=30`],
+  ["lf_pipe_dual_layers_zoom", `shape=pipe&${T}&mesh=poly&n=3&colour=layer&axis=z&at=97,0&zoom=30`],
+  ["lf_pipe_tets_nonorth_zoom", `shape=pipe&${T}&mesh=tet&n=3&colour=nonorth&axis=z&at=95,0&zoom=15`],
+  ["lf_pipe_tets_inlet_rim", `shape=pipe&${T}&mesh=tet&n=3&colour=layer&axis=x&at=97,2&zoom=25`],
+  ["lf_pipe_dual_20_layers_zoom", `shape=pipe&${T}&mesh=poly&n=20&first=0.002&ratio=1.1&colour=layer&axis=z&at=94,0&zoom=20`],
+  ["lf_pipe_tets_20_layers_zoom", `shape=pipe&${T}&mesh=tet&n=20&first=0.002&ratio=1.1&colour=layer&axis=z&at=94,0&zoom=20`],
+  ["lf_fuel_channel_tets", `shape=fuel-channel&${T}&mesh=tet&n=3&colour=layer&axis=z&at=0,0&zoom=1.5`],
+  ["lf_fuel_channel_tets_pin_zoom", `shape=fuel-channel&${T}&mesh=tet&n=3&colour=layer&axis=z&at=52,0&zoom=20`],
+  ["lf_fuel_channel_tets_channel_zoom", `shape=fuel-channel&${T}&mesh=tet&n=3&colour=layer&axis=z&at=97,0&zoom=20`],
+  ["lf_fuel_channel_dual_pin_zoom", `shape=fuel-channel&${T}&mesh=poly&n=3&colour=layer&axis=z&at=52,0&zoom=20`],
+  ["lf_fuel_channel_dual_channel_zoom", `shape=fuel-channel&${T}&mesh=poly&n=3&colour=layer&axis=z&at=97,0&zoom=20`],
+  ["lf_pebble_tets_x", `shape=pebble&${T}&mesh=tet&n=3&colour=layer&axis=x`],
+  ["lf_pebble_tets_zoom", `shape=pebble&${T}&mesh=tet&n=3&colour=layer&axis=z&at=59,0&zoom=20`],
+  ["lf_pebble_gap_zoom", `shape=pebble&${T}&mesh=tet&n=3&colour=layer&axis=z&at=80,0&zoom=5`],
+  ["lf_pebble_dual_zoom", `shape=pebble&${T}&mesh=poly&n=3&colour=layer&axis=z&at=59,0&zoom=20`],
+  ["lf_pebble_dual_nonorth", `shape=pebble&${T}&mesh=poly&n=3&colour=nonorth&axis=z&at=80,0&zoom=5`],
 ];
 const browser = await chromium.launch({});
 for (const [name, query, w = 1100, h = 760] of views) {

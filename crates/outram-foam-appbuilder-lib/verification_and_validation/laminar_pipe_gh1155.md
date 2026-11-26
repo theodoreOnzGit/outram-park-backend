@@ -4065,9 +4065,74 @@ and `_xz_corner` as before. The `pre_gh1298_*` images are unchanged.
 petir --test no_platform_libm`: 4 passed. No cfMesh code changed, so no
 cfMesh pin was run.
 
+## Layers grown first, the only layer route (gh:#1829, 2026-11-26)
+
+**Maintainer, 2026-11-26:** "Don't make it opt in, make it default. Hard
+rule for this crate. Take out the old option." The cfMesh pipeline grows its
+prism layers **first**, from TetGen's wall triangulation, and TetGen meshes
+the inner region face to face (`outram_park_fork_cfmesh::pipeline::layers_first`).
+Every layer strategy of the earlier sections (gh:#1215 back-off,
+`CfMeshOptimise`, `SnappyCollapse`; gh:#1824 `CfMeshTetMesh`) is removed
+from the pipeline, and Foam Studio's `layer_quality` control and `layerq=`
+key with it. The layered route needs TetGen for the inside, so **Foam
+Studio's layered meshes moved from the carved tet source to TetGen**; its
+bare meshes stay carved (every bare record above stands:
+`headless_unstructured_pipe_runs_and_is_pinned`, h 4 mm bare, 6353 cells,
+0.8925 / 1.0326, passes unchanged).
+
+**Methodology.** As the gh:#1298 section: the demo pipe (R 10 mm, L 200 mm,
+48 sides), Re 100, steady, 200 steps, `headless`; the default spec
+(`TetDualSpec::default_for(0.01)`: h 5 mm, 3 layers from 0.3 mm at 1.2,
+cell-centre dual with corners, upstream's route without the Laplace pass).
+Ablations in `engine::tests::diagnose_layers_first_default` (`--ignored`):
+the pre-gh:#1298 route, 1 layer, bare on TetGen (`FOAM_TET_SOURCE=tetgen`),
+bare carved. **Prediction (written before the first run):** u_c/2U
+0.93–0.95, dp/dz 1.00–1.02 × HP, like the old default's 0.9394 / 1.0062
+(both carry three ~1 mm layers at h 5 mm); bands asserted by the test:
+u_c/2U 0.85–1.05, dp/dz 0.95–1.10.
+
+**Results (2026-11-26, release, native):**
+
+| mesh (h 5 mm) | cells | max non-orth | mesh time | u_c/2U | dp/dz / HP | f Re |
+|---|---|---|---|---|---|---|
+| ~~old default: carved dual + `CfMeshOptimise` 3 layers, upstream route (gh:#1298)~~ | 7049 | | about 6 s | 0.9394 | 1.0062 | |
+| **new default: layers first (3), TetGen, upstream route** | 28121 | 62.7° | 15.3 s | **0.8820** | **1.1067** | 70.83 |
+| layers first (3), TetGen, pre-gh:#1298 route | 28121 | 54.5° | 3.0 s | 0.8815 | 1.1051 | 70.73 |
+| layers first (1), TetGen, upstream route | 15486 | 61.1° | 8.2 s | 0.8802 | 1.1322 | 72.46 |
+| bare, TetGen | 9103 | 63.4° | 6.4 s | 0.8717 | 1.1354 | 72.66 |
+| bare, carved | 3113 | 50.7° | 1.2 s | 0.9099 | 1.0296 | 65.89 |
+
+(HP: f Re = 64.)
+
+**The prediction missed, and the gate fails.** The new default's dp/dz
+is 1.107 × HP, outside the 0.95–1.10 band written before the run (u_c/2U
+0.882 is inside its band but below the predicted 0.93–0.95), so
+`headless_unstructured_default_is_pinned` **fails**; the band was not moved.
+It is 10 % off Hagen–Poiseuille in dp/dz where the removed route was 0.6 %.
+**Where it comes from (the ablations):** not the layers. On the same TetGen
+source, the bare mesh is 1.135, one layer 1.132, three layers 1.107: the
+layers grown first move the result *toward* HP. The loss is the tet source:
+the bare dual of TetGen's tetrahedra (9103 cells) is 1.135 where the bare
+carved dual (3113 cells) is 1.030, at three times the cells. The upstream
+route (surface untangling, `optimiseFinalMesh`) changes nothing measurable
+here (1.1067 against 1.1051) and costs 12 s of the 15 s. Not investigated
+further in this change: why the dual of TetGen's tetrahedra at `-a` the
+regular tetrahedron of h does worse on this solver than the carved dual
+(candidates: the cell-centre dual's non-planar faces on unstructured tets,
+the cell-length and gradient scheme tuned on the carved dual, the 0.65–0.85
+L dp/dz window). This needs the maintainer's call: the carved source cannot
+take layers grown first (it does not keep the layers' top surface).
+
+**Old numbers this replaces:** the gh:#1298 default's pin (7049 cells,
+0.9394, 1.0062) and the panel note that quoted it; the layer strategies'
+tables above (gh:#1202, #1215, #1240, #1283) record routes that no longer
+exist.
+
 ## Reproduce
 
 ```bash
+# gh:#1829, the layered default and its ablations
+cargo test --release -p dhoby-ghaut --example foam_studio_web -- --ignored --nocapture diagnose_layers_first_default
 cargo test --release -p outram-foam-appbuilder-lib --test laminar_pipe_hagen_poiseuille \
     -- --ignored --nocapture measure_gh1155
 cargo run  --release -p dhoby-ghaut --example foam_studio_web -- --render-mesh

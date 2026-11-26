@@ -93,6 +93,9 @@ fn opts(cell_cm: f64, refine: u8, dual: bool) -> TetDualOptions {
         dual,
         dual_min_faces: dual,
         n_layers: 0,
+        // The carved, octree-graded source `refine` drives (gh:#1829 made
+        //   TetGen the default; these meshes take no layers).
+        tet_source: outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
         ..TetDualOptions::default()
     }
 }
