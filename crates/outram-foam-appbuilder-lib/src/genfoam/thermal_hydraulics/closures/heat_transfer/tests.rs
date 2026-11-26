@@ -864,7 +864,7 @@ fn constant_subcooled_boiling_fraction_passes_through() {
 /// state below — exact match to the independent hand computation — PASS.
 #[test]
 fn saha_zuber_subcooled_boiling_fraction_matches_published_formula() {
-    let model = SubcooledBoilingFraction::SahaZuber;
+    let model = SubcooledBoilingFraction::SahaZuberPublished;
     let q = 1.0e6_f64;
     let k = 0.6_f64;
     let dh = 0.01_f64;
@@ -895,7 +895,7 @@ fn saha_zuber_subcooled_boiling_fraction_matches_published_formula() {
 /// (bulk still deeply sub-cooled, no net vapour generation yet).
 #[test]
 fn saha_zuber_deeply_subcooled_clamps_to_zero() {
-    let model = SubcooledBoilingFraction::SahaZuber;
+    let model = SubcooledBoilingFraction::SahaZuberPublished;
     let f = model.fraction(
         q_of(1.0e6),
         k_of(0.6),
