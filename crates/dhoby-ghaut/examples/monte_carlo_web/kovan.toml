@@ -10,10 +10,6 @@ path = "example:monte_carlo_web"
 id = "fn:1b4800bbee4d8960"
 name = "main"
 qual = "main#1"
-lines = [
-    64,
-    69,
-]
 hash = "sha256:3528de472834a4e829307669fc40c3b50c139544e5bb4d9222683d09d368db7e"
 doc_hash = "sha256:f530d74db273b237d34a4796021cc9926dd7e200735c175572f1425d440ca512"
 
@@ -21,63 +17,12 @@ doc_hash = "sha256:f530d74db273b237d34a4796021cc9926dd7e200735c175572f1425d440ca
 id = "fn:53e91d3fa0410c33"
 name = "main"
 qual = "main#2"
-lines = [
-    74,
-    247,
-]
 hash = "sha256:6037e5ef7741e64ed23ea102749898e202d319be98b8899a475fc683a28dad5a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:1961da739774c8d7",
-    "fn:21c036a21712bf4f",
-    "fn:347ca943c702046a",
-    "fn:47ed6eaa175d7124",
-    "fn:51c68979d3e4e7a3",
-    "fn:54ba1d526530568a",
-    "fn:573833e1766b6547",
-    "fn:5c8c159373d57862",
-    "fn:5f2d2d276cbe8da6",
-    "fn:6883e3dd77300cb3",
-    "fn:6fa3e65417f3ab4d",
-    "fn:702cfa62627b88e6",
-    "fn:7a4de983c938e95e",
-    "fn:7b96888ba4b95e12",
-    "fn:835952ace48026b4",
-    "fn:8e81b080ce86d5d5",
-    "fn:98757cff9251a55d",
-    "fn:9ef930856f231910",
-    "fn:b7a4354414ef4bf9",
-    "fn:cdc348108cbb7c3f",
-    "fn:d4f53618984f81b1",
-    "fn:d5a823d416e74860",
-    "fn:e61f5669dd733283",
-    "fn:fda6dc823727ab7d",
-    "fn:ff7b7c90337e45eb",
-]
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:09bca049e57a01e5",
-    "fn:4fd30594fc348183",
-    "fn:7c369c32cf8224ea",
-    "fn:b2aa4c8b257642c8",
-    "fn:b9381db9dc981eba",
-    "fn:bacfbd14713c281d",
-    "fn:d7f76d6e52c9e415",
-    "fn:ddeb4fece8fee257",
-]
 
 [[module."main.rs".function]]
 id = "fn:31d6ff3eb0d8a244"
 name = "main"
 qual = "main#3"
-lines = [
-    249,
-    283,
-]
 hash = "sha256:268951954d449f5b90d6e30390fbf3b5422a2e535ed0dcb60d6fdeb045b0e73b"
 doc_hash = "sha256:a1895c28bde9ad1771ebe1c7c7cad55a96222646b32a01ab87a1cd69557044a1"
-callees = ["fn:702cfa62627b88e6"]
-uses = [
-    "fn:6351b256a9ec3dce",
-    "fn:bacfbd14713c281d",
-]

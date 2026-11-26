@@ -2,174 +2,9 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/ebr2/web"
-test_ids = [
-    "crates/outram-park-digital-twin-engine/src/ebr2/web.rs::a_hold_is_posted_once_and_a_command_releases_it",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web.rs::the_engine_runs_the_session",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web.rs::the_native_ticker_drives_the_plant",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web.rs::ticks_drive_the_plant_at_the_chosen_speed",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff.rs::a_worker_without_a_model_refuses_runs",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff.rs::jobs_tapes_and_wire",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff.rs::the_raster_draws_the_assembled_core",
-    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff_pool.rs::presets_workers_and_an_empty_pool",
-]
 
 [module."keff.rs"]
 path = "crate::ebr2::web::keff"
-
-[[module."keff.rs".function]]
-id = "fn:7dc3964938179314"
-name = "ENTROPY_BINS"
-qual = "ENTROPY_BINS"
-item = "const"
-shape = "const"
-lines = [
-    40,
-    41,
-]
-hash = "sha256:e71188550680b8ca1f603958f1eb01f4101a8088dedc7e2fdbc0054fe2d63f89"
-doc_hash = "sha256:fb7759fec14291c68b790af11177cb78672f4987088923403a124a53ca6fbcea"
-
-[[module."keff.rs".function]]
-id = "fn:c6419bfb8d7448de"
-name = "TRACED"
-qual = "TRACED"
-item = "const"
-shape = "const"
-lines = [
-    42,
-    43,
-]
-hash = "sha256:55922d70fee2703be4265116e6b7736a8c01671da5c41425a21a905ab4c7b72d"
-doc_hash = "sha256:98781cfe8c88af3acf826ca08487e82b2428f05e11f66dce6e1a6d358d9a076e"
-reached_by = ["#7"]
-
-[[module."keff.rs".function]]
-id = "fn:38299c118b072486"
-name = "Job"
-qual = "Job"
-item = "type"
-shape = "struct"
-lines = [
-    45,
-    51,
-]
-hash = "sha256:67dbe79b73940dc87a5fa45abbb50c34e75e531a7f05502671f74ca982207d1e"
-doc_hash = "sha256:2bfb1099ad30ef1e4411c7fe19fff7329129720562fdc0974b6779d67c660ee0"
-reached_by = [
-    "#5",
-    "#7",
-]
-
-[[module."keff.rs".function]]
-id = "fn:d49eb549f08b08ad"
-name = "label"
-qual = "Job::label"
-lines = [
-    54,
-    57,
-]
-hash = "sha256:d945cfa3dbb8046de89aa18afb1f4a32ea815916ae5c198bc543709b08498eac"
-doc_hash = "sha256:ab7ee2b0aad90994fef6311ffa53f4b72c06db1aa4bf9cc54c89957566ea285f"
-uses = ["fn:38299c118b072486"]
-
-[[module."keff.rs".function]]
-id = "fn:ec6fe282dc050a2f"
-name = "tape"
-qual = "Job::tape"
-lines = [
-    59,
-    62,
-]
-hash = "sha256:61b80476dc8388a511d97df833b165c97cf5681fabfcb37b241dbf3c7fc3cada"
-doc_hash = "sha256:d04d13d6da9e67f1fe5143efbc42149db40289f6810968230207accb38a3f759"
-uses = ["fn:38299c118b072486"]
-
-[[module."keff.rs".function]]
-id = "fn:5b972780bc6b5664"
-name = "cost"
-qual = "Job::cost"
-lines = [
-    64,
-    74,
-]
-hash = "sha256:d62396c24ed393a3c5fce9be0236038e38fb1e54de2b96d01e5962e6277fa83e"
-doc_hash = "sha256:1b119e45e23a03c1972fbf859de630a6974e6a53b48c4c7f3b31918ef7ee8744"
-uses = ["fn:38299c118b072486"]
-
-[[module."keff.rs".function]]
-id = "fn:891b810c8620eb35"
-name = "jobs"
-qual = "jobs"
-lines = [
-    77,
-    81,
-]
-hash = "sha256:7c6eca18a4119a8bb7eacd0dc076075553e1718abc80112ffa370f468d6e8bd5"
-doc_hash = "sha256:b1d9416fa1868d4829f935b7f751563909556f68adc7d4578f6f263ddb697684"
-uses = ["fn:38299c118b072486"]
-reached_by = [
-    "#5",
-    "#7",
-]
-
-[[module."keff.rs".function]]
-id = "fn:ff217deec3020848"
-name = "run_settings"
-qual = "run_settings"
-lines = [
-    83,
-    87,
-]
-hash = "sha256:99e75b076593915300b3fce1f5ee5ec8533c83d2aca91acb2ec343f617fd395b"
-doc_hash = "sha256:b68530a4f3da632afd711f7f9e94548522aa6b9934bc54d5f833f1ad456a1e4e"
-uses = ["fn:0280c17de43005fc"]
-reached_by = ["#7"]
-
-[[module."keff.rs".function]]
-id = "fn:57599dffe8637c89"
-name = "coordinator_settings"
-qual = "coordinator_settings"
-lines = [
-    89,
-    93,
-]
-hash = "sha256:4b2e970b71a7a59442793c12f80edd27b42eadabfcab87498fe079fd915dbbaf"
-doc_hash = "sha256:5b243f610f25462bcc5d596b1199a36ab1ef334c9ddd3b5e33f7a7967cb0658d"
-callees = ["fn:ff217deec3020848"]
-uses = ["fn:0280c17de43005fc"]
-reached_by = ["#7"]
-
-[[module."keff.rs".function]]
-id = "fn:73e308d1f176f971"
-name = "entropy_mesh"
-qual = "entropy_mesh"
-lines = [
-    95,
-    99,
-]
-hash = "sha256:19985f417d496fcacd19e4d026bd663326a21f53e73e1aa84f7059d502cb7844"
-doc_hash = "sha256:9eaf7d2df5075939e837659ea85e43f4777a2ab4cc677638c42a79b5f1c71035"
-uses = ["fn:7dc3964938179314"]
-
-[[module."keff.rs".function]]
-id = "fn:345c066109e290c4"
-name = "Model"
-qual = "Model"
-item = "type"
-shape = "struct"
-lines = [
-    101,
-    107,
-]
-hash = "sha256:7fa456547e29ed003b19e578f7a7a2810e615bfcfa65006bc8c7a5e0f491a695"
-doc_hash = "sha256:3e1d59070fb395d85a45225ab20cc85be88a6004fc459c9aa8442de8b6cc9ea7"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-]
 
 [[module."keff.rs".function]]
 id = "fn:c71686e80930165c"
@@ -177,239 +12,47 @@ name = "Assembly"
 qual = "Assembly"
 item = "type"
 shape = "struct"
-lines = [
-    109,
-    115,
-]
 hash = "sha256:0a15db3b799b7f9eb74df3fea740517aac3d4ee6163d72110f083130d3adf748"
 doc_hash = "sha256:d7411073c9fbfdd4ff915e2c97c30ea6c1e391f1e1b0106c62abf4fca45b48d0"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#7",
-]
 
 [[module."keff.rs".function]]
-id = "fn:3ec3d8986b876e07"
-name = "KeffWorker"
-qual = "KeffWorker"
+id = "fn:7dc3964938179314"
+name = "ENTROPY_BINS"
+qual = "ENTROPY_BINS"
+item = "const"
+shape = "const"
+hash = "sha256:e71188550680b8ca1f603958f1eb01f4101a8088dedc7e2fdbc0054fe2d63f89"
+doc_hash = "sha256:fb7759fec14291c68b790af11177cb78672f4987088923403a124a53ca6fbcea"
+
+[[module."keff.rs".function]]
+id = "fn:38299c118b072486"
+name = "Job"
+qual = "Job"
 item = "type"
 shape = "struct"
-lines = [
-    117,
-    123,
-]
-hash = "sha256:e499d9e7c31221f24323f5194bbefc6d2e1e3f9af7e073ed158bdf2e01daf387"
-doc_hash = "sha256:6eb86be011689df8b56c54a7254c0baacdf443363761ad087e0f4d93456a67f2"
-uses = [
-    "fn:313c1e53422569bf",
-    "fn:345c066109e290c4",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-]
+hash = "sha256:67dbe79b73940dc87a5fa45abbb50c34e75e531a7f05502671f74ca982207d1e"
+doc_hash = "sha256:2bfb1099ad30ef1e4411c7fe19fff7329129720562fdc0974b6779d67c660ee0"
 
 [[module."keff.rs".function]]
-id = "fn:29f2dfa8f90e6092"
-name = "default"
-qual = "KeffWorker::default"
-lines = [
-    126,
-    132,
-]
-hash = "sha256:ef5cef5962a11f281150f7dedaa2a4f37e33337f413a9eeef87061678b3af72d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:6199b7828946b0d8"]
-uses = [
-    "fn:313c1e53422569bf",
-    "fn:3ec3d8986b876e07",
-]
+id = "fn:5b972780bc6b5664"
+name = "cost"
+qual = "Job::cost"
+hash = "sha256:d62396c24ed393a3c5fce9be0236038e38fb1e54de2b96d01e5962e6277fa83e"
+doc_hash = "sha256:1b119e45e23a03c1972fbf859de630a6974e6a53b48c4c7f3b31918ef7ee8744"
 
 [[module."keff.rs".function]]
-id = "fn:94adb528c33a62c0"
-name = "masses_of"
-qual = "masses_of"
-lines = [
-    135,
-    147,
-]
-hash = "sha256:4101e436168f109fae6dce1e46cbf7934b67806b21bf6b3bec0a4f3f8fc1eece"
-doc_hash = "sha256:cbb21aaf8ae0c9a8c0ed8e811e621ea1b42dcb941ebb319be9930028f05b7564"
+id = "fn:d49eb549f08b08ad"
+name = "label"
+qual = "Job::label"
+hash = "sha256:d945cfa3dbb8046de89aa18afb1f4a32ea815916ae5c198bc543709b08498eac"
+doc_hash = "sha256:ab7ee2b0aad90994fef6311ffa53f4b72c06db1aa4bf9cc54c89957566ea285f"
 
 [[module."keff.rs".function]]
-id = "fn:fb471b3af86d2a31"
-name = "process"
-qual = "KeffWorker::process"
-lines = [
-    150,
-    165,
-]
-hash = "sha256:161544d25cfcc5138745d38b51bc9e3fdb14aa6b4a65e474436c1e0177c014d7"
-doc_hash = "sha256:c452030fcee1213225b4a1785640b0763f81ab74cba8ac6f73814285ea01199b"
-callees = [
-    "fn:7f9f013dd4814c01",
-    "fn:891b810c8620eb35",
-    "fn:f264e52419b66a35",
-]
-uses = ["fn:3ec3d8986b876e07"]
-
-[[module."keff.rs".function]]
-id = "fn:36ec1933941c0cfb"
-name = "keep"
-qual = "KeffWorker::keep"
-lines = [
-    167,
-    170,
-]
-hash = "sha256:e8a5f719525a22a1f3b154a07cd2d84fc085f1db846339bba14f878f95fc8653"
-doc_hash = "sha256:9d37dc64c6405ca2059a41a2bc18b5155dd5d222400d35c45f163c67ded94dac"
-uses = ["fn:3ec3d8986b876e07"]
-
-[[module."keff.rs".function]]
-id = "fn:ff1fb61ffd11e62b"
-name = "assemble"
-qual = "KeffWorker::assemble"
-lines = [
-    172,
-    200,
-]
-hash = "sha256:355e281e8608fd5cf6d0452912c42068802b49e6090194eff5b2612c45b034c5"
-doc_hash = "sha256:3bf2f58ddc86620493259209b55a1b08649dafc5929b545afe79ce6d2c48e101"
-callees = [
-    "fn:6425df508acefab7",
-    "fn:6dd6c8c1a5209a54",
-    "fn:7f9f013dd4814c01",
-    "fn:891b810c8620eb35",
-    "fn:94adb528c33a62c0",
-    "fn:f264e52419b66a35",
-]
-uses = [
-    "fn:345c066109e290c4",
-    "fn:3ec3d8986b876e07",
-    "fn:c71686e80930165c",
-]
-
-[[module."keff.rs".function]]
-id = "fn:234f63e49f01a235"
-name = "source"
-qual = "KeffWorker::source"
-lines = [
-    202,
-    209,
-]
-hash = "sha256:f2ee283ef7ece39cec559f4132ed707eea9b6e6487377ea81c39d1b0215276bf"
-doc_hash = "sha256:aa8d21f62dd27f3986b2aba9a75559cb8fabf024fd8349882c73d3035ef0ff5d"
-callees = [
-    "fn:5821ce40e97c7de0",
-    "fn:73e308d1f176f971",
-    "fn:ff217deec3020848",
-]
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:3ec3d8986b876e07",
-    "fn:7c061a5585004034",
-]
-
-[[module."keff.rs".function]]
-id = "fn:ae3f55872870d690"
-name = "chunk"
-qual = "KeffWorker::chunk"
-lines = [
-    211,
-    218,
-]
-hash = "sha256:5d51268dfa016ec4151f27899e9687178d4bf873b48b960c0bf14f826e15f2b0"
-doc_hash = "sha256:c6dd7d457d7ebf54616aa87fd262d0f7dcc990618b7c2097b681ff2910d9d507"
-callees = [
-    "fn:b11112f9dfef421d",
-    "fn:ff217deec3020848",
-]
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:3ec3d8986b876e07",
-]
-
-[[module."keff.rs".function]]
-id = "fn:9acc0197af6dae03"
-name = "native_tape"
-qual = "native_tape"
-lines = [
-    221,
-    231,
-]
-hash = "sha256:2e57fe61ec48c8ad81b3ddd2dfc7573e915bcc82ac926016b6233cfac8f367fc"
-doc_hash = "sha256:044edd60b2fe432c3df7a0cd3a136d19ee43592f1ee284f825678c3d82b26233"
-callees = ["fn:d5a823d416e74860"]
-
-[[module."keff.rs".function]]
-id = "fn:bc2eff39b7631689"
-name = "prepare_web_data"
-qual = "prepare_web_data"
-lines = [
-    233,
-    247,
-]
-hash = "sha256:c8be1896a2f7efd74dc9eafe586a1d30e8380ea4aadee5393f0d880bc308a9d7"
-doc_hash = "sha256:bfdfe6ae64c4807138623893801326145babe35f57d7c85ac79a2178f73b8887"
-callees = [
-    "fn:9acc0197af6dae03",
-    "fn:e5c888d30585277a",
-    "fn:fda6dc823727ab7d",
-]
-
-[[module."keff.rs".function]]
-id = "fn:74edec02d5ba446c"
-name = "tape_url"
-qual = "tape_url"
-lines = [
-    249,
-    252,
-]
-hash = "sha256:8c014f1a2e4534ba25c6939af4b380ea29017e638f3e7215982dd87da1b9495a"
-doc_hash = "sha256:721e5dcf9a6f7629f2f2d0006a9f7cac4b23ef2081ab6f7bcdc6977d1b26dd72"
-
-[[module."keff.rs".function]]
-id = "fn:e5c888d30585277a"
-name = "served_name"
-qual = "served_name"
-lines = [
-    254,
-    257,
-]
-hash = "sha256:a0ed46394df6f2741115e1b2443760bafb5c4b638354f6504284e23d662e1a05"
-doc_hash = "sha256:69a49f87ecdff80c8184acdf1c0a599c93332ad0dc2bc0ef501f3b864e466903"
-callees = ["fn:8e81b080ce86d5d5"]
-reached_by = ["#5"]
-
-[[module."keff.rs".function]]
-id = "fn:accaba27884307d9"
-name = "KReq"
-qual = "KReq"
-item = "type"
-shape = "enum"
-lines = [
-    261,
-    271,
-]
-hash = "sha256:8cb95b55f221e27660263433120d152b2506a4a4d951f263c9e19ed41fbdfc1d"
-doc_hash = "sha256:d5dc3fe87cd51e60c679516a0f3bdd85405609b26eaf41a68714becee4799c2e"
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:dd910ad98314a313",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#7",
-]
+id = "fn:ec6fe282dc050a2f"
+name = "tape"
+qual = "Job::tape"
+hash = "sha256:61b80476dc8388a511d97df833b165c97cf5681fabfcb37b241dbf3c7fc3cada"
+doc_hash = "sha256:d04d13d6da9e67f1fe5143efbc42149db40289f6810968230207accb38a3f759"
 
 [[module."keff.rs".function]]
 id = "fn:9578328a2de86987"
@@ -417,23 +60,100 @@ name = "KEv"
 qual = "KEv"
 item = "type"
 shape = "enum"
-lines = [
-    273,
-    283,
-]
 hash = "sha256:92559aabb9fb4b4faf7ed8d5eb2a7bb1ebe60308158acb6bbad32ef1b8bf5748"
 doc_hash = "sha256:ca3320632e8389592c48d1654808121b38b4f8ceb5dd857d010f1d9d3b508e08"
-uses = [
-    "fn:c71686e80930165c",
-    "fn:dd910ad98314a313",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#7",
-]
+
+[[module."keff.rs".function]]
+id = "fn:accaba27884307d9"
+name = "KReq"
+qual = "KReq"
+item = "type"
+shape = "enum"
+hash = "sha256:8cb95b55f221e27660263433120d152b2506a4a4d951f263c9e19ed41fbdfc1d"
+doc_hash = "sha256:d5dc3fe87cd51e60c679516a0f3bdd85405609b26eaf41a68714becee4799c2e"
+
+[[module."keff.rs".function]]
+id = "fn:3ec3d8986b876e07"
+name = "KeffWorker"
+qual = "KeffWorker"
+item = "type"
+shape = "struct"
+hash = "sha256:e499d9e7c31221f24323f5194bbefc6d2e1e3f9af7e073ed158bdf2e01daf387"
+doc_hash = "sha256:6eb86be011689df8b56c54a7254c0baacdf443363761ad087e0f4d93456a67f2"
+
+[[module."keff.rs".function]]
+id = "fn:2501732a2863b1b7"
+name = "answer_native"
+qual = "KeffWorker::answer_native"
+hash = "sha256:d58b276ce663d3f03c0a0a09ba4accfca6d1acac1f7bfe1a3ebefa236b8dcce8"
+doc_hash = "sha256:81fc40f44ba322bc54f720bcf81d8e968661aa19d9366fe687145e77a633aec1"
+
+[[module."keff.rs".function]]
+id = "fn:0c96a7b70fda47a1"
+name = "answer_now"
+qual = "KeffWorker::answer_now"
+hash = "sha256:713dbc48d209634c898dd88f1b86fa8383f173ed5ba314d344e111afa5a7b2fe"
+doc_hash = "sha256:9a8681b78b28da4676b64d34ddae1bdd46427a5dc580a094a6b794581c886ba3"
+
+[[module."keff.rs".function]]
+id = "fn:ff1fb61ffd11e62b"
+name = "assemble"
+qual = "KeffWorker::assemble"
+hash = "sha256:355e281e8608fd5cf6d0452912c42068802b49e6090194eff5b2612c45b034c5"
+doc_hash = "sha256:3bf2f58ddc86620493259209b55a1b08649dafc5929b545afe79ce6d2c48e101"
+
+[[module."keff.rs".function]]
+id = "fn:ae3f55872870d690"
+name = "chunk"
+qual = "KeffWorker::chunk"
+hash = "sha256:5d51268dfa016ec4151f27899e9687178d4bf873b48b960c0bf14f826e15f2b0"
+doc_hash = "sha256:c6dd7d457d7ebf54616aa87fd262d0f7dcc990618b7c2097b681ff2910d9d507"
+
+[[module."keff.rs".function]]
+id = "fn:29f2dfa8f90e6092"
+name = "default"
+qual = "KeffWorker::default"
+hash = "sha256:ef5cef5962a11f281150f7dedaa2a4f37e33337f413a9eeef87061678b3af72d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."keff.rs".function]]
+id = "fn:36ec1933941c0cfb"
+name = "keep"
+qual = "KeffWorker::keep"
+hash = "sha256:e8a5f719525a22a1f3b154a07cd2d84fc085f1db846339bba14f878f95fc8653"
+doc_hash = "sha256:9d37dc64c6405ca2059a41a2bc18b5155dd5d222400d35c45f163c67ded94dac"
+
+[[module."keff.rs".function]]
+id = "fn:fb471b3af86d2a31"
+name = "process"
+qual = "KeffWorker::process"
+hash = "sha256:161544d25cfcc5138745d38b51bc9e3fdb14aa6b4a65e474436c1e0177c014d7"
+doc_hash = "sha256:c452030fcee1213225b4a1785640b0763f81ab74cba8ac6f73814285ea01199b"
+
+[[module."keff.rs".function]]
+id = "fn:234f63e49f01a235"
+name = "source"
+qual = "KeffWorker::source"
+hash = "sha256:f2ee283ef7ece39cec559f4132ed707eea9b6e6487377ea81c39d1b0215276bf"
+doc_hash = "sha256:aa8d21f62dd27f3986b2aba9a75559cb8fabf024fd8349882c73d3035ef0ff5d"
+
+[[module."keff.rs".function]]
+id = "fn:345c066109e290c4"
+name = "Model"
+qual = "Model"
+item = "type"
+shape = "struct"
+hash = "sha256:7fa456547e29ed003b19e578f7a7a2810e615bfcfa65006bc8c7a5e0f491a695"
+doc_hash = "sha256:3e1d59070fb395d85a45225ab20cc85be88a6004fc459c9aa8442de8b6cc9ea7"
+
+[[module."keff.rs".function]]
+id = "fn:c6419bfb8d7448de"
+name = "TRACED"
+qual = "TRACED"
+item = "const"
+shape = "const"
+hash = "sha256:55922d70fee2703be4265116e6b7736a8c01671da5c41425a21a905ab4c7b72d"
+doc_hash = "sha256:98781cfe8c88af3acf826ca08487e82b2428f05e11f66dce6e1a6d358d9a076e"
 
 [[module."keff.rs".function]]
 id = "fn:dd910ad98314a313"
@@ -441,267 +161,161 @@ name = "View"
 qual = "View"
 item = "type"
 shape = "enum"
-lines = [
-    285,
-    294,
-]
 hash = "sha256:a73569dc26149e03553a3a61d738750a0fdfd0046a2a61a770edb12b34f3f36d"
 doc_hash = "sha256:01ccb2befe73cd1ab3f03e015701b3a7cca60d6c56836e17c4cec396f29f950b"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#5",
-    "#6",
-    "#7",
-]
 
 [[module."keff.rs".function]]
 id = "fn:bdbd36d5e3fbdd08"
 name = "code"
 qual = "View::code"
-lines = [
-    298,
-    304,
-]
 hash = "sha256:e8324a7c0eac1ac930a01b8a118fd81eb7112cf9aab08469712acaaa26f28f1c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:dd910ad98314a313"]
-
-[[module."keff.rs".function]]
-id = "fn:64149292a430058e"
-name = "from_code"
-qual = "View::from_code"
-lines = [
-    305,
-    311,
-]
-hash = "sha256:8c9c1d8a71a3d04c62fb0520cee2282783105eb444a7e5bb5e9f1a90fb7fdaf0"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:dd910ad98314a313"]
-
-[[module."keff.rs".function]]
-id = "fn:d53788504b58e43a"
-name = "label"
-qual = "View::label"
-lines = [
-    312,
-    318,
-]
-hash = "sha256:deff57f545fdaab9e364226267f7dcf1b75881bc34174ed20230cfcbfcd8d6af"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:dd910ad98314a313"]
 
 [[module."keff.rs".function]]
 id = "fn:d39646a65bb0c012"
 name = "frame"
 qual = "View::frame"
-lines = [
-    319,
-    332,
-]
 hash = "sha256:fa4540cc1cb62851cb2bb49783f0fa9d3819e499379b6f2db65c922f53a71ff7"
 doc_hash = "sha256:82e6797eb2e732be2eac4702735eb5a9925b4bb5f4429087a39ad29cb9bae54d"
-uses = ["fn:dd910ad98314a313"]
-reached_by = ["#6"]
 
 [[module."keff.rs".function]]
-id = "fn:d32228685833be33"
-name = "raster"
-qual = "raster"
-lines = [
-    335,
-    357,
-]
-hash = "sha256:3200a3ee3529d21fb06f9909383a7b8757d6a063840599ca21f6b15d1808934d"
-doc_hash = "sha256:8a7296bc555716b0b111283368367cb07bec297420058ab8176947a207256709"
-callees = ["fn:d39646a65bb0c012"]
-uses = ["fn:dd910ad98314a313"]
-reached_by = ["#6"]
+id = "fn:64149292a430058e"
+name = "from_code"
+qual = "View::from_code"
+hash = "sha256:8c9c1d8a71a3d04c62fb0520cee2282783105eb444a7e5bb5e9f1a90fb7fdaf0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."keff.rs".function]]
-id = "fn:4123d5be2b34e499"
-name = "study_to_vec"
-qual = "study_to_vec"
-lines = [
-    359,
-    362,
-]
-hash = "sha256:e24f1d77491c66dfcafb4159abb37c4c9eb5241c88fc49555875019dd30d2fd7"
-doc_hash = "sha256:0a5e81745b1201655f3f789608a69ad383bf854571aaafb0f0afd50ede19a1d0"
-
-[[module."keff.rs".function]]
-id = "fn:006c7fd33e7ad265"
-name = "study_from_slice"
-qual = "study_from_slice"
-lines = [
-    364,
-    368,
-]
-hash = "sha256:63d5d02fe4f687178b87a78c39c63e01200b84aa7b32f4fb484a7c66e419cb72"
-doc_hash = "sha256:b1de9eecde3d26720c67de23a2d515a9fa7f756727e03d1136d037adf90bc831"
-
-[[module."keff.rs".function]]
-id = "fn:479639280f668637"
-name = "cfg_to_vec"
-qual = "cfg_to_vec"
-lines = [
-    370,
-    373,
-]
-hash = "sha256:6d9bff221aa397d055fc0d3b7b1f144e9e7ff535fa610f535e3d9fe2cb6509cd"
-doc_hash = "sha256:6379506b0b25a45ad5fc53a274f71f1937e12080b03da743fc695ac63587fda8"
-uses = ["fn:0280c17de43005fc"]
-
-[[module."keff.rs".function]]
-id = "fn:f17c5ea373226d08"
-name = "cfg_from_slice"
-qual = "cfg_from_slice"
-lines = [
-    375,
-    379,
-]
-hash = "sha256:d8a1897b56da9346b52990828a6e4bf613d12dcfc0f1e91a04fb1e51941539ee"
-doc_hash = "sha256:d5f3cc28d4ff7346a43b3816ef86360f527a2c6405f72acb38ca79883e60f155"
-uses = ["fn:0280c17de43005fc"]
-
-[[module."keff.rs".function]]
-id = "fn:2501732a2863b1b7"
-name = "answer_native"
-qual = "KeffWorker::answer_native"
-lines = [
-    382,
-    424,
-]
-hash = "sha256:d58b276ce663d3f03c0a0a09ba4accfca6d1acac1f7bfe1a3ebefa236b8dcce8"
-doc_hash = "sha256:81fc40f44ba322bc54f720bcf81d8e968661aa19d9366fe687145e77a633aec1"
-callees = [
-    "fn:891b810c8620eb35",
-    "fn:9acc0197af6dae03",
-    "fn:ff1fb61ffd11e62b",
-]
-uses = [
-    "fn:3ec3d8986b876e07",
-    "fn:9578328a2de86987",
-    "fn:accaba27884307d9",
-]
-
-[[module."keff.rs".function]]
-id = "fn:0c96a7b70fda47a1"
-name = "answer_now"
-qual = "KeffWorker::answer_now"
-lines = [
-    426,
-    456,
-]
-hash = "sha256:713dbc48d209634c898dd88f1b86fa8383f173ed5ba314d344e111afa5a7b2fe"
-doc_hash = "sha256:9a8681b78b28da4676b64d34ddae1bdd46427a5dc580a094a6b794581c886ba3"
-callees = [
-    "fn:234f63e49f01a235",
-    "fn:36ec1933941c0cfb",
-    "fn:ae3f55872870d690",
-    "fn:d32228685833be33",
-]
-uses = [
-    "fn:3ec3d8986b876e07",
-    "fn:9578328a2de86987",
-    "fn:accaba27884307d9",
-]
-
-[[module."keff.rs".function]]
-id = "fn:fe1416301c856bd7"
-name = "jobs_tapes_and_wire"
-qual = "jobs_tapes_and_wire"
-lines = [
-    463,
-    481,
-]
-hash = "sha256:ba1a9a31c3fdb9ac54df1293d39cb532b069d8ee316dccfdc0cf9611f9f62275"
-doc_hash = "sha256:8d4eae23f8b96808e8d6aaa08bc45ac05c5dac3f6ea1456f4e040095b4173898"
-callees = [
-    "fn:891b810c8620eb35",
-    "fn:e5c888d30585277a",
-]
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:dd910ad98314a313",
-]
-test = true
-
-[[module."keff.rs".function]]
-id = "fn:3f26b4281392c133"
-name = "the_raster_draws_the_assembled_core"
-qual = "the_raster_draws_the_assembled_core"
-lines = [
-    483,
-    500,
-]
-hash = "sha256:17cdbfecbea83eabdca92c0747cd573adf39c0b88aaab99f05591e4636d7a0e7"
-doc_hash = "sha256:8c064005eb61c6fc0c0bf7aca7693f439d0d52c3bf5d40cd3c3c6fcba5a2aa29"
-callees = ["fn:d32228685833be33"]
-uses = ["fn:dd910ad98314a313"]
-test = true
+id = "fn:d53788504b58e43a"
+name = "label"
+qual = "View::label"
+hash = "sha256:deff57f545fdaab9e364226267f7dcf1b75881bc34174ed20230cfcbfcd8d6af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."keff.rs".function]]
 id = "fn:13c602e36f9a167d"
 name = "a_worker_without_a_model_refuses_runs"
 qual = "a_worker_without_a_model_refuses_runs"
-lines = [
-    502,
-    509,
-]
 hash = "sha256:dce99bf02a59abc96629639826b064c390771c97347450cb8db7753c85ce1c9f"
 doc_hash = "sha256:f8acf4f223582220748acf593480bc69a521afa30158e1f8aa84f92583b38aa7"
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:3ec3d8986b876e07",
-]
+test = true
+
+[[module."keff.rs".function]]
+id = "fn:f17c5ea373226d08"
+name = "cfg_from_slice"
+qual = "cfg_from_slice"
+hash = "sha256:d8a1897b56da9346b52990828a6e4bf613d12dcfc0f1e91a04fb1e51941539ee"
+doc_hash = "sha256:d5f3cc28d4ff7346a43b3816ef86360f527a2c6405f72acb38ca79883e60f155"
+
+[[module."keff.rs".function]]
+id = "fn:479639280f668637"
+name = "cfg_to_vec"
+qual = "cfg_to_vec"
+hash = "sha256:6d9bff221aa397d055fc0d3b7b1f144e9e7ff535fa610f535e3d9fe2cb6509cd"
+doc_hash = "sha256:6379506b0b25a45ad5fc53a274f71f1937e12080b03da743fc695ac63587fda8"
+
+[[module."keff.rs".function]]
+id = "fn:57599dffe8637c89"
+name = "coordinator_settings"
+qual = "coordinator_settings"
+hash = "sha256:4b2e970b71a7a59442793c12f80edd27b42eadabfcab87498fe079fd915dbbaf"
+doc_hash = "sha256:5b243f610f25462bcc5d596b1199a36ab1ef334c9ddd3b5e33f7a7967cb0658d"
+
+[[module."keff.rs".function]]
+id = "fn:73e308d1f176f971"
+name = "entropy_mesh"
+qual = "entropy_mesh"
+hash = "sha256:19985f417d496fcacd19e4d026bd663326a21f53e73e1aa84f7059d502cb7844"
+doc_hash = "sha256:9eaf7d2df5075939e837659ea85e43f4777a2ab4cc677638c42a79b5f1c71035"
+
+[[module."keff.rs".function]]
+id = "fn:891b810c8620eb35"
+name = "jobs"
+qual = "jobs"
+hash = "sha256:7c6eca18a4119a8bb7eacd0dc076075553e1718abc80112ffa370f468d6e8bd5"
+doc_hash = "sha256:b1d9416fa1868d4829f935b7f751563909556f68adc7d4578f6f263ddb697684"
+
+[[module."keff.rs".function]]
+id = "fn:fe1416301c856bd7"
+name = "jobs_tapes_and_wire"
+qual = "jobs_tapes_and_wire"
+hash = "sha256:ba1a9a31c3fdb9ac54df1293d39cb532b069d8ee316dccfdc0cf9611f9f62275"
+doc_hash = "sha256:8d4eae23f8b96808e8d6aaa08bc45ac05c5dac3f6ea1456f4e040095b4173898"
+test = true
+
+[[module."keff.rs".function]]
+id = "fn:94adb528c33a62c0"
+name = "masses_of"
+qual = "masses_of"
+hash = "sha256:4101e436168f109fae6dce1e46cbf7934b67806b21bf6b3bec0a4f3f8fc1eece"
+doc_hash = "sha256:cbb21aaf8ae0c9a8c0ed8e811e621ea1b42dcb941ebb319be9930028f05b7564"
+
+[[module."keff.rs".function]]
+id = "fn:9acc0197af6dae03"
+name = "native_tape"
+qual = "native_tape"
+hash = "sha256:2e57fe61ec48c8ad81b3ddd2dfc7573e915bcc82ac926016b6233cfac8f367fc"
+doc_hash = "sha256:044edd60b2fe432c3df7a0cd3a136d19ee43592f1ee284f825678c3d82b26233"
+
+[[module."keff.rs".function]]
+id = "fn:bc2eff39b7631689"
+name = "prepare_web_data"
+qual = "prepare_web_data"
+hash = "sha256:c8be1896a2f7efd74dc9eafe586a1d30e8380ea4aadee5393f0d880bc308a9d7"
+doc_hash = "sha256:bfdfe6ae64c4807138623893801326145babe35f57d7c85ac79a2178f73b8887"
+
+[[module."keff.rs".function]]
+id = "fn:d32228685833be33"
+name = "raster"
+qual = "raster"
+hash = "sha256:3200a3ee3529d21fb06f9909383a7b8757d6a063840599ca21f6b15d1808934d"
+doc_hash = "sha256:8a7296bc555716b0b111283368367cb07bec297420058ab8176947a207256709"
+
+[[module."keff.rs".function]]
+id = "fn:ff217deec3020848"
+name = "run_settings"
+qual = "run_settings"
+hash = "sha256:99e75b076593915300b3fce1f5ee5ec8533c83d2aca91acb2ec343f617fd395b"
+doc_hash = "sha256:b68530a4f3da632afd711f7f9e94548522aa6b9934bc54d5f833f1ad456a1e4e"
+
+[[module."keff.rs".function]]
+id = "fn:e5c888d30585277a"
+name = "served_name"
+qual = "served_name"
+hash = "sha256:a0ed46394df6f2741115e1b2443760bafb5c4b638354f6504284e23d662e1a05"
+doc_hash = "sha256:69a49f87ecdff80c8184acdf1c0a599c93332ad0dc2bc0ef501f3b864e466903"
+
+[[module."keff.rs".function]]
+id = "fn:006c7fd33e7ad265"
+name = "study_from_slice"
+qual = "study_from_slice"
+hash = "sha256:63d5d02fe4f687178b87a78c39c63e01200b84aa7b32f4fb484a7c66e419cb72"
+doc_hash = "sha256:b1de9eecde3d26720c67de23a2d515a9fa7f756727e03d1136d037adf90bc831"
+
+[[module."keff.rs".function]]
+id = "fn:4123d5be2b34e499"
+name = "study_to_vec"
+qual = "study_to_vec"
+hash = "sha256:e24f1d77491c66dfcafb4159abb37c4c9eb5241c88fc49555875019dd30d2fd7"
+doc_hash = "sha256:0a5e81745b1201655f3f789608a69ad383bf854571aaafb0f0afd50ede19a1d0"
+
+[[module."keff.rs".function]]
+id = "fn:74edec02d5ba446c"
+name = "tape_url"
+qual = "tape_url"
+hash = "sha256:8c014f1a2e4534ba25c6939af4b380ea29017e638f3e7215982dd87da1b9495a"
+doc_hash = "sha256:721e5dcf9a6f7629f2f2d0006a9f7cac4b23ef2081ab6f7bcdc6977d1b26dd72"
+
+[[module."keff.rs".function]]
+id = "fn:3f26b4281392c133"
+name = "the_raster_draws_the_assembled_core"
+qual = "the_raster_draws_the_assembled_core"
+hash = "sha256:17cdbfecbea83eabdca92c0747cd573adf39c0b88aaab99f05591e4636d7a0e7"
+doc_hash = "sha256:8c064005eb61c6fc0c0bf7aca7693f439d0d52c3bf5d40cd3c3c6fcba5a2aa29"
 test = true
 
 [module."keff_pool.rs"]
 path = "crate::ebr2::web::keff_pool"
-
-[[module."keff_pool.rs".function]]
-id = "fn:b8742e69d2ebe876"
-name = "WORKER_MB"
-qual = "WORKER_MB"
-item = "const"
-shape = "const"
-lines = [
-    18,
-    20,
-]
-hash = "sha256:231081f94e42a7029cd6f532ce63c1b792900d0027a133cdca6cf2bb40a5f6de"
-doc_hash = "sha256:d5a13b51e4bb3d3d8facfe2688bf32a470b7c13c2f0389bcbc253a6d3b929520"
-
-[[module."keff_pool.rs".function]]
-id = "fn:6e6917a0f1ac756d"
-name = "SEED"
-qual = "SEED"
-item = "const"
-shape = "const"
-lines = [
-    21,
-    22,
-]
-hash = "sha256:b8c5a0a63ca1ee75689aba81bccff58e4bf158a25d48934118bc08c5e68aeb68"
-doc_hash = "sha256:01d8a957a394fc0339d2d0280a6621579d89ca05d5ea705d192235b7ff413ff3"
-reached_by = ["#7"]
-
-[[module."keff_pool.rs".function]]
-id = "fn:c417ae909ca44581"
-name = "PRESETS"
-qual = "PRESETS"
-item = "const"
-shape = "const"
-lines = [
-    24,
-    26,
-]
-hash = "sha256:4ab5820f28f96e0367ab6448dea462425fff2e659ded4a1a3f203ad9cd73a7e2"
-doc_hash = "sha256:eb2544cb55d9100523128c12f73495cd5a170689d913ac55a3b49220636a6d0a"
-reached_by = ["#7"]
 
 [[module."keff_pool.rs".function]]
 id = "fn:6493a4998938f852"
@@ -709,13 +323,17 @@ name = "Finished"
 qual = "Finished"
 item = "type"
 shape = "struct"
-lines = [
-    28,
-    35,
-]
 hash = "sha256:0f2e4b151fee9f0fb5486793b770077a03fdc75b137192802e8ddf3bb14b7a8b"
 doc_hash = "sha256:c80ef9dfa31038fa46ea9a762c2a3bee6a6976f3c7db1c89add6190e85ba0f29"
-uses = ["fn:0280c17de43005fc"]
+
+[[module."keff_pool.rs".function]]
+id = "fn:c417ae909ca44581"
+name = "PRESETS"
+qual = "PRESETS"
+item = "const"
+shape = "const"
+hash = "sha256:4ab5820f28f96e0367ab6448dea462425fff2e659ded4a1a3f203ad9cd73a7e2"
+doc_hash = "sha256:eb2544cb55d9100523128c12f73495cd5a170689d913ac55a3b49220636a6d0a"
 
 [[module."keff_pool.rs".function]]
 id = "fn:56d57f91afd83881"
@@ -723,13 +341,8 @@ name = "Phase"
 qual = "Phase"
 item = "type"
 shape = "enum"
-lines = [
-    37,
-    44,
-]
 hash = "sha256:dfbc5d0aa03ccd416bee6ed9b790b5af13c174424ffa21b51618091c0e0e1499"
 doc_hash = "sha256:008dc5c1099fb4c46c4b4b9162635b4d6ed0ec98d4a37420fe0b4172e2469144"
-reached_by = ["#7"]
 
 [[module."keff_pool.rs".function]]
 id = "fn:aa93caf90b712967"
@@ -737,164 +350,80 @@ name = "Pool"
 qual = "Pool"
 item = "type"
 shape = "struct"
-lines = [
-    46,
-    66,
-]
 hash = "sha256:00a9c9c9dae29295f995b4350e9ed74b69506b30ceb50f902a8d4cd37e2ecc19"
 doc_hash = "sha256:1bd71e11777da5861a8869dab4f999809a1fad6f9ea2b6b1536d92c1989aa790"
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:4d71cb3f5b5d56f6",
-    "fn:56d57f91afd83881",
-    "fn:6c997e467b74aaf4",
-    "fn:84f44058fba2e740",
-    "fn:8b9f1636ac496f48",
-    "fn:c71686e80930165c",
-]
-reached_by = ["#7"]
-
-[[module."keff_pool.rs".function]]
-id = "fn:167367241a650b25"
-name = "start"
-qual = "Pool::start"
-lines = [
-    69,
-    87,
-]
-hash = "sha256:ade1e8b874fa294e5aa41cf66d7bd7b426f21eaec7a4569c8279ccf9c255f66a"
-doc_hash = "sha256:c1f111e8347b8be203628d7513ae140a9a556a534dc9c04c4525b36eb4ccf110"
-callees = ["fn:2dde58f8a769b156"]
-uses = [
-    "fn:6c997e467b74aaf4",
-    "fn:8b9f1636ac496f48",
-    "fn:aa93caf90b712967",
-    "fn:fe94abc38d3983a4",
-]
-
-[[module."keff_pool.rs".function]]
-id = "fn:2dde58f8a769b156"
-name = "with_links"
-qual = "Pool::with_links"
-lines = [
-    89,
-    108,
-]
-hash = "sha256:941108ea61c6ffb48e032f493e25320f5a2679fbcc453ddd0a49747644b45084"
-doc_hash = "sha256:8f9e73d128b94fad59ce60106f1f53b561a23e6ad39b4184e48a18c6f1dac204"
-callees = [
-    "fn:57599dffe8637c89",
-    "fn:5e6bbd70132e5fdf",
-    "fn:891b810c8620eb35",
-    "fn:bc4a5bbea7483c6e",
-]
-uses = [
-    "fn:4d71cb3f5b5d56f6",
-    "fn:56d57f91afd83881",
-    "fn:6c997e467b74aaf4",
-    "fn:84f44058fba2e740",
-    "fn:8b9f1636ac496f48",
-    "fn:aa93caf90b712967",
-    "fn:c6419bfb8d7448de",
-]
-reached_by = ["#7"]
-
-[[module."keff_pool.rs".function]]
-id = "fn:dd4cb6b106ba6a11"
-name = "terminate"
-qual = "Pool::terminate"
-lines = [
-    110,
-    115,
-]
-hash = "sha256:8105eb59f680d44172b55f4a7d5cec61538ce9f39a88e737a2f2dced9a58c0df"
-doc_hash = "sha256:9a53b812546baf4f7f2280f4645deb29c532c6e4b39ef1f94a4c578741ba7fc2"
-uses = ["fn:aa93caf90b712967"]
 
 [[module."keff_pool.rs".function]]
 id = "fn:01339642e374b415"
 name = "data_phase"
 qual = "Pool::data_phase"
-lines = [
-    117,
-    120,
-]
 hash = "sha256:c93e58d9844eda8f479cb5cd57d336e19c12c6dfffdf235b19464ad4dde8c297"
 doc_hash = "sha256:efe7901ac94ef8b901f9393de57537a69361a41caa9fdeb5cf816965343c8a6c"
-uses = ["fn:aa93caf90b712967"]
 
 [[module."keff_pool.rs".function]]
 id = "fn:04561230f19f7009"
 name = "pump"
 qual = "Pool::pump"
-lines = [
-    122,
-    203,
-]
 hash = "sha256:c3e8678503970ef71609f593b31d8598040618b78ddd214a183e0b7dd985f453"
 doc_hash = "sha256:f70d46f6c2b229fbec1e2dcc34b8d4096197feaf01a1d01fa70396b2ff4238b6"
-callees = [
-    "fn:891b810c8620eb35",
-    "fn:b24bed7bc75895d6",
-    "fn:ef27af752ad8092a",
-    "fn:f071ea3ca1cadfc9",
-]
-uses = [
-    "fn:15d8765860aa9314",
-    "fn:2721325e96695632",
-    "fn:56d57f91afd83881",
-    "fn:6c997e467b74aaf4",
-    "fn:89b577a83e836309",
-    "fn:8b9f1636ac496f48",
-    "fn:9578328a2de86987",
-    "fn:aa93caf90b712967",
-    "fn:accaba27884307d9",
-    "fn:c186d6bcf935f942",
-    "fn:cb475fb6d8f4f918",
-]
+
+[[module."keff_pool.rs".function]]
+id = "fn:167367241a650b25"
+name = "start"
+qual = "Pool::start"
+hash = "sha256:ade1e8b874fa294e5aa41cf66d7bd7b426f21eaec7a4569c8279ccf9c255f66a"
+doc_hash = "sha256:c1f111e8347b8be203628d7513ae140a9a556a534dc9c04c4525b36eb4ccf110"
+
+[[module."keff_pool.rs".function]]
+id = "fn:dd4cb6b106ba6a11"
+name = "terminate"
+qual = "Pool::terminate"
+hash = "sha256:8105eb59f680d44172b55f4a7d5cec61538ce9f39a88e737a2f2dced9a58c0df"
+doc_hash = "sha256:9a53b812546baf4f7f2280f4645deb29c532c6e4b39ef1f94a4c578741ba7fc2"
+
+[[module."keff_pool.rs".function]]
+id = "fn:2dde58f8a769b156"
+name = "with_links"
+qual = "Pool::with_links"
+hash = "sha256:941108ea61c6ffb48e032f493e25320f5a2679fbcc453ddd0a49747644b45084"
+doc_hash = "sha256:8f9e73d128b94fad59ce60106f1f53b561a23e6ad39b4184e48a18c6f1dac204"
+
+[[module."keff_pool.rs".function]]
+id = "fn:6e6917a0f1ac756d"
+name = "SEED"
+qual = "SEED"
+item = "const"
+shape = "const"
+hash = "sha256:b8c5a0a63ca1ee75689aba81bccff58e4bf158a25d48934118bc08c5e68aeb68"
+doc_hash = "sha256:01d8a957a394fc0339d2d0280a6621579d89ca05d5ea705d192235b7ff413ff3"
+
+[[module."keff_pool.rs".function]]
+id = "fn:b8742e69d2ebe876"
+name = "WORKER_MB"
+qual = "WORKER_MB"
+item = "const"
+shape = "const"
+hash = "sha256:231081f94e42a7029cd6f532ce63c1b792900d0027a133cdca6cf2bb40a5f6de"
+doc_hash = "sha256:d5a13b51e4bb3d3d8facfe2688bf32a470b7c13c2f0389bcbc253a6d3b929520"
 
 [[module."keff_pool.rs".function]]
 id = "fn:31cdf911bc142191"
 name = "plan_workers"
 qual = "plan_workers"
-lines = [
-    206,
-    210,
-]
 hash = "sha256:ccb0160b11b43e4c5f9de033bd29a713401d4d26273d03c74b2890085e6e90cc"
 doc_hash = "sha256:5d5ca29ca519d9844061677ce2cce9e7e275191a5197b74c9487da064b50d613"
-uses = ["fn:b8742e69d2ebe876"]
 
 [[module."keff_pool.rs".function]]
 id = "fn:5c02f35cfb1a89a1"
 name = "preset_cfg"
 qual = "preset_cfg"
-lines = [
-    212,
-    216,
-]
 hash = "sha256:44ed4511d324a9c9b5989114c2d89b1a8fa91be691a7d32a54267cb85bfcd2c9"
 doc_hash = "sha256:a5ede0d1eb32d2996872e42ef80e59453c3ad51506891ca269a94e51d4900453"
-uses = [
-    "fn:0280c17de43005fc",
-    "fn:6e6917a0f1ac756d",
-    "fn:c417ae909ca44581",
-]
-reached_by = ["#7"]
 
 [[module."keff_pool.rs".function]]
 id = "fn:86a327bb8e4182f3"
 name = "presets_workers_and_an_empty_pool"
 qual = "presets_workers_and_an_empty_pool"
-lines = [
-    222,
-    233,
-]
 hash = "sha256:2a602351450cb1b6ec9f72310604ed1a588cef6cfcd1d15f640e443451eee7e3"
 doc_hash = "sha256:37d7a946aedf4fce490dd5d6eb3458f9f107098b3d21ee8961c8c66a769d4f45"
-callees = [
-    "fn:2dde58f8a769b156",
-    "fn:5c02f35cfb1a89a1",
-]
-uses = ["fn:aa93caf90b712967"]
 test = true
