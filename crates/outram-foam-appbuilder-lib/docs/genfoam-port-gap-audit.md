@@ -159,7 +159,7 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | `heatExchanger` | 587 | `structure/heat_exchanger.rs` | ported (per-cell two-sided solve); mesh-to-mesh mapping missing | unit (3) |
 | `pump` | 297 | `structure/pump.rs` | ported | unit (2) |
 | `powerOffCriterionModels` timer, fieldValue | 856 | `structure/power_off.rs` | ported | unit (4) |
-| power `fixedPower` | 518 | `structure/power_model.rs` | ported | unit (5, shared) |
+| power `fixedPower` | 518 | `structure/power_model.rs` | ported; **`powerTimeProfile` ADDED 2026-11-26 (gh:#1815)** as upstream's recursion `pd(t) = prof(t) pdOld / prof(t - dt)` (the closed form `initial prof(t)` the port used before is `with_closed_form_power_profile`, deprecated); wired in the two-phase case reader (`type table` only) | unit (6, shared) |
 | power `fixedTemperature` | 395 | `structure/power_model.rs` | ported | unit |
 | power `nuclearSteadyStatePebble` | 956 | `structure/nuclear_steady_state_pebble/` | ported (not a `PowerModel` variant) | **upstream run**: gFHR, ≤ 7.2e-6 over 292,500 cells |
 | power `heatedPin` | 824 | — | missing | — |
@@ -265,9 +265,15 @@ Each is one deliverable. Sizes are upstream lines to port.
    by every PSBT case. Verify against the committed PSBT upstream fields.~~ **CORRECTED 2026-11-26** (gh:#1222): all three are ported
    (`TRACE` also wired and compared with the real binary; `TRACECHF`/`VapourTRACE` as pure functions). The premise was wrong in two ways: only
    `Phase_Ex1_12223` selects `TRACE` (`PhaseII_Ex1_01_5215` selects `multiRegimeBoiling`; Ex2/Ex3 select `TRACECHF`), and no PSBT case runs end to
-   end in the port because every one is a through-flow case (velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet`,
+   ~~end in the port because every one is a through-flow case (velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet`,
    `fixedFluxPressure`) and the three `PhaseII` cases use `porousKEpsilon2PhaseCorrected` turbulence. Not re-checked against the committed
-   PSBT fields: those are a different (through-flow) case from the one compared.
+   PSBT fields: those are a different (through-flow) case from the one compared.~~ **CORRECTED 2026-11-26** (gh:#1801, gh:#1361 round 12):
+   the through-flow boundary conditions are ported (`fixedValue`/`slip`/`pressureInletOutletVelocity` velocity patches with `fixedValue`
+   flux patches, `inletOutlet` phase fractions with implicitUpwind, `fixedFluxPressure` with `setSnGradP_rgh_2p.H`/`correctBoundaryFlux_2p.H`),
+   and `Phase_Ex1_12223` runs AS SHIPPED, compared with the real binary step by step (agreement to 1e-8 through step 9, to the vapour onset at
+   step 13 and on to step 50; the two runs separate at step 51, README "Round 12"). The three `PhaseII` cases still need the two-phase
+   `porousKEpsilon2PhaseCorrected` turbulence model (gh:#1802) and are refused by name. Every other velocity or scalar boundary-condition
+   type is now refused by name too (`scalar_bcs` used to turn them into `calculated` silently).
 5. ~~**`lookUpTableCHF`** (366 lines) with the 2006 Groeneveld table data
    (licence to be checked). Needed by PSBT Phase II Ex 2 and 3. **2026-11-26 (gh:#1223): licence unclear, deferred to the maintainer**; left refused.~~ **CORRECTED 2026-11-26** (gh:#1223, maintainer: "Port can use table with proper citation"): ported (`chf_table.rs`), table vendored with provenance.
 6. ~~**Post-CHF `CachardLiquid`/`CachardVapour`** (560 lines): port with

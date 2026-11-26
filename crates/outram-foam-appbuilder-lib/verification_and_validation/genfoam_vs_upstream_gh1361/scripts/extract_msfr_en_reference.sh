@@ -1,7 +1,7 @@
 #!/bin/bash
 # Round 11 (gh:#1814): refs/msfr_en.ref.txt.gz from a `2D_MSFR` steadyStateEN run of the real GeN-Foam binary
 # (run_msfr_chain.sh steadyStateEN, PROTOCOL=tight, writePrecision 17).
-# usage: extract_msfr_en_reference.sh <run root> [endTimeEN = 165]
+# usage: extract_msfr_en_reference.sh <run root> [endTimeEN = 165] [output name = msfr_en]
 # Output (one item per number, space separated):
 #   N <steps>
 #   TIME <the `Time = ` of each step>        KEFF <`keff_ = ` after each step>      KEFFPREV <`keff_ previous`>
@@ -10,6 +10,7 @@
 #   END_flux<g>, END_precStar<k>, END_powerDensity, END_T   the fields at endTimeEN (internalField)
 #   END_KEFF, END_PTARGET   from <end>/uniform/reactorState
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
+OUTNAME=${3:-msfr_en}   # gh:#1814 round 14: third argument names the output (the light chain writes msfr_en20)
 R=$1/steadyStateEN
 E=${2:-165}
 L=$R/log.GeN-Foam
@@ -34,6 +35,6 @@ echo "END_powerDensity $(fld $R/$E/neutroRegion/powerDensity)" >> "$OUT"
 echo "END_T $(fld $R/$E/fluidRegion/T)" >> "$OUT"
 echo "END_KEFF $(grep '^keff' $R/$E/uniform/reactorState | awk '{gsub(/;/,"");print $2}')" >> "$OUT"
 echo "END_PTARGET $(grep '^pTarget' $R/$E/uniform/reactorState | awk '{gsub(/;/,"");print $2}')" >> "$OUT"
-gzip -9 -n -c "$OUT" > "$HERE/refs/msfr_en.ref.txt.gz"
+gzip -9 -n -c "$OUT" > "$HERE/refs/${OUTNAME}.ref.txt.gz"
 rm -f "$OUT"
-ls -l "$HERE/refs/msfr_en.ref.txt.gz"
+ls -l "$HERE/refs/${OUTNAME}.ref.txt.gz"

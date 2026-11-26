@@ -107,8 +107,22 @@ impl PhaseThermo {
     /// The vapour stack: molar weight [g/mol], `Cp` [J/(kg K)], `Hf` [J/kg],
     /// `mu` [Pa s], `Pr`. `Tref`/`Hsref` take OpenFOAM's defaults (`Tstd`,
     /// 0), which no tutorial overrides.
+    ///
+    /// The universal gas constant is OpenFOAM-v2506's (`GasConstant::EsiV2506`, `RR = 1e3 NA k` with the
+    /// `etc/controlDict` constants), because the binary this port is compared with is ESI v2506. ~~CODATA 2019~~
+    /// **CORRECTED 2026-11-26** (gh:#1361 round 13): the CODATA value made the vapour density 8.96e-7 relative
+    /// larger than upstream's, the seed of the 1e-9 to 1e-5 differences at the first boiling evaluation of the
+    /// TRACE closures (the Basu onset temperature reads the vapour density). The earlier value stays callable as
+    /// [`Self::perfect_gas_const_codata2019`] and [`Self::with_gas_constant`].
     #[must_use]
     pub fn perfect_gas_const(mol_weight_g_per_mol: f64, cp: f64, hf: f64, mu: f64, pr: f64) -> Self {
+        Self::perfect_gas_const_codata2019(mol_weight_g_per_mol, cp, hf, mu, pr).with_gas_constant(GasConstant::EsiV2506)
+    }
+
+    /// [`Self::perfect_gas_const`] with the CODATA 2019 universal gas constant (the port's form before gh:#1361
+    /// round 13; 8.96e-7 relative away from upstream's vapour density). Deprecated: kept to reproduce earlier numbers.
+    #[must_use]
+    pub fn perfect_gas_const_codata2019(mol_weight_g_per_mol: f64, cp: f64, hf: f64, mu: f64, pr: f64) -> Self {
         let eos = PerfectGas::new(MolarMass::new::<gram_per_mole>(mol_weight_g_per_mol));
         let thermo = HConstThermo::new(
             eos,
@@ -124,6 +138,16 @@ impl PhaseThermo {
         ))
     }
 
+    /// The same package with the universal gas constant of a `perfectGas` vapour set to `gas_constant`
+    /// (a liquid `icoPolynomial` package has none and is returned unchanged).
+    #[must_use]
+    pub fn with_gas_constant(self, gas_constant: GasConstant) -> Self {
+        match self {
+            Self::PerfectGasConst(s) => Self::PerfectGasConst(s.with_gas_constant(gas_constant)),
+            other => other,
+        }
+    }
+
     /// Sensible enthalpy `hs(p, T)` [J/kg] (`he` for `sensibleEnthalpy`).
     #[must_use]
     pub fn he(&self, p: f64, t: f64) -> f64 {
@@ -135,11 +159,35 @@ impl PhaseThermo {
         .get::<joule_per_kilogram>()
     }
 
-    /// Temperature from sensible enthalpy by Newton from `t0` (OpenFOAM
-    /// `THs`). Falls back to `t0` if Newton does not converge (upstream
-    /// aborts; the solver reports the cell instead, see the driver).
+    /// Temperature from sensible enthalpy as `species::thermo::T` does it (gh:#1361 round 13): Newton from `t0` on
+    /// `hs(p, T) - he` with the derivative `Cp(p, T)`, in a `do { ... } while (mag(Tnew - Test) > Ttol)` loop with
+    /// `Ttol = T0 * 1e-4` (`thermo::tol_`) and at most 100 iterations. The loop stops after the first step smaller
+    /// than 1e-4 of `T0` (about 0.06 K), so the returned `T` is that Newton iterate, NOT the converged root: it
+    /// differs from the root by the quadratic remainder (3e-6 K for a 0.02 K step in the sub-cooled liquid, where
+    /// `dln(Cp)/dT` is 1.5e-2 /K). Returns `None` past 100 iterations (upstream aborts).
     #[must_use]
     pub fn t_from_he(&self, he: f64, p: f64, t0: f64) -> Option<f64> {
+        let ttol = t0 * 1.0e-4;
+        let mut tnew = t0;
+        let mut iter = 0;
+        loop {
+            let test = tnew;
+            tnew = test - (self.he(p, test) - he) / self.props(p, test).cp;
+            if iter > 100 {
+                return None;
+            }
+            iter += 1;
+            if (tnew - test).abs() <= ttol {
+                return Some(tnew);
+            }
+        }
+    }
+
+    /// DEPRECATED (gh:#1361 round 13): temperature from sensible enthalpy by Newton to `|dT/T| < 1e-6` (the basic-lib
+    /// `t_from_hs`), the form the port used before round 13. It returns a more converged root than upstream's
+    /// [`Self::t_from_he`], so `T`, `Cp`, `rho`, `kappa` differ from the real binary's by up to 1e-8 relative.
+    #[must_use]
+    pub fn t_from_he_converged(&self, he: f64, p: f64, t0: f64) -> Option<f64> {
         let (h, p, t0) = (
             AvailableEnergy::new::<joule_per_kilogram>(he),
             Pressure::new::<pascal>(p),

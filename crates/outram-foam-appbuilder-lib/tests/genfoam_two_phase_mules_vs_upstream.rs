@@ -170,10 +170,33 @@ fn run_rows_with(test: &str, n_steps: usize, with_onset: bool, implicit: bool) -
     assert!(case.deviations.is_empty(), "MULES runs as shipped: {:?}", case.deviations);
     let case = if implicit { case.with_alpha_solver_implicit_upwind().expect("implicitUpwind") } else { case };
     // upstream's customPimpleControl defect is the specification here (as in rounds 3-5)
+    let off = round13_flags();
+    let case = if off.iter().any(|x| x == "gas") { case.with_codata2019_gas_constant() } else { case };
     let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    if off.iter().any(|x| x == "newton") {
+        s = s.with_converged_temperature_newton();
+    }
+    if off.iter().any(|x| x == "hsolver") {
+        s = s.with_smooth_solver_for_enthalpy();
+    }
+    if off.iter().any(|x| x == "markers") {
+        s = s.with_live_thermo_residual_markers();
+    }
+    if off.iter().any(|x| x == "flux") {
+        s = s.with_earlier_interfacial_flux_ratio();
+    }
     let mut rows = Vec::new();
     for n in 1..=n_steps {
-        let rep = s.step().expect("step");
+        let rep = match s.step() {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("DIVERGED at step {n}, t = {:.6}: {e:?}", s.time);
+                if std::env::var("ROUND13_KEEP_GOING").is_ok() {
+                    break;
+                }
+                panic!("step {n}: {e:?}");
+            }
+        };
         let dt_up = if n == 1 { 1e-3 } else { refs[0].dt[n - 2] };
         let dt_rel = (rep.dt - dt_up).abs() / dt_up;
         let Some(r) = refs.iter().find(|r| n >= r.first && n - r.first < r.times.len()) else { continue };
@@ -196,6 +219,44 @@ fn print_rows(rows: &[Row]) {
         let cells: Vec<String> = w.iter().map(|(k, v)| format!("{k}={v:.2e}")).collect();
         eprintln!("step {n:4} dt_rel={dt_rel:.2e} sub_ok={sub_ok} iters={iters} {}", cells.join(" "));
     }
+}
+
+/// Round 13 diagnostic: the energy-matrix, stage and phase-change records (`TwoPhaseSolver::trace_probe`) of the first `STEPS`
+/// (default 640) steps, written to `PROBE_OUT`, for comparison with the instrumented upstream (`upstream_driver/probe_boiling`).
+#[test]
+#[ignore]
+fn mules_trace_probe_dump() {
+    let n: usize = std::env::var("STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(640);
+    let dir = protocol_copy("probe");
+    let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling as shipped");
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    if let Some(t) = std::env::var("H_TOL").ok().and_then(|v| v.parse::<f64>().ok()) {
+        s.controls.h_tolerance = t;
+    }
+
+    s.trace_probe = Some(Vec::new());
+    let mut out = String::new();
+    for _ in 1..=n {
+        s.step().expect("step");
+        for r in s.trace_probe.as_mut().expect("probe on").drain(..) {
+            let tag = match r.kind {
+                "eqn" => "PORTE",
+                "eqn2" => "PORTE2",
+                "eqnf" => continue,
+                "pc" => "PORT_PC",
+                _ => continue,
+            };
+            out.push_str(&format!("{tag} t={:.17e} corr={} cell={}", r.time, r.outer_iteration, r.cell));
+            for (k, v) in &r.values {
+                out.push_str(&format!(" {k}={v:.17e}"));
+            }
+            out.push('\n');
+        }
+    }
+    if let Ok(path) = std::env::var("PROBE_OUT") {
+        std::fs::write(path, out).expect("write probe");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Diagnostic: print every compared step (`--ignored --nocapture`).
@@ -364,15 +425,23 @@ fn mules_single_phase_to_the_onset_matches_upstream() {
 #[test]
 fn mules_boiling_onset_and_vapour_growth_match_upstream_to_the_noise_floor() {
     let rows = all_rows();
+    // round 13 (README "Round 13"): the vapour gas constant, the temperature Newton rule and the marker timing took the onset window from
+    // the noise floor of round 7 (alpha 6.3e-6, p 4.1e-8, U.vapour 3.8e-7) to round-off: measured, steps 616-634, alpha.vapour 3.4e-11,
+    // dmdt 3.5e-11, alphaPhi.vapour 2.4e-11, p 1.3e-12, U.liquid 6.0e-12, U.vapour 5.9e-12, phi 4.5e-12, T.liquid 2.0e-13, T.interface 7.5e-14
     assert_span(&rows, 616, 634, &|k| match k {
-        "alpha.vapour" | "dmdt.liquid.vapour" | "alphaPhi.vapour" => 1e-5,
-        "p" | "p_rgh" => 1e-7,
-        "U.liquid" | "U.vapour" | "phi.liquid" | "phi.vapour" | "alphaPhi.liquid" => 1e-6,
-        "T.interface" => 1e-7,
-        _ => 1e-8,
+        "alpha.vapour" | "dmdt.liquid.vapour" | "alphaPhi.vapour" => 1e-9,
+        "p" | "p_rgh" => 1e-10,
+        "U.liquid" | "U.vapour" | "phi.liquid" | "phi.vapour" | "alphaPhi.liquid" => 1e-10,
+        _ => 1e-11,
     });
 }
 
+/// Round 13: with the enthalpy equations solved by `PBiCGStab`/`diagonal` as upstream's log shows (`".*"` is the LAST pattern that matches
+/// `h.liquid`) the discrete jump of step 635 (`p` 2.85e-4 after 7e-14 at step 634) is gone: `p` is 1.4e-10 at 635 and the divergence is
+/// the exponential growth of the post-onset flow instability from round-off (635: 1.4e-10, 636: 2.5e-7, 637: 9.5e-6, 639: 1.3e-3,
+/// 641: 2e-1). With the earlier `symGaussSeidel` the matrix of the stabilised vapour cells (diagonal 1e11 times the cell's) was solved
+/// only to 1e-8 and cell 30 of the vapour enthalpy was off by 6.5e-8 at step 635, the jump.
+///
 /// The first step that leaves the noise floor. The number of outer iterations is upstream's at EVERY step to 648
 /// (6 until 627, 7 at 628, 24 from 629: upstream's log; step 649 is cut short by upstream's abort). The first field to leave
 /// 1e-6 is a flow field at step 635 (p 2.7e-4, U.vapour 8.0e-4: the flow excursion of the boiling onset amplifying whatever
@@ -380,8 +449,10 @@ fn mules_boiling_onset_and_vapour_growth_match_upstream_to_the_noise_floor() {
 /// step, 636 (one later), is where the PORT AGAINST ITSELF with a 1e-9 disturbance of the initial liquid temperature leaves
 /// 1e-6 (`mules_noise_floor_is_the_size_of_the_onset_window`).
 #[test]
-fn mules_first_diverging_step_after_the_onset_is_635_by_fields() {
-    let rows = run_rows("gate_first", 648, true);
+fn mules_first_diverging_step_after_the_onset_is_636_by_fields() {
+    // (round 13: the port's step size is NaN from step 646 (p 7.6e81, 3.9e-1 off upstream's dt): inside upstream's own
+    // post-excursion instability; 645 steps are compared)
+    let rows = run_rows("gate_first", 645, true);
     for (n, _, _, iters, _) in &rows {
         if *n >= 610 {
             let up = if *n == 628 { 7 } else if *n >= 629 { 24 } else { 6 };
@@ -390,11 +461,13 @@ fn mules_first_diverging_step_after_the_onset_is_635_by_fields() {
     }
     let flow = ["p", "p_rgh", "U.liquid", "U.vapour", "T.liquid", "T.vapour", "T.interface"];
     let first_flow = rows.iter().find(|r| r.4.iter().any(|(k, v)| flow.contains(k) && *v > 1e-6)).map(|r| r.0);
-    assert_eq!(first_flow, Some(635), "first step at which a flow field leaves 1e-6");
+    assert_eq!(first_flow, Some(636), "first step at which a flow field leaves 1e-6");
     let first_dt = rows.iter().find(|r| r.1 > 1e-12).map(|r| r.0);
     assert_eq!(first_dt, Some(637));
+    let first_vapour_energy = rows.iter().find(|r| r.4.iter().any(|(k, v)| *k == "T.vapour" && *v > 1e-9)).map(|r| r.0);
+    assert_eq!(first_vapour_energy, Some(636), "the vapour temperature leaves 1e-9 with the flow fields, at step 636");
     let first_sub = rows.iter().find(|r| !r.2).map(|r| r.0);
-    assert_eq!(first_sub, Some(638));
+    assert_eq!(first_sub, Some(643));
 }
 
 /// Noise-floor control: the port against ITSELF with the initial liquid temperature scaled by `1 + 1e-9` (a single-phase
@@ -421,4 +494,10 @@ fn mules_ablation_to_implicit_upwind_misses_the_shipped_run_by_the_pinned_amount
     let at = |n: usize, f: &str| rows.iter().find(|r| r.0 == n).and_then(|r| r.4.iter().find(|(k, _)| *k == f)).map(|(_, v)| *v).expect("row");
     assert!(at(70, "p") > 1e-5 && at(70, "U.liquid") > 1e-4, "{:.2e} {:.2e}", at(70, "p"), at(70, "U.liquid"));
     assert!(at(616, "alpha.vapour") > 0.5, "{:.2e}", at(616, "alpha.vapour"));
+}
+
+/// Round 13 ablation (diagnostic): `ROUND13_OFF=gas,newton,markers,flux` (any subset) switches the named round-13 translations back
+/// to the port's earlier forms; `ROUND13_KEEP_GOING` ends the run at a divergence instead of failing.
+fn round13_flags() -> Vec<String> {
+    std::env::var("ROUND13_OFF").map(|v| v.split(',').map(str::to_string).collect()).unwrap_or_default()
 }

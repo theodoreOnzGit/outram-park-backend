@@ -13,14 +13,15 @@
 #   RE_n     fluidRegion/Re  after step n, for n in 1 10 25 50
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 R=$1/transient
-N=${2:-50}   # third argument (gh:#1814): output name, default msfr_fluid_transient
+N=${2:-50}   # third argument (gh:#1814): output name, default msfr_fluid_transient; fourth: the start time of the transient (default 165; the light chain uses 20)
+S0=${4:-165}
 L=$R/log.GeN-Foam
 OUT=$(mktemp)
 fld() { awk '/^\($/{f=1;next} /^\)$/{exit} f{gsub(/[()]/,""); print $1}' "$1" | tr '\n' ' '; }
 echo "N $N" > "$OUT"
 echo "DT $(grep '^deltaT = ' $L | head -n $N | awk '{print $3}' | tr '\n' ' ')" >> "$OUT"
-echo "START_T $(fld $R/165/fluidRegion/T)" >> "$OUT"
-echo "START_powerDensity $(fld $R/165/neutroRegion/powerDensity)" >> "$OUT"
+echo "START_T $(fld $R/$S0/fluidRegion/T)" >> "$OUT"
+echo "START_powerDensity $(fld $R/$S0/neutroRegion/powerDensity)" >> "$OUT"
 awk -v N="$N" '
   /^Time = /{s++; if (s>N) exit; kh=0; k=0}
   /Solving for h,/{kh++; split($0,a,"Initial residual = "); split(a[2],b,","); hres[s,kh]=b[1]}
@@ -31,7 +32,7 @@ awk -v N="$N" '
         printf "HRES_%d", i; for(j=1;j<=5;j++) printf " %s", hres[i,j]; printf "\n";
         printf "TSTAT_%d", i; for(j=1;j<=5;j++) printf " %s", ts[i,j]; printf "\n";
         printf "CO_%d %s\n", i, co[i]; printf "POWER_%d %s\n", i, pw[i]; } }' "$L" >> "$OUT"
-ALLT=$(ls $R | grep -E '^[0-9.e+-]+$' | sort -g | grep -v '^0$' | grep -v '^165$')
+ALLT=$(ls $R | grep -E '^[0-9.e+-]+$' | sort -g | grep -v '^0$' | grep -v "^$S0\$")
 i=0
 for T in $ALLT; do
   i=$((i+1)); [ $i -gt $N ] && break
