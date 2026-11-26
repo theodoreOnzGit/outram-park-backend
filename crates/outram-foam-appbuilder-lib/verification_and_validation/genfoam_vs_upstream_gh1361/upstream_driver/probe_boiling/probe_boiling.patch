@@ -1,3 +1,175 @@
+diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H probe1361/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H
+--- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H	2026-11-13 01:06:51.450973063 +0000
++++ probe1361/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H	2026-11-26 08:12:28.957400690 +0000
+@@ -105,6 +105,19 @@
+         +   fvOptions_(alpha2, rho2, he2)
+     );
+ 
++    if (probe1361::on(mesh_.time().timeIndex()))
++    {
++        static long stageCall(0);
++        const scalarField& dgs(E1Eqn.diag());
++        const scalarField& srs(E1Eqn.source());
++        for (label celli = 20; celli < 30; celli++)
++        {
++            probe1361::tag("STAGE_S0", mesh_.time().timeIndex(), stageCall, celli);
++            probe1361::kv("diag", dgs[celli]);
++            probe1361::kv("source", srs[celli]);
++            probe1361::end();
++        }
++    }
+     if (fluid1_.thermo().dpdt())
+         E1Eqn -= alpha1*dpdtPtr();
+     if (fluid2_.thermo().dpdt())
+@@ -146,6 +159,19 @@
+     }
+ 
+     //- Add kinetic energy contributions
++    if (probe1361::on(mesh_.time().timeIndex()))
++    {
++        static long stageCall(0);
++        const scalarField& dgs(E1Eqn.diag());
++        const scalarField& srs(E1Eqn.source());
++        for (label celli = 20; celli < 30; celli++)
++        {
++            probe1361::tag("STAGE_S1", mesh_.time().timeIndex(), stageCall, celli);
++            probe1361::kv("diag", dgs[celli]);
++            probe1361::kv("source", srs[celli]);
++            probe1361::end();
++        }
++    }
+     if (runTime_.controlDict().lookupOrDefault("includeKineticEnergy", false))
+     {
+         volScalarField K1(0.5*U1&U1);
+@@ -178,6 +204,19 @@
+     //- Add interfacial heat transfer contributions due to heat and mass
+     //  transfer
+     E1Eqn += FFPair_.heSource(E1Eqn.psi().name());
++    if (probe1361::on(mesh_.time().timeIndex()))
++    {
++        static long stageCall(0);
++        const scalarField& dgs(E1Eqn.diag());
++        const scalarField& srs(E1Eqn.source());
++        for (label celli = 20; celli < 30; celli++)
++        {
++            probe1361::tag("STAGE_S2", mesh_.time().timeIndex(), stageCall, celli);
++            probe1361::kv("diag", dgs[celli]);
++            probe1361::kv("source", srs[celli]);
++            probe1361::end();
++        }
++    }
+     E2Eqn += FFPair_.heSource(E2Eqn.psi().name());
+     
+     //- Structure heat sources
+@@ -191,6 +230,19 @@
+     //H2s *= pos2;
+     
+     E1Eqn -= structure_.linearizedSemiImplicitHeatSource(fluid1_, H1s)();
++    if (probe1361::on(mesh_.time().timeIndex()))
++    {
++        static long stageCall(0);
++        const scalarField& dgs(E1Eqn.diag());
++        const scalarField& srs(E1Eqn.source());
++        for (label celli = 20; celli < 30; celli++)
++        {
++            probe1361::tag("STAGE_S3", mesh_.time().timeIndex(), stageCall, celli);
++            probe1361::kv("diag", dgs[celli]);
++            probe1361::kv("source", srs[celli]);
++            probe1361::end();
++        }
++    }
+     E2Eqn -= structure_.linearizedSemiImplicitHeatSource(fluid2_, H2s)();
+ 
+     //- Add additional sources deposited directly in the fluids, only if
+@@ -290,11 +342,77 @@
+     }
+     
+     //- Relax and solve equations
++    {
++        static long eqnCall(0);
++        ++eqnCall;
++        const long pstep(mesh_.time().timeIndex());
++        if (probe1361::on(pstep))
++        {
++            const scalarField& dg(E1Eqn.diag());
++            const scalarField& sr(E1Eqn.source());
++            forAll(dg, celli)
++            {
++                probe1361::tag("EQN1", pstep, eqnCall, celli);
++                probe1361::kv("diag", dg[celli]);
++                probe1361::kv("source", sr[celli]);
++                probe1361::kv("he", he1[celli]);
++                probe1361::kv("alphaEff", alphaEff1[celli]);
++                probe1361::kv("Cp", Cp1[celli]);
++                probe1361::kv("rho", rho1[celli]);
++                probe1361::kv("T", T1[celli]);
++                probe1361::kv("alpha2", alpha2[celli]);
++                probe1361::kv("norm2", fluid2_.normalized()[celli]);
++                probe1361::kv("T2", T2[celli]);
++                probe1361::kv("he2", he2[celli]);
++                probe1361::kv("iT", iT12[celli]);
++                probe1361::kv("dmdt", FFPair_.dmdt()[celli]);
++                probe1361::kv("rho2", rho2[celli]);
++                probe1361::end();
++            }
++            if (E1Eqn.hasUpper())
++            {
++                const scalarField& up(E1Eqn.upper());
++                const scalarField& lo(E1Eqn.lower());
++                forAll(up, facei)
++                {
++                    probe1361::tag("EQN1F", pstep, eqnCall, facei);
++                    probe1361::kv("upper", up[facei]);
++                    probe1361::kv("lower", lo[facei]);
++                    probe1361::end();
++                }
++            }
++        }
++    }
+     E1Eqn.relax();
+     fvOptions_.constrain(E1Eqn);
+     residual_=max(residual_, E1Eqn.solve().max().initialResidual());
+     fvOptions_.correct(he1);
+     he1.relax();
++    {
++        static long eqn2Call(0);
++        ++eqn2Call;
++        const long pstep(mesh_.time().timeIndex());
++        if (probe1361::on(pstep))
++        {
++            const scalarField& dg(E2Eqn.diag());
++            const scalarField& sr(E2Eqn.source());
++            forAll(dg, celli)
++            {
++                probe1361::tag("EQN2", pstep, eqn2Call, celli);
++                probe1361::kv("diag", dg[celli]);
++                probe1361::kv("source", sr[celli]);
++                probe1361::kv("he2", he2[celli]);
++                probe1361::kv("he2i", he2i[celli]);
++                probe1361::kv("alphaEff2", alphaEff2[celli]);
++                probe1361::kv("Cp2", Cp2[celli]);
++                probe1361::kv("rho2", rho2[celli]);
++                probe1361::kv("T2", T2[celli]);
++                probe1361::kv("pos2", fluid2_.aboveThermoResidualAlpha()[celli]);
++                probe1361::kv("neg2", fluid2_.belowThermoResidualAlpha()[celli]);
++                probe1361::end();
++            }
++        }
++    }
+     E2Eqn.relax();
+     fvOptions_.constrain(E2Eqn);
+     residual_=max(residual_, E2Eqn.solve().max().initialResidual());
+diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C probe1361/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C
+--- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C	2026-11-13 01:06:51.451505711 +0000
++++ probe1361/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C	2026-11-26 07:10:29.905335203 +0000
+@@ -40,6 +40,7 @@
+ #include "twoPhase.H"
+ #include <chrono>
+ #include "addToRunTimeSelectionTable.H"
++#include "probe1361.H"
+ 
+ // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+ 
 diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/src/include/probe1361.H probe1361/classes/thermalHydraulics/src/include/probe1361.H
 --- GeN-Foam-src/src/classes/thermalHydraulics/src/include/probe1361.H	1970-01-01 00:00:00.000000000 +0000
 +++ probe1361/classes/thermalHydraulics/src/include/probe1361.H	2026-11-26 06:49:49.211989124 +0000
@@ -358,145 +530,3 @@ diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/
              htc1i = 0;
              htc2i = 0;
          }
-diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H probe1361/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H
---- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H	2026-11-13 01:06:51.450973063 +0000
-+++ probe1361/classes/thermalHydraulics/solvers/twoPhase/include/EEqns_2p.H	2026-11-26 07:21:38.255825106 +0000
-@@ -105,6 +105,19 @@
-         +   fvOptions_(alpha2, rho2, he2)
-     );
- 
-+    if (probe1361::on(mesh_.time().timeIndex()))
-+    {
-+        static long stageCall(0);
-+        const scalarField& dgs(E1Eqn.diag());
-+        const scalarField& srs(E1Eqn.source());
-+        for (label celli = 20; celli < 30; celli++)
-+        {
-+            probe1361::tag("STAGE_S0", mesh_.time().timeIndex(), stageCall, celli);
-+            probe1361::kv("diag", dgs[celli]);
-+            probe1361::kv("source", srs[celli]);
-+            probe1361::end();
-+        }
-+    }
-     if (fluid1_.thermo().dpdt())
-         E1Eqn -= alpha1*dpdtPtr();
-     if (fluid2_.thermo().dpdt())
-@@ -146,6 +159,19 @@
-     }
- 
-     //- Add kinetic energy contributions
-+    if (probe1361::on(mesh_.time().timeIndex()))
-+    {
-+        static long stageCall(0);
-+        const scalarField& dgs(E1Eqn.diag());
-+        const scalarField& srs(E1Eqn.source());
-+        for (label celli = 20; celli < 30; celli++)
-+        {
-+            probe1361::tag("STAGE_S1", mesh_.time().timeIndex(), stageCall, celli);
-+            probe1361::kv("diag", dgs[celli]);
-+            probe1361::kv("source", srs[celli]);
-+            probe1361::end();
-+        }
-+    }
-     if (runTime_.controlDict().lookupOrDefault("includeKineticEnergy", false))
-     {
-         volScalarField K1(0.5*U1&U1);
-@@ -178,6 +204,19 @@
-     //- Add interfacial heat transfer contributions due to heat and mass
-     //  transfer
-     E1Eqn += FFPair_.heSource(E1Eqn.psi().name());
-+    if (probe1361::on(mesh_.time().timeIndex()))
-+    {
-+        static long stageCall(0);
-+        const scalarField& dgs(E1Eqn.diag());
-+        const scalarField& srs(E1Eqn.source());
-+        for (label celli = 20; celli < 30; celli++)
-+        {
-+            probe1361::tag("STAGE_S2", mesh_.time().timeIndex(), stageCall, celli);
-+            probe1361::kv("diag", dgs[celli]);
-+            probe1361::kv("source", srs[celli]);
-+            probe1361::end();
-+        }
-+    }
-     E2Eqn += FFPair_.heSource(E2Eqn.psi().name());
-     
-     //- Structure heat sources
-@@ -191,6 +230,19 @@
-     //H2s *= pos2;
-     
-     E1Eqn -= structure_.linearizedSemiImplicitHeatSource(fluid1_, H1s)();
-+    if (probe1361::on(mesh_.time().timeIndex()))
-+    {
-+        static long stageCall(0);
-+        const scalarField& dgs(E1Eqn.diag());
-+        const scalarField& srs(E1Eqn.source());
-+        for (label celli = 20; celli < 30; celli++)
-+        {
-+            probe1361::tag("STAGE_S3", mesh_.time().timeIndex(), stageCall, celli);
-+            probe1361::kv("diag", dgs[celli]);
-+            probe1361::kv("source", srs[celli]);
-+            probe1361::end();
-+        }
-+    }
-     E2Eqn -= structure_.linearizedSemiImplicitHeatSource(fluid2_, H2s)();
- 
-     //- Add additional sources deposited directly in the fluids, only if
-@@ -290,6 +342,47 @@
-     }
-     
-     //- Relax and solve equations
-+    {
-+        static long eqnCall(0);
-+        ++eqnCall;
-+        const long pstep(mesh_.time().timeIndex());
-+        if (probe1361::on(pstep))
-+        {
-+            const scalarField& dg(E1Eqn.diag());
-+            const scalarField& sr(E1Eqn.source());
-+            forAll(dg, celli)
-+            {
-+                probe1361::tag("EQN1", pstep, eqnCall, celli);
-+                probe1361::kv("diag", dg[celli]);
-+                probe1361::kv("source", sr[celli]);
-+                probe1361::kv("he", he1[celli]);
-+                probe1361::kv("alphaEff", alphaEff1[celli]);
-+                probe1361::kv("Cp", Cp1[celli]);
-+                probe1361::kv("rho", rho1[celli]);
-+                probe1361::kv("T", T1[celli]);
-+                probe1361::kv("alpha2", alpha2[celli]);
-+                probe1361::kv("norm2", fluid2_.normalized()[celli]);
-+                probe1361::kv("T2", T2[celli]);
-+                probe1361::kv("he2", he2[celli]);
-+                probe1361::kv("iT", iT12[celli]);
-+                probe1361::kv("dmdt", FFPair_.dmdt()[celli]);
-+                probe1361::kv("rho2", rho2[celli]);
-+                probe1361::end();
-+            }
-+            if (E1Eqn.hasUpper())
-+            {
-+                const scalarField& up(E1Eqn.upper());
-+                const scalarField& lo(E1Eqn.lower());
-+                forAll(up, facei)
-+                {
-+                    probe1361::tag("EQN1F", pstep, eqnCall, facei);
-+                    probe1361::kv("upper", up[facei]);
-+                    probe1361::kv("lower", lo[facei]);
-+                    probe1361::end();
-+                }
-+            }
-+        }
-+    }
-     E1Eqn.relax();
-     fvOptions_.constrain(E1Eqn);
-     residual_=max(residual_, E1Eqn.solve().max().initialResidual());
-diff -ruN -x lnInclude -x 'linux64*' GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C probe1361/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C
---- GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C	2026-11-13 01:06:51.451505711 +0000
-+++ probe1361/classes/thermalHydraulics/solvers/twoPhase/twoPhase.C	2026-11-26 07:10:29.905335203 +0000
-@@ -40,6 +40,7 @@
- #include "twoPhase.H"
- #include <chrono>
- #include "addToRunTimeSelectionTable.H"
-+#include "probe1361.H"
- 
- // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
- 

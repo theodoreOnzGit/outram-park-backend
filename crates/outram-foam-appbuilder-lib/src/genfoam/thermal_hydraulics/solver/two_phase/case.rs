@@ -45,7 +45,7 @@ use uom::si::volumetric_power_density::watt_per_cubic_meter;
 use super::fv::{Bc, Geometry, Scalar, Vector, VectorBc};
 use super::thermo::PhaseThermo;
 use super::{
-    ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
+    ByRegime, HPbicgstab, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
     ChfSelection, Structure, TimeControls, TraceBoilingModel, TraceChfModel, TwoPhaseControls, TwoPhaseModels,
 };
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::cachard::{CachardLiquid, CachardVapour};
@@ -222,6 +222,15 @@ pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
 
 /// The first entry of `d` whose (regex) key matches `name`, as OpenFOAM
 /// looks up `relaxationFactors` and `solvers`.
+/// OpenFOAM's dictionary lookup of `name`: the exact keyword if there is one, else the LAST declared pattern that matches (patterns
+/// are searched from the newest entry back, so a catch-all `".*"` declared after `"h.*"` shadows it).
+pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+    if let Some(e) = d.get(name) {
+        return Some(e);
+    }
+    d.iter().filter(|(k, _)| key_matches(k, name)).last().map(|(_, e)| e)
+}
+
 pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
@@ -1123,6 +1132,20 @@ impl TwoPhaseCase {
             Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "minIter").unwrap_or(0.0) as usize),
             _ => return Err(ctx.e("no h.* solver")),
         };
+        // OpenFOAM resolves a name to the exact keyword, else the LAST matching pattern: for `h.liquid` a catch-all `".*"` declared after
+        // `"h.*"` wins (upstream's log: `diagonalPBiCGStab: Solving for h.liquid`)
+        let h_pbicgstab = match lookup_pattern_last(solvers, &format!("h.{}", names[0])) {
+            Some(FoamEntry::SubDict(d))
+                if word(d, "solver").as_deref() == Some("PBiCGStab") && word(d, "preconditioner").as_deref() == Some("diagonal") =>
+            {
+                Some(HPbicgstab {
+                    tolerance: ctx.f64(d, "tolerance")?,
+                    rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                    min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                })
+            }
+            _ => None,
+        };
         let alpha_d = match lookup_regex(solvers, "alpha") {
             Some(FoamEntry::SubDict(d)) => d.clone(),
             _ => return Err(ctx.e("no alpha solver dictionary")),
@@ -1220,6 +1243,7 @@ impl TwoPhaseCase {
             p_rgh_tolerance: p_rgh_tol,
             h_tolerance: h_tol,
             h_min_iter: h_min,
+            h_pbicgstab,
             residual_control_p_rgh: rc_tol("p_rgh"),
             residual_control_h1: rc_tol(&format!("h.{}", names[0])),
             mass_transfer_safety_factor: scalar(pimple, "massTransferSafetyFactor"),

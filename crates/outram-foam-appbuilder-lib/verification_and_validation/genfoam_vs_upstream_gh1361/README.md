@@ -2290,3 +2290,36 @@ the step-41 parting (round 10) is `flux` alone (`T.vapour` 2.9e-2 at step 41 wit
 ## Moved numbers (old -> new, cause)
 
 See "Gates run" at the end of this round.
+
+### Round 13 addendum (2026-11-26): cause 5, the enthalpy linear solver; gates; where the probe patch lives
+
+**Cause 5 - which solver the enthalpy equations get.** OpenFOAM resolves a name in `fvSolution.solvers` to the exact keyword, else the
+LAST matching pattern. For `h.liquid` the catch-all `".*"` (`PBiCGStab`/`diagonal`) is declared after `"h.*"` (`smoothSolver`,
+`symGaussSeidel`), so upstream's log prints `diagonalPBiCGStab: Solving for h.liquid`; the port took the first match. The
+`symGaussSeidel` sweeps stop at the nominal tolerance with 1e-8 relative error in the stiff cells next to a `thermoResidualAlpha`
+stabilised region (diagonal 1e11 times the cell's); PBiCGStab reaches 1e-17. New: `lookup_pattern_last` (case.rs),
+`TwoPhaseControls::h_pbicgstab`, run by `pbicgstab::pbicgstab_diagonal`; earlier form `with_smooth_solver_for_enthalpy()` (flag `hsolver`).
+Predicted before measuring: the step-635 discrete jump of 1D_boiling MULES (p 2.85e-4 after 7e-14) disappears and the shipped PSBT
+step-13 alpha miss (7.6e-4) shrinks. Held: p at 635 is 1.4e-10, growth is smooth (636: 2.5e-7, 637: 9.5e-6, 639: 1.3e-3, 641: 2e-1); shipped
+PSBT step 13 alpha 2.1e-6, steps 14-60 alpha 2.9e-8, 61-407 p 3.6e-9, T.vapour 1.2e-8.
+
+**Moved numbers (cause 5).** MULES first flow field > 1e-6: step 635 -> 636 (T.vapour also 636); dt first differs 637; `sub_ok` first false
+638 -> 643; the port's flow collapses its step at t = 6.229 s (dt ~ 5e-13) after step 653 (it used to run to 12 s by the luck of the
+excursion; upstream aborts there too). 1D_boiling PIMPLE-flow first differing iteration count/ending: 759 -> 640. Sensitivity of the port to
+its own alpha solve: 0 at 6.0 s, 1.4e-9 at 6.2 s (was 0.76 at 6.5 s). Tests moved accordingly (documented where they live).
+
+**Still unexplained.** #1816 step-1 seed in alpha/U/p of closed 1D_CHF (the fluid-mechanics half after the TRACECHF closure agrees);
+lookup_table_chf 6e-4 from the same seed; #1821 ramp-onset transient (htc 2.3e-5 at 10.125 s); the post-onset excursion itself (port
+collapses its step, upstream aborts at step 650).
+
+**Probe patch.** `upstream_driver/probe_boiling/probe_boiling.patch` is `diff -ruN` of the upstream `src/classes/{thermalHydraulics,common}`
+against the instrumented copy (paths relative to the directory that holds `GeN-Foam-src/` and `probe1361/`); `build*.sh`, `run_probe*.sh`
+and the `*.py` alignment scripts (by step order of appearance, outer iteration, cell; step 2 is skipped by upstream) are beside it.
+Scripts carry the author's scratch paths; adjust them. The scratch tree itself is deleted.
+
+**Gates run (2026-11-26, release, targeted per the parallel-streams rule; the full integration run is the parent's).**
+`GENFOAM_UPSTREAM=... cargo test -p outram-foam-appbuilder-lib`: `--lib` 490 passed, 0 failed, 2 ignored; tests
+`genfoam_two_phase_vs_upstream` 12 passed + 3 ignored (after the two edits above), `genfoam_two_phase_mules_vs_upstream` 6 passed,
+`genfoam_chf_trace_vs_upstream` 5, `genfoam_psbt_shipped_vs_upstream` 4, `genfoam_psbt_trace_vs_upstream` 7 (ignored dumps not run).
+`cargo test -p petir --test no_platform_libm` 4 passed. `bash scripts/check-nostd.sh` exit 0. The remaining integration test files were
+NOT run by this stream (an aborted full run had passed everything up to `genfoam_two_phase_*` except the two tests fixed here).

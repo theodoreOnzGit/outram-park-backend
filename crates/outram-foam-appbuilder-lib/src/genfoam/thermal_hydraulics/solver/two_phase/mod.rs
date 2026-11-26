@@ -263,6 +263,18 @@ pub struct TraceBoilingModel {
     pub sub_cooled_fraction: Option<SubcooledBoilingFraction>,
 }
 
+/// The `PBiCGStab`/`diagonal` entry of the `solvers` dictionary that the enthalpy equations resolve to
+/// ([`TwoPhaseControls::h_pbicgstab`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HPbicgstab {
+    /// `tolerance`.
+    pub tolerance: f64,
+    /// `relTol` (default 0).
+    pub rel_tol: f64,
+    /// `minIter` (default 0).
+    pub min_iter: usize,
+}
+
 /// One recorded evaluation of `multiRegimeBoilingTRACE` for one cell (gh:#1361 round 13 diagnostic, see
 /// [`TwoPhaseSolver::trace_probe`]): the named intermediates, in the order the model computes them.
 #[derive(Debug, Clone, PartialEq)]
@@ -440,6 +452,12 @@ pub struct TwoPhaseControls {
     pub h_tolerance: f64,
     /// `solvers."h.*".minIter`.
     pub h_min_iter: usize,
+    /// The linear solver the enthalpy equations really get (gh:#1361 round 13): OpenFOAM resolves `h.<fluid>` in the `solvers`
+    /// dictionary to the LAST matching pattern, so a catch-all `".*"` declared after `"h.*"` wins. `Some`: that entry is
+    /// `PBiCGStab` with the `diagonal` preconditioner (what the case files of every ported tutorial select, and what
+    /// upstream's log prints: `diagonalPBiCGStab: Solving for h.liquid`), run by [`pbicgstab::pbicgstab_diagonal`]. `None`:
+    /// the port's earlier `symGaussSeidel` sweeps with [`Self::h_tolerance`] ([`TwoPhaseSolver::with_smooth_solver_for_enthalpy`]).
+    pub h_pbicgstab: Option<HPbicgstab>,
     /// `residualControl.p_rgh.tolerance` (with `useFirstPISOInitialResidual`).
     pub residual_control_p_rgh: Option<f64>,
     /// `residualControl.h.<fluid1>.tolerance`.
@@ -2841,16 +2859,56 @@ impl TwoPhaseSolver {
                     p.extend(recs);
                 }
             }
+            if k == 1 && self.trace_probe.is_some() {
+                let recs: Vec<TraceProbeRecord> = (0..n)
+                    .map(|c| TraceProbeRecord {
+                        kind: "eqn2",
+                        time: self.time,
+                        outer_iteration: self.corr_in_step,
+                        cell: c,
+                        values: vec![
+                            ("diag", e.ldu.diag[c]),
+                            ("source", e.source[c]),
+                            ("he2", self.fluids[1].he.c[c]),
+                            ("he2i", hei[c]),
+                            ("alphaEff2", ae.c[c]),
+                            ("Cp2", self.fluids[1].cp.c[c]),
+                            ("rho2", self.fluids[1].rho.c[c]),
+                            ("T2", self.fluids[1].t.c[c]),
+                            ("pos2", self.fluids[1].above_thermo_residual_alpha[c]),
+                            ("neg2", self.fluids[1].below_thermo_residual_alpha[c]),
+                        ],
+                    })
+                    .collect();
+                if let Some(p) = self.trace_probe.as_mut() {
+                    p.extend(recs);
+                }
+            }
             let fl = &self.fluids[k];
             let prev = fl.he.c.clone();
             let mut x = prev.clone();
-            let (sweeps, ini, _) = super::one_phase::smooth_solve_sym_gauss_seidel(
-                &e.ldu,
-                &e.source,
-                &mut x,
-                SolverSettings { tolerance: self.controls.h_tolerance, max_iter: 1000 },
-            );
-            if sweeps == 0 && self.controls.h_min_iter > 0 {
+            let (sweeps, ini) = if let Some(pb) = self.controls.h_pbicgstab {
+                // upstream resolves `h.<fluid>` to the LAST matching pattern of `solvers` (`".*"`: PBiCGStab, diagonal)
+                let perf = pbicgstab::pbicgstab_diagonal(
+                    &e.ldu,
+                    &e.source,
+                    &mut x,
+                    pb.tolerance,
+                    pb.rel_tol,
+                    pbicgstab::DEFAULT_MAX_ITER,
+                    pb.min_iter,
+                );
+                (perf.iterations.max(1), perf.initial_residual)
+            } else {
+                let (sweeps, ini, _) = super::one_phase::smooth_solve_sym_gauss_seidel(
+                    &e.ldu,
+                    &e.source,
+                    &mut x,
+                    SolverSettings { tolerance: self.controls.h_tolerance, max_iter: 1000 },
+                );
+                (sweeps, ini)
+            };
+            if self.controls.h_pbicgstab.is_none() && sweeps == 0 && self.controls.h_min_iter > 0 {
                 let _ = super::one_phase::smooth_solve_sym_gauss_seidel(
                     &e.ldu,
                     &e.source,
@@ -3115,6 +3173,16 @@ impl TwoPhaseSolver {
     #[must_use]
     pub fn with_converged_temperature_newton(mut self) -> Self {
         self.controls.converged_temperature_newton = true;
+        self
+    }
+
+    /// DEPRECATED (gh:#1361 round 13): solve the enthalpy equations with `smoothSolver`/`symGaussSeidel` and the first
+    /// matching `solvers` entry (`h.*`), as the port did before it resolved `h.<fluid>` as OpenFOAM does (the LAST matching
+    /// pattern: `".*"`, `PBiCGStab`/`diagonal`). The `symGaussSeidel` sweeps stop at the nominal tolerance with a solution error of
+    /// 1e-8 relative in the stiff cells next to a stabilised (`thermoResidualAlpha`) region, where upstream's solve reaches 1e-17.
+    #[must_use]
+    pub fn with_smooth_solver_for_enthalpy(mut self) -> Self {
+        self.controls.h_pbicgstab = None;
         self
     }
 

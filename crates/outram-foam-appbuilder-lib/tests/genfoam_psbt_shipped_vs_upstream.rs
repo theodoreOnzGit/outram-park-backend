@@ -384,6 +384,9 @@ fn round13_solver_f(mut s: TwoPhaseSolver, off: &[String]) -> TwoPhaseSolver {
     if off.iter().any(|x| x == "flux") {
         s = s.with_earlier_interfacial_flux_ratio();
     }
+    if off.iter().any(|x| x == "hsolver") {
+        s = s.with_smooth_solver_for_enthalpy();
+    }
     s
 }
 
