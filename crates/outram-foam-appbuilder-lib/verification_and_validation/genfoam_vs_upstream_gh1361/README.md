@@ -2548,9 +2548,9 @@ every `solvers` tolerance 1e-14, `relTol 0`), first steps. Fields compared per s
 | X1 | the three shipped directories read | succeed with empty `deviations` once `symmetry` is ported; `DhStruct`, `LaheyKEpsilon`/`kEpsilon`/`porousKEpsilon`/`mixtureKEpsilon`, wall-function BCs refused by name | a key or BC type not read |
 | X2 | steps 1-8, single phase: `k`, `epsilon` | <= 1e-9 of the field maximum (same algorithm, same matrix, solves to 1e-14); NOT bit-identical (a different association of the source terms) | an association of the sources, or `relax` |
 | X3 | same steps: `nut`, `alphat` | <= 1e-8 (`nut = Cmu k^2/eps` doubles the relative error of `k`); `alphat/nut` = `rho` exactly (`Prt` 1) | `Prt` or `rho` boundary |
-| X4 | same steps: `p`, `T.*`, `U.*`, `dt` | at round 12's through-flow level (`p` <= 1.4e-11, `T` <= 2e-11, `U` <= 4e-10, `dt` equal), i.e. the turbulence adds nothing measurable | `nuEff` arithmetic (`alpha rho (nut + mu/rho)` vs `alpha mu`), the `symmetry` patch of `U`/`p_rgh` |
+| X4 | E: `disp` port vs real class, 4 steps | **bit-identical (65 %)**; same fallback and cause list as X1. At step 1 `old = oldold = 0`, so a wrong old-old shift cannot show before step 2 (first step with `disp(1) != 0`) and step 3 (first with a shifted `oldold`); if there is a divergence it starts there. |
 | X5 | `bound()` | never triggers in steps 1-8 (`k`, `epsilon` stay above 1e-15) | n/a |
-| X6 | first step above the 1e-9 round-off allowance | the first nucleate-boiling evaluation of the wall (gh:#1803/#1816, `htc.liquid.structure` ~4e-9), NOT a turbulence quantity | a turbulence field first |
+| X6 | E: old-old handling | no separate control (it would need API only a test uses); the decisive evidence for the shift is X4 at steps 3 and 4: a wrong shift (`oldold` not advanced, or advanced per corrector) cannot be bit-identical there |
 | X7 | ablation: `relax(1)` omitted | `k`, `epsilon` move by <= 1e-12 where the matrix is already diagonally dominant; larger where `div(alphaRhoPhi) < -ddt` (net convergence) | n/a |
 | X8 | ablation: laminar `nuEff` (turbulence off) | `U.liquid` changes at the 1e-2 level or more within 10 steps (initial `nut = 0.09 m^2/s` from `k = 0.1`, `epsilon = 0.01`, five orders above `nu`) | n/a |
 | X9 | `regressionResults` (Ex1 at t = 5 s: `alpha.vapour` 0.123835, `T.fixedPower` 620.178) | the port reaches 5 s and lands within 5 % of both (a quasi-steady state is less sensitive than round 12's step-51 separation) OR does not reach 5 s in the allowed wall time (reported as such, not as a miss) | the Phase_Ex1_12223 separation mechanism (#1820) |
@@ -3678,3 +3678,51 @@ AI-written, not human-reviewed. Research, education and V&V only. Written 2026-1
 * **R6** (real class vs transcription): on the mechanics region the real `legacyThermoMechanics::deformMesh()` and the port agree bit for bit, so the transcription used for `neutroRegion`/`fluidRegion` is the same operation.
 * **R7** (magnitude and sign, from the closed form `dz = 2e-3 n s (1 + 0.3 r^2)`, `dx = 1e-3 n (x s + 0.05 y (1 - s))`, `s = (z + 0.2)/2.51`): `max |pointDisp|` about `4e-3 m` at step 1 and twice that at step 2 (the field is `n` times a fixed shape and the points are `original + interpolated`, not cumulative); the relative cell-volume change is positive on average (the divergence of the field is positive) with a maximum of order `3e-3` at step 1 and `6e-3` at step 2. A negative mean volume change would mean a sign error.
 * **R8** (refusals): `symmetry`/`symmetryPlane`/`wedge`/`empty`/`cyclic*`/`processor` patches, a displacement patch condition other than `zeroGradient` or `fixedValue`, any key but `displacementField` in a `meshDeformation` entry, and `removeBaffles` on a deformed region are refused by name. `meshPhi` and the old-time volumes `V0`/`V00` that `fvMesh::movePoints` also sets (consumed by `ddt` on a moving mesh in the TH solver) are NOT ported: recorded on gh:#1846.
+
+---
+
+# Round 27 (gh:#1845, child of #1781): `compactNormalStress no` (`fvMatrix::flux`) and the transient `d2dt2` of `legacyThermoMechanics`
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26; **predictions committed BEFORE the first upstream run and BEFORE any port code**.
+
+## What was read before any code (upstream = GeN-Foam 652b3da on ESI v2506)
+
+* `solveThermalMechanics.H`: with `compactNormalStress no` the loop is `DEqn.solve(); divSigmaExp_ = fvc::div(DEqn.flux());` and then, after `gradD`/`sigmaD_`, `divSigmaExp_ += fvc::div(sigmaD_)`. The constructor takes the other branch too: `divSigmaExp_ = fvc::div(sigmaD_); divSigmaExp_ -= fvc::div((2*mu_ + lambda_)*fvc::grad(disp_), "div(sigmaD)")` (not the Laplacian), and ends with `mesh_.setFluxRequired(disp_.name())`, which is what makes `fvm::laplacian` store the `faceFluxCorrection`.
+* `fvMatrix::flux()` (`fvMatrix.C:1422`): internal faces `lduMatrix::faceH(psi)` = `Upper[f]*psi[u] - Lower[f]*psi[l]`, boundary faces `cmptMultiply(internalCoeffs, patchInternalField) - boundaryCoeffs`, then `+= *faceFluxCorrectionPtr_`. For `DEqn = d2dt2 == laplacian + divSigmaExp` (`A - B`, `fvMatrix::operator-=`) the matrix carries `0 - B` coefficients and the correction `-(gammaMagSf*correction(disp))` (`operator-=` negates it). Consequently `div(DEqn.flux())` is MINUS the face-form Laplacian of the solved displacement (with the non-orthogonal part), and `+ div(sigmaD)` completes it: the lagged term differs from the compact form's `div(sigmaD - (2mu+lambda) gradD)` only in how `div(gradD)` is discretised.
+* The coefficients the flux uses are the ones STORED when `DEqn` was built (the `GFTractionDisplacement` gradient of that moment), not those after `correctBoundaryConditions()` recomputes the gradient.
+* `d2dt2` schemes in ESI v2506: **only `steadyState` and `Euler` exist** (`src/finiteVolume/finiteVolume/d2dt2Schemes/`: `EulerD2dt2Scheme`, `steadyStateD2dt2Scheme`). **There is no `backward` d2dt2 scheme in v2506**; the issue's "Euler and backward" is therefore Euler only, and `backward` is refused by name (it would be rejected by upstream too).
+* `EulerD2dt2Scheme::fvmD2dt2` (non-moving branch): `coefft = (dt+dt0)/(2 dt)`, `coefft00 = (dt+dt0)/(2 dt0)`, `coefft0 = coefft + coefft00`, `rDeltaT2 = 4/sqr(dt+dt0)`, `diag = (coefft*rDeltaT2)*V`, `source = rDeltaT2*V*(coefft0*old - coefft00*oldold)`. `vf.oldTime().oldTime()` is created lazily: on the FIRST evaluation of an Euler `d2dt2` both are copies of the current field (so at step 1 `old = oldold = disp(0)`), and `storeOldTimes()` shifts them once per time index afterwards (`oldold <- old <- disp`), not once per corrector. `Time::operator++` sets `deltaT0 = deltaTSave` (the previous step's length; the first step's `deltaT0 = deltaT`).
+* `steadyStateD2dt2Scheme::fvmD2dt2` never touches `oldTime()`: with `steadyState` no old field is ever created.
+
+## What the workspace already had (searched before writing; reuse, rejected, new)
+
+* `outram_foam_basic_lib::fv_operators::fvm::d2dt2` (`d2dt2.rs`): constant step only, `V*(1/(dt*dt))` instead of upstream's `(coefft*rDeltaT2)*V` with `rDeltaT2 = 4/sqr(dt+dt0)` (not the same rounding), no `deltaT0`, builds a different matrix type: **checked and rejected** (no bit-identity, no variable step). `solid_displacement_foam` is `steadyState` only; `outram-foam-cli` `mechanics_code_to_code.rs` compares against a different code. `solvers::non_orthogonal` stores a SCALAR `faceFluxCorrection` for the pressure equation: not the vector one. No `fvMatrix::flux` for a vector matrix exists in the workspace.
+* Re-used: every operator of round 23/24 (`vector_correction`, `div_tensor_field`, `div_sigma_d`, `surface_integrate`, `laplacian_parts`, `pcg_dic`).
+* New, in `legacy_fvm/mod.rs` (no kovan-reviewed function exists in that folder; `review.md` has no `kind = "review"` block): a `D2dt2Scheme` enum (`SteadyState` default, `Euler`), `LegacyFvmThermoMechanics::with_d2dt2`, the old-time store, the `fvMatrix::flux` assembly, the non-compact constructor branch; `LegacyFvmCase` reads `d2dt2Schemes.default` (`steadyState`/`Euler`) and `compactNormalStress` (both). `LegacyFvmSettings` is NOT changed (`d2dt2` is a builder, so the three struct literals elsewhere are untouched).
+
+## The cases (staged by `scripts/make_legacy_tm_case.sh`, new options `COMPACT=no`, `D2DT2=Euler`, `DELTAT=`; the round-23 case otherwise: 23340 cells, tight protocol 1e-14 / relTol 0, `writePrecision 17`)
+
+| case | compactNormalStress | d2dt2 | deltaT | steps |
+|---|---|---|---|---|
+| F (flux) | no | steadyState | 1 s | 3 |
+| E (Euler) | yes | Euler | 1e-3 s, constant | 4 |
+| FE (both, variable step) | no | Euler | 1e-3 s, then x1.3 per step (`LEGACY_TM_DT_RATIO` in the driver, `Time::setDeltaT` before `runTime++`, as a CFL-controlled run does) | 4 |
+
+Why `deltaT 1e-3`: with `rho = 800..1500`, `E = 0.5..2 GPa` the wave speed is about 1 km/s and the region is 2.5 m tall, so `dt = 1 s` is quasi-static (inertia changes `disp` by ~1e-9 relative: a weak test) while `dt = 1e-3 s` puts the global mode in the inertial regime (`L/(c dt) ~ 2.5`). The reference stores `disp` at every step and every field at the last step (the other fields are not touched by the new code; they are compared at the last step), plus the full solver log.
+
+## Predictions (written BEFORE the first run of upstream or port; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| X1 | F: `disp` port vs real class, all 3 steps | **bit-identical (65 %)**: the new chain is `faceH`, a boundary `int*P - bnd`, `+ (-(gmsf*corr))`, `surface_integrate`, `+ div(sigmaD)`, each a plain translation of operations the port already reproduces. If not bit-identical, the first divergence is at step 1 corrector 2 (the first use of the flux) with a worst relative difference between 1e-16 and 1e-12 of `max|disp|`, and the likeliest cause is an operand order in the boundary term (`int*P - bnd` vs `-(bnd - int*P)`) or in `0 - B.upper`. |
+| X2 | F: solver counts | all linear-solve iteration counts equal, initial residuals bit-identical (same condition as X1) |
+| X3 | F control: the same case with `compactNormalStress yes` (port) against the `no` reference | differs: `disp` by 1e-4 to 1e-1 of `max|disp|` (the two forms discretise `div(grad D)` differently and the 3 correctors per step are not converged to the discretisation difference); if it is below 1e-9 the case cannot tell the forms apart and is a weak test |
+| X4 | E: `disp` port vs real class, 4 steps | **bit-identical (65 %)**; same fallback and cause list as X1 with the first divergence at step 2 (the first step with `old != oldold` in the SECOND slot... step 1 has `old = oldold = 0`) |
+| X5 | E control: port with `steadyState` against the Euler reference | `disp` differs by more than 10 % of `max|disp|` at step 1 (the inertial regime), proving the term is live; and the Euler `disp` at step 1 has a smaller maximum than the steady one |
+| X6 | E control: old-old handling: the port with `oldold` replaced by `old` at every step (test-only variant, via two `with_d2dt2` runs is not possible; done by comparing step 3 of the port against a port run whose step-2 old-old is not shifted) | not run if it needs new API; the decisive evidence for the shift is X4 at steps 3 and 4 (a wrong shift cannot be bit-identical there) |
+| X7 | FE: `disp` port vs real class, 4 steps with `dt0 != dt` from step 2 | **bit-identical (55 %)**: the coefficient expressions are transcribed with the same operation order; the least certain item is `deltaT0` at step 1 (`deltaT0 = deltaT`) and the `2*deltaT0` of `coefft00` |
+| X8 | FE control: port that ignores the schedule (constant `dt`, so `dt0 = dt` and `coefft = coefft00 = 1`) against the FE reference | `disp` differs by more than 1e-3 of `max|disp|` from step 2 on |
+| X9 | all: `TStruct`, `fuelDisp`, `CRDisp` at the last step | bit-identical (the new code does not touch them; with `dt` varying the `ddt` of `TStruct` takes the current `deltaT`, as round 23) |
+| X10 | `Max sigmaEq`, `residual_` | equal to all printed digits when `disp` is bit-identical |
+| X11 | cost | port, release: F about 4 s, E about 4 s, FE about 4 s (round 23: 3 steps in ~1.2 s each test) |
+| X12 | stability | no case diverges; the lagged explicit term is stabilised by the inertia diagonal in E and FE, and `nCorrectors 3` is kept |
