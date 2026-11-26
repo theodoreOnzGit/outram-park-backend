@@ -83,6 +83,10 @@ pub struct Design {
     pub expansion: f64,
     pub strategy: LayerQualityStrategy,
     pub dual: DualKind,
+    /// The mesh type: `true` for the polyhedral dual of the tetrahedra,
+    /// `false` for the tetrahedra themselves (layers, when asked for, grow
+    /// on either). The pipeline's own switch, `TetDualOptions::dual`.
+    pub polyhedral: bool,
 }
 
 impl Default for Design {
@@ -98,6 +102,7 @@ impl Default for Design {
             expansion: p.opts.expansion,
             strategy: p.opts.layer_strategy,
             dual: p.opts.dual_kind,
+            polyhedral: p.opts.dual,
         }
     }
 }
@@ -108,6 +113,11 @@ impl Design {
     /// tetrahedra, a few seconds in a phone's browser.
     pub const MIN_CELLS_ACROSS: f64 = 12.0;
 
+    /// The most boundary layers the page offers. Stacks of 20 or more are
+    /// common in wall-resolved CFD (the maintainer's reference pictures,
+    /// gh:#1796); every layer adds one cell per wall face.
+    pub const MAX_LAYERS: usize = 25;
+
     /// Clamp to what a phone can mesh in seconds and to valid layer values.
     pub fn clamped(mut self) -> Self {
         self.size = self.size.clamp(0.1, 10.0);
@@ -115,7 +125,7 @@ impl Design {
         self.cell_size = self
             .cell_size
             .clamp(span / Self::MIN_CELLS_ACROSS, span / 2.0);
-        self.n_layers = self.n_layers.min(5);
+        self.n_layers = self.n_layers.min(Self::MAX_LAYERS);
         self.first_layer = self.first_layer.clamp(1e-4 * span, 0.1 * span);
         self.expansion = self.expansion.clamp(1.0, 2.0);
         self
@@ -149,6 +159,7 @@ impl Design {
                 expansion: d.expansion,
                 layer_strategy: d.strategy,
                 dual_kind: d.dual,
+                dual: d.polyhedral,
                 ..base.opts
             },
             ..base
@@ -475,6 +486,7 @@ impl Request {
                     .position(|&s| s == d.strategy)
                     .unwrap_or(0) as f64,
                 DUALS.iter().position(|&s| s == d.dual).unwrap_or(0) as f64,
+                f64::from(u8::from(d.polyhedral)),
             ],
             Request::Section {
                 id,
@@ -507,6 +519,7 @@ impl Request {
                 let (first_layer, expansion) = (w.next()?, w.next()?);
                 let strategy = *STRATEGIES.get(w.count()?).ok_or("bad strategy")?;
                 let dual = *DUALS.get(w.count()?).ok_or("bad dual")?;
+                let polyhedral = w.next()? != 0.0;
                 Ok(Request::Build {
                     id,
                     design: Design {
@@ -519,6 +532,7 @@ impl Request {
                         expansion,
                         strategy,
                         dual,
+                        polyhedral,
                     },
                 })
             }
@@ -723,6 +737,50 @@ mod tests {
         got.remove(0)
     }
 
+    /// The four mesh types the page offers all build valid meshes: the
+    /// tetrahedra or their polyhedral dual, each with or without boundary
+    /// layers.
+    ///
+    /// **Methodology.** The default 2 m box (cell size 0.5 m, 3 layers
+    /// when asked for), built through the engine. **Results (2026-11-26,
+    /// structured carve-and-split tets):**
+    ///
+    /// | mesh type | core cells | per layer |
+    /// |---|---|---|
+    /// | tets | 2304 | none |
+    /// | tets + 3 layers | 2304 | 384 |
+    /// | dual | 429 | none |
+    /// | dual + 3 layers | 429 | 1152 |
+    ///
+    /// 384 = 6 faces × 64 boundary triangles; 1152 = the dual's wall faces.
+    /// Pinned so a change to either route is seen.
+    #[test]
+    fn every_mesh_type_builds_a_valid_mesh() {
+        for (polyhedral, n_layers, want) in [
+            (false, 0, vec![2304]),
+            (false, 3, vec![2304, 384, 384, 384]),
+            (true, 0, vec![429]),
+            (true, 3, vec![429, 1152, 1152, 1152]),
+        ] {
+            let d = Design {
+                polyhedral,
+                n_layers,
+                ..Design::default()
+            };
+            let mut e = Engine::default();
+            let Event::Built(s) = serve_one(&mut e, Request::Build { id: 1, design: d }) else {
+                panic!("no build for polyhedral={polyhedral}, n={n_layers}")
+            };
+            assert_eq!(s.negative_cells, 0, "polyhedral={polyhedral}, n={n_layers}");
+            assert_eq!(
+                s.layer_counts, want,
+                "polyhedral={polyhedral}, n={n_layers}"
+            );
+            let dual = s.stages.iter().find(|x| x.stage == PipelineStage::Dual);
+            assert_eq!(dual.is_some_and(|x| x.applied), polyhedral, "dual stage");
+        }
+    }
+
     /// Requests and events survive the wire exactly (every `f64` is carried
     /// as itself), including a real build's summary and a real cut.
     #[test]
@@ -732,6 +790,7 @@ mod tests {
             design: Design {
                 n_layers: 2,
                 strategy: LayerQualityStrategy::SnappyCollapse,
+                polyhedral: false,
                 ..Design::default()
             },
         };

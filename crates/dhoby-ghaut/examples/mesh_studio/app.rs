@@ -16,7 +16,8 @@
 //! URL query (or `--key value` natively): `shape=box|sphere|cylinder|subdivided-cube|pipe|fuel-channel|pebble`,
 //! `stage=<label>`, `layers=<k>` (growth slider), `colour=layer|nonorth|skew`,
 //! `axis=x|y|z`, `h=<cell size, m>`, `n=<layers>`,
-//! `strategy=backoff|cfmesh|snappy`, `dual=corner|point|centre`.
+//! `strategy=backoff|cfmesh|snappy`, `dual=corner|point|centre`,
+//! `mesh=tet|poly` (the mesh type; `n=0` for no boundary layers).
 
 use bugis::web_demo::dock::{Dock, Edge};
 use bugis::web_demo::field::{self, ColourMap, Scale};
@@ -110,6 +111,11 @@ impl MeshApp {
             Some("cfmesh") => design.strategy = STRATEGIES[1],
             Some("snappy") => design.strategy = STRATEGIES[2],
             Some("backoff") => design.strategy = STRATEGIES[0],
+            _ => {}
+        }
+        match get("mesh").as_deref() {
+            Some("tet") => design.polyhedral = false,
+            Some("poly") => design.polyhedral = true,
             _ => {}
         }
         match get("dual").as_deref() {
@@ -305,8 +311,19 @@ impl MeshApp {
         );
 
         ui.add_space(6.0);
+        ui.strong("Mesh type");
+        ui.radio_value(&mut d.polyhedral, false, "tetrahedra");
+        ui.radio_value(
+            &mut d.polyhedral,
+            true,
+            "polyhedra (dual of the tetrahedra)",
+        );
+
+        ui.add_space(6.0);
         ui.strong("Boundary layers");
-        ui.add(egui::Slider::new(&mut d.n_layers, 0..=5).text("layers"));
+        ui.add(
+            egui::Slider::new(&mut d.n_layers, 0..=Design::MAX_LAYERS).text("layers (0 = none)"),
+        );
         ui.add_enabled_ui(d.n_layers > 0, |ui| {
             ui.add(
                 egui::Slider::new(&mut d.first_layer, 1e-4 * span..=0.1 * span)
@@ -322,13 +339,15 @@ impl MeshApp {
                     }
                 });
         });
-        egui::ComboBox::from_id_salt("dual")
-            .selected_text(dual_label(d.dual))
-            .show_ui(ui, |ui| {
-                for k in DUALS {
-                    ui.selectable_value(&mut d.dual, k, dual_label(k));
-                }
-            });
+        ui.add_enabled_ui(d.polyhedral, |ui| {
+            egui::ComboBox::from_id_salt("dual")
+                .selected_text(dual_label(d.dual))
+                .show_ui(ui, |ui| {
+                    for k in DUALS {
+                        ui.selectable_value(&mut d.dual, k, dual_label(k));
+                    }
+                });
+        });
         if let Some(w) = strategy_note(&d) {
             ui.label(egui::RichText::new(w).small().weak());
         }
