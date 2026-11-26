@@ -42,11 +42,16 @@
 //! n-to-m record owning its star. The bits are the same information.
 //!
 //! **Branches not ported** (not reached by boundary recovery, which never
-//! sets them): `flipconstraints::remove_large_angle` (`get_tetqual`, mesh
-//! improvement, stage 6), `chkencflag` queues (`enqueuesubface`,
-//! `enqueuetetrahedron`, Delaunay refinement), element attributes and
-//! volume bounds (`-A`, `-a`). `remove_ndelaunay_edge` (the `tetprismvol`
-//! sum) and `unflip` are ported: `recoverdelaunay` (stage 5) uses the first.
+//! sets them): ~~`flipconstraints::remove_large_angle` (`get_tetqual`, mesh
+//! improvement, stage 6),~~ `chkencflag` queues (`enqueuesubface`,
+//! ~~`enqueuetetrahedron`,~~ Delaunay refinement), ~~element attributes
+//! and~~ volume bounds (~~`-A`,~~ `-a`). `remove_ndelaunay_edge` (the
+//! `tetprismvol` sum) and `unflip` are ported: `recoverdelaunay` (stage 5)
+//! uses the first. **UPDATED 2026-11-26 (gh:#1794):** stage 5's mesh
+//! improvement adds `remove_large_angle` (in `checkflipeligibility`, with
+//! `get_tetqual`), the `chkencflag & 4` queue (`enqueuetetrahedron`, in
+//! `flip23`, `flip32`, `flip41`) and the element attribute copies of `-A`
+//! (`flip23`, `flip32`).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -208,6 +213,14 @@ pub struct FlipConstraints {
     pub fac: [Point; 3],
     /// `remvert`: a vertex to be removed (`NULL_POINT`: none).
     pub remvert: Point,
+    /// `remove_large_angle` (mesh improvement, stage 5).
+    pub remove_large_angle: bool,
+    /// `cosdihed_in`: the cosine of the dihedral angle to improve.
+    pub cosdihed_in: f64,
+    /// `cosdihed_out`: the worst new cosine.
+    pub cosdihed_out: f64,
+    /// `max_asp_out`: the worst new aspect ratio.
+    pub max_asp_out: f64,
 }
 
 impl Default for FlipConstraints {
@@ -226,6 +239,10 @@ impl Default for FlipConstraints {
             seg: [NULL_POINT; 2],
             fac: [NULL_POINT; 3],
             remvert: NULL_POINT,
+            remove_large_angle: false,
+            cosdihed_in: 0.0,
+            cosdihed_out: 0.0,
+            max_asp_out: 0.0,
         }
     }
 }
@@ -1505,7 +1522,9 @@ impl TetgenMesh {
     /// `checkflipeligibility(fliptype, pa, pb, pc, pd, pe, level,
     /// edgepivot, fc)`: does the flip cross the constraining edge or face,
     /// or create an edge at the vertex being removed. Returns `rejflag`.
-    /// The `remove_large_angle` test (mesh improvement) is not ported.
+    /// ~~The `remove_large_angle` test (mesh improvement) is not ported.~~
+    /// **UPDATED 2026-11-26 (gh:#1794):** the `remove_large_angle` test of
+    /// mesh improvement is ported ([`TetgenMesh::flip_angle_rejected`]).
     #[allow(clippy::too_many_arguments)]
     pub fn checkflipeligibility(
         &mut self,
@@ -1515,8 +1534,8 @@ impl TetgenMesh {
         pc: Point,
         pd: Point,
         pe: Point,
-        _level: i32,
-        _edgepivot: i32,
+        level: i32,
+        edgepivot: i32,
         fc: &mut FlipConstraints,
     ) -> Result<bool, TetgenError> {
         self.reach[12] += 1;
@@ -1612,7 +1631,108 @@ impl TetgenMesh {
             }
         }
 
+        if fc.remove_large_angle && !rejflag {
+            rejflag =
+                self.flip_angle_rejected(fliptype, [pa, pb, pc, pd, pe], level, edgepivot, fc);
+        }
+
         Ok(rejflag)
+    }
+
+    /// `checkflipeligibility`'s `remove_large_angle` block (gh:#1794):
+    /// reject a flip whose new tetrahedra do not improve the largest
+    /// dihedral angle (`diff <= 0`, with upstream's relative rounding to
+    /// `b->epsilon`); otherwise record the worst new angle and aspect ratio
+    /// in `fc.cosdihed_out` / `fc.max_asp_out`.
+    pub fn flip_angle_rejected(
+        &self,
+        fliptype: i32,
+        p: [Point; 5],
+        level: i32,
+        edgepivot: i32,
+        fc: &mut FlipConstraints,
+    ) -> bool {
+        let [pa, pb, pc, pd, pe] = p;
+        // One tet's (cosmaxd, key), or None where upstream sets diff = 0.
+        let check = |m: &Self, q: [Point; 4], fc: &FlipConstraints| -> Option<(f64, f64)> {
+            match m.get_tetqual_pts(q[0], q[1], q[2], q[3]) {
+                Some(bf) => {
+                    let cosmaxd = bf.cent[0];
+                    let mut diff = cosmaxd - fc.cosdihed_in;
+                    if (diff / fc.cosdihed_in).abs() < m.b.epsilon {
+                        diff = 0.0; // Rounding.
+                    }
+                    if diff <= 0.0 {
+                        None
+                    } else {
+                        Some((cosmaxd, bf.key))
+                    }
+                }
+                None => None, // no improve.
+            }
+        };
+        let two = |m: &Self, q1: [Point; 4], q2: [Point; 4], fc: &mut FlipConstraints| -> bool {
+            let mut min_cosmaxd: f64 = 1.0;
+            let mut max_asp: f64 = 0.0;
+            let Some((c1, k1)) = check(m, q1, fc) else {
+                return true;
+            };
+            min_cosmaxd = if min_cosmaxd < c1 { min_cosmaxd } else { c1 };
+            max_asp = if max_asp > k1 { max_asp } else { k1 };
+            let Some((c2, k2)) = check(m, q2, fc) else {
+                return true;
+            };
+            min_cosmaxd = if min_cosmaxd < c2 { min_cosmaxd } else { c2 };
+            max_asp = if max_asp > k2 { max_asp } else { k2 };
+            fc.cosdihed_out = if fc.cosdihed_out < min_cosmaxd {
+                fc.cosdihed_out
+            } else {
+                min_cosmaxd
+            };
+            fc.max_asp_out = if fc.max_asp_out > max_asp {
+                fc.max_asp_out
+            } else {
+                max_asp
+            };
+            false
+        };
+        let one = |m: &Self, q: [Point; 4], fc: &mut FlipConstraints| -> bool {
+            let Some((c, k)) = check(m, q, fc) else {
+                return true;
+            };
+            fc.cosdihed_out = if fc.cosdihed_out < c {
+                fc.cosdihed_out
+            } else {
+                c
+            };
+            fc.max_asp_out = if fc.max_asp_out > k {
+                fc.max_asp_out
+            } else {
+                k
+            };
+            false
+        };
+        if fliptype == 1 {
+            // A 2-to-3 flip: [a,b,c] => [e,d,a], [e,d,b], [e,d,c]. Only
+            //   [e,d,b,c] and [e,d,c,a] are checked.
+            if pc != DUMMYPOINT && pe != DUMMYPOINT && pd != DUMMYPOINT {
+                return two(self, [pe, pd, pb, pc], [pe, pd, pc, pa], fc);
+            }
+        } else if fliptype == 2 {
+            // A 3-to-2 flip: [e,d,a], [e,d,b], [e,d,c] => [a,b,c].
+            if pa != DUMMYPOINT && pb != DUMMYPOINT && pc != DUMMYPOINT {
+                if level == 0 {
+                    return two(self, [pa, pb, pc, pd], [pb, pa, pc, pe], fc);
+                } else if edgepivot == 1 {
+                    // The new tet [a,b,c,d] will be flipped. Only check [b,a,c,e].
+                    return one(self, [pb, pa, pc, pe], fc);
+                } else {
+                    // The new tet [b,a,c,e] will be flipped. Only check [a,b,c,d].
+                    return one(self, [pa, pb, pc, pd], fc);
+                }
+            }
+        }
+        false
     }
 
     // -- flip_cxx ------------------------------------------------------------
@@ -1683,6 +1803,10 @@ impl TetgenMesh {
         }
         // Create a new tet.
         fliptets[2] = self.maketetrahedron();
+        // The new tet have the same attributes from the old tet (`-A`).
+        if self.numelemattrib > 0 {
+            self.elemattrib[fliptets[2].tet] = self.elemattrib[fliptets[0].tet];
+        }
 
         if hullflag > 0 {
             if pd != DUMMYPOINT {
@@ -1816,6 +1940,13 @@ impl TetgenMesh {
                     let newface = edestoppo(&fliptets[i]);
                     self.tsbond(&newface, &checksh);
                 }
+            }
+        }
+
+        if fc.chkencflag & 4 != 0 {
+            // Put three new tets into check list.
+            for t in fliptets.iter() {
+                self.enqueuetetrahedron(t);
             }
         }
 
@@ -1956,7 +2087,14 @@ impl TetgenMesh {
             self.free_tet2sub(fliptets[0].tet);
             self.free_tet2sub(fliptets[1].tet);
         }
-        // (Element attributes and volume bounds of the region are not ported.)
+        if self.checksubfaceflag && scount > 0 && spivot >= 0 && self.numelemattrib > 0 {
+            // The element attributes must be set correctly: the tet
+            //   fliptets[spivot] is in the first region (`-A`; volume
+            //   bounds, `-a`, are not ported).
+            let a = self.elemattrib[fliptets[spivot as usize].tet];
+            self.elemattrib[fliptets[0].tet] = a;
+            self.elemattrib[fliptets[1].tet] = a;
+        }
         // Delete an old tet.
         self.tetrahedrondealloc(fliptets[2].tet);
 
@@ -2133,6 +2271,13 @@ impl TetgenMesh {
                 } else {
                     return Err(TetgenError::InternalError);
                 }
+            }
+        }
+
+        if fc.chkencflag & 4 != 0 {
+            // Put two new tets into check list.
+            for t in fliptets.iter().take(2) {
+                self.enqueuetetrahedron(t);
             }
         }
 
@@ -2480,6 +2625,11 @@ impl TetgenMesh {
                     self.tsbond(&newface, &checksh);
                 }
             }
+        }
+
+        if fc.chkencflag & 4 != 0 {
+            let f0 = fliptets[0];
+            self.enqueuetetrahedron(&f0);
         }
 
         // Update the point-to-tet map.

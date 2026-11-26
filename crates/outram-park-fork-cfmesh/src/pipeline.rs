@@ -418,7 +418,7 @@ fn cell_centre(_mesh: &VolumeMesh, _feature_angle_deg: f64, _rule: FeaturePointR
 /// moves + `BoundaryProjection::EachPass`: two collinear inlet-plane
 /// triangles). Upstream has no acceptance gate (it flags the face as bad
 /// and goes on); this one is the port's.
-fn acceptable(mesh: &VolumeMesh) -> bool {
+pub(crate) fn acceptable(mesh: &VolumeMesh) -> bool {
     mesh.validate().is_ok() && check_quality(mesh).n_negative_volume_cells == 0 && faces_are_non_degenerate(mesh)
 }
 

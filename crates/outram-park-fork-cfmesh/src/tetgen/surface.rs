@@ -191,7 +191,7 @@ pub fn facenormal(pa: &[f64; 3], pb: &[f64; 3], pc: &[f64; 3], pivot: i32) -> [f
 }
 
 /// `lu_decmp(lu, 3, ps, &d, 0)`.
-fn lu_decmp(lu: &mut [[f64; 4]; 4], n: usize, ps: &mut [usize; 4], d: &mut f64) -> bool {
+pub(super) fn lu_decmp(lu: &mut [[f64; 4]; 4], n: usize, ps: &mut [usize; 4], d: &mut f64) -> bool {
     let mut scales = [0.0f64; 4];
     let mut pivotindex = 0usize;
     *d = 1.0;
@@ -242,7 +242,7 @@ fn lu_decmp(lu: &mut [[f64; 4]; 4], n: usize, ps: &mut [usize; 4], d: &mut f64) 
 }
 
 /// `lu_solve(lu, 3, ps, b, 0)`.
-fn lu_solve(lu: &[[f64; 4]; 4], n: usize, ps: &[usize; 4], b: &mut [f64; 4]) {
+pub(super) fn lu_solve(lu: &[[f64; 4]; 4], n: usize, ps: &[usize; 4], b: &mut [f64; 4]) {
     let mut x = [0.0f64; 4];
     for i in 0..n {
         let mut dot = 0.0;

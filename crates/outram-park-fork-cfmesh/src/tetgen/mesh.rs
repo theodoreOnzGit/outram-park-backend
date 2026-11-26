@@ -920,6 +920,38 @@ pub struct Behavior {
     pub supsteiner_level: i32,
     /// `-S`: `steinerleft` (default -1: no limit).
     pub steinerleft: i64,
+    // -- carveholes, smoothing and mesh improvement (stage 5, gh:#1794) ---
+    /// `-A`: `regionattrib`, give every tetrahedron its region's attribute
+    /// (default 0). With it each tetrahedron carries one attribute
+    /// (`numelemattrib`; a PLC has no input tetrahedron attributes).
+    pub regionattrib: bool,
+    /// `-O#`: `opt_max_flip_level` (default 3).
+    pub opt_max_flip_level: i32,
+    /// `-O//#`: `opt_iterations` (default 3).
+    pub opt_iterations: i32,
+    /// `-o//#`: `opt_max_asp_ratio` (default 1000).
+    pub opt_max_asp_ratio: f64,
+    /// `opt_max_edge_ratio` (default 100).
+    pub opt_max_edge_ratio: f64,
+    /// `-o/#`: `optmaxdihedral` in degrees (default 177; without `-q`
+    /// `parse_commandline` makes the default 179.9, which
+    /// [`TetgenMesh::finish_plc`] applies).
+    pub optmaxdihedral: f64,
+    /// `-s#`: `smooth_cirterion` (upstream's spelling; default 3: facet and
+    /// volume Steiner points).
+    pub smooth_cirterion: i32,
+    /// `-s#/#`: `smooth_maxiter` (default 7).
+    pub smooth_maxiter: i32,
+    /// `-s#/#/#`: `smooth_alpha` (default 0.3).
+    pub smooth_alpha: f64,
+    /// `-U#`: `unflip_queue_limit` (default 1000).
+    pub unflip_queue_limit: i64,
+    /// `-D#`: `cdtrefine` (default 7; read by mesh improvement's
+    /// `noflip_in_surface`).
+    pub cdtrefine: i32,
+    /// `-z`: number the output from zero (default off: from
+    /// `in->firstnumber`).
+    pub zeroindex: bool,
 }
 
 impl Default for Behavior {
@@ -950,6 +982,18 @@ impl Default for Behavior {
             collinear_ang_tol: 179.9,
             supsteiner_level: 2,
             steinerleft: -1,
+            regionattrib: false,
+            opt_max_flip_level: 3,
+            opt_iterations: 3,
+            opt_max_asp_ratio: 1000.0,
+            opt_max_edge_ratio: 100.0,
+            optmaxdihedral: 177.0,
+            smooth_cirterion: 3,
+            smooth_maxiter: 7,
+            smooth_alpha: 0.3,
+            unflip_queue_limit: 1000,
+            cdtrefine: 7,
+            zeroindex: false,
         }
     }
 }
@@ -1145,6 +1189,47 @@ pub struct TetgenMesh {
     /// Per-routine call counts of the recovery code (the `tg_reach`
     /// instrumentation of `verification_and_validation/tetgen_recoverboundary_gh1793/`).
     pub reach: [u64; 64],
+    // -- carveholes, smoothing and mesh improvement (stage 5, gh:#1794) ---
+    /// `numelemattrib`: 0, or 1 with `-A` (the region attribute).
+    pub numelemattrib: usize,
+    /// The element attribute (`elemattribute(tet, 0)`), by tetrahedron pool
+    /// slot; read only when `numelemattrib == 1`.
+    pub elemattrib: Vec<f64>,
+    /// `in->pointmarkerlist` (copied from the input by the stage 5 driver;
+    /// `jettisonnodes` re-indexes it in place as upstream does).
+    pub pointmarkerlist: Option<Vec<i32>>,
+    /// `badtetrahedrons`: the tetrahedra `enqueuetetrahedron` queued
+    /// (`chkencflag & 4`); `None` is upstream's `NULL` (outside
+    /// `improve_mesh`).
+    pub badtetrahedrons: Option<Vec<TriFace>>,
+    /// `cos_large_dihed` (`get_tetqual`'s 135-degree count).
+    pub cos_large_dihed: f64,
+    /// `cosmaxdihed`.
+    pub cosmaxdihed: f64,
+    /// `cossmtdihed`.
+    pub cossmtdihed: f64,
+    /// `cosslidihed`.
+    pub cosslidihed: f64,
+    /// `opt_max_sliver_asp_ratio`.
+    pub opt_max_sliver_asp_ratio: f64,
+    /// `opt_flips_count`.
+    pub opt_flips_count: i64,
+    /// `opt_collapse_count`.
+    pub opt_collapse_count: i64,
+    /// `opt_smooth_count`.
+    pub opt_smooth_count: i64,
+    /// `subdomains` (set by `carveholes` with `-A`).
+    pub subdomains: i32,
+    /// `subdomain_markers`.
+    pub subdomain_markers: Vec<i32>,
+    /// Not upstream: the volume of the hull slivers `lawsonflip3d` peeled
+    /// after `carveholes` (each `flip32` there removes one tetrahedron from
+    /// the domain and flips two boundary triangles), so that a volume check
+    /// can account for it (gh:#1794; only `sphere -p` peels any).
+    pub hull_sliver_volume: f64,
+    /// Per-routine call counts of stage 5 (the `tg5` instrumentation of
+    /// `verification_and_validation/tetgen_plc_gh1794/`).
+    pub reach5: [u64; 64],
 }
 
 impl TetgenMesh {
@@ -1245,6 +1330,22 @@ impl TetgenMesh {
             flip44count: 0,
             recover_delaunay_count: 0,
             reach: [0; 64],
+            numelemattrib: 0,
+            elemattrib: Vec::new(),
+            pointmarkerlist: None,
+            badtetrahedrons: None,
+            cos_large_dihed: 0.0,
+            cosmaxdihed: 0.0,
+            cossmtdihed: 0.0,
+            cosslidihed: 0.0,
+            opt_max_sliver_asp_ratio: 0.0,
+            opt_flips_count: 0,
+            opt_collapse_count: 0,
+            opt_smooth_count: 0,
+            subdomains: 0,
+            subdomain_markers: Vec::new(),
+            hull_sliver_volume: 0.0,
+            reach5: [0; 64],
         }
     }
 
@@ -1320,15 +1421,23 @@ impl TetgenMesh {
         let (slot, fresh) = self.tetpool.alloc();
         if fresh {
             self.tets.push(TetRecord::BLANK);
+            self.elemattrib.push(0.0);
         }
         let mut r = TetRecord::BLANK;
         r.v = [pa, pb, pc, pd];
-        // No element attributes or volume bound in stage 2.
+        // No volume bound (`-a`, stage 6).
         r.marker = 0;
-        // The reserved word [10] is not cleared by upstream; it keeps
-        // whatever the slot held (only `outelements` writes it).
-        r.elemindex = self.tets[slot].elemindex;
+        // ~~The reserved word [10] is not cleared by upstream; it keeps
+        // whatever the slot held (only `outelements` writes it).~~
+        // **CORRECTED 2026-11-26 (gh:#1794):** upstream does clear it
+        // (`newtet->tet[10] = NULL; // used by mesh improvement`, in both
+        // `maketetrahedron` and `maketetrahedron2`, `tetgen.cxx:4682/4719`);
+        // only `outelements` reads it, after writing it, so no output
+        // changed.
+        r.elemindex = 0;
         self.tets[slot] = r;
+        // `setelemattribute(newtet, i, 0.0)` for every attribute.
+        self.elemattrib[slot] = 0.0;
         TriFace { tet: slot, ver: 11 }
     }
 

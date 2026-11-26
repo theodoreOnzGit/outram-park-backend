@@ -59,32 +59,44 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::Write;
 
-/// The result of [`tetrahedralize_plc`]: the mesh after boundary recovery.
+/// The result of [`tetrahedralize_plc`]: ~~the mesh after boundary
+/// recovery~~ **UPDATED 2026-11-26 (gh:#1794):** the mesh at the end of the
+/// whole `-p` route, and its output.
 #[derive(Debug, Clone)]
 pub struct PlcTetrahedralization {
-    /// The mesh object (stage 5 continues from it). Every subface is a face
-    /// of it (upstream stops with an internal error otherwise); its Steiner
-    /// points are counted in `st_segref_count`, `st_facref_count` and
-    /// `st_volref_count`, its warnings are in `warnings`.
+    /// The mesh object. Every subface is a face of it (upstream stops with
+    /// an internal error otherwise); its Steiner points are counted in
+    /// `st_segref_count`, `st_facref_count` and `st_volref_count`, its
+    /// warnings are in `warnings`.
     pub mesh: TetgenMesh,
     /// The input segments left unrecovered (upstream's "Warning:  N
     /// segments are not recovered."); 0 on every committed case.
     pub missing_segments: usize,
+    /// What `tetgen -p` writes (`.node`, `.ele`, `.face`, `.edge`); `None`
+    /// with `-d` (stage 5, gh:#1794).
+    pub output: Option<super::output::TetgenOutput>,
 }
 
-/// Tetrahedralise a PLC as `tetgen -p` does **up to and including boundary
-/// recovery** (`recoverboundary`): the Delaunay tetrahedralisation of the
-/// vertices, `meshsurface`, then every segment and subface recovered by
-/// flips and, where flips cannot, by Steiner points. The exterior and the
-/// holes are not yet removed (`carveholes`, stage 5, gh:#1794), so the
-/// mesh still fills the convex hull. `b.plc` is set here; the other
-/// switches are upstream's (`-Y` is `b.nobisect`).
+/// Tetrahedralise a PLC as `tetgen -p` does: ~~**up to and including
+/// boundary recovery** (`recoverboundary`)~~ **UPDATED 2026-11-26
+/// (gh:#1794): the whole `-p` route** (without `-q`): the Delaunay
+/// tetrahedralisation of the vertices, `meshsurface`, then every segment
+/// and subface recovered by flips and, where flips cannot, by Steiner
+/// points (`recoverboundary`); then `carveholes` (the exterior and the
+/// volume holes removed, the regions' attributes spread with `-A`),
+/// Steiner-point suppression, `recoverdelaunay`, `smooth_vertices`,
+/// `improve_mesh`, `jettisonnodes` and the output
+/// ([`TetgenMesh::finish_plc`]). `b.plc` is set here; the other switches
+/// are upstream's (`-Y` is `b.nobisect`, `-A` `b.regionattrib`; see
+/// [`super::Switches`]).
 ///
-/// The state after it equals an instrumented upstream's, slot for slot, on
-/// the 19 cases x {`-p`, `-pY`} of
-/// `verification_and_validation/tetgen_recoverboundary_gh1793/`. Upstream's
-/// default (non-`-Q`) control flow is followed; its printed warnings are
-/// collected in `TetgenMesh::warnings`.
+/// The state after recovery equals an instrumented upstream's, slot for
+/// slot, on the 19 cases x {`-p`, `-pY`} of
+/// `verification_and_validation/tetgen_recoverboundary_gh1793/`; the output
+/// files equal the unmodified upstream binary's byte for byte on the cases
+/// of `verification_and_validation/tetgen_plc_gh1794/`. Upstream's default
+/// (non-`-Q`) control flow is followed; its printed warnings are collected
+/// in `TetgenMesh::warnings`.
 ///
 /// ```
 /// use outram_park_fork_cfmesh::tetgen::{tetrahedralize_plc, Behavior, PlcInput};
@@ -102,9 +114,11 @@ pub fn tetrahedralize_plc(
 ) -> Result<PlcTetrahedralization, TetgenError> {
     let mut mesh = TetgenMesh::from_plc(input, b)?;
     let missing_segments = mesh.recoverboundary()?;
+    let output = mesh.finish_plc(input)?;
     Ok(PlcTetrahedralization {
         mesh,
         missing_segments,
+        output,
     })
 }
 

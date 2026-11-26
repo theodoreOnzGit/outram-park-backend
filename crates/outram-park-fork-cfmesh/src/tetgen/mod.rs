@@ -35,8 +35,8 @@
 //! | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insert_vertex_bw`) and the mesh data structure | **done: [`mesh`], [`delaunay`]** |
 //! | 3 | gh:#1792 | PLC input (`.poly`/`.smesh`/`.edge`) and surface meshing (`meshsurface`) | **done: [`plc`], [`surface`]** |
 //! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | **done: [`flip`], [`recover`], [`steiner`]** |
-//! | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
-//! | 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
+//! | 5 | gh:#1794 | the rest of `-p`: `carveholes`, `suppresssteinerpoints`, `recoverdelaunay`, `smooth_vertices`, `improve_mesh`, `jettisonnodes`, the `.node`/`.ele`/`.face`/`.edge` output, [`to_volume_mesh`] | **done: [`carve`], [`optimize`], [`output`], [`tetrahedralize`]** |
+//! | 6 | gh:#1795 | Delaunay refinement (`-q`, `-a`); ~~mesh improvement~~ (ported in stage 5: plain `-p` runs it) | not started |
 //! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | not started |
 //!
 //! Stage 2 adds the mesh object ([`mesh::TetgenMesh`]: pools, records,
@@ -73,6 +73,19 @@
 //! CDT routines (`-D`: `delaunizesegments`, `formcavity`, `fillcavity`, ...)
 //! are not reached by `recoverboundary` and are not ported.
 //!
+//! Stage 5 completes `tetgen -p` ([`tetrahedralize_plc`] now runs the whole
+//! route; [`Switches`] builds `-p`, `-z`, `-Y`, `-A`, ...): `carveholes`
+//! (exterior and volume holes removed, region attributes with `-A`, hull
+//! slivers peeled), Steiner-point suppression, `recoverdelaunay`,
+//! `smooth_vertices`, `improve_mesh` (**plain `-p` runs it**:
+//! `tetrahedralize()` calls it under `b->plc`, and without `-q` its dihedral
+//! bound is 179.9 degrees), `jettisonnodes` and the outputs
+//! ([`TetgenOutput`], rendered as upstream's files). Its `.node`, `.ele`,
+//! `.face` and `.edge` files equal the unmodified upstream binary's byte for
+//! byte on 48 runs (21 cases x `-pz`, `-pzY`, and `-pzA`, `-pzAY` on three)
+//! (`verification_and_validation/tetgen_plc_gh1794/`). [`to_volume_mesh`]
+//! gives this crate's `VolumeMesh`, one patch per facet marker.
+//!
 //! **The pool order is part of the answer.** Upstream numbers its output by
 //! walking its memory pools in allocation order and reuses freed records
 //! last-in first-out; [`mesh::MemoryPool`] reproduces both, and anything that
@@ -96,14 +109,18 @@
 //! `-X` options decide which value is returned. Only a line-for-line port
 //! reproduces those values to the bit.
 
+pub mod carve;
 pub mod delaunay;
 pub mod flip;
 pub mod mesh;
+pub mod optimize;
+pub mod output;
 pub mod plc;
 pub mod predicates;
 pub mod recover;
 pub mod steiner;
 pub mod surface;
+pub mod tetrahedralize;
 
 pub use delaunay::{
     delaunay_tetrahedralize, delaunay_tetrahedralize_with, TetgenError, Tetrahedralization,
@@ -112,4 +129,6 @@ pub use mesh::{Behavior, TetgenMesh};
 pub use plc::{PlcFacet, PlcInput, PlcReadError};
 pub use recover::{tetrahedralize_plc, PlcTetrahedralization};
 pub use steiner::InsertPointFlags;
+pub use output::{fmt_g17, to_volume_mesh, TetgenOutput};
 pub use surface::{plc_meshsurface, plc_meshsurface_with, PlcSurface};
+pub use tetrahedralize::Switches;

@@ -1212,6 +1212,234 @@ doc_hash = "sha256:d32a10e7d95da3464524987346bed6366cf5ea8810441c8c6e95d5a2332d2
 uses = ["fn:0bb173954082584d"]
 test = true
 
+[module."tetgen_plc_vs_upstream.rs"]
+path = "test:tetgen_plc_vs_upstream"
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:9df3baaa8a321fb8"
+name = "gunzip"
+qual = "gunzip"
+lines = [
+    32,
+    40,
+]
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:9ce5f1ff7d86722c"
+name = "root"
+qual = "root"
+lines = [
+    42,
+    44,
+]
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:978ddc5d2f754405"
+name = "read_gz"
+qual = "read_gz"
+lines = [
+    46,
+    50,
+]
+hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9ce5f1ff7d86722c",
+    "fn:9df3baaa8a321fb8",
+]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:4c6366bdcf9c421a"
+name = "input"
+qual = "input"
+lines = [
+    52,
+    68,
+]
+hash = "sha256:b82d6ffc5f857e62202a45b0ddf739cc9a8601dd6e00ccd514c0aa99571018a7"
+doc_hash = "sha256:e53f47c688bc1e443ca9bafb9f05e7c7c9acd350dbd0e0ab7a345396792f7d11"
+callees = ["fn:978ddc5d2f754405"]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:84efad509974906c"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    92,
+]
+hash = "sha256:bb21ebb02eb4901a97a6ff4e2002d103c71e2bd038d7241e0c34be34137c9fd4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:938d52aaadba82f8"
+name = "REGION_CASES"
+qual = "REGION_CASES"
+item = "const"
+shape = "const"
+lines = [
+    94,
+    95,
+]
+hash = "sha256:76cd0b43b1823b0992d00317b2528d39e6dd09405b155861fd0178382345671f"
+doc_hash = "sha256:67271f4c94930431aca174fc5061e6e85bf412c5b5a828cd3dd50ac06bf04284"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:22d8b935ac383594"
+name = "runs"
+qual = "runs"
+lines = [
+    97,
+    110,
+]
+hash = "sha256:3cc8c9a83d6a3d5ca00d27077e1816d95cd16c8db07b5fdcf112cb3eb233d0b9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:84efad509974906c",
+    "fn:938d52aaadba82f8",
+]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:94a8f72a7cab0481"
+name = "run"
+qual = "run"
+lines = [
+    112,
+    124,
+]
+hash = "sha256:d6d36a463c0cb520b406b8e7731525c213a5d97f80c08fd172a9448565be68c0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4c6366bdcf9c421a",
+    "fn:771e812129659e7b",
+    "fn:ce773a8c18c56a13",
+]
+uses = [
+    "fn:8d734c21969ac0e6",
+    "fn:9d31c3e16ee6aee8",
+]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:562bb694881e45b6"
+name = "files"
+qual = "files"
+lines = [
+    126,
+    134,
+]
+hash = "sha256:bfede814f5c17e3b520575d4f5807e9370bcdf52b897c46fc8a6f78d2cf8da56"
+doc_hash = "sha256:ab052ce4e19ff2bca0b485d9cd24dd5325001e10d10b89f256c728be1955b904"
+callees = [
+    "fn:6d287bb65f177349",
+    "fn:8292c558519bd890",
+    "fn:ad77aff9f3a06e04",
+    "fn:cef9cdef0608a7e3",
+]
+uses = ["fn:8d734c21969ac0e6"]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:1d46f43ef5a181c6"
+name = "plc_output_matches_upstream_byte_for_byte"
+qual = "plc_output_matches_upstream_byte_for_byte"
+lines = [
+    136,
+    183,
+]
+hash = "sha256:d03b2f071aada2cdfa94aaa66845b362ac5fdb6be518dc380f0ba8b9c9f478d6"
+doc_hash = "sha256:f9f58442cb3b0c3389827e9058cc32d9e6d84643c7b24f99dc0764ac4d56ca97"
+callees = [
+    "fn:22d8b935ac383594",
+    "fn:562bb694881e45b6",
+    "fn:94a8f72a7cab0481",
+    "fn:978ddc5d2f754405",
+]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:d508a92668c3f2c6"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+lines = [
+    185,
+    199,
+]
+hash = "sha256:eaed90414f6e1fac017e48cb4062a57dce754f2f898e721a47f4edceadc908d3"
+doc_hash = "sha256:7f6ea3b68722eeae4495d1d0e4ec6f4c87d0321123f538e1ab68c42b396f1603"
+callees = [
+    "fn:4c6366bdcf9c421a",
+    "fn:771e812129659e7b",
+    "fn:ce773a8c18c56a13",
+]
+uses = ["fn:9d31c3e16ee6aee8"]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:3cf403b9bc250372"
+name = "plc_volume"
+qual = "plc_volume"
+lines = [
+    201,
+    429,
+]
+hash = "sha256:d7c189c729b72cd4982103cf88ef8c8ae450c961119b6fdfa52738134d239bf5"
+doc_hash = "sha256:05d069997f3b3a2cb69c329433dd64fe47e3b912ec56adb10a76c3618eaac9fc"
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:2d365b6ae6d4eb28"
+name = "domain_volume"
+qual = "domain_volume"
+lines = [
+    431,
+    453,
+]
+hash = "sha256:c24abce4bfa44642cc03a134afa281762e9add0ae930cd35846a976c7ff972b7"
+doc_hash = "sha256:04ddfa024d5bbd3da7efe667e53c5d5a567c0be94151d876ace87b3c2b801892"
+callees = ["fn:3cf403b9bc250372"]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:636c1ab9fcf8ce9d"
+name = "plc_mesh_fills_the_domain"
+qual = "plc_mesh_fills_the_domain"
+lines = [
+    455,
+    552,
+]
+hash = "sha256:e8d28a7f55c676abaacc22cf0a6d0989fd750eafed3935ccde312de2c5f22256"
+doc_hash = "sha256:8640790886551cc861ece05a5fc5a4694e4d8c9d64928edf215e44e54ac70a98"
+callees = [
+    "fn:22d8b935ac383594",
+    "fn:2d365b6ae6d4eb28",
+    "fn:4c6366bdcf9c421a",
+    "fn:ce773a8c18c56a13",
+    "fn:d151ee25de1a2268",
+]
+uses = [
+    "fn:12aef5334fbdc77b",
+    "fn:9d31c3e16ee6aee8",
+    "fn:eb811f9606bcca5f",
+]
+test = true
+
 [module."tetgen_predicates_vs_upstream.rs"]
 path = "test:tetgen_predicates_vs_upstream"
 

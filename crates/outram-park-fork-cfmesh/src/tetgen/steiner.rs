@@ -79,7 +79,8 @@ pub struct InsertPointFlags {
     pub respectbdflag: bool,
     /// `rejflag` (not ported beyond 0).
     pub rejflag: i32,
-    /// `chkencflag` (not ported beyond 0).
+    /// `chkencflag`: only bit 4 (`enqueuetetrahedron`, mesh improvement,
+    /// gh:#1794) is ported; bits 1 and 2 (Delaunay refinement) are not.
     pub chkencflag: i32,
     /// `cdtflag`.
     pub cdtflag: bool,
@@ -1161,6 +1162,10 @@ impl TetgenMesh {
                 // Adjust back to the cavity bounday face.
                 esymself(&mut newtet);
             }
+            // The new tet inherits attribtes from the old tet (`-A`, gh:#1794).
+            if self.numelemattrib > 0 {
+                self.elemattrib[newtet.tet] = self.elemattrib[oldtet.tet];
+            }
             // Connect newtet <==> neightet, this also disconnect the old bond.
             self.bond(&newtet, &neightet);
             // oldtet still connects to neightet.
@@ -1397,6 +1402,14 @@ impl TetgenMesh {
                         }
                     }
                 }
+            }
+        }
+
+        if ivf.chkencflag & 4 != 0 {
+            // Queue all new tetrahedra in C(p) (mesh improvement, gh:#1794).
+            for i in 0..self.cavebdrylist.len() {
+                let t = self.cavebdrylist[i];
+                self.enqueuetetrahedron(&t);
             }
         }
 
@@ -3891,6 +3904,7 @@ impl TetgenMesh {
                     if self.oppo(&hulltet) == DUMMYPOINT {
                         let pe = self.org(&neightet);
                         if matches!(self.pointtype(pe), VertType::FreeFacet | VertType::FreeSeg) {
+                            self.reach5[9] += 1;
                             self.removevertexbyflips(pe)?;
                         }
                     } else {
@@ -3900,6 +3914,7 @@ impl TetgenMesh {
                             let pd = self.dest(&neightet);
                             if matches!(self.pointtype(pd), VertType::FreeFacet | VertType::FreeSeg)
                             {
+                                self.reach5[9] += 1;
                                 self.removevertexbyflips(pd)?;
                             }
                         } else {
@@ -3921,6 +3936,15 @@ impl TetgenMesh {
                             );
                             let d = n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2];
                             if d > 0.0 {
+                                // (Not upstream: the peeled sliver's volume, for
+                                //   the domain-volume check of gh:#1794.)
+                                let o = self.pred.orient3d(
+                                    &self.x(chk_pe),
+                                    &self.x(chk_pd),
+                                    &self.x(chk_pa),
+                                    &self.x(chk_pb),
+                                );
+                                self.hull_sliver_volume += o.abs() / 6.0;
                                 let f1 = self.fnext(&neightet);
                                 let f2 = self.fnext(&f1);
                                 let mut three = [neightet, f1, f2];
@@ -3928,6 +3952,7 @@ impl TetgenMesh {
                                 self.flip32count -= 1;
                                 self.flip22count -= 1;
                                 *sliver_peels += 1;
+                                self.reach5[8] += 1;
                                 if fc.remove_ndelaunay_edge {
                                     self.tetprism_vol_sum += fc.tetprism_vol_sum;
                                     fc.tetprism_vol_sum = 0.0;

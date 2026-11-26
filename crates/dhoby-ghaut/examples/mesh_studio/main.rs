@@ -64,6 +64,8 @@ pub mod headless;
 pub mod model;
 #[cfg(not(target_os = "android"))]
 mod section;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod tetgen_render;
 
 /// Android build: no windowing GUI. An empty main keeps `cargo check` clean.
 #[cfg(target_os = "android")]
@@ -76,6 +78,15 @@ fn main() -> eframe::Result<()> {
     // The headless path must be reachable before anything touches eframe,
     // or a machine with no display cannot run it at all.
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(k) = args.iter().position(|a| a == "--tetgen-render") {
+        // The TetGen -p review images (gh:#1794), into the given folder.
+        let dir = args.get(k + 1).cloned().unwrap_or_else(|| ".".into());
+        match tetgen_render::render_all(std::path::Path::new(&dir)) {
+            Ok(lines) => lines.iter().for_each(|l| println!("{l}")),
+            Err(e) => eprintln!("tetgen render failed: {e}"),
+        }
+        return Ok(());
+    }
     if args.iter().any(|a| a == "--headless") {
         let case = args.iter().find(|a| !a.starts_with("--")).cloned();
         print!("{}", headless::run(case.as_deref()));
