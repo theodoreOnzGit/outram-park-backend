@@ -288,9 +288,12 @@ pub struct TetDualOptions {
     /// `boundaryLayerOptimisation` defaults).
     pub cfmesh_layer_optimisation: BoundaryLayerOptimisationControls,
     /// **Where the tetrahedra come from** (gh:#1796): the carved,
-    /// snapped and centroid-split grid ([`TetSource::CarvedCentroid`], the
-    /// default, unchanged) or TetGen's quality tetrahedralisation of the
-    /// surface ([`TetSource::TetGen`]). With TetGen the carve, snap and
+    /// snapped and centroid-split grid ([`TetSource::CarvedCentroid`],
+    /// ~~the default, unchanged~~ the default until 2026-11-26) or TetGen's
+    /// quality tetrahedralisation of the surface ([`TetSource::TetGen`];
+    /// **the default since 2026-11-26** as
+    /// [`TetSource::TetGenAtCellSize`], maintainer: "set the default crate
+    /// wide to tetgen"). With TetGen the carve, snap and
     /// Delaunay-flip stages are not run (the staged log lists them as
     /// skipped) and [`Self::cell_size`], [`Self::refinement_levels`],
     /// [`Self::snap`] and [`Self::max_flips`] do nothing; see
@@ -334,7 +337,7 @@ impl Default for TetDualOptions {
             layer_strategy: LayerQualityStrategy::BackOffOnly,
             snappy_layers: SnappyLayerControls::default(),
             cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
-            tet_source: TetSource::CarvedCentroid,
+            tet_source: TetSource::default(),
         }
     }
 }
@@ -707,11 +710,12 @@ pub(crate) fn run_pipeline_observed(
 
     // Stages 1-4. On TetGen's tetrahedra (gh:#1796) carve, snap and the
     // Delaunay flips are not run (see `tet_source`); the log lists them.
-    let mut mesh = if opts.tet_source == TetSource::CarvedCentroid {
+    let source = opts.tet_source.resolve(opts.cell_size);
+    let mut mesh = if source == TetSource::CarvedCentroid {
         carve_snap_split(points, tris, opts, &mut notes, &mut log)?
     } else {
         let (tets, note) =
-            tet_source::tetgen_tets(points, tris, regions, &opts.wall_patch, opts.tet_source)?;
+            tet_source::tetgen_tets(points, tris, regions, &opts.wall_patch, source)?;
         notes.push(note);
         let nothing = tet_source::empty_mesh();
         staged::record(&mut log, PipelineStage::Carve, false, &nothing);

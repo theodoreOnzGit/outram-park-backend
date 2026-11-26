@@ -9,8 +9,10 @@
 //! **Where the tet -> dual -> layers pipeline gets its tetrahedra**
 //! (gh:#1796, stage 7 of the TetGen epic gh:#1789).
 //!
-//! [`TetSource::CarvedCentroid`] is the pipeline's historical route and the
-//! default: carve a Cartesian grid, snap its boundary to the surface and
+//! [`TetSource::CarvedCentroid`] is the pipeline's historical route and
+//! ~~the default~~ was the default until 2026-11-26 (now
+//! [`TetSource::TetGenAtCellSize`], maintainer: "set the default crate wide
+//! to tetgen"): carve a Cartesian grid, snap its boundary to the surface and
 //! split every hexahedron into tetrahedra about its centroid
 //! ([`crate::tet::tetrahedralize`]). Its interior is a regular lattice, so
 //! its dual is a regular truncated-octahedron lattice.
@@ -65,12 +67,28 @@ use crate::volume_mesh::VolumeMesh;
 
 /// Which tetrahedra the tet -> dual -> layers pipeline starts from
 /// ([`super::TetDualOptions::tet_source`]). See the module docs.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TetSource {
     /// Carve a Cartesian grid, snap it, split each hexahedron about its
-    /// centroid. The default, unchanged (changing it needs the maintainer).
-    #[default]
+    /// centroid. ~~The default, unchanged (changing it needs the
+    /// maintainer).~~ **CHANGED 2026-11-26 (maintainer: "set the default
+    /// crate wide to tetgen"):** no longer the default; the route is
+    /// unchanged and kept callable, and the carved-route pins name it.
     CarvedCentroid,
+    /// **The default since 2026-11-26**: TetGen (as [`TetSource::TetGen`])
+    /// with the volume bound taken from the run's own
+    /// [`super::TetDualOptions::cell_size`] `h`: `h^3 / (6 sqrt 2)`, the
+    /// volume of a regular tetrahedron of edge `h` (Mesh Studio's rule,
+    /// gh:#1796). Resolved by [`TetSource::resolve`] when the pipeline
+    /// starts, so `TetDualOptions { cell_size, ..Default::default() }`
+    /// sizes its tetrahedra by `cell_size`.
+    TetGenAtCellSize {
+        /// Radius-edge ratio bound (default `1.414`).
+        radius_edge: f64,
+        /// Smallest dihedral angle bound, degrees (default
+        /// [`TetSource::TETGEN_DEFAULT_MIN_DIHEDRAL`]).
+        min_dihedral: f64,
+    },
     /// TetGen's quality tetrahedralisation of the surface:
     /// `-pq<radius_edge>/<min_dihedral>`, and `-a<max_volume>` when given.
     TetGen {
@@ -88,10 +106,47 @@ pub enum TetSource {
     },
 }
 
+impl Default for TetSource {
+    /// [`TetSource::TetGenAtCellSize`] with radius-edge `1.414` and
+    /// TetGen's dihedral default (maintainer, 2026-11-26).
+    fn default() -> Self {
+        TetSource::TetGenAtCellSize {
+            radius_edge: Self::DEFAULT_RADIUS_EDGE,
+            min_dihedral: Self::TETGEN_DEFAULT_MIN_DIHEDRAL,
+        }
+    }
+}
+
 impl TetSource {
     /// TetGen's own default smallest dihedral angle under `-q`, degrees
     /// (`tetgenbehavior::mindihedral`, `tetgen.h`).
     pub const TETGEN_DEFAULT_MIN_DIHEDRAL: f64 = 3.5;
+
+    /// The default's radius-edge bound, `1.414` (Mesh Studio's default,
+    /// gh:#1796; `sqrt 2`, the usual quality choice).
+    pub const DEFAULT_RADIUS_EDGE: f64 = 1.414;
+
+    /// The volume of a regular tetrahedron of edge `h`, `h^3 / (6 sqrt 2)`:
+    /// the `-a` bound [`TetSource::TetGenAtCellSize`] uses.
+    #[must_use]
+    pub fn regular_tet_volume(h: f64) -> f64 {
+        h * h * h / (6.0 * petir::real::Real::sqrt(2.0))
+    }
+
+    /// This source with [`TetSource::TetGenAtCellSize`] turned into
+    /// [`TetSource::TetGen`] at cell size `cell_size`; the other sources
+    /// unchanged.
+    #[must_use]
+    pub fn resolve(self, cell_size: f64) -> TetSource {
+        match self {
+            TetSource::TetGenAtCellSize { radius_edge, min_dihedral } => TetSource::TetGen {
+                radius_edge,
+                min_dihedral,
+                max_volume: Some(Self::regular_tet_volume(cell_size)),
+            },
+            other => other,
+        }
+    }
 
     /// TetGen with radius-edge bound `radius_edge`, TetGen's default
     /// dihedral bound, and an optional volume bound \[m³\].
@@ -110,6 +165,9 @@ impl TetSource {
     pub fn switches(&self) -> Option<String> {
         match *self {
             TetSource::CarvedCentroid => None,
+            TetSource::TetGenAtCellSize { radius_edge, min_dihedral } => {
+                Some(alloc::format!("pq{radius_edge}/{min_dihedral}a<h^3/(6 sqrt 2)>"))
+            }
             TetSource::TetGen {
                 radius_edge,
                 min_dihedral,
@@ -291,14 +349,17 @@ mod tests {
     use crate::pipeline::{surface_to_tet_dual_mesh, TetDualOptions};
     use crate::shapes::box_surface;
 
-    /// The default is the carved route, and the switch string is
+    /// ~~The default is the carved route~~ **CHANGED 2026-11-26
+    /// (maintainer):** the default is TetGen sized by the run's own cell
+    /// size (`1.414`, `3.5`, `-a h^3/(6 sqrt 2)`), and the switch string is
     /// upstream's command line.
     #[test]
-    fn the_default_is_the_carved_route_and_switches_read_as_upstream() {
-        assert_eq!(
-            TetDualOptions::default().tet_source,
-            TetSource::CarvedCentroid
-        );
+    fn the_default_is_tetgen_at_the_cell_size_and_switches_read_as_upstream() {
+        let o = TetDualOptions { cell_size: 0.1, ..TetDualOptions::default() };
+        assert_eq!(o.tet_source, TetSource::TetGenAtCellSize { radius_edge: 1.414, min_dihedral: 3.5 });
+        let v = 0.001 / (6.0 * 2f64.sqrt());
+        assert_eq!(o.tet_source.resolve(o.cell_size), TetSource::tetgen(1.414, Some(v)));
+        assert_eq!(TetSource::CarvedCentroid.resolve(0.1), TetSource::CarvedCentroid);
         assert_eq!(TetSource::CarvedCentroid.switches(), None);
         assert_eq!(
             TetSource::tetgen(1.414, Some(0.0026)).switches().as_deref(),

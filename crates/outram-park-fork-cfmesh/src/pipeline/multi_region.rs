@@ -147,6 +147,9 @@ pub struct MultiRegionMesh {
 /// TetGen's switches for `source`, with `-A` (region attributes) added.
 fn switches(source: TetSource) -> Result<Switches, String> {
     let TetSource::TetGen { radius_edge, min_dihedral, max_volume } = source else {
+        if let TetSource::TetGenAtCellSize { .. } = source {
+            return Err("multi-region meshing has no cell size: pass TetSource::TetGen, or resolve() the default first".into());
+        }
         return Err("multi-region meshing needs TetSource::TetGen (the carved route cannot fit internal boundaries)".into());
     };
     if !(radius_edge > 1.0 && radius_edge.is_finite()) {
