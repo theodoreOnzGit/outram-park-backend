@@ -194,3 +194,69 @@ double future_prn(int64_t n, uint64_t seed)
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 5736b6aefc.
+
+# Review: travelled (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-travelled-theodoreonzgit-cd6cb82e"
+kind = "review"
+origin = "human"
+created = "2026-11-26T13:05:46+08:00"
+modified = "2026-11-26T13:05:46+08:00"
+target = "fn:cd6cb82e60b1da60"
+
+[review]
+path = "crates/outram-mc-libs/src/physics/delta_tracking/handoff.rs::travelled"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T13:05:47+08:00"
+commit = "fc56519933cce2ccdfaa919ce1e0db6d40fe73be"
+hash = "sha256:bdfabef6758bddeccced596c88037f3c2b445e5660172be88d87203286f3bb4a"
+doc_hash = "sha256:bde5030bebf59edc46e7125ad06d6d92e5a142502cdb8fc1993aeaba283d4aa3"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.callees]
+"fn:006d55971bc9e1e3" = "sha256:6f2d4f486afa1490d642f0e58cf39c0aa8e3f10ca27a00c80e35d20a1f2bb7c1"
+"fn:675edefa7ec82788" = "sha256:a3f83ba6b25ab5e805efb5428ad1965e9fb5e1853850960a89f9f3c03180fc81"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "matches_upstream_no_error_return: openmc dot product, no guards"
+independence = "someone_else"
+limits_and_guards = "matches_upstream_no_guard: this is openmc dot product"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FbFYNpJxPtK8cotkuBZyPU"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "arbEq05Jjwb6UOEFPrln8Ng8iOC9Jb76erBLWGInGZ+mFvettsdUdTxFfN4GMyNVQB4VLDmh6zCdNTB44FT/Bg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+inline double dot(Position other) const
+  {
+    return x * other.x + y * other.y + z * other.z;
+  }
+
+This is the dot product upstream. OpenMC's C++ code verbatim
+here we also have dot product, but the function takes two positions to calculate distance
+for convenience
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit fc56519933.
