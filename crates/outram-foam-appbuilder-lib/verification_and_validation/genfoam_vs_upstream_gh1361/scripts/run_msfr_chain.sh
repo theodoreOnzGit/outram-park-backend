@@ -49,6 +49,8 @@ elif [ "$STAGE" = transient ]; then
   blk $C regionSolvers "    energyNeutroLoop multiPhysicsSolver;"
   perl -0pi -e 's/^removeBaffles\s*\{[^}]*\}\n//m' $C/system/controlDict
   sed -i 's/^\( *\)solveFluidMechanics .*/\1solveFluidMechanics false;/' $C/system/fluidRegion/fvSolution
+  # gh:#1814 round 14: COUPLING_ITERS overrides maxIterations of the coupling loop (the light chain uses 1)
+  if [ -n "$COUPLING_ITERS" ]; then sed -i "s/^\( *\)maxIterations .*/\1maxIterations $COUPLING_ITERS;/" $C/constant/multiRegionCouplingDict_transient; fi
   cp $C/constant/multiRegionCouplingDict_transient $C/constant/multiRegionCouplingDict
   rm $C/constant/multiRegionCouplingDict_*
   if [ "$PROTOCOL" = tight ]; then

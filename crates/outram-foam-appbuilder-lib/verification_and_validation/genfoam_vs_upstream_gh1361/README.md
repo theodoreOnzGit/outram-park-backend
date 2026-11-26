@@ -1124,7 +1124,7 @@ So the port **cannot run the coupled MSFR transient**: the TH half (cell-centred
 
 `scripts/run_msfr_chain.sh` replays `Allrun`'s `setSteadyStateTH`, `setSteadyStateEN`, `setTransient` with sed/perl (`foamDictionary` is not built here). Protocol: `writePrecision 17` everywhere, so the restart state is exact; steady stages with the **shipped** solver tolerances (the transient start state is an input of both codes, as in round 3); the `transient` stage at the **tight protocol** (every linear solver `tolerance 1e-14`, `relTol 0`), `writeControl timeStep; writeInterval 1`. The sed edits only plain `tolerance x;`/`relTol x;` lines: the first attempt also rewrote the lines of the `/* ... relTol 0.01;*/` comment block of `neutroRegion/fvSolution` and removed its `*/`, which made upstream abort with "Entry 'fluxStar0' not found" (a harness defect, fixed).
 
-Measured before any port run: steadyStateTH 531 s (15 s of flow), steadyStateEN 71 s (`keff_` = 0.96031194083006322 at t = 165, `pTarget` 2e7; the tutorial's expected 0.960283 is 3.0 pcm away), transient 65 s for 142 steps to t = 166. Every step: `Multiphysics loop converged after 1 iterations`, so the neutronics of step n sees the TH state of the end of step n-1 (mapped once at the start of the step; the written `neutroRegion/<t>/TFuel`, `rhoCool` are exactly those). `U` is frozen (`fluidRegion/U` and `neutroRegion/U` identical in all steps), `fluxStar_i == flux_i` (discontinuity factors 1), `TFuel == TCool` bitwise, `rhoCool = 4125 (1 - 2e-4 (T - 900))` **bitwise** (Boussinesq). Per step: `deltaT` 0.001 then 8.1e-4, 9.8e-4, ... 7.47e-3 from step 15 (Courant-limited); the neutron iteration count is 50 (the cap) at steps 1-2, then 37, 1, 22, 1, 8 at steps 3-7, and 1 from step 8 on; the final `neutroResidual` is within 0.01 to 0.4 % of the 1e-6 stopping value at steps 2-14 (9.9967e-7 at step 3), so the iteration count is a discrete decision taken close to a threshold. **Aitken acceleration was refused at all 157 attempts and performed 0 times** (upstream declares the three integral-flux `List<scalar>` inside the loop, uninitialised: the test reads indeterminate memory). `power:` goes from 2.0000000e7 to 20003657.5 in step 1 and to 20013566 at step 50.
+Measured before any port run: steadyStateTH 531 s (15 s of flow), ~~steadyStateEN 71 s (`keff_` = 0.96031194083006322 at t = 165, `pTarget` 2e7; the tutorial's expected 0.960283 is 3.0 pcm away)~~ **SUPERSEDED 2026-11-26 (round 14): the EN stage is now the tight one, 171 s, `keff_` = 0.96031513866399976 (+3.3 pcm from 0.960282)**, transient 65 s for 142 steps to t = 166. Every step: `Multiphysics loop converged after 1 iterations`, so the neutronics of step n sees the TH state of the end of step n-1 (mapped once at the start of the step; the written `neutroRegion/<t>/TFuel`, `rhoCool` are exactly those). `U` is frozen (`fluidRegion/U` and `neutroRegion/U` identical in all steps), `fluxStar_i == flux_i` (discontinuity factors 1), `TFuel == TCool` bitwise, `rhoCool = 4125 (1 - 2e-4 (T - 900))` **bitwise** (Boussinesq). Per step: `deltaT` 0.001 then 8.1e-4, 9.8e-4, ... 7.47e-3 from step 15 (Courant-limited); the neutron iteration count is 50 (the cap) at steps 1-2, then 37, 1, 22, 1, 8 at steps 3-7, and 1 from step 8 on; the final `neutroResidual` is within 0.01 to 0.4 % of the 1e-6 stopping value at steps 2-14 (9.9967e-7 at step 3), so the iteration count is a discrete decision taken close to a threshold. **Aitken acceleration was refused at all 157 attempts and performed 0 times** (upstream declares the three integral-flux `List<scalar>` inside the loop, uninitialised: the test reads indeterminate memory). ~~`power:` goes from 2.0000000e7 to 20003657.5 in step 1 and to 20013566 at step 50.~~ **SUPERSEDED (round 14, tight EN start):** `power:` is 19999999.74 in step 1 and 20000013.90 at step 50 (+13.9 W, not +1.3566e4 W); the neutron iteration count is 1 at every one of the 50 steps (not 50, 50, 37, 1, 22, 1, 8, ...), so the near-threshold remark above applied to the loose state only.
 
 ## Predictions (written BEFORE the first port run; committed first)
 
@@ -1167,6 +1167,8 @@ Change: `CrossSectionData::with_upstream_unparametrised_chi()` (new option, ~~**
 
 ## Round 6 results (measured 2026-11-25, release; `tests/genfoam_msfr_transient_vs_upstream.rs`)
 
+**RE-BASELINED 2026-11-26 (round 14): the numbers in this section were measured from the shipped-tolerance 165 s state, which is critical at `pTarget` only to ~2e-4. The test now starts from the tight-solver state; its numbers are in "Round 14 results" (agreement levels unchanged; the power change, iteration counts and the chi ablation moved, with cause).** What stays true here is the method, the defect found (chi) and the cross-section identity.
+
 Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_transient_vs_upstream -- --nocapture`. Upstream: the 50 steps of `2D_MSFR` `transient`, tight protocol, real binary. Port: `DiffusionNeutronics::upstream_transient_step` (new, translation of `solveNeutronics.H`), `CrossSectionData::with_upstream_unparametrised_chi()`, driven one-way by upstream's own per-step `TFuel`/`rhoCool`; the port advances its own flux and precursors from upstream's t = 165 s state.
 
 ### The comparison (second run; chi at the reference state as upstream has it)
@@ -1174,13 +1176,13 @@ Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr
 | quantity (per step, 50 steps) | worst relative difference | where |
 |---|---|---|
 | `power:` (17 digits) | **6.2e-14** (step 50); 1.5e-14 at step 1 | no step above 1e-13 |
-| neutron iteration count | **equal at 50 of 50 steps** (50, 50, 37, 1, 22, 1, 8, then 1) | includes the near-threshold steps 3-8 |
+| neutron iteration count | **equal at 50 of 50 steps** (~~50, 50, 37, 1, 22, 1, 8, then 1~~ **round 14: 1 at every step**) | ~~includes the near-threshold steps 3-8~~ |
 | per-iteration `neutroResidual` (steps 1-3, 8 iterations) | agree to 9-10 digits (1.8360963420e-6 against 1.8360963422e-6) | |
 | per-group flux integral `sum V flux_g` | 6.3e-14 (step 50) | |
 | per-group precursor total `sum V prec_k` | **1.3e-11** (step 50), 5e-14 at step 1; grows steadily | groups 5-7 (the long-lived ones); -6e-13 (group 0) to +1.3e-11 (group 6) |
 | step 50, flux per cell, relative to the field maximum | 1.9e-13 | |
 | step 50, `prec` per cell, relative to the field maximum | 3.5e-10 | |
-| `power(50) - 2e7`: port 1.356621e4 W, upstream 1.356621e4 W | 9.1e-11 | |
+| `power(50) - 2e7`: ~~port 1.356621e4 W, upstream 1.356621e4 W~~ **round 14: port 13.8988 W, upstream 13.8988 W** | ~~9.1e-11~~ 8.1e-8 | |
 | wall time, 50 steps (8595 cells, 6 groups, 8 precursor groups) | 16.0 s | |
 
 **No step diverges**: there is no first diverging step. The round-off allowance (1e-9) is used by the precursor totals and the per-cell precursors only (1.3e-11 and 3.5e-10); flagged for the maintainer per CLAUDE.md. Cause, stated as a hypothesis, not tested: the precursor equation is solved by basic-lib's BiCGStab where upstream uses `PBiCG`/`DILU`, both stopped at a normalised residual of 1e-14; the signed difference grows with the group index (longer half-life, more transport, worse conditioned), which is the signature of a convergence-limited linear solve and not of a different equation. The flux, whose solver is the same family (CG), agrees to 6e-14. Bit-identity was not reached; it would need upstream's `PBiCG` with `DILU`.
@@ -1619,6 +1621,8 @@ the `fvMatrix::relax` translation (copied, cited), `upstream_transient_step`, `n
 
 ## Round 9 results (measured 2026-11-26, release; `tests/genfoam_msfr_coupled_vs_upstream.rs`, 3 tests, 15 s)
 
+**RE-BASELINED 2026-11-26 (round 14): measured from the shipped-tolerance 165 s state; the test now starts from the tight-solver state and reads `refs/msfr_chain_transient.ref.txt.gz` (`msfr_fluid_transient.ref.txt.gz` was removed). Current numbers: "Round 14 results". The figures below that depend on the start state (the 8.146e-4 step 2, 3.07 %, R1, the neutron iteration counts) are superseded.**
+
 Command: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_coupled_vs_upstream -- --nocapture`. Port: the coupled loop
 described above, run from upstream's t = 165 s restart, **nothing of upstream's per-step results used as input** (step size, power, `T` are the
 port's own). Upstream: the 50-step tight run above.
@@ -1781,7 +1785,7 @@ Round 9, started from upstream's 165 s restart, gave 6e-14 (T), 1e-13 (power); c
 | R11-1 | **held, by four orders of magnitude** (2.2e-13 vs 1e-9) |
 | R11-2 | **held**: port and tight upstream agree to 4.5e-14; both +3.3 pcm from 0.960282 (inside the 5 pcm bound; my "within about 1 pcm of the shipped-tolerance run" held too: +0.3 pcm) |
 | R11-3 | **held**: worst 8.0e-10 (`precStar`, predicted <= 1e-8), `T` 4.4e-14 (predicted <= 1e-10) |
-| R11-4 | **MISSED, and the cause is informative.** I expected the step-1 transient `power` to show the +1.8e-4 jump of the shipped-tolerance run (2.0000000e7 -> 20003657.5). With the tight EN stage the transient's step-1 `power:` is 19999999.74 (-1.3e-8 of `pTarget`), in upstream and in the port. The 1.8e-4 jump of the earlier run was the loose linear solvers of its EN stage (flux relTol), not the physics of the eigenvalue iteration: a tight-solver eigenvalue stage hands the transient a state that is critical at the target to 1e-8. Round 6/9's transient start state (shipped-tolerance EN) is therefore NOT a normalised state to better than 2e-4 |
+| R11-4 | **MISSED, and the cause is informative.** I expected the step-1 transient `power` to show the +1.8e-4 jump of the shipped-tolerance run (2.0000000e7 -> 20003657.5). With the tight EN stage the transient's step-1 `power:` is 19999999.74 (-1.3e-8 of `pTarget`), in upstream and in the port. The 1.8e-4 jump of the earlier run was the loose linear solvers of its EN stage (flux relTol), not the physics of the eigenvalue iteration: a tight-solver eigenvalue stage hands the transient a state that is critical at the target to 1e-8. Round 6/9's transient start state (shipped-tolerance EN) is therefore NOT a normalised state to better than 2e-4 (**RESOLVED 2026-11-26, round 14: rounds 6 and 9 now start from the tight state**) |
 | R11-5 | **held, by four orders** (<= 1e-13 vs 1e-9) |
 | R11-6 | **held**: carrying `he` in memory instead of recomputing `hs(T)` from a restart file is invisible at 1e-13 in 50 steps (no separate restart-vs-memory test was run: it is bounded by R11-5, not measured on its own) |
 
@@ -2366,3 +2370,73 @@ Inputs already known from round 11 (upstream data, not port results): tight `tra
 | L-1 | light chain, 20 EN steps from `restart_15`, fields at t = 20 s | `keff_`, `power:` <= 1e-11, `h` residual <= 1e-7, `T` stats <= 1e-12 (the 600-step gates; measured on the first 20 steps already: 2.2e-13); flux, `precStar`, `powerDensity` <= 1e-9, `T` <= 1e-12 |
 | L-2 | light chain, transient of the port's OWN 20 s state, 10 steps | `dt`, `T`, `power` <= 1e-11 / 1e-12 / 1e-11 as in the 50-step chain test. The 20 s state is far from critical (keff_ is still climbing towards 0.96), so unlike the 165 s state its step-1 `power:` is NOT near `pTarget`: a real, large power change, a harder test than the 165 s one. 70 %; the risk is a neutron-iteration count at the 1e-6 threshold |
 | L-3 | light chain wall time | < 30 s in release on this machine (600 EN steps took 239 s, 0.4 s per step: 20 steps ~ 8 s, 10 transient steps ~ 2 s, plus setup) |
+
+
+## Round 14 results (measured 2026-11-26, release; upstream = the real unmodified binary, serial)
+
+**Upstream re-run** (`scripts/run_msfr_chain.sh` with `PROTOCOL=tight`; scratch under `/home/user/upstream-build/gh1361/runs/msfr_r14*`, deleted after extraction): `steadyStateTH` (shipped tolerances) ~9 min, `steadyStateEN` tight 171 s (600 steps), `transient` tight 22 s (50 steps, `END_TIME=165.31`). **U1 held, bit for bit:** the decompressed `msfr_en` and `msfr_chain_transient` references re-extracted from the re-run are byte-identical to round 11's (`cmp`), and the `15` fluid output equals the committed `restart_15` (`T`, `U`, `p`, `Re`, `htc` compared, byte-identical). The upstream chain is deterministic, so round 11's `msfr_chain_transient.ref` IS the round 9 reference on the tight baseline: `msfr_fluid_transient.ref.txt.gz` was removed (nothing needs the shipped-tolerance references any more). Replaced in place: `refs/msfr_transient.ref.txt.gz` (regenerated by the ignored `extract_msfr_transient_reference` from the tight transient run directory; 50 steps, `START_keff` = 0.9603151386639998) and `cases/msfr_fluid/restart_165/{T,Re,powerDensityNeutronicsToLiquid}.gz` (the other seven restart fields are unchanged: the flow is frozen).
+
+### Round 6 (`genfoam_msfr_transient_vs_upstream`, neutronics half, one-way): old (shipped EN state) vs new (tight EN state)
+
+| quantity | old | new |
+|---|---|---|
+| step-1 upstream `power:` | 20003657.5 (+1.8e-4) | 19999999.74 (-1.3e-8) |
+| `power:` port vs upstream, worst of 50 | 6.2e-14 | **5.6e-14** |
+| neutron iteration counts | 50, 50, 37, 1, 22, 1, 8, then 1 (equal 50/50) | 1 at every step (equal 50/50) |
+| precursor totals worst / flux integrals worst | 1.3e-11 / 6.3e-14 | 1.3e-11 / 6.4e-14 |
+| step 50 per cell, flux / prec (of field max) | 1.9e-13 / 3.5e-10 | 2.3e-13 / 3.5e-10 |
+| `power(50) - 2e7`, upstream and port | +1.3566e4 W (port reproduces to 9.1e-11) | **+13.8988 W** (port reproduces to 8.1e-8 of the change) |
+| data-driven-chi ablation: worst power difference / counts equal / change at step 50 | 1.838e-4 / 43 of 50 / +1.0045e4 vs +1.3566e4 W | **7.947e-6 / 49 of 50 / -145.0 vs +13.9 W** |
+| wall, 50 steps | 16.0 s | 6.0 s |
+
+The ablation pin of `msfr_transient_with_data_driven_chi_misses_by_the_pinned_amount` MOVED (1e-4..4e-4 to 3e-6..2e-5; counts `< 48` to `< 50`), cause: the start state, not a code change. Most of the old 1.8e-4 was the loose state meeting the chi change; chi alone moves the power by 7.9e-6 at a normalised state. The gate pins are the measured values rounded outward ~2.5x and say only that the option still opens the gap.
+
+### Round 9 (`genfoam_msfr_coupled_vs_upstream`, coupled loop): old vs new, gates UNCHANGED and all held
+
+| quantity (worst over 50 steps) | old | new |
+|---|---|---|
+| `deltaT` | 4.8e-13 | 9.3e-14 |
+| fluid `T` | 2.5e-14 | 7.9e-15 |
+| `power:` | 6.7e-14 | 5.7e-14 |
+| `T (avg min max)` | 1.5e-15 | 2.1e-15 |
+| Courant | 4.8e-13 | 9.4e-14 |
+| `Re` (steps 1, 10, 25, 50) | 1.7e-15 | 1.6e-15 |
+| all five `h` residuals (not gated) | 4.2e-6 | 1.2e-5 |
+| coupling loop / neutron iteration counts | 1 iteration at 50/50; counts equal 50/50 | same |
+| start: fluid `T` against `T_0` / port power density against upstream's restart field | 3.2e-7 / 1.8e-8 | 3.2e-7 / 5.1e-8 (the same non-synchronous restart, see round 9) |
+| `pTotOld_` of step 1 | 2.06370139e7 | 2.0637010837e7 |
+| `deltaT` after step 1 | 8.1459e-4 | 8.0992e-4 (upstream 8.0991567e-4) |
+| wall | 15.4 s | 6.1 s |
+
+### Light chain (`msfr_light_chain_matches_upstream`, runs in every `cargo test`; no `GENFOAM_UPSTREAM`, no `long-tests`; 41 s wall)
+
+Inputs are the committed ones of the long chain (`restart_15`, `msfr_neutro`, `defaultFlux`, `reactorState`); references `refs/msfr_en20.ref.txt.gz` (upstream tight `steadyStateEN` 15 -> 20 s, written at 20 s: `EN_END=20 EN_WRITE=5`; its `KEFF`/`POWER` of the 20 steps are identical to the first 20 of `msfr_en`) and `refs/msfr_chain20_transient.ref.txt.gz` (upstream tight `transient` from that 20 s directory, first 10 steps). It gates: 20 EN steps (`keff_` 2.2e-13, `power:` 2.2e-13, first `h` residual 2.6e-9, `T` statistics 3.6e-14, time exact), the fields at 20 s (`powerDensity` 1.0e-10, `T` 3.6e-14, and `keff_` at 20 s, flux and `precStar` at <= 1e-9), then the typed hand-over `NormalisedState::start_transient` and 10 transient steps of the port's OWN 20 s state (`dt` 1.1e-11, `T` 3.7e-14, `power:` 3.9e-13, first `h` residual 1.1e-11), `keff_` frozen. Gates: as the long chain, except `dt` 2e-10 (measured 1.1e-11; the long chain keeps 1e-11, measured 6.0e-14 in round 11).
+
+**What the 20 s state is, and why the light transient is run with `maxIterations 1`.** The 20 s state is far from critical (`keff_` is still climbing), so the transient is a prompt-supercritical excursion: `power:` rises from 2.0e7 to 3.0e7 in 10 steps of 20-350 microseconds, the neutron iteration hits its cap of 50 at every step with a residual of 1e-4 (not 1e-6), and, with the tutorial's `maxIterations 3`, upstream's coupling loop does all 3 iterations at every step without converging. **The port does NOT match that: with `maxIterations 3` the first run of the light chain gave step-1 `power:` 2.5132e7 against upstream's 2.4851e7 (1.1e-2), `dt` 10 %, `T` 3.6e-7, growing to 8 % in power by step 10** (not gated, not fixed; filed as #1832). The first coupling iteration agrees (it is the only one in the next run); what differs is a later iteration of an unconverged coupling loop, a regime that round 9 never reached (its loop converged after 1 iteration at every step). So the light chain runs both codes with `maxIterations 1` (`COUPLING_ITERS=1` in the script, the same text replacement in the test); in that regime the port agrees as above. The long chain, which starts from the converged 165 s state, keeps the tutorial's dictionary.
+
+### Predictions: held and missed
+
+| id | held? | measured |
+|---|---|---|
+| U1 | **held, bit for bit** | see above |
+| P6-1 power <= 1e-9 | **held** | 5.6e-14 |
+| P6-2 step-1 power at `pTarget` (1e-6) | **held**, now asserted | -1.3e-8 in upstream and port |
+| P6-3 power change reproduced to 1e-5 | **held** | +13.8988 W, 8.1e-8 |
+| P6-4 counts equal >= 48, below the cap at steps 1-2 | **held** | 50/50, all 1 |
+| P6-5 totals, per cell <= 1e-8 | **held** | 1.3e-11, 6.4e-14, 3.5e-10 |
+| P6-6 ablation stays in 1e-4..4e-4 | **MISSED** | 7.9e-6: the old pin was mostly the loose state |
+| P9-1 `deltaT` after step 1 = 8.0992e-4, all 50 <= 1e-11 | **held** | 8.0992e-4, 9.3e-14 |
+| P9-2 all round 9 gates unchanged | **held** | table above |
+| P9-3 R1 restart synchrony missed again | **held** (as a miss) | 3.2e-7 and 5.1e-8 |
+| P9-4 counts, loop | **held** | 50/50, 1 iteration at 50/50 |
+| L-1 20 EN steps and fields at 20 s | **held** | 2.2e-13 (`keff_`, `power:`), 1.0e-10 (`powerDensity`) |
+| L-2 10 transient steps, `dt` <= 1e-11 | **MISSED twice**: with the tutorial's `maxIterations 3` the port differs from upstream by 1.1e-2 (above); with `maxIterations 1` it agrees but `dt` is 1.1e-11, 10 % over the predicted 1e-11 (`T`, `power:`, `h1` held) |
+| L-3 wall < 30 s | **MISSED** | 41 s (the 50-iteration cap makes the transient steps expensive) |
+
+### Moved numbers (old -> new, cause)
+
+Round 6: power change at step 50 (+1.3566e4 -> +13.8988 W), iteration counts (50, 50, 37, ... -> all 1), step-1 power (20003657.5 -> 19999999.74), ablation pin (1.838e-4 -> 7.9e-6, counts 43 -> 49 of 50): cause, the start state is now the tight EN state (maintainer decision, gh:#1814). Round 9: `deltaT` of step 2 (8.1459e-4 -> 8.0992e-4), `pTotOld_` (2.06370139e7 -> 2.0637010837e7), same cause. Agreement levels of every gated quantity: unchanged or better (tables above); no tolerance was moved. No port source file was changed in this round (tests, references, scripts, docs only).
+
+### Gates run (2026-11-26, release, targeted per the parallel-streams rule; the full integration run is the parent's)
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream --test genfoam_msfr_transient_vs_upstream --test genfoam_msfr_coupled_vs_upstream`: chain 5 passed (including the 235 s long chain and the new light chain), coupled 3 passed, transient 2 passed + 7 ignored diagnostics/extractor.
