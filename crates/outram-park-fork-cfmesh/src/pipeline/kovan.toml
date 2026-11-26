@@ -2,144 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-cfmesh"
 dir = "crates/outram-park-fork-cfmesh/src/pipeline"
-test_ids = [
-    "crates/dhoby-ghaut/examples/foam_studio_web/engine.rs::exchanger_designs_are_checked_and_sized",
-    "crates/dhoby-ghaut/examples/foam_studio_web/engine.rs::headless_unstructured_pipe_runs_and_is_pinned",
-    "crates/dhoby-ghaut/examples/foam_studio_web/engine.rs::mesher_choices_default_to_upstreams_sequence_and_follow_the_url",
-    "crates/dhoby-ghaut/examples/mesh_studio/engine.rs::cfmesh_layers_grow_on_the_tetgen_dual_of_the_pebble",
-    "crates/dhoby-ghaut/examples/mesh_studio/engine.rs::every_mesh_type_builds_a_valid_mesh",
-    "crates/dhoby-ghaut/examples/mesh_studio/engine.rs::every_mesh_type_on_tetgen_tets_of_the_reactor_shapes",
-    "crates/dhoby-ghaut/examples/mesh_studio/engine.rs::the_engine_reports_the_build_and_cuts_each_stage",
-    "crates/dhoby-ghaut/examples/mesh_studio/engine.rs::the_wire_format_round_trips",
-    "crates/dhoby-ghaut/examples/mesh_studio/engine.rs::twenty_layers_grow_on_the_pipe_with_the_cfmesh_optimiser",
-    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::every_case_produces_a_valid_mesh_within_loose_bounds",
-    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::reactor_shapes_mesh_with_named_patches_and_wall_layers",
-    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::surface_cleanup_does_not_wreck_the_volume_mesh",
-    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::the_headless_sweep_is_deterministic",
-    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::the_headless_sweep_matches_the_committed_fixture",
-    "crates/dhoby-ghaut/examples/mesh_studio/section.rs::a_mid_plane_cut_of_the_carved_box_has_the_box_area",
-    "crates/dhoby-ghaut/examples/mesh_studio/section.rs::layer_colouring_follows_the_stage",
-    "crates/dhoby-ghaut/examples/mesh_studio/section.rs::the_conversion_keeps_the_cell_order",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::anisotropic_sources_through_the_generators",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::draw_anisotropic_images",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::generators_without_anisotropic_sources_are_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::interior_hexes_stay_cubes_until_mesh_optimisation",
-    "crates/outram-park-fork-cfmesh/src/boundary_layer_optimisation.rs::diagnose_optimise_layer_on_the_patch_wise_box",
-    "crates/outram-park-fork-cfmesh/src/checks.rs::cell_quality_maxima_equal_the_report",
-    "crates/outram-park-fork-cfmesh/src/correct_edges.rs::correct_edges_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::box_auxiliary_steps_and_planted_error",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::box_with_three_patches_every_face_on_its_side",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::diagnose_edge_extractor_in_tet_and_p_mesh",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::diagnose_foam_studio_pipe_differential",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::tet_and_p_mesh_run_the_edge_extractor",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::diagnose_final_mesh_differential",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::foam_studio_default_mesh_keeps_its_fingerprint",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::gh1286_zero_area_layer_mesh_is_refused",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::optimise_final_mesh_runs_upstreams_calls_in_order",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::projected_untangle_keeps_the_inlet_planar",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::projector_restores_moved_points_and_leaves_the_rest",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::render_final_mesh_inlets",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::cfmesh_layer_against_back_off_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::check_topology_of_boundary_faces_on_forced_groups",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::diagnose_cfmesh_layer_on_the_foam_studio_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::patch_wise_displacements_equal_the_one_group_route_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::detect_finds_exactly_the_cfmesh_layer",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::diagnose_layer_groups_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::draw_layer_images",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::max_first_layer_thickness_caps_the_first_layer",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::prism_refinement_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::split_points_match_build_layered_variable",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::optimise_layer_reaches_the_options",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::patterns_resolve_against_the_surface",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::tutorials_read_with_no_unhandled_keyword",
-    "crates/outram-park-fork-cfmesh/src/mesh_optimizer.rs::diagnose_laplace_pc_against_smart_laplacian",
-    "crates/outram-park-fork-cfmesh/src/mesh_optimizer.rs::lock_api_and_enforce_constraints",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::generate_boundary_layers_on_a_box",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::generate_boundary_layers_with_optimise_layer_on_the_box",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::generate_boundary_layers_with_optimise_layer_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::improve_mesh_quality_on_the_dented_box",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::back_off_only_layers_are_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::box_tet_dual_is_valid_and_conserves_volume_exactly",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::box_tet_dual_no_layers_conserves_volume",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::correct_edges_runs_in_the_pipeline_and_is_off_by_default",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::cylinder_tet_dual_is_valid_and_near_analytic_volume",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::defaults_mesh_the_studio_sphere",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_back_off_on_dual_kinds",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_cfmesh_against_openfoam_checks",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_corners_rim",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_dual_kinds_differential",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_inward_boundary_faces_on_layered_pipes",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_layer_quality_per_layer",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_layer_strategies_differential",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_per_point_bad_faces",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_snappy_cascade",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_wall_faces_per_dual_cell",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::dual_kinds_are_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::error_paths_and_dual_toggle",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::every_boundary_face_points_outward_on_layered_pipes_and_ducts",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::layer_strategies_are_deterministic",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::multipatch_rejects_a_mislabelled_surface",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::named_regions_survive_the_full_pipeline_as_patches",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::octree_grading_beats_the_uniform_carve_on_cells_per_accuracy",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::octree_path_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::refinement_level_zero_is_the_uniform_path",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::render_gh1285_face_order",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::sphere_tet_dual_is_valid_and_near_analytic_volume",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::upper_triangular_order_moves_no_geometry",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::wall_only_layers_end_on_the_pipe_ends",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::channel_2d_against_the_3d_mid_plane",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::channel_2d_surface_optimisation_and_refined_layers",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::quadtree_leaves_span_the_root_in_z",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::cartesian_mesh_patch_wise_against_o_topology",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::cartesian_mesh_stop_and_restart_reproduce_the_full_run",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::cartesian_mesh_with_refined_layers",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::diagnose_cartesian_mesh_on_the_pipes",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::diagnose_cartesian_mesh_on_the_sphere",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::draw_patch_wise_layer_images",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::optimise_layer_runs_optimize_boundary_layer",
-    "crates/outram-park-fork-cfmesh/src/pipeline/p_mesh.rs::diagnose_p_mesh_workflow",
-    "crates/outram-park-fork-cfmesh/src/pipeline/p_mesh.rs::voronoi_cells_equal_the_cell_centre_dual_inside",
-    "crates/outram-park-fork-cfmesh/src/pipeline/p_mesh.rs::voronoi_extractor_cells_are_the_interior_tet_vertices",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::every_strategy_gives_an_index_within_the_requested_layers",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::no_layers_means_an_all_core_index",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::staged_route_is_bit_identical_to_the_plain_route",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::stages_are_in_order_and_end_with_the_returned_mesh",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::uniform_layers_have_one_cell_per_wall_face_per_layer",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::diagnose_tet_mesh_against_the_crate_tets",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::tet_and_p_mesh_with_a_boundary_layers_dict",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::tet_creator_on_the_sphere_and_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::tet_mesh_stop_and_restart_reproduce_the_full_run",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::a_cavity_gets_a_hole_point_and_stays_empty",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::bad_bounds_are_refused",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::diagnose_boundary_tets_of_both_sources",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::single_patch_route_grows_layers_on_tetgen_tets",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::tetgen_route_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::tetgen_route_runs_every_mesh_type_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::tetgen_tets_of_a_box_fill_it_exactly",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source.rs::the_default_is_the_carved_route_and_switches_read_as_upstream",
-    "crates/outram-park-fork-cfmesh/src/premap_vertices.rs::pre_map_vertices_halves_the_distance_on_the_sphere",
-    "crates/outram-park-fork-cfmesh/src/surface_engine.rs::engine_matches_the_crates_earlier_boundary_maps_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::diagnose_reflex_dual_faces",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::diagnose_untangle_surface_differential",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::inverted_vertices_against_nonpositive_pyramids_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::render_untangle_surface_inlets",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::untangle_surface_option_is_off_by_default_and_runs",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::a_surface_without_types_keeps_patch",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::cartesian_mesh_writes_the_sphere_as_a_wall",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::p_mesh_writes_the_sphere_as_a_wall",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::tet_mesh_writes_the_sphere_as_a_wall",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::carried_cell_lists_equal_upstream_after_layers",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::carried_state_per_stage",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::laplacian_over_upstream_cell_lists_is_bit_identical",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::tet_mesh_carried_cell_lists_vs_upstream",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_single_orifice.rs::single_orifice_final_mesh_equals_upstream_up_to_the_pow_ulp",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_single_orifice.rs::single_orifice_stage_table",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::cartesian_mesh_matches_upstream_through_mesh_optimisation",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::final_meshes_match_upstream",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::p_mesh_matches_upstream_through_mesh_optimisation",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::tet_mesh_matches_upstream_through_mesh_optimisation",
-]
 
 [module."cartesian_2d_mesh.rs"]
 path = "crate::pipeline::cartesian_2d_mesh"
@@ -150,52 +12,15 @@ name = "Cartesian2DMeshOptions"
 qual = "Cartesian2DMeshOptions"
 item = "type"
 shape = "struct"
-lines = [
-    87,
-    109,
-]
 hash = "sha256:30806f8f73663918f31aaabab5b3a8b2fa325e7bdc31c0d584a7439037506e62"
 doc_hash = "sha256:cde147ff1e01d34168a741095b459437c022b0e573620b7cc340748619e52930"
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:79ace9ce9d58d13f",
-    "fn:b055d75672b4be28",
-    "fn:bb4ac346ae24ece8",
-    "fn:df2965cdda454f14",
-    "fn:fb7d07f0246b2d9d",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#46",
-    "#47",
-    "#48",
-    "#84",
-    "#85",
-    "#86",
-    "#130",
-    "#131",
-]
 
 [[module."cartesian_2d_mesh.rs".function]]
 id = "fn:13bfe64bcf7568c7"
 name = "default"
 qual = "Cartesian2DMeshOptions::default"
-lines = [
-    112,
-    123,
-]
 hash = "sha256:fc7da8b41437f2b17d87bf5bd0b96ec1f03a389c7ae789b3e158383b1a71a1ec"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:3f596d290e9626ae"]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:79ace9ce9d58d13f",
-    "fn:b055d75672b4be28",
-    "fn:d43ce3b552034f9a",
-    "fn:df2965cdda454f14",
-]
 
 [[module."cartesian_2d_mesh.rs".function]]
 id = "fn:5994d2bafc89eff3"
@@ -203,240 +28,8 @@ name = "Cartesian2DMeshReport"
 qual = "Cartesian2DMeshReport"
 item = "type"
 shape = "struct"
-lines = [
-    126,
-    158,
-]
 hash = "sha256:1d9a23d80618af4564c5112f1c41208380a256c94348d666f89b8e4a364c2a70"
 doc_hash = "sha256:bbffcb505d0e1fd0212888239212831e9f50b47ae5b0162b2eca7dd7d7cf2f05"
-uses = [
-    "fn:84ea16cbf071215c",
-    "fn:98e2bb4808c3177e",
-    "fn:d406fef7faccbf15",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#84",
-    "#85",
-    "#86",
-]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:b36f05574be51ec7"
-name = "optimise_mesh_surface_2d"
-qual = "optimise_mesh_surface_2d"
-lines = [
-    160,
-    167,
-]
-hash = "sha256:d9f0cffc6e2ec4ba61e25f349fac8e366461255a8bd742ef37063ea627ff0ae0"
-doc_hash = "sha256:5605394e50e3a11a4348fef48c906ab493d0dabc26cf933a1b9725fe24ab5e7b"
-callees = [
-    "fn:4a974a3ad9026c8e",
-    "fn:a17b4695e537e684",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:39a10a31dc719a24",
-    "fn:84ea16cbf071215c",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#84",
-    "#85",
-    "#86",
-]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:87a12ed04264ea1f"
-name = "create_quadtree"
-qual = "create_quadtree"
-lines = [
-    169,
-    176,
-]
-hash = "sha256:2dc143a24c5b6427c0cb0d4a7ef1f81768504edc7abe2cbaea40a704adf9c2b0"
-doc_hash = "sha256:bfc2f90199f76c63e3d90f24bec69217ff29169e722ac9b9c70a0a5fdfb84439"
-callees = [
-    "fn:6865f38fc5167ee3",
-    "fn:b4bce924144f4f66",
-    "fn:d7381caa2d8d17d5",
-    "fn:f52eb5a2f47954af",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:101c1e95cd4fa8f4",
-    "fn:39a10a31dc719a24",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:c88dcf04c834f3d6",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:00eb9c7944a6e70d"
-name = "refined_quadtree"
-qual = "refined_quadtree"
-lines = [
-    178,
-    188,
-]
-hash = "sha256:f32e82b8d7d11dbc65e251efbb971ed8963b66c9c0b6c35e6d07e0c90fa24d0c"
-doc_hash = "sha256:f3216669f2b35e9f307f3c182bca78080129ecadb95c3e8282f37902248ca529"
-callees = [
-    "fn:6865f38fc5167ee3",
-    "fn:b4bce924144f4f66",
-    "fn:d7381caa2d8d17d5",
-    "fn:df95006fb1b24eeb",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:101c1e95cd4fa8f4",
-    "fn:39a10a31dc719a24",
-    "fn:70e860e06320216b",
-    "fn:c88dcf04c834f3d6",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#84",
-    "#85",
-    "#86",
-]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:9629a1d6526ef394"
-name = "cartesian_2d_mesh"
-qual = "cartesian_2d_mesh"
-lines = [
-    190,
-    194,
-]
-hash = "sha256:fb487021e35c7116b361d3fc04ba151fdeaca26344fceff8c29af390b6d18ec4"
-doc_hash = "sha256:71276c13beae2161f5568848e68fb548f4d5f4b4efb75fc27394aa509792ccf6"
-callees = ["fn:bcb82407d1131750"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:5994d2bafc89eff3",
-    "fn:70e860e06320216b",
-    "fn:d43ce3b552034f9a",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#84",
-    "#85",
-    "#86",
-]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:66d5affd3c78642e"
-name = "cartesian_2d_mesh_restart"
-qual = "cartesian_2d_mesh_restart"
-lines = [
-    196,
-    199,
-]
-hash = "sha256:5f486658697280a0bf083473ef3df978b178981a32b6502a7c6beef1e4f68f48"
-doc_hash = "sha256:372cf41da93587c4ddfc1e27bf66b8a38a5546b3933d86d030698dc87dcbbff8"
-callees = ["fn:bcb82407d1131750"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:5994d2bafc89eff3",
-    "fn:70e860e06320216b",
-    "fn:d43ce3b552034f9a",
-    "fn:d6bcd06b1b4f1891",
-]
-reached_by = ["#84"]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:bcb82407d1131750"
-name = "run_2d"
-qual = "run_2d"
-lines = [
-    201,
-    384,
-]
-hash = "sha256:cbe0c97dc19c13c7c170c3e6984eaa0bf5d08234c0a92f183bfa8286e7727af3"
-doc_hash = "sha256:ae82f2af34011b16713c36d4eae8341b8a94618ae8cce4c30d3f426e496deb91"
-callees = [
-    "fn:00eb9c7944a6e70d",
-    "fn:05bb0760d8820d0d",
-    "fn:140015cfaa963084",
-    "fn:321aa776b7a481f0",
-    "fn:4ab75ffd3189ef94",
-    "fn:5b521a52949ac8f1",
-    "fn:6f750e70c72443c4",
-    "fn:72af43fb7c82b7f4",
-    "fn:74c0b203b579bb1c",
-    "fn:7aed7e8ac18056e7",
-    "fn:7c9ee7a5b126b3bf",
-    "fn:7d32668df230f98e",
-    "fn:87a12ed04264ea1f",
-    "fn:a17b4695e537e684",
-    "fn:ab51d9ea8538bf4c",
-    "fn:b20e21a630c63653",
-    "fn:b36f05574be51ec7",
-    "fn:bacda5aaa7a2e03b",
-    "fn:c32bc22bb34b7018",
-    "fn:c94c508909241d3d",
-    "fn:da032e9e68bc389b",
-    "fn:dfb04f57c20ebb69",
-    "fn:e95b97bc4c97349c",
-    "fn:ecf1fb25e82256a5",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:558504c6a7b03168",
-    "fn:5994d2bafc89eff3",
-    "fn:70e860e06320216b",
-    "fn:a3f938bd07a3fdfc",
-    "fn:c693eeb911337cec",
-    "fn:d406fef7faccbf15",
-    "fn:d43ce3b552034f9a",
-    "fn:d6bcd06b1b4f1891",
-    "fn:e63ac1cffd8832e0",
-    "fn:f9b25eb6ff8128ee",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#84",
-    "#85",
-    "#86",
-]
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:1ca3b56024ebe56c"
-name = "L"
-qual = "L"
-item = "const"
-shape = "const"
-lines = [
-    394,
-    394,
-]
-hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
 
 [[module."cartesian_2d_mesh.rs".function]]
 id = "fn:0688c97663134479"
@@ -444,212 +37,124 @@ name = "H"
 qual = "H"
 item = "const"
 shape = "const"
-lines = [
-    395,
-    395,
-]
 hash = "sha256:c807e42b2a5632a737459b3b9ad34b2f0a16f52f0ed9b1d76458c0677ffbc069"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cartesian_2d_mesh.rs".function]]
-id = "fn:0d09c57bbb31c8d2"
-name = "channel_ribbon"
-qual = "channel_ribbon"
-lines = [
-    397,
-    406,
-]
-hash = "sha256:0869e43ea83ae2922ea04ca43d55248a0f96eced35cfc64e513e0f0e8b0bdf0d"
-doc_hash = "sha256:f0fa60fed067b50c0ebe9fe75eb0e7cb4495609edfeeb6803ad9e89c88f98b2a"
-callees = [
-    "fn:5b6d3d9552c61e5a",
-    "fn:b60a98c6418de28b",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:70e860e06320216b",
-]
+id = "fn:1ca3b56024ebe56c"
+name = "L"
+qual = "L"
+item = "const"
+shape = "const"
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cartesian_2d_mesh.rs".function]]
-id = "fn:a11b2750f807c6a5"
-name = "channel_box"
-qual = "channel_box"
-lines = [
-    408,
-    428,
-]
-hash = "sha256:d4705d51f21daeaa50bd211b70c880c8e407993545bd91fed2da18909d1c2bca"
-doc_hash = "sha256:8a17ef76e810dad853e0920e9bdb4d4220fd40e6f9a770e2333b79e3ce85b7c3"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:5b6d3d9552c61e5a",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0688c97663134479",
-    "fn:0bb173954082584d",
-    "fn:1ca3b56024ebe56c",
-    "fn:70e860e06320216b",
-]
-test = true
+id = "fn:9629a1d6526ef394"
+name = "cartesian_2d_mesh"
+qual = "cartesian_2d_mesh"
+hash = "sha256:fb487021e35c7116b361d3fc04ba151fdeaca26344fceff8c29af390b6d18ec4"
+doc_hash = "sha256:71276c13beae2161f5568848e68fb548f4d5f4b4efb75fc27394aa509792ccf6"
 
 [[module."cartesian_2d_mesh.rs".function]]
-id = "fn:968a9894e3957c55"
-name = "xy_set"
-qual = "xy_set"
-lines = [
-    430,
-    436,
-]
-hash = "sha256:8afca4169e7eb351afbb8a45cb57bbdf316a8fe04fd220a63cce0fa1bc9154ee"
-doc_hash = "sha256:fe18819b61cb1dd2df7a3820c837d80e02311daa55cf07c160eb23fa23589835"
-uses = ["fn:0bb173954082584d"]
+id = "fn:66d5affd3c78642e"
+name = "cartesian_2d_mesh_restart"
+qual = "cartesian_2d_mesh_restart"
+hash = "sha256:5f486658697280a0bf083473ef3df978b178981a32b6502a7c6beef1e4f68f48"
+doc_hash = "sha256:372cf41da93587c4ddfc1e27bf66b8a38a5546b3933d86d030698dc87dcbbff8"
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:823e7867ac995bb3"
+name = "cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run"
+qual = "cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run"
+hash = "sha256:7b7a964515c08f73e28fdcbf7d97692cc2a019d2776461dffe5b9fad7115b871"
+doc_hash = "sha256:fc4cd45efe5336979c61622a56a86790ce36c7e9cc83adc0279cdf5a0f120bca"
 test = true
 
 [[module."cartesian_2d_mesh.rs".function]]
 id = "fn:36f4ce1eab15ee6f"
 name = "channel_2d_against_the_3d_mid_plane"
 qual = "channel_2d_against_the_3d_mid_plane"
-lines = [
-    438,
-    534,
-]
 hash = "sha256:36ecd47deff8f84bd2c77abbd71000776955ed65d252882fa3ce7600eda9d750"
 doc_hash = "sha256:697b39292e34f22f4e3b038464067a5c4111746a340d3f8604f2f911a42cc635"
-callees = [
-    "fn:01afff344f44d5bd",
-    "fn:0d09c57bbb31c8d2",
-    "fn:21a2256faadd9502",
-    "fn:3f596d290e9626ae",
-    "fn:7160795e4d4cf805",
-    "fn:74c0b203b579bb1c",
-    "fn:87a12ed04264ea1f",
-    "fn:8c7e538d04b906d2",
-    "fn:9629a1d6526ef394",
-    "fn:968a9894e3957c55",
-    "fn:a11b2750f807c6a5",
-    "fn:e8cc0484019d08d6",
-    "fn:e94f17d1dc62e1d1",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:c853a1b7c9a42bd2",
-    "fn:d43ce3b552034f9a",
-    "fn:e63ac1cffd8832e0",
-]
-test = true
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:e1041aa2bcf9912a"
-name = "quadtree_leaves_span_the_root_in_z"
-qual = "quadtree_leaves_span_the_root_in_z"
-lines = [
-    536,
-    570,
-]
-hash = "sha256:e77fceb9f81c02fc1a2f3efd8d5bd07c69df182a453b87991c34475f6b3a47f3"
-doc_hash = "sha256:94b45f411c34980eac124350b35e018f439c119b67929a9a9378934a13df6717"
-callees = [
-    "fn:0d09c57bbb31c8d2",
-    "fn:3f596d290e9626ae",
-    "fn:4ab75ffd3189ef94",
-    "fn:7160795e4d4cf805",
-    "fn:87a12ed04264ea1f",
-    "fn:e94f17d1dc62e1d1",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:c853a1b7c9a42bd2",
-    "fn:e63ac1cffd8832e0",
-]
-test = true
-
-[[module."cartesian_2d_mesh.rs".function]]
-id = "fn:3425eaa989550c43"
-name = "one_cell_thick"
-qual = "one_cell_thick"
-lines = [
-    572,
-    575,
-]
-hash = "sha256:61063204f5a5342c568030c15b9697f67da2d57074670a586668e4408eaa75b2"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:7160795e4d4cf805"]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:c853a1b7c9a42bd2",
-]
 test = true
 
 [[module."cartesian_2d_mesh.rs".function]]
 id = "fn:d99ae748f57de412"
 name = "channel_2d_surface_optimisation_and_refined_layers"
 qual = "channel_2d_surface_optimisation_and_refined_layers"
-lines = [
-    577,
-    671,
-]
 hash = "sha256:0e5b88276c17922987be6d4ba3bb17e384f74528b2a6b9d24bc6966268e49ceb"
 doc_hash = "sha256:feb7a612dfa70ee5775cbc5f6f70f5e12340e62ab920f1cc953fb81b136f2249"
-callees = [
-    "fn:01afff344f44d5bd",
-    "fn:0d09c57bbb31c8d2",
-    "fn:21a2256faadd9502",
-    "fn:2e15c0317a694052",
-    "fn:3f596d290e9626ae",
-    "fn:7160795e4d4cf805",
-    "fn:8570c7a02695d2fc",
-    "fn:87a12ed04264ea1f",
-    "fn:9629a1d6526ef394",
-    "fn:9ff6ce079ec4cec5",
-    "fn:a17b4695e537e684",
-    "fn:b36f05574be51ec7",
-    "fn:bacda5aaa7a2e03b",
-    "fn:db1eef4d99c68dc0",
-]
-uses = [
-    "fn:0688c97663134479",
-    "fn:0bb173954082584d",
-    "fn:1ca3b56024ebe56c",
-    "fn:5e617327bd4b2fca",
-    "fn:99b83de93afb8218",
-    "fn:bb4ac346ae24ece8",
-    "fn:c853a1b7c9a42bd2",
-    "fn:d406fef7faccbf15",
-    "fn:d43ce3b552034f9a",
-    "fn:df2965cdda454f14",
-    "fn:eca3b688d6d9d7bb",
-]
 test = true
 
 [[module."cartesian_2d_mesh.rs".function]]
-id = "fn:823e7867ac995bb3"
-name = "cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run"
-qual = "cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run"
-lines = [
-    673,
-    694,
-]
-hash = "sha256:7b7a964515c08f73e28fdcbf7d97692cc2a019d2776461dffe5b9fad7115b871"
-doc_hash = "sha256:fc4cd45efe5336979c61622a56a86790ce36c7e9cc83adc0279cdf5a0f120bca"
-callees = [
-    "fn:0d09c57bbb31c8d2",
-    "fn:3f596d290e9626ae",
-    "fn:66d5affd3c78642e",
-    "fn:9629a1d6526ef394",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:bb4ac346ae24ece8",
-    "fn:d406fef7faccbf15",
-    "fn:d43ce3b552034f9a",
-    "fn:d6bcd06b1b4f1891",
-    "fn:df2965cdda454f14",
-]
+id = "fn:a11b2750f807c6a5"
+name = "channel_box"
+qual = "channel_box"
+hash = "sha256:d4705d51f21daeaa50bd211b70c880c8e407993545bd91fed2da18909d1c2bca"
+doc_hash = "sha256:8a17ef76e810dad853e0920e9bdb4d4220fd40e6f9a770e2333b79e3ce85b7c3"
+test = true
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:0d09c57bbb31c8d2"
+name = "channel_ribbon"
+qual = "channel_ribbon"
+hash = "sha256:0869e43ea83ae2922ea04ca43d55248a0f96eced35cfc64e513e0f0e8b0bdf0d"
+doc_hash = "sha256:f0fa60fed067b50c0ebe9fe75eb0e7cb4495609edfeeb6803ad9e89c88f98b2a"
+test = true
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:87a12ed04264ea1f"
+name = "create_quadtree"
+qual = "create_quadtree"
+hash = "sha256:2dc143a24c5b6427c0cb0d4a7ef1f81768504edc7abe2cbaea40a704adf9c2b0"
+doc_hash = "sha256:bfc2f90199f76c63e3d90f24bec69217ff29169e722ac9b9c70a0a5fdfb84439"
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:3425eaa989550c43"
+name = "one_cell_thick"
+qual = "one_cell_thick"
+hash = "sha256:61063204f5a5342c568030c15b9697f67da2d57074670a586668e4408eaa75b2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:b36f05574be51ec7"
+name = "optimise_mesh_surface_2d"
+qual = "optimise_mesh_surface_2d"
+hash = "sha256:d9f0cffc6e2ec4ba61e25f349fac8e366461255a8bd742ef37063ea627ff0ae0"
+doc_hash = "sha256:5605394e50e3a11a4348fef48c906ab493d0dabc26cf933a1b9725fe24ab5e7b"
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:e1041aa2bcf9912a"
+name = "quadtree_leaves_span_the_root_in_z"
+qual = "quadtree_leaves_span_the_root_in_z"
+hash = "sha256:e77fceb9f81c02fc1a2f3efd8d5bd07c69df182a453b87991c34475f6b3a47f3"
+doc_hash = "sha256:94b45f411c34980eac124350b35e018f439c119b67929a9a9378934a13df6717"
+test = true
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:00eb9c7944a6e70d"
+name = "refined_quadtree"
+qual = "refined_quadtree"
+hash = "sha256:f32e82b8d7d11dbc65e251efbb971ed8963b66c9c0b6c35e6d07e0c90fa24d0c"
+doc_hash = "sha256:f3216669f2b35e9f307f3c182bca78080129ecadb95c3e8282f37902248ca529"
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:bcb82407d1131750"
+name = "run_2d"
+qual = "run_2d"
+hash = "sha256:cbe0c97dc19c13c7c170c3e6984eaa0bf5d08234c0a92f183bfa8286e7727af3"
+doc_hash = "sha256:ae82f2af34011b16713c36d4eae8341b8a94618ae8cce4c30d3f426e496deb91"
+
+[[module."cartesian_2d_mesh.rs".function]]
+id = "fn:968a9894e3957c55"
+name = "xy_set"
+qual = "xy_set"
+hash = "sha256:8afca4169e7eb351afbb8a45cb57bbdf316a8fe04fd220a63cce0fa1bc9154ee"
+doc_hash = "sha256:fe18819b61cb1dd2df7a3820c837d80e02311daa55cf07c160eb23fa23589835"
 test = true
 
 [module."cartesian_mesh.rs"]
@@ -661,239 +166,15 @@ name = "CartesianMeshGeneratorOptions"
 qual = "CartesianMeshGeneratorOptions"
 item = "type"
 shape = "struct"
-lines = [
-    88,
-    125,
-]
 hash = "sha256:dec7bff108ec946202e783b40f4b05e407ceb85f00faec273151cd3c1265732b"
 doc_hash = "sha256:32486c9655d6587683fbb34067a0935527f9afd710f0e005135dc365b669b160"
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:6b9400c88ef9d5ff",
-    "fn:79ace9ce9d58d13f",
-    "fn:a030da41c4a8490f",
-    "fn:b055d75672b4be28",
-    "fn:bb4ac346ae24ece8",
-    "fn:df2965cdda454f14",
-    "fn:fb7d07f0246b2d9d",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#46",
-    "#47",
-    "#48",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:b055d75672b4be28"
-name = "LayerTopology"
-qual = "LayerTopology"
-item = "type"
-shape = "enum"
-lines = [
-    127,
-    136,
-]
-hash = "sha256:14b1bf66484c1aae31c43da2235c72e770ef7e0300bdc66f03500b48d0dce2d8"
-doc_hash = "sha256:4ff680a51e29c5c35f6419f2afeda1dd2bdc1ac4326530d79807e5fc49d11e01"
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#46",
-    "#47",
-    "#48",
-    "#84",
-    "#85",
-    "#86",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:140015cfaa963084"
-name = "boundary_layer_generation"
-qual = "boundary_layer_generation"
-lines = [
-    138,
-    159,
-]
-hash = "sha256:3bac7c9ccd14bc4a6b173fb0f453729a99404d0a8c6f73de2f0b066a5298b8d5"
-doc_hash = "sha256:85083e42651e66d9a88a15c8bf8f7924f7c173d9d06cbe605db2ff376e2c4edd"
-callees = [
-    "fn:31370da16b8ffb57",
-    "fn:4906c3ef81284e18",
-    "fn:d2c58d42d32ed799",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:79ace9ce9d58d13f",
-    "fn:a3f938bd07a3fdfc",
-    "fn:b055d75672b4be28",
-    "fn:ca8a398d79afd3d9",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#84",
-    "#85",
-    "#86",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:0c8cb60919a2408f"
-name = "ref_boundary_layers"
-qual = "ref_boundary_layers"
-lines = [
-    161,
-    212,
-]
-hash = "sha256:88b1f6fc0b23904b8f9d5357f86ec1b37af24a3d4e24378716e5db5f580dd316"
-doc_hash = "sha256:acacc0468119bbc58c664abae48945d356436d39ee6beeecab453ce4c12dcbf7"
-callees = [
-    "fn:037877c20bfba0b9",
-    "fn:b3bb789746859e52",
-    "fn:bc8e6c41f767d54e",
-    "fn:c9dda8863c99a3a0",
-    "fn:ee10ad5daed8aef8",
-    "fn:f65bccd5e6993338",
-]
-uses = [
-    "fn:0ad67becc332bf44",
-    "fn:1d52ce14c252d72f",
-    "fn:8dc70e998d0e25be",
-    "fn:bb4ac346ae24ece8",
-    "fn:c693eeb911337cec",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:910081dc0c7b88ce"
 name = "default"
 qual = "CartesianMeshGeneratorOptions::default"
-lines = [
-    215,
-    230,
-]
 hash = "sha256:b029707f43f9e9ebeb521fe389a6a4531990eec515a5c8268478eeec5cde36bf"
 doc_hash = "sha256:76f4cd5aa2c8b7f22ba21adf5766987ad728a1e83f879646c602a1ff413f0671"
-callees = ["fn:3f596d290e9626ae"]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:79ace9ce9d58d13f",
-    "fn:a030da41c4a8490f",
-    "fn:b055d75672b4be28",
-    "fn:df2965cdda454f14",
-]
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:e6479fd9f13c75e6"
@@ -901,327 +182,8 @@ name = "CartesianMeshReport"
 qual = "CartesianMeshReport"
 item = "type"
 shape = "struct"
-lines = [
-    233,
-    279,
-]
 hash = "sha256:7ca97773d0230b4fe008560f560b91ffecd05793ce384661bc4522be13f71794"
 doc_hash = "sha256:9c11b40ca9f028e66849947eff2d0b3072206c8ee278fb2c1a33e95da8611ac0"
-uses = [
-    "fn:98e2bb4808c3177e",
-    "fn:b4f3ef3b2c563714",
-    "fn:d406fef7faccbf15",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:74c0b203b579bb1c"
-name = "n_nonpositive_cells"
-qual = "n_nonpositive_cells"
-lines = [
-    281,
-    285,
-]
-hash = "sha256:26ba35de6bd12cdcaad5e48e7edbe1c2406374cbb484c076ed16cecfb89cfd0c"
-doc_hash = "sha256:474dc7c8fb3b02eb77c1fa089c7a91a91709243047247e060d3bc1b43ec1dd46"
-callees = ["fn:4fbc238e8eae2059"]
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#84",
-    "#85",
-    "#86",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:05bb0760d8820d0d"
-name = "cartesian_surface_preparation"
-qual = "cartesian_surface_preparation"
-lines = [
-    287,
-    318,
-]
-hash = "sha256:ec267fa6be428de235e72c11d6ade23dd41cccab90584ca0af886960ae7e90ef"
-doc_hash = "sha256:07f4231722d2c025387d685ac8458b111bebb5d1fda1bbfdac6898dd9b72584b"
-callees = [
-    "fn:195c28bcaa1b7169",
-    "fn:495bad595d34e0d0",
-    "fn:756a0768f8b8d52d",
-    "fn:9e87c3e9daacd3a2",
-    "fn:acd64e953afe34dc",
-    "fn:fcd97848921f92c3",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:51651223d53049d8",
-    "fn:d1e71e77e1dc8aa9",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#84",
-    "#85",
-    "#86",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:6419be5544c99029"
-name = "extract_patches"
-qual = "extract_patches"
-lines = [
-    320,
-    354,
-]
-hash = "sha256:7b87b0696a327e0bd3e554eecf6e36c1aac2e2da56b02e1bce17c9fe44242956"
-doc_hash = "sha256:17d2545dce55e7684e695ff61bf594f6b5d1561282786095c058638c63259c18"
-callees = [
-    "fn:33bb441bdd4ba91a",
-    "fn:4e01d79c85afb567",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:39a10a31dc719a24",
-    "fn:70e860e06320216b",
-    "fn:a030da41c4a8490f",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:fc5024eb3df3ddf4"
-name = "cartesian_optimise_final_mesh"
-qual = "cartesian_optimise_final_mesh"
-lines = [
-    356,
-    407,
-]
-hash = "sha256:69eafc6e200ebf59ee9c2e3d0008ea6b1a512fff0655559e3e5cd6b9f56714d9"
-doc_hash = "sha256:f97fcbdf40cc77938685c2c2e71c1e3ec08b62b15c8e63aac56320de4acd47ee"
-callees = [
-    "fn:037877c20bfba0b9",
-    "fn:2a505234b90c5a5e",
-    "fn:5eaf916af125208d",
-    "fn:70575f9730745448",
-    "fn:86cda7ac09962436",
-    "fn:9cdcea8d459265fe",
-    "fn:a1baff09ba2da9b9",
-    "fn:ee10ad5daed8aef8",
-    "fn:fb3778bec187f147",
-]
-uses = [
-    "fn:0ad67becc332bf44",
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:39a10a31dc719a24",
-    "fn:6b9400c88ef9d5ff",
-    "fn:70e860e06320216b",
-    "fn:8dc70e998d0e25be",
-    "fn:961eb0c94552a707",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:86cda7ac09962436"
-name = "trace_points"
-qual = "trace_points"
-lines = [
-    409,
-    421,
-]
-hash = "sha256:fc322331819ed598e7399c5ca2a72e917ebe49895eff99b65f04aab8e11fa160"
-doc_hash = "sha256:9e833de6f8f5d95af1ee2395d1ebf7688c4c2b111d8aa1f92507f15bc357edbe"
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#26",
-    "#28",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:19157970791147b3"
-name = "create_octree_with_refined_boundary_for"
-qual = "create_octree_with_refined_boundary_for"
-lines = [
-    423,
-    432,
-]
-hash = "sha256:d7ffa882103c670e40f34b196b3d3f408f8b89517272c37c2312ccefd590bd71"
-doc_hash = "sha256:e73cbb6a7567641ba8d4a8b82a6be194e2be6d245e697e32cc4aef7c8dbf8639"
-callees = [
-    "fn:31de2c8f2112b654",
-    "fn:6865f38fc5167ee3",
-    "fn:b4bce924144f4f66",
-    "fn:df95006fb1b24eeb",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:101c1e95cd4fa8f4",
-    "fn:39a10a31dc719a24",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:c88dcf04c834f3d6",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:961eb0c94552a707"
@@ -1229,1244 +191,280 @@ name = "FINAL_MESH_PASS"
 qual = "FINAL_MESH_PASS"
 item = "static"
 shape = "static"
-lines = [
-    434,
-    436,
-]
 hash = "sha256:98aeaf619e0b9c81ddb995eace9ca8950f62af36c1f55b8f995cf3358605de4b"
 doc_hash = "sha256:ee28dd6d952d885b4f26171bffc646ca59ca05c1552e74f8cdffd0e17664a33d"
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
 
 [[module."cartesian_mesh.rs".function]]
-id = "fn:5eaf916af125208d"
-name = "dump_points"
-qual = "dump_points"
-lines = [
-    438,
-    450,
-]
-hash = "sha256:ef17b8f0b1a0d0435afe980faf2a5f0c8591c4bfe7def2df7ad9412272d84a72"
-doc_hash = "sha256:7b882701d8d91147ef53ae39553f3d603c2f66a180f7556941da1df9807fd0e9"
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
+id = "fn:b055d75672b4be28"
+name = "LayerTopology"
+qual = "LayerTopology"
+item = "type"
+shape = "enum"
+hash = "sha256:14b1bf66484c1aae31c43da2235c72e770ef7e0300bdc66f03500b48d0dce2d8"
+doc_hash = "sha256:4ff680a51e29c5c35f6419f2afeda1dd2bdc1ac4326530d79807e5fc49d11e01"
 
 [[module."cartesian_mesh.rs".function]]
-id = "fn:2a505234b90c5a5e"
-name = "optimize_boundary_layer_step"
-qual = "optimize_boundary_layer_step"
-lines = [
-    452,
-    463,
-]
-hash = "sha256:85ce1692a2a7c7c5ca792031c11aab63a2d9af0ca0ef01bb6e4074f34b520753"
-doc_hash = "sha256:6b45538fa551d84fa150e2b81c4d26abc3727b60212ad0f32febec87c2881a55"
-callees = ["fn:f1efa0f0f9332269"]
-uses = [
-    "fn:08d424ea6aa0bb5a",
-    "fn:1d52ce14c252d72f",
-    "fn:6b9400c88ef9d5ff",
-    "fn:8dc70e998d0e25be",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
+id = "fn:140015cfaa963084"
+name = "boundary_layer_generation"
+qual = "boundary_layer_generation"
+hash = "sha256:3bac7c9ccd14bc4a6b173fb0f453729a99404d0a8c6f73de2f0b066a5298b8d5"
+doc_hash = "sha256:85083e42651e66d9a88a15c8bf8f7924f7c173d9d06cbe605db2ff376e2c4edd"
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:e8cc0484019d08d6"
 name = "cartesian_mesh"
 qual = "cartesian_mesh"
-lines = [
-    465,
-    469,
-]
 hash = "sha256:765e02126908f6a23d77508412dc14f77cca3693c1d37be3fdad0d14db2a5189"
 doc_hash = "sha256:ddac35f5478243b1034f749298999c2f7dca8766e11850243b43d390d8d28376"
-callees = ["fn:46dd56a33c596efb"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:1d52ce14c252d72f",
-    "fn:70e860e06320216b",
-    "fn:e6479fd9f13c75e6",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:ddbdc04d86ef32ec"
+name = "cartesian_mesh_patch_wise_against_o_topology"
+qual = "cartesian_mesh_patch_wise_against_o_topology"
+hash = "sha256:f422f82c2f5fedd71104d193a6563eca8cf8763788b1d10e822223e45fce1b2b"
+doc_hash = "sha256:4529ac4efd293c84dc8746597693a040908ae2a26f8dae82c4fec13f0df8faaa"
+test = true
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:d852d2afb165a53e"
 name = "cartesian_mesh_restart"
 qual = "cartesian_mesh_restart"
-lines = [
-    471,
-    475,
-]
 hash = "sha256:e279ad126aa917ab2d0ad3a93d481c63fd78c22ef771c5159d72dc28b379802c"
 doc_hash = "sha256:2b474c52e185b44e961005303ffb87218e5dea56d084854e1141fb2a6ca1bc73"
-callees = ["fn:46dd56a33c596efb"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:1d52ce14c252d72f",
-    "fn:70e860e06320216b",
-    "fn:d6bcd06b1b4f1891",
-    "fn:e6479fd9f13c75e6",
-]
-reached_by = [
-    "#17",
-    "#89",
-]
 
 [[module."cartesian_mesh.rs".function]]
-id = "fn:46dd56a33c596efb"
-name = "run_cartesian"
-qual = "run_cartesian"
-lines = [
-    477,
-    663,
-]
-hash = "sha256:bd243422ba451bdea19ad5741daf3aad1033c30e3563094572026222091c1cc9"
-doc_hash = "sha256:7decfdb1bd86c540b1a475117645313345e6bdc1961c41ba013eeeaef0379cfa"
-callees = [
-    "fn:05bb0760d8820d0d",
-    "fn:0ae0d5ff00ebc23d",
-    "fn:0c8cb60919a2408f",
-    "fn:140015cfaa963084",
-    "fn:19157970791147b3",
-    "fn:5b521a52949ac8f1",
-    "fn:5eaf916af125208d",
-    "fn:6419be5544c99029",
-    "fn:6f750e70c72443c4",
-    "fn:70575f9730745448",
-    "fn:72af43fb7c82b7f4",
-    "fn:74c0b203b579bb1c",
-    "fn:7aed7e8ac18056e7",
-    "fn:8c7e538d04b906d2",
-    "fn:9cdcea8d459265fe",
-    "fn:b20e21a630c63653",
-    "fn:bdb7c9210b1a3dcf",
-    "fn:bdcde3b9861a141c",
-    "fn:c94c508909241d3d",
-    "fn:dfb04f57c20ebb69",
-    "fn:e95b97bc4c97349c",
-    "fn:ed010ed0770cf9fc",
-    "fn:ed0707be0de64574",
-    "fn:fc5024eb3df3ddf4",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:1d52ce14c252d72f",
-    "fn:558504c6a7b03168",
-    "fn:70e860e06320216b",
-    "fn:8dc70e998d0e25be",
-    "fn:a3f938bd07a3fdfc",
-    "fn:d406fef7faccbf15",
-    "fn:d6bcd06b1b4f1891",
-    "fn:e63ac1cffd8832e0",
-    "fn:e6479fd9f13c75e6",
-    "fn:f9b25eb6ff8128ee",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#122",
-    "#123",
-    "#126",
-    "#127",
-    "#128",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-]
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:e93ecfda10dc2b7f"
-name = "hexes_away_from_the_wall"
-qual = "hexes_away_from_the_wall"
-lines = [
-    678,
-    700,
-]
-hash = "sha256:10edbeb568c77d5937dd12e23d4832e80e1b08b3af0b91f450671578f1cd311a"
-doc_hash = "sha256:9af71050a8f4b0deed1cbaca5a084e323be3c727fc6b3e9db29d1c056d3da127"
-callees = ["fn:b0704a6cf6f88e62"]
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:9070cbd5425df0b5"
-name = "surface_volume"
-qual = "surface_volume"
-lines = [
-    702,
-    706,
-]
-hash = "sha256:cc8f43bfd171b89bb80b5c3aba4b8761118c7805f87f28a59f6e36853cbb15fc"
-doc_hash = "sha256:3784c4a5c90aa7bdc9afeb2177b0e5d0f75b82f9ef3a3a986b3913b5e3e7cf56"
-uses = ["fn:0bb173954082584d"]
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:d6d3bc30b31c53c2"
-name = "sphere_exact"
-qual = "sphere_exact"
-lines = [
-    708,
-    710,
-]
-hash = "sha256:6adce76548ff4d3c74eccfbf79c3c28b367aec1e1ef070045df2b15670ad7a79"
+id = "fn:8a321e0bc3d654c4"
+name = "cartesian_mesh_stop_and_restart_reproduce_the_full_run"
+qual = "cartesian_mesh_stop_and_restart_reproduce_the_full_run"
+hash = "sha256:622b5a2c0c1ce95fbfa18d25407749541b9f79ebd18526bbe7f159404f41a1e9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:1cb664cd43c718d8"
-name = "pipe_exact"
-qual = "pipe_exact"
-lines = [
-    712,
-    714,
-]
-hash = "sha256:6e55e5e6ee848b31035517ac03bdd41b36b39fbc063725f3738615f1580ded19"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:257e75e0d4104c94"
-name = "row"
-qual = "row"
-lines = [
-    716,
-    730,
-]
-hash = "sha256:a10dd9e299e6d6b880fd12bdf62ae641843cf88253740de0387fa20f2d6a5e74"
-doc_hash = "sha256:5c8fcd9d38d1258c9faab7b1047dd8ff9cc750664fef6d7aaa2c0a462468a7ad"
-callees = ["fn:21a2256faadd9502"]
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:763287a293da8cce"
-name = "diagnose_cartesian_mesh_on_the_sphere"
-qual = "diagnose_cartesian_mesh_on_the_sphere"
-lines = [
-    732,
-    779,
-]
-hash = "sha256:41ca08d17d07ea4f6c1a1ad0806d7f75ffa0405407f1a3dda10f38f516da616e"
-doc_hash = "sha256:002de062568ba2d97c7ce121a58352f5d576762854205ed5d1c380089b3ad3d0"
-callees = [
-    "fn:2e15c0317a694052",
-    "fn:3f596d290e9626ae",
-    "fn:4514531a46112af1",
-    "fn:7802dddfb20d5d4f",
-    "fn:a425c6868f6990e9",
-    "fn:b73523c434d191e6",
-    "fn:d6d3bc30b31c53c2",
-    "fn:e8cc0484019d08d6",
-    "fn:e93ecfda10dc2b7f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:be7013441700cacd",
-]
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:9bd5865e3e094fee"
-name = "diagnose_cartesian_mesh_on_the_pipes"
-qual = "diagnose_cartesian_mesh_on_the_pipes"
-lines = [
-    781,
-    828,
-]
-hash = "sha256:04c23b4f8e1a4eda6e1b076e25e8e4200cc1b66a84ade3cc064a6249316ab6b8"
-doc_hash = "sha256:551299d7ed8ba7a685ba456627922c6d4f808173b91321bffc56fa5b180e1a2e"
-callees = [
-    "fn:1cb664cd43c718d8",
-    "fn:42508dcdcc2acdb6",
-    "fn:4514531a46112af1",
-    "fn:7802dddfb20d5d4f",
-    "fn:b73523c434d191e6",
-    "fn:e8cc0484019d08d6",
-    "fn:e93ecfda10dc2b7f",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:be7013441700cacd",
-]
 test = true
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:e14ab5612925a078"
 name = "cartesian_mesh_with_refined_layers"
 qual = "cartesian_mesh_with_refined_layers"
-lines = [
-    830,
-    870,
-]
 hash = "sha256:7b0c96f55a32952a63900082ef900a062384f8157676450198e307dd4cca98c1"
 doc_hash = "sha256:80e6b4213f1758ac81b964dc3640c72247abc512e39c2a7045e8418895345158"
-callees = [
-    "fn:1cb664cd43c718d8",
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:a425c6868f6990e9",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:bb4ac346ae24ece8",
-]
 test = true
 
 [[module."cartesian_mesh.rs".function]]
-id = "fn:5b7236c47d20d124"
-name = "optimise_layer_runs_optimize_boundary_layer"
-qual = "optimise_layer_runs_optimize_boundary_layer"
-lines = [
-    872,
-    893,
-]
-hash = "sha256:33f47e033bfe369ca53193ddbcf0ff937f32be7a9c8da95a64003e5c91fd0bcf"
-doc_hash = "sha256:358b8b8cf1f385e994338e717d956f777ff536d073bfc44ccecb9b337edc57ee"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:e8cc0484019d08d6",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:6b9400c88ef9d5ff",
-    "fn:ff41871a890c9efa",
-]
+id = "fn:fc5024eb3df3ddf4"
+name = "cartesian_optimise_final_mesh"
+qual = "cartesian_optimise_final_mesh"
+hash = "sha256:69eafc6e200ebf59ee9c2e3d0008ea6b1a512fff0655559e3e5cd6b9f56714d9"
+doc_hash = "sha256:f97fcbdf40cc77938685c2c2e71c1e3ec08b62b15c8e63aac56320de4acd47ee"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:05bb0760d8820d0d"
+name = "cartesian_surface_preparation"
+qual = "cartesian_surface_preparation"
+hash = "sha256:ec267fa6be428de235e72c11d6ade23dd41cccab90584ca0af886960ae7e90ef"
+doc_hash = "sha256:07f4231722d2c025387d685ac8458b111bebb5d1fda1bbfdac6898dd9b72584b"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:19157970791147b3"
+name = "create_octree_with_refined_boundary_for"
+qual = "create_octree_with_refined_boundary_for"
+hash = "sha256:d7ffa882103c670e40f34b196b3d3f408f8b89517272c37c2312ccefd590bd71"
+doc_hash = "sha256:e73cbb6a7567641ba8d4a8b82a6be194e2be6d245e697e32cc4aef7c8dbf8639"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:9bd5865e3e094fee"
+name = "diagnose_cartesian_mesh_on_the_pipes"
+qual = "diagnose_cartesian_mesh_on_the_pipes"
+hash = "sha256:04c23b4f8e1a4eda6e1b076e25e8e4200cc1b66a84ade3cc064a6249316ab6b8"
+doc_hash = "sha256:551299d7ed8ba7a685ba456627922c6d4f808173b91321bffc56fa5b180e1a2e"
 test = true
 
 [[module."cartesian_mesh.rs".function]]
-id = "fn:8a321e0bc3d654c4"
-name = "cartesian_mesh_stop_and_restart_reproduce_the_full_run"
-qual = "cartesian_mesh_stop_and_restart_reproduce_the_full_run"
-lines = [
-    895,
-    913,
-]
-hash = "sha256:622b5a2c0c1ce95fbfa18d25407749541b9f79ebd18526bbe7f159404f41a1e9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:d852d2afb165a53e",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:d6bcd06b1b4f1891",
-    "fn:df2965cdda454f14",
-]
-test = true
-
-[[module."cartesian_mesh.rs".function]]
-id = "fn:ddbdc04d86ef32ec"
-name = "cartesian_mesh_patch_wise_against_o_topology"
-qual = "cartesian_mesh_patch_wise_against_o_topology"
-lines = [
-    915,
-    966,
-]
-hash = "sha256:f422f82c2f5fedd71104d193a6563eca8cf8763788b1d10e822223e45fce1b2b"
-doc_hash = "sha256:4529ac4efd293c84dc8746597693a040908ae2a26f8dae82c4fec13f0df8faaa"
-callees = [
-    "fn:1cb664cd43c718d8",
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:4fbc238e8eae2059",
-    "fn:a425c6868f6990e9",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:1d52ce14c252d72f",
-    "fn:5e617327bd4b2fca",
-    "fn:b055d75672b4be28",
-]
+id = "fn:763287a293da8cce"
+name = "diagnose_cartesian_mesh_on_the_sphere"
+qual = "diagnose_cartesian_mesh_on_the_sphere"
+hash = "sha256:41ca08d17d07ea4f6c1a1ad0806d7f75ffa0405407f1a3dda10f38f516da616e"
+doc_hash = "sha256:002de062568ba2d97c7ce121a58352f5d576762854205ed5d1c380089b3ad3d0"
 test = true
 
 [[module."cartesian_mesh.rs".function]]
 id = "fn:2607e918edd694dc"
 name = "draw_patch_wise_layer_images"
 qual = "draw_patch_wise_layer_images"
-lines = [
-    968,
-    1042,
-]
 hash = "sha256:1097049462465c5363b19a43de49dd13e9c5a9a2a3ab5a758efc1cd46aea89a7"
 doc_hash = "sha256:79f378f39c727ebf1488c03298dfc0355c01b858b8452468ccea6ae6b6ea6a2e"
-callees = [
-    "fn:30f50b0b4c2eccad",
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:4906c3ef81284e18",
-    "fn:4fbc238e8eae2059",
-    "fn:63a6b02b933611de",
-    "fn:6466aecc78b73604",
-    "fn:8a3793df3e1d8a27",
-    "fn:b2ae753c5c37a5ec",
-    "fn:d2c58d42d32ed799",
-    "fn:e8cc0484019d08d6",
-    "fn:f65bccd5e6993338",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:1d52ce14c252d72f",
-    "fn:5e617327bd4b2fca",
-    "fn:79ace9ce9d58d13f",
-    "fn:b055d75672b4be28",
-    "fn:bb4ac346ae24ece8",
-    "fn:ca8a398d79afd3d9",
-    "fn:d406fef7faccbf15",
-    "fn:df2965cdda454f14",
-]
 test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:5eaf916af125208d"
+name = "dump_points"
+qual = "dump_points"
+hash = "sha256:ef17b8f0b1a0d0435afe980faf2a5f0c8591c4bfe7def2df7ad9412272d84a72"
+doc_hash = "sha256:7b882701d8d91147ef53ae39553f3d603c2f66a180f7556941da1df9807fd0e9"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:6419be5544c99029"
+name = "extract_patches"
+qual = "extract_patches"
+hash = "sha256:7b87b0696a327e0bd3e554eecf6e36c1aac2e2da56b02e1bce17c9fe44242956"
+doc_hash = "sha256:17d2545dce55e7684e695ff61bf594f6b5d1561282786095c058638c63259c18"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:e93ecfda10dc2b7f"
+name = "hexes_away_from_the_wall"
+qual = "hexes_away_from_the_wall"
+hash = "sha256:10edbeb568c77d5937dd12e23d4832e80e1b08b3af0b91f450671578f1cd311a"
+doc_hash = "sha256:9af71050a8f4b0deed1cbaca5a084e323be3c727fc6b3e9db29d1c056d3da127"
+test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:74c0b203b579bb1c"
+name = "n_nonpositive_cells"
+qual = "n_nonpositive_cells"
+hash = "sha256:26ba35de6bd12cdcaad5e48e7edbe1c2406374cbb484c076ed16cecfb89cfd0c"
+doc_hash = "sha256:474dc7c8fb3b02eb77c1fa089c7a91a91709243047247e060d3bc1b43ec1dd46"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:5b7236c47d20d124"
+name = "optimise_layer_runs_optimize_boundary_layer"
+qual = "optimise_layer_runs_optimize_boundary_layer"
+hash = "sha256:33f47e033bfe369ca53193ddbcf0ff937f32be7a9c8da95a64003e5c91fd0bcf"
+doc_hash = "sha256:358b8b8cf1f385e994338e717d956f777ff536d073bfc44ccecb9b337edc57ee"
+test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:2a505234b90c5a5e"
+name = "optimize_boundary_layer_step"
+qual = "optimize_boundary_layer_step"
+hash = "sha256:85ce1692a2a7c7c5ca792031c11aab63a2d9af0ca0ef01bb6e4074f34b520753"
+doc_hash = "sha256:6b45538fa551d84fa150e2b81c4d26abc3727b60212ad0f32febec87c2881a55"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:1cb664cd43c718d8"
+name = "pipe_exact"
+qual = "pipe_exact"
+hash = "sha256:6e55e5e6ee848b31035517ac03bdd41b36b39fbc063725f3738615f1580ded19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:0c8cb60919a2408f"
+name = "ref_boundary_layers"
+qual = "ref_boundary_layers"
+hash = "sha256:88b1f6fc0b23904b8f9d5357f86ec1b37af24a3d4e24378716e5db5f580dd316"
+doc_hash = "sha256:acacc0468119bbc58c664abae48945d356436d39ee6beeecab453ce4c12dcbf7"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:257e75e0d4104c94"
+name = "row"
+qual = "row"
+hash = "sha256:a10dd9e299e6d6b880fd12bdf62ae641843cf88253740de0387fa20f2d6a5e74"
+doc_hash = "sha256:5c8fcd9d38d1258c9faab7b1047dd8ff9cc750664fef6d7aaa2c0a462468a7ad"
+test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:46dd56a33c596efb"
+name = "run_cartesian"
+qual = "run_cartesian"
+hash = "sha256:bd243422ba451bdea19ad5741daf3aad1033c30e3563094572026222091c1cc9"
+doc_hash = "sha256:7decfdb1bd86c540b1a475117645313345e6bdc1961c41ba013eeeaef0379cfa"
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:d6d3bc30b31c53c2"
+name = "sphere_exact"
+qual = "sphere_exact"
+hash = "sha256:6adce76548ff4d3c74eccfbf79c3c28b367aec1e1ef070045df2b15670ad7a79"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:9070cbd5425df0b5"
+name = "surface_volume"
+qual = "surface_volume"
+hash = "sha256:cc8f43bfd171b89bb80b5c3aba4b8761118c7805f87f28a59f6e36853cbb15fc"
+doc_hash = "sha256:3784c4a5c90aa7bdc9afeb2177b0e5d0f75b82f9ef3a3a986b3913b5e3e7cf56"
+test = true
+
+[[module."cartesian_mesh.rs".function]]
+id = "fn:86cda7ac09962436"
+name = "trace_points"
+qual = "trace_points"
+hash = "sha256:fc322331819ed598e7399c5ca2a72e917ebe49895eff99b65f04aab8e11fa160"
+doc_hash = "sha256:9e833de6f8f5d95af1ee2395d1ebf7688c4c2b111d8aa1f92507f15bc357edbe"
 
 [module."p_mesh.rs"]
 path = "crate::pipeline::p_mesh"
 
 [[module."p_mesh.rs".function]]
-id = "fn:60051827e9447526"
-name = "p_mesh"
-qual = "p_mesh"
-lines = [
-    58,
-    61,
-]
-hash = "sha256:5f8db0861b1c21f0481b403bb12bccb27989cfebb4bff986a624ac6cf9464a47"
-doc_hash = "sha256:167c1b1607a4bd1bb3c9d34af3ec2e352096ac1767c5332e943cac960585a2ab"
-callees = ["fn:c5a204b8c68c7bf6"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:7030f3bf965033de",
-    "fn:70e860e06320216b",
-    "fn:c7798e077bf91838",
-    "fn:ff41871a890c9efa",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#95",
-    "#124",
-    "#127",
-    "#133",
-    "#134",
-]
-
-[[module."p_mesh.rs".function]]
-id = "fn:07c815cbee794068"
-name = "p_mesh_restart"
-qual = "p_mesh_restart"
-lines = [
-    63,
-    66,
-]
-hash = "sha256:3d5ecdd207931c2329e8aead5d04f974e2aa27a199ba837b75cd1df5c5d1cfaa"
-doc_hash = "sha256:15efffd0240efb3428e0ce962341827e6b6a8ed66716468e19cd4635543004bd"
-callees = ["fn:c5a204b8c68c7bf6"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:7030f3bf965033de",
-    "fn:70e860e06320216b",
-    "fn:c7798e077bf91838",
-    "fn:d6bcd06b1b4f1891",
-    "fn:ff41871a890c9efa",
-]
-
-[[module."p_mesh.rs".function]]
-id = "fn:865e9d806f0f1aeb"
-name = "volumes"
-qual = "volumes"
-lines = [
-    80,
-    82,
-]
-hash = "sha256:4d74d851158688e1dc70be12e4ed51fc0b75f313869af92c2e6627b16a32a22c"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:4fbc238e8eae2059"]
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."p_mesh.rs".function]]
-id = "fn:abfc2a4e87b8315c"
-name = "same_tets"
-qual = "same_tets"
-lines = [
-    84,
-    99,
-]
-hash = "sha256:016af3c862a901eb89ca1035c7953f0d2b80da51c5816e1c241deb29a6c5db76"
-doc_hash = "sha256:b7f195b147e28542cfbed707b31ee7456644afafc46e641b71ca4e548a2c0bab"
-callees = [
-    "fn:8c7e538d04b906d2",
-    "fn:a14e386ee609de49",
-    "fn:f2d59d92774af5db",
-    "fn:feb0230c9741920f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:d95d53410f50e8cd",
-]
+id = "fn:fcdd6ea8c10c4999"
+name = "diagnose_p_mesh_workflow"
+qual = "diagnose_p_mesh_workflow"
+hash = "sha256:68d301707b0256c4045b2cf9711d56567cd2b1acc274138b962464160f47b30b"
+doc_hash = "sha256:4b4996296ada312332b894845bd72790a6928d306255277e233e48321e7ccad8"
 test = true
 
 [[module."p_mesh.rs".function]]
 id = "fn:20d9d86d282915a2"
 name = "interior_points"
 qual = "interior_points"
-lines = [
-    101,
-    109,
-]
 hash = "sha256:a9ff22186e205e650be6dfbd851a99f73e605b7ad2a55e9ad0ab4fc2a72d7935"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."p_mesh.rs".function]]
-id = "fn:eeb5c6c615643134"
-name = "voronoi_extractor_cells_are_the_interior_tet_vertices"
-qual = "voronoi_extractor_cells_are_the_interior_tet_vertices"
-lines = [
-    111,
-    163,
-]
-hash = "sha256:55561fe1cd9e960f7ba863321c1df7420dc92ae7c2ed0141bb67bcc745e02ed2"
-doc_hash = "sha256:1d267fef2b8d895b2f8dbb5f4208ba3cb22c6a90d29b8bc9bf5a4a9209fb6e9a"
-callees = [
-    "fn:20d9d86d282915a2",
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:865e9d806f0f1aeb",
-    "fn:a425c6868f6990e9",
-    "fn:abfc2a4e87b8315c",
-    "fn:fd4f80b728398ba2",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:5e617327bd4b2fca",
-]
 test = true
 
 [[module."p_mesh.rs".function]]
 id = "fn:2700a604afbe5cdc"
 name = "non_manifold_boundary_points"
 qual = "non_manifold_boundary_points"
-lines = [
-    165,
-    207,
-]
 hash = "sha256:7e0614aa300efbd4b989a2aaf82d55696cf4c3a35795e60d6aa5c767eabc8a1b"
 doc_hash = "sha256:5f3b524f66f04db0243c2641c52c53d159c1934bae5af2761b2ec2bc03a70409"
-uses = ["fn:1d52ce14c252d72f"]
+test = true
+
+[[module."p_mesh.rs".function]]
+id = "fn:60051827e9447526"
+name = "p_mesh"
+qual = "p_mesh"
+hash = "sha256:5f8db0861b1c21f0481b403bb12bccb27989cfebb4bff986a624ac6cf9464a47"
+doc_hash = "sha256:167c1b1607a4bd1bb3c9d34af3ec2e352096ac1767c5332e943cac960585a2ab"
+
+[[module."p_mesh.rs".function]]
+id = "fn:07c815cbee794068"
+name = "p_mesh_restart"
+qual = "p_mesh_restart"
+hash = "sha256:3d5ecdd207931c2329e8aead5d04f974e2aa27a199ba837b75cd1df5c5d1cfaa"
+doc_hash = "sha256:15efffd0240efb3428e0ce962341827e6b6a8ed66716468e19cd4635543004bd"
+
+[[module."p_mesh.rs".function]]
+id = "fn:abfc2a4e87b8315c"
+name = "same_tets"
+qual = "same_tets"
+hash = "sha256:016af3c862a901eb89ca1035c7953f0d2b80da51c5816e1c241deb29a6c5db76"
+doc_hash = "sha256:b7f195b147e28542cfbed707b31ee7456644afafc46e641b71ca4e548a2c0bab"
+test = true
+
+[[module."p_mesh.rs".function]]
+id = "fn:865e9d806f0f1aeb"
+name = "volumes"
+qual = "volumes"
+hash = "sha256:4d74d851158688e1dc70be12e4ed51fc0b75f313869af92c2e6627b16a32a22c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."p_mesh.rs".function]]
 id = "fn:33644180b1091fd2"
 name = "voronoi_cells_equal_the_cell_centre_dual_inside"
 qual = "voronoi_cells_equal_the_cell_centre_dual_inside"
-lines = [
-    209,
-    272,
-]
 hash = "sha256:1bd5bac5a4baef5615ed892eb665db360050ed8ad6cb716729ad7563be94c5c4"
 doc_hash = "sha256:9af38e47169e018483f005defceacd87eab1c819617caaea880ad52134c7effd"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:2700a604afbe5cdc",
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:865e9d806f0f1aeb",
-    "fn:a425c6868f6990e9",
-    "fn:abfc2a4e87b8315c",
-    "fn:c88a3e023469a925",
-    "fn:cdfa93017ce64125",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:5e617327bd4b2fca",
-]
 test = true
 
 [[module."p_mesh.rs".function]]
-id = "fn:fcdd6ea8c10c4999"
-name = "diagnose_p_mesh_workflow"
-qual = "diagnose_p_mesh_workflow"
-lines = [
-    274,
-    324,
-]
-hash = "sha256:68d301707b0256c4045b2cf9711d56567cd2b1acc274138b962464160f47b30b"
-doc_hash = "sha256:4b4996296ada312332b894845bd72790a6928d306255277e233e48321e7ccad8"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:42508dcdcc2acdb6",
-    "fn:60051827e9447526",
-    "fn:865e9d806f0f1aeb",
-    "fn:a425c6868f6990e9",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:5e617327bd4b2fca",
-    "fn:6c7399404b585db7",
-    "fn:ff41871a890c9efa",
-]
+id = "fn:eeb5c6c615643134"
+name = "voronoi_extractor_cells_are_the_interior_tet_vertices"
+qual = "voronoi_extractor_cells_are_the_interior_tet_vertices"
+hash = "sha256:55561fe1cd9e960f7ba863321c1df7420dc92ae7c2ed0141bb67bcc745e02ed2"
+doc_hash = "sha256:1d267fef2b8d895b2f8dbb5f4208ba3cb22c6a90d29b8bc9bf5a4a9209fb6e9a"
 test = true
 
 [module."staged.rs"]
 path = "crate::pipeline::staged"
-
-[[module."staged.rs".function]]
-id = "fn:9bbba59f83a267f1"
-name = "PipelineStage"
-qual = "PipelineStage"
-item = "type"
-shape = "enum"
-lines = [
-    62,
-    95,
-]
-hash = "sha256:e8bf15a5cd4b9150e29a3954074f476177b1bf8de584b1527ef374e556a06ede"
-doc_hash = "sha256:45ca893abea58bf689616937792de3839e4884e276c338ba0f36ea99b3fc22a6"
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."staged.rs".function]]
-id = "fn:b2f08a1ea97d2889"
-name = "label"
-qual = "PipelineStage::label"
-lines = [
-    98,
-    114,
-]
-hash = "sha256:2d94e7f739dd3a7d380c9beb45a0cc3d0cb153079858832a2e123d45049622df"
-doc_hash = "sha256:42c450a21693dc9172331c20d75ffb3708275d4e7528021ff1afe5b701e4e7e5"
-uses = ["fn:9bbba59f83a267f1"]
-
-[[module."staged.rs".function]]
-id = "fn:2a862304c2b650b1"
-name = "StageSnapshot"
-qual = "StageSnapshot"
-item = "type"
-shape = "struct"
-lines = [
-    117,
-    128,
-]
-hash = "sha256:0cf31495f9a9af9fbf984d1087a9757ce8fd6d9f217b03cecb1cecf88581ca52"
-doc_hash = "sha256:123f5b45ad345288da2dacc300d6d9969f996b1a9849534e6351f7a7883ede28"
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:9bbba59f83a267f1",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."staged.rs".function]]
-id = "fn:b14be06ed896f80d"
-name = "StageLog"
-qual = "StageLog"
-item = "type"
-shape = "struct"
-lines = [
-    130,
-    140,
-]
-hash = "sha256:83dbfbcba0f6d0201d192b8e8174172da0f62005086af5745098cac204866ccf"
-doc_hash = "sha256:f5092c1768bfbb6e94213b1e67753a737bd8bb534d1d98f5038f1fc965c33743"
-uses = ["fn:2a862304c2b650b1"]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."staged.rs".function]]
-id = "fn:800b0cb6bcf6696e"
-name = "record"
-qual = "record"
-lines = [
-    142,
-    156,
-]
-hash = "sha256:d5565a1969ac2c009f3baaf7e9644d94e173a81c86da69b8edbde7454628fdd9"
-doc_hash = "sha256:f439f8b2511ce1b518be0ed52793ab6a231e216c58f8e56a525c6bc2a50859dc"
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:2a862304c2b650b1",
-    "fn:9bbba59f83a267f1",
-    "fn:b14be06ed896f80d",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."staged.rs".function]]
-id = "fn:99bb1ed0bf03049a"
-name = "record_layers"
-qual = "record_layers"
-lines = [
-    158,
-    179,
-]
-hash = "sha256:ce5939f6a55fb63d17f2b7a07a3efea8be1a01b0e4917872dff6d260dfded202"
-doc_hash = "sha256:b595ff91db747bbd75f37a9e99127f0f6cf4ac40eec5e199ede6ee5a9c6113f1"
-callees = ["fn:451654b243cb4147"]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:2a862304c2b650b1",
-    "fn:9bbba59f83a267f1",
-    "fn:b14be06ed896f80d",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
 
 [[module."staged.rs".function]]
 id = "fn:02c427267afb2eac"
@@ -2474,285 +472,38 @@ name = "LayerIndex"
 qual = "LayerIndex"
 item = "type"
 shape = "struct"
-lines = [
-    181,
-    194,
-]
 hash = "sha256:b14cc401a730bff9283d5c8b39f5742311b645ce0965996908203f06805dbeac"
 doc_hash = "sha256:599f35d913f01923b941ac8503e53d7d7d8fa70402eff12c3563b50d064d6603"
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#112",
-]
-
-[[module."staged.rs".function]]
-id = "fn:de956d215ca27fcf"
-name = "none"
-qual = "LayerIndex::none"
-lines = [
-    197,
-    205,
-]
-hash = "sha256:ac4b3ffbd3c08230dea3d68ece0d78ce8d9bb64daf258db2b5bb991e1adc0d10"
-doc_hash = "sha256:030154cc39c94f8f11e8492a00d7d023d9a77440b80ddfc02a08d58027e813cb"
-uses = ["fn:02c427267afb2eac"]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#112",
-]
 
 [[module."staged.rs".function]]
 id = "fn:239e34ccfafc8348"
 name = "counts"
 qual = "LayerIndex::counts"
-lines = [
-    207,
-    216,
-]
 hash = "sha256:7a9a7a54210a04f6dafadcc87e3cde5bbef3bcbea9e3faf5eebad1606872a098"
 doc_hash = "sha256:6da86548ea795140d1ac678583ca7951583598c966b97cfce946c8221482a3ae"
-uses = ["fn:02c427267afb2eac"]
 
 [[module."staged.rs".function]]
-id = "fn:b112c22c17b7ea63"
-name = "boundary_layer_index"
-qual = "boundary_layer_index"
-lines = [
-    219,
-    280,
-]
-hash = "sha256:4d7ddf1995a4bda0ceea9091c677b8c0a9476326af9ac473c89247353ac91c3f"
-doc_hash = "sha256:4a3d5dae8dd24ce6d936797d05f62df009e96623ce224062ca1642b6577e9f01"
-callees = ["fn:de956d215ca27fcf"]
-uses = [
-    "fn:02c427267afb2eac",
-    "fn:1d52ce14c252d72f",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#112",
-]
+id = "fn:de956d215ca27fcf"
+name = "none"
+qual = "LayerIndex::none"
+hash = "sha256:ac4b3ffbd3c08230dea3d68ece0d78ce8d9bb64daf258db2b5bb991e1adc0d10"
+doc_hash = "sha256:030154cc39c94f8f11e8492a00d7d023d9a77440b80ddfc02a08d58027e813cb"
 
 [[module."staged.rs".function]]
-id = "fn:6a9b0495bff4fec6"
-name = "StagedMesh"
-qual = "StagedMesh"
+id = "fn:9bbba59f83a267f1"
+name = "PipelineStage"
+qual = "PipelineStage"
 item = "type"
-shape = "struct"
-lines = [
-    282,
-    297,
-]
-hash = "sha256:b8875c1f6844ef9463fca7737e6cd147e03f4e93a81cf8758d6b1776a299c4c9"
-doc_hash = "sha256:6a59ec1ba0db29d64185ea7dca63655206d4ec0026cd3472cd5a353131782452"
-uses = [
-    "fn:02c427267afb2eac",
-    "fn:1d52ce14c252d72f",
-    "fn:2a862304c2b650b1",
-    "fn:3cf9f762bd6ca5e3",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#112",
-]
+shape = "enum"
+hash = "sha256:e8bf15a5cd4b9150e29a3954074f476177b1bf8de584b1527ef374e556a06ede"
+doc_hash = "sha256:45ca893abea58bf689616937792de3839e4884e276c338ba0f36ea99b3fc22a6"
 
 [[module."staged.rs".function]]
-id = "fn:e7b4a92cc20795e6"
-name = "finish"
-qual = "finish"
-lines = [
-    299,
-    314,
-]
-hash = "sha256:bd213a843e70f6d0797d021c931a7253eab6f1cf518777c192e9dcd10bcb547b"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:b112c22c17b7ea63",
-    "fn:de956d215ca27fcf",
-]
-uses = [
-    "fn:02c427267afb2eac",
-    "fn:1d52ce14c252d72f",
-    "fn:3cf9f762bd6ca5e3",
-    "fn:6a9b0495bff4fec6",
-    "fn:b14be06ed896f80d",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#112",
-]
-
-[[module."staged.rs".function]]
-id = "fn:0fae9baf0fb34935"
-name = "surface_to_tet_dual_mesh_staged"
-qual = "surface_to_tet_dual_mesh_staged"
-lines = [
-    316,
-    329,
-]
-hash = "sha256:74e612d9e13feac88a1ae7b86b15f0b29ee52eadfca24d0fbdad92c900b5d648"
-doc_hash = "sha256:cd60a7800dc9ceb0b6166ff3738565ab41875e8192662183a8d4ae8732329c43"
-callees = [
-    "fn:ae658fb187c31785",
-    "fn:e7b4a92cc20795e6",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:6a9b0495bff4fec6",
-    "fn:b14be06ed896f80d",
-    "fn:be7013441700cacd",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#100",
-]
-
-[[module."staged.rs".function]]
-id = "fn:01f5c5287b54fa93"
-name = "surface_to_tet_dual_mesh_multipatch_staged"
-qual = "surface_to_tet_dual_mesh_multipatch_staged"
-lines = [
-    331,
-    347,
-]
-hash = "sha256:2d04d01280e18a34cd3c9f8d786b825e575b640d7f975b77f0154df8a0af0f78"
-doc_hash = "sha256:1e23dfc5a3935b811ee5f2b17e7447c138c30e347274956babc906593dadbcaf"
-callees = [
-    "fn:ae658fb187c31785",
-    "fn:e7b4a92cc20795e6",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:6a9b0495bff4fec6",
-    "fn:70e860e06320216b",
-    "fn:b14be06ed896f80d",
-    "fn:be7013441700cacd",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#112",
-]
+id = "fn:b2f08a1ea97d2889"
+name = "label"
+qual = "PipelineStage::label"
+hash = "sha256:2d94e7f739dd3a7d380c9beb45a0cc3d0cb153079858832a2e123d45049622df"
+doc_hash = "sha256:42c450a21693dc9172331c20d75ffb3708275d4e7528021ff1afe5b701e4e7e5"
 
 [[module."staged.rs".function]]
 id = "fn:de7b48f72d372092"
@@ -2760,276 +511,145 @@ name = "STRATEGIES"
 qual = "STRATEGIES"
 item = "const"
 shape = "const"
-lines = [
-    357,
-    361,
-]
 hash = "sha256:e192342e465b9ee877ef5cde1ef0ee66232db7e8f500ad568d9f5775bc3989f0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:1ba627805a7e587e"]
 test = true
 
 [[module."staged.rs".function]]
-id = "fn:ac10d05927f1e103"
-name = "without_timings"
-qual = "without_timings"
-lines = [
-    363,
-    379,
-]
-hash = "sha256:effaccfd8ed015b68a45c5670a37fe2ac5637e0b4db68333d1e5869537b550a5"
-doc_hash = "sha256:ec9bfa12f0e55d685bf395796c264c7209412734dcf6adaf46f3f96bb17ffd1e"
-callees = ["fn:e49c0a7cc48e0b71"]
-uses = ["fn:3cf9f762bd6ca5e3"]
-test = true
+id = "fn:b14be06ed896f80d"
+name = "StageLog"
+qual = "StageLog"
+item = "type"
+shape = "struct"
+hash = "sha256:83dbfbcba0f6d0201d192b8e8174172da0f62005086af5745098cac204866ccf"
+doc_hash = "sha256:f5092c1768bfbb6e94213b1e67753a737bd8bb534d1d98f5038f1fc965c33743"
+
+[[module."staged.rs".function]]
+id = "fn:2a862304c2b650b1"
+name = "StageSnapshot"
+qual = "StageSnapshot"
+item = "type"
+shape = "struct"
+hash = "sha256:0cf31495f9a9af9fbf984d1087a9757ce8fd6d9f217b03cecb1cecf88581ca52"
+doc_hash = "sha256:123f5b45ad345288da2dacc300d6d9969f996b1a9849534e6351f7a7883ede28"
+
+[[module."staged.rs".function]]
+id = "fn:6a9b0495bff4fec6"
+name = "StagedMesh"
+qual = "StagedMesh"
+item = "type"
+shape = "struct"
+hash = "sha256:b8875c1f6844ef9463fca7737e6cd147e03f4e93a81cf8758d6b1776a299c4c9"
+doc_hash = "sha256:6a59ec1ba0db29d64185ea7dca63655206d4ec0026cd3472cd5a353131782452"
 
 [[module."staged.rs".function]]
 id = "fn:e49c0a7cc48e0b71"
 name = "blank_seconds"
 qual = "blank_seconds"
-lines = [
-    381,
-    408,
-]
 hash = "sha256:d8b22df982324cd0a6e5497ae5859d834442516c87050ca53d68fd548e2b2bdf"
 doc_hash = "sha256:b8f605b31d23c108e5652153102f7a1c2c162824d12cc3b47f2b67d8947ebd01"
+test = true
+
+[[module."staged.rs".function]]
+id = "fn:b112c22c17b7ea63"
+name = "boundary_layer_index"
+qual = "boundary_layer_index"
+hash = "sha256:4d7ddf1995a4bda0ceea9091c677b8c0a9476326af9ac473c89247353ac91c3f"
+doc_hash = "sha256:4a3d5dae8dd24ce6d936797d05f62df009e96623ce224062ca1642b6577e9f01"
+
+[[module."staged.rs".function]]
+id = "fn:99fd26530dc77cb2"
+name = "every_strategy_gives_an_index_within_the_requested_layers"
+qual = "every_strategy_gives_an_index_within_the_requested_layers"
+hash = "sha256:cc35ef7aae8edbd8464249d0182e726b03c69f4492185f2a221b9ba0b51cbf51"
+doc_hash = "sha256:300175f68ddcc98f9e214b59b3ae87f1c428938df901b3bdc9e555c59883d994"
+test = true
+
+[[module."staged.rs".function]]
+id = "fn:e7b4a92cc20795e6"
+name = "finish"
+qual = "finish"
+hash = "sha256:bd213a843e70f6d0797d021c931a7253eab6f1cf518777c192e9dcd10bcb547b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."staged.rs".function]]
+id = "fn:85318cf321950dd6"
+name = "no_layers_means_an_all_core_index"
+qual = "no_layers_means_an_all_core_index"
+hash = "sha256:ebababa51f861c36dff9551cdff3ae4aa809505a06ba7c70ccedb4e24a3609d7"
+doc_hash = "sha256:b86f8c2d4e3bd22d6b19cd45964fd058e15deb7417ad3087a9646d288496f09d"
 test = true
 
 [[module."staged.rs".function]]
 id = "fn:4634326d004b19bc"
 name = "pipe_opts"
 qual = "pipe_opts"
-lines = [
-    410,
-    420,
-]
 hash = "sha256:dfbea486c06da96b6fac1e934c88fb0ca753184e77da87683278c0cd23df17ab"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:1ba627805a7e587e",
-    "fn:be7013441700cacd",
-]
 test = true
+
+[[module."staged.rs".function]]
+id = "fn:800b0cb6bcf6696e"
+name = "record"
+qual = "record"
+hash = "sha256:d5565a1969ac2c009f3baaf7e9644d94e173a81c86da69b8edbde7454628fdd9"
+doc_hash = "sha256:f439f8b2511ce1b518be0ed52793ab6a231e216c58f8e56a525c6bc2a50859dc"
+
+[[module."staged.rs".function]]
+id = "fn:99bb1ed0bf03049a"
+name = "record_layers"
+qual = "record_layers"
+hash = "sha256:ce5939f6a55fb63d17f2b7a07a3efea8be1a01b0e4917872dff6d260dfded202"
+doc_hash = "sha256:b595ff91db747bbd75f37a9e99127f0f6cf4ac40eec5e199ede6ee5a9c6113f1"
 
 [[module."staged.rs".function]]
 id = "fn:7ee64068d2864fe5"
 name = "staged_route_is_bit_identical_to_the_plain_route"
 qual = "staged_route_is_bit_identical_to_the_plain_route"
-lines = [
-    422,
-    466,
-]
 hash = "sha256:cc77ec8f8c7352d742c4f1f483f25d95ec6940bf354d7cd227c89c8679c370d2"
 doc_hash = "sha256:e76440170a9aa737aaa8a130d331856ca957d73c2c841d1938bff4381ee960bd"
-callees = [
-    "fn:01f5c5287b54fa93",
-    "fn:0fae9baf0fb34935",
-    "fn:262cfa3b2e8581eb",
-    "fn:4634326d004b19bc",
-    "fn:b73523c434d191e6",
-    "fn:c20c6aebcf3533d9",
-    "fn:c88a3e023469a925",
-    "fn:d27c53070645c562",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:be7013441700cacd",
-    "fn:de7b48f72d372092",
-]
 test = true
 
 [[module."staged.rs".function]]
 id = "fn:fe4bdacba53308f5"
 name = "stages_are_in_order_and_end_with_the_returned_mesh"
 qual = "stages_are_in_order_and_end_with_the_returned_mesh"
-lines = [
-    468,
-    494,
-]
 hash = "sha256:29dc464b9b43cade70acc39a57cd345f4d1718afdfaf9f790f394ba457e724d0"
 doc_hash = "sha256:fcdfd060b4d392583c597a45dd89ab086656ad418453e9f10425d6239b12db05"
-callees = [
-    "fn:01f5c5287b54fa93",
-    "fn:4634326d004b19bc",
-    "fn:d27c53070645c562",
-]
-uses = [
-    "fn:1ba627805a7e587e",
-    "fn:9bbba59f83a267f1",
-]
 test = true
+
+[[module."staged.rs".function]]
+id = "fn:01f5c5287b54fa93"
+name = "surface_to_tet_dual_mesh_multipatch_staged"
+qual = "surface_to_tet_dual_mesh_multipatch_staged"
+hash = "sha256:2d04d01280e18a34cd3c9f8d786b825e575b640d7f975b77f0154df8a0af0f78"
+doc_hash = "sha256:1e23dfc5a3935b811ee5f2b17e7447c138c30e347274956babc906593dadbcaf"
+
+[[module."staged.rs".function]]
+id = "fn:0fae9baf0fb34935"
+name = "surface_to_tet_dual_mesh_staged"
+qual = "surface_to_tet_dual_mesh_staged"
+hash = "sha256:74e612d9e13feac88a1ae7b86b15f0b29ee52eadfca24d0fbdad92c900b5d648"
+doc_hash = "sha256:cd60a7800dc9ceb0b6166ff3738565ab41875e8192662183a8d4ae8732329c43"
 
 [[module."staged.rs".function]]
 id = "fn:eb5c98fcdfd835ae"
 name = "uniform_layers_have_one_cell_per_wall_face_per_layer"
 qual = "uniform_layers_have_one_cell_per_wall_face_per_layer"
-lines = [
-    496,
-    532,
-]
 hash = "sha256:68ed23f02fefae3ad49106a89fa33ea80308c389ca2c8ba9d67bd1956e813b49"
 doc_hash = "sha256:228129cb4c35fe6b45c0f5755dbabc1015d00b1570d5276ee0d964be780681c3"
-callees = [
-    "fn:01f5c5287b54fa93",
-    "fn:4634326d004b19bc",
-    "fn:d27c53070645c562",
-]
-uses = ["fn:1ba627805a7e587e"]
 test = true
 
 [[module."staged.rs".function]]
-id = "fn:99fd26530dc77cb2"
-name = "every_strategy_gives_an_index_within_the_requested_layers"
-qual = "every_strategy_gives_an_index_within_the_requested_layers"
-lines = [
-    534,
-    579,
-]
-hash = "sha256:cc35ef7aae8edbd8464249d0182e726b03c69f4492185f2a221b9ba0b51cbf51"
-doc_hash = "sha256:300175f68ddcc98f9e214b59b3ae87f1c428938df901b3bdc9e555c59883d994"
-callees = [
-    "fn:01f5c5287b54fa93",
-    "fn:4634326d004b19bc",
-    "fn:d27c53070645c562",
-]
-uses = ["fn:de7b48f72d372092"]
-test = true
-
-[[module."staged.rs".function]]
-id = "fn:85318cf321950dd6"
-name = "no_layers_means_an_all_core_index"
-qual = "no_layers_means_an_all_core_index"
-lines = [
-    581,
-    598,
-]
-hash = "sha256:ebababa51f861c36dff9551cdff3ae4aa809505a06ba7c70ccedb4e24a3609d7"
-doc_hash = "sha256:b86f8c2d4e3bd22d6b19cd45964fd058e15deb7417ad3087a9646d288496f09d"
-callees = [
-    "fn:01f5c5287b54fa93",
-    "fn:4634326d004b19bc",
-    "fn:d27c53070645c562",
-]
-uses = ["fn:1ba627805a7e587e"]
+id = "fn:ac10d05927f1e103"
+name = "without_timings"
+qual = "without_timings"
+hash = "sha256:effaccfd8ed015b68a45c5670a37fe2ac5637e0b4db68333d1e5869537b550a5"
+doc_hash = "sha256:ec9bfa12f0e55d685bf395796c264c7209412734dcf6adaf46f3f96bb17ffd1e"
 test = true
 
 [module."tet_mesh.rs"]
 path = "crate::pipeline::tet_mesh"
-
-[[module."tet_mesh.rs".function]]
-id = "fn:ff41871a890c9efa"
-name = "TetMeshOptions"
-qual = "TetMeshOptions"
-item = "type"
-shape = "struct"
-lines = [
-    86,
-    113,
-]
-hash = "sha256:edc8e3cc1dcc4655f628cc473ee5b4bbf1cac7d1c986b4fc5918e9bb8214effe"
-doc_hash = "sha256:08d6851b17e412de2e99b6facf3cd6400be44f18a2543b9f31ee7f112de4b706"
-uses = [
-    "fn:1d72fb950cf293e5",
-    "fn:5e617327bd4b2fca",
-    "fn:6b9400c88ef9d5ff",
-    "fn:6c7399404b585db7",
-    "fn:a030da41c4a8490f",
-    "fn:df2965cdda454f14",
-    "fn:fb7d07f0246b2d9d",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#46",
-    "#47",
-    "#48",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#124",
-    "#125",
-    "#127",
-    "#129",
-    "#130",
-    "#131",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:a030da41c4a8490f"
-name = "PatchAssignment"
-qual = "PatchAssignment"
-item = "type"
-shape = "enum"
-lines = [
-    115,
-    126,
-]
-hash = "sha256:0c38c77784f0270eb3db58b43137f4b0d2de7365be95098a00102e9c44fe6ebb"
-doc_hash = "sha256:15cd536b89863cee5613410ab67975b59b2ab7803687047738f3b5b7452f4947"
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#46",
-    "#47",
-    "#48",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:3c5c13dd74ba3551"
-name = "default"
-qual = "TetMeshOptions::default"
-lines = [
-    129,
-    141,
-]
-hash = "sha256:986aa211d258cc2e0b13c8bc3cfc8e63217e69a92dcb62713484de104e470dd9"
-doc_hash = "sha256:76f4cd5aa2c8b7f22ba21adf5766987ad728a1e83f879646c602a1ff413f0671"
-callees = ["fn:3f596d290e9626ae"]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:6c7399404b585db7",
-    "fn:a030da41c4a8490f",
-    "fn:df2965cdda454f14",
-    "fn:ff41871a890c9efa",
-]
 
 [[module."tet_mesh.rs".function]]
 id = "fn:1d72fb950cf293e5"
@@ -3037,71 +657,31 @@ name = "BoundaryLayersDict"
 qual = "BoundaryLayersDict"
 item = "type"
 shape = "struct"
-lines = [
-    144,
-    165,
-]
 hash = "sha256:f0f6836909971fa0e926f36e33bbc9511e440ba9311087973f20ade9bfb58139"
 doc_hash = "sha256:416ddecbbe7cdc5390a13e907ba8f0467ca31f0e7c21bd834f30c38f121206e6"
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:bb4ac346ae24ece8",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#46",
-    "#47",
-    "#48",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#124",
-    "#125",
-    "#127",
-    "#129",
-    "#130",
-    "#131",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:0e99fff670c1938b"
-name = "with_n_layers"
-qual = "BoundaryLayersDict::with_n_layers"
-lines = [
-    168,
-    172,
-]
-hash = "sha256:684bba5be4b989c7a4ee75d182ce5939bf1f65a5d1eb53360f6ab1a46f882f84"
-doc_hash = "sha256:52542349eae09f21ade1db2ca28a55db64dbe622fd83d86d52b313156702d64b"
-uses = [
-    "fn:1d72fb950cf293e5",
-    "fn:bb4ac346ae24ece8",
-]
-reached_by = ["#104"]
 
 [[module."tet_mesh.rs".function]]
 id = "fn:887b72fc382ba000"
 name = "request"
 qual = "BoundaryLayersDict::request"
-lines = [
-    174,
-    186,
-]
 hash = "sha256:a1310e2e407a955f6b80b491463135d1f71d9e675447c76db105bbedb6adb8e3"
 doc_hash = "sha256:3a68ce7dacf84a78cf3d4d56d5e979228bf94b60d420a5cfaf07149d1704972a"
-uses = [
-    "fn:1d72fb950cf293e5",
-    "fn:a3f938bd07a3fdfc",
-]
+
+[[module."tet_mesh.rs".function]]
+id = "fn:0e99fff670c1938b"
+name = "with_n_layers"
+qual = "BoundaryLayersDict::with_n_layers"
+hash = "sha256:684bba5be4b989c7a4ee75d182ce5939bf1f65a5d1eb53360f6ab1a46f882f84"
+doc_hash = "sha256:52542349eae09f21ade1db2ca28a55db64dbe622fd83d86d52b313156702d64b"
+
+[[module."tet_mesh.rs".function]]
+id = "fn:a030da41c4a8490f"
+name = "PatchAssignment"
+qual = "PatchAssignment"
+item = "type"
+shape = "enum"
+hash = "sha256:0c38c77784f0270eb3db58b43137f4b0d2de7365be95098a00102e9c44fe6ebb"
+doc_hash = "sha256:15cd536b89863cee5613410ab67975b59b2ab7803687047738f3b5b7452f4947"
 
 [[module."tet_mesh.rs".function]]
 id = "fn:d6bcd06b1b4f1891"
@@ -3109,140 +689,8 @@ name = "SavedMesh"
 qual = "SavedMesh"
 item = "type"
 shape = "struct"
-lines = [
-    189,
-    199,
-]
 hash = "sha256:cc063dd3be9cd31b9d99eb1d0954e8eb4e332a73b7c7371ccd375cea64d64495"
 doc_hash = "sha256:5739eb5ed483f9fc879037508804305b6808b54a48d37a561c93820d849df950"
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:98e2bb4808c3177e",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#84",
-    "#85",
-    "#86",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:c7798e077bf91838"
-name = "TetMeshReport"
-qual = "TetMeshReport"
-item = "type"
-shape = "struct"
-lines = [
-    201,
-    245,
-]
-hash = "sha256:3a5ef7391c6acb86c3b0b646240bfc0e80e00c5547644187407d3d99e63b8272"
-doc_hash = "sha256:25f16847489d83d45252c6853ad7c94d6729ba9a2ed4e9ab5057c18273d23a21"
-uses = [
-    "fn:04f50b61f0ba28fc",
-    "fn:98e2bb4808c3177e",
-    "fn:b4f3ef3b2c563714",
-    "fn:c8a1faf1ff13b3bb",
-    "fn:d406fef7faccbf15",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#124",
-    "#125",
-    "#127",
-    "#129",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:9cdcea8d459265fe"
-name = "face_regions"
-qual = "face_regions"
-lines = [
-    247,
-    259,
-]
-hash = "sha256:c44a30584b51f63d72f775838532b4d3756d3dba6f39b8eb095f6e618f0cc15c"
-doc_hash = "sha256:7097a46a76447eca2356a91e7eeef1515b1ca8adfea0b29b19feb770a8e3b836"
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:70e860e06320216b",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#26",
-    "#28",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
 
 [[module."tet_mesh.rs".function]]
 id = "fn:7030f3bf965033de"
@@ -3250,1041 +698,134 @@ name = "Template"
 qual = "Template"
 item = "type"
 shape = "enum"
-lines = [
-    261,
-    267,
-]
 hash = "sha256:6221b13618190e764b31a2335deac4cfc3d0cc6ba0fc882672604000aa8de71b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#124",
-    "#125",
-    "#127",
-    "#129",
-    "#133",
-    "#134",
-    "#135",
-]
 
 [[module."tet_mesh.rs".function]]
-id = "fn:fcaa09de3a030441"
-name = "tet_mesh"
-qual = "tet_mesh"
-lines = [
-    269,
-    273,
-]
-hash = "sha256:9e60c9eb3bf9512dfe80e578bb641c9bf096d6c5b6832071489076712419f482"
-doc_hash = "sha256:e6ee42fec1937ab27f2e221cb24970c25e578b7a5be782b7b77536d3b0eb680e"
-callees = ["fn:c5a204b8c68c7bf6"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:7030f3bf965033de",
-    "fn:70e860e06320216b",
-    "fn:c7798e077bf91838",
-    "fn:ff41871a890c9efa",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#94",
-    "#103",
-    "#106",
-    "#125",
-    "#127",
-    "#129",
-    "#133",
-    "#135",
-]
+id = "fn:ff41871a890c9efa"
+name = "TetMeshOptions"
+qual = "TetMeshOptions"
+item = "type"
+shape = "struct"
+hash = "sha256:edc8e3cc1dcc4655f628cc473ee5b4bbf1cac7d1c986b4fc5918e9bb8214effe"
+doc_hash = "sha256:08d6851b17e412de2e99b6facf3cd6400be44f18a2543b9f31ee7f112de4b706"
 
 [[module."tet_mesh.rs".function]]
-id = "fn:93a4ae5b45dbc09f"
-name = "tet_mesh_restart"
-qual = "tet_mesh_restart"
-lines = [
-    275,
-    279,
-]
-hash = "sha256:bb930a74a8351fe0e9869ea3cbb361e4b0f9e7861844c9c19050bd979ff9f7bd"
-doc_hash = "sha256:7c3f167e623a3112cd321f77d6ee525e06724f1c69053eae278bb241ea481c15"
-callees = ["fn:c5a204b8c68c7bf6"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:7030f3bf965033de",
-    "fn:70e860e06320216b",
-    "fn:c7798e077bf91838",
-    "fn:d6bcd06b1b4f1891",
-    "fn:ff41871a890c9efa",
-]
-reached_by = ["#106"]
+id = "fn:3c5c13dd74ba3551"
+name = "default"
+qual = "TetMeshOptions::default"
+hash = "sha256:986aa211d258cc2e0b13c8bc3cfc8e63217e69a92dcb62713484de104e470dd9"
+doc_hash = "sha256:76f4cd5aa2c8b7f22ba21adf5766987ad728a1e83f879646c602a1ff413f0671"
+
+[[module."tet_mesh.rs".function]]
+id = "fn:c7798e077bf91838"
+name = "TetMeshReport"
+qual = "TetMeshReport"
+item = "type"
+shape = "struct"
+hash = "sha256:3a5ef7391c6acb86c3b0b646240bfc0e80e00c5547644187407d3d99e63b8272"
+doc_hash = "sha256:25f16847489d83d45252c6853ad7c94d6729ba9a2ed4e9ab5057c18273d23a21"
+
+[[module."tet_mesh.rs".function]]
+id = "fn:c7606a6ec879d36e"
+name = "baseline"
+qual = "baseline"
+hash = "sha256:3b8f9a733caefa064f58c1777de6aa34f1e25c03c78a68fba34896eea6dabdcb"
+doc_hash = "sha256:7fdf18877b8189420bb91a907bb281b7a626d6be9a194517110ea2bf134b30b8"
+test = true
 
 [[module."tet_mesh.rs".function]]
 id = "fn:8c7e538d04b906d2"
 name = "create_octree"
 qual = "create_octree"
-lines = [
-    281,
-    289,
-]
 hash = "sha256:3eb9d46e97b8a968d67f91afa6df1aa28b270de893fc52a568919b245135c082"
 doc_hash = "sha256:edb38225336bf40ba0821cc2b9ad5f10e3cdaa2302ecbb743245cb2e69cc6d09"
-callees = [
-    "fn:31de2c8f2112b654",
-    "fn:6865f38fc5167ee3",
-    "fn:b4bce924144f4f66",
-    "fn:f52eb5a2f47954af",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:101c1e95cd4fa8f4",
-    "fn:39a10a31dc719a24",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:c88dcf04c834f3d6",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#85",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#115",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-]
+
+[[module."tet_mesh.rs".function]]
+id = "fn:711cd6ecf3b36981"
+name = "diagnose_tet_mesh_against_the_crate_tets"
+qual = "diagnose_tet_mesh_against_the_crate_tets"
+hash = "sha256:4bd6d831ca72d1e92ed788378ac0927bf5583040b7f524e906c4aa257be0c11a"
+doc_hash = "sha256:ae627d8de624e629166cbe9415b34dbc7efe58eecc41e55e541c78b13b8ad9a7"
+test = true
+
+[[module."tet_mesh.rs".function]]
+id = "fn:9cdcea8d459265fe"
+name = "face_regions"
+qual = "face_regions"
+hash = "sha256:c44a30584b51f63d72f775838532b4d3756d3dba6f39b8eb095f6e618f0cc15c"
+doc_hash = "sha256:7097a46a76447eca2356a91e7eeef1515b1ca8adfea0b29b19feb770a8e3b836"
 
 [[module."tet_mesh.rs".function]]
 id = "fn:8742f353ece5152d"
 name = "generator_optimise_final_mesh"
 qual = "generator_optimise_final_mesh"
-lines = [
-    291,
-    343,
-]
 hash = "sha256:bcaa38c2c4ed7715ba5bdf31f57090f0d4461b3551adc59113844c003bb58b83"
 doc_hash = "sha256:aa3ea5d82e6e06e4864ec3df7a1cd2552d6d8cb83360fa4f775e7f2d3d683097"
-callees = [
-    "fn:037877c20bfba0b9",
-    "fn:2a505234b90c5a5e",
-    "fn:555a243a6fc42769",
-    "fn:70575f9730745448",
-    "fn:9cdcea8d459265fe",
-    "fn:a1baff09ba2da9b9",
-    "fn:c90b92829fa528c6",
-    "fn:ee10ad5daed8aef8",
-    "fn:fb3778bec187f147",
-]
-uses = [
-    "fn:0ad67becc332bf44",
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:39a10a31dc719a24",
-    "fn:6b9400c88ef9d5ff",
-    "fn:7030f3bf965033de",
-    "fn:70e860e06320216b",
-    "fn:8dc70e998d0e25be",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#124",
-    "#125",
-    "#127",
-    "#129",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:c5a204b8c68c7bf6"
-name = "run_generator"
-qual = "run_generator"
-lines = [
-    345,
-    628,
-]
-hash = "sha256:ca0e272d1fd7ed7e22c7c92c44d102192e2d1ac27b698c3befae9a4869c5db34"
-doc_hash = "sha256:1131c0c88051c628850136c56932731cd28cdc25fe7528ffadb79f3ebc0967ff"
-callees = [
-    "fn:0ae0d5ff00ebc23d",
-    "fn:0c8cb60919a2408f",
-    "fn:140015cfaa963084",
-    "fn:33bb441bdd4ba91a",
-    "fn:3eab647e9c10ede9",
-    "fn:4e01d79c85afb567",
-    "fn:5b521a52949ac8f1",
-    "fn:65d322c4f8aa3e6c",
-    "fn:70575f9730745448",
-    "fn:72af43fb7c82b7f4",
-    "fn:7aed7e8ac18056e7",
-    "fn:8742f353ece5152d",
-    "fn:8c7e538d04b906d2",
-    "fn:9016c4aa3121b951",
-    "fn:9cdcea8d459265fe",
-    "fn:a14e386ee609de49",
-    "fn:b20e21a630c63653",
-    "fn:b80dc2d77a978a86",
-    "fn:bdb7c9210b1a3dcf",
-    "fn:bdcde3b9861a141c",
-    "fn:c94c508909241d3d",
-    "fn:d8ac8feff702ed04",
-    "fn:dfb04f57c20ebb69",
-    "fn:e95b97bc4c97349c",
-    "fn:ed010ed0770cf9fc",
-    "fn:f2d59d92774af5db",
-    "fn:feb0230c9741920f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:51651223d53049d8",
-    "fn:558504c6a7b03168",
-    "fn:7030f3bf965033de",
-    "fn:70e860e06320216b",
-    "fn:8dc70e998d0e25be",
-    "fn:98e2bb4808c3177e",
-    "fn:a030da41c4a8490f",
-    "fn:b055d75672b4be28",
-    "fn:c7798e077bf91838",
-    "fn:c8a1faf1ff13b3bb",
-    "fn:d406fef7faccbf15",
-    "fn:d6bcd06b1b4f1891",
-    "fn:f9b25eb6ff8128ee",
-    "fn:ff41871a890c9efa",
-]
-reached_by = [
-    "#17",
-    "#18",
-    "#19",
-    "#26",
-    "#28",
-    "#94",
-    "#95",
-    "#103",
-    "#104",
-    "#106",
-    "#124",
-    "#125",
-    "#127",
-    "#129",
-    "#133",
-    "#134",
-    "#135",
-]
-
-[[module."tet_mesh.rs".function]]
-id = "fn:42508dcdcc2acdb6"
-name = "pipe_surface"
-qual = "pipe_surface"
-lines = [
-    642,
-    660,
-]
-hash = "sha256:26148e0b41a91d2afce3f63de5b8b10dbcc69a0ed44c1eb8ceda9e4fa301eb4d"
-doc_hash = "sha256:59855e3fa12ae16eb2ccf5a8ea83eeffc3c4ba4ed0925bca8ad4c942affe264e"
-callees = [
-    "fn:5b6d3d9552c61e5a",
-    "fn:728cd1b72b92a97b",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:70e860e06320216b",
-]
-test = true
 
 [[module."tet_mesh.rs".function]]
 id = "fn:a7ad785d1e43d999"
 name = "n_nonpositive_cells"
 qual = "n_nonpositive_cells"
-lines = [
-    662,
-    665,
-]
 hash = "sha256:3d275fb4648ac6155f723c73d61c72ea44d3f6355dde4cd79be297804e55244f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:4fbc238e8eae2059"]
-uses = ["fn:1d52ce14c252d72f"]
+test = true
+
+[[module."tet_mesh.rs".function]]
+id = "fn:42508dcdcc2acdb6"
+name = "pipe_surface"
+qual = "pipe_surface"
+hash = "sha256:26148e0b41a91d2afce3f63de5b8b10dbcc69a0ed44c1eb8ceda9e4fa301eb4d"
+doc_hash = "sha256:59855e3fa12ae16eb2ccf5a8ea83eeffc3c4ba4ed0925bca8ad4c942affe264e"
+test = true
+
+[[module."tet_mesh.rs".function]]
+id = "fn:c5a204b8c68c7bf6"
+name = "run_generator"
+qual = "run_generator"
+hash = "sha256:ca0e272d1fd7ed7e22c7c92c44d102192e2d1ac27b698c3befae9a4869c5db34"
+doc_hash = "sha256:1131c0c88051c628850136c56932731cd28cdc25fe7528ffadb79f3ebc0967ff"
+
+[[module."tet_mesh.rs".function]]
+id = "fn:8fb1a8dc14048c36"
+name = "tet_and_p_mesh_with_a_boundary_layers_dict"
+qual = "tet_and_p_mesh_with_a_boundary_layers_dict"
+hash = "sha256:1d03bd650f92d80c339cdd31925e96f256ff7a1a205a6f43b1d4be9887c9334f"
+doc_hash = "sha256:02eb7ba163f211dcdd0237404fa53f709a6a07c41aab258ebe91a053c34afc1a"
 test = true
 
 [[module."tet_mesh.rs".function]]
 id = "fn:1c99a35a0890b098"
 name = "tet_creator_on_the_sphere_and_the_pipe"
 qual = "tet_creator_on_the_sphere_and_the_pipe"
-lines = [
-    667,
-    784,
-]
 hash = "sha256:8ce15143a73c402b2d1c0a380c992c4aacc8747e92b4cec296eb00bc05fb0643"
 doc_hash = "sha256:0448369885226cdcf11c4c5da5b6a6a2da8a18e4c7702abe7432c2731355fc41"
-callees = [
-    "fn:0e693cd30d82cc69",
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:8926125d10a160cb",
-    "fn:8c7e538d04b906d2",
-    "fn:a425c6868f6990e9",
-    "fn:e5d4a55af679c3de",
-    "fn:f2d59d92774af5db",
-    "fn:feb0230c9741920f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:0cee85c7d02d6c39",
-    "fn:5e617327bd4b2fca",
-    "fn:fc8bab6931663088",
-]
 test = true
 
 [[module."tet_mesh.rs".function]]
-id = "fn:c7606a6ec879d36e"
-name = "baseline"
-qual = "baseline"
-lines = [
-    786,
-    792,
-]
-hash = "sha256:3b8f9a733caefa064f58c1777de6aa34f1e25c03c78a68fba34896eea6dabdcb"
-doc_hash = "sha256:7fdf18877b8189420bb91a907bb281b7a626d6be9a194517110ea2bf134b30b8"
-callees = ["fn:b73523c434d191e6"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:be7013441700cacd",
-]
-test = true
+id = "fn:fcaa09de3a030441"
+name = "tet_mesh"
+qual = "tet_mesh"
+hash = "sha256:9e60c9eb3bf9512dfe80e578bb641c9bf096d6c5b6832071489076712419f482"
+doc_hash = "sha256:e6ee42fec1937ab27f2e221cb24970c25e578b7a5be782b7b77536d3b0eb680e"
 
 [[module."tet_mesh.rs".function]]
-id = "fn:711cd6ecf3b36981"
-name = "diagnose_tet_mesh_against_the_crate_tets"
-qual = "diagnose_tet_mesh_against_the_crate_tets"
-lines = [
-    794,
-    846,
-]
-hash = "sha256:4bd6d831ca72d1e92ed788378ac0927bf5583040b7f524e906c4aa257be0c11a"
-doc_hash = "sha256:ae627d8de624e629166cbe9415b34dbc7efe58eecc41e55e541c78b13b8ad9a7"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:42508dcdcc2acdb6",
-    "fn:8c7e538d04b906d2",
-    "fn:a425c6868f6990e9",
-    "fn:c7606a6ec879d36e",
-    "fn:f2d59d92774af5db",
-    "fn:fcaa09de3a030441",
-    "fn:feb0230c9741920f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:ff41871a890c9efa",
-]
-test = true
+id = "fn:93a4ae5b45dbc09f"
+name = "tet_mesh_restart"
+qual = "tet_mesh_restart"
+hash = "sha256:bb930a74a8351fe0e9869ea3cbb361e4b0f9e7861844c9c19050bd979ff9f7bd"
+doc_hash = "sha256:7c3f167e623a3112cd321f77d6ee525e06724f1c69053eae278bb241ea481c15"
 
 [[module."tet_mesh.rs".function]]
 id = "fn:5ad50ff28ce761a7"
 name = "tet_mesh_stop_and_restart_reproduce_the_full_run"
 qual = "tet_mesh_stop_and_restart_reproduce_the_full_run"
-lines = [
-    848,
-    872,
-]
 hash = "sha256:481d7c712535bb65fb850e8ea5f5848449f355b438650e6e86c6a5b422e1be97"
 doc_hash = "sha256:c2eb5f9b732206ab17dfc185829758fb258b3f8e70318bdf872575b4e7d94299"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:42508dcdcc2acdb6",
-    "fn:93a4ae5b45dbc09f",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:d6bcd06b1b4f1891",
-    "fn:df2965cdda454f14",
-    "fn:ff41871a890c9efa",
-]
-test = true
-
-[[module."tet_mesh.rs".function]]
-id = "fn:8fb1a8dc14048c36"
-name = "tet_and_p_mesh_with_a_boundary_layers_dict"
-qual = "tet_and_p_mesh_with_a_boundary_layers_dict"
-lines = [
-    874,
-    912,
-]
-hash = "sha256:1d03bd650f92d80c339cdd31925e96f256ff7a1a205a6f43b1d4be9887c9334f"
-doc_hash = "sha256:02eb7ba163f211dcdd0237404fa53f709a6a07c41aab258ebe91a053c34afc1a"
-callees = [
-    "fn:0e99fff670c1938b",
-    "fn:21a2256faadd9502",
-    "fn:3f596d290e9626ae",
-    "fn:a425c6868f6990e9",
-    "fn:c5a204b8c68c7bf6",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d72fb950cf293e5",
-    "fn:5e617327bd4b2fca",
-    "fn:7030f3bf965033de",
-    "fn:ff41871a890c9efa",
-]
 test = true
 
 [module."tet_source.rs"]
 path = "crate::pipeline::tet_source"
-
-[[module."tet_source.rs".function]]
-id = "fn:c172942d15b4ab99"
-name = "TetSource"
-qual = "TetSource"
-item = "type"
-shape = "enum"
-lines = [
-    66,
-    89,
-]
-hash = "sha256:7bac4a0a57cd14b82be3f07ecb7a46a6905373dfcc498ce79b22a25d5f7c1a67"
-doc_hash = "sha256:0bb100a59c4420826e1b7ad3a4fa7ebced00d8d0c93fb460a2fdebdec63d31be"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."tet_source.rs".function]]
-id = "fn:3167d3287b888114"
-name = "tetgen"
-qual = "TetSource::tetgen"
-lines = [
-    96,
-    105,
-]
-hash = "sha256:64f7065dda3f761bac120e45eb4eb72bd7efabe92ed46a29401be93ab1ff9995"
-doc_hash = "sha256:c3d1174f0044aebdd31709586d65ee05c7d7d9e737c5fd623a2c3d0e4357e7d0"
-uses = ["fn:c172942d15b4ab99"]
-reached_by = [
-    "#107",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-]
-
-[[module."tet_source.rs".function]]
-id = "fn:40376a1b70a04900"
-name = "switches"
-qual = "TetSource::switches"
-lines = [
-    107,
-    122,
-]
-hash = "sha256:efc0cc70a16f02e81e00fcad2777fc051305d9c336b23185edd4065d0d671671"
-doc_hash = "sha256:d4265c02058d508fe188f30d8a0323250630d41cbdb92e678b7a7ae5a1b827f2"
-uses = ["fn:c172942d15b4ab99"]
-reached_by = ["#114"]
-
-[[module."tet_source.rs".function]]
-id = "fn:69905bbb32de9d0f"
-name = "empty_mesh"
-qual = "empty_mesh"
-lines = [
-    125,
-    137,
-]
-hash = "sha256:6fcfec599628c2973a5dc0f94f74c004fe0da2671c0fca0e2c4142f3d42e51f5"
-doc_hash = "sha256:c1014a1813c4545f66fcde08b7222c9a057afc6a6b80ddaf6229656248942b0a"
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."tet_source.rs".function]]
-id = "fn:75e95d91322388e6"
-name = "hole_points"
-qual = "hole_points"
-lines = [
-    139,
-    216,
-]
-hash = "sha256:995fbc83e77c6a31f06e591dff164539ebb633e3506769cc70458cb5c65fe52e"
-doc_hash = "sha256:e43ef65b3198481117c5ef06ea8c891a6742813bf53c4b6914e491c25ee23622"
-uses = ["fn:0bb173954082584d"]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#107",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."tet_source.rs".function]]
-id = "fn:73346f1542750292"
-name = "tetgen_tets"
-qual = "tetgen_tets"
-lines = [
-    218,
-    284,
-]
-hash = "sha256:7cc67cbcba0b8baba7a1fd6ac05ecbed0b0824c65275b2dd4c34987e8045a850"
-doc_hash = "sha256:dfed29102cde4e6e61d1727ca97d8f66e9997d43d588738e0cf90f817fc111a1"
-callees = [
-    "fn:069f38ad2ce15d48",
-    "fn:0a9ec32b4ea29650",
-    "fn:2aeeca6fd7c8af77",
-    "fn:75e95d91322388e6",
-    "fn:c0aced4fcae4688c",
-    "fn:ce773a8c18c56a13",
-    "fn:d151ee25de1a2268",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:0bccb1dd2f6ef767",
-    "fn:1d52ce14c252d72f",
-    "fn:70e860e06320216b",
-    "fn:9d31c3e16ee6aee8",
-    "fn:c172942d15b4ab99",
-]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#22",
-    "#23",
-    "#27",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#49",
-    "#53",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#91",
-    "#92",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#107",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-]
-
-[[module."tet_source.rs".function]]
-id = "fn:da640ebc4a44f860"
-name = "the_default_is_the_carved_route_and_switches_read_as_upstream"
-qual = "the_default_is_the_carved_route_and_switches_read_as_upstream"
-lines = [
-    294,
-    319,
-]
-hash = "sha256:459a53d3c598a4877a68917ea5472a6b8beddedc6f51917ebaa204e7a23042f0"
-doc_hash = "sha256:c3a82d3f779d9c89ce701f82d28679dd4406e7625bd5ab87da96c12d8248a8f7"
-callees = [
-    "fn:0a9ec32b4ea29650",
-    "fn:2aeeca6fd7c8af77",
-    "fn:3167d3287b888114",
-    "fn:40376a1b70a04900",
-    "fn:771e812129659e7b",
-    "fn:ae87c27865ba83fb",
-    "fn:c0aced4fcae4688c",
-]
-uses = [
-    "fn:9d31c3e16ee6aee8",
-    "fn:c172942d15b4ab99",
-]
-test = true
-
-[[module."tet_source.rs".function]]
-id = "fn:f6ad934b36bb5ad8"
-name = "bad_bounds_are_refused"
-qual = "bad_bounds_are_refused"
-lines = [
-    321,
-    337,
-]
-hash = "sha256:f21a81d68b2d76dfaee98f43fe9ce8686daca3c9b443151dd896fa6df0ec33a5"
-doc_hash = "sha256:50b229ec35f605185262eca1cdc1c67bf58dc51bf40743f7f62a68506be149bb"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:c172942d15b4ab99",
-]
-test = true
-
-[[module."tet_source.rs".function]]
-id = "fn:c0f0144969af312e"
-name = "tetgen_tets_of_a_box_fill_it_exactly"
-qual = "tetgen_tets_of_a_box_fill_it_exactly"
-lines = [
-    339,
-    357,
-]
-hash = "sha256:153b9a69995483a5e9ff86b19a2e2e93530d562e2942fce3e55a345944dec9b5"
-doc_hash = "sha256:e955367a89741e9c552c25578a7834f041fdbaebe2cea82e8534111e0b435bac"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:3167d3287b888114",
-    "fn:73346f1542750292",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:c172942d15b4ab99",
-]
-test = true
-
-[[module."tet_source.rs".function]]
-id = "fn:99441daccaf60d24"
-name = "a_cavity_gets_a_hole_point_and_stays_empty"
-qual = "a_cavity_gets_a_hole_point_and_stays_empty"
-lines = [
-    359,
-    397,
-]
-hash = "sha256:ad2d00f9315042c15d41a749878986bb2c74a58c7312553775b3133b563088c3"
-doc_hash = "sha256:e010081103be1c69d4b5986010015f5597289f4f432591a5072b38bfaa9e4767"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:3167d3287b888114",
-    "fn:73346f1542750292",
-    "fn:75e95d91322388e6",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:c172942d15b4ab99",
-]
-test = true
-
-[[module."tet_source.rs".function]]
-id = "fn:a408078a08f61bc4"
-name = "pipe_opts"
-qual = "pipe_opts"
-lines = [
-    399,
-    412,
-]
-hash = "sha256:c29cc07639db1f116696f9b3cabe212938690f95ee2999e7a674318cef56738a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:6a28501e5cedb5e2",
-    "fn:87a5a0cebf1891ec",
-    "fn:be7013441700cacd",
-    "fn:c172942d15b4ab99",
-]
-test = true
-
-[[module."tet_source.rs".function]]
-id = "fn:4a1f2ec7750f4086"
-name = "tetgen_route_runs_every_mesh_type_on_the_pipe"
-qual = "tetgen_route_runs_every_mesh_type_on_the_pipe"
-lines = [
-    414,
-    502,
-]
-hash = "sha256:d54b367b338f2591fe7333e01e159d2808ddad9864c126fa2c72a934fb7a3ff4"
-doc_hash = "sha256:1835c638ba3d854f90443ee4fe734b7d114948eac73cfcc36fe76c4a8b05ba70"
-callees = [
-    "fn:01f5c5287b54fa93",
-    "fn:3167d3287b888114",
-    "fn:a408078a08f61bc4",
-    "fn:d27c53070645c562",
-]
-uses = [
-    "fn:9bbba59f83a267f1",
-    "fn:c172942d15b4ab99",
-]
-test = true
-
-[[module."tet_source.rs".function]]
-id = "fn:e806f1edfd298c6f"
-name = "tetgen_route_is_pinned_bit_for_bit"
-qual = "tetgen_route_is_pinned_bit_for_bit"
-lines = [
-    504,
-    528,
-]
-hash = "sha256:e330db45fcaf1b268453a28a42c6bb06283fddcfac245c233a6ee2c59ef647bc"
-doc_hash = "sha256:b0ba5501e5ce893d1c57dda9c99975bfa44b04a319d183d4057e9715d72974d1"
-callees = [
-    "fn:3167d3287b888114",
-    "fn:a408078a08f61bc4",
-    "fn:aff226fe8b3fb7d6",
-    "fn:c20c6aebcf3533d9",
-    "fn:d27c53070645c562",
-]
-uses = ["fn:c172942d15b4ab99"]
-test = true
 
 [[module."tet_source.rs".function]]
 id = "fn:12c8ab5fc4f95740"
@@ -4292,51 +833,122 @@ name = "PINNED_PIPE"
 qual = "PINNED_PIPE"
 item = "const"
 shape = "const"
-lines = [
-    530,
-    533,
-]
 hash = "sha256:988fe08412ec3d695634d250a48aaa27fa15caf6ad67cc0d5a97318617b19cd4"
 doc_hash = "sha256:8ae57aa8f696068160ab649c60c5a6e6fd9405a6a661f72d2387bbb65237a97f"
 test = true
 
 [[module."tet_source.rs".function]]
-id = "fn:64cd7896675307c9"
-name = "single_patch_route_grows_layers_on_tetgen_tets"
-qual = "single_patch_route_grows_layers_on_tetgen_tets"
-lines = [
-    535,
-    557,
-]
-hash = "sha256:ad9762f68b4ab2e00da74f9860e30ffa354a490c0d3d76b63753f5ddba7fb5a7"
-doc_hash = "sha256:7e22b8e5f818e41ab20647d9a4956126b7f18d6de9e84f668570a525c3f58e32"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:3167d3287b888114",
-    "fn:b73523c434d191e6",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:be7013441700cacd",
-    "fn:c172942d15b4ab99",
-]
+id = "fn:c172942d15b4ab99"
+name = "TetSource"
+qual = "TetSource"
+item = "type"
+shape = "enum"
+hash = "sha256:7bac4a0a57cd14b82be3f07ecb7a46a6905373dfcc498ce79b22a25d5f7c1a67"
+doc_hash = "sha256:0bb100a59c4420826e1b7ad3a4fa7ebced00d8d0c93fb460a2fdebdec63d31be"
+
+[[module."tet_source.rs".function]]
+id = "fn:40376a1b70a04900"
+name = "switches"
+qual = "TetSource::switches"
+hash = "sha256:efc0cc70a16f02e81e00fcad2777fc051305d9c336b23185edd4065d0d671671"
+doc_hash = "sha256:d4265c02058d508fe188f30d8a0323250630d41cbdb92e678b7a7ae5a1b827f2"
+
+[[module."tet_source.rs".function]]
+id = "fn:3167d3287b888114"
+name = "tetgen"
+qual = "TetSource::tetgen"
+hash = "sha256:64f7065dda3f761bac120e45eb4eb72bd7efabe92ed46a29401be93ab1ff9995"
+doc_hash = "sha256:c3d1174f0044aebdd31709586d65ee05c7d7d9e737c5fd623a2c3d0e4357e7d0"
+
+[[module."tet_source.rs".function]]
+id = "fn:99441daccaf60d24"
+name = "a_cavity_gets_a_hole_point_and_stays_empty"
+qual = "a_cavity_gets_a_hole_point_and_stays_empty"
+hash = "sha256:ad2d00f9315042c15d41a749878986bb2c74a58c7312553775b3133b563088c3"
+doc_hash = "sha256:e010081103be1c69d4b5986010015f5597289f4f432591a5072b38bfaa9e4767"
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:f6ad934b36bb5ad8"
+name = "bad_bounds_are_refused"
+qual = "bad_bounds_are_refused"
+hash = "sha256:f21a81d68b2d76dfaee98f43fe9ce8686daca3c9b443151dd896fa6df0ec33a5"
+doc_hash = "sha256:50b229ec35f605185262eca1cdc1c67bf58dc51bf40743f7f62a68506be149bb"
 test = true
 
 [[module."tet_source.rs".function]]
 id = "fn:3b2985378a56bd9c"
 name = "diagnose_boundary_tets_of_both_sources"
 qual = "diagnose_boundary_tets_of_both_sources"
-lines = [
-    559,
-    628,
-]
 hash = "sha256:780a1237207d079a3e13004cc3f08f4b68c26d77b91b34844fd373db996e399a"
 doc_hash = "sha256:831178d3fdb0a0481be30823b5970aa465e07a469ee0b3a22267db88c28408fd"
-callees = [
-    "fn:a408078a08f61bc4",
-    "fn:c20c6aebcf3533d9",
-    "fn:d27c53070645c562",
-]
-uses = ["fn:c172942d15b4ab99"]
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:69905bbb32de9d0f"
+name = "empty_mesh"
+qual = "empty_mesh"
+hash = "sha256:6fcfec599628c2973a5dc0f94f74c004fe0da2671c0fca0e2c4142f3d42e51f5"
+doc_hash = "sha256:c1014a1813c4545f66fcde08b7222c9a057afc6a6b80ddaf6229656248942b0a"
+
+[[module."tet_source.rs".function]]
+id = "fn:75e95d91322388e6"
+name = "hole_points"
+qual = "hole_points"
+hash = "sha256:995fbc83e77c6a31f06e591dff164539ebb633e3506769cc70458cb5c65fe52e"
+doc_hash = "sha256:e43ef65b3198481117c5ef06ea8c891a6742813bf53c4b6914e491c25ee23622"
+
+[[module."tet_source.rs".function]]
+id = "fn:a408078a08f61bc4"
+name = "pipe_opts"
+qual = "pipe_opts"
+hash = "sha256:c29cc07639db1f116696f9b3cabe212938690f95ee2999e7a674318cef56738a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:64cd7896675307c9"
+name = "single_patch_route_grows_layers_on_tetgen_tets"
+qual = "single_patch_route_grows_layers_on_tetgen_tets"
+hash = "sha256:ad9762f68b4ab2e00da74f9860e30ffa354a490c0d3d76b63753f5ddba7fb5a7"
+doc_hash = "sha256:7e22b8e5f818e41ab20647d9a4956126b7f18d6de9e84f668570a525c3f58e32"
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:e806f1edfd298c6f"
+name = "tetgen_route_is_pinned_bit_for_bit"
+qual = "tetgen_route_is_pinned_bit_for_bit"
+hash = "sha256:e330db45fcaf1b268453a28a42c6bb06283fddcfac245c233a6ee2c59ef647bc"
+doc_hash = "sha256:b0ba5501e5ce893d1c57dda9c99975bfa44b04a319d183d4057e9715d72974d1"
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:4a1f2ec7750f4086"
+name = "tetgen_route_runs_every_mesh_type_on_the_pipe"
+qual = "tetgen_route_runs_every_mesh_type_on_the_pipe"
+hash = "sha256:d54b367b338f2591fe7333e01e159d2808ddad9864c126fa2c72a934fb7a3ff4"
+doc_hash = "sha256:1835c638ba3d854f90443ee4fe734b7d114948eac73cfcc36fe76c4a8b05ba70"
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:73346f1542750292"
+name = "tetgen_tets"
+qual = "tetgen_tets"
+hash = "sha256:7cc67cbcba0b8baba7a1fd6ac05ecbed0b0824c65275b2dd4c34987e8045a850"
+doc_hash = "sha256:dfed29102cde4e6e61d1727ca97d8f66e9997d43d588738e0cf90f817fc111a1"
+
+[[module."tet_source.rs".function]]
+id = "fn:c0f0144969af312e"
+name = "tetgen_tets_of_a_box_fill_it_exactly"
+qual = "tetgen_tets_of_a_box_fill_it_exactly"
+hash = "sha256:153b9a69995483a5e9ff86b19a2e2e93530d562e2942fce3e55a345944dec9b5"
+doc_hash = "sha256:e955367a89741e9c552c25578a7834f041fdbaebe2cea82e8534111e0b435bac"
+test = true
+
+[[module."tet_source.rs".function]]
+id = "fn:da640ebc4a44f860"
+name = "the_default_is_the_carved_route_and_switches_read_as_upstream"
+qual = "the_default_is_the_carved_route_and_switches_read_as_upstream"
+hash = "sha256:459a53d3c598a4877a68917ea5472a6b8beddedc6f51917ebaa204e7a23042f0"
+doc_hash = "sha256:c3a82d3f779d9c89ce701f82d28679dd4406e7625bd5ab87da96c12d8248a8f7"
 test = true

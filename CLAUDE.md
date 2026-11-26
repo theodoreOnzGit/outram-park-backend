@@ -376,6 +376,13 @@ on gh:#1614. A new one needs 1e-9.
   supersedes 1e-8 there too.
 
 
+### No regression pins until there is concrete V&V at unit-test level (HARD RULE)
+
+**Maintainer, 2026-11-26.** No pin on a model's own output until the pieces
+it depends on have concrete V&V at the unit-test level. The full rule, with
+what it does and does not cover, is in [`AGENTS.md`](AGENTS.md#no-regression-pins-until-there-is-concrete-vv-at-unit-test-level-hard-rule)
+(moved there the same day, maintainer: "Move to agents md pls").
+
 ## Search the workspace before building anything (HARD RULE)
 
 **Before attempting a solution — and before briefing an agent on one — scan

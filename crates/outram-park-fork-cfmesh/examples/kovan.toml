@@ -10,448 +10,214 @@ path = "example:boundary_layers"
 id = "fn:5579e9dadf3d8af7"
 name = "main"
 qual = "main"
-lines = [
-    31,
-    93,
-]
 hash = "sha256:04842d243f3c52e2c2ba8a63086202de9bf8385b54f851119bcb0f5ec111412f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:262cfa3b2e8581eb",
-    "fn:2e15c0317a694052",
-    "fn:4514531a46112af1",
-    "fn:59842b1ec41ee642",
-    "fn:c88a3e023469a925",
-]
-uses = ["fn:0bb173954082584d"]
 
 [module."cartesian_mesh_images.rs"]
 path = "example:cartesian_mesh_images"
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:41a2966c26b8a6fe"
-name = "Rgb"
-qual = "Rgb"
-item = "type"
-shape = "alias"
-lines = [
-    38,
-    38,
-]
-hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:df2c7a80fec15df5"
-name = "Image"
-qual = "Image"
-item = "type"
-shape = "struct"
-lines = [
-    40,
-    44,
-]
-hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:41a2966c26b8a6fe"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:87bffdeba424b2c0"
-name = "new"
-qual = "Image::new"
-lines = [
-    47,
-    49,
-]
-hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:41a2966c26b8a6fe",
-    "fn:df2c7a80fec15df5",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:9bf3650bc4ae11ea"
-name = "set"
-qual = "Image::set"
-lines = [
-    50,
-    54,
-]
-hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:41a2966c26b8a6fe",
-    "fn:df2c7a80fec15df5",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:3ed3f68bb1ddae96"
-name = "line"
-qual = "Image::line"
-lines = [
-    55,
-    61,
-]
-hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:41a2966c26b8a6fe",
-    "fn:df2c7a80fec15df5",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:1f973528c760cd1f"
-name = "rect"
-qual = "Image::rect"
-lines = [
-    62,
-    68,
-]
-hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:41a2966c26b8a6fe",
-    "fn:df2c7a80fec15df5",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:8c6d8413d593de9b"
-name = "text"
-qual = "Image::text"
-lines = [
-    69,
-    82,
-]
-hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:432e42a1974dce56"]
-uses = [
-    "fn:41a2966c26b8a6fe",
-    "fn:df2c7a80fec15df5",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:f973a65b267c0f7b"
-name = "write_png"
-qual = "Image::write_png"
-lines = [
-    83,
-    109,
-]
-hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:7bde109230cd73dd",
-    "fn:98c728c5618dabe6",
-]
-uses = ["fn:df2c7a80fec15df5"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:0c42e9bc5232c877"
+id = "fn:6648110900a269aa"
 name = "BitWriter"
 qual = "BitWriter"
 item = "type"
 shape = "struct"
-lines = [
-    112,
-    117,
-]
 hash = "sha256:b633ce3da410c08f605bd727db5d871e81b9cee46e7b5d794ca409d0fef2bb0e"
 doc_hash = "sha256:e01e28dcc172ae447d6a491e0b882a8d20f3a4ae0c52667ee246bb695a18d659"
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:85db4dae89e54380"
+id = "fn:62d17d643c2ac4b6"
 name = "bits"
 qual = "BitWriter::bits"
-lines = [
-    120,
-    128,
-]
 hash = "sha256:f4d7ff197687b0c5af1485508ee7a6bbd1e2b6d114b86c911b576d84a2f7bfad"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:0c42e9bc5232c877"]
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:6298d9d66ee57384"
+id = "fn:47c0a52bd755da57"
 name = "code"
 qual = "BitWriter::code"
-lines = [
-    129,
-    136,
-]
 hash = "sha256:a52db0bc14e658c829d7f1c006a8abd961008abac1be28bfe24613d8fa2492f4"
 doc_hash = "sha256:351d177da9414d09eed1571d04601e10ac7926504a88839dd46b86353af8d607"
-callees = ["fn:85db4dae89e54380"]
-uses = ["fn:0c42e9bc5232c877"]
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:98c728c5618dabe6"
-name = "deflate_fixed"
-qual = "deflate_fixed"
-lines = [
-    139,
-    179,
-]
-hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
-doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
-callees = [
-    "fn:6298d9d66ee57384",
-    "fn:85db4dae89e54380",
-]
-uses = ["fn:0c42e9bc5232c877"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:7ffcc26c22c4dcf8"
-name = "crc32"
-qual = "crc32"
-lines = [
-    181,
-    190,
-]
-hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:7bde109230cd73dd"
-name = "chunk"
-qual = "chunk"
-lines = [
-    192,
-    198,
-]
-hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:7ffcc26c22c4dcf8"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:432e42a1974dce56"
-name = "glyph"
-qual = "glyph"
-lines = [
-    200,
-    248,
-]
-hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
-doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:7f268e8bdd35bb39"
-name = "Slice"
-qual = "Slice"
-item = "type"
-shape = "struct"
-lines = [
-    250,
-    258,
-]
-hash = "sha256:f038e0e5f5d4a896db7d2aa6e0040c6f347ec2a5648986a4cf9350e9896ea21e"
-doc_hash = "sha256:13defcc6225b1924feac839786c5969bf6cd7e9bd5cfd264df2dd1c668d75123"
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:0de62a2056c3b9e8"
-name = "axes"
-qual = "Slice::axes"
-lines = [
-    261,
-    267,
-]
-hash = "sha256:9d3b179adc5ff1415f56e991e1ff1cc39859f329ae7fb8af7b72cea62ecba322"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f268e8bdd35bb39"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:fb205553157e7c5b"
-name = "point"
-qual = "Slice::point"
-lines = [
-    268,
-    277,
-]
-hash = "sha256:d8fb77fb7d3c2a22acaf58f736405b4a3fc6cc7a2f8e4623e2cb4602cfa8862b"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:0de62a2056c3b9e8",
-    "fn:262cfa3b2e8581eb",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:7f268e8bdd35bb39",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:6ee84237196c7111"
-name = "to_px"
-qual = "Slice::to_px"
-lines = [
-    278,
-    285,
-]
-hash = "sha256:9a9b0e60489ac140d7e0d9b909338d773de5780106ef6bf114f4a8278bdde941"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:0de62a2056c3b9e8"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:7f268e8bdd35bb39",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:d634847bc47c9121"
-name = "name"
-qual = "Slice::name"
-lines = [
-    286,
-    290,
-]
-hash = "sha256:738c92179cc230a307d452d8fb287444fef2efcff1c59c2a86407467e7fd0d15"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:0de62a2056c3b9e8"]
-uses = ["fn:7f268e8bdd35bb39"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:708c6c1a271f6cb2"
-name = "cut"
-qual = "cut"
-lines = [
-    293,
-    306,
-]
-hash = "sha256:a79af07d819b82ba9cfd5d565f5fe975235ca918a5eeba9032266b6aa82a6e23"
-doc_hash = "sha256:a816e4c3f83ea5332d6d41b97d32efa96135731f07ec2277f5bf915fc912bf21"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:7f268e8bdd35bb39",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:d9b78f145f17f0f7"
-name = "TYPE_COLOURS"
-qual = "TYPE_COLOURS"
-item = "const"
-shape = "const"
-lines = [
-    308,
-    313,
-]
-hash = "sha256:3afb7906e734b2b484ec67fb627db78ad0c973c904551ded90e41e146856e8de"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:41a2966c26b8a6fe",
-    "fn:91a3e999f4a03f08",
-]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:819180f3844eabee"
-name = "LEVEL_COLOURS"
-qual = "LEVEL_COLOURS"
-item = "const"
-shape = "const"
-lines = [
-    314,
-    317,
-]
-hash = "sha256:07b285b9fb39c03a2b3ca09484a39a9ccae7257a5ee1a03a75756a0b40eaef37"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:41a2966c26b8a6fe"]
-
-[[module."cartesian_mesh_images.rs".function]]
-id = "fn:7db019e945eb1b0b"
+id = "fn:7c794ef6d5f28c65"
 name = "Colouring"
 qual = "Colouring"
 item = "type"
 shape = "enum"
-lines = [
-    319,
-    324,
-]
 hash = "sha256:8005e41e2d1da77b50ded8b31b760a5343aae97c8d343ad115e77be6b215745c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:3710840b0859dbac"
+id = "fn:13589618991e3688"
+name = "Image"
+qual = "Image"
+item = "type"
+shape = "struct"
+hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:d31d37367ecdbac2"
+name = "line"
+qual = "Image::line"
+hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:08de2668f7a47cb7"
+name = "new"
+qual = "Image::new"
+hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:66ffc859d5ae0a4d"
+name = "rect"
+qual = "Image::rect"
+hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:185cc53d12e1efa6"
+name = "set"
+qual = "Image::set"
+hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:29880f2b62b2855a"
+name = "text"
+qual = "Image::text"
+hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:0c140b403e92e0de"
+name = "write_png"
+qual = "Image::write_png"
+hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:b653cd670718f3a6"
+name = "LEVEL_COLOURS"
+qual = "LEVEL_COLOURS"
+item = "const"
+shape = "const"
+hash = "sha256:07b285b9fb39c03a2b3ca09484a39a9ccae7257a5ee1a03a75756a0b40eaef37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:a9571f9f4c3cc6fc"
+name = "Rgb"
+qual = "Rgb"
+item = "type"
+shape = "alias"
+hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:68fcae797a41f971"
+name = "Slice"
+qual = "Slice"
+item = "type"
+shape = "struct"
+hash = "sha256:f038e0e5f5d4a896db7d2aa6e0040c6f347ec2a5648986a4cf9350e9896ea21e"
+doc_hash = "sha256:13defcc6225b1924feac839786c5969bf6cd7e9bd5cfd264df2dd1c668d75123"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:ea488831e3cd16ef"
+name = "axes"
+qual = "Slice::axes"
+hash = "sha256:9d3b179adc5ff1415f56e991e1ff1cc39859f329ae7fb8af7b72cea62ecba322"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:32540094779f8a4f"
+name = "name"
+qual = "Slice::name"
+hash = "sha256:738c92179cc230a307d452d8fb287444fef2efcff1c59c2a86407467e7fd0d15"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:b0cd62ad412bb7fb"
+name = "point"
+qual = "Slice::point"
+hash = "sha256:d8fb77fb7d3c2a22acaf58f736405b4a3fc6cc7a2f8e4623e2cb4602cfa8862b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:252d3354d0deb4c7"
+name = "to_px"
+qual = "Slice::to_px"
+hash = "sha256:9a9b0e60489ac140d7e0d9b909338d773de5780106ef6bf114f4a8278bdde941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:15f594ec2b886953"
+name = "TYPE_COLOURS"
+qual = "TYPE_COLOURS"
+item = "const"
+shape = "const"
+hash = "sha256:3afb7906e734b2b484ec67fb627db78ad0c973c904551ded90e41e146856e8de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:3e087e90ffdad617"
+name = "chunk"
+qual = "chunk"
+hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:f3252e26207e1930"
+name = "crc32"
+qual = "crc32"
+hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:98c8f22fb4cfdba6"
+name = "cut"
+qual = "cut"
+hash = "sha256:a79af07d819b82ba9cfd5d565f5fe975235ca918a5eeba9032266b6aa82a6e23"
+doc_hash = "sha256:a816e4c3f83ea5332d6d41b97d32efa96135731f07ec2277f5bf915fc912bf21"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:0c8783a060bd1263"
+name = "deflate_fixed"
+qual = "deflate_fixed"
+hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
+doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:59b98f4e838cf8ea"
 name = "draw"
 qual = "draw"
-lines = [
-    326,
-    406,
-]
 hash = "sha256:9659b9f35ec9d215f4fe5b7acbc09f197bfa967514698245a498b691cf5870a5"
 doc_hash = "sha256:59db79de8aecba6ed435c7b80511f4ef0e123a4d15d9740e78ed590fc2e8225b"
-callees = [
-    "fn:708c6c1a271f6cb2",
-    "fn:87bffdeba424b2c0",
-    "fn:8c6d8413d593de9b",
-    "fn:f973a65b267c0f7b",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:39a10a31dc719a24",
-    "fn:7db019e945eb1b0b",
-    "fn:7f268e8bdd35bb39",
-    "fn:819180f3844eabee",
-    "fn:d9b78f145f17f0f7",
-    "fn:df2c7a80fec15df5",
-]
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:2d2b36ef9c8aed11"
-name = "pipe"
-qual = "pipe"
-lines = [
-    408,
-    424,
-]
-hash = "sha256:3b6307c84d7312b906756d13072bb438fb6bbf4853101f3ff2522a314658d644"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:5b6d3d9552c61e5a",
-    "fn:728cd1b72b92a97b",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:70e860e06320216b",
-]
+id = "fn:ad03c3ce48372f57"
+name = "glyph"
+qual = "glyph"
+hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
+doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
 
 [[module."cartesian_mesh_images.rs".function]]
-id = "fn:308a0e8ae256d319"
+id = "fn:3ce6d5bb4d33dbb9"
 name = "main"
 qual = "main"
-lines = [
-    426,
-    494,
-]
 hash = "sha256:5286ce6024580e323d583263f6a5c986c584b94f51a7edc16240c05794a9bbc9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:2d2b36ef9c8aed11",
-    "fn:3710840b0859dbac",
-    "fn:3f596d290e9626ae",
-    "fn:4514531a46112af1",
-    "fn:5b6d3d9552c61e5a",
-    "fn:7802dddfb20d5d4f",
-    "fn:87a12ed04264ea1f",
-    "fn:8c7e538d04b906d2",
-    "fn:9629a1d6526ef394",
-    "fn:a425c6868f6990e9",
-    "fn:b60a98c6418de28b",
-    "fn:c88a3e023469a925",
-    "fn:e8cc0484019d08d6",
-    "fn:e94f17d1dc62e1d1",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:7db019e945eb1b0b",
-    "fn:7f268e8bdd35bb39",
-    "fn:bb4ac346ae24ece8",
-    "fn:d43ce3b552034f9a",
-    "fn:e63ac1cffd8832e0",
-]
+
+[[module."cartesian_mesh_images.rs".function]]
+id = "fn:7e2185804a7e0b9c"
+name = "pipe"
+qual = "pipe"
+hash = "sha256:3b6307c84d7312b906756d13072bb438fb6bbf4853101f3ff2522a314658d644"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [module."coolant_around_pebble.rs"]
 path = "example:coolant_around_pebble"
@@ -460,423 +226,209 @@ path = "example:coolant_around_pebble"
 id = "fn:44607ba714221931"
 name = "main"
 qual = "main"
-lines = [
-    27,
-    106,
-]
 hash = "sha256:390dd6c4b23da8d3f4e9a400e7b649bfb5de8b682a6c3a2abaed3dd4ec419d9d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:262cfa3b2e8581eb",
-    "fn:2e15c0317a694052",
-    "fn:69c5ea862b3b4b55",
-    "fn:7802dddfb20d5d4f",
-    "fn:a425c6868f6990e9",
-    "fn:c88a3e023469a925",
-    "fn:e135c7311df4374b",
-]
-uses = ["fn:0bb173954082584d"]
 
 [module."edge_extractor_images.rs"]
 path = "example:edge_extractor_images"
 
 [[module."edge_extractor_images.rs".function]]
-id = "fn:7f781743fbcf8440"
-name = "Rgb"
-qual = "Rgb"
-item = "type"
-shape = "alias"
-lines = [
-    41,
-    41,
-]
-hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:34f681a0c3c43a3d"
-name = "Image"
-qual = "Image"
-item = "type"
-shape = "struct"
-lines = [
-    44,
-    48,
-]
-hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f781743fbcf8440"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:d5f273318f135795"
-name = "new"
-qual = "Image::new"
-lines = [
-    51,
-    53,
-]
-hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:34f681a0c3c43a3d",
-    "fn:7f781743fbcf8440",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:7c07d7a79b061f7a"
-name = "set"
-qual = "Image::set"
-lines = [
-    54,
-    58,
-]
-hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:34f681a0c3c43a3d",
-    "fn:7f781743fbcf8440",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:efbbcaa1d0790061"
-name = "line"
-qual = "Image::line"
-lines = [
-    59,
-    65,
-]
-hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:34f681a0c3c43a3d",
-    "fn:7f781743fbcf8440",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:bfa880f22bc87afe"
-name = "rect"
-qual = "Image::rect"
-lines = [
-    66,
-    72,
-]
-hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:34f681a0c3c43a3d",
-    "fn:7f781743fbcf8440",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:b43814baf3af9387"
-name = "text"
-qual = "Image::text"
-lines = [
-    73,
-    86,
-]
-hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:87732b1b53f4fbe3"]
-uses = [
-    "fn:34f681a0c3c43a3d",
-    "fn:7f781743fbcf8440",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:5c32e50d25c677aa"
-name = "write_png"
-qual = "Image::write_png"
-lines = [
-    87,
-    113,
-]
-hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:0b8997260c1256ed",
-    "fn:22ac1370338fc792",
-]
-uses = ["fn:34f681a0c3c43a3d"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:1fef3a00a6cae892"
-name = "BitWriter"
-qual = "BitWriter"
-item = "type"
-shape = "struct"
-lines = [
-    116,
-    121,
-]
-hash = "sha256:b633ce3da410c08f605bd727db5d871e81b9cee46e7b5d794ca409d0fef2bb0e"
-doc_hash = "sha256:e01e28dcc172ae447d6a491e0b882a8d20f3a4ae0c52667ee246bb695a18d659"
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:7be985c66c76ccf6"
-name = "bits"
-qual = "BitWriter::bits"
-lines = [
-    124,
-    132,
-]
-hash = "sha256:f4d7ff197687b0c5af1485508ee7a6bbd1e2b6d114b86c911b576d84a2f7bfad"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:1fef3a00a6cae892"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:96601cffa93d0792"
-name = "code"
-qual = "BitWriter::code"
-lines = [
-    133,
-    140,
-]
-hash = "sha256:a52db0bc14e658c829d7f1c006a8abd961008abac1be28bfe24613d8fa2492f4"
-doc_hash = "sha256:351d177da9414d09eed1571d04601e10ac7926504a88839dd46b86353af8d607"
-callees = ["fn:7be985c66c76ccf6"]
-uses = ["fn:1fef3a00a6cae892"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:0b8997260c1256ed"
-name = "deflate_fixed"
-qual = "deflate_fixed"
-lines = [
-    143,
-    183,
-]
-hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
-doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
-callees = [
-    "fn:7be985c66c76ccf6",
-    "fn:96601cffa93d0792",
-]
-uses = ["fn:1fef3a00a6cae892"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:ec751f112eea50bb"
-name = "crc32"
-qual = "crc32"
-lines = [
-    185,
-    194,
-]
-hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:22ac1370338fc792"
-name = "chunk"
-qual = "chunk"
-lines = [
-    196,
-    202,
-]
-hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:ec751f112eea50bb"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:87732b1b53f4fbe3"
-name = "glyph"
-qual = "glyph"
-lines = [
-    204,
-    252,
-]
-hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
-doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:b04b1ab448528dc3"
-name = "fill"
-qual = "fill"
-lines = [
-    254,
-    279,
-]
-hash = "sha256:0ef18b9bbe48fdfad8ec1cd287f9fac27b470bde3a9f9f27d7619bad5c0795d4"
-doc_hash = "sha256:aef4b49b17edd989b6e68dba638807a3a8f2d27edd2a2ed57d6f581e6ca6b0ad"
-uses = [
-    "fn:34f681a0c3c43a3d",
-    "fn:7f781743fbcf8440",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:c8a337503e3a94f7"
-name = "pipe"
-qual = "pipe"
-lines = [
-    281,
-    297,
-]
-hash = "sha256:47b86056984b1e2d7fc831f2dbc6a5336c875e6659992d6dab2db3dfe6c6f622"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:5b6d3d9552c61e5a",
-    "fn:728cd1b72b92a97b",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:70e860e06320216b",
-]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:cb044c985470aef6"
-name = "BLUE"
-qual = "BLUE"
-item = "const"
-shape = "const"
-lines = [
-    299,
-    299,
-]
-hash = "sha256:5b78a9a70a1d5e3429327e917f6f1b331c8d62a195a46fed9a458654810f896a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f781743fbcf8440"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:5e3c4b13639f60b6"
-name = "RED"
-qual = "RED"
-item = "const"
-shape = "const"
-lines = [
-    300,
-    300,
-]
-hash = "sha256:1112e47ebd245352468bf65f7ba84d9891fd4abe6c3871aa011b25b6e11a3631"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f781743fbcf8440"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:408124128b6bd689"
-name = "GREY"
-qual = "GREY"
-item = "const"
-shape = "const"
-lines = [
-    301,
-    301,
-]
-hash = "sha256:908132ae8669653ecbfca7f859ae069dfc441bcc58eeb1c72d5e468e7ca2f6e4"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f781743fbcf8440"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:8fdae571b34310ef"
-name = "DARK"
-qual = "DARK"
-item = "const"
-shape = "const"
-lines = [
-    302,
-    302,
-]
-hash = "sha256:b493a075c5725028fdd72c79576f21b76b8085959976075353cc4fefbd1800f3"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f781743fbcf8440"]
-
-[[module."edge_extractor_images.rs".function]]
-id = "fn:e480b6c2e14ce509"
+id = "fn:0c135ae730952369"
 name = "BLACK"
 qual = "BLACK"
 item = "const"
 shape = "const"
-lines = [
-    303,
-    303,
-]
 hash = "sha256:8bccdfb5ddf217353a0c413eb830582d93906d2626cfdb3a5f0e5cef4005db87"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:7f781743fbcf8440"]
 
 [[module."edge_extractor_images.rs".function]]
-id = "fn:a77fb6a58d82a600"
-name = "near_inlet"
-qual = "near_inlet"
-lines = [
-    305,
-    314,
-]
-hash = "sha256:028908f6b8a1587469515fb88557c1dbe42625ed86d42650f2f4e94341d81272"
-doc_hash = "sha256:9e286eafdabcacdb9acc9ed093f154ff37f1efeb8b9ea90ac7ff3218ffa4ded8"
-callees = ["fn:b2ae753c5c37a5ec"]
-uses = ["fn:1d52ce14c252d72f"]
+id = "fn:d5d57b83b03cc332"
+name = "BLUE"
+qual = "BLUE"
+item = "const"
+shape = "const"
+hash = "sha256:5b78a9a70a1d5e3429327e917f6f1b331c8d62a195a46fed9a458654810f896a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."edge_extractor_images.rs".function]]
-id = "fn:d09c153e9523629a"
-name = "panel"
-qual = "panel"
-lines = [
-    316,
-    346,
-]
-hash = "sha256:4cafe3d3c2d2c967e9d6308f95eabebe5126a612a432886008938a856d4773bd"
-doc_hash = "sha256:35abfcfe4b7073a66b46141f0ed213b3df16ebe5cb293c3471b0176f8b9e0102"
-callees = [
-    "fn:a77fb6a58d82a600",
-    "fn:b04b1ab448528dc3",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:34f681a0c3c43a3d",
-    "fn:408124128b6bd689",
-    "fn:5e3c4b13639f60b6",
-    "fn:8fdae571b34310ef",
-    "fn:cb044c985470aef6",
-]
+id = "fn:ac52bd7ee1a83d4c"
+name = "BitWriter"
+qual = "BitWriter"
+item = "type"
+shape = "struct"
+hash = "sha256:b633ce3da410c08f605bd727db5d871e81b9cee46e7b5d794ca409d0fef2bb0e"
+doc_hash = "sha256:e01e28dcc172ae447d6a491e0b882a8d20f3a4ae0c52667ee246bb695a18d659"
 
 [[module."edge_extractor_images.rs".function]]
-id = "fn:401ae18674340ab7"
+id = "fn:500c77cd90ab03fa"
+name = "bits"
+qual = "BitWriter::bits"
+hash = "sha256:f4d7ff197687b0c5af1485508ee7a6bbd1e2b6d114b86c911b576d84a2f7bfad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:47e790437a5f2713"
+name = "code"
+qual = "BitWriter::code"
+hash = "sha256:a52db0bc14e658c829d7f1c006a8abd961008abac1be28bfe24613d8fa2492f4"
+doc_hash = "sha256:351d177da9414d09eed1571d04601e10ac7926504a88839dd46b86353af8d607"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:1075da420c541cbd"
+name = "DARK"
+qual = "DARK"
+item = "const"
+shape = "const"
+hash = "sha256:b493a075c5725028fdd72c79576f21b76b8085959976075353cc4fefbd1800f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:2461567a2761c37f"
+name = "GREY"
+qual = "GREY"
+item = "const"
+shape = "const"
+hash = "sha256:908132ae8669653ecbfca7f859ae069dfc441bcc58eeb1c72d5e468e7ca2f6e4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:73c5ec1523510c7e"
+name = "Image"
+qual = "Image"
+item = "type"
+shape = "struct"
+hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:b164683e5940e649"
+name = "line"
+qual = "Image::line"
+hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:7ffc3e75118f3013"
+name = "new"
+qual = "Image::new"
+hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:865eadf94c649c64"
+name = "rect"
+qual = "Image::rect"
+hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:a617805d375cfeec"
+name = "set"
+qual = "Image::set"
+hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:3cc510da714d1981"
+name = "text"
+qual = "Image::text"
+hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:5e52e2de77eea109"
+name = "write_png"
+qual = "Image::write_png"
+hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:690e90022e468383"
+name = "RED"
+qual = "RED"
+item = "const"
+shape = "const"
+hash = "sha256:1112e47ebd245352468bf65f7ba84d9891fd4abe6c3871aa011b25b6e11a3631"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:4c588a54e7be4903"
+name = "Rgb"
+qual = "Rgb"
+item = "type"
+shape = "alias"
+hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:af9bb73b2054ab10"
+name = "chunk"
+qual = "chunk"
+hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:38f05c7a1225dc34"
+name = "crc32"
+qual = "crc32"
+hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:6b1e6333540db392"
+name = "deflate_fixed"
+qual = "deflate_fixed"
+hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
+doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:9586fdbdbbc8f4be"
 name = "draw"
 qual = "draw"
-lines = [
-    348,
-    416,
-]
 hash = "sha256:cb49675b14294ab0057deddc4133115213ec95f8c3048a35aed62487ebad0bf5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:5c32e50d25c677aa",
-    "fn:b43814baf3af9387",
-    "fn:d09c153e9523629a",
-    "fn:d5f273318f135795",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:2d929667f136903f",
-    "fn:34f681a0c3c43a3d",
-    "fn:e480b6c2e14ce509",
-]
 
 [[module."edge_extractor_images.rs".function]]
-id = "fn:e5b8146f94f6f1bb"
+id = "fn:b00046dfedcb6b8a"
+name = "fill"
+qual = "fill"
+hash = "sha256:0ef18b9bbe48fdfad8ec1cd287f9fac27b470bde3a9f9f27d7619bad5c0795d4"
+doc_hash = "sha256:aef4b49b17edd989b6e68dba638807a3a8f2d27edd2a2ed57d6f581e6ca6b0ad"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:d63e3d1cc6ccd520"
+name = "glyph"
+qual = "glyph"
+hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
+doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:74359d4ef3cfc2de"
 name = "main"
 qual = "main"
-lines = [
-    418,
-    453,
-]
 hash = "sha256:3afe99be98b3bf15641970f124559cd4f75c5d5fa01c3ac50f771bff61a17b93"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:401ae18674340ab7",
-    "fn:46c34239b8b4c930",
-    "fn:523a0b9fa0714c8d",
-    "fn:8c7e538d04b906d2",
-    "fn:c20c6aebcf3533d9",
-    "fn:c8a337503e3a94f7",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:6a28501e5cedb5e2",
-    "fn:87a5a0cebf1891ec",
-    "fn:be7013441700cacd",
-]
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:fe27a316b8f336f3"
+name = "near_inlet"
+qual = "near_inlet"
+hash = "sha256:028908f6b8a1587469515fb88557c1dbe42625ed86d42650f2f4e94341d81272"
+doc_hash = "sha256:9e286eafdabcacdb9acc9ed093f154ff37f1efeb8b9ea90ac7ff3218ffa4ded8"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:fe314b47d3254dc1"
+name = "panel"
+qual = "panel"
+hash = "sha256:4cafe3d3c2d2c967e9d6308f95eabebe5126a612a432886008938a856d4773bd"
+doc_hash = "sha256:35abfcfe4b7073a66b46141f0ed213b3df16ebe5cb293c3471b0176f8b9e0102"
+
+[[module."edge_extractor_images.rs".function]]
+id = "fn:c0954ed989877ee2"
+name = "pipe"
+qual = "pipe"
+hash = "sha256:47b86056984b1e2d7fc831f2dbc6a5336c875e6659992d6dab2db3dfe6c6f622"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [module."lwr_pin_lattice.rs"]
 path = "example:lwr_pin_lattice"
@@ -885,487 +437,221 @@ path = "example:lwr_pin_lattice"
 id = "fn:6a4ee2886d585a97"
 name = "main"
 qual = "main"
-lines = [
-    17,
-    71,
-]
 hash = "sha256:a8091d9aae3d7d5151f9fda18cd0b8f43faf0e3e44dcfba6e6a83ca08735d4ed"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:072361a9cb5fdf4d",
-    "fn:21a2256faadd9502",
-    "fn:2e15c0317a694052",
-    "fn:69c5ea862b3b4b55",
-    "fn:7802dddfb20d5d4f",
-    "fn:d2b00a4edf87b6db",
-    "fn:f9c97f7c7a6d6a93",
-]
 
 [module."mesh_octree_images.rs"]
 path = "example:mesh_octree_images"
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:26c89a63d0a5599e"
-name = "Rgb"
-qual = "Rgb"
-item = "type"
-shape = "alias"
-lines = [
-    41,
-    41,
-]
-hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:cd8539d99e62aac8"
-name = "Image"
-qual = "Image"
-item = "type"
-shape = "struct"
-lines = [
-    43,
-    47,
-]
-hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:26c89a63d0a5599e"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:fca3883df2817724"
-name = "new"
-qual = "Image::new"
-lines = [
-    50,
-    52,
-]
-hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:26c89a63d0a5599e",
-    "fn:cd8539d99e62aac8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:f9f26588c12aff7d"
-name = "set"
-qual = "Image::set"
-lines = [
-    53,
-    57,
-]
-hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:26c89a63d0a5599e",
-    "fn:cd8539d99e62aac8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:81217c9be4b85ecc"
-name = "line"
-qual = "Image::line"
-lines = [
-    58,
-    64,
-]
-hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:26c89a63d0a5599e",
-    "fn:cd8539d99e62aac8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:04d2b1801adb9dd8"
-name = "rect"
-qual = "Image::rect"
-lines = [
-    65,
-    71,
-]
-hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:26c89a63d0a5599e",
-    "fn:cd8539d99e62aac8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:25f39c0276675f5c"
-name = "text"
-qual = "Image::text"
-lines = [
-    72,
-    85,
-]
-hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:0532d44c3464a0d3"]
-uses = [
-    "fn:26c89a63d0a5599e",
-    "fn:cd8539d99e62aac8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:ffd01ed5f30272c2"
-name = "write_png"
-qual = "Image::write_png"
-lines = [
-    86,
-    112,
-]
-hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:7413bd44a0dbb1a9",
-    "fn:c254a4547a52b186",
-]
-uses = ["fn:cd8539d99e62aac8"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:35225728c060bdeb"
+id = "fn:2bba3502fd4c59fc"
 name = "BitWriter"
 qual = "BitWriter"
 item = "type"
 shape = "struct"
-lines = [
-    115,
-    120,
-]
 hash = "sha256:b633ce3da410c08f605bd727db5d871e81b9cee46e7b5d794ca409d0fef2bb0e"
 doc_hash = "sha256:e01e28dcc172ae447d6a491e0b882a8d20f3a4ae0c52667ee246bb695a18d659"
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:7914e2305a963864"
+id = "fn:a6c016d8f7b93b57"
 name = "bits"
 qual = "BitWriter::bits"
-lines = [
-    123,
-    131,
-]
 hash = "sha256:f4d7ff197687b0c5af1485508ee7a6bbd1e2b6d114b86c911b576d84a2f7bfad"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:35225728c060bdeb"]
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:e1bf7a45874d5f43"
+id = "fn:7c04ae95ec930b01"
 name = "code"
 qual = "BitWriter::code"
-lines = [
-    132,
-    139,
-]
 hash = "sha256:a52db0bc14e658c829d7f1c006a8abd961008abac1be28bfe24613d8fa2492f4"
 doc_hash = "sha256:351d177da9414d09eed1571d04601e10ac7926504a88839dd46b86353af8d607"
-callees = ["fn:7914e2305a963864"]
-uses = ["fn:35225728c060bdeb"]
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:7413bd44a0dbb1a9"
-name = "deflate_fixed"
-qual = "deflate_fixed"
-lines = [
-    142,
-    182,
-]
-hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
-doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
-callees = [
-    "fn:7914e2305a963864",
-    "fn:e1bf7a45874d5f43",
-]
-uses = ["fn:35225728c060bdeb"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:70d5690f59f473f5"
-name = "crc32"
-qual = "crc32"
-lines = [
-    184,
-    193,
-]
-hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:c254a4547a52b186"
-name = "chunk"
-qual = "chunk"
-lines = [
-    195,
-    201,
-]
-hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:70d5690f59f473f5"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:0532d44c3464a0d3"
-name = "glyph"
-qual = "glyph"
-lines = [
-    203,
-    251,
-]
-hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
-doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:649f2153478da8c8"
-name = "Slice"
-qual = "Slice"
-item = "type"
-shape = "struct"
-lines = [
-    253,
-    261,
-]
-hash = "sha256:f038e0e5f5d4a896db7d2aa6e0040c6f347ec2a5648986a4cf9350e9896ea21e"
-doc_hash = "sha256:13defcc6225b1924feac839786c5969bf6cd7e9bd5cfd264df2dd1c668d75123"
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:96e3e586805778be"
-name = "axes"
-qual = "Slice::axes"
-lines = [
-    264,
-    270,
-]
-hash = "sha256:9d3b179adc5ff1415f56e991e1ff1cc39859f329ae7fb8af7b72cea62ecba322"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:649f2153478da8c8"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:3e009abfe1ae87ef"
-name = "point"
-qual = "Slice::point"
-lines = [
-    271,
-    280,
-]
-hash = "sha256:d8fb77fb7d3c2a22acaf58f736405b4a3fc6cc7a2f8e4623e2cb4602cfa8862b"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:96e3e586805778be",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:649f2153478da8c8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:7bde75b0fae22eac"
-name = "to_px"
-qual = "Slice::to_px"
-lines = [
-    281,
-    288,
-]
-hash = "sha256:9a9b0e60489ac140d7e0d9b909338d773de5780106ef6bf114f4a8278bdde941"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:96e3e586805778be"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:649f2153478da8c8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:5727b4db767dc9a7"
-name = "name"
-qual = "Slice::name"
-lines = [
-    289,
-    293,
-]
-hash = "sha256:738c92179cc230a307d452d8fb287444fef2efcff1c59c2a86407467e7fd0d15"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:96e3e586805778be"]
-uses = ["fn:649f2153478da8c8"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:e6b3bf031dec7851"
-name = "cut"
-qual = "cut"
-lines = [
-    296,
-    309,
-]
-hash = "sha256:a79af07d819b82ba9cfd5d565f5fe975235ca918a5eeba9032266b6aa82a6e23"
-doc_hash = "sha256:a816e4c3f83ea5332d6d41b97d32efa96135731f07ec2277f5bf915fc912bf21"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:649f2153478da8c8",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:f4b6e0be2f28d8e9"
-name = "TYPE_COLOURS"
-qual = "TYPE_COLOURS"
-item = "const"
-shape = "const"
-lines = [
-    311,
-    316,
-]
-hash = "sha256:3afb7906e734b2b484ec67fb627db78ad0c973c904551ded90e41e146856e8de"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:26c89a63d0a5599e",
-    "fn:91a3e999f4a03f08",
-]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:c65be7988d6ef2bb"
-name = "LEVEL_COLOURS"
-qual = "LEVEL_COLOURS"
-item = "const"
-shape = "const"
-lines = [
-    317,
-    320,
-]
-hash = "sha256:07b285b9fb39c03a2b3ca09484a39a9ccae7257a5ee1a03a75756a0b40eaef37"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:26c89a63d0a5599e"]
-
-[[module."mesh_octree_images.rs".function]]
-id = "fn:cdb1a1c74996a9ed"
+id = "fn:2b3afe93b6aa5bdf"
 name = "Colouring"
 qual = "Colouring"
 item = "type"
 shape = "enum"
-lines = [
-    322,
-    326,
-]
 hash = "sha256:3753f415b4d8ce6d61529dc1d9e56a1af850769f269121b33eb72eae1a1d39e2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:916ad9bc54fed94c"
-name = "draw"
-qual = "draw"
-lines = [
-    328,
-    408,
-]
-hash = "sha256:9659b9f35ec9d215f4fe5b7acbc09f197bfa967514698245a498b691cf5870a5"
-doc_hash = "sha256:59db79de8aecba6ed435c7b80511f4ef0e123a4d15d9740e78ed590fc2e8225b"
-callees = [
-    "fn:25f39c0276675f5c",
-    "fn:e6b3bf031dec7851",
-    "fn:fca3883df2817724",
-    "fn:ffd01ed5f30272c2",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:39a10a31dc719a24",
-    "fn:649f2153478da8c8",
-    "fn:c65be7988d6ef2bb",
-    "fn:cd8539d99e62aac8",
-    "fn:cdb1a1c74996a9ed",
-    "fn:f4b6e0be2f28d8e9",
-]
+id = "fn:c6f8976146dd3800"
+name = "Image"
+qual = "Image"
+item = "type"
+shape = "struct"
+hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:06c5341f976925e6"
+id = "fn:ee927a9b3fad145d"
+name = "line"
+qual = "Image::line"
+hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:adc1e16c23816858"
+name = "new"
+qual = "Image::new"
+hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:453f924aa4431836"
+name = "rect"
+qual = "Image::rect"
+hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:ca06ca53930e8da3"
+name = "set"
+qual = "Image::set"
+hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:bc0bb950ce877f12"
+name = "text"
+qual = "Image::text"
+hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:0a66d149536ec81a"
+name = "write_png"
+qual = "Image::write_png"
+hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:61c85242f4477404"
+name = "LEVEL_COLOURS"
+qual = "LEVEL_COLOURS"
+item = "const"
+shape = "const"
+hash = "sha256:07b285b9fb39c03a2b3ca09484a39a9ccae7257a5ee1a03a75756a0b40eaef37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:0b5711752f73945c"
+name = "Rgb"
+qual = "Rgb"
+item = "type"
+shape = "alias"
+hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:2c9e8a090f92a958"
+name = "Slice"
+qual = "Slice"
+item = "type"
+shape = "struct"
+hash = "sha256:f038e0e5f5d4a896db7d2aa6e0040c6f347ec2a5648986a4cf9350e9896ea21e"
+doc_hash = "sha256:13defcc6225b1924feac839786c5969bf6cd7e9bd5cfd264df2dd1c668d75123"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:80247eee87b53649"
+name = "axes"
+qual = "Slice::axes"
+hash = "sha256:9d3b179adc5ff1415f56e991e1ff1cc39859f329ae7fb8af7b72cea62ecba322"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:41b3c06d2fef82e1"
+name = "name"
+qual = "Slice::name"
+hash = "sha256:738c92179cc230a307d452d8fb287444fef2efcff1c59c2a86407467e7fd0d15"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:0187b9468376a02f"
+name = "point"
+qual = "Slice::point"
+hash = "sha256:d8fb77fb7d3c2a22acaf58f736405b4a3fc6cc7a2f8e4623e2cb4602cfa8862b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:13150d8a061cfd48"
+name = "to_px"
+qual = "Slice::to_px"
+hash = "sha256:9a9b0e60489ac140d7e0d9b909338d773de5780106ef6bf114f4a8278bdde941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:f6b0723d5db9f4df"
+name = "TYPE_COLOURS"
+qual = "TYPE_COLOURS"
+item = "const"
+shape = "const"
+hash = "sha256:3afb7906e734b2b484ec67fb627db78ad0c973c904551ded90e41e146856e8de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:684b6102ac46fff1"
+name = "chunk"
+qual = "chunk"
+hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:9352a7981c4f5eb0"
+name = "crc32"
+qual = "crc32"
+hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:7042bc9e09c3e9af"
 name = "creator"
 qual = "creator"
-lines = [
-    410,
-    415,
-]
 hash = "sha256:723a92f568a5dab41b20228f2df0acfa4a213e8e069671175ca6d2b6a75c5ff7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:31de2c8f2112b654",
-    "fn:b4bce924144f4f66",
-    "fn:f52eb5a2f47954af",
-]
-uses = [
-    "fn:101c1e95cd4fa8f4",
-    "fn:39a10a31dc719a24",
-    "fn:5e617327bd4b2fca",
-    "fn:c88dcf04c834f3d6",
-]
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:c729573c0b7e3ad7"
-name = "remainders"
-qual = "remainders"
-lines = [
-    417,
-    514,
-]
-hash = "sha256:a2044c7416bac97b6bfa0f598d738d33831f3ff74fb847c486b18568ffe0ce29"
-doc_hash = "sha256:00790b65e0c8a7147d9387a0df8c0f7cc9aa146de30d1c366c1620302ae47c28"
-callees = [
-    "fn:06c5341f976925e6",
-    "fn:262cfa3b2e8581eb",
-    "fn:31de2c8f2112b654",
-    "fn:3f596d290e9626ae",
-    "fn:485e83eeda64e595",
-    "fn:60845cf927e455de",
-    "fn:6865f38fc5167ee3",
-    "fn:6f750e70c72443c4",
-    "fn:728cd1b72b92a97b",
-    "fn:916ad9bc54fed94c",
-    "fn:a425c6868f6990e9",
-    "fn:a4fc32ff67ff2603",
-    "fn:b4bce924144f4f66",
-    "fn:baa1df666cd723c7",
-    "fn:c80f524126821ee8",
-    "fn:c88a3e023469a925",
-    "fn:eb3beef64776a8d7",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:101c1e95cd4fa8f4",
-    "fn:39a10a31dc719a24",
-    "fn:5e617327bd4b2fca",
-    "fn:649f2153478da8c8",
-    "fn:7e7f5e5b15883b9f",
-    "fn:c88dcf04c834f3d6",
-    "fn:cdb1a1c74996a9ed",
-    "fn:e63ac1cffd8832e0",
-]
+id = "fn:8ccbc55353b19e8d"
+name = "cut"
+qual = "cut"
+hash = "sha256:a79af07d819b82ba9cfd5d565f5fe975235ca918a5eeba9032266b6aa82a6e23"
+doc_hash = "sha256:a816e4c3f83ea5332d6d41b97d32efa96135731f07ec2277f5bf915fc912bf21"
 
 [[module."mesh_octree_images.rs".function]]
-id = "fn:412ba90a12e9d9b3"
+id = "fn:3d1693468a87b353"
+name = "deflate_fixed"
+qual = "deflate_fixed"
+hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
+doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:36d30691326f728a"
+name = "draw"
+qual = "draw"
+hash = "sha256:9659b9f35ec9d215f4fe5b7acbc09f197bfa967514698245a498b691cf5870a5"
+doc_hash = "sha256:59db79de8aecba6ed435c7b80511f4ef0e123a4d15d9740e78ed590fc2e8225b"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:5de078997f100401"
+name = "glyph"
+qual = "glyph"
+hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
+doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:b87926d2de907a86"
 name = "main"
 qual = "main"
-lines = [
-    516,
-    573,
-]
 hash = "sha256:88cecd730b59d6a0b7cc8056b4bb353f4c292ae16dfaf9e055c180fab2daf338"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:06c5341f976925e6",
-    "fn:262cfa3b2e8581eb",
-    "fn:3f596d290e9626ae",
-    "fn:60b35107350c0f64",
-    "fn:6865f38fc5167ee3",
-    "fn:728cd1b72b92a97b",
-    "fn:916ad9bc54fed94c",
-    "fn:a425c6868f6990e9",
-    "fn:c729573c0b7e3ad7",
-    "fn:c88a3e023469a925",
-    "fn:e94f17d1dc62e1d1",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:122900a4b4c9b34d",
-    "fn:5422a6a0faacfde9",
-    "fn:5e617327bd4b2fca",
-    "fn:649f2153478da8c8",
-    "fn:c88dcf04c834f3d6",
-    "fn:cdb1a1c74996a9ed",
-    "fn:e63ac1cffd8832e0",
-]
+
+[[module."mesh_octree_images.rs".function]]
+id = "fn:a47eb5b3ef0e73b7"
+name = "remainders"
+qual = "remainders"
+hash = "sha256:a2044c7416bac97b6bfa0f598d738d33831f3ff74fb847c486b18568ffe0ce29"
+doc_hash = "sha256:00790b65e0c8a7147d9387a0df8c0f7cc9aa146de30d1c366c1620302ae47c28"
 
 [module."msr_channels.rs"]
 path = "example:msr_channels"
@@ -1374,23 +660,8 @@ path = "example:msr_channels"
 id = "fn:2f9960c589b4c9a8"
 name = "main"
 qual = "main"
-lines = [
-    19,
-    74,
-]
 hash = "sha256:020d33f299b8b8fde5330fcf221f668a8da8abe1a54e546e72b97dc048150a9b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:262cfa3b2e8581eb",
-    "fn:2e15c0317a694052",
-    "fn:69c5ea862b3b4b55",
-    "fn:728cd1b72b92a97b",
-    "fn:7802dddfb20d5d4f",
-    "fn:d2b00a4edf87b6db",
-    "fn:f9c97f7c7a6d6a93",
-]
-uses = ["fn:0bb173954082584d"]
 
 [module."pebble_bed.rs"]
 path = "example:pebble_bed"
@@ -1399,20 +670,8 @@ path = "example:pebble_bed"
 id = "fn:3fb48c1b136e8cbc"
 name = "main"
 qual = "main"
-lines = [
-    17,
-    63,
-]
 hash = "sha256:dc0bc32129977763f7d66b50bf5405c171f92f7425665735f73abe858e5245b1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:072361a9cb5fdf4d",
-    "fn:21a2256faadd9502",
-    "fn:2e15c0317a694052",
-    "fn:7802dddfb20d5d4f",
-    "fn:84e94f07334324b9",
-    "fn:f9c97f7c7a6d6a93",
-]
 
 [module."polyhedral_dual.rs"]
 path = "example:polyhedral_dual"
@@ -1421,416 +680,185 @@ path = "example:polyhedral_dual"
 id = "fn:8d464addb7d741fb"
 name = "main"
 qual = "main"
-lines = [
-    31,
-    77,
-]
 hash = "sha256:4e6f7cd051e496f17f34678faf5925547bbce4430664335e2dc423758c6abcc0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:262cfa3b2e8581eb",
-    "fn:2e15c0317a694052",
-    "fn:4514531a46112af1",
-    "fn:b0704a6cf6f88e62",
-    "fn:c88a3e023469a925",
-    "fn:fd4f80b728398ba2",
-]
-uses = ["fn:0bb173954082584d"]
 
 [module."surface_tools_images.rs"]
 path = "example:surface_tools_images"
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:525101d70fcf2c04"
-name = "Rgb"
-qual = "Rgb"
-item = "type"
-shape = "alias"
-lines = [
-    46,
-    46,
-]
-hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:f2d73d547215f27b"
-name = "Image"
-qual = "Image"
-item = "type"
-shape = "struct"
-lines = [
-    49,
-    53,
-]
-hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:525101d70fcf2c04"]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:2c6a00d8023880c6"
-name = "new"
-qual = "Image::new"
-lines = [
-    56,
-    58,
-]
-hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:4b6e3d43db9bfe70"
-name = "set"
-qual = "Image::set"
-lines = [
-    59,
-    63,
-]
-hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:6ff5116afad69053"
-name = "line"
-qual = "Image::line"
-lines = [
-    64,
-    70,
-]
-hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:a57bebafdddd09ea"
-name = "rect"
-qual = "Image::rect"
-lines = [
-    71,
-    77,
-]
-hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:52ad74a3ba422c56"
-name = "text"
-qual = "Image::text"
-lines = [
-    78,
-    91,
-]
-hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:f225bf716c860fda"]
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:36ec4a1140a13ed0"
-name = "write_png"
-qual = "Image::write_png"
-lines = [
-    92,
-    118,
-]
-hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:d738befd261b12ee",
-    "fn:fc847147b8d6bdca",
-]
-uses = ["fn:f2d73d547215f27b"]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:936df6b2e8a76bf7"
+id = "fn:3465ae52fddd7cb7"
 name = "BitWriter"
 qual = "BitWriter"
 item = "type"
 shape = "struct"
-lines = [
-    121,
-    126,
-]
 hash = "sha256:b633ce3da410c08f605bd727db5d871e81b9cee46e7b5d794ca409d0fef2bb0e"
 doc_hash = "sha256:e01e28dcc172ae447d6a491e0b882a8d20f3a4ae0c52667ee246bb695a18d659"
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:54489786a8060d05"
+id = "fn:a867bcd44ceac083"
 name = "bits"
 qual = "BitWriter::bits"
-lines = [
-    129,
-    137,
-]
 hash = "sha256:f4d7ff197687b0c5af1485508ee7a6bbd1e2b6d114b86c911b576d84a2f7bfad"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:936df6b2e8a76bf7"]
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:039f355d4ff4ef5e"
+id = "fn:e1ee6e1a00bc40a1"
 name = "code"
 qual = "BitWriter::code"
-lines = [
-    138,
-    145,
-]
 hash = "sha256:a52db0bc14e658c829d7f1c006a8abd961008abac1be28bfe24613d8fa2492f4"
 doc_hash = "sha256:351d177da9414d09eed1571d04601e10ac7926504a88839dd46b86353af8d607"
-callees = ["fn:54489786a8060d05"]
-uses = ["fn:936df6b2e8a76bf7"]
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:d738befd261b12ee"
-name = "deflate_fixed"
-qual = "deflate_fixed"
-lines = [
-    148,
-    188,
-]
-hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
-doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
-callees = [
-    "fn:039f355d4ff4ef5e",
-    "fn:54489786a8060d05",
-]
-uses = ["fn:936df6b2e8a76bf7"]
+id = "fn:23130670d365d1ab"
+name = "Image"
+qual = "Image"
+item = "type"
+shape = "struct"
+hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:6dcd96efb69521a0"
+id = "fn:7b20f0f04e6bbbaa"
+name = "line"
+qual = "Image::line"
+hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:a11c3dc1e172ed9e"
+name = "new"
+qual = "Image::new"
+hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:723b2ee5dbafb37d"
+name = "rect"
+qual = "Image::rect"
+hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:60940850b5e5fc07"
+name = "set"
+qual = "Image::set"
+hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:93e2ff1a7e169f79"
+name = "text"
+qual = "Image::text"
+hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:39a47dca1ce3385b"
+name = "write_png"
+qual = "Image::write_png"
+hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:5bbd41141c4c7e57"
+name = "Rgb"
+qual = "Rgb"
+item = "type"
+shape = "alias"
+hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:a4047b4148d05726"
+name = "box6"
+qual = "box6"
+hash = "sha256:ae70d49ca50a5271ae4209e98c4140218b71e3f927c0f96f0e3a049af3beaf5c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:7d1d158813689e99"
+name = "by_patch"
+qual = "by_patch"
+hash = "sha256:cf0356a0d7726e455bf053461c51caf59e4d3d8fe1c695dd7a464af0ffbfd723"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:7c907e0357ec383a"
+name = "chunk"
+qual = "chunk"
+hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:3cf6501d257bf0cd"
 name = "crc32"
 qual = "crc32"
-lines = [
-    190,
-    199,
-]
 hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:fc847147b8d6bdca"
-name = "chunk"
-qual = "chunk"
-lines = [
-    201,
-    207,
-]
-hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:6dcd96efb69521a0"]
+id = "fn:b753b17dfaa2b121"
+name = "deflate_fixed"
+qual = "deflate_fixed"
+hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
+doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:f225bf716c860fda"
+id = "fn:83a3e0370574b0b2"
+name = "fill"
+qual = "fill"
+hash = "sha256:0ef18b9bbe48fdfad8ec1cd287f9fac27b470bde3a9f9f27d7619bad5c0795d4"
+doc_hash = "sha256:aef4b49b17edd989b6e68dba638807a3a8f2d27edd2a2ed57d6f581e6ca6b0ad"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:920326c25067fbff"
 name = "glyph"
 qual = "glyph"
-lines = [
-    209,
-    257,
-]
 hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
 doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:28b78a9949f25552"
-name = "fill"
-qual = "fill"
-lines = [
-    259,
-    284,
-]
-hash = "sha256:0ef18b9bbe48fdfad8ec1cd287f9fac27b470bde3a9f9f27d7619bad5c0795d4"
-doc_hash = "sha256:aef4b49b17edd989b6e68dba638807a3a8f2d27edd2a2ed57d6f581e6ca6b0ad"
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:5c06b110da9a7c84"
-name = "palette"
-qual = "palette"
-lines = [
-    287,
-    303,
-]
-hash = "sha256:a157bff4a386e4f4dcc7d7fb643d54385dfa9825199cf75e92c843099c9ca818"
-doc_hash = "sha256:650fb69de540f02ef636c3cb3c07efbb09cefae6c349ed99796a9460fc17a2e1"
-uses = ["fn:525101d70fcf2c04"]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:4ddda5713b5af552"
-name = "shade"
-qual = "shade"
-lines = [
-    305,
-    307,
-]
-hash = "sha256:83ed856f127eaeb6f7a138006c1bbbbef9303b0398537f4ab3ed493b2b4355c0"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:525101d70fcf2c04"]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:b036210542e67076"
-name = "render"
-qual = "render"
-lines = [
-    309,
-    356,
-]
-hash = "sha256:8951d62ec021b9efe810443413bf63e12c30682755c25bde354e7338d2f4e36a"
-doc_hash = "sha256:0f8b4288c09680e1e27c9fc6b95ffb9c3cc5083d0476be956281cb27c7bb8ba6"
-callees = [
-    "fn:28b78a9949f25552",
-    "fn:2c6a00d8023880c6",
-    "fn:36ec4a1140a13ed0",
-    "fn:4ddda5713b5af552",
-    "fn:52ad74a3ba422c56",
-    "fn:cf693348c92b3c4f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:525101d70fcf2c04",
-    "fn:c88dcf04c834f3d6",
-    "fn:f2d73d547215f27b",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:9708d37525700787"
-name = "by_patch"
-qual = "by_patch"
-lines = [
-    358,
-    360,
-]
-hash = "sha256:cf0356a0d7726e455bf053461c51caf59e4d3d8fe1c695dd7a464af0ffbfd723"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:5c06b110da9a7c84"]
-uses = [
-    "fn:525101d70fcf2c04",
-    "fn:c88dcf04c834f3d6",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:c16010c75b4822d7"
-name = "box6"
-qual = "box6"
-lines = [
-    362,
-    366,
-]
-hash = "sha256:ae70d49ca50a5271ae4209e98c4140218b71e3f927c0f96f0e3a049af3beaf5c"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:6865f38fc5167ee3",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:c88dcf04c834f3d6",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:482f647c0c6f25fb"
-name = "seeded_box"
-qual = "seeded_box"
-lines = [
-    368,
-    396,
-]
-hash = "sha256:90379481d78775a61366528b5ff931d86f0c520d9215182f6fe60915d2d5eb27"
-doc_hash = "sha256:a313a44b44d131afe1f63822f1a5cf2550314715dff646e5bd733ee46e5f3e48"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:6865f38fc5167ee3",
-    "fn:c16010c75b4822d7",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:c88dcf04c834f3d6",
-]
-
-[[module."surface_tools_images.rs".function]]
-id = "fn:704eec883c3fd325"
+id = "fn:3cde7576529c2486"
 name = "l_prism"
 qual = "l_prism"
-lines = [
-    398,
-    414,
-]
 hash = "sha256:d42f02e702c1cd70612284c1eae601efbee9b088fe4769c45c745c40449ed3fa"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:6865f38fc5167ee3",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:c88dcf04c834f3d6",
-]
 
 [[module."surface_tools_images.rs".function]]
-id = "fn:9453033e004526a1"
+id = "fn:70993ebef80d8db3"
 name = "main"
 qual = "main"
-lines = [
-    416,
-    497,
-]
 hash = "sha256:246ebaff1bd092ab3b1e0c300f28551eae589561c14d34976d4e6d33f0409ddb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:31de2c8f2112b654",
-    "fn:3f596d290e9626ae",
-    "fn:482f647c0c6f25fb",
-    "fn:6865f38fc5167ee3",
-    "fn:69c5ea862b3b4b55",
-    "fn:6be6c8afe4721ab0",
-    "fn:704eec883c3fd325",
-    "fn:728cd1b72b92a97b",
-    "fn:79a118e403ad8b88",
-    "fn:8ae66de1c6c97dea",
-    "fn:947987b4d2df50ce",
-    "fn:9708d37525700787",
-    "fn:a739b3b5e9a1efa3",
-    "fn:b036210542e67076",
-    "fn:b4bce924144f4f66",
-    "fn:c95ead72f54dc218",
-    "fn:d13d6a8b573c3a33",
-    "fn:df95006fb1b24eeb",
-    "fn:ebc26f53e8439827",
-    "fn:f52eb5a2f47954af",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:101c1e95cd4fa8f4",
-    "fn:1925101edbd7a34b",
-    "fn:39a10a31dc719a24",
-    "fn:4ac3e71dbb4c63d5",
-    "fn:5e617327bd4b2fca",
-    "fn:a98fc932f6205939",
-    "fn:c88dcf04c834f3d6",
-    "fn:d11380ca02c3bdfb",
-]
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:ee62b373fb8bd259"
+name = "palette"
+qual = "palette"
+hash = "sha256:a157bff4a386e4f4dcc7d7fb643d54385dfa9825199cf75e92c843099c9ca818"
+doc_hash = "sha256:650fb69de540f02ef636c3cb3c07efbb09cefae6c349ed99796a9460fc17a2e1"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:d6922418ad42380c"
+name = "render"
+qual = "render"
+hash = "sha256:8951d62ec021b9efe810443413bf63e12c30682755c25bde354e7338d2f4e36a"
+doc_hash = "sha256:0f8b4288c09680e1e27c9fc6b95ffb9c3cc5083d0476be956281cb27c7bb8ba6"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:499af7e6268449ac"
+name = "seeded_box"
+qual = "seeded_box"
+hash = "sha256:90379481d78775a61366528b5ff931d86f0c520d9215182f6fe60915d2d5eb27"
+doc_hash = "sha256:a313a44b44d131afe1f63822f1a5cf2550314715dff646e5bd733ee46e5f3e48"
+
+[[module."surface_tools_images.rs".function]]
+id = "fn:a23d8b324b79bb22"
+name = "shade"
+qual = "shade"
+hash = "sha256:83ed856f127eaeb6f7a138006c1bbbbef9303b0398537f4ab3ed493b2b4355c0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [module."tet_mesh.rs"]
 path = "example:tet_mesh"
@@ -1839,448 +867,214 @@ path = "example:tet_mesh"
 id = "fn:51118c048fb66bfa"
 name = "main"
 qual = "main"
-lines = [
-    32,
-    78,
-]
 hash = "sha256:f2e6e48d7ff1b523d250753d0c4f4e1ab13f053a464558dc49ba50c55b95debb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:21a2256faadd9502",
-    "fn:262cfa3b2e8581eb",
-    "fn:2e15c0317a694052",
-    "fn:4514531a46112af1",
-    "fn:92e1aab0e326336d",
-    "fn:c88a3e023469a925",
-    "fn:fd4f80b728398ba2",
-]
-uses = ["fn:0bb173954082584d"]
 
 [module."tet_mesh_images.rs"]
 path = "example:tet_mesh_images"
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:ec522d31806a4d13"
-name = "Rgb"
-qual = "Rgb"
-item = "type"
-shape = "alias"
-lines = [
-    37,
-    37,
-]
-hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:3714bde69b65300b"
-name = "Image"
-qual = "Image"
-item = "type"
-shape = "struct"
-lines = [
-    39,
-    43,
-]
-hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:ec522d31806a4d13"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:eaee8a2e4f6889f5"
-name = "new"
-qual = "Image::new"
-lines = [
-    46,
-    48,
-]
-hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:3714bde69b65300b",
-    "fn:ec522d31806a4d13",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:8dfe787b03a7bf92"
-name = "set"
-qual = "Image::set"
-lines = [
-    49,
-    53,
-]
-hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:3714bde69b65300b",
-    "fn:ec522d31806a4d13",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:7244708a8ff4ecfc"
-name = "line"
-qual = "Image::line"
-lines = [
-    54,
-    60,
-]
-hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:3714bde69b65300b",
-    "fn:ec522d31806a4d13",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:2b93bf0bdd176908"
-name = "rect"
-qual = "Image::rect"
-lines = [
-    61,
-    67,
-]
-hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:3714bde69b65300b",
-    "fn:ec522d31806a4d13",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:e0b2c3ba8a2fb98f"
-name = "text"
-qual = "Image::text"
-lines = [
-    68,
-    81,
-]
-hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:21db8ba6b36e0b94"]
-uses = [
-    "fn:3714bde69b65300b",
-    "fn:ec522d31806a4d13",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:7539b04b43981eaf"
-name = "write_png"
-qual = "Image::write_png"
-lines = [
-    82,
-    108,
-]
-hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:60e098dfb5f0ceb3",
-    "fn:ac9bad71c8845343",
-]
-uses = ["fn:3714bde69b65300b"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:4791fa7d3318c99b"
+id = "fn:f72a2d633fce7c5f"
 name = "BitWriter"
 qual = "BitWriter"
 item = "type"
 shape = "struct"
-lines = [
-    111,
-    116,
-]
 hash = "sha256:b633ce3da410c08f605bd727db5d871e81b9cee46e7b5d794ca409d0fef2bb0e"
 doc_hash = "sha256:e01e28dcc172ae447d6a491e0b882a8d20f3a4ae0c52667ee246bb695a18d659"
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:3af6bbb1bd41ca6c"
+id = "fn:67934630dddf6e59"
 name = "bits"
 qual = "BitWriter::bits"
-lines = [
-    119,
-    127,
-]
 hash = "sha256:f4d7ff197687b0c5af1485508ee7a6bbd1e2b6d114b86c911b576d84a2f7bfad"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:4791fa7d3318c99b"]
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:7b0b7f204709bf01"
+id = "fn:885e599f8da27176"
 name = "code"
 qual = "BitWriter::code"
-lines = [
-    128,
-    135,
-]
 hash = "sha256:a52db0bc14e658c829d7f1c006a8abd961008abac1be28bfe24613d8fa2492f4"
 doc_hash = "sha256:351d177da9414d09eed1571d04601e10ac7926504a88839dd46b86353af8d607"
-callees = ["fn:3af6bbb1bd41ca6c"]
-uses = ["fn:4791fa7d3318c99b"]
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:ac9bad71c8845343"
-name = "deflate_fixed"
-qual = "deflate_fixed"
-lines = [
-    138,
-    178,
-]
-hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
-doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
-callees = [
-    "fn:3af6bbb1bd41ca6c",
-    "fn:7b0b7f204709bf01",
-]
-uses = ["fn:4791fa7d3318c99b"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:31d6e61a98757f76"
-name = "crc32"
-qual = "crc32"
-lines = [
-    180,
-    189,
-]
-hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:60e098dfb5f0ceb3"
-name = "chunk"
-qual = "chunk"
-lines = [
-    191,
-    197,
-]
-hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:31d6e61a98757f76"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:21db8ba6b36e0b94"
-name = "glyph"
-qual = "glyph"
-lines = [
-    199,
-    247,
-]
-hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
-doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:2fb920654dd8a486"
-name = "Slice"
-qual = "Slice"
-item = "type"
-shape = "struct"
-lines = [
-    249,
-    257,
-]
-hash = "sha256:f038e0e5f5d4a896db7d2aa6e0040c6f347ec2a5648986a4cf9350e9896ea21e"
-doc_hash = "sha256:13defcc6225b1924feac839786c5969bf6cd7e9bd5cfd264df2dd1c668d75123"
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:d0b32de08c45f50e"
-name = "axes"
-qual = "Slice::axes"
-lines = [
-    260,
-    266,
-]
-hash = "sha256:9d3b179adc5ff1415f56e991e1ff1cc39859f329ae7fb8af7b72cea62ecba322"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:2fb920654dd8a486"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:db0135dfbad4d839"
-name = "point"
-qual = "Slice::point"
-lines = [
-    267,
-    276,
-]
-hash = "sha256:d8fb77fb7d3c2a22acaf58f736405b4a3fc6cc7a2f8e4623e2cb4602cfa8862b"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:d0b32de08c45f50e",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:2fb920654dd8a486",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:e5d8c6ef2ff6b1db"
-name = "to_px"
-qual = "Slice::to_px"
-lines = [
-    277,
-    284,
-]
-hash = "sha256:9a9b0e60489ac140d7e0d9b909338d773de5780106ef6bf114f4a8278bdde941"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:d0b32de08c45f50e"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:2fb920654dd8a486",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:bb375f5fad541811"
-name = "name"
-qual = "Slice::name"
-lines = [
-    285,
-    289,
-]
-hash = "sha256:738c92179cc230a307d452d8fb287444fef2efcff1c59c2a86407467e7fd0d15"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:d0b32de08c45f50e"]
-uses = ["fn:2fb920654dd8a486"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:d59e2be98f5aa6d9"
-name = "cut"
-qual = "cut"
-lines = [
-    292,
-    305,
-]
-hash = "sha256:a79af07d819b82ba9cfd5d565f5fe975235ca918a5eeba9032266b6aa82a6e23"
-doc_hash = "sha256:a816e4c3f83ea5332d6d41b97d32efa96135731f07ec2277f5bf915fc912bf21"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:2fb920654dd8a486",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:06e6b4340284e1de"
-name = "TYPE_COLOURS"
-qual = "TYPE_COLOURS"
-item = "const"
-shape = "const"
-lines = [
-    307,
-    312,
-]
-hash = "sha256:3afb7906e734b2b484ec67fb627db78ad0c973c904551ded90e41e146856e8de"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:91a3e999f4a03f08",
-    "fn:ec522d31806a4d13",
-]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:672c769b6403e496"
-name = "LEVEL_COLOURS"
-qual = "LEVEL_COLOURS"
-item = "const"
-shape = "const"
-lines = [
-    313,
-    316,
-]
-hash = "sha256:07b285b9fb39c03a2b3ca09484a39a9ccae7257a5ee1a03a75756a0b40eaef37"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:ec522d31806a4d13"]
-
-[[module."tet_mesh_images.rs".function]]
-id = "fn:4993d1c40abe7707"
+id = "fn:522d68ec31082dee"
 name = "Colouring"
 qual = "Colouring"
 item = "type"
 shape = "enum"
-lines = [
-    318,
-    322,
-]
 hash = "sha256:3753f415b4d8ce6d61529dc1d9e56a1af850769f269121b33eb72eae1a1d39e2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:55df93179cc3b2c3"
+id = "fn:300a0ecfff080a86"
+name = "Image"
+qual = "Image"
+item = "type"
+shape = "struct"
+hash = "sha256:ccad302551d4a046ddee9c488b0b0adf33dc74b38f8ac89bcc4682b59b53477d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:8185f70f12ad0da0"
+name = "line"
+qual = "Image::line"
+hash = "sha256:f6a7f2e4db9fb72fec88ec3d025c5579af9dc4e1213ccdc4d20723cf3a19b869"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:37bba998c8b5d299"
+name = "new"
+qual = "Image::new"
+hash = "sha256:426f9d352536d71d3e20588916a49ac18bb8480a9627362e0ea6af2d4b2e9803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:6ffd0cebcbafe6a0"
+name = "rect"
+qual = "Image::rect"
+hash = "sha256:22ea55c13184fc50cfb5252f2871b56cdce4cecdb170585cde2d7cc0dd696787"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:b0ca75e363795258"
+name = "set"
+qual = "Image::set"
+hash = "sha256:207fb3de0a199bb2dbe4f65dd798f56099b9a856c01ab8cfee503940a5ee93cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:8b8a43769ecff341"
+name = "text"
+qual = "Image::text"
+hash = "sha256:74017c0bc93c81d32b80709460dfd33503a4a0f022cb694df456ae359d1c4ac8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:3efbbfb9f9d0a9bc"
+name = "write_png"
+qual = "Image::write_png"
+hash = "sha256:262b8ff22f00d78ff7f1bd7d35ed91f24c5c3c596ac36e73d14903a299576d84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:3d043a3a03bed405"
+name = "LEVEL_COLOURS"
+qual = "LEVEL_COLOURS"
+item = "const"
+shape = "const"
+hash = "sha256:07b285b9fb39c03a2b3ca09484a39a9ccae7257a5ee1a03a75756a0b40eaef37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:a4f17e81bd2d4467"
+name = "Rgb"
+qual = "Rgb"
+item = "type"
+shape = "alias"
+hash = "sha256:2272a590fd2e23769f7ccf8bbb7ee7cf7784cf869ad301111ea5080e2fb0d9ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:8777d60cfb212554"
+name = "Slice"
+qual = "Slice"
+item = "type"
+shape = "struct"
+hash = "sha256:f038e0e5f5d4a896db7d2aa6e0040c6f347ec2a5648986a4cf9350e9896ea21e"
+doc_hash = "sha256:13defcc6225b1924feac839786c5969bf6cd7e9bd5cfd264df2dd1c668d75123"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:66a0906b8e52a1a6"
+name = "axes"
+qual = "Slice::axes"
+hash = "sha256:9d3b179adc5ff1415f56e991e1ff1cc39859f329ae7fb8af7b72cea62ecba322"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:9b61013989c47754"
+name = "name"
+qual = "Slice::name"
+hash = "sha256:738c92179cc230a307d452d8fb287444fef2efcff1c59c2a86407467e7fd0d15"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:258ac370f9cf68d6"
+name = "point"
+qual = "Slice::point"
+hash = "sha256:d8fb77fb7d3c2a22acaf58f736405b4a3fc6cc7a2f8e4623e2cb4602cfa8862b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:0b3c1c903db2628f"
+name = "to_px"
+qual = "Slice::to_px"
+hash = "sha256:9a9b0e60489ac140d7e0d9b909338d773de5780106ef6bf114f4a8278bdde941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:37a646b0d42b82bb"
+name = "TYPE_COLOURS"
+qual = "TYPE_COLOURS"
+item = "const"
+shape = "const"
+hash = "sha256:3afb7906e734b2b484ec67fb627db78ad0c973c904551ded90e41e146856e8de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:68ee04edc5f68070"
+name = "chunk"
+qual = "chunk"
+hash = "sha256:dd7e428e3f34033d8e9a5ab501a2f687c17b8dc64331c32c8c56a329acb79098"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:de99c6a10007ae80"
+name = "crc32"
+qual = "crc32"
+hash = "sha256:9177593a007301b78fed3ac40e25bf872a037858483df1ec7a64bbfa2f1aceca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:c79ae1b6b6c763a3"
+name = "cut"
+qual = "cut"
+hash = "sha256:a79af07d819b82ba9cfd5d565f5fe975235ca918a5eeba9032266b6aa82a6e23"
+doc_hash = "sha256:a816e4c3f83ea5332d6d41b97d32efa96135731f07ec2277f5bf915fc912bf21"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:d9367331bbe015b7"
+name = "deflate_fixed"
+qual = "deflate_fixed"
+hash = "sha256:5c9b267796847be5ca773dc626a85560d3d48a8e1232a9246d6cd1e9b06b5ef9"
+doc_hash = "sha256:64b19abef086077d6f2d4adafb0b924e9666203a6ec18855e215144e57489c17"
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:99ae6162f8e1e96f"
 name = "draw"
 qual = "draw"
-lines = [
-    324,
-    404,
-]
 hash = "sha256:9659b9f35ec9d215f4fe5b7acbc09f197bfa967514698245a498b691cf5870a5"
 doc_hash = "sha256:59db79de8aecba6ed435c7b80511f4ef0e123a4d15d9740e78ed590fc2e8225b"
-callees = [
-    "fn:7539b04b43981eaf",
-    "fn:d59e2be98f5aa6d9",
-    "fn:e0b2c3ba8a2fb98f",
-    "fn:eaee8a2e4f6889f5",
-]
-uses = [
-    "fn:06e6b4340284e1de",
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:2fb920654dd8a486",
-    "fn:3714bde69b65300b",
-    "fn:39a10a31dc719a24",
-    "fn:4993d1c40abe7707",
-    "fn:672c769b6403e496",
-]
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:8f9ebec65e4100c0"
-name = "pipe"
-qual = "pipe"
-lines = [
-    406,
-    422,
-]
-hash = "sha256:a1881c24db4389153e082026b34230727fee7fb52252bcf85d9a6f153fbf2360"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:5b6d3d9552c61e5a",
-    "fn:728cd1b72b92a97b",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:70e860e06320216b",
-]
+id = "fn:27ffd35d376eaf51"
+name = "glyph"
+qual = "glyph"
+hash = "sha256:7caf091dfaa9cc22727499a0f796de5784670f3f28151ce1a22747a6f233c7cd"
+doc_hash = "sha256:89bf3c7edf6c5a9a195642c9e0a51d9cb33b45f67c56f36996548a9d3f679fec"
 
 [[module."tet_mesh_images.rs".function]]
-id = "fn:3f7966fffa17a526"
+id = "fn:d9ad4152fca3587d"
 name = "main"
 qual = "main"
-lines = [
-    424,
-    487,
-]
 hash = "sha256:c23d6244550c2dd98834e086002f61b3caa7e3c1239145b572ddb484b02f96ce"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:27e103f679f63643",
-    "fn:325a8330acd7e15f",
-    "fn:3f596d290e9626ae",
-    "fn:55df93179cc3b2c3",
-    "fn:60051827e9447526",
-    "fn:756a0768f8b8d52d",
-    "fn:8c7e538d04b906d2",
-    "fn:8f9ebec65e4100c0",
-    "fn:a14e386ee609de49",
-    "fn:a425c6868f6990e9",
-    "fn:c88a3e023469a925",
-    "fn:f2d59d92774af5db",
-    "fn:fcaa09de3a030441",
-    "fn:feb0230c9741920f",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:10c1be55a9aa9105",
-    "fn:2fb920654dd8a486",
-    "fn:4993d1c40abe7707",
-    "fn:51651223d53049d8",
-    "fn:5e617327bd4b2fca",
-    "fn:6c7399404b585db7",
-    "fn:ff41871a890c9efa",
-]
+
+[[module."tet_mesh_images.rs".function]]
+id = "fn:ee6a1032d6384ad5"
+name = "pipe"
+qual = "pipe"
+hash = "sha256:a1881c24db4389153e082026b34230727fee7fb52252bcf85d9a6f153fbf2360"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [test_run]
 commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"

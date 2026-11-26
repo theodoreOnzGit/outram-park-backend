@@ -7,54 +7,59 @@ dir = "crates/outram-park-fork-cfmesh/tests/common"
 path = "test:cfmesh_patch_types_sphere::common"
 
 [[module."mod.rs".function]]
-id = "fn:0fa8af20ad02a849"
-name = "upstream_dir"
-qual = "upstream_dir"
-lines = [
-    13,
-    16,
-]
-hash = "sha256:73907f6c1bb8907edc1bc30250c6ccaf89da9769efabd2546e4faa89982755b2"
-doc_hash = "sha256:ebc06eba4ccd3185010afd96f0318077932fd4dd4e4a30fdd3a6f67c78afe920"
+id = "fn:2278dbaa4796b87f"
+name = "Diff"
+qual = "Diff"
+item = "type"
+shape = "struct"
+hash = "sha256:12e14cab4df4389dac3afca92b5a2503424a8ddd7eaa87376304f9e3f42ab808"
+doc_hash = "sha256:fed01c288b3588c8849bfc03c438701a92c8fc485375bf8856028198732fd0ef"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:08ed86b7d7e428da"
+name = "summary"
+qual = "Diff::summary"
+hash = "sha256:0de570f216731268929efb6c1340a614f0e298671c83916d2148c1fb08689361"
+doc_hash = "sha256:6f696b068eeee3f93a567350ff40457413c59d9e6da953056c2095fcf17a0075"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:bd4c38747cd2d347"
+name = "compare"
+qual = "compare"
+hash = "sha256:32d041bf090fd990a0bcec604684a235f438c249c091c61b6f0c54db3f57cd09"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:47b8dd1ac192bcc6"
+name = "counts_port"
+qual = "counts_port"
+hash = "sha256:89b053406750feab5168bd9ec7ec2edbbcf220b44fbf84e0e5e6b9e5b492e8dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:984d71088e225550"
+name = "counts_up"
+qual = "counts_up"
+hash = "sha256:d866fefd6bc1a4c9495ddb7234a3ea40a0c9ca3378c74a6ca7c5d9262385ba97"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."mod.rs".function]]
 id = "fn:ee438077f15e89b6"
 name = "gunzip"
 qual = "gunzip"
-lines = [
-    18,
-    23,
-]
 hash = "sha256:9352ffe832916c9a56add9dbdb82aa6440103cf3e321ce3482a1c8a3c4652962"
 doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
-test = true
-
-[[module."mod.rs".function]]
-id = "fn:b23c07857fd3318e"
-name = "read_upstream"
-qual = "read_upstream"
-lines = [
-    25,
-    39,
-]
-hash = "sha256:e0c0e3ef4b528b78d6656e7eb06b70ec927da228520b9bafd49b47beea6b929c"
-doc_hash = "sha256:f0a81858aaaff5c19489ec4081c5c29f946f6843f7d4d33f9a6a0f7054bc4116"
-callees = [
-    "fn:0b372b7499a47e62",
-    "fn:0fa8af20ad02a849",
-    "fn:ee438077f15e89b6",
-]
 test = true
 
 [[module."mod.rs".function]]
 id = "fn:0b372b7499a47e62"
 name = "internal_neighbours_only"
 qual = "internal_neighbours_only"
-lines = [
-    41,
-    60,
-]
 hash = "sha256:d9ec895174c4c7b817953bfe46f4a5b08ce050fcad091fd7fa8e3960d4ade45a"
 doc_hash = "sha256:461a41e71b64f2cab32b7a82adf0a4204bca49e86ab520e22ce938cb4f22d5b8"
 test = true
@@ -63,89 +68,22 @@ test = true
 id = "fn:af07d77e45566e28"
 name = "read_sphere"
 qual = "read_sphere"
-lines = [
-    62,
-    67,
-]
 hash = "sha256:5bb0b4b64f421e1e85e6cee4247c195ef72d884323e8ed91fded36aa58ab2aac"
 doc_hash = "sha256:b496abbb868dbc71e2bbba5bf5978567eacba7f2e21822d950cd700d4b9d672f"
-callees = [
-    "fn:0fa8af20ad02a849",
-    "fn:262cfa3b2e8581eb",
-    "fn:ee438077f15e89b6",
-]
-uses = ["fn:0bb173954082584d"]
 test = true
 
 [[module."mod.rs".function]]
-id = "fn:2278dbaa4796b87f"
-name = "Diff"
-qual = "Diff"
-item = "type"
-shape = "struct"
-lines = [
-    69,
-    82,
-]
-hash = "sha256:12e14cab4df4389dac3afca92b5a2503424a8ddd7eaa87376304f9e3f42ab808"
-doc_hash = "sha256:fed01c288b3588c8849bfc03c438701a92c8fc485375bf8856028198732fd0ef"
+id = "fn:b23c07857fd3318e"
+name = "read_upstream"
+qual = "read_upstream"
+hash = "sha256:e0c0e3ef4b528b78d6656e7eb06b70ec927da228520b9bafd49b47beea6b929c"
+doc_hash = "sha256:f0a81858aaaff5c19489ec4081c5c29f946f6843f7d4d33f9a6a0f7054bc4116"
 test = true
 
 [[module."mod.rs".function]]
-id = "fn:47b8dd1ac192bcc6"
-name = "counts_port"
-qual = "counts_port"
-lines = [
-    84,
-    86,
-]
-hash = "sha256:89b053406750feab5168bd9ec7ec2edbbcf220b44fbf84e0e5e6b9e5b492e8dc"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:3a99d1ff9eea316a"]
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."mod.rs".function]]
-id = "fn:984d71088e225550"
-name = "counts_up"
-qual = "counts_up"
-lines = [
-    88,
-    90,
-]
-hash = "sha256:d866fefd6bc1a4c9495ddb7234a3ea40a0c9ca3378c74a6ca7c5d9262385ba97"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."mod.rs".function]]
-id = "fn:bd4c38747cd2d347"
-name = "compare"
-qual = "compare"
-lines = [
-    92,
-    172,
-]
-hash = "sha256:32d041bf090fd990a0bcec604684a235f438c249c091c61b6f0c54db3f57cd09"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:47b8dd1ac192bcc6",
-    "fn:984d71088e225550",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:2278dbaa4796b87f",
-]
-test = true
-
-[[module."mod.rs".function]]
-id = "fn:08ed86b7d7e428da"
-name = "summary"
-qual = "Diff::summary"
-lines = [
-    175,
-    187,
-]
-hash = "sha256:0de570f216731268929efb6c1340a614f0e298671c83916d2148c1fb08689361"
-doc_hash = "sha256:6f696b068eeee3f93a567350ff40457413c59d9e6da953056c2095fcf17a0075"
-uses = ["fn:2278dbaa4796b87f"]
+id = "fn:0fa8af20ad02a849"
+name = "upstream_dir"
+qual = "upstream_dir"
+hash = "sha256:73907f6c1bb8907edc1bc30250c6ccaf89da9769efabd2546e4faa89982755b2"
+doc_hash = "sha256:ebc06eba4ccd3185010afd96f0318077932fd4dd4e4a30fdd3a6f67c78afe920"
 test = true

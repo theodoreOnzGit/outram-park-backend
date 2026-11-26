@@ -2760,6 +2760,9 @@ pub enum MapAction {
     StartWaterIngress,
     /// Start the DLOFC + ATWS accident (gh:#402).
     StartDlofc,
+    /// Start the design-basis DLOFC, scram at 7.06 s (2026-11-26): the
+    /// passive decay-heat removal case.
+    StartDlofcScram,
 }
 
 /// One accident-scenario button on the Map tab and whether it can be pressed
@@ -2778,7 +2781,7 @@ struct AccidentButton {
 }
 
 /// The accident buttons, in the order drawn.
-const ACCIDENT_BUTTONS: [AccidentButton; 2] = [
+const ACCIDENT_BUTTONS: [AccidentButton; 3] = [
     AccidentButton {
         label: "Water ingress",
         enabled: true,
@@ -2800,6 +2803,16 @@ const ACCIDENT_BUTTONS: [AccidentButton; 2] = [
                 Air ingress via the Gao & Shi cavity-ventilation rate, assumed to exchange \
                 the core gas; #420 (100 %/day for 72 h, then sealed; Gao & Shi 2002 s.5.3.2). \
                 Source-term stage 4 (gh:#402).",
+    },
+    AccidentButton {
+        label: "DLOFC, scram at 7.06 s (passive decay-heat removal)",
+        enabled: true,
+        action: MapAction::StartDlofcScram,
+        hover: "The design-basis DLOFC of Gao & Shi (2002) s.5.3.1: the same DN65 rupture, \
+                blowdown, isolation at 28.06 s and air ingress as the ATWS case, and the rods \
+                scram at 7.06 s. With the circulator stopped and the secondary isolated the \
+                decay heat leaves only by conduction and radiation, bed -> reflector -> RPV -> \
+                RCCS (the Thermal tab). Research and education only; not validated.",
     },
 ];
 
@@ -4430,10 +4443,29 @@ fn uniform_marks(step: f64, bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
 /// The running-accident banners (DLOFC, water ingress, the hydrolysis
 /// warning), or a line saying none is running.
 fn draw_accident_status(ui: &mut Ui, s: &HtgrSnapshot) {
-    if !(s.dlofc_triggered || s.water_ingress_triggered) {
+    if !(s.dlofc_triggered || s.dlofc_scram_triggered || s.water_ingress_triggered) {
         ui.small("No accident scenario running.");
     }
-    if s.dlofc_triggered {
+    if s.dlofc_scram_triggered {
+        ui.colored_label(
+            Color32::from_rgb(200, 120, 20),
+            format!(
+                "DESIGN-BASIS DLOFC running: rods scrammed at 7.06 s; helium discharged {:.1} kg, \
+                 primary gas vented {:.2} %, graphite oxidised {:.3} kg. Circulator stopped, \
+                 secondary isolated: the decay heat ({:.3} MW) leaves only by the passive path, \
+                 now {:.3} MW from the bed into the reflector; {:.1} GJ to the RCCS so far. Peak \
+                 kernel {:.0} °C (TRISO limit 1600 °C).",
+                s.dlofc_discharged_kg,
+                100.0 * s.dlofc_vented_fraction,
+                s.dlofc_graphite_oxidised_kg,
+                s.decay_heat_mw,
+                s.passive_heat_loss_mw,
+                s.energy_to_rccs_j / 1e9,
+                s.peak_kernel_temperature_k - 273.15
+            ),
+        );
+    }
+    if s.dlofc_triggered && !s.dlofc_scram_triggered {
         ui.colored_label(
             Color32::from_rgb(200, 120, 20),
             format!(
@@ -4565,7 +4597,7 @@ pub fn draw_map(
         })
         .body_returned
         .unwrap_or(MapAction::None);
-    let accident = s.dlofc_triggered || s.water_ingress_triggered;
+    let accident = s.dlofc_triggered || s.dlofc_scram_triggered || s.water_ingress_triggered;
     // Forced open while an accident runs, so a live warning is never hidden;
     // otherwise free to collapse.
     let mut status = egui::CollapsingHeader::new(if accident {
@@ -6055,7 +6087,8 @@ mod tests {
             labels,
             [
                 "Water ingress",
-                "DLOFC + ATWS (air ingress: Gao & Shi cavity ventilation, #420)"
+                "DLOFC + ATWS (air ingress: Gao & Shi cavity ventilation, #420)",
+                "DLOFC, scram at 7.06 s (passive decay-heat removal)"
             ]
         );
         assert!(ACCIDENT_BUTTONS.iter().all(|b| b.enabled));
@@ -6066,6 +6099,8 @@ mod tests {
             .hover
             .contains("Gao & Shi cavity-ventilation rate, assumed to exchange"));
         assert!(ACCIDENT_BUTTONS[0].hover.contains("gh:#401"));
+        assert_eq!(ACCIDENT_BUTTONS[2].action, MapAction::StartDlofcScram);
+        assert!(ACCIDENT_BUTTONS[2].hover.contains("7.06 s"));
         assert!(ACCIDENT_BUTTONS[1].hover.contains("gh:#402"));
     }
 

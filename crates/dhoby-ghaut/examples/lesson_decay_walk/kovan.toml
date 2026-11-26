@@ -2,88 +2,9 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/examples/lesson_decay_walk"
-test_ids = [
-    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::a_gaussian_step_jumps_layers_and_wos_does_not",
-    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::decay_library_and_branches",
-    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::release_against_crank",
-    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::sampled_futures_follow_the_simulator_and_cram",
-]
 
 [module."decay.rs"]
 path = "example:lesson_decay_walk::decay"
-
-[[module."decay.rs".function]]
-id = "fn:052fda2422cc0847"
-name = "PARENTS"
-qual = "PARENTS"
-item = "const"
-shape = "const"
-lines = [
-    20,
-    25,
-]
-hash = "sha256:b3cd2ba89bf96c333369c6a1f8a6ac05a845bf5bb47f6cf16f95dc7ed0ebbab1"
-doc_hash = "sha256:c08f4dc0412961b1c63b93228e0a2f42f4e72361ead3d6bf28a6799b762dd20f"
-reached_by = ["#1"]
-
-[[module."decay.rs".function]]
-id = "fn:2f05300ae1c36c8e"
-name = "pretty"
-qual = "pretty"
-lines = [
-    27,
-    37,
-]
-hash = "sha256:b373c4ea198864a02e9495916ca1167660b33627a60c00b1f3b754d5e8b588ce"
-doc_hash = "sha256:ab0b9103965a1450377adc52f93f19d5e4829e71b8282d7cd2a56178ce3f9906"
-
-[[module."decay.rs".function]]
-id = "fn:1a00a0a69adb8f4e"
-name = "half_life_s"
-qual = "half_life_s"
-lines = [
-    39,
-    45,
-]
-hash = "sha256:bc76ffcb0d1540dc8747fb9f76d8920d7a62a1238d37dcf9d153b33326b78466"
-doc_hash = "sha256:92e9080c36cdc88f6cbaf052fe57bacac61a8b03790dfc69bb81717e455483d1"
-reached_by = [
-    "#1",
-    "#3",
-]
-
-[[module."decay.rs".function]]
-id = "fn:9087d9f7e42a3dbc"
-name = "Branch"
-qual = "Branch"
-item = "type"
-shape = "struct"
-lines = [
-    47,
-    53,
-]
-hash = "sha256:369635d6d44fb5c3268654e30edae6f43c6a9c6e24e87069ed9d215cb0184020"
-doc_hash = "sha256:09dc8a95c0cca73016605400b89588ebd489b5462493de8b536144930775cf09"
-reached_by = [
-    "#1",
-    "#3",
-]
-
-[[module."decay.rs".function]]
-id = "fn:01b2d8ddbac405f8"
-name = "branches"
-qual = "branches"
-lines = [
-    55,
-    67,
-]
-hash = "sha256:34419973752d1ee3b7a5378831b2e5f9005155a2abe73190d895d8520abb3e35"
-doc_hash = "sha256:097f3b8e652dd48ca269ac67337b1aafd159df17ac640394c8c8ee80d35a9436"
-uses = ["fn:9087d9f7e42a3dbc"]
-reached_by = [
-    "#1",
-    "#3",
-]
 
 [[module."decay.rs".function]]
 id = "fn:ebf35d7d940ffaf3"
@@ -91,114 +12,92 @@ name = "Atom"
 qual = "Atom"
 item = "type"
 shape = "struct"
-lines = [
-    69,
-    76,
-]
 hash = "sha256:efc2ed9cd5d7cf3c83a4203bb51bfc1a376cae0edfb6fb4fe6106bf576faabbb"
 doc_hash = "sha256:ea26d02a27ec1646315b552bad684c518cb69740fe3f104f9526c206d87cfdc4"
-reached_by = ["#3"]
 
 [[module."decay.rs".function]]
-id = "fn:e1195d26f49673c4"
-name = "sample_atom"
-qual = "sample_atom"
-lines = [
-    78,
-    95,
-]
-hash = "sha256:c3240c25109fd4533b57cc20a6ea67e9e6da909eece3b06e6be8f71b2b40020c"
-doc_hash = "sha256:331852aef5e8aacfec020d0b8ec7bb3b5caf288728f85eb1479f63cd41afb72e"
-uses = ["fn:ebf35d7d940ffaf3"]
-reached_by = ["#3"]
+id = "fn:9087d9f7e42a3dbc"
+name = "Branch"
+qual = "Branch"
+item = "type"
+shape = "struct"
+hash = "sha256:369635d6d44fb5c3268654e30edae6f43c6a9c6e24e87069ed9d215cb0184020"
+doc_hash = "sha256:09dc8a95c0cca73016605400b89588ebd489b5462493de8b536144930775cf09"
 
 [[module."decay.rs".function]]
-id = "fn:c096470e4e9ebd01"
-name = "stage_at"
-qual = "stage_at"
-lines = [
-    97,
-    101,
-]
-hash = "sha256:56b86965ee4e669ac82e5c99666a2dd20a6eb515265e15524e392bcaa6fc8855"
-doc_hash = "sha256:8351985443da29dfe299839bd208712c1ffd9d09fab1306c7815ee454320b896"
-uses = ["fn:ebf35d7d940ffaf3"]
-reached_by = ["#3"]
+id = "fn:052fda2422cc0847"
+name = "PARENTS"
+qual = "PARENTS"
+item = "const"
+shape = "const"
+hash = "sha256:b3cd2ba89bf96c333369c6a1f8a6ac05a845bf5bb47f6cf16f95dc7ed0ebbab1"
+doc_hash = "sha256:c08f4dc0412961b1c63b93228e0a2f42f4e72361ead3d6bf28a6799b762dd20f"
+
+[[module."decay.rs".function]]
+id = "fn:01b2d8ddbac405f8"
+name = "branches"
+qual = "branches"
+hash = "sha256:34419973752d1ee3b7a5378831b2e5f9005155a2abe73190d895d8520abb3e35"
+doc_hash = "sha256:097f3b8e652dd48ca269ac67337b1aafd159df17ac640394c8c8ee80d35a9436"
 
 [[module."decay.rs".function]]
 id = "fn:6ae73f1ff7671dfb"
 name = "count_by_stepping"
 qual = "count_by_stepping"
-lines = [
-    103,
-    124,
-]
 hash = "sha256:7fa8651c5b15cc7eb7c6dcd887743857ae13db6d7ffaa02d0bd979a547d8870d"
 doc_hash = "sha256:a24563dbe2ceb77be883724694b81b8b619a7aac62cff88afb3d6874421ad11c"
-reached_by = ["#3"]
 
 [[module."decay.rs".function]]
 id = "fn:7d6999170fd1af02"
 name = "cram"
 qual = "cram"
-lines = [
-    126,
-    140,
-]
 hash = "sha256:ad8d631f89668cfd0bfbe2aaaa7a14f63db2cdf9f7754ba48f0fae65ff09085e"
 doc_hash = "sha256:99850736ccbf067f81e7776ccc4a59192908e2a9c3bf13682223636ed5525c0f"
-reached_by = ["#3"]
-
-[[module."decay.rs".function]]
-id = "fn:c0ae95ff1347d711"
-name = "worst_sigma"
-qual = "worst_sigma"
-lines = [
-    142,
-    158,
-]
-hash = "sha256:59a535f09eb6683c02387d81582bd08f8be8d3d33ea6c9a1618503d3cfc11c8f"
-doc_hash = "sha256:ea86ab35f2f22987137896f299c1f64062a031d734807c924914debe5acc6413"
-reached_by = ["#3"]
 
 [[module."decay.rs".function]]
 id = "fn:8281959a67ace989"
 name = "first_branch_fractions"
 qual = "first_branch_fractions"
-lines = [
-    160,
-    168,
-]
 hash = "sha256:1bc77f981b97ab1a9a48b076d34ff0b79c47a30f594fdcef087327078e9b5b64"
 doc_hash = "sha256:3f00cb508a1176e460652fc899cce93b3d2707c0afa8fad5f8b718980d48fd88"
-uses = ["fn:ebf35d7d940ffaf3"]
-reached_by = ["#3"]
+
+[[module."decay.rs".function]]
+id = "fn:1a00a0a69adb8f4e"
+name = "half_life_s"
+qual = "half_life_s"
+hash = "sha256:bc76ffcb0d1540dc8747fb9f76d8920d7a62a1238d37dcf9d153b33326b78466"
+doc_hash = "sha256:92e9080c36cdc88f6cbaf052fe57bacac61a8b03790dfc69bb81717e455483d1"
+
+[[module."decay.rs".function]]
+id = "fn:2f05300ae1c36c8e"
+name = "pretty"
+qual = "pretty"
+hash = "sha256:b373c4ea198864a02e9495916ca1167660b33627a60c00b1f3b754d5e8b588ce"
+doc_hash = "sha256:ab0b9103965a1450377adc52f93f19d5e4829e71b8282d7cd2a56178ce3f9906"
+
+[[module."decay.rs".function]]
+id = "fn:e1195d26f49673c4"
+name = "sample_atom"
+qual = "sample_atom"
+hash = "sha256:c3240c25109fd4533b57cc20a6ea67e9e6da909eece3b06e6be8f71b2b40020c"
+doc_hash = "sha256:331852aef5e8aacfec020d0b8ec7bb3b5caf288728f85eb1479f63cd41afb72e"
+
+[[module."decay.rs".function]]
+id = "fn:c096470e4e9ebd01"
+name = "stage_at"
+qual = "stage_at"
+hash = "sha256:56b86965ee4e669ac82e5c99666a2dd20a6eb515265e15524e392bcaa6fc8855"
+doc_hash = "sha256:8351985443da29dfe299839bd208712c1ffd9d09fab1306c7815ee454320b896"
+
+[[module."decay.rs".function]]
+id = "fn:c0ae95ff1347d711"
+name = "worst_sigma"
+qual = "worst_sigma"
+hash = "sha256:59a535f09eb6683c02387d81582bd08f8be8d3d33ea6c9a1618503d3cfc11c8f"
+doc_hash = "sha256:ea86ab35f2f22987137896f299c1f64062a031d734807c924914debe5acc6413"
 
 [module."main.rs"]
 path = "example:lesson_decay_walk"
-
-[[module."main.rs".function]]
-id = "fn:7437d3fa915c0834"
-name = "main"
-qual = "main#1"
-lines = [
-    122,
-    123,
-]
-hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."main.rs".function]]
-id = "fn:f2b49028649859b3"
-name = "main"
-qual = "main#2"
-lines = [
-    125,
-    128,
-]
-hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:4449e225106d6f48"]
 
 [[module."main.rs".function]]
 id = "fn:cdf5b2a6b45201be"
@@ -206,10 +105,6 @@ name = "N_BIG"
 qual = "N_BIG"
 item = "const"
 shape = "const"
-lines = [
-    137,
-    138,
-]
 hash = "sha256:47b26bc05ff6d2feb7a66f734303d168931be87047656238e0f1ae217a8ea401"
 doc_hash = "sha256:8b3459d5cb5c0e7a07d07ba7e0a5376d55fb09468b62ef01f417e9d0f7fbad51"
 
@@ -219,32 +114,13 @@ name = "N_SHOW"
 qual = "N_SHOW"
 item = "const"
 shape = "const"
-lines = [
-    139,
-    140,
-]
 hash = "sha256:0f3a31613573f5ab490a31ca3f72c5952a934a4b7aeca0c1bf4abeb1aff126b8"
 doc_hash = "sha256:9ce534bf9367f28701f8ebfb627be4ce17e238566c75209b47723bc5ac13293e"
-
-[[module."main.rs".function]]
-id = "fn:9d6a468344eb57b4"
-name = "e"
-qual = "e"
-lines = [
-    142,
-    144,
-]
-hash = "sha256:cb97154dcb406d1c0f2dbc73450cc42f65b302abc646243f4304c5db5a33800f"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."main.rs".function]]
 id = "fn:9737f75ab3d729eb"
 name = "arr"
 qual = "arr"
-lines = [
-    145,
-    147,
-]
 hash = "sha256:78e7ca2b26c6d7b8268c4464b99b04ff00900d3cd7ef0d289c83a6d719e02be6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
@@ -252,104 +128,64 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:5e77345c38bffb0c"
 name = "arr9"
 qual = "arr9"
-lines = [
-    148,
-    152,
-]
 hash = "sha256:9fbe805c2d244c39a23ff9b639262344480e9f725ca72596401007b5cbff6d10"
 doc_hash = "sha256:e35d6202b3f33d0bb943197985cfc2e36b7193bb079e75daa944d44d3d03cb5d"
+
+[[module."main.rs".function]]
+id = "fn:4c81b8d60a03df2d"
+name = "decay_section"
+qual = "decay_section"
+hash = "sha256:a6ca6a540fc9162aa235a1fa71a0b2d7d53d75f7b35e52ac2d608519b5063da0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:9d6a468344eb57b4"
+name = "e"
+qual = "e"
+hash = "sha256:cb97154dcb406d1c0f2dbc73450cc42f65b302abc646243f4304c5db5a33800f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."main.rs".function]]
 id = "fn:6608e9e86f41b549"
 name = "f4"
 qual = "f4"
-lines = [
-    153,
-    155,
-]
 hash = "sha256:9684c54b0db86095d770b0d491571ac09372157a2aaaea3d4776b4833b6ffed9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."main.rs".function]]
-id = "fn:e491fcc6eb7808df"
-name = "strs"
-qual = "strs"
-lines = [
-    156,
-    158,
-]
-hash = "sha256:c87a5a545b08d9f2db0983846330daf9c5530e42ddf0bf94a511e5a150a0bbc2"
+id = "fn:7437d3fa915c0834"
+name = "main"
+qual = "main#1"
+hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:f2b49028649859b3"
+name = "main"
+qual = "main#2"
+hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."main.rs".function]]
 id = "fn:4449e225106d6f48"
 name = "run"
 qual = "run"
-lines = [
-    160,
-    178,
-]
 hash = "sha256:b76c6b8670342ea9183cbaef18dbab8ecd3c77dd7cabc090e82dd4b6f3d78a44"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:1b99e7837dca3916",
-    "fn:4c81b8d60a03df2d",
-]
 
 [[module."main.rs".function]]
-id = "fn:4c81b8d60a03df2d"
-name = "decay_section"
-qual = "decay_section"
-lines = [
-    180,
-    240,
-]
-hash = "sha256:a6ca6a540fc9162aa235a1fa71a0b2d7d53d75f7b35e52ac2d608519b5063da0"
+id = "fn:e491fcc6eb7808df"
+name = "strs"
+qual = "strs"
+hash = "sha256:c87a5a545b08d9f2db0983846330daf9c5530e42ddf0bf94a511e5a150a0bbc2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:01b2d8ddbac405f8",
-    "fn:1a00a0a69adb8f4e",
-    "fn:6ae73f1ff7671dfb",
-    "fn:7d6999170fd1af02",
-    "fn:8281959a67ace989",
-    "fn:c0ae95ff1347d711",
-    "fn:e1195d26f49673c4",
-]
-uses = [
-    "fn:052fda2422cc0847",
-    "fn:0ad0635c63eec8c7",
-    "fn:cdf5b2a6b45201be",
-    "fn:ebf35d7d940ffaf3",
-]
 
 [[module."main.rs".function]]
 id = "fn:1b99e7837dca3916"
 name = "walk_section"
 qual = "walk_section"
-lines = [
-    242,
-    296,
-]
 hash = "sha256:281e5b11c8174382506e5dbb2b84b1e71d706808cdd778462902d693a84efbc1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:10dc9b342a6ddbf3",
-    "fn:1301234b06bf83cd",
-    "fn:3aa1dfb25c5fc158",
-    "fn:457cab16bbaf9ae6",
-    "fn:606eb2ca39ae9155",
-    "fn:8fe84d438174efbb",
-    "fn:957942dbc025d779",
-    "fn:9899d94d48d5a826",
-    "fn:b9efb494ed8e7532",
-    "fn:c0ae95ff1347d711",
-    "fn:d8c8221c088d4163",
-    "fn:dae3b2bf2dccafb2",
-    "fn:e0cd286039ef4dfa",
-    "fn:ef9be1ea7a1ef542",
-    "fn:fb752034f4778108",
-]
-uses = ["fn:c2e16f91774a3121"]
 
 [module."walk.rs"]
 path = "example:lesson_decay_walk::walk"
@@ -360,105 +196,8 @@ name = "CASE1_SEED"
 qual = "CASE1_SEED"
 item = "const"
 shape = "const"
-lines = [
-    29,
-    30,
-]
 hash = "sha256:b3cabea36dd6178d24b4f8c6f6596e9f489d39d23d6896aa1f5fa002330cdd26"
 doc_hash = "sha256:2a9138d1f40deb9cc8d54962315d699e33f4c99971b2f893f24e23f41253c357"
-reached_by = ["#2"]
-
-[[module."walk.rs".function]]
-id = "fn:3a7fe0e0d1887f13"
-name = "celsius"
-qual = "celsius"
-lines = [
-    32,
-    34,
-]
-hash = "sha256:548e5e296a1433ae578ac702c34bb15df730b230cefb1431ac335dee38c53a25"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = [
-    "#0",
-    "#2",
-]
-physical_interface = true
-
-[[module."walk.rs".function]]
-id = "fn:a97b9f49ae0f591f"
-name = "um"
-qual = "um"
-lines = [
-    35,
-    37,
-]
-hash = "sha256:e4fdd1228ead2d984130b28d0ca9062a8ad9dae34eb8241226dd824a51e69476"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#2"]
-physical_interface = true
-
-[[module."walk.rs".function]]
-id = "fn:3aa1dfb25c5fc158"
-name = "crp6_cell"
-qual = "crp6_cell"
-lines = [
-    39,
-    45,
-]
-hash = "sha256:74fac3caf9a45fd45973ab35566526b3e43cd3de64daf1dbfa23dacfd3ded5bf"
-doc_hash = "sha256:5afe2d795772e995fa64588c8ecd0ca0d01b7f6c00717446aafbf009478dad1b"
-callees = ["fn:3a7fe0e0d1887f13"]
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:1301234b06bf83cd"
-name = "radii_um"
-qual = "radii_um"
-lines = [
-    47,
-    50,
-]
-hash = "sha256:3a5cffe692fc25a103f43d5b7ce6f73827a8dd3acf6f74dee594b08c60b05f58"
-doc_hash = "sha256:5976170b1516dced74a023ea78ccf6ebede42ef68a27a800fe6171581a733439"
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:be59390fe9606912"
-name = "region_index"
-qual = "region_index"
-lines = [
-    52,
-    62,
-]
-hash = "sha256:c2ef6275d11cda3ea161394bc74471c2aa8c7784f1d05baeaae22c401f00dcff"
-doc_hash = "sha256:a55eab4cb40bdee3aa25338eff57b6c0c2a7ecf7585af5b1815831e1a4535e11"
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:8fe84d438174efbb"
-name = "buffer_d"
-qual = "buffer_d"
-lines = [
-    64,
-    70,
-]
-hash = "sha256:191e1a4784f123d0b22b5fcb056189958b5dcc0644ac769c0aae2207a3428663"
-doc_hash = "sha256:b51a521577dadbed5c94a7a5f3dfaa9b3336bc136415f11255d5554b89b339f4"
-callees = ["fn:3a7fe0e0d1887f13"]
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:e0cd286039ef4dfa"
-name = "kernel_d"
-qual = "kernel_d"
-lines = [
-    72,
-    75,
-]
-hash = "sha256:e956dfde339d63419b1f632880390c1dbb54700aa6c8b7a10156a1c2f095cd87"
-doc_hash = "sha256:2e57445a7743367f2c63afd8e07b2385ce3729f86454d501a5afb5252f346507"
-callees = ["fn:3a7fe0e0d1887f13"]
-reached_by = ["#2"]
 
 [[module."walk.rs".function]]
 id = "fn:873d08eee5aaf597"
@@ -466,150 +205,126 @@ name = "GaussStep"
 qual = "GaussStep"
 item = "type"
 shape = "struct"
-lines = [
-    77,
-    83,
-]
 hash = "sha256:47fabfb9414812c0fc50d7f27eb39042c5dd754c4c24ec69b33f3dc95079f342"
 doc_hash = "sha256:172d5b8ee6cba236f3400d4bb6744b2a6088da1929302de0def0dc0b61f4ac2c"
-reached_by = ["#0"]
 
 [[module."walk.rs".function]]
-id = "fn:957942dbc025d779"
-name = "gaussian_steps"
-qual = "gaussian_steps"
-lines = [
-    85,
-    108,
-]
-hash = "sha256:8efc047a3ea71bfa73a006d89c308691a0f77c8b07481a4491dd47a3982b4649"
-doc_hash = "sha256:1710456406e953cce6e140562934b5be0da76252ad6ff1d454723b32ed00d2c4"
-callees = ["fn:be59390fe9606912"]
-uses = ["fn:873d08eee5aaf597"]
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:fb752034f4778108"
-name = "region_fractions"
-qual = "region_fractions"
-lines = [
-    110,
-    117,
-]
-hash = "sha256:94054a3b42ec99f805567e83e4100344ee7cd3798d9cca182da48cf51fb1efe5"
-doc_hash = "sha256:da8354f846305206ff6becf132a4279ff1e64808a1c4411612e57ce54519ff45"
-uses = ["fn:873d08eee5aaf597"]
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:10dc9b342a6ddbf3"
-name = "wos_paths"
-qual = "wos_paths"
-lines = [
-    119,
-    146,
-]
-hash = "sha256:3184df9cc99ebdf725a09d84a731b7a88e376277fef0d49931e05d83bd8b6ded"
-doc_hash = "sha256:869dadaeffba05ab2b927ccd3779437e4c5d23cd43f957eedffd03d93f972210"
-callees = ["fn:3aa1dfb25c5fc158"]
-reached_by = ["#0"]
-
-[[module."walk.rs".function]]
-id = "fn:9899d94d48d5a826"
-name = "release_times"
-qual = "release_times"
-lines = [
-    148,
-    163,
-]
-hash = "sha256:30d9ddcf79f367e0856bf0d98f168a5c821c6253d464a8b2c2c96e5f65693712"
-doc_hash = "sha256:c403eace9d28dee3c3ce6654031e5852a6ac0134ee9fd4a11280a485d998ed96"
-callees = [
-    "fn:3a7fe0e0d1887f13",
-    "fn:a97b9f49ae0f591f",
-]
-reached_by = ["#2"]
-
-[[module."walk.rs".function]]
-id = "fn:dae3b2bf2dccafb2"
-name = "fraction_by"
-qual = "fraction_by"
-lines = [
-    165,
-    168,
-]
-hash = "sha256:ee414a5bd9fd45e9ea82566c4a8dc3b1186df8f9e844695997a56821e94940b0"
-doc_hash = "sha256:23a97c875318e8f880480a3270e9a00169d29f12c3ebf0db098134699c0ae901"
-reached_by = ["#2"]
-
-[[module."walk.rs".function]]
-id = "fn:457cab16bbaf9ae6"
-name = "crank"
-qual = "crank"
-lines = [
-    170,
-    173,
-]
-hash = "sha256:f2c1e9ae7955348f873b421f7688b3cd042fb80b6ee1ef5b0ed37a944d67a0ad"
-doc_hash = "sha256:917f271d5ad37f113e11336be1514e137f3072c7a72eb679b1a99a4da110c838"
-callees = [
-    "fn:3a7fe0e0d1887f13",
-    "fn:a97b9f49ae0f591f",
-]
-reached_by = ["#2"]
+id = "fn:8fe84d438174efbb"
+name = "buffer_d"
+qual = "buffer_d"
+hash = "sha256:191e1a4784f123d0b22b5fcb056189958b5dcc0644ac769c0aae2207a3428663"
+doc_hash = "sha256:b51a521577dadbed5c94a7a5f3dfaa9b3336bc136415f11255d5554b89b339f4"
 
 [[module."walk.rs".function]]
 id = "fn:d8c8221c088d4163"
 name = "case1"
 qual = "case1"
-lines = [
-    175,
-    179,
-]
 hash = "sha256:99bba8170d731bf6d36951072ca7574c40de89d0a633d23de6b98961236ee69c"
 doc_hash = "sha256:e5cc66d4f77e49d346a4808b31c2471c013a47ce89ae9846aa7120026d382bba"
-callees = [
-    "fn:3a7fe0e0d1887f13",
-    "fn:a97b9f49ae0f591f",
-]
-uses = ["fn:c2e16f91774a3121"]
-
-[[module."walk.rs".function]]
-id = "fn:b9efb494ed8e7532"
-name = "gaussian_release_times"
-qual = "gaussian_release_times"
-lines = [
-    181,
-    210,
-]
-hash = "sha256:bfe354d402b1a0b8fb28b8df5929654a87ac3d2f464967dcaefe2e5d37ce3768"
-doc_hash = "sha256:94d3847c015655faaae65322a0fcf96a18dd13558458912b5862b89c46832b1f"
-callees = [
-    "fn:a97b9f49ae0f591f",
-    "fn:e0cd286039ef4dfa",
-]
-reached_by = ["#2"]
-
-[[module."walk.rs".function]]
-id = "fn:ef9be1ea7a1ef542"
-name = "theta_mean"
-qual = "theta_mean"
-lines = [
-    212,
-    220,
-]
-hash = "sha256:a49131ba337cd88e2632b5ab7b0d43afa3e1298633b7fbc35a4461ab18ea8f20"
-doc_hash = "sha256:8709c4e94ccc3ee326547ecb7e0bf9243a7233799594fdb35ca85ff3510186a6"
-reached_by = ["#0"]
 
 [[module."walk.rs".function]]
 id = "fn:606eb2ca39ae9155"
 name = "cell_kernel_d"
 qual = "cell_kernel_d"
-lines = [
-    222,
-    228,
-]
 hash = "sha256:fcdebba6f206e0220da3795fc500afb8be30d3940b465b342816f7262e5e45cf"
 doc_hash = "sha256:5384787eb8c9750d1307a9a5dbf388c07c2798f8fe0d8e65f952b163b362ccb1"
-callees = ["fn:3aa1dfb25c5fc158"]
+
+[[module."walk.rs".function]]
+id = "fn:3a7fe0e0d1887f13"
+name = "celsius"
+qual = "celsius"
+hash = "sha256:548e5e296a1433ae578ac702c34bb15df730b230cefb1431ac335dee38c53a25"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."walk.rs".function]]
+id = "fn:457cab16bbaf9ae6"
+name = "crank"
+qual = "crank"
+hash = "sha256:f2c1e9ae7955348f873b421f7688b3cd042fb80b6ee1ef5b0ed37a944d67a0ad"
+doc_hash = "sha256:917f271d5ad37f113e11336be1514e137f3072c7a72eb679b1a99a4da110c838"
+
+[[module."walk.rs".function]]
+id = "fn:3aa1dfb25c5fc158"
+name = "crp6_cell"
+qual = "crp6_cell"
+hash = "sha256:74fac3caf9a45fd45973ab35566526b3e43cd3de64daf1dbfa23dacfd3ded5bf"
+doc_hash = "sha256:5afe2d795772e995fa64588c8ecd0ca0d01b7f6c00717446aafbf009478dad1b"
+
+[[module."walk.rs".function]]
+id = "fn:dae3b2bf2dccafb2"
+name = "fraction_by"
+qual = "fraction_by"
+hash = "sha256:ee414a5bd9fd45e9ea82566c4a8dc3b1186df8f9e844695997a56821e94940b0"
+doc_hash = "sha256:23a97c875318e8f880480a3270e9a00169d29f12c3ebf0db098134699c0ae901"
+
+[[module."walk.rs".function]]
+id = "fn:b9efb494ed8e7532"
+name = "gaussian_release_times"
+qual = "gaussian_release_times"
+hash = "sha256:bfe354d402b1a0b8fb28b8df5929654a87ac3d2f464967dcaefe2e5d37ce3768"
+doc_hash = "sha256:94d3847c015655faaae65322a0fcf96a18dd13558458912b5862b89c46832b1f"
+
+[[module."walk.rs".function]]
+id = "fn:957942dbc025d779"
+name = "gaussian_steps"
+qual = "gaussian_steps"
+hash = "sha256:8efc047a3ea71bfa73a006d89c308691a0f77c8b07481a4491dd47a3982b4649"
+doc_hash = "sha256:1710456406e953cce6e140562934b5be0da76252ad6ff1d454723b32ed00d2c4"
+
+[[module."walk.rs".function]]
+id = "fn:e0cd286039ef4dfa"
+name = "kernel_d"
+qual = "kernel_d"
+hash = "sha256:e956dfde339d63419b1f632880390c1dbb54700aa6c8b7a10156a1c2f095cd87"
+doc_hash = "sha256:2e57445a7743367f2c63afd8e07b2385ce3729f86454d501a5afb5252f346507"
+
+[[module."walk.rs".function]]
+id = "fn:1301234b06bf83cd"
+name = "radii_um"
+qual = "radii_um"
+hash = "sha256:3a5cffe692fc25a103f43d5b7ce6f73827a8dd3acf6f74dee594b08c60b05f58"
+doc_hash = "sha256:5976170b1516dced74a023ea78ccf6ebede42ef68a27a800fe6171581a733439"
+
+[[module."walk.rs".function]]
+id = "fn:fb752034f4778108"
+name = "region_fractions"
+qual = "region_fractions"
+hash = "sha256:94054a3b42ec99f805567e83e4100344ee7cd3798d9cca182da48cf51fb1efe5"
+doc_hash = "sha256:da8354f846305206ff6becf132a4279ff1e64808a1c4411612e57ce54519ff45"
+
+[[module."walk.rs".function]]
+id = "fn:be59390fe9606912"
+name = "region_index"
+qual = "region_index"
+hash = "sha256:c2ef6275d11cda3ea161394bc74471c2aa8c7784f1d05baeaae22c401f00dcff"
+doc_hash = "sha256:a55eab4cb40bdee3aa25338eff57b6c0c2a7ecf7585af5b1815831e1a4535e11"
+
+[[module."walk.rs".function]]
+id = "fn:9899d94d48d5a826"
+name = "release_times"
+qual = "release_times"
+hash = "sha256:30d9ddcf79f367e0856bf0d98f168a5c821c6253d464a8b2c2c96e5f65693712"
+doc_hash = "sha256:c403eace9d28dee3c3ce6654031e5852a6ac0134ee9fd4a11280a485d998ed96"
+
+[[module."walk.rs".function]]
+id = "fn:ef9be1ea7a1ef542"
+name = "theta_mean"
+qual = "theta_mean"
+hash = "sha256:a49131ba337cd88e2632b5ab7b0d43afa3e1298633b7fbc35a4461ab18ea8f20"
+doc_hash = "sha256:8709c4e94ccc3ee326547ecb7e0bf9243a7233799594fdb35ca85ff3510186a6"
+
+[[module."walk.rs".function]]
+id = "fn:a97b9f49ae0f591f"
+name = "um"
+qual = "um"
+hash = "sha256:e4fdd1228ead2d984130b28d0ca9062a8ad9dae34eb8241226dd824a51e69476"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."walk.rs".function]]
+id = "fn:10dc9b342a6ddbf3"
+name = "wos_paths"
+qual = "wos_paths"
+hash = "sha256:3184df9cc99ebdf725a09d84a731b7a88e376277fef0d49931e05d83bd8b6ded"
+doc_hash = "sha256:869dadaeffba05ab2b927ccd3779437e4c5d23cd43f957eedffd03d93f972210"

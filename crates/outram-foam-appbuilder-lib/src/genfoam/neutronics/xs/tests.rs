@@ -427,3 +427,42 @@ fn rejects_out_of_range_indices() {
         }
     ));
 }
+
+/// Methodology: give the hot state a different `chiPrompt`/`chiDelayed` from the
+/// reference and evaluate group 0 at the hot temperature, once with the default
+/// (data-driven) parametrisation and once with
+/// [`CrossSectionData::with_upstream_unparametrised_chi`]. GeN-Foam 652b3da never
+/// `build()`s its chi interpolators, so its chi is the reference chi at every
+/// state (gh:#1361 round 6, measured against upstream's own `XS` class on
+/// `2D_MSFR`: `chi` differed in 8595 of 8595 cells before, 0 after).
+///
+/// Result (2026-11-25): default gives `chi_p = 0.9`, `chi_d = 0.8` (the hot-state
+/// data); the option gives `1.0`, `1.0` (the reference); `nu Sigma_f` is the same
+/// interpolated value in both, so only chi moved.
+///
+/// Since 2026-11-26 the upstream form is the default (maintainer: "follow
+/// upstream"); the data-driven form is the deprecated `with_data_driven_chi`.
+#[test]
+#[allow(deprecated)]
+fn upstream_unparametrised_chi_keeps_the_reference_chi_at_any_state() {
+    let mut input = two_group_input();
+    input.states[1].zones[0].chi_prompt = vec![0.9, 0.1];
+    input.states[1].zones[0].chi_delayed = vec![0.8, 0.2];
+    let by_data = CrossSectionData::from_input(&input).unwrap().with_data_driven_chi();
+    let upstream = CrossSectionData::from_input(&input).unwrap();
+    let explicit = CrossSectionData::from_input(&input)
+        .unwrap()
+        .with_upstream_unparametrised_chi();
+    assert!(!explicit.chi_is_parametrised(), "the explicit option still selects upstream's form");
+    assert!(by_data.chi_is_parametrised());
+    assert!(!upstream.chi_is_parametrised());
+    let zi = by_data.zone_index("core").unwrap();
+
+    let d = by_data.evaluate_group_constants(zi, 0, &[T_HOT]).unwrap();
+    assert_relative_eq!(d.chi_prompt.value, 0.9, epsilon = 1e-9);
+    assert_relative_eq!(d.chi_delayed.value, 0.8, epsilon = 1e-9);
+    let u = upstream.evaluate_group_constants(zi, 0, &[T_HOT]).unwrap();
+    assert_relative_eq!(u.chi_prompt.value, 1.0, epsilon = 1e-12);
+    assert_relative_eq!(u.chi_delayed.value, 1.0, epsilon = 1e-12);
+    assert_relative_eq!(u.nu_sigma_f.value, d.nu_sigma_f.value, epsilon = 1e-15);
+}

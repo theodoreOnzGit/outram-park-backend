@@ -211,6 +211,7 @@ src/
   triso_atops_extensions/                 ← **NOT a port** (2026-10-05, gh:#583): boon-lay's own extensions of TRISO-ATOPS, kept OUT of triso_atops_fork (which they call unchanged and never modify)
     removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
     normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
+  strato/                                 ← **A PORT of STRATO's Sturm-Liouville series** (Wee Zhern Ray, `weewzr`, https://github.com/weewzr/STRATO, AGPL-3.0-only, commit 36f1a98): exact multilayer-sphere release, the analytical reference for `triso_atops_extensions::multilayer_diffusion`. mod.rs holds provenance and local changes L1-L7. STRATO's FV solver is NOT ported (duplicate); `dev/strato_reference/` runs it upstream. Added 2026-11-26, gh:#1800
   chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
   rustbca/                                ← **A COPY of RustBCA** ~~v3.0.0~~ (lcpp-org, a356280d = v3.0.0 + 17 commits, gh:#1426; GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
   compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
@@ -270,6 +271,27 @@ its addition is switched off (bit for bit where the arithmetic is the same,
 as `normal_operation_node_with_rates` does under `RemovalRates::upstream`).
 `activities/live_pools.rs` predates this rule and stays where it is, labelled
 NOT a port.
+
+## strato — STRATO's analytical solver, ported (2026-11-26, gh:#1800)
+
+**Credit Wee Zhern Ray (`weewzr`) wherever STRATO-derived work appears** (maintainer
+direction, 2026-11-26): file headers, docs, V&V reports, commit messages.
+
+- **Keep the port a port.** `src/strato/sturm_liouville.rs` keeps upstream's
+  functions, arithmetic and order of operations, so a std build is bit-identical
+  to upstream (U1 in the V&V record: 978 of 978 values). Record any change in
+  the numbered list in `src/strato/mod.rs` and mark it `LOCAL CHANGE Ln` in the
+  code. boon-lay additions (the `uom` facade, `ModalRelease::single_sphere`)
+  are local changes L4 and L5.
+- **STRATO's finite-volume solver is deliberately not ported.** It is the same
+  algorithm class as `triso_atops_extensions::multilayer_diffusion`. To compare
+  against it, regenerate reference data with `dev/strato_reference/` (runs
+  upstream unmodified) rather than copying it in.
+- **TRISO-ATOPS `breakthrough_model` is not this problem.** It is a planar,
+  one-layer, infinite-source time-lag series; comparing it with the series is a
+  model-form study, not verification.
+- V&V record: `verification_and_validation/strato_triso_diffusion/` (`PLAN.md`
+  written before the code; `README.md` with the results).
 
 ## fuel_failure — boon-lay fuel failure (NOT PANAMA)
 

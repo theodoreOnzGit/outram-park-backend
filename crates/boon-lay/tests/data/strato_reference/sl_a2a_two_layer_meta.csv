@@ -1,0 +1,8 @@
+key,value
+lambda_max,2.24999999999999992e-2
+max_modes,20000
+n_modes,129
+lambda_covered,2.24999999999999992e-2
+min_flux_ratio,5.19042053753970722e-1
+accuracy_floor,4.23857755665172799e-16
+min_valid_time,1.77777777777777783e3

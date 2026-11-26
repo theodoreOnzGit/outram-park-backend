@@ -7,339 +7,142 @@ dir = "crates/outram-park-fork-cfmesh/tests"
 path = "test:cfmesh_patch_types_sphere"
 
 [[module."cfmesh_patch_types_sphere.rs".function]]
+id = "fn:90787ae8d19bdd7a"
+name = "a_surface_without_types_keeps_patch"
+qual = "a_surface_without_types_keeps_patch"
+hash = "sha256:b742c610cb6d1b4de2886db3d945fd35b1a136164b26af2cd6e0e0405ac22c78"
+doc_hash = "sha256:c3070d15f2716477f9ec68bdc213211e87b0c6bd109ac7a4531d0ed91c51fb0e"
+test = true
+
+[[module."cfmesh_patch_types_sphere.rs".function]]
 id = "fn:22cf8da603a043ce"
 name = "boundary_names_and_types"
 qual = "boundary_names_and_types"
-lines = [
-    25,
-    51,
-]
 hash = "sha256:2e0a7cfd2efac51b71c0ec1d4bd5f3003bcc04a29fe81ef0b91ba9bbb0cd9556"
 doc_hash = "sha256:d825da3c03e530864009fe3a438a5cd3e4d26519d69803d04035e3aedf7fb079"
-test = true
-
-[[module."cfmesh_patch_types_sphere.rs".function]]
-id = "fn:2c61a83042e617be"
-name = "upstream_patches"
-qual = "upstream_patches"
-lines = [
-    53,
-    56,
-]
-hash = "sha256:d04c91e5a588a19c40728e00d0112544c8bace2f9ff6128bc0d284f241be92a8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:0fa8af20ad02a849",
-    "fn:22cf8da603a043ce",
-    "fn:ee438077f15e89b6",
-]
-test = true
-
-[[module."cfmesh_patch_types_sphere.rs".function]]
-id = "fn:f96b9d1d39affadb"
-name = "stl_regions"
-qual = "stl_regions"
-lines = [
-    58,
-    60,
-]
-hash = "sha256:c28ec762ff1161e1f58eca1fab40f82875440074daa8654b1d48be92c58fe2cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:90de76a94edcc873",
-    "fn:dfb04f57c20ebb69",
-]
-uses = ["fn:70e860e06320216b"]
-test = true
-
-[[module."cfmesh_patch_types_sphere.rs".function]]
-id = "fn:fbb2fd3a11ad9fc3"
-name = "port_patches"
-qual = "port_patches"
-lines = [
-    62,
-    64,
-]
-hash = "sha256:9b49ed96ccab42d22b7a04f53e15b63e015b7c050e5eba45878c94f5498a19b8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."cfmesh_patch_types_sphere.rs".function]]
-id = "fn:32fdfc2ef5c0e3ec"
-name = "the_sphere_reference_is_one_wall_patch"
-qual = "the_sphere_reference_is_one_wall_patch"
-lines = [
-    66,
-    71,
-]
-hash = "sha256:be5c5355f55a6803830201b9582106bd4327a7fbaa10f36e7e8de32c02d61450"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cfmesh_patch_types_sphere.rs".function]]
 id = "fn:50ea2a2eaedd1088"
 name = "cartesian_mesh_writes_the_sphere_as_a_wall"
 qual = "cartesian_mesh_writes_the_sphere_as_a_wall"
-lines = [
-    73,
-    80,
-]
 hash = "sha256:947e162bd6c9df3d7d0ee6ad77f2956ab9ae5e8fb022fd0db9523226e9b28440"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:e8cc0484019d08d6",
-    "fn:f96b9d1d39affadb",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-]
-test = true
-
-[[module."cfmesh_patch_types_sphere.rs".function]]
-id = "fn:d93985026032a986"
-name = "tet_mesh_writes_the_sphere_as_a_wall"
-qual = "tet_mesh_writes_the_sphere_as_a_wall"
-lines = [
-    82,
-    89,
-]
-hash = "sha256:097ffa52f01a1be897332d5098e029f6654178d2469b9cb5f51cb93c1ff6203d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:f96b9d1d39affadb",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:ff41871a890c9efa",
-]
 test = true
 
 [[module."cfmesh_patch_types_sphere.rs".function]]
 id = "fn:8ede920a1db7235e"
 name = "p_mesh_writes_the_sphere_as_a_wall"
 qual = "p_mesh_writes_the_sphere_as_a_wall"
-lines = [
-    91,
-    98,
-]
 hash = "sha256:fb1d815ade1df5f8efb4ed40bc017713cb0f84e7d3a1382c3ca631264314433e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:60051827e9447526",
-    "fn:af07d77e45566e28",
-    "fn:f96b9d1d39affadb",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:ff41871a890c9efa",
-]
 test = true
 
 [[module."cfmesh_patch_types_sphere.rs".function]]
-id = "fn:90787ae8d19bdd7a"
-name = "a_surface_without_types_keeps_patch"
-qual = "a_surface_without_types_keeps_patch"
-lines = [
-    100,
-    113,
-]
-hash = "sha256:b742c610cb6d1b4de2886db3d945fd35b1a136164b26af2cd6e0e0405ac22c78"
-doc_hash = "sha256:c3070d15f2716477f9ec68bdc213211e87b0c6bd109ac7a4531d0ed91c51fb0e"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:5b6d3d9552c61e5a",
-    "fn:90de76a94edcc873",
-    "fn:af07d77e45566e28",
-    "fn:dfb04f57c20ebb69",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-]
+id = "fn:fbb2fd3a11ad9fc3"
+name = "port_patches"
+qual = "port_patches"
+hash = "sha256:9b49ed96ccab42d22b7a04f53e15b63e015b7c050e5eba45878c94f5498a19b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_patch_types_sphere.rs".function]]
+id = "fn:f96b9d1d39affadb"
+name = "stl_regions"
+qual = "stl_regions"
+hash = "sha256:c28ec762ff1161e1f58eca1fab40f82875440074daa8654b1d48be92c58fe2cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_patch_types_sphere.rs".function]]
+id = "fn:d93985026032a986"
+name = "tet_mesh_writes_the_sphere_as_a_wall"
+qual = "tet_mesh_writes_the_sphere_as_a_wall"
+hash = "sha256:097ffa52f01a1be897332d5098e029f6654178d2469b9cb5f51cb93c1ff6203d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_patch_types_sphere.rs".function]]
+id = "fn:32fdfc2ef5c0e3ec"
+name = "the_sphere_reference_is_one_wall_patch"
+qual = "the_sphere_reference_is_one_wall_patch"
+hash = "sha256:be5c5355f55a6803830201b9582106bd4327a7fbaa10f36e7e8de32c02d61450"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_patch_types_sphere.rs".function]]
+id = "fn:2c61a83042e617be"
+name = "upstream_patches"
+qual = "upstream_patches"
+hash = "sha256:d04c91e5a588a19c40728e00d0112544c8bace2f9ff6128bc0d284f241be92a8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [module."cfmesh_vs_upstream_cell_order.rs"]
 path = "test:cfmesh_vs_upstream_cell_order"
 
 [[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:e820f50c0541efbd"
-name = "centres_with_cell_lists"
-qual = "centres_with_cell_lists"
-lines = [
-    46,
-    72,
-]
-hash = "sha256:5127f63c429b07775c9aea439cc5735aaa943562df61c48401b4d30740577877"
-doc_hash = "sha256:25a202eb6c7f4489ebc118a465d1b44036ac19e0196ceb9bb664f662bac51757"
-callees = [
-    "fn:0721163ec8e73c27",
-    "fn:15ceffb3752d952a",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:df905d360e96e6de"
-name = "laplacian_pc"
-qual = "laplacian_pc"
-lines = [
-    74,
-    106,
-]
-hash = "sha256:4750df8c5e113fa9fc37b89ac830aab2de9ab6d2d2daf5a5fffac06ddc12d1e4"
-doc_hash = "sha256:7bcdeea52b05263433a3aa0e5e82662cb22c17215b84bde153c68cb8252b80df"
-callees = ["fn:e820f50c0541efbd"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:743491b4916c8818"
-name = "load_trace"
-qual = "load_trace"
-lines = [
-    108,
-    128,
-]
-hash = "sha256:1af34e2691dbe41431182af099056cf18770ae72e21cb9481c88f95fbf0cc801"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:0fa8af20ad02a849",
-    "fn:ee438077f15e89b6",
-]
-uses = ["fn:0bb173954082584d"]
-test = true
-
-[[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:990cde784a94aa04"
-name = "identical"
-qual = "identical"
-lines = [
-    130,
-    132,
-]
-hash = "sha256:b3cea71d64d4ad5634c4b03af8ac8069d57584c47c57040f1ac4424d69addc66"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:0bb173954082584d"]
-test = true
-
-[[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:e001458e4557c6ab"
-name = "laplacian_over_upstream_cell_lists_is_bit_identical"
-qual = "laplacian_over_upstream_cell_lists_is_bit_identical"
-lines = [
-    134,
-    172,
-]
-hash = "sha256:460ea02921af7b46e1634e3f1311e2abe59cd9629b5957403c8ed3a2bcbbd38e"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:70575f9730745448",
-    "fn:743491b4916c8818",
-    "fn:8c7e538d04b906d2",
-    "fn:990cde784a94aa04",
-    "fn:af07d77e45566e28",
-    "fn:df905d360e96e6de",
-    "fn:dfb04f57c20ebb69",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:70e860e06320216b",
-    "fn:d406fef7faccbf15",
-    "fn:df2965cdda454f14",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:354d919828ad169b"
-name = "tet_mesh_carried_cell_lists_vs_upstream"
-qual = "tet_mesh_carried_cell_lists_vs_upstream"
-lines = [
-    174,
-    197,
-]
-hash = "sha256:ba5e24dbcf329b4185a20caf16f2fe970d1d0087bd2b0025e9f26d28be608fbf"
-doc_hash = "sha256:f1e9e88f6346d73df3aa79f72a7b72d1bacddbfce020c3b21f0627ec9724033a"
-callees = [
-    "fn:0fa8af20ad02a849",
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:ee438077f15e89b6",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:df2965cdda454f14",
-    "fn:ff41871a890c9efa",
-]
+id = "fn:d35e7532ed38e1e3"
+name = "carried_cell_lists_equal_upstream_after_layers"
+qual = "carried_cell_lists_equal_upstream_after_layers"
+hash = "sha256:a3762cca9b5aa7f55b590063d892660f5ab3f83b13635455b82569933b59c06e"
+doc_hash = "sha256:3e5adb9eae6d5dc879863b3a1264b969e4772825db4f8e0b5667189363eb7017"
 test = true
 
 [[module."cfmesh_vs_upstream_cell_order.rs".function]]
 id = "fn:f6aab60ff85cba41"
 name = "carried_state_per_stage"
 qual = "carried_state_per_stage"
-lines = [
-    199,
-    220,
-]
 hash = "sha256:280e6b99c9731dc7fc7221ad76b2fd65b8ba186b8c04f8510062856d3625e987"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:60051827e9447526",
-    "fn:af07d77e45566e28",
-    "fn:e8cc0484019d08d6",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:df2965cdda454f14",
-    "fn:ff41871a890c9efa",
-]
 test = true
 
 [[module."cfmesh_vs_upstream_cell_order.rs".function]]
-id = "fn:d35e7532ed38e1e3"
-name = "carried_cell_lists_equal_upstream_after_layers"
-qual = "carried_cell_lists_equal_upstream_after_layers"
-lines = [
-    222,
-    244,
-]
-hash = "sha256:a3762cca9b5aa7f55b590063d892660f5ab3f83b13635455b82569933b59c06e"
-doc_hash = "sha256:3e5adb9eae6d5dc879863b3a1264b969e4772825db4f8e0b5667189363eb7017"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:743491b4916c8818",
-    "fn:af07d77e45566e28",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:df2965cdda454f14",
-]
+id = "fn:e820f50c0541efbd"
+name = "centres_with_cell_lists"
+qual = "centres_with_cell_lists"
+hash = "sha256:5127f63c429b07775c9aea439cc5735aaa943562df61c48401b4d30740577877"
+doc_hash = "sha256:25a202eb6c7f4489ebc118a465d1b44036ac19e0196ceb9bb664f662bac51757"
+test = true
+
+[[module."cfmesh_vs_upstream_cell_order.rs".function]]
+id = "fn:990cde784a94aa04"
+name = "identical"
+qual = "identical"
+hash = "sha256:b3cea71d64d4ad5634c4b03af8ac8069d57584c47c57040f1ac4424d69addc66"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_vs_upstream_cell_order.rs".function]]
+id = "fn:e001458e4557c6ab"
+name = "laplacian_over_upstream_cell_lists_is_bit_identical"
+qual = "laplacian_over_upstream_cell_lists_is_bit_identical"
+hash = "sha256:460ea02921af7b46e1634e3f1311e2abe59cd9629b5957403c8ed3a2bcbbd38e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_vs_upstream_cell_order.rs".function]]
+id = "fn:df905d360e96e6de"
+name = "laplacian_pc"
+qual = "laplacian_pc"
+hash = "sha256:4750df8c5e113fa9fc37b89ac830aab2de9ab6d2d2daf5a5fffac06ddc12d1e4"
+doc_hash = "sha256:7bcdeea52b05263433a3aa0e5e82662cb22c17215b84bde153c68cb8252b80df"
+test = true
+
+[[module."cfmesh_vs_upstream_cell_order.rs".function]]
+id = "fn:743491b4916c8818"
+name = "load_trace"
+qual = "load_trace"
+hash = "sha256:1af34e2691dbe41431182af099056cf18770ae72e21cb9481c88f95fbf0cc801"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_vs_upstream_cell_order.rs".function]]
+id = "fn:354d919828ad169b"
+name = "tet_mesh_carried_cell_lists_vs_upstream"
+qual = "tet_mesh_carried_cell_lists_vs_upstream"
+hash = "sha256:ba5e24dbcf329b4185a20caf16f2fe970d1d0087bd2b0025e9f26d28be608fbf"
+doc_hash = "sha256:f1e9e88f6346d73df3aa79f72a7b72d1bacddbfce020c3b21f0627ec9724033a"
 test = true
 
 [module."cfmesh_vs_upstream_single_orifice.rs"]
@@ -351,165 +154,80 @@ name = "STEPS"
 qual = "STEPS"
 item = "const"
 shape = "const"
-lines = [
-    64,
-    73,
-]
 hash = "sha256:95c02bbd3555b98d435d06ebf2dde2c4a471a3f0a6e73295089eb7accc3b1654"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:d406fef7faccbf15"]
-test = true
-
-[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
-id = "fn:56663e5c468a3a41"
-name = "case_dir"
-qual = "case_dir"
-lines = [
-    75,
-    82,
-]
-hash = "sha256:1d13f5497ca306a89b080862cda13e3d99f488d353f26616b0ff666cf6bdb2af"
-doc_hash = "sha256:32d6159af6b659a1d4d3b87ff11f330057a3f7c48cf1b41d125ab3852c305e6a"
-test = true
-
-[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
-id = "fn:77ad7a2323cbc91c"
-name = "port_run"
-qual = "port_run"
-lines = [
-    84,
-    97,
-]
-hash = "sha256:26b408167251f350de96d247c2d9a85ab6d85a02971f39b4a2f041606439c8cd"
-doc_hash = "sha256:05e9d863c054db71612891d0d01ec91c362dd1d1c252cfa6c16e72cf3c3f9a35"
-callees = [
-    "fn:561e2046a91c7d73",
-    "fn:56663e5c468a3a41",
-    "fn:bc628d718fded8d7",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:b728f0b5af96caa4",
-    "fn:d406fef7faccbf15",
-    "fn:dc4d28cf9867537f",
-    "fn:df2965cdda454f14",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
-id = "fn:c353b1e434dde27c"
-name = "read_poly_mesh_dir"
-qual = "read_poly_mesh_dir"
-lines = [
-    99,
-    114,
-]
-hash = "sha256:c1e86188f7206e7e9985905a3d002e0525af7fa48932bf337ec82864e4296e69"
-doc_hash = "sha256:cce6d2295e67e0679db4e11b49455e833758ac345d8154a2d7baf9c8d0f9aa45"
-callees = [
-    "fn:0b372b7499a47e62",
-    "fn:ee438077f15e89b6",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
-id = "fn:df2171972095909e"
-name = "upstream"
-qual = "upstream"
-lines = [
-    116,
-    125,
-]
-hash = "sha256:80c7f585a6d183d56b79bbd7193261b2318883271cec73680acab200f1ad1413"
-doc_hash = "sha256:a72bbbe30368f340a8ce16e2d178835f296f298b2e656b66431d59c20014c837"
-callees = [
-    "fn:0fa8af20ad02a849",
-    "fn:c353b1e434dde27c",
-]
 test = true
 
 [[module."cfmesh_vs_upstream_single_orifice.rs".function]]
 id = "fn:c31975f873a66284"
 name = "boundary_entries"
 qual = "boundary_entries"
-lines = [
-    127,
-    151,
-]
 hash = "sha256:481fe2fad7be2b625d1378e0cf206794e2df93747a03c46b21a28d0ca3f204f1"
 doc_hash = "sha256:2c935e9ceb7427936f444592d0f99a5a70c2e19ed848a0432c7579a0113d501c"
+test = true
+
+[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
+id = "fn:56663e5c468a3a41"
+name = "case_dir"
+qual = "case_dir"
+hash = "sha256:1d13f5497ca306a89b080862cda13e3d99f488d353f26616b0ff666cf6bdb2af"
+doc_hash = "sha256:32d6159af6b659a1d4d3b87ff11f330057a3f7c48cf1b41d125ab3852c305e6a"
 test = true
 
 [[module."cfmesh_vs_upstream_single_orifice.rs".function]]
 id = "fn:a5ed4e7309a72d68"
 name = "deviation"
 qual = "deviation"
-lines = [
-    153,
-    159,
-]
 hash = "sha256:a496a58dabb681f702d115a4af11c5c9e35fa83acce4fee47738dbcabbe4efb6"
 doc_hash = "sha256:44b62d422a9efeb3f59ca027fe000a49bf67528000636c05be1195b324e476a4"
-callees = ["fn:bd4c38747cd2d347"]
-uses = ["fn:1d52ce14c252d72f"]
 test = true
 
 [[module."cfmesh_vs_upstream_single_orifice.rs".function]]
-id = "fn:169cd765c25de2ea"
-name = "single_orifice_stage_table"
-qual = "single_orifice_stage_table"
-lines = [
-    161,
-    181,
-]
-hash = "sha256:c26ccfba1f60fcea87509f516c6ad0fed5c99c985bb23849eea74845bb5b291a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:77ad7a2323cbc91c",
-    "fn:bd4c38747cd2d347",
-    "fn:df2171972095909e",
-]
-uses = [
-    "fn:672fc58541ccb267",
-    "fn:d406fef7faccbf15",
-]
+id = "fn:77ad7a2323cbc91c"
+name = "port_run"
+qual = "port_run"
+hash = "sha256:26b408167251f350de96d247c2d9a85ab6d85a02971f39b4a2f041606439c8cd"
+doc_hash = "sha256:05e9d863c054db71612891d0d01ec91c362dd1d1c252cfa6c16e72cf3c3f9a35"
+test = true
+
+[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
+id = "fn:c353b1e434dde27c"
+name = "read_poly_mesh_dir"
+qual = "read_poly_mesh_dir"
+hash = "sha256:c1e86188f7206e7e9985905a3d002e0525af7fa48932bf337ec82864e4296e69"
+doc_hash = "sha256:cce6d2295e67e0679db4e11b49455e833758ac345d8154a2d7baf9c8d0f9aa45"
 test = true
 
 [[module."cfmesh_vs_upstream_single_orifice.rs".function]]
 id = "fn:9560b050e18c7579"
 name = "single_orifice_final_mesh_equals_upstream_up_to_the_pow_ulp"
 qual = "single_orifice_final_mesh_equals_upstream_up_to_the_pow_ulp"
-lines = [
-    183,
-    204,
-]
 hash = "sha256:a798800724ca76a63c776062f4d21e25c0bc2c5bda7dd77e225eba8c93953809"
 doc_hash = "sha256:fd22bb11149d39277ca6546a9e5fb6c24f29c0dce094a735972c867b5504a4b6"
-callees = [
-    "fn:0fa8af20ad02a849",
-    "fn:77ad7a2323cbc91c",
-    "fn:a5ed4e7309a72d68",
-    "fn:c31975f873a66284",
-    "fn:c353b1e434dde27c",
-    "fn:ee438077f15e89b6",
-]
+test = true
+
+[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
+id = "fn:169cd765c25de2ea"
+name = "single_orifice_stage_table"
+qual = "single_orifice_stage_table"
+hash = "sha256:c26ccfba1f60fcea87509f516c6ad0fed5c99c985bb23849eea74845bb5b291a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cfmesh_vs_upstream_single_orifice.rs".function]]
 id = "fn:a0178c1acd66226a"
 name = "untangle_boundary_moves_follow_upstream_calls_by_default"
 qual = "untangle_boundary_moves_follow_upstream_calls_by_default"
-lines = [
-    206,
-    213,
-]
 hash = "sha256:36abb1729105275d67b2a4d1ff46ea2809bdb938b4d13dc787d4ba52213b0cb8"
 doc_hash = "sha256:79fac713de270040940d30eaafa597aca0433bb33e4c459d5427db73ed8a8080"
-uses = [
-    "fn:270b09c6f8ef03c9",
-    "fn:8dc70e998d0e25be",
-]
+test = true
+
+[[module."cfmesh_vs_upstream_single_orifice.rs".function]]
+id = "fn:df2171972095909e"
+name = "upstream"
+qual = "upstream"
+hash = "sha256:80c7f585a6d183d56b79bbd7193261b2318883271cec73680acab200f1ad1413"
+doc_hash = "sha256:a72bbbe30368f340a8ce16e2d178835f296f298b2e656b66431d59c20014c837"
 test = true
 
 [module."cfmesh_vs_upstream_sphere.rs"]
@@ -521,505 +239,207 @@ name = "STEPS"
 qual = "STEPS"
 item = "const"
 shape = "const"
-lines = [
-    49,
-    57,
-]
 hash = "sha256:57e3f064502fff219bc580b78d63abd044de495a784d399f414453c9636b966b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:d406fef7faccbf15"]
-test = true
-
-[[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:c4e7363ce9a23f7a"
-name = "stop"
-qual = "stop"
-lines = [
-    59,
-    61,
-]
-hash = "sha256:f6cfbd53ec94e2d03bf1a946f96f3507b467764ded67f7af6470535b7775aab4"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:d406fef7faccbf15",
-    "fn:df2965cdda454f14",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:8a8400f1f5c04599"
-name = "cartesian_stage"
-qual = "cartesian_stage"
-lines = [
-    63,
-    69,
-]
-hash = "sha256:03f9d97a6f9a063dc048bd6292dc9e03105a0553b465ae3f770dccd0d1f5e37c"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:b23c07857fd3318e",
-    "fn:bd4c38747cd2d347",
-    "fn:c4e7363ce9a23f7a",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:2278dbaa4796b87f",
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:d1f29df0a75c0d27"
-name = "p_mesh_stage"
-qual = "p_mesh_stage"
-lines = [
-    71,
-    77,
-]
-hash = "sha256:47644099ee4cfb5075319b9a2fce8c9a5f3d0f520d8fe5ab1fe9e65011eed788"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:60051827e9447526",
-    "fn:af07d77e45566e28",
-    "fn:b23c07857fd3318e",
-    "fn:bd4c38747cd2d347",
-    "fn:c4e7363ce9a23f7a",
-]
-uses = [
-    "fn:2278dbaa4796b87f",
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:ff41871a890c9efa",
-]
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
 id = "fn:6916411510a59cf8"
 name = "assert_matches"
 qual = "assert_matches"
-lines = [
-    79,
-    86,
-]
 hash = "sha256:4eee9f3c084eb6a92f516d1649da244a004741dbe92398986d84dadfc919876a"
 doc_hash = "sha256:5da5f5433804df603371ffe62b5154fb9d30540db2a1bbaf59fb71e1b3abcb6f"
-uses = ["fn:2278dbaa4796b87f"]
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
 id = "fn:42cf34286cdc8e2b"
 name = "cartesian_mesh_matches_upstream_through_mesh_optimisation"
 qual = "cartesian_mesh_matches_upstream_through_mesh_optimisation"
-lines = [
-    88,
-    99,
-]
 hash = "sha256:72371bc6dcb15b6b6b47c11e082c4d60ed07537f551b8e935e70c4568a00623c"
 doc_hash = "sha256:bb63ceca546bcaf9c2a4d52d3434df8082a3f8581a549325f9ef4ee16b94cc1f"
-callees = [
-    "fn:6916411510a59cf8",
-    "fn:8a8400f1f5c04599",
-]
-uses = ["fn:ff51a68d78dfa288"]
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:528738854119041e"
-name = "p_mesh_matches_upstream_through_mesh_optimisation"
-qual = "p_mesh_matches_upstream_through_mesh_optimisation"
-lines = [
-    101,
-    112,
-]
-hash = "sha256:2bc3b89cb0a5800ddce71fba8813a0257ba61b1e00425091cfd0ef089fa21f8e"
-doc_hash = "sha256:a66f0706c35f942fea5de945e76e98e9187b95913d9d918c573cf9bb5a077850"
-callees = [
-    "fn:6916411510a59cf8",
-    "fn:d1f29df0a75c0d27",
-]
-uses = ["fn:ff51a68d78dfa288"]
+id = "fn:8a8400f1f5c04599"
+name = "cartesian_stage"
+qual = "cartesian_stage"
+hash = "sha256:03f9d97a6f9a063dc048bd6292dc9e03105a0553b465ae3f770dccd0d1f5e37c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
 id = "fn:5a8466657660d6c6"
 name = "final_cartesian"
 qual = "final_cartesian"
-lines = [
-    114,
-    119,
-]
 hash = "sha256:fe05fe95ad8e61037cc17951512663f63029d311261aa3e8163a13646652dd0b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:b23c07857fd3318e",
-    "fn:bd4c38747cd2d347",
-    "fn:e8cc0484019d08d6",
-]
-uses = [
-    "fn:1548405f51e370a9",
-    "fn:2278dbaa4796b87f",
-    "fn:5e617327bd4b2fca",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:76999d7ceda13b19"
-name = "final_tet"
-qual = "final_tet"
-lines = [
-    121,
-    126,
-]
-hash = "sha256:58474bd14f91d0ca67b61574be0d35e9a46fb3d8b9f6c4226412a5188823d81c"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:b23c07857fd3318e",
-    "fn:bd4c38747cd2d347",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:2278dbaa4796b87f",
-    "fn:5e617327bd4b2fca",
-    "fn:ff41871a890c9efa",
-]
-test = true
-
-[[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:408f4c262eee9b88"
-name = "final_p"
-qual = "final_p"
-lines = [
-    128,
-    133,
-]
-hash = "sha256:f1e9953a5bf31982df65660b21a2a6b5eb064dd5736da10d588d96777dacf558"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:60051827e9447526",
-    "fn:af07d77e45566e28",
-    "fn:b23c07857fd3318e",
-    "fn:bd4c38747cd2d347",
-]
-uses = [
-    "fn:2278dbaa4796b87f",
-    "fn:5e617327bd4b2fca",
-    "fn:ff41871a890c9efa",
-]
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
 id = "fn:535532305d005470"
 name = "final_meshes_match_upstream"
 qual = "final_meshes_match_upstream"
-lines = [
-    135,
-    146,
-]
 hash = "sha256:631945d26e197c0ef881598f2c905670ac7f814bd31cfe942daa933c0aa9ffed"
 doc_hash = "sha256:df89adbdfd0834f026130fcf22aa9cf7196277636d543ab9da4ef122ab678800"
-callees = [
-    "fn:408f4c262eee9b88",
-    "fn:5a8466657660d6c6",
-    "fn:6916411510a59cf8",
-    "fn:76999d7ceda13b19",
-]
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
-id = "fn:b95bee6780ad6cfe"
-name = "tet_stage"
-qual = "tet_stage"
-lines = [
-    148,
-    154,
-]
-hash = "sha256:7799107161a078c46ceac828e714683d6fa636482f50586fb8b8f2c3ba7f0305"
+id = "fn:408f4c262eee9b88"
+name = "final_p"
+qual = "final_p"
+hash = "sha256:f1e9953a5bf31982df65660b21a2a6b5eb064dd5736da10d588d96777dacf558"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3f596d290e9626ae",
-    "fn:af07d77e45566e28",
-    "fn:b23c07857fd3318e",
-    "fn:bd4c38747cd2d347",
-    "fn:c4e7363ce9a23f7a",
-    "fn:fcaa09de3a030441",
-]
-uses = [
-    "fn:2278dbaa4796b87f",
-    "fn:5e617327bd4b2fca",
-    "fn:d406fef7faccbf15",
-    "fn:ff41871a890c9efa",
-]
+test = true
+
+[[module."cfmesh_vs_upstream_sphere.rs".function]]
+id = "fn:76999d7ceda13b19"
+name = "final_tet"
+qual = "final_tet"
+hash = "sha256:58474bd14f91d0ca67b61574be0d35e9a46fb3d8b9f6c4226412a5188823d81c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_vs_upstream_sphere.rs".function]]
+id = "fn:528738854119041e"
+name = "p_mesh_matches_upstream_through_mesh_optimisation"
+qual = "p_mesh_matches_upstream_through_mesh_optimisation"
+hash = "sha256:2bc3b89cb0a5800ddce71fba8813a0257ba61b1e00425091cfd0ef089fa21f8e"
+doc_hash = "sha256:a66f0706c35f942fea5de945e76e98e9187b95913d9d918c573cf9bb5a077850"
+test = true
+
+[[module."cfmesh_vs_upstream_sphere.rs".function]]
+id = "fn:d1f29df0a75c0d27"
+name = "p_mesh_stage"
+qual = "p_mesh_stage"
+hash = "sha256:47644099ee4cfb5075319b9a2fce8c9a5f3d0f520d8fe5ab1fe9e65011eed788"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cfmesh_vs_upstream_sphere.rs".function]]
+id = "fn:c4e7363ce9a23f7a"
+name = "stop"
+qual = "stop"
+hash = "sha256:f6cfbd53ec94e2d03bf1a946f96f3507b467764ded67f7af6470535b7775aab4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."cfmesh_vs_upstream_sphere.rs".function]]
 id = "fn:9256a8fb5f443d5c"
 name = "tet_mesh_matches_upstream_through_mesh_optimisation"
 qual = "tet_mesh_matches_upstream_through_mesh_optimisation"
-lines = [
-    156,
-    169,
-]
 hash = "sha256:6f5e17331c9243797432799644b91bb4de06396c6a027ad3bddb6cc9cf701555"
 doc_hash = "sha256:034c442f01075ef472b8e33f2d852701b07708a725bec523234538ca4861f5db"
-callees = [
-    "fn:6916411510a59cf8",
-    "fn:b95bee6780ad6cfe",
-]
-uses = ["fn:ff51a68d78dfa288"]
+test = true
+
+[[module."cfmesh_vs_upstream_sphere.rs".function]]
+id = "fn:b95bee6780ad6cfe"
+name = "tet_stage"
+qual = "tet_stage"
+hash = "sha256:7799107161a078c46ceac828e714683d6fa636482f50586fb8b8f2c3ba7f0305"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [module."tetgen_delaunay_vs_upstream.rs"]
 path = "test:tetgen_delaunay_vs_upstream"
 
 [[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:62b71ce37123743b"
-name = "gunzip"
-qual = "gunzip"
-lines = [
-    55,
-    63,
-]
-hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
-doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:5c2070bf381b9f36"
-name = "read_gz"
-qual = "read_gz"
-lines = [
-    65,
-    71,
-]
-hash = "sha256:45970293dad093a738c9d76f34775e1d4bf86616099d2475c1da242aab045355"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:62b71ce37123743b"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:23dbf0c19a44cc45"
-name = "lines"
-qual = "lines"
-lines = [
-    73,
-    80,
-]
-hash = "sha256:de5ebc1ee7a4335e4f67bc755a51245540596e9599247af401fe33f34225a52b"
-doc_hash = "sha256:4d55f9b2de2283fa300320ea84ab499f43c22860672852304b053922dd4a4e46"
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:d45a0ffb14f08987"
-name = "read_node"
-qual = "read_node"
-lines = [
-    82,
-    95,
-]
-hash = "sha256:49f43c2e9049201299be0d34dd98bc9e9a4a84b6d997221ecdc7fd607ec1dc09"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:23dbf0c19a44cc45"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:4d37602543d939d7"
-name = "read_ele"
-qual = "read_ele"
-lines = [
-    97,
-    112,
-]
-hash = "sha256:565c6806fe39fdae057433e355a0fbe60b516ced4b5f51147ddd9f9482a8d0eb"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:23dbf0c19a44cc45"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
 id = "fn:c32848d6ea18a662"
 name = "check"
 qual = "check"
-lines = [
-    114,
-    143,
-]
 hash = "sha256:69584fe7595cfee270dadc056b77c53528cce1e8357f9ca1eb32016a2501d896"
 doc_hash = "sha256:a60f3b337615bdac601332822425fc9fe3c45d06c49d3b9c6a3ab93b5be2c68b"
-callees = [
-    "fn:451a33912f4d8ff6",
-    "fn:4d37602543d939d7",
-    "fn:5c2070bf381b9f36",
-    "fn:d45a0ffb14f08987",
-]
-uses = ["fn:e9ddd52c7b968431"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:f5b2f513544fb9fd"
-name = "random_clouds_match_upstream"
-qual = "random_clouds_match_upstream"
-lines = [
-    145,
-    152,
-]
-hash = "sha256:a6b37fb0da3a5362917d6a6a40af276f37412da4c0550e8e69145e240094bc01"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c32848d6ea18a662"]
-uses = ["fn:e9ddd52c7b968431"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:39dd06fe3755007e"
-name = "random_cloud_without_brio_matches_upstream"
-qual = "random_cloud_without_brio_matches_upstream"
-lines = [
-    154,
-    161,
-]
-hash = "sha256:b8cb97da6e271b4ab0b8ae67e99fd832513f37a0a502771bf5e54ebc67f5b3a4"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c32848d6ea18a662"]
-uses = ["fn:e9ddd52c7b968431"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:4e1fb15b06d5e015"
-name = "input_order_large_cavity_matches_upstream"
-qual = "input_order_large_cavity_matches_upstream"
-lines = [
-    163,
-    175,
-]
-hash = "sha256:24099645c13e52e70d75428cb93242cc83ee1da6838873cc0ecb9b0af22cee14"
-doc_hash = "sha256:defda6d957b217cd3597cbc3080c4aa37260482a8c0d8af4af1942b3a539b77d"
-callees = ["fn:c32848d6ea18a662"]
-uses = ["fn:e9ddd52c7b968431"]
 test = true
 
 [[module."tetgen_delaunay_vs_upstream.rs".function]]
 id = "fn:61b71b456f273fad"
 name = "degenerate_sets_match_upstream"
 qual = "degenerate_sets_match_upstream"
-lines = [
-    177,
-    189,
-]
 hash = "sha256:19edf4dbbb33f17a5c0df5139bd30a58c86637303b12dc93b874fd90b5ee9961"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c32848d6ea18a662"]
-uses = ["fn:e9ddd52c7b968431"]
-test = true
-
-[[module."tetgen_delaunay_vs_upstream.rs".function]]
-id = "fn:c33679f9f4983514"
-name = "duplicates_match_upstream"
-qual = "duplicates_match_upstream"
-lines = [
-    191,
-    201,
-]
-hash = "sha256:847117425c9fdfbfb3f409e886a1a5fbaff8e93a85f654886461fd0e48e7fd8c"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:451a33912f4d8ff6",
-    "fn:5c2070bf381b9f36",
-    "fn:c32848d6ea18a662",
-    "fn:d45a0ffb14f08987",
-]
-uses = ["fn:e9ddd52c7b968431"]
 test = true
 
 [[module."tetgen_delaunay_vs_upstream.rs".function]]
 id = "fn:b9f43d3db9702d1f"
 name = "delaunay_properties_hold"
 qual = "delaunay_properties_hold"
-lines = [
-    203,
-    293,
-]
 hash = "sha256:494d1163f97c6e6b9c7e94dda5d50607605a686cf890e89204e5e81796827fe0"
 doc_hash = "sha256:4994e4887376090f6b71719d7a5e9ac794cfac5520a995408b455e047d38b430"
-callees = [
-    "fn:451a33912f4d8ff6",
-    "fn:5c2070bf381b9f36",
-    "fn:d45a0ffb14f08987",
-]
-uses = [
-    "fn:50f66bf24ef62aa8",
-    "fn:e9ddd52c7b968431",
-]
 test = true
 
-[module."tetgen_meshsurface_vs_upstream.rs"]
-path = "test:tetgen_meshsurface_vs_upstream"
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:c33679f9f4983514"
+name = "duplicates_match_upstream"
+qual = "duplicates_match_upstream"
+hash = "sha256:847117425c9fdfbfb3f409e886a1a5fbaff8e93a85f654886461fd0e48e7fd8c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:d58cbe43a1c31c9f"
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:62b71ce37123743b"
 name = "gunzip"
 qual = "gunzip"
-lines = [
-    76,
-    84,
-]
 hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
 doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
 test = true
 
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:47c3e2c5412d1327"
-name = "data_dir"
-qual = "data_dir"
-lines = [
-    86,
-    88,
-]
-hash = "sha256:25a18bfe192679ccc59cab75c72b30a15b9a262b4ccbc87089b8973a0005883a"
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:4e1fb15b06d5e015"
+name = "input_order_large_cavity_matches_upstream"
+qual = "input_order_large_cavity_matches_upstream"
+hash = "sha256:24099645c13e52e70d75428cb93242cc83ee1da6838873cc0ecb9b0af22cee14"
+doc_hash = "sha256:defda6d957b217cd3597cbc3080c4aa37260482a8c0d8af4af1942b3a539b77d"
+test = true
+
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:23dbf0c19a44cc45"
+name = "lines"
+qual = "lines"
+hash = "sha256:de5ebc1ee7a4335e4f67bc755a51245540596e9599247af401fe33f34225a52b"
+doc_hash = "sha256:4d55f9b2de2283fa300320ea84ab499f43c22860672852304b053922dd4a4e46"
+test = true
+
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:39dd06fe3755007e"
+name = "random_cloud_without_brio_matches_upstream"
+qual = "random_cloud_without_brio_matches_upstream"
+hash = "sha256:b8cb97da6e271b4ab0b8ae67e99fd832513f37a0a502771bf5e54ebc67f5b3a4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:bdbe7ff5cf9202b7"
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:f5b2f513544fb9fd"
+name = "random_clouds_match_upstream"
+qual = "random_clouds_match_upstream"
+hash = "sha256:a6b37fb0da3a5362917d6a6a40af276f37412da4c0550e8e69145e240094bc01"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:4d37602543d939d7"
+name = "read_ele"
+qual = "read_ele"
+hash = "sha256:565c6806fe39fdae057433e355a0fbe60b516ced4b5f51147ddd9f9482a8d0eb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:5c2070bf381b9f36"
 name = "read_gz"
 qual = "read_gz"
-lines = [
-    90,
-    94,
-]
-hash = "sha256:c0b01549b5a81af3330ba8139ee2f72e66f851bb5b8ccc2bfa123e25b9e880fc"
+hash = "sha256:45970293dad093a738c9d76f34775e1d4bf86616099d2475c1da242aab045355"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:47c3e2c5412d1327",
-    "fn:d58cbe43a1c31c9f",
-]
 test = true
 
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:9aaf13702f9847be"
-name = "input"
-qual = "input"
-lines = [
-    96,
-    108,
-]
-hash = "sha256:af272caa4c49d42a5a82d00c2aa4556c89e6fe77051604d9e1132dcd5bdc4287"
-doc_hash = "sha256:0d038d0e86553d6befd8eae1330aa868d83f09a59dcb174056f257093c363fac"
-callees = [
-    "fn:47c3e2c5412d1327",
-    "fn:6cc43c7fcc08407d",
-    "fn:bdbe7ff5cf9202b7",
-    "fn:c2641d2283c245b5",
-]
-uses = ["fn:0bccb1dd2f6ef767"]
+[[module."tetgen_delaunay_vs_upstream.rs".function]]
+id = "fn:d45a0ffb14f08987"
+name = "read_node"
+qual = "read_node"
+hash = "sha256:49f43c2e9049201299be0d34dd98bc9e9a4a84b6d997221ecdc7fd607ec1dc09"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
+
+[module."tetgen_meshsurface_vs_upstream.rs"]
+path = "test:tetgen_meshsurface_vs_upstream"
 
 [[module."tetgen_meshsurface_vs_upstream.rs".function]]
 id = "fn:855f76723e063542"
@@ -1027,125 +447,63 @@ name = "CASES"
 qual = "CASES"
 item = "const"
 shape = "const"
-lines = [
-    110,
-    124,
-]
 hash = "sha256:e1082f7fed353dc89f61fd91ee5805c390b786386a2c9524af7ccdaeaa293117"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:8cf8e3ff839af47a"
-name = "counts"
-qual = "counts"
-lines = [
-    126,
-    140,
-]
-hash = "sha256:256b588e8072ff7eba317178c94bb9d5945e08239b15f0d30a0fb77bc45ec64b"
-doc_hash = "sha256:230bd55601edde0cb4e2a74a5fa995cd265e71a215dabab1f648e8166201ce53"
 test = true
 
 [[module."tetgen_meshsurface_vs_upstream.rs".function]]
 id = "fn:831f528c9a36f610"
 name = "check"
 qual = "check"
-lines = [
-    142,
-    169,
-]
 hash = "sha256:1bfa65e8e58e543b95bc52bfa74b712d184f4f680e8f689bd563f72024d60fd8"
 doc_hash = "sha256:9efee84d23b7ae0afd6bd92928969e701c01fcce975c9680e1400b2335303da7"
-callees = [
-    "fn:18cc4e94bfe5b7fa",
-    "fn:489038cd17f7acdb",
-    "fn:4cf28bfab50880ed",
-    "fn:5f630e541e2e866c",
-    "fn:9aaf13702f9847be",
-    "fn:a0da348487986b81",
-    "fn:bdbe7ff5cf9202b7",
-]
-uses = [
-    "fn:0a6b04436513fcba",
-    "fn:e9ddd52c7b968431",
-]
 test = true
 
 [[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:72328578f24c2b7d"
-name = "meshsurface_matches_upstream_on_every_case"
-qual = "meshsurface_matches_upstream_on_every_case"
-lines = [
-    171,
-    183,
-]
-hash = "sha256:79db0096c5817e342b7fcc280b9c8c58f7d6c6e4c33eaa9b9b240fe380ccf867"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:831f528c9a36f610",
-    "fn:8cf8e3ff839af47a",
-]
-uses = ["fn:855f76723e063542"]
-test = true
-
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:8a6bae4e6dbf8dab"
-name = "the_comparison_can_fail"
-qual = "the_comparison_can_fail"
-lines = [
-    185,
-    199,
-]
-hash = "sha256:c07aaaa24ca5c29fd60be7c7ecb9ff0b30a612289d0d2a241b6d7d3a96fc881d"
-doc_hash = "sha256:995dee0783034e1572d0c3ac8ed144647412265747543ce2d427c87ef12be06b"
-callees = [
-    "fn:831f528c9a36f610",
-    "fn:9aaf13702f9847be",
-    "fn:a0d94e0d61bd2c34",
-    "fn:bdbe7ff5cf9202b7",
-]
-uses = ["fn:e9ddd52c7b968431"]
-test = true
-
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:386c48e568383460"
-name = "upstream_crash_is_an_internal_error"
-qual = "upstream_crash_is_an_internal_error"
-lines = [
-    201,
-    213,
-]
-hash = "sha256:88bf52d3aff9e77a594a1827c4a988264fc9654fc1e3d1c92a8c7bd78a27eac2"
-doc_hash = "sha256:46b581af178b7cf6f962768e69a09576328105adddea20141753f1d0b41dc605"
-callees = [
-    "fn:bdbe7ff5cf9202b7",
-    "fn:c2641d2283c245b5",
-]
-uses = ["fn:0bccb1dd2f6ef767"]
-test = true
-
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:fb7e5b647ef519e2"
-name = "sub"
-qual = "sub"
-lines = [
-    215,
-    217,
-]
-hash = "sha256:2b160ddb58ce049deecf914549ecb432a75a9253038675991238130ebd193d4a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+id = "fn:8cf8e3ff839af47a"
+name = "counts"
+qual = "counts"
+hash = "sha256:256b588e8072ff7eba317178c94bb9d5945e08239b15f0d30a0fb77bc45ec64b"
+doc_hash = "sha256:230bd55601edde0cb4e2a74a5fa995cd265e71a215dabab1f648e8166201ce53"
 test = true
 
 [[module."tetgen_meshsurface_vs_upstream.rs".function]]
 id = "fn:18fcaf9dff2f4375"
 name = "crossv"
 qual = "crossv"
-lines = [
-    218,
-    224,
-]
 hash = "sha256:263e1965ebc5ec6e2e60e2d24c93a58d575c8abb21bb57858e7e58d09f7d8a6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:47c3e2c5412d1327"
+name = "data_dir"
+qual = "data_dir"
+hash = "sha256:25a18bfe192679ccc59cab75c72b30a15b9a262b4ccbc87089b8973a0005883a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:d58cbe43a1c31c9f"
+name = "gunzip"
+qual = "gunzip"
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:9aaf13702f9847be"
+name = "input"
+qual = "input"
+hash = "sha256:af272caa4c49d42a5a82d00c2aa4556c89e6fe77051604d9e1132dcd5bdc4287"
+doc_hash = "sha256:0d038d0e86553d6befd8eae1330aa868d83f09a59dcb174056f257093c363fac"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:72328578f24c2b7d"
+name = "meshsurface_matches_upstream_on_every_case"
+qual = "meshsurface_matches_upstream_on_every_case"
+hash = "sha256:79db0096c5817e342b7fcc280b9c8c58f7d6c6e4c33eaa9b9b240fe380ccf867"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -1153,11 +511,31 @@ test = true
 id = "fn:c00d437d18a9b869"
 name = "norm"
 qual = "norm"
-lines = [
-    225,
-    227,
-]
 hash = "sha256:32e6ee699c3b86fbb66791e79ff71cc3ff5df42faa7d8cfa539bf145c9c41073"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:be13d9cfbc874d90"
+name = "reactor_surface"
+qual = "reactor_surface"
+hash = "sha256:8e3294be7aeb28df539b1da37856e40cffa898dd72cd6596ae0158972a0da3db"
+doc_hash = "sha256:d32a10e7d95da3464524987346bed6366cf5ea8810441c8c6e95d5a2332d21c5"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:bdbe7ff5cf9202b7"
+name = "read_gz"
+qual = "read_gz"
+hash = "sha256:c0b01549b5a81af3330ba8139ee2f72e66f851bb5b8ccc2bfa123e25b9e880fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:fb7e5b647ef519e2"
+name = "sub"
+qual = "sub"
+hash = "sha256:2b160ddb58ce049deecf914549ecb432a75a9253038675991238130ebd193d4a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -1165,109 +543,36 @@ test = true
 id = "fn:e5278083fadbe295"
 name = "surface_covers_facets_and_segments_cover_polygon_edges"
 qual = "surface_covers_facets_and_segments_cover_polygon_edges"
-lines = [
-    229,
-    344,
-]
 hash = "sha256:675f0cdc3a21038253dd3ee19d775afd36f3c491b66011bcfeaccaa705ddd692"
 doc_hash = "sha256:1cdecca210f70a33b289931f4492538f4aaae2886e3aea4b091bcc2e98c12a68"
-callees = [
-    "fn:18fcaf9dff2f4375",
-    "fn:9270565698c13f40",
-    "fn:9aaf13702f9847be",
-    "fn:c00d437d18a9b869",
-    "fn:fb7e5b647ef519e2",
-]
-uses = ["fn:855f76723e063542"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:8a6bae4e6dbf8dab"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+hash = "sha256:c07aaaa24ca5c29fd60be7c7ecb9ff0b30a612289d0d2a241b6d7d3a96fc881d"
+doc_hash = "sha256:995dee0783034e1572d0c3ac8ed144647412265747543ce2d427c87ef12be06b"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:386c48e568383460"
+name = "upstream_crash_is_an_internal_error"
+qual = "upstream_crash_is_an_internal_error"
+hash = "sha256:88bf52d3aff9e77a594a1827c4a988264fc9654fc1e3d1c92a8c7bd78a27eac2"
+doc_hash = "sha256:46b581af178b7cf6f962768e69a09576328105adddea20141753f1d0b41dc605"
 test = true
 
 [[module."tetgen_meshsurface_vs_upstream.rs".function]]
 id = "fn:70d115345093ad82"
 name = "write_inputs"
 qual = "write_inputs"
-lines = [
-    346,
-    702,
-]
 hash = "sha256:01b8d9ac1415c419ec48ec7be617e364a373386105b598e430b537a35b4fcf75"
 doc_hash = "sha256:e70b287dd8e4306d847104cbcf197892b07e6016d16e5a73c27b662e09cd95ad"
-callees = [
-    "fn:069f38ad2ce15d48",
-    "fn:4034c40712173a6d",
-    "fn:be13d9cfbc874d90",
-]
-uses = ["fn:0bccb1dd2f6ef767"]
-test = true
-
-[[module."tetgen_meshsurface_vs_upstream.rs".function]]
-id = "fn:be13d9cfbc874d90"
-name = "reactor_surface"
-qual = "reactor_surface"
-lines = [
-    704,
-    829,
-]
-hash = "sha256:8e3294be7aeb28df539b1da37856e40cffa898dd72cd6596ae0158972a0da3db"
-doc_hash = "sha256:d32a10e7d95da3464524987346bed6366cf5ea8810441c8c6e95d5a2332d21c5"
-uses = ["fn:0bb173954082584d"]
 test = true
 
 [module."tetgen_plc_vs_upstream.rs"]
 path = "test:tetgen_plc_vs_upstream"
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:9df3baaa8a321fb8"
-name = "gunzip"
-qual = "gunzip"
-lines = [
-    32,
-    40,
-]
-hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
-doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:9ce5f1ff7d86722c"
-name = "root"
-qual = "root"
-lines = [
-    42,
-    44,
-]
-hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:978ddc5d2f754405"
-name = "read_gz"
-qual = "read_gz"
-lines = [
-    46,
-    50,
-]
-hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:9ce5f1ff7d86722c",
-    "fn:9df3baaa8a321fb8",
-]
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:4c6366bdcf9c421a"
-name = "input"
-qual = "input"
-lines = [
-    52,
-    68,
-]
-hash = "sha256:b82d6ffc5f857e62202a45b0ddf739cc9a8601dd6e00ccd514c0aa99571018a7"
-doc_hash = "sha256:e53f47c688bc1e443ca9bafb9f05e7c7c9acd350dbd0e0ab7a345396792f7d11"
-callees = ["fn:978ddc5d2f754405"]
-uses = ["fn:0bccb1dd2f6ef767"]
-test = true
 
 [[module."tetgen_plc_vs_upstream.rs".function]]
 id = "fn:84efad509974906c"
@@ -1275,10 +580,6 @@ name = "CASES"
 qual = "CASES"
 item = "const"
 shape = "const"
-lines = [
-    70,
-    92,
-]
 hash = "sha256:bb21ebb02eb4901a97a6ff4e2002d103c71e2bd038d7241e0c34be34137c9fd4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
@@ -1289,171 +590,108 @@ name = "REGION_CASES"
 qual = "REGION_CASES"
 item = "const"
 shape = "const"
-lines = [
-    94,
-    95,
-]
 hash = "sha256:76cd0b43b1823b0992d00317b2528d39e6dd09405b155861fd0178382345671f"
 doc_hash = "sha256:67271f4c94930431aca174fc5061e6e85bf412c5b5a828cd3dd50ac06bf04284"
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:22d8b935ac383594"
-name = "runs"
-qual = "runs"
-lines = [
-    97,
-    110,
-]
-hash = "sha256:3cc8c9a83d6a3d5ca00d27077e1816d95cd16c8db07b5fdcf112cb3eb233d0b9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:84efad509974906c",
-    "fn:938d52aaadba82f8",
-]
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:94a8f72a7cab0481"
-name = "run"
-qual = "run"
-lines = [
-    112,
-    124,
-]
-hash = "sha256:d6d36a463c0cb520b406b8e7731525c213a5d97f80c08fd172a9448565be68c0"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:4c6366bdcf9c421a",
-    "fn:771e812129659e7b",
-    "fn:ce773a8c18c56a13",
-]
-uses = [
-    "fn:8d734c21969ac0e6",
-    "fn:9d31c3e16ee6aee8",
-]
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:562bb694881e45b6"
-name = "files"
-qual = "files"
-lines = [
-    126,
-    134,
-]
-hash = "sha256:bfede814f5c17e3b520575d4f5807e9370bcdf52b897c46fc8a6f78d2cf8da56"
-doc_hash = "sha256:ab052ce4e19ff2bca0b485d9cd24dd5325001e10d10b89f256c728be1955b904"
-callees = [
-    "fn:6d287bb65f177349",
-    "fn:8292c558519bd890",
-    "fn:ad77aff9f3a06e04",
-    "fn:cef9cdef0608a7e3",
-]
-uses = ["fn:8d734c21969ac0e6"]
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:1d46f43ef5a181c6"
-name = "plc_output_matches_upstream_byte_for_byte"
-qual = "plc_output_matches_upstream_byte_for_byte"
-lines = [
-    136,
-    183,
-]
-hash = "sha256:d03b2f071aada2cdfa94aaa66845b362ac5fdb6be518dc380f0ba8b9c9f478d6"
-doc_hash = "sha256:f9f58442cb3b0c3389827e9058cc32d9e6d84643c7b24f99dc0764ac4d56ca97"
-callees = [
-    "fn:22d8b935ac383594",
-    "fn:562bb694881e45b6",
-    "fn:94a8f72a7cab0481",
-    "fn:978ddc5d2f754405",
-]
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:d508a92668c3f2c6"
-name = "the_comparison_can_fail"
-qual = "the_comparison_can_fail"
-lines = [
-    185,
-    199,
-]
-hash = "sha256:eaed90414f6e1fac017e48cb4062a57dce754f2f898e721a47f4edceadc908d3"
-doc_hash = "sha256:7f6ea3b68722eeae4495d1d0e4ec6f4c87d0321123f538e1ab68c42b396f1603"
-callees = [
-    "fn:4c6366bdcf9c421a",
-    "fn:771e812129659e7b",
-    "fn:ce773a8c18c56a13",
-]
-uses = ["fn:9d31c3e16ee6aee8"]
-test = true
-
-[[module."tetgen_plc_vs_upstream.rs".function]]
-id = "fn:3cf403b9bc250372"
-name = "plc_volume"
-qual = "plc_volume"
-lines = [
-    201,
-    429,
-]
-hash = "sha256:d7c189c729b72cd4982103cf88ef8c8ae450c961119b6fdfa52738134d239bf5"
-doc_hash = "sha256:05d069997f3b3a2cb69c329433dd64fe47e3b912ec56adb10a76c3618eaac9fc"
-uses = ["fn:0bccb1dd2f6ef767"]
 test = true
 
 [[module."tetgen_plc_vs_upstream.rs".function]]
 id = "fn:2d365b6ae6d4eb28"
 name = "domain_volume"
 qual = "domain_volume"
-lines = [
-    431,
-    453,
-]
 hash = "sha256:c24abce4bfa44642cc03a134afa281762e9add0ae930cd35846a976c7ff972b7"
 doc_hash = "sha256:04ddfa024d5bbd3da7efe667e53c5d5a567c0be94151d876ace87b3c2b801892"
-callees = ["fn:3cf403b9bc250372"]
-uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:562bb694881e45b6"
+name = "files"
+qual = "files"
+hash = "sha256:bfede814f5c17e3b520575d4f5807e9370bcdf52b897c46fc8a6f78d2cf8da56"
+doc_hash = "sha256:ab052ce4e19ff2bca0b485d9cd24dd5325001e10d10b89f256c728be1955b904"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:9df3baaa8a321fb8"
+name = "gunzip"
+qual = "gunzip"
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:4c6366bdcf9c421a"
+name = "input"
+qual = "input"
+hash = "sha256:b82d6ffc5f857e62202a45b0ddf739cc9a8601dd6e00ccd514c0aa99571018a7"
+doc_hash = "sha256:e53f47c688bc1e443ca9bafb9f05e7c7c9acd350dbd0e0ab7a345396792f7d11"
 test = true
 
 [[module."tetgen_plc_vs_upstream.rs".function]]
 id = "fn:636c1ab9fcf8ce9d"
 name = "plc_mesh_fills_the_domain"
 qual = "plc_mesh_fills_the_domain"
-lines = [
-    455,
-    552,
-]
 hash = "sha256:e8d28a7f55c676abaacc22cf0a6d0989fd750eafed3935ccde312de2c5f22256"
 doc_hash = "sha256:8640790886551cc861ece05a5fc5a4694e4d8c9d64928edf215e44e54ac70a98"
-callees = [
-    "fn:22d8b935ac383594",
-    "fn:2d365b6ae6d4eb28",
-    "fn:4c6366bdcf9c421a",
-    "fn:ce773a8c18c56a13",
-    "fn:d151ee25de1a2268",
-]
-uses = [
-    "fn:12aef5334fbdc77b",
-    "fn:9d31c3e16ee6aee8",
-    "fn:eb811f9606bcca5f",
-]
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:1d46f43ef5a181c6"
+name = "plc_output_matches_upstream_byte_for_byte"
+qual = "plc_output_matches_upstream_byte_for_byte"
+hash = "sha256:d03b2f071aada2cdfa94aaa66845b362ac5fdb6be518dc380f0ba8b9c9f478d6"
+doc_hash = "sha256:f9f58442cb3b0c3389827e9058cc32d9e6d84643c7b24f99dc0764ac4d56ca97"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:3cf403b9bc250372"
+name = "plc_volume"
+qual = "plc_volume"
+hash = "sha256:d7c189c729b72cd4982103cf88ef8c8ae450c961119b6fdfa52738134d239bf5"
+doc_hash = "sha256:05d069997f3b3a2cb69c329433dd64fe47e3b912ec56adb10a76c3618eaac9fc"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:978ddc5d2f754405"
+name = "read_gz"
+qual = "read_gz"
+hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:9ce5f1ff7d86722c"
+name = "root"
+qual = "root"
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:94a8f72a7cab0481"
+name = "run"
+qual = "run"
+hash = "sha256:d6d36a463c0cb520b406b8e7731525c213a5d97f80c08fd172a9448565be68c0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:22d8b935ac383594"
+name = "runs"
+qual = "runs"
+hash = "sha256:3cc8c9a83d6a3d5ca00d27077e1816d95cd16c8db07b5fdcf112cb3eb233d0b9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_plc_vs_upstream.rs".function]]
+id = "fn:d508a92668c3f2c6"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+hash = "sha256:eaed90414f6e1fac017e48cb4062a57dce754f2f898e721a47f4edceadc908d3"
+doc_hash = "sha256:7f6ea3b68722eeae4495d1d0e4ec6f4c87d0321123f538e1ab68c42b396f1603"
 test = true
 
 [module."tetgen_predicates_vs_upstream.rs"]
 path = "test:tetgen_predicates_vs_upstream"
-
-[[module."tetgen_predicates_vs_upstream.rs".function]]
-id = "fn:0e3363db189b9ea2"
-name = "gunzip"
-qual = "gunzip"
-lines = [
-    60,
-    68,
-]
-hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
-doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
-test = true
 
 [[module."tetgen_predicates_vs_upstream.rs".function]]
 id = "fn:e0e300220659122c"
@@ -1461,95 +699,56 @@ name = "Reader"
 qual = "Reader"
 item = "type"
 shape = "struct"
-lines = [
-    70,
-    74,
-]
 hash = "sha256:5b98fd4a3bea7af61a43ddb06d184bce68f9d05a032b8ad66b1998ca585f43e6"
 doc_hash = "sha256:3d16f4a7e9ce9bee27bf30c7188acb2f5e5f22c62a8f5ebbae9722ab98b0c0d1"
-test = true
-
-[[module."tetgen_predicates_vs_upstream.rs".function]]
-id = "fn:c6e933ec3a8bf069"
-name = "take"
-qual = "Reader::take"
-lines = [
-    77,
-    81,
-]
-hash = "sha256:da0a66c1eaa8582e372911e98692e0d41bf80875c4ab7145ccb73658268ea24a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:e0e300220659122c"]
-test = true
-
-[[module."tetgen_predicates_vs_upstream.rs".function]]
-id = "fn:36653ef377932301"
-name = "u8"
-qual = "Reader::u8"
-lines = [
-    82,
-    84,
-]
-hash = "sha256:7b4f4309c20c5436c682309b615ab98f1a0fb9a37d844f8def68506f23b07aa1"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c6e933ec3a8bf069"]
-uses = ["fn:e0e300220659122c"]
-test = true
-
-[[module."tetgen_predicates_vs_upstream.rs".function]]
-id = "fn:1aec3374aa8901e3"
-name = "u32"
-qual = "Reader::u32"
-lines = [
-    85,
-    87,
-]
-hash = "sha256:ccebf4f599b3ecfdff42bd89a5a5f176f2cde8aec194ad112159be6cd943f6d2"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c6e933ec3a8bf069"]
-uses = ["fn:e0e300220659122c"]
-test = true
-
-[[module."tetgen_predicates_vs_upstream.rs".function]]
-id = "fn:086c10158ef222b8"
-name = "u64"
-qual = "Reader::u64"
-lines = [
-    88,
-    90,
-]
-hash = "sha256:7082d113c3a34cca53045d074a92b7e2ef202379ca73861de26ff134703b7e3b"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c6e933ec3a8bf069"]
-uses = ["fn:e0e300220659122c"]
 test = true
 
 [[module."tetgen_predicates_vs_upstream.rs".function]]
 id = "fn:603be56acb6169c1"
 name = "f64"
 qual = "Reader::f64"
-lines = [
-    91,
-    93,
-]
 hash = "sha256:821afe0844e5cdb1b90e5f0c4087fc159ceacbfd1a7c988e93a70fad4c053d27"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:c6e933ec3a8bf069"]
-uses = ["fn:e0e300220659122c"]
 test = true
 
 [[module."tetgen_predicates_vs_upstream.rs".function]]
 id = "fn:d221cf8e4b9a0bd0"
 name = "point"
 qual = "Reader::point"
-lines = [
-    94,
-    96,
-]
 hash = "sha256:5b181294dfa15e5909735cafc0957002a3388bdfe844d17367cb81ed943888d7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:603be56acb6169c1"]
-uses = ["fn:e0e300220659122c"]
+test = true
+
+[[module."tetgen_predicates_vs_upstream.rs".function]]
+id = "fn:c6e933ec3a8bf069"
+name = "take"
+qual = "Reader::take"
+hash = "sha256:da0a66c1eaa8582e372911e98692e0d41bf80875c4ab7145ccb73658268ea24a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_predicates_vs_upstream.rs".function]]
+id = "fn:1aec3374aa8901e3"
+name = "u32"
+qual = "Reader::u32"
+hash = "sha256:ccebf4f599b3ecfdff42bd89a5a5f176f2cde8aec194ad112159be6cd943f6d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_predicates_vs_upstream.rs".function]]
+id = "fn:086c10158ef222b8"
+name = "u64"
+qual = "Reader::u64"
+hash = "sha256:7082d113c3a34cca53045d074a92b7e2ef202379ca73861de26ff134703b7e3b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_predicates_vs_upstream.rs".function]]
+id = "fn:36653ef377932301"
+name = "u8"
+qual = "Reader::u8"
+hash = "sha256:7b4f4309c20c5436c682309b615ab98f1a0fb9a37d844f8def68506f23b07aa1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."tetgen_predicates_vs_upstream.rs".function]]
@@ -1558,10 +757,6 @@ name = "Tally"
 qual = "Tally"
 item = "type"
 shape = "struct"
-lines = [
-    99,
-    104,
-]
 hash = "sha256:4708200942ff66181a6c80de969303e511bb355a095b898c1be360357980e846"
 doc_hash = "sha256:84a49b7760a3b2ae57d5d116948523872cffab8d7f7d606934e23d6ec8bfb2cb"
 test = true
@@ -1570,106 +765,28 @@ test = true
 id = "fn:74d1764f92118fd7"
 name = "check"
 qual = "check"
-lines = [
-    106,
-    117,
-]
 hash = "sha256:accdb2961e32446437175370d9cbb088e718c5ead1a4b3a0ad136877c6489cf0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:42b39bf8d5f956ea"]
+test = true
+
+[[module."tetgen_predicates_vs_upstream.rs".function]]
+id = "fn:0e3363db189b9ea2"
+name = "gunzip"
+qual = "gunzip"
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
 test = true
 
 [[module."tetgen_predicates_vs_upstream.rs".function]]
 id = "fn:f4bb9d110e41b43a"
 name = "tetgen_predicates_are_bit_identical_to_upstream"
 qual = "tetgen_predicates_are_bit_identical_to_upstream"
-lines = [
-    119,
-    290,
-]
 hash = "sha256:a04df1ed0cef6a6fc6803ae5fee4ca0ca3fe00dc53520019dcf851f1337e5e22"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:0e3363db189b9ea2",
-    "fn:1aec3374aa8901e3",
-    "fn:74d1764f92118fd7",
-]
-uses = [
-    "fn:42b39bf8d5f956ea",
-    "fn:50f66bf24ef62aa8",
-    "fn:e0e300220659122c",
-]
 test = true
 
 [module."tetgen_quality_vs_upstream.rs"]
 path = "test:tetgen_quality_vs_upstream"
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:17b23a7378916d19"
-name = "gunzip"
-qual = "gunzip"
-lines = [
-    28,
-    36,
-]
-hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
-doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:7b3db56f9d6b30e4"
-name = "root"
-qual = "root"
-lines = [
-    38,
-    40,
-]
-hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:e36d44e64b0fd638"
-name = "read_gz"
-qual = "read_gz"
-lines = [
-    42,
-    46,
-]
-hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:17b23a7378916d19",
-    "fn:7b3db56f9d6b30e4",
-]
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:63ec4e2ddd7a9bc7"
-name = "reference"
-qual = "reference"
-lines = [
-    48,
-    55,
-]
-hash = "sha256:54bd95418682bd3e1445596beb3eb9b8cb3f633aea9afd515cff149e44c35c70"
-doc_hash = "sha256:6522265da3d97e940695a0b4d808538b36d66423e90003794a5dc448ce4fb55a"
-callees = ["fn:e36d44e64b0fd638"]
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:a85086248e3e5339"
-name = "input"
-qual = "input"
-lines = [
-    57,
-    73,
-]
-hash = "sha256:b82d6ffc5f857e62202a45b0ddf739cc9a8601dd6e00ccd514c0aa99571018a7"
-doc_hash = "sha256:e53f47c688bc1e443ca9bafb9f05e7c7c9acd350dbd0e0ab7a345396792f7d11"
-callees = ["fn:e36d44e64b0fd638"]
-uses = ["fn:0bccb1dd2f6ef767"]
-test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:d49da8851d655b9d"
@@ -1677,259 +794,140 @@ name = "CASES"
 qual = "CASES"
 item = "const"
 shape = "const"
-lines = [
-    75,
-    98,
-]
 hash = "sha256:bb21ebb02eb4901a97a6ff4e2002d103c71e2bd038d7241e0c34be34137c9fd4"
 doc_hash = "sha256:5deff1c544b6dfb0a422a9101001608e61d912171a162de991d9f50371bf5741"
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:2aa4bb120e7d46d9"
-name = "runs"
-qual = "runs"
-lines = [
-    100,
-    132,
-]
-hash = "sha256:c6d34b8ca3aaa728c0f8f9eda4b275d26a526e607a83ba23e3e7849b5beee027"
-doc_hash = "sha256:0ef06582dad7412878955c1db75c0562410fba8b47b098386cf2d6c6749d44a2"
-callees = ["fn:a8c5ab9c55b543d9"]
-uses = ["fn:d49da8851d655b9d"]
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:a8c5ab9c55b543d9"
-name = "mesh_studio_runs"
-qual = "mesh_studio_runs"
-lines = [
-    134,
-    141,
-]
-hash = "sha256:9e89b8ddb53ed19fa619a1de850ddf25d1334d9281a7a4ec19bcaa14cf540f0e"
-doc_hash = "sha256:b3bb7239c91660c2c22da1e60cb791bd6b085917fb0002be0e2b29253f69df9a"
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:fac37890a78792d5"
-name = "tag"
-qual = "tag"
-lines = [
-    143,
-    146,
-]
-hash = "sha256:c77a57f841c9d45fed4a683c0cd8c1f60df0061c701bf36ce6f27611ee96a8fc"
-doc_hash = "sha256:b05cbeab104799a8ff200a9010c183308ceb0913580de9f35955206177ab9303"
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:800dbaa1e2b32e88"
-name = "run"
-qual = "run"
-lines = [
-    148,
-    160,
-]
-hash = "sha256:ad74ede0a2790b10dae4b2d985e504dcbd6d253b02283c6689757579172fcce8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:771e812129659e7b",
-    "fn:a85086248e3e5339",
-    "fn:ce773a8c18c56a13",
-]
-uses = [
-    "fn:8d734c21969ac0e6",
-    "fn:9d31c3e16ee6aee8",
-]
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:ae511b0acd509685"
 name = "files"
 qual = "files"
-lines = [
-    162,
-    170,
-]
 hash = "sha256:bfede814f5c17e3b520575d4f5807e9370bcdf52b897c46fc8a6f78d2cf8da56"
 doc_hash = "sha256:ab052ce4e19ff2bca0b485d9cd24dd5325001e10d10b89f256c728be1955b904"
-callees = [
-    "fn:6d287bb65f177349",
-    "fn:8292c558519bd890",
-    "fn:ad77aff9f3a06e04",
-    "fn:cef9cdef0608a7e3",
-]
-uses = ["fn:8d734c21969ac0e6"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:17b23a7378916d19"
+name = "gunzip"
+qual = "gunzip"
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:a85086248e3e5339"
+name = "input"
+qual = "input"
+hash = "sha256:b82d6ffc5f857e62202a45b0ddf739cc9a8601dd6e00ccd514c0aa99571018a7"
+doc_hash = "sha256:e53f47c688bc1e443ca9bafb9f05e7c7c9acd350dbd0e0ab7a345396792f7d11"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:a8c5ab9c55b543d9"
+name = "mesh_studio_runs"
+qual = "mesh_studio_runs"
+hash = "sha256:9e89b8ddb53ed19fa619a1de850ddf25d1334d9281a7a4ec19bcaa14cf540f0e"
+doc_hash = "sha256:b3bb7239c91660c2c22da1e60cb791bd6b085917fb0002be0e2b29253f69df9a"
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:315b33fb6d0c7905"
 name = "quality_output_matches_upstream_byte_for_byte"
 qual = "quality_output_matches_upstream_byte_for_byte"
-lines = [
-    172,
-    228,
-]
 hash = "sha256:1653939d6519564d9f9769b8068f3b3846088a8f69e32cbcee1780af543373ba"
 doc_hash = "sha256:a92f5bea1ffdbcf9eb54db19b56957722c2dfb3ee7865fd27d81ea594bc9950b"
-callees = [
-    "fn:2aa4bb120e7d46d9",
-    "fn:63ec4e2ddd7a9bc7",
-    "fn:800dbaa1e2b32e88",
-    "fn:ae511b0acd509685",
-    "fn:fac37890a78792d5",
-]
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:a1a2bd94b765ad4b"
 name = "quality_statistics_match_upstream_dash_v"
 qual = "quality_statistics_match_upstream_dash_v"
-lines = [
-    230,
-    251,
-]
 hash = "sha256:6fdb0689e724198ce4dc341a3127032291697af339ed7fa14eb6b1eb108b0b25"
 doc_hash = "sha256:05f4f9e638eb51bd829ff69446c916621012dd4f93c57ceea643ad908ecabf31"
-callees = [
-    "fn:2aa4bb120e7d46d9",
-    "fn:a85086248e3e5339",
-    "fn:a8c5ab9c55b543d9",
-    "fn:ce773a8c18c56a13",
-    "fn:e36d44e64b0fd638",
-]
-uses = ["fn:9d31c3e16ee6aee8"]
-test = true
-
-[[module."tetgen_quality_vs_upstream.rs".function]]
-id = "fn:9e57e14edab01278"
-name = "the_comparison_can_fail"
-qual = "the_comparison_can_fail"
-lines = [
-    253,
-    269,
-]
-hash = "sha256:5a1e59d96287961498c8a86457b3ab8bce6587538152429b09dc6489999dfd8c"
-doc_hash = "sha256:98eb447734ff37afd2535b6f499b6d8edb8c48b1fec6f6174367f8458fce0a87"
-callees = [
-    "fn:771e812129659e7b",
-    "fn:a85086248e3e5339",
-    "fn:ce773a8c18c56a13",
-]
-uses = ["fn:9d31c3e16ee6aee8"]
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:5b30cf86da45b2ab"
 name = "ratio_and_volume"
 qual = "ratio_and_volume"
-lines = [
-    271,
-    302,
-]
 hash = "sha256:82a91525a607509b8b1e1095c92c6f0bf6762fb0bf0bc7a8013974f368eb6099"
 doc_hash = "sha256:e74e181f2fc193bed50104e39240fb70eeed6624470077821a475b4b8f19f64f"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:e36d44e64b0fd638"
+name = "read_gz"
+qual = "read_gz"
+hash = "sha256:c83b215db79a591867c65f8301e5d8b8cc0d17f4afb0498f30fd2c38411cca00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:63ec4e2ddd7a9bc7"
+name = "reference"
+qual = "reference"
+hash = "sha256:54bd95418682bd3e1445596beb3eb9b8cb3f633aea9afd515cff149e44c35c70"
+doc_hash = "sha256:6522265da3d97e940695a0b4d808538b36d66423e90003794a5dc448ce4fb55a"
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:55abbb47f8fc7dcc"
 name = "refined_meshes_meet_their_bounds"
 qual = "refined_meshes_meet_their_bounds"
-lines = [
-    304,
-    390,
-]
 hash = "sha256:d9b2f9d9ed6a6982a4f33c4b96ddded38c139841fc342c27114c021e9dd13c65"
 doc_hash = "sha256:4e777dd55a5400e3254f721837a56f253d90437533fad90e7660d149822c1277"
-callees = [
-    "fn:2aa4bb120e7d46d9",
-    "fn:5b30cf86da45b2ab",
-    "fn:800dbaa1e2b32e88",
-    "fn:e36d44e64b0fd638",
-]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:7b3db56f9d6b30e4"
+name = "root"
+qual = "root"
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:800dbaa1e2b32e88"
+name = "run"
+qual = "run"
+hash = "sha256:ad74ede0a2790b10dae4b2d985e504dcbd6d253b02283c6689757579172fcce8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:2aa4bb120e7d46d9"
+name = "runs"
+qual = "runs"
+hash = "sha256:c6d34b8ca3aaa728c0f8f9eda4b275d26a526e607a83ba23e3e7849b5beee027"
+doc_hash = "sha256:0ef06582dad7412878955c1db75c0562410fba8b47b098386cf2d6c6749d44a2"
 test = true
 
 [[module."tetgen_quality_vs_upstream.rs".function]]
 id = "fn:c0a87bb6bb21dbe1"
 name = "switch_builders_equal_the_parser"
 qual = "switch_builders_equal_the_parser"
-lines = [
-    392,
-    408,
-]
 hash = "sha256:fdc3b94f40ad24bdbe0e830eeedd1886a9e71ea5e0902e12134015b177c40095"
 doc_hash = "sha256:0d638b4a20b908dcd1207b1de957c17e243458a073073eeab7c9805a1ed72ade"
-callees = [
-    "fn:0a9ec32b4ea29650",
-    "fn:2aeeca6fd7c8af77",
-    "fn:771e812129659e7b",
-    "fn:a8dd22660fd4a543",
-    "fn:ae87c27865ba83fb",
-    "fn:c0aced4fcae4688c",
-]
-uses = ["fn:9d31c3e16ee6aee8"]
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:fac37890a78792d5"
+name = "tag"
+qual = "tag"
+hash = "sha256:c77a57f841c9d45fed4a683c0cd8c1f60df0061c701bf36ce6f27611ee96a8fc"
+doc_hash = "sha256:b05cbeab104799a8ff200a9010c183308ceb0913580de9f35955206177ab9303"
+test = true
+
+[[module."tetgen_quality_vs_upstream.rs".function]]
+id = "fn:9e57e14edab01278"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+hash = "sha256:5a1e59d96287961498c8a86457b3ab8bce6587538152429b09dc6489999dfd8c"
+doc_hash = "sha256:98eb447734ff37afd2535b6f499b6d8edb8c48b1fec6f6174367f8458fce0a87"
 test = true
 
 [module."tetgen_recoverboundary_vs_upstream.rs"]
 path = "test:tetgen_recoverboundary_vs_upstream"
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:c894e93f56ab32a2"
-name = "gunzip"
-qual = "gunzip"
-lines = [
-    62,
-    70,
-]
-hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
-doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
-test = true
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:b14ce0425bf2e4e7"
-name = "root"
-qual = "root"
-lines = [
-    72,
-    74,
-]
-hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:7b8c7af985c69f98"
-name = "read_gz"
-qual = "read_gz"
-lines = [
-    76,
-    80,
-]
-hash = "sha256:aeab576b7fdd8fb35da027edf8b5f86d174efef05f5dc64d04c6ea098c37f448"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:b14ce0425bf2e4e7",
-    "fn:c894e93f56ab32a2",
-]
-test = true
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:581b01ebd6aeba3c"
-name = "input"
-qual = "input"
-lines = [
-    82,
-    100,
-]
-hash = "sha256:2adb97516d16fa3ed093ab6113158c060327d21f40ef9e0116fb45731d59cde5"
-doc_hash = "sha256:105c53d57df2a1dfe2c489d8001aea190b5f47839213e266aaf2b17300471968"
-callees = [
-    "fn:7b8c7af985c69f98",
-    "fn:b14ce0425bf2e4e7",
-]
-uses = ["fn:0bccb1dd2f6ef767"]
-test = true
 
 [[module."tetgen_recoverboundary_vs_upstream.rs".function]]
 id = "fn:af66049f78c7b56d"
@@ -1937,161 +935,102 @@ name = "CASES"
 qual = "CASES"
 item = "const"
 shape = "const"
-lines = [
-    102,
-    122,
-]
 hash = "sha256:5af825b9af077e7a1dff1534bd164be5b898567a283edd837b982300983c1da6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-test = true
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:0122b8f662ea0454"
-name = "switches"
-qual = "switches"
-lines = [
-    124,
-    130,
-]
-hash = "sha256:39e5bed2c43f4d298f9fef34b35593aa671a954b8d1161dddfc55070c40cef10"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:e9ddd52c7b968431"]
-test = true
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:54e03b0d2d4cb94e"
-name = "run"
-qual = "run"
-lines = [
-    132,
-    144,
-]
-hash = "sha256:7f259ce7ddfc6a90ab7058c06dafd5cfc76c24b86f8eed7a755c25ade85ac248"
-doc_hash = "sha256:b8c692272d9ac8d9384d4eae3070058de9bf2ec0bc8dd278e63aa720e6fb2379"
-callees = [
-    "fn:0122b8f662ea0454",
-    "fn:223474fc6eacbf42",
-    "fn:581b01ebd6aeba3c",
-]
-uses = ["fn:0a6b04436513fcba"]
 test = true
 
 [[module."tetgen_recoverboundary_vs_upstream.rs".function]]
 id = "fn:7e37ab5fa1882ad9"
 name = "check"
 qual = "check"
-lines = [
-    146,
-    171,
-]
 hash = "sha256:5cc1e75b5149c17e81b5717b0b431485dd42579cdd57aa88e28415d08975bfba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:54e03b0d2d4cb94e",
-    "fn:7b8c7af985c69f98",
-]
-uses = ["fn:0a6b04436513fcba"]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:c894e93f56ab32a2"
+name = "gunzip"
+qual = "gunzip"
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:581b01ebd6aeba3c"
+name = "input"
+qual = "input"
+hash = "sha256:2adb97516d16fa3ed093ab6113158c060327d21f40ef9e0116fb45731d59cde5"
+doc_hash = "sha256:105c53d57df2a1dfe2c489d8001aea190b5f47839213e266aaf2b17300471968"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:7b8c7af985c69f98"
+name = "read_gz"
+qual = "read_gz"
+hash = "sha256:aeab576b7fdd8fb35da027edf8b5f86d174efef05f5dc64d04c6ea098c37f448"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."tetgen_recoverboundary_vs_upstream.rs".function]]
 id = "fn:c9dca786e96d1955"
 name = "recoverboundary_matches_upstream_on_every_case"
 qual = "recoverboundary_matches_upstream_on_every_case"
-lines = [
-    173,
-    193,
-]
 hash = "sha256:6571b6a5e572378d59f87e47d0325037b1100129fe19a158dbe0801b5a665f66"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:7e37ab5fa1882ad9"]
-uses = ["fn:af66049f78c7b56d"]
-test = true
-
-[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
-id = "fn:9e7046b5ff4f8a6e"
-name = "the_comparison_can_fail"
-qual = "the_comparison_can_fail"
-lines = [
-    195,
-    207,
-]
-hash = "sha256:8ba0659280991321fee29e95970d337f8107a49a1d0629442d9ea451ba76d8d7"
-doc_hash = "sha256:1cdd3d4ae354f90d4920b3624e08ca4aff9305e827e1a3a027354e10916f8d03"
-callees = [
-    "fn:0122b8f662ea0454",
-    "fn:581b01ebd6aeba3c",
-    "fn:7b8c7af985c69f98",
-    "fn:ce773a8c18c56a13",
-]
-uses = ["fn:e9ddd52c7b968431"]
 test = true
 
 [[module."tetgen_recoverboundary_vs_upstream.rs".function]]
 id = "fn:adbba9be4ca08133"
 name = "recovered_boundary_is_in_the_mesh"
 qual = "recovered_boundary_is_in_the_mesh"
-lines = [
-    209,
-    341,
-]
 hash = "sha256:3dc9c4bf5d39d453512e75b23c8038bbf49ddae9bc5bfece12be57b27cd80046"
 doc_hash = "sha256:f94e2140fbcea2b0f4d68f661ab3484a848ca85d9cd216d5fb335fe4bf3ee097"
-callees = [
-    "fn:0122b8f662ea0454",
-    "fn:581b01ebd6aeba3c",
-    "fn:ce773a8c18c56a13",
-]
-uses = [
-    "fn:12aef5334fbdc77b",
-    "fn:72fc7088c9254309",
-    "fn:9d48e1eadc990e51",
-    "fn:af66049f78c7b56d",
-    "fn:eb811f9606bcca5f",
-]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:b14ce0425bf2e4e7"
+name = "root"
+qual = "root"
+hash = "sha256:0c915e9936ac62a540c1eb8cb1858fb39d47ca6129b0362576d66262f9c37fd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:54e03b0d2d4cb94e"
+name = "run"
+qual = "run"
+hash = "sha256:7f259ce7ddfc6a90ab7058c06dafd5cfc76c24b86f8eed7a755c25ade85ac248"
+doc_hash = "sha256:b8c692272d9ac8d9384d4eae3070058de9bf2ec0bc8dd278e63aa720e6fb2379"
 test = true
 
 [[module."tetgen_recoverboundary_vs_upstream.rs".function]]
 id = "fn:42b366ed146c6bee"
 name = "scout_routines_find_edges_and_faces"
 qual = "scout_routines_find_edges_and_faces"
-lines = [
-    343,
-    408,
-]
 hash = "sha256:49af54062fb4b7cc971d4e906bab2f18b747acc4c50fbcfac069759c0ae026b6"
 doc_hash = "sha256:192f8ec16d5b7cab9f307cd18429efc85c80769e75150ba369f8eea197422e46"
-callees = [
-    "fn:0122b8f662ea0454",
-    "fn:18cc4e94bfe5b7fa",
-    "fn:223474fc6eacbf42",
-    "fn:4cf28bfab50880ed",
-    "fn:581b01ebd6aeba3c",
-    "fn:87f0023b00d82759",
-    "fn:a0da348487986b81",
-]
-uses = [
-    "fn:0a6b04436513fcba",
-    "fn:12aef5334fbdc77b",
-    "fn:6417764398f5c36a",
-    "fn:72fc7088c9254309",
-    "fn:995baef364d34cb3",
-    "fn:9d48e1eadc990e51",
-    "fn:a48597066f5cf547",
-    "fn:e9ddd52c7b968431",
-    "fn:eb811f9606bcca5f",
-    "fn:fd400f620bc29024",
-]
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:0122b8f662ea0454"
+name = "switches"
+qual = "switches"
+hash = "sha256:39e5bed2c43f4d298f9fef34b35593aa671a954b8d1161dddfc55070c40cef10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_recoverboundary_vs_upstream.rs".function]]
+id = "fn:9e7046b5ff4f8a6e"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+hash = "sha256:8ba0659280991321fee29e95970d337f8107a49a1d0629442d9ea451ba76d8d7"
+doc_hash = "sha256:1cdd3d4ae354f90d4920b3624e08ca4aff9305e827e1a3a027354e10916f8d03"
 test = true
 
 [[module."tetgen_recoverboundary_vs_upstream.rs".function]]
 id = "fn:a5449f9ec0d57167"
 name = "write_port_dumps"
 qual = "write_port_dumps"
-lines = [
-    410,
-    421,
-]
 hash = "sha256:9d5efae37a49f0fd1954c37177b7bb1fce71d0842e4505db92b3824d04ac57a4"
 doc_hash = "sha256:6f16bbbbf6c404ea859ba841528fa27693b11b3ac27499ea851783f3cf2c83d0"
-callees = ["fn:54e03b0d2d4cb94e"]
 test = true

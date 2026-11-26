@@ -466,6 +466,12 @@ pub const B4C_RATE_B: f64 = 22647.2;
 /// The most of the B4C that may react, MELCOR's default (C1005(2)): the
 /// blade's eutectic relocates it first. \[P\]
 pub const B4C_MAX_FRACTION: f64 = 0.02;
+/// The B4C reacts only once the blade's sheath has failed, when its intact
+/// steel falls below this fraction of the initial (C1005(3), 0.9; Vol. 2
+/// COR §2.5, COR-RM-89; added by the unit V&V of 2026-11-26, COR1-22). [P]
+pub const B4C_SHEATH_INTACT_MAX: f64 = 0.9;
+/// And only above this temperature, K (C1005(4), 1500 K; same source). [P]
+pub const B4C_MIN_K: f64 = 1500.0;
 /// The steel's iron, chromium and nickel mass fractions, MELCOR's MP_SS
 /// default (Vol. 1, MP UG): 0.74, 0.18, 0.08, no carbon. \[P\]
 pub const SS_X_FE: f64 = 0.74;
@@ -908,6 +914,8 @@ pub struct Params {
     pub b4c_rate_a: f64,
     pub b4c_rate_b: f64,
     pub b4c_max_fraction: f64,
+    pub b4c_sheath_intact_max: f64,
+    pub b4c_min_k: f64,
     pub ss_x_fe: f64,
     pub ss_x_cr: f64,
     pub ss_x_ni: f64,
@@ -1128,6 +1136,8 @@ impl Default for Params {
             b4c_rate_a: B4C_RATE_A,
             b4c_rate_b: B4C_RATE_B,
             b4c_max_fraction: B4C_MAX_FRACTION,
+            b4c_sheath_intact_max: B4C_SHEATH_INTACT_MAX,
+            b4c_min_k: B4C_MIN_K,
             ss_x_fe: SS_X_FE,
             ss_x_cr: SS_X_CR,
             ss_x_ni: SS_X_NI,
@@ -1349,6 +1359,8 @@ impl Params {
             self.b4c_rate_a,
             self.b4c_rate_b,
             self.b4c_max_fraction,
+            self.b4c_sheath_intact_max,
+            self.b4c_min_k,
             self.ss_x_fe,
             self.ss_x_cr,
             self.ss_x_ni,
@@ -1568,6 +1580,8 @@ impl Params {
             b4c_rate_a: r.f(),
             b4c_rate_b: r.f(),
             b4c_max_fraction: r.f(),
+            b4c_sheath_intact_max: r.f(),
+            b4c_min_k: r.f(),
             ss_x_fe: r.f(),
             ss_x_cr: r.f(),
             ss_x_ni: r.f(),
@@ -1788,6 +1802,8 @@ impl Params {
         ("b4c_rate_a", Tag::P),
         ("b4c_rate_b", Tag::P),
         ("b4c_max_fraction", Tag::P),
+        ("b4c_sheath_intact_max", Tag::P),
+        ("b4c_min_k", Tag::P),
         ("ss_x_fe", Tag::P),
         ("ss_x_cr", Tag::P),
         ("ss_x_ni", Tag::P),
@@ -2006,6 +2022,8 @@ impl Params {
             "b4c_rate_a" => Some(self.b4c_rate_a),
             "b4c_rate_b" => Some(self.b4c_rate_b),
             "b4c_max_fraction" => Some(self.b4c_max_fraction),
+            "b4c_sheath_intact_max" => Some(self.b4c_sheath_intact_max),
+            "b4c_min_k" => Some(self.b4c_min_k),
             "ss_x_fe" => Some(self.ss_x_fe),
             "ss_x_cr" => Some(self.ss_x_cr),
             "ss_x_ni" => Some(self.ss_x_ni),
@@ -2566,6 +2584,14 @@ impl Params {
             }
             "b4c_max_fraction" => {
                 self.b4c_max_fraction = value;
+                true
+            }
+            "b4c_sheath_intact_max" => {
+                self.b4c_sheath_intact_max = value;
+                true
+            }
+            "b4c_min_k" => {
+                self.b4c_min_k = value;
                 true
             }
             "ss_x_fe" => {
@@ -3190,7 +3216,8 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 213);
+        // 215 since 2026-11-26: the B4C gates (b4c_sheath_intact_max, b4c_min_k).
+        assert_eq!(Params::INPUTS.len(), 215);
     }
 
     /// gh:#1101: the Unit 2 and 3 values derived from sourced ones

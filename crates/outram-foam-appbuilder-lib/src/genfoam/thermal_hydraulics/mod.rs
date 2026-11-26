@@ -64,7 +64,8 @@
 //!   `onePhaseLegacy`. Only [`solver::one_phase`] exists.~~ **CORRECTED
 //!   2026-11-04 (gh:#1218):** [`solver::two_phase`] ports `twoPhase` with the
 //!   `implicitUpwind` alpha solver; **MULES** and `onePhaseLegacy` are still not
-//!   ported. Full gap list: `docs/genfoam-port-gap-audit.md`.
+//!   ported. Full gap list: `docs/genfoam-port-gap-audit.md`. **CORRECTED 2026-11-26** (gh:#1361 round 7): **MULES is ported** (a case
+//!   that selects it runs it; `solvePhase` set with MULES is still refused); only `onePhaseLegacy` is not.
 //! - [`solver::one_phase`] runs on **constant fluid properties** (`he = Cp·T`,
 //!   fixed-surface-temperature structure coupling): [`thermophysical`] is
 //!   ported but not yet wired in as the driver's fluid package. The one

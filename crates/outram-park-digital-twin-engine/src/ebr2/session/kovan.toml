@@ -7,139 +7,65 @@ dir = "crates/outram-park-digital-twin-engine/src/ebr2/session"
 path = "crate::ebr2::session::tests"
 
 [[module."tests.rs".function]]
-id = "fn:654a260626169158"
-name = "rows"
-qual = "rows"
-lines = [
-    7,
-    10,
-]
-hash = "sha256:c97cfd89ca72a2bad6412159379d7813f3243256e279aea91c10851cc9a0c050"
-doc_hash = "sha256:cde11cc8991e127112c17ae7dbae24c69cb7c65eae9b85a5ce08f12ebe87b0b7"
+id = "fn:4528e3b3a122fc93"
+name = "a_failed_step_holds_the_plant_until_a_command"
+qual = "a_failed_step_holds_the_plant_until_a_command"
+hash = "sha256:639505319f041baff337cc5b4177d8b2cb8f82854e194339524fd07547b761ca"
+doc_hash = "sha256:60a2b646876f0cf7148669f75b7353aa3f73065c9fb97af4f850cf4e181ba8b2"
 test = true
 
 [[module."tests.rs".function]]
 id = "fn:d3d6d907329152dd"
 name = "col"
 qual = "col"
-lines = [
-    12,
-    14,
-]
 hash = "sha256:728978434b32dfdf4014ffe182a9e0de101418a6fd225e18d2e65bf0fe6c5e28"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:963a661966aad957"]
-test = true
-
-[[module."tests.rs".function]]
-id = "fn:d446a5f2f1cdc1a0"
-name = "the_headless_trace_is_deterministic_and_bounded"
-qual = "the_headless_trace_is_deterministic_and_bounded"
-lines = [
-    16,
-    54,
-]
-hash = "sha256:27d0755c0d316080f018d6d560db1de2d24a201b467b942d0c49bc34aab72e9c"
-doc_hash = "sha256:4b202c2aad96c24f1469860925219454dac9954a78544ca661f1026c215d43d5"
-callees = [
-    "fn:4d4bd285b4544150",
-    "fn:61a1daf1778dda82",
-    "fn:654a260626169158",
-    "fn:d3d6d907329152dd",
-]
-uses = [
-    "fn:79bc46c4f852d68f",
-    "fn:963a661966aad957",
-    "fn:c1a1a7b59bd98fda",
-]
-test = true
-
-[[module."tests.rs".function]]
-id = "fn:99afd056ea49d0a5"
-name = "headless_rejects_bad_input_and_applies_its_script"
-qual = "headless_rejects_bad_input_and_applies_its_script"
-lines = [
-    56,
-    66,
-]
-hash = "sha256:7c31075ce25c381d899c4493c80d031364a29bd593e2b808cb247a48eadadd32"
-doc_hash = "sha256:4ea867527d36adc3ffc5721e6261edc48c1e67d789d7de9533d747b2f5b3b3a8"
-callees = [
-    "fn:61a1daf1778dda82",
-    "fn:654a260626169158",
-]
-uses = [
-    "fn:79bc46c4f852d68f",
-    "fn:e561e3fbef60ba90",
-]
-test = true
-
-[[module."tests.rs".function]]
-id = "fn:8ee72883159088a5"
-name = "snapshots_round_trip"
-qual = "snapshots_round_trip"
-lines = [
-    68,
-    86,
-]
-hash = "sha256:36eda75700ee77c9a76c9fc4386749860801f20dee2e6b77b2b1b7cb6ae0a586"
-doc_hash = "sha256:3190203a5982e25cc58b214e2f64d09f554681b319756c99021d25dc2ef60be6"
-callees = ["fn:1a2c267df352475e"]
-uses = [
-    "fn:187c01180ed4505e",
-    "fn:79bc46c4f852d68f",
-    "fn:c1a1a7b59bd98fda",
-]
 test = true
 
 [[module."tests.rs".function]]
 id = "fn:3055b6adf21aef23"
 name = "commands_reach_the_model"
 qual = "commands_reach_the_model"
-lines = [
-    88,
-    132,
-]
 hash = "sha256:dc8182ddfd2c409e391df144caec2ad16341f4d967cb8fd191562c221641b990"
 doc_hash = "sha256:a2d5b005eb7121c73b820bb05ebd6dc4e25c7ab54945b2615d2dbd1e55f706f5"
-callees = ["fn:1a2c267df352475e"]
-uses = [
-    "fn:187c01180ed4505e",
-    "fn:79bc46c4f852d68f",
-    "fn:c1a1a7b59bd98fda",
-    "fn:e561e3fbef60ba90",
-]
 test = true
 
 [[module."tests.rs".function]]
-id = "fn:4528e3b3a122fc93"
-name = "a_failed_step_holds_the_plant_until_a_command"
-qual = "a_failed_step_holds_the_plant_until_a_command"
-lines = [
-    134,
-    170,
-]
-hash = "sha256:639505319f041baff337cc5b4177d8b2cb8f82854e194339524fd07547b761ca"
-doc_hash = "sha256:60a2b646876f0cf7148669f75b7353aa3f73065c9fb97af4f850cf4e181ba8b2"
-callees = ["fn:1a2c267df352475e"]
-uses = [
-    "fn:187c01180ed4505e",
-    "fn:79bc46c4f852d68f",
-    "fn:a1f80138dd995f6b",
-    "fn:e561e3fbef60ba90",
-]
+id = "fn:99afd056ea49d0a5"
+name = "headless_rejects_bad_input_and_applies_its_script"
+qual = "headless_rejects_bad_input_and_applies_its_script"
+hash = "sha256:7c31075ce25c381d899c4493c80d031364a29bd593e2b808cb247a48eadadd32"
+doc_hash = "sha256:4ea867527d36adc3ffc5721e6261edc48c1e67d789d7de9533d747b2f5b3b3a8"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:654a260626169158"
+name = "rows"
+qual = "rows"
+hash = "sha256:c97cfd89ca72a2bad6412159379d7813f3243256e279aea91c10851cc9a0c050"
+doc_hash = "sha256:cde11cc8991e127112c17ae7dbae24c69cb7c65eae9b85a5ce08f12ebe87b0b7"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8ee72883159088a5"
+name = "snapshots_round_trip"
+qual = "snapshots_round_trip"
+hash = "sha256:36eda75700ee77c9a76c9fc4386749860801f20dee2e6b77b2b1b7cb6ae0a586"
+doc_hash = "sha256:3190203a5982e25cc58b214e2f64d09f554681b319756c99021d25dc2ef60be6"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d446a5f2f1cdc1a0"
+name = "the_headless_trace_is_deterministic_and_bounded"
+qual = "the_headless_trace_is_deterministic_and_bounded"
+hash = "sha256:27d0755c0d316080f018d6d560db1de2d24a201b467b942d0c49bc34aab72e9c"
+doc_hash = "sha256:4b202c2aad96c24f1469860925219454dac9954a78544ca661f1026c215d43d5"
 test = true
 
 [[module."tests.rs".function]]
 id = "fn:3baa7ab7b3f06684"
 name = "the_pacer_is_reused"
 qual = "the_pacer_is_reused"
-lines = [
-    172,
-    180,
-]
 hash = "sha256:5f0febe8f8c08b3709b6cfe34a771cf831839c34b3cf4d9deb58bdc47e427606"
 doc_hash = "sha256:9c8f983f29f28af7bb187fe99646ae746cb29472088aaa45432ee5b3c74acfd2"
-callees = ["fn:20f533a36d350f47"]
-uses = ["fn:893f19fa6c3a3a25"]
 test = true

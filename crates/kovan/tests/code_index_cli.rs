@@ -173,8 +173,14 @@ fn index_builds_heals_and_refreshes_without_rust_analyzer() {
     // 2. Full run.
     let out = kovan(&["index", "--workspace", &root_s], None);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    let src = FolderIndex::parse(&read(&root, "crates/kern/src/kovan.toml")).unwrap();
-    let tests = FolderIndex::parse(&read(&root, "crates/kern/tests/kovan.toml")).unwrap();
+    // The tracked file holds no derived fields (GitHub #1777); the whole
+    // index is the tracked file merged with target/kovan/derived.
+    let tracked = read(&root, "crates/kern/src/kovan.toml");
+    assert!(!tracked.contains("callees =") && !tracked.contains("lines ="), "{tracked}");
+    assert!(root.join("target/kovan/derived/crates/kern/src/kovan.derived.toml").is_file());
+    let load = |rel: &str| kovan_common::code_index::derived::load(&root, &read(&root, rel)).unwrap();
+    let src = load("crates/kern/src/kovan.toml");
+    let tests = load("crates/kern/tests/kovan.toml");
     assert!(src.crate_root && src.commit.is_none());
     assert_eq!(src.modules["util.rs"].path, "crate::util");
     assert_eq!(tests.modules["it.rs"].path, "test:it");
@@ -245,7 +251,7 @@ fn index_builds_heals_and_refreshes_without_rust_analyzer() {
     write(&root, "crates/kern/src/lib.rs", &LIB.replace("leaf(x) + util", "leaf(x) - util"));
     let out = kovan(&["index", "--workspace", &root_s, "--refresh"], Some(&bare));
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    let refreshed = FolderIndex::parse(&read(&root, "crates/kern/src/kovan.toml")).unwrap();
+    let refreshed = kovan_common::code_index::derived::load(&root, &read(&root, "crates/kern/src/kovan.toml")).unwrap();
     let t2 = function(&refreshed, "lib.rs", "twice");
     assert!(t2.index_out_of_date && t2.id == twice.id && t2.callees == twice.callees);
     assert_ne!(t2.hash, twice.hash);

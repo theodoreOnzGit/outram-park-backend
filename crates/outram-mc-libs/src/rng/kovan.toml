@@ -19,21 +19,10 @@ test_ids = [
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
     "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
     "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
-    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit",
-    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
-    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
-    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
-    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
-    "crates/dhoby-ghaut/examples/mc_studio/main.rs::every_case_returns_a_finite_positive_k_with_sane_statistics",
-    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_analytic_and_csg_sphere_paths_agree",
-    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_headless_run_is_deterministic",
-    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_headless_run_matches_the_committed_fixture",
-    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::stripping_covariances_changes_nothing_transport_reads",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
-    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::multilayer_bounce_cost_probe",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
@@ -65,16 +54,12 @@ test_ids = [
     "crates/outram-mc-libs/src/physics/keff.rs::a_point_source_spreads_and_its_entropy_rises",
     "crates/outram-mc-libs/src/physics/keff.rs::cpu_multi_is_reproducible",
     "crates/outram-mc-libs/src/physics/keff.rs::godiva_converges_to_sane_keff",
-    "crates/outram-mc-libs/src/physics/keff.rs::godiva_high_fidelity_reaches_benchmark",
-    "crates/outram-mc-libs/src/physics/keff.rs::gpu_batched_timing_sweep",
-    "crates/outram-mc-libs/src/physics/keff.rs::gpu_collision_before_after",
     "crates/outram-mc-libs/src/physics/keff.rs::small_sphere_is_less_reactive_than_godiva",
     "crates/outram-mc-libs/src/physics/keff.rs::stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit",
     "crates/outram-mc-libs/src/physics/keff.rs::three_compute_modes_agree_on_godiva",
     "crates/outram-mc-libs/src/physics/physics_mg.rs::mg_infinite_medium_matches_analytic_kinf",
     "crates/outram-mc-libs/src/physics/reactor_physics.rs::machinery_invariants_fast_pincell",
     "crates/outram-mc-libs/src/physics/reactor_physics.rs::no_fuel_material_errors",
-    "crates/outram-mc-libs/src/physics/reactor_physics.rs::thicker_moderator_softens_spectrum",
     "crates/outram-mc-libs/src/physics/transport_csg.rs::plain_run_keff_csg_unchanged",
     "crates/outram-mc-libs/src/physics/transport_csg.rs::reflective_sphere_has_no_leakage",
     "crates/outram-mc-libs/src/physics/transport_csg.rs::stepping_matches_run_keff_csg_seq_bit_for_bit",
@@ -102,7 +87,6 @@ test_ids = [
     "crates/outram-mc-libs/tests/delta_tracking_audit.rs::cell_filter_in_a_delta_region_matches_surface_track_length",
     "crates/outram-mc-libs/tests/delta_tracking_audit.rs::hybrid_cost_against_surface_tracking",
     "crates/outram-mc-libs/tests/delta_tracking_audit.rs::keff_delta_ignores_the_run_temperature",
-    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::keff_delta_run_temperature_worth",
     "crates/outram-mc-libs/tests/delta_tracking_audit.rs::majorant_violations_are_counted_not_hidden",
     "crates/outram-mc-libs/tests/delta_tracking_bit_identity.rs::delta_primitives_are_bit_identical",
     "crates/outram-mc-libs/tests/delta_tracking_bit_identity.rs::hybrid_csg_paths_are_bit_identical",
@@ -114,7 +98,6 @@ test_ids = [
     "crates/outram-mc-libs/tests/fission_spectrum_shape_vs_openmc.rs::fission_spectrum_shape_matches_openmc_band_by_band",
     "crates/outram-mc-libs/tests/fission_spectrum_vs_openmc.rs::fission_spectrum_mean_energy_matches_openmc",
     "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::bound_graphite_and_free_gas_agree_once_target_motion_is_sampled",
-    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::diagnose_thermal_spectrum_reach",
     "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::an_absorber_outside_the_region_does_not_raise_its_cost",
     "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::hybrid_and_surface_tracking_agree",
     "crates/outram-mc-libs/tests/mf45_uncorrelated_emission.rs::c12_mt91_uses_the_analytic_lf9_law_and_is_evaluated_isotropic",
@@ -184,505 +167,39 @@ test_ids = [
 path = "crate::rng::distributions"
 
 [[module."distributions.rs".function]]
-id = "fn:80d7b4ca412b265b"
-name = "maxwell"
-qual = "maxwell"
-lines = [
-    25,
-    40,
-]
-hash = "sha256:16bc8d4c42d852500bddb77271702690b6e6af91bf647f0aef16329c367722a4"
-doc_hash = "sha256:56c2428f923be4fb43c300c7d13bad5e1efa121a756b03839096cb70d2c9196c"
-callees = [
-    "fn:5c89954000a6baa0",
-    "fn:681ddf6544e7b60b",
-    "fn:7ff82e301e269f0c",
-]
-reached_by = [
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#153",
-    "#154",
-    "#155",
-    "#156",
-    "#157",
-    "#158",
-    "#159",
-    "#160",
-    "#161",
-    "#162",
-    "#163",
-    "#164",
-    "#165",
-    "#166",
-    "#167",
-    "#168",
-    "#171",
-    "#172",
-    "#173",
-    "#174",
-]
-
-[[module."distributions.rs".function]]
-id = "fn:ddcbfd0af4d2a0a5"
-name = "watt"
-qual = "watt"
-lines = [
-    42,
-    52,
-]
-hash = "sha256:e5826c07d17b7e7e4f09779812ef1de7dea6fb143a8914ca9279e12b16222db6"
-doc_hash = "sha256:fd8dca0dc228d91581e6a51d87abe9e803eb74abca412a756ece38c4e046b540"
-callees = [
-    "fn:681ddf6544e7b60b",
-    "fn:80d7b4ca412b265b",
-]
-reached_by = [
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#153",
-    "#154",
-    "#155",
-    "#156",
-    "#157",
-    "#158",
-    "#159",
-    "#160",
-    "#161",
-    "#162",
-    "#163",
-    "#164",
-    "#165",
-    "#166",
-    "#167",
-    "#168",
-    "#171",
-    "#172",
-    "#173",
-    "#174",
-]
-
-[[module."distributions.rs".function]]
-id = "fn:73d3175114d13b5a"
-name = "normal_variate"
-qual = "normal_variate"
-lines = [
-    54,
-    74,
-]
-hash = "sha256:3d856bb6ed888639cd9db5979b48bc8ab8a6691769765b8f6ae85b1641901b53"
-doc_hash = "sha256:82d9396182c90299069f52bdd6985dddec7b158238858a3c0d7d31f31e3c7638"
-index_out_of_date = true
-
-[[module."distributions.rs".function]]
 id = "fn:7988a62af8c6ea5b"
 name = "isotropic_direction"
 qual = "isotropic_direction"
-lines = [
-    76,
-    86,
-]
 hash = "sha256:576fe9036e71d2d607368c650c190582e256534a212cb77704d2acc72253662d"
 doc_hash = "sha256:fa82d7214c781596ab2664347b7d1ef8cb7f297757987ba6f67af9284924c371"
-callees = [
-    "fn:5c89954000a6baa0",
-    "fn:681ddf6544e7b60b",
-    "fn:e546e0cd42139efe",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#85",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
-    "#136",
-    "#137",
-    "#138",
-    "#139",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
-    "#154",
-    "#155",
-    "#156",
-    "#157",
-    "#158",
-    "#159",
-    "#160",
-    "#161",
-    "#162",
-    "#163",
-    "#164",
-    "#166",
-    "#167",
-    "#168",
-    "#169",
-    "#170",
-    "#171",
-    "#172",
-    "#173",
-    "#174",
-]
 
 [[module."distributions.rs".function]]
 id = "fn:3e2c64e02f754399"
 name = "isotropic_direction_openmc"
 qual = "isotropic_direction_openmc"
-lines = [
-    88,
-    102,
-]
 hash = "sha256:abbfdafc74818a415d6191893f5567b45073027c8fa2625cff57fe0e35358dbe"
 doc_hash = "sha256:97705a6dfbe898decfa1a6926b789432c335354f38552d887d47fd51d61f6199"
-index_out_of_date = true
+
+[[module."distributions.rs".function]]
+id = "fn:80d7b4ca412b265b"
+name = "maxwell"
+qual = "maxwell"
+hash = "sha256:16bc8d4c42d852500bddb77271702690b6e6af91bf647f0aef16329c367722a4"
+doc_hash = "sha256:56c2428f923be4fb43c300c7d13bad5e1efa121a756b03839096cb70d2c9196c"
+
+[[module."distributions.rs".function]]
+id = "fn:73d3175114d13b5a"
+name = "normal_variate"
+qual = "normal_variate"
+hash = "sha256:3d856bb6ed888639cd9db5979b48bc8ab8a6691769765b8f6ae85b1641901b53"
+doc_hash = "sha256:82d9396182c90299069f52bdd6985dddec7b158238858a3c0d7d31f31e3c7638"
+
+[[module."distributions.rs".function]]
+id = "fn:ddcbfd0af4d2a0a5"
+name = "watt"
+qual = "watt"
+hash = "sha256:e5826c07d17b7e7e4f09779812ef1de7dea6fb143a8914ca9279e12b16222db6"
+doc_hash = "sha256:fd8dca0dc228d91581e6a51d87abe9e803eb74abca412a756ece38c4e046b540"
 
 [module."mod.rs"]
 path = "crate::rng"
@@ -691,153 +208,93 @@ path = "crate::rng"
 path = "?"
 
 [[module."openmc_seeding.rs".function]]
-id = "fn:0ddb600e33c68958"
-name = "SeedingMode"
-qual = "SeedingMode"
-item = "type"
-shape = "enum"
-lines = [
-    102,
-    117,
-]
-hash = "sha256:cea16d6c95b3ef2f87528037905377aecf8b5497c836f84c4a281b1c627e0341"
-doc_hash = "sha256:6fd2e7b5d2c0f4552a109df3916b6a748504e4070b35fe660b43a6ae9fc2722a"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
 id = "fn:e78a617871cd8500"
 name = "OpenMcRunLayout"
 qual = "OpenMcRunLayout"
 item = "type"
 shape = "struct"
-lines = [
-    119,
-    138,
-]
 hash = "sha256:9aa29a0002b801757b9dfb175b02b44a3c319dc90cb6c825797c7e260b305816"
 doc_hash = "sha256:b68bd75f6e784a24a5263c8ed25b3f3f4a1bd2c197c5e1c8877ade2993d94634"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
-id = "fn:a1c3b13acd1283c9"
-name = "single_rank"
-qual = "OpenMcRunLayout::single_rank"
-lines = [
-    141,
-    153,
-]
-hash = "sha256:2891e58f61bd6523413f5bec2045a4219bd724bf42339c3734985e27a4b7649a"
-doc_hash = "sha256:c838dced7a6bfc0b97b5c1bbb26bc3dec16814eb4cb5518172d747158f7c4879"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
-id = "fn:37a3286f2a2eed4e"
-name = "overall_generation"
-qual = "OpenMcRunLayout::overall_generation"
-lines = [
-    155,
-    159,
-]
-hash = "sha256:d3bc03109d170d20d80b6f754a4e6de262ef9a422aeb4e1fbc11ae49ac26f13f"
-doc_hash = "sha256:24f97e95dc3c27a3f4d49b608c63bbe3190354e2db01d54240bcb61a90670999"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
-id = "fn:f59eb3dc3e81cb75"
-name = "compute_particle_id"
-qual = "OpenMcRunLayout::compute_particle_id"
-lines = [
-    161,
-    169,
-]
-hash = "sha256:19b94acb88396687aed59afa3e9f9049abe81b9416616d37c29dba08d759a244"
-doc_hash = "sha256:68a6726cded92ee208a999d070e6d2fc4ccac60db60c00a1a45e4a705741bfc2"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
-id = "fn:8d68923d42b761bc"
-name = "compute_transport_seed"
-qual = "OpenMcRunLayout::compute_transport_seed"
-lines = [
-    171,
-    185,
-]
-hash = "sha256:12b810f61b633ebc1ee5b95afdc7af62756a9473503a84aa9fc98b4cb805a365"
-doc_hash = "sha256:c77c4778116fbe39163052431836c3d50f37d82b0e2899cc34477db9cb3c7e10"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
-id = "fn:5e5d6cce9b2506fa"
-name = "particle_seeds"
-qual = "OpenMcRunLayout::particle_seeds"
-lines = [
-    187,
-    200,
-]
-hash = "sha256:902105379aaa0e779cf9fa7398b4df3aa525856cc91924f1edee66549cd96c2f"
-doc_hash = "sha256:b7eb57809140990b8e1d51f3e953283cde3b42ab132a7e827a9bc58c44c75602"
-index_out_of_date = true
-
-[[module."openmc_seeding.rs".function]]
-id = "fn:db49f6cabb90895d"
-name = "source_seed"
-qual = "OpenMcRunLayout::source_seed"
-lines = [
-    202,
-    210,
-]
-hash = "sha256:ab3b3bfec5d75ed651fc4d273c7807eb897d73e269601098047c446f242d7dbc"
-doc_hash = "sha256:a6f02d7ddbc3b51b5c7efe58918e47e1618d635cf21a6962d1871c82beeee1ba"
-index_out_of_date = true
 
 [[module."openmc_seeding.rs".function]]
 id = "fn:cf9f63f0bfa40ae6"
 name = "bank_comb_seed"
 qual = "OpenMcRunLayout::bank_comb_seed"
-lines = [
-    212,
-    219,
-]
 hash = "sha256:575cd447440775cccf3890e6dc895f63d7b44bddeb936c1f498362565ba9476f"
 doc_hash = "sha256:44bfd99af8627ee9e2dc777cf6dfa48fdd3bf5977ea77cf71e2c792a47f99065"
-index_out_of_date = true
 
 [[module."openmc_seeding.rs".function]]
-id = "fn:535ee6b532c5e366"
-name = "comb_resample_openmc"
-qual = "comb_resample_openmc"
-lines = [
-    222,
-    253,
-]
-hash = "sha256:60a83147ea7c0be09e1212f4b3b508cb29b00556b6bfc11681083c5485b3e5c2"
-doc_hash = "sha256:7fdbfb79940ac8d79525acc97e8deda775d8898643400b8a15b4686c94ca070c"
-index_out_of_date = true
+id = "fn:f59eb3dc3e81cb75"
+name = "compute_particle_id"
+qual = "OpenMcRunLayout::compute_particle_id"
+hash = "sha256:19b94acb88396687aed59afa3e9f9049abe81b9416616d37c29dba08d759a244"
+doc_hash = "sha256:68a6726cded92ee208a999d070e6d2fc4ccac60db60c00a1a45e4a705741bfc2"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:8d68923d42b761bc"
+name = "compute_transport_seed"
+qual = "OpenMcRunLayout::compute_transport_seed"
+hash = "sha256:12b810f61b633ebc1ee5b95afdc7af62756a9473503a84aa9fc98b4cb805a365"
+doc_hash = "sha256:c77c4778116fbe39163052431836c3d50f37d82b0e2899cc34477db9cb3c7e10"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:37a3286f2a2eed4e"
+name = "overall_generation"
+qual = "OpenMcRunLayout::overall_generation"
+hash = "sha256:d3bc03109d170d20d80b6f754a4e6de262ef9a422aeb4e1fbc11ae49ac26f13f"
+doc_hash = "sha256:24f97e95dc3c27a3f4d49b608c63bbe3190354e2db01d54240bcb61a90670999"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:5e5d6cce9b2506fa"
+name = "particle_seeds"
+qual = "OpenMcRunLayout::particle_seeds"
+hash = "sha256:902105379aaa0e779cf9fa7398b4df3aa525856cc91924f1edee66549cd96c2f"
+doc_hash = "sha256:b7eb57809140990b8e1d51f3e953283cde3b42ab132a7e827a9bc58c44c75602"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:a1c3b13acd1283c9"
+name = "single_rank"
+qual = "OpenMcRunLayout::single_rank"
+hash = "sha256:2891e58f61bd6523413f5bec2045a4219bd724bf42339c3734985e27a4b7649a"
+doc_hash = "sha256:c838dced7a6bfc0b97b5c1bbb26bc3dec16814eb4cb5518172d747158f7c4879"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:db49f6cabb90895d"
+name = "source_seed"
+qual = "OpenMcRunLayout::source_seed"
+hash = "sha256:ab3b3bfec5d75ed651fc4d273c7807eb897d73e269601098047c446f242d7dbc"
+doc_hash = "sha256:a6f02d7ddbc3b51b5c7efe58918e47e1618d635cf21a6962d1871c82beeee1ba"
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:0ddb600e33c68958"
+name = "SeedingMode"
+qual = "SeedingMode"
+item = "type"
+shape = "enum"
+hash = "sha256:cea16d6c95b3ef2f87528037905377aecf8b5497c836f84c4a281b1c627e0341"
+doc_hash = "sha256:6fd2e7b5d2c0f4552a109df3916b6a748504e4070b35fe660b43a6ae9fc2722a"
 
 [[module."openmc_seeding.rs".function]]
 id = "fn:9b89ad239c3ac9a8"
 name = "openmc_history_seeds"
 qual = "SeedingMode::openmc_history_seeds"
-lines = [
-    256,
-    276,
-]
 hash = "sha256:a4476af3555b74f665b15e67293fb60aef5b2ba0dd459ea5eeddd6fe6a98fefd"
 doc_hash = "sha256:02c53ef78a5658109c2380be1714ffde6ad5927a6ba48686ce3282c70d542a6a"
-index_out_of_date = true
+
+[[module."openmc_seeding.rs".function]]
+id = "fn:535ee6b532c5e366"
+name = "comb_resample_openmc"
+qual = "comb_resample_openmc"
+hash = "sha256:60a83147ea7c0be09e1212f4b3b508cb29b00556b6bfc11681083c5485b3e5c2"
+doc_hash = "sha256:7fdbfb79940ac8d79525acc97e8deda775d8898643400b8a15b4686c94ca070c"
 
 [[module."openmc_seeding.rs".function]]
 id = "fn:99a2b0ac1382e5d3"
 name = "openmc_history_seeds_are_init_particle_seeds_of_the_transport_seed"
 qual = "openmc_history_seeds_are_init_particle_seeds_of_the_transport_seed"
-lines = [
-    283,
-    304,
-]
 hash = "sha256:f56a47703b9b9b9b37b8e25ce89adac8e96b5ee9ee64458ee18654edc9ac5f9e"
 doc_hash = "sha256:57abc8623f0ff27e3ffb0732006269aed3d58d6da8816518e5c120e7608326db"
 test = true
-index_out_of_date = true
 
 [test_run]
 commit = "13e891e5b491e162abaf022ef19097f07222b12e"
@@ -860,6 +317,17 @@ passed = [
     "#13",
     "#14",
     "#15",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
     "#36",
     "#37",
     "#38",
@@ -886,12 +354,16 @@ passed = [
     "#59",
     "#60",
     "#61",
+    "#62",
+    "#63",
+    "#64",
     "#65",
     "#66",
     "#67",
     "#68",
     "#69",
     "#70",
+    "#71",
     "#72",
     "#73",
     "#74",
@@ -919,6 +391,7 @@ passed = [
     "#96",
     "#97",
     "#98",
+    "#99",
     "#100",
     "#101",
     "#102",
@@ -930,6 +403,7 @@ passed = [
     "#108",
     "#109",
     "#110",
+    "#111",
     "#112",
     "#113",
     "#114",
@@ -976,23 +450,6 @@ passed = [
     "#155",
     "#156",
     "#157",
-    "#158",
-    "#159",
-    "#160",
-    "#161",
-    "#162",
-    "#163",
-    "#164",
-    "#165",
-    "#166",
-    "#167",
-    "#168",
-    "#169",
-    "#170",
-    "#171",
-    "#172",
-    "#173",
-    "#174",
 ]
 failed = []
 
@@ -1003,13 +460,13 @@ suite = "targeted"
 passed = []
 failed = []
 targets = [
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
 ]

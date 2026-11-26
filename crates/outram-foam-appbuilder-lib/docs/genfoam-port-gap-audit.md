@@ -19,7 +19,7 @@ side: `crates/outram-foam-appbuilder-lib/src/genfoam/` at branch
 > and contact partition, `structure::correct`/`linearizedSemiImplicitHeatSource`
 > for `fixedPower`, and `customPimpleControl`'s residual control and
 > `correctUntilConvergence`. Each of those rows moves from *missing* to
-> *partial*. Still missing in the solver: MULES, `pEqn_2p.H` (cell-centred),
+> *partial*. Still missing in the solver: ~~MULES~~ (**CORRECTED 2026-11-26** (gh:#1361 round 7): ported, `solvePhase both`), `pEqn_2p.H` (cell-centred),
 > the `none`/`explicit` partial-elimination branches, turbulence, tortuosity.
 
 ## How this was measured
@@ -87,15 +87,17 @@ Counts are of rows in the tables below (one row per upstream model or class).
 6. **Radial-conduction power models** (`heatedPin` 824, `nuclearFuelPin`
    1,534, `interpolatedNuclearFuelPin` 353, `lumpedNuclearStructure` 759):
    every reactor-scale tutorial that is not a pebble bed uses one.
-7. **`MULES`** (`myMULES` 1,225 + `solveAlphaMULES` 540): the alpha solver
-   1D_boiling, 1D_CHF, 2D_voidMotionNoPhaseChange and 2D_KNS37-L22 select.
+7. ~~**`MULES`** (`myMULES` 1,225 + `solveAlphaMULES` 540): the alpha solver
+   1D_boiling, 1D_CHF, 2D_voidMotionNoPhaseChange and 2D_KNS37-L22 select.~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): ported for
+   `solvePhase both` (what 1D_boiling selects); the `solvePhase vapour` branch (`solveAlpha` lambda, used by
+   1D_HX/twoPhase and 2D_KNS37-L22) is not.
 
 ## 1. `thermalHydraulics/solvers`
 
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `thermalHydraulicsModel.{C,H}` (region base: PIMPLE, `p`/`p_rgh`, `g`, `hRef`, power coupling fields) | 745 | `solver/mod.rs` (`ThermalHydraulicsSolver` enum), fields inlined in `one_phase.rs` | partial | none of its own |
-| `onePhase/` (`onePhase.{C,H}`, `UEqn_1p`, `pEqn_1p`, `pEqnf_1p`, `EEqn_1p`, 7 `pEqnRoutines`) | 1,022 | `solver/one_phase.rs` (661), `solver/porous_drag.rs` (230) | partial: `one_phase.rs` is the older constant-property driver (`he = Cp T`, isotropic `Kd`, no `p_rgh`/gravity split, no `pEqnf`, no `fvOptions`), kept as it was. ~~no `pEqnf` face-centred momentum~~ **CORRECTED 2026-11-12 (gh:#1361 round 4):** `solver/two_phase/one_phase_fc.rs` (translation of `onePhase.C`, `UEqn_1p`, `pEqnf_1p` + routines, `EEqn_1p`, `FSPair::correct`, `customPimpleControl::loop`; heRhoThermo packages, `p_rgh`/gravity, `contErr`, kinetic energy; NOT ported: other momentum modes, turbulence, heat exchangers, pumps, tortuosity, non-`zeroGradient` U, closed volumes) runs the 40-cell channel derived from 1D_boiling against the real binary to 1e-13 over 108 steps | unit: `solver/tests.rs` (6); `tests/genfoam_one_phase_vs_upstream.rs` (vs the real binary) |
+| `onePhase/` (`onePhase.{C,H}`, `UEqn_1p`, `pEqn_1p`, `pEqnf_1p`, `EEqn_1p`, 7 `pEqnRoutines`) | 1,022 | `solver/one_phase.rs` (661), `solver/porous_drag.rs` (230) | partial: `one_phase.rs` is the older constant-property driver (`he = Cp T`, isotropic `Kd`, no `p_rgh`/gravity split, no `pEqnf`, no `fvOptions`), kept as it was. ~~no `pEqnf` face-centred momentum~~ **CORRECTED 2026-11-12 (gh:#1361 round 4):** `solver/two_phase/one_phase_fc.rs` (translation of `onePhase.C`, `UEqn_1p`, `pEqnf_1p` + routines, `EEqn_1p`, `FSPair::correct`, `customPimpleControl::loop`; heRhoThermo packages, `p_rgh`/gravity, `contErr`, kinetic energy; NOT ported: other momentum modes, turbulence, heat exchangers, pumps, tortuosity, non-`zeroGradient` U, closed volumes) runs the 40-cell channel derived from 1D_boiling against the real binary to 1e-13 over 108 steps. **ADDED 2026-11-26 (round 9, issues 1773/1775):** `solver/two_phase/one_phase_cc.rs` is the cell-centred `solveFluidMechanics false` energy-only region (Boussinesq `hConst`, `fixedTemperature`, constant htc, frozen flux, `alphat` read, `turbulence->correct()` never runs in it): the 2D_MSFR coupled transient agrees with the real binary over 50 steps (T 2.5e-14); UEqn/pEqn with `momentumMode cellCentered` and `porousKEpsilon` SOLVING are still missing | unit: `solver/tests.rs` (6); `tests/genfoam_one_phase_vs_upstream.rs` (vs the real binary) |
 | `onePhaseLegacy/` | 985 | — | missing | — |
 | `twoPhase/` (`twoPhase.{C,H}`, `UEqns_2p`, `pEqn_2p`, `pEqnf_2p`, `EEqns_2p`, `alphaEqns_2p`, 9 `pEqnRoutines`) | 2,654 | none before gh:#1218 | missing | — |
 | `twoPhase/.../solveAlphaImplicitUpwind.H` | 148 | none before gh:#1218 | missing | — |
@@ -114,12 +116,12 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | **FS heat transfer** Nusselt, NusseltAndWall, Shah, Gorenflo | 1,193 | `closures/heat_transfer/fs_htc.rs` | ported | unit (34 in `heat_transfer/tests.rs`, shared) |
 | `multiRegimeBoiling` | 588 | `closures/heat_transfer/boiling.rs` | ported (post-CHF branch absent, as upstream: `TCHFi = 1e69`) | unit |
 | `superpositionNucleateBoiling` | 252 | `closures/heat_transfer/boiling.rs` | ported (htc combiner) | unit |
-| `multiRegimeBoilingTRACE` | 454 | — | missing (deferred in `heat_transfer/mod.rs`) | — |
-| `multiRegimeBoilingTRACECHF` | 684 | — | missing | — |
-| `multiRegimeBoilingVapourTRACE` | 304 | — | missing | — |
+| `multiRegimeBoilingTRACE` | 454 | `closures/heat_transfer/boiling_trace.rs`; wired in `solver/two_phase` (`FsHtcModel::MultiRegimeBoilingTrace`, `dmdtW`) | ported (CORRECTED 2026-11-26, gh:#1222; ~~missing~~) | unit (8, shared with TRACECHF); **upstream run** on the closed `Phase_Ex1_12223` variant: steps 1-8 agree to round-off, the nucleate-boiling branch differs by 7.8e-9 (step 9) to 6e-7 (step 12), cause open (`tests/genfoam_psbt_trace_vs_upstream.rs`, README "Round 8") |
+| `multiRegimeBoilingTRACECHF` | 684 | `closures/heat_transfer/boiling_trace_chf.rs` | pure function ported (CORRECTED 2026-11-26, gh:#1222); NOT wired into the solver: its post-CHF branches need `CachardLiquid` (missing) and the Ex2/Ex3 cases `lookUpTableCHF` (deferred) | unit |
+| `multiRegimeBoilingVapourTRACE` | 304 | `closures/heat_transfer/boiling_trace_chf.rs` | pure function ported (CORRECTED 2026-11-26, gh:#1222); not wired (reads the fields TRACECHF writes) | unit |
 | `NusseltWallAndHfromFMU` | 327 | — | missing (FMU co-simulation, out of scope) | — |
 | CHF `constantCHF` | 202 | `closures/heat_transfer/chf.rs` | ported | unit |
-| CHF `lookUpTableCHF` | 366 | — | missing | — |
+| CHF `lookUpTableCHF` | 366 | — | missing: **deferred to the maintainer** (gh:#1223, 2026-11-26): the code is only an interpolator but the Groeneveld 2006 table (`PhaseII_Ex2/Ex3` `constant/fluidRegion/chfTables`) is a case file with no licence or attribution in the GeN-Foam tree, so it was neither copied nor ported | — |
 | Leidenfrost `GroeneveldStewart` | 220 | `chf.rs` | ported | unit |
 | TONB `Basu` | 245 | `chf.rs` | ported | unit |
 | flow enhancement Chen, COBRA-TF, RezkallahSims | 641 | `chf.rs` | ported | unit |
@@ -139,8 +141,8 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | dispersion constant | 524 | `closures/interfacial/dispersion.rs` | ported | unit |
 | contact partition complementary, linear | 788 | `closures/interfacial/contact_partition.rs` | ported | unit |
 | regime map `oneParameter` | 1,115 | `closures/interfacial/regime_map.rs` | ported | unit |
-| regime map `twoParameters` (`regimeDomain2D`, `regimeBoundary2D`) | 1,501 | — | missing (deferred in `regime_map.rs`) | — |
-| templated `byRegime` dispatch | 428 | — | missing (deferred in `regime_map.rs`) | — |
+| regime map `twoParameters` (`regimeDomain2D`, `regimeBoundary2D`) | 1,501 | `closures/interfacial/regime_map_2d.rs` | ported (CORRECTED 2026-11-26, gh:#1225; ~~missing~~): incl. `Foam::Random`, `hashlittle` and `HashTable` walk order | unit (7; lookup3 vectors, g++ draws, PSBT map, concave polygon vs winding number); in the upstream comparison via the closed PSBT case |
+| templated `byRegime` dispatch | 428 | `closures/interfacial/by_regime.rs` (`ByRegimeModel<M>`); wired for dispersion, contact partition, dispersed diameter, interfacial-area density | ported for those four (CORRECTED 2026-11-26, gh:#1225); drag, virtual-mass, multiplier and htc `byRegime` not wired | unit; upstream run (closed PSBT) |
 | templated `constant` | 346 | folded into each family's `Constant` variant | ported | unit |
 | `phasePairs/FFPair.{C,H}` | 1,129 | `phase/phase_pair.rs` (`ff_reynolds`, `ff_relative_velocity_magnitude`) | partial: kinematics only | unit (3) |
 | `phasePairs/FSPair.{C,H}` | 738 | `phase/phase_pair.rs` (`fs_reynolds`) | partial: kinematics only | unit |
@@ -186,12 +188,12 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `neutronics.{C,H}` base + `include/` | 827 | `neutronics/mod.rs` (`NeutronicsModel` enum), `state.rs` | ported | unit (5) |
-| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported | unit (9); **upstream run**: MSFR +0.3 pcm, ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 6e-14 and flux per cell 6e-13 from upstream at tight tolerances (`tests/genfoam_neutronics_vs_upstream.rs`) |
+| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported; ~~transient: single pass, no neutron iteration~~ **CORRECTED 2026-11-25** (gh:#1361 round 6): `upstream_transient.rs` translates `solveNeutronics.H` for `eigenvalueNeutronics false`, `liquidFuel true` (neutron iteration, Gauss-Seidel over groups, `precEq.H` with `ddt`, transport and diffusion); `DiffusionNeutronics::step` is unchanged and remains the simple form. Aitken acceleration not ported (upstream performs it 0 times, see the module doc) | unit (9); **upstream run**: MSFR ~~+0.3 pcm~~ (a static `k_eff` against a creeping pseudo-time `keff_` resolves no better than the creep, README round 6), ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`); **real binary, `2D_MSFR` transient, 50 steps, gh:#1361 round 6 (2026-11-25)**: power 6.2e-14, iteration counts 50/50, precursor totals 1.3e-11 from upstream's own TH state (`tests/genfoam_msfr_transient_vs_upstream.rs`); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 6e-14 and flux per cell 6e-13 from upstream at tight tolerances (`tests/genfoam_neutronics_vs_upstream.rs`) |
 | `SP3/` | 1,140 | `neutronics/sp3/` | ported | unit (5); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 1.7e-13, flux per cell 2.3e-12 (SP3 ~~"unit (5)" only~~ CORRECTED, it had not been compared with an upstream run before) |
 | `SN/` | 1,323 | `neutronics/sn/` | partial: eigenvalue only, transient missing. ~~higher moments missing~~ **CORRECTED 2026-11-12** (gh:#1474): `sn/pseudo_time.rs` + `sn/quadrature_set.rs` port the case `quadratureSet` reader, P1..P7 scattering and upstream's per-step eigenvalue iteration (`SnNeutronics` itself is unchanged) | unit (6); `tests/genfoam_sn_vs_upstream.rs`: small S_N slab with Godiva's quadrature and P0..P3 scattering, step by step vs the real binary to 1e-14 (README of `verification_and_validation/genfoam_vs_upstream_gh1361`); full Godiva_SN, upstream ~7.5 min per step, 2.9 GB: see that README |
 | `albedoSP3/` | 642 | `neutronics/albedo/` | ported | unit (5); upstream run (MSFR boundary rows, ≤ 0.6 pcm) |
 | `pointKinetics/` | 2,391 | `neutronics/point_kinetics/` | ported | unit (5); inhour test |
-| `XS/` + `nuclearDataOneEnergy` | 2,722 | `neutronics/xs/` | partial: discontinuity-factor adjustment deferred | unit (13) |
+| `XS/` + `nuclearDataOneEnergy` | 2,722 | `neutronics/xs/` | partial: discontinuity-factor adjustment deferred. gh:#1361 round 6: per-cell cross sections against GeN-Foam's own `XS` class on `2D_MSFR` (`upstream_driver/dump_xs`): `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval`, `sigmaFromTo`, `IV`, `BetaTot` bit-identical; **`chiPrompt`/`chiDelayed` are interpolated here but never in upstream** (`XS::init()` does not `build()` them): `CrossSectionData::with_upstream_unparametrised_chi()`, default unchanged, default question deferred to the maintainer | unit (14) |
 | `adjointDiffusion/` | 849 | — | missing | — |
 
 ## 6. `thermoMechanics`, `multiRegion`, `common`, others
@@ -201,8 +203,8 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | `thermoMechanics.{C,H}` + `legacyThermoMechanics/` | 1,424 | `thermo_mechanics/` | partial: isotropic stiffness, no traction BC, no non-orthogonal correction | unit (16) |
 | `extendedThermoMechanics/` | 455 | — | missing (also excluded from the upstream build: needs the lost `offbeat` API) | — |
 | `tractionDisplacement/` (`GFTractionDisplacement`, `gapContact`) | 1,035 | — | missing | — |
-| `multiRegion/meshHandler` | 1,194 | `multi_region/coupling_fields.rs`, `mesh_to_mesh.rs`, `rbf_mapping.rs` | partial: no `movePoints` mesh deformation | unit (15) |
-| `multiRegion/multiPhysicsSolver` | 460 | `multi_region/outer_iteration.rs` | partial | unit (3) |
+| `multiRegion/meshHandler` | 1,194 | `multi_region/coupling_fields.rs`, `mesh_to_mesh.rs`, `rbf_mapping.rs` | partial: no `movePoints` mesh deformation. **ADDED 2026-11-26 (round 9, issue 1774):** `coupled_loop::IdenticalMeshMap` (`cellVolumeWeight` between two identical meshes: measured on upstream, identity with weight exactly 1.0; refuses a different mesh), `CouplingDict` (reader); the general supermesh is still missing (issue 651) | unit (15) |
+| `multiRegion/multiPhysicsSolver` | 460 | `multi_region/outer_iteration.rs` | partial. **ADDED 2026-11-26 (round 9):** `coupled_loop::correct_physics_loop` (literal `correctPhysics` loop), `adjust_delta_t`/`initial_delta_t` (`setDeltaT.C`), compared with the real binary on the 2D_MSFR transient | unit (3) |
 | `multiRegion/regionSolvers` | 726 | `multi_region/outer_iteration.rs`, `mesh_region.rs` (`RegionKernel`) | partial: the TH region kernel is a lumped stand-in (`MeshThermalHydraulics`), not `onePhase`/`twoPhase` | unit (6) |
 | `common/radialBasisFunctionInterpolation` | 1,090 | `common/rbf.rs`, `multi_region/rbf_mapping.rs` | ported | unit; upstream run (MSFR XS parametrisation, 14 pcm); **libCommon driver, gh:#1361 (2026-11-12)**: inverse, weights and values bit-identical to GeN-Foam `libCommon` on 34 cases (weights were NOT before: the solve is now `inv(A) * v` as upstream) |
 | `common/timeProfile` | 397 | `common/time_profile.rs` | ported (`commDataLayer` out of scope) | unit (8); **libCommon driver, gh:#1361 (2026-11-12)**: table values bit-identical to upstream on 712 points (ESI `Function1::Table` form; the Foundation form is kept as `value_foundation` and differed in 242 of 667 interior points, up to 24 ulp) |
@@ -246,7 +248,8 @@ fits in `closures/phase_change`.
 
 Each is one deliverable. Sizes are upstream lines to port.
 
-1. **twoPhase solver: MULES alpha transport** (`myMULES` + `solveAlphaMULES.H`,
+1. ~~**twoPhase solver: MULES alpha transport**~~ (**CORRECTED 2026-11-26** (gh:#1361 round 7): done for `solvePhase both`, compared with the real binary
+   on 1D_boiling as shipped) (`myMULES` + `solveAlphaMULES.H`,
    1,765 lines). Port GeN-Foam's `myMULES` limiter and `solveAlphaMULES`
    (sub-cycling, `alphaMaxCo`, structure-aware bounds) as a second
    `AlphaSolver` variant beside `implicitUpwind`. Verify on 1D_boiling and
@@ -257,18 +260,23 @@ Each is one deliverable. Sizes are upstream lines to port.
 3. **FFPair/FSPair field assembly to parity** (1,867 lines): interface
    temperature relaxation (`maxTInterfaceDdt`), virtual mass, turbulent
    dispersion, `residualKd`, the `minMagU` floors, anisotropic FS `Kd`.
-4. **`multiRegimeBoilingTRACE` / `TRACECHF` / `VapourTRACE`** (1,442 lines). Needed
-   by every PSBT case. Verify against the committed PSBT upstream fields.
+4. ~~**`multiRegimeBoilingTRACE` / `TRACECHF` / `VapourTRACE`** (1,442 lines). Needed
+   by every PSBT case. Verify against the committed PSBT upstream fields.~~ **CORRECTED 2026-11-26** (gh:#1222): all three are ported
+   (`TRACE` also wired and compared with the real binary; `TRACECHF`/`VapourTRACE` as pure functions). The premise was wrong in two ways: only
+   `Phase_Ex1_12223` selects `TRACE` (`PhaseII_Ex1_01_5215` selects `multiRegimeBoiling`; Ex2/Ex3 select `TRACECHF`), and no PSBT case runs end to
+   end in the port because every one is a through-flow case (velocity inlet, `pressureInletOutletVelocity`, `slip`, `inletOutlet`,
+   `fixedFluxPressure`) and the three `PhaseII` cases use `porousKEpsilon2PhaseCorrected` turbulence. Not re-checked against the committed
+   PSBT fields: those are a different (through-flow) case from the one compared.
 5. **`lookUpTableCHF`** (366 lines) with the 2006 Groeneveld table data
-   (licence to be checked). Needed by PSBT Phase II Ex 2 and 3.
+   (licence to be checked). Needed by PSBT Phase II Ex 2 and 3. **2026-11-26 (gh:#1223): licence unclear, deferred to the maintainer**; left refused.
 6. **Post-CHF `CachardLiquid`/`CachardVapour`** (560 lines): port with
    upstream's pressure-as-pitch binding reproduced and flagged, or report the
    upstream defect.
-7. **`regimeMapModels/twoParameters`** (1,501 lines). Needed by PSBT.
-8. **`templatedModels/byRegime` dispatch** (428 lines) for diameter,
-   dispersion, contact partition, area. 1D_boiling and PSBT both use it.
-9. **`phaseChangeModel` orchestration to parity** (925 lines): `dmdtW` wall
-   boiling split, `limitMassTransfer`, `latentHeatModel::adjust()`.
+7. ~~**`regimeMapModels/twoParameters`** (1,501 lines). Needed by PSBT.~~ **CORRECTED 2026-11-26** (gh:#1225): ported.
+8. ~~**`templatedModels/byRegime` dispatch** (428 lines) for diameter,
+   dispersion, contact partition, area. 1D_boiling and PSBT both use it.~~ **CORRECTED 2026-11-26** (gh:#1225): ported as `ByRegimeModel<M>` for those four.
+9. **`phaseChangeModel` orchestration to parity** (925 lines): ~~`dmdtW` wall
+   boiling split~~ (**CORRECTED 2026-11-26**, gh:#1222: `dmdtW`, `fw` and the wall part of `c1`/`c2` are ported), `limitMassTransfer`, `latentHeatModel::adjust()`.
 10. **FF heat transfer `NoKazimi`** (258 lines).
 11. **Turbulence transport**: k/ε equations and `correctNut` for the four
     porous/two-phase models (closure algebra exists; ~2,000 lines of the 3,663

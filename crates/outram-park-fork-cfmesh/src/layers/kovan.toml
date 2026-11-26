@@ -2,1076 +2,9 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-cfmesh"
 dir = "crates/outram-park-fork-cfmesh/src/layers"
-test_ids = [
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::anisotropic_sources_through_the_generators",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::draw_anisotropic_images",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::generators_without_anisotropic_sources_are_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/anisotropic.rs::interior_hexes_stay_cubes_until_mesh_optimisation",
-    "crates/outram-park-fork-cfmesh/src/boundary_layer_optimisation.rs::diagnose_optimise_layer_on_the_patch_wise_box",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::data_boxes_and_node_types",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::decompose_split_hexes_conserves_cell_volumes",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::extractor_matches_octree_rs_build_mesh_on_the_same_leaves",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::glued_regions_are_separated",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::irregular_connections_check",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::keep_and_remove_cells_intersecting_patches",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::non_manifold_meshing_keeps_unknown_leaves",
-    "crates/outram-park-fork-cfmesh/src/cartesian_mesh.rs::octree_edges_match_the_extracted_mesh_edges",
-    "crates/outram-park-fork-cfmesh/src/checks.rs::cell_quality_maxima_equal_the_report",
-    "crates/outram-park-fork-cfmesh/src/correct_edges.rs::a_box_is_left_alone_and_pyramids_conserve_volume",
-    "crates/outram-park-fork-cfmesh/src/correct_edges.rs::correct_edges_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/correct_edges.rs::patch_correction_splits_a_face_with_two_feature_edges_at_an_edge_point",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::diagnose_edge_extractor_in_tet_and_p_mesh",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::diagnose_foam_studio_pipe_differential",
-    "crates/outram-park-fork-cfmesh/src/edge_extractor.rs::tet_and_p_mesh_run_the_edge_extractor",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::diagnose_final_mesh_differential",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::foam_studio_default_mesh_keeps_its_fingerprint",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::gh1286_zero_area_layer_mesh_is_refused",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::optimise_final_mesh_runs_upstreams_calls_in_order",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::projected_untangle_keeps_the_inlet_planar",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::projector_restores_moved_points_and_leaves_the_rest",
-    "crates/outram-park-fork-cfmesh/src/final_mesh.rs::render_final_mesh_inlets",
-    "crates/outram-park-fork-cfmesh/src/fundamental_sheets.rs::fj_on_a_box",
-    "crates/outram-park-fork-cfmesh/src/fundamental_sheets.rs::jfs_on_a_box",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::add_layer_for_patch_in_sequence_on_the_box",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::cfmesh_layer_against_back_off_on_the_box",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::cfmesh_layer_against_back_off_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::cfmesh_layer_on_a_carved_box_by_hand",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::check_topology_of_boundary_faces_on_forced_groups",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::diagnose_cfmesh_layer_on_the_foam_studio_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::generate_layer_skips_a_name_no_patch_has",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::patch_wise_against_o_topology_on_the_named_box",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::patch_wise_displacements_equal_the_one_group_route_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::patch_wise_layer_on_the_six_patch_box",
-    "crates/outram-park-fork-cfmesh/src/layers/boundary_layers.rs::wrapper_layer_has_zero_thickness",
-    "crates/outram-park-fork-cfmesh/src/layers/extrude_layer.rs::internal_sheet_from_both_sides",
-    "crates/outram-park-fork-cfmesh/src/layers/extrude_layer.rs::wrapper_sheet_on_a_box",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::cartesian_box_layer_refines_the_walls_only",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::detect_finds_exactly_the_cfmesh_layer",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::diagnose_layer_groups_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::draw_layer_images",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::edge_and_corner_hexes_refine_the_six_patch_box",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::edge_hexes_refine_the_named_box",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::max_first_layer_thickness_caps_the_first_layer",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::prism_refinement_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/layers/refine_boundary_layers.rs::split_points_match_build_layered_variable",
-    "crates/outram-park-fork-cfmesh/src/layers/triangulate_non_planar_base_faces.rs::twisted_boundary_faces_are_fanned",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::every_entry_gets_a_row",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::objects_sources_and_workflow",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::optimise_layer_reaches_the_options",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::patterns_resolve_against_the_surface",
-    "crates/outram-park-fork-cfmesh/src/mesh_dict.rs::tutorials_read_with_no_unhandled_keyword",
-    "crates/outram-park-fork-cfmesh/src/mesh_optimizer.rs::diagnose_laplace_pc_against_smart_laplacian",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::generate_boundary_layers_on_a_box",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::generate_boundary_layers_with_optimise_layer_on_the_box",
-    "crates/outram-park-fork-cfmesh/src/mesh_utilities.rs::generate_boundary_layers_with_optimise_layer_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::back_off_only_layers_are_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::box_tet_dual_is_valid_and_conserves_volume_exactly",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::box_tet_dual_no_layers_conserves_volume",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::correct_edges_runs_in_the_pipeline_and_is_off_by_default",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::cylinder_tet_dual_is_valid_and_near_analytic_volume",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::defaults_mesh_the_studio_sphere",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_back_off_on_dual_kinds",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_cfmesh_against_openfoam_checks",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_corners_rim",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_dual_kinds_differential",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_inward_boundary_faces_on_layered_pipes",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_layer_quality_per_layer",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_layer_strategies_differential",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_per_point_bad_faces",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_snappy_cascade",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::diagnose_wall_faces_per_dual_cell",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::dual_kinds_are_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::error_paths_and_dual_toggle",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::every_boundary_face_points_outward_on_layered_pipes_and_ducts",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::layer_strategies_are_deterministic",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::named_regions_survive_the_full_pipeline_as_patches",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::octree_grading_beats_the_uniform_carve_on_cells_per_accuracy",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::octree_path_is_pinned_bit_for_bit",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::refinement_level_zero_is_the_uniform_path",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::render_gh1285_face_order",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::sphere_tet_dual_is_valid_and_near_analytic_volume",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::upper_triangular_order_moves_no_geometry",
-    "crates/outram-park-fork-cfmesh/src/pipeline.rs::wall_only_layers_end_on_the_pipe_ends",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::cartesian_2d_mesh_stop_and_restart_reproduce_the_full_run",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::channel_2d_against_the_3d_mid_plane",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::channel_2d_surface_optimisation_and_refined_layers",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_2d_mesh.rs::quadtree_leaves_span_the_root_in_z",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::cartesian_mesh_patch_wise_against_o_topology",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::cartesian_mesh_stop_and_restart_reproduce_the_full_run",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::cartesian_mesh_with_refined_layers",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::diagnose_cartesian_mesh_on_the_pipes",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::diagnose_cartesian_mesh_on_the_sphere",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::draw_patch_wise_layer_images",
-    "crates/outram-park-fork-cfmesh/src/pipeline/cartesian_mesh.rs::optimise_layer_runs_optimize_boundary_layer",
-    "crates/outram-park-fork-cfmesh/src/pipeline/p_mesh.rs::diagnose_p_mesh_workflow",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::every_strategy_gives_an_index_within_the_requested_layers",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::no_layers_means_an_all_core_index",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::staged_route_is_bit_identical_to_the_plain_route",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::stages_are_in_order_and_end_with_the_returned_mesh",
-    "crates/outram-park-fork-cfmesh/src/pipeline/staged.rs::uniform_layers_have_one_cell_per_wall_face_per_layer",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::diagnose_tet_mesh_against_the_crate_tets",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::tet_and_p_mesh_with_a_boundary_layers_dict",
-    "crates/outram-park-fork-cfmesh/src/pipeline/tet_mesh.rs::tet_mesh_stop_and_restart_reproduce_the_full_run",
-    "crates/outram-park-fork-cfmesh/src/premap_vertices.rs::pre_map_vertices_halves_the_distance_on_the_sphere",
-    "crates/outram-park-fork-cfmesh/src/surface_engine.rs::engine_matches_the_crates_earlier_boundary_maps_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::diagnose_reflex_dual_faces",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::diagnose_untangle_surface_differential",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::inverted_vertices_against_nonpositive_pyramids_on_the_pipe",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::render_untangle_surface_inlets",
-    "crates/outram-park-fork-cfmesh/src/surface_optimizer.rs::untangle_surface_option_is_off_by_default_and_runs",
-    "crates/outram-park-fork-cfmesh/src/topology.rs::draw_topology_images",
-    "crates/outram-park-fork-cfmesh/src/topology.rs::topological_cleaner_on_the_morphed_sphere_and_a_box",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::a_surface_without_types_keeps_patch",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::cartesian_mesh_writes_the_sphere_as_a_wall",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::p_mesh_writes_the_sphere_as_a_wall",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_patch_types_sphere.rs::tet_mesh_writes_the_sphere_as_a_wall",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::carried_cell_lists_equal_upstream_after_layers",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::carried_state_per_stage",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::laplacian_over_upstream_cell_lists_is_bit_identical",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_cell_order.rs::tet_mesh_carried_cell_lists_vs_upstream",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_single_orifice.rs::single_orifice_final_mesh_equals_upstream_up_to_the_pow_ulp",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_single_orifice.rs::single_orifice_stage_table",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::cartesian_mesh_matches_upstream_through_mesh_optimisation",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::final_meshes_match_upstream",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::p_mesh_matches_upstream_through_mesh_optimisation",
-    "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::tet_mesh_matches_upstream_through_mesh_optimisation",
-]
 
 [module."boundary_layers.rs"]
 path = "crate::layers::boundary_layers"
-
-[[module."boundary_layers.rs".function]]
-id = "fn:79ace9ce9d58d13f"
-name = "BoundaryLayersControls"
-qual = "BoundaryLayersControls"
-item = "type"
-shape = "struct"
-lines = [
-    103,
-    112,
-]
-hash = "sha256:89d526a6b2b22ba5bfae0e556a23dbc4c7718425a548217fbdd8bd4729d0e54e"
-doc_hash = "sha256:0dcd0d01a4a1f7e797f8dd8083c57d565fc236955d61be600d39204923e48161"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:506786699fd6265b"
-name = "default"
-qual = "BoundaryLayersControls::default"
-lines = [
-    115,
-    117,
-]
-hash = "sha256:8e3b3f2fe2b5b77a1a53d6f285f9c6833b9016620c05007d16277933c76ef286"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:79ace9ce9d58d13f"]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:4ed22091ff9840e6"
-name = "LayerPoint"
-qual = "LayerPoint"
-item = "type"
-shape = "struct"
-lines = [
-    120,
-    137,
-]
-hash = "sha256:d4aa76b29489f5feed8263f71851aeef13fce13bc88d307bd1308c396f160fc8"
-doc_hash = "sha256:3590d0bb5830b2937cabb37c596458afaba124685cd3aab439d83de2f7e7b4e8"
-uses = ["fn:0bb173954082584d"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:dcda3bcf69b41335"
-name = "thickness"
-qual = "LayerPoint::thickness"
-lines = [
-    140,
-    143,
-]
-hash = "sha256:81907025616ff68edfd508e26d17526829c6253dd45ff4ccd9fceb7de01866fb"
-doc_hash = "sha256:abc2a2c90bf62e30e4da5bcf5dbdc90379cf68abb4ef58e06441e7168d5dc62e"
-uses = ["fn:4ed22091ff9840e6"]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:fded466768f3abae"
-name = "BoundaryLayersOutcome"
-qual = "BoundaryLayersOutcome"
-item = "type"
-shape = "struct"
-lines = [
-    146,
-    156,
-]
-hash = "sha256:18680fd3844011d41772bcdeaea1882517f8f7795cfb5c79a6cca3efbf2b8ab3"
-doc_hash = "sha256:653224a6c0f1922ff3231d7d8e9131c8719c86663e0177ef6075918f3f7bdb84"
-uses = ["fn:4ed22091ff9840e6"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:142fb665123ca73e"
-name = "boundary_layers_add_layer"
-qual = "boundary_layers_add_layer"
-lines = [
-    158,
-    236,
-]
-hash = "sha256:62022d375bbeae15311aab96e68a770661367eb4b8a06e401c27841a62830aac"
-doc_hash = "sha256:eb4ebb460a32b56c32e44563a30b9c9453360a06125959ab48021d193349ebac"
-callees = [
-    "fn:2779b4c3bda8fcf0",
-    "fn:756a0768f8b8d52d",
-    "fn:8570c7a02695d2fc",
-    "fn:98a781707f054d3a",
-    "fn:9e87c3e9daacd3a2",
-    "fn:9ff6ce079ec4cec5",
-    "fn:c84402451618c521",
-    "fn:f73d784fe563e240",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:4ed22091ff9840e6",
-    "fn:51651223d53049d8",
-    "fn:79ace9ce9d58d13f",
-    "fn:99b83de93afb8218",
-    "fn:eca3b688d6d9d7bb",
-    "fn:fded466768f3abae",
-]
-reached_by = [
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#36",
-    "#37",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#48",
-    "#49",
-    "#50",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:aeed8581914c2ff5"
-name = "PATCHNODE"
-qual = "PATCHNODE"
-item = "const"
-shape = "const"
-lines = [
-    238,
-    239,
-]
-hash = "sha256:509d54ba18c0ebf4cf79e116b85f8f28462ebe7d1cbed63e5c251ca41cd45fdb"
-doc_hash = "sha256:882b0525ea65082874cdbedde8c2b4d21b24f6a162845755ea1508b0c38d5910"
-reached_by = [
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#36",
-    "#37",
-    "#38",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:afd148915fa1efc3"
-name = "EDGENODE"
-qual = "EDGENODE"
-item = "const"
-shape = "const"
-lines = [
-    240,
-    241,
-]
-hash = "sha256:35a6e35ccca4260b2ff0d0557ec7d6c94c524d9389cf7184ac9eab4b1cb1a7e0"
-doc_hash = "sha256:ca654f7aebed657ad985f9df7cecb773a97e6ed0051657583e59807aac70570f"
-reached_by = [
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#36",
-    "#37",
-    "#38",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:fafe5874df0b0484"
-name = "BoundaryLayersError"
-qual = "BoundaryLayersError"
-item = "type"
-shape = "enum"
-lines = [
-    243,
-    277,
-]
-hash = "sha256:bafa4ab810a5c19b081ef92a7a65ac58f870be5bb13a341240ae86341770d7e5"
-doc_hash = "sha256:c7c830947959e4308ab347840b3ff9437012ff11aa6f45099b13d88f9a857b2d"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:98a781707f054d3a"
-name = "find_patch_vertices"
-qual = "find_patch_vertices"
-lines = [
-    279,
-    294,
-]
-hash = "sha256:5d6e2fc2c9cd9b37ad49a4430029a28ff65517c26fac06447eace22b8506c62c"
-doc_hash = "sha256:063d6c9d9709c518fecae965c631ccd319e84a88bc9809a682476dd02f181bb1"
-uses = [
-    "fn:aeed8581914c2ff5",
-    "fn:afd148915fa1efc3",
-    "fn:eca3b688d6d9d7bb",
-]
-reached_by = [
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#36",
-    "#37",
-    "#38",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:f73d784fe563e240"
-name = "create_new_vertex"
-qual = "create_new_vertex"
-lines = [
-    296,
-    378,
-]
-hash = "sha256:24f115d5344d6f9395f94772ed1fa5ed27ff47e4b0cd2071cfddaaff5e30fadd"
-doc_hash = "sha256:3269e9dc9e97a8163992d244826d5741fa1bbf3385b488664cc057bc294c8fbd"
-callees = [
-    "fn:0721163ec8e73c27",
-    "fn:6b0551be9b7c4177",
-    "fn:97d6db3708b72773",
-    "fn:a45de5a30b1a8c53",
-    "fn:c054e91510a8e286",
-    "fn:dc366e9292b62fe1",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:79ace9ce9d58d13f",
-    "fn:99b83de93afb8218",
-    "fn:afd148915fa1efc3",
-    "fn:e4833807a4f03d6d",
-    "fn:eca3b688d6d9d7bb",
-    "fn:fafe5874df0b0484",
-]
-reached_by = [
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#36",
-    "#37",
-    "#38",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:ee7643861b08d2ac"
-name = "tet_mag"
-qual = "tet_mag"
-lines = [
-    380,
-    383,
-]
-hash = "sha256:73b56a6b1795a9f194d2e7ba1825a257e5aa20e540e0e121d885339d6bd6103e"
-doc_hash = "sha256:936dc1a0c609a2aa542d041dff422e8f6fcc33f8a8da022b8f4d62fb1f59cc84"
-callees = [
-    "fn:6b0551be9b7c4177",
-    "fn:97d6db3708b72773",
-    "fn:a4be1d68d69b8067",
-]
-uses = ["fn:0bb173954082584d"]
-reached_by = [
-    "#29",
-    "#33",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:d92036866d64e48c"
-name = "shared_point_tets"
-qual = "shared_point_tets"
-lines = [
-    385,
-    407,
-]
-hash = "sha256:d0d8107452771b36299bd0edcdd52c75528400fdc28d556bf9f1e07731d759d0"
-doc_hash = "sha256:23519481cbead21a9c55b5cc7968323736c8b49640deee28eb9ddd01e53200c9"
-callees = ["fn:ee7643861b08d2ac"]
-uses = ["fn:0bb173954082584d"]
-reached_by = [
-    "#29",
-    "#33",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:efad0b4ff862fc5c"
-name = "is_shared_edge_convex"
-qual = "is_shared_edge_convex"
-lines = [
-    409,
-    413,
-]
-hash = "sha256:6047a472e550b26e12cc4c21430882e11773769c392a74bb257b860abe05b384"
-doc_hash = "sha256:27f0936263427b5bd99e315b6bfb2ae860d6d50552ce9a3f17d7b59591ad1b02"
-callees = ["fn:d92036866d64e48c"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:e4833807a4f03d6d",
-]
-reached_by = [
-    "#29",
-    "#33",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:ba713196ffd63ee1"
-name = "angle_between_faces"
-qual = "angle_between_faces"
-lines = [
-    415,
-    434,
-]
-hash = "sha256:d9a5f1582e4406f3e2f4e4dcde00784f62e2a79f96d5186b6c910b937862f682"
-doc_hash = "sha256:9d4873ca7e58e052368fcf3aa098150b4fdae66737a4cf6745a8b2d3f6868230"
-callees = ["fn:d92036866d64e48c"]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:e4833807a4f03d6d",
-]
-reached_by = [
-    "#29",
-    "#33",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:709917debe1ad59b"
-name = "EdgeClassification"
-qual = "EdgeClassification"
-item = "type"
-shape = "alias"
-lines = [
-    436,
-    441,
-]
-hash = "sha256:af1df02b925e172b1c723e81c974781f92b54007953f7624786e082554a55a40"
-doc_hash = "sha256:116f92bc1c13448f780e435f10c5defca0e55bf4ea00d3453aa469f741cfa219"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#33",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#46",
-    "#47",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:58f26529044314d9"
-name = "find_patches_to_be_treated_together"
-qual = "find_patches_to_be_treated_together"
-lines = [
-    443,
-    534,
-]
-hash = "sha256:1d3eda41f02abced3030e2cc13daec6bcf659562e4b459ee21c5ff9b04b94c97"
-doc_hash = "sha256:54b5f1f1715376751f72b6c59c28cb494546b2652c77d38947bc925e6be558bd"
-callees = [
-    "fn:8570c7a02695d2fc",
-    "fn:9ff6ce079ec4cec5",
-    "fn:ba713196ffd63ee1",
-    "fn:cb5e0d22f3977077",
-    "fn:efad0b4ff862fc5c",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:709917debe1ad59b",
-    "fn:99b83de93afb8218",
-    "fn:eca3b688d6d9d7bb",
-]
-reached_by = [
-    "#29",
-    "#33",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:94d480e591738bee"
-name = "PatchWisePoint"
-qual = "PatchWisePoint"
-item = "type"
-shape = "struct"
-lines = [
-    536,
-    546,
-]
-hash = "sha256:6519b17ec6996ba99ccf5c987495435e06e16b63a6f09e1c5f52021ad8014f83"
-doc_hash = "sha256:53670ac2da4e0572ca0b5e522b9dc1b8fa9b45fdcdd0095b371e3bdc72852180"
-uses = ["fn:0bb173954082584d"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:a8ebc0c993156e56"
-name = "PatchWiseOutcome"
-qual = "PatchWiseOutcome"
-item = "type"
-shape = "struct"
-lines = [
-    548,
-    567,
-]
-hash = "sha256:7d17a5b0edd99ef3b612947ba66a6588a84a3b08b3b3734c0a46ae1a46be08a8"
-doc_hash = "sha256:701eea414faeeb89d33a728c74c0085ed4535878716e294c17e9593957f166e1"
-uses = ["fn:94d480e591738bee"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:5bc3b1ef44247e43"
-name = "OtherVrts"
-qual = "OtherVrts"
-item = "type"
-shape = "alias"
-lines = [
-    569,
-    571,
-]
-hash = "sha256:967144839fcbedadd6464928bb0187efecf5eb9ecbe0f1306448687b313a576a"
-doc_hash = "sha256:52794b9e8c1cf556982378c2fac811917616f590eb1d5690e26467685c70d174"
-reached_by = [
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:c6355da657d38c1c"
-name = "find_new_node_label"
-qual = "find_new_node_label"
-lines = [
-    573,
-    585,
-]
-hash = "sha256:cf43919f1baa431cc7b4dce7e5b62111731928ce811872956aaaa58c7c9ea572"
-doc_hash = "sha256:2cf2ea3e6ee30878dfabee6da28642671e9942506e51b5d1cee11156017489dd"
-uses = ["fn:5bc3b1ef44247e43"]
-reached_by = [
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:e802a0706fc5482c"
-name = "create_new_cell_from_edge"
-qual = "create_new_cell_from_edge"
-lines = [
-    587,
-    611,
-]
-hash = "sha256:238c3ad3ff1272f3c4029e4ae916d8e949e36a4f7422a4ea6a766bb3ecf6a9d5"
-doc_hash = "sha256:bce9fe2f43c850d9631c7b49b8fba4afaa4be47a9f3217130557117a6a5d3bc1"
-uses = ["fn:5bc3b1ef44247e43"]
-reached_by = [
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:853dbdafa201b9db"
-name = "create_new_cell_from_node"
-qual = "create_new_cell_from_node"
-lines = [
-    613,
-    621,
-]
-hash = "sha256:8e4ace1476c940dbe47ad9ea1ac968aef7b136b3514ff306c92447ae75bb3662"
-doc_hash = "sha256:feadce231f66ca50fa549ff7bc3f3f81bc60929729e566ed1ed90b7e009bb60d"
-uses = ["fn:5bc3b1ef44247e43"]
-reached_by = [
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:d53d80056afc7e88"
-name = "into_mesh_keeping_patches"
-qual = "into_mesh_keeping_patches"
-lines = [
-    623,
-    643,
-]
-hash = "sha256:e35b590b49935bbc5e917273f02971c01864f2a640979978c63f75c0685557a2"
-doc_hash = "sha256:7a160bb351ab1d7a253f5e9e3d99926c768b7fe1e57bc517062d9e83f66a6fc1"
-callees = [
-    "fn:3a99d1ff9eea316a",
-    "fn:9e87c3e9daacd3a2",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:51651223d53049d8",
-    "fn:f2409c8a6718b983",
-]
-reached_by = [
-    "#29",
-    "#33",
-    "#39",
-]
 
 [[module."boundary_layers.rs".function]]
 id = "fn:ca8a398d79afd3d9"
@@ -1079,401 +12,130 @@ name = "BoundaryLayers"
 qual = "BoundaryLayers"
 item = "type"
 shape = "struct"
-lines = [
-    645,
-    670,
-]
 hash = "sha256:5d5d58d6f3d57f7be2f9f86b18ca5729404f4d37d0d0e15238abb17899705411"
 doc_hash = "sha256:4174a0fa1c92b1d31dc81060617aa8cd051db7f90bf39f3e0a010005dab24532"
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:709917debe1ad59b",
-    "fn:79ace9ce9d58d13f",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#33",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#46",
-    "#47",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:d2c58d42d32ed799"
-name = "new"
-qual = "BoundaryLayers::new"
-lines = [
-    673,
-    678,
-]
-hash = "sha256:29f333c1029add118c74344da537ab361cc737b12b95bdb3e4958080296965c6"
-doc_hash = "sha256:f6b87433ec57108836f88dad8e2cc9cbc11d5479aec3bf62dcf6530cfb22f660"
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#29",
-    "#33",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#46",
-    "#47",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:4906c3ef81284e18"
-name = "create_o_topology_layers"
-qual = "BoundaryLayers::create_o_topology_layers"
-lines = [
-    680,
-    683,
-]
-hash = "sha256:fb414a9735f69c5b55aff93b3d8dc03dcb2632c06786d1c48372ab2df53a0320"
-doc_hash = "sha256:d046d4c51c6c9a3b57d0de9769b35226d0c9ff7d2a0630f8e035b02d3281c3ca"
-uses = ["fn:ca8a398d79afd3d9"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#17",
-    "#19",
-    "#36",
-    "#39",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."boundary_layers.rs".function]]
 id = "fn:e38c96e2ecbb6fc2"
 name = "activate_2d_mode"
 qual = "BoundaryLayers::activate_2d_mode"
-lines = [
-    685,
-    711,
-]
 hash = "sha256:6f2408a2b67727be67326eeab8c255d375e7abe5384c5bc13e150caf0a13d6e9"
 doc_hash = "sha256:e76818010dbe4e44f07b8da0820d60f953a8ffd589b8d55e610d62662b8b22b4"
-uses = [
-    "fn:c853a1b7c9a42bd2",
-    "fn:ca8a398d79afd3d9",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:7cd2e2a2a529d1ca"
-name = "treat_patches_with_patch"
-qual = "BoundaryLayers::treat_patches_with_patch"
-lines = [
-    713,
-    717,
-]
-hash = "sha256:637deb8910db8de67b73ea08dff20b67eca61971e88b624e6ed0aabcadc92628"
-doc_hash = "sha256:61f019a42b3cd62e9d144dae70a1362c975cfee503e1854b500027b1e267a0c1"
-callees = ["fn:ec369482e094b692"]
-uses = ["fn:ca8a398d79afd3d9"]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:9f4751444fe7b993"
-name = "treated_patches"
-qual = "BoundaryLayers::treated_patches"
-lines = [
-    719,
-    722,
-]
-hash = "sha256:adff3e1a090a29264810164266b8e6e9a8f518a82cd6f0527d505a3e6eee371a"
-doc_hash = "sha256:29cf7404159dd908cd7aabb019fedece805ca0e4044218f4bcc47c486ac3236e"
-uses = ["fn:ca8a398d79afd3d9"]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:ec369482e094b692"
-name = "analyse"
-qual = "BoundaryLayers::analyse"
-lines = [
-    724,
-    732,
-]
-hash = "sha256:7cc54c6d86509d2672ac711d532c666cbee761e473e82aff020bbb77115723c3"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:58f26529044314d9"]
-uses = ["fn:ca8a398d79afd3d9"]
-reached_by = [
-    "#29",
-    "#33",
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:92d77e4cd5270679"
-name = "add_layer_for_patch"
-qual = "BoundaryLayers::add_layer_for_patch"
-lines = [
-    734,
-    754,
-]
-hash = "sha256:fb6dabad27783366aa2cf1e2e359d6e5023d13a5fc19c190977cc84c81a215a1"
-doc_hash = "sha256:7a363212c6bf71965cce9634a1f9b646b32ae9f7bcd9e3a0c9eca4ccc9fb60dc"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:756a0768f8b8d52d",
-    "fn:d53d80056afc7e88",
-    "fn:ec369482e094b692",
-]
-uses = [
-    "fn:51651223d53049d8",
-    "fn:ca8a398d79afd3d9",
-    "fn:fafe5874df0b0484",
-    "fn:fded466768f3abae",
-]
-reached_by = ["#29"]
 
 [[module."boundary_layers.rs".function]]
 id = "fn:30f50b0b4c2eccad"
 name = "add_layer_for_all_patches"
 qual = "BoundaryLayers::add_layer_for_all_patches"
-lines = [
-    756,
-    778,
-]
 hash = "sha256:59a58bb69b686b7dad21ee0cb1833dbf77c0f32732d247f060c83475ff6dce8a"
 doc_hash = "sha256:442c95c886c6bab334432a35caef24ab6128038fa9ffe49792147e89fb905e7b"
-callees = [
-    "fn:49b60129c8f419af",
-    "fn:ec369482e094b692",
-]
-uses = [
-    "fn:a8ebc0c993156e56",
-    "fn:ca8a398d79afd3d9",
-    "fn:fafe5874df0b0484",
-]
-reached_by = [
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
+
+[[module."boundary_layers.rs".function]]
+id = "fn:92d77e4cd5270679"
+name = "add_layer_for_patch"
+qual = "BoundaryLayers::add_layer_for_patch"
+hash = "sha256:fb6dabad27783366aa2cf1e2e359d6e5023d13a5fc19c190977cc84c81a215a1"
+doc_hash = "sha256:7a363212c6bf71965cce9634a1f9b646b32ae9f7bcd9e3a0c9eca4ccc9fb60dc"
 
 [[module."boundary_layers.rs".function]]
 id = "fn:a2e2c82f6c2364e0"
 name = "add_wrapper_layer"
 qual = "BoundaryLayers::add_wrapper_layer"
-lines = [
-    780,
-    820,
-]
 hash = "sha256:91b39323359faa2506d2fea2991be419bc8f983274b441ce40eb556074a98b27"
 doc_hash = "sha256:f670f04cf82599f9420be443807d4f61344f9ac138f528715350fdbaedf792d1"
-callees = [
-    "fn:2779b4c3bda8fcf0",
-    "fn:4906c3ef81284e18",
-    "fn:756a0768f8b8d52d",
-    "fn:c84402451618c521",
-    "fn:d53d80056afc7e88",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:51651223d53049d8",
-    "fn:ca8a398d79afd3d9",
-]
-reached_by = ["#39"]
+
+[[module."boundary_layers.rs".function]]
+id = "fn:ec369482e094b692"
+name = "analyse"
+qual = "BoundaryLayers::analyse"
+hash = "sha256:7cc54c6d86509d2672ac711d532c666cbee761e473e82aff020bbb77115723c3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."boundary_layers.rs".function]]
 id = "fn:3e7a27d1d20631c6"
 name = "check_topology_of_boundary_faces"
 qual = "BoundaryLayers::check_topology_of_boundary_faces"
-lines = [
-    822,
-    921,
-]
 hash = "sha256:aedd6444f41312e8d6630ffa3ba8afbb82dde07c0576a4fa18bdf953a2906797"
 doc_hash = "sha256:cd7097ecb9438daadd8bf4fb257a697e853b03ef4ac15309b64c5749a4400ad7"
-callees = [
-    "fn:6f6828dadb97e2c3",
-    "fn:756a0768f8b8d52d",
-    "fn:9a52abb990a594d7",
-    "fn:9ff6ce079ec4cec5",
-    "fn:d53d80056afc7e88",
-    "fn:ec369482e094b692",
-    "fn:ffb96fcfb9579daf",
-]
-uses = [
-    "fn:51651223d53049d8",
-    "fn:99b83de93afb8218",
-    "fn:ca8a398d79afd3d9",
-    "fn:fafe5874df0b0484",
-]
-reached_by = ["#33"]
 
 [[module."boundary_layers.rs".function]]
-id = "fn:a3f938bd07a3fdfc"
-name = "LayerRequest"
-qual = "LayerRequest"
+id = "fn:4906c3ef81284e18"
+name = "create_o_topology_layers"
+qual = "BoundaryLayers::create_o_topology_layers"
+hash = "sha256:fb414a9735f69c5b55aff93b3d8dc03dcb2632c06786d1c48372ab2df53a0320"
+doc_hash = "sha256:d046d4c51c6c9a3b57d0de9769b35226d0c9ff7d2a0630f8e035b02d3281c3ca"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:d2c58d42d32ed799"
+name = "new"
+qual = "BoundaryLayers::new"
+hash = "sha256:29f333c1029add118c74344da537ab361cc737b12b95bdb3e4958080296965c6"
+doc_hash = "sha256:f6b87433ec57108836f88dad8e2cc9cbc11d5479aec3bf62dcf6530cfb22f660"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:7cd2e2a2a529d1ca"
+name = "treat_patches_with_patch"
+qual = "BoundaryLayers::treat_patches_with_patch"
+hash = "sha256:637deb8910db8de67b73ea08dff20b67eca61971e88b624e6ed0aabcadc92628"
+doc_hash = "sha256:61f019a42b3cd62e9d144dae70a1362c975cfee503e1854b500027b1e267a0c1"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:9f4751444fe7b993"
+name = "treated_patches"
+qual = "BoundaryLayers::treated_patches"
+hash = "sha256:adff3e1a090a29264810164266b8e6e9a8f518a82cd6f0527d505a3e6eee371a"
+doc_hash = "sha256:29cf7404159dd908cd7aabb019fedece805ca0e4044218f4bcc47c486ac3236e"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:79ace9ce9d58d13f"
+name = "BoundaryLayersControls"
+qual = "BoundaryLayersControls"
+item = "type"
+shape = "struct"
+hash = "sha256:89d526a6b2b22ba5bfae0e556a23dbc4c7718425a548217fbdd8bd4729d0e54e"
+doc_hash = "sha256:0dcd0d01a4a1f7e797f8dd8083c57d565fc236955d61be600d39204923e48161"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:506786699fd6265b"
+name = "default"
+qual = "BoundaryLayersControls::default"
+hash = "sha256:8e3b3f2fe2b5b77a1a53d6f285f9c6833b9016620c05007d16277933c76ef286"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:fafe5874df0b0484"
+name = "BoundaryLayersError"
+qual = "BoundaryLayersError"
 item = "type"
 shape = "enum"
-lines = [
-    924,
-    932,
-]
-hash = "sha256:9965d069bf57c2974045c7f2595d14b52571cf56269aeb0cd82897d032e6170c"
-doc_hash = "sha256:c4c9eed93b779e388a34ff234ec81075c416105d7192cc94d7a9719bee447902"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#35",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
+hash = "sha256:bafa4ab810a5c19b081ef92a7a65ac58f870be5bb13a341240ae86341770d7e5"
+doc_hash = "sha256:c7c830947959e4308ab347840b3ff9437012ff11aa6f45099b13d88f9a857b2d"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:fded466768f3abae"
+name = "BoundaryLayersOutcome"
+qual = "BoundaryLayersOutcome"
+item = "type"
+shape = "struct"
+hash = "sha256:18680fd3844011d41772bcdeaea1882517f8f7795cfb5c79a6cca3efbf2b8ab3"
+doc_hash = "sha256:653224a6c0f1922ff3231d7d8e9131c8719c86663e0177ef6075918f3f7bdb84"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:afd148915fa1efc3"
+name = "EDGENODE"
+qual = "EDGENODE"
+item = "const"
+shape = "const"
+hash = "sha256:35a6e35ccca4260b2ff0d0557ec7d6c94c524d9389cf7184ac9eab4b1cb1a7e0"
+doc_hash = "sha256:ca654f7aebed657ad985f9df7cecb773a97e6ed0051657583e59807aac70570f"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:709917debe1ad59b"
+name = "EdgeClassification"
+qual = "EdgeClassification"
+item = "type"
+shape = "alias"
+hash = "sha256:af1df02b925e172b1c723e81c974781f92b54007953f7624786e082554a55a40"
+doc_hash = "sha256:116f92bc1c13448f780e435f10c5defca0e55bf4ea00d3453aa469f741cfa219"
 
 [[module."boundary_layers.rs".function]]
 id = "fn:8b03cb20f3c4838b"
@@ -1481,974 +143,328 @@ name = "GeneratedLayer"
 qual = "GeneratedLayer"
 item = "type"
 shape = "struct"
-lines = [
-    934,
-    944,
-]
 hash = "sha256:92c26bdbfcccc71778f63950ab54ebfbbaaa689201decf507268988c6ae4dd51"
 doc_hash = "sha256:d662c6bf640695042fcfd3210ac9735881be37dacdc351dd3c31e7b657cee1d4"
-uses = [
-    "fn:a8ebc0c993156e56",
-    "fn:fded466768f3abae",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#35",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."boundary_layers.rs".function]]
 id = "fn:0e212ab0855c64f9"
 name = "summary"
 qual = "GeneratedLayer::summary"
-lines = [
-    947,
-    956,
-]
 hash = "sha256:f295b88588a2b4b7b1478b3f30ce7d64f59c85082899a253681cfd5ebdf4b02b"
 doc_hash = "sha256:7bc29fbc42694c302b4664b89dd19a91ca30cc51c0d3e38c3393fffbaabfab46"
-uses = ["fn:8b03cb20f3c4838b"]
 
 [[module."boundary_layers.rs".function]]
-id = "fn:31370da16b8ffb57"
-name = "generate_layer"
-qual = "generate_layer"
-lines = [
-    959,
-    989,
-]
-hash = "sha256:187fc2412ede97f5d2aaafea6a54a2a975679213056a2b6802df163d39092ef2"
-doc_hash = "sha256:d526b74bae7c2c6288123b067c73f18f26d88cd863cb005f4696819c7f5818b9"
-callees = ["fn:d2c58d42d32ed799"]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:79ace9ce9d58d13f",
-    "fn:8b03cb20f3c4838b",
-    "fn:a3f938bd07a3fdfc",
-    "fn:ca8a398d79afd3d9",
-    "fn:fafe5874df0b0484",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#35",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
+id = "fn:4ed22091ff9840e6"
+name = "LayerPoint"
+qual = "LayerPoint"
+item = "type"
+shape = "struct"
+hash = "sha256:d4aa76b29489f5feed8263f71851aeef13fce13bc88d307bd1308c396f160fc8"
+doc_hash = "sha256:3590d0bb5830b2937cabb37c596458afaba124685cd3aab439d83de2f7e7b4e8"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:dcda3bcf69b41335"
+name = "thickness"
+qual = "LayerPoint::thickness"
+hash = "sha256:81907025616ff68edfd508e26d17526829c6253dd45ff4ccd9fceb7de01866fb"
+doc_hash = "sha256:abc2a2c90bf62e30e4da5bcf5dbdc90379cf68abb4ef58e06441e7168d5dc62e"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:a3f938bd07a3fdfc"
+name = "LayerRequest"
+qual = "LayerRequest"
+item = "type"
+shape = "enum"
+hash = "sha256:9965d069bf57c2974045c7f2595d14b52571cf56269aeb0cd82897d032e6170c"
+doc_hash = "sha256:c4c9eed93b779e388a34ff234ec81075c416105d7192cc94d7a9719bee447902"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:5bc3b1ef44247e43"
+name = "OtherVrts"
+qual = "OtherVrts"
+item = "type"
+shape = "alias"
+hash = "sha256:967144839fcbedadd6464928bb0187efecf5eb9ecbe0f1306448687b313a576a"
+doc_hash = "sha256:52794b9e8c1cf556982378c2fac811917616f590eb1d5690e26467685c70d174"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:aeed8581914c2ff5"
+name = "PATCHNODE"
+qual = "PATCHNODE"
+item = "const"
+shape = "const"
+hash = "sha256:509d54ba18c0ebf4cf79e116b85f8f28462ebe7d1cbed63e5c251ca41cd45fdb"
+doc_hash = "sha256:882b0525ea65082874cdbedde8c2b4d21b24f6a162845755ea1508b0c38d5910"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:a8ebc0c993156e56"
+name = "PatchWiseOutcome"
+qual = "PatchWiseOutcome"
+item = "type"
+shape = "struct"
+hash = "sha256:7d17a5b0edd99ef3b612947ba66a6588a84a3b08b3b3734c0a46ae1a46be08a8"
+doc_hash = "sha256:701eea414faeeb89d33a728c74c0085ed4535878716e294c17e9593957f166e1"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:94d480e591738bee"
+name = "PatchWisePoint"
+qual = "PatchWisePoint"
+item = "type"
+shape = "struct"
+hash = "sha256:6519b17ec6996ba99ccf5c987495435e06e16b63a6f09e1c5f52021ad8014f83"
+doc_hash = "sha256:53670ac2da4e0572ca0b5e522b9dc1b8fa9b45fdcdd0095b371e3bdc72852180"
 
 [[module."boundary_layers.rs".function]]
 id = "fn:3c9f1e32d82f4d06"
 name = "add_cells_upstream"
 qual = "add_cells_upstream"
-lines = [
-    991,
-    1096,
-]
 hash = "sha256:3c0aea37820714c885e57605b82e16188cc5717ad4e07af76f5fba921468dd63"
 doc_hash = "sha256:cc0e84148bf2bdce9324c151ff040a76338cf7bb1f619191f0643daa1252462b"
-callees = [
-    "fn:4a1b4bcb75ce8498",
-    "fn:b20e21a630c63653",
-    "fn:c1b3f21ee5232800",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:f2409c8a6718b983",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#31",
-    "#33",
-    "#34",
-    "#36",
-    "#37",
-    "#38",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#57",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."boundary_layers.rs".function]]
-id = "fn:49b60129c8f419af"
-name = "patch_wise_layer"
-qual = "patch_wise_layer"
-lines = [
-    1098,
-    1361,
-]
-hash = "sha256:c5ccff589d338d7572f3ed897faaea4068c4dfd1d071547e46a3c7e4b15bb969"
-doc_hash = "sha256:a97be33833c6ac832d597cefb13970d8f6d1d46dd6393fbfcee45ce3e800c397"
-callees = [
-    "fn:3c9f1e32d82f4d06",
-    "fn:853dbdafa201b9db",
-    "fn:8570c7a02695d2fc",
-    "fn:98a781707f054d3a",
-    "fn:9ff6ce079ec4cec5",
-    "fn:b0704a6cf6f88e62",
-    "fn:c6355da657d38c1c",
-    "fn:e802a0706fc5482c",
-    "fn:f73d784fe563e240",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:5bc3b1ef44247e43",
-    "fn:79ace9ce9d58d13f",
-    "fn:94d480e591738bee",
-    "fn:99b83de93afb8218",
-    "fn:a8ebc0c993156e56",
-    "fn:afd148915fa1efc3",
-    "fn:eca3b688d6d9d7bb",
-    "fn:fafe5874df0b0484",
-]
-reached_by = [
-    "#36",
-    "#37",
-    "#38",
-    "#46",
-    "#47",
-    "#98",
-]
-
-[[module."boundary_layers.rs".function]]
-id = "fn:8a3793df3e1d8a27"
-name = "named_box"
-qual = "named_box"
-lines = [
-    1371,
-    1377,
-]
-hash = "sha256:2cb5fbb705596d6500005804abb43657a8cce8c21c65a38e1559e2ba217bf3fd"
-doc_hash = "sha256:e20bb9511ed3e939b24d41cc9b0b1a9da6a89b649f21a0144269a135ab362c8f"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:33bb441bdd4ba91a",
-    "fn:4514531a46112af1",
-    "fn:5b6d3d9552c61e5a",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:70e860e06320216b",
-]
+id = "fn:1a339542d3d18aec"
+name = "add_layer_for_patch_in_sequence_on_the_box"
+qual = "add_layer_for_patch_in_sequence_on_the_box"
+hash = "sha256:436e725e85d5e52b6dd622b22029c059e9cc0eaa2b00f483fe53a7129084cc95"
+doc_hash = "sha256:e6d7014d9037617909d66eaeca1b1a40ddc34213b147370827ecf1c9d462d0ca"
 test = true
 
 [[module."boundary_layers.rs".function]]
-id = "fn:3d857c589da328b5"
-name = "patch_faces"
-qual = "patch_faces"
-lines = [
-    1379,
-    1381,
-]
-hash = "sha256:31dd148d6356731755611522912c6d09910b76bd0cdcc5f73d039677ee47fb27"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:10682e4c34e8baeb"
-name = "cfmesh_layer_on_a_carved_box_by_hand"
-qual = "cfmesh_layer_on_a_carved_box_by_hand"
-lines = [
-    1383,
-    1431,
-]
-hash = "sha256:dad439df49465960f5bf9255856bed2f8bdd70b50fd0cdf8a500ef1d3c30e06c"
-doc_hash = "sha256:dd76c33e3f889d785326df362c035700e0692349fafeb14f62c69be14b3c2089"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:3d857c589da328b5",
-    "fn:8a3793df3e1d8a27",
-]
-uses = ["fn:79ace9ce9d58d13f"]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:f0a91faa0447f4b9"
-name = "cfmesh_layer_against_back_off_on_the_box"
-qual = "cfmesh_layer_against_back_off_on_the_box"
-lines = [
-    1433,
-    1487,
-]
-hash = "sha256:e6b3a160c68af18187d97e1c7a67ac8eef806b50655b16afb51529733adcd0c8"
-doc_hash = "sha256:682d688d1af26f19120c48025fd58e86d046f8b29382fb52a7ae0f4248bee57a"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:21a2256faadd9502",
-    "fn:2779b4c3bda8fcf0",
-    "fn:6c6aaf9e0382b6da",
-    "fn:8a3793df3e1d8a27",
-]
-uses = ["fn:79ace9ce9d58d13f"]
-test = true
+id = "fn:ba713196ffd63ee1"
+name = "angle_between_faces"
+qual = "angle_between_faces"
+hash = "sha256:d9a5f1582e4406f3e2f4e4dcde00784f62e2a79f96d5186b6c910b937862f682"
+doc_hash = "sha256:9d4873ca7e58e052368fcf3aa098150b4fdae66737a4cf6745a8b2d3f6868230"
 
 [[module."boundary_layers.rs".function]]
 id = "fn:d43d68cd7b4e644e"
 name = "bare_pipe"
 qual = "bare_pipe"
-lines = [
-    1489,
-    1497,
-]
 hash = "sha256:7e650bcb38ed758deb97fb1d01bfd8cc6d76d19e673131887006d74e675e358c"
 doc_hash = "sha256:57ebe64d7dd7557c481166eb55a52483af16ed6c273823ed33c90cf4a94d9884"
-callees = [
-    "fn:c20c6aebcf3533d9",
-    "fn:d27c53070645c562",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:be7013441700cacd",
-]
 test = true
 
 [[module."boundary_layers.rs".function]]
-id = "fn:993e3d8a5cf22ddf"
-name = "pipe_differential"
-qual = "pipe_differential"
-lines = [
-    1499,
-    1578,
-]
-hash = "sha256:174c5672f2faeafeda2c81df94210f88d9091f3441b08054e5c1ab1074d5afa4"
-doc_hash = "sha256:bb85d7e81098a62908f275ccb5a642aa78adf48dcf6e33b65233431fe865cb0a"
-callees = [
-    "fn:01afff344f44d5bd",
-    "fn:05ab261b0ecdc133",
-    "fn:142fb665123ca73e",
-    "fn:21a2256faadd9502",
-    "fn:3d857c589da328b5",
-    "fn:451654b243cb4147",
-    "fn:51b09ab570ea9c08",
-    "fn:6c6aaf9e0382b6da",
-    "fn:97d6db3708b72773",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:79ace9ce9d58d13f",
-]
+id = "fn:142fb665123ca73e"
+name = "boundary_layers_add_layer"
+qual = "boundary_layers_add_layer"
+hash = "sha256:62022d375bbeae15311aab96e68a770661367eb4b8a06e401c27841a62830aac"
+doc_hash = "sha256:eb4ebb460a32b56c32e44563a30b9c9453360a06125959ab48021d193349ebac"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:f0a91faa0447f4b9"
+name = "cfmesh_layer_against_back_off_on_the_box"
+qual = "cfmesh_layer_against_back_off_on_the_box"
+hash = "sha256:e6b3a160c68af18187d97e1c7a67ac8eef806b50655b16afb51529733adcd0c8"
+doc_hash = "sha256:682d688d1af26f19120c48025fd58e86d046f8b29382fb52a7ae0f4248bee57a"
 test = true
 
 [[module."boundary_layers.rs".function]]
 id = "fn:0e24a0a04c6e83d4"
 name = "cfmesh_layer_against_back_off_on_the_pipe"
 qual = "cfmesh_layer_against_back_off_on_the_pipe"
-lines = [
-    1580,
-    1620,
-]
 hash = "sha256:7e264e796da8c61886a1436a6bf000888d88e2a2b0e90e0abd094e46e89a8978"
 doc_hash = "sha256:00258b67075f15315231f7b19e8752026eb6cb7e8f8a5b0e849d56a7e1e6a41f"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:993e3d8a5cf22ddf",
-    "fn:d43d68cd7b4e644e",
-]
-uses = ["fn:79ace9ce9d58d13f"]
 test = true
 
 [[module."boundary_layers.rs".function]]
-id = "fn:d6a5e7ce4e53b76f"
-name = "diagnose_cfmesh_layer_on_the_foam_studio_pipe"
-qual = "diagnose_cfmesh_layer_on_the_foam_studio_pipe"
-lines = [
-    1622,
-    1642,
-]
-hash = "sha256:ff5a43fcd357d384d327c77ca35b45871ea019e1a60c8a3528315c52d12f945b"
-doc_hash = "sha256:922d995a60e24cb7e3630c1e1f011b0d8d6d41f481427f0c01af8dd7e05e50b8"
-callees = [
-    "fn:993e3d8a5cf22ddf",
-    "fn:d43d68cd7b4e644e",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:6466aecc78b73604"
-name = "six_patch_box"
-qual = "six_patch_box"
-lines = [
-    1644,
-    1650,
-]
-hash = "sha256:c5c13b77edc03303a3d1073f0f9a248245a2d10bbc664970f02ccd0dedbbbfb4"
-doc_hash = "sha256:0c86d3105b164e0d6ca380de6ed87184509131e5fbc212e50d1fae878f145ca7"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:33bb441bdd4ba91a",
-    "fn:4514531a46112af1",
-    "fn:5b6d3d9552c61e5a",
-    "fn:c88a3e023469a925",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:70e860e06320216b",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:0215d05a82217b24"
-name = "n_nonpositive"
-qual = "n_nonpositive"
-lines = [
-    1652,
-    1654,
-]
-hash = "sha256:090cec13d8ff39aea61cd5a0b3a7fbb9ea77a271f7b3961743865ae61c7e9451"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:4fbc238e8eae2059"]
-uses = ["fn:1d52ce14c252d72f"]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:5808448e151e9c79"
-name = "patch_wise_layer_on_the_six_patch_box"
-qual = "patch_wise_layer_on_the_six_patch_box"
-lines = [
-    1656,
-    1684,
-]
-hash = "sha256:c7ac46064ceae04e268db7f1b2f7dd6dc8255714d84d23aa0dc1cacc78bd26f9"
-doc_hash = "sha256:88d4c193a2b25fab3ad470de6257220d7e442b6060332161d5aab3871997b4f4"
-callees = [
-    "fn:2e15c0317a694052",
-    "fn:30f50b0b4c2eccad",
-    "fn:6466aecc78b73604",
-    "fn:d2c58d42d32ed799",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:0fe646288b084ad0"
-name = "patch_wise_against_o_topology_on_the_named_box"
-qual = "patch_wise_against_o_topology_on_the_named_box"
-lines = [
-    1686,
-    1709,
-]
-hash = "sha256:62cdbd3e987595e9c49b582fc29c4bed570ecb70e66703883b7942ff560a28ee"
-doc_hash = "sha256:4e88007e642543f29c05df1cfa699e2ad637f801e55f67b41b65941bdeda6c63"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:2e15c0317a694052",
-    "fn:30f50b0b4c2eccad",
-    "fn:4906c3ef81284e18",
-    "fn:8a3793df3e1d8a27",
-    "fn:d2c58d42d32ed799",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:6566f53717c42c48"
-name = "patch_wise_displacements_equal_the_one_group_route_on_the_pipe"
-qual = "patch_wise_displacements_equal_the_one_group_route_on_the_pipe"
-lines = [
-    1711,
-    1778,
-]
-hash = "sha256:ca44f70ffa0572b4ccd6f2c33ed63252ee2816a5b0a615d13c8077983111b535"
-doc_hash = "sha256:b55a1b0112910392fb4b9ddee4428ed87d5dc46be8c92aa92a75b527d7d0d042"
-callees = [
-    "fn:01afff344f44d5bd",
-    "fn:142fb665123ca73e",
-    "fn:21a2256faadd9502",
-    "fn:2e15c0317a694052",
-    "fn:30f50b0b4c2eccad",
-    "fn:9ff6ce079ec4cec5",
-    "fn:ba713196ffd63ee1",
-    "fn:d2c58d42d32ed799",
-    "fn:d43d68cd7b4e644e",
-    "fn:efad0b4ff862fc5c",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:99b83de93afb8218",
-    "fn:ca8a398d79afd3d9",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:1a339542d3d18aec"
-name = "add_layer_for_patch_in_sequence_on_the_box"
-qual = "add_layer_for_patch_in_sequence_on_the_box"
-lines = [
-    1780,
-    1796,
-]
-hash = "sha256:436e725e85d5e52b6dd622b22029c059e9cc0eaa2b00f483fe53a7129084cc95"
-doc_hash = "sha256:e6d7014d9037617909d66eaeca1b1a40ddc34213b147370827ecf1c9d462d0ca"
-callees = [
-    "fn:2e15c0317a694052",
-    "fn:6466aecc78b73604",
-    "fn:92d77e4cd5270679",
-    "fn:d2c58d42d32ed799",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:1a6e83ae12389904"
-name = "generate_layer_skips_a_name_no_patch_has"
-qual = "generate_layer_skips_a_name_no_patch_has"
-lines = [
-    1798,
-    1809,
-]
-hash = "sha256:f10153ff914cd076b9f5de05ae2952389cd84ca14ae30ce37b4986bb055aafb1"
-doc_hash = "sha256:069ee7f47ab712eaa87fa72d34539097ed6af2ff9a1d590ba8afd9dfd0b65c09"
-callees = [
-    "fn:31370da16b8ffb57",
-    "fn:6466aecc78b73604",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:a3f938bd07a3fdfc",
-]
-test = true
-
-[[module."boundary_layers.rs".function]]
-id = "fn:17186062a4691faf"
-name = "wrapper_layer_has_zero_thickness"
-qual = "wrapper_layer_has_zero_thickness"
-lines = [
-    1811,
-    1824,
-]
-hash = "sha256:fb180bdfa63eaa0a8b38181b8f2e4513c067dc181f5af1ef4fff4e5a29ec7e07"
-doc_hash = "sha256:3efd5f42f65b7731f304a7c252ed8202f28536310572576f4a68cdd7bc440dcd"
-callees = [
-    "fn:2e15c0317a694052",
-    "fn:4fbc238e8eae2059",
-    "fn:6466aecc78b73604",
-    "fn:a2e2c82f6c2364e0",
-    "fn:d2c58d42d32ed799",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
+id = "fn:10682e4c34e8baeb"
+name = "cfmesh_layer_on_a_carved_box_by_hand"
+qual = "cfmesh_layer_on_a_carved_box_by_hand"
+hash = "sha256:dad439df49465960f5bf9255856bed2f8bdd70b50fd0cdf8a500ef1d3c30e06c"
+doc_hash = "sha256:dd76c33e3f889d785326df362c035700e0692349fafeb14f62c69be14b3c2089"
 test = true
 
 [[module."boundary_layers.rs".function]]
 id = "fn:5e428f1ee22d37f6"
 name = "check_topology_of_boundary_faces_on_forced_groups"
 qual = "check_topology_of_boundary_faces_on_forced_groups"
-lines = [
-    1826,
-    1849,
-]
 hash = "sha256:78616341b61c8aaf4a67e364bcb0629f679fd7de1bac1ccbeeb0174accf6e7eb"
 doc_hash = "sha256:504c984b329b7c17d3579c59de09f7e966e52e26a2980d27e3ede6d954d0890a"
-callees = [
-    "fn:3e7a27d1d20631c6",
-    "fn:6466aecc78b73604",
-    "fn:d2c58d42d32ed799",
-    "fn:d43d68cd7b4e644e",
-    "fn:ec369482e094b692",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:e802a0706fc5482c"
+name = "create_new_cell_from_edge"
+qual = "create_new_cell_from_edge"
+hash = "sha256:238c3ad3ff1272f3c4029e4ae916d8e949e36a4f7422a4ea6a766bb3ecf6a9d5"
+doc_hash = "sha256:bce9fe2f43c850d9631c7b49b8fba4afaa4be47a9f3217130557117a6a5d3bc1"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:853dbdafa201b9db"
+name = "create_new_cell_from_node"
+qual = "create_new_cell_from_node"
+hash = "sha256:8e4ace1476c940dbe47ad9ea1ac968aef7b136b3514ff306c92447ae75bb3662"
+doc_hash = "sha256:feadce231f66ca50fa549ff7bc3f3f81bc60929729e566ed1ed90b7e009bb60d"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:f73d784fe563e240"
+name = "create_new_vertex"
+qual = "create_new_vertex"
+hash = "sha256:24f115d5344d6f9395f94772ed1fa5ed27ff47e4b0cd2071cfddaaff5e30fadd"
+doc_hash = "sha256:3269e9dc9e97a8163992d244826d5741fa1bbf3385b488664cc057bc294c8fbd"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:d6a5e7ce4e53b76f"
+name = "diagnose_cfmesh_layer_on_the_foam_studio_pipe"
+qual = "diagnose_cfmesh_layer_on_the_foam_studio_pipe"
+hash = "sha256:ff5a43fcd357d384d327c77ca35b45871ea019e1a60c8a3528315c52d12f945b"
+doc_hash = "sha256:922d995a60e24cb7e3630c1e1f011b0d8d6d41f481427f0c01af8dd7e05e50b8"
 test = true
 
 [[module."boundary_layers.rs".function]]
 id = "fn:2414d1d2e7a42060"
 name = "edge_convexity_by_hand"
 qual = "edge_convexity_by_hand"
-lines = [
-    1851,
-    1868,
-]
 hash = "sha256:2ef0949b30caa24ce7b698e9ac09bd12048f6405c3b9277c9646baddabc7c068"
 doc_hash = "sha256:3869c79c339fed09c583c72671c530a652a36b92a0ec041326895780a4258bc4"
 test = true
 
+[[module."boundary_layers.rs".function]]
+id = "fn:c6355da657d38c1c"
+name = "find_new_node_label"
+qual = "find_new_node_label"
+hash = "sha256:cf43919f1baa431cc7b4dce7e5b62111731928ce811872956aaaa58c7c9ea572"
+doc_hash = "sha256:2cf2ea3e6ee30878dfabee6da28642671e9942506e51b5d1cee11156017489dd"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:98a781707f054d3a"
+name = "find_patch_vertices"
+qual = "find_patch_vertices"
+hash = "sha256:5d6e2fc2c9cd9b37ad49a4430029a28ff65517c26fac06447eace22b8506c62c"
+doc_hash = "sha256:063d6c9d9709c518fecae965c631ccd319e84a88bc9809a682476dd02f181bb1"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:58f26529044314d9"
+name = "find_patches_to_be_treated_together"
+qual = "find_patches_to_be_treated_together"
+hash = "sha256:1d3eda41f02abced3030e2cc13daec6bcf659562e4b459ee21c5ff9b04b94c97"
+doc_hash = "sha256:54b5f1f1715376751f72b6c59c28cb494546b2652c77d38947bc925e6be558bd"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:31370da16b8ffb57"
+name = "generate_layer"
+qual = "generate_layer"
+hash = "sha256:187fc2412ede97f5d2aaafea6a54a2a975679213056a2b6802df163d39092ef2"
+doc_hash = "sha256:d526b74bae7c2c6288123b067c73f18f26d88cd863cb005f4696819c7f5818b9"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:1a6e83ae12389904"
+name = "generate_layer_skips_a_name_no_patch_has"
+qual = "generate_layer_skips_a_name_no_patch_has"
+hash = "sha256:f10153ff914cd076b9f5de05ae2952389cd84ca14ae30ce37b4986bb055aafb1"
+doc_hash = "sha256:069ee7f47ab712eaa87fa72d34539097ed6af2ff9a1d590ba8afd9dfd0b65c09"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:d53d80056afc7e88"
+name = "into_mesh_keeping_patches"
+qual = "into_mesh_keeping_patches"
+hash = "sha256:e35b590b49935bbc5e917273f02971c01864f2a640979978c63f75c0685557a2"
+doc_hash = "sha256:7a160bb351ab1d7a253f5e9e3d99926c768b7fe1e57bc517062d9e83f66a6fc1"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:efad0b4ff862fc5c"
+name = "is_shared_edge_convex"
+qual = "is_shared_edge_convex"
+hash = "sha256:6047a472e550b26e12cc4c21430882e11773769c392a74bb257b860abe05b384"
+doc_hash = "sha256:27f0936263427b5bd99e315b6bfb2ae860d6d50552ce9a3f17d7b59591ad1b02"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:0215d05a82217b24"
+name = "n_nonpositive"
+qual = "n_nonpositive"
+hash = "sha256:090cec13d8ff39aea61cd5a0b3a7fbb9ea77a271f7b3961743865ae61c7e9451"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:8a3793df3e1d8a27"
+name = "named_box"
+qual = "named_box"
+hash = "sha256:2cb5fbb705596d6500005804abb43657a8cce8c21c65a38e1559e2ba217bf3fd"
+doc_hash = "sha256:e20bb9511ed3e939b24d41cc9b0b1a9da6a89b649f21a0144269a135ab362c8f"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:3d857c589da328b5"
+name = "patch_faces"
+qual = "patch_faces"
+hash = "sha256:31dd148d6356731755611522912c6d09910b76bd0cdcc5f73d039677ee47fb27"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:0fe646288b084ad0"
+name = "patch_wise_against_o_topology_on_the_named_box"
+qual = "patch_wise_against_o_topology_on_the_named_box"
+hash = "sha256:62cdbd3e987595e9c49b582fc29c4bed570ecb70e66703883b7942ff560a28ee"
+doc_hash = "sha256:4e88007e642543f29c05df1cfa699e2ad637f801e55f67b41b65941bdeda6c63"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:6566f53717c42c48"
+name = "patch_wise_displacements_equal_the_one_group_route_on_the_pipe"
+qual = "patch_wise_displacements_equal_the_one_group_route_on_the_pipe"
+hash = "sha256:ca44f70ffa0572b4ccd6f2c33ed63252ee2816a5b0a615d13c8077983111b535"
+doc_hash = "sha256:b55a1b0112910392fb4b9ddee4428ed87d5dc46be8c92aa92a75b527d7d0d042"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:49b60129c8f419af"
+name = "patch_wise_layer"
+qual = "patch_wise_layer"
+hash = "sha256:c5ccff589d338d7572f3ed897faaea4068c4dfd1d071547e46a3c7e4b15bb969"
+doc_hash = "sha256:a97be33833c6ac832d597cefb13970d8f6d1d46dd6393fbfcee45ce3e800c397"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:5808448e151e9c79"
+name = "patch_wise_layer_on_the_six_patch_box"
+qual = "patch_wise_layer_on_the_six_patch_box"
+hash = "sha256:c7ac46064ceae04e268db7f1b2f7dd6dc8255714d84d23aa0dc1cacc78bd26f9"
+doc_hash = "sha256:88d4c193a2b25fab3ad470de6257220d7e442b6060332161d5aab3871997b4f4"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:993e3d8a5cf22ddf"
+name = "pipe_differential"
+qual = "pipe_differential"
+hash = "sha256:174c5672f2faeafeda2c81df94210f88d9091f3441b08054e5c1ab1074d5afa4"
+doc_hash = "sha256:bb85d7e81098a62908f275ccb5a642aa78adf48dcf6e33b65233431fe865cb0a"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:d92036866d64e48c"
+name = "shared_point_tets"
+qual = "shared_point_tets"
+hash = "sha256:d0d8107452771b36299bd0edcdd52c75528400fdc28d556bf9f1e07731d759d0"
+doc_hash = "sha256:23519481cbead21a9c55b5cc7968323736c8b49640deee28eb9ddd01e53200c9"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:6466aecc78b73604"
+name = "six_patch_box"
+qual = "six_patch_box"
+hash = "sha256:c5c13b77edc03303a3d1073f0f9a248245a2d10bbc664970f02ccd0dedbbbfb4"
+doc_hash = "sha256:0c86d3105b164e0d6ca380de6ed87184509131e5fbc212e50d1fae878f145ca7"
+test = true
+
+[[module."boundary_layers.rs".function]]
+id = "fn:ee7643861b08d2ac"
+name = "tet_mag"
+qual = "tet_mag"
+hash = "sha256:73b56a6b1795a9f194d2e7ba1825a257e5aa20e540e0e121d885339d6bd6103e"
+doc_hash = "sha256:936dc1a0c609a2aa542d041dff422e8f6fcc33f8a8da022b8f4d62fb1f59cc84"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:17186062a4691faf"
+name = "wrapper_layer_has_zero_thickness"
+qual = "wrapper_layer_has_zero_thickness"
+hash = "sha256:fb180bdfa63eaa0a8b38181b8f2e4513c067dc181f5af1ef4fff4e5a29ec7e07"
+doc_hash = "sha256:3efd5f42f65b7731f304a7c252ed8202f28536310572576f4a68cdd7bc440dcd"
+test = true
+
 [module."extrude_layer.rs"]
 path = "crate::layers::extrude_layer"
-
-[[module."extrude_layer.rs".function]]
-id = "fn:465845834e544399"
-name = "VSMALL"
-qual = "VSMALL"
-item = "const"
-shape = "const"
-lines = [
-    85,
-    86,
-]
-hash = "sha256:5493373d462c14c31b0c0d3377fc359aee885b809b229bc1957350c1b4172c05"
-doc_hash = "sha256:d528e6d83c4d0f81aa4098658fe47ab7e0be5e3310cf4c879972efa688a26974"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:9b8e6188f22255a8"
-name = "VGREAT"
-qual = "VGREAT"
-item = "const"
-shape = "const"
-lines = [
-    87,
-    88,
-]
-hash = "sha256:763e46a53dc2f5174589241c882e3395220d3f71bf5873e7035a95b502faf60a"
-doc_hash = "sha256:2bf6273a5654a185b00e541910d8d233116dae50068139b0a8c70ec771c320f7"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:1a4404369fa95d24"
-name = "ExtrudeLayerError"
-qual = "ExtrudeLayerError"
-item = "type"
-shape = "enum"
-lines = [
-    90,
-    107,
-]
-hash = "sha256:a27441d7269f44aea31971e5b6dbad4624c9799533667c0b50198ec6f4ff1946"
-doc_hash = "sha256:ab5bbf755862779e3a5aec13fb03cdc1f20d2dc6ac3a61be25ee72fccc0be8a6"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:3fc6be86aa6b7c52"
-name = "fmt"
-qual = "ExtrudeLayerError::fmt"
-lines = [
-    110,
-    112,
-]
-hash = "sha256:a6484702a36094596467fa540ae137c91af3552d09f3f60fe2b6c3f8aaa41b6a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:1a4404369fa95d24"]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:0d3c5af61cfebf1c"
-name = "ExtrudeLayerReport"
-qual = "ExtrudeLayerReport"
-item = "type"
-shape = "struct"
-lines = [
-    115,
-    131,
-]
-hash = "sha256:eb4af6e1eb8ba544c611a21bdad12fba4aca7f78fafba0f347762fb5ea8a30dd"
-doc_hash = "sha256:7565fba331000cd8d09065be92783cd21ba84721d5021f6113e4c0f847b24f16"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:07490b1ec06da5a2"
-name = "face_key"
-qual = "face_key"
-lines = [
-    133,
-    141,
-]
-hash = "sha256:0123e2481895c417aacaa008f4eb982c90ad029c35d0d475b9d37f8b00e2355a"
-doc_hash = "sha256:a28290042bbd45f673084ea19be2ccd35971a72e8bf2e32ad38b8896623c6d98"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:6f99427acb7b72ce"
-name = "reverse_face"
-qual = "reverse_face"
-lines = [
-    143,
-    147,
-]
-hash = "sha256:6940a15e3678812de9dea8bc35c7c0321c7b23c2fa049aa56d9fadbafab33582"
-doc_hash = "sha256:d0c18c846500eea8f5c9ab9205b92bc36d0581af5835429f4b30502945db4d78"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:8c3406874b63d1d2"
-name = "owners_and_neighbours"
-qual = "owners_and_neighbours"
-lines = [
-    149,
-    166,
-]
-hash = "sha256:cd850f927211a272d65237c488e4684d82cc7f405408207af74727e5550c1b42"
-doc_hash = "sha256:411c5c667126ca5db6776146f1a8f8d13436584cf8319b56b2afb1c12ab5a18e"
-uses = ["fn:1a4404369fa95d24"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:39d05025b39259b3"
-name = "point_faces"
-qual = "point_faces"
-lines = [
-    168,
-    177,
-]
-hash = "sha256:c8a6d43224862b94631cd57334ef1fb059b0b2fa7471a6486d0a4f97dd3044f1"
-doc_hash = "sha256:9e9d26553f68fc8d29a6e80fca027c96f641ca3dfe7e3692853149960681cd32"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."extrude_layer.rs".function]]
 id = "fn:81a0ef52902331a0"
@@ -2456,304 +472,164 @@ name = "Adc"
 qual = "Adc"
 item = "type"
 shape = "struct"
-lines = [
-    179,
-    186,
-]
 hash = "sha256:a0c8de1ce7c9c237ddc8f0ad613d163c5a7938859edeaa420f65258fa5e50669"
 doc_hash = "sha256:858c6602ac52a991cff6dc2e8a2ec87b27ad2cf648539978e59bdea76b7b3a07"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:28cf5f6b3e38f958"
-name = "which"
-qual = "Adc::which"
-lines = [
-    189,
-    191,
-]
-hash = "sha256:7de564888729c4d520030b9f88b00787784bfb3ff25c77dfe9906b1ec8fba593"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:81a0ef52902331a0"]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:7075a34fd5a3d2d4"
-name = "orig_point_label"
-qual = "Adc::orig_point_label"
-lines = [
-    192,
-    200,
-]
-hash = "sha256:14604237593df1fb1654c6e38a06197be0383e2c9a23bde15ae3c40867302b8a"
-doc_hash = "sha256:21c0d509e03d91d70f1edf74afafe8eb27d806fb594805f250c164b71b5d4d73"
-uses = ["fn:81a0ef52902331a0"]
-
-[[module."extrude_layer.rs".function]]
-id = "fn:046aa36925b1832d"
-name = "orig_point"
-qual = "Adc::orig_point"
-lines = [
-    201,
-    205,
-]
-hash = "sha256:698325bbcec79a77d47125d25571af0886151aee4e533a7e5ab1a5a21e207ac7"
-doc_hash = "sha256:06dd1079ee44973a805d5294bf2fa422f4f2104f17e76e49cecf478e88378a0b"
-callees = [
-    "fn:28cf5f6b3e38f958",
-    "fn:7075a34fd5a3d2d4",
-]
-uses = ["fn:81a0ef52902331a0"]
 
 [[module."extrude_layer.rs".function]]
 id = "fn:3c51880c22b93930"
 name = "face_sharing_edge"
 qual = "Adc::face_sharing_edge"
-lines = [
-    206,
-    224,
-]
 hash = "sha256:8e5d63d5ea512b9f32860153c16a4c0de4c399e76b24f3e6abab218f46064d2c"
 doc_hash = "sha256:88b0775fb44d605d0349d2b2d5a26a4fef34273e106d6cfe8df6c257d5296c08"
-uses = [
-    "fn:1a4404369fa95d24",
-    "fn:81a0ef52902331a0",
-]
 
 [[module."extrude_layer.rs".function]]
 id = "fn:fee061bfda8c9422"
 name = "faces_sharing_edge"
 qual = "Adc::faces_sharing_edge"
-lines = [
-    225,
-    228,
-]
 hash = "sha256:00f87f89cc0875584ae771e62721595437bbacde9cdca54b1a8312d9bc2a1189"
 doc_hash = "sha256:8913a444331aa340f110b0d43c47c1e5e4dcb71f2435465330d4ed88efa1bc10"
-uses = ["fn:81a0ef52902331a0"]
 
 [[module."extrude_layer.rs".function]]
-id = "fn:f9a64d2fc4df8f85"
-name = "extrude_layer"
-qual = "extrude_layer"
-lines = [
-    231,
-    711,
-]
-hash = "sha256:f982496b52c1880b8af51f2add5fb4ced5bbe431761eabe39cb1886624888403"
-doc_hash = "sha256:abc79e0e176b36022abb83b317981d3987965e021d0dd02b2c334c096b80a72d"
-callees = [
-    "fn:07490b1ec06da5a2",
-    "fn:0d67c083be530bc3",
-    "fn:17e40cc9e54c07ff",
-    "fn:39d05025b39259b3",
-    "fn:3ce5b5ba423d704b",
-    "fn:4a1b4bcb75ce8498",
-    "fn:6f99427acb7b72ce",
-    "fn:8c3406874b63d1d2",
-    "fn:a284b21075a9db15",
-    "fn:c1b3f21ee5232800",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:0d3c5af61cfebf1c",
-    "fn:1a4404369fa95d24",
-    "fn:465845834e544399",
-    "fn:51651223d53049d8",
-    "fn:81a0ef52902331a0",
-    "fn:9b8e6188f22255a8",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#17",
-    "#19",
-    "#27",
-    "#28",
-    "#40",
-    "#41",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#120",
-    "#121",
-    "#123",
-    "#125",
-    "#129",
-    "#130",
-    "#131",
-]
+id = "fn:046aa36925b1832d"
+name = "orig_point"
+qual = "Adc::orig_point"
+hash = "sha256:698325bbcec79a77d47125d25571af0886151aee4e533a7e5ab1a5a21e207ac7"
+doc_hash = "sha256:06dd1079ee44973a805d5294bf2fa422f4f2104f17e76e49cecf478e88378a0b"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:7075a34fd5a3d2d4"
+name = "orig_point_label"
+qual = "Adc::orig_point_label"
+hash = "sha256:14604237593df1fb1654c6e38a06197be0383e2c9a23bde15ae3c40867302b8a"
+doc_hash = "sha256:21c0d509e03d91d70f1edf74afafe8eb27d806fb594805f250c164b71b5d4d73"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:28cf5f6b3e38f958"
+name = "which"
+qual = "Adc::which"
+hash = "sha256:7de564888729c4d520030b9f88b00787784bfb3ff25c77dfe9906b1ec8fba593"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:1a4404369fa95d24"
+name = "ExtrudeLayerError"
+qual = "ExtrudeLayerError"
+item = "type"
+shape = "enum"
+hash = "sha256:a27441d7269f44aea31971e5b6dbad4624c9799533667c0b50198ec6f4ff1946"
+doc_hash = "sha256:ab5bbf755862779e3a5aec13fb03cdc1f20d2dc6ac3a61be25ee72fccc0be8a6"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:3fc6be86aa6b7c52"
+name = "fmt"
+qual = "ExtrudeLayerError::fmt"
+hash = "sha256:a6484702a36094596467fa540ae137c91af3552d09f3f60fe2b6c3f8aaa41b6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:0d3c5af61cfebf1c"
+name = "ExtrudeLayerReport"
+qual = "ExtrudeLayerReport"
+item = "type"
+shape = "struct"
+hash = "sha256:eb4af6e1eb8ba544c611a21bdad12fba4aca7f78fafba0f347762fb5ea8a30dd"
+doc_hash = "sha256:7565fba331000cd8d09065be92783cd21ba84721d5021f6113e4c0f847b24f16"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:9b8e6188f22255a8"
+name = "VGREAT"
+qual = "VGREAT"
+item = "const"
+shape = "const"
+hash = "sha256:763e46a53dc2f5174589241c882e3395220d3f71bf5873e7035a95b502faf60a"
+doc_hash = "sha256:2bf6273a5654a185b00e541910d8d233116dae50068139b0a8c70ec771c320f7"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:465845834e544399"
+name = "VSMALL"
+qual = "VSMALL"
+item = "const"
+shape = "const"
+hash = "sha256:5493373d462c14c31b0c0d3377fc359aee885b809b229bc1957350c1b4172c05"
+doc_hash = "sha256:d528e6d83c4d0f81aa4098658fe47ab7e0be5e3310cf4c879972efa688a26974"
 
 [[module."extrude_layer.rs".function]]
 id = "fn:8f9aa7400fd0063d"
 name = "box_topo"
 qual = "box_topo"
-lines = [
-    719,
-    721,
-]
 hash = "sha256:6d442c530684165fa3f71d2c99ff890e1288860be0f5732ceb5087bf8a7ea812"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:262cfa3b2e8581eb",
-    "fn:27e103f679f63643",
-    "fn:756a0768f8b8d52d",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:51651223d53049d8",
-]
 test = true
 
 [[module."extrude_layer.rs".function]]
 id = "fn:064c9a84dcdf1fd1"
 name = "check_valid"
 qual = "check_valid"
-lines = [
-    723,
-    729,
-]
 hash = "sha256:99ec5542f428436d49dbcbd10b3eb3ff3a86d49fc34d45f9073d22a6b0d92d7f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:01afff344f44d5bd",
-    "fn:4fbc238e8eae2059",
-]
-uses = ["fn:51651223d53049d8"]
 test = true
 
 [[module."extrude_layer.rs".function]]
-id = "fn:98fa2b66ea86eea7"
-name = "wrapper_sheet_on_a_box"
-qual = "wrapper_sheet_on_a_box"
-lines = [
-    731,
-    752,
-]
-hash = "sha256:2ada369f3f9530d8faf30711000800f6886b6e90aa3847119f0145d1c20700fb"
-doc_hash = "sha256:fd584a2f04dafa0a7673456806933817d96b6cf1159c5b52698bcfa36773f857"
-callees = [
-    "fn:064c9a84dcdf1fd1",
-    "fn:8f9aa7400fd0063d",
-    "fn:f9a64d2fc4df8f85",
-]
+id = "fn:f9a64d2fc4df8f85"
+name = "extrude_layer"
+qual = "extrude_layer"
+hash = "sha256:f982496b52c1880b8af51f2add5fb4ced5bbe431761eabe39cb1886624888403"
+doc_hash = "sha256:abc79e0e176b36022abb83b317981d3987965e021d0dd02b2c334c096b80a72d"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:07490b1ec06da5a2"
+name = "face_key"
+qual = "face_key"
+hash = "sha256:0123e2481895c417aacaa008f4eb982c90ad029c35d0d475b9d37f8b00e2355a"
+doc_hash = "sha256:a28290042bbd45f673084ea19be2ccd35971a72e8bf2e32ad38b8896623c6d98"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:e41c7ee9699a38fa"
+name = "face_key_is_face_equality"
+qual = "face_key_is_face_equality"
+hash = "sha256:30bba12211d5c5287eda79d03a5adda2cd5105c81239ff84febbcbd6b32dfd5f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."extrude_layer.rs".function]]
 id = "fn:fd8b3bd6b2b4e377"
 name = "internal_sheet_from_both_sides"
 qual = "internal_sheet_from_both_sides"
-lines = [
-    754,
-    780,
-]
 hash = "sha256:17642282be24382ac71b277fd5db43b68b16003dd454f0013487434886d2acc1"
 doc_hash = "sha256:1d5bd4084ae86637035c938fe179f453523cec94b47388bfbb5b3835f9afd0e8"
-callees = [
-    "fn:064c9a84dcdf1fd1",
-    "fn:8f9aa7400fd0063d",
-    "fn:f9a64d2fc4df8f85",
-]
 test = true
 
 [[module."extrude_layer.rs".function]]
-id = "fn:e41c7ee9699a38fa"
-name = "face_key_is_face_equality"
-qual = "face_key_is_face_equality"
-lines = [
-    782,
-    788,
-]
-hash = "sha256:30bba12211d5c5287eda79d03a5adda2cd5105c81239ff84febbcbd6b32dfd5f"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+id = "fn:8c3406874b63d1d2"
+name = "owners_and_neighbours"
+qual = "owners_and_neighbours"
+hash = "sha256:cd850f927211a272d65237c488e4684d82cc7f405408207af74727e5550c1b42"
+doc_hash = "sha256:411c5c667126ca5db6776146f1a8f8d13436584cf8319b56b2afb1c12ab5a18e"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:39d05025b39259b3"
+name = "point_faces"
+qual = "point_faces"
+hash = "sha256:c8a6d43224862b94631cd57334ef1fb059b0b2fa7471a6486d0a4f97dd3044f1"
+doc_hash = "sha256:9e9d26553f68fc8d29a6e80fca027c96f641ca3dfe7e3692853149960681cd32"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:6f99427acb7b72ce"
+name = "reverse_face"
+qual = "reverse_face"
+hash = "sha256:6940a15e3678812de9dea8bc35c7c0321c7b23c2fa049aa56d9fadbafab33582"
+doc_hash = "sha256:d0c18c846500eea8f5c9ab9205b92bc36d0581af5835429f4b30502945db4d78"
+
+[[module."extrude_layer.rs".function]]
+id = "fn:98fa2b66ea86eea7"
+name = "wrapper_sheet_on_a_box"
+qual = "wrapper_sheet_on_a_box"
+hash = "sha256:2ada369f3f9530d8faf30711000800f6886b6e90aa3847119f0145d1c20700fb"
+doc_hash = "sha256:fd584a2f04dafa0a7673456806933817d96b6cf1159c5b52698bcfa36773f857"
 test = true
 
 [module."refine_boundary_layers.rs"]
 path = "crate::layers::refine_boundary_layers"
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:8e1df857c5a2be74"
-name = "SMALL"
-qual = "SMALL"
-item = "const"
-shape = "const"
-lines = [
-    99,
-    100,
-]
-hash = "sha256:2cfc341185c29d0c6a4d17d5bff10fe42922369443e00fb3cfeae558c7572814"
-doc_hash = "sha256:39be225ff7820fc8f6019b08b3b75599e75dc1e9ead2c3a4f09ac130c394da6d"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:98be01a4a8f57f4b"
@@ -2761,1546 +637,8 @@ name = "DetectedLayers"
 qual = "DetectedLayers"
 item = "type"
 shape = "struct"
-lines = [
-    102,
-    116,
-]
 hash = "sha256:bb29b8d7654f19c1959c49b433bd70701ce538edd1edbc9834e39765df0b03e6"
 doc_hash = "sha256:141163a40ec6cca56923a817c3ee54fc48230115334f3489d72b7fbb8d2fca2d"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:e451a13a8da7569c"
-name = "cell_faces"
-qual = "cell_faces"
-lines = [
-    118,
-    129,
-]
-hash = "sha256:702700208efddf27c80f8842c586aa6a45cc111fe82b58fd0216999da8db74ae"
-doc_hash = "sha256:3c5a67e67c302d94937d5054b3cc5ca07a84b6dd12659e660b65a734b95bd5c3"
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:a516f0f11c7e2e3c"
-name = "same_edge"
-qual = "same_edge"
-lines = [
-    131,
-    133,
-]
-hash = "sha256:1860ee2b59f3fbd530846ffa7e819b2c97603033f6fe1fda65f18140a038b3fc"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:966c03a65abd1144"
-name = "share_an_edge"
-qual = "share_an_edge"
-lines = [
-    135,
-    138,
-]
-hash = "sha256:5785e8f1bb185242283677ea98bcf80443e67b6d3f1fd6c623f5de55768cfd3a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:a516f0f11c7e2e3c"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:4e17799e5a92581b"
-name = "is_layer_cell"
-qual = "is_layer_cell"
-lines = [
-    140,
-    173,
-]
-hash = "sha256:fe619552afff4537485b3402da2b0c351091fd835a8ccc11c08e9213998677e3"
-doc_hash = "sha256:1fbff199b240cb0fdfe3d3b2f94e6450a13cfb1a52c75b94daf4cd2545ba3239"
-callees = ["fn:966c03a65abd1144"]
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:3badbb9c590379ce"
-name = "hairs_for_face"
-qual = "hairs_for_face"
-lines = [
-    175,
-    219,
-]
-hash = "sha256:9332edd9c02443450b96dadcbb431e91c25e11173931f07e5f40c0358e83704e"
-doc_hash = "sha256:802498e1fedae878a8f0a078171792c38e9139b3d393408926c6a1ecceb71ef9"
-callees = ["fn:a516f0f11c7e2e3c"]
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:b74dc98e8f8d55e8"
-name = "detect_boundary_layers"
-qual = "detect_boundary_layers"
-lines = [
-    221,
-    224,
-]
-hash = "sha256:cd6f142cd99c44f2146975dbc88c56ffd9686ec89208e9705e4fffbefd7e1fb8"
-doc_hash = "sha256:d2daf8af96dbd379f0961df0c7702abca89997d913a53ded6ec4add3b9e777cb"
-callees = ["fn:d74ceaa4a03f6071"]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:98be01a4a8f57f4b",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#58",
-    "#59",
-    "#60",
-    "#90",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:d74ceaa4a03f6071"
-name = "detect_boundary_layers_mode"
-qual = "detect_boundary_layers_mode"
-lines = [
-    226,
-    306,
-]
-hash = "sha256:e0c3724c37c3bdc5b1f097907a9d34596cfb30453d8d37b5d1000e8d660a81ef"
-doc_hash = "sha256:894b8accfdd5cf8845c1d7901b643c8caded2e2752f4e465d764eb1c80c12f61"
-callees = [
-    "fn:2ff226b4590a9e3a",
-    "fn:3badbb9c590379ce",
-    "fn:4e17799e5a92581b",
-    "fn:7160795e4d4cf805",
-    "fn:9ff6ce079ec4cec5",
-    "fn:e451a13a8da7569c",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:98be01a4a8f57f4b",
-    "fn:99b83de93afb8218",
-    "fn:c853a1b7c9a42bd2",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:02d375b148033151"
-name = "PatchLayerSettings"
-qual = "PatchLayerSettings"
-item = "type"
-shape = "struct"
-lines = [
-    308,
-    321,
-]
-hash = "sha256:302075993303c669d9ec636c6f7d70b70140825405e7168f878c85d15ef464ae"
-doc_hash = "sha256:7470614282994d0e65d83bef243784723c12d22ad6cbf231a4f91b6636950eda"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#54",
-    "#55",
-    "#56",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:bb4ac346ae24ece8"
-name = "RefineBoundaryLayersSettings"
-qual = "RefineBoundaryLayersSettings"
-item = "type"
-shape = "struct"
-lines = [
-    323,
-    335,
-]
-hash = "sha256:36198affc848cdbedec72f6faedec4da3c5dfb125fc3004a4050ad9a9d3cfb29"
-doc_hash = "sha256:8b59ff77552ee28ff3cc3d5bf3d0c9cd2fc7b91b698b0f9d2cdaa3fe397132dd"
-uses = ["fn:02d375b148033151"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#54",
-    "#55",
-    "#56",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:d2aa7d1a74f39d8f"
-name = "default"
-qual = "RefineBoundaryLayersSettings::default"
-lines = [
-    338,
-    340,
-]
-hash = "sha256:fae85d87916798a004c715fcafc09e3f7e1a4911d3e1815ee1b3ff1e6a00bfed"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:bb4ac346ae24ece8"]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:c693eeb911337cec"
-name = "RefineError"
-qual = "RefineError"
-item = "type"
-shape = "enum"
-lines = [
-    343,
-    348,
-]
-hash = "sha256:092b5b3b6bd418c033bf924d2971a2be4270c6bcb52a2aada915ac9af6d84aab"
-doc_hash = "sha256:738624cc8d2c027b51ad34f2d249ecf57e8a3097317633c02ab79de6dbde32ba"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:9c1e62b9bb13bfd4"
-name = "RefineReport"
-qual = "RefineReport"
-item = "type"
-shape = "struct"
-lines = [
-    350,
-    369,
-]
-hash = "sha256:404533980f786535cad28dba48fc3141a1570ec94260e3faa69b2d5f9689baf4"
-doc_hash = "sha256:71a68fe39057b9cca07fe86341c245b6b60bea8cd2e383cf37804fbcd9d01c6a"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:98be01a4a8f57f4b",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:f65bccd5e6993338"
-name = "refine_boundary_layers"
-qual = "refine_boundary_layers"
-lines = [
-    371,
-    376,
-]
-hash = "sha256:e86ef709140c63cfadd0c72cc33d035bc45f7061a770fbc00001c5bafb00bfd6"
-doc_hash = "sha256:2a09b0e042b4231ec2b2077b35ddb099bb38668ee1b843751f1b8ba1f921c177"
-callees = ["fn:cbc06a28dfbf536e"]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:9c1e62b9bb13bfd4",
-    "fn:bb4ac346ae24ece8",
-    "fn:c693eeb911337cec",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#90",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:c32bc22bb34b7018"
-name = "refine_boundary_layers_2d"
-qual = "refine_boundary_layers_2d"
-lines = [
-    378,
-    387,
-]
-hash = "sha256:fad14e62e03861b436066228e33b1c37bc49c330207e322ef956474836b53a94"
-doc_hash = "sha256:492a29af5c4408a1ac8bb84fee84d2a8a772fcff49caf642a165972820cfefd5"
-callees = ["fn:cbc06a28dfbf536e"]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:9c1e62b9bb13bfd4",
-    "fn:bb4ac346ae24ece8",
-    "fn:c693eeb911337cec",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#89",
-    "#90",
-    "#91",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:cbc06a28dfbf536e"
-name = "refine_boundary_layers_mode"
-qual = "refine_boundary_layers_mode"
-lines = [
-    389,
-    748,
-]
-hash = "sha256:a535fd41f43845a98aa3edabc3e7e688376f8e548f55860ee19ae26bd54632cf"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3a99d1ff9eea316a",
-    "fn:3badbb9c590379ce",
-    "fn:3e6600c336bda70f",
-    "fn:6ae801feba84d8f5",
-    "fn:756a0768f8b8d52d",
-    "fn:9e2e2837f3bb13bb",
-    "fn:9e87c3e9daacd3a2",
-    "fn:9ff6ce079ec4cec5",
-    "fn:a516f0f11c7e2e3c",
-    "fn:a5b8b507fb82c730",
-    "fn:b20e21a630c63653",
-    "fn:b2ae753c5c37a5ec",
-    "fn:b9fdb3af6512e69c",
-    "fn:d567167ccf7a00f9",
-    "fn:d74ceaa4a03f6071",
-    "fn:e451a13a8da7569c",
-    "fn:efb072adc5ac63ef",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:51651223d53049d8",
-    "fn:8e1df857c5a2be74",
-    "fn:98be01a4a8f57f4b",
-    "fn:99b83de93afb8218",
-    "fn:9c1e62b9bb13bfd4",
-    "fn:bb4ac346ae24ece8",
-    "fn:c693eeb911337cec",
-    "fn:c6dc0af6c33e78e4",
-    "fn:e4833807a4f03d6d",
-    "fn:f2409c8a6718b983",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:b9fdb3af6512e69c"
-name = "sorted_key"
-qual = "sorted_key"
-lines = [
-    750,
-    755,
-]
-hash = "sha256:edfbbf561872ece0f495f6f7a8006be121d5d01feb667a3eced273d5d4ec59a8"
-doc_hash = "sha256:daec9e9755e522a2633e00fbafb47abac6d661da9f15812c9c419b91c9b218e3"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:a5b8b507fb82c730"
-name = "face_label"
-qual = "face_label"
-lines = [
-    757,
-    767,
-]
-hash = "sha256:13fad13cd7ba9fd3571c4dd17d44668c292f2fea6ccebc500b84edbcac5fb53c"
-doc_hash = "sha256:7126e1bfb0cfd91eceb0d0c35151651885b94b32703a398cfd80f1c8cd36c656"
-callees = ["fn:b9fdb3af6512e69c"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:3e6600c336bda70f"
-name = "prism_children"
-qual = "prism_children"
-lines = [
-    769,
-    802,
-]
-hash = "sha256:049005dc8ee2babfc4addaf6bc33e6c9faeb7f764a33e2c40e2c35e642eaaa5f"
-doc_hash = "sha256:9c4d8d9b09949a62c765d102bcf0cd6baf0e8720ffeba89d1ca7930eafe9c02a"
-callees = ["fn:d567167ccf7a00f9"]
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:c6dc0af6c33e78e4"
-name = "SplitFaces"
-qual = "SplitFaces"
-item = "type"
-shape = "struct"
-lines = [
-    805,
-    811,
-]
-hash = "sha256:88eb979acf602088e63535678d5df63146e04251804c7ea1fdbdc8ee05d0981c"
-doc_hash = "sha256:e5832a06a030b93ec9c11350a6bbd39c2549771e4b8283e28d8815a025706395"
-uses = ["fn:1d52ce14c252d72f"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:330f7e82fa25f6ca"
-name = "splits"
-qual = "SplitFaces::splits"
-lines = [
-    814,
-    829,
-]
-hash = "sha256:40210c8d3b72bc95f347d2af900512dc1422ccefb7f7bfbf53f11dc484a19a84"
-doc_hash = "sha256:546dd9293973b6967c80a7d10c1e1eb49b69f2defa4f39a2fb451f758ab2292e"
-uses = ["fn:c6dc0af6c33e78e4"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:6cde8d3244786cbd"
-name = "sort_face_points"
-qual = "SplitFaces::sort_face_points"
-lines = [
-    831,
-    869,
-]
-hash = "sha256:39d0d93ac5cfe2a0d6df6166a80511b7c16d370423254c4fe7ff48ab9c8236a3"
-doc_hash = "sha256:742618f792e2db1c0d8dfe98bd3429a77e16e0f25a8794886a2b8db253a25578"
-callees = ["fn:330f7e82fa25f6ca"]
-uses = ["fn:c6dc0af6c33e78e4"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:e777d71e9a0c7910"
-name = "sort_face_faces"
-qual = "SplitFaces::sort_face_faces"
-lines = [
-    871,
-    889,
-]
-hash = "sha256:9b8b52c76739f5948b78926c4256bac34939f8105e6b5223aabc84aa1b124d1d"
-doc_hash = "sha256:ec963717e27c995eda3bc0df7e36031ad6875658838a1aad7f8ca37b11778851"
-callees = ["fn:330f7e82fa25f6ca"]
-uses = ["fn:c6dc0af6c33e78e4"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:36090cb0d6065994"
-name = "store_faces_into_cells"
-qual = "SplitFaces::store_faces_into_cells"
-lines = [
-    891,
-    905,
-]
-hash = "sha256:5e4a5eaee9dfcfac8ab6d94b64ac12c385ef31a6b6dfa1711941fb3f5eb79039"
-doc_hash = "sha256:56cb2fcaa9eb0d7809a9f9cd6c72c1c2672ddb9a4ee3ea4601bcd89352968772"
-callees = ["fn:e777d71e9a0c7910"]
-uses = ["fn:c6dc0af6c33e78e4"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:41f39e0b6f89dcf1"
-name = "shares_an_edge"
-qual = "shares_an_edge"
-lines = [
-    908,
-    911,
-]
-hash = "sha256:5785e8f1bb185242283677ea98bcf80443e67b6d3f1fd6c623f5de55768cfd3a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:a516f0f11c7e2e3c"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:efb072adc5ac63ef"
-name = "edge_hex_children"
-qual = "edge_hex_children"
-lines = [
-    913,
-    1010,
-]
-hash = "sha256:8f3920290fb9b50ba2af63b928e180bdff7a6f9a6f74f54ec22897a9a70f3ce3"
-doc_hash = "sha256:cc9fac22f53e64defdab0e9258c0c2768be2d7e4cb0c4d56aeb090ebaf958d12"
-callees = [
-    "fn:36090cb0d6065994",
-    "fn:41f39e0b6f89dcf1",
-    "fn:6cde8d3244786cbd",
-    "fn:a516f0f11c7e2e3c",
-    "fn:d567167ccf7a00f9",
-]
-uses = [
-    "fn:c693eeb911337cec",
-    "fn:c6dc0af6c33e78e4",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:260b29dd4843897e"
@@ -4308,517 +646,330 @@ name = "FaceGrid"
 qual = "FaceGrid"
 item = "type"
 shape = "alias"
-lines = [
-    1012,
-    1014,
-]
 hash = "sha256:6ad843cb6e286dae5b3192173a971e073c7bbf57107dde419ec5a16908fadd4d"
 doc_hash = "sha256:ed3cbef6693851f3520f967cf403ffa7a0a7fc27ac29a5a0e52d391bc0605a3b"
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
 
 [[module."refine_boundary_layers.rs".function]]
-id = "fn:6ae801feba84d8f5"
-name = "refine_face"
-qual = "refine_face"
-lines = [
-    1016,
-    1087,
-]
-hash = "sha256:dfd9fb8b17b3172ef6570363a76df4d44eb19fc104cd0f202fd4478e1a80d041"
-doc_hash = "sha256:ef3383fcebb422a796f766150b45d2a12765c97a70073b9ca30900f658457319"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:260b29dd4843897e",
-    "fn:c693eeb911337cec",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
+id = "fn:02d375b148033151"
+name = "PatchLayerSettings"
+qual = "PatchLayerSettings"
+item = "type"
+shape = "struct"
+hash = "sha256:302075993303c669d9ec636c6f7d70b70140825405e7168f878c85d15ef464ae"
+doc_hash = "sha256:7470614282994d0e65d83bef243784723c12d22ad6cbf231a4f91b6636950eda"
 
 [[module."refine_boundary_layers.rs".function]]
-id = "fn:9e2e2837f3bb13bb"
-name = "refine_hex_cell"
-qual = "refine_hex_cell"
-lines = [
-    1089,
-    1285,
-]
-hash = "sha256:e2013bd9c97b2926edbd4c887a9f12c39e51d1cea5bf3976ac5936447fee7adb"
-doc_hash = "sha256:3938ff4d87fa29dba954b8f03b600f5367d9926c8b71167ca7ce45ad5f3a7020"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:c693eeb911337cec",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#17",
-    "#19",
-    "#42",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#58",
-    "#59",
-    "#60",
-    "#89",
-    "#90",
-    "#91",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
+id = "fn:bb4ac346ae24ece8"
+name = "RefineBoundaryLayersSettings"
+qual = "RefineBoundaryLayersSettings"
+item = "type"
+shape = "struct"
+hash = "sha256:36198affc848cdbedec72f6faedec4da3c5dfb125fc3004a4050ad9a9d3cfb29"
+doc_hash = "sha256:8b59ff77552ee28ff3cc3d5bf3d0c9cd2fc7b91b698b0f9d2cdaa3fe397132dd"
 
 [[module."refine_boundary_layers.rs".function]]
-id = "fn:c9dda8863c99a3a0"
-name = "points_in_bnd_layer"
-qual = "points_in_bnd_layer"
-lines = [
-    1287,
-    1306,
-]
-hash = "sha256:e294953b5b179c0e179989fe852ee2cc33715bd02b2182bfde130e7ab9bdc654"
-doc_hash = "sha256:5eadd579b6bd663427de7840ed812afa1ae0b29f2d0b592cd5265c058cc5453f"
-uses = [
-    "fn:0bb173954082584d",
-    "fn:1d52ce14c252d72f",
-    "fn:9c1e62b9bb13bfd4",
-]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#17",
-    "#19",
-    "#90",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#106",
-    "#107",
-    "#108",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-]
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:37df51a137df2d17"
-name = "walls"
-qual = "walls"
-lines = [
-    1315,
-    1319,
-]
-hash = "sha256:c1ec4eb32394af43b084331ea4ad6fff8770dbeeed3919d38b79b76803995980"
+id = "fn:d2aa7d1a74f39d8f"
+name = "default"
+qual = "RefineBoundaryLayersSettings::default"
+hash = "sha256:fae85d87916798a004c715fcafc09e3f7e1a4911d3e1815ee1b3ff1e6a00bfed"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:02d375b148033151",
-    "fn:bb4ac346ae24ece8",
-]
-test = true
 
 [[module."refine_boundary_layers.rs".function]]
-id = "fn:edc28d7029773bd1"
-name = "layered_pipe"
-qual = "layered_pipe"
-lines = [
-    1321,
-    1326,
-]
-hash = "sha256:9f61a53cfa73c7348ed64ce9fa2664e9ba1539250ce96bcc442411efbeaf41ec"
-doc_hash = "sha256:c463fd6aceef433c7325c7c55782fa9ec2d13e786e4907c34c06ff7a1e649443"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:d43d68cd7b4e644e",
-]
-uses = [
-    "fn:1d52ce14c252d72f",
-    "fn:79ace9ce9d58d13f",
-    "fn:fded466768f3abae",
-]
-test = true
+id = "fn:c693eeb911337cec"
+name = "RefineError"
+qual = "RefineError"
+item = "type"
+shape = "enum"
+hash = "sha256:092b5b3b6bd418c033bf924d2971a2be4270c6bcb52a2aada915ac9af6d84aab"
+doc_hash = "sha256:738624cc8d2c027b51ad34f2d249ecf57e8a3097317633c02ab79de6dbde32ba"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:9c1e62b9bb13bfd4"
+name = "RefineReport"
+qual = "RefineReport"
+item = "type"
+shape = "struct"
+hash = "sha256:404533980f786535cad28dba48fc3141a1570ec94260e3faa69b2d5f9689baf4"
+doc_hash = "sha256:71a68fe39057b9cca07fe86341c245b6b60bea8cd2e383cf37804fbcd9d01c6a"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:8e1df857c5a2be74"
+name = "SMALL"
+qual = "SMALL"
+item = "const"
+shape = "const"
+hash = "sha256:2cfc341185c29d0c6a4d17d5bff10fe42922369443e00fb3cfeae558c7572814"
+doc_hash = "sha256:39be225ff7820fc8f6019b08b3b75599e75dc1e9ead2c3a4f09ac130c394da6d"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:c6dc0af6c33e78e4"
+name = "SplitFaces"
+qual = "SplitFaces"
+item = "type"
+shape = "struct"
+hash = "sha256:88eb979acf602088e63535678d5df63146e04251804c7ea1fdbdc8ee05d0981c"
+doc_hash = "sha256:e5832a06a030b93ec9c11350a6bbd39c2549771e4b8283e28d8815a025706395"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:e777d71e9a0c7910"
+name = "sort_face_faces"
+qual = "SplitFaces::sort_face_faces"
+hash = "sha256:9b8b52c76739f5948b78926c4256bac34939f8105e6b5223aabc84aa1b124d1d"
+doc_hash = "sha256:ec963717e27c995eda3bc0df7e36031ad6875658838a1aad7f8ca37b11778851"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:6cde8d3244786cbd"
+name = "sort_face_points"
+qual = "SplitFaces::sort_face_points"
+hash = "sha256:39d0d93ac5cfe2a0d6df6166a80511b7c16d370423254c4fe7ff48ab9c8236a3"
+doc_hash = "sha256:742618f792e2db1c0d8dfe98bd3429a77e16e0f25a8794886a2b8db253a25578"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:330f7e82fa25f6ca"
+name = "splits"
+qual = "SplitFaces::splits"
+hash = "sha256:40210c8d3b72bc95f347d2af900512dc1422ccefb7f7bfbf53f11dc484a19a84"
+doc_hash = "sha256:546dd9293973b6967c80a7d10c1e1eb49b69f2defa4f39a2fb451f758ab2292e"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:36090cb0d6065994"
+name = "store_faces_into_cells"
+qual = "SplitFaces::store_faces_into_cells"
+hash = "sha256:5e4a5eaee9dfcfac8ab6d94b64ac12c385ef31a6b6dfa1711941fb3f5eb79039"
+doc_hash = "sha256:56cb2fcaa9eb0d7809a9f9cd6c72c1c2672ddb9a4ee3ea4601bcd89352968772"
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:d2ade64f8a95b7e5"
 name = "bits"
 qual = "bits"
-lines = [
-    1328,
-    1330,
-]
 hash = "sha256:a136df42ff64a2f6cdcca6b9c3e24b977272a8caaaf4cbbf91179c8ba4210502"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:0bb173954082584d"]
-test = true
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:8b5bd04e4edb5c53"
-name = "detect_finds_exactly_the_cfmesh_layer"
-qual = "detect_finds_exactly_the_cfmesh_layer"
-lines = [
-    1332,
-    1362,
-]
-hash = "sha256:d634bfb28017942f17f83ffe34f8b214f216e2c1a5757839341e19a7b4b13665"
-doc_hash = "sha256:8d53d59507ed6c329149225cb2cc1d2ecf8dd0a90df1a93872622066d0472e5f"
-callees = [
-    "fn:451654b243cb4147",
-    "fn:b74dc98e8f8d55e8",
-    "fn:d2ade64f8a95b7e5",
-    "fn:edc28d7029773bd1",
-]
-test = true
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:2b017278b342ef04"
-name = "diagnose_layer_groups_on_the_pipe"
-qual = "diagnose_layer_groups_on_the_pipe"
-lines = [
-    1364,
-    1411,
-]
-hash = "sha256:b69d81552c9cda8d3ea8c2ccf3a3aef0e20e276cdd31c7ecb9f6a806fe1c5cdb"
-doc_hash = "sha256:239e5745b03cfa439686e44566fc96fee315c754d70b60b7beffcd39e1b8986d"
-callees = [
-    "fn:9ff6ce079ec4cec5",
-    "fn:b74dc98e8f8d55e8",
-    "fn:e451a13a8da7569c",
-    "fn:edc28d7029773bd1",
-]
-uses = ["fn:99b83de93afb8218"]
-test = true
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:8b1551d7dd87e795"
-name = "split_points_match_build_layered_variable"
-qual = "split_points_match_build_layered_variable"
-lines = [
-    1413,
-    1472,
-]
-hash = "sha256:c6c0551f635147c51099e9ef47584157ceb97d01613e9f0e87e8d60d62e79def"
-doc_hash = "sha256:bf757d924f2e68ac18b07b48b60c1df5fb642c940de8317103d7c5e12327e091"
-callees = [
-    "fn:37df51a137df2d17",
-    "fn:c84402451618c521",
-    "fn:d2ade64f8a95b7e5",
-    "fn:edc28d7029773bd1",
-    "fn:f65bccd5e6993338",
-]
-uses = ["fn:0bb173954082584d"]
-test = true
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:a40952c3462c96f5"
-name = "max_first_layer_thickness_caps_the_first_layer"
-qual = "max_first_layer_thickness_caps_the_first_layer"
-lines = [
-    1474,
-    1498,
-]
-hash = "sha256:58924fb1f838e7d6a80d0e1db571b368b05ba8e80a46bab906dabaf33c617784"
-doc_hash = "sha256:5ac1e4bd17a6a4967f1d46d4a12bcdd3600bcde131afba2e7c22ee867be82d73"
-callees = [
-    "fn:37df51a137df2d17",
-    "fn:edc28d7029773bd1",
-    "fn:f65bccd5e6993338",
-]
 test = true
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:9b7c343b8b6b1594"
 name = "cartesian_box_layer_refines_the_walls_only"
 qual = "cartesian_box_layer_refines_the_walls_only"
-lines = [
-    1500,
-    1533,
-]
 hash = "sha256:4ee746b249eebf7209d9b322b2cd1508de9058b23daaa4e8298d8e820cfde62d"
 doc_hash = "sha256:351215e83cf77a8e7daa70c3498b641af48e9a76acdd2e0b5ceec77b71b3fed7"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:37df51a137df2d17",
-    "fn:8a3793df3e1d8a27",
-    "fn:b74dc98e8f8d55e8",
-    "fn:f65bccd5e6993338",
-]
-uses = ["fn:79ace9ce9d58d13f"]
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:e451a13a8da7569c"
+name = "cell_faces"
+qual = "cell_faces"
+hash = "sha256:702700208efddf27c80f8842c586aa6a45cc111fe82b58fd0216999da8db74ae"
+doc_hash = "sha256:3c5a67e67c302d94937d5054b3cc5ca07a84b6dd12659e660b65a734b95bd5c3"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:b74dc98e8f8d55e8"
+name = "detect_boundary_layers"
+qual = "detect_boundary_layers"
+hash = "sha256:cd6f142cd99c44f2146975dbc88c56ffd9686ec89208e9705e4fffbefd7e1fb8"
+doc_hash = "sha256:d2daf8af96dbd379f0961df0c7702abca89997d913a53ded6ec4add3b9e777cb"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:d74ceaa4a03f6071"
+name = "detect_boundary_layers_mode"
+qual = "detect_boundary_layers_mode"
+hash = "sha256:e0c3724c37c3bdc5b1f097907a9d34596cfb30453d8d37b5d1000e8d660a81ef"
+doc_hash = "sha256:894b8accfdd5cf8845c1d7901b643c8caded2e2752f4e465d764eb1c80c12f61"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:8b5bd04e4edb5c53"
+name = "detect_finds_exactly_the_cfmesh_layer"
+qual = "detect_finds_exactly_the_cfmesh_layer"
+hash = "sha256:d634bfb28017942f17f83ffe34f8b214f216e2c1a5757839341e19a7b4b13665"
+doc_hash = "sha256:8d53d59507ed6c329149225cb2cc1d2ecf8dd0a90df1a93872622066d0472e5f"
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:2b017278b342ef04"
+name = "diagnose_layer_groups_on_the_pipe"
+qual = "diagnose_layer_groups_on_the_pipe"
+hash = "sha256:b69d81552c9cda8d3ea8c2ccf3a3aef0e20e276cdd31c7ecb9f6a806fe1c5cdb"
+doc_hash = "sha256:239e5745b03cfa439686e44566fc96fee315c754d70b60b7beffcd39e1b8986d"
 test = true
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:d339269a67a87f28"
 name = "draw_layer_images"
 qual = "draw_layer_images"
-lines = [
-    1535,
-    1565,
-]
 hash = "sha256:bb6701680bd83df96cc81e1e6557260175dc97763691d20642d0eb2b2f0afdfb"
 doc_hash = "sha256:7b318a47c2e02c78ad59495260fb8b34902bbec2c3446522f7a80b4373db603c"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:37df51a137df2d17",
-    "fn:4fbc238e8eae2059",
-    "fn:63a6b02b933611de",
-    "fn:6c6aaf9e0382b6da",
-    "fn:8a3793df3e1d8a27",
-    "fn:edc28d7029773bd1",
-    "fn:f65bccd5e6993338",
-]
-uses = ["fn:79ace9ce9d58d13f"]
-test = true
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:379d0bcd3982850c"
-name = "prism_refinement_is_pinned_bit_for_bit"
-qual = "prism_refinement_is_pinned_bit_for_bit"
-lines = [
-    1567,
-    1602,
-]
-hash = "sha256:921429d90e4df5748041f47e25b54b83c868842377c6c08079be9f3917d9e639"
-doc_hash = "sha256:72fd185a6522e4f2a1866b1324dc58ded9b8a5872063eb12552364e550a75114"
-callees = [
-    "fn:142fb665123ca73e",
-    "fn:37df51a137df2d17",
-    "fn:8a3793df3e1d8a27",
-    "fn:edc28d7029773bd1",
-    "fn:f65bccd5e6993338",
-]
-uses = ["fn:79ace9ce9d58d13f"]
-test = true
-
-[[module."refine_boundary_layers.rs".function]]
-id = "fn:376d6c3ed9bfb3ef"
-name = "global"
-qual = "global"
-lines = [
-    1604,
-    1606,
-]
-hash = "sha256:4adf3974c640f5ea63a6d9963d356441e3381be3929eab994f1519080d0d7924"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:bb4ac346ae24ece8"]
 test = true
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:be5b641b847de9c0"
 name = "edge_and_corner_hexes_refine_the_six_patch_box"
 qual = "edge_and_corner_hexes_refine_the_six_patch_box"
-lines = [
-    1608,
-    1653,
-]
 hash = "sha256:d86241117fbf282f9a143680f8e026397817c6a7e9ad1a08646cb07205cacac7"
 doc_hash = "sha256:51a773944f1b27bde3762702fa4144bc0f4e992a1f321690a9f0f5776f83cc99"
-callees = [
-    "fn:2e15c0317a694052",
-    "fn:30f50b0b4c2eccad",
-    "fn:376d6c3ed9bfb3ef",
-    "fn:4fbc238e8eae2059",
-    "fn:6466aecc78b73604",
-    "fn:d2c58d42d32ed799",
-    "fn:f65bccd5e6993338",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
 test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:efb072adc5ac63ef"
+name = "edge_hex_children"
+qual = "edge_hex_children"
+hash = "sha256:8f3920290fb9b50ba2af63b928e180bdff7a6f9a6f74f54ec22897a9a70f3ce3"
+doc_hash = "sha256:cc9fac22f53e64defdab0e9258c0c2768be2d7e4cb0c4d56aeb090ebaf958d12"
 
 [[module."refine_boundary_layers.rs".function]]
 id = "fn:93e369ac146a9908"
 name = "edge_hexes_refine_the_named_box"
 qual = "edge_hexes_refine_the_named_box"
-lines = [
-    1655,
-    1671,
-]
 hash = "sha256:27b7f1ed218b4255f33e378351432953893ff18e467709dfbdfa28e5c3144cfa"
 doc_hash = "sha256:d75987f0317fdfcbc96cf42b776bb5cd6a9164b0cecf2bf0294564a4ac37462b"
-callees = [
-    "fn:2e15c0317a694052",
-    "fn:30f50b0b4c2eccad",
-    "fn:376d6c3ed9bfb3ef",
-    "fn:4fbc238e8eae2059",
-    "fn:8a3793df3e1d8a27",
-    "fn:d2c58d42d32ed799",
-    "fn:f65bccd5e6993338",
-]
-uses = [
-    "fn:79ace9ce9d58d13f",
-    "fn:ca8a398d79afd3d9",
-]
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:a5b8b507fb82c730"
+name = "face_label"
+qual = "face_label"
+hash = "sha256:13fad13cd7ba9fd3571c4dd17d44668c292f2fea6ccebc500b84edbcac5fb53c"
+doc_hash = "sha256:7126e1bfb0cfd91eceb0d0c35151651885b94b32703a398cfd80f1c8cd36c656"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:376d6c3ed9bfb3ef"
+name = "global"
+qual = "global"
+hash = "sha256:4adf3974c640f5ea63a6d9963d356441e3381be3929eab994f1519080d0d7924"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:3badbb9c590379ce"
+name = "hairs_for_face"
+qual = "hairs_for_face"
+hash = "sha256:9332edd9c02443450b96dadcbb431e91c25e11173931f07e5f40c0358e83704e"
+doc_hash = "sha256:802498e1fedae878a8f0a078171792c38e9139b3d393408926c6a1ecceb71ef9"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:4e17799e5a92581b"
+name = "is_layer_cell"
+qual = "is_layer_cell"
+hash = "sha256:fe619552afff4537485b3402da2b0c351091fd835a8ccc11c08e9213998677e3"
+doc_hash = "sha256:1fbff199b240cb0fdfe3d3b2f94e6450a13cfb1a52c75b94daf4cd2545ba3239"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:edc28d7029773bd1"
+name = "layered_pipe"
+qual = "layered_pipe"
+hash = "sha256:9f61a53cfa73c7348ed64ce9fa2664e9ba1539250ce96bcc442411efbeaf41ec"
+doc_hash = "sha256:c463fd6aceef433c7325c7c55782fa9ec2d13e786e4907c34c06ff7a1e649443"
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:a40952c3462c96f5"
+name = "max_first_layer_thickness_caps_the_first_layer"
+qual = "max_first_layer_thickness_caps_the_first_layer"
+hash = "sha256:58924fb1f838e7d6a80d0e1db571b368b05ba8e80a46bab906dabaf33c617784"
+doc_hash = "sha256:5ac1e4bd17a6a4967f1d46d4a12bcdd3600bcde131afba2e7c22ee867be82d73"
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:c9dda8863c99a3a0"
+name = "points_in_bnd_layer"
+qual = "points_in_bnd_layer"
+hash = "sha256:e294953b5b179c0e179989fe852ee2cc33715bd02b2182bfde130e7ab9bdc654"
+doc_hash = "sha256:5eadd579b6bd663427de7840ed812afa1ae0b29f2d0b592cd5265c058cc5453f"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:3e6600c336bda70f"
+name = "prism_children"
+qual = "prism_children"
+hash = "sha256:049005dc8ee2babfc4addaf6bc33e6c9faeb7f764a33e2c40e2c35e642eaaa5f"
+doc_hash = "sha256:9c4d8d9b09949a62c765d102bcf0cd6baf0e8720ffeba89d1ca7930eafe9c02a"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:379d0bcd3982850c"
+name = "prism_refinement_is_pinned_bit_for_bit"
+qual = "prism_refinement_is_pinned_bit_for_bit"
+hash = "sha256:921429d90e4df5748041f47e25b54b83c868842377c6c08079be9f3917d9e639"
+doc_hash = "sha256:72fd185a6522e4f2a1866b1324dc58ded9b8a5872063eb12552364e550a75114"
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:f65bccd5e6993338"
+name = "refine_boundary_layers"
+qual = "refine_boundary_layers"
+hash = "sha256:e86ef709140c63cfadd0c72cc33d035bc45f7061a770fbc00001c5bafb00bfd6"
+doc_hash = "sha256:2a09b0e042b4231ec2b2077b35ddb099bb38668ee1b843751f1b8ba1f921c177"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:c32bc22bb34b7018"
+name = "refine_boundary_layers_2d"
+qual = "refine_boundary_layers_2d"
+hash = "sha256:fad14e62e03861b436066228e33b1c37bc49c330207e322ef956474836b53a94"
+doc_hash = "sha256:492a29af5c4408a1ac8bb84fee84d2a8a772fcff49caf642a165972820cfefd5"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:cbc06a28dfbf536e"
+name = "refine_boundary_layers_mode"
+qual = "refine_boundary_layers_mode"
+hash = "sha256:a535fd41f43845a98aa3edabc3e7e688376f8e548f55860ee19ae26bd54632cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:6ae801feba84d8f5"
+name = "refine_face"
+qual = "refine_face"
+hash = "sha256:dfd9fb8b17b3172ef6570363a76df4d44eb19fc104cd0f202fd4478e1a80d041"
+doc_hash = "sha256:ef3383fcebb422a796f766150b45d2a12765c97a70073b9ca30900f658457319"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:9e2e2837f3bb13bb"
+name = "refine_hex_cell"
+qual = "refine_hex_cell"
+hash = "sha256:e2013bd9c97b2926edbd4c887a9f12c39e51d1cea5bf3976ac5936447fee7adb"
+doc_hash = "sha256:3938ff4d87fa29dba954b8f03b600f5367d9926c8b71167ca7ce45ad5f3a7020"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:a516f0f11c7e2e3c"
+name = "same_edge"
+qual = "same_edge"
+hash = "sha256:1860ee2b59f3fbd530846ffa7e819b2c97603033f6fe1fda65f18140a038b3fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:966c03a65abd1144"
+name = "share_an_edge"
+qual = "share_an_edge"
+hash = "sha256:5785e8f1bb185242283677ea98bcf80443e67b6d3f1fd6c623f5de55768cfd3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:41f39e0b6f89dcf1"
+name = "shares_an_edge"
+qual = "shares_an_edge"
+hash = "sha256:5785e8f1bb185242283677ea98bcf80443e67b6d3f1fd6c623f5de55768cfd3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:b9fdb3af6512e69c"
+name = "sorted_key"
+qual = "sorted_key"
+hash = "sha256:edfbbf561872ece0f495f6f7a8006be121d5d01feb667a3eced273d5d4ec59a8"
+doc_hash = "sha256:daec9e9755e522a2633e00fbafb47abac6d661da9f15812c9c419b91c9b218e3"
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:8b1551d7dd87e795"
+name = "split_points_match_build_layered_variable"
+qual = "split_points_match_build_layered_variable"
+hash = "sha256:c6c0551f635147c51099e9ef47584157ceb97d01613e9f0e87e8d60d62e79def"
+doc_hash = "sha256:bf757d924f2e68ac18b07b48b60c1df5fb642c940de8317103d7c5e12327e091"
+test = true
+
+[[module."refine_boundary_layers.rs".function]]
+id = "fn:37df51a137df2d17"
+name = "walls"
+qual = "walls"
+hash = "sha256:c1ec4eb32394af43b084331ea4ad6fff8770dbeeed3919d38b79b76803995980"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [module."triangulate_non_planar_base_faces.rs"]
 path = "crate::layers::triangulate_non_planar_base_faces"
-
-[[module."triangulate_non_planar_base_faces.rs".function]]
-id = "fn:eaa3f2d2e947e317"
-name = "VSMALL"
-qual = "VSMALL"
-item = "const"
-shape = "const"
-lines = [
-    55,
-    56,
-]
-hash = "sha256:5493373d462c14c31b0c0d3377fc359aee885b809b229bc1957350c1b4172c05"
-doc_hash = "sha256:d528e6d83c4d0f81aa4098658fe47ab7e0be5e3310cf4c879972efa688a26974"
-reached_by = ["#51"]
-
-[[module."triangulate_non_planar_base_faces.rs".function]]
-id = "fn:cbdf7459ffebbb6f"
-name = "VGREAT"
-qual = "VGREAT"
-item = "const"
-shape = "const"
-lines = [
-    57,
-    58,
-]
-hash = "sha256:763e46a53dc2f5174589241c882e3395220d3f71bf5873e7035a95b502faf60a"
-doc_hash = "sha256:2bf6273a5654a185b00e541910d8d233116dae50068139b0a8c70ec771c320f7"
-reached_by = ["#51"]
 
 [[module."triangulate_non_planar_base_faces.rs".function]]
 id = "fn:74708739ce271481"
@@ -4826,13 +977,8 @@ name = "DEFAULT_REL_FLATNESS_TOL"
 qual = "DEFAULT_REL_FLATNESS_TOL"
 item = "const"
 shape = "const"
-lines = [
-    60,
-    61,
-]
 hash = "sha256:827af758a332f6ec5f9d09307bc457f7cf4562030c7ffa1e9d1d0efa23ee09c3"
 doc_hash = "sha256:417e6c109fc1dfed2cc16cab99239c984cf4ecc37ce244b80786c46f672c5133"
-reached_by = ["#51"]
 
 [[module."triangulate_non_planar_base_faces.rs".function]]
 id = "fn:875d33c87dd21798"
@@ -4840,74 +986,45 @@ name = "TriangulateReport"
 qual = "TriangulateReport"
 item = "type"
 shape = "struct"
-lines = [
-    63,
-    70,
-]
 hash = "sha256:0638d3a0ced6cf78ab5fe7c102d8e82f0aa476d8228f59811f9f54e080aa2cc5"
 doc_hash = "sha256:eb0dea80ce90ee5c31e7f6092b7d2f0a40acd3220797d47bc67c61fda1bd56ec"
-reached_by = ["#51"]
+
+[[module."triangulate_non_planar_base_faces.rs".function]]
+id = "fn:cbdf7459ffebbb6f"
+name = "VGREAT"
+qual = "VGREAT"
+item = "const"
+shape = "const"
+hash = "sha256:763e46a53dc2f5174589241c882e3395220d3f71bf5873e7035a95b502faf60a"
+doc_hash = "sha256:2bf6273a5654a185b00e541910d8d233116dae50068139b0a8c70ec771c320f7"
+
+[[module."triangulate_non_planar_base_faces.rs".function]]
+id = "fn:eaa3f2d2e947e317"
+name = "VSMALL"
+qual = "VSMALL"
+item = "const"
+shape = "const"
+hash = "sha256:5493373d462c14c31b0c0d3377fc359aee885b809b229bc1957350c1b4172c05"
+doc_hash = "sha256:d528e6d83c4d0f81aa4098658fe47ab7e0be5e3310cf4c879972efa688a26974"
 
 [[module."triangulate_non_planar_base_faces.rs".function]]
 id = "fn:2175e09d0cda66e5"
 name = "find_non_planar_boundary_faces"
 qual = "find_non_planar_boundary_faces"
-lines = [
-    72,
-    105,
-]
 hash = "sha256:999f003461898e0d76c1eb42e3a0ef77474bfee407cc17496769e51604433720"
 doc_hash = "sha256:6f53ac9647cc7618c3abadac33e586d7df0a7ac11e0751d29072e23604a74766"
-callees = ["fn:17e40cc9e54c07ff"]
-uses = [
-    "fn:51651223d53049d8",
-    "fn:cbdf7459ffebbb6f",
-    "fn:eaa3f2d2e947e317",
-]
-reached_by = ["#51"]
 
 [[module."triangulate_non_planar_base_faces.rs".function]]
 id = "fn:11765a58dc778114"
 name = "triangulate_non_planar_base_faces"
 qual = "triangulate_non_planar_base_faces"
-lines = [
-    107,
-    117,
-]
 hash = "sha256:7c4e203dd9738c3a055707c16cfb5d8618cca018736f36dd577c9dcbfa8d7b4f"
 doc_hash = "sha256:a15593c26708659057694713607f995039d10123955eeb6d18b855c1110cf013"
-callees = [
-    "fn:201fa34a39d5ea24",
-    "fn:2175e09d0cda66e5",
-    "fn:d68e53306ec0eba8",
-]
-uses = [
-    "fn:51651223d53049d8",
-    "fn:875d33c87dd21798",
-]
-reached_by = ["#51"]
 
 [[module."triangulate_non_planar_base_faces.rs".function]]
 id = "fn:d1653743756c455f"
 name = "twisted_boundary_faces_are_fanned"
 qual = "twisted_boundary_faces_are_fanned"
-lines = [
-    126,
-    178,
-]
 hash = "sha256:5ee61889c399b6b009849b9eadd33031afd65d6f2c2367c7f2cb3f0336309e6f"
 doc_hash = "sha256:e5362110646889bcc0272c5a1c6df0d1ac4922d02f07a2d45a40d54e2fddc1f3"
-callees = [
-    "fn:11765a58dc778114",
-    "fn:2175e09d0cda66e5",
-    "fn:262cfa3b2e8581eb",
-    "fn:27e103f679f63643",
-    "fn:4fbc238e8eae2059",
-    "fn:756a0768f8b8d52d",
-]
-uses = [
-    "fn:0bb173954082584d",
-    "fn:51651223d53049d8",
-    "fn:74708739ce271481",
-]
 test = true

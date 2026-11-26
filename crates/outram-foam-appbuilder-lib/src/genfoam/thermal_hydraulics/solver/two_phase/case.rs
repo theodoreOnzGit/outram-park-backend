@@ -19,9 +19,10 @@
 //! `system/controlDict`, `system/<region>/fvSolution` and the `0/<region>`
 //! fields, with basic-lib's `FoamFile` dictionary parser and this crate's
 //! `polyMesh` reader. **Every selection the port does not implement is a hard
-//! error naming it**, except the alpha solver (`MULES` → `implicitUpwind`),
-//! which is recorded in [`TwoPhaseCase::deviations`] because GeN-Foam ships
-//! the alternative and the substitution is the whole point of this slice.
+//! error naming it**. ~~Except the alpha solver (`MULES` → `implicitUpwind`), recorded
+//! in [`TwoPhaseCase::deviations`].~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): `MULES` is ported and is what
+//! a case that selects it runs; the old substitution is the explicit
+//! [`TwoPhaseCase::with_alpha_solver_implicit_upwind`].
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -44,19 +45,23 @@ use uom::si::volumetric_power_density::watt_per_cubic_meter;
 use super::fv::{Bc, Geometry, Scalar, Vector};
 use super::thermo::PhaseThermo;
 use super::{
-    ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, Structure,
-    TimeControls, TwoPhaseControls, TwoPhaseModels,
+    ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
+    Structure, TimeControls, TraceBoilingModel, TwoPhaseControls, TwoPhaseModels,
 };
+use super::mules::{AlphaConvection, LimiterControls};
+use super::{AlphaSolver, MulesControls};
 #[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::ff_drag::{FfDragCoefficient, TwoPhaseDragMultiplier};
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::{
-    FlowEnhancementFactor, SuppressionFactor,
+    FlowEnhancementFactor, OnsetOfNucleateBoilingTemperature, SubcooledBoilingFraction, SuppressionFactor,
 };
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::{
     FsForcedConvectionHtc, PoolBoilingHtc,
 };
+use crate::genfoam::thermal_hydraulics::closures::interfacial::by_regime::ByRegimeModel;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map_2d::RegimeMap2D;
 use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{
     RegimeBound, RegimeInterpolationMode, RegimeMap1D,
 };
@@ -279,6 +284,30 @@ pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<
 }
 
 impl TwoPhaseCase {
+    /// The port's behaviour BEFORE gh:#1361 round 7: run GeN-Foam's `implicitUpwind` alpha solver
+    /// (`solveAlphaImplicitUpwind.H`, `solvePhase` = the vapour unless the case names one) in place of
+    /// the `MULES` the case selects, and record it in [`TwoPhaseCase::deviations`]. Not what upstream does for a
+    /// case that selects MULES (the default now); needs an `alpha.<phase>` linear-solver entry in `fvSolution`.
+    ///
+    /// # Errors
+    /// The case has no linear solver for `alpha.<solvePhase>`.
+    pub fn with_alpha_solver_implicit_upwind(mut self) -> Result<Self, crate::error::AppBuilderError> {
+        if self.controls.alpha != AlphaSolver::ImplicitUpwind {
+            if self.controls.alpha_solver_tolerance.is_nan() {
+                return Err(crate::error::AppBuilderError::Case {
+                    case: crate::path::PathBuf::new(),
+                    msg: "no linear solver for alpha.<phase> in fvSolution: implicitUpwind cannot run".into(),
+                });
+            }
+            self.controls.alpha = AlphaSolver::ImplicitUpwind;
+            self.deviations.push(format!(
+                "alpha solver `MULES` is not run; ran GeN-Foam's implicitUpwind (solveAlphaImplicitUpwind.H) with solvePhase {}",
+                self.fluids[self.controls.solve_phase].name
+            ));
+        }
+        Ok(self)
+    }
+
     /// The ablation of [`TwoPhaseControls::p_patch_from_file`]: the patch values of `p` start as `p_rgh`'s
     /// (and are reset to `p_rgh + rho gh` after the thermo construction), as the port did before gh:#1361
     /// round 5. Differs from GeN-Foam 652b3da in steps 1 and 2 only (the `U.vapour` inlet cell of an absent phase).
@@ -309,7 +338,7 @@ impl TwoPhaseCase {
         let zones = read_cell_zones(&poly)?;
         let g = Geometry::new(mesh.clone());
         let n = g.n_cells();
-        let mut deviations = Vec::new();
+        let deviations: Vec<String> = Vec::new();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
             let mut cells = Vec::new();
             for z in names.split(':') {
@@ -402,6 +431,7 @@ impl TwoPhaseCase {
         }
         let a0 = alphas[0].unwrap_or(1.0 - alphas[1].unwrap_or(0.0));
         let a1 = alphas[1].unwrap_or(1.0 - a0);
+        let mut dd_tables: Vec<(usize, String, Vec<(String, f64)>)> = Vec::new();
         for (k, name) in names.iter().enumerate() {
             let props = ctx.sub(&pp, &format!("{name}Properties"))?;
             let state = ctx.word(props, "stateOfMatter")?;
@@ -410,7 +440,23 @@ impl TwoPhaseCase {
             let tra = scalar(props, "thermoResidualAlpha").unwrap_or(0.0);
             let dd = match props.get_dict("dispersedDiameterModel") {
                 Some(d) if word(d, "type").as_deref() == Some("constant") => ctx.f64(d, "value")?,
-                Some(_) => return Err(ctx.e(format!("{name}: only a constant dispersedDiameterModel is ported"))),
+                Some(d) if word(d, "type").as_deref() == Some("byRegime") => {
+                    // gh:#1225: one constant sub-model per regime of the named map
+                    let mut table = Vec::new();
+                    for (rn, e) in d.iter() {
+                        if let FoamEntry::SubDict(sd) = e {
+                            if ctx.word(sd, "type")? != "constant" {
+                                return Err(ctx.e(format!("{name}: byRegime diameter sub-models must be constant")));
+                            }
+                            table.push((rn.to_string(), ctx.f64(sd, "value")?));
+                        }
+                    }
+                    dd_tables.push((k, ctx.word(d, "regimeMap")?, table));
+                    0.0
+                }
+                Some(_) => {
+                    return Err(ctx.e(format!("{name}: only a constant or byRegime dispersedDiameterModel is ported")))
+                }
                 None => 0.0,
             };
             let thermo = read_thermo(&ctx, &format!("constant/{region}/thermophysicalProperties.{name}"))?;
@@ -451,7 +497,7 @@ impl TwoPhaseCase {
                 dd,
             ));
         }
-        let fluids: [Phase; 2] = [fluids[0].clone(), fluids[1].clone()];
+        let mut fluids: [Phase; 2] = [fluids[0].clone(), fluids[1].clone()];
 
         // structure
         let sp = ctx.sub(&pp, "structureProperties")?;
@@ -515,18 +561,71 @@ impl TwoPhaseCase {
         let structure = Structure::new(&g, alpha_s, dh_s, power, power_off);
 
         // regime map
+        let mut regime_map_name: Option<String> = None;
+        let mut regime_labels: Vec<String> = Vec::new();
         let regime_map = match pp.get_dict("regimeMapModels") {
             None => None,
             Some(rm) => {
                 let maps: Vec<(&str, &FoamEntry)> = rm.iter().collect();
-                if maps.len() != 1 {
+                if maps.is_empty() {
+                    None
+                } else if maps.len() != 1 {
                     return Err(ctx.e("exactly one regime map is supported"));
-                }
+                } else {
                 let FoamEntry::SubDict(md) = maps[0].1 else {
                     return Err(ctx.e("regime map must be a dictionary"));
                 };
+                regime_map_name = Some(maps[0].0.to_string());
+                if word(md, "type").as_deref() == Some("twoParameters") {
+                    let parse_param = |key: &str| -> Result<RegimeParameter, AppBuilderError> {
+                        let w = ctx.word(md, key)?;
+                        for (k, nm) in names.iter().enumerate() {
+                            if w == format!("normalized.alpha.{nm}") {
+                                return Ok(RegimeParameter::NormalizedAlpha(k));
+                            }
+                            if w == format!("alphaRhoMagU.{nm}") {
+                                return Ok(RegimeParameter::AlphaRhoMagU(k));
+                            }
+                        }
+                        Err(ctx.e(format!("regime parameter `{w}` not supported")))
+                    };
+                    let parameter1 = parse_param("parameter1")?;
+                    let parameter2 = parse_param("parameter2")?;
+                    let mut points: Vec<(String, [f64; 2])> = Vec::new();
+                    for (pn, e) in ctx.sub(md, "regimePoints")?.iter() {
+                        let FoamEntry::List(v) = e else {
+                            return Err(ctx.e(format!("regimePoints.{pn} must be a list (x y)")));
+                        };
+                        match (v.first().and_then(|x| x.as_scalar()), v.get(1).and_then(|x| x.as_scalar())) {
+                            (Some(x), Some(y)) => points.push((pn.to_string(), [x, y])),
+                            _ => return Err(ctx.e(format!("regimePoints.{pn} must be two numbers"))),
+                        }
+                    }
+                    let mut regimes: Vec<(String, Vec<String>)> = Vec::new();
+                    for (rn, e) in ctx.sub(md, "regimes")?.iter() {
+                        let FoamEntry::List(v) = e else {
+                            return Err(ctx.e(format!("regimes.{rn} must be a list of point names")));
+                        };
+                        let mut pts = Vec::new();
+                        for x in v {
+                            match x {
+                                FoamValue::Word(w) | FoamValue::Str(w) => pts.push(w.clone()),
+                                _ => return Err(ctx.e(format!("regimes.{rn} must list point names"))),
+                            }
+                        }
+                        regimes.push((rn.to_string(), pts));
+                    }
+                    let mode = match word(md, "interpolationMode").as_deref() {
+                        Some("quadratic") => RegimeInterpolationMode::Quadratic,
+                        _ => RegimeInterpolationMode::Linear,
+                    };
+                    let width = ctx.f64(md, "interpolationWidth")?;
+                    let map = RegimeMap2D::new(&points, &regimes, width, mode).map_err(|e| ctx.e(e))?;
+                    regime_labels = map.regime_names().to_vec();
+                    Some(RegimeMapSelection::TwoParameters { map, parameter1, parameter2 })
+                } else {
                 if word(md, "type").as_deref() != Some("oneParameter") {
-                    return Err(ctx.e("only the oneParameter regime map is ported (twoParameters is a gap)"));
+                    return Err(ctx.e("only the oneParameter and twoParameters regime maps are ported"));
                 }
                 let param = ctx.word(md, "parameter")?;
                 let k = names
@@ -536,6 +635,7 @@ impl TwoPhaseCase {
                 let mut bounds = Vec::new();
                 for (rn, e) in ctx.sub(md, "regimeBounds")?.iter() {
                     if let FoamEntry::List(v) = e {
+                        regime_labels.push(rn.to_string());
                         bounds.push(RegimeBound {
                             name: rn.to_string(),
                             lower: v[0].as_scalar().unwrap_or(0.0),
@@ -547,9 +647,20 @@ impl TwoPhaseCase {
                     Some("quadratic") => RegimeInterpolationMode::Quadratic,
                     _ => RegimeInterpolationMode::Linear,
                 };
-                Some((RegimeMap1D::new(bounds, mode), k))
+                Some(RegimeMapSelection::OneParameter(RegimeMap1D::new(bounds, mode), k))
+                }
+                }
             }
         };
+        // `byRegime` diameters of the fluids: every regime of the (single) map needs a sub-model
+        for (k, rm, table) in dd_tables {
+            if regime_map_name.as_deref() != Some(rm.as_str()) {
+                return Err(ctx.e(format!("regimeMap `{rm}` of the dispersedDiameterModel is not in regimeMapModels")));
+            }
+            let m = ByRegimeModel::per_regime(&regime_labels, |n| table.iter().find(|(t, _)| t == n).map(|(_, v)| *v))
+                .map_err(|e| ctx.e(e))?;
+            fluids[k].dispersed_diameter_by_regime = Some(m);
+        }
 
         // physics models
         let pm = ctx.sub(&pp, "physicsModels")?;
@@ -597,6 +708,10 @@ impl TwoPhaseCase {
                     "Kaiser74" => TwoPhaseDragMultiplier::Kaiser74,
                     "ChenKalish" => TwoPhaseDragMultiplier::ChenKalish,
                     "KottowskiSavatteri" => TwoPhaseDragMultiplier::KottowskiSavatteri,
+                    "LockhartMartinelli" => TwoPhaseDragMultiplier::LockhartMartinelli {
+                        c: scalar(d, "C").unwrap_or(20.0),
+                        max_phi2: scalar(d, "maxPhi2").unwrap_or(1000.0),
+                    },
                     other => return Err(ctx.e(format!("multiplier `{other}` not wired"))),
                 };
                 Some((model, k, scalar(d, "maxPhi2").unwrap_or(1000.0)))
@@ -645,10 +760,31 @@ impl TwoPhaseCase {
             Ok(if disp == names[0] { v } else { 1.0 - v })
         })?;
         let ia = ctx.sub(&ffg, "interfacialAreaDensityModel")?;
-        if word(ia, "type").as_deref() != Some("spherical") {
-            return Err(ctx.e("only the spherical interfacial area model is wired"));
+        let mut interfacial_area_by_regime = None;
+        let mut spherical_cutoff_alpha = 0.9;
+        match word(ia, "type").as_deref() {
+            Some("spherical") => spherical_cutoff_alpha = scalar(ia, "cutoffAlpha").unwrap_or(0.9),
+            Some("byRegime") => {
+                let rm = ctx.word(ia, "regimeMap")?;
+                if regime_map_name.as_deref() != Some(rm.as_str()) {
+                    return Err(ctx.e(format!("regimeMap `{rm}` of the interfacialAreaDensityModel is not in regimeMapModels")));
+                }
+                let mut table: Vec<(String, f64)> = Vec::new();
+                for (rn, e) in ia.iter() {
+                    if let FoamEntry::SubDict(sd) = e {
+                        if word(sd, "type").as_deref() != Some("spherical") {
+                            return Err(ctx.e("byRegime interfacialAreaDensityModel: only spherical sub-models are wired"));
+                        }
+                        table.push((rn.to_string(), scalar(sd, "cutoffAlpha").unwrap_or(0.9)));
+                    }
+                }
+                interfacial_area_by_regime = Some(
+                    ByRegimeModel::per_regime(&regime_labels, |n| table.iter().find(|(t, _)| t == n).map(|(_, v)| *v))
+                        .map_err(|e| ctx.e(e))?,
+                );
+            }
+            _ => return Err(ctx.e("only the spherical interfacial area model is wired (alone or byRegime)")),
         }
-        let spherical_cutoff_alpha = scalar(ia, "cutoffAlpha").unwrap_or(0.9);
         let mut contact_partition = None;
         for (k, name) in names.iter().enumerate() {
             if let Some(d) = pair(name, "structure", geo) {
@@ -703,6 +839,7 @@ impl TwoPhaseCase {
             dispersion_fluid1,
             contact_partition,
             spherical_cutoff_alpha,
+            interfacial_area_by_regime,
             phase_change,
         };
 
@@ -733,25 +870,77 @@ impl TwoPhaseCase {
         };
         let alpha_solver = ctx.word(&alpha_d, "solver")?;
         let solve_phase_name = word(&alpha_d, "solvePhase");
-        let solve_phase = match solve_phase_name {
+        let solve_phase = match solve_phase_name.clone() {
             Some(sp) => names.iter().position(|x| *x == sp).ok_or_else(|| ctx.e("unknown solvePhase"))?,
             None => {
                 // MULES solves both; implicitUpwind needs one: the vapour.
                 if fluids[0].is_liquid { 1 } else { 0 }
             }
         };
-        let (alpha_solver_tolerance, alpha_solver_rel_tol) =
-            match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
-                Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0)),
-                _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
-            };
-        if alpha_solver != "implicitUpwind" {
-            deviations.push(format!(
-                "alpha solver `{alpha_solver}` is not ported; ran GeN-Foam's implicitUpwind \
-                 (solveAlphaImplicitUpwind.H) with solvePhase {}",
-                names[solve_phase]
-            ));
-        }
+        let linear_solver = match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
+            Some(FoamEntry::SubDict(d)) => Some((ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0))),
+            _ => None,
+        };
+        let (alpha_solver_tolerance, alpha_solver_rel_tol) = match (alpha_solver.as_str(), linear_solver) {
+            (_, Some(t)) => t,
+            // MULES is explicit: no linear solver is read; NaN marks "none" (implicitUpwind refuses it).
+            ("MULES", None) => (f64::NAN, 0.0),
+            _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
+        };
+        let relax_dict = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("fields"));
+        let alpha = match alpha_solver.as_str() {
+            "implicitUpwind" => AlphaSolver::ImplicitUpwind,
+            "MULES" => {
+                if solve_phase_name.is_some() {
+                    return Err(ctx.e("MULES with `solvePhase` set (single-phase solveAlpha) is not ported"));
+                }
+                let schemes = ctx.read(&format!("system/{region}/fvSchemes"))?;
+                let div = ctx.sub(&schemes, "divSchemes")?;
+                let conv = |key: &str| -> Result<AlphaConvection, AppBuilderError> {
+                    let e = lookup_regex(div, key).ok_or_else(|| ctx.e(format!("fvSchemes: no divSchemes entry `{key}`")))?;
+                    let words: Vec<String> = match e {
+                        FoamEntry::Word(w) => vec![w.clone()],
+                        FoamEntry::Tokens(vs) => vs
+                            .iter()
+                            .filter_map(|v| match v {
+                                FoamValue::Word(w) => Some(w.clone()),
+                                _ => None,
+                            })
+                            .collect(),
+                        _ => Vec::new(),
+                    };
+                    let w: Vec<&str> = words.iter().map(String::as_str).collect();
+                    AlphaConvection::from_words(&w)
+                        .ok_or_else(|| ctx.e(format!("fvSchemes: `{key}` = {words:?} is not ported (upwind, linear, vanLeer)")))
+                };
+                let adjust = bool_entry(&alpha_d, "adjustSubCycles").unwrap_or(false);
+                let relax_of = |name: &str| -> Option<f64> {
+                    relax_dict.and_then(|r| lookup_regex(r, name)).and_then(|e| match e {
+                        FoamEntry::Scalar(x) => Some(*x),
+                        _ => None,
+                    })
+                };
+                AlphaSolver::Mules(MulesControls {
+                    min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-6),
+                    adjust_sub_cycles: adjust,
+                    alpha_max_co: if adjust { ctx.f64(&alpha_d, "alphaMaxCo")? } else { 0.49 },
+                    max_sub_cycles: scalar(&alpha_d, "maxSubCycles").unwrap_or(50.0) as usize,
+                    n_sub_cycles: scalar(&alpha_d, "nSubCycles").unwrap_or(1.0) as usize,
+                    limiter: LimiterControls {
+                        n_limiter_iter: scalar(&alpha_d, "nLimiterIter").unwrap_or(3.0) as usize,
+                        smooth_limiter: scalar(&alpha_d, "smoothLimiter").unwrap_or(0.0),
+                        extrema_coeff: scalar(&alpha_d, "extremaCoeff").unwrap_or(0.0),
+                    },
+                    phi_scheme: conv("div(phi,alpha)")?,
+                    phir_scheme: conv("div(phir,alpha)")?,
+                    relax: [
+                        relax_of(&format!("alpha.{}", names[0])),
+                        relax_of(&format!("alpha.{}", names[1])),
+                    ],
+                })
+            }
+            other => return Err(ctx.e(format!("alpha solver `{other}` is not an upstream selection (MULES, implicitUpwind)"))),
+        };
         let rc = pimple.get_dict("residualControl");
         let rc_tol = |name: &str| rc.and_then(|r| r.get_dict(name)).and_then(|d| scalar(d, "tolerance"));
         let relax = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("fields"));
@@ -765,6 +954,7 @@ impl TwoPhaseCase {
                 .unwrap_or(1.0)
         };
         let controls = TwoPhaseControls {
+            alpha,
             n_outer: scalar(pimple, "nOuterCorrectors").unwrap_or(1.0) as usize,
             n_corr: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
             correct_until_convergence: bool_entry(pimple, "correctUntilConvergence").unwrap_or(false),
@@ -783,12 +973,14 @@ impl TwoPhaseCase {
             relax_dmdt: rf(&format!("dmdt.{}.{}", names[0], names[1])),
             relax_t_interface: rf("T.interface"),
             relax_he: [rf(&format!("h.{}", names[0])), rf(&format!("h.{}", names[1]))],
+            relax_phi: [rf(&format!("phi.{}", names[0])), rf(&format!("phi.{}", names[1]))],
             min_kd_ff: scalar(pimple, "minKdFF").unwrap_or(1.0),
             min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-4),
             solve_phase,
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
+            earlier_nusselt_association: false,
             lazy_old_time_first_step: true,
             stale_pimple_converged_flag: false,
             p_patch_from_file: true,
@@ -894,7 +1086,69 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
                 suppression,
             })
         }
-        other => Err(ctx.e(format!("FS htc `{other}` not wired (multiRegimeBoilingTRACE etc. are gaps)"))),
+        "multiRegimeBoilingTRACE" => {
+            if md.get("filmCondensationModel").is_some() {
+                return Err(ctx.e("multiRegimeBoilingTRACE: filmCondensationModel is not ported"));
+            }
+            let forced_convection = read_nusselt(ctx, ctx.sub(md, "forcedConvectionModel")?)?;
+            let pbd = ctx.sub(md, "poolBoilingModel")?;
+            let pool_boiling = match ctx.word(pbd, "type")?.as_str() {
+                "Gorenflo" => {
+                    if bool_entry(pbd, "useExplicitHeatFlux").unwrap_or(false) {
+                        return Err(ctx.e("Gorenflo useExplicitHeatFlux true is not wired"));
+                    }
+                    PoolBoilingHtc::Gorenflo {
+                        surface_roughness: uom::si::f64::Length::new::<uom::si::length::meter>(
+                            scalar(pbd, "absoluteSurfaceRoughness").unwrap_or(4e-7),
+                        ),
+                    }
+                }
+                other => return Err(ctx.e(format!("multiRegimeBoilingTRACE pool boiling `{other}` not wired"))),
+            };
+            let fd = ctx.sub(md, "flowEnhancementFactorModel")?;
+            let max_value = Ratio::new::<ratio>(scalar(fd, "maxValue").unwrap_or(50.0));
+            let flow_enhancement = match ctx.word(fd, "type")?.as_str() {
+                "RezkallahSims" => FlowEnhancementFactor::RezkallahSims { exponent: ctx.f64(fd, "exp")?, max_value },
+                "Chen" => FlowEnhancementFactor::Chen { max_value },
+                other => return Err(ctx.e(format!("multiRegimeBoilingTRACE flow enhancement `{other}` not wired"))),
+            };
+            // upstream constructs the suppression model (and never evaluates it): it must exist
+            match ctx.word(ctx.sub(md, "suppressionFactorModel")?, "type")?.as_str() {
+                "Chen" | "COBRA-TF" => {}
+                other => return Err(ctx.e(format!("multiRegimeBoilingTRACE suppression `{other}` not wired"))),
+            }
+            let onset = match md.get_dict("nucleateBoilingOnsetModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "Basu" => Some(OnsetOfNucleateBoilingTemperature::Basu {
+                        surface_tension: uom::si::f64::SurfaceTension::new::<uom::si::surface_tension::newton_per_meter>(
+                            ctx.f64(d, "surfaceTension")?,
+                        ),
+                        // BasuTONB.C: `contactAngle*2.0*pi/360.0`, evaluated in that order
+                        contact_angle: uom::si::f64::Angle::new::<uom::si::angle::radian>(
+                            ctx.f64(d, "contactAngle")? * 2.0 * core::f64::consts::PI / 360.0,
+                        ),
+                    }),
+                    other => return Err(ctx.e(format!("nucleateBoilingOnsetModel `{other}` not wired"))),
+                },
+            };
+            let sub_cooled_fraction = match md.get_dict("subCooledBoilingFractionModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "SahaZuber" => Some(SubcooledBoilingFraction::SahaZuber),
+                    "constant" => Some(SubcooledBoilingFraction::Constant { value: Ratio::new::<ratio>(ctx.f64(d, "value")?) }),
+                    other => return Err(ctx.e(format!("subCooledBoilingFractionModel `{other}` not wired"))),
+                },
+            };
+            Ok(FsHtcModel::MultiRegimeBoilingTrace(TraceBoilingModel {
+                forced_convection,
+                pool_boiling,
+                flow_enhancement,
+                onset,
+                sub_cooled_fraction,
+            }))
+        }
+        other => Err(ctx.e(format!("FS htc `{other}` not wired (multiRegimeBoilingTRACECHF/VapourTRACE are gaps)"))),
     }
 }
 

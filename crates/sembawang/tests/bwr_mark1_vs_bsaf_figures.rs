@@ -288,10 +288,26 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // drywell 0.0706/0.2709 MPa; envelopes RPV 0.5165, drywell 0.7033.
     // With uo2 carried by candling zr: RPV 3.4388/6.5826, drywell 0.0670/0.2573
     // MPa; envelopes RPV 0.6154, drywell 0.6703.
-    assert!((rpv.mean_abs - 3.4388).abs() < 1e-3 && (rpv.max_abs - 6.5826).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.0670).abs() < 1e-3 && (dw.max_abs - 0.2573).abs() < 1e-3, "{dw:?}");
-    let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.6154) && near(e_dw, 0.6703) && near(e_h2, 0.9885) && near(e_xe, 0.8125) && near(e_i, 0.8542));
+    // **With the swell by source height (2026-11-26, gh:#1810: vapour voids
+    // only the water above where it is raised; the old whole-vessel swell
+    // quenched the uncovered core at the first relocation, 2499 -> 701 K,
+    // RPV 8.1 -> 12.7 MPa):** RPV 3.4388/6.5826 -> **0.9590/1.5196** MPa;
+    // drywell 0.0670/0.2573 -> **0.1581/0.3567** MPa; envelopes RPV 0.6154
+    // -> 0.1648, drywell 0.6703 -> 0.3846, **H2 0.9885 -> 0.1034**, Xe
+    // 0.8125 -> 0.8750, I 0.8542 -> 0.9167. Recorded, not tuned: the H2
+    // agreement rested on the defect (the false quench drove steam through
+    // the hot core); now the model's H2 stops at 338 kg by 5 h, below all
+    // nine codes (398-1315 kg) from 6 h. Under investigation, gh:#1810.
+    // **With MELCOR's per-volume swell (`swollen_level_by_volume`, the same
+    // day, replacing the source-height form) and the B4C gates:** RPV
+    // 3.4465/6.5989 MPa; drywell **0.0595/0.2549** MPa; envelopes RPV 0.5934,
+    // drywell **0.7912**, **H2 0.9885**, Xe 0.7292, I 0.8125. The H2 miss was
+    // the source-height form's (it overswelled the core).
+    // **Printed, not asserted, since 2026-11-26** (root CLAUDE.md, "No
+    // regression pins until the physics is right"; maintainer: "Ignore
+    // sembawang pins for now, nothing to pin against"). The numbers above
+    // are the record; the counts of compared points stay asserted (they
+    // check the data, not the model).
 }
 
 /// The network-plant half of [`the_model_against_the_digitised_bsaf_figures`], split out on 2026-11-04 so the
@@ -368,6 +384,9 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
+    // No regression pins on bwr_mark1 until there is concrete V&V at unit
+    // level (root AGENTS.md; maintainer 2026-11-26: "Ignore sembawang pins
+    // for now"). Printed, not asserted; the old pins are kept here.
     // Max 0.6265 -> 0.6212 with tellurium transport, and mean 0.1670 ->
     // 0.1660, max 0.6219 with candling; mean 0.1672, max 0.6224 with the
     // lower head under water; mean 0.1677, max 0.6245 with the wetwell
@@ -377,7 +396,7 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     // the pool in two layers (2026-10-29); mean 0.1665, max 0.6249 with the
     // control blades; mean 0.1690, max 0.6259 with the cavity debris's
     // phases (2026-10-30).
-    assert!((a.mean_abs - 0.1690).abs() < 1e-3 && (a.max_abs - 0.6259).abs() < 1e-3, "{a:?}");
+    // Old pin: mean 0.1690, max 0.6259 (to 1e-3).
 }
 
 
@@ -528,13 +547,16 @@ fn cesium_against_fig_2_6() {
     let a = inside_envelope(&m.t_h, &m.cs_dw_structures, &family("2.6a"), &grid);
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
-    assert_eq!((a.1, c.1), (75, 89));
+    // No regression pins on bwr_mark1 until there is concrete V&V at unit
+    // level (root AGENTS.md; maintainer 2026-11-26: "Ignore sembawang pins
+    // for now"). Printed, not asserted; the old pins are kept here.
+    // Old: assert_eq!((a.1, c.1), (75, 89));
     // Cs on the drywell's structures 0.8400 -> 0.9200 with the bottom of
     // the core's radiation, -> 0.8000 with a plate per ring (2026-10-29),
     // -> 0.9067 with the control blades, -> 0.9333 with their heat of
     // fusion, -> 0.9467 with the cavity debris's phases (2026-10-30), ->
     // 0.9733 with the blades' B4C, -> 0.8667 with UO2 carried by candling Zr.
-    assert!((a.0 - 0.8667).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
+    // Old: a.0 = 0.8667, c.0 = 0.9663 (to 1e-3).
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
@@ -544,7 +566,8 @@ fn cesium_against_fig_2_6() {
         26.0 * 3600.0,
     );
     let c_off = inside_envelope(&off.t_h, &off.cs_sc_water, &family("2.6c"), &grid);
-    assert!((c_off.0 - 0.8539).abs() < 1e-3, "{c_off:?}");
+    // Old: c_off.0 = 0.8539 (to 1e-3).
+    println!("Cs in S/C water, earlier model: {c_off:?}");
 }
 
 /// The network-plant half of [`cesium_against_fig_2_6`], split out on 2026-11-04 so the
@@ -628,17 +651,20 @@ fn iodine_against_fig_2_6() {
     let b = inside_envelope(&m.t_h, &m.i_dw_structures, &family("2.6b"), &grid);
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
-    assert_eq!(b, (0.0, 76));
-    // 0.0787 -> 0.0674 with the bottom of the core's radiation (2026-10-29);
-    // -> 0.0562 with UO2 carried by candling Zr (2026-10-30).
-    assert!((d.0 - 0.0562).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    // No regression pins on bwr_mark1 until there is concrete V&V at unit
+    // level (root AGENTS.md; maintainer 2026-11-26: "Ignore sembawang pins
+    // for now"). Printed, not asserted; the old pins are kept here.
+    // Old: b == (0.0, 76); d.0 0.0787 -> 0.0674 with the bottom of the
+    // core's radiation (2026-10-29), -> 0.0562 with UO2 carried by candling
+    // Zr (2026-10-30), d.1 == 89.
     let off = histories(
         Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers().without_plate_oxidation().without_lp_steam_consumed().without_control_blades().without_blade_fusion().without_cavity_phases().without_bur_ignition().without_gas_choking().without_blade_diffusion_limit().without_two_sided_equalising().without_b4c_oxidation().without_burn_dynamics().without_fdi_lpme().without_uo2_candling().without_molten_pool().without_network_containment(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
     );
-    assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
+    // Old: (0.0, 89).
+    println!("I in S/C water, earlier model: {:?}", inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid));
 }
 
 /// The network-plant half of [`iodine_against_fig_2_6`], split out on 2026-11-04 so the
@@ -774,8 +800,12 @@ fn cesium_137_release_against_fig_5_1() {
     // inside the envelope 0.0044, with UO2 carried by candling Zr; 0.0748,
     // the rate inside 0.0044 -> 0.0066, with the fresh water from 15:00 h
     // (F13, the vented flow differs by a few grid hours).
-    assert!((total_pbq - 0.0748).abs() < 1e-3 && (at(26.0) - 0.0748).abs() < 1e-3, "{total_pbq}");
-    assert!((env.0 - 0.0066).abs() < 1e-3 && env.1 == 454, "{env:?}");
+    // No regression pins on bwr_mark1 until there is concrete V&V at unit
+    // level (root AGENTS.md; maintainer 2026-11-26: "Ignore sembawang pins
+    // for now"). Printed, not asserted; the old pins are kept here.
+    // Old pins: total 0.0748 PBq and 0.0748 at 26 h (to 1e-3); the rate
+    // inside the envelope 0.0066 of 454 times.
+    println!("Cs-137 released {total_pbq} PBq, {} at 26 h; rate inside the envelope {env:?}", at(26.0));
 }
 
 /// **The network plant to 500 h** (gh:#1099): Fig 2.3a's measured drywell
