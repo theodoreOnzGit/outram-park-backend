@@ -76,7 +76,10 @@ mod flow;
 mod turbulence;
 pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
-pub use turbulence::{near_wall_dist, set_values, DiagonalBicgstab, OnePhaseTurbulenceCase, WallFunctionCoeffs};
+pub use turbulence::{
+    near_wall_dist, set_values, DiagonalBicgstab, EpsilonWallSpec, NutWallSpec, OnePhaseTurbulenceCase, WallBlender, WallFunctionBlending,
+    WallFunctionCoeffs,
+};
 use turbulence::TurbState;
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};

@@ -590,7 +590,7 @@ impl OnePhaseCcSolver {
         // ---- UEqn_1p.H ---------------------------------------------------------------------------------------
         // nuEff = nut + nu, nu = mu/rho(T) of the thermo; gamma = alpha rho nuEff (boundary: the patch values)
         // fluid_.turbulence().correct() FIRST (`porousKEpsilon::correct`), then `nuEff = nut + mu/rho0`
-        self.correct_turbulence(&fs.phi);
+        self.correct_turbulence(&fs.phi, &fs.mag_u, final_outer);
         let (nut_c, nut_b) = match self.turb.as_ref() {
             Some(t) => (t.nut.c.clone(), t.nut.b.clone()),
             None => (fc.nut.clone(), fc.nut_boundary.clone()),

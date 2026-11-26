@@ -264,29 +264,8 @@ fn switch_turbulence_on(root: &Path) {
     std::fs::write(&p, text.replace("turbulence      false;", "turbulence      true;")).expect("write");
 }
 
-/// The solved flow still refuses what is not ported: the nut stabilisation `DhStruct` of `porousKEpsilonProperties`.
-#[test]
-fn nut_stabilisation_is_refused_by_name() {
-    let (root, poly) = stage("refuse");
-    switch_turbulence_on(&root);
-    let p = root.join("constant/fluidRegion/turbulenceProperties");
-    let text = std::fs::read_to_string(&p).expect("turbulenceProperties");
-    std::fs::write(&p, text.replace("convergenceLength           0.5;", "convergenceLength           0.5;\n        DhStruct 0.01;")).expect("write");
-    let err = OnePhaseCcSolver::from_case_dir(&root, &poly).expect_err("must refuse").to_string();
-    assert!(err.contains("DhStruct"), "{err}");
-}
-
-/// The wall-function entries beyond `type`/`value` are refused by name rather than silently ignored.
-#[test]
-fn wall_function_entries_are_refused_by_name() {
-    let (root, poly) = stage("refuse_kappa");
-    switch_turbulence_on(&root);
-    let p = root.join("0/fluidRegion/nut");
-    let text = std::fs::read_to_string(&p).expect("nut");
-    std::fs::write(&p, text.replacen("type            nutkWallFunction;", "type            nutkWallFunction;\n\tkappa 0.4;", 1)).expect("write");
-    let err = OnePhaseCcSolver::from_case_dir(&root, &poly).expect_err("must refuse").to_string();
-    assert!(err.contains("kappa"), "{err}");
-}
+// gh:#1842 (round 29): `DhStruct` and the wall-function entries are ported; their tests, controls and the remaining refusals are in
+// `tests/genfoam_msfr_th_options_vs_upstream.rs`.
 
 /// Per-step, per-field max-norm relative differences of the nine fields against `refs/msfr_th_on_head.ref.txt.gz`.
 fn run_on(solver: &mut OnePhaseCcSolver, steps: usize) -> Vec<[f64; 9]> {

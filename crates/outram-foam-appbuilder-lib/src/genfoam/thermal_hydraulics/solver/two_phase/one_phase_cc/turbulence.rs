@@ -50,11 +50,25 @@
 //! and `boundaryManipulate` replaces the row (measured: the step-1 `epsilon` is bit-identical with either old time), so
 //! the old fields are simply the values at the start of the step.
 //!
+//! ## Ported in gh:#1842 (round 29), each differenced against the real binary on case variants
+//!
+//! * wall-function entries per patch: `Cmu`, `kappa`, `E` ([`WallFunctionCoeffs`]), `blending` and `n`
+//!   ([`WallFunctionBlending`], [`WallBlender`]: `stepwise` default, `max`, `binomial`, `exponential`, `tanh`; `n` defaults 4 for
+//!   `nutkWallFunction`, 2 for `epsilonWallFunction`), `lowReCorrection` ([`EpsilonWallSpec`]) and `U` ([`NutWallSpec`]; read by
+//!   `nutkWallFunction::yPlus()` only, which `correct()` never calls: it changes nothing, measured);
+//! * `DhStruct` / `laminarReStruct` nut stabilisation (`correctNut`: `alphat` from the UNstabilised `nut`, then
+//!   `nut += pos(structure) magU DhStruct/laminarReStruct`, `magU` the stored `fluid_.magU()` of the last pressure corrector);
+//! * `kFinal`/`epsilonFinal` solver and relaxation entries are READ but never selected: GeN-Foam's `customPimpleControl` declares its
+//!   own `corr_`, shadowing the base class's, so `pimpleControl::finalIter()` is never true and `isFinalIteration()` stays false
+//!   (without `residualControl`, which is refused). The plain entries run in every outer iteration, as upstream's do (measured: a
+//!   `kFinal` with a non-existent solver does not stop the real binary). [`OnePhaseCcSolver::with_stock_final_iteration_selection`]
+//!   is the stock-OpenFOAM behaviour, kept as a named CONTROL.
+//!
 //! ## Refused by name
 //!
-//! `RASModel` other than `porousKEpsilon`; `DhStruct` (nut stabilisation); wall-function entries other than `type`/`value`
-//! (`Cmu`, `kappa`, `E`, `blending`, `lowReCorrection`, `U`); `k`/`epsilon`/`nut` wall patches other than the three above;
-//! a `k`/`epsilon` solver other than `PBiCGStab`/`diagonal`; `fvOptions`.
+//! `RASModel` other than `porousKEpsilon`; `k`/`epsilon`/`nut` wall patches other than the three above; any other entry on those
+//! patches (including every entry of `kqRWallFunction`, which upstream ignores); a `k`/`epsilon` solver other than
+//! `PBiCGStab`/`diagonal`; `fvOptions`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -78,6 +92,9 @@ use crate::error::AppBuilderError;
 #[cfg(feature = "std")]
 use outram_foam_basic_lib::io::{FoamDict, FoamEntry};
 
+/// `ROOTVSMALL` of OpenFOAM (double precision).
+const ROOT_VSMALL: f64 = 1.0e-150;
+
 /// `wallFunctionCoefficients`: `Cmu 0.09`, `kappa 0.41`, `E 9.8`, `yPlusLam` by `calcYPlusLam`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WallFunctionCoeffs {
@@ -95,7 +112,13 @@ impl WallFunctionCoeffs {
     /// The defaults (`wallFunctionCoefficients()`): `calcYPlusLam` iterates `ypl = ln(max(E ypl, 1))/kappa` ten times from 11.
     #[must_use]
     pub fn standard() -> Self {
-        let (cmu, kappa, e) = (0.09, 0.41, 9.8);
+        Self::new(0.09, 0.41, 9.8)
+    }
+
+    /// `wallFunctionCoefficients(dict)` with the three values already read: `calcYPlusLam(kappa, E)`
+    /// (`wallFunctionCoefficients.C`). The caller applies the `kappa, E >= SMALL` check of the dictionary constructor.
+    #[must_use]
+    pub fn new(cmu: f64, kappa: f64, e: f64) -> Self {
         let mut ypl = 11.0_f64;
         for _ in 0..10 {
             ypl = (e * ypl).max(1.0).r_ln() / kappa;
@@ -107,6 +130,166 @@ impl WallFunctionCoeffs {
     #[must_use]
     pub fn cmu25(&self) -> f64 {
         self.cmu.sqrt().sqrt()
+    }
+}
+
+/// `wallFunctionBlenders::blenderType` (ESI v2506 `wallFunctionBlenders.{H,C}`), the `blending` keyword.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WallFunctionBlending {
+    /// `stepwise` (the default): the inertial value above `yPlusLam`, the viscous one below.
+    Stepwise,
+    /// `max`: the larger of the two (Popovac and Hanjalic 2007, Eq. 27).
+    Max,
+    /// `binomial`: `(vis^n + log^n)^(1/n)` (Menter and Esch 2001).
+    Binomial,
+    /// `exponential`: `vis exp(-Gamma) + log exp(-1/Gamma)` (Popovac and Hanjalic 2007).
+    Exponential,
+    /// `tanh`: `eta (vis + log) + (1 - eta) (vis^1.2 + log^1.2)^(1/1.2)` (Knopp et al. 2006).
+    Tanh,
+}
+
+impl WallFunctionBlending {
+    /// The keyword spelling (`blenderTypeNames`).
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Stepwise => "stepwise",
+            Self::Max => "max",
+            Self::Binomial => "binomial",
+            Self::Exponential => "exponential",
+            Self::Tanh => "tanh",
+        }
+    }
+
+    /// Parse the keyword; `None` for a name `blenderTypeNames` does not hold.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Stepwise, Self::Max, Self::Binomial, Self::Exponential, Self::Tanh].into_iter().find(|b| b.name() == name)
+    }
+}
+
+/// `sqr(sqr(s))`, OpenFOAM's `pow4`.
+fn pow4(s: f64) -> f64 {
+    let q = s * s;
+    q * q
+}
+
+/// `wallFunctionBlenders`: the blender and the binomial exponent `n` of one wall patch.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WallBlender {
+    /// `blending`.
+    pub blending: WallFunctionBlending,
+    /// `n` (read for every blender, used by `binomial`).
+    pub n: f64,
+}
+
+impl WallBlender {
+    /// `nutkWallFunction`'s default: stepwise, `n = 4`.
+    #[must_use]
+    pub fn nut_default() -> Self {
+        Self { blending: WallFunctionBlending::Stepwise, n: 4.0 }
+    }
+
+    /// `epsilonWallFunction`'s default: stepwise, `n = 2`.
+    #[must_use]
+    pub fn epsilon_default() -> Self {
+        Self { blending: WallFunctionBlending::Stepwise, n: 2.0 }
+    }
+
+    /// `nutkWallFunction::calcNut` for one face (ESI v2506 `nutkWallFunctionFvPatchScalarField.C`): `nutw` for the viscosity `nu`
+    /// of the face and `y+ = Cmu25 y sqrt(k)/nu`.
+    #[must_use]
+    pub fn nut_wall(&self, w: &WallFunctionCoeffs, y_plus: f64, nu: f64) -> f64 {
+        let nut_log = nu * y_plus * w.kappa / (w.e * y_plus).max(1.0 + 1e-4).r_ln();
+        let blended = match self.blending {
+            WallFunctionBlending::Stepwise => {
+                if y_plus > w.y_plus_lam {
+                    nut_log
+                } else {
+                    nu
+                }
+            }
+            WallFunctionBlending::Max => nu.max(nut_log),
+            WallFunctionBlending::Binomial => (nu.r_powf(self.n) + nut_log.r_powf(self.n)).r_powf(1.0 / self.n),
+            WallFunctionBlending::Exponential => {
+                let gamma = 0.01 * pow4(y_plus) / (1.0 + 5.0 * y_plus);
+                let inv_gamma = 1.0 / (gamma + ROOT_VSMALL);
+                nu * (-gamma).r_exp() + nut_log * (-inv_gamma).r_exp()
+            }
+            WallFunctionBlending::Tanh => {
+                let b1 = nu + nut_log;
+                let b2 = (nu.r_powf(1.2) + nut_log.r_powf(1.2)).r_powf(1.0 / 1.2);
+                let phi = pow4(0.1 * y_plus).r_tanh();
+                phi * b1 + (1.0 - phi) * b2
+            }
+        };
+        blended - nu
+    }
+
+    /// The contribution of one face to `epsilon0` before the cell weight (`epsilonWallFunction::calculate`, ESI v2506
+    /// `epsilonWallFunctionFvPatchScalarField.C`): `eps_vis = 2 k nu/y^2`, `eps_log = Cmu75 k^1.5/(kappa y)`.
+    #[must_use]
+    pub fn epsilon_wall(&self, w: &WallFunctionCoeffs, low_re_correction: bool, y_plus: f64, eps_vis: f64, eps_log: f64) -> f64 {
+        match self.blending {
+            WallFunctionBlending::Stepwise => {
+                if low_re_correction && y_plus < w.y_plus_lam {
+                    eps_vis
+                } else {
+                    eps_log
+                }
+            }
+            WallFunctionBlending::Binomial => (eps_vis.r_powf(self.n) + eps_log.r_powf(self.n)).r_powf(1.0 / self.n),
+            WallFunctionBlending::Max => eps_vis.max(eps_log),
+            WallFunctionBlending::Exponential => {
+                let gamma = 0.001 * pow4(y_plus) / (1.0 + y_plus);
+                let inv_gamma = 1.0 / (gamma + ROOT_VSMALL);
+                eps_vis * (-gamma).r_exp() + eps_log * (-inv_gamma).r_exp()
+            }
+            WallFunctionBlending::Tanh => {
+                let b1 = eps_vis + eps_log;
+                let b2 = (eps_vis.r_powf(1.2) + eps_log.r_powf(1.2)).r_powf(1.0 / 1.2);
+                let phi = pow4(0.1 * y_plus).r_tanh();
+                phi * b1 + (1.0 - phi) * b2
+            }
+        }
+    }
+}
+
+/// The entries of one `nutkWallFunction` patch.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NutWallSpec {
+    /// `Cmu`, `kappa`, `E`.
+    pub coeffs: WallFunctionCoeffs,
+    /// `blending`, `n`.
+    pub blender: WallBlender,
+    /// `U`: the velocity field `nutkWallFunction::yPlus()` reads (a diagnostic `correct()` never calls); `None` = the model's.
+    pub u_name: Option<String>,
+}
+
+impl NutWallSpec {
+    /// Every entry at its default.
+    #[must_use]
+    pub fn standard() -> Self {
+        Self { coeffs: WallFunctionCoeffs::standard(), blender: WallBlender::nut_default(), u_name: None }
+    }
+}
+
+/// The entries of one `epsilonWallFunction` patch.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EpsilonWallSpec {
+    /// `Cmu`, `kappa`, `E`.
+    pub coeffs: WallFunctionCoeffs,
+    /// `blending`, `n`.
+    pub blender: WallBlender,
+    /// `lowReCorrection` (default `false`).
+    pub low_re_correction: bool,
+}
+
+impl EpsilonWallSpec {
+    /// Every entry at its default.
+    #[must_use]
+    pub fn standard() -> Self {
+        Self { coeffs: WallFunctionCoeffs::standard(), blender: WallBlender::epsilon_default(), low_re_correction: false }
     }
 }
 
@@ -160,16 +343,32 @@ pub struct OnePhaseTurbulenceCase {
     pub wall_patch: Vec<bool>,
     /// `y` (`nearWallDist`) of every boundary face (`face - n_internal`), 0 off the walls.
     pub wall_y: Vec<f64>,
-    /// Wall-function coefficients.
-    pub wall: WallFunctionCoeffs,
-    /// The `k` linear solver.
+    /// The `nutkWallFunction` entries of every patch (defaults off the walls).
+    pub nut_wall: Vec<NutWallSpec>,
+    /// The `epsilonWallFunction` entries of every patch (defaults off the walls).
+    pub epsilon_wall: Vec<EpsilonWallSpec>,
+    /// `nutStabilization_`: some `porousKEpsilonProperties` region carries `DhStruct`.
+    pub nut_stabilization: bool,
+    /// `DhStructPtr_` per cell (0 outside the regions that carry `DhStruct`).
+    pub dh_struct: Vec<f64>,
+    /// `laminarReStructPtr_` per cell (500 outside the regions that set it).
+    pub laminar_re_struct: Vec<f64>,
+    /// The `k` linear solver (`k`).
     pub k_solver: DiagonalBicgstab,
-    /// The `epsilon` linear solver.
+    /// The `epsilon` linear solver (`epsilon`).
     pub epsilon_solver: DiagonalBicgstab,
+    /// The `k` linear solver of the final PIMPLE iteration (`kFinal`).
+    pub k_solver_final: DiagonalBicgstab,
+    /// The `epsilon` linear solver of the final PIMPLE iteration (`epsilonFinal`).
+    pub epsilon_solver_final: DiagonalBicgstab,
     /// `relaxationFactors.equations` of `k`.
     pub relax_k: Option<f64>,
     /// `relaxationFactors.equations` of `epsilon`.
     pub relax_epsilon: Option<f64>,
+    /// `relaxationFactors.equations` of `kFinal` (`None`: no entry matches, the final iteration is not relaxed).
+    pub relax_k_final: Option<f64>,
+    /// `relaxationFactors.equations` of `epsilonFinal`.
+    pub relax_epsilon_final: Option<f64>,
 }
 
 /// The mutable state of the model.
@@ -186,6 +385,11 @@ pub(super) struct TurbState {
     pub cell_weight: Vec<f64>,
     /// Apply the wall functions (default true; the ablation switches them off).
     pub wall_functions: bool,
+    /// Stock-OpenFOAM `psi.select(finalIteration)`: the `Final` solver and relaxation entries in the last PIMPLE outer iteration.
+    /// DEFAULT FALSE, which is GeN-Foam's behaviour: its `customPimpleControl` declares its own `corr_` that shadows the base
+    /// class's, so `pimpleControl::finalIter()` (`converged_ || corr_ == nCorrPIMPLE_`) compares a base `corr_` that is never
+    /// advanced and `isFinalIteration()` stays false unless `residualControl` converges (not ported). Measured: README round 29.
+    pub final_selection: bool,
     /// `G` of the last `correct()` (diagnostic).
     pub production: Vec<f64>,
     /// `bound` actions on `k` and `epsilon`.
@@ -357,6 +561,7 @@ impl TurbState {
             epsilon_old: case.epsilon.clone(),
             cell_weight,
             wall_functions: true,
+            final_selection: false,
             production: vec![0.0; n],
             bound_count: 0,
             step_solves: Vec::new(),
@@ -427,6 +632,17 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// CONTROL ONLY, NOT upstream's behaviour (gh:#1842): select the `kFinal`/`epsilonFinal` solver and relaxation entries in the last
+    /// PIMPLE outer iteration, as stock OpenFOAM's `pimpleControl` would. GeN-Foam's `customPimpleControl` never does (see
+    /// `TurbState::final_selection`), so the default is the plain entries in every outer iteration.
+    #[must_use]
+    pub fn with_stock_final_iteration_selection(mut self) -> Self {
+        if let Some(t) = self.turb.as_mut() {
+            t.final_selection = true;
+        }
+        self
+    }
+
     /// `k` per cell (`None` with `turbulence false`).
     #[must_use]
     pub fn turbulent_kinetic_energy(&self) -> Option<&[f64]> {
@@ -468,25 +684,20 @@ impl OnePhaseCcSolver {
     fn wall_nut(&self, ts: &TurbState, nu_b: &[f64]) -> Vec<(usize, f64)> {
         let g = &self.geom;
         let ni = g.n_internal();
-        let w = ts.case.wall;
-        let cmu25 = w.cmu25();
         let mut out = Vec::new();
         for (pi, p) in g.mesh.patches.iter().enumerate() {
             if !ts.case.wall_patch[pi] {
                 continue;
             }
+            let spec = &ts.case.nut_wall[pi];
+            let w = spec.coeffs;
+            let cmu25 = w.cmu25();
             for f in p.start..p.start + p.size {
                 let y = ts.case.wall_y[f - ni];
                 let nu = nu_b[f - ni];
                 let kc = ts.k.c[g.mesh.owner[f]];
                 let y_plus = cmu25 * y * kc.sqrt() / nu;
-                let nutw = if y_plus > w.y_plus_lam {
-                    let nut_log = nu * y_plus * w.kappa / (w.e * y_plus).max(1.0 + 1e-4).r_ln();
-                    nut_log - nu
-                } else {
-                    nu - nu
-                };
-                out.push((f - ni, nutw));
+                out.push((f - ni, spec.blender.nut_wall(&w, y_plus, nu)));
             }
         }
         out
@@ -494,7 +705,11 @@ impl OnePhaseCcSolver {
 
     /// `porousKEpsilon::correct()` (`UEqn_1p.H`: `fluid_.turbulence().correct()`).
     #[allow(clippy::too_many_lines)]
-    pub(super) fn correct_turbulence(&mut self, fluid_phi: &[f64]) {
+    ///
+    /// `mag_u` is `fluid_.magU()` as the last pressure corrector left it (used by the `DhStruct` stabilisation); `final_iteration` is
+    /// the last PIMPLE outer iteration, which selects the `kFinal`/`epsilonFinal` entries ONLY with the stock-OpenFOAM control
+    /// (`with_stock_final_iteration_selection`): GeN-Foam's `isFinalIteration()` is false here.
+    pub(super) fn correct_turbulence(&mut self, fluid_phi: &[f64], mag_u: &[f64], final_iteration: bool) {
         let Some(mut ts) = self.turb.take() else { return };
         let g = self.geom.clone();
         let n = g.n_cells();
@@ -523,26 +738,35 @@ impl OnePhaseCcSolver {
         // epsilon.boundaryFieldRef().updateCoeffs(): wall functions
         let mut wall_cells: Vec<usize> = Vec::new();
         if ts.wall_functions {
-            let cmu25 = c.wall.cmu25();
-            let cmu75 = c.wall.cmu.r_powf(0.75);
-            let kappa = c.wall.kappa;
             let mut g0 = vec![0.0; n];
             let mut eps0 = vec![0.0; n];
             for (pi, p) in m.patches.iter().enumerate() {
                 if !c.wall_patch[pi] {
                     continue;
                 }
+                // each patch calculates with its OWN entries (`calculateTurbulenceFields`: `epf.calculate(...)`)
+                let spec = &c.epsilon_wall[pi];
+                let wc = spec.coeffs;
+                let cmu25 = wc.cmu25();
+                let cmu75 = wc.cmu.r_powf(0.75);
+                let kappa = wc.kappa;
                 for f in p.start..p.start + p.size {
                     let o = m.owner[f];
                     let w = ts.cell_weight[o];
                     let y = c.wall_y[f - ni];
                     let kc = ts.k.c[o];
-                    // epsilon (STEPWISE, lowReCorrection false): the inertial-sublayer value
-                    eps0[o] += w * (cmu75 * kc.r_powf(1.5) / (kappa * y));
-                    // G: (nutw + nuw) |snGrad U_w| Cmu25 sqrt(k)/(kappa y)
-                    let sn = (self.u.b[f - ni] - self.u.c[o]) * g.delta[f];
-                    let mag_grad = sn.mag();
-                    g0[o] += w * (ts.nut.b[f - ni] + nu_b[f - ni]) * mag_grad * cmu25 * kc.sqrt() / (kappa * y);
+                    let nuw = nu_b[f - ni];
+                    let y_plus = cmu25 * y * kc.sqrt() / nuw;
+                    // epsilon: the blend of the viscous and the inertial-sublayer value
+                    let eps_vis = 2.0 * kc * nuw / (y * y);
+                    let eps_log = cmu75 * kc.r_powf(1.5) / (kappa * y);
+                    eps0[o] += w * spec.blender.epsilon_wall(&wc, spec.low_re_correction, y_plus, eps_vis, eps_log);
+                    // G: (nutw + nuw) |snGrad U_w| Cmu25 sqrt(k)/(kappa y), only if !lowReCorrection || yPlus > yPlusLam
+                    if !spec.low_re_correction || y_plus > wc.y_plus_lam {
+                        let sn = (self.u.b[f - ni] - self.u.c[o]) * g.delta[f];
+                        let mag_grad = sn.mag();
+                        g0[o] += w * (ts.nut.b[f - ni] + nuw) * mag_grad * cmu25 * kc.sqrt() / (kappa * y);
+                    }
                     if !wall_cells.contains(&o) {
                         wall_cells.push(o);
                     }
@@ -596,6 +820,7 @@ impl OnePhaseCcSolver {
         let phi = &self.alpha_rho_phi;
 
         // ---- epsilon equation ----
+        let use_final = final_iteration && ts.final_selection;
         let gamma_e = gamma_of(c.sigma_eps, &ts.nut);
         let mut e = Eqn::new(&g);
         ddt(&mut e, &eps_old);
@@ -618,7 +843,7 @@ impl OnePhaseCcSolver {
         e.sp(&g, &conv);
         e.su(&g, &su_conv);
         let bdiag = boundary_internal_coeffs(&g, phi, &gamma_e, &ts.epsilon);
-        if let Some(a) = c.relax_epsilon {
+        if let Some(a) = if use_final { c.relax_epsilon_final } else { c.relax_epsilon } {
             let inflow2 = convective_inflow2(&g, phi, &ts.epsilon);
             relax_equation(&g, &mut e, a, &inflow2, &ts.epsilon.c);
         }
@@ -629,7 +854,7 @@ impl OnePhaseCcSolver {
             set_values(&g, &mut e, &wall_cells, &values, &unfolded);
         }
         let mut x = ts.epsilon.c.clone();
-        let sv = c.epsilon_solver;
+        let sv = if use_final { c.epsilon_solver_final } else { c.epsilon_solver };
         let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, sv.tolerance, sv.rel_tol, sv.max_iter, sv.min_iter);
         let eps_solve = (perf.initial_residual, perf.iterations);
         ts.epsilon.c = x;
@@ -659,12 +884,12 @@ impl OnePhaseCcSolver {
         e.sp(&g, &sp);
         e.sp(&g, &conv);
         e.su(&g, &su_conv);
-        if let Some(a) = c.relax_k {
+        if let Some(a) = if use_final { c.relax_k_final } else { c.relax_k } {
             let inflow2 = convective_inflow2(&g, phi, &ts.k);
             relax_equation(&g, &mut e, a, &inflow2, &ts.k.c);
         }
         let mut x = ts.k.c.clone();
-        let sv = c.k_solver;
+        let sv = if use_final { c.k_solver_final } else { c.k_solver };
         let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, sv.tolerance, sv.rel_tol, sv.max_iter, sv.min_iter);
         ts.step_solves.push([eps_solve, (perf.initial_residual, perf.iterations)]);
         ts.k.c = x;
@@ -676,6 +901,18 @@ impl OnePhaseCcSolver {
         // ---- correctNut ----
         for i in 0..n {
             ts.nut.c[i] = c.cmu * (ts.k.c[i] * ts.k.c[i]) / ts.epsilon.c[i];
+        }
+        // alphat from the UNstabilised nut (`correctNut`: "Correct alphat before nut is stabilized")
+        for i in 0..n {
+            ts.alphat.c[i] = rho0 * ts.nut.c[i] / c.prt;
+        }
+        ts.alphat.correct_bc(&g);
+        if c.nut_stabilization {
+            // nut += pos(structure) magU DhStruct/laminarReStruct
+            for i in 0..n {
+                let pos_structure = if s_alpha[i] > 0.0 { 1.0 } else { 0.0 };
+                ts.nut.c[i] += pos_structure * mag_u[i] * c.dh_struct[i] / c.laminar_re_struct[i];
+            }
         }
         for (pi, p) in m.patches.iter().enumerate() {
             if !c.wall_patch[pi] {
@@ -690,19 +927,41 @@ impl OnePhaseCcSolver {
                 ts.nut.b[fb] = v;
             }
         }
-        for i in 0..n {
-            ts.alphat.c[i] = rho0 * ts.nut.c[i] / c.prt;
-        }
-        ts.alphat.correct_bc(&g);
         ts.production = gprod;
         self.turb = Some(ts);
     }
 }
 
-/// `true` when `v` is within `tol` relative of `w` (used by the reader to compare the `Final` solver entries).
+/// `wallFunctionCoefficients(dict)` and `wallFunctionBlenders(dict, STEPWISE, n)` of one wall patch dictionary.
+///
+/// # Errors
+/// [`AppBuilderError::Case`] for a `blending` word `blenderTypeNames` does not hold, `kappa` or `E` below `SMALL`, `n < 0`
+/// (`getCheckOrDefault` is fatal upstream), or an entry that is not a number.
 #[cfg(feature = "std")]
-fn same_solver(a: &DiagonalBicgstab, b: &DiagonalBicgstab) -> bool {
-    a == b
+fn read_wall_entries(ctx: &Ctx, what: &str, d: &FoamDict, default_blender: WallBlender) -> Result<(WallFunctionCoeffs, WallBlender), AppBuilderError> {
+    let num = |key: &str, default: f64| -> Result<f64, AppBuilderError> {
+        match d.get(key) {
+            None => Ok(default),
+            Some(_) => scalar(d, key).ok_or_else(|| ctx.e(alloc::format!("{what}.{key}: not a number"))),
+        }
+    };
+    let cmu = num("Cmu", 0.09)?;
+    let kappa = num("kappa", 0.41)?;
+    let e = num("E", 9.8)?;
+    if kappa < SMALL || e < SMALL {
+        return Err(ctx.e(alloc::format!("{what}: kappa and E must be >= SMALL (wallFunctionCoefficients)")));
+    }
+    let n = num("n", default_blender.n)?;
+    if n < 0.0 {
+        return Err(ctx.e(alloc::format!("{what}.n: must be >= 0")));
+    }
+    let blending = match word(d, "blending") {
+        None => default_blender.blending,
+        Some(w) => WallFunctionBlending::from_name(&w).ok_or_else(|| {
+            ctx.e(alloc::format!("{what}.blending `{w}`: not one of stepwise, max, binomial, exponential, tanh"))
+        })?,
+    };
+    Ok((WallFunctionCoeffs::new(cmu, kappa, e), WallBlender { blending, n }))
 }
 
 /// Read the `turbulence true` part of the case.
@@ -737,6 +996,9 @@ pub(super) fn read_turbulence_case(
     let mut ie = vec![0.0; n];
     let mut ls = vec![0.0; n];
     let mut regions_in_dict: Vec<String> = Vec::new();
+    let mut nut_stabilization = false;
+    let mut dh_struct = vec![0.0; n];
+    let mut laminar_re_struct = vec![500.0; n];
     // structure volume fraction by zone key
     let vf_of = |region: &str| -> f64 {
         sp.iter()
@@ -752,14 +1014,22 @@ pub(super) fn read_turbulence_case(
             if vf_of(region) == 0.0 {
                 continue;
             }
-            if rd.get("DhStruct").is_some() {
-                return Err(ctx.e(format!("porousKEpsilonProperties.{key}.DhStruct (nutStabilization) is not ported")));
-            }
             regions_in_dict.push(region.to_string());
             let get = |k: &str| ctx.f64(rd, k);
             let (cl, a, b, cc) =
                 (get("convergenceLength")?, get("turbulenceIntensityCoeff")?, get("turbulenceIntensityExp")?, get("turbulenceLengthScaleCoeff")?);
+            // `nutStabilization`: `DhStruct` (required scalar) and `laminarReStruct` (default 500) on the region's cells
+            let stabilisation = if rd.get("DhStruct").is_some() {
+                nut_stabilization = true;
+                Some((get("DhStruct")?, scalar(rd, "laminarReStruct").unwrap_or(500.0)))
+            } else {
+                None
+            };
             for cell in zone_cells(region)? {
+                if let Some((dh, re)) = stabilisation {
+                    dh_struct[cell] = dh;
+                    laminar_re_struct[cell] = re;
+                }
                 convergence_length[cell] = cl;
                 ic[cell] = a;
                 ie[cell] = b;
@@ -785,7 +1055,7 @@ pub(super) fn read_turbulence_case(
     let ef = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/epsilon"))?;
     let nf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
     let af = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/alphat"))?;
-    let check = |ff: &FieldFile, wall_ty: &str, other: &[&str]| -> Result<Vec<bool>, AppBuilderError> {
+    let check = |ff: &FieldFile, wall_ty: &str, other: &[&str], extra_keys: &[&str]| -> Result<Vec<bool>, AppBuilderError> {
         let mut out = Vec::new();
         for p in &g.mesh.patches {
             let (_, ty, _) = ff
@@ -801,7 +1071,7 @@ pub(super) fn read_turbulence_case(
             if is_wall {
                 if let Some((_, d)) = ff.dicts.iter().find(|(nm, _)| nm == &p.name) {
                     for (k, _) in d.iter() {
-                        if k != "type" && k != "value" {
+                        if k != "type" && k != "value" && !extra_keys.iter().any(|e| k == *e) {
                             return Err(ctx.e(format!("{}.{}: entry `{k}` of a `{ty}` patch is not ported", ff.name, p.name)));
                         }
                     }
@@ -811,9 +1081,9 @@ pub(super) fn read_turbulence_case(
         }
         Ok(out)
     };
-    let wk = check(&kf, "kqRWallFunction", &[])?;
-    let we = check(&ef, "epsilonWallFunction", &[])?;
-    let wn = check(&nf, "nutkWallFunction", &[])?;
+    let wk = check(&kf, "kqRWallFunction", &[], &[])?;
+    let we = check(&ef, "epsilonWallFunction", &[], &["Cmu", "kappa", "E", "blending", "n", "lowReCorrection"])?;
+    let wn = check(&nf, "nutkWallFunction", &[], &["Cmu", "kappa", "E", "blending", "n", "U"])?;
     if wk != we || we != wn {
         return Err(ctx.e("k, epsilon and nut must carry their wall functions on the same patches"));
     }
@@ -825,6 +1095,24 @@ pub(super) fn read_turbulence_case(
     }
     let k0 = kf.internal.as_scalar().ok_or_else(|| ctx.e("k internalField must be a uniform scalar"))?;
     let e0 = ef.internal.as_scalar().ok_or_else(|| ctx.e("epsilon internalField must be a uniform scalar"))?;
+
+    // the wall-function entries of every wall patch (`wallFunctionCoefficients(dict)`, `wallFunctionBlenders(dict, STEPWISE, n)`)
+    let mut nut_wall = vec![NutWallSpec::standard(); g.mesh.patches.len()];
+    let mut epsilon_wall = vec![EpsilonWallSpec::standard(); g.mesh.patches.len()];
+    for (pi, p) in g.mesh.patches.iter().enumerate() {
+        if !wn[pi] {
+            continue;
+        }
+        if let Some((_, d)) = nf.dicts.iter().find(|(nm, _)| nm == &p.name) {
+            let (coeffs, blender) = read_wall_entries(ctx, &alloc::format!("nut.{}", p.name), d, WallBlender::nut_default())?;
+            nut_wall[pi] = NutWallSpec { coeffs, blender, u_name: word(d, "U") };
+        }
+        if let Some((_, d)) = ef.dicts.iter().find(|(nm, _)| nm == &p.name) {
+            let (coeffs, blender) = read_wall_entries(ctx, &alloc::format!("epsilon.{}", p.name), d, WallBlender::epsilon_default())?;
+            let low_re_correction = super::super::case::bool_entry(d, "lowReCorrection").unwrap_or(false);
+            epsilon_wall[pi] = EpsilonWallSpec { coeffs, blender, low_re_correction };
+        }
+    }
 
     // solvers and relaxation: the LAST matching pattern wins
     let solvers = ctx.sub(fs, "solvers")?;
@@ -845,9 +1133,10 @@ pub(super) fn read_turbulence_case(
         }
     };
     let (k_solver, epsilon_solver) = (solver_of("k")?, solver_of("epsilon")?);
-    if !same_solver(&k_solver, &solver_of("kFinal")?) || !same_solver(&epsilon_solver, &solver_of("epsilonFinal")?) {
-        return Err(ctx.e("k/epsilon: a `Final` solver entry that differs from the plain one is not ported"));
-    }
+    // `kFinal`, `epsilonFinal`: GeN-Foam never selects them (`isFinalIteration()` is false), so an absent or unported entry is not
+    // an error; they are read for the stock-OpenFOAM control only (`with_stock_final_iteration_selection`), falling back to the plain entry
+    let k_solver_final = solver_of("kFinal").unwrap_or(k_solver);
+    let epsilon_solver_final = solver_of("epsilonFinal").unwrap_or(epsilon_solver);
     let relax_of = |name: &str| -> Option<f64> {
         fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("equations")).and_then(|e| match last_match(e, name) {
             Some(FoamEntry::Scalar(x)) => Some(*x),
@@ -855,9 +1144,8 @@ pub(super) fn read_turbulence_case(
         })
     };
     let (relax_k, relax_epsilon) = (relax_of("k"), relax_of("epsilon"));
-    if relax_k != relax_of("kFinal") || relax_epsilon != relax_of("epsilonFinal") {
-        return Err(ctx.e("k/epsilon: a `Final` relaxation factor that differs from the plain one is not ported"));
-    }
+    // `fvMatrix::relax()`: `relaxEquation("kFinal")` finds no entry => the equation is NOT relaxed in the final iteration
+    let (relax_k_final, relax_epsilon_final) = (relax_of("kFinal"), relax_of("epsilonFinal"));
 
     // y of the wall faces
     let rd = |name: &str| -> Result<String, AppBuilderError> {
@@ -886,11 +1174,19 @@ pub(super) fn read_turbulence_case(
         turbulence_length_scale_coeff: ls,
         wall_patch: wk,
         wall_y,
-        wall: WallFunctionCoeffs::standard(),
+        nut_wall,
+        epsilon_wall,
+        nut_stabilization,
+        dh_struct,
+        laminar_re_struct,
         k_solver,
         epsilon_solver,
+        k_solver_final,
+        epsilon_solver_final,
         relax_k,
         relax_epsilon,
+        relax_k_final,
+        relax_epsilon_final,
     }))
 }
 
@@ -931,5 +1227,86 @@ mod tests {
         let ctr = Vector3::new(0.5, 0.5, 0.0);
         assert!((point_face_distance(Vector3::new(0.3, 0.8, 0.25), &pts, ctr) - 0.25).abs() < 1e-15);
         assert!((point_face_distance(Vector3::new(2.0, 0.5, 0.0), &pts, ctr) - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn blender_names_round_trip_and_unknown_names_are_none() {
+        for b in [
+            WallFunctionBlending::Stepwise,
+            WallFunctionBlending::Max,
+            WallFunctionBlending::Binomial,
+            WallFunctionBlending::Exponential,
+            WallFunctionBlending::Tanh,
+        ] {
+            assert_eq!(WallFunctionBlending::from_name(b.name()), Some(b));
+        }
+        assert_eq!(WallFunctionBlending::from_name("smooth"), None);
+        assert_eq!(WallBlender::nut_default().n, 4.0);
+        assert_eq!(WallBlender::epsilon_default().n, 2.0);
+    }
+
+    #[test]
+    fn wall_coefficients_new_recomputes_the_sublayer_intersection() {
+        let w = WallFunctionCoeffs::new(0.0845, 0.4187, 9.793);
+        // the fixed point of ypl = ln(E ypl)/kappa
+        assert!((w.y_plus_lam - (w.e * w.y_plus_lam).r_ln() / w.kappa).abs() < 1e-6, "{}", w.y_plus_lam);
+        assert!(w.y_plus_lam != WallFunctionCoeffs::standard().y_plus_lam);
+    }
+
+    /// nut: `max` equals `stepwise` away from the crossing at `yPlusLam` (prediction R3: `nutLog < nutVis` below it, `>` above),
+    /// and the smooth blenders reduce to the inertial value far above it.
+    #[test]
+    fn nut_max_equals_stepwise_away_from_the_crossing_and_the_smooth_blenders_reach_the_log_value() {
+        let w = WallFunctionCoeffs::standard();
+        let nu = 1.2e-4;
+        let step = WallBlender::nut_default();
+        let max = WallBlender { blending: WallFunctionBlending::Max, n: 4.0 };
+        let mut y = 0.2_f64;
+        while y < 60.0 {
+            if (y - w.y_plus_lam).abs() > 0.05 {
+                assert_eq!(step.nut_wall(&w, y, nu), max.nut_wall(&w, y, nu), "y+ {y}");
+            }
+            y *= 1.07;
+        }
+        let y = 2000.0;
+        let log = step.nut_wall(&w, y, nu);
+        // exponential: nutLog - nu, as stepwise; tanh (eta = 1): `b1 - nu = nutLog`, i.e. stepwise + nu (the blend adds the viscous part)
+        let v = WallBlender { blending: WallFunctionBlending::Exponential, n: 4.0 }.nut_wall(&w, y, nu);
+        // `log` is this module's own stepwise value (full double precision), not a rounded upstream number. The 1e-9 expectation was
+        // wrong: the formula itself leaves `nutLog exp(-1/Gamma)`, `Gamma = 0.01 y+^4/(1+5 y+) = 1.6e7`, so the relative deficit is
+        // `(1 + nu/log)/Gamma` (about 6.2e-8) analytically; assert THAT value to 1e-3 of itself.
+        let gamma = 0.01 * (y * y) * (y * y) / (1.0 + 5.0 * y);
+        let predicted = (1.0 + nu / log) / gamma;
+        assert!((((log - v) / log) - predicted).abs() < 1e-3 * predicted, "{v} {log} {predicted}");
+        let v = WallBlender { blending: WallFunctionBlending::Tanh, n: 4.0 }.nut_wall(&w, y, nu);
+        assert!(((v - (log + nu)) / log).abs() < 1e-9, "{v} {log}");
+        // binomial with n = 1 is vis + log: nutw = nutLog
+        let bin = WallBlender { blending: WallFunctionBlending::Binomial, n: 1.0 };
+        let y = 5.0;
+        let nut_log = nu * y * w.kappa / (w.e * y).r_ln();
+        assert!((bin.nut_wall(&w, y, nu) - nut_log).abs() < 1e-12 * nut_log);
+    }
+
+    /// epsilon: `stepwise` with `lowReCorrection` takes the viscous value below `yPlusLam`; `max` the larger; the others as their formulas say.
+    #[test]
+    fn epsilon_blenders_follow_their_formulas() {
+        let w = WallFunctionCoeffs::standard();
+        let (vis, log) = (3.0, 2.0);
+        let step = WallBlender::epsilon_default();
+        assert_eq!(step.epsilon_wall(&w, false, 5.0, vis, log), log);
+        assert_eq!(step.epsilon_wall(&w, true, 5.0, vis, log), vis);
+        assert_eq!(step.epsilon_wall(&w, true, 50.0, vis, log), log);
+        let max = WallBlender { blending: WallFunctionBlending::Max, n: 2.0 };
+        assert_eq!(max.epsilon_wall(&w, false, 5.0, vis, log), vis);
+        let bin = WallBlender { blending: WallFunctionBlending::Binomial, n: 2.0 };
+        assert!((bin.epsilon_wall(&w, false, 5.0, vis, log) - 13.0_f64.sqrt()).abs() < 1e-14);
+        // tanh at y+ = 0: eta = 0, the result is (vis^1.2 + log^1.2)^(1/1.2)
+        let th = WallBlender { blending: WallFunctionBlending::Tanh, n: 2.0 };
+        let b2 = (vis.r_powf(1.2) + log.r_powf(1.2)).r_powf(1.0 / 1.2);
+        assert!((th.epsilon_wall(&w, false, 0.0, vis, log) - b2).abs() < 1e-14);
+        // exponential: Gamma -> inf gives eps_log, Gamma -> 0 gives eps_vis
+        let ex = WallBlender { blending: WallFunctionBlending::Exponential, n: 2.0 };
+        assert!((ex.epsilon_wall(&w, false, 500.0, vis, log) - log).abs() < 1e-4);
+        assert!((ex.epsilon_wall(&w, false, 1e-3, vis, log) - vis).abs() < 1e-9);
     }
 }
