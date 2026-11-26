@@ -60,28 +60,31 @@ item is allowed only once that item's test exists and passes (root
 | RN-01 CORSOR-M | `core::melcor_vv::rn_01_corsor_m_rates_match_the_manual` | **failed** (CODATA R, 0.14-0.33 %); code fixed to the correlation's R = 1.987e-3 kcal/(mol K); pass |
 | CVH-02 pool swell | `tests::cvh_02_the_pool_swells_per_control_volume_as_melcor_does` | **the source-height form failed** (bottom sources twice MELCOR's void; lower-plenum vapour swelled the core; local cap): replaced by `swollen_level_by_volume`, MELCOR's per-volume form; pass at 1e-9 m. Plant re-measured: `swell-by-source-height.md` (H2 back inside the codes) |
 | COR1-22 / COR2-17 B4C | `core::melcor_vv::cor1_22_b4c_model_and_its_gates_match_the_manual` | chemistry and rate pass at 1e-8; **the gates were missing** (C1005(3) sheath failure below 0.9 intact steel, C1005(4) above 1500 K): added (`b4c_may_react`, `Params::b4c_sheath_intact_max`, `b4c_min_k`); pass. The plant's B4C reacted over 6 h falls 7.208 → 0.201 kg |
+| COR1-03 gray exchange | `core::melcor_vv::cor1_03_gray_exchange_is_melcors_network` | **failed** (the old `F A sigma dT4 / (1/e1 + 1/e2 - 1)` was a factor 2.04 low at F = 0.25); code now solves the network of Eqs 2-1 to 2-6 with surface resistances `(1-e)/(A e)` and `AF = F MIN(A_cell, A1, A2)` (`cell_af`); pass at 1e-12. The steam medium (Eq 2-5) is still not modelled |
+| COR2-07 lower-head creep | `core::melcor_vv::cor2_07_lower_head_creep_matches_the_manual` | Larson-Miller passes at 1e-9; **the temperature failed** (plain node mean, not MELCOR's mass average): now `HeadWall::mass_mean_k`; pass |
+| COR1-20 steel oxidation | `core::melcor_vv::cor1_20_steel_oxidation_matches_the_manual` | pass at 1e-6 (was checked at 1e-3) |
+| COR1-19 Zr-steam heat | `core::melcor_vv::cor1_19_reaction_heat_agrees_with_the_manual_at_a_common_reference` | ours is vapour-referenced (6.763 MJ/kg), MELCOR's 5797 kJ/kg liquid-referenced; at a common reference 5.798252 vs 5.797 MJ/kg, 2.2e-4 (2.5 times the table's rounding; the rest is in formation data the manual does not give). Pass at 3e-4 |
+| DCH-01 to DCH-03 decay heat | `decay::tests::dch_01_to_03_decay_heat_matches_the_manual` | G(t) at 1e-8, U-239/Np-239 at 1e-6; fission products at 1e4 s 9.03244876e-3 of rated against MELCOR's tables' 9.03175150e-3, **+0.0077 %** (predicted within 3 % before the run) |
 
 ## Discrepancies found, for decision (not fixed in this extraction)
 
 The items list them in full. The ones that change the physics most:
 
-- **B4C oxidation runs too early** (COR1-22, COR2-17). It is missing the
-  1500 K threshold (C1005(4)) and the sheath-failure gate (C1005(3)), so the
-  2 % cap can be spent in about 19 s at 1200 K.
-- **Gray exchange between core surfaces** (COR1-03) matches MELCOR's series
-  solution only for a view factor of 1: a factor 2.04 low at F = 0.25.
-- **The swollen level** (`swollen_level_from_sources`, CVH items) fixes the
-  first-relocation quench but still differs from MELCOR in six stated ways.
-  The doc comment's "1 cm grid" explanation of its 1.25 % offset is wrong.
-- **CORSOR-M** uses R = 8.314462 J/(mol K) where the manual's
-  1.987e-3 kcal/(mol K) applies: release rates are 0.14 to 0.33 % off.
+- ~~**B4C oxidation runs too early** (COR1-22, COR2-17)~~ **FIXED
+  2026-11-26** (the gates; status table).
+- ~~**Gray exchange between core surfaces** (COR1-03) matches MELCOR's series
+  solution only for a view factor of 1: a factor 2.04 low at F = 0.25.~~
+  **FIXED 2026-11-26** (the network; status table).
+- ~~**The swollen level** (`swollen_level_from_sources`, CVH items)~~
+  **REPLACED 2026-11-26** by MELCOR's per-volume form (CVH-02).
+- ~~**CORSOR-M** uses R = 8.314462 J/(mol K)~~ **FIXED 2026-11-26** (RN-01).
 - **Zircaloy enthalpy** runs +109 J/kg high from 1113 K. This is inherited
   from the OFFBEAT MATPRO port, which keeps an upstream interpolation quirk
   on purpose. Needs a decision.
 - **Cs vapour pressure:** the two manuals give different curves, 5.6 decades
   apart at 1000 K. Needs a decision.
-- **Lower-head creep** (COR2-07) uses a plain node mean, not the
-  mass-averaged wall temperature: up to a factor of 0.59 in rupture time.
+- ~~**Lower-head creep** (COR2-07) uses a plain node mean, not the
+  mass-averaged wall temperature~~ **FIXED 2026-11-26** (status table).
 - **Smaller ones**, each in its item: steel diffusion constant +20.5 %,
   holdup minimum oxide thickness, rod-collapse temperature (fuel vs
   cladding), gravity 9.80665 vs 9.8, Zircaloy density 6550 vs 6500.

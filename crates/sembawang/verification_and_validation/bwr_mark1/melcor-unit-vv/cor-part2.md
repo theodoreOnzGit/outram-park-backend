@@ -198,6 +198,8 @@ to 248) and the caller asked for them by name; they may overlap the first-half
   arithmetic 1080 K, mass-weighted 1062.5 K, t_R ratio 0.5896 at 10 MPa.
   The code also has no non-load-bearing insulation layers (NINSLH). That is
   irrelevant with none input.
+- **RESOLVED 2026-11-26:** `HeadWall::mass_mean_k` (face nodes half mass) and
+  `larson_miller_rupture_s`; test `cor2_07_lower_head_creep_matches_the_manual`.
 
 ## COR2-08 Lower-head 1-D mechanical option: E(T), sigma_Y(T), thermal strain
 

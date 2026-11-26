@@ -169,3 +169,100 @@ fn cor1_22_b4c_model_and_its_gates_match_the_manual() {
     assert!(!b4c_may_react(&prm, 0.11 * m0, 1500.0), "not above 1500 K");
     assert!(!b4c_may_react(&prm, 0.11 * m0, 1200.0), "the 1200 K case of the old code");
 }
+
+/// **COR1-03, two gray surfaces (MELCOR Vol. 2 COR §2.1, Eqs 2-1 to 2-6;
+/// §2.1.2 limit (1)).** Methodology: `gray_exchange` with no medium
+/// against the item's python values, (a) `AF = 1`, eps 0.8/0.5,
+/// 1500/1000 K: 102381.760 W; (b) `AF = 0.25`, eps 0.325/0.95,
+/// 1500/560 K: 45922.778 W (both A1 = A2 = 1 m^2). Then `cell_af` takes
+/// `F MIN(A_cell, A1, A2)`, and with rod surfaces far larger than the cell
+/// boundary the exchange tends to `AF sigma dT^4`, the space resistance
+/// alone. Results (2026-11-26): **the old form failed** (b) by a factor
+/// 2.04 (22486.12 W); the code now solves the network and passes at
+/// 1e-12 against the full-precision python values (102381.76034305555,
+/// 45922.77796855471 W; the item prints 9 figures).
+/// The steam medium (Eq 2-5, item case (c)) is not modelled and not tested.
+#[test]
+fn cor1_03_gray_exchange_is_melcors_network() {
+    let a = gray_exchange(1.0, 1.0, 0.8, 1.0, 0.5, 1500.0, 1000.0);
+    assert!(rel(a, 102381.76034305555) < 1e-12, "{a}");
+    let b = gray_exchange(0.25, 1.0, 0.325, 1.0, 0.95, 1500.0, 560.0);
+    assert!(rel(b, 45922.77796855471) < 1e-12, "{b}");
+    assert_eq!(cell_af(0.1, 2.0, 50.0, 80.0), 0.1 * 2.0);
+    assert_eq!(cell_af(0.1, 2.0, 0.5, 80.0), 0.1 * 0.5);
+    let sigma = 5.670_374_419e-8;
+    let big = gray_exchange(cell_af(0.1, 1.0, 1e9, 1e9), 1e9, 0.7, 1e9, 0.7, 1500.0, 1000.0);
+    assert!(rel(big, 0.1 * sigma * (1500.0f64.powi(4) - 1000.0f64.powi(4))) < 1e-7, "{big}");
+}
+
+/// **COR2-07, lower-head Larson-Miller creep (MELCOR Vol. 2 §6.3, Eqs 6-23
+/// to 6-26; C1601, C1600(3)).** Methodology: `larson_miller_rupture_s`
+/// against the item's python values, 59777.6564 s at 1273 K and 10 MPa,
+/// 50161.0628 s at 1000 K and 50 MPa, 16184.7543 s at 1100 K and
+/// 36.7131677 MPa; the wall's mass-averaged temperature for the item's
+/// profile 1500/1200/1000/900/800 K, 1062.5 K (face nodes half mass);
+/// one 600 s step at 1273 K and 10 MPa adds `0.18 x 600 / 59777.66`
+/// strain; below 1000 Pa nothing accumulates. Results (2026-11-26): the
+/// rate passes at 1e-9; **the temperature failed** (the plain mean, 1080 K,
+/// a rupture time 0.59 times MELCOR's at 10 MPa): now the mass average;
+/// pass.
+#[test]
+fn cor2_07_lower_head_creep_matches_the_manual() {
+    let prm = Params::default();
+    assert!(rel(larson_miller_rupture_s(&prm, 1273.0, 10.0e6), 59777.6564) < 1e-9);
+    assert!(rel(larson_miller_rupture_s(&prm, 1000.0, 50.0e6), 50161.0628) < 1e-9);
+    assert!(rel(larson_miller_rupture_s(&prm, 1100.0, 36713167.7), 16184.7543) < 1e-8);
+    let mut w = HeadWall::new(1000.0);
+    w.t_k = [1500.0, 1200.0, 1000.0, 900.0, 800.0];
+    assert!((w.mass_mean_k() - 1062.5).abs() < 1e-12);
+    let (ri, ro) = (prm.rpv_radius_m, prm.rpv_radius_m + prm.lower_head_thickness_m);
+    let dp = 10.0e6 * (ro * ro - ri * ri) / (ri * ri);
+    let mut c = HeadWall::new(1273.0);
+    assert!(!c.failed(&prm, dp, 600.0, false));
+    assert!(rel(c.strain, 0.18 * 600.0 / 59777.6564) < 1e-8, "{}", c.strain);
+    let mut d = HeadWall::new(1273.0);
+    assert!(!d.failed(&prm, 999.0, 600.0, false));
+    assert_eq!(d.strain, 0.0);
+}
+
+/// **COR1-20, stainless-steel oxidation (MELCOR Vol. 2 COR §2.5.6, Eqs
+/// 2-176 to 2-179, Table 2-9, Table 2-5; C1002, C1004(1)).** Methodology:
+/// `ss_oxidation_rate` and `ss_reaction` at X = 0.74/0.18/0.08 Fe/Cr/Ni
+/// against the item's python values: K = 4.402883e-8, 1.281616e-3,
+/// 3.564512e-2 (kg/m^2)^2/s at 1100, 1500, 1700 K, zero below 1100 K;
+/// 0.3568176 kg steam, 0.03993030 kg H2 and 277.0978 kJ per kg of steel.
+/// Results (2026-11-26): pass at 1e-6 (the item's 7 figures; was checked
+/// at 1e-3 by `the_blade_steel_reacts_as_melcor_says`).
+#[test]
+fn cor1_20_steel_oxidation_matches_the_manual() {
+    let prm = Params::default();
+    assert_eq!(ss_oxidation_rate(&prm, 1099.9), 0.0);
+    for (t, k) in [(1100.0, 4.402883e-8), (1500.0, 1.281616e-3), (1700.0, 3.564512e-2)] {
+        assert!(rel(ss_oxidation_rate(&prm, t), k) < 1e-6, "{t}");
+    }
+    let (steam, h2, heat) = ss_reaction(&prm);
+    assert!(rel(steam, 0.3568176) < 1e-6, "{steam}");
+    assert!(rel(h2, 0.03993030) < 1e-6, "{h2}");
+    assert!(rel(heat, 277.0978e3) < 1e-6, "{heat}");
+}
+
+/// **COR1-19, heat of the Zr-steam reaction and its reference state
+/// (MELCOR Vol. 2 COR §2.5.2, Eqs 2-166/2-167, Table 2-5).** Our heat,
+/// 6.763 MJ/kg Zr, is referenced to water VAPOUR at 298.15 K (`offbeat`'s
+/// `exotherm`), and the steam's enthalpy above 298 K vapour is added
+/// separately; MELCOR's 5797 kJ/kg is consistent with water referenced to
+/// LIQUID (the CVH convention). So a direct comparison reads a false
+/// +16.7 %. Methodology: move ours to the liquid reference by the two
+/// moles of water's latent heat at 298.15 K (the formation enthalpies'
+/// difference, 285.83 - 241.826 = 44.004 kJ/mol), and compare with the
+/// table. Results (2026-11-26): 5.798252 MJ/kg against 5.797, 2.2e-4
+/// relative: inside 3e-4 but **2.5 times the table's printed rounding**.
+/// The rest is in the formation data MELCOR's figure came from, which the
+/// manual does not give (not determined). Pass at 3e-4.
+#[test]
+fn cor1_19_reaction_heat_agrees_with_the_manual_at_a_common_reference() {
+    let prm = Params::default();
+    let liquid = prm.oxidation_heat_j_per_kg_zr - 2.0 * (285.83e3 - 241.826e3) / M_ZR;
+    assert!(rel(liquid, 5797.0e3) < 3e-4, "{liquid}");
+    assert!(rel(prm.oxidation_heat_j_per_kg_zr, 5797.0e3) > 0.16);
+}

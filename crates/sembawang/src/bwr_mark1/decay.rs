@@ -244,4 +244,46 @@ mod tests {
             assert!(new > old, "{h} h");
         }
     }
+
+    /// **Unit V&V against MELCOR 2.2 (2026-11-26), items DCH-01 to DCH-03**
+    /// of `verification_and_validation/bwr_mark1/melcor-unit-vv/cvh-dch-hs.md`
+    /// (MELCOR Vol. 2 DCH §3.2, Eqs 3-1 to 3-5, Table 3.1; SC3204, SC3205).
+    /// Reference values computed with `python3` from the manual's equations
+    /// and tables, never from this code.
+    ///
+    /// - DCH-01 `G(t)`, T = 5.05e7 s, psi = 0.713: 1.00278581 at 0,
+    ///   1.00728265 just below 1e4 s, 1.064 at 1e4 s, 1.06849660 at 1.2e4 s
+    ///   (linear in ln t; log-log gives 1.06848503, 1.1e-5 away). 1e-8.
+    /// - DCH-02 U-239 + Np-239, not multiplied by G (Eq 3-1), over rated
+    ///   power with the plant's shares: 2.32117636e-3 at shutdown and
+    ///   1.03160923e-3 at 5 h. 1e-6.
+    /// - DCH-03 the fission products at 1e4 s: MELCOR's Table 3.1 with
+    ///   G_max = 1.064 gives P_FP/P0 = 9.03175150e-3. Ours comes from
+    ///   `teh-o-prke`'s 23-group fit of the ANS 1978 draft, a different
+    ///   data route. **Prediction, written before the first run: within
+    ///   3 %** (the fit and the table describe the same measurements).
+    ///
+    /// Results (2026-11-26): DCH-01 and DCH-02 pass at their tolerances;
+    /// DCH-03 gives 9.03244876e-3, **+0.0077 %** from MELCOR's tables
+    /// (inside the predicted 3 %; asserted at that prediction, not at the
+    /// measurement).
+    #[test]
+    fn dch_01_to_03_decay_heat_matches_the_manual() {
+        let rel = |a: f64, b: f64| ((a - b) / b).abs();
+        assert!(rel(at(ALL, 0.0).capture_factor(), 1.00278581) < 1e-8);
+        let mut d = at(ALL, 9990.0);
+        d.advance(9.999);
+        assert!(rel(d.capture_factor(), 1.00728265) < 1e-8, "{}", d.capture_factor());
+        assert!(rel(at(ALL, 1.0e4).capture_factor(), 1.064) < 1e-12);
+        assert!(rel(at(ALL, 1.2e4).capture_factor(), 1.06849660) < 1e-8);
+        let p0 = Params::default().thermal_power_w;
+        let a0 = at(ALL, 0.0).actinide_power_w() / p0;
+        let a5 = at(ALL, 5.0 * 3600.0).actinide_power_w() / p0;
+        assert!(rel(a0, 2.32117636e-3) < 1e-6, "{a0}");
+        assert!(rel(a5, 1.03160923e-3) < 1e-6, "{a5}");
+        let fp = at(ALL, 1.0e4).fp_power_w() / p0;
+        #[cfg(feature = "std")]
+        println!("DCH-03: P_FP/P0 at 1e4 s = {fp:.8e} against MELCOR's 9.03175150e-3 ({:+.4} %)", 100.0 * (fp / 9.03175150e-3 - 1.0));
+        assert!(rel(fp, 9.03175150e-3) < 0.03, "{fp}");
+    }
 }

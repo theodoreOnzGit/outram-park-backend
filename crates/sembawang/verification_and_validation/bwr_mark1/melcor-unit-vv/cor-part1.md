@@ -107,6 +107,13 @@ only at F = 1 with equal areas. Whether MELCOR's actual A1, A2 for these paths (
 areas, which can be much larger than A_cell; §2.1.2, §2.1.4) shrink the gap was not
 determined; a test should pin Eqs 2-1..2-6 directly. Steam absorption (eps_m) not modelled.
 
+**RESOLVED 2026-11-26.** `gray_exchange` now solves Eqs 2-1..2-6 with eps_m = 0, taking each
+surface's own area (a node's rod surface, the shroud's inner face, the ring's cross-section for
+the pool and, \[A\], for the dome internals) and `AF = F MIN(A_cell, A1, A2)` (`cell_af`, §2.1.2
+limit (1)). With rod surfaces far larger than the cell boundary, the exchange tends to
+`AF sigma dT^4`, about twice the old form at the plant's emissivities. Test
+`cor1_03_gray_exchange_is_melcors_network`. Steam absorption is still not modelled.
+
 ---
 
 ## COR1-04 Mean beam length and optical depth for steam emissivity
