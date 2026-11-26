@@ -34,7 +34,8 @@
 //!   allocation position). Upstream's twelve words map one for one: `[0..3]`
 //!   the four neighbours ([`TetRecord::nbr`], encoded handles), `[4..7]` the
 //!   vertices ([`TetRecord::v`]), `[8]` the subsegment array and `[9]` the
-//!   subface array (reserved for stage 3 on, [`TetRecord::seg`] /
+//!   subface array (reserved for ~~stage 3~~ stage 4 on: `meshsurface` does
+//!   not touch them, [`TetRecord::seg`] /
 //!   [`TetRecord::sub`]), `[10]` the element index, `[11]` the marker and
 //!   flag bits ([`TetRecord::marker`], the same bits as upstream's
 //!   `infect`, `marktest`, `markface`, `markedge`, `marktest2`, counter).
@@ -477,9 +478,9 @@ pub struct TetRecord {
     /// `[4..7]`: the vertices; `v[0] == NULL_POINT` marks a dead record.
     /// `v[3]` may be [`DUMMYPOINT`] (a hull tetrahedron).
     pub v: [Point; 4],
-    /// `[8]`: the subsegment array (stage 3 on); `usize::MAX` is `NULL`.
+    /// `[8]`: the subsegment array (~~stage 3~~ stage 4 on); `usize::MAX` is `NULL`.
     pub seg: usize,
-    /// `[9]`: the subface array (stage 3 on); `usize::MAX` is `NULL`.
+    /// `[9]`: the subface array (~~stage 3~~ stage 4 on); `usize::MAX` is `NULL`.
     pub sub: usize,
     /// `[10]`: reserved; the element index (`elemindex`) written by
     /// `outelements`.
@@ -563,6 +564,158 @@ impl PointRecord {
         flags: 0,
         geomtag: 0,
     };
+}
+
+// ---------------------------------------------------------------------------
+// Subfaces and subsegments (stage 3, gh:#1792).
+// ---------------------------------------------------------------------------
+
+/// Which pool a shell face lives in: upstream keeps subfaces and
+/// subsegments in two `memorypool`s of the same record layout and tells
+/// them apart only by where a pointer points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShPool {
+    /// `subfaces`.
+    Sub,
+    /// `subsegs`.
+    Seg,
+}
+
+/// A `NULL` shell-face slot (`face.sh == NULL`).
+pub const NULL_SH: usize = usize::MAX;
+
+/// An encoded shell-face pointer (upstream's `shellface`, a pointer with
+/// the edge version `0..6` in its three low bits):
+/// `((slot + 1) << 4) | (pool << 3) | shver`, with `pool` 1 for
+/// [`ShPool::Seg`]; `0` is `NULL`.
+pub type ShellFace = usize;
+
+/// `face`: a subface or subsegment and its edge version `shver` (`0..6`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Face {
+    /// The pool the record is in.
+    pub pool: ShPool,
+    /// The record's pool slot, or [`NULL_SH`].
+    pub sh: usize,
+    /// The edge version, `0..6`.
+    pub shver: usize,
+}
+
+impl Default for Face {
+    /// `face() : sh(0), shver(0)`.
+    fn default() -> Self {
+        Face {
+            pool: ShPool::Sub,
+            sh: NULL_SH,
+            shver: 0,
+        }
+    }
+}
+
+impl Face {
+    /// `s.sh == NULL`.
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.sh == NULL_SH
+    }
+    /// `s1.sh == s2.sh` (the same record, any version).
+    #[inline]
+    pub fn same_sh(&self, o: &Face) -> bool {
+        self.sh == o.sh && (self.sh == NULL_SH || self.pool == o.pool)
+    }
+}
+
+/// `sencode(s)` (and `sencode2`).
+#[inline]
+pub fn sencode(s: &Face) -> ShellFace {
+    if s.sh == NULL_SH {
+        return 0;
+    }
+    let pool = match s.pool {
+        ShPool::Sub => 0,
+        ShPool::Seg => 1,
+    };
+    ((s.sh + 1) << 4) | (pool << 3) | s.shver
+}
+
+/// `sdecode(sptr, s)`.
+#[inline]
+pub fn sdecode(sptr: ShellFace) -> Face {
+    if sptr == 0 {
+        return Face::default();
+    }
+    Face {
+        pool: if (sptr >> 3) & 1 == 1 {
+            ShPool::Seg
+        } else {
+            ShPool::Sub
+        },
+        sh: (sptr >> 4) - 1,
+        shver: sptr & 7,
+    }
+}
+
+/// A subface or subsegment record: upstream's eleven pointers plus the
+/// integers after them (`initializepools`, `shsize`).
+///
+/// - `[0..2]` [`ShellRecord::nbr`]: the adjacent subfaces at edges 0..2
+///   (a subsegment's `[0]` is a subface containing it, `ssbond`);
+/// - `[3..5]` [`ShellRecord::v`]: the vertices (`v[2]` is `NULL` for a
+///   subsegment; `v[0] == NULL_POINT` marks a dead record);
+/// - `[6..8]` [`ShellRecord::seg`]: the subsegments at edges 0..2;
+/// - `[9..10]` [`ShellRecord::tet`]: the adjacent tetrahedra (stage 4);
+/// - [`ShellRecord::marker`] (`shellmark`), [`ShellRecord::flags`]
+///   (`sinfect` bit 0, `smarktest` bit 1, `smarktest2` bit 2) and
+///   [`ShellRecord::facetindex`] (`useinsertradius`, `-p`).
+///
+/// The area bound (`checkconstraints`, only with `-q` and a facet or
+/// segment constraint list) is not ported.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShellRecord {
+    /// `sh[0..2]`.
+    pub nbr: [ShellFace; 3],
+    /// `sh[3..5]`.
+    pub v: [Point; 3],
+    /// `sh[6..8]`.
+    pub seg: [ShellFace; 3],
+    /// `sh[9..10]`.
+    pub tet: [Tetrahedron; 2],
+    /// `shellmark`.
+    pub marker: i32,
+    /// `[shmarkindex + 1]`.
+    pub flags: i32,
+    /// `[shmarkindex + 2]` (`getfacetindex`).
+    pub facetindex: i32,
+    /// A subsegment's `sh[6]` written by `mergefacets` as a pointer to the
+    /// dihedral-angle cosine it caches there (`segloop.sh[6] = paryang`).
+    /// Upstream frees the array but leaves the pointer: after
+    /// `meshsurface` a segment with `Some` still has a non-`NULL` `sh[6]`.
+    pub dihedang: Option<f64>,
+}
+
+impl ShellRecord {
+    /// What `makeshellface` writes.
+    pub const BLANK: ShellRecord = ShellRecord {
+        nbr: [0; 3],
+        v: [NULL_POINT; 3],
+        seg: [0; 3],
+        tet: [NULL_HANDLE; 2],
+        marker: 0,
+        flags: 0,
+        facetindex: 0,
+        dihedang: None,
+    };
+}
+
+/// A `badface` on `flipstack` as `flipshpush` fills it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlipShItem {
+    /// `ss`.
+    pub ss: Face,
+    /// `forg`.
+    pub forg: Point,
+    /// `fdest`.
+    pub fdest: Point,
 }
 
 // ---------------------------------------------------------------------------
@@ -736,6 +889,24 @@ pub struct Behavior {
     pub vertexperblock: usize,
     /// `-x`: tetrahedra per pool block (default 8188).
     pub tetrahedraperblock: usize,
+    /// `-p`: the input is a piecewise linear complex (stage 3 on, gh:#1792).
+    /// Set by `.poly` / `.smesh` input; adds the subface and subsegment
+    /// pools and `useinsertradius`.
+    pub plc: bool,
+    /// `-p` (first value): two facets meeting at a dihedral angle above
+    /// this (degrees) are coplanar and merged (default 179.9).
+    pub facet_separate_ang_tol: f64,
+    /// `-p//`: the small angle (degrees) between two segments at a vertex
+    /// below which `mergefacets` removes one (default 15.0).
+    pub facet_small_ang_tol: f64,
+    /// `-M`: do not merge coplanar facets (default off).
+    pub nomergefacet: bool,
+    /// `-Y`: do not split boundary (default 0).
+    pub nobisect: i32,
+    /// `-d`: diagnose (default off).
+    pub diagnose: bool,
+    /// `-x`: subfaces and subsegments per pool block (default 4092).
+    pub shellfaceperblock: usize,
 }
 
 impl Default for Behavior {
@@ -753,6 +924,13 @@ impl Default for Behavior {
             nojettison: false,
             vertexperblock: 4092,
             tetrahedraperblock: 8188,
+            plc: false,
+            facet_separate_ang_tol: 179.9,
+            facet_small_ang_tol: 15.0,
+            nomergefacet: false,
+            nobisect: 0,
+            diagnose: false,
+            shellfaceperblock: 4092,
         }
     }
 }
@@ -827,6 +1005,38 @@ pub struct TetgenMesh {
     pub cavebdrylist: Vec<TriFace>,
     /// `_bw_faces[64][64]` (persistent scratch of `insert_vertex_bw`).
     pub bw_faces: Vec<TriFace>,
+    /// The subface records (stage 3, gh:#1792), by pool slot.
+    pub subfaces: Vec<ShellRecord>,
+    /// `subfaces` (the pool bookkeeping).
+    pub subfacepool: MemoryPool,
+    /// The subsegment records, by pool slot.
+    pub subsegs: Vec<ShellRecord>,
+    /// `subsegs` (the pool bookkeeping).
+    pub subsegpool: MemoryPool,
+    /// `recentsh`: a handle for surface point location.
+    pub recentsh: Face,
+    /// `flipstack` (the `flippool` linked list), top last.
+    pub flipstack: Vec<FlipShItem>,
+    /// `caveshlist`.
+    pub caveshlist: Vec<Face>,
+    /// `caveshbdlist`.
+    pub caveshbdlist: Vec<Face>,
+    /// `cavesegshlist`.
+    pub cavesegshlist: Vec<Face>,
+    /// `caveencshlist`.
+    pub caveencshlist: Vec<Face>,
+    /// `caveencseglist`.
+    pub caveencseglist: Vec<Face>,
+    /// `minfacetdihed`: the smallest input dihedral angle (radians),
+    /// initially `PI`.
+    pub minfacetdihed: f64,
+    /// `insegments`: the number of input segments (after `meshsurface`).
+    pub insegments: i64,
+    /// `flip22count`.
+    pub flip22count: i64,
+    /// The warnings upstream prints during `meshsurface` (skipped facets,
+    /// invalid vertices, ...), in order.
+    pub warnings: Vec<alloc::string::String>,
 }
 
 impl TetgenMesh {
@@ -872,6 +1082,21 @@ impl TetgenMesh {
             cave_oldtet_list: Vec::new(),
             cavebdrylist: Vec::new(),
             bw_faces: alloc::vec![TriFace::default(); 4096],
+            subfaces: Vec::new(),
+            subfacepool: MemoryPool::new(b.shellfaceperblock),
+            subsegs: Vec::new(),
+            subsegpool: MemoryPool::new(b.shellfaceperblock),
+            recentsh: Face::default(),
+            flipstack: Vec::new(),
+            caveshlist: Vec::new(),
+            caveshbdlist: Vec::new(),
+            cavesegshlist: Vec::new(),
+            caveencshlist: Vec::new(),
+            caveencseglist: Vec::new(),
+            minfacetdihed: core::f64::consts::PI,
+            insegments: 0,
+            flip22count: 0,
+            warnings: Vec::new(),
         }
     }
 

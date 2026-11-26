@@ -33,7 +33,7 @@
 //! |---|---|---|---|
 //! | 1 | gh:#1790 | exact geometric predicates (`predicates.cxx`) | **done: [`predicates`]** |
 //! | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, `insert_vertex_bw`) and the mesh data structure | **done: [`mesh`], [`delaunay`]** |
-//! | 3 | gh:#1792 | PLC surface meshing (`meshsurface`) | not started |
+//! | 3 | gh:#1792 | PLC input (`.poly`/`.smesh`/`.edge`) and surface meshing (`meshsurface`) | **done: [`plc`], [`surface`]** |
 //! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
 //! | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
 //! | 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
@@ -43,6 +43,21 @@
 //! `triface` and every orientation table, with indices for pointers) and
 //! [`delaunay_tetrahedralize`], whose `.node`/`.ele` output is identical to
 //! `tetgen -zQ` on twelve cases (`verification_and_validation/tetgen_delaunay_gh1791/`).
+//!
+//! Stage 3 adds the PLC input ([`PlcInput`]: points, facets as polygon lists
+//! with markers and hole points, volume holes, regions, input edges;
+//! [`PlcInput::read_poly`], [`PlcInput::read_smesh`] and
+//! [`PlcInput::read_edge`] follow `tetgenio::load_poly` / `load_edge` token
+//! for token; [`PlcInput::from_triangle_soup`] builds a PLC from a
+//! triangulated surface with one marker per triangle, the route later stages
+//! take for cfMesh and Blender surfaces), the subface and subsegment pools
+//! ([`mesh::ShellRecord`], [`mesh::Face`]) and [`plc_meshsurface`]: the `-p`
+//! Delaunay of the PLC's vertices, then `meshsurface` (each facet a 2D
+//! constrained Delaunay triangulation; coplanar facets of one marker merged).
+//! Its state after `meshsurface` (every subface, subsegment, tetrahedron and
+//! point slot with its links, the dead-item stacks and the random state)
+//! equals an instrumented upstream's on thirteen cases
+//! (`verification_and_validation/tetgen_meshsurface_gh1792/`).
 //!
 //! **The pool order is part of the answer.** Upstream numbers its output by
 //! walking its memory pools in allocation order and reuses freed records
@@ -69,9 +84,13 @@
 
 pub mod delaunay;
 pub mod mesh;
+pub mod plc;
 pub mod predicates;
+pub mod surface;
 
 pub use delaunay::{
     delaunay_tetrahedralize, delaunay_tetrahedralize_with, TetgenError, Tetrahedralization,
 };
 pub use mesh::{Behavior, TetgenMesh};
+pub use plc::{PlcFacet, PlcInput, PlcReadError};
+pub use surface::{plc_meshsurface, plc_meshsurface_with, PlcSurface};

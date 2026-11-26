@@ -302,6 +302,7 @@ test_ids = [
     "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::final_meshes_match_upstream",
     "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::p_mesh_matches_upstream_through_mesh_optimisation",
     "crates/outram-park-fork-cfmesh/tests/cfmesh_vs_upstream_sphere.rs::tet_mesh_matches_upstream_through_mesh_optimisation",
+    "crates/outram-park-fork-cfmesh/tests/tetgen_meshsurface_vs_upstream.rs::write_inputs",
 ]
 
 [module."anisotropic.rs"]
@@ -17888,6 +17889,7 @@ reached_by = [
     "#295",
     "#296",
     "#297",
+    "#298",
 ]
 
 [[module."math.rs".function]]

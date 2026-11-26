@@ -530,7 +530,7 @@ sign-equal substitute (`delaunay.rs`, `outram-blender`'s
 |---|---|---|---|
 | 1 | gh:#1790 | exact predicates (`predicates.cxx`) | done: 84 000 / 84 000 bit-identical, `verification_and_validation/tetgen_predicates_gh1790/` |
 | 2 | gh:#1791 | point-set Delaunay (`transfernodes`, BRIO/Hilbert sort, `incrementaldelaunay`, ~~`insertpoint`~~ `insert_vertex_bw`) and the mesh data structure | done: 12 / 12 cases identical to `tetgen -zQ` (165 124 tets, order and vertex order), `verification_and_validation/tetgen_delaunay_gh1791/` |
-| 3 | gh:#1792 | PLC surface meshing (`meshsurface`) | not started |
+| 3 | gh:#1792 | PLC input (`.poly`/`.smesh`/`.edge`, `PlcInput`) and surface meshing (`meshsurface`) | done: 13 / 13 cases identical to an instrumented upstream (39 207 dump lines: every subface, subsegment, tet and point slot with its links, the dead-item stacks, the random state), `verification_and_validation/tetgen_meshsurface_gh1792/` |
 | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | not started |
 | 5 | gh:#1794 | `carveholes`, `suppresssteinerpoints`, `recoverdelaunay` | not started |
 | 6 | gh:#1795 | Delaunay refinement and mesh improvement (`-q`, `-a`) | not started |
@@ -546,8 +546,10 @@ in `0..12` and every orientation table transcribed one for one, including
 the subface ones stages 3 on need) and `tetgen::delaunay`
 (`delaunay_tetrahedralize`). ~~`insertpoint`~~ **CORRECTED 2026-11-26:**
 upstream's point-set path inserts with `insert_vertex_bw` (Bowyer-Watson),
-not `insertpoint`; `insertpoint` and its flips are first used by stage 3
-and are not ported yet (`locate` is). Rules it taught:
+not `insertpoint`; `insertpoint` and its flips are first used by ~~stage 3~~
+stage 4 (`delaunizesegments`; **CORRECTED 2026-11-26, gh:#1792:**
+`meshsurface` calls neither) and are not ported yet (`locate` is). Rules it
+taught:
 
 - **Pool order is part of the answer.** `.ele` order is upstream's pool
   traversal (allocation slot order, dead records skipped) and a freed
@@ -564,3 +566,32 @@ and are not ported yet (`locate` is). Rules it taught:
   version (the first tet's four points); upstream's read then lands
   mid-record and never matches, and the port says so in
   `point2tet_apex_is`.
+
+**Stage 3 (gh:#1792)** adds `tetgen::plc` (`PlcInput`: `read_poly`,
+`read_smesh`, `read_edge`, `read_poly_with_node` follow `tetgenio`'s
+scanning token for token; `from_triangle_soup` is the entry for cfMesh and
+Blender surfaces, one marker per triangle) and `tetgen::surface`
+(`plc_meshsurface`, `TetgenMesh::from_plc`, `meshsurface` and everything it
+calls), with the subface and subsegment pools in `mesh.rs` (`ShellRecord`,
+`Face`, the encoded `ShellFace`). Rules it taught:
+
+- **Compare the whole state, not the output.** `meshsurface` writes no
+  file, so the reference is an instrumented upstream build that dumps every
+  pool slot (dead ones too) with its links and versions, the dead-item
+  stacks and the random state (`meshsurface_dump.patch` in the V&V folder;
+  the port's `dump_meshsurface` writes the same text). Stage 4 starts from
+  exactly this state; extend the dump, do not narrow it.
+- **Inputs must reach the paths.** The first eight cases (boxes, the Mesh
+  Studio soups, a sphere) were identical but never flipped an edge or
+  recovered a segment; `comb_prism`, `grid_box`, `jitter_soup`, `slit_box`
+  and `fin_box` were added to reach `flip22`, `lawsonflip`,
+  `sscoutsegment`'s flips, `ONEDGE` insertion and `facedihedral`. Count the
+  branches a case reaches (a temporary trace) before calling it covered.
+- **Upstream's dead-item link is written into the record** (`sh[0]` of a
+  freed subface or subsegment, `memorypool::dealloc`); `shellfacedealloc`
+  emulates it. A loop variable whose version upstream carries from one
+  record to the next (`mergefacets`' `shloop.shver`) is carried here too.
+- **Where upstream dereferences `NULL`, the port returns
+  `TetgenError::InternalError`.** `fin_crash.poly` segfaults upstream in
+  `unifysegments` (a fin edge inside a facet, not on a segment); the port
+  errors at the same read (pinned).

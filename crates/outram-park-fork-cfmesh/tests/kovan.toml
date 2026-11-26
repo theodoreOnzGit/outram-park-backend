@@ -959,6 +959,259 @@ uses = [
 ]
 test = true
 
+[module."tetgen_meshsurface_vs_upstream.rs"]
+path = "test:tetgen_meshsurface_vs_upstream"
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:d58cbe43a1c31c9f"
+name = "gunzip"
+qual = "gunzip"
+lines = [
+    76,
+    84,
+]
+hash = "sha256:25ed611c901f1d3f78ba02ed8320963b2a6d78fe6807afd5e74be46eb0105e21"
+doc_hash = "sha256:76f32c7b657b5fe93234d259b462ad1888470c6b875ae244d7294ac9d6e0a44d"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:47c3e2c5412d1327"
+name = "data_dir"
+qual = "data_dir"
+lines = [
+    86,
+    88,
+]
+hash = "sha256:25a18bfe192679ccc59cab75c72b30a15b9a262b4ccbc87089b8973a0005883a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:bdbe7ff5cf9202b7"
+name = "read_gz"
+qual = "read_gz"
+lines = [
+    90,
+    94,
+]
+hash = "sha256:c0b01549b5a81af3330ba8139ee2f72e66f851bb5b8ccc2bfa123e25b9e880fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:47c3e2c5412d1327",
+    "fn:d58cbe43a1c31c9f",
+]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:9aaf13702f9847be"
+name = "input"
+qual = "input"
+lines = [
+    96,
+    108,
+]
+hash = "sha256:af272caa4c49d42a5a82d00c2aa4556c89e6fe77051604d9e1132dcd5bdc4287"
+doc_hash = "sha256:0d038d0e86553d6befd8eae1330aa868d83f09a59dcb174056f257093c363fac"
+callees = [
+    "fn:47c3e2c5412d1327",
+    "fn:6cc43c7fcc08407d",
+    "fn:bdbe7ff5cf9202b7",
+    "fn:c2641d2283c245b5",
+]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:855f76723e063542"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    110,
+    124,
+]
+hash = "sha256:e1082f7fed353dc89f61fd91ee5805c390b786386a2c9524af7ccdaeaa293117"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:8cf8e3ff839af47a"
+name = "counts"
+qual = "counts"
+lines = [
+    126,
+    140,
+]
+hash = "sha256:256b588e8072ff7eba317178c94bb9d5945e08239b15f0d30a0fb77bc45ec64b"
+doc_hash = "sha256:230bd55601edde0cb4e2a74a5fa995cd265e71a215dabab1f648e8166201ce53"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:831f528c9a36f610"
+name = "check"
+qual = "check"
+lines = [
+    142,
+    169,
+]
+hash = "sha256:1bfa65e8e58e543b95bc52bfa74b712d184f4f680e8f689bd563f72024d60fd8"
+doc_hash = "sha256:9efee84d23b7ae0afd6bd92928969e701c01fcce975c9680e1400b2335303da7"
+callees = [
+    "fn:18cc4e94bfe5b7fa",
+    "fn:489038cd17f7acdb",
+    "fn:4cf28bfab50880ed",
+    "fn:5f630e541e2e866c",
+    "fn:9aaf13702f9847be",
+    "fn:a0da348487986b81",
+    "fn:bdbe7ff5cf9202b7",
+]
+uses = [
+    "fn:0a6b04436513fcba",
+    "fn:e9ddd52c7b968431",
+]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:72328578f24c2b7d"
+name = "meshsurface_matches_upstream_on_every_case"
+qual = "meshsurface_matches_upstream_on_every_case"
+lines = [
+    171,
+    183,
+]
+hash = "sha256:79db0096c5817e342b7fcc280b9c8c58f7d6c6e4c33eaa9b9b240fe380ccf867"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:831f528c9a36f610",
+    "fn:8cf8e3ff839af47a",
+]
+uses = ["fn:855f76723e063542"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:8a6bae4e6dbf8dab"
+name = "the_comparison_can_fail"
+qual = "the_comparison_can_fail"
+lines = [
+    185,
+    199,
+]
+hash = "sha256:c07aaaa24ca5c29fd60be7c7ecb9ff0b30a612289d0d2a241b6d7d3a96fc881d"
+doc_hash = "sha256:995dee0783034e1572d0c3ac8ed144647412265747543ce2d427c87ef12be06b"
+callees = [
+    "fn:831f528c9a36f610",
+    "fn:9aaf13702f9847be",
+    "fn:a0d94e0d61bd2c34",
+    "fn:bdbe7ff5cf9202b7",
+]
+uses = ["fn:e9ddd52c7b968431"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:386c48e568383460"
+name = "upstream_crash_is_an_internal_error"
+qual = "upstream_crash_is_an_internal_error"
+lines = [
+    201,
+    213,
+]
+hash = "sha256:88bf52d3aff9e77a594a1827c4a988264fc9654fc1e3d1c92a8c7bd78a27eac2"
+doc_hash = "sha256:46b581af178b7cf6f962768e69a09576328105adddea20141753f1d0b41dc605"
+callees = [
+    "fn:bdbe7ff5cf9202b7",
+    "fn:c2641d2283c245b5",
+]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:fb7e5b647ef519e2"
+name = "sub"
+qual = "sub"
+lines = [
+    215,
+    217,
+]
+hash = "sha256:2b160ddb58ce049deecf914549ecb432a75a9253038675991238130ebd193d4a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:18fcaf9dff2f4375"
+name = "crossv"
+qual = "crossv"
+lines = [
+    218,
+    224,
+]
+hash = "sha256:263e1965ebc5ec6e2e60e2d24c93a58d575c8abb21bb57858e7e58d09f7d8a6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:c00d437d18a9b869"
+name = "norm"
+qual = "norm"
+lines = [
+    225,
+    227,
+]
+hash = "sha256:32e6ee699c3b86fbb66791e79ff71cc3ff5df42faa7d8cfa539bf145c9c41073"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:e5278083fadbe295"
+name = "surface_covers_facets_and_segments_cover_polygon_edges"
+qual = "surface_covers_facets_and_segments_cover_polygon_edges"
+lines = [
+    229,
+    344,
+]
+hash = "sha256:675f0cdc3a21038253dd3ee19d775afd36f3c491b66011bcfeaccaa705ddd692"
+doc_hash = "sha256:1cdecca210f70a33b289931f4492538f4aaae2886e3aea4b091bcc2e98c12a68"
+callees = [
+    "fn:18fcaf9dff2f4375",
+    "fn:9270565698c13f40",
+    "fn:9aaf13702f9847be",
+    "fn:c00d437d18a9b869",
+    "fn:fb7e5b647ef519e2",
+]
+uses = ["fn:855f76723e063542"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:70d115345093ad82"
+name = "write_inputs"
+qual = "write_inputs"
+lines = [
+    346,
+    702,
+]
+hash = "sha256:01b8d9ac1415c419ec48ec7be617e364a373386105b598e430b537a35b4fcf75"
+doc_hash = "sha256:e70b287dd8e4306d847104cbcf197892b07e6016d16e5a73c27b662e09cd95ad"
+callees = [
+    "fn:069f38ad2ce15d48",
+    "fn:4034c40712173a6d",
+    "fn:be13d9cfbc874d90",
+]
+uses = ["fn:0bccb1dd2f6ef767"]
+test = true
+
+[[module."tetgen_meshsurface_vs_upstream.rs".function]]
+id = "fn:be13d9cfbc874d90"
+name = "reactor_surface"
+qual = "reactor_surface"
+lines = [
+    704,
+    829,
+]
+hash = "sha256:8e3294be7aeb28df539b1da37856e40cffa898dd72cd6596ae0158972a0da3db"
+doc_hash = "sha256:d32a10e7d95da3464524987346bed6366cf5ea8810441c8c6e95d5a2332d21c5"
+uses = ["fn:0bb173954082584d"]
+test = true
+
 [module."tetgen_predicates_vs_upstream.rs"]
 path = "test:tetgen_predicates_vs_upstream"
 

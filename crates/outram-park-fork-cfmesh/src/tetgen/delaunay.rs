@@ -33,9 +33,13 @@
 //! **Upstream does not call `insertpoint` here.** `incrementaldelaunay`
 //! inserts every vertex with `insert_vertex_bw` (the Bowyer-Watson cavity,
 //! `ivf.bowywat = 1`), not with the flip-based `insertpoint`; `insertpoint`
-//! (with `locate` and the flips) is first called by `meshsurface`'s and the
-//! recovery's Steiner points, so it is ported with stage 3 on. [`TetgenMesh::locate`]
-//! (the walk with `randomnation`'s face choice) is ported here for them.
+//! (with `locate` and the flips) is first called by ~~`meshsurface`'s and~~
+//! the recovery's Steiner points (`delaunizesegments`, stage 4), so it is
+//! ported with ~~stage 3~~ stage 4 on. **CORRECTED 2026-11-26 (gh:#1792):**
+//! `meshsurface` calls neither `insertpoint` nor a 3D flip (checked in
+//! `tetgen.cxx`: no call between `flipshpush` and `meshsurface`).
+//! [`TetgenMesh::locate`] (the walk with `randomnation`'s face choice) is
+//! ported here for them.
 //!
 //! **Branches not ported** (none is reached by default flags): `-w`
 //! (weighted, `orient4d_s` and the `NONREGULAR` result), the metric tensor
@@ -77,6 +81,8 @@ pub enum LocateResult {
     NearVertex,
     /// `NONREGULAR`.
     NonRegular,
+    /// `ENCSEGMENT` (only from `slocate` with `cflag` off, stage 3).
+    EncSegment,
 }
 
 /// `insertvertexflags` (the fields `insert_vertex_bw` reads).
@@ -702,9 +708,10 @@ impl TetgenMesh {
     }
 
     /// `locate()`: the general location walk (used by `insertpoint` from
-    /// stage 3 on), choosing among viable exit faces with
-    /// [`TetgenMesh::randomnation`]. `chkencflag` stops at a subface
-    /// (stage 3 on; there are none yet, so it never triggers).
+    /// ~~stage 3~~ stage 4 on), choosing among viable exit faces with
+    /// [`TetgenMesh::randomnation`]. `chkencflag` stops at a subface bonded
+    /// to a tetrahedron (~~stage 3 on~~ `tsbond`, stage 4 on; stage 3 builds
+    /// subfaces but bonds none to a tetrahedron, so it never triggers yet).
     pub fn locate(
         &mut self,
         searchpt: Point,
@@ -846,7 +853,8 @@ impl TetgenMesh {
                 esymself(searchtet);
             }
             if chkencflag {
-                // issubface(*searchtet): no subfaces exist before stage 3.
+                // issubface(*searchtet): no tetrahedron holds a subface
+                //   before stage 4 (`tsbond`).
                 if self.tets[searchtet.tet].sub != usize::MAX {
                     loc = LocateResult::EncSubface;
                     break;
