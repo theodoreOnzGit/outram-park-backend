@@ -403,8 +403,11 @@ impl TetDualSpec {
     /// `headless_unstructured_default_is_pinned`)~~ **CHANGED 2026-11-26
     /// (gh:#1829):** layers grown first on TetGen's tetrahedra: 28 121
     /// cells, meshed in 15.3 s natively, u_c/2U 0.8820, dp/dz 1.1067 × HP
-    /// (outside the test's 0.95–1.10 band: the test fails; the miss is the
-    /// TetGen tet source's, the V&V record's gh:#1829 section).
+    /// (outside the test's 0.95–1.10 band: the test fails; ~~the miss is the
+    /// TetGen tet source's~~ **REFINED 2026-11-26:** the miss is the
+    /// convection scheme's discretisation error in the core, whose cells
+    /// TetGen's `-a` bound leaves at ≈ 3.9 mm; 0.9934 at Re 10, 1.0309 with
+    /// the core refined to 1.85 mm; the V&V record's gh:#1829 section).
     pub fn default_for(radius: f64) -> Self {
         Self { cell_size: 0.5 * radius, n_layers: 3, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
@@ -714,8 +717,20 @@ pub fn mesh_unstructured_dual(
     // meshes a bare pipe on TetGen too (the layered default's source), to
     // separate the tet source from the layers in the comparison.
     #[cfg(not(target_arch = "wasm32"))]
+    // `FOAM_TET_SOURCE=tetgen:<V>` also sets TetGen's `-a` volume bound to V
+    // m³ (the gh:#1829 investigation's refinement study: below h ≈ 5 mm the
+    // regular-tetrahedron bound of h does not bind on this pipe).
     let opts = match std::env::var("FOAM_TET_SOURCE").as_deref() {
         Ok("tetgen") => TetDualOptions { tet_source: TetDualOptions::default().tet_source, ..opts },
+        Ok(v) if v.starts_with("tetgen:") => {
+            let vol = v["tetgen:".len()..].parse::<f64>().ok();
+            TetDualOptions { tet_source: outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, vol), ..opts }
+        }
+        _ => opts,
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = match (std::env::var("FOAM_TETGEN_A").ok().and_then(|v| v.parse::<f64>().ok()), &opts.tet_source) {
+        (Some(vol), outram_park_fork_cfmesh::pipeline::TetSource::TetGen { .. }) => TetDualOptions { tet_source: outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(vol)), ..opts },
         _ => opts,
     };
     // Native-only isolation knob for the V&V record (gh:#1202):
@@ -3242,7 +3257,10 @@ mod tests {
     /// u_c/2U 0.93–0.95 and dp/dz 1.00–1.02, like the old default's, since
     /// both carry three ~1 mm layers at h 5 mm; bands asserted: u_c/2U in
     /// 0.85–1.05, dp/dz in 0.95–1.10). Results: the gh:#1829 section of
-    /// `laminar_pipe_gh1155.md`.
+    /// `laminar_pipe_gh1155.md`. **Fails as of 2026-11-26** (dp/dz 1.1067,
+    /// u_c/2U 0.8820): the cause, found by `diagnose_tetgen_dual_miss`, is
+    /// the convection scheme's numerical diffusion in TetGen's coarse core,
+    /// not a defect; the band is not moved (maintainer's decision).
     #[test]
     fn headless_unstructured_default_is_pinned() {
         let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() };
@@ -3293,6 +3311,239 @@ mod tests {
             for l in lines.iter().filter(|l| l.starts_with("# pipe (") || l.starts_with("# mesh")) {
                 println!("{name}: {l}");
             }
+        }
+        std::env::remove_var("FOAM_TET_SOURCE");
+    }
+
+    /// Diagnostic (gh:#1829 investigation), `--ignored --nocapture`: the
+    /// layered default's dp/dz miss, case by case. `FOAM_DIAG_CASES` is a
+    /// comma-separated list of `source/h_mm/layers/Re/div/laplacian/correctors`
+    /// (`source` `tetgen` or `carved`; `div` `lul` = the demo's `linearUpwind
+    /// grad(U)` + `cellLimited Gauss linear 1`, `lu` = unlimited
+    /// `linearUpwind`, `lin` = `Gauss linear`, `up` = `upwind`; `laplacian`
+    /// `def` = the demo's choice, `unc`, `cor`; `correctors` a number or `def`).
+    /// Per case it prints the mesh (cells, max and mean non-orthogonality of
+    /// the internal faces, the fraction of internal faces whose normal is
+    /// within 10° of the axis or of the cross-section plane, cells per radius
+    /// from the slab's cell density, slab area / πR², the mean wall-cell
+    /// normal distance over the cell's equivalent length), and the solve
+    /// (steps, u_c/2U, dp/dz/HP over three windows, dp/dz against the slab
+    /// area's own Hagen–Poiseuille, τ_w/HP and the profile RMS).
+    #[test]
+    #[ignore]
+    fn diagnose_tetgen_dual_miss() {
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient, profile_rms, wall_shear_stress};
+        use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme, LaplacianScheme};
+        use uom::si::acceleration::meter_per_second_squared;
+        let list = std::env::var("FOAM_DIAG_CASES").unwrap_or_else(|_| "tetgen/5/0/100/lul/def/def,carved/5/0/100/lul/def/def".into());
+        for case in list.split(',') {
+            let f: Vec<&str> = case.split('/').collect();
+            let (src, h, n, re) = (f[0], f[1].parse::<f64>().unwrap() * 1e-3, f[2].parse::<usize>().unwrap(), f[3].parse::<f64>().unwrap());
+            if src == "tetgen" {
+                std::env::set_var("FOAM_TET_SOURCE", "tetgen");
+            } else {
+                std::env::remove_var("FOAM_TET_SOURCE");
+            }
+            let spec = TetDualSpec { cell_size: h, n_layers: n, ..TetDualSpec::default_for(0.01) };
+            let d = Design { mesh: PipeMesh::Unstructured(spec), ..Design::default() };
+            let mut e = Engine::default();
+            let mut info = String::new();
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |ev| match ev {
+                Event::Meshed(me) => info = format!("{} cells, max NO {:.1}, skew {:.2}, mesh {:.1} s", me.n_cells, me.max_non_ortho_deg, me.max_skewness, me.mesh_s),
+                Event::Error(m) => info = m,
+                _ => {}
+            });
+            e.serve(Request::Start { id: 1, reynolds: re, mode: Mode::Steady }, &mut |_| {});
+            let Some(Case::Pipe(s, _)) = e.case.as_mut() else {
+                println!("{case}: {info}");
+                continue;
+            };
+            match f[4] {
+                "lin" => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussLinear, None),
+                "lu" => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussLinearUpwind("grad(U)".into()), None),
+                "up" => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussUpwind, None),
+                _ => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0))),
+            }
+            match f[5] {
+                "unc" => s.schemes.default_laplacian = LaplacianScheme::GaussLinearUncorrected,
+                "cor" => s.schemes.default_laplacian = LaplacianScheme::GaussLinearCorrected,
+                _ => {}
+            }
+            if let Ok(k) = f[6].parse::<usize>() {
+                s.solution.pimple.n_non_orthogonal_correctors = k;
+            }
+            let t0 = bugis::web_demo::platform::now_s();
+            let mut err = String::new();
+            for _ in 0..800 {
+                let mut done = false;
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |ev| match ev {
+                    Event::Progress(p) => done = p.steady,
+                    Event::Error(m) => {
+                        err = m;
+                        done = true;
+                    }
+                    _ => {}
+                });
+                if done {
+                    break;
+                }
+            }
+            let wall_s = bugis::web_demo::platform::now_s() - t0;
+            let Some(Case::Pipe(s, flow)) = &e.case else {
+                println!("{case}: {info}\n  {} steps: {err}", e.steps);
+                continue;
+            };
+            let m = &s.mesh;
+            let (r, l) = (0.01, 0.2);
+            // Mesh geometry: non-orthogonality and face orientation.
+            let (mut no_max, mut no_sum, mut ax, mut tr) = (0.0_f64, 0.0, 0usize, 0usize);
+            for fi in 0..m.n_internal_faces {
+                let sv = m.face_area_vectors[fi];
+                let dv = m.cell_centres[m.neighbour[fi]] - m.cell_centres[m.owner[fi]];
+                let c = (sv.dot(dv) / (sv.mag() * dv.mag())).clamp(-1.0, 1.0);
+                let a = c.acos().to_degrees();
+                no_max = no_max.max(a);
+                no_sum += a;
+                let nz = (sv.z / sv.mag()).abs();
+                if nz > 10f64.to_radians().cos() {
+                    ax += 1;
+                } else if nz < 10f64.to_radians().sin() {
+                    tr += 1;
+                }
+            }
+            let nif = m.n_internal_faces as f64;
+            let (z0, z1) = (0.65 * l, 0.85 * l);
+            let slab: Vec<usize> = (0..m.n_cells).filter(|&c| (z0..=z1).contains(&m.cell_centres[c].z)).collect();
+            let vol: f64 = slab.iter().map(|&c| m.cell_volumes[c]).sum();
+            let area = vol / (z1 - z0);
+            let a_ratio = area / (std::f64::consts::PI * r * r);
+            let per_r = r * (slab.len() as f64 / vol).cbrt();
+            // Wall cells: normal distance cell centre → wall face over the
+            // cell's equivalent length V^(1/3).
+            let (mut wd, mut wn) = (0.0, 0usize);
+            for p in &m.patches {
+                if p.name == "inlet" || p.name == "outlet" {
+                    continue;
+                }
+                for fi in p.start..p.start + p.size {
+                    let fc = m.face_centres[fi];
+                    if fc.z < z0 || fc.z > z1 {
+                        continue;
+                    }
+                    let n = m.face_area_vectors[fi] * (1.0 / m.face_areas[fi]);
+                    let c = m.owner[fi];
+                    wd += (fc - m.cell_centres[c]).dot(n).abs() / m.cell_volumes[c].cbrt();
+                    wn += 1;
+                }
+            }
+            // Mean cell length V^(1/3) [mm] and cell count in five radial bins of the slab.
+            let mut bins = [(0.0_f64, 0usize); 5];
+            for &c in &slab {
+                let x = m.cell_centres[c];
+                let k = (((x.x * x.x + x.y * x.y).sqrt() / r * 5.0) as usize).min(4);
+                bins[k].0 += m.cell_volumes[c].cbrt() * 1e3;
+                bins[k].1 += 1;
+            }
+            let radial: Vec<String> = bins.iter().map(|b| format!("{:.2}mm/{}", b.0 / b.1.max(1) as f64, b.1)).collect();
+            let a_in: f64 = m.patches.iter().filter(|p| p.name == "inlet").flat_map(|p| p.start..p.start + p.size).map(|f| m.face_area_vectors[f].z).sum::<f64>().abs();
+            println!("  radial bins r/R 0-0.2..0.8-1 (mean V^1/3, cells): {}; inlet |sum S.z|/piR2 {:.5}", radial.join(" "), a_in / (std::f64::consts::PI * r * r));
+            let hp = flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>();
+            let g = |a: f64, b: f64| pressure_gradient(s, a * l, b * l).get::<meter_per_second_squared>() / hp;
+            let uc = centreline_velocity(s, flow, (0.0, 0.0), 0.75 * l, 0.05 * l).get::<meter_per_second>() / (2.0 * U_IN);
+            let tau = wall_shear_stress(s, z0, z1) / flow.hagen_poiseuille_wall_shear();
+            let rms = profile_rms(s, flow, (0.0, 0.0), z0, z1);
+            println!(
+                "{case}: {info}; NO max {no_max:.1} mean {:.1}; faces axial {:.3} transverse {:.3}; cells/R {per_r:.2}; slab A/piR2 {a_ratio:.4}; wall d/V^(1/3) {:.3} ({wn} faces)\n  {} steps {wall_s:.1} s {err}: uc {uc:.4} dpdz[0.40-0.60] {:.4} dpdz[0.65-0.85] {:.4} dpdz[0.75-0.90] {:.4} dpdz/own-area HP {:.4} tau {tau:.4} rms {rms:.4}",
+                no_sum / nif,
+                ax as f64 / nif,
+                tr as f64 / nif,
+                wd / wn.max(1) as f64,
+                e.steps,
+                g(0.40, 0.60),
+                g(0.65, 0.85),
+                g(0.75, 0.90),
+                g(0.65, 0.85) * a_ratio,
+            );
+        }
+        std::env::remove_var("FOAM_TET_SOURCE");
+    }
+
+    /// Diagnostic (gh:#1829 investigation), `--ignored --nocapture`: is the
+    /// `Gauss linear` gradient (the base of `cellLimited`, of `linearUpwind`'s
+    /// correction and of the non-orthogonal correction) consistent on the
+    /// bare TetGen and carved duals at h 5 mm? Manufactured fields with exact
+    /// boundary values on every patch: φ = z/R and φ = x/R (linear: the
+    /// gradient is exact on an orthogonal mesh without skewness) and the
+    /// Hagen–Poiseuille shape φ = 1 − r²/R². Prints the volume-weighted RMS
+    /// and the max of |∇φ − ∇φ_exact| over R·max|∇φ_exact|, on the cells
+    /// with no boundary face and on all cells, and the mean and max
+    /// skewness |x_f − x_i|/|d| (x_i the point where the line between the
+    /// cell centres crosses the face) over the internal faces.
+    #[test]
+    #[ignore]
+    fn diagnose_dual_gradient_consistency() {
+        use outram_foam_basic_lib::prelude::*;
+        let r = 0.01;
+        for (name, tetgen, h) in [("TetGen bare h 5", true, 5e-3), ("carved bare h 5", false, 5e-3), ("TetGen bare h 3.5", true, 3.5e-3), ("carved bare h 3.5", false, 3.5e-3)] {
+            if tetgen {
+                std::env::set_var("FOAM_TET_SOURCE", "tetgen");
+            } else {
+                std::env::remove_var("FOAM_TET_SOURCE");
+            }
+            let spec = TetDualSpec { cell_size: h, n_layers: 0, ..TetDualSpec::default_for(r) };
+            let d = Design { mesh: PipeMesh::Unstructured(spec), ..Design::default() };
+            let m = Arc::new(mesh_design(&d).unwrap().0.to_fv_mesh().unwrap());
+            let (mut sk_sum, mut sk_max) = (0.0_f64, 0.0_f64);
+            for f in 0..m.n_internal_faces {
+                let (co, cn) = (m.cell_centres[m.owner[f]], m.cell_centres[m.neighbour[f]]);
+                let dv = cn - co;
+                let sv = m.face_area_vectors[f];
+                let t = sv.dot(m.face_centres[f] - co) / sv.dot(dv);
+                let xi = co + dv * t;
+                let sk = (m.face_centres[f] - xi).mag() / dv.mag();
+                sk_sum += sk;
+                sk_max = sk_max.max(sk);
+            }
+            let mut on_boundary = vec![false; m.n_cells];
+            for p in &m.patches {
+                for f in p.start..p.start + p.size {
+                    on_boundary[m.owner[f]] = true;
+                }
+            }
+            let fields: [(&str, fn(Vector3) -> f64, fn(Vector3) -> Vector3); 3] = [
+                ("z/R", |x| x.z / 0.01, |_| Vector3::new(0.0, 0.0, 1.0 / 0.01)),
+                ("x/R", |x| x.x / 0.01, |_| Vector3::new(1.0 / 0.01, 0.0, 0.0)),
+                ("1-r2/R2", |x| 1.0 - (x.x * x.x + x.y * x.y) / 1e-4, |x| Vector3::new(-2.0 * x.x / 1e-4, -2.0 * x.y / 1e-4, 0.0)),
+            ];
+            let mut row = Vec::new();
+            for (fname, phi, grad) in fields {
+                let bcs: Vec<PatchField<f64>> = m
+                    .patches
+                    .iter()
+                    .map(|p| {
+                        let v = Field::new((p.start..p.start + p.size).map(|f| phi(m.face_centres[f])).collect::<Vec<f64>>());
+                        PatchField { bc: BoundaryCondition::FixedField(v.clone()), values: v }
+                    })
+                    .collect();
+                let u = VolScalarField::new("phi", m.clone(), Field::new((0..m.n_cells).map(|c| phi(m.cell_centres[c])).collect()), bcs);
+                let g = fvc::grad(&u);
+                let scale = if fname == "1-r2/R2" { 2.0 / 0.01 } else { 1.0 / 0.01 };
+                let (mut si, mut vi, mut mi, mut sa, mut va, mut ma) = (0.0, 0.0, 0.0_f64, 0.0, 0.0, 0.0_f64);
+                for c in 0..m.n_cells {
+                    let e = (g.internal[c] - grad(m.cell_centres[c])).mag() / scale;
+                    let v = m.cell_volumes[c];
+                    sa += v * e * e;
+                    va += v;
+                    ma = ma.max(e);
+                    if !on_boundary[c] {
+                        si += v * e * e;
+                        vi += v;
+                        mi = mi.max(e);
+                    }
+                }
+                row.push(format!("{fname}: interior RMS {:.3} max {mi:.3}, all RMS {:.3} max {ma:.3}", (si / vi).sqrt(), (sa / va).sqrt()));
+            }
+            println!("{name}: {} cells, skewness mean {:.3} max {sk_max:.3}\n  {}", m.n_cells, sk_sum / m.n_internal_faces as f64, row.join("\n  "));
         }
         std::env::remove_var("FOAM_TET_SOURCE");
     }

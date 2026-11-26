@@ -1019,7 +1019,7 @@ id = "fn:89ef04ede36fb359"
 name = "default_for"
 qual = "TetDualSpec::default_for"
 hash = "sha256:1030a4d90674f036a4114595c68c3c1b320d8d0e12c446fcaba9e65d8781eed9"
-doc_hash = "sha256:e6c1507b1cfd514c2e3e9fc94b9369f068b1b694f1333fa0fa93644b6767c71c"
+doc_hash = "sha256:734e714768a578a3cb235c6a33242041c3b9d1027c53180b33186c2e7041fdb4"
 
 [[module."engine.rs".function]]
 id = "fn:0396774d86c091e1"
@@ -1146,6 +1146,14 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [[module."engine.rs".function]]
+id = "fn:a4924f8432101afc"
+name = "diagnose_dual_gradient_consistency"
+qual = "diagnose_dual_gradient_consistency"
+hash = "sha256:a4785201844ebe6419bc744782d9a8ab1f2cc80d6e8f19c09bc0ac7386471a0f"
+doc_hash = "sha256:8daa756fc1aade0e46069c43e4910e967dcee99e58beb29682c60d7d0a3a8998"
+test = true
+
+[[module."engine.rs".function]]
 id = "fn:9c4dd6b5e32931f8"
 name = "diagnose_dual_mesh_geometry_and_laplacian"
 qual = "diagnose_dual_mesh_geometry_and_laplacian"
@@ -1183,6 +1191,14 @@ name = "diagnose_pipe_instruments"
 qual = "diagnose_pipe_instruments"
 hash = "sha256:db57d7c45217d19ef3e5ef69920c791862fc677f71596cc1b38b51622c6234b6"
 doc_hash = "sha256:ff8034051b9f3f03b3252276dd7626b2edf52148630de9c5b1255c93bd3f9661"
+test = true
+
+[[module."engine.rs".function]]
+id = "fn:38277ffd4740d3c2"
+name = "diagnose_tetgen_dual_miss"
+qual = "diagnose_tetgen_dual_miss"
+hash = "sha256:0f61b1bace4864b5dfe41c6ab0bc878f141c56b42ab08842404c703263bfea7a"
+doc_hash = "sha256:cebc6b67ecf7cb3ab501a2ee6f41f764d356cbe0f21ac6c6530f8d521c15360d"
 test = true
 
 [[module."engine.rs".function]]
@@ -1289,7 +1305,7 @@ id = "fn:fa78c505a4a1bd80"
 name = "headless_unstructured_default_is_pinned"
 qual = "headless_unstructured_default_is_pinned"
 hash = "sha256:b63d5b39c1a31db820015dd93525989b9aebca6e5dfb3e7d3daffdc8fd1e629c"
-doc_hash = "sha256:61ebb6adcfc2481d0d539416c75f58e1aae5853fdfaba122f475753a646071d4"
+doc_hash = "sha256:f9fbff739ceee06db42a406d4eef2e544ff830f8ede9ee33fa66ca7156e97b73"
 test = true
 
 [[module."engine.rs".function]]
@@ -1348,7 +1364,7 @@ doc_hash = "sha256:509f2497266fed2f19e97d97c2301f76aeb951f33c89edf6df9f1a55069e4
 id = "fn:e725baf75a31241a"
 name = "mesh_unstructured_dual"
 qual = "mesh_unstructured_dual"
-hash = "sha256:b2b9938fcc379c19b118b32d512d8318dedec7498830add7adcd6cfff8860f14"
+hash = "sha256:45822386f3a04afb093324a096a8f4cbd118182e5c645c73f37a5fbb67958508"
 doc_hash = "sha256:1a9f42134c5cb3ec8fc64a109b8d1963a8873a365d0e950aee3b5b6461037307"
 
 [[module."engine.rs".function]]
