@@ -2827,7 +2827,7 @@ P5. A wall-function-free translation that the maintainer's "stay close to upstre
 
 ## Round 18 results (2026-11-26): what was done, and what was NOT (the stage does not run in the port yet)
 
-**Honest status: `EigenvalueStage::SteadyStateTh` is STILL refused by name; no step of `steadyStateTH` was run in the port.** The round
+**Honest status (round 18):** ~~`EigenvalueStage::SteadyStateTh` is STILL refused by name; no step of `steadyStateTH` was run in the port.~~ **CORRECTED 2026-11-26 (round 19): `OnePhaseCcSolver` now runs the turbulence-off flow and matches the real binary for 3 steps (README "Round 19 results"); `EigenvalueStage::SteadyStateTh` is still refused.** The round
 produced the reference, the decomposition, and one building block. Nothing below is a port-vs-upstream comparison, so the
 predictions P1-P5 are neither held nor missed: they stand, unmeasured, for the round that ports `UEqn_1p`/`pEqn_1p`.
 
@@ -2918,3 +2918,67 @@ Q6. The lazy old-time pressure is what makes `T` small: ablating it (old pressur
 Q7. `alphaPhi` as written upstream is the value set at the START of the last `pEqn` (from the previous outer iteration's `phi`), not the final `phi`: the port
     reproduces that lag; written at the end of the step it agrees to <= 1e-9 relative.
 Q8. Round 18 P3 and P5 (turbulence ON, wall-function ablation) do not apply to this round: no turbulence is run.
+
+## Round 19 results (2026-11-26; measured by `tests/genfoam_msfr_th_vs_upstream.rs`, release, 4 tests, ~3 s)
+
+**The turbulence-off `steadyStateTH` flow agrees with the real binary at round-off from the FIRST run, steps 1-3.** Reference: the real unmodified
+binary at the tight protocol (`TURB=off`, 15 s wall; `refs/msfr_th_off_head.ref.txt.gz` for the fields, new `refs/msfr_th_off_log.ref.txt.gz` for every
+`DICPCG` residual/iteration count, `h` residual, Courant number and `T (avg min max)` line of all 14 steps). The port starts from the ROOT case
+(`cases/msfr_th`, uniform `T = 900`, `U = 0`, `p = 1e5`), takes its own time steps (`onePhase::maxDeltaT`, `adjust_delta_t`; the sequence 1e-3, 1.2e-3, 1.44e-3
+equals upstream's to 1e-15) and uses nothing of upstream's results as input.
+
+| step (t) | `U` | `p` | `p_rgh` | `T` (rel. 900 K) | `alphaPhi` |
+|---|---|---|---|---|---|
+| 1 (0.001) | 1.4e-11 | 3.7e-13 | 3.9e-13 | 6.3e-16 | 3.3e-11 |
+| 2 (0.0022) | 7.2e-12 | 1.3e-13 | 1.4e-13 | 1.0e-15 | 1.3e-11 |
+| 3 (0.00364) | 9.2e-13 | 2.6e-13 | 2.8e-13 | 1.4e-15 | 2.2e-12 |
+
+(`max|port - upstream| / max|upstream|` per field; gate 1e-9.) `T (avg min max)` of all 15 outer iterations: worst difference 7.6e-16 relative to 900 K.
+The `U` x-component (the wedge-normal direction) is round-off noise of ~1e-22 against components of 1e-4; the max-norm scale hides it, and it is not compared separately.
+First-corrector `DICPCG` initial residual of step 1: port 0.9990880833090533, upstream 0.9990880833090563 (3e-15). Gated correctors (the first of every outer iteration,
+and correctors 1-3 of outer iteration 1): initial residual to 5.8e-8 relative (the correctors above 1e-10 sit within 1e-12 of the round-off floor), iteration counts
+within 1 (264/225/191 equal, 221 vs 222 once). **First diverging step: none above round-off; no cause to find.**
+
+### Predictions Q1-Q8 and round 18's P1-P5
+
+* **Q1 held** (residual 3e-15 relative, tolerance was 1e-6). Round 18 **P1 held** (residual 0.999, flow driven by pump + buoyancy only).
+* **Q2 PARTLY MISSED.** Correctors 1-3 of outer iteration 1 and the first corrector of every outer iteration: counts equal or within one (1 of 15 differs, by 1).
+  Correctors 4-6 (initial residual 3-6e-12) do NOT: port 150/137/114 vs upstream 143/69/128. Those solves start at the round-off floor of the previous
+  solve's tail, where 1e-14 is reached after a number of iterations that depends on the last bits of the matrix; the count carries no information, and
+  the state they converge to agrees to 1e-12. The prediction was wrong to ask for it; it is gated only as "both below 1e-10". Round 18 **P2 held** for the fields,
+  the counts caveat as above.
+* **Q3 held** (first try, 1.4e-11 in step 1). The wedge constraint on `UEqn.H()`/`HbyA`, the wedge gradient in `dev2_div` and the per-component `relax` are all
+  in the result; no divergence to bisect.
+* **Q4 MISSED (size).** Ablating the wedge treatment in `dev2_div` (cell gradient and `(U_b - U_c) deltaCoeffs` on the wedge patch, the round-17 form), measured with a
+  temporary switch that was reverted (not kept as an option: `dev2_div` is shared with the two-phase driver): `U` 4.8e-7 / 6.0e-7 / 7.4e-7 in steps 1-3, `p` 1.5e-9 / 4.4e-9 / 9.0e-9,
+  `alphaPhi` 1.9e-8 / 3.5e-8 / 5.4e-8. Predicted <= 1e-7; it is 5x larger and grows with time (the term is not negligible and not self-healing). Both parts are needed to reach 1e-11.
+* **Q5 held.** At the end of step 1 `max|T - T_up|` is 5.7e-13 K against `max|T - 900|` of 3.7e-7 K, i.e. 1.5e-6 relative (1e-5 predicted); steps 2-3 are smaller still relative to their larger `T - 900`. Per-outer-iteration lines: 7.6e-16 of 900 K.
+  Round 18 **P4 held**: `T` stays within 1e-9 of upstream; the meaningful scale is `T - 900`, per the note.
+* **Q6 held, both halves.** Ablating the lazy old-time pressure (`without_first_step_lazy_old_pressure`) gives `T` = 900.0080 K average, 899.9941 to 900.0172 K after outer iteration 1 of step 1
+  (upstream: 899.99999997 to 900.00000004); the lazy form matches. And `ddt(alpha, rho0, K)` stays exactly 0: no `K` old-time store was needed for `T` to match to 1e-15, so round 18's note that
+  `K.oldTime() = K` becomes false once the flow is solved is **wrong** (`K` is a fresh local, `rho` is the constant `rho0`).
+* **Q7 held** (`alphaPhi` 3.3e-11 in step 1, with the lag: written at the start of the last `pEqn`).
+* **Q8 / round 18 P3, P5:** not run (turbulence stays off).
+
+### What was ported (new code; the frozen-flux region is unchanged and re-checked)
+
+`one_phase_cc/flow.rs` (child of `one_phase_cc.rs`): `UEqn_1p.H` (per-component `fvMatrix::relax` with `internalCoeffs`/`boundaryCoeffs` kept per boundary face, `A()`/`H()` exactly as `fvMatrix`),
+`pEqn_1p.H` with `updateAlphaPhiAndInitControls`, `correctBoundaryFlux`, `calcPhiSbyA` (buoyancy from the thermo `rho(T)`, pump source), `fixedFluxPressure`, `setReference`, PCG/DIC (`two_phase/pcg.rs`), `reconstruct`,
+`updatePP_rghRho`; `FSPair` Kd with `ReynoldsPower`; the PISO `correctUntilConvergence` rule; root-case construction (`initAlphaPhis`, `T.fixedTemperature`, zero `htc` and power density).
+`fv::Vector::uniform_with_constraint_patches` now gives a wedge patch (the round-17 rule, #1836); `dev2_div` gets the wedge gradient transform and wedge `snGrad`; the energy equation gets
+`alpha ddt(p)` (lazy old-time pressure) and the true `U` boundary values in `K`; the case reader accepts `solveFluidMechanics true` with `turbulence false` and refuses `turbulence true` by name.
+Also fixed in passing: `alpha` on boundary faces was 0 in the energy region's `alpha_f` (invisible there: `zeroGradient` `h`); it is the owner value, as upstream.
+
+### Regression of the frozen-flux region (the findings of round 18 said these could move)
+
+`genfoam_msfr_coupled_vs_upstream` (3 tests; the refusal test now expects the `turbulence true` refusal), `genfoam_msfr_chain_vs_upstream` (2), `genfoam_msfr_transient_vs_upstream` (1 file),
+`genfoam_psbt2_turbulence_vs_upstream` (9, 2 ignored), `--lib two_phase` (36): all pass with every gate and pin unchanged; no number moved.
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed.
+
+### Remaining (child issues of #1837)
+
+Steps beyond 3 (reference has 14; the zero-iteration `convergedPISO` branch is first reached late in a steady state), un-refusing `EigenvalueStage::SteadyStateTh` (#1814), turbulence ON
+(#1838 wall functions, #1839 `porousKEpsilon::correct`; with it the `nut` wall patches stop being the read `0.1`), anisotropic `Kd` / local frames, tortuosity.

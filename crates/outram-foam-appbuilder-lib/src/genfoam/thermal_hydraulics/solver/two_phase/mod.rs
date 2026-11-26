@@ -3679,11 +3679,41 @@ fn dev2_div(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
         } else {
             let nh = m.face_area_vectors[f] * (1.0 / m.face_areas[f]);
             let nv = [nh.x, nh.y, nh.z];
-            let sng = (u.b[f - ni] - u.c[o]) * g.delta[f];
-            let sng = [sng.x, sng.y, sng.z];
-            let mut gb = gr[o];
+            // a `wedge` patch: the gradient tensor is `transform(faceT, G_c)` (`wedgeFvPatchField::evaluate` of the
+            // tensor field) and `snGrad = 0.5 deltaCoeffs (cellT.U_c - U_c)`; every other patch keeps the cell gradient
+            // and `(U_b - U_c) deltaCoeffs`
+            let (sng, mut gb) = match &u.bc[g.patch_of[f - ni]] {
+                fv::VectorBc::Wedge { face_t, cell_t } => {
+                    let uc = [u.c[o].x, u.c[o].y, u.c[o].z];
+                    let mut r = [0.0; 3];
+                    for i in 0..3 {
+                        r[i] = cell_t[i][0] * uc[0] + cell_t[i][1] * uc[1] + cell_t[i][2] * uc[2];
+                    }
+                    let h = 0.5 * g.delta[f];
+                    let sng = [h * (r[0] - uc[0]), h * (r[1] - uc[1]), h * (r[2] - uc[2])];
+                    let mut rt = [[0.0; 3]; 3];
+                    for i in 0..3 {
+                        for j in 0..3 {
+                            let mut acc = 0.0;
+                            for l in 0..3 {
+                                let mut ft = 0.0;
+                                for k in 0..3 {
+                                    ft += face_t[i][k] * gr[o][k][l];
+                                }
+                                acc += ft * face_t[j][l];
+                            }
+                            rt[i][j] = acc;
+                        }
+                    }
+                    (sng, rt)
+                }
+                _ => {
+                    let sng = (u.b[f - ni] - u.c[o]) * g.delta[f];
+                    ([sng.x, sng.y, sng.z], gr[o])
+                }
+            };
             for j in 0..3 {
-                let ndg: f64 = (0..3).map(|k| nv[k] * gr[o][k][j]).sum();
+                let ndg: f64 = (0..3).map(|k| nv[k] * gb[k][j]).sum();
                 for i in 0..3 {
                     gb[i][j] += nv[i] * (sng[j] - ndg);
                 }

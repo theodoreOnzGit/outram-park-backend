@@ -483,5 +483,6 @@ fn a_case_that_solves_fluid_mechanics_is_refused_by_name() {
     let text = std::fs::read_to_string(&p).expect("fvSolution");
     std::fs::write(&p, text.replace("solveFluidMechanics false", "solveFluidMechanics true")).expect("write");
     let err = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect_err("must refuse").to_string();
-    assert!(err.contains("solveFluidMechanics must be false"), "{err}");
+    // round 19 (gh:#1837) ported the turbulence-off flow: this case (turbulence true) is now refused for THAT
+    assert!(err.contains("turbulence true is not ported"), "{err}");
 }

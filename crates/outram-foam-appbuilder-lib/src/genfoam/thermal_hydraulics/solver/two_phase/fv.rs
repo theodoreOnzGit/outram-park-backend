@@ -517,6 +517,10 @@ impl Vector {
             if p.kind == PatchKind::Symmetry {
                 out.bc[pi] = VectorBc::Slip;
             }
+            // a `wedge` mesh patch always gets `wedgeFvPatchField` (value `faceT . U_c`; gh:#1812, #1837)
+            if p.kind == PatchKind::Wedge {
+                out.bc[pi] = wedge_velocity_bc(g, pi);
+            }
         }
         out
     }
