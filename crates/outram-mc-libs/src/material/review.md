@@ -81,3 +81,80 @@ Consulted with ChatGPT to search openmc source, sample_chi seems to be a faithfu
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-25, commit e5ae2118df.
+
+# Review: Nuclide::native_energy_grid (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-native-energy-grid-theodoreonzgit-b11e6f88"
+kind = "review"
+origin = "human"
+created = "2026-11-26T16:26:09+08:00"
+modified = "2026-11-26T16:26:09+08:00"
+target = "fn:b11e6f88048217e3"
+
+[review]
+path = "crates/outram-mc-libs/src/material/nuclide.rs::Nuclide::native_energy_grid"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-11-26"
+signed_at = "2026-11-26T16:26:09+08:00"
+commit = "623e226215539233f65f60bc550aedd324cf03b8"
+hash = "sha256:0c7cfc3b4680a0d523205db02511d73a4e0729b7e57be7da703aa81f564cc5e2"
+doc_hash = "sha256:c275fdb3ffc4924b60a4f1da3425cc282c3161388d77ecd48c7c0edf4ae5a851"
+cargo_lock = "sha256:f01119ef723c81b98b22a0bd1030fcc4965b939f2c757c626b5986870ad940ee"
+
+[review.callees]
+"fn:4362f749e01b0362" = "sha256:b04889fb6ba48f1da401be1e76b97899e434db63896f7f0db25eb510a83fec18"
+"fn:f814efdc7ebb9162" = "sha256:f570d98c3dffa498e91a11b5a27d6d0519c34fa009740261c9f9ae81f3a38a3a"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: openmc wld also panic by default ofr most functions"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: openmc doesn't use results to return, but there are number guards for energies between max and min"
+maintainability = "yes"
+numerical_hazards = "other: openmc wld also panic by default ofr most functions"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_019rKVr4tmtzxqs6WvW1NZS3"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "pTarZAbLg+sEmap1e8gAGaiF7gQGOCnvC3+vqwFLIZTKkRZ2uCqSOHW3gGnP2Fal71/5cgmbjqCqDG1bF2bHAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics"
+kind = "implements"
+```
+
+native energy grid does a union grid (i only thoroughly reviewed the high fidelity pointwise XS arm)
+
+for bounding majorants, we want to ensure that interpolated points do not go beyond their adjacent points in the bounding energy grids
+
+I was worried that there may be some spurrious peak in between..
+
+However, the peaks themselves are defined by fixed energy grid points, with linear interpolation between them
+
+Given this linear interpolation assumption, and the fact that the union grid is used (a combination of all energy grids across all pointwise XS)
+
+we will never have a spurrious peak between the energy grids 
+
+This of course assumes that the pointwise XS is fine enough to capture all peaks
+
+However, this assumption is already used for pendf or ACE type files which become OpenMC's hdf5 files and Serpent's datafiles, which end up coming from NJOY anyhow.
+
+If those assumptions are accepted for those codes, i don't see why not for OutramMC
+
+So i think this is a reasonable assumption.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-11-26, commit 623e226215.
