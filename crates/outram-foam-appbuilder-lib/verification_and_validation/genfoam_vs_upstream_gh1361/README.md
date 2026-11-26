@@ -1101,3 +1101,57 @@ Command for every row: the four tests `one_d_boiling_pimple_flow_tight_matches_u
 
 A fresh run of the upstream binary in this environment (`/home/user/upstream-build`, GeN-Foam binary of 2026-11-13 01:17, OpenFOAM built 2026-11-12 23:39), tight protocol, `scripts/boiling_protocol.sh`, is repeatable (two runs identical) and agrees with the committed
 `boiling_tight_full_flow` reference at steps 1-639 (iterations, endings, clocks). At step 640 it differs: dt 0.0101 s against the reference's 0.0008 s, and the run then aborts with SIGFPE (`Foam::divide`) at t = 6.35153, step 667, at both `endTime` 6.5 and 12. The committed reference run reached 12 s (6157 steps). So the reference of steps 640 onward was produced by a different build of upstream than the one now installed (the environment was rebuilt; the compiler or flags may differ), and it cannot be regenerated here. The comparison before the onset (steps 1-639) is unaffected; the steps 640-758 of this test's reference, and every post-onset reference number, are a record of one build's chaotic trajectory. Recorded on gh:#1361; not investigated further.
+
+
+
+# Round 7 (gh:#1361, 2026-11-26): MULES, `1D_boiling` AS SHIPPED against the real binary
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+## What was searched before writing anything (CLAUDE.md "search before building")
+
+- `grep -rniE "MULES|limitSum|explicitSolve|nAlphaSubCycles|interfaceCompression" crates/**/*.rs`: hits only in
+  `outram-foam-multiphase/src/two_fluid_pimple_esi.rs` (`mules_lambda`, an ESI `MULES::limiter` written for one mesh
+  family of the gh:#1363/#1367 cases: internal-face limiter with `Sp = Su = 0`, no `nLimiterIter`/`extremaCoeff`/
+  `smoothLimiter`, no boundary handling, no convection scheme, no sub-cycling, on that crate's own field types), the
+  "no MULES" notes of `pimple.rs`, `two_fluid.rs`, `drift_flux.rs`, `two_fluid_pimple.rs`, `tampines`
+  `multiphase_1d/two_fluid.rs` (a 1-D `limitSum` analogue) and the docs of this crate.
+  `outram-foam-basic-lib` holds no MULES and no `limitedScheme`/`vanLeer` (only upwind/linear).
+- Checked and rejected for reuse: `mules_lambda` does not compose (different storage, no boundary-face values) and is ESI's
+  `MULES::limiter`, not GeN-Foam's `myMULES` (different `limit` return convention, `explicitSolve` that relaxes). Ported
+  from the upstream source instead, with the source files cited in the headers.
+- Upstream read: `solvers/twoPhase/include/alphaEqns_2p.H`, `alphaEqnsRoutines/solveAlphaMULES.H` (540 lines),
+  `myMULES/{myMULES.C, myMULES.H, myMULESTemplates.C}`; ESI v2506 `LimitedScheme`, `NVDTVD`, `vanLeer`,
+  `limitedSurfaceInterpolationScheme::weights`, `gaussGrad::calcGrad`, `GeometricField::relax`. No kovan-reviewed
+  function is touched (no `kind = "review"` block under `src/genfoam`).
+
+## What upstream does with `alpha { solver "MULES"; adjustSubCycles true; alphaMaxCo 0.25; }` (the specification)
+
+`solvePhase` defaults to `both` (the shipped case sets none), so `solveAlphas(rDeltaT)` runs.
+`nSubCycles = min(ceil((CoNum_+SMALL)/alphaMaxCo), maxSubCycles = 50)` when `adjustSubCycles` and both phases are present,
+else `nSubCycles` (1); `CoNum_` and `bothPhasesArePresent_` are the values the previous step's `maxDeltaT` left. Per
+sub-cycle: `alphaPhic_k` = three vanLeer fluxes (`div(phi,alpha)` of the total flux, `div(phir,alpha)` of the relative
+flux and of the structure), `correctInflowOutflow`, `myMULES::limit(..., returnCorr = true)` (so `alphaPhic_k` becomes the
+limited CORRECTION `lambda (alphaPhic - phiBD)`, not the flux), sources `Sp`/`Su` from `dgdt` with `minAlphaSp = 1e-6`, a
+"preserve phi" step (`deltaPhi`), then `explicitSolve` with `psi.relax()` (`alpha.*` is relaxed 0.5), clamp to [0, 1],
+and a `zeroSum` / `movingAlpha/(alpha1+alpha2)` renormalisation. Sub-cycles reassign `alpha.oldTime()` and restore it and
+average the fluxes; `alphaRhoPhi = interpolate(rho) alphaPhi` (LINEAR; implicitUpwind used upwind).
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+Upstream facts measured first (real binary, tight protocol, every step written, `scripts/boiling_mules_protocol.sh`, run
+to `endTime` 7): it runs the case as shipped through step 649 (t = 6.2933 s) and then ABORTS with "Negative initial
+temperature T0: -2354.9" in `hPolynomialThermo` (the vapour, after the flow excursion). `alpha.vapour` first exceeds 0
+at step 616 (max 3.2e-9); sub-cycles are 1 until then and reach 12 at the excursion. References:
+`refs/boiling_mules_tight_head.ref.txt.gz` (steps 1-70) and `refs/boiling_mules_tight_onset.ref.txt.gz` (steps 560-649),
+both from that one fresh run of the installed binary (NOT the committed `boiling_tight_full_flow` reference).
+
+| id | quantity | prediction | if missed |
+|---|---|---|---|
+| M1 | steps 1-70, `deltaT` | identical to 1e-12 at every step | `CoNum_`/`maxDeltaT` state |
+| M2 | steps 1-70, p, p_rgh, T.liquid, U.liquid, T.vapour, T.interface, U.vapour | the round-3 bounds hold (p 1e-11, T.liquid 1e-12, U.liquid 1e-10, T.vapour 1e-9, T.interface/U.vapour 5e-9); alpha.vapour and dmdt exactly 0 | MULES disturbs the single-phase state |
+| M3 | steps 560-615 (single phase to the onset) | p, T.liquid, U.liquid <= 1e-9 relative at every step | accumulated round-off |
+| M4 | the sub-cycle count per step | equals upstream's log ("No SubCycles") at every step 1-649 | `CoNum_` ordering or `bothPhasesArePresent_` |
+| M5 | steps 616-627 (onset window), alpha.vapour and dmdt, relative to their maxima | <= 1e-8 (the explicit MULES update has no linear-solver tail, unlike implicitUpwind's 3.4e-6) | limiter/flux translation difference |
+| M6 | steps 616-627, p, T, U | <= 1e-8 | |
+| M7 | first step after the onset at which any field leaves 1e-6 | in 628..649, or none by 649 | |

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Extract refs/boiling_<name>.ref.txt.gz from a run of the real GeN-Foam binary on 1D_boiling.
-# usage: extract_boiling_reference.sh <runs/dir name> <ref name> <time-filter-regex>
+# usage: extract_boiling_reference.sh <runs/dir name> <ref name> <time-filter-regex> [step-lo step-hi]
+#   step-lo/step-hi (1-based, inclusive; round 7): keep only that contiguous range of written steps (smaller refs)
 # Output lines (one per item, space separated, full doubles as written at writePrecision 17):
 #   DT <dt per step>           (log "deltaT = " after each step; step n advanced time by DT[n-1])
 #   TIMEPRINT <printed time>
@@ -17,10 +18,13 @@ echo "DT $(grep '^deltaT = ' $L | awk '{print $3}' | tr '\n' ' ')" >> "$OUT"
 echo "TIMEPRINT $(grep '^Time = ' $L | awk '{print $3}' | tr '\n' ' ')" >> "$OUT"
 # FIRST: 1-based step index of the first extracted time directory (every-step runs only)
 ALLT=$(ls $R | grep -E '^[0-9.e+-]+$' | sort -g | grep -v '^0$')
-FIRSTT=$(ls $R | grep -E '^[0-9.e+-]+$' | sort -g | grep -E "$FILT" | grep -v '^0$' | head -1)
+LO=${4:-1}
+HI=${5:-999999999}
+SEL=$(echo "$ALLT" | sed -n "${LO},${HI}p")
+FIRSTT=$(echo "$SEL" | grep -E "$FILT" | head -1)
 echo "FIRST $(( $(echo "$ALLT" | grep -n -x -- "$FIRSTT" | head -1 | cut -d: -f1) ))" >> "$OUT"
 echo "CUMERR $(grep 'Cumulative continuity' $L | tail -1 | awk '{print $7, $8}')" >> "$OUT"
-for T in $(ls $R | grep -E '^[0-9.e+-]+$' | sort -g | grep -E "$FILT"); do
+for T in $(echo "$SEL" | grep -E "$FILT"); do
   [ "$T" = 0 ] && continue
   for f in p p_rgh T.liquid T.vapour T.interface T.fixedPower U.liquid U.vapour alpha.vapour dmdt.liquid.vapour heatFlux.structure; do
     F=$R/$T/fluidRegion/$f
