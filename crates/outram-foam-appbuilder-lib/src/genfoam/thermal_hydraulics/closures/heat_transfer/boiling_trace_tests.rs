@@ -10,6 +10,7 @@ use super::boiling_trace_chf::{
     gorenflo_t_chf, multi_regime_boiling_trace_chf, multi_regime_boiling_vapour_trace, TraceChfInputs,
 };
 use super::fs_htc::PoolBoilingHtc;
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Pressure, TemperatureInterval};
 use uom::si::length::meter;
 use uom::si::pressure::pascal;
@@ -55,7 +56,7 @@ fn trace_nucleate_boiling_is_the_cubic_superposition_and_writes_the_subcooled_te
     let q_fc: f64 = 30_000.0 * (t_w - 600.0);
     let q_pb = pool(t_w) * (t_w - 614.0);
     let q_bi = pool(t_onb) * (t_onb - 614.0);
-    let q_nb = (q_fc.powf(3.0) + (q_pb - q_bi).powf(3.0)).powf(1.0 / 3.0);
+    let q_nb = (q_fc.r_powf(3.0) + (q_pb - q_bi).r_powf(3.0)).r_powf(1.0 / 3.0);
     assert!((r.htc - q_nb / (t_w - 600.0)).abs() <= 1e-12 * r.htc);
     let q_sc = r.q_subcooled_dmdt.expect("boiling branch writes dmdtW");
     assert!((q_sc - 0.25 * (q_nb - q_fc)).abs() <= 1e-9 * q_sc.abs());
@@ -76,7 +77,7 @@ fn trace_negative_wall_to_fluid_difference_uses_the_literal_minus_one_milli() {
     let q_fc: f64 = 30_000.0 * (619.0 - 625.0);
     let q_pb = pool(619.0) * 5.0;
     let q_bi = pool(616.5) * 2.5;
-    let q_nb = (q_fc.powf(3.0) + (q_pb - q_bi).powf(3.0)).powf(1.0 / 3.0);
+    let q_nb = (q_fc.r_powf(3.0) + (q_pb - q_bi).r_powf(3.0)).r_powf(1.0 / 3.0);
     assert!((r.htc - q_nb / -1e-3).abs() <= 1e-9 * r.htc.abs());
 }
 
@@ -174,7 +175,7 @@ fn trace_chf_post_chf_branches_hand_over_the_chf_bool_to_the_vapour_side() {
     let r = multi_regime_boiling_trace_chf(&mid, |_| 616.0, pool, None::<fn(f64) -> f64>, Some(|| t_lf), annular);
     // Twi < TLFi is the transition branch (T_w = T_CHF + 10 < T_LF = T_CHF + 40)
     assert_eq!(r.chf_bool, 2.0);
-    let wf = ((mid.t_wall - t_lf) / (t_chf - t_lf)).powi(2);
+    let wf = ((mid.t_wall - t_lf) / (t_chf - t_lf)).r_powi(2);
     assert!((r.wf_tb - wf).abs() <= 1e-12);
     let hv = multi_regime_boiling_vapour_trace(mid.t_wall, r.chf_bool, r.wf_tb, r.t_leidenfrost, |tw| 2_000.0 + tw);
     assert_eq!(hv, (1.0 - r.wf_tb) * (2_000.0 + t_lf));
@@ -215,7 +216,7 @@ fn nusselt_upstream_order_and_earlier_order_agree_to_a_few_ulp() {
         let old = m.heat_transfer_coefficient_earlier_association(re, pr, k, dh, tt).get::<w>();
         // upstream: (kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D))
         let expect = (k.get::<uom::si::thermal_conductivity::watt_per_meter_kelvin>() / dh.get::<meter>())
-            * (0.0 + 0.023 * re.get::<uom::si::ratio::ratio>().powf(0.8) * pr.get::<uom::si::ratio::ratio>().powf(0.4));
+            * (0.0 + 0.023 * re.get::<uom::si::ratio::ratio>().r_powf(0.8) * pr.get::<uom::si::ratio::ratio>().r_powf(0.4));
         assert!((up - expect).abs() <= 4e-16 * expect, "upstream order: {up} vs {expect}");
         assert!((up - old).abs() <= 1e-15 * up, "orders differ by more than a few ulp: {up} vs {old}");
         if up != old {
