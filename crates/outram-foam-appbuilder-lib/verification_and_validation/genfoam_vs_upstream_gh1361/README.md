@@ -1683,7 +1683,7 @@ the same order but `0.5 * max(...)` differs in the last bit.
 * `".*"` (`PBiCGStab`) beats `"h.*"` (`smoothSolver`) in `fvSolution` because OpenFOAM takes the LAST matching pattern; the port's older
   `lookup_regex` takes the first. `one_phase_cc.rs` has its own last-match lookup; the older helper is left as it was (it is used by cases whose
   patterns do not overlap).
-* The neutronics residual used for the loop test is `max(first-iteration group residuals, neutroResidual history)`, a lower bound of upstream's
+* The neutronics residual used for the loop test is `max(first-iteration group residuals, neutroResidual history)`, ~~a lower bound~~ **CORRECTED 2026-11-26 (gh:#1813, round 22): an upper bound when the neutron loop iterates more than once (equal at one iteration)** of upstream's
   `residual_` (which also takes the initial residuals of every later flux solve); both are far below 5e-5 (<= 2e-6 in all 50 steps of the log).
   The decision "converged after 1 iteration" is therefore the same, but the VALUE of `residual_` is not reproduced.
 

@@ -39,7 +39,7 @@ awk '
       printf "S2MAX_%d", i; for(j=1;j<=cp[i];j++) printf " %.17g", s2[i,j]; printf "\n";
       printf "RESID_%d", i; for(j=1;j<=cp[i];j++){ m=s2[i,j]; if (fin[i,j]>m) m=fin[i,j]; printf " %.17g", m }; printf "\n";
     } }' "$L" > "$OUT"
-for k in $KEEP; do echo "T_$k $(cat $TD/T_$k)" >> "$OUT"; done
+for k in $KEEP; do nm=$(ls $TD | grep -v tmp | sed "s/^T_//" | sort -g | sed -n "${k}p"); echo "T_$k $(cat $TD/T_$nm)" >> "$OUT"; done
 gzip -9 -n -c "$OUT" > "$HERE/refs/$NAME.ref.txt.gz"
 rm -f "$OUT"
 ls -l "$HERE/refs/$NAME.ref.txt.gz"

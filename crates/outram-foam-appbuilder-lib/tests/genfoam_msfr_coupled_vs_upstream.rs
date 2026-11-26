@@ -174,6 +174,10 @@ struct Coupled {
     fluid_report: Option<OnePhaseCcReport>,
     first_step: bool,
     p_old_reference: f64,
+    /// per coupling iteration of the current step: `(power, neutron iterations, residual_, second-solve term)` (gh:#1813)
+    iter_records: Vec<(f64, usize, f64, f64)>,
+    /// per coupling iteration of the current step: the fluid's `getResidual()`
+    fluid_iter_residuals: Vec<f64>,
 }
 
 fn rel(a: f64, b: f64) -> f64 {
@@ -267,6 +271,8 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
         fluid_report: None,
         first_step: true,
         p_old_reference,
+        iter_records: Vec::new(),
+        fluid_iter_residuals: Vec::new(),
     });
     let mu = vec![0.01; n];
     let alphat = vec![0.01 * (1.0 / 8.0); n];
@@ -344,7 +350,7 @@ fn msfr_coupled_transient_matches_upstream_over_50_steps() {
                     c.first_step = false;
                     c.neutro_iterations = rep.neutron_iterations;
                     // residual_ = max(initial residuals of the flux solves, neutroResidual); the port exposes the
-                    // first iteration's group residuals and the neutroResidual history (a lower bound, far from
+                    // first iteration's group residuals and the neutroResidual history (~~a lower bound~~ **CORRECTED 2026-11-26 (gh:#1813): an upper bound when the neutron loop iterates more than once; equal at one iteration**; far from
                     // the 5e-5 threshold: <= 2e-6 at every step of the reference)
                     c.neutro_residual = rep
                         .first_iteration_group_residuals
@@ -487,4 +493,412 @@ fn a_case_that_solves_fluid_mechanics_is_refused_by_name() {
     // **CORRECTED 2026-11-26 (round 20, gh:#1838/#1839):** `turbulence true` is ported, so the reader now gets as far as the
     // shipped `p_rgh` solver (`GAMG`, not ported: the references of rounds 18-20 replace it by `PCG`/`DIC`)
     assert!(err.contains("solvers.p_rgh: only PCG with the DIC preconditioner is ported"), "{err}");
+}
+
+
+// ============================================================================================================
+// Round 22 (gh:#1813): the full transient (to the tutorial's endTime 175 s), a multi-iteration coupling loop,
+// the neutronics `residual_` value and a `temperatureTimeProfile`, each against the real binary.
+// Predictions and results: README, "Round 22". References: `refs/msfr_full_*.ref.txt.gz`
+// (`scripts/extract_msfr_full_reference.sh`; upstream run by `scripts/run_msfr_chain.sh transient`, `PROTOCOL=tight`).
+// ============================================================================================================
+
+/// One round 22 case: which reference, which edits of upstream's own case files (the SAME edits the reference run made).
+struct FullCfg {
+    tag: &'static str,
+    ref_name: &'static str,
+    /// `multiRegionCouplingDict` `minResidual` / `maxIterations` text replacements (`None`: the tutorial's)
+    min_residual: Option<&'static str>,
+    max_iterations: Option<&'static str>,
+    /// `temperatureTimeProfile` on the `hx` `fixedTemperature` model: `(0 1)(165 1)(175 0.95)`
+    profile: bool,
+    /// the earlier harness' stand-in for the neutronics `residual_` (deprecated, ablation)
+    lower_bound_residual: bool,
+}
+
+#[derive(Debug, Default)]
+struct FullSummary {
+    n_steps: usize,
+    worst_dt: f64,
+    worst_t_field: f64,
+    worst_tstat: f64,
+    worst_power: f64,
+    worst_co: f64,
+    worst_h_first_iteration: f64,
+    worst_h_later: f64,
+    worst_resid: f64,
+    iters_equal: usize,
+    cpiter_equal: usize,
+    neutron_iters_equal: usize,
+    first_dt_bad: Option<usize>,
+    port_cpiter: Vec<usize>,
+    port_power_last: f64,
+    worst_second_solve_port: f64,
+    worst_second_solve_upstream: f64,
+    resid_mismatch_steps: Vec<usize>,
+}
+
+fn edit_staged_case(st: &Staged, cfg: &FullCfg) {
+    let dict = st.fluid_root.join("constant/multiRegionCouplingDict");
+    let mut text = std::fs::read_to_string(&dict).expect("multiRegionCouplingDict");
+    if let Some(m) = cfg.min_residual {
+        assert!(text.contains("minResidual 0.00005;"), "minResidual line");
+        text = text.replace("minResidual 0.00005;", &format!("minResidual {m};"));
+    }
+    if let Some(m) = cfg.max_iterations {
+        assert!(text.contains("maxIterations 3;"), "maxIterations line");
+        text = text.replace("maxIterations 3;", &format!("maxIterations {m};"));
+    }
+    std::fs::write(&dict, text).expect("write dict");
+    if cfg.profile {
+        let pp = st.fluid_root.join("constant/fluidRegion/phaseProperties");
+        let text = std::fs::read_to_string(&pp).expect("phaseProperties");
+        let anchor = "            volumetricArea  200;\n            T               900;\n";
+        assert!(text.contains(anchor), "hx powerModel text");
+        let add = "            temperatureTimeProfile\n            {\n                type            table;\n                startTime       0;\n                table           table\n                (\n                    (0 1)\n                    (165 1)\n                    (175 0.95)\n                );\n            }\n";
+        std::fs::write(&pp, text.replace(anchor, &format!("{anchor}{add}"))).expect("write phaseProperties");
+    }
+}
+
+/// The coupled transient of rounds 9/22 against a round 22 reference; returns the worst differences.
+fn run_full(cfg: &FullCfg) -> FullSummary {
+    let st = stage(cfg.tag);
+    edit_staged_case(&st, cfg);
+    let reference = read_ref(&vv_dir().join("refs/msfr_transient.ref.txt.gz"));
+    let fref = read_ref(&vv_dir().join("refs/msfr_chain_transient.ref.txt.gz"));
+    let full = read_ref(&vv_dir().join(format!("refs/{}.ref.txt.gz", cfg.ref_name)));
+    let n_steps = full["N"][0] as usize;
+
+    let cdict = CouplingDict::read(&st.fluid_root, "energyNeutroLoop").expect("multiRegionCouplingDict");
+    let only_energy = cdict.correct_only_energy();
+    let mesh: Arc<FvMesh> = read_poly_mesh(&st.poly).expect("polyMesh");
+    let input = read_nuclear_data(&st.neutro.join("nuclearData")).expect("nuclearData");
+    let xs = CrossSectionData::from_input(&input).expect("cross sections");
+    let zones = read_cell_zones(&st.poly).expect("cellZones");
+    let order: Vec<&str> = (0..xs.zone_count()).map(|i| xs.zone(i).expect("zone").name()).collect();
+    let zone_map = zone_of_cell(&zones, &order, mesh.n_cells).expect("zone map");
+    let n = mesh.n_cells;
+    let groups = xs.energy_groups();
+    let precs = xs.prec_groups();
+    let flux_boundary: Vec<BoundaryCondition<f64>> = mesh.patches.iter().map(|_| BoundaryCondition::ZeroGradient).collect();
+    let settings = DiffusionSettings {
+        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+        ..DiffusionSettings::default()
+    };
+    let fluid = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect("fluid case");
+    let t_start: Vec<f64> = fluid.temperature().to_vec();
+    let rho_start = fluid.thermo_density();
+    let params0: Vec<f64> = t_start.iter().zip(&rho_start).flat_map(|(&t, &r)| [t, r]).collect();
+    let mut neutro = DiffusionNeutronics::new_with_cell_parameters(mesh.clone(), &xs, &zone_map, &params0, &flux_boundary, settings)
+        .expect("diffusion model");
+    for (name, gamma) in [("topwall", 0.1), ("bottomwall", 0.1), ("reflector", 0.1), ("hx", 0.5)] {
+        let idx = mesh.patches.iter().position(|p| p.name == name).expect("patch");
+        neutro.set_albedo_boundary(idx, gamma, AlbedoLinearisation::CellValue);
+    }
+    neutro.set_precursor_drift(face_flux(&mesh, &reference["START_U"], &alpha_cells()));
+    let flux0: Vec<Vec<f64>> = (0..groups).map(|g| reference[&format!("START_flux{g}")].clone()).collect();
+    neutro.set_initial_guess(&flux0, reference["START_keff"][0]);
+    let prec_star0: Vec<Vec<f64>> = (0..precs).map(|k| reference[&format!("START_precStar{k}")].clone()).collect();
+    neutro.set_prec_star(&prec_star0).expect("precStar");
+    let fluid_mesh = fluid.case().mesh.clone();
+    let map = IdenticalMeshMap::new(&fluid_mesh, &mesh).expect("identical meshes");
+    let pd_start = fref["START_powerDensity"].clone();
+    let control_delta_t = fluid.case().delta_t;
+    let max_delta_t = fluid.case().controls.max_delta_t;
+    let (min_residual, max_iterations) = (cdict.min_residual, cdict.max_iterations);
+    let mut dt = initial_delta_t(control_delta_t, control_delta_t);
+    let p_old_reference = neutro.upstream_power_at_reference_state(&xs, &zone_map).expect("reference-state power");
+    let coupled = RefCell::new(Coupled {
+        fluid,
+        neutro,
+        xs,
+        zone_map,
+        map,
+        controls: UpstreamTransientControls { neutron_iteration_residual: 1e-6, max_neutron_iterations: 50, sc_no: 1.0 },
+        neutro_power_density: pd_start,
+        neutro_t: t_start.clone(),
+        neutro_rho: rho_start,
+        dt,
+        fluid_residual: 0.0,
+        neutro_residual: 0.0,
+        p_tot: 0.0,
+        p_tot_old: 0.0,
+        neutro_iterations: 0,
+        fluid_report: None,
+        first_step: true,
+        p_old_reference,
+        iter_records: Vec::new(),
+        fluid_iter_residuals: Vec::new(),
+    });
+    let mu = vec![0.01; n];
+    let alphat = vec![0.01 * (1.0 / 8.0); n];
+    let lower_bound = cfg.lower_bound_residual;
+    let started = std::time::Instant::now();
+    let mut sum = FullSummary { n_steps, ..FullSummary::default() };
+    for step in 1..=n_steps {
+        {
+            let mut c = coupled.borrow_mut();
+            c.dt = dt;
+            c.fluid.begin_time_step(dt);
+            c.neutro.store_old_times();
+            c.iter_records.clear();
+            c.fluid_iter_residuals.clear();
+        }
+        let outcome = correct_physics_loop(
+            min_residual,
+            max_iterations,
+            &only_energy,
+            || {
+                let mut c = coupled.borrow_mut();
+                let mut pd = c.fluid.case().power_density.clone();
+                let src = c.neutro_power_density.clone();
+                c.map.map(&src, &mut pd);
+                c.fluid.set_power_density(&pd);
+                let t = c.fluid.temperature().to_vec();
+                let rho = c.fluid.thermo_density();
+                let mut nt = c.neutro_t.clone();
+                let mut nr = c.neutro_rho.clone();
+                c.map.map(&t, &mut nt);
+                c.map.map(&rho, &mut nr);
+                c.neutro_t = nt;
+                c.neutro_rho = nr;
+            },
+            |i, tight| {
+                let mut guard = coupled.borrow_mut();
+                let c = &mut *guard;
+                if i == 0 {
+                    if tight {
+                        c.fluid_residual = c.fluid.correct_tightly_coupled_physics();
+                    } else {
+                        let (r, rep) = c.fluid.correct_physics();
+                        c.fluid_residual = r;
+                        c.fluid_report = Some(rep);
+                    }
+                    let r = c.fluid_residual;
+                    c.fluid_iter_residuals.push(r);
+                } else {
+                    let params: Vec<f64> = c.neutro_t.iter().zip(&c.neutro_rho).flat_map(|(&t, &r)| [t, r]).collect();
+                    let rep = c
+                        .neutro
+                        .upstream_transient_step(
+                            &c.xs,
+                            &c.zone_map,
+                            UpstreamTransientFeedback { cell_parameters: &params, rho_cool: &c.neutro_rho, alphat: &alphat, mu: &mu },
+                            c.dt,
+                            &c.controls,
+                        )
+                        .expect("neutronics step");
+                    c.p_tot = rep.power;
+                    c.p_tot_old = if c.first_step { c.p_old_reference } else { rep.power_old };
+                    c.first_step = false;
+                    c.neutro_iterations = rep.neutron_iterations;
+                    c.neutro_residual = if lower_bound { rep.residual_lower_bound_form } else { rep.residual };
+                    c.iter_records.push((rep.power, rep.neutron_iterations, rep.residual, rep.second_solve_residual));
+                    c.neutro_power_density = c.neutro.upstream_power_density();
+                }
+            },
+            |i| {
+                let c = coupled.borrow();
+                if i == 0 { c.fluid_residual } else { c.neutro_residual }
+            },
+        );
+        sum.port_cpiter.push(outcome.iterations);
+        let (t_port, rep, p_tot, p_tot_old, fluid_max_dt, time, records, fluid_res, co_port) = {
+            let c = coupled.borrow();
+            (
+                c.fluid.temperature().to_vec(),
+                c.fluid_report.clone().expect("fluid report"),
+                c.p_tot,
+                c.p_tot_old,
+                c.fluid.max_delta_t(),
+                c.fluid.time(),
+                c.iter_records.clone(),
+                c.fluid_iter_residuals.clone(),
+                c.fluid.courant(),
+            )
+        };
+        let neutro_max = diffusion_max_delta_t(time, control_delta_t, max_delta_t, 0.025, dt, p_tot, p_tot_old);
+        if let Some(new_dt) = adjust_delta_t(true, &[fluid_max_dt, neutro_max], f64::MIN_POSITIVE, dt) {
+            dt = new_dt;
+        }
+        // ---- compare step `step`
+        let dtr = rel(dt, full["DT"][step - 1]);
+        sum.worst_dt = sum.worst_dt.max(dtr);
+        if dtr > 1e-9 && sum.first_dt_bad.is_none() {
+            sum.first_dt_bad = Some(step);
+        }
+        if outcome.iterations == full[&format!("CPITER_{step}")][0] as usize {
+            sum.cpiter_equal += 1;
+        }
+        let p_ref = &full[&format!("POWER_{step}")];
+        let n_ref = &full[&format!("NITER_{step}")];
+        let r_ref = &full[&format!("RESID_{step}")];
+        let s2_ref = &full[&format!("S2MAX_{step}")];
+        let mut all_iters_equal = records.len() == n_ref.len();
+        for (j, (pw, ni, res, s2)) in records.iter().enumerate() {
+            if j < p_ref.len() {
+                sum.worst_power = sum.worst_power.max(rel(*pw, p_ref[j]));
+                let rr = rel(*res, r_ref[j]);
+                sum.worst_resid = sum.worst_resid.max(rr);
+                if rr > 1e-4 {
+                    sum.resid_mismatch_steps.push(step);
+                }
+                if *ni != n_ref[j] as usize {
+                    all_iters_equal = false;
+                }
+                sum.worst_second_solve_port = sum.worst_second_solve_port.max(*s2);
+                sum.worst_second_solve_upstream = sum.worst_second_solve_upstream.max(s2_ref[j]);
+            }
+        }
+        if all_iters_equal {
+            sum.neutron_iters_equal += 1;
+        }
+        let hres_ref = &full[&format!("HRES_{step}")];
+        for (a, b) in rep.h_residuals.iter().zip(hres_ref.iter()) {
+            sum.worst_h_first_iteration = sum.worst_h_first_iteration.max(rel(*a, *b));
+        }
+        for (j, r) in fluid_res.iter().enumerate().skip(1) {
+            // iteration j (>= 1) of the step solves ONE `h` equation: its initial residual follows the five of iteration 1
+            let idx = rep.h_residuals.len() + (j - 1);
+            if idx < hres_ref.len() {
+                sum.worst_h_later = sum.worst_h_later.max(rel(*r, hres_ref[idx]));
+            }
+        }
+        let tstat_ref = &full[&format!("TSTAT_{step}")];
+        for (k, (a, mn, mx)) in rep.t_stats.iter().enumerate() {
+            sum.worst_tstat = sum
+                .worst_tstat
+                .max(rel(*a, tstat_ref[3 * k]))
+                .max(rel(*mn, tstat_ref[3 * k + 1]))
+                .max(rel(*mx, tstat_ref[3 * k + 2]));
+        }
+        let co_ref = &full[&format!("CO_{step}")];
+        sum.worst_co = sum.worst_co.max(rel(co_port.0, co_ref[1])).max(rel(co_port.1, co_ref[0]));
+        if full.contains_key(&format!("T_{step}")) {
+            let t_ref = &full[&format!("T_{step}")];
+            let d = t_port.iter().zip(t_ref).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+            sum.worst_t_field = sum.worst_t_field.max(d);
+            println!("step {step}: T field worst rel {d:.3e}");
+        }
+        sum.iters_equal += 1;
+        sum.port_power_last = p_tot;
+        println!(
+            "step {step:3} coupling iterations {} (upstream {}) dt rel {dtr:.2e} power {p_tot:.10e} (ref last {:.10e})",
+            outcome.iterations,
+            full[&format!("CPITER_{step}")][0],
+            p_ref[p_ref.len() - 1]
+        );
+    }
+    println!(
+        "SUMMARY {}: steps {n_steps}; worst rel dt {:.3e}, T field {:.3e}, T(avg,min,max) {:.3e}, power {:.3e}, Courant {:.3e}, h(iter 1) {:.3e}, h(later iters) {:.3e}, residual_ {:.3e}; coupling iterations equal {}/{n_steps}, neutron iteration counts equal {}/{n_steps}; second-solve term port max {:.3e} upstream max {:.3e}; steps with residual_ off by >1e-4: {:?}; wall {:.1} s",
+        cfg.tag,
+        sum.worst_dt,
+        sum.worst_t_field,
+        sum.worst_tstat,
+        sum.worst_power,
+        sum.worst_co,
+        sum.worst_h_first_iteration,
+        sum.worst_h_later,
+        sum.worst_resid,
+        sum.cpiter_equal,
+        sum.neutron_iters_equal,
+        sum.worst_second_solve_port,
+        sum.worst_second_solve_upstream,
+        sum.resid_mismatch_steps,
+        started.elapsed().as_secs_f64()
+    );
+    sum
+}
+
+
+/// Part 1 of gh:#1813: the whole transient of the tutorial (`endTime 175`: 1347 steps, not the 142 of the issue; see README
+/// "Round 22") with the tutorial's coupling dictionary. Measured values: README, "Round 22 results".
+#[test]
+fn msfr_full_transient_to_175_s_matches_upstream() {
+    let s = run_full(&FullCfg {
+        tag: "fullA",
+        ref_name: "msfr_full_a",
+        min_residual: None,
+        max_iterations: None,
+        profile: false,
+        lower_bound_residual: false,
+    });
+    assert_eq!(s.cpiter_equal, s.n_steps, "coupling iterations equal at every step");
+    assert!(s.port_cpiter.iter().all(|&c| c == 1));
+    assert_eq!(s.neutron_iters_equal, s.n_steps, "neutron iteration counts equal at every step");
+    // measured 2026-11-26 (README, "Round 22 results"), gates ~2.5x outward
+    assert!(s.first_dt_bad.is_none() && s.worst_dt < 3e-13, "dt {:e}", s.worst_dt);
+    assert!(s.worst_t_field < 4e-12, "T field {:e}", s.worst_t_field);
+    assert!(s.worst_tstat < 4e-12, "T stats {:e}", s.worst_tstat);
+    assert!(s.worst_power < 3e-11, "power {:e}", s.worst_power);
+    assert!(s.worst_co < 3e-13, "Courant {:e}", s.worst_co);
+    assert!(s.worst_resid < 4e-5, "residual_ {:e}", s.worst_resid);
+    assert!(s.worst_second_solve_port < 1e-13 && s.worst_second_solve_upstream < 1e-13, "second-solve term is at the solver tolerance");
+}
+
+/// Part 2 of gh:#1813: the coupling loop runs more than once. `minResidual 1e-7` (inside the range of upstream's own first `h`
+/// residuals, 2.6e-8..1.8e-7) and `maxIterations 6` (the value of upstream's `3D_SmallESFR_old` `..._tightly` dictionary):
+/// upstream stops at 1 iteration for steps 1-10, runs all 6 from step 11 to 263 and is back at 1 from step 264 (the
+/// running residual crosses the threshold in both directions, so the residual VALUE decides every step). Exercises
+/// `correctTightlyCoupledPhysics` (iterations 2-6 of the fluid) and the residual rule. Results: README, "Round 22 results".
+#[test]
+fn msfr_multi_iteration_coupling_matches_upstream() {
+    let full = read_ref(&vv_dir().join("refs/msfr_full_b.ref.txt.gz"));
+    let a = read_ref(&vv_dir().join("refs/msfr_full_a.ref.txt.gz"));
+    let s = run_full(&FullCfg {
+        tag: "fullB",
+        ref_name: "msfr_full_b",
+        min_residual: Some("1e-7"),
+        max_iterations: Some("6"),
+        profile: false,
+        lower_bound_residual: false,
+    });
+    let n = s.n_steps;
+    let upstream_iters: Vec<usize> = (1..=n).map(|k| full[&format!("CPITER_{k}")][0] as usize).collect();
+    assert!(upstream_iters[..10].iter().all(|&c| c == 1), "steps 1-10 stop after one iteration");
+    assert!(upstream_iters[10..263].iter().all(|&c| c == 6), "upstream runs the cap from step 11 to 263");
+    assert!(upstream_iters.iter().all(|&c| c == 1 || c == 6));
+    assert_eq!(s.port_cpiter, upstream_iters, "the port's loop takes the same number of iterations at every step");
+    assert_eq!(s.neutron_iters_equal, n);
+    // the extra iterations change the answer: B and A differ at the last common step (the test is not vacuous)
+    let (pb, pa) = (full[&format!("POWER_{n}")][0], a[&format!("POWER_{n}")][0]);
+    assert!(((pb - pa) / pa).abs() > 1e-6, "B differs from A by {:e}", ((pb - pa) / pa).abs());
+    // measured 2026-11-26 (README, "Round 22 results"), gates ~2.5x outward; the `h` residual of iterations 2-6 (a
+    // near-converged solve, 1.7e-3 relative) is printed, not gated
+    assert!(s.first_dt_bad.is_none() && s.worst_dt < 3e-13, "dt {:e}", s.worst_dt);
+    assert!(s.worst_t_field < 4e-12, "T field {:e}", s.worst_t_field);
+    assert!(s.worst_tstat < 3e-12, "T stats {:e}", s.worst_tstat);
+    assert!(s.worst_power < 6e-11, "power {:e}", s.worst_power);
+    assert!(s.worst_co < 3e-13, "Courant {:e}", s.worst_co);
+    assert!(s.worst_resid < 4e-5, "residual_ {:e}", s.worst_resid);
+}
+
+/// Part 4 of gh:#1813 (the part that `2D_MSFR` can exercise): `temperatureTimeProfile` on the `hx` `fixedTemperature`
+/// power model, a table of scaling factors `(0 1)(165 1)(175 0.95)`: the heat-sink surface falls from 900 K to 855 K over the
+/// transient. Energy-only region, tutorial coupling dictionary. Heat exchangers (`structureProperties.<zone>.heatExchangers`)
+/// are NOT exercised: no case runs them in both codes (README, "Round 22 results").
+#[test]
+fn msfr_fixed_temperature_time_profile_matches_upstream() {
+    let full = read_ref(&vv_dir().join("refs/msfr_full_c.ref.txt.gz"));
+    let a = read_ref(&vv_dir().join("refs/msfr_full_a.ref.txt.gz"));
+    let s = run_full(&FullCfg {
+        tag: "fullC",
+        ref_name: "msfr_full_c",
+        min_residual: None,
+        max_iterations: None,
+        profile: true,
+        lower_bound_residual: false,
+    });
+    let n = s.n_steps;
+    assert_eq!(s.cpiter_equal, n);
+    assert_eq!(s.neutron_iters_equal, n);
+    // the profile matters (the test is not vacuous): the upstream runs with and without it differ in power
+    let k = 1000;
+    let (pc, pa) = (full[&format!("POWER_{k}")][0], a[&format!("POWER_{k}")][0]);
+    assert!(((pc - pa) / pa).abs() > 1e-4, "profile changes the power at step {k} by {:e}", ((pc - pa) / pa).abs());
+    assert!(s.first_dt_bad.is_none() && s.worst_dt < 1e-11, "dt {:e}", s.worst_dt);
+    assert!(s.worst_t_field < 1e-11, "T field {:e}", s.worst_t_field);
+    assert!(s.worst_tstat < 1e-11, "T stats {:e}", s.worst_tstat);
+    assert!(s.worst_power < 1e-10, "power {:e}", s.worst_power);
+    assert!(s.worst_co < 1e-11, "Courant {:e}", s.worst_co);
 }
