@@ -503,12 +503,24 @@ pub(crate) mod diagnose_gh1283 {
     /// gh:#1283 table), and that mesh has no face below `VSMALL` and no NaN
     /// angle. Result: in the gh:#1286 section of
     /// `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+    ///
+    /// **CHANGED 2026-11-26 (gh:#1829):** the layers-last stage this test
+    /// refused is gone; only the invariant is asserted now (see the body).
     #[test]
     fn gh1286_zero_area_layer_mesh_is_refused() {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.2, 48);
         let o = variant("bmE", 0.004, 3);
         let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
-        assert!(rep.stage_notes.iter().any(|s| s.starts_with("boundary layers skipped")), "{:?}", rep.stage_notes);
+        // ~~assert the layer stage is refused ("boundary layers skipped")~~
+        // REMOVED 2026-11-26: that guarded the layers-LAST stage, which
+        // gh:#1829 deleted (layers are grown first, a HARD RULE of this
+        // crate). On layers-first this mesh grows all 3 layers at the full
+        // thickness (6208 wall points, thinnest column 100 %), so nothing is
+        // refused. The invariant gh:#1286 protects is kept: the mesh the
+        // pipeline returns has no face below VSMALL and no NaN angle (below).
+        // Found by the 2026-11-26 integration run (this module compiles only
+        // with `cell-centre-dual`, so a cfMesh-only test run never ran it).
+        let _ = &rep;
         assert!(!crate::poly_mesh_gen_checks::check_face_areas(&m, 1e-300, None).0);
         let (_, centres) = crate::checks::cell_geometry(&m);
         for f in 0..m.face_count() {

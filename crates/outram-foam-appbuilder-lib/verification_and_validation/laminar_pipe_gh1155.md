@@ -3394,6 +3394,15 @@ the NaN faces (not drawn).
 
 ## The pipeline's acceptance gate refuses zero-area faces (gh:#1286, epic gh:#1251)
 
+> **Note, 2026-11-26 (gh:#1829).** The layers-last stage this section's test
+> refused (`bmE` at h 4 mm) no longer exists: layers are grown first. On
+> layers-first the same case grows all 3 layers at the full thickness, so
+> `final_mesh::diagnose_gh1283::gh1286_zero_area_layer_mesh_is_refused` now
+> asserts only the invariant (no face below `VSMALL`, no NaN angle on the
+> mesh returned). The gate in `acceptable` is unchanged. The test compiles
+> only with `cell-centre-dual`, which is why a cfMesh-only run did not show
+> that it had been failing on `develop` since gh:#1829.
+
 **The defect.** gh:#1283's `bmE` route at h 4 mm, 3 layers (above:
 `CellCentre` + `Corners`, boundary moves, `BoundaryProjection::EachPass`,
 the default `revert_tangled` capture) was kept by the pipeline with two
