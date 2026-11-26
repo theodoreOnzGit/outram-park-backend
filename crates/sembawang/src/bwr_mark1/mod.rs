@@ -1446,6 +1446,69 @@ pub fn swollen_level(prm: &Params, level_m: f64, q_pool_w: f64, h_fg: f64, v_g: 
     height_of_volume(prm, volume_below(prm, z) / (1.0 - alpha)) - prm.baf_m
 }
 
+/// The swollen mixture level above the bottom of active fuel, m, with each
+/// vapour source at its own height (2026-11-26): the vapour raised at a
+/// height voids only the water ABOVE it.
+///
+/// **Why.** [`swollen_level`] is MELCOR's single-control-volume form: it
+/// divides ALL the liquid below the collapsed level by `1 - alpha`. In a BWR
+/// vessel the lower plenum, the core and the upper plenum are separate
+/// control volumes in MELCOR's own nodalisations, and vapour raised in the
+/// core never passes through the lower plenum below it. Swelling the whole
+/// column made the plant's first relocation onto the core plate
+/// (~120 MW of plate quench at the bottom of active fuel, with the collapsed
+/// level 0.31 m above it) push the mixture level from 0.31 m to 3.73 m above
+/// the bottom of active fuel in two steps: the whole uncovered core,
+/// at ~2500 K, was "covered" and quenched to ~700 K, 6.9 GW went into the
+/// water, and the RPV rose from 8.1 to 12.6 MPa (found 2026-11-26, the
+/// Fukushima web demo turning blue at the first melt).
+///
+/// **The form.** With `J(z)` the vapour's volumetric flux through height `z`
+/// from every source at or below it, over the free cross-section there, the
+/// local void is `alpha(z) = min(J(z) / v0, max_pool_void)` with `v0 =
+/// bubble_rise_m_s`; the swollen level `H` is where `∫_0^H A (1 - alpha) dz`
+/// holds the liquid's volume. For vapour raised uniformly through the pool
+/// this is MELCOR's mean void `J / (2 v0)` (CVH/FL RM §5.1.3, Eq 5-26 to
+/// 5-30: `J` linear from 0 to its top value); the cap is applied locally
+/// rather than to the mean (stated). Integrated on a 1 cm grid, the last
+/// slab interpolated.
+///
+/// Sources, by height above the vessel bottom: the lower plenum's
+/// (`lower_plenum_w`) at 0, the core plate's (`plate_w`) at the bottom of
+/// active fuel, and each covered axial row's (`rows_w`, bottom to top) at
+/// its mid-height.
+pub fn swollen_level_from_sources(prm: &Params, level_m: f64, lower_plenum_w: f64, plate_w: f64, rows_w: &[f64], h_fg: f64, v_g: f64) -> f64 {
+    let z_c = level_m + prm.baf_m;
+    let v_liquid = volume_below(prm, z_c);
+    let total = lower_plenum_w + plate_w + rows_w.iter().sum::<f64>();
+    if v_liquid <= 0.0 || total <= 0.0 {
+        return level_m;
+    }
+    let dz_row = prm.active_length_m / rows_w.len().max(1) as f64;
+    // (height above the vessel bottom, vapour volume flow m^3/s), by height.
+    let mut sources: Vec<(f64, f64)> = Vec::with_capacity(rows_w.len() + 2);
+    sources.push((0.0, lower_plenum_w / h_fg * v_g));
+    sources.push((prm.baf_m, plate_w / h_fg * v_g));
+    for (j, q) in rows_w.iter().enumerate() {
+        sources.push((prm.baf_m + (j as f64 + 0.5) * dz_row, q / h_fg * v_g));
+    }
+    let h = 0.01;
+    let (mut z, mut held) = (0.0, 0.0);
+    while z < prm.rpv_height_m {
+        let a = (volume_below(prm, z + h) - volume_below(prm, z)) / h;
+        let flow: f64 = sources.iter().filter(|s| s.0 <= z + 0.5 * h).map(|s| s.1).sum();
+        let alpha = if a > 0.0 { (flow / a / prm.bubble_rise_m_s).min(prm.max_pool_void) } else { 0.0 };
+        let slab = a * h * (1.0 - alpha);
+        if held + slab >= v_liquid {
+            let f = if slab > 0.0 { (v_liquid - held) / slab } else { 0.0 };
+            return z + f * h - prm.baf_m;
+        }
+        held += slab;
+        z += h;
+    }
+    prm.rpv_height_m - prm.baf_m
+}
+
 /// Free volume of the vessel below height `z` above its bottom, m^3.
 pub fn volume_below(prm: &Params, z: f64) -> f64 {
     let a = ::core::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
@@ -1996,7 +2059,7 @@ impl Plant {
             }
             if self.pumps.iter().any(|x| x.drive != turbine_pump::Drive::Off) {
                 let swollen = if self.mechanisms.level_swell && !v.dry {
-                    swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+                    swollen_level_from_sources(&prm, v.level_m, self.last_core.q_pool_lower_plenum_w, self.last_core.q_pool_plate_w, &self.last_core.q_pool_rows_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
                 } else {
                     v.level_m
                 };
@@ -2083,9 +2146,10 @@ impl Plant {
             (srv_steam, h_gas)
         };
         // The level the core sees (gh:#1036): swollen by the vapour the last
-        // step raised in the pool, or the collapsed level.
+        // step raised in the pool, or the collapsed level; each source voids
+        // only the water above it (2026-11-26, `swollen_level_from_sources`).
         let core_level = if self.mechanisms.level_swell && !v.dry {
-            swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+            swollen_level_from_sources(&prm, v.level_m, self.last_core.q_pool_lower_plenum_w, self.last_core.q_pool_plate_w, &self.last_core.q_pool_rows_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
         } else {
             v.level_m
         };
@@ -3321,6 +3385,50 @@ mod tests {
         assert!((volume_below(&prm, swollen) - volume_below(&prm, z) / 0.9).abs() < 1e-6 * volume_below(&prm, z));
         let capped = swollen_level(&prm, level, 100.0 * q, h_fg, v_g) + prm.baf_m;
         assert!((volume_below(&prm, capped) - volume_below(&prm, z) / 0.6).abs() < 1e-6 * volume_below(&prm, z));
+    }
+
+    /// The swell by source height (2026-11-26): vapour voids only the water
+    /// above where it is raised.
+    ///
+    /// - No vapour: the collapsed level.
+    /// - **The defect it fixes:** the plate quench of the first relocation,
+    ///   120 MW at the bottom of active fuel with the collapsed level 0.31 m
+    ///   above it. Only those 0.31 m of the core's free area swell, by the
+    ///   capped void 0.4, to 0.31 / 0.6 = 0.517 m (to the 1 cm grid); the
+    ///   whole-pool form puts the same case at 2.18 m in one step (measured
+    ///   2026-11-26; in the plant it reached 3.73 m in two steps, as the
+    ///   rows it covered boiled too).
+    /// - Uniform boiling within the core (the same heat in each of the rows
+    ///   below a collapsed level at the top of a row, small enough not to
+    ///   cap): the column's mean void is MELCOR's `J / (2 v0)`, so its liquid
+    ///   fills `L / (1 - J / (2 v0))` to within the 1 cm grid and the
+    ///   half-row offset of the sources (checked to 3 cm).
+    #[test]
+    fn the_swell_voids_only_the_water_above_each_source() {
+        use crate::bwr_mark1::params::AXIAL_NODES;
+        let prm = Params::default();
+        let (h_fg, v_g) = (1.5e6, 0.027);
+        let rows = [0.0; AXIAL_NODES];
+        assert_eq!(swollen_level_from_sources(&prm, 0.31, 0.0, 0.0, &rows, h_fg, v_g), 0.31);
+        let plate = swollen_level_from_sources(&prm, 0.31, 0.0, 1.2e8, &rows, h_fg, v_g);
+        assert!((plate - 0.31 / 0.6).abs() < 0.011, "{plate}");
+        let whole = swollen_level(&prm, 0.31, 1.2e8, h_fg, v_g);
+        assert!(whole > 2.0, "the whole-pool form: {whole}");
+        // Uniform boiling in the bottom six rows, the collapsed level at
+        // their top.
+        let dz = prm.active_length_m / AXIAL_NODES as f64;
+        let level = 6.0 * dz;
+        let z = level + prm.baf_m;
+        let area = (volume_below(&prm, z + 0.01) - volume_below(&prm, z - 0.01)) / 0.02;
+        let j = 0.06; // m/s at the top: mean void 0.1
+        let per_row = j * area / v_g * h_fg / 6.0;
+        let mut uni = [0.0; AXIAL_NODES];
+        for r in uni.iter_mut().take(6) {
+            *r = per_row;
+        }
+        let swollen = swollen_level_from_sources(&prm, level, 0.0, 0.0, &uni, h_fg, v_g);
+        let want = level / (1.0 - j / (2.0 * prm.bubble_rise_m_s));
+        assert!((swollen - want).abs() < 0.03, "{swollen} vs {want}");
     }
 
     /// The mixture's choked-flux factor: 1 for steam, `sqrt(M_H2/M_H2O)`

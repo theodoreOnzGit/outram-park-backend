@@ -239,6 +239,17 @@ pub struct CoreResult {
     /// Cladding temperature of every node, ring-major, bottom to top, K
     /// (relocated nodes: NaN).
     pub clad_k: Vec<f64>,
+    /// `q_pool_w` by where in the pool its vapour is raised (2026-11-26):
+    /// the swollen level voids only the water ABOVE each source
+    /// (`swollen_level_from_sources`). At the bottom of the lower plenum:
+    /// its debris quench, its blades' steel and the wet lower head. At the
+    /// core plate (the bottom of active fuel): the plate's debris. In the
+    /// core: each covered axial row's boiling, bottom to top, all rings
+    /// summed. (The core bottom's radiation boils the water's surface,
+    /// which voids no pool, so it is in none of them.)
+    pub q_pool_lower_plenum_w: f64,
+    pub q_pool_plate_w: f64,
+    pub q_pool_rows_w: Vec<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1451,6 +1462,9 @@ impl Core {
             self.lp_steel_h -= release;
             q_quench += release / dt;
         }
+        // What the lower plenum raises at its bottom (debris, steel, wet
+        // head): the swell's deepest source (2026-11-26).
+        let q_pool_lower_plenum = q_quench.max(0.0);
         // The bottom of the core's radiation boils the lower plenum's water
         // (`bottom_radiation`).
         q_quench += q_bottom_w;
@@ -1458,6 +1472,8 @@ impl Core {
         // temperature-dependent properties only.
         // The lower plenum's debris has used this much of the steam it raised.
         let lp_used = debris_steam_used;
+        let mut q_pool_plate = 0.0;
+        let mut q_pool_rows = [0.0; AXIAL_NODES];
         let mut plate_taken = [0.0; RINGS];
         if s.core_plate && tdp {
             let below = if s.level_m <= 0.0 {
@@ -1466,6 +1482,7 @@ impl Core {
                 0.0
             };
             let (q, taken, h2, used) = self.plate_step(prm, s, below, dt);
+            q_pool_plate = q.max(0.0);
             q_quench += q;
             plate_taken = taken;
             debris_h2 += h2;
@@ -1646,6 +1663,7 @@ impl Core {
                 if covered {
                     w_steam += q_out.max(0.0) / s.h_fg;
                     q_pool += q_out.max(0.0);
+                    q_pool_rows[j] += q_out.max(0.0);
                 } else if w_steam > 0.0 && c_rate > 0.0 {
                     t_steam += q_out / c_rate;
                 }
@@ -1998,6 +2016,9 @@ impl Core {
             q_pool_w: q_pool,
             q_upper_w,
             clad_k: self.nodes.iter().map(|n| if n.relocated { f64::NAN } else { n.t_clad }).collect(),
+            q_pool_lower_plenum_w: q_pool_lower_plenum,
+            q_pool_plate_w: q_pool_plate,
+            q_pool_rows_w: q_pool_rows.to_vec(),
         }
     }
 }
@@ -2167,6 +2188,8 @@ impl CoreResult {
             self.q_upper_w,
         ]);
         w.vec(&self.clad_k);
+        w.f(&[self.q_pool_lower_plenum_w, self.q_pool_plate_w]);
+        w.vec(&self.q_pool_rows_w);
     }
     pub fn read(r: &mut Reader) -> Self {
         Self {
@@ -2192,6 +2215,9 @@ impl CoreResult {
             q_pool_w: r.f(),
             q_upper_w: r.f(),
             clad_k: r.vec(),
+            q_pool_lower_plenum_w: r.f(),
+            q_pool_plate_w: r.f(),
+            q_pool_rows_w: r.vec(),
         }
     }
 }
