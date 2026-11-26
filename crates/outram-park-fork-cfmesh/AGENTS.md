@@ -507,6 +507,45 @@ not for solving.
 - `checks::cell_quality` gives per-cell non-orthogonality and skewness
   whose maxima equal the `checkMesh` report bit for bit (pinned).
 
+## TetGen as the tet source (gh:#1796, 2026-11-26)
+
+`TetDualOptions::tet_source` picks where the tet → dual → layers route
+gets its tetrahedra: `TetSource::CarvedCentroid` (default, unchanged:
+carve, snap, centroid split, Delaunay flips) or `TetSource::TetGen {
+radius_edge, min_dihedral, max_volume }` (`pipeline/tet_source.rs`: the
+surface becomes a PLC through `PlcInput::from_triangle_soup` with the
+region index as marker, `tetrahedralize_plc` under `-pq<r>/<d>[a<V>]`,
+`to_volume_mesh` names the patches). Changing the default needs the
+maintainer.
+
+- **Carve, snap and the Delaunay flips are not run** on TetGen's tets; the
+  staged log records carve and snap with `applied: false` and an empty
+  mesh, Delaunay with `applied: false` and the TetGen mesh. The flips are
+  skipped on principle: TetGen's `-q` output is already a constrained
+  Delaunay refinement, and `flip_to_delaunay` (plain `f64`, blind to the
+  constraining subfaces) could only undo a constrained face.
+- **Cavities need hole points** (`tet_source::hole_points`): a closed
+  surface component with negative signed volume (wound into what it
+  encloses, e.g. the pebble in its channel) gets one. Without it TetGen
+  meshed the pebble's inside and the `pebble` patch disappeared into
+  internal faces.
+- **Measured (Mesh Studio, 2026-11-26):** no layer grows on TetGen's
+  **tetrahedra** with back-off or `CfMeshOptimise` on any of pipe, fuel
+  channel, pebble (some wall tets have all four vertices on the boundary;
+  `tet_source::tests::diagnose_boundary_tets_of_both_sources`). On their
+  **cell-centre dual** (`Corners`) back-off grows 3 layers on the pipe and
+  fuel channel (12–17 % of the asked thickness, against 6–9 % on the carved
+  dual) and none on the pebble; `CfMeshOptimise` grows all 3 on all three
+  (31–75 %) and 20 on the pipe. The cell-centre dual with corner feature
+  points was kept by measurement against `MedianPerPoint` (same layers,
+  7–18× slower under `CfMeshOptimise`) and `MedianPerCorner` (4–6× the wall
+  faces, max non-orthogonality 80–88°).
+- **TetGen output differs between native and wasm** on the pebble (35 347
+  tetrahedra natively, 35 200 in the browser): the port calls `acos`,
+  `cos`, `ln` and `powf` through the platform's `libm`, not PETIR, so a
+  last-bit difference changes a refinement decision (gh:#1823). Pins are
+  native.
+
 ## The `tetgen` module: TetGen 1.6.0, ported stage by stage (epic gh:#1789, 2026-11-26)
 
 `src/tetgen/` ports Hang Si's TetGen 1.6.0 (`github.com/libigl/tetgen`,
@@ -534,7 +573,7 @@ sign-equal substitute (`delaunay.rs`, `outram-blender`'s
 | 4 | gh:#1793 | boundary recovery (`recoverboundary`, `tetrahedralize_plc`) | done: 38 / 38 runs (19 cases x `-p`, `-pY`) identical to an instrumented upstream (86 291 dump lines, 55 reach counters), `verification_and_validation/tetgen_recoverboundary_gh1793/` |
 | 5 | gh:#1794 | the rest of `-p`: `carveholes`, `suppresssteinerpoints`, `recoverdelaunay`, `smooth_vertices`, `improve_mesh`, `jettisonnodes`, output, `to_volume_mesh` | done: 48 / 48 runs (21 cases x `-pz`, `-pzY`; 3 x `-pzA`, `-pzAY`), 192 / 192 output files byte-identical to the unmodified upstream binary, 34 reach counters equal, `verification_and_validation/tetgen_plc_gh1794/` |
 | 6 | gh:#1795 | Delaunay refinement (`-q`, `-a`); ~~and mesh improvement~~ (mesh improvement is stage 5: plain `-p` runs it) | done: 41 / 41 runs (21 cases x `-pqz`; subsets x `-pq1.2z`, `-pq1.414/12z`, `-pqa<V>z`; `-pqAz`; Mesh Studio pipe, fuel channel, pebble x `-pq1.414a0.0026z`), 164 / 164 files byte-identical to the unmodified upstream binary, 64 reach counters equal, `-V` statistics identical, `verification_and_validation/tetgen_quality_gh1795/` |
-| 7 | gh:#1796 | TetGen as the tet source for the tet → dual → layers route, and in Mesh Studio | not started |
+| 7 | gh:#1796 | TetGen as the tet source for the tet → dual → layers route, and in Mesh Studio | done: `pipeline::TetSource::TetGen` (`pipeline/tet_source.rs`, default still `CarvedCentroid`), Mesh Studio's default; measurements in the gh:#1796 section of `dhoby-ghaut/verification_and_validation/mesh_studio_gh1771/README.md` |
 
 `tetgen::predicates::Predicates` holds what `exactinit` sets (the C
 globals of `predicates.cxx`) in place of upstream's file-scope statics.

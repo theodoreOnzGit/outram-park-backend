@@ -37,7 +37,7 @@
 //! | 4 | gh:#1793 | boundary recovery (`recoverboundary`) | **done: [`flip`], [`recover`], [`steiner`]** |
 //! | 5 | gh:#1794 | the rest of `-p`: `carveholes`, `suppresssteinerpoints`, `recoverdelaunay`, `smooth_vertices`, `improve_mesh`, `jettisonnodes`, the `.node`/`.ele`/`.face`/`.edge` output, [`to_volume_mesh`] | **done: [`carve`], [`optimize`], [`output`], [`tetrahedralize`]** |
 //! | 6 | gh:#1795 | Delaunay refinement (`-q`, `-a`); ~~mesh improvement~~ (ported in stage 5: plain `-p` runs it) | **done: [`refine`], [`quality`]** |
-//! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | not started |
+//! | 7 | gh:#1796 | TetGen as the tet source for cfMesh's tet → dual → layers, and in Mesh Studio | **done: [`crate::pipeline::TetSource::TetGen`]** (`pipeline/tet_source.rs`; the crate default stays the carved route) |
 //!
 //! Stage 2 adds the mesh object ([`mesh::TetgenMesh`]: pools, records,
 //! `triface` and every orientation table, with indices for pointers) and

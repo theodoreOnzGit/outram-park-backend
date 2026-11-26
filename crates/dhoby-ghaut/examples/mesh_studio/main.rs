@@ -89,6 +89,13 @@ fn main() -> eframe::Result<()> {
         }
         return Ok(());
     }
+    if args.iter().any(|a| a == "--measure") {
+        // One row of the gh:#1796 mesh-type table: the page's query keys
+        // as `--key value`, e.g. `--measure --shape pipe --tets tetgen --n 3`.
+        let q = bugis::web_demo::platform::query_pairs();
+        println!("{}", headless::measure(&q));
+        return Ok(());
+    }
     if args.iter().any(|a| a == "--headless") {
         let case = args.iter().find(|a| !a.starts_with("--")).cloned();
         print!("{}", headless::run(case.as_deref()));
@@ -335,54 +342,67 @@ mod tests {
     /// thickness there; cfMesh's optimiser grows all three in 77 s, which is
     /// too slow for this test). With the per-corner median dual instead, none
     /// of the three grew a layer and the pebble's dual was refused.
+    ///
+    /// **Since gh:#1796 both tet sources** (the page's default became
+    /// TetGen). The figures above are the carved source's. On TetGen's
+    /// tetrahedra (2026-11-26): pipe 6826 cells, layers 1088 × 3; fuel
+    /// channel 14313 cells, 2638 × 3; pebble 7186 cells, **no layer** with
+    /// back-off. The TetGen volumes are the surface's to round-off (its
+    /// boundary *is* the surface); the pebble keeps its `pebble` patch
+    /// only because the cavity gets a TetGen hole point
+    /// (`outram_park_fork_cfmesh::pipeline::tet_source::hole_points`;
+    /// without one TetGen meshed the pebble's inside, found by this test).
     #[test]
     fn reactor_shapes_mesh_with_named_patches_and_wall_layers() {
-        use super::engine::Design;
-        use super::model::reactor_surface;
-        for (kind, patches, layered) in [
-            (GeomKind::Pipe, vec!["inlet", "outlet", "walls"], true),
-            (
-                GeomKind::FuelChannel,
-                vec!["channel", "inlet", "outlet", "pin"],
-                true,
-            ),
-            (
-                GeomKind::Pebble,
-                vec!["channel", "inlet", "outlet", "pebble"],
-                false,
-            ),
-        ] {
-            let d = Design {
-                kind,
-                cell_size: kind.default_cell_size(2.0),
-                dual: kind.default_dual(),
-                ..Design::default()
-            };
-            let p = d.params();
-            let b = build(&p).unwrap_or_else(|e| panic!("{kind:?}: {e}"));
-            assert!(
-                b.report.valid && b.report.n_negative_volume_cells == 0,
-                "{kind:?}"
-            );
-            let mut names: Vec<&str> = b.mesh.patches.iter().map(|q| q.name.as_str()).collect();
-            names.sort_unstable();
-            assert_eq!(names, patches, "{kind:?}: patches");
-            let (pts, tris, _, _) = reactor_surface(kind, p.size);
-            let v = outram_park_fork_cfmesh::shapes::surface_volume(&pts, &tris);
-            let rel = (b.report.total_volume - v).abs() / v;
-            assert!(
-                rel < 5e-3,
-                "{kind:?}: volume {} vs surface {v} (rel {rel:e})",
-                b.report.total_volume
-            );
-            assert_eq!(b.layer_index.unreached, 0, "{kind:?}");
-            if layered {
-                assert_eq!(
-                    b.layer_index.max,
-                    3,
-                    "{kind:?}: layers {:?}",
-                    b.layer_index.counts()
+        for tetgen in [false, true] {
+            use super::engine::Design;
+            use super::model::reactor_surface;
+            for (kind, patches, layered) in [
+                (GeomKind::Pipe, vec!["inlet", "outlet", "walls"], true),
+                (
+                    GeomKind::FuelChannel,
+                    vec!["channel", "inlet", "outlet", "pin"],
+                    true,
+                ),
+                (
+                    GeomKind::Pebble,
+                    vec!["channel", "inlet", "outlet", "pebble"],
+                    false,
+                ),
+            ] {
+                let d = Design {
+                    kind,
+                    cell_size: kind.default_cell_size(2.0),
+                    dual: kind.default_dual(),
+                    tetgen,
+                    ..Design::default()
+                };
+                let p = d.params();
+                let b = build(&p).unwrap_or_else(|e| panic!("{kind:?}: {e}"));
+                assert!(
+                    b.report.valid && b.report.n_negative_volume_cells == 0,
+                    "{kind:?}"
                 );
+                let mut names: Vec<&str> = b.mesh.patches.iter().map(|q| q.name.as_str()).collect();
+                names.sort_unstable();
+                assert_eq!(names, patches, "{kind:?}: patches");
+                let (pts, tris, _, _) = reactor_surface(kind, p.size);
+                let v = outram_park_fork_cfmesh::shapes::surface_volume(&pts, &tris);
+                let rel = (b.report.total_volume - v).abs() / v;
+                assert!(
+                    rel < 5e-3,
+                    "{kind:?}: volume {} vs surface {v} (rel {rel:e})",
+                    b.report.total_volume
+                );
+                assert_eq!(b.layer_index.unreached, 0, "{kind:?}");
+                if layered {
+                    assert_eq!(
+                        b.layer_index.max,
+                        3,
+                        "{kind:?}: layers {:?}",
+                        b.layer_index.counts()
+                    );
+                }
             }
         }
     }

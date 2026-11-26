@@ -280,6 +280,10 @@ pub struct Params {
     pub sphere_lon: usize,
     pub cleanup: Cleanup,
     pub opts: TetDualOptions,
+    /// The dual's feature-point rule on a reactor shape (`Corners`, see
+    /// [`build`]); a field so the dual-kind measurement of gh:#1796 can
+    /// compare the other rule. Primitives use `opts.dual_feature_points`.
+    pub reactor_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule,
 }
 
 impl Default for Params {
@@ -297,6 +301,7 @@ impl Default for Params {
                 first_layer_thickness: 0.02,
                 ..Default::default()
             },
+            reactor_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners,
         }
     }
 }
@@ -373,7 +378,7 @@ pub fn build(p: &Params) -> Result<Built, String> {
         // neighbours; gh:#1240, recorded in the cfMesh port's AGENTS.md).
         let opts = TetDualOptions {
             layer_patches: walls,
-            dual_feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners,
+            dual_feature_points: p.reactor_feature_points,
             ..p.opts.clone()
         };
         let s = surface_to_tet_dual_mesh_multipatch_staged(&points, &tris, &regions, &opts)?;

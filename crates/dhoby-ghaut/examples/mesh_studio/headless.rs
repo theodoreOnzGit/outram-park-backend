@@ -82,3 +82,57 @@ pub fn run(case: Option<&str>) -> String {
     }
     out
 }
+
+/// Header of [`measure`]'s row.
+pub const MEASURE_HEADER: &str = "shape,tets,mesh,n,strategy,dual,rule,cells,neg_cells,max_non_orth_deg,max_skewness,layers_deep,layer_cells,layer1_cells,thickness_median_over_asked,build_s,notes";
+
+/// One build of the design a query describes (the page's own keys, see
+/// [`crate::engine::Design::from_query`], plus `rule=edge|corners` for a
+/// reactor shape's dual feature points), as one CSV row of
+/// [`MEASURE_HEADER`]: the gh:#1796 measurement of every mesh type on
+/// both tet sources. `layers_deep` is the deepest layer index found,
+/// `layer1_cells` the cells in the wall-nearest layer, and the thickness
+/// ratio the median grown column over the asked total (0 with no layer).
+pub fn measure(q: &[(String, String)]) -> String {
+    use super::engine::{layer_thickness, Design};
+    use outram_park_fork_cfmesh::dual::FeaturePointRule;
+    let d = Design::from_query(q);
+    let mut p = d.params();
+    let rule = q.iter().find(|(k, _)| k == "rule").map(|(_, v)| v.as_str());
+    if rule == Some("edge") {
+        p.reactor_feature_points = FeaturePointRule::OnFeatureEdge;
+    }
+    let t0 = std::time::Instant::now();
+    let r = build(&p);
+    let secs = t0.elapsed().as_secs_f64();
+    let head = format!(
+        "{},{},{},{},{:?},{:?},{}",
+        d.kind.slug(),
+        if d.tetgen { "tetgen" } else { "carved" },
+        if d.polyhedral { "dual" } else { "tet" },
+        d.n_layers,
+        d.strategy,
+        d.dual,
+        rule.unwrap_or("corners"),
+    );
+    match r {
+        Ok(b) => {
+            let counts = b.layer_index.counts();
+            let [asked, _, med, _] = layer_thickness(&d, b.report.layers.as_ref());
+            format!(
+                "{head},{},{},{:.2},{:.3},{},{},{},{:.4},{:.2},{}",
+                b.report.cell_count,
+                b.report.n_negative_volume_cells,
+                b.report.max_non_orthogonality_deg,
+                b.report.max_skewness,
+                counts.len() - 1,
+                counts[1..].iter().sum::<usize>(),
+                counts.get(1).copied().unwrap_or(0),
+                if asked > 0.0 { med / asked } else { 0.0 },
+                secs,
+                b.report.stage_notes.join(" | ").replace(',', ";")
+            )
+        }
+        Err(e) => format!("{head},ERROR,,,,,,,,{secs:.2},{}", e.replace(',', ";")),
+    }
+}

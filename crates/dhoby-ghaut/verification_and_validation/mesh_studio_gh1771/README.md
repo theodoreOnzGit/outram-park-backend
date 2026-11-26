@@ -1,4 +1,4 @@
-# Mesh Studio review images (gh:#1771)
+# Mesh Studio review images (gh:#1771, gh:#1796)
 
 > **Research, education and V&V only.** Not for reactor design, licensing,
 > operation or safety decisions. AI-assisted draft: untrusted until a human
@@ -32,6 +32,10 @@ stage, coloured by boundary-layer index or cell quality.
   the convex hull of its true section. Neighbouring polygons can therefore
   overlap slightly. This affects the drawing only; no number below comes
   from the polygons.
+- **Tet source (gh:#1796).** Since 2026-11-26 the page meshes **TetGen's
+  tetrahedra** by default (`-pq1.414`, `-a` the regular tetrahedron of the
+  cell size, `h³/(6√2)`); `?tets=carved` asks for the structured
+  carve-and-split route. Each page title names the source.
 - **Inputs.** The defaults for each shape: size 2 m, 3 layers, first layer
   0.020 m, growth 1.3, back-off strategy.
   - Pipe and fuel channel: cell-centre dual with `Corners` feature points.
@@ -46,9 +50,185 @@ stage, coloured by boundary-layer index or cell quality.
   It prints each page title (shape and cell count), so a re-run can be
   compared with the table below.
 
-## Results (2026-11-26, branch `claude/outram-blender-mggk7u`)
+## gh:#1796: TetGen's tetrahedra, every mesh type (2026-11-26)
 
-| image | shape · cut · colour | cells | what to look at |
+### The measurement table (native, release)
+
+`mesh_studio --measure --shape <s> --tets <src> --mesh tet|poly --n 0|3
+--strategy backoff|cfmesh` (`headless::measure`), the page's defaults
+otherwise: cell-centre dual with corner feature points, 3 layers asked
+(first 20 mm, ×1.3, 79.8 mm in all). "Layers" is the deepest layer grown
+and the median grown column over the asked thickness. Times are wall
+clock for the whole build; the `CfMeshOptimise` and dual-kind rows ran up
+to four at a time on four cores, so they are upper bounds. Every row is
+valid (the pipeline refuses an invalid stage) with **0 negative cells**.
+
+| shape | source | mesh | cells | max non-orth | max skew | layers | time |
+|---|---|---|---|---|---|---|---|
+| pipe | TetGen | tet | 18020 | 62.6° | 0.99 | n/a | 0.3 s |
+| pipe | TetGen | tet + BL, back-off | 18020 | 62.6° | 0.99 | **none** | 0.9 s |
+| pipe | TetGen | tet + BL, cfMesh | 18020 | 62.6° | 0.99 | **none** (stage refused) | 117 s |
+| pipe | TetGen | dual | 3562 | 49.5° | 1.37 | n/a | 0.4 s |
+| pipe | TetGen | dual + BL, back-off | 6826 | 69.9° | 2.01 | 3, 17 % | 0.5 s |
+| pipe | TetGen | dual + BL, cfMesh | 6826 | 54.7° | 2.20 | 3, 75 % | 22 s |
+| pipe | carved | tet | 29952 | 65.9° | 0.40 | n/a | 3.5 s |
+| pipe | carved | tet + BL, back-off | 39168 | 72.7° | 0.92 | 3, 22 % | 3.5 s |
+| pipe | carved | tet + BL, cfMesh | 39168 | 63.8° | 1.08 | 3, 119 % | 17 s |
+| pipe | carved | dual | 7153 | 59.3° | 0.94 | n/a | 3.3 s |
+| pipe | carved | dual + BL, back-off | 11857 | 66.7° | 2.05 | 3, 9 % | 3.5 s |
+| pipe | carved | dual + BL, cfMesh | 11857 | 52.1° | 2.40 | 3, 55 % | 49 s |
+| fuel channel | TetGen | tet | 30804 | 67.7° | 1.00 | n/a | 0.5 s |
+| fuel channel | TetGen | tet + BL, back-off | 30804 | 67.7° | 1.00 | **none** | 1.9 s |
+| fuel channel | TetGen | tet + BL, cfMesh | 30804 | 67.7° | 1.00 | **none** (stage refused) | 451 s |
+| fuel channel | TetGen | dual | 6399 | 60.7° | 1.65 | n/a | 0.7 s |
+| fuel channel | TetGen | dual + BL, back-off | 14313 | 74.5° | 2.94 | 3, 12 % | 1.1 s |
+| fuel channel | TetGen | dual + BL, cfMesh | 14313 | 63.3° | 2.84 | 3, 45 % | 57 s |
+| fuel channel | carved | tet | 46080 | 75.9° | 0.40 | n/a | 0.4 s |
+| fuel channel | carved | tet + BL, back-off | 46080 | 75.9° | 0.40 | **none** | 1.6 s |
+| fuel channel | carved | tet + BL, cfMesh | 66624 | 74.5° | 0.77 | 3, 85 % | 90 s |
+| fuel channel | carved | dual | 11524 | 65.2° | 0.98 | n/a | 0.5 s |
+| fuel channel | carved | dual + BL, back-off | 22204 | 84.8° | 2.08 | 3, 6 % | 1.3 s |
+| fuel channel | carved | dual + BL, cfMesh | 22204 | 78.2° | 2.36 | 3, 38 % | 240 s |
+| pebble | TetGen | tet | 35347 | 72.2° | 1.53 | n/a | 0.7 s |
+| pebble | TetGen | tet + BL, back-off | 35347 | 72.2° | 1.53 | **none** | 3.4 s |
+| pebble | TetGen | tet + BL, cfMesh | 35347 | 72.2° | 1.53 | **none** (stage refused) | 413 s |
+| pebble | TetGen | dual | 7186 | 67.8° | 1.78 | n/a | 1.2 s |
+| pebble | TetGen | dual + BL, back-off | 7186 | 67.8° | 1.78 | **none** | 2.7 s |
+| pebble | TetGen | dual + BL, cfMesh | 15052 | 68.7° | 3.20 | 3, 31 % | 93 s |
+| pebble | carved | tet | 43392 | 78.4° | 0.43 | n/a | 0.4 s |
+| pebble | carved | tet + BL, back-off | 43392 | 78.4° | 0.43 | **none** | 1.4 s |
+| pebble | carved | tet + BL, cfMesh | 56832 | 74.5° | 0.75 | 3, 83 % | 72 s |
+| pebble | carved | dual | 10412 | 79.9° | 1.04 | n/a | 0.7 s |
+| pebble | carved | dual + BL, back-off | 10412 | 79.9° | 1.04 | **none** | 2.1 s |
+| pebble | carved | dual + BL, cfMesh | 17474 | 78.2° | 2.36 | 3, 37 % | 216 s |
+
+(The carved pipe's tet + BL under cfMesh reports a median column 119 % of
+the asked total: `CfMeshOptimise` does not cap a column at the asked
+thickness. Not investigated here.)
+
+**What it says.**
+
+- **No layer grows on TetGen's tetrahedra**, with either strategy, on any
+  shape: back-off backs off to zero and `CfMeshOptimise`'s result is
+  refused by the pipeline's gate. Some wall tetrahedra have all four
+  vertices on the boundary (146 on the 1 cm test pipe, none on the carved
+  route; `tet_source::tests::diagnose_boundary_tets_of_both_sources`).
+  The report and the panel say so. **Use the dual for layers.**
+- **On TetGen's dual** back-off grows thicker layers than on the carved
+  dual (pipe 17 % against 9 %, fuel channel 12 % against 6 %) and
+  `CfMeshOptimise` is 2–4× faster than on the carved dual and grows layers
+  on every shape.
+- **The pebble (the issue's question):** back-off still grows **no** layer
+  on the pebble's TetGen dual. `CfMeshOptimise` grows all three (2622 per
+  layer, 31 %).
+- **20 layers** (`n=20&first=0.002&ratio=1.1`, 114.5 mm asked) on the
+  pipe's TetGen dual: `CfMeshOptimise` grows all 20 on every wall face
+  (25322 cells, 52 % of the asked thickness, 54.7°, 11 s natively, 41 s in
+  the browser); back-off grows none (pinned in
+  `engine::tests::twenty_layers_grow_on_the_pipe_with_the_cfmesh_optimiser`).
+
+### The dual kind on TetGen's tetrahedra, chosen by measurement
+
+| dual (feature points) | pipe dual + BL, back-off | fuel channel | pebble | cfMesh layers, time (pipe / fuel / pebble) |
+|---|---|---|---|---|
+| cell-centre (corners) | 6826, 69.9°, 3 layers, 17 % | 14313, 74.5°, 12 % | none | 75 / 45 / 31 %, 22 / 57 / 93 s |
+| cell-centre (on feature edge) | same cells, 69.9°, skew 2.07 | same, skew 2.98 | none | not run |
+| median per point (corners) | 6826, 67.3°, 17 % | 14313, 69.1°, 12 % | none | 62 / 40 / 40 %, 151 / 364 / 549 s |
+| median per corner | 22561, 83.8°, 17 % | 52344, 84.8°, 8 % | 53248, 88.2°, 2 % | not run |
+
+The **cell-centre dual with corner feature points** stays the reactor
+shapes' choice: it ties on validity and layers grown with back-off, is
+7–18× faster under `CfMeshOptimise` with equal or thicker layers, and has
+a smaller skewness than the feature-edge rule. The per-point median dual
+has 2.5–5.4° less non-orthogonality with back-off but is far slower under
+`CfMeshOptimise`. The per-corner dual is the only one on which back-off
+grows layers on the pebble, but with 4–6× the wall faces, 2 % of the
+asked thickness and 80–88° non-orthogonality.
+
+### Images (browser, 2026-11-26; cell counts from the page titles)
+
+| image | view | cells |
+|---|---|---|
+| `pipe_tetgen_tets.png` | pipe · TetGen tets · z · non-orth · 3× | 18020 |
+| `pipe_tetgen_tets_layers_zoom.png` | pipe · TetGen tets + 3 layers asked · 30× at the wall | 18020 (no layer) |
+| `pipe_tetgen_dual.png` | pipe · TetGen dual · z · non-orth · 3× | 3562 |
+| `pipe_tetgen_dual_layers_zoom.png` | pipe · TetGen dual + 3 layers (back-off) · 30× at the wall | 6826 |
+| `pipe_tetgen_dual_20_layers_zoom.png` | pipe · TetGen dual + 20 layers (cfMesh) · 20× at the wall | 25322 |
+| `fuel_channel_tetgen_tets.png` | fuel channel · TetGen tets · 1.5× | 30804 |
+| `fuel_channel_tetgen_tets_layers_zoom.png` | fuel channel · TetGen tets + 3 asked · 20× at the pin | 30804 (no layer) |
+| `fuel_channel_tetgen_dual.png` | fuel channel · TetGen dual · 1.5× | 6399 |
+| `fuel_channel_tetgen_dual_layers_zoom.png` | fuel channel · TetGen dual + 3 (back-off) · 20× at the pin | 14313 |
+| `pebble_tetgen_tets.png` | pebble · TetGen tets · 1.5× | 35200 |
+| `pebble_tetgen_tets_layers_zoom.png` | pebble · TetGen tets + 3 asked · 20× at the pebble | 35200 (no layer) |
+| `pebble_tetgen_dual.png` | pebble · TetGen dual · 1.5× | 7158 |
+| `pebble_tetgen_dual_layers_zoom.png` | pebble · TetGen dual + 3 (cfMesh) · 20× at the pebble | 14958 |
+| `pair_pipe_dual_carved.png` / `pair_pipe_dual_tetgen.png` | pipe dual, carved / TetGen, same 3× view, non-orth | 7153 / 3562 |
+| `phone_pebble_tetgen.png` | pebble at 390 × 844, controls folded | 7158 |
+
+**The browser's TetGen pebble is not the native one** (35200 tetrahedra
+and 7158 dual cells against 35347 and 7186; 2600 cfMesh cells per layer
+against 2622): the port's `acos`/`cos`/`ln`/`powf` come from the
+platform's `libm` (gh:#1823). Pipe and fuel channel agree. The pins are
+native.
+
+**Checked, by looking at the images:**
+
+- TetGen tets and their dual are **irregular** (5–8-sided sections), not
+  the carved route's truncated-octahedron lattice (`pair_*`: the carved
+  dual is a square-symmetric pattern of octagons and squares, the TetGen
+  dual is not).
+- Cell size **grades toward the pebble** (smaller cells round it in
+  `pebble_axial_nonorth.png`), but not toward the pipe or channel walls:
+  with `-a` from the cell size the interior is near-uniform and only small
+  surface features refine. The maintainer's reference pictures grade toward
+  every wall; that is not reproduced.
+- The pebble is a **hole** with its own boundary (it was not, before
+  `hole_points`: TetGen meshed its inside).
+- Layers sit on the walls in order 1 → 2 → 3 (green, orange, pink) from
+  the wall: on the pipe wall, the fuel pin (growing outward) and the
+  pebble (growing outward into the coolant). The 20-layer stack is 20 thin
+  bands, thinnest at the wall, ending in polyhedra.
+- The tet + layers views show tets against the wall and **no** layer,
+  with the report's "boundary layers added none" note.
+- At phone width the controls fold, the zoom buttons and report remain,
+  and the pebble hole is centred.
+
+**Not checked:** y-cuts; other cut positions; the TetGen route on the
+primitives beyond `box_cross_layers.png`; whether TetGen's dual with
+layers suits any flow; the browser's own count differences beyond the
+pebble (only the three shapes' default builds were compared).
+
+### No lag (the no-lag rule), measured with Playwright
+
+Chromium headless, the view dragged throughout the build, frame gaps from
+`requestAnimationFrame` (`no_lag.mjs` in this folder):
+
+| build | window | frames during the build: median / p99 / max | the same drag with no build |
+|---|---|---|---|
+| pebble default (the heaviest default: 5.9 s in the worker) | 1100 × 760 | 49.9 / 83.3 / 83.4 ms | 33.4 / 66.8 / 100.1 ms |
+| pebble default | 390 × 844 | 16.7 / 33.3 / 49.9 ms | 16.7 / 50.0 / 66.7 ms |
+| fuel channel default (2.3 s) | 1100 × 760 | 50.0 / 83.4 / 83.4 ms | not run |
+| pipe default (1.2 s) | 1100 × 760 | 50.0 / 83.4 / 83.4 ms | not run |
+
+The frame gaps during a build match those of the same drag with nothing
+building: the cost is the software-rendered drawing, not the worker. The
+largest gap seen on page load (333 ms) is before the build starts (the
+wasm starting).
+
+## ~~Results (2026-11-26, branch `claude/outram-blender-mggk7u`)~~
+
+**CORRECTED 2026-11-26 (gh:#1796):** the table below described the
+**carved (structured) default** of the first round. The images were
+regenerated on the new TetGen default; every view of this table except
+the three `fuel_channel_stage_*` views (which now ask for `tets=carved`
+so the carve, snap and split stages still have cells) now shows TetGen's
+tetrahedra and their dual. New counts, from the page titles: pipe views
+6826 cells; fuel channel views 14313; pebble views 7158; box 3327 (TetGen,
+per-corner dual, 249 core + 3 × 1026); `fuel_channel_stage_*` 22204 (carved,
+as before). The struck figures are kept for the carved route.
+
+
+| image | shape · cut · colour | ~~cells~~ carved cells (first round) | what to look at |
 |---|---|---|---|
 | `pipe_cross_layers.png` | pipe · z · layer | 11857 | whole cross-section; layers are too thin to see at this zoom (see below) |
 | `pipe_wall_layers_zoom.png` | pipe · z · layer · 30× at the wall | 11857 | three layer bands (1 green, 2 orange, 3 pink) against the wall |
@@ -66,7 +246,7 @@ stage, coloured by boundary-layer index or cell quality.
 | `pebble_cross_skew.png` | pebble · z · skewness | 10412 | |
 | `box_cross_layers.png` | box · z · layer | 3885 | layers on the four faces the cut crosses |
 
-### Layer counts and thicknesses, read from each page's report
+### Layer counts and thicknesses, read from each page's report (carved route, first round)
 
 | shape | core | layer 1 / 2 / 3 | total thickness per column, least / median / most | asked for |
 |---|---|---|---|---|
@@ -106,7 +286,7 @@ stage, coloured by boundary-layer index or cell quality.
     which cut off half of each one. The view now centres on the mesh in
     every cut plane (`app::in_plane_centre`, tested).
 
-## What was checked, and what was not
+## What was checked, and what was not (first round, carved route)
 
 **Checked, by looking at the images:**
 

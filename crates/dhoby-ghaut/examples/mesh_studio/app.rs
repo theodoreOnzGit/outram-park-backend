@@ -15,9 +15,15 @@
 //!
 //! URL query (or `--key value` natively): `shape=box|sphere|cylinder|subdivided-cube|pipe|fuel-channel|pebble`,
 //! `stage=<label>`, `layers=<k>` (growth slider), `colour=layer|nonorth|skew`,
-//! `axis=x|y|z`, `h=<cell size, m>`, `n=<layers>`,
+//! `axis=x|y|z`, `h=<cell size, m>`, `n=<layers>`, `first=<first layer, m>`,
+//! `ratio=<layer growth ratio>`,
 //! `strategy=backoff|cfmesh|snappy`, `dual=corner|point|centre`,
-//! `mesh=tet|poly` (the mesh type; `n=0` for no boundary layers).
+//! `mesh=tet|poly` (the mesh type; `n=0` for no boundary layers),
+//! `tets=tetgen|carved` (the tet source, gh:#1796: TetGen's unstructured
+//! tetrahedra, the page's default, or the carved structured grid),
+//! `q=<TetGen radius-edge ratio>` (default 1.414), `vol=<TetGen max tet
+//! volume, m³>` (default: a regular tetrahedron of the cell size,
+//! `h³/(6√2)`), `at=<x,y cm>&zoom=<f>` (a view, applied once).
 
 use bugis::web_demo::dock::{Dock, Edge};
 use bugis::web_demo::field::{self, ColourMap, Scale};
@@ -95,36 +101,7 @@ impl MeshApp {
         bugis::Theme::default().apply(&cc.egui_ctx);
         let q = query_pairs();
         let get = |k: &str| q.iter().find(|(a, _)| a == k).map(|(_, b)| b.clone());
-        let mut design = Design::default();
-        if let Some(k) = get("shape").and_then(|s| GeomKind::from_slug(&s)) {
-            design.kind = k;
-            design.cell_size = k.default_cell_size(design.size);
-            design.dual = k.default_dual();
-        }
-        if let Some(h) = get("h").and_then(|s| s.parse().ok()) {
-            design.cell_size = h;
-        }
-        if let Some(n) = get("n").and_then(|s| s.parse().ok()) {
-            design.n_layers = n;
-        }
-        match get("strategy").as_deref() {
-            Some("cfmesh") => design.strategy = STRATEGIES[1],
-            Some("snappy") => design.strategy = STRATEGIES[2],
-            Some("backoff") => design.strategy = STRATEGIES[0],
-            _ => {}
-        }
-        match get("mesh").as_deref() {
-            Some("tet") => design.polyhedral = false,
-            Some("poly") => design.polyhedral = true,
-            _ => {}
-        }
-        match get("dual").as_deref() {
-            Some("corner") => design.dual = DUALS[0],
-            Some("point") => design.dual = DUALS[1],
-            Some("centre") => design.dual = DUALS[2],
-            _ => {}
-        }
-        let design = design.clamped();
+        let design = Design::from_query(&q);
         let colouring = get("colour")
             .and_then(|s| Colouring::from_slug(&s))
             .unwrap_or(Colouring::Layer);
@@ -318,6 +295,40 @@ impl MeshApp {
             true,
             "polyhedra (dual of the tetrahedra)",
         );
+
+        ui.add_space(6.0);
+        ui.strong("Tetrahedra");
+        ui.radio_value(&mut d.tetgen, true, "TetGen (unstructured)");
+        ui.radio_value(&mut d.tetgen, false, "carved grid (structured)");
+        if d.tetgen {
+            ui.add(
+                egui::Slider::new(&mut d.radius_edge, 1.1..=4.0).text("quality: radius-edge ratio"),
+            );
+            let mut derived = d.max_volume.is_none();
+            ui.checkbox(&mut derived, "max tet volume from the cell size");
+            let v_lo = Design::regular_tet_volume(span / Design::MIN_CELLS_ACROSS);
+            let v_hi = Design::regular_tet_volume(span);
+            if derived {
+                d.max_volume = None;
+            } else {
+                let mut v = d.max_volume.unwrap_or_else(|| d.tet_volume());
+                ui.add(
+                    egui::Slider::new(&mut v, v_lo..=v_hi)
+                        .logarithmic(true)
+                        .text("max tet volume [m³]"),
+                );
+                d.max_volume = Some(v);
+            }
+            ui.label(
+                egui::RichText::new(format!(
+                    "TetGen -pq{:.3}a{:.2e}: carve, snap and the Delaunay flips are not run.",
+                    d.radius_edge,
+                    d.tet_volume()
+                ))
+                .small()
+                .weak(),
+            );
+        }
 
         ui.add_space(6.0);
         ui.strong("Boundary layers");
@@ -564,6 +575,21 @@ impl MeshApp {
                 Color32::LIGHT_RED,
             );
         }
+        let not_run = self
+            .summary
+            .as_ref()
+            .and_then(|s| s.stages.get(self.stage))
+            .is_some_and(|st| st.n_cells == 0);
+        if not_run && self.cut.is_some() {
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                "This stage was not run: TetGen's tetrahedra replace it.",
+                egui::FontId::proportional(16.0),
+                ui.visuals().weak_text_color(),
+            );
+            return;
+        }
         let Some(c) = &self.cut else {
             let msg = if self.building {
                 "meshing…"
@@ -719,19 +745,29 @@ fn dual_label(d: outram_park_fork_cfmesh::dual::DualKind) -> &'static str {
 }
 
 /// What a reader should know before picking a layer strategy: measured
-/// behaviour recorded in the cfMesh port (gh:#1215, #1240, #1765).
+/// behaviour recorded in the cfMesh port (gh:#1215, #1240, #1765, #1796).
 fn strategy_note(d: &Design) -> Option<&'static str> {
     use outram_park_fork_cfmesh::layers::LayerQualityStrategy as L;
-    match (d.n_layers, d.strategy) {
-        (0, _) => None,
-        (_, L::CfMeshOptimise) => Some(
+    if d.n_layers == 0 {
+        return None;
+    }
+    if d.tetgen && !d.polyhedral {
+        // gh:#1796: measured on the pipe, fuel channel and pebble.
+        return Some("No layer grows on TetGen's tetrahedra with back-off or cfMesh's optimiser (measured on all three reactor shapes; the report says so). Use the polyhedra for layers.");
+    }
+    match d.strategy {
+        L::CfMeshOptimise if d.tetgen => Some(
+            "cfMesh's layer optimiser on TetGen's polyhedra: measured natively (2026-11-26) about 20 s on the pipe, 60 s on the fuel channel, 90 s on the pebble, several times that in a browser. Cancel stops it. It is the only strategy here that grows layers on the pebble, and the one that grows a 20-layer stack.",
+        ),
+        L::CfMeshOptimise => Some(
             "cfMesh's layer optimiser is slow: measured natively (2026-11-26) 31 s on the pipe, 77 s on the pebble, 145 s on the fuel channel, 326 s on the cylinder at the finest cell size with 5 layers, and several times that in a browser. Cancel stops it. On the pebble it is the only strategy here that grows layers.",
         ),
-        (_, L::SnappyCollapse) => Some("snappy's collapse removes most layers on these meshes: on a 1 cm pipe it kept 44 single-layer cells of 4260 asked (gh:#1765)."),
-        (_, L::BackOffOnly) if d.kind == GeomKind::Pebble => {
+        L::SnappyCollapse => Some("snappy's collapse removes most layers on these meshes: on a 1 cm pipe it kept 44 single-layer cells of 4260 asked (gh:#1765)."),
+        L::BackOffOnly if d.kind == GeomKind::Pebble => {
             Some("back-off grows no layer on the pebble (every thickness tried left an invalid mesh); cfMesh's layer optimiser grows all of them, slowly.")
         }
-        (_, L::BackOffOnly) => None,
+        L::BackOffOnly if d.n_layers > 5 => Some("back-off shrinks every column alike and grew none of 20 layers on the pipe's TetGen polyhedra (it grows 3); cfMesh's layer optimiser grows all 20."),
+        L::BackOffOnly => None,
     }
 }
 
@@ -755,8 +791,13 @@ impl eframe::App for MeshApp {
         }
         let title = match &self.summary {
             Some(s) => format!(
-                "Mesh Studio · {} · {} cells",
+                "Mesh Studio · {} · {} · {} cells",
                 self.design.kind.slug(),
+                if self.design.tetgen {
+                    "TetGen"
+                } else {
+                    "carved"
+                },
                 s.cells
             ),
             None => "Mesh Studio".into(),

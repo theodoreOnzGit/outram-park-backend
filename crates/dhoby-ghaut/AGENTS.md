@@ -236,8 +236,20 @@ and answers cuts of any stage; the app only draws.
   (`render.mjs` regenerates them). Wall layers are 1-2 px wide at the
   fitted zoom: a review set must include zoomed wall views
   (`?at=x,y&zoom=f`), and the report's "Wall layers total" line states the
-  grown thickness against the asked one (back-off keeps ~10 % on the
-  reactor shapes).
+  grown thickness against the asked one (~~back-off keeps ~10 % on the
+  reactor shapes~~ **CORRECTED 2026-11-26, gh:#1796:** back-off keeps
+  6–9 % on the carved dual and 12–17 % on the TetGen dual of the pipe and
+  fuel channel, and grows none on the pebble).
+- **Tet source (gh:#1796).** The page's default is TetGen
+  (`Design::tetgen`, `?tets=tetgen|carved`, `?q=` radius-edge ratio,
+  default 1.414, `?vol=` max tet volume, default the regular tetrahedron
+  of the cell size `h³/(6√2)`); the cfMesh crate's default, and so
+  `Params::default` and the headless sweep, stay on the carved route. On
+  TetGen's tets the carve and snap stages are listed as skipped and cut
+  empty. `--measure` (`headless::measure`) prints one row of the
+  mesh-type table for any query; the table is in the review README.
+  `Design::MAX_LAYERS` is 25: back-off grows none of a 20-layer stack on
+  the pipe, `CfMeshOptimise` grows all 20.
 - The headless-sweep fixture test fails on HEAD for reasons that predate
   Mesh Studio (gh:#1772); do not re-pin it without that issue's answer.
 

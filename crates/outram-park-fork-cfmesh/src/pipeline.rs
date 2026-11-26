@@ -120,6 +120,9 @@ pub mod p_mesh;
 
 pub mod staged;
 use staged::{PipelineStage, StageLog};
+/// Where the tetrahedra come from: the carved grid or TetGen (gh:#1796).
+pub mod tet_source;
+pub use tet_source::TetSource;
 
 /// Tuning knobs for [`surface_to_tet_dual_mesh`] and the primitive wrappers.
 ///
@@ -282,6 +285,15 @@ pub struct TetDualOptions {
     /// Settings of [`LayerQualityStrategy::CfMeshOptimise`] (cfMesh's
     /// `boundaryLayerOptimisation` defaults).
     pub cfmesh_layer_optimisation: BoundaryLayerOptimisationControls,
+    /// **Where the tetrahedra come from** (gh:#1796): the carved,
+    /// snapped and centroid-split grid ([`TetSource::CarvedCentroid`], the
+    /// default, unchanged) or TetGen's quality tetrahedralisation of the
+    /// surface ([`TetSource::TetGen`]). With TetGen the carve, snap and
+    /// Delaunay-flip stages are not run (the staged log lists them as
+    /// skipped) and [`Self::cell_size`], [`Self::refinement_levels`],
+    /// [`Self::snap`] and [`Self::max_flips`] do nothing; see
+    /// [`tet_source`]. Changing the default needs the maintainer.
+    pub tet_source: TetSource,
 }
 
 impl Default for TetDualOptions {
@@ -320,6 +332,7 @@ impl Default for TetDualOptions {
             layer_strategy: LayerQualityStrategy::BackOffOnly,
             snappy_layers: SnappyLayerControls::default(),
             cfmesh_layer_optimisation: BoundaryLayerOptimisationControls::default(),
+            tet_source: TetSource::CarvedCentroid,
         }
     }
 }
@@ -469,6 +482,11 @@ fn keep_if_ok(current: VolumeMesh, candidate: VolumeMesh) -> (VolumeMesh, bool) 
 /// 7. **Boundary layers** ([`add_boundary_layers_adaptive`]) if
 ///    `opts.n_layers > 0`, on `opts.wall_patch`.
 ///
+/// With [`TetDualOptions::tet_source`] = [`TetSource::TetGen`] (gh:#1796)
+/// stages 1-4 are replaced: TetGen tetrahedralises the surface itself
+/// ([`tet_source::tetgen_tets`]), carve, snap and the Delaunay flips are not
+/// run, and stages 5-7 run on TetGen's tetrahedra unchanged.
+///
 /// # Returns
 ///
 /// `Ok((mesh, report))` with a **valid** mesh (guaranteed to pass
@@ -593,6 +611,81 @@ pub(crate) fn run_pipeline(
     run_pipeline_observed(points, tris, opts, regions, upper_triangular, None)
 }
 
+/// Stages 1-4 of the carved route ([`TetSource::CarvedCentroid`]): carve,
+/// snap, centroid split and Delaunay flips, each recorded in `log` and each
+/// skipped with a line in `notes` when it would leave an invalid mesh.
+/// Moved out of [`run_pipeline_observed`] unchanged when the TetGen source
+/// was added (gh:#1796); the fingerprint pins hold it there.
+fn carve_snap_split(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    opts: &TetDualOptions,
+    notes: &mut Vec<String>,
+    log: &mut Option<&mut StageLog>,
+) -> Result<VolumeMesh, String> {
+    // Stage 1 — carve (mandatory). Uniform at `cell_size`, or octree-graded
+    // toward the wall when `refinement_levels > 0`.
+    let mut mesh = if opts.refinement_levels > 0 {
+        refine_near_boundary_banded(
+            points,
+            tris,
+            opts.cell_size,
+            opts.refinement_levels,
+            opts.refinement_band,
+        )
+    } else {
+        carve_box(points, tris, opts.cell_size)
+    };
+    if mesh.cell_count() == 0 {
+        return Err("carve produced 0 cells — try a smaller cell_size or check the surface is closed and outward-wound".into());
+    }
+    staged::record(log, PipelineStage::Carve, true, &mesh);
+
+    // Stage 2 — snap to the surface.
+    if opts.snap {
+        let snapped = snap_to_surface(&mesh, points, tris);
+        let (m, kept) = keep_if_ok(mesh, snapped);
+        mesh = m;
+        staged::record(log, PipelineStage::Snap, kept, &mesh);
+        if !kept {
+            notes.push(
+                "snap-to-surface skipped — it would tangle a wall cell on this geometry".into(),
+            );
+        }
+    }
+
+    // Stage 3 — tetrahedralize. (The tet mesh is a fresh mesh; if it is not
+    // acceptable — e.g. a snapped, non-star-shaped cell produced inverted tets —
+    // keep the pre-tet mesh so the dual/layer stages still run on a valid mesh.)
+    if opts.dual || opts.n_layers > 0 || opts.delaunay {
+        // Only bother tetrahedralizing if a later stage benefits; otherwise the
+        // caller wanted just the carve/snap, which we already have.
+        let tets = tetrahedralize(&mesh);
+        let (m, kept) = keep_if_ok(mesh, tets);
+        mesh = m;
+        staged::record(log, PipelineStage::Tetrahedralise, kept, &mesh);
+        if !kept {
+            notes.push(
+                "tetrahedralization skipped — it produced inverted cells on this geometry".into(),
+            );
+        }
+    }
+
+    // Stage 4 — Delaunay flip-improvement (improve-or-noop; always safe).
+    if opts.delaunay {
+        let flipped = flip_to_delaunay(&mesh, opts.max_flips);
+        let (m, kept) = keep_if_ok(mesh, flipped);
+        mesh = m;
+        staged::record(log, PipelineStage::Delaunay, kept, &mesh);
+        if !kept {
+            notes.push(
+                "Delaunay improvement skipped — no valid improving flips on this geometry".into(),
+            );
+        }
+    }
+    Ok(mesh)
+}
+
 /// [`run_pipeline`] with an optional [`StageLog`] (gh:#1765). With `None` it is
 /// `run_pipeline` exactly: the log only receives clones of meshes the stages
 /// already produced, so it cannot change the result
@@ -610,66 +703,25 @@ pub(crate) fn run_pipeline_observed(
     }
     let mut notes: Vec<String> = Vec::new();
 
-    // Stage 1 — carve (mandatory). Uniform at `cell_size`, or octree-graded
-    // toward the wall when `refinement_levels > 0`.
-    let mut mesh = if opts.refinement_levels > 0 {
-        refine_near_boundary_banded(
-            points,
-            tris,
-            opts.cell_size,
-            opts.refinement_levels,
-            opts.refinement_band,
-        )
+    // Stages 1-4. On TetGen's tetrahedra (gh:#1796) carve, snap and the
+    // Delaunay flips are not run (see `tet_source`); the log lists them.
+    let mut mesh = if opts.tet_source == TetSource::CarvedCentroid {
+        carve_snap_split(points, tris, opts, &mut notes, &mut log)?
     } else {
-        carve_box(points, tris, opts.cell_size)
+        let (tets, note) =
+            tet_source::tetgen_tets(points, tris, regions, &opts.wall_patch, opts.tet_source)?;
+        notes.push(note);
+        let nothing = tet_source::empty_mesh();
+        staged::record(&mut log, PipelineStage::Carve, false, &nothing);
+        if opts.snap {
+            staged::record(&mut log, PipelineStage::Snap, false, &nothing);
+        }
+        staged::record(&mut log, PipelineStage::Tetrahedralise, true, &tets);
+        if opts.delaunay {
+            staged::record(&mut log, PipelineStage::Delaunay, false, &tets);
+        }
+        tets
     };
-    if mesh.cell_count() == 0 {
-        return Err("carve produced 0 cells — try a smaller cell_size or check the surface is closed and outward-wound".into());
-    }
-    staged::record(&mut log, PipelineStage::Carve, true, &mesh);
-
-    // Stage 2 — snap to the surface.
-    if opts.snap {
-        let snapped = snap_to_surface(&mesh, points, tris);
-        let (m, kept) = keep_if_ok(mesh, snapped);
-        mesh = m;
-        staged::record(&mut log, PipelineStage::Snap, kept, &mesh);
-        if !kept {
-            notes.push(
-                "snap-to-surface skipped — it would tangle a wall cell on this geometry".into(),
-            );
-        }
-    }
-
-    // Stage 3 — tetrahedralize. (The tet mesh is a fresh mesh; if it is not
-    // acceptable — e.g. a snapped, non-star-shaped cell produced inverted tets —
-    // keep the pre-tet mesh so the dual/layer stages still run on a valid mesh.)
-    if opts.dual || opts.n_layers > 0 || opts.delaunay {
-        // Only bother tetrahedralizing if a later stage benefits; otherwise the
-        // caller wanted just the carve/snap, which we already have.
-        let tets = tetrahedralize(&mesh);
-        let (m, kept) = keep_if_ok(mesh, tets);
-        mesh = m;
-        staged::record(&mut log, PipelineStage::Tetrahedralise, kept, &mesh);
-        if !kept {
-            notes.push(
-                "tetrahedralization skipped — it produced inverted cells on this geometry".into(),
-            );
-        }
-    }
-
-    // Stage 4 — Delaunay flip-improvement (improve-or-noop; always safe).
-    if opts.delaunay {
-        let flipped = flip_to_delaunay(&mesh, opts.max_flips);
-        let (m, kept) = keep_if_ok(mesh, flipped);
-        mesh = m;
-        staged::record(&mut log, PipelineStage::Delaunay, kept, &mesh);
-        if !kept {
-            notes.push(
-                "Delaunay improvement skipped — no valid improving flips on this geometry".into(),
-            );
-        }
-    }
 
     // Stage 5 — polyhedral dual. The new kinds (gh:#1240) first; on failure
     // they fall back to the per-corner median dual with a note.
