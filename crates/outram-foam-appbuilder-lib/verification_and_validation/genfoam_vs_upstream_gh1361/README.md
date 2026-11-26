@@ -3873,3 +3873,115 @@ Upstream: the real `meshToMesh` of OpenFOAM-ESI v2506 through `upstream_driver/m
 
 ### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
 `--lib multi_region` 51 passed; `--test genfoam_mesh_to_mesh_vs_upstream` 5 passed (full dump and sample); `-p petir --test no_platform_libm` 4 passed; `bash scripts/check-nostd.sh` clean for `outram-foam-appbuilder-lib` (and every other crate it lists).
+
+## Round 27 results (2026-11-26, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_legacy_tm_flux_d2dt2_vs_upstream.rs`, 7 tests, ~3 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust, all in `genfoam::thermo_mechanics::legacy_fvm`)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `solveThermalMechanics.H` `if (!compactNormalStress_) divSigmaExp_ = fvc::div(DEqn.flux())` and `divSigmaExp_ += fvc::div(sigmaD_)` | `displacement_corrector` (flux straight after the solve, with the coefficients stored at assembly) |
+| `fvMatrix::flux()` (`fvMatrix.C:1422`), `lduMatrix::faceH`, `fvMatrix::operator-=` (negated `faceFluxCorrection`), `gaussLaplacianSchemes.C` (`faceFluxCorrection = gammaMagSf*correction`, stored because `setFluxRequired`) | `LegacyFvmThermoMechanics::flux_divergence` |
+| `legacyThermoMechanics.C` constructor non-compact branch (`div(sigmaD) - div((2mu+lambda)*grad(disp), "div(sigmaD)")`) | `initial_div_sigma_exp` |
+| `EulerD2dt2Scheme::fvmD2dt2` (non-moving), lazy `oldTime()`/`oldTime().oldTime()`, `Time::operator++` `deltaT0` | `D2dt2Scheme`, `with_d2dt2`, `d2dt2_terms`, `store_old_displacements`, `advance_time_levels` |
+| `fvSchemes.d2dt2Schemes`, `fvSolution.stressAnalysis.compactNormalStress` | `LegacyFvmCase::read` (`case.d2dt2`); `backward` and anything else refused by name: it does not exist in v2506 |
+
+`LegacyFvmSettings` is unchanged (`d2dt2` is a builder). The refusal of `compactNormalStress no` and of transient `d2dt2` is gone; the unit test that asserted it now asserts the build succeeds.
+
+### Comparisons (all bit for bit; `exact` counts equal values)
+
+| case | steps | fields compared | linear solves | result |
+|---|---|---|---|---|
+| F: `compactNormalStress no`, `steadyState`, dt 1 s | 3 | `disp` at 3 steps; `TStruct`, `fuelDisp`, `CRDisp`, `meshDisp` at step 3: 210,060 + 140,040 values | 36 | **every value bit-identical**; 36/36 solves identical (initial, final residual, iterations); `Max sigmaEq`, `residual_` identical |
+| E: compact, `Euler`, dt 1e-3 s constant | 4 | `disp` at 4 steps, the rest at step 4 | 48 | **bit-identical**, 48/48 solves, `Max sigmaEq` identical at all 4 steps |
+| FE: `no` + `Euler`, dt x1.3 per step (dt0 != dt from step 2) | 4 | same | 48 | **bit-identical**, 48/48 solves, `Max sigmaEq` identical |
+
+Worst relative difference: 0 in every field, step and residual. No round-off allowance used; nothing flagged under the 1e-9 rule. First diverging step: none.
+
+### Controls (each shows the tally can fail)
+
+| control | result |
+|---|---|
+| port with `compactNormalStress yes` against F reference, step 1 | `disp` 0/70020 equal, worst 2.13e-2 of max; worst initial residual differs 0.73 relative; `Max sigmaEq` 11 % off |
+| port with `steadyState` against E reference, step 1 | `disp` 0/70020 equal, worst 0.86 of max (inertia dominates at dt 1e-3: E max step-1 `disp` 5.2e-3 m against 8.9e-3 m steady) |
+| port that ignores the step schedule (constant dt) against FE reference | step 1 bit-identical (as it must be), step 2 `disp` 0/70020 equal, worst 5.5e-2; step 3 2.6e-2; `Max sigmaEq` 1.7e-2 off at step 3 |
+
+Unit tests (`legacy_fvm::tests`, 5 new, `--lib thermo_mechanics`: 33 passed): flux form and compact form both reproduce the linear stretch; they differ when loaded; Euler coefficients against hand evaluation (dt0 = dt and dt0 = 2 dt); old/old-old shift once per step and `deltaT0` tracking; steady scheme stores nothing; inertia lags the quasi-static solution.
+
+### Predictions: held and missed
+
+* **X1, X2 held** (bit-identical F; stated 65 %).
+* **X3 held**: control difference 2.1e-2 of max (predicted 1e-4 to 1e-1).
+* **X4 held** (E bit-identical, stated 65 %); **X5 held** (0.86 >> 0.1; Euler max `disp` smaller than steady, 5.2e-3 vs 8.9e-3).
+* **X6** (no separate control) as stated; the shift is evidenced by X4 at steps 3 and 4.
+* **X7 held** (FE bit-identical, stated 55 %); **X8 held** (5.5e-2 > 1e-3).
+* **X9, X10 held** (`TStruct`, `fuelDisp`, `CRDisp`, `Max sigmaEq`, `residual_` bit-identical).
+* **X11 held**: all 7 tests take 3 s together. **X12 held**: no case diverged.
+* Missed: none. The unit test `euler_d2dt2_lags_the_quasi_static_displacement` failed at first because MY test built the solver with `deltaT = 1` s and so used `deltaT0 = 1` s for step 1 with `dt = 1e-6`; that is upstream's behaviour (`Time::deltaT0` = initial `deltaT`), fixed in the test, not in the port. Its first form also used the maximum `disp`, which sits against the imposed boundary value; the mean is used.
+
+### Findings about upstream (now documented in the code)
+
+* ESI v2506 has **no `backward` d2dt2 scheme**: only `steadyState` and `Euler`. The issue's "backward" cannot exist upstream.
+* With `Euler` the old and old-old displacement are created lazily at the first step as copies of the current field (so `oldold = old = disp(0)` at step 1) and shift once per time step; `deltaT0` of step 1 is the controlDict `deltaT`. A solver built with a `deltaT` different from the first step's gets `deltaT0 != deltaT` at step 1 exactly as upstream's `Time` does.
+* The `faceFluxCorrection` is the one stored at assembly (from the displacement before the solve); the `GFTractionDisplacement` gradient used in the flux is likewise the one stored when `DEqn` was built.
+
+### Deviations and what is not covered
+
+* Static mesh only (`EulerD2dt2Scheme`'s `mesh().moving()` branch with `V0`/`V00` is not ported; a coupled run that moves this region's mesh needs it, gh:#1784 territory).
+* Non-zero initial `disp` is not supported by the port (already refused), so the "old = oldold = initial field" rule is exercised only from zero; the shift is exercised from step 2.
+* Tested on the fixedValue/zeroGradient `disp` patches of the round-23 case; `GFTractionDisplacement` with the flux form is built (boundary term `0*P - gMagSf*gradient`, from `fixedGradientFvPatchField`'s coefficients) but not compared with a reference. Filed.
+* `DEqn.relax()` remains refused (no relaxation entry matches `disp`).
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed. Refs added (gzip -9): `legacy_tm_flux_f*` 1.9 MB, `legacy_tm_d2dt2_e*` 2.3 MB, `legacy_tm_flux_d2dt2_fe*` 2.4 MB (`disp` every step, other fields at the last step; logs 1 KB). `scripts/extract_legacy_tm_log.sh` now matches non-integer time names.
+
+### Reproduction
+
+`COMPACT=no LEGACY_TM_DISP_ONLY=1 bash scripts/build_and_run_legacy_tm_dump.sh 3 F.txt` (F); `D2DT2=Euler DELTAT=1e-3 LEGACY_TM_DISP_ONLY=1 ... 4 E.txt` (E); `COMPACT=no D2DT2=Euler DELTAT=1e-3 LEGACY_TM_DT_RATIO=1.3 LEGACY_TM_DISP_ONLY=1 ... 4 FE.txt` (FE); logs through `scripts/extract_legacy_tm_log.sh`; `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_legacy_tm_flux_d2dt2_vs_upstream -- --nocapture`.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_legacy_tm_flux_d2dt2_vs_upstream` 7 passed; `--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed and `--test genfoam_traction_displacement_vs_upstream` 7 passed (unchanged, still bit-identical); `--lib thermo_mechanics` 33 passed; `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` see hand-off. Not run: the other suites of the crate and the workspace.
+
+# Round 29 (gh:#1842): single-phase `porousKEpsilon` remainders: `DhStruct` nut stabilisation, wall-function entries and blenders, `Final` entries
+
+Child of gh:#1812 / gh:#1839 (round 20 refused all of these by name). Sources read BEFORE any code or run (GeN-Foam 652b3da on ESI v2506): `porousKEpsilon.C`
+(`correctNut`: `alphat` from the UNstabilised `nut`, then `nut += pos(structure) magU DhStruct/laminarReStruct`, then `correctBoundaryConditions`; constructor reading
+`DhStruct`/`laminarReStruct` per region, default `laminarReStruct 500`, `DhStruct` 0 elsewhere), `fluid.H/.C` (`magU` is a STORED field: `magU = mag(U)` after each pressure
+corrector, `UEqn_1p.H` runs `turbulence().correct()` before it is refreshed), ESI `wallFunctionBlenders.C`, `wallFunctionCoefficients.C`, `nutkWallFunctionFvPatchScalarField.C`
+(`calcNut`, five blenders; `nutw -= nutVis`), `epsilonWallFunctionFvPatchScalarField.C` (`calculate`: five blenders, `lowReCorrection`, `G` added only if `!lowReCorrection || yPlus > yPlusLam`,
+per-patch coefficients because `calculateTurbulenceFields` calls each patch's own `calculate`), `nutWallFunctionFvPatchScalarField.C` (`U` is read into `UName_`, used ONLY by `yPlus()`),
+`fvMatrix::{solverDict, relax}` (`psi.select(mesh.data().isFinalIteration())` -> `kFinal`, `epsilonFinal`; `relaxEquation(name)` is a regex lookup, a missing `...Final` entry means NO relaxation),
+`pimpleControl::loop` and GeN-Foam's `customPimpleControl::loop` (`setFinalIteration(true)` when `corr_ == nOuterCorrectors`, no `residualControl` in 2D_MSFR).
+Defaults upstream: blender `stepwise`; `n` 4 for `nutk`, 2 for `epsilon`; `lowReCorrection false`; `Cmu 0.09 kappa 0.41 E 9.8`; `kappa`, `E` must be >= SMALL. Blender formulas are the ones
+in the two `.C` files (`pow4 = sqr(sqr)`, `ROOTVSMALL = 1e-150`, nut exponential `Gamma = 0.01 y+^4/(1+5y+)`, epsilon exponential `Gamma = 0.001 y+^4/(1+y+)`, tanh `tanh((0.1 y+)^4)`).
+
+## Searched before writing (reuse)
+
+`one_phase_cc/turbulence.rs` (round 20: the wall functions are there as stepwise-only, shared coefficients), `two_phase/turbulence.rs` helpers, `outram-foam-turbulence-lib::wall_functions`
+(round 20: standalone helpers with hard-coded kappa/E, no blenders: nothing to reuse), `grep -rn "blending\|nutkWallFunction\|epsilonWallFunction" crates/*/src`: only the round-20 code.
+Reused unchanged: `fv`, `pbicgstab_diagonal`, `bound`, `relax_equation`, `near_wall_dist`, `last_match`.
+
+## Case variants (overlay files over `cases/msfr_th`, made by `scripts/make_msfr_th_variants.sh`; the port reads the same bytes upstream runs)
+
+* `wf_*` run at **mu 0.5** (shipped 0.01). Why: the unmodified round-20 port has wall-face `y+ = Cmu^0.25 y sqrt(k)/nu` of 87 to 1062 (median 285, measured with a temporary print of the existing code, before any new code); at that `y+` every blender equals the inertial value to < 1e-8 and no option can be told from its default. mu 0.5 divides `y+` by 50: 1.7 to 21 (median 5.7), straddling `yPlusLam = 11.53` and the `epsilonVis/epsilonLog = 2 kappa/(Cmu^0.5 y+) = 2.73/y+` crossing. The salt is not meant to be physical; both codes read the same file.
+* `wf_base` (all defaults), `wf_lowre` (`lowReCorrection on` topwall, `off` bottomwall, `yes` reflector, default hx), `wf_max`, `wf_exponential`, `wf_tanh`, `wf_binomial` (nut `n 3` on topwall else default 4; epsilon `n 3` on bottomwall else default 2) on every patch of `nut` and `epsilon`; `wf_mixed` (a different blender per patch, nut and epsilon independently, `n 2.5`, stepwise+lowRe); `wf_coeffs` (`Cmu 0.0845` = `RNGkEpsilon.C` default in this ESI tree, `kappa 0.4187` / `E 9.793` = Launder-Spalding 1974 pair; nut on all patches, epsilon each patch different); `wf_uname` (nut `U UNoSuchField` topwall, `U U` bottomwall).
+* `dh_a` (`DhStruct 0.01` in `"hx"`, = that region's own `Dh` in `phaseProperties`; `laminarReStruct` default 500), `dh_b` (+ `laminarReStruct 50`); shipped mu.
+* `fin_solver`: `k`, `epsilon` `PBiCGStab/diagonal tolerance 1e-14 relTol 0.01`, `kFinal`, `epsilonFinal` same with `relTol 0` (upstream's pairing: 2D_FFTF `"(h|k|epsilon)"` relTol 0.001 vs `"(h|k|epsilon)Final"` relTol 0; 0.01 is the loose value of 32 other upstream entries). `fin_relax`: `".*" 0.9` plus `kFinal 0.6; epsilonFinal 0.6` (2D_FFTF's `"k.*" 0.6`, `"epsilon.*" 0.6`). `fin_norelax`: `"h.*" 0.9; "U.*" 0.9; k 0.9; epsilon 0.9` (no entry matches `kFinal`/`epsilonFinal`: no relaxation in the final iteration). Shipped mu.
+
+Protocol: tight (every solver 1e-14, relTol 0 except the `fin_solver` entries above, `p_rgh` PCG/DIC, `writePrecision 17`), 3 steps, fields `U k epsilon nut p_rgh` at steps 1 and 3 (and the `k`/`epsilon` solve log), real unmodified binary, run dirs deleted after extraction.
+**Control for every option:** the port reading the BASE case (option absent = default) compared with the variant's upstream reference must FAIL the gate; for `Final` the port's named ablation `without_final_iteration_selection()` on the variant case.
+
+## Predictions (written BEFORE any run of upstream or port with the new options; committed first)
+
+Pass gate: 1e-9 of each field's max-norm, steps 1 and 3. Reported besides: cell-wise relative maximum and the count of bit-equal values.
+
+* **R1 (no regression).** Default cases unchanged: round 19/20 tests pass with the numbers unchanged to the digit.
+* **R2 (every variant agrees).** Each variant agrees with its upstream run to <= 1e-9 of the max-norm in `U, k, epsilon, nut, p_rgh` at steps 1 and 3, on the first run. Expected size 1e-13 to 1e-11 (round 20: 5e-12 worst), not bit-identical (`ln`/`pow`/`exp`/`tanh` come from `petir` and may differ from glibc by 1 ulp). Likeliest failure point if missed: `exponential` and `tanh` (the nut and epsilon `Gamma` constants differ), then per-patch coefficients (`calculate` uses each patch's own).
+* **R3 (`max` for nut equals stepwise here).** At `y+` in 1.7..21, `nutLog < nutVis` exactly below `yPlusLam` (the crossing is `yPlusLam` by construction; `y kappa/ln(E y) < 1` on (0.1, 11.53)), so the nut half of `wf_max` equals stepwise to the bit. Its control therefore separates only through `epsilon` (`epsilonVis > epsilonLog` for `y+ < 2.73`, about 35 % of wall faces).
+* **R4 (control magnitudes, step 3, max-norm of `epsilon`, which sits in the smallest-`y` wall cells, `y+` about 1.7, `epsilonVis/epsilonLog` about 1.6).** The port without the option is LOWER than upstream by: `wf_lowre` 60 %; `wf_max` 60 %; `wf_binomial` (n=2) about 90 %; `wf_exponential` about 60 %; `wf_tanh` about 130 %. All five: `epsilon` control difference in [0.2, 1.5]. `wf_coeffs`, `wf_mixed`: > 1e-3. `wf_uname`: no control exists (an entry that changes nothing); predicted: port variant == port base to the BIT, and upstream variant == upstream base to the bit (`U` is read only by `yPlus()`).
+* **R5 (`nut` wall values are a small effect).** For `nutw` the blenders add 0 to ~3 % of `nu` at `y+ ~ 6` (binomial n=4: `(1+0.58^4)^(1/4) - 1 = 2.7 %`); the blender-only effect on `U` (max-norm, step 3) is smaller than the `epsilon` effect and above the gate: control `U` difference in [1e-8, 1e-2]. Not predicted more sharply.
+* **R6 (`DhStruct`).** Stabilisation is ZERO in outer iteration 1 of step 1 (`magU = 0`), nonzero from outer iteration 2; `alphat` is computed before it. `nut` in `hx` (equilibrium `nut ~ 1e-6` there, from `k_eq ~ 1.5 (U 0.16 Re^-0.125)^2`) rises by `U Dh/Re ~ 0.01 0.01/500 = 2e-7` (`dh_a`, about +20 %) and 10x that for `dh_b` (Re 50, about x3). Control: cell-wise relative `nut` difference in `hx` cells in [0.05, 10] (`dh_a`), [0.5, 100] (`dh_b`); the max-norm of `nut` (bulk 0.09) hides it (< 1e-5), so the control is read cell-wise; `U` max-norm control difference > 1e-6. Agreement itself held to the gate (R2).
+* **R7 (`Final`).** `fin_solver`: iteration counts of the `epsilon` and `k` solves equal to upstream's in all 30 solves (outer 1-4 loose `relTol 0.01`, 1 to 3 iterations; outer 5 tight), fields <= 1e-9, UNLESS a stopping decision of a loose solve flips on round-off (then differences of order `relTol` x change, ~1e-4; I give this 10 %). Control (ablation = plain entry in outer 5): `k` max-norm difference in [1e-7, 1e-3]. `fin_relax` (0.6 in the final outer iteration): control difference in `k` and `epsilon` in [1e-6, 1e-1]. `fin_norelax` (final outer iteration unrelaxed): control difference in [1e-6, 1e-1].
+* **R8 (refusals).** The refusal tests for `DhStruct`, `kappa` and `Final` entries are replaced. Still refused: `RASModel` other than `porousKEpsilon`, wall-patch types other than the three, any other `kqRWallFunction` entry (upstream ignores them; refused here rather than silently ignored), `fvOptions`, solvers other than `PBiCGStab`/`diagonal`, `relaxationFactors.equations` `default` (filed).

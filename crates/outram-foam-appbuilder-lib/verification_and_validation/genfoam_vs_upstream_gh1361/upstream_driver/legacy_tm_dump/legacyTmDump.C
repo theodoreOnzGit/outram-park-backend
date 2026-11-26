@@ -65,8 +65,14 @@ public:
         powerDensityNeutronics_.correctBoundaryConditions();
     }
 
-    void dump(FILE* f, label step) const
+    // gh:#1845 (round 27): `dispOnly` writes only `disp` (the other fields are bit-checked at the last step), to keep the reference small
+    void dump(FILE* f, label step, bool dispOnly = false) const
     {
+        if (dispOnly)
+        {
+            vec(f, step, "disp", disp_);
+            return;
+        }
         scal(f, step, "TStruct", TStruct_);
         vec(f, step, "disp", disp_);
         scal(f, step, "fuelDisp", fuelDisp_);
@@ -119,14 +125,25 @@ int main(int argc, char* argv[])
     fvMesh mesh(IOobject("thermoMechanicalRegion", runTime.name(), runTime, IOobject::MUST_READ));
     probe tm(mesh);
     FILE* f = std::fopen(out.c_str(), "w");
+    // gh:#1845 (round 27): LEGACY_TM_DT_RATIO=g multiplies deltaT by g before every step from the 2nd on
+    // (`Time::setDeltaT` before `runTime++`, as an adjustable-step run does), so deltaT0 != deltaT in the d2dt2 scheme;
+    // LEGACY_TM_DISP_ONLY=1 dumps `disp` at every step and every field at the last step only.
+    const char* ratioEnv = std::getenv("LEGACY_TM_DT_RATIO");
+    const double ratio = ratioEnv ? std::atof(ratioEnv) : 1.0;
+    const bool dispOnly = std::getenv("LEGACY_TM_DISP_ONLY") != nullptr;
     for (label step = 1; step <= nSteps; ++step)
     {
+        if (step >= 2 && ratio != 1.0)
+        {
+            runTime.setDeltaT(runTime.deltaTValue()*ratio);
+        }
         runTime++;
+        std::fprintf(f, "F %d deltaT %.17g\nF %d deltaT0 %.17g\n", int(step), runTime.deltaTValue(), int(step), runTime.deltaT0Value());
         Info<< "Time = " << runTime.timeName() << nl << endl;
         tm.setCoupling(step);
         tm.correctPhysics();
         Info<< "residual " << tm.getResidual() << nl;
-        tm.dump(f, step);
+        tm.dump(f, step, dispOnly && step < nSteps);
         std::fflush(f);
     }
     std::fclose(f);

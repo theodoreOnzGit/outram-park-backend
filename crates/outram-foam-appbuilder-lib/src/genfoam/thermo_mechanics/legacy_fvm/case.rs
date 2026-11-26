@@ -17,7 +17,7 @@ use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use super::{
-    traction::GfTractionDisplacement, DispPatch, LegacyFvmSettings, LegacyFvmThermoMechanics, LinearSolverSettings, ScalarPatch, TStructSolver, ZoneCard,
+    traction::GfTractionDisplacement, D2dt2Scheme, DispPatch, LegacyFvmSettings, LegacyFvmThermoMechanics, LinearSolverSettings, ScalarPatch, TStructSolver, ZoneCard,
 };
 use crate::error::AppBuilderError;
 use crate::io::fv_schemes::GradScheme;
@@ -55,6 +55,8 @@ pub struct LegacyFvmCase {
     pub t_struct0: Vec<f64>,
     /// `controlDict.deltaT`.
     pub delta_t: f64,
+    /// `fvSchemes.d2dt2Schemes.default` (`steadyState` or `Euler`; gh:#1845).
+    pub d2dt2: D2dt2Scheme,
 }
 
 fn err(root: &Path, msg: impl Into<String>) -> AppBuilderError {
@@ -293,7 +295,18 @@ impl LegacyFvmCase {
         expect("divSchemes", "div(CRDisp)", &["Gauss", "upwind"])?;
         expect("divSchemes", "div(sigmaD)", &["Gauss", "linear"])?;
         expect("ddtSchemes", "default", &["Euler"])?;
-        expect("d2dt2Schemes", "default", &["steadyState"])?;
+        // ESI v2506 has `steadyState` and `Euler` d2dt2 schemes only: any other name (`backward` included) does not exist
+        let d2dt2 = match need("d2dt2Schemes", "default").as_deref() {
+            Some([a]) if a == "steadyState" => D2dt2Scheme::SteadyState,
+            Some([a]) if a == "Euler" => D2dt2Scheme::Euler,
+            other => {
+                return Err(unsupported(
+                    "d2dt2Schemes",
+                    format!("default: {other:?}"),
+                    "ESI v2506 has only steadyState and Euler d2dt2 schemes (there is no backward d2dt2)",
+                ))
+            }
+        };
         expect("interpolationSchemes", "default", &["linear"])?;
 
         // fvSolution
@@ -443,7 +456,7 @@ impl LegacyFvmCase {
             t_solver_kind,
             traction_bc_honours_plane_stress: false,
         };
-        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t })
+        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2 })
     }
 
     /// Build the solver from the case.
@@ -462,5 +475,6 @@ impl LegacyFvmCase {
             self.t_struct0.clone(),
             self.delta_t,
         )
+        .map(|s| s.with_d2dt2(self.d2dt2))
     }
 }
