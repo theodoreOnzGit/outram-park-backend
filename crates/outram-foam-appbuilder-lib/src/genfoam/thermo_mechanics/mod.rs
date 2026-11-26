@@ -108,10 +108,12 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod feedback;
+pub mod fem;
 pub mod legacy_fvm;
 pub mod material;
 pub mod mesh_solve;
 pub mod stress;
+pub mod structural_region;
 
 // Curated re-exports (human interface layer): the types a user needs to build
 // and query a thermo-mechanics model without hunting through submodules.
@@ -121,6 +123,7 @@ pub use material::{
     ShearModulus, Stress, ThermalDiffusivity, ThermalExpansionCoeff, YoungsModulus,
 };
 pub use legacy_fvm::LegacyFvmThermoMechanics;
+pub use structural_region::{StructuralDiscretisation, ThermoMechanicsRegion};
 pub use mesh_solve::{DisplacementReport, MechanicsMeshSolver};
 pub use stress::{
     deviatoric_plus_volumetric_stress, hydrostatic_stress, thermal_stress, von_mises_stress,

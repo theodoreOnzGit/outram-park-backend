@@ -96,6 +96,8 @@ use pbicg::pbicg_dilu;
 #[cfg(feature = "std")]
 pub mod case;
 
+mod external_displacement;
+
 #[cfg(test)]
 mod tests;
 

@@ -3455,3 +3455,67 @@ Same case, mesh, zone cards, coupling functions and tight protocol as round 23, 
 * **Q6** (controls; each must be distinguishable from the reference): (a) round 23's replacement (`fixedValue 0` on `bottom`, `bottomCR`; `zeroGradient` elsewhere) against the T0 reference: worst `disp` difference above 0.1 of max |disp| (a fixed bottom against a free one); (b) the port with `pressure` zeroed against the T1 reference: above 1e-4; (c) the port with the traction zeroed against T1: above 1e-4; (d) the port with `traction_bc_honours_plane_stress` against the T2 reference: above 1e-3 (plane-stress `lambda` is 0.33 E against plane-strain 0.58 E at nu = 0.3, so `twoMuLambda` differs by about 20 %).
 * **Q7** (T2): bit-identical to upstream when the port follows upstream (plane strain in the BC); the cells use the plane-stress `lambda`, the BC does not, and that mismatch is upstream's.
 * **Q8** (`gapContact`): no differential test is possible standalone: it needs a `regionCoupled` patch pair, the neighbour region's `disp` and `meshDisp`, and the AMI interpolation between two meshes (coupled-region infrastructure, gh:#1846). The arithmetic (`gapWidth`, `boundaryStiffness`, the interface pressure) is ported as pure functions on face arrays, tested against hand-computed values (not against upstream), and a `type gapContact` patch in a case is REFUSED by name. A follow-up issue is filed.
+
+# Round 25 (gh:#1782, child of #1216): finite-element small-strain thermo-elasticity, selectable beside the finite-volume solver by enum
+
+AI-written, not human-reviewed. Research, education and V&V only. There is no upstream GeN-Foam FEM, so nothing here is
+"bit-identical to upstream": the finite-volume path stays the default and the bit-identical one (round 23); the
+finite-element path is verified by closed forms, by code-to-code against the finite-volume path, and by an external FEM
+code (below). Tests: `tests/genfoam_fem_thermo_mechanics_gh1782.rs` and the unit tests in
+`src/genfoam/thermo_mechanics/fem/tests.rs`.
+
+## Searched before writing (reuse)
+
+`farrer-park` (FEM ports of MOOSE tensor mechanics): REUSED for `Mesh`, `ElementType` (`Hex8`, `Tet4`), `map_gradients`,
+`default_rule`, `BMatrix`, `Tensor4::isotropic`, `Voigt6`, `DofMap`/`SparsityPattern`/`CsrMatrix`, `DirichletSet`
+(elimination), `Traction`, `solve_linear` (CG + ILU(0)). Checked and rejected: `assembly::System` (one material for the
+mesh, no thermal strain; GeN-Foam has 8 zones and an eigenstrain) and `solve_nonlinear` (load-stepped plasticity).
+`outram-park-fork-offbeat` (finite-volume `smallStrain`: the wrong discretisation), `MechanicsMeshSolver` (finite volume),
+`outram-blender`'s `fem-export` converters (neutral mesh -> farrer Mesh; needs a neutral mesh rather than a polyMesh, and
+has no prism decomposition). Meshes of the V&V cases: `outram_foam_mesh::block_mesh` (the in-process `blockMesh`, with arc
+edges), a dev-dependency already. No `code_aster`/MOOSE port with a thermal eigenstrain exists in the workspace. The
+finite-volume expansion feedback (`fuelDisp`, `CRDisp`, `meshDisp`) is REUSED, not rewritten: two additive entry points
+split `correct_physics` at the displacement solve (`legacy_fvm/external_displacement.rs`, one `mod` line in
+`legacy_fvm/mod.rs`; no existing function edited).
+
+## Formulation
+
+Steady `div(sigma) = 0`, `sigma = D(eps) - 3K alpha (T - Tref) I`, weak form
+`K u = integral(B^T 3K alpha (T-Tref) I dV) + tractions`, `T` = the finite-volume `TStruct` per cell (piecewise constant).
+`Hex8` (2x2x2 Gauss) on all-hexahedral meshes, else `Tet4` on the conforming cone decomposition (prism -> 3 tets).
+`zeroGradient` maps to the natural traction-free condition (NOT the same condition: `dD/dn = 0` vs `sigma.n = 0`).
+Default stiffness normalisation `E = rhoE/rho` (GeN-Foam's own equation, `sigma/rho` continuous across zones);
+`Physical` (`E = rhoE`) is the option.
+
+## Predictions (written BEFORE any run of the finite-element code; committed first)
+
+Relative = divided by the amplitude (max |u|) of the exact or reference field.
+
+* **P1 free thermal expansion** (uniform `dT = 100 K`, three symmetry planes, rest free, graded Hex8 and Tet4 meshes,
+  `rho != 1`): `u = alpha dT x` is in the linear-element space, so the displacement error is round-off/solver tolerance,
+  `< 1e-9` relative, and the stress is zero to `< 1e-8` of `3K alpha dT`.
+* **P2 clamped bar** (`nu = 0.3`, ends and sides held at 0, `T = Tref + 500 sin^2(pi x/L)`, 1-D closed form
+  `u = -A (250 L / 2 pi) sin(2 pi x/L)`, `A = alpha (1+nu)/(1-nu)`, amplitude 8.87e-4 m for `L = 1`): observed order of the
+  max cell-average error for `n = 10, 20, 40, 80` cells along the bar: Hex8 `2.0 +- 0.15`; Tet4 (cone) between `1.5` and
+  `2.2`; the finite-volume path (same mesh, same `T`) `2.0 +- 0.15`. At `n = 20` the Hex8 error is between `1e-4` and
+  `2e-2` relative. The FEM-minus-FVM difference shrinks at order `2 +- 0.3`; both converge to the same closed form.
+* **P3 thick cylinder, internal pressure** (Lame, plane strain, `a = 0.1`, `b = 0.2`, `p = 100 MPa`, `E = 200 GPa`,
+  `nu = 0.3`, quarter annulus with arcs, symmetry planes, `u_z = 0`), Hex8 with `nr = 4, 8, 16, 32`: observed order of the
+  max cell `u_r` error `2.0 +- 0.2`; of the max cell `sigma_theta` error `1.0 +- 0.3` (stress is one order lower). Tet4:
+  displacement order `>= 1.5`, error larger than Hex8's on the same mesh.
+* **P4 thick cylinder, radial temperature** (Timoshenko, plane strain, free surfaces,
+  `T(r) = Tref + 100 ln(r/a)/ln(b/a)`, `T` at cell centres): `u_r` order `1.8 - 2.2` (cell-centre sampling of `T` is a
+  midpoint rule, O(h^2) in the weak form).
+* **P5 clamped smooth block** (cube `0.1 m`, all faces held at 0, `T = Tref + 200 sin sin sin`, `nu = 0.3`; `n = 4, 8, 16`
+  against an `n = 32` FEM reference aggregated to the coarse cells): FEM order `1.8 - 2.2`, FVM order `1.6 - 2.2`;
+  FEM-FVM relative difference at `n = 16` below `1 %` and falling by a factor `3 - 5` per halving.
+* **P6 ESFR** (3D_SmallESFR mechanics region, 23340 prisms, `Tet4` cone decomposition), same coupling fields as round 23,
+  step 1: `TStruct`, `fuelDisp`, `CRDisp` bit-identical between the two paths (the finite-element branch runs the
+  finite-volume code for them and they do not depend on `D`); injecting the finite-volume displacement reproduces the
+  finite-volume `meshDisp` bit for bit. FEM-vs-FVM `disp` is NOT small, because the lateral `zeroGradient` is not
+  traction-free and the mesh is coarse: relative L2 difference of `disp_z` `1 - 15 %`, of `disp_x`, `disp_y` `10 - 60 %`;
+  Max `sigmaEq` within a factor `0.3 - 3`. `Physical` vs `UpstreamRhoNormalised` stiffness: relative L2 difference of
+  `disp` `5 - 40 %` (rho spans 900 - 1500 across the zones).
+* **P7 external FEM code** (scikit-fem, Q1 hexahedra and P1 tetrahedra, same mesh, same eigenstrain, same BCs, run in a
+  scratch venv): agreement to round-off, `< 1e-8` relative in nodal displacement, for the same element. A larger
+  difference is a bug in one of them.
