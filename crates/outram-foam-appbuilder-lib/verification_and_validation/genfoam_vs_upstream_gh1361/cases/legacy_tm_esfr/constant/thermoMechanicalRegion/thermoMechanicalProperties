@@ -1,0 +1,137 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      solverDict;
+}
+
+thermalSolver       on;
+mechanicsSolver     on;
+globalOptions
+{
+    linkedFuel      false;
+    pinDirection    (0 0 1);
+}
+rheologyOption
+{
+    planeStress 	no;
+}
+materials
+{
+    innerCore
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    1000;
+        Cp          Cp      [0 2 -2 -1 0]   200;
+        k           k       [1 1 3 -1 0]    5;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   1e9;
+        nu          nu      [0 0 0 0 0]     0.30;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     1.8e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+        alphaFuel   alphaFuel   [0 0 0 0 0]     1.1e-5;
+        TFuelRef    TFuelRef    [0 0 0 1 0]     668;
+    }
+    outerCore
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    1100;
+        Cp          Cp      [0 2 -2 -1 0]   210;
+        k           k       [1 1 3 -1 0]    6;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   1.2e9;
+        nu          nu      [0 0 0 0 0]     0.28;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     1.7e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+        alphaFuel   alphaFuel   [0 0 0 0 0]     1.0e-5;
+        TFuelRef    TFuelRef    [0 0 0 1 0]     700;
+    }
+    follower
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    900;
+        Cp          Cp      [0 2 -2 -1 0]   190;
+        k           k       [1 1 3 -1 0]    4;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   0.8e9;
+        nu          nu      [0 0 0 0 0]     0.33;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     1.9e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+
+    }
+    controlRod
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    1200;
+        Cp          Cp      [0 2 -2 -1 0]   220;
+        k           k       [1 1 3 -1 0]    7;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   1.5e9;
+        nu          nu      [0 0 0 0 0]     0.25;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     2.0e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+        TCRRef      TCRRef  [0 0 0 1 0]     668;
+        alphaCR     alphaCR   [0 0 0 0 0]   5.4e-5;
+    }
+    diagrid
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    1500;
+        Cp          Cp      [0 2 -2 -1 0]   250;
+        k           k       [1 1 3 -1 0]    9;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   2.0e9;
+        nu          nu      [0 0 0 0 0]     0.27;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     1.6e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+
+    }
+    radialReflector
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    1300;
+        Cp          Cp      [0 2 -2 -1 0]   230;
+        k           k       [1 1 3 -1 0]    8;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   1.1e9;
+        nu          nu      [0 0 0 0 0]     0.31;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     1.5e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+
+    }
+    rest
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    1000;
+        Cp          Cp      [0 2 -2 -1 0]   200;
+        k           k       [1 1 3 -1 0]    5;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   0.9e9;
+        nu          nu      [0 0 0 0 0]     0.35;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     1.8e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+
+    }
+    softStructure
+    {
+        material        constant;
+        rho         rho     [1 -3 0 0 0]    800;
+        Cp          Cp      [0 2 -2 -1 0]   180;
+        k           k       [1 1 3 -1 0]    3;
+        emissivity emissivity [0 0 0 0 0]   0.0;
+        E           E       [1 -1 -2 0 0]   0.5e9;
+        nu          nu      [0 0 0 0 0]     0.40;
+        G           G       [1 -1 -2 0 0]   0.0;
+        alpha       alpha   [0 0 0 0 0]     2.1e-5;
+        Tref        Tref    [0 0 0 1 0]     668;
+
+    }
+}

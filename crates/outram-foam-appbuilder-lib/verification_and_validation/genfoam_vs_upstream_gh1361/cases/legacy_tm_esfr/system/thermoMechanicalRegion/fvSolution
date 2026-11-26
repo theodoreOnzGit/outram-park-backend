@@ -1,0 +1,52 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+
+solvers
+{
+    ".*"
+    {
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance       1e-14;
+        relTol          0;
+    }
+    "fuelDisp"
+    {
+        solver          PBiCG;
+        preconditioner  DILU;
+        tolerance       1e-14;
+        relTol          0;
+    }
+    "CRDisp"
+    {
+        solver          PBiCG;
+        preconditioner  DILU;
+        tolerance       1e-14;
+        relTol          0;
+    }
+    "TStruct"
+    {
+        solver          PBiCG;
+        preconditioner  DILU;
+        tolerance       1e-14;
+        relTol          0;
+    }
+}
+stressAnalysis
+{
+    compactNormalStress yes;
+    nCorrectors     3;
+    D               1e-06;
+}
+relaxationFactors
+{
+    fields
+    {
+        Disp 0.99;
+    }
+}
