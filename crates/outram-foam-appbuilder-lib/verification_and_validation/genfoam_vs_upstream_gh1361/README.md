@@ -2868,3 +2868,53 @@ usable predecessor in the workspace (`one_phase_cc.rs` is a frozen-flux energy r
 ### Moved numbers
 
 None. No pin, gate or tolerance changed.
+
+# Round 19 (2026-11-26): the cell-centred `onePhase` fluid-mechanics solve, turbulence OFF (gh:#1837, child of gh:#1812 / gh:#1475)
+
+Goal: port `UEqn_1p.H` + `pEqn_1p.H` (`momentumMode cellCentered`, `partialEliminationMode implicit`, `solveFluidMechanics true`, `nCorrectors 6`,
+`nOuterCorrectors 5`, `correctUntilConvergence true`) with `turbulence false`, and difference it against `refs/msfr_th_off_head.ref.txt.gz`
+(steps 1-3, tight protocol of `scripts/run_msfr_th_tight.sh`, `TURB=off`). Round 18's P1-P5 are carried below as "applies / does not apply".
+
+## Read before any port code (GeN-Foam 652b3da on ESI v2506)
+
+* `onePhase.C`: constructor (`initAlphaPhis`, `correctContErr`, `phi_ = alphaPhi`), `correctPhysics` (`correctModels(true,true)`, `correctFluidMechanics`,
+  `correctEnergy` per outer iteration), `correctCourant` (`phi_`), `maxDeltaT`.
+* `UEqn_1p.H`, `pEqn_1p.H` and every `pEqnRoutines/*_1p.H`; `thermalHydraulicsModel.C` (`gh`, `ghf`, `setRefCell`), `fluid.C` (`U_` read with the `slip`
+  default only when absent, `phi` from `fvc::flux(U)`, `initAlphaPhis`, `rho(bool)`: `rho()` is the constant `rho0` under Boussinesq, `rho(true)` the thermo's),
+  `FSPair::correct` + `FSDragFactor::correctField` + `ReynoldsPower`, `structure::momentumSource` + `pump::correct`, `fixedTemperature` (`T.fixedTemperature` is
+  `T` of the power-model dictionary in its zone, 0 elsewhere), `customPimpleControl::correct(bool)`, ESI `fvMatrix::relax`, `fvMatrix::H`, `wedgeFvPatchField`,
+  `transformFvPatchField` (scalar wedge = zeroGradient coefficients), `gaussGrad::correctBoundaryConditions`, `fvc::reconstruct`.
+* Two facts that decide the numbers: (1) with `turbulence false` `porousKEpsilon::correct` returns at once, so the `nut` WALL patches stay at their read
+  `value uniform 0.1` (no wall function ever runs): `nuEff` on a wall face is `0.1 + mu/rho`, five orders above the cell value, and the wall shear dominates the
+  near-wall momentum balance; (2) `fvc::ddt(p_)` in `EEqn_1p.H` is the first request for `p.oldTime()` (the round-3 lazy-old-time quirk of the two-phase port): in
+  step 1 the old-time pressure is the pressure after the first `p_rgh` solve, so `dpdt = 0` in outer iteration 1.
+
+## Searched before writing (reuse)
+
+`OnePhaseCcSolver` (energy, round 9), `OnePhaseFcSolver` (face-centred 1-D), `two_phase::fv` (`Eqn`, `Vector`, `VectorBc::Wedge`, `interp_*`, `flux`, `div`,
+`reconstruct`, `sn_grad`), `two_phase::VecEqn` (`boundary_convection`, `boundary_laplacian`, `h`, `su_sp`), `dev2_div`, `pcg::pcg_dic` (round 17),
+`coupled_loop::adjust_delta_t`. Not found, so written here: the single-phase `pEqn_1p` assembly, the per-component vector `fvMatrix::relax`, the pump source,
+`Kd` for `ReynoldsPower`, the rootCase restart-file defaults (`initAlphaPhis`, `T.fixedTemperature`, zero `htc`/`powerDensityNeutronicsToLiquid`).
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+Q1. The first PISO initial residual of step 1 is 0.99908808 (upstream log this protocol: 0.9990880833090563; round 18's 0.984 was read from the other
+    run) and the port reproduces it to 1e-6 relative. Round 18 P1 (flow starts from rest, driven by the pump source and buoyancy only; residual ~1): applies.
+Q2. The PCG/DIC iteration counts of the 6 solves of outer iteration 1 of step 1 are upstream's 264, 225, 191, 143, 69, 128, each within +-1 (same stopping
+    rule, same matrix up to round-off).
+Q3. Steps 1, 2 and 3: `U`, `p_rgh`, `p` agree with the real binary to <= 1e-9 relative (field max-norm scale) on the first try ONLY if the wedge
+    constraint patches (value `faceT.U_c`, gradient transform, `snGradTransformDiag`) and the constraint patch on the temporary `H`/`HbyA` are all right;
+    if they are not, the first diverging step is step 1 and the first diverging quantity `U` (not `p_rgh`), because the wedge enters the momentum matrix
+    before the pressure equation. Round 18 P2 (<= 1e-9 in step 1, PCG counts within one): applies, same gate.
+Q4. Omitting the wedge transform of the gradient tensor on the wedge patch in `dev2_div` (the round-17 form) and omitting the wedge `snGrad` there changes
+    `U` by <= 1e-7 relative: the explicit `dev2` term is ~1e-3 of the diffusion term and the wedge faces are 2 of 6 patches; the ablation is run to
+    measure it, not to tune it.
+Q5. `T`: the stage is flow-only, `T - 900` is 3e-8 K at step 1; `T` agrees with the real binary to <= 1e-5 relative of max|T - 900| (that is the
+    meaningful scale; against 900 the 1e-9 gate is 9e-7 K and says nothing). Round 18 P4 (T stays within 1e-9 of upstream for 3 steps): applies, with that scale note.
+Q6. The lazy old-time pressure is what makes `T` small: ablating it (old pressure = the initial uniform 1e5 Pa) puts `T - 900` at ~6e-3 K
+    (`Delta p / (rho0 Cp) = 4e4 / 6.6e6`) in step 1, 5 orders above upstream; with it `T` matches. `ddt(alpha, rho, K)` stays exactly 0 (a fresh local `K` has
+    `K.oldTime() = K`, `rho = rho0`), which CONTRADICTS round 18's finding that `K.oldTime() = K` becomes false once the flow is solved: the port keeps the
+    zero and `T` is predicted to match without any `K` old-time store.
+Q7. `alphaPhi` as written upstream is the value set at the START of the last `pEqn` (from the previous outer iteration's `phi`), not the final `phi`: the port
+    reproduces that lag; written at the end of the step it agrees to <= 1e-9 relative.
+Q8. Round 18 P3 and P5 (turbulence ON, wall-function ablation) do not apply to this round: no turbulence is run.
