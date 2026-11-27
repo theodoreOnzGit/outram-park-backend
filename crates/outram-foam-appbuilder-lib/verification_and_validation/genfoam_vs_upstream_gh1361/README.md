@@ -9299,3 +9299,48 @@ None: `genfoam_msfr_allrun_vs_upstream` (6 passed, 2 `#[ignore]` not run), `genf
 ### Reproduction
 
 Real: `bash scripts/run_msfr_allrun_gamg.sh th <runs>` with `NAME=r_t1 END_TIME=0.5 WRITE=step` (R-T1), `NAME=r_t2 END_TIME=0.5 WRITE=adjustable WRITE_INTERVAL=0.5` (R-T2, copied to `steadyStateTH`), then `TH_END=0.5 EN_END=150.5 EN_WRITE=50 ... en` and `... END_TIME=151.2 ... transient`; loose `PROTOCOL=shipped END_TIME=15 WRITE=adjustable` (R-L1; R-L2 in a `rootCase` copy whose `0/fluidRegion/T` is `uniform 900.0000000000001`); `scripts/extract_msfr_gamg_r77.sh <run> <stem> "1 2 5 10 20 42"`, `extract_msfr_en_reference.sh <runs> 150.5 msfr_gamg_r77_chain_en`, `extract_msfr_fluid_reference.sh <runs> 50 msfr_gamg_r77_chain_transient 150.5`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_gamg_vs_upstream -- --ignored --nocapture` (tight 812 s, chain 952 s, loose `GAMG_R77_LOOSE_STEPS=all` 296 s, controls 183 s).
+
+
+## Round 78 (gh:#1952, #1236 under #1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream" = follow upstream exactly): is round 75's transient difference the protocol's own sensitivity or a port defect? Then: build the baffle-less mesh (predictions and criteria written and committed BEFORE any run)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+### Part 1 (gh:#1952), method
+
+Case: `scripts/make_esfr_old_case.sh` as round 75 (steady, then transient on the written `200`), real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`, both protocols (TIGHT: `TIGHT=1`; LOOSE: as shipped). Scratch `/home/user/upstream-build/gh1952`, deleted after extraction.
+
+**The perturbation (chosen here, before any run).** ONE input, ONE ulp: in the transient's start directory `200/fluidRegion/T`, internal cell **7716**, the value is replaced by `nextafter(value, +inf)` (the 17-digit decimal of the next double). Why this input: the fluid `T` is the input the neutronics sees through `TCool`/`rhoCool` (so it enters the power directly, not through a cancellation), cell 7716 is the cell where round 75's port differs most from the real run at step 1 (6.8e-6 K), and one ulp of `T` (~1e-13 K at ~900 K) is the smallest change a double can carry. Same perturbation for the tight and the loose case. (Not chosen: `rho0` or an XS coefficient, which would change every cell at once.)
+
+**Runs.** U-T / U-L: the unperturbed tight / loose transients re-run now (to check that the real binary reproduces round 75's own references, `esfr_r75_{tight,loose}_log`, exactly: criterion R0). P-T / P-L: the perturbed tight / loose transients. Both compared to the unperturbed run exactly as round 75 compared the port to the real run: `scripts/extract_esfr_transient.py`, per step `power` (last pass), `dt`, passes per step, `h` solve counts, per pass neutron iterations and thermo-mechanics solve counts/order.
+
+### Criteria (fixed here; none changes after a result)
+
+* **R0 (reproducibility)**: U-T and U-L equal the stored round 75 logs: every step's `power` bit-identical, `dt` bit-identical, pass counts, `h` counts and TM counts equal. If not, the stored logs are NOT used as the reference and every comparison below is against the same-day U-run.
+* **R1 (real-vs-real sensitivity, the measurement)**: for each of P-T and P-L, per step, `|power_P - power_U| / |power_U|`, `dt` relative, pass counts, `h` counts, TM corrector counts, and the first step whose TM solve count/order differs ("first flip"). Reported at steps 1, 10, 25, 44, 46, 73 and the maximum over the run.
+* **R2 (the verdict rule, fixed now)**: the gate for the power is **10 x the largest real-vs-real power difference over the steps before the first real flip (or over all 73 if none), floored at 1e-9** (round 77's rule). The port's round 75 differences are **within the protocol's sensitivity** iff the port's power difference stays under that gate at every step AND the port's first TM-count flip is a step at which the real P-run also flips (a flip within 2 steps counts). Otherwise the port has a defect. (If the real P-runs stay at the floor for all 73 steps and never flip, the gate is 1e-9, the port's step 45 value 3.4e-9 and its flip at step 46 exceed it: defect.)
+* **R3 (independent of R2: the fixed point)**: the real binary's tight steady state is a fixed point of the frozen-flow energy equation (round 75: real step-1 `h` initial residual 4.2e-16, 0 iterations). The port, started from the same written `200`, must reach `h` initial residual <= 1e-10 absolute at step 1 with 0 iterations. Round 75's 7.58e-6 (1 iteration) is a defect against this whatever R2 decides.
+* **R4 (after any fix, Part 1(b))**: the criteria of round 75 Part B (criteria 2 and 3 of its section) re-run unchanged: tight `power` <= 1e-9 at every step, `dt` equal, pass counts equal, `h` and TM solve counts/order equal, fields at the kept steps <= 1e-9; loose: criteria 2 for macroscopic quantities, a flip is a recorded miss. First-found causes are recorded with the quantity that first differs in the instrumented upstream COPY (never the shipped tree).
+* **R5**: earlier numbers (rounds 3-77) must not move (targeted tests `genfoam_esfr_*`, `genfoam_fullcoupling_*`, `genfoam_written_state_vs_upstream`, `--lib` filters); anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+
+### Predictions (Part 1)
+
+| id | prediction | P |
+|---|---|---|
+| Q1 | R0: U-T and U-L reproduce round 75's logs bit-for-bit in `power` and `dt` | 90 % |
+| Q2 | P-T step-1 power difference <= 1e-14 (a 1e-16 seed; round 75's port seed is 4.8e-13) | 80 % |
+| Q3 | P-T power difference at step 44 is below the port's 6.8e-10 by more than 10x (< 6.8e-11) | 65 % |
+| Q4 | P-T has no TM corrector-count flip in the 73 steps | 65 % |
+| Q5 | P-T pass counts and `h` counts equal in all 73 steps | 80 % |
+| Q6 | P-L power difference at step 30 is below the port's 1.1e-9 by more than 10x | 55 % |
+| Q7 | verdict R2: **defect** (real-vs-real stays below the port's differences) | 75 % |
+| Q8 | R3 fails in the port (7.6e-6) and the cause is in the port's frozen-flow energy equation inputs (`alphaPhi`/`alphaRhoPhi`, the pin radial state or the `T.fixedTemperature` default), not in the real run | 70 % |
+
+### Part 2 (gh:#1236), method and criteria
+
+Port `removeBaffles` as upstream does it (`meshHandler.C`, `mergeOrSplitBaffles.C`, `polyTopoChange`; file/line cited where the code lives), so the port builds the baffle-less mesh from the baffled `fluidRegion` mesh instead of reading the real binary's `<start>/fluidRegion.baffleLess/polyMesh`. **Criteria (fixed):** (M1) the built mesh's `points`, `faces`, `owner`, `neighbour`, `boundary` written by `io::foam_ascii_mesh` are byte-identical to the real `fluidRegion.baffleLess/polyMesh` files (same 17-digit text; if the real files are `.gz` the inflated bytes); (M2) a case needing a renumbering the port does not do is REFUSED by name; (M3) round 74/75's comparisons re-run with the built mesh: every number printed equals the run that read the real mesh (bit-identical, power per step, `Overlap volume` totals, fields at kept steps), else listed old/new. Refused by name and not ported, if met: baffles with non-conforming patches, `mergeBaffles` on a coupled/processor boundary, a decomposed run.
+
+| id | prediction | P |
+|---|---|---|
+| M1p | the built mesh is byte-identical to the real one | 45 % |
+| M2p | the shipped cases need the renumbering the polyTopoChange performs (the port must reproduce its cell/face order) | 60 % |
+| M3p | nothing moves with the built mesh (given M1p) | 90 % |
