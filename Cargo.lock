@@ -916,7 +916,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bedok"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "petir",
  "thiserror 2.0.21",
@@ -947,7 +947,7 @@ dependencies = [
 
 [[package]]
 name = "bishan"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "petir",
  "uom",
@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "boon-lay"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "approx",
@@ -1138,7 +1138,7 @@ dependencies = [
 
 [[package]]
 name = "buangkok"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "boon-lay",
  "changi",
@@ -1149,7 +1149,7 @@ dependencies = [
 
 [[package]]
 name = "bugis"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "csv",
  "egui",
@@ -1586,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "changi"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "approx",
  "petir",
@@ -1597,7 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "approx",
  "csv",
@@ -2225,7 +2225,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
 name = "deck-based-open-source-visualisation-engine-for-reactors-dover"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "outram-park-fork-dwsim-libs",
  "petir",
@@ -2387,7 +2387,7 @@ dependencies = [
 
 [[package]]
 name = "dhoby-ghaut"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "boon-lay",
  "buangkok",
@@ -3218,7 +3218,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "farrer-park"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "hashbrown 0.16.1",
  "outram-foam-basic-lib",
@@ -5632,7 +5632,7 @@ dependencies = [
 
 [[package]]
 name = "kaki-bukit"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "petir",
 ]
@@ -5650,7 +5650,7 @@ dependencies = [
 
 [[package]]
 name = "kembangan"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "float-cmp 0.10.0",
@@ -5687,7 +5687,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "bugis",
  "clap",
@@ -5861,7 +5861,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-codegen"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "kovan-common",
  "petir",
@@ -5871,7 +5871,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-common"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -5896,7 +5896,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-discovery"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "gix",
  "grep-matcher",
@@ -5912,7 +5912,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-literature"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "html5ever",
  "icu_casemap",
@@ -5936,7 +5936,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-metrics"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "kovan-common",
  "kovan-discovery",
@@ -5947,7 +5947,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-semantics"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "kovan-common",
  "kovan-discovery",
@@ -5958,7 +5958,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-web"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "bugis",
  "eframe",
@@ -6615,7 +6615,7 @@ dependencies = [
 
 [[package]]
 name = "nee_soon"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "bugis",
  "eframe",
@@ -6694,7 +6694,7 @@ dependencies = [
 
 [[package]]
 name = "njoy-outram-park-fork"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "directories 5.0.1",
  "fs2",
@@ -7379,7 +7379,7 @@ dependencies = [
 
 [[package]]
 name = "outram-blender"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "eframe",
  "egui",
@@ -7402,7 +7402,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "approx",
  "farrer-park",
@@ -7424,7 +7424,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-basic-lib"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "approx",
  "miniz_oxide 0.8.9",
@@ -7439,7 +7439,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-cli"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "clap",
  "miniz_oxide 0.8.9",
@@ -7455,7 +7455,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-mesh"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "approx",
  "hashbrown 0.16.1",
@@ -7470,7 +7470,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-multiphase"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "approx",
  "miniz_oxide 0.8.9",
@@ -7482,7 +7482,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-turbulence-lib"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "approx",
  "miniz_oxide 0.8.9",
@@ -7494,7 +7494,7 @@ dependencies = [
 
 [[package]]
 name = "outram-mc-libs"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "approx",
  "fission-yields-data",
@@ -7522,7 +7522,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-digital-twin-engine"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "async-opcua",
  "bishan",
@@ -7576,7 +7576,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-cfmesh"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "bugis",
  "eframe",
@@ -7592,7 +7592,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-coolprop"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "approx",
  "miniz_oxide 0.8.9",
@@ -7603,7 +7603,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-dwsim-libs"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "approx",
  "hashbrown 0.16.1",
@@ -7616,7 +7616,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-liggghts"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "approx",
  "burn",
@@ -7631,7 +7631,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-moltres"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "outram-foam-basic-lib",
  "petir",
@@ -7642,7 +7642,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-offbeat"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "approx",
  "outram-foam-basic-lib",
@@ -7653,7 +7653,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-onix"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "petir",
  "thiserror 2.0.21",
@@ -7662,7 +7662,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-pflotran"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "hdf5-pure",
  "outram-foam-basic-lib",
@@ -7677,7 +7677,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-thermochimica"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "miniz_oxide 0.8.9",
  "petir",
@@ -7687,7 +7687,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-mpi"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "thiserror 2.0.21",
 ]
@@ -7738,7 +7738,7 @@ dependencies = [
 
 [[package]]
 name = "pasir-ris"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "bishan",
  "buangkok",
@@ -7830,7 +7830,7 @@ checksum = "3637c05577168127568a64e9dc5a6887da720efef07b3d9472d45f63ab191166"
 
 [[package]]
 name = "petir"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "approx",
  "faer",
@@ -8286,7 +8286,7 @@ checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
 
 [[package]]
 name = "punggol"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "outram-mc-libs",
  "petir",
@@ -8364,7 +8364,7 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "raffles"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "burn",
  "hashbrown 0.16.1",
@@ -8653,7 +8653,7 @@ checksum = "03251193000f4bd3b042892be858ee50e8b3719f2b08e5833ac4353724632430"
 
 [[package]]
 name = "redhill"
-version = "0.0.4"
+version = "0.0.5"
 
 [[package]]
 name = "redox_syscall"
@@ -9022,7 +9022,7 @@ checksum = "2ab42ca02749e120097e328d91d415325bdf43b1c72c4c8badf37375fe40a813"
 
 [[package]]
 name = "sembawang"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "boon-lay",
  "buangkok",
@@ -9727,7 +9727,7 @@ dependencies = [
 
 [[package]]
 name = "tampines"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "boon-lay",
  "chem-eng-real-time-process-control-simulator",
@@ -9748,7 +9748,7 @@ dependencies = [
 
 [[package]]
 name = "tampines-steam-tables"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "approx",
  "bugis",
@@ -9791,7 +9791,7 @@ dependencies = [
 
 [[package]]
 name = "teh-o-prke"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "approx",
  "bugis",
@@ -10200,7 +10200,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tuas_boussinesq_solver"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "approx",
  "bugis",
