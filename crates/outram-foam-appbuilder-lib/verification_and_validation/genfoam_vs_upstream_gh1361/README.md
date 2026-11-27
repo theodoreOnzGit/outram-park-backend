@@ -8477,3 +8477,46 @@ X1 held; X2 held (8 of 8); X3 held; X4 held (500 exactly); X5 held (2.5e-15); X6
 ### Reproduction
 
 `ADJ=1 bash scripts/make_fullcoupling_coupled_case.sh <ss>; bash scripts/run_fullcoupling_coupled.sh <ss>`; then `bash scripts/make_fullcoupling_transient_case.sh <ss> <sh>` with `SHIPPED=1` (SH) and without (PK), `sed -i 's/^writeControl .*/writeControl adjustableRunTime;/; s/^writeInterval .*/writeInterval 10;/' <case>/system/controlDict`, `bash scripts/run_fullcoupling_transient.sh <case>`, `python3 -I scripts/pack_start_dir_r66.py <case>/110 out; gzip -9 -n out` (refs `fc_{sh,pk}_written110_r69`). Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_transient_vs_upstream --test genfoam_written_state_vs_upstream -- --nocapture`.
+
+# Round 71 (gh:#1911, 3D_SmallESFR; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", and on #1903 "3D MSFR or ESFR"): what the shipped ESFR fluid region selects, what the port has of it, and the pieces taken in this round
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27, BEFORE any port run of the pieces below. The audit part reads upstream files (`Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/legacySolver`, `Allrun_parallel`, `Alltest`) and the real binary only; its one port observation is the first refusal of `OnePhaseFcCase::read`, a read, not a run.
+
+## What the shipped tutorial is (read 2026-11-27)
+
+`3D_SmallESFR_NewSolverVerification` runs `legacySolver` then `newSolver` (`Allrun_parallel`: `decomposePar -allRegions`, `mpirun -np 4 GeN-Foam -parallel`; steady state to `endTime 200`, `deltaT 1`, `adjustTimeStep false`; `Alltest` gates `keff` 0.936827 +- 0.1 %). Three regions: `fluidRegion onePhase` (23 322 cells, zones `axialReflector 6540, controlRod 432, radialReflector 5040, innerCore 3300, follower 1728, outerCore 3240, diagrid 3042`), `neutroRegion diffusionNeutronics` (23 322), `thermoMechanicalRegion legacyThermoMechanics` (23 340); `newSolver` selects `extendedThermoMechanics` (not buildable here: gap audit). `3D_SmallESFR_old` is the same with `-legacy`.
+
+**The fluid region is `momentumMode faceCentered`** (`system/fluidRegion/fvSolution` PIMPLE: `nCorrectors 2`, `nOuterCorrectors 6`, `solveEnergy`, `solveFluidMechanics`), NOT cell-centred. The text of gh:#1911 and the round 52 work say `one_phase_cc`; the shipped case is the face-centred solver (`one_phase_fc`, `pEqnf_1p.H`), which lacks the thermo/structure machinery the cc solver gained in rounds 37, 46 and 55. Selections, each against the port:
+
+| # | selection (file) | `one_phase_fc` (the solver this case needs) | `one_phase_cc` |
+|---|---|---|---|
+| 1 | `momentumMode faceCentered`, `laminar` | ported (round 38) | refused: `momentumMode` |
+| 2 | `heRhoThermo` `icoPolynomial` (`rhoCoeffs<8> (860 0...)`, constant rho) + `hPolynomial` Cp(T) + `polynomial` mu, kappa | `read_thermo` reads `PhaseThermo::Polynomial`; the face-centred pEqn is documented for Boussinesq only (`boussinesq_constant_rho`), a variable `fluid::rho()` is not wired | ported (round 55) |
+| 3 | `passiveProperties` (all zones) | **refused by name: the first refusal** (test `probe_shipped_first_refusal`) | ported (round 55) |
+| 4 | `powerModel nuclearFuelPin` (innerCore), `nuclearFuelPinTest` (outerCore) | only `fixedPower` | `nuclearFuelPin` ported (round 37); `nuclearFuelPinTest` refused by name (`radial_power.rs`) |
+| 5 | `heatTransferModels byRegime` over `regimeMapModels lamTurb` (Re), two `NusseltReynoldsPrandtlPower` | `read_nusselt` only | `Nusselt` ported; `byRegime` not checked |
+| 6 | drag `ReynoldsPower` | ported | ported |
+| 7 | `h`: `smoothSolver`/`symGaussSeidel` 1e-7; `p_rgh`/`p_rghFinal`: `GAMG`/`DIC` 1e-7 | `h` smooth solver not read; GAMG: named PCG/DIC substitute | smooth solver ported (round 46); GAMG native (round 67) |
+| 8 | BCs: `U` bottom `fixedValue`, top `zeroGradient`, walls and `baffle0/1` `slip`; `T` bottom `fixedValue`; `p_rgh` bottom `fixedFluxExtrapolatedPressure`, top `fixedValue`; `p` `calculated` on baffles | `noSlip`/`zeroGradient` U only; `fixedFluxExtrapolatedPressure` refused (documented) | per rounds 62/65 |
+| 9 | `pMin`, `pRefCell`/`pRefValue` | ported | ported |
+| 10 | `removeBaffles fluidRegion 1`; `mappedWall` `baffle0/1` (10 626 faces each) | no effect on the solved mesh (round 62 finding 4) | same |
+| 11 | multi-region: `meshDeformation neutroRegion disp`, maps of `powerDensity`, `T thermo:rho T.fuelAvForNeutronics T.cladAvForNeutronics T.passiveStructure`, `meshDisp`; 6 iterations, residual 5e-5 | three-region loop exists for 2D_fullCoupling only | same |
+
+**Real binary facts measured today** (`scripts/make_esfr_fluid_case.sh`, fluid-only): the real `GeN-Foam` runs the fluid region in **1.2 s per step** serial with the shipped `GAMG` (18 iterations for the first `p_rgh`; `smoothSolver` `h` 5-7 iterations); its log prints `T.nuclearFuelPin.*` (innerCore) and `T.nuclearFuelPinTest.*` (outerCore), so both models run; with prescribed `powerDensity` (innerCore 1e8, outerCore 8e7 W/m3: inputs, not fits) the pin fuel average rises 29 K and 23 K in the first iteration. The shipped `0/fluidRegion/powerDensityNeutronics` is `uniform 0` and outranks the dictionary value; the staged case deletes it (fluid-only reduction).
+
+## nuclearFuelPinTest read line by line (upstream `powerModels/nuclearFuelPinTest/nuclearFuelPinTest.{C,H}`, 1 161 + 255 lines, vs `nuclearFuelPin/` 954 + 579)
+
+`diff` of `nuclearFuelPinTest.C` (type name substituted) against `nuclearFuelPin.C`: the code differences are (a) the member `powerDensity_` (`powerDensity.<typeName>`, READ_IF_PRESENT, AUTO_WRITE) is commented out, lines 87-100, (b) `structure_.setRegionField(*this, powerDensity_, "powerDensity")` is commented out, line 214, (c) a trailing derivation comment. `.H`: "Same as nuclearFuelPin ... a dummy class used in the ESFR regression test to verify capability to handle multiple nuclear power models." The radial solve is the same; what differs is the type name (field and log names `T.nuclearFuelPinTest.*`, `Trad.nuclearFuelPinTest`) and the model's own `powerDensity.<type>` field.
+
+## Pieces of this round, criteria and predictions (committed BEFORE any port run; criteria are not changed after seeing results)
+
+**Piece A: `nuclearFuelPinTest` in the cell-centred region, against the real binary.** Variants of `cases/fullcoupling_fluid` (2D_fullCoupling fluid region, 20 steps, round 55 tight protocol, prescribed `powerDensityNeutronics` on disk):
+* `v4_pintest`: the ONE edit `type nuclearFuelPin;` -> `type nuclearFuelPinTest;`.
+* `v5_pintest_dict`: `v4` plus the prescribed power field deleted from `0/` and `powerDensity 5e7;` in the dictionary (two edits, named: they isolate the dictionary power path that the commented-out `setRegionField` touches).
+
+Criteria (gated): every compared field (`U p p_rgh T alphaPhi htc T.passiveStructure T.fuelAvForNeutronics`) <= 1e-12 relative to the field's max |value| at each of the 20 steps; solve count and order per step equal. Reported, not gated: iteration counts at the noise floor, wall time. Also gated: the REAL `v4` output equals the REAL round 55 base output field by field.
+Predictions: P-A1 real `v4` == real base, bit-identical. P-A2 port `v4` <= 1e-12 (expected <= 1e-13). P-A3 real `v5`: the Test pin gets power from the dictionary exactly as `nuclearFuelPin` does (the ESFR log shows the Test model heated with no on-disk field); if the port leaves it unpowered the miss is a defect to fix, not a criterion to move. P-A4 written-state naming (`Trad.nuclearFuelPinTest`) is NOT claimed: the writer refuses it by name.
+
+**Piece B: the 3-D mesh is DRAWN** (hard rule): axial (x-z, y-z) and radial (x-y at four heights) slices of the solver's own `polyMesh` (23 322 cells) coloured by cellZone. Prediction: seven zones; concentric assemblies (innerCore centre, outerCore ring, follower/controlRod/reflector/diagrid outside); axial stack with axialReflector above and below the 3 300 + 3 240 core cells and diagrid at the bottom. A picture that contradicts this is a finding.
+
+**Not ported in this round, refused by name** (issues filed from here): in `one_phase_fc`: `passiveProperties`, radial power models (`nuclearFuelPin`/`nuclearFuelPinTest`), `byRegime`, `slip` U, `fixedFluxExtrapolatedPressure`, variable-rho `pEqnf_1p.H` for `icoPolynomial`/`hPolynomial`, the `h` smooth solver, GAMG for the face-centred region. That is the whole fc ladder of this tutorial (about nine pieces, each needing a one-edit variant on the 3-D mesh). The shipped fluid steady state is therefore NOT compared in this round and no ESFR number is claimed. `neutroRegion`/`thermoMechanicalRegion` stages are not started (3-D `legacyThermoMechanics` needs `regionCoupled` baffles, gh:#1846; `newSolver` needs `extendedThermoMechanics`, gh:#1783).

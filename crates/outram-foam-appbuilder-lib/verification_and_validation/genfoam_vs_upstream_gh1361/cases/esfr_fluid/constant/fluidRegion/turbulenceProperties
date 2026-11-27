@@ -1,0 +1,64 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      turbulenceProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Same as standard OpenFOAM. porousKEpsilon is provided as additional model.
+// The only difference is that it forces k and epsilon to equilibrium values
+// inside the porous zones. These equilibium values can be set in the
+// porousKepsionProperties sub-dictionary here below.
+// Please notice that a porous medium simulation using the porousKEpsilon 
+// model entails the risk of an unstable solution. This is due to the fact 
+// that the turbulent viscosity will be that of the sub-scale structure, and 
+// thus not enough to stabilize a solution on the length scale of the coarse 
+// mesh. To address this problem, one can define the keyword DhStruct in 
+// constant/fluidRegion/phaseProperties/dragModels.(nameOfPhase).structure.
+// (nameOfCellZones). This keyword defines the hydraulic diameter of the whole
+// porous structure. The code uses it to make sure the turbulent viscosity 
+// results in a  laminar Reynolds number (defaulted to 500).
+
+simulationType laminar; //RAS
+
+RAS
+{
+    RASModel        porousKEpsilon; //laminar;//kEpsilon;
+
+    turbulence      on;
+
+    printCoeffs     on;
+}
+
+porousKEpsilonProperties
+{
+    "diagrid:axialReflector:radialReflector:follower:controlRod:innerCore:outerCore"
+    {
+	
+        convergenceLength           0.5; // k and epsilon will exponentially 
+					 // converge to equilibrium according 
+					 // to this exponent
+	// k and epsilon are determined based on correlations for tubulent
+	// intensity (I) and lengh scale (L) 
+	// Turbulent intensity correlation in the form 0.16*Reynolds^-0.125
+	// Reynolds number calculated by the thermal-hydraulic class, accordin
+	// to the input data in phaseProperties	
+        turbulenceIntensityCoeff    0.16; 
+        turbulenceIntensityExp      -0.125;
+        turbulenceLengthScaleCoeff  0.07; // L = 0.07*Dh (Dh is the hydraulic 
+					  // diameter secificied in 
+					  // phaseProperties)
+    }
+}
+
+// ************************************************************************* //
