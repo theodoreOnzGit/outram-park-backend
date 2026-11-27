@@ -37,7 +37,7 @@ use outram_blender::foam_mesh::{revolved_profile_surface, TetDualOptions, Volume
 use outram_blender::unstructured::convert::cfmesh::from_volume_mesh;
 use outram_blender::unstructured::overlap::MeshOverlap;
 use outram_blender::unstructured::{render_mesh_slice, MeshColourBy, MeshSlice, UnstructuredMesh, Zone};
-use outram_park_fork_cfmesh::patches::{assign_patches_by_region, SurfaceRegions};
+use outram_park_fork_cfmesh::patches::SurfaceRegions;
 
 use crate::engine::AssemblyInfo;
 
@@ -147,6 +147,8 @@ struct RoleMesh {
     /// Exact (round, analytic) volume of every region inside this mesh's
     /// domain \[cm³\]; zero for a region the mesh does not hold.
     exact_cm3: Vec<f64>,
+    /// The `cyclicAMI` interface pairs (empty on the conforming route).
+    ami: Vec<outram_park_fork_cfmesh::pipeline::region_join::AmiPair>,
 }
 
 /// Mesh one role, **with every internal region boundary fitted and snapped**
@@ -180,23 +182,58 @@ fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, 
     }
     let (zb, zt, zbed) = (d.conus_top, d.cavity_top, d.bed_top);
     let flat = |a: [f64; 2], b: [f64; 2], z: f64| (a[1] - z).abs() < 1e-9 && (b[1] - z).abs() < 1e-9;
+    let th_outer = |a: [f64; 2], b: [f64; 2]| {
+        // Top disc = inlet (the helium enters the cavity from the top plenum
+        // and flows down), bottom disc = outlet, side above the bed =
+        // cavity_wall (fluid: layers), side along the bed = bed_wall
+        // (porous: no layers).
+        if flat(a, b, zt) {
+            "inlet".to_string()
+        } else if flat(a, b, zb) {
+            "outlet".to_string()
+        } else if 0.5 * (a[1] + b[1]) > zbed {
+            "cavity_wall".to_string()
+        } else {
+            "bed_wall".to_string()
+        }
+    };
+    // The FV meshes: every region meshed on its own and the regions joined by
+    // `cyclicAMI` interfaces (maintainer, 2026-11-27, gh:#1862). The
+    // structural Tet4 mesh, and the FV meshes with
+    // `DHOBY_STEP7_BOUNDARIES=conformal` (the ablation), mesh all regions in
+    // one TetGen run instead (below).
+    let conformal = std::env::var("DHOBY_STEP7_BOUNDARIES").as_deref() == Ok("conformal");
+    if role != MeshRole::Structural && !conformal {
+        let (snap_on, delta) = step7_snap(s.cell_size_cm);
+        let layers = |g: usize| {
+            (role == MeshRole::ThermalHydraulics && g == map.cavity && s.layers > 0).then(|| RegionLayers {
+                patches: vec!["cavity_wall".to_string()],
+                n: s.layers,
+                first_m: s.first_layer_cm / 100.0,
+                expansion: s.expansion.max(1.0),
+            })
+        };
+        let outer = |a: [f64; 2], b: [f64; 2]| if role == MeshRole::ThermalHydraulics { th_outer(a, b) } else { "walls".to_string() };
+        let j = mesh_regions_joined(map, &part, s.n_seg, s.cell_size_cm, |g| role_holds(map, role, g), outer, layers, snap_on.then_some(delta))
+            .map_err(|e| format!("{}: {e}", role.name()))?;
+        let mut notes = j.notes;
+        if !snap_on {
+            notes.push("not snapped: the boundary stays on the faceted surface (DHOBY_NO_SNAP=1)".into());
+        }
+        let layered = role == MeshRole::ThermalHydraulics && s.layers > 0;
+        notes.push(interface_quality_note(&j.mesh, &j.cell_region));
+        return Ok(RoleMesh {
+            vm: j.mesh,
+            notes,
+            cell_type: if layered { CellType::TetDualWithLayers } else { CellType::TetDual },
+            cell_region: j.cell_region,
+            exact_cm3,
+            ami: j.ami,
+        });
+    }
     let fitted = match role {
-        MeshRole::ThermalHydraulics => fitted_surface(map, &part, s.n_seg, |g| role_holds(map, role, g), |a, b| {
-            // Top disc = inlet (the helium enters the cavity from the top
-            // plenum and flows down), bottom disc = outlet, side above the
-            // bed = cavity_wall (fluid: layers), side along the bed =
-            // bed_wall (porous: no layers).
-            if flat(a, b, zt) {
-                "inlet".to_string()
-            } else if flat(a, b, zb) {
-                "outlet".to_string()
-            } else if 0.5 * (a[1] + b[1]) > zbed {
-                "cavity_wall".to_string()
-            } else {
-                "bed_wall".to_string()
-            }
-        }),
-        _ => fitted_surface(map, &part, s.n_seg, |g| role_holds(map, role, g), |_, _| "walls".to_string()),
+        MeshRole::ThermalHydraulics => fitted_surface(map, &part, s.n_seg, |g| role_holds(map, role, g), |a, b, _| th_outer(a, b)),
+        _ => fitted_surface(map, &part, s.n_seg, |g| role_holds(map, role, g), |_, _, _| "walls".to_string()),
     };
     let h = s.cell_size_cm / 100.0;
     let tets = outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(h * h * h / (6.0 * 2f64.sqrt())));
@@ -223,7 +260,7 @@ fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, 
     };
     if role != MeshRole::ThermalHydraulics || s.layers == 0 {
         notes.push(interface_quality_note(&vm, &cell_region));
-        return Ok(RoleMesh { vm, notes, cell_type, cell_region, exact_cm3 });
+        return Ok(RoleMesh { vm, notes, cell_type, cell_region, exact_cm3, ami: Vec::new() });
     }
     // Boundary layers on the fluid's wall only (maintainer default: fluid =
     // tet-dual + layers, porous = tet-dual), grown on the SNAPPED dual
@@ -278,7 +315,7 @@ fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, 
     if named.validate().is_err() || q.n_negative_volume_cells != 0 {
         notes.push("boundary layers skipped: they would invalidate the mesh".into());
         notes.push(interface_quality_note(&vm, &cell_region));
-        return Ok(RoleMesh { vm, notes, cell_type, cell_region, exact_cm3 });
+        return Ok(RoleMesh { vm, notes, cell_type, cell_region, exact_cm3, ami: Vec::new() });
     }
     cell_region.resize(named.n_cells, map.cavity);
     if named.n_cells == before {
@@ -297,7 +334,130 @@ fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, 
         }
     }
     notes.push(interface_quality_note(&named, &cell_region));
-    Ok(RoleMesh { vm: named, notes, cell_type: CellType::TetDualWithLayers, cell_region, exact_cm3 })
+    Ok(RoleMesh { vm: named, notes, cell_type: CellType::TetDualWithLayers, cell_region, exact_cm3, ami: Vec::new() })
+}
+
+/// Boundary layers one region grows in [`mesh_regions_joined`], grown first
+/// by the single-region pipeline (`outram_park_fork_cfmesh` HARD RULE,
+/// gh:#1829).
+#[derive(Debug, Clone)]
+pub struct RegionLayers {
+    /// The region's patches the layers grow on.
+    pub patches: Vec<String>,
+    /// Number of layers.
+    pub n: usize,
+    /// First layer thickness \[m\].
+    pub first_m: f64,
+    /// Growth ratio.
+    pub expansion: f64,
+}
+
+/// [`mesh_regions_joined`]' result.
+pub struct JoinedRegions {
+    /// The joined mesh (metres): each region's cells, its interface sides as
+    /// boundary patches `<region>_to_<other>`.
+    pub mesh: VolumeMesh,
+    /// Region of every cell (a [`RegionMap`] index).
+    pub cell_region: Vec<usize>,
+    /// The interfaces, each a `cyclicAMI` pair.
+    pub ami: Vec<outram_park_fork_cfmesh::pipeline::region_join::AmiPair>,
+    /// What was run, region by region.
+    pub notes: Vec<String>,
+}
+
+/// **Every region meshed on its own, joined by AMI interfaces** (gh:#1862;
+/// maintainer, 2026-11-27: "mesh each region separately, then combine them
+/// into a multiregion mesh using a AMI interface").
+///
+/// - **Surface.** Every region `holds` keeps is cut from `part` as its own
+///   closed surface ([`fitted_surface`] keeping that region alone). An edge
+///   to another kept region `h` is the patch `<region>_to_<h>`; any other
+///   boundary edge is named by `outer(a, b)` (cm).
+/// - **Mesh.** The single-region pipeline meshes it
+///   (`surface_to_tet_dual_mesh_multipatch`: TetGen `-pq1.414a<V>`, `V` the
+///   regular tetrahedron of `cell_cm`, then the polyhedral dual), with the
+///   layers `layers(region)` asks for grown first.
+/// - **Snap.** With `snap = Some(delta)` (metres) each region's mesh is
+///   snapped onto the true surfaces of revolution, its interface sides
+///   included ([`snap_checked`]: a morph within `delta`, then the surface
+///   faces; a non-positive cell is refused).
+/// - **Join.** The meshes are joined
+///   (`outram_park_fork_cfmesh::pipeline::region_join`), each interface a
+///   pair of patches for `cyclicAMI`.
+///
+/// The two sides of a curved interface are different tilings of the same
+/// true surface, so they need not coincide. The AMI weights carry the
+/// coupling, and the pairs' areas are reported.
+///
+/// # Errors
+/// If a region fails to mesh or to snap, or the join refuses.
+#[allow(clippy::too_many_arguments)]
+pub fn mesh_regions_joined(
+    map: &RegionMap,
+    part: &RzPartition,
+    n_seg: usize,
+    cell_cm: f64,
+    holds: impl Fn(usize) -> bool,
+    outer: impl Fn([f64; 2], [f64; 2]) -> String,
+    layers: impl Fn(usize) -> Option<RegionLayers>,
+    snap: Option<f64>,
+) -> Result<JoinedRegions, String> {
+    let mut present: Vec<usize> = part.polygons.iter().map(|p| p.1).filter(|&g| holds(g)).collect();
+    present.sort_unstable();
+    present.dedup();
+    let h = cell_cm / 100.0;
+    let tets = outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(h * h * h / (6.0 * 2f64.sqrt())));
+    let mut meshes = Vec::with_capacity(present.len());
+    let mut notes = Vec::new();
+    let side = |g: usize, o: usize| format!("{}_to_{}", map.regions[g].id, map.regions[o].id);
+    for &g in &present {
+        let id = &map.regions[g].id;
+        let fs = fitted_surface(map, part, n_seg, |x| x == g, |a, b, across| match across {
+            Some(o) if holds(o) => side(g, o),
+            _ => outer(a, b),
+        });
+        let labels: Vec<&str> = fs.surf.marker.iter().map(|&k| fs.surf.patch_names[k].as_str()).collect();
+        let regions = SurfaceRegions::from_labels(&labels);
+        let lay = layers(g);
+        let opts = TetDualOptions {
+            cell_size: h,
+            dual: true,
+            dual_min_faces: true,
+            n_layers: lay.as_ref().map_or(0, |l| l.n),
+            first_layer_thickness: lay.as_ref().map_or(0.0, |l| l.first_m),
+            expansion: lay.as_ref().map_or(1.0, |l| l.expansion),
+            layer_patches: lay.as_ref().map_or_else(Vec::new, |l| l.patches.clone()),
+            tet_source: tets,
+            ..TetDualOptions::default()
+        };
+        let (mut vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(&fs.surf.points, &fs.surf.tris, &regions, &opts)
+            .map_err(|e| format!("{id}: {e}"))?;
+        notes.extend(rep.stage_notes.into_iter().map(|n| format!("{id}: {n}")));
+        if let Some(delta) = snap {
+            let n = snap_checked(&mut vm, None, &fs.segs_m, n_seg, delta).map_err(|e| format!("{id}: {e}"))?;
+            notes.push(format!("{id}: {n}"));
+        }
+        notes.push(format!("{id}: {} cells", vm.n_cells));
+        meshes.push(vm);
+    }
+    let has = |k: usize, name: &str| meshes[k].patches.iter().any(|p| p.name == name);
+    let mut pairs = Vec::new();
+    for (i, &g) in present.iter().enumerate() {
+        for (j, &o) in present.iter().enumerate().skip(i + 1) {
+            let (a, b) = (side(g, o), side(o, g));
+            match (has(i, &a), has(j, &b)) {
+                (true, true) => pairs.push((a, b)),
+                (false, false) => {}
+                _ => return Err(format!("{a} / {b}: only one side of the interface was meshed")),
+            }
+        }
+    }
+    let j = outram_park_fork_cfmesh::pipeline::region_join::join_regions(&meshes, &pairs)?;
+    for p in &j.ami {
+        notes.push(format!("AMI {} / {}: areas {:.6e} / {:.6e} m², mismatch {:+.2e}", p.a, p.b, p.area_a, p.area_b, p.area_mismatch()));
+    }
+    let cell_region = j.cell_region.iter().map(|&k| present[k]).collect();
+    Ok(JoinedRegions { mesh: j.mesh, cell_region, ami: j.ami, notes })
 }
 
 /// Name the boundary faces of a Step 7 thermal-hydraulics mesh (the bed
@@ -485,7 +645,7 @@ pub fn build(
             k as f64 / 6.0,
         ));
         let t = Instant::now();
-        let RoleMesh { vm, notes, cell_type, cell_region, exact_cm3: exact } = mesh_role(d, plan, role)?;
+        let RoleMesh { vm, notes, cell_type, cell_region, exact_cm3: exact, ami } = mesh_role(d, plan, role)?;
         let um = from_volume_mesh(&vm).map_err(|e| format!("{}: {e}", role.name()))?;
         if cell_region.len() != um.n_cells() {
             return Err(format!("{}: {} cell regions for {} cells", role.name(), cell_region.len(), um.n_cells()));
@@ -528,7 +688,8 @@ pub fn build(
             .join("constant")
             .join(role.genfoam_region())
             .join("polyMesh");
-        outram_park_fork_cfmesh::foam::write_polymesh(&vm, &dir)
+        // A joined mesh writes its interfaces as `cyclicAMI` pairs.
+        outram_park_fork_cfmesh::foam::write_polymesh_with_ami(&vm, &ami, &dir)
             .map_err(|e| format!("{}: {e}", dir.display()))?;
         std::fs::write(dir.join("cellZones"), cell_zones_text(map, &cell_region))
             .map_err(|e| e.to_string())?;
@@ -715,7 +876,8 @@ pub struct FittedSurface {
 /// follow-up): every edge of `part` between two kept regions of different
 /// index (an interface patch `<region a>_to_<region b>`) and between a kept
 /// region and the outside or a region not kept (an outer patch, named by
-/// `outer(a, b)` for the edge from `a` to `b` in cm), revolved with `n_seg`
+/// `outer(a, b, across)` for the edge from `a` to `b` in cm, `across` the
+/// region not kept on its other side, `None` outside the map), revolved with `n_seg`
 /// segments as [`revolved_profile_surface`] revolves a profile (a vertex on
 /// the axis is one point; an edge on the axis sweeps nothing). Collinear
 /// edges of one patch meeting at a vertex no other kept edge uses are merged
@@ -727,7 +889,7 @@ pub fn fitted_surface(
     part: &RzPartition,
     n_seg: usize,
     allowed: impl Fn(usize) -> bool,
-    outer: impl Fn([f64; 2], [f64; 2]) -> String,
+    outer: impl Fn([f64; 2], [f64; 2], Option<usize>) -> String,
 ) -> FittedSurface {
     use outram_park_fork_cfmesh::math::Vec3 as V;
     use std::collections::BTreeMap;
@@ -786,8 +948,11 @@ pub fn fitted_surface(
             continue; // on the axis
         }
         let regs: Vec<usize> = ps.iter().map(|&pi| polys[pi].1).filter(|&g| allowed(g)).collect();
+        // The region across an outer edge: a region not kept, or none (the
+        // outside of the R-Z map).
+        let across = ps.iter().map(|&pi| polys[pi].1).find(|&g| !allowed(g));
         let patch = match regs.as_slice() {
-            [_] => Some(patch_of(outer(pa, pb), false)),
+            [_] => Some(patch_of(outer(pa, pb, across), false)),
             [g, h] if g != h => {
                 let (x, y) = ((*g).min(*h), (*g).max(*h));
                 Some(patch_of(format!("{}_to_{}", map.regions[x].id, map.regions[y].id), true))
@@ -1186,7 +1351,7 @@ pub fn build_cht(
     let part = map.rz_partition(d)?;
     let faceted_cm3 = part.volumes(map.regions.len(), Some(n_seg));
     let (zb, zt) = (d.z_bottom, d.z_top);
-    let fitted = fitted_surface(&map, &part, n_seg, |_| true, |a: [f64; 2], b: [f64; 2]| {
+    let fitted = fitted_surface(&map, &part, n_seg, |_| true, |a: [f64; 2], b: [f64; 2], _: Option<usize>| {
         if (a[1] - zt).abs() < 1e-9 && (b[1] - zt).abs() < 1e-9 {
             "top".to_string()
         } else if (a[1] - zb).abs() < 1e-9 && (b[1] - zb).abs() < 1e-9 {

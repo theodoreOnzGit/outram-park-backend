@@ -136,6 +136,8 @@ pub mod tet_source;
 pub use tet_source::TetSource;
 /// Several regions in one mesh with body-fitted internal boundaries (NOT a port).
 pub mod multi_region;
+/// Per-region meshes joined into one mesh by `cyclicAMI` interface pairs (NOT a port, gh:#1861).
+pub mod region_join;
 /// cfMesh's `tetMesh` layer steps on the pipeline's tetrahedra (gh:#1824).
 pub mod layers_first;
 

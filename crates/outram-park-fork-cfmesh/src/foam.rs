@@ -111,10 +111,101 @@ pub fn write_polymesh(
     to_poly_mesh(mesh).write(dir)
 }
 
+/// [`write_polymesh`] for a mesh joined by
+/// [`crate::pipeline::region_join::join_regions`]: the two patches of every
+/// [`AmiPair`](crate::pipeline::region_join::AmiPair) are written as
+/// `cyclicAMI`, each naming the other as `neighbourPatch`, with the entries
+/// upstream's `coupledPolyPatch::write` and `cyclicAMIPolyPatch::write`
+/// give a pair with no transform (OpenFOAM ESI `6e2595746a39`,
+/// `src/meshTools/AMIInterpolation/patches/cyclicAMI/cyclicAMIPolyPatch/cyclicAMIPolyPatch.C`):
+/// `inGroups 1(cyclicAMI)`, `matchTolerance 0.0001`, `transform noOrdering`.
+/// Every other patch is written as [`write_polymesh`] writes it, and so are
+/// the other files. `write_polymesh` itself is unchanged (gh:#1861).
+///
+/// # Errors
+/// If a pair names a patch the mesh does not have, or on a write error.
+#[cfg(feature = "std")]
+pub fn write_polymesh_with_ami(
+    mesh: &VolumeMesh,
+    ami: &[crate::pipeline::region_join::AmiPair],
+    dir: &std::path::Path,
+) -> Result<(), String> {
+    let mut poly = to_poly_mesh(mesh);
+    let mut partner: Vec<Option<String>> = vec![None; poly.patches.len()];
+    for pair in ami {
+        for (me, other) in [(&pair.a, &pair.b), (&pair.b, &pair.a)] {
+            let k = poly
+                .patches
+                .iter()
+                .position(|p| p.name == *me)
+                .ok_or_else(|| format!("write_polymesh_with_ami: no patch `{me}`"))?;
+            poly.patches[k].kind = PatchKind::CyclicAmi;
+            partner[k] = Some(other.clone());
+        }
+    }
+    poly.write(dir).map_err(|e| e.to_string())?;
+    // Add the pair entries inside each cyclicAMI patch's block of the
+    // `boundary` file the writer above produced.
+    let path = dir.join("boundary");
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut out = String::with_capacity(text.len() + 160 * ami.len());
+    let mut current: Option<usize> = None;
+    for line in text.lines() {
+        let t = line.trim();
+        if line.starts_with("    ") && !line.starts_with("     ") && t != "{" && t != "}" {
+            current = poly.patches.iter().position(|p| p.name == t);
+        }
+        if line == "    }" {
+            if let Some(nbr) = current.and_then(|k| partner[k].as_ref()) {
+                out.push_str("        inGroups        1(cyclicAMI);\n");
+                out.push_str("        matchTolerance  0.0001;\n");
+                out.push_str("        transform       noOrdering;\n");
+                out.push_str(&format!("        neighbourPatch  {nbr};\n"));
+            }
+            current = None;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    std::fs::write(&path, out).map_err(|e| format!("{}: {e}", path.display()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cartesian::cartesian_box;
+
+    /// The joined two-box mesh (`region_join`) written with its AMI pair:
+    /// both sides are `cyclicAMI` and name each other, the other patches
+    /// keep their types, and the polyMesh reads back with the same counts.
+    #[cfg(feature = "std")]
+    #[test]
+    fn a_joined_mesh_writes_its_ami_pair() {
+        use crate::math::Vec3;
+        let rename = |mut m: VolumeMesh, from: &str, to: &str| {
+            m.patches.iter_mut().filter(|p| p.name == from).for_each(|p| p.name = to.into());
+            m
+        };
+        let a = rename(cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [2, 2, 2]), "xMax", "a_to_b");
+        let b = rename(cartesian_box(Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 1.0, 1.0), [3, 3, 3]), "xMin", "b_to_a");
+        let j = crate::pipeline::region_join::join_regions(&[a, b], &[("a_to_b".into(), "b_to_a".into())]).expect("join");
+        let dir = std::env::temp_dir().join(format!("cfmesh_ami_write_{}", std::process::id()));
+        write_polymesh_with_ami(&j.mesh, &j.ami, &dir).expect("write");
+        let text = std::fs::read_to_string(dir.join("boundary")).unwrap();
+        for (me, other) in [("a_to_b", "b_to_a"), ("b_to_a", "a_to_b")] {
+            let block = &text[text.find(&format!("    {me}\n")).expect("patch block")..];
+            let block = &block[..block.find("    }").unwrap()];
+            assert!(block.contains("type            cyclicAMI;"), "{block}");
+            assert!(block.contains(&format!("neighbourPatch  {other};")), "{block}");
+            assert!(block.contains("transform       noOrdering;"), "{block}");
+        }
+        assert_eq!(text.matches("cyclicAMI;").count(), 2);
+        let back = outram_foam_basic_lib::io::poly_mesh::PolyMesh::read(&dir).expect("reads back");
+        assert_eq!(back.n_cells, j.mesh.n_cells);
+        assert_eq!(back.faces.len(), j.mesh.face_count());
+        assert!(write_polymesh_with_ami(&j.mesh, &[crate::pipeline::region_join::AmiPair { a: "nope".into(), b: "b_to_a".into(), area_a: 1.0, area_b: 1.0 }], &dir).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
     use crate::carve::carve_box;
     use crate::math::Vec3;
 
