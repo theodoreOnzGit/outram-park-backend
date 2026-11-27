@@ -65,7 +65,7 @@ use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use super::super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector, VectorBc};
 use super::super::pcg::pcg_dic;
-use super::super::{dev2_div, PRghPcg};
+use super::super::{dev2_div, dev2_div_tortuous, tensor_laplacian, PRghPcg};
 use super::OnePhaseCcSolver;
 use super::super::thermo::PhaseThermo;
 #[cfg(feature = "std")]
@@ -781,9 +781,21 @@ impl OnePhaseCcSolver {
         e.boundary_convection(&g, &self.alpha_rho_phi, &self.u);
         let ce: Vec<f64> = self.cont_err.iter().map(|v| -v).collect();
         e.su_sp(&g, &ce, &self.u.c);
-        e.eqn.neg_laplacian(&g, &gamma, &zg);
-        e.boundary_laplacian(&g, &gamma, &self.u);
-        let dev2 = dev2_div(&g, &self.u, &arn);
+        let dev2 = if let Some(td) = self.case.tortuosity.as_ref().filter(|_| !self.ctl_no_tort_momentum) {
+            // `UEqn_1p.H:27-40`: `- fvm::laplacian(alpha rho nuEff tortuosity, U) - fvc::div(alpha rho nuEff tortuosity & dev2(T(grad U)))`
+            // (gh:#1229, `tensor_laplacian`)
+            let (tc, tb) = tensor_laplacian::tortuosity_fields(&g, td).expect("validated when the case was read");
+            let gc: Vec<_> = (0..n).map(|c| tensor_laplacian::scale(arn.c[c], &tc[c])).collect();
+            let gb: Vec<_> = (0..nb).map(|i| tensor_laplacian::scale(arn.b[i], &tb[i])).collect();
+            let gf = tensor_laplacian::interpolate(&g, &gc, &gb);
+            let tg = tensor_laplacian::decompose(&g, &gf);
+            tensor_laplacian::add_neg_laplacian_vector(&mut e, &g, &tg, &self.u);
+            dev2_div_tortuous(&g, &self.u, &arn, (&tc, &tb))
+        } else {
+            e.eqn.neg_laplacian(&g, &gamma, &zg);
+            e.boundary_laplacian(&g, &gamma, &self.u);
+            dev2_div(&g, &self.u, &arn)
+        };
         e.sub_field(&g, &dev2);
         // fvm::Sp((1/3) tr(Kd), U) + (dev(Kd) & U); Kd = diag(v, v, v)
         let mut sp = vec![0.0; n];

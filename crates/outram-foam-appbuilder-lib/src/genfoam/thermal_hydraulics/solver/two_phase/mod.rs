@@ -116,6 +116,7 @@ pub mod one_phase_fc;
 pub(crate) mod pbicgstab;
 pub(crate) mod pcg;
 mod radial_power;
+pub mod tensor_laplacian;
 pub mod thermo;
 pub mod turbulence;
 
@@ -3811,6 +3812,23 @@ fn dev2_div_openfoam(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
 }
 
 fn dev2_div_impl(g: &Geometry, u: &Vector, gamma: &Scalar, openfoam: bool) -> Vec<Vector3> {
+    dev2_div_impl_t(g, u, gamma, openfoam, None)
+}
+
+/// `fvc::div(gamma tortuosity & dev2(T(fvc::grad(U))), "div(alphaRhoPhiNu,U)")` of `UEqn_1p.H` (gh:#1229 round 64): `gamma` the scalar
+/// `alpha rho nuEff` and `tort` the tortuosity tensor `(cells, boundary faces)` of [`tensor_laplacian`]; the face tensor is
+/// `(gamma tort) & dev2(T(grad U))`, interpolated linearly like the scalar-gamma form of [`dev2_div`].
+fn dev2_div_tortuous(g: &Geometry, u: &Vector, gamma: &Scalar, tort: (&[tensor_laplacian::Tensor3], &[tensor_laplacian::Tensor3])) -> Vec<Vector3> {
+    dev2_div_impl_t(g, u, gamma, false, Some(tort))
+}
+
+fn dev2_div_impl_t(
+    g: &Geometry,
+    u: &Vector,
+    gamma: &Scalar,
+    openfoam: bool,
+    tort: Option<(&[tensor_laplacian::Tensor3], &[tensor_laplacian::Tensor3])>,
+) -> Vec<Vector3> {
     let m = &g.mesh;
     let n = g.n_cells();
     let ni = g.n_internal();
@@ -3873,8 +3891,14 @@ fn dev2_div_impl(g: &Geometry, u: &Vector, gamma: &Scalar, openfoam: bool) -> Ve
         let o = m.owner[f];
         let xf: T3 = if f < ni {
             let w = g.weights[f];
-            let a = dev2t(&gr[o], gamma.c[o]);
-            let b = dev2t(&gr[m.neighbour[f]], gamma.c[m.neighbour[f]]);
+            let nb = m.neighbour[f];
+            let (a, b) = match tort {
+                None => (dev2t(&gr[o], gamma.c[o]), dev2t(&gr[nb], gamma.c[nb])),
+                Some((tc, _)) => (
+                    tensor_laplacian::tensor_and(&tensor_laplacian::scale(gamma.c[o], &tc[o]), &dev2t(&gr[o], 1.0)),
+                    tensor_laplacian::tensor_and(&tensor_laplacian::scale(gamma.c[nb], &tc[nb]), &dev2t(&gr[nb], 1.0)),
+                ),
+            };
             let mut r = [[0.0; 3]; 3];
             for i in 0..3 {
                 for j in 0..3 {
@@ -3924,7 +3948,10 @@ fn dev2_div_impl(g: &Geometry, u: &Vector, gamma: &Scalar, openfoam: bool) -> Ve
                     gb[i][j] += nv[i] * (sng[j] - ndg);
                 }
             }
-            dev2t(&gb, gamma.b[f - ni])
+            match tort {
+                None => dev2t(&gb, gamma.b[f - ni]),
+                Some((_, tb)) => tensor_laplacian::tensor_and(&tensor_laplacian::scale(gamma.b[f - ni], &tb[f - ni]), &dev2t(&gb, 1.0)),
+            }
         };
         let s = m.face_area_vectors[f];
         let s = [s.x, s.y, s.z];

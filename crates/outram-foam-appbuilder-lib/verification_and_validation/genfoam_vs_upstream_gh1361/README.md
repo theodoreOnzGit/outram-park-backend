@@ -6934,7 +6934,7 @@ DONE = ported and differenced; PART = ported in part; MISSING = nothing in the p
 | 9 | `momentumMode cellCenteredFaceReconstruction`, `porousInterfaceSharpness 0.5` (gh:#1865) | no | needs | no | MISSING | **CORRECTED 2026-11-27 (gh:#1865, round 62): DONE (`flow::reconstruct_u_1p`, `porousInterfaceSharpness` 0, 0.5, 1); variants `w2_*` on an alpha interface against the real binary, every field <= 8.7e-13 over 20 steps; the shipped FFTF case has not been run**
 | 10 | `momentumSourceTimeProfile` (pump; gh:#1870) | no | needs | needs | MISSING (refused by name) | **CORRECTED 2026-11-27 (gh:#1870, round 62): DONE (`momentumSourceTimeProfile` table, applied per pressure corrector at the current time); variant `w3_pump` <= 3.2e-14 over 20 steps**
 | 11 | drag `Rehme` (x2), `Churchill`; per-direction `localX/localY/localZ` entries | no | needs | no | MISSING in the solved cc flow (`only ReynoldsPower is ported for the solved flow`) | **UPDATED 2026-11-27 (gh:#1870, round 62): `Churchill`, `Rehme` and per-axis `localX/localY/localZ` (`Kd = diag(kx, ky, kz)`) are DONE in the solved cc flow; `Churchill` differenced (`w4_churchill` <= 4.3e-14); `Rehme` and the per-axis form are NOT differenced by a real run (no variant built; they are wired through the same `correct_kd`), STILL OPEN: the real FFTF core zones**
-| 12 | `localTortuosity` (IHX; gh:#1229) | no | needs | no | MISSING |
+| 12 | `localTortuosity` (IHX; gh:#1229) | no | needs | no | ~~MISSING~~ **CORRECTED 2026-11-27 (gh:#1229, README round 64): DONE for the diagonal global-frame tensor (`two_phase::tensor_laplacian`; `UEqn_1p.H` and `EEqn_1p.H` forms; `w7_tort` against the real binary, U 3.8e-13, T 4e-15); the `SfGammaCorr` path (non-axis-aligned faces) and the wedge boundary tensor are NOT differenced (the real binary cannot run a rotated mesh of the base case), `localReferenceFrame` still refused** |
 | 13 | heat exchangers `pIHX`/`sIHX` | no | needs | no | DONE (round 44) |
 | 14 | `nOuterCorrectors 6`, `nCorrectors 6`, `removeBaffles` with 8 `mappedWall` faces, `uniformFixedValue` U, `noSlip`, `slip` | no | needs | no | PART (several refused by name at the BC reader; `removeBaffles` is gh:#1236) | **UPDATED 2026-11-27 (round 62): `noSlip` U is DONE (`w5_noslip` <= 2.1e-13); `removeBaffles` does not act on the SOLVED mesh at all (only the `meshToMesh` source copy; round 62 finding 4), so the fluid-only steady state needs no baffle code; `mappedWall` patches and `nOuterCorrectors 6`/`nCorrectors 6` on the real mesh are not yet run**
 | 15 | 14 328-cell fluid mesh, 900 s steady state + 1200 s transient | no | needs | no | cost, not a gap | **CORRECTED 2026-11-27 (round 62): the fluid mesh has 18 538 cells (14 328 wedge + 4 210 loop), not 14 328; the real as-shipped steady state is ~1 s per step serial (1 236 steps for 121 s of model time when last read), the tight protocol 5-10 s per step (655 PCG iterations for the first `p_rgh` solve)**
@@ -7911,3 +7911,47 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | T6 | the next refusal of the shipped FFTF case after `localTortuosity` is in the BC / turbulence readers (`mappedWall`, `porousKEpsilon` wall entries) rather than the structure reader | 55 % |
 | T7 | the port does not complete the shipped FFTF steady state this session | 90 % |
 | T8 | the real 900 s steady state finishes before this session ends | 10 % |
+
+## Round 64 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first: `fc76987bc`, BEFORE the first port run of `w7_tort`; refs submodule `3004f37`)
+
+AI-written, not human-reviewed.
+
+### What was ported (`two_phase/tensor_laplacian.rs`, new; `dev2_div_tortuous` in `two_phase/mod.rs`; reader and wiring in `one_phase_cc.rs`, `one_phase_cc/flow.rs`)
+
+| piece | upstream | port |
+|---|---|---|
+| `localTortuosity (tx ty tz)` -> `volTensorField tortuosity` (identity outside the zone, `zeroGradient` patches, constraint patches kept) | `structure.C:656-711`, `byZoneStructure.C:442-486` | `OnePhaseCcCase::tortuosity` (diagonal per cell, global frame; a `localReferenceFrame` stays refused by name), `tensor_laplacian::tortuosity_fields` (a `wedge` patch holds `faceT & t & faceT.T()`; a `symmetry` patch is refused by name) |
+| `fvm::laplacian(alpha rho nuEff tortuosity, U)` | `UEqn_1p.H:27-34`; `gaussLaplacianScheme.C` `fvmLaplacian(GType gamma, vf)`: `SfGamma = Sf & gamma`, `SfGammaSn = SfGamma & Sn` as `gammaMagSf`, `SfGammaCorr`, `gammaSnGradCorr` (`dotInterpolate(SfGammaCorr, fvc::grad(vf.component(cmpt)))`), `fvm.source() -= V div(correction)` | `tensor_laplacian::{interpolate, decompose, neg_laplacian_internal, add_neg_laplacian_vector, grad_component, correction_source}`; `Gauss linear` gradient with `gaussGrad::correctBoundaryConditions`; the `corrected` snGrad add-on is not needed (`uncorrected` is the only scheme the reader accepts) |
+| `fvc::div(alpha rho nuEff tortuosity & dev2(T(fvc::grad(U))), "div(alphaRhoPhiNu,U)")` | `UEqn_1p.H:35-39` | `dev2_div_impl_t` (the scalar form is the `tort = None` case, unchanged) |
+| `fvm::laplacian(interpolate(alpha) interpolate(tortuosity alphaEff), he)` | `EEqn_1p.H:22-27` | `correct_energy` (the scalar form is the `else` branch, unchanged) |
+
+Checked and found absent in basic-lib: no tensor-gamma Laplacian existed (grep of `SfGamma`, `gammaSnGradCorr`, tensor gamma over `crates/` found nothing), so it was written, with the upstream sources cited in the module header.
+
+### Differential against the real binary (`tests/genfoam_fftf_pieces_vs_upstream.rs::w7_local_tortuosity_...`, 0.2 s)
+
+`w7_tort` (half zone with `localTortuosity (0.7 1.3 0.01389)`), 20 steps: criterion 1 met; criterion 2 met: worst `U` 3.84e-13 of `max|U|` (`Ux` 1.5e-13, `Uz` 3.8e-13), `p` 1.95e-14, `p_rgh` 1.95e-14, `T` 4.0e-15, `alphaPhi` 6.7e-13, `htc` 1.8e-14, `T.passiveStructure` 1.5e-15, `T.fuelAvForNeutronics` 3.8e-15; `dt` 1.1e-13; `T` lines 2.7e-15; 147 gated solves: worst ABSOLUTE initial-residual difference 3.3e-13, worst iteration difference 2; 33 noise-floor solves reported (worst iteration difference 4, not gated). Criterion 3 met: tortuosity off in the momentum equation only: `U` differs by 3.1e-7 (`T` 2.9e-9); in the energy equation only: `T` differs by 1.8e-5. Criterion 4 met (3 unit tests: `gamma = g I` reproduces the scalar coefficients bit for bit; the hand-computed off-axis tensor gives `SfGammaSn = 2A`, `SfGammaCorr = (0, 3A, 0)`).
+
+| id | prediction | result |
+|---|---|---|
+| T1 | `w7_tort` within 1e-9 | **held** (worst 3.8e-13) |
+| T2 | `U` bit-identical | **missed** (3.8e-13): cause not isolated; the operation order of the tensor path follows `gaussLaplacianScheme.C` and the older scalar path of this region is itself at ~1e-13 against the binary (`dev2_div` keeps the `w P + (1 - w) N` interpolation, README round 46 note), so a round-off-level difference is expected, not yet explained by a dump |
+| T3 | both controls differ | **held** |
+| T4 | rotated variants run in the real binary | **missed** (written post-run): both angles crash the real binary on the control; the `SfGammaCorr` path is therefore NOT differenced with a non-zero correction |
+| T5 | earlier numbers do not move | **held**: `genfoam_fftf_pieces_vs_upstream` w1-w6 (8 tests), `genfoam_fullcoupling_fluid_vs_upstream` (5), `genfoam_fullcoupling_three_region_vs_upstream` (5), `genfoam_fullcoupling_transient_vs_upstream` (9) pass at their pins; nothing moved |
+| T6 | next refusal in the BC / turbulence readers | **held**: `nut.vesselWall: zeroGradient is not ported` (the turbulence reader accepts wall-function `nut` patches only) |
+| T7 | FFTF steady state not completed | **held** |
+| T8 | the real 900 s state exists before the session ends | **held** (it does not; see below) |
+
+### The shipped FFTF steady state: how far the port gets
+
+`genfoam_coupled_tutorials_requirements::fftf_first_refusal_is_pinned` is re-pinned: the shipped `2D_FFTF/rootCase` fluid region is read as far as the TURBULENCE reader, which refuses `nut.vesselWall: zeroGradient`. Comparison with `fftf_r62_tight_ss.ref.txt.gz` (163 steps) is therefore NOT reached. Remaining, in the order the reader will refuse them: `nut`/`k`/`epsilon`/`alphat` `zeroGradient` wall entries of `porousKEpsilon` (upstream's `nutkWallFunction`-free configuration; read `turbulence.rs` against `porousKEpsilon.C`), `mappedWall` patches `baffle3`/`baffle4`, `nOuterCorrectors 6`/`nCorrectors 6` with `residualControl` on the 18 538-cell mesh, the PCG/DIC substitute at 14 328 wedge cells (655 iterations on the first solve), and the first run of the wedge boundary tensor of `tortuosity_fields` and of the wedge `SfGammaCorr` gradient (neither differenced).
+
+### The real 900 s steady state (`/home/user/upstream-build/fftf_ss900`)
+
+PID 22461, log `/home/user/upstream-build/fftf_ss900/steadyState/log.GeN-Foam`: still running when this section was written (step 1008 at t = 98.9 s of 900 s). It writes only at t = 900; NOT extracted, the transient stage was NOT started (the 900 state does not exist).
+
+### Not done
+
+* The `SfGammaCorr` path with a non-zero correction and the wedge boundary tensor are not differenced against the real binary (`w7r_*` cannot be run by it; a different one-edit route, e.g. a `localReferenceFrame` zone, needs the local-frame reader, gh:#1229 remains open for `localReferenceFrame`).
+* T2 (bit-identity) is not met and not explained by a dump.
+* The FFTF steady state is not run in the port; see above.

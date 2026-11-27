@@ -163,6 +163,16 @@ fn variant_noslip(root: &Path) {
     });
 }
 
+/// `w7_tort` (round 64, gh:#1229): the half zone with `zone0.localTortuosity (0.7 1.3 0.01389)`.
+fn variant_tort(root: &Path) {
+    variant_half_zone(root);
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| {
+        let i = t.find("volumeFraction").expect("volumeFraction");
+        let semi = i + t[i..].find(';').expect(";") + 1;
+        format!("{}\n        localTortuosity     (0.7 1.3 0.01389);{}", &t[..semi], &t[semi..])
+    });
+}
+
 /// `F <time> <name> v1 v2 ...` lines of a field reference, keyed `"<name> <time>"`.
 fn read_fields(path: &Path) -> HashMap<String, Vec<f64>> {
     let text = String::from_utf8(gunzip(path)).expect("utf8");
@@ -502,4 +512,22 @@ fn w6_per_axis_rehme_drag_matches_the_real_binary() {
     variant_aniso(&root);
     let r = run_case(&root, &poly, "fftf_r62_w6_aniso.ref.txt.gz", "fftf_r62_w6_aniso_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
     check("w6_aniso", &r);
+}
+
+#[test]
+fn w7_local_tortuosity_tensor_laplacian_matches_the_real_binary_and_both_halves_matter() {
+    let (root, poly) = stage("w7");
+    variant_tort(&root);
+    let r = run_case(&root, &poly, "fftf_r64_w7_tort.ref.txt.gz", "fftf_r64_w7_tort_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
+    check("w7_tort", &r);
+    // controls (README round 64, criterion 3): each half of the tensor path must matter
+    let (root, poly) = stage("w7_cu");
+    variant_tort(&root);
+    let cu = run_case(&root, &poly, "fftf_r64_w7_tort.ref.txt.gz", "fftf_r64_w7_tort_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s.without_tortuosity_in_momentum());
+    let (root, poly) = stage("w7_ce");
+    variant_tort(&root);
+    let ce = run_case(&root, &poly, "fftf_r64_w7_tort.ref.txt.gz", "fftf_r64_w7_tort_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s.without_tortuosity_in_energy());
+    println!("control: momentum tortuosity off: worst U {:e} T {:e}; energy tortuosity off: worst U {:e} T {:e}", cu.worst[0], cu.worst[6], ce.worst[0], ce.worst[6]);
+    assert!(cu.worst[0] > GATE || cu.worst[6] > GATE, "the momentum tortuosity does not matter");
+    assert!(ce.worst[6] > GATE, "the energy tortuosity does not matter");
 }

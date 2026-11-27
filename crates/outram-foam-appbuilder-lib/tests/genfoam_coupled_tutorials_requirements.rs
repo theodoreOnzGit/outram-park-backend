@@ -23,7 +23,10 @@
 //!   solver is `PBiCG`/GAMG, not the ported PBiCGStab/diagonal)~~ **CHANGED 2026-11-27 (gh:#1870, README round 62)**: the regex keys
 //!   `"(h|k|epsilon)"`, `PBiCG`/`DILU`, the pump `momentumSourceTimeProfile`, `cellCenteredFaceReconstruction`, `Churchill`/`Rehme` and
 //!   per-axis drag and `noSlip` are ported; with the named `GAMG` substitution the first refusal is
-//!   `structureProperties.IHXPrimary:IHXSecondary.localTortuosity is not ported` (the tensor-diffusivity Laplacian of `UEqn_1p.H`/`EEqn_1p.H`).
+//!   ~~`structureProperties.IHXPrimary:IHXSecondary.localTortuosity is not ported` (the tensor-diffusivity Laplacian of `UEqn_1p.H`/`EEqn_1p.H`)~~
+//!   **CHANGED 2026-11-27 (gh:#1229, README round 64)**: `localTortuosity` is ported (`two_phase::tensor_laplacian`, differenced on `w7_tort`);
+//!   the first refusal is now `nut.vesselWall: `zeroGradient` is not ported` (the turbulence reader's wall-function-only `nut` patches;
+//!   `porousKEpsilon` with `zeroGradient` wall entries).
 //!
 //! Pass criterion: the pinned substring is in the refusal. Controls: none (the refusal text is the measurement).
 
@@ -75,5 +78,5 @@ fn fftf_first_refusal_is_pinned() {
         .map(|e| format!("{e}"))
         .expect("the shipped case is not yet readable");
     eprintln!("2D_FFTF first refusal: {msg}");
-    assert!(msg.contains("localTortuosity is not ported"), "{msg}");
+    assert!(msg.contains("nut.vesselWall: `zeroGradient` is not ported"), "{msg}");
 }

@@ -59,7 +59,7 @@
 //! `hConst` `Boussinesq` `const`; ~~`residualControl` in `PIMPLE`~~ **CORRECTED 2026-11-27 (gh:#1855, round 31): `residualControl` (customPimpleControl), the `Final` selection it causes and the `relaxationFactors` `default` entries are ported ([`pimple`])**; `stopIfFirstResRelChangeAboveRelTol` (upstream aborts with SIGFPE). `dragModels` (`ReynoldsPower`) are read but
 //! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation. **UPDATED 2026-11-27 (gh:#1870, README round 62):** with
 //! the flow solved, `ReynoldsPower`, `Churchill`, `Rehme` and per-axis (`localX/Y/Z`) `dragModels` ARE evaluated ([`flow`]), a pump
-//! `momentumSourceTimeProfile` is applied, `PBiCG`/`DILU` is selectable for `h`, `k`, `epsilon`; `localTortuosity` is still refused by name.
+//! `momentumSourceTimeProfile` is applied, `PBiCG`/`DILU` is selectable for `h`, `k`, `epsilon`; `localTortuosity` (the tensor-diffusivity Laplacian, gh:#1229 round 64) is ported through `tensor_laplacian`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -100,6 +100,7 @@ use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchanger
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
+use super::tensor_laplacian;
 use super::thermo::PhaseThermo;
 use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
@@ -421,6 +422,10 @@ pub struct OnePhaseCcCase {
     pub min_re: f64,
     /// `solveFluidMechanics true`: the momentum/pressure part of the case (`None` for the frozen-flux region).
     pub flow: Option<OnePhaseFlowCase>,
+    /// `structureProperties.<zone>.localTortuosity` (gh:#1229, round 64): the diagonal of the global-frame tortuosity tensor per cell
+    /// (identity outside the tortuous zones); `None` when no zone has one (`structure_.tortuosityPtr().valid()` false: the scalar-gamma
+    /// Laplacians of `UEqn_1p.H`/`EEqn_1p.H`).
+    pub tortuosity: Option<Vec<[f64; 3]>>,
 }
 
 /// Parse `internalField` and the `value` of the named patches of a surface (or any scalar) field file.
@@ -816,6 +821,7 @@ impl OnePhaseCcCase {
         let mut ia_act = vec![0.0; n];
         let mut fixed_cells = vec![false; n];
         let mut momentum_source = vec![Vector3::ZERO; n];
+        let mut tortuosity: Option<Vec<[f64; 3]>> = None;
         let mut momentum_profiles: Vec<(Vec<usize>, Vector3, TimeProfile)> = Vec::new();
         let mut t_fixed_default = vec![0.0; n];
         let mut passive: Option<PassiveStructure> = None;
@@ -849,6 +855,20 @@ impl OnePhaseCcCase {
                     if let Some(td) = zd.get_dict("momentumSourceTimeProfile") {
                         momentum_profiles.push((cells.clone(), src, read_table_time_profile(&ctx, td, "momentumSourceTimeProfile")?));
                     }
+                }
+            }
+            if let Some(lt) = zd.get("localTortuosity") {
+                // `structure.C:663-711`: `diag(localTortuosity)` in the global frame (a `localReferenceFrame` is refused below)
+                let FoamEntry::List(v) = lt else {
+                    return Err(ctx.e("localTortuosity must be a vector"));
+                };
+                if v.len() != 3 {
+                    return Err(ctx.e("localTortuosity must be a vector"));
+                }
+                let d = [v[0].as_scalar().unwrap_or(1.0), v[1].as_scalar().unwrap_or(1.0), v[2].as_scalar().unwrap_or(1.0)];
+                let field = tortuosity.get_or_insert_with(|| vec![[1.0; 3]; n]);
+                for &c in &cells {
+                    field[c] = d;
                 }
             }
             let vf = ctx.f64(zd, "volumeFraction")?;
@@ -886,7 +906,7 @@ impl OnePhaseCcCase {
                 }
             }
             for (k2, _) in zd.iter() {
-                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "momentumSourceTimeProfile" | "passiveProperties") {
+                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "momentumSourceTimeProfile" | "passiveProperties" | "localTortuosity") {
                     return Err(ctx.e(format!("structureProperties.{key}.{k2} is not ported")));
                 }
             }
@@ -1118,6 +1138,10 @@ impl OnePhaseCcCase {
             match hand { Some(h) => (h.alpha_rho_phi.clone(), h.alpha_phi.clone()), None => (surface("alphaRhoPhi")?, surface("alphaPhi")?) }
         };
 
+        if let Some(td) = &tortuosity {
+            tensor_laplacian::tortuosity_fields(&g, td).map_err(|m| ctx.e(m))?;
+        }
+
         Ok(Self {
             mesh,
             gravity,
@@ -1148,6 +1172,7 @@ impl OnePhaseCcCase {
             power_density,
             min_re,
             flow,
+            tortuosity,
         })
     }
 }
@@ -1184,6 +1209,9 @@ pub struct OnePhaseCcSolver {
     ctl_ht_post_solve: bool,
     /// CONTROL (gh:#1879): evaluate `fvc::laplacian(Tmatrix)` as 0.
     ctl_no_laplacian: bool,
+    /// CONTROLS, NOT upstream (gh:#1229): the tortuosity left out of the momentum / the energy Laplacian (scalar-gamma form).
+    ctl_no_tort_momentum: bool,
+    ctl_no_tort_energy: bool,
     htc: Vec<f64>,
     re: Vec<f64>,
     /// `FSPair::lRe_`: the per-axis Reynolds number `max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371`; the signed component, `lDh = Dh` as no
@@ -1343,6 +1371,8 @@ impl OnePhaseCcSolver {
             structure_heat_flux: vec![0.0; n],
             ctl_ht_post_solve: false,
             ctl_no_laplacian: false,
+            ctl_no_tort_momentum: false,
+            ctl_no_tort_energy: false,
             htc,
             re,
             lre,
@@ -1823,6 +1853,20 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// CONTROL, NOT upstream (gh:#1229): the `UEqn_1p.H` Laplacian and `dev2` divergence use the scalar `alpha rho nuEff` (tortuosity ignored).
+    #[must_use]
+    pub fn without_tortuosity_in_momentum(mut self) -> Self {
+        self.ctl_no_tort_momentum = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1229): the `EEqn_1p.H` Laplacian uses the scalar `alphaEff` (tortuosity ignored).
+    #[must_use]
+    pub fn without_tortuosity_in_energy(mut self) -> Self {
+        self.ctl_no_tort_energy = true;
+        self
+    }
+
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
         self.update_re();
@@ -1959,10 +2003,24 @@ impl OnePhaseCcSolver {
             b: (ni..g.n_faces()).map(|f| alpha_h_at(self.p[g.mesh.owner[f]], t_s.b[f - ni]) + 0.0).collect(),
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
-        let ae_f = fv::interp_linear_openfoam(&g, &ae);
-        let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
-        e.neg_laplacian_internal(&g, &gam);
-        let (lic, lbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar);
+        let (lic, lbc) = if let Some(td) = self.case.tortuosity.as_ref().filter(|_| !self.ctl_no_tort_energy) {
+            // `EEqn_1p.H:22-27`: `fvm::laplacian(interpolate(alpha) interpolate(tortuosity alphaEff), he)`, the tensor-gamma
+            // `gaussLaplacianScheme::fvmLaplacian` (`tensor_laplacian`, gh:#1229)
+            let (tc, tb) = tensor_laplacian::tortuosity_fields(&g, td).expect("validated when the case was read");
+            let ta_c: Vec<_> = (0..n).map(|c| tensor_laplacian::scale(ae.c[c], &tc[c])).collect();
+            let ta_b: Vec<_> = (0..nb).map(|i| tensor_laplacian::scale(ae.b[i], &tb[i])).collect();
+            let taf = tensor_laplacian::interpolate(&g, &ta_c, &ta_b);
+            let gam_t: Vec<_> = (0..g.n_faces()).map(|f| tensor_laplacian::scale(self.alpha_f[f], &taf[f])).collect();
+            let tg = tensor_laplacian::decompose(&g, &gam_t);
+            tensor_laplacian::neg_laplacian_internal(&mut e, &g, &tg.gamma_mag_sf);
+            tensor_laplacian::add_neg_laplacian_scalar_correction(&mut e, &g, &tg, &he_scalar);
+            tensor_laplacian::neg_laplacian_boundary_coeffs(&g, &tg.gamma_mag_sf, &he_scalar)
+        } else {
+            let ae_f = fv::interp_linear_openfoam(&g, &ae);
+            let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
+            e.neg_laplacian_internal(&g, &gam);
+            Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar)
+        };
         for i in 0..nb {
             ic[i] += lic[i];
             bco[i] += lbc[i];
