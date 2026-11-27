@@ -50,7 +50,7 @@ for s in $STEPS; do
 done
 if [ "$NP" -gt 0 ]; then
   awk -v np=$NP '/^Time = /{step++; if(step>np) exit; printf "\nP %d", step; next}
-       /DICPCG:  Solving for p_rgh/ && step>=1 {
+       /(DICPCG|GAMG):  Solving for p_rgh/ && step>=1 {
          for(i=1;i<=NF;i++){ if($i=="residual"&&$(i+1)=="="&&!a){a=$(i+2); sub(/,/,"",a)} if($i=="Iterations") n=$(i+1)}
          printf " %s %s", a, n; a=""}
        END{printf "\n"}' $L | grep '^P ' >> "$OUT"

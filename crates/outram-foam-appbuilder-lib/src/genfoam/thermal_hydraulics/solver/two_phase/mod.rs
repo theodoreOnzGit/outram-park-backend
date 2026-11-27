@@ -507,6 +507,9 @@ pub struct TwoPhaseControls {
     /// [`TwoPhaseSolver::with_krylov_for_p_rgh`]). On an ill-conditioned `p_rgh` equation that stopping rule leaves
     /// the solution wrong in the 10th digit of `p` (README round 17).
     pub p_rgh_pcg: Option<PRghPcg>,
+    /// `Some` when `solvers.p_rgh` selects `GAMG` (**default, upstream's form since gh:#1936, README round 72**): upstream's own `GAMGSolver`
+    /// ([`crate::genfoam::common::gamg`]) runs in place of the ILU(0)-BiCGStab; [`TwoPhaseSolver::with_krylov_for_p_rgh`] is the named ablation.
+    pub p_rgh_gamg: Option<crate::genfoam::common::gamg::GamgControls>,
     /// `true` (default, gh:#1361 round 17, gh:#1833): the temporary `UEqn.H()` field of `pEqnf_2p.H` carries the constraint
     /// patch field of a `symmetry` mesh patch, so `fvc::flux(H)` through it is zero. `false`
     /// ([`TwoPhaseSolver::with_zero_gradient_h_on_symmetry_patches`]): the port's earlier `zeroGradient`, which leaves
@@ -858,6 +861,8 @@ pub struct TwoPhaseSolver {
     pub models: TwoPhaseModels,
     /// Solution controls.
     pub controls: TwoPhaseControls,
+    /// The cached `GAMG` agglomeration of the mesh (gh:#1936).
+    pub gamg: gamg_solve::GamgSolveState,
     /// Time controls.
     pub time_controls: TimeControls,
     /// Interfacial temperature [K] (`T.interface`).
@@ -986,6 +991,7 @@ impl TwoPhaseSolver {
             structure: case.structure.clone(),
             models: case.models.clone(),
             controls: case.controls.clone(),
+            gamg: gamg_solve::GamgSolveState::default(),
             time_controls: case.time_controls.clone(),
             t_interface: vec![0.0; n],
             t_interface_old: vec![0.0; n],
@@ -2879,7 +2885,10 @@ impl TwoPhaseSolver {
             }
             let folded = peqn.folded(&g, &pic, &pbc);
             let mut x = self.p_rgh.c.clone();
-            let res = if let Some(pc) = self.controls.p_rgh_pcg {
+            let res = if let Some(ctl) = self.controls.p_rgh_gamg {
+                // upstream's GAMGSolver (gh:#1936, README round 72)
+                self.gamg.solve(&g, &folded.ldu, &folded.source, &mut x, &ctl).initial_residual
+            } else if let Some(pc) = self.controls.p_rgh_pcg {
                 // upstream: `DICPCG: Solving for p_rgh` (the case's `solver PCG; preconditioner DIC;`)
                 pcg::pcg_dic(&folded.ldu, &folded.source, &mut x, pc.tolerance, pc.rel_tol, pc.max_iter, pc.min_iter)
                     .initial_residual
@@ -3634,6 +3643,7 @@ impl TwoPhaseSolver {
     #[must_use]
     pub fn with_krylov_for_p_rgh(mut self) -> Self {
         self.controls.p_rgh_pcg = None;
+        self.controls.p_rgh_gamg = None;
         self
     }
 

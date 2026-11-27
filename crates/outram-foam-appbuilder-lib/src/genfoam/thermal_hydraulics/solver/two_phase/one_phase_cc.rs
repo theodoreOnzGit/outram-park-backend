@@ -293,11 +293,13 @@ impl BoussinesqHConst {
 pub enum GamgPolicy {
     /// Refuse `GAMG` by name (`only PCG with the DIC preconditioner is ported`).
     Refuse,
-    /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21).
-    #[default]
+    /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21). Before round 72 the
+    /// default; now the named ablation of upstream's own solver (gh:#1936).
     SubstitutePcgDic,
     /// Run upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, defaults of ESI v2506; [`crate::genfoam::common::gamg`], gh:#1934): the
     /// entry's `tolerance`/`relTol`/`maxIter` and GAMG keys are honoured, selections that are not ported are refused by name.
+    /// **The default since round 72 (gh:#1936)**: upstream's form.
+    #[default]
     Native,
 }
 
