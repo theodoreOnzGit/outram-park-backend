@@ -170,6 +170,7 @@ use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 pub use case::TwoPhaseCase;
 use fv::{Bc, Eqn, Geometry, Scalar, Vector};
+use one_phase_cc::flow::UEqnCc;
 pub use thermo::PhaseThermo;
 pub use turbulence::PorousKEpsilon2PhaseCorrected;
 
@@ -530,6 +531,10 @@ pub struct TwoPhaseControls {
     /// of `refsAndControls_2p.H`, i.e. the flux at the start of the outer iteration). Not applied by the port before
     /// gh:#1361 round 8 (no earlier ported case sets one; the PSBT cases set `"phi.*" 0.8`).
     pub relax_phi: [f64; 2],
+    /// `relaxationFactors.equations` factor selected by `p_rgh` (`pEqn.relax()`, `solveP_rgh_2p.H`); `None` when no key or pattern matches (no relaxation).
+    pub relax_p_rgh_equation: Option<f64>,
+    /// `relaxationFactors.equations` factor selected by `h.<fluid k>` (`E1Eqn.relax()`, `EEqns_2p.H`); `None`: no relaxation.
+    pub relax_he_equation: [Option<f64>; 2],
     /// `minKdFF` (default 1).
     pub min_kd_ff: f64,
     /// `alpha.minAlphaSp` (default 1e-4).
@@ -945,7 +950,7 @@ impl TwoPhaseSolver {
     /// `T.interface = TSat(p)` and latent heat (`phaseChangeModel` ctor).
     #[must_use]
     pub fn new(case: TwoPhaseCase) -> Self {
-        let geom = Geometry::new(case.mesh.clone());
+        let geom = Geometry::new_openfoam(case.mesh.clone());
         let n = geom.n_cells();
         let nf = geom.n_faces();
         let ni = geom.n_internal();
@@ -1029,7 +1034,7 @@ impl TwoPhaseSolver {
         // gh:#1801: an `inletOutlet` phase-fraction patch reads the flux, so the initial `phi = fvc::flux(U)` comes first
         for k in 0..2 {
             let u = s.fluids[k].u.clone();
-            s.fluids[k].phi = fv::flux(&s.geom, &u);
+            s.fluids[k].phi = fv::flux_openfoam(&s.geom, &u);
         }
         {
             let phis = [s.fluids[0].phi.clone(), s.fluids[1].phi.clone()];
@@ -1050,9 +1055,9 @@ impl TwoPhaseSolver {
         for k in 0..2 {
             s.thermo_correct(k, true);
             let u = s.fluids[k].u.clone();
-            s.fluids[k].phi = fv::flux(&s.geom, &u);
-            let af = fv::interp_linear(&s.geom, &s.fluids[k].alpha);
-            let rf = fv::interp_linear(&s.geom, &s.fluids[k].rho);
+            s.fluids[k].phi = fv::flux_openfoam(&s.geom, &u);
+            let af = fv::interp_linear_openfoam(&s.geom, &s.fluids[k].alpha);
+            let rf = fv::interp_linear_openfoam(&s.geom, &s.fluids[k].rho);
             let ap: Vec<f64> = (0..nf).map(|f| af[f] * s.fluids[k].phi[f]).collect();
             s.fluids[k].alpha_rho_phi = (0..nf).map(|f| rf[f] * ap[f]).collect();
             s.fluids[k].alpha_phi = ap;
@@ -2561,7 +2566,12 @@ impl TwoPhaseSolver {
     }
 
     /// `UEqns_2p.H` for fluid `k` in the face-centred, implicit-partial-
-    /// elimination configuration (no `fvm::ddt`, no `Sp(Kd12)`), laminar.
+    /// elimination configuration (no `fvm::ddt`, no `Sp(Kd12)`), laminar or RAS.
+    ///
+    /// Assembled as `fvMatrix` holds it (gh:#1909 B4, README round 58): `UEqn = div + ((-laplacian) - fvc::div(dev2)) + Sp((1/3) tr Kd1s)
+    /// + (dev(Kd1s) & U) == fvOptions`, then `+= virtual-mass force`, then `+= SuSp(-contErr)`; each `fvm` term is its own matrix with its own
+    /// `negSumDiag` and `fvMatrix::operator+=` adds it whole, the boundary coefficients stay per face in `internalCoeffs`/`boundaryCoeffs`
+    /// (`A()` takes `cmptAv` of the first, `H()` the component of both), and there is no `relax` (`UEqns_2p.H:191,194` comment it out).
     fn correct_u_eqn(&self, k: usize) -> VecEqn {
         let g = &self.geom;
         let n = g.n_cells();
@@ -2573,13 +2583,11 @@ impl TwoPhaseSolver {
         let phis = [&self.fluids[0].phi[..], &self.fluids[1].phi[..]];
         // fvm::div(alphaRhoPhi, U)  (Gauss upwind). The boundary part follows the velocity patch types
         // (gh:#1801): `zeroGradient` puts `phi` on the diagonal, `fixedValue` puts `-phi U_b` in the source.
-        let zg = Scalar::uniform(g, 0.0, g.default_bcs());
-        e.eqn.div_upwind_internal(g, &fl.alpha_rho_phi);
+        e.cc.eqn.div_upwind_internal(g, &fl.alpha_rho_phi);
         e.boundary_convection(g, &fl.alpha_rho_phi, &fl.u, phis);
-        // - fvm::laplacian(alpha rho nuEff, U) - fvc::div(alpha rho nuEff dev2(T(grad U)))
+        // alpha rho nuEff, `nuEff = nut + mu/rho` (RAS, gh:#1802) or `mu/rho` (laminar): `(alpha rho) nuEff`, in upstream's order
         let mut arn = Scalar::uniform(g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
         match &fl.turbulence {
-            // `alpha rho nuEff`, `nuEff = nut + mu/rho` (gh:#1802)
             Some(t) => {
                 for c in 0..n {
                     arn.c[c] = fl.alpha.c[c] * fl.rho.c[c] * (t.nut.c[c] + fl.mu.c[c] / fl.rho.c[c]);
@@ -2590,39 +2598,53 @@ impl TwoPhaseSolver {
             }
             None => {
                 for c in 0..n {
-                    arn.c[c] = fl.alpha.c[c] * fl.mu.c[c];
+                    arn.c[c] = fl.alpha.c[c] * fl.rho.c[c] * (fl.mu.c[c] / fl.rho.c[c]);
                 }
                 for i in 0..(nf - ni) {
-                    arn.b[i] = fl.alpha.b[i] * fl.mu.b[i];
+                    arn.b[i] = fl.alpha.b[i] * fl.rho.b[i] * (fl.mu.b[i] / fl.rho.b[i]);
                 }
             }
         }
-        let gamma = fv::interp_linear(g, &arn);
-        e.eqn.neg_laplacian(g, &gamma, &zg);
-        e.boundary_laplacian(g, &gamma, &fl.u, phis);
-        let dev2 = dev2_div(g, &fl.u, &arn);
+        let gamma = fv::interp_linear_openfoam(g, &arn);
+        // (-fvm::laplacian(alpha rho nuEff, U)) - fvc::div(alpha rho nuEff dev2(T(grad U))): one matrix, added whole
+        let mut lap = VecEqn::new(g);
+        lap.cc.eqn.neg_laplacian_internal(g, &gamma);
+        lap.boundary_laplacian(g, &gamma, &fl.u, phis);
+        let dev2 = dev2_div_openfoam(g, &fl.u, &arn);
+        lap.cc.sub_field(g, &dev2);
+        e.add(&lap);
+        // + fvm::Sp((1/3) tr(Kd1s), U) + (dev(Kd1s) & U): `Kd = diag(v, v, v)`, `tr = v + v + v`, `dev(Kd) = Kd - (1/3) tr` is an ulp of `v`
+        let mut sp_c = vec![0.0; n];
+        let mut dev_u = vec![Vector3::ZERO; n];
         for c in 0..n {
-            let v = g.mesh.cell_volumes[c];
-            e.src[0][c] += v * dev2[c].x;
-            e.src[1][c] += v * dev2[c].y;
-            e.src[2][c] += v * dev2[c].z;
+            let v = self.kd_fs[k][c];
+            let tr = v + v + v;
+            sp_c[c] = (1.0 / 3.0) * tr;
+            let dv = v - (1.0 / 3.0) * tr;
+            let u = fl.u.c[c];
+            dev_u[c] = Vector3::new(dv * u.x, dv * u.y, dv * u.z);
         }
-        // fvm::Sp((1/3) tr(Kd), U) + (dev(Kd) & U); isotropic Kd ⇒ dev = 0
-        e.eqn.sp(g, &self.kd_fs[k]);
-        // virtual mass
+        let mut sp = VecEqn::new(g);
+        sp.cc.eqn.sp(g, &sp_c);
+        e.add(&sp);
+        e.cc.add_field(g, &dev_u);
+        // virtual mass force `alphaRhoVm * (fvm::ddt(U1) + fvm::div(phi1, U1) + fvm::SuSp(-div(phi1), U1) - (...))`, `UEqn += force`
         if self.models.virtual_mass.is_some() {
             let mut vm = VecEqn::new(g);
             let ones = vec![1.0; n];
             for comp in 0..3 {
                 let old: Vec<f64> = fl.u_old.iter().map(|u| cmp(*u, comp)).collect();
                 for c in 0..n {
-                    vm.src[comp][c] += g.mesh.cell_volumes[c] / self.dt * old[c];
+                    vm.cc.src[comp][c] += g.mesh.cell_volumes[c] / self.dt * old[c];
                 }
             }
             for c in 0..n {
-                vm.eqn.ldu.diag[c] += g.mesh.cell_volumes[c] / self.dt * ones[c];
+                vm.cc.eqn.ldu.diag[c] += g.mesh.cell_volumes[c] / self.dt * ones[c];
             }
-            vm.eqn.div_upwind(g, &fl.phi, &zg);
+            let mut vdiv = VecEqn::new(g);
+            vdiv.cc.eqn.div_upwind_internal(g, &fl.phi);
+            vdiv.boundary_convection(g, &fl.phi, &fl.u, phis);
+            vm.add(&vdiv);
             let div_phi = fv::div(g, &fl.phi);
             let neg_div: Vec<f64> = div_phi.iter().map(|v| -v).collect();
             vm.su_sp(g, &neg_div, &fl.u.c);
@@ -2633,9 +2655,9 @@ impl TwoPhaseSolver {
                 let ddt_o = (ot.u.c[c] - ot.u_old[c]) * (1.0 / self.dt);
                 let r = ddt_o + conv_o[c] - ot.u.c[c] * div_o[c];
                 let v = g.mesh.cell_volumes[c];
-                vm.src[0][c] += v * r.x;
-                vm.src[1][c] += v * r.y;
-                vm.src[2][c] += v * r.z;
+                vm.cc.src[0][c] += v * r.x;
+                vm.cc.src[1][c] += v * r.y;
+                vm.cc.src[2][c] += v * r.z;
             }
             vm.scale_rows(g, &self.alpha_rho_vm);
             e.add(&vm);
@@ -2664,7 +2686,7 @@ impl TwoPhaseSolver {
                 fv::interp_upwind(&g, &self.fluids[1].alpha, &self.phi),
             ]
         } else {
-            [fv::interp_linear(&g, &self.fluids[0].alpha), fv::interp_linear(&g, &self.fluids[1].alpha)]
+            [fv::interp_linear_openfoam(&g, &self.fluids[0].alpha), fv::interp_linear_openfoam(&g, &self.fluids[1].alpha)]
         };
         let moving_af: Vec<f64> = (0..nf).map(|f| af[0][f] + af[1][f]).collect();
         // refsAndControls_2p.H: `phi1.storePrevIter(); phi2.storePrevIter();`
@@ -2678,7 +2700,7 @@ impl TwoPhaseSolver {
             for i in 0..(nf - ni) {
                 s.b[i] = ab[i].max(fl.residual_alpha) * rb[i];
             }
-            let v = fv::interp_linear(&g, &s);
+            let v = fv::interp_linear_openfoam(&g, &s);
             v.into_iter().map(|x| x / dt).collect::<Vec<f64>>()
         };
         let mut arf = Vec::new();
@@ -2696,13 +2718,13 @@ impl TwoPhaseSolver {
         let mut kd12 = Scalar::uniform(&g, 0.0, g.default_bcs());
         kd12.c = self.kd_ff.clone();
         kd12.correct_bc(&g);
-        let kdf = fv::interp_linear(&g, &kd12);
+        let kdf = fv::interp_linear_openfoam(&g, &kd12);
         let afk: Vec<Vec<f64>> = (0..2)
             .map(|k| {
                 let mut a = Scalar::uniform(&g, 0.0, g.default_bcs());
-                a.c = u_eqns[k].eqn.a(&g);
+                a.c = u_eqns[k].a(&g);
                 a.correct_bc(&g);
-                let ai = fv::interp_linear(&g, &a);
+                let ai = fv::interp_linear_openfoam(&g, &a);
                 (0..nf).map(|f| ai[f] + arf[k][f]).collect()
             })
             .collect();
@@ -2745,8 +2767,8 @@ impl TwoPhaseSolver {
             rmix.c = self.rho_mix.c.clone();
             rmix.b = self.rho_mix.b.clone();
             let sng = fv::sn_grad(&g, &rmix);
-            let r1f = fv::interp_linear(&g, &self.fluids[0].rho);
-            let r2f = fv::interp_linear(&g, &self.fluids[1].rho);
+            let r1f = fv::interp_linear_openfoam(&g, &self.fluids[0].rho);
+            let r2f = fv::interp_linear_openfoam(&g, &self.fluids[1].rho);
             let mut phi_s = [vec![0.0; nf], vec![0.0; nf]];
             for f in 0..nf {
                 if !g.active[f] {
@@ -2772,7 +2794,7 @@ impl TwoPhaseSolver {
                 };
                 hv.c = h;
                 hv.correct_bc(&g);
-                let fh = fv::flux(&g, &hv);
+                let fh = fv::flux_openfoam(&g, &hv);
                 for f in 0..nf {
                     phi_h[k][f] = fh[f] + phi_s[k][f];
                 }
@@ -2803,50 +2825,71 @@ impl TwoPhaseSolver {
             }
             // calcComp_2p.H
             let p_rgh_0 = self.p_rgh.c.clone();
+            let rdt = 1.0 / dt;
             let mut comp_expl = [vec![0.0; n], vec![0.0; n]];
+            let mut comp_pc = [vec![0.0; n], vec![0.0; n]];
             let mut comp_c = [vec![0.0; n], vec![0.0; n]];
             for k in 0..2 {
                 let fl = &self.fluids[k];
                 let d_arp = fv::div(&g, &fl.alpha_rho_phi);
                 let d_ap = fv::div(&g, &fl.alpha_phi);
-                let sign = if k == 0 { 1.0 } else { -1.0 };
                 for c in 0..n {
-                    let ddt_ar = (fl.alpha.c[c] * fl.rho.c[c] - fl.alpha_old[c] * fl.rho_old[c]) / dt;
-                    let ddt_a = (fl.alpha.c[c] - fl.alpha_old[c]) / dt;
-                    let mut e = (ddt_ar + d_arp[c] - (ddt_a + d_ap[c]) * fl.rho.c[c]) / fl.rho.c[c];
+                    // `fvc::ddt(alpha, rho) = rDeltaT (alpha rho - alpha0 rho0)`, `fvc::ddt(alpha) = rDeltaT (alpha - alpha0)` (EulerDdtScheme)
+                    let ddt_ar = rdt * (fl.alpha.c[c] * fl.rho.c[c] - fl.alpha_old[c] * fl.rho_old[c]);
+                    let ddt_a = rdt * (fl.alpha.c[c] - fl.alpha_old[c]);
+                    comp_expl[k][c] = (ddt_ar + d_arp[c] - (ddt_a + d_ap[c]) * fl.rho.c[c]) / fl.rho.c[c];
                     if self.models.phase_change.is_some() {
-                        e += sign * self.dmdt[c] / fl.rho.c[c];
+                        comp_pc[k][c] = self.dmdt[c] / fl.rho.c[c];
                     }
-                    comp_expl[k][c] = e;
                     comp_c[k][c] = fl.alpha.c[c] * fl.psi[c] / fl.rho.c[c];
                 }
             }
-            // pEqn = comp1 + comp2 + div(phiHbyA) - laplacian(rAUf, p_rgh)
-            let mut peqn = Eqn::new(&g);
-            peqn.neg_laplacian(&g, &rau_mix, &self.p_rgh);
+            // `pEqn = pEqnComp1 + pEqnComp2 + pEqnIncomp` as `fvMatrix` holds it (gh:#1909 B4; the two-phase twin of `one_phase_fc`'s round 46
+            // assembly): `pEqnCompK = (field)/rho + (alpha psi/rho) p_rghCorr (+/- dmdt/rho)`, the field subtracted from ITS OWN matrix's source
+            // (`volField + matrix`: `source -= V field`); `pEqnIncomp = fvc::div(phiHbyA) - fvm::laplacian(rAUf, p_rgh)` keeps its boundary
+            // coefficients in `internalCoeffs_`/`boundaryCoeffs_` (`pic`, `pbc`), which join the diagonal and the source only in
+            // `solveSegregated`; the three matrices are added whole, `((comp1 + comp2) + incomp)`.
+            let mut inc = Eqn::new(&g);
+            inc.neg_laplacian_internal(&g, &rau_mix);
+            let (pic, pbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &rau_mix, &self.p_rgh);
             let dphi = fv::div(&g, &phi_hbya_mix);
+            let mut peqn = inc.clone();
             for c in 0..n {
                 let v = g.mesh.cell_volumes[c];
-                let cc = comp_c[0][c] + comp_c[1][c];
-                peqn.ldu.diag[c] += v * cc / dt;
-                peqn.source[c] += v * cc / dt * p_rgh_0[c];
-                peqn.source[c] -= v * (comp_expl[0][c] + comp_expl[1][c] + dphi[c]);
+                let mut d = [0.0; 2];
+                let mut s = [0.0; 2];
+                for k in 0..2 {
+                    d[k] = rdt * v * comp_c[k][c];
+                    s[k] = 0.0 + rdt * v * p_rgh_0[c] * comp_c[k][c];
+                    s[k] -= v * comp_expl[k][c];
+                }
+                if self.models.phase_change.is_some() {
+                    s[0] -= v * comp_pc[0][c];
+                    s[1] += v * comp_pc[1][c];
+                }
+                peqn.ldu.diag[c] = (d[0] + d[1]) + inc.ldu.diag[c];
+                peqn.source[c] = (s[0] + s[1]) + (-(v * dphi[c]));
             }
+            // `pEqn.relax()`: `relaxationFactors.equations` selects `p_rgh` (`".*" 1` in the shipped cases): `fvMatrix::relax(1)` is not the identity
+            if let Some(a) = self.controls.relax_p_rgh_equation {
+                peqn.relax_scalar(&g, a, &pic, &p_rgh_0);
+            }
+            let folded = peqn.folded(&g, &pic, &pbc);
             let mut x = self.p_rgh.c.clone();
             let res = if let Some(pc) = self.controls.p_rgh_pcg {
                 // upstream: `DICPCG: Solving for p_rgh` (the case's `solver PCG; preconditioner DIC;`)
-                pcg::pcg_dic(&peqn.ldu, &peqn.source, &mut x, pc.tolerance, pc.rel_tol, pc.max_iter, pc.min_iter)
+                pcg::pcg_dic(&folded.ldu, &folded.source, &mut x, pc.tolerance, pc.rel_tol, pc.max_iter, pc.min_iter)
                     .initial_residual
             } else {
-                solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance)
+                solve_krylov(&folded, &mut x, self.controls.p_rgh_tolerance)
             };
             if corr == 1 {
                 first_res = res;
             }
             self.p_rgh.c = x;
             self.p_rgh.correct_bc(&g);
-            // fluxes
-            let p_flux = Eqn::laplacian_flux(&g, &rau_mix, &self.p_rgh);
+            // fluxes: `pEqnIncomp.flux()` (`fvMatrix::flux()`, `internalCoeffs psi_P - boundaryCoeffs` on a boundary face)
+            let p_flux = inc.flux_of_coeffs(&g, &self.p_rgh.c, &pic, &pbc);
             for f in 0..nf {
                 if !g.active[f] {
                     continue;
@@ -2862,9 +2905,10 @@ impl TwoPhaseSolver {
                 }
             }
             for k in 0..2 {
+                let sign = if k == 0 { 1.0 } else { -1.0 };
                 for c in 0..n {
-                    self.fluids[k].dgdt[c] =
-                        -(comp_expl[k][c] + comp_c[k][c] * (self.p_rgh.c[c] - p_rgh_0[c]) / dt);
+                    let e = comp_expl[k][c] + sign * comp_pc[k][c];
+                    self.fluids[k].dgdt[c] = -(e + comp_c[k][c] * (self.p_rgh.c[c] - p_rgh_0[c]) * rdt);
                 }
             }
             // reconstructU_2p.H (porousInterfaceSharpness 0): `phik.relax()`
@@ -2879,7 +2923,7 @@ impl TwoPhaseSolver {
             // `U1.correctBoundaryConditions()` reads the (relaxed) fluxes of both fluids (`pressureInletOutletVelocity`)
             let phis_now = [self.fluids[0].phi.clone(), self.fluids[1].phi.clone()];
             for k in 0..2 {
-                let u = fv::reconstruct(&g, &self.fluids[k].phi);
+                let u = fv::reconstruct_openfoam(&g, &self.fluids[k].phi);
                 self.fluids[k].u.c = u;
                 self.fluids[k].u.correct_bc_with_flux(&g, [&phis_now[0], &phis_now[1]]);
                 self.fluids[k].mag_u = self.fluids[k].u.c.iter().map(|v| v.mag()).collect();
@@ -2973,14 +3017,40 @@ impl TwoPhaseSolver {
             self.p_old_stored = true;
         }
         let dpdt: Vec<f64> = (0..n)
-            .map(|c| ((self.p.c[c] - self.p_old[c]) / self.dt).max(-self.controls.max_dpdt).min(self.controls.max_dpdt))
+            .map(|c| (((self.p.c[c] - self.p_old[c]) * (1.0 / self.dt))).max(-self.controls.max_dpdt).min(self.controls.max_dpdt))
             .collect();
         let mut res1 = 0.0;
         for k in 0..2 {
             let fl = &self.fluids[k];
+            // `E1Eqn` as `fvMatrix` holds it (gh:#1909 B4, the two-phase twin of `one_phase_fc`'s round 46 energy assembly): `fvm::ddt` and
+            // `fvm::div` are separate matrices added whole (`ddt + div - laplacian == ...`), the boundary coefficients stay per face in
+            // `internalCoeffs_`/`boundaryCoeffs_` (`eic`, `ebc`) until `fvMatrix::relax` and `solveSegregated`
+            let rdt = 1.0 / self.dt;
+            let (ni, nf) = (g.n_internal(), g.n_faces());
+            let mut eic = vec![0.0; nf - ni];
+            let mut ebc = vec![0.0; nf - ni];
             let mut e = Eqn::new(&g);
-            e.ddt(&g, &mul(&fl.alpha.c, &fl.rho.c), &mul(&fl.alpha_old, &fl.rho_old), &fl.he_old, self.dt);
-            e.div_upwind(&g, &fl.alpha_rho_phi, &fl.he);
+            for c in 0..n {
+                let v = g.mesh.cell_volumes[c];
+                e.ldu.diag[c] += rdt * fl.alpha.c[c] * fl.rho.c[c] * v;
+                e.source[c] += rdt * fl.alpha_old[c] * fl.rho_old[c] * fl.he_old[c] * v;
+            }
+            let mut m_div = Eqn::new(&g);
+            m_div.div_upwind_internal(&g, &fl.alpha_rho_phi);
+            for f in ni..nf {
+                if g.active[f] {
+                    // `gaussConvectionScheme::fvmDiv`: `internalCoeffs = flux valueInternalCoeffs`, `boundaryCoeffs = -flux valueBoundaryCoeffs`
+                    let phi = fl.alpha_rho_phi[f];
+                    if fl.he.is_fixed(&g, f) {
+                        eic[f - ni] += phi * 0.0;
+                        ebc[f - ni] += -phi * fl.he.face(&g, f);
+                    } else {
+                        eic[f - ni] += phi * 1.0;
+                        ebc[f - ni] += -phi * 0.0;
+                    }
+                }
+            }
+            e.add(&m_div);
             // - laplacian(interpolate(alpha) interpolate(alphaEff), he)
             let mut ae = Scalar::uniform(&g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
             for c in 0..n {
@@ -2998,19 +3068,27 @@ impl TwoPhaseSolver {
                     ae.b[i] = if fl.cp.b[i] > 0.0 { fl.kappa.b[i] / fl.cp.b[i] + t.alphat.b[i] } else { 0.0 };
                 }
             }
-            let a_f = fv::interp_linear(&g, &fl.alpha);
-            let ae_f = fv::interp_linear(&g, &ae);
+            let a_f = fv::interp_linear_openfoam(&g, &fl.alpha);
+            let ae_f = fv::interp_linear_openfoam(&g, &ae);
             let gam: Vec<f64> = a_f.iter().zip(&ae_f).map(|(a, b)| a * b).collect();
-            e.neg_laplacian(&g, &gam, &fl.he);
-            // alpha rho (U & g) + alpha dpdt
+            let mut m_lap = Eqn::new(&g);
+            m_lap.neg_laplacian_internal(&g, &gam);
+            let (lic, lbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &fl.he);
+            for i in 0..(nf - ni) {
+                eic[i] += lic[i];
+                ebc[i] += lbc[i];
+            }
+            e.add(&m_lap);
+            // `== alpha rho (U & g) + fvOptions`: `source += V field`; then `E1Eqn -= alpha1 dpdt`: `source += V field`
             let mut rhs = vec![0.0; n];
             for c in 0..n {
                 rhs[c] = fl.alpha.c[c] * fl.rho.c[c] * fl.u.c[c].dot(self.g);
-                if self.controls.dpdt {
-                    rhs[c] += fl.alpha.c[c] * dpdt[c];
-                }
             }
             e.su(&g, &rhs);
+            if self.controls.dpdt {
+                let dp: Vec<f64> = (0..n).map(|c| fl.alpha.c[c] * dpdt[c]).collect();
+                e.su(&g, &dp);
+            }
             if k == 0 {
                 Self::push_stage_probe(&mut self.trace_probe, self.time, self.corr_in_step, "S0", &e);
             }
@@ -3023,9 +3101,13 @@ impl TwoPhaseSolver {
             // FFPair heSources (interfacial + phase change)
             let src = &self.he_src[k];
             if src.su.len() == n {
-                e.su(&g, &src.su);
-                e.sp(&g, &src.sp);
-                e.su_sp(&g, &src.su_sp, &fl.he.c);
+                // `E += FFPair::heSource(he)`: the sources are ONE matrix added whole (its internal split between the
+                // interfacial and the phase-change part is not reproduced: the port holds their sum, README round 58)
+                let mut mh = Eqn::new(&g);
+                mh.su(&g, &src.su);
+                mh.sp(&g, &src.sp);
+                mh.su_sp(&g, &src.su_sp, &fl.he.c);
+                e.add(&mh);
             }
             if k == 0 {
                 Self::push_stage_probe(&mut self.trace_probe, self.time, self.corr_in_step, "S2", &e);
@@ -3124,6 +3206,11 @@ impl TwoPhaseSolver {
                 }
             }
             let fl = &self.fluids[k];
+            // `E1Eqn.relax()` (`relaxationFactors.equations`, `".*" 1` in the shipped cases), then `solveSegregated` folds the boundary coefficients
+            if let Some(a) = self.controls.relax_he_equation[k] {
+                e.relax_scalar(&g, a, &eic, &fl.he.c);
+            }
+            let e = e.folded(&g, &eic, &ebc);
             let prev = fl.he.c.clone();
             let mut x = prev.clone();
             let (sweeps, ini) = if let Some(pb) = self.controls.h_pbicgstab {
@@ -3457,18 +3544,11 @@ impl TwoPhaseSolver {
     }
 }
 
-/// A vector momentum equation: shared LDU coefficients, one source per
-/// component (as OpenFOAM's `fvVectorMatrix`).
-#[derive(Debug, Clone)]
+/// A vector momentum equation as `fvVectorMatrix`: the diagonal, the off-diagonals, the source per component and the per-boundary-face
+/// `internalCoeffs`/`boundaryCoeffs` kept apart (REUSE of `UEqnCc`, gh:#1909 B4; the earlier form folded `cmptAv(internalCoeffs)` into the
+/// diagonal as each boundary term was assembled).
 struct VecEqn {
-    eqn: Eqn,
-    src: [Vec<f64>; 3],
-    /// `cmptAv(internalCoeffs) - internalCoeffs_k` per cell and component: the part of `fvMatrix::H()`
-    /// that a component-dependent boundary diagonal (`slip`, `pressureInletOutletVelocity` on inflow)
-    /// adds (`boundaryDiagCmpt`). All zero (and `has_h_corr` false) when every patch treats the
-    /// components alike.
-    h_corr: [Vec<f64>; 3],
-    has_h_corr: bool,
+    cc: UEqnCc,
 }
 
 impl TwoPhaseSolver {
@@ -3606,132 +3686,83 @@ impl TwoPhaseSolver {
 
 impl VecEqn {
     fn new(g: &Geometry) -> Self {
-        let n = g.n_cells();
-        Self {
-            eqn: Eqn::new(g),
-            src: [vec![0.0; n], vec![0.0; n], vec![0.0; n]],
-            h_corr: [vec![0.0; n], vec![0.0; n], vec![0.0; n]],
-            has_h_corr: false,
-        }
+        Self { cc: UEqnCc::new(g) }
     }
 
-    /// Add one boundary face's `internalCoeffs` (per component) to the diagonal as `cmptAv`
-    /// (`fvMatrix::A()`/`addCmptAvBoundaryDiag`) and keep the part `H()` needs.
-    fn add_internal_coeffs(&mut self, o: usize, ic: [f64; 3], uniform: bool) {
-        if uniform {
-            self.eqn.ldu.diag[o] += ic[0];
-        } else {
-            let cav = (ic[0] + ic[1] + ic[2]) / 3.0;
-            self.eqn.ldu.diag[o] += cav;
-            for k in 0..3 {
-                self.h_corr[k][o] += cav - ic[k];
-            }
-            self.has_h_corr = true;
-        }
-    }
-
-    /// The boundary part of `fvm::div(phi, U)` (`gaussConvectionScheme::fvmDiv`): `internalCoeffs = phi *
-    /// valueInternalCoeffs`, `boundaryCoeffs = -phi * valueBoundaryCoeffs` (into the source).
+    /// The boundary part of `fvm::div(phi, U)` (`gaussConvectionScheme::fvmDiv`): per boundary face `internalCoeffs = phi *
+    /// valueInternalCoeffs`, `boundaryCoeffs = -phi * valueBoundaryCoeffs`, kept apart from the diagonal and the source as `fvMatrix`
+    /// keeps them (gh:#1909 B4). `phis` are the two fluxes `pressureInletOutletVelocity` reads.
     fn boundary_convection(&mut self, g: &Geometry, phi: &[f64], u: &Vector, phis: [&[f64]; 2]) {
-        for f in g.n_internal()..g.n_faces() {
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
             if !g.active[f] {
                 continue;
             }
-            let o = g.mesh.owner[f];
             let c = u.patch_coeffs(g, f, phis);
-            let ic = [phi[f] * c.value_internal[0], phi[f] * c.value_internal[1], phi[f] * c.value_internal[2]];
-            let uniform = c.value_internal[0] == c.value_internal[1] && c.value_internal[1] == c.value_internal[2];
-            self.add_internal_coeffs(o, ic, uniform);
             for k in 0..3 {
-                let b = -phi[f] * c.value_boundary[k];
-                if b != 0.0 {
-                    self.src[k][o] += b;
-                }
+                self.cc.ic[f - ni][k] += phi[f] * c.value_internal[k];
+                self.cc.bcoef[f - ni][k] += -phi[f] * c.value_boundary[k];
             }
         }
     }
 
-    /// The boundary part of `-fvm::laplacian(gamma, U)`: `internalCoeffs = -(pGamma * gradientInternalCoeffs)`,
-    /// source `+ pGamma * gradientBoundaryCoeffs` (`zeroGradient` contributes nothing).
+    /// The boundary part of `-fvm::laplacian(gamma, U)`: `internalCoeffs = -(pGamma * gradientInternalCoeffs)`, `boundaryCoeffs =
+    /// pGamma * gradientBoundaryCoeffs` (`zeroGradient` contributes zeros), per boundary face.
     fn boundary_laplacian(&mut self, g: &Geometry, gamma: &[f64], u: &Vector, phis: [&[f64]; 2]) {
-        for f in g.n_internal()..g.n_faces() {
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
             if !g.active[f] {
                 continue;
             }
             let c = u.patch_coeffs(g, f, phis);
-            if c.gradient_internal_diag == [0.0; 3] && c.gradient_boundary == [0.0; 3] {
-                continue;
-            }
-            let o = g.mesh.owner[f];
             let pg = gamma[f] * g.mesh.face_areas[f];
             let d = g.delta[f];
-            let ic = [
-                -(pg * (-d * c.gradient_internal_diag[0])),
-                -(pg * (-d * c.gradient_internal_diag[1])),
-                -(pg * (-d * c.gradient_internal_diag[2])),
-            ];
-            let uniform = c.gradient_internal_diag[0] == c.gradient_internal_diag[1]
-                && c.gradient_internal_diag[1] == c.gradient_internal_diag[2];
-            self.add_internal_coeffs(o, ic, uniform);
             for k in 0..3 {
-                let b = pg * c.gradient_boundary[k];
-                if b != 0.0 {
-                    self.src[k][o] += b;
-                }
+                self.cc.ic[f - ni][k] += -(pg * (-d * c.gradient_internal_diag[k]));
+                self.cc.bcoef[f - ni][k] += pg * c.gradient_boundary[k];
             }
         }
     }
 
+    /// `fvm::SuSp(coeff, U)` added to the left-hand side.
     fn su_sp(&mut self, g: &Geometry, coeff: &[f64], u: &[Vector3]) {
-        for c in 0..g.n_cells() {
-            let v = g.mesh.cell_volumes[c];
-            self.eqn.ldu.diag[c] += v * coeff[c].max(0.0);
-            let e = v * coeff[c].min(0.0);
-            self.src[0][c] -= e * u[c].x;
-            self.src[1][c] -= e * u[c].y;
-            self.src[2][c] -= e * u[c].z;
-        }
+        self.cc.su_sp(g, coeff, u);
     }
 
+    /// `fvMatrix::operator*=(volScalarField::Internal)`: the diagonal, both off-diagonals, the source, and `internalCoeffs`/`boundaryCoeffs`
+    /// (by the owner cell's value) are scaled.
     fn scale_rows(&mut self, g: &Geometry, s: &[f64]) {
-        self.eqn.scale_rows(g, s);
+        self.cc.eqn.scale_rows(g, s);
         for comp in 0..3 {
             for c in 0..g.n_cells() {
-                self.src[comp][c] *= s[c];
-                self.h_corr[comp][c] *= s[c];
+                self.cc.src[comp][c] *= s[c];
             }
         }
-    }
-
-    fn add(&mut self, o: &VecEqn) {
-        self.eqn.add(&o.eqn);
-        for comp in 0..3 {
-            for (a, b) in self.src[comp].iter_mut().zip(&o.src[comp]) {
-                *a += b;
-            }
-            for (a, b) in self.h_corr[comp].iter_mut().zip(&o.h_corr[comp]) {
-                *a += b;
-            }
-        }
-        self.has_h_corr |= o.has_h_corr;
-    }
-
-    /// `H()` per unit volume.
-    fn h(&self, g: &Geometry, u: &Vector) -> Vec<Vector3> {
-        let hs: Vec<Vec<f64>> = (0..3)
-            .map(|comp| {
-                let x: Vec<f64> = u.c.iter().map(|v| cmp(*v, comp)).collect();
-                if self.has_h_corr {
-                    // `fvMatrix::H()`: `(cmptAv(internalCoeffs) - internalCoeffs_k) psi_k` joins the numerator
-                    let s: Vec<f64> =
-                        (0..g.n_cells()).map(|c| self.h_corr[comp][c] * x[c] + self.src[comp][c]).collect();
-                    self.eqn.h(g, &s, &x)
-                } else {
-                    self.eqn.h(g, &self.src[comp], &x)
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                let sc = s[g.mesh.owner[f]];
+                for k in 0..3 {
+                    self.cc.ic[f - ni][k] *= sc;
+                    self.cc.bcoef[f - ni][k] *= sc;
                 }
-            })
-            .collect();
-        (0..g.n_cells()).map(|c| Vector3::new(hs[0][c], hs[1][c], hs[2][c])).collect()
+            }
+        }
+    }
+
+    /// `fvMatrix::operator+=(fvMatrix)`: every array of the right matrix added whole.
+    fn add(&mut self, o: &VecEqn) {
+        self.cc.add(&o.cc);
+    }
+
+    /// `UEqn.A()` per unit volume (`(D + cmptAv(internalCoeffs))/V`).
+    fn a(&self, g: &Geometry) -> Vec<f64> {
+        self.cc.a(g)
+    }
+
+    /// `UEqn.H()` per unit volume, cell values.
+    fn h(&self, g: &Geometry, u: &Vector) -> Vec<Vector3> {
+        self.cc.h(g, &u.c)
     }
 }
 
@@ -3741,10 +3772,6 @@ fn cmp(v: Vector3, i: usize) -> f64 {
         1 => v.y,
         _ => v.z,
     }
-}
-
-fn mul(a: &[f64], b: &[f64]) -> Vec<f64> {
-    a.iter().zip(b).map(|(x, y)| x * y).collect()
 }
 
 /// `fvc::div(phi, U)` with Gauss upwind, per unit volume (zeroGradient U).

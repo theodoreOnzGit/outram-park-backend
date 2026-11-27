@@ -644,7 +644,7 @@ impl TwoPhaseCase {
         let poly = root.join(format!("constant/{region}/polyMesh"));
         let mesh = read_poly_mesh(&poly)?;
         let zones = read_cell_zones(&poly)?;
-        let g = Geometry::new(mesh.clone());
+        let g = Geometry::new_openfoam(mesh.clone());
         let n = g.n_cells();
         let deviations: Vec<String> = Vec::new();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
@@ -1429,6 +1429,15 @@ impl TwoPhaseCase {
                 })
                 .unwrap_or(1.0)
         };
+        let eq_relax = |name: &str| -> Option<f64> {
+            fs.get_dict("relaxationFactors")
+                .and_then(|r| r.get_dict("equations"))
+                .and_then(|r| lookup_regex(r, name))
+                .and_then(|e| match e {
+                    FoamEntry::Scalar(x) => Some(*x),
+                    _ => None,
+                })
+        };
         let controls = TwoPhaseControls {
             alpha,
             n_outer: scalar(pimple, "nOuterCorrectors").unwrap_or(1.0) as usize,
@@ -1453,6 +1462,8 @@ impl TwoPhaseCase {
             relax_t_interface: rf("T.interface"),
             relax_he: [rf(&format!("h.{}", names[0])), rf(&format!("h.{}", names[1]))],
             relax_phi: [rf(&format!("phi.{}", names[0])), rf(&format!("phi.{}", names[1]))],
+            relax_p_rgh_equation: eq_relax("p_rgh"),
+            relax_he_equation: [eq_relax(&format!("h.{}", names[0])), eq_relax(&format!("h.{}", names[1]))],
             min_kd_ff: scalar(pimple, "minKdFF").unwrap_or(1.0),
             min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-4),
             solve_phase,

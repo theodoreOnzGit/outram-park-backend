@@ -180,7 +180,7 @@ pub fn bound(g: &Geometry, s: &mut Scalar, lower: f64) -> bool {
     let mut maxed = s.clone();
     maxed.c.iter_mut().for_each(|v| *v = v.max(lower));
     maxed.b.iter_mut().for_each(|v| *v = v.max(lower));
-    let face = fv::interp_linear(g, &maxed);
+    let face = fv::interp_linear_openfoam(g, &maxed);
     let m = &g.mesh;
     let n = g.n_cells();
     let mut num = vec![0.0; n];
@@ -386,7 +386,7 @@ impl TwoPhaseSolver {
             for i in 0..nb {
                 gm.b[i] = alpha_b[i] * rho.b[i] * (t.nut.b[i] / sigma + nu_b[i]);
             }
-            fv::interp_linear(&g, &gm)
+            fv::interp_linear_openfoam(&g, &gm)
         };
         let alpha_old = &fl.alpha_old;
         let rho_old = &fl.rho_old;

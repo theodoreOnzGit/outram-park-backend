@@ -618,25 +618,37 @@ fn two_phase_momentum_a_and_h_with_a_slip_face_follow_cmpt_av_and_has_no_relaxat
     let s = super::TwoPhaseSolver::new(case);
     let g = s.geom.clone();
     let mut e = super::VecEqn::new(&g);
-    let o = g.mesh.owner[g.n_internal()];
+    let fi = g.n_internal();
+    let o = g.mesh.owner[fi];
     let c = 0.6;
-    e.add_internal_coeffs(o, [c, 0.0, 0.0], false);
-    assert!((e.eqn.ldu.diag[o] - c / 3.0).abs() < 1e-15, "cmptAv goes into the diagonal");
-    assert!(e.has_h_corr);
-    assert!((e.h_corr[0][o] - (c / 3.0 - c)).abs() < 1e-15 && (e.h_corr[1][o] - c / 3.0).abs() < 1e-15);
-    // H of cell `o` for U = (1, 1, 1): `h_corr_k psi_k` joins the numerator (no off-diagonals, no source here)
+    // gh:#1909 B4: `internalCoeffs` stay per boundary face, apart from the diagonal; `A()` adds `cmptAv` of them to `D` at read time
+    e.cc.ic[0] = [c, 0.0, 0.0];
+    assert_eq!(e.cc.eqn.ldu.diag[o], 0.0, "the diagonal does not hold the boundary coefficient");
+    let v = g.mesh.cell_volumes[o];
+    let a = e.a(&g);
+    assert!((a[o] - (c + 0.0 + 0.0) / 3.0 / v).abs() < 1e-15 * c / v, "A() takes cmptAv(internalCoeffs)");
+    // H of cell `o` for U = (1, 1, 1): `(cmptAv - ic_k) psi_k` joins the numerator (no off-diagonals, no source here)
     let mut u = super::fv::Vector::uniform_with_constraint_patches(&g, outram_foam_basic_lib::primitives::Vector3::ZERO);
     for v in u.c.iter_mut() {
         *v = outram_foam_basic_lib::primitives::Vector3::new(1.0, 1.0, 1.0);
     }
     let h = e.h(&g, &u);
-    let v = g.mesh.cell_volumes[o];
     assert!((h[o].x - (c / 3.0 - c) / v).abs() < 1e-12 * c / v && (h[o].y - (c / 3.0) / v).abs() < 1e-12 * c / v);
+    // `boundaryCoeffs` are added after, component by component
+    e.cc.bcoef[0] = [0.0, 0.25, 0.0];
+    let h2 = e.h(&g, &u);
+    assert!((h2[o].y - h[o].y - 0.25 / v).abs() < 1e-12 / v);
+    // `scale_rows` scales `internalCoeffs` and `boundaryCoeffs` by the owner value
+    let mut sc = vec![1.0; g.n_cells()];
+    sc[o] = 2.0;
+    e.scale_rows(&g, &sc);
+    assert_eq!(e.cc.ic[0][0], 2.0 * c);
+    assert_eq!(e.cc.bcoef[0][1], 0.5);
     // no relaxation: the assembled equation of the solver equals itself with the (nonexistent) relaxation ablated, i.e. correct_u_eqn
     // takes no relaxation factor from `controls` at all
     let e0 = s.correct_u_eqn(0);
     let e1 = s.correct_u_eqn(0);
-    assert_eq!(e0.eqn.ldu.diag, e1.eqn.ldu.diag);
+    assert_eq!(e0.cc.eqn.ldu.diag, e1.cc.eqn.ldu.diag);
 }
 
 // gh:#1902 (README round 49): OpenFOAM resolves a solver name to the exact keyword, else the LAST matching pattern.
@@ -659,4 +671,45 @@ fn lookup_regex_takes_the_last_matching_pattern_as_openfoam_does_and_the_first_f
     // an exact keyword beats every pattern in both forms
     assert_eq!(tol(lookup_regex(&d, "h.liquid")), 5e-3);
     assert_eq!(tol(lookup_regex_first(&d, "h.liquid")), 5e-3);
+}
+
+/// gh:#1909 B4: `Eqn::folded` of the internal Laplacian plus its per-face boundary coefficients is the folded `neg_laplacian`
+/// (same matrix, boundary kept apart), and `relax_scalar(1)` is `fvMatrix::relax(1)`: `D = (D + |ic|) - ic` at a `fixedValue` cell,
+/// `S += (D - D0) psi`, and the off-diagonals untouched; `alpha <= 0` returns the matrix unchanged.
+#[test]
+fn folded_laplacian_equals_neg_laplacian_and_relax_scalar_follows_fvmatrix_relax() {
+    let g = line(6);
+    let mut bc = g.default_bcs();
+    for (pi, p) in g.mesh.patches.iter().enumerate() {
+        if p.kind != PatchKind::Empty {
+            let v = if g.mesh.face_centres[p.start].x < 0.5 { 300.0 } else { 400.0 };
+            bc[pi] = Bc::Fixed(vec![v; p.size]);
+        }
+    }
+    let t = Scalar::uniform(&g, 350.0, bc);
+    let gamma = vec![0.37; g.n_faces()];
+    let mut whole = Eqn::new(&g);
+    whole.neg_laplacian(&g, &gamma, &t);
+    let mut apart = Eqn::new(&g);
+    apart.neg_laplacian_internal(&g, &gamma);
+    let (ic, bcf) = Eqn::neg_laplacian_boundary_coeffs(&g, &gamma, &t);
+    let folded = apart.folded(&g, &ic, &bcf);
+    for c in 0..g.n_cells() {
+        assert!((folded.ldu.diag[c] - whole.ldu.diag[c]).abs() <= 1e-15 * whole.ldu.diag[c].abs().max(1.0));
+        assert!((folded.source[c] - whole.source[c]).abs() <= 1e-12);
+    }
+    let before = apart.clone();
+    apart.relax_scalar(&g, 0.0, &ic, &t.c);
+    assert_eq!(apart.ldu.diag, before.ldu.diag);
+    apart.relax_scalar(&g, 1.0, &ic, &t.c);
+    let ni = g.n_internal();
+    for f in ni..g.n_faces() {
+        if g.active[f] && ic[f - ni] != 0.0 {
+            let o = g.mesh.owner[f];
+            let d_expected = (before.ldu.diag[o] + ic[f - ni].abs()) - ic[f - ni];
+            assert_eq!(apart.ldu.diag[o], d_expected);
+            assert_eq!(apart.source[o], (d_expected - before.ldu.diag[o]) * t.c[o]);
+        }
+    }
+    assert_eq!(apart.ldu.upper, before.ldu.upper);
 }

@@ -7397,3 +7397,56 @@ For variant PK, every step of the real run from the restart to `t = 200`:
 ## Round 59 status (written 2026-11-27 after the interruption; NOT a completed round)
 
 **Done:** the real-binary references of both transient variants (`/home/user/upstream-build/gh1916`, scratch, deleted after extraction): PK 551 steps (exit 0, 23 s), SH (as shipped, diffusion transient) 543 steps (13 s); the PK per-step log summary is `refs/fc_transient_pk_r59.log_summary.ref.txt.gz` (refs submodule `b4a5e96`): power 1.0005754e7 W at step 1 to 1.5171387e7 W at t = 200.05, `totalReactivity` 57.67131 pcm falling to 2.96 pcm, TFuel term -54.71 pcm, dt back at 0.2083 s at the end. The finding above. The staging script. **Not done (nothing of the port exists for these, no port transient number was produced, so predictions T2-T6 are neither held nor missed):** the case reader, `RegionSolver::PointKinetics`, the restart emulation, the workflow stage, the extractor and the differential test, the controls. **The criteria above stand unchanged for whoever ports it.** Requirements-table rows 16 and 17 therefore stay open: ~~row 16 MISSING~~ **UPDATED 2026-11-27 (gh:#1916, round 59)**: still MISSING in the port, but the reference now exists and the shipped transient is found to be a diffusion transient (needs gh:#1919 for the as-shipped variant).
+
+## Round 58 results (measured 2026-11-27, release, `CARGO_BUILD_JOBS=2`, PRIVATE target dir; predictions above committed first: `2bcd763a3`)
+
+**Instruments.** (1) The round 17 probe rebuilt (`/home/user/upstream-build/probe1909`, `probe_pressure.patch` unchanged, 27 s build) on PSBT2 Ex3 step 1, turbulence off, tight `PCG`/`DIC`, 12 correctors; the port dump is a TEMPORARY edit of `correct_pressure` (never committed; it writes the same names; `PROBE_CASE=... PROBE1833_FILE=...`), compared by a script that reports "bit-identical" only when the worst absolute difference is exactly 0. (2) Every two-phase vs-upstream test, `--nocapture`, the HEAD binaries (copied before any change) against the changed ones.
+
+**What changed (code).** `VecEqn` is `UEqnCc` (REUSE): `D`, `internalCoeffs`/`boundaryCoeffs` per boundary face and the source apart; `correct_u_eqn` assembles `div`, `((-laplacian) - dev2)`, `Sp((1/3) tr Kd)` + `(dev(Kd) & U)`, virtual mass (scaled whole, `fvMatrix::operator*=`), `SuSp(-contErr)` as separate matrices added whole; laminar `alpha rho nuEff` as `(alpha rho)(mu/rho)`. `correct_pressure`: `pEqn = (comp1 + comp2) + incomp` with the Laplacian's boundary coefficients apart, `rDeltaT` forms of the `ddt` terms, phase-change `dmdt/rho` subtracted from its own matrix, **`pEqn.relax()`** (new `Eqn::relax_scalar`, `fvMatrix::relax`), `solveSegregated` fold (`Eqn::folded`), `pEqnIncomp.flux()` as `flux_of_coeffs`, `reconstruct_openfoam`. `correct_energy`: `ddt` and `div` separate matrices, boundary coefficients apart, the laplacian, `alpha dpdt` as its own source, `heSource` as one matrix, **`E.relax()`** (`relaxationFactors.equations`, read as `TwoPhaseControls::{relax_p_rgh_equation, relax_he_equation}`). Helpers (stage 4): `Geometry::new_openfoam` (solver and case reader), `interp_linear_openfoam`, `flux_openfoam`, `dev2_div_openfoam` in `mod.rs`, `alpha_mules.rs`, `turbulence.rs`. New tests: `folded_laplacian_equals_neg_laplacian_and_relax_scalar_follows_fvmatrix_relax`; the A()/H() test rewritten for the apart form.
+
+### The probe (the instrument): HEAD, stage 1, stage 1 + 4
+
+| state | A1cell | H1cell | rAUf / phiHbyA | pdiag / psource | pEqnFlux | p_rgh_post (corr 1) | (corrector, quantity) pairs bit-identical |
+|---|---|---|---|---|---|---|---|
+| HEAD | 5.5e-16 | 5.6e-16 | 4.7e-16 / 3.5e-16 | (boundary folded: not comparable) | 2.6e-9 | 1.3e-12 | 148 of 402 |
+| stage 1 (B4 only, old helpers) | 4.1e-16 | 4.2e-16 | 4.7e-16 / 3.5e-16 | 4.5e-16 / 5.8e-13 | 3.2e-9 | 1.9e-12 | not counted |
+| **stage 1 + 4 (all)** | **0** | **0** | **0 / 0** | **0 / 0** | **0** | **0** | **402 of 402** |
+
+All 12 correctors of the step, every dumped quantity (cell `alpha`, `rho`, `A`, `H`, `U`, `Kd12`; face `alphaf`, `Af`, `alphaRhof..byDt`, `rAUf*`, `alpharAUf*Star`, `phiS`, `phiH`, `phiHbyA*`, `rAUf`, `p_rgh` before and after the solve, `pdiag`, `pupper`, `psource` after `pEqn.relax()`, `pEqnFlux`) are **bit-identical** to the instrumented upstream. Stage 1 alone is NOT: the fluid-1 `A`, `H` differ in 44 cells by an ulp because the Laplacian's `gamma` is `fvc::interpolate`d (stage 4). The matrix assembly and the helpers are each necessary, neither is sufficient.
+
+### End to end (HEAD binaries against stage 1 and stage 1 + 4)
+
+| test file | HEAD | stage 1 | stage 1 + 4 |
+|---|---|---|---|
+| `genfoam_two_phase_vs_upstream` (12 + 3 ignored) | pass | 3 fail | **2 fail** (two chaotic step-count pins, below) |
+| `genfoam_psbt2_turbulence_vs_upstream` (9 + 2) | pass | 1 fails (Ex3 step 1 `p` 3.14e-12 > 3e-12) | **pass**, including both round 49 controls |
+| `genfoam_two_phase_mules_vs_upstream` | pass | 1 fails (643 -> 640) | **1 fails** (643 -> 641) |
+| `..._mules_solve_phase_vs_upstream` | pass | 2 fail (45 -> 46) | pass |
+| `..._radial_power_vs_upstream` | pass | 1 fails (`dmdt` 1.4e-10 > 1e-10) | pass |
+| `..._1d_boiling`, `genfoam_psbt_shipped`, `_psbt_trace`, `_chf_shipped`, `_chf_trace`, `_psbt_closures`, `--lib two_phase` (58) | pass | pass | pass |
+
+Printed worst numbers (PSBT2 rows, 5 steps Ex2/Ex3, 19 steps Ex1; turbulence ON as shipped): Ex1 `p` 9.76e-10 -> 9.78e-10, `U.liquid` 3.89e-7 unchanged, `T.liquid` 8.2e-10 unchanged; Ex2 `p` 2.60e-10 -> 2.54e-10, `T.liquid` 1.18e-11 -> 1.23e-11; Ex3 step 1 `p` 1.43e-12 -> **2.90e-12** (worse, gate 3e-12 holds), `U.liquid` 1.14e-11 -> 1.96e-11, `dgdt.liquid` 4.5e-15 -> 0; Ex3 5-step worst `p` 1.89e-10 unchanged. With turbulence ON the remaining difference is the `k`/`epsilon`/`nut` equations (1 ulp, `turbulence.rs` still assembles in its own order): the matrices of the momentum and pressure equations are bit-identical when turbulence is off (probe) and the residual is the turbulence's. 1D_boiling pre-onset (`p`, `T`, `U` over 65 and 616 steps): same level as HEAD (step 1 `p` 2.1e-14 -> 7.1e-14, a 1-D channel the probe does not cover; all gates hold).
+
+### The five items of round 49
+
+| item | round 49 (helpers only) | now (B4 + helpers) | explanation |
+|---|---|---|---|
+| psbt2 control `T.liquid` | 1.08e-14 vs 1e-14 | **passes** | the unfinished partial change; with the matrices in order the control is back inside its gate (Q7 held) |
+| psbt2 ablation `p >= 1e-10` | 7.7e-11 | **passes** | same cause (Q8 held) |
+| mules first sub-cycled step | 640 vs 643 | **641 vs 643 (pin NOT moved)** | chaotic post-onset marker, see decisions |
+| 1D boiling pimple ending | 662 vs 653 | **1363 vs 653 (pin NOT moved)** | same |
+| `Diverged { iter: 0, residual: NaN }` | in `..pimple_flow_tight..` | none (first split at step 759, was 640) | **not a NaN and not a defect of the switched form.** `Diverged { iter: 0, residual: NaN }` is the port-side step guard (`step()`: `dt` not positive or `time + dt == time`, the residual is a placeholder). Instrumented (`TEMPDBG` prints, removed): the helpers-only run reaches the post-onset excursion at t = 6.2637, the Courant number hits 2 (maxCo), `dt` falls 2.4e-3 -> 2.2e-7 -> 1.9e-9 -> 3.5e-14 -> 8.4e-29 and the guard fires before step 800, where the test (`expect("step")`) expected the run to still be going. The same collapse is what the unchanged tests record as "the step collapsed (dt = 9e-13) at t = 6.2291" and what upstream's own binary does on this case (rounds 3 and 7). Which ulp-draw collapses before step 800 is chaotic; with B4 the port follows upstream's iteration counts and endings through step 758 and does not collapse before 800. Nothing to fix in the helpers (Q10 missed: neither an `inf - inf` nor a degenerate face). |
+
+### Pins: moved, NOT moved, and why STOP
+
+Three pins are chaotic trajectory markers (step numbers after the boiling onset), moved beyond the rounding rule's reach (it is a rule for numbers, not for which step a chaotic excursion splits at): `one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split` **640 -> 759** (the port agrees with upstream's counts 119 steps longer), `one_d_boiling_default_is_the_corrected_pimple_ending` **653 -> 1363** steps, `mules_first_diverging_step_after_the_onset_is_636_by_fields` `first_sub` **643 -> 641** (its flow-field markers 636/637/636 did not move). Per the round's instruction these are NOT re-pinned: the three tests fail in the committed tree until the maintainer decides. Every numeric pin and gate (psbt2, radial power, mules solve-phase 45, chf, psbt) holds without change; nothing loosened, nothing tightened.
+
+### Predictions: held / missed
+
+Q1 **missed** (stage 1 alone broke 8 tests, all at round-off/chaos level; stage 4 resolved all but the 3 chaotic markers). Q2 held. **Q3, Q4, Q5, Q6 held far beyond the prediction: bit-identical (402 of 402), 40/30/20/35 % predicted.** Q7 held. Q8 held. Q9 **missed** (both post-onset markers moved). Q10 **missed** (the "NaN" is the dt-collapse guard, above). Q11 held in part: `relax(1)` is in the bit-identity (not isolated by an ablation here). Q12 held (iteration counts of the pre-onset steps equal).
+
+### Not done / limits (stated)
+
+The turbulence equations (`turbulence.rs`: `k`, `epsilon`) and `heSource`'s internal split (interfacial + phase change summed before the `V` product) are not in OpenFOAM's order; the energy equation is covered by the end-to-end gates but has no per-corrector probe (the probe patch dumps the pressure stage only); `relax` selection by `hFinal`/`p_rghFinal` keys is not read (all shipped cases use `".*" 1`); an ablation builder for the helper switch was not added (the old forms remain as `Geometry::new`, `interp_linear`, `flux`, `dev2_div`).
+
+Reproduction: `bash upstream_driver/probe_pressure/run_probe_r58.sh up 40` (probe built by applying probe_pressure.patch to a copy of the classes), port: `python3 -I upstream_driver/probe_pressure/port_probe_r58_insert.py <mod.rs> new` (TEMPORARY edit) with a one-step test, then `cmp_r58.py probe_up.txt probe_port.txt 1 2`.

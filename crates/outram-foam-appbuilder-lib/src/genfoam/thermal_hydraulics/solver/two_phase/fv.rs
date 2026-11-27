@@ -1255,6 +1255,60 @@ impl Eqn {
         }
     }
 
+    /// `fvMatrix<scalar>::relax(alpha)` (ESI v2506 `fvMatrix.C:1101-1238`) with the boundary coefficients `ic` (`internalCoeffs_`, per
+    /// boundary face, index `f - n_internal`) kept apart from the diagonal, as `fvMatrix` keeps them: `D0 = D`;
+    /// `D += cmptMax(cmptMag(ic))` (`|ic|` for a scalar) face by face; `D = max(|D|, sumOff)`; `D /= alpha`; `D -= cmptMin(ic)`
+    /// (`ic`); `S += (D - D0) psi`. `alpha <= 0` returns without touching the matrix. Not the identity for `alpha = 1`: `(D + |ic|) - ic`
+    /// is an ulp of `D` at a `fixedValue` patch cell, and `max(|D|, sumOff)` lifts a cell that is not diagonally dominant.
+    /// The scalar twin of `UEqnCc::relax` (round 45/46); the two-phase `p_rgh` and `he` equations call it (gh:#1909 B4, README round 58).
+    pub fn relax_scalar(&mut self, g: &Geometry, alpha: f64, ic: &[f64], psi: &[f64]) {
+        if alpha <= 0.0 {
+            return;
+        }
+        let n = g.n_cells();
+        let ni = g.n_internal();
+        let d0 = self.ldu.diag.clone();
+        let mut d = d0.clone();
+        let mut sum_off = vec![0.0; n];
+        for f in 0..ni {
+            sum_off[self.ldu.neighbour[f]] += self.ldu.lower[f].abs();
+            sum_off[self.ldu.owner[f]] += self.ldu.upper[f].abs();
+        }
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                d[g.mesh.owner[f]] += ic[f - ni].abs();
+            }
+        }
+        for c in 0..n {
+            d[c] = d[c].abs().max(sum_off[c]);
+            d[c] /= alpha;
+        }
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                d[g.mesh.owner[f]] -= ic[f - ni];
+            }
+        }
+        for c in 0..n {
+            self.source[c] += (d[c] - d0[c]) * psi[c];
+            self.ldu.diag[c] = d[c];
+        }
+    }
+
+    /// The matrix `fvMatrix::solveSegregated` hands to the linear solver: `diag + internalCoeffs` (`addBoundaryDiag`) and
+    /// `source + boundaryCoeffs` (`addBoundarySource`), face by face in patch order. `ic`/`bc` are per boundary face (index `f - n_internal`).
+    #[must_use]
+    pub fn folded(&self, g: &Geometry, ic: &[f64], bc: &[f64]) -> Eqn {
+        let mut out = self.clone();
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                out.ldu.diag[g.mesh.owner[f]] += ic[f - ni];
+                out.source[g.mesh.owner[f]] += bc[f - ni];
+            }
+        }
+        out
+    }
+
     /// `A()` per unit volume.
     #[must_use]
     pub fn a(&self, g: &Geometry) -> Vec<f64> {
