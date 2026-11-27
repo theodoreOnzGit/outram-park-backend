@@ -4,3 +4,7 @@
 [submodule "crates/kovan-literature/reactor-literature"]
 	path = crates/kovan-literature/reactor-literature
 	url = https://github.com/theodoreOnzGit/reactor-literature.git
+[submodule "crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/refs"]
+	path = crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/refs
+	url = https://github.com/theodoreOnzGit/C-_YouTube_OpenFoam.git
+	branch = genfoam-vs-upstream-refs

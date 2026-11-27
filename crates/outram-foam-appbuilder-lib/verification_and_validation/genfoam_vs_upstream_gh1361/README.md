@@ -7,6 +7,16 @@ full GeN-Foam binary) are not started.~~ **UPDATED 2026-11-12:** round 3 built t
 libraries and the full binary (without `thermoTools`, which no case run needs) and compares `1D_boiling`,
 PSBT Ex1 and gFHR: see "Round 3" below.
 
+**Where the references are (2026-11-27, maintainer decision).** Every
+`refs/*.ref.txt.gz` named below is in the `refs/` **git submodule**, the
+`genfoam-vs-upstream-refs` branch of `theodoreOnzGit/C-_YouTube_OpenFoam`; it
+is no longer tracked in this repository (the 104 files, ~78 MB, were moved
+byte for byte). Fetch it with
+`git submodule update --init crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/refs`;
+`tests/genfoam_refs_submodule_present.rs` fails with that command when it is
+missing. A new reference is written into `refs/` as before, then committed and
+pushed in the submodule, and the submodule pointer is bumped here.
+
 Upstream: GeN-Foam `652b3da0cc55` on OpenFOAM-ESI **v2506** (the version
 GeN-Foam declares, `README.md:34`), partial build with dummy Pstream, gcc 13.3,
 `-O3`, double precision, 32-bit labels. Upstream sources are unmodified; the only
