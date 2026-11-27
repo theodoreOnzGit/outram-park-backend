@@ -8021,3 +8021,43 @@ None. Re-run after the changes (release, private target): `genfoam_fullcoupling_
 ### Reproduction
 
 `ADJ=1 bash scripts/make_fullcoupling_coupled_case.sh <ss>; bash scripts/run_fullcoupling_coupled.sh <ss>`; per variant `bash scripts/run_pk_variant_r63.sh <ss> <scratch> <variant> <refs dir>` (stages with `make_pk_variant_r63.sh`/`.py`, runs `run_fullcoupling_transient.sh`, extracts with `extract_fullcoupling_transient.py pkv`); port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_transient_vs_upstream pk_option -- --nocapture` (the test stages the same files with the same Python script).
+
+
+
+
+# Round 65 (gh:#1929, #1928 under #1870/#1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah"): `porousKEpsilon` with `zeroGradient`/`calculated` patches, `mappedWall`, and the shipped 2D_FFTF steady state in the port against the round 62 tight reference
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 63 (#1927): keep both on merge. **Predictions and every criterion below are committed BEFORE the first port run of the `w8`-`w10` variants and BEFORE the first port run of the shipped FFTF case.** The real-binary references of the variants were extracted first (inputs of the test, not of the port): `refs/fftf_r65_w{8_zg,9_calc,10_mapped}*` (refs submodule `5159c85`).
+
+## Read first (upstream 652b3da / ESI v2506, before any port line)
+
+* `porousKEpsilon.C` has NO wall-function code: `correctNut()` is `nut = Cmu k^2/epsilon; nut.correctBoundaryConditions(); alphat = rho nut/Prt; alphat.correctBoundaryConditions(); nut += pos(structure) magU DhStruct/laminarReStruct; nut.correctBoundaryConditions()`. Which patches carry wall functions is decided ONLY by the patch types in `0/fluidRegion/{k,epsilon,nut}`. The shipped FFTF files carry none: `k`, `epsilon` `zeroGradient` on every patch (`wedge` on the two wedge patches); `nut` `zeroGradient` on `vesselWall`, `outVesselFrontAndBack`, `outVesselWall`, `secLoopFrontAndBack`, `hotLegSecondaryOutlet`, `coldLegSecondaryInlet`, `secLoopWall`, `vesselValve` and `calculated value uniform 0` on `baffle1_master/slave`, `baffle2_master/slave`, `baffle3`, `baffle4`; `alphat` `zeroGradient` on the vessel/outer/secLoop walls and `vesselValve`, `calculated` on the baffles and on `hotLegSecondaryOutlet`/`coldLegSecondaryInlet`. The `epsilon` equation therefore runs with no `updateCoeffs` effect and no `boundaryManipulate`.
+* A `calculated` patch of an expression assignment takes the EXPRESSION's patch values (`nut_ = Cmu*sqr(k_)/epsilon_` assigns `Cmu k_b^2/eps_b`; `nut_ += pos(structure_) magU DhStruct/laminarReStruct` adds the patch values of `magU` = `mag(U_b)` as `fluid_.magU() = mag(U)` (`pEqn_1p.H:84`) left them after `U.correctBoundaryConditions()`), while a `zeroGradient` patch re-evaluates to the owner value. `alphaEff` of `EEqn_1p.H` is `thermo.alphaEff(alphat)` = `alpha_ + alphat` on the patches too.
+* `mappedWall`: the only users of `mappedPatchBase` in GeN-Foam are the `NusseltThermalBaffle1D` BC (`grep -rn mappedPatch src/` finds nothing else); the FFTF baffles carry `slip`/`zeroGradient`/`fixedFluxPressure`/`calculated`, so in the fluid region a `mappedWall` is a plain wall `fvPatch` and its `sampleRegion fluid` is never resolved (the real binary ran it in round 62). `removeBaffles` acts only on the `meshToMesh` source copy (round 62 finding 4).
+* The port's reader accepted only wall-function `nut`/`k`/`epsilon` on `wall` patches and `zeroGradient`/`wedge` `alphat`, and the energy equation took `alphat` on patches as 0.
+
+## Variants (real binary, 20 steps, tight protocol; `scripts/make_fftf_turb_variants.py`, `run_fftf_turb_variants.sh`, `extract_patch_values.py`)
+
+Base `cases/fullcoupling_fluid` switched to `RAS porousKEpsilon` with the FFTF coefficients (`DhStruct 1`; `k 1`, `epsilon 200`; relaxation 0.6 on `k.*`/`epsilon.*`) then ONLY the patch types differ: `w8_zg` (every `k`/`epsilon`/`nut`/`alphat` patch `zeroGradient`, `fixedWalls` `noSlip`), `w9_calc` (`nut`, `alphat` `calculated` on `fixedWalls`, `alphat` `calculated` on `inlet`/`outlet`, `fixedWalls` `slip`), `w10_mapped` (`fixedWalls` split into two `mappedWall` patches `baffle3`/`baffle4` with the FFTF dictionary, `calculated` `nut`/`alphat`).
+
+## Criteria (fixed here; none will change after seeing results)
+
+1. Each variant is read and run by the port without refusal, 20 steps, step count equal to the reference's.
+2. Fields `U` (gated on `max|U|`), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics`, and now `k`, `epsilon`, `nut`, `alphat` (cells) at every kept step `<= 1e-9` of the field's max; `nut` and `alphat` PATCH values (`P` lines) `<= 1e-9` of the field's max; `dt` `<= 1e-12`; `T` lines `<= 1e-9`; solve logs: initial residual absolute difference `<= 1e-11`, iteration difference `<= 5` for solves above `1e-10` (standing pins); noise-floor iteration counts REPORTED, NOT GATED.
+3. Controls (each must differ): the port with `alphat` patch values forced to 0 in the energy equation (the old behaviour) differs from `w9_calc` by more than `1e-9` in `T`; the port on `w9_calc` with `calculated` patches forced to the owner value (what `zeroGradient` would give) differs in `U` or `T` by more than `1e-9`.
+4. Earlier numbers (rounds 3-64) do not move: `genfoam_fftf_pieces_vs_upstream` w1-w7, `genfoam_msfr_th_*`, `genfoam_fullcoupling_*`, `genfoam_coupled_tutorials_requirements`, `--lib one_phase`; anything that moves (the energy-equation `alphat` patch value is the candidate) is listed old/new (1e-9 direct, 1e-4 propagated).
+5. **The shipped 2D_FFTF steady state** (case = `Tutorials/reactorCases/2D_FFTF/rootCase` with the Allrun `setSteadyState` edits and the round 62 tight protocol of `fc_protocol.sh`: every tolerance `1e-14`, `relTol 0`, `GAMG` -> `PCG`/`DIC`, `writePrecision 17`; the SAME protocol as `refs/fftf_r62_tight_ss*`, 163 steps) is read by the port with no refusal other than named ones; if it runs, compared step by step with `refs/fftf_r62_tight_ss.ref.txt.gz`: `dt` sequence `<= 1e-12`; `T` lines `<= 1e-9`; every solve's initial residual (abs `<= 1e-11` above `1e-10`) and iterations (within 5; noise floor reported); full fields `U` (on `max|U|`), `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics` at the 10 kept steps `<= 1e-9`. First diverging step and cause recorded. A run over 5 minutes of wall time goes behind `#[ignore]` with the measured time. GAMG itself is NOT ported: the as-shipped (GAMG) run is refused by name (`GamgPolicy::Refuse`).
+6. `genfoam_coupled_tutorials_requirements` re-pinned to the first refusal left (or to "reads"); round 54 table and gap-audit rows struck through.
+
+## Predictions (written before any port number of this round)
+
+| id | prediction | probability |
+|---|---|---|
+| Q1 | `w8_zg` within `1e-9` at all 20 steps after the reader accepts `zeroGradient` | 75 % |
+| Q2 | `w9_calc` within `1e-9` (needs the `calculated` patch values of `nut`, `alphat` and the `mag(U_b)` stabilisation) | 55 % |
+| Q3 | `w10_mapped` within `1e-9` with `mappedWall` read as a plain patch | 80 % |
+| Q4 | the energy equation's `alphat` patch value matters (control 3 first half differs) | 85 % |
+| Q5 | earlier numbers (criterion 4) do not move, because the old `+ 0.0` patch value was only ever met where `alphat` patch gamma does not enter | 60 %; if one moves, listed |
+| Q6 | the shipped FFTF case is READ without further refusal once `nut`/`alphat` and `mappedWall` are in | 55 % (`residualControl`/`correctUntilConvergence` keys and the function objects are the other candidates) |
+| Q7 | the port runs the 163 steps of the tight FFTF steady state within 30 min of wall time | 50 % |
+| Q8 | it matches the reference to `1e-9` over all 163 steps | 10 % (18 538 cells, 6x6 correctors, wedge tensor and `SfGammaCorr` paths never differenced; PCG at 655 iterations amplifies round-off) |
