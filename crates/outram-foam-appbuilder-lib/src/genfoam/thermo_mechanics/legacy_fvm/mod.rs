@@ -1166,6 +1166,24 @@ impl LegacyFvmThermoMechanics {
         self.sigma_d_b = sb;
     }
 
+    /// What a RESTART rebuilds (gh:#1919, README round 60): `disp` is READ (`MUST_READ`) and the constructor tail computes `sigmaD_` and
+    /// `divSigmaExp_` from it (`legacyThermoMechanics.C:504-518`); the running process holds the `divSigmaExp_` its last corrector left
+    /// (`fvc::div(DEqn.flux())` for `compactNormalStress no`), a different explicit source, so the first corrector of a restarted step starts from
+    /// a residual that is NOT the converged one.
+    pub fn restart_at(&mut self) {
+        // `GFTractionDisplacement(p, iF, dict)`: `operator=(patchInternalField()); gradient() = Zero;` (the file's `value` is not read back)
+        for pi in 0..self.disp_patches.len() {
+            let (start, size) = (self.mesh.patches[pi].start, self.mesh.patches[pi].size);
+            if let DispPatch::GfTractionDisplacement(t) = &mut self.disp_patches[pi] {
+                t.reset_after_read();
+                for fi in 0..size {
+                    self.disp_b[pi][fi] = self.disp[self.mesh.owner[start + fi]];
+                }
+            }
+        }
+        self.initial_div_sigma_exp();
+    }
+
     /// `fvc::laplacian(2*mu_ + lambda_, disp_, "laplacian(DD,D)")`: `fvc::div(gamma*snGrad(disp)*magSf)`.
     fn fvc_laplacian_disp(&self) -> Vec<Vector3> {
         let mesh = &self.mesh;

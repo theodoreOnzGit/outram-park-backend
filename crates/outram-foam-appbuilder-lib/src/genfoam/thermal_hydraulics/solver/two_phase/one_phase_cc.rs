@@ -1199,6 +1199,11 @@ pub struct OnePhaseCcSolver {
     ctl_freeze_htc: bool,
     /// `htc` has been evaluated once (for [`Self::with_frozen_htc`]).
     htc_evaluated: bool,
+    /// A restart's first step (gh:#1919, README round 60): `Tpas.oldTime()` does not exist yet in the new process, is created by the first
+    /// `structure::correct` as a copy, and the first `Tpas.correctBoundaryConditions()` (`storeOldTimes()`, the field's `timeIndex_` still that
+    /// of the read) then re-stores it from the ALREADY UPDATED field, so the later outer iterations of the step integrate from that value.
+    /// Set by [`Self::restart_at`], cleared by the first [`Self::passive_correct`].
+    pas_old_lazy: bool,
 }
 
 /// What one PIMPLE outer iteration of the energy equation reported.
@@ -1325,6 +1330,7 @@ impl OnePhaseCcSolver {
             ctl_no_passive: false,
             ctl_freeze_htc: false,
             htc_evaluated: false,
+            pas_old_lazy: false,
         };
         s.update_thermo_fields();
         // the structure constructor calls `correctT` once, which runs `temperatureUpdate()` at the start time
@@ -1432,6 +1438,49 @@ impl OnePhaseCcSolver {
             t.epsilon_old = t.epsilon.c.clone();
         }
         self.steps_begun += 1;
+    }
+
+    /// What a RESTART from the written state at `start_time` rebuilds that an uninterrupted run keeps (gh:#1919, README round 60): a new
+    /// process has no old-time copies (so the lazy first-step `p.oldTime()` of round 3 applies again), a fresh PIMPLE control state, the
+    /// face flux `phi = fvc::flux(U)` (it is NOT written: `fluid.C:509-578` rebuilds it, while `alphaPhi`/`alphaRhoPhi` are read and
+    /// kept), `magU = mag(U)`, and every old-time field equal to the field read. The cell fields (`T`, `U`, `p`, `p_rgh`, `h`, ...)
+    /// are written at full precision and are kept as they are. `rebuild_phi` false is the CONTROL that keeps the last step's `phi` (README round 60, control d).
+    pub fn restart_at(&mut self, start_time: f64, rebuild_phi: bool) {
+        self.time = start_time;
+        self.steps_begun = 0;
+        self.p_old = None;
+        self.pimple = PimpleState::new();
+        self.h_solves.clear();
+        // the thermo is constructed from the READ `T` and `p`: `h = he(p, T)` and `rho = rho(p, T)` (the running process holds the `h` its
+        // last solve left and the density of the temperature before it)
+        self.he = (0..self.t.len()).map(|c| self.case.thermo.he(self.p[c], self.t[c])).collect();
+        self.update_thermo_fields();
+        self.he_old = self.he.clone();
+        self.rho_old = self.rho.clone();
+        self.t_pas_old = self.t_pas.clone();
+        self.pas_old_lazy = true;
+        self.t_act_old = self.t_act.clone();
+        // `onePhase` constructor `correctContErr()`: `ddt(alpha, rho)` is exactly 0 (old time = current), `contErr = div(alphaRhoPhi)`
+        let dv = fv::div(&self.geom, &self.alpha_rho_phi);
+        for c in 0..self.geom.n_cells() {
+            self.cont_err[c] = 0.0 + dv[c];
+        }
+        let uc = self.u.c.clone();
+        let phi = fv::flux_openfoam(&self.geom, &self.u);
+        // `onePhase.C:133`: `phi_ = fluid_.alphaPhi()`, the field READ from disk (what the last step left in `alphaPhi`)
+        let alpha_phi = self.alpha_phi.clone();
+        if rebuild_phi {
+            self.phi_total = alpha_phi.clone();
+        }
+        if let Some(fs) = self.flow.as_mut() {
+            if rebuild_phi {
+                fs.phi = phi;
+                fs.phi_solver = alpha_phi;
+            }
+            fs.u_old = uc;
+            fs.mag_u = self.u.c.iter().map(|v| v.mag()).collect();
+            fs.solves.clear();
+        }
     }
 
     /// DEPRECATED (gh:#1837): the old-time pressure of step 1 is the initial pressure, not the pressure after the first
@@ -1588,6 +1637,11 @@ impl OnePhaseCcSolver {
             let ht = self.htc[c] * self.t_prev[c];
             let a = ps.alpha_rho_cp[c] / dt;
             self.t_pas[c] = (ia * ht + a * self.t_pas_old[c]) / (a + ia * self.htc[c]);
+        }
+        if self.pas_old_lazy {
+            // `Tpas_.correctBoundaryConditions()` -> `storeOldTimes()` of a field whose old time was created in this very step
+            self.t_pas_old = self.t_pas.clone();
+            self.pas_old_lazy = false;
         }
     }
 

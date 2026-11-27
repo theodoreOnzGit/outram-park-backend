@@ -36,7 +36,10 @@
 //! ## Deliberately not ported here (refused by name)
 //!
 //! * a `regionSolvers` entry other than `onePhase`, `diffusionNeutronics`, `legacyThermoMechanics`;
-//! * `eigenvalueNeutronics false` (the transient with `integralPredictor`: gh:#1916/#1919);
+//! * ~~`eigenvalueNeutronics false` (the transient with `integralPredictor`: gh:#1916/#1919)~~ **CHANGED 2026-11-27 (gh:#1919, README round 60)**: ported as
+//!   [`RegionSolvers::restart_transient`] (a restart of the steady state into `solveNeutronics.H` with `eigenvalueNeutronics false`, `integralPredictor.H`
+//!   included); `read` of a case that STARTS with `eigenvalueNeutronics false` is still refused (its `fluxStar_`/`prec_` would have to be read from a
+//!   start directory); `regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922);
 //! * `removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236). For a mesh without any, upstream's
 //!   baffle-less mesh is the same mesh (`Writing 0 duplicate faces`) and `correctBaffleLessFields` is a copy of the primitive field: the
 //!   `.baffleLess` source is then the region's own field as of the end of its last `correctPhysics()`;
@@ -58,13 +61,13 @@ use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use super::cell_overlap::OverlapMesh;
-use super::coupled_loop::{adjust_delta_t, initial_delta_t, CouplingDict, MappingEntry, RegionMeshMap};
+use super::coupled_loop::{adjust_delta_t, CouplingDict, MappingEntry, RegionMeshMap};
 use super::mesh_deformation::{DeformableMesh, DispPatchCondition, MeshDeformationDict, PointCellsOrder, StepClock, VolDisplacement};
 use crate::error::AppBuilderError;
-use crate::genfoam::neutronics::diffusion::external_source::NeutronicsLaplacianScheme;
+use crate::genfoam::neutronics::diffusion::external_source::{NeutronicsDdtScheme, NeutronicsLaplacianScheme, StationaryStep, StationaryStepControls};
 use crate::genfoam::neutronics::diffusion::upstream_transient::diffusion_max_delta_t;
 use crate::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettings};
-use crate::genfoam::neutronics::pseudo_time::PseudoTimeEigenvalue;
+use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
 use crate::genfoam::thermo_mechanics::legacy_fvm::case::{LegacyFvmCase, TStructGamgPolicy};
@@ -150,6 +153,18 @@ pub struct NeutronicsRegion {
     pub p_tot_old: f64,
     first_step: bool,
     conditions: Vec<DispPatchCondition>,
+    /// `Some` once [`RegionSolvers::restart_transient`] switched the region to `eigenvalueNeutronics false` (gh:#1919, README round 60).
+    pub transient: Option<NeutronicsTransient>,
+}
+
+/// The neutronics region in `eigenvalueNeutronics false` mode: `solveNeutronics.H` as [`DiffusionNeutronics::upstream_stationary_step`]
+/// (`liquidFuel false`, `Euler`, `Gauss linear corrected`) with `integralPredictor.H` when `fvSolution` selects it.
+#[derive(Debug, Clone)]
+pub struct NeutronicsTransient {
+    /// The step controls read from `fvSchemes`/`fvSolution`.
+    pub controls: StationaryStepControls,
+    /// The report of the last step (power, neutron iterations, residuals, the integral predictor's numbers).
+    pub last_step: Option<StationaryStep>,
 }
 
 /// `legacyThermoMechanics` (finite-volume form).
@@ -194,6 +209,14 @@ pub struct CouplingSwitches {
     pub disabled_targets: Vec<(String, String)>,
     /// `deformMesh()` of the regions listed in `meshDeformation` is skipped.
     pub no_mesh_deformation: bool,
+    /// CONTROL of [`RegionSolvers::restart_transient`] (README round 60, control d): keep the face flux `phi` of the last step instead of
+    /// rebuilding it from `U`, as an uninterrupted run would.
+    pub restart_keeps_phi: bool,
+    /// CONTROL of [`RegionSolvers::restart_transient`] (control b): keep the neutronics mesh at the ORIGINAL points instead of the moved
+    /// ones a restart reads.
+    pub restart_on_original_mesh: bool,
+    /// CONTROL of [`RegionSolvers::restart_transient`] (control a): `integralPredictor false`.
+    pub no_integral_predictor: bool,
 }
 
 impl CouplingSwitches {
@@ -208,6 +231,27 @@ impl CouplingSwitches {
     #[must_use]
     pub fn without_mesh_deformation(mut self) -> Self {
         self.no_mesh_deformation = true;
+        self
+    }
+
+    /// Restart without rebuilding `phi` from `U` (control d of round 60).
+    #[must_use]
+    pub fn with_restart_keeping_phi(mut self) -> Self {
+        self.restart_keeps_phi = true;
+        self
+    }
+
+    /// Restart on the original neutronics points (control b of round 60).
+    #[must_use]
+    pub fn with_restart_on_original_mesh(mut self) -> Self {
+        self.restart_on_original_mesh = true;
+        self
+    }
+
+    /// Run the transient with `integralPredictor false` (control a of round 60).
+    #[must_use]
+    pub fn without_integral_predictor(mut self) -> Self {
+        self.no_integral_predictor = true;
         self
     }
 }
@@ -227,6 +271,8 @@ pub struct StepRecord {
     pub power: f64,
     /// `Max sigmaEq` of the thermo-mechanics, if computed.
     pub max_sigma_eq: Option<f64>,
+    /// The neutronics report of a transient step (`eigenvalueNeutronics false`), else `None`.
+    pub neutronics: Option<StationaryStep>,
 }
 
 /// The main loop of `GeN-Foam.C` over the regions of a case.
@@ -247,6 +293,46 @@ pub struct RegionSolvers {
     time: f64,
     dt: f64,
     step: usize,
+    /// `runTime` (`Time::operator++`, `setDeltaT`, `run`): the clock of every PseudoTime loop, with `adjustableRunTime` write alignment.
+    clock: PseudoTimeClock,
+    /// The `OverlapMesh` geometry of each region's mesh as the maps were built (the neutronics one is rebuilt at a restart).
+    geometries: Vec<OverlapMesh>,
+    /// `controlDict` `writeControl adjustableRunTime` `writeInterval`, `None` for any other write control.
+    write_interval: Option<f64>,
+}
+
+/// The `PseudoTimeControls` a `controlDict` gives (`pTarget` is not read by the loop).
+fn clock_controls(c: &outram_foam_basic_lib::io::dict::FoamDict, root: &Path) -> Result<PseudoTimeControls, AppBuilderError> {
+    let get = |k: &str| c.get_scalar(k);
+    let write_interval = match c.get_word("writeControl") {
+        Some(w) if w == "adjustableRunTime" || w == "adjustable" => {
+            Some(get("writeInterval").ok_or_else(|| case_err(root, "controlDict: writeControl adjustableRunTime without writeInterval"))?)
+        }
+        _ => None,
+    };
+    Ok(PseudoTimeControls {
+        delta_t: get("deltaT").ok_or_else(|| case_err(root, "controlDict: no deltaT"))?,
+        end_time: get("endTime").ok_or_else(|| case_err(root, "controlDict: no endTime"))?,
+        write_interval,
+        adjust_time_step: c.get_word("adjustTimeStep").is_some_and(|w| w == "true" || w == "yes" || w == "on"),
+        max_delta_t: get("maxDeltaT").unwrap_or(GREAT),
+        min_delta_t: get("minDeltaT").unwrap_or(1e-300),
+        max_power_variation: get("maxPowerVariation").unwrap_or(0.025),
+        p_target: 0.0,
+    })
+}
+
+/// `meshHandler`: one `meshToMesh` per (target, source) pair of the mappings dictionary, built on the meshes as they are now.
+fn build_maps(regions: &[Region], mappings: &[MappingEntry], geometries: &[OverlapMesh], root: &Path) -> Result<Vec<(usize, usize, RegionMeshMap)>, AppBuilderError> {
+    let mut maps = Vec::new();
+    for m in mappings {
+        let (Some(ti), Some(si)) = (regions.iter().position(|r| r.name == m.target_region), regions.iter().position(|r| r.name == m.source_region)) else {
+            continue;
+        };
+        let map = RegionMeshMap::new(&regions[si].fv, &regions[ti].fv, Some((&geometries[si], &geometries[ti]))).map_err(|e| case_err(root, e))?;
+        maps.push((ti, si, map));
+    }
+    Ok(maps)
 }
 
 fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
@@ -319,7 +405,7 @@ impl RegionSolvers {
                     let np = read_dict(root, &format!("constant/{name}/neutronicsProperties"))?;
                     let eig = np.dict.get_word("eigenvalueNeutronics").is_some_and(|w| w == "true" || w == "yes" || w == "on");
                     if !eig {
-                        return Err(case_err(root, "eigenvalueNeutronics false (the transient neutronics in the three-region loop) is not ported: gh:#1916, #1919"));
+                        return Err(case_err(root, "eigenvalueNeutronics false at the START of a run (fluxStar_/prec_ read from a start directory) is not ported; run the steady state and RegionSolvers::restart_transient (gh:#1919); the pointKinetics variant is gh:#1922"));
                     }
                     // `neutronics.C`: `keff_` and `pTarget_` come from `<startTime>/uniform/reactorState` (the real log: `Initial keff = 1.003457`)
                     let rs = ReactorState::read(&root.join("0")).map_err(|e| case_err(root, format!("0/uniform/reactorState: {e}")))?;
@@ -354,7 +440,7 @@ impl RegionSolvers {
                     fields.set_scalar("powerDensity", vec![0.0; n]);
                     fields.set_scalar("secondaryPowerDensity", vec![0.0; n]);
                     fields.set_vector("disp", vec![Vector3::ZERO; n]);
-                    RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step: true, conditions })
+                    RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step: true, conditions, transient: None })
                 }
                 "legacyThermoMechanics" => {
                     let tm = LegacyFvmCase::read(root, name, TStructGamgPolicy::SubstitutePbicgDilu)?.build()?;
@@ -368,15 +454,10 @@ impl RegionSolvers {
             };
             regions.push(Region { name: name.clone(), fv, fields, solver, remove_baffles });
         }
-        // meshHandler: one meshToMesh per (target, source) pair of the mappings dictionary, built once on the original meshes
-        let mut maps = Vec::new();
-        for m in &mappings {
-            let (Some(ti), Some(si)) = (regions.iter().position(|r| r.name == m.target_region), regions.iter().position(|r| r.name == m.source_region)) else {
-                continue;
-            };
-            let map = RegionMeshMap::new(&regions[si].fv, &regions[ti].fv, Some((&geometries[si], &geometries[ti]))).map_err(|e| case_err(root, e))?;
-            maps.push((ti, si, map));
-        }
+        let maps = build_maps(&regions, &mappings, &geometries, root)?;
+        let start_time = get("startTime").unwrap_or(0.0);
+        let clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time);
+        let write_interval = clock_controls(c, root)?.write_interval;
         let mut me = Self {
             regions,
             maps,
@@ -389,14 +470,128 @@ impl RegionSolvers {
             max_power_variation: c.get_scalar("maxPowerVariation").unwrap_or(0.025),
             adjust_time_step,
             end_time,
-            time: 0.0,
-            dt: initial_delta_t(control_delta_t, control_delta_t),
+            time: clock.value(),
+            dt: clock.delta_t(),
             step: 0,
+            clock,
+            geometries,
+            write_interval,
         };
         for i in 0..me.regions.len() {
             me.correct_baffle_less_fields(i);
         }
         Ok(me)
+    }
+
+
+    /// RESTART as `GeN-Foam -case <transient>` does from the written state of this run, in memory (gh:#1919, README round 60): the case
+    /// at `root` is the steady-state case staged as the tutorial's `Allrun` stages the transient (`startTime` = the steady state's last time,
+    /// `eigenvalueNeutronics false`, `multiRegionCouplingDict_transient`).
+    ///
+    /// What a restart reads or rebuilds that the running process held differently, each from upstream:
+    ///
+    /// * the neutronics mesh is READ at the moved points (`<t>/neutroRegion/polyMesh/points`), as a fresh mesh (no `V0`, no old points),
+    ///   and `meshToMesh` is built on it (`meshHandler.C:192-201` runs in the constructor);
+    /// * the fluid's `phi` is rebuilt from `U` (`fluid.C:509-578`), the PIMPLE state and the lazy old-time copies are new ([`OnePhaseCcSolver::restart_at`]);
+    /// * the clock, the controls and the coupling dictionary are those of the transient `controlDict`/`multiRegionCouplingDict`;
+    /// * the neutronics region switches to `solveNeutronics.H` with `eigenvalueNeutronics false`: `fluxStar_`, `prec_`, `keff_` are the read ones
+    ///   (the state's own), `neutronTransport` of the region's `fvSolution` gives `integralPredictor`, `neutronIterationResidual` and
+    ///   `maxNeutronIterations`.
+    ///
+    /// Everything else (thermo-mechanics fields, the fluid's cell fields) is exactly what the steady state wrote (17 digits).
+    ///
+    /// # Errors
+    /// [`AppBuilderError`] naming what is refused: a `regionSolvers` entry that changes kind (the `pointKinetics` variant is gh:#1922),
+    /// `implicitPredictor true`, a laplacian or ddt scheme other than `Gauss linear corrected` and `Euler`, `eigenvalueNeutronics true`.
+    pub fn restart_transient(&mut self, root: &Path) -> Result<(), AppBuilderError> {
+        let ctl = read_dict(root, "system/controlDict")?;
+        let c = &ctl.dict;
+        let cc = clock_controls(c, root)?;
+        let start_time = c.get_scalar("startTime").ok_or_else(|| case_err(root, "controlDict: no startTime"))?;
+        let rs = c.get_dict("regionSolvers").ok_or_else(|| case_err(root, "controlDict: no regionSolvers"))?;
+        for (k, v) in rs.iter() {
+            let FoamEntry::Word(w) = v else { return Err(case_err(root, format!("regionSolvers.{k} is not a word"))) };
+            let Some(r) = self.regions.iter().find(|r| r.name == k) else {
+                return Err(case_err(root, format!("regionSolvers.{k}: the restart has no such region in the steady state")));
+            };
+            let same = matches!(
+                (&r.solver, w.as_str()),
+                (RegionSolver::OnePhase(_), "onePhase") | (RegionSolver::Neutronics(_), "diffusionNeutronics") | (RegionSolver::ThermoMechanics(_), "legacyThermoMechanics")
+            );
+            if !same {
+                return Err(case_err(root, format!("regionSolvers.{k} {w}: a restart that changes the solver of a region is not ported (`pointKinetics` is gh:#1922)")));
+            }
+        }
+        let coupling = read_dict(root, "constant/multiRegionCouplingDict")?;
+        let mappings = CouplingDict::mappings_from_dict(&coupling.dict, root)?;
+        let deformation = MeshDeformationDict::from_coupling_dict(&coupling.dict).map_err(|e| case_err(root, format!("meshDeformation: {e}")))?;
+        let Some(ni) = self.regions.iter().position(|r| matches!(r.solver, RegionSolver::Neutronics(_))) else {
+            return Err(case_err(root, "the restart needs a diffusionNeutronics region"));
+        };
+        let nname = self.regions[ni].name.clone();
+        let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
+        if np.dict.get_word("eigenvalueNeutronics").is_none_or(|w| w == "true" || w == "yes" || w == "on") {
+            return Err(case_err(root, "restart_transient needs `eigenvalueNeutronics false`"));
+        }
+        let fvs = read_dict(root, &format!("system/{nname}/fvSolution"))?;
+        let nt = fvs.dict.get_dict("neutronTransport");
+        let flag = |k: &str| nt.and_then(|d| d.get_word(k)).is_some_and(|w| w == "true" || w == "yes" || w == "on");
+        if flag("implicitPredictor") {
+            return Err(case_err(root, "neutronTransport.implicitPredictor true is not ported (implicitPredictor.H); gh:#1919 ports integralPredictor.H only"));
+        }
+        let integral_predictor = flag("integralPredictor") && !self.switches.no_integral_predictor;
+        let res = nt.and_then(|d| d.get_scalar("neutronIterationResidual")).unwrap_or(1e-5);
+        let max_it = nt.and_then(|d| d.get_scalar("maxNeutronIterations")).unwrap_or(10.0) as usize;
+        let schemes = std::fs::read_to_string(root.join(format!("system/{nname}/fvSchemes"))).map_err(|e| case_err(root, format!("fvSchemes: {e}")))?;
+        let laplacian = if schemes.contains("Gauss linear corrected;") {
+            NeutronicsLaplacianScheme::Corrected
+        } else {
+            return Err(case_err(root, "fvSchemes: only `laplacianSchemes default Gauss linear corrected` is ported for the transient step"));
+        };
+        if !schemes.contains("Euler;") {
+            return Err(case_err(root, "fvSchemes: only `ddtSchemes default Euler` is ported for the transient step"));
+        }
+        let controls = StationaryStepControls { ddt: NeutronicsDdtScheme::Euler, laplacian, neutron_iteration_residual: res, max_neutron_iterations: max_it };
+
+        // the neutronics mesh as the restart reads it
+        let keep_original = self.switches.restart_on_original_mesh;
+        let RegionSolver::Neutronics(n) = &mut self.regions[ni].solver else { unreachable!("found as Neutronics") };
+        let fresh = if keep_original { n.mesh.restarted_at(&n.mesh.original_points().to_vec()) } else { n.mesh.restarted_at_current_points() }
+            .map_err(|e| case_err(root, format!("{nname}: restart mesh: {e}")))?;
+        n.mesh = fresh.clone();
+        n.solver = n.solver.clone().with_integral_predictor(integral_predictor);
+        n.solver.rebind_mesh(fresh.mesh().clone(), None).map_err(|e| case_err(root, e.to_string()))?;
+        n.first_step = false;
+        n.transient = Some(NeutronicsTransient { controls, last_step: None });
+        let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
+        self.regions[ni].fv = fresh.mesh().clone();
+        self.geometries[ni] = geometry;
+        let rebuild_phi = !self.switches.restart_keeps_phi;
+        for r in self.regions.iter_mut() {
+            match &mut r.solver {
+                RegionSolver::OnePhase(f) => f.solver.restart_at(start_time, rebuild_phi),
+                RegionSolver::ThermoMechanics(t) => t.solver.restart_at(),
+                RegionSolver::Neutronics(_) => {}
+            }
+        }
+        self.mappings = mappings;
+        self.maps = build_maps(&self.regions, &self.mappings, &self.geometries, root)?;
+        self.deformation = deformation;
+        self.control_delta_t = cc.delta_t;
+        self.max_delta_t = cc.max_delta_t;
+        self.min_delta_t = cc.min_delta_t;
+        self.max_power_variation = cc.max_power_variation;
+        self.adjust_time_step = cc.adjust_time_step;
+        self.end_time = cc.end_time;
+        self.write_interval = cc.write_interval;
+        self.clock = PseudoTimeClock::starting_at(&cc, start_time);
+        self.time = self.clock.value();
+        self.dt = self.clock.delta_t();
+        self.step = 0;
+        for i in 0..self.regions.len() {
+            self.correct_baffle_less_fields(i);
+        }
+        Ok(())
     }
 
     /// The case root's `endTime`.
@@ -426,7 +621,8 @@ impl RegionSolvers {
     /// `runTime.run()`: `time < endTime` (to the time-name rounding upstream applies: the last step lands within `1e-9 deltaT` of it).
     #[must_use]
     pub fn running(&self) -> bool {
-        self.time < self.end_time - 1e-9 * self.dt
+        // `Time::run()`: `value() < endTime - 0.5 deltaT` (gh:#1919: the earlier `1e-9 deltaT` form counted the same 476 steps)
+        self.clock.run()
     }
 
     /// A region by name.
@@ -465,6 +661,8 @@ impl RegionSolvers {
             RegionSolver::Neutronics(_) => {}
             RegionSolver::ThermoMechanics(t) => {
                 r.fields.set_vector("meshDisp", t.solver.mesh_displacement().to_vec());
+                // `TStruct` is mapped into the neutronics `TStructMech` by the transient `multiRegionCouplingDict` (README round 60)
+                r.fields.set_scalar("TStruct", t.solver.t_struct().to_vec());
             }
         }
     }
@@ -542,6 +740,17 @@ impl RegionSolvers {
                 f.solver.begin_time_step(dt);
                 let _ = f.solver.correct_physics();
             }
+            RegionSolver::Neutronics(n) if n.transient.is_some() => {
+                // `diffusionNeutronics::correctPhysics()` with `eigenvalueNeutronics false`: `pTotOld_ = power()`, then `solveNeutronics.H`
+                n.p_tot_old = n.solver.pseudo_time_power();
+                let Some(tr) = n.transient.as_mut() else { unreachable!("guarded by is_some") };
+                let step = n.solver.upstream_stationary_step(self.time, dt, &tr.controls).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                n.power = step.power;
+                tr.last_step = Some(step);
+                // `powerDensity_ = sum flux sigmaPow`, `/= max(fuelFraction, SMALL)(1 - fractionToSecondaryPower)`: both 1 and 0 here; the flux is not
+                // renormalised in a transient, so no `power/pTarget` scaling (the eigenvalue branch rescales the post-`normFluxes` flux)
+                r.fields.set_scalar("powerDensity", n.solver.upstream_power_density());
+            }
             RegionSolver::Neutronics(n) => {
                 n.p_tot_old = n.solver.pseudo_time_power();
                 let step = n.solver.eigenvalue_time_step(n.p_target, n.first_step).map_err(|e| case_err(Path::new(""), e.to_string()))?;
@@ -580,8 +789,9 @@ impl RegionSolvers {
     pub fn step(&mut self) -> Result<StepRecord, AppBuilderError> {
         // runTime++
         self.step += 1;
-        self.time += self.dt;
         let dt_used = self.dt;
+        self.clock.advance();
+        self.time = self.clock.value();
         self.map_all_fields()?;
         for i in 0..self.regions.len() {
             self.deform_mesh(i)?;
@@ -591,14 +801,17 @@ impl RegionSolvers {
         // adjustDeltaT
         let maxes: Vec<f64> = (0..self.regions.len()).map(|i| self.max_delta_t_of(i)).collect();
         if let Some(new) = adjust_delta_t(self.adjust_time_step, &maxes, self.min_delta_t, self.dt) {
-            self.dt = new;
+            // `runTime.setDeltaT(new, true)`: with `writeControl adjustableRunTime` the step is aligned to the next write time
+            self.clock.set_delta_t(new, true);
+            self.dt = self.clock.delta_t();
         }
-        let mut rec = StepRecord { step: self.step, time: self.time, dt: dt_used, k_eff: 0.0, power: 0.0, max_sigma_eq: None };
+        let mut rec = StepRecord { step: self.step, time: self.time, dt: dt_used, k_eff: 0.0, power: 0.0, max_sigma_eq: None, neutronics: None };
         for r in &self.regions {
             match &r.solver {
                 RegionSolver::Neutronics(n) => {
                     rec.k_eff = n.k_eff;
                     rec.power = n.power;
+                    rec.neutronics = n.transient.as_ref().and_then(|t| t.last_step.clone());
                 }
                 RegionSolver::ThermoMechanics(t) => rec.max_sigma_eq = t.last_log.as_ref().and_then(|l| l.max_sigma_eq),
                 RegionSolver::OnePhase(_) => {}

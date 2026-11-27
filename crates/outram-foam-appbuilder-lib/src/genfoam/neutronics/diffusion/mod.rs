@@ -249,6 +249,9 @@ pub struct DiffusionNeutronics {
     /// The `laplacianSchemes` of the eigenvalue pseudo-time step ([`Self::with_eigenvalue_laplacian`]); `Uncorrected` is the form of
     /// every case before round 56.
     eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme,
+    /// `neutronTransport.integralPredictor` of `fvSolution` (gh:#1919, round 60): [`Self::upstream_stationary_step`] runs `integralPredictor.H`
+    /// when it is true; false (upstream's default) is the step of every case before round 60.
+    integral_predictor: bool,
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -355,6 +358,7 @@ impl DiffusionNeutronics {
             time: 0.0,
             old_volumes: None,
             eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme::Uncorrected,
+            integral_predictor: false,
         })
     }
 
@@ -686,3 +690,4 @@ pub mod expansion;
 pub mod xs_evolution;
 pub mod upstream_eigenvalue;
 pub mod upstream_transient;
+pub mod integral_predictor;

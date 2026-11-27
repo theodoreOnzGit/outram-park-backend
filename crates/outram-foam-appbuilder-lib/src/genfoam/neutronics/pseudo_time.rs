@@ -159,6 +159,8 @@ pub struct PseudoTimeClock {
     write_time_index: i64,
     end_time: f64,
     write_interval: Option<f64>,
+    /// `startTime` (0 for every clock before gh:#1919; `x - 0.0` is exact, so those are unchanged bit for bit).
+    start_time: f64,
 }
 
 impl PseudoTimeClock {
@@ -173,6 +175,25 @@ impl PseudoTimeClock {
             write_time_index: 0,
             end_time: controls.end_time,
             write_interval: controls.write_interval,
+            start_time: 0.0,
+        };
+        let dt = clock.delta_t.min(controls.delta_t);
+        clock.set_delta_t(dt, true);
+        clock
+    }
+
+    /// As [`Self::new`] for a run that starts at `startTime = start_time` (a restart, gh:#1919): the write times of
+    /// `adjustableRunTime` count from there (`Time::adjustDeltaT`: `(writeTimeIndex + 1) writeInterval - (value - startTime)`).
+    #[must_use]
+    pub fn starting_at(controls: &PseudoTimeControls, start_time: f64) -> Self {
+        let mut clock = Self {
+            value: start_time,
+            delta_t: controls.delta_t,
+            time_index: 0,
+            write_time_index: 0,
+            end_time: controls.end_time,
+            write_interval: controls.write_interval,
+            start_time,
         };
         let dt = clock.delta_t.min(controls.delta_t);
         clock.set_delta_t(dt, true);
@@ -218,7 +239,7 @@ impl PseudoTimeClock {
             return;
         };
         let time_to_next_write =
-            (((self.write_time_index + 1) as f64) * write_interval - (self.value - 0.0)).max(0.0);
+            (((self.write_time_index + 1) as f64) * write_interval - (self.value - self.start_time)).max(0.0);
         let n_steps = time_to_next_write / self.delta_t;
         if n_steps < (i32::MAX as f64) {
             // `max(1, round(nSteps))`, `round` being half away from zero.
@@ -241,7 +262,7 @@ impl PseudoTimeClock {
             self.value = 0.0;
         }
         if let Some(write_interval) = self.write_interval {
-            let write_index = (((self.value - 0.0) + 0.5 * self.delta_t) / write_interval) as i64;
+            let write_index = (((self.value - self.start_time) + 0.5 * self.delta_t) / write_interval) as i64;
             if write_index > self.write_time_index {
                 self.write_time_index = write_index;
             }

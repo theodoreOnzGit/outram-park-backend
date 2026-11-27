@@ -223,6 +223,8 @@ pub struct StationaryStep {
     pub residual_history: Vec<f64>,
     /// `pTarget` written to `reactorState` at the end of the step: `Some(pTot)` with the source on.
     pub p_target: Option<f64>,
+    /// `integralPredictor.H`'s report (gh:#1919) when `neutronTransport.integralPredictor` is on, else `None`.
+    pub predictor: Option<super::integral_predictor::IntegralPredictorReport>,
 }
 
 /// One row of the history of [`DiffusionNeutronics::run_stationary_transient`].
@@ -422,6 +424,16 @@ impl DiffusionNeutronics {
         let mut delayed = vec![0.0; n];
         self.accumulate_delayed_source(&mut delayed);
 
+        // `integralPredictor.H` (`solveNeutronics.H`, `eigenvalueNeutronics false`): scales `fluxStar_` BEFORE `createFluxMatrices.H`, so the
+        // matrices and the explicit correction below see the scaled fluxes; the `ddt` old-time values (`flux_old`) are untouched
+        let predictor = if self.integral_predictor {
+            let r = self.run_integral_predictor(&mut star, &star_fields, &flux_old, &mut neutro_source, &delayed, dt, keff);
+            star_fields = (0..groups).map(|g| field_with_boundary(&self.state.flux()[g], star[g].clone())).collect();
+            Some(r)
+        } else {
+            None
+        };
+
         // createFluxMatrices.H: the explicit correction is taken from the flux the step starts from
         let gradients: Vec<Option<outram_foam_basic_lib::prelude::VolVectorField>> = (0..groups)
             .map(|g| match controls.laplacian {
@@ -518,7 +530,7 @@ impl DiffusionNeutronics {
             Some(s) if s.enabled => Some(power),
             _ => None,
         };
-        Ok(StationaryStep { power_old, power, neutron_iterations: neutro_iter, residual_history, p_target })
+        Ok(StationaryStep { power_old, power, neutron_iterations: neutro_iter, residual_history, p_target, predictor })
     }
 
     /// GeN-Foam's main loop for a single stationary-fuel diffusion region
