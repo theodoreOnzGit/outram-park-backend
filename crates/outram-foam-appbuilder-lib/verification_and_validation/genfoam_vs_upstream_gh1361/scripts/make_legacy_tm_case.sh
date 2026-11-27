@@ -9,6 +9,7 @@
 #   3. tight protocol: every linear solver tolerance 1e-14, relTol 0, TStruct GAMG -> PBiCG/DILU (named deviation: the row-scaled TEqn is asymmetric, PCG is refused by OpenFOAM),
 #      writePrecision 17, writeControl timeStep;
 #   4. TStruct initial field 668 K (READ_IF_PRESENT), instead of 0 K.
+# gh:#1845 round 27: COMPACT=no sets compactNormalStress no (fvMatrix::flux form); D2DT2=Euler selects the Euler d2dt2 scheme (default steadyState); DELTAT=<s> sets deltaT (default 1).
 # gh:#1235 round 24: TRACTION=t0|t1 uses the GFTractionDisplacement disp of make_traction_disp.sh (t0 = the tutorial's own file); PLANE_STRESS=1 sets planeStress yes; MAXITER=n sets maxIter of every linear solver (default 1000).
 set -e
 [ -n "$PLANE_STRESS" ] && PLANE_STRESS_WORD=yes
@@ -19,6 +20,7 @@ mkdir -p "$OUT/constant/thermoMechanicalRegion" "$OUT/system/thermoMechanicalReg
 cp -r "$SRC/constant/thermoMechanicalRegion/polyMesh" "$OUT/constant/thermoMechanicalRegion/"
 rm -rf "$OUT/constant/thermoMechanicalRegion/polyMesh/sets"
 cp "$SRC/system/thermoMechanicalRegion/fvSchemes" "$OUT/system/thermoMechanicalRegion/"
+[ -n "$D2DT2" ] && sed -i "s|default         steadyState;//Euler;//|default         $D2DT2;|" "$OUT/system/thermoMechanicalRegion/fvSchemes"
 cp "$SRC/0/thermoMechanicalRegion/fuelDisp" "$SRC/0/thermoMechanicalRegion/CRDisp" "$OUT/0/thermoMechanicalRegion/"
 HDR='FoamFile
 {
@@ -29,13 +31,13 @@ HDR='FoamFile
 }
 '
 hdr() { echo "$HDR" | sed "s/CLASS/$1/; s/OBJ/$2/"; }
-{ hdr dictionary controlDict; cat <<'EOF'
+{ hdr dictionary controlDict; cat <<EOF
 application     GeN-Foam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
 endTime         3;
-deltaT          1;
+deltaT          ${DELTAT:-1};
 writeControl    timeStep;
 writeInterval   1;
 purgeWrite      0;
@@ -86,7 +88,7 @@ solvers
 }
 stressAnalysis
 {
-    compactNormalStress yes;
+    compactNormalStress ${COMPACT:-yes};
     nCorrectors     3;
     D               1e-06;
 }

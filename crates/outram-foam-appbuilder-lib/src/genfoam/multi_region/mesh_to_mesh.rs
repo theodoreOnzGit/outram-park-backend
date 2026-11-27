@@ -55,15 +55,20 @@
 //!   where the nearest source cell *is* the coincident cell.
 //! - [`MappingMethod::InverseDistance`] — inverse-distance-squared blend of the
 //!   `n` nearest source cells. Smooths across a refinement change.
-//! - [`MappingMethod::CellVolumeWeight`] — upstream's default
-//!   (`imCellVolumeWeight`). The *exact* upstream operator integrates the true
-//!   polyhedral cell-overlap volumes (a supermesh intersection); basic-lib does
-//!   not yet expose that geometry, so this port uses nearest-cell addressing
-//!   plus a **global integral-conservation rescale** — a documented degraded
-//!   mode that preserves the volume integral `∑ V φ` exactly (the property most
-//!   coupling terms rely on) but not the local overlap distribution. Exact
-//!   polyhedral overlap is tracked as a scaffolding bead (see the crate
-//!   `multi_region` module docs).
+//! - [`MappingMethod::CellVolumeWeight`] — upstream's default (`imCellVolumeWeight`), **exact** since gh:#651
+//!   (2026-11-26): the true polyhedral overlap volumes of every source/target cell pair, per-cell normalisation by the
+//!   sum of the overlaps, `result *= (1 - sum w); result += w * value`, and an uncovered cell keeps its value.
+//!   This is [`super::cell_overlap::CellVolumeWeightAddressing`], a line-by-line translation of OpenFOAM-ESI v2506's
+//!   `cellVolumeWeightMethod` / `tetOverlapVolume` / `meshToMesh::mapTgtToSrc`, bit-identical to the real code on the
+//!   3D_SmallESFR meshes (README `Round 28`). It needs polyhedral geometry, which an [`FvMesh`] does not carry, so it is
+//!   built with [`MeshToMesh::cell_volume_weight`] from two [`OverlapMesh`]es.
+//!   ~~Before: nearest-cell addressing plus a global integral rescale ("a documented degraded mode ... exact polyhedral
+//!   overlap awaits a basic-lib supermesh operator").~~ **CORRECTED 2026-11-26 (gh:#651):** that form turned a uniform
+//!   900 K source into 450 K on a target twice as long (the rescale multiplies EVERY target cell by
+//!   `I_src / I_tgt`, which is wrong whenever the two meshes do not cover the same volume, and wrong for any intensive
+//!   field), and the supermesh operator was never missing from the workspace (`outram-blender` has one; this port
+//!   follows ESI's own order of operations instead, which `outram-blender` does not). It remains, by name, as the
+//!   deprecated [`MappingMethod::NearestCellGlobalRescale`], for reproducing earlier results only.
 //!
 //! ## Units
 //!
@@ -79,6 +84,8 @@ use crate::nostd_prelude::*;
 use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};
+
+use super::cell_overlap::{CellVolumeWeightAddressing, OverlapMesh};
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -96,11 +103,56 @@ pub enum MappingMethod {
         /// Number of nearest source cells blended (must be `>= 1`).
         n_neighbours: usize,
     },
-    /// Cell-volume-weighted conservative transfer (upstream default). This port
-    /// approximates it as nearest-cell addressing plus a global integral rescale;
-    /// see the module docs.
+    /// Upstream's `imCellVolumeWeight` (GeN-Foam's only choice): exact overlap volumes, per-cell normalisation by the sum,
+    /// uncovered cells keep their value. **The default.** Needs [`OverlapMesh`] geometry: build with
+    /// [`MeshToMesh::cell_volume_weight`]; [`MeshToMesh::new`] refuses it with
+    /// [`MeshToMeshError::MissingOverlapGeometry`].
     CellVolumeWeight,
+    /// The pre-gh:#651 form: nearest-cell addressing followed by a global rescale that makes `sum V phi` equal on both
+    /// meshes. **Wrong whenever the two meshes do not cover the same volume** (a uniform 900 K field mapped onto a mesh twice
+    /// as long becomes 450 K), and not what upstream does. Kept ONLY to reproduce earlier numbers and as the control of
+    /// the V&V comparison; never the default.
+    #[deprecated(note = "not upstream's operator and wrong on partial overlap (gh:#651); use MappingMethod::CellVolumeWeight")]
+    NearestCellGlobalRescale,
 }
+
+/// Errors from building a [`MeshToMesh`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MeshToMeshError {
+    /// [`MappingMethod::CellVolumeWeight`] was requested from [`MeshToMesh::new`], which only has [`FvMesh`]es.
+    MissingOverlapGeometry,
+    /// [`MeshToMesh::map_reverse_scalar`] / [`MeshToMesh::map_reverse_vector`] exist for [`MappingMethod::CellVolumeWeight`] only
+    /// (upstream's `mapSrcToTgt` of the one `meshToMesh` GeN-Foam builds).
+    ReverseNeedsCellVolumeWeight,
+    /// An [`OverlapMesh`] does not have the cell count of the [`FvMesh`] it is meant to describe.
+    CellCountMismatch {
+        /// Which mesh (`"source"` or `"target"`).
+        which: &'static str,
+        /// Cells of the [`FvMesh`].
+        fv_cells: usize,
+        /// Cells of the [`OverlapMesh`].
+        overlap_cells: usize,
+    },
+}
+
+impl core::fmt::Display for MeshToMeshError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MeshToMeshError::MissingOverlapGeometry => write!(
+                f,
+                "CellVolumeWeight needs polyhedral geometry (points and faces): build it with MeshToMesh::cell_volume_weight from two OverlapMesh"
+            ),
+            MeshToMeshError::ReverseNeedsCellVolumeWeight => {
+                write!(f, "the reverse (mapSrcToTgt) map exists for CellVolumeWeight only")
+            }
+            MeshToMeshError::CellCountMismatch { which, fv_cells, overlap_cells } => {
+                write!(f, "the {which} OverlapMesh has {overlap_cells} cells but its FvMesh has {fv_cells}")
+            }
+        }
+    }
+}
+
+impl core::error::Error for MeshToMeshError {}
 
 /// How mapped values combine with the existing target-field contents.
 ///
@@ -127,33 +179,42 @@ pub struct MeshToMesh {
     target: Arc<FvMesh>,
     method: MappingMethod,
     /// `weights[tgt_cell] = [(src_cell, w), ...]`, with `∑ w = 1` for every
-    /// target cell (an interpolation, not an extrapolation).
+    /// target cell (an interpolation, not an extrapolation). Empty for [`MappingMethod::CellVolumeWeight`].
     weights: Vec<Vec<(usize, f64)>>,
+    /// The upstream `meshToMesh` object of [`MappingMethod::CellVolumeWeight`]: GeN-Foam moves a field from region `B` onto
+    /// region `A` with `meshToMesh(src = A, tgt = B).mapTgtToSrc`, so upstream's SOURCE is this mapping's
+    /// [`target`](Self::target) (the receiving mesh) and upstream's TARGET is this mapping's [`source`](Self::source).
+    cell_volume_weight: Option<Arc<CellVolumeWeightAddressing>>,
 }
 
 impl MeshToMesh {
     /// Build the mapping addressing from `source` onto `target` with `method`.
     ///
     /// The source and target meshes must both have cell centres and (for the
-    /// conservative rescale) cell volumes populated — every `FvMesh` built
+    /// deprecated global rescale) cell volumes populated — every `FvMesh` built
     /// through [`outram_foam_basic_lib::mesh::FvMeshBuilder`] does. Cost is
-    /// `O(n_target · n_source)` for the nearest-cell search; for the reactor
-    /// meshes this couples that is acceptable, but a spatial acceleration
-    /// structure (upstream uses an AABB octree, `pmAABB`) is the scale-up path —
-    /// see the `multi_region` module scaffolding beads.
+    /// `O(n_target · n_source)` for the nearest-cell search.
+    ///
+    /// [`MappingMethod::CellVolumeWeight`] cannot be built here (an [`FvMesh`] has no points or faces): use
+    /// [`MeshToMesh::cell_volume_weight`].
+    ///
+    /// # Errors
+    ///
+    /// [`MeshToMeshError::MissingOverlapGeometry`] for [`MappingMethod::CellVolumeWeight`].
     ///
     /// # Panics
     ///
     /// Panics if the source mesh has no cells (nothing to interpolate from) or if
     /// `InverseDistance { n_neighbours: 0 }` is requested.
-    #[must_use]
-    pub fn new(source: Arc<FvMesh>, target: Arc<FvMesh>, method: MappingMethod) -> Self {
+    #[allow(deprecated)]
+    pub fn new(source: Arc<FvMesh>, target: Arc<FvMesh>, method: MappingMethod) -> Result<Self, MeshToMeshError> {
         assert!(
             source.n_cells > 0,
             "mesh-to-mesh mapping needs a non-empty source mesh"
         );
         let weights = match method {
-            MappingMethod::NearestCell | MappingMethod::CellVolumeWeight => target
+            MappingMethod::CellVolumeWeight => return Err(MeshToMeshError::MissingOverlapGeometry),
+            MappingMethod::NearestCell | MappingMethod::NearestCellGlobalRescale => target
                 .cell_centres
                 .iter()
                 .map(|&c| vec![(nearest_cell(&source, c), 1.0)])
@@ -170,12 +231,62 @@ impl MeshToMesh {
                     .collect()
             }
         };
-        Self {
+        Ok(Self {
             source,
             target,
             method,
             weights,
+            cell_volume_weight: None,
+        })
+    }
+
+    /// GeN-Foam's mapping: `meshToMesh(.., imCellVolumeWeight, pmAABB, false)` between two region meshes, used as
+    /// `mapTgtToSrc` (`meshHandler.C:192-201`, `meshHandlerTemplates.C:85,133`).
+    ///
+    /// `source` / `target` are the DATA direction of this crate (fields are read on `source`, written on `target`);
+    /// `source_geometry` / `target_geometry` are their polyhedral meshes. Upstream's object is built the other way round
+    /// (its source is the receiving region): see the module docs of [`super::cell_overlap`].
+    ///
+    /// # Errors
+    ///
+    /// [`MeshToMeshError::CellCountMismatch`] if a geometry does not have its `FvMesh`'s cell count.
+    pub fn cell_volume_weight(
+        source: Arc<FvMesh>,
+        target: Arc<FvMesh>,
+        source_geometry: &OverlapMesh,
+        target_geometry: &OverlapMesh,
+    ) -> Result<Self, MeshToMeshError> {
+        if source_geometry.n_cells() != source.n_cells {
+            return Err(MeshToMeshError::CellCountMismatch {
+                which: "source",
+                fv_cells: source.n_cells,
+                overlap_cells: source_geometry.n_cells(),
+            });
         }
+        if target_geometry.n_cells() != target.n_cells {
+            return Err(MeshToMeshError::CellCountMismatch {
+                which: "target",
+                fv_cells: target.n_cells,
+                overlap_cells: target_geometry.n_cells(),
+            });
+        }
+        // upstream object: src = the receiving mesh, tgt = the providing mesh
+        let addressing = CellVolumeWeightAddressing::new_normalised(target_geometry, source_geometry);
+        Ok(Self {
+            source,
+            target,
+            method: MappingMethod::CellVolumeWeight,
+            weights: Vec::new(),
+            cell_volume_weight: Some(Arc::new(addressing)),
+        })
+    }
+
+    /// The exact upstream addressing and weights of a [`MappingMethod::CellVolumeWeight`] mapping (upstream's
+    /// `srcToTgtCell*` are indexed by this mapping's TARGET cells, its `tgtToSrcCell*` by this mapping's SOURCE cells),
+    /// `None` for the other methods.
+    #[must_use]
+    pub fn upstream_addressing(&self) -> Option<&CellVolumeWeightAddressing> {
+        self.cell_volume_weight.as_deref()
     }
 
     /// The source mesh this mapping reads from.
@@ -200,10 +311,14 @@ impl MeshToMesh {
     /// must live on this mapping's target mesh).
     ///
     /// With [`MapCombine::Replace`] the target internal field is overwritten;
-    /// with [`MapCombine::Accumulate`] the mapped values are added on (upstream
-    /// `plusEqOp`). When the method is [`MappingMethod::CellVolumeWeight`] and the
-    /// combine mode is `Replace`, a global rescale enforces exact conservation of
-    /// the volume integral `∑ V φ` (see [`MeshToMesh::integral`]).
+    /// with [`MapCombine::Accumulate`] the mapped values are added on.
+    ///
+    /// **[`MappingMethod::CellVolumeWeight`] with `Replace` is upstream's `mapTgtToSrc(.., plusEqOp, ..)` exactly**: for a
+    /// covered cell `target *= (1 - sum w); target += w * value` per overlap, in order (an old value survives only as
+    /// `old * (1 - sum w)`, an ulp-level remainder), and a cell with NO overlap keeps its value. That is what GeN-Foam does
+    /// and nothing else. With [`MapCombine::Accumulate`] the `*= (1 - sum w)` step is skipped (an OUTRAM PARK extension,
+    /// not in upstream, for several sources summing into one field) and the mapped mean is added.
+    /// [`MappingMethod::NearestCellGlobalRescale`] applies the old global rescale on `Replace`.
     ///
     /// # Panics
     ///
@@ -226,6 +341,25 @@ impl MeshToMesh {
             "target field does not match the mapping's target mesh"
         );
 
+        if let Some(cvw) = &self.cell_volume_weight {
+            match combine {
+                MapCombine::Replace => cvw.map_tgt_to_src_scalar(
+                    source_field.internal.as_slice(),
+                    target_field.internal.as_mut_slice(),
+                ),
+                MapCombine::Accumulate => {
+                    for (cell, value) in target_field.internal.as_mut_slice().iter_mut().enumerate() {
+                        let addr = &cvw.src_to_tgt_addr[cell];
+                        let wght = &cvw.src_to_tgt_wght[cell];
+                        for (i, &src) in addr.iter().enumerate() {
+                            *value += wght[i] * source_field.internal[src];
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
         let mut mapped: Vec<f64> = self
             .weights
             .iter()
@@ -237,9 +371,9 @@ impl MeshToMesh {
             })
             .collect();
 
-        if matches!(self.method, MappingMethod::CellVolumeWeight)
-            && matches!(combine, MapCombine::Replace)
-        {
+        #[allow(deprecated)]
+        let global_rescale = matches!(self.method, MappingMethod::NearestCellGlobalRescale);
+        if global_rescale && matches!(combine, MapCombine::Replace) {
             self.conserve_integral(source_field, &mut mapped);
         }
 
@@ -253,10 +387,8 @@ impl MeshToMesh {
 
     /// Map a vector cell field (e.g. `meshDisp`, velocity) onto `target_field`.
     ///
-    /// The interpolation is applied componentwise. The conservative rescale of
-    /// [`MappingMethod::CellVolumeWeight`] is **not** applied to vectors (there is
-    /// no single scalar integral to conserve) — vectors are interpolated with the
-    /// same nearest/inverse-distance addressing.
+    /// The interpolation is applied componentwise. [`MappingMethod::CellVolumeWeight`] is upstream's `mapTgtToSrc` per
+    /// component (see [`MeshToMesh::map_scalar`]); the deprecated global rescale is not applied to vectors.
     ///
     /// # Panics
     ///
@@ -278,6 +410,26 @@ impl MeshToMesh {
             "target field does not match the mapping's target mesh"
         );
 
+        if let Some(cvw) = &self.cell_volume_weight {
+            match combine {
+                MapCombine::Replace => cvw.map_tgt_to_src_vector(
+                    source_field.internal.as_slice(),
+                    target_field.internal.as_mut_slice(),
+                ),
+                MapCombine::Accumulate => {
+                    for (cell, value) in target_field.internal.as_mut_slice().iter_mut().enumerate() {
+                        let addr = &cvw.src_to_tgt_addr[cell];
+                        let wght = &cvw.src_to_tgt_wght[cell];
+                        for (i, &src) in addr.iter().enumerate() {
+                            let y = source_field.internal[src];
+                            *value = Vector3::new(value.x + wght[i] * y.x, value.y + wght[i] * y.y, value.z + wght[i] * y.z);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
         for (cell, contribs) in self.weights.iter().enumerate() {
             let mut acc = Vector3::new(0.0, 0.0, 0.0);
             for &(src, w) in contribs {
@@ -288,6 +440,47 @@ impl MeshToMesh {
                 MapCombine::Accumulate => target_field.internal[cell] += acc,
             }
         }
+    }
+
+    /// `meshToMesh::mapSrcToTgt(srcField, plusEqOp, result)` of upstream's object: a field on this mapping's TARGET (the
+    /// receiving region, upstream's source) moved onto `provider_field` on this mapping's SOURCE (upstream's target), as
+    /// `heatExchanger.C:265,267` does with its `mappingPtr_`. Same operator as the forward map with the other pair of lists:
+    /// `result *= (1 - sum w); result += w * value` per overlap, uncovered cells keep their value.
+    ///
+    /// # Errors
+    /// [`MeshToMeshError::ReverseNeedsCellVolumeWeight`] for any other method.
+    ///
+    /// # Panics
+    /// Panics if `receiver_field` / `provider_field` are not sized to this mapping's target / source meshes.
+    pub fn map_reverse_scalar(
+        &self,
+        receiver_field: &VolScalarField,
+        provider_field: &mut VolScalarField,
+    ) -> Result<(), MeshToMeshError> {
+        let cvw = self.cell_volume_weight.as_ref().ok_or(MeshToMeshError::ReverseNeedsCellVolumeWeight)?;
+        assert_eq!(receiver_field.internal.len(), self.target.n_cells, "field does not match the mapping's target mesh");
+        assert_eq!(provider_field.internal.len(), self.source.n_cells, "field does not match the mapping's source mesh");
+        cvw.map_src_to_tgt_scalar(receiver_field.internal.as_slice(), provider_field.internal.as_mut_slice());
+        Ok(())
+    }
+
+    /// Vector form of [`MeshToMesh::map_reverse_scalar`] (`mapSrcToTgt` per component).
+    ///
+    /// # Errors
+    /// [`MeshToMeshError::ReverseNeedsCellVolumeWeight`] for any other method.
+    ///
+    /// # Panics
+    /// As [`MeshToMesh::map_reverse_scalar`].
+    pub fn map_reverse_vector(
+        &self,
+        receiver_field: &VolVectorField,
+        provider_field: &mut VolVectorField,
+    ) -> Result<(), MeshToMeshError> {
+        let cvw = self.cell_volume_weight.as_ref().ok_or(MeshToMeshError::ReverseNeedsCellVolumeWeight)?;
+        assert_eq!(receiver_field.internal.len(), self.target.n_cells, "field does not match the mapping's target mesh");
+        assert_eq!(provider_field.internal.len(), self.source.n_cells, "field does not match the mapping's source mesh");
+        cvw.map_src_to_tgt_vector(receiver_field.internal.as_slice(), provider_field.internal.as_mut_slice());
+        Ok(())
     }
 
     /// Interpolate a scalar field, returning a fresh field on the target mesh.
@@ -455,7 +648,7 @@ mod tests {
             src_mesh.clone(),
             tgt_mesh.clone(),
             MappingMethod::NearestCell,
-        );
+        ).unwrap();
 
         let mut src = VolScalarField::uniform("phi", src_mesh.clone(), 0.0);
         for (i, c) in src_mesh.cell_centres.iter().enumerate() {
@@ -485,19 +678,19 @@ mod tests {
     /// must reproduce this integral on the target mesh regardless of the local
     /// refinement mismatch.
     ///
-    /// Result (2026-07-15, release): source integral = 4.0, target integral =
-    /// 4.0, difference 0.0 (bit-exact; assertion bound 1e-12). Pass. (Nearest-cell
-    /// alone would drift; the global rescale restores conservation — see module
-    /// docs on the degraded CellVolumeWeight.)
+    /// Result (2026-07-15, release, the old global-rescale form): source integral = 4.0, target integral =
+    /// 4.0, difference 0.0. **RE-MEASURED 2026-11-26 (gh:#651), the exact operator**: the same assertion, bound 1e-12,
+    /// now holds because the overlap weights themselves conserve (not because of a rescale); the value is recorded in
+    /// the README "Round 28" table. The meshes are 4 and 16 cells of the block `[0,1] x [0,1] x [0,2]`
+    /// (cross-section `A = 2`).
     #[test]
     fn cell_volume_weight_conserves_integral() {
         let src_mesh = column(4, 1.0, 2.0);
         let tgt_mesh = column(16, 1.0, 2.0);
-        let m = MeshToMesh::new(
-            src_mesh.clone(),
-            tgt_mesh.clone(),
-            MappingMethod::CellVolumeWeight,
-        );
+        let src_geom = OverlapMesh::box_grid(4, 1, 1, [0.0; 3], [1.0, 1.0, 2.0]);
+        let tgt_geom = OverlapMesh::box_grid(16, 1, 1, [0.0; 3], [1.0, 1.0, 2.0]);
+        let m = MeshToMesh::cell_volume_weight(src_mesh.clone(), tgt_mesh.clone(), &src_geom, &tgt_geom).unwrap();
+        assert!(m.upstream_addressing().is_some());
 
         let mut src = VolScalarField::uniform("phi", src_mesh.clone(), 0.0);
         for (i, c) in src_mesh.cell_centres.iter().enumerate() {
@@ -535,7 +728,7 @@ mod tests {
             src_mesh.clone(),
             tgt_mesh.clone(),
             MappingMethod::InverseDistance { n_neighbours: 2 },
-        );
+        ).unwrap();
         let mut src = VolScalarField::uniform("phi", src_mesh.clone(), 0.0);
         for (i, c) in src_mesh.cell_centres.iter().enumerate() {
             src.internal[i] = 3.0 * c.x;
@@ -551,7 +744,7 @@ mod tests {
     #[test]
     fn accumulate_adds_onto_target() {
         let mesh = column(3, 1.0, 1.0);
-        let m = MeshToMesh::new(mesh.clone(), mesh.clone(), MappingMethod::NearestCell);
+        let m = MeshToMesh::new(mesh.clone(), mesh.clone(), MappingMethod::NearestCell).unwrap();
         let src = VolScalarField::uniform("s", mesh.clone(), 2.0);
         let mut tgt = VolScalarField::uniform("t", mesh.clone(), 10.0);
         m.map_scalar(&src, MapCombine::Accumulate, &mut tgt);
@@ -560,11 +753,115 @@ mod tests {
         }
     }
 
+    /// `new` refuses `CellVolumeWeight` by name (no points and faces on an `FvMesh`) and `cell_volume_weight` checks the
+    /// cell counts.
+    #[test]
+    fn cell_volume_weight_needs_overlap_geometry() {
+        let a = column(4, 1.0, 1.0);
+        let b = column(8, 1.0, 1.0);
+        assert_eq!(
+            MeshToMesh::new(a.clone(), b.clone(), MappingMethod::CellVolumeWeight).unwrap_err(),
+            MeshToMeshError::MissingOverlapGeometry
+        );
+        let g4 = OverlapMesh::box_grid(4, 1, 1, [0.0; 3], [1.0; 3]);
+        let g5 = OverlapMesh::box_grid(5, 1, 1, [0.0; 3], [1.0; 3]);
+        let e = MeshToMesh::cell_volume_weight(a, b, &g4, &g5).unwrap_err();
+        assert_eq!(e, MeshToMeshError::CellCountMismatch { which: "target", fv_cells: 8, overlap_cells: 5 });
+        assert!(e.to_string().contains("5 cells"));
+    }
+
+    /// V&V (gh:#651) — the issue's partial-overlap case through the public API, with the control.
+    ///
+    /// Methodology: source 10 cells on `[0, 1]` m at a uniform 900 K, target 10 cells on `[0, 2]` m with a pre-existing
+    /// value `123 + i`. Upstream's `mapTgtToSrc`: target cells 0-4 are covered (900 K), cells 5-9 keep their value.
+    /// Control: the deprecated `NearestCellGlobalRescale`, the pre-gh:#651 form, gives 450 K on every cell (the failure the
+    /// issue reports), so the control fails exactly where the new form passes.
+    ///
+    /// Result (2026-11-26, release): new form 900 K on cells 0-4 (|err| < 1e-12), cells 5-9 exactly 128..132 + 0 (kept);
+    /// old form 450 K everywhere (|err| < 1e-9) as the issue reported.
+    #[test]
+    #[allow(deprecated)]
+    fn partial_overlap_upstream_form_and_deprecated_control() {
+        let src = column(10, 1.0, 1.0);
+        let tgt = column(10, 2.0, 1.0);
+        let src_geom = OverlapMesh::box_grid(10, 1, 1, [0.0; 3], [1.0, 1.0, 1.0]);
+        let tgt_geom = OverlapMesh::box_grid(10, 1, 1, [0.0; 3], [2.0, 1.0, 1.0]);
+        let uniform = VolScalarField::uniform("T", src.clone(), 900.0);
+
+        let m = MeshToMesh::cell_volume_weight(src.clone(), tgt.clone(), &src_geom, &tgt_geom).unwrap();
+        let mut out = VolScalarField::uniform("T", tgt.clone(), 0.0);
+        for i in 0..10 {
+            out.internal[i] = 123.0 + i as f64;
+        }
+        m.map_scalar(&uniform, MapCombine::Replace, &mut out);
+        for i in 0..5 {
+            assert!((out.internal[i] - 900.0).abs() < 1.0e-12, "covered cell {i}: {}", out.internal[i]);
+        }
+        for i in 5..10 {
+            assert_eq!(out.internal[i], 123.0 + i as f64, "uncovered cell {i}");
+        }
+
+        let old = MeshToMesh::new(src.clone(), tgt.clone(), MappingMethod::NearestCellGlobalRescale).unwrap();
+        let mut out_old = VolScalarField::uniform("T", tgt.clone(), 0.0);
+        old.map_scalar(&uniform, MapCombine::Replace, &mut out_old);
+        for i in 0..10 {
+            assert!((out_old.internal[i] - 450.0).abs() < 1.0e-9, "old form cell {i}: {}", out_old.internal[i]);
+        }
+
+        // Accumulate (OUTRAM PARK extension): the mapped mean is added, the uncovered cells are untouched
+        let mut acc = VolScalarField::uniform("T", tgt.clone(), 10.0);
+        m.map_scalar(&uniform, MapCombine::Accumulate, &mut acc);
+        assert!((acc.internal[0] - 910.0).abs() < 1.0e-12);
+        assert_eq!(acc.internal[9], 10.0);
+    }
+
+    /// V&V (gh:#651) — the issue's same-extent linear case: `600 + 600 x`, 10 -> 3 cells. Upstream's operator averages the
+    /// piecewise-constant source CELL VALUES: 702 / 900 / 1098 (the issue's 700 / 900 / 1100 were the continuous means, not
+    /// what `mapTgtToSrc` returns); the pre-gh:#651 form gave 697.8 / 879.8 / 1122.5 (middle cell 2.2 % off).
+    ///
+    /// Result (2026-11-26, release): 702 / 900 / 1098 to 1e-10; the deprecated control reproduces the issue's numbers to
+    /// 0.05 (697.8 / 879.8 / 1122.5). The vector path is exercised with the same field per component.
+    #[test]
+    #[allow(deprecated)]
+    fn same_extent_linear_field_exact_and_control_reproduces_the_issue() {
+        let src = column(10, 1.0, 1.0);
+        let tgt = column(3, 1.0, 1.0);
+        let src_geom = OverlapMesh::box_grid(10, 1, 1, [0.0; 3], [1.0; 3]);
+        let tgt_geom = OverlapMesh::box_grid(3, 1, 1, [0.0; 3], [1.0; 3]);
+        let mut f = VolScalarField::uniform("T", src.clone(), 0.0);
+        for (i, c) in src.cell_centres.iter().enumerate() {
+            f.internal[i] = 600.0 + 600.0 * c.x;
+        }
+        let m = MeshToMesh::cell_volume_weight(src.clone(), tgt.clone(), &src_geom, &tgt_geom).unwrap();
+        let out = m.interpolate_scalar(&f, "T");
+        for (got, want) in out.internal.as_slice().iter().zip([702.0, 900.0, 1098.0]) {
+            assert!((got - want).abs() < 1.0e-10, "{got} != {want}");
+        }
+        let old = MeshToMesh::new(src.clone(), tgt.clone(), MappingMethod::NearestCellGlobalRescale).unwrap();
+        let out_old = old.interpolate_scalar(&f, "T");
+        for (got, want) in out_old.internal.as_slice().iter().zip([697.8, 879.8, 1122.5]) {
+            assert!((got - want).abs() < 0.05, "old form {got} != {want}");
+        }
+        // vector: x = the same field, y = twice it, z = constant
+        let mut v = VolVectorField::zero("u", src.clone());
+        for i in 0..10 {
+            v.internal[i] = Vector3::new(f.internal[i], 2.0 * f.internal[i], 5.0);
+        }
+        let mut vo = VolVectorField::zero("u", tgt.clone());
+        m.map_vector(&v, MapCombine::Replace, &mut vo);
+        assert!((vo.internal[1].x - 900.0).abs() < 1.0e-10);
+        assert!((vo.internal[1].y - 1800.0).abs() < 1.0e-9);
+        assert!((vo.internal[1].z - 5.0).abs() < 1.0e-12);
+        let mut va = VolVectorField::zero("u", tgt.clone());
+        m.map_vector(&v, MapCombine::Accumulate, &mut va);
+        assert!((va.internal[2].x - 1098.0).abs() < 1.0e-10);
+    }
+
     /// Vector mapping interpolates componentwise on a conformal mesh (identity).
     #[test]
     fn vector_conformal_identity() {
         let mesh = column(4, 1.0, 1.0);
-        let m = MeshToMesh::new(mesh.clone(), mesh.clone(), MappingMethod::NearestCell);
+        let m = MeshToMesh::new(mesh.clone(), mesh.clone(), MappingMethod::NearestCell).unwrap();
         let mut src = VolVectorField::zero("disp", mesh.clone());
         for i in 0..4 {
             src.internal[i] = Vector3::new(i as f64, -(i as f64), 0.5);

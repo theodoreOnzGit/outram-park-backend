@@ -27,11 +27,13 @@
 //!
 //! | Submodule | Ports (upstream) | Role |
 //! |---|---|---|
-//! | [`mesh_to_mesh`] | `meshHandler` `meshToMesh` addressing + `map`/`mapTgtToSrc` | Volumetric cell-to-cell field transfer ([`MeshToMesh`]): nearest-cell, inverse-distance, and (approximate) conservative cell-volume-weighted mapping between overlapping region meshes. |
+//! | [`mesh_to_mesh`] | `meshHandler` `meshToMesh` addressing + `map`/`mapTgtToSrc` | Volumetric cell-to-cell field transfer ([`MeshToMesh`]): nearest-cell, inverse-distance, and upstream's exact cell-volume-weighted mapping (`CellVolumeWeight`, gh:#651) between overlapping region meshes. |
+//! | [`cell_overlap`] | OpenFOAM-ESI `cellVolumeWeightMethod`, `tetOverlapVolume`, `meshToMesh::{normaliseWeights, mapTgtToSrc, mapSrcToTgt}` | [`OverlapMesh`] (polyhedral geometry) and [`CellVolumeWeightAddressing`]: exact tet-overlap volumes, advancing-front addressing, per-cell normalisation, upstream's field operator; bit-identical to the real code. |
 //! | [`rbf_mapping`] | `meshHandler::interpolateAndMapFields` (polyharmonic-spline path) | Radial-basis-function mapping ([`RbfFieldMap`]) for **non-conformal** meshes that do not volume-overlap — fits a polyharmonic spline to scattered samples and evaluates it on the target mesh. |
 //! | [`coupling_fields`] | `meshHandler` region registry + `mappings` / `mapAllFields` | The [`MeshHandler`]: region meshes, their named coupling fields, and the pairwise mappings; [`MeshHandler::interpolate_coupling_fields`] is `interpolateCouplingFields`. |
 //! | [`outer_iteration`] | `multiPhysicsSolver::correctPhysics` | The tightly-coupled Picard loop ([`MultiPhysicsSolver`]) advancing the regions and exchanging feedback to convergence, enum-dispatched over [`RegionModel`] (no `dyn`). |
 //! | [`mesh_region`] | region-solver dispatch → `diffusionNeutronics` / `thermalHydraulics` | The **mesh-based** [`RegionModel`] variants: [`MeshNeutronics`] drives the real multigroup-diffusion solver with cross-section temperature feedback; [`MeshThermalHydraulics`] is the per-cell energy-balance seam for the full TH solver. |
+//! | [`mesh_deformation`] | `neutronics.C`/`thermalHydraulicsModel.C`/`thermoMechanics.C` `deformMesh()` + ESI `volPointInterpolation`, `fvMesh::movePoints` | [`DeformableMesh`]: moves a region's mesh by an interpolated displacement field (gh:#1784). |
 //! | [`reactivity_feedback`] | `pointKineticNeutronics` feedback assembly | The [`ReactivityFeedback`] layer: turns the mesh temperature / density feedback fields into a scalar reactivity `Δρ` (Doppler + expansion + coolant density), generalising the lumped `α(T−T_ref)` to spatial fields. |
 //!
 //! **Start with an example**, not the API: the loop wired end-to-end (0-D
@@ -58,16 +60,32 @@
 //! deferred implementation) because [`outram_foam_basic_lib`] does not yet expose
 //! the geometry they need — tracked as sub-beads of `op-p6p.8`:
 //!
-//! - **Exact conservative `meshToMesh` (`imCellVolumeWeight`).** Upstream
+//! - ~~**Exact conservative `meshToMesh` (`imCellVolumeWeight`).** Upstream
 //!   integrates true polyhedral cell-overlap volumes (a supermesh intersection);
 //!   basic-lib has cell centres/volumes but no mesh-intersection/clipping. The
 //!   port uses nearest-cell addressing plus a global integral rescale — globally
 //!   conservative, but not the exact local overlap distribution. Exact overlap
-//!   awaits a basic-lib supermesh operator.
-//! - **`deformMesh` / `movePoints`.** Applying `meshDisp` to actually move mesh
+//!   awaits a basic-lib supermesh operator.~~ **CORRECTED 2026-11-26 (gh:#651, round 28):**
+//!   no basic-lib operator was needed and "globally conservative" was not true on partial
+//!   overlap (a uniform 900 K field became 450 K). [`cell_overlap`] ports OpenFOAM-ESI v2506's
+//!   `cellVolumeWeightMethod` / `tetOverlapVolume` / `meshToMesh::{normaliseWeights, mapTgtToSrc}`
+//!   line by line; [`MappingMethod::CellVolumeWeight`] is now that operator (needs an
+//!   [`OverlapMesh`] per region), bit-identical to the real `meshToMesh` on the 3D_SmallESFR
+//!   meshes and on a deformed copy of one with genuine partial overlap (README `Round 28`).
+//!   The old form is only the deprecated [`MappingMethod::NearestCellGlobalRescale`].
+//! - ~~**`deformMesh` / `movePoints`.** Applying `meshDisp` to actually move mesh
 //!   points (upstream `deformMesh`) needs mutable mesh-point geometry on
 //!   `FvMesh`, which basic-lib does not expose. The loop plumbs the displacement
-//!   field through the coupling but does not yet move points.
+//!   field through the coupling but does not yet move points.~~ **CORRECTED 2026-11-26
+//!   (gh:#1784, round 26):** no basic-lib change was needed. [`mesh_deformation`] ports
+//!   upstream's `deformMesh()` (`volPointInterpolation` + `fvMesh::movePoints`; upstream's
+//!   `meshHandler` itself has no `movePoints`), bit-identical to OpenFOAM-ESI v2506 on the
+//!   3D_SmallESFR meshes. ~~It is NOT yet called from [`outer_iteration`]'s loop: the loop's
+//!   regions own no `DeformableMesh`, and the `meshToMesh` supermesh that maps `meshDisp`
+//!   onto the neutronics mesh is gh:#651; `meshPhi`/`V0` are gh:#1846.~~ **CORRECTED 2026-11-26 (gh:#1852, #1854, round 30):**
+//!   `meshPhi`/`V0`/`V00` are ported, [`coupled_loop::deform_region_mesh`] and
+//!   [`coupled_loop::correct_physics_loop_with_deformation`] are the upstream sequence (map, `deformMesh()`, solve) and the whole
+//!   coupled path is bit-identical to ESI; the region SOLVERS of [`outer_iteration`] still own no mesh (issue filed).
 //!
 //! Neither hack was applied to work around these — the mapping is honest about
 //! its fidelity and the loop is honest about not moving points.
@@ -89,8 +107,10 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+pub mod cell_overlap;
 pub mod coupled_loop;
 pub mod coupling_fields;
+pub mod mesh_deformation;
 pub mod mesh_region;
 pub mod mesh_to_mesh;
 pub mod outer_iteration;
@@ -100,8 +120,11 @@ pub mod reactivity_feedback;
 // Curated re-exports (human interface layer): the handful of types a user needs
 // to build a coupled multi-region run without hunting through submodules.
 pub use coupling_fields::{CouplingError, CouplingField, CouplingRegion, FieldKind, MeshHandler};
+pub use mesh_deformation::{DeformableMesh, MeshDeformationDict, MeshDeformationError, StepClock, VolDisplacement};
+pub use coupled_loop::{correct_physics_loop_with_deformation, deform_region_mesh, RegionMeshMap};
 pub use mesh_region::{MeshNeutronics, MeshThermalHydraulics};
-pub use mesh_to_mesh::{MapCombine, MappingMethod, MeshToMesh};
+pub use cell_overlap::{CellVolumeWeightAddressing, OverlapMesh};
+pub use mesh_to_mesh::{MapCombine, MappingMethod, MeshToMesh, MeshToMeshError};
 pub use outer_iteration::{
     lumped_cell_mesh, CouplingLoopError, FeedbackCoefficient, LumpedNeutronics, LumpedThermal,
     MultiPhysicsSolver, PrescribedRegion, RegionKernel, RegionModel,

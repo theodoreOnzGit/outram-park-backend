@@ -192,6 +192,11 @@ structural mechanics "selectable by enum"):** `genfoam::thermo_mechanics::fem` r
 quadrature, `BMatrix`, CSR assembly, Dirichlet elimination and CG + ILU(0). farrer-park depends only on petir, uom,
 thiserror-nostd, hashbrown and outram-foam-basic-lib, so no cycle; checked: `cargo check --no-default-features --target
 x86_64-unknown-none` and `--target wasm32-unknown-unknown` on the appbuilder both pass with the edge;
+**`outram-foam-appbuilder-lib → outram-foam-mesh` as a normal edge (2026-11-27, gh:#1852,
+previously a dev-dependency only):** `genfoam::multi_region::mesh_deformation` reuses
+`outram_foam_mesh::dynamic_mesh::mesh_phi`, already bit-identical to ESI (gh:#1380), for the
+moving-mesh flux. outram-foam-mesh does not depend on the appbuilder, so no cycle; the
+appbuilder's `no_std` check passes with the edge;
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
 no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD
