@@ -65,11 +65,22 @@
 //!   with a non-existent solver does not stop the real binary). [`OnePhaseCcSolver::with_stock_final_iteration_selection`]
 //!   is the stock-OpenFOAM behaviour, kept as a named CONTROL.
 //!
+//! ## Ported in gh:#1929 (round 65), differenced against the real binary on `w8_zg`, `w9_calc`, `w10_mapped`
+//!
+//! `porousKEpsilon::correct()` has no wall-function code of its own: the patch TYPES of `0/fluidRegion/{k,epsilon,nut,alphat}` decide.
+//! The shipped `2D_FFTF` uses none: `k`/`epsilon`/`nut`/`alphat` `zeroGradient` on the walls (the epsilon equation then has no `updateCoeffs`
+//! effect and no `boundaryManipulate`), `nut` and `alphat` `calculated` on the baffles. A `calculated` patch takes the values of the
+//! assigned expression (`nut_b = Cmu k_b^2/epsilon_b`, plus `pos(structure) mag(U_b) DhStruct/laminarReStruct` with the stabilisation,
+//! `alphat_b = rho nut_b/Prt`), a `zeroGradient` patch the owner value; the energy equation's `alphaEff` takes `alphat` on the patches
+//! (`heThermo::alphaEff`: `alpha_ + alphat`), which the form before round 65 took as 0. `DhStruct` and `laminarReStruct` are `zeroGradient`
+//! fields upstream (`porousKEpsilon.C:400-440`); `structure`'s own patch type was NOT read, its patch value is taken as the owner value.
+//!
 //! ## Refused by name
 //!
-//! `RASModel` other than `porousKEpsilon`; `k`/`epsilon`/`nut` wall patches other than the three above; any other entry on those
-//! patches (including every entry of `kqRWallFunction`, which upstream ignores); a `k`/`epsilon` solver other than
-//! `PBiCGStab`/`diagonal`; `fvOptions`.
+//! `RASModel` other than `porousKEpsilon`; `k`/`epsilon` patch types other than the wall functions and `zeroGradient`; `nut` patch types
+//! other than `nutkWallFunction`, `zeroGradient`, `calculated`; `alphat` other than `zeroGradient`, `calculated`; `alphat` `calculated`
+//! beside a `nutkWallFunction`; any other entry on a wall-function patch (including every entry of `kqRWallFunction`, which upstream
+//! ignores); a `k`/`epsilon` solver other than `PBiCGStab`/`diagonal` or `PBiCG`/`DILU`; `fvOptions`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -357,6 +368,10 @@ pub struct OnePhaseTurbulenceCase {
     pub turbulence_length_scale_coeff: Vec<f64>,
     /// Which patches carry the three wall functions.
     pub wall_patch: Vec<bool>,
+    /// Which patches carry a `calculated` `nut` (gh:#1929: the patch takes the values of the assigned expression, not the owner value).
+    pub nut_calculated: Vec<bool>,
+    /// Which patches carry a `calculated` `alphat` (gh:#1929).
+    pub alphat_calculated: Vec<bool>,
     /// `y` (`nearWallDist`) of every boundary face (`face - n_internal`), 0 off the walls.
     pub wall_y: Vec<f64>,
     /// The `nutkWallFunction` entries of every patch (defaults off the walls).
@@ -543,14 +558,20 @@ impl TurbState {
         // nutkWallFunction: a fixedValue patch carrying its READ value until a wall function evaluates it
         let mut nut_bc = zg.clone();
         for (pi, _) in mesh.patches.iter().enumerate() {
-            if case.wall_patch[pi] {
+            if case.wall_patch[pi] || case.nut_calculated[pi] {
                 nut_bc[pi] = Bc::Calculated;
             }
         }
         let mut nut = Scalar::uniform(g, 0.0, nut_bc);
         nut.c = nut_cells.to_vec();
         nut.b = nut_boundary.to_vec();
-        let mut at = Scalar::uniform(g, 0.0, zg);
+        let mut at_bc = zg;
+        for (pi, _) in mesh.patches.iter().enumerate() {
+            if case.alphat_calculated[pi] {
+                at_bc[pi] = Bc::Calculated;
+            }
+        }
+        let mut at = Scalar::uniform(g, 0.0, at_bc);
         at.c = alphat.to_vec();
         at.correct_bc(g);
         debug_assert_eq!(nut.b.len(), g.n_faces() - ni);
@@ -671,6 +692,12 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn turbulent_viscosity_boundary(&self) -> Option<&[f64]> {
         self.turb.as_ref().map(|t| t.nut.b.as_slice())
+    }
+
+    /// `alphat` on the boundary faces (by `face - n_internal`; gh:#1929).
+    #[must_use]
+    pub fn turbulent_thermal_diffusivity_boundary(&self) -> Option<&[f64]> {
+        self.turb.as_ref().map(|t| t.alphat.b.as_slice())
     }
 
     /// Initial residual and iterations of the `epsilon` and `k` solves, one entry per outer iteration of the current step.
@@ -910,6 +937,26 @@ impl OnePhaseCcSolver {
             ts.alphat.c[i] = rho0 * ts.nut.c[i] / c.prt;
         }
         ts.alphat.correct_bc(&g);
+        // `nut.correctBoundaryConditions()` of `correctNut`: a `calculated` patch keeps the assigned expression's patch values
+        // `Cmu k_b^2/epsilon_b`, any other non-wall patch (`zeroGradient`, `wedge`) the owner value (gh:#1929)
+        let mut nut_unstab_b = vec![0.0; nb];
+        for (pi, p) in m.patches.iter().enumerate() {
+            if c.wall_patch[pi] {
+                continue;
+            }
+            for f in p.start..p.start + p.size {
+                nut_unstab_b[f - ni] =
+                    if c.nut_calculated[pi] { c.cmu * (ts.k.b[f - ni] * ts.k.b[f - ni]) / ts.epsilon.b[f - ni] } else { ts.nut.c[m.owner[f]] };
+            }
+        }
+        // `alphat_ = rho_*nut_/Prt_` on a `calculated` patch (`alphat_.correctBoundaryConditions()` leaves it)
+        for (pi, p) in m.patches.iter().enumerate() {
+            if c.alphat_calculated[pi] {
+                for f in p.start..p.start + p.size {
+                    ts.alphat.b[f - ni] = rho0 * nut_unstab_b[f - ni] / c.prt;
+                }
+            }
+        }
         if c.nut_stabilization {
             // nut += pos(structure) magU DhStruct/laminarReStruct
             for i in 0..n {
@@ -921,7 +968,20 @@ impl OnePhaseCcSolver {
             if !c.wall_patch[pi] {
                 for j in 0..p.size {
                     let f = p.start + j;
-                    ts.nut.b[f - ni] = ts.nut.c[m.owner[f]];
+                    let o = m.owner[f];
+                    ts.nut.b[f - ni] = if c.nut_calculated[pi] {
+                        // `nut_ += pos(structure_) magU DhStruct/laminarReStruct` on the patch: `structure_`, `DhStruct`, `laminarReStruct`
+                        // are `zeroGradient` (owner values), `magU` is `mag(U_b)` left by the last pressure corrector
+                        let stab = if c.nut_stabilization {
+                            let pos_structure = if s_alpha[o] > 0.0 { 1.0 } else { 0.0 };
+                            pos_structure * self.u.b[f - ni].mag() * c.dh_struct[o] / c.laminar_re_struct[o]
+                        } else {
+                            0.0
+                        };
+                        nut_unstab_b[f - ni] + stab
+                    } else {
+                        ts.nut.c[o]
+                    };
                 }
             }
         }
@@ -1067,9 +1127,13 @@ pub(super) fn read_turbulence_case(
                 .find(|(nm, _, _)| nm == &p.name)
                 .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", ff.name, p.name)))?;
             let is_wall = p.kind == PatchKind::Wall && ty == wall_ty;
-            let allowed = is_wall || (p.kind == PatchKind::Wedge && ty == "wedge") || (p.kind == PatchKind::Wall && other.contains(&ty.as_str()));
+            // `porousKEpsilon::correct` has no wall-function code of its own: the patch TYPES of the field files decide (gh:#1929)
+            let allowed = is_wall
+                || (p.kind == PatchKind::Wedge && ty == "wedge")
+                || (p.kind == PatchKind::Empty && ty == "empty")
+                || (!matches!(p.kind, PatchKind::Wedge | PatchKind::Empty) && other.contains(&ty.as_str()));
             if !allowed {
-                return Err(ctx.e(format!("{}.{}: `{ty}` on a {:?} patch is not ported (wall: {wall_ty}, wedge)", ff.name, p.name, p.kind)));
+                return Err(ctx.e(format!("{}.{}: `{ty}` on a {:?} patch is not ported (wall: {wall_ty}, {other:?}, wedge)", ff.name, p.name, p.kind)));
             }
             if is_wall {
                 if let Some((_, d)) = ff.dicts.iter().find(|(nm, _)| nm == &p.name) {
@@ -1084,17 +1148,24 @@ pub(super) fn read_turbulence_case(
         }
         Ok(out)
     };
-    let wk = check(&kf, "kqRWallFunction", &[], &[])?;
-    let we = check(&ef, "epsilonWallFunction", &[], &["Cmu", "kappa", "E", "blending", "n", "lowReCorrection"])?;
-    let wn = check(&nf, "nutkWallFunction", &[], &["Cmu", "kappa", "E", "blending", "n", "U"])?;
+    let wk = check(&kf, "kqRWallFunction", &["zeroGradient"], &[])?;
+    let we = check(&ef, "epsilonWallFunction", &["zeroGradient"], &["Cmu", "kappa", "E", "blending", "n", "lowReCorrection"])?;
+    let wn = check(&nf, "nutkWallFunction", &["zeroGradient", "calculated"], &["Cmu", "kappa", "E", "blending", "n", "U"])?;
+    let patch_is = |ff: &FieldFile, name: &str, want: &str| ff.bcs.iter().any(|(nm, ty, _)| nm == name && ty == want);
+    let nut_calculated: Vec<bool> = g.mesh.patches.iter().map(|p| patch_is(&nf, &p.name, "calculated")).collect();
     if wk != we || we != wn {
         return Err(ctx.e("k, epsilon and nut must carry their wall functions on the same patches"));
     }
-    for p in &g.mesh.patches {
+    let mut alphat_calculated = Vec::new();
+    for (pi, p) in g.mesh.patches.iter().enumerate() {
         let (_, ty, _) = af.bcs.iter().find(|(nm, _, _)| nm == &p.name).ok_or_else(|| ctx.e("alphat: no BC for a patch"))?;
-        if !matches!(ty.as_str(), "zeroGradient" | "wedge") {
-            return Err(ctx.e(format!("alphat.{}: `{ty}` is not ported (zeroGradient, wedge)", p.name)));
+        if !matches!(ty.as_str(), "zeroGradient" | "wedge" | "calculated" | "empty") {
+            return Err(ctx.e(format!("alphat.{}: `{ty}` is not ported (zeroGradient, calculated, wedge)", p.name)));
         }
+        if ty == "calculated" && wn[pi] {
+            return Err(ctx.e(format!("alphat.{}: `calculated` beside a `nutkWallFunction` is not ported", p.name)));
+        }
+        alphat_calculated.push(ty == "calculated");
     }
     let k0 = kf.internal.as_scalar().ok_or_else(|| ctx.e("k internalField must be a uniform scalar"))?;
     let e0 = ef.internal.as_scalar().ok_or_else(|| ctx.e("epsilon internalField must be a uniform scalar"))?;
@@ -1169,6 +1240,8 @@ pub(super) fn read_turbulence_case(
         turbulence_intensity_exp: ie,
         turbulence_length_scale_coeff: ls,
         wall_patch: wk,
+        nut_calculated,
+        alphat_calculated,
         wall_y,
         nut_wall,
         epsilon_wall,

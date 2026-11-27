@@ -25,8 +25,10 @@
 //!   per-axis drag and `noSlip` are ported; with the named `GAMG` substitution the first refusal is
 //!   ~~`structureProperties.IHXPrimary:IHXSecondary.localTortuosity is not ported` (the tensor-diffusivity Laplacian of `UEqn_1p.H`/`EEqn_1p.H`)~~
 //!   **CHANGED 2026-11-27 (gh:#1229, README round 64)**: `localTortuosity` is ported (`two_phase::tensor_laplacian`, differenced on `w7_tort`);
-//!   the first refusal is now `nut.vesselWall: `zeroGradient` is not ported` (the turbulence reader's wall-function-only `nut` patches;
-//!   `porousKEpsilon` with `zeroGradient` wall entries).
+//!   the first refusal was `nut.vesselWall: `zeroGradient` is not ported` (the turbulence reader's wall-function-only `nut` patches;
+//!   `porousKEpsilon` with `zeroGradient` wall entries). ~~that refusal~~ **CHANGED 2026-11-27 (gh:#1929, README round 65)**: the
+//!   shipped fluid region is READ with no refusal and RUN by `genfoam_fftf_pieces_vs_upstream::fftf_steady_state_*`; `GamgPolicy::Refuse`
+//!   still refuses `p_rgh` GAMG by name.
 //!
 //! Pass criterion: the pinned substring is in the refusal. Controls: none (the refusal text is the measurement).
 
@@ -65,7 +67,7 @@ fn full_coupling_is_read_as_shipped_with_the_gamg_substitution() {
 }
 
 #[test]
-fn fftf_first_refusal_is_pinned() {
+fn fftf_is_read_and_gamg_is_refused_by_name() {
     let Some(up) = upstream() else {
         eprintln!("SKIP: upstream tutorials not found; set GENFOAM_UPSTREAM");
         return;
@@ -73,10 +75,13 @@ fn fftf_first_refusal_is_pinned() {
     let case = up.join("Tutorials/reactorCases/2D_FFTF/rootCase");
     // the GAMG substitution is the named deviation of the whole workspace (rounds 17, 21, 44)
     let opts = CaseReadOptions { check_region_solvers: false, gamg: GamgPolicy::SubstitutePcgDic, ..CaseReadOptions::default() };
-    let msg = OnePhaseCcCase::read_with_options(&case, &case.join("constant/fluidRegion/polyMesh"), &opts)
-        .err()
-        .map(|e| format!("{e}"))
-        .expect("the shipped case is not yet readable");
-    eprintln!("2D_FFTF first refusal: {msg}");
-    assert!(msg.contains("nut.vesselWall: `zeroGradient` is not ported"), "{msg}");
+    // ~~first refusal `nut.vesselWall: `zeroGradient` is not ported`~~ **CHANGED 2026-11-27 (gh:#1929, README round 65)**: the shipped
+    // fluid region is READ with no refusal (`porousKEpsilon` with `zeroGradient`/`calculated` patches, `mappedWall` as plain walls).
+    let case_read = OnePhaseCcCase::read_with_options(&case, &case.join("constant/fluidRegion/polyMesh"), &opts).expect("the shipped FFTF fluidRegion is readable");
+    eprintln!("2D_FFTF is read: {} cells", case_read.alphat.len());
+    assert_eq!(case_read.alphat.len(), 18_538);
+    // as shipped (GAMG): refused by name, GAMG is not ported
+    let refused = CaseReadOptions { check_region_solvers: false, gamg: GamgPolicy::Refuse, ..CaseReadOptions::default() };
+    let msg = OnePhaseCcCase::read_with_options(&case, &case.join("constant/fluidRegion/polyMesh"), &refused).err().map(|e| format!("{e}")).expect("GAMG is refused");
+    assert!(msg.contains("GAMG"), "{msg}");
 }

@@ -613,7 +613,9 @@ pub(super) fn read_flow_case(
         let Some(nf) = nf.as_ref() else { break };
         let (ty, v) = patch_bc(&nf, pi)?;
         let val = match (ty.as_str(), p.kind) {
-            ("wedge", PatchKind::Wedge) => nut0,
+            ("wedge", PatchKind::Wedge) | ("empty", PatchKind::Empty) => nut0,
+            // a `zeroGradient` patch is evaluated at construction: the owner value, the uniform internal field (gh:#1929)
+            ("zeroGradient", _) => nut0,
             // with `turbulence false` no wall function ever runs: the patch keeps the value it was read with
             ("nutkWallFunction" | "calculated", _) => v
                 .as_ref()

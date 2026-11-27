@@ -31,6 +31,45 @@ def field(name, dims, internal, patches):
             + 'dimensions      %s;\n\ninternalField   uniform %s;\n\nboundaryField\n{\n%s}\n' % (dims, internal, body))
 
 
+THERMO = '''thermoType
+{
+    type                heRhoThermo;
+    mixture             pureMixture;
+    equationOfState     Boussinesq;
+    thermo              hConst;
+    transport           const;
+    specie              specie;
+    energy              sensibleEnthalpy;
+}
+
+pRef        100000;
+
+//- Properties are those of liquid Sodium evaluated at 600 K (shipped 2D_FFTF)
+mixture
+{
+    specie
+    {
+        molWeight   22.989769;
+    }
+    equationOfState
+    {
+        rho0    874;
+        T0      600;
+        beta    2.602975e-4;
+    }
+    thermodynamics
+    {
+        Cp      1301;
+        Hf      0;
+    }
+    transport
+    {
+        mu      3.21e-4;
+        Pr      5.6664993e-3;
+    }
+}
+'''
+
 ZG = (('type', 'zeroGradient'),)
 CALC = (('type', 'calculated'), ('value', 'uniform 0'))
 EMPTY = (('type', 'empty'),)
@@ -59,6 +98,8 @@ def main():
             'simulationType RAS;\n\nRAS\n{\n    RASModel        porousKEpsilon;\n    turbulence      on;\n    printCoeffs     on;\n}\n\n'
             'porousKEpsilonProperties\n{\n    "zone0"\n    {\n        convergenceLength           0.1;\n        turbulenceIntensityCoeff    0.16;\n'
             '        turbulenceIntensityExp      -0.125;\n        turbulenceLengthScaleCoeff  0.07;\n        DhStruct                    1;\n    }\n}\n'))
+        # the FFTF fluid: Boussinesq / hConst / const sodium (the port's `porousKEpsilon` is Boussinesq-only, as upstream's FFTF case)
+        edit(os.path.join(d, 'constant/fluidRegion/thermophysicalProperties'), lambda t: t[:t.index('thermoType')] + THERMO)
         edit(os.path.join(d, 'system/fluidRegion/fvSolution'), lambda t: re.sub(
             r'("\.\*"\s+1;)', r'\1\n        "epsilon.*"     0.6;\n        "k.*"           0.6;', t, count=1))
 

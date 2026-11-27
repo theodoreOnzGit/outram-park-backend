@@ -1212,6 +1212,7 @@ pub struct OnePhaseCcSolver {
     /// CONTROLS, NOT upstream (gh:#1229): the tortuosity left out of the momentum / the energy Laplacian (scalar-gamma form).
     ctl_no_tort_momentum: bool,
     ctl_no_tort_energy: bool,
+    ctl_no_alphat_patch: bool,
     htc: Vec<f64>,
     re: Vec<f64>,
     /// `FSPair::lRe_`: the per-axis Reynolds number `max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371`; the signed component, `lDh = Dh` as no
@@ -1373,6 +1374,7 @@ impl OnePhaseCcSolver {
             ctl_no_laplacian: false,
             ctl_no_tort_momentum: false,
             ctl_no_tort_energy: false,
+            ctl_no_alphat_patch: false,
             htc,
             re,
             lre,
@@ -1408,7 +1410,7 @@ impl OnePhaseCcSolver {
             ctl_no_passive: false,
             ctl_freeze_htc: false,
             htc_evaluated: false,
-            pas_old_lazy: false,
+            pas_old_lazy: true,
         };
         s.update_thermo_fields();
         // the structure constructor calls `correctT` once, which runs `temperatureUpdate()` at the start time
@@ -1874,6 +1876,13 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// CONTROL, NOT upstream (gh:#1929, README round 65): the energy equation's `alphaEff` patch value takes no `alphat` (the form before round 65).
+    #[must_use]
+    pub fn without_alphat_patch_value(mut self) -> Self {
+        self.ctl_no_alphat_patch = true;
+        self
+    }
+
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
         self.update_re();
@@ -2007,7 +2016,7 @@ impl OnePhaseCcSolver {
         };
         let ae = Scalar {
             c: (0..n).map(|c| alpha_h_at(self.p[c], self.t[c]) + self.turb.as_ref().map_or(self.case.alphat[c], |t| t.alphat.c[c])).collect(),
-            b: (ni..g.n_faces()).map(|f| alpha_h_at(self.p[g.mesh.owner[f]], t_s.b[f - ni]) + 0.0).collect(),
+            b: (ni..g.n_faces()).map(|f| alpha_h_at(self.p[g.mesh.owner[f]], t_s.b[f - ni]) + self.turb.as_ref().filter(|_| !self.ctl_no_alphat_patch).map_or(0.0, |t| t.alphat.b[f - ni])).collect(),
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
         let (lic, lbc) = if let Some(td) = self.case.tortuosity.as_ref().filter(|_| !self.ctl_no_tort_energy) {

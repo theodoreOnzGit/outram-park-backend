@@ -18,6 +18,8 @@ the port gained (each variant is a small case the REAL binary runs in seconds):
   w7r_rot0    : (round 64) the half zone, NO tortuosity, the mesh points ROTATED by 30 degrees about z (control: the port on a rotated mesh)
   w7r_tort    : (round 64) the half zone, `localTortuosity (0.7 1.3 0.01389)`, mesh rotated 30 degrees about z: `Sf & gamma` is not parallel
                 to `Sf`, so `SfGammaCorr` (the `gammaSnGradCorr` term) is non-zero
+  w11_tpas    : (round 65, gh:#1928) `passiveProperties.T` 590 against the fluid `T` 600 (the shipped FFTF starts the passive structure 0.002 K below
+                the fluid; the shipped 2D_fullCoupling at the same temperature, which hides an initial-state difference)
 
 usage: make_fftf_piece_variants.py <base case dir> <out dir>
 """
@@ -31,7 +33,7 @@ def edit(path, f):
 
 def main():
     base, out = sys.argv[1], sys.argv[2]
-    names = ['w1_dilu', 'w2_half_cc', 'w2_recon05', 'w2_recon1', 'w2_recon0', 'w3_pump', 'w4_churchill', 'w5_noslip', 'w6_aniso', 'w7_tort', 'w7r_rot0', 'w7r_tort']
+    names = ['w1_dilu', 'w2_half_cc', 'w2_recon05', 'w2_recon1', 'w2_recon0', 'w3_pump', 'w4_churchill', 'w5_noslip', 'w6_aniso', 'w7_tort', 'w7r_rot0', 'w7r_tort', 'w11_tpas']
     for v in names:
         d = os.path.join(out, v)
         shutil.rmtree(d, ignore_errors=True)
@@ -95,6 +97,8 @@ def main():
         return t[:m.start()] + '\n' + m.group(1) + '\n(\n' + '\n'.join(pts) + '\n)' + t[m.end():]
     for v in ('w7r_rot0', 'w7r_tort'):
         edit(os.path.join(out, v, 'constant/fluidRegion/polyMesh/points'), rotate)
+    edit(os.path.join(out, 'w11_tpas', pp), lambda t: re.sub(r'(passiveProperties\s*\{[^}]*?\bT\s+)600;', r'\g<1>590;', t, count=1))
+
 
 if __name__ == '__main__':
     main()
