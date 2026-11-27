@@ -4533,3 +4533,69 @@ Driver: `upstream_driver/power_model_dump` constructs the real `structure` + `po
 * **P5 (controls; each must FAIL its comparison).** (a) the Gaussian `solve` replaced by the workspace's `lu_decompose` solve: not bit-identical (some ulps, 1e-16 to 1e-13 relative), so the port could not claim bit identity by accident; (b) the old-time quirk and the corrected ring areas as in P2/P3; (c) a perturbed input (`gapH` by 1e-9 relative) is detected above 1e-12.
 * **P6 (cost).** Upstream driver run: seconds; each reference < 0.4 MB gzipped. Build of the driver against the existing `libFFSSrc2`/`libCommon`: minutes at 2 jobs.
 * **P7 (what is NOT covered; stated now so it cannot be quietly dropped).** Wiring into the cell-centred `onePhase` solver (only `fixedTemperature` is dispatched there today), `nuclearFuelPinTest` (gh:#1787), the `foundBoundaryTemperatures` reconstruction path (reads `Tfi/Tfo/Tci/Tco` files), the `gapHPowerDensity` table (needs the `Function1` `table` reader; covered only if the port's table reader matches, otherwise refused by name), and the FMU variants.
+
+## Round 35 results (2026-11-27, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_radial_power_models_vs_upstream.rs`, 8 tests, 0.01 s; `--nocapture` prints every tally)
+
+Upstream: the real `structure` + `powerModel` of GeN-Foam 652b3da (`libFFSSrc2`, unmodified), driver `upstream_driver/power_model_dump`, case `scripts/make_power_model_case.sh` (8 cells, 3 zones + 1 unzoned, `deltaT` 0.5; every model run for 12 steps x 1 outer iteration and 3 steps x 2). References `refs/pmd_<model>_o{1,2}.ref.txt.gz` (55 KB in all; submodule commit 1079606).
+
+### Upstream -> Rust mapping
+
+| upstream | Rust (`structure/`) |
+|---|---|
+| `Foam::solve(Field&, SquareMatrix, List)` (Gaussian elimination, partial pivoting, `1e-20` test) | `radial_solve::foam_solve` |
+| `IOFieldField::oldTime()` / `storeOldTime()` | `radial_solve::OldTimeFieldField` |
+| `updateLocalAvgGlobalMinMaxT` | `radial_solve::update_average_and_extrema` |
+| `heatedPin` (ctor, `setInterfacialArea`, `updateLocalTemperatureProfile`, `correct`, `correctT`, `powerOff`) | `heated_pin::HeatedPin` |
+| `nuclearFuelPin` (same set; `gapHPowerDensity` `Function1` table) | `nuclear_fuel_pin::{NuclearFuelPin, GapConductance}` (table through `TimeProfile::table`, the ESI `Function1` form already ported) |
+| `lumpedNuclearStructure` | `lumped_nuclear_structure::LumpedNuclearStructure` (`fvc::laplacian(Tmatrix)` an input) |
+| `interpolatedNuclearFuelPin` | `interpolated_nuclear_fuel_pin::InterpolatedNuclearFuelPin` |
+| `powerModel::New` selection, `structure::correct` heat flux `H Twall - HT` | `radial_power_model::{RadialPowerModel, StepInputs, structure_heat_flux}` |
+
+### Results (port against the real binary; "values" = every compared number: `Tact`, `Twall`, `heatFlux`, `TFuelAv`, `TCladAv`, `iA`, the radial/nodal profiles, `Ti/To/Tav`, `Tfi/Tfo/Tci/Tco/Tfav/Tcav`, `Tmax/Tsurface/Tmatrix`, and the dictionary `Tavav/Tmax/Tmin/Tfavav/...`)
+
+| model | steps x outer | values | bit-identical | worst relative | first diverging step |
+|---|---|---|---|---|---|
+| `lumpedNuclearStructure` (3 zones: 3 nodes + matrix diffusion, 1 node + diffusion, 2 nodes) | 12 x 1 / 3 x 2 | 948 / 474 | all / all | 0 / 0 | none |
+| `heatedPin` (solid + hollow, `volumeFraction` override) | 12 x 1 / 3 x 2 | 1,224 / 612 | all / all | 0 / 0 | none |
+| `nuclearFuelPin` (FFTF solid fuel; hollow fuel with `fractionOfPowerFromNeutronics`; table `gapHPowerDensity`) | 12 x 1 / 3 x 2 | 2,364 / 1,182 | all / all | 0 / 0 | none |
+| `interpolatedNuclearFuelPin` | 12 x 1 | 480 | all | 0 | none |
+
+**0 ulp everywhere: no use of the 1e-9 allowance.** The `Foam::solve` elimination, the `a*b/c` order of the reduction and the `oldTime()` behaviour were all transcribed, none "equivalent".
+
+### Analytic checks (`heated_pin.rs` unit tests, `dt = 1e12`)
+
+* Global energy balance `2 pi ro (H To - HT) = q pi (ro^2 - ri^2)`: holds to 1e-12 at 11, 21, 41 nodes (the matrix is conservative; the ring areas telescope).
+* **Solid pin, uniform `q`: the scheme is exact for the parabola**, error 1.2e-14 / 1.8e-14 / 8.9e-14 of the centre rise `q ro^2/(4k)` = 93.75 K at 11 / 21 / 41 nodes. **Prediction P4(b) MISSED** (it expected second-order convergence): the face fluxes use the exact face radius `r +- dr/2` and the sources the exact ring areas, so a temperature quadratic in `r` is represented exactly; the error is round-off.
+* **Hollow pin** (adiabatic inner surface; `T = To + q (ro^2 - r^2)/(4k) + q ri^2/(2k) ln(r/ro)`): inner-outer rise error 6.0e-4 / 1.5e-4 / 3.8e-5 at 11 / 21 / 41 nodes, ratios 3.9 and 4.0: second order, as P4(b) said for a profile with a logarithm.
+* `nuclearFuelPin` steady state: linear power `2 pi rco (H Tco - HT)` equals `q pi (rfo^2 - rfi^2)` to 1e-11; the ring-area slips change nothing in steady state (< 1e-11), as P3 said.
+
+### Controls (each fails its comparison, as predicted unless noted)
+
+| control | result |
+|---|---|
+| `lu_decompose` instead of `Foam::solve` | `heatedPin` 235 of 1,224 values bit-identical, worst temperature/profile relative 3.9e-15 (heat flux 3.5e-14); `nuclearFuelPin` 434 of 2,364, 3.0e-15 (heat flux 3.2e-12). P5(a) (1e-16 to 1e-13): held for temperatures; the heat flux, a difference of near-equal numbers, amplifies it to 3e-12. |
+| start-of-step old time, ONE outer iteration | bit-identical (the quirk needs two calls in the first step) |
+| start-of-step old time, TWO outer iterations | first difference exactly at step 1, outer 1, cell 0, for `heatedPin`, `nuclearFuelPin` and `lumpedNuclearStructure`; worst temperature/profile relative 4.2e-2 / 5.7e-2 / 1.6e-1. **P2 (1e-6 to 1e-2): missed high** (one outer iteration changes a cell's temperature by percent at these `dt`). |
+| corrected ring areas (`nuclearFuelPin`) | 84 of 2,364 bit-identical, worst temperature/profile relative 4.0e-3 (heat flux 4.6). P3 (1e-4 to 1e-1): held. |
+| `gapH` x (1 + 1e-9) | 615 of 2,364 bit-identical, worst temperature 1.6e-10, heat flux 3.7e-9: seen above 1e-12 (P5(c) held) |
+
+### Predictions: held / missed
+
+P1 held (0 ulp, all four). P2: the where and when held (cell 0 of the first cell list, second outer iteration of step 1, nothing else), the size missed high. P3 held. P4(a) held; P4(b) missed (exact, not second order, for the solid pin; second order for the hollow pin). P5 held (a, c) with the heat-flux amplification noted. P6: the driver builds in ~2 minutes and a run takes < 1 s; refs 55 KB. P7: stated limits stand.
+
+### Findings
+
+1. **The real binary aborts on `interpolatedNuclearFuelPin` whenever the mesh has a cell outside every structure**: `correct` forms `interpolatedHeatFlux*iA/alpha` over the whole mesh, `0/0` in such a cell, and `trapFpe 1` (the OpenFOAM default) raises SIGFPE. The reference was made with `FOAM_SIGFPE=false`; the port evaluates only the model's own cells. No shipped tutorial selects the class, so this has never been seen.
+2. **`nuclearFuelPin` ring areas: two slips in upstream** (cladding inner node uses `drf`; the cladding bulk loop evaluates the FUEL radii `r[i]`, `i < cladMeshSize-1`). They only matter in transients (4e-3 relative in the cladding profile here). Reproduced ("follow upstream"); `with_corrected_ring_areas` is the control. Reported for the maintainer; not fixed.
+3. **`IOFieldField::oldTime()` first-call behaviour** gives the first cell of the cell list a polluted old time in the second outer iteration of the FIRST time step (not later ones). Reproduced.
+4. `lumpedNuclearStructure` appends the region name twice to `regionIndexToRegionName_` (unused); `nuclearFuelPin` initialises `Tcavav` at `1e69` (an initial dictionary value only). Both harmless; the second is reproduced in the constructor state.
+
+### Not done (stated in P7, unchanged)
+
+* **No wiring into a region solver**: `solver/two_phase/one_phase_cc` dispatches only `fixedTemperature` (its `T.fixedTemperature` field, `Tact` and the `EEqn_1p` coupling are hard-wired); `two_phase/mod.rs` is `Vec<Option<FixedPower>>`. Putting a `RadialPowerModel` there touches `two_phase/{mod,case}.rs` (another stream's files, gh:#1799) and needs the `fvc::laplacian(Tmatrix)` call of the lumped model and the structure-level `TFuelAv/TCladAv` hand-over to the neutronics. Filed as a follow-up.
+* No shipped-tutorial run (2D_MSFR_ULOF, ESFR, FFTF): each needs the wiring above. `nuclearFuelPinTest` (gh:#1787), the FMU variants, the `Ti/To/Tfi...` file reconstruction of the initial profile and the `Trad`/`T` time-directory reads are refused by name (module docs).
+* A powerModel read from a case dictionary (`TwoPhaseCase::read`-style reader) is not written: the models take their regions as Rust structs; the test repeats the case script's numbers.
+
+### Gates run (2026-11-27, release, `CARGO_BUILD_JOBS=2`, own target dir because the shared one is clobbered by a sibling worktree of the same package hash)
+
+`--lib structure::` 40 passed; `--test genfoam_radial_power_models_vs_upstream` 8 passed; `--test genfoam_refs_submodule_present` 1 passed; `cargo check --no-default-features --target x86_64-unknown-none --lib` clean; `petir --test no_platform_libm` 4 passed. Not run: the full suites.

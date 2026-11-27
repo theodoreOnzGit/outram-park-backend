@@ -61,10 +61,16 @@
 use crate::nostd_prelude::*;
 pub mod heat_exchanger;
 pub mod heat_source;
+pub mod heated_pin;
+pub mod interpolated_nuclear_fuel_pin;
+pub mod lumped_nuclear_structure;
+pub mod nuclear_fuel_pin;
 pub mod nuclear_steady_state_pebble;
 pub mod power_model;
 pub mod power_off;
 pub mod pump;
+pub mod radial_power_model;
+pub mod radial_solve;
 pub mod units;
 
 pub use heat_exchanger::{hx_wall_temperature, HeatExchanger};
