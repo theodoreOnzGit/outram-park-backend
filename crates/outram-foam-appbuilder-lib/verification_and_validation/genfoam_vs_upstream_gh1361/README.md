@@ -9411,3 +9411,49 @@ A tight perturbation large enough to seed amplification (the 1-ulp one was absor
 ### Reproduction
 
 `TIGHT=1 bash scripts/make_esfr_old_case.sh steady <ss>` (and without `TIGHT` for loose), real binary serially; `bash scripts/make_esfr_old_case.sh transient <u> <ss>`; the perturbed case: `python3 -I scripts/perturb_esfr_start_ulp.py <p>/200/fluidRegion/T 7716` (replaces the cell by `math.nextafter(v, math.inf)`, printed with `repr`); `python3 -I scripts/extract_esfr_transient.py <dir> <prefix>`, then `python3 -I scripts/compare_esfr_transient_logs.py <perturbed log> <unperturbed log>` (R0/R1); port: `ESFR_T_CASE=<inflated dir> ESFR_T_STEPS=500 ESFR_T_REF=tight|loose|tightts cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_transient_vs_upstream esfr_transient -- --nocapture`; baffle-less: `ESFR_T_CASE=<inflated dir> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_baffle_less_vs_upstream -- --nocapture`.
+
+
+
+# Round 79 (gh:#1945, #1943, #1942 under #1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS): GAMG in the neutronics region; `localTortuosity` in the faceCentered branch; `smoothSolver` with `relTol`/`nSweeps`/`maxIter`
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **Each part's predictions and criteria are committed BEFORE any comparison run of that part** (before Part A's predictions the real binary ran only the shipped `steadyStateTH` stage, the INPUT of both codes, unchanged from round 11; none of its numbers enters a criterion).
+
+## Part A (gh:#1945): GAMG for the neutronics flux equation (predictions and criteria written BEFORE any comparison run)
+
+### Read in upstream first (652b3da / ESI v2506)
+
+* `fluxEq.H:23-30`: each group solves `neutroEq.solve()` TWICE for `fluxStar<g>`; `fvMatrix::solve()` -> `lduMatrix::solver::New(... solverDict("fluxStar<g>"))`: a `GAMG` entry constructs a `GAMGSolver` per call, whose agglomeration comes from `GAMGAgglomeration::New` (`GAMGAgglomeration.C:313-338`): the mesh registry object `GAMGAgglomeration`, built ONCE on the first `GAMG` solve with that solver's dictionary, rebuilt only when `requireUpdate_` is set by `movePoints()` (`GAMGAgglomeration.C:531-539`).
+* `pairGAMGAgglomeration::forward_` (`pairGAMGAgglomeration.C:36`) is ONE process-wide static, toggled at every level attempted (`pairGAMGAgglomerate.C:333`).
+* `processorAgglomerator masterCoarsest` (in the shipped block) is read only when `UPstream::nProcs > 1` (`GAMGAgglomeration.C:268-276`): no effect serially.
+* The shipped 2D_MSFR neutroRegion block (commented out in `/* */`): `GAMG`, `tolerance 1e-6`, `relTol 0.01`, `smoother DICGaussSeidel`, `nPostSweeps 1`, `nPreSweeps 1`, `nFinestSweeps 1`, `cacheAgglomeration true`, `nCellsInCoarsestLevel 20`, `agglomerator faceAreaPair`, `mergeLevels 1`. Every piece is the round 72 port (bit-identical through the instrumented copy, S1 `dicpre`/`dicgs`).
+
+### Searched before writing
+
+`genfoam/common/gamg.rs` (`pair_agglomerate`, `gamg_dic_solve`, every smoother of round 72), `two_phase/gamg_solve.rs` (`GamgSolveState`, `read_gamg_controls`: reused for the keys and the refusals), `GamgPolicy` (`one_phase_cc`), `io::nuclear_data::fv_solution` (the round 42 reader that substituted `PCG`/`DIC`), `common/linear_solvers.rs` (`run_entry`, the one place every neutronics solve goes through), the EN-stage harness of `tests/genfoam_msfr_chain_vs_upstream.rs` (`stage`, `compare_en`: reused). Nothing else solves the neutronics flux.
+
+### What changes
+
+`NeutronSolverKind::Gamg` with the entry's `GamgControls` (`NeutronSolverEntry::gamg`); `run_entry` runs `gamg_solve_on_mesh` (agglomeration of the matrix's mesh with `forward_ = true`, then `gamg_dic_solve`); `resolve_neutron_fv_solution` defaults to `GamgPolicy::Native`; `PCG`/`DIC` in its place is the named ablation `resolve_neutron_fv_solution_with(.., GamgPolicy::SubstitutePcgDic)`. Equivalence with upstream's cached agglomeration holds for a static mesh in a process whose first GAMG agglomeration is this mesh's: true for the `steadyStateEN` stage (`solveFluidMechanics false`: no `p_rgh` solve) and for a neutronics-only case. `RegionSolvers` (multi-region, deforming meshes, other GAMG regions) keeps refusing a GAMG flux entry by name (the process-wide `forward_` across regions is not carried): filed.
+
+### Case and protocol
+
+One-edit variant of the shipped `2D_MSFR` `steadyStateEN` stage (`Allrun` replayed by `scripts/run_msfr_chain.sh`): `cases/msfr_neutro/fvSolution.gamg` = the shipped `neutroRegion/fvSolution` with the `PCG` lines commented and the shipped `GAMG` block uncommented (`NEUTRO_FVSOLUTION=`). 20 steps (`EN_END=20`, `deltaT 0.25`) from the real `steadyStateTH` t = 15 s output (re-run here; checked against `cases/msfr_fluid/restart_15` before use). Two real runs: TIGHT (`PROTOCOL=tight`: every `tolerance 1e-14`, `relTol 0`; the port reads `fvSolution.gamg_tight`, the same regex applied) and AS SHIPPED (`tolerance 1e-6`, `relTol 0.01`; the port reads `fvSolution.gamg`). The port: `EnergyNeutroDiffusion` with `NeutronLinear::FvSolution` of the variant file.
+
+### Criteria (fixed here; none will change after seeing results)
+
+1. TIGHT, per step for 20 steps: `keff_`, `power:` `<= 1e-11` relative (the gate of the PCG EN test, measured 2.2e-13); `T (avg min max)` lines `<= 1e-12`; first `h` initial residual `<= 1e-7` relative; at t = 20: every `flux<g>`, `precStar<k>`, `powerDensity` `<= 1e-9`, fluid `T` `<= 1e-12`, `keff` `<= 1e-11`. Aim: 1e-12 throughout.
+2. AS SHIPPED, per step: `keff_`, `power:` `<= 1e-9`; `T` lines `<= 1e-9`. GAMG iteration counts are REPORTED from the real log, not gated (noise floor and `relTol` thresholds).
+3. ABLATION, as shipped: the port with `GamgPolicy::SubstitutePcgDic` (PCG/DIC at the GAMG entry's `1e-6`/`0.01`) differs from the real GAMG run by MORE than the native port does at step 1 (`keff_` or `power:`), i.e. the native form is what matches.
+4. Earlier numbers do not move: every existing neutronics test reads `PCG` entries; `genfoam_msfr_chain_vs_upstream`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_fv_solution_df_vs_upstream` and the `--lib` filters `nuclear_data`, `linear_solvers`, `neutronics_settings` pass at their pins.
+
+### Predictions (before any comparison run)
+
+| id | prediction | P |
+|---|---|---|
+| A0 | the re-run real `steadyStateTH` t = 15 s `T`, `U`, `p` equal `cases/msfr_fluid/restart_15` bit for bit (deterministic binary) | 90 % |
+| A1 | TIGHT: criterion 1 met at every step (keff/power `<= 1e-11`) | 75 % |
+| A2 | TIGHT: keff/power `<= 1e-12` at every step | 55 % |
+| A3 | TIGHT: the real GAMG solves stall at their round-off floor above 1e-14 and run `maxIter 1000` in most solves (as `p_rgh` did on FFTF, round 72) | 50 % |
+| A4 | AS SHIPPED: criterion 2 met (`<= 1e-9` at every step) | 55 % (a `relTol 0.01` threshold crossing amplifies matrix-rounding differences, round 67) |
+| A5 | ABLATION: the PCG/DIC substitute misses the real as-shipped step-1 `keff_` by more than 1e-8 relative (it stops at a different point) | 75 % |
+| A6 | criterion 4: no earlier pin moves | 95 % |
