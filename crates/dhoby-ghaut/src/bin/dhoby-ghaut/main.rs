@@ -757,6 +757,7 @@ mod headless {
 
 #[cfg(all(test, not(any(target_os = "android", target_arch = "wasm32"))))]
 mod tests {
+    use petir::mathf::RealMath;
     /// The assembled HTR-10 preset geometry matches the committed fixture:
     /// cell and tile counts, the Şeker ball count, the model's extent, and
     /// the fuel pebble the review gate zooms to. A change to the geometry
@@ -868,7 +869,7 @@ mod tests {
         let tol = 1e-6;
         // A facet is a chord: a point on the faceted cylinder of radius r
         // lies as close to the axis as r cos(pi / n_seg).
-        let chord = (std::f64::consts::PI / 16.0).cos();
+        let chord = (std::f64::consts::PI / 16.0).r_cos();
         for c in 0..m.mesh.n_cells() {
             let g = m.cell_region[c];
             for &v in m.mesh.cell_nodes(c) {

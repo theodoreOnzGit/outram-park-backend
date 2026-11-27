@@ -50,6 +50,7 @@
 //!
 //! The MGXS of Step 8 are keyed by the same region ids (see [`super::mgxs`]).
 
+use petir::mathf::RealMath;
 use serde::{Deserialize, Serialize};
 
 /// Which of the three GeN-Foam meshes.
@@ -749,12 +750,12 @@ impl RzTiling {
     pub fn volumes(&self, n_regions: usize, n_seg: Option<usize>) -> Vec<f64> {
         let k = match n_seg {
             None => std::f64::consts::PI,
-            Some(n) => 0.5 * n as f64 * (2.0 * std::f64::consts::PI / n as f64).sin(),
+            Some(n) => 0.5 * n as f64 * (2.0 * std::f64::consts::PI / n as f64).r_sin(),
         };
         let mut v = vec![0.0; n_regions];
         for j in 0..self.nz() {
             for i in 0..self.nr() {
-                v[self.at(i, j)] += k * (self.r[i + 1].powi(2) - self.r[i].powi(2)) * (self.z[j + 1] - self.z[j]);
+                v[self.at(i, j)] += k * (self.r[i + 1].r_powi(2) - self.r[i].r_powi(2)) * (self.z[j + 1] - self.z[j]);
             }
         }
         v
