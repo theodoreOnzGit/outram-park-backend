@@ -7223,3 +7223,14 @@ The shipped `2D_fullCoupling` `steadyState` stage with the edits of `scripts/mak
 | R9 | controls a-d each fail by `> 1e-6` | P 80 % each (a: round 56 measured 2.5e-3; b: the power heats the fluid by tens of K; c: `meshDisp` is of order 4e-3 m; d: 600 K against a default 1 K) | magnitudes reported |
 | R10 | earlier numbers unchanged | P 95 % | listed old/new |
 | R11 | the 476-step port run takes under 60 s in release | P 65 % | |
+
+
+## Round 57, fallback subset S (criteria and predictions written BEFORE the first run of the loop; committed with the first commit that contains the run's code)
+
+If the thermo-mechanics region cannot be brought into the loop this round, the largest subset that runs is **S: fluid (`onePhase`) + neutronics (`diffusionNeutronics`, deforming mesh) in the port's `RegionSolvers` loop, with the TM absent from `regionSolvers` and the neutronics `disp` PRESCRIBED, step by step, from the real run's own `disp` (round 56's `fc_coupled_r56.ref.txt.gz`, every step)**. Everything else of the loop is the port's: both maps (neutro `powerDensity` onto the fluid's `powerDensityNeutronics`, fluid `T`... onto the neutronics' unused feedback fields), `deformMesh()` of the neutronics each step, the fluid and eigenvalue solves, `adjustDeltaT` (min of the fluid Courant limit and the neutronics power-variation limit). Criteria: 2, 3, 4, 5 and 6 (fluid solves) of the list above, restricted to the fluid and neutronics fields (the TM fields are not computed in S), same gates. Controls for S: **a** no mesh deformation (`keff` of step 100 `> 1e-6`), **b** no neutronics power into the fluid (fluid `T` sum of step 100 `> 1e-6`).
+
+| id | quantity | prediction | if missed |
+|---|---|---|---|
+| S1 | S runs 476 steps without refusal | P 85 % | the refusal |
+| S2 | all S gates (dt `1e-12`, keff/power `1e-9`, fingerprints and kept fields `1e-9`, points `1e-12`, fluid solve gates) | P 50 % (round 55's fluid is 2.5e-13 in `U`; the neutronics 2e-15; the new pieces are the two maps and the time-step coupling) | first diverging step and field |
+| S3 | controls a and b fail by `> 1e-6` | P 85 % | magnitudes |

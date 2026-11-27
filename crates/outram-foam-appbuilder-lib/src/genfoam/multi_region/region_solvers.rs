@@ -69,6 +69,7 @@ use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
 use crate::genfoam::thermo_mechanics::legacy_fvm::case::{LegacyFvmCase, TStructGamgPolicy};
 use crate::genfoam::thermo_mechanics::legacy_fvm::{LegacyFvmThermoMechanics, PhysicsLog};
+use crate::genfoam::workflow::reactor_state::ReactorState;
 use crate::io::nuclear_data::read_nuclear_data;
 use crate::io::poly_mesh::{read_cell_zones, zone_of_cell};
 
@@ -320,8 +321,9 @@ impl RegionSolvers {
                     if !eig {
                         return Err(case_err(root, "eigenvalueNeutronics false (the transient neutronics in the three-region loop) is not ported: gh:#1916, #1919"));
                     }
-                    let k0 = np.dict.get_scalar("keff").ok_or_else(|| case_err(root, "neutronicsProperties: no keff"))?;
-                    let p_target = np.dict.get_scalar("pTarget").ok_or_else(|| case_err(root, "neutronicsProperties: no pTarget"))?;
+                    // `neutronics.C`: `keff_` and `pTarget_` come from `<startTime>/uniform/reactorState` (the real log: `Initial keff = 1.003457`)
+                    let rs = ReactorState::read(&root.join("0")).map_err(|e| case_err(root, format!("0/uniform/reactorState: {e}")))?;
+                    let (k0, p_target) = (rs.k_eff, rs.p_target);
                     let input = read_nuclear_data(&root.join(format!("constant/{name}/nuclearData")))?;
                     let xs = CrossSectionData::from_input(&input).map_err(|e| case_err(root, format!("{name}: cross sections: {e}")))?;
                     let zones = read_cell_zones(&poly)?;
@@ -431,6 +433,21 @@ impl RegionSolvers {
     #[must_use]
     pub fn region(&self, name: &str) -> Option<&Region> {
         self.regions.iter().find(|r| r.name == name)
+    }
+
+    /// Prescribe a vector field of a region (a test or a driver supplying what an absent region would map), e.g. the neutronics `disp`.
+    ///
+    /// # Errors
+    /// [`AppBuilderError`] if the region does not exist or the length is not its cell count.
+    pub fn prescribe_vector(&mut self, region: &str, name: &str, values: Vec<Vector3>) -> Result<(), AppBuilderError> {
+        let Some(r) = self.regions.iter_mut().find(|r| r.name == region) else {
+            return Err(case_err(Path::new(""), format!("no region {region}")));
+        };
+        if values.len() != r.fv.n_cells {
+            return Err(case_err(Path::new(""), format!("{region}.{name}: {} values for {} cells", values.len(), r.fv.n_cells)));
+        }
+        r.fields.set_vector(name, values);
+        Ok(())
     }
 
     /// `correctBaffleLessFields()` of region `i`: publish the solver's outputs the other regions map from.
