@@ -673,6 +673,7 @@ pub mod external_source_case;
 pub mod precursor_drift;
 mod pseudo_time;
 mod transient;
+pub mod expansion;
 pub mod xs_evolution;
 pub mod upstream_eigenvalue;
 pub mod upstream_transient;

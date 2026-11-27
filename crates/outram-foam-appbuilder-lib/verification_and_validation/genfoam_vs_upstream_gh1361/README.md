@@ -6072,3 +6072,22 @@ Round 42's eigenvalue level: step count and final `Time` equal (60 within 1e-9);
 | R1 | rounds 39/40/42/43 SP3 and diffusion tests | do not move: 95 % |
 
 Item (2) of the issue (liquid-fuel `XsEvolution`, `DiffusionNeutronics::step`, `disp`-driven `radExp`/`axExp`, `2D_FFTF`) gets its own predictions block, committed before its first run.
+
+## Item (2c): `disp`-driven `radExp` / `axExp` (predictions written BEFORE the probe is built or run and before the port function is run; committed first)
+
+### Read before any run
+`setNeutronicsVariables.H:85-115`: `radExp = fvc::div(DNeutroRad)/2.0` with `DNeutroRad` a copy of `disp_` whose component `i` is multiplied by `1 - axialOrientation_[i]`, `correctBoundaryConditions()` before and after; `axExp = fvc::grad(disp_ & axialOrientation_) & axialOrientation_`. `disp_` (`XS.C:168`) is `READ_IF_PRESENT` from `<time>/neutroRegion/disp` (zero, `zeroGradient` when absent); both operators use the case's `fvSchemes` `default Gauss linear`. The port had no way to make these two columns of the feedback-parameter matrix (`XsEvolution::new(.., cell_parameters, ..)` takes them as inputs: refused by name). New: `diffusion/expansion.rs::{expansion_from_displacement, cell_parameters_with_expansion}`. Searched first: `grep -rn "radExp|axExp|disp" neutronics/` finds only the parameter names and the tutorial-keff doc table (inputs read from a log); nothing computes them. No kovan-reviewed function in `diffusion/` (`review.md` has no `kind = "review"` block).
+
+### Method
+`upstream_driver/dump_xs_exp` (`dumpXSexp.C`, derived from GeN-Foam's `XS` class like `dump_xs_df`) reads a case whose `0/neutroRegion/disp` holds a closed-form displacement, calls `xs.correct()`, and dumps `disp`, the two expansion fields (`xsVariableFields_`) and the interpolated cross sections (`D`, `nuSigmaEff`, `sigmaRemoval`, `sigmaFromTo_0_1`, `discFactor`) per cell at 17 digits. Data `nuclearData.x0`: the `i0` zones plus `xsVariables { axExp lin; radExp lin; }` and four states (`axExp`, `radExp` in {0, 0.02}^2) whose zone data are the `i0` values times fixed synthetic factors (`scripts/make_r47_data.sh expansion`: inputs of both codes, not physics). Displacement inputs (closed form in `z`, `x`, `y` by `+ - * /` only, `scripts/make_r47_expansion_case.sh`): `dA = (0.004 x (1+z), 0.003 y (1 - z/2), 0.008 z + 0.004 z^2)`, `dB = (0.002 (y - x), 0.001 x z, 0.01 (z + 1.0985)/2.197)`; cases `ea` (`dA`, axis `(0 0 1)`), `eb` (`dB`, axis `(0 0 1)`), `ec` (`dA`, `axialOrientation (1 0 0)`). The port reads upstream's dumped `disp` as its input (so the inputs are bit-identical), builds the parameter matrix with `expansion_from_displacement`, materialises through `XsEvolution` and is compared with the dump. Test `tests/genfoam_expansion_vs_upstream.rs`.
+
+### Criteria (fixed now) and predictions
+Bit-identical = every value `==`; otherwise the worst relative difference (of the field maximum), and an unexplained difference above 1e-9 is a miss.
+
+| id | claim | prediction |
+|---|---|---|
+| E1 | per-cell `radExp` and `axExp` of the port against upstream's `xsVariableFields_`, cases `ea`, `eb`, `ec` | bit-identical 55 %; else <= 1e-12 of the maximum 35 % |
+| E2 | the interpolated `D`, `nuSigmaEff`, `sigmaRemoval`, `sigmaFromTo_0_1` per cell (both groups) from the port's own parameters | bit-identical 80 % (round 6 found the interpolation bit-identical); if E1 is not, within 1e-12 |
+| E3 | `discFactor` per cell | 1 exactly (no adjustment, lists 1) |
+| E4 control | the port with `disp` zero (`axExp = radExp = 0`) against the upstream cross sections of `ea` | `D` differs by > 1e-3 relative somewhere |
+| E5 | `expansion_from_displacement` of a purely axial displacement on the unit mesh test (unit tests) | `radExp` 0 and `axExp` the exact end-corrected gradient; the axis choice moves the displacement between the two branches |
