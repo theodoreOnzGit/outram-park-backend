@@ -583,7 +583,7 @@ impl FlowState {
         Self {
             u_old: u.c.clone(),
             p_rgh,
-            phi: fv::flux(g, u),
+            phi: fv::flux_openfoam(g, u),
             phi_solver: case.alpha_phi.clone(),
             mag_u: u.c.iter().map(|v| v.mag()).collect(),
             kd: vec![0.0; n],
@@ -657,7 +657,7 @@ impl OnePhaseCcSolver {
             let nu = th.mu / th.rho(self.t[o]);
             arn.b[i] = self.alpha[o] * rho0 * (nut_b[i] + nu);
         }
-        let gamma = fv::interp_linear(&g, &arn);
+        let gamma = fv::interp_linear_openfoam(&g, &arn);
         let zg = Scalar::uniform(&g, 0.0, g.default_bcs());
         let mut e = UEqnCc::new(&g);
         e.eqn.div_upwind_internal(&g, &self.alpha_rho_phi);
@@ -702,7 +702,7 @@ impl OnePhaseCcSolver {
             }
             s
         };
-        let alphaf = fv::interp_linear(&g, &alpha_s);
+        let alphaf = fv::interp_linear_openfoam(&g, &alpha_s);
         for f in 0..nf {
             if g.active[f] {
                 self.alpha_phi[f] = alphaf[f] * fs.phi[f];
@@ -724,7 +724,7 @@ impl OnePhaseCcSolver {
             let o = m.owner[ni + i];
             ar.b[i] = self.alpha[o] * rau[o];
         }
-        let alpharauf = fv::interp_linear(&g, &ar);
+        let alpharauf = fv::interp_linear_openfoam(&g, &ar);
 
         let mut converged_piso = false;
         let mut corr_piso = 0usize;
@@ -768,7 +768,7 @@ impl OnePhaseCcSolver {
             let mut ms = Vector::uniform_with_constraint_patches(&g, Vector3::ZERO);
             ms.c = fc.momentum_source.clone();
             ms.correct_bc(&g);
-            let ms_flux = fv::flux(&g, &ms);
+            let ms_flux = fv::flux_openfoam(&g, &ms);
             let mut phi_s = vec![0.0; nf];
             for f in 0..nf {
                 if g.active[f] {
@@ -776,7 +776,7 @@ impl OnePhaseCcSolver {
                     phi_s[f] += alpharauf[f] * ms_flux[f];
                 }
             }
-            let hbya_flux = fv::flux(&g, &hbya);
+            let hbya_flux = fv::flux_openfoam(&g, &hbya);
             let mut phi_hbya = vec![0.0; nf];
             let mut rauf = vec![0.0; nf];
             for f in 0..nf {

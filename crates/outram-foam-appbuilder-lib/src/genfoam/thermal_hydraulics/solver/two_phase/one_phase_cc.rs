@@ -534,7 +534,7 @@ impl OnePhaseCcCase {
         let region = "fluidRegion";
         let mesh = read_poly_mesh(poly_mesh_dir)?;
         let zones = read_cell_zones(poly_mesh_dir)?;
-        let g = Geometry::new(mesh.clone());
+        let g = Geometry::new_openfoam(mesh.clone());
         let n = g.n_cells();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
             let mut cells = Vec::new();
@@ -903,13 +903,13 @@ impl OnePhaseCcCase {
             uf.c = u.clone();
             uf.bc = fcase.u_bc.clone();
             uf.correct_bc(&g);
-            let phi = fv::flux(&g, &uf);
+            let phi = fv::flux_openfoam(&g, &uf);
             let alpha_s = Scalar {
                 c: alpha_structure.iter().map(|s| 1.0 - s).collect(),
                 b: (ni..g.n_faces()).map(|f| 1.0 - alpha_structure[mesh.owner[f]]).collect(),
                 bc: vec![Bc::Calculated; mesh.patches.len()],
             };
-            let af = fv::interp_linear(&g, &alpha_s);
+            let af = fv::interp_linear_openfoam(&g, &alpha_s);
             let ap: Vec<f64> = (0..g.n_faces()).map(|f| af[f] * phi[f]).collect();
             let arp: Vec<f64> = ap.iter().map(|v| thermo.rho0 * v).collect();
             (arp, ap)
@@ -1037,7 +1037,7 @@ impl OnePhaseCcSolver {
     /// `contErr`, thermo `he`).
     #[must_use]
     pub fn new(case: OnePhaseCcCase) -> Self {
-        let geom = Geometry::new(case.mesh.clone());
+        let geom = Geometry::new_openfoam(case.mesh.clone());
         let n = geom.n_cells();
         // fluid_ = 1.0 - structure_
         let alpha: Vec<f64> = case.alpha_structure.iter().map(|s| 1.0 - s).collect();
@@ -1047,7 +1047,7 @@ impl OnePhaseCcSolver {
             b: (ni0..geom.n_faces()).map(|f| alpha[geom.mesh.owner[f]]).collect(),
             bc: vec![Bc::Calculated; geom.mesh.patches.len()],
         };
-        let alpha_f = fv::interp_linear(&geom, &sa);
+        let alpha_f = fv::interp_linear_openfoam(&geom, &sa);
         let he: Vec<f64> = case.t.iter().map(|&t| case.thermo.hs(t)).collect();
         // `correctContErr`: ddt(alpha, rho0) is exactly 0 at construction (old time = current).
         let dv = fv::div(&geom, &case.alpha_rho_phi);
@@ -1492,7 +1492,7 @@ impl OnePhaseCcSolver {
             b: vec![0.0; g.n_faces() - ni],
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
-        let ae_f = fv::interp_linear(&g, &ae);
+        let ae_f = fv::interp_linear_openfoam(&g, &ae);
         let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
         e.neg_laplacian(&g, &gam, &he_scalar);
         // right-hand side: alpha rho0 (U.g); alpha ddt(p) = 0 exactly (p is never modified)

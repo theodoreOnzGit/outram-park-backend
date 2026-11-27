@@ -24,6 +24,11 @@
 //! and `fvm::div(phi, precStar)` puts that flux into `internalCoeffs`, i.e. into the diagonal of every cell. The port
 //! (and the test, and the workflow) set that flux to exactly 0.
 //!
+//! **Round 49 (gh:#1897).** The residual of the 8 symmetric quads was not the face routine (bit-identical to upstream's
+//! `makeFaceCentresAndAreas` on all 34 578 faces) but the POINTS: ESI reads `0.8417393185` as `strtold` narrowed (a double
+//! rounding), one ulp below Rust's parse. With `io::parse_foam_f64` in `read_poly_mesh` every array of this test (`Sf`, `C`,
+//! weights, `phi` internal and wedge, diag, source, upper, lower, groups 0/3/7, both fluxes) is `==` upstream's.
+//!
 //! Predictions H1-H5, P1-P3, C1 and their criteria: README "Round 43", committed before the first run. Results: README
 //! "Round 43 results".
 
@@ -185,18 +190,18 @@ fn the_precursor_matrix_matches_the_instrumented_upstream() {
         } else {
             wedge_bad = wedge_bad.max(b);
             // the wedge faces: `faceNormals()` of the patch points against `Sf/|Sf|` of the mesh differ in the last bit
-            assert!(b <= 8 && w < 1e-8, "H2 wedge patch {pi}: {b} faces, worst {w:e}");
+            assert!(b == 0, "H2 wedge patch {pi}: {b} faces, worst {w:e} (bit-identical since round 49, gh:#1897)");
         }
     }
-    // post-run (measured: 22 faces, 9.4e-16 of max): the geometry of 8 quads differs (below), phi inherits it
-    assert!(bad_phi <= 22 && w_phi < 2e-15, "H2 internal phi: {bad_phi} faces, {w_phi:e}");
+    // round 49 (gh:#1897): bit-identical (was 22 faces, 9.4e-16 of max before the points were read as ESI reads them)
+    assert!(bad_phi == 0, "H2 internal phi: {bad_phi} faces, {w_phi:e}");
 
     // geometry (the cause of the remainder)
     let (bsf, _) = diff_report("geometry Sf", &flat(&m.mesh.face_area_vectors[..m.mesh.n_internal_faces]), &r["Sf"]);
     let (bc, _) = diff_report("geometry C", &flat(&m.mesh.cell_centres), &r["C"]);
     let w: Vec<f64> = (0..m.mesh.n_internal_faces).map(|f| outram_foam_basic_lib::fv_operators::fvc::linear_weight(&m.mesh, f)).collect();
     let (bw, _) = diff_report("geometry weights", &w, &r["w"]);
-    assert!(bsf <= 12 && bc <= 21 && bw <= 22, "geometry: Sf {bsf}, C {bc}, w {bw}");
+    assert!(bsf == 0 && bc == 0 && bw == 0, "geometry: Sf {bsf}, C {bc}, w {bw} (was 12/21/22 before round 49)");
 
     // H3/H4/H5: the matrix of groups 0, 3, 7, with the port's own transport and with upstream's internal flux
     for k in [0usize, 3, 7] {
@@ -211,14 +216,10 @@ fn the_precursor_matrix_matches_the_instrumented_upstream() {
             let (bs, ws) = diff_report(&format!("group {k} source, {label}"), mat.source.as_slice(), &source_up);
             let (bu, _) = diff_report(&format!("group {k} upper, {label}"), mat.ldu.upper.as_slice(), &r[&format!("upper_{k}")]);
             let (bl, _) = diff_report(&format!("group {k} lower, {label}"), mat.ldu.lower.as_slice(), &r[&format!("lower_{k}")]);
-            // the cells and faces of the geometry difference only (post-run sizes)
-            assert!(bd <= 8 && wd < 6e-15, "H3 diag group {k} {label}: {bd} cells, {wd:e}");
-            assert!(bs <= 8 && ws < 5e-15, "H3 source group {k} {label}: {bs} cells, {ws:e}");
-            if !own {
-                assert!(bu <= 6 && bl <= 20, "H3 off-diagonals group {k}: {bu}/{bl}");
-            } else {
-                assert!(bu <= 22 && bl <= 22, "H3 off-diagonals group {k} own phi: {bu}/{bl}");
-            }
+            // round 49 (gh:#1897): bit-identical (before: 8 diag/source cells, 5/18 off-diagonals with upstream's phi, 22/22 with own)
+            assert!(bd == 0, "H3 diag group {k} {label}: {bd} cells, {wd:e}");
+            assert!(bs == 0, "H3 source group {k} {label}: {bs} cells, {ws:e}");
+            assert!(bu == 0 && bl == 0, "H3 off-diagonals group {k} {label}: {bu}/{bl}");
         }
     }
     let _ = wedge_bad;

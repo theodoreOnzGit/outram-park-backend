@@ -220,8 +220,6 @@ pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
     true
 }
 
-/// The first entry of `d` whose (regex) key matches `name`, as OpenFOAM
-/// looks up `relaxationFactors` and `solvers`.
 /// OpenFOAM's dictionary lookup of `name`: the exact keyword if there is one, else the LAST declared pattern that matches (patterns
 /// are searched from the newest entry back, so a catch-all `".*"` declared after `"h.*"` shadows it).
 pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
@@ -231,7 +229,17 @@ pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a
     d.iter().filter(|(k, _)| key_matches(k, name)).last().map(|(_, e)| e)
 }
 
+/// Dictionary lookup as OpenFOAM does it for `solvers`, `relaxationFactors` and `divSchemes`: the exact keyword, else the LAST
+/// matching pattern ([`lookup_pattern_last`]). gh:#1902 (README round 49): this used to return the FIRST matching pattern
+/// ([`lookup_regex_first`], kept as the named old form); OpenFOAM's `dictionary::lookupEntryPtr` walks its pattern list from the
+/// newest entry back (`dictionary.C:105,127,665,693`: `patterns_.push_front`).
 pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+    lookup_pattern_last(d, name)
+}
+
+/// The first entry of `d` whose (regex) key matches `name`: the form of [`lookup_regex`] before gh:#1902, kept as the named
+/// old behaviour (it differs from OpenFOAM's when two patterns match).
+pub(super) fn lookup_regex_first<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
     }

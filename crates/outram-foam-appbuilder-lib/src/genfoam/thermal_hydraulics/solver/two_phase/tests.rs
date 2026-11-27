@@ -638,3 +638,25 @@ fn two_phase_momentum_a_and_h_with_a_slip_face_follow_cmpt_av_and_has_no_relaxat
     let e1 = s.correct_u_eqn(0);
     assert_eq!(e0.eqn.ldu.diag, e1.eqn.ldu.diag);
 }
+
+// gh:#1902 (README round 49): OpenFOAM resolves a solver name to the exact keyword, else the LAST matching pattern.
+#[test]
+fn lookup_regex_takes_the_last_matching_pattern_as_openfoam_does_and_the_first_form_is_kept() {
+    use super::case::{lookup_regex, lookup_regex_first};
+    use outram_foam_basic_lib::io::dict::{FoamEntry, FoamFile};
+    let text = "\"h.*\" { solver smoothSolver; tolerance 1e-6; }\n\".*\" { solver PBiCGStab; tolerance 1e-9; }\nh.liquid { tolerance 5e-3; }\n";
+    let d = FoamFile::parse(text).expect("dict").dict;
+    let tol = |e: Option<&FoamEntry>| match e {
+        Some(FoamEntry::SubDict(s)) => match s.get("tolerance") {
+            Some(FoamEntry::Scalar(x)) => *x,
+            _ => f64::NAN,
+        },
+        _ => f64::NAN,
+    };
+    // `h.gas`: two patterns match; the last wins (`".*"`), the old form took `"h.*"`
+    assert_eq!(tol(lookup_regex(&d, "h.gas")), 1e-9);
+    assert_eq!(tol(lookup_regex_first(&d, "h.gas")), 1e-6);
+    // an exact keyword beats every pattern in both forms
+    assert_eq!(tol(lookup_regex(&d, "h.liquid")), 5e-3);
+    assert_eq!(tol(lookup_regex_first(&d, "h.liquid")), 5e-3);
+}

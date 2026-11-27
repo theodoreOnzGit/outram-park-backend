@@ -440,6 +440,10 @@ pub fn cell_geometry_from_faces(
 /// zero-area face (`sumA < ROOTVSMALL = 1e-150`) takes the vertex mean and a
 /// zero area. ~~Each triangle centre was divided by 3 before the area
 /// weighting; threshold `EPSILON`.~~ **CORRECTED 2026-11-11 (gh:#1489).**
+///
+/// **Verified again 2026-11-27 (gh:#1897, README round 49):** on the 34 578 faces of the MSFR neutronics mesh, given upstream's own
+/// points (dumped `%.17g`), `Sf` and `Cf` equal upstream's `==` on every face (0 differ). The 8-face discrepancy of round 43 was in how
+/// the points were READ ([`crate::io::parse_foam_f64`]), not in this routine.
 pub fn face_centre_and_area(points: &[Vector3], verts: &[usize]) -> (Vector3, Vector3) {
     let n = verts.len();
     debug_assert!(n >= 3);
@@ -581,9 +585,13 @@ impl ListCursor {
         let t = self
             .next()
             .ok_or_else(|| self.err("expected a number, found end of input"))?;
-        // ESI's `readDouble` (strtold, then narrowed): gh:#1897
-        super::foam_number::parse_foam_f64(&t)
-            .ok_or_else(|| self.err(format!("expected a number, found `{t}`")))
+        // The correctly rounded parse, on purpose (gh:#1897, README round 49): ESI's `readDouble` is `strtold` narrowed
+        // ([`super::foam_number::parse_foam_f64`], used by `appbuilder::read_poly_mesh`), but the committed cfMesh stage meshes
+        // that `outram-foam-cli`'s `cfmesh_vs_upstream_stages` compares in bits are 16-digit dumps of in-memory values, and
+        // reading them the ESI way moves 6 of 49 829 points one ulp away from the port's (that test failed). Which reader
+        // `PolyMesh::read` should be is a maintainer decision (filed).
+        t.parse::<f64>()
+            .map_err(|_| self.err(format!("expected a number, found `{t}`")))
     }
 }
 
