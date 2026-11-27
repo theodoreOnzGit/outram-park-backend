@@ -68,6 +68,7 @@ pub mod case;
 pub mod dict;
 pub mod esi;
 pub mod field;
+pub mod foam_number;
 pub mod poly_mesh;
 
 #[cfg(feature = "std")]
@@ -82,6 +83,7 @@ pub use field::{
     write_surface_scalar_field_esi, write_vol_scalar_field_esi, write_vol_vector_field,
     write_vol_vector_field_esi,
 };
+pub use foam_number::parse_foam_f64;
 pub use poly_mesh::{cell_geometry_from_faces, face_centre_and_area, MeshFace, PolyMesh};
 
 /// Errors raised while reading or writing OpenFOAM ASCII case files.

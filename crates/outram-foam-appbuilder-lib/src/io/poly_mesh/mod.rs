@@ -238,7 +238,8 @@ pub fn parse_points(text: &str, file: &str) -> Result<Vec<[f64; 3]>, AppBuilderE
         let nums: Vec<f64> = triple
             .split_whitespace()
             .map(|t| {
-                t.parse::<f64>().map_err(|_| AppBuilderError::Parse {
+                // ESI v2506 `readDouble` (strtold, then narrowed to double): gh:#1897
+                outram_foam_basic_lib::io::parse_foam_f64(t).ok_or_else(|| AppBuilderError::Parse {
                     file: file.to_string(),
                     line: 0,
                     msg: format!("bad float in points: {t:?}"),

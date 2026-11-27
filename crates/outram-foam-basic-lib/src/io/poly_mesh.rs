@@ -581,8 +581,9 @@ impl ListCursor {
         let t = self
             .next()
             .ok_or_else(|| self.err("expected a number, found end of input"))?;
-        t.parse::<f64>()
-            .map_err(|_| self.err(format!("expected a number, found `{t}`")))
+        // ESI's `readDouble` (strtold, then narrowed): gh:#1897
+        super::foam_number::parse_foam_f64(&t)
+            .ok_or_else(|| self.err(format!("expected a number, found `{t}`")))
     }
 }
 

@@ -6657,3 +6657,47 @@ Upstream: GeN-Foam 652b3da, `thermalHydraulics/src/functionObjects/*` and `bound
 ### Reproduction
 
 `bash scripts/build_and_run_fo1871_dump.sh`, `build_and_run_bc1871_dump.sh`, `build_and_run_nb1871_dump.sh` (each builds its driver against the unmodified `libFFSSrc2` and writes the gzipped reference); `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_function_objects_vs_upstream --test genfoam_boundary_conditions_vs_upstream --test genfoam_nusselt_baffle_vs_transcription -- --nocapture`.
+# Round 49 (gh:#1897, #1902; children of #1216; maintainer 2026-11-27: "Match all upstream", and on #1897 "sure, go")
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27.
+
+## Part A (gh:#1897): what was read and found BEFORE the predictions (stated so the order is not hidden)
+
+The task as filed was "make basic-lib's face centre/area routine a translation of OpenFOAM-ESI v2506's own". Read first: `primitiveMeshFaceCentresAndAreas.C` (only calls `primitiveMeshTools::makeFaceCentresAndAreas`), `primitiveMeshTools.C:204-262` (the routine), and `basicFvGeometryScheme.C` (`movePoints` calls `primitiveMesh::updateGeom`; `updateGeom(points, ...)` calls the same `makeFaceCentresAndAreas` then `makeCellCentresAndVols`; `weights()` uses `|Sf.(Cf-C_P)|` and `|Sf.(C_N-Cf)|`). The disassembly of the shipped `libOpenFOAM.so` routine (`objdump`: 0 fused multiply-add; SSE2 packed `mulpd/subpd/addpd`, `divpd` by `n`) shows the same arithmetic as basic-lib's `io::face_centre_and_area`: `fCentre = (sum of points) / n`, `n = (next - this) ^ (fCentre - this)`, `a = sqrt((nx^2 + ny^2) + nz^2)`, `c = (this + next) + fCentre`, `sumAc += a c`, `(1/3) sumAc / sumA`, `0.5 sumN`.
+
+Measured (probe `upstream_driver/dump_face_geometry_r49/`, built on the shipped OpenFOAM, `moving 0`, `recompute-differs 0`; the MSFR neutronics mesh of round 43 read from the committed `cases/msfr_neutro/polyMesh`):
+
+1. A Python transcription of the routine in IEEE double (no FMA) gives upstream's `Sf` on **all 34 578 faces, bit for bit**.
+2. basic-lib's `face_centre_and_area` on upstream's own points (dumped `%.17g`) gives upstream's `Sf` and `Cf` on **all 34 578 faces, bit for bit**. The face routine was never the defect; the "documented as operation for operation" claim was true.
+3. The round-43 refs (`Sf`, `Cf`, `C`, `w`) equal this probe's output exactly, so the reference is the same geometry.
+4. **The cause is the points.** 4 of 52 860 coordinates (points 6897, 7886, 15689, 16678, the `z` of vertices of the 8 symmetric quads) are read by upstream one ulp BELOW the correctly rounded value: file text `0.8417393185` is `0.84173931849999994` in OpenFOAM and `0.8417393185` in Rust's `str::parse::<f64>`. ESI's `readDouble` is `::strtold` narrowed to `double` (`doubleScalar.C`: "convert using larger representation to properly capture underflow"), i.e. a DOUBLE rounding through the x87 80-bit type: decimal to a 64-bit significand, then to 53 bits. `appbuilder::parse_points` (`t.parse::<f64>()`) fed the routine a different input. Round 43's reading ("basic-lib's routine differs from upstream's") put the cause in the wrong place; its measurements (which faces, which size) were right.
+
+**Change.** `outram_foam_basic_lib::io::parse_foam_f64` (new, `src/io/foam_number.rs`; integer arithmetic only, so no_std/wasm/Android give the same bits): a decimal is converted to the 64-bit-significand value (nearest-even, exact big-integer quotient with sticky bit) and then to 53 bits (nearest-even). Used by basic-lib's `read_points` and `appbuilder::parse_points`. `face_centre_and_area` is unchanged (nothing to translate; no kovan review stamp in `src/io/`, re-checked: its `review.md` holds a `kind = "note"` only). Check against the real `strtold`: 10^6 pseudo-random decimal strings, **0 mismatches**; `strtold` differs from `str::parse` in 149 of them (`tests/foam_number_vs_strtold.rs` embeds the 149 and 120 others; generator `upstream_driver/strtold_ref/strtold_ref.cpp`). After the change `read_poly_mesh` gives `Sf` equal to upstream's on **0 differing of 34 578 faces** (before: 8 faces).
+
+Not changed here, listed on purpose: the field-value and dictionary number readers (`appbuilder::io::field_reader` 4 sites, basic-lib `io::dict` 3 sites, `io::field` 1 site) still use `str::parse`. It is the same one-line change, but every recorded pin that reads a field or dictionary number would be re-measured; see the results for what was done.
+
+## Part A predictions (written BEFORE the suites were re-run with the new parser; committed first)
+
+| id | quantity | prediction | confidence |
+|---|---|---|---|
+| A1 | `genfoam_msfr_precursor_matrix_vs_upstream`: geometry `Sf`/`C`/`weights` not-identical counts (were 12/21/22) | all 0 | 95 % |
+| A2 | same test: `phi` internal (22) and the 7+7 wedge-flux entries; diag/source/upper/lower with upstream's phi (8/8/5/18) and with the port's phi | all 0, the precursor matrix becomes bit-identical | 80 % (round 43 attributes the whole residual to the 8 faces) |
+| A3 | `genfoam_msfr_transient_vs_upstream` step-1 `rel_prec_max` (was 2.0e-16), `rel_flux_max`, `rel_dP` | step-1 precursors exactly 0: 55 %; the others fall below their old values: 80 %; none rises | |
+| A4 | every other workspace test that reads a mesh `points` file | moves at most 1 ulp in about 1 coordinate per 10^4; no gate fails; pins that move do so by < 1e-9 relative | 90 % |
+| A5 | basic-lib and appbuilder-lib full test suites | no failure caused by the parser | 85 % |
+| A6 | crates outside the two (`outram-foam-mesh`, `outram-blender`, `outram-park-fork-cfmesh`) | do not call `parse_foam_f64`, so unchanged | 99 % |
+
+## Part B (gh:#1902) scope and predictions
+
+Read first (`genfoam/thermal_hydraulics/solver/two_phase/fv.rs`): `Geometry::new` / `new_openfoam`, `interp_linear` / `interp_linear_openfoam`, `flux` / `flux_openfoam`, `reconstruct`; and `case::lookup_regex`. Plan, in order, each step measured before the next, old forms kept under a new name: (B1) audit of `lookup_regex` callers (first match to last match, with tests); (B2) switch the shared defaults `interp_linear`, `flux`, `Geometry::new` to the OpenFOAM operation order; (B3) re-measure the GeN-Foam vs-upstream tests and tighten only where the result is bit-identical. B4 (matrix assembly keeping `D` and per-face coefficients apart, `fvMatrix::relax` per component, `reconstruct` by `safeInv`, `dev2_div`) and the outer-3 `T`/`rho` ulp are attempted only if B1-B3 leave time; whatever is not done is filed.
+
+| id | prediction | confidence |
+|---|---|---|
+| B1 | at least one `lookup_regex` caller besides `h` resolves a key whose dictionary has both a specific and a catch-all pattern in a shipped case | 50 % |
+| B2 | switching `interp_linear`/`flux`/`Geometry::new` moves every non-chaotic vs-upstream gate by < 1e-12 relative; no gate in rounds 3-47 needs loosening | 75 % |
+| B3 | `one_phase_cc` agrees more closely after B2 (every worst-case difference falls or stays), not bit-identical because matrix assembly (B4) differs | 70 % |
+| B4 | two-phase boiling gates (pre-onset) do not move beyond their recorded tolerance; post-onset amplification (1e-6 to O(1) within 0.5 s) unchanged in kind | 85 % |
+
+## Criteria (fixed here)
+
+A pin may move for round-off by up to 1e-9 relative (direct) or 1e-4 (propagated), recorded old/new where it lives; beyond that, or unexplained, stop and report. No gate is loosened. A gate is tightened only to a value the post-run measurement supports and only where the result is bit-identical.
