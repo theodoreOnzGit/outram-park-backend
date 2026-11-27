@@ -6523,3 +6523,67 @@ Every residual is below the 1e-9 allowance, with a **cause found by experiment**
 ### Reproduction
 
 `bash scripts/build_and_run_h2_dump.sh` (builds `upstream_driver/h2_dump` against `libFFSSrc2`, writes `refs/h2_dump.ref.txt.gz`); `cargo test --release -p outram-foam-appbuilder-lib --lib hydrogen -- --nocapture`.
+
+
+# Round 51 (gh:#1871): GeN-Foam function objects and boundary conditions against the real classes
+
+## What is compared, and how (written 2026-11-27 BEFORE any driver was built or run, and before any port change of this round)
+
+Upstream: GeN-Foam 652b3da, `thermalHydraulics/src/functionObjects/*` and `boundaryConditions/*`, built unmodified in `libFFSSrc2.so` (OpenFOAM-ESI v2506). Read in full first: `TBulk.C`, `massFlow.C`, `pressureDrop.C`, `patchScalarFieldValue.C`, `fieldDiffExtents.C` + `fieldDiffExtentsTemplates.C`, `stopIfMaxFieldDiff.C`, `fieldIntegralToFMU.C`, `blackBodyRadiation`, `timeFieldTable`, `velocityRundown`, `NusseltThermalBaffle1D` (.C and .H).
+
+**Two upstream facts found while reading (they are predictions of defects in the port, tested below):**
+
+1. `stopIfMaxFieldDiff::write` tests `max(field1 - field2).value() > 0`, and `max(GeometricField)` is `UNARY_REDUCTION_FUNCTION_WITH_BOUNDARY` (`GeometricFieldFunctions.C:467`): the boundary values take part. The port's `evaluate_stop_if_max_field_diff` looks at cells only.
+2. `blackBodyRadiation` takes `sigma` from `constant::physicoChemical::sigma` (computed from the OpenFOAM constants of `etc/controlDict`); the port hard-codes `5.670_374_419e-8` (CODATA 2018). Operation order also differs: upstream `mag(-kappa * (Tp - Ti) * invD)`, port `|kappa (Tcell - Tface) / d|`.
+
+**Method (all items).** `upstream_driver/fo1871_dump/` (function objects) and `upstream_driver/bc1871_dump/` (boundary conditions) construct the REAL classes (`functionObject::New` / the patch-field run-time table) on a small hexahedral `blockMesh` box (4 x 3 x 2 cells, graded in all three directions, patches `inlet`, `outlet`, `walls` (zero flux), `caps`; two internal face sets `fsA` (a plane, 6 faces) and `fsB` (a box, mixed orientations) with the matching face zones `fsA`, `fsB`), drive every input from closed-form fields (`double((a*n + b*c) % m)/m`, only `+ - * /`) over 12 steps, call `execute()` and `write()` as the run loop does and print what the class wrote (`postProcessing/<name>/<start>/<name>.dat` at `writePrecision 17`) plus its inputs at `%.17g`. The port is fed the SAME inputs (a quantity that comes from another model, `thermo.Cp()`, is taken from the dump and said so) and every output is compared with `to_bits`.
+
+**Criteria (fixed here; none changes after the results).** An output is "identical" iff `to_bits` equal (so `-0.0` vs `0.0` is a difference). A residual below 1e-9 relative with an explained cause is allowed (CLAUDE.md); a 1-ulp petir-vs-glibc transcendental difference is accepted and pinned (petir AGENTS.md). Anything else is a miss, recorded at its size with the cause marked post-run. Gates are not changed after a result. Each comparison has a control that must fail (below).
+
+**Items**
+
+| id | item | what is compared | controls (must fail) |
+|---|---|---|---|
+| F0 | mesh geometry | `V`, `C`, `Sf`, `Cf`, `magSf`, linear `weights`, `deltaCoeffs` of the port's `read_poly_mesh` mesh against the real mesh | n/a |
+| F1 | `massFlow` | `patch` (4 patches, one with zero flux), `faceZone` (2), `faceSet` (2), `scaleFactor` 1 and 180; 12 steps | face order sorted instead of the set's iteration order; `scaleFactor` dropped |
+| F2 | `TBulk` | `patch` (4), `faceZone`, `faceSet` (`fvc::interpolate(T)`, `fvc::interpolate(Cp)`), 12 steps; `Cp` from `hPolynomial` thermo (varies with `T`), dumped | `Cp` taken uniform |
+| F3 | `pressureDrop` | `patch`/`patch`, `faceSet`/`faceSet`, `patch`/`faceSet`; 12 steps | `p` taken without interpolation (cell values) |
+| F4 | `patchScalarFieldValue` | every face value of 3 patches x 12 steps, and the written time | a permuted face order |
+| F5 | `fieldDiffExtents` | scalar and vector (`mag`) fields, internal and per patch, `referencePosition` non-zero, a step with an empty mask | `>=` instead of `>` in the mask |
+| F6 | `stopIfMaxFieldDiff` | the step at which the run stops, in a variant whose maximum is on a boundary face only | cells-only maximum (the port as it stands) |
+| F7 | `fieldIntegralToFMU` | UP TO THE FMU BOUNDARY ONLY: the class is not compiled upstream (needs `commDataLayer`, FMU4FOAM, `isCommDataLayerIncluded`); the driver evaluates upstream's own statement `gSum(scalarField(field, zone) * scalarField(V, zone))` literally on a real cell zone | sorted vs zone order |
+| G1 | `blackBodyRadiation` | the patch value after each `updateCoeffs()`/`evaluate()` over 12 steps (the BC iterates on its own patch value), `sigma` itself, `deltaCoeffs` | the port's old form |
+| G2 | `timeFieldTable` | patch value per step with times before `tStart`, on nodes, between nodes, in the last interval (NOT after the last node: see below) | the old per-face interpolation form |
+| G3 | `velocityRundown` | patch value per step, construction before and after `t0` | wrong `t0` |
+| G4 | `NusseltThermalBaffle1D` | NOT run as a class (see "refused" below); the port's new arithmetic is compared with the driver's literal transcription of `updateCoeffs`/`calcH`/`evaluate` on real OpenFOAM `scalarField`s | n/a |
+
+**Refused by name, before any run (gh issues filed with the results).** (1) `faceSet` iteration order is the order of a `labelHashSet`; the port takes the order as an input (the dump prints it); `HashSet` bucket order is not ported. (2) `fieldDiffExtents` for `symmTensor`, `tensor`, `sphericalTensor` fields. (3) `fieldIntegralToFMU` itself and its `commDataLayer` output. (4) `NusseltThermalBaffle1D`'s `mappedPatchBase` neighbour lookup, `fluid`/`FSPair` lookups, `kappaEff`, two-phase mixed-pair coupling: they are solver hooks; the port gets the arithmetic with explicit inputs. (5) `timeFieldTable` past its last node: upstream's `while (true)` increments `currentIndex_` and reads `table_[currentIndex_ + 1]` beyond the list (undefined behaviour); it is not run and the port is not asked to reproduce it (recorded as an upstream defect).
+
+## Predictions (written 2026-11-27 BEFORE any run)
+
+| id | claim | probability |
+|---|---|---|
+| F0 | mesh quantities of the box mesh bit-identical (`V`, `C`, `Sf`, `Cf`, `magSf`) | 85 % |
+| F0b | port `linear_weight` and boundary delta coefficient equal the real `weights` / `deltaCoeffs` | 70 % |
+| F1a | `massFlow` `patch`, non-zero patches bit-identical | 90 % |
+| F1b | the zero-flux patch (`walls`): port gives `-0.0` (Rust's `Sum` seeds with `-0.0`), upstream `+0.0`: MISS | 60 % |
+| F1c | `faceZone`/`faceSet` bit-identical given the face order the dump prints | 85 % |
+| F1d | the sorted-order control differs from the set-order result in at least one bit on `fsB` | 40 % (a sum of 12 numbers often agrees) |
+| F2a | `TBulk` `patch` bit-identical given the dumped `Cp` | 85 % |
+| F2b | `TBulk` `faceZone`/`faceSet`: the port has no such variant: ADDED this round; bit-identical after it | 70 % |
+| F3a | `pressureDrop` `patch`/`patch` bit-identical | 90 % |
+| F3b | `pressureDrop` `faceSet`: ADDED this round (uses `fvc::interpolate`, `w*(P-N)+N`); bit-identical | 75 % |
+| F4 | `patchScalarFieldValue` values bit-identical | 95 % |
+| F5a | `fieldDiffExtents` scalar internal/patch extents bit-identical (min/max of coordinates minus `C0`) | 85 % |
+| F5b | vector (`mag`) fields: ADDED this round; bit-identical (`mag` = `sqrt(magSqr)`) | 70 % |
+| F5c | the empty-mask step: extents `((0 0 0) (0 0 0))` in both | 90 % |
+| F6a | cells-only port does NOT stop at the boundary-only step, upstream does: MISS (defect) | 85 % |
+| F6b | after the fix the stop step equals upstream's in every variant | 90 % |
+| F7 | zone sum bit-identical (the port's `Sum` seed is a `-0.0`, irrelevant for non-zero sums) | 85 % |
+| G1a | `sigma`: the port's constant differs from `constant::physicoChemical::sigma.value()`: MISS (relative about 1e-7) | 90 % |
+| G1b | after using upstream's value, per-step patch values bit-identical (the `pow` 1-ulp petir-vs-glibc allowance may be used) | 55 % |
+| G2a | the port's per-face `ScalarInterpolateTable` form differs from `c*f0 + (1-c)*f1` in at least one bit over the run: MISS | 80 % |
+| G2b | after translating `updateField` (sticky index, `c = (t1-t)/(t1-t0)`), bit-identical | 90 % |
+| G3a | `velocityRundown` bit-identical (1-ulp `pow` allowance possible) | 65 % |
+| G3b | construction after `t0` (`U0 /= pow(...)`): the port cannot represent it before this round: MISS | 80 % |
+| G4 | the port's arithmetic equals the driver's transcription bit for bit | 80 % |
