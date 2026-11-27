@@ -391,10 +391,13 @@ fn tight_gamg_th_steps_match_the_real_binary() {
     check_tight("tight_gamg", &r, lg.n);
 }
 
-/// Control (README Round 77): the same steps under `AllrunEdits::default()` (`SubstitutePcgDic`) must NOT meet C1's field gate at 1e-9.
+/// Control (README Round 77), PRE-RUN form: the same steps under `AllrunEdits::default()` (`SubstitutePcgDic`) must NOT meet C1's field gate at 1e-9.
+/// **MISSED (post-run, 2026-11-27):** the PCG substitute meets 1e-9 as well (worst 4.0e-12 over 10 steps): at the TIGHT protocol both solvers drive
+/// `p_rgh` to the round-off floor, so the field gate does not discriminate GAMG from PCG there. This test now PINS that measured fact (post-run);
+/// the discriminating control is the loose one below.
 #[test]
 #[ignore = "minutes in release; run with --ignored"]
-fn the_pcg_substitute_does_not_meet_the_tight_gamg_gate() {
+fn the_pcg_substitute_also_meets_the_tight_field_gate_so_that_gate_does_not_discriminate() {
     if !refs_present(&["msfr_gamg_r77_tight_log.ref.txt.gz", "msfr_gamg_r77_tight_fields.ref.txt.gz"]) {
         return;
     }
@@ -407,7 +410,24 @@ fn the_pcg_substitute_does_not_meet_the_tight_gamg_gate() {
     print_th("control_pcg", &r);
     let worst = r.fields.iter().flat_map(|(_, v)| v.iter().map(|x| x.1)).fold(0.0_f64, f64::max);
     println!("control: worst field difference of the PCG substitute {worst:e}");
-    assert!(worst > 1e-9, "the substitute met the gate: C1 does not discriminate");
+    assert!(worst <= 1e-9, "post-run pin: measured 4.0e-12");
+}
+
+/// Control (post-run, README Round 77 addendum B): at the LOOSE protocol the PCG substitute is a different solver from upstream's GAMG: over the
+/// first 300 steps its `p_rgh` iteration counts differ from the real as-shipped run's (the native GAMG's are all equal, test above).
+#[test]
+#[ignore = "about a minute in release; run with --ignored"]
+fn the_pcg_substitute_parts_from_the_real_loose_gamg_counts() {
+    if !refs_present(&["msfr_gamg_r77_loose_log.ref.txt.gz"]) {
+        return;
+    }
+    let l1 = read_log(&ref_path("msfr_gamg_r77_loose_log.ref.txt.gz"));
+    let root = stage("loose_pcg", false);
+    let edits = AllrunEdits { end_time_th: end_time_after(&l1.dt, 300), write_interval_th: Some(1.0), ..AllrunEdits::default() };
+    let r = run_th(&root, &edits, &l1, None);
+    print_th("loose_pcg", &r);
+    println!("loose_pcg: differing p_rgh counts {} of {}", r.prgh.3.len(), r.prgh.0);
+    assert!(!r.prgh.3.is_empty(), "the substitute reproduced every GAMG iteration count");
 }
 
 /// Worst relative `a_i / b_i - 1` over two `DT` lists.
