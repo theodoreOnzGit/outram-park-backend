@@ -8787,3 +8787,50 @@ See the list of tests run below; all pass at their pins. The one change to an ex
 ### Reproduction
 
 `bash scripts/make_round73_variants.sh cases/fullcoupling_fluid <out>` then `bash scripts/run_round73_variants.sh <out> <refs out>` (about 5 s per variant); `bash scripts/make_esfr_fluid_case.sh <dir>` then `bash scripts/run_esfr_fluid_real.sh tight <dir> 50 <prefix>` (88 s) and `loose` (80 s); the 200-step run `WRITE_INTERVAL=10 KEEP="10 50 100 200" bash scripts/run_esfr_fluid_real.sh tight <dir> 200 <prefix>` (240 s); port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_fluid_vs_upstream r73_` and, with `-- --ignored`, `r73_esfr`.
+
+
+
+# Round 74 (gh:#1944 under #1941/#1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah", "3D MSFR or ESFR"): 3D_SmallESFR coupled end to end, serial
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **The audit, the criteria and the predictions below are committed BEFORE the first run of the port on the coupled case and BEFORE the real reference run of this round** (the real binary was run for 3 steps first, only to see that it runs and how long a step takes: 31 s for 3 steps, plus a 20 s `-initializeMappedFields` stage; no number of it enters a criterion).
+
+## What the shipped ESFR stages are (read 2026-11-27)
+
+| stage | where | regionSolvers (fluid / neutro / thermo-mechanics) | selections |
+|---|---|---|---|
+| S1 `legacySolver` | `3D_SmallESFR_NewSolverVerification/legacySolver` | `onePhase` / `diffusionNeutronics` / `legacyThermoMechanics` | steady state, `eigenvalueNeutronics true`, `endTime 200`, `deltaT 1`, `adjustTimeStep false`, `writeInterval 100`; `removeBaffles fluidRegion 1` (21 252 duplicate faces = 10 626 baffle pairs, measured: "Writing 21252 duplicate faces"); coupling dictionary maps `powerDensity -> powerDensityNeutronics` TM to neutro; `meshDeformation neutroRegion disp`; `maxMultiRegionIterations 6 / multiRegionTightCoupled 1 / residual 5e-5` are read only by `multiPhysicsSolver` (none selected here) |
+| S2 `newSolver` | same, `newSolver` | `onePhase` / `diffusionNeutronics` / **`extendedThermoMechanics`** | as S1, but TM to neutro maps `powerDensity -> Q` |
+| S3 `3D_SmallESFR_old` `steadyState` | `3D_SmallESFR_old/rootCase` | as S1 (`Allrun_parallel`: `-legacy -initializeMappedFields`, 4 cores) | `multiRegionCouplingDict_loosely` |
+| S4 `3D_SmallESFR_old` `transient` | `setTransient` of its `Allrun` | `energyNeutroMechLoop multiPhysicsSolver` (fluid + neutro + TM inside one `multiPhysicsSolver`), `eigenvalueNeutronics false`, `solveFluidMechanics false`, `multiRegionCouplingDict_tightly`, `endTime 210`, `adjustTimeStep true`, `deltaT 1e-5` | the Picard loop of `multiPhysicsSolver` |
+
+`Allrun_parallel` of the verification case runs `decomposePar -allRegions` and `mpirun -np 4` (4 cores): this round runs the SAME case serial; a decomposed run is out of scope. Neutronics (all stages): `diffusionNeutronics`, 1 energy group, 8 precursor groups, XS states `XSref`, `TFuel1200K`, `TClad1950K`, `rhoCool500kgm3`, `axialExpansion`, `radialExpansion` (variables `TFuel` log, `TClad` lin, `rhoCool` lin, `axExp`, `radExp` lin), one control rod (position 1.85), `CRmove` empty; no SP3/PK in any ESFR stage. Thermo-mechanics: `legacyThermoMechanics` with `materials { }` cards (8 zones, identical), `thermalSolver on`, `mechanicsSolver on`, `planeStress no`.
+
+**`extendedThermoMechanics` (S2, gh:#1783), checked today.** `git ls-tree 652b3da src/classes/offbeat/src` pins OFFBEAT commit `9845e449b8ff3e3074f5ee8c3372065399dfabc6` of `gitlab.com/foam-for-nuclear/offbeat` (branch `ffn/GeN-Foam2`). The host is reachable, but that commit is **not obtainable**: `git fetch origin 9845e44...` is refused (`not our ref`) and, after fetching every branch (82 MB, scratch), it is not an ancestor of any of them (the `ffn/GeN-Foam2` tip is `b589b96`, 2025-10-06; it has the six headers `extendedThermoMechanics.H` includes but is a different version of the API). A build would need that tip's `offbeatLib` plus the SCIANTIX submodule and a hope that GeN-Foam's calls still compile; the library would then not be "the unmodified upstream at the pinned commit". **Not attempted; S2 stays refused by name** (its real binary cannot be run either).
+
+## Checked first (grep and reading before porting)
+
+* `RegionSolvers::read` (`multi_region/region_solvers.rs`) already builds the three regions for `2D_fullCoupling`: `OnePhaseCcSolver::from_case_dir` (carries `momentumMode faceCentered` since round 73), `DiffusionNeutronics` on a `DeformableMesh`, `LegacyFvmThermoMechanics` (`LegacyFvmCase::read_at`, `TStructGamgPolicy::Native` since round 72), the five `meshToMesh` maps (round 28, bit-identical on these very meshes), `deformMesh`. Reused unchanged; nothing is rewritten.
+* Refusals read from the code before any run: `removeBaffles` on a mesh WITH baffles is refused by name (gh:#1236); the neutronics flux boundary conditions are written for a 2-D case (`frontAndBack` the only `empty` patch, every other patch `fixedValue 0`); the ESFR mapped fields (`thermo:rho`, `T.cladAvForNeutronics`, `secondaryPowerDensity`, `powerDensityNeutronicsToLiquid`) are not exercised in 3-D by any earlier test.
+* Prediction of the FIRST refusal, written before the probe was run: **`removeBaffles on a mesh with baffles is not ported (gh:#1236)`** (Y3 below).
+
+## Criteria (fixed here; none will change after seeing results)
+
+1. **Real reference**: `GeN-Foam -case` (652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`) on the output of `scripts/make_esfr_coupled_case.sh` (tight protocol: tolerances 1e-14, relTol 0, GAMG kept; `writePrecision 17`), 200 steps to `t = 200`, exit 0. Extracted by the streaming `scripts/extract_esfr_coupled_stream.py`: per step `keff_prev keff power maxSigmaEq`, every `p_rgh`, `h` and TM solve (initial residual, iterations), `deltaT`, a fingerprint (n, sum, max, sum of squares) of every listed field of the three regions; full internal fields of the key fields at steps 1, 2, 3, 5, 10, 20, 50, 100, 150, 200. Each reference file under 10 MB, in the refs submodule.
+2. **The port reads and runs the same directory** (`RegionSolvers::read`, inflated copy): no refusal, or the first refusal named and the piece ported (or refused by name), each ported piece differenced on a ONE-EDIT variant against the real binary.
+3. **Per step, first N steps** (N is the number the port reaches within the session, stated with the port's wall time per step; a run over 5 minutes is `#[ignore]`): `keff`, `power`, `maxSigmaEq` `<= 1e-9` relative; `dt` equal; the solve sequence per step equal in count and order; initial residuals `<= 1e-6` relative above `1e-10` absolute; **iteration counts at the noise floor REPORTED, not gated**.
+4. **Fields at the kept steps**: every region's key fields `max|port - up| / max|up| <= 1e-9` on the field's own max-norm; `U` on `max|U|` over all components; fingerprints `<= 1e-9` relative. First diverging step and worst field reported. Bit-identity is the goal; `<= 1e-9` needs an explained cause.
+5. **As-shipped loose run** (tolerances as shipped, `writePrecision 17`), the same span: solve counts and macroscopic quantities (`keff`, `power`, `maxSigmaEq`, `dt`); NOT pointwise fields beyond the span where two real runs 1e-16 apart still agree (round 67 caveat).
+6. **Earlier numbers (rounds 3-73) do not move**; any that does is listed with old and new (1e-9 direct, 1e-4 propagated).
+7. **Refused by name, not ported**: `extendedThermoMechanics` and `fuelBehaviour` (OFFBEAT pinned commit not obtainable), the S4 `multiPhysicsSolver` transient of `3D_SmallESFR_old` (unless a piece below lands), a decomposed parallel run.
+8. **Geometry images** of the ESFR neutronics and thermo-mechanics meshes (axial x-z and y-z, radial x-y slices, by `cellZone`, from the solver's own `polyMesh`), committed beside `images/esfr_fluid_*`, with what was checked by looking.
+
+## Predictions (written before any run of this round)
+
+| id | prediction | P |
+|---|---|---|
+| Y1 | the real reference runs 200 steps, exit 0, in 25-60 min serial (about 10 s a step in the 3-step trial) | 80 % |
+| Y2 | real `keff` at step 200 within 0.1 % of the `Alltest` value 0.936827 (a REPORT, not a gate on the port) | 65 % |
+| Y3 | the first port refusal is the `removeBaffles` one | 75 % |
+| Y4 | once the baffle-less copy exists, the 3-D coupled loop matches the real run at `<= 1e-9` for the first 10 steps | 35 % |
+| Y5 | the port does not reach step 200 of the coupled case in this session (several pieces, each differenced on a variant; per-step cost in the port above the real binary's) | 70 % |
+| Y6 | the loose as-shipped real run differs from the tight one in `keff` at 1e-5 relative or below after 200 steps | 55 % |
