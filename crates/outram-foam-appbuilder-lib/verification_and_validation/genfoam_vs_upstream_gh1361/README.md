@@ -7571,3 +7571,46 @@ Q1 **missed** (stage 1 alone broke 8 tests, all at round-off/chaos level; stage 
 The turbulence equations (`turbulence.rs`: `k`, `epsilon`) and `heSource`'s internal split (interfacial + phase change summed before the `V` product) are not in OpenFOAM's order; the energy equation is covered by the end-to-end gates but has no per-corrector probe (the probe patch dumps the pressure stage only); `relax` selection by `hFinal`/`p_rghFinal` keys is not read (all shipped cases use `".*" 1`); an ablation builder for the helper switch was not added (the old forms remain as `Geometry::new`, `interp_linear`, `flux`, `dev2_div`).
 
 Reproduction: `bash upstream_driver/probe_pressure/run_probe_r58.sh up 40` (probe built by applying probe_pressure.patch to a copy of the classes), port: `python3 -I upstream_driver/probe_pressure/port_probe_r58_insert.py <mod.rs> new` (TEMPORARY edit) with a one-step test, then `cmp_r58.py probe_up.txt probe_port.txt 1 2`.
+
+# Round 61 (gh:#1925, #1922; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah"): the first `p_rgh` solve of the restarted transient; then the point-kinetics variant (PK) of `2D_fullCoupling`
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 62 (2D_FFTF): keep both on merge. **Predictions and every criterion below are committed BEFORE the first instrumented upstream run and before any port run of PK.**
+
+## Part 1 (gh:#1925): method and criteria
+
+Method (binding): an instrumented COPY of upstream's `thermalHydraulics` classes (`/home/user/upstream-build/gh1925`, scratch, deleted after extraction; the shipped tree is not touched) dumps, at 17 digits, for the first three pressure-corrector entries of step 1 of the restarted SH transient (`pEqn_1p.H`, cell-centred `momentumMode`, the case's default): cell `alpha`, `rho` (+ boundary), `p`, `p_rgh` (+ boundary, + `oldTime`), `T`, `psi`, `gh`, `ghf`, `contErr`, `fvc::ddt(alpha)`, `fvc::div(alphaPhi)`, `U`, `phi`, `phi.oldTime`, `alphaf`, `alphaPhi`, `alphaRhoPhi`; the momentum matrix (`A`, `H`, `diag`, `source`, `internalCoeffs`, `boundaryCoeffs`); `rAU`, `alpharAUf`, `rAUf`, `phiSbyA`, `phiHbyA`; `pEqnComp` diag/source; and after the solve `pEqn` `diag`, `upper`, `source`, `internalCoeffs`, `boundaryCoeffs`, `p_rgh`. The port writes the same names (a TEMPORARY edit, never committed) and the FIRST differing quantity in dump order is the finding.
+
+Criteria (fixed here):
+1. The first differing quantity (worst absolute difference exactly 0 is "bit-identical") is named, with its upstream file and line.
+2. The fix is a translation of that upstream line (upstream's form is the default; an ablation stays callable if the old form is kept).
+3. After the fix, round 60 criterion 6 as originally written: fluid solve initial residuals above 1e-10 within 1e-11 absolute, iterations within 3, at every step of the 542; the post-run pins (3.2e-10, 6) of `tests/genfoam_fullcoupling_transient_vs_upstream.rs` are then restored to (1e-11, 3), old and new recorded. If the difference is a restart-emulation difference (something upstream reads from the written `t = 100` directory that the in-memory restart lacks), the binding fix is to read/emulate the written state (e.g. written precision, `phi` rebuilt) and say so.
+4. Earlier numbers (rounds 3-60) do not move (1e-9 direct, 1e-4 propagated); every changed value recorded old/new.
+
+| id | prediction | probability |
+|---|---|---|
+| C1 | the first differing dumped quantity is in the pressure equation's explicit compressibility source (`pEqnComp`: `contErr`, `fvc::ddt(alpha)`, `p_rgh.oldTime`), not in the momentum matrix (`A`, `H`, `phiHbyA` bit-identical to 1e-15) | 55 % |
+| C2 | second candidate: `rho` / `psi` / `p_rgh_in` differ in the 1e-10 range (read-back of a written field versus the running value) | 25 % |
+| C3 | the cause is a restart-emulation difference, not a defect in the continuing-run port (step 1 of the coupled steady state agrees) | 70 % |
+| C4 | after the fix the 542-step fluid solve gates hold at (1e-11, 3) | 60 % |
+| C5 | no earlier number moves | 85 % |
+
+## Part 2 (gh:#1922): PK variant, criteria
+
+Real run: the shipped `Allrun` stages plus the one `regionSolvers.neutroRegion pointKinetics` edit, from the steady state of `ADJ=1` (t = 100, 476 steps), `scripts/make_fullcoupling_transient_case.sh` without `SHIPPED`, `scripts/run_fullcoupling_transient.sh`; a per-step extractor like round 60's (`scripts/extract_fullcoupling_transient.py` extended for the PK log: `power`, `fission`, `totalReactivity`, `extReactivity`, TFuel term, precursor powers, fingerprints of every written field, full fields at steps 1-10, every 25th and the last). Port: `RegionSolvers::restart_transient` with `neutroRegion pointKinetics` (the refusal lifted), `PointKineticNeutronics` built from the READ fluxes and precursors, `RegionSolver::PointKinetics` in the three-region loop; reuse of round 36/48 point kinetics, round 60 restart emulation. Criteria are those of round 59 (1-6) applied at round 60's protocol:
+
+1. runs without refusal, step count equal to the real run, `dt` sequence <= 1e-9 relative, final time <= 1e-12 relative;
+2. `power`, fission power, `totalReactivity`, `extReactivity`, TFuel term, precursor powers <= 1e-9 relative (terms below 1e-12 of `totalReactivity` absolute 1e-15);
+3. fingerprints of every field of the three regions at every step <= 1e-9; kept-step full fields <= 1e-9 on max|.|; velocity on max|U|;
+4. fluid and TM solve logs: counts equal, initial residuals above 1e-10 within 1e-11 absolute, iterations within 3 (noise-floor counts reported, not gated);
+5. controls (each must differ at step 100): feedback off (`feedbackCoeffTFuel 0`: power differs > 1e-6 relative), deformation off (neutronics mesh not moved: differs > 1e-6), neutronics -> fluid power off, fluid -> TM off; TM -> neutronics (`TStructMech`, coefficient 0) is reported as a non-control if it does not differ;
+6. earlier numbers do not move.
+
+| id | prediction | probability |
+|---|---|---|
+| D1 | PK is reached (all pieces ported and a step-by-step comparison produced) this round | 50 % |
+| D2 | PK `power` and reactivity of every step within 1e-9 | 55 % |
+| D3 | fingerprints <= 1e-9 at all steps | 40 % (the restart difference of part 1 may carry over) |
+| D4 | the real PK run has the same step count under the `t = 100` start as the SH run's 542 +- 15 | 30 % |
+| D5 | feedback-off control differs > 1e-6 | 90 % |
+| D6 | deformation-off control differs > 1e-6 | 75 % |
+| D7 | TM -> neutronics off does not differ | 85 % |
