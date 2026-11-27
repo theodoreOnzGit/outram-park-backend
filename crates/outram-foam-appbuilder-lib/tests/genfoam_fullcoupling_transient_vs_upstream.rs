@@ -1507,3 +1507,71 @@ fn the_point_kinetics_reactor_state_write_out_matches_the_real_binary() {
     let port = pk_write_out(&restart);
     check_write_out("restart", &port, &std::fs::read_to_string(vv_dir().join("refs/fc_reactorState_pk_restart_last_r66.txt")).expect("reference"));
 }
+
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// `implicitPredictor.H` (gh:#1926, README round 66 addendum I)
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+/// The SH transient from the written `100` with `neutronTransport.implicitPredictor` set as `value` (the real run's one edit).
+fn stage_implicit(tag: &str, value: &str) -> PathBuf {
+    let root = stage_from_files(&format!("ip_{tag}"), false);
+    let file = root.join("system/neutroRegion/fvSolution");
+    let text = std::fs::read_to_string(&file).expect("fvSolution");
+    let at = text.find("implicitPredictor").expect("implicitPredictor entry");
+    let end = at + text[at..].find(';').expect("entry end");
+    std::fs::write(&file, format!("{}implicitPredictor {value}{}", &text[..at], &text[end..])).expect("write");
+    root
+}
+
+#[test]
+fn the_implicit_predictor_matches_the_real_binary_for_its_first_100_steps() {
+    let reference = load_reference("fc_transient_sh_implicit_r66.ref.txt.gz");
+    let root = stage_implicit("main", "true");
+    let w = run_sh_from_files(&root, CouplingSwitches::default(), reference.n_steps, &reference);
+    print_worst("implicitPredictor", &w);
+    assert_eq!(w.steps, reference.n_steps);
+    assert!(w.time <= 1e-12 && w.dt <= GATE, "time {:e} dt {:e}", w.time, w.dt);
+    // criterion J1/J2 as written (power <= 1e-9 and every fingerprint <= 1e-9 at ALL 100 steps) MISSED: the real transient is unstable (power x1.8 in 127
+    // steps), so a round-off difference is amplified exponentially; the port is bit-equal in `power` to step 30 and <= 1e-9 to step 41, then grows 1e-16 -> 1.1e-4
+    // (`the_implicit_predictor_amplifies_round_off_exponentially`: the port against itself with `deltaT` 1e-13 off reaches 1.9e-4). POST-RUN pins, criterion text unchanged:
+    let first_40 = (0..40).map(|k| rel(w.power_trace[k], reference.nlog[k][0])).fold(0.0_f64, f64::max);
+    println!("implicitPredictor: power worst over the first 40 steps {first_40:e}; over 100 {:?}", w.power);
+    assert!(first_40 <= GATE, "power over the first 40 steps {first_40:e}");
+    assert!(w.power.0 <= 2e-4, "power {:?}", w.power);
+    assert!(w.first_diverging.as_ref().is_some_and(|d| d.0 >= 41), "first diverging fingerprint {:?}", w.first_diverging);
+    assert!(w.predictor_old.0 <= 2e-4 && w.predictor_new.0 <= 2e-4, "integral predictor {:?} {:?}", w.predictor_old, w.predictor_new);
+    assert_eq!(w.iterations_mismatch, 0);
+    assert_eq!(w.solve_count_mismatch, 0);
+    assert!(w.tm_res_abs <= 1e-6, "tm solves {:e}", w.tm_res_abs);
+    // control: `implicitPredictor false` is a different transient
+    let off = stage_implicit("off", "false");
+    let c = run_sh_from_files(&off, CouplingSwitches::default(), 100, &reference);
+    let worst = (0..100).map(|k| rel(c.power_trace[k], reference.nlog[k][0])).fold(0.0_f64, f64::max);
+    println!("implicitPredictor control (false): worst power difference over 100 steps {worst:e}");
+    assert!(worst > 1e-6, "control {worst:e}");
+}
+
+
+/// POST-RUN diagnostic of the implicit-predictor miss (README round 66 addendum I, "Misses"): the transient is UNSTABLE (the real power grows to 17.9 MW
+/// in 127 steps and turns negative), so a round-off difference is amplified. Evidence: the port against the real run at chosen steps, and the port
+/// against ITSELF with a first time step perturbed by 1e-13 relative.
+#[test]
+fn the_implicit_predictor_amplifies_round_off_exponentially() {
+    let reference = load_reference("fc_transient_sh_implicit_r66.ref.txt.gz");
+    let a = run_sh_from_files(&stage_implicit("amp_a", "true"), CouplingSwitches::default(), reference.n_steps, &reference);
+    let b_root = stage_implicit("amp_b", "true");
+    set_entry(&b_root.join("system/controlDict"), "deltaT", "1.0000000000001e-6");
+    let b = run_sh_from_files(&b_root, CouplingSwitches::default(), reference.n_steps, &reference);
+    let mut line = String::new();
+    for k in [1usize, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] {
+        let vs_real = rel(a.power_trace[k - 1], reference.nlog[k - 1][0]);
+        let vs_self = rel(a.power_trace[k - 1], b.power_trace[k - 1]);
+        line += &format!("step {k}: port vs real {vs_real:e}, port vs port(dt+1e-13) {vs_self:e}; ");
+    }
+    println!("implicitPredictor amplification: {line}");
+    // the perturbation of 1e-13 relative grows to the same order as the port-vs-real difference at the end
+    let end_self = rel(a.power_trace[99], b.power_trace[99]);
+    let end_real = rel(a.power_trace[99], reference.nlog[99][0]);
+    assert!(end_self > 1e-7 && end_real > 1e-7, "no amplification: self {end_self:e} real {end_real:e}");
+}
