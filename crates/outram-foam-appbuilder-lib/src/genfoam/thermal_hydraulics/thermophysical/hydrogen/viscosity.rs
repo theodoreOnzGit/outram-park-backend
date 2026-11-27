@@ -57,8 +57,8 @@ pub(super) fn zero_density_viscosity(t: f64) -> f64 {
     let t_star = t / 30.41;
     let ln_t_star = t_star.r_ln();
     let s_star = (2.09630e-1 - 4.55274e-1 * ln_t_star + 1.43602e-1 * ln_t_star.r_powi(2)
-        - 3.35325e-2 * ln_t_star.r_powi(3)
-        + 2.76981e-3 * ln_t_star.r_powi(4))
+        - 3.35325e-2 * ln_t_star.r_powf(3.0)
+        + 2.76981e-3 * ln_t_star.r_powf(4.0))
     .r_exp();
     0.021357 * (W * t).sqrt() / (0.297 * 0.297 * s_star) * 1e-6
 }
@@ -71,11 +71,11 @@ pub(super) fn zero_density_viscosity(t: f64) -> f64 {
 #[inline]
 pub(super) fn excess_viscosity(t: f64) -> f64 {
     let t_star = t / 30.41;
-    let b_star = -0.1870 + 2.4871 / t_star + 3.7151 / t_star.r_powi(2) - 11.0972 / t_star.r_powi(3)
-        + 9.0965 / t_star.r_powi(4)
-        - 3.8292 / t_star.r_powi(5)
-        + 0.5166 / t_star.r_powi(6);
-    b_star * 0.297f64.r_powi(3) * zero_density_viscosity(t)
+    let b_star = -0.1870 + 2.4871 / t_star + 3.7151 / t_star.r_powi(2) - 11.0972 / t_star.r_powf(3.0)
+        + 9.0965 / t_star.r_powf(4.0)
+        - 3.8292 / t_star.r_powf(5.0)
+        + 0.5166 / t_star.r_powf(6.0);
+    b_star * 0.297f64.r_powf(3.0) * zero_density_viscosity(t)
 }
 
 /// Viscosity of pure atomic hydrogen from Chapman-Enskog kinetic theory
@@ -103,17 +103,15 @@ pub(super) fn dynamic_viscosity(p: f64, t: f64) -> f64 {
     let rho_mix = density(p, t);
     let rho_r = rho_mix / 90.5;
     let tr = t / TC;
+    // upstream: 1e-6*(C1*sqr(rhoR) * exp(C2*Tr + C3/Tr + C4*sqr(rhoR)/(C5+Tr) + C6*pow(rhoR, 6.0)))
+    // (the exp multiplies C1*rhoR^2; an earlier form of this port put C1*rhoR^2 inside the exp: gh:#1872)
+    let excess_exponent = 4.56334068e-2 * tr
+        + 2.32797868e-1 / tr
+        + 9.58326120e-1 * (rho_r * rho_r) / (1.27941189e-1 + tr)
+        + 3.63576595e-1 * rho_r.r_powf(6.0);
     let viscosity_h2 = zero_density_viscosity(t)
         + excess_viscosity(t) * rho_mix
-        + 1e-6
-            * (6.43449673
-                * rho_r
-                * rho_r
-                * (4.56334068e-2 * tr
-                    + 2.32797868e-1 / tr
-                    + 9.58326120e-1 * rho_r * rho_r / (1.27941189e-1 + tr)
-                    + 3.63576595e-1 * rho_r.r_powi(6))
-                .r_exp());
+        + 1e-6 * (6.43449673 * (rho_r * rho_r) * excess_exponent.r_exp());
 
     let x_h = mole_fraction_atomic_h(p, t);
     if x_h == 0.0 {

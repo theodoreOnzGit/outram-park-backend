@@ -60,11 +60,30 @@
 //! `H2I.H` ever reads them, since every physical property is computed by a
 //! bespoke closed-form correlation instead. This port does not translate
 //! `liquidProperties` or these unused members (they would be dead code with no
-//! caller). A few individual leaf functions with the same property — no
-//! caller upstream and no reference value in upstream's own regression test —
-//! are likewise not ported; see the "no orphaned dead code" notes in
-//! [`collision_integrals`] (`C_12`), [`diffusion`] (`diffusionH2`, the pure-H2
-//! self-diffusivity), and [`equation_of_state`] (`psi`).
+//! caller).
+//!
+//! ~~A few individual leaf functions with the same property — no caller
+//! upstream and no reference value in upstream's own regression test — are
+//! likewise not ported (`C_12`, `diffusionH2`, `psi`).~~ **CORRECTED
+//! 2026-11-27** (gh:#1872 round 50): every method of the real class that is
+//! not a `liquidProperties` pass-through is translated and compared with it
+//! (`omega11_11`, `omega22_11`, `C_12`, `diffusionH2`, `cvPerfectGasH2`, `psi`,
+//! `Hc`); `psi` in particular IS reached by GeN-Foam (OpenFOAM's
+//! `heRhoThermo::calculate` stores `mixture_.psi(p, T)`, read by the
+//! `onePhase`/`twoPhase` pressure equations), contrary to the earlier note.
+//!
+//! ## Defects found by the differential (gh:#1872 round 50)
+//!
+//! * `constants::OMEGA` was `0.305` (upstream's `Zc`); upstream's acentric
+//!   factor is `-0.219`, so `n_`, `alpha0_`, `b_`, `c_` and every
+//!   cubic-equation-of-state property were wrong (`rho` by up to 100 % at
+//!   low `T`, `Cp` and `h` by O(1)); the unit tests' 15 % fixtures did not see it.
+//! * `viscosity::dynamic_viscosity` put `C1*rhoR^2` inside the `exp` of the
+//!   excess term; upstream multiplies `exp(...)` by `C1*rhoR^2`.
+//! * Operation order and `pow`: `a*sqr(T)` was `(a*T)*T`, `pow(x, 3.0)` a
+//!   multiplication chain, `lambda_12` divided before multiplying, `n_` and
+//!   `alpha0_` were associated differently. See
+//!   `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 50".
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -78,6 +97,8 @@ mod heat_capacity;
 mod thermal_conductivity;
 mod thermodynamics;
 mod viscosity;
+#[cfg(all(test, feature = "std"))]
+mod upstream_differential;
 
 use super::units::{
     DynamicViscosity, MassDensity, MassFraction, MoleFraction, PrandtlNumber, SpecificEnthalpy,

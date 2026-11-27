@@ -98,12 +98,18 @@ pub(super) fn specific_entropy(p: f64, t: f64) -> f64 {
 /// the atomic branch of both sensible and absolute enthalpy.
 ///
 /// `T` in K; returns J/kg.
+/// Chemical enthalpy (upstream `H2::Hc`): zero, the reference state is the sensible enthalpy.
+#[inline]
+pub(super) fn chemical_enthalpy() -> f64 {
+    0.0
+}
+
 #[inline]
 pub(super) fn specific_enthalpy_atomic_h(t: f64) -> f64 {
     let t_ = t / 1000.0;
-    let enthalpy_h_kj_per_mol = 218.0 + 20.78603 * t_ + 4.850638e-10 * t_ * t_ / 2.0
-        - 1.582916e-10 * t_.r_powi(3) / 3.0
-        + 1.525102e-11 * t_.r_powi(4) / 4.0
+    let enthalpy_h_kj_per_mol = 218.0 + 20.78603 * t_ + 4.850638e-10 * (t_ * t_) / 2.0
+        - 1.582916e-10 * t_.r_powf(3.0) / 3.0
+        + 1.525102e-11 * t_.r_powf(4.0) / 4.0
         - 3.196347e-11 / t_
         + 211.8020
         - 217.9994;

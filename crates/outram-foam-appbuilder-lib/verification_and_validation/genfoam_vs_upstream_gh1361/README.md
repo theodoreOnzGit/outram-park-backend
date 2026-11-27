@@ -6448,3 +6448,78 @@ None. Round 36's 504 solid-fuel tallies are still bit-identical (`genfoam_point_
 | D6 | the omitted functions (`omega11_11`, `omega22_11`, `C_12`, `psi`, `diffusionH2`, `cvPerfectGasH2`, `Hc`) are not called by any GeN-Foam source outside the class itself and upstream's test driver (`omega11_11` only from `diffusionH2`) | 80 % |
 | D7 | the port's `Cv` (`Cp - CpMCv`) has no upstream counterpart: upstream `CpMCv` is the molecular-H2 EOS value only | 100 % (read) |
 | D8 | no grid point is NaN/inf in one and finite in the other | 60 % (the cubic's discriminant branch and 14 K corners are the risk) |
+
+## Round 50 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions above committed first: `5c38ceaea`; real class run by `scripts/build_and_run_h2_dump.sh` (`h2Dump`, 1 s), reference `refs/h2_dump.ref.txt.gz` in the refs submodule; port tests `--lib hydrogen`, 13 tests, 0.1 s; `src/genfoam/thermal_hydraulics/thermophysical/hydrogen/upstream_differential.rs`)
+
+Correction of the text above, found when the grid was counted: the grid is **47** temperatures x 10 pressures = **470** points (396 tabulated, T <= 6000 K and p < 100 MPa; 74 extrapolation), x **42** methods of the class, not 48 / 480.
+
+### Upstream -> Rust
+
+Every method of `Foam::H2` that is not a `liquidProperties` pass-through is now translated and compared (7 were not before: `omega11_11`, `omega22_11`, `C_12`, `diffusionH2`, `cvPerfectGasH2`, `psi`, `Hc`). `Hs`, `Ha` and `h` are one function. The port's `Cv` (`Cp - CpMCv`) has no upstream counterpart (D7, read: upstream `CpMCv` is the molecular-H2 EOS value only, and OpenFOAM's `thermo::gamma` is `Cp/(Cp - CpMCv)`).
+
+### First run, the unfixed port (the detection; bit-identical points of 396 tabulated)
+
+`rho` 7, `densityH2` 7, `Cp` 0, `h` 0, `S` 0, `entropyH2` 0, `specificEnthalpyH2` 0, `heatCapacityH2` 0, `CpMCv` 0, `mu` 15, `kappa` 5, `thermalConductivityH2` 5, `Pr` 0, `alphah` 0; worst relative differences 1.0 (`rho`), 1.6-1.8 (`Cp`, `h`), 0.8 (`mu`, `kappa`). `viscosity0/1/H`, `omega22_22`, `cpPerfectGasH2`, `specificEnthalpyH` and `B` differed at 1e-16..1e-15 (81..378 of 396 identical). `Kp`, `x_H`, `w_H`, `A_12`, `B_12`, `omega11_12`, `omega22_12`, `densityH`, `heatCapacityH`, `idealEntropyH`, `idealEntropyH2`, `D` were identical.
+
+### Defects found and fixed (each by reading `H2.C`/`H2I.H` first)
+
+1. **`constants::OMEGA = 0.305` was upstream's `Zc`; the acentric factor `omega` is `-0.219`** (`liquidProperties(W, Tc, Pc, Vc, Zc, Tt, Pt, Tb, dipm, omega, delta)`). `n_` was 0.9 instead of 0.264, so `alpha`, the cubic, `rho` (up to 100 % at low T), `Cp`, `h`, `S`, `mu`, `kappa` were all wrong. The old unit fixtures (15 % tolerance on `rho`, upstream's own literature references) did not see it. Moved numbers: every cubic-EOS property (the V&V numbers of the module are the unit tests, all still pass).
+2. **`dynamic_viscosity` evaluated `exp(C1*rhoR^2*(sum))`**; upstream is `C1*sqr(rhoR) * exp(sum)` (`mu`).
+3. Operation order and `pow`, matching upstream's rounding: `a*sqr(T)` (port had `(a*T)*T`) in `heat_capacity`, `thermodynamics`, `collision_integrals`, `thermal_conductivity`; `pow(x, k)` as `r_powf` (port had the `r_powi` multiplication chain; `pow(0.297, 3.0)` is a compile-time-correctly-rounded constant that `r_powf(3.0)` reproduces bit for bit); `pow(W(), 3.0)`; `n_ = 0.4986 + 1.1735 w + 0.4754*sqr(w)` and `alpha0_ = 0.42748*sqr(R Tc)/Pc` associations (`constants.rs`, checked against the class' own `n_`, `alpha0_`, `b_`, `c_` printed by the driver, bit-identical); `3.0*sqr(A_)`, `27.0*sqr(A_)*D_` in the cubic; `lambda_12 = 15/4*R/W_mix*2.6693e-4*...` (port divided first).
+4. Seven methods added (above). No kovan-reviewed function was edited (`review.md` holds no `kind = "review"` block).
+
+### Final result (the gate: `every_ported_property_is_bit_identical_to_the_real_class_on_the_grid`)
+
+Bit-identical at **all 470 points** (396 + 74): `Kp`, `x_H`, `w_H`, `omega11_11`, `omega22_11`, `omega22_22`, `omega11_12`, `omega22_12`, `A_12`, `B_12`, `C_12`, `densityH`, `specificEnthalpyH`, `idealEntropyH`, `idealEntropyH2`, `cpPerfectGasH2`, `cvPerfectGasH2`, `heatCapacityH`, `B`, `viscosity0`, `viscosity1`, `viscosityH`, `D`, `diffusionH2`, `Hc` (25 methods; including the `pow`, `exp`, `ln` chains: petir's ARM no-FMA `pow`/`exp`/`ln` agree with glibc on every one of these 11 750 values).
+
+Not bit-identical, all of them through the **root of the cubic equation of state** (`densityH2`) and what is computed from it; bit-identical points of 396 / 74 (tabulated / extrapolation), worst relative difference:
+
+| property | tabulated | extrapolation | worst |
+|---|---|---|---|
+| `densityH2`, `rho`, `psi` | 287 / 396 | 68 / 74 | 1.6e-10 |
+| `CpMCv` | 307 | 69 | 8.3e-15 |
+| `Cp`, `heatCapacityH2` | 292 | 69 | 4.4e-11 |
+| `Ha`, `Hs`, `h`, `specificEnthalpyH2` | 291 | 70 | 4.4e-11 |
+| `S`, `entropyH2` | 300 | 69 | 6.8e-12 |
+| `Pr`, `alphah` | 289 | 68 | 4.4e-11 |
+| `thermalConductivityH2` | 301 | 68 | 2.5e-15 |
+| `kappa` | 308 | 68 | 2.0e-14 |
+| `mu` | 319 | 69 | 1.8e-15 |
+
+Every residual is below the 1e-9 allowance, with a **cause found by experiment** (flagged for the maintainer per the code-to-code rule; the counts are pinned as a floor in `CUBIC_DEPENDENT`):
+
+* The root is `cbrt(u1) + cbrt(u2) - B/(3A)` (one real root, 204 of 470 points) or `2 sqrt(-p/3) cos(acos(..)/3) - B/(3A)` (three real roots, 266 points). petir's `cbrt` and `cos` are the `libm` (musl) functions, glibc's differ by one ulp: `cbrt` on **47.6 % of 200 000 random arguments** (95 149; scratch test, not committed), `cos` on the argument at p = 6894.76 Pa, T = 1200 K (`0.550914680339110063` against glibc's `0.550914680339110174`; with glibc's value the formula gives upstream's `1.3930370784009938e-3` exactly). At low pressure the terms cancel (`2*594.9*0.5509 - 655.49 = 1.4e-3`), so one ulp becomes 1.6e-10 relative.
+* Substituting a transcription of glibc's `cbrt` (diagnostic only, never committed; it reproduces glibc on 199 999 of 200 000 random arguments) takes `densityH2` from 287/396 to 389/396 identical; the 7 left (and 2 in the extrapolation region) are all in the trigonometric branch (disc < 0), i.e. glibc's `cos`. Substituting both would give bit identity; neither is done in this module because PETIR's rule is that its numerics are ports of a real library and are not to chase one platform's bits (`crates/petir/AGENTS.md`, "A 1-ulp difference ... is accepted"). **Follow-up proposed for the maintainer:** a petir `cbrt` ported from glibc `sysdeps/ieee754/dbl-64/s_cbrt.c` (and `cos`/`acos` from the IBM Accurate Mathematical Library) would close this; filed as a note on gh:#1872.
+* The extrapolation region (T > 6000 K, 100 MPa) behaves like the tabulated one; 74 points, no NaN, no infinity, no NaN/finite disagreement anywhere (D8 held).
+
+### Controls (each must fail; `control_one_ulp_of_the_input_is_detected`)
+
+`T + 1 ulp` changes `Kp` (288 of 396 points differ), `B` (45), and `rho`, `Cp`, `h`, `S`, `mu`, `kappa` (measured on the unfixed port: 0 of 396 identical); `p + 1 ulp` changes `x_H` (110 of 396) and the same cubic-dependent properties, and leaves the T-only `Kp`, `cpPerfectGasH2`, `omega*` untouched (396/396), so the comparison resolves the last bit and does not report a perturbation it cannot see. The first run of the unfixed port above is the detection of defects 1-3 (`OMEGA` alone moves `rho` by up to 100 %).
+
+### Moved numbers
+
+`rho`, `Cp`, `h`, `S`, `mu`, `kappa` and everything computed from them changed by O(1) (defect 1). The module's unit tests (9, hand/literature fixtures at 5-15 %) still pass; the upstream-test fixtures in them were not tightened (they are upstream's own tabulated references at their own tolerance).
+
+### Predictions: held and missed
+
+| # | verdict |
+|---|---|
+| D1 | held (first run: every cubic-dependent property off by 1e-1..1.8; `Kp`, `x_H`, `w_H`, `omega*`, `A_12`, `B_12`, `densityH`, `heatCapacityH` identical; `viscosity0/1/H`, `cpPerfectGasH2` differed at 1e-16, not at the 1e-3 level) |
+| D2 | half held: 1-3 ulp residuals in the operation-order groups held; **"nothing larger than 1e-12" missed**: 1.6e-10 (cubic cancellation, above) |
+| D3 | held, better than predicted: every T-only property bit-identical at all 47 T (0 % of points differ, not < 5 %) |
+| D4 | **missed**: `densityH2` bit-identical at 355/470 = 75.5 % (< 90 %), because of `cbrt`/`cos` |
+| D5 | held (`h` is identical at 291 points against `densityH2`'s 287, `S` at 300) |
+| D6 | **missed in part**: `psi` IS reached (`heRhoThermo::calculate`: `psiCells = mixture_.psi(p, T)`, read as `fluid_.thermo().psi()` in `onePhase/.../updatePP_rghRho_1p.H`, `calcrAUfSetSnGradCalcComp_1p.H`, `updateAlphaPhiAndInitControls_1p.H` and `twoPhase/.../calcComp_2p.H`), and `CpMCv` through `thermo::gamma`; `omega22_11`, `C_12`, `cvPerfectGasH2` and `diffusionH2` (hence `omega11_11`) have no caller outside the class (grep over `src/` and `tests/`); `Hc` is OpenFOAM's `Hc()` override point, `H2::Ha` overrides it |
+| D7 | held (read) |
+| D8 | held (no NaN, no infinity, no disagreement) |
+
+### Findings
+
+1. `H2::B(p, T)` calls `x_H(T, p)` (arguments swapped) upstream; the port reproduces it (bit-identical `B`, 470/470, including T < 50 K where the cubic polynomial is used).
+2. `H2` has no `T(h)` inversion: the temperature is found by OpenFOAM's `thermo::THE` Newton loop over `Hs`/`Cp` of this class (`heRhoThermo`). The port has none and the loop is OpenFOAM, not GeN-Foam: not compared here; the two inputs it iterates are bit-identical to the real class except the cubic-dependent ones listed above.
+3. The class' own test application (`Test-hydrogenThermophysicalProperties`) passes upstream at a 5-15 % threshold against tabulated NIST/Reisfeld values; it could not have seen any of the defects above (the old port passed the same fixtures).
+4. The `3D_NTPfuelAssembly` range (p 3.4-3.7 MPa, T 83.3 K up to ~3000 K) is inside the tabulated region: the per-property tally of the gate (`--nocapture`) covers it, with no split by pressure.
+
+### Reproduction
+
+`bash scripts/build_and_run_h2_dump.sh` (builds `upstream_driver/h2_dump` against `libFFSSrc2`, writes `refs/h2_dump.ref.txt.gz`); `cargo test --release -p outram-foam-appbuilder-lib --lib hydrogen -- --nocapture`.

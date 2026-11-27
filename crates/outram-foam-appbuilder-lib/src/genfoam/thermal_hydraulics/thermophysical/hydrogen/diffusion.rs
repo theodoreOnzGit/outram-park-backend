@@ -20,17 +20,14 @@
 //! rate at which the two species interdiffuse sets how strongly dissociation
 //! couples the pure-species transport properties together).
 //!
-//! Note: upstream `H2I.H` also defines a pure-H2 self-diffusivity
-//! `diffusionH2(p, T)`, but no method in `H2I.H` calls it (`mu`/`kappa` only
-//! need the H-H2 binary term below), nor does upstream's own regression test
-//! exercise it — per this workspace's "no orphaned dead code" rule and to
-//! avoid asserting V&V on a function with no reference data, it is not ported.
+//! The pure-H2 self-diffusivity `diffusionH2` (called by no method of `H2I.H`) was added in gh:#1872 round 50
+//! so that every method of the real class is compared.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use super::collision_integrals::omega11_12;
+use super::collision_integrals::{omega11_11, omega11_12};
 use super::constants::{W, W_H};
 
 /// Binary diffusion coefficient of atomic H through molecular H2 (upstream
@@ -41,7 +38,7 @@ use super::constants::{W, W_H};
 #[inline]
 pub(super) fn binary_diffusion_h_h2(p: f64, t: f64) -> f64 {
     let m12 = 2.0 * W_H * W / (W_H + W);
-    2.628e-7 / (p / 101_325.0 * omega11_12(t)) * (t.r_powi(3) / m12).sqrt()
+    2.628e-7 / (p / 101_325.0 * omega11_12(t)) * (t.r_powf(3.0) / m12).sqrt()
 }
 
 #[cfg(test)]
@@ -91,4 +88,10 @@ mod tests {
         }
         eprintln!("D fixture: max symmetric rel err = {max_rel_err} (threshold 0.05)");
     }
+}
+
+/// Self-diffusivity of molecular hydrogen (upstream `H2::diffusionH2`), m^2/s; no method of `H2I.H` calls it.
+#[inline]
+pub(super) fn self_diffusion_h2(p: f64, t: f64) -> f64 {
+    2.628e-7 / (p / 101_325.0 * omega11_11(t)) * (t.r_powf(3.0) / (W * 1.0e3)).sqrt()
 }
