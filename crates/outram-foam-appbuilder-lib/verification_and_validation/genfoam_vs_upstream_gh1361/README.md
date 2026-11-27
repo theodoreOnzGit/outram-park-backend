@@ -8939,3 +8939,5 @@ Y1 **MISSED** (515 s, not 25-60 min). Y2 held (4.7e-5). Y3 **MISSED** (the first
 ### Reproduction
 
 `INFLATE=1 bash scripts/make_esfr_coupled_case.sh <dir>` (inflated copy for the port; without `INFLATE` for the real binary; `TIGHT=0` for the as-shipped run; `END=<n>`), real: `run` as in `scripts/run_fullcoupling_coupled.sh` without `-initializeMappedFields` and `python3 -I scripts/extract_esfr_coupled_stream.py <dir> <prefix> 200` while it runs (a 3-D write is 28 MB a step; the extractor deletes each step directory after reading it); V1: `python3 -I scripts/make_esfr_coupled_variant_v1.py <dir>`; port: `ESFR_COUPLED_CASE=<inflated dir> ESFR_STEPS=200 ESFR_REF=tight|loose|v1 cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_coupled_vs_upstream esfr_coupled_steps -- --nocapture`.
+
+Issues filed from round 74: gh:#1948 (neutronics fvSolution tolerances on the eigenvalue path), gh:#1949 (step-2 meshDisp/fuelDisp/CRDisp and near-floor residual misses), gh:#1950 (3D_SmallESFR_old transient, decomposed run, baffle-less mesh writer); comments on #1944, #1911, #1941, #1846, #1783, #1910.
