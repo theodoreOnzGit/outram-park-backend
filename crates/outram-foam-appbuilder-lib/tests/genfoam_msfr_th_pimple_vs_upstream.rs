@@ -461,10 +461,13 @@ fn worst_relative(a: &[f64], b: &[f64]) -> f64 {
 /// The result of such a solve is the iterate of an UNCONVERGED Krylov sequence, which amplifies a round-off-sized input change far more
 /// than the tight (1e-14) solves do (measured below: `U` moves by 2e-7 for a 1e-15 relative change of the initial temperature, against
 /// 2e-12 for a converged variant). So the port's difference to upstream on `U` cannot reach the 1e-9 gate of the converged variants.
-/// The DERIVED expectation, not a fitted one, is the port's own sensitivity: the port differs from upstream by no more than 10 times
-/// what the same port moves under a 1e-15 input change, in the fields and in the initial residuals; the outer-iteration counts stay exact.
+/// ~~The DERIVED expectation, not a fitted one, is the port's own sensitivity: the port differs from upstream by no more than 10 times
+/// what the same port moves under a 1e-15 input change, in the fields and in the initial residuals; the outer-iteration counts stay exact.~~
+/// **CHANGED 2026-11-27 (maintainer: "No need to gate"):** the field and residual differences of these two variants are measured and
+/// printed beside the port's own 1e-15 sensitivity, but NOT asserted. What stays asserted is discrete: the outer-iteration counts per
+/// step are exact, and no solve differs by more than one iteration (the round-off flip of the tight stopping test, rounds 20 and 29).
 fn assert_matches_loose(variant: &str, tag: &str) {
-    println!("{variant}: port vs the real binary, loose p_rghFinal: gate = 10 x the port's own round-off sensitivity");
+    println!("{variant}: port vs the real binary, loose p_rghFinal: field differences reported, not gated (maintainer 2026-11-27)");
     let (a, ua) = run_perturbed(variant, &format!("{tag}_a"), false);
     let (b, ub) = run_perturbed(variant, &format!("{tag}_b"), true);
     print("port", &a);
@@ -474,9 +477,10 @@ fn assert_matches_loose(variant: &str, tag: &str) {
     println!("  sensitivity to a 1e-15 input change: U {sens_u:.2e}, field difference {sens_field:.2e}, initial residuals {sens_res:.2e}");
     assert!(a.counts_equal(), "{variant}: outer iterations {:?} against {:?}", a.outer, a.outer_ref);
     assert!(a.worst_iter_diff <= 1, "{variant}: worst iteration difference {}", a.worst_iter_diff);
-    assert!(a.worst_field <= 10.0 * sens_field.max(1e-12), "{variant}: port-upstream {:e} against sensitivity {sens_field:e}", a.worst_field);
-    assert!(a.worst_residual <= 10.0 * sens_res.max(1e-6), "{variant}: residual {:e} against sensitivity {sens_res:e}", a.worst_residual);
-    assert!(sens_field > 1e-9, "no amplification: {sens_field:e}");
+    println!(
+        "  port vs upstream (not gated): field {:.2e}, initial residuals {:.2e}; port sensitivity: field {sens_field:.2e}, residuals {sens_res:.2e}",
+        a.worst_field, a.worst_residual
+    );
 }
 
 /// `finalInnerIter()`: `p_rghFinal` at the last corrector of EVERY outer iteration.

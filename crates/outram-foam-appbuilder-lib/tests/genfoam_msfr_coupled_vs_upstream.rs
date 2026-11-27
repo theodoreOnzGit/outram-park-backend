@@ -466,7 +466,7 @@ fn tightly_coupled_physics_is_one_outer_iteration() {
     let st = stage("tight");
     let a = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect("fluid case");
     let mut case = a.case().clone();
-    case.controls.n_outer = 1;
+    case.controls.pimple.n_outer = 1;
     let mut one = OnePhaseCcSolver::new(case);
     let mut tight = a;
     one.begin_time_step(1e-3);
