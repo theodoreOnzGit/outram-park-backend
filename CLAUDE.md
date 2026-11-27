@@ -745,6 +745,10 @@ not call for a trivial unit test per function.
 - A test over **5 minutes** (or one needing heavy reference data) is gated
   behind the crate's `long-tests` feature, which is **on by default**.
   Multi-hour tests use a plain `#[ignore]`.
+- **Tests never race for the same file (HARD RULE, 2026-11-27):** a test
+  that writes, deletes or changes a file uses its own copy at a unique path
+  (`tempfile`), never a fixed shared name; full rule in
+  [`AGENTS.md`](AGENTS.md).
 - `cargo quick-test` skips them, for iteration only. **Work is not done on a
   quick-test run**: before reporting complete, run
   `cargo test --workspace --lib --tests --release`, and say which one you ran.
