@@ -48,8 +48,10 @@
 //! ## Refused by name
 //!
 //! `GEMReactivityMap` ([`PkModelError::GemNotPorted`]; upstream says itself that it "does NOT work
-//! in GeN-Foam 2.0"), the FMU inputs (`type fmi`), the liquid-fuel precursor transport
-//! (`solvePointKineticsLiquidFuel.H`), and the `reactorState` write-out.
+//! in GeN-Foam 2.0"), the FMU inputs (`type fmi`), ~~the liquid-fuel precursor transport
+//! (`solvePointKineticsLiquidFuel.H`)~~ **CORRECTED 2026-11-27 (gh:#1882, round 48): ported in
+//! [`liquid_fuel`] (`LiquidFuelPk`), bit-identical to the real class with prescribed fluid fields**,
+//! and the `reactorState` write-out.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -63,6 +65,8 @@ use uom::si::frequency::hertz;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
 use uom::si::time::second;
+
+pub mod liquid_fuel;
 
 /// OpenFOAM's `doubleScalarSMALL`.
 const SMALL: f64 = 1.0e-15;
@@ -577,12 +581,25 @@ impl PointKineticNeutronics {
         reactivity
     }
 
-    /// `correctReactivity.H` for the given averages, references and time.
+    /// `correctReactivity.H` for the given averages, references and time (solid fuel:
+    /// `precEquilibriumReactivity_` is 0).
     pub fn reactivity_terms(
         &self,
         v: &FeedbackValues,
         r: &FeedbackReferences,
         t: f64,
+    ) -> ReactivityTerms {
+        self.reactivity_terms_with_prec(v, r, t, 0.0)
+    }
+
+    /// `correctReactivity.H` with `precEquilibriumReactivity_` (liquid fuel, gh:#1882; `0.0` is the
+    /// solid-fuel value and gives the same bits as before: `0.0 + x == x`).
+    pub fn reactivity_terms_with_prec(
+        &self,
+        v: &FeedbackValues,
+        r: &FeedbackReferences,
+        t: f64,
+        prec_equilibrium_reactivity: f64,
     ) -> ReactivityTerms {
         let c = &self.cfg.coefficients;
         let doppler = if self.cfg.fast_neutrons {
@@ -610,8 +627,7 @@ impl PointKineticNeutronics {
             .boron_reactivity
             .as_ref()
             .map_or(0.0, |p| p.value(time));
-        // precEquilibriumReactivity_ is 0 for solid fuel.
-        let total = 0.0
+        let total = prec_equilibrium_reactivity
             + external
             + doppler
             + t_fuel

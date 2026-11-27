@@ -203,7 +203,7 @@ public:
         printScalarList("DIFF", diffCoeffPrecPtr_().primitiveField());
         forAll(precPK_, precI)
         {
-            if (precI != 0 && precI != 7) continue;
+            if (!getenv("PK_ALLGROUPS") && precI != 0 && precI != 7) continue;
             fvMatrix<scalar> precEq
             (
                 withDdt
@@ -239,6 +239,17 @@ public:
                 printf("\nMB %d %d", int(pi), int(precEq.boundaryCoeffs()[pi].size()));
                 for (label i = 0; i < n; ++i) printf(" %.17g", precEq.boundaryCoeffs()[pi][i]);
                 printf("\n");
+            }
+            if (getenv("PK_SOLVE_MIRROR"))
+            {
+                // Solve this matrix once on the real field and put the field back: isolates the linear solver.
+                scalarField saved(precPKStar_[precI].primitiveField());
+                SolverPerformance<scalar> sp = precEq.solve();
+                printf("SV %ld %d %d %.17g %.17g", k, int(precI), int(sp.nIterations()), sp.initialResidual(), sp.finalResidual());
+                forAll(precPKStar_[precI], i) printf(" %.17g", precPKStar_[precI][i]);
+                printf("\n");
+                precPKStar_[precI].primitiveFieldRef() = saved;
+                precPKStar_[precI].correctBoundaryConditions();
             }
         }
         fflush(stdout);

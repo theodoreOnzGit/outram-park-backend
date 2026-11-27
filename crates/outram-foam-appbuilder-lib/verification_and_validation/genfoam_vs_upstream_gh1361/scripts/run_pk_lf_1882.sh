@@ -23,9 +23,10 @@ LAMBDA="(1.246670e-02 2.829170e-02 4.252440e-02 1.330420e-01 2.924670e-01 6.6648
 # variant -> FLOW ALPHA INIT SCNO MATRIX GEOM
 make_case() {
   local v=$1 c=$WORK/$1
-  FLOW=flow; ALPHA=const; INIT=true; SCNO=1; MATRIX=1; GEOM=0
+  FLOW=flow; ALPHA=const; INIT=true; SCNO=1; MATRIX=1; GEOM=0; PKX="PK_DUMMY=1"
   case $v in
     flow) GEOM=1 ;;
+    flowall) PKX="PK_STEPS=4 PK_ALLGROUPS=1 PK_SOLVE_MIRROR=1" ;;   # diagnostic: all groups' matrices and one mirror solve each
     rev) FLOW=rev ;;
     still) FLOW=still ;;
     slow) FLOW=slow ;;
@@ -72,11 +73,11 @@ EOF
   { hdr reactorState; echo "keff 1; pTarget 1.0e9;"; } > "$c/0/uniform/reactorState"
 }
 
-VARIANTS=${*:-flow rev still slow alpha_assign alpha_direct scno noinit}
+VARIANTS=${*:-flow rev still slow alpha_assign alpha_direct scno noinit flowall}
 mkdir -p "$HERE/refs"
 for v in $VARIANTS; do
   make_case $v
-  (cd "$WORK" && if [ $GEOM = 1 ]; then export PK_GEOM=1; else unset PK_GEOM; fi; PK_FLOW=$FLOW PK_ALPHA=$ALPHA PK_MATRIX=$MATRIX $OF pkRunLF1882 -case $v > "$WORK/$v.log" 2>&1) || { tail -20 "$WORK/$v.log"; echo "FAILED $v"; continue; }
-  grep -E '^(CFG|VOL|INITN|ZONE|G|GP|PHI|PHIB|DIFF|M|MD|MU|ML|MS|MI|MB|K|P|PS|F|STEP) |Neutron iteration|neutroResidual|Intermediate Power|Solving for precPKStar|^Beta\[|^liquidFuelBeta|^precEquilibriumReactivity' "$WORK/$v.log" | gzip -9n > "$HERE/refs/pk1882_$v.ref.txt.gz"
+  (cd "$WORK" && if [ $GEOM = 1 ]; then export PK_GEOM=1; else unset PK_GEOM; fi; env $PKX PK_FLOW=$FLOW PK_ALPHA=$ALPHA PK_MATRIX=$MATRIX $OF pkRunLF1882 -case $v > "$WORK/$v.log" 2>&1) || { tail -20 "$WORK/$v.log"; echo "FAILED $v"; continue; }
+  grep -E '^(CFG|VOL|INITN|ZONE|G|GP|PHI|PHIB|DIFF|M|MD|MU|ML|MS|MI|MB|K|P|PS|F|STEP|SV) |Neutron iteration|neutroResidual|Intermediate Power|Solving for precPKStar|^Beta\[|^liquidFuelBeta|^precEquilibriumReactivity' "$WORK/$v.log" | gzip -9n > "$HERE/refs/pk1882_$v.ref.txt.gz"
   echo "$v: $(grep -c '^K ' "$WORK/$v.log") steps, $(stat -c %s "$HERE/refs/pk1882_$v.ref.txt.gz") bytes"
 done

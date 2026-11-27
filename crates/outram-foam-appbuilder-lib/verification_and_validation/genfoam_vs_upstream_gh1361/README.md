@@ -6327,3 +6327,96 @@ Criteria, fixed now: an array or tally is "identical" iff every element is `==`;
 | P6 control | precursors frozen (no transport solve, `prec` kept at the equilibrium) | differs from upstream power by > 1e-4 at step 119: 90 % |
 | P7 | `PointKineticNeutronics` solid-fuel numbers of round 36 (504 tallies) after the change that lets the liquid class reuse `reactivity_terms` | do not move (`==`): 95 % |
 | C1 | the shipped coupled `1D_MSR_pointKinetics` (fluid region with pump and cyclic patches) can be run by the port's `onePhase` region | NOT in this round: 80 % the `onePhase` region refuses cyclic patches / needs GAMG as a named deviation; decision and issue recorded after reading |
+
+
+## Round 48 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; the predictions above were committed first: `6920efba8`; `tests/genfoam_liquid_fuel_pk_vs_upstream.rs`, 7 tests + 2 ignored diagnostics, 2 s; `--nocapture` prints every tally; references `refs/pk1882_<variant>` in the refs submodule, `scripts/run_pk_lf_1882.sh`)
+
+### Cyclic-support decision (asked first)
+
+basic-lib's `FvMesh` and operators DO support a cyclic seam, but as one extra LDU face (`cyclic_couplings`), which is not upstream's form: OpenFOAM keeps a cyclic patch as an `lduInterface` (`internalCoeffs` added to the diagonal in `solve()`, `interfaceBouCoeffs` in `Amul`, `internalCoeffs` again in `Tmul`, nothing in `DILU`). Control S2 shows the difference is real: the SAME bit-identical matrices solved with the seam as an LDU face give a different solution in 24 of 24 single solves (worst 5.0e-5 relative; the iteration counts happened to be the same, 0 of 24 differ). So cyclic coupling for the precursor scalar was TRANSLATED in a new module (`neutronics/point_kinetics/cyclic_transport.rs`; basic-lib not touched, the one-line `pub(crate)` of `legacy_fvm::pbicg::{t_mul, dilu_precondition_t, losort}` is the only edit outside the new files): the geometry of `cyclicFvPatch` (`makeWeights`, `delta`, `nonOrthCorrectionVectors`), `fvc::flux`/linear interpolation with the cyclic weights, `fvm::ddt/Sp/div/laplacian` with their patch coefficients, the explicit non-orthogonal correction of `laplacianSchemes corrected` (with `gradSchemes Gauss linear`), `fvMatrix::solveSegregated` and `PBiCG`/`DILU` with the interfaces. Not done: the fluid region (`onePhase` handles no interface; gh:#1905), so the shipped coupled case is not run.
+
+### Upstream -> Rust
+
+| upstream | Rust |
+|---|---|
+| `solvePointKineticsLiquidFuel.H` (whole) | `model/liquid_fuel.rs::LiquidFuelPk::step` |
+| `pointKineticNeutronics` constructor, `liquidFuel_` branch (`initOneGroupFluxN_`, `domainIntegratedInitOneGroupFluxN_`, `precPK_`, `defaultPrec_`) | `LiquidFuelPk::new` (+ the solid-fuel `PointKineticNeutronics::new`) |
+| `correctReactivity.H` with `precEquilibriumReactivity_` | `PointKineticNeutronics::reactivity_terms_with_prec` (`reactivity_terms` = the same with 0.0: bits unchanged, round 36 re-run) |
+| `alpha`'s `oldTime()` / `storeOldTimes()` | `AlphaUpdate::{Assign, Direct}`, `write_alpha`, `old_time_alpha` |
+| `surfaceInterpolation::makeWeights`, `nonOrthDeltaCoeffs`, `nonOrthCorrectionVectors`; `cyclicFvPatch::makeWeights`, `delta` | `TransportMesh::from_fv_mesh` |
+| `fvc::flux(U*alpha)` (`dotInterpolate`) | `TransportMesh::flux_of_u_alpha` |
+| `EulerDdtScheme::fvmDdt(alpha, psi)`, `fvm::Sp`, `Su`, `gaussConvectionScheme::fvmDiv` (`Gauss linear`), `gaussLaplacianScheme::fvmLaplacian` (scalar gamma, `corrected`), the `fvMatrix` `+`/`-` operators | `assemble_precursor_matrix` (operand order of each) |
+| `correctedSnGrad<scalar>::correction` = `fullGradCorrection`, `gaussGrad::gradf`, `fvc::div` | `TransportMesh::laplacian_correction_source` |
+| `fvMatrix::solveSegregated` (`addBoundaryDiag`), `lduMatrix::Amul/Tmul/sumA/normFactor`, `cyclicFvPatchField::updateInterfaceMatrix`, `PBiCG::solve`, `DILUPreconditioner` | `InterfaceMatrix::solve`, `pbicg_dilu_with_interfaces` (DILU reused from round 23) |
+
+### Result: every quantity of every variant is bit-identical (the gate; after two fixes below)
+
+| variant | steps | PBiCG solves (iterations, initial and final residual) | neutron iterations / `neutroResidual` / intermediate power | power, reactivity, `precEq`, `liquidFuelBeta`, `maxDeltaT`, refs | `precPKStar_` (whole field at 7 steps, sums, samples) | dumped matrices (phi, diffCoeff, diag, upper, lower, source, patch coefficients) |
+|---|---:|---|---|---|---|---|
+| `flow` | 120 | 3672 / 7104 values, all `==` | 120 / 443 / 443 | 120 + 840 | 35840 + 1920 + 4800 | 38550 |
+| `rev` | 120 | 3368 / 6496 | 120 / 405 / 405 | 120 + 840 | 35840 + 1920 + 4800 | 38550 |
+| `still` | 120 | 3576 / 6912 | 120 / 431 / 431 | 120 + 840 | same | 38550 |
+| `slow` | 120 | 3632 / 7024 | 120 / 438 / 438 | 120 + 840 | same | 38550 |
+| `alpha_assign` | 120 | 3632 / 7024 | 120 / 438 / 438 | 120 + 840 | same | 38550 |
+| `alpha_direct` | 120 | 3704 / 7168 | 120 / 447 / 447 | 120 + 840 | same | not dumped |
+| `scno` | 120 | 3704 / 7168 | 120 / 447 / 447 | 120 + 840 | same | not dumped |
+| `noinit` | 120 | 3040 / 5840 | 120 / 365 / 365 | 120 + 600 | same | not dumped |
+
+Worst relative difference of any quantity: **0** in all eight variants; first diverging step: none. 28 328 PBiCG solves in all, every iteration count and residual `==`. The geometry (`tests::the_neutro_mesh_geometry_matches_the_real_mesh`): internal-face weights, `nonOrthDeltaCoeffs`, `magSf`, `Sf` 3834/3834, cell volumes 640/640, the seam and the first wall faces (weights `0.49999999999999045` / `0.5000000000000094`, `nonOrthDeltaCoeffs 53.33333333333232`) 42/42, `nonOrthCorrectionVectors` 1917/1917, all `==`.
+
+### What the first run showed, and what it took (kept; each is a miss of mine, found by the dumped matrix)
+
+First port run (no non-orthogonal correction, source corrected as `(s + x) - x`): iteration counts 3368..3704 of 3368..3704 equal and the neutron-iteration counts 120/120, but the values were not bit-identical (power worst 7.8e-13 to 6.0e-11, precursor cells up to 2.3e-7 in `rev`; 37046 of 38550 matrix values equal in `rev`). Located by the dumped arrays, in this order:
+
+1. **`laplacianSchemes corrected` is not a no-op here (prediction G3 missed).** `nonOrthCorrectionVectors` of the 1-D column are 1e-16..5.9e-15 (not 0); in cells where the precursor field is large (|psi| ~ 1e12 in `rev`, central differencing oscillating) `V div(gammaMagSf (corr & grad psi))` is ~1e-7 against a source ulp of 3e-5 and flips the last bit of the source in 5 of 640 cells. My first argument ("below 1e-30, cannot change a bit") was wrong and is struck through in the module doc. With the correction (`laplacian_correction_source`) the dumped sources are `==`. Control: without it (`LiquidFuelPk::without_non_orth_correction`, `rev`): matrix 37059/38550 equal, `precPKStar_` 23155/35840 equal, worst 1.7e-6.
+2. **The source reaches the PBiCG solve as exactly `s`, not `(s + x) - x`.** With matrices, state and source identical, one single solve (step 2, group 3, mirror solve printed by the driver: `SV` lines) differed in cell 0 by 1 ulp: `(s + x) - x != s` there. Across 16 single solves from the dumped state, 16 are bit-identical WITHOUT `addBoundarySource` + `updateMatrixInterfaces`, 15 with them. Upstream's reading (the two calls cancel) predicts `s` only in exact arithmetic; the binary shows `s` in floating point. Cause not found: gh:#1906. The port passes `s` (module comment); this is data, not understanding, and flagged for the maintainer.
+3. The mesh reader leaves `cyclic_partner` unresolved (`neighbourPatch` not parsed): `parse_cyclic_neighbours` reads it from the `boundary` text (new, in `cyclic_transport.rs`; the reader is not modified).
+
+### Controls (each comparison can fail)
+
+| control | result |
+|---|---|
+| precursors not transported after the equilibrium initialisation (`with_frozen_precursors`, `flow`) | power 1/120 equal, worst 9.4e-3 relative (> 1e-4 gated) |
+| no non-orthogonal correction (`rev`) | matrix 37059/38550 equal, `precPKStar_` 23155/35840, worst 1.7e-6 (see 1) |
+| `alpha.oldTime()` of the wrong form: `alpha_assign` run with `AlphaUpdate::Direct`; `alpha_direct` run with `Assign` | power 1/120 equal; worst 0.99 relative (> 1e-6 gated both ways): which way the mapper writes `alpha` decides `ddt` |
+| the seam as an LDU face (S2) | 24/24 single solves differ, worst 5.0e-5; iteration counts equal 24/24 |
+
+### Moved numbers
+
+None. Round 36's 504 solid-fuel tallies are still bit-identical (`genfoam_point_kinetics_vs_upstream`, 5 tests; `reactivity_terms` now delegates with `0.0`), `--lib point_kinetics` (10) and `--lib neutronics` (83) pass, the MSFR transient (`genfoam_msfr_transient_vs_upstream`) and precursor-matrix (`genfoam_msfr_precursor_matrix_vs_upstream`) tests pass at the round-43 gates, `petir --test no_platform_libm` (4) passes, `scripts/check-nostd.sh` passes with the new module.
+
+### Predictions: held and missed
+
+| # | verdict |
+|---|---|
+| G1 | held (3834/3834, volumes 640/640) |
+| G2 | held (seam values 42/42) |
+| G3 | **missed** (`nonOrthCorrectionVectors` up to 5.9e-15, not 0; and the term matters, finding 1) |
+| A1 | held (`phi` including the seam faces and `PHIB`, all dumped steps) |
+| A2 | held AFTER fix 1 (first run 37046/38550 in `rev`, 37178/38550 in `flow`) |
+| S1 | held AFTER fix 2 (first form: 15 of 16 single solves) |
+| S2 | half held: the solutions differ (24/24, worst 5.0e-5 >= 1e-7), the iteration counts do NOT (0/24 differ) |
+| P1, P2 | held (all 960 steps) |
+| P3 | not measured as stated (cell 0 vs 639 against a no-seam mesh); `still` is bit-identical and S2 shows the seam coupling is in the answer |
+| P4 | held (bit-identical, control 0.99) |
+| P5 | held (`noinit`: references stay 0, bit-identical) |
+| P6 | held (9.4e-3) |
+| P7 | held (nothing moved) |
+| C1 | held: not run; `onePhase` refuses cyclic by lacking the interface form (gh:#1905) |
+
+### Findings (upstream behaviours, reproduced)
+
+1. With `initPrecursorsLiquidFuel false` the references `T*Ref_` stay 0 (set only inside `initialize`), so the Doppler term is `-coeff log(T/SMALL)`: power collapses to ~2 W in `noinit` (reproduced bit for bit). The shipped case sets it true.
+2. `liquidFuelBeta_` and `precEquilibriumReactivity_` are set only at the first step; `precEquilibriumReactivity_` stays in `totalReactivity_` for the whole run (and `liquidFuelBeta_` is recomputed every step but only printed).
+3. `alpha.oldTime()` follows `GeometricField::storeOldTimes()`: an assignment stores the previous value, element writes do not (AlphaUpdate); the multi-region mapper's form is for the coupled round to read.
+4. The cell-based `Amul` (CSR) and the face loop give the same order of additions on a chain (lower contribution, then upper), so the port's face loop is bit-identical here.
+
+### What is NOT done (filed)
+
+* The shipped coupled `1D_MSR_pointKinetics` / `1D_thermalMSR_pointKinetics`: **gh:#1905** (cyclic `onePhase` fluid loop, mapping, case reader, workflow stage).
+* The `solveSegregated` source puzzle: **gh:#1906**.
+* The liquid-fuel class has no case reader and no `EigenvalueStage`; the fluid fields are inputs. `GEMReactivityMap`, FMU, `reactorState` references (as the solid-fuel class), `div` schemes other than `Gauss linear` (upwind etc.), `laplacianSchemes` other than `corrected`, `ddtSchemes` other than Euler, patch kinds other than cyclic / wall / patch / empty (a `wedge` neutro mesh is refused by name, tested).
+
+### Reproduction
+
+`bash scripts/run_pk_lf_1882.sh` (builds `upstream_driver/pkRunLF1882` against `libNeutronicsSolvers`; the `flowall` variant is the 4-step all-group diagnostic with the mirror solves); `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_liquid_fuel_pk_vs_upstream -- --nocapture`; the two diagnostics `the_first_steps_in_detail`, `the_matrix_arrays_in_detail` (`--ignored`) print per-solve and per-array accounts.
