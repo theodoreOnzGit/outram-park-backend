@@ -1386,6 +1386,14 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// CONTROL, NOT upstream (README round 46, N6): every primary cell takes its NEAREST secondary cell with weight 1 instead of the
+    /// `meshToMesh` overlap weights (as `OnePhaseFcSolver::with_nearest_cell_heat_exchanger_mapping`, round 44 C2).
+    #[must_use]
+    pub fn with_nearest_cell_heat_exchanger_mapping(mut self) -> Self {
+        self.heat_exchangers.nearest_cell_mapping = true;
+        self
+    }
+
     /// CONTROL, NOT upstream (README round 44, K5): the secondary side's `htc*T` with `T.prevIter()` instead of the current `T`.
     #[must_use]
     pub fn with_heat_exchanger_secondary_prev_iter_temperature(mut self) -> Self {

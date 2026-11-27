@@ -68,7 +68,7 @@ fn stage(tag: &str, variant: Option<&str>) -> (PathBuf, PathBuf) {
         copy_dir(&vv_dir().join("cases/msfr_th").join(d), &root.join(d));
     }
     if let Some(v) = variant {
-        copy_dir(&vv_dir().join("cases/msfr_th_variants_r44").join(v), &root);
+        copy_dir(&vv_dir().join(variant_dir(v)).join(v), &root);
     }
     let poly = tmp.join("polyMesh");
     std::fs::create_dir_all(&poly).expect("mkdir");
@@ -77,7 +77,21 @@ fn stage(tag: &str, variant: Option<&str>) -> (PathBuf, PathBuf) {
         std::fs::write(poly.join(f), gunzip(&src.join(format!("{f}.gz")))).expect("polyMesh");
     }
     std::fs::copy(vv_dir().join("cases/msfr_th/polyMesh/boundary"), poly.join("boundary")).expect("boundary");
+    // round 46: a variant that adds cell zones carries its own `cellZones` (the same file the upstream run reads)
+    let own = root.join("constant/fluidRegion/polyMesh/cellZones");
+    if own.exists() {
+        std::fs::copy(&own, poly.join("cellZones")).expect("variant cellZones");
+    }
     (root, poly)
+}
+
+/// The overlay directory of a variant: round 44's `hx_self`, round 46's `hx_two` (two zones of equal volume).
+fn variant_dir(v: &str) -> &'static str {
+    if v == "hx_two" {
+        "cases/msfr_th_variants_r46"
+    } else {
+        "cases/msfr_th_variants_r44"
+    }
 }
 
 fn hx_cells(poly: &Path) -> Vec<usize> {
@@ -109,7 +123,7 @@ impl Reference {
 }
 
 fn read_reference(variant: &str) -> Reference {
-    let text = String::from_utf8(gunzip(&vv_dir().join(format!("refs/msfr_th_r44_{variant}.ref.txt.gz")))).expect("utf8");
+    let text = String::from_utf8(gunzip(&vv_dir().join(format!("refs/msfr_th_{}_{variant}.ref.txt.gz", if variant == "hx_two" { "r46" } else { "r44" })))).expect("utf8");
     let mut r = Reference {
         times: Vec::new(),
         global: HashMap::new(),
@@ -452,4 +466,58 @@ fn unequal_zone_volumes_reach_upstreams_fatal_error() {
     std::fs::write(&f, text).expect("write");
     let err = format!("{}", OnePhaseCcCase::read_with_options(&root, &poly, &CaseReadOptions::default()).expect_err("must fail"));
     assert!(err.contains("Primary and secondary zone volumes differ by"), "{err}");
+}
+
+/// README round 46 part 2, N2 (MISSED) and the translation: the mapping of the two-zone variant is EMPTY on this mesh (both codes), and the translation is the one upstream logged (`Heat exchanger twoZoneHX mapping: applied translation of (-1.5199064778192796e-19
+/// -0.0058602120154485071 -0.55158752028054492) m`).
+#[test]
+fn hx_two_mapping_is_empty_on_the_wedge_mesh_and_the_translation_matches_the_upstream_log() {
+    let (root, poly) = stage("map_two", Some("hx_two"));
+    let case = OnePhaseCcCase::read_with_options(&root, &poly, &CaseReadOptions::default()).expect("read hx_two");
+    let hx = &case.heat_exchangers;
+    assert_eq!(hx.zones.len(), 1);
+    let z = &hx.zones[0];
+    assert_eq!(z.primary_cells.len(), 1019);
+    let (mut single, mut multi, mut empty, mut worst_sum) = (0usize, 0usize, 0usize, 0.0_f64);
+    for &c in &z.primary_cells {
+        let w = &z.mapping.tgt_to_src_wght[c];
+        match w.len() {
+            0 => empty += 1,
+            1 if w[0] == 1.0 => single += 1,
+            _ => multi += 1,
+        }
+        if !w.is_empty() {
+            worst_sum = worst_sum.max((w.iter().sum::<f64>() - 1.0).abs());
+        }
+    }
+    println!("hx_two mapping: {single} cells with one weight-1 entry, {multi} fractional, {empty} without source; worst |sum - 1| {worst_sum:e}");
+    println!("hx_two translation: ({:e} {:e} {:e})", z.translation.x, z.translation.y, z.translation.z);
+    // POST-RUN (README round 46 part 2): N2 MISSED. The translation is 0.55 m in z and 6 mm in y, but the 2D mesh is a wedge-thick slab
+    // whose x-faces coincide with their translated copies, and the cell-volume-weight intersection of upstream (log: `Overlap volume: 0`)
+    // and of the port both find NO overlap: every primary cell has no source entry, `HsOp = HTsOp = 0` and `THX = HT/H = T.prevIter`, the
+    // same degenerate algebra as the self-paired variant of round 44. Asserted at the measured size so that the case cannot be mistaken
+    // for a test of fractional weights.
+    assert_eq!((single, multi, empty), (0, 0, z.primary_cells.len()), "the mapping of this mesh is empty in both codes");
+    assert!(worst_sum <= 4.0 * f64::EPSILON, "weights sum to 1 within 4 ulp: {worst_sum:e}");
+    assert!((z.translation.y - -0.0058602120154485071).abs() <= 1e-15 && (z.translation.z - -0.55158752028054492).abs() <= 1e-15);
+    assert!(z.translation.x.abs() <= 1e-15);
+}
+
+/// README round 46 part 2, N3-N8: the port against the real binary on the two-zone exchanger (`hxA` primary, `hxB` secondary), three steps,
+/// and the three controls.
+#[test]
+fn hx_two_matches() {
+    let o = assert_matches("hx_two");
+    print("port", &o);
+    println!("    T.HX worst {:.3e}, T worst {:.3e}", o.worst_of("Z T.HX"), o.worst_of("Z T"));
+    let off = control("hx_two", Some("hx_two"), &CaseReadOptions::default(), |s| s.without_heat_exchangers());
+    print("control: heat exchangers off", &off);
+    assert!(off.worst_of("Z T.HX") >= 0.5, "N7: T.HX must show the exchanger: {}", off.worst_of("Z T.HX"));
+    assert!(off.worst_residual >= 1e-6, "N7: the h solve log must tell: {:e}", off.worst_residual);
+    let near = control("hx_two", Some("hx_two"), &CaseReadOptions::default(), |s| s.with_nearest_cell_heat_exchanger_mapping());
+    print("control: nearest-cell mapping", &near);
+    println!("    N6: T.HX worst with the nearest-cell mapping: {:.3e}", near.worst_of("Z T.HX"));
+    let prev = control("hx_two", Some("hx_two"), &CaseReadOptions::default(), |s| s.with_heat_exchanger_secondary_prev_iter_temperature());
+    print("control: secondary htc*T with T.prevIter()", &prev);
+    println!("    N8: T.HX worst with the secondary side on T.prevIter(): {:.3e}", prev.worst_of("Z T.HX"));
 }
