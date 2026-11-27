@@ -6281,3 +6281,49 @@ The first difference is `T`/`rho` by 1 ulp at outer iteration 3 (above). `OnePha
 ## Part 3: `secondaryRegion` (gh:#1895 (b)): NOT ported; findings
 
 Checked (read, not run): no shipped tutorial uses `secondaryRegion` (grep of `Tutorials/` finds none; `2D_FFTF`'s `heatExchangers` block does not name it), `heatExchanger.C:239,309` look the other region up with `lookupObjectRef<fvMesh>`, take its `htc` (or `htc.liquid.structure`, plus `htc.vapour.structure` in two-phase) and `T` (`T.liquid`) at the moment of the call, and `constructSecondaryHX` translates a copy of THAT region's mesh onto this region's primary zone. `GeN-Foam.C` solves the regions of `regionSolvers` once per step in dictionary order (loose coupling), so the secondary `htc*T` seen by the first region is the previous step's end-of-step state and by the second region the current one. Porting it needs a two-region driver over two `OnePhaseFcSolver`/`OnePhaseCcSolver` instances with a shared `Time`, `setDeltaT` over both, `HeatExchangerZone::new` taking the secondary mesh and zone from the other region, and `HeatExchangerSet::correct` taking the other region's `htc`/`T` slices; the differential case is two `blockMesh` regions of the 1D_HX pipes with `regionSolvers { fluidRegion onePhase; fluidRegion2 onePhase; }` and a `multiRegionCouplingDict`. Not started in this round (time); `secondaryRegion` is still refused by name; follow-up gh:#1904.
+
+# Round 48 (gh:#1882, child of #1216; remainder of #1864): liquid-fuel point kinetics (`liquidFuel true`) on the cyclic 1-D neutro mesh
+
+> Research, education and V&V only. AI draft, unreviewed. Maintainer direction 2026-11-27: "Port genfoam exhaustively", "Match all upstream". Another agent writes Round 46; README merge conflicts keep both.
+
+## Read before any port code (2026-11-27, GeN-Foam 652b3da on ESI v2506)
+
+* `pointKinetics/include/solvePointKineticsLiquidFuel.H` (read in full): the references `T*Ref_` are set ONLY when `initialize` (`initPrecursorsLiquidFuel` and the first time index); the precursors `precPKStar_` (per delayed group, unit "power per volume", solved per fluid volume) are first solved to an EQUILIBRIUM matrix without `ddt` (`Sp(lambda alpha) - initOneGroupFluxN_ power beta/pgt + div(phi) - laplacian(diffCoeffPrec)`), then `liquidFuelBeta_ = sum_i lambda_i pgt weightedPrec_i / powerOld_` with `weightedPrec_i = domainIntegrate(initOneGroupFluxN_ precPK_i) / domainIntegratedInitOneGroupFluxN_`, `precEquilibriumReactivity_ = beta - liquidFuelBeta_` at initialisation (inside `totalReactivity_`, `correctReactivity.H`), then the neutron iteration `do { solve all groups with ddt(alpha, precPKStar) ; power_ = (powerOld_/dt + sum weightedPrec lambda)/(1/dt - (totalReactivity_-beta_)/pgt) } while (neutroResidual > neutronIterationResidual && neutroIter < maxNeutronIterations)`, then the rescale `power_/powerOld_` of fluxes and power densities. `diffCoeffPrec = (alphat + mu/ScNo)/rhoCool`, `phi = fvc::flux(U alpha)` before the matrix. The neutronics `fvSchemes` of the case: `div` `Gauss linear` (central, NOT upwind), `laplacian` `Gauss linear corrected`, `ddt` Euler; `fvSolution`: `PBiCG`/`DILU`, tolerance 1e-6, relTol 1e-3, `neutronIterationResidual 1e-6`, `maxNeutronIterations 50`.
+* The neutro mesh of `1D_MSR_pointKinetics`: 640 hexahedra, `top`/`bottom` CYCLIC (translational, separation 12 m), `walls` (1280 faces), `defaultFaces` empty. Upstream keeps a cyclic patch as an `lduInterface`, not as an LDU face: `internalCoeffs` are added to the diagonal in `solve()`, the off-diagonal coupling is `interfaceBouCoeffs` applied in `Amul`/residual and NOT in the DILU preconditioner. The port's `FvMesh` stores a seam as an extra LDU face (`cyclic_couplings`), which differs in exactly those three places. Searched the port first: basic-lib's `fvm::laplacian`/`div` handle the seam as an LDU face (kept, not modified); `precursor_drift::upstream_precursor_transport` and `upstream_precursor_matrix` (round 43) are for the wedge MSFR mesh and have no seam; `legacy_fvm::pbicg::pbicg_dilu` and `common::linear_solvers` take an `LduMatrix` with no interface list. Reused: the round-36 class (`PointKineticNeutronics`: feedback averages, reactivity terms), `pbicg_dilu`'s algorithm (translated again with interfaces in a new module; basic-lib's face geometry is not touched).
+
+## Method
+
+`upstream_driver/pkRunLF1882/pkRunLF.C` subclasses the real class with `liquidFuel true` on the real `neutroRegion` mesh, sets per step from integer formulas (`double((a*i+b*k)%m)/m`): the six feedback fields (as round 36), `U = (0,0,uz)`, `mu`, `alphat` and optionally `alpha`, calls the real `correctPhysics()` 120 times (`dt` cycling 1e-3..0.2) and prints at 17 digits: power, old power, reactivity, `precEquilibriumReactivity_`, `liquidFuelBeta_`, `maxDeltaT()`, the references, the per-group precursor sums / first-middle-last cells every step and the whole `precPKStar_` at steps 0-3, 10, 40, 119; the real class' own Info lines (neutron iteration count, `neutroResidual`, intermediate power, `PBiCG ... Initial residual, Final residual, No Iterations` of every solve) are kept. Before steps 0, 1, 2, 7, 40 it rebuilds the matrix of the first neutron iteration exactly as the header writes it (equilibrium matrix without `ddt` in step 0) and prints `phi`, `diffCoeffPrec`, `diag`, `upper`, `lower`, `source`, `internalCoeffs`, `boundaryCoeffs` of groups 0 and 7. One variant also prints the mesh geometry (`V`, `C`, `Sf`, `Cf`, `magSf`, `weights`, `nonOrthDeltaCoeffs`, `nonOrthCorrectionVectors`, and every patch's values).
+
+| variant | prescribed fluid fields |
+|---|---|
+| `flow` | `uz = 0.4 + 0.3 f` (all positive), alpha 1, `mu = 4+2f`, `alphat = 2+3f` (cell Peclet ~ 5) |
+| `rev` | `uz = f - 0.4` (both signs, so both sides of the seam see both directions), alpha 1 |
+| `still` | `U = 0` (pure decay + diffusion across the seam) |
+| `slow` | `uz = 0.02 + 0.01 f` |
+| `alpha_assign` | `flow`, alpha `0.5 + 0.5 f` time varying, written by `operator=` (so `alpha.oldTime()` is the previous step's) |
+| `alpha_direct` | the same alpha written by element access (`oldTime()` is the current value) |
+| `scno` | `ScNo 0.7` |
+| `noinit` | `initPrecursorsLiquidFuel false` (the references stay 0, upstream) |
+
+## Predictions (written 2026-11-27 BEFORE any run of the driver and BEFORE any port code of this round; committed first)
+
+Criteria, fixed now: an array or tally is "identical" iff every element is `==`; a residual below 1e-9 relative with an explained cause is allowed (CLAUDE.md), anything else is recorded as a miss at its measured size, the cause marked post-run. Gates are not changed after the results.
+
+| id | claim | prediction |
+|---|---|---|
+| G1 | the port's mesh quantities on internal faces (`V`, `C`, `Sf`, `Cf`, `magSf`, `weights`, `nonOrthDeltaCoeffs`) equal the real mesh's | bit-identical 75 % (hex column; round 43's 8-quad difference was a wedge mesh) |
+| G2 | seam values (`weights`, `nonOrthDeltaCoeffs` of the cyclic patches, `delta = ddi - dni`) from `cyclicFvPatch::makeWeights` and `cyclicFvPatch::delta` | bit-identical 60 % |
+| G3 | `nonOrthCorrectionVectors` are exactly 0 on every face, so `laplacianSchemes corrected` adds nothing | 55 %; if not, the explicit correction is refused by name and recorded |
+| A1 | `phi = fvc::flux(U alpha)` incl. the seam faces (cyclic interpolation weights), all variants | bit-identical 80 % |
+| A2 | matrix arrays (`diag`, `upper`, `lower`, `source`, `internalCoeffs`, `boundaryCoeffs`, groups 0 and 7, steps 0 1 2 7 40, all dumped variants) assembled by the port's interface form | bit-identical 55 % (ordering of the diagonal sum is the risk; the case has no `fvMatrix` operator-order surprise beyond round 43's) |
+| S1 | the port's `PBiCG`/`DILU` with interfaces (`Amul` with `updateMatrixInterfaces`, DILU without the seam, `normFactor` with `sumA` of interfaces): every solve's iteration count and initial residual equal the Info lines, and the solution `==` | bit-identical 45 % |
+| S2 control | the same matrix with the seam as an LDU face (the `FvMesh` form: seam inside DILU and `Amul`) | iteration counts or solution differ from upstream: 85 %, by >= 1e-7 relative somewhere in the precursor fields at step 119: 60 % |
+| P1 | per step: neutron iteration count, every `neutroResidual`, every intermediate power, final power, `powerOld_`, `totalReactivity_`, `precEquilibriumReactivity_`, `liquidFuelBeta_`, `maxDeltaT`, the references, the rescaled field sums | bit-identical on all 120 steps of every variant if S1 holds (45 %); else <= 1e-6 relative and the cause |
+| P2 | per-cell `precPKStar_` at the dumped steps | `==` if S1 holds |
+| P3 | `still`: precursors only decay and diffuse; the port's seam makes the profile symmetric across the seam | bit-identical if S1 holds; the seam coupling is visible (cell 0 vs 639 differ from the no-seam mesh by > 1e-6): 90 % |
+| P4 | `alpha_assign` with `alpha_old` = previous step's alpha | bit-identical if S1; control `alpha_old = alpha` differs by > 1e-6 at some step: 85 % |
+| P5 | `noinit` (references 0, no equilibrium solve) | bit-identical if S1; `precPKStar_` starts at 0 |
+| P6 control | precursors frozen (no transport solve, `prec` kept at the equilibrium) | differs from upstream power by > 1e-4 at step 119: 90 % |
+| P7 | `PointKineticNeutronics` solid-fuel numbers of round 36 (504 tallies) after the change that lets the liquid class reuse `reactivity_terms` | do not move (`==`): 95 % |
+| C1 | the shipped coupled `1D_MSR_pointKinetics` (fluid region with pump and cyclic patches) can be run by the port's `onePhase` region | NOT in this round: 80 % the `onePhase` region refuses cyclic patches / needs GAMG as a named deviation; decision and issue recorded after reading |
