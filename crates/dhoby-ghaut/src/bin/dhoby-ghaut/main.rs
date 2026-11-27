@@ -812,7 +812,9 @@ mod tests {
     ///   two in-core regions; the neutronics map covers the TH and structural
     ///   meshes to ≥ 99 %; a constant maps to itself on every covered cell;
     ///   a power density mapped neutronics → TH keeps its integral over the
-    ///   overlap to 1e-4 (the TH cells' coverage by the neutronics mesh).
+    ///   overlap to ~~1e-4~~ `(1 - coverage) q_max / q_min` (the TH cells'
+    ///   coverage by the neutronics mesh; CORRECTED 2026-11-27, see the
+    ///   assertion).
     /// - **Results (2026-10-05, default sizes, `--headless-mesh`).** 14 041 /
     ///   20 952 / 94 392 cells; volumes −1.24 % / −1.29 % / −0.91 % against
     ///   exact; N → TH covers 99.9999 %, N → S 99.70 %; 18 s on 16 threads.
@@ -1043,7 +1045,20 @@ mod tests {
         // What the neutronics cells put into the TH domain: each source
         // value times its overlap volume with the TH mesh.
         let rhs: f64 = o.src_to_tgt.iter().enumerate().map(|(c, row)| q[c] * row.iter().map(|x| x.1).sum::<f64>()).sum();
-        assert!((lhs - rhs).abs() < 1e-4 * rhs.abs(), "power on TH {lhs} vs deposited {rhs}");
+        // ~~1e-4~~ (maintainer, 2026-11-27): the bound the normalised map
+        // itself implies. A TH cell only partly covered by the neutronics
+        // mesh takes the average of its covered part over its whole volume,
+        // so lhs - rhs = sum_t qt (vt - overlap_t) <= q_max (1 - coverage) V,
+        // against rhs >= q_min coverage V. The 1e-4 was set when the
+        // neutronics mesh had no interface at r = 90 cm (coverage 0.999999);
+        // with fitted region boundaries both meshes are snapped onto that
+        // cylinder with different tilings and ~0.4 mm slivers of the TH
+        // domain lie outside every neutronics cell (coverage 0.999235,
+        // measured 1.54e-4 against a bound of 7.7e-4, 2026-11-27).
+        let cov = b.set.mapping(MeshRole::Neutronics, MeshRole::ThermalHydraulics).unwrap().to_coverage;
+        let (qmin, qmax) = q.iter().fold((f64::MAX, f64::MIN), |a, &x| (a.0.min(x), a.1.max(x)));
+        let bound = (1.0 - cov) / cov * qmax / qmin + 1e-12;
+        assert!((lhs - rhs).abs() < bound * rhs.abs(), "power on TH {lhs} vs deposited {rhs}: off by {:e}, bound {bound:e}", (lhs - rhs).abs() / rhs.abs());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
