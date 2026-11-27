@@ -8621,3 +8621,38 @@ G1 held (0 differences). G2 held. G3 held, better than the 55 % asked: all 1 000
 ### Not ported, not done
 
 Refused by name: processor agglomeration, interfaces, asymmetric matrices, `nPreSweeps != 0`, `interpolateCorrection true`, `directSolveCoarsest true`, `mergeLevels != 1`, `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, smoothers other than `DIC`. NOT wired: `one_phase_fc`, the twoPhase solver, thermo-mechanics (GaussSeidel/DICGaussSeidel, `nCellsInCoarsestLevel 20/50`; asymmetric): gh:#1936. The `forward_` static is a per-case value that starts `true` (upstream: process-wide); a case whose process agglomerated another mesh with `GAMG` first would start from the other state. The real as-shipped 900 s state is untouched and its comparison is gh:#1937. No wasm gate was run (`outram-foam-basic-lib` untouched; the crate's `no_std` build is clean). The matrix of the dump is upstream's own (taken inside the real run) for (a), (b); for (c), (d) the port builds its own matrix (equal to upstream's to ~1e-12).
+
+
+
+# Round 73 (gh:#1939, #1940, #1941; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream"): the `faceCentered` branch of `onePhase` inside `OnePhaseCcSolver`, and the shipped 3D_SmallESFR fluid region
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Predictions and criteria below are written and committed BEFORE any real-binary run of the variants and BEFORE any port run of them. Another agent writes Round 72 (gh:#1936, GAMG wiring); README conflicts are merged keeping both.
+
+## Architecture decision (made by the maintainer's session, followed here)
+
+Upstream has ONE `onePhase` class (`solvers/onePhase/onePhase.C`) with `momentumMode` (`cellCentered`, `cellCenteredFaceReconstruction`, `faceCentered`) as branches inside `UEqn_1p.H` (`if (momentumMode_ != faceCentered) UEqn += fvm::ddt(alpha, rho, U)`) and `correctFluidMechanics` (`pEqnf_1p.H` for `faceCentered`, `pEqn_1p.H` otherwise). The port mirrors that: the `faceCentered` branch is added to `OnePhaseCcSolver` (`one_phase_cc/`, the port that carries cellCentered and cellCenteredFaceReconstruction, rounds 55/62/65), translated line by line from `UEqn_1p.H`, `pEqnf_1p.H` and `reconstructU_1p.H`, so every closure, thermo, structure (passiveProperties, the radial power models incl. `nuclearFuelPinTest`), boundary condition and solver (incl. round 67's `GamgPolicy::Native`) of `one_phase_cc` serves the faceCentered mode too. `one_phase_fc` and its tests stay UNTOUCHED (earlier port; its module doc gets a note). No Kovan review stamp exists in the touched folders (checked: no `kind = "review"` block in any `review.md` under `thermal_hydraulics/`).
+
+**Searched before writing:** `one_phase_cc/flow.rs` (UEqn, pEqn, `reconstruct_u_1p`, `UEqnCc` with `D`/`internalCoeffs` apart) and `one_phase_fc.rs::correct_pressure` (the verified `pEqnf_1p.H` translation, rounds 38/45/46). Reuse: `UEqnCc`, `fv::*`, `pcg_dic`, `GamgSolveState`; the pEqnf logic is re-expressed on the cc state (not copied into fc). Read upstream: `fixedFluxExtrapolatedPressureFvPatchScalarField.C` (ESI v2506) is a constructor-only subclass of `fixedFluxPressure` (no override): an alias; `oneParameter.C` and `byRegimeModel.C` for `byRegime`; `onePhase::correctModels` calls `correctRegimeMaps()` BEFORE `FSPair::correct`, so the regime weights use the Reynolds number of the PREVIOUS correct (lagged).
+
+## Pieces and variants (one-edit variants of `cases/fullcoupling_fluid`, cell-centred, tight round 55 protocol, 20 steps, real binary `END_TIME 4.9`; `scripts/make_round73_variants.sh`, `scripts/run_round73_variants.sh`)
+
+| variant | edits | piece |
+|---|---|---|
+| `f1_facecentered` | `momentumMode faceCentered;` (one) | faceCentered branch: UEqn without ddt, `pEqnf_1p.H`, `reconstructU_1p.H` |
+| `f2_extrap` | inlet `p_rgh` `fixedFluxPressure` -> `fixedFluxExtrapolatedPressure` (one) | the alias |
+| `f3_varrho` | `rhoCoeffs<8> (1000 -0.2 0 ...)` (one) | icoPolynomial with `rho(T)` (non-Boussinesq `fluid::rho()`) in cc mode |
+| `f4_fc_varrho` | f1 + f3 (named pair) | variable rho in the faceCentered equations (`alphaRhof0ByDt`, `rho.oldTime()`) |
+| `f5_byregime` | `regimeMapModels.lamTurb` (Re, laminar (0 20000), turbulent (30000 31000)) + `heatTransferModels.zone0 byRegime` (named pair; the case's Re ~ 2.5e4 is in the INTERPOLATION region) | `byRegime` Nusselt on a one-parameter regime map |
+| `f6_fc_nonorth` | f1 + `nNonOrthogonalCorrectors 1` (named pair) | faceCentered with two pressure passes |
+
+**Criteria (fixed here, not changed after seeing results).** Gated, per variant, at each of the 20 steps: `U` (on max|U|; components reported), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics`: `max|port - up| / max|up| <= 1e-12`; solve count and order per step equal; `dt` sequence `<= 1e-12` relative; `T (avg min max)` lines `<= 1e-12`. REPORTED, NOT GATED: iteration counts of solves whose upstream initial residual is below 1e-10 (noise floor), wall time. A first diverging step is reported with the field. 1e-9 is allowed only with an explained round-off cause, recorded post-run. For `f2_extrap` additionally: the REAL `f2` output equals the REAL base output bit for bit, and the port `f2` equals the port base bit for bit.
+
+**Predictions.** P1: real `f2` == real base, bit-identical (alias; 90 %); port `f2` == port base (95 %). P2: port `f1` <= 1e-12 at the first run: 30 % (the most likely miss is matrix-assembly rounding order, the round 46 finding: if so, `UEqnCc::add` per-term assembly is used as `one_phase_fc` does; a miss at <= 1e-9 with iteration counts within 1 is the likely first result). P3: port `f3` <= 1e-12 at the first run: 60 % (cc already reads `rho(T)` from the thermo). P4: port `f4` <= 1e-12 at the first run: 30 %. P5: port `f5` <= 1e-12: 40 % (the lagged Re of `correctRegimeMaps` is the risk; a miss that disappears with the Re of the same iteration would confirm it). P6: port `f6` <= 1e-12: 30 %.
+
+## Shipped ESFR fluid region after these pieces (what is still needed, read 2026-11-27)
+
+`byRegime` (above), `fixedFluxExtrapolatedPressure` (alias), `slip` U on walls and the two `mappedWall` baffles (`VectorBc::Slip` exists in cc), `calculated` `p` on `mappedWall` (round 65), `h` `smoothSolver`/`symGaussSeidel` (`HSolver::SmoothSymGaussSeidel`, `nSweeps 1`, `relTol 0`: the shipped entry), `nuclearFuelPin`/`nuclearFuelPinTest`, `passiveProperties` (cc has all). Refused by name when not ported: `smoothSolver` with `relTol != 0` or `nSweeps != 1` (not needed by the shipped case).
+
+## ESFR comparison (gh:#1941): protocol, written before the real runs
+
+Real fluid-only case `cases/esfr_fluid` (round 71; `powerDensity` innerCore 1e8, outerCore 8e7 W/m3 prescribed before any port run). Tight reference: GAMG kept as shipped (`smoother DIC`), `p_rgh`/`p_rghFinal` `tolerance 1e-14`, `relTol 0`, `writePrecision 17`, as round 67's tight-GAMG protocol (GAMG is wired native in the cc region), `h` `tolerance 1e-14`; >= 50 steps (`deltaT 1`, `adjustTimeStep false`), references < 10 MB. Gate per step: the fields above `<= 1e-9` (aim 1e-12), reported: first diverging step and field, worst per field, solve counts. Then the as-shipped loose run (`tolerance 1e-7`) for the same steps, compared on solve counts and macroscopic quantities (`T (avg min max)`, max|U|) with round 67's caveat (loose protocol is round-off sensitive: iteration counts beyond the first steps are NOT gated). Long runs are `#[ignore]` with measured wall time.
