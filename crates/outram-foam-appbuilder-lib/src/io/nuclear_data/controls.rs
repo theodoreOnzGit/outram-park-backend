@@ -20,7 +20,7 @@ use crate::genfoam::neutronics::xs::disc_factors::DiscFactorControls;
 use crate::genfoam::neutronics::xs::driveline::ControlRod;
 
 fn read_file(path: &Path) -> Result<FoamFile, AppBuilderError> {
-    FoamFile::read_with_includes(path).map_err(|e| AppBuilderError::Parse {
+    FoamFile::read_with_includes_esi(path).map_err(|e| AppBuilderError::Parse {
         file: path.display().to_string(),
         line: 0,
         msg: e.to_string(),

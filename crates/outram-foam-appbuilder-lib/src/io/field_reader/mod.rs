@@ -122,10 +122,9 @@ fn parse_uniform_scalar(text: &str, file: &str) -> Result<Option<f64>, AppBuilde
     let end = rest
         .find(|c: char| c.is_whitespace() || c == ';')
         .unwrap_or(rest.len());
-    rest[..end]
-        .parse::<f64>()
+    outram_foam_basic_lib::io::parse_foam_f64(&rest[..end])
         .map(Some)
-        .map_err(|_| AppBuilderError::Parse {
+        .ok_or_else(|| AppBuilderError::Parse {
             file: file.to_string(),
             line: 0,
             msg: format!("uniform scalar: bad value {:?}", &rest[..end.min(20)]),
@@ -184,7 +183,7 @@ fn parse_nonuniform_scalar_list(
     let scalars: Vec<f64> = body
         .split_whitespace()
         .map(|t| {
-            t.parse::<f64>().map_err(|_| AppBuilderError::Parse {
+            outram_foam_basic_lib::io::parse_foam_f64(t).ok_or_else(|| AppBuilderError::Parse {
                 file: file.to_string(),
                 line: 0,
                 msg: format!("bad scalar in nonuniform list: {t:?}"),
@@ -280,7 +279,7 @@ fn parse_vector_triple(s: &str, file: &str) -> Result<Vector3, AppBuilderError> 
     let nums: Vec<f64> = s
         .split_whitespace()
         .map(|t| {
-            t.parse::<f64>().map_err(|_| AppBuilderError::Parse {
+            outram_foam_basic_lib::io::parse_foam_f64(t).ok_or_else(|| AppBuilderError::Parse {
                 file: file.to_string(),
                 line: 0,
                 msg: format!("bad float in vector triple: {t:?}"),
@@ -448,7 +447,7 @@ fn parse_uniform_scalar_payload(s: &str, file: &str) -> Result<f64, AppBuilderEr
     let end = s
         .find(|c: char| c.is_whitespace() || c == ';')
         .unwrap_or(s.len());
-    s[..end].parse::<f64>().map_err(|_| AppBuilderError::Parse {
+    outram_foam_basic_lib::io::parse_foam_f64(&s[..end]).ok_or_else(|| AppBuilderError::Parse {
         file: file.to_string(),
         line: 0,
         msg: format!("bad scalar BC value {:?}", &s[..end.min(20)]),

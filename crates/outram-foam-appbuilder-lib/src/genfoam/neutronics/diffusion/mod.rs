@@ -243,6 +243,12 @@ pub struct DiffusionNeutronics {
     flux_star: Option<Vec<Vec<f64>>>,
     /// `mesh.time().value()` of the step being taken (set by the pseudo-time loop).
     time: f64,
+    /// `V0` of a moving mesh (`fvMesh::V0()`), once [`Self::rebind_mesh`] was given one: the volumes the `ddt` source of the old-time
+    /// values is weighted by. `None` is a static mesh (`Vsc0() = Vsc()`).
+    old_volumes: Option<Vec<f64>>,
+    /// The `laplacianSchemes` of the eigenvalue pseudo-time step ([`Self::with_eigenvalue_laplacian`]); `Uncorrected` is the form of
+    /// every case before round 56.
+    eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme,
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -347,6 +353,8 @@ impl DiffusionNeutronics {
             evolution: None,
             flux_star: None,
             time: 0.0,
+            old_volumes: None,
+            eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme::Uncorrected,
         })
     }
 
@@ -667,6 +675,7 @@ impl WithInternal for VolScalarField {
 }
 
 mod eigenvalue;
+pub mod moving_mesh;
 pub mod external_source;
 #[cfg(feature = "std")]
 pub mod external_source_case;

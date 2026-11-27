@@ -211,8 +211,11 @@ impl EnergyNeutroDiffusion {
         neutro.set_precursor_drift(precursor_transport_from_velocity(&mesh, &fluid.case().u, &alpha));
         neutro.set_initial_guess(&vec![vec![initial_flux; n]; groups], reactor.k_eff);
         neutro.set_prec_star(&vec![vec![initial_prec; n]; precs])?;
-        let th = &fluid.case().thermo;
-        let (mu, alphat) = (vec![th.mu; n], vec![th.alpha_h(); n]);
+        // `mu` and `alphat` (the thermo's `alphah`) of the stage are constants of the Boussinesq package; another package varies with T
+        let (mu, alphat) = match &fluid.case().thermo {
+            crate::genfoam::thermal_hydraulics::solver::two_phase::PhaseThermo::BoussinesqHConst(th) => (vec![th.mu; n], vec![th.alpha_h(); n]),
+            _ => return Err(WorkflowError::Case("the EN stage maps constant `mu` and `alphat`: only the Boussinesq/hConst/const thermo is ported here".to_string())),
+        };
         Ok(Self {
             fluid,
             neutro,
@@ -531,7 +534,7 @@ impl EnergyNeutroTransient {
 pub fn read_albedo_patches(flux_file: &std::path::Path) -> Result<Vec<(String, f64)>, WorkflowError> {
     use outram_foam_basic_lib::io::dict::FoamFile;
     use outram_foam_basic_lib::io::FoamEntry;
-    let f = FoamFile::read(flux_file).map_err(|e| WorkflowError::Case(format!("{}: {e}", flux_file.display())))?;
+    let f = FoamFile::read_esi(flux_file).map_err(|e| WorkflowError::Case(format!("{}: {e}", flux_file.display())))?;
     let bf = f.dict.get_dict("boundaryField").ok_or_else(|| WorkflowError::Case("no boundaryField".into()))?;
     let mut out = Vec::new();
     for (name, entry) in bf.iter() {

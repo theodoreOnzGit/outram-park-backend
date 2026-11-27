@@ -128,7 +128,7 @@ fn switch(d: &FoamDict, key: &str, default: bool) -> Result<bool, String> {
 }
 
 fn read_dict(root: &Path, rel: &str) -> Result<FoamDict, AppBuilderError> {
-    FoamFile::read(root.join(rel)).map(|f| f.dict).map_err(|e| err(root, format!("{rel}: {e}")))
+    FoamFile::read_esi(root.join(rel)).map(|f| f.dict).map_err(|e| err(root, format!("{rel}: {e}")))
 }
 
 /// `dict.lookup(name)` with OpenFOAM's pattern rule: an exact key, else the LAST matching pattern. Only `".*"` is

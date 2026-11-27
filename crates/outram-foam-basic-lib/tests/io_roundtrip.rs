@@ -60,7 +60,8 @@ use outram_foam_basic_lib::io::dict::{
 };
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace, PolyMesh};
 use outram_foam_basic_lib::io::{
-    read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field, write_vol_vector_field,
+    read_vol_scalar_field, read_vol_scalar_field_esi, read_vol_vector_field,
+    read_vol_vector_field_esi, write_vol_scalar_field, write_vol_vector_field,
 };
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
@@ -316,4 +317,77 @@ fn field_vector_roundtrip() {
         BoundaryCondition::FixedValue(v) => assert_eq!(*v, Vector3::new(2.0, 0.0, 0.0)),
         other => panic!("walls patch: expected FixedValue, got {other:?}"),
     }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  ESI number rounding of the readers (gh:#1909, README round 53 of
+//  genfoam_vs_upstream_gh1361)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Methodology: the text `0.8417393185` is the one ESI `readDouble` (strtold
+// narrowed to double) reads as `0.84173931849999994`, one ulp below the correctly
+// rounded `0.8417393185` (README round 49, `foam_number_vs_strtold`). Each ESI
+// entry point must return that value, each default entry point the correctly
+// rounded one. Result 2026-11-27: all agree with those two values.
+
+const SPLIT: &str = "0.8417393185";
+
+#[test]
+fn dictionary_esi_entry_points_read_the_esi_double_and_defaults_stay_correct() {
+    let text = format!("a {SPLIT};\nd [0 1 -1 0 0 0 0] {SPLIT};\nl ({SPLIT} 1);\n");
+    let right: f64 = SPLIT.parse().unwrap();
+    let esi = outram_foam_basic_lib::io::parse_foam_f64(SPLIT).unwrap();
+    assert_ne!(esi, right);
+    let def = FoamFile::parse(&text).unwrap();
+    assert_eq!(def.dict.get_scalar("a"), Some(right));
+    for f in [FoamFile::parse_esi(&text).unwrap(), FoamFile::parse_named_esi(&text, "t").unwrap()] {
+        assert_eq!(f.dict.get_scalar("a"), Some(esi));
+    }
+    let tmp = TmpDir::new("esidict");
+    let path = tmp.path.join("d");
+    std::fs::write(&path, &text).unwrap();
+    assert_eq!(FoamFile::read(&path).unwrap().dict.get_scalar("a"), Some(right));
+    assert_eq!(FoamFile::read_esi(&path).unwrap().dict.get_scalar("a"), Some(esi));
+    assert_eq!(FoamFile::read_with_includes(&path).unwrap().dict.get_scalar("a"), Some(right));
+    assert_eq!(FoamFile::read_with_includes_esi(&path).unwrap().dict.get_scalar("a"), Some(esi));
+}
+
+#[test]
+fn field_esi_entry_points_read_the_esi_double_and_defaults_stay_correct() {
+    let mesh = mesh_arc();
+    let right: f64 = SPLIT.parse().unwrap();
+    let esi = outram_foam_basic_lib::io::parse_foam_f64(SPLIT).unwrap();
+    let tmp = TmpDir::new("esifield");
+
+    let boundary = vec![
+        PatchField::fixed_value(1, 5.0),
+        PatchField::zero_gradient(1),
+        PatchField::fixed_value(8, 1.0),
+    ];
+    let field = VolScalarField::new("p", Arc::clone(&mesh), Field::new(vec![right, 2.5]), boundary);
+    let path = tmp.path.join("p");
+    write_vol_scalar_field(&path, &field, [0.0; 7]).unwrap();
+    let (d, _) = read_vol_scalar_field(&path, Arc::clone(&mesh)).unwrap();
+    let (e, _) = read_vol_scalar_field_esi(&path, Arc::clone(&mesh)).unwrap();
+    assert_eq!(d.internal.as_slice()[0], right);
+    assert_eq!(e.internal.as_slice()[0], esi);
+    assert_eq!(e.internal.as_slice()[1], 2.5);
+
+    let boundary = vec![
+        PatchField::fixed_value_vec(1, Vector3::new(0.0, 0.0, 0.0)),
+        PatchField::zero_gradient_vec(1),
+        PatchField::fixed_value_vec(8, Vector3::new(2.0, 0.0, 0.0)),
+    ];
+    let v = VolVectorField::new(
+        "U",
+        Arc::clone(&mesh),
+        Field::new(vec![Vector3::new(right, 0.0, 0.0); mesh.n_cells]),
+        boundary,
+    );
+    let path = tmp.path.join("U");
+    write_vol_vector_field(&path, &v, [0.0; 7]).unwrap();
+    let (d, _) = read_vol_vector_field(&path, Arc::clone(&mesh)).unwrap();
+    let (e, _) = read_vol_vector_field_esi(&path, Arc::clone(&mesh)).unwrap();
+    assert_eq!(d.internal.as_slice()[0].x, right);
+    assert_eq!(e.internal.as_slice()[0].x, esi);
 }

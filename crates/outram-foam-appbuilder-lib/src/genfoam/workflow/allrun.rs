@@ -134,7 +134,7 @@ fn case_err(msg: String) -> WorkflowError {
 ///
 /// [`WorkflowError::Case`] if the file cannot be read or maps a field.
 pub fn check_steady_state_th_mapping(path: &Path) -> Result<(), WorkflowError> {
-    let f = FoamFile::read(path).map_err(|e| case_err(format!("{}: {e}", path.display())))?;
+    let f = FoamFile::read_esi(path).map_err(|e| case_err(format!("{}: {e}", path.display())))?;
     let Some(mappings) = f.dict.get_dict("mappings") else { return Ok(()) };
     for (target, entry) in mappings.iter() {
         if let FoamEntry::SubDict(d) = entry {
@@ -153,7 +153,7 @@ fn uniform_internal_field(path: &Path) -> Result<f64, WorkflowError> {
     let rest = text[at + "internalField".len()..].trim_start();
     let rest = rest.strip_prefix("uniform").ok_or_else(|| case_err(format!("{}: internalField is not uniform", path.display())))?;
     let end = rest.find(';').ok_or_else(|| case_err(format!("{}: internalField without `;`", path.display())))?;
-    rest[..end].trim().parse().map_err(|_| case_err(format!("{}: bad internalField", path.display())))
+    outram_foam_basic_lib::io::parse_foam_f64(rest[..end].trim()).ok_or_else(|| case_err(format!("{}: bad internalField", path.display())))
 }
 
 impl RootCase {
@@ -262,10 +262,10 @@ impl RootCase {
     /// [`WorkflowError::Case`] if a file cannot be read.
     pub fn transient_settings(&self, edits: &AllrunEdits) -> Result<TransientSettings, WorkflowError> {
         let path = self.root.join("constant/multiRegionCouplingDict_transient");
-        let f = FoamFile::read(&path).map_err(|e| case_err(format!("{}: {e}", path.display())))?;
+        let f = FoamFile::read_esi(&path).map_err(|e| case_err(format!("{}: {e}", path.display())))?;
         let coupling = CouplingDict::from_dict(&f.dict, "energyNeutroLoop", &self.root).map_err(|e| case_err(format!("{e}")))?;
         let cd_path = self.root.join("system/controlDict");
-        let cd = FoamFile::read(&cd_path).map_err(|e| case_err(format!("{}: {e}", cd_path.display())))?;
+        let cd = FoamFile::read_esi(&cd_path).map_err(|e| case_err(format!("{}: {e}", cd_path.display())))?;
         let scalar = |key: &str, default: f64| match cd.dict.get(key) {
             Some(FoamEntry::Scalar(x)) => *x,
             _ => default,

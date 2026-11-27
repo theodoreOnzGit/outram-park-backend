@@ -64,8 +64,9 @@ use super::super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector, VectorBc};
 use super::super::pcg::pcg_dic;
 use super::super::{dev2_div, PRghPcg};
 use super::OnePhaseCcSolver;
+use super::super::thermo::PhaseThermo;
 #[cfg(feature = "std")]
-use super::super::case::{bool_entry, read_field, scalar, word, Ctx, FieldFile};
+use super::super::case::{bool_entry, read_field, read_field_bcs_only, scalar, word, Ctx, FieldFile};
 #[cfg(feature = "std")]
 use super::last_match;
 #[cfg(feature = "std")]
@@ -118,8 +119,13 @@ pub struct OnePhaseFlowCase {
     pub min_mag_u: f64,
     /// `hRef` of `constant/<region>/hRef` (default 0).
     pub h_ref: f64,
-    /// One velocity boundary condition per patch (`fixedValue` or `wedge`).
+    /// One velocity boundary condition per patch (`fixedValue`, `zeroGradient`, `slip`, `wedge`; `empty` is `zeroGradient` on no face).
     pub u_bc: Vec<VectorBc>,
+    /// One temperature boundary condition per patch (`fixedValue`, `zeroGradient`, `wedge` as `zeroGradient`, `empty`): what the
+    /// energy equation's `he` patches follow (`fixedEnergy` / `gradientEnergy`, gh:#1913 round 55).
+    pub t_bc: Vec<Bc>,
+    /// `p_rgh.needReference()`: no patch fixes the value of `p_rgh` (`setReference` and the closed-volume correction act only then).
+    pub p_rgh_need_reference: bool,
     /// One `p_rgh` boundary condition per patch (`fixedFluxPressure` as `FixedGradient`, `wedge` as `ZeroGradient`).
     pub p_rgh_bc: Vec<Bc>,
     /// `p_rgh` at the start time (cells).
@@ -416,6 +422,7 @@ pub(super) fn read_flow_case(
     momentum_source: Vec<Vector3>,
     drag: Vec<Option<ReynoldsPowerDrag>>,
     gamg: super::GamgPolicy,
+    laminar: bool,
 ) -> Result<OnePhaseFlowCase, AppBuilderError> {
     let n = g.n_cells();
     let ni = g.n_internal();
@@ -497,38 +504,68 @@ pub(super) fn read_flow_case(
     let uf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/U"))?;
     let mut u_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
+        if p.kind == PatchKind::Empty {
+            u_bc.push(VectorBc::ZeroGradient);
+            continue;
+        }
         let (ty, v) = patch_bc(&uf, pi)?;
         u_bc.push(match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) => fv::wedge_velocity_bc(g, pi),
+            ("zeroGradient", _) => VectorBc::ZeroGradient,
+            ("slip", _) => VectorBc::Slip,
             ("fixedValue", _) => {
                 let v = v.as_ref().and_then(FoamValue::as_vector3).ok_or_else(|| ctx.e("U fixedValue needs a uniform vector"))?;
                 VectorBc::Fixed(vec![v; p.size])
             }
-            (other, _) => return Err(ctx.e(format!("U.{}: `{other}` is not ported for the solved flow (wedge, fixedValue)", p.name))),
+            (other, _) => return Err(ctx.e(format!("U.{}: `{other}` is not ported for the solved flow (wedge, fixedValue, zeroGradient, slip)", p.name))),
         });
     }
     let pf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/p_rgh"))?;
     let p0 = pf.internal.as_scalar().ok_or_else(|| ctx.e("p_rgh internalField must be a uniform scalar"))?;
     let mut p_rgh_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
-        let (ty, _) = patch_bc(&pf, pi)?;
+        if p.kind == PatchKind::Empty {
+            p_rgh_bc.push(Bc::Empty);
+            continue;
+        }
+        let (ty, pv) = patch_bc(&pf, pi)?;
         p_rgh_bc.push(match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) => Bc::ZeroGradient,
             ("fixedFluxPressure", _) => Bc::FixedGradient(vec![0.0; p.size]),
-            (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, wedge)", p.name))),
+            ("fixedValue", _) => {
+                let v = pv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("p_rgh.{}: fixedValue needs a uniform value", p.name)))?;
+                Bc::Fixed(vec![v; p.size])
+            }
+            (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, fixedValue, wedge)", p.name))),
         });
     }
-    let tf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/T"))?;
+    let tf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/T"))?;
+    let mut t_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
-        let (ty, _) = patch_bc(&tf, pi)?;
-        if !matches!((ty.as_str(), p.kind), ("wedge", PatchKind::Wedge) | ("zeroGradient", _)) {
-            return Err(ctx.e(format!("T.{}: `{ty}` is not ported for the solved flow (zeroGradient, wedge)", p.name)));
+        if p.kind == PatchKind::Empty {
+            t_bc.push(Bc::Empty);
+            continue;
         }
+        let (ty, tv) = patch_bc(&tf, pi)?;
+        t_bc.push(match (ty.as_str(), p.kind) {
+            ("wedge", PatchKind::Wedge) | ("zeroGradient", _) => Bc::ZeroGradient,
+            ("fixedValue", _) => {
+                let v = tv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("T.{}: fixedValue needs a uniform value", p.name)))?;
+                Bc::Fixed(vec![v; p.size])
+            }
+            _ => return Err(ctx.e(format!("T.{}: `{ty}` is not ported for the solved flow (zeroGradient, fixedValue, wedge)", p.name))),
+        });
     }
-    let nf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
-    let nut0 = nf.internal.as_scalar().ok_or_else(|| ctx.e("nut internalField must be a uniform scalar"))?;
+    // `laminar` (`Stokes`): `nut()` is a zero field and there is no `nut` file (gh:#1913 round 55)
+    let (nut0, nf) = if laminar {
+        (0.0, None)
+    } else {
+        let nf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
+        (nf.internal.as_scalar().ok_or_else(|| ctx.e("nut internalField must be a uniform scalar"))?, Some(nf))
+    };
     let mut nut_boundary = vec![0.0; g.n_faces() - ni];
     for (pi, p) in g.mesh.patches.iter().enumerate() {
+        let Some(nf) = nf.as_ref() else { break };
         let (ty, v) = patch_bc(&nf, pi)?;
         let val = match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) => nut0,
@@ -556,6 +593,8 @@ pub(super) fn read_flow_case(
         n_non_orth_correctors: scalar(pimple, "nNonOrthogonalCorrectors").unwrap_or(0.0) as usize,
         min_mag_u: scalar(pimple, "minMagU").unwrap_or(0.0),
         h_ref: 0.0,
+        p_rgh_need_reference: !p_rgh_bc.iter().any(|b| matches!(b, Bc::Fixed(_))),
+        t_bc,
         u_bc,
         p_rgh_bc,
         p_rgh0: vec![p0; n],
@@ -595,12 +634,21 @@ impl FlowState {
 }
 
 impl OnePhaseCcSolver {
+    /// `onePhase::correctContErr`: `contErr = fvc::ddt(fluid_, rho) + fvc::div(alphaRhoPhi)` (no `fvOptions`); `ddt(alpha, rho)` is
+    /// `rDeltaT (alpha rho - alpha.old rho.old)` and is exactly 0 for the constant density of both ported packages.
+    pub(super) fn correct_cont_err(&mut self) {
+        let rdt = 1.0 / self.dt;
+        let dv = fv::div(&self.geom, &self.alpha_rho_phi);
+        for c in 0..self.geom.n_cells() {
+            self.cont_err[c] = rdt * (self.alpha[c] * self.rho[c] - self.alpha[c] * self.rho_old[c]) + dv[c];
+        }
+    }
+
     /// `FSPair::correct` drag part: the isotropic `ReynoldsPower` `Kd` per cell (`FSDragFactor::correctField`),
     /// from the Reynolds number just computed and the `magU` of the last pressure corrector.
     pub(super) fn correct_kd(&mut self) {
         let Some(fc) = self.case.flow.as_ref() else { return };
         let Some(fs) = self.flow.as_mut() else { return };
-        let rho0 = self.case.thermo.rho0;
         // `myOps::storePrevIterIfRelax(Kd_)` ... `Kd_.relax()`: the `fields` entry `Kd` (`KdFinal` in the flagged iteration)
         let a = self.case.controls.relax.field("Kd", self.pimple.final_iteration);
         if a.is_some() {
@@ -610,7 +658,7 @@ impl OnePhaseCcSolver {
             if let Some(d) = fc.drag[c] {
                 let dh = self.case.dh[c];
                 let alphas = self.case.alpha_structure[c];
-                let value = 0.5 / dh * (1.0 - alphas) * rho0 * fs.mag_u[c].max(fc.min_mag_u) * d.value(self.re[c]);
+                let value = 0.5 / dh * (1.0 - alphas) * self.rho[c] * fs.mag_u[c].max(fc.min_mag_u) * d.value(self.re[c]);
                 fs.kd[c] = value;
             }
         }
@@ -634,7 +682,9 @@ impl OnePhaseCcSolver {
         let nf = g.n_faces();
         let nb = nf - ni;
         let m = g.mesh.clone();
-        let rho0 = self.case.thermo.rho0;
+        let boussinesq = self.case.thermo.boussinesq_rho0();
+        let rho = self.rho.clone();
+        let rho_b = self.rho_b.clone();
         let th = self.case.thermo.clone();
         let rdt = 1.0 / self.dt;
         let npatch = m.patches.len();
@@ -648,14 +698,19 @@ impl OnePhaseCcSolver {
             None => (fc.nut.clone(), fc.nut_boundary.clone()),
         };
         let mut arn = Scalar { c: vec![0.0; n], b: vec![0.0; nb], bc: vec![Bc::Calculated; npatch] };
+        // the boundary temperature (`fixedValue` or the owner value) for `nu_b = mu_b/rho_b` of the thermo
+        let mut t_s = Scalar { c: self.t.clone(), b: vec![0.0; nb], bc: self.t_patch_bcs() };
+        t_s.correct_bc(&g);
         for c in 0..n {
-            let nu = th.mu / th.rho(self.t[c]);
-            arn.c[c] = self.alpha[c] * rho0 * (nut_c[c] + nu);
+            let pp = th.props(self.p[c], self.t[c]);
+            let nu = pp.mu / pp.rho;
+            arn.c[c] = self.alpha[c] * rho[c] * (nut_c[c] + nu);
         }
         for i in 0..nb {
             let o = m.owner[ni + i];
-            let nu = th.mu / th.rho(self.t[o]);
-            arn.b[i] = self.alpha[o] * rho0 * (nut_b[i] + nu);
+            let pp = th.props(self.p[o], t_s.b[i]);
+            let nu = pp.mu / pp.rho;
+            arn.b[i] = self.alpha[o] * rho_b[i] * (nut_b[i] + nu);
         }
         let gamma = fv::interp_linear_openfoam(&g, &arn);
         let zg = Scalar::uniform(&g, 0.0, g.default_bcs());
@@ -683,11 +738,12 @@ impl OnePhaseCcSolver {
         // UEqn += fvm::ddt(alpha, rho, U)
         for c in 0..n {
             let v = m.cell_volumes[c];
-            e.eqn.ldu.diag[c] += (rdt * self.alpha[c] * rho0) * v;
+            e.eqn.ldu.diag[c] += (rdt * self.alpha[c] * rho[c]) * v;
             let uo = fs.u_old[c];
-            e.src[0][c] += (rdt * self.alpha[c] * rho0 * uo.x) * v;
-            e.src[1][c] += (rdt * self.alpha[c] * rho0 * uo.y) * v;
-            e.src[2][c] += (rdt * self.alpha[c] * rho0 * uo.z) * v;
+            let ro = self.rho_old[c];
+            e.src[0][c] += (rdt * self.alpha[c] * ro * uo.x) * v;
+            e.src[1][c] += (rdt * self.alpha[c] * ro * uo.y) * v;
+            e.src[2][c] += (rdt * self.alpha[c] * ro * uo.z) * v;
         }
         if let Some(fct) = self.case.controls.relax.equation("U", self.pimple.final_iteration).filter(|f| *f > 0.0) {
             e.relax(&g, fct, &self.u.c);
@@ -703,16 +759,19 @@ impl OnePhaseCcSolver {
             s
         };
         let alphaf = fv::interp_linear_openfoam(&g, &alpha_s);
+        // `fluid_.alphaRhoPhi() = fvc::interpolate(rho)*fluid_.alphaPhi()`: `rho0 alphaPhi` for the uniform `rho0` of a Boussinesq fluid
+        let rho_s = Scalar { c: rho.clone(), b: rho_b.clone(), bc: vec![Bc::Calculated; npatch] };
+        let rho_f = fv::interp_linear_openfoam(&g, &rho_s);
         for f in 0..nf {
             if g.active[f] {
                 self.alpha_phi[f] = alphaf[f] * fs.phi[f];
-                self.alpha_rho_phi[f] = rho0 * self.alpha_phi[f];
+                self.alpha_rho_phi[f] = match boussinesq {
+                    Some(rho0) => rho0 * self.alpha_phi[f],
+                    None => rho_f[f] * self.alpha_phi[f],
+                };
             }
         }
-        let dv = fv::div(&g, &self.alpha_rho_phi);
-        for c in 0..n {
-            self.cont_err[c] = 0.0 + dv[c];
-        }
+        self.correct_cont_err();
         // rAU = 1/A, alpharAUf = interpolate(alpha rAU)
         let a_cell = e.a(&g);
         let rau: Vec<f64> = a_cell.iter().map(|a| 1.0 / a).collect();
@@ -736,7 +795,7 @@ impl OnePhaseCcSolver {
                 break;
             }
             for c in 0..n {
-                fs.p_rgh.c[c] = self.p[c] - rho0 * fs.gh[c];
+                fs.p_rgh.c[c] = self.p[c] - rho[c] * fs.gh[c];
             }
             // correctBoundaryFlux_1p.H
             for f in ni..nf {
@@ -758,11 +817,18 @@ impl OnePhaseCcSolver {
             }
             // calcPhiSbyA_1p.H: -alpharAUf ghf snGrad(rho(true)) magSf + alpharAUf flux(momentumSource)
             let mut rho_t = Scalar { c: vec![0.0; n], b: vec![0.0; nb], bc: vec![Bc::Calculated; npatch] };
+            // `fluid_.rho(true)`: the thermo's `rho(T)` (Boussinesq: not `rho0`); any other package: `fluid::rho()` itself
             for c in 0..n {
-                rho_t.c[c] = th.rho(self.t[c]);
+                rho_t.c[c] = match &th {
+                    PhaseThermo::BoussinesqHConst(b) => b.rho(self.t[c]),
+                    _ => rho[c],
+                };
             }
             for i in 0..nb {
-                rho_t.b[i] = th.rho(self.t[m.owner[ni + i]]);
+                rho_t.b[i] = match &th {
+                    PhaseThermo::BoussinesqHConst(b) => b.rho(self.t[m.owner[ni + i]]),
+                    _ => rho_b[i],
+                };
             }
             let sng = fv::sn_grad(&g, &rho_t);
             let mut ms = Vector::uniform_with_constraint_patches(&g, Vector3::ZERO);
@@ -802,15 +868,17 @@ impl OnePhaseCcSolver {
             let dphi = fv::div(&g, &phi_hbya);
             for c in 0..n {
                 let v = m.cell_volumes[c];
-                let comp = (self.cont_err[c] - (0.0 + dap[c]) * rho0) / rho0;
+                let comp = (self.cont_err[c] - (0.0 + dap[c]) * rho[c]) / rho[c];
                 peqn.source[c] -= v * comp;
                 peqn.source[c] -= v * dphi[c];
             }
             // setReference(pRefCell, pRefValue): `source += diag value; diag += diag` (psi = 0: `compressible` is false, so the
             // value is `pRefValue`; every patch is `fixedFluxPressure` or wedge, so `needReference()` is true)
-            let rc = fc.p_ref_cell;
-            peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
-            peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
+            if fc.p_rgh_need_reference {
+                let rc = fc.p_ref_cell;
+                peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
+                peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
+            }
             // pEqn_1p.H: `while (pimple_.correctNonOrthogonal())`, solveP_rgh_1p.H in each pass
             let n_pass = fc.n_non_orth_correctors + 1;
             let mut p_flux_final = Vec::new();
@@ -879,16 +947,18 @@ impl OnePhaseCcSolver {
             }
             // updatePP_rghRho_1p.H (Boussinesq: psi = 0, the closed-volume mass correction is skipped)
             for c in 0..n {
-                self.p[c] = (fs.p_rgh.c[c] + rho0 * fs.gh[c]).max(fc.p_min);
+                self.p[c] = (fs.p_rgh.c[c] + rho[c] * fs.gh[c]).max(fc.p_min);
             }
             for c in 0..n {
                 self.p[c] = self.p[c].max(fc.p_min);
-                fs.p_rgh.c[c] = self.p[c] - rho0 * fs.gh[c];
+                fs.p_rgh.c[c] = self.p[c] - rho[c] * fs.gh[c];
             }
             fs.p_rgh.correct_bc(&g);
         }
-        // correctContErr(): alphaRhoPhi has not changed since the start of pEqn, so contErr is unchanged
+        // correctContErr(): alphaRhoPhi has not changed since the start of pEqn; `rho` has not either (`psi = 0`: the update
+        // `rho += psi (p_rgh - p_rgh_0)` adds exactly 0), so contErr is unchanged
         self.flow = Some(fs);
+        self.correct_cont_err();
     }
 }
 

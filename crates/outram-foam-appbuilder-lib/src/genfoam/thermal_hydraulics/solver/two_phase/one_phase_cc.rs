@@ -68,8 +68,14 @@ use std::path::Path;
 
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
-use uom::si::f64::Time;
+use uom::si::f64::{Length, Ratio, ThermalConductivity, Time};
+use uom::si::heat_transfer::watt_per_square_meter_kelvin;
+use uom::si::length::meter;
+use uom::si::ratio::ratio;
+use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::time::second;
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc;
+use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use crate::genfoam::common::TimeProfile;
 
@@ -91,6 +97,7 @@ use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchanger
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
+use super::thermo::PhaseThermo;
 use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
 
@@ -108,12 +115,29 @@ const SMALL: f64 = 1e-15;
 /// OpenFOAM `Tstd` (ESI v2506).
 const TSTD: f64 = 298.15;
 
+/// The linear solver the energy equation `h` gets (`solvers` entry: the exact keyword, else the LAST matching pattern).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HSolver {
+    /// `PBiCGStab` with the `diagonal` preconditioner (`pbicgstab_diagonal`; what the shipped `2D_fullCoupling` selects through its
+    /// catch-all `".*"`: the log reads `diagonalPBiCGStab: Solving for h`).
+    #[default]
+    PBiCGStabDiagonal,
+    /// `smoothSolver` with the `symGaussSeidel` smoother, `nSweeps 1`, `relTol 0`
+    /// (`one_phase::smooth_solve_sym_gauss_seidel_openfoam`, differenced against the real binary in README round 46 and, for the
+    /// cell-centred region, in round 55 variant V3).
+    SmoothSymGaussSeidel,
+}
+
 /// `fvSolution`/`controlDict` entries the stage reads.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OnePhaseCcControls {
     /// `PIMPLE.nOuterCorrectors`, `minNOuterCorrectors`, `residualControl`, `finalOnLastPimpleIterOnly`, `nCorrectors`
     /// (`customPimpleControl`, gh:#1855).
     pub pimple: PimpleControls,
+    /// The linear solver of `h`.
+    pub h_solver: HSolver,
+    /// The linear solver of `hFinal`.
+    pub h_solver_final: HSolver,
     /// `solvers.h.tolerance` (the entry that wins for `h`).
     pub h_tolerance: f64,
     /// `solvers.h.relTol`.
@@ -141,14 +165,38 @@ pub struct OnePhaseCcControls {
 pub enum FsHtcModel {
     /// `type constant; value v;` (`constantModel`): `htc[celli] = value`.
     Constant(f64),
+    /// `type NusseltReynoldsPrandtlPower` (`NusseltFSHeatTransferCoefficient::value`, gh:#1913 round 55):
+    /// `(kappa/Dh) (A + B pow(Re Pr, C))` (`C == D`) or `(kappa/Dh) (A + B pow(Re, C) pow(Pr, D))`, from the closure
+    /// [`FsForcedConvectionHtc`]. `expTc != 0` (needs `T.wall`) is refused by name when the case is read.
+    Nusselt(FsForcedConvectionHtc),
 }
 
 impl FsHtcModel {
-    /// `FSHeatTransferCoefficientModel::value(celli)` [W/m^2/K].
+    /// `FSHeatTransferCoefficientModel::value(celli)` [W/m^2/K] for the models that need no field (`constant`); `None` for a
+    /// model that does ([`Self::value_with`]).
     #[must_use]
-    pub fn value(&self) -> f64 {
+    pub fn value(&self) -> Option<f64> {
+        match self {
+            Self::Constant(v) => Some(*v),
+            Self::Nusselt(_) => None,
+        }
+    }
+
+    /// `FSHeatTransferCoefficientModel::value(celli)` with the cell's `Re`, `Pr` (the `fluid` placeholder fields), `kappa` (the
+    /// placeholder field) and `Dh` (`fluid_.Dh()`).
+    #[must_use]
+    pub fn value_with(&self, re: f64, pr: f64, kappa: f64, dh: f64) -> f64 {
         match self {
             Self::Constant(v) => *v,
+            Self::Nusselt(m) => m
+                .heat_transfer_coefficient(
+                    ReynoldsNumber::new::<ratio>(re),
+                    Ratio::new::<ratio>(pr),
+                    ThermalConductivity::new::<watt_per_meter_kelvin>(kappa),
+                    Length::new::<meter>(dh),
+                    None,
+                )
+                .get::<watt_per_square_meter_kelvin>(),
         }
     }
 }
@@ -293,6 +341,17 @@ impl Default for CaseReadOptions {
     }
 }
 
+/// The passive sub-structure of `structure` (`structure.C:372-475`, `correct`: 1020-1055), per cell.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PassiveStructure {
+    /// `iApas_` (`volumetricArea.passiveStructure`) per cell; 0 outside the zones with `passiveProperties`.
+    pub ia: Vec<f64>,
+    /// `alphaRhoCppas_ = max(alphapas rhoCp, 1e-69)` per cell.
+    pub alpha_rho_cp: Vec<f64>,
+    /// `Tpas_` at the start time per cell (the dictionary `T` where the field is not on disk).
+    pub t: Vec<f64>,
+}
+
 /// A read case (all fields at the start time).
 #[derive(Debug, Clone)]
 pub struct OnePhaseCcCase {
@@ -300,8 +359,12 @@ pub struct OnePhaseCcCase {
     pub mesh: Arc<FvMesh>,
     /// Gravity [m/s^2].
     pub gravity: Vector3,
-    /// Thermophysical package.
-    pub thermo: BoussinesqHConst,
+    /// Thermophysical package (`Boussinesq`+`hConst`, or `icoPolynomial`+`hPolynomial`+`polynomial`; gh:#1913 round 55).
+    pub thermo: PhaseThermo,
+    /// `simulationType laminar` (`Stokes`: `nut = 0`, `alphat = 0`, no turbulence fields on disk; gh:#1913 round 55).
+    pub laminar: bool,
+    /// `structureProperties.<zone>.passiveProperties` (`structure.C:372`); `None` when no zone has one.
+    pub passive: Option<PassiveStructure>,
     /// Controls.
     pub controls: OnePhaseCcControls,
     /// `startTime`.
@@ -403,7 +466,7 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
     let s = s.trim_start();
     if let Some(r) = s.strip_prefix("uniform") {
         let end = r.find(';').ok_or("uniform without `;`")?;
-        let v: f64 = r[..end].trim().parse().map_err(|_| format!("bad uniform `{}`", r[..end].trim()))?;
+        let v: f64 = outram_foam_basic_lib::io::parse_foam_f64(r[..end].trim()).ok_or_else(|| format!("bad uniform `{}`", r[..end].trim()))?;
         return Ok((vec![v; n], &r[end..]));
     }
     if let Some(r) = s.strip_prefix("nonuniform") {
@@ -412,7 +475,7 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
         let open = r.find('(').ok_or("nonuniform without `(`")?;
         let count: usize = r[..open].trim().parse().map_err(|_| "bad list size".to_string())?;
         let close = r[open..].find(')').ok_or("unterminated list")? + open;
-        let vals: Result<Vec<f64>, _> = r[open + 1..close].split_whitespace().map(str::parse::<f64>).collect();
+        let vals: Result<Vec<f64>, _> = r[open + 1..close].split_whitespace().map(|w| outram_foam_basic_lib::io::parse_foam_f64(w).ok_or(())).collect();
         let vals = vals.map_err(|_| "bad number in list".to_string())?;
         if vals.len() != count {
             return Err(format!("list says {count} values, has {}", vals.len()));
@@ -598,33 +661,52 @@ impl OnePhaseCcCase {
             n_non_orth: scalar(pimple, "nNonOrthogonalCorrectors").unwrap_or(0.0) as usize,
         };
         let solvers = ctx.sub(&fs, "solvers")?;
-        let h_solver = |name: &str| -> Result<(f64, f64, usize), AppBuilderError> {
+        let h_solver = |name: &str| -> Result<(f64, f64, usize, HSolver), AppBuilderError> {
             match last_match(solvers, name) {
                 Some(FoamEntry::SubDict(d)) => {
-                    if word(d, "solver").as_deref() != Some("PBiCGStab")
-                        || word(d, "preconditioner").as_deref() != Some("diagonal")
-                    {
-                        return Err(ctx.e(format!("solvers for `{name}`: only PBiCGStab with the diagonal preconditioner is ported")));
-                    }
+                    let kind = match (word(d, "solver").as_deref(), word(d, "preconditioner").as_deref(), word(d, "smoother").as_deref()) {
+                        (Some("PBiCGStab"), Some("diagonal"), _) => HSolver::PBiCGStabDiagonal,
+                        (Some("smoothSolver"), _, Some("symGaussSeidel")) => {
+                            // the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55)
+                            if scalar(d, "relTol").unwrap_or(0.0) != 0.0 {
+                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with relTol != 0 is not ported")));
+                            }
+                            if scalar(d, "nSweeps").unwrap_or(1.0) != 1.0 {
+                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with nSweeps != 1 is not ported")));
+                            }
+                            if scalar(d, "maxIter").unwrap_or(1000.0) != 1000.0 {
+                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with maxIter != 1000 is not ported")));
+                            }
+                            HSolver::SmoothSymGaussSeidel
+                        }
+                        _ => {
+                            return Err(ctx.e(format!(
+                                "solvers for `{name}`: only PBiCGStab with the diagonal preconditioner and smoothSolver with symGaussSeidel are ported"
+                            )))
+                        }
+                    };
                     Ok((
                         scalar(d, "tolerance").unwrap_or(1e-6),
                         scalar(d, "relTol").unwrap_or(0.0),
                         scalar(d, "minIter").unwrap_or(0.0) as usize,
+                        kind,
                     ))
                 }
                 _ => Err(ctx.e(format!("fvSolution: no solver entry matches `{name}`"))),
             }
         };
-        let (h_tolerance, h_rel_tol, h_min_iter) = h_solver("h")?;
+        let (h_tolerance, h_rel_tol, h_min_iter, h_kind) = h_solver("h")?;
         // `hFinal` is selected in the flagged iteration only; like `kFinal` an absent entry is an error upstream when it is selected
-        let (h_tolerance_final, h_rel_tol_final, h_min_iter_final) = if last_match(solvers, "hFinal").is_some() {
+        let (h_tolerance_final, h_rel_tol_final, h_min_iter_final, h_kind_final) = if last_match(solvers, "hFinal").is_some() {
             h_solver("hFinal")?
         } else {
-            (h_tolerance, h_rel_tol, h_min_iter)
+            (h_tolerance, h_rel_tol, h_min_iter, h_kind)
         };
         let relax = read_relaxation_factors(&ctx, &fs)?;
         let controls = OnePhaseCcControls {
             pimple: pimple_controls,
+            h_solver: h_kind,
+            h_solver_final: h_kind_final,
             h_tolerance,
             h_rel_tol,
             h_min_iter,
@@ -639,44 +721,62 @@ impl OnePhaseCcCase {
 
         // ---- turbulence: alphat is read, never solved
         let tp = ctx.read(&format!("constant/{region}/turbulenceProperties"))?;
+        let laminar = word(&tp, "simulationType").as_deref() == Some("laminar");
         match word(&tp, "simulationType").as_deref() {
+            // `laminar` with no `laminar` sub-dictionary is `Stokes` (`laminarModel::New`): `nut = 0`, `nuEff = nu`, and
+            // `ThermalDiffusivity::alphat()` is a zero field (gh:#1913 round 55); a `laminar { model ...; }` selection is refused
+            Some("laminar") => {
+                if tp.get("laminar").is_some() {
+                    return Err(ctx.e("turbulenceProperties.laminar: only the default `Stokes` laminar model is ported"));
+                }
+            }
             Some("RAS") => {
                 let ras = ctx.sub(&tp, "RAS")?;
                 if word(ras, "RASModel").as_deref() != Some("porousKEpsilon") {
                     return Err(ctx.e("RASModel other than porousKEpsilon is not ported"));
                 }
             }
-            _ => return Err(ctx.e("simulationType other than RAS is not ported")),
+            _ => return Err(ctx.e("simulationType other than RAS and laminar is not ported")),
         }
 
         // ---- thermo
         let th = ctx.read(&format!("constant/{region}/thermophysicalProperties"))?;
         let tt = ctx.sub(&th, "thermoType")?;
-        for (k, want) in [
-            ("type", "heRhoThermo"),
-            ("mixture", "pureMixture"),
-            ("transport", "const"),
-            ("thermo", "hConst"),
-            ("equationOfState", "Boussinesq"),
-            ("energy", "sensibleEnthalpy"),
-        ] {
-            if word(tt, k).as_deref() != Some(want) {
-                return Err(ctx.e(format!("thermoType.{k} must be {want} (the only package ported here)")));
+        let thermo = if word(tt, "equationOfState").as_deref() == Some("icoPolynomial") {
+            // `icoPolynomial` + `hPolynomial` + `polynomial` (the 2D_fullCoupling sodium): the stack of `two_phase::thermo`, `psi = 0`
+            for (k, want) in [("type", "heRhoThermo"), ("mixture", "pureMixture"), ("transport", "polynomial"), ("thermo", "hPolynomial"), ("energy", "sensibleEnthalpy")] {
+                if word(tt, k).as_deref() != Some(want) {
+                    return Err(ctx.e(format!("thermoType.{k} must be {want} with icoPolynomial (the only package ported besides Boussinesq/hConst/const)")));
+                }
             }
-        }
-        let mx = ctx.sub(&th, "mixture")?;
-        let eos = ctx.sub(mx, "equationOfState")?;
-        let thd = ctx.sub(mx, "thermodynamics")?;
-        let tr = ctx.sub(mx, "transport")?;
-        let thermo = BoussinesqHConst {
-            cp: ctx.f64(thd, "Cp")?,
-            tref: scalar(thd, "Tref").unwrap_or(TSTD),
-            hsref: scalar(thd, "Href").unwrap_or(0.0),
-            rho0: ctx.f64(eos, "rho0")?,
-            t0: ctx.f64(eos, "T0")?,
-            beta: ctx.f64(eos, "beta")?,
-            mu: ctx.f64(tr, "mu")?,
-            r_pr: 1.0 / ctx.f64(tr, "Pr")?,
+            super::case::read_thermo(&ctx, &format!("constant/{region}/thermophysicalProperties"))?
+        } else {
+            for (k, want) in [
+                ("type", "heRhoThermo"),
+                ("mixture", "pureMixture"),
+                ("transport", "const"),
+                ("thermo", "hConst"),
+                ("equationOfState", "Boussinesq"),
+                ("energy", "sensibleEnthalpy"),
+            ] {
+                if word(tt, k).as_deref() != Some(want) {
+                    return Err(ctx.e(format!("thermoType.{k} must be {want} (the packages ported here: Boussinesq/hConst/const and icoPolynomial/hPolynomial/polynomial)")));
+                }
+            }
+            let mx = ctx.sub(&th, "mixture")?;
+            let eos = ctx.sub(mx, "equationOfState")?;
+            let thd = ctx.sub(mx, "thermodynamics")?;
+            let tr = ctx.sub(mx, "transport")?;
+            PhaseThermo::BoussinesqHConst(BoussinesqHConst {
+                cp: ctx.f64(thd, "Cp")?,
+                tref: scalar(thd, "Tref").unwrap_or(TSTD),
+                hsref: scalar(thd, "Href").unwrap_or(0.0),
+                rho0: ctx.f64(eos, "rho0")?,
+                t0: ctx.f64(eos, "T0")?,
+                beta: ctx.f64(eos, "beta")?,
+                mu: ctx.f64(tr, "mu")?,
+                r_pr: 1.0 / ctx.f64(tr, "Pr")?,
+            })
         };
 
         // ---- phaseProperties: structure, power model, closures
@@ -688,6 +788,7 @@ impl OnePhaseCcCase {
         let mut fixed_cells = vec![false; n];
         let mut momentum_source = vec![Vector3::ZERO; n];
         let mut t_fixed_default = vec![0.0; n];
+        let mut passive: Option<PassiveStructure> = None;
         let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
@@ -723,8 +824,36 @@ impl OnePhaseCcCase {
                 alpha_structure[c] = vf;
                 dh[c] = d;
             }
+            if let Some(pd) = zd.get_dict("passiveProperties") {
+                // `structure.C:372-475`: `volumetricArea`; `rho` and `Cp` or `rhoCp` (all three, or none, is a FatalError);
+                // `volumeFraction` (else the zone's, `alphapas_ = *this` when no `alpha.structure` field is on disk) and `T`
+                for (k3, _) in pd.iter() {
+                    if !matches!(k3, "volumetricArea" | "rho" | "Cp" | "rhoCp" | "volumeFraction" | "T") {
+                        return Err(ctx.e(format!("structureProperties.{key}.passiveProperties.{k3} is not ported")));
+                    }
+                }
+                let (has_rho, has_cp, has_rho_cp) = (pd.get("rho").is_some(), pd.get("Cp").is_some(), pd.get("rhoCp").is_some());
+                let rho_cp = if has_rho && has_cp && has_rho_cp {
+                    return Err(ctx.e(format!("structureProperties.{key}.passiveProperties: specify either rhoCp or both rho and Cp but not all of them")));
+                } else if has_rho && has_cp {
+                    ctx.f64(pd, "rho")? * ctx.f64(pd, "Cp")?
+                } else if has_rho_cp {
+                    ctx.f64(pd, "rhoCp")?
+                } else {
+                    return Err(ctx.e(format!("structureProperties.{key}.passiveProperties: specify either rhoCp or both rho and Cp")));
+                };
+                let pas_alpha = scalar(pd, "volumeFraction").unwrap_or(vf);
+                let pas_ia = ctx.f64(pd, "volumetricArea")?;
+                let pas_t = ctx.f64(pd, "T")?;
+                let ps = passive.get_or_insert_with(|| PassiveStructure { ia: vec![0.0; n], alpha_rho_cp: vec![0.0; n], t: vec![0.0; n] });
+                for &c in &cells {
+                    ps.ia[c] = pas_ia;
+                    ps.alpha_rho_cp[c] = pas_alpha * rho_cp;
+                    ps.t[c] = pas_t;
+                }
+            }
             for (k2, _) in zd.iter() {
-                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource") {
+                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "passiveProperties") {
                     return Err(ctx.e(format!("structureProperties.{key}.{k2} is not ported")));
                 }
             }
@@ -762,6 +891,12 @@ impl OnePhaseCcCase {
             let FoamEntry::SubDict(md) = e else { continue };
             let model = match ctx.word(md, "type")?.as_str() {
                 "constant" => FsHtcModel::Constant(ctx.f64(md, "value")?),
+                "NusseltReynoldsPrandtlPower" | "Nusselt" => {
+                    if scalar(md, "expTc").unwrap_or(0.0) != 0.0 {
+                        return Err(ctx.e(format!("heatTransferModels.{zk}: `expTc != 0` needs the structure wall temperature `T.wall` and is not ported")));
+                    }
+                    FsHtcModel::Nusselt(super::case::read_nusselt(&ctx, md)?)
+                }
                 other => return Err(ctx.e(format!("heatTransferModels.{zk}: `{other}` is not ported here"))),
             };
             for c in zone_cells(zk)? {
@@ -843,7 +978,7 @@ impl OnePhaseCcCase {
         }
         let t = match hand { Some(h) => h.t.clone(), None => sfield("T")? };
         let p = match hand { Some(h) => h.p.clone(), None => sfield("p")? };
-        let alphat = match hand { Some(h) => h.alphat.clone(), None => sfield("alphat")? };
+        let alphat = match hand { Some(h) => h.alphat.clone(), None if laminar => vec![0.0; n], None => sfield("alphat")? };
         // upstream creates what a ROOT case lacks: `T.fixedTemperature` (`T` of the power-model dictionary in its zone,
         // 0 elsewhere), zero `htc` and `powerDensityNeutronicsToLiquid`; only a case that solves the flow may start
         // from them (the frozen-flux region needs a restart, its flux comes from the file)
@@ -890,8 +1025,16 @@ impl OnePhaseCcCase {
             Ok(out)
         };
         let flow = if solve_flow {
-            let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg)?;
-            fc.turbulence = turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?;
+            let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg, laminar)?;
+            fc.turbulence = if laminar {
+                None
+            } else {
+                let tc = turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?;
+                if tc.is_some() && thermo.boussinesq_rho0().is_none() {
+                    return Err(ctx.e("RAS `turbulence true` is ported for the Boussinesq equation of state only (the model's `rho` is the constant `rho0`)"));
+                }
+                tc
+            };
             Some(fc)
         } else {
             None
@@ -911,7 +1054,22 @@ impl OnePhaseCcCase {
             };
             let af = fv::interp_linear_openfoam(&g, &alpha_s);
             let ap: Vec<f64> = (0..g.n_faces()).map(|f| af[f] * phi[f]).collect();
-            let arp: Vec<f64> = ap.iter().map(|v| thermo.rho0 * v).collect();
+            let arp: Vec<f64> = match thermo.boussinesq_rho0() {
+                Some(rho0) => ap.iter().map(|v| rho0 * v).collect(),
+                None => {
+                    // `fluid.C:718`: `interpolate(this->rho()) alphaPhi`, `rho()` the thermo's `rho(p, T)` (cells; the boundary at the
+                    // patch temperature: `fixedValue` T or the owner value)
+                    let mut ts = Scalar { c: t.clone(), b: vec![0.0; g.n_faces() - ni], bc: fcase.t_bc.clone() };
+                    ts.correct_bc(&g);
+                    let rho_s = Scalar {
+                        c: (0..n).map(|c| thermo.props(p[c], t[c]).rho).collect(),
+                        b: (ni..g.n_faces()).map(|f| thermo.props(p[mesh.owner[f]], ts.b[f - ni]).rho).collect(),
+                        bc: vec![Bc::Calculated; mesh.patches.len()],
+                    };
+                    let rf = fv::interp_linear_openfoam(&g, &rho_s);
+                    (0..g.n_faces()).map(|f| rf[f] * ap[f]).collect()
+                }
+            };
             (arp, ap)
         } else {
             match hand { Some(h) => (h.alpha_rho_phi.clone(), h.alpha_phi.clone()), None => (surface("alphaRhoPhi")?, surface("alphaPhi")?) }
@@ -921,6 +1079,8 @@ impl OnePhaseCcCase {
             mesh,
             gravity,
             thermo,
+            laminar,
+            passive,
             controls,
             start_time,
             end_time,
@@ -1017,6 +1177,28 @@ pub struct OnePhaseCcSolver {
     htc_prev: Vec<f64>,
     /// `(initial residual, iterations)` of the `h` solve of each outer iteration of the last [`Self::correct_physics`].
     h_solves: Vec<(f64, usize)>,
+    /// `fluid::rho()` per cell: `rho0` for a `Boussinesq` equation of state, else the thermo's `rho(p, T)` (gh:#1913 round 55).
+    rho: Vec<f64>,
+    /// `fluid::rho()` on every boundary face (index `face - n_internal`).
+    rho_b: Vec<f64>,
+    /// `fluid::rho().oldTime()` per cell: its value at the start of the time step.
+    rho_old: Vec<f64>,
+    /// `fluid.Cp()` placeholder field (`fluid.C:597`, `EEqn_1p.H` end): `thermo.Cp()` as of the last `thermo.correct()`.
+    cp_f: Vec<f64>,
+    /// `fluid.kappa()` placeholder field: `thermo.kappa() = Cp alpha_` (`heThermo::kappa`).
+    kappa_f: Vec<f64>,
+    /// `fluid.Pr()` placeholder field: `Cp mu/kappa`.
+    pr_f: Vec<f64>,
+    /// `T.passiveStructure` per cell (the passive sub-structure; empty without `passiveProperties`).
+    t_pas: Vec<f64>,
+    /// `T.passiveStructure.oldTime()`: its value at the start of the time step.
+    t_pas_old: Vec<f64>,
+    /// CONTROL (gh:#1913): ignore the passive structure (no heat exchange, no `Tpas` update).
+    ctl_no_passive: bool,
+    /// CONTROL (gh:#1913): evaluate the `htc` models once (the first `correctModels`) and keep that field.
+    ctl_freeze_htc: bool,
+    /// `htc` has been evaluated once (for [`Self::with_frozen_htc`]).
+    htc_evaluated: bool,
 }
 
 /// What one PIMPLE outer iteration of the energy equation reported.
@@ -1048,8 +1230,8 @@ impl OnePhaseCcSolver {
             bc: vec![Bc::Calculated; geom.mesh.patches.len()],
         };
         let alpha_f = fv::interp_linear_openfoam(&geom, &sa);
-        let he: Vec<f64> = case.t.iter().map(|&t| case.thermo.hs(t)).collect();
-        // `correctContErr`: ddt(alpha, rho0) is exactly 0 at construction (old time = current).
+        let he: Vec<f64> = (0..case.t.len()).map(|c| case.thermo.he(case.p[c], case.t[c])).collect();
+        // `correctContErr`: ddt(alpha, rho) is exactly 0 at construction (old time = current).
         let dv = fv::div(&geom, &case.alpha_rho_phi);
         let cont_err: Vec<f64> = (0..n).map(|c| 0.0 + dv[c]).collect();
         let mut u = Vector::uniform(&geom, Vector3::ZERO);
@@ -1080,6 +1262,17 @@ impl OnePhaseCcSolver {
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
+        let t_pas = case.passive.as_ref().map_or_else(Vec::new, |ps| ps.t.clone());
+        let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; case.mesh.patches.len()], |f| f.t_bc.clone());
+        let mut ts0 = Scalar { c: case.t.clone(), b: vec![0.0; geom.n_faces() - ni0], bc: t_bc0 };
+        ts0.correct_bc(&geom);
+        let (rho, rho_b) = match case.thermo.boussinesq_rho0() {
+            Some(r0) => (vec![r0; n], vec![r0; geom.n_faces() - ni0]),
+            None => (
+                (0..n).map(|c| case.thermo.props(case.p[c], case.t[c]).rho).collect(),
+                (ni0..geom.n_faces()).map(|f| case.thermo.props(case.p[geom.mesh.owner[f]], ts0.b[f - ni0]).rho).collect(),
+            ),
+        };
         let mut s = Self {
             case,
             geom,
@@ -1121,7 +1314,19 @@ impl OnePhaseCcSolver {
             first_piso_first_pass_only: false,
             htc_prev: Vec::new(),
             h_solves: Vec::new(),
+            rho_old: rho.clone(),
+            rho,
+            rho_b,
+            cp_f: vec![0.0; n],
+            kappa_f: vec![0.0; n],
+            pr_f: vec![0.0; n],
+            t_pas_old: t_pas.clone(),
+            t_pas,
+            ctl_no_passive: false,
+            ctl_freeze_htc: false,
+            htc_evaluated: false,
         };
+        s.update_thermo_fields();
         // the structure constructor calls `correctT` once, which runs `temperatureUpdate()` at the start time
         s.temperature_update();
         s.update_re();
@@ -1175,7 +1380,7 @@ impl OnePhaseCcSolver {
     /// The thermo's own density `rho(T)` per cell (what the coupling maps as `thermo:rho`).
     #[must_use]
     pub fn thermo_density(&self) -> Vec<f64> {
-        self.t.iter().map(|&t| self.case.thermo.rho(t)).collect()
+        (0..self.t.len()).map(|c| self.case.thermo.props(self.p[c], self.t[c]).rho).collect()
     }
 
     /// `Re` per cell (`FSPair::correct`).
@@ -1208,6 +1413,8 @@ impl OnePhaseCcSolver {
         self.dt = dt;
         self.time += dt;
         self.he_old = self.he.clone();
+        self.rho_old = self.rho.clone();
+        self.t_pas_old = self.t_pas.clone();
         self.t_act_old = self.t_act.clone();
         let uc = self.u.c.clone();
         if let Some(fs) = self.flow.as_mut() {
@@ -1267,14 +1474,47 @@ impl OnePhaseCcSolver {
 
     /// `FSPair::correct` quantities that do not need the fluid dynamics: `Re` (`nu = mu/rho(T)`).
     fn update_re(&mut self) {
-        let th = &self.case.thermo;
         for c in 0..self.geom.n_cells() {
-            let nu = th.mu / th.rho(self.t[c]);
+            // `fluid_.thermo().nu()` = `mu/rho` of the THERMO (`rho(T)` of a Boussinesq fluid, not `fluid::rho()` = `rho0`)
+            let pp = self.case.thermo.props(self.p[c], self.t[c]);
+            let nu = pp.mu / pp.rho;
             // normalized = alpha / (1 - structure)
             let norm = self.alpha[c] / (1.0 - self.case.alpha_structure[c]);
             let re = norm * self.u.c[c].mag() * self.case.dh[c] / nu;
             self.re[c] = re.max(self.case.min_re);
         }
+    }
+
+    /// `thermo.correct()` for the fields the solver keeps beside `T` and `he`: `fluid::rho()` (the thermo's `rho(p, T)`; for a
+    /// `Boussinesq` fluid `fluid::rho()` stays `rho0`), and the placeholder fields `Cp`, `kappa = Cp alpha`, `Pr = Cp mu/kappa`
+    /// (`fluid.C:597`, `EEqn_1p.H`; `alpha = alphah = kappa/Cp` for a polynomial transport: `polynomialTransport::alphah`).
+    fn update_thermo_fields(&mut self) {
+        let n = self.geom.n_cells();
+        let ni = self.geom.n_internal();
+        let th = &self.case.thermo;
+        for c in 0..n {
+            let pp = th.props(self.p[c], self.t[c]);
+            let alpha_h = th.alpha_h_const().unwrap_or(pp.kappa / pp.cp);
+            self.cp_f[c] = pp.cp;
+            self.kappa_f[c] = pp.cp * alpha_h;
+            self.pr_f[c] = pp.cp * pp.mu / self.kappa_f[c];
+        }
+        if th.boussinesq_rho0().is_none() {
+            let t_bc = self.t_patch_bcs();
+            let mut ts = Scalar { c: self.t.clone(), b: vec![0.0; self.geom.n_faces() - ni], bc: t_bc };
+            ts.correct_bc(&self.geom);
+            for c in 0..n {
+                self.rho[c] = th.props(self.p[c], self.t[c]).rho;
+            }
+            for f in ni..self.geom.n_faces() {
+                self.rho_b[f - ni] = th.props(self.p[self.geom.mesh.owner[f]], ts.b[f - ni]).rho;
+            }
+        }
+    }
+
+    /// The temperature patch conditions: the case's (`fixedValue`, `zeroGradient`, `empty`) with the flow, `zeroGradient` without.
+    fn t_patch_bcs(&self) -> Vec<Bc> {
+        self.case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; self.geom.mesh.patches.len()], |f| f.t_bc.clone())
     }
 
     /// `fixedTemperature::temperatureUpdate` (gh:#1813): for each zone with a `temperatureTimeProfile`,
@@ -1298,6 +1538,7 @@ impl OnePhaseCcSolver {
     /// # Panics
     /// On a singular radial matrix (upstream's `Foam::solve` is a `FatalError`: the case is unphysical).
     fn structure_correct(&mut self) {
+        self.passive_correct();
         // after the power models: the heat exchangers' `correct(HT, H, THX)` (structure.C:1000-1018): `sHT = htc*T` with the
         // CURRENT temperature, `HT = Hs*T.prevIter()` (README round 44)
         if self.heat_exchangers.is_present() {
@@ -1331,6 +1572,43 @@ impl OnePhaseCcSolver {
                 self.structure_heat_flux[c] = h[c] * self.t_act[c] - ht[c];
             }
         }
+    }
+
+    /// `structure::correct` for the passive sub-structure (`structure.C:1020-1055`), the explicit-in-`HT` form of
+    /// `ddt(alphaRhoCppas, Tpas) = iApas HT - Sp(iApas H, Tpas)` cell by cell where `iApas != 0`:
+    /// `Tpas = (iA HT + (alphaRhoCp/dt) Tpas0)/(alphaRhoCp/dt + iA H)`, `HT = Hs T.prevIter()`, `Tpas0 = Tpas.oldTime()`.
+    fn passive_correct(&mut self) {
+        let Some(ps) = self.case.passive.as_ref().filter(|_| !self.ctl_no_passive) else { return };
+        let dt = self.dt;
+        for c in 0..self.geom.n_cells() {
+            let ia = ps.ia[c];
+            if ia == 0.0 {
+                continue;
+            }
+            let ht = self.htc[c] * self.t_prev[c];
+            let a = ps.alpha_rho_cp[c] / dt;
+            self.t_pas[c] = (ia * ht + a * self.t_pas_old[c]) / (a + ia * self.htc[c]);
+        }
+    }
+
+    /// CONTROL, NOT upstream (gh:#1913): the passive structure ignored (it neither exchanges heat nor is updated).
+    #[must_use]
+    pub fn without_passive_structure(mut self) -> Self {
+        self.ctl_no_passive = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1913): the `htc` models are evaluated once and the field is then kept.
+    #[must_use]
+    pub fn with_frozen_htc(mut self) -> Self {
+        self.ctl_freeze_htc = true;
+        self
+    }
+
+    /// `T.passiveStructure` per cell (empty without `passiveProperties`).
+    #[must_use]
+    pub fn passive_structure_temperature(&self) -> &[f64] {
+        &self.t_pas
     }
 
     /// The radial power models with their state (gh:#1879).
@@ -1424,9 +1702,17 @@ impl OnePhaseCcSolver {
         if a.is_some() {
             self.htc_prev = self.htc.clone();
         }
+        let skip = self.ctl_freeze_htc && self.htc_evaluated;
+        self.htc_evaluated = true;
         for c in 0..self.geom.n_cells() {
+            if skip {
+                break;
+            }
             if let Some(m) = self.case.htc_model[c] {
-                self.htc[c] = m.value();
+                self.htc[c] = match m.value() {
+                    Some(v) => v,
+                    None => m.value_with(self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]),
+                };
             }
         }
         if let Some(a) = a {
@@ -1436,69 +1722,125 @@ impl OnePhaseCcSolver {
         }
     }
 
-    /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`), see `one_phase_fc::relax_diag`: boundary
-    /// coefficients are folded into the diagonal; a boundary face with a negative convective internal
-    /// coefficient is not neutral. Returns `D' - D` per cell.
-    fn relax_diag(&self, e: &mut Eqn, factor: f64, inflow2: &[f64]) -> Vec<f64> {
-        let n = self.geom.n_cells();
+    /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`) for the scalar energy matrix, with the boundary coefficients kept
+    /// apart as `fvMatrix` keeps them (`ic` = `internalCoeffs` per boundary face, not folded into `diag`): `D += |ic|` per boundary face,
+    /// `D = max(|D|, sumOff)`, `D /= alpha`, `D -= ic`; returns `D' - D0` per cell (the source gets `(D' - D0) psi`).
+    fn relax_scalar(&self, e: &mut Eqn, ic: &[f64], factor: f64) -> Vec<f64> {
+        let g = &self.geom;
+        let (n, ni) = (g.n_cells(), g.n_internal());
         let mut sum_off = vec![0.0; n];
-        for f in 0..self.geom.n_internal() {
+        for f in 0..ni {
             sum_off[e.ldu.owner[f]] += e.ldu.upper[f].abs();
             sum_off[e.ldu.neighbour[f]] += e.ldu.lower[f].abs();
         }
-        let mut delta = vec![0.0; n];
-        for c in 0..n {
-            let d0 = e.ldu.diag[c];
-            let d = (d0 + inflow2[c]).abs().max(sum_off[c]) / factor;
-            e.ldu.diag[c] = d;
-            delta[c] = d - d0;
+        let d0 = e.ldu.diag.clone();
+        let mut d = d0.clone();
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                d[g.mesh.owner[f]] += ic[f - ni].abs();
+            }
         }
+        for c in 0..n {
+            d[c] = d[c].abs().max(sum_off[c]);
+        }
+        for v in &mut d {
+            *v /= factor;
+        }
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                d[g.mesh.owner[f]] -= ic[f - ni];
+            }
+        }
+        let delta: Vec<f64> = (0..n).map(|c| d[c] - d0[c]).collect();
+        e.ldu.diag = d;
         delta
     }
 
+    /// `species::thermo::THs` from `he` seeded with `t_old` (`heRhoThermo::calculate`): the `Boussinesq`/`hConst` form for a
+    /// Boussinesq fluid, [`PhaseThermo::t_from_he`] otherwise (upstream aborts past 100 iterations; this returns the seed).
+    fn t_from_he_cell(&self, he: f64, p: f64, t_old: f64) -> f64 {
+        match &self.case.thermo {
+            PhaseThermo::BoussinesqHConst(b) => b.t_from_hs(he, t_old),
+            other => other.t_from_he(he, p, t_old).unwrap_or(t_old),
+        }
+    }
+
     /// `EEqn_1p.H`; returns the initial residual of the `h` solve and the `T (avg min max)` it prints.
+    #[allow(clippy::too_many_lines)]
     fn correct_energy(&mut self) -> (f64, (f64, f64, f64)) {
         let g = self.geom.clone();
         let n = g.n_cells();
         let ni = g.n_internal();
+        let nb = g.n_faces() - ni;
         let rdt = 1.0 / self.dt;
         let th = self.case.thermo.clone();
-        let rho0 = th.rho0;
-        let cp = th.cp;
-        let phi = &self.alpha_rho_phi;
-        let he_scalar = Scalar {
-            c: self.he.clone(),
-            b: vec![0.0; g.n_faces() - ni],
-            bc: vec![Bc::Calculated; g.mesh.patches.len()],
-        };
+        let phi = self.alpha_rho_phi.clone();
+        // the `he` patches follow the `T` patches (`fixedEnergy`: `he = hs(T_b)`; `gradientEnergy` with `zeroGradient` T:
+        // gradient 0, so the value and matrix coefficients of a zero-gradient patch)
+        let t_bc = self.t_patch_bcs();
+        let mut t_s = Scalar { c: self.t.clone(), b: vec![0.0; nb], bc: t_bc.clone() };
+        t_s.correct_bc(&g);
+        let he_bc: Vec<Bc> = g
+            .mesh
+            .patches
+            .iter()
+            .enumerate()
+            .map(|(pi, patch)| match &t_bc[pi] {
+                Bc::Fixed(v) => Bc::Fixed((0..patch.size).map(|k| th.he(self.p[g.mesh.owner[patch.start + k]], v[k])).collect()),
+                Bc::Empty => Bc::Empty,
+                _ => Bc::ZeroGradient,
+            })
+            .collect();
+        let mut he_scalar = Scalar { c: self.he.clone(), b: vec![0.0; nb], bc: he_bc };
+        he_scalar.correct_bc(&g);
         // `T.storePrevIter()` (EEqn_1p.H, before the solve): the temperature `structure_.correct(Hs*T.prevIter(), Hs)` sees
-        if !self.radial.is_empty() || self.heat_exchangers.is_present() {
+        if !self.radial.is_empty() || self.heat_exchangers.is_present() || self.case.passive.is_some() {
             self.t_prev = self.t.clone();
         }
-        // fvm::ddt(alpha, rho0, he)
+        // fvm::ddt(alpha, rho, he)
         let mut e = Eqn::new(&g);
+        let mut ic = vec![0.0; nb];
+        let mut bco = vec![0.0; nb];
         for c in 0..n {
             let v = g.mesh.cell_volumes[c];
-            e.ldu.diag[c] += rdt * self.alpha[c] * rho0 * v;
-            e.source[c] += rdt * self.alpha[c] * rho0 * self.he_old[c] * v;
+            e.ldu.diag[c] += rdt * self.alpha[c] * self.rho[c] * v;
+            e.source[c] += rdt * self.alpha[c] * self.rho_old[c] * self.he_old[c] * v;
         }
-        e.div_upwind(&g, phi, &he_scalar);
+        // fvm::div(alphaRhoPhi, he, "div(alphaRhoPhi,he)"): the boundary coefficients stay apart (`internalCoeffs`, `boundaryCoeffs`)
+        e.div_upwind_internal(&g, &phi);
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                let (vi, vb) = he_scalar.convection_coeffs(&g, f, [&[], &[]]);
+                ic[f - ni] += phi[f] * vi;
+                bco[f - ni] += -phi[f] * vb;
+            }
+        }
         let ce: Vec<f64> = self.cont_err.iter().map(|v| -v).collect();
         e.su_sp(&g, &ce, &self.he);
-        // - laplacian(interpolate(alpha) interpolate(alphaEff), he), alphaEff = alpha_thermo + alphat
-        let ah = th.alpha_h();
+        // - laplacian(interpolate(alpha) interpolate(alphaEff), he), alphaEff = CpByCpv (alpha_thermo + alphat)
+        let alpha_h_at = |p: f64, t: f64| -> f64 {
+            th.alpha_h_const().unwrap_or_else(|| {
+                let pp = th.props(p, t);
+                pp.kappa / pp.cp
+            })
+        };
         let ae = Scalar {
-            c: (0..n).map(|c| ah + self.turb.as_ref().map_or(self.case.alphat[c], |t| t.alphat.c[c])).collect(),
-            b: vec![0.0; g.n_faces() - ni],
+            c: (0..n).map(|c| alpha_h_at(self.p[c], self.t[c]) + self.turb.as_ref().map_or(self.case.alphat[c], |t| t.alphat.c[c])).collect(),
+            b: (ni..g.n_faces()).map(|f| alpha_h_at(self.p[g.mesh.owner[f]], t_s.b[f - ni]) + 0.0).collect(),
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
         let ae_f = fv::interp_linear_openfoam(&g, &ae);
         let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
-        e.neg_laplacian(&g, &gam, &he_scalar);
-        // right-hand side: alpha rho0 (U.g); alpha ddt(p) = 0 exactly (p is never modified)
+        e.neg_laplacian_internal(&g, &gam);
+        let (lic, lbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar);
+        for i in 0..nb {
+            ic[i] += lic[i];
+            bco[i] += lbc[i];
+        }
+        // right-hand side: alpha rho (U.g); alpha ddt(p) = 0 exactly (p is never modified)
         let mut rhs = vec![0.0; n];
         for c in 0..n {
-            rhs[c] = self.alpha[c] * rho0 * self.u.c[c].dot(self.case.gravity);
+            rhs[c] = self.alpha[c] * self.rho[c] * self.u.c[c].dot(self.case.gravity);
         }
         e.su(&g, &rhs);
         // `EEqn -= alpha*fvc::ddt(p_)`: `p.oldTime()` is created by this very call in step 1 (see `begin_time_step`)
@@ -1511,7 +1853,7 @@ impl OnePhaseCcSolver {
         if self.case.controls.include_kinetic_energy {
             let mut k = Scalar {
                 c: vec![0.0; n],
-                b: vec![0.0; g.n_faces() - ni],
+                b: vec![0.0; nb],
                 bc: vec![Bc::Calculated; g.mesh.patches.len()],
             };
             for c in 0..n {
@@ -1528,52 +1870,65 @@ impl OnePhaseCcSolver {
                     k.c[g.mesh.owner[f]]
                 };
             }
-            let kf = fv::interp_upwind(&g, &k, phi);
+            let kf = fv::interp_upwind(&g, &k, &phi);
             let flux: Vec<f64> = (0..g.n_faces()).map(|f| phi[f] * kf[f]).collect();
             let div_k = fv::div(&g, &flux);
             let mut s = vec![0.0; n];
             for c in 0..n {
-                // K.oldTime() of a fresh local field is K itself; rho = rho0 for both times
-                let ddt_k = rdt * (self.alpha[c] * rho0 * k.c[c] - self.alpha[c] * rho0 * k.c[c]);
+                // K.oldTime() of a fresh local field is K itself
+                let ddt_k = rdt * (self.alpha[c] * self.rho[c] * k.c[c] - self.alpha[c] * self.rho_old[c] * k.c[c]);
                 s[c] = -(ddt_k + div_k[c] - self.cont_err[c] * k.c[c]);
             }
             e.su(&g, &s);
         }
-        // structure_.linearizedSemiImplicitHeatSource(fluid, Hs)
+        // structure_.linearizedSemiImplicitHeatSource(fluid, Hs): active, passive and heat-exchanger terms, `Cp = fluid.Cp()`
         let mut su = vec![0.0; n];
         let mut sp = vec![0.0; n];
         for c in 0..n {
             let ih = self.ia_act[c] * self.htc[c];
-            su[c] = ih * (self.t_act[c] - self.t[c] + self.he[c] / cp);
-            sp[c] = ih / cp;
+            su[c] = ih * (self.t_act[c] - self.t[c] + self.he[c] / self.cp_f[c]);
+            sp[c] = ih / self.cp_f[c];
         }
-        if self.heat_exchangers.is_active() {
-            // `structure.C:1148-1156`: `Q += iAHX*H*(THX-T+he/Cp) - fvm::Sp(iAHX*H/Cp, he)` BEFORE `EEqn -= Q`: the source and the
-            // diagonal receive `(V*act + V*hx)` as ONE sum (negations are exact), not two additions (README round 44)
+        let mut su_pas = vec![0.0; n];
+        let mut sp_pas = vec![0.0; n];
+        if let Some(ps) = self.case.passive.as_ref().filter(|_| !self.ctl_no_passive) {
             for c in 0..n {
-                let v = g.mesh.cell_volumes[c];
-                let (su_hx, sp_hx) = self.heat_exchangers.source_and_coeff(c, self.htc[c], self.t[c], self.he[c], cp);
-                e.source[c] += v * su[c] + v * su_hx;
-                e.ldu.diag[c] += v * sp[c] + v * sp_hx;
+                let ih = ps.ia[c] * self.htc[c];
+                su_pas[c] = ih * (self.t_pas[c] - self.t[c] + self.he[c] / self.cp_f[c]);
+                sp_pas[c] = ih / self.cp_f[c];
             }
-        } else {
-            e.su(&g, &su);
-            e.sp(&g, &sp);
+        }
+        // the matrix `Q = (S_act - Sp_act) + S_pas - Sp_pas (+ HX)` subtracted from the equation: the source and the diagonal receive
+        // `V*act + V*pas (+ V*hx)` as ONE left-associated sum (negations are exact); with no passive structure `V*pas` is exactly 0
+        let hx = self.heat_exchangers.is_active();
+        for c in 0..n {
+            let v = g.mesh.cell_volumes[c];
+            let (mut s_tot, mut d_tot) = (v * su[c] + v * su_pas[c], v * sp[c] + v * sp_pas[c]);
+            if hx {
+                // `structure.C:1148-1156`: `Q += iAHX*H*(THX-T+he/Cp) - fvm::Sp(iAHX*H/Cp, he)` BEFORE `EEqn -= Q` (README round 44)
+                let (su_hx, sp_hx) = self.heat_exchangers.source_and_coeff(c, self.htc[c], self.t[c], self.he[c], self.cp_f[c]);
+                s_tot += v * su_hx;
+                d_tot += v * sp_hx;
+            }
+            e.source[c] += s_tot;
+            e.ldu.diag[c] += d_tot;
         }
         // - alpha * powerDensity
         let pd: Vec<f64> = (0..n).map(|c| self.alpha[c] * self.power_density[c]).collect();
         e.su(&g, &pd);
         // EEqn.relax()
         if let Some(fct) = self.case.controls.relax.equation("h", self.pimple.final_iteration).filter(|f| *f > 0.0) {
-            let mut inflow2 = vec![0.0; n];
-            for f in ni..g.n_faces() {
-                if g.active[f] {
-                    inflow2[g.mesh.owner[f]] += 2.0 * (-phi[f]).max(0.0);
-                }
-            }
-            let delta = self.relax_diag(&mut e, fct, &inflow2);
+            let delta = self.relax_scalar(&mut e, &ic, fct);
             for c in 0..n {
                 e.source[c] += delta[c] * self.he[c];
+            }
+        }
+        // `solveSegregated`: the boundary coefficients join the diagonal and the source at the solve
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                let o = g.mesh.owner[f];
+                e.ldu.diag[o] += ic[f - ni];
+                e.source[o] += bco[f - ni];
             }
         }
         let mut x = self.he.clone();
@@ -1582,9 +1937,26 @@ impl OnePhaseCcSolver {
         let ctl = &self.case.controls;
         let (tol, rel_tol, min_iter) =
             if fin { (ctl.h_tolerance_final, ctl.h_rel_tol_final, ctl.h_min_iter_final) } else { (ctl.h_tolerance, ctl.h_rel_tol, ctl.h_min_iter) };
-        let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
-        self.pimple.record("h", perf.initial_residual);
-        self.h_solves.push((perf.initial_residual, perf.iterations));
+        let kind = if fin { ctl.h_solver_final } else { ctl.h_solver };
+        let (initial_residual, iterations) = match kind {
+            HSolver::PBiCGStabDiagonal => {
+                let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+                (perf.initial_residual, perf.iterations)
+            }
+            HSolver::SmoothSymGaussSeidel => {
+                let (sweeps, ini, _fin) = super::super::one_phase::smooth_solve_sym_gauss_seidel_openfoam(
+                    &e.ldu,
+                    &e.source,
+                    &mut x,
+                    outram_foam_basic_lib::prelude::SolverSettings { tolerance: tol, max_iter: DEFAULT_MAX_ITER },
+                    min_iter,
+                );
+                (ini, sweeps)
+            }
+        };
+        let perf = (initial_residual, iterations);
+        self.pimple.record("h", perf.0);
+        self.h_solves.push((perf.0, perf.1));
         self.he = x;
         // `he.relax()`: `he = prevIter + alpha (he - prevIter)`, the `fields` entry `h` (`hFinal` in the flagged iteration)
         if let Some(a) = self.case.controls.relax.field("h", fin) {
@@ -1592,10 +1964,11 @@ impl OnePhaseCcSolver {
                 self.he[c] = self.he_prev[c] + a * (self.he[c] - self.he_prev[c]);
             }
         }
-        // thermo.correct(): T from he by Newton, seeded with the current T
+        // thermo.correct(): T from he by Newton, seeded with the current T; then rho, Cp, kappa, Pr
         for c in 0..n {
-            self.t[c] = th.t_from_hs(self.he[c], self.t[c]);
+            self.t[c] = self.t_from_he_cell(self.he[c], self.p[c], self.t[c]);
         }
+        self.update_thermo_fields();
         let vols = &g.mesh.cell_volumes;
         let (mut sv, mut st) = (0.0, 0.0);
         let (mut tmin, mut tmax) = (f64::MAX, f64::MIN);
@@ -1605,10 +1978,19 @@ impl OnePhaseCcSolver {
             tmin = tmin.min(self.t[c]);
             tmax = tmax.max(self.t[c]);
         }
+        // `min(T)`/`max(T)` of a `volScalarField` run over the cells AND the boundary faces (a `fixedValue` inlet is in them)
+        let mut t_now = Scalar { c: self.t.clone(), b: vec![0.0; nb], bc: self.t_patch_bcs() };
+        t_now.correct_bc(&g);
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                tmin = tmin.min(t_now.b[f - ni]);
+                tmax = tmax.max(t_now.b[f - ni]);
+            }
+        }
         // `structure_.correct(Hs*T.prevIter(), Hs)` runs at the END of EEqn_1p.H: `fixedTemperature::correctT` -> `temperatureUpdate`
         self.temperature_update();
         self.structure_correct();
-        (perf.initial_residual, (st / sv, tmin, tmax))
+        (perf.0, (st / sv, tmin, tmax))
     }
 
     /// `onePhase::correctPhysics` with `solveEnergy true`, `solveFluidMechanics false`: `nOuterCorrectors`

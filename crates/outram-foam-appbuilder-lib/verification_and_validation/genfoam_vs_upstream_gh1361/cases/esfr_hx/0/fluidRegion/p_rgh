@@ -1,0 +1,40 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      p_rgh;
+}
+
+dimensions      [1 -1 -2 0 0 0 0];
+
+internalField   uniform 0;
+
+boundaryField
+{
+    top
+    {
+        type            fixedFluxPressure;
+        value           $internalField;
+    }
+    bottom
+    {
+        type            fixedFluxPressure;
+        value           $internalField;
+    }
+    walls
+    {
+        type            fixedFluxPressure;
+        value           $internalField;
+    }
+    baffle0
+    {
+        type            fixedFluxPressure;
+        value           $internalField;
+    }
+    baffle1
+    {
+        type            fixedFluxPressure;
+        value           $internalField;
+    }
+}

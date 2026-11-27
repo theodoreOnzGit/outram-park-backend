@@ -59,6 +59,7 @@ use alloc::sync::Arc;
 
 use super::esi::{esi_header, format_g, EsiWriteOptions};
 use super::dict::{fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR};
+use super::foam_number::NumberRounding;
 use super::IoError;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -83,9 +84,28 @@ pub fn read_vol_scalar_field(
     path: impl AsRef<Path>,
     mesh: Arc<FvMesh>,
 ) -> Result<(VolScalarField, Dimensions), IoError> {
+    read_vol_scalar_field_rounded(path.as_ref(), mesh, NumberRounding::CorrectlyRounded)
+}
+
+#[cfg(feature = "std")]
+/// [`read_vol_scalar_field`] with every number read as OpenFOAM-ESI reads it
+/// ([`NumberRounding::Esi`], gh:#1909).
+pub fn read_vol_scalar_field_esi(
+    path: impl AsRef<Path>,
+    mesh: Arc<FvMesh>,
+) -> Result<(VolScalarField, Dimensions), IoError> {
+    read_vol_scalar_field_rounded(path.as_ref(), mesh, NumberRounding::Esi)
+}
+
+#[cfg(feature = "std")]
+fn read_vol_scalar_field_rounded(
+    path: impl AsRef<Path>,
+    mesh: Arc<FvMesh>,
+    rounding: NumberRounding,
+) -> Result<(VolScalarField, Dimensions), IoError> {
     let path = path.as_ref();
     let text = read_to_string(path)?;
-    let mut c = FieldCursor::new(&text, path.display().to_string());
+    let mut c = FieldCursor::new(&text, path.display().to_string(), rounding);
     let (dims, internal_raw, boundary_raw, name) = c.parse_field_body()?;
 
     let internal = match internal_raw {
@@ -104,9 +124,28 @@ pub fn read_vol_vector_field(
     path: impl AsRef<Path>,
     mesh: Arc<FvMesh>,
 ) -> Result<(VolVectorField, Dimensions), IoError> {
+    read_vol_vector_field_rounded(path.as_ref(), mesh, NumberRounding::CorrectlyRounded)
+}
+
+#[cfg(feature = "std")]
+/// [`read_vol_vector_field`] with every number read as OpenFOAM-ESI reads it
+/// ([`NumberRounding::Esi`], gh:#1909).
+pub fn read_vol_vector_field_esi(
+    path: impl AsRef<Path>,
+    mesh: Arc<FvMesh>,
+) -> Result<(VolVectorField, Dimensions), IoError> {
+    read_vol_vector_field_rounded(path.as_ref(), mesh, NumberRounding::Esi)
+}
+
+#[cfg(feature = "std")]
+fn read_vol_vector_field_rounded(
+    path: impl AsRef<Path>,
+    mesh: Arc<FvMesh>,
+    rounding: NumberRounding,
+) -> Result<(VolVectorField, Dimensions), IoError> {
     let path = path.as_ref();
     let text = read_to_string(path)?;
-    let mut c = FieldCursor::new(&text, path.display().to_string());
+    let mut c = FieldCursor::new(&text, path.display().to_string(), rounding);
     let (dims, internal_raw, boundary_raw, name) = c.parse_field_body()?;
 
     let internal = match internal_raw {
@@ -286,15 +325,17 @@ struct FieldCursor {
     pos: usize,
     context: String,
     object: String,
+    rounding: NumberRounding,
 }
 
 impl FieldCursor {
-    fn new(text: &str, context: impl Into<String>) -> Self {
+    fn new(text: &str, context: impl Into<String>, rounding: NumberRounding) -> Self {
         let mut c = Self {
             tokens: tokenize(text),
             pos: 0,
             context: context.into(),
             object: String::new(),
+            rounding,
         };
         c.read_header_object();
         c
@@ -335,8 +376,9 @@ impl FieldCursor {
         let t = self
             .next()
             .ok_or_else(|| self.err("expected a number, found end of input"))?;
-        t.parse::<f64>()
-            .map_err(|_| self.err(format!("expected a number, found `{t}`")))
+        self.rounding
+            .parse(&t)
+            .ok_or_else(|| self.err(format!("expected a number, found `{t}`")))
     }
 
     fn parse_vector(&mut self) -> Result<Vector3, IoError> {

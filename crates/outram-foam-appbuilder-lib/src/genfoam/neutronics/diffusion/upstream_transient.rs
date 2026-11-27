@@ -82,6 +82,7 @@ use crate::genfoam::common::linear_solvers::NeutronEquation;
 use outram_foam_basic_lib::prelude::{fvm, Field, FvMatrix, VolScalarField};
 
 use super::DiffusionNeutronics;
+use crate::genfoam::multi_region::mesh_deformation::euler_ddt_diag_source;
 use crate::genfoam::neutronics::pseudo_time::{field_like, solve_twice_residuals};
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::neutronics::NeutronicsError;
@@ -163,12 +164,23 @@ pub struct UpstreamTransientStep {
 
 /// `fvm::ddt(coeff, psi)` of `EulerDdtScheme::fvmDdt(vsf, vf)`, operation
 /// order as upstream: `diag = rDeltaT*vsf*V`, `source = rDeltaT*vsf_0*vf_0*V`.
-pub(super) fn euler_ddt(coeff: &[f64], psi_old: &[f64], volumes: &[f64], dt: f64, like: &VolScalarField) -> FvMatrix {
-    let r_delta_t = 1.0 / dt;
+///
+/// `volumes` is `Vsc()` (`V`), `volumes_old` is `Vsc0()` (`V0` when the mesh moves, else `V`): the moving-mesh branch of
+/// `EulerDdtScheme::fvmDdt` (gh:#1856), through the shared [`euler_ddt_diag_source`]. A static mesh passes the same slice twice and
+/// gets the earlier operator bit for bit.
+pub(super) fn euler_ddt(
+    coeff: &[f64],
+    psi_old: &[f64],
+    volumes: &[f64],
+    volumes_old: &[f64],
+    dt: f64,
+    like: &VolScalarField,
+) -> FvMatrix {
+    let (diag, source) = euler_ddt_diag_source(dt, coeff, coeff, psi_old, volumes, volumes_old);
     let mut m = FvMatrix::new(like.mesh.clone());
     for c in 0..coeff.len() {
-        m.ldu.diag[c] += r_delta_t * coeff[c] * volumes[c];
-        m.source[c] += r_delta_t * coeff[c] * psi_old[c] * volumes[c];
+        m.ldu.diag[c] += diag[c];
+        m.source[c] += source[c];
     }
     m
 }
@@ -384,7 +396,7 @@ impl DiffusionNeutronics {
 
                 // the unknown is `fluxStar_`
                 let flux_g = &star_field(&self.state.flux()[gg], star[gg].clone());
-                let ddt = euler_ddt(&iv_over_disc, &flux_old[gg], &volumes, dt, flux_g);
+                let ddt = euler_ddt(&iv_over_disc, &flux_old[gg], &volumes, self.old_volumes_or(&volumes), dt, flux_g);
                 let lap = fvm::laplacian_with_delta(&self.d_over_df_face(gg, flux_g), flux_g, self.settings.delta_coeff);
                 let sp_field = field_like(flux_g, sp_coeff);
                 let eqn = ddt + lap - fvm::sp(&sp_field, flux_g)
@@ -574,7 +586,7 @@ impl DiffusionNeutronics {
         let source: Vec<f64> = (0..n).map(|c| (neutro_source[c] / keff) * beta[c]).collect();
         let c_star = &self.prec_star[group];
         let head = if with_ddt {
-            euler_ddt(alpha, prec_star_old, volumes, dt, c_star) + fvm::sp(&field_like(&drift.alpha, lambda_alpha), c_star)
+            euler_ddt(alpha, prec_star_old, volumes, self.old_volumes_or(volumes), dt, c_star) + fvm::sp(&field_like(&drift.alpha, lambda_alpha), c_star)
         } else {
             fvm::sp(&field_like(&drift.alpha, lambda_alpha), c_star)
         };

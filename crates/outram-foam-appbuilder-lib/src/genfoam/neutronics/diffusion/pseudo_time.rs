@@ -208,7 +208,18 @@ impl PseudoTimeEigenvalue for DiffusionNeutronics {
             let sr_over_df: Vec<f64> =
                 (0..n).map(|c| self.xs.sigma_removal[gg].internal.as_slice()[c] / disc[gg][c]).collect();
             let d_face = fvc::interpolate(&field_like(&template, d_over_df));
-            let eqn = fvm::laplacian_with_delta(&d_face, &star_g, self.settings.delta_coeff)
+            // `laplacianSchemes Gauss linear corrected` (gh:#1856): the explicit non-orthogonal correction is taken from the
+            // `Gauss linear` gradient of the flux the step starts from (`createFluxMatrices.H` is evaluated before `fluxEq.H`)
+            let lap = match self.eigenvalue_laplacian {
+                super::external_source::NeutronicsLaplacianScheme::Corrected => {
+                    let grad = fvc::grad(&star_g);
+                    fvm::laplacian_corrected(&d_face, &star_g, &grad, outram_foam_basic_lib::prelude::NonOrthoScheme::Corrected)
+                }
+                super::external_source::NeutronicsLaplacianScheme::Uncorrected => {
+                    fvm::laplacian_with_delta(&d_face, &star_g, self.settings.delta_coeff)
+                }
+            };
+            let eqn = lap
                 + fvm::sp(&field_like(&template, sr_over_df), &star_g)
                 - fvm::su(&field_like(&template, prompt), &star_g)
                 - fvm::su(&field_like(&template, delayed_g), &star_g)

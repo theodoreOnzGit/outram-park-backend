@@ -1,0 +1,77 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       polyBoundaryMesh;
+    object      boundary;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+5
+(
+    top
+    {
+        type            patch;
+        physicalType    patch;
+        nFaces          1014;
+        startFace       45630;
+    }
+    bottom
+    {
+        type            patch;
+        physicalType    patch;
+        nFaces          1014;
+        startFace       46644;
+    }
+    walls
+    {
+        type            patch;
+        physicalType    patch;
+        nFaces          2070;
+        startFace       47658;
+    }
+    baffle0
+    {
+        type            mappedWall;
+        inGroups        
+3
+(
+wall
+mappedPatch
+baffleFaces
+)
+;
+        nFaces          10626;
+        startFace       49728;
+        sampleMode      nearestPatchFace;
+        sampleRegion    fluid;
+        samplePatch     baffle1;
+    }
+    baffle1
+    {
+        type            mappedWall;
+        inGroups        
+3
+(
+wall
+mappedPatch
+baffleFaces
+)
+;
+        nFaces          10626;
+        startFace       60354;
+        sampleMode      nearestPatchFace;
+        sampleRegion    fluid;
+        samplePatch     baffle0;
+    }
+)
+
+// ************************************************************************* //

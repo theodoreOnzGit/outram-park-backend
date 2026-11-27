@@ -60,6 +60,14 @@ impl Sp3Neutronics {
     /// `defaultFlux` of upstream's `flux_`): it is recomputed as
     /// `fluxStar - 2 fluxStar2` only inside the first time step, and the
     /// `pTotOld_` of that step (which sets the first `deltaT`) is taken from it.
+    ///
+    /// **The shipped start is a negative scalar flux** (round 47, gh:#1887; maintainer
+    /// 2026-11-27: "Follow port, document"). With `defaultFlux2 uniform 1` and
+    /// `fluxStar` 1, the first recomputed scalar flux is `1 - 2 * 1 = -1`, so step 1
+    /// normalises by a negative power, its keff is negative and is clamped to 0.1, and
+    /// any discontinuity-factor adjustment in that step sees a mixed-sign `fluxStar`.
+    /// The port reproduces this bit for bit (calling this with `1.0` is upstream's start).
+    /// `0.0` is the physical start; it is what round 47's stable data set uses.
     pub fn set_uniform_second_moment(&mut self, value: f64) {
         for field in self.flux_star2.iter_mut() {
             for v in field.internal.as_mut_slice() {

@@ -66,7 +66,7 @@
 //!   [`FoamValue::Dict`](outram_foam_basic_lib::io::dict::FoamValue::Dict).
 //! - **`#include` is used in earnest.** Upstream's ESFR case keeps each state's
 //!   zone data in a separate `XS…` file. This module reads through
-//!   [`FoamFile::read_with_includes`], so those are spliced before parsing.
+//!   [`FoamFile::read_with_includes_esi`], so those are spliced before parsing.
 //!
 //! ## Units
 //!
@@ -150,7 +150,7 @@ use crate::genfoam::neutronics::xs::variables::{VariableLaw, XsVariable};
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn read_nuclear_data(path: &Path) -> Result<NuclearDataInput, AppBuilderError> {
-    let file = FoamFile::read_with_includes(path).map_err(|e| AppBuilderError::Parse {
+    let file = FoamFile::read_with_includes_esi(path).map_err(|e| AppBuilderError::Parse {
         file: path.display().to_string(),
         line: 0,
         msg: e.to_string(),

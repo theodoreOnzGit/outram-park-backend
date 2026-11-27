@@ -1,0 +1,89 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ------------------------------------------------------------------------- //
+// --- STRUCTURES PROPERTIES ----------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+structureProperties
+{
+    "axialReflector:radialReflector:follower:controlRod"
+    {
+        volumeFraction      0;
+        Dh                  1;
+    }
+
+    "hxA:hxB"
+    {
+        volumeFraction      0.6;
+        Dh                  0.01;
+    }
+
+    "diagrid"
+    {
+        volumeFraction      0;
+        Dh                  1;
+        momentumSource      (0 0 300000);
+    }
+
+    heatExchangers
+    {
+        "ABHX"
+        {
+            primary             "hxA";
+            secondary           "hxB";
+            volumetricArea      250;
+            wallConductance     2.5e4;
+        }
+        "BAHX"
+        {
+            primary             "hxB";
+            secondary           "hxA";
+            volumetricArea      250;
+            wallConductance     2.5e4;
+        }
+    }
+}
+
+regimeMapModels
+{}
+
+physicsModels
+{
+    dragModels
+    {
+        "hxA:hxB"
+        {
+            type    ReynoldsPower;
+            coeff   0.5;
+            exp     -0.25;
+        }
+    }
+
+    heatTransferModels
+    {
+        "hxA:hxB"
+        {
+            type    constant;
+            value   1e+4;
+        }
+    }
+}
+
+pMin                    10000;
+pRefCell                0;
+pRefValue               100000;

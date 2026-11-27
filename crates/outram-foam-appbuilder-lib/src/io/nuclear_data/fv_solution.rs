@@ -190,7 +190,7 @@ pub fn read_neutron_fv_solution(
     prec_groups: usize,
     directions: usize,
 ) -> Result<NeutronFvSolution, AppBuilderError> {
-    let file = FoamFile::read_with_includes(path)
+    let file = FoamFile::read_with_includes_esi(path)
         .map_err(|e| AppBuilderError::Parse { file: path.display().to_string(), line: 0, msg: e.to_string() })?;
     resolve_neutron_fv_solution(&file.dict, &path.display().to_string(), groups, prec_groups, directions)
 }
@@ -267,7 +267,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("fvSolution");
         std::fs::write(&p, format!("FoamFile {{ version 2.0; format ascii; class dictionary; object fvSolution; }}\n{text}")).unwrap();
-        FoamFile::read_with_includes(&p).unwrap().dict
+        FoamFile::read_with_includes_esi(&p).unwrap().dict
     }
 
     /// The matcher: `.*`, `.`, alternation, full-match.

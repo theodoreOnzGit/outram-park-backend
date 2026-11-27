@@ -262,6 +262,8 @@ int main(int argc, char* argv[])
             forAll(mp.boundaryField(), p) forAll(mp.boundaryField()[p], i) b[k++] = mp.boundaryField()[p][i];
             scaF(f, call, "meshPhi.bnd", b);
         }
+        // gh:#1856 item 5: meshPhi.oldTime() (the previous time index's last meshPhi; a copy of the current one when first asked)
+        scaF(f, call, "meshPhiOld", mp.oldTime().primitiveField());
         // the consumer
         // primitiveFieldRef() calls storeOldTimes(): the first write of a time index saves the previous value as oldTime()
         {

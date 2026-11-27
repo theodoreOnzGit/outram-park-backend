@@ -52,6 +52,7 @@ use core::fmt::Write as _;
 #[cfg(feature = "std")]
 use std::path::Path;
 
+use super::foam_number::NumberRounding;
 use super::IoError;
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -432,15 +433,18 @@ struct Parser {
     context: String,
     /// Dictionaries under construction, innermost last (for `$name;` macros).
     scopes: Vec<FoamDict>,
+    /// How decimal numbers are rounded (gh:#1909).
+    rounding: NumberRounding,
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>, context: impl Into<String>) -> Self {
+    fn new(tokens: Vec<Token>, context: impl Into<String>, rounding: NumberRounding) -> Self {
         Self {
             tokens,
             pos: 0,
             context: context.into(),
             scopes: Vec::new(),
+            rounding,
         }
     }
 
@@ -623,7 +627,7 @@ impl Parser {
             let t = self
                 .advance()
                 .ok_or_else(|| self.err("unexpected end of input inside `[ … ]`"))?;
-            *slot = t.text.parse::<f64>().map_err(|_| {
+            *slot = self.rounding.parse(&t.text).ok_or_else(|| {
                 self.err(format!(
                     "dimension exponent {i} is not a number: `{}`",
                     t.text
@@ -697,16 +701,16 @@ impl Parser {
         let text = t.text.clone();
         // Function-style word: fold glued trailing `( … )` groups.
         // (not for a number: `List<scalar> 2(0.1 0.04)` is the count 2 and a list, gh:#1863)
-        if text.parse::<f64>().is_err() && self.peek().is_some_and(|p| p.text == "(" && p.glued) {
+        if self.rounding.parse(&text).is_none() && self.peek().is_some_and(|p| p.text == "(" && p.glued) {
             let mut w = text;
             while matches!(self.peek(), Some(p) if p.text == "(" && p.glued) {
                 w.push_str(&self.fold_paren_text());
             }
             return Ok(FoamValue::Word(w));
         }
-        match text.parse::<f64>() {
-            Ok(x) => Ok(FoamValue::Scalar(x)),
-            Err(_) => Ok(FoamValue::Word(text)),
+        match self.rounding.parse(&text) {
+            Some(x) => Ok(FoamValue::Scalar(x)),
+            None => Ok(FoamValue::Word(text)),
         }
     }
 
@@ -786,8 +790,27 @@ impl FoamFile {
 
     /// Like [`Self::parse`] but labels parse errors with `context`.
     pub fn parse_named(text: &str, context: impl Into<String>) -> Result<Self, IoError> {
+        Self::parse_rounded(text, context, NumberRounding::CorrectlyRounded)
+    }
+
+    /// [`Self::parse`] with every number read as OpenFOAM-ESI reads it
+    /// ([`NumberRounding::Esi`], gh:#1909).
+    pub fn parse_esi(text: &str) -> Result<Self, IoError> {
+        Self::parse_rounded(text, "dictionary", NumberRounding::Esi)
+    }
+
+    /// [`Self::parse_named`] with [`NumberRounding::Esi`].
+    pub fn parse_named_esi(text: &str, context: impl Into<String>) -> Result<Self, IoError> {
+        Self::parse_rounded(text, context, NumberRounding::Esi)
+    }
+
+    fn parse_rounded(
+        text: &str,
+        context: impl Into<String>,
+        rounding: NumberRounding,
+    ) -> Result<Self, IoError> {
         let tokens = tokenize(text);
-        let mut parser = Parser::new(tokens, context);
+        let mut parser = Parser::new(tokens, context, rounding);
         let header = parse_header(&mut parser)?;
         let dict = parser.parse_dict_body(true)?;
         Ok(Self { header, dict })
@@ -799,10 +822,20 @@ impl FoamFile {
     /// `#include` directives are **not** followed — use
     /// [`read_with_includes`](Self::read_with_includes) for that.
     pub fn read(path: impl AsRef<Path>) -> Result<Self, IoError> {
-        let path = path.as_ref();
+        Self::read_rounded(path.as_ref(), NumberRounding::CorrectlyRounded)
+    }
+
+    #[cfg(feature = "std")]
+    /// [`Self::read`] with [`NumberRounding::Esi`] (gh:#1909).
+    pub fn read_esi(path: impl AsRef<Path>) -> Result<Self, IoError> {
+        Self::read_rounded(path.as_ref(), NumberRounding::Esi)
+    }
+
+    #[cfg(feature = "std")]
+    fn read_rounded(path: &Path, rounding: NumberRounding) -> Result<Self, IoError> {
         let text = std::fs::read_to_string(path)
             .map_err(|e| IoError::io(path.display().to_string(), e))?;
-        Self::parse_named(&text, path.display().to_string())
+        Self::parse_rounded(&text, path.display().to_string(), rounding)
     }
 
     #[cfg(feature = "std")]
@@ -839,9 +872,19 @@ impl FoamFile {
     /// `#include` is not followed by a quoted filename, or if the include depth
     /// is exceeded.
     pub fn read_with_includes(path: impl AsRef<Path>) -> Result<Self, IoError> {
-        let path = path.as_ref();
+        Self::read_with_includes_rounded(path.as_ref(), NumberRounding::CorrectlyRounded)
+    }
+
+    #[cfg(feature = "std")]
+    /// [`Self::read_with_includes`] with [`NumberRounding::Esi`] (gh:#1909).
+    pub fn read_with_includes_esi(path: impl AsRef<Path>) -> Result<Self, IoError> {
+        Self::read_with_includes_rounded(path.as_ref(), NumberRounding::Esi)
+    }
+
+    #[cfg(feature = "std")]
+    fn read_with_includes_rounded(path: &Path, rounding: NumberRounding) -> Result<Self, IoError> {
         let text = resolve_includes(path, 0)?;
-        Self::parse_named(&text, path.display().to_string())
+        Self::parse_rounded(&text, path.display().to_string(), rounding)
     }
 
     /// Serialise to OpenFOAM ASCII text (banner + header + body).
