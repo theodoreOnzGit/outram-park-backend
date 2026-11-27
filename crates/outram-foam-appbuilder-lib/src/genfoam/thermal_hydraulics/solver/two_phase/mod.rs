@@ -107,6 +107,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 mod alpha_mules;
+pub(crate) mod foam_regex;
 pub mod case;
 pub mod fv;
 pub mod mules;

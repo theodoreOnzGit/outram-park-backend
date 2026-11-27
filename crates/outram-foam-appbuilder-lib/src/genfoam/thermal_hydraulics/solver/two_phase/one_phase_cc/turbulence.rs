@@ -305,6 +305,21 @@ pub struct DiagonalBicgstab {
     pub min_iter: usize,
     /// `maxIter`.
     pub max_iter: usize,
+    /// `solver PBiCG; preconditioner DILU;` instead of `PBiCGStab`/`diagonal` (the shipped `2D_FFTF`, gh:#1870 round 62; default false).
+    pub dilu: bool,
+}
+
+impl DiagonalBicgstab {
+    /// Solve `ldu x = source` from the guess in `x` with the selected solver; returns `(initial residual, iterations)`.
+    pub fn solve(&self, ldu: &outram_foam_basic_lib::prelude::LduMatrix, source: &[f64], x: &mut [f64]) -> (f64, usize) {
+        if self.dilu {
+            let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(ldu, source, x, self.tolerance, self.rel_tol, self.max_iter, self.min_iter);
+            (perf.initial_residual, perf.iterations)
+        } else {
+            let perf = pbicgstab_diagonal(ldu, source, x, self.tolerance, self.rel_tol, self.max_iter, self.min_iter);
+            (perf.initial_residual, perf.iterations)
+        }
+    }
 }
 
 /// The `turbulence true` part of a read case.
@@ -841,9 +856,9 @@ impl OnePhaseCcSolver {
         }
         let mut x = ts.epsilon.c.clone();
         let sv = if use_final { c.epsilon_solver_final } else { c.epsilon_solver };
-        let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, sv.tolerance, sv.rel_tol, sv.max_iter, sv.min_iter);
-        let eps_solve = (perf.initial_residual, perf.iterations);
-        self.pimple.record("epsilon", perf.initial_residual);
+        let perf = sv.solve(&e.ldu, &e.source, &mut x);
+        let eps_solve = (perf.0, perf.1);
+        self.pimple.record("epsilon", perf.0);
         ts.epsilon.c = x;
         ts.epsilon.correct_bc(&g);
         if bound(&g, &mut ts.epsilon, c.epsilon_min) {
@@ -877,9 +892,9 @@ impl OnePhaseCcSolver {
         }
         let mut x = ts.k.c.clone();
         let sv = if use_final { c.k_solver_final } else { c.k_solver };
-        let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, sv.tolerance, sv.rel_tol, sv.max_iter, sv.min_iter);
-        self.pimple.record("k", perf.initial_residual);
-        ts.step_solves.push([eps_solve, (perf.initial_residual, perf.iterations)]);
+        let perf = sv.solve(&e.ldu, &e.source, &mut x);
+        self.pimple.record("k", perf.0);
+        ts.step_solves.push([eps_solve, (perf.0, perf.1)]);
         ts.k.c = x;
         ts.k.correct_bc(&g);
         if bound(&g, &mut ts.k, c.k_min) {
@@ -1107,10 +1122,13 @@ pub(super) fn read_turbulence_case(
     let solver_of = |name: &str| -> Result<DiagonalBicgstab, AppBuilderError> {
         match last_match(solvers, name) {
             Some(FoamEntry::SubDict(d)) => {
-                if word(d, "solver").as_deref() != Some("PBiCGStab") || word(d, "preconditioner").as_deref() != Some("diagonal") {
-                    return Err(ctx.e(format!("solvers for `{name}`: only PBiCGStab with the diagonal preconditioner is ported")));
-                }
+                let dilu = match (word(d, "solver").as_deref(), word(d, "preconditioner").as_deref()) {
+                    (Some("PBiCGStab"), Some("diagonal")) => false,
+                    (Some("PBiCG"), Some("DILU")) => true,
+                    _ => return Err(ctx.e(format!("solvers for `{name}`: only PBiCGStab/diagonal and PBiCG/DILU are ported"))),
+                };
                 Ok(DiagonalBicgstab {
+                    dilu,
                     tolerance: scalar(d, "tolerance").unwrap_or(1e-6),
                     rel_tol: scalar(d, "relTol").unwrap_or(0.0),
                     min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,

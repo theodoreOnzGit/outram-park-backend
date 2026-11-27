@@ -7571,3 +7571,58 @@ Q1 **missed** (stage 1 alone broke 8 tests, all at round-off/chaos level; stage 
 The turbulence equations (`turbulence.rs`: `k`, `epsilon`) and `heSource`'s internal split (interfacial + phase change summed before the `V` product) are not in OpenFOAM's order; the energy equation is covered by the end-to-end gates but has no per-corrector probe (the probe patch dumps the pressure stage only); `relax` selection by `hFinal`/`p_rghFinal` keys is not read (all shipped cases use `".*" 1`); an ablation builder for the helper switch was not added (the old forms remain as `Geometry::new`, `interp_linear`, `flux`, `dev2_div`).
 
 Reproduction: `bash upstream_driver/probe_pressure/run_probe_r58.sh up 40` (probe built by applying probe_pressure.patch to a copy of the classes), port: `python3 -I upstream_driver/probe_pressure/port_probe_r58_insert.py <mod.rs> new` (TEMPORARY edit) with a one-step test, then `cmp_r58.py probe_up.txt probe_port.txt 1 2`.
+
+
+# Round 62 (2D_FFTF; gh:#1870 under #1216, with #1865, #1229, #1236, #1883, #1922; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah"): the shipped `2D_FFTF` read line by line, the real binary run through the Allrun stages, and the pieces of it the port gained, each against the real binary on a one-edit variant
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **Everything in "Criteria" and "Predictions" below is committed BEFORE the first port run of the variant tests of this round**; the real-binary variant references were extracted first (`refs` submodule `ebecabf`, `fftf_r62_*`), the port code of the pieces was written and compiled before, but NO port number of any variant had been looked at when this section was committed. Not a completed tutorial: the end-to-end port run of 2D_FFTF is NOT reached (see "Not done").
+
+## What 2D_FFTF selects (read from `Tutorials/reactorCases/2D_FFTF/{Allrun,Allrun_parallel,Allrun_powerFromDiffusion,Alltest,rootCase}`; GeN-Foam 652b3da, ESI v2506)
+
+* **Stages** (`Allrun`, serial): `steadyState` = `regionSolvers.fluidRegion onePhase` ONLY (no neutronics solver: the power is the `powerDensityNeutronics` field of `0/fluidRegion`), `removeBaffles.fluidRegion true`, `endTime 900`, `maxCo 50`, `maxDeltaT 2`, `multiRegionCouplingDict_steadyState` (empty mappings); `transient` = `energyNeutroMechLoop multiPhysicsSolver` { `fluidRegion onePhase`; `neutroRegion pointKinetics` } (`multiRegionCouplingDict_transient`, `-initializeMappedFields` first with `_initPK`), `endTime 1200`, `maxCo 1`, `maxDeltaT 1`, relaxation 0.8/1.0 of `h`, `U`, `p_rgh`, `writeInterval 50`. `Allrun_parallel` (5 processors) and `Allrun_powerFromDiffusion` (3 stages, `diffusionNeutronics` eigenvalue first) are variants; `Alltest` gates the transient's last-step reactivity contributions and total power at 1 %.
+* **Meshes** (drawn, `images/fftf_*_zones.svg`, `scripts/draw_fftf_meshes.py`): `fluidRegion` **18 538 cells** (14 328 wedge cells of the vessel plus 4 210 one-cell-thick loop cells; ~~"14 328-cell fluid mesh"~~ **CORRECTED 2026-11-27 (row 15 of the round 54 table)**), 26 cellZones, no cell outside a zone, no overlap; baffles present in the `polyMesh` (`baffle1..4`, `mappedWall` `baffle3`/`baffle4`, 8 faces each); `neutroRegion` 9 450 cells (one wedge patch `Front`), 22 zones, 27 cells in two zones (`coreOutlet` overlaps).
+* **Fluid** (`fvSolution`, `fvSchemes`, `phaseProperties`, `turbulenceProperties`, `thermophysicalProperties`): `RAS porousKEpsilon`; Boussinesq/hConst/const sodium; `momentumMode cellCenteredFaceReconstruction`, `porousInterfaceSharpness 0.5`; `nOuterCorrectors 6`, `nCorrectors 6`; `p_rgh` GAMG/DIC; `"(h|k|epsilon)"` and `"(h|k|epsilon)Final"` `PBiCG`/`DILU` (the real log reads `DILUPBiCG`); relaxation 0.5 on `h`, `U`, `p_rgh`, 0.6 on `k`/`epsilon`; drag `ReynoldsPower` (many zones), `Churchill` (10 zones), `Rehme` + per-axis `localX/localY/localZ` (core, CR); `localTortuosity (1 1 0.01389)` (IHX); `nuclearFuelPin` with a `gapHPowerDensity` table (inner/outer core); `passiveProperties` (6 zones); `heatExchangers` `pIHX`/`sIHX`; `NusseltReynoldsPrandtlPower`; pump `momentumSource (0 0 -166000)` with `momentumSourceTimeProfile` (table, `startTime 910`); BCs `wedge`, `noSlip`, `slip`, `fixedFluxPressure`, `fixedValue`, `zeroGradient`, `calculated`; 22 `massFlow`/`TBulk` function objects.
+* **Neutronics (transient)**: `pointKinetics` with `GEMReactivityMap`, `controlRodReactivityMap`, driveline, feedback zones (`coolantFeedbackZones` is ignored by upstream, gh:#1910), `TStruct` feedback; the 24-group `diffusionNeutronics` data is used only by `Allrun_powerFromDiffusion`.
+
+## Allrun findings (the real binary, as shipped, serial; scratch `/home/user/upstream-build/fftf`, deleted after extraction)
+
+1. `foamDictionary`, which the Allrun calls, was not built in this ESI build: built with `wmake` from the shipped source (`applications/utilities/miscellaneous/foamDictionary`, 4 s). Its edits then run exactly as shipped.
+2. `libfieldFunctionObjects.so` (the `massFlow`/`TBulk` function objects of `controlDict`) is not built here: one `Could not load` warning per function object, the solve is unaffected, no `postProcessing` output. Not an Allrun defect.
+3. The 14 328 wedge faces print `Wedge patch 'vesselFront' is not planar` (3.6e-12 normal difference): 27 085 warning lines in the steady-state log. Harmless.
+4. `removeBaffles` does NOT touch the solved mesh: `thermalHydraulicsModel::correctBaffleLessFields` and `meshHandler` use the baffle-less copy (`0/fluidRegion.baffleLess`, 1 216 duplicate faces) only as the SOURCE of `meshToMesh` maps to other regions. A fluid-only steady state never reads it; the transient's map to the neutronics region does (gh:#1236).
+
+## Pieces ported this round (each cited to upstream; the older form stays where it was)
+
+| piece | upstream | port |
+|---|---|---|
+| regex dictionary keywords (`"(h\|k\|epsilon)"`, `[..]`, `+`, `?`, groups) | `dictionary.C` pattern lookup, POSIX ERE | `two_phase/foam_regex.rs` (new); `case::key_matches` delegates when the pattern uses more than literals and `.*` |
+| `PBiCG`/`DILU` for `h`, `k`, `epsilon` | `PBiCG::solve`, `DILUPreconditioner` | `HSolver::PbicgDilu`, `DiagonalBicgstab::dilu`, reusing `legacy_fvm::pbicg::pbicg_dilu` (round 23) |
+| `momentumSourceTimeProfile` (pump) | `pump.C` `correct`, `timeProfile.C` | `OnePhaseFlowCase::momentum_profiles`, applied in each pressure corrector at the current time |
+| `momentumMode cellCenteredFaceReconstruction`, `porousInterfaceSharpness` | `pEqn_1p.H`, `reconstructU_1p.H` | `flow::reconstruct_u_1p` (uses `fv::reconstruct_openfoam`) |
+| `Churchill`, `Rehme`, per-axis `localX/Y/Z` drag | `FSDragFactor.C`, `FSDragCoefficientModels/*` | `DragLaw`, `CellDrag`, `Kd` as `diag(kx, ky, kz)` (the UEqn already had `Sp((1/3) tr Kd) + (dev Kd & U)`) |
+| `noSlip` `U` | `noSlipFvPatchVectorField` | `VectorBc::Fixed(0)` |
+
+## Comparison criteria (fixed here; none will change after seeing results)
+
+Variants of `cases/fullcoupling_fluid` made by `scripts/make_fftf_piece_variants.py` (one edit each; real binary: `scripts/run_fftf_piece_variants.sh`; every solver 1e-14, `writePrecision 17`, 20 steps: the round 55 harness, `tests/genfoam_fftf_pieces_vs_upstream.rs`):
+
+1. **Each variant is read and run by the port without refusal**, 20 steps; step count equals the reference's.
+2. **Fields** `U` (gated on `max|U|`; components reported), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics` at every kept step: `max|port - up| / max|up| <= 1e-9`.
+3. **Time-step sequence** `<= 1e-12` relative; **solve logs**: `p_rgh`/`h` initial residuals of solves whose upstream residual exceeds `1e-10` within `1e-6` relative, iterations within 1 (noise-floor counts reported, not gated).
+4. **Controls (each must differ)**: the port run of `w2_recon05` compared with the `w2_recon1` and `w2_recon0` references differs by more than 1e-12 in `U` (the references differ among themselves by 1.6e-11); the `w3_pump` run with `momentum_profiles` cleared (pump held at its full value) differs from the `w3_pump` reference by more than 1e-6 in `p_rgh`.
+5. **Earlier numbers do not move**: `genfoam_fullcoupling_fluid_vs_upstream`, `genfoam_fullcoupling_three_region_vs_upstream`, `genfoam_fullcoupling_transient_vs_upstream`, `--lib foam_regex`, and the differential tests that read `OnePhaseCcCase` pass with their recorded numbers; anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+6. **`2D_FFTF` first refusal** (`tests/genfoam_coupled_tutorials_requirements.rs`) is re-pinned to the first piece still missing.
+7. **The steady-state reference of the real tutorial** (as shipped, GAMG, serial, 900 s) is extracted and its wall time and step count recorded; the tight-protocol first-N-steps reference is committed.
+
+## Predictions (written before any port number of this round was looked at)
+
+| id | quantity | prediction | if missed |
+|---|---|---|---|
+| P1 | `w1_dilu` (regex key + `PBiCG`/`DILU` for `h`) | within 1e-9 at all 20 steps; `h` iteration counts equal | P 75 % |
+| P2 | `w2_half_cc` (old path, interface) | within 1e-9 | P 70 % (the old path was only run on uniform alpha before) |
+| P3 | `w2_recon05`, `w2_recon1`, `w2_recon0` | each within 1e-9; the control of criterion 4 differs by more than 1e-12 | P 60 % each; first diverging step and field reported |
+| P4 | `w3_pump` | within 1e-9 | P 65 % (the time argument of `pump::correct` is `timeOutputValue()` of the step; the port uses its `self.time`: whether that is the step start or end is unverified) |
+| P5 | `w4_churchill` | within 1e-9 | P 85 % (closure with its own unit tests; the wiring `0.5/Dh (1-alphas) rho max(magU, minMagU) f(Re)` is unchanged) |
+| P6 | `w5_noslip` | within 1e-9 | P 80 % |
+| P7 | earlier numbers unchanged (criterion 5) | all pass, nothing moves | P 90 % (`kd` became three entries; for an isotropic case the arithmetic is the same operations) |
+| P8 | the real `2D_FFTF` steady state in the port | NOT reached this round: the IHX `localTortuosity` (tensor Laplacian) is unported, and the `mappedWall` patches, `porousKEpsilon` with `zeroGradient` wall entries on 18 538 cells and the GAMG substitute at that size have never been run | P 95 % that it is not reached |

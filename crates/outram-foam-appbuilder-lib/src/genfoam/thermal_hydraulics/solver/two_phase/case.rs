@@ -198,6 +198,10 @@ pub(super) fn bool_entry(d: &FoamDict, key: &str) -> Option<bool> {
 /// OpenFOAM keyword regex, restricted to literals and `.*` (all the cases
 /// use): `alpha.*` matches `alpha.vapour`.
 pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
+    // gh:#1870 round 62: groups, alternation, classes and `+`/`?` (`"(h|k|epsilon)"`) go to the full matcher; literal and `.*` patterns keep this path
+    if super::foam_regex::needs_full_regex(pattern) {
+        return super::foam_regex::foam_regex_full_match(pattern, name);
+    }
     if !pattern.contains(".*") {
         return pattern == name;
     }

@@ -78,13 +78,14 @@ use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForce
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use crate::genfoam::common::TimeProfile;
+use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 
 pub(super) mod flow;
 mod pimple;
 #[cfg(feature = "std")]
 use super::radial_power;
 mod turbulence;
-pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
+pub use flow::{CellDrag, DragLaw, OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
 pub use pimple::{LoopStep, PimpleControls, PimpleState, RelaxationDict, RelaxationFactors, ResidualSpec};
 pub use turbulence::{
@@ -126,6 +127,9 @@ pub enum HSolver {
     /// (`one_phase::smooth_solve_sym_gauss_seidel_openfoam`, differenced against the real binary in README round 46 and, for the
     /// cell-centred region, in round 55 variant V3).
     SmoothSymGaussSeidel,
+    /// `PBiCG` with the `DILU` preconditioner (`legacy_fvm::pbicg::pbicg_dilu`, README rounds 23 and 62): the shipped `2D_FFTF`'s
+    /// `"(h|k|epsilon)"` entries (the real log reads `DILUPBiCG: Solving for h`).
+    PbicgDilu,
 }
 
 /// `fvSolution`/`controlDict` entries the stage reads.
@@ -485,6 +489,28 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
     Err("neither uniform nor nonuniform".to_string())
 }
 
+/// One `FSDragCoefficientModel` dictionary: `ReynoldsPower` (`coeff`, `exp`, `const`), `Churchill` (`surfaceRoughness`) or `Rehme`
+/// (`numberOfPins`, `pinDiameter`, `wireDiameter`, `wireLeadLen`, `wetWrapPerimeter`); every other model is refused by name.
+#[cfg(feature = "std")]
+fn read_drag_law(ctx: &Ctx, what: &str, md: &FoamDict) -> Result<DragLaw, AppBuilderError> {
+    match ctx.word(md, "type")?.as_str() {
+        "ReynoldsPower" => Ok(DragLaw::ReynoldsPower(ReynoldsPowerDrag {
+            coeff: ctx.f64(md, "coeff")?,
+            exp: ctx.f64(md, "exp")?,
+            constant: scalar(md, "const").unwrap_or(0.0),
+        })),
+        "Churchill" => Ok(DragLaw::Wall(FsWallFriction::Churchill { surface_roughness: ctx.f64(md, "surfaceRoughness")? })),
+        "Rehme" => Ok(DragLaw::Wall(FsWallFriction::rehme_from_geometry(
+            ctx.f64(md, "numberOfPins")?,
+            ctx.f64(md, "pinDiameter")?,
+            ctx.f64(md, "wireDiameter")?,
+            ctx.f64(md, "wireLeadLen")?,
+            ctx.f64(md, "wetWrapPerimeter")?,
+        ))),
+        other => Err(ctx.e(format!("dragModels.{what}: `{other}` is not ported for the solved flow (ReynoldsPower, Churchill, Rehme)"))),
+    }
+}
+
 #[cfg(feature = "std")]
 fn last_match<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     // OpenFOAM: an exact keyword first, else the LAST matching pattern.
@@ -666,6 +692,7 @@ impl OnePhaseCcCase {
                 Some(FoamEntry::SubDict(d)) => {
                     let kind = match (word(d, "solver").as_deref(), word(d, "preconditioner").as_deref(), word(d, "smoother").as_deref()) {
                         (Some("PBiCGStab"), Some("diagonal"), _) => HSolver::PBiCGStabDiagonal,
+                        (Some("PBiCG"), Some("DILU"), _) => HSolver::PbicgDilu,
                         (Some("smoothSolver"), _, Some("symGaussSeidel")) => {
                             // the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55)
                             if scalar(d, "relTol").unwrap_or(0.0) != 0.0 {
@@ -681,7 +708,7 @@ impl OnePhaseCcCase {
                         }
                         _ => {
                             return Err(ctx.e(format!(
-                                "solvers for `{name}`: only PBiCGStab with the diagonal preconditioner and smoothSolver with symGaussSeidel are ported"
+                                "solvers for `{name}`: only PBiCGStab/diagonal, PBiCG/DILU and smoothSolver with symGaussSeidel are ported"
                             )))
                         }
                     };
@@ -787,6 +814,7 @@ impl OnePhaseCcCase {
         let mut ia_act = vec![0.0; n];
         let mut fixed_cells = vec![false; n];
         let mut momentum_source = vec![Vector3::ZERO; n];
+        let mut momentum_profiles: Vec<(Vec<usize>, Vector3, TimeProfile)> = Vec::new();
         let mut t_fixed_default = vec![0.0; n];
         let mut passive: Option<PassiveStructure> = None;
         let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
@@ -802,11 +830,11 @@ impl OnePhaseCcCase {
             let cells = zone_cells(key)?;
             if solve_flow {
                 if let Some(FoamEntry::List(v)) = zd.get("momentumSource") {
-                    if zd.get("momentumSourceTimeProfile").is_some() || zd.get_dict("momentumSourceTimeProfile").is_some() {
-                        return Err(ctx.e("momentumSourceTimeProfile is not ported"));
-                    }
                     if v.len() != 3 {
                         return Err(ctx.e("momentumSource must be a vector"));
+                    }
+                    if zd.get("momentumSourceTimeProfile").is_some() && zd.get_dict("momentumSourceTimeProfile").is_none() {
+                        return Err(ctx.e("momentumSourceTimeProfile must be a dictionary"));
                     }
                     let src = Vector3::new(
                         v[0].as_scalar().unwrap_or(0.0),
@@ -815,6 +843,9 @@ impl OnePhaseCcCase {
                     );
                     for &c in &cells {
                         momentum_source[c] = src;
+                    }
+                    if let Some(td) = zd.get_dict("momentumSourceTimeProfile") {
+                        momentum_profiles.push((cells.clone(), src, read_table_time_profile(&ctx, td, "momentumSourceTimeProfile")?));
                     }
                 }
             }
@@ -853,7 +884,7 @@ impl OnePhaseCcCase {
                 }
             }
             for (k2, _) in zd.iter() {
-                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "passiveProperties") {
+                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "momentumSourceTimeProfile" | "passiveProperties") {
                     return Err(ctx.e(format!("structureProperties.{key}.{k2} is not ported")));
                 }
             }
@@ -905,20 +936,29 @@ impl OnePhaseCcCase {
         }
         // dragModels: the energy equation does not see `Kd`; the solved flow does (`ReynoldsPower` only)
         let dragd = ctx.sub(pm_dict, "dragModels")?;
-        let mut drag: Vec<Option<ReynoldsPowerDrag>> = vec![None; n];
+        let mut drag: Vec<Option<CellDrag>> = vec![None; n];
         if solve_flow {
             for (zk, e) in dragd.iter() {
                 let FoamEntry::SubDict(md) = e else { continue };
-                if ctx.word(md, "type")? != "ReynoldsPower" {
-                    return Err(ctx.e(format!("dragModels.{zk}: only ReynoldsPower is ported for the solved flow")));
-                }
-                let model = ReynoldsPowerDrag {
-                    coeff: ctx.f64(md, "coeff")?,
-                    exp: ctx.f64(md, "exp")?,
-                    constant: scalar(md, "const").unwrap_or(0.0),
+                let cell = if md.get("type").is_some() {
+                    CellDrag { isotropic: true, laws: [Some(read_drag_law(&ctx, zk, md)?), None, None] }
+                } else {
+                    // `FSDragFactor`: no `type` -> per-axis models `localX`, `localY`, `localZ` (an absent axis has no model)
+                    for (k, _) in md.iter() {
+                        if !matches!(k, "localX" | "localY" | "localZ") {
+                            return Err(ctx.e(format!("dragModels.{zk}.{k} is not ported (localX, localY, localZ)")));
+                        }
+                    }
+                    let mut laws = [None, None, None];
+                    for (i, key) in ["localX", "localY", "localZ"].iter().enumerate() {
+                        if let Some(sd) = md.get_dict(key) {
+                            laws[i] = Some(read_drag_law(&ctx, &alloc::format!("{zk}.{key}"), sd)?);
+                        }
+                    }
+                    CellDrag { isotropic: false, laws }
                 };
                 for c in zone_cells(zk)? {
-                    drag[c] = Some(model);
+                    drag[c] = Some(cell);
                 }
             }
         }
@@ -1026,6 +1066,7 @@ impl OnePhaseCcCase {
         };
         let flow = if solve_flow {
             let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg, laminar)?;
+            fc.momentum_profiles = momentum_profiles;
             fc.turbulence = if laminar {
                 None
             } else {
@@ -1170,7 +1211,7 @@ pub struct OnePhaseCcSolver {
     /// `p_rgh.prevIter()` (stored at each `loop()` when `fields` relaxes `p_rgh`).
     p_rgh_prev: Vec<f64>,
     /// `Kd.prevIter()` (`myOps::storePrevIterIfRelax`).
-    kd_prev: Vec<f64>,
+    kd_prev: Vec<[f64; 3]>,
     /// CONTROL (gh:#1866): see [`OnePhaseCcSolver::with_first_piso_residual_of_first_pass_only`].
     first_piso_first_pass_only: bool,
     /// `htc.prevIter()` (`myOps::storePrevIterIfRelax`).
@@ -1995,6 +2036,10 @@ impl OnePhaseCcSolver {
         let (initial_residual, iterations) = match kind {
             HSolver::PBiCGStabDiagonal => {
                 let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+                (perf.initial_residual, perf.iterations)
+            }
+            HSolver::PbicgDilu => {
+                let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
                 (perf.initial_residual, perf.iterations)
             }
             HSolver::SmoothSymGaussSeidel => {
