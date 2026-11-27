@@ -70,7 +70,7 @@
 //! ## What this does not port (each refused by name in [`OnePhaseFcCase::read`])
 //!
 //! `momentumMode` other than `faceCentered`; `porousInterfaceSharpness != 0`; turbulence other than
-//! `laminar`; heat exchangers, pumps, passive structures, tortuosity, local frames, power-off
+//! `laminar`; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported in the same region, `secondaryRegion` stays refused**), pumps, passive structures, tortuosity, local frames, power-off
 //! criteria; velocity patches other than `zeroGradient` and `noSlip` (`fixedValue`, `slip` and `symmetry` are accepted by the shared
 //! reader and NOT verified here; `pressureInletOutletVelocity` is refused: no fluid flux names); `fixedValue`/`flowRateInletVelocity`/`partialSlip`
 //! cases of `1D_HX` (gh:#1867);

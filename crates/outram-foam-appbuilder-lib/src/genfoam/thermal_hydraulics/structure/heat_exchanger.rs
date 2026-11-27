@@ -47,13 +47,14 @@
 //!
 //! ## Scope
 //!
-//! [`hx_wall_temperature`] ports this per-cell algebra, which is self-contained
-//! and hand-verifiable. GeN-Foam additionally handles the **mesh-to-mesh
-//! mapping** between (possibly non-conformal) primary and secondary meshes to
-//! find the "opposite" cell's `h_sum`/`ht_sum`; that mapping is inseparable from
-//! the finite-volume mesh machinery and belongs to the solver bead
-//! (op-p6p.7.11). Here the caller supplies both sides' already-mapped coupling
-//! sums.
+//! [`hx_wall_temperature`] ports the per-cell algebra. ~~GeN-Foam additionally handles the **mesh-to-mesh mapping** ... that mapping
+//! belongs to the solver bead (op-p6p.7.11). Here the caller supplies both sides' already-mapped coupling sums.~~ **CORRECTED
+//! 2026-11-27 (gh:#1847, README round 44):** the whole of `structure::constructHeatExchangers`, `heatExchanger::constructSecondaryHX`
+//! and `heatExchanger::correct` is ported: [`HeatExchangerZone`] (the zone centre-of-volume translation of the secondary mesh and the
+//! exact `meshToMesh` mapping of round 28), [`HeatExchangerSet`] (`iAHX`, `T.HX`, the `max(THX) > 1e-69` guard, the current-`T`
+//! secondary lookup) and its use in the energy equations of `one_phase_fc` and `one_phase_cc` (compared with the real binary on
+//! `featureCases/1D_HX/onePhase`). **Refused by name:** a `secondaryRegion` other than the region itself, an `interpolationMethod`
+//! other than 2, and the two-phase region (gh:#1867).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -427,6 +428,100 @@ mod tests {
     fn zero_coefficients_do_not_nan() {
         let t_p = hx_wall_temperature(hw(1.0e4), h(0.0), ht(0.0, 0.0), h(0.0), ht(0.0, 0.0));
         assert!(t_p.get::<kelvin>().is_finite());
+    }
+
+    /// A closed pencil of `n` unit hexahedra along z (internal faces first), the lists `heatExchanger::constructSecondaryHX` reads.
+    fn pencil(n: usize) -> (Vec<Vector3>, Vec<Vec<usize>>, Vec<usize>, Vec<usize>, Vec<f64>, Vec<Vector3>) {
+        let corner = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
+        let mut points = Vec::new();
+        for k in 0..=n {
+            for (x, y) in corner {
+                points.push(Vector3::new(x, y, k as f64));
+            }
+        }
+        let (mut faces, mut owner, mut neighbour) = (Vec::new(), Vec::new(), Vec::new());
+        for k in 1..n {
+            faces.push(vec![4 * k, 4 * k + 1, 4 * k + 2, 4 * k + 3]);
+            owner.push(k - 1);
+            neighbour.push(k);
+        }
+        faces.push(vec![3, 2, 1, 0]);
+        owner.push(0);
+        faces.push(vec![4 * n, 4 * n + 1, 4 * n + 2, 4 * n + 3]);
+        owner.push(n - 1);
+        for k in 0..n {
+            for c in 0..4 {
+                faces.push(vec![4 * k + c, 4 * k + (c + 1) % 4, 4 * (k + 1) + (c + 1) % 4, 4 * (k + 1) + c]);
+                owner.push(k);
+            }
+        }
+        let volumes = vec![1.0; n];
+        let centres = (0..n).map(|k| Vector3::new(0.5, 0.5, k as f64 + 0.5)).collect();
+        (points, faces, owner, neighbour, volumes, centres)
+    }
+
+    /// V&V (README round 44): a two-zone exchanger on a 4-cell pencil, primary cells 0-1 and secondary cells 2-3. Upstream's
+    /// construction translates the whole secondary mesh by `pCOV - sCOV = (0, 0, -2)`, so primary cell 0 overlaps secondary cell 2
+    /// and primary cell 1 overlaps secondary cell 3 with weight 1 (read from `heatExchanger.C:310-431`); the symmetric solve of
+    /// [`symmetric_hx_wall_temperature`] then gives `THX = 1600/3` on the primary cells and `THX` stays 0 elsewhere.
+    #[test]
+    fn two_zone_exchanger_on_a_pencil_maps_and_solves_as_upstream() {
+        let (points, faces, owner, neighbour, volumes, centres) = pencil(4);
+        let input = HxMeshInput {
+            points: &points,
+            faces: &faces,
+            owner: &owner,
+            neighbour: &neighbour,
+            cell_volumes: &volumes,
+            cell_centres: &centres,
+        };
+        let z = HeatExchangerZone::new(&input, vec![0, 1], &[2, 3], 250.0, 1.0e4).expect("equal volumes");
+        assert_eq!((z.translation.x, z.translation.y, z.translation.z), (0.0, 0.0, -2.0));
+        assert_eq!(z.mapping.tgt_to_src_addr[0], vec![2]);
+        assert_eq!(z.mapping.tgt_to_src_addr[1], vec![3]);
+        assert_eq!(z.mapping.tgt_to_src_wght[0], vec![1.0]);
+        // the control mapping is the same on a conformal pair
+        assert_eq!(z.nearest_cell_mapping.tgt_to_src_addr[0], vec![2]);
+        assert_eq!(z.nearest_cell_mapping.tgt_to_src_addr[1], vec![3]);
+
+        let mut set = HeatExchangerSet::new(4, vec![z]);
+        assert!(set.is_present() && !set.is_active());
+        assert_eq!(set.i_a_hx, vec![250.0, 250.0, 0.0, 0.0]);
+        let h = vec![1.0e4; 4];
+        let ht = vec![1.0e4 * 600.0; 4];
+        let s_ht = vec![1.0e4 * 600.0, 1.0e4 * 600.0, 1.0e4 * 400.0, 1.0e4 * 400.0];
+        set.correct(&ht, &h, &h, &s_ht);
+        assert!(set.is_active());
+        assert!((set.t_hx[0] - 1600.0 / 3.0).abs() < 1e-9 && (set.t_hx[1] - 1600.0 / 3.0).abs() < 1e-9);
+        assert_eq!((set.t_hx[2], set.t_hx[3]), (0.0, 0.0));
+        // the control mapping gives the same answer here
+        set.nearest_cell_mapping = true;
+        let mut near = set.clone();
+        near.correct(&ht, &h, &h, &s_ht);
+        assert_eq!(near.t_hx, set.t_hx);
+        // the source: iAHX*H*(THX - T + he/Cp) and iAHX*H/Cp
+        let (su, sp) = set.source_and_coeff(0, 1.0e4, 600.0, 7.5e5, 1250.0);
+        assert_eq!(su, 250.0 * 1.0e4 * (set.t_hx[0] - 600.0 + 7.5e5 / 1250.0));
+        assert_eq!(sp, 250.0 * 1.0e4 / 1250.0);
+    }
+
+    /// Upstream's `FatalError` for zones whose volumes differ by 1 % or more, with its message.
+    #[test]
+    fn unequal_zone_volumes_are_upstreams_fatal_error() {
+        let (points, faces, owner, neighbour, volumes, centres) = pencil(4);
+        let input = HxMeshInput {
+            points: &points,
+            faces: &faces,
+            owner: &owner,
+            neighbour: &neighbour,
+            cell_volumes: &volumes,
+            cell_centres: &centres,
+        };
+        let err = HeatExchangerZone::new(&input, vec![0, 1, 2], &[3], 250.0, 1.0e4).expect_err("volumes differ");
+        assert_eq!(err, HeatExchangerError::VolumeMismatch(2.0 / 3.0));
+        assert!(format!("{err}").starts_with("Primary and secondary zone volumes differ by"));
+        let bad = HeatExchangerError::Mesh("x".to_string());
+        assert_eq!(format!("{bad}"), "heat exchanger mesh: x");
     }
 
     #[test]

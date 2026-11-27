@@ -52,7 +52,7 @@
 //!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
-//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
+//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported, same-region secondary zone only**), pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; ~~power models other than `fixedTemperature`~~ **CORRECTED 2026-11-27 (gh:#1879, README round 37):**
 //! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
 //! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); `nuclearFuelPinTest`, the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
@@ -1303,7 +1303,8 @@ impl OnePhaseCcSolver {
         if self.heat_exchangers.is_present() {
             let n = self.geom.n_cells();
             let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.t_prev[c]).collect();
-            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.t[c]).collect();
+            let t_sec = if self.heat_exchangers.secondary_uses_prev_iter_t { &self.t_prev } else { &self.t };
+            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_sec[c]).collect();
             let h = self.htc.clone();
             self.heat_exchangers.correct(&ht, &h, &h, &s_ht);
         }
@@ -1370,6 +1371,26 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn active_structure_temperature(&self) -> &[f64] {
         &self.t_act
+    }
+
+    /// `T.HX` (`THXPtr_`): the heat exchangers' surface temperature per cell [K]; empty without heat exchangers (README round 44).
+    #[must_use]
+    pub fn heat_exchanger_surface_temperature(&self) -> &[f64] {
+        &self.heat_exchangers.t_hx
+    }
+
+    /// CONTROL, NOT upstream (README round 44, K4): no heat exchangers, whatever `structureProperties.heatExchangers` says.
+    #[must_use]
+    pub fn without_heat_exchangers(mut self) -> Self {
+        self.heat_exchangers = HeatExchangerSet::default();
+        self
+    }
+
+    /// CONTROL, NOT upstream (README round 44, K5): the secondary side's `htc*T` with `T.prevIter()` instead of the current `T`.
+    #[must_use]
+    pub fn with_heat_exchanger_secondary_prev_iter_temperature(mut self) -> Self {
+        self.heat_exchangers.secondary_uses_prev_iter_t = true;
+        self
     }
 
     /// CONTROL, NOT upstream (gh:#1879): build `HT` from the post-solve `T` instead of `T.prevIter()`.
@@ -1443,7 +1464,7 @@ impl OnePhaseCcSolver {
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
         // `T.storePrevIter()` (EEqn_1p.H, before the solve): the temperature `structure_.correct(Hs*T.prevIter(), Hs)` sees
-        if !self.radial.is_empty() {
+        if !self.radial.is_empty() || self.heat_exchangers.is_present() {
             self.t_prev = self.t.clone();
         }
         // fvm::ddt(alpha, rho0, he)
