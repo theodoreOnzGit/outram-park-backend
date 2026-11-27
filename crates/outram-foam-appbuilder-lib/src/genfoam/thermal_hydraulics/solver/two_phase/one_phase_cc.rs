@@ -438,6 +438,12 @@ pub struct OnePhaseCcCase {
     pub regime_map: Option<RegimeMap1D>,
     /// `htc` read from the start directory (cells outside the model zones keep it).
     pub htc0: Vec<f64>,
+    /// `Re` read from the start directory (`FSPair.C:99-113`, `READ_IF_PRESENT`; gh:#1952): the Reynolds number the FIRST
+    /// `correctRegimeMaps()` of the run sees (`None`: not on disk, or a handed-over state, which carries its own: `residualFluidStructureRe`).
+    pub re0: Option<Vec<f64>>,
+    /// The `T` patch conditions of a frozen-flow start directory (`flow` is `None`; empty when the flow is solved, whose `flow.t_bc` is used;
+    /// gh:#1952): `fixedValue` patches are `Bc::Fixed`.
+    pub t_bc_frozen: Vec<Bc>,
     /// `T`.
     pub t: Vec<f64>,
     /// `p`.
@@ -1159,6 +1165,9 @@ impl OnePhaseCcCase {
         } else {
             sfield("htc")?
         };
+        // `FSPair::Re_` is `READ_IF_PRESENT` (`FSPair.C:99-113`): a start directory that holds `Re` seeds the first regime-map evaluation
+        let t_bc_frozen = if solve_flow || hand.is_some() { Vec::new() } else { flow::read_frozen_t_bcs(&ctx, &g, &alloc::format!("{tdir}/{region}/T"))? };
+        let re0 = if hand.is_none() && exists("Re") { Some(sfield("Re")?) } else { None };
         let power_density = if let Some(h) = hand {
             h.power_density.clone()
         } else if solve_flow && !exists("powerDensityNeutronicsToLiquid") {
@@ -1286,6 +1295,8 @@ impl OnePhaseCcCase {
             htc_by_regime,
             regime_map,
             htc0,
+            re0,
+            t_bc_frozen,
             t,
             p,
             u,
@@ -1428,6 +1439,19 @@ pub struct OnePhaseCcReport {
     pub final_iteration_at: Option<usize>,
 }
 
+impl OnePhaseCcCase {
+    /// The `T` patch conditions of a region whose flow is frozen: [`Self::t_bc_frozen`] when the start directory was read, else `zeroGradient`
+    /// everywhere (a handed-over state, and every case before gh:#1952).
+    #[must_use]
+    pub fn frozen_t_bcs(&self) -> Vec<Bc> {
+        if self.t_bc_frozen.is_empty() {
+            vec![Bc::ZeroGradient; self.mesh.patches.len()]
+        } else {
+            self.t_bc_frozen.clone()
+        }
+    }
+}
+
 impl OnePhaseCcSolver {
     /// Build the region at the case's start state (`onePhase::onePhase` constructor: phase fractions,
     /// `contErr`, thermo `he`).
@@ -1474,12 +1498,12 @@ impl OnePhaseCcSolver {
         let heat_exchangers = case.heat_exchangers.clone();
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
-        let re = vec![case.min_re; n];
-        let min_re_init = case.min_re;
+        let re = case.re0.clone().unwrap_or_else(|| vec![case.min_re; n]);
+        let regime_re_init = re.clone();
         let lre = vec![[case.min_re; 3]; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
         let t_pas = case.passive.as_ref().map_or_else(Vec::new, |ps| ps.t.clone());
-        let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; case.mesh.patches.len()], |f| f.t_bc.clone());
+        let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| case.frozen_t_bcs(), |f| f.t_bc.clone());
         let mut ts0 = Scalar { c: case.t.clone(), b: vec![0.0; geom.n_faces() - ni0], bc: t_bc0 };
         ts0.correct_bc(&geom);
         let (rho, rho_b) = match case.thermo.boussinesq_rho0() {
@@ -1520,7 +1544,7 @@ impl OnePhaseCcSolver {
             ctl_no_alphat_patch: false,
             htc,
             regime_weights: vec![Vec::new(); n],
-            regime_re: vec![min_re_init; n],
+            regime_re: regime_re_init,
             re,
             lre,
             cont_err,
@@ -1835,7 +1859,7 @@ impl OnePhaseCcSolver {
 
     /// The temperature patch conditions: the case's (`fixedValue`, `zeroGradient`, `empty`) with the flow, `zeroGradient` without.
     fn t_patch_bcs(&self) -> Vec<Bc> {
-        self.case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; self.geom.mesh.patches.len()], |f| f.t_bc.clone())
+        self.case.flow.as_ref().map_or_else(|| self.case.frozen_t_bcs(), |f| f.t_bc.clone())
     }
 
     /// `fixedTemperature::temperatureUpdate` (gh:#1813): for each zone with a `temperatureTimeProfile`,

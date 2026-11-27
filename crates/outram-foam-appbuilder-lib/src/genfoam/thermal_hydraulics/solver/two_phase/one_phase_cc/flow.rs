@@ -467,6 +467,39 @@ impl UEqnCc {
     }
 }
 
+/// The `T` patch types of a FROZEN-flow start directory (`solveFluidMechanics false`: no flow case is read, gh:#1952, README round 78):
+/// `fixedValue` (a uniform value) is `Bc::Fixed`, `zeroGradient`/`wedge` `Bc::ZeroGradient`, an `empty` patch `Bc::Empty`. Before round 78 every
+/// patch of a frozen region was taken as `zeroGradient`, which is wrong for a `fixedValue` inlet (`he` is `fixedEnergy` there: the inlet enthalpy flux
+/// enters the first cell's balance); the real binary's tight 3D_SmallESFR_old restart showed it as a step-1 `h` residual of 7.6e-6 against 4e-16.
+/// Any other patch type keeps the earlier `zeroGradient` (not differenced against the real binary).
+///
+/// # Errors
+/// A `fixedValue` patch without a uniform value, or an unreadable `T`.
+#[cfg(feature = "std")]
+pub(super) fn read_frozen_t_bcs(ctx: &Ctx, g: &Geometry, path: &str) -> Result<Vec<Bc>, AppBuilderError> {
+    let tf = read_field_bcs_only(ctx, path)?;
+    let mut t_bc = Vec::new();
+    for p in g.mesh.patches.iter() {
+        if p.kind == PatchKind::Empty {
+            t_bc.push(Bc::Empty);
+            continue;
+        }
+        let (_, ty, tv) = tf
+            .bcs
+            .iter()
+            .find(|(nm, _, _)| *nm == p.name)
+            .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", tf.name, p.name)))?;
+        t_bc.push(match ty.as_str() {
+            "fixedValue" => {
+                let v = tv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("T.{}: fixedValue needs a uniform value", p.name)))?;
+                Bc::Fixed(vec![v; p.size])
+            }
+            _ => Bc::ZeroGradient,
+        });
+    }
+    Ok(t_bc)
+}
+
 /// Read the `solveFluidMechanics true` part of a case (boundary conditions, solver entries, pump and drag per cell).
 ///
 /// # Errors
@@ -1150,5 +1183,22 @@ mod tests {
         let d = ReynoldsPowerDrag { coeff: 0.5, exp: -0.25, constant: 0.1 };
         let re = 16.0;
         assert!((d.value(re) - (0.5 * 0.5 + 0.1)).abs() < 1e-15);
+    }
+
+    /// gh:#1952 (README round 78): a frozen-flow start directory's `fixedValue` `T` patch is `Bc::Fixed` (the shipped fullcoupling case:
+    /// `inlet` 600 K, `outlet` `zeroGradient`), every other kept `zeroGradient`; `OnePhaseCcCase::frozen_t_bcs` falls back to `zeroGradient`.
+    #[test]
+    fn a_frozen_flow_fixed_value_inlet_temperature_is_read_from_the_t_file() {
+        use crate::genfoam::multi_region::mesh_deformation::{DeformableMesh, PointCellsOrder};
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let dm = DeformableMesh::read(&case.join("constant/fluidRegion/polyMesh"), PointCellsOrder::CellAscending).unwrap();
+        let g = Geometry::new_openfoam(dm.mesh().clone());
+        let ctx = Ctx { root: case.clone() };
+        let bcs = read_frozen_t_bcs(&ctx, &g, "0/fluidRegion/T").unwrap();
+        assert_eq!(bcs.len(), g.mesh.patches.len());
+        let inlet = g.mesh.patches.iter().position(|p| p.name == "inlet").expect("inlet patch");
+        assert!(matches!(&bcs[inlet], Bc::Fixed(v) if v.len() == g.mesh.patches[inlet].size && v.iter().all(|x| *x == 600.0)));
+        let outlet = g.mesh.patches.iter().position(|p| p.name == "outlet").expect("outlet patch");
+        assert!(matches!(bcs[outlet], Bc::ZeroGradient));
     }
 }
