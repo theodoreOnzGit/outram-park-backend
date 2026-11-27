@@ -21,7 +21,11 @@
 //! correlation itself, so applying it is left to the caller — the same
 //! separation [`super::rate`] uses for which phase is "driving".
 //!
-//! **Deferred:** upstream's `latentHeatModel::adjust()` (an optional
+//! **CORRECTED 2026-11-27:** `adjust` IS ported, in the two-phase solver where the
+//! per-cell enthalpies it needs live (`solver::two_phase`, `adjust_latent_heat`, read
+//! from `latentHeatModel.adjust` in `case.rs`); the paragraph below described this
+//! module alone and is kept for the design reason.
+//! ~~**Deferred:**~~ upstream's `latentHeatModel::adjust()` (an optional
 //! enthalpy-consistency correction, enabled via the `adjust` dictionary key,
 //! that nudges `L` by the difference between a phase's *current* enthalpy and
 //! its *saturation* enthalpy so evaporation/condensation stays energy

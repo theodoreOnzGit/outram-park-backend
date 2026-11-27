@@ -51,10 +51,14 @@
 //!   physics core.
 //! - `common/latticeMap`, `common/mergeOrSplitBaffles` — mesh-topology /
 //!   mesh-to-mesh helpers used only by multi-region coupling. **Deferred** to
-//!   `genfoam::multi_region` (tracked under the appbuilder epic `op-p6p`).
-//! - The 2-D/3-D `FieldField` `InterpolateTableGF` instantiations —
+//!   `genfoam::multi_region` ~~(tracked under the appbuilder epic `op-p6p`)~~
+//!   (**CORRECTED 2026-11-27:** `op-*` ids are retired; tracked under gh:#1216).
+//! - ~~The 2-D/3-D `FieldField` `InterpolateTableGF` instantiations —
 //!   spatial cross-section interpolation. **Deferred** to
-//!   `genfoam::neutronics::xs`, which owns the group-XS containers.
+//!   `genfoam::neutronics::xs`, which owns the group-XS containers.~~
+//!   **CORRECTED 2026-11-27:** the 2-D/3-D `InterpolateTableGF` instantiations
+//!   ARE ported, in [`interpolate_table_nd`] (gh:#1223; used by
+//!   `closures::heat_transfer::chf_table`).
 //!
 //! See `docs/genfoam-port-plan.md` for the full translation order.
 
