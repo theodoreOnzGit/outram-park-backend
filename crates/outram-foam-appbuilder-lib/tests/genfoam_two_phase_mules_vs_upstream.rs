@@ -467,7 +467,9 @@ fn mules_first_diverging_step_after_the_onset_is_636_by_fields() {
     let first_vapour_energy = rows.iter().find(|r| r.4.iter().any(|(k, v)| *k == "T.vapour" && *v > 1e-9)).map(|r| r.0);
     assert_eq!(first_vapour_energy, Some(636), "the vapour temperature leaves 1e-9 with the flow fields, at step 636");
     let first_sub = rows.iter().find(|r| !r.2).map(|r| r.0);
-    assert_eq!(first_sub, Some(643));
+    // ~~643~~ **MOVED 2026-11-27 to 641** (gh:#1909 round 58, two-phase matrices in OpenFOAM order): a post-onset sub-cycle marker in
+    // the chaotic excursion; the flow-field markers 636/637/636 above did not move.
+    assert_eq!(first_sub, Some(641));
 }
 
 /// Noise-floor control: the port against ITSELF with the initial liquid temperature scaled by `1 + 1e-9` (a single-phase
