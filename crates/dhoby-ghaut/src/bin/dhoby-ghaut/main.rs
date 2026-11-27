@@ -21,7 +21,7 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --scan-endf ~/ENDF-B-VIII.0
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
-//!     --case mgxs_case_dir [--boundary face|cell|zero] [--n-cell 30 --th-cell 15] \
+//!     --case mgxs_case_dir [--boundary face|cell|zero] [--n-cell 20 --th-cell 15] \
 //!     [--rings 40 --axial 200] [--isothermal-k-only] [--out out_dir] \
 //!     [--diagnostic-bed-sigma-scale 0.61 (pre-gh:#598 data only; superseded)]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \

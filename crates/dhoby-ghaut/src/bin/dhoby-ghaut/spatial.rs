@@ -998,7 +998,9 @@ mod tests {
             let mut plan = dhoby_ghaut::workbench::meshes::MeshPlan::default_for(&d);
             // `DHOBY_TEST_NEUTRONICS_CM` (test-only knob, 2026-11-27) refines
             // the neutronics mesh for a convergence study of the bare cylinder.
-            plan.roles[0].cell_size_cm = std::env::var("DHOBY_TEST_NEUTRONICS_CM").ok().and_then(|v| v.parse().ok()).unwrap_or(40.0);
+            // ~~40 cm~~ 20 cm, the Step 7 default since 2026-11-27: on the
+            // per-region AMI mesh the bare cylinder is +3590 pcm at 40 cm.
+            plan.roles[0].cell_size_cm = std::env::var("DHOBY_TEST_NEUTRONICS_CM").ok().and_then(|v| v.parse().ok()).unwrap_or(20.0);
             plan.roles[1].cell_size_cm = 25.0;
             plan.roles[2].cell_size_cm = 60.0;
             let dir = std::env::temp_dir()
@@ -1121,13 +1123,23 @@ mod tests {
     /// medium fills the whole neutronics mesh (every region the same), zero
     /// flux on the boundary; the eigenvalue must match the bare cylinder
     /// `k = [νΣf1 (Σa2 + D2 B²) + νΣf2 Σ12] / [(Σr1 + D1 B²)(Σa2 + D2 B²)]`,
-    /// `B² = (2.405/R)² + (π/H)²`, `R` the radius of the circle with the
-    /// inscribed 32-gon's area. It goes through the whole hand-off: polyMesh,
-    /// cellZones, and a `nuclearData` written by Step 8's writer.
+    /// `B² = (2.405/R)² + (π/H)²`, `R` ~~the radius of the circle with the
+    /// inscribed 32-gon's area~~ the true outer radius: the mesh has been
+    /// snapped onto the true cylinder since 2026-11-26 (the 32-gon radius
+    /// put the reference 196 pcm low). It goes through the whole hand-off:
+    /// polyMesh, cellZones, and a `nuclearData` written by Step 8's writer.
     ///
     /// Graphite-like constants with long diffusion lengths (`L1 ≈ 18 cm`,
-    /// `L2 ≈ 47 cm`) so the 40 cm cells resolve the flux. Tolerance 1 %;
-    /// the measured deviation is printed (recorded in the Step 10 V&V record).
+    /// `L2 ≈ 47 cm`). Tolerance 1 %; the measured deviation is printed.
+    ///
+    /// **Results (2026-11-27, per-region AMI neutronics mesh).** Against the
+    /// true-radius reference: +3590 / +2132 / −765 pcm at 40 / 30 / 20 cm
+    /// (conforming route +1330 / +673 / −618). ~~40 cm cells~~ The test runs
+    /// at 20 cm, the Step 7 default since then (maintainer). The error
+    /// crosses zero rather than vanishing: Step 10 uses `uncorrected` Gauss,
+    /// which keeps an error on skewed polyhedra. The old single-cylinder
+    /// mesh gave −219 pcm against the 32-gon reference. Study: the Step 10
+    /// V&V record.
     #[test]
     fn bare_cylinder_k_on_the_neutronics_mesh_matches_the_analytic_value() {
         let m = Two {
@@ -1143,8 +1155,7 @@ mod tests {
         let sol = n.solve(&vec![300.0; n.mesh().n_cells], 1.0).expect("solve");
         let t = m.total();
         let (d1, d2) = (1.0 / (3.0 * t[0]), 1.0 / (3.0 * t[1]));
-        let poly = 32.0 / 2.0 * (2.0 * std::f64::consts::PI / 32.0).r_sin() / std::f64::consts::PI;
-        let r = d.r_outer * poly.sqrt();
+        let r = d.r_outer;
         let h = d.z_top - d.z_bottom;
         let b2 = (2.404_825_557_7 / r).r_powi(2) + (std::f64::consts::PI / h).r_powi(2);
         let sr1 = m.sa[0] + m.s01;

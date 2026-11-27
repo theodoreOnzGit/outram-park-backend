@@ -924,7 +924,12 @@ impl MeshPlan {
             regions: RegionMap::basic(d),
             roles: [
                 RoleSettings {
-                    cell_size_cm: 30.0,
+                    // ~~30 cm~~ 20 cm (maintainer, 2026-11-27, gh:#1862): on
+                    // the per-region AMI neutronics mesh the bare-cylinder k
+                    // is +2132 pcm from the analytic value at 30 cm and
+                    // -765 pcm at 20 cm (the 1 % gate); the Step 10 record
+                    // has the study.
+                    cell_size_cm: 20.0,
                     n_seg: 32,
                     layers: 0,
                     first_layer_cm: 0.0,
