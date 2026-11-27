@@ -10,12 +10,58 @@
 > the binaries are still `kovan`, `kovan-cli` and `kovan-tui`, and the library
 > is still `kovan`.
 
+> ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
+> reactor control, licensing, safety-critical decisions or emergency response.
+> See the workspace `RESPONSIBLE_USE.md`.
+
+**Scope.** KOVAN is OUTRAM PARK's knowledge-management application: a
+literature mind map and PDF reader, a graph and table digitiser, the code
+map, the call graph, and the Code Review in which humans sign review stamps
+on functions. **The one question it answers:** how does a piece of the
+literature connect to the code that implements it, and how far has a human
+checked that code?
+
+**Knowledge it makes studyable.** KOVAN is where the vision's artifacts are
+joined: a paper in the standard corpus (133 `CorpusLiterature` entries
+hardcoded in `src/corpus.rs`) sits on the same concept tree as the modules
+tagged with that concept; a figure digitised from it keeps its provenance;
+and every function in the workspace has a call graph, its tests and a
+review state that a person can open, read and challenge. A human review is
+a signed `review.md` entry tied to the function's hash, so a stamp goes
+stale the moment the code changes. KOVAN presents this evidence; it is
+not itself evidence that any physics is right.
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`); no function in this
+crate carries a human review stamp.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | The standard corpus's metadata, compiled in (`src/corpus.rs`, 133 `CorpusLiterature` entries; PDFs in `crates/kovan-literature/reactor-literature/`); the concept tree it draws comes from `kovan-literature`. Upstream: `kopitiam-pdf` 0.2.5 (AGPL-3.0-only, itself over MuPDF; see [`NOTICE`](NOTICE)) for the PDF reader. The IV&V rung cites NUREG/BR-0167 §3.1. |
+| Mathematical equations | None of physics. The digitiser's pixel-to-data calibration (linear or logarithmic per axis) is in `src/digitiser/calibration.rs`; its error metrics are stated in `tests/digitiser_synthetic.rs`. |
+| Source code | `src/app/` (the GUI), `src/tui/`, `src/commands/` (`kovan-cli`), `src/digitiser/`, `src/stamping/` (review stamps, carry-forward, user management), `src/corpus.rs`, `src/mindmap*.rs`, `src/scip.rs`, `src/zotero/`, and the three binaries in `src/bin/`. |
+| Interactive simulations | None of physics. Interactive tools: the `kovan` GUI (Mindmap, Code Map and Code Review tabs), `kovan-tui`, and `kovan-cli`; the browser Code Review is `kovan-web`. |
+| Visualisations | The literature mind map, the code map (`kovan-cli code-map`, drawn by `kovan_common::code_map::svg`) and the call graph, generated rather than committed; example `examples/digitiser_synthetic_demo.rs`. |
+| Verification and validation evidence | `tests/digitiser_synthetic.rs` (self-consistency, measured 2026-08-11: max error 0.138 % of span on linear-linear and log-linear, 0.002765 decades on log-log; says nothing about real scanned figures); [`docs/call-graph-scip-vs-lsp.md`](docs/call-graph-scip-vs-lsp.md) (2026-10-07: SCIP reproduces 99.66 % of the LSP backend's 101,391 edges); `tests/zotero_cli.rs` (schema-compatibility proof); `tests/call_graph_*.rs`, `tests/code_walk_rust_analyzer.rs`, `tests/code_map_tags.rs`, `tests/no_macro_declared_modules.rs` (see Testing, below). |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. This README keeps its corrections struck through (licence, rung count, the module moves to `kovan-common`). |
+
+The digitiser has self-consistency evidence only and the call-graph backend
+a code-to-code comparison; the rest is unit- and end-to-end-tested, and
+nothing is human-reviewed.
+
+## What the crate is
+
 The startup screen carries this expansion (`src/app/home.rs`); everywhere else
 the plain "KOVAN" is used, per GH issue #35's 2026-09-01 checkpoint §1.
 
 Exactly three binaries in one crate, per the final interface spec on GitHub
-issue #30 (2026-08-21): `kovan` (human-facing GUI — the graph digitiser
-window), `kovan-cli` (agent-facing CLI), `kovan-tui` (human-facing terminal
+issue #30 (2026-08-21): `kovan` (human-facing GUI — ~~the graph digitiser
+window~~ **CORRECTED 2026-11-27:** one window with three major tabs, Mindmap,
+Code Map and Code Review, of which the digitiser is one page; see
+"`kovan`'s GUI, beyond the digitiser window" below and `src/app/tab_groups.rs`), `kovan-cli` (agent-facing CLI), `kovan-tui` (human-facing terminal
 UI). `kovan-cli`/`kovan-tui` wrap the same deterministic, offline sibling
 `kovan-*` crates — `kovan-discovery`, `kovan-literature`, `kovan-semantics`,
 `kovan-codegen`, `kovan-metrics`; the graph digitiser is this crate's own
@@ -140,8 +186,11 @@ browser build of Code Review needs, and this crate does not)
 | `../kovan-literature/docs/concept-proposals.md` | the review document, generated from the TOML (`KOVAN_REGENERATE_PROPOSALS=1 cargo test --release -p kovan-literature --test concept_proposals`) | the same test fails if it is stale |
 
 **Status (2026-10-06).** Levels 1–3 are reviewed and approved: 19 issues,
-89 level-2 categories and 263 concepts (3 deferred awaiting sources), with
-over 90 cross-links. ~~**Kovan does not read the tree yet**~~ **Since
+89 level-2 categories and ~~263 concepts~~ (3 deferred awaiting sources), with
+over 90 cross-links. **CORRECTED 2026-11-27** — `concept_proposals.toml` now
+holds 309 `[[concept]]` entries (306 `approved`, 3 `deferred`) and 192
+proposed `[[implementation]]` entries; the skeleton still has 108 nodes
+(19 + 89). Counted in the TOML files; cross-links not re-counted. ~~**Kovan does not read the tree yet**~~ **Since
 2026-10-06 Kovan's standard mind map is levels 1–3 of this tree**, replacing
 the 44 hand-written `nuclear-engineering/...` topics: `kovan-literature`'s
 `concept_tree` module parses both TOML files once into a typed `ConceptTree`,
@@ -156,10 +205,12 @@ Kovan; the PDF opens from the `reactor-literature` checkout when one is
 present), the two IAEA ones as citation-only entries, so the map needs
 neither the corpus checkout nor the private repository. A user's own
 `topics/` folders (including old `nuclear-engineering/...` ones) keep working
-as the user's topics. Still to do: the Code Review tab, level-4 generation
+as the user's topics. Still to do: ~~the Code Review tab,~~ level-4 generation
 from code tags, the drift report, the maturity rungs (#729), the "show empty
 nodes" toggle (the model's `corpus::has_literature` /
 `has_classified_literature` are the hook), and source hyperlinks on cards.
+**CORRECTED 2026-11-27** — the Code Review tab exists (`View::CodeReview`,
+`src/app/nav.rs`). The other items were not re-checked.
 
 ## Install / run
 
@@ -1403,6 +1454,15 @@ cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kova
 
 ## Layout
 
+~~The tree below is the crate's layout.~~ **CORRECTED 2026-11-27** — the tree
+is the 2026-08-21 layout and is out of date (checked with `ls src`): the GUI
+is `src/app/` (45 entries), not `src/digitiser/gui/desktop/`, which no longer
+exists (`digitiser/gui/` holds only `mod.rs`); `src/commands/` holds about
+forty commands (`call_graph`, `code_map`, `index`, `review_ivv`, `kloc`,
+`tokens`, `api_docs`, …), not ten; and the crate also has `src/stamping/`,
+`src/corpus.rs`, `src/mindmap*.rs`, `src/scip.rs`, `src/zotero/` and others.
+The tree is kept as the historical layout.
+
 ```text
 src/
 ├── lib.rs                library re-exports shared by the three binaries
@@ -1453,8 +1513,24 @@ src/
 ```
 
 One module per command/screen, so each binary stays a thin dispatcher — the
-workspace's file-size-cap rule (`CLAUDE.md`) applies to this crate too; every
-file here is well under the 1000-line cap.
+~~workspace's file-size-cap rule (`CLAUDE.md`) applies to this crate too; every
+file here is well under the 1000-line cap.~~ **CORRECTED 2026-11-27** — 28
+files under `src/` are over 1000 lines (the largest, `src/app/pdf_reader.rs`,
+6589; counted with `wc -l`), and no file-size cap is stated in the root
+`CLAUDE.md`, `AGENTS.md` or `docs/claude-md/` today (searched with `grep`).
 
 See `DECISIONS.md` for command/screen design rationale, what was left out,
 and the 2026-08-21 crate-consolidation rationale.
+
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping
+> pass" command). A crate is **complete** only once the maintainer has
+> personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.

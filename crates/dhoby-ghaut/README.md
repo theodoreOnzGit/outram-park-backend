@@ -17,6 +17,45 @@ the solver crates never have to carry it. It adds no physics of its own: a
 studio that needs a quantity the solver crates do not expose gets it added
 there.
 
+**Scope.** OUTRAM PARK's GUI home: the guided high-fidelity workbench, the
+meshing and Monte Carlo studios, and the browser demos and lesson data of
+the tutorial tracks. **The one question it answers:** how does a person see,
+drive and question the workspace's physics without writing code?
+
+**Knowledge it makes studyable.** Most of what a visitor to the tutorials
+*sees* is drawn here: one real neutron history at a time through a TRISO
+pebble, a live Godiva power iteration with an `openmc.run()`-style console,
+an HTR-10 build whose every prefilled value is cited and whose every panel
+lists what it does not model, and the geometry drawn for a human to check
+before any `k` is trusted. Each demo calls the solver crates unmodified, so
+what moves on screen is the code a reader can open, and each V&V record
+under `verification_and_validation/` writes its prediction down before the
+run and keeps superseded numbers struck through.
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`); no function carries a
+human review stamp. The HTR-10 records are TENTATIVE. Educational, not
+predictive.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | No upstream code is ported here. The workbench and demos cite: ICSBEP HEU-MET-FAST-001 (Godiva) and the Jemima, HST-009 and LCT-008 cases (through `outram_mc_libs::vv`); IAEA-TECDOC-1382 (HTR-10 dimensions, rod worths); Gao & Shi (2002) and Li, Yu & Wei (2014) (Step 9 boundary conditions); Şeker's 13-ball lattice cell; GeN-Foam's mesh and `nuclearData` formats (Steps 7-8). Presets: [`docs/workbench_presets/`](docs/workbench_presets/). |
+| Mathematical equations | Not written here; the physics lives in the solver crates the demos call. Stated in this README and the V&V records: the reactivity-map surrogate (weighted Chebyshev fit of rho(T) by QR least squares, `src/workbench/reactivity_map.rs`), multigroup diffusion eigenvalue Picard-coupled to a porous core (Step 10), rod worth `1/k_in - 1/k_out`, neutron speed proportional to the square root of `E`. |
+| Source code | `src/bin/dhoby-ghaut/` (the workbench, Steps 0-11), `src/workbench/` (catalogue, steps, recipe, `reactivity_map`, `exports`), `src/mc_demo/` (the Monte Carlo demo and its rungs: `godiva`, `jemima`, `hst009`, `lct008`, `triso`, `htr10`, …), `src/mc_web/` (the browser Monte Carlo pipeline), `web_demo` (re-exported from `bugis`). |
+| Interactive simulations | The `dhoby-ghaut` workbench binary; examples `mc_studio`, `mesh_studio`, `monte_carlo_web`, `delta_tracking_web`, `dem_web`, `dispersion_web`, `nuclear_data_web`, `triso_atops_web`, `foam_studio_web`, `helical_sg_web`; browser builds under [`web/`](web/), live at <https://theodoreonzgit.github.io/outram-park-backend/demos/monte-carlo/> and the other `demos/` pages. |
+| Visualisations | Geometry review images in [`src/mc_demo/geometry/`](src/mc_demo/geometry/); images and screenshots in the V&V folders (for example `verification_and_validation/gpu_csg_parity/`, `gruvbox_web_demos/`, `mesh_studio_gh1771/`); the `lesson_*` examples write the data behind the Fission-products lesson pages in `docs/site/science/fission-products/`. |
+| Verification and validation evidence | 15 records in [`verification_and_validation/`](verification_and_validation/). Headlines as recorded: Godiva Run k_eff natively k = 0.99942 ± 0.00183 (seed 1, 2026-10-04); HTR-10 rods out/in 0.99291 ± 0.00622 / 0.85707 ± 0.00535, worth 0.160 ± 0.010 (TENTATIVE, 2026-10-05, `htr10_rod_insertion/`); GPU against CPU ray trace differs in 0.36 % of pixels on the worst view (`gpu_csg_parity/`, `tests/gpu_csg_parity.rs`); Step 10 coupled run k_eff 0.99314 and diffusion against Monte Carlo −4138 to −6556 pcm isothermal (2026-11-27, `htr10_multiphysics_step10/`, open as gh:#1886). Fixtures pinned by tests in `tests/fixtures/`. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. One entry in `docs/human-corrections-to-ai-work.md`: "2026-10-05 — Every element plates out at one rate" (gh:#583, the TRISO-ATOPS demo's release rung). The V&V records keep struck-through superseded numbers (for example Step 10's `k_eff` ~~1.10560~~ 0.99314). |
+
+The demos are verified only as far as the records above go, all of them
+TENTATIVE or AI-checked; no part of this crate is validated or
+human-reviewed, and the demos are for learning, not for engineering numbers.
+
+## Its low-fidelity counterpart
+
 Its **low-fidelity counterpart is [DOVER](../dover/README.md)** (maintainer,
 2026-09-25), which fills the same role over low-fidelity models. ~~DOVER is an
 empty skeleton for now.~~ **CORRECTED 2026-09-30**: its first model, a
@@ -33,7 +72,12 @@ no-lagging rule, loading card, rung table and lesson links), so it depends on
 2026-10-05** it also holds `workbench` (off wasm32): the guided high-fidelity
 workbench's reactor catalogue, wizard steps and the **recipe** format (input
 decks as kovan markdown + TOML), which is why it depends on `kovan`, `serde`,
-`toml` and `uom` and is AGPL-3.0-only (see [`NOTICE`](NOTICE)). The GUIs and
+`toml` and `uom` and is AGPL-3.0-only (see [`NOTICE`](NOTICE)). ~~the library holds `web_demo`, the framework …~~ **CORRECTED 2026-11-27** —
+since 2026-11-02 (gh:#1112) `web_demo` lives in `bugis::web_demo` and is
+re-exported here at the same path; the library also holds `mc_web`, the
+browser Monte Carlo pipeline (gh:#1572), and `mc_demo`, the Monte Carlo demo
+itself (gh:#1763), each behind a feature of the same name (checked in
+`src/lib.rs`). The GUIs and
 demos themselves are **examples**:
 the two studios, moved here from `outram-blender` on 2026-09-17, ~~and the Monte
 Carlo web demo (the TRISO pebble demo of 2026-10-03, made multi-rung on
@@ -50,6 +94,19 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 | `nuclear_data_web` | **The nuclear data track's demo** (gh:#529): real ENDF/B-VIII.0 processed by `njoy-outram-park-fork` in the browser, one NJOY module per rung. Published at `demos/nuclear-data/` |
 | `triso_atops_web` | **The TRISO-ATOPS and fuel failure track's demo** (gh:#540): eight rungs, every number a call into `boon-lay` (the slice from region lookups, decay chains, the CRP-6 Case 1 walk against Crank, D(T) per layer, PANAMA-I fuel failure, chemistry, release into the coolant pools); the source term recorded. Published at `demos/triso-atops/` |
 | ~~`fukushima_web`~~ | **MOVED 2026-11-05 to `outram-park-digital-twin-engine`**, with `double_pipe_twin_web` and both `web/` pages (maintainer, 2026-11-05: "if web examples live in dhoby ghaut, and this causes the dependency cycle, let the web examples deploy from digital twin engine instead"); same URLs. Was: **Fukushima Daiichi Unit 1 station blackout** (GE BWR/3, Mark I; gh:#986; moved from the `outram-park` repository 2026-10-27): the recorded sequence or the reader's own actions, on three Web Workers (plant, core, containment), with a `--headless` CSV mode ~~and a committed fixture~~. The plant physics is `sembawang::bwr_mark1` since 2026-10-29 (gh:#1033), which holds the fixture and the model's tests; this example is the UI and the workers. AI draft, not validated. Published, password-gated, at `demos/fukushima/` (listed under Plant simulators on the demos page) |
+
+~~The table above lists every example.~~ **CORRECTED 2026-11-27** — `examples/`
+also holds (checked with `ls examples/` and each `main.rs` module doc):
+`delta_tracking_web` (delta against surface tracking in the TRISO cell,
+gh:#784), `dem_web` (the HTR-10 DEM pour, `demos/dem/`, gh:#787),
+`foam_studio_web` (Foam Studio: shapes, meshing and the pimpleFoam port,
+gh:#1155), `helical_sg_web` (one tube of a helical-coil steam generator,
+`demos/helical-sg/`, gh:#1157), and eight `lesson_*` examples that write the
+data of the Fission-products lesson pages in
+`docs/site/science/fission-products/` (`lesson_barriers`, `lesson_breathing`,
+`lesson_chemistry_handoff`, `lesson_decay_walk`, `lesson_diffusion_arc`,
+`lesson_fission_cascades`, `lesson_triso_atops`, `lesson_triso_kernel`).
+Not re-checked: whether each of these has a `--headless` mode.
 
 ```bash
 cargo run -p dhoby-ghaut --example mc_studio --release
@@ -240,7 +297,7 @@ What was checked on 2026-10-05:
   wide, else 100 %.
 - **Files and folders are chosen with a file picker**: the ENDF folder, the
   kovan root, the PNG folder, and recipe open / save / save-as. This is a hard
-  rule in this crate, kovan and dover (`CLAUDE.md`).
+  rule in this crate, kovan and dover (~~`CLAUDE.md`~~ [`AGENTS.md`](AGENTS.md)).
 - **The k_eff console fills live**, one line per generation as
   `openmc.run()` prints them, in a scroll area that follows the newest line.
   Generations stream through `outram-mc-libs`'
@@ -361,7 +418,7 @@ python3 -m http.server -d crates/dhoby-ghaut/web/monte_carlo/dist 8000
 ### Adding a rung, or a new track's demo
 
 Both are written down once, in this crate's
-[`CLAUDE.md`](CLAUDE.md#web-demos-how-a-new-track-app-and-a-new-rung-plug-in).
+[`AGENTS.md`](AGENTS.md#web-demos-how-a-new-track-app-and-a-new-rung-plug-in).
 In short: a **Monte Carlo rung** is a directory
 `src/mc_demo/<rung>/` (~~`examples/monte_carlo_web/<rung>/`~~ until gh:#1763)
 implementing `rungs::McRung`, plus ~~two

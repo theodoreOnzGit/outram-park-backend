@@ -38,14 +38,19 @@
 //! for Thermodynamics**. They are the values that appear identically across
 //! every standard reference; none is a fitted or adjusted quantity.
 //!
-//! **The workspace `CLAUDE.md` requires any document that informs the code to
+//! ~~**The workspace `CLAUDE.md` requires any document that informs the code to
 //! be catalogued in `crates/kovan-literature` with its access tier and
 //! provenance. That has NOT been done for these, and this file does not do
 //! it.** The container this was written in has no path to fetch the source
 //! document, and inventing a catalogue entry for a document nobody ingested
 //! would be worse than recording the gap. So the gap is recorded: **cataloguing
 //! NIST-JANAF (or an equivalent open compilation) is outstanding, and is
-//! required before any of this is cited as validated.** Everything here is
+//! required before any of this is cited as validated.**~~ **CORRECTED
+//! 2026-11-27:** that cataloguing rule was retired on 2026-10-01 (the
+//! maintainer supplies the kovan corpus; `docs/claude-md/kovan-tooling.md`,
+//! and this crate's `AGENTS.md`). What is still owed is the source's
+//! provenance record under `DATA_POLICY.md`, before any of this is cited as
+//! validated. Everything here is
 //! checkable against any thermochemistry text in the meantime, and the tests
 //! below do exactly that.
 //!
@@ -128,8 +133,8 @@ impl Species {
 
     /// Standard enthalpy of formation `ΔH°f` at 298.15 K, **J/mol**.
     ///
-    /// See the module docs for the source and for the outstanding cataloguing
-    /// obligation.
+    /// See the module docs for the source and for the provenance record still
+    /// owed (the cataloguing obligation was retired, 2026-10-01).
     #[must_use]
     pub fn enthalpy_formation(self) -> f64 {
         match self {

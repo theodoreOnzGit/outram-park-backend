@@ -20,11 +20,14 @@ this crate is ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973
 
 Tracked as epic **`op-r830`**.
 
-## The naming is provisional
+## ~~The naming is provisional~~ The name
 
-The maintainer deferred the naming decision. `kaki-bukit` follows
-the workspace `outram-park-fork-<project>` convention as a placeholder. If it
-is renamed, the package name, the directory, the root `Cargo.toml` member
+~~The maintainer deferred the naming decision. `kaki-bukit` follows
+the workspace `outram-park-fork-<project>` convention as a placeholder.~~
+**CORRECTED 2026-11-27:** the maintainer named the crate KAKI BUKIT on
+2026-09-18 (top of this file), replacing the provisional
+`outram-park-fork-cyclus`; the name is no longer provisional. If it is ever
+renamed again, the package name, the directory, the root `Cargo.toml` member
 entry, the `docs/` mirror filename and every `kaki_bukit::` path
 in doc examples all move together — the compiler catches the last of those, so
 do the rename with `cargo check` as the reference checker rather than a blind

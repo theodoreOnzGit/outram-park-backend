@@ -15,6 +15,42 @@ search and read-only git layer.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+**Scope.** Finding files, searching their text, reading git history, and
+running Zotero-style searches over a literature library, all offline and
+deterministic. **The one question it answers:** which files, lines, commits
+or references match this query, in the same order on every machine?
+
+**Knowledge it makes studyable.** This is how KOVAN finds the code and the
+literature it connects. The `zotero` module is a translation of Zotero's
+`search.js` and `searchConditions.js` from SQL into in-memory set
+operations, so a reader can put a Zotero condition beside the rows the port
+selects for it, and the module docs tabulate where it is equivalent,
+approximate or unsupported. The `git` module shows where each line of a file
+came from (blame and per-path history), which is the provenance a reviewer
+needs to challenge a change.
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`), not human-reviewed.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | No physics literature. Ported upstream: Zotero commit `9cbba8c4d281` (`chrome/content/zotero/xpcom/data/search.js`, `searchConditions.js`, `fulltext.js`, `collectionTreeRow.js`), AGPL-3.0; see [`NOTICE`](NOTICE). Built on the `ignore`, `grep-searcher`/`grep-regex` and `gix` libraries. |
+| Mathematical equations | None. |
+| Source code | `src/lib.rs` (`discover`, `discover_kind`, `search_file`, `search_repository`), `src/git.rs` (`GitProvider`, `GixBackend`, `GixCliBackend`), `src/zotero/` (`conditions`, `search`, `levels`, `quick`, `fulltext`, `normalize`, `dates`, `library`). |
+| Interactive simulations | None yet. CLI example: `examples/discover_and_search.rs`. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `tests/zotero_search.rs` ports Zotero's `test/tests/searchTest.js`: of 128 upstream cases, 118 ported with expected results unchanged, 1 covered by an equivalent case, 9 not ported; "all ported cases pass" (recorded 2026-10-07). Not re-checked: the file holds 117 `#[test]` functions today, and how they map to the 118 ported cases was not re-counted. Discovery, search and git are covered by unit tests in `src/`. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. |
+
+The Zotero search has ported-upstream-test evidence (no code-to-code run, as
+upstream cannot run here); everything else is unit-tested only and
+unreviewed.
+
+## What the crate is
+
 Offline, deterministic **file discovery + text search** for KOVAN — the layer
 beneath `kovan-semantics`. Before any language-native tooling runs, KOVAN needs
 to find files and grep their contents. This crate does exactly that, built on

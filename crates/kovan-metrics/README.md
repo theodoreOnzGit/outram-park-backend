@@ -15,6 +15,45 @@ accounting (token trailers and the historian report).
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+**Scope.** Accounting for how this workspace was built: AI tokens per
+commit, the historian report before a merge to `main`, the lines-of-code
+tables behind the OUTRAM PARK paper, and import reports for a Zotero
+library. **The one question it answers:** what did this work cost and
+produce, measured from the repository itself rather than from anyone's
+summary?
+
+**Knowledge it makes studyable.** The numbers a reader might otherwise take
+on trust (tokens spent, lines produced by agentic work, what a literature
+import lost) are re-derived from git history, commit trailers and session
+transcripts by code that can be read and rerun. `kovan-cli kloc` rebuilds
+the paper's tables from the repositories; its module docs name the one
+editorial input (each crate's translated / original / extension
+classification, in `src/kloc/config.rs`) and the trap that silently moves
+lines between totals. Anyone can challenge a published figure by rerunning
+it.
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`), not human-reviewed.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | None. `kloc` is a Rust port of the retired `scripts/kloc_accounting.py`; `tokens` and `historian` replaced `docs/historian/token_usage.py` and `historian.py` (both last present at commit `c12624a41e`). The `zotero` accounting is kovan's own, not a port. |
+| Mathematical equations | `total = in + out + cache_read + cache_write` (below); civil-date arithmetic by Hinnant's algorithms in [`src/date.rs`](src/date.rs). |
+| Source code | `tokens`, `trailer`, `baseline`, `transcript` (token accounting); `historian`; `kloc` (`config`, `measure`, `repo`, `source`, `report`, `outputs`, `figure`); `git`; `date`; `zotero` (`counts`, `import_report`). |
+| Interactive simulations | None yet. CLI: `kovan-cli tokens …`, `kovan-cli historian`, `kovan-cli kloc`. |
+| Visualisations | `kloc::figure` generates the paper's figure; the frozen tables are in [`docs/kloc-parity-baseline/`](../../docs/kloc-parity-baseline/). Historian reports are in [`docs/historian/`](../../docs/historian/). |
+| Verification and validation evidence | `tests/kloc_parity.rs`: on 2026-08-14 `summary.txt`, `baseline_repositories.csv` and `agentic_crates.csv` came out byte-identical to the frozen Python output, the `.tex` files had zero differing lines once the tool name was normalised, and all eight manuscript drift-check deltas were `+0` (the full run is `#[ignore]`d: it needs six repositories). `tests/zotero_accounting.rs`: 37 imported, 0 skipped, 839 loss entries over 105 properties; seven tests passing (2026-10-07). No parity gate was run for `tokens`/`historian` (see below). |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections in this README record the `kovan` → `kovan-cli` binary split and the unit-test count. |
+
+`kloc` and the Zotero accounting have recorded evidence; `tokens` and
+`historian` are checked only by unit tests and dogfooding; nothing is
+human-reviewed.
+
+## Repository accounting
+
 **KOVAN repository accounting** — per-commit API-token trailers and the
 pre-merge-to-`main` historian report, for the OUTRAM PARK workspace.
 
@@ -74,7 +113,11 @@ and renders as `—`. Neither is a gap to be filled with an estimate.
 
 ## Dependencies
 
-`kovan-discovery` (repo-root discovery — the workspace's canonical gitoxide
+~~`kovan-discovery` (repo-root discovery — …), `serde_json`, `thiserror`.~~
+**CORRECTED 2026-11-27** — `kovan-common` too, for the Zotero accounting
+(checked against `Cargo.toml`). The list:
+
+`kovan-common` (the Zotero data model), `kovan-discovery` (repo-root discovery — the workspace's canonical gitoxide
 layer; this crate does not open a second one), `serde_json`, `thiserror`. No
 date crate: `DDMMYY` parsing and civil-date arithmetic are in
 [`src/date.rs`](src/date.rs) via Hinnant's algorithms, since three date
