@@ -14,7 +14,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use super::fv::Geometry;
-use crate::genfoam::common::gamg::{face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
+use crate::genfoam::common::gamg::{GamgSmoother, face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
 use outram_foam_basic_lib::prelude::LduMatrix;
 
 /// The cached agglomeration of one mesh and the `forward_` toggle.
@@ -91,10 +91,11 @@ pub(super) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::Foam
     c.n_cells_in_coarsest_level = count("nCellsInCoarsestLevel", c.n_cells_in_coarsest_level);
     c.merge_levels = count("mergeLevels", c.merge_levels);
     c.scale_correction = bool_entry(d, "scaleCorrection");
+    c.pre_sweeps_level_multiplier = count("preSweepsLevelMultiplier", c.pre_sweeps_level_multiplier);
+    c.max_pre_sweeps = count("maxPreSweeps", c.max_pre_sweeps);
     if let Some(s) = word(d, "smoother") {
-        if s != "DIC" {
-            return Err(format!("solvers.{name}: GAMG smoother `{s}` is not ported (DIC only)"));
-        }
+        c.smoother = GamgSmoother::from_word(&s)
+            .ok_or_else(|| format!("solvers.{name}: GAMG smoother `{s}` is not ported (DIC, GaussSeidel, DICGaussSeidel, symGaussSeidel only)"))?;
     } else {
         return Err(format!("solvers.{name}: GAMG without a `smoother` entry is not ported"));
     }
@@ -143,11 +144,12 @@ mod tests {
         assert_eq!(c, GamgControls { tolerance: 1e-7, rel_tol: 0.001, ..GamgControls::default() });
         let c = read_gamg_controls("p_rgh", &parse("solver GAMG; smoother DIC; tolerance 1e-06; relTol 0; maxIter 25;"), None).expect("cavity entry");
         assert_eq!(c.max_iter, 25);
+        let c = read_gamg_controls("TStruct", &parse("solver GAMG; smoother GaussSeidel; nCellsInCoarsestLevel 50; nPreSweeps 1;"), None).expect("TStruct entry");
+        assert!(c.smoother == GamgSmoother::GaussSeidel && c.n_pre_sweeps == 1 && c.n_cells_in_coarsest_level == 50);
         for (text, needle) in [
-            ("solver GAMG; smoother GaussSeidel; tolerance 1e-6;", "smoother"),
+            ("solver GAMG; smoother DILU; tolerance 1e-6;", "smoother"),
             ("solver GAMG; tolerance 1e-6;", "smoother"),
             ("solver GAMG; smoother DIC; agglomerator algebraicPair;", "agglomerator"),
-            ("solver GAMG; smoother DIC; nPreSweeps 1;", "nPreSweeps"),
             ("solver GAMG; smoother DIC; interpolateCorrection true;", "interpolateCorrection"),
             ("solver GAMG; smoother DIC; mergeLevels 2;", "mergeLevels"),
             ("solver GAMG; smoother DIC; cacheAgglomeration false;", "cacheAgglomeration"),

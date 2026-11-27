@@ -8557,6 +8557,46 @@ Looked at: the four radial slices (z = 0.092, 0.693, 1.155, 1.964 m) and the y =
 **Process note.** The `v5b_pin_dict` control was added after the predictions commit and BEFORE its real run or any port run (it has no criterion beyond "no first diverging step" and the bit-identity of its real output with `v5`); it is the only variant not listed in the pre-run criteria.
 
 
+## Round 72 (gh:#1936): upstream GAMG in every region that ships it; GaussSeidel, DICGaussSeidel, symGaussSeidel, nPreSweeps, the asymmetric path (predictions and criteria written and committed BEFORE any run of the port against a new real-binary number)
+
+AI-written, not human-reviewed. Maintainer 2026-11-27: "Match all upstream" = follow upstream including its solvers and stopping rules.
+
+### What the shipped tutorials select (every uncommented `solver GAMG` in `GeN-Foam-src/Tutorials/**/fvSolution`, comments stripped)
+
+| region | entries | options (everything else = ESI v2506 default) | cases |
+|---|---|---|---|
+| fluidRegion (cell-centred `onePhase`, `twoPhase`, face-centred `onePhase`) | `p_rgh`, `p_rghFinal` | `smoother DIC; tolerance 1e-6..1e-8; relTol 0` (FFTF `p_rgh` `1e-7`/`relTol 0.001`; 2D_cavityBoussinesq adds `maxIter 25`) | 1D_MSR, 1D_thermalMSR, 1D_boiling, 1D_HX (onePhase, twoPhase), 1D_CHF, 1D_PSBT_SC, 2D_KNS37-L22, 2D_voidMotion, 2D_cavityBoussinesq, 2D_fullCoupling, 2D_FFTF, 2D_MSFR, 3D_SmallESFR, 3D_HTR-10, 3D_NTPfuelAssembly, 3D_gFHR, fmu cases |
+| thermoMechanicalRegion | `TStruct` only (the `".*"` GAMG block is commented out; `fuelDisp`/`CRDisp` are `PBiCG`/`DILU`) | `smoother GaussSeidel; tolerance 1e-6; relTol 0.001; cacheAgglomeration true; nCellsInCoarsestLevel 50; agglomerator faceAreaPair; mergeLevels 1; processorAgglomerator masterCoarsest` (serial: no effect) | 2D_fullCoupling, 3D_SmallESFR_old, 3D_SmallESFR_NewSolverVerification/legacySolver |
+| neutroRegion | none uncommented (every `flux.*` GAMG block is inside `/* */`: `smoother DICGaussSeidel; nPreSweeps 1; nPostSweeps 1; nFinestSweeps 1; nCellsInCoarsestLevel 20; relTol 0.01`) | | |
+
+**Consequence.** (i) the face-centred and `twoPhase` fluid blocks need nothing beyond round 67 (DIC), only the wiring; (ii) `TStruct` needs `GaussSeidel` AND the asymmetric path (the row-scaled `TStruct` matrix is asymmetric, README round 23): coarse matrices with `lower`, `PBiCGStab`/`DILU` on the coarsest level, `scaleCorrection` false; (iii) the neutronics block, which no tutorial runs, needs `DICGaussSeidel` and `nPreSweeps`: ported and verified, NOT wired into the neutronics region (nothing selects it).
+
+### What was searched (reuse)
+
+`common/gamg.rs` and `two_phase/gamg_solve.rs` (round 67) extended, not duplicated; `legacy_fvm/pbicg.rs` supplies `DILU` (`dilu_reciprocal_diag`, `dilu_precondition`); `common/pcg.rs` supplies `norm_factor`, `pcg_dic`. `PBiCGStab` with `DILU` did not exist (`two_phase/pbicgstab.rs` is the diagonal-preconditioned one): ported (`pbicgstab_dilu`, `PBiCGStab.C:63-290`). `GaussSeidel`, `symGaussSeidel`, `DICGaussSeidel` did not exist outside basic-lib's own GAMG (untouched).
+
+### Ported (upstream -> Rust, each cited in `common/gamg.rs`)
+
+`GaussSeidelSmoother.C:74-176` -> `gauss_seidel_smooth`; `symGaussSeidelSmoother.C:74-199` -> `sym_gauss_seidel_smooth`; `DICGaussSeidelSmoother.C:79-100` -> `smooth` (DIC `nSweeps`, then GS `nSweeps`); `GAMGSolverSolve.C:186-253` (pre-smoothing, residual correction, `+= preSmoothed`) -> `v_cycle`; `GAMGSolverAgglomerateMatrix.C:151-180` (`hasLower` branch) -> `coarsen_matrix_asymmetric`; `GAMGSolver.C:298-312` + `PBiCGStabSolverDict` -> `pbicgstab_dilu` on the coarsest level; `scaleCorrection` default `matrix.symmetric()`. **Refused by name:** processor agglomeration and every parallel path, coupled interfaces, `interpolateCorrection true`, `directSolveCoarsest true` (needs `LUscalarMatrix`), `mergeLevels != 1` (`combineLevels`), `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, smoothers `DILU`/`FDIC`/`DILUGaussSeidel`/`nonBlockingGaussSeidel`, `DIC`/`DICGaussSeidel` on an asymmetric matrix (upstream has no asymmetric `DIC`).
+
+### Comparison criteria (fixed here; none is changed after a result)
+
+* **S (single solves, real binary through the instrumented COPY `GAMGdump`, `upstream_driver/gamg_dump/build.sh`, upstream's own dumped matrix):** S1 FFTF `p_rgh` solve 0 of step 1 (symmetric, 18 538 cells) with `smoother` = `GaussSeidel`, `symGaussSeidel`, `DICGaussSeidel` (`nPreSweeps 1, nPostSweeps 1, nFinestSweeps 1, nCellsInCoarsestLevel 20`: the commented-out neutronics block), and `DIC` with `nPreSweeps 2` (tolerance 1e-14, relTol 0): the agglomeration, every V-cycle residual of the first 200 cycles and the final solution **bit-identical**. S2 `TStruct` solve 0 of step 1 of the shipped legacy ESFR thermo-mechanics case (`legacy_tm_esfr_shipped`, asymmetric, `GaussSeidel`, `nCellsInCoarsestLevel 50`, shipped `1e-6`/`0.001`): every coarse matrix (`diag`, `upper`, `lower` of every level), every V-cycle residual, the iteration count and the solution bit-identical. 1e-9 only with an explained round-off cause.
+* **Controls (each must differ from the real binary):** wrong smoother (GS for `symGaussSeidel` and the reverse; DIC for GS), `nPreSweeps 0` against a real `nPreSweeps 1`, PBiCG/DILU substitute for `TStruct`, `scaleCorrection true` on the asymmetric solve, the symmetric coarsening (`upper` only) on the asymmetric matrix.
+* **R (regions, one real run each, GAMG KEPT in the protocol, every `tolerance` 1e-14 and `relTol 0`, `maxIter` removed, `writePrecision 17`, every step written):** R-fc `2D_cavityBoussinesq` (face-centred onePhase) 30 steps; R-2p `1D_boiling` twoPhase 30 steps (before the boiling onset, as round 3); R-tm `legacy_tm_esfr_shipped` thermo-mechanics 20 steps (`deltaT 1`, shipped `TStruct` entry, tight protocol elsewhere). Gate: **no first diverging step; every gated field `<= 1e-9` of its maximum (velocity on `max|U|`)**; `dt` sequence `<= 1e-12` relative; iteration counts and initial residuals REPORTED, NOT GATED (noise floor); bit-identity is the goal, reported per field.
+* **Controls for R:** the PCG/DIC (PBiCG/DILU) substitute against the same reference differs from the GAMG run in the solve log of every step (the substitute path keeps its earlier pins: its tests are untouched and name `GamgPolicy::SubstitutePcgDic` / `TStructGamgPolicy::SubstitutePbicgDilu` explicitly).
+* **Defaults.** `GamgPolicy::Native` becomes the default of `GamgPolicy` and of `OnePhaseFcCase::read`; `TStructGamgPolicy` gets `Native` as default where used through `Default`. Every test that relied on the substitute names it explicitly. Numbers that move under a default are recorded old -> new below.
+* **Earlier numbers (rounds 3-71) must not move.** Gate: `genfoam_gamg_vs_upstream`, `genfoam_one_phase_fc_vs_upstream`, `genfoam_legacy_thermo_mechanics_vs_upstream`, the `--lib` filters `gamg`, `one_phase`, `legacy`, and `scripts/check-nostd.sh` pass at their pins.
+
+### Predictions (written before any real run of this round)
+
+* **P1** the four S1 variants are bit-identical (agglomeration, 200 cycles, solution): 85 %.
+* **P2** S2 bit-identical: 60 % (new: asymmetric coarsening, `PBiCGStab` on the coarsest level, a matrix whose `symmetric()` flag upstream decides by pointer and the port by value; a dump with `SYM 0` and `lower == upper` is the miss).
+* **P3** R-fc fields `<= 1e-9` for 30 steps: 75 %; R-2p 55 % (boiling is a sensitive protocol); R-tm 70 %.
+* **P4** every control differs: 95 %.
+* **P5** no earlier pin moves: 90 % (a test that read a shipped GAMG case through a default will move and is renamed to the substitute explicitly).
+* **P6** the as-shipped (loose) protocol is NOT claimed for any region (round 67's sensitivity result applies); not gated.
+
 ## Round 67 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (the commit "round 67: GAMGSolver port ... predictions and criteria BEFORE any run on upstream data"), BEFORE the first run of the port on any upstream number; real binary 652b3da on ESI v2506 through the instrumented COPY `GAMGdump` of `GAMGSolver` (`upstream_driver/gamg_dump/build.sh`, `scripts/run_fftf_gamg_real.sh`); references in the refs submodule `796a643`: `gamg_r67_fftf_step1_{matrix,agglom,solution,cycles}.ref.txt.gz` (2.0 MB), `gamg_r67_tight{,_log}.ref.txt.gz` (8.6 MB), `gamg_r67_loose17_{log,cycles}.ref.txt.gz`; `tests/genfoam_gamg_vs_upstream.rs` 3 tests, 2.3 s; `tests/genfoam_fftf_pieces_vs_upstream.rs` 3 new `#[ignore]` tests)
 
 AI-written, not human-reviewed. **The port runs upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, all v2506 defaults) for `p_rgh` of the cell-centred onePhase region (`GamgPolicy::Native`); its agglomeration and every one of 1 000 V-cycles equal the real binary's bit for bit; the shipped 2D_FFTF steady state with GAMG and tight tolerances matches the real binary over 30 steps (every field `<= 2.1e-12`); the as-shipped loose run matches step for step for about 9 steps and then parts for a reason the real binary shows too (below).**
