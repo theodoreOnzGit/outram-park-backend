@@ -53,8 +53,9 @@
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
 //! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
-//! passive structures, tortuosity, local frames; power models other than `fixedTemperature`
-//! (without a time profile); heat-transfer models other than `constant`; thermo other than `heRhoThermo`
+//! passive structures, tortuosity, local frames; ~~power models other than `fixedTemperature`~~ **CORRECTED 2026-11-27 (gh:#1879, README round 37):**
+//! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
+//! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); `nuclearFuelPinTest`, the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
 //! `hConst` `Boussinesq` `const`; ~~`residualControl` in `PIMPLE`~~ **CORRECTED 2026-11-27 (gh:#1855, round 31): `residualControl` (customPimpleControl), the `Final` selection it causes and the `relaxationFactors` `default` entries are ported ([`pimple`])**; `stopIfFirstResRelChangeAboveRelTol` (upstream aborts with SIGFPE). `dragModels` (`ReynoldsPower`) are read but
 //! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation.
 
@@ -74,6 +75,7 @@ use crate::genfoam::common::TimeProfile;
 
 mod flow;
 mod pimple;
+mod radial_power;
 mod turbulence;
 pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
@@ -83,6 +85,8 @@ pub use turbulence::{
     WallFunctionCoeffs,
 };
 use turbulence::TurbState;
+pub use radial_power::fvc_laplacian_uncorrected;
+use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
@@ -269,11 +273,21 @@ pub struct CaseReadOptions {
     pub check_region_solvers: bool,
     /// The start fields (`None`: read `<startTime>/fluidRegion`), the in-memory form of `cp -r steadyStateTH/15`.
     pub fields: Option<FluidFields>,
+    /// CONTROL, NOT upstream (gh:#1879, round 35's named control): build every `nuclearFuelPin` with the ring areas a careful
+    /// author would have written instead of upstream's two slips. Never the default.
+    pub radial_corrected_ring_areas: bool,
 }
 
 impl Default for CaseReadOptions {
     fn default() -> Self {
-        Self { gamg: GamgPolicy::Refuse, solve_fluid_mechanics: None, controls: None, check_region_solvers: true, fields: None }
+        Self {
+            gamg: GamgPolicy::Refuse,
+            solve_fluid_mechanics: None,
+            controls: None,
+            check_region_solvers: true,
+            fields: None,
+            radial_corrected_ring_areas: false,
+        }
     }
 }
 
@@ -304,6 +318,14 @@ pub struct OnePhaseCcCase {
     pub t_fixed: Vec<f64>,
     /// `temperatureTimeProfile` of each `fixedTemperature` zone (gh:#1813): the cells of the zone and the table of scaling factors.
     pub t_profiles: Vec<(Vec<usize>, TimeProfile)>,
+    /// The radial-conduction power models of `structureProperties` (`heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure`,
+    /// `interpolatedNuclearFuelPin`; gh:#1879), one per type in first-appearance order; empty for a `fixedTemperature`-only case.
+    pub radial_power: Vec<RadialPowerModel>,
+    /// The structure's `powerDensityNeutronics` per cell (`READ_IF_PRESENT`, else the `powerDensity` of the radial models'
+    /// regions: `structure::setRegionField`); 0 elsewhere.
+    pub power_density_neutronics: Vec<f64>,
+    /// A `lumpedNuclearStructure` region has `kappaMatrix != 0`: `fvc::laplacian(Tmatrix)` is evaluated.
+    pub radial_needs_laplacian: bool,
     /// `heatTransferModels` per cell.
     pub htc_model: Vec<Option<FsHtcModel>>,
     /// `htc` read from the start directory (cells outside the model zones keep it).
@@ -701,8 +723,13 @@ impl OnePhaseCcCase {
                 }
             }
             if let Some(pm) = zd.get_dict("powerModel") {
-                if word(pm, "type").as_deref() != Some("fixedTemperature") {
-                    return Err(ctx.e("only the fixedTemperature powerModel is ported here"));
+                let ty = word(pm, "type").unwrap_or_default();
+                if radial_power::RADIAL_TYPES.contains(&ty.as_str()) {
+                    // read after this loop, with the structure alpha of every zone (gh:#1879)
+                    continue;
+                }
+                if ty != "fixedTemperature" {
+                    return Err(ctx.e(radial_power::refusal_reason(&ty)));
                 }
                 match pm.get_dict("temperatureTimeProfile") {
                     Some(d) => t_profiles.push((cells.clone(), read_table_time_profile(&ctx, d, "temperatureTimeProfile")?)),
@@ -761,6 +788,40 @@ impl OnePhaseCcCase {
         let fdir = root.join(&tdir).join(region);
         let sfield = |name: &str| read_vol_scalar_field(&fdir.join(name), n);
         let hand = options.fields.as_ref();
+        // ---- the radial-conduction power models (gh:#1879): built here because they need every zone's structure alpha
+        let has_radial = sp.iter().any(|(_, e)| match e {
+            FoamEntry::SubDict(zd) => zd
+                .get_dict("powerModel")
+                .and_then(|pm| word(pm, "type"))
+                .is_some_and(|t| radial_power::RADIAL_TYPES.contains(&t.as_str())),
+            _ => false,
+        });
+        let q_file = if has_radial && fdir.join("powerDensityNeutronics").exists() { Some(sfield("powerDensityNeutronics")?) } else { None };
+        let radial = radial_power::read_radial_power_models(
+            &ctx,
+            sp,
+            &zone_cells,
+            &alpha_structure,
+            &mesh.cell_volumes,
+            &fdir,
+            options.radial_corrected_ring_areas,
+            q_file,
+        )?;
+        if hand.is_some() && !radial.models.is_empty() {
+            return Err(ctx.e("radial power models cannot continue from handed-over fluid fields (their own state is not handed over)"));
+        }
+        if radial.needs_laplacian && !solve_flow {
+            // `fvc::laplacian(Tmatrix)` is the `uncorrected` form only (the flow reader checks the same entry when it runs)
+            let schemes = ctx.read("system/fluidRegion/fvSchemes")?;
+            let d = ctx.sub(&schemes, "laplacianSchemes")?;
+            let uncorrected = match d.get("default") {
+                Some(FoamEntry::Tokens(vs)) => vs.iter().any(|v| matches!(v, outram_foam_basic_lib::io::FoamValue::Word(w) if w == "uncorrected")),
+                _ => false,
+            };
+            if !uncorrected {
+                return Err(ctx.e("lumpedNuclearStructure with kappaMatrix != 0 needs laplacianSchemes `Gauss linear uncorrected` (the only fvc::laplacian ported)"));
+            }
+        }
         if let Some(h) = hand {
             if [h.t.len(), h.p.len(), h.u.len(), h.alphat.len(), h.t_fixed.len(), h.htc.len(), h.power_density.len()].iter().any(|&l| l != n)
                 || h.alpha_phi.len() != g.n_faces()
@@ -855,6 +916,9 @@ impl OnePhaseCcCase {
             delta_t,
             alpha_structure,
             dh,
+            radial_power: radial.models,
+            power_density_neutronics: radial.q_neutronics,
+            radial_needs_laplacian: radial.needs_laplacian,
             ia_act,
             t_fixed,
             t_profiles,
@@ -889,6 +953,20 @@ pub struct OnePhaseCcSolver {
     t_act: Vec<f64>,
     /// `T_.oldTime()` of the `fixedTemperature` models: `Tact` at the start of the time step (gh:#1813).
     t_act_old: Vec<f64>,
+    /// `iAact_` = the `fixedTemperature` area plus `iA` of every radial model (`structure` constructor: `iAact_ += iter()->iA()`).
+    ia_act: Vec<f64>,
+    /// The radial-conduction power models (gh:#1879), state included.
+    radial: Vec<RadialPowerModel>,
+    /// The structure's `powerDensityNeutronics` per cell.
+    q_neutronics: Vec<f64>,
+    /// `T.prevIter()` stored by `EEqn_1p.H` before the solve (`HT = Hs*T.prevIter()`).
+    t_prev: Vec<f64>,
+    /// `heatFlux.structure` (`H Twall - HT`) on the radial models' cells, 0 elsewhere.
+    structure_heat_flux: Vec<f64>,
+    /// CONTROL (gh:#1879): build `HT` from the post-solve `T` instead of `T.prevIter()`.
+    ctl_ht_post_solve: bool,
+    /// CONTROL (gh:#1879): evaluate `fvc::laplacian(Tmatrix)` as 0.
+    ctl_no_laplacian: bool,
     htc: Vec<f64>,
     re: Vec<f64>,
     cont_err: Vec<f64>,
@@ -972,7 +1050,17 @@ impl OnePhaseCcSolver {
             .as_ref()
             .and_then(|fc| fc.turbulence.as_ref().map(|tc| TurbState::new(&geom, tc, &fc.nut, &fc.nut_boundary, &case.alphat)));
         let (case_p, case_arp, case_ap) = (case.p.clone(), case.alpha_rho_phi.clone(), case.alpha_phi.clone());
-        let t_act: Vec<f64> = (0..n).map(|c| if case.ia_act[c] != 0.0 { case.t_fixed[c] } else { 0.0 }).collect();
+        let mut t_act: Vec<f64> = (0..n).map(|c| if case.ia_act[c] != 0.0 { case.t_fixed[c] } else { 0.0 }).collect();
+        // `structure` constructor: `iAact_ += iter()->iA(); iter()->correctT(Tact_)` for every model of the table
+        let mut ia_act = case.ia_act.clone();
+        let radial = case.radial_power.clone();
+        for m in &radial {
+            for &c in m.cells() {
+                ia_act[c] += m.interfacial_area(c);
+                t_act[c] = m.surface_temperature(c);
+            }
+        }
+        let q_neutronics = case.power_density_neutronics.clone();
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
@@ -987,6 +1075,13 @@ impl OnePhaseCcSolver {
             t,
             t_act,
             t_act_old,
+            ia_act,
+            radial,
+            q_neutronics,
+            t_prev: Vec::new(),
+            structure_heat_flux: vec![0.0; n],
+            ctl_ht_post_solve: false,
+            ctl_no_laplacian: false,
             htc,
             re,
             cont_err,
@@ -1179,6 +1274,93 @@ impl OnePhaseCcSolver {
         }
     }
 
+    /// `structure::correct(HT, H)` for the radial power models (gh:#1879; `structure.C`): for each model
+    /// `correct(HT, H)` then `correctT(Tact_)`, then `Twall = Tact` and `heatFlux = H Twall - HT` on the model cells.
+    /// `HT = Hs*T.prevIter()` and `H = Hs` (`FSPair_.htc()`). A `lumpedNuclearStructure` first takes
+    /// `fvc::laplacian(Tmatrix)` of its own `Tmatrix` as it stands (upstream does it at the start of its `correct`).
+    ///
+    /// # Panics
+    /// On a singular radial matrix (upstream's `Foam::solve` is a `FatalError`: the case is unphysical).
+    fn structure_correct(&mut self) {
+        if self.radial.is_empty() {
+            return;
+        }
+        let n = self.geom.n_cells();
+        let tp: &[f64] = if self.ctl_ht_post_solve { &self.t } else { &self.t_prev };
+        let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * tp[c]).collect();
+        let h = self.htc.clone();
+        let volumes = self.geom.mesh.cell_volumes.clone();
+        let time_index = self.steps_begun as i64;
+        for i in 0..self.radial.len() {
+            let lap = match (self.radial[i].tmatrix(), self.ctl_no_laplacian) {
+                (Some(tm), false) => fvc_laplacian_uncorrected(&self.geom, tm),
+                _ => vec![0.0; n],
+            };
+            let step = StepInputs { dt: self.dt, time_index, q_neutronics: self.q_neutronics.clone(), laplacian_t_matrix: lap, volumes: volumes.clone() };
+            if let Err(e) = self.radial[i].correct(&ht, &h, &step) {
+                panic!("radial power model {}: {e}", self.radial[i].type_name());
+            }
+            for &c in self.radial[i].cells() {
+                self.t_act[c] = self.radial[i].surface_temperature(c);
+                self.structure_heat_flux[c] = h[c] * self.t_act[c] - ht[c];
+            }
+        }
+    }
+
+    /// The radial power models with their state (gh:#1879).
+    #[must_use]
+    pub fn radial_power_models(&self) -> &[RadialPowerModel] {
+        &self.radial
+    }
+
+    /// `heatFlux.structure` on the radial models' cells (`H Twall - HT`; 0 elsewhere).
+    #[must_use]
+    pub fn structure_heat_flux(&self) -> &[f64] {
+        &self.structure_heat_flux
+    }
+
+    /// `(T.fuelAvForNeutronics, T.cladAvForNeutronics)` per cell: the `TFuelAv`/`TCladAv` the radial models write into the
+    /// structure for the neutronics (0 where no model sets them, as the fields' `zeroGradient 0` initialisation).
+    #[must_use]
+    pub fn fuel_clad_temperatures(&self) -> (Vec<f64>, Vec<f64>) {
+        let n = self.geom.n_cells();
+        let (mut fuel, mut clad) = (vec![0.0; n], vec![0.0; n]);
+        for m in &self.radial {
+            for &c in m.cells() {
+                let (f, cl) = m.coupling_temperatures(c);
+                fuel[c] = f;
+                clad[c] = cl;
+            }
+        }
+        (fuel, clad)
+    }
+
+    /// Hand the structure's `powerDensityNeutronics` [W/m^3] over from the neutronics (the radial models' `q`).
+    pub fn set_structure_power_density(&mut self, q: &[f64]) {
+        self.q_neutronics.clear();
+        self.q_neutronics.extend_from_slice(q);
+    }
+
+    /// `Tact` (`T.activeStructure`) per cell.
+    #[must_use]
+    pub fn active_structure_temperature(&self) -> &[f64] {
+        &self.t_act
+    }
+
+    /// CONTROL, NOT upstream (gh:#1879): build `HT` from the post-solve `T` instead of `T.prevIter()`.
+    #[must_use]
+    pub fn with_post_solve_temperature_for_ht(mut self) -> Self {
+        self.ctl_ht_post_solve = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1879): `fvc::laplacian(Tmatrix)` of the lumped model taken as 0.
+    #[must_use]
+    pub fn without_lumped_laplacian(mut self) -> Self {
+        self.ctl_no_laplacian = true;
+        self
+    }
+
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
         self.update_re();
@@ -1235,6 +1417,10 @@ impl OnePhaseCcSolver {
             b: vec![0.0; g.n_faces() - ni],
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
+        // `T.storePrevIter()` (EEqn_1p.H, before the solve): the temperature `structure_.correct(Hs*T.prevIter(), Hs)` sees
+        if !self.radial.is_empty() {
+            self.t_prev = self.t.clone();
+        }
         // fvm::ddt(alpha, rho0, he)
         let mut e = Eqn::new(&g);
         for c in 0..n {
@@ -1303,7 +1489,7 @@ impl OnePhaseCcSolver {
         let mut su = vec![0.0; n];
         let mut sp = vec![0.0; n];
         for c in 0..n {
-            let ih = self.case.ia_act[c] * self.htc[c];
+            let ih = self.ia_act[c] * self.htc[c];
             su[c] = ih * (self.t_act[c] - self.t[c] + self.he[c] / cp);
             sp[c] = ih / cp;
         }
@@ -1356,6 +1542,7 @@ impl OnePhaseCcSolver {
         }
         // `structure_.correct(Hs*T.prevIter(), Hs)` runs at the END of EEqn_1p.H: `fixedTemperature::correctT` -> `temperatureUpdate`
         self.temperature_update();
+        self.structure_correct();
         (perf.initial_residual, (st / sv, tmin, tmax))
     }
 

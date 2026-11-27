@@ -123,6 +123,15 @@ impl RadialPowerModel {
         }
     }
 
+    /// `Tmatrix` of a `lumpedNuclearStructure` (the field whose Laplacian its `correct` takes), `None` for the others.
+    #[must_use]
+    pub fn tmatrix(&self) -> Option<&[f64]> {
+        match self {
+            Self::LumpedNuclearStructure(m) => Some(m.tmatrix()),
+            _ => None,
+        }
+    }
+
     /// `(TFuelAv, TCladAv)` the model writes into the structure for the neutronics (0, 0 for the two models
     /// that do not set them).
     #[must_use]

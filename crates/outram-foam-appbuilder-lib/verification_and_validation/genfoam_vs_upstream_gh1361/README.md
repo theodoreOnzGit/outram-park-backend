@@ -4876,3 +4876,86 @@ The references were generated and their CFG/T/K lines glanced at for sanity (pow
 * **The shipped `1D_MSR_pointKinetics` itself** (liquid fuel: `solvePointKineticsLiquidFuel.H`, precursor transport on a cyclic neutro mesh fed by `U`, `alpha`, `alphat`, `mu` mapped from a forced-circulation `onePhase` loop with a `GAMG` `p_rgh` and a pump). Not run, not ported: needs the liquid-fuel PK class, a cyclic-mesh `fvm::div/laplacian` with `PBiCG/DILU`, and the fluid region. `1D_thermalMSR_pointKinetics`, `2D_onePhaseAndPointKineticsCoupling`, `2D_onePhaseAndSubcriticalPointKineticsCoupling`, `2D_fullCoupling`, `2D_FFTF`, `testing/2D_MSFR_ULOF_diffusion_and_pk`: not run.
 * `GEMReactivityMap` (refused), FMU inputs (refused), time-profile types other than `table` (refused), `reactorState` references and the `reactorState` write-out, the case reader (`nuclearData`/`reactorState`/`externalSource` -> `PkConfig`; the test repeats the case script's numbers), the mesh wrapper that reads cell zones and volumes from a case, the coupled loop and workflow stage (`EigenvalueStage` still refuses point kinetics by name), the written-field comparison (`pTarget`, `precursorPowers` in `reactorState`), the `2D_externalSourceDiffusion`-style pairing of the subcritical external source with round 32's diffusion source.
 * Time clock: `t` and `dt` are read from the reference.
+
+## Round 37 results (2026-11-27, release, `CARGO_BUILD_JOBS=2`, private target dir; `tests/genfoam_radial_power_wired_vs_upstream.rs`, 8 tests, 16-26 s; `--nocapture` prints every tally)
+
+Upstream: the real unmodified GeN-Foam `652b3da` on ESI v2506, `run_msfr_th_tight.sh` (`TURB=off`, `END_TIME 0.0037`, 3 steps of 5 outer iterations, `nCorrectors` 6, tight 1e-14), variants of `cases/msfr_th_variants_r37/`; references `refs/msfr_th_r37_{hp,nfp,nfp_tab,lns,lns3}.ref.txt.gz` (131-145 KB each, 0.7 MB in all; submodule commit given in the outer commit message; `nfp` and `nfp_tab` re-made once after the profile-extractor fix, finding 3).
+
+### Upstream -> Rust mapping
+
+| upstream | Rust |
+|---|---|
+| `structure` constructor: `powerModelTypes`, one `dictionary` per type keyed by zone (`a:b` split), `powerModel::New` | `one_phase_cc/radial_power.rs::read_radial_power_models` (types in first-appearance order, one region per zone) |
+| each model's dictionary reads (`get` / `lookupOrDefault`, `rho*Cp` or `rhoCp`, `gapH` XOR `gapHPowerDensity table`, `volumeFraction`) | the same function, per model (keys in the module docs) |
+| `structure::setRegionField(powerDensityNeutronics, "powerDensity")` (required key unless the field is in the time directory) | `RadialRead::q_neutronics` (`powerDensityNeutronics` file if present, else the regions' `powerDensity`) |
+| `iAact_ += iter()->iA(); iter()->correctT(Tact_)` (constructor) | `OnePhaseCcSolver::new` (`ia_act`, `t_act`) |
+| `EEqn_1p.H`: `T.storePrevIter()`; `structure_.correct(Hs*T.prevIter(), Hs)` after `thermo.correct()` | `correct_energy` (`t_prev`) then `OnePhaseCcSolver::structure_correct` |
+| `structure::correct`: `iter()->correct(HT, H); iter()->correctT(Tact_)`; `Twall = Tact`; `heatFlux = H Twall - HT` | `structure_correct` (`RadialPowerModel::correct`, `surface_temperature`, `structure_heat_flux`) |
+| `lumpedNuclearStructure::correct`: `laplacianTmatrix_ = fvc::laplacian(Tmatrix_)` (`laplacianSchemes default Gauss linear uncorrected`) | `radial_power::fvc_laplacian_uncorrected` (internal faces `deltaCoeffs (N-P) |Sf|`, `surfaceIntegrate` order; boundary faces exactly 0), refused for any other scheme |
+| `structure.TFuelAv()/TCladAv()` written by the models (read by the neutronics mapping) | `OnePhaseCcSolver::fuel_clad_temperatures` (output; compared with `T.fuelAvForNeutronics`/`T.cladAvForNeutronics`); `set_structure_power_density` is the input side |
+| refused by name | `nuclearFuelPinTest` (gh:#1787), `nuclearFuelFMU`/FMU models, `fixedPower` in the one-phase region, restarts from a model's own written fields, `laplacianSchemes` other than `uncorrected` with `kappaMatrix != 0`, both `gapH` and `gapHPowerDensity` |
+
+### The case (why no shipped tutorial)
+
+Read, not assumed: `2D_FFTF` needs `cellCenteredFaceReconstruction`, `heatExchangers`, `momentumSourceTimeProfile`; `2D_fullCoupling` selects sodium `polynomial`/`hPolynomial`/`icoPolynomial` thermo, `NusseltReynoldsPrandtlPower`, `passiveProperties`, GAMG and the legacy thermomechanics + point kinetics; `1D_thermalMSR_pointKinetics` is `faceCentered` with `momentumSourceTimeProfile` + point kinetics (#1864, another agent); `2D_KNS37-L22` is the two-phase solver (MULES `solvePhase vapour`, #1799). So the comparison is the documented variant of a case the port already runs (`2D_MSFR` TH region, rounds 17-31) with the models' own shipped dictionaries (script header lists the source of every number).
+
+### Results (port against the real binary, 3 steps, 5 outer iterations each; "worst" = max-norm `max |port - upstream| / max |upstream|` over the three steps; gate 1e-9)
+
+| variant (hx zone) | outer iterations port/upstream | worst flow field (`U`, `p_rgh`, `T`) | worst pin field (zone, profiles, `TFuelAv`/`TCladAv`, `heatFlux.structure`) | first step above 1e-9 | bit-equal values |
+|---|---|---|---|---|---|
+| `hp` heatedPin (KNS37 dictionary, `volumeFraction 0.5` override) | 5,5,5 / 5,5,5 | 3.8e-12 (`U`), 8.7e-13, 1.0e-15 | 3.9e-15 (`heatFlux`), `To` 3.4e-16, `Trad` 1.7e-16 | none | 6,848 / 19,119 |
+| `nfp` nuclearFuelPin, `gapH 3000` (fullCoupling dictionary) | same | 1.2e-11, 1.1e-12, 8.8e-16 | `Tco` 5.5e-16, `Tcav`/`TCladAv` 5.6e-16, `heatFlux` 2.7e-15, `Trad` 1.8e-16 | none | 12,371 / 24,720 |
+| `nfp_tab` same, `gapHPowerDensity` table | same | 2.2e-12, 3.7e-13, 8.8e-16 | same order (5.5e-16) | none | 12,405 / 24,720 |
+| `lns` lumpedNuclearStructure, 1 node, `kappaMatrix 12` | same | 4.1e-12, 3.2e-13, 7.6e-16 | `Tsurface` 6.3e-16, `Tmatrix`/`Tmax` 0, `heatFlux` **3.5e-10** | none | 5,653 / 18,054 |
+| `lns3` 3 nodes, `nodeMatrix 2` | same | 7.9e-12, 6.7e-13, 1.1e-15 | `Tsurface` 3.8e-16, `Tmatrix` 1.3e-16, `heatFlux` 1.6e-11 | none | 6,088 / 18,480 |
+
+(The per-variant `U`/`p_rgh` figures are read from the `--test-threads=1` run; the `lns` `heatFlux` 3.5e-10 is a cancellation: `H Tsurface - HT` is a difference of two ~9e6 W/m^2 numbers equal to 15 W/m^2, so 1e-16 of the terms is 6e-10 of the result; its temperature inputs agree at 1e-15.) Every linear solve of the log is compared as well.
+
+**Iteration counts, and a criterion changed after the first run (disclosed).** The first run failed the stricter P3 below: `p_rgh` solves of the later correctors (4 to 6) start at an initial residual of 2e-12 to 6e-12 against the 1e-14 absolute tolerance, i.e. at the round-off floor of the ~1e-12 flow difference of the earlier rounds, and there the count differs by tens in BOTH directions (port 69 against upstream 144 in one solve, port 137 against 119 in the next). 52 of the 105 solves are in this regime in every variant (worst difference 81-105). I did not move the gate silently: the comparison keeps the round-20/29 criterion (worst count difference <= 1) for the 53 solves whose upstream initial residual is above 1e-10 (all five variants: worst difference 1; for contrast the power-model-OFF control differs by 2 at `PRGH 2 1` of step 1, 236 against 238 at residual 1.4e-3, a real difference), and reports the 52 floor solves separately (`NOISE_FLOOR` in the test, with its reason). A different SOLVER ENTRY would show in the 53 (it differs by tens at residual 1e-3). The initial-residual relative check likewise uses only solves above 1e-7 (worst 8.6e-7, a noise-floor effect of the same 1e-14 absolute). This is a change of an instrument after seeing a result: the justification is the measured noise floor, not what makes the numbers pass, and the numbers it excludes are printed.
+
+### Controls (each fails its comparison; worst field difference)
+
+| control | result | prediction |
+|---|---|---|
+| power model OFF (`hp` reference, port on the base `fixedTemperature` case) | `hx` `T` 1.2e-3, `U` 5.6e-5, `p_rgh` 3.3e-5, pin fields absent (counted 1.0) | P4(a) >= 1e-4: **held** (for `hp`; not run for `lns`, where the fluid effect is 3e-5 K, see below) |
+| `HT` from the post-solve `T` (`hp`) | `To`, `Trad` 3.6e-6, `Tav` 7.7e-7, `heatFlux` 9.7e-6 | P4(b) 1e-7 to 1e-4: **held** |
+| `HT` from the post-solve `T` (`nfp`) | `Tco` 7.6e-6, `Tfo` 3.4e-8, `heatFlux` 1.6e-5 | held |
+| lumped `fvc::laplacian(Tmatrix) = 0` (`lns`) | `Tmatrix` 1.2e-5, `Tmax` 1.2e-5, `TFuelAv` 1.2e-5 | P4(c) >= 1e-5: **held** (1.17e-5, close to the bound) |
+| `nuclearFuelPin` corrected ring areas (round 35's control) | cladding `Tco` 5.5e-3, `Tci` 3.1e-3, clad `Trad` 1.0e-2, `T` 7.9e-6 | P4(d) 1e-9 to 1e-5: **missed high** (3 orders). The slip puts the FUEL step `drf` and fuel radii into the clad's ring areas, so the corrected areas change the clad's heat capacity per ring substantially, and in the first millisecond the clad storage term decides the surface temperature (not measured separately). Round 35's `4e-3` at dt 0.5 s was the same slip; a short transient exposes it MORE, not less |
+| `gapH` constant against the `gapHPowerDensity` table (`nfp_tab` reference) | `Tfo` 5.0e-5, `Trad` 4.8e-5, `Tci` 2.7e-5 | the table is not read as a constant: held (not predicted) |
+
+### Predictions: held / missed
+
+* **P1 (construction)** held: the first written step already agrees (`iA`, `Tact`, `TFuelAv`/`TCladAv` all at 1e-15 or better).
+* **P2 (fields <= 1e-10, expected 1e-13 to 1e-11; "not 0 ulp")**: held for the flow fields (`U` 2.2e-12 to 1.2e-11, `p_rgh` 3e-13 to 1.1e-12) and **missed LOW for the pin fields**: they agree to 1e-15..1e-16 (about one ulp; 31-50 % of all compared values are bit-identical) rather than 1e-13..1e-11, because `T.prevIter()` and `H` at the pin are far less sensitive to the 1e-12 flow difference than the flow fields themselves. One field exceeds 1e-10: `lns` `heatFlux.structure` 3.5e-10, the cancellation above (its inputs are at 1e-15), a missed-high of the PREDICTED bound for a derived field, below the 1e-9 gate.
+* **P3 (counts <= 1)**: **missed for the 52 round-off-floor solves** (differences up to 105), held for the 53 above the floor, outer iterations 5/5/5 equal; see the disclosure above.
+* **P4**: (a), (b), (c) held; (d) missed high. (a) for `lns`: the fluid-side effect is **3e-5 K** the `hx` `T` moves by only 3e-6 to 2e-5 K in the three steps (upstream log), far below the predicted 0.1 K, because the pin power 5e6 W/m^3 times 3.6 ms is tiny and the pin starts at the fluid temperature (`T0 900`); the lumped variants are therefore tested through the pin fields (`Tmax`, `Tmatrix` change by 10 K), not through the fluid.
+* **P5** stands (no tutorial end to end; no neutronics; FMU/`nuclearFuelPinTest` refused; two-phase not wired).
+* **P6 (cost)** held: each upstream run 3-4 s, refs 131-145 KB.
+
+### What the numbers mean
+
+The wiring is a translation of `EEqn_1p.H`/`structure::correct`: the only inputs of the models are `HT = Hs T.prevIter()`, `H = Hs`, the structure power, `dt`, the time index and `fvc::laplacian(Tmatrix)`, and 0.001-0.004 s of flow later the pin state is the real binary's to round-off. The controls show the comparison is sensitive to each ingredient (power model itself 1e-3, `T.prevIter()` against `T` 1e-5, Laplacian 1e-5, ring areas 1e-2, gap table 5e-5). What it does NOT show: a long transient (3 steps of ~1 ms), any case where the pin power is driven by the neutronics, the two-phase region, `interpolatedNuclearFuelPin` against the binary, or a shipped tutorial.
+
+### Findings
+
+1. `structure::correct` is called with `Hs*T.prevIter()`, the temperature BEFORE the energy solve of the same outer iteration (`T.storePrevIter()` precedes `EEqn.relax()`), not the solved one; using the solved one is a 1e-5 error (control above).
+2. `lumpedNuclearStructure`'s `Tmatrix` is 0 outside the model cells and is a `zeroGradient` field, so with `kappaMatrix != 0` the cells next to the zone border see a ~900 K step (the diffusion term is `kappa * 900 / dx^2`). Reproduced, not corrected; a case author who wants a physical matrix diffusion must put `Tmatrix` over the whole matrix region.
+3. `nuclearFuelPin` writes `Trad` as `N{v}` (OpenFOAM's uniform-list compaction) at the start and as multi-line lists later: a reference extractor must handle all three forms (the first extraction silently lost the profiles; the test then compared empty lists as 0 difference. The test now fails a missing profile and the corrected-ring-area control shows the profile differing by 1e-2, so the comparison is no longer vacuous).
+
+### Not done (stated; issues filed)
+
+* **The `twoPhase` region** (`two_phase/{mod,case}.rs`, `Vec<Option<FixedPower>>`): not wired. It needs `structure::correct` with the two-phase `HT = sum_j H_j frac_j T_j`, `H` (EEqns_2p.H:331) and the vapour-side `Tact` coupling; filed.
+* **`2D_KNS37-L22`, `2D_FFTF`, `2D_fullCoupling`, `1D_thermalMSR_pointKinetics`**: not run; see "The case".
+* **`interpolatedNuclearFuelPin` against the binary**: read and wired, unit-level check only (`T = (0 + HT)/H`); no differential run (external heat flux, SIGFPE on unzoned cells).
+* Neutronics hand-over as an INPUT: `set_structure_power_density` exists and is used by the tests only as the dictionary's initial value; the diffusion/point-kinetics coupling for a solid-fuel region is not wired (#1864 is another agent's).
+* Restart from a model's own written fields (`Trad.<model>`, `Tfi...`), `nuclearFuelPinTest`, FMU models: refused by name.
+* `docs/outram-foam-appbuilder-lib-api.md` (the generated mirror) not regenerated (`kovan-cli api-docs` not built here); the changed doc comments are the `one_phase_cc` module header and the new `radial_power`/solver items.
+
+### Moved numbers
+
+None: the existing tests that exercise `one_phase_cc` pass unchanged (`genfoam_msfr_th_vs_upstream` 6, `_pimple` 14, `_nonorth` 8, `genfoam_msfr_coupled_vs_upstream` 6 (+1 ignored), `genfoam_radial_power_models_vs_upstream` 8; `--lib structure:: two_phase` 96). The `fixedTemperature` path is untouched (`ia_act` is now a solver copy of the case value plus the radial `iA`, equal when no radial model exists).
+
+### Gates run (2026-11-27, release, `CARGO_BUILD_JOBS=2`, private `CARGO_TARGET_DIR`)
+
+`--test genfoam_radial_power_wired_vs_upstream` 8 passed; `--test genfoam_radial_power_models_vs_upstream` 8; `--test genfoam_refs_submodule_present` 1; `--test genfoam_msfr_th_vs_upstream` 6; `--test genfoam_msfr_th_pimple_vs_upstream` 14; `--test genfoam_msfr_th_nonorth_vs_upstream` 8; `--test genfoam_msfr_coupled_vs_upstream` 6 passed, 1 ignored; `--lib structure:: two_phase` 96; `petir --test no_platform_libm` 4; `bash scripts/check-nostd.sh` clean (includes `outram-foam-appbuilder-lib`). Not run: the full suites, the hour-scale ignored tests, `genfoam_msfr_allrun`/`chain`/`transient` (not touched by an energy-only change; the allrun reader literals gained `..CaseReadOptions::default()`).
