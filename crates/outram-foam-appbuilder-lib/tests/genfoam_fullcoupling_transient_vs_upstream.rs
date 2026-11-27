@@ -631,6 +631,9 @@ fn the_transient_restarted_from_the_written_fluid_state_meets_the_solve_criterio
 
 /// Criterion 7: each control differs from the real run (step 100 of the transient).
 #[test]
+// gh:#1932 (round 68): the controls' states differ from upstream's on purpose and the implicit-predictor transient reaches third neutron iterations
+// (step 40) where the real run's `aitkenAcceleration.H` reads uninitialised lists: these use the NAMED ablation `without_aitken_refusal()`, which keeps the
+// round 60/66 form (Aitken not performed). Their numbers are unchanged.
 fn each_control_differs_from_the_real_run() {
     let ss_ref = load_reference("fc_ss_adj_r60.ref.txt.gz");
     let reference = load_reference("fc_transient_sh_r60.ref.txt.gz");
@@ -638,27 +641,27 @@ fn each_control_differs_from_the_real_run() {
     let up_power = reference.nlog[n - 1][0];
     let up = |key: &str| reference.fp[&(n, key.to_string())];
     // a: integral predictor off
-    let (_, a) = run_transient("ctl_a", CouplingSwitches::default().without_integral_predictor(), n, &ss_ref, &reference);
+    let (_, a) = run_transient("ctl_a", CouplingSwitches::default().without_aitken_refusal().without_integral_predictor(), n, &ss_ref, &reference);
     let a_power = a.power_trace.iter().zip(&reference.nlog).fold(0.0_f64, |m, (p, l)| m.max(rel(*p, l[0])));
     let a_iters = a.neutron_iterations.iter().zip(&reference.nlog).filter(|(i, l)| **i as f64 != l[1]).count();
     // b: the neutronics mesh not moved
-    let (_, b) = run_transient("ctl_b", CouplingSwitches::default().with_restart_on_original_mesh(), n, &ss_ref, &reference);
+    let (_, b) = run_transient("ctl_b", CouplingSwitches::default().without_aitken_refusal().with_restart_on_original_mesh(), n, &ss_ref, &reference);
     let db = rel(b.power_trace[n - 1], up_power);
     // c: no neutronics power into the fluid and the TM
     let (_, c) = run_transient(
         "ctl_c",
-        CouplingSwitches::default().without_mapping_into("fluidRegion", "powerDensityNeutronics").without_mapping_into("thermoMechanicalRegion", "powerDensityNeutronics"),
+        CouplingSwitches::default().without_aitken_refusal().without_mapping_into("fluidRegion", "powerDensityNeutronics").without_mapping_into("thermoMechanicalRegion", "powerDensityNeutronics"),
         n,
         &ss_ref,
         &reference,
     );
     let dc = rel(c.final_fp["fluidRegion T"][0], up("fluidRegion T")[1]);
     // d: phi not rebuilt from U
-    let (_, d) = run_transient("ctl_d", CouplingSwitches::default().with_restart_keeping_phi(), 2, &ss_ref, &reference);
+    let (_, d) = run_transient("ctl_d", CouplingSwitches::default().without_aitken_refusal().with_restart_keeping_phi(), 2, &ss_ref, &reference);
     // e: no fluid temperatures into the TM
     let (_, e) = run_transient(
         "ctl_e",
-        CouplingSwitches::default().without_mapping_into("thermoMechanicalRegion", "TStructFromTH").without_mapping_into("thermoMechanicalRegion", "TFuel"),
+        CouplingSwitches::default().without_aitken_refusal().without_mapping_into("thermoMechanicalRegion", "TStructFromTH").without_mapping_into("thermoMechanicalRegion", "TFuel"),
         n,
         &ss_ref,
         &reference,
@@ -1314,30 +1317,31 @@ fn each_file_read_control_differs_from_the_real_run() {
     // (a) `T.passiveStructure` not read: the dictionary's `T` (`TpasHeaderOk` false)
     let a_root = stage_from_files("ctl_a", false);
     std::fs::remove_file(a_root.join("100/fluidRegion/T.passiveStructure")).expect("remove");
-    let a = run_sh_from_files(&a_root, CouplingSwitches::default(), 2, &reference);
+    let a = run_sh_from_files(&a_root, CouplingSwitches::default().without_aitken_refusal(), 2, &reference);
     let da = worst_fp(&a, "fluidRegion");
     // (b) the neutronics `polyMesh/points` of `100` not read
     let b_root = stage_from_files("ctl_b", false);
     std::fs::remove_file(b_root.join("100/neutroRegion/polyMesh/points")).expect("remove");
-    let b = run_sh_from_files(&b_root, CouplingSwitches::default(), n, &reference);
+    // the control's state differs from upstream's on purpose and reaches third neutron iterations: the named ablation keeps its round 66 form
+    let b = run_sh_from_files(&b_root, CouplingSwitches::default().without_aitken_refusal(), n, &reference);
     let db = dev(&b, n);
     // (c) `fluxStar<g>`, `flux<g>`, `prec<k>` not read (flat flux 1, flat precursors 1)
     let c_root = stage_from_files("ctl_c", false);
     for f in ["flux0", "flux1", "fluxStar0", "fluxStar1", "prec0", "prec1", "prec2", "prec3", "prec4", "prec5"] {
         flatten_field(&c_root.join("100/neutroRegion").join(f), "1");
     }
-    let c = run_sh_from_files(&c_root, CouplingSwitches::default(), 1, &reference);
+    let c = run_sh_from_files(&c_root, CouplingSwitches::default().without_aitken_refusal(), 1, &reference);
     let dc = dev(&c, 1);
     // (d) the TM `disp` not read (zero)
     let d_root = stage_from_files("ctl_d", false);
     flatten_field(&d_root.join("100/thermoMechanicalRegion/disp"), "(0 0 0)");
-    let d = run_sh_from_files(&d_root, CouplingSwitches::default(), 1, &reference);
+    let d = run_sh_from_files(&d_root, CouplingSwitches::default().without_aitken_refusal(), 1, &reference);
     let dd = worst_fp(&d, "thermoMechanicalRegion");
     // (e) `alphaPhi`, `alphaRhoPhi` not read (rebuilt by `initAlphaPhis`)
     let e_root = stage_from_files("ctl_e", false);
     std::fs::remove_file(e_root.join("100/fluidRegion/alphaPhi")).expect("remove");
     std::fs::remove_file(e_root.join("100/fluidRegion/alphaRhoPhi")).expect("remove");
-    let e = run_sh_from_files(&e_root, CouplingSwitches::default(), 2, &reference);
+    let e = run_sh_from_files(&e_root, CouplingSwitches::default().without_aitken_refusal(), 2, &reference);
     let de = worst_fp(&e, "fluidRegion");
     println!(
         "round 66 controls: (a) T.passiveStructure ignored: fluid fingerprint worst {:e} ({}), first diverging {:?}; (b) points ignored: power at step {n} {db:e}; (c) fluxStar/prec ignored: power at step 1 {dc:e}; (d) TM disp ignored: TM fingerprint worst {:e} ({}); (e) alphaPhi/alphaRhoPhi ignored: fluid fingerprint worst {:e} ({})",
@@ -1528,7 +1532,7 @@ fn stage_implicit(tag: &str, value: &str) -> PathBuf {
 fn the_implicit_predictor_matches_the_real_binary_for_its_first_100_steps() {
     let reference = load_reference("fc_transient_sh_implicit_r66.ref.txt.gz");
     let root = stage_implicit("main", "true");
-    let w = run_sh_from_files(&root, CouplingSwitches::default(), reference.n_steps, &reference);
+    let w = run_sh_from_files(&root, CouplingSwitches::default().without_aitken_refusal(), reference.n_steps, &reference);
     print_worst("implicitPredictor", &w);
     assert_eq!(w.steps, reference.n_steps);
     assert!(w.time <= 1e-12 && w.dt <= GATE, "time {:e} dt {:e}", w.time, w.dt);
@@ -1546,7 +1550,7 @@ fn the_implicit_predictor_matches_the_real_binary_for_its_first_100_steps() {
     assert!(w.tm_res_abs <= 1e-6, "tm solves {:e}", w.tm_res_abs);
     // control: `implicitPredictor false` is a different transient
     let off = stage_implicit("off", "false");
-    let c = run_sh_from_files(&off, CouplingSwitches::default(), 100, &reference);
+    let c = run_sh_from_files(&off, CouplingSwitches::default().without_aitken_refusal(), 100, &reference);
     let worst = (0..100).map(|k| rel(c.power_trace[k], reference.nlog[k][0])).fold(0.0_f64, f64::max);
     println!("implicitPredictor control (false): worst power difference over 100 steps {worst:e}");
     assert!(worst > 1e-6, "control {worst:e}");
@@ -1559,10 +1563,10 @@ fn the_implicit_predictor_matches_the_real_binary_for_its_first_100_steps() {
 #[test]
 fn the_implicit_predictor_amplifies_round_off_exponentially() {
     let reference = load_reference("fc_transient_sh_implicit_r66.ref.txt.gz");
-    let a = run_sh_from_files(&stage_implicit("amp_a", "true"), CouplingSwitches::default(), reference.n_steps, &reference);
+    let a = run_sh_from_files(&stage_implicit("amp_a", "true"), CouplingSwitches::default().without_aitken_refusal(), reference.n_steps, &reference);
     let b_root = stage_implicit("amp_b", "true");
     set_entry(&b_root.join("system/controlDict"), "deltaT", "1.0000000000001e-6");
-    let b = run_sh_from_files(&b_root, CouplingSwitches::default(), reference.n_steps, &reference);
+    let b = run_sh_from_files(&b_root, CouplingSwitches::default().without_aitken_refusal(), reference.n_steps, &reference);
     let mut line = String::new();
     for k in [1usize, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] {
         let vs_real = rel(a.power_trace[k - 1], reference.nlog[k - 1][0]);

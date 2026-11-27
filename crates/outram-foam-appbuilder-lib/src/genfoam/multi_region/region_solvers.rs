@@ -250,6 +250,10 @@ pub struct CouplingSwitches {
     pub restart_on_original_mesh: bool,
     /// CONTROL of [`RegionSolvers::restart_transient`] (control a): `integralPredictor false`.
     pub no_integral_predictor: bool,
+    /// NAMED ABLATION (gh:#1932, README round 68): do NOT refuse a step that reaches a third neutron iteration with `aitkenAcceleration true`
+    /// (the behaviour of rounds 3-66: Aitken silently not performed). Only for controls whose state differs from upstream's on purpose; it is
+    /// not a port of `aitkenAcceleration.H` and no number of a run with it is comparable with upstream.
+    pub aitken_not_refused: bool,
 }
 
 impl CouplingSwitches {
@@ -278,6 +282,13 @@ impl CouplingSwitches {
     #[must_use]
     pub fn with_restart_on_original_mesh(mut self) -> Self {
         self.restart_on_original_mesh = true;
+        self
+    }
+
+    /// Do not refuse `aitkenAcceleration true` at a third neutron iteration (named ablation of gh:#1932; see [`Self::aitken_not_refused`]).
+    #[must_use]
+    pub fn without_aitken_refusal(mut self) -> Self {
+        self.aitken_not_refused = true;
         self
     }
 
@@ -1228,7 +1239,7 @@ impl RegionSolvers {
                     rec.power = n.power;
                     rec.neutronics = n.transient.as_ref().and_then(|t| t.last_step.clone());
                     if let (Some(tr), Some(ns)) = (&n.transient, &rec.neutronics) {
-                        if tr.aitken_acceleration && ns.neutron_iterations >= 3 {
+                        if tr.aitken_acceleration && ns.neutron_iterations >= 3 && !self.switches.aitken_not_refused {
                             return Err(case_err(
                                 Path::new(&r.name),
                                 format!("step {}: {} neutron iterations with neutronTransport.aitkenAcceleration true: aitkenAcceleration.H acts from the third iteration and reads three UNINITIALISED List<scalar> (undefined behaviour upstream), so there is no upstream number to match; refused by name, no zero-initialised variant (gh:#1932, maintainer decision 2026-11-27)", self.step, ns.neutron_iterations),
