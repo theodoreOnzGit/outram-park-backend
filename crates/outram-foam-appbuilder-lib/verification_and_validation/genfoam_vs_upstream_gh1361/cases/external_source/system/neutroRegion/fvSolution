@@ -1,0 +1,63 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    "prec.*|precStar.*|adjoint_prec.*"
+    {   
+        solver           PBiCG;
+        preconditioner   DILU;
+        tolerance        1e-6;
+        relTol           1e-3;
+    }
+    "flux.*|adjoint_flux.*"
+    { 
+
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance       1e-6;
+        relTol          1e-3;
+    }
+    "angularFlux.*"
+    { 
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-7;
+        relTol          1e-1;
+    }
+}
+
+neutronTransport
+{
+    //- Integral neutron balance made at each time step to predict fluxes at 
+    //  next step (can be unstable)
+    integralPredictor           false; 
+    
+    implicitPredictor           false;
+    
+    ROMAcceleration             false;
+    
+    aitkenAcceleration          false;
+
+    //- Required accuracy for the coupling of different energy groups
+    neutronIterationResidual    0.000001; 
+
+    //- Up to 3-400 if no acceleration techniques 
+    maxNeutronIterations        50; 
+}
+
+// ************************************************************************* //

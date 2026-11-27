@@ -4319,6 +4319,63 @@ The outer-iteration counts, which steps are skipped by the stale flag, and which
 | Q9 | control E | power differs from upstream at the end by between 1e-5 and 1e-2 relative, port above or below unknown. Fails the gate: yes |
 | Q10 | wall time | port < 60 s for the whole of A, B and C |
 
+### What was ported (new code; no function with a kovan review stamp was touched: no `kind = "review"` block exists in the folders involved)
+
+| upstream | port |
+|---|---|
+| `neutronics.C:256-283` (`externalSourceNeutronics_`, `externalSource_`, the time profile) | `diffusion/external_source_case.rs` (`parse_external_source_neutronics`, `ExternalSourceCase::read`); a `constant/<region>/externalSource` naming `externalSourceModulationTimeProfile` is refused by name, `ExternalSource::with_modulation` takes the profile in Rust |
+| `createNeutronicsFields.H:150-167` (`externalSourceFlux<i>`, `defaultExternalSourceFlux`) | `ExternalSourceCase::read` (file, else default, else 0) and `ExternalSource` |
+| `createFluxMatrices.H` (`... - externalSourceFlux*modulation*flag`, matrices built once per step) | `DiffusionNeutronics::stationary_group_matrix`; the `corrected` laplacian's gradient is taken once per step (`fvc::grad` + `fvm::laplacian_corrected`) |
+| `solveNeutronics.H`, `fluxEq.H`, `precEq.H` (`liquidFuel false`), `initialize*Source.H` | `DiffusionNeutronics::upstream_stationary_step` (`ddt` `steadyState` or `Euler`) |
+| `solveNeutronics.H:131` (`reactorState_.set("pTarget", pTot)`) | `StationaryStep::p_target` |
+| `GeN-Foam.C` main loop | `DiffusionNeutronics::run_stationary_transient` (the existing `PseudoTimeClock`) |
+| SP3/SN: no `externalSource` in upstream | `refuse_external_source_for_transport` refuses by name |
+
+Two defects of the existing reader, found because this case's `nuclearData` could not be read, fixed in `outram-foam-basic-lib/src/io/dict.rs` (both are OpenFOAM list syntax; the dictionary reader is not kovan-reviewed): `List<scalar> 2{1}` (the uniform list `N{value}`, used by `2D_externalSourceDiffusion`, `2D_fullCoupling`, `2D_onePhaseAndPointKineticsCoupling` and the FMU cases) failed with "unexpected end of input inside `{ ... }`", and a glued count `2(0.1 0.04)` was read as the function-style word `2(0.1 0.04)`. Every other reading test passed unchanged (`genfoam_neutronics_vs_upstream`, `genfoam_msfr_transient_vs_upstream`, `genfoam_msfr_chain_vs_upstream`, `genfoam_msfr_th_vs_upstream`, `--lib neutronics`, `--lib nuclear_data`).
+
+### Upstream facts measured (real binary, tight protocol, serial; scratch deleted after extraction)
+
+| variant | steps | neutron iterations | wall | final power |
+|---|---|---|---|---|
+| A (shipped, walls `fixedValue 0`) | 183 | 396 (many steps converge below 1e-6) | < 1 s | 18709.241363204968 W |
+| B (closed) | 180 | 9000 (the 50-iteration cap at every step) | 3 s | 53214.292175917675 W |
+| C (B, Euler) | 549 | 27450 (cap at every step) | 8 s | 53166.136153403524 W |
+| BO (B, source off) | 467 | 1920 | 1 s | -1.4e-36 W (round-off: the decay reaches the noise floor, upstream's own `power` goes negative) |
+
+### Round 32 results (measured 2026-11-27, release; `tests/genfoam_external_source_vs_upstream.rs`, 6 tests, 2 s; `--nocapture` prints every tally)
+
+| comparison | steps (port/upstream) | power, worst relative over all steps | iterations equal | flux at t = 100, worst / field max | `pTarget` |
+|---|---|---|---|---|---|
+| A, port against upstream | 183 / 183 | 4.8e-14 | 183 / 183 | 6.6e-14 | 4.8e-14 |
+| B | 180 / 180 | 1.5e-13 | 180 / 180 | 1.8e-13 | 1.5e-13 |
+| C | 549 / 549 | 2.4e-13 | 549 / 549 | 7.7e-14 | 2.3e-15 |
+
+* The `deltaT` printed after each step (17 digits) agrees EXACTLY (0 relative) in all three; no step diverges first. `Time =` of the log is `timeName()` with `timePrecision 8`, so it agrees to the print (3e-8 to 5e-8 relative); the port's own time is asserted to be the running sum of its steps.
+* The final `neutroResidual` of a step: A agrees to 2.95e-8 relative at every step where upstream's is above 1e-8 (gated at 1e-6). In B and C the whole solution is spatially uniform (closed medium, uniform start flux and source), so OpenFOAM's normalisation `sum(|Ax - A xRef| + |b - A xRef|)` divides a round-off remainder by a round-off remainder and the residual is noise (step 65 of B: upstream 0.052, port 0.564, power equal to 1e-13); it is reported, not gated. A, whose flux is not uniform, is the case where it is a number.
+* `pTarget` of the port is the final `power()` bit for bit, and upstream's written `reactorState` agrees to 4.8e-14 (A), 1.5e-13 (B).
+* Not bit-identical: basic-lib's CG against `PCG`/`DIC`, differences at the 1e-13 level, no iteration-count flips (all 912 steps agree), well inside the 1e-9 allowance and under it by four orders. First diverging quantity: none above 1e-9.
+
+**Controls (the comparison can fail).** D: port B with `externalSourceNeutronics false` against upstream B: step-1 power differs by 1.0 (relative; no source, the start flux just decays), the final port power is 3.3e-58 of upstream's, 467 steps against 180; PASSES the "differs" test. D2: the same source-off port against upstream's own source-off run BO agrees to 1.9e-14 on every step whose upstream power exceeds 1e-12 W (467 / 467 steps; below that both codes are round-off, upstream's power is negative at 1e-36 W), so the source term is the only difference between B and BO. E: port A with `uncorrected` against upstream A (`corrected`): 171 against 183 steps, step-1 power already differs, the final power differs by 7.2e-2 relative (flux 7.0e-2 of the field maximum): the non-orthogonal correction matters on this mesh and the port applies it.
+
+**Analytic check (case B), independent of the solver.** The closed form of the uniform two-group balance with the source, from the case's cross sections alone (`chi_g = (1-beta) chiP_g + beta chiD_g`, 2 x 2 solve, V = 3.34628 m^3): power 5.321429217592e4 W; the port's final power 5.321429217591e4 (relative 1.55e-13); upstream's `Alltest` expects 53214.3 and its own final value is 53214.292175917675. `analysis.py`'s quantities from the port's final integrals: `S0 = S1 = 3346.280275`, `ksrc = NprodFiss/(NprodFiss + Nsrc) = 0.944141944984` (closed form 0.944141944984), balance `keff = NprodFiss/(Nabs - NprodScatt) = 0.944141944984`, residuals `eq0 = 8.9e-10`, `eq1 = 5.6e-11` against a flux scale of 5.3e4 (1.7e-14 relative), `N_tot = S + sum nuSigmaF flux = 1.198137055e5 = S/(1 - ksrc)` (to 1e-9, gated). The tutorial's "k_eff" here is the SOURCE multiplication `ksrc = 0.9441`, not the eigenvalue 0.9497 (the source spectrum is half thermal, the fission spectrum is fast): `N_tot = S + sum nuSigmaF flux` is an identity once `ksrc` is so defined, so what the check does test is that the converged flux equals the closed form, and it does, to 1.5e-13 (the approach is from below: step-1 power 51110 W against 53214 W, asserted).
+
+### Predictions: held and missed
+
+* Q1 held (65 % odds): 4.8e-14 to 2.4e-13, bit-identity not reached (CG against DIC-PCG); the wedge patches in the Gauss gradient were NOT a problem (step 1 of A agrees).
+* Q2 held (100 % of 912 steps; B and C trivially, every step hits the 50-iteration cap; A's 183 steps are the non-trivial ones, many converge by the threshold).
+* Q3 held: time sequence equal, the step counts 183 / 180 / 549 are inside 100 to 5000.
+* Q4 held (53214.29 against 53214.3; from below). Q5 held (eq0, eq1 1.7e-14 relative; `ksrc` 0.944142 as predicted). Q7 held. Q10 held (2 s).
+* Q6 missed in one detail: A's final power (18709 W) is far below B's (53214 W), as predicted in sign, and the flux is not uniform; I did not predict the size.
+* Q8 held: step-1 difference 1.0 (> 0.1), the end ratio 3.3e-58 (< 1e-3).
+* Q9 missed in magnitude: predicted 1e-5 to 1e-2, measured 7.2e-2 on the final power (the correction matters more than I thought on this 150-cell trapezoid at 10 x 15).
+
+### Not ported (refused by name)
+
+* `externalSourceModulationTimeProfile` from a `constant/<region>/externalSource` dictionary (the `Function1` dictionary reader): the reader refuses the case; the modulation itself works (`ExternalSource::with_modulation`, unit-tested with a constant profile, not compared with upstream).
+* `externalSourceNeutronics true` with `liquidFuel true` (`upstream_transient_step` refuses it), with `eigenvalueNeutronics true` (the reader refuses), and with SP3/SN (upstream ignores the flag; the port refuses).
+* `limited corrected`, `orthogonal` and other `laplacianSchemes`, `ddtSchemes` other than `steadyState`/`Euler`, `integralPredictor`, `implicitPredictor`, `aitkenAcceleration` true: refused by the reader.
+* The point-kinetics half of the source (`externalSourceMode`, `nuSource`, `beamEnergy`): gh:#1864.
+
 ## Round 33 (gh:#1866): onePhase `nNonOrthogonalCorrectors`, the pressure reference cell and Boussinesq, in the cell-centred and the face-centred region
 
 Epic #1216 ("Port genfoam exhaustively", maintainer 2026-11-27). Upstream: GeN-Foam `652b3da`, `thermalHydraulics/solvers/onePhase/include/equations/{pEqn_1p.H, pEqnf_1p.H, pEqnRoutines/{solveP_rgh_1p,updatePP_rghRho_1p,calcrAUfSetSnGradCalcComp_1p,calcPhiSbyA_1p}.H}`, `customPimpleControl` (`correct(bool)`, `updateFirstPISOPrevPIMPLE`) and OpenFOAM-ESI v2506 `pimpleControl::finalInnerIter`, `solutionControl::{correctNonOrthogonal,finalNonOrthogonalIter}`.
