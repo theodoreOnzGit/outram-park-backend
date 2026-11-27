@@ -179,7 +179,7 @@ fn run_steps_with(test: &str, n_steps: usize, ablation: fn(OnePhaseFcSolver) -> 
     let r = load_reference(&std::env::var("ONEPHASE_DIAG_ALL").unwrap_or_else(|_| "onephase_tight_steps40".to_string()));
     let dir = protocol_copy(test);
     let case = OnePhaseFcCase::read(&dir).expect("read the onePhase channel");
-    let mut s = ablation(OnePhaseFcSolver::new(case));
+    let mut s = ablation(OnePhaseFcSolver::new(case).with_krylov_for_p_rgh());
     let mut rows = Vec::new();
     for n in 1..=n_steps {
         let dt_used = s.dt;
@@ -226,7 +226,7 @@ fn one_phase_channel_first_steps_tight_vs_upstream() {
 fn one_phase_channel_full_second_vs_upstream() {
     let r = load_reference("onephase_tight_steps40");
     let dir = protocol_copy("full");
-    let mut s = OnePhaseFcSolver::from_case_dir(&dir).expect("read").with_upstream_stale_pimple_converged_flag();
+    let mut s = OnePhaseFcSolver::from_case_dir(&dir).expect("read").with_krylov_for_p_rgh().with_upstream_stale_pimple_converged_flag();
     let _ = std::fs::remove_dir_all(&dir);
     let mut n = 0;
     let mut dt_used = 0.0;
@@ -276,7 +276,7 @@ fn one_phase_channel_options_reproduce_the_recorded_misses() {
     // step-108 state differs from the upstream reference.
     let r = load_reference("onephase_tight_steps40");
     let dir = protocol_copy("o_flag");
-    let mut s = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read"));
+    let mut s = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read")).with_krylov_for_p_rgh();
     let _ = std::fs::remove_dir_all(&dir);
     let mut dt_used = 0.0;
     while s.running() {
@@ -293,7 +293,7 @@ fn one_phase_channel_options_reproduce_the_recorded_misses() {
 /// (`outer_iterations == 0`).
 fn run_to_end(test: &str, f: fn(OnePhaseFcSolver) -> OnePhaseFcSolver) -> (OnePhaseFcSolver, usize, usize, f64) {
     let dir = protocol_copy(test);
-    let mut s = f(OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read")));
+    let mut s = f(OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read")).with_krylov_for_p_rgh());
     let _ = std::fs::remove_dir_all(&dir);
     let (mut n, mut skipped, mut dt_used) = (0, 0, 0.0);
     while s.running() {
@@ -315,7 +315,7 @@ fn run_to_end(test: &str, f: fn(OnePhaseFcSolver) -> OnePhaseFcSolver) -> (OnePh
 #[test]
 fn one_phase_default_is_the_corrected_pimple_ending() {
     let dir = protocol_copy("def_ctrl");
-    let fresh = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read"));
+    let fresh = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read")).with_krylov_for_p_rgh();
     let _ = std::fs::remove_dir_all(&dir);
     assert!(!fresh.controls.stale_pimple_converged_flag, "the default must be the corrected ending");
     assert!(fresh.clone().with_upstream_stale_pimple_converged_flag().controls.stale_pimple_converged_flag);
@@ -362,7 +362,7 @@ fn one_phase_diag_step_1_outer_iterations() {
     let r = load_reference(&rf);
     let dir = protocol_copy("diag");
     let case = OnePhaseFcCase::read(&dir).expect("read");
-    let mut s = OnePhaseFcSolver::new(case);
+    let mut s = OnePhaseFcSolver::new(case).with_krylov_for_p_rgh();
     s.controls.n_outer = k.parse().expect("n");
     if let Ok(c) = std::env::var("ONEPHASE_DIAG_NCORR") {
         s.controls.n_corr = c.parse().expect("ncorr");

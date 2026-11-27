@@ -56,6 +56,10 @@ pub enum PhaseThermo {
     Polynomial(PolynomialStack),
     /// `heRhoThermo<perfectGas, hConst, const>`.
     PerfectGasConst(PerfectGasConstStack),
+    /// `heRhoThermo<pureMixture<const<hConst<Boussinesq<specie>>>>>` (gh:#1878 item 3): `rho = rho0 (1 - beta (T - T0))`,
+    /// `psi = 0`, `Hs = Cp (T - Tref) + Hsref`. Upstream's `fluid::rho()` is the CONSTANT `rho0` for it
+    /// ([`PhaseThermo::boussinesq_rho0`]); this thermo's `rho` is `fluid::rho(true)`, used only in the buoyancy flux.
+    BoussinesqHConst(super::one_phase_cc::BoussinesqHConst),
 }
 
 /// Point properties at one `(p, T)`, SI base units.
@@ -155,6 +159,7 @@ impl PhaseThermo {
         match self {
             Self::Polynomial(s) => s.hs(p, t),
             Self::PerfectGasConst(s) => s.hs(p, t),
+            Self::BoussinesqHConst(b) => return b.hs(t.get::<kelvin>()),
         }
         .get::<joule_per_kilogram>()
     }
@@ -196,8 +201,28 @@ impl PhaseThermo {
         let r = match self {
             Self::Polynomial(s) => s.t_from_hs(h, p, t0),
             Self::PerfectGasConst(s) => s.t_from_hs(h, p, t0),
+            Self::BoussinesqHConst(b) => return Some(b.t_from_hs(he, t0.get::<kelvin>())),
         };
         r.ok().map(|t| t.get::<kelvin>())
+    }
+
+    /// `fluid::rho()` of a `Boussinesq` equation of state: the constant `rho0` (`fluid.C:795`); `None` for every other package.
+    #[must_use]
+    pub fn boussinesq_rho0(&self) -> Option<f64> {
+        match self {
+            Self::BoussinesqHConst(b) => Some(b.rho0),
+            _ => None,
+        }
+    }
+
+    /// `constTransport::alphah = mu / Pr`, which `heRhoThermo::calculate` stores as the `alpha` field and
+    /// `alphaEff` returns for a laminar flow; `None` for the packages whose `alphah` is `kappa / Cp` (what the solver computes).
+    #[must_use]
+    pub fn alpha_h_const(&self) -> Option<f64> {
+        match self {
+            Self::BoussinesqHConst(b) => Some(b.alpha_h()),
+            _ => None,
+        }
     }
 
     /// Density, compressibility, `Cp`, `mu`, `kappa` at `(p, T)`.
@@ -212,6 +237,13 @@ impl PhaseThermo {
                 cp: s.cp(p, t).get::<joule_per_kilogram_kelvin>(),
                 mu: s.mu(p, t).get::<pascal_second>(),
                 kappa: s.kappa(p, t).get::<watt_per_meter_kelvin>(),
+            },
+            Self::BoussinesqHConst(b) => PointProps {
+                rho: b.rho(t.get::<kelvin>()),
+                psi: 0.0,
+                cp: b.cp,
+                mu: b.mu,
+                kappa: b.cp * b.alpha_h(),
             },
             Self::PerfectGasConst(s) => PointProps {
                 rho: s.rho(p, t).get::<kilogram_per_cubic_meter>(),

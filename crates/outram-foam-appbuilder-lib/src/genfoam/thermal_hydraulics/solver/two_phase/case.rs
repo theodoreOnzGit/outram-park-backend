@@ -501,6 +501,11 @@ pub(super) fn vector_bcs(
                 refuse_keys(&["value"])?;
                 VectorBc::Slip
             }
+            // ESI `noSlipFvPatchVectorField` is a `fixedValue` patch with value zero (gh:#1878 item 4)
+            "noSlip" => {
+                refuse_keys(&["value"])?;
+                VectorBc::Fixed(vec![Vector3::ZERO; p.size])
+            }
             // ESI `symmetryFvPatchField` derives from `basicSymmetry`, as `slip` does (gh:#1802)
             "symmetry" if p.kind == PatchKind::Symmetry => {
                 refuse_keys(&["value"])?;
@@ -1755,6 +1760,19 @@ pub(super) fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilde
             ctx.f64(tr, "mu")?,
             ctx.f64(tr, "Pr")?,
         )),
+        ("Boussinesq", "hConst", "const") => {
+            let e = ctx.sub(mix, "equationOfState")?;
+            Ok(PhaseThermo::BoussinesqHConst(super::one_phase_cc::BoussinesqHConst {
+                cp: ctx.f64(th, "Cp")?,
+                tref: scalar(th, "Tref").unwrap_or(298.15),
+                hsref: scalar(th, "Href").unwrap_or(0.0),
+                rho0: ctx.f64(e, "rho0")?,
+                t0: ctx.f64(e, "T0")?,
+                beta: ctx.f64(e, "beta")?,
+                mu: ctx.f64(tr, "mu")?,
+                r_pr: 1.0 / ctx.f64(tr, "Pr")?,
+            }))
+        }
         other => Err(ctx.e(format!("{rel}: thermo stack {other:?} not wired"))),
     }
 }
