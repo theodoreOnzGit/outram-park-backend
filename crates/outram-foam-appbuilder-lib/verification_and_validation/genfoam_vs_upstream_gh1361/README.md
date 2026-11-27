@@ -4350,3 +4350,64 @@ Variants (overlays over `cases/msfr_th`, turbulence on, tight, three steps, `scr
 * **P6 (`p_rgh.relax()` once).** `no_1_fld_p` agrees with upstream at 1e-12; relaxing after every pass would not (not offered as a control: a different algorithm).
 * **P7 (nothing moves).** `genfoam_msfr_th_vs_upstream` (6), `genfoam_msfr_th_options_vs_upstream` (15) and `genfoam_msfr_th_pimple_vs_upstream` (14) pass unchanged at their own gates: with `nNonOrthogonalCorrectors 0` the new loop is one pass, bit for bit what it was.
 * **P8 (cavity).** `2D_cavityBoussinesq` needs, in the port, the closed-volume `setReference` (value branch), the Boussinesq thermo, `noSlip` and `empty` patches in the face-centred region; it is attempted after the cell-centred branch and, if not complete, filed.
+
+## Round 33 results (2026-11-27, release, shared machine; `tests/genfoam_msfr_th_nonorth_vs_upstream.rs`, 8 tests, ~25 s; `--nocapture --test-threads=1` prints every table)
+
+Upstream = the real unmodified binary, serial, tight; 1 to 6 s per variant. References `refs/msfr_th_r33_<variant>.ref.txt.gz` (140-153 KB each, in the `refs` submodule).
+
+### Upstream -> Rust mapping
+
+| upstream | Rust (`one_phase_cc/flow.rs` unless noted) |
+|---|---|
+| `pEqn_1p.H` `while (pimple_.correctNonOrthogonal())` | `for pass in 1..=nNonOrthogonalCorrectors + 1` in the corrector loop; the matrix is built once (`uncorrected`: identical in every pass) |
+| `solveP_rgh_1p.H` `p_rgh_.select(pimple_.finalInnerIter())` | `PimpleState::final_inner_iter(corr_piso, pass, ctl)` (`pimple.rs`; `corrNonOrtho == nNonOrthCorr + 1`) |
+| `if (pimple_.corrNonOrtho() == 1) convergedPISO = converged` | `if pass == 1 { converged_piso = ... }` |
+| `pimple_.updateFirstPISOPrevPIMPLE()` (inside `solveP_rgh_1p.H`) | `update_first_piso_prev_pimple` after EVERY pass (control: `with_first_piso_residual_of_first_pass_only`) |
+| `if (pimple_.finalNonOrthogonalIter()) { phi_, phi, p_rgh_.relax(), U = ... }` | the code after the pass loop (final pass only) |
+| `updatePP_rghRho_1p.H` after the loop | unchanged, once per corrector |
+| `setReference(pRefCell, compressible ? getRefCellValue : pRefValue, forcePRef)` | already present since round 19 (value branch; a Boussinesq fluid has `psi = 0`, every patch is `fixedFluxPressure`/wedge so `needReference()` holds); the compressible branch is refused with the thermo (only hConst/Boussinesq is read) |
+| `laplacianSchemes`/`snGradSchemes` `corrected` | refused by name in `read_flow_case` (new): only `uncorrected` is implemented |
+
+### Results (port against the real binary; fields `U k epsilon p_rgh T`, max-norm relative)
+
+| variant | outer iterations port = upstream | pass-1 iteration counts (within 1) | restart passes (2, 3): worst initial residual port / upstream, mean iterations port / upstream | worst field difference | first diverging step |
+|---|---|---|---|---|---|
+| `no_1` | 5, 5, 5 | 9 of 225 solves differ, all by 1 | 3.22e-12 / 3.24e-12 (90), 101.1 / 108.3 | 1.97e-12 | none |
+| `no_2` | 5, 5, 5 | 5 of 315 by 1 | 3.21e-12 / 3.24e-12 (180), 101.3 / 107.4 | 1.55e-12 | none |
+| `no_1_final` | 5, 5, 5 | 7 of 225 by 1 | 3.24e-12 / 3.19e-12 (90), 89.6 / 85.1 | 1.47e-12 | none |
+| `no_rc_p` | **2, 2, 2** | 4 of 90 by 1 | 3.09e-12 / 3.07e-12 (36), 104.1 / 102.6 | 1.24e-12 | none |
+| `no_1_fld_p` | 5, 5, 5 | 5 of 225 by 1 | 3.07e-12 / 3.03e-12 (90), 100.8 / 97.0 | 1.59e-12 | none |
+| `no_ulof` (tutorial PIMPLE block) | 1, 1, 1 | 2 of 45 by 1 | 3.30e-12 / 3.28e-12 (18), 108.6 / 104.3 | 2.28e-12 | none |
+
+Bit-identity is not reached (1219 of 16422 sampled values equal in `no_1`); the difference is the 1e-12 round-off of rounds 20-31 (no new cause: the same base, the same solvers). The 1e-9 allowance is not invoked: 1e-12 is two orders inside it and within the round-20 gate. Port against its own `nNonOrthogonalCorrectors 0`: `U` 1.55e-12 after one step.
+
+### Controls (each fails the same comparison)
+
+| control | against | result |
+|---|---|---|
+| `without_non_orthogonal_correctors` | `no_1`, `no_2`, `no_1_fld_p`, `no_ulof` | solve log differs (72/135, 76/135, 60/135, 16/27 solves); fields do NOT differ (1.1e-12 to 1.5e-12): the branch changes the log, not the answer, as predicted (P3) |
+| `without_non_orthogonal_correctors` | `no_1_final` | U **4.2e-6**, k 6.1e-8, epsilon 6.8e-8, p_rgh 1.5e-7, from step 1: the single pass takes the loose `p_rghFinal` |
+| `with_first_piso_residual_of_first_pass_only` | `no_rc_p` | outer iterations 4, 3, 3 against 2, 2, 2; U 2.2e-1 |
+| a `corrected` Laplacian | any | refused by name (test) |
+
+### Predictions: held / missed
+
+* P1 held (counts: 2 / 3 solves per corrector, outer 5, 5, 5; `no_ulof` 1, 1, 1 with 12 `p_rgh` solves per step).
+* **P2 missed, and the miss is the finding.** I predicted the extra passes take 0 to 3 iterations from an initial residual under 1e-12. Upstream's log shows initial residuals of 1e-12 to 3.3e-12 and **30 to 135 iterations (mean about 100)** for every pass after the first: the solved system's TRUE residual sits a few times above the 1e-14 stopping threshold the recurrence reached, and re-solving to an absolute 1e-14 from 1e-12 is a full noise-level PCG run. The count follows the round-off pattern: of 180 restart passes the port and upstream counts differ by up to 94, while the fields agree to 1e-12, the initial residuals to 3.3e-12 against 3.2e-12 and the mean counts to 5 %. The restart passes are therefore compared as residual-level pairs (port worst <= 10 times upstream's worst and <= 1e-10) and NOT by count; pass 1 is gated to within one iteration as in rounds 20-31. This is an explained cause (an absolute tolerance at the round-off floor), not a loosened gate: counts of pass 1, outer iterations, solver entry and fields keep their gates.
+* P3 held (fields 1.2e-12 to 2.3e-12; port `nNonOrth 1` against `0`: U 1.55e-12 <= 1e-10).
+* P4 held in direction and size: the control moves U by 4.2e-6 (predicted 1e-8 to 1e-5). The detail "pass 2 takes 0 iterations" missed for the reason of P2 (upstream's last-corrector pass 2 with the loose `p_rghFinal` took 1 to 2 iterations, relTol 0.05 from 1e-12).
+* P5 held exactly (2, 2, 2; control 4, 3, 3, predicted 4 or 5: slightly low in steps 2-3).
+* P6 held (1.59e-12). P7 held: `genfoam_msfr_th_vs_upstream` 6, `..._options_...` 15, `..._pimple_...` 14 tests pass unchanged (their numbers did not move).
+* P8: not reached; see below.
+
+### Which tutorial needs which branch (confirmed from the shipped files; only the MSFR column was run)
+
+* `2D_MSFR_ULOF_diffusion_and_pk` (cellCentered): `nNonOrthogonalCorrectors` (ported, PD by `no_ulof`) + the closed-volume reference cell (present) + Boussinesq (present).
+* `2D_cavityBoussinesq` (faceCentered, `nNonOrthogonalCorrectors 0`): closed-volume reference cell + Boussinesq in `one_phase_fc`, `noSlip` U and `empty` patches, GAMG `p_rgh`. NOT ported in the face-centred region; not run.
+* `3D_HTR-10` (faceCentered, `nNonOrthogonalCorrectors 1`): the non-orthogonal loop in `pEqnf_1p.H`; NOT a closed volume (a `fixedValue` `p_rgh` patch: `setReference` is inert), NOT Boussinesq (`perfectGas`, `hPolynomial`); also `fixedFluxExtrapolatedPressure`, 3-D. Not ported in `one_phase_fc`; not run.
+
+### Not done, and what it is
+
+* The face-centred region (`one_phase_fc`): the `nNonOrthogonalCorrectors` loop, the closed-volume reference cell (and the compressible `getRefCellValue`/`deltaMass` branch), Boussinesq thermo, `noSlip`/`empty` patches: refused by name as before (`one_phase_fc.rs` module doc and `OnePhaseFcCase::read`). `one_phase_fc` is the round-4 solver (`solve_krylov`, not the bit-identical PCG/DIC of the cell-centred one), so it first needs the tight-protocol treatment of rounds 19-21; filed.
+* The compressible closed-volume branch of the cell-centred region (`psi > 0`): needs a compressible thermo in `one_phase_cc` (only hConst/Boussinesq is read).
+* A `corrected` Laplacian (explicit non-orthogonal correction): refused by name.

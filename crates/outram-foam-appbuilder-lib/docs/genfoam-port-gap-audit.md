@@ -489,7 +489,7 @@ in "Remaining work, ordered".
 | `featureCases/1D_HX/twoPhase` | twoPhase, MULES `solvePhase vapour`, heat exchangers | **not run** | #1867 <- #1847, #1799 |
 | `featureCases/2D_KNS37-L22` | twoPhase, MULES `solvePhase vapour`, `heatedPin`, Rehme, Autruffe, Schor, annular, KottowskiSavatteri | **not run** | #1869 <- #1230, #1799 |
 | `featureCases/2D_voidMotionNoPhaseChange` | twoPhase, MULES `both`, LottesFlinn, SchillerNaumann, `empty`/`slip` | **never read by the port** | #1868 (none known) |
-| `featureCases/2D_cavityBoussinesq` | onePhase, Boussinesq, closed cavity | **not run** | #1866 |
+| `featureCases/2D_cavityBoussinesq` | onePhase, Boussinesq, closed cavity | **not run** (**2026-11-27, round 33: needs `faceCentered` + closed-volume reference cell + Boussinesq thermo in `one_phase_fc`, plus `noSlip`/`empty` patches; none ported there yet, remainder filed**) | #1866 |
 | `featureCases/2D_externalSourceDiffusion` | diffusion with an external source | **not run** (no source term in the port) | #1863 |
 | `featureCases/2D_fullCoupling` | onePhase + diffusion + `legacyThermoMechanics` (+ point-kinetics transient), `nuclearFuelPin` | **not run** | #1230, #1846, #1864 |
 | `featureCases/2D_onePhaseAndPointKineticsCoupling`, `..AndSubcriticalPointKineticsCoupling` | onePhase, point kinetics (subcritical: external source), `nuclearFuelPin` | **not run** | #1864, #1230, #1865 (subcritical uses `cellCenteredFaceReconstruction`) |
@@ -501,7 +501,7 @@ in "Remaining work, ordered".
 | `reactorCases/2D_FFTF` | `nuclearFuelPin`, heat exchanger, `cellCenteredFaceReconstruction`, `momentumSourceTimeProfile`, decay power, GEM | **never read by the port** | #1870 <- #1230, #1847, #1865, #1864 |
 | `reactorCases/1D_MSR_pointKinetics`, `1D_thermalMSR_pointKinetics` | point kinetics, `fixedTemperature` / `lumpedNuclearStructure` | **not run**; point kinetics never compared with the binary | #1864, #1230 |
 | `reactorCases/Godiva_SN` | SN, 23 groups, P3 | one step **PD** (`#[ignore]`d, many minutes); more steps not run | #1788, #1234 (SN transient) |
-| `testing/2D_MSFR_ULOF_diffusion_and_pk` | diffusion + point kinetics, `cellCentered`, `nNonOrthogonalCorrectors 1`, `constantTemperature` saturation | **not run** | #1864, #1866 |
+| `testing/2D_MSFR_ULOF_diffusion_and_pk` | diffusion + point kinetics, `cellCentered`, `nNonOrthogonalCorrectors 1`, `constantTemperature` saturation | **not run**; its TH `PIMPLE` block (`nNonOrthogonalCorrectors 1`, one outer iteration) **PD against the real binary at 2.3e-12 (round 33, variant `no_ulof`)** | #1864, #1866 |
 | `toBeUpdated/2D_RegressionESFR` | an old ESFR case upstream keeps under `toBeUpdated` | not run; **upstream itself marks it as needing an update** (directory name): not a target until upstream fixes it | n/a |
 | `fmuCases/*` (`2D_LFRpowerPlant`, `2D_PKCoupleFMI`, `powerTemperatureMomentumControl`) | FMU power models, `fieldIntegralToFMU`, `NusseltThermalBaffle1D`, `NusseltAndWall` | **not run**; need `FMU4FOAM` | #1786, #1232 |
 | `EMPTY` (template case) | `extendedThermoMechanics` | n/a | #1783 |
@@ -529,7 +529,7 @@ substance, with their remainders re-filed as the issues named: #1231 `onePhase` 
 | # | issue | row(s) | upstream lines | tutorial | notes |
 |---|---|---|---:|---|---|
 | 1 | **#1863 NEW** diffusion external neutron source | `diffusion/` PA | ~940 read | `2D_externalSourceDiffusion` | smallest, self-contained; `neutronics/diffusion/` only |
-| 2 | **#1866 NEW** onePhase `nNonOrthogonalCorrectors`, closed volume, Boussinesq | `onePhase/` PA | part of 1,022 | `2D_cavityBoussinesq`, `3D_HTR-10`, ULOF | `one_phase_cc/flow.rs`, `one_phase_fc.rs` |
+| 2 | **#1866 NEW** onePhase `nNonOrthogonalCorrectors`, closed volume, Boussinesq (**2026-11-27, round 33: the cell-centred `nNonOrthogonalCorrectors` branch is ported and PD; the closed-volume reference cell and Boussinesq were already in `one_phase_cc` (value branch); the `one_phase_fc` remainder is filed**) | `onePhase/` PA | part of 1,022 | `2D_cavityBoussinesq`, `3D_HTR-10`, ULOF | `one_phase_cc/flow.rs`, `one_phase_fc.rs` |
 | 3 | **#1868 NEW** `2D_voidMotionNoPhaseChange` as shipped | `twoPhase/`, MULES | verification | itself | find every refusal it hits first; cheapest test of MULES `both` + `LottesFlinn` |
 | 4 | #1799 MULES `solvePhase` (`solveAlpha`, 9-argument `explicitSolve`) | `MULES` PA | part of 1,765 | `1D_HX/twoPhase`, `2D_KNS37-L22` | `two_phase/{mules,alpha_mules}.rs` + `case.rs` |
 | 5 | #1822 twoPhase `fixedTemperature` + `temperatureTimeProfile` | `twoPhase/` PA | 394 (`fixedTemperature`) + parts of `structure.C` | `1D_CHF/imposedTemperature` | `two_phase/case.rs` Structure; the `one_phase_cc` form exists (round 22): port, do not rewrite |

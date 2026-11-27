@@ -50,7 +50,7 @@
 //! ## What is NOT ported (refused by name when the case is read)
 //!
 //! ~~`turbulence true` (gh:#1838 wall functions, gh:#1839 `porousKEpsilon::correct`)~~ **CORRECTED 2026-11-26 (round 20): ported, see [`super::turbulence`]**; `momentumMode` other than
-//! `cellCentered`, `nNonOrthogonalCorrectors != 0`, `porousInterfaceSharpness != 0`, `minKdFS != 0`, a
+//! `cellCentered`, ~~`nNonOrthogonalCorrectors != 0`~~ **CORRECTED 2026-11-27 (gh:#1866, round 33): ported (`n + 1` passes of the pressure solve, `p_rghFinal` in the last pass of the last corrector, `updateFirstPISOPrevPIMPLE` per pass; `corrected` Laplacian/snGrad schemes are refused by name)**, `porousInterfaceSharpness != 0`, `minKdFS != 0`, a
 //! `momentumSourceTimeProfile`, drag models other than `ReynoldsPower`, tortuosity, `fvOptions`.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -112,6 +112,8 @@ pub struct OnePhaseFlowCase {
     pub p_ref_cell: usize,
     /// `pRefValue` [Pa].
     pub p_ref_value: f64,
+    /// `PIMPLE.nNonOrthogonalCorrectors` (default 0, gh:#1866): the pressure equation is solved `n + 1` times per corrector.
+    pub n_non_orth_correctors: usize,
     /// `PIMPLE.minMagU` (default 0), the floor of `|U|` in the drag.
     pub min_mag_u: f64,
     /// `hRef` of `constant/<region>/hRef` (default 0).
@@ -142,6 +144,8 @@ pub struct PressureSolve {
     pub outer: usize,
     /// PISO corrector (1-based).
     pub corrector: usize,
+    /// Non-orthogonal pass within the corrector (1-based, gh:#1866).
+    pub non_orth: usize,
     /// Normalised initial residual.
     pub initial_residual: f64,
     /// Iterations.
@@ -401,7 +405,29 @@ pub(super) fn read_flow_case(
             return Err(ctx.e(format!("PIMPLE.partialEliminationMode `{pe}` is not ported")));
         }
     }
-    for (key, what) in [("nNonOrthogonalCorrectors", "nNonOrthogonalCorrectors"), ("porousInterfaceSharpness", "porousInterfaceSharpness"), ("minKdFS", "minKdFS")] {
+    // `uncorrected` Laplacian and snGrad are the only schemes `fv` implements: with a `corrected` one the extra pressure passes
+    // would carry an explicit non-orthogonal correction (gh:#1866 refuses it by name).
+    {
+        let schemes = ctx.read("system/fluidRegion/fvSchemes")?;
+        for (block, want) in [("laplacianSchemes", "uncorrected"), ("snGradSchemes", "uncorrected")] {
+            let d = ctx.sub(&schemes, block)?;
+            let words: Vec<String> = match d.get("default") {
+                Some(FoamEntry::Word(w)) => vec![w.clone()],
+                Some(FoamEntry::Tokens(vs)) => vs
+                    .iter()
+                    .filter_map(|v| match v {
+                        FoamValue::Word(w) => Some(w.clone()),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            };
+            if !words.iter().any(|w| w == want) {
+                return Err(ctx.e(format!("fvSchemes.{block}.default = {words:?} is not ported (only `uncorrected`: no explicit non-orthogonal correction)")));
+            }
+        }
+    }
+    for (key, what) in [("porousInterfaceSharpness", "porousInterfaceSharpness"), ("minKdFS", "minKdFS")] {
         if scalar(pimple, key).unwrap_or(0.0) != 0.0 {
             return Err(ctx.e(format!("PIMPLE.{what} != 0 is not ported")));
         }
@@ -504,6 +530,7 @@ pub(super) fn read_flow_case(
         p_min: ctx.f64(pp, "pMin")?,
         p_ref_cell: scalar(pp, "pRefCell").unwrap_or(0.0) as usize,
         p_ref_value: scalar(pp, "pRefValue").unwrap_or(0.0),
+        n_non_orth_correctors: scalar(pimple, "nNonOrthogonalCorrectors").unwrap_or(0.0) as usize,
         min_mag_u: scalar(pimple, "minMagU").unwrap_or(0.0),
         h_ref: 0.0,
         u_bc,
@@ -744,7 +771,8 @@ impl OnePhaseCcSolver {
                     }
                 }
             }
-            // pEqnComp + pEqnIncomp
+            // pEqnComp + pEqnIncomp. With the `uncorrected` Laplacian (the only scheme read, see `read_flow_case`) the matrix
+            // and source of every non-orthogonal pass are the same, so they are built once; only `p_rgh` differs between passes.
             let dap = fv::div(&g, &self.alpha_phi);
             let mut peqn = Eqn::new(&g);
             peqn.neg_laplacian(&g, &rauf, &fs.p_rgh);
@@ -755,27 +783,42 @@ impl OnePhaseCcSolver {
                 peqn.source[c] -= v * comp;
                 peqn.source[c] -= v * dphi[c];
             }
-            // setReference(pRefCell, pRefValue): `source += diag value; diag += diag`
+            // setReference(pRefCell, pRefValue): `source += diag value; diag += diag` (psi = 0: `compressible` is false, so the
+            // value is `pRefValue`; every patch is `fixedFluxPressure` or wedge, so `needReference()` is true)
             let rc = fc.p_ref_cell;
             peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
             peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
-            let solver = if self.pimple.final_inner_iter(corr_piso, &self.case.controls.pimple) { fc.p_rgh_final } else { fc.p_rgh };
-            let mut x = fs.p_rgh.c.clone();
-            let perf =
-                pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter);
-            fs.solves.push(PressureSolve {
-                outer,
-                corrector: corr_piso,
-                initial_residual: perf.initial_residual,
-                iterations: perf.iterations,
-            });
-            converged_piso = perf.iterations == 0;
-            self.pimple.record("p_rgh", perf.initial_residual);
-            self.pimple.update_first_piso_prev_pimple(corr_piso);
-            fs.p_rgh.c = x;
-            fs.p_rgh.correct_bc(&g);
-            // phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf (a fixedValue flux patch ignores the assignment)
-            let mut p_flux = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
+            // pEqn_1p.H: `while (pimple_.correctNonOrthogonal())`, solveP_rgh_1p.H in each pass
+            let n_pass = fc.n_non_orth_correctors + 1;
+            let mut p_flux_final = Vec::new();
+            for pass in 1..=n_pass {
+                let solver = if self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple) { fc.p_rgh_final } else { fc.p_rgh };
+                let mut x = fs.p_rgh.c.clone();
+                let perf =
+                    pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter);
+                fs.solves.push(PressureSolve {
+                    outer,
+                    corrector: corr_piso,
+                    non_orth: pass,
+                    initial_residual: perf.initial_residual,
+                    iterations: perf.iterations,
+                });
+                // `if (pimple_.corrNonOrtho() == 1) convergedPISO = converged`
+                if pass == 1 {
+                    converged_piso = perf.iterations == 0;
+                }
+                self.pimple.record("p_rgh", perf.initial_residual);
+                if pass == 1 || !self.first_piso_first_pass_only {
+                    self.pimple.update_first_piso_prev_pimple(corr_piso);
+                }
+                fs.p_rgh.c = x;
+                fs.p_rgh.correct_bc(&g);
+                if pass == n_pass {
+                    // phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf (a fixedValue flux patch ignores the assignment)
+                    p_flux_final = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
+                }
+            }
+            let mut p_flux = p_flux_final;
             for f in 0..nf {
                 if !g.active[f] {
                     continue;
