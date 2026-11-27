@@ -1508,3 +1508,48 @@ pub fn summary_csv(set: &MeshSet) -> String {
     }
     s
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Diagnostic (2026-11-26): the TH mesh at 25 cm with 0 and 3 layers,
+    /// the cavity's volume against exact and how far the disc points left
+    /// their planes. `#[ignore]`: run by hand.
+    #[test]
+    #[ignore]
+    fn diagnose_th_cavity_volume_at_25_cm() {
+        let r = crate::preset::htr10();
+        let mut engine = crate::engine::Engine::default();
+        let a = crate::headless::assemble_for_test(&mut engine, &r).expect("assembly");
+        let d = domain_from(&a);
+        for layers in [0, 3] {
+            let mut plan = MeshPlan::default_for(&d);
+            plan.roles[1].cell_size_cm = 25.0;
+            plan.roles[1].layers = layers;
+            let m = mesh_role(&d, &plan, MeshRole::ThermalHydraulics).expect("th");
+            let mut v = vec![0.0; plan.regions.regions.len()];
+            let um = from_volume_mesh(&m.vm).unwrap();
+            let vols = outram_blender::unstructured::overlap::cell_volumes_cm3(&um);
+            for (c, &g) in m.cell_region.iter().enumerate() {
+                v[g] += vols[c];
+            }
+            let (zt, zb) = (d.cavity_top / 100.0, d.conus_top / 100.0);
+            let (mut dzt, mut dzb, mut rmax) = (0.0f64, 0.0f64, 0.0f64);
+            for p in &m.vm.points {
+                let rr = (p.x * p.x + p.y * p.y).sqrt();
+                rmax = rmax.max(rr);
+                if (p.z - zt).abs() < 0.05 { dzt = dzt.max((p.z - zt).abs()); }
+                if (p.z - zb).abs() < 0.05 { dzb = dzb.max((p.z - zb).abs()); }
+            }
+            let zmax = m.vm.points.iter().map(|p| p.z).fold(f64::MIN, f64::max);
+            let zmin = m.vm.points.iter().map(|p| p.z).fold(f64::MAX, f64::min);
+            for g in 0..v.len() {
+                if m.exact_cm3[g] > 0.0 {
+                    eprintln!("layers {layers}: {} {:.6e} vs {:.6e}: {:+.4e}", plan.regions.regions[g].id, v[g], m.exact_cm3[g], v[g] / m.exact_cm3[g] - 1.0);
+                }
+            }
+            eprintln!("layers {layers}: z {zmin}..{zmax} (want {zb}..{zt}); near-disc dz top {dzt:e} bottom {dzb:e}; r max {rmax}; patches {:?}", m.vm.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect::<Vec<_>>());
+        }
+    }
+}
