@@ -39,7 +39,8 @@
 //! * ~~`eigenvalueNeutronics false` (the transient with `integralPredictor`: gh:#1916/#1919)~~ **CHANGED 2026-11-27 (gh:#1919, README round 60)**: ported as
 //!   [`RegionSolvers::restart_transient`] (a restart of the steady state into `solveNeutronics.H` with `eigenvalueNeutronics false`, `integralPredictor.H`
 //!   included); `read` of a case that STARTS with `eigenvalueNeutronics false` is still refused (its `fluxStar_`/`prec_` would have to be read from a
-//!   start directory); `regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922);
+//!   start directory); ~~`regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922)~~ **CHANGED 2026-11-27 (gh:#1922, README
+//!   round 61)**: ported as [`RegionSolver::PointKinetics`], reached only through [`RegionSolvers::restart_transient`];
 //! * `removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236). For a mesh without any, upstream's
 //!   baffle-less mesh is the same mesh (`Writing 0 duplicate faces`) and `correctBaffleLessFields` is a copy of the primitive field: the
 //!   `.baffleLess` source is then the region's own field as of the end of its last `correctPhysics()`;
@@ -67,6 +68,9 @@ use crate::error::AppBuilderError;
 use crate::genfoam::neutronics::diffusion::external_source::{NeutronicsDdtScheme, NeutronicsLaplacianScheme, StationaryStep, StationaryStepControls};
 use crate::genfoam::neutronics::diffusion::upstream_transient::diffusion_max_delta_t;
 use crate::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettings};
+use crate::genfoam::neutronics::point_kinetics::case::read_pk_config;
+use crate::genfoam::neutronics::point_kinetics::model::{feedback_cell_field, PkFeedbackFields, PkMeshData, PkStepReport, PointKineticNeutronics};
+use crate::genfoam::neutronics::point_kinetics::LinearSolveForm;
 use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
@@ -167,6 +171,18 @@ pub struct NeutronicsTransient {
     pub last_step: Option<StationaryStep>,
 }
 
+/// `pointKineticNeutronics` on its (moved, no longer deforming) mesh: the neutronics region of the PK variant of `2D_fullCoupling`
+/// (`regionSolvers.neutroRegion pointKinetics`, gh:#1922, README round 61).
+#[derive(Debug, Clone)]
+pub struct PointKineticRegion {
+    /// The neutronics mesh as the restart reads it (the moved points of the steady state).
+    pub mesh: DeformableMesh,
+    /// The class: constructed from the READ `flux0`, `flux1`, `powerDensity`, `secondaryPowerDensity`, `prec0..5` ([`PointKineticNeutronics::from_read_fields`]).
+    pub pk: PointKineticNeutronics,
+    /// The report of the last `correctPhysics()`: the weighted averages and every reactivity term (`pointKineticsInfo.H`).
+    pub last: Option<PkStepReport>,
+}
+
 /// `legacyThermoMechanics` (finite-volume form).
 #[derive(Debug, Clone)]
 pub struct ThermoMechanicsRegion {
@@ -185,6 +201,8 @@ pub enum RegionSolver {
     Neutronics(NeutronicsRegion),
     /// `legacyThermoMechanics`.
     ThermoMechanics(ThermoMechanicsRegion),
+    /// `pointKinetics` (only after [`RegionSolvers::restart_transient`] of a case whose `regionSolvers.neutroRegion` is `pointKinetics`).
+    PointKinetics(PointKineticRegion),
 }
 
 /// A region: name, mesh for the mapper, fields, solver.
@@ -516,10 +534,12 @@ impl RegionSolvers {
             };
             let same = matches!(
                 (&r.solver, w.as_str()),
-                (RegionSolver::OnePhase(_), "onePhase") | (RegionSolver::Neutronics(_), "diffusionNeutronics") | (RegionSolver::ThermoMechanics(_), "legacyThermoMechanics")
+                (RegionSolver::OnePhase(_), "onePhase")
+                    | (RegionSolver::Neutronics(_), "diffusionNeutronics" | "pointKinetics")
+                    | (RegionSolver::ThermoMechanics(_), "legacyThermoMechanics")
             );
             if !same {
-                return Err(case_err(root, format!("regionSolvers.{k} {w}: a restart that changes the solver of a region is not ported (`pointKinetics` is gh:#1922)")));
+                return Err(case_err(root, format!("regionSolvers.{k} {w}: a restart that changes the solver of a region (other than diffusionNeutronics to pointKinetics) is not ported")));
             }
         }
         let coupling = read_dict(root, "constant/multiRegionCouplingDict")?;
@@ -529,9 +549,13 @@ impl RegionSolvers {
             return Err(case_err(root, "the restart needs a diffusionNeutronics region"));
         };
         let nname = self.regions[ni].name.clone();
+        let pk_variant = rs.get(&nname).is_some_and(|e| matches!(e, FoamEntry::Word(w) if w == "pointKinetics"));
         let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
         if np.dict.get_word("eigenvalueNeutronics").is_none_or(|w| w == "true" || w == "yes" || w == "on") {
             return Err(case_err(root, "restart_transient needs `eigenvalueNeutronics false`"));
+        }
+        if pk_variant {
+            return self.restart_transient_point_kinetics(root, ni, &nname, start_time, &cc, mappings, deformation);
         }
         let fvs = read_dict(root, &format!("system/{nname}/fvSolution"))?;
         let nt = fvs.dict.get_dict("neutronTransport");
@@ -571,7 +595,7 @@ impl RegionSolvers {
             match &mut r.solver {
                 RegionSolver::OnePhase(f) => f.solver.restart_at(start_time, rebuild_phi),
                 RegionSolver::ThermoMechanics(t) => t.solver.restart_at(),
-                RegionSolver::Neutronics(_) => {}
+                RegionSolver::Neutronics(_) | RegionSolver::PointKinetics(_) => {}
             }
         }
         self.mappings = mappings;
@@ -585,6 +609,84 @@ impl RegionSolvers {
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
         self.clock = PseudoTimeClock::starting_at(&cc, start_time);
+        self.time = self.clock.value();
+        self.dt = self.clock.delta_t();
+        self.step = 0;
+        for i in 0..self.regions.len() {
+            self.correct_baffle_less_fields(i);
+        }
+        Ok(())
+    }
+
+    /// The PK variant of [`Self::restart_transient`] (`regionSolvers.neutroRegion pointKinetics`; gh:#1922, README round 61).
+    ///
+    /// `pointKineticNeutronics`'s constructor at the start time (`pointKineticNeutronics.C:62-905`): `power_ = pTarget` of `reactorState` (the
+    /// steady state's `pTarget`), precursor powers in equilibrium (`reactorState` has no `precursorPowers`), `fluxes_` the READ `flux0`, `flux1`
+    /// (their sum is `oneGroupFlux_`), `powerDensity_`, `secondaryPowerDensity_` and `prec_` read; the references `T*Ref_` are taken at the first
+    /// step (`solvePointKinetics.H`, `timeIndex == startTimeIndex + 1`). The neutronics mesh is the moved one and the maps are rebuilt on it, as
+    /// for the diffusion transient; the fluid and the thermo-mechanics restart exactly as there.
+    #[allow(clippy::too_many_arguments)]
+    fn restart_transient_point_kinetics(
+        &mut self,
+        root: &Path,
+        ni: usize,
+        nname: &str,
+        start_time: f64,
+        cc: &PseudoTimeControls,
+        mappings: Vec<MappingEntry>,
+        deformation: MeshDeformationDict,
+    ) -> Result<(), AppBuilderError> {
+        let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
+        for (key, what) in [("liquidFuel", "the liquid-fuel precursor transport (gh:#1882) is not wired into the loop"), ("externalSourceNeutronics", "the external source of the PK is not read here")] {
+            if np.dict.get_word(key).is_some_and(|w| w == "true" || w == "yes" || w == "on") {
+                return Err(case_err(root, format!("neutronicsProperties.{key} true: {what}")));
+            }
+        }
+        let nd = read_dict(root, &format!("constant/{nname}/nuclearData"))?;
+        let keep_original = self.switches.restart_on_original_mesh;
+        let RegionSolver::Neutronics(n) = &mut self.regions[ni].solver else { unreachable!("found as Neutronics") };
+        let fresh = if keep_original { n.mesh.restarted_at(&n.mesh.original_points().to_vec()) } else { n.mesh.restarted_at_current_points() }
+            .map_err(|e| case_err(root, format!("{nname}: restart mesh: {e}")))?;
+        let cfg = read_pk_config(&nd.dict, n.p_target, start_time).map_err(|e| case_err(root, e))?;
+        let cells = fresh.mesh().n_cells;
+        let fluxes: Vec<Vec<f64>> = n.solver.state().flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
+        let prec: Vec<Vec<f64>> = n.solver.state().precursors().iter().map(|f| f.internal.as_slice().to_vec()).collect();
+        let power_density = self.regions[ni].fields.scalar("powerDensity").map(<[f64]>::to_vec).unwrap_or_else(|| vec![0.0; cells]);
+        let secondary = self.regions[ni].fields.scalar("secondaryPowerDensity").map(<[f64]>::to_vec).unwrap_or_else(|| vec![0.0; cells]);
+        let ones = feedback_cell_field(cells, &[]);
+        let mesh = PkMeshData {
+            volume: fresh.mesh().cell_volumes.clone(),
+            fuel: ones.clone(),
+            cool: ones.clone(),
+            structure: ones.clone(),
+            structure_mech: ones.clone(),
+            driveline: ones,
+        };
+        let pk = PointKineticNeutronics::from_read_fields(cfg, mesh, fluxes, power_density, secondary, prec, LinearSolveForm::default())
+            .map_err(|e| case_err(root, format!("{nname}: pointKineticNeutronics: {e}")))?;
+        let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
+        self.regions[ni].fv = fresh.mesh().clone();
+        self.geometries[ni] = geometry;
+        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None });
+        let rebuild_phi = !self.switches.restart_keeps_phi;
+        for r in self.regions.iter_mut() {
+            match &mut r.solver {
+                RegionSolver::OnePhase(f) => f.solver.restart_at(start_time, rebuild_phi),
+                RegionSolver::ThermoMechanics(t) => t.solver.restart_at(),
+                RegionSolver::Neutronics(_) | RegionSolver::PointKinetics(_) => {}
+            }
+        }
+        self.mappings = mappings;
+        self.maps = build_maps(&self.regions, &self.mappings, &self.geometries, root)?;
+        self.deformation = deformation;
+        self.control_delta_t = cc.delta_t;
+        self.max_delta_t = cc.max_delta_t;
+        self.min_delta_t = cc.min_delta_t;
+        self.max_power_variation = cc.max_power_variation;
+        self.adjust_time_step = cc.adjust_time_step;
+        self.end_time = cc.end_time;
+        self.write_interval = cc.write_interval;
+        self.clock = PseudoTimeClock::starting_at(cc, start_time);
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();
         self.step = 0;
@@ -646,6 +748,26 @@ impl RegionSolvers {
         Ok(())
     }
 
+    /// Replace the fluid region's `U`, `p`, `T` by the values a written time directory holds, to be called BEFORE [`Self::restart_transient`]
+    /// (a restart that reads the written fields instead of continuing from the port's own steady state; gh:#1925, README round 61).
+    ///
+    /// # Errors
+    /// [`AppBuilderError`] if the region is not a `onePhase` fluid or a length is not its cell count.
+    pub fn adopt_written_fluid_state(&mut self, region: &str, u: &[Vector3], p: &[f64], t: &[f64]) -> Result<(), AppBuilderError> {
+        let Some(r) = self.regions.iter_mut().find(|r| r.name == region) else {
+            return Err(case_err(Path::new(""), format!("no region {region}")));
+        };
+        let RegionSolver::OnePhase(f) = &mut r.solver else {
+            return Err(case_err(Path::new(""), format!("{region} is not a onePhase fluid region")));
+        };
+        let n = f.solver.temperature().len();
+        if u.len() != n || p.len() != n || t.len() != n {
+            return Err(case_err(Path::new(""), format!("{region}: written state has the wrong length for {n} cells")));
+        }
+        f.solver.adopt_written_state(u, p, t);
+        Ok(())
+    }
+
     /// `correctBaffleLessFields()` of region `i`: publish the solver's outputs the other regions map from.
     fn correct_baffle_less_fields(&mut self, i: usize) {
         let r = &mut self.regions[i];
@@ -658,7 +780,7 @@ impl RegionSolvers {
                 r.fields.set_scalar("T.cladAvForNeutronics", clad);
                 r.fields.set_scalar("T.passiveStructure", f.solver.passive_structure_temperature().to_vec());
             }
-            RegionSolver::Neutronics(_) => {}
+            RegionSolver::Neutronics(_) | RegionSolver::PointKinetics(_) => {}
             RegionSolver::ThermoMechanics(t) => {
                 r.fields.set_vector("meshDisp", t.solver.mesh_displacement().to_vec());
                 // `TStruct` is mapped into the neutronics `TStructMech` by the transient `multiRegionCouplingDict` (README round 60)
@@ -760,6 +882,22 @@ impl RegionSolvers {
                 let scale = step.power / n.p_target;
                 r.fields.set_scalar("powerDensity", n.solver.upstream_power_density().iter().map(|x| x * scale).collect());
             }
+            RegionSolver::PointKinetics(p) => {
+                // `pointKineticNeutronics::correctPhysics()`: `pTotOld_ = power_`, then `solvePointKinetics.H` on the fields `mapAllFields` just wrote
+                let get = |name: &str| r.fields.scalar(name).map(<[f64]>::to_vec).unwrap_or_default();
+                let fields = PkFeedbackFields {
+                    t_fuel: get("TFuel"),
+                    t_clad: get("TClad"),
+                    t_cool: get("TCool"),
+                    rho_cool: get("rhoCool"),
+                    t_struct: get("TStruct"),
+                    t_struct_mech: get("TStructMech"),
+                };
+                let rep = p.pk.step(self.time, dt, &fields).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                p.last = Some(rep);
+                r.fields.set_scalar("powerDensity", p.pk.power_density.clone());
+                r.fields.set_scalar("secondaryPowerDensity", p.pk.secondary_power_density.clone());
+            }
             RegionSolver::ThermoMechanics(t) => {
                 let get = |name: &str| r.fields.scalar(name).map(<[f64]>::to_vec).unwrap_or_default();
                 let (th, fuel, pow) = (get("TStructFromTH"), get("TFuel"), get("powerDensityNeutronics"));
@@ -778,6 +916,7 @@ impl RegionSolvers {
             RegionSolver::Neutronics(n) => {
                 diffusion_max_delta_t(self.time, self.control_delta_t, self.max_delta_t, self.max_power_variation, self.dt, n.solver.pseudo_time_power(), n.p_tot_old)
             }
+            RegionSolver::PointKinetics(p) => p.pk.max_delta_t(self.dt, Some(self.max_delta_t), Some(self.max_power_variation)),
             RegionSolver::ThermoMechanics(_) => GREAT,
         }
     }
@@ -813,6 +952,7 @@ impl RegionSolvers {
                     rec.power = n.power;
                     rec.neutronics = n.transient.as_ref().and_then(|t| t.last_step.clone());
                 }
+                RegionSolver::PointKinetics(p) => rec.power = p.pk.power(),
                 RegionSolver::ThermoMechanics(t) => rec.max_sigma_eq = t.last_log.as_ref().and_then(|l| l.max_sigma_eq),
                 RegionSolver::OnePhase(_) => {}
             }
