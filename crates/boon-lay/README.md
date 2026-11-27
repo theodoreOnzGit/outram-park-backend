@@ -11,6 +11,35 @@ operation.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+What this crate makes studyable and challengeable is how radionuclides get out
+of a TRISO particle, told three ways that can be checked against each other: a
+line-by-line Rust fork of INL's TRISO-ATOPS that a reader can set beside the
+upstream Python, a port of Wee Zhern Ray's STRATO eigenfunction series for a
+layered sphere, and boon-lay's own Lagrangian walkers, which show single atoms
+decaying, transmuting and diffusing through the coatings. Alongside them sit
+fuel-failure formulas transcribed from the PANAMA-I report and two chemical
+rate laws, each with its source and validity range, and a theory book and a
+lesson book that derive the models.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ported upstreams: INL's TRISO-ATOPS (MIT, Battelle Energy Alliance, commit `de374c8`; `LICENSE.triso-atops`, `TRISO_ATOPS_DERIVATION.md`) and STRATO by Wee Zhern Ray (AGPL-3.0-only, commit `36f1a98`; `src/strato/mod.rs`). Transcribed sources: PANAMA-I (Verfondern and Nabielek, Jülich HTA-IB-03/90, 1990) for `fuel_failure`; Wang and Sun (2023) and IAEA-TECDOC-978 Eq. (5-2) for `chemistry`; Liu and Cao (2002) for the HTR-10 per-cycle table; IAEA CRP-6 Case 1a/1b. `crates/kovan-literature/CATALOGUE.md` ties TECDOC-978 to `boon_lay::chemistry::kernel_hydrolysis`. Decay data: ENDF/B-VIII.0 via `openmc-endf-8-depletion-lib-b`. |
+| Mathematical equations | `docs/theory/` (an mdBook: fission generation, recoil, layers and chemistry, SiC, random walk, Eulerian FRESCO, the ray equations, pressure-vessel stress, PANAMA), `docs/derivations/`, `docs/triso-atops-derivation.md`, and the module docs (Booth release, Sturm-Liouville eigenfunction series in `src/strato/`, finite-volume multilayer diffusion in `src/triso_atops_extensions/`). |
+| Source code | `src/triso_atops_fork/`, `src/triso_atops_extensions/`, `src/strato/`, `src/lagrangian_decay_simulator/`, `src/lagrangian_transmutation_and_fission_simulator/`, `src/fuel_failure/`, `src/chemistry/`, `src/nuclide_reaction_and_decay_data/`, `src/decay_xml_info_serde/`, `src/gpu.rs`; `boon_lay::rustbca` re-exports `kembangan::rustbca`. |
+| Interactive simulations | egui examples `examples/triso_simulator/`, `examples/boon_lay_decay_simulator/` and `examples/first_passage_realtime.rs`; the `dhoby-ghaut` web demos `triso_atops_web`, `lesson_triso_atops` and `lesson_triso_kernel` are built on this crate. |
+| Visualisations | `docs/theory/src/img/pools-widget.png`; `examples/triso_cell_slice.rs` draws the assembled TRISO cell; `dev/mhtgr_stoyer_fig67_overlay.py` overlays the paper reproduction. |
+| Verification and validation evidence | `docs/triso-atops-code-to-code.md`: TRISO-ATOPS fork against upstream `de374c8`, 14 130 cases and 51 tests (third pass, 2026-09-21), worst group `accident_case.nodal_kernel` at 2.44e-9 relative. `verification_and_validation/strato_triso_diffusion/` (2026-11-26): the STRATO port bit-identical to upstream on 978 of 978 values. `verification_and_validation/mhtgr_stoyer/` and `docs/triso-atops-2026-paper-reproduction.md`: the `atops2026paper` variant against the published paper's own release numbers (gh:#1015, 2026-10-22). `verification_and_validation/crp6_case1_kernel_release_vs_crank.md`. Full list under "Verification status" below. |
+| Human reviews and corrections | 163 functions carry a kovan human-review stamp. `docs/human-corrections-to-ai-work.md` has one entry on this crate (2026-10-05, "Every element plates out at one rate", `triso_atops_fork::normal_operation::normal_operation_node`), which led to `triso_atops_extensions`. Struck-through corrections below record the TRISO-ATOPS code-to-code numbers (2026-09-28) and the licence change. |
+
+**Status in one sentence:** the TRISO-ATOPS fork and the STRATO port are
+verified code to code against their upstreams; the extensions, the Lagrangian
+walkers and the fuel-failure formulas have only reduction or transcription
+checks, and nothing is validated against measured release data.
+
 ## Two ways of looking at the same problem
 
 Tracking fission products through a TRISO particle with an **Eulerian**
@@ -79,7 +108,7 @@ are not validated against any accident.
 re-exports it** as `boon_lay::rustbca`. It is copied from `lcpp-org/RustBCA`
 ~~v3.0.0~~ (`a356280d`, which is v3.0.0 plus 17 upstream commits, corrected 2026-11-13 gh:#1426; GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
 `alloc`. Attribution and every local change are listed in
-[`src/rustbca/README.md`](src/rustbca/README.md) and in the module docs.
+[`src/rustbca/README.md`](../kembangan/src/rustbca/README.md) (in `kembangan`) and in the module docs.
 
 It is a binary-collision Monte Carlo for fission fragments, alphas and recoil
 knock-ons. **Fragment results are illustrative until they are V&V'd.**
@@ -87,7 +116,7 @@ knock-ons. **Fragment results are illustrative until they are V&V'd.**
 `examples/rustbca_cascades.rs` prices one full cascade in an HTR-10 kernel and
 its coatings. A fission fragment costs 1.5–2 s on one desktop core. Results
 are in
-[`verification_and_validation/rustbca_cascades/`](verification_and_validation/rustbca_cascades/README.md).
+[`verification_and_validation/rustbca_cascades/`](../kembangan/verification_and_validation/rustbca_cascades/README.md) (in `kembangan`).
 
 ## `no_std` + `alloc` (gh:#1634)
 

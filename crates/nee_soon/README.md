@@ -23,6 +23,34 @@ those live in dedicated crates. Instead it composes them behind a single,
 human-navigable object-oriented API so a user can assemble the simulation
 pieces they want without wiring the crates together by hand.
 
+What a reader can study and challenge here is how whole historical reactors
+are assembled from published descriptions: the HTR-10 pebble bed (geometry,
+compositions, loading height, control rods), MSRE's first criticality,
+EBR-II's fresh driver and the HTTR start-up core, each built from the open
+literature, drawn as pictures for a human to check, and transported with
+`outram-mc-libs`. Every comparison is kept with its predictions and its
+misses, such as MSRE N-1 currently failing its 1000 pcm band. It is also where
+Monte Carlo is condensed into multigroup constants for GeN-Foam, so the
+hand-off between stochastic and deterministic models can be inspected.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | HTR-10: Şeker and Çolak (2003) for the bed, Li, Yu and Wei (2014) for the RMC and MCNP k-against-height reference, IAEA-TECDOC-1382 for control-rod worth (`iaea2003tecdoc1382part1/2` in `crates/kovan-literature/CATALOGUE.md`); MSRE: ORNL-4233 (`k_ref` 1.00080); Xin Wang's 2018 UC Berkeley dissertation, extracted in `docs/xin-wang-thesis/` with `references.md`. Per-record references are in each `verification_and_validation/<case>/README.md`. |
+| Mathematical equations | `docs/xin-wang-thesis/02-methodology-sp3.md` (SP3 neutronics and reflector-corrected multi-point kinetics, from the dissertation); module docs of `src/mgxs.rs` (flux-weighted multigroup condensation, nu-scatter matrix, measured fission spectrum) and `src/power_shape.rs` (power-shape bases). The Nordheim-Fuchs prompt excursion is `teh-o-prke`'s, exposed here. |
+| Source code | `src/htr10_rmc/` (HTR-10 model), `src/htr10_mgxs/`, `src/mgxs.rs`, `src/genfoam_xs.rs`, `src/coupling.rs`, `src/direct_coupling.rs`, `src/htr10_coupling.rs`, `src/mgxs_genfoam.rs`, `src/power_shape.rs`, `src/htr10_th_transient/`, `src/httr/`, `src/msre_n1/`, `src/ebr2_fresh_driver.rs`, `src/ebr2_core.rs`, `src/mc_rungs/`, `src/xin_wang_sp3_workflow/` (scaffold), and the `NeeSoon` facade in `src/lib.rs`. |
+| Interactive simulations | `examples/fhr_sim_v2/` (an egui FHR simulator, moved from `tampines` 2026-11-05). `src/mc_rungs/` is the model half of the rungs in `dhoby-ghaut`'s Monte Carlo web demo. Many headless CLI examples under `examples/`. |
+| Visualisations | Geometry pictures drawn from the assembled models: `verification_and_validation/htr10_geometry_images/`, `htr10_dem_bed_images/`, `htr10_random_triso/`, `msre_n1_first_criticality/images/`, `power_shapes/`; plot scripts such as `htr10_endf8_kvsh_heavy_2026-10-02/keff_vs_height.py`. |
+| Verification and validation evidence | `verification_and_validation/` (index in its `README.md`). HTR-10 k against loading height, ENDF/B-VIII.0, 10 000 x [5 + 135] (`htr10_endf8_kvsh_heavy_2026-10-02/`): against RMC over 11 heights, mean +52 pcm, RMS 292 pcm, max abs 525 pcm, 11 of 11 within 1000 pcm, one seed per point. MSRE N-1 (`msre_n1_first_criticality/`, 2026-11-20): k = 1.016515 +/- 0.000329, +1571 +/- 33 pcm against `k_ref` 1.00080, which **fails** the 1000 pcm band by 571 pcm. `tests/htr10_correct_physics_is_default.rs` pins the default physics. |
+| Human reviews and corrections | 2 functions carry a kovan human-review stamp (`examples/htr10_rmc_keff.rs::main` and `::env_usize`, 2026-11-04). The HTR-10 entries in `docs/human-corrections-to-ai-work.md` ("A pebble bed is a POROUS MEDIUM", "A reactor core is not a slab", 2026-09-20) concern the HTR-10 models built here. Struck-through corrections in this README record the facade's wiring, the backronym lettering and the BLAS requirement. |
+
+**Status in one sentence:** the HTR-10 and MSRE models have recorded Monte
+Carlo comparisons against published references, with the misses kept; none is
+validated, and the Xin Wang workflow's four stages are still placeholders.
+
 ## `no_std` + `alloc` (gh:#1640)
 
 The default `std` feature can be turned off: the library is then `no_std` +
@@ -48,7 +76,12 @@ that wants `std` asks for it.
 
 ## Status — honest summary
 
-**Mostly scaffold; the prompt-excursion path is real.**
+~~**Mostly scaffold; the prompt-excursion path is real.**~~ **CORRECTED
+2026-11-27** — not mostly scaffold: `src/lib.rs` already struck this on
+2026-09-19 and lists real, tested modules (`htr10_rmc`, `mgxs`, `genfoam_xs`,
+`coupling`, `direct_coupling`, `power_shape`, `htr10_coupling`,
+`mgxs_genfoam`), and `httr`, `msre_n1`, `ebr2_fresh_driver` and `mc_rungs`
+exist besides (checked in `src/`). The scaffold is the Xin Wang workflow below.
 `NeeSoon::new_prompt_excursion_model` is real, wired code — a thin pass-through
 to `teh-o-prke`'s `NordheimFuchsExactTimestepper`, backed by an integration
 test. ~~The nuclear-data (`njoy-outram-park-fork`) and Monte Carlo
