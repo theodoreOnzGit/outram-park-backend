@@ -8834,3 +8834,16 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | Y4 | once the baffle-less copy exists, the 3-D coupled loop matches the real run at `<= 1e-9` for the first 10 steps | 35 % |
 | Y5 | the port does not reach step 200 of the coupled case in this session (several pieces, each differenced on a variant; per-step cost in the port above the real binary's) | 70 % |
 | Y6 | the loose as-shipped real run differs from the tight one in `keff` at 1e-5 relative or below after 200 steps | 55 % |
+
+
+## Round 74 addendum A (written and committed BEFORE the real run of the one-edit variant V1 and before any port run of it)
+
+The tight and as-shipped real runs and the port's first 200-step runs had been made when this was written (results below). What they do not isolate is the **displacement feedback of the cross sections** (`axExp`, `radExp` of `setNeutronicsVariables.H`, ported in `xs_cell_parameters`): inside the base run it is always on. **V1 = ONE edit**: the `neutroRegion <- thermoMechanicalRegion` mapping `meshDisp -> disp` is removed from `constant/multiRegionCouplingDict` (`scripts/make_esfr_coupled_variant_v1.py`), so the neutronics `disp` stays 0, both expansion variables are 0 and the neutronics mesh does not move. Tight protocol, 20 steps, real binary and port on the same directory.
+
+Criteria (fixed): per step `keff`, `power`, `maxSigmaEq` `<= 1e-9` relative; fingerprints of every field `<= 1e-9` (the `meshDisp`/`disp` sum fingerprints cancel to near zero: judged by the full fields at the kept steps, as for the base run); solve count and order equal; the REAL V1 `keff` must differ from the REAL base `keff` at step 20 (else the feedback is not tested by this edit).
+
+| id | prediction | P |
+|---|---|---|
+| V1-1 | the real V1 `keff` differs from the real base at step 20 by more than 1e-6 relative | 70 % |
+| V1-2 | the port's V1 matches the real V1 at `<= 1e-9` for all 20 steps (`keff`, `power`, fingerprints) | 75 % |
+| V1-3 | the port's V1 differs from the port's base by the same amount as the real runs differ (to 1e-6 of that difference) | 70 % |
