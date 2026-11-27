@@ -25,9 +25,18 @@
 //! `faceAreaPair` and `DIC` IS ported ([`super::gamg`], bit-identical to the
 //! real binary's on the shipped 2D_FFTF `p_rgh` matrix) and wired into the
 //! one-phase cell-centred region (`GamgPolicy::Native`); this neutronics
-//! selector still has no `GAMG` branch (none is shipped), and the
+//! selector still has no `GAMG` branch (none is shipped), ~~and the
 //! thermo-mechanics, two-phase and face-centred regions keep their named
-//! `PCG`/`DIC` or `PBiCG`/`DILU` substitutes.
+//! `PCG`/`DIC` or `PBiCG`/`DILU` substitutes.~~ **CORRECTED 2026-11-27
+//! (gh:#1936, README round 72):** the face-centred onePhase, the twoPhase and
+//! the legacy thermo-mechanics (`TStruct`: `GaussSeidel`, the asymmetric path
+//! with a `PBiCGStab`/`DILU` coarsest level) regions run upstream's own
+//! `GAMGSolver` by default (`GamgPolicy::Native`, `TStructGamgPolicy::Native`);
+//! the substitutes (`GamgPolicy::SubstitutePcgDic`,
+//! `TStructGamgPolicy::SubstitutePbicgDilu`, `with_krylov_for_p_rgh`) remain as
+//! named ablations. The commented-out neutronics block (`DICGaussSeidel`,
+//! `nPreSweeps 1`) is ported and verified against the real binary, but not
+//! wired: nothing selects it.
 //!
 //! Each runs OpenFOAM's `normFactor`-normalised residual, `tolerance`,
 //! `relTol`, `maxIter` and `minIter`, and the zero-iteration exit when the
