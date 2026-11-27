@@ -646,6 +646,26 @@ impl RegionSolvers {
         Ok(())
     }
 
+    /// Replace the fluid region's `U`, `p`, `T` by the values a written time directory holds, to be called BEFORE [`Self::restart_transient`]
+    /// (a restart that reads the written fields instead of continuing from the port's own steady state; gh:#1925, README round 61).
+    ///
+    /// # Errors
+    /// [`AppBuilderError`] if the region is not a `onePhase` fluid or a length is not its cell count.
+    pub fn adopt_written_fluid_state(&mut self, region: &str, u: &[Vector3], p: &[f64], t: &[f64]) -> Result<(), AppBuilderError> {
+        let Some(r) = self.regions.iter_mut().find(|r| r.name == region) else {
+            return Err(case_err(Path::new(""), format!("no region {region}")));
+        };
+        let RegionSolver::OnePhase(f) = &mut r.solver else {
+            return Err(case_err(Path::new(""), format!("{region} is not a onePhase fluid region")));
+        };
+        let n = f.solver.temperature().len();
+        if u.len() != n || p.len() != n || t.len() != n {
+            return Err(case_err(Path::new(""), format!("{region}: written state has the wrong length for {n} cells")));
+        }
+        f.solver.adopt_written_state(u, p, t);
+        Ok(())
+    }
+
     /// `correctBaffleLessFields()` of region `i`: publish the solver's outputs the other regions map from.
     fn correct_baffle_less_fields(&mut self, i: usize) {
         let r = &mut self.regions[i];

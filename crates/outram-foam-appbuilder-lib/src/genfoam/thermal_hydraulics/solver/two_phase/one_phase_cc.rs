@@ -1483,6 +1483,26 @@ impl OnePhaseCcSolver {
         }
     }
 
+    /// A restart that READS the written fields (gh:#1925, README round 61): replace `U`, `p` and `T` by the values a time directory holds, BEFORE
+    /// [`Self::restart_at`] rebuilds everything a new process derives from them (`h`, `rho`, `phi = fvc::flux(U)`, `contErr`, `magU`).
+    ///
+    /// Why it exists: a restart from the port's OWN steady state inherits that state's round-off (`U` differs from upstream's written one by
+    /// 9.8e-14 relative), and the first `p_rgh` source is a cancellation of face fluxes (`contErr`, `div(phiHbyA)`: 1e-10 of fluxes of 2e-3),
+    /// so a 1e-13 input noise becomes 1.9e-7 in the first initial residual. Fed upstream's own written `U`, `p`, `T`, every input of the first
+    /// pressure corrector (`alpha`, `rho`, `p`, `T`, `U`, `phi`, `alphaPhi`, `alphaRhoPhi`, `contErr`, the momentum `A`/`H`/diagonal, `rAUf`,
+    /// `phiHbyA`) is bit-identical (README round 61), i.e. the restart emulation itself is exact.
+    ///
+    /// # Panics
+    /// If a length is not the cell count.
+    pub fn adopt_written_state(&mut self, u: &[Vector3], p: &[f64], t: &[f64]) {
+        assert!(u.len() == self.u.c.len() && p.len() == self.p.len() && t.len() == self.t.len(), "adopt_written_state: length is not the cell count");
+        self.u.c.copy_from_slice(u);
+        let g = self.geom.clone();
+        self.u.correct_bc(&g);
+        self.p.copy_from_slice(p);
+        self.t.copy_from_slice(t);
+    }
+
     /// DEPRECATED (gh:#1837): the old-time pressure of step 1 is the initial pressure, not the pressure after the first
     /// `p_rgh` solve that upstream's lazy `oldTime()` gives. The ablation of the default.
     #[must_use]
