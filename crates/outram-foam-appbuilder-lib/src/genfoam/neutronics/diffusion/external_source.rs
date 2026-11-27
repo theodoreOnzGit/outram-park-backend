@@ -86,7 +86,7 @@ use super::DiffusionNeutronics;
 use crate::genfoam::common::TimeProfile;
 use outram_foam_basic_lib::prelude::{Field, VolScalarField};
 use crate::genfoam::neutronics::pseudo_time::{
-    adjust_delta_t, field_like, neutronics_max_delta_t, solve_twice, PseudoTimeClock, PseudoTimeControls,
+    adjust_delta_t, field_like, neutronics_max_delta_t, solve_twice_residuals, PseudoTimeClock, PseudoTimeControls,
 };
 use crate::genfoam::neutronics::NeutronicsError;
 
@@ -221,6 +221,9 @@ pub struct StationaryStep {
     pub neutron_iterations: usize,
     /// `neutroResidual` after each iteration (`neutroResidual (neutroIter: k)`).
     pub residual_history: Vec<f64>,
+    /// `getResidual()` of the step (`residual_` of `diffusionNeutronics`, gh:#1950): `max` over every pass and group of the SECOND solve's initial
+    /// residual (`fluxEq.H:29`), then `max` with the last pass's `neutroResidual` (`solveNeutronics.H:138`).
+    pub solver_residual: f64,
     /// `pTarget` written to `reactorState` at the end of the step: `Some(pTot)` with the source on.
     pub p_target: Option<f64>,
     /// `integralPredictor.H`'s report (gh:#1919) when `neutronTransport.integralPredictor` is on, else `None`.
@@ -400,12 +403,17 @@ impl DiffusionNeutronics {
                 dst[c] = star[g][c] / df[c];
             }
         }
-        let flux_old: Vec<Vec<f64>> = star.clone();
+        let flux_old: Vec<Vec<f64>> = match &self.stationary_old {
+            Some((f, _)) => f.clone(),
+            None => star.clone(),
+        };
         let mut star_fields: Vec<VolScalarField> = (0..groups)
             .map(|g| field_with_boundary(&self.state.flux()[g], star[g].clone()))
             .collect();
-        let prec_old: Vec<Vec<f64>> =
-            self.state.precursors().iter().map(|p| p.internal.as_slice().to_vec()).collect();
+        let prec_old: Vec<Vec<f64>> = match &self.stationary_old {
+            Some((_, p)) => p.clone(),
+            None => self.state.precursors().iter().map(|p| p.internal.as_slice().to_vec()).collect(),
+        };
         let one_minus_beta: Vec<f64> = self.xs.beta_tot.internal.as_slice().iter().map(|b| 1.0 - b).collect();
 
         // createFluxMatrices.H: externalSourceFlux[g] * externalSourceModulation * externalSourceNeutronics
@@ -449,6 +457,7 @@ impl DiffusionNeutronics {
 
         let mut neutro_iter = 0usize;
         let mut residual_history = Vec::new();
+        let mut solver_residual = 0.0_f64;
         loop {
             let mut neutro_residual = 0.0_f64;
             for gg in 0..groups {
@@ -492,9 +501,10 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, prompt), flux_g)
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
-                let (sol, init_res) =
-                    solve_twice(&eqn, &format!("fluxStar{gg}"), &star_fields[gg], self.settings.linear_solve());
+                let (sol, init_res, second_res) =
+                    solve_twice_residuals(&eqn, &format!("fluxStar{gg}"), &star_fields[gg], self.settings.linear_solve());
                 neutro_residual = neutro_residual.max(init_res);
+                solver_residual = solver_residual.max(second_res);
                 // fluxStar_ = solution; flux_ = fluxStar_/discFactor (fluxEq.H:31)
                 star[gg] = sol.internal.as_slice().to_vec();
                 star_fields[gg] = field_with_boundary(&star_fields[gg], star[gg].clone());
@@ -535,7 +545,8 @@ impl DiffusionNeutronics {
             Some(s) if s.enabled => Some(power),
             _ => None,
         };
-        Ok(StationaryStep { power_old, power, neutron_iterations: neutro_iter, residual_history, p_target, predictor })
+        let solver_residual = solver_residual.max(residual_history.last().copied().unwrap_or(0.0));
+        Ok(StationaryStep { power_old, power, neutron_iterations: neutro_iter, residual_history, solver_residual, p_target, predictor })
     }
 
     /// GeN-Foam's main loop for a single stationary-fuel diffusion region

@@ -493,6 +493,9 @@ pub struct LegacyFvmThermoMechanics {
     sigma_d_b: Vec<Vec<SymmTensor>>,
     div_sigma_exp: Vec<Vector3>,
     residual: f64,
+    /// `TStruct.oldTime()` and the time-level shift of a time step REPEATED by a `multiPhysicsSolver` (gh:#1950, README round 75): `Some((T_old, shifted))`
+    /// between [`Self::hold_old_time`] and [`Self::release_old_time`]; `None` is a step solved once (the old time is the state the call starts from).
+    old_hold: Option<(Vec<f64>, bool)>,
 }
 
 impl LegacyFvmThermoMechanics {
@@ -674,6 +677,7 @@ impl LegacyFvmThermoMechanics {
             sigma_d_b: Vec::new(),
             div_sigma_exp: vec![Vector3::ZERO; n],
             residual: 0.0,
+            old_hold: None,
             settings,
             mesh,
         };
@@ -779,6 +783,24 @@ impl LegacyFvmThermoMechanics {
     /// `sigmaD` per cell (the `rho`-normalised stress without the thermal part).
     pub fn sigma_d(&self) -> &[SymmTensor] {
         &self.sigma_d
+    }
+
+    /// Keep the current `TStruct` as its old-time value (and let the time levels shift only on the first [`Self::correct_physics`]) until
+    /// [`Self::release_old_time`]: `multiPhysicsSolver::correctPhysics()` solves the region again inside ONE time step, and `oldTime()` stays the value
+    /// of the previous time step (gh:#1950, README round 75).
+    pub fn hold_old_time(&mut self) {
+        self.old_hold = Some((self.t_struct.clone(), false));
+    }
+
+    /// End of [`Self::hold_old_time`].
+    pub fn release_old_time(&mut self) {
+        self.old_hold = None;
+    }
+
+    /// Whether [`Self::hold_old_time`] is in force.
+    #[must_use]
+    pub fn old_time_is_held(&self) -> bool {
+        self.old_hold.is_some()
     }
 
     /// `residual_` of the last [`Self::correct_physics`].
@@ -1276,7 +1298,10 @@ impl LegacyFvmThermoMechanics {
         let rho_c: Vec<f64> = (0..n).map(|c| self.rho[c] * self.c[c]).collect();
         // A = fvm::ddt(rhoC, T): diag = rDeltaT*rho*V, source = rDeltaT*rhoOld*Told*V (rhoC.oldTime() is rhoC)
         let r_delta_t = 1.0 / self.delta_t;
-        let t_old = self.t_struct.clone();
+        let t_old = match &self.old_hold {
+            Some((t, _)) => t.clone(),
+            None => self.t_struct.clone(),
+        };
         let diag_a: Vec<f64> = (0..n).map(|c| r_delta_t * rho_c[c] * mesh.cell_volumes[c]).collect();
         let src_a: Vec<f64> = (0..n).map(|c| r_delta_t * rho_c[c] * t_old[c] * mesh.cell_volumes[c]).collect();
         // B = fvm::laplacian(rhoK, TStruct)
@@ -1714,13 +1739,21 @@ impl LegacyFvmThermoMechanics {
     pub fn correct_physics(&mut self) -> PhysicsLog {
         let mut log = PhysicsLog::default();
         let mut residual = 0.0_f64;
-        self.advance_time_levels();
+        let repeated = matches!(&self.old_hold, Some((_, true)));
+        if !repeated {
+            self.advance_time_levels();
+        }
+        if let Some((_, shifted)) = self.old_hold.as_mut() {
+            *shifted = true;
+        }
         if self.settings.solve_thermo {
             let r = self.solve_temperature(&mut log);
             residual = residual.max(r);
         }
         if self.settings.solve_displacement {
-            self.store_old_displacements();
+            if !repeated {
+                self.store_old_displacements();
+            }
             let mut i_corr = 0usize;
             let mut initial;
             loop {

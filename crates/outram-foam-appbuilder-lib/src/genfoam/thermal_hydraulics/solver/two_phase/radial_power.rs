@@ -232,13 +232,18 @@ mod reader {
             };
             // `nuclearFuelPin`: `Trad.nuclearFuelPin` is READ (`foundTrad`, `nuclearFuelPin.C:212-215`) and then wins over `Tfi`, `Tfo`, `Tci`,
             // `Tco` (`foundBoundaryTemperatures` is only consulted when `Trad` is absent, `:441-537`: that reconstruction is not ported)
-            let trad_file = if ty == "nuclearFuelPin" && fdir.join("Trad.nuclearFuelPin").exists() { Some(fdir.join("Trad.nuclearFuelPin")) } else { None };
+            // gh:#1950 (README round 75): `nuclearFuelPinTest.C:226-228,306,458` reads `Trad.nuclearFuelPinTest` exactly as `nuclearFuelPin` reads its own
+            // (the two sources differ by comments and a commented-out `powerDensity`: `diff` after renaming the class), so a start directory that
+            // holds it is a restart of the same kind
+            let is_pin = ty == "nuclearFuelPin" || ty == "nuclearFuelPinTest";
+            let trad_name = alloc::format!("Trad.{ty}");
+            let trad_file = if is_pin && fdir.join(&trad_name).exists() { Some(fdir.join(&trad_name)) } else { None };
             for f in own_files {
                 // `powerDensity.heatedPin` is READ when the caller supplies it (`heated_pin_q_file`): upstream's `setRegionField` then does nothing
                 if *f == "powerDensity.heatedPin" && heated_pin_q_file.is_some() {
                     continue;
                 }
-                if trad_file.is_some() && ty == "nuclearFuelPin" {
+                if trad_file.is_some() && is_pin {
                     continue;
                 }
                 if fdir.join(f).exists() {

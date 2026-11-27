@@ -1142,7 +1142,10 @@ impl OnePhaseCcCase {
         let exists = |name: &str| fdir.join(name).exists();
         let t_fixed = if let Some(h) = hand {
             h.t_fixed.clone()
-        } else if solve_flow && !exists("T.fixedTemperature") {
+        } else if !exists("T.fixedTemperature") {
+            // gh:#1950 (README round 75): a written start directory of a case WITHOUT a `fixedTemperature` power model holds no such file (the
+            // real `200` of 3D_SmallESFR_old has none): the constructor's default (`T` of the power-model dictionary in its zone, 0 elsewhere)
+            // is what upstream's `READ_IF_PRESENT` field then holds, whether or not the flow is solved
             t_fixed_default
         } else {
             sfield("T.fixedTemperature")?

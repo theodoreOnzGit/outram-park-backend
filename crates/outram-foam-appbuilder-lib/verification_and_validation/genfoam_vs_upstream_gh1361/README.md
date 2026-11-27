@@ -8975,3 +8975,47 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | A4 | loose: `p_rgh` iteration counts equal in all 2400 solves | 80 % |
 | A5 | tight 200 steps: round 74's numbers reproduced (no pin moves beyond 1e-9) | 90 % |
 | A6 | the `genfoam_fullcoupling_*` tests (tight case files) pass at their pins unchanged | 90 % |
+
+
+## Part B (gh:#1950 S4): the `3D_SmallESFR_old` transient, `energyNeutroMechLoop multiPhysicsSolver` (written BEFORE the 73-step comparisons and the tight real runs)
+
+**Order of events, stated honestly.** The real loose references (steady `s3_loose`, transient `t4_loose`, 165 s, 73 steps, exit 0) existed and the port was run for 1-3 steps of the loose transient as DEVELOPMENT PROBES before this section was written; those probes found, in this order, the missing `startFrom latestTime` (the fluid reader took `startTime 0`), the `T.fixedTemperature` of a start directory of a case without a `fixedTemperature` power model, the `Trad.nuclearFuelPinTest` restart (refused by name before), and then a 12 % power difference at step 1 whose cause was **`removeBaffles { fluidRegion 1; }` read as false** (`rb()` accepted the words `true/yes/on`, not the number `1`, a `Switch` in OpenFOAM): with the flag false the port used the baffled fluid mesh as the SOURCE geometry of the fluid -> neutronics map, which is identical to the neutronics mesh only while that mesh has not moved (round 74's steady state) and is wrong (overlap 10.6 against the real 14.995) once the restart reads the moved neutronics points. With the real `fluidRegion.baffleLess/polyMesh` of the start directory as the source geometry the port's five `Overlap volume` totals equal the real log's to all printed digits (`esfr_restart_overlap_volumes_against_the_real_log`). No number below was judged before this section was committed; the 73-step runs, the tight real references and the criteria are all after it.
+
+### What the shipped `3D_SmallESFR_old` is (read, then run on the real binary 2026-11-27)
+
+`Allrun`/`Allrun_parallel` cannot run as shipped; five independent defects, each found by running the real binary (`scripts/make_esfr_old_case.sh` documents the minimal repair of each): (1) `constant/regionProperties` is a git MERGE CONFLICT (`<<<<<<<< HEAD ... >>>>>>>> ffn/multiRun`), the binary aborts with `Cannot dereference nullptr at index 0` in `regionSolvers`; (2) `controlDict` `regionSolvers` selects `energyMechNeutroLoop multiPhysicsSolver` but `multiRegionCouplingDict_loosely` has no `multiPhysicsSolvers` (and the transient's dict names the loop `energyNeutroMechLoop`); (3) `fluidRegion/fvSolution` `PIMPLE` has no `solveFluidMechanics` (mandatory `get<bool>`); (4) `nuclearData` includes `XSTFuel1200K`/`XSTClad1950K` but the files are `XSTfuel1200K`/`XSTclad1950K`; (5) `nuclearData` has no `xsVariables` dictionary (mandatory in 652b3da: `Entry 'xsVariables' not found`); and `Allrun_parallel:17` calls `mpirn` (already gh:#1910). After the five repairs the steady state is the `3D_SmallESFR_NewSolverVerification/legacySolver` case (their `nuclearData`/`CRmove`/`neutronicsProperties` differ by `xsVariables` and comments only), so S3 steady = round 74's case with other file names; the serial real steady run, 200 steps, as shipped (loose): 296 s, exit 0, keff 0.9368721, `pTarget` 8e8.
+
+### Upstream read first (652b3da / ESI v2506)
+
+* `multiPhysicsSolver.C:156-186` `correctPhysics()`: `do { mapTheseFields; forAll solvers { deformMesh(); (iterN>0 && correctOnlyEnergy) ? correctTightlyCoupledPhysics() : correctPhysics(); correctBaffleLessFields(); } residual = max(residual, solver.getResidual()) ...; ++iterN } while (residual > minResidual && iterN < maxIterations)`: **`residual` is declared outside the loop and never reset**, so it is the running maximum over all passes. Before it, the main loop's `solvers[i].deformMesh()` on the multiPhysicsSolver deforms every member once more (`:139-145`). `correctOnlyEnergy` is true for every member unless `includeFluidMechanicsInLoop` lists it.
+* `onePhase.C:145-183`: `correctPhysics()` zeroes `residual_` and runs the PIMPLE loop (`nOuterCorrectors 6`: 6 `h` solves with `solveFluidMechanics false`), `correctTightlyCoupledPhysics()` one `correctModels` and one `correctEnergy` and does not zero `residual_` (`EEqn_1p.H:94`: `residual_ = max(residual_, EEqn.solve().max().initialResidual())`). `diffusionNeutronics::correctPhysics` (`pTotOld_ = power(); residual_ = 0; solveNeutronics.H`) and `legacyThermoMechanics::correctPhysics` (`residual_ = 0`) are what their `correctTightlyCoupledPhysics` call; neutronics `residual_` = `max` over every pass and group of the SECOND `neutroEq.solve()` initial residual (`fluxEq.H:29`) and the last pass's `neutroResidual` (`solveNeutronics.H:138`); TM `residual_` = `max(TStruct initial residual, the last corrector's max-component displacement initial residual)` (`solveThermalMechanics.H:74,128`).
+* `oldTime()` of `fluxStar_`, `prec_` and `TStruct_` stays the previous TIME step's value while a pass repeats; the port's solvers took "the state the call starts from" as old time, so a repeated pass would have used the previous pass: new held old-time values (`hold_stationary_old_time`, `hold_old_time`; default unchanged).
+* `solveNeutronics.H`/`createNeutronicsFields`: `eigenvalueNeutronics false` from the written `200`; `startFrom latestTime` in the transient `controlDict` (`startTime` stays 0).
+
+### What changes (nothing existing is removed)
+
+`RegionSolvers::read` accepts ONE `multiPhysicsSolver` entry (`MultiPhysics`, read from `multiRegionCouplingDict`), `startFrom latestTime`, the `removeBaffles` number switch, the `.baffleLess` start-directory mesh as the source geometry of the maps FROM a `removeBaffles` region (`read_baffle_less_geometry`), `Trad.nuclearFuelPinTest` restart, a missing `T.fixedTemperature` in a frozen-flow start directory; `RegionSolvers::step` runs the Picard loop (`correct_multi_physics`, `correct_tightly_coupled_physics`, `residual_of`); the neutronics step reports `solver_residual`. **Refused by name, not ported:** a nested `multiPhysicsSolver`, a `multiPhysicsSolver` beside other `regionSolvers` entries, `includeFluidMechanicsInLoop` (the fluid mechanics inside the loop), BUILDING the baffle-less mesh (gh:#1236: the real binary's own `<start>/<region>.baffleLess/polyMesh` is read; a case without it keeps the baffled geometry), a decomposed run, `extendedThermoMechanics` (gh:#1783).
+
+### Criteria (fixed here; none changes after a result)
+
+1. Real references (652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`): the TIGHT protocol (every `tolerance 1e-14`, `relTol 0`, GAMG kept) steady state then transient on the written `200`, and the AS SHIPPED (loose) pair; the transient exactly as shipped (`adjustableRunTime`, `writeInterval 10`, `endTime 210`); for per-step FIELDS one more tight transient identical except `writeControl timeStep; writeInterval 1` (the dt sequence is the shipped one until the last steps, where the shipped run aligns to the write time 210; the difference is stated). Extracted by `scripts/extract_esfr_transient.py`.
+2. Per step, every step: `dt` equal (rel 1e-12); `power` (last pass) `<= 1e-9` relative; number of multiphysics passes equal; the `h` solves of the step equal in count and order; per pass the neutron-iteration count and the thermo-mechanics solve count/order equal; initial residuals `<= 1e-6` relative above `1e-10` absolute; iteration counts at the noise floor REPORTED, NOT gated.
+3. Tight, fields at the kept steps (every step of the `timeStep` variant for the fingerprints, full fields at 1, 2, 5, 20, 40, last): `<= 1e-9` on the field's own max-norm, `U` on `max|U|`.
+4. As shipped (loose): criteria 2 for macroscopic quantities and solve counts; fields at `t = 210` reported; a loose stopping-rule flip is a recorded miss with its cause, propagated differences up to `1e-4` are the rounding rule's allowance only when the cause is a flip.
+5. Earlier numbers (rounds 3-74) do not move; any that does is listed with old and new.
+6. Part A criteria 2 and 3 (above) stand; Part A was run before this section and is recorded below.
+
+### Predictions (before the 73-step runs and the tight real references)
+
+| id | prediction | P |
+|---|---|---|
+| B1 | tight: `power` `<= 1e-9` at every one of the 73 steps | 70 % |
+| B2 | tight: `dt` equal at every step | 85 % |
+| B3 | tight: multiphysics pass counts equal at every step | 85 % |
+| B4 | tight: thermo-mechanics solve count/order equal in every pass of every step | 75 % |
+| B5 | tight: fields at the kept steps `<= 1e-9` | 65 % |
+| B6 | loose: `power` `<= 1e-9` for the first 10 steps | 85 % |
+| B7 | loose: `power` `<= 1e-9` at all 73 steps | 45 % |
+| B8 | loose: pass counts equal at every step | 60 % |
+| B9 | the real tight transient also takes 73 steps (the loose one did) | 80 % |
+| B10 | the port runs the 73 steps in under 15 minutes | 75 % |

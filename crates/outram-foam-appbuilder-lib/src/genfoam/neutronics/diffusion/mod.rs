@@ -254,6 +254,11 @@ pub struct DiffusionNeutronics {
     integral_predictor: bool,
     /// `neutronTransport.implicitPredictor` (gh:#1926, round 66): [`Self::upstream_stationary_step`] runs `implicitPredictor.H` after `integralPredictor.H`.
     implicit_predictor: bool,
+    /// The old-time `fluxStar_` and `prec_` of the time step being repeated by a `multiPhysicsSolver` (gh:#1950, README round 75), once
+    /// [`Self::hold_stationary_old_time`] ran: [`Self::upstream_stationary_step`] then takes its `ddt` old values from here (`fvm::ddt` reads
+    /// `oldTime()`, which stays the value of the previous TIME step while the step is corrected again); `None` (the default) takes the state the
+    /// call starts from, which is the old time of a step that is solved once.
+    stationary_old: Option<(Vec<Vec<f64>>, Vec<Vec<f64>>)>,
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -362,7 +367,31 @@ impl DiffusionNeutronics {
             eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme::Uncorrected,
             integral_predictor: false,
             implicit_predictor: false,
+            stationary_old: None,
         })
+    }
+
+    /// Keep the current `fluxStar_` (the flux where none was solved yet) and `prec_` as the old-time values of every
+    /// [`Self::upstream_stationary_step`] until [`Self::release_stationary_old_time`]: `multiPhysicsSolver::correctPhysics()` calls the region's
+    /// `correctPhysics()` again inside ONE time step, and `oldTime()` of the fields stays that of the previous time step (gh:#1950, README round 75).
+    pub fn hold_stationary_old_time(&mut self) {
+        let star: Vec<Vec<f64>> = match self.flux_star.as_ref() {
+            Some(v) => v.clone(),
+            None => self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+        };
+        let prec: Vec<Vec<f64>> = self.state.precursors().iter().map(|p| p.internal.as_slice().to_vec()).collect();
+        self.stationary_old = Some((star, prec));
+    }
+
+    /// End of the held old-time values: the next [`Self::upstream_stationary_step`] takes its old values from the state it starts from again.
+    pub fn release_stationary_old_time(&mut self) {
+        self.stationary_old = None;
+    }
+
+    /// Whether [`Self::hold_stationary_old_time`] is in force.
+    #[must_use]
+    pub fn stationary_old_time_is_held(&self) -> bool {
+        self.stationary_old.is_some()
     }
 
     /// Set the boundary condition of every group flux field from `flux_boundary`

@@ -202,6 +202,7 @@ fn esfr_coupled_steps_against_the_real_binary() {
         for (i, (mine, up)) in [(&mine_solves[0], &reference.prgh[k - 1]), (&mine_solves[1], &reference.h[k - 1])].into_iter().enumerate() {
             if mine.len() != up.len() {
                 sol[i][0] += 1.0;
+                println!("SOLVE COUNT DIFFERS: {} step {k}: port {} upstream {}", ["p_rgh", "h"][i], mine.len(), up.len());
                 continue;
             }
             for (m, u) in mine.iter().zip(up) {
@@ -227,6 +228,7 @@ fn esfr_coupled_steps_against_the_real_binary() {
             let up = &reference.tm[k - 1];
             if tm_mine.len() != up.len() || tm_mine.iter().zip(up).any(|(a, b)| a.0 != b.0) {
                 sol[2][0] += 1.0;
+                println!("SOLVE COUNT/ORDER DIFFERS: thermo-mechanics step {k}: port {} upstream {}", tm_mine.len(), up.len());
             } else {
                 for (m, u) in tm_mine.iter().zip(up) {
                     sol[2][1] += 1.0;
