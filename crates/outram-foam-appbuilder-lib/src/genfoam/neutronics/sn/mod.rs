@@ -123,6 +123,7 @@ mod tests;
 
 use alloc::sync::Arc;
 
+use crate::genfoam::common::linear_solvers::{LinearSolve, LinearSolverForm};
 use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
 
 use crate::genfoam::neutronics::diffusion::DiffusionXsFields;
@@ -154,6 +155,26 @@ pub struct SnSettings {
     pub inner_tolerance: f64,
     /// Inner linear-solver settings (one direction solve).
     pub linear: SolverSettings,
+    /// The implementation of the linear solves: OpenFOAM's `PCG`/`DIC`, `PBiCG`/`DILU` and
+    /// `PBiCGStab`/`DILU` as the case's `fvSolution` selects them (default, gh:#1361 round 40), or
+    /// the deprecated basic-lib form. See [`LinearSolverForm`].
+    pub form: LinearSolverForm,
+}
+
+impl SnSettings {
+    /// The linear solve of this model: [`Self::linear`] interpreted in [`Self::form`].
+    #[must_use]
+    pub fn linear_solve(&self) -> LinearSolve {
+        LinearSolve::new(self.linear, self.form)
+    }
+
+    /// The deprecated basic-lib form of the linear solves (`||r||/||b||` CG, ILU(0)-BiCGStab), kept
+    /// callable; the default is OpenFOAM's solvers.
+    #[must_use]
+    pub fn with_basic_lib_cg(mut self) -> Self {
+        self.form = LinearSolverForm::BasicLib;
+        self
+    }
 }
 
 impl Default for SnSettings {
@@ -168,6 +189,7 @@ impl Default for SnSettings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            form: LinearSolverForm::default(),
         }
     }
 }

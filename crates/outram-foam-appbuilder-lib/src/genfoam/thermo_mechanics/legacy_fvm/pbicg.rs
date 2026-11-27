@@ -99,7 +99,7 @@ fn t_mul(a: &LduMatrix, x: &[f64]) -> Vec<f64> {
 }
 
 /// `DILUPreconditioner::calcReciprocalD`.
-fn dilu_reciprocal_diag(a: &LduMatrix) -> Vec<f64> {
+pub(crate) fn dilu_reciprocal_diag(a: &LduMatrix) -> Vec<f64> {
     let mut r_d = a.diag.clone();
     for f in 0..a.n_internal_faces {
         r_d[a.neighbour[f]] -= a.upper[f] * a.lower[f] / r_d[a.owner[f]];
@@ -111,7 +111,7 @@ fn dilu_reciprocal_diag(a: &LduMatrix) -> Vec<f64> {
 }
 
 /// `DILUPreconditioner::precondition`.
-fn dilu_precondition(a: &LduMatrix, r_d: &[f64], r_a: &[f64], w_a: &mut [f64]) {
+pub(crate) fn dilu_precondition(a: &LduMatrix, r_d: &[f64], r_a: &[f64], w_a: &mut [f64]) {
     for c in 0..a.n_cells {
         w_a[c] = r_d[c] * r_a[c];
     }

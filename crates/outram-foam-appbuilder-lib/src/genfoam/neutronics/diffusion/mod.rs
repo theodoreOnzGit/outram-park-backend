@@ -104,6 +104,7 @@ mod tests;
 
 use alloc::sync::Arc;
 
+use crate::genfoam::common::linear_solvers::{LinearSolve, LinearSolverForm};
 use outram_foam_basic_lib::prelude::{
     fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
 };
@@ -131,6 +132,10 @@ pub struct DiffusionSettings {
     pub max_outer_iterations: usize,
     /// Inner linear-solver settings (one group solve).
     pub linear: SolverSettings,
+    /// The implementation of the linear solves: OpenFOAM's `PCG`/`DIC`, `PBiCG`/`DILU` and
+    /// `PBiCGStab`/`DILU` as the case's `fvSolution` selects them (default, gh:#1361 round 40), or
+    /// the deprecated basic-lib form. See [`LinearSolverForm`].
+    pub form: LinearSolverForm,
     /// Which face-distance coefficient the flux Laplacian divides by.
     ///
     /// GeN-Foam's neutronics regions ship
@@ -143,6 +148,22 @@ pub struct DiffusionSettings {
     pub delta_coeff: DeltaCoeff,
 }
 
+impl DiffusionSettings {
+    /// The linear solve of this model: [`Self::linear`] interpreted in [`Self::form`].
+    #[must_use]
+    pub fn linear_solve(&self) -> LinearSolve {
+        LinearSolve::new(self.linear, self.form)
+    }
+
+    /// The deprecated basic-lib form of the linear solves (`||r||/||b||` CG, ILU(0)-BiCGStab), kept
+    /// callable; the default is OpenFOAM's solvers.
+    #[must_use]
+    pub fn with_basic_lib_cg(mut self) -> Self {
+        self.form = LinearSolverForm::BasicLib;
+        self
+    }
+}
+
 impl Default for DiffusionSettings {
     fn default() -> Self {
         Self {
@@ -153,6 +174,7 @@ impl Default for DiffusionSettings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            form: LinearSolverForm::default(),
             delta_coeff: DeltaCoeff::NonOrthogonal,
         }
     }

@@ -131,7 +131,7 @@ fn run_port_with_flux(legendre_moments: Option<usize>) -> (Vec<PseudoTimeRecord>
     // `legendreMoments 3` in the dictionary = 4 matrices used (XS.C:75).
     let settings = SnPseudoTimeSettings {
         legendre_moments: legendre_moments.unwrap_or(4),
-        linear: SolverSettings { tolerance: 1e-13, max_iter: 100_000 },
+        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
         ..SnPseudoTimeSettings::default()
     };
     let mut solver =

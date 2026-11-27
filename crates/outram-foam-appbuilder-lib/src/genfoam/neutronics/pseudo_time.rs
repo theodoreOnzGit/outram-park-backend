@@ -63,7 +63,8 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, SolverSettings, VolScalarField};
+use crate::genfoam::common::linear_solvers::{LinearSolve, NeutronEquation};
+use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, VolScalarField};
 use thiserror::Error;
 
 /// OpenFOAM `SMALL` (double precision).
@@ -311,14 +312,14 @@ pub(crate) fn solve_twice(
     eqn: &FvMatrix,
     name: &str,
     start: &VolScalarField,
-    settings: SolverSettings,
+    settings: LinearSolve,
 ) -> (VolScalarField, f64) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let initial = eqn
         .ldu
         .openfoam_initial_residual(start.internal.as_slice(), &b);
-    let (first, _) = eqn.solve_cg_with_guess(name.to_string(), start, settings);
-    let (second, _) = eqn.solve_cg_with_guess(name.to_string(), &first, settings);
+    let first = settings.solve(NeutronEquation::Flux, eqn, name, start);
+    let second = settings.solve(NeutronEquation::Flux, eqn, name, &first);
     (second, initial)
 }
 
@@ -330,13 +331,13 @@ pub(crate) fn solve_twice_residuals(
     eqn: &FvMatrix,
     name: &str,
     start: &VolScalarField,
-    settings: SolverSettings,
+    settings: LinearSolve,
 ) -> (VolScalarField, f64, f64) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let initial = eqn.ldu.openfoam_initial_residual(start.internal.as_slice(), &b);
-    let (first, _) = eqn.solve_cg_with_guess(name.to_string(), start, settings);
+    let first = settings.solve(NeutronEquation::Flux, eqn, name, start);
     let second_initial = eqn.ldu.openfoam_initial_residual(first.internal.as_slice(), &b);
-    let (second, _) = eqn.solve_cg_with_guess(name.to_string(), &first, settings);
+    let second = settings.solve(NeutronEquation::Flux, eqn, name, &first);
     (second, initial, second_initial)
 }
 

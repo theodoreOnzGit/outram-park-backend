@@ -144,6 +144,12 @@ fn model(mesh: Arc<FvMesh>, xs: &CrossSectionData) -> DiffusionNeutronics {
         DiffusionSettings {
             k_tolerance: 1e-12,
             flux_tolerance: 1e-10,
+            // Round 40 (gh:#1890): the conservation test below measures the linear solves' accuracy. With the default
+            // 1e-9 read in OpenFOAM's normalised residual (the default linear form now) the transported delayed
+            // source was off by 1.715e-8 at phi = 0.5, over the test's 1e-8 bound (with basic-lib's `||r||/||b||` 1e-9
+            // it was inside it). The bound is unchanged; the solver tolerance is the input that has to be tight enough
+            // for what is measured.
+            linear: outram_foam_basic_lib::prelude::SolverSettings { tolerance: 1e-12, max_iter: 2000 },
             ..DiffusionSettings::default()
         },
     )
@@ -336,7 +342,7 @@ fn precursor_diffusion_smooths_a_cosine_source_instead_of_amplifying_it() {
         &tr,
         &face,
         &source,
-        SolverSettings::default(),
+        crate::genfoam::common::linear_solvers::LinearSolve::new(SolverSettings::default(), Default::default()),
         outram_foam_basic_lib::prelude::fvm::DeltaCoeff::Orthogonal,
     );
 

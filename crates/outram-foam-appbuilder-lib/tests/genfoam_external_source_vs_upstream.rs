@@ -279,6 +279,15 @@ fn print(name: &str, t: &Tally) {
 /// `neutroResidual` is noise (measured 0.05 upstream against 0.56 here at step 65 of B, with the power equal to
 /// 1e-13): both codes are above the 1e-6 threshold, so the iteration counts agree, but the number is not data.
 fn gate(name: &str, run: &Run, r: &Ref, check_residual: bool) {
+    gate_with(name, run, r, check_residual, 1e-9);
+}
+
+/// Round 40 (gh:#1890): with upstream's `PCG`/`DIC` the port reproduces B, C and F BIT FOR BIT (power, flux at t = 100,
+/// `pTarget`, the final `neutroResidual` at every step), so those gates are `bound == 0.0`: every compared value `==`.
+/// A and G agree to 8e-16 / 2.5e-15 (not bit-identical; cause not isolated), gated at 1e-14. Before round 40 the bound
+/// was 1e-9 and the measured values 4.8e-14 (A), 1.5e-13 (B), 2.4e-13 (C, F), 2.1e-14 (G), attributed to basic-lib's CG.
+fn gate_with(name: &str, run: &Run, r: &Ref, check_residual: bool, bound: f64) {
+    let bit = bound == 0.0;
     let t = compare(run, r, 1e-9, 0.0);
     print(name, &t);
     assert_eq!(t.steps.0, t.steps.1, "{name}: number of steps");
@@ -292,9 +301,16 @@ fn gate(name: &str, run: &Run, r: &Ref, check_residual: bool) {
     assert!(!check_residual || t.worst_resid_first_equal_niter < 1e-6, "{name}: final neutroResidual {:e}", t.worst_resid_first_equal_niter);
     assert!(t.worst_dt < 1e-10, "{name}: dt {:e}", t.worst_dt);
     assert_eq!(t.niter_equal, t.steps.0, "{name}: neutron iteration counts differ first at {:?}", t.first_niter_differs);
-    assert!(t.worst_power < 1e-9, "{name}: power {:e} first over at {:?}", t.worst_power, t.first_power_over);
-    assert!(t.worst_flux < 1e-9, "{name}: final flux {:e}", t.worst_flux);
-    assert!(t.p_target_rel < 1e-9, "{name}: pTarget {:e}", t.p_target_rel);
+    if bit {
+        assert!(t.worst_power == 0.0, "{name}: power {:e} first differs at {:?}", t.worst_power, t.first_power_over);
+        assert!(t.worst_flux == 0.0, "{name}: final flux {:e}", t.worst_flux);
+        assert!(t.p_target_rel == 0.0, "{name}: pTarget {:e}", t.p_target_rel);
+        assert!(t.worst_resid_first_equal_niter == 0.0, "{name}: neutroResidual {:e}", t.worst_resid_first_equal_niter);
+    } else {
+        assert!(t.worst_power < bound, "{name}: power {:e} first over at {:?}", t.worst_power, t.first_power_over);
+        assert!(t.worst_flux < bound, "{name}: final flux {:e}", t.worst_flux);
+        assert!(t.p_target_rel < bound, "{name}: pTarget {:e}", t.p_target_rel);
+    }
     let last = run.history.last().expect("history").step.power;
     assert_eq!(run.p_target, Some(last), "{name}: pTarget is the final power() bit for bit");
 }
@@ -302,14 +318,14 @@ fn gate(name: &str, run: &Run, r: &Ref, check_residual: bool) {
 #[test]
 fn a_shipped_case_fixed_value_walls_matches_upstream() {
     let run = run_port(&stage("a", false, false, false, false));
-    gate("A", &run, &reference("A"), true);
+    gate_with("A", &run, &reference("A"), true, 1e-14);
 }
 
 #[test]
 fn b_closed_medium_matches_upstream_and_the_analytic_balance() {
     let run = run_port(&stage("b", true, false, false, false));
     let r = reference("B");
-    gate("B", &run, &r, false);
+    gate_with("B", &run, &r, false, 0.0);
 
     // Analytic check, from the cross sections of the case alone (cell 0 of the uniform zone).
     let xs = run.case.model.xs_fields();
@@ -368,7 +384,7 @@ fn b_closed_medium_matches_upstream_and_the_analytic_balance() {
 #[test]
 fn c_euler_ddt_transient_matches_upstream() {
     let run = run_port(&stage("c", true, true, false, false));
-    gate("C", &run, &reference("C"), false);
+    gate_with("C", &run, &reference("C"), false, 0.0);
 }
 
 #[test]
@@ -454,7 +470,7 @@ fn f_inline_table_profile_with_start_time_matches_upstream() {
     let t0 = std::time::Instant::now();
     let run = run_port(&stage_profile("f", false));
     let r = reference_profile("F");
-    gate("F (profile)", &run, &r, false);
+    gate_with("F (profile)", &run, &r, false, 0.0);
     let wall = t0.elapsed().as_secs_f64();
     let steady_b = 53214.292175917675;
     let last = run.history.last().expect("history").step.power;
@@ -491,7 +507,7 @@ fn f_inline_table_profile_with_start_time_matches_upstream() {
 fn g_values_form_profile_with_non_uniform_flux_matches_upstream() {
     let run = run_port(&stage_profile("g", true));
     let r = reference_profile("G");
-    gate("G (profile)", &run, &r, true);
+    gate_with("G (profile)", &run, &r, true, 1e-14);
     let a_final = 18709.241363204968;
     let last = run.history.last().expect("history").step.power;
     println!("G: final power {last:.6e} = {:.5} x A steady", last / a_final);

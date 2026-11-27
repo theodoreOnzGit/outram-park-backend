@@ -109,10 +109,19 @@ fn evolution(c: &Case, rods: Vec<ControlRod>, controls: DiscFactorControls) -> X
 }
 
 fn solver(c: &Case) -> DiffusionNeutronics {
-    let settings = DiffusionSettings {
-        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+    solver_with(c, false, 100_000)
+}
+
+/// `basic_lib`: the deprecated pre-round-40 linear solves (`with_basic_lib_cg`); `max_iter`: the `maxIter` of the
+/// solve (upstream's own is 1000, the default of OpenFOAM, as the case's `fvSolution` sets none).
+fn solver_with(c: &Case, basic_lib: bool, max_iter: usize) -> DiffusionNeutronics {
+    let mut settings = DiffusionSettings {
+        linear: SolverSettings { tolerance: 1e-14, max_iter },
         ..DiffusionSettings::default()
     };
+    if basic_lib {
+        settings = settings.with_basic_lib_cg();
+    }
     DiffusionNeutronics::new(c.mesh.clone(), &c.xs, &c.mesh_zone, &[], &c.flux_boundary, settings).expect("diffusion")
 }
 
@@ -260,7 +269,18 @@ fn run_port(
     adjust: bool,
     evolve: bool,
 ) -> (Vec<PseudoTimeRecord>, Vec<Vec<f64>>) {
-    let mut s = solver(c);
+    run_port_with(c, rods, adjust, evolve, false, 100_000)
+}
+
+fn run_port_with(
+    c: &Case,
+    rods: Vec<ControlRod>,
+    adjust: bool,
+    evolve: bool,
+    basic_lib: bool,
+    max_iter: usize,
+) -> (Vec<PseudoTimeRecord>, Vec<Vec<f64>>) {
+    let mut s = solver_with(c, basic_lib, max_iter);
     if evolve {
         let mut controls = c.controls.clone();
         controls.adjust_disc_factors = adjust;
@@ -309,7 +329,9 @@ fn v0_d1_driveline_entering_matches_upstream() {
     check_variant("v0_d1");
 }
 
-/// `v1_d1` and `v2_d1` MISS the pre-registered criteria (README "Round 39 results", predictions C2/C4 missed): the
+/// CONTROL (round 40): `v1_d1` and `v2_d1` with the DEPRECATED basic-lib linear solves (`with_basic_lib_cg`) still MISS
+/// the criteria exactly as in round 39, which pins the cause of that miss to the linear solver's stopping rule. The
+/// original text of round 39 follows. `v1_d1` and `v2_d1` MISS the pre-registered criteria (README "Round 39 results", predictions C2/C4 missed): the
 /// adjustment drives the rod zone's factor to ~1e-14, and from one step on upstream's first solve takes 0 iterations at
 /// an initial residual just under its 1e-14 tolerance while its power is 5e-3 to 7e-3 off `pTarget`, i.e. UPSTREAM's
 /// flux is the unconverged one (the port's power is within 2e-5 of the target at that step, trending as before). This
@@ -319,7 +341,7 @@ fn v0_d1_driveline_entering_matches_upstream() {
 fn check_variant_until_upstream_unconverged(variant: &str) {
     let c = load(variant);
     let up = upstream(variant);
-    let (h, _) = run_port(&c, c.rods.clone(), c.controls.adjust_disc_factors, true);
+    let (h, _) = run_port_with(&c, c.rods.clone(), c.controls.adjust_disc_factors, true, true, 100_000);
     assert_eq!(h.len(), up.keff.len());
     let k = (0..h.len())
         .find(|&i| (h[i].step.k_eff - up.keff[i]).abs() > 1e-12)
@@ -357,14 +379,42 @@ fn check_variant_until_upstream_unconverged(variant: &str) {
     );
 }
 
+/// Round 40: with upstream's `PCG`/`DIC` and its normalised-residual stopping rule the port follows upstream through all
+/// 230 steps, past the step (202) where upstream's first `fluxStar0` solve does 0 iterations.
 #[test]
-fn v1_d1_adjustment_and_driveline_match_upstream_until_upstream_stops_unconverged() {
+fn v1_d1_adjustment_and_driveline_match_upstream() {
+    check_variant("v1_d1");
+}
+
+#[test]
+fn v2_d1_adjustment_and_driveline_match_upstream() {
+    check_variant("v2_d1");
+}
+
+#[test]
+fn control_basic_lib_cg_misses_v1_d1_at_step_202() {
     check_variant_until_upstream_unconverged("v1_d1");
 }
 
 #[test]
-fn v2_d1_adjustment_and_driveline_match_upstream_until_upstream_stops_unconverged() {
+fn control_basic_lib_cg_misses_v2_d1_at_step_205() {
     check_variant_until_upstream_unconverged("v2_d1");
+}
+
+/// S7: upstream's `maxIter` is OpenFOAM's default 1000 (the case's `fvSolution` sets none); the tests use 100 000. With
+/// 1000 the port's numbers are bit-identical, i.e. no solve of these runs needs more than 1000 iterations.
+#[test]
+fn max_iter_1000_changes_nothing_on_v1_d1_and_v2_d1() {
+    for variant in ["v1_d1", "v2_d1"] {
+        let c = load(variant);
+        let (a, fa) = run_port_with(&c, c.rods.clone(), c.controls.adjust_disc_factors, true, false, 100_000);
+        let (b, fb) = run_port_with(&c, c.rods.clone(), c.controls.adjust_disc_factors, true, false, 1000);
+        assert_eq!(a.len(), b.len());
+        for i in 0..a.len() {
+            assert_eq!(a[i].step.k_eff, b[i].step.k_eff, "{variant} step {}", i + 1);
+        }
+        assert_eq!(fa, fb, "{variant} final flux");
+    }
 }
 
 #[test]

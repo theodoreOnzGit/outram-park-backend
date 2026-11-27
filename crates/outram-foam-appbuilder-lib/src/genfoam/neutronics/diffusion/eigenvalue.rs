@@ -34,6 +34,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use outram_foam_basic_lib::prelude::{fvm, Field, SurfaceScalarField, VolScalarField};
 
 use super::precursor_drift;
@@ -183,8 +184,7 @@ impl DiffusionNeutronics {
                     self.settings.delta_coeff,
                 ) + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
                     - fvm::su(&q_field, flux_g);
-                let (sol, _perf) =
-                    eqn.solve_cg_with_guess(format!("flux{gg}"), flux_g, self.settings.linear);
+                let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("flux{gg}"), flux_g);
                 self.write_group_flux(gg, &sol);
             }
 
@@ -297,7 +297,7 @@ impl DiffusionNeutronics {
                 &transport,
                 diffusivity_face,
                 &src_field,
-                self.settings.linear,
+                self.settings.linear_solve(),
                 self.settings.delta_coeff,
             );
 

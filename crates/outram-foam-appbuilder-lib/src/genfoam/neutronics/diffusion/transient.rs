@@ -36,6 +36,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use outram_foam_basic_lib::prelude::{fvm, Field, VolScalarField};
 use uom::si::f64::Time;
 use uom::si::time::second;
@@ -122,8 +123,7 @@ impl DiffusionNeutronics {
                 + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
                 - fvm::sp(&cg_nf_field, flux_g)
                 - fvm::su(&q_field, flux_g);
-            let (sol, _perf) =
-                eqn.solve_cg_with_guess(format!("flux{gg}"), flux_g, self.settings.linear);
+            let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("flux{gg}"), flux_g);
             self.write_group_flux(gg, &sol);
         }
 

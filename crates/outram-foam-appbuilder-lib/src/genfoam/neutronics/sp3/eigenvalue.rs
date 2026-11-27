@@ -35,6 +35,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use outram_foam_basic_lib::prelude::{fvm, VolScalarField};
 
 use super::{with_values, Sp3Neutronics, Sp3XsFields};
@@ -147,11 +148,7 @@ impl Sp3Neutronics {
                         self.settings.delta_coeff,
                     ) + fvm::sp(&xs.base.sigma_removal[gg], phi0)
                         - fvm::su(&rhs1_field, phi0);
-                    let (sol, _perf) = eqn.solve_cg_with_guess(
-                        format!("fluxStar{gg}"),
-                        phi0,
-                        self.settings.linear,
-                    );
+                    let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("fluxStar{gg}"), phi0);
                     Self::write_moment(&mut self.flux_star[gg], &sol);
                 }
 
@@ -169,11 +166,7 @@ impl Sp3Neutronics {
                         self.settings.delta_coeff,
                     ) + fvm::sp(&xs.second_moment_removal[gg], phi2f)
                         - fvm::su(&rhs2_field, phi2f);
-                    let (sol, _perf) = eqn.solve_cg_with_guess(
-                        format!("fluxStar2{gg}"),
-                        phi2f,
-                        self.settings.linear,
-                    );
+                    let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("fluxStar2{gg}"), phi2f);
                     Self::write_moment(&mut self.flux_star2[gg], &sol);
                 }
 

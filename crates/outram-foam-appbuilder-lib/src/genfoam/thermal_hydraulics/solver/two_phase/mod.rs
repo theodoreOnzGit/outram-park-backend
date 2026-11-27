@@ -111,7 +111,7 @@ pub mod fv;
 pub mod mules;
 pub mod one_phase_cc;
 pub mod one_phase_fc;
-mod pbicgstab;
+pub(crate) mod pbicgstab;
 pub(crate) mod pcg;
 pub mod thermo;
 pub mod turbulence;

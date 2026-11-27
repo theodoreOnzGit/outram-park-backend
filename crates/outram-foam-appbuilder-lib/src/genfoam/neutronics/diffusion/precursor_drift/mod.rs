@@ -130,7 +130,6 @@
 use crate::nostd_prelude::*;
 use alloc::sync::Arc;
 
-use outram_foam_basic_lib::ldu_matrix::solvers::krylov_solve::KrylovOptions;
 use outram_foam_basic_lib::prelude::{fvc, fvm, Field, FvMesh, SurfaceScalarField, VolScalarField};
 
 /// The fields a circulating-fuel precursor solve needs, on the neutronics mesh.
@@ -271,7 +270,7 @@ pub(super) fn solve_group(
     transport: &PrecursorTransport,
     diffusivity_face: &SurfaceScalarField,
     source: &VolScalarField,
-    settings: outram_foam_basic_lib::prelude::SolverSettings,
+    settings: crate::genfoam::common::linear_solvers::LinearSolve,
     delta_coeff: fvm::DeltaCoeff,
 ) -> Vec<f64> {
     // Sign (gh:#952): `fvm::laplacian*` here is the POSITIVE -div(D grad), so it
@@ -280,12 +279,7 @@ pub(super) fn solve_group(
         + fvm::div(&transport.phi, c_star)
         + fvm::laplacian_with_delta(diffusivity_face, c_star, delta_coeff)
         - fvm::su(source, c_star);
-    let (sol, _perf) = eqn.solve_bicgstab_with_guess(
-        "precStar".to_string(),
-        c_star,
-        KrylovOptions::default(),
-        settings,
-    );
+    let sol = settings.solve(crate::genfoam::common::linear_solvers::NeutronEquation::Precursor, &eqn, "precStar", c_star);
     sol.internal.as_slice().to_vec()
 }
 

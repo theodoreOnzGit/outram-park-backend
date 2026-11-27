@@ -213,7 +213,7 @@ impl PseudoTimeEigenvalue for DiffusionNeutronics {
                 - fvm::su(&field_like(&template, prompt), &star_g)
                 - fvm::su(&field_like(&template, delayed_g), &star_g)
                 - fvm::su(&field_like(&template, scatter), &star_g);
-            let (sol, init_res) = solve_twice(&eqn, &format!("flux{gg}"), &star_g, self.settings.linear);
+            let (sol, init_res) = solve_twice(&eqn, &format!("flux{gg}"), &star_g, self.settings.linear_solve());
             neutro_residual = neutro_residual.max(init_res);
             flux_star[gg] = sol.internal.as_slice().to_vec();
             // flux_ = fluxStar_/discFactor (`fluxEq.H:31`), before the next group's scattering source.

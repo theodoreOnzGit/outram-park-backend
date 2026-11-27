@@ -69,10 +69,12 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use alloc::sync::Arc;
 
+use crate::genfoam::common::linear_solvers::{LinearSolve, LinearSolverForm};
 use outram_foam_basic_lib::prelude::{
-    fvm, BoundaryCondition, Field, FvMesh, KrylovOptions, SolverSettings, SurfaceScalarField,
+    fvm, BoundaryCondition, Field, FvMesh, SolverSettings, SurfaceScalarField,
     VolScalarField,
 };
 
@@ -101,6 +103,26 @@ pub struct SnPseudoTimeSettings {
     pub max_inner_iter: usize,
     /// Per-direction linear solve.
     pub linear: SolverSettings,
+    /// The implementation of the linear solves: OpenFOAM's `PCG`/`DIC`, `PBiCG`/`DILU` and
+    /// `PBiCGStab`/`DILU` as the case's `fvSolution` selects them (default, gh:#1361 round 40), or
+    /// the deprecated basic-lib form. See [`LinearSolverForm`].
+    pub form: LinearSolverForm,
+}
+
+impl SnPseudoTimeSettings {
+    /// The linear solve of this model: [`Self::linear`] interpreted in [`Self::form`].
+    #[must_use]
+    pub fn linear_solve(&self) -> LinearSolve {
+        LinearSolve::new(self.linear, self.form)
+    }
+
+    /// The deprecated basic-lib form of the linear solves (`||r||/||b||` CG, ILU(0)-BiCGStab), kept
+    /// callable; the default is OpenFOAM's solvers.
+    #[must_use]
+    pub fn with_basic_lib_cg(mut self) -> Self {
+        self.form = LinearSolverForm::BasicLib;
+        self
+    }
 }
 
 impl Default for SnPseudoTimeSettings {
@@ -113,6 +135,7 @@ impl Default for SnPseudoTimeSettings {
                 tolerance: 1e-13,
                 max_iter: 100_000,
             },
+            form: LinearSolverForm::default(),
         }
     }
 }
@@ -417,12 +440,7 @@ impl SnPseudoTimeSolver {
                     let local_residual = eqn
                         .ldu
                         .openfoam_initial_residual(psi_field.internal.as_slice(), &b);
-                    let (sol, _perf) = eqn.solve_bicgstab_with_guess(
-                        format!("angularFlux_{g}_{d}"),
-                        psi_field,
-                        KrylovOptions::default(),
-                        self.settings.linear,
-                    );
+                    let sol = self.settings.linear_solve().solve(NeutronEquation::AngularFlux, &eqn, &format!("angularFlux_{g}_{d}"), psi_field);
                     self.psi[g][d].internal.as_mut_slice().copy_from_slice(sol.internal.as_slice());
                     inner_residual = inner_residual.max(local_residual);
                     neutro_residual = neutro_residual.max(local_residual);
