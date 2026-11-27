@@ -1,0 +1,72 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     GeN-Foam;
+
+startFrom       startTime;
+
+startTime 0;
+
+stopAt          endTime;
+
+endTime 100;
+
+deltaT 1;
+
+writeControl timeStep;
+
+writeInterval 1;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+
+writePrecision 17;
+
+writeCompression false;
+
+timeFormat      general;
+
+timePrecision   8;
+
+runTimeModifiable false;
+
+adjustTimeStep  true;
+
+maxDeltaT       1;
+
+maxCo           5;
+
+maxPowerVariation 0.01;
+
+regionSolvers
+{
+    fluidRegion     onePhase;
+    neutroRegion    diffusionNeutronics;
+    thermoMechanicalRegion legacyThermoMechanics;
+}
+
+removeBaffles
+{
+    fluidRegion     true;
+    neutroRegion    false;
+    thermoMechanicalRegion false;
+}
+
+
+// ************************************************************************* //
+libs ("libThermoMechanicsSolvers.so");

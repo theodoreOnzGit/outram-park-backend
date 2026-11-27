@@ -1,0 +1,290 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      nuclearData;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+//- Relevant for both pointKinetics and diffusionNeutronics
+
+fastNeutrons    true;
+
+//- Relevant only for pointKinetics
+
+promptGenerationTime 1e-06;
+
+Beta            ( 7.2315e-05 0.000609661 0.000471181 0.00118907 0.000445487 9.58515e-05 );
+
+lambda          ( 0.0125371 0.0300828 0.109879 0.325484 1.3036 9.51817 );
+
+feedbackCoeffDoppler 0;
+
+feedbackCoeffTFuel -3e-06;
+
+feedbackCoeffTClad 0;
+
+feedbackCoeffTCool 0;
+
+feedbackCoeffRhoCool 0;
+
+feedbackCoeffTStruct 0;
+
+absoluteDrivelineExpansionCoeff 8e-05;
+
+controlRodReactivityMap ( ( 0.1 -0.01 ) ( 0 0 ) ( -0.1 0.01 ) );
+
+//- Evolution of the external reactivity
+externalReactivityTimeProfile
+{
+    type        table;
+    table       table
+    (
+        (   0   0.0005767131    ) //- i.e. 57.67131 pcm, == 0.2*Beta
+    );
+}
+
+//- Evolution of decay power in time
+boronReactivityTimeProfile
+{
+    type        table;
+    table       table
+    (
+        (   100   0   )
+        (   101   1e-5   )
+        (   102   2e-5   )
+        (   103   3e-5   )
+        (   104   4e-5   )
+        (   105   5e-5   )
+        (   106   6e-5   )
+        (   107   7e-5   )
+        (   108   8e-5   )
+        (   109   9e-5   )
+        (   110   1e-4   )
+        (   200   1e-4   )
+    );
+}
+
+//- Relevant only for diffusionNeutronics
+
+adjustDiscFactors false;
+
+useGivenDiscFactors false;
+
+energyGroups    2;
+
+precGroups      6;
+
+xsVariables
+{}
+
+states
+(
+    reference
+    {
+        zones
+        (
+            zone0
+            {
+                fuelFraction 1;
+                sigmaRemoval nonuniform List<scalar> 2(5 4);
+                nuSigmaEff nonuniform List<scalar> 2(1 5.74);
+                sigmaPow nonuniform List<scalar> 2{1};
+                scatteringMatrixP0 2 2 ( ( 10 5 ) ( 0 10 ) );
+                discFactor nonuniform List<scalar> 2{1};
+                chiPrompt nonuniform List<scalar> 2(1 0);
+                chiDelayed nonuniform List<scalar> 2{0.5};
+                IV nonuniform List<scalar> 2(7.1e-08 0.0045);
+                lambda nonuniform List<scalar> 6
+                (0.0125371 0.0300828 0.109879 0.325484 1.3036 9.51817);
+                Beta nonuniform List<scalar> 6
+                (7.2315e-05 0.000609661 0.000471181 0.00118907 0.000445487 9.58515e-05)
+                ;
+                D nonuniform List<scalar> 2(0.1 0.04);
+                integralFlux nonuniform List<scalar> 2{1};
+            }
+        );
+    }
+);
+
+//---------------------------------------------------------------------------//
+
+/*
+	The pointKinetics keywords that can be specified are
+
+    //- Self explanatory, REQUIRED
+    promptGenerationTime 1e-06;
+
+    //- Delayed neutron fraction by group. The number of groups is deduced
+    //  by the length of this list, REQUIRED
+    Beta
+    (
+        7.2315e-05
+        0.000609661
+        0.000471181
+        0.00118907
+        0.000445487
+        9.58515e-05
+    );
+
+    //- Delayed neutron decay constants by group. The number of groups is
+    //  deduced by the length of this list and should be consistent with
+    //  Beta, REQUIRED
+    lambda
+    (
+        0.0125371
+        0.0300828
+        0.109879
+        0.325484
+        1.3036
+        9.51817
+    );
+
+    //- If true, an additional logarithmic feedback of fuel temperature is
+    //  added to the total reactivity, NOT REQUIRED, defaults to false
+    fastNeutrons    false;
+
+    //- Doppler coefficient for the logarithmic fuel temperature feedback.
+    //  Used only if fastNeutrons is true. ONLY REQUIRED if fastNeutrons is true
+    feedbackCoeffDoppler 0;
+
+    //- Reactivity contribution in the form
+    //  feedbackCoeffTFuel*(TFuel-TFuelRef)). REQUIRED
+    feedbackCoeffTFuel -3e-06;
+
+    //- Reactivity contribution in the form
+    //  feedbackCoeffTClad*(TClad-TCladRef)). REQUIRED
+    feedbackCoeffTClad 0;
+
+    //- Reactivity contribution in the form
+    //  feedbackCoeffTCool*(TCool-TCoolRef)). REQUIRED
+    feedbackCoeffTCool 0;
+
+    //- Reactivity contribution in the form
+    //  feedbackCoeffRhoCool*(RhoCool-RhoCoolRef)). REQUIRED
+    feedbackCoeffRhoCool 0;
+
+    //- Reactivity contribution in the form
+    //  feedbackCoeffTStruct*(TStruct-TStructRef)). REQUIRED
+    feedbackCoeffTStruct 0;
+
+    //- Used to compute drivelineExpansion as
+    //  (TDriveline-TDrivelineRef)*absoluteDrivelineExpansionCoeff
+    //  Dimensionally, it is m/K. REQUIRED
+    absoluteDrivelineExpansionCoeff 8e-05;
+
+    //- Used to related drivelineExpansion to reactivity contribution
+    //  Values of the expansion that are in between two map points
+    //  result in a reactivity contribution that is computed via
+    //  linear interpolation from the two. Any number of points can be
+    //  provided. The points can be provided either in ascending or
+    //  descending order of the first number (i.e. the expansion).
+    //  NOT REQUIRED, defaults to an empty reactivity map
+    controlRodReactivityMap
+    (
+        ( 0.1 -0.01 ) //- Pair in the form ( expans(m) reacitivity(-) )
+        ( 0 0 )
+        ( -0.1 0.01 )
+    );
+
+    //- Used to specify a reference fuel temperature for the computation
+    //  of the TFuel and FastDoppler reactivity contributions. If not
+    //  provided, the initial time-step flux-averaged fuel temperature is
+    //  used, effectively starting from a steady state. The average is
+    //  performed in the cellZones specified by fuelFeedbackZones. NOT
+    //  REQUIRED, defaults to computed value as described above
+    //  TFuelRef    0;
+
+    //- Used to specify a reference cladding temperature for the
+    //  computation of the TClad reactivity contribution. If not
+    //  provided, the initial time-step flux-averaged cladding temperature
+    //  is used, effectively starting from a steady state. The average is
+    //  performed in the cellZones specified by fuelFeedbackZones. NOT
+    //  REQUIRED, defaults to computed value as described above
+    //  TCladRef    0;
+
+    //- Used to specify a reference coolant temperature for the
+    //  computation of the TCool reactivity contribution. If not
+    //  provided, the initial time-step flux-averaged coolant temperature
+    //  is used, effectively starting from a steady state. The average is
+    //  performed in the cellZones specified by coolFeedbackZones. NOT
+    //  REQUIRED, defaults to computed value as described above
+    //  TCoolRef    0;
+
+    //- Used to specify a reference coolant density for the
+    //  computation of the rhoCool reactivity contribution. If not
+    //  provided, the initial time-step flux-averaged coolant density
+    //  is used, effectively starting from a steady state. The average is
+    //  performed in the cellZones specified by coolFeedbackZones. NOT
+    //  REQUIRED, defaults to computed value as described above
+    //  rhoCoolRef    0;
+
+    //- Used to specify a reference structure temperature for the
+    //  computation of the TStruct reactivity contribution.
+    //  If not provided, the initial time-step flux-averaged structure
+    //  temperature is used, effectively starting from a steady state. The
+    //  average is performed in the cellZones specified by
+    //  structFeedbackZones. NOT REQUIRED, defaults to computed value as
+    //  described above
+    //  TStructRef    0;
+
+    //- Used to specify a reference driveline temperature for the
+    //  computation of the driveline expansion reactivity contribution.
+    //  If not provided, the initial time-step flux-averaged structure
+    //  temperature is used, effectively starting from a steady state.The
+    //  average is performed in the cellZones specified by
+    //  drivelineFeedbackZones. Please note that the structure temperature
+    //  is used as representative of the driveline in said zones. NOT
+    //  REQUIRED, defaults to computed value as described above
+    //  TDrivelineRef    0;
+
+    //- List of cellZones over which the flux-averaging of the fuel, clad
+    //  temperature is performed to compute TFuel, TClad. NOT REQUIRED,
+    //  defaults to the enitre mesh
+    fuelFeedbackZones
+    (
+        "innerCore"
+        "outerCore"
+        ...
+    );
+
+    //- List of cellZones over which the flux-averaging of the coolant
+    //  temperature and density are performed to compute TCool, rhoCool.
+    //  NOT REQUIRED, defaults to the enitre mesh
+    coolFeedbackZones
+    (
+        "innerCore"
+        "outerCore"
+        ...
+    );
+
+    //- List of cellZones over which the flux-averaging of the structure
+    //  temperature is performed to compute TStruct. NOT REQUIRED,
+    //  defaults to the enitre mesh
+    structFeedbackZones
+    (
+        "diagrid"
+        ...
+    );
+
+    //- List of cellZones over which the flux-averaging of the structure
+    //  temperature is performed to compute TDriveline. NOT REQUIRED,
+    //  defaults to the enitre mesh
+    fuelFeedbackZones
+    (
+        "skirt"
+        "driveline"
+        ...
+    );
+*/
+
+// ************************************************************************* //

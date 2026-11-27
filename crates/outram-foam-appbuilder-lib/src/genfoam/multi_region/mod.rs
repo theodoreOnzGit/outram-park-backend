@@ -115,6 +115,8 @@ pub mod mesh_region;
 pub mod mesh_to_mesh;
 pub mod outer_iteration;
 pub mod rbf_mapping;
+#[cfg(feature = "std")]
+pub mod region_solvers;
 pub mod reactivity_feedback;
 
 // Curated re-exports (human interface layer): the handful of types a user needs

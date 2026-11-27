@@ -1,0 +1,41 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      reactorState;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+/*
+	With regards to pointKinetics, this file is only used to set
+    initial power, external reactivity and, if applicable, initial precursor
+    concentrations (expressed in W for consistency with the point kinetics
+    equation being solved for reactor power rather than neutron density).
+    The intial precursor concentrations can be specified via the
+    precursorPowers keyword. If not found, precursor concentration are
+    initialized so to be in equilibrium with the starting conditions (i.e.
+    a steady state is assumed). 
+    
+    NB: pTarget MUST be the same as the one used for reaching the steady-state.
+    As power, GeN-Foam uses what it finds under powerDensity, or under the
+    powerDensity of the fluidRegion if it does not find a powerDensity in the
+    neutroRegion. pTarget does not enter the calculation, it is used simply to
+    plot the results
+*/
+
+//- keff has no effect on pointKinetics
+keff            1.003457;
+
+//-
+pTarget         10000000;
+
+// ************************************************************************* //
