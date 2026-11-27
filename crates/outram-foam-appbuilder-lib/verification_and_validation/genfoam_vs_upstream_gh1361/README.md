@@ -5216,3 +5216,65 @@ Criteria: those of "Predictions, items 2-4" (amendments (a)-(d)) with these carr
 | C-K2 | control `without_non_orthogonal_correctors` against `cav_no1_final` | `U` differs by >= 1e-8 of `max |U|` at step 10: the loose Final solve then acts on the first and only pass, from an unconverged start, instead of on a converged restart | the final selection is not exercised |
 | C-K3 | the `useFirstPISOInitialResidual` residual taken from the last pass | not discriminated by these cases: the channel's `h` criterion is never met, so the outer-iteration count cannot depend on the `p_rgh` residual (upstream's counts are exactly 2x). The rule is read from `customPimpleControl.C:279`, ported, and NOT verified by a run | an open item (filed) |
 | C-K4 | `nNonOrthogonalCorrectors 0` cases | `genfoam_one_phase_vs_upstream` and the item-5/cavity tests above pass with identical numbers (one pass, bit for bit what it was) | record old/new |
+
+
+## The 30 s cavity, whole run (diagnostic; measured 2026-11-27, `cavity_boussinesq_full_run_vs_upstream --ignored`, 362 s)
+
+All **3169 steps** run; the final time is **29.997222178403288** in both codes; the worst `deltaT` relative difference over the 3169 steps is 2.2e-12 (bit-identical for steps 1-17). Fields against upstream at step 1000 and at the last step (3169): `p` 1.9e-14 / 1.6e-14, `p_rgh` 1.9e-14 / 1.6e-14, `T` 2.4e-13 / 2.8e-13, `U` on the `max |U|` scale 3.9e-12 / 2.2e-12 (x) and 3.4e-12 / 3.8e-12 (y), `Re` 5.9e-12 / 3.1e-12, `dgdt` 3.0e-16 / 4.6e-16. **No growth with time: the round-off does not accumulate in this steady circulation.** (Solve-log tally of the first 300 steps is identical to the gated test's.)
+
+## Item 1 results: `nNonOrthogonalCorrectors` in `pEqnf_1p.H` (measured 2026-11-27, release; 6 tests of `genfoam_one_phase_fc_vs_upstream.rs`)
+
+### Upstream -> Rust mapping (item 1)
+
+| upstream (`pEqnf_1p.H`, `pEqnRoutines/`) | Rust (`one_phase_fc.rs`, `correct_pressure`) |
+|---|---|
+| `while (pimple_.correctNonOrthogonal())` | `for pass in 1..=nNonOrthogonalCorrectors + 1`; the matrix is built once (`uncorrected`: identical in every pass) |
+| `solveP_rgh_1p.H` `p_rgh_.select(pimple_.finalInnerIter())` | `p_rghFinal` when `corr == nCorrectors && pass == n_pass` |
+| `pEqn.setReference(pRefCell, compressible ? getRefCellValue : pRefValue, forcePRef)` | `source[rc] += diag[rc] pRefValue; diag[rc] += diag[rc]` if no fixed-value `p_rgh` patch (`psi = 0`); `psi > 0` refused at read |
+| `if (corrNonOrtho == 1) convergedPISO = converged` | `converged` taken from pass 1; the corrector loop breaks on it (`correctUntilConvergence`) |
+| `updateFirstPISOPrevPIMPLE()` per pass | the residual kept for the first corrector is the LAST pass's (`first_res`); NOT discriminated by any run (see C-K3) |
+| `if (finalNonOrthogonalIter()) { phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf; dgdt = -(pEqnComp & p_rgh); reconstructU }` | after the pass loop, once |
+| `setSnGrad<fixedFluxPressure>(...)` | the `FixedGradient` loop before the pass loop |
+| `fluid_.rho()` / `rho(true)` (`fluid.C:795`) | `Phase::rho` = `rho0` (Boussinesq), `rho_var` = `rho(T)` for `snGrad` in `calcPhiSbyA_1p.H`; `thermo_rho_c/b` for `nu`, `Re` |
+| `noSlip` | `case::vector_bcs`: `VectorBc::Fixed(0)`; `correctBoundaryFlux_1p.H`: `phi_b = Sf . U_b` |
+
+### Results (port against the real binary)
+
+| variant | solves per step | fields (steps 1, 2, 3 / 10 / 50 / 100) on the `max |U|` scale for `U` | pass-1 solve log (tier i viol. / tier ii viol., worst iteration difference) | restart passes (residual-level pairs) | `deltaT` |
+|---|---|---|---|---|---|
+| `ch_no1` (channel, 108 steps) | 68 / 66 / 70 = 2x the base, equal to upstream's | <= 5.0e-14 (every field, every step) | 0 / 0 (0 iterations apart); 3 straddle steps | 3180 pairs, 0 violations | bit-identical 108 steps |
+| `cav_no1` | 144 = equal | `U` 3.6e-9, 4.2e-10, 2.3e-10 / 1.5e-10 / 9e-12 / 2.5e-12; `p` <= 5.9e-14, `T` <= 3.4e-13 | 14 of 3824 / 464 of 3376 (14 %), 6 / 19 | 7200 pairs, 0 violations; iteration differences up to 19 | first difference step 18, worst 3.5e-12 |
+| `cav_no2` | 216 = equal | as `cav_no1` | 13 / 497 (15 %), 2 / 18 | 14400 pairs, 0 violations; up to 23 | worst 3.3e-12 |
+| `cav_no1_final` | 144 = equal | as `cav_no1` | 15 / 522 (15 %), 16 / 18 | 7200 pairs, 0 violations; up to 24 | worst 4.5e-12 |
+
+Bit-identity is not reached on any variant (not asked of a PCG with a 1e-14 stop: the first-corrector solves already differ by round-off, items 5, G5). The 1e-9 allowance is not invoked except for `U` at steps 1-3 of the rest start (above).
+
+| control | against | result |
+|---|---|---|
+| `without_non_orthogonal_correctors` | `cav_no1`, steps 1-10 | solve count 72 against 144 in **every one of 10 steps**; fields stay within the K2 bounds (rest-start step 1: 4.6e-9): the loop changes the log, not the answer |
+| `p_rghFinal` ignored (`p_rgh_final_pcg = None`) | `cav_no1_final`, last solve of each of 20 steps | mean iterations 43.5 against upstream's 13.2 (with Final: 16.6) |
+| a `corrected` Laplacian | any | refused by name (test) |
+
+### Predictions: held and missed (item 1)
+
+* **K1 held** (channel: 5.0e-14, solves 2x and equal, restart pairs at residual 1e-14 or below).
+* **K2 held in the structure** (solve counts equal, 144 and 216 per step; fields as G2) **with three misses of the committed numbers**: `U` at step 1 is 3.6e-9 (`cav_no1`; committed <= 3e-9; the rest-start noise of items 2-4, which measured 2.6e-9 in the base cavity), the pass-1 tier-(ii) rate is 14-15 % (carried over from G5's 14 %: held), and the restart passes' **iteration** counts differ by up to 24 (predicted "up to ~100": the largest difference measured is smaller than round 33's).
+* **K3 MISSED**: "every pass after the first starts from an initial residual below 1e-11". The cavity's restart residuals are 1e-11 to 1e-10 (and 0.2-0.8 in the rest-start step 1: the noise), so they fall in tier (ii) of the committed criteria, whose count rule they violate by up to 24 iterations. Derived after the miss and coded as such: every restart pass is compared as a residual-level pair (port `r` within a factor 10 of upstream's, or both <= 1e-10), never by count (round 33's rule, applied at the level the cavity needs). 0 violations.
+* **K4 held** (`cav_no1_final`: fields as K2, 144 solves per step).
+* **C-K1 held** (72 against 144 solves in every step, fields within bounds). **C-K2 MISSED as committed** ("`U` >= 1e-8 of `max |U|` away at step 10": measured 4.7e-11 / 3.6e-11): by the time of the last corrector `p_rgh` is converged to 1e-14 and the loose Final solve changes almost nothing. The Final selection is evidenced by the solve log instead (mean 16.6 against 43.5 iterations; upstream 13.2: a 3x separation with a 25 % residual, not a count match: the loose restart's count is round-off dependent). **C-K3 not discriminated, as predicted** (upstream's outer-iteration counts are exactly 2x on the channel; the last-pass rule for `updateFirstPISOPrevPIMPLE` is read from `customPimpleControl.C:279` and ported, not verified: filed). **C-K4 held**: `genfoam_one_phase_vs_upstream` (5 tests), `genfoam_msfr_th_vs_upstream` (8), `genfoam_msfr_th_nonorth_vs_upstream` (6), `cargo test --lib one_phase` (19) pass with unchanged output.
+
+## Defects found by this round (all by translating or bisecting against upstream)
+
+1. **`nuEff` and `Re` used `fluid::rho()` where upstream uses the THERMO density** (Boussinesq: `rho0` against `rho(T)`): `p` 3e-11, `U` 2e-5 at step 1, growing to `T` 1.4e-3, `U` 7e-3 at step 300. Found by `nOuterCorrectors`/`nCorrectors` bisection against the real binary (`scripts/fc_protocol.sh NOUTER NCORR`), fixed in `thermo_rho_c/b`. Pinned by `cavity_boussinesq_as_shipped_300_steps_vs_upstream` (and its control `control_variable_density_is_far_from_the_boussinesq_reference`).
+2. The `p_rgh` solve of `one_phase_fc` was an ILU-BiCGStab, not OpenFOAM's `PCG`/`DIC`, and `p_rghFinal` was never read (gh:#1857, for this region). Both fixed (item 5).
+
+## Moved numbers
+
+Round 4 (`genfoam_one_phase_vs_upstream`): **none** (the file selects `with_krylov_for_p_rgh`, the old solver; its 5 tests pass with their old bounds, and the same output). **The default of `OnePhaseFcCase::read` moved**: `p_rgh` is now `PCG`/`DIC` (a `GAMG` entry substituted), so the round-4 channel run with the DEFAULT solver is a different number from round 4's (channel with `PCG`/`DIC` against the matching upstream run: `p` 5.6e-14 at step 1 against round 4's 3.5e-14, `U` 5e-14 against 2.8e-12 at step 40: not worse anywhere, 100x better for `U`). The two-phase and cell-centred suites do not use any function edited here except `case::vector_bcs` (one arm added: `noSlip`) and `case::read_thermo` (one arm added: `Boussinesq/hConst/const`): `genfoam_msfr_th*` pass unchanged.
+
+## What is NOT done (filed, see the issue list in the hand-off)
+
+* **`3D_HTR-10`** (`fixedFluxExtrapolatedPressure`, `perfectGas` + `hPolynomial`, 3-D, `nNonOrthogonalCorrectors 1`): not run, refused by name; the loop it needs is ported and measured on the cavity.
+* The compressible closed volume (`getRefCellValue`, `deltaMass/compressibility`): refused by name at read.
+* The last-pass `updateFirstPISOPrevPIMPLE` residual and a non-trivial `residualControl` with the loop: read, ported, not discriminated by any run.
+* A `corrected` Laplacian; `GAMG` (gh:#1843): `PCG`/`DIC` is the named substitution (at the shipped `1e-6` tolerance the substitution costs 5.5e-4 at step 1 of the open cavity: control C2).

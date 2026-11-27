@@ -54,12 +54,28 @@
 //! * [`OnePhaseFcSolver::with_structure_after_solve_temperature`]: `structure.correct` with the
 //!   temperature after the energy solve (what the twoPhase port does), not `T.prevIter()`.
 //!
+//! ## Round 38 (gh:#1878): what `pEqnf_1p.H` now has
+//!
+//! * `p_rgh` is solved by the translated `PCG`/`DIC` ([`super::pcg`]) at the `solvers.p_rgh` / `p_rghFinal` entries
+//!   ([`OnePhaseFcControls::p_rgh_pcg`]; the Final entry at the last pass of the last corrector); a `GAMG` entry is the named
+//!   deviation [`GamgPolicy::SubstitutePcgDic`] (default of [`OnePhaseFcCase::read`], reported in
+//!   [`OnePhaseFcControls::p_rgh_gamg_substituted`]). The older ILU-BiCGStab is [`OnePhaseFcSolver::with_krylov_for_p_rgh`].
+//! * `nNonOrthogonalCorrectors` (`n + 1` passes per corrector, flux / `dgdt` / `U` from the last).
+//! * The closed volume: `setReference(pRefCell, pRefValue)` (the value branch, `psi = 0`), `fixedFluxPressure` with
+//!   `setSnGrad`, `empty` patches.
+//! * `Boussinesq` + `hConst` + `const` ([`PhaseThermo::BoussinesqHConst`]): `fluid::rho()` is `rho0` in every term but the
+//!   buoyancy flux; `nu` and the Reynolds number use the THERMO density `rho(T)`.
+//! * `noSlip` (and `fixedValue`) velocity patches through `Vector::patch_coeffs` and `VecEqn::boundary_*`.
+//!
 //! ## What this does not port (each refused by name in [`OnePhaseFcCase::read`])
 //!
 //! `momentumMode` other than `faceCentered`; `porousInterfaceSharpness != 0`; turbulence other than
 //! `laminar`; heat exchangers, pumps, passive structures, tortuosity, local frames, power-off
-//! criteria; velocity patches other than `zeroGradient`; closed volumes (no fixed-value `p_rgh`
-//! patch: the reference-cell branch); `Boussinesq`.
+//! criteria; velocity patches other than `zeroGradient` and `noSlip` (`fixedValue`, `slip` and `symmetry` are accepted by the shared
+//! reader and NOT verified here; `pressureInletOutletVelocity` is refused: no fluid flux names); `fixedValue`/`flowRateInletVelocity`/`partialSlip`
+//! cases of `1D_HX` (gh:#1867);
+//! a closed volume with a compressible thermo (`perfectGas`: the `getRefCellValue` and `deltaMass/compressibility` branches);
+//! a `corrected` Laplacian or snGrad; `fixedFluxExtrapolatedPressure`, `perfectGas`/`hPolynomial` 3-D `3D_HTR-10` (not run, gh:#1878).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
