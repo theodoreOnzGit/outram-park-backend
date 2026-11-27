@@ -544,7 +544,8 @@ pub(super) fn read_flow_case(
             .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{name}`", ff.name)))?;
         Ok((ty.clone(), v.clone()))
     };
-    let uf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/U"))?;
+    // `U` and `p_rgh` of a WRITTEN start directory are lists (gh:#1926): only their boundary conditions come from these files
+    let uf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/U"))?;
     let mut u_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         if p.kind == PatchKind::Empty {
@@ -565,8 +566,13 @@ pub(super) fn read_flow_case(
             (other, _) => return Err(ctx.e(format!("U.{}: `{other}` is not ported for the solved flow (wedge, fixedValue, noSlip, zeroGradient, slip)", p.name))),
         });
     }
-    let pf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/p_rgh"))?;
+    let pf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/p_rgh"))?;
     let p0 = pf.internal.as_scalar().ok_or_else(|| ctx.e("p_rgh internalField must be a uniform scalar"))?;
+    let p_rgh_cells = match &pf.internal_list {
+        Some(l) if l.len() == n => l.clone(),
+        Some(l) => return Err(ctx.e(format!("p_rgh: {} values for {n} cells", l.len()))),
+        None => vec![p0; n],
+    };
     let mut p_rgh_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         if p.kind == PatchKind::Empty {
@@ -644,7 +650,7 @@ pub(super) fn read_flow_case(
         t_bc,
         u_bc,
         p_rgh_bc,
-        p_rgh0: vec![p0; n],
+        p_rgh0: p_rgh_cells,
         nut: vec![nut0; n],
         nut_boundary,
         momentum_source,

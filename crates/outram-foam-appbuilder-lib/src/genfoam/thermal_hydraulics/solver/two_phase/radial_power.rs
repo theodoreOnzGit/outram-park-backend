@@ -228,9 +228,15 @@ mod reader {
                 "lumpedNuclearStructure" => &["T.lumpedNuclearStructure", "Tmatrix.lumpedNuclearStructure", "Tsurface.lumpedNuclearStructure"],
                 _ => &["T.interpolatedNuclearFuelPin"],
             };
+            // `nuclearFuelPin`: `Trad.nuclearFuelPin` is READ (`foundTrad`, `nuclearFuelPin.C:212-215`) and then wins over `Tfi`, `Tfo`, `Tci`,
+            // `Tco` (`foundBoundaryTemperatures` is only consulted when `Trad` is absent, `:441-537`: that reconstruction is not ported)
+            let trad_file = if ty == "nuclearFuelPin" && fdir.join("Trad.nuclearFuelPin").exists() { Some(fdir.join("Trad.nuclearFuelPin")) } else { None };
             for f in own_files {
                 // `powerDensity.heatedPin` is READ when the caller supplies it (`heated_pin_q_file`): upstream's `setRegionField` then does nothing
                 if *f == "powerDensity.heatedPin" && heated_pin_q_file.is_some() {
+                    continue;
+                }
+                if trad_file.is_some() && ty == "nuclearFuelPin" {
                     continue;
                 }
                 if fdir.join(f).exists() {
@@ -310,6 +316,13 @@ mod reader {
                         NuclearFuelPin::new(n, rs, alpha_structure, volumes, 0)
                     }
                     .map_err(|e| model_err(ctx, ty, e))?;
+                    let m = match &trad_file {
+                        Some(path) => {
+                            let trad = read_scalar_field_field(path).map_err(|e| ctx.e(format!("{}: {e}", path.display())))?;
+                            m.with_read_trad(trad, volumes).map_err(|e| model_err(ctx, ty, e))?
+                        }
+                        None => m,
+                    };
                     models.push(RadialPowerModel::NuclearFuelPin(m));
                 }
                 "lumpedNuclearStructure" => {
@@ -370,6 +383,79 @@ mod reader {
             other => format!("the `{other}` powerModel is not ported here"),
         }
     }
+/// An `IOFieldField<Field, scalar>` file (`class scalarFieldField`): `N ( M ( v ... ) M ( ... ) ... )`, one list per cell (a cell outside the
+/// model holds an empty list), numbers read with `parse_foam_f64`.
+///
+/// # Errors
+/// A message naming what is malformed.
+pub fn read_scalar_field_field(path: &Path) -> Result<Vec<Vec<f64>>, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    parse_scalar_field_field(&crate::io::poly_mesh::strip_foam_comments(&text))
+}
+
+/// [`read_scalar_field_field`] on the text (comments already stripped).
+///
+/// # Errors
+/// A message naming what is malformed.
+pub fn parse_scalar_field_field(text: &str) -> Result<Vec<Vec<f64>>, String> {
+    let body = match text.find('}') {
+        Some(i) => &text[i + 1..],
+        None => text,
+    };
+    let toks: Vec<&str> = body.split(|c: char| c.is_whitespace()).filter(|t| !t.is_empty()).flat_map(split_parens).collect();
+    let mut it = toks.into_iter();
+    let n: usize = it.next().ok_or("empty file")?.parse().map_err(|_| "no list count".to_string())?;
+    if it.next() != Some("(") {
+        return Err("no `(` after the list count".to_string());
+    }
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let m: usize = it.next().ok_or_else(|| format!("entry {i}: missing"))?.parse().map_err(|_| format!("entry {i}: no size"))?;
+        if m == 0 {
+            // `0()` or `0` followed by `(` `)`
+            if it.clone().next() == Some("(") {
+                it.next();
+                if it.next() != Some(")") {
+                    return Err(format!("entry {i}: empty list not closed"));
+                }
+            }
+            out.push(Vec::new());
+            continue;
+        }
+        if it.next() != Some("(") {
+            return Err(format!("entry {i}: no `(`"));
+        }
+        let mut v = Vec::with_capacity(m);
+        for _ in 0..m {
+            let t = it.next().ok_or_else(|| format!("entry {i}: short"))?;
+            v.push(outram_foam_basic_lib::io::parse_foam_f64(t).ok_or_else(|| format!("entry {i}: `{t}` is not a number"))?);
+        }
+        if it.next() != Some(")") {
+            return Err(format!("entry {i}: not closed"));
+        }
+        out.push(v);
+    }
+    Ok(out)
+}
+
+fn split_parens(t: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    for (i, c) in t.char_indices() {
+        if c == '(' || c == ')' {
+            if start < i {
+                out.push(&t[start..i]);
+            }
+            out.push(&t[i..i + 1]);
+            start = i + 1;
+        }
+    }
+    if start < t.len() {
+        out.push(&t[start..]);
+    }
+    out
+}
+
 }
 
 #[cfg(feature = "std")]

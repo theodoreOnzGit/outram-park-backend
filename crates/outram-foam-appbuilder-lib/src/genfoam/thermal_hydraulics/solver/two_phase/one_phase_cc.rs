@@ -357,6 +357,9 @@ pub struct PassiveStructure {
     pub alpha_rho_cp: Vec<f64>,
     /// `Tpas_` at the start time per cell (the dictionary `T` where the field is not on disk).
     pub t: Vec<f64>,
+    /// `T.passiveStructure` was READ from the start directory (`structure.C:157`, `TpasHeaderOk`; gh:#1926, README round 66): a new process
+    /// then has the `Tpas.oldTime()` quirk of a restart ([`OnePhaseCcSolver::restart_at`]), without calling `restart_at`.
+    pub t_from_file: bool,
 }
 
 /// A read case (all fields at the start time).
@@ -898,7 +901,7 @@ impl OnePhaseCcCase {
                 let pas_alpha = scalar(pd, "volumeFraction").unwrap_or(vf);
                 let pas_ia = ctx.f64(pd, "volumetricArea")?;
                 let pas_t = ctx.f64(pd, "T")?;
-                let ps = passive.get_or_insert_with(|| PassiveStructure { ia: vec![0.0; n], alpha_rho_cp: vec![0.0; n], t: vec![0.0; n] });
+                let ps = passive.get_or_insert_with(|| PassiveStructure { ia: vec![0.0; n], alpha_rho_cp: vec![0.0; n], t: vec![0.0; n], t_from_file: false });
                 for &c in &cells {
                     ps.ia[c] = pas_ia;
                     ps.alpha_rho_cp[c] = pas_alpha * rho_cp;
@@ -995,6 +998,13 @@ impl OnePhaseCcCase {
         let fdir = root.join(&tdir).join(region);
         let sfield = |name: &str| read_vol_scalar_field(&fdir.join(name), n);
         let hand = options.fields.as_ref();
+        // `structure.C:157`: `Tpas_` is `READ_IF_PRESENT`; the dictionary's `T` only where the header is not ok (`if (!TpasHeaderOk)`, `:466`)
+        if let Some(ps) = passive.as_mut() {
+            if hand.is_none() && fdir.join("T.passiveStructure").exists() {
+                ps.t = sfield("T.passiveStructure")?;
+                ps.t_from_file = true;
+            }
+        }
         // ---- the radial-conduction power models (gh:#1879): built here because they need every zone's structure alpha
         let has_radial = sp.iter().any(|(_, e)| match e {
             FoamEntry::SubDict(zd) => zd

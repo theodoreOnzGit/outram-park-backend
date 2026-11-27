@@ -788,6 +788,27 @@ impl LegacyFvmThermoMechanics {
         self
     }
 
+    /// The constructor of a run that STARTS at a written time (gh:#1926, README round 66): `disp` and `fuelDisp`, `CRDisp` (`MUST_READ`,
+    /// `legacyThermoMechanics.C:259`, `thermoMechanics.C:98,110`) and `meshDisp` (`READ_IF_PRESENT`, `thermoMechanics.C:84`) are the READ
+    /// fields, and the constructor tail (`legacyThermoMechanics.C:504-518`) computes `sigmaD_` and `divSigmaExp_` from the read `disp`; the
+    /// `GFTractionDisplacement` patches were constructed from the dictionary (`gradient() = Zero`, the file's `value` not read back). This is
+    /// what [`Self::restart_at`] reproduces on a solver that ran; here nothing ran, so nothing is reset.
+    ///
+    /// # Panics
+    /// If a slice is not one value per cell.
+    #[must_use]
+    pub fn with_read_fields(mut self, disp: &[Vector3], fuel_disp: &[f64], cr_disp: &[f64], mesh_disp: &[Vector3]) -> Self {
+        let n = self.mesh.n_cells;
+        assert!(disp.len() == n && fuel_disp.len() == n && cr_disp.len() == n && mesh_disp.len() == n, "one value per cell");
+        self.disp.copy_from_slice(disp);
+        self.fuel_disp.copy_from_slice(fuel_disp);
+        self.cr_disp.copy_from_slice(cr_disp);
+        self.mesh_disp.copy_from_slice(mesh_disp);
+        self.extrapolate_disp_boundary();
+        self.initial_div_sigma_exp();
+        self
+    }
+
     /// The selected `d2dt2` scheme.
     pub fn d2dt2_scheme(&self) -> D2dt2Scheme {
         self.d2dt2

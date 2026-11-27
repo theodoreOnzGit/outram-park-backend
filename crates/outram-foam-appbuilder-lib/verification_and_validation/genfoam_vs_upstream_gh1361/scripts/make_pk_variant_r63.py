@@ -104,5 +104,27 @@ elif variant == 'gem':
     append(os.path.join(NR, 'neutronicsProperties'), '\nfluidRegionName fluidRegion;\n')
     append(os.path.join(NR, 'nuclearData'), '\nGEMSodiumLevelRef 2.2;\nGEMFlowFaceZone "gemCut";\nGEMReactivityMap ( (0.5 1e-4) (0 0) (-0.5 -1e-4) );\n')
     # the face zone is made by make_pk_variant_r63.sh (topoSet + setsToZones) after this script
+elif variant.startswith('prof_'):
+    # gh:#1930 round 66: ONE edit, `nuclearData.externalReactivityTimeProfile` replaced by the Function1 type named; every value is chosen so
+    # that the profile is near the shipped 5.7671e-4 (57.67 pcm) at t = 100 and moves by 1e-5..1e-4 over the 30 s of the run
+    L = '5.7671e-4'
+    profiles = {
+        'prof_constant': 'type constant;\n    value %s;' % L,
+        'prof_uniform': 'type uniform;\n    value %s;' % L,
+        'prof_zero': 'type zero;',
+        'prof_one': 'type one;',
+        'prof_linearRamp': 'type linearRamp;\n    start 42.329;\n    duration 1e5;',
+        'prof_halfCosineRamp': 'type halfCosineRamp;\n    start -1430;\n    duration 1e5;',
+        'prof_quarterCosineRamp': 'type quarterCosineRamp;\n    start -2062;\n    duration 1e5;',
+        'prof_quarterSineRamp': 'type quarterSineRamp;\n    start 63.29;\n    duration 1e5;',
+        'prof_cosine': 'type cosine;\n    frequency 0.05;\n    scale 1e-4;\n    level %s;' % L,
+        'prof_square': 'type square;\n    frequency 0.05;\n    mark 1;\n    space 2;\n    scale 1e-4;\n    level %s;' % L,
+        'prof_polynomial': 'type polynomial;\n    coeffs ( (4.5671e-4 0) (1e-6 1) (2e-9 2) );',
+    }
+    nd = os.path.join(NR, 'nuclearData')
+    s = open(nd).read()
+    s, n = re.subn(r'externalReactivityTimeProfile\s*\{.*?\n\}', 'externalReactivityTimeProfile\n{\n    ' + profiles[variant] + '\n}', s, count=1, flags=re.S)
+    assert n == 1
+    open(nd, 'w').write(s)
 else:
     sys.exit('unknown variant ' + variant)

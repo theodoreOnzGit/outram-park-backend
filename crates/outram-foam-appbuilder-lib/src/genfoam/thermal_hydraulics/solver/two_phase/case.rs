@@ -309,17 +309,25 @@ pub(super) fn nonuniform_scalar_list(tokens: &[FoamValue]) -> Option<Vec<f64>> {
 #[cfg(feature = "std")]
 fn read_field_with(ctx: &Ctx, rel: &str, allow_nonuniform: bool) -> Result<FieldFile, AppBuilderError> {
     let d = ctx.read(rel)?;
+    // gh:#1926 (README round 66): a WRITTEN field holds `nonuniform List<vector>` (`U`) and `nonuniform` patch values; a reader that takes only the
+    // boundary conditions from the file (`allow_nonuniform`) takes neither (the cells come from `read_vol_vector_field`)
+    let vector_list = matches!(d.get("internalField"), Some(FoamEntry::Tokens(t)) if t.first().and_then(FoamValue::as_word) == Some("nonuniform") && t.get(1).and_then(FoamValue::as_word) == Some("List<vector>"));
     let list = match d.get("internalField") {
         Some(FoamEntry::Tokens(t)) if t.first().and_then(FoamValue::as_word) == Some("nonuniform") => {
             if !allow_nonuniform {
                 return Err(ctx.e("`nonuniform` internalField is ported for alpha.<fluid> only"));
             }
-            Some(nonuniform_scalar_list(t).ok_or_else(|| ctx.e("only `nonuniform List<scalar> N (...)` is read"))?)
+            if vector_list {
+                None
+            } else {
+                Some(nonuniform_scalar_list(t).ok_or_else(|| ctx.e("only `nonuniform List<scalar> N (...)` is read"))?)
+            }
         }
         _ => None,
     };
     let internal = match &list {
         Some(l) => FoamValue::Scalar(*l.first().ok_or_else(|| ctx.e("empty nonuniform list"))?),
+        None if vector_list => FoamValue::Scalar(0.0),
         None => uniform_value(ctx, d.get("internalField"))?,
     };
     let bf = ctx.sub(&d, "boundaryField")?;
@@ -331,6 +339,7 @@ fn read_field_with(ctx: &Ctx, rel: &str, allow_nonuniform: bool) -> Result<Field
             let ty = ctx.word(pd, "type")?;
             let value = match pd.get("value") {
                 Some(FoamEntry::Word(w)) if w == "$internalField" => Some(internal.clone()),
+                Some(FoamEntry::Tokens(t)) if allow_nonuniform && t.first().and_then(FoamValue::as_word) == Some("nonuniform") => None,
                 Some(v @ FoamEntry::Tokens(_)) => Some(uniform_value(ctx, Some(v))?),
                 _ => None,
             };

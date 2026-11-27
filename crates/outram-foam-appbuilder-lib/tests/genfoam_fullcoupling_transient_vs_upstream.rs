@@ -280,6 +280,8 @@ struct Worst {
     points: f64,
     fluid_res_abs: f64,
     fluid_res_abs_after_1: f64,
+    /// README round 66: the FIRST `p_rgh` solve of step 1: (upstream, port) initial residual
+    first_prgh: Option<(f64, f64)>,
     fluid_it: i64,
     fluid_worst_solve: String,
     fluid_worst_iteration_solve: String,
@@ -363,6 +365,9 @@ fn compare_solves(run: &RegionSolvers, reference: &Reference, k: usize, w: &mut 
             let up = &reference.prgh[k - 1];
             if ps.len() == up.len() {
                 for (m, u) in ps.iter().zip(up) {
+                    if k == 1 && w.first_prgh.is_none() {
+                        w.first_prgh = Some((u.0, m.initial_residual));
+                    }
                     if u.0 > 1e-10 {
                         if (m.initial_residual - u.0).abs() > w.fluid_res_abs {
                             w.fluid_worst_solve = format!("p_rgh step {k} outer {} corr {}: up {:e} port {:e} its {} vs {}", m.outer, m.corrector, u.0, m.initial_residual, u.1, m.iterations);
@@ -1127,4 +1132,220 @@ fn each_pk_option_control_differs_from_the_real_run() {
         }
     }
     assert!(failures.is_empty(), "controls that did not differ: {failures:?}");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// The restart FROM THE WRITTEN START DIRECTORY (gh:#1926, README round 66)
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+/// Unpack `refs/fc_start100_r66.txt.gz` (`scripts/pack_start_dir_r66.py`: `FILE\t<relative path>\t<bytes>\n<bytes>\n` per file) into `dir`: the `100`
+/// directory of the real steady state after the transient stage's `-initializeMappedFields`.
+fn unpack_start_dir(dir: &Path) {
+    let bytes = gunzip(&vv_dir().join("refs/fc_start100_r66.txt.gz"));
+    let mut at = 0;
+    let mut files = 0;
+    while at < bytes.len() {
+        let eol = at + bytes[at..].iter().position(|&b| b == b'\n').expect("header line");
+        let header = std::str::from_utf8(&bytes[at..eol]).expect("utf8 header");
+        let parts: Vec<&str> = header.split('\t').collect();
+        assert_eq!(parts[0], "FILE", "packed file header {header}");
+        let len: usize = parts[2].parse().expect("length");
+        let body = &bytes[eol + 1..eol + 1 + len];
+        let path = dir.join(parts[1]);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&path, body).expect("write packed file");
+        at = eol + 1 + len + 1;
+        files += 1;
+    }
+    assert_eq!(files, 86, "the packed start directory holds 86 files");
+}
+
+/// The staged transient (`pk` true: the point-kinetics stage) with the REAL written `100` directory in place of the steady state's:
+/// everything `RegionSolvers::read` needs, and nothing of the port's own steady state.
+fn stage_from_files(tag: &str, pk: bool) -> PathBuf {
+    let root = if pk { stage_pk(&format!("files_{tag}")) } else { stage_transient(&format!("files_{tag}")) };
+    let _ = std::fs::remove_dir_all(root.join("100"));
+    unpack_start_dir(&root.join("100"));
+    root
+}
+
+/// README round 66, criterion 3: the first `p_rgh` initial residual of step 1 within 1e-11 absolute of the real run's (round 61: 1.6e-12 relative from the written fluid state).
+fn assert_first_prgh(w: &Worst) {
+    let (up, port) = w.first_prgh.expect("the first p_rgh solve of step 1");
+    println!("first p_rgh initial residual of step 1: upstream {up:e} port {port:e} (absolute {:e}, relative {:e})", (port - up).abs(), (port - up).abs() / up);
+    assert!((port - up).abs() <= 1e-11, "first p_rgh residual {up:e} vs {port:e}");
+}
+
+/// The SH transient from a case that STARTS at the written `100`: `RegionSolvers::read` alone (no steady state, no `restart_transient`, no
+/// `adopt_written_*`), up to `n_steps`, against the reference of round 60.
+fn run_sh_from_files(root: &Path, switches: CouplingSwitches, n_steps: usize, reference: &Reference) -> Worst {
+    let mut run = RegionSolvers::read(root, switches).unwrap_or_else(|e| panic!("the case at the written start directory is not readable: {e}"));
+    assert!(matches!(run.region("neutroRegion").map(|r| &r.solver), Some(RegionSolver::Neutronics(n)) if n.transient.is_some()), "the neutronics region is not the transient one");
+    let mut w = Worst::default();
+    let mut t_ref = 100.0;
+    let mut k = 0;
+    while run.running() && k < n_steps {
+        k += 1;
+        let rec = run.step().unwrap_or_else(|e| panic!("transient step {k}: {e}"));
+        w.steps = k;
+        w.dt = w.dt.max(rel(rec.dt, reference.dt[k - 1]));
+        t_ref += reference.dt[k - 1];
+        w.time = rel(run.time(), t_ref);
+        let lg = reference.nlog[k - 1];
+        let dp = rel(rec.power, lg[0]);
+        if dp > w.power.0 {
+            w.power = (dp, k);
+        }
+        w.power_trace.push(rec.power);
+        if let Some(nr) = &rec.neutronics {
+            w.neutron_iterations.push(nr.neutron_iterations);
+            if nr.neutron_iterations as f64 != lg[1] {
+                w.iterations_mismatch += 1;
+            }
+            if let Some(p) = &nr.predictor {
+                let (d_old, d_new) = (rel(p.integral_flux, lg[3]), rel(p.new_integral_flux, lg[4]));
+                if d_old > w.predictor_old.0 {
+                    w.predictor_old = (d_old, k);
+                }
+                if d_new > w.predictor_new.0 {
+                    w.predictor_new = (d_new, k);
+                }
+            }
+        }
+        compare_fields(&run, reference, k, n_steps, &mut w, k <= 2);
+        compare_solves(&run, reference, k, &mut w);
+    }
+    w
+}
+
+/// The PK transient from a case that STARTS at the written `100` (`regionSolvers.neutroRegion pointKinetics`), against the reference of round 61.
+fn run_pk_from_files(root: &Path, switches: CouplingSwitches, n_steps: usize, reference: &Reference) -> Worst {
+    let mut run = RegionSolvers::read(root, switches).unwrap_or_else(|e| panic!("the case at the written start directory is not readable: {e}"));
+    assert!(matches!(run.region("neutroRegion").map(|r| &r.solver), Some(RegionSolver::PointKinetics(_))), "the neutronics region is not point kinetics");
+    let mut w = Worst::default();
+    let mut t_ref = 100.0;
+    let mut k = 0;
+    while run.running() && k < n_steps {
+        k += 1;
+        let rec = run.step().unwrap_or_else(|e| panic!("transient step {k}: {e}"));
+        w.steps = k;
+        w.dt = w.dt.max(rel(rec.dt, reference.dt[k - 1]));
+        t_ref += reference.dt[k - 1];
+        w.time = rel(run.time(), t_ref);
+        let dp = rel(rec.power, reference.pk[k - 1]["totalPower"]);
+        if dp > w.power.0 {
+            w.power = (dp, k);
+        }
+        w.power_trace.push(rec.power);
+        compare_pk(&run, reference, k, &mut w);
+        compare_fields(&run, reference, k, n_steps, &mut w, k <= 2);
+        compare_solves(&run, reference, k, &mut w);
+    }
+    w
+}
+
+/// README round 66, criteria 1-3: the SH transient restarted by `RegionSolvers::read` of the written directory.
+#[test]
+fn the_diffusion_transient_restarted_from_the_written_files_matches_the_real_binary() {
+    let reference = load_reference("fc_transient_sh_r60.ref.txt.gz");
+    let root = stage_from_files("sh", false);
+    let t0 = std::time::Instant::now();
+    let w = run_sh_from_files(&root, CouplingSwitches::default(), usize::MAX, &reference);
+    println!("wall time {:?}", t0.elapsed());
+    print_worst("sh-from-files", &w);
+    assert_eq!(w.steps, reference.n_steps);
+    assert!(w.time <= 1e-12 && w.dt <= GATE, "time {:e} dt {:e}", w.time, w.dt);
+    assert!(w.power.0 <= GATE, "power {:?}", w.power);
+    assert!(w.predictor_old.0 <= GATE && w.predictor_new.0 <= GATE, "integral predictor {:?} {:?}", w.predictor_old, w.predictor_new);
+    assert_eq!(w.iterations_mismatch, 0);
+    assert!(w.first_diverging.is_none(), "first diverging fingerprint {:?}", w.first_diverging);
+    for (k, v) in &w.full {
+        assert!(*v <= GATE, "{k} full-field {v:e}");
+    }
+    assert_eq!(w.solve_count_mismatch, 0);
+    assert!(w.tm_res_abs <= 1e-11, "tm solves {:e}", w.tm_res_abs);
+    assert!(w.fluid_res_abs <= 1e-11, "fluid solve residuals {:e} ({})", w.fluid_res_abs, w.fluid_worst_solve);
+    assert_first_prgh(&w);
+}
+
+/// README round 66, criteria 1-3: the PK transient restarted by `RegionSolvers::read` of the written directory.
+#[test]
+fn the_point_kinetics_transient_restarted_from_the_written_files_matches_the_real_binary() {
+    let reference = load_reference("pk_r61.ref.txt.gz");
+    let root = stage_from_files("pk", true);
+    let t0 = std::time::Instant::now();
+    let w = run_pk_from_files(&root, CouplingSwitches::default(), usize::MAX, &reference);
+    println!("wall time {:?}", t0.elapsed());
+    print_pk("pk-from-files", &w);
+    assert_eq!(w.steps, reference.n_steps);
+    assert!(w.time <= 1e-12 && w.dt <= GATE, "time {:e} dt {:e}", w.time, w.dt);
+    assert!(w.pk_first.is_none(), "first diverging PK term {:?}", w.pk_first);
+    assert!(w.pk_tfuel_abs <= PK_TFUEL_TERM_ABS_PIN, "TFuel term absolute {:e}", w.pk_tfuel_abs);
+    assert!(w.first_diverging.is_none(), "first diverging fingerprint {:?}", w.first_diverging);
+    for (k, v) in &w.full {
+        assert!(*v <= GATE, "{k} full-field {v:e}");
+    }
+    assert_eq!(w.solve_count_mismatch, 0);
+    assert!(w.tm_res_abs <= 1e-11, "tm solves {:e}", w.tm_res_abs);
+    assert!(w.fluid_res_abs <= 1e-11, "fluid solve residuals {:e} ({})", w.fluid_res_abs, w.fluid_worst_solve);
+    assert_first_prgh(&w);
+}
+
+
+/// Replace the `internalField` list of a written field file by `internalField uniform <value>;` (a control that ignores what the file holds).
+fn flatten_field(path: &Path, value: &str) {
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let a = text.find("internalField").expect("internalField");
+    let b = text.find("boundaryField").expect("boundaryField");
+    std::fs::write(path, format!("{}internalField   uniform {value};\n\n{}", &text[..a], &text[b..])).expect("write");
+}
+
+/// The largest fingerprint difference of any field of region `region` over the compared steps.
+fn worst_fp(w: &Worst, region: &str) -> (String, f64) {
+    w.fp.iter().filter(|(k, _)| k.starts_with(region)).fold((String::new(), 0.0), |m, (k, v)| if v.0 > m.1 { (k.clone(), v.0) } else { m })
+}
+
+/// README round 66, criterion 5: each read of the written directory matters (the run that ignores it differs from the real binary).
+#[test]
+fn each_file_read_control_differs_from_the_real_run() {
+    let reference = load_reference("fc_transient_sh_r60.ref.txt.gz");
+    let n = 100;
+    let dev = |w: &Worst, k: usize| rel(w.power_trace[k - 1], reference.nlog[k - 1][0]);
+    // (a) `T.passiveStructure` not read: the dictionary's `T` (`TpasHeaderOk` false)
+    let a_root = stage_from_files("ctl_a", false);
+    std::fs::remove_file(a_root.join("100/fluidRegion/T.passiveStructure")).expect("remove");
+    let a = run_sh_from_files(&a_root, CouplingSwitches::default(), 2, &reference);
+    let da = worst_fp(&a, "fluidRegion");
+    // (b) the neutronics `polyMesh/points` of `100` not read
+    let b_root = stage_from_files("ctl_b", false);
+    std::fs::remove_file(b_root.join("100/neutroRegion/polyMesh/points")).expect("remove");
+    let b = run_sh_from_files(&b_root, CouplingSwitches::default(), n, &reference);
+    let db = dev(&b, n);
+    // (c) `fluxStar<g>`, `flux<g>`, `prec<k>` not read (flat flux 1, flat precursors 1)
+    let c_root = stage_from_files("ctl_c", false);
+    for f in ["flux0", "flux1", "fluxStar0", "fluxStar1", "prec0", "prec1", "prec2", "prec3", "prec4", "prec5"] {
+        flatten_field(&c_root.join("100/neutroRegion").join(f), "1");
+    }
+    let c = run_sh_from_files(&c_root, CouplingSwitches::default(), 1, &reference);
+    let dc = dev(&c, 1);
+    // (d) the TM `disp` not read (zero)
+    let d_root = stage_from_files("ctl_d", false);
+    flatten_field(&d_root.join("100/thermoMechanicalRegion/disp"), "(0 0 0)");
+    let d = run_sh_from_files(&d_root, CouplingSwitches::default(), 1, &reference);
+    let dd = worst_fp(&d, "thermoMechanicalRegion");
+    // (e) `alphaPhi`, `alphaRhoPhi` not read (rebuilt by `initAlphaPhis`)
+    let e_root = stage_from_files("ctl_e", false);
+    std::fs::remove_file(e_root.join("100/fluidRegion/alphaPhi")).expect("remove");
+    std::fs::remove_file(e_root.join("100/fluidRegion/alphaRhoPhi")).expect("remove");
+    let e = run_sh_from_files(&e_root, CouplingSwitches::default(), 2, &reference);
+    let de = worst_fp(&e, "fluidRegion");
+    println!(
+        "round 66 controls: (a) T.passiveStructure ignored: fluid fingerprint worst {:e} ({}), first diverging {:?}; (b) points ignored: power at step {n} {db:e}; (c) fluxStar/prec ignored: power at step 1 {dc:e}; (d) TM disp ignored: TM fingerprint worst {:e} ({}); (e) alphaPhi/alphaRhoPhi ignored: fluid fingerprint worst {:e} ({})",
+        da.1, da.0, a.first_diverging, dd.1, dd.0, de.1, de.0
+    );
+    assert!(da.1 > 1e-9, "control a {:e}", da.1);
+    assert!(db > 1e-6, "control b {db:e}");
+    assert!(dc > 1e-6, "control c {dc:e}");
+    assert!(dd.1 > 1e-6, "control d {:e}", dd.1);
+    // (e) is REPORTED: it may be a non-control (round 60 control d)
 }

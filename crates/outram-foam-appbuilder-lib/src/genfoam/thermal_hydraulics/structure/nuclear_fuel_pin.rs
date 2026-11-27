@@ -256,7 +256,42 @@ impl NuclearFuelPin {
             tcavav: 0.0,
             use_lu_control: false,
         };
-        // set I/O fields and compute the initial scalar max, min (`Tcavav(1e69)` as upstream)
+        me.refresh_io_fields(volumes);
+        me.set_interfacial_area();
+        Ok(me)
+    }
+
+    /// The model constructed with `Trad.nuclearFuelPin` READ from the start directory (`nuclearFuelPin.C:204-215, 538-540`: `foundTrad`,
+    /// "Setting nuclearFuelPin initial temperatures from Trad"): the radial profile of every cell of the model replaces the dictionary's
+    /// `fuelT`/`cladT` one, and the I/O fields and the extrema are set from it as the constructor does (gh:#1926, README round 66).
+    ///
+    /// # Errors
+    /// [`RadialError::Invalid`] if the list has not one entry per mesh cell or an entry of a model cell is not `fuelMeshSize + cladMeshSize` long.
+    pub fn with_read_trad(mut self, trad: Vec<Vec<f64>>, volumes: &[f64]) -> Result<Self, RadialError> {
+        if trad.len() != self.trad.current.len() {
+            return Err(RadialError::Invalid("Trad.nuclearFuelPin: not one list per cell"));
+        }
+        for &c in &self.cell_list {
+            let reg = &self.regions[self.cell_to_region[c]];
+            if trad[c].len() != reg.fuel_mesh_size + reg.clad_mesh_size {
+                return Err(RadialError::Invalid("Trad.nuclearFuelPin: a cell list is not fuelMeshSize + cladMeshSize long"));
+            }
+        }
+        for &c in &self.cell_list {
+            self.trad.current[c] = trad[c].clone();
+        }
+        self.refresh_io_fields(volumes);
+        self.set_interfacial_area();
+        Ok(self)
+    }
+
+    /// `nuclearFuelPin.C:540-615`: from `Trad_` set `Tfi`, `Tfo`, `Tci`, `Tco`, `Tfav`, `Tcav` and the initial scalar extrema and volume averages.
+    fn refresh_io_fields(&mut self, volumes: &[f64]) {
+        let me = self;
+        me.tfmax = 0.0;
+        me.tfmin = 1e69;
+        me.tcmax = 0.0;
+        me.tcmin = 1e69;
         let mut tfavav = 0.0;
         let mut tcavav = 1e69;
         let mut tot_v = 0.0;
@@ -289,8 +324,6 @@ impl NuclearFuelPin {
         tcavav /= tot_v;
         me.tfavav = tfavav;
         me.tcavav = tcavav;
-        me.set_interfacial_area();
-        Ok(me)
     }
 
     /// CONTROL ONLY: solve with `lu_decompose` instead of `Foam::solve`.
