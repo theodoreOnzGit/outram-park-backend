@@ -6092,6 +6092,10 @@ Bit-identical = every value `==`; otherwise the worst relative difference (of th
 | E4 control | the port with `disp` zero (`axExp = radExp = 0`) against the upstream cross sections of `ea` | `D` differs by > 1e-3 relative somewhere |
 | E5 | `expansion_from_displacement` of a purely axial displacement on the unit mesh test (unit tests) | `radExp` 0 and `axExp` the exact end-corrected gradient; the axis choice moves the displacement between the two branches |
 
+**Note (2026-11-27, maintainer: "Follow port, document").** The shipped SP3 tutorials' start, `defaultFlux2 uniform 1`, is a NEGATIVE starting scalar flux (`fluxStar - 2 fluxStar2 = 1 - 2 = -1`): step 1 divides by a negative power, keff is clamped to 0.1, and an adjustment in that step sees mixed-sign fluxes (the mechanism above). The port follows upstream and reproduces it bit for bit; `set_uniform_second_moment(0.0)` is the physical start. Documented at `Sp3Neutronics::set_uniform_second_moment`.
+
+IAEA-2D check (same day, maintainer: "Go ahead n check"): against secondary sources only (ANL-7416 Suppl. 2 is not in the open literature repo), the reflector, rodded-fuel and fuel-1 fast-group constants are confirmed; the fuel-1/fuel-2 thermal absorption (0.080 / 0.085) was not displayed by the sources seen. Details on gh:#1887.
+
 ## Round 47 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions committed first: `5bc82eb13` (SP3 item) and `c20bbfa50` (disp item); references in the refs submodule, `95e946b` (`r47_solver`) and the commit after it (`r47_expansion`))
 
 ### Item 1: the SP3 data set and the both-groups comparison (`tests/genfoam_sp3_df_both_groups_vs_upstream.rs`, 5 tests, 0.5 s)
