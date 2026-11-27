@@ -108,6 +108,99 @@ domain of the ecosystem ([`docs/ecosystem-naming.md`](docs/ecosystem-naming.md))
     Effort in Singapore", *Energy Engineering* 123(9) (2026),
     <https://doi.org/10.32604/ee.2026.082487>.
 
+## What the crates do
+
+Each crate handles a piece of physics, or the tooling that presents it. They
+come in three kinds.
+
+**Ports** of established codes, translated into Rust so that each routine can
+be read beside its upstream:
+
+- BEDOK, from Than Yan Ren's MATLAB reactor simulator ([`bedok`](crates/bedok)).
+- NJOY2016's nuclear-data processing ([`njoy-outram-park-fork`](crates/njoy-outram-park-fork)).
+- OpenMC's Monte Carlo transport, as OutramMC ([`outram-mc-libs`](crates/outram-mc-libs)).
+- OpenFOAM and GeN-Foam's finite-volume CFD and multiphysics (the `outram-foam-*` crates).
+- MOOSE and PRISMS structural mechanics ([`farrer-park`](crates/farrer-park)).
+
+And so on: CoolProp, DWSIM, LIGGGHTS, OFFBEAT, PFLOTRAN, Thermochimica, ONIX,
+Moltres, FLEXPART ([`changi`](crates/changi)), cfMesh, Blender's mesh
+authoring ([`outram-blender`](crates/outram-blender)), the GNU Scientific
+Library ([`petir`](crates/petir)), RAVEN ([`raffles`](crates/raffles)), CYCLUS
+([`kaki-bukit`](crates/kaki-bukit)), RustBCA ([`kembangan`](crates/kembangan))
+and MPICH ([`outram-park-mpi`](crates/outram-park-mpi)).
+
+**Original, hand-coded Rust**, written by the maintainer before agentic AI:
+
+- the TUAS family, starting with
+  [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver);
+- [`teh-o-prke`](crates/teh-o-prke), point reactor kinetics;
+- [`boon-lay`](crates/boon-lay) (it stuck with the old naming convention);
+- the chemical-engineering process simulator built during the maintainer's PhD,
+  [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator).
+
+**New, agentic crates**, created with AI agents for OUTRAM PARK:
+
+- [`nee_soon`](crates/nee_soon), which couples neutronics, nuclear data and
+  thermal-hydraulics;
+- [`dover`](crates/dover), low-fidelity reactor models driven by input decks;
+- [`buangkok`](crates/buangkok), radiation dose;
+- [`punggol`](crates/punggol), photon and electron transport.
+
+Some of these carry ports of their own inside them, such as pyDOSEIA in
+BUANGKOK and EGSnrc and OpenMC's photon physics in PUNGGOL.
+
+Around them sit the crates that present and preserve the knowledge: the KOVAN
+family (literature, code review and V&V bookkeeping), the GUI crates
+([`bugis`](crates/bugis), [`dhoby-ghaut`](crates/dhoby-ghaut)) and the
+digital-twin engine. Each crate's README says, in "Knowledge in this crate",
+what it holds and how far it has been verified.
+
+## Why Rust?
+
+The maintainer had a good time writing Rust: in Neovim with language servers,
+inside tmux. Cargo's package management mattered, and so did Rust's memory
+safety, which helps avoid data races and memory corruption. And because the
+maintainer was building real-time simulations, with digital twins as a
+potential application,[^dissertation] raw speed was needed on top of all that.
+So the maintainer chose Rust.
+
+But Rust was, and is, a young language for science. Most serious scientific
+software is written in Fortran (NJOY) or C and C++ (MOOSE, OpenFOAM, GeN-Foam,
+and the compiled cores under SciPy and NumPy, behind their Python wrappers).
+
+The maintainer had worked with OpenFOAM (including a YouTube channel on it,
+whose code is in
+[`theodoreOnzGit/C-_YouTube_OpenFoam`](https://github.com/theodoreOnzGit/C-_YouTube_OpenFoam)),
+OpenMC and GeN-Foam. Doing multiphysics for fluoride-salt-cooled
+high-temperature reactors (FHRs) with these codes during the PhD was a
+considerable headache. OpenMC has a Python API over a mostly C++ code;
+OpenFOAM (ESI) and GeN-Foam each sat on a different flavour of C++. Making
+them work together was hard. If only they could all be done in Rust... that
+would be wonderful.
+
+With agentic AI, that has become a reality. In OUTRAM PARK it is now possible
+to hand-code a multiphysics simulation in Rust even if AI is taken out of the
+picture: anyone with Neovim and language-server skills can read, navigate and
+extend it, and multiphysics computation becomes much more ergonomic.
+
+It also ends the platform maze:
+
+- no more Linux-only, Mac-only or Windows-only codes;
+- no more "Arch Linux has these libraries, Ubuntu has those, Debian has
+  others, and openSUSE or RHEL have different versions again".
+
+One code base serves them all, including phones, through the web browser.
+The workspace checks this with compile gates for Android and WebAssembly, and
+its browser demos run on WebAssembly.
+
+> This is why I chose Rust (not because of the AI fad; I was a Rust fan even
+> before that). — the maintainer
+
+[^dissertation]: T. K. C. Ong, *Digital Twins as Testbeds for Iterative
+    Simulated Neutronics Feedback Controller Development*, doctoral
+    dissertation, University of California, Berkeley (2024),
+    <https://escholarship.org/uc/item/0362h3zf>.
+
 ## Vision: Scientific Knowledge That Can Be Studied and Challenged
 
 OUTRAM PARK is an open-source ecosystem dedicated to making vast amounts of scientific and technical knowledge **connectable, accessible, understandable, and explorable**.
