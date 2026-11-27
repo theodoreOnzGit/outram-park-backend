@@ -4277,3 +4277,41 @@ The outer-iteration counts, which steps are skipped by the stale flag, and which
 * `twoPhase` (and `one_phase_fc`) `Final` uses, gh:#1855 item 3: not ported; `solveP_rgh_2p.H` and `EEqns_2p.H` use the same selectors (`finalInnerIter()`, `isFinalIteration()` through `psi.select`). Their `customPimpleControl::loop` (round 4/5) is the older hard-wired form.
 * Function1 relaxation factors (tables) and regex keys beyond `.*` are refused / unsupported.
 * `fields` relaxation of `Kd`/`htc` where the start value differs from the model (see `fld_htc`).
+
+
+# Round 34 (gh:#1799, 2026-11-27): MULES `solvePhase` (the `solveAlpha` lambda), non-uniform initial alpha, sub-cycles > 1
+
+AI-written, not human-reviewed. Research, education and V&V only. Upstream: the real GeN-Foam binary (652b3da, ESI v2506), same build as rounds 3-17.
+
+## Searched before writing (reuse)
+
+`two_phase/{mules,alpha_mules}.rs` already hold `limiter`, `limit_return_corr`, `explicit_update`, `flux`/`interpolate` (vanLeer, upwind, linear), the sub-cycle bookkeeping, `Sp`/`Su` from `dgdt` and
+`correctInflowOutflow`; the new code is only what `solveAlpha` adds: `limit(returnCorr = false)`, the `limiter` with non-zero `Sp`/`Su` and `psiMin = 0`, the `movingAlpha - alpha` flux, the
+algebraic other phase. `outram-foam-multiphase` has no `solvePhase` analogue (checked in round 7). The reader only takes `uniform` fields (`case.rs::uniform_value`): extended for `alpha.<fluid>` only.
+
+## Case variants (`cases/boiling_mules_r34/<name>/`, `scripts/make_boiling_mules_variants.sh`; the port reads the same bytes upstream runs)
+
+| name | `solvePhase` | initial `alpha.vapour` | `alphaMaxCo` |
+|---|---|---|---|
+| a_sp_vap_uniform | vapour | uniform 0 (as shipped) | 0.25 (as shipped) |
+| b_both_bump_sub | both (default) | bump, peak 0.1 | 0.05 |
+| c_vap_bump_sub | vapour | bump | 0.05 |
+| d_liq_bump_sub | liquid | bump | 0.05 |
+| e_vap_bump_nosub | vapour | bump | 0.25 |
+
+Justification is in the script header: every option is upstream's own (`solvePhase` as `1D_HX/twoPhase` and `2D_KNS37-L22` set it; `alphaMaxCo`; a `nonuniform List<scalar>` internalField). Protocol as round 7
+(`boiling_mules_variant_protocol.sh`: writePrecision 17, every step written, solvers 1e-14, relTol 0).
+
+## Predictions (written and committed BEFORE any upstream or port run of these variants)
+
+| id | quantity | prediction | if missed |
+|---|---|---|---|
+| R1 | a: steps 1-70, 560-615 | every field within the round-7 bounds (p 1e-11, U 1e-10, T 1e-9), alpha.vapour and alphaPhi.vapour EXACTLY 0 (flux of an all-zero field through the lambda is 0), alphaPhi.liquid = phi.liquid + phi.vapour to <= 1e-10 | lambda path does not reduce to single phase |
+| R2 | a: onset window 616-634 | alpha.vapour/dmdt <= 1e-9 relative (round 13 level, 3e-11), flow first leaves 1e-6 within 3 steps of step 636 | `Sp`/`Su`/limiter with sources differs |
+| R3 | b, c, d, e: sub-cycle count per step | equals upstream's log at EVERY compared step; c, d, b reach >= 2 within the first 10 steps and 4 at dt = 0.01; e stays 1 | `CoNum_`, `bothPhasesArePresent_` or the ceil |
+| R4 | b, c, d, e: all fields over the first steps | NOT bit-identical (p_rgh GAMG vs the port's solver, round 3); alpha.vapour relative to its own maximum (0.1) <= 1e-9 for the first 50 steps; p <= 1e-10; the vapour fraction stays within [0, movingAlpha] bitwise in the port | limiter with sources or the full-flux form `phiBD + lambda*phiCorr` wrong |
+| R5 | sign/size of the first deviation in alpha.vapour | positive-definite noise: 1e-13..1e-11 at step 1-3 (single `p_rgh` solve difference, which enters alpha only through `phi`), growing at most 10x in 50 steps | would indicate a structural difference |
+| R6 | d (liquid solved) against c (vapour solved) in the REAL binary | the two differ by more than 1e-12 in alpha.vapour (different roundings: `1 - (1 - a)`), but agree to <= 1e-9: the branch is not a physics change | |
+| R7 | controls | port run with the wrong branch (c case against d reference), with `both` (c against b), with the sub-cycle count forced to 1 (b, c), and the 6-argument update without the limiter all FAIL the 1e-9 gate by > 100x | the comparison cannot fail |
+| R8 | rounds 3-17 numbers | do not move (the old `limiter` is the zero-source special case: `x - 0 = x`, `0 - x`, bitwise) | record old/new and why |
+| R9 | upstream stability | upstream runs c, d, e, b for >= 100 steps without abort and without a flow excursion before step 600 (the bump only perturbs the closures mildly) | choose a smaller peak and say why |
