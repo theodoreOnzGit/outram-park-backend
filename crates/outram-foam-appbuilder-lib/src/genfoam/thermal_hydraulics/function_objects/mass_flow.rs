@@ -77,18 +77,35 @@ pub enum MassFlowRegion {
 /// If `region` names a patch index out of range for `alpha_rho_phi.boundary`,
 /// or a face index out of range for the field's mesh.
 pub fn total_mass_flow(alpha_rho_phi: &SurfaceScalarField, region: &MassFlowRegion) -> MassRate {
-    let sum: f64 = match region {
-        MassFlowRegion::Patch(pi) => alpha_rho_phi.boundary[*pi]
-            .values
-            .iter()
-            .map(|v| v.abs())
-            .sum(),
-        MassFlowRegion::Faces(faces) => faces
-            .iter()
-            .map(|&f| alpha_rho_phi.face_value(f).abs())
-            .sum(),
-    };
+    // gh:#1871: an explicit loop seeded with `+0.0`, as upstream's `scalar mDot(0.0); mDot += mag(..)`.
+    // ~~`iter().sum()`~~ seeds with `-0.0` in current Rust, so an all-zero patch gave `-0.0`, not `0.0`.
+    let mut sum = 0.0;
+    match region {
+        MassFlowRegion::Patch(pi) => {
+            for v in alpha_rho_phi.boundary[*pi].values.iter() {
+                sum += v.abs();
+            }
+        }
+        MassFlowRegion::Faces(faces) => {
+            for &f in faces.iter() {
+                sum += alpha_rho_phi.face_value(f).abs();
+            }
+        }
+    }
     MassRate::new::<kilogram_per_second>(sum)
+}
+
+/// `massFlow::write()` with upstream's `scaleFactor` (`mDot *= scaleFactor_`, default 1.0).
+///
+/// gh:#1871: added so the shipped tutorials' `scaleFactor 180` is a port function, compared bit for bit with
+/// the real class (`tests/genfoam_function_objects_vs_upstream.rs`).
+pub fn total_mass_flow_scaled(
+    alpha_rho_phi: &SurfaceScalarField,
+    region: &MassFlowRegion,
+    scale_factor: f64,
+) -> MassRate {
+    let m = total_mass_flow(alpha_rho_phi, region).get::<kilogram_per_second>();
+    MassRate::new::<kilogram_per_second>(m * scale_factor)
 }
 
 /// Total area of `region`'s faces — the `S` diagnostic upstream logs
@@ -100,7 +117,10 @@ pub fn region_area(mesh: &FvMesh, region: &MassFlowRegion) -> Area {
     match region {
         MassFlowRegion::Patch(pi) => patch_area(mesh, *pi),
         MassFlowRegion::Faces(faces) => {
-            let sum: f64 = faces.iter().map(|&f| mesh.face_areas[f]).sum();
+            let mut sum = 0.0;
+            for &f in faces.iter() {
+                sum += mesh.face_areas[f];
+            }
             Area::new::<square_meter>(sum)
         }
     }

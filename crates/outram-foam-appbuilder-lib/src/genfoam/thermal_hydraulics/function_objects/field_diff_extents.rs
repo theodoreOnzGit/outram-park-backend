@@ -51,7 +51,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use outram_foam_basic_lib::fields::VolScalarField;
+use outram_foam_basic_lib::fields::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -106,7 +106,7 @@ pub fn cell_mask(field: &VolScalarField, mask_field: &VolScalarField) -> Vec<boo
         "field/maskField cell count mismatch"
     );
     (0..field.internal.len())
-        .map(|c| field.internal[c] > mask_field.internal[c])
+        .map(|c| field.internal[c] - mask_field.internal[c] > 0.0)
         .collect()
 }
 
@@ -129,7 +129,33 @@ pub fn patch_mask(
         mv.len(),
         "field/maskField patch face count mismatch"
     );
-    (0..fv.len()).map(|i| fv[i] > mv[i]).collect()
+    (0..fv.len()).map(|i| fv[i] - mv[i] > 0.0).collect()
+}
+
+/// Cell mask of a VECTOR field pair: upstream `calcMask<vector>`: `pos(mag(field/one) - mag(maskField/one))`, with
+/// `mag(v) = sqrt(magSqr(v))` and `pos(s) = s > 0` (ESI `scalarImpl.H`; the `/ one` divisions by `1.0` are exact).
+/// gh:#1871. `fieldDiffExtents` for `symmTensor`, `tensor`, `sphericalTensor` fields is NOT ported (refused by name).
+pub fn cell_mask_vector(field: &VolVectorField, mask_field: &VolVectorField) -> Vec<bool> {
+    assert_eq!(
+        field.internal.len(),
+        mask_field.internal.len(),
+        "field/maskField cell count mismatch"
+    );
+    (0..field.internal.len())
+        .map(|c| field.internal[c].mag() - mask_field.internal[c].mag() > 0.0)
+        .collect()
+}
+
+/// Patch-face mask of a vector field pair (see [`cell_mask_vector`]).
+pub fn patch_mask_vector(
+    field: &VolVectorField,
+    mask_field: &VolVectorField,
+    patch_index: usize,
+) -> Vec<bool> {
+    let fv = field.boundary[patch_index].values.as_slice();
+    let mv = mask_field.boundary[patch_index].values.as_slice();
+    assert_eq!(fv.len(), mv.len(), "field/maskField patch face count mismatch");
+    (0..fv.len()).map(|i| fv[i].mag() - mv[i].mag() > 0.0).collect()
 }
 
 /// Bounding-box extents of `{ C_i - reference_position : mask[i] }` over cell

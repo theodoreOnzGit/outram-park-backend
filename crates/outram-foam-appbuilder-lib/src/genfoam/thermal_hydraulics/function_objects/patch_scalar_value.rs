@@ -80,7 +80,13 @@ pub fn reduce_patch_scalar_field(
     let vals = field.boundary[patch_index].values.as_slice();
 
     match op {
-        PatchReduceOp::Sum => vals.iter().sum(),
+        PatchReduceOp::Sum => {
+            let mut s = 0.0;
+            for v in vals.iter() {
+                s += *v;
+            }
+            s
+        }
         PatchReduceOp::Average => {
             let (num, den) = area_weighted_num_den(mesh, patch.start, vals);
             num / den

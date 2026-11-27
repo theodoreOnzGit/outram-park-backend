@@ -38,6 +38,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::VolScalarField;
+use outram_foam_basic_lib::fv_operators::fvc;
 use outram_foam_basic_lib::mesh::FvMesh;
 use uom::si::area::square_meter;
 use uom::si::f64::Pressure;
@@ -82,6 +83,52 @@ pub fn pressure_drop(
 ) -> Pressure {
     patch_average_pressure(mesh, p, upstream_patch)
         - patch_average_pressure(mesh, p, downstream_patch)
+}
+
+/// A `pressureDrop` region: upstream's `regionType` is `patch` or `faceSet` (gh:#1871).
+#[derive(Debug, Clone)]
+pub enum PressureRegion {
+    /// A boundary patch, by index into `mesh.patches`: `p.boundaryField()[patchID]`.
+    Patch(usize),
+    /// Internal faces of a `faceSet`, in the order upstream iterates the set (see
+    /// [`super::t_bulk::bulk_temperature_faces`]): uses `fvc::interpolate(p)`.
+    FaceSet(Vec<usize>),
+}
+
+/// Area-weighted average of `p` over a [`PressureRegion`]: upstream `pressureDrop::write()` for one side.
+///
+/// gh:#1871. Patch: `p1 += pp[i]*magSf[i]`, `p1 /= S1_` (`S1_` = `sum magSf`). FaceSet: `pi =
+/// fvc::interpolate(p)`; `p1 += pi[facei]*magSf[facei]`, `p1 /= S1_`.
+///
+/// # Panics
+/// If a face of a `FaceSet` is not an internal face, or the region has zero area.
+pub fn region_average_pressure(mesh: &FvMesh, p: &VolScalarField, region: &PressureRegion) -> Pressure {
+    match region {
+        PressureRegion::Patch(pi) => patch_average_pressure(mesh, p, *pi),
+        PressureRegion::FaceSet(faces) => {
+            let pf = fvc::interpolate(p);
+            let mut area = 0.0;
+            let mut weighted = 0.0;
+            for &f in faces.iter() {
+                assert!(f < mesh.n_internal_faces, "pressureDrop faceSet face {f} is not an internal face");
+                area += mesh.face_areas[f];
+            }
+            for &f in faces.iter() {
+                weighted += pf.internal[f] * mesh.face_areas[f];
+            }
+            Pressure::new::<pascal>(weighted / area)
+        }
+    }
+}
+
+/// `deltaP = p1 - p2` between two [`PressureRegion`]s (upstream `pressureDrop::write()`).
+pub fn pressure_drop_regions(
+    mesh: &FvMesh,
+    p: &VolScalarField,
+    region1: &PressureRegion,
+    region2: &PressureRegion,
+) -> Pressure {
+    region_average_pressure(mesh, p, region1) - region_average_pressure(mesh, p, region2)
 }
 
 /// Pressure drop between a patch's area-weighted average and a fixed

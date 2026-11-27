@@ -49,10 +49,12 @@ use outram_foam_basic_lib::mesh::FvMesh;
 /// If any index in `cells` is out of range for `mesh.cell_volumes` /
 /// `field.internal`.
 pub fn volume_integral_over_cells(mesh: &FvMesh, field: &VolScalarField, cells: &[usize]) -> f64 {
-    cells
-        .iter()
-        .map(|&c| field.internal[c] * mesh.cell_volumes[c])
-        .sum()
+    // gh:#1871: seeded with `+0.0` like upstream's `gSum(fieldZone*volZone)` (`Foam::sum`), not `Iterator::sum`.
+    let mut sum = 0.0;
+    for &c in cells.iter() {
+        sum += field.internal[c] * mesh.cell_volumes[c];
+    }
+    sum
 }
 
 /// Volume integral of `field` over the whole domain (all cells).
@@ -67,9 +69,11 @@ pub fn volume_integral(mesh: &FvMesh, field: &VolScalarField) -> f64 {
         mesh.n_cells,
         "field cell count must match mesh.n_cells"
     );
-    (0..mesh.n_cells)
-        .map(|c| field.internal[c] * mesh.cell_volumes[c])
-        .sum()
+    let mut sum = 0.0;
+    for c in 0..mesh.n_cells {
+        sum += field.internal[c] * mesh.cell_volumes[c];
+    }
+    sum
 }
 
 #[cfg(test)]
