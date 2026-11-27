@@ -66,7 +66,7 @@
 use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{fvm, Field};
 
-use super::upstream_transient::{UpstreamTransientControls, UpstreamTransientFeedback};
+use super::upstream_transient::{star_field, UpstreamTransientControls, UpstreamTransientFeedback};
 use super::DiffusionNeutronics;
 use crate::genfoam::neutronics::pseudo_time::{calc_keff, field_like, solve_twice};
 use crate::genfoam::neutronics::xs::CrossSectionData;
@@ -106,9 +106,9 @@ impl DiffusionNeutronics {
         first_step: bool,
         controls: &UpstreamTransientControls,
     ) -> Result<UpstreamEigenvalueStep, NeutronicsError> {
-        if !self.xs.disc_factors_are_unity() {
+        if self.evolution.is_some() {
             return Err(NeutronicsError::UpstreamTransient(
-                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+                "an XsEvolution (driveline motion, factor adjustment) with the circulating-fuel step is not ported (gh:#1893)",
             ));
         }
         let n = self.state.mesh().n_cells;
@@ -138,15 +138,24 @@ impl DiffusionNeutronics {
             }
         }
 
-        // normFluxes.H on the first step: fluxStar *= pTarget / pTot.
+        // `fluxStar_` (the unknown; the state's flux where none was solved yet), then `flux_ = fluxStar_/discFactor`
+        // at the top of `solveNeutronics.H` (gh:#1893; the flux itself where every factor is 1).
+        let mut star: Vec<Vec<f64>> = match self.flux_star.take() {
+            Some(v) => v,
+            None => self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+        };
+        self.write_flux_from_star_values(&star);
+
+        // normFluxes.H on the first step: fluxStar *= pTarget / pTot, flux = fluxStar/discFactor.
         if first_step {
             let p_tot = self.upstream_power();
             let ratio = p_target / p_tot;
-            for field in self.state.flux_mut() {
-                for v in field.internal.as_mut_slice() {
+            for field in star.iter_mut() {
+                for v in field.iter_mut() {
                     *v *= ratio;
                 }
             }
+            self.write_flux_from_star_values(&star);
         }
 
         let one_minus_beta: Vec<f64> =
@@ -180,16 +189,27 @@ impl DiffusionNeutronics {
                 (0..n).map(|c| ((neutro_source[c] * one_minus_beta[c]) * chi_p[c]) / keff).collect();
             let delayed_g: Vec<f64> = (0..n).map(|c| delayed[c] * chi_d[c]).collect();
 
-            let flux_g = &self.state.flux()[gg];
-            let eqn = fvm::laplacian_with_delta(&self.xs.d_face[gg], flux_g, self.settings.delta_coeff)
-                + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
+            // the unknown is `fluxStar_`; `- Sp((nuSigmaEff/keff (1-BetaTot) chiPrompt (1-eig) - sigmaRemoval)/df)` with
+            // `eig = 1` is `+ Sp(sigmaRemoval/df)` (every factor 1: `sigmaRemoval` itself)
+            let flux_g = &star_field(&self.state.flux()[gg], star[gg].clone());
+            let removal_term = if self.xs.disc_factors_are_unity() {
+                self.xs.sigma_removal[gg].clone()
+            } else {
+                let df = self.xs.disc_factor[gg].internal.as_slice();
+                let r = self.xs.sigma_removal[gg].internal.as_slice();
+                field_like(flux_g, (0..n).map(|c| r[c] / df[c]).collect())
+            };
+            let eqn = fvm::laplacian_with_delta(&self.d_over_df_face(gg, flux_g), flux_g, self.settings.delta_coeff)
+                + fvm::sp(&removal_term, flux_g)
                 - fvm::su(&field_like(flux_g, prompt), flux_g)
                 - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                 - fvm::su(&field_like(flux_g, scatter), flux_g);
             let (sol, init_res) = solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear_solve());
             neutro_residual = neutro_residual.max(init_res);
             group_residuals.push(init_res);
-            self.write_group_flux(gg, &sol);
+            // fluxStar_ = solution; flux_ = fluxStar_/discFactor
+            star[gg] = sol.internal.as_slice().to_vec();
+            self.write_flux_from_star_values_group(gg, &star[gg]);
         }
 
         // precEq.H again (same `neutroSource_`, a new guess)
@@ -202,11 +222,13 @@ impl DiffusionNeutronics {
         // calcKeff.H, normFluxes.H
         keff = calc_keff(keff, p_tot, p_target);
         let ratio = p_target / p_tot;
-        for field in self.state.flux_mut() {
-            for v in field.internal.as_mut_slice() {
+        for field in star.iter_mut() {
+            for v in field.iter_mut() {
                 *v *= ratio;
             }
         }
+        self.write_flux_from_star_values(&star);
+        self.flux_star = Some(star);
         self.state.set_k_eff_raw(keff);
         self.update_derived_fields();
 

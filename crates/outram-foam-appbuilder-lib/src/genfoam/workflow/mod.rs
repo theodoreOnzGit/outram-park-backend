@@ -77,7 +77,7 @@ pub mod steady_state_th;
 pub mod allrun;
 
 pub use energy_neutro::{
-    precursor_transport_from_velocity, EigenvalueRunControls, EnergyEigenvalueRecord, EnergyNeutroDiffusion,
+    precursor_transport_from_velocity, precursor_transport_from_velocity_zero_wedge_flux, EigenvalueRunControls, NeutronLinear, EnergyEigenvalueRecord, EnergyNeutroDiffusion,
     EnergyNeutroTransient, TransientRecord, TransientSettings,
 };
 pub use reactor_state::ReactorState;

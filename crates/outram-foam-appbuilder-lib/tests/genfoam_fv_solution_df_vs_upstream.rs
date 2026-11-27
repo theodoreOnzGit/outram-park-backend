@@ -70,7 +70,10 @@ struct Case {
 fn load(nd: &str, fv: Option<&str>) -> Case {
     let vv = vv_dir();
     let tag = format!("{nd}_{}", fv.unwrap_or("none"));
-    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1887_{tag}"));
+    // one scratch directory per test thread: tests run in parallel and each stages and removes its own (round 43: the driveline
+    // tests copy a `CRmove` into it after `load`, which a sibling test's `remove_dir_all` of a shared name would race with)
+    let thread = format!("{:?}", std::thread::current().id()).replace(['(', ')'], "");
+    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1887_{tag}_{thread}"));
     let _ = std::fs::remove_dir_all(&dst);
     std::fs::create_dir_all(dst.join("polyMesh")).expect("scratch dir");
     for f in ["points", "faces", "owner", "neighbour", "boundary"] {
@@ -734,8 +737,8 @@ fn m1_upstream_sn_ignores_the_discontinuity_factor() {
 
 // ----- refusals kept by name -----
 
-/// X1: the paths that stay refused for a factor other than 1: the port's own single-pass transient, the stationary step
-/// with an `XsEvolution`, circulating-fuel static solve.
+/// X1: the paths that stay refused for a factor other than 1: the port's own single-pass transient (`step`; the stationary
+/// step with an `XsEvolution` is no longer refused since round 43).
 #[test]
 fn x1_refusals_are_kept_by_name() {
     let c = load("v3", None);
@@ -751,8 +754,9 @@ fn x1_refusals_are_kept_by_name() {
         neutron_iteration_residual: 1e-6,
         max_neutron_iterations: 50,
     };
-    let err = s.upstream_stationary_step(1e-9, 1e-9, &controls).unwrap_err();
-    assert!(err.to_string().contains("XsEvolution"), "{err}");
+    // ~~refused by name (round 42)~~ **CHANGED 2026-11-27 (round 43, gh:#1893)**: the stationary-fuel step materialises the
+    // evolution at the time of the step; the test that assumed the refusal is this one (D7 compares it with the binary)
+    s.upstream_stationary_step(1e-9, 1e-9, &controls).expect("the stationary step runs with an XsEvolution");
 }
 
 /// The four settings types take the entries of an `fvSolution` (`with_fv_solution`) and `Sp3Neutronics` exposes its evolution.
@@ -794,4 +798,64 @@ fn diag_sp3_s4_dk_series() {
             rel(h[i].step.power, u.power[i])
         );
     }
+}
+
+// ----- round 43 (gh:#1893, D7): the stationary-fuel step with a control-rod driveline (`XsEvolution`) -----
+
+/// `run_stationary` with the rod motion of `CRmove.d4` (`with_motion`) or without any evolution (the control).
+fn run_stationary_driveline(nd: &str, with_motion: bool) -> (Vec<StationaryRecord>, Vec<Vec<f64>>) {
+    let c = load(nd, None);
+    std::fs::copy(vv_dir().join("cases/df_slab/CRmove.d4"), c.dir.join("CRmove")).expect("CRmove");
+    let rods = outram_foam_appbuilder_lib::io::nuclear_data::read_control_rods(&c.dir.join("CRmove")).expect("CRmove");
+    let mut s = diffusion(&c);
+    if with_motion {
+        let evo = XsEvolution::new(&c.xs, &c.mesh, c.mesh_zone.clone(), &c.cell_zones, Vec::new(), rods, c.controls.clone())
+            .expect("evolution");
+        s.set_xs_evolution(evo);
+    }
+    s.set_initial_guess(&vec![vec![1.0; c.mesh.n_cells]; 2], 1.0);
+    let controls = StationaryStepControls {
+        ddt: NeutronicsDdtScheme::Euler,
+        laplacian: NeutronicsLaplacianScheme::Corrected,
+        neutron_iteration_residual: 1e-6,
+        max_neutron_iterations: 50,
+    };
+    let (history, _) = s.run_stationary_transient(&stationary_controls(), &controls).expect("run");
+    let flux = fluxes(&s);
+    (history, flux)
+}
+
+/// D7 (criteria fixed in the README before the run): the round-42 non-eigenvalue criteria.
+fn check_driveline(nd: &str, case: &str) -> (f64, usize, usize) {
+    let (h, flux) = run_stationary_driveline(nd, true);
+    let up = reference("r43_stationary.ref.txt.gz", case);
+    if let Some(i) = (0..h.len().min(up.power.len())).find(|&i| rel(h[i].step.power, up.power[i]) > 1e-12) {
+        println!("{case}: first step with power rel > 1e-12: {} (t = {:.6e}), port {:.15e} upstream {:.15e}", i + 1, h[i].time, h[i].step.power, up.power[i]);
+    }
+    let (dp, n, dt, resid, df) = stationary_tally(case, &h, &flux, &up);
+    assert!(dt < 5e-8 && dp < 1e-12 && resid < 1e-6 && df < 1e-10, "{case}: dt {dt:e} dp {dp:e} resid {resid:e} flux {df:e}");
+    (dp, n, h.len())
+}
+
+#[test]
+fn d7_stationary_step_with_driveline_motion_and_unity_factors_matches_upstream() {
+    let (_, n, len) = check_driveline("v0", "n5");
+    assert_eq!(n, len, "n5: neutron iteration counts");
+}
+
+#[test]
+fn d7_stationary_step_with_driveline_motion_and_given_factors_matches_upstream() {
+    let (_, n, len) = check_driveline("v3", "n4");
+    assert_eq!(n, len, "n4: neutron iteration counts");
+}
+
+/// D7 control: the same port run without the evolution (the rod stays) misses upstream's rod run.
+#[test]
+fn d7_control_a_static_rod_misses_the_moving_rod_run() {
+    let (h, _) = run_stationary_driveline("v3", false);
+    let up = reference("r43_stationary.ref.txt.gz", "n4");
+    let last = h.len().min(up.power.len()) - 1;
+    let miss = rel(h[last].step.power, up.power[last]);
+    println!("D7 control: static rod, last-step power rel {miss:.3e} (steps {} / {})", h.len(), up.power.len());
+    assert!(miss > 1e-6 || h.len() != up.power.len(), "the rod motion must matter: {miss:e}");
 }

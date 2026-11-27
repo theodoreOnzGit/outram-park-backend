@@ -147,6 +147,14 @@ fn alpha_cells() -> Vec<f64> {
 /// builds it. The two wedge patches carry no flux: upstream's wedge patch value
 /// is the cell value rotated into the wedge plane, normal to nothing.
 fn face_flux(mesh: &Arc<FvMesh>, u: &[f64], alpha: &[f64]) -> PrecursorTransport {
+    // gh:#1891 (round 43): upstream's `fvc::flux(U*alpha)`, wedge patches included (`wedgeFvPatchField::evaluate`).
+    let uvec: Vec<Vector3> = (0..mesh.n_cells).map(|c| Vector3::new(u[3 * c], u[3 * c + 1], u[3 * c + 2])).collect();
+    outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::precursor_drift::upstream_precursor_transport(mesh, &uvec, alpha)
+}
+
+/// The form before round 43: the wedge faces carry exactly zero flux. Kept as the control of the round-43 fix.
+#[allow(dead_code)]
+fn face_flux_zero_wedge(mesh: &Arc<FvMesh>, u: &[f64], alpha: &[f64]) -> PrecursorTransport {
     let n = mesh.n_cells;
     let mut field = VolVectorField::uniform("U", mesh.clone(), Vector3::new(0.0, 0.0, 0.0));
     field.internal = Field::new(
@@ -381,6 +389,12 @@ fn msfr_transient_neutronics_matches_upstream_over_50_steps() {
     assert!(worst_prec <= 1e-8 && worst_flux <= 1e-8, "H5: precursor totals {worst_prec:e}, flux integrals {worst_flux:e}");
     assert!(worst_cell <= 1e-8 && worst_cell_prec <= 1e-8, "H5: per cell {worst_cell:e} / {worst_cell_prec:e}");
     assert!(rel(port_dp, up_dp) <= 1e-5, "H6: power change {port_dp} vs {up_dp}");
+    // Round 43 (gh:#1891), written post-run at the measured sizes: with upstream's wedge-patch flux in `phi` the precursor
+    // difference fell from 5.8e-14 (step 1) .. 4.2e-12 (step 20), totals 1.3e-11, per cell 3.5e-10, to the values below
+    // (measured 2026-11-27: `rel_prec_max` <= 7.8e-16 at every step, totals 7.8e-16, per cell 8.2e-15, power 1.5e-15, flux
+    // integrals 2.5e-15, per cell flux 2.0e-15). The remainder is the last-bit geometry difference of 8 quads (README).
+    assert!(worst_prec <= 2e-15 && worst_flux <= 6e-15 && worst_power <= 5e-15, "R43: {worst_prec:e} {worst_flux:e} {worst_power:e}");
+    assert!(worst_cell <= 2e-14 && worst_cell_prec <= 5e-14, "R43 per cell: {worst_cell:e} {worst_cell_prec:e}");
     // Round 14 (P6-2): the tight EN state is critical at `pTarget` to 1.3e-8; the step-1 jump of the loose state (+1.8e-4) is gone.
     assert!(rel(up_power_1(&reference), 2.0e7) < 1e-6 && rel(run.steps[0].power, 2.0e7) < 1e-6, "step-1 power not at pTarget");
 }

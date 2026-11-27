@@ -5423,7 +5423,7 @@ With upstream's `PCG`/`DIC` and normalised residual, the port's first `fluxStar0
 | S8 | missed (step 5 `dk` 2.1e-14 vs predicted <= 5e-15): the SN slab is not solver-limited; the 6-step history is amplified round-off of a `keff` that swings between 0.17 and 2.8; step 1 is bit-identical in `k` (4.4e-16 is 2 ulp). The port's tolerance was also set to 1e-14, upstream's value (it was 1e-13); the numbers did not change |
 | S9 | held |
 | S10 | **MISSED**: `rel_prec_max` did not move (5.8e-14 at step 1, 4.2e-12 at step 20, identical to the printed digits); `rel_flux_max` and `rel_dP` fell (held) |
-| S11 | **MISSED**: precursor totals 1.30e-11 and per-cell precursors 3.49e-10 are unchanged. **Round 6's hypothesis (the precursor difference is basic-lib's BiCGStab against `PBiCG`/`DILU`) is REFUTED**: with a line-by-line `PBiCG`/`DILU` and upstream's stopping rule the precursor differences are the same. The precursor equation is therefore not solver-limited; the cause is in the assembled matrix or source (the transport term, the `neutroSource/keff*beta` product) or in the TH-state input of this test, and is OPEN (follow-up filed as gh:#1891) |
+| S11 | **MISSED**: precursor totals 1.30e-11 and per-cell precursors 3.49e-10 are unchanged. **Round 6's hypothesis (the precursor difference is basic-lib's BiCGStab against `PBiCG`/`DILU`) is REFUTED** (**CORRECTED 2026-11-27: the cause is the wedge flux, round 43**): with a line-by-line `PBiCG`/`DILU` and upstream's stopping rule the precursor differences are the same. The precursor equation is therefore not solver-limited; the cause is in the assembled matrix or source (the transport term, the `neutroSource/keff*beta` product) or in the TH-state input of this test, and is OPEN (follow-up filed as gh:#1891) |
 | S12 | missed: keff 2.19e-13, `h1` 2.6e-9 unchanged; `flux0..3` fell 15-25 % only. The chain's differences come from the TH state, not from the neutronics solves |
 | S13 | held for `maxrel_T`, `rel_P` (the latter fell 10x at step 1); `rel_h1res` did not fall 10x |
 | S14 | held |
@@ -5439,7 +5439,7 @@ With upstream's `PCG`/`DIC` and normalised residual, the port's first `fluxStar0
 
 ### What remains
 
-* The cause of the precursor difference (`rel_prec_max` 5.8e-14 at step 1 growing to 4.2e-12 in 20 steps, with the flux at 1e-15): not the linear solver. Next probe: dump upstream's `precStar` matrix coefficients (`dump_*`) for step 1 and compare with the port's `fvm::div` + `fvm::laplacian` assembly.
+* ~~The cause of the precursor difference (`rel_prec_max` 5.8e-14 at step 1 growing to 4.2e-12 in 20 steps, with the flux at 1e-15): not the linear solver. Next probe: dump upstream's `precStar` matrix coefficients (`dump_*`) for step 1 and compare with the port's `fvm::div` + `fvm::laplacian` assembly.~~ **CORRECTED 2026-11-27 (round 43, gh:#1891):** found by exactly that probe: the WEDGE patches' boundary flux of `phi` (upstream a few 1e-14, the port 0) and, at the ulp level, the order in which the boundary `internalCoeffs` are added to `diag`; precursors now agree to <= 8e-16 (totals) / 8.2e-15 (per cell); see "Round 43".
 * The residual non-bit-identity of the diffusion pseudo-time guided slabs (step-1 `dk` 5e-14 on guided 2) and of A, G of the external source: not localised.
 * `GAMG` has no faithful port (gh:#1843); `relTol`/`minIter` are carried by `LinearSolverForm::Upstream` but the case readers do not yet read them from `fvSolution` (the tests and the workflow use the tight protocol `relTol 0`).
 * Not re-run: the hour-scale `#[ignore]` tests (`msfr_coupled` 452-step run, 1090 s; `msfr_allrun` TH stage; `godiva_sn_step`; `msfr_transient` diagnostics). They use the same neutronics code path as the non-ignored tests that were re-run.
@@ -5696,3 +5696,83 @@ The tight `2D_MSFR` chain of rounds 11/14 with `useGivenDiscFactors true` and th
 | D7 | stationary step (`upstream_stationary_step`) with an `XsEvolution` (driveline `CRmove`) and given factors, against `n3` plus `crmove=d1` of `scripts/make_r42_cases.sh` | criteria of round 42's non-eigenvalue level (steps equal, `power:` rel < 1e-12, iteration counts equal, last residual rel < 1e-6, flux < 1e-10); bit-identical 20 % |
 | D8 | the static solve with circulating fuel (`solve_eigenvalue` plus drift) with factors | refused by name; not compared (upstream has no static solve to difference: its eigenvalue is the pseudo-time `upstream_eigenvalue_step`, which D1 covers); filed |
 | D9 | disp-driven `radExp` / `axExp`; `2D_FFTF` neutronics | not attempted in this round unless time allows: refused by name, filed with the reason (the feedback fields come from the fluid region and `disp`) |
+
+## Round 43 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; the predictions above were committed first: `1da8a10e2` (item 1), `982add01a` (items 2 and 3))
+
+Code, tests, scripts and the instrumented upstream (`upstream_driver/prec_probe_r43/`) are committed with this section; references are in the refs submodule (`msfr_prec_matrix_r43`, `msfr_en20_df`, `msfr_chain20_df_transient`, `r43_stationary`). Tests: `genfoam_msfr_precursor_matrix_vs_upstream` (3), `genfoam_msfr_df_vs_upstream` (2), `genfoam_fv_solution_df_vs_upstream` (+3 D7, 22 tests), `genfoam_msfr_allrun_vs_upstream` (+1, `the_workflow_reads_the_neutronics_fv_solution`), and the transient, coupled, chain tests re-run.
+
+### Item 1 (gh:#1891): THE CAUSE — the wedge patches' boundary flux of `phi`
+
+**Method.** An instrumented copy of upstream's `precEq.H` (scratch tree, private `FOAM_USER_LIBBIN`; shipped sources untouched) dumped, from the real `transient` stage at t = 165 s (rebuilt tight state: step-1 `power:` 19999999.741642389, equal to `refs/msfr_transient.ref`), the inputs and the matrix of the first `precEq` calls; the port builds the same from the same inputs; arrays compared with `==`.
+
+**Result, in the order of the criteria.** (1) `alphat`, `mu`, `diffCoeffPrec`, `rhoCool`, `alpha`: bit-identical (H1 refuted: the constants of the tests and the workflow equal upstream's mapped `thermo:alpha` and `mu`). (2) `phi`: the internal faces differ in 22 of 16957 (9.4e-16 of the maximum) and the `zeroGradient` patches (bottomwall, topwall, reflector, hx) are bit-identical, **but the two wedge patches are not: upstream's wedge faces carry a flux of a few 1e-14 (`phiB0[0] = -9.7234835366053699e-15`), the port (tests, `precursor_transport_from_velocity`) set exactly 0.** Cause: `wedgeFvPatchField::evaluate` gives a vector field the patch value `transform(faceT_, U_cell)` (`faceT_ = rotationTensor(centreNormal_, n_)`, `wedgePolyPatch.C:46-112`), so `Sf . (faceT U alpha)` is not 0 on a mesh whose wedge faces are planar only to ~1e-8; `fvm::div(phi, precStar)` (upwind, `zeroGradient` value) puts it into `internalCoeffs` and `fvMatrix::solve` adds it to `diag` of every cell (`internalCoeffs0[0]` equals `phiB0[0]` to the digit). The relative size is 1.8e-13 of the diagonal in cell 0 and up to 3.9e-11 (of the maximum diagonal) elsewhere: exactly the order of the precursor differences of rounds 6 to 40 (5.8e-14 at step 1, growing). (3) A second, ulp-level cause: upstream's `fvMatrix` keeps the boundary `internalCoeffs` apart and adds them in `solve()` after the operator sum, basic-lib's operators fold them into `diag` as they go; the port now builds `div` with zero boundary flux and adds the `zeroGradient` `internalCoeffs` last, patch by patch (`upstream_precursor_matrix`): 4254 cells differed by an ulp before, 0 after.
+
+**Port.** `precursor_drift::{wedge_face_t, upstream_precursor_transport}` (the form before, `precursor_transport_zero_wedge_flux`, is the named control); `DiffusionNeutronics::upstream_precursor_matrix` (the matrix builder `upstream_prec_eq` now calls, with the boundary-coefficient order); the workflow's `precursor_transport_from_velocity` is the upstream form (`..._zero_wedge_flux` kept).
+
+**What is still not bit-identical, and why.** With the fix: matrices of groups 0, 3, 7 are bit-identical in diag, source, upper, lower except **8 cells (diag 4.6e-15 of max, source 4.4e-15), 5 upper / 18 lower entries with upstream's own phi (22/22 with the port's phi) and 22 internal face fluxes**, and 7 of 8595 wedge fluxes per wedge patch (2e-9 / 6e-9 of the patch maximum). All trace to the geometry of 8 symmetric quad faces: the port's `Sf` differs on 12 components, `C` on 21, the linear weights on 22 faces (1.8e-14), while upstream's own routine re-run on the live points reproduces its stored `Sf` (0 of 34578 differ) and returns the exactly rounded area of those quads (checked with rational arithmetic); basic-lib's `face_centre_and_area` (documented as that routine operation for operation) differs by 1.2e-14 relative and no ordering or FMA variant reproduces upstream. **Cause open: gh:#1897.** This is the part of the "bit-identity is the goal" not reached, flagged for the maintainer; the residual is below 1e-9 and has an understood location (it is a mesh-geometry difference, not the precursor equation).
+
+| quantity | before (rounds 6/40) | after |
+|---|---|---|
+| `msfr_transient` `rel_prec_max`, step 1 / step 20 | 5.8e-14 / 4.2e-12 | **2.0e-16 / 4.0e-16** (worst of 50 steps 7.8e-16) |
+| precursor totals, step 50 (worst group) | 1.30e-11 | 4.9e-16 |
+| per-cell precursors, step 50 (of max) | 3.49e-10 | 8.2e-15 |
+| `rel_flux_max` (worst of 50) / `rel_dP` (worst) | 1.1e-14 (step 20) / 7.5e-15 (round 40) | 2.5e-15 / 1.5e-15; per-cell flux at step 50 2.0e-15 |
+| iteration counts | 50/50 | 50/50 |
+| light chain EN 20 steps: `keff` / `power:` / `T` stats | 2.2e-13 / 2.2e-13 / 3.6e-14 | **5.8e-16 / 9.3e-16 / 2.0e-15** |
+| light chain, fields at 20 s: `powerDensity` / `T` | 1.0e-10 / 3.6e-14 | 1.1e-14 / 2.9e-15 |
+| light chain transient 5 steps: `dt` / `T` / `power:` / first `h` residual | 2.0e-11 / 3.7e-14 / 4.8e-12 (round 40; 3.5e-12 round 15) / 1.5e-11 | 7.6e-13 / 3.0e-15 / 2.2e-13 / 2.2e-12 |
+| long chain EN 600 steps: `keff` / first `h` residual | 2.19e-13 (round 40) / 2.6e-9 | **1.16e-15** / 2.6e-9 (unchanged); `power:` 1.49e-15 and `T` stats 5.1e-15 (no earlier value of these two recorded in this README) |
+| long chain fields at 165 s: flux0..3 / flux0..5 / precStar0..7 / `powerDensity` / `T` | 7.9e-11..1.2e-10 (flux0..3, round 40) / not recorded | flux0..3 and 4, 5: 7.5e-15..1.3e-14; precStar 1.6e-14..9.1e-14; `powerDensity` 7.4e-15; `T` 7.1e-15 |
+| long chain transient 50 steps: `dt` / `T` / `power:` / `h1` first residual | 6.0e-14 / 4.5e-14 / 1.05e-13 / 2.2e-9 (round 11 record) | 6.2e-16 / 1.1e-14 / 1.2e-14 / 4.6e-9 (a first residual of ~1e-5 absolute size: not a round-off measure) |
+| coupled (`msfr_coupled`) `rel_P` / `maxrel_T` / `rel_h1res` | 7.6e-15 (step 25, round 40) / 1.6e-15 / 7.3e-10 (step 1) .. 2.2e-9 | 3.7e-16 (steps 1-7 listed) / 1.9e-15 / 7.3e-10 (step 1, unchanged) .. 6.1e-10 (step 7); step-1 power bit-identical |
+
+(The older numbers are the records of README rounds 11, 14, 15, 40; the long-chain `h1` first-residual column is a first residual of 1e-5..1e-9 absolute size, where the relative difference is not a round-off measure.)
+
+**Predictions.** H1 (alphat / mu bits): **refuted** (0 differ). H2 (the port's `phi`): **held** (30 %; the part that differed is the wedge boundary flux, the internal faces and `zeroGradient` patches are not the cause). H3 (matrix from identical inputs): **partly held** (20 %: the boundary-coefficient order is an ulp-level cause found second; the dominant cause was an input, H2). H4, H5: refuted. P1 (step-1 `rel_prec_max` 0 and totals <= 1e-13): totals **held** (7.8e-16), "step 1 is 0" **missed** (2.0e-16, geometry cause above). P2 (flux, power, iterations do not move): **held** (they improved; counts equal). P3 (chain / coupled move by less than 2x): **missed in size**: they improved by 10x to 100x (table), the TH side of the chain was not the limit. C1 (control): **held** — the zero-wedge form misses the diagonal of 8591 of 8595 cells by 3.9e-11 of the maximum (`the_zero_wedge_flux_form_misses_the_diagonal_everywhere`).
+
+**Moved numbers (old -> new, cause: the wedge flux and the boundary-coefficient order).** Every number in the table above. No gate was loosened; the gates of `genfoam_msfr_transient_vs_upstream` were TIGHTENED (power 5e-15, flux integrals 6e-15, precursor totals 2e-15, per cell 2e-14 / 5e-14, post-run at the measured size). The round-6 statement that the 50-step precursor difference is "basic-lib's BiCGStab against PBiCG/DILU" (and round 40's "open, in the matrix or the source") are CORRECTED: it was the wedge flux.
+
+### Item 2 (gh:#1890): the workflow reads the neutronics `fvSolution`
+
+`AllrunEdits::neutron_linear` is `NeutronLinearSource::FvSolution` (default) or `Explicit(SolverSettings)` (`with_explicit_neutron_linear`); `EnergyNeutroDiffusion::new` takes `NeutronLinear` (`FvSolution(entries)` / `Explicit`). `steady_state_en` reads `system/neutroRegion/fvSolution` with `read_neutron_fv_solution` (groups and precursor groups of the cross sections). The staged root case of the tests tightens the neutronics file as upstream's runs did (`tighten_solvers` edits every `system/*/fvSolution`).
+
+| id | measured | held? |
+|---|---|---|
+| W1 | `the_workflow_reads_the_neutronics_fv_solution`: TH 0.004 s then 2 EN steps; the default (file) and the explicit `1e-14 / 100000` give the same history `keff`, `power`, `neutroResidual` and final fluxes, **bit-identical** (`maxIter` 1000 against 100 000 changes nothing) | **held** (70 % bit-identical) |
+| W2 | the SHIPPED untightened neutronics file (flux/precursor `relTol 1e-1`) read by the workflow moves `keff`/`power` by **1.5e-3** | **held** (> 1e-9) |
+| W3 | `Explicit` is the pre-change path (the chain tests use it): the long and light chain numbers are those of the table above (they moved by item 1, not by item 2: the explicit path is unchanged code) | **held** |
+| W4 | recorded numbers of rounds 11/14/15/40 "do not move" | **missed**, by item 1 (table); with the wedge flux of the old form they would be bit-equal (the W1 comparison isolates item 2: bit-identical) |
+| W5 | an unported solver selection (`smoothSolver`) in the staged file: `WorkflowError::Case` naming the flux entry and the unported pair | **held** |
+
+### Item 3 (gh:#1893): discontinuity factors
+
+**Ported.** `upstream_eigenvalue_step` and `upstream_transient_step` take `fluxStar_` as the unknown: `flux_ = fluxStar_/discFactor` at the top of the step (`solveNeutronics.H`), the matrix with `IV/df`, `D/df` (`fvc::interpolate` of the cell field `D/df` when a factor is not 1, the stored `d_face` otherwise), `(nuSigmaEff/keff ... - sigmaRemoval)/df`, the sources in the physical flux, `flux_ = fluxStar_/df` after each solve, `normFluxes.H` on `fluxStar_` (`star_field` keeps the albedo boundary conditions of the unknown; the first form of this change used `field_like`, which resets them to zero gradient, and made the light chain miss by 81 % at step 1: caught by the unity-factor light chain before any factor was compared). `store_old_times` stores `fluxStar_` (the old-time value of the `ddt`). `upstream_stationary_step` materialises an `XsEvolution` at the time of the step (after `pTotOld_ = power()`, which the first form of this change did not respect: first miss at step 106, the first zone change of the rod, power 8e-4, step size 1e-3).
+
+| id | measured | held? |
+|---|---|---|
+| D1 | EN 20 steps with `nuclearData.df` (0.96..1.04 in every zone and group; upstream's `keff` differs from the unity run by 1.8e-4): `keff` **6.9e-16**, `power:` 1.3e-15, `T` stats 1.6e-15, time exact, first `h` residual 2.6e-9; at 20 s `keff` 6.9e-16, flux 1.0e-14, `precStar` 1.6e-13, `powerDensity` 6.0e-15, `T` 3.0e-15 | **held**, stronger than the unity gates (65 %) |
+| D2 | 5 transient steps from the port's own 20 s state: `dt` 9.8e-13, `T` 3.3e-15, `power:` 2.4e-13, first `h` residual 6.1e-13 | **held** (55 %) |
+| D3 | control: the port on the unity data against the factor reference: `keff` misses by **1.8e-4** | **held** (> 1e-4) |
+| D4 | the unity light chain "equal to before" | **missed**: it moved (table), cause item 1, not the factor path: the pre-change eigenvalue code with only the wedge fix gave the same `keff` 5.8e-16 |
+| D5 | an `XsEvolution` in the liquid-fuel steps: refused by name (both steps pinned by `an_xs_evolution_is_still_refused_by_name_in_the_liquid_fuel_steps`) | **held** |
+| D6 | `DiffusionNeutronics::step` still refuses a factor != 1 (`x1_refusals_are_kept_by_name`) | **held** |
+| D7 | stationary-fuel step with a moving rod (`CRmove.d4`: the rod moves 0.035 m in the 3.5e-4 s; ~~`d1`~~ moves it 1e-6 m in that window, so a NEW `d4` was made before any run, a design decision recorded here): `n5` (unity factors): 345 steps, iteration counts 345/345, `power:` **1.8e-14**, `Time` 4.2e-8, last residual 1.0e-12, flux 6.6e-15; `n4` (given factors): 343 steps, 343/343, `power:` **8.2e-15**, flux 5.1e-15; not bit-identical (20 %: as predicted) | **held** (criteria of round 42) |
+| D7 control | the port with the rod held still against `n4`: last-step power 1.6e-2, 348 steps against 343 | **held** |
+| D8 | static solve with circulating fuel and factors; D9 `disp`-driven `radExp`/`axExp`, `2D_FFTF` neutronics | **not done**, filed as gh:#1898 with the reasons |
+
+### Defects of mine found by the comparisons (kept in the record)
+
+1. First eigenvalue/transient factor code used `field_like` for the flux unknown (drops the albedo BCs): keff 1.08 against 0.595 at step 1; found because the UNITY chain failed first (the old eigenvalue file restored: EN agrees 5.8e-16, so the break was in the new code).
+2. First D3 control (`without_disc_factors()` before the run) did nothing: `refresh_cross_sections` re-materialises the factors every step; replaced by the unity data.
+3. First `upstream_stationary_step` evolution used `pTotOld_` after the cross-section change (step 106 miss).
+4. The exploratory test parsed a dump that was not a tight-state run (the first probe ran the old loose 165 s state, keff 0.96031194, not the committed reference's 0.96031514); caught by comparing step-1 `power:` with the reference before trusting any number.
+
+### Reproduction
+
+`bash scripts/make_msfr_df_data.sh`; chain: `scripts/run_msfr_chain.sh steadyStateTH|steadyStateEN|transient` (EN: `PROTOCOL=tight EN_END=20 EN_WRITE=5`; transient `PROTOCOL=tight EN_END=20 END_TIME=20.02`) in a copy of `rootCase` whose `constant/neutroRegion/nuclearData` is `nuclearData.df`; `scripts/extract_msfr_en_reference.sh <root> 20 msfr_en20_df`, `scripts/extract_msfr_fluid_reference.sh <root> 5 msfr_chain20_df_transient 20`; `scripts/make_r42_cases.sh n4 v3 eigen=false end=3.5e-4 crmove=d4` (and `n5 v0`), `scripts/extract_r43_stationary_reference.sh`; the probe: `upstream_driver/prec_probe_r43/` and `scripts/extract_prec_matrix_reference.py`.
+
+### Decisions needed / open
+
+* gh:#1897: the 8 quads' geometry (the last non-bit-identity of the precursor matrix).
+* gh:#1898: the remaining items (static solve with factors, liquid-fuel `XsEvolution`, `DiffusionNeutronics::step`, `disp`-driven `radExp`/`axExp`, `2D_FFTF`, an SP3-stable adjusting data set).
+* The workflow default changed (`fvSolution` instead of explicit 1e-14): a root case with the shipped neutronics file now runs with `relTol 1e-1`, as upstream does; the V&V tests tighten the file.

@@ -134,6 +134,14 @@ fn alpha_cells() -> Vec<f64> {
 
 /// `phi = fvc::flux(U alpha)` on the neutronics mesh (wedge patches carry no flux), as in round 6.
 fn face_flux(mesh: &Arc<FvMesh>, u: &[f64], alpha: &[f64]) -> PrecursorTransport {
+    // gh:#1891 (round 43): upstream's `fvc::flux(U*alpha)`, wedge patches included (`wedgeFvPatchField::evaluate`).
+    let uvec: Vec<Vector3> = (0..mesh.n_cells).map(|c| Vector3::new(u[3 * c], u[3 * c + 1], u[3 * c + 2])).collect();
+    outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::precursor_drift::upstream_precursor_transport(mesh, &uvec, alpha)
+}
+
+/// The form before round 43 (wedge faces exactly zero): the control of the fix.
+#[allow(dead_code)]
+fn face_flux_zero_wedge(mesh: &Arc<FvMesh>, u: &[f64], alpha: &[f64]) -> PrecursorTransport {
     let n = mesh.n_cells;
     let mut field = VolVectorField::uniform("U", mesh.clone(), Vector3::new(0.0, 0.0, 0.0));
     field.internal = Field::new(

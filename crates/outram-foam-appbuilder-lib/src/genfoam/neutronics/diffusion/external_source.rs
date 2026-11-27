@@ -358,11 +358,6 @@ impl DiffusionNeutronics {
         // The factors of the dictionary (`XS::correct()` at `timeIndex > 0`) are applied (gh:#1887). A time-varying
         // `XsEvolution` (driveline, adjustment) is the eigenvalue driver's: `adjustDiscFactors` is in the eigenvalue
         // branch only, and the driveline is not compared for this step: refused by name.
-        if self.evolution.is_some() {
-            return Err(NeutronicsError::UpstreamTransient(
-                "an XsEvolution (driveline motion, factor adjustment) with the stationary-fuel step is not ported (gh:#1887)",
-            ));
-        }
         if dt <= 0.0 || dt.is_nan() {
             return Err(NeutronicsError::NonPositiveTimeStep(dt));
         }
@@ -376,6 +371,18 @@ impl DiffusionNeutronics {
         let volumes = self.state.mesh().cell_volumes.clone();
         let keff = self.state.k_eff_raw();
         let power_old = self.upstream_power();
+        // gh:#1893 (round 43): AFTER `pTotOld_ = power()` (`correctPhysics`), the time-dependent cross sections of an `XsEvolution` (control-rod driveline motion, the
+        // discontinuity-factor lists) are materialised at the time of the step, as `xs_.correct()` does at the top of
+        // `solveNeutronics.H`; `adjustDiscFactors` stays in the eigenvalue branch only, so it is never called here.
+        if let Some(evolution) = &self.evolution {
+            let mesh = self.state.mesh().clone();
+            self.xs = evolution
+                .materialize(&mesh, time)
+                .map_err(|_| NeutronicsError::UpstreamTransient("the cross sections of the XsEvolution could not be materialised"))?;
+            for (patch, gamma, lin) in self.albedo_specs.clone() {
+                self.set_albedo_boundary(patch, gamma, lin);
+            }
+        }
         // `fluxStar_` (read from the case, else `defaultFlux`: the state's flux at the first step), then
         // `flux_ = fluxStar_/discFactor` (solveNeutronics.H:29-32); the `ddt` takes `fluxStar_.oldTime()`
         let mut star: Vec<Vec<f64>> = match self.flux_star.take() {
