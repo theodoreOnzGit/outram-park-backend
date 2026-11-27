@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """gh:#1911 / gh:#1361 round 71: draw the 3-D fluid mesh of the shipped 3D_SmallESFR (every cell coloured by its cellZone).
 
-usage: python3 -I draw_esfr_mesh.py <polyMesh dir (points/faces/owner/neighbour/cellZones, .gz allowed)> <out dir>
+usage: python3 -I draw_esfr_mesh.py <polyMesh dir (points/faces/owner/neighbour/cellZones, .gz allowed)> <out dir> [region label, default fluid]
+(gh:#1944 round 74: the optional label names the region and the output files, `esfr_<label>_*.svg`; zones of the neutronics and
+thermo-mechanics meshes that the fluid mesh does not have get colours from a second palette)
 
 Draws what the solver reads (the polyMesh), not what the dictionaries say: each cell is the convex hull of ITS OWN vertices projected onto
 the slice plane, kept when the cell straddles the plane, filled by its cellZone. Writes SVGs: esfr_fluid_axial_xz.svg (plane y = y_mid),
@@ -26,6 +28,7 @@ def list_body(t):
     return s[:s.index('\n)')]
 
 d, out = sys.argv[1], sys.argv[2]
+LABEL = sys.argv[3] if len(sys.argv) > 3 else 'fluid'
 pts = [tuple(float(v) for v in x.split()) for x in re.findall(r'\(([^()]+)\)', list_body(body(rd(os.path.join(d, 'points')))))]
 faces = [[int(v) for v in x.split()] for x in re.findall(r'\d+\(([^()]+)\)', list_body(body(rd(os.path.join(d, 'faces')))))]
 owner = [int(v) for v in list_body(body(rd(os.path.join(d, 'owner')))).split()]
@@ -51,7 +54,13 @@ for z in zones:
     print('zone %-16s %d cells' % (z, sum(1 for c in zone_of if c == z)))
 print('cells in no zone: %d' % sum(1 for c in zone_of if c is None))
 COL = {'axialReflector': '#8da0cb', 'controlRod': '#e41a1c', 'radialReflector': '#66c2a5', 'innerCore': '#fc8d62',
-       'follower': '#a6d854', 'outerCore': '#ffd92f', 'diagrid': '#999999', None: '#000000'}
+       'follower': '#a6d854', 'outerCore': '#ffd92f', 'diagrid': '#999999', None: '#000000',
+       'lowerGasPlenum': '#1f78b4', 'lowerReflector': '#b2df8a', 'upperGasPlenum': '#6a3d9a', 'upperReflector': '#cab2d6',
+       'rest': '#bdbdbd', 'softStructure': '#fb9a99', 'zoneOther': '#ff7f00'}
+_extra = ['#e7298a', '#7570b3', '#d95f02', '#1b9e77', '#a6761d', '#666666']
+for _z in zones:
+    if _z not in COL:
+        COL[_z] = _extra[len(COL) % len(_extra)]
 
 def hull(p):
     p = sorted(set(p))
@@ -107,10 +116,10 @@ def write(name, W, H, items):
 os.makedirs(out, exist_ok=True)
 xm = 0.5 * (box[0] + box[1]); ym = 0.5 * (box[2] + box[3])
 for axis_name, axis, val, ext, fn in [
-        ('plane y = %.3f m (x-z)' % ym, 1, ym, (box[0], box[1], box[4], box[5]), 'esfr_fluid_axial_xz.svg'),
-        ('plane x = %.3f m (y-z)' % xm, 0, xm, (box[2], box[3], box[4], box[5]), 'esfr_fluid_axial_yz.svg')]:
+        ('plane y = %.3f m (x-z)' % ym, 1, ym, (box[0], box[1], box[4], box[5]), 'esfr_%s_axial_xz.svg' % LABEL),
+        ('plane x = %.3f m (y-z)' % xm, 0, xm, (box[2], box[3], box[4], box[5]), 'esfr_%s_axial_yz.svg' % LABEL)]:
     polys = slice_polys(axis, val)
-    g, w, h = panel(polys, 40, 40, 560, 900, ext, 'fluidRegion, ' + axis_name + ', %d cells cut' % len(polys))
+    g, w, h = panel(polys, 40, 40, 560, 900, ext, LABEL + 'Region, ' + axis_name + ', %d cells cut' % len(polys))
     print(fn, 'cells drawn', len(polys))
     write(fn, int(w) + 280, int(h) + 80, g + legend(int(w) + 70, 60))
 items = []
@@ -122,4 +131,4 @@ for k, fz in enumerate(fr):
                     'radial slice z = %.3f m (%.0f %% of the height), %d cells cut' % (zc, 100 * fz, len(polys)))
     print('radial z=%.3f cells drawn %d zones %s' % (zc, len(polys), sorted(set(str(z) for z, _ in polys))))
     items += g
-write('esfr_fluid_radial.svg', 1160, 1150, items + legend(900, 1060 - 20 * len(zones) + 60))
+write('esfr_%s_radial.svg' % LABEL, 1160, 1150, items + legend(900, 1060 - 20 * len(zones) + 60))

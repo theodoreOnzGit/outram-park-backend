@@ -73,8 +73,9 @@ use crate::genfoam::neutronics::point_kinetics::case::{read_pk_case, PkCaseDicts
 use crate::genfoam::neutronics::point_kinetics::model::{feedback_cell_field, PkFeedbackFields, PkMeshData, PkStepReport, PointKineticNeutronics};
 use crate::genfoam::neutronics::point_kinetics::LinearSolveForm;
 use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
+use crate::genfoam::neutronics::xs::variables::VariableLaw;
 use crate::genfoam::neutronics::xs::CrossSectionData;
-use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
+use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{CaseReadOptions, GamgPolicy, OnePhaseCcCase, OnePhaseCcSolver};
 use crate::genfoam::thermo_mechanics::legacy_fvm::case::{LegacyFvmCase, TStructGamgPolicy};
 use crate::genfoam::thermo_mechanics::legacy_fvm::{LegacyFvmThermoMechanics, PhysicsLog};
 use crate::genfoam::workflow::reactor_state::ReactorState;
@@ -159,6 +160,12 @@ pub struct NeutronicsRegion {
     pub p_tot_old: f64,
     first_step: bool,
     conditions: Vec<DispPatchCondition>,
+    /// The cross-section data and the cell-to-zone map: `xs_.correct()` of every `solveNeutronics.H` re-evaluates them at the feedback
+    /// fields (gh:#1944; a case with `xsVariables {}` has nothing to refresh).
+    xs: CrossSectionData,
+    zone_map: Vec<usize>,
+    /// `axialOrientation` of `nuclearData` (default `(0 0 1)`, `XS.C:76`).
+    axial_orientation: Vector3,
     /// `Some` once [`RegionSolvers::restart_transient`] switched the region to `eigenvalueNeutronics false` (gh:#1919, README round 60).
     pub transient: Option<NeutronicsTransient>,
 }
@@ -408,6 +415,70 @@ fn time_dir_name(root: &Path, t: f64) -> Result<String, AppBuilderError> {
 
 fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
     FoamFile::read_esi(root.join(rel)).map_err(|e| case_err(root, format!("{rel}: {e}")))
+}
+
+/// `axialOrientation` of `nuclearData` (`XS.C:76`, `lookupOrDefault`, default `(0 0 1)`): the entry `axialOrientation (x y z);` when present.
+fn axial_orientation_of(root: &Path, region: &str) -> Result<Vector3, AppBuilderError> {
+    let path = root.join(format!("constant/{region}/nuclearData"));
+    let text = std::fs::read_to_string(&path).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
+    let Some(line) = text.lines().find(|l| l.trim_start().starts_with("axialOrientation")) else { return Ok(Vector3::new(0.0, 0.0, 1.0)) };
+    let inner: String = line.split_once('(').and_then(|(_, r)| r.split_once(')')).map(|(v, _)| v.to_string()).unwrap_or_default();
+    let v: Vec<f64> = inner.split_whitespace().filter_map(|x| x.parse().ok()).collect();
+    if v.len() != 3 {
+        return Err(case_err(root, format!("{region}: nuclearData axialOrientation `{}` is not a vector", line.trim())));
+    }
+    Ok(Vector3::new(v[0], v[1], v[2]))
+}
+
+/// The per-cell raw feedback parameters of `XS::correct()` in `xsVariables` order (`setNeutronicsVariables.H`): the region's own field of that
+/// name, `radExp`/`axExp` from `disp`; a `log` variable clamped `max(x, 0.01)` and a `sqrt` one `max(x, 0)` as upstream does before the law.
+fn xs_cell_parameters(n: &NeutronicsRegion, fields: &RegionFields) -> Result<Vec<f64>, AppBuilderError> {
+    use crate::genfoam::neutronics::diffusion::expansion::expansion_from_displacement;
+    let cells = n.mesh.mesh().n_cells;
+    let vars = n.xs.variables();
+    let needs_expansion = vars.iter().any(|v| v.name == "axExp" || v.name == "radExp");
+    let expansion = if needs_expansion {
+        let disp = fields.vector("disp").ok_or_else(|| case_err(Path::new(""), "XS variable radExp/axExp: the region has no `disp`"))?;
+        Some(expansion_from_displacement(n.mesh.mesh(), disp, n.axial_orientation))
+    } else {
+        None
+    };
+    let mut out = vec![0.0; cells * vars.len()];
+    for (j, v) in vars.iter().enumerate() {
+        let column: Vec<f64> = match (v.name.as_str(), &expansion) {
+            ("axExp", Some(e)) => e.ax_exp.clone(),
+            ("radExp", Some(e)) => e.rad_exp.clone(),
+            (name, _) => fields.scalar(name).ok_or_else(|| case_err(Path::new(""), format!("XS variable {name}: the region has no such field")))?.to_vec(),
+        };
+        for (c, x) in column.iter().enumerate() {
+            out[c * vars.len() + j] = match v.law {
+                VariableLaw::Log => x.max(0.01),
+                VariableLaw::Sqrt => x.max(0.0),
+                VariableLaw::Linear => *x,
+            };
+        }
+    }
+    Ok(out)
+}
+
+/// `solveNeutronics.H:119-120`: `secondaryPowerDensity_ = powerDensity_ / max(secondaryPowerVolumeFraction, SMALL) * fractionToSecondaryPower;`
+/// then `powerDensity_ /= max(fuelFraction, SMALL) * (1.0 - fractionToSecondaryPower);`, each zone's own constants per cell. Returns
+/// `(powerDensity, Some(secondaryPowerDensity))`; the secondary field only when some zone has `fractionToSecondaryPower != 0` (gh:#1944: the
+/// ESFR core zones have `fuelFraction 0.46`, the 2-D tutorials `1`, so the division was a no-op until now).
+fn fuel_fraction_scaled_power(n: &NeutronicsRegion, power_density: Vec<f64>) -> (Vec<f64>, Option<Vec<f64>>) {
+    const SMALL: f64 = 1.0e-15;
+    let any_secondary = (0..n.xs.zone_count()).any(|z| n.xs.zone(z).is_some_and(|d| d.fraction_to_secondary_power() != 0.0));
+    let mut secondary = if any_secondary { Some(vec![0.0; power_density.len()]) } else { None };
+    let mut out = power_density;
+    for (c, x) in out.iter_mut().enumerate() {
+        let Some(z) = n.xs.zone(n.zone_map[c]) else { continue };
+        let frac = z.fraction_to_secondary_power();
+        if let Some(sec) = secondary.as_mut() {
+            sec[c] = *x / z.secondary_power_volume_fraction().max(SMALL) * frac;
+        }
+        *x /= z.fuel_fraction().max(SMALL) * (1.0 - frac);
+    }
+    (out, secondary)
 }
 
 fn has_baffles(mesh: &DeformableMesh) -> bool {
@@ -683,9 +754,11 @@ impl RegionSolvers {
             }
             let remove_baffles = rb(name);
             let baffle_less = if remove_baffles { Some(baffle_less::read_baffle_less(&poly, &dm)) } else { None };
-            if remove_baffles && has_baffles(&dm) {
-                return Err(case_err(root, format!("{name}: removeBaffles on a mesh with baffles is not ported (gh:#1236); only a mesh without duplicate faces is")));
-            }
+            // gh:#1944 (README round 74): `createBaffleLessMeshes` merges duplicate faces (`Writing 21252 duplicate faces`) and leaves every CELL
+            // as it was (same count, same order, same shape: the real log's overlap volumes of the `.baffleLess` maps equal the baffled ones to 1e-14),
+            // so the `meshToMesh` sources `<region>.baffleLess` hold the region's own cell values and their weights are the baffled mesh's (1 for
+            // identical cells). The merged mesh itself is not built: refused by name only where it would be WRITTEN (`baffle_less` above).
+            let _ = has_baffles(&dm);
             geometries.push(OverlapMesh::from_deformable(&dm).map_err(|e| case_err(root, format!("{name}: overlap geometry: {e}")))?);
             let n = dm.mesh().n_cells;
             let fv = dm.mesh().clone();
@@ -698,7 +771,9 @@ impl RegionSolvers {
             }
             let solver = match kind.as_str() {
                 "onePhase" => {
-                    let s = OnePhaseCcSolver::from_case_dir(root, &poly)?;
+                    // `GAMG` for `p_rgh` runs upstream's own `GAMGSolver` (round 67, `GamgPolicy::Native`); a case that selects `PCG` is unaffected (gh:#1944)
+                    let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+                    let s = OnePhaseCcSolver::new(OnePhaseCcCase::read_with_options(root, &poly, &opts)?);
                     fields.set_scalar("powerDensityNeutronics", vec![0.0; n]);
                     fields.set_scalar("powerDensityNeutronicsToLiquid", vec![0.0; n]);
                     RegionSolver::OnePhase(FluidRegion { solver: s })
@@ -729,11 +804,21 @@ impl RegionSolvers {
                         linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
                         ..DiffusionSettings::default()
                     };
-                    let mut solver = DiffusionNeutronics::new(dm.mesh().clone(), &xs, &zone_map, &[], &flux_boundary, settings)
+                    // a case with `xsVariables` constructs at the feedback fields of the constructor (all zero: `0/neutroRegion` carries no
+                    // value; `log` clamped to 0.01 as `setNeutronicsVariables.H` does); every step refreshes them (`xs_.correct()`, gh:#1944)
+                    let built = if xs.variables().is_empty() {
+                        DiffusionNeutronics::new(dm.mesh().clone(), &xs, &zone_map, &[], &flux_boundary, settings)
+                    } else {
+                        let row: Vec<f64> = xs.variables().iter().map(|v| if v.law == VariableLaw::Log { 0.01 } else { 0.0 }).collect();
+                        let params: Vec<f64> = (0..n).flat_map(|_| row.iter().copied()).collect();
+                        DiffusionNeutronics::new_with_cell_parameters(dm.mesh().clone(), &xs, &zone_map, &params, &flux_boundary, settings)
+                    };
+                    let mut solver = built
                         .map_err(|e| case_err(root, format!("{name}: diffusion solver: {e}")))?
                         .with_eigenvalue_laplacian(NeutronicsLaplacianScheme::Corrected);
                     if eig {
-                        solver.set_initial_guess(&vec![vec![1.0; n]; 2], k0);
+                        let groups = solver.energy_groups();
+                        solver.set_initial_guess(&vec![vec![1.0; n]; groups], k0);
                     }
                     let conditions = vec![DispPatchCondition::ZeroGradient; dm.mesh().patches.len()];
                     for f in ["TFuel", "TClad", "TCool", "TStruct", "TStructMech", "rhoCool"] {
@@ -759,7 +844,7 @@ impl RegionSolvers {
                         transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, name)? });
                         first_step = false;
                     }
-                    RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step, conditions, transient })
+                    RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step, conditions, xs, zone_map, axial_orientation: axial_orientation_of(root, name)?, transient })
                 }
                 "pointKinetics" => {
                     // `pointKineticNeutronics` constructed from the written start directory: `flux<g>`, `prec<k>`, `powerDensity`,
@@ -1187,22 +1272,38 @@ impl RegionSolvers {
             RegionSolver::Neutronics(n) if n.transient.is_some() => {
                 // `diffusionNeutronics::correctPhysics()` with `eigenvalueNeutronics false`: `pTotOld_ = power()`, then `solveNeutronics.H`
                 n.p_tot_old = n.solver.pseudo_time_power();
+                if !n.xs.variables().is_empty() {
+                    let params = xs_cell_parameters(n, &r.fields)?;
+                    n.solver.refresh_cross_sections(&n.xs, &n.zone_map, &params).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                }
                 let Some(tr) = n.transient.as_mut() else { unreachable!("guarded by is_some") };
                 let step = n.solver.upstream_stationary_step(self.time, dt, &tr.controls).map_err(|e| case_err(Path::new(""), e.to_string()))?;
                 n.power = step.power;
                 tr.last_step = Some(step);
                 // `powerDensity_ = sum flux sigmaPow`, `/= max(fuelFraction, SMALL)(1 - fractionToSecondaryPower)`: both 1 and 0 here; the flux is not
                 // renormalised in a transient, so no `power/pTarget` scaling (the eigenvalue branch rescales the post-`normFluxes` flux)
-                r.fields.set_scalar("powerDensity", n.solver.upstream_power_density());
+                let (pd, sec) = fuel_fraction_scaled_power(n, n.solver.upstream_power_density());
+                r.fields.set_scalar("powerDensity", pd);
+                if let Some(sec) = sec {
+                    r.fields.set_scalar("secondaryPowerDensity", sec);
+                }
             }
             RegionSolver::Neutronics(n) => {
                 n.p_tot_old = n.solver.pseudo_time_power();
+                if !n.xs.variables().is_empty() {
+                    let params = xs_cell_parameters(n, &r.fields)?;
+                    n.solver.refresh_cross_sections(&n.xs, &n.zone_map, &params).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                }
                 let step = n.solver.eigenvalue_time_step(n.p_target, n.first_step).map_err(|e| case_err(Path::new(""), e.to_string()))?;
                 n.first_step = false;
                 n.k_eff = step.k_eff;
                 n.power = step.power;
                 let scale = step.power / n.p_target;
-                r.fields.set_scalar("powerDensity", n.solver.upstream_power_density().iter().map(|x| x * scale).collect());
+                let (pd, sec) = fuel_fraction_scaled_power(n, n.solver.upstream_power_density().iter().map(|x| x * scale).collect());
+                r.fields.set_scalar("powerDensity", pd);
+                if let Some(sec) = sec {
+                    r.fields.set_scalar("secondaryPowerDensity", sec);
+                }
             }
             RegionSolver::PointKinetics(p) => {
                 // `pointKineticNeutronics::correctPhysics()`: `pTotOld_ = power_`, then `solvePointKinetics.H` on the fields `mapAllFields` just wrote
