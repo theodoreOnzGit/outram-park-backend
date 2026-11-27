@@ -5444,7 +5444,7 @@ With upstream's `PCG`/`DIC` and normalised residual, the port's first `fluxStar0
 * `GAMG` has no faithful port (gh:#1843); `relTol`/`minIter` are carried by `LinearSolverForm::Upstream` but the case readers do not yet read them from `fvSolution` (the tests and the workflow use the tight protocol `relTol 0`).
 * Not re-run: the hour-scale `#[ignore]` tests (`msfr_coupled` 452-step run, 1090 s; `msfr_allrun` TH stage; `godiva_sn_step`; `msfr_transient` diagnostics). They use the same neutronics code path as the non-ignored tests that were re-run.
 
-## Round 41 results (2026-11-27, release, `CARGO_BUILD_JOBS=2`, private target dir; `tests/genfoam_two_phase_radial_power_vs_upstream.rs`, 10 tests + 1 ignored diagnostic, ~28 s; `--nocapture` prints every table)
+## Round 41 results (placed after another agent's Round 40 by a README merge; 2026-11-27, release, `CARGO_BUILD_JOBS=2`, private target dir; `tests/genfoam_two_phase_radial_power_vs_upstream.rs`, 10 tests + 1 ignored diagnostic, ~28 s; `--nocapture` prints every table)
 
 Upstream: the real unmodified GeN-Foam 652b3da on ESI v2506, `scripts/boiling_radial_variant_protocol.sh` (tight protocol, MULES as shipped, every step written), variants of `cases/boiling_radial_r41/`; references `refs/boiling_radial_r41_<variant>_<lo>_<hi>.ref.txt.gz` (29 files, 0.14-0.36 MB each, **7.1 MB in all**; refs submodule commit f1c5dcd). Runs: hp 27 s (1215 steps to t = 12), hp3 170 s (3643 steps, upstream ABORTS with SIGFPE at t = 9.34 s, 3 s after the onset, as the `both` run of round 7 did), nfp 30 s, nfp_hot 1364 steps (aborts at t = 6.44 s).
 
