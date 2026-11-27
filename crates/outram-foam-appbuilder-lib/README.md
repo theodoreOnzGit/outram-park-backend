@@ -23,6 +23,28 @@ Provides solver time loops, polyMesh / field I/O, and case-file structures, and
 hosts the in-progress Rust port of GeN-Foam (deterministic reactor neutronics +
 thermal-hydraulics + thermo-mechanics).
 
+**Name.** `outram` is the workspace's OUTRAM: **O**pen-source **U**nified
+**TR**Ansient **M**ulti-Physics (from OUTRAM PARK, `docs/ecosystem-naming.md`);
+`foam` marks the OpenFOAM lineage; `appbuilder-lib` is the application layer
+(Layer 5) built on `outram-foam-basic-lib`. **The question it answers:** how do
+OpenFOAM's solver applications (pimpleFoam, rhoCentralFoam, chtMultiRegionFoam,
+solidDisplacementFoam, ...) and GeN-Foam march a case in time, written as Rust
+a reader can follow step by step?
+
+**What this crate lets you study and challenge.** Each solver's `step()` is the
+PISO/PIMPLE (or explicit) loop of one OpenFOAM application, laid out in the
+order upstream's `.C` and `.H` files run it, so a reader can follow
+`UEqn.H`, `pEqn.H` and `EEqn.H` against Rust. Several of these loops have been
+run beside the real upstream binary and agree bit for bit, or to a stated
+round-off with a stated cause. The GeN-Foam port turns a reactor multiphysics
+code (neutronics, porous thermal-hydraulics, thermo-mechanics, their coupling)
+into readable modules, with each upstream class's status in
+[`docs/genfoam-port-gap-audit.md`](docs/genfoam-port-gap-audit.md). The original
+HTR-10 work (`htgr_closures`, `htr10_rz`) puts each correlation beside its
+table number, and its comparison with the 22 HTR-10 thermocouples is kept as a
+miss you can check, not a fit. What does not work yet (dictionary readers, every
+writer, wall functions, `hrm_foam` with no gate) is listed under "Limitations".
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping
@@ -36,11 +58,33 @@ thermal-hydraulics + thermo-mechanics).
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
-Depends on (both **in-workspace path crates**, not yet on crates.io):
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Upstream code: OpenFOAM (GPL-3.0), Foundation [`OpenFOAM-dev`](https://github.com/OpenFOAM/OpenFOAM-dev) `master` (no commit pinned, [`upstream_source/README.md`](upstream_source/README.md)) and ESI OpenFOAM-v2506 for the `esi` translations; [GeN-Foam](https://gitlab.com/foam-for-nuclear/GeN-Foam) at commit `652b3da` (GPL-3.0). References used by the V&V: Ghia et al. (1982) Table I, Sod (1978) Table II with the exact Riemann solution (Toro, ch. 4), Durst et al. (2005), Downar-Zapolski (1996). The HTGR closures cite IAEA-TECDOC-1694 (formulas and table numbers only) and Kugeler et al. 2017 (`kugeler2017vhtr` in `crates/kovan-literature/CATALOGUE.md`), plus MacGregor and Emery 1969. |
+| Mathematical equations | Module docs of each solver (`src/solvers/*`: incompressible PISO/PIMPLE, KNP central-upwind compressible flow, the incompressible energy equation with P1 and viewFactor radiation coupling, chtMultiRegionFoam's mixed interface condition, linear-elastic `solidDisplacementFoam`, the Homogeneous Relaxation Model); GeN-Foam: point kinetics, multigroup diffusion, SP3 and S_N transport, porous one- and two-phase flow, thermal expansion; `htgr_closures` (Breitbach and ZBS bed conductivity, KTA 3102.2 heat transfer, KTA 3102.3 pressure drop). Planned equations per solver: [`docs/planned-modules.md`](docs/planned-modules.md). |
+| Source code | `solvers` (one submodule per application), `case_runner`, `cases` (`double_pipe`, `helical_coil`, `laminar_pipe`), `io`, `turbulence`, `genfoam` (`neutronics`, `thermal_hydraulics`, `thermo_mechanics`, `multi_region`, `common`), `htgr_closures`, `htr10_rz`. |
+| Interactive simulations | No app in this crate. Foam Studio (`crates/dhoby-ghaut/examples/foam_studio_web/`) runs its solvers and cases in the browser. CLI runs: `tutorials/` (`pimple_foam_cavity.rs`, `rho_central_foam_shock_tube.rs`, `rho_pimple_foam_aerofoil_naca0012.rs`) and `examples/` (`tutorial_run_a_solver.rs`, `reacting_two_phase_euler_combustion.rs`). |
+| Visualisations | Committed images (PNG/SVG) in `verification_and_validation/`: `laminar_pipe_gh1155/` (meshes and profiles), `helical_coil_dean_gh1157/`, `cht_double_pipe_gh1156/`, `htr10_rz_solid/`, `htr10_rz_flow_fpic/`, `solid_conduction_rz/`, `genfoam_two_phase/`, `wasm_pimple_3d_pipe/images/`; image-writing tests `tests/htr10_rz_transient_images.rs` and `tests/solid_conduction_rz_images.rs`. |
+| Verification and validation evidence | [`verification_and_validation/`](verification_and_validation/) and `tests/`. As recorded: `pimple_foam` against OpenFOAM-dev icoFoam, U, p, phi within 1.3e-13 of the field range (gh:#1363, `pimple_foam_vs_openfoam.md`), Ghia Re = 100 centreline RMS 0.0057 with `Gauss linear` (re-run 2026-11-11); `rho_central_foam` bit-identical to ESI v2506 on the shockTube, Sod whole-field L2 ρ 1.51 %, u 5.39 %, p 1.21 % (re-measured 2026-11-12, `sod_shock_tube_validation/RESULTS.md`); `solid_displacement_foam`, `RhoPimpleFoamEsi` and `SonicFoamEsi` bit-identical to ESI drivers; `melt_foam` −0.035 % against the Stefan solution; energy with P1 radiation within 1.1e-11 K of ESI `chtMultiRegionFoam` (`upstream_radiation_gh1531/`); GeN-Foam `twoPhase` against the real GeN-Foam binary, 65 steps within 1e-9 (`genfoam_vs_upstream_gh1361/`, round 3); HTR-10 FPIC against 22 thermocouples RMS 49.4 K, compared, not gated (`htr10_rz_flow_fpic/`). The open tet-dual pipe miss (gh:#1202) is under "Limitations". |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp (no `kind = "review"` block in any `review.md` here). `docs/human-corrections-to-ai-work.md` (2026-08-12, zero-gradient energy boundaries) names the `rhoPimpleFoam` array ports of `tampines-steam-tables` and `outram-park-fork-coolprop`, not this crate. Struck-through corrections in this README record MULES (gh:#1361), the exact `meshToMesh` mapping (gh:#651), `deformMesh` (gh:#1784), `albedoSP3` (gh:#1217), the Sod L2 (in `AGENTS.md`) and `GaussLinearDeferred` (gh:#1500). AI fleet review notes: [`docs/ai-fleet-review/`](docs/ai-fleet-review/). |
+
+**Status:** the solvers and GeN-Foam pieces named in the V&V row have AI-run
+verification evidence (closed forms, published tables, upstream binaries); the
+HTR-10 model is compared with measurement but not validated; `hrm_foam`,
+`SonicFoam::step` and the GeN-Foam closure leaves outside a coupled run are
+unverified; nothing here has been reviewed by a human.
+
+Depends on (~~both~~ **in-workspace path crates**, not yet on crates.io — Not re-checked (crates.io not consulted)):
 - `outram-foam-basic-lib` — primitives, FV operators, fields, mesh
 - `outram-foam-turbulence-lib` — turbulence model closures
+- **CORRECTED 2026-11-27** (checked in `Cargo.toml`): also `outram-foam-multiphase`,
+  `outram-foam-mesh` and `farrer-park`, plus `petir`
 
-> **This is an early (0.1.1), in-progress crate.** Large parts of the intended
+> **This is an early (~~0.1.1~~ **CORRECTED 2026-11-27:** 0.1.8, per `Cargo.toml`), in-progress crate.** Large parts of the intended
 > surface are scaffolds, `todo!()`, or deliberately deferred. Read the
 > [**Limitations**](#limitations) section below before depending on it — it is
 > the honest status, and it is long on purpose.
@@ -141,6 +185,7 @@ Laplacian's non-orthogonal correction, as upstream's `correctedSnGrad`);
 | `io::fv_schemes` | fvSchemes struct. `FvSchemes::read` is **`todo!()` — not implemented.** |
 | `io::fv_solution` | fvSolution struct. `FvSolution::read` is **`todo!()` — not implemented.** |
 | `io::output` | `write_scalar_field`, `write_vector_field`, `write_vtk` are all **`todo!()` — no ASCII/VTK field output yet.** |
+| `io::nuclear_data` | GeN-Foam `nuclearData` reader and writer (`read_nuclear_data`, `write_nuclear_data`). **Implemented** (row added 2026-11-27; see "GeN-Foam neutronics" below). |
 
 ## GeN-Foam port (`genfoam`)
 
@@ -265,7 +310,7 @@ are std's with `std` and `hashbrown` without. The root workspace entry is
 ## Limitations
 
 This crate is at an early stage of a large port. The following are **known,
-real limitations** as of version 0.1.1 — grounded in the code, not aspirational.
+real limitations** as of version ~~0.1.1~~ 0.1.8 (CORRECTED 2026-11-27, `Cargo.toml`) — grounded in the code, not aspirational.
 
 ### Verification & validation
 
