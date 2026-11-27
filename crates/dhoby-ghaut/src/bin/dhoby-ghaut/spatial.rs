@@ -1187,9 +1187,10 @@ mod tests {
     ///   mesh equals `Σ_s q_s ov_s`, with `ov_s` each neutronics cell's
     ///   overlap with the TH mesh recovered from the weights (an independent
     ///   path through the same data), and no cell deposits more than its
-    ///   volume ~~(+1e-3)~~ divided by the lowest coverage of the TH cells it
-    ///   feeds (2026-11-27: the weights are normalised over the covered part
-    ///   of each TH cell); a uniform power density arrives on every ring-grid node
+    ///   volume, ~~on the overlaps rebuilt from the weights (+1e-3)~~ on the
+    ///   exact overlaps (to 1e-9; 2026-11-27: the weights are normalised over
+    ///   the covered part of each TH cell, so the rebuilt overlaps are not
+    ///   the cells' real overlaps where the coverage is below 1); a uniform power density arrives on every ring-grid node
     ///   unchanged (1e-6: the grid transfer is a proper volume average), and
     ///   no node exceeds the largest TH cell value
     ///   (a node can only average cells, never concentrate them); the march
@@ -1250,35 +1251,20 @@ mod tests {
                 ov[s] += w * tr.th_vol_m3[t];
             }
         }
-        // ~~`o <= v (1 + 1e-3)`~~ (2026-11-27, the maintainer's rule for the
-        // map gates: derive the bound from coverage). The weights are
-        // normalised over the part of each TH cell the neutronics mesh
-        // covers, so a cell's rebuilt overlap is inflated by 1/coverage of
-        // the TH cells it feeds. With fitted region boundaries both meshes
-        // are snapped onto r = 90 cm with different tilings and slivers of
-        // TH cells are uncovered (one cell came out 1.48e-3 over). The exact
-        // overlaps give each TH cell's coverage.
+        // No neutronics cell deposits more than its volume: checked on the
+        // EXACT overlaps (`MeshOverlap`, tetrahedral intersection), which is
+        // what the property is about. ~~On `ov`, rebuilt from the normalised
+        // weights, with a 1e-3 allowance~~ (2026-11-27, maintainer: "fix that
+        // test"): the weights are normalised over the covered part of each TH
+        // cell, so where both meshes are snapped onto r = 90 cm with
+        // different tilings and slivers of TH cells are uncovered, `ov` is
+        // inflated by 1/coverage (one cell came out 1.48e-3 over). `ov` stays
+        // the independent path for the power equality below.
         let nmesh = &meshes().0.meshes[MeshRole::Neutronics.index()];
         let exact = outram_blender::unstructured::overlap::MeshOverlap::new(nmesh, &th_mesh);
-        let vt_cm3 = outram_blender::unstructured::overlap::cell_volumes_cm3(&th_mesh);
-        let mut cov_t = vec![0.0; vt_cm3.len()];
-        for row in &exact.src_to_tgt {
-            for &(t, o) in row {
-                cov_t[t] += o / vt_cm3[t];
-            }
-        }
-        let mut c_min_of = vec![1.0f64; vn.len()];
-        for (t, row) in map.weights.iter().enumerate() {
-            for &(src, _) in row {
-                c_min_of[src] = c_min_of[src].min(cov_t[t]);
-            }
-        }
-        for (s, (&o, &v)) in ov.iter().zip(&vn).enumerate() {
-            let c_min = c_min_of[s];
-            assert!(
-                o <= v / c_min * (1.0 + 1e-9),
-                "neutronics cell {s} deposits {o} m3 > its {v} m3 / coverage {c_min}"
-            );
+        for (s, (row, &v)) in exact.src_to_tgt.iter().zip(&vn).enumerate() {
+            let o: f64 = row.iter().map(|x| x.1).sum::<f64>() * 1e-6;
+            assert!(o <= v * (1.0 + 1e-9), "neutronics cell {s} overlaps the TH mesh by {o} m3 > its {v} m3");
         }
         let deposited: f64 = sol.q_w_m3.iter().zip(&ov).map(|(q, o)| q * o).sum();
         let on_th = (split.bed + split.cavity) * p_w;
