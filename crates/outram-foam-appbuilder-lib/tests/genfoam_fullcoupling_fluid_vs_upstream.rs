@@ -117,6 +117,17 @@ fn variant_smooth_solver(root: &Path) {
     });
 }
 
+/// `v4_pintest` (gh:#1911, round 71): `type nuclearFuelPin;` -> `type nuclearFuelPinTest;`.
+fn variant_pin_test(root: &Path) {
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| t.replacen("type                nuclearFuelPin;", "type                nuclearFuelPinTest;", 1));
+}
+
+/// The dictionary power path: the prescribed `powerDensityNeutronics` file deleted and `powerDensity 5e7;` in the dictionary.
+fn variant_dict_power(root: &Path) {
+    std::fs::remove_file(root.join("0/fluidRegion/powerDensityNeutronics")).expect("rm power file");
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| t.replacen("powerDensity        0;", "powerDensity        5e7;", 1));
+}
+
 /// `F <time> <name> v1 v2 ...` lines of a field reference, keyed `"<name> <time>"`.
 fn read_fields(path: &Path) -> HashMap<String, Vec<f64>> {
     let text = String::from_utf8(gunzip(path)).expect("utf8");
@@ -425,6 +436,49 @@ fn variant_with_explicit_smooth_solver_matches_the_real_binary() {
     let r = run_case(&root, &poly, "fc_fluid_r55_v3_smooth.ref.txt.gz", "fc_fluid_r55_v3_smooth_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
     print_report("v3", &r);
     assert!(r.first_diverging.is_none(), "{:?}", r.first_diverging);
+}
+
+/// V4 (gh:#1911, round 71): `nuclearFuelPinTest` (the ONE edit), against the real binary with the same edit.
+#[test]
+fn variant_nuclear_fuel_pin_test_matches_the_real_binary() {
+    let (root, poly) = stage("v4");
+    variant_pin_test(&root);
+    let r = run_case(&root, &poly, "fc_fluid_r71_v4_pintest.ref.txt.gz", "fc_fluid_r71_v4_pintest_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
+    print_report("v4", &r);
+    assert!(r.first_diverging.is_none(), "{:?}", r.first_diverging);
+    assert!(r.solve_worst_abs <= 1e-11 && r.solve_worst_it <= 3 && r.t_line_worst <= GATE && r.dt_worst <= 1e-12);
+}
+
+/// V5 (gh:#1911, round 71): `nuclearFuelPinTest` with the power from the dictionary, against the real binary with the same edits.
+#[test]
+fn variant_nuclear_fuel_pin_test_dictionary_power_matches_the_real_binary() {
+    let (root, poly) = stage("v5");
+    variant_pin_test(&root);
+    variant_dict_power(&root);
+    let r = run_case(&root, &poly, "fc_fluid_r71_v5_pintest_dict.ref.txt.gz", "fc_fluid_r71_v5_pintest_dict_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
+    print_report("v5", &r);
+    assert!(r.first_diverging.is_none(), "{:?}", r.first_diverging);
+    assert!(r.solve_worst_abs <= 1e-11 && r.solve_worst_it <= 3 && r.t_line_worst <= GATE && r.dt_worst <= 1e-12);
+}
+
+/// V5b (control): `nuclearFuelPin` with the same dictionary power, against its real run (the real `v5` and `v5b` references are identical).
+#[test]
+fn variant_nuclear_fuel_pin_dictionary_power_matches_the_real_binary() {
+    let (root, poly) = stage("v5b");
+    variant_dict_power(&root);
+    let r = run_case(&root, &poly, "fc_fluid_r71_v5b_pin_dict.ref.txt.gz", "fc_fluid_r71_v5b_pin_dict_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
+    print_report("v5b", &r);
+    assert!(r.first_diverging.is_none(), "{:?}", r.first_diverging);
+}
+
+/// The writer refuses the `nuclearFuelPinTest` written fields by name (README round 71, P-A4), and does not write them as `nuclearFuelPin`'s.
+#[test]
+fn the_writer_refuses_nuclear_fuel_pin_test_fields_by_name() {
+    let (root, poly) = stage("v4w");
+    variant_pin_test(&root);
+    let solver = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("read");
+    let e = solver.written_fields("1").expect_err("refused");
+    assert!(e.to_string().contains("nuclearFuelPinTest"), "{e}");
 }
 
 /// A1/A2: the ablations move `T` (the case tests the passive structure and the Nusselt `htc`).

@@ -478,10 +478,11 @@ fn lumped_nuclear_structure_three_nodes_matches() {
     assert_matches("lns3");
 }
 
-/// Power models the port does not build are refused by name, never read as something else.
+/// Power models the port does not build are refused by name, never read as something else. ~~`nuclearFuelPinTest` was in this list~~
+/// **CORRECTED 2026-11-27 (gh:#1911, README round 71): it is ported, see `tests/genfoam_fullcoupling_fluid_vs_upstream.rs` `variant_nuclear_fuel_pin_test_*`.**
 #[test]
 fn unported_power_models_are_refused_by_name() {
-    for (ty, needle) in [("nuclearFuelPinTest", "nuclearFuelPinTest"), ("nuclearFuelFMU", "nuclearFuelFMU"), ("fixedPower", "fixedPower")] {
+    for (ty, needle) in [("nuclearFuelFMU", "nuclearFuelFMU"), ("fixedPower", "fixedPower")] {
         let (root, poly) = stage(&format!("refuse_{ty}"), Some("hp"));
         let f = root.join("constant/fluidRegion/phaseProperties");
         let text = std::fs::read_to_string(&f).expect("read").replace("type                heatedPin;", &format!("type                {ty};"));

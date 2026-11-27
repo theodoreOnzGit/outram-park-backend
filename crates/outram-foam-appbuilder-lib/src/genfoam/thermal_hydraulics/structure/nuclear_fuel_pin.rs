@@ -34,7 +34,7 @@
 //! ## Not ported (refused by name)
 //! * The reconstruction of the initial profile from `Tfi/Tfo/Tci/Tco.nuclearFuelPin` files and the read of
 //!   `Trad.nuclearFuelPin` from a time directory (`fuelT`/`cladT` of the dictionary are used).
-//! * `nuclearFuelPinTest` (gh:#1787) is a different class.
+//! * ~~`nuclearFuelPinTest` (gh:#1787) is a different class.~~ **CORRECTED 2026-11-27 (gh:#1911, round 71; `nuclearFuelPinTest.C` diffed against `nuclearFuelPin.C`):** it is a separate upstream class but a code copy of this one (only the model's own `powerDensity.<type>` field is commented out); the port runs this struct under `RadialPowerModel::NuclearFuelPinTest`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

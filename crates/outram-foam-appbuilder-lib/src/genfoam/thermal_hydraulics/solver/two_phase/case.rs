@@ -913,7 +913,7 @@ impl TwoPhaseCase {
                     // built after the loop by `read_radial_power_models`, which needs every zone's structure alpha (gh:#1884)
                     continue;
                 }
-                if let Some(t) = ty.as_deref().filter(|t| matches!(*t, "nuclearFuelPinTest" | "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU")) {
+                if let Some(t) = ty.as_deref().filter(|t| matches!(*t, "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU")) {
                     return Err(ctx.e(super::radial_power::refusal_reason(t)));
                 }
                 if ty.as_deref() != Some("fixedPower") {

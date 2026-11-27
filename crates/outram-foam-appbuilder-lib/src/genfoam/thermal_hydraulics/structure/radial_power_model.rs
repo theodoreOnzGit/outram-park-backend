@@ -52,6 +52,10 @@ pub enum RadialPowerModel {
     HeatedPin(HeatedPin),
     /// `nuclearFuelPin`.
     NuclearFuelPin(NuclearFuelPin),
+    /// `nuclearFuelPinTest` (gh:#1911, README round 71): upstream's copy of `nuclearFuelPin` with the model's own `powerDensity.<type>`
+    /// field commented out (`nuclearFuelPinTest.C:87-100, :214`); the radial solve is the same, so it holds the same [`NuclearFuelPin`]
+    /// and differs only in its type name.
+    NuclearFuelPinTest(NuclearFuelPin),
     /// `lumpedNuclearStructure`.
     LumpedNuclearStructure(LumpedNuclearStructure),
     /// `interpolatedNuclearFuelPin`.
@@ -65,6 +69,7 @@ impl RadialPowerModel {
         match self {
             Self::HeatedPin(_) => "heatedPin",
             Self::NuclearFuelPin(_) => "nuclearFuelPin",
+            Self::NuclearFuelPinTest(_) => "nuclearFuelPinTest",
             Self::LumpedNuclearStructure(_) => "lumpedNuclearStructure",
             Self::InterpolatedNuclearFuelPin(_) => "interpolatedNuclearFuelPin",
         }
@@ -77,7 +82,7 @@ impl RadialPowerModel {
     pub fn correct(&mut self, ht_sum: &[f64], h_sum: &[f64], step: &StepInputs) -> Result<(), RadialError> {
         match self {
             Self::HeatedPin(m) => m.correct(ht_sum, h_sum, &step.volumes, step.dt, step.time_index),
-            Self::NuclearFuelPin(m) => {
+            Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => {
                 m.correct(ht_sum, h_sum, &step.q_neutronics, &step.volumes, step.dt, step.time_index)
             }
             Self::LumpedNuclearStructure(m) => {
@@ -102,7 +107,7 @@ impl RadialPowerModel {
     pub fn surface_temperature(&self, cell: usize) -> f64 {
         match self {
             Self::HeatedPin(m) => m.surface_temperature(cell),
-            Self::NuclearFuelPin(m) => m.surface_temperature(cell),
+            Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.surface_temperature(cell),
             Self::LumpedNuclearStructure(m) => m.surface_temperature(cell),
             Self::InterpolatedNuclearFuelPin(m) => m.surface_temperature(cell),
         }
@@ -113,7 +118,7 @@ impl RadialPowerModel {
     pub fn cells(&self) -> &[usize] {
         match self {
             Self::HeatedPin(m) => m.cells(),
-            Self::NuclearFuelPin(m) => m.cells(),
+            Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.cells(),
             Self::LumpedNuclearStructure(m) => m.cells(),
             Self::InterpolatedNuclearFuelPin(m) => m.cells(),
         }
@@ -124,7 +129,7 @@ impl RadialPowerModel {
     pub fn interfacial_area(&self, cell: usize) -> f64 {
         match self {
             Self::HeatedPin(m) => m.interfacial_area(cell),
-            Self::NuclearFuelPin(m) => m.interfacial_area(cell),
+            Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.interfacial_area(cell),
             Self::LumpedNuclearStructure(m) => m.interfacial_area(cell),
             Self::InterpolatedNuclearFuelPin(m) => m.interfacial_area(cell),
         }
@@ -145,7 +150,7 @@ impl RadialPowerModel {
     pub fn coupling_temperatures(&self, cell: usize) -> (f64, f64) {
         match self {
             Self::HeatedPin(_) | Self::InterpolatedNuclearFuelPin(_) => (0.0, 0.0),
-            Self::NuclearFuelPin(m) => m.averages(cell),
+            Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.averages(cell),
             Self::LumpedNuclearStructure(m) => m.coupling_temperatures(cell),
         }
     }

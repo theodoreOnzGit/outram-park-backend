@@ -165,6 +165,9 @@ impl OnePhaseCcSolver {
 
         // ---- nuclearFuelPin: Tfi, Tfo, Tci, Tco, Tfav, Tcav (nodes of the radial mesh) and the radial profile Trad
         for m in &self.radial {
+            if let RadialPowerModel::NuclearFuelPinTest(_) = m {
+                return Err(FoamWriteError::PatchType("nuclearFuelPinTest written fields (`Tfi/Tfo/Tci/Tco/Tfav/Tcav/Trad.nuclearFuelPinTest`): refused by name, gh:#1911".to_string()));
+            }
             if let RadialPowerModel::NuclearFuelPin(pin) = m {
                 let (mut tfi, mut tfo, mut tci, mut tco) = (vec![0.0; n], vec![0.0; n], vec![0.0; n], vec![0.0; n]);
                 let (mut tfav, mut tcav) = (vec![0.0; n], vec![0.0; n]);
