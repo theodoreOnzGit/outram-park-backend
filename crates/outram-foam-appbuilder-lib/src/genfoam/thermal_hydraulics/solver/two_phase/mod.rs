@@ -3773,6 +3773,16 @@ fn div_upwind_explicit_vec(g: &Geometry, phi: &[f64], u: &Vector) -> Vec<Vector3
 /// The gradient's boundary value follows `gaussGrad::correctBoundaryConditions`:
 /// `grad_b = grad_P + n (snGrad_b(U) - n . grad_P)`.
 fn dev2_div(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
+    dev2_div_impl(g, u, gamma, false)
+}
+
+/// [`dev2_div`] with OpenFOAM's own linear interpolation, `lambda (P - N) + N` (`surfaceInterpolationScheme.C:270`) for the face
+/// velocity and the face tensor, instead of `w P + (1 - w) N` (gh:#1894 round 46; used by `one_phase_fc`).
+fn dev2_div_openfoam(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
+    dev2_div_impl(g, u, gamma, true)
+}
+
+fn dev2_div_impl(g: &Geometry, u: &Vector, gamma: &Scalar, openfoam: bool) -> Vec<Vector3> {
     let m = &g.mesh;
     let n = g.n_cells();
     let ni = g.n_internal();
@@ -3782,7 +3792,12 @@ fn dev2_div(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
     let face_u = |f: usize| -> Vector3 {
         if f < ni {
             let w = g.weights[f];
-            u.c[m.owner[f]] * w + u.c[m.neighbour[f]] * (1.0 - w)
+            if openfoam {
+                let (p, q) = (u.c[m.owner[f]], u.c[m.neighbour[f]]);
+                Vector3::new(w * (p.x - q.x) + q.x, w * (p.y - q.y) + q.y, w * (p.z - q.z) + q.z)
+            } else {
+                u.c[m.owner[f]] * w + u.c[m.neighbour[f]] * (1.0 - w)
+            }
         } else {
             u.b[f - ni]
         }
@@ -3835,7 +3850,7 @@ fn dev2_div(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
             let mut r = [[0.0; 3]; 3];
             for i in 0..3 {
                 for j in 0..3 {
-                    r[i][j] = w * a[i][j] + (1.0 - w) * b[i][j];
+                    r[i][j] = if openfoam { w * (a[i][j] - b[i][j]) + b[i][j] } else { w * a[i][j] + (1.0 - w) * b[i][j] };
                 }
             }
             r

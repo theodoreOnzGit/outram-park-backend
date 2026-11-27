@@ -605,3 +605,36 @@ fn solve_phase_lambda_keeps_the_fractions_bounded_and_summing_to_the_moving_frac
         }
     }
 }
+
+/// gh:#1894 round 46, the two-phase region: upstream does NOT relax its momentum equations (`UEqns_2p.H:191,194` comment out
+/// `UEqn1.relax()` and `UEqn2.relax()`), so the round 45 defect (`fvMatrix::relax` with a non-uniform `internalCoeffs`) has no counterpart;
+/// what a non-uniform `internalCoeffs` (a `slip` wall, `iCoeffs = (c, 0, 0)`) does reach is `A()` and `H()`, which `VecEqn` forms as upstream's
+/// `fvMatrix::A()` (`cmptAv` into the diagonal, `fvMatrix.C:1313`) and `H()` (`(cmptAv - iCoeffs_k) psi_k` joins the numerator, `:1332`).
+#[cfg(feature = "std")]
+#[test]
+fn two_phase_momentum_a_and_h_with_a_slip_face_follow_cmpt_av_and_has_no_relaxation() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_boiling");
+    let case = TwoPhaseCase::read(&dir).expect("read vendored 1D_boiling");
+    let s = super::TwoPhaseSolver::new(case);
+    let g = s.geom.clone();
+    let mut e = super::VecEqn::new(&g);
+    let o = g.mesh.owner[g.n_internal()];
+    let c = 0.6;
+    e.add_internal_coeffs(o, [c, 0.0, 0.0], false);
+    assert!((e.eqn.ldu.diag[o] - c / 3.0).abs() < 1e-15, "cmptAv goes into the diagonal");
+    assert!(e.has_h_corr);
+    assert!((e.h_corr[0][o] - (c / 3.0 - c)).abs() < 1e-15 && (e.h_corr[1][o] - c / 3.0).abs() < 1e-15);
+    // H of cell `o` for U = (1, 1, 1): `h_corr_k psi_k` joins the numerator (no off-diagonals, no source here)
+    let mut u = super::fv::Vector::uniform_with_constraint_patches(&g, outram_foam_basic_lib::primitives::Vector3::ZERO);
+    for v in u.c.iter_mut() {
+        *v = outram_foam_basic_lib::primitives::Vector3::new(1.0, 1.0, 1.0);
+    }
+    let h = e.h(&g, &u);
+    let v = g.mesh.cell_volumes[o];
+    assert!((h[o].x - (c / 3.0 - c) / v).abs() < 1e-12 * c / v && (h[o].y - (c / 3.0) / v).abs() < 1e-12 * c / v);
+    // no relaxation: the assembled equation of the solver equals itself with the (nonexistent) relaxation ablated, i.e. correct_u_eqn
+    // takes no relaxation factor from `controls` at all
+    let e0 = s.correct_u_eqn(0);
+    let e1 = s.correct_u_eqn(0);
+    assert_eq!(e0.eqn.ldu.diag, e1.eqn.ldu.diag);
+}

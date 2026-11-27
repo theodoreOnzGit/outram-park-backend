@@ -1,0 +1,112 @@
+1025,1046d1024
+<     /// PROBE gh:#1894 (temporary, not kept)
+<     fn probe_dump(&self, name: &str, v: &[f64]) {
+<         use std::io::Write;
+<         let path = match std::env::var("PORT_PROBE_FILE") {
+<             Ok(p) => p,
+<             Err(_) => return,
+<         };
+<         let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("probe file");
+<         let mut line = format!("S {} {}", PROBE_CORR.load(std::sync::atomic::Ordering::SeqCst), name);
+<         for x in v {
+<             line.push_str(&format!(" {:.17e}", x));
+<         }
+<         line.push('\n');
+<         f.write_all(line.as_bytes()).expect("write");
+<     }
+< 
+<     /// PROBE gh:#1894 (temporary, not kept)
+<     fn probe_dump_v(&self, name: &str, v: &[Vector3]) {
+<         let flat: Vec<f64> = v.iter().flat_map(|x| [x.x, x.y, x.z]).collect();
+<         self.probe_dump(name, &flat);
+<     }
+< 
+1081,1134d1058
+<             PROBE_CORR.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+<             {
+<                 let fl = &self.fluid;
+<                 self.probe_dump("alpha", &fl.alpha.c);
+<                 self.probe_dump("rho", &fl.rho.c);
+<                 self.probe_dump("p_in", &self.p.c);
+<                 self.probe_dump("T", &fl.t.c);
+<                 self.probe_dump("contErr", &fl.cont_err);
+<                 self.probe_dump("magU", &fl.mag_u);
+<                 self.probe_dump_v("U", &fl.u.c);
+<                 self.probe_dump_v("B_U", &fl.u.b);
+<                 self.probe_dump("magSf", &g.mesh.face_areas[..ni]);
+<                 self.probe_dump("B_magSf", &g.mesh.face_areas[ni..]);
+<                 self.probe_dump("ndc", &g.delta[..ni]);
+<                 self.probe_dump("B_ndc", &g.delta[ni..]);
+<                 self.probe_dump("w", &g.weights[..ni]);
+<                 self.probe_dump("B_rho", &fl.rho.b);
+<                 self.probe_dump("B_mu", &fl.mu.b);
+<                 self.probe_dump("mu", &fl.mu.c);
+<                 self.probe_dump("V", &g.mesh.cell_volumes);
+<                 self.probe_dump("UA", &ueqn.a(&g));
+<                 self.probe_dump_v("UH", &ueqn.h(&g, &fl.u.c));
+<                 self.probe_dump("Udiag", &ueqn.eqn.ldu.diag);
+<                 {
+<                     let mut sv = Vec::new();
+<                     for c in 0..n {
+<                         sv.push(ueqn.src[0][c]);
+<                         sv.push(ueqn.src[1][c]);
+<                         sv.push(ueqn.src[2][c]);
+<                     }
+<                     self.probe_dump("Usource", &sv);
+<                     let mut iv = Vec::new();
+<                     let mut bv = Vec::new();
+<                     for f in ni..nf {
+<                         if g.active[f] {
+<                             iv.extend_from_slice(&ueqn.ic[f - ni]);
+<                             bv.extend_from_slice(&ueqn.bcoef[f - ni]);
+<                         }
+<                     }
+<                     self.probe_dump("Uint", &iv);
+<                     self.probe_dump("Ubnd", &bv);
+<                 }
+<                 self.probe_dump("alphaf", &alpha_f[..ni]);
+<                 self.probe_dump("alphaRhofByDt", &arf[..ni]);
+<                 self.probe_dump("alphaRhof0ByDt", &arf0[..ni]);
+<                 self.probe_dump("rAUf1", &rauf[..ni]);
+<                 self.probe_dump("alpharAUf", &alpharauf[..ni]);
+<                 self.probe_dump("phi_in", &fl.phi[..ni]);
+<                 self.probe_dump("phi_old", &fl.phi_old[..ni]);
+<                 self.probe_dump("alphaRhoPhi", &fl.alpha_rho_phi[..ni]);
+<                 self.probe_dump("B_phi_in", &fl.phi[ni..]);
+<                 self.probe_dump("B_alphaRhoPhi", &fl.alpha_rho_phi[ni..]);
+<                 self.probe_dump("B_alphaf", &alpha_f[ni..]);
+<             }
+1177,1184d1100
+<             self.probe_dump("p_rgh_pre", &self.p_rgh.c);
+<             self.probe_dump("gh", &self.gh.c);
+<             self.probe_dump("phiSbyA", &phi_s[..ni]);
+<             self.probe_dump("phiHbyA", &phi_hbya[..ni]);
+<             self.probe_dump("rAUf2", &rau_p[..ni]);
+<             self.probe_dump("B_phiHbyA", &phi_hbya[ni..]);
+<             self.probe_dump("B_phiSbyA", &phi_s[ni..]);
+<             self.probe_dump("B_rAUf2", &rau_p[ni..]);
+1235,1240d1150
+<             self.probe_dump("pdiag", &peqn.ldu.diag);
+<             self.probe_dump("pupper", &peqn.ldu.upper);
+<             self.probe_dump("psource", &peqn.source);
+<             self.probe_dump("pint", &pic);
+<             self.probe_dump("pbnd", &pbc);
+<             self.probe_dump("pEqnComp_diag", &(0..n).map(|c| rdt * g.mesh.cell_volumes[c] * cc[c]).collect::<Vec<f64>>());
+1290,1293d1199
+<             self.probe_dump("p_rgh_post", &self.p_rgh.c);
+<             self.probe_dump("B_p_rgh_post", &self.p_rgh.b);
+<             self.probe_dump("phi_post", &self.phi_real[..ni]);
+<             self.probe_dump("B_phi_post", &self.phi_real[ni..]);
+1323,1325d1228
+<             self.probe_dump("p_out", &self.p.c);
+<             self.probe_dump("p_rgh_out", &self.p_rgh.c);
+<             self.probe_dump("rho_out", &self.fluid.rho.c);
+1502,1505d1404
+<         self.probe_dump("E_diag", &e.ldu.diag);
+<         self.probe_dump("E_upper", &e.ldu.upper);
+<         self.probe_dump("E_source", &e.source);
+<         self.probe_dump("E_he_in", &fl.he.c);
+1532d1430
+<         self.probe_dump("E_he_out", &self.fluid.he.c);
+1857d1754
+< static PROBE_CORR: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);

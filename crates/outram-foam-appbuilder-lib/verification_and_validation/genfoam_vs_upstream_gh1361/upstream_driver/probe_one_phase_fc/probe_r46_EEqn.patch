@@ -1,0 +1,37 @@
+--- GeN-Foam-src/src/classes/thermalHydraulics/solvers/onePhase/include/equations/EEqn_1p.H	2026-11-13 01:06:51.450012642 +0000
++++ probe1894/classes/thermalHydraulics/solvers/onePhase/include/equations/EEqn_1p.H	2026-11-27 08:00:27.593207820 +0000
+@@ -1,3 +1,4 @@
++#include "../../../probe1894.H"
+ {
+     //- Field references
+     volScalarField& alpha(fluid_);
+@@ -91,9 +92,29 @@
+     // residual=max(residual, initRes);
+     
+     fvOptions_.constrain(EEqn);
++    {
++        scalarField dd(EEqn.diag());
++        scalarField ss(EEqn.source());
++        forAll(he.boundaryField(), pi)
++        {
++            const labelUList& pa = EEqn.lduAddr().patchAddr(pi);
++            forAll(pa, f)
++            {
++                dd[pa[f]] += EEqn.internalCoeffs()[pi][f];
++                ss[pa[f]] += EEqn.boundaryCoeffs()[pi][f];
++            }
++        }
++        probe1894::dumpScalar("E_diag", dd);
++        probe1894::dumpScalar("E_diag_raw", EEqn.diag());
++        probe1894::dumpScalar("E_upper", EEqn.upper());
++        probe1894::dumpScalar("E_source", ss);
++        probe1894::dumpScalar("E_he_in", he.primitiveField());
++        probe1894::dumpScalar("E_alphaEff", alphaEff.primitiveField());
++    }
+     residual_  = max(residual_, EEqn.solve().max().initialResidual());
+     fvOptions_.correct(he);
+     he.relax();
++    probe1894::dumpScalar("E_he_out", he.primitiveField());
+     fluid_.thermo().correct();
+ 
+     //- Correct surface temperature of the power-generating subStructures 

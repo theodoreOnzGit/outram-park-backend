@@ -98,14 +98,14 @@ use uom::si::time::second;
 use uom::si::volumetric_heat_capacity::joule_per_cubic_meter_kelvin;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-use super::case::{bool_entry, lookup_regex, scalar, word, Ctx};
+use super::case::{bool_entry, lookup_pattern_last, lookup_regex, scalar, word, Ctx};
 #[cfg(feature = "std")]
 use super::case::{read_field, read_heat_exchangers, read_nusselt, read_thermo, scalar_bcs, scalar_bcs_with, vector_bcs, ExtraBc};
 #[cfg(feature = "std")]
 use super::thermo::PhaseThermo;
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::{
-    dev2_div, solve_krylov, temperature, Phase, PRghPcg, Structure, TimeControls,
+    dev2_div_openfoam, solve_krylov, temperature, HPbicgstab, Phase, PRghPcg, Structure, TimeControls,
 };
 use super::one_phase_cc::flow::UEqnCc;
 use super::one_phase_cc::{GamgPolicy, PressureSolve};
@@ -133,6 +133,12 @@ pub struct OnePhaseFcControls {
     pub h_tolerance: f64,
     /// `solvers."h.*".minIter`.
     pub h_min_iter: usize,
+    /// The linear solver the energy equation really gets (gh:#1894 round 46, as `TwoPhaseControls::h_pbicgstab`, gh:#1361 round 13):
+    /// OpenFOAM resolves `h` to the exact keyword, else the LAST matching pattern, so a catch-all `".*"` declared after `"h.*"` wins.
+    /// `Some`: `PBiCGStab` with the `diagonal` preconditioner (upstream's log: `diagonalPBiCGStab: Solving for h`), run by
+    /// `pbicgstab_diagonal`. `None`: the `symGaussSeidel` sweeps with [`Self::h_tolerance`] (the port's earlier choice, which took
+    /// the FIRST matching pattern).
+    pub h_pbicgstab: Option<HPbicgstab>,
     /// `residualControl.p_rgh.tolerance` (with `useFirstPISOInitialResidual`).
     pub residual_control_p_rgh: Option<f64>,
     /// `residualControl.h.tolerance`.
@@ -310,7 +316,7 @@ impl OnePhaseFcCase {
         let poly = root.join(format!("constant/{region}/polyMesh"));
         let mesh = read_poly_mesh(&poly)?;
         let zones = read_cell_zones(&poly)?;
-        let g = Geometry::new(mesh.clone());
+        let g = Geometry::new_openfoam(mesh.clone());
         let n = g.n_cells();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
             let mut cells = Vec::new();
@@ -498,6 +504,18 @@ impl OnePhaseFcCase {
             p_rgh_tolerance: p_rgh_tol,
             h_tolerance: h_tol,
             h_min_iter: h_min,
+            h_pbicgstab: match lookup_pattern_last(solvers, "h") {
+                Some(FoamEntry::SubDict(d))
+                    if word(d, "solver").as_deref() == Some("PBiCGStab") && word(d, "preconditioner").as_deref() == Some("diagonal") =>
+                {
+                    Some(HPbicgstab {
+                        tolerance: ctx.f64(d, "tolerance")?,
+                        rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                        min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                    })
+                }
+                _ => None,
+            },
             residual_control_p_rgh: rc_tol("p_rgh"),
             residual_control_h: rc_tol("h"),
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
@@ -667,7 +685,7 @@ impl OnePhaseFcSolver {
     /// the first `correctContErr`).
     #[must_use]
     pub fn new(case: OnePhaseFcCase) -> Self {
-        let geom = Geometry::new(case.mesh.clone());
+        let geom = Geometry::new_openfoam(case.mesh.clone());
         let n = geom.n_cells();
         let nf = geom.n_faces();
         let ni = geom.n_internal();
@@ -721,7 +739,7 @@ impl OnePhaseFcSolver {
         }
         s.thermo_correct(true);
         let u = s.fluid.u.clone();
-        s.fluid.phi = fv::flux(&s.geom, &u);
+        s.fluid.phi = fv::flux_openfoam(&s.geom, &u);
         s.fluid.mag_u = s.fluid.u.c.iter().map(|v| v.mag()).collect();
         // old-time copies are created by the first `oldTime()` request, in `correctContErr`
         s.fluid.alpha_old = s.fluid.alpha.c.clone();
@@ -731,7 +749,7 @@ impl OnePhaseFcSolver {
         s.fluid.he_old = s.fluid.he.c.clone();
         s.fluid.phi_old = s.fluid.phi.clone();
         s.fluid.u_old = s.fluid.u.c.clone();
-        let af = fv::interp_linear(&s.geom, &s.fluid.alpha);
+        let af = fv::interp_linear_openfoam(&s.geom, &s.fluid.alpha);
         s.update_alpha_phi(&af);
         s.phi_real = s.fluid.alpha_phi.clone();
         for c in 0..n {
@@ -809,7 +827,7 @@ impl OnePhaseFcSolver {
     /// `updateAlphaPhiAndInitControls_1p.H`: `alphaPhi`, `alphaRhoPhi`, then `correctContErr`.
     fn update_alpha_phi(&mut self, alpha_f: &[f64]) {
         let nf = self.geom.n_faces();
-        let rf = fv::interp_linear(&self.geom, &self.fluid.rho);
+        let rf = fv::interp_linear_openfoam(&self.geom, &self.fluid.rho);
         for f in 0..nf {
             self.fluid.alpha_phi[f] = alpha_f[f] * self.fluid.phi[f];
             self.fluid.alpha_rho_phi[f] = rf[f] * self.fluid.alpha_phi[f];
@@ -885,52 +903,6 @@ impl OnePhaseFcSolver {
         }
     }
 
-    /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`) of the SCALAR energy equation, whose boundary coefficients are
-    /// folded into the diagonal (`diag_fold = D + sum iCoeffs`): OpenFOAM's add-`|iCoeffs|`, take-`max(|D|, sumOff)`, divide,
-    /// subtract-`iCoeffs` sequence (per boundary face) gives `diag_fold' = max(|diag_fold + pre|, sumOff) / alpha + post` with
-    /// `pre = 2 sum max(-iCoeffs, 0)` (a boundary face with a NEGATIVE internal coefficient, a convective inflow through a
-    /// non-fixed patch, is not neutral) and `post = 0` (the three "components" of a scalar are one). Returns `D' - D` per cell, the
-    /// coefficient of `psi` in the source correction. The momentum equation no longer goes through here: since gh:#1894 round 46 it
-    /// keeps `D` and `internalCoeffs` apart exactly as `fvMatrix` does and relaxes with `UEqnCc::relax` (per face, over the
-    /// three components: a `slip` wall's `iCoeffs` are `(c, 0, 0)`; round 45).
-    fn relax_diag_boundary(&self, e: &mut Eqn, factor: f64, pre: &[f64], post: &[f64]) -> Vec<f64> {
-        let n = self.geom.n_cells();
-        let mut sum_off = vec![0.0; n];
-        for f in 0..self.geom.n_internal() {
-            sum_off[e.ldu.owner[f]] += e.ldu.upper[f].abs();
-            sum_off[e.ldu.neighbour[f]] += e.ldu.lower[f].abs();
-        }
-        let mut delta = vec![0.0; n];
-        for c in 0..n {
-            let d0 = e.ldu.diag[c];
-            let d = (d0 + pre[c]).abs().max(sum_off[c]) / factor + post[c];
-            e.ldu.diag[c] = d;
-            delta[c] = d - d0;
-        }
-        delta
-    }
-
-    /// [`Self::relax_diag_boundary`] for equal `iCoeffs` components: `inflow2[c]` is the `2 sum max(-iCoeffs, 0)` of cell `c`
-    /// (the scalar energy equation, whose boundary coefficients are scalars).
-    fn relax_diag(&self, e: &mut Eqn, factor: f64, inflow2: &[f64]) -> Vec<f64> {
-        let zero = vec![0.0; self.geom.n_cells()];
-        self.relax_diag_boundary(e, factor, inflow2, &zero)
-    }
-
-    /// `2 sum max(-phi_b, 0)` per owner cell over the boundary faces of `phi` whose patch is not
-    /// fixed-value for the transported field (`fixed(f)`): the convective inflow terms of
-    /// [`Self::relax_diag`].
-    fn convective_inflow2(&self, phi: &[f64], fixed: &dyn Fn(usize) -> bool) -> Vec<f64> {
-        let g = &self.geom;
-        let mut out = vec![0.0; g.n_cells()];
-        for f in g.n_internal()..g.n_faces() {
-            if g.active[f] && !fixed(f) {
-                out[g.mesh.owner[f]] += 2.0 * (-phi[f]).max(0.0);
-            }
-        }
-        out
-    }
-
     /// `UEqn_1p.H` in `faceCentered` mode (laminar `nuEff`, no tortuosity), as an `fvMatrix` that keeps its diagonal, its
     /// per-face `internalCoeffs`/`boundaryCoeffs` and its source apart ([`UEqnCc`], round 46, gh:#1894), summed in the operation
     /// order of the upstream expression
@@ -959,18 +931,30 @@ impl OnePhaseFcSolver {
         for i in 0..(nf - ni) {
             arn.b[i] = fl.alpha.b[i] * fl.rho.b[i] * (fl.mu.b[i] / self.thermo_rho_b(i));
         }
-        let gamma = fv::interp_linear(g, &arn);
+        let gamma = fv::interp_linear_openfoam(g, &arn);
         // (-fvm::laplacian(alpha rho nuEff, U)) - fvc::div(alpha rho nuEff dev2(T(grad U))): one matrix, added whole
         let mut lap = UEqnCc::new(g);
         lap.eqn.neg_laplacian(g, &gamma, &zg);
         lap.boundary_laplacian(g, &gamma, &fl.u);
-        let dev2 = dev2_div(g, &fl.u, &arn);
+        let dev2 = dev2_div_openfoam(g, &fl.u, &arn);
         lap.sub_field(g, &dev2);
         e.add(&lap);
-        // + fvm::Sp((1/3) tr(Kds), U): `Kd` is isotropic here, so `dev(Kds) & U` is zero (a no-op `source -= V 0`)
+        // + fvm::Sp((1/3) tr(Kds), U) + (dev(Kds) & U): `Kd = diag(v, v, v)`, `tr = v + v + v`, and `dev(Kd) = Kd - (1/3) tr` is
+        // NOT exactly zero (`v - (1/3)(3 v)` is an ulp of `v`): as `one_phase_cc` does, `matrix + volVectorField` is `source -= V field`
         let mut sp = UEqnCc::new(g);
-        sp.eqn.sp(g, &self.kd);
+        let mut sp_c = vec![0.0; n];
+        let mut dev_u = vec![Vector3::ZERO; n];
+        for c in 0..n {
+            let v = self.kd[c];
+            let tr = v + v + v;
+            sp_c[c] = (1.0 / 3.0) * tr;
+            let dv = v - (1.0 / 3.0) * tr;
+            let u = fl.u.c[c];
+            dev_u[c] = Vector3::new(dv * u.x, dv * u.y, dv * u.z);
+        }
+        sp.eqn.sp(g, &sp_c);
         e.add(&sp);
+        e.add_field(g, &dev_u);
         if let Some(fct) = self.controls.relax_u_equation {
             // `UEqn.relax()`, `fvMatrix::relax` per boundary face over the three components (gh:#1894 round 45, 46)
             e.relax(g, fct, &fl.u.c);
@@ -1001,7 +985,7 @@ impl OnePhaseFcSolver {
         let dt = self.dt;
         let nb = nf - ni;
         // updateAlphaPhiAndInitControls_1p.H
-        let alpha_f = fv::interp_linear(&g, &self.fluid.alpha);
+        let alpha_f = fv::interp_linear_openfoam(&g, &self.fluid.alpha);
         self.update_alpha_phi(&alpha_f);
         let ar_by_dt = |alpha: &[f64], rho: &[f64], ab: &[f64], rb: &[f64]| -> Vec<f64> {
             let mut s = Scalar::uniform(&g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
@@ -1011,7 +995,7 @@ impl OnePhaseFcSolver {
             for i in 0..nb {
                 s.b[i] = ab[i] * rb[i];
             }
-            fv::interp_linear(&g, &s).into_iter().map(|x| x / dt).collect()
+            fv::interp_linear_openfoam(&g, &s).into_iter().map(|x| x / dt).collect()
         };
         let fl = &self.fluid;
         let arf = ar_by_dt(&fl.alpha.c, &fl.rho.c, &fl.alpha.b, &fl.rho.b);
@@ -1019,7 +1003,7 @@ impl OnePhaseFcSolver {
         let mut a = Scalar::uniform(&g, 0.0, g.default_bcs());
         a.c = ueqn.a(&g);
         a.correct_bc(&g);
-        let ai = fv::interp_linear(&g, &a);
+        let ai = fv::interp_linear_openfoam(&g, &a);
         let rauf: Vec<f64> = (0..nf).map(|f| 1.0 / (ai[f] + arf[f])).collect();
         let alpharauf: Vec<f64> = (0..nf).map(|f| alpha_f[f] * rauf[f]).collect();
         let rau_p: Vec<f64> = (0..nf).map(|f| (alpha_f[f] * alpharauf[f]).abs()).collect();
@@ -1050,7 +1034,7 @@ impl OnePhaseFcSolver {
             let mut hv = Vector::uniform_with_constraint_patches(&g, Vector3::ZERO);
             hv.c = h;
             hv.correct_bc(&g);
-            let fh = fv::flux(&g, &hv);
+            let fh = fv::flux_openfoam(&g, &hv);
             let mut phi_hbya = vec![0.0; nf];
             for f in 0..nf {
                 if g.active[f] {
@@ -1081,14 +1065,22 @@ impl OnePhaseFcSolver {
                 comp_expl[c] = (fl.cont_err[c] - (ddt_alpha + d_ap[c]) * fl.rho.c[c]) / fl.rho.c[c];
                 cc[c] = fl.alpha.c[c] * fl.psi[c] / fl.rho.c[c];
             }
+            // `pEqn(pEqnComp() + pEqnIncomp)` as `fvMatrix` holds it (gh:#1894 round 46; ESI v2506 `fvMatrix.C`): the Laplacian's
+            // boundary coefficients stay in `internalCoeffs_`/`boundaryCoeffs_` (`pic`, `pbc`) and join the diagonal and the source only
+            // in `solveSegregated` (`addBoundaryDiag`, `addBoundarySource`); the source is
+            // `pEqnComp.source + pEqnIncomp.source = (ddtPart - V comp) + (-(V div(phiHbyA)))`, each field term subtracted from its OWN
+            // matrix (`matrix + field`: `source -= V field`; `field - matrix`: negate, then `source -= V field`) and the two added whole
             let mut peqn = Eqn::new(&g);
-            peqn.neg_laplacian(&g, &rau_p, &self.p_rgh);
+            peqn.neg_laplacian_internal(&g, &rau_p);
+            let (pic, pbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &rau_p, &self.p_rgh);
             let dphi = fv::div(&g, &phi_hbya);
             for c in 0..n {
                 let v = g.mesh.cell_volumes[c];
                 peqn.ldu.diag[c] += rdt * v * cc[c];
-                peqn.source[c] += rdt * v * p_rgh_0[c] * cc[c];
-                peqn.source[c] -= v * (comp_expl[c] + dphi[c]);
+                let mut s_comp = 0.0 + rdt * v * p_rgh_0[c] * cc[c];
+                s_comp -= v * comp_expl[c];
+                let s_inc = -(v * dphi[c]);
+                peqn.source[c] = s_comp + s_inc;
             }
             // `pEqn.setReference(pRefCell, compressible ? getRefCellValue : pRefValue, forcePRef)`: acts only when `p_rgh` has
             // no fixed-value patch (`needReference()`); the thermos that reach here have `psi = 0` (`compressible` false, the
@@ -1102,6 +1094,14 @@ impl OnePhaseFcSolver {
             // `uncorrected` Laplacian (the only scheme read, see `OnePhaseFcCase::read`) the matrix and source of every pass are the
             // same, so they are built once; only `p_rgh` differs between passes (gh:#1878 item 1, README round 38).
             let n_pass = self.controls.n_non_orth_correctors + 1;
+            // `fvMatrix::solveSegregated`: `diag + internalCoeffs`, `source + boundaryCoeffs`, face by face in patch order
+            let mut folded = peqn.clone();
+            for f in ni..nf {
+                if g.active[f] {
+                    folded.ldu.diag[g.mesh.owner[f]] += pic[f - ni];
+                    folded.source[g.mesh.owner[f]] += pbc[f - ni];
+                }
+            }
             let mut converged = false;
             for pass in 1..=n_pass {
                 let mut x = self.p_rgh.c.clone();
@@ -1111,7 +1111,7 @@ impl OnePhaseFcSolver {
                     Some(def) => {
                         let last = corr == self.controls.n_corr.max(1) && pass == n_pass;
                         let s = if last { self.controls.p_rgh_final_pcg.unwrap_or(def) } else { def };
-                        let perf = pcg_dic(&peqn.ldu, &peqn.source, &mut x, s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
+                        let perf = pcg_dic(&folded.ldu, &folded.source, &mut x, s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
                         self.last_step_solves.push(PressureSolve {
                             outer: self.outer_now,
                             corrector: corr,
@@ -1122,7 +1122,7 @@ impl OnePhaseFcSolver {
                         (perf.initial_residual, perf.iterations == 0)
                     }
                     None => {
-                        let r = solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance);
+                        let r = solve_krylov(&folded, &mut x, self.controls.p_rgh_tolerance);
                         (r, r < self.controls.p_rgh_tolerance)
                     }
                 };
@@ -1139,7 +1139,8 @@ impl OnePhaseFcSolver {
                 self.p_rgh.c = x;
                 self.p_rgh.correct_bc(&g);
             }
-            let p_flux = Eqn::laplacian_flux(&g, &rau_p, &self.p_rgh);
+            // `phi_ = phiHbyA + pEqnIncomp.flux()`: `fvMatrix::flux()` of the Laplacian matrix alone (the compressibility part has no off-diagonals)
+            let p_flux = peqn.flux_of_coeffs(&g, &self.p_rgh.c, &pic, &pbc);
             for f in 0..nf {
                 if g.active[f] {
                     self.phi_real[f] = phi_hbya[f] + p_flux[f];
@@ -1154,7 +1155,7 @@ impl OnePhaseFcSolver {
                 self.fluid.dgdt[c] = -(comp_expl[c] + cc[c] * (self.p_rgh.c[c] - p_rgh_0[c]) * rdt);
             }
             // reconstructU_1p.H (porousInterfaceSharpness 0)
-            let u = fv::reconstruct(&g, &self.fluid.phi);
+            let u = fv::reconstruct_openfoam(&g, &self.fluid.phi);
             self.fluid.u.c = u;
             self.fluid.u.correct_bc(&g);
             self.fluid.mag_u = self.fluid.u.c.iter().map(|v| v.mag()).collect();
@@ -1205,15 +1206,40 @@ impl OnePhaseFcSolver {
             self.p_old_stored = true;
         }
         let fl = &self.fluid;
+        // `EEqn_1p.H:20-42` as an `fvMatrix` (gh:#1894 round 46): `fvm::ddt + fvm::div + fvm::SuSp - fvm::laplacian`, each term its own
+        // matrix with its own `negSumDiag`, added whole (`fvMatrix::operator+=`); the boundary coefficients stay in `internalCoeffs_` /
+        // `boundaryCoeffs_` (`eic`, `ebc`, per boundary face) and join the diagonal and the source only in `fvMatrix::relax` (which
+        // reads them) and `solveSegregated`; each `field` term is its own `source += V field` (`matrix - field`) or `-=` (`matrix + field`)
+        let ni = g.n_internal();
+        let nf = g.n_faces();
+        let mut eic = vec![0.0; nf - ni];
+        let mut ebc = vec![0.0; nf - ni];
         let mut e = Eqn::new(&g);
         for c in 0..n {
             let v = g.mesh.cell_volumes[c];
             e.ldu.diag[c] += rdt * fl.alpha.c[c] * fl.rho.c[c] * v;
             e.source[c] += rdt * fl.alpha_old[c] * fl.rho_old[c] * fl.he_old[c] * v;
         }
-        e.div_upwind(&g, &fl.alpha_rho_phi, &fl.he);
+        let mut m_div = Eqn::new(&g);
+        m_div.div_upwind_internal(&g, &fl.alpha_rho_phi);
+        for f in ni..nf {
+            if g.active[f] {
+                // `gaussConvectionScheme::fvmDiv`: `internalCoeffs = flux valueInternalCoeffs`, `boundaryCoeffs = -flux valueBoundaryCoeffs`
+                let phi = fl.alpha_rho_phi[f];
+                if fl.he.is_fixed(&g, f) {
+                    eic[f - ni] += phi * 0.0;
+                    ebc[f - ni] += -phi * fl.he.face(&g, f);
+                } else {
+                    eic[f - ni] += phi * 1.0;
+                    ebc[f - ni] += -phi * 0.0;
+                }
+            }
+        }
+        e.add(&m_div);
         let ce: Vec<f64> = fl.cont_err.iter().map(|v| -v).collect();
-        e.su_sp(&g, &ce, &fl.he.c);
+        let mut m_susp = Eqn::new(&g);
+        m_susp.su_sp(&g, &ce, &fl.he.c);
+        e.add(&m_susp);
         // - laplacian(interpolate(alpha) interpolate(alphaEff), he), alphaEff = kappa/Cp
         let mut ae = Scalar::uniform(&g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
         for c in 0..n {
@@ -1225,19 +1251,30 @@ impl OnePhaseFcSolver {
                 None => if fl.cp.b[i] > 0.0 { fl.kappa.b[i] / fl.cp.b[i] } else { 0.0 },
             };
         }
-        let a_f = fv::interp_linear(&g, &fl.alpha);
-        let ae_f = fv::interp_linear(&g, &ae);
+        let a_f = fv::interp_linear_openfoam(&g, &fl.alpha);
+        let ae_f = fv::interp_linear_openfoam(&g, &ae);
         let gam: Vec<f64> = a_f.iter().zip(&ae_f).map(|(a, b)| a * b).collect();
-        e.neg_laplacian(&g, &gam, &fl.he);
-        // right-hand side: alpha rho (U.g) + alpha ddt(p)
+        let mut m_lap = Eqn::new(&g);
+        m_lap.neg_laplacian_internal(&g, &gam);
+        let (lic, lbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &fl.he);
+        for i in 0..(nf - ni) {
+            eic[i] += lic[i];
+            ebc[i] += lbc[i];
+        }
+        e.add(&m_lap);
+        // `== alpha rho (U & g) + fvOptions`: `source += V field`; then `EEqn -= alpha fvc::ddt(p)`: `source += V field`
         let mut rhs = vec![0.0; n];
         for c in 0..n {
             rhs[c] = fl.alpha.c[c] * fl.rho.c[c] * fl.u.c[c].dot(self.g);
-            if self.controls.dpdt {
-                rhs[c] += fl.alpha.c[c] * (rdt * (self.p.c[c] - self.p_old[c]));
-            }
         }
         e.su(&g, &rhs);
+        if self.controls.dpdt {
+            let mut dp = vec![0.0; n];
+            for c in 0..n {
+                dp[c] = fl.alpha.c[c] * (rdt * (self.p.c[c] - self.p_old[c]));
+            }
+            e.su(&g, &dp);
+        }
         if self.controls.include_kinetic_energy {
             let ni = g.n_internal();
             let mut k = Scalar::uniform(&g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
@@ -1284,28 +1321,65 @@ impl OnePhaseFcSolver {
         }
         let t_prev = fl.t.c.clone();
         if let Some(fct) = self.controls.relax_h_equation {
-            let inflow2 = self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.he.is_fixed(&g, f));
-            let delta = self.relax_diag(&mut e, fct, &inflow2);
+            // `fvMatrix::relax(alpha)` (`fvMatrix.C:1101`) on `D` and `internalCoeffs` apart, per boundary face (scalar: `cmptMax(cmptMag) = |ic|`,
+            // `cmptMin = ic`): `D += |ic|; D = max(|D|, sumOff); D /= alpha; D -= ic; S += (D - D0) psi`
+            let mut sum_off = vec![0.0; n];
+            for f in 0..ni {
+                sum_off[e.ldu.neighbour[f]] += e.ldu.lower[f].abs();
+                sum_off[e.ldu.owner[f]] += e.ldu.upper[f].abs();
+            }
+            let d0 = e.ldu.diag.clone();
+            let mut d = d0.clone();
+            for f in ni..nf {
+                if g.active[f] {
+                    d[g.mesh.owner[f]] += eic[f - ni].abs();
+                }
+            }
             for c in 0..n {
-                e.source[c] += delta[c] * fl.he.c[c];
+                d[c] = d[c].abs().max(sum_off[c]);
+                d[c] /= fct;
+            }
+            for f in ni..nf {
+                if g.active[f] {
+                    d[g.mesh.owner[f]] -= eic[f - ni];
+                }
+            }
+            for c in 0..n {
+                e.source[c] += (d[c] - d0[c]) * fl.he.c[c];
+                e.ldu.diag[c] = d[c];
+            }
+        }
+        // `fvMatrix::solveSegregated`: `diag + internalCoeffs`, `source + boundaryCoeffs`, face by face
+        for f in ni..nf {
+            if g.active[f] {
+                e.ldu.diag[g.mesh.owner[f]] += eic[f - ni];
+                e.source[g.mesh.owner[f]] += ebc[f - ni];
             }
         }
         let prev = fl.he.c.clone();
         let mut x = prev.clone();
-        let (sweeps, ini, _) = super::super::one_phase::smooth_solve_sym_gauss_seidel(
-            &e.ldu,
-            &e.source,
-            &mut x,
-            SolverSettings { tolerance: self.controls.h_tolerance, max_iter: 1000 },
-        );
-        if sweeps == 0 && self.controls.h_min_iter > 0 {
-            let _ = super::super::one_phase::smooth_solve_sym_gauss_seidel(
+        let ini = if let Some(pb) = self.controls.h_pbicgstab {
+            // `fvScalarMatrix::solveSegregated` with `PBiCGStab` + `diagonal` (the last matching pattern of `solvers`)
+            super::pbicgstab::pbicgstab_diagonal(
                 &e.ldu,
                 &e.source,
                 &mut x,
-                SolverSettings { tolerance: 0.0, max_iter: self.controls.h_min_iter },
+                pb.tolerance,
+                pb.rel_tol,
+                super::pbicgstab::DEFAULT_MAX_ITER,
+                pb.min_iter,
+            )
+            .initial_residual
+        } else {
+            let (_sweeps, ini, _) = super::super::one_phase::smooth_solve_sym_gauss_seidel_openfoam(
+                &e.ldu,
+                &e.source,
+                &mut x,
+                SolverSettings { tolerance: self.controls.h_tolerance, max_iter: 1000 },
+                self.controls.h_min_iter,
             );
-        }
+            ini
+        };
         self.fluid.he.c = x;
         self.fluid.he.correct_bc(&g);
         self.thermo_correct(false);
@@ -1630,5 +1704,21 @@ mod tests {
         // H() is finite and its z component carries the relaxation source (nonzero for a moving fluid)
         let h = e1.h(g, &relaxed.fluid.u.c);
         assert!(h.iter().all(|v| v.x.is_finite() && v.y.is_finite() && v.z.is_finite()));
+    }
+
+    /// gh:#1894 round 46: the energy equation resolves `h` to the LAST matching pattern of `solvers` (`".*"`: `PBiCGStab`, `diagonal`),
+    /// and the `symGaussSeidel` branch (`h_pbicgstab = None`, the port\'s earlier choice, with `smoothSolver::solve`\'s own residual
+    /// arithmetic) reaches the same temperature within the shipped `1e-6` tolerance after a step.
+    #[test]
+    fn energy_solver_is_the_last_matching_pattern_and_the_smooth_branch_agrees_to_the_tolerance() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_hx_onephase");
+        let mut a = OnePhaseFcSolver::from_case_dir(&dir).expect("read");
+        assert!(a.controls.h_pbicgstab.is_some(), "`\".*\"` declared after `\"h.*\"` wins for `h`");
+        let mut b = OnePhaseFcSolver::from_case_dir(&dir).expect("read");
+        b.controls.h_pbicgstab = None;
+        a.step().expect("step");
+        b.step().expect("step");
+        let worst = a.fluid.t.c.iter().zip(&b.fluid.t.c).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max);
+        assert!(worst < 1e-2, "{worst}");
     }
 }

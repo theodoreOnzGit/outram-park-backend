@@ -6019,7 +6019,7 @@ P0 **MISSED** (`A` at outer 1 differed by 6e-6: the premise "the first pass agre
 
 ### Not bit-identical, and why
 
-`UEqn.A()` agrees to 7.5e-16, not bit for bit: the port folds `cmptAv(iCoeffs)` into the diagonal as the matrix is assembled, upstream keeps `D` and `iCoeffs` separate and adds them in `A()`; the sums are formed in a different order. That is a round-off difference below the 1e-9 allowance (maintainer, 2026-11-17), flagged here for the maintainer; the pressure agrees to 3e-12 (2008 steps) rather than bit for bit for the same reason.
+`UEqn.A()` agrees to 7.5e-16, not bit for bit: the port folds `cmptAv(iCoeffs)` into the diagonal as the matrix is assembled, upstream keeps `D` and `iCoeffs` separate and adds them in `A()`; the sums are formed in a different order. That is a round-off difference below the 1e-9 allowance (maintainer, 2026-11-17), flagged here for the maintainer; the pressure agrees to 3e-12 (2008 steps) rather than bit for bit for the same reason. ~~(the cause given: the fold of `cmptAv(iCoeffs)` into the diagonal)~~ **CORRECTED 2026-11-27 (round 46): the fold was only one of at least seven causes (README round 46, Part 1 results); with all of them closed the first two outer iterations are bit-identical.**
 
 ### Moved numbers
 
@@ -6201,3 +6201,55 @@ Maintainer, 2026-11-27: "Port genfoam exhaustively", "Match all upstream"; for #
 | S4 | `p` after the 2 x 1 step | `<= 1e-14` relative (now 4.6e-14); P(bit-identical) 25 % | |
 | S5 | 6 x 6, the 36 correctors | `UA` bit-identical at corrector 1, `<= 1e-14` after (the solves differ by their stopping) | |
 | S6 | case A/B end to end, worst `p` | `<= 1e-12` at every compared step (round 45: 3.0e-12 at step 3); `T`, `T.HX` `<= 5e-13` | |
+
+## Part 1 results (measured 2026-11-27, release, `CARGO_BUILD_JOBS=2`, PRIVATE target dir; the instrumented upstream of round 45 rebuilt, extended with `EEqn` dumps: `upstream_driver/probe_one_phase_fc/probe_r46_{pEqnf,EEqn}.patch`, port dump edit `port_probe_r46_rs.diff` (temporary, not in the source), driver `probe_iso_r46.sh`, `cmp.py`)
+
+### What the probe found, in the order it was found (each row: first quantity that differed, then the change that closed it)
+
+| step | first difference seen (isothermal 2 x 1 control, tolerance 1e-30, step 1) | cause (upstream file/line) | change |
+|---|---|---|---|
+| 0 | Part 1 change only (`D` + `iCoeffs` apart): `UA` 3.8e-16, `UH` 2.1e-16, `contErr` 3.6e-12 where upstream is exactly 0 | `fvc::interpolate` is `lambda (P - N) + N` (`surfaceInterpolationScheme.C:270`), the port `w P + (1 - w) N` | `fv::interp_linear_openfoam`, `fv::flux_openfoam` (fc only) |
+| 1 | `UA`/`Udiag` 1.8e-16 in 4 cells, `Uint` 3.4e-21 on 30 wall faces, `w` 1.1e-16, `B_ndc` 3.6e-15 | weights `|Sf.(C_N-Cf)|/(|Sf.(Cf-C_P)|+|Sf.(C_N-Cf)|)` and `unitArea = Sf/magSf` (`basicFvGeometryScheme.C:100-130, 262`) | `Geometry::new_openfoam` |
+| 2 | `Usource` 4.5e-16 (rel 4e-12), `Udiag` 1 ulp | `dev(Kd) = Kd - (1/3) tr(Kd)` is an ulp of `Kd`, not zero; `Sp((1/3) tr Kd)` rounds as `(1/3)(v+v+v)` | `+ (dev(Kd) & U)` and `(1/3) tr` as in `one_phase_cc` |
+| 3 | `p_rgh_post` 5.8e-15, `phi_post` 6.9e-16 with the whole momentum side bit-identical | `pEqn = pEqnComp + pEqnIncomp`: boundary coefficients stay in `internalCoeffs_`/`boundaryCoeffs_` (added in `solveSegregated`), `source = (ddt - V comp) + (-(V div phiHbyA))`, `phi = phiHbyA + pEqnIncomp.flux()` with `fvMatrix::flux()` (`fvMatrix.C:1422`) | `Eqn::neg_laplacian_internal`, `neg_laplacian_boundary_coeffs`, `flux_of_coeffs`; pressure matrix assembled that way |
+| 4 | `U` 2.2e-16 at corrector 2 (after a bit-identical solve) | `fvc::reconstruct`: `inv(surfaceSum(SfHat*Sf)) & surfaceSum(SfHat*ssf)`, `Tensor::safeInv`, `adjunct()/det` (`fvcReconstruct.C`, `TensorI.H:608`), the port divided by Cramer's rule | `fv::reconstruct_openfoam` |
+| 5 | `Usource` 1.2e-16 at corrector 2 | `fvc::div(gamma dev2(T(grad U)))`: the same interpolation formula inside | `dev2_div_openfoam` |
+| 6 | `E_he_out` 1.2e-10 (2.6e-16) although the energy matrix, source and `he_in` were bit-identical | **upstream's log prints `diagonalPBiCGStab: Solving for h`**: OpenFOAM resolves `h` to the LAST matching pattern of `solvers` (`".*"`), the port to the FIRST (`"h.*"`, smoothSolver); the `lookup_pattern_last` of the two-phase region (round 13) was never used here | `OnePhaseFcControls::h_pbicgstab`, `pbicgstab_diagonal`; the smooth branch kept with `smoothSolver::solve`'s own `Amul`/`residual` arithmetic |
+| 7 | `E_diag` 1 ulp at corrector 2 | `EEqn_1p.H`: each `fvm` term its own matrix (`negSumDiag`) added whole; `field` terms as separate `source +=/-= V field`; `fvMatrix::relax` on `D` and `iCoeffs` apart | `correct_energy` assembly |
+
+**Result.** Isothermal 2 x 1 control (2 correctors, ~100 dumped quantities each: cells, internal and boundary faces, matrices, solution): **every dumped quantity bit-identical (worst absolute difference exactly 0), including `UEqn.A()`, `UEqn.H()`, `rAUf`, `phiHbyA`, `p_rgh`, `phi`, `U`, `T`, `rho`, the energy matrix and `he`.** Shipped 6 x 6 protocol (heated, exchangers on, tolerance 1e-14, 36 correctors): **correctors 1-12 (outer iterations 1 and 2) bit-identical for all 1056 dumped (corrector, quantity) pairs that exist in both**; the first difference is `T` and `rho` by 1 ulp (1.1e-13 on 653 K) at the start of corrector 13 (outer iteration 3), after an outer-2 energy equation whose matrix, source and `he` solution are themselves bit-identical (so the Newton `T(he)` of `thermo.correct()` or its polynomial `Hs`/`Cp`, not examined: gh:#1902); from there `UA` 7.5e-16, `p` 4e-13 at corrector 13, `U` 1.7e-14 at corrector 14.
+
+### End to end, `1D_HX/onePhase` as shipped (A) and non-conformal (B), 2008 steps, tight PCG/DIC (the round 44/45 protocol and rows)
+
+| quantity | A before (round 45) | A after | B after | gate (unchanged) |
+|---|---|---|---|---|
+| `p`, `p_rgh` | 3.02e-12 (step 3) | **3.63e-12 (step 2)**; 1.25e-13 at step 2008 | 2.0e-12 (2) | 1e-9 / 1e-10 |
+| `Uz` | 1.58e-13 | 1.93e-13 (3) | 9.3e-14 | 1e-9 |
+| `htc`, `Re` | 3.0e-14, 1.8e-13 | 3.5e-14, 2.1e-13 | 1.6e-14, 2.3e-13 | 1e-9 |
+| `T`, `T.HX` (own maximum) | 3.5e-13, 2.3e-13 | **4.3e-15, 4.9e-15** (step 1000) | 1.4e-15, 1.6e-15 | 1e-10 |
+| exchanged heat `Q` / zone integrals | 5.3e-11 (1) / 7.7e-12 | 5.3e-11 (1) / 1.7e-11 | 7.1e-11 / 1.4e-11 | 1e-9 / 1e-10 |
+| `T.fixedPower`, `contErr`, `dgdt` | 6.7e-14, 1.5e-14, 7.2e-15 | 1.3e-15, 3.2e-15, 3.3e-16 | 1.7e-15, 5.1e-15, 2.6e-16 | 1e-9 |
+| `p_rgh` solve log | 37,103 solves, 0 violations | 37,108 solves (7667 / 991 / 28,450), **0 violations, iteration differences 0 / 0 / 0**, 2 straddle steps | | none violating |
+| `deltaT` | bit-identical, 2008 steps | bit-identical, 2008 steps | | |
+
+`p` is NOT bit-identical end to end and is no better than round 45 (3.6e-12 against 3.0e-12 at step 2): `p - p_out` of this 1-D channel amplifies a 1-ulp difference (the one at outer 3, above) by the condition of the pressure equation over 36 correctors x 2008 steps; `T` and `T.HX`, which are not amplified, improved 80 x and 50 x.
+
+### Earlier numbers (old -> new) and the two post-run amendments
+
+* `genfoam_one_phase_fc_vs_upstream` (15 passed, 3 ignored; each test run alone because several cavity tests take 55-78 s): all pass with their committed pins EXCEPT two, amended post-run at the measured size: **open cavity, step 1, `Uy/|U|max` 1.17e-11 (8.2e-12 before; committed 1e-11, F3 of round 38; now asserted at 1.2e-11)** and **its tier-(ii) solve-log violations 33 of 2329 (30 before; asserted `<= 33`, worst iteration difference unchanged at 5)**: round-off in the floor tier, the same cause as round 38, the remaining difference of this ill-conditioned case being the outer-3 ulp above. Other printed numbers moved by round-off: open cavity `p` 3.6e-15 -> 4.0e-15, `T` 1.25e-15 -> 1.0e-15.
+* `genfoam_one_phase_vs_upstream` (round 4, 5 passed, 2 ignored): `p` step 1 2.98e-14 -> 1.65e-14, step 2 2.43e-13 -> 2.46e-13, `T` 5.2e-16 -> 3.5e-16: unchanged to the gates.
+* `genfoam_heat_exchanger_vs_upstream` (8 passed, 2 ignored), `genfoam_heat_exchanger_cc_vs_upstream` (2): pass; the cell-centred region is untouched (only the `UEqnCc` visibility changed).
+* New unit tests: `momentum_matrix_keeps_diagonal_and_internal_coeffs_apart_and_relaxes_per_face`, `energy_solver_is_the_last_matching_pattern_and_the_smooth_branch_agrees_to_the_tolerance`, `two_phase_momentum_a_and_h_with_a_slip_face_follow_cmpt_av_and_has_no_relaxation` (all pass).
+* Two-phase region (read + test): no relaxation of `UEqn1/2` upstream (`UEqns_2p.H:191,194`) and none in the port, so the round 45 defect cannot occur there; `A()`/`H()` of a `slip` face follow `cmptAv`/`h_corr` (test). No variant against the binary was made: with no relaxation there is nothing for a variant to show; `VecEqn` still folds `cmptAv` into the running diagonal (not bit-identical, gh:#1902).
+
+### Predictions: held and missed
+
+Part 1: **R1 MISSED, R2 MISSED** (after the matrix change alone `A` was 3.8e-16 and `H` 2.1e-16 off: the matrix was not the only cause); R3 held (`A` <= 7.5e-16 after the first 12 correctors; bit-identical there); **R4 MISSED** (`p` 3.63e-12 against `<= 3.0e-12`; `T` improved); R5 held; R6 held except the two post-run amendments (its 40 % "visible movement" was the open-cavity case); R7 held; R8 held. Part 1b: S1 held, S2 held (after a third cause I had not predicted, the `dev(Kd)` term), S3 held, S4 held and beaten (bit-identical, predicted 25 %), S5 held (`A` bit-identical to corrector 12, then 7.5e-16), **S6 `p` <= 1e-12 MISSED** (3.6e-12), `T`, `T.HX` <= 5e-13 held. **Unpredicted:** the `h` solver selection defect (step 6) and the outer-3 ulp.
+
+### Not bit-identical, and why
+
+The first difference is `T`/`rho` by 1 ulp at outer iteration 3 (above). `OnePhaseCcSolver` and the two-phase region still accumulate every `fvm` term onto one running diagonal and use `interp_linear`/`Geometry::new` (not changed: their recorded numbers were measured with them): gh:#1902.
+
+### Reproduction
+
+`bash upstream_driver/probe_one_phase_fc/build.sh` after `patch -p1` of `probe_one_phase_fc.patch`, then the two `probe_r46_*.patch` files, into `probe1894/classes`; `ISO=1 NOUTER=2 NCORR=1 bash run_up.sh iso21`; `TOL=1e-14 PROBE1894_MAXCORR=36 bash run_up.sh full36`; port: apply `port_probe_r46_rs.diff` (a plain `diff probe clean`: apply by hand, it is a record), `bash probe_iso_r46.sh`; end to end: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_heat_exchanger_vs_upstream shipped_1d_hx_20s -- --nocapture`.
