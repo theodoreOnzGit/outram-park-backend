@@ -357,8 +357,9 @@ pub struct PassiveStructure {
     pub alpha_rho_cp: Vec<f64>,
     /// `Tpas_` at the start time per cell (the dictionary `T` where the field is not on disk).
     pub t: Vec<f64>,
-    /// `T.passiveStructure` was READ from the start directory (`structure.C:157`, `TpasHeaderOk`; gh:#1926, README round 66): a new process
-    /// then has the `Tpas.oldTime()` quirk of a restart ([`OnePhaseCcSolver::restart_at`]), without calling `restart_at`.
+    /// `T.passiveStructure` was READ from the start directory (`structure.C:157`, `TpasHeaderOk`; gh:#1926, README round 66). A new process
+    /// has the `Tpas.oldTime()` first-step quirk of a restart ([`OnePhaseCcSolver::restart_at`]) without calling `restart_at`: round 65
+    /// (gh:#1928) made `pas_old_lazy` true at EVERY construction (it is masked for a uniform `Tpas = T`), so this flag is informative only.
     pub t_from_file: bool,
 }
 
