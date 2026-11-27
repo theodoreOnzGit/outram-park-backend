@@ -520,7 +520,9 @@ mod tests {
     /// sheared strips of width 2 and height `t`, `4t = 0.8`) times 1. Pass: `validate()` is `Ok` and the volume is 0.8
     /// to 1e-12. Control: the centroid guess alone ([`orient_ring`]) must
     /// wind at least one face of this cell inward, so the test can fail.
-    /// Result (2026-11-27): RESULT_PENDING.
+    /// Result (2026-11-27): passes; the centroid guess winds 2 of the 8
+    /// faces inward (the two inner faces of the chevron, below which the
+    /// vertex average lies).
     #[test]
     fn a_bent_thin_cell_is_wound_outward_by_topology() {
         let t = 0.2;

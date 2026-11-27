@@ -2550,7 +2550,19 @@ pub(crate) mod tests {
     /// gh:#1285: the octree mesh itself (`refine_near_boundary_banded`) is
     /// not a pipeline output and kept its pin; the pipeline's pipe moved
     /// with the face order (~~24335298658873933~~).
-    const OCTREE_PINS: (usize, u64, usize, u64) = (2528, 16070505555120789497, 664, 2018287953755369937);
+    ///
+    /// **CORRECTED 2026-11-27 (gh:#1772):** the pipe was ~~`664,
+    /// 2018287953755369937`~~, which was the **undualised** octree mesh: its
+    /// stage notes read "polyhedral dual skipped — both dual variants would
+    /// invalidate the mesh", because `from_cell_faces`' centroid guess wound
+    /// faces of bent dual cells inward. Winding by topology
+    /// (`volume_mesh::wind_cell_outward`) lets the dual through: 1014 cells
+    /// (one per primal point), `validate()` Ok, 0 negative cells, max
+    /// non-orthogonality 75.69°, max skewness 0.518, volume 1.873130e-5 m³
+    /// (the 48-facet prism is 1.8796e-5, −0.35 %; feature-edge capture
+    /// leaves 18 boundary points unmapped, stage note). Same fingerprint in
+    /// three runs. The octree pin did not move.
+    const OCTREE_PINS: (usize, u64, usize, u64) = (2528, 16070505555120789497, 1014, 5658709920117303336);
 
     /// Feature edges of `m`'s boundary (edges between two boundary faces in
     /// different patches), the number at each boundary point, and the
