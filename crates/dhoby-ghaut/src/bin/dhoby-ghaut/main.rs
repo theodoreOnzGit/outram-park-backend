@@ -225,12 +225,15 @@ fn main() -> Result<(), String> {
             Some("carved") => outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
             Some(o) => return Err(format!("--tets {o}: tetgen or carved")),
         };
-        // `--boundaries fitted` (default: body-fitted region interfaces) or
-        // `--boundaries centroid` (cells assigned by centroid, stair-stepped).
+        // `--boundaries ami` (default: each region meshed on its own, joined
+        // by cyclicAMI pairs), `--boundaries fitted` (the conforming
+        // ablation: one TetGen run, interfaces shared) or `--boundaries
+        // centroid` (cells assigned by centroid, stair-stepped).
         let boundaries = match arg("--boundaries").as_deref() {
-            None | Some("fitted") => crate::meshing::ChtBoundaries::Fitted,
+            None | Some("ami") => crate::meshing::ChtBoundaries::Ami,
+            Some("fitted") => crate::meshing::ChtBoundaries::Fitted,
             Some("centroid") => crate::meshing::ChtBoundaries::Centroid,
-            Some(o) => return Err(format!("--boundaries {o}: fitted or centroid")),
+            Some(o) => return Err(format!("--boundaries {o}: ami, fitted or centroid")),
         };
         // `--no-snap`: leave the boundary on the faceted surface (the
         // ablation; by default it is snapped onto the true cylinders).
@@ -935,6 +938,46 @@ mod tests {
             }
         }
         assert!(n > 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The default CHT mesh (2026-11-27, gh:#1862): each region meshed on
+    /// its own, snapped, joined by `cyclicAMI` pairs (40 cm, 16 segments).
+    /// Every region has cells and is within 1 % of its analytic round volume
+    /// (the 16-gon alone is −2.6 %); the outer patches are `top`, `bottom` and
+    /// `side`; every interface is a pair of patches named after its two
+    /// regions, written as `cyclicAMI` with each other as `neighbourPatch`;
+    /// the polyMesh and cellZones read back.
+    #[test]
+    fn the_ami_cht_mesh_joins_snapped_regions() {
+        let r = super::preset::htr10();
+        let mut engine = crate::engine::Engine::default();
+        let a = super::headless::assemble_for_test(&mut engine, &r).expect("assembly");
+        let d = crate::meshing::domain_from(&a);
+        let dir = std::env::temp_dir().join(format!("dhoby_ghaut_cht_ami_test_{}", std::process::id()));
+        let m = crate::meshing::build_cht(&d, 40.0, 16, crate::meshing::cht_tetgen(40.0), crate::meshing::ChtBoundaries::Ami, true, &dir).expect("ami cht mesh");
+        for (id, _, n, mv, ev) in &m.regions {
+            assert!(*n > 0, "{id} has cells");
+            let rel = mv / ev - 1.0;
+            assert!(rel.abs() < 0.01, "{id}: {rel:e}; notes {:#?}", m.notes);
+        }
+        assert!(!m.ami.is_empty());
+        let names: Vec<&str> = m.patches.iter().map(|p| p.0.as_str()).collect();
+        for p in ["top", "bottom", "side"] {
+            assert!(names.contains(&p), "patch {p}: {names:?}");
+        }
+        let ids: Vec<&str> = m.map.regions.iter().map(|r| r.id.as_str()).collect();
+        for p in &m.ami {
+            assert!(names.contains(&p.a.as_str()) && names.contains(&p.b.as_str()));
+            assert!(ids.iter().any(|i| p.a.starts_with(&format!("{i}_to_"))) && ids.iter().any(|i| p.b.starts_with(&format!("{i}_to_"))), "{p:?}");
+        }
+        let text = std::fs::read_to_string(m.polymesh_dir.join("boundary")).expect("boundary");
+        assert_eq!(text.matches("cyclicAMI;").count(), 2 * m.ami.len());
+        let fv = outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh(&m.polymesh_dir).expect("polyMesh reads back");
+        assert_eq!(fv.n_cells, m.mesh.n_cells());
+        let zones = outram_foam_appbuilder_lib::io::poly_mesh::read_cell_zones(&m.polymesh_dir).expect("cellZones read back");
+        assert_eq!(zones.iter().map(|z| z.cells.len()).sum::<usize>(), m.mesh.n_cells());
+        assert!(crate::meshing::cht_report(&m, 40.0, 16).contains("cyclicAMI pair"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -460,16 +460,74 @@ pub fn mesh_regions_joined(
             match (has(i, &a), has(j, &b)) {
                 (true, true) => pairs.push((a, b)),
                 (false, false) => {}
-                _ => return Err(format!("{a} / {b}: only one side of the interface was meshed")),
+                (ha, hb) => {
+                    let names = |k: usize| meshes[k].patches.iter().map(|p| p.name.clone()).collect::<Vec<_>>().join(", ");
+                    return Err(format!(
+                        "{a} / {b}: only one side of the interface was meshed ({a}: {ha}, {b}: {hb}; patches of {}: {}; of {}: {})",
+                        map.regions[g].id,
+                        names(i),
+                        map.regions[o].id,
+                        names(j)
+                    ));
+                }
             }
         }
     }
     let j = outram_park_fork_cfmesh::pipeline::region_join::join_regions(&meshes, &pairs)?;
     for p in &j.ami {
-        notes.push(format!("AMI {} / {}: areas {:.6e} / {:.6e} m², mismatch {:+.2e}", p.a, p.b, p.area_a, p.area_b, p.area_mismatch()));
+        let (ws, wt) = ami_weight_sums(&j.mesh, p)?;
+        let (s0, s1, s2) = min_mean_max(&ws);
+        let (t0, t1, t2) = min_mean_max(&wt);
+        notes.push(format!(
+            "AMI {} / {}: areas {:.6e} / {:.6e} m², mismatch {:+.2e}; weight sums source {s0:.4} / {s1:.6} / {s2:.4}, target {t0:.4} / {t1:.6} / {t2:.4} (min / mean / max)",
+            p.a, p.b, p.area_a, p.area_b, p.area_mismatch()
+        ));
     }
     let cell_region = j.cell_region.iter().map(|&k| present[k]).collect();
     Ok(JoinedRegions { mesh: j.mesh, cell_region, ami: j.ami, notes })
+}
+
+/// AMI weight sums of one interface pair of a joined mesh: OpenFOAM ESI's
+/// `faceAreaWeightAMI` (`outram_foam_basic_lib::mesh::face_area_weight_ami`,
+/// gh:#1859, upstream defaults) with `pair.a` as source and `pair.b` as
+/// target. Returns `(source sums, target sums)`, one per face: 1 where a
+/// face is covered once by the other side, above 1 where curved facets
+/// overlap after projection, below where a face is partly uncovered.
+///
+/// # Errors
+/// If a patch is missing or the weight computation refuses.
+pub fn ami_weight_sums(mesh: &VolumeMesh, pair: &outram_park_fork_cfmesh::pipeline::region_join::AmiPair) -> Result<(Vec<f64>, Vec<f64>), String> {
+    use outram_foam_basic_lib::mesh::face_area_weight_ami::{face_area_weight_ami, AmiPatchGeometry, FaceAreaWeightAmiOptions};
+    use outram_foam_basic_lib::primitives::Vector3;
+    let patch = |name: &str| -> Result<AmiPatchGeometry, String> {
+        let p = mesh.patches.iter().find(|p| p.name == name).ok_or_else(|| format!("no patch {name}"))?;
+        let mut local = std::collections::BTreeMap::new();
+        let mut points = Vec::new();
+        let mut faces = Vec::with_capacity(p.n_faces);
+        for f in p.start_face..p.start_face + p.n_faces {
+            let ring: Vec<usize> = mesh.faces[f]
+                .iter()
+                .map(|&v| {
+                    *local.entry(v).or_insert_with(|| {
+                        let q = mesh.points[v];
+                        points.push(Vector3::new(q.x, q.y, q.z));
+                        points.len() - 1
+                    })
+                })
+                .collect();
+            faces.push(ring);
+        }
+        Ok(AmiPatchGeometry { points, faces })
+    };
+    let (a, b) = (patch(&pair.a)?, patch(&pair.b)?);
+    let r = face_area_weight_ami(&a, &b, &FaceAreaWeightAmiOptions::default()).map_err(|e| format!("AMI {} / {}: {e:?}", pair.a, pair.b))?;
+    Ok((r.src_weights_sum, r.tgt_weights_sum))
+}
+
+/// `(min, mean, max)` of `x`.
+fn min_mean_max(x: &[f64]) -> (f64, f64, f64) {
+    let (lo, hi) = x.iter().fold((f64::MAX, f64::MIN), |a, &v| (a.0.min(v), a.1.max(v)));
+    (lo, x.iter().sum::<f64>() / x.len().max(1) as f64, hi)
 }
 
 /// Name the boundary faces of a Step 7 thermal-hydraulics mesh (the bed
@@ -837,8 +895,11 @@ pub struct ChtMesh {
     pub faceted_cm3: Vec<f64>,
     /// How the region boundaries were made.
     pub boundaries: ChtBoundaries,
-    /// Per internal interface `(name, faces)` (fitted only).
+    /// Per internal interface `(name, faces)` (fitted and AMI; for AMI the
+    /// faces of both sides).
     pub interfaces: Vec<(String, usize)>,
+    /// The `cyclicAMI` pairs (AMI only).
+    pub ami: Vec<outram_park_fork_cfmesh::pipeline::region_join::AmiPair>,
     /// Boundary patches `(name, faces)`.
     pub patches: Vec<(String, usize)>,
     /// Cell kinds `(kind, count)`.
@@ -858,7 +919,15 @@ pub struct ChtMesh {
 /// How [`build_cht`] makes the boundaries between regions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChtBoundaries {
-    /// **Body-fitted** (default): every region interface is a constraint
+    /// **Each region meshed on its own, joined by `cyclicAMI` pairs**
+    /// (default since 2026-11-27, maintainer: "mesh each region separately,
+    /// then combine them into a multiregion mesh using a AMI interface";
+    /// gh:#1862): [`mesh_regions_joined`]. Every region's boundary is fitted
+    /// by construction and snapped; the two sides of an interface are
+    /// different tilings, coupled by AMI weights.
+    Ami,
+    /// **Body-fitted, conforming** (the default until 2026-11-27, now an
+    /// ablation): every region interface is a constraint
     /// surface for TetGen, each region is dualled on its own and the duals
     /// are stitched (`outram_park_fork_cfmesh::pipeline::multi_region`).
     /// No cell crosses an interface. Needs the TetGen tet source.
@@ -955,8 +1024,10 @@ pub fn fitted_surface(
             }
         }
     };
-    // Kept edges with their patch.
+    // Kept edges with their patch, and, for an outer edge, the polygon of
+    // the one kept region on it (the side its normal must point away from).
     let mut kept: BTreeMap<(usize, usize), usize> = BTreeMap::new();
+    let mut inside_poly: BTreeMap<(usize, usize), usize> = BTreeMap::new();
     for (&(a, b), ps) in &edge_polys {
         let (pa, pb) = (verts[a], verts[b]);
         if pa[0].abs() < 1e-9 && pb[0].abs() < 1e-9 {
@@ -966,6 +1037,9 @@ pub fn fitted_surface(
         // The region across an outer edge: a region not kept, or none (the
         // outside of the R-Z map).
         let across = ps.iter().map(|&pi| polys[pi].1).find(|&g| !allowed(g));
+        if let ([_], Some(&pi)) = (regs.as_slice(), ps.iter().find(|&&pi| allowed(polys[pi].1))) {
+            inside_poly.insert((a, b), pi);
+        }
         let patch = match regs.as_slice() {
             [_] => Some(patch_of(outer(pa, pb, across), false)),
             [g, h] if g != h => {
@@ -1020,6 +1094,23 @@ pub fn fitted_surface(
                 }
                 done.insert(next);
                 ends[side] = w;
+            }
+        }
+        // Wind an outer run so its revolved normal points away from its
+        // region (2026-11-27): revolving `a -> b` gives the R-Z normal
+        // `(dz, -dr)`, the right-hand side, so the region must lie on the
+        // left. The single-region pipeline finds cavities by the sign of each
+        // shell's volume (`tet_source::hole_points`); wound by run direction,
+        // the solid graphite's inner shell round the bed and plenums was not
+        // taken as a hole and TetGen filled it.
+        if let Some(&pi) = inside_poly.get(&e) {
+            let ids = &polys[pi].0;
+            let n = ids.len() as f64;
+            let c = [ids.iter().map(|&v| verts[v][0]).sum::<f64>() / n, ids.iter().map(|&v| verts[v][1]).sum::<f64>() / n];
+            let (pa, pb) = (verts[ends[0]], verts[ends[1]]);
+            let left = (pb[0] - pa[0]) * (c[1] - pa[1]) - (pb[1] - pa[1]) * (c[0] - pa[0]);
+            if left < 0.0 {
+                ends.swap(0, 1);
             }
         }
         runs.push((ends[0], ends[1], p));
@@ -1551,7 +1642,25 @@ pub fn build_cht(
             "side".to_string()
         }
     });
+    let mut ami: Vec<outram_park_fork_cfmesh::pipeline::region_join::AmiPair> = Vec::new();
+    let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { cell_cm / 100.0 };
     let (vm, fitted_region, mut notes, interfaces) = match boundaries {
+        ChtBoundaries::Ami => {
+            let outer = |a: [f64; 2], b: [f64; 2]| {
+                if (a[1] - zt).abs() < 1e-9 && (b[1] - zt).abs() < 1e-9 {
+                    "top".to_string()
+                } else if (a[1] - zb).abs() < 1e-9 && (b[1] - zb).abs() < 1e-9 {
+                    "bottom".to_string()
+                } else {
+                    "side".to_string()
+                }
+            };
+            let j = mesh_regions_joined(&map, &part, n_seg, cell_cm, |_| true, outer, |_| None, snap.then_some(delta))?;
+            let faces = |name: &str| j.mesh.patches.iter().find(|p| p.name == name).map_or(0, |p| p.n_faces);
+            let interfaces = j.ami.iter().map(|p| (format!("{} / {}", p.a, p.b), faces(&p.a) + faces(&p.b))).collect();
+            ami = j.ami;
+            (j.mesh, Some(j.cell_region), j.notes, interfaces)
+        }
         ChtBoundaries::Fitted => {
             // Snapping TetGen's own surface vertices before the dual was
             // measured and rejected (2026-11-26): it took the cells away
@@ -1568,12 +1677,16 @@ pub fn build_cht(
     };
     notes.push(format!("tetrahedra: {tets:?}; region boundaries: {boundaries:?}"));
     let mut vm = vm;
-    if snap {
+    if boundaries == ChtBoundaries::Ami {
+        // Snapped region by region in `mesh_regions_joined`.
+        if !snap {
+            notes.push("not snapped: the boundary stays on the faceted surface (--no-snap)".into());
+        }
+    } else if snap {
         let segs = match boundaries {
-            ChtBoundaries::Fitted => fitted.segs_m.clone(),
+            ChtBoundaries::Ami | ChtBoundaries::Fitted => fitted.segs_m.clone(),
             ChtBoundaries::Centroid => profile_segments_m(&d.neutronics_profile()),
         };
-        let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { cell_cm / 100.0 };
         notes.push(snap_checked(&mut vm, fitted_region.as_deref(), &segs, n_seg, delta)?);
     } else {
         notes.push("not snapped: the boundary stays on the faceted surface (--no-snap)".into());
@@ -1588,7 +1701,7 @@ pub fn build_cht(
         cell_region = r;
     }
     for c in 0..um.n_cells() {
-        if boundaries == ChtBoundaries::Fitted {
+        if boundaries != ChtBoundaries::Centroid {
             break;
         }
         let x = um.cell_centre(c);
@@ -1643,7 +1756,7 @@ pub fn build_cht(
         .collect();
     let q = outram_park_fork_cfmesh::checks::check_quality(&vm);
     let dir = out_dir.join("constant").join("polyMesh");
-    outram_park_fork_cfmesh::foam::write_polymesh(&vm, &dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    outram_park_fork_cfmesh::foam::write_polymesh_with_ami(&vm, &ami, &dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     std::fs::write(dir.join("cellZones"), cell_zones_text(&map, &cell_region)).map_err(|e| e.to_string())?;
     // Images. Heights: bed middle, middle of the cavity above the bed, and
     // middle of the hot plenum's first box.
@@ -1685,6 +1798,7 @@ pub fn build_cht(
         faceted_cm3,
         boundaries,
         interfaces,
+        ami,
         patches: vm.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect(),
         quality: (q.max_non_orthogonality_deg, q.max_skewness),
         notes,
@@ -1714,6 +1828,7 @@ pub fn cht_report(m: &ChtMesh, cell_cm: f64, n_seg: usize) -> String {
     s.push_str(&format!(
         "Region boundaries: {}.\n\n",
         match m.boundaries {
+            ChtBoundaries::Ami => "each region meshed on its own, body-fitted and snapped, joined by cyclicAMI interface pairs",
             ChtBoundaries::Fitted => "body-fitted (every interface is a face of the mesh)",
             ChtBoundaries::Centroid => "by cell centroid (stair-stepped at the cell size)",
         }
@@ -1729,7 +1844,12 @@ pub fn cht_report(m: &ChtMesh, cell_cm: f64, n_seg: usize) -> String {
             (mv - fv) / fv.max(1e-30)
         ));
     }
-    if !m.interfaces.is_empty() {
+    if !m.ami.is_empty() {
+        s.push_str("\n| cyclicAMI pair | area a [m²] | area b [m²] | b / a - 1 |\n|---|---|---|---|\n");
+        for p in &m.ami {
+            s.push_str(&format!("| `{}` / `{}` | {:.6} | {:.6} | {:+.2e} |\n", p.a, p.b, p.area_a, p.area_b, p.area_mismatch()));
+        }
+    } else if !m.interfaces.is_empty() {
         s.push_str("\n| interface | faces |\n|---|---|\n");
         for (p, n) in &m.interfaces {
             s.push_str(&format!("| `{p}` | {n} |\n"));
