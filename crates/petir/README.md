@@ -15,6 +15,37 @@ Named for Petir on the Bukit Panjang LRT, following the workspace's
 Singapore-place-name convention. *Petir* is Malay for lightning, which suits a
 library of iterative routines better than it has any right to.
 
+What this crate makes studyable and challengeable is the numerics that every
+other crate leans on, each routine opened beside the upstream file it was
+ported from: GSL 2.8's Chebyshev series, quadrature, root finders and linear
+algebra, OpenMC's depletion integrators and CRAM, CORE-MATH's correctly
+rounded `hypot`, faer's sparse solvers. A reader can check a routine against
+its source line by line, and check its output against the compiled upstream:
+the references and the C drivers that produced them are committed, so every
+"bit-identical" claim below can be re-run rather than trusted.
+
+**Status, stated plainly:** declared mature by the maintainer on 2026-09-15,
+on the bar of agreement with GSL 2.8 compiled and run (see `AGENTS.md`,
+"Maturity"). That is verification only: nothing here is compared with a
+published physical benchmark, and both bookkeeping axes are unsigned.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ported upstreams, each named with its commit and licence in `NOTICE` and `upstream_source/README.md`: GSL 2.8 (GPL-3.0-or-later, commit `cf180cd7`), QUADPACK through GSL, OpenMC `openmc/deplete/` and `random_lcg.cpp` (MIT), ONIX's CRAM16 (MIT), ARM optimized-routines, CORE-MATH (MIT), Reference-LAPACK 3.12.1, faer 0.24.4 with SuiteSparse AMD/COLAMD, PyClaw (BSD-3), EGSnrc's interpolator, RANMAR/RANLUX and alias table (AGPL-3.0), GNU Octave's control package and `expm.m`, `roots` 0.0.8 and `peroxide` 0.41.2. Nothing in `crates/kovan-literature/CATALOGUE.md` names this crate. |
+| Mathematical equations | Module docs of each routine (Clenshaw recurrence, Gauss-Kronrod rules, Brent's method, CRAM rational approximations, BDF2, SSP Runge-Kutta, Householder QR), and this README's Chebyshev section on conditioning. No separate derivation document. |
+| Source code | The modules in "What is here today" below, plus `interp_piecewise`, `interp_cspline_poly`, `interp2d`, `egsnrc`, `mathf`, `uom_math` and `wgsl` (`src/lib.rs`). |
+| Interactive simulations | None yet. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `docs/verification-summary.md` (2026-09-15, against GSL 2.8 compiled and run, references under `reference-data/gsl/`) and the maturity table in `AGENTS.md`, e.g. `linalg::lu_decomp` 1637/1637 bit-identical, `roots`, `min`, `interp` and RKF45 `ode` 100 % on every iterate. `verification_and_validation/` holds the later records (depletion, the EGSnrc primitives, integration and interpolation families gh:#1340/#1341, special functions, `sin` correct rounding, the OpenMC LCG). Per-module results are in the table below, e.g. `hypot` 0 misroundings on 8 044 838 inputs against MPFR, `ssprk` bit-identical to PyClaw on 96/96 values. About 80 test files under `tests/`. |
+| Human reviews and corrections | 50 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md` names this crate. Struck-through corrections in this README record the subsets later ported (QAGS, QAGI, Akima, Steffen, implicit ODE), the `faer` agreement moving from 4.9e-14 to bit-identical, and the `std` feature; "Three upstream node values were wrong" records an error found in `peroxide`. |
+
+**Status in one sentence:** most modules are verified code to code against
+their compiled upstreams; none is validated against a physical benchmark.
+
 ## What it is
 
 A `no_std` port of parts of the [GNU Scientific Library](https://www.gnu.org/software/gsl/),
@@ -76,15 +107,23 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `real` | — | The `no_std` float-math shim |
 | `hypot` | ported (CORE-MATH, not GSL) | **Correctly rounded** `hypot` / `hypotf` (`cr_hypot`, `cr_hypotf`, MIT), the target of every PETIR `hypot` route. 0 misroundings against MPFR on 8 044 838 inputs (`tests/hypot_correct_rounding.rs`). **Added 2026-10-20** at maintainer direction (gh:#997) |
 | `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
-| `rng` (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3, `rand_distr` 0.6.0, `chacha20` 0.10.2; MIT) | The `rand` pieces `boon-lay`'s RustBCA copy uses: ChaCha8 with `rand_core`'s PCG32 `seed_from_u64`, `random::<f64>()`, `Uniform<f64>`, the ziggurat `Normal<f64>`. **Added 2026-10-20 (gh:#995)**; draw-for-draw identical to the upstream crates over 48 million draws (`tests/rng_vs_rand.rs`, reference in `reference-data/rand/`) |
+| `rng` (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3, `rand_distr` 0.6.0, `chacha20` 0.10.2; MIT) | The `rand` pieces ~~`boon-lay`'s~~ **CORRECTED 2026-11-27** — `kembangan`'s (the copy moved there 2026-11-22, gh:#1699; `kembangan/Cargo.toml` names `petir::rng`) RustBCA copy uses: ChaCha8 with `rand_core`'s PCG32 `seed_from_u64`, `random::<f64>()`, `Uniform<f64>`, the ziggurat `Normal<f64>`. **Added 2026-10-20 (gh:#995)**; draw-for-draw identical to the upstream crates over 48 million draws (`tests/rng_vs_rand.rs`, reference in `reference-data/rand/`) |
 | `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
 | `sparse` | ported (faer, not GSL) | Sparse direct solvers: LU with partial pivoting and a **COLAMD** column ordering, Cholesky `LLᵀ` with an **AMD** ordering, elimination trees, sparse triangular solves (faer 0.24.4, MIT; AMD/COLAMD via SuiteSparse, BSD-3). Simplicial and (since the same day) **supernodal** paths, chosen by faer's own rule or forced with `SymbolicKind`; faer's dense SIMD kernels replayed in scalar code. ~~where faer itself picks its supernodal path the solutions agree to ≤ 4.9e-14 relative~~ **Every solution bit-identical to faer on both paths and on faer's own choice**, orderings identical (`tests/sparse_vs_faer.rs`). The supernodal path is *slower* here than the simplicial one (no SIMD; see the module docs). **Added 2026-10-20** at maintainer direction (gh #994) |
 | `faer_dense` | ported (faer, not GSL) | faer 0.24.4's dense SVD (`Mat::svd()`) for square `n <= 16`: Householder bidiagonalisation, bidiagonal QR, reflector back-transformation, with faer's SIMD kernels modelled lane by lane in scalar code (pulp V3, AVX2+FMA; no `core::arch`). **Bit-identical** to faer on 6 134 `outram-blender` covariances, 26 000 random matrices of orders 1..=16 and 17 structured cases (`tests/faer_dense_svd_vs_faer.rs`). Distinct from `linalg::svd` (GSL), not a replacement for it. **Added 2026-10-20** at maintainer direction (gh #996) |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
+**CORRECTED 2026-11-27** — the table above is not the whole module list.
+`src/lib.rs` also declares `interp_piecewise` (Akima, Steffen; GSL 2.8,
+gh:#1341), `interp_cspline_poly` (periodic cubic spline and polynomial
+interpolation, gh:#1341), `interp2d` (bilinear and bicubic, gh:#1341),
+`egsnrc` (the EGSnrc label for the RANMAR/RANLUX, alias-table and
+interpolator ports), `mathf` (the `RealMath` transcendentals), `uom_math` and
+`wgsl` (checked against the `pub mod` lines of `src/lib.rs`).
+
 **Deliberate subsets rather than gaps**, each named where it matters and
 tracked as a bead: ~~QAGS and~~ ~~the infinite-range~~ (**QAGI, QAGIU, QAGIL ported 2026-11-13**, gh:#1340) and weighted quadrature
-variants (QAGS **ported 2026-09-28**); ~~implicit and stiff ODE methods~~ GSL's adaptive stiff ODE steppers (**CORRECTED 2026-11-01**: fixed-grid backward Euler and BDF2 are in `ode::implicit`, gh:#1065); ~~Akima, Steffen~~ (**ported 2026-11-13**, `interp_piecewise`, gh:#1341) and periodic cubic splines;
+variants (QAGS **ported 2026-09-28**); ~~implicit and stiff ODE methods~~ GSL's adaptive stiff ODE steppers (**CORRECTED 2026-11-01**: fixed-grid backward Euler and BDF2 are in `ode::implicit`, gh:#1065); ~~Akima, Steffen~~ (**ported 2026-11-13**, `interp_piecewise`, gh:#1341) and ~~periodic cubic splines~~ (**CORRECTED 2026-11-27**: ported in `interp_cspline_poly`, gh:#1341, per its doc comment in `src/lib.rs`);
 general-degree complex polynomial roots; and rank-deficient least squares (the
 QR is unpivoted, so a dependent design matrix is *reported*, not solved —
 `op-4m4b`). An empty module that looks like an API is worse than an absent one.
@@ -203,7 +242,11 @@ changes nothing in PETIR itself — see the `faer` backend below.
    the deterministic choice.** On an AVX2+FMA x86-64 the two agree bit for bit
    (`tests/sparse_vs_faer.rs`).
 
-Verified on every commit:
+~~Verified on every commit:~~ **CORRECTED 2026-11-27** — not every one of
+these runs in CI. On pushes to `develop`, `fast-tests.yml` runs
+`scripts/check-nostd.sh` (which lists `petir`) and the Android checks; no
+workflow builds `petir` for `thumbv7em-none-eabihf` or `wasm32-unknown-unknown`
+(checked by grepping `.github/workflows/`). The commands, to run by hand:
 
 ```bash
 cargo build --release -p petir --target thumbv7em-none-eabihf  # bare-metal Cortex-M4F
@@ -321,7 +364,7 @@ was added the same day at the maintainer's direction (gh:#996).
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.
-Both **BSD-2-Clause into GPL-3.0-only and MIT into GPL-3.0-only are one-way**:
+Both **BSD-2-Clause into ~~GPL-3.0-only~~ AGPL-3.0-only and MIT into ~~GPL-3.0-only~~ AGPL-3.0-only are one-way** (**CORRECTED 2026-11-27**: the crate is AGPL-3.0-only, see Licence below):
 this code cannot flow back to either crate under its original licence without
 its author's agreement.
 

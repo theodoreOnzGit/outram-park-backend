@@ -15,6 +15,34 @@ shielding. The one question it answers is **"Where do the gammas and betas go,
 and where do they deposit their energy?"** Ions (fission fragments, alphas,
 recoils) stay in ~~`boon-lay`~~ `kembangan` (moved 2026-11-22 with the RustBCA copy, gh:#1699).
 
+What this crate makes studyable and challengeable is two photon and electron
+codes, translated routine by routine. A reader can set an EGSnrc Mortran
+routine (`COMPT`, `PAIR`, `BREMS`, `ELECTR`, `HATCH`) beside the Rust function
+that ports it, each cited to `file:line`, and set OpenMC's `photon.cpp`
+samplers beside `src/openmc_photon/`, then check the recorded differential
+tests against compiled upstream builds, including the residuals that are not
+bit-identical and the reasons found for them. It does not supply a geometry,
+so it cannot yet show a shielding problem end to end.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ported upstreams (`NOTICE`): EGSnrc, `nrc-cnrc/EGSnrc` commit `bd49a47a`, AGPL-3.0 (parts from SLAC's EGS4), never vendored; OpenMC, `openmc-dev/openmc` commit `8f79d9d0`, MIT (`photon.cpp`, `bremsstrahlung.cpp`, `physics.cpp`, `decay.py`, `material.py`, `univariate.py`). Nothing in `crates/kovan-literature/CATALOGUE.md` names this crate. |
+| Mathematical equations | In module docs and code comments, as upstream states them: Klein-Nishina and bound Compton with Doppler broadening, Rayleigh, Bethe-Heitler and NIST/NRC bremsstrahlung, pair and triplet production, Moller and Bhabha scattering, condensed-history electron transport with PRESTA-I/II (`src/egsnrc/egsnrc_mortran.rs`, `src/openmc_photon/`). No separate derivation document. |
+| Source code | `src/decay_spectrum.rs` (decay-photon source spectra); `src/egsnrc/` (one module per upstream Mortran file, plus `estar_cpp.rs`); `src/openmc_photon/` (samplers, `bremsstrahlung.rs`, `reaction.rs`, `ttb_tables.rs`). |
+| Interactive simulations | None yet. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `verification_and_validation/decay_photon_spectra/` (2026-11-20, `tests/decay_photon_vs_openmc.rs`): every compared value bit-identical with OpenMC, e.g. 394 of 394 per-nuclide values on `simple_decay`. `docs/openmc_photon_phase2.md` (2026-11-21, `tests/openmc_photon_vs_openmc.rs`): 5400 uranium samples of `compton_scatter`, `rayleigh_scatter` and `pair_production` with worst difference 0. `docs/egsnrc_phase2_differential.md` (2026-11-21): PEGS4, the HATCH tables and 200 `tutor1` histories against a compiled EGSnrc; the histories follow the same sequence of discarded particles in 200 of 200, worst relative kinetic energy 1.1e-8 against the `-fdefault-real-8` build, flagged as above the 1e-9 code-to-code bound. Those bit-identity results were taken before PETIR became the maths route in every build (gh:#1706) and were not re-run after it. All tests that need a compiled upstream skip unless their reference variables are set. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md` names this crate. Struck-through corrections in this README and in `docs/egsnrc_phase2_differential.md` record the EGSnrc port moving from "barely begun" to differentially tested, and bit identity moving from a `std`-only claim to last-bit round-off. |
+
+**Status in one sentence:** decay-photon spectra and the OpenMC samplers have
+code-to-code evidence against OpenMC, and the EGSnrc port has it against a
+compiled EGSnrc; nothing is validated against measurement, and no geometry
+exists here to transport through.
+
 ## Status
 
 Stated plainly: ~~**decay-photon source spectra and a first port of OpenMC's photon samplers (`compton_scatter`, `rayleigh_scatter`, `pair_production` bit-identical to a built OpenMC for uranium: `docs/openmc_photon_phase2.md`); no transport loop yet.**~~ **CORRECTED 2026-11-21 (gh:#1682, gh:#1685):** decay-photon source spectra; the EGSnrc port (PEGS4, HATCH, the interactions, `PHOTON`/`ELECTR`/`SHOWER` transport loops, EM fields, `egs_parallel`), differentially tested against a compiled EGSnrc and ~~bit-identical with the `std` feature (to round-off without it)~~ **to last-bit round-off in every build since 2026-11-22**, when PETIR became the maths route under `std` too (gh:#1706; the bit-identical results were taken on the platform route): `docs/egsnrc_phase2_differential.md`; and OpenMC's photon samplers, TTB and reaction sampling, differentially tested for U and H (`docs/openmc_photon_phase2.md`). **The transport loops run behind a geometry seam; this crate supplies no geometry.** AI draft, untrusted until human review.
@@ -42,8 +70,12 @@ clone on 2026-11-20; EGSnrc is not vendored and none of its text is committed).
 
 - **In scaffold:** `HEN_HOUSE/src/*.mortran` and `*.macros` (20 files) and
   `HEN_HOUSE/pegs4/pegs4.mortran`, one module each under `src/egsnrc/`, named
-  by the file name with `.` read as `_`. Each module says what its routine
-  family does and that nothing is ported. No stub functions.
+  by the file name with `.` read as `_`. ~~Each module says what its routine
+  family does and that nothing is ported. No stub functions.~~ **CORRECTED
+  2026-11-27** — the scaffold has since been filled: the modules hold ported
+  routines (see Status above and `docs/egsnrc_port_remaining.md`), and
+  `estar_cpp.rs` ports `HEN_HOUSE/egs++/estar` (checked against `src/egsnrc/`
+  and `NOTICE`).
 - **Out of scope for now:** the `egs++` C++ geometry library
   (`HEN_HOUSE/egs++`) and the user codes (`HEN_HOUSE/user_codes`).
 - **Licence:** EGSnrc is AGPL-3.0 (file headers: version 3 or, at the
@@ -68,4 +100,5 @@ clone on 2026-11-20; EGSnrc is not vendored and none of its text is committed).
 ## License
 
 **AGPL-3.0-only.** Part of the [OUTRAM PARK](../../README.md) workspace. OpenMC
-(MIT) is the upstream of `decay_spectrum`; see `NOTICE`.
+(MIT) is the upstream of `decay_spectrum` and `openmc_photon`, and EGSnrc
+(AGPL-3.0) of `egsnrc`; see `NOTICE`.

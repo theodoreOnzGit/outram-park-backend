@@ -20,6 +20,35 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
+What this crate makes studyable and challengeable is how an evaluated nuclear
+data file becomes the cross sections a transport code samples: a line-by-line
+translation of NJOY2016's modules (RECONR's resonance formalisms, BROADR's
+SIGMA1 Doppler kernel, PURR's probability tables, THERMR, ACER and the rest)
+that a student can read beside the Fortran, with routines cited to their
+upstream `file:line` and each module's theory summarised from the NJOY2016
+manual. Byte- and word-level comparisons against NJOY2016's own output make
+every claim of agreement checkable, and the recorded corrections (the `LSSF`
+flag, the `thnmax` limit) show how a port's discrepancies were traced to
+upstream.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | NJOY2016 v2016.80 (`njoy/NJOY2016` commit `ab27c641`, modified BSD 3-Clause, `LICENSE.njoy`, `upstream_source/README.md`); the NJOY2016 manual, LA-UR-17-20093 (`njoy/NJOY2016-manual` commit `9a2951f`, logged in `crates/kovan-literature/CATALOGUE.md` as `2022laur1720093`); OpenMC's `WindowedMultipole.from_endf` (commit `8f79d9d`, MIT) for `wmp::generate`; the WMP evaluator after MIT CRPG's windowed multipole work. Evaluations: ENDF/B-VIII.0 tapes in `reference-data/endf/`. |
+| Mathematical equations | `src/<module>/README.md` for each module (24 of them, theory from the manual), `docs/lessons/` (a lesson book: where sigma comes from, RECONR, BROADR, PURR, THERMR, HEATR, GROUPR, ERRORR, ACER, WMP, physics functions), and `docs/porting-plan.md`. |
+| Source code | One module per NJOY2016 program under `src/` (`moder`, `reconr`, `broadr`, `unresr`, `purr`, `heatr`, `gaspr`, `thermr`, `leapr`, `samm`, `acer`, `groupr`, `gaminr`, `errorr`, `covr`, `dtfr`, `resxsr`, `mixr`, `matxsr`, `ccccr`, `powr`, `wimsr`, `plotr`, `viewr`), plus `endf/`, `deck/` (the input-deck driver), `wmp/`, `hdf5/`, `nuclear_data/`, `isomeric_branching/`. |
+| Interactive simulations | `njoy-tui`, a touchscreen terminal cross-section browser (`docs/njoy-tui.md`); the `lesson_*` examples; `dhoby-ghaut`'s `nuclear_data_web` demo is built on this crate. |
+| Visualisations | PLOTR, VIEWR and ACER `aplots` translations that write plot files, compared with NJOY2016 in `verification_and_validation/viewr/` and `aplots/` (no plot output is committed there); `verification_and_validation/urr_interpolation_study/fig1_convergence.png`. |
+| Verification and validation evidence | 50 entries under `verification_and_validation/`, mostly against NJOY2016 run on the same decks. As recorded in the root `CLAUDE.md`: BROADR at 293.6 K reproduces NJOY2016's own PENDFs word for word on 8 nuclides (2026-09-26, corrected 2026-10-06, `tests/pendf_stages_vs_njoy2016.rs`), and grid-independent band integrals below `thnmax` agree to 7.8e-12 on U-235 (re-run 2026-10-06, gh:#616, gated by `tests/acer_broadening_vs_njoy2016.rs`). The Status note below records POWR, MATXSR, PLOTR, CCCCR and VIEWR output identical to NJOY2016.80 on upstream or own decks. Code to code only: nothing here is a benchmark validation. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md` names this crate. Struck-through corrections in this README track the `NotPorted` list shrinking and the upstream sync from 2016.79 to 2016.80; the root `CLAUDE.md` records the U-238 `LSSF=1` lesson and the `thnmax` correction history for this crate. |
+
+**Status in one sentence:** most NJOY2016 modules are ported and compared code
+to code with NJOY2016, many word for word; none has had human review, and no
+library made here is validated against a benchmark on its own.
+
 ## `no_std` + `alloc` (gh:#1592)
 
 The default `std` feature can be turned off: the library is then `no_std` +
@@ -65,7 +94,9 @@ live in [`docs/njoy-tui.md`](docs/njoy-tui.md).
 
 ## GPU compute — precision / performance tradeoff (opt-in)
 
-njoy ships an **optional GPU compute path** (Cargo feature `gpu`, **desktop only**
+njoy ships an **optional GPU compute path** (~~Cargo feature `gpu`~~ **CORRECTED
+2026-11-27**: there is no `gpu` feature; `wgpu` comes with the default `std`
+feature, checked in `Cargo.toml` `[features]`; **desktop only**
 — `wgpu` is a target-gated dependency, so Android stays lean and CPU-only). It
 accelerates the *compute-bound* windowed-multipole (WMP) cross-section
 evaluation — the complex Faddeeva pole-sum — on the GPU.
@@ -165,7 +196,9 @@ for the full provenance record).
   Alamos National Laboratory, LANL, Los Alamos National Security LLC, or the U.S.
   Government. Do **not** report issues with this port to the NJOY developers.
 - **Documentation source (theory).** The per-module `README.md` files under
-  `src/modules/*/` summarise their theory from the **NJOY2016 users manual**,
+  ~~`src/modules/*/`~~ `src/<module>/` (**CORRECTED 2026-11-27**: there is no
+  `src/modules/` folder; the 24 READMEs are `src/reconr/README.md` and so on,
+  checked with `find src -name README.md`) summarise their theory from the **NJOY2016 users manual**,
   taken from the published repository
   [`njoy/NJOY2016-manual`](https://github.com/njoy/NJOY2016-manual) (commit
   `9a2951f`, 2022-03-02), which corresponds to LANL document **LA-UR-17-20093**.
