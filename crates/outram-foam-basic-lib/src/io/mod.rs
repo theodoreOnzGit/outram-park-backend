@@ -79,11 +79,12 @@ pub use esi::{write_cell_zones_esi, write_label_list_esi, write_time_file_esi};
 pub use dict::{Dimensioned, FoamDict, FoamEntry, FoamHeader, FoamValue};
 #[cfg(feature = "std")]
 pub use field::{
-    read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field,
+    read_vol_scalar_field, read_vol_scalar_field_esi, read_vol_vector_field,
+    read_vol_vector_field_esi, write_vol_scalar_field,
     write_surface_scalar_field_esi, write_vol_scalar_field_esi, write_vol_vector_field,
     write_vol_vector_field_esi,
 };
-pub use foam_number::parse_foam_f64;
+pub use foam_number::{parse_foam_f64, NumberRounding};
 pub use poly_mesh::{cell_geometry_from_faces, face_centre_and_area, MeshFace, PolyMesh};
 
 /// Errors raised while reading or writing OpenFOAM ASCII case files.

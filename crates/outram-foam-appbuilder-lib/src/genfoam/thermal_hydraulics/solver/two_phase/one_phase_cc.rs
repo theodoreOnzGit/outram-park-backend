@@ -466,7 +466,7 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
     let s = s.trim_start();
     if let Some(r) = s.strip_prefix("uniform") {
         let end = r.find(';').ok_or("uniform without `;`")?;
-        let v: f64 = r[..end].trim().parse().map_err(|_| format!("bad uniform `{}`", r[..end].trim()))?;
+        let v: f64 = outram_foam_basic_lib::io::parse_foam_f64(r[..end].trim()).ok_or_else(|| format!("bad uniform `{}`", r[..end].trim()))?;
         return Ok((vec![v; n], &r[end..]));
     }
     if let Some(r) = s.strip_prefix("nonuniform") {
@@ -475,7 +475,7 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
         let open = r.find('(').ok_or("nonuniform without `(`")?;
         let count: usize = r[..open].trim().parse().map_err(|_| "bad list size".to_string())?;
         let close = r[open..].find(')').ok_or("unterminated list")? + open;
-        let vals: Result<Vec<f64>, _> = r[open + 1..close].split_whitespace().map(str::parse::<f64>).collect();
+        let vals: Result<Vec<f64>, _> = r[open + 1..close].split_whitespace().map(|w| outram_foam_basic_lib::io::parse_foam_f64(w).ok_or(())).collect();
         let vals = vals.map_err(|_| "bad number in list".to_string())?;
         if vals.len() != count {
             return Err(format!("list says {count} values, has {}", vals.len()));

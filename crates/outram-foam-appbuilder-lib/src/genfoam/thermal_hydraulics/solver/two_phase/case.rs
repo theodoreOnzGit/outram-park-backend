@@ -125,7 +125,7 @@ impl Ctx {
     #[cfg(feature = "std")]
     pub(super) fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
-        FoamFile::read(&p)
+        FoamFile::read_esi(&p)
             .map(|f| f.dict)
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
@@ -134,7 +134,7 @@ impl Ctx {
     #[cfg(feature = "std")]
     pub(super) fn read_with_includes(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
-        FoamFile::read_with_includes(&p)
+        FoamFile::read_with_includes_esi(&p)
             .map(|f| f.dict)
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
@@ -926,7 +926,7 @@ impl TwoPhaseCase {
                 let q_dict = scalar(pm, "powerDensity");
                 if q_dict.is_none() && power_density_file.is_none() {
                     let path = root.join(format!("0/{region}/powerDensity.fixedPower"));
-                    let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field(&path, mesh.clone())
+                    let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field_esi(&path, mesh.clone())
                         .map_err(|e| ctx.e(format!("fixedPower has no `powerDensity` and {}: {e}", path.display())))?;
                     power_density_file = Some(f.internal.as_slice().to_vec());
                 }
@@ -966,7 +966,7 @@ impl TwoPhaseCase {
             if !has_radial || !path.exists() {
                 return Ok(None);
             }
-            let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field(&path, mesh.clone())
+            let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field_esi(&path, mesh.clone())
                 .map_err(|e| ctx.e(format!("{name}: {e}")))?;
             Ok(Some(f.internal.as_slice().to_vec()))
         };

@@ -67,9 +67,8 @@ impl ReactorState {
             let mut it = line.split_whitespace();
             let (Some(key), Some(value), None) = (it.next(), it.next(), it.next()) else { continue };
             if key == "keff" || key == "pTarget" {
-                let v: f64 = value
-                    .parse()
-                    .map_err(|_| WorkflowError::ReactorState(format!("`{key}` is not a number: `{value}`")))?;
+                let v: f64 = outram_foam_basic_lib::io::parse_foam_f64(value)
+                    .ok_or_else(|| WorkflowError::ReactorState(format!("`{key}` is not a number: `{value}`")))?;
                 if key == "keff" {
                     k_eff = v;
                 } else {

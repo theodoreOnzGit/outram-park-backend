@@ -157,7 +157,7 @@ impl CouplingDict {
     /// [`AppBuilderError::Case`] if the file is unreadable or an entry is missing.
     pub fn read(case: &Path, name: &str) -> Result<Self, AppBuilderError> {
         let p = case.join("constant/multiRegionCouplingDict");
-        let f = FoamFile::read(&p).map_err(|er| AppBuilderError::Case { case: case.to_path_buf(), msg: format!("multiRegionCouplingDict: {er}") })?;
+        let f = FoamFile::read_esi(&p).map_err(|er| AppBuilderError::Case { case: case.to_path_buf(), msg: format!("multiRegionCouplingDict: {er}") })?;
         Self::from_dict(&f.dict, name, case)
     }
 }

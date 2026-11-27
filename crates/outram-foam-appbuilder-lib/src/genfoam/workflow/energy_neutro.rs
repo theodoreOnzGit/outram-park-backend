@@ -534,7 +534,7 @@ impl EnergyNeutroTransient {
 pub fn read_albedo_patches(flux_file: &std::path::Path) -> Result<Vec<(String, f64)>, WorkflowError> {
     use outram_foam_basic_lib::io::dict::FoamFile;
     use outram_foam_basic_lib::io::FoamEntry;
-    let f = FoamFile::read(flux_file).map_err(|e| WorkflowError::Case(format!("{}: {e}", flux_file.display())))?;
+    let f = FoamFile::read_esi(flux_file).map_err(|e| WorkflowError::Case(format!("{}: {e}", flux_file.display())))?;
     let bf = f.dict.get_dict("boundaryField").ok_or_else(|| WorkflowError::Case("no boundaryField".into()))?;
     let mut out = Vec::new();
     for (name, entry) in bf.iter() {

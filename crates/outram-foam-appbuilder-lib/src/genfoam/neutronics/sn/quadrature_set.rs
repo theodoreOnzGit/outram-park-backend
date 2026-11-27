@@ -133,7 +133,7 @@ impl QuadratureSet {
     /// [`AppBuilderError::Parse`] if the file cannot be parsed or a list is
     /// missing or has a length other than `discreteDirectionsOct`.
     pub fn read(path: &Path) -> Result<Self, AppBuilderError> {
-        let file = FoamFile::read(path).map_err(|e| parse_err(&path.display().to_string(), e.to_string()))?;
+        let file = FoamFile::read_esi(path).map_err(|e| parse_err(&path.display().to_string(), e.to_string()))?;
         let name = path.display().to_string();
         let d = &file.dict;
         // `quadratureSet_.lookupOrDefault<int>("discreteDirectionsOct", 1)`

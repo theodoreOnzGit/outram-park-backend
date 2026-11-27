@@ -131,7 +131,7 @@ fn parse_bool(words: &[String], what: &str) -> Result<bool, String> {
 fn parse_scalar(words: &[String], what: &str) -> Result<f64, String> {
     words
         .first()
-        .and_then(|w| w.parse::<f64>().ok())
+        .and_then(|w| outram_foam_basic_lib::io::parse_foam_f64(w))
         .ok_or_else(|| format!("{what}: not a number: {words:?}"))
 }
 
@@ -200,7 +200,7 @@ pub fn parse_laplacian_scheme(fv_schemes: &str) -> Result<NeutronicsLaplacianSch
 ///
 /// A message naming the offending entry.
 pub fn parse_external_source_time_profile(text: &str) -> Result<Option<TimeProfile>, String> {
-    let file = FoamFile::parse_named(text, "externalSource").map_err(|e| format!("externalSource: {e}"))?;
+    let file = FoamFile::parse_named_esi(text, "externalSource").map_err(|e| format!("externalSource: {e}"))?;
     let key = "externalSourceModulationTimeProfile";
     let Some(entry) = file.dict.get(key) else {
         return Ok(None);

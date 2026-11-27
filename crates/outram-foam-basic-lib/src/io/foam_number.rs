@@ -60,6 +60,41 @@ pub fn parse_foam_f64(s: &str) -> Option<f64> {
     }
 }
 
+/// Which rounding a reader applies to the decimal numbers of an OpenFOAM text file
+/// (gh:#1909, README round 53).
+///
+/// [`Self::CorrectlyRounded`] is `str::parse::<f64>` and stays the default of the
+/// shared dictionary and field readers: this workspace writes shortest
+/// round-trip text and reads it back, which only the correctly rounded value
+/// reproduces. [`Self::Esi`] is [`parse_foam_f64`], what OpenFOAM-ESI holds after
+/// reading the same file, and is what a comparison against the real binary needs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NumberRounding {
+    /// `str::parse::<f64>` (the default).
+    #[default]
+    CorrectlyRounded,
+    /// `strtold` narrowed to `f64`, as OpenFOAM-ESI `readDouble`.
+    Esi,
+}
+
+impl NumberRounding {
+    /// Parse `s` as a number with this rounding; `None` when it is not one.
+    ///
+    /// ```
+    /// use outram_foam_basic_lib::io::foam_number::NumberRounding;
+    /// let s = "0.8417393185";
+    /// assert_eq!(NumberRounding::CorrectlyRounded.parse(s), s.parse::<f64>().ok());
+    /// assert_ne!(NumberRounding::Esi.parse(s), s.parse::<f64>().ok());
+    /// assert!(NumberRounding::Esi.parse("word").is_none());
+    /// ```
+    pub fn parse(self, s: &str) -> Option<f64> {
+        match self {
+            NumberRounding::CorrectlyRounded => s.parse::<f64>().ok(),
+            NumberRounding::Esi => parse_foam_f64(s),
+        }
+    }
+}
+
 /// Little-endian base-2^32 unsigned integer, just enough for the conversion.
 #[derive(Clone)]
 struct Big {
