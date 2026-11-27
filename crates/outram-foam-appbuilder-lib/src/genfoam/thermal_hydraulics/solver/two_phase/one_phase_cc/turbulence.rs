@@ -58,10 +58,11 @@
 //!   `nutkWallFunction::yPlus()` only, which `correct()` never calls: it changes nothing, measured);
 //! * `DhStruct` / `laminarReStruct` nut stabilisation (`correctNut`: `alphat` from the UNstabilised `nut`, then
 //!   `nut += pos(structure) magU DhStruct/laminarReStruct`, `magU` the stored `fluid_.magU()` of the last pressure corrector);
-//! * `kFinal`/`epsilonFinal` solver and relaxation entries are READ but never selected: GeN-Foam's `customPimpleControl` declares its
-//!   own `corr_`, shadowing the base class's, so `pimpleControl::finalIter()` is never true and `isFinalIteration()` stays false
-//!   (without `residualControl`, which is refused). The plain entries run in every outer iteration, as upstream's do (measured: a
-//!   `kFinal` with a non-existent solver does not stop the real binary). [`OnePhaseCcSolver::with_stock_final_iteration_selection`]
+//! * `kFinal`/`epsilonFinal` solver and relaxation entries are selected only when `isFinalIteration()` is true: GeN-Foam's
+//!   `customPimpleControl` declares its own `corr_`, shadowing the base class's, so `pimpleControl::finalIter()` is `converged_` only
+//!   and `isFinalIteration()` is true only in the iteration `PIMPLE.residualControl` flagged (ported in gh:#1855, round 31:
+//!   [`super::pimple`]); without `residualControl` the plain entries run in every outer iteration (measured, round 29: a `kFinal`
+//!   with a non-existent solver does not stop the real binary). [`OnePhaseCcSolver::with_stock_final_iteration_selection`]
 //!   is the stock-OpenFOAM behaviour, kept as a named CONTROL.
 //!
 //! ## Refused by name
@@ -361,14 +362,6 @@ pub struct OnePhaseTurbulenceCase {
     pub k_solver_final: DiagonalBicgstab,
     /// The `epsilon` linear solver of the final PIMPLE iteration (`epsilonFinal`).
     pub epsilon_solver_final: DiagonalBicgstab,
-    /// `relaxationFactors.equations` of `k`.
-    pub relax_k: Option<f64>,
-    /// `relaxationFactors.equations` of `epsilon`.
-    pub relax_epsilon: Option<f64>,
-    /// `relaxationFactors.equations` of `kFinal` (`None`: no entry matches, the final iteration is not relaxed).
-    pub relax_k_final: Option<f64>,
-    /// `relaxationFactors.equations` of `epsilonFinal`.
-    pub relax_epsilon_final: Option<f64>,
 }
 
 /// The mutable state of the model.
@@ -385,11 +378,6 @@ pub(super) struct TurbState {
     pub cell_weight: Vec<f64>,
     /// Apply the wall functions (default true; the ablation switches them off).
     pub wall_functions: bool,
-    /// Stock-OpenFOAM `psi.select(finalIteration)`: the `Final` solver and relaxation entries in the last PIMPLE outer iteration.
-    /// DEFAULT FALSE, which is GeN-Foam's behaviour: its `customPimpleControl` declares its own `corr_` that shadows the base
-    /// class's, so `pimpleControl::finalIter()` (`converged_ || corr_ == nCorrPIMPLE_`) compares a base `corr_` that is never
-    /// advanced and `isFinalIteration()` stays false unless `residualControl` converges (not ported). Measured: README round 29.
-    pub final_selection: bool,
     /// `G` of the last `correct()` (diagnostic).
     pub production: Vec<f64>,
     /// `bound` actions on `k` and `epsilon`.
@@ -561,7 +549,6 @@ impl TurbState {
             epsilon_old: case.epsilon.clone(),
             cell_weight,
             wall_functions: true,
-            final_selection: false,
             production: vec![0.0; n],
             bound_count: 0,
             step_solves: Vec::new(),
@@ -634,12 +621,10 @@ impl OnePhaseCcSolver {
 
     /// CONTROL ONLY, NOT upstream's behaviour (gh:#1842): select the `kFinal`/`epsilonFinal` solver and relaxation entries in the last
     /// PIMPLE outer iteration, as stock OpenFOAM's `pimpleControl` would. GeN-Foam's `customPimpleControl` never does (see
-    /// `TurbState::final_selection`), so the default is the plain entries in every outer iteration.
+    /// `PimpleState`), so the default is the plain entries until `residualControl` flags an iteration (gh:#1855).
     #[must_use]
     pub fn with_stock_final_iteration_selection(mut self) -> Self {
-        if let Some(t) = self.turb.as_mut() {
-            t.final_selection = true;
-        }
+        self.pimple = self.pimple.with_stock_final_selection();
         self
     }
 
@@ -706,10 +691,10 @@ impl OnePhaseCcSolver {
     /// `porousKEpsilon::correct()` (`UEqn_1p.H`: `fluid_.turbulence().correct()`).
     #[allow(clippy::too_many_lines)]
     ///
-    /// `mag_u` is `fluid_.magU()` as the last pressure corrector left it (used by the `DhStruct` stabilisation); `final_iteration` is
-    /// the last PIMPLE outer iteration, which selects the `kFinal`/`epsilonFinal` entries ONLY with the stock-OpenFOAM control
-    /// (`with_stock_final_iteration_selection`): GeN-Foam's `isFinalIteration()` is false here.
-    pub(super) fn correct_turbulence(&mut self, fluid_phi: &[f64], mag_u: &[f64], final_iteration: bool) {
+    /// `mag_u` is `fluid_.magU()` as the last pressure corrector left it (used by the `DhStruct` stabilisation). The `kFinal`/`epsilonFinal`
+    /// entries are selected when `isFinalIteration()` is true: the iteration `residualControl` flagged (gh:#1855), or, with the
+    /// stock-OpenFOAM control (`with_stock_final_iteration_selection`), the last outer iteration.
+    pub(super) fn correct_turbulence(&mut self, fluid_phi: &[f64], mag_u: &[f64]) {
         let Some(mut ts) = self.turb.take() else { return };
         let g = self.geom.clone();
         let n = g.n_cells();
@@ -820,7 +805,7 @@ impl OnePhaseCcSolver {
         let phi = &self.alpha_rho_phi;
 
         // ---- epsilon equation ----
-        let use_final = final_iteration && ts.final_selection;
+        let use_final = self.pimple.final_iteration;
         let gamma_e = gamma_of(c.sigma_eps, &ts.nut);
         let mut e = Eqn::new(&g);
         ddt(&mut e, &eps_old);
@@ -843,7 +828,7 @@ impl OnePhaseCcSolver {
         e.sp(&g, &conv);
         e.su(&g, &su_conv);
         let bdiag = boundary_internal_coeffs(&g, phi, &gamma_e, &ts.epsilon);
-        if let Some(a) = if use_final { c.relax_epsilon_final } else { c.relax_epsilon } {
+        if let Some(a) = self.case.controls.relax.equation("epsilon", use_final).filter(|a| *a > 0.0) {
             let inflow2 = convective_inflow2(&g, phi, &ts.epsilon);
             relax_equation(&g, &mut e, a, &inflow2, &ts.epsilon.c);
         }
@@ -857,6 +842,7 @@ impl OnePhaseCcSolver {
         let sv = if use_final { c.epsilon_solver_final } else { c.epsilon_solver };
         let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, sv.tolerance, sv.rel_tol, sv.max_iter, sv.min_iter);
         let eps_solve = (perf.initial_residual, perf.iterations);
+        self.pimple.record("epsilon", perf.initial_residual);
         ts.epsilon.c = x;
         ts.epsilon.correct_bc(&g);
         if bound(&g, &mut ts.epsilon, c.epsilon_min) {
@@ -884,13 +870,14 @@ impl OnePhaseCcSolver {
         e.sp(&g, &sp);
         e.sp(&g, &conv);
         e.su(&g, &su_conv);
-        if let Some(a) = if use_final { c.relax_k_final } else { c.relax_k } {
+        if let Some(a) = self.case.controls.relax.equation("k", use_final).filter(|a| *a > 0.0) {
             let inflow2 = convective_inflow2(&g, phi, &ts.k);
             relax_equation(&g, &mut e, a, &inflow2, &ts.k.c);
         }
         let mut x = ts.k.c.clone();
         let sv = if use_final { c.k_solver_final } else { c.k_solver };
         let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, sv.tolerance, sv.rel_tol, sv.max_iter, sv.min_iter);
+        self.pimple.record("k", perf.initial_residual);
         ts.step_solves.push([eps_solve, (perf.initial_residual, perf.iterations)]);
         ts.k.c = x;
         ts.k.correct_bc(&g);
@@ -1137,16 +1124,6 @@ pub(super) fn read_turbulence_case(
     // an error; they are read for the stock-OpenFOAM control only (`with_stock_final_iteration_selection`), falling back to the plain entry
     let k_solver_final = solver_of("kFinal").unwrap_or(k_solver);
     let epsilon_solver_final = solver_of("epsilonFinal").unwrap_or(epsilon_solver);
-    let relax_of = |name: &str| -> Option<f64> {
-        fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("equations")).and_then(|e| match last_match(e, name) {
-            Some(FoamEntry::Scalar(x)) => Some(*x),
-            _ => None,
-        })
-    };
-    let (relax_k, relax_epsilon) = (relax_of("k"), relax_of("epsilon"));
-    // `fvMatrix::relax()`: `relaxEquation("kFinal")` finds no entry => the equation is NOT relaxed in the final iteration
-    let (relax_k_final, relax_epsilon_final) = (relax_of("kFinal"), relax_of("epsilonFinal"));
-
     // y of the wall faces
     let rd = |name: &str| -> Result<String, AppBuilderError> {
         let p = poly_mesh_dir.join(name);
@@ -1183,10 +1160,6 @@ pub(super) fn read_turbulence_case(
         epsilon_solver,
         k_solver_final,
         epsilon_solver_final,
-        relax_k,
-        relax_epsilon,
-        relax_k_final,
-        relax_epsilon_final,
     }))
 }
 

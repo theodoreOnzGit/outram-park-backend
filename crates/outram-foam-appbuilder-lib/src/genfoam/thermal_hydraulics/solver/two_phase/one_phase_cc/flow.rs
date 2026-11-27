@@ -106,8 +106,6 @@ pub struct OnePhaseFlowCase {
     pub p_rgh_final: PRghPcg,
     /// `true` when `solvers.p_rgh` selected `GAMG` and `PCG`/`DIC` ran in its place (the named deviation of [`super::GamgPolicy`]).
     pub p_rgh_gamg_substituted: bool,
-    /// `relaxationFactors.equations` for `U` (`None` if absent).
-    pub relax_u: Option<f64>,
     /// `pMin` [Pa].
     pub p_min: f64,
     /// `pRefCell`.
@@ -438,12 +436,6 @@ pub(super) fn read_flow_case(
     };
     let p_rgh = pcg_entry("p_rgh", None)?;
     let p_rgh_final = pcg_entry("p_rghFinal", Some(p_rgh)).unwrap_or(p_rgh);
-    let relax_u = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("equations")).and_then(|e| {
-        match last_match(e, "U") {
-            Some(FoamEntry::Scalar(x)) => Some(*x),
-            _ => None,
-        }
-    });
     let patch_bc = |ff: &FieldFile, pi: usize| -> Result<(String, Option<FoamValue>), AppBuilderError> {
         let name = &g.mesh.patches[pi].name;
         let (_, ty, v) = ff
@@ -509,7 +501,6 @@ pub(super) fn read_flow_case(
         p_rgh,
         p_rgh_final,
         p_rgh_gamg_substituted: substituted.get(),
-        relax_u,
         p_min: ctx.f64(pp, "pMin")?,
         p_ref_cell: scalar(pp, "pRefCell").unwrap_or(0.0) as usize,
         p_ref_value: scalar(pp, "pRefValue").unwrap_or(0.0),
@@ -560,6 +551,11 @@ impl OnePhaseCcSolver {
         let Some(fc) = self.case.flow.as_ref() else { return };
         let Some(fs) = self.flow.as_mut() else { return };
         let rho0 = self.case.thermo.rho0;
+        // `myOps::storePrevIterIfRelax(Kd_)` ... `Kd_.relax()`: the `fields` entry `Kd` (`KdFinal` in the flagged iteration)
+        let a = self.case.controls.relax.field("Kd", self.pimple.final_iteration);
+        if a.is_some() {
+            self.kd_prev = fs.kd.clone();
+        }
         for c in 0..self.alpha.len() {
             if let Some(d) = fc.drag[c] {
                 let dh = self.case.dh[c];
@@ -568,12 +564,18 @@ impl OnePhaseCcSolver {
                 fs.kd[c] = value;
             }
         }
+        if let Some(a) = a {
+            for c in 0..self.alpha.len() {
+                fs.kd[c] = self.kd_prev[c] + a * (fs.kd[c] - self.kd_prev[c]);
+            }
+        }
     }
 
     /// `onePhase::correctFluidMechanics()`: `UEqn_1p.H` then `pEqn_1p.H`, then `correctContErr()`.
-    /// `final_outer` is `true` on the last PIMPLE outer iteration (the `p_rghFinal` solver of the last corrector).
+    /// `p_rgh` is solved with `p_rghFinal` at the last corrector of the outer iteration (`finalInnerIter()`, every outer iteration
+    /// unless `finalOnLastPimpleIterOnly`); `UEqn.relax()` and the turbulence use `isFinalIteration()` (gh:#1855).
     #[allow(clippy::too_many_lines)]
-    pub(super) fn correct_fluid_mechanics(&mut self, outer: usize, final_outer: bool) {
+    pub(super) fn correct_fluid_mechanics(&mut self, outer: usize) {
         let mut fs = self.flow.take().expect("solveFluidMechanics true needs the flow state");
         let g = self.geom.clone();
         let fc = self.case.flow.clone().expect("flow case");
@@ -590,7 +592,7 @@ impl OnePhaseCcSolver {
         // ---- UEqn_1p.H ---------------------------------------------------------------------------------------
         // nuEff = nut + nu, nu = mu/rho(T) of the thermo; gamma = alpha rho nuEff (boundary: the patch values)
         // fluid_.turbulence().correct() FIRST (`porousKEpsilon::correct`), then `nuEff = nut + mu/rho0`
-        self.correct_turbulence(&fs.phi, &fs.mag_u, final_outer);
+        self.correct_turbulence(&fs.phi, &fs.mag_u);
         let (nut_c, nut_b) = match self.turb.as_ref() {
             Some(t) => (t.nut.c.clone(), t.nut.b.clone()),
             None => (fc.nut.clone(), fc.nut_boundary.clone()),
@@ -637,7 +639,7 @@ impl OnePhaseCcSolver {
             e.src[1][c] += (rdt * self.alpha[c] * rho0 * uo.y) * v;
             e.src[2][c] += (rdt * self.alpha[c] * rho0 * uo.z) * v;
         }
-        if let Some(fct) = fc.relax_u {
+        if let Some(fct) = self.case.controls.relax.equation("U", self.pimple.final_iteration).filter(|f| *f > 0.0) {
             e.relax(&g, fct, &self.u.c);
         }
 
@@ -757,7 +759,7 @@ impl OnePhaseCcSolver {
             let rc = fc.p_ref_cell;
             peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
             peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
-            let solver = if final_outer && corr_piso == fc.n_correctors { fc.p_rgh_final } else { fc.p_rgh };
+            let solver = if self.pimple.final_inner_iter(corr_piso, &self.case.controls.pimple) { fc.p_rgh_final } else { fc.p_rgh };
             let mut x = fs.p_rgh.c.clone();
             let perf =
                 pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter);
@@ -768,10 +770,12 @@ impl OnePhaseCcSolver {
                 iterations: perf.iterations,
             });
             converged_piso = perf.iterations == 0;
+            self.pimple.record("p_rgh", perf.initial_residual);
+            self.pimple.update_first_piso_prev_pimple(corr_piso);
             fs.p_rgh.c = x;
             fs.p_rgh.correct_bc(&g);
             // phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf (a fixedValue flux patch ignores the assignment)
-            let p_flux = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
+            let mut p_flux = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
             for f in 0..nf {
                 if !g.active[f] {
                     continue;
@@ -781,6 +785,16 @@ impl OnePhaseCcSolver {
                     continue;
                 }
                 fs.phi[f] = fs.phi_solver[f] / alphaf[f];
+            }
+            // `p_rgh_.relax()` sits between `phi_ = phiHbyA + pEqnIncomp.flux()` (unrelaxed `p_rgh`) and `U = HbyA + reconstruct(... pEqnIncomp.flux() ...)`,
+            // whose `flux()` is evaluated again, on the RELAXED `p_rgh` (`fvMatrix::flux` reads `psi_` when called). `fields` entry `p_rgh` (`p_rghFinal` when final).
+            if let Some(a) = self.case.controls.relax.field("p_rgh", self.pimple.final_iteration) {
+                for c in 0..n {
+                    fs.p_rgh.c[c] = self.p_rgh_prev[c] + a * (fs.p_rgh.c[c] - self.p_rgh_prev[c]);
+                }
+                // the patch values follow the cells (`zeroGradient`/`wedge`: no flux through them; `fixedGradient` keeps its gradient)
+                fs.p_rgh.correct_bc(&g);
+                p_flux = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
             }
             // U = HbyA + reconstruct(alpharAUf pEqnIncomp.flux()/rAUf + phiSbyA)
             let mut rec_src = vec![0.0; nf];

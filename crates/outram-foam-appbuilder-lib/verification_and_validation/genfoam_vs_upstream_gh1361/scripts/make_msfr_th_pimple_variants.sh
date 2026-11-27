@@ -81,9 +81,7 @@ rc rc_d "$(printf '        h\n        {\n            tolerance   0.25;\n        
 # rc_rel: relTol only (absolute tolerances unreachable): `residualControl_[f].initialResidual` stays 0, so relTol never fires
 base rc_rel; finals rc_rel
 rc rc_rel "$(printf '        h\n        {\n            tolerance   1e-30;\n            relTol      0.99;\n        }\n        p_rgh\n        {\n            tolerance   1e-30;\n            relTol      0.99;\n        }')"
-# rc_stop: stopIfFirstResRelChangeAboveRelTol
-base rc_stop; finals rc_stop
-rc rc_stop "$(printf '        p_rgh\n        {\n            tolerance   1e-30;\n            relTol      0.5;\n            useFirstPISOInitialResidual true;\n            stopIfFirstResRelChangeAboveRelTol true;\n        }\n        h\n        {\n            tolerance   1e-30;\n            relTol      0.5;\n        }')"
+# rc_stop (stopIfFirstResRelChangeAboveRelTol) is NOT a variant: upstream aborts with SIGFPE at outer iteration 2 of step 1 (first-PISO residual pair (0, r1): r1/0), see README round 31
 # rc_fin_prgh: rc_a with a distinct p_rghFinal and finalOnLastPimpleIterOnly (p_rghFinal only in the flagged iteration)
 base rc_fin_prgh; finals rc_fin_prgh; prgh_final rc_fin_prgh 0.05
 rc rc_fin_prgh "$(printf '        h\n        {\n            tolerance   0.25;\n            relTol      0;\n        }\n        p_rgh\n        {\n            tolerance   0.004;\n            relTol      0;\n            useFirstPISOInitialResidual true;\n        }')"
@@ -131,6 +129,46 @@ base fld_mix; relax fld_mix '    fields
     {
         p_rgh           0.7;
         h               0.85;
+    }
+    equations
+    {
+        ".*"            0.9;
+    }
+'
+# fld_h: fields { h 0.85; } only (bisect of the fields variants)
+base fld_h; relax fld_h '    fields
+    {
+        h               0.85;
+    }
+    equations
+    {
+        ".*"            0.9;
+    }
+'
+# fld_p: fields { p_rgh 0.7; } only (bisect of the fields variants)
+base fld_p; relax fld_p '    fields
+    {
+        p_rgh           0.7;
+    }
+    equations
+    {
+        ".*"            0.9;
+    }
+'
+# fld_kd: fields { Kd 0.6; } only (bisect of the fields variants)
+base fld_kd; relax fld_kd '    fields
+    {
+        Kd              0.6;
+    }
+    equations
+    {
+        ".*"            0.9;
+    }
+'
+# fld_htc: fields { htc 0.6; } only (bisect of the fields variants)
+base fld_htc; relax fld_htc '    fields
+    {
+        htc             0.6;
     }
     equations
     {

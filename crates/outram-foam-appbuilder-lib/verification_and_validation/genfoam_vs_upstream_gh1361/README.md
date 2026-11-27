@@ -4011,7 +4011,7 @@ Pass gate: 1e-9 of each field's max-norm, steps 1 and 3. Reported besides: cell-
 
 ### The finding that matters: upstream NEVER selects the `Final` entries (prediction R7's premise missed)
 
-I predicted that `fin_solver`/`fin_relax`/`fin_norelax` would differ between the plain and the `Final` entry. They do not: upstream's `fin_relax` and `fin_norelax` runs are byte-identical to each other (and the `epsilon`/`k` iteration counts of the outer-5 solves of `fin_solver` are those of the LOOSE `relTol 0.01` entry: 3 and 4 iterations, not ~21). A probe with `kFinal { solver noSuchSolver; }` ran to the end without error. **Cause, read in the source after the measurement:** GeN-Foam's `customPimpleControl` (`src/classes/thermalHydraulics/src/customPimpleControl/customPimpleControl.H:186`) declares its own `int corr_` that SHADOWS the base `pimpleControl::corr_`; its `loop()` advances the derived one, but `pimpleControl::finalIter()` (`converged_ || corr_ == nCorrPIMPLE_`, inline in the base) reads the base `corr_`, which stays 0. So `mesh.data().setFinalIteration(true)` is never called unless `converged_` (residualControl converged), `isFinalIteration()` is false, and `psi.select(...)` gives the plain name. (Round 20's refusal "a Final entry that differs" was therefore stricter than needed, and a port that selected `Final` as stock OpenFOAM does would be wrong: the stock-selection control above differs from upstream by 1e-6 to 2e-2.) What the port does: reads the `Final` entries, never selects them (`PIMPLE.residualControl` is still refused, where this would change), keeps stock selection as the named control `with_stock_final_iteration_selection()`. The same shadowing means every `Final` entry of every GeN-Foam onePhase/twoPhase region without a converging `residualControl` is dead; only `p_rghFinal` is used, through `finalInnerIter()` (computed from `corrPISO_`, not the shadowed counter). Not checked here: the twoPhase solver's other `Final` uses.
+I predicted that `fin_solver`/`fin_relax`/`fin_norelax` would differ between the plain and the `Final` entry. They do not: upstream's `fin_relax` and `fin_norelax` runs are byte-identical to each other (and the `epsilon`/`k` iteration counts of the outer-5 solves of `fin_solver` are those of the LOOSE `relTol 0.01` entry: 3 and 4 iterations, not ~21). A probe with `kFinal { solver noSuchSolver; }` ran to the end without error. **Cause, read in the source after the measurement:** GeN-Foam's `customPimpleControl` (`src/classes/thermalHydraulics/src/customPimpleControl/customPimpleControl.H:186`) declares its own `int corr_` that SHADOWS the base `pimpleControl::corr_`; its `loop()` advances the derived one, but `pimpleControl::finalIter()` (`converged_ || corr_ == nCorrPIMPLE_`, inline in the base) reads the base `corr_`, which stays 0. So `mesh.data().setFinalIteration(true)` is never called unless `converged_` (residualControl converged), `isFinalIteration()` is false, and `psi.select(...)` gives the plain name. (Round 20's refusal "a Final entry that differs" was therefore stricter than needed, and a port that selected `Final` as stock OpenFOAM does would be wrong: the stock-selection control above differs from upstream by 1e-6 to 2e-2.) What the port does: reads the `Final` entries, never selects them (~~`PIMPLE.residualControl` is still refused, where this would change~~ **CORRECTED 2026-11-27 (round 31, gh:#1855): `residualControl` is ported, and with it the `Final` selection in the flagged iteration**), keeps stock selection as the named control `with_stock_final_iteration_selection()`. The same shadowing means every `Final` entry of every GeN-Foam onePhase/twoPhase region without a converging `residualControl` is dead; only `p_rghFinal` is used, through `finalInnerIter()` (computed from `corrPISO_`, not the shadowed counter). Not checked here: the twoPhase solver's other `Final` uses.
 
 ### Predictions: held and missed
 
@@ -4188,3 +4188,82 @@ None. The `multi_region` lib tests (56 pass), the round 26 and 28 integration te
 ### Gates run (2026-11-26, release, targeted)
 
 `--lib multi_region` 56 passed; `--test genfoam_coupled_deformation_vs_upstream` 4 passed (full dump and sample); `--test genfoam_mesh_deformation_vs_upstream` 6, `--test genfoam_mesh_to_mesh_vs_upstream` 5, `--test genfoam_msfr_coupled_vs_upstream` 6 passed; `-p petir --test no_platform_libm` 4 passed (after a forced rebuild: the cached test binary had a stale `CARGO_MANIFEST_DIR`); `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean (the full `check-nostd.sh` loop was not run: disk).
+## Round 31 results (2026-11-27, release, shared machine; `tests/genfoam_msfr_th_pimple_vs_upstream.rs`, 14 tests, ~55 s; `--nocapture` prints every table)
+
+Upstream = the real unmodified binary, serial, tight; each variant takes 3 to 4 s (prediction P7 said about a minute: missed, harmlessly). References: `refs/msfr_th_r31_<variant>.ref.txt.gz`, 150 KB each (every 11th cell of `U k epsilon p_rgh T`, the three written steps, the solve log), 16 variants (the 12 below plus `fld_h`, `fld_p`, `fld_kd`, `fld_htc`) and a total of 2.4 MB.
+
+### Upstream -> Rust mapping
+
+| upstream | Rust (`one_phase_cc/pimple.rs` unless noted) |
+|---|---|
+| `customPimpleControl::loop()` | `PimpleState::loop_step` (stale `converged_`, `corr_` shadow, `finalIteration` flag) |
+| `customPimpleControl::criteriaSatisfied()`, `solutionControl::applyToField/maxResidual` | `PimpleState::criteria_satisfied`; `ResidualSpec`; `PimpleState::record` is `meshState::setSolverPerformance` (first, last per field per step) |
+| `updateFirstPISOPrevPIMPLE()` | `update_first_piso_prev_pimple`, called after each `p_rgh` solve (`flow.rs`) |
+| `pimpleControl::finalIter()`, `finalInnerIter()` | `final_iter`, `final_inner_iter` (`p_rghFinal`: last corrector of EVERY outer iteration; `finalOnLastPimpleIterOnly`) |
+| `solution::relaxEquation/relaxField(name, factor)` incl. `default` | `RelaxationDict::factor`, `RelaxationFactors::{equation, field}`; reader `read_relaxation_factors` (`one_phase_cc.rs`) |
+| `fvMatrix::relax()` (`h`, `U`, `k`, `epsilon`; `Final` names) | `RelaxationFactors::equation(name, final)` at the four call sites (`alpha <= 0` returns, as upstream) |
+| `he.relax()`, `p_rgh_.relax()`, `Kd_.relax()`, `htc_.relax()`, `storePrevIterFields`, `myOps::storePrevIterIfRelax` | `correct_energy`, `flow.rs`, `correct_kd`, `correct_models`, `store_prev_iter_fields` |
+| `solutionControl::read` residualControl dictionaries | `read_residual_control` |
+| `onePhase::correctPhysics` `while (pimple_.loop())` | `OnePhaseCcSolver::correct_physics` |
+
+### Results per variant (port against the real binary; "iter" = the iteration count of every `p_rgh`, `h`, `k`, `epsilon` solve)
+
+| variant | outer iterations per step, port = upstream | solve iteration counts | worst field difference (max-norm relative, `U k epsilon p_rgh T`) | first diverging step |
+|---|---|---|---|---|
+| `rc_a` | 4, 4, 5 | equal except 7/117 solves by 1 | 1.8e-12 | none |
+| `rc_b` | 5, **0**, 5 | 5/90 by 1 | 1.3e-12 | none |
+| `rc_c` | 5, 5, 5 | 6/135 by 1 | 2.6e-12 | none |
+| `rc_d` | 4, 4, 5 | 7/117 by 1 | 1.8e-12 | none |
+| `rc_rel` | 5, 5, 5 | 6/135 by 1 | 2.6e-12 | none |
+| `rc_fin_prgh` | 4, 4, 5 | 9/117 by 1 | 2.2e-7 (loose `p_rghFinal`: see below) | step 1, in `U` only |
+| `fin_prgh` | 5, 5, 5 | 3/135 by 1 | 5.5e-7 (loose `p_rghFinal`) | step 1, in `U` |
+| `rel_def` | 5, 5, 5 | 6/135 by 1 | 2.6e-12 | none |
+| `rel_mix` | 5, 5, 5 | 8/135 by 1 | 1.9e-12 | none |
+| `rel_fin` | 5, **0**, 3 | 4/72 by 1 | 2.4e-12 | none |
+| `fld_def` | 5, 5, 5 | 4/135 by 1 | 2.3e-12 | none |
+| `fld_mix` | 5, 5, 5 | 2/135 by 1 | 1.4e-12 | none |
+| `fld_h` / `fld_p` / `fld_kd` / `fld_htc` | 5, 5, 5 | 8, 6, 8, 5 of 135 by 1 | 1.5e-12 / 1.3e-12 / 2.0e-12 / 1.3e-12 | none |
+
+The outer-iteration counts, which steps are skipped by the stale flag, and which solver entry ran (the `Final` solves take 1 iteration against 21 to 31; `p_rghFinal` 99 to 148 against 229 to 261) agree exactly in every variant. Iteration counts of the tight PCG/BiCGStab solves differ by ONE iteration in a few solves per variant: a 230-260 iteration PCG to an absolute 1e-14 stops at the first iteration below the threshold, and the 1e-12 round-off difference of the fields (the round-20 to round-29 level, present in `rc_c`, which has no feature of this round) moves a residual across it. A different ENTRY differs by tens to hundreds, so the gate "worst iteration difference <= 1" (the one of rounds 20 and 29) still tells which entry ran. 1e-9 relative is the field gate; all converged variants are at 1e-12.
+
+**`fin_prgh`, `rc_fin_prgh` (loose `p_rghFinal`, `relTol 0.05`): the one disagreement above 1e-9, with its cause.** The last corrector of every outer iteration is stopped after about 100 of about 240 PCG iterations; its result is the iterate of an unconverged Krylov sequence and amplifies round-off. Measured in the test (port against itself, initial temperature changed by 1e-15 relative): `U` moves by 2.2e-7 (`fin_prgh`) and 1.2e-8 (`rc_fin_prgh`) at step 3, against 1.6e-12 for the converged `rc_c`; the port differs from upstream by 5.5e-7 and 2.2e-7. The gate for these two is therefore derived from the port's own sensitivity (the difference to upstream may not exceed 10 times it, in fields and initial residuals), not a fitted number; counts stay exact. It is NOT a bit-identity claim: the loose variants are agreed to the round-off amplification, 1e-7 to 1e-6.
+
+### Controls (each must fail; all do)
+
+| control (port against the reference of) | outer iterations port / upstream | worst field difference |
+|---|---|---|
+| `without_residual_control` (`rc_a`, `rc_d`) | 5,5,5 / 4,4,5 | U 7.3e-2, k 2.2e-3, epsilon 6.7e-3, p_rgh 2.3e-3, T 2.3e-7 |
+| `without_residual_control` (`rc_b`) | 5,5,5 / 5,0,5 | U 1.2 (the skipped step) |
+| `with_stock_final_iteration_selection` (`rc_c`) | 5,5,5 / 5,5,5 | U 1.9e-2, epsilon 4.6e-3 |
+| `without_relaxation_default` (`rel_def`) | equal | U 4.6e-2, epsilon 2.5e-2 |
+| `without_relaxation_default` (`rel_mix`) | equal | U 3.7e-2, epsilon 2.7e-2 |
+| `without_relaxation_default` (`rel_fin`) | 5,4,3 / 5,0,3 | U 1.2 |
+| `with_legacy_p_final_on_last_outer_only` (`fin_prgh`) | equal | 3.8e-6 (19 solve counts differ) |
+| `with_legacy_p_final_on_last_outer_only` (`rc_fin_prgh`) | equal | 1.5e-6 |
+| the case without a `fields` entry (`fld_def`, `fld_mix`, `fld_p`) | equal | U 1.9e-2, 3.5e-2, 3.5e-2 |
+| the case without a `fields` entry (`fld_h`, `fld_kd`) | equal | 7.2e-8, 4.8e-6 |
+| the case without a `fields` entry (`fld_htc`) | equal | **1.9e-12: does NOT differ** |
+
+`fld_htc` is a no-op in this case, not a test of the relaxation: the start directory's `htc` equals the constant model value, so `prevIter + alpha (htc - prevIter)` is `htc`. The htc relaxation arithmetic is ported from `FSPair.C` and agrees with upstream (nothing to disagree about); it is untested where it matters (a case whose start `htc` differs from the model).
+
+### Findings
+
+1. **`stopIfFirstResRelChangeAboveRelTol` cannot be run upstream.** With it, the real binary aborts with a floating point exception at outer iteration 2 of the first step (`residuals.last()/residuals.first()` with the first-PISO pair `(0, r1)`; `FOAM_SIGFPE`). The port refuses it by name. My prediction (P1: "`rc_stop` 2 iterations in every step") was wrong in its premise: I had computed `inf >= relTol` and not asked whether the division traps.
+2. **`p_rghFinal` is used at the last corrector of every outer iteration** (`finalInnerIter()`), not at the last outer iteration only as the port did. Found in the source, confirmed by the real binary (`fin_prgh`: 99 against 239 iterations in outers 1 to 5). A defect of the port since round 19, invisible because `p_rghFinal` equalled `p_rgh` in every case. Fixed (`with_legacy_p_final_on_last_outer_only` keeps the old form as a control).
+3. **In the flagged iteration `hFinal`/`UFinal` fall back to `default`, not to the plain entry** (`rel_fin`: the flagged iteration relaxes `h` with 0.8, not `h 0.6`, and the real binary agrees to 2.4e-12).
+4. **`p_rgh_.relax()` is followed by a second `pEqnIncomp.flux()` evaluation**: `U` is reconstructed from the flux of the RELAXED `p_rgh`, `phi_` from the unrelaxed one. My first port computed one flux (U wrong by 3.5e-2); the fix needs the patch values to follow the cells before the flux is taken (without `correct_bc` the error was 77). Found with the single-field variants `fld_h/p/kd/htc`.
+5. `relTol` is inert in `residualControl` (`rc_rel`, `rc_d`): confirmed in the onePhase region, as round 5 found for twoPhase.
+
+### Predictions: held / missed
+
+* P1 held (counts 4, 4, 5 / 5,0,5 / 5,5,5, step 2 skipped in `rc_b`) except `rc_stop` (finding 1) and `rel_fin` (predicted 4 in step 1 "like `rc_a`": wrong, the relaxation changes the residuals; it flagged at 5 and skipped step 2: I should have said the path differs).
+* P2 held (3 to 5, never 2). P3: which entry ran held (`p_rghFinal` 99 against 239; `default` for `hFinal`); the magnitude missed: the `Final` `h`/`k`/`epsilon` solves took 1 iteration, not 8 to 12.
+* P4: held for 14 of 16 variants at 1e-12; the two loose-`p_rghFinal` variants are at 1e-7 (a possibility I had not foreseen). The risk named for `fld_*` (initial `Kd`/`htc`) did not materialise; the real `fld_*` problem was finding 4.
+* P5: all controls fail. Magnitudes: (a) U 7e-2 against predicted 1e-4 to 1e-2: missed high; T 2.3e-7 within 1e-9 to 1e-6. (b) 4.6e-2 against 1e-4 to 1e-2: missed high. (c) 1.9e-2: slightly high. (d) 3.8e-6 within 1e-6 to 1e-4.
+* P6 held: `genfoam_msfr_th_vs_upstream` (6 tests) and `genfoam_msfr_th_options_vs_upstream` (15 tests) pass at their own gates, unchanged. P7: size held, run time missed.
+
+### Not done, and what it is
+
+* `twoPhase` (and `one_phase_fc`) `Final` uses, gh:#1855 item 3: not ported; `solveP_rgh_2p.H` and `EEqns_2p.H` use the same selectors (`finalInnerIter()`, `isFinalIteration()` through `psi.select`). Their `customPimpleControl::loop` (round 4/5) is the older hard-wired form.
+* Function1 relaxation factors (tables) and regex keys beyond `.*` are refused / unsupported.
+* `fields` relaxation of `Kd`/`htc` where the start value differs from the model (see `fld_htc`).

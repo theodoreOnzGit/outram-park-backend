@@ -56,30 +56,6 @@ solvers
         tolerance        1e-14;
         relTol           0;
     }
-
-    hFinal
-    {
-        solver          PBiCGStab;
-        preconditioner  diagonal;
-        tolerance       1e-14;
-        relTol          0.1;
-    }
-
-    kFinal
-    {
-        solver          PBiCGStab;
-        preconditioner  diagonal;
-        tolerance       1e-14;
-        relTol          0.1;
-    }
-
-    epsilonFinal
-    {
-        solver          PBiCGStab;
-        preconditioner  diagonal;
-        tolerance       1e-14;
-        relTol          0.1;
-    }
 }
 
 PIMPLE
@@ -92,33 +68,17 @@ PIMPLE
     correctUntilConvergence     true;
     partialEliminationMode      implicit;
     momentumMode                cellCentered;
-
-    residualControl
-    {
-        p_rgh
-        {
-            tolerance   1e-30;
-            relTol      0.5;
-            useFirstPISOInitialResidual true;
-            stopIfFirstResRelChangeAboveRelTol true;
-        }
-        h
-        {
-            tolerance   1e-30;
-            relTol      0.5;
-        }
-    }
 }
 
 relaxationFactors
 {
+    fields
+    {
+        p_rgh           0.7;
+    }
     equations
     {
         ".*"            0.9;
-        hFinal          0.6;
-        UFinal          0.7;
-        kFinal          0.5;
-        epsilonFinal    0.5;
     }
 }
 

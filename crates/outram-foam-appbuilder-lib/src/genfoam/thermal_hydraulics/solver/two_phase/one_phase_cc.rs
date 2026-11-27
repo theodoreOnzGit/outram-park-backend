@@ -55,7 +55,7 @@
 //! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; power models other than `fixedTemperature`
 //! (without a time profile); heat-transfer models other than `constant`; thermo other than `heRhoThermo`
-//! `hConst` `Boussinesq` `const`; `residualControl` in `PIMPLE`. `dragModels` (`ReynoldsPower`) are read but
+//! `hConst` `Boussinesq` `const`; ~~`residualControl` in `PIMPLE`~~ **CORRECTED 2026-11-27 (gh:#1855, round 31): `residualControl` (customPimpleControl), the `Final` selection it causes and the `relaxationFactors` `default` entries are ported ([`pimple`])**; `stopIfFirstResRelChangeAboveRelTol` (upstream aborts with SIGFPE). `dragModels` (`ReynoldsPower`) are read but
 //! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -73,9 +73,11 @@ use uom::si::time::second;
 use crate::genfoam::common::TimeProfile;
 
 mod flow;
+mod pimple;
 mod turbulence;
 pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
+pub use pimple::{LoopStep, PimpleControls, PimpleState, RelaxationDict, RelaxationFactors, ResidualSpec};
 pub use turbulence::{
     near_wall_dist, set_values, DiagonalBicgstab, EpsilonWallSpec, NutWallSpec, OnePhaseTurbulenceCase, WallBlender, WallFunctionBlending,
     WallFunctionCoeffs,
@@ -103,16 +105,23 @@ const TSTD: f64 = 298.15;
 /// `fvSolution`/`controlDict` entries the stage reads.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OnePhaseCcControls {
-    /// `PIMPLE.nOuterCorrectors`.
-    pub n_outer: usize,
+    /// `PIMPLE.nOuterCorrectors`, `minNOuterCorrectors`, `residualControl`, `finalOnLastPimpleIterOnly`, `nCorrectors`
+    /// (`customPimpleControl`, gh:#1855).
+    pub pimple: PimpleControls,
     /// `solvers.h.tolerance` (the entry that wins for `h`).
     pub h_tolerance: f64,
     /// `solvers.h.relTol`.
     pub h_rel_tol: f64,
     /// `solvers.h.minIter`.
     pub h_min_iter: usize,
-    /// `relaxationFactors.equations` for `h` (`None` if absent).
-    pub relax_h_equation: Option<f64>,
+    /// `solvers.hFinal` (the entry that wins for `hFinal`: used in the flagged iteration only).
+    pub h_tolerance_final: f64,
+    /// `solvers.hFinal.relTol`.
+    pub h_rel_tol_final: f64,
+    /// `solvers.hFinal.minIter`.
+    pub h_min_iter_final: usize,
+    /// `relaxationFactors` (`fields` and `equations`, with their `default` entries and the `Final` names).
+    pub relax: RelaxationFactors,
     /// `controlDict.includeKineticEnergy` (default true).
     pub include_kinetic_energy: bool,
     /// `controlDict.maxCo` (default 1).
@@ -396,6 +405,86 @@ fn last_match<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     d.iter().filter(|(k, _)| super::case::key_matches(k, name)).last().map(|(_, e)| e)
 }
 
+
+/// `PIMPLE.residualControl` as `solutionControl::read(false)` and `customPimpleControl::criteriaSatisfied` read it: every entry a
+/// dictionary with `tolerance` and `relTol` (both mandatory), optional `useFirstPISOInitialResidual`.
+///
+/// `stopIfFirstResRelChangeAboveRelTol true` is refused by name: upstream divides `last/first` of the first-PISO residual pair, which is
+/// `(0, r1)` at outer iteration 2 of the first step, and the real binary aborts with a floating point exception there (gh:#1855, README round 31).
+#[cfg(feature = "std")]
+fn read_residual_control(ctx: &Ctx, pimple: &FoamDict) -> Result<Vec<ResidualSpec>, AppBuilderError> {
+    let mut out = Vec::new();
+    if pimple.get("residualControl").is_some() && pimple.get_dict("residualControl").is_none() {
+        return Err(ctx.e("PIMPLE.residualControl must be a dictionary of dictionaries"));
+    }
+    let Some(rc) = pimple.get_dict("residualControl") else { return Ok(out) };
+    for (key, entry) in rc.iter() {
+        let FoamEntry::SubDict(d) = entry else {
+            return Err(ctx.e(format!("residualControl.{key}: residual data must be specified as a dictionary")));
+        };
+        let use_first_piso = bool_entry(d, "useFirstPISOInitialResidual").unwrap_or(false);
+        if use_first_piso && bool_entry(d, "stopIfFirstResRelChangeAboveRelTol").unwrap_or(false) {
+            return Err(ctx.e(format!(
+                "residualControl.{key}: stopIfFirstResRelChangeAboveRelTol aborts upstream with a floating point exception (division by the zero first-PISO residual); refused"
+            )));
+        }
+        out.push(ResidualSpec {
+            name: key.to_string(),
+            abs_tol: ctx.f64(d, "tolerance")?,
+            rel_tol: ctx.f64(d, "relTol")?,
+            use_first_piso,
+        });
+    }
+    Ok(out)
+}
+
+/// `fvSolution.relaxationFactors` as `solution::read` reads it: `fields` and `equations` sub-dictionaries, or (neither present)
+/// the old flat form, where `equations` is the whole dictionary and `fields` the entries starting with `p` or `rho`.
+///
+/// Only constant scalars are ported (a `Function1` entry is refused). A `fields` entry `<f>Final` without the plain `<f>` (or `default`)
+/// for `h` or `p_rgh` is refused: upstream stores `prevIter` for a field only when the plain name is relaxed, so the final-iteration
+/// `relax()` would abort (or use a stale value).
+#[cfg(feature = "std")]
+fn read_relaxation_factors(ctx: &Ctx, fs: &FoamDict) -> Result<RelaxationFactors, AppBuilderError> {
+    let Some(r) = fs.get_dict("relaxationFactors") else { return Ok(RelaxationFactors::default()) };
+    let scalars = |d: &FoamDict, what: &str, keep: &dyn Fn(&str) -> bool| -> Result<RelaxationDict, AppBuilderError> {
+        let mut v = Vec::new();
+        for (k, e) in d.iter() {
+            match e {
+                FoamEntry::Scalar(x) => {
+                    if keep(k) {
+                        v.push((k.to_string(), *x));
+                    }
+                }
+                _ => return Err(ctx.e(format!("relaxationFactors.{what}.{k}: only a constant scalar is ported"))),
+            }
+        }
+        Ok(RelaxationDict::new(v))
+    };
+    let (fd, ed) = (r.get_dict("fields"), r.get_dict("equations"));
+    let all = |_: &str| true;
+    let (fields, equations) = match (fd, ed) {
+        (None, None) => (scalars(r, "(flat)", &|k: &str| k.starts_with('p') || k.starts_with("rho"))?, scalars(r, "(flat)", &all)?),
+        (f, e) => (
+            match f {
+                Some(d) => scalars(d, "fields", &all)?,
+                None => RelaxationDict::default(),
+            },
+            match e {
+                Some(d) => scalars(d, "equations", &all)?,
+                None => RelaxationDict::default(),
+            },
+        ),
+    };
+    let out = RelaxationFactors { fields, equations, ignore_default: false };
+    for f in ["h", "p_rgh"] {
+        if out.field(f, true).is_some() && !out.relaxes_field(f) {
+            return Err(ctx.e(format!("relaxationFactors.fields: `{f}Final` without `{f}` or `default`: upstream stores no previous iteration for `{f}` and aborts; refused")));
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(feature = "std")]
 impl OnePhaseCcCase {
     /// Read a GeN-Foam `onePhase` region case with `solveFluidMechanics false`: dictionaries under
@@ -472,39 +561,50 @@ impl OnePhaseCcCase {
         if bool_entry(pimple, "solveEnergy") != Some(true) {
             return Err(ctx.e("PIMPLE.solveEnergy must be true"));
         }
-        if pimple.get("residualControl").is_some() || pimple.get_dict("residualControl").is_some() {
-            return Err(ctx.e("PIMPLE.residualControl is not ported (customPimpleControl convergence in the energy-only region)"));
-        }
         let n_outer = scalar(pimple, "nOuterCorrectors").unwrap_or(1.0) as usize;
-        let solvers = ctx.sub(&fs, "solvers")?;
-        let (h_tolerance, h_rel_tol, h_min_iter) = match last_match(solvers, "h") {
-            Some(FoamEntry::SubDict(d)) => {
-                if word(d, "solver").as_deref() != Some("PBiCGStab")
-                    || word(d, "preconditioner").as_deref() != Some("diagonal")
-                {
-                    return Err(ctx.e("solvers for `h`: only PBiCGStab with the diagonal preconditioner is ported"));
-                }
-                (
-                    scalar(d, "tolerance").unwrap_or(1e-6),
-                    scalar(d, "relTol").unwrap_or(0.0),
-                    scalar(d, "minIter").unwrap_or(0.0) as usize,
-                )
-            }
-            _ => return Err(ctx.e("fvSolution: no solver entry matches `h`")),
-        };
-        let relax_h_equation = fs
-            .get_dict("relaxationFactors")
-            .and_then(|r| r.get_dict("equations"))
-            .and_then(|e| match last_match(e, "h") {
-                Some(FoamEntry::Scalar(x)) => Some(*x),
-                _ => None,
-            });
-        let controls = OnePhaseCcControls {
+        let residual_control = read_residual_control(&ctx, pimple)?;
+        let pimple_controls = PimpleControls {
             n_outer,
+            min_n_outer: scalar(pimple, "minNOuterCorrectors").unwrap_or(1.0) as usize,
+            residual_control,
+            final_on_last_pimple_iter_only: bool_entry(pimple, "finalOnLastPimpleIterOnly").unwrap_or(false),
+            n_correctors: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
+        };
+        let solvers = ctx.sub(&fs, "solvers")?;
+        let h_solver = |name: &str| -> Result<(f64, f64, usize), AppBuilderError> {
+            match last_match(solvers, name) {
+                Some(FoamEntry::SubDict(d)) => {
+                    if word(d, "solver").as_deref() != Some("PBiCGStab")
+                        || word(d, "preconditioner").as_deref() != Some("diagonal")
+                    {
+                        return Err(ctx.e(format!("solvers for `{name}`: only PBiCGStab with the diagonal preconditioner is ported")));
+                    }
+                    Ok((
+                        scalar(d, "tolerance").unwrap_or(1e-6),
+                        scalar(d, "relTol").unwrap_or(0.0),
+                        scalar(d, "minIter").unwrap_or(0.0) as usize,
+                    ))
+                }
+                _ => Err(ctx.e(format!("fvSolution: no solver entry matches `{name}`"))),
+            }
+        };
+        let (h_tolerance, h_rel_tol, h_min_iter) = h_solver("h")?;
+        // `hFinal` is selected in the flagged iteration only; like `kFinal` an absent entry is an error upstream when it is selected
+        let (h_tolerance_final, h_rel_tol_final, h_min_iter_final) = if last_match(solvers, "hFinal").is_some() {
+            h_solver("hFinal")?
+        } else {
+            (h_tolerance, h_rel_tol, h_min_iter)
+        };
+        let relax = read_relaxation_factors(&ctx, &fs)?;
+        let controls = OnePhaseCcControls {
+            pimple: pimple_controls,
             h_tolerance,
             h_rel_tol,
             h_min_iter,
-            relax_h_equation,
+            h_tolerance_final,
+            h_rel_tol_final,
+            h_min_iter_final,
+            relax,
             include_kinetic_energy,
             max_co,
             max_delta_t,
@@ -810,6 +910,18 @@ pub struct OnePhaseCcSolver {
     flow: Option<FlowState>,
     /// `porousKEpsilon` (`turbulence true`).
     turb: Option<TurbState>,
+    /// `customPimpleControl` and the region's `solverPerformanceDict` / `finalIteration` flag (gh:#1855).
+    pimple: PimpleState,
+    /// `he.prevIter()` (stored at each `loop()` when `fields` relaxes `h`).
+    he_prev: Vec<f64>,
+    /// `p_rgh.prevIter()` (stored at each `loop()` when `fields` relaxes `p_rgh`).
+    p_rgh_prev: Vec<f64>,
+    /// `Kd.prevIter()` (`myOps::storePrevIterIfRelax`).
+    kd_prev: Vec<f64>,
+    /// `htc.prevIter()` (`myOps::storePrevIterIfRelax`).
+    htc_prev: Vec<f64>,
+    /// `(initial residual, iterations)` of the `h` solve of each outer iteration of the last [`Self::correct_physics`].
+    h_solves: Vec<(f64, usize)>,
 }
 
 /// What one PIMPLE outer iteration of the energy equation reported.
@@ -819,6 +931,10 @@ pub struct OnePhaseCcReport {
     pub h_residuals: Vec<f64>,
     /// `T (avg min max)` after each outer iteration: (volume-weighted mean, min, max).
     pub t_stats: Vec<(f64, f64, f64)>,
+    /// Outer iterations run in this call (0 for a step the stale `converged_` flag skips).
+    pub outer_iterations: usize,
+    /// The outer iteration that ran with `isFinalIteration()` true (the flagged one), if any.
+    pub final_iteration_at: Option<usize>,
 }
 
 impl OnePhaseCcSolver {
@@ -884,6 +1000,12 @@ impl OnePhaseCcSolver {
             alpha_phi: case_ap,
             flow,
             turb,
+            pimple: PimpleState::new(),
+            he_prev: Vec::new(),
+            p_rgh_prev: Vec::new(),
+            kd_prev: Vec::new(),
+            htc_prev: Vec::new(),
+            h_solves: Vec::new(),
         };
         // the structure constructor calls `correctT` once, which runs `temperatureUpdate()` at the start time
         s.temperature_update();
@@ -980,6 +1102,8 @@ impl OnePhaseCcSolver {
         // `p.oldTime()` is stored at the first non-const access of a new time step; in the FIRST step OpenFOAM has no
         // old-time copy yet and `fvc::ddt(p_)` (the energy equation) is the first request (round 3's quirk).
         self.p_old = if self.steps_begun == 0 && self.lazy_p_old { None } else { Some(self.p.clone()) };
+        self.pimple.begin_time_step();
+        self.h_solves.clear();
         if let Some(t) = self.turb.as_mut() {
             t.k_old = t.k.c.clone();
             t.step_solves.clear();
@@ -1055,9 +1179,19 @@ impl OnePhaseCcSolver {
     fn correct_models(&mut self) {
         self.update_re();
         self.correct_kd();
+        // `myOps::storePrevIterIfRelax(htc_)`, the model values, `htc_.relax()` (`fields` entry `htc`, `htcFinal` when final)
+        let a = self.case.controls.relax.field("htc", self.pimple.final_iteration);
+        if a.is_some() {
+            self.htc_prev = self.htc.clone();
+        }
         for c in 0..self.geom.n_cells() {
             if let Some(m) = self.case.htc_model[c] {
                 self.htc[c] = m.value();
+            }
+        }
+        if let Some(a) = a {
+            for c in 0..self.geom.n_cells() {
+                self.htc[c] = self.htc_prev[c] + a * (self.htc[c] - self.htc_prev[c]);
             }
         }
     }
@@ -1175,7 +1309,7 @@ impl OnePhaseCcSolver {
         let pd: Vec<f64> = (0..n).map(|c| self.alpha[c] * self.power_density[c]).collect();
         e.su(&g, &pd);
         // EEqn.relax()
-        if let Some(fct) = self.case.controls.relax_h_equation {
+        if let Some(fct) = self.case.controls.relax.equation("h", self.pimple.final_iteration).filter(|f| *f > 0.0) {
             let mut inflow2 = vec![0.0; n];
             for f in ni..g.n_faces() {
                 if g.active[f] {
@@ -1188,16 +1322,21 @@ impl OnePhaseCcSolver {
             }
         }
         let mut x = self.he.clone();
-        let perf = pbicgstab_diagonal(
-            &e.ldu,
-            &e.source,
-            &mut x,
-            self.case.controls.h_tolerance,
-            self.case.controls.h_rel_tol,
-            DEFAULT_MAX_ITER,
-            self.case.controls.h_min_iter,
-        );
+        // `EEqn.solve()` selects `hFinal` when `isFinalIteration()`
+        let fin = self.pimple.final_iteration;
+        let ctl = &self.case.controls;
+        let (tol, rel_tol, min_iter) =
+            if fin { (ctl.h_tolerance_final, ctl.h_rel_tol_final, ctl.h_min_iter_final) } else { (ctl.h_tolerance, ctl.h_rel_tol, ctl.h_min_iter) };
+        let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+        self.pimple.record("h", perf.initial_residual);
+        self.h_solves.push((perf.initial_residual, perf.iterations));
         self.he = x;
+        // `he.relax()`: `he = prevIter + alpha (he - prevIter)`, the `fields` entry `h` (`hFinal` in the flagged iteration)
+        if let Some(a) = self.case.controls.relax.field("h", fin) {
+            for c in 0..n {
+                self.he[c] = self.he_prev[c] + a * (self.he[c] - self.he_prev[c]);
+            }
+        }
         // thermo.correct(): T from he by Newton, seeded with the current T
         for c in 0..n {
             self.t[c] = th.t_from_hs(self.he[c], self.t[c]);
@@ -1221,12 +1360,19 @@ impl OnePhaseCcSolver {
     /// (`max` of the initial residuals) and the per-iteration report.
     pub fn correct_physics(&mut self) -> (f64, OnePhaseCcReport) {
         let mut residual = 0.0_f64;
-        let mut rep = OnePhaseCcReport { h_residuals: Vec::new(), t_stats: Vec::new() };
-        let n_outer = self.case.controls.n_outer;
-        for outer in 1..=n_outer {
+        let mut rep = OnePhaseCcReport { h_residuals: Vec::new(), t_stats: Vec::new(), outer_iterations: 0, final_iteration_at: None };
+        self.h_solves.clear();
+        let pc = self.case.controls.pimple.clone();
+        // `while (pimple_.loop())`
+        while self.pimple.loop_step(&pc) == LoopStep::Run {
+            let outer = self.pimple.corr;
+            self.store_prev_iter_fields();
+            if self.pimple.final_iteration && rep.final_iteration_at.is_none() {
+                rep.final_iteration_at = Some(outer);
+            }
             self.correct_models();
             if self.flow.is_some() {
-                self.correct_fluid_mechanics(outer, outer == n_outer);
+                self.correct_fluid_mechanics(outer);
                 if let Some(fs) = self.flow.as_ref() {
                     self.phi_total = fs.phi_solver.clone();
                 }
@@ -1235,8 +1381,56 @@ impl OnePhaseCcSolver {
             residual = residual.max(r);
             rep.h_residuals.push(r);
             rep.t_stats.push(st);
+            rep.outer_iterations = outer;
         }
         (residual, rep)
+    }
+
+    /// `solutionControl::storePrevIterFields()` for the fields the cell-centred region relaxes with a `fields` entry: `h` and `p_rgh`
+    /// (`Kd` and `htc` store theirs in `FSPair::correct`).
+    fn store_prev_iter_fields(&mut self) {
+        let r = &self.case.controls.relax;
+        if r.relaxes_field("h") {
+            self.he_prev = self.he.clone();
+        }
+        if r.relaxes_field("p_rgh") {
+            if let Some(fs) = self.flow.as_ref() {
+                self.p_rgh_prev = fs.p_rgh.c.clone();
+            }
+        }
+    }
+
+    /// The `(initial residual, iterations)` of the `h` solve of each outer iteration of the last step.
+    #[must_use]
+    pub fn h_solves(&self) -> &[(f64, usize)] {
+        &self.h_solves
+    }
+
+    /// CONTROL, NOT upstream (gh:#1855): ignore `PIMPLE.residualControl`, as the port did before round 31 (it refused the entry).
+    #[must_use]
+    pub fn without_residual_control(mut self) -> Self {
+        self.pimple = self.pimple.without_residual_control();
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1855): ignore the `default` entries of `relaxationFactors` (the port before round 31).
+    #[must_use]
+    pub fn without_relaxation_default(mut self) -> Self {
+        self.case.controls.relax.ignore_default = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1855): `p_rghFinal` only at the last corrector of the last outer iteration (the port before round 31).
+    #[must_use]
+    pub fn with_legacy_p_final_on_last_outer_only(mut self) -> Self {
+        self.pimple = self.pimple.with_legacy_p_final_on_last_outer_only();
+        self
+    }
+
+    /// The state of `customPimpleControl` (the stale flag, `isFinalIteration()`).
+    #[must_use]
+    pub fn pimple_state(&self) -> &PimpleState {
+        &self.pimple
     }
 
     /// `onePhase::correctTightlyCoupledPhysics`: one `correctModels` and one `correctEnergy` (no PIMPLE loop).
