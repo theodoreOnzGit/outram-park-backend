@@ -4783,3 +4783,48 @@ Variants (overlay over `cases/msfr_th`, `scripts/make_msfr_th_radial_variants.sh
 * **P4 (controls; each must FAIL its comparison).** (a) the same case with the radial model REPLACED by upstream's base `fixedTemperature` (power model off): `T` in the `hx` cells differs by >= 1e-4 relative (about 0.1 K of 900 in three 1 ms steps, from the 250-300 K gap between the 600-650 K pins and the 900 K fluid at `H iA` of a few 1e6 W/m^3/K); (b) `HT` built from the post-solve `T` instead of `T.prevIter()` (a plausible slip): pin surface temperature differs 1e-7 to 1e-4 relative; (c) the lumped Laplacian forced to 0: `Tmatrix` differs >= 1e-5 relative in `lns`; (d) `nuclearFuelPin` with round 35's corrected ring areas: cladding `Tco`/`Trad` differs; the size is NOT predicted with confidence (the slips only change the cladding's heat capacity and three 1 ms steps move the cladding little): **1e-9 to 1e-5**. If (d) stays below the 1e-9 gate it is reported as not detectable at this transient, not hidden.
 * **P5 (what these predictions do NOT claim).** No shipped tutorial end to end (above); no neutronics in the loop (the `TFuelAv`/`TCladAv` hand-over is compared as an OUTPUT field and exposed by `OnePhaseCcSolver::fuel_clad_temperatures`; the diffusion coupling for solid fuel and point kinetics, #1864, are not touched); the FMU variants (`nuclearFuelFMU`) and `nuclearFuelPinTest` are refused by name; the `Tfi/Tfo/Tci/Tco` and `Trad.<model>` reconstruction of the initial profile from a time directory is refused by name (round 35); the `twoPhase` region is NOT wired in this round unless the results below say so.
 * **P6 (cost).** Upstream runs: seconds each (turbulence off, 3 steps); every reference < 0.4 MB gzipped; the whole round's refs < 2 MB.
+
+# Round 36 (gh:#1864; child of #1216): `pointKineticNeutronics` against the real class
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+## What upstream does and what was searched first (before any port code)
+
+* Upstream: `src/classes/neutronics/pointKinetics/pointKineticNeutronics.{C,H}`, `include/{solvePointKinetics,solvePointKineticsLiquidFuel,correctReactivity,computeFeedbackFieldValues,pointKineticsInfo}.H`, base `neutronics.C` (the fields `TFuel_`... and `reactorState_`, `externalSource_`).
+* Searched: `teh-o-prke` (gh:#1439, `genfoam_differential/`) already compared the feedback algebra (`correctReactivity.H`) and ONE `correctPhysics()` step with the real class; its finding is that upstream's `solve(x, A, B)` is Gaussian elimination without row scaling, not `LUsolve`; the appbuilder port's `PointKineticsState::step` still used `SquareMatrix::solve` (Crout LU), so it was NOT bit-identical (5/300 steps). Reused: that finding and the elimination algorithm (translated again here from `scalarMatricesTemplates.C`; `outram-foam-appbuilder-lib` does not depend on `teh-o-prke`). Not reused, because nothing there covers it: the flux-squared mesh weighting, the time profiles, the external source modes, `maxDeltaT`, the liquid-fuel path.
+* **`1D_MSR_pointKinetics` is a LIQUID-FUEL case** (`controlDict liquidFuel true`, `initPrecursorsLiquidFuel true`): its `correctPhysics()` runs `solvePointKineticsLiquidFuel.H` (precursor transport `fvm::ddt/Sp/div/laplacian` on the neutro mesh with `U`, `alpha`, `alphat`, `mu` mapped from the fluid region, a forced-circulation `onePhase` loop with a `GAMG` `p_rgh`, a pump and a cyclic mesh). It is therefore NOT "the case that needs none of the options". The solid-fuel path (`solvePointKinetics.H`, used by `2D_FFTF` and `2D_onePhaseAndPointKineticsCoupling`) is the smaller class and is what this round compares first. The liquid-fuel path and the coupled shipped run are NOT in this round (see "Not done").
+
+## Method
+
+`upstream_driver/pkRun1864/pkRun.C` derives from the real class (members are `protected`; upstream is not modified), builds a real `fvMesh`/`Time` on the `neutroRegion` mesh of `1D_MSR_pointKinetics` (640 cells, five cell zones), sets the six per-cell feedback fields every step from integer formulas (`double((a*i+b*k)%m)/m`, so the Rust side reproduces them exactly), and calls the real `correctPhysics()` 120 times with `dt` cycling `1e-3 .. 0.2`. From step 2 it first runs upstream's own `computeFeedbackFieldValues.H` + `correctReactivity.H` verbatim to print the seven flux-squared-weighted averages and every reactivity term (locals inside the step). The time `t` and `dt` are inputs read from the reference (the `Time` clock is round 21/22's business). `scripts/run_pk_1864.sh` writes ten case variants, one per option, to `refs/pk1864_<variant>.ref.txt.gz`:
+
+| variant | option exercised |
+|---|---|
+| `feedback` | all seven feedback terms, fast-spectrum (log) Doppler, five cell zones with different flux weights, zone lists for fuel/coolant/structMech, no list (all cells) for struct |
+| `thermal` | `fastNeutrons false` (sqrt Doppler) |
+| `rods_a`, `rods_d` | control-rod driveline reactivity (`absoluteDrivelineExpansionCoeff`, `controlRodReactivityMap` in both orientations, `drivelineFeedbackZones`) |
+| `profiles` | `externalReactivityTimeProfile` (with `startTime`), `boronReactivityTimeProfile` |
+| `decay` | `decayPowerTimeProfile` (fission power = total - decay; the total rescales `powerDensity`) |
+| `src_transient` | external source, `externalSourceMode transient`, `subcriticalIndex`, modulation profile, beam parameters |
+| `src_monitor` | `powerMonitoring` (`powerModulationDelay`, `modulationFactor`; `ksrc` given so `subcriticalIndex` is derived) |
+| `restart_both` | `reactorState` restart: `precursorPowers` given, both `ksrc` and `subcriticalIndex` given |
+| `combined` | rods + external reactivity + decay + `powerMonitoring` together |
+
+Refused by name (not ported, not run): `GEMReactivityMap` (needs the fluid mesh's `phi` and a face zone through the time registry; upstream's own comment says "GEM reactivity does NOT work in GeN-Foam 2.0" and the code prints debug lines), FMU inputs (`type fmi`; `commDataLayer` is not built), time-profile types other than `table`, the liquid-fuel path.
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+The references were generated and their CFG/T/K lines glanced at for sanity (power within a few percent of 1 GW, reactivity of order 1e-5); no port code existed when these were written.
+
+| # | claim | predicted outcome |
+|---|---|---|
+| P1 | the 0-D step with upstream's `solve()` elimination and upstream's rows, restarted from upstream's own previous state | **bit-identical on every step** of every variant (teh-o-prke's result generalises). Control: the old `SquareMatrix::solve` (Crout LU) route fails most steps at 1e-12 or better |
+| P2 | the seven flux-squared-weighted averages (sequential sums of `V*(phi*phi*T)*fb`) | **bit-identical on all 119 x 10 rows** (same operand order; cell volumes of the port's mesh are bit-identical to OpenFOAM's on hex meshes, rounds 9/26) |
+| P3 | fast-spectrum Doppler `ln` | PETIR `r_ln` differs from glibc by 1 ulp at about 1 of 400 arguments (teh-o-prke): expect 0 to 2 of 119 steps in which the Doppler term differs (<= 2 ulp); a step is then not bit-identical in the total reactivity, power differing <= 1e-12 relative, never more. `thermal` (`sqrt`) bit-identical |
+| P4 | driveline, both orientations, inside, on a knot, outside (zero) | bit-identical |
+| P5 | `table` profiles with `startTime`, decay power, modulation, `powerMonitoring` (own `interpolationTable::interpolateValue`, CLAMP) | bit-identical (every operation is `+ - * /`) |
+| P6 | `maxDeltaT()` | bit-identical |
+| P7 | rescale of `fluxes_`, `oneGroupFlux_`, `powerDensity_`, `secondaryPowerDensity_` (sums, first/middle/last cell) | bit-identical |
+| P8 | constructor results (initial `precursorPowers`, `intrinsicGain`, `ksrc <-> subcriticalIndex`, beam power) | bit-identical |
+| P9 control | weighted average with the flux NOT squared | differs from step 2 at >= 1e-6 relative |
+| P10 control | `decay` variant stepping the TOTAL power instead of the fission power | differs from step 1 by order `decay/total` (6 %) |
