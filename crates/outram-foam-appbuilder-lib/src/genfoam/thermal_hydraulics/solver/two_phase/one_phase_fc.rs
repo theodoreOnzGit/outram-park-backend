@@ -100,7 +100,7 @@ use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
 use super::case::{bool_entry, lookup_regex, scalar, word, Ctx};
 #[cfg(feature = "std")]
-use super::case::{read_field, read_nusselt, read_thermo, scalar_bcs, scalar_bcs_with, vector_bcs, ExtraBc};
+use super::case::{read_field, read_heat_exchangers, read_nusselt, read_thermo, scalar_bcs, scalar_bcs_with, vector_bcs, ExtraBc};
 #[cfg(feature = "std")]
 use super::thermo::PhaseThermo;
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
@@ -364,7 +364,11 @@ impl OnePhaseFcCase {
         let mut power: Vec<Option<FixedPower>> = vec![None; n];
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
-            if key == "powerOffCriterionModel" || key == "heatExchangers" {
+            if key == "heatExchangers" {
+                // `structure.C:265`: skipped as a zone key; read after the loop (`constructHeatExchangers`)
+                continue;
+            }
+            if key == "powerOffCriterionModel" {
                 return Err(ctx.e(format!("structureProperties.{key} is not ported")));
             }
             let cells = zone_cells(key)?;
@@ -408,7 +412,10 @@ impl OnePhaseFcCase {
                 }
             }
         }
-        let structure = Structure::new(&g, alpha_s, dh_s, power, None);
+        let mut structure = Structure::new(&g, alpha_s, dh_s, power, None);
+        if let Some(hxd) = sp.get_dict("heatExchangers") {
+            structure.heat_exchangers = read_heat_exchangers(&ctx, hxd, &poly, &g, &zone_cells)?;
+        }
 
         let pm = ctx.sub(&pp, "physicsModels")?;
         let drag = ctx.sub(pm, "dragModels")?;
@@ -1259,8 +1266,19 @@ impl OnePhaseFcSolver {
             su[c] = ih * (self.structure.t_act[c] - fl.t.c[c] + fl.he.c[c] / fl.cp.c[c]);
             sp[c] = ih / fl.cp.c[c];
         }
-        e.su(&g, &su);
-        e.sp(&g, &sp);
+        if self.structure.heat_exchangers.is_active() {
+            // `structure.C:1148-1156`: `Q += iAHX*H*(THX-T+he/Cp) - fvm::Sp(iAHX*H/Cp, he)` is added to Q BEFORE `EEqn -= Q`,
+            // so the source and the diagonal receive `(V*act + V*hx)` as one sum (negations are exact), not two additions.
+            for c in 0..n {
+                let v = g.mesh.cell_volumes[c];
+                let (su_hx, sp_hx) = self.structure.heat_exchangers.source_and_coeff(c, self.htc[c], fl.t.c[c], fl.he.c[c], fl.cp.c[c]);
+                e.source[c] += v * su[c] + v * su_hx;
+                e.ldu.diag[c] += v * sp[c] + v * sp_hx;
+            }
+        } else {
+            e.su(&g, &su);
+            e.sp(&g, &sp);
+        }
         let t_prev = fl.t.c.clone();
         if let Some(fct) = self.controls.relax_h_equation {
             let inflow2 = self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.he.is_fixed(&g, f));
@@ -1304,6 +1322,12 @@ impl OnePhaseFcSolver {
                 self.structure.t_act[c] = tn.get::<kelvin>();
                 self.structure.power[c] = Some(pm);
             }
+        }
+        // structure::correct, after the power models: `iter().correct(HT, H, THXPtr_())` of every heat exchanger (structure.C:1000-1018)
+        if self.structure.heat_exchangers.is_present() {
+            let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_used[c]).collect();
+            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.fluid.t.c[c]).collect();
+            self.structure.heat_exchangers.correct(&ht, &self.htc, &self.htc, &s_ht);
         }
         if self.structure_old_time_stale {
             self.structure.power_old = self.structure.power.clone();

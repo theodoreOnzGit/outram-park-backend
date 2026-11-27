@@ -59,6 +59,9 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use uom::si::f64::ThermodynamicTemperature;
+use outram_foam_basic_lib::prelude::Vector3;
+
+use crate::genfoam::multi_region::cell_overlap::{CellVolumeWeightAddressing, OverlapMesh};
 
 use super::units::{HeatFlux, HeatTransferCoefficient, WallConductance};
 
@@ -141,6 +144,185 @@ pub fn hx_wall_temperature(
 
     let t_p = (b_p * a_s + b_s) / (a_p * a_s - 1.0).max(1e-69);
     ThermodynamicTemperature::new::<kelvin>(t_p)
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// README round 44 (gh:#1847): the heat exchangers of `structureProperties.heatExchangers` as the solvers use them
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// One `heatExchanger` of `structureProperties.heatExchangers`: its dictionary values, the primary cell zone and the mapping
+/// from the secondary mesh (translated onto the primary zone) to the primary mesh.
+///
+/// Upstream: `heatExchanger::heatExchanger` (`volumetricArea`, `wallConductance` floored at `1e-69`, `primary`) and
+/// `heatExchanger::constructSecondaryHX` (centre-of-volume translation, `meshToMesh(translatedMesh, mesh_, imCellVolumeWeight,
+/// pmAABB, false)`, built here with [`CellVolumeWeightAddressing::new_normalised`], the exact port of round 28).
+#[derive(Debug, Clone)]
+pub struct HeatExchangerZone {
+    /// `primaryCells_`: the cells of the primary cellZone, in the zone's order.
+    pub primary_cells: Vec<usize>,
+    /// `iA_` [1/m]: the volumetric wall area.
+    pub i_a: f64,
+    /// `Hw_ = max(wallConductance, 1e-69)` [W/m^2/K].
+    pub hw: f64,
+    /// `mappingPtr_`: source = the translated secondary mesh, target = the primary mesh.
+    pub mapping: CellVolumeWeightAddressing,
+}
+
+/// The raw polyMesh lists and the geometry `heatExchanger::constructSecondaryHX` reads from `mesh_` and the secondary mesh
+/// (here the same mesh: `secondaryRegion` defaults to the region itself).
+#[derive(Debug, Clone, Copy)]
+pub struct HxMeshInput<'a> {
+    /// `points`.
+    pub points: &'a [Vector3],
+    /// `faces`.
+    pub faces: &'a [Vec<usize>],
+    /// `owner` (all faces).
+    pub owner: &'a [usize],
+    /// `neighbour` (internal faces).
+    pub neighbour: &'a [usize],
+    /// `V()`.
+    pub cell_volumes: &'a [f64],
+    /// `C()`.
+    pub cell_centres: &'a [Vector3],
+}
+
+/// Why a heat exchanger could not be built (upstream's `FatalError`, plus inconsistent mesh lists).
+#[derive(Debug, Clone, PartialEq)]
+pub enum HeatExchangerError {
+    /// `Primary and secondary zone volumes differ by <errV>` (`(pV - sV)/pV >= 1e-2`, signed as upstream).
+    VolumeMismatch(f64),
+    /// The mesh lists are inconsistent ([`OverlapMesh::new`]).
+    Mesh(String),
+}
+
+impl core::fmt::Display for HeatExchangerError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            HeatExchangerError::VolumeMismatch(e) => write!(f, "Primary and secondary zone volumes differ by {e}"),
+            HeatExchangerError::Mesh(m) => write!(f, "heat exchanger mesh: {m}"),
+        }
+    }
+}
+
+impl core::error::Error for HeatExchangerError {}
+
+/// `sum_i V_i C_i / sum_i V_i` over a zone, in the zone's order (`constructSecondaryHX`:
+/// `pCOV += primV[celli]*primC[celli]; pV += primV[celli]; pCOV /= pV`), and `sum_i V_i`.
+fn centre_of_volume(cells: &[usize], v: &[f64], c: &[Vector3]) -> (Vector3, f64) {
+    let mut cov = Vector3::new(0.0, 0.0, 0.0);
+    let mut vol = 0.0;
+    for &i in cells {
+        let w = v[i];
+        let ci = c[i];
+        cov = Vector3::new(cov.x + w * ci.x, cov.y + w * ci.y, cov.z + w * ci.z);
+        vol += w;
+    }
+    (Vector3::new(cov.x / vol, cov.y / vol, cov.z / vol), vol)
+}
+
+impl HeatExchangerZone {
+    /// `heatExchanger::heatExchanger` + `constructSecondaryHX` for a secondary zone in the SAME mesh.
+    ///
+    /// # Errors
+    /// [`HeatExchangerError::VolumeMismatch`] when the zone volumes differ by 1 % or more (upstream aborts), and
+    /// [`HeatExchangerError::Mesh`] for inconsistent mesh lists.
+    pub fn new(
+        mesh: &HxMeshInput<'_>,
+        primary_cells: Vec<usize>,
+        secondary_cells: &[usize],
+        i_a: f64,
+        wall_conductance: f64,
+    ) -> Result<Self, HeatExchangerError> {
+        let (p_cov, p_v) = centre_of_volume(&primary_cells, mesh.cell_volumes, mesh.cell_centres);
+        let (s_cov, s_v) = centre_of_volume(secondary_cells, mesh.cell_volumes, mesh.cell_centres);
+        let delta = Vector3::new(p_cov.x - s_cov.x, p_cov.y - s_cov.y, p_cov.z - s_cov.z);
+        let err_v = (p_v - s_v) / p_v;
+        if (p_v - s_v) / p_v >= 1e-2 {
+            return Err(HeatExchangerError::VolumeMismatch(err_v));
+        }
+        // the translated copy of the secondary mesh: `points[i] = pointsRef[i] + delta`, faces and cells unchanged
+        let moved: Vec<Vector3> =
+            mesh.points.iter().map(|p| Vector3::new(p.x + delta.x, p.y + delta.y, p.z + delta.z)).collect();
+        let translated = OverlapMesh::new(&moved, mesh.faces.to_vec(), mesh.owner.to_vec(), mesh.neighbour.to_vec())
+            .map_err(|e| HeatExchangerError::Mesh(e.to_string()))?;
+        let target = OverlapMesh::new(mesh.points, mesh.faces.to_vec(), mesh.owner.to_vec(), mesh.neighbour.to_vec())
+            .map_err(|e| HeatExchangerError::Mesh(e.to_string()))?;
+        let mapping = CellVolumeWeightAddressing::new_normalised(&translated, &target);
+        Ok(Self { primary_cells, i_a, hw: wall_conductance.max(1e-69), mapping })
+    }
+}
+
+/// The heat exchangers of one region with the two fields `structure` keeps for them: `iAHX` and `T.HX` (`THXPtr_`).
+#[derive(Debug, Clone, Default)]
+pub struct HeatExchangerSet {
+    /// The exchangers, in dictionary order (their cell sets are disjoint in the shipped cases; the order is then immaterial).
+    pub zones: Vec<HeatExchangerZone>,
+    /// `iAHX`: the sum of every exchanger's `iA()` (`iA_` on its primary cells), per cell.
+    pub i_a_hx: Vec<f64>,
+    /// `THX` (`T.HX`): zero until the first `structure::correct`, then the surface temperature on the primary cells.
+    pub t_hx: Vec<f64>,
+}
+
+impl HeatExchangerSet {
+    /// `structure::constructHeatExchangers`: `iAHX += iter().iA()` for every exchanger, `THX = 0`.
+    #[must_use]
+    pub fn new(n_cells: usize, zones: Vec<HeatExchangerZone>) -> Self {
+        let mut i_a_hx = vec![0.0; n_cells];
+        for z in &zones {
+            for &c in &z.primary_cells {
+                i_a_hx[c] += z.i_a;
+            }
+        }
+        Self { zones, i_a_hx, t_hx: vec![0.0; n_cells] }
+    }
+
+    /// Whether the region has heat exchangers (`THXPtr_.valid()`).
+    #[must_use]
+    pub fn is_present(&self) -> bool {
+        !self.zones.is_empty()
+    }
+
+    /// `Foam::max(THXPtr_()).value() > 1e-69`: the guard of `linearizedSemiImplicitHeatSource` / `explicitHeatSource`
+    /// (`THX` is `zeroGradient` on every patch, so the boundary values add nothing to the maximum).
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        self.is_present() && self.t_hx.iter().copied().fold(f64::NEG_INFINITY, f64::max) > 1e-69
+    }
+
+    /// `heatExchanger::correct(HT, H, THX)` for every exchanger (`structure::correct`), for a secondary side in the same
+    /// region: `s_h = htc`, `s_ht = htc*T` with the CURRENT temperature (`sMesh_.lookupObject("T")`, evaluated after the
+    /// energy solve) while `ht` is `Hs*T.prevIter()`. `HsOp`, `HTsOp` are `mapSrcToTgt(.., plusEqOp)` into a zero field;
+    /// `HTpOs`, `HpOs` (`mapTgtToSrc`) are computed upstream and never read, so they are not computed here.
+    pub fn correct(&mut self, ht: &[f64], h: &[f64], s_h: &[f64], s_ht: &[f64]) {
+        use uom::si::heat_flux_density::watt_per_square_meter;
+        use uom::si::heat_transfer::watt_per_square_meter_kelvin as wm2k;
+        let n = self.t_hx.len();
+        for z in &self.zones {
+            let mut hs_op = vec![0.0; n];
+            let mut hts_op = vec![0.0; n];
+            z.mapping.map_src_to_tgt_scalar(s_h, &mut hs_op);
+            z.mapping.map_src_to_tgt_scalar(s_ht, &mut hts_op);
+            for &c in &z.primary_cells {
+                let t = hx_wall_temperature(
+                    WallConductance::new::<wm2k>(z.hw),
+                    HeatTransferCoefficient::new::<wm2k>(h[c]),
+                    HeatFlux::new::<watt_per_square_meter>(ht[c]),
+                    HeatTransferCoefficient::new::<wm2k>(hs_op[c]),
+                    HeatFlux::new::<watt_per_square_meter>(hts_op[c]),
+                );
+                self.t_hx[c] = t.get::<uom::si::thermodynamic_temperature::kelvin>();
+            }
+        }
+    }
+
+    /// The cell source of `structure::linearizedSemiImplicitHeatSource` from the exchangers, `iAHX*H*(THX - T + he/Cp)`, and the
+    /// implicit coefficient `iAHX*H/Cp` (before the cell volume), at cell `c`. Both are `(0, 0)` while the guard of
+    /// [`Self::is_active`] fails. Same operation order as the active-structure term in the solvers.
+    #[must_use]
+    pub fn source_and_coeff(&self, c: usize, h: f64, t: f64, he: f64, cp: f64) -> (f64, f64) {
+        let ih = self.i_a_hx[c] * h;
+        (ih * (self.t_hx[c] - t + he / cp), ih / cp)
+    }
 }
 
 #[cfg(test)]

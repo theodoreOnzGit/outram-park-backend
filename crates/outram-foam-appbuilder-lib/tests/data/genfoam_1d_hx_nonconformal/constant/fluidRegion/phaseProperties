@@ -1,0 +1,117 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+structureProperties
+{
+    "pPipe:sPipe:pHX:sHX"
+    {
+        volumeFraction  0.5;
+        Dh              0.005;
+    }
+
+    "heater"
+    {
+        volumeFraction  0.5;
+        Dh              0.005;
+
+        powerModel
+        {
+            type            fixedPower;
+            volumetricArea  300;
+            T               653.15;
+            Cp              500;
+            rho             7700;
+            powerDensity    1.1e9;
+        }
+    }
+
+    //- This dict lists all the cellZone couples that are supposed to
+    //  represent the primary and secondary side of a heat exchanger.
+    //  Each subDict within the heatExchangers dict (the names are arbitrary)
+    //  represents such couple. The primary keyword specifies the primary side
+    //  cellZone and the secondary the secondary side cellZone. There is no
+    //  difference between primary and secondary, swapping the two keywors
+    //  will results in the same results. A volumetricArea density of the HX
+    //  wall (an average value between the volumetricArea on the primary and
+    //  secondary sides) needs to be specified. A wall thermal
+    //  conductance (W/m2/K), which, for planar or thin cylindrical walls, can
+    //  be calculated as wallThickness/wallThermalConductivity is optional and
+    //  defaults to 0.
+    //  This heatExchanger feature essentially allows to thermally couple
+    //  physically-separated mesh domains that existi within the same
+    //  mesh region, as testified by this tutorial modelling two channels in
+    //  the fluidRegion mesh.
+    //  The only limitation in the usage of this feature is that the primary
+    //  and secondary cellZones must have the same overall volumes.
+    //  The two cellZones can have any relative displacement along any
+    //  direction in 3-D space.
+    heatExchangers
+    {
+        "pIHX1"
+        {
+            primary             "pHX";
+            secondary           "sHX";
+            volumetricArea      250;
+            wallConductance     2.5e4;
+        }
+
+        "sIHX1"
+        {
+            primary             "sHX";
+            secondary           "pHX";
+            volumetricArea      250;
+            wallConductance     2.5e4;
+        }
+    }
+}
+
+regimeMapModels
+{
+}
+
+physicsModels
+{
+    dragModels
+    {
+        "pPipe:sPipe:pHX:sHX:heater"
+        {
+            type    ReynoldsPower;
+            coeff   0.316;
+            exp     -0.25;
+        }
+    }
+
+    heatTransferModels
+    {
+        "heater:pHX:sHX"
+        {
+            type    NusseltReynoldsPrandtlPower;
+            const   4;
+            coeff   0.02;
+            expRe   0.8;
+            expPr   0.8;
+        }
+    }
+}
+
+pMin            10000;
+
+pRefCell        0;
+
+pRefValue       100000;
+
+// ************************************************************************* //
