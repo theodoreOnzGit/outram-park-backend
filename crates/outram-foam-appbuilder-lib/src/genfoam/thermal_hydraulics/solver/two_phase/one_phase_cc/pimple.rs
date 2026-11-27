@@ -148,6 +148,8 @@ pub struct PimpleControls {
     pub final_on_last_pimple_iter_only: bool,
     /// `nCorrectors` (default 1): the corrector `finalInnerIter()` fires at.
     pub n_correctors: usize,
+    /// `nNonOrthogonalCorrectors` (default 0, gh:#1866): `finalInnerIter()` fires at pass `nNonOrthogonalCorrectors + 1`.
+    pub n_non_orth: usize,
 }
 
 /// What the loop reports to the solver about one `loop()` call.
@@ -262,11 +264,11 @@ impl PimpleState {
         self.converged || (self.stock_final && self.corr == n_outer)
     }
 
-    /// `pimpleControl::finalInnerIter()` for `nNonOrthogonalCorrectors 0`: the last corrector, and `finalIter()` with
-    /// `finalOnLastPimpleIterOnly`.
+    /// `pimpleControl::finalInnerIter()` (ESI v2506 `pimpleControlI.H:98`): `corrPISO == nCorrPISO && corrNonOrtho ==
+    /// nNonOrthCorr + 1` (both 1-based), and `finalIter()` with `finalOnLastPimpleIterOnly`.
     #[must_use]
-    pub fn final_inner_iter(&self, corr_piso: usize, ctl: &PimpleControls) -> bool {
-        let inner = corr_piso == ctl.n_correctors;
+    pub fn final_inner_iter(&self, corr_piso: usize, corr_non_orth: usize, ctl: &PimpleControls) -> bool {
+        let inner = corr_piso == ctl.n_correctors && corr_non_orth == ctl.n_non_orth + 1;
         if self.legacy_p_final {
             inner && self.corr == ctl.n_outer
         } else if ctl.final_on_last_pimple_iter_only {
@@ -346,7 +348,7 @@ mod tests {
     use super::*;
 
     fn ctl(n_outer: usize, rc: Vec<ResidualSpec>) -> PimpleControls {
-        PimpleControls { n_outer, min_n_outer: 1, residual_control: rc, final_on_last_pimple_iter_only: false, n_correctors: 6 }
+        PimpleControls { n_outer, min_n_outer: 1, residual_control: rc, final_on_last_pimple_iter_only: false, n_correctors: 6, n_non_orth: 0 }
     }
 
     fn spec(name: &str, abs: f64, rel: f64, first: bool) -> ResidualSpec {
@@ -433,12 +435,23 @@ mod tests {
         st.record("p_rgh", 0.1);
         st.update_first_piso_prev_pimple(2);
         assert_eq!(st.previous_first_piso, [0.0, 0.9]);
-        assert!(st.final_inner_iter(6, &c));
-        assert!(!st.final_inner_iter(5, &c));
+        assert!(st.final_inner_iter(6, 1, &c));
+        assert!(!st.final_inner_iter(5, 1, &c));
         let mut c2 = c.clone();
         c2.final_on_last_pimple_iter_only = true;
-        assert!(!st.final_inner_iter(6, &c2));
+        assert!(!st.final_inner_iter(6, 1, &c2));
         assert_eq!(st.last_residual("p_rgh"), Some(0.1));
+    }
+
+    /// gh:#1866: with `nNonOrthogonalCorrectors 1` only the second pass of the last corrector is `finalInnerIter()`.
+    #[test]
+    fn final_inner_iter_needs_the_last_non_orthogonal_pass() {
+        let st = PimpleState::new();
+        let mut c = ctl(5, Vec::new());
+        c.n_non_orth = 1;
+        assert!(!st.final_inner_iter(6, 1, &c));
+        assert!(st.final_inner_iter(6, 2, &c));
+        assert!(!st.final_inner_iter(5, 2, &c));
     }
 
     #[test]

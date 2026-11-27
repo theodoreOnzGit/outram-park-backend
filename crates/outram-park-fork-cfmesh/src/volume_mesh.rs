@@ -307,7 +307,20 @@ pub fn from_cell_faces_wound(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> Vo
 
 fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> VolumeMesh {
     use crate::hash::HashMap;
-    let orient = |ring: Vec<usize>, centre: Vec3, points: &[Vec3]| if wound { ring } else { orient_ring(ring, centre, points) };
+    // gh:#1772: when the caller does not wind its rings, wind each cell by
+    // its topology first ([`wind_cell_outward`]); only a cell whose rings are
+    // not a closed two-manifold falls back to the centroid guess below, which
+    // can pick the wrong side on a thin, bent (non-convex) cell.
+    let topo: Vec<Option<Vec<Vec<usize>>>> = if wound {
+        vec![None; cells.len()]
+    } else {
+        cells.iter().map(|c| wind_cell_outward(c, &points)).collect()
+    };
+    let trusted: Vec<bool> = topo.iter().map(|t| wound || t.is_some()).collect();
+    let wound_cells: Vec<Vec<Vec<usize>>> =
+        topo.into_iter().zip(cells).map(|(t, c)| t.unwrap_or_else(|| c.clone())).collect();
+    let cells = &wound_cells[..];
+    let orient = |ring: Vec<usize>, cid: usize, centre: Vec3, points: &[Vec3]| if trusted[cid] { ring } else { orient_ring(ring, centre, points) };
     // Cell centroids (vertex average over the cell's faces) — used to orient
     // every emitted face outward from its owner, so callers need not wind the
     // input rings correctly.
@@ -346,7 +359,7 @@ fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> 
             key.sort_unstable();
             if let Some((_, owner_cell, owner_ring)) = first.remove(&key) {
                 // Second time we see this face -> internal (owner = first cell).
-                int_faces.push(orient(owner_ring, centroid[owner_cell], &points));
+                int_faces.push(orient(owner_ring, owner_cell, centroid[owner_cell], &points));
                 int_owner.push(owner_cell);
                 int_nb.push(cid);
             } else {
@@ -364,7 +377,7 @@ fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> 
     let mut neighbour: Vec<Option<usize>> = int_nb.into_iter().map(Some).collect();
     let mut bnd = 0usize;
     for (_, cid, ring) in left {
-        faces.push(orient(ring, centroid[cid], &points));
+        faces.push(orient(ring, cid, centroid[cid], &points));
         owner.push(cid);
         neighbour.push(None);
         bnd += 1;
@@ -383,6 +396,90 @@ fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> 
         patches,
         cells: None,
     }
+}
+
+/// Wind the face rings of one cell **outward by topology** (gh:#1772): every
+/// edge of a closed, orientable cell surface is used by exactly two rings, in
+/// opposite directions. Starting from the first ring, a walk over shared
+/// edges flips each neighbour that uses the edge in the same direction; the
+/// sign is then fixed by the divergence theorem, `V = (1/3) Σ c_f · A_f`
+/// (vertex average `c_f`, vector area `A_f`), flipping every ring if `V < 0`.
+///
+/// Unlike [`orient_ring`]'s centroid test this does not assume the cell is
+/// convex: on the thin, bent dual cells at a curved wall's layered points the
+/// cell's vertex average falls outside the cell, and the centroid test wound
+/// faces inward, leaving the cell open (the subdivided cube, gh:#1772).
+///
+/// Returns `None` when the rings are not a closed two-manifold (an edge used
+/// by other than two rings, or the walk cannot reach every ring) or are
+/// non-orientable; the caller then keeps its fallback.
+pub(crate) fn wind_cell_outward(rings: &[Vec<usize>], points: &[Vec3]) -> Option<Vec<Vec<usize>>> {
+    use alloc::collections::BTreeMap;
+    if rings.is_empty() {
+        return None;
+    }
+    let key = |a: usize, b: usize| if a < b { (a, b) } else { (b, a) };
+    // Undirected edge -> the (ring, forward?) uses of it.
+    let mut uses: BTreeMap<(usize, usize), Vec<(usize, bool)>> = BTreeMap::new();
+    for (r, ring) in rings.iter().enumerate() {
+        let k = ring.len();
+        for i in 0..k {
+            let (a, b) = (ring[i], ring[(i + 1) % k]);
+            uses.entry(key(a, b)).or_default().push((r, a < b));
+        }
+    }
+    if uses.values().any(|u| u.len() != 2 || u[0].0 == u[1].0) {
+        return None;
+    }
+    // flip[r]: whether ring r is reversed; None until reached.
+    let mut flip: Vec<Option<bool>> = vec![None; rings.len()];
+    flip[0] = Some(false);
+    let mut stack = vec![0usize];
+    while let Some(r) = stack.pop() {
+        let fr = flip[r]?;
+        let ring = &rings[r];
+        let k = ring.len();
+        for i in 0..k {
+            let e = key(ring[i], ring[(i + 1) % k]);
+            let u = &uses[&e];
+            let (mine, other) = if u[0].0 == r { (u[0], u[1]) } else { (u[1], u[0]) };
+            // Directions as wound: forward ^ flipped. They must differ.
+            let want = !(mine.1 ^ fr) ^ other.1;
+            match flip[other.0] {
+                None => {
+                    flip[other.0] = Some(want);
+                    stack.push(other.0);
+                }
+                Some(f) if f != want => return None, // non-orientable
+                Some(_) => {}
+            }
+        }
+    }
+    let mut out: Vec<Vec<usize>> = Vec::with_capacity(rings.len());
+    for (r, ring) in rings.iter().enumerate() {
+        let mut w = ring.clone();
+        if flip[r]? {
+            w.reverse();
+        }
+        out.push(w);
+    }
+    let mut v3 = 0.0;
+    for ring in &out {
+        let k = ring.len();
+        let mut area = Vec3::ZERO;
+        let mut c = Vec3::ZERO;
+        for i in 0..k {
+            area = area.add(points[ring[i]].cross(points[ring[(i + 1) % k]]));
+            c = c.add(points[ring[i]]);
+        }
+        v3 += c.scale(1.0 / k as f64).dot(area.scale(0.5));
+    }
+    if v3 < 0.0 {
+        for ring in &mut out {
+            ring.reverse();
+        }
+    }
+    Some(out)
 }
 
 /// Order a face `ring` so its area vector points **away from** `owner_center`
@@ -405,5 +502,77 @@ pub(crate) fn orient_ring(ring: Vec<usize>, owner_center: Vec3, points: &[Vec3])
         r
     } else {
         ring
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// gh:#1772: a thin chevron prism (a bent plate, the shape of a dual
+    /// cell at a layered point on a curved wall) whose vertex average lies
+    /// **outside** the cell. Rings given in an arbitrary winding must still
+    /// assemble into a closed cell of the right volume.
+    ///
+    /// Methodology: the chevron's cross-section is the hexagon
+    /// (0,0) (2,2) (4,0) (4,t) (2,2+t) (0,t), `t = 0.2`, extruded over
+    /// `z ∈ [0, 1]`; its exact volume is the cross-section's area (two
+    /// sheared strips of width 2 and height `t`, `4t = 0.8`) times 1. Pass: `validate()` is `Ok` and the volume is 0.8
+    /// to 1e-12. Control: the centroid guess alone ([`orient_ring`]) must
+    /// wind at least one face of this cell inward, so the test can fail.
+    /// Result (2026-11-27): passes; the centroid guess winds 2 of the 8
+    /// faces inward (the two inner faces of the chevron, below which the
+    /// vertex average lies).
+    #[test]
+    fn a_bent_thin_cell_is_wound_outward_by_topology() {
+        let t = 0.2;
+        let xs = [(0.0, 0.0), (2.0, 2.0), (4.0, 0.0), (4.0, t), (2.0, 2.0 + t), (0.0, t)];
+        let mut points = Vec::new();
+        for z in [0.0, 1.0] {
+            for &(x, y) in &xs {
+                points.push(Vec3::new(x, y, z));
+            }
+        }
+        // Bottom 0..6, top 6..12; every ring deliberately in index order,
+        // so some are inward and some outward.
+        let mut rings = vec![(0..6).collect::<Vec<usize>>(), (6..12).collect()];
+        for i in 0..6 {
+            let j = (i + 1) % 6;
+            rings.push(vec![i, j, j + 6, i + 6]);
+        }
+        let mesh = from_cell_faces(points.clone(), &[rings.clone()]);
+        assert!(mesh.validate().is_ok(), "{:?}", mesh.validate());
+        assert!((mesh.total_volume() - 0.8).abs() < 1e-12, "volume {}", mesh.total_volume());
+
+        // Control: the centroid guess gets this cell wrong.
+        let wound = wind_cell_outward(&rings, &points).expect("closed cell");
+        let mut c = Vec3::ZERO;
+        let mut n = 0.0;
+        for r in &rings {
+            for &v in r {
+                c = c.add(points[v]);
+                n += 1.0;
+            }
+        }
+        let c = c.scale(1.0 / n);
+        let wrong = wound
+            .iter()
+            .filter(|w| orient_ring((*w).clone(), c, &points) != **w)
+            .count();
+        eprintln!("centroid guess winds {wrong} of {} faces inward", wound.len());
+        assert!(wrong >= 1, "the control must fail under the centroid guess");
+    }
+
+    /// A cell whose rings are not a closed surface is left to the fallback.
+    #[test]
+    fn an_open_cell_is_not_wound_by_topology() {
+        let points = vec![Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 0.0, 1.0)];
+        let open = vec![vec![0, 1, 2], vec![0, 1, 3]];
+        assert!(wind_cell_outward(&open, &points).is_none());
+        let tet = vec![vec![0, 1, 2], vec![0, 1, 3], vec![1, 2, 3], vec![0, 2, 3]];
+        let w = wind_cell_outward(&tet, &points).expect("closed");
+        let m = from_cell_faces_wound(points, &[w]);
+        assert!(m.validate().is_ok());
+        assert!((m.total_volume() - 1.0 / 6.0).abs() < 1e-15);
     }
 }

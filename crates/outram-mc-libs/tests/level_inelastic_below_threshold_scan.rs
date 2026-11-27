@@ -67,7 +67,10 @@ fn no_level_is_open_below_the_openmc_threshold() {
                 continue;
             }
             let thr = (awr + 1.0) / awr * q.abs();
-            let mut es = nuc.native_energy_grid(thr * 0.98, thr * (1.0 + 1e-7));
+            let mut es = match nuc.native_energy_grid_with_thinning(thr * 0.98, thr * (1.0 + 1e-7), Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            };
             for k in 1..=15 {
                 es.push(thr * (1.0 - 10f64.powi(-k)));
             }

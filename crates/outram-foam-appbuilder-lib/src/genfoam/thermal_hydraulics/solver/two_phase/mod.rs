@@ -68,8 +68,9 @@
 //!   ([`TwoPhaseCase::deviations`]).~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES is ported
 //!   ([`mules`], `alpha_mules.rs`; `solvePhase both`, `vanLeer`/`upwind`/`linear` convection, sub-cycling)
 //!   and is what a case that selects it runs; `1D_boiling` as shipped agrees with the real binary to the
-//!   single-phase round-off (1e-11) up to the boiling onset (README "Round 7"). Still not ported: MULES with
-//!   `solvePhase` set (a hard error in [`TwoPhaseCase::read`]), `limitSum`/`nAlphaSubCycles`-style
+//!   single-phase round-off (1e-11) up to the boiling onset (README "Round 7"). ~~Still not ported: MULES with
+//!   `solvePhase` set (a hard error in [`TwoPhaseCase::read`])~~ **CORRECTED 2026-11-27** (gh:#1799, round 34): MULES with
+//!   `solvePhase <fluid>` (the `solveAlpha` lambda) is ported; a `cyclic` patch is refused by name. Still not ported: `limitSum`/`nAlphaSubCycles`-style
 //!   `alphaSubCycle` variants GeN-Foam does not call. The earlier substitution is
 //!   [`TwoPhaseCase::with_alpha_solver_implicit_upwind`].
 //! - `momentumMode cellCentered` (`pEqn_2p.H`) and partial-elimination modes
@@ -463,6 +464,9 @@ pub struct MulesControls {
     pub phir_scheme: mules::AlphaConvection,
     /// `relaxationFactors.fields` of `alpha.<fluid k>`; `None` when the field is not relaxed.
     pub relax: [Option<f64>; 2],
+    /// `solvePhase`: `None` for `both` (the default, `solveAlphas`), `Some(k)` for the fluid whose fraction the
+    /// `solveAlpha` lambda solves with MULES (the other follows by continuity; gh:#1799).
+    pub solve_phase: Option<usize>,
 }
 
 /// PIMPLE and solver controls (`fvSolution`).
@@ -801,6 +805,11 @@ pub struct TwoPhaseSolver {
     /// `true` until the first outer iteration of step 1 has advanced the structure
     /// (see [`TwoPhaseControls::lazy_old_time_first_step`], item 2).
     structure_old_time_stale: bool,
+    /// `true` until the first `solveAlpha` (`solvePhase` set, step 1, one sub-cycle) has run: upstream creates the
+    /// OTHER fluid's `alpha.oldTime()` lazily, at its first request (`correctContErrs`, `fvm::ddt(alpha, rho, U)`),
+    /// which comes AFTER the lambda has assigned the field, so in step 1 that old-time copy holds the value the
+    /// first outer iteration's MULES left (gh:#1799; see [`TwoPhaseControls::lazy_old_time_first_step`]).
+    other_alpha_old_stale: bool,
     /// Mixture density over the moving fraction [kg/m^3].
     pub rho_mix: Scalar,
     /// Total volumetric flux [m^3/s].
@@ -930,6 +939,7 @@ impl TwoPhaseSolver {
             p_old: case.p.c.clone(),
             p_old_stored: !case.controls.lazy_old_time_first_step,
             structure_old_time_stale: case.controls.lazy_old_time_first_step,
+            other_alpha_old_stale: case.controls.lazy_old_time_first_step,
             rho_mix: case.p.clone(),
             phi: vec![0.0; nf],
             fluids: case.fluids.clone(),
@@ -3320,6 +3330,16 @@ struct VecEqn {
 }
 
 impl TwoPhaseSolver {
+    /// The ablation of the lazy `alpha.oldTime()` of the OTHER fluid of the `solveAlpha` lambda (`solvePhase` set): its
+    /// old-time copy is the start-of-step value in step 1 too, which is what the port did before gh:#1799 round 34 (step 1 was
+    /// then off by p 3e-6, alpha 1.6e-6 against the real binary). Nothing else of
+    /// [`TwoPhaseControls::lazy_old_time_first_step`] changes.
+    #[must_use]
+    pub fn with_eager_other_alpha_old_time(mut self) -> Self {
+        self.other_alpha_old_stale = false;
+        self
+    }
+
     /// The ablation of [`TwoPhaseControls::lazy_old_time_first_step`]: the first
     /// time step treats the old-time pressure as the INITIAL field and the
     /// structure's old-time temperature as its value at the start of the step,
@@ -3330,6 +3350,7 @@ impl TwoPhaseSolver {
         self.controls.lazy_old_time_first_step = false;
         self.p_old_stored = true;
         self.structure_old_time_stale = false;
+        self.other_alpha_old_stale = false;
         self
     }
 

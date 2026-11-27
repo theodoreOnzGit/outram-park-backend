@@ -1,4 +1,6 @@
-/target
+# Cargo build output, at the root and in any crate built on its own
+# (e.g. crates/dhoby-ghaut/target/).
+target/
 **/*.rs.bk
 
 # OpenMC HDF5 nuclear-data libraries are large (>100 MB); keep them out of git.

@@ -569,6 +569,7 @@ impl OnePhaseCcCase {
             residual_control,
             final_on_last_pimple_iter_only: bool_entry(pimple, "finalOnLastPimpleIterOnly").unwrap_or(false),
             n_correctors: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
+            n_non_orth: scalar(pimple, "nNonOrthogonalCorrectors").unwrap_or(0.0) as usize,
         };
         let solvers = ctx.sub(&fs, "solvers")?;
         let h_solver = |name: &str| -> Result<(f64, f64, usize), AppBuilderError> {
@@ -918,6 +919,8 @@ pub struct OnePhaseCcSolver {
     p_rgh_prev: Vec<f64>,
     /// `Kd.prevIter()` (`myOps::storePrevIterIfRelax`).
     kd_prev: Vec<f64>,
+    /// CONTROL (gh:#1866): see [`OnePhaseCcSolver::with_first_piso_residual_of_first_pass_only`].
+    first_piso_first_pass_only: bool,
     /// `htc.prevIter()` (`myOps::storePrevIterIfRelax`).
     htc_prev: Vec<f64>,
     /// `(initial residual, iterations)` of the `h` solve of each outer iteration of the last [`Self::correct_physics`].
@@ -1004,6 +1007,7 @@ impl OnePhaseCcSolver {
             he_prev: Vec::new(),
             p_rgh_prev: Vec::new(),
             kd_prev: Vec::new(),
+            first_piso_first_pass_only: false,
             htc_prev: Vec::new(),
             h_solves: Vec::new(),
         };
@@ -1410,6 +1414,25 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn without_residual_control(mut self) -> Self {
         self.pimple = self.pimple.without_residual_control();
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1866): run ONE pressure pass whatever `nNonOrthogonalCorrectors` says (the port before round 33,
+    /// which refused the entry); the single pass then selects `p_rghFinal` by `finalInnerIter()` for `nNonOrthogonalCorrectors 0`.
+    #[must_use]
+    pub fn without_non_orthogonal_correctors(mut self) -> Self {
+        self.case.controls.pimple.n_non_orth = 0;
+        if let Some(f) = self.case.flow.as_mut() {
+            f.n_non_orth_correctors = 0;
+        }
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1866): `updateFirstPISOPrevPIMPLE()` after the FIRST pressure pass only, as if it were not inside
+    /// the `correctNonOrthogonal` loop.
+    #[must_use]
+    pub fn with_first_piso_residual_of_first_pass_only(mut self) -> Self {
+        self.first_piso_first_pass_only = true;
         self
     }
 

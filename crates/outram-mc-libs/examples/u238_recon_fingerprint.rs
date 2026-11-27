@@ -43,9 +43,18 @@ fn main() {
 
     // Grid size across the whole range, and within the resolved-resonance band
     // where the resonance integral that drives a pebble's k actually lives.
-    let full = u238.native_energy_grid(1.0e-5, 2.0e7);
-    let rrr = u238.native_energy_grid(1.0, 2.0e4);
-    let urr = u238.native_energy_grid(2.0e4, 1.5e5);
+    let full = match u238.native_energy_grid_with_thinning(1.0e-5, 2.0e7, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    };
+    let rrr = match u238.native_energy_grid_with_thinning(1.0, 2.0e4, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    };
+    let urr = match u238.native_energy_grid_with_thinning(2.0e4, 1.5e5, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    };
     println!("# U-238 reconstruction fingerprint @ 600 K, tol 1e-3");
     println!("recon_seconds            {:.1}", elapsed.as_secs_f64());
     println!("grid_points_total        {}", full.len());

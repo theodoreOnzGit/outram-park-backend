@@ -360,7 +360,7 @@ pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult {
 /// Build a [`SlowingDownGrid`] from real nuclear data.
 ///
 /// `grid_ev` supplies the *energy* resolution — pass the union of the nuclides'
-/// own [`Nuclide::native_energy_grid`]s, which resolves every resonance the
+/// own [`Nuclide::native_energy_grid_with_thinning`]s, which resolves every resonance the
 /// reconstruction resolved. This function then supplies the *lethargy*
 /// resolution the solver needs, subdividing any interval wider than
 /// `ε_min / steps_per_window` (see [`solve_on_grid`] for why that matters).

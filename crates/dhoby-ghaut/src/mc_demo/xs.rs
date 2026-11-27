@@ -8,7 +8,7 @@
 //! below its cutoff for a bound moderator), read through
 //! `Nuclide::xs_at_energy`, the call the collision physics makes. They are
 //! computed ONCE per load in the worker and sent decimated: on every
-//! reconstructed breakpoint (`Nuclide::native_energy_grid`) plus a log
+//! reconstructed breakpoint (`Nuclide::native_energy_grid_with_thinning`) plus a log
 //! backbone (the S(α,β) law has structure, Bragg edges, between the
 //! breakpoints), then kept as the minimum and maximum of each of [`BINS`]
 //! logarithmic bins, so resonance peaks and troughs survive at a few
@@ -96,7 +96,10 @@ pub fn curves(nuclides: &[Nuclide], temp_k: f64, picks: &[Pick]) -> Vec<XsCurve>
         .iter()
         .filter_map(|&(label, i, channel)| {
             let n = nuclides.get(i)?;
-            let mut grid = n.native_energy_grid(E_MIN, E_MAX);
+            let mut grid = match n.native_energy_grid_with_thinning(E_MIN, E_MAX, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            };
             grid.extend((0..=n_back).map(|k| 10f64.r_powf(l0 + (l1 - l0) * k as f64 / n_back as f64)));
             grid.sort_by(|a, b| a.total_cmp(b));
             grid.dedup();

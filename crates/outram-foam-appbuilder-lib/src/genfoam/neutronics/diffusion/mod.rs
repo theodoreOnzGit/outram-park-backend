@@ -195,6 +195,9 @@ pub struct DiffusionNeutronics {
     /// The old-time `fluxStar_` / `precStar_` of the current time step, once [`Self::store_old_times`] ran
     /// (gh:#1832); `None` is the per-call snapshot form.
     old_time: Option<UpstreamOldTime>,
+    /// The external neutron source (`externalSourceNeutronics_`, `externalSourceFlux[g]`), if set
+    /// (gh:#1863); [`Self::upstream_stationary_step`] adds it to every group equation.
+    external_source: Option<external_source::ExternalSource>,
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -295,6 +298,7 @@ impl DiffusionNeutronics {
             albedo_specs: Vec::new(),
             prec_star: Vec::new(),
             old_time: None,
+            external_source: None,
         })
     }
 
@@ -577,6 +581,9 @@ impl WithInternal for VolScalarField {
 }
 
 mod eigenvalue;
+pub mod external_source;
+#[cfg(feature = "std")]
+pub mod external_source_case;
 pub mod precursor_drift;
 mod pseudo_time;
 mod transient;
