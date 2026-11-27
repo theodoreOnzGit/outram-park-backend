@@ -7,11 +7,44 @@ FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity,
 J2 plasticity and rate-dependent **crystal plasticity** on unstructured meshes,
 with the linear algebra supplied by `outram-foam-basic-lib`.
 
+**The one question it answers:** how does a reactor structural component, or
+a grain aggregate inside it, deform, yield and accumulate fatigue damage
+under load, at small strain?
+
+FARRER PARK makes **finite-element solid mechanics studyable and
+challengeable**: shape functions, quadrature, weak-form assembly, J2 radial
+return and crystal plasticity written out in plain Rust modules, each checked
+against a closed form a student can derive (Lamé, Euler-Bernoulli, the
+fully plastic limit load, the Schmid yield stress). Its crystal-plasticity
+and fatigue kernels are ported from PRISMS-Plasticity, PRISMS-Fatigue and
+MOOSE and differenced against transcriptions of the pinned upstream lines,
+with the one rounding defect found that way recorded and fixed.
+
 > **Not a validated life-assessment tool.** This is an evolving FEM/materials
 > research capability. It is verified against analytical and manufactured
 > solutions only, has no human V&V sign-off, and must not be used for reactor
 > pressure vessel or piping life assessment, licensing, or safety-related
 > decisions. See `RESPONSIBLE_USE.md` at the workspace root.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Closed-form references named in `docs/verification.md` (Lamé thick cylinder, Euler-Bernoulli and Timoshenko beams, the limit load `p_L = (2/sqrt(3)) sigma_y ln(b/a)`, Schmid's law, Fatemi-Socie). No catalogue entry in `crates/kovan-literature/CATALOGUE.md` names this crate. Upstream code (LGPL-2.1, relicensed under LGPL-2.1 §3; record in `docs/upstream-provenance.md`): PRISMS-Plasticity `ffdf4eb6`, PRISMS-Fatigue `2c8fc9a2`, MOOSE `fe80d24f`, the pins of the gh:#1434 differential. |
+| Mathematical equations | Module docs: Lagrange shape functions and Gauss rules (`src/element.rs`, `src/quadrature.rs`), weak-form assembly and B-bar (`src/assembly.rs`), J2 radial return and consistent tangent (`src/material.rs`), crystal slip systems, power-law flow and hardening (`src/crystal/`), Fatemi-Socie FIP (`src/fatigue.rs`). |
+| Source code | `src/`: `mesh`, `element`, `quadrature`, `dof`, `sparse` (`CsrMatrix`), `operator` (`LinearOperator`), `assembly`, `bc`, `material`, `crystal` (`slip`, `elastic`, `flow`, `orient`, `update`), `fatigue`, `solver`, `tensor`. |
+| Interactive simulations | None yet. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `docs/verification.md` and `tests/` (headline table below, measured 2026-09-11: patch test worst 1.3e-14, MMS orders at theory, Newton order 2.004). `verification_and_validation/prisms_moose_differential_gh1434/` (2026-11-13): PRISMS-Fatigue FIP 324/324 bit-identical after one parenthesisation fix (289/324 before); PRISMS-Plasticity slip-system kernel 72/72. Verification only; no validation. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. No entry in `docs/human-corrections-to-ai-work.md` names this crate. The backronym's lettering is struck through and corrected above (2026-10-13). |
+
+**Status:** declared mature by the maintainer on 2026-09-13 on an
+analytical/MMS bar (`AGENTS.md`); verified against analytical and
+manufactured solutions and differenced against upstream kernels, with no
+human V&V sign-off; nothing is validated, and shear locking, kinematic hardening and finite deformation are
+not started.
 
 ## Why this is FEM and not finite volume
 
@@ -132,7 +165,7 @@ claimed.
 
 Pure Rust with no BLAS, no C or Fortran toolchain and no GUI. The library
 compiles for `wasm32-unknown-unknown` and for `aarch64-linux-android`
-(`cargo check -p farrer-park --all-targets --target aarch64-linux-android`, and
+(`cargo check --release -p farrer-park --all-targets --target aarch64-linux-android`, and
 `scripts/check-wasm.sh`). As the workspace `CLAUDE.md` warns, **compiling is not
 running**: neither target has been executed, and no claim is made that it works
 in a browser or on a device.

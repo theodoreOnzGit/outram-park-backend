@@ -4,8 +4,40 @@ Part of **TAMPINES** — **T**hermal-hydraulic **A**rtificial-intelligence
 **M**ulti-**P**hase **IN**tegrated **E**mulator **S**ystem. This crate is its
 IAPWS-IF97 steam/water property library.
 
+**Scope, and the one question it answers:** what is the thermodynamic and
+transport state of water and steam at a given pair of properties, and how
+does a steam-water mixture flow when it chokes?
+
+This crate makes the **IAPWS-IF97 industrial formulation studyable and
+challengeable**: every region's forward equation, the backward `(p,h)`,
+`(p,s)` and `(h,s)` equations, and the transport properties, written with
+`uom` units so a student can read each one beside the IAPWS release, and
+differenced against CoolProp's `IF97.h` and rust-steam point by point. It
+also holds a Homogeneous Equilibrium Model choked-flow suite judged against
+Moody (1975), Zaloudek and the Marviken full-scale tests, with its misses
+named rather than hidden.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | IAPWS-IF97 and the International Steam Tables (Kretzschmar & Wagner, 2019, Springer), the crate's verification spec; IAPWS R7-97 metastable-vapour sets and R12-08 viscosity; Moody (1975) Fig. 1 and Zaloudek graph-read HEM curves for choked flow; NUREG/CR-2671 (MXC-301) Marviken Fig. 8:24 (catalogue entry in `crates/kovan-literature/CATALOGUE.md`); Kieffer (1977) Fig. 9b for HEM sound speed. Upstream code: [rust-steam](https://github.com/marciorvneto/rusteam) (MIT; drawn from, not a 1:1 port; differenced at `main` `2b1f74dbed98`, v0.2.0, per `upstream_source/README.md`), and OpenFOAM for the matrix/LDU solvers (GPL-3.0; see the OpenFOAM section below). |
+| Mathematical equations | The IF97 region equations (Gibbs and Helmholtz free energies and their derivatives) per region under `src/region_*`; backward equations in `src/backward_eqn_*`; HEM critical flow in `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/`; derivations in `docs/derivation/derivation.tex`, `tampines_steam_array_derivation.tex` and `fanno-rayleigh-line-plotter.tex` (PDFs committed beside them). |
+| Source code | `src/`: `region_1_subcooled_liquid` to `region_5_steam_at_800_plus_degc`, `backward_eqn_{ph,ps,hs}_region_1_to_4`, `backward_eqn_chebyshev_experimental`, `dynamic_viscosity`, `thermal_conductivity`, `surface_tension`, `dielectric_constant`, `gas_mixture`, `interfaces` (functional flashes, `checked` facade, `TampinesSteamTableCV`), `steam_turbine_equations`, `hem` (`HemPipe`), `openfoam_algorithms`. |
+| Interactive simulations | `examples/tampines-steam-tables-gui` (egui T-p, p-h, T-s and h-s diagrams, issue #26), `examples/fhr_sim_v1`, `examples/transient_rankine_cycle`, `examples/depressurisation`, `examples/tutorial_rankine_cycle.rs`. `fhr_sim_v2` now lives in `crates/nee_soon/examples/`. |
+| Visualisations | The GUI example's property curves (`examples/tampines-steam-tables-gui/curves.rs`); figures in `docs/derivation/figures/` (`nozzle.png`, `force_balance_isentropic_nozzles.png`). |
+| Verification and validation evidence | `verification_and_validation/` (11 records, `generated/`, `golden/`, `if97_differential/`) and `tests/`. As recorded: against CoolProp `IF97.h` (2026-11-13) Region 5 worst 8.7e-16, Region 2 worst 1.1e-14 except λ 3.1e-11, Region 3 worst 3.0e-5 (cp) with 0 bit-identical; Marviken (2026-11-02, gh:#1111) test 23 mean 13.9 % with 5 named misses of 29, test 24 mean 10.4 % with 1 named miss of 40; Kieffer Fig. 9b eq. 28 route passes at all 81 points. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. `docs/human-corrections-to-ai-work.md`, 2026-08-12 "Energy-equation boundary conditions were zero-gradient on both sides" (`TampinesSteamArray`). The maintainer's one-line `(p, h)` correction is recorded below under "Why human-in-the-loop is not optional here". The Marviken test-24 verdict and the Moody 0.25 cause are struck through and corrected in `AGENTS.md`. |
+
+**Status:** declared mature on 2026-09-05 (`AGENTS.md`) on the strength of
+IF97 reference-table comparisons, which are the best-anchored path; the flash
+tolerances are looser (λ to 8 %), the vendored OpenFOAM thermophysics has
+recorded errors, and no part has a human V&V sign-off.
 
 ## Bookkeeping status
 
@@ -50,7 +82,7 @@ Hence, I am putting the rust-steam license here.
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p tampines-steam-tables --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p tampines-steam-tables --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). All of IAPWS-IF97, the backward
 equations, the flashes, the transport properties and the HEM solver stay.
 `std` carries the `dbg!` / `println!` diagnostics (compiled out without it)
@@ -223,7 +255,7 @@ Always use `--release`. Split the fast library tests from the one very slow
 integration test:
 
 ```bash
-# Fast path — 938 library test functions, finishes in seconds
+# Fast path — the library tests (1055 test functions on 2026-09-27, per AGENTS.md), finishes in seconds
 cargo test --release -p tampines-steam-tables --lib
 
 # Slow path — the Edwards-O'Brien blowdown transient. Give it 10+ minutes.
@@ -248,8 +280,11 @@ not by the scheme (`tests/edwards_blowdown.rs` header, rows 2–18). The test
 stays pinned to Linear until the maintainer decides otherwise. The pin is
 kept deliberately, as a save point. Future work: gh:#406.
 
-**Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
-14 ignored**. List the ignored ones with
+~~**Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
+14 ignored**.~~ **CORRECTED 2026-11-27** — the latest recorded run in
+`AGENTS.md` is 2026-11-02: `1040 passed; 0 failed; 14 ignored` (it also
+records 1041 / 0 / 14 on 2026-09-27). Not re-run for this edit (no `cargo`
+was run); trust a fresh run over any written count. List the ignored ones with
 `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
 
 **A timeout is not a test failure.** `tests/edwards_blowdown.rs` integrates a
@@ -287,12 +322,11 @@ Workspace-wide, the only remaining OpenBLAS consumer is
 `outram-foam-basic-lib`'s `matrix_bench` dev-dependency, which
 `fhr_sim_v2` never touches.
 
-I used rustup to install rust. So if versions of Rust are outdated 
-(error messages may tell you so), then use:
-
-```bash
-rustup update stable
-```
+I used rustup to install rust. ~~So if versions of Rust are outdated 
+(error messages may tell you so), then use: `rustup update stable`~~
+**CORRECTED 2026-11-27** — the workspace pins Rust 1.99.1 in the root
+`rust-toolchain.toml`, which rustup selects automatically inside the
+repository; updating `stable` does not change the toolchain used here.
 
 
 ## To resize
@@ -711,8 +745,12 @@ Implementation notes from the build-out:
   regula falsi.
 - The bracket is grown **outward from the control volume's current pressure**
   (a known-valid point) toward the root, not from a blind 100 MPa endpoint. The
-  `(p, h)` flashes are **not implemented for region 5 (T > 800 °C)**, and
-  marching down from 100 MPa could land there and panic; seeding from the
+  `(p, h)` flashes ~~are **not implemented for region 5 (T > 800 °C)**~~
+  (**CORRECTED 2026-11-27**: since commit `2ab91fefc3`, 2026-09-14, the
+  unchecked `(p,h)` flash has a Region 5 arm through an in-house Chebyshev
+  fit, per the `ph_flash_eqm/mod.rs` doc and
+  `ph_flash_region4_edge_and_region5.rs`; the `checked` facade still refuses
+  Region 5), and marching down from 100 MPa could land there and panic; seeding from the
   current pressure keeps every evaluation inside the validated range.
 - `advance_timestep` panics on non-physical input (removing more mass than is
   present, or a `(v, h)` target outside the validated steam-table range) rather

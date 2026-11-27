@@ -8,6 +8,28 @@ in `outram-foam-basic-lib` and to OUTRAM PARK's design rules: enum dispatch (no
 trait objects), no `Box<T>`, no lifetime parameters, `uom`-typed API boundaries,
 and an Android/Termux-buildable library.
 
+**Name.** `outram-park-fork-offbeat` is an OUTRAM PARK fork, named for its
+upstream, OFFBEAT; the backronym is OUTRAM PARK's own, letter by letter:
+**O**pen-source **U**nified **TRA**nsient **M**ulti-Physics **A**dvanced
+**R**eactor simulation **K**it. Since 2026-11-10 it is also the workspace's
+materials and fuel-behaviour crate (`AGENTS.md`, gh:#977, gh:#1335).
+
+**The question it answers:** what happens to a fuel rod's materials through
+life (conductivity, swelling, creep, plasticity, gap conductance, corrosion,
+fission-gas release), and, in `melcor`, to the aerosols and fission products a
+severe accident releases?
+
+**What this crate makes studyable and challengeable.** The fuel-performance
+correlations of OFFBEAT and the nuclear constitutive laws of code_aster
+(irradiation creep, Chaboche, Zircaloy anisotropy, damage) translated into Rust
+with an attribution header naming each upstream file, so a student can read a
+MATPRO or FRAPCON correlation beside the `.C` or `.F90` it came from. It also
+records where the upstream sources disagree with themselves, for example the
+`rkdcha.F90` rate that uses `D1` where its own implicit residual uses `D2`,
+reproduced and pinned rather than silently fixed. The `melcor` module writes
+MELCOR-class aerosol and fission-product equations from the public manuals,
+section by section. None of it is validated against experiment.
+
 > **Independent fork, not the official OFFBEAT.** This crate is not affiliated
 > with, endorsed by, or maintained by the OFFBEAT developers, the
 > `foam-for-nuclear` project, EPFL, the Paul Scherrer Institute, Texas A&M
@@ -22,9 +44,12 @@ and an Android/Termux-buildable library.
 > `80e84450a115b0c411e1bfa5d166379f6bf6c084` (2026-01-05).
 >
 > **SCAFFOLD / EARLY: the mechanics layer is VERIFICATION-ONLY and there is no
-> human V&V.** 545 unit tests pass and the small-strain mechanics solver matches
+> human V&V.** 545 unit tests pass (count of 2026-08-05, not re-counted) and the small-strain mechanics solver matches
 > closed-form linear-elasticity solutions, but **nothing has been validated** —
-> not against OFFBEAT output, not against the upstream `Cases/Verification`
+> not against OFFBEAT output (**CORRECTED 2026-11-27**: the material
+> correlations are compared with C++ kernels transcribed from OFFBEAT
+> `80e84450`, gh:#1393, see below; that is verification, and the compiled
+> OFFBEAT library was not run), not against the upstream `Cases/Verification`
 > suite, not against fuel-irradiation data — and no human has reviewed any of
 > it. Use at your own risk. Not for nuclear facility operation, reactor control,
 > fuel licensing decisions, or safety-critical analysis — education, research,
@@ -43,11 +68,32 @@ and an Android/Termux-buildable library.
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Upstream: OFFBEAT (gitlab.com/foam-for-nuclear/offbeat, GPL-3.0), commit `80e84450a115b0c411e1bfa5d166379f6bf6c084` (2026-01-05); code_aster (EDF, GPL-3.0-or-later), `src` commit `b504ea08`, for `rheology::aster`; SCIANTIX lineage in `NOTICE`. MELCOR 2.2 Vol. 2 (SAND2023-10994 O) and Vol. 1 (SAND2017-0455 O), Jacobson et al. (1994), for `melcor`. MATPRO and other sources in `docs/validation/References.md`. No literature in `crates/kovan-literature/CATALOGUE.md` is tied to this crate. |
+| Mathematical equations | Module docs of `src/mechanics/` (small-strain quasi-static momentum balance, eigenstrain loading, creep and plasticity coupling), `src/rheology/` and `src/rheology/aster/` (Norton, Lemaitre, Chaboche, VISCOCHAB, GTN, radial return), `src/materials/` (property correlations), `src/gap/`, `src/corrosion/`, `src/fgr/`, `src/melcor/` (sectional aerosol, MAEROS kernels, SPARC-90 pool iodine). `docs/validation/poisson_ratio_zircaloy.md` writes out MATPRO's `nu = E/(2G) - 1`. |
+| Source code | `src/mechanics/`, `src/rheology/` (with `aster/`), `src/materials/`, `src/gap/`, `src/corrosion/`, `src/burnup/`, `src/fgr/`, `src/melcor/`, `src/error.rs`, `src/prelude.rs`. |
+| Interactive simulations | None yet in this crate (`melcor` is driven by `sembawang::bwr_mark1`). |
+| Visualisations | None yet. |
+| Verification and validation evidence | `verification_and_validation/*_vs_offbeat.md` (measured 2026-11-13, gh:#1393) against C++ kernels transcribed from OFFBEAT `80e84450`: conductivity 14 558 of 14 922 points bit-identical, worst relative 4.5e-16; properties 2 275 of 3 988 bit-identical; yield bit-identical on all 3 762; plus behavioural, corrosion, creep, gap, thermal-expansion and Zircaloy records. code_aster `astest` cases against upstream `VALE_CALC`: `ssnv101a` 1.7e-5 relative, `ssnv126a` 6.8e-4 relative. Closed-form mechanics checks ("Verification status, honestly" below). `docs/validation/poisson_ratio_zircaloy.md`: validation case defined, validation not performed. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections in this README (the OFFBEAT comparison, the copied-source claim). Apparent upstream defects in code_aster are pinned by tests (see "The code_aster port"). |
+
+**Status:** the material correlations have machine-run code-to-code evidence
+against transcribed OFFBEAT kernels, two `rheology::aster` laws reproduce
+code_aster's own answers, and the mechanics solver matches closed-form
+elasticity; none of it is human-reviewed, nothing is validated against
+irradiation data, and there is still no thermal sub-solver or fuel-gap-cladding
+coupling.
+
 ## `no_std` + `alloc` (gh:#1596)
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p outram-park-fork-offbeat --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p outram-park-fork-offbeat --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). `std` turns on `outram-foam-basic-lib`'s and `thiserror`'s `std`. With `std` on (the default)
 nothing changes.
 
@@ -246,8 +292,11 @@ See `VERIFICATION_AND_VALIDATION.md`.
 
 ## Android / Termux
 
-Buildable for `aarch64-linux-android`. Dependencies are `uom`, `thiserror`, and
-`outram-foam-basic-lib` (itself pure Rust, no system BLAS), with `approx` as the
+Buildable for `aarch64-linux-android`. Dependencies are ~~`uom`, `thiserror`, and
+`outram-foam-basic-lib`~~ **CORRECTED 2026-11-27** — `petir` (added for
+cross-platform bit identity, gh:#985), `uom`, `thiserror` (the workspace's
+`thiserror-nostd` key) and `outram-foam-basic-lib`, verified in `Cargo.toml`
+(all pure Rust, no system BLAS), with `approx` as the
 only dev-dependency — nothing needing a C/Fortran toolchain or system
 BLAS/LAPACK. Verified 2026-07-30 with:
 

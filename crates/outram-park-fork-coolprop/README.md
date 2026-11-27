@@ -31,7 +31,9 @@ this fork. See NOTICE / TRADEMARKS.md.
 > `(T,ρ)/(p,T)/(p,h)/(p,s)` flashes and saturation/VLE; incompressibles cover
 > all 126 fluids (ρ/cp/k/μ/h). Known limitations: transport (μ,λ) is
 > implemented for only 48/137 fluids (corresponding-states fallback returns
-> `None`); surface tension and melting lines are absent; humid air is the
+> `None`; *Not re-checked 2026-11-27: `tests/transport_vle.rs` gates
+> viscosity on at least 42 fluids and conductivity on at least 41, separately;
+> the 48 was not recounted because no test was run*); surface tension and melting lines are absent; humid air is the
 > psychrometric core only (no cp/cv/transport, no ice branch); mixtures are
 > evaluation-only (no flash/VLE, not validated vs GERG-2008).
 
@@ -57,11 +59,54 @@ it (see `TRADEMARKS.md`). Ported from
 commit `0e67fe74b30a2fe9526af9bc64ea026a96f56ebf` (2026-07-05) — see
 `upstream_source/README.md` for the full provenance record.
 
+**Name.** `outram-park-fork-coolprop` is an OUTRAM PARK fork, named for its
+upstream; the backronym is OUTRAM PARK's own, letter by letter: **O**pen-source
+**U**nified **TRA**nsient **M**ulti-Physics **A**dvanced **R**eactor simulation
+**K**it. It sits in the TAMPINES (thermophysical properties) domain of
+`docs/ecosystem-naming.md`.
+
+**The question it answers:** what are a fluid's thermodynamic and transport
+properties at a given state, computed from the published Helmholtz-energy
+equation of state and transport correlations that CoolProp implements?
+
+**What this crate makes studyable and challengeable.** Each of CoolProp's 137
+pure-fluid equations of state is written out as plain `const` Rust
+coefficients, generated from CoolProp's own fluid JSON, so a reader can set a
+fluid file in `src/fluids/` beside the paper that published its equation and
+check the terms one by one. The term forms (`Power`, `Gaussian`,
+`NonAnalytic`, ...) are `match` arms in `src/eos.rs`, each translated from a
+named class in CoolProp's `Helmholtz.cpp`. The machine-run differential against
+CoolProp built from source records where the two codes differ in the last bits
+and why (cancellation, localised with 60-digit arithmetic), and the eight port
+defects it found. It is study material and a thing to challenge, not an
+authority: no human has reviewed it yet.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Upstream: CoolProp (I. Bell et al., MIT), commit `0e67fe74b30a2fe9526af9bc64ea026a96f56ebf` (2026-07-05), provenance in `upstream_source/README.md`. Cited in `docs/latex/references.bib`: Wagner and Pruss (2002), IAPWS-95; Span and Wagner (1996); CoolProp. Per-fluid and per-correlation citations sit in the doc comments of `src/transport.rs` (e.g. Huber et al. 2016 for CO2 conductivity, Olchowy-Sengers crossover) and the generated `src/fluids/*.rs`. No literature in `crates/kovan-literature/CATALOGUE.md` is tied to this crate. |
+| Mathematical equations | The reduced Helmholtz energy and its term forms ("Theory" below); LaTeX notes in `docs/latex/` (`01_theory_non_analytic_term`, `02_numerical_methods`, `03_implementation`, `04_walkthrough`, with PDFs); module docs of `src/eos.rs`, `src/transport.rs`, `src/mixtures/departure.rs` (GERG-2008 reducing and departure functions), `src/humid_air/` (ASHRAE RP-1485). |
+| Source code | `src/eos.rs` (Helmholtz terms), `src/fluids/` (137 generated fluids), `src/fluid.rs` (`Fluid` enum), `src/props.rs`, `src/flash.rs`, `src/vle.rs`, `src/ancillaries.rs`, `src/transport.rs`, `src/transport_corresponding_states.rs`, `src/incompressibles/` (126 fluids), `src/mixtures/` (840 binary pairs), `src/humid_air/`, `src/single_cv.rs` (`OPCPFluidSingleCV`), `src/openfoam_algorithms/` (the 1-D compressible `OPCPFluidArray`, OpenFOAM-derived); codegen in `dev/`. |
+| Interactive simulations | None yet. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `verification_and_validation/coolprop_differential/RESULTS.md` (2026-11-13, machine-run, not human-reviewed): 137 fluids against CoolProp built from source; `alphar` worst 1.2e-10 (R21), `alpha0` worst 1.9e-12, ancillary fits worst 2.0e-15; `(p,T)` flash wrong root on 3 571 of 13 603 points before the fix, 41 differ after; `(p,h)` and `(p,s)` return no state on 1 165 of 12 535 and 1 636 of 12 064 single-phase states; eight port defects found and fixed. `verification_and_validation/water_critical_point_iapws95.md` (2026-07-10): Water `p(T_c, rho_c)` to 5.2e-14 relative. `verification_and_validation/determinism_golden_moves.md`, `boundary_deltacoeffs_gh1494.md`. Tests in `tests/` (reference states, smoke tests over all fluids, pairs and incompressibles). |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. One entry in `docs/human-corrections-to-ai-work.md` (2026-08-12, energy-equation boundary conditions zero-gradient on both sides, `OPCPFluidArray`). Struck-through corrections in this README record the CoolProp differential replacing the planned oracle check. |
+
+**Status:** the pure-fluid equation of state, saturation, `(p,T)` flash and
+transport have a machine-run differential against CoolProp, and Water's
+critical point is checked against IAPWS-95; none of it is human-reviewed.
+Incompressibles, humid air and mixtures are checked only against literature
+spot values, and the `(p,h)` / `(p,s)` flashes fail on about 10 to 14 % of
+single-phase states (gh:#1350).
+
 ## `no_std` + `alloc` (gh:#1598)
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p outram-park-fork-coolprop --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p outram-park-fork-coolprop --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). Every fluid, equation of state and
 transport model stays. `std` here only turns on `outram-foam-basic-lib`'s
 `std`. With `std` on (the default) nothing changes.
@@ -75,7 +120,12 @@ transport model stays. `std` here only turns on `outram-foam-basic-lib`'s
   Rust in `src/fluids/`, generated once from CoolProp's fluid JSON by
   `dev/gen_fluid.py`. The shipped crate reads no files — a few KB per fluid
   (full IAPWS-95 Water is ~3 KB).
-- **Pure `std`, no BLAS / C dependencies** — so it also builds for Android.
+- ~~**Pure `std`, no BLAS / C dependencies** — so it also builds for Android.~~
+  **CORRECTED 2026-11-27** — no BLAS or C dependencies, so it builds for
+  Android, but not "pure `std`": since gh:#1598 the library is `no_std` +
+  `alloc` with a default `std` feature (see above), and its runtime
+  dependencies are `petir`, `uom` and `outram-foam-basic-lib`, all pure Rust
+  (verified in `Cargo.toml`).
 
 ## Theory
 
@@ -106,7 +156,10 @@ End-to-end and verified:
   its normal boiling point → `p_sat` = 101 325 Pa, `ρ'` = 806, `ρ''` = 4.61
   kg/m³; Water at 100 °C → `ρ'` = 958.4 (both matching literature).
 - **Transport** (`transport`): dynamic viscosity `μ` (42 fluids) and thermal
-  conductivity `λ` (45 fluids) — the CoolProp correlations, the near-critical
+  conductivity `λ` (~~45 fluids~~ **CORRECTED 2026-11-27** — at least 41
+  fluids, gated by `coverage_counts` in `tests/transport_vle.rs`: since
+  gh:#1349, R152A, R1234yf, R1234ze(E) and EthylBenzene return `None` because
+  their conductivity silently lacked its critical term) — the CoolProp correlations, the near-critical
   enhancement (**Olchowy–Sengers** + the ammonia/R123 terms), **friction /
   kinetic theory** (methane, H₂S, SF₆, n-pentane, R125), and **all** the
   per-fluid hardcoded formulas: Helium, Water (IAPWS R12-08/R15-11), CO₂
@@ -249,7 +302,11 @@ Tracked follow-ups (beads `op-kbc`):
 
 - **Per-fluid reference tests** beyond the nine already pinned (the rest are
   covered only by the critical-point smoke test).
-- **`rfluids` verification** (CoolProp oracle) as a dev-dependency.
+- ~~**`rfluids` verification** (CoolProp oracle) as a dev-dependency.~~
+  **CORRECTED 2026-11-27** — superseded: the CoolProp oracle check was done
+  instead by building CoolProp from source and sweeping all 137 fluids
+  (`verification_and_validation/coolprop_differential/`, gh:#1349); no
+  `rfluids` dev-dependency exists (checked `Cargo.toml`).
 - **`uom`-typed public API** (internally raw `f64` SI).
 
 ## Regenerating fluid data (codegen)

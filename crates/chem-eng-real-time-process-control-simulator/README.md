@@ -1,7 +1,43 @@
 # chem-eng-real-time-process-control-simulator
 
+**Name.** This crate has no MRT-station name or backronym (it has no row in
+`docs/ecosystem-naming.md`); its name is descriptive: a **chem**ical
+**eng**ineering **real-time process-control simulator**.
+
+**Scope, and the one question it answers:** what does a transfer-function
+block or a PID controller output at the next time step, exactly and in
+constant time, inside a time-stepping simulator? Within OUTRAM PARK it
+supplies the PID controllers of the TUAS natural-circulation loops and the
+FHR educational simulators.
+
+This crate makes **process-control discretisation studyable and
+challengeable**: each first-order, second-order, decaying-sinusoid and
+decaying-exponential block is advanced by its exact zero-order-hold
+recurrence, which a student can derive from the continuous transfer function
+and check against the closed-form superposition the tests keep as a
+reference. The `c2d`/`d2c` core is a port of GNU Octave's control package,
+differenced against Octave itself.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Seborg, Edgar, Mellichamp & Doyle, *Process Dynamics and Control*; Perry's handbook (References below); Åström & Wittenmark, Franklin, Powell & Workman, Ogata, Hochbruck & Ostermann, Oppenheim & Schafer and Smith, cited in the module docs (`AGENTS.md`). No catalogue entry in `crates/kovan-literature/CATALOGUE.md` names this crate. Upstream code: GNU Octave [control package](https://github.com/gnu-octave/pkg-control), commit `f39e2625` (GPL-3.0-or-later side only; no BSD-3 SLICOT code; `NOTICE`). |
+| Mathematical equations | The ZOH recurrences in the module docs of `src/lib/*/stable_transfer_functions/` (first-order update written below); `c2d`/`d2c` by ZOH, Tustin, prewarped Tustin and matched pole/zero in `src/lib/beta_testing/z_domain/`. |
+| Source code | `src/lib/`: `stable`, `beta_testing` (controllers, transfer functions, `z_domain`), `alpha_nightly` (the tier TUAS imports); demos in `src/examples/`; the `library_demo` binary `src/main.rs`. |
+| Interactive simulations | None yet. The `library_demo` binary runs the demos in `src/examples/` and writes CSV. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `src/lib/*/stable_transfer_functions/recurrence_tests.rs` (recurrences against analytic superposition, O(1) cost tests) and `src/lib/beta_testing/z_domain/verification_tests.rs` (ZOH `c2d` reproduces the recurrence block to 1.2e-14 over 200 samples). `verification_and_validation/octave_differential/RESULTS.md` (2026-11-13): Tustin worst 8.9e-15, ZOH worst 8.1e-14, `dcgain` bit-identical 9/9; prewarp missed its prediction (1.5e-13), and matched pole/zero matches control 4.3.0 but not 4.0.1 (an upstream change). The run used Octave control 4.0.1 and 4.3.0, not the cited commit. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. The maintainer's Scilab comparison in the PhD dissertation is cited in `AGENTS.md` but is not reproducible from this repository. No entry in `docs/human-corrections-to-ai-work.md` names this crate. |
+
+**Status:** declared mature on 2026-09-05 (`AGENTS.md`) on analytical tests;
+the Octave differential is an AI draft not yet reviewed by a human, and
+there is no human V&V sign-off.
 
 A real-time process control simulator library for chemical engineering 
 and other engineering.
@@ -94,18 +130,36 @@ default) nothing changes.
 ## to run 
 
 ```bash
-cargo run --release
+cargo run --release -p chem-eng-real-time-process-control-simulator
 ```
 To watch:
 ```bash
-cargo watch -x run --ignore "*.csv"
+cargo watch -x "run --release -p chem-eng-real-time-process-control-simulator" --ignore "*.csv"
 ```
+
+(Fixed 2026-11-27: `-p` added so the commands work from the workspace root,
+and ~~`cargo watch -x run`~~ now passes `--release`, per the workspace rule
+that everything is built in release mode.)
 
 ## Documentation
 
 TBD. Theory of basic items is in my PhD thesis (to be published later).
 
 Citations appreciated.
+
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
+(Added 2026-11-27: this README had no Bookkeeping table; both axes are left
+unchecked because no sign-off is recorded for this crate.)
 
 ## Licenses 
 
