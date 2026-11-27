@@ -266,16 +266,14 @@ fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, 
     if layered.n_cells < before {
         return Err(format!("thermal-hydraulics: the layered mesh has {} cells, fewer than the {before} it was grown on", layered.n_cells));
     }
-    // The layerer rebuilds the mesh; name its boundary faces again by the
-    // nearest outer triangle of the fitted surface.
-    let (mut otris, mut labels) = (Vec::new(), Vec::new());
-    for (t, &mk) in fitted.surf.tris.iter().zip(&fitted.surf.marker) {
-        if !fitted.surf.interface[mk] {
-            otris.push(*t);
-            labels.push(fitted.surf.patch_names[mk].as_str());
-        }
-    }
-    let mut named = assign_patches_by_region(&layered, &fitted.surf.points, &otris, &SurfaceRegions::from_labels(&labels))?;
+    // The layerer rebuilds the mesh without its patch names: name its
+    // boundary faces again from the TH domain's own geometry
+    // ([`name_th_patches`]). ~~By the nearest triangle of the fitted
+    // surface~~ (2026-11-26): that surface is faceted, the mesh is snapped
+    // out to the true radius, so a disc face at the rim lay as near a wall
+    // facet as its own disc, and a layer prism's end face on the inlet was
+    // named `cavity_wall` (a point 1 cm inside the wall on that patch).
+    let mut named = name_th_patches(&layered, d);
     let q = outram_park_fork_cfmesh::checks::check_quality(&named);
     if named.validate().is_err() || q.n_negative_volume_cells != 0 {
         notes.push("boundary layers skipped: they would invalidate the mesh".into());
@@ -300,6 +298,55 @@ fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, 
     }
     notes.push(interface_quality_note(&named, &cell_region));
     Ok(RoleMesh { vm: named, notes, cell_type: CellType::TetDualWithLayers, cell_region, exact_cm3 })
+}
+
+/// Name the boundary faces of a Step 7 thermal-hydraulics mesh (the bed
+/// and the cavity, `r <= core_radius`, `conus_top <= z <= cavity_top`) by
+/// their geometry: a face whose unit normal is mostly axial (`|n_z| >= 0.5`,
+/// the rule of [`snap_faces_to_revolved`]) is `inlet` at the top and
+/// `outlet` at the bottom; any other is the side wall, `cavity_wall` above
+/// `bed_top` and `bed_wall` along the bed (the fitted surface has a ring at
+/// `bed_top`, so no face straddles it). Internal faces keep their order.
+fn name_th_patches(mesh: &VolumeMesh, d: &RzDomain) -> VolumeMesh {
+    use outram_park_fork_cfmesh::volume_mesh::BoundaryPatch;
+    const NAMES: [&str; 4] = ["inlet", "outlet", "cavity_wall", "bed_wall"];
+    let zmid = 0.5 * (d.conus_top + d.cavity_top) / 100.0;
+    let zbed = d.bed_top / 100.0;
+    let mut order: Vec<usize> = (0..mesh.face_count()).filter(|&f| mesh.neighbour[f].is_some()).collect();
+    let mut buckets: [Vec<usize>; 4] = Default::default();
+    for f in 0..mesh.face_count() {
+        if mesh.neighbour[f].is_some() {
+            continue;
+        }
+        let a = mesh.face_area_vector(f);
+        let c = mesh.face_centroid(f);
+        let axial = a.z.abs() >= 0.5 * (a.x * a.x + a.y * a.y + a.z * a.z).sqrt();
+        let k = if axial {
+            if c.z > zmid { 0 } else { 1 }
+        } else if c.z > zbed {
+            2
+        } else {
+            3
+        };
+        buckets[k].push(f);
+    }
+    let mut patches = Vec::new();
+    for (k, b) in buckets.iter().enumerate() {
+        if b.is_empty() {
+            continue;
+        }
+        patches.push(BoundaryPatch { name: NAMES[k].to_string(), start_face: order.len(), n_faces: b.len() });
+        order.extend(b.iter().copied());
+    }
+    VolumeMesh {
+        points: mesh.points.clone(),
+        faces: order.iter().map(|&f| mesh.faces[f].clone()).collect(),
+        owner: order.iter().map(|&f| mesh.owner[f]).collect(),
+        neighbour: order.iter().map(|&f| mesh.neighbour[f]).collect(),
+        n_cells: mesh.n_cells,
+        patches,
+        cells: None,
+    }
 }
 
 fn kinds(m: &UnstructuredMesh) -> Vec<(String, usize)> {
