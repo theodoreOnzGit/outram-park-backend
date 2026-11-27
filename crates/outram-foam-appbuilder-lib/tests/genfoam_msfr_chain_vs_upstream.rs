@@ -164,8 +164,10 @@ fn the_case_inputs_are_read_from_files() {
     assert_eq!(settings.coupling.max_iterations, 3);
     assert_eq!(stage.fluid.time(), 15.0);
     // the constants the neutronics gets from the fluid thermo are the ones round 9 typed in
-    assert_eq!(stage.fluid.case().thermo.mu, 0.01);
-    assert!(((stage.fluid.case().thermo.alpha_h() - 0.01 / 8.0) / (0.01 / 8.0)).abs() < 1e-15);
+    // (`OnePhaseCcCase::thermo` is a `PhaseThermo` since gh:#1913; `props(p, T).mu` is the constant `mu` of the Boussinesq package)
+    assert_eq!(stage.fluid.case().thermo.props(1e5, 900.0).mu, 0.01);
+    let alpha_h = stage.fluid.case().thermo.alpha_h_const().expect("a Boussinesq/hConst/const thermo has a constant alphah");
+    assert!(((alpha_h - 0.01 / 8.0) / (0.01 / 8.0)).abs() < 1e-15);
 }
 
 /// The stages without a port are refused by name (`steadyStateTH` is ported since gh:#1841, round 21).
