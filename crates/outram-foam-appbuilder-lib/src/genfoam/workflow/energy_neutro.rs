@@ -55,11 +55,8 @@ use core::cell::RefCell;
 use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition;
-use outram_foam_basic_lib::fields::field::Field;
-use outram_foam_basic_lib::fields::vol_field::VolVectorField;
-use outram_foam_basic_lib::fv_operators::fvc;
 use outram_foam_basic_lib::ldu_matrix::SolverSettings;
-use outram_foam_basic_lib::mesh::{FvMesh, PatchKind};
+use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use super::{ReactorState, WorkflowError};
@@ -74,24 +71,43 @@ use crate::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettin
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{OnePhaseCcReport, OnePhaseCcSolver};
 
-/// `phi = fvc::flux(U alpha)` on the neutronics mesh as `precEq.H` sees it; wedge patches carry no flux.
+/// How the workflow's neutronics solves its linear systems (gh:#1890, round 43).
+///
+/// Upstream reads the entries of the case's `system/neutroRegion/fvSolution`
+/// ([`NeutronLinear::FvSolution`], the default of [`super::allrun::AllrunEdits`]); the earlier form handed the
+/// flux solver an explicit tolerance and kept it as the named option [`NeutronLinear::Explicit`].
+#[derive(Debug, Clone, Copy)]
+pub enum NeutronLinear {
+    /// The `solvers` entries of the neutronics `fvSolution` (`io::nuclear_data::read_neutron_fv_solution`).
+    FvSolution(crate::genfoam::common::linear_solvers::NeutronSolverEntries),
+    /// `PCG`/`DIC`, `PBiCG`/`DILU` and `PBiCGStab`/`DILU` at one explicit `tolerance` and `maxIter`, `relTol 0`.
+    Explicit(SolverSettings),
+}
+
+impl NeutronLinear {
+    /// The diffusion settings carrying this choice.
+    #[must_use]
+    pub fn diffusion_settings(self) -> DiffusionSettings {
+        match self {
+            Self::FvSolution(entries) => DiffusionSettings::default().with_fv_solution(entries),
+            Self::Explicit(linear) => DiffusionSettings { linear, ..DiffusionSettings::default() },
+        }
+    }
+}
+
+/// `phi = fvc::flux(U alpha)` on the neutronics mesh as `precEq.H` sees it, wedge patches included
+/// ([`crate::genfoam::neutronics::diffusion::precursor_drift::upstream_precursor_transport`], gh:#1891: a wedge face
+/// carries the flux of `transform(faceT, U) alpha`, a few 1e-14, not 0).
 /// `u` is one velocity per cell, `alpha` the fluid fraction, `diffusivity` is overwritten each step.
 #[must_use]
 pub fn precursor_transport_from_velocity(mesh: &Arc<FvMesh>, u: &[Vector3], alpha: &[f64]) -> PrecursorTransport {
-    let n = mesh.n_cells;
-    let mut field = VolVectorField::uniform("U", mesh.clone(), Vector3::new(0.0, 0.0, 0.0));
-    field.internal = Field::new((0..n).map(|c| u[c] * alpha[c]).collect());
-    let phi = fvc::flux(&field);
-    let phi_internal: Vec<f64> = (0..mesh.n_internal_faces).map(|f| phi.internal[f]).collect();
-    let phi_boundary: Vec<Vec<f64>> = mesh
-        .patches
-        .iter()
-        .enumerate()
-        .map(|(pi, p)| {
-            (0..p.size).map(|fi| if p.kind == PatchKind::Wedge { 0.0 } else { phi.boundary[pi].values[fi] }).collect()
-        })
-        .collect();
-    PrecursorTransport::new(mesh, alpha.to_vec(), phi_internal, phi_boundary, vec![0.0; n])
+    crate::genfoam::neutronics::diffusion::precursor_drift::upstream_precursor_transport(mesh, u, alpha)
+}
+
+/// The form before gh:#1891 (round 43): the wedge faces carry exactly zero flux. Kept as the named option.
+#[must_use]
+pub fn precursor_transport_from_velocity_zero_wedge_flux(mesh: &Arc<FvMesh>, u: &[Vector3], alpha: &[f64]) -> PrecursorTransport {
+    crate::genfoam::neutronics::diffusion::precursor_drift::precursor_transport_zero_wedge_flux(mesh, u, alpha)
 }
 
 /// The `controlDict` entries of the `steadyStateEN` stage.
@@ -167,7 +183,7 @@ impl EnergyNeutroDiffusion {
         zone_map: Vec<usize>,
         albedo: &[(String, f64)],
         controls: UpstreamTransientControls,
-        linear: SolverSettings,
+        linear: NeutronLinear,
         reactor: ReactorState,
         initial_flux: f64,
         initial_prec: f64,
@@ -180,7 +196,7 @@ impl EnergyNeutroDiffusion {
         let rho0 = fluid.thermo_density();
         let params0: Vec<f64> = t0.iter().zip(&rho0).flat_map(|(&t, &r)| [t, r]).collect();
         let flux_boundary: Vec<BoundaryCondition<f64>> = mesh.patches.iter().map(|_| BoundaryCondition::ZeroGradient).collect();
-        let settings = DiffusionSettings { linear, ..DiffusionSettings::default() };
+        let settings = linear.diffusion_settings();
         let mut neutro =
             DiffusionNeutronics::new_with_cell_parameters(mesh.clone(), &xs, &zone_map, &params0, &flux_boundary, settings)?;
         for (name, gamma) in albedo {

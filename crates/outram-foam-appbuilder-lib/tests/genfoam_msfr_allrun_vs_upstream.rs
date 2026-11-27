@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use miniz_oxide::inflate::decompress_to_vec;
+use outram_foam_basic_lib::ldu_matrix::SolverSettings;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{
     CaseReadOptions, GamgPolicy, OnePhaseCcCase,
 };
@@ -124,6 +125,9 @@ fn stage(tag: &str, tight: bool) -> RootCase {
     copy_dir(&vv_dir().join("cases/msfr_root"), &root);
     if tight {
         tighten(&root.join("system/fluidRegion/fvSolution"));
+        // gh:#1890 (round 43): the workflow reads the neutronics `fvSolution`, so the staged file is tightened as
+        // upstream's runs did (`run_msfr_chain.sh tighten_solvers` edits every `system/*/fvSolution`).
+        tighten(&root.join("system/neutroRegion/fvSolution"));
     }
     let src = vv_dir().join("cases/msfr_neutro/polyMesh");
     let fluid = tmp.join("fluidMesh");
@@ -231,6 +235,59 @@ fn the_fluid_fields_of_the_th_stage_start_the_en_stage_bitwise() {
     let NormalisedState::EnergyNeutroDiffusion { history, .. } = state else { panic!("EN state") };
     assert_eq!(history.len(), 2);
     assert!(history[0].k_eff > 0.0 && history[0].power > 0.0);
+}
+
+/// The history and final fluxes of the EN stage of `edits` on `root` (TH 0.004 s, then 2 EN steps).
+fn en_two_steps(root: &RootCase, edits: &AllrunEdits) -> (Vec<(f64, f64, f64)>, Vec<Vec<f64>>) {
+    let th = root.steady_state_th(edits).expect("rootCase").run().expect("th stage");
+    let en = root.steady_state_en(th, edits).expect("EN stage");
+    let state = en.run().expect("EN");
+    let NormalisedState::EnergyNeutroDiffusion { stage, history } = state else { panic!("EN state") };
+    let flux = (0..stage.neutro.energy_groups()).map(|g| stage.neutro.state().flux()[g].internal.as_slice().to_vec()).collect();
+    (history.iter().map(|r| (r.k_eff, r.power, r.neutro_residual)).collect(), flux)
+}
+
+/// gh:#1890 (README round 43, W1-W5): the workflow reads the neutronics `fvSolution` of the root case.
+///
+/// W1: with the staged file tightened (as upstream's runs), the default (read the file) and the named explicit option
+/// (`tolerance 1e-14`, `maxIter 100000`) give the same EN history and fluxes. W2 (control): the SHIPPED file (flux and
+/// precursor entries `relTol 1e-1`) moves them. W5: an entry the port does not translate is refused by name.
+#[test]
+fn the_workflow_reads_the_neutronics_fv_solution() {
+    let edits = AllrunEdits { end_time_th: 0.004, write_interval_th: None, end_time_en: 0.004 + 0.5, delta_t_en: 0.25, ..AllrunEdits::default() };
+    let root = stage("fvsol_tight", true);
+    let (h_file, f_file) = en_two_steps(&root, &edits);
+    let explicit = edits.clone().with_explicit_neutron_linear(SolverSettings { tolerance: 1e-14, max_iter: 100_000 });
+    let (h_expl, f_expl) = en_two_steps(&root, &explicit);
+    println!("W1 file {h_file:?}\n   explicit {h_expl:?}");
+    assert_eq!(h_file.len(), 2);
+    let bit_identical = h_file == h_expl && f_file == f_expl;
+    let worst = h_file.iter().zip(&h_expl).map(|(a, b)| ((a.0 - b.0) / b.0).abs().max(((a.1 - b.1) / b.1).abs())).fold(0.0, f64::max);
+    println!("W1 bit-identical {bit_identical}, worst keff/power difference {worst:.3e}");
+    assert!(worst < 1e-12, "W1: {worst:e}");
+
+    // W2: the shipped neutronics file read by the workflow
+    let loose = stage("fvsol_shipped", false);
+    let th_edits = edits.clone();
+    let tight_th = {
+        // the fluid file of the control is tightened too, so only the neutronics file differs from the W1 run
+        tighten(&loose.root.join("system/fluidRegion/fvSolution"));
+        &loose
+    };
+    let (h_ship, _) = en_two_steps(tight_th, &th_edits);
+    let moved = h_ship.iter().zip(&h_file).map(|(a, b)| ((a.0 - b.0) / b.0).abs().max(((a.1 - b.1) / b.1).abs())).fold(0.0, f64::max);
+    println!("W2 shipped neutronics fvSolution: keff/power moved by {moved:.3e}");
+    assert!(moved > 1e-9, "W2: the shipped relTol 1e-1 must act: {moved:e}");
+
+    // W5: an unported solver in the file is refused, naming the entry
+    let bad = stage("fvsol_bad", true);
+    let p = bad.root.join("system/neutroRegion/fvSolution");
+    let text = std::fs::read_to_string(&p).expect("fvSolution");
+    std::fs::write(&p, text.replacen("PCG", "smoothSolver", 1)).expect("write");
+    let th = bad.steady_state_th(&edits).expect("rootCase").run().expect("th stage");
+    let err = bad.steady_state_en(th, &edits).expect_err("smoothSolver refused").to_string();
+    println!("W5 {err}");
+    assert!(err.contains("smoothSolver") || err.contains("flux"), "{err}");
 }
 
 /// The remaining refusals are by name: `GAMG` when not substituted, a coupling dictionary that maps, a non-TH state,

@@ -89,7 +89,7 @@ fn norm_factor(a: &LduMatrix, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 
 
 /// `lduMatrix::Tmul` (transpose product): `Tpsi[c] = diag*psi`, then per face
 /// `Tpsi[u] += upper*psi[l]`, `Tpsi[l] += lower*psi[u]`.
-fn t_mul(a: &LduMatrix, x: &[f64]) -> Vec<f64> {
+pub(crate) fn t_mul(a: &LduMatrix, x: &[f64]) -> Vec<f64> {
     let mut y: Vec<f64> = (0..a.n_cells).map(|c| a.diag[c] * x[c]).collect();
     for f in 0..a.n_internal_faces {
         y[a.neighbour[f]] += a.upper[f] * x[a.owner[f]];
@@ -126,7 +126,7 @@ pub(crate) fn dilu_precondition(a: &LduMatrix, r_d: &[f64], r_a: &[f64], w_a: &m
 /// `DILUPreconditioner::preconditionT`. The reverse sweep runs over `losort` (faces sorted by
 /// neighbour cell); on an upper-triangularly ordered mesh that list is a permutation of the faces
 /// ordered by `(neighbour, face)`, reproduced here with a stable sort.
-fn dilu_precondition_t(a: &LduMatrix, losort: &[usize], r_d: &[f64], r_t: &[f64], w_t: &mut [f64]) {
+pub(crate) fn dilu_precondition_t(a: &LduMatrix, losort: &[usize], r_d: &[f64], r_t: &[f64], w_t: &mut [f64]) {
     for c in 0..a.n_cells {
         w_t[c] = r_d[c] * r_t[c];
     }
@@ -141,7 +141,7 @@ fn dilu_precondition_t(a: &LduMatrix, losort: &[usize], r_d: &[f64], r_t: &[f64]
 
 /// `lduAddressing::losortAddr`: the faces ordered by neighbour cell, ties in face order (upstream's
 /// `calcLosort` is a counting sort over `upperAddr`, which is stable).
-fn losort(a: &LduMatrix) -> Vec<usize> {
+pub(crate) fn losort(a: &LduMatrix) -> Vec<usize> {
     let mut idx: Vec<usize> = (0..a.n_internal_faces).collect();
     idx.sort_by_key(|&f| a.neighbour[f]);
     idx

@@ -226,6 +226,139 @@ impl PrecursorTransport {
     }
 }
 
+/// `wedgePolyPatch::calcGeometry` (OpenFOAM-v2506 `wedgePolyPatch.C:46-112`): the face transformation tensor
+/// `faceT_ = rotationTensor(centreNormal_, n_)` of wedge patch `patch`, `n_` the average of the patch's face normals
+/// (`gAverage`), `centreNormal_` the coordinate-plane normal it is symmetric about. `None` for a patch that is not a
+/// wedge or is empty. (gh:#1891: the wedge patch value of a vector field is `transform(faceT_, cell value)`, which is
+/// what makes `fvc::flux` on a wedge face a few 1e-14 instead of exactly 0.)
+///
+/// The face normals are `Sf/|Sf|` of the mesh; upstream's `faceNormals()` come from the patch points, which can differ
+/// in the last bit (the test against the instrumented binary says how much).
+#[must_use]
+pub fn wedge_face_t(mesh: &FvMesh, patch: usize) -> Option<[[f64; 3]; 3]> {
+    use outram_foam_basic_lib::prelude::Vector3;
+    let p = mesh.patches.get(patch)?;
+    if p.kind != outram_foam_basic_lib::mesh::PatchKind::Wedge || p.size == 0 {
+        return None;
+    }
+    let mut sum = Vector3::new(0.0, 0.0, 0.0);
+    for fi in 0..p.size {
+        let s = mesh.face_area_vectors[p.start + fi];
+        sum += s / s.mag();
+    }
+    let n2 = sum / (p.size as f64);
+    let sign = |x: f64| if x >= 0.0 { 1.0 } else { -1.0 };
+    let comp = |x: f64| sign(x) * (x.abs().max(0.5) - 0.5);
+    let mut n1 = Vector3::new(comp(n2.x), comp(n2.y), comp(n2.z));
+    let m = n1.mag();
+    if m > 1e-150 {
+        n1 = n1 / m;
+    }
+    // transform.H `rotationTensor(n1, n2)`
+    let s = n1.dot(n2);
+    let n3 = n1.cross(n2);
+    let mag_sqr_n3 = n3.mag_sqr();
+    let n1a = [n1.x, n1.y, n1.z];
+    let n2a = [n2.x, n2.y, n2.z];
+    let n3a = [n3.x, n3.y, n3.z];
+    let mut t = [[0.0; 3]; 3];
+    if mag_sqr_n3 > 1e-15 {
+        for i in 0..3 {
+            for j in 0..3 {
+                let ident = if i == j { 1.0 } else { 0.0 };
+                let a = s * ident;
+                let b = ((1.0 - s) * (n3a[i] * n3a[j])) / mag_sqr_n3;
+                let c = n2a[i] * n1a[j] - n1a[i] * n2a[j];
+                t[i][j] = (a + b) + c;
+            }
+        }
+    } else if s < 0.0 {
+        for i in 0..3 {
+            for j in 0..3 {
+                let ident = if i == j { 1.0 } else { 0.0 };
+                t[i][j] = ident + 2.0 * (n1a[i] * n2a[j]);
+            }
+        }
+    } else {
+        for i in 0..3 {
+            t[i][i] = 1.0;
+        }
+    }
+    Some(t)
+}
+
+/// `phi = fvc::flux(U*alpha)` on the neutronics mesh, with the patch values upstream's fields carry
+/// (`solveNeutronics.H:48`, gh:#1891): internal faces linear (`w (P - N) + N` then `Sf & .`), every patch the cell
+/// value (`zeroGradient`) except the wedge patches, whose `U` is `transform(faceT_, U_cell)`
+/// (`wedgeFvPatchField::evaluate`) so their flux is `Sf & (faceT U alpha)`, about 1e-14 and not 0. `diffusivity` is
+/// zero until set. The earlier form, which gave wedge faces exactly zero flux, is
+/// [`precursor_transport_zero_wedge_flux`].
+#[must_use]
+pub fn upstream_precursor_transport(
+    mesh: &Arc<FvMesh>,
+    u: &[outram_foam_basic_lib::prelude::Vector3],
+    alpha: &[f64],
+) -> PrecursorTransport {
+    use outram_foam_basic_lib::prelude::{Field as F, Vector3};
+    let n = mesh.n_cells;
+    let mut field = outram_foam_basic_lib::prelude::VolVectorField::uniform("U", mesh.clone(), Vector3::new(0.0, 0.0, 0.0));
+    field.internal = F::new((0..n).map(|c| u[c] * alpha[c]).collect());
+    let phi = fvc::flux(&field);
+    let phi_internal: Vec<f64> = (0..mesh.n_internal_faces).map(|f| phi.internal[f]).collect();
+    let mut phi_boundary: Vec<Vec<f64>> = Vec::with_capacity(mesh.patches.len());
+    for (pi, p) in mesh.patches.iter().enumerate() {
+        let rot = wedge_face_t(mesh, pi);
+        let mut vals = Vec::with_capacity(p.size);
+        for fi in 0..p.size {
+            let gf = p.start + fi;
+            let c = mesh.owner[gf];
+            let sf = mesh.face_area_vectors[gf];
+            let v = match rot {
+                Some(t) => {
+                    let uc = u[c];
+                    let tv = Vector3::new(
+                        t[0][0] * uc.x + t[0][1] * uc.y + t[0][2] * uc.z,
+                        t[1][0] * uc.x + t[1][1] * uc.y + t[1][2] * uc.z,
+                        t[2][0] * uc.x + t[2][1] * uc.y + t[2][2] * uc.z,
+                    );
+                    tv * alpha[c]
+                }
+                None => u[c] * alpha[c],
+            };
+            vals.push(sf.dot(v));
+        }
+        phi_boundary.push(vals);
+    }
+    PrecursorTransport::new(mesh, alpha.to_vec(), phi_internal, phi_boundary, vec![0.0; n])
+}
+
+/// The earlier form of [`upstream_precursor_transport`] (before gh:#1891): the same `fvc::flux(U alpha)` with the
+/// wedge patch faces set to exactly 0, as the one-way tests of rounds 6 to 14 and the workflow did.
+#[must_use]
+pub fn precursor_transport_zero_wedge_flux(
+    mesh: &Arc<FvMesh>,
+    u: &[outram_foam_basic_lib::prelude::Vector3],
+    alpha: &[f64],
+) -> PrecursorTransport {
+    use outram_foam_basic_lib::prelude::{Field as F, Vector3};
+    let n = mesh.n_cells;
+    let mut field = outram_foam_basic_lib::prelude::VolVectorField::uniform("U", mesh.clone(), Vector3::new(0.0, 0.0, 0.0));
+    field.internal = F::new((0..n).map(|c| u[c] * alpha[c]).collect());
+    let phi = fvc::flux(&field);
+    let phi_internal: Vec<f64> = (0..mesh.n_internal_faces).map(|f| phi.internal[f]).collect();
+    let phi_boundary: Vec<Vec<f64>> = mesh
+        .patches
+        .iter()
+        .enumerate()
+        .map(|(pi, p)| {
+            (0..p.size)
+                .map(|fi| if p.kind == outram_foam_basic_lib::mesh::PatchKind::Wedge { 0.0 } else { phi.boundary[pi].values[fi] })
+                .collect()
+        })
+        .collect();
+    PrecursorTransport::new(mesh, alpha.to_vec(), phi_internal, phi_boundary, vec![0.0; n])
+}
+
 /// Build the `lambda_k * alpha` removal coefficient field `[1/s]` for one
 /// precursor group.
 #[must_use]

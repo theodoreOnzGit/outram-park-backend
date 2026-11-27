@@ -78,6 +78,27 @@ use super::super::units::HeatFlux;
 /// value's provenance.
 pub(crate) const STEFAN_BOLTZMANN_SIGMA: f64 = 5.670_374_419e-8;
 
+/// `constant::physicoChemical::sigma.value()` as OpenFOAM-ESI v2506 computes it (gh:#1871, round 51).
+///
+/// `physicoChemicalConstants.C`: `sigma = (sqr(pi)/60) * pow4(k) / (pow3(hr) * sqr(c))` with `hr = h/twoPi`,
+/// and the SI defaults of `etc/controlDict` (`c = 2.99792e+08`, `h = 6.62607e-34`, `k = 1.38065e-23`: five
+/// significant figures, NOT CODATA). Value: `5.6704085580608236e-08`, **6.0e-6 relative above** the CODATA-2018
+/// [`STEFAN_BOLTZMANN_SIGMA`]. `blackBodyRadiation` uses this one, so the port's BC does too; the other users of
+/// [`STEFAN_BOLTZMANN_SIGMA`] in this crate (`solid_conduction`) keep their value (not part of this change: see
+/// gh:#1871's follow-up issue).
+#[must_use]
+pub fn openfoam_stefan_boltzmann_sigma() -> f64 {
+    let c: f64 = 2.99792e+08;
+    let h: f64 = 6.62607e-34;
+    let k: f64 = 1.38065e-23;
+    let pi = core::f64::consts::PI;
+    let hr = h / (2.0 * pi);
+    let sqr = |x: f64| x * x;
+    let pow3 = |x: f64| x * sqr(x);
+    let pow4 = |x: f64| sqr(sqr(x));
+    (sqr(pi) / 60.0) * pow4(k) / (pow3(hr) * sqr(c))
+}
+
 /// A black-body radiative wall boundary condition.
 ///
 /// Port of `blackBodyRadiationFvPatchScalarField`: given the wall's
@@ -137,7 +158,9 @@ impl BlackBodyRadiationBc {
         let t_cell = cell_temperature.get::<kelvin>();
         let t_face = face_temperature.get::<kelvin>();
         let d = cell_to_face_distance.get::<meter>();
-        HeatFlux::new::<watt_per_square_meter>((kappa * (t_cell - t_face) / d).abs())
+        // gh:#1871: upstream `Foam::mag(-kappa_ * (Tp[i] - Ti[i]) * invD[i])` with `invD = deltaCoeffs`
+        // (~~`|kappa (Tcell - Tface) / d|`~~, which differs in the last bit).
+        HeatFlux::new::<watt_per_square_meter>(((-kappa * (t_face - t_cell)) * (1.0 / d)).abs())
     }
 
     /// The Stefan-Boltzmann face temperature implied by a heat flux `q''`:
@@ -147,8 +170,40 @@ impl BlackBodyRadiationBc {
         let q = heat_flux.get::<watt_per_square_meter>();
         let eps = self.emissivity.get::<ratio>();
         let t_a = self.ambient_temperature.get::<kelvin>();
-        let t4 = q / (STEFAN_BOLTZMANN_SIGMA * eps) + t_a.r_powi(4);
-        ThermodynamicTemperature::new::<kelvin>(t4.r_powf(0.25))
+        // gh:#1871: upstream `pow(q/(sigma*emissivity) + pow4(Ta), 1.0/4.0)` with OpenFOAM's own sigma
+        // (~~CODATA-2018 sigma and `powi(4)`~~) and `pow4(x) = sqr(sqr(x))`.
+        let t4 = q / (openfoam_stefan_boltzmann_sigma() * eps) + (t_a * t_a) * (t_a * t_a);
+        ThermodynamicTemperature::new::<kelvin>(t4.r_powf(1.0 / 4.0))
+    }
+
+    /// One face of upstream's `updateCoeffs()` loop, in upstream's own operations (gh:#1871).
+    ///
+    /// ```text
+    /// if (Ti[i] > 0) { q = mag(-kappa_*(Tp[i] - Ti[i])*invD[i]);
+    ///                  Tp[i] = pow(q/(sigma_*emissivity_) + pow4(Ta_), 1.0/4.0); }
+    /// ```
+    /// `inv_delta_coeff` is `patch().deltaCoeffs()` (`1/|delta|`, taken from the mesh); a face with `Ti <= 0`
+    /// keeps its value. NOTE upstream's constructor never reads the dictionary's `value`: the initial patch
+    /// value is uninitialised memory (see the V&V record), so the caller must supply the state.
+    #[must_use]
+    pub fn update_face_upstream(&self, tp: f64, ti: f64, inv_delta_coeff: f64) -> f64 {
+        if ti > 0.0 {
+            let kappa = self.kappa.get::<watt_per_meter_kelvin>();
+            let eps = self.emissivity.get::<ratio>();
+            let t_a = self.ambient_temperature.get::<kelvin>();
+            let q = ((-kappa * (tp - ti)) * inv_delta_coeff).abs();
+            (q / (openfoam_stefan_boltzmann_sigma() * eps) + (t_a * t_a) * (t_a * t_a)).r_powf(1.0 / 4.0)
+        } else {
+            tp
+        }
+    }
+
+    /// [`Self::update_face_upstream`] over a patch (`Tp`, `Ti`, `deltaCoeffs` per face).
+    #[must_use]
+    pub fn update_patch_upstream(&self, tp: &[f64], ti: &[f64], inv_delta_coeff: &[f64]) -> Vec<f64> {
+        assert_eq!(tp.len(), ti.len());
+        assert_eq!(tp.len(), inv_delta_coeff.len());
+        (0..tp.len()).map(|i| self.update_face_upstream(tp[i], ti[i], inv_delta_coeff[i])).collect()
     }
 
     /// One outer-iteration update step, mirroring upstream's `updateCoeffs()`
@@ -214,10 +269,10 @@ mod tests {
             k(300.0),
         );
 
-        let sigma = 5.670_374_419e-8_f64;
+        let sigma = openfoam_stefan_boltzmann_sigma(); // gh:#1871: was the CODATA-2018 5.670_374_419e-8, expected 56244.443_86
         let t_face_target = 1000.0_f64;
         let q_hand = sigma * (t_face_target.r_powi(4) - 300.0_f64.r_powi(4));
-        assert!((q_hand - 56244.443_86).abs() < 1e-1, "q_hand = {q_hand}");
+        assert!((q_hand - 56244.782_487).abs() < 1e-3, "q_hand = {q_hand}");
 
         let t_face = bc.face_temperature_from_flux(wpsm(q_hand));
         assert!(
@@ -294,7 +349,7 @@ mod tests {
             t_face_from_flux.get::<kelvin>()
         );
 
-        let hand_t4 = q_expected / (5.670_374_419e-8 * 0.78) + 10.0_f64.r_powi(4);
+        let hand_t4 = q_expected / (openfoam_stefan_boltzmann_sigma() * 0.78) + 10.0_f64.r_powi(4);
         let hand_t = hand_t4.r_powf(0.25);
         assert!(
             (t_face_updated.get::<kelvin>() - hand_t).abs() < 1e-4,

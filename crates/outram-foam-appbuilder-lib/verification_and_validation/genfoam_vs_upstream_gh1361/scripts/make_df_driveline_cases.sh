@@ -92,6 +92,8 @@ data)
   nuclear v3 false ""                    true  1.05 0.96 0.9 1.2 0.98 1.04 > "$OUT/nuclearData.v3"
   crmove 10 30 0.005 0     > "$OUT/CRmove.d1"
   crmove 0 20 -0.004 0.05  > "$OUT/CRmove.d3"
+  # gh:#1893 (round 43): the rod moves 0.035 m within the 3.5e-4 s of the stationary-fuel runs (d1 and d3 move 1e-6 m there)
+  crmove 0 1 100 0         > "$OUT/CRmove.d4"
   ;;
 zones)
   mkdir -p "$OUT"

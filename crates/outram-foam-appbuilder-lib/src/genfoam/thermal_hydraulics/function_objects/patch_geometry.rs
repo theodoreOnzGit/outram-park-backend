@@ -33,7 +33,11 @@ use uom::si::f64::Area;
 /// If `patch_index` is out of range for `mesh.patches`.
 pub(crate) fn patch_area(mesh: &FvMesh, patch_index: usize) -> Area {
     let patch = &mesh.patches[patch_index];
-    let sum: f64 = mesh.face_areas[patch.start..patch.end()].iter().sum();
+    // gh:#1871: `+0.0` seed, as upstream's `S += magSf[i]`
+    let mut sum = 0.0;
+    for a in mesh.face_areas[patch.start..patch.end()].iter() {
+        sum += *a;
+    }
     Area::new::<square_meter>(sum)
 }
 

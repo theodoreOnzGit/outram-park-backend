@@ -208,7 +208,11 @@ impl DiffusionNeutronics {
     /// and third iteration of an unconverged `multiPhysicsSolver` loop still use the values of the previous
     /// step; gh:#1832). Call it once at the start of each step.
     pub fn store_old_times(&mut self) {
-        let flux = self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
+        // `fvm::ddt(IV/df, fluxStar_)` takes `fluxStar_.oldTime()`: the star flux where there is one (gh:#1893), else the flux
+        let flux = match self.flux_star.as_ref() {
+            Some(star) => star.clone(),
+            None => self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+        };
         let prec_star = self.prec_star_values();
         self.old_time = Some(super::UpstreamOldTime { flux, prec_star });
     }
@@ -263,9 +267,9 @@ impl DiffusionNeutronics {
         dt: f64,
         controls: &UpstreamTransientControls,
     ) -> Result<UpstreamTransientStep, NeutronicsError> {
-        if !self.xs.disc_factors_are_unity() {
+        if self.evolution.is_some() {
             return Err(NeutronicsError::UpstreamTransient(
-                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+                "an XsEvolution (driveline motion, factor adjustment) with the circulating-fuel step is not ported (gh:#1893)",
             ));
         }
         if dt <= 0.0 || dt.is_nan() {
@@ -303,16 +307,23 @@ impl DiffusionNeutronics {
             }
         }
 
+        // `fluxStar_` (the unknown of the flux equations; the state's flux where none was solved yet), then
+        // `flux_ = fluxStar_/discFactor` at the top of `solveNeutronics.H` (gh:#1893). With every factor 1 this is
+        // the flux itself.
+        let mut star: Vec<Vec<f64>> = match self.flux_star.take() {
+            Some(v) => v,
+            None => self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+        };
+        self.write_flux_from_star_values(&star);
+
         // Old-time values of this step. `oldTime()` is stored once per time step, at the first access of a
         // new time index: with [`Self::store_old_times`] called at the start of the step, every coupling
         // iteration of the step reads those (gh:#1832). Without it the values are snapshotted here from the
-        // current state at every call (the earlier form, right for a step solved by one call).
+        // current state at every call (the earlier form, right for a step solved by one call). The flux
+        // old-time value is `fluxStar_.oldTime()`.
         let (flux_old, prec_star_old): (Vec<Vec<f64>>, Vec<Vec<f64>>) = match self.old_time.as_ref() {
             Some(o) => (o.flux.clone(), o.prec_star.clone()),
-            None => (
-                self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
-                self.prec_star_values(),
-            ),
+            None => (star.clone(), self.prec_star_values()),
         };
 
         let one_minus_beta: Vec<f64> =
@@ -362,17 +373,19 @@ impl DiffusionNeutronics {
 
                 // coefficient of `- fvm::Sp(...)`:
                 // (nuSigmaEff/keff*(1-BetaTot)*chiPrompt*(1-eig) - sigmaRemoval)/discFactor
+                let df = self.xs.disc_factor[gg].internal.as_slice();
                 let sp_coeff: Vec<f64> = (0..n)
-                    .map(|c| ((((nf[c] / keff) * one_minus_beta[c]) * chi_p[c]) * 1.0 - removal[c]) / 1.0)
+                    .map(|c| ((((nf[c] / keff) * one_minus_beta[c]) * chi_p[c]) * 1.0 - removal[c]) / df[c])
                     .collect();
                 let prompt: Vec<f64> =
                     (0..n).map(|c| ((neutro_source[c] * one_minus_beta[c]) * chi_p[c]) / keff).collect();
                 let delayed_g: Vec<f64> = (0..n).map(|c| delayed[c] * chi_d[c]).collect();
-                let iv_over_disc: Vec<f64> = (0..n).map(|c| (1.0 * iv[c]) / 1.0).collect();
+                let iv_over_disc: Vec<f64> = (0..n).map(|c| (1.0 * iv[c]) / df[c]).collect();
 
-                let flux_g = &self.state.flux()[gg];
+                // the unknown is `fluxStar_`
+                let flux_g = &star_field(&self.state.flux()[gg], star[gg].clone());
                 let ddt = euler_ddt(&iv_over_disc, &flux_old[gg], &volumes, dt, flux_g);
-                let lap = fvm::laplacian_with_delta(&self.xs.d_face[gg], flux_g, self.settings.delta_coeff);
+                let lap = fvm::laplacian_with_delta(&self.d_over_df_face(gg, flux_g), flux_g, self.settings.delta_coeff);
                 let sp_field = field_like(flux_g, sp_coeff);
                 let eqn = ddt + lap - fvm::sp(&sp_field, flux_g)
                     - fvm::su(&field_like(flux_g, prompt), flux_g)
@@ -385,7 +398,9 @@ impl DiffusionNeutronics {
                 if neutro_iter == 0 {
                     first_iteration_group_residuals.push(init_res);
                 }
-                self.write_group_flux(gg, &sol);
+                // fluxStar_ = solution; flux_ = fluxStar_/discFactor (fluxEq.H:31)
+                star[gg] = sol.internal.as_slice().to_vec();
+                self.write_flux_from_star_values_group(gg, &star[gg]);
 
                 // neutroSource_ += nuSigmaEff[g] * flux_[g] * (1 - eigenvalueNeutronics_)
                 let nf = self.xs.nu_sigma_f[gg].internal.as_slice();
@@ -409,6 +424,7 @@ impl DiffusionNeutronics {
             }
         }
 
+        self.flux_star = Some(star);
         self.update_derived_fields();
         let residual_lower_bound_form = first_iteration_group_residuals
             .iter()
@@ -428,6 +444,37 @@ impl DiffusionNeutronics {
             second_solve_residual,
             residual_lower_bound_form,
         })
+    }
+
+    /// `flux_[g] = fluxStar_[g]/discFactor[g]` for every group (`solveNeutronics.H`, `normFluxes.H`); exactly the star
+    /// values where every factor is 1.
+    pub(super) fn write_flux_from_star_values(&mut self, star: &[Vec<f64>]) {
+        for (g, s) in star.iter().enumerate() {
+            self.write_flux_from_star_values_group(g, s);
+        }
+    }
+
+    /// `flux_[g] = fluxStar_[g]/discFactor[g]` for one group.
+    pub(super) fn write_flux_from_star_values_group(&mut self, g: usize, star: &[f64]) {
+        let df = self.xs.disc_factor[g].internal.as_slice().to_vec();
+        let dst = self.state.flux_mut()[g].internal.as_mut_slice();
+        for c in 0..star.len() {
+            dst[c] = star[c] / df[c];
+        }
+    }
+
+    /// The face diffusion coefficient of `fvm::laplacian(D[g]/discFactor[g], fluxStar_[g])` (`createFluxMatrices.H`):
+    /// the linear interpolation of the cell field `D/discFactor` (as `upstream_stationary_step`). With every factor 1
+    /// it is the stored `d_face` (the same values, kept so that the unit-factor path is the code of rounds 11 to 40).
+    pub(super) fn d_over_df_face(&self, g: usize, like: &VolScalarField) -> outram_foam_basic_lib::prelude::SurfaceScalarField {
+        if self.xs.disc_factors_are_unity() {
+            return self.xs.d_face[g].clone();
+        }
+        let n = self.state.mesh().n_cells;
+        let df = self.xs.disc_factor[g].internal.as_slice();
+        let d = self.xs.d[g].internal.as_slice();
+        let d_over_df: Vec<f64> = (0..n).map(|c| d[c] / df[c]).collect();
+        outram_foam_basic_lib::fv_operators::fvc::interpolate(&field_like(like, d_over_df))
     }
 
     /// `neutroSource_ *= 0; neutroSource_ += nuSigmaEff[g]*flux_[g]`.
@@ -470,31 +517,15 @@ impl DiffusionNeutronics {
         with_ddt: bool,
     ) -> Result<(), NeutronicsError> {
         let n = neutro_source.len();
-        let Some(drift) = self.drift.as_ref() else {
-            return Err(NeutronicsError::UpstreamTransient("set_precursor_drift was not called"));
+        let alpha = match self.drift.as_ref() {
+            Some(d) => d.alpha.internal.as_slice().to_vec(),
+            None => return Err(NeutronicsError::UpstreamTransient("set_precursor_drift was not called")),
         };
-        let alpha = drift.alpha.internal.as_slice().to_vec();
-        let diffusivity_face = drift.diffusivity_face();
-        let phi = drift.phi.clone();
-        let alpha_field = drift.alpha.clone();
         for k in 0..self.prec_groups() {
-            let beta = self.xs.beta[k].internal.as_slice();
-            let lambda = self.xs.lambda[k].internal.as_slice();
-            let lambda_alpha: Vec<f64> = (0..n).map(|c| lambda[c] * alpha[c]).collect();
-            let source: Vec<f64> = (0..n).map(|c| (neutro_source[c] / keff) * beta[c]).collect();
+            // the eigenvalue form (`with_ddt` false) passes no old-time values and reads none
+            let old: &[f64] = prec_star_old.get(k).map_or(&[], |v| v.as_slice());
+            let eqn = self.upstream_precursor_matrix(k, neutro_source, keff, old, volumes, dt, with_ddt)?;
             let c_star = &self.prec_star[k];
-            let head = if with_ddt {
-                euler_ddt(&alpha, &prec_star_old[k], volumes, dt, c_star)
-                    + fvm::sp(&field_like(&alpha_field, lambda_alpha), c_star)
-            } else {
-                fvm::sp(&field_like(&alpha_field, lambda_alpha), c_star)
-            };
-            // Sign (gh:#952): `fvm::laplacian*` here is the POSITIVE -div(D grad),
-            // so it is ADDED; upstream's `- fvm::laplacian` is OpenFOAM's negative one.
-            let eqn = head
-                - fvm::su(&field_like(&alpha_field, source), c_star)
-                + fvm::div(&phi, c_star)
-                + fvm::laplacian_with_delta(&diffusivity_face, c_star, self.settings.delta_coeff);
             let sol = self.settings.linear_solve().solve(NeutronEquation::Precursor, &eqn, &format!("precStar{k}"), c_star);
             let sol_values = sol.internal.as_slice().to_vec();
             self.prec_star[k].internal = Field::new(sol_values.clone());
@@ -504,6 +535,73 @@ impl DiffusionNeutronics {
             }
         }
         Ok(())
+    }
+}
+
+impl DiffusionNeutronics {
+    /// The `precEq.H` matrix of precursor group `group` (`liquidFuel true`), before `solve()`:
+    /// `ddt(alpha, precStar) + Sp(lambda alpha, precStar) - neutroSource/keff*Beta + div(phi, precStar)
+    ///  - laplacian(diffCoeffPrec, precStar)`, upstream's operand order. `with_ddt` is
+    /// `1 - eigenvalueNeutronics_`. Shared by the solve ([`Self::upstream_prec_eq`]) and by the
+    /// differential tests that compare the matrix coefficients with the instrumented binary (gh:#1891).
+    ///
+    /// # Errors
+    ///
+    /// [`NeutronicsError::UpstreamTransient`] if the transport or `precStar` is not set or `group` is out of range.
+    #[allow(clippy::too_many_arguments)]
+    pub fn upstream_precursor_matrix(
+        &self,
+        group: usize,
+        neutro_source: &[f64],
+        keff: f64,
+        prec_star_old: &[f64],
+        volumes: &[f64],
+        dt: f64,
+        with_ddt: bool,
+    ) -> Result<FvMatrix, NeutronicsError> {
+        let n = neutro_source.len();
+        let Some(drift) = self.drift.as_ref() else {
+            return Err(NeutronicsError::UpstreamTransient("set_precursor_drift was not called"));
+        };
+        if group >= self.prec_groups() || self.prec_star.len() != self.prec_groups() {
+            return Err(NeutronicsError::UpstreamTransient("precursor group out of range or precStar not set"));
+        }
+        let alpha = drift.alpha.internal.as_slice();
+        let diffusivity_face = drift.diffusivity_face();
+        let beta = self.xs.beta[group].internal.as_slice();
+        let lambda = self.xs.lambda[group].internal.as_slice();
+        let lambda_alpha: Vec<f64> = (0..n).map(|c| lambda[c] * alpha[c]).collect();
+        let source: Vec<f64> = (0..n).map(|c| (neutro_source[c] / keff) * beta[c]).collect();
+        let c_star = &self.prec_star[group];
+        let head = if with_ddt {
+            euler_ddt(alpha, prec_star_old, volumes, dt, c_star) + fvm::sp(&field_like(&drift.alpha, lambda_alpha), c_star)
+        } else {
+            fvm::sp(&field_like(&drift.alpha, lambda_alpha), c_star)
+        };
+        // Sign (gh:#952): `fvm::laplacian*` here is the POSITIVE -div(D grad),
+        // so it is ADDED; upstream's `- fvm::laplacian` is OpenFOAM's negative one.
+        // gh:#1891 (round 43): upstream's `fvMatrix` keeps the boundary `internalCoeffs` apart from `diag()` and adds
+        // them in `solve()`, after the operator sum `((ddt + Sp) - Su) + div - laplacian` has been formed from the
+        // interior coefficients only (`fvMatrix::solveSegregated`, `addBoundaryDiag`, patch order). The operators
+        // of basic-lib fold their boundary coefficients into `diag` as they go, which rounds differently in the
+        // boundary cells. So `div` is built with zero boundary flux and the `zeroGradient` `internalCoeffs`
+        // (`phi_b * valueInternalCoeffs = phi_b * 1`) are added last, patch by patch. The laplacian of a
+        // `zeroGradient` (and wedge) patch has no boundary coefficient.
+        let mut phi_interior = drift.phi.clone();
+        for patch in phi_interior.boundary.iter_mut() {
+            patch.values = Field::new(vec![0.0; patch.values.len()]);
+        }
+        let mut eqn = head
+            - fvm::su(&field_like(&drift.alpha, source), c_star)
+            + fvm::div(&phi_interior, c_star)
+            + fvm::laplacian_with_delta(&diffusivity_face, c_star, self.settings.delta_coeff);
+        let mesh = self.state.mesh();
+        for (pi, p) in mesh.patches.iter().enumerate() {
+            for fi in 0..p.size {
+                eqn.ldu.diag[mesh.owner[p.start + fi]] += drift.phi.boundary[pi].values[fi];
+            }
+        }
+        Ok(eqn)
     }
 }
 
@@ -583,4 +681,12 @@ impl DiffusionNeutronics {
         }
         Ok(p_tot)
     }
+}
+
+/// `template` with its boundary conditions (the albedo patches of the flux) and the internal values `values`: the
+/// unknown `fluxStar_[g]` of a group's flux equation.
+pub(super) fn star_field(template: &VolScalarField, values: Vec<f64>) -> VolScalarField {
+    let mut f = template.clone();
+    f.internal = Field::new(values);
+    f
 }

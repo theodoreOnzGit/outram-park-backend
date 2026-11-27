@@ -52,7 +52,7 @@
 //!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
-//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; heat exchangers, pumps (a `momentumSource` pump IS read when the flow is solved),
+//! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported, same-region secondary zone only**), pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; ~~power models other than `fixedTemperature`~~ **CORRECTED 2026-11-27 (gh:#1879, README round 37):**
 //! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
 //! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); `nuclearFuelPinTest`, the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
@@ -73,7 +73,7 @@ use uom::si::time::second;
 
 use crate::genfoam::common::TimeProfile;
 
-mod flow;
+pub(super) mod flow;
 mod pimple;
 #[cfg(feature = "std")]
 use super::radial_power;
@@ -87,6 +87,7 @@ pub use turbulence::{
 };
 use turbulence::TurbState;
 pub use super::radial_power::fvc_laplacian_uncorrected;
+use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet;
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
@@ -315,6 +316,8 @@ pub struct OnePhaseCcCase {
     pub dh: Vec<f64>,
     /// `volumetricArea.activeStructure`: the `fixedTemperature` power model's area per cell.
     pub ia_act: Vec<f64>,
+    /// `structureProperties.heatExchangers` with `iAHX` and `T.HX` (README round 44, gh:#1847); empty when none.
+    pub heat_exchangers: HeatExchangerSet,
     /// `T.fixedTemperature` (read from the start directory) per cell.
     pub t_fixed: Vec<f64>,
     /// `temperatureTimeProfile` of each `fixedTemperature` zone (gh:#1813): the cells of the zone and the table of scaling factors.
@@ -531,7 +534,7 @@ impl OnePhaseCcCase {
         let region = "fluidRegion";
         let mesh = read_poly_mesh(poly_mesh_dir)?;
         let zones = read_cell_zones(poly_mesh_dir)?;
-        let g = Geometry::new(mesh.clone());
+        let g = Geometry::new_openfoam(mesh.clone());
         let n = g.n_cells();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
             let mut cells = Vec::new();
@@ -688,10 +691,12 @@ impl OnePhaseCcCase {
         let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
-            for refused in ["powerOffCriterionModel", "heatExchangers"] {
-                if key == refused {
-                    return Err(ctx.e(format!("structureProperties.{refused} is not ported")));
-                }
+            if key == "heatExchangers" {
+                // `structure.C:265` skips it as a zone key; read after the loop (`constructHeatExchangers`, README round 44)
+                continue;
+            }
+            if key == "powerOffCriterionModel" {
+                return Err(ctx.e(format!("structureProperties.{key} is not ported")));
             }
             let cells = zone_cells(key)?;
             if solve_flow {
@@ -783,6 +788,10 @@ impl OnePhaseCcCase {
             }
         }
         let min_re = scalar(&pp, "residualFluidStructureRe").unwrap_or(10.0);
+        let heat_exchangers = match sp.get_dict("heatExchangers") {
+            Some(hxd) => super::case::read_heat_exchangers(&ctx, hxd, poly_mesh_dir, &g, &zone_cells)?,
+            None => HeatExchangerSet::default(),
+        };
 
         // ---- fields at the start time
         let tdir = alloc::format!("{start_time}");
@@ -894,13 +903,13 @@ impl OnePhaseCcCase {
             uf.c = u.clone();
             uf.bc = fcase.u_bc.clone();
             uf.correct_bc(&g);
-            let phi = fv::flux(&g, &uf);
+            let phi = fv::flux_openfoam(&g, &uf);
             let alpha_s = Scalar {
                 c: alpha_structure.iter().map(|s| 1.0 - s).collect(),
                 b: (ni..g.n_faces()).map(|f| 1.0 - alpha_structure[mesh.owner[f]]).collect(),
                 bc: vec![Bc::Calculated; mesh.patches.len()],
             };
-            let af = fv::interp_linear(&g, &alpha_s);
+            let af = fv::interp_linear_openfoam(&g, &alpha_s);
             let ap: Vec<f64> = (0..g.n_faces()).map(|f| af[f] * phi[f]).collect();
             let arp: Vec<f64> = ap.iter().map(|v| thermo.rho0 * v).collect();
             (arp, ap)
@@ -922,6 +931,7 @@ impl OnePhaseCcCase {
             power_density_neutronics: radial.q_neutronics,
             radial_needs_laplacian: radial.needs_laplacian,
             ia_act,
+            heat_exchangers,
             t_fixed,
             t_profiles,
             htc_model,
@@ -959,6 +969,8 @@ pub struct OnePhaseCcSolver {
     ia_act: Vec<f64>,
     /// The radial-conduction power models (gh:#1879), state included.
     radial: Vec<RadialPowerModel>,
+    /// `structureProperties.heatExchangers` with `iAHX` and `T.HX` (README round 44, gh:#1847).
+    heat_exchangers: HeatExchangerSet,
     /// The structure's `powerDensityNeutronics` per cell.
     q_neutronics: Vec<f64>,
     /// `T.prevIter()` stored by `EEqn_1p.H` before the solve (`HT = Hs*T.prevIter()`).
@@ -1025,7 +1037,7 @@ impl OnePhaseCcSolver {
     /// `contErr`, thermo `he`).
     #[must_use]
     pub fn new(case: OnePhaseCcCase) -> Self {
-        let geom = Geometry::new(case.mesh.clone());
+        let geom = Geometry::new_openfoam(case.mesh.clone());
         let n = geom.n_cells();
         // fluid_ = 1.0 - structure_
         let alpha: Vec<f64> = case.alpha_structure.iter().map(|s| 1.0 - s).collect();
@@ -1035,7 +1047,7 @@ impl OnePhaseCcSolver {
             b: (ni0..geom.n_faces()).map(|f| alpha[geom.mesh.owner[f]]).collect(),
             bc: vec![Bc::Calculated; geom.mesh.patches.len()],
         };
-        let alpha_f = fv::interp_linear(&geom, &sa);
+        let alpha_f = fv::interp_linear_openfoam(&geom, &sa);
         let he: Vec<f64> = case.t.iter().map(|&t| case.thermo.hs(t)).collect();
         // `correctContErr`: ddt(alpha, rho0) is exactly 0 at construction (old time = current).
         let dv = fv::div(&geom, &case.alpha_rho_phi);
@@ -1063,6 +1075,7 @@ impl OnePhaseCcSolver {
             }
         }
         let q_neutronics = case.power_density_neutronics.clone();
+        let heat_exchangers = case.heat_exchangers.clone();
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
@@ -1079,6 +1092,7 @@ impl OnePhaseCcSolver {
             t_act_old,
             ia_act,
             radial,
+            heat_exchangers,
             q_neutronics,
             t_prev: Vec::new(),
             structure_heat_flux: vec![0.0; n],
@@ -1284,6 +1298,16 @@ impl OnePhaseCcSolver {
     /// # Panics
     /// On a singular radial matrix (upstream's `Foam::solve` is a `FatalError`: the case is unphysical).
     fn structure_correct(&mut self) {
+        // after the power models: the heat exchangers' `correct(HT, H, THX)` (structure.C:1000-1018): `sHT = htc*T` with the
+        // CURRENT temperature, `HT = Hs*T.prevIter()` (README round 44)
+        if self.heat_exchangers.is_present() {
+            let n = self.geom.n_cells();
+            let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.t_prev[c]).collect();
+            let t_sec = if self.heat_exchangers.secondary_uses_prev_iter_t { &self.t_prev } else { &self.t };
+            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_sec[c]).collect();
+            let h = self.htc.clone();
+            self.heat_exchangers.correct(&ht, &h, &h, &s_ht);
+        }
         if self.radial.is_empty() {
             return;
         }
@@ -1347,6 +1371,34 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn active_structure_temperature(&self) -> &[f64] {
         &self.t_act
+    }
+
+    /// `T.HX` (`THXPtr_`): the heat exchangers' surface temperature per cell [K]; empty without heat exchangers (README round 44).
+    #[must_use]
+    pub fn heat_exchanger_surface_temperature(&self) -> &[f64] {
+        &self.heat_exchangers.t_hx
+    }
+
+    /// CONTROL, NOT upstream (README round 44, K4): no heat exchangers, whatever `structureProperties.heatExchangers` says.
+    #[must_use]
+    pub fn without_heat_exchangers(mut self) -> Self {
+        self.heat_exchangers = HeatExchangerSet::default();
+        self
+    }
+
+    /// CONTROL, NOT upstream (README round 46, N6): every primary cell takes its NEAREST secondary cell with weight 1 instead of the
+    /// `meshToMesh` overlap weights (as `OnePhaseFcSolver::with_nearest_cell_heat_exchanger_mapping`, round 44 C2).
+    #[must_use]
+    pub fn with_nearest_cell_heat_exchanger_mapping(mut self) -> Self {
+        self.heat_exchangers.nearest_cell_mapping = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (README round 44, K5): the secondary side's `htc*T` with `T.prevIter()` instead of the current `T`.
+    #[must_use]
+    pub fn with_heat_exchanger_secondary_prev_iter_temperature(mut self) -> Self {
+        self.heat_exchangers.secondary_uses_prev_iter_t = true;
+        self
     }
 
     /// CONTROL, NOT upstream (gh:#1879): build `HT` from the post-solve `T` instead of `T.prevIter()`.
@@ -1420,7 +1472,7 @@ impl OnePhaseCcSolver {
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
         // `T.storePrevIter()` (EEqn_1p.H, before the solve): the temperature `structure_.correct(Hs*T.prevIter(), Hs)` sees
-        if !self.radial.is_empty() {
+        if !self.radial.is_empty() || self.heat_exchangers.is_present() {
             self.t_prev = self.t.clone();
         }
         // fvm::ddt(alpha, rho0, he)
@@ -1440,7 +1492,7 @@ impl OnePhaseCcSolver {
             b: vec![0.0; g.n_faces() - ni],
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
-        let ae_f = fv::interp_linear(&g, &ae);
+        let ae_f = fv::interp_linear_openfoam(&g, &ae);
         let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
         e.neg_laplacian(&g, &gam, &he_scalar);
         // right-hand side: alpha rho0 (U.g); alpha ddt(p) = 0 exactly (p is never modified)
@@ -1495,8 +1547,19 @@ impl OnePhaseCcSolver {
             su[c] = ih * (self.t_act[c] - self.t[c] + self.he[c] / cp);
             sp[c] = ih / cp;
         }
-        e.su(&g, &su);
-        e.sp(&g, &sp);
+        if self.heat_exchangers.is_active() {
+            // `structure.C:1148-1156`: `Q += iAHX*H*(THX-T+he/Cp) - fvm::Sp(iAHX*H/Cp, he)` BEFORE `EEqn -= Q`: the source and the
+            // diagonal receive `(V*act + V*hx)` as ONE sum (negations are exact), not two additions (README round 44)
+            for c in 0..n {
+                let v = g.mesh.cell_volumes[c];
+                let (su_hx, sp_hx) = self.heat_exchangers.source_and_coeff(c, self.htc[c], self.t[c], self.he[c], cp);
+                e.source[c] += v * su[c] + v * su_hx;
+                e.ldu.diag[c] += v * sp[c] + v * sp_hx;
+            }
+        } else {
+            e.su(&g, &su);
+            e.sp(&g, &sp);
+        }
         // - alpha * powerDensity
         let pd: Vec<f64> = (0..n).map(|c| self.alpha[c] * self.power_density[c]).collect();
         e.su(&g, &pd);

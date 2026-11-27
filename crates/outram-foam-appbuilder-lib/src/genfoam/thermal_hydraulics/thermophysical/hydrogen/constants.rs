@@ -58,21 +58,21 @@ pub(super) const PC: f64 = 1.2965e6;
 pub(super) const VC: f64 = 6.4481e-2;
 
 /// Acentric factor of H2 — dimensionless.
-pub(super) const OMEGA: f64 = 0.305;
+pub(super) const OMEGA: f64 = -0.219;
 
 /// SRK-style temperature exponent `n = 0.4986 + 1.1735*omega + 0.4754*omega^2`
 /// (upstream `H2::n_`), computed fresh from [`OMEGA`] rather than cached, since
 /// it is four flops and this module holds no state.
 #[inline]
 pub(super) fn n() -> f64 {
-    0.4986 + 1.1735 * OMEGA + 0.4754 * OMEGA * OMEGA
+    0.4986 + 1.1735 * OMEGA + 0.4754 * (OMEGA * OMEGA)
 }
 
 /// SRK-style attraction coefficient `alpha0 = 0.42748 * (R*Tc)^2 / Pc`
 /// (upstream `H2::alpha0_`), molar basis — J m^3 / kmol^2.
 #[inline]
 pub(super) fn alpha0() -> f64 {
-    0.42748 * (R * TC) * (R * TC) / PC
+    0.42748 * ((R * TC) * (R * TC)) / PC
 }
 
 /// SRK-style covolume `b = 0.08664 * R * Tc / Pc` (upstream `H2::b_`), molar

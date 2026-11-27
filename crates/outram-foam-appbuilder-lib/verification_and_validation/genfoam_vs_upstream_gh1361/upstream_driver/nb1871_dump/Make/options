@@ -1,0 +1,22 @@
+TH = $(GENFOAM_SRC)/src/classes/thermalHydraulics/src
+
+EXE_INC = \
+    -I$(TH)/lnInclude \
+    -I$(GENFOAM_SRC)/src/classes/common/lnInclude \
+    -I$(LIB_SRC)/transportModels/compressible/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/thermophysicalProperties/lnInclude \
+    -I$(LIB_SRC)/transportModels/incompressible/transportModel \
+    -I$(LIB_SRC)/TurbulenceModels/compressible/lnInclude \
+    -I$(LIB_SRC)/TurbulenceModels/turbulenceModels/lnInclude \
+    -I$(LIB_SRC)/TurbulenceModels/phaseCompressible/lnInclude \
+    -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/sampling/lnInclude
+
+EXE_LIBS = \
+    -L$(FOAM_USER_LIBBIN) -lFFSSrc2 -lCommon \
+    -lfiniteVolume \
+    -lmeshTools \
+    -lsampling \
+    -lfluidThermophysicalModels -lspecie

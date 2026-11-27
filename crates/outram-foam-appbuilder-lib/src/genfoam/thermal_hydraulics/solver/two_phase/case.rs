@@ -220,8 +220,6 @@ pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
     true
 }
 
-/// The first entry of `d` whose (regex) key matches `name`, as OpenFOAM
-/// looks up `relaxationFactors` and `solvers`.
 /// OpenFOAM's dictionary lookup of `name`: the exact keyword if there is one, else the LAST declared pattern that matches (patterns
 /// are searched from the newest entry back, so a catch-all `".*"` declared after `"h.*"` shadows it).
 pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
@@ -231,7 +229,17 @@ pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a
     d.iter().filter(|(k, _)| key_matches(k, name)).last().map(|(_, e)| e)
 }
 
+/// Dictionary lookup as OpenFOAM does it for `solvers`, `relaxationFactors` and `divSchemes`: the exact keyword, else the LAST
+/// matching pattern ([`lookup_pattern_last`]). gh:#1902 (README round 49): this used to return the FIRST matching pattern
+/// ([`lookup_regex_first`], kept as the named old form); OpenFOAM's `dictionary::lookupEntryPtr` walks its pattern list from the
+/// newest entry back (`dictionary.C:105,127,665,693`: `patterns_.push_front`).
 pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+    lookup_pattern_last(d, name)
+}
+
+/// The first entry of `d` whose (regex) key matches `name`: the form of [`lookup_regex`] before gh:#1902, kept as the named
+/// old behaviour (it differs from OpenFOAM's when two patterns match).
+pub(super) fn lookup_regex_first<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
     }
@@ -1839,4 +1847,72 @@ pub(super) fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilde
         }
         other => Err(ctx.e(format!("{rel}: thermo stack {other:?} not wired"))),
     }
+}
+
+/// `structure::constructHeatExchangers` for a region whose secondary zones are in the same mesh (README round 44, gh:#1847):
+/// reads each `heatExchangers.<name>` (`primary`, `secondary`, `volumetricArea`, `wallConductance`) and builds its
+/// [`HeatExchangerZone`](crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerZone).
+///
+/// Refused by name: `secondaryRegion` other than the region itself (the mapping would need the other region's mesh and its
+/// `htc`/`T` fields) and `interpolationMethod` other than the default `2` (`imCellVolumeWeight`); both fall under the
+/// "not ported" message for an unknown key.
+///
+/// # Errors
+/// [`AppBuilderError::Case`] for a missing entry, an unknown zone, a refused key or upstream's volume `FatalError`.
+#[cfg(feature = "std")]
+pub(super) fn read_heat_exchangers<F>(
+    ctx: &Ctx,
+    hxd: &FoamDict,
+    poly_dir: &Path,
+    g: &Geometry,
+    zone_cells: &F,
+) -> Result<crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet, AppBuilderError>
+where
+    F: Fn(&str) -> Result<Vec<usize>, AppBuilderError>,
+{
+    use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::{
+        HeatExchangerSet, HeatExchangerZone, HxMeshInput,
+    };
+    use crate::io::poly_mesh::{parse_faces, parse_index_list, parse_points};
+    let read_text = |name: &str| -> Result<String, AppBuilderError> {
+        let p = poly_dir.join(name);
+        std::fs::read_to_string(&p).map_err(|e| AppBuilderError::Io { path: p, source: e })
+    };
+    let points: Vec<Vector3> = parse_points(&read_text("points")?, "points")?
+        .into_iter()
+        .map(|p| Vector3::new(p[0], p[1], p[2]))
+        .collect();
+    let faces = parse_faces(&read_text("faces")?, "faces")?;
+    let owner = parse_index_list(&read_text("owner")?, "owner")?;
+    let neighbour = parse_index_list(&read_text("neighbour")?, "neighbour")?;
+    let input = HxMeshInput {
+        points: &points,
+        faces: &faces,
+        owner: &owner,
+        neighbour: &neighbour,
+        cell_volumes: &g.mesh.cell_volumes,
+        cell_centres: &g.mesh.cell_centres,
+    };
+    let mut zones = Vec::new();
+    for (name, e) in hxd.iter() {
+        let FoamEntry::SubDict(d) = e else { continue };
+        for (k, _) in d.iter() {
+            if !matches!(k, "primary" | "secondary" | "volumetricArea" | "wallConductance") {
+                return Err(ctx.e(format!(
+                    "structureProperties.heatExchangers.{name}.{k} is not ported (`secondaryRegion` in another region and \
+                     `interpolationMethod` other than 2 are refused; gh:#1847)"
+                )));
+            }
+        }
+        let primary = ctx.word(d, "primary")?;
+        let secondary = ctx.word(d, "secondary")?;
+        let i_a = ctx.f64(d, "volumetricArea")?;
+        let hw = ctx.f64(d, "wallConductance")?;
+        let primary_cells = zone_cells(&primary)?;
+        let secondary_cells = zone_cells(&secondary)?;
+        let z = HeatExchangerZone::new(&input, primary_cells, &secondary_cells, i_a, hw)
+            .map_err(|e| ctx.e(format!("heatExchangers.{name}: {e}")))?;
+        zones.push(z);
+    }
+    Ok(HeatExchangerSet::new(g.n_cells(), zones))
 }

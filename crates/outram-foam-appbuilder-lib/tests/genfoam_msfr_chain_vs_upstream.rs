@@ -32,7 +32,7 @@ use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
 use outram_foam_appbuilder_lib::genfoam::workflow::energy_neutro::read_albedo_patches;
 use outram_foam_appbuilder_lib::genfoam::workflow::{
-    EigenvalueRunControls, EigenvalueStage, EnergyEigenvalueRecord, EnergyNeutroDiffusion, NormalisedState, ReactorState, TransientRun,
+    EigenvalueRunControls, EigenvalueStage, EnergyEigenvalueRecord, EnergyNeutroDiffusion, NeutronLinear, NormalisedState, ReactorState, TransientRun,
     TransientSettings, TransientStart, WorkflowError,
 };
 use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
@@ -132,7 +132,7 @@ fn build(st: &Staged) -> (EnergyNeutroDiffusion, TransientSettings) {
         zone_map,
         &albedo,
         UpstreamTransientControls { neutron_iteration_residual: 1e-6, max_neutron_iterations: 50, sc_no: 1.0 },
-        SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+        NeutronLinear::Explicit(SolverSettings { tolerance: 1e-14, max_iter: 100_000 }),
         reactor,
         1.0,
         1.0,

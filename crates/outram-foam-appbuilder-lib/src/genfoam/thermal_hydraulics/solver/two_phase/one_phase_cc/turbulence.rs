@@ -794,7 +794,7 @@ impl OnePhaseCcSolver {
             for i in 0..nb {
                 gm.b[i] = alpha[m.owner[ni + i]] * rho0 * (nut.b[i] / sigma + nu_b[i]);
             }
-            fv::interp_linear(&g, &gm)
+            fv::interp_linear_openfoam(&g, &gm)
         };
         let ddt = |e: &mut Eqn, psi_old: &[f64]| {
             for i in 0..n {

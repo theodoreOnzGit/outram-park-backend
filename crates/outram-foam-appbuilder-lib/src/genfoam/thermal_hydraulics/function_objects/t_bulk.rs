@@ -14,9 +14,9 @@
 //! `TBulk` — flow-weighted (bulk / mixing-cup) temperature over a boundary
 //! patch.
 //!
-//! Port of `functionObjects::TBulk` (`TBulk.C`/`.H`), **patch region kind
-//! only** — see [`super::pressure_drop`] for why the `faceSet`/`faceZone`
-//! variants (which upstream serves via `fvc::interpolate`) are out of scope.
+//! Port of `functionObjects::TBulk` (`TBulk.C`/`.H`). ~~**Patch region kind only**, the `faceSet`/`faceZone`
+//! variants out of scope~~ **CORRECTED 2026-11-27 (gh:#1871 round 51):** the `faceSet`/`faceZone` variants are
+//! [`bulk_temperature_faces`] (`fvc::interpolate`), bit-identical to the real class.
 //!
 //! ```text
 //! T_bulk = sum_faces(|alphaRhoPhi_f| * Cp_f * T_f) / sum_faces(|alphaRhoPhi_f| * Cp_f)
@@ -36,6 +36,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::{SurfaceScalarField, VolScalarField};
+use outram_foam_basic_lib::fv_operators::fvc;
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
@@ -89,6 +90,37 @@ pub fn bulk_temperature(
         h_dot += weight * t_vals[i];
     }
 
+    ThermodynamicTemperature::new::<kelvin>(h_dot / h_dot_by_t.max(MIN_ENTHALPY_FLUX_WEIGHT))
+}
+
+/// Flow-weighted (bulk) temperature over an explicit face list (upstream `regionType faceZone` / `faceSet`).
+///
+/// gh:#1871. Upstream's `TBulk::write()` non-patch branch: `Tf = fvc::interpolate(T)`, `Cpf =
+/// fvc::interpolate(Cp)` (the scheme of `interpolationSchemes`, here `linear`: `w*(P - N) + N`,
+/// gh:#1489), then for each face `w = mag(alphaRhoPhi[facei]) * Cpf[facei]`, `hDotByT += w`, `hDot += w*Tf[facei]`,
+/// `Tb = hDot/max(hDotByT, 1e-9)`. Faces must be INTERNAL faces: upstream indexes the internal field of the
+/// surface fields with the face index (a boundary face would read past it). The order of `faces` is the order
+/// upstream sums in (zone order; for a `faceSet` the `labelHashSet` iteration order, which this port does not
+/// reproduce: the caller supplies it).
+///
+/// # Panics
+/// If a face index is not an internal face.
+pub fn bulk_temperature_faces(
+    temperature: &VolScalarField,
+    specific_heat: &VolScalarField,
+    alpha_rho_phi: &SurfaceScalarField,
+    faces: &[usize],
+) -> ThermodynamicTemperature {
+    let tf = fvc::interpolate(temperature);
+    let cpf = fvc::interpolate(specific_heat);
+    let mut h_dot = 0.0;
+    let mut h_dot_by_t = 0.0;
+    for &f in faces.iter() {
+        assert!(f < alpha_rho_phi.internal.len(), "TBulk face {f} is not an internal face");
+        let weight = alpha_rho_phi.internal[f].abs() * cpf.internal[f];
+        h_dot_by_t += weight;
+        h_dot += weight * tf.internal[f];
+    }
     ThermodynamicTemperature::new::<kelvin>(h_dot / h_dot_by_t.max(MIN_ENTHALPY_FLUX_WEIGHT))
 }
 

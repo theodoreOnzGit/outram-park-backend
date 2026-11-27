@@ -124,6 +124,13 @@ impl Sp3XsFields {
         raw_parameters: &[f64],
     ) -> Result<Self, XsError> {
         let base = DiffusionXsFields::materialize(mesh, xs, zone_of_cell, raw_parameters)?;
+        Ok(Self::from_base(mesh, base))
+    }
+
+    /// The SP3 field set on top of an already materialised diffusion field set (for example the one
+    /// `XsEvolution::materialize` returns at a time, with the discontinuity-factor lists of that time).
+    #[must_use]
+    pub fn from_base(mesh: &Arc<FvMesh>, base: DiffusionXsFields) -> Self {
         let g = base.energy_groups;
         let n = mesh.n_cells;
 
@@ -156,13 +163,13 @@ impl Sp3XsFields {
 
         let d2_face = d2.iter().map(fvc::interpolate).collect();
 
-        Ok(Self {
+        Self {
             base,
             sigma_total,
             d2,
             d2_face,
             second_moment_removal,
-        })
+        }
     }
 
     /// Number of energy groups `G`.

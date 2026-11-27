@@ -162,6 +162,15 @@ impl DiffusionSettings {
         self.form = LinearSolverForm::BasicLib;
         self
     }
+
+    /// Every key of the case's `fvSolution` solver entries (`tolerance`, `relTol`, `maxIter`, `minIter`, solver and
+    /// preconditioner) in place of [`Self::linear`] and the tight-protocol defaults (gh:#1887 round 42); read with
+    /// `io::nuclear_data::read_neutron_fv_solution`.
+    #[must_use]
+    pub fn with_fv_solution(mut self, entries: crate::genfoam::common::linear_solvers::NeutronSolverEntries) -> Self {
+        self.form = LinearSolverForm::UpstreamFvSolution(entries);
+        self
+    }
 }
 
 impl Default for DiffusionSettings {
@@ -455,6 +464,11 @@ impl DiffusionNeutronics {
         &self.state
     }
 
+    /// Replace the linear-solver form (for example with the entries read from the case's `fvSolution`).
+    pub fn set_linear_form(&mut self, form: LinearSolverForm) {
+        self.settings.form = form;
+    }
+
     /// Seed the next [`Self::solve_eigenvalue`] with a previous solution — a
     /// **warm start**: the group fluxes (internal values, one `Vec` per group,
     /// one value per cell) and `k_eff`. Upstream gets this for free, because
@@ -659,6 +673,7 @@ pub mod external_source_case;
 pub mod precursor_drift;
 mod pseudo_time;
 mod transient;
+pub mod expansion;
 pub mod xs_evolution;
 pub mod upstream_eigenvalue;
 pub mod upstream_transient;

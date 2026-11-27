@@ -142,6 +142,7 @@
 //! assert!((state.fission_power().get::<watt>() - 1.0e6).abs() < 1.0);
 //! ```
 
+pub mod cyclic_transport;
 pub mod model;
 
 #[cfg(not(any(feature = "std", test)))]

@@ -41,7 +41,7 @@ use outram_foam_basic_lib::ldu_matrix::SolverSettings;
 
 use super::energy_neutro::read_albedo_patches;
 use super::{
-    EigenvalueRunControls, EigenvalueStage, EnergyNeutroDiffusion, NormalisedState, ReactorState, SteadyStateTh,
+    EigenvalueRunControls, EigenvalueStage, EnergyNeutroDiffusion, NeutronLinear, NormalisedState, ReactorState, SteadyStateTh,
     ThRunControls, TransientSettings, WorkflowError,
 };
 use crate::genfoam::multi_region::coupled_loop::CouplingDict;
@@ -50,7 +50,7 @@ use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{
     CaseReadOptions, ControlOverrides, GamgPolicy, OnePhaseCcCase, OnePhaseCcSolver,
 };
-use crate::io::nuclear_data::read_nuclear_data;
+use crate::io::nuclear_data::{read_neutron_fv_solution, read_nuclear_data};
 use crate::io::poly_mesh::{read_cell_zones, read_poly_mesh, zone_of_cell};
 
 /// What `Allrun` sets, with its values as defaults.
@@ -72,8 +72,29 @@ pub struct AllrunEdits {
     pub gamg: GamgPolicy,
     /// The neutron iteration controls of the neutronics (`neutronicsProperties`: 1e-6 residual, 50 iterations, `ScNo 1`).
     pub neutron_controls: UpstreamTransientControls,
-    /// The flux solver's linear tolerance (the tight protocol of rounds 11/14: 1e-14).
-    pub neutron_linear: SolverSettings,
+    /// Where the neutronics' linear-solver settings come from (gh:#1890, round 43): the case's
+    /// `system/neutroRegion/fvSolution` by default, as upstream; ~~the flux solver's explicit tolerance 1e-14
+    /// (the tight protocol of rounds 11/14)~~ **CHANGED 2026-11-27** to a named option,
+    /// [`NeutronLinearSource::Explicit`] / [`AllrunEdits::with_explicit_neutron_linear`].
+    pub neutron_linear: NeutronLinearSource,
+}
+
+/// The source of the neutronics linear-solver settings of [`AllrunEdits`].
+#[derive(Debug, Clone, Copy)]
+pub enum NeutronLinearSource {
+    /// Read `system/neutroRegion/fvSolution` of the root case (`read_neutron_fv_solution`): upstream's form.
+    FvSolution,
+    /// The earlier form: PCG/DIC, PBiCG/DILU, PBiCGStab/DILU at this `tolerance` / `maxIter`, `relTol 0`.
+    Explicit(SolverSettings),
+}
+
+impl AllrunEdits {
+    /// These edits with the neutronics solving at the explicit settings `settings` instead of reading `fvSolution`.
+    #[must_use]
+    pub fn with_explicit_neutron_linear(mut self, settings: SolverSettings) -> Self {
+        self.neutron_linear = NeutronLinearSource::Explicit(settings);
+        self
+    }
 }
 
 impl Default for AllrunEdits {
@@ -87,7 +108,7 @@ impl Default for AllrunEdits {
             write_interval_th: Some(1.0),
             gamg: GamgPolicy::SubstitutePcgDic,
             neutron_controls: UpstreamTransientControls { neutron_iteration_residual: 1e-6, max_neutron_iterations: 50, sc_no: 1.0 },
-            neutron_linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+            neutron_linear: NeutronLinearSource::FvSolution,
         }
     }
 }
@@ -206,6 +227,15 @@ impl RootCase {
         let initial_flux = uniform_internal_field(&flux_file)?;
         let initial_prec = uniform_internal_field(&self.root.join("0/neutroRegion/defaultPrec"))?;
         let reactor = ReactorState::read(&self.root.join("0"))?;
+        let linear = match edits.neutron_linear {
+            NeutronLinearSource::Explicit(s) => NeutronLinear::Explicit(s),
+            NeutronLinearSource::FvSolution => {
+                let path = self.root.join("system/neutroRegion/fvSolution");
+                let sol = read_neutron_fv_solution(&path, xs.energy_groups(), xs.prec_groups(), 0)
+                    .map_err(|e| case_err(format!("{}: {e}", path.display())))?;
+                NeutronLinear::FvSolution(sol.entries)
+            }
+        };
         let stage = EnergyNeutroDiffusion::new(
             fluid,
             mesh,
@@ -213,7 +243,7 @@ impl RootCase {
             zone_map,
             &albedo,
             edits.neutron_controls,
-            edits.neutron_linear,
+            linear,
             reactor,
             initial_flux,
             initial_prec,

@@ -95,7 +95,8 @@ pub enum PseudoTimeError {
     #[error("XS::correct(): cross-section evaluation failed")]
     CrossSections,
     /// The model divides by discontinuity factors that are not 1 (or adjusts them) and this driver does
-    /// not port that: refused by name (gh:#1785; SP3 and SN are not ported).
+    /// not port that: refused by name (gh:#1785). ~~SP3 and SN are not ported~~ **CORRECTED 2026-11-27 (gh:#1887)**: SP3 now
+    /// divides by them and no model returns this variant; SN applies none upstream either (`setXSFieldsSN.H:18` only declares it).
     #[error("discontinuity factors other than 1 are not ported for this model (gh:#1785)")]
     DiscFactorsNotPorted,
 }

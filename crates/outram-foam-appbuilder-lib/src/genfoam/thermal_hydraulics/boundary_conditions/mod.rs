@@ -31,7 +31,7 @@
 //! | [`blackbody_radiation`] | `blackBodyRadiation` | Ported — [`BlackBodyRadiationBc`] |
 //! | [`velocity_rundown`] | `velocityRundown` | Ported — [`VelocityRundownBc`] |
 //! | [`time_field_table`] | `timeFieldTable` | Ported — [`TimeFieldTable`] |
-//! | [`nusselt_baffle`] | `NusseltThermalBaffle1D` | **Scaffold only** — [`NusseltThermalBaffle1DBc`]; every method is `unimplemented!()`. See the module doc for why (cross-patch implicit coupling) and bead op-p6p.7.13 for the follow-up. |
+//! | [`nusselt_baffle`] | `NusseltThermalBaffle1D` | ~~Scaffold only~~ **CORRECTED 2026-11-27 (gh:#1871)**: the arithmetic is ported (`hw_upstream`, `calc_h_upstream`, `update_one_phase`, `update_two_phase`, `evaluate_upstream`; checked against a literal transcription, not the class); the mapped-patch / `fluid` / `FSPair` hooks are not. |
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -43,5 +43,5 @@ pub mod velocity_rundown;
 
 pub use blackbody_radiation::BlackBodyRadiationBc;
 pub use nusselt_baffle::{BaffleSide, NusseltCorrelationCoefficients, NusseltThermalBaffle1DBc};
-pub use time_field_table::{TimeFieldTable, TimeFieldTableError};
+pub use time_field_table::{TimeFieldTable, TimeFieldTableError, UpstreamTimeFieldTable};
 pub use velocity_rundown::VelocityRundownBc;

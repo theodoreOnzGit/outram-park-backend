@@ -89,12 +89,34 @@ impl Geometry {
     /// Precompute weights and delta coefficients for `mesh`.
     #[must_use]
     pub fn new(mesh: Arc<FvMesh>) -> Self {
+        Self::build(mesh, false)
+    }
+
+    /// [`Self::new`] with the weights and non-orthogonal delta coefficients computed in OpenFOAM's own operation order
+    /// (gh:#1894 round 46; ESI v2506 `basicFvGeometryScheme.C`): `w = |Sf . (C_N - Cf)| / (|Sf . (Cf - C_P)| + |Sf . (C_N - Cf)|)`
+    /// (`:100-130`, `0.5` below `ROOTVSMALL`) instead of `Sf . (C_N - Cf) / Sf . (C_N - C_P)`, and `unitArea = Sf / magSf` (a division
+    /// per component, `:262`) instead of `Sf (1 / magSf)`. The differences are an ulp per face and show in `deltaCoeffs` of
+    /// wall faces and in `weights` of internal faces of a mesh whose cell centres carry round-off noise. Used by `one_phase_fc`.
+    #[must_use]
+    pub fn new_openfoam(mesh: Arc<FvMesh>) -> Self {
+        Self::build(mesh, true)
+    }
+
+    fn build(mesh: Arc<FvMesh>, openfoam: bool) -> Self {
         let ni = mesh.n_internal_faces;
         let nf = mesh.n_faces;
         let mut weights = vec![0.5; ni];
         let mut delta = vec![0.0; nf];
         let mut active = vec![true; nf];
         let mut patch_of = vec![0usize; nf - ni];
+        let unit_area = |f: usize| {
+            if openfoam {
+                let (sf, m) = (mesh.face_area_vectors[f], mesh.face_areas[f]);
+                Vector3::new(sf.x / m, sf.y / m, sf.z / m)
+            } else {
+                mesh.face_area_vectors[f] * (1.0 / mesh.face_areas[f])
+            }
+        };
         for f in 0..ni {
             let o = mesh.owner[f];
             let n = mesh.neighbour[f];
@@ -102,10 +124,17 @@ impl Geometry {
             let co = mesh.cell_centres[o];
             let cn = mesh.cell_centres[n];
             let cf = mesh.face_centres[f];
-            let den = sf.dot(cn - co);
-            weights[f] = if den.abs() > 0.0 { sf.dot(cn - cf) / den } else { 0.5 };
+            if openfoam {
+                let sfd_own = sf.dot(cf - co).abs();
+                let sfd_nei = sf.dot(cn - cf).abs();
+                let sum = sfd_own + sfd_nei;
+                weights[f] = if sum.abs() > 1e-150 { sfd_nei / sum } else { 0.5 };
+            } else {
+                let den = sf.dot(cn - co);
+                weights[f] = if den.abs() > 0.0 { sf.dot(cn - cf) / den } else { 0.5 };
+            }
             let d = cn - co;
-            let nhat = sf * (1.0 / mesh.face_areas[f]);
+            let nhat = unit_area(f);
             delta[f] = 1.0 / nhat.dot(d).max(0.05 * d.mag());
         }
         for (pi, p) in mesh.patches.iter().enumerate() {
@@ -118,7 +147,7 @@ impl Geometry {
                 }
                 let o = mesh.owner[f];
                 let d = mesh.face_centres[f] - mesh.cell_centres[o];
-                let nhat = mesh.face_area_vectors[f] * (1.0 / mesh.face_areas[f]);
+                let nhat = unit_area(f);
                 delta[f] = 1.0 / nhat.dot(d).max(0.05 * d.mag());
             }
         }
@@ -683,6 +712,28 @@ pub fn interp_linear(g: &Geometry, s: &Scalar) -> Vec<f64> {
     out
 }
 
+/// [`interp_linear`] in OpenFOAM's own operation order (gh:#1894 round 46): ESI v2506 `surfaceInterpolationScheme::interpolate(vf,
+/// lambdas)` forwards to `dotInterpolate(geometricOneField(), vf, lambdas)` (`surfaceInterpolationScheme.C:296-318`), whose
+/// internal-face line is `lambda (P - N) + N` (`:270`), not `lambda P + (1 - lambda) N`: the two differ by an ulp (a uniform field
+/// does not even reproduce itself with the second form). Boundary faces take the field's boundary value. Used by
+/// `one_phase_fc`; the other callers of [`interp_linear`] are unchanged (their recorded numbers were measured with it).
+#[must_use]
+pub fn interp_linear_openfoam(g: &Geometry, s: &Scalar) -> Vec<f64> {
+    let ni = g.n_internal();
+    let mut out = g.surface_zeros();
+    for f in 0..ni {
+        let w = g.weights[f];
+        let (p, n) = (s.c[g.mesh.owner[f]], s.c[g.mesh.neighbour[f]]);
+        out[f] = w * (p - n) + n;
+    }
+    for f in ni..g.n_faces() {
+        if g.active[f] {
+            out[f] = s.b[f - ni];
+        }
+    }
+    out
+}
+
 /// `upwind<scalar>(mesh, phi).interpolate(s)`: the upwind cell by the sign of
 /// `phi` on internal faces (`pos0(phi)` picks the owner), the boundary value
 /// on boundary faces (OpenFOAM `upwind::weights`, `surfaceInterpolationScheme`).
@@ -719,6 +770,27 @@ pub fn flux(g: &Geometry, u: &Vector) -> Vec<f64> {
     for f in ni..g.n_faces() {
         if g.active[f] {
             out[f] = u.b[f - ni].dot(m.face_area_vectors[f]);
+        }
+    }
+    out
+}
+
+/// [`flux`] in OpenFOAM's operation order (gh:#1894 round 46): `Sf & (lambda (P - N) + N)` componentwise
+/// (`surfaceInterpolationScheme.C:270`, `dotInterpolate`), not `P lambda + N (1 - lambda)`.
+#[must_use]
+pub fn flux_openfoam(g: &Geometry, u: &Vector) -> Vec<f64> {
+    let ni = g.n_internal();
+    let m = &g.mesh;
+    let mut out = g.surface_zeros();
+    for f in 0..ni {
+        let w = g.weights[f];
+        let (p, n) = (u.c[m.owner[f]], u.c[m.neighbour[f]]);
+        let uf = Vector3::new(w * (p.x - n.x) + n.x, w * (p.y - n.y) + n.y, w * (p.z - n.z) + n.z);
+        out[f] = m.face_area_vectors[f].dot(uf);
+    }
+    for f in ni..g.n_faces() {
+        if g.active[f] {
+            out[f] = m.face_area_vectors[f].dot(u.b[f - ni]);
         }
     }
     out
@@ -862,6 +934,102 @@ pub fn reconstruct(g: &Geometry, phi: &[f64]) -> Vec<Vector3> {
 
 /// Solve a 3x3 system by Cramer's rule (the matrix is symmetric positive
 /// definite after the empty-direction fix in [`reconstruct`]).
+/// `fvc::reconstruct(phi)` in OpenFOAM's own operations (gh:#1894 round 46; ESI v2506 `fvcReconstruct.C`,
+/// `inv(surfaceSum(SfHat*Sf)) & surfaceSum(SfHat*ssf)` with `SfHat = Sf/magSf`, a division per component): the tensor field is inverted
+/// by `Tensor::safeInv` (`TensorI.H:608`: a component with `xx^2 < SMALL (xx^2 + yy^2 + zz^2)` is shifted by one, `adjunct()/det`,
+/// shifted back), then dotted `t.xx v.x + t.xy v.y + t.xz v.z`. [`reconstruct`] divides by Cramer's rule instead and differs by an ulp.
+#[must_use]
+pub fn reconstruct_openfoam(g: &Geometry, phi: &[f64]) -> Vec<Vector3> {
+    let m = &g.mesh;
+    let n = g.n_cells();
+    let mut tens = vec![[[0.0_f64; 3]; 3]; n];
+    let mut rhs = vec![[0.0_f64; 3]; n];
+    let mut add = |c: usize, f: usize, phif: f64| {
+        let sv = m.face_area_vectors[f];
+        let a = m.face_areas[f];
+        let s = [sv.x, sv.y, sv.z];
+        let hat = [sv.x / a, sv.y / a, sv.z / a];
+        for i in 0..3 {
+            for j in 0..3 {
+                tens[c][i][j] += hat[i] * s[j];
+            }
+            rhs[c][i] += hat[i] * phif;
+        }
+    };
+    for f in 0..g.n_internal() {
+        add(m.owner[f], f, phi[f]);
+        add(m.neighbour[f], f, phi[f]);
+    }
+    for f in g.n_internal()..g.n_faces() {
+        if g.active[f] {
+            add(m.owner[f], f, phi[f]);
+        }
+    }
+    let det = |t: &[[f64; 3]; 3]| {
+        t[0][0] * t[1][1] * t[2][2] + t[0][1] * t[1][2] * t[2][0] + t[0][2] * t[1][0] * t[2][1]
+            - t[0][0] * t[1][2] * t[2][1]
+            - t[0][1] * t[1][0] * t[2][2]
+            - t[0][2] * t[1][1] * t[2][0]
+    };
+    let adjunct = |t: &[[f64; 3]; 3]| {
+        [
+            [
+                t[1][1] * t[2][2] - t[2][1] * t[1][2],
+                t[0][2] * t[2][1] - t[0][1] * t[2][2],
+                t[0][1] * t[1][2] - t[0][2] * t[1][1],
+            ],
+            [
+                t[2][0] * t[1][2] - t[1][0] * t[2][2],
+                t[0][0] * t[2][2] - t[0][2] * t[2][0],
+                t[1][0] * t[0][2] - t[0][0] * t[1][2],
+            ],
+            [
+                t[1][0] * t[2][1] - t[1][1] * t[2][0],
+                t[0][1] * t[2][0] - t[0][0] * t[2][1],
+                t[0][0] * t[1][1] - t[1][0] * t[0][1],
+            ],
+        ]
+    };
+    (0..n)
+        .map(|c| {
+            let t = tens[c];
+            let sq = [t[0][0] * t[0][0], t[1][1] * t[1][1], t[2][2] * t[2][2]];
+            let threshold = 1e-15 * (sq[0] + sq[1] + sq[2]);
+            let small = [sq[0] < threshold, sq[1] < threshold, sq[2] < threshold];
+            let mut work = t;
+            for k in 0..3 {
+                if small[k] {
+                    work[k][k] += 1.0;
+                }
+            }
+            let d = det(&work);
+            let inv = if d.abs() < 1e-150 {
+                [[0.0; 3]; 3]
+            } else {
+                let adj = adjunct(&work);
+                let mut w = [[0.0; 3]; 3];
+                for i in 0..3 {
+                    for j in 0..3 {
+                        w[i][j] = adj[i][j] / d;
+                    }
+                }
+                for k in 0..3 {
+                    if small[k] {
+                        w[k][k] -= 1.0;
+                    }
+                }
+                w
+            };
+            let r = rhs[c];
+            Vector3::new(
+                inv[0][0] * r[0] + inv[0][1] * r[1] + inv[0][2] * r[2],
+                inv[1][0] * r[0] + inv[1][1] * r[1] + inv[1][2] * r[2],
+                inv[2][0] * r[0] + inv[2][1] * r[1] + inv[2][2] * r[2],
+            )
+        })
+        .collect()
+}
+
 fn solve3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
     let det = |m: [[f64; 3]; 3]| {
         m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
@@ -945,6 +1113,63 @@ impl Eqn {
                 self.ldu.diag[n] -= fl;
             }
         }
+    }
+
+    /// The INTERNAL-face part of [`Self::neg_laplacian`] (`fvm.upper() = deltaCoeffs gammaMagSf; negSumDiag()`, negated): the boundary
+    /// coefficients are NOT folded into the diagonal and the source but returned per boundary face by
+    /// [`Self::neg_laplacian_boundary_coeffs`], as `fvMatrix` keeps `internalCoeffs_` and `boundaryCoeffs_` (gh:#1894 round 46).
+    pub fn neg_laplacian_internal(&mut self, g: &Geometry, gamma: &[f64]) {
+        let m = &g.mesh;
+        for f in 0..g.n_internal() {
+            let c = gamma[f] * m.face_areas[f] * g.delta[f];
+            self.ldu.diag[m.owner[f]] += c;
+            self.ldu.diag[m.neighbour[f]] += c;
+            self.ldu.upper[f] -= c;
+            self.ldu.lower[f] -= c;
+        }
+    }
+
+    /// `internalCoeffs` and `boundaryCoeffs` per boundary face (index `f - n_internal`) of `-fvm::laplacian(gamma, psi)`
+    /// (`gaussLaplacianScheme::fvmLaplacianUncorrected`): `fixedValue`: `ic = pGamma deltaCoeffs`, `bc = pGamma (deltaCoeffs value)`;
+    /// `fixedGradient`: `ic = 0`, `bc = pGamma gradient`; any other patch contributes nothing here; `pGamma = gamma magSf`.
+    #[must_use]
+    pub fn neg_laplacian_boundary_coeffs(g: &Geometry, gamma: &[f64], psi: &Scalar) -> (Vec<f64>, Vec<f64>) {
+        let (ni, nf) = (g.n_internal(), g.n_faces());
+        let mut ic = vec![0.0; nf - ni];
+        let mut bc = vec![0.0; nf - ni];
+        for f in ni..nf {
+            if !g.active[f] {
+                continue;
+            }
+            let pg = gamma[f] * g.mesh.face_areas[f];
+            if psi.is_fixed(g, f) {
+                ic[f - ni] = pg * g.delta[f];
+                bc[f - ni] = pg * (g.delta[f] * psi.face(g, f));
+            } else if let Bc::FixedGradient(gr) = &psi.bc[g.patch_of[f - ni]] {
+                let k = f - g.mesh.patches[g.patch_of[f - ni]].start;
+                bc[f - ni] = pg * gr[k];
+            }
+        }
+        (ic, bc)
+    }
+
+    /// `fvMatrix::flux()` (ESI v2506 `fvMatrix.C:1422`) of a matrix with only a Laplacian's coefficients: internal faces
+    /// `lduMatrix::faceH`, `Upper psi_N - Lower psi_P`; boundary faces `internalCoeffs psi_P - boundaryCoeffs`. `ic` and `bc` are
+    /// per boundary face as [`Self::neg_laplacian_boundary_coeffs`] returns them.
+    #[must_use]
+    pub fn flux_of_coeffs(&self, g: &Geometry, p: &[f64], ic: &[f64], bc: &[f64]) -> Vec<f64> {
+        let m = &g.mesh;
+        let ni = g.n_internal();
+        let mut out = g.surface_zeros();
+        for f in 0..ni {
+            out[f] = self.ldu.upper[f] * p[m.neighbour[f]] - self.ldu.lower[f] * p[m.owner[f]];
+        }
+        for f in ni..g.n_faces() {
+            if g.active[f] {
+                out[f] = ic[f - ni] * p[m.owner[f]] - bc[f - ni];
+            }
+        }
+        out
     }
 
     /// `-fvm::laplacian(gamma, psi)` (positive definite), Gauss linear

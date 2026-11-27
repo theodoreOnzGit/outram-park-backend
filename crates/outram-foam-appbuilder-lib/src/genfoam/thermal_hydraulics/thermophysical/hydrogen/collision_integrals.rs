@@ -36,13 +36,10 @@
 //! [11] Mason & Rice, J. Chem. Phys. 22(3), 1954; [12] Mason, J. Chem. Phys.
 //! 22(2), 1954; [13] Amdur & Mason, Phys. Fluids 1(5), 1958.
 
-// Note: upstream `H2I.H` also fits `Omega^(1,1)_{1,1}` and `Omega^(2,2)_{1,1}`
-// (both H2-H2) as `omega11_11`/`omega22_11`. `omega11_11` is used only by the
-// pure-H2 self-diffusivity `diffusionH2`, which this port does not translate
-// (see [`diffusion`](super::diffusion)'s module doc — no caller and no
-// upstream reference value); `omega22_11` has no caller anywhere in
-// `H2I.H`, upstream or here. Per the "no orphaned dead code" rule, neither is
-// ported.
+// `omega11_11` and `omega22_11` (both H2-H2) are used only by the pure-H2 self-diffusivity
+// `diffusionH2` (omega11_11) and by nothing at all (omega22_11) inside `H2I.H`; they and `C_12` were left
+// out until gh:#1872 round 50, whose differential against the real class compares every method of `H2`, so
+// they are translated below.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -52,7 +49,7 @@ use petir::mathf::RealMath;
 /// atomic hydrogen only appears at high `T` in practice).
 #[inline]
 pub(super) fn omega22_22(t: f64) -> f64 {
-    5e-16 * t.r_powi(4) - 2e-11 * t.r_powi(3) + 2e-7 * t * t - 0.0015 * t + 7.1214
+    5e-16 * t.r_powf(4.0) - 2e-11 * t.r_powf(3.0) + 2e-7 * (t * t) - 0.0015 * t + 7.1214
 }
 
 /// `Omega^(1,1)_{1,2}` (H2-H cross term), logarithmic fit valid 1000-10000 K
@@ -81,8 +78,34 @@ pub(super) fn b12(t: f64) -> f64 {
     0.0462 * t.r_ln() + 0.8701
 }
 
-// Note: upstream `H2I.H` also fits a `C_12` ratio (`Foam::H2::C_12`), but no
-// method in `H2I.H` ever calls it — `mu()`/`kappa()`'s Hirschfelder-Curtiss-Bird
-// mixture rules only need `A*` ([`a12`]) and `B*` ([`b12`]). Per this
-// workspace's "no orphaned dead code" rule, it is intentionally not ported —
-// there is nothing here to call it either.
+/// `C*_12` (upstream `H2::C_12`); no method of `H2I.H` calls it (gh:#1872 round 50 compares it).
+#[inline]
+pub(super) fn c12(t: f64) -> f64 {
+    -0.031 * t.r_ln() + 1.1108
+}
+
+/// `Omega^(1,1)_{1,1}` of H2-H2 (upstream `H2::omega11_11`): a power law up to 1000 K, a quintic above.
+/// Upstream's `pow(T, k)` is glibc `pow`, here `r_powf`; `sqr(T)` is `T*T`.
+#[inline]
+pub(super) fn omega11_11(t: f64) -> f64 {
+    if t <= 1000.0 {
+        return 44.13 * t.r_powf(-0.331);
+    }
+    -1.173958e-19 * t.r_powf(5.0) + 3.983904e-15 * t.r_powf(4.0) - 5.443976e-11 * t.r_powf(3.0)
+        + 3.918410e-07 * (t * t)
+        - 1.704143e-03 * t
+        + 6.552751
+}
+
+/// `Omega^(2,2)_{1,1}` of H2-H2 (upstream `H2::omega22_11`); called by nothing in `H2I.H`.
+#[inline]
+pub(super) fn omega22_11(t: f64) -> f64 {
+    if t <= 1000.0 {
+        return 37.879 * t.r_powf(-0.268);
+    }
+    5.570961e-20 * t.r_powf(5.0) - 1.444695e-15 * t.r_powf(4.0)
+        + 1.024643e-11 * t.r_powf(3.0)
+        + 3.257067e-08 * (t * t)
+        - 8.379299e-04 * t
+        + 6.786617
+}

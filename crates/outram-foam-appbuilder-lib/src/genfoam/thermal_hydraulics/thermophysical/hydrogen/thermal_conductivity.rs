@@ -81,12 +81,12 @@ use super::viscosity::{atomic_hydrogen_viscosity, dynamic_viscosity};
 pub(super) fn molecular_h2_thermal_conductivity(p: f64, t: f64) -> f64 {
     let t_ = t / 33.45;
 
-    let lambda_0_num = -3.40976e-1 + 4.58820 * t_ - 1.45080 * t_ * t_
-        + 3.26394e-1 * t_.r_powi(3)
-        + 3.16939e-3 * t_.r_powi(4)
-        + 1.90592e-4 * t_.r_powi(5)
-        - 1.139e-6 * t_.r_powi(6);
-    let lambda_0_denom = 1.38497e2 - 2.21878e1 * t_ + 4.57151 * t_ * t_ + t_.r_powi(3);
+    let lambda_0_num = -3.40976e-1 + 4.58820 * t_ - 1.45080 * (t_ * t_)
+        + 3.26394e-1 * t_.r_powf(3.0)
+        + 3.16939e-3 * t_.r_powf(4.0)
+        + 1.90592e-4 * t_.r_powf(5.0)
+        - 1.139e-6 * t_.r_powf(6.0);
+    let lambda_0_denom = 1.38497e2 - 2.21878e1 * t_ + 4.57151 * (t_ * t_) + t_.r_powf(3.0);
     let lambda_0 = lambda_0_num / lambda_0_denom;
 
     // Faithful port of upstream naming: this is the *bulk mixture* density
@@ -96,9 +96,9 @@ pub(super) fn molecular_h2_thermal_conductivity(p: f64, t: f64) -> f64 {
     let rho_r = rho_mix / rho_c;
     let lambda_excess = (3.63081e-2 + 1.83370e-3 * t_) * rho_r
         + (-2.07629e-2 - 8.86716e-3 * t_) * rho_r.r_powi(2)
-        + (3.14810e-2 + 1.58260e-2 * t_) * rho_r.r_powi(3)
-        + (-1.43097e-2 - 1.06283e-2 * t_) * rho_r.r_powi(4)
-        + (1.74980e-3 + 2.80673e-3 * t_) * rho_r.r_powi(5);
+        + (3.14810e-2 + 1.58260e-2 * t_) * rho_r.r_powf(3.0)
+        + (-1.43097e-2 - 1.06283e-2 * t_) * rho_r.r_powf(4.0)
+        + (1.74980e-3 + 2.80673e-3 * t_) * rho_r.r_powf(5.0);
 
     let lambda_critical =
         6.24e-4 / (-2.58e-7 + t_ - 1.0) * (-(0.837 * (rho_r - 1.0)).r_powi(2)).r_exp();
@@ -120,7 +120,7 @@ pub(super) fn thermal_conductivity(p: f64, t: f64) -> f64 {
     let m12 = 2.0 * W_H * W / (W_H + W);
     let lambda_h2 = molecular_h2_thermal_conductivity(p, t);
     let lambda_h = 15.0 / 4.0 * R * atomic_hydrogen_viscosity(t) / W_H;
-    let lambda_12 = 15.0 / 4.0 / w_h_h2 * R * 2.6693e-4 * (m12 * 1e-3 * t).sqrt() / omega22_12(t);
+    let lambda_12 = 15.0 / 4.0 * R / w_h_h2 * 2.6693e-4 * (m12 * 1e-3 * t).sqrt() / omega22_12(t);
 
     let u_y = 4.0 / 15.0 * a_ * W_H * W / (m12 * m12) * (lambda_12 * lambda_12)
         / (lambda_h * lambda_h2)

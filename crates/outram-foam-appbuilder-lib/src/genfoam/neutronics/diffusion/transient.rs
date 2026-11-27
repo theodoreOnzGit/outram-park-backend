@@ -41,7 +41,9 @@ use outram_foam_basic_lib::prelude::{fvm, Field, VolScalarField};
 use uom::si::f64::Time;
 use uom::si::time::second;
 
+use super::upstream_transient::star_field;
 use super::DiffusionNeutronics;
+use crate::genfoam::neutronics::pseudo_time::field_like;
 use crate::genfoam::neutronics::NeutronicsError;
 
 impl DiffusionNeutronics {
@@ -71,11 +73,6 @@ impl DiffusionNeutronics {
     ///
     /// [`NeutronicsError::NonPositiveTimeStep`] if `dt <= 0`.
     pub fn step(&mut self, dt: Time) -> Result<(), NeutronicsError> {
-        if !self.xs.disc_factors_are_unity() {
-            return Err(NeutronicsError::UpstreamTransient(
-                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
-            ));
-        }
         let dt_s = dt.get::<second>();
         if dt_s <= 0.0 || dt_s.is_nan() {
             return Err(NeutronicsError::NonPositiveTimeStep(dt_s));
@@ -114,17 +111,31 @@ impl DiffusionNeutronics {
             let cg_nf_field = with_values(self.template(), cg_nf);
             let q_field = with_values(self.template(), q);
 
-            let flux_g = &self.state.flux()[gg];
+            // Discontinuity factors (gh:#1898, README round 47): as upstream's stationary step (`createFluxMatrices.H`,
+            // `fluxEq.H`) the unknown is `fluxStar = flux * discFactor` with `IV/df`, `D/df`, `Sigma_r/df` and the own-group
+            // prompt fission `/df`; the sources `q` are in the physical flux and `flux = fluxStar/df` after the solve. With every
+            // factor 1 each of these is `x * 1.0` or `x / 1.0`, exactly the earlier arithmetic. This scheme is the port's own
+            // (no upstream step to difference it against): it is checked by invariance, see `tests::step_*`.
+            let df = self.xs.disc_factor[gg].internal.as_slice().to_vec();
+            let star_guess: Vec<f64> = (0..n).map(|c| self.state.flux()[gg].internal.as_slice()[c] * df[c]).collect();
+            let star_old: Vec<f64> = (0..n).map(|c| phi_g_old[c] * df[c]).collect();
+            let flux_g = &star_field(&self.state.flux()[gg], star_guess);
+            let flux_g_old_star = &star_field(flux_g_old_field, star_old);
+            let iv = self.xs.inv_velocity[gg].internal.as_slice();
+            let iv_df = field_like(flux_g, (0..n).map(|c| iv[c] / df[c]).collect());
+            let sr = self.xs.sigma_removal[gg].internal.as_slice();
+            let sr_df = field_like(flux_g, (0..n).map(|c| sr[c] / df[c]).collect());
+            let cg_nf_df = field_like(flux_g, (0..n).map(|c| cg_nf_field.internal.as_slice()[c] / df[c]).collect());
             // Symmetric matrix (ddt + SPD laplacian + removal diagonal − own-
             // group prompt-fission diagonal); the transient time term keeps the
             // diagonal dominant, so warm-started CG applies.
-            let eqn = fvm::ddt_coeff(&self.xs.inv_velocity[gg], flux_g, flux_g_old_field, dt_s)
-                + fvm::laplacian_with_delta(&self.xs.d_face[gg], flux_g, self.settings.delta_coeff)
-                + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
-                - fvm::sp(&cg_nf_field, flux_g)
+            let eqn = fvm::ddt_coeff(&iv_df, flux_g, flux_g_old_star, dt_s)
+                + fvm::laplacian_with_delta(&self.d_over_df_face(gg, flux_g), flux_g, self.settings.delta_coeff)
+                + fvm::sp(&sr_df, flux_g)
+                - fvm::sp(&cg_nf_df, flux_g)
                 - fvm::su(&q_field, flux_g);
             let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("flux{gg}"), flux_g);
-            self.write_group_flux(gg, &sol);
+            self.write_flux_from_star_values_group(gg, sol.internal.as_slice());
         }
 
         // Advance precursors with the freshly updated fission source.

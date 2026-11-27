@@ -35,7 +35,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use super::constants::{W, W_H};
+use super::constants::{R, W, W_H};
 use super::equation_of_state::MassBasisEosState;
 
 /// Ideal-gas isobaric heat capacity of molecular H2, a sigmoid blend of a
@@ -47,7 +47,7 @@ use super::equation_of_state::MassBasisEosState;
 pub(super) fn cp_perfect_gas_h2(t: f64) -> f64 {
     let sig = sigmoid(t, 2.999842e-03, 1102.411);
     (1.0 - sig) * (4701.236 * sigmoid(t, 2.326426e-02, 137.8745) + 9704.076)
-        + sig * (-9.870353e-05 * t * t + 1.706997 * t + 14170.57)
+        + sig * (-9.870353e-05 * (t * t) + 1.706997 * t + 14170.57)
 }
 
 /// Heat capacity of atomic hydrogen, NIST polynomial fit for `T` in
@@ -57,14 +57,21 @@ pub(super) fn cp_perfect_gas_h2(t: f64) -> f64 {
 /// there.
 ///
 /// `T` in K; returns J/(kg K).
+/// Ideal-gas isochoric heat capacity of molecular hydrogen, `cp - R/W` (upstream `H2::cvPerfectGasH2`,
+/// Mayer's relation); no method of `H2I.H` calls it.
+#[inline]
+pub(super) fn cv_perfect_gas_h2(t: f64) -> f64 {
+    cp_perfect_gas_h2(t) - R / W
+}
+
 #[inline]
 pub(super) fn heat_capacity_atomic_h(t: f64) -> f64 {
     if t < 298.0 {
         return 0.0;
     }
     let t_ = t / 1000.0;
-    let cp_nist = 20.78603 + 4.850638e-10 * t_ - 1.582916e-10 * t_ * t_
-        + 1.525102e-11 * t_.r_powi(3)
+    let cp_nist = 20.78603 + 4.850638e-10 * t_ - 1.582916e-10 * (t_ * t_)
+        + 1.525102e-11 * t_.r_powf(3.0)
         + 3.196347e-11 / (t_ * t_);
     cp_nist / W_H * 1.0e3
 }
@@ -124,10 +131,10 @@ pub(super) fn second_virial_coefficient(p: f64, t: f64) -> f64 {
         return 15.0 * 1e-6 / w_mix;
     }
 
-    let b_cm3_per_mol = -5.66667e-7 * t.r_powi(6) + 1.26295e-4 * t.r_powi(5)
-        - 1.16747e-2 * t.r_powi(4)
-        + 0.578078 * t.r_powi(3)
-        - 16.37 * t * t
+    let b_cm3_per_mol = -5.66667e-7 * t.r_powf(6.0) + 1.26295e-4 * t.r_powf(5.0)
+        - 1.16747e-2 * t.r_powf(4.0)
+        + 0.578078 * t.r_powf(3.0)
+        - 16.37 * (t * t)
         + 258.895 * t
         - 1933.3;
     b_cm3_per_mol * 1e-6 / w_mix

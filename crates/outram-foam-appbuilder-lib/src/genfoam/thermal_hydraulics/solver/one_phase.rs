@@ -608,6 +608,98 @@ pub(crate) fn smooth_solve_sym_gauss_seidel(
     }
 }
 
+/// [`smooth_solve_sym_gauss_seidel`] with `smoothSolver::solve`'s own residual arithmetic and loop (gh:#1894 round 46; ESI v2506
+/// `smoothSolver.C`, `lduMatrixATmul.C`): `Apsi` by `Amul` (`diag psi`, then per face `Apsi[u] += lower psi[l]`,
+/// `Apsi[l] += upper psi[u]`), the residual after each sweep by `lduMatrix::residual` (`source - diag psi`, then per face
+/// `rA[u] -= lower psi[l]`, `rA[l] -= upper psi[u]`, face order), and the `do { smooth } while ((++nIter < maxIter && !converged) ||
+/// nIter < minIter)` loop with `minIter` honoured inside it. The older function forms `b - A x` after a multiply in a different
+/// order, which differs from upstream by an ulp of the residual and so can stop one sweep earlier or later at the round-off floor.
+/// Returns `(sweeps, initial residual, final residual)`.
+pub(crate) fn smooth_solve_sym_gauss_seidel_openfoam(
+    a: &LduMatrix,
+    b: &[f64],
+    x: &mut [f64],
+    settings: SolverSettings,
+    min_iter: usize,
+) -> (usize, f64, f64) {
+    let n = a.n_cells;
+    let nf = a.n_internal_faces;
+    let mut faces: Vec<usize> = (0..nf).collect();
+    faces.sort_by_key(|&f| a.owner[f]);
+    let mut own_start = vec![0usize; n + 1];
+    for &f in &faces {
+        own_start[a.owner[f] + 1] += 1;
+    }
+    for c in 0..n {
+        own_start[c + 1] += own_start[c];
+    }
+    let amul = |x: &[f64]| -> Vec<f64> {
+        let mut y: Vec<f64> = (0..n).map(|c| a.diag[c] * x[c]).collect();
+        for f in 0..nf {
+            y[a.neighbour[f]] += a.lower[f] * x[a.owner[f]];
+            y[a.owner[f]] += a.upper[f] * x[a.neighbour[f]];
+        }
+        y
+    };
+    let residual_of = |x: &[f64]| -> Vec<f64> {
+        let mut r: Vec<f64> = (0..n).map(|c| b[c] - a.diag[c] * x[c]).collect();
+        for f in 0..nf {
+            r[a.neighbour[f]] -= a.lower[f] * x[a.owner[f]];
+            r[a.owner[f]] -= a.upper[f] * x[a.neighbour[f]];
+        }
+        r
+    };
+    let ax = amul(x);
+    let x_ref = x.iter().sum::<f64>() / n.max(1) as f64;
+    let mut sum_a = a.diag.clone();
+    for f in 0..nf {
+        sum_a[a.neighbour[f]] += a.lower[f];
+        sum_a[a.owner[f]] += a.upper[f];
+    }
+    let norm_factor = (0..n)
+        .map(|c| {
+            let t = sum_a[c] * x_ref;
+            (ax[c] - t).abs() + (b[c] - t).abs()
+        })
+        .sum::<f64>()
+        + 1e-20;
+    let initial = (0..n).map(|c| (b[c] - ax[c]).abs()).sum::<f64>() / norm_factor;
+    let mut residual = initial;
+    let mut sweeps = 0;
+    if min_iter == 0 && residual < settings.tolerance {
+        return (sweeps, initial, residual);
+    }
+    let mut b_prime = vec![0.0_f64; n];
+    loop {
+        b_prime.copy_from_slice(b);
+        for c in 0..n {
+            let mut psi = b_prime[c];
+            for &f in &faces[own_start[c]..own_start[c + 1]] {
+                psi -= a.upper[f] * x[a.neighbour[f]];
+            }
+            psi /= a.diag[c];
+            for &f in &faces[own_start[c]..own_start[c + 1]] {
+                b_prime[a.neighbour[f]] -= a.lower[f] * psi;
+            }
+            x[c] = psi;
+        }
+        for c in (0..n).rev() {
+            let mut psi = b_prime[c];
+            for &f in &faces[own_start[c]..own_start[c + 1]] {
+                psi -= a.upper[f] * x[a.neighbour[f]];
+            }
+            psi /= a.diag[c];
+            x[c] = psi;
+        }
+        sweeps += 1;
+        residual = residual_of(x).iter().map(|v| v.abs()).sum::<f64>() / norm_factor;
+        let converged = residual < settings.tolerance;
+        if !((sweeps < settings.max_iter && !converged) || sweeps < min_iter) {
+            return (sweeps, initial, residual);
+        }
+    }
+}
+
 /// **New work, not port (gh:#1149).** A temperature-dependent effective
 /// conductivity for the porous energy equation of [`OnePhaseSolver`]: one
 /// [`ConductivityModel`] per region and the region of every cell.

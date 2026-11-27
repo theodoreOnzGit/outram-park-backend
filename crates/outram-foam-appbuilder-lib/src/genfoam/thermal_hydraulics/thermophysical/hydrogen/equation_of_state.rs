@@ -64,32 +64,53 @@ pub(super) fn density_atomic_h(p: f64, t: f64) -> f64 {
 /// in `B`, `C`, `D` below). `p` in Pa, `T` in K; returns kg/m^3.
 #[inline]
 pub(super) fn density_molecular_h2(p: f64, t: f64) -> f64 {
-    let alpha0_ = alpha0();
-    let b_ = b();
-    let c_ = c();
-    let alpha_ = alpha0_ / (t / TC).r_powf(n());
+    let cubic = ReducedCubic::at(p, t);
+    let (a_coeff, b_coeff, p_, q_) = (cubic.a_coeff, cubic.b_coeff, cubic.p_, cubic.q_);
 
-    let a_coeff = alpha_ * (c_ - b_);
-    let b_coeff = W * (alpha_ + p * b_ * (c_ - b_) - R * t * b_);
-    let c_coeff = W * W * (p * c_ - R * t);
-    let d_coeff = W * W * W * p;
-
-    // Reduced (depressed) cubic form t^3 + p_*t + q_ = 0.
-    // https://en.wikipedia.org/wiki/Cubic_equation#Trigonometric_and_hyperbolic_solutions
-    let p_ = (3.0 * a_coeff * c_coeff - b_coeff * b_coeff) / (3.0 * a_coeff * a_coeff);
-    let q_ = (2.0 * b_coeff.r_powi(3) - 9.0 * a_coeff * b_coeff * c_coeff
-        + 27.0 * a_coeff * a_coeff * d_coeff)
-        / (27.0 * a_coeff.r_powi(3));
-    let discriminant = p_.r_powi(3) / 27.0 + q_ * q_ / 4.0;
-
-    if discriminant < 0.0 {
+    if cubic.discriminant < 0.0 {
         2.0 * (-p_ / 3.0).sqrt()
             * ((3.0 * q_ / (2.0 * p_) * (-3.0 / p_).sqrt()).r_acos() / 3.0).r_cos()
             - b_coeff / (3.0 * a_coeff)
     } else {
-        let u1 = -q_ / 2.0 + discriminant.sqrt();
-        let u2 = -q_ / 2.0 - discriminant.sqrt();
+        let u1 = -q_ / 2.0 + cubic.discriminant.sqrt();
+        let u2 = -q_ / 2.0 - cubic.discriminant.sqrt();
         u1.r_cbrt() + u2.r_cbrt() - b_coeff / (3.0 * a_coeff)
+    }
+}
+
+/// The coefficients of the mass-density cubic and of its reduced form (upstream `densityH2` up to the
+/// discriminant test), split out so that the V&V test can say which branch a grid point takes
+/// (`discriminant < 0`: three real roots, trigonometric solution; otherwise Cardano's cube roots).
+pub(super) struct ReducedCubic {
+    pub(super) a_coeff: f64,
+    pub(super) b_coeff: f64,
+    pub(super) p_: f64,
+    pub(super) q_: f64,
+    pub(super) discriminant: f64,
+}
+
+impl ReducedCubic {
+    /// Upstream's operation order; upstream's `pow(x, 3.0)` is `r_powf(x, 3.0)` here, not a
+    /// multiplication chain (gh:#1872 round 50).
+    pub(super) fn at(p: f64, t: f64) -> Self {
+        let alpha0_ = alpha0();
+        let b_ = b();
+        let c_ = c();
+        let alpha_ = alpha0_ / (t / TC).r_powf(n());
+
+        let a_coeff = alpha_ * (c_ - b_);
+        let b_coeff = W * (alpha_ + p * b_ * (c_ - b_) - R * t * b_);
+        let c_coeff = W * W * (p * c_ - R * t);
+        let d_coeff = W.r_powf(3.0) * p;
+
+        // Reduced (depressed) cubic form t^3 + p_*t + q_ = 0.
+        // https://en.wikipedia.org/wiki/Cubic_equation#Trigonometric_and_hyperbolic_solutions
+        let p_ = (3.0 * a_coeff * c_coeff - b_coeff * b_coeff) / (3.0 * (a_coeff * a_coeff));
+        let q_ = (2.0 * b_coeff.r_powf(3.0) - 9.0 * a_coeff * b_coeff * c_coeff
+            + 27.0 * (a_coeff * a_coeff) * d_coeff)
+            / (27.0 * a_coeff.r_powf(3.0));
+        let discriminant = p_.r_powf(3.0) / 27.0 + q_ * q_ / 4.0;
+        Self { a_coeff, b_coeff, p_, q_, discriminant }
     }
 }
 
@@ -104,16 +125,14 @@ pub(super) fn density(p: f64, t: f64) -> f64 {
     w_h * density_atomic_h(p, t) + (1.0 - w_h) * density_molecular_h2(p, t)
 }
 
-// Note: upstream `H2I.H` also defines `psi = rho/p` ("liquid compressibility",
-// upstream comment: "currently it is assumed the liquid is incompressible")
-// and several trivial pass-throughs (`pv`, `hl`, `Cpg`, `mug`, `kappag`,
-// `sigma`, `D(p,T,Wb)`) that exist only to satisfy the OpenFOAM
-// `liquidProperties` virtual-base-class interface `H2` inherits from — not
-// because they add independent physics. This port does not translate the
-// `liquidProperties` base class (see `constants.rs`'s module doc), so there is
-// no caller for `psi` either; per the "no orphaned dead code" rule it is not
-// ported. `density`/`p` above are sufficient to reconstruct `rho/p` at any
-// call site that needs it.
+/// Compressibility `psi = rho/p` (upstream `H2::psi`, comment "currently it is assumed the liquid is
+/// incompressible"). It IS called by GeN-Foam: OpenFOAM's `heRhoThermo::calculate` stores
+/// `mixture_.psi(p, T)` in the thermo's `psi` field, which the `onePhase`/`twoPhase` pressure equations read
+/// (`fluid_.thermo().psi()`). Translated in gh:#1872 round 50 (an earlier note here said it had no caller).
+#[inline]
+pub(super) fn compressibility(p: f64, t: f64) -> f64 {
+    density(p, t) / p
+}
 
 /// Shared state from differentiating the **mass-basis** recomputation of the
 /// molecular-H2 cubic EOS: `dP/dT`, `dP/dV` at fixed `T`, and `dV/dT = -(dP/dT)/(dP/dV)`

@@ -52,6 +52,34 @@ pub fn evaluate_stop_if_max_field_diff(
     field1: &VolScalarField,
     field2: &VolScalarField,
 ) -> StopDecision {
+    // gh:#1871 (round 51): upstream tests `max(field1 - field2).value() > 0.0`, and `max(GeometricField)` is
+    // `UNARY_REDUCTION_FUNCTION_WITH_BOUNDARY` (OpenFOAM-v2506 `GeometricFieldFunctions.C:467`): the maximum
+    // runs over the cells AND every boundary value of the difference. ~~This function looked at cells only~~
+    // (still available as `evaluate_stop_if_max_field_diff_cells_only`).
+    let cells = evaluate_stop_if_max_field_diff_cells_only(field1, field2);
+    let mut max_diff = cells.max_diff;
+    for p in 0..field1.boundary.len() {
+        let a = field1.boundary[p].values.as_slice();
+        let b = field2.boundary[p].values.as_slice();
+        assert_eq!(a.len(), b.len(), "field1/field2 patch face count mismatch");
+        for i in 0..a.len() {
+            let d = a[i] - b[i];
+            if d > max_diff {
+                max_diff = d;
+            }
+        }
+    }
+    StopDecision {
+        stop: max_diff > 0.0,
+        max_diff,
+    }
+}
+
+/// The earlier form of [`evaluate_stop_if_max_field_diff`]: cells only (kept as a named option, gh:#1871).
+pub fn evaluate_stop_if_max_field_diff_cells_only(
+    field1: &VolScalarField,
+    field2: &VolScalarField,
+) -> StopDecision {
     assert_eq!(
         field1.internal.len(),
         field2.internal.len(),
