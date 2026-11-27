@@ -80,7 +80,11 @@ impl OnePhaseCcSolver {
                 .patches
                 .iter()
                 .zip(&fl.p_rgh.bc)
-                .map(|(p, bc)| match bc {
+                .enumerate()
+                .map(|(pi, (p, bc))| match bc {
+                    Bc::FixedGradient(_) if self.case.flow.as_ref().is_some_and(|f| f.p_rgh_extrapolated[pi]) => {
+                        Err(FoamWriteError::PatchType("p_rgh fixedFluxExtrapolatedPressure (written as its own type is not ported)".to_string()))
+                    }
                     _ if p.kind == PatchKind::Empty => Ok(PatchOut::plain(&p.name, "empty")),
                     Bc::FixedGradient(g) => Ok(PatchOut {
                         name: p.name.clone(),

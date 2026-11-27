@@ -506,3 +506,110 @@ fn ablating_the_passive_structure_or_freezing_htc_moves_t() {
     // reported, not asserted
     let _ = d2;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 73 (gh:#1939, #1940; README "Round 73"): the faceCentered branch of `onePhase` in `OnePhaseCcSolver`, `fixedFluxExtrapolatedPressure`,
+// variable density, `byRegime`. Each variant is the edit of `scripts/make_round73_variants.sh`, applied here as a string edit of the staged
+// case; the reference is the real binary on the same edit (`refs/fc_fluid_r73_<name>`). Criteria (fixed before any run): every field
+// `<= 1e-12` of its max at every one of 20 steps, `dt` and `T` lines `<= 1e-12`; noise-floor iteration counts reported, not gated.
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// `momentumMode faceCentered;` added to PIMPLE.
+fn variant_face_centered(root: &Path) {
+    edit_file(root, "system/fluidRegion/fvSolution", |t| {
+        let i = t.find("PIMPLE").expect("PIMPLE");
+        let open = i + t[i..].find('{').expect("{") + 1;
+        format!("{}\n    momentumMode        faceCentered;{}", &t[..open], &t[open..])
+    });
+}
+
+/// The inlet `p_rgh` `fixedFluxPressure` -> `fixedFluxExtrapolatedPressure`.
+fn variant_extrapolated_pressure(root: &Path) {
+    edit_file(root, "0/fluidRegion/p_rgh", |t| {
+        let i = t.find("inlet").expect("inlet");
+        let j = i + t[i..].find("fixedFluxPressure").expect("type");
+        format!("{}fixedFluxExtrapolatedPressure{}", &t[..j], &t[j + "fixedFluxPressure".len()..])
+    });
+}
+
+/// `rhoCoeffs<8> (1000 0 ...)` -> `(1000 -0.2 ...)`.
+fn variant_variable_rho(root: &Path) {
+    edit_file(root, "constant/fluidRegion/thermophysicalProperties", |t| {
+        let i = t.find("rhoCoeffs<8>").expect("rhoCoeffs");
+        let j = i + t[i..].find("(1000 0 ").expect("coeffs");
+        format!("{}(1000 -0.2 {}", &t[..j], &t[j + "(1000 0 ".len()..])
+    });
+}
+
+/// `nNonOrthogonalCorrectors 1;` added to PIMPLE.
+fn variant_one_non_orth(root: &Path) {
+    edit_file(root, "system/fluidRegion/fvSolution", |t| {
+        let i = t.find("PIMPLE").expect("PIMPLE");
+        let open = i + t[i..].find('{').expect("{") + 1;
+        format!("{}\n    nNonOrthogonalCorrectors 1;{}", &t[..open], &t[open..])
+    });
+}
+
+fn round73_gate(name: &str, r: &RunReport) {
+    print_report(name, r);
+    assert!(r.first_diverging.is_none(), "{name}: first diverging {:?}", r.first_diverging);
+    for (i, w) in r.worst.iter().enumerate() {
+        // the per-component entries (1..=3) are relative to each component's own maximum: reported, not gated
+        assert!((1..=3).contains(&i) || *w <= 1e-12, "{name}: {} {w:e}", FIELD_NAMES[i]);
+    }
+    assert!(r.t_line_worst <= 1e-12, "{name}: T lines {:e}", r.t_line_worst);
+    assert!(r.dt_worst <= 1e-12, "{name}: dt {:e}", r.dt_worst);
+}
+
+fn run73(tag: &str, edits: &[fn(&Path)], reference: &str) -> RunReport {
+    let (root, poly) = stage(tag);
+    for e in edits {
+        e(&root);
+    }
+    run_case(&root, &poly, &format!("fc_fluid_r73_{reference}.ref.txt.gz"), &format!("fc_fluid_r73_{reference}_log.ref.txt.gz"), Some(VARIANT_STEPS), |s| s)
+}
+
+/// F1: `momentumMode faceCentered` (the ONE edit), against the real binary with the same edit.
+#[test]
+fn r73_face_centered_matches_the_real_binary() {
+    round73_gate("f1", &run73("r73f1", &[variant_face_centered], "f1_facecentered"));
+}
+
+/// F2: `fixedFluxExtrapolatedPressure` is `fixedFluxPressure` (alias), against the real binary with the same edit.
+#[test]
+fn r73_extrapolated_pressure_matches_the_real_binary() {
+    round73_gate("f2", &run73("r73f2", &[variant_extrapolated_pressure], "f2_extrap"));
+}
+
+/// F2 real side (P1): the real `f2` field entries equal the real round 55 base's, bit for bit (every `F` line they share).
+#[test]
+fn r73_real_extrapolated_pressure_equals_the_real_base() {
+    let a = read_fields(&vv_dir().join("refs/fc_fluid_r73_f2_extrap.ref.txt.gz"));
+    let b = read_fields(&vv_dir().join("refs/fc_fluid_r55.ref.txt.gz"));
+    let mut shared = 0;
+    for (k, v) in &a {
+        if let Some(w) = b.get(k) {
+            shared += 1;
+            assert_eq!(v, w, "real f2 differs from the real base at {k}");
+        }
+    }
+    assert_eq!(shared, 160, "shared entries");
+}
+
+/// F3: `rho(T)` in the cell-centred mode (the ONE edit).
+#[test]
+fn r73_variable_density_matches_the_real_binary() {
+    round73_gate("f3", &run73("r73f3", &[variant_variable_rho], "f3_varrho"));
+}
+
+/// F4: faceCentered with `rho(T)` (two named edits).
+#[test]
+fn r73_face_centered_variable_density_matches_the_real_binary() {
+    round73_gate("f4", &run73("r73f4", &[variant_face_centered, variant_variable_rho], "f4_fc_varrho"));
+}
+
+/// F6: faceCentered with `nNonOrthogonalCorrectors 1` (two named edits).
+#[test]
+fn r73_face_centered_non_orthogonal_pass_matches_the_real_binary() {
+    round73_gate("f6", &run73("r73f6", &[variant_face_centered, variant_one_non_orth], "f6_fc_nonorth"));
+}

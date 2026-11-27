@@ -84,6 +84,7 @@ use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 
 pub(super) mod flow;
 mod pimple;
+mod face_centered;
 #[cfg(feature = "std")]
 use super::radial_power;
 mod turbulence;
@@ -1109,6 +1110,9 @@ impl OnePhaseCcCase {
         let flow = if solve_flow {
             let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg, laminar)?;
             fc.momentum_profiles = momentum_profiles;
+            if fc.face_centered && tortuosity.is_some() {
+                return Err(ctx.e("momentumMode faceCentered with structureProperties.localTortuosity is not ported (not differenced against the real binary, gh:#1939)"));
+            }
             fc.turbulence = if laminar {
                 None
             } else {
@@ -1558,8 +1562,11 @@ impl OnePhaseCcSolver {
         self.t_pas_old = self.t_pas.clone();
         self.t_act_old = self.t_act.clone();
         let uc = self.u.c.clone();
+        let rho_b_now = self.rho_b.clone();
         if let Some(fs) = self.flow.as_mut() {
             fs.u_old = uc;
+            fs.phi_old = fs.phi.clone();
+            fs.rho_b_old = rho_b_now;
             fs.solves.clear();
         }
         // `p.oldTime()` is stored at the first non-const access of a new time step; in the FIRST step OpenFOAM has no
