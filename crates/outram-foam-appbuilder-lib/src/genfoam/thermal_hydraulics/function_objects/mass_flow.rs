@@ -30,9 +30,9 @@
 //! Upstream's `faceSet`/`faceZone` region kinds both reduce to "an arbitrary
 //! list of face indices" (`labelList faces_`) — this port collapses them into
 //! [`MassFlowRegion::Faces`]. Upstream also supports an optional
-//! `scaleFactor` (default 1.0) applied to the final result; that isn't
-//! modelled as a parameter here since [`MassRate`] is a `uom` quantity and
-//! already supports `mdot * k` for a plain `f64` scale `k`.
+//! `scaleFactor` (default 1.0) applied to the final result; ~~that isn't
+//! modelled as a parameter here~~ **CORRECTED 2026-11-27 (gh:#1871 round 51):** it is
+//! [`total_mass_flow_scaled`] (`mDot *= scaleFactor_`), compared bit for bit with the real class.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

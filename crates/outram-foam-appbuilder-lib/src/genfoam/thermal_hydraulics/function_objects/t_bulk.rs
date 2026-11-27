@@ -14,9 +14,9 @@
 //! `TBulk` — flow-weighted (bulk / mixing-cup) temperature over a boundary
 //! patch.
 //!
-//! Port of `functionObjects::TBulk` (`TBulk.C`/`.H`), **patch region kind
-//! only** — see [`super::pressure_drop`] for why the `faceSet`/`faceZone`
-//! variants (which upstream serves via `fvc::interpolate`) are out of scope.
+//! Port of `functionObjects::TBulk` (`TBulk.C`/`.H`). ~~**Patch region kind only**, the `faceSet`/`faceZone`
+//! variants out of scope~~ **CORRECTED 2026-11-27 (gh:#1871 round 51):** the `faceSet`/`faceZone` variants are
+//! [`bulk_temperature_faces`] (`fvc::interpolate`), bit-identical to the real class.
 //!
 //! ```text
 //! T_bulk = sum_faces(|alphaRhoPhi_f| * Cp_f * T_f) / sum_faces(|alphaRhoPhi_f| * Cp_f)

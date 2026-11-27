@@ -216,6 +216,82 @@ impl TimeFieldTable {
     }
 }
 
+/// `timeFieldTable::updateField()` in upstream's own form (gh:#1871, round 51), with its state.
+///
+/// Upstream (`timeFieldTableFvPatchScalarField.C`): the table is a `List<Tuple2<scalar, scalarField>>`;
+/// `tStart_ = table_[0].first()`; `currentIndex_` only ever increases. At time `t`:
+/// * `t > tStart`: if `currentIndex_ < size-1`, advance `currentIndex_` until `t >= t0 && t <= t1` (`t0 =
+///   table_[i].first()`, `t1 = table_[i+1].first()`); then if `currentIndex_ < size-1` the patch gets
+///   `c*f0 + (1.0 - c)*f1` with `c = (t1 - t)/(t1 - t0)`, else the last row;
+/// * `t <= tStart`: the first row.
+///
+/// ~~The earlier [`TimeFieldTable`] interpolates each face as a separate `ScalarInterpolateTable`~~ (kept, a
+/// different rounding: `y0 + (y1 - y0)*(x - x0)/(x1 - x0)`).
+///
+/// **Upstream defect, not reproduced:** for `t` above the last node the `while (true)` loop increments
+/// `currentIndex_` past the end and reads `table_[currentIndex_ + 1]` beyond the list (undefined behaviour).
+/// [`UpstreamTimeFieldTable::value_at`] panics there instead.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpstreamTimeFieldTable {
+    times: Vec<f64>,
+    rows: Vec<Vec<f64>>,
+    current_index: usize,
+}
+
+impl UpstreamTimeFieldTable {
+    /// Build from the table's node times and per-node face rows (upstream reads `table_[0]` unchecked).
+    ///
+    /// # Panics
+    /// If the table is empty or the rows differ in length.
+    #[must_use]
+    pub fn new(times: Vec<f64>, rows: Vec<Vec<f64>>) -> Self {
+        assert!(!times.is_empty() && times.len() == rows.len(), "table needs one row per time");
+        for r in rows.iter() {
+            assert_eq!(r.len(), rows[0].len(), "every table row needs the same number of faces");
+        }
+        Self { times, rows, current_index: 0 }
+    }
+
+    /// The patch values at time `t`; advances the sticky interval index as upstream does.
+    ///
+    /// # Panics
+    /// If `t` is above the last node while the index is still short of the last interval (upstream: undefined
+    /// behaviour, an out-of-range read).
+    pub fn value_at(&mut self, t: f64) -> Vec<f64> {
+        let n = self.times.len();
+        if t > self.times[0] {
+            let mut t0 = 0.0;
+            let mut t1 = 0.0;
+            if self.current_index + 1 < n {
+                t0 = self.times[self.current_index];
+                t1 = self.times[self.current_index + 1];
+                loop {
+                    if t >= t0 && t <= t1 {
+                        break;
+                    }
+                    self.current_index += 1;
+                    assert!(
+                        self.current_index + 1 < n,
+                        "timeFieldTable: t = {t} is above the last node; upstream reads past the list (undefined behaviour)"
+                    );
+                    t0 = self.times[self.current_index];
+                    t1 = self.times[self.current_index + 1];
+                }
+            }
+            if self.current_index + 1 < n {
+                let f0 = &self.rows[self.current_index];
+                let f1 = &self.rows[self.current_index + 1];
+                let c = (t1 - t) / (t1 - t0);
+                (0..f0.len()).map(|i| c * f0[i] + (1.0 - c) * f1[i]).collect()
+            } else {
+                self.rows[n - 1].clone()
+            }
+        } else {
+            self.rows[0].clone()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

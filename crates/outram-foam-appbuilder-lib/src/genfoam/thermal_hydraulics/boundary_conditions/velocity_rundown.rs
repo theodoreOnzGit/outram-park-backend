@@ -121,6 +121,19 @@ impl VelocityRundownBc {
         Ratio::new::<ratio>(base.r_powf(self.exp_c))
     }
 
+    /// Reference velocity after upstream's CONSTRUCTOR (gh:#1871): `if (t > t0_) U0_ /= pow(A_ + B_*(t - t0_), C_)`
+    /// (so a field read after `t0`, e.g. on a restart, stores `U0` divided by the rundown factor of that time;
+    /// `updateCoeffs` then multiplies again). At `t <= t0` the value is unchanged.
+    #[must_use]
+    pub fn reference_velocity_at_construction(&self, u0: Vector3, t: Time) -> Vector3 {
+        if t > self.start_time {
+            let f = self.rundown_factor(t).get::<ratio>();
+            Vector3::new(u0.x / f, u0.y / f, u0.z / f)
+        } else {
+            u0
+        }
+    }
+
     /// The instantaneous velocity `U(t) = U0 * f(t)`, given the reference
     /// (pre-trip) velocity vector `U0`.
     #[must_use]

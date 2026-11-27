@@ -14,8 +14,9 @@
 //! `pressureDrop` — area-weighted-average pressure difference between two
 //! boundary patches (or a patch average vs. a fixed reference pressure).
 //!
-//! Port of `functionObjects::pressureDrop` (`pressureDrop.C`/`.H`), **patch
-//! region kind only**. Upstream additionally supports a `faceSet` region kind
+//! Port of `functionObjects::pressureDrop` (`pressureDrop.C`/`.H`). ~~**Patch region kind only**~~
+//! **CORRECTED 2026-11-27 (gh:#1871 round 51):** the `faceSet` kind is [`PressureRegion::FaceSet`] /
+//! [`pressure_drop_regions`], bit-identical to the real class; the text below is the earlier scope note. Upstream additionally supports a `faceSet` region kind
 //! by face-interpolating the cell pressure field (`fvc::interpolate(p)`) onto
 //! an arbitrary internal-face subset; that needs an interpolation weight
 //! scheme for arbitrary faces, which basic-lib does not expose as a

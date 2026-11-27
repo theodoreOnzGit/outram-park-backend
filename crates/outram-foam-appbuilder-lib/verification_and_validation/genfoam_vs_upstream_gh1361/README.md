@@ -6587,3 +6587,73 @@ Upstream: GeN-Foam 652b3da, `thermalHydraulics/src/functionObjects/*` and `bound
 | G3a | `velocityRundown` bit-identical (1-ulp `pow` allowance possible) | 65 % |
 | G3b | construction after `t0` (`U0 /= pow(...)`): the port cannot represent it before this round: MISS | 80 % |
 | G4 | the port's arithmetic equals the driver's transcription bit for bit | 80 % |
+
+
+## Round 51 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; the predictions above were committed first: `c30bed3cb`; references in the refs submodule: `fo1871` (`cafec14`), `bc1871` (`84d1dd1`), `nb1871` (the commit after it); tests `tests/genfoam_function_objects_vs_upstream.rs` (8), `tests/genfoam_boundary_conditions_vs_upstream.rs` (4), `tests/genfoam_nusselt_baffle_vs_transcription.rs` (1); `--nocapture` prints every tally)
+
+### Result: every compared quantity is bit-identical (after the fixes below); no round-off allowance was used
+
+| item | what | count compared | bit-identical | worst difference |
+|---|---|---:|---:|---|
+| F0 | box-mesh geometry (`V`, `C`, `Cf`, `Sf`, `magSf`, patch `Cf`/`magSf`), linear `weights` | 626 + 46 | 626 + 46 | 0 |
+| F1 | `massFlow`: 8 patch objects (scale 1 and 180), faceZone x2, faceSet x2, 12 steps | 144 | 144 | 0 |
+| F2 | `TBulk`: 4 patches, faceZone x2, faceSet x2, 12 steps (`Cp` from the real `hPolynomial` thermo, dumped) | 96 | 96 | 0 |
+| F3 | `pressureDrop`: patch/patch, faceSet/faceSet, patch/faceSet | 36 | 36 | 0 |
+| F4 | `patchScalarFieldValue`: 3 patches x 12 steps, every face value and the time | 468 | 468 | 0 |
+| F5 | `fieldDiffExtents`: scalar and vector (`mag`) pairs, internal + 4 patches, `referencePosition (0.1 0.2 0.3)`, ties, an empty-mask step | 720 | 720 | 0 |
+| F6 | `stopIfMaxFieldDiff`: stop decision per step, two variants | 24 | 24 | stops at step 6 (cells) and 9 (boundary only), as the real run |
+| F7 | `fieldIntegralToFMU` UP TO THE FMU BOUNDARY (upstream's statement on a real cell zone) | 12 | 12 | 0 |
+| G1 | `blackBodyRadiation`: `sigma`, `deltaCoeffs`, patch value 12 steps x 6 faces, closed loop and open loop | 7 + 72 + 72 | all | 0 (no `pow` 1-ulp allowance needed) |
+| G2 | `timeFieldTable`: construction + 12 steps x 6 faces (before `tStart`, on nodes, between nodes) | 78 | 78 | 0 |
+| G3 | `velocityRundown`: constructed before `t0` (12 steps x 6 faces x 3) and after `t0` (7 x 6 x 3) | 345 | 345 | 0 |
+| G4 | `NusseltThermalBaffle1D` arithmetic vs the driver's LITERAL TRANSCRIPTION (not the class): `hw_`, `calcH` with and without `f`, both `updateCoeffs()` branches, `evaluate()`, 3 variants x 12 steps | 2403 | 2403 | 0 |
+
+### Defects found and fixed (each was found by the comparison or by reading upstream first)
+
+1. **`stopIfMaxFieldDiff` looked at cells only.** Upstream's `max(field1 - field2)` includes the boundary values (`GeometricFieldFunctions.C:467`). The cells-only form (kept as `evaluate_stop_if_max_field_diff_cells_only`) never stops in the boundary-only variant; the real run stops at step 9 (control, tested).
+2. **`blackBodyRadiation` used CODATA-2018 `sigma = 5.670374419e-8`**; OpenFOAM computes `5.6704085580608236e-08` from the five-figure `etc/controlDict` constants (`c = 2.99792e8`, `h = 6.62607e-34`, `k = 1.38065e-23`): **6.0e-6 relative**. `openfoam_stefan_boltzmann_sigma()` reproduces the bits. Also the Fourier flux is now `|(-kappa (Tp - Ti)) * invD|` and `pow4 = sqr(sqr)`: the earlier form differs in 72 of 72 values. Two lib tests had hand constants tied to the CODATA value (`56244.44386` -> `56244.782487`): updated, not loosened (the tolerance is tighter).
+3. **`timeFieldTable` interpolated each face with `ScalarInterpolateTable`** (`y0 + (y1 - y0)(x - x0)/(x1 - x0)`): 16 of 72 values differ from upstream's `c*f0 + (1 - c)*f1`, `c = (t1 - t)/(t1 - t0)`. `UpstreamTimeFieldTable` (sticky `currentIndex_`) is bit-identical; the earlier form is kept as `TimeFieldTable`.
+4. **`velocityRundown` could not represent a field read after `t0`** (the constructor divides `U0` by the rundown factor): added `reference_velocity_at_construction`; 42 of 42 values differ without it.
+5. Added (absent before): `massFlow` `scaleFactor` (the shipped tutorials use 180: 36 of 48 values differ without it), `TBulk` and `pressureDrop` `faceZone` / `faceSet` regions (`fvc::interpolate`), `fieldDiffExtents` for vector fields, and the `NusseltThermalBaffle1D` arithmetic (the two `unimplemented!()` methods now compute).
+6. Seeds: `Iterator::sum` replaced by explicit `+0.0`-seeded loops in `massFlow`, `fieldIntegral`, patch area and `patchScalarFieldValue` (upstream's `mDot += ...`). Not a measured defect (see F1b below).
+
+### Upstream behaviours found (not defects of the port; recorded)
+
+* `blackBodyRadiation`'s dictionary constructor never reads `value`: the initial patch value is UNINITIALISED MEMORY (the dump prints `727.9 727.9 5.65e55 ...`; the documentation example's `value uniform 300` is ignored). The port starts from the dumped state; the map state -> state is what is compared.
+* `timeFieldTable` for `t` above its last node reads past its list (undefined behaviour); the port panics there (tested). No tutorial case reaches it.
+* `velocityRundown`: a field read after `t0` stores `U0 / f(t_read)` (reproduced).
+* `fieldIntegralToFMU` is not compiled in the shipped build (`#ifdef isCommDataLayerIncluded`, FMU4FOAM is empty): only its statement was run.
+* `massFlow`, `TBulk` and `pressureDrop` index the INTERNAL field of `alphaRhoPhi` / `fvc::interpolate(p)` with a `faceSet` / `faceZone` face number: a boundary face in the set reads out of range (undefined). The port asserts internal faces.
+* A `faceSet` is summed in `labelHashSet` iteration order (`ORD set.fsA 3 38 24 44 14 31` against the sorted `3 14 24 31 38 44`): the sorted order differs from the real class in 14 of 48 `massFlow` values (control), so the order matters and the port takes the dump's order as input (hash-set bucket order is refused by name).
+
+### Controls (each comparison can fail)
+
+`scaleFactor` dropped: 36/48 differ. Sorted face-set order: 14/48 differ. Uniform `Cp`: 36/48 differ. Owner-cell `p` instead of `fvc::interpolate`: 12/12 steps differ. Reversed patch face order: 36/36 rows differ. `>=` mask: 11/12 internal boxes differ. Cells-only stop test: misses the step-9 boundary stop. CODATA-sigma/earlier BC form: 72/72 differ. Earlier `timeFieldTable`: 16/72 differ. `Urun2` without the construction division: 42/42 differ. Reordered `A = (hw + hf)/hw`: 12/24 step sets differ (a reordering is detectable).
+
+### Predictions: held and missed
+
+| id | verdict |
+|---|---|
+| F0, F0b | held (626/626, 46/46, `deltaCoeffs` 6/6) |
+| F1a, F1c, F1d | held (F1d: the sorted order differs, 14/48; my 40 % was the lower side) |
+| **F1b** | **missed**: the earlier `iter().sum()` form gave `0.0` (not `-0.0`) on the zero-flux patch under Rust 1.99.1: no sign-of-zero difference. The explicit seed is kept; it is harmless |
+| F2a, F2b, F3a, F3b, F4 | held |
+| F5a, F5b, F5c | held (one empty-mask step; its box matches) |
+| F6a, F6b | held (defect 1; stops at 6 and 9) |
+| F7 | held |
+| G1a | held (6.0e-6; predicted about 1e-7: the size was UNDER-estimated, the sign right) |
+| G1b | held WITHOUT the `pow` allowance (closed and open loop 72/72) |
+| G2a, G2b | held |
+| G3a | held without the allowance (345/345) |
+| G3b | held (42/42 differ without the division) |
+| G4 | held; the class itself was not run (see below) |
+
+### What is NOT done (filed)
+
+* `NusseltThermalBaffle1D` as a class: needs a `fluid`, an `FSPair`, `kappaEff` and a mapped baffle pair; the only shipped consumer is `fmuCases/2D_LFRpowerPlant` (FMU). The arithmetic is ported and checked against a transcription only. gh:#1907.
+* The function objects inside the real shipped case runs (`1D_boiling`, 2D_MSFR TH region, PSBT, `2D_FFTF`'s `controlDict`): the `postProcessing/` numbers of a coupled run against the port's solver fields step by step; no shipped case selects `blackBodyRadiation`, `velocityRundown`; `timeFieldTable` only in `featureCases/2D_KNS37-L22/-2/fluidRegion/p_rgh` (an old `-2` time directory). gh:#1907.
+* `labelHashSet` iteration order; `fieldDiffExtents` for `symmTensor`/`tensor`/`sphericalTensor`; `fieldIntegralToFMU` itself: refused by name, gh:#1907. The CODATA sigma still used by `solid_conduction` (upstream's use of its own `sigma` there was not checked): gh:#1907.
+
+### Reproduction
+
+`bash scripts/build_and_run_fo1871_dump.sh`, `build_and_run_bc1871_dump.sh`, `build_and_run_nb1871_dump.sh` (each builds its driver against the unmodified `libFFSSrc2` and writes the gzipped reference); `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_function_objects_vs_upstream --test genfoam_boundary_conditions_vs_upstream --test genfoam_nusselt_baffle_vs_transcription -- --nocapture`.

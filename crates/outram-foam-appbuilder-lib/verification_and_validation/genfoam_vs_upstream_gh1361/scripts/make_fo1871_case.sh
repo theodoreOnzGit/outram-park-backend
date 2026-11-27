@@ -88,5 +88,24 @@ dimensions [1 -1 -2 0 0 0 0]; internalField uniform 100000;
 boundaryField { inlet { type fixedValue; value uniform 100000; } outlet { type fixedValue; value uniform 100000; } walls { type fixedValue; value uniform 100000; } caps { type fixedValue; value uniform 100000; } }
 EOT
 } > "$OUT/0/p"
+# round 51, boundary conditions (bc1871Dump): blackBodyRadiation on outlet, timeFieldTable on inlet, velocityRundown on inlet
+bcs() { # name class dims patchname patchdict fixedvalue
+  { hdr "$2" "$1"; cat <<EOT
+dimensions $3; internalField uniform $6;
+boundaryField
+{
+    inlet  { type fixedValue; value uniform $6; }
+    outlet { type fixedValue; value uniform $6; }
+    walls  { type fixedValue; value uniform $6; }
+    caps   { type fixedValue; value uniform $6; }
+    $4 { $5 }
+}
+EOT
+  } > "$OUT/0/$1"
+}
+bcs Tbb volScalarField "[0 0 0 1 0 0 0]" outlet "type blackBodyRadiation; emissivity 0.78; kappa 10; Ta 300; value uniform 500;" 450
+bcs Ttab volScalarField "[0 0 0 1 0 0 0]" inlet "type timeFieldTable; table ( (2 (10 11 12 13 14 15)) (5 (20 18.5 17 15.5 14 12.5)) (9 (7.25 8.75 10.5 3.125 9 1.5)) (12 (30 29 28 27 26 25)) );" 0
+bcs Urun volVectorField "[0 1 -1 0 0 0 0]" inlet "type velocityRundown; const 1; coeff -0.04; exp 1.5; startTime 3; value uniform (1 0.5 0.25);" "(0 0 0)"
+bcs Urun2 volVectorField "[0 1 -1 0 0 0 0]" inlet "type velocityRundown; const 1; coeff -0.04; exp 1.5; startTime 3; value uniform (1 0.5 0.25);" "(0 0 0)"
 cd "$OUT" && blockMesh > log.blockMesh 2>&1 && topoSet > log.topoSet 2>&1 && topoSet -dict system/topoSetDict.zones > log.topoSetZones 2>&1
 echo "case staged in $OUT"
