@@ -742,9 +742,12 @@ fn m1_upstream_sn_ignores_the_discontinuity_factor() {
 #[test]
 fn x1_refusals_are_kept_by_name() {
     let c = load("v3", None);
+    // ~~`step` refused a factor other than 1 by name~~ **CHANGED 2026-11-27 (round 47, gh:#1898):** `step` divides by the
+    // factors (unknown `fluxStar`, as the stationary step); the test that assumed the refusal is this one, and
+    // `step_with_uniform_factors_equals_unity` / `step_with_zone_factors_differs_from_unity` check the new path.
     let mut s = diffusion(&c);
-    let err = s.step(uom::si::f64::Time::new::<uom::si::time::second>(1e-3)).unwrap_err();
-    assert!(err.to_string().contains("discontinuity"), "{err}");
+    s.set_initial_guess(&vec![vec![1.0; c.mesh.n_cells]; 2], 1.0);
+    s.step(uom::si::f64::Time::new::<uom::si::time::second>(1e-3)).expect("step runs with factors");
     let mut s = diffusion(&c);
     s.set_xs_evolution(evolution(&c, false));
     s.set_initial_guess(&vec![vec![1.0; c.mesh.n_cells]; 2], 1.0);
@@ -858,4 +861,46 @@ fn d7_control_a_static_rod_misses_the_moving_rod_run() {
     let miss = rel(h[last].step.power, up.power[last]);
     println!("D7 control: static rod, last-step power rel {miss:.3e} (steps {} / {})", h.len(), up.power.len());
     assert!(miss > 1e-6 || h.len() != up.power.len(), "the rod motion must matter: {miss:e}");
+}
+
+// ----- DiffusionNeutronics::step with discontinuity factors (gh:#1898, README round 47, item 2b) -----
+
+/// Five `step`s of 1e-3 s from a uniform guess; returns the physical fluxes (group-major) and the first precursor group.
+fn step_run(nd: &str) -> (Vec<Vec<f64>>, Vec<f64>) {
+    let c = load(nd, None);
+    let mut s = diffusion(&c);
+    s.set_initial_guess(&vec![vec![1.0; c.mesh.n_cells]; 2], 1.0);
+    for _ in 0..5 {
+        s.step(uom::si::f64::Time::new::<uom::si::time::second>(1e-3)).expect("step");
+    }
+    (fluxes(&s), s.state().precursors()[0].internal.as_slice().to_vec())
+}
+
+fn worst_rel(a: &[f64], b: &[f64]) -> f64 {
+    let m = b.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    a.iter().zip(b).map(|(x, y)| (x - y).abs() / m).fold(0.0_f64, f64::max)
+}
+
+/// The port's own scheme has no upstream step to difference it against, so it is checked by an exact invariance: a factor
+/// that is uniform in space (here 1.25 and 0.8 per group) rescales `fluxStar = flux * df` of the whole group and cannot
+/// change the physical flux or the precursors, whatever the numbers are. Prediction (README, written before the run): equal to
+/// <= 1e-9 of the field maximum (the solves stop at 1e-14 on differently scaled systems).
+#[test]
+fn step_with_uniform_factors_equals_unity() {
+    let (f0, p0) = step_run("v0");
+    let (f4, p4) = step_run("v4");
+    let d = f0.iter().zip(&f4).map(|(a, b)| worst_rel(b, a)).fold(0.0_f64, f64::max);
+    let dp = worst_rel(&p4, &p0);
+    println!("step with uniform factors (1.25, 0.8) against unity: flux {d:.3e}, precursor {dp:.3e}");
+    assert!(d < 1e-9 && dp < 1e-9, "{d:e} {dp:e}");
+}
+
+/// Control: zone-dependent factors (`v3`) do change the physical flux (> 1e-4), so the invariance above is not vacuous.
+#[test]
+fn step_with_zone_factors_differs_from_unity() {
+    let (f0, _) = step_run("v0");
+    let (f3, _) = step_run("v3");
+    let d = f0.iter().zip(&f3).map(|(a, b)| worst_rel(b, a)).fold(0.0_f64, f64::max);
+    println!("step with zone factors (v3) against unity: flux {d:.3e}");
+    assert!(d > 1e-4, "{d:e}");
 }

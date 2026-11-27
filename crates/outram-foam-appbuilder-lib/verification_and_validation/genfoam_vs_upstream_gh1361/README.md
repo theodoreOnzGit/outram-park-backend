@@ -6091,3 +6091,63 @@ Bit-identical = every value `==`; otherwise the worst relative difference (of th
 | E3 | `discFactor` per cell | 1 exactly (no adjustment, lists 1) |
 | E4 control | the port with `disp` zero (`axExp = radExp = 0`) against the upstream cross sections of `ea` | `D` differs by > 1e-3 relative somewhere |
 | E5 | `expansion_from_displacement` of a purely axial displacement on the unit mesh test (unit tests) | `radExp` 0 and `axExp` the exact end-corrected gradient; the axis choice moves the displacement between the two branches |
+
+## Round 47 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions committed first: `5bc82eb13` (SP3 item) and `c20bbfa50` (disp item); references in the refs submodule, `95e946b` (`r47_solver`) and the commit after it (`r47_expansion`))
+
+### Item 1: the SP3 data set and the both-groups comparison (`tests/genfoam_sp3_df_both_groups_vs_upstream.rs`, 5 tests, 0.5 s)
+
+**Upstream behaviour (real binary, tight protocol, 60 s):**
+
+| run | result |
+|---|---|
+| `i1`, shipped start `defaultFlux2 1` (control M1) | **dies**: FPE at step 58, 45 `Warning: keff` lines, factors from -177.4 to +334.1 |
+| `i1`, `defaultFlux2 0` (M2) | **runs**: 345 steps, 0 clamps, `keff` 0.9214 -> 1.04045, factors 0.503..7.040 (final: group 0 0.936 0.956 1.051 1.143, group 1 0.503 1.140 1.405 1.258) |
+| `i2`, `defaultFlux2 0` (M3) | runs: 345 steps, 0 clamps, `keff` -> 1.03903, factors 0.466..6.974 |
+| `i0`, unity, `defaultFlux2 0` | 345 steps, `keff` 0.9214 -> 1.0441 |
+
+So the mechanism hypothesis held: the SAME data with the shipped start dies and with the physical start runs, both groups adjusting. (Not every factor stays near 1: the transient early factors reach 7, and the first-step ones are not near 1 either; what the physical start removes is the sign flip and the clamp, not the large excursions of the first steps. Said plainly because the README text above says "O(1)".)
+
+**Port against the binary, both groups adjusting (criteria of the README, all fixed before the runs):**
+
+| run | steps | worst `abs(dk)` (step) | worst rel `dP` | residual rel / abs | flux shape | final factors rel | bit-identical | verdict |
+|---|---:|---|---|---|---|---|---|---|
+| `i0` (unity) M4 | 345/345 | 4.2e-15 (139) | 6.6e-15 | 4.1e-9 / 9.8e-15 | 3.3e-14 | n/a | no | held |
+| `i1` P1 | 345/345 | **2.8e-14** (19) | 3.7e-14 | 1.5e-8 / 3.3e-14 | 6.9e-14 | **7.9e-14** | no | held |
+| `i2` P2 | 345/345 | 3.1e-14 (48) | 4.3e-14 | 2.3e-8 / 3.4e-14 | 1.4e-13 | 4.2e-14 | no | held |
+| `i1` shipped start P3 (step 1) | 1 | 0 (keff 0.1 clamp in both) | | | | **0**: upstream's first factors, the negative ones included, equal the port's `==` | yes | held |
+
+Controls: the port without the adjustment on `i1`, and with every factor forced to 1: last-step `|dk|` 3.6e-3 each (K1, K2 held, > 1e-4). Predictions: M1 (85 %), M2 (70 %), M3 (60 %), M4 (90 %), P1 (70 %), P2 (60 %), P3 (55 %), K1, K2 all **held**; bit-identity of P1 (5 %) **missed** as predicted: the residual is the two linear solvers' stopping points (round 2), 1e-14 order. The `max |dt|/t` of these runs is 4.96e-8 against the 5e-8 gate (printed-time rounding, unchanged from rounds 39 to 42). The both-groups SP3 path of round 42 is therefore verified against the binary on a data set on which upstream itself runs; round 42's `s1` miss is closed (the cause was the start, not the port).
+
+**Honest limits.** (1) The IAEA values are recalled, not re-checked (flagged above). (2) The reference integrals of `i1` are the SP3 scalar flux of the same code and mesh, and those of `i2` the diffusion flux: a "reference" in the sense of upstream's own unadjusted solution, not an independent transport result. (3) The factors reach 7 in the early steps (the adjustment is applied from step 1), so the data set demonstrates a stable endpoint, not a small perturbation of 1.
+
+### Item 2c: `disp`-driven `radExp` / `axExp` (`tests/genfoam_expansion_vs_upstream.rs`, 4 tests, 0.02 s)
+
+New `diffusion/expansion.rs` (`expansion_from_displacement`, `cell_parameters_with_expansion`; 3 unit tests). Against upstream's own `XS` class (`dumpXSexp`), the three cases, EVERY array bit-identical (`==`, 0 of 451 differ): `axExp`, `radExp`, `D`, `nuSigmaEff`, `sigmaRemoval` (both groups), `sigmaFromTo_0_1`, `discFactor`. `ea` (disp A, axis z): `axExp` up to 1.7e-2; `eb` (disp B): 4.6e-3; `ec` (disp A, `axialOrientation (1 0 0)`): `radExp` up to 8.4e-3 and `axExp` 8e-19. The 1-D slab has only z faces, so for the z axis `radExp` is mesh round-off (4e-19, 5e-20): that these round-off values are also `==` means the port's face-area vectors equal ESI's on this mesh (the 8-quad geometry difference of gh:#1897 is on the MSFR wedge mesh, not here). E1 (55 %), E2 (80 %), E3, E4 (control: zero displacement misses `D0` by 2.5e-2), E5 (unit tests) **held**, E1/E2 in the strong form; gates are `==`. Not covered: a `disp` file with non-zero-gradient boundary types (the function takes cell values and zero-gradient boundaries), a time-varying `disp`, the 3-D case; and no case drives the whole coupled `2D_FFTF`.
+
+### Item 2b: `DiffusionNeutronics::step` with factors
+
+Ported (`diffusion/transient.rs`: unknown `fluxStar`, `IV/df`, `D/df`, `Sigma_r/df`, own-group prompt fission `/df`, sources physical, `flux = fluxStar/df`). It has NO upstream counterpart (the port's own single-pass scheme), so it is not differenced against the binary; it is checked by invariance (`step_with_uniform_factors_equals_unity`: per-group uniform factors 1.25 and 0.8 give the unity flux to **1.9e-13** and precursors to **1.0e-13**; control: zone factors (`v3`) change the flux by 2.3e-2). The criterion (<= 1e-9) was written in the test's doc comment before the first run, not committed in the README beforehand (stated here). The test that assumed the refusal (`x1_refusals_are_kept_by_name`) is the one that changed; with unity factors the arithmetic is `x * 1.0` and `x / 1.0` (every earlier test of `step` passes, below).
+
+### Not done (refused by name, filed as gh:#1899)
+
+* The liquid-fuel `upstream_eigenvalue_step` / `upstream_transient_step` with an `XsEvolution` (they take no step time, and `adjustDiscFactors` after `normFluxes.H` must be added to the eigenvalue one): the refusal stays. A comparison needs a circulating-fuel case with a driveline; the 1-D slab can run `liquidFuel true` upstream with a `U` file (alphat, mu default to 0), which is the cheap route not taken this round.
+* The static solve with circulating fuel and factors (needs a long EN run of upstream with factors to converge `keff_`).
+* `2D_FFTF` neutronics alone: `axExp`/`radExp` now have a computed path, but `TFuel`, `TClad`, `rhoCool` still come from the fluid region and `disp` from the thermo-mechanics region; a standalone run needs those fields written; not attempted.
+* `disp` boundary types other than zero-gradient, time-varying `disp` inside `XsEvolution`.
+
+### Defects and surprises found on the way
+1. The first `make_r47_data.sh` run printed `sigmaPow`/IV exactly as round 39; no defect. The harness edit that wrote `x0` was refused twice by the sandbox (heredoc) and redone with file edits: no effect on the data.
+2. The one disclosed exploratory upstream run (`t_s1z`) preceded the data set; the data set was derived from physical inputs before any `i1` run and was not changed afterwards.
+3. `radExp` of the z-axis cases is round-off only on the 1-D mesh (design consequence, found from the first dump; the `ec` case was added by design before the dump of `ea`, with the axis `(1 0 0)`, to make `radExp` meaningful).
+
+### Moved numbers
+None: R1 below.
+
+### R1 (earlier numbers must not move): held
+
+Re-run after the change, all in release with a private target dir: `genfoam_df_driveline_vs_upstream` (22 + 1 ignored), `genfoam_fv_solution_df_vs_upstream` (24 + 1 ignored; includes the 2 new `step` tests), `genfoam_pseudo_time_vs_upstream` (3), `genfoam_external_source_vs_upstream` (11), `genfoam_sn_vs_upstream` (2), `genfoam_msfr_df_vs_upstream` (2), `genfoam_msfr_precursor_matrix_vs_upstream` (3), `genfoam_msfr_transient_vs_upstream` (2 + 7 ignored), `genfoam_neutronics_vs_upstream` (3), `genfoam_point_kinetics_vs_upstream` (5), `genfoam_msfr_allrun_vs_upstream` (5 + 2 ignored), `genfoam_msfr_coupled_vs_upstream` (6 + 1 ignored), `genfoam_msfr_chain_vs_upstream` (5), `--lib neutronics` (83), `petir --test no_platform_libm` (4), `scripts/check-nostd.sh`: all pass with their existing gates (round 40/42/43 gates unchanged, including the bit-identical ones), so no earlier number moved. Not run: the full suites, the ignored hour-scale tests. The only edit to existing production code is `DiffusionNeutronics::step` (unity path `x * 1.0`, `x / 1.0`); no kovan-reviewed function was touched (`review.md` of `diffusion/` and `sp3/` holds no `kind = "review"` block).
+
+### Decisions needed / open
+* Verify the recalled IAEA-2D cross sections against ANL-7416 Suppl. 2 (does not affect the port-versus-binary result).
+* Whether the shipped SP3 tutorial start `defaultFlux2 uniform 1` (a negative scalar flux) deserves a note in the port's SP3 documentation: the port reproduces it bit for bit (P3) and `set_uniform_second_moment(0.0)` is the physical start; both are left as the caller's choice.
+* Remainder filed as gh:#1899.

@@ -21,8 +21,8 @@ OUT="$HERE/cases/df_slab"
 
 # zone <name> D1 D2 Sa1 Sa2 nSf1 nSf2 Ss12 integralFlux0 integralFlux1 dfAdjust
 zone() {
-awk -v n="$1" -v D1="$2" -v D2="$3" -v a1="$4" -v a2="$5" -v f1="$6" -v f2="$7" -v s12="$8" -v i0="$9" -v i1="${10}" -v adj="${11}" 'BEGIN{
-  r1=a1+s12; r2=a2; ss1=1/(3*D1)-r1; ss2=1/(3*D2)-r2;
+awk -v md="${MD:-1}" -v mn="${MN:-1}" -v mr="${MR:-1}" -v ms="${MS:-1}" -v n="$1" -v D1="$2" -v D2="$3" -v a1="$4" -v a2="$5" -v f1="$6" -v f2="$7" -v s12="$8" -v i0="$9" -v i1="${10}" -v adj="${11}" 'BEGIN{
+  D1*=md; D2*=md; f1*=mn; f2*=mn; r1=(a1+s12)*mr; r2=a2*mr; s12*=ms; ss1=1/(3*D1)-r1; ss2=1/(3*D2)-r2;
   printf "            %s\n            {\n", n;
   printf "                fuelFraction    1;\n                dfAdjust        %s;\n", adj;
   printf "                D               nonuniform List<scalar> 2 (%.10g %.10g);\n", D1/100, D2/100;
@@ -71,5 +71,32 @@ integrals)
     {c=NR-1; v=0.01*(Z[c+1]-Z[c]); k=(c<150||c>300)?0:(c<200?1:(c<250?2:3)); a[k]+=v*$1; b[k]+=v*$2; ta+=v*$1; tb+=v*$2}
     END{for(k=0;k<4;k++) printf "%.10g %.10g\n", a[k]/ta, b[k]/tb}'
   rm -rf "$S"
+  ;;
+expansion)
+  # nuclearData.x0 (README round 47, item 2c): the i0 zones plus xsVariables axExp / radExp (lin) and four states whose zone data are
+  # the i0 values times FIXED SYNTHETIC factors (inputs of both codes, not physics): MD MN MR MS scale D, nuSigmaEff and sigmaPow,
+  # sigmaRemoval, the scattering matrix.
+  st() { # name axExp radExp MD MN MR MS
+    echo "    $1"; echo '    {'; echo "        axExp $2;"; echo "        radExp $3;"; echo '        zones'; echo '        ('
+    export MD=$4 MN=$5 MR=$6 MS=$7
+    zone reflector 2.0 0.3 0.0 0.01 0 0 0.04 1 1 true
+    zone coreLow 1.5 0.4 0.01 0.080 0 0.135 0.02 1 1 true
+    zone follower 1.5 0.4 0.01 0.085 0 0.135 0.02 1 1 true
+    zone controlRod 1.5 0.4 0.01 0.130 0 0.135 0.02 1 1 true
+    unset MD MN MR MS
+    echo '        );'; echo '    }'
+  }
+  {
+  echo 'FoamFile { version 2.0; format ascii; class dictionary; object nuclearData; }'
+  echo '// gh:#1898 round 47: i0 zones with axExp / radExp feedback states (see scripts/make_r47_data.sh expansion)'
+  echo 'fastNeutrons    true;'; echo 'adjustDiscFactors false;'; echo 'useGivenDiscFactors false;'; echo 'energyGroups    2;'; echo 'precGroups      6;'
+  echo 'xsVariables'; echo '{'; echo '    axExp   lin;'; echo '    radExp  lin;'; echo '}'
+  echo 'states'; echo '('
+  st reference 0 0 1 1 1 1
+  st sa 0.02 0 1.03 0.98 1.02 1.01
+  st sr 0 0.02 0.97 1.02 1.01 0.99
+  st sb 0.02 0.02 1.01 1.01 1.04 1.02
+  echo ');'
+  } > "$OUT/nuclearData.x0"
   ;;
 esac
