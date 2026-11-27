@@ -88,12 +88,20 @@ pub fn read_poly_mesh(poly_mesh_dir: &Path) -> Result<Arc<FvMesh>, AppBuilderErr
         n_cells,
     );
 
+    let neighbours = parse_neighbour_patches(&boundary_raw, "boundary")?;
+    let ami_couplings = cyclic_ami_couplings(&points, &faces, &owner, &patches, &neighbours).map_err(|msg| AppBuilderError::Parse {
+        file: poly_mesh_dir.join("boundary").display().to_string(),
+        line: 0,
+        msg,
+    })?;
+
     let mesh = FvMeshBuilder::new()
         .n_cells(n_cells)
         .n_internal_faces(n_internal_faces)
         .owner(owner)
         .neighbour(neighbour)
         .patches(patches)
+        .ami_couplings(ami_couplings)
         .cell_volumes(cell_volumes)
         .cell_centres(cell_centres)
         .face_area_vectors(face_area_vectors)
@@ -400,6 +408,99 @@ pub fn parse_boundary(text: &str, file: &str) -> Result<Vec<BoundaryPatch>, AppB
     Ok(patches)
 }
 
+/// The `neighbourPatch` entry of every patch of a `boundary` file, in patch
+/// order (`None` where there is none). gh:#1860.
+pub fn parse_neighbour_patches(text: &str, file: &str) -> Result<Vec<Option<String>>, AppBuilderError> {
+    let stripped = strip_foam_comments(text);
+    let section = data_section(&stripped);
+    let (_, body) = extract_list_body(section, file)?;
+    let mut out = Vec::new();
+    let mut s = body.trim();
+    while !s.is_empty() {
+        s = s.trim_start();
+        let name_end = s.find(|c: char| c.is_whitespace() || c == '{').unwrap_or(s.len());
+        if s[..name_end].trim().is_empty() {
+            break;
+        }
+        s = s[name_end..].trim_start();
+        let close = find_block_end(s).ok_or_else(|| AppBuilderError::Parse {
+            file: file.to_string(),
+            line: 0,
+            msg: "unclosed '{' in a patch".into(),
+        })?;
+        let block = &s[1..close];
+        out.push(block.find("neighbourPatch").map(|pos| {
+            let after = block[pos + "neighbourPatch".len()..].trim_start();
+            let end = after.find(|c: char| c.is_whitespace() || c == ';').unwrap_or(after.len());
+            after[..end].to_string()
+        }));
+        s = &s[close + 1..];
+    }
+    Ok(out)
+}
+
+/// The FV couplings of every `cyclicAMI` patch pair (gh:#1860): OpenFOAM
+/// ESI's `faceAreaWeightAMI` weights
+/// (`outram_foam_basic_lib::mesh::face_area_weight_ami`, upstream defaults:
+/// the two halves wound against each other, as two regions' outward faces
+/// are), each half coupled to the other in both directions, the first half
+/// of the pair (in patch order) as upstream's source. A `cyclicAMI` patch
+/// whose `neighbourPatch` is missing or does not name it back is an error.
+/// A face no partner face overlaps gets no coupling (the builder rejects an
+/// empty one) and so acts as a wall.
+pub fn cyclic_ami_couplings(
+    points: &[[f64; 3]],
+    faces: &[Vec<usize>],
+    owner: &[usize],
+    patches: &[BoundaryPatch],
+    neighbours: &[Option<String>],
+) -> Result<Vec<outram_foam_basic_lib::mesh::AmiCoupling>, String> {
+    use outram_foam_basic_lib::mesh::face_area_weight_ami::{face_area_weight_ami, AmiPatchGeometry, AmiPatchPlacement, AmiPatchSide, FaceAreaWeightAmiOptions};
+    let mut out = Vec::new();
+    let geometry = |p: &BoundaryPatch| {
+        let mut local: alloc::collections::BTreeMap<usize, usize> = alloc::collections::BTreeMap::new();
+        let mut pts = Vec::new();
+        let fs = faces[p.start..p.start + p.size]
+            .iter()
+            .map(|f| {
+                f.iter()
+                    .map(|&v| {
+                        *local.entry(v).or_insert_with(|| {
+                            pts.push(Vector3::new(points[v][0], points[v][1], points[v][2]));
+                            pts.len() - 1
+                        })
+                    })
+                    .collect()
+            })
+            .collect();
+        AmiPatchGeometry { points: pts, faces: fs }
+    };
+    let placement = |k: usize| AmiPatchPlacement {
+        patch: k,
+        start: patches[k].start,
+        face_cells: owner[patches[k].start..patches[k].start + patches[k].size].to_vec(),
+    };
+    for (i, p) in patches.iter().enumerate() {
+        if p.kind != PatchKind::CyclicAmi {
+            continue;
+        }
+        let nbr = neighbours.get(i).cloned().flatten().ok_or_else(|| format!("cyclicAMI patch {} has no neighbourPatch", p.name))?;
+        let j = patches.iter().position(|q| q.name == nbr).ok_or_else(|| format!("cyclicAMI patch {}: neighbourPatch {nbr} does not exist", p.name))?;
+        if patches[j].kind != PatchKind::CyclicAmi || neighbours.get(j).cloned().flatten().as_deref() != Some(p.name.as_str()) {
+            return Err(format!("cyclicAMI patch {}: {nbr} does not name it back as a cyclicAMI neighbourPatch", p.name));
+        }
+        if j < i {
+            continue; // the pair was done from its first half
+        }
+        let r = face_area_weight_ami(&geometry(p), &geometry(&patches[j]), &FaceAreaWeightAmiOptions::default())
+            .map_err(|e| format!("cyclicAMI {} / {}: {e:?}", p.name, nbr))?;
+        let (pi, pj) = (placement(i), placement(j));
+        out.extend(r.to_ami_couplings(AmiPatchSide::Source, &pi, &pj));
+        out.extend(r.to_ami_couplings(AmiPatchSide::Target, &pj, &pi));
+    }
+    Ok(out)
+}
+
 // ── boundary helpers ──────────────────────────────────────────────────────────
 
 /// Return the character offset of the `}` that closes the first `{` in `s`.
@@ -443,6 +544,9 @@ fn parse_patch_kind(block: &str) -> PatchKind {
             "empty" => PatchKind::Empty,
             "wedge" => PatchKind::Wedge,
             "cyclic" => PatchKind::Cyclic,
+            // gh:#1860: coupled through `ami_couplings` by `read_poly_mesh`
+            // (was read as a plain patch).
+            "cyclicAMI" => PatchKind::CyclicAmi,
             "processor" => PatchKind::Processor,
             _ => PatchKind::Patch,
         };
