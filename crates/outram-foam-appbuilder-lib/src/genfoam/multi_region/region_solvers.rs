@@ -79,7 +79,7 @@ use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{CaseRe
 use crate::genfoam::thermo_mechanics::legacy_fvm::case::{LegacyFvmCase, TStructGamgPolicy};
 use crate::genfoam::thermo_mechanics::legacy_fvm::{LegacyFvmThermoMechanics, PhysicsLog};
 use crate::genfoam::workflow::reactor_state::ReactorState;
-use crate::io::nuclear_data::read_nuclear_data;
+use crate::io::nuclear_data::{read_neutron_fv_solution, read_nuclear_data};
 use crate::io::field_reader::{read_vol_scalar_field, read_vol_vector_field};
 use crate::io::poly_mesh::{parse_points, read_cell_zones, read_face_zones, zone_of_cell};
 
@@ -265,6 +265,9 @@ pub struct CouplingSwitches {
     /// (the behaviour of rounds 3-66: Aitken silently not performed). Only for controls whose state differs from upstream's on purpose; it is
     /// not a port of `aitkenAcceleration.H` and no number of a run with it is comparable with upstream.
     pub aitken_not_refused: bool,
+    /// NAMED ABLATION (gh:#1948, README round 75): the neutronics linear solves keep the FIXED tight form of rounds 56-74 (`PCG`/`PBiCG` at
+    /// tolerance 1e-14, `relTol` 0, `maxIter` 100000) instead of the entries of the region's `fvSolution`. The default (false) is upstream's.
+    pub tight_neutronics_solvers: bool,
 }
 
 impl CouplingSwitches {
@@ -300,6 +303,13 @@ impl CouplingSwitches {
     #[must_use]
     pub fn without_aitken_refusal(mut self) -> Self {
         self.aitken_not_refused = true;
+        self
+    }
+
+    /// Keep the fixed tight neutronics linear solves of rounds 56-74 (named ablation of gh:#1948; see [`Self::tight_neutronics_solvers`]).
+    #[must_use]
+    pub fn with_tight_neutronics_solvers(mut self) -> Self {
+        self.tight_neutronics_solvers = true;
         self
     }
 
@@ -415,6 +425,37 @@ fn time_dir_name(root: &Path, t: f64) -> Result<String, AppBuilderError> {
 
 fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
     FoamFile::read_esi(root.join(rel)).map_err(|e| case_err(root, format!("{rel}: {e}")))
+}
+
+/// The linear-solver settings of a `diffusionNeutronics` region (gh:#1948, README round 75).
+///
+/// Upstream: every `neutroEq.solve()` of `fluxEq.H` and `precEq.H` picks its solver from `mesh.solverDict(<field name>)` of the region's
+/// `fvSolution` (`fvMatrix::solve()` -> `solverDict(psi.select(finalInnerIter))`, never the `Final` entry: no `pimpleControl` loops the neutronics
+/// mesh), with `lduMatrix::solver::readControls` defaults (`lduMatrixSolver.C:195-208`). The `neutronTransport` keys
+/// (`neutronIterationResidual`, `maxNeutronIterations`) are read by `solveNeutronics.H:18-25` but its do-while stops after ONE pass when
+/// `eigenvalueNeutronics` is true (`!eigenvalueNeutronics_`), so the eigenvalue path consults neither.
+/// `tight` is the named ablation: the fixed tight form of rounds 56-74.
+///
+/// # Errors
+/// An `fvSolution` that cannot be read, an entry the port does not translate (reader's refusals), or a flux entry that selects `GAMG`
+/// (the reader would run `PCG`/`DIC` in its place, a deviation this region refuses by name rather than carries).
+fn neutronics_diffusion_settings(root: &Path, name: &str, xs: &CrossSectionData, tight: bool) -> Result<DiffusionSettings, AppBuilderError> {
+    let base = DiffusionSettings {
+        k_tolerance: 1e-13,
+        flux_tolerance: 1e-12,
+        max_outer_iterations: 1,
+        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+        ..DiffusionSettings::default()
+    };
+    if tight {
+        return Ok(base);
+    }
+    let path = root.join(format!("system/{name}/fvSolution"));
+    let sol = read_neutron_fv_solution(&path, xs.energy_groups(), xs.prec_groups(), 0).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
+    if sol.gamg_substituted {
+        return Err(case_err(root, format!("system/{name}/fvSolution: the flux entry selects GAMG; GAMG for the neutronics flux equation is not ported (the reader would run PCG/DIC instead)")));
+    }
+    Ok(base.with_fv_solution(sol.entries))
 }
 
 /// `axialOrientation` of `nuclearData` (`XS.C:76`, `lookupOrDefault`, default `(0 0 1)`): the entry `axialOrientation (x y z);` when present.
@@ -797,13 +838,9 @@ impl RegionSolvers {
                         .iter()
                         .map(|p| if p.name == "frontAndBack" { BoundaryCondition::Empty } else { BoundaryCondition::FixedValue(0.0) })
                         .collect();
-                    let settings = DiffusionSettings {
-                        k_tolerance: 1e-13,
-                        flux_tolerance: 1e-12,
-                        max_outer_iterations: 1,
-                        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
-                        ..DiffusionSettings::default()
-                    };
+                    // gh:#1948 (README round 75): the linear solves are the case's `fvSolution` entries (default); the earlier fixed tight form
+                    // is the named ablation `CouplingSwitches::with_tight_neutronics_solvers`
+                    let settings = neutronics_diffusion_settings(root, name, &xs, switches.tight_neutronics_solvers)?;
                     // a case with `xsVariables` constructs at the feedback fields of the constructor (all zero: `0/neutroRegion` carries no
                     // value; `log` clamped to 0.01 as `setNeutronicsVariables.H` does); every step refreshes them (`xs_.correct()`, gh:#1944)
                     let built = if xs.variables().is_empty() {
@@ -1406,5 +1443,57 @@ impl RegionSolvers {
             }
         }
         Ok(rec)
+    }
+}
+
+#[cfg(test)]
+mod neutronics_settings_tests {
+    use super::*;
+    use crate::genfoam::common::linear_solvers::{LinearSolverForm, NeutronSolverKind};
+
+    fn xs_of_case() -> (std::path::PathBuf, CrossSectionData) {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let input = read_nuclear_data(&root.join("constant/neutroRegion/nuclearData")).expect("nuclearData");
+        let xs = CrossSectionData::from_input(&input).expect("xs");
+        (root, xs)
+    }
+
+    /// The default reads the case's entries; the ablation keeps the fixed tight form (gh:#1948).
+    #[test]
+    fn default_reads_fv_solution_and_ablation_keeps_the_tight_form() {
+        let (root, xs) = xs_of_case();
+        let s = neutronics_diffusion_settings(&root, "neutroRegion", &xs, false).expect("settings");
+        match s.form {
+            LinearSolverForm::UpstreamFvSolution(e) => {
+                assert_eq!(e.flux.kind, NeutronSolverKind::PcgDic);
+                assert_eq!((e.flux.tolerance, e.flux.rel_tol, e.flux.max_iter), (1e-14, 0.0, 1000));
+            }
+            other => panic!("default form is {other:?}"),
+        }
+        let t = neutronics_diffusion_settings(&root, "neutroRegion", &xs, true).expect("tight");
+        assert_eq!(t.linear.max_iter, 100_000);
+        assert!(matches!(t.form, LinearSolverForm::Upstream { .. }));
+        assert!(CouplingSwitches::default().with_tight_neutronics_solvers().tight_neutronics_solvers);
+    }
+
+    /// A loose entry is carried through, and a GAMG flux entry is refused by name.
+    #[test]
+    fn loose_entries_are_read_and_gamg_is_refused() {
+        let (_root, xs) = xs_of_case();
+        let dir = std::env::temp_dir().join(format!("r75_nsettings_{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("system/neutroRegion")).unwrap();
+        let hdr = "FoamFile { version 2.0; format ascii; class dictionary; object fvSolution; }\n";
+        std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"prec.*|precStar.*\" {{ solver PBiCG; preconditioner DILU; tolerance 1e-6; relTol 1e-3; }} \"flux.*\" {{ solver PCG; preconditioner DIC; tolerance 1e-6; relTol 1e-3; }} }}")).unwrap();
+        let s = neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).expect("loose");
+        match s.form {
+            LinearSolverForm::UpstreamFvSolution(e) => {
+                assert_eq!((e.flux.tolerance, e.flux.rel_tol), (1e-6, 1e-3));
+                assert_eq!((e.precursor.tolerance, e.precursor.rel_tol), (1e-6, 1e-3));
+            }
+            other => panic!("form {other:?}"),
+        }
+        std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"flux.*\" {{ solver GAMG; tolerance 1e-6; smoother DICGaussSeidel; }} }}")).unwrap();
+        assert!(neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

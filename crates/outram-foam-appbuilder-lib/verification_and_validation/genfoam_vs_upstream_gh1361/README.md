@@ -8941,3 +8941,37 @@ Y1 **MISSED** (515 s, not 25-60 min). Y2 held (4.7e-5). Y3 **MISSED** (the first
 `INFLATE=1 bash scripts/make_esfr_coupled_case.sh <dir>` (inflated copy for the port; without `INFLATE` for the real binary; `TIGHT=0` for the as-shipped run; `END=<n>`), real: `run` as in `scripts/run_fullcoupling_coupled.sh` without `-initializeMappedFields` and `python3 -I scripts/extract_esfr_coupled_stream.py <dir> <prefix> 200` while it runs (a 3-D write is 28 MB a step; the extractor deletes each step directory after reading it); V1: `python3 -I scripts/make_esfr_coupled_variant_v1.py <dir>`; port: `ESFR_COUPLED_CASE=<inflated dir> ESFR_STEPS=200 ESFR_REF=tight|loose|v1 cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_coupled_vs_upstream esfr_coupled_steps -- --nocapture`.
 
 Issues filed from round 74: gh:#1948 (neutronics fvSolution tolerances on the eigenvalue path), gh:#1949 (step-2 meshDisp/fuelDisp/CRDisp and near-floor residual misses), gh:#1950 (3D_SmallESFR_old transient, decomposed run, baffle-less mesh writer); comments on #1944, #1911, #1941, #1846, #1783, #1910.
+
+
+# Round 75 (gh:#1948, #1950 S4, #1949; under #1944/#1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream" incl. solvers and stopping rules, "U go couple lah")
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **Every prediction and criterion of a part is committed BEFORE the run it concerns.** Another agent writes Round 72 (gh:#1936); README merges keep both.
+
+## Part A (gh:#1948): the neutronics region's `fvSolution` on the diffusion eigenvalue path of `RegionSolvers`
+
+### Read in upstream first (652b3da / ESI v2506)
+
+* `diffusion/include/solveNeutronics.H:9-25` reads `neutronTransport` (`integralPredictor`, `implicitPredictor`, `aitkenAcceleration`, `neutronIterationResidual`, `maxNeutronIterations`) with `subDict` (mandatory upstream). The do-while of `solveNeutronics.H` ends with `&& !eigenvalueNeutronics_`: with `eigenvalueNeutronics true` it runs ONE pass, so **`neutronIterationResidual` and `maxNeutronIterations` are not consulted on the eigenvalue path** (they are read and ignored); `aitkenAcceleration` IS read there (`fluxEq.H:3`), shipped `false` in both ESFR cases.
+* The solver settings are not read by GeN-Foam at all: `neutroEq.solve()` (`fluxEq.H:23`, twice per group) and `precEq.H` call `fvMatrix::solve()`, which takes `mesh.solverDict(<field name>)` of the region's `fvSolution` (`solver`, `preconditioner`, `tolerance`, `relTol`, `maxIter`, `minIter`, `norm` by `lduMatrix::solver::readControls`). The reader exists since round 42 (`io::nuclear_data::read_neutron_fv_solution`) and the solvers since round 40; `RegionSolvers::read` bypassed both with fixed `DiffusionSettings`.
+* Shipped ESFR neutroRegion (`legacySolver`, `3D_SmallESFR_old`): `"flux.*"` `PCG`/`DIC` `1e-6`/`relTol 1e-3`, `"prec.*"` `PBiCG`/`DILU` `1e-6`/`1e-3` (precursors of a stationary fuel are algebraic, never solved; GAMG blocks are commented out).
+
+### What changes
+
+`neutronics_diffusion_settings` (`multi_region/region_solvers.rs`): default = the `fvSolution` entries (`DiffusionSettings::with_fv_solution`); the fixed tight form is the NAMED ablation `CouplingSwitches::with_tight_neutronics_solvers()`. A flux entry selecting `GAMG` is refused by name (the reader's `PCG`/`DIC` substitution is not carried into a region run). The setting reaches the transient (round 60/61) neutronics steps as well, which use the same `DiffusionSettings`; upstream's behaviour is the same there.
+
+### Criteria (fixed; none changes after a result)
+
+1. As-shipped (loose) ESFR, 200 steps, port against `refs/esfr_r74_loose_log` (real, 652b3da): `keff`, `power`, `maxSigmaEq` `<= 1e-9` relative at every step; `dt` equal; solve count and order equal in every step for `p_rgh`, `h` and thermo-mechanics; initial residuals `<= 1e-6` relative above `1e-10` absolute; iteration counts at the noise floor REPORTED, not gated; fingerprints reported (neutronics `flux0`/`powerDensity` at step 1 `<= 1e-9`).
+2. Earlier numbers (rounds 3-74) do not move; a pin that moves is listed with old and new and the cause (1e-9 direct, 1e-4 propagated). The checked-in `cases/*` neutro `fvSolution` files are tight (`1e-14`, `relTol 0`), so the only expected difference is `maxIter` 1000 (upstream) against 100000.
+3. The tight ESFR protocol (200 steps against `esfr_r74_tight*`) reproduces round 74's numbers.
+
+### Predictions (before any run)
+
+| id | prediction | P |
+|---|---|---|
+| A1 | loose: `keff`/`power` `<= 1e-9` at every one of 200 steps | 60 % |
+| A2 | loose: neutronics `powerDensity` fingerprint at step 1 `<= 1e-12` | 85 % |
+| A3 | loose: thermo-mechanics solve count/order equal in all 200 steps (round 74: 10 steps differed) | 50 % |
+| A4 | loose: `p_rgh` iteration counts equal in all 2400 solves | 80 % |
+| A5 | tight 200 steps: round 74's numbers reproduced (no pin moves beyond 1e-9) | 90 % |
+| A6 | the `genfoam_fullcoupling_*` tests (tight case files) pass at their pins unchanged | 90 % |
