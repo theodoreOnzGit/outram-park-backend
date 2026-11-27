@@ -5039,3 +5039,64 @@ Comparison criteria (fixed now): the item-5 criteria, with these amendments **wr
 | H3 | control: `pRefValue` 1e5 -> 1.1e5 | `p` differs by >= 5e-2 relative at step 1 and `U` by < 1e-9 (a shift of `p_rgh` does not move the velocity) | the reference cell is not what pins `p` |
 
 Item 1 (`nNonOrthogonalCorrectors`) gets its own prediction commit before its first port run.
+
+# Round 39 (gh:#1785, gh:#1474; children of #1216): XS discontinuity-factor adjustment, XS control-rod driveline motion, SN anisotropic scattering (already done in round 2)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+## What was found before any code was written (2026-11-27)
+
+* **SN anisotropic scattering (#1474 item c) is not open.** `Godiva_SN`'s `nuclearData` declares `legendreMoments 3` (P0 to P3, `XS.C:75` makes it `1 + 3` stored matrices). Round 2 ("SN (gh:#1474)", above) already ported `quadratureSet`, the Legendre matrices and `legendrePoly`, and the intra- and extra-group moment sources in `SnPseudoTimeSolver`, and compared them with the real binary: the synthetic P1 to P3 slab to 1e-15 per step, and the shipped Godiva_SN step (23 groups, 177,655 tetrahedra) to `|dk|` 3.1e-14. The text of the issue and the doc comment at `sn/mod.rs:86` ("deferred") predate that; the comment was already struck through on 2026-11-12 and now points at both issues. No new SN code is needed; the ablation of round 2 (N6, P0 only differs by 3.05e-4 relative at step 1) is the control. Not re-run this round (nothing in `sn/` changed): the round-2 numbers stand.
+* **Discontinuity factors: the port had none at all** (every diffusion solve divided by 1), not only no adjustment. Upstream's `XS::correct()` copies the zone `discFactor` list into the per-cell field whenever `useGivenDiscFactors || timeIndex - startTimeIndex > 0` (`setNeutronicsVariables.H`), so inside a run the dictionary values are used even with `adjustDiscFactors false`: the shipped `2D_FFTF` (24-group lists, not 1) was solved without them. `adjustDiscFactors.H` runs only in the `eigenvalueNeutronics` branch, after `normFluxes.H` (`solveNeutronics.H:128`, `solveNeutronicsSP3.H:119`), and takes effect at the next step. The `else` branch of that `if` (list := field = 1) runs only when `correct()` is called before the first `runTime++`: the round-6 `dump_xs` probe is such a caller, which is why it printed `discFactor` 1 for every cell; the new probe `dump_xs_df` sets the time index first.
+* **No tutorial uses either feature**: `adjustDiscFactors true` appears in no shipped `nuclearData`, and every shipped `CRmove` has an empty `zones ( )` (2D_MSFR, 2D_FFTF, 3D_SmallESFR_*) or a comment-only example. So both are compared on synthetic variants of the guided slab 2 (below), as round 2 did for SN.
+* Searched before writing (`CLAUDE.md` "search before building"): `grep -ri "adjustDiscFactors|dfAdjust|discFactor|integralFlux|CRmove|followerName|CRposition"` over `crates/outram-foam-appbuilder-lib/src` finds only the parser (`dfAdjust`, `discFactor`, `integralFlux` read into `ZoneConstantsInput`), `GroupConstants::disc_factor` (read, never used by a solver) and the point-kinetics driveline REACTIVITY of round 36 (a different mechanism: a reactivity map over the rod position, not a cross-section zone swap). Nothing to reuse for the XS mechanism.
+* No kovan-reviewed function exists in `neutronics/{,xs,diffusion,sp3,sn}` (`review.md` holds no `kind = "review"` block); the edits to `diffusion/{mod,fields,pseudo_time,upstream_*,external_source}.rs` and `pseudo_time.rs` touch unreviewed code only.
+
+## Method
+
+Case: the guided slab 2 mesh (451 cells along z, 150 + 151 + 150), re-zoned into `reflector` (300 cells), `coreLow` (cells 150..199), `follower` (200..249) and `controlRod` (250..300), with a SYNTHETIC two-group data set (`scripts/make_df_driveline_cases.sh`: fuel, reflector and an absorbing rod zone; the numbers are inputs of both codes and mean nothing physically). Upstream = the unmodified `GeN-Foam` binary at the tight protocol of round 2 (`scripts/tight_protocol.sh`: `writePrecision 17`, solvers 1e-14 / relTol 0, `endTime 60`), `diffusionNeutronics`, `eigenvalueNeutronics true`. Seven variants:
+
+| variant | nuclearData | CRmove | what it exercises |
+|---|---|---|---|
+| `v0` | `adjustDiscFactors false`, every `discFactor` 1 | none | the control: the pre-round-39 path (regression) |
+| `v1` | `adjustDiscFactors true`, `integralFlux` differing per zone and group | none | `adjustDiscFactors.H`, both groups, all four zones |
+| `v2` | as `v1`, `groupsWoDF (1)`, `dfAdjust false` on `reflector` | none | the group skip and the zone skip |
+| `v3` | `adjustDiscFactors false`, dictionary `discFactor` 1.05/0.96, 0.9/1.2, 0.98/1.04 | none | given factors in the matrices (the 2D_FFTF situation) |
+| `v0_d1` | as `v0` | rod enters the follower: `startTime 10 endTime 30 speed 0.005` | driveline zone swap during the run |
+| `v1_d1` | as `v1` | as `d1` | adjustment and driveline together (`discFactor` of the remapped zone; adjustment over the MESH zones) |
+| `v0_d3` | as `v0` | `startTime 0 endTime 20 speed -0.004 initialDistanceFromMeshCR 0.05` | rod retracting from a displaced start |
+
+Two instruments, because the solver comparison alone cannot localise a defect:
+
+1. **`upstream_driver/dump_xs_df`** derives from GeN-Foam's own `XS` class (protected members `CRposition_`, `discFactorList_`), sets `runTime.setTime(t_i, i)` (so `correct()` takes the in-run branch), calls `xs.correct()`, dumps every per-cell cross section, the rod positions and `discFactor`, then calls `xs.adjustDiscFactors(fluxStar_i)` with a synthetic `fluxStar` (`1 + ((7c + 13g + 17i) mod 101)/101`, integer arithmetic then one division, reproduced exactly in Rust) and dumps `discFactorList_`. Ten times per case.
+2. **The binary**, step by step (`TIME`, `keff_`, `power:`, first residual of every step; final `flux0`, `flux1`).
+
+Port: `xs/disc_factors.rs` (`DiscFactorState::adjust` = `adjustDiscFactors.H`), `xs/driveline.rs` (`ControlRodDriveline` = the position formula and the zone remap of `setNeutronicsVariables.H`), `diffusion/xs_evolution.rs` (`XsEvolution` = `XS::correct()` at time t), readers `io::nuclear_data::{read_disc_factor_controls, read_control_rods}`, and the diffusion pseudo-time eigenvalue step now carries `fluxStar_` (unknown of the equation; `flux_ = fluxStar_/discFactor`; `D/df` interpolated to faces, `sigmaRemoval/df`). The loop tells the solver the step's time (`PseudoTimeEigenvalue::set_time`, default no-op) so that `correct()` runs after `pTotOld_`, as upstream. With every factor 1 the arithmetic is `x/1.0`, exact, so the old path is reproduced bit for bit.
+
+Refused by name (not ported): SP3 and SN with a discontinuity factor other than 1 (`PseudoTimeError::DiscFactorsNotPorted` for SP3; SN never divides), the transient / stationary / liquid-fuel diffusion steps with a factor other than 1 (`NeutronicsError::UpstreamTransient`), `isLowMemory`, the `disp`-driven `radExp` / `axExp` variables (`axialOrientation`), feedback fields that change in time inside this driver (`cell_parameters` is static; `refresh_cross_sections` remains the coupled route), the `useGivenDiscFactors false` branch at `timeIndex == startTimeIndex`.
+
+## Predictions (written BEFORE any upstream run of this round and before any port run; committed first)
+
+Comparison criteria, fixed now and not to be changed after seeing results:
+* **XS level** (instrument 1): a quantity is "bit-identical" when every value is equal as an `f64` (`==`); otherwise report the worst relative difference. `CRposition`: equal, else worst relative difference. Zone assignment is judged through the cross sections.
+* **Solver level** (instrument 2), per variant, exactly round 2's T1 to T7: step count and final `Time` equal (60 within 1e-9); `Time` of every step relative < 5e-8; `|keff_` port - upstream`| < 1e-12 at every step; `power` relative < 1e-12; first-solve residual: relative < 1e-6 where upstream >= 1e-6, absolute < 1e-9 below; unit-sum shape of the final `flux0` AND `flux1` relative < 1e-10. Cause of the allowed residual: the two linear solvers' stopping points (round 2), nothing else.
+
+| id | claim | predicted outcome |
+|---|---|---|
+| A1 | `dfList` after each of 10 `adjustDiscFactors` calls, `v1` and `v1_d1` data, 8 values each | bit-identical (80 of 80): same operations in the same order (sequential `sum(V*(ind*flux))`, the division order of `adjustDiscFactors.H`) |
+| A2 | `v2` data: group 1 never changes (stays exactly 1), the `dfAdjust false` zone never changes, the other values bit-identical | held exactly |
+| A3 | upstream's `dfList` moves away from 1 by more than 1e-3 in at least one value (the case is not a null test) | held; sign not predicted |
+| B1 | per-cell `D`, `nuSigmaEff`, `sigmaPow`, `sigmaRemoval`, `chiPrompt`, `chiDelayed`, `IV`, `discFactor`, `sigmaFromTo`, `BetaTot` at 10 times, `v0_d1`, `v1_d1`, `v0_d3` | bit-identical (every value `==`): they are zone lookups, and the zone choice is a comparison of two cell-centre `z` values that are 0.0079 m apart |
+| B2 | `CRposition` (one rod, 10 times, 3 cases) | bit-identical if the port's cell-centre `z` is bit-identical to ESI's (cell volumes were on hex meshes, rounds 9 and 26); if not, worst relative difference <= 4.4e-16 (2 ulp) |
+| B3 | `IV` and `BetaTot` of a rod-zone cell that took the follower's cross sections still carry the ROD zone's values (they are not remapped) | held (the probe shows it; the cross sections of the remapped cell differ from the rod's) |
+| B4 | with no rod in `CRmove` (`v0`, `v1`) the zone map equals the mesh zone map at every time | held |
+| C1 | solver level, `v0` (control) | T1 to T7 hold at round 2's margins (`|dk|` ~ 1e-14 order, shape ~ 1e-13), AND the port's `keff_` series equals the series of the same port before this change to the last printed digit (the median and max `|dk|` of the printed lines unchanged) |
+| C2 | solver level, `v1`, `v2` | T1 to T7 hold. Reason it could fail: `adjustDiscFactors` feeds the next step's operator, so a 1-ulp difference of a factor is amplified by the iteration only as much as the iteration amplifies anything (round 2's slabs: not at all); a miss would point at the order of `fluxStar` vs `flux` operations |
+| C3 | solver level, `v3` | T1 to T7 hold |
+| C4 | solver level, `v0_d1`, `v1_d1`, `v0_d3` | T1 to T7 hold; the rod moves through cell boundaries at steps both codes take identically (B1/B2); `keff_` changes by more than 1e-4 over the run in upstream (the rod is not a null test); sign not predicted |
+| K1 control | port with every factor forced to 1 (the pre-round-39 form, `without_disc_factors`) against upstream on `v3` | `|dk|` at step 1 greater than 1e-4 |
+| K2 control | port without the adjustment (`adjustDiscFactors false`) against upstream on `v1` | `|dk|` at the last step greater than 1e-4 |
+| K3 control | port without the driveline (no `XsEvolution` rods) against upstream on `v0_d1` | `|dk|` at the last step greater than 1e-4 |
+| K4 control | the port's `adjust` fed the physical `flux` instead of `fluxStar` (on the instrument-1 sequence of `v1`) | differs from upstream's `dfList` by more than 1e-6 relative from the second call on (the first call starts from df = 1, where flux and fluxStar coincide) |
+| R1 | the existing round 1/2/14/15/32 neutronics numbers (`genfoam_pseudo_time_vs_upstream`, `genfoam_neutronics_vs_upstream`, `genfoam_external_source_vs_upstream`, the non-ignored msfr chain/allrun tests, `--lib neutronics`) | do not move (every `discFactor` of those cases is 1) |
+| R2 | SP3 pseudo-time on data with a factor other than 1 | returns `DiscFactorsNotPorted`; on unity data unchanged |
