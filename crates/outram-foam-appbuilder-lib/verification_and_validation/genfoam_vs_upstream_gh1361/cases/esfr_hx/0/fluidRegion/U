@@ -1,0 +1,40 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (0 0 0);
+
+boundaryField
+{
+    top
+    {
+        type fixedValue;
+        value uniform (0 0 0);
+    }
+    bottom
+    {
+        type fixedValue;
+        value uniform (0 0 0);
+    }
+    walls
+    {
+        type fixedValue;
+        value uniform (0 0 0);
+    }
+    baffle0
+    {
+        type fixedValue;
+        value uniform (0 0 0);
+    }
+    baffle1
+    {
+        type fixedValue;
+        value uniform (0 0 0);
+    }
+}
