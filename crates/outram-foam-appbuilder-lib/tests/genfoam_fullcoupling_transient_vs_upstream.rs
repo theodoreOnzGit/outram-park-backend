@@ -1670,13 +1670,22 @@ fn compare_text(real: &str, port: &str) -> FileCmp {
     c.lines = rl.len();
     c.lines_identical = rl.iter().zip(&pl).filter(|(a, b)| a == b).count();
     if c.skeleton_equal && rn.len() == pn.len() {
-        let scale = rn.iter().fold(0.0f64, |m, v| m.max(v.abs())).max(1e-300);
+        // CORRECTED 2026-11-27 (round 69): the scale is the maximum |value| of the field's DATA (from `internalField` on); round 68 took the
+        // maximum over every numeric token of the file, which includes the `dimensions` exponents (3, -1, ...) and so understated the relative
+        // difference of every file whose values are below ~10 (`fuelDisp`, `disp`, `meshDisp`, `alpha`, `CRDisp`): see README round 69 results
+        let data_from = real.find("internalField").unwrap_or(0);
+        let (_, data) = numeric_skeleton(&real[data_from..]);
+        let scale = data.iter().fold(0.0f64, |m, v| m.max(v.abs())).max(1e-300);
         c.worst_rel = rn.iter().zip(&pn).map(|(a, b)| (a - b).abs() / scale).fold(0.0, f64::max);
     } else {
         c.worst_rel = f64::NAN;
     }
     c
 }
+
+/// The files round 68 did not write and round 69 does (the eight `fluidRegion.baffleLess/polyMesh/*` are matched by prefix).
+const ROUND_69_FILES: [&str; 6] =
+    ["fluidRegion/dgdt", "fluidRegion/alphaRhoMagU", "neutroRegion/meshPhi", "thermoMechanicalRegion/alpha", "thermoMechanicalRegion/gapWidth", "thermoMechanicalRegion/fuelDispVector"];
 
 /// README round 68, criterion 3: the port's own `100` directory against the real raw one.
 #[test]
@@ -1691,6 +1700,10 @@ fn the_port_writes_a_t100_directory_like_the_real_one() {
     let mut missing = Vec::new();
     let mut skeleton_bad = Vec::new();
     for (path, text) in &real {
+        // round 69 (gh:#1935) writes the 14 files this round-68 test counted as missing; its own gates are in the round 69 section below
+        if ROUND_69_FILES.contains(&path.as_str()) || path.starts_with("fluidRegion.baffleLess/") {
+            continue;
+        }
         let key = format!("100/{path}");
         let Some((_, mine)) = state.files.iter().find(|(p, _)| *p == key) else {
             missing.push(path.clone());
@@ -1835,4 +1848,232 @@ fn aitken_acceleration_is_refused_by_name_when_a_third_neutron_iteration_runs() 
     let msg = err.to_string();
     println!("{msg}");
     assert!(msg.contains("aitkenAcceleration") && msg.contains("UNINITIALISED") && msg.contains("refused by name"), "{msg}");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// Round 69 (gh:#1935): the 14 files round 68 did not write, the point-kinetics region's state, the first transient write time
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+/// The packed real `110` directory of the SH (`pk` false, 83 files) or PK (72 files) transient stage (`writeControl adjustableRunTime;
+/// writeInterval 10`): `refs/fc_{sh,pk}_written110_r69.txt.gz`.
+fn real_110(pk: bool) -> Vec<(String, String)> {
+    let bytes = gunzip(&vv_dir().join(if pk { "refs/fc_pk_written110_r69.txt.gz" } else { "refs/fc_sh_written110_r69.txt.gz" }));
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < bytes.len() {
+        let eol = at + bytes[at..].iter().position(|&b| b == b'\n').expect("header line");
+        let parts: Vec<&str> = std::str::from_utf8(&bytes[at..eol]).expect("utf8").split('\t').collect();
+        let len: usize = parts[2].parse().expect("length");
+        out.push((parts[1].to_string(), String::from_utf8(bytes[eol + 1..eol + 1 + len].to_vec()).expect("utf8 body")));
+        at = eol + 1 + len + 1;
+    }
+    out
+}
+
+/// The numbers of the `internalField` entry of a field text (uniform: one number).
+fn internal_numbers(text: &str) -> Vec<f64> {
+    let (_, nums) = numeric_skeleton(&text[text.find("internalField").expect("internalField")..text.find("boundaryField").expect("boundaryField")]);
+    nums
+}
+
+/// What the comparison of one directory found.
+#[derive(Default, Debug)]
+struct DirCmp {
+    files: usize,
+    byte_identical: usize,
+    skeleton_bad: Vec<String>,
+    missing: Vec<String>,
+    extra: Vec<String>,
+    worst: (f64, String),
+    lines: (usize, usize),
+    dgdt_max: (f64, f64),
+    dgdt_pointwise: f64,
+    gated_bad: Vec<String>,
+}
+
+/// Compare the port's written directory (`prefix/...`) with a packed real one under the README round 69 criteria: `mesh_phi_tol` for `meshPhi`
+/// (steady directory, criterion 2: 1e-4; the transient ones, addendum A: 0, equal to the start directory's), 1e-9 elsewhere, `dgdt` at the noise level.
+fn compare_directory(state: &WrittenState, prefix: &str, real: &[(String, String)], mesh_phi_tol: f64) -> DirCmp {
+    let mut d = DirCmp::default();
+    let pre = format!("{prefix}/");
+    let mine: Vec<(&str, &str)> = state.files.iter().filter_map(|(p, t)| p.strip_prefix(pre.as_str()).map(|r| (r, t.as_str()))).collect();
+    for (path, _) in &mine {
+        if !real.iter().any(|(p, _)| p == path) {
+            d.extra.push((*path).to_string());
+        }
+    }
+    for (path, text) in real {
+        let Some((_, port)) = mine.iter().find(|(p, _)| p == path) else {
+            d.missing.push(path.clone());
+            continue;
+        };
+        let c = compare_text(text, port);
+        d.files += 1;
+        d.byte_identical += usize::from(c.byte_identical);
+        d.lines.0 += c.lines_identical;
+        d.lines.1 += c.lines;
+        if !c.skeleton_equal {
+            d.skeleton_bad.push(path.clone());
+            continue;
+        }
+        if path == "fluidRegion/dgdt" {
+            let (a, b) = (internal_numbers(text), internal_numbers(port));
+            d.dgdt_max = (a.iter().fold(0.0f64, |m, v| m.max(v.abs())), b.iter().fold(0.0f64, |m, v| m.max(v.abs())));
+            d.dgdt_pointwise = a.iter().zip(&b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max);
+            if d.dgdt_max.0 >= 1e-12 || d.dgdt_max.1 >= 1e-12 {
+                d.gated_bad.push(format!("dgdt noise level {:?}", d.dgdt_max));
+            }
+            continue;
+        }
+        let tol = if path == "neutroRegion/meshPhi" { mesh_phi_tol } else { 1e-9 };
+        if c.worst_rel.is_finite() && c.worst_rel > d.worst.0 {
+            d.worst = (c.worst_rel, path.clone());
+        }
+        if !(c.worst_rel <= tol) {
+            d.gated_bad.push(format!("{path}: {:e} > {tol:e}", c.worst_rel));
+        }
+        println!("{path:50} bytes-identical {:5} lines {}/{} worst {:e}", c.byte_identical, c.lines_identical, c.lines, c.worst_rel);
+    }
+    d
+}
+
+/// README round 69, criterion 2 (X2-X10): all 84 files of the port's own `100` directory.
+#[test]
+fn the_port_writes_all_84_files_of_the_t100_directory() {
+    let (_root, write_steps, state, _) = steady_and_write("w69a");
+    assert_eq!(write_steps, vec![476]);
+    let real = real_raw_100();
+    let d = compare_directory(&state, "100", &real, 1e-4);
+    println!("round 69 steady: files compared {} of {}, byte-identical {}, lines identical {}/{}", d.files, real.len(), d.byte_identical, d.lines.0, d.lines.1);
+    println!("missing {:?} extra {:?} skeleton differences {:?}", d.missing, d.extra, d.skeleton_bad);
+    println!("worst numeric difference (dgdt aside) {:e} in {}; dgdt max |.| real {:e} port {:e}, pointwise difference {:e}", d.worst.0, d.worst.1, d.dgdt_max.0, d.dgdt_max.1, d.dgdt_pointwise);
+    println!("declared not written: {:?}", state.not_written);
+    for p in ["neutroRegion/meshPhi", "fluidRegion/alphaRhoMagU", "thermoMechanicalRegion/alpha", "thermoMechanicalRegion/gapWidth", "thermoMechanicalRegion/fuelDispVector"] {
+        let (_, text) = real.iter().find(|(q, _)| q == p).expect("real file");
+        let key = format!("100/{p}");
+        let Some((_, port)) = state.files.iter().find(|(q, _)| *q == key) else {
+            println!("{p}: NOT WRITTEN");
+            continue;
+        };
+        let c = compare_text(text, port);
+        println!("{p}: byte-identical {} worst {:e}", c.byte_identical, c.worst_rel);
+    }
+    let bl_identical = real
+        .iter()
+        .filter(|(p, _)| p.starts_with("fluidRegion.baffleLess/"))
+        .filter(|(p, t)| state.files.iter().any(|(q, m)| *q == format!("100/{p}") && m == t))
+        .count();
+    println!("fluidRegion.baffleLess/polyMesh: {bl_identical} of 8 byte-identical");
+    assert!(state.not_written.is_empty(), "criterion 2: not written {:?}", state.not_written);
+    assert!(d.missing.is_empty() && d.extra.is_empty(), "file lists differ");
+    assert!(d.skeleton_bad.is_empty(), "criterion 2: skeleton differences {:?}", d.skeleton_bad);
+    assert!(d.gated_bad.is_empty(), "criterion 2: {:?}", d.gated_bad);
+}
+
+/// Stage the transient from the REAL written start directory with the shipped `writeControl adjustableRunTime; writeInterval 10`, run to the clock's
+/// first write time and write: README round 69, criteria 3 and 4.
+fn run_to_first_write(pk: bool, tag: &str) -> (RegionSolvers, WrittenState, usize) {
+    let root = stage_from_files(tag, pk);
+    set_entry(&root.join("system/controlDict"), "writeControl", "adjustableRunTime");
+    set_entry(&root.join("system/controlDict"), "writeInterval", "10");
+    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).expect("read");
+    let mut k = 0;
+    while run.running() {
+        k += 1;
+        run.step().expect("step");
+        if run.is_write_time() {
+            let state = run.write_time_directory(&root, &WriteOptions::precision_17()).expect("write");
+            return (run, state, k);
+        }
+    }
+    panic!("no write time");
+}
+
+fn first_write_checks(pk: bool, tag: &str, real_steps: usize) {
+    let (run, state, k) = run_to_first_write(pk, tag);
+    let real = real_110(pk);
+    let d = compare_directory(&state, "110", &real, 0.0);
+    println!("{} 110: step {k} (real {real_steps}), time {:.17e}, |t - 110| {:e}", if pk { "PK" } else { "SH" }, run.time(), (run.time() - 110.0).abs());
+    println!("files compared {} of {}, byte-identical {}, lines identical {}/{}", d.files, real.len(), d.byte_identical, d.lines.0, d.lines.1);
+    println!("missing {:?} extra {:?} skeleton differences {:?}", d.missing, d.extra, d.skeleton_bad);
+    println!("worst numeric difference (dgdt aside) {:e} in {}; dgdt max |.| real {:e} port {:e}, pointwise {:e}", d.worst.0, d.worst.1, d.dgdt_max.0, d.dgdt_max.1, d.dgdt_pointwise);
+    println!("declared not written: {:?}", state.not_written);
+    let (_, rs_real) = real.iter().find(|(p, _)| p == "uniform/reactorState").expect("reactorState");
+    let rs_port = state.files.iter().find(|(p, _)| p == "110/uniform/reactorState").map(|(_, t)| t.clone()).unwrap_or_default();
+    println!("uniform/reactorState byte-identical: {}", *rs_real == rs_port);
+    assert!((run.time() - 110.0).abs() <= 1e-12, "criterion 3/4: the clock lands on 110");
+    assert!(d.missing.is_empty() && d.extra.is_empty(), "criterion 3/4: file lists differ: missing {:?} extra {:?}", d.missing, d.extra);
+    assert!(d.skeleton_bad.is_empty(), "criterion 3/4: skeleton {:?}", d.skeleton_bad);
+    assert!(d.gated_bad.is_empty(), "criterion 3/4: {:?}", d.gated_bad);
+}
+
+/// README round 69, criterion 3 (X11, X12, X14): the point-kinetics region's written state at the first write time.
+#[test]
+fn the_point_kinetics_region_writes_its_state_at_the_first_transient_write_time() {
+    first_write_checks(true, "w69pk", 119);
+}
+
+/// README round 69, criterion 4 (X13, X14): the diffusion transient at the first write time.
+#[test]
+fn the_diffusion_transient_writes_its_directory_at_the_first_transient_write_time() {
+    first_write_checks(false, "w69sh", 110);
+}
+
+/// README round 69, criterion 5 (controls): each must fail.
+#[test]
+fn each_round_69_control_differs_from_the_real_directories() {
+    let (sh, pk) = (real_110(false), real_110(true));
+    // (a) the PK `110` against the SH `110`: different file lists
+    let only_sh: Vec<&String> = sh.iter().map(|(p, _)| p).filter(|p| !pk.iter().any(|(q, _)| q == *p)).collect();
+    println!("control a: {} files only in the SH directory, e.g. {:?}", only_sh.len(), &only_sh[..only_sh.len().min(3)]);
+    assert!(!only_sh.is_empty());
+    // (b) `dgdt` as zeros: the skeleton differs
+    let (_, real_dgdt) = sh.iter().find(|(p, _)| p == "fluidRegion/dgdt").expect("dgdt");
+    let start = real_dgdt.find("internalField").expect("internalField");
+    let end = real_dgdt.find("boundaryField").expect("boundaryField");
+    let zeros = format!("{}internalField   uniform 0;\n\n{}", &real_dgdt[..start], &real_dgdt[end..]);
+    assert!(!compare_text(real_dgdt, &zeros).skeleton_equal, "control b");
+    // (d) `alpha` rebuilt as `threeK alpha / threeK` from the card values differs from the card's value in the last bits (reported)
+    let raw = real_raw_100();
+    let get = |p: &str| internal_numbers(&raw.iter().find(|(q, _)| q == p).expect("real file").1);
+    let (rho_e, rho, nu) = (get("thermoMechanicalRegion/E"), get("thermoMechanicalRegion/rho"), get("thermoMechanicalRegion/nu"));
+    let n = rho_e.len().max(rho.len()).max(nu.len());
+    let at = |v: &Vec<f64>, i: usize| if v.len() == 1 { v[0] } else { v[i] };
+    let alpha = 1.8e-5_f64;
+    let differing = (0..n)
+        .filter(|&i| {
+            let e = at(&rho_e, i) / at(&rho, i);
+            let tk = e / (1.0 - 2.0 * at(&nu, i));
+            (tk * alpha) / tk != alpha
+        })
+        .count();
+    println!("control d: {differing} of {n} cells where (threeK alpha)/threeK != alpha");
+}
+
+/// README round 69, criterion 7 (X15): the new state read back from the port's OWN written directory (`alphaRhoMagU`, `meshPhi`) equals the
+/// run's, and a restart with those files present runs bit for bit as one without them (they feed nothing).
+#[test]
+fn the_new_state_reads_back_bit_for_bit_and_feeds_nothing() {
+    let (sroot, _, _, _) = steady_and_write("w69c");
+    let mut a = RegionSolvers::read(&stage_from_own("w69c1", false, &sroot.join("100")), CouplingSwitches::default()).expect("read own");
+    let got = match a.region("fluidRegion").map(|r| &r.solver) {
+        Some(RegionSolver::OnePhase(f)) => f.solver.alpha_rho_mag_u().clone(),
+        _ => panic!("fluid region"),
+    };
+    let own_arm = internal_numbers(&std::fs::read_to_string(sroot.join("100/fluidRegion/alphaRhoMagU")).expect("own alphaRhoMagU"));
+    assert!(own_arm.len() == 1 && got.0.iter().all(|v| v.to_bits() == own_arm[0].to_bits()), "alphaRhoMagU read back: every cell the written value");
+    let phi = a.region("neutroRegion").and_then(|r| r.fields.scalar("meshPhi")).map(<[f64]>::to_vec).expect("meshPhi read from the own directory");
+    let want = internal_numbers(&std::fs::read_to_string(sroot.join("100/neutroRegion/meshPhi")).expect("own meshPhi"));
+    assert!(want.iter().zip(&phi).all(|(w, p)| w.to_bits() == p.to_bits()), "meshPhi read back bit for bit");
+    // without the files
+    let root_b = stage_from_own("w69c2", false, &sroot.join("100"));
+    for f in ["fluidRegion/alphaRhoMagU", "fluidRegion/dgdt", "neutroRegion/meshPhi"] {
+        std::fs::remove_file(root_b.join("100").join(f)).expect("remove");
+    }
+    let mut b = RegionSolvers::read(&root_b, CouplingSwitches::default()).expect("read without");
+    for k in 0..20 {
+        let (ra, rb) = (a.step().expect("step a"), b.step().expect("step b"));
+        assert_eq!(ra.power.to_bits(), rb.power.to_bits(), "step {k}: power with and without the new files");
+    }
+    println!("20 steps from the own directory with and without alphaRhoMagU, dgdt, meshPhi: power bit for bit");
 }

@@ -42,6 +42,7 @@
 //! | [`fv_solution`] | `system/fvSolution` linear-solver + PIMPLE controls | struct only; `read` is `todo!()` |
 //! | [`output`] | OpenFOAM-ASCII and legacy-VTK field writers | **all `todo!()`** (signatures carry no class/location/patch types) |
 //! | [`foam_ascii`] | OpenFOAM-ESI v2506 ASCII time-directory text, byte for byte (gh:#1931) | **Implemented** (`no_std`) |
+//! | [`foam_ascii_mesh`] | the eight `polyMesh` files of a baffle-less mesh (gh:#1935) | **Implemented** (`no_std`) |
 //!
 //! The "struct only" rows are still useful: the dictionaries they model are
 //! typed enums, so a scheme or solver selection that OpenFOAM would accept

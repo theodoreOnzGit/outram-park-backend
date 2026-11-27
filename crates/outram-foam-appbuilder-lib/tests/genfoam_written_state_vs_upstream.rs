@@ -292,3 +292,97 @@ fn parse_field_field(text: &str) -> Vec<Data> {
     }
     out
 }
+
+// ---- Round 69 (gh:#1935): the baffle-less polyMesh files and the point-kinetics extras ------------------------------------------------------------
+
+use outram_foam_appbuilder_lib::io::foam_ascii_mesh::{parse_boundary_patches, write_poly_mesh, PolyMeshOut};
+
+/// The numbers inside the outermost parentheses of a list file body, one per element (`N(a b c d)` lines for faces: the labels).
+fn label_lines(text: &str) -> Vec<Vec<usize>> {
+    let b = body(text);
+    let open = b.find("\n(\n").expect("list start") + 3;
+    let close = b.rfind("\n)").expect("list end");
+    b[open..close].lines().map(|l| l.split(|c: char| !c.is_ascii_digit()).filter(|t| !t.is_empty()).map(|t| t.parse().expect("label")).collect::<Vec<usize>>()).collect()
+}
+
+fn mesh_from_real_files(real: &[(String, String)]) -> PolyMeshOut {
+    let get = |n: &str| &real.iter().find(|(p, _)| *p == format!("fluidRegion.baffleLess/polyMesh/{n}")).unwrap_or_else(|| panic!("real {n}")).1;
+    let points: Vec<[f64; 3]> = parse_lists(get("points")).remove(0).chunks(3).map(|c| [c[0], c[1], c[2]]).collect();
+    // the faces: `N(a b c d)` per line (the leading count is part of the line, drop it)
+    let faces: Vec<Vec<usize>> = label_lines(get("faces")).into_iter().map(|mut l| {
+        l.remove(0);
+        l
+    }).collect();
+    let owner: Vec<usize> = label_lines(get("owner")).into_iter().flatten().collect();
+    let neighbour: Vec<usize> = label_lines(get("neighbour")).into_iter().flatten().collect();
+    let cell_labels: Vec<usize> = {
+        let t = get("cellZones");
+        let at = t.find("cellLabels").expect("cellLabels");
+        let open = t[at..].find("\n(\n").expect("list") + at + 3;
+        let close = t[open..].find("\n)").expect("end") + open;
+        t[open..close].lines().map(|l| l.trim().parse().expect("label")).collect()
+    };
+    PolyMeshOut {
+        points,
+        faces,
+        owner,
+        neighbour,
+        n_cells: 144,
+        patches: parse_boundary_patches(get("boundary")).expect("patches"),
+        cell_zones: vec![("zone0".to_string(), cell_labels)],
+        n_face_zones: 0,
+        n_point_zones: 0,
+    }
+}
+
+/// README round 69, criterion 1 (X1): the 8 baffle-less `polyMesh` files of the real raw directory, parsed into the writer's description and
+/// written back: 0 differing bytes.
+#[test]
+fn the_baffle_less_poly_mesh_files_of_the_real_directory_are_written_back_byte_for_byte() {
+    let real = real_files();
+    let m = mesh_from_real_files(&real);
+    let files = write_poly_mesh(&m, "100/fluidRegion.baffleLess/polyMesh", &WriteOptions::precision_17()).expect("canonical mesh");
+    let (mut bytes, mut bad) = (0usize, Vec::new());
+    for (name, text) in &files {
+        let (_, want) = real.iter().find(|(p, _)| *p == format!("fluidRegion.baffleLess/polyMesh/{name}")).expect("real file");
+        bytes += want.len();
+        if text != want {
+            let at = text.bytes().zip(want.bytes()).position(|(a, b)| a != b).unwrap_or(text.len().min(want.len()));
+            bad.push(format!("{name}: first difference at byte {at}: ...{}", &want[at.saturating_sub(40)..(at + 40).min(want.len())].replace('\n', "\\n")));
+        }
+    }
+    println!("criterion 1 (baffle-less polyMesh): {} files, {bytes} bytes, {} differ", files.len(), bad.len());
+    assert_eq!(files.len(), 8);
+    assert!(bad.is_empty(), "{bad:#?}");
+}
+
+/// README round 69, criterion 1: the point-kinetics `110` extras (`reactorState` with `precursorPowers`, `defaultPrec`, `oneGroupFlux`) written back.
+#[test]
+fn the_point_kinetics_extras_of_the_real_110_directory_are_written_back_byte_for_byte() {
+    let bytes = gunzip(&vv_dir().join("refs/fc_pk_written110_r69.txt.gz"));
+    let mut at = 0;
+    let (mut checked, opts) = (0, WriteOptions::precision_17());
+    while at < bytes.len() {
+        let eol = at + bytes[at..].iter().position(|&b| b == b'\n').expect("header line");
+        let parts: Vec<&str> = std::str::from_utf8(&bytes[at..eol]).expect("utf8").split('\t').collect();
+        let len: usize = parts[2].parse().expect("length");
+        let text = String::from_utf8(bytes[eol + 1..eol + 1 + len].to_vec()).expect("utf8 body");
+        at = eol + 1 + len + 1;
+        match parts[1] {
+            "uniform/reactorState" => {
+                let location = header_value_opt(&text, "location").expect("location");
+                let out = write_dictionary_file(&location, "reactorState", &parse_dictionary(&text));
+                assert!(out == text, "reactorState differs");
+                checked += 1;
+            }
+            "neutroRegion/defaultPrec" | "neutroRegion/oneGroupFlux" | "neutroRegion/meshPhi" => {
+                let out = write_field_file(&parse_field_file(&text), &opts).expect("write");
+                assert!(out == text, "{} differs", parts[1]);
+                checked += 1;
+            }
+            _ => {}
+        }
+    }
+    println!("criterion 1 (PK extras): {checked} files byte-identical");
+    assert_eq!(checked, 4);
+}

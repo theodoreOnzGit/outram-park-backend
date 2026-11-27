@@ -16,8 +16,9 @@ This crate provides:
    `todo!()`** ~~and every OpenFOAM/VTK writer~~ **CORRECTED 2026-11-27 (gh:#1931,
    README round 68; verified by running `the_port_writes_a_t100_directory_like_the_real_one`):**
    the GeN-Foam coupled loop WRITES time directories as GeN-Foam does
-   (`io::foam_ascii`, `RegionSolvers::written_files` / `write_time_directory`: 66 of
-   the 84 files of the real `2D_fullCoupling` `t = 100`, the rest named in
+   (`io::foam_ascii`, `RegionSolvers::written_files` / `write_time_directory`: ~~66 of
+   the 84 files~~ **CORRECTED 2026-11-27 (gh:#1935, README round 69, verified by running `the_port_writes_all_84_files_of_the_t100_directory`):** all 84 files of the real `2D_fullCoupling` `t = 100`,
+   and the first transient write time of the SH and PK stages; what is refused is named in
    `WrittenState::not_written`); `io::output::{write_scalar_field, write_vector_field,
    write_vtk}` stay `todo!()` — their signatures carry no `location`, class or
    patch types, which the writer needs, so GeN-Foam's own state is written through

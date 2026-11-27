@@ -37,7 +37,8 @@ pub fn field_file(path: &str, time_name: &str, internal: Data, patches: Vec<Patc
         location: format!("{time_name}/{region}"),
         object: object.to_string(),
         dimensions,
-        oriented: class.starts_with("surface"),
+        // `meshPhi` is created by `fvMesh::movePoints` as a plain `surfaceScalarField` (not `setOriented()`): the real file has no `oriented` entry (README round 69)
+        oriented: class.starts_with("surface") && object != "meshPhi",
         internal,
         patches,
     })

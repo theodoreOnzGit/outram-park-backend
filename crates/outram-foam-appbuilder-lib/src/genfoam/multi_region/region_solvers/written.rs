@@ -198,7 +198,7 @@ impl RegionSolvers {
             add("uniform/reactorState".to_string(), write_dictionary_file(&format!("{tn}/uniform"), "reactorState", &entries));
         }
         add("uniform/functionObjects/functionObjectProperties".to_string(), write_dictionary_file(&format!("{tn}/uniform/functionObjects"), "functionObjectProperties", &[]));
-        add("uniform/time".to_string(), write_time_dict(self.time, &tn, self.clock.time_index(), self.clock.delta_t(), self.clock.delta_t0(), opts));
+        add("uniform/time".to_string(), write_time_dict(self.time, &tn, self.start_time_index + self.clock.time_index(), self.clock.delta_t(), self.clock.delta_t0(), opts));
         state.files.sort();
         state.not_written = not_written;
         Ok(state)

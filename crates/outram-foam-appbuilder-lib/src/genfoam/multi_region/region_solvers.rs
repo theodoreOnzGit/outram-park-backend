@@ -343,6 +343,9 @@ pub struct RegionSolvers {
     step: usize,
     /// `runTime` (`Time::operator++`, `setDeltaT`, `run`): the clock of every PseudoTime loop, with `adjustableRunTime` write alignment.
     clock: PseudoTimeClock,
+    /// `Time::timeIndex` of the start: `index` of `<startTime>/uniform/time` (`Time` reads it at a restart), or the steps an in-memory restart already
+    /// ran; added to the clock's own index only in the written `uniform/time` (gh:#1935; the clock's `timeStep` write rule still counts from 0).
+    start_time_index: usize,
     /// The `OverlapMesh` geometry of each region's mesh as the maps were built (the neutronics one is rebuilt at a restart).
     geometries: Vec<OverlapMesh>,
     /// `controlDict` `writeControl adjustableRunTime` `writeInterval`, `None` for any other write control.
@@ -479,6 +482,13 @@ fn read_start_points(root: &Path, region: &str, time_dir: &str) -> Result<Option
     let text = std::fs::read_to_string(&path).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
     let pts = parse_points(&text, "points")?;
     Ok(Some(pts.iter().map(|p| Vector3::new(p[0], p[1], p[2])).collect()))
+}
+
+/// `Time::timeIndex` of a restart: the `index` entry of `<startTime>/uniform/time` (0 when the directory or the entry is absent).
+fn read_start_time_index(root: &Path, start_time: f64) -> usize {
+    let Ok(td) = time_dir_name(root, start_time) else { return 0 };
+    let Ok(text) = std::fs::read_to_string(root.join(td).join("uniform/time")) else { return 0 };
+    text.lines().find_map(|l| l.strip_prefix("index").and_then(|r| r.trim().trim_end_matches(';').trim().parse::<usize>().ok())).unwrap_or(0)
 }
 
 /// `<time>/<region>/meshPhi` of a start directory (`READ_IF_PRESENT` by `fvMesh`, kept until the mesh moves): internal faces then every
@@ -814,6 +824,7 @@ impl RegionSolvers {
             dt: clock.delta_t(),
             step: 0,
             clock,
+            start_time_index: read_start_time_index(root, start_time),
             geometries,
             write_interval,
         };
@@ -922,6 +933,7 @@ impl RegionSolvers {
         self.adjust_time_step = cc.adjust_time_step;
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
+        self.start_time_index += self.clock.time_index();
         self.clock = PseudoTimeClock::starting_at(&cc, start_time);
         if let Some(n) = write_every_steps(c) {
             self.clock = self.clock.with_write_every_steps(n);
@@ -990,6 +1002,7 @@ impl RegionSolvers {
         self.adjust_time_step = cc.adjust_time_step;
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
+        self.start_time_index += self.clock.time_index();
         self.clock = PseudoTimeClock::starting_at(cc, start_time);
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();

@@ -194,3 +194,17 @@ impl OnePhaseCcSolver {
         self.case.flow.as_ref().is_some_and(|f| !f.reconstruct_u)
     }
 }
+
+impl OnePhaseCcSolver {
+    /// `alphaRhoMagU_`: cells and boundary faces (set at construction or READ; gh:#1935).
+    #[must_use]
+    pub fn alpha_rho_mag_u(&self) -> &(Vec<f64>, Vec<f64>) {
+        &self.alpha_rho_mag_u
+    }
+
+    /// `dgdt_` per cell as the last final non-orthogonal pass of the last corrector set it (zeros before the first step; gh:#1935).
+    #[must_use]
+    pub fn dgdt(&self) -> &[f64] {
+        &self.dgdt
+    }
+}
