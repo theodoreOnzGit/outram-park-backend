@@ -174,7 +174,7 @@ fn esfr_coupled_steps_against_the_real_binary() {
     let mut run = RegionSolvers::read(&dir, CouplingSwitches::default()).unwrap_or_else(|e| panic!("read: {e}"));
     let mut first_diverging: Option<(usize, String, f64)> = None;
     // solve bookkeeping: [count mismatches, solves compared, worst relative initial residual (upstream above 1e-10), iteration differences > 1, worst iteration difference]
-    let mut sol = [[0.0_f64; 5]; 3];
+    let mut sol = [[0.0_f64; 8]; 3];
     for k in 1..=n_steps {
         let t0 = std::time::Instant::now();
         let rec = run.step().unwrap_or_else(|e| panic!("step {k}: {e}"));
@@ -207,7 +207,14 @@ fn esfr_coupled_steps_against_the_real_binary() {
             for (m, u) in mine.iter().zip(up) {
                 sol[i][1] += 1.0;
                 if u.0 > 1e-10 {
-                    sol[i][2] = sol[i][2].max(((m.0 - u.0) / u.0).abs());
+                    let r = ((m.0 - u.0) / u.0).abs();
+                    if r > sol[i][2] {
+                        // the worst relative difference, with the upstream residual it is of and the step
+                        sol[i][2] = r;
+                        sol[i][5] = u.0;
+                        sol[i][6] = k as f64;
+                    }
+                    sol[i][7] = sol[i][7].max((m.0 - u.0).abs());
                 }
                 let di = (m.1 - u.1).abs() as f64;
                 if di > 1.0 {
@@ -224,7 +231,13 @@ fn esfr_coupled_steps_against_the_real_binary() {
                 for (m, u) in tm_mine.iter().zip(up) {
                     sol[2][1] += 1.0;
                     if u.1 > 1e-10 {
-                        sol[2][2] = sol[2][2].max(((m.1 - u.1) / u.1).abs());
+                        let r = ((m.1 - u.1) / u.1).abs();
+                        if r > sol[2][2] {
+                            sol[2][2] = r;
+                            sol[2][5] = u.1;
+                            sol[2][6] = k as f64;
+                        }
+                        sol[2][7] = sol[2][7].max((m.1 - u.1).abs());
                     }
                     let di = (m.2 - u.2).abs() as f64;
                     if di > 1.0 {
@@ -263,8 +276,8 @@ fn esfr_coupled_steps_against_the_real_binary() {
     }
     for (name, a) in ["p_rgh", "h", "thermo-mechanics"].iter().zip(sol) {
         println!(
-            "SOLVES {name}: steps with a different solve count/order {}; solves compared {}; worst relative initial residual (upstream above 1e-10) {:e}; iteration differences above 1: {}; worst iteration difference {}",
-            a[0], a[1], a[2], a[3], a[4]
+            "SOLVES {name}: steps with a different solve count/order {}; solves compared {}; worst relative initial residual (upstream above 1e-10) {:e} (upstream value {:e}, step {}); worst ABSOLUTE initial-residual difference {:e}; iteration differences above 1: {}; worst iteration difference {}",
+            a[0], a[1], a[2], a[5], a[6], a[7], a[3], a[4]
         );
     }
     println!("FIRST DIVERGING (fingerprint > 1e-9): {first_diverging:?}");
