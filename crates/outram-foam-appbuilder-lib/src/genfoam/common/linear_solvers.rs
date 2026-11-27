@@ -34,7 +34,11 @@
 //! `GAMGSolver` by default (`GamgPolicy::Native`, `TStructGamgPolicy::Native`);
 //! the substitutes (`GamgPolicy::SubstitutePcgDic`,
 //! `TStructGamgPolicy::SubstitutePbicgDilu`, `with_krylov_for_p_rgh`) remain as
-//! named ablations. The commented-out neutronics block (`DICGaussSeidel`,
+//! named ablations. ~~`CaseReadOptions::default().gamg` was `GamgPolicy::Refuse`~~
+//! **CHANGED 2026-11-27 (gh:#1947, README round 76):** it is `GamgPolicy::Native`
+//! too; `AllrunEdits::default().gamg` stays `SubstitutePcgDic` because it is the
+//! PROTOCOL of the committed MSFR references (`AllrunEdits::as_shipped_gamg()` keeps
+//! `GAMG`). The commented-out neutronics block (`DICGaussSeidel`,
 //! `nPreSweeps 1`) is ported and verified against the real binary, but not
 //! wired: nothing selects it.
 //!

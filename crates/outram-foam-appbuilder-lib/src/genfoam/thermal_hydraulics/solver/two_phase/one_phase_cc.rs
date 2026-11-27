@@ -343,7 +343,8 @@ pub struct FluidFields {
 /// How a case is read: the stage edits of `Allrun` as values, and where the start fields come from.
 #[derive(Debug, Clone)]
 pub struct CaseReadOptions {
-    /// `GAMG` for `p_rgh`.
+    /// `GAMG` for `p_rgh`: [`GamgPolicy::Native`] by default (upstream's own solver; ~~`Refuse`~~ **CHANGED 2026-11-27, gh:#1947**).
+    /// [`GamgPolicy::Refuse`] and [`GamgPolicy::SubstitutePcgDic`] are explicit ablations, set by naming the field.
     pub gamg: GamgPolicy,
     /// `solveFluidMechanics` of the stage (`None`: as `fvSolution` says). `Allrun` sets `false` for EN and transient.
     pub solve_fluid_mechanics: Option<bool>,
@@ -361,7 +362,8 @@ pub struct CaseReadOptions {
 impl Default for CaseReadOptions {
     fn default() -> Self {
         Self {
-            gamg: GamgPolicy::Refuse,
+            // ~~`GamgPolicy::Refuse`~~ **CHANGED 2026-11-27 (gh:#1947, README round 76)**: upstream's own `GAMGSolver`, as `GamgPolicy::default()`.
+            gamg: GamgPolicy::Native,
             solve_fluid_mechanics: None,
             controls: None,
             check_region_solvers: true,
