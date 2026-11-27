@@ -107,6 +107,7 @@ use traction::{base_sn_grad, evaluate_value, GfTractionDisplacement, TractionInp
 pub mod case;
 
 mod external_displacement;
+mod written;
 
 #[cfg(test)]
 mod tests;

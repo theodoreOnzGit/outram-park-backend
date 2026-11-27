@@ -171,6 +171,8 @@ pub struct NeutronicsTransient {
     pub controls: StationaryStepControls,
     /// The report of the last step (power, neutron iterations, residuals, the integral predictor's numbers).
     pub last_step: Option<StationaryStep>,
+    /// `neutronTransport.aitkenAcceleration true`: a step that reaches a third neutron iteration is refused by name (gh:#1932).
+    pub aitken_acceleration: bool,
 }
 
 /// `pointKineticNeutronics` on its (moved, no longer deforming) mesh: the neutronics region of the PK variant of `2D_fullCoupling`
@@ -353,6 +355,14 @@ fn clock_controls(c: &outram_foam_basic_lib::io::dict::FoamDict, root: &Path) ->
     })
 }
 
+/// `writeControl timeStep`: `writeInterval` as a step count (`Time::operator++`), else `None` (gh:#1931).
+fn write_every_steps(c: &outram_foam_basic_lib::io::dict::FoamDict) -> Option<usize> {
+    match c.get_word("writeControl") {
+        Some("timeStep") => c.get_scalar("writeInterval").map(|v| v as usize),
+        _ => None,
+    }
+}
+
 /// `meshHandler`: one `meshToMesh` per (target, source) pair of the mappings dictionary, built on the meshes as they are now.
 fn build_maps(regions: &[Region], mappings: &[MappingEntry], geometries: &[OverlapMesh], root: &Path) -> Result<Vec<(usize, usize, RegionMeshMap)>, AppBuilderError> {
     let mut maps = Vec::new();
@@ -421,6 +431,14 @@ fn neutronics_transient_controls(root: &Path, nname: &str, no_integral_predictor
         return Err(case_err(root, "fvSchemes: only `ddtSchemes default Euler` is ported for the transient step"));
     }
     Ok((StationaryStepControls { ddt: NeutronicsDdtScheme::Euler, laplacian, neutron_iteration_residual: res, max_neutron_iterations: max_it }, integral_predictor, implicit_predictor))
+}
+
+/// `fvSolution` `neutronTransport.aitkenAcceleration` (default false). The shipped `2D_fullCoupling` sets it `true`, and with one neutron iteration per
+/// step upstream's `aitkenAcceleration.H` does not change `fluxStar_` (it acts from the third iteration), so the flag alone is not refused: the
+/// STEP that reaches a third neutron iteration is (see [`RegionSolvers::step`]; gh:#1932, maintainer decision 2026-11-27).
+fn aitken_requested(root: &Path, nname: &str) -> Result<bool, AppBuilderError> {
+    let fvs = read_dict(root, &format!("system/{nname}/fvSolution"))?;
+    Ok(fvs.dict.get_dict("neutronTransport").and_then(|d| d.get_word("aitkenAcceleration")).is_some_and(|w| w == "true" || w == "yes" || w == "on"))
 }
 
 /// `neutronicsProperties.eigenvalueNeutronics` of a neutronics region of kind `kind` is `false` (a point-kinetics region always is): the
@@ -544,6 +562,9 @@ fn build_point_kinetics(
     }
     Ok((pk, case.gem))
 }
+
+mod written;
+pub use written::WrittenState;
 
 impl RegionSolvers {
     /// The faces `calcGEMLevelAndReactivity` sums over (`GEMFlowFaceZone` of the fluid region `fluidRegionName`; `magSf = mag(THMesh.faceAreas())`).
@@ -680,7 +701,7 @@ impl RegionSolvers {
                         if let Some(d) = nf.disp {
                             fields.set_vector("disp", d);
                         }
-                        transient = Some(NeutronicsTransient { controls, last_step: None });
+                        transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, name)? });
                         first_step = false;
                     }
                     RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step, conditions, transient })
@@ -723,7 +744,10 @@ impl RegionSolvers {
             regions.push(Region { name: name.clone(), fv, fields, solver, remove_baffles });
         }
         let maps = build_maps(&regions, &mappings, &geometries, root)?;
-        let clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time);
+        let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time);
+        if let Some(n) = write_every_steps(c) {
+            clock = clock.with_write_every_steps(n);
+        }
         let write_interval = clock_controls(c, root)?.write_interval;
         let mut me = Self {
             regions,
@@ -810,7 +834,11 @@ impl RegionSolvers {
             return Err(case_err(root, "restart_transient needs `eigenvalueNeutronics false`"));
         }
         if pk_variant {
-            return self.restart_transient_point_kinetics(root, ni, &nname, start_time, &cc, mappings, deformation);
+            self.restart_transient_point_kinetics(root, ni, &nname, start_time, &cc, mappings, deformation)?;
+            if let Some(n) = write_every_steps(c) {
+                self.clock = self.clock.with_write_every_steps(n);
+            }
+            return Ok(());
         }
         let (controls, integral_predictor, implicit_predictor) = neutronics_transient_controls(root, &nname, self.switches.no_integral_predictor)?;
 
@@ -823,7 +851,7 @@ impl RegionSolvers {
         n.solver = n.solver.clone().with_integral_predictor(integral_predictor).with_implicit_predictor(implicit_predictor);
         n.solver.rebind_mesh(fresh.mesh().clone(), None).map_err(|e| case_err(root, e.to_string()))?;
         n.first_step = false;
-        n.transient = Some(NeutronicsTransient { controls, last_step: None });
+        n.transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, &nname)? });
         let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
         self.regions[ni].fv = fresh.mesh().clone();
         self.geometries[ni] = geometry;
@@ -846,6 +874,9 @@ impl RegionSolvers {
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
         self.clock = PseudoTimeClock::starting_at(&cc, start_time);
+        if let Some(n) = write_every_steps(c) {
+            self.clock = self.clock.with_write_every_steps(n);
+        }
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();
         self.step = 0;
@@ -1196,6 +1227,14 @@ impl RegionSolvers {
                     rec.k_eff = n.k_eff;
                     rec.power = n.power;
                     rec.neutronics = n.transient.as_ref().and_then(|t| t.last_step.clone());
+                    if let (Some(tr), Some(ns)) = (&n.transient, &rec.neutronics) {
+                        if tr.aitken_acceleration && ns.neutron_iterations >= 3 {
+                            return Err(case_err(
+                                Path::new(&r.name),
+                                format!("step {}: {} neutron iterations with neutronTransport.aitkenAcceleration true: aitkenAcceleration.H acts from the third iteration and reads three UNINITIALISED List<scalar> (undefined behaviour upstream), so there is no upstream number to match; refused by name, no zero-initialised variant (gh:#1932, maintainer decision 2026-11-27)", self.step, ns.neutron_iterations),
+                            ));
+                        }
+                    }
                 }
                 RegionSolver::PointKinetics(p) => rec.power = p.pk.power(),
                 RegionSolver::ThermoMechanics(t) => rec.max_sigma_eq = t.last_log.as_ref().and_then(|l| l.max_sigma_eq),

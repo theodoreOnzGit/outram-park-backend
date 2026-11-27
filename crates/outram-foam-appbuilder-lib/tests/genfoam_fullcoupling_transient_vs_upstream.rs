@@ -1575,3 +1575,260 @@ fn the_implicit_predictor_amplifies_round_off_exponentially() {
     let end_real = rel(a.power_trace[99], reference.nlog[99][0]);
     assert!(end_self > 1e-7 && end_real > 1e-7, "no amplification: self {end_self:e} real {end_real:e}");
 }
+
+// ================================================================================================================================
+// Round 68 (gh:#1931, README "Round 68"): the port WRITES its own `100` directory; a restart from the port's OWN written state
+// ================================================================================================================================
+
+use outram_foam_appbuilder_lib::genfoam::multi_region::region_solvers::WrittenState;
+use outram_foam_appbuilder_lib::io::foam_ascii::WriteOptions;
+
+/// The packed real raw steady-state `100` directory (`refs/fc_ss_written100_r68.txt.gz`, 84 files) as `(path, text)`.
+fn real_raw_100() -> Vec<(String, String)> {
+    let bytes = gunzip(&vv_dir().join("refs/fc_ss_written100_r68.txt.gz"));
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < bytes.len() {
+        let eol = at + bytes[at..].iter().position(|&b| b == b'\n').expect("header line");
+        let parts: Vec<&str> = std::str::from_utf8(&bytes[at..eol]).expect("utf8").split('\t').collect();
+        let len: usize = parts[2].parse().expect("length");
+        out.push((parts[1].to_string(), String::from_utf8(bytes[eol + 1..eol + 1 + len].to_vec()).expect("utf8 body")));
+        at = eol + 1 + len + 1;
+    }
+    assert_eq!(out.len(), 84);
+    out
+}
+
+/// The steady state in the port, with the clock's write times recorded; the directory written at the last write time.
+fn steady_and_write(tag: &str) -> (PathBuf, Vec<usize>, WrittenState, f64) {
+    let root = stage_steady(tag);
+    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).expect("read");
+    let (mut k, mut write_steps) = (0usize, Vec::new());
+    let mut state = None;
+    while run.running() {
+        k += 1;
+        run.step().expect("step");
+        if run.is_write_time() {
+            write_steps.push(k);
+            state = Some(run.write_time_directory(&root, &WriteOptions::precision_17()).expect("write"));
+        }
+    }
+    (root, write_steps, state.expect("a write time"), run.time())
+}
+
+/// Split into number and non-number spans; a numeric token is one that parses as `f64` and is not a list count (an integer followed by `(`, `{`).
+fn numeric_skeleton(text: &str) -> (String, Vec<f64>) {
+    let b = text.as_bytes();
+    let (mut skel, mut nums) = (String::new(), Vec::new());
+    let delim = |c: u8| c.is_ascii_whitespace() || b"(){};".contains(&c);
+    // the header block (banner and `FoamFile {...}`) is literal text
+    let start = text.find("// * * * * *").unwrap_or(0);
+    skel.push_str(&text[..start]);
+    let mut i = start;
+    while i < b.len() {
+        if delim(b[i]) {
+            skel.push(b[i] as char);
+            i += 1;
+            continue;
+        }
+        let j = (i..b.len()).find(|&j| delim(b[j])).unwrap_or(b.len());
+        let tok = &text[i..j];
+        let first = tok.as_bytes()[0];
+        let numeric = (first.is_ascii_digit() || first == b'-' || first == b'.') && tok.parse::<f64>().is_ok();
+        let next = text[j..].trim_start().as_bytes().first().copied();
+        let is_count = numeric && tok.bytes().all(|c| c.is_ascii_digit()) && matches!(next, Some(b'(' | b'{'));
+        let is_index = numeric && text[..i].ends_with("index           ");
+        if numeric && !is_count && !is_index {
+            skel.push('#');
+            nums.push(tok.parse().expect("number"));
+        } else {
+            skel.push_str(tok);
+        }
+        i = j;
+    }
+    (skel, nums)
+}
+
+#[derive(Default, Debug)]
+struct FileCmp {
+    byte_identical: bool,
+    skeleton_equal: bool,
+    lines: usize,
+    lines_identical: usize,
+    worst_rel: f64,
+}
+
+fn compare_text(real: &str, port: &str) -> FileCmp {
+    let (rs, rn) = numeric_skeleton(real);
+    let (ps, pn) = numeric_skeleton(port);
+    let mut c = FileCmp { byte_identical: real == port, skeleton_equal: rs == ps, ..FileCmp::default() };
+    let (rl, pl): (Vec<&str>, Vec<&str>) = (real.lines().collect(), port.lines().collect());
+    c.lines = rl.len();
+    c.lines_identical = rl.iter().zip(&pl).filter(|(a, b)| a == b).count();
+    if c.skeleton_equal && rn.len() == pn.len() {
+        let scale = rn.iter().fold(0.0f64, |m, v| m.max(v.abs())).max(1e-300);
+        c.worst_rel = rn.iter().zip(&pn).map(|(a, b)| (a - b).abs() / scale).fold(0.0, f64::max);
+    } else {
+        c.worst_rel = f64::NAN;
+    }
+    c
+}
+
+/// README round 68, criterion 3: the port's own `100` directory against the real raw one.
+#[test]
+fn the_port_writes_a_t100_directory_like_the_real_one() {
+    let (_root, write_steps, state, t_end) = steady_and_write("w68a");
+    println!("write times at steps {write_steps:?}, last time {t_end}");
+    assert_eq!(write_steps, vec![476], "criterion 3: write_time() true at step 476 and no earlier");
+    let real = real_raw_100();
+    let mut total = (0usize, 0usize, 0usize, 0usize, 0usize); // files compared, byte-identical, skeleton-equal, lines, lines identical
+    let mut worst = (0.0f64, String::new());
+    let mut by_region: HashMap<String, (usize, usize, usize, f64)> = HashMap::new();
+    let mut missing = Vec::new();
+    let mut skeleton_bad = Vec::new();
+    for (path, text) in &real {
+        let key = format!("100/{path}");
+        let Some((_, mine)) = state.files.iter().find(|(p, _)| *p == key) else {
+            missing.push(path.clone());
+            continue;
+        };
+        let c = compare_text(text, mine);
+        total.0 += 1;
+        total.1 += usize::from(c.byte_identical);
+        total.2 += usize::from(c.skeleton_equal);
+        total.3 += c.lines;
+        total.4 += c.lines_identical;
+        let region = path.split('/').next().unwrap_or("").to_string();
+        let e = by_region.entry(region).or_insert((0, 0, 0, 0.0));
+        e.0 += 1;
+        e.1 += usize::from(c.byte_identical);
+        e.2 += c.lines_identical;
+        if c.worst_rel.is_finite() {
+            e.3 = e.3.max(c.worst_rel);
+            if c.worst_rel > worst.0 {
+                worst = (c.worst_rel, path.clone());
+            }
+        }
+        if !c.skeleton_equal {
+            skeleton_bad.push(path.clone());
+        }
+        println!("{path:55} bytes-identical {:5} skeleton {:5} lines {}/{} worst {:e}", c.byte_identical, c.skeleton_equal, c.lines_identical, c.lines, c.worst_rel);
+    }
+    println!("FILES written {} (of the real 84): byte-identical {}, skeleton-equal {}, lines identical {}/{}", total.0, total.1, total.2, total.4, total.3);
+    println!("worst numeric difference {:e} in {}", worst.0, worst.1);
+    for (r, v) in &by_region {
+        println!("region {r}: {} files, {} byte-identical, {} lines identical, worst {:e}", v.0, v.1, v.2, v.3);
+    }
+    println!("real files the port does not write ({}): {missing:?}", missing.len());
+    println!("declared not written: {:?}", state.not_written);
+    println!("skeleton differences: {skeleton_bad:?}");
+    let t = state.files.iter().find(|(p, _)| p == "100/uniform/time").expect("uniform/time");
+    assert!(t.1.contains("\nindex           476;\n") && t.1.contains("\nname            \"100\";\n"));
+    assert!(skeleton_bad.is_empty(), "criterion 3: skeleton differences {skeleton_bad:?}");
+    assert!(worst.0 <= 1e-9, "criterion 3: worst numeric difference {:e} in {}", worst.0, worst.1);
+}
+
+/// The staged transient (`pk`: the point-kinetics stage) with the port's OWN written `100` directory in place of the real one.
+fn stage_from_own(tag: &str, pk: bool, own_100: &Path) -> PathBuf {
+    let root = if pk { stage_pk(&format!("own_{tag}")) } else { stage_transient(&format!("own_{tag}")) };
+    let _ = std::fs::remove_dir_all(root.join("100"));
+    copy_dir(own_100, &root.join("100"));
+    root
+}
+
+/// README round 68, criterion 4 (SH) and 5: the diffusion transient restarted from the port's OWN written files, against the real binary and
+/// against the in-memory emulation of round 60.
+#[test]
+fn the_diffusion_transient_restarted_from_the_ports_own_files_meets_the_round_66_criteria() {
+    let reference = load_reference("fc_transient_sh_r60.ref.txt.gz");
+    let ss_ref = load_reference("fc_ss_adj_r60.ref.txt.gz");
+    let (sroot, _, _, _) = steady_and_write("w68b");
+    let root = stage_from_own("sh", false, &sroot.join("100"));
+    let w = run_sh_from_files(&root, CouplingSwitches::default(), usize::MAX, &reference);
+    print_worst("sh-from-own-files", &w);
+    // criterion 5: against the in-memory emulation (round 60)
+    let (_, wm) = run_transient("w68mem", CouplingSwitches::default(), usize::MAX, &ss_ref, &reference);
+    let dp = w.power_trace.iter().zip(&wm.power_trace).map(|(a, b)| rel(*a, *b)).fold(0.0, f64::max);
+    println!("own files vs in-memory emulation: steps {} / {}, worst power relative difference {dp:e}", w.steps, wm.steps);
+    println!("emulation vs real: power {:?}, first p_rgh {:?}; own files vs real: power {:?}, first p_rgh {:?}", wm.power, wm.first_prgh, w.power, w.first_prgh);
+    assert_eq!(w.steps, reference.n_steps);
+    assert!(w.time <= 1e-12 && w.dt <= GATE, "time {:e} dt {:e}", w.time, w.dt);
+    assert!(w.power.0 <= GATE, "power {:?}", w.power);
+    assert!(w.predictor_old.0 <= GATE && w.predictor_new.0 <= GATE, "integral predictor {:?} {:?}", w.predictor_old, w.predictor_new);
+    assert_eq!(w.iterations_mismatch, 0);
+    assert!(w.first_diverging.is_none(), "first diverging fingerprint {:?}", w.first_diverging);
+    for (k, v) in &w.full {
+        assert!(*v <= GATE, "{k} full-field {v:e}");
+    }
+    assert_eq!(w.solve_count_mismatch, 0);
+    assert!(w.tm_res_abs <= 1e-11, "tm solves {:e}", w.tm_res_abs);
+    // criterion 4 as written (fluid initial residuals within 1e-11 absolute, first `p_rgh` residual within 1e-11) is MISSED from the port's own
+    // steady state, as round 60 found for the in-memory restart (3.1e-10, cause: the own steady `U` is 9.8e-14 from upstream's, README round 61);
+    // asserted at that POST-RUN pin (round 68, written after the first run), the miss is printed
+    println!("criterion 4 fluid residual within 1e-11 absolute: {} (worst {:e}, {})", w.fluid_res_abs <= 1e-11, w.fluid_res_abs, w.fluid_worst_solve);
+    assert!(w.fluid_res_abs <= 3.2e-10, "fluid solve residuals {:e} ({})", w.fluid_res_abs, w.fluid_worst_solve);
+    let (up, port) = w.first_prgh.expect("the first p_rgh solve of step 1");
+    println!("first p_rgh initial residual of step 1: upstream {up:e} port {port:e} (absolute {:e})", (port - up).abs());
+    assert!((port - up).abs() <= 3.2e-10);
+    assert!(dp <= GATE, "criterion 5: power {dp:e}");
+}
+
+/// README round 68, criterion 4 (PK): the point-kinetics transient restarted from the port's OWN written files.
+#[test]
+fn the_point_kinetics_transient_restarted_from_the_ports_own_files_meets_the_round_66_criteria() {
+    let reference = load_reference("pk_r61.ref.txt.gz");
+    let (sroot, _, _, _) = steady_and_write("w68c");
+    let root = stage_from_own("pk", true, &sroot.join("100"));
+    let w = run_pk_from_files(&root, CouplingSwitches::default(), usize::MAX, &reference);
+    print_pk("pk-from-own-files", &w);
+    assert_eq!(w.steps, reference.n_steps);
+    assert!(w.time <= 1e-12 && w.dt <= GATE, "time {:e} dt {:e}", w.time, w.dt);
+    assert!(w.pk_first.is_none(), "first diverging PK term {:?}", w.pk_first);
+    assert!(w.pk_tfuel_abs <= PK_TFUEL_TERM_ABS_PIN, "TFuel term absolute {:e}", w.pk_tfuel_abs);
+    assert!(w.first_diverging.is_none(), "first diverging fingerprint {:?}", w.first_diverging);
+    for (k, v) in &w.full {
+        assert!(*v <= GATE, "{k} full-field {v:e}");
+    }
+    assert_eq!(w.solve_count_mismatch, 0);
+    assert!(w.tm_res_abs <= 1e-11, "tm solves {:e}", w.tm_res_abs);
+    // criterion 4 as written (fluid initial residuals within 1e-11 absolute, first `p_rgh` residual within 1e-11) is MISSED from the port's own
+    // steady state, as round 60 found for the in-memory restart (3.1e-10, cause: the own steady `U` is 9.8e-14 from upstream's, README round 61);
+    // asserted at that POST-RUN pin (round 68, written after the first run), the miss is printed
+    println!("criterion 4 fluid residual within 1e-11 absolute: {} (worst {:e}, {})", w.fluid_res_abs <= 1e-11, w.fluid_res_abs, w.fluid_worst_solve);
+    assert!(w.fluid_res_abs <= 3.2e-10, "fluid solve residuals {:e} ({})", w.fluid_res_abs, w.fluid_worst_solve);
+    let (up, port) = w.first_prgh.expect("the first p_rgh solve of step 1");
+    println!("first p_rgh initial residual of step 1: upstream {up:e} port {port:e} (absolute {:e})", (port - up).abs());
+    assert!((port - up).abs() <= 3.2e-10);
+}
+
+/// README round 68, criterion 6: write then read reproduces the in-memory arrays bit for bit (the fluid's `T`, `U`, `p_rgh`, the neutron fluxes
+/// and the TM displacement through `RegionSolvers::read` of the written directory are exercised by the two restart tests; here the text itself).
+#[test]
+fn written_numbers_read_back_bit_for_bit() {
+    use outram_foam_appbuilder_lib::io::foam_ascii::format_g;
+    let mut x = 0.123_456_789_012_345_67_f64;
+    for i in 0..20_000 {
+        x = (x * 1.000_000_7 + f64::from(i) * 1e-9).fract() + 1e-300 * f64::from(i);
+        let back: f64 = format_g(x * 1e3, 17).parse().expect("parse");
+        assert_eq!(back.to_bits(), (x * 1e3).to_bits());
+        let back: f64 = format_g(-x * 1e-9, 17).parse().expect("parse");
+        assert_eq!(back.to_bits(), (-x * 1e-9).to_bits());
+    }
+}
+
+/// README round 68, item 4 (gh:#1932): `aitkenAcceleration true` is REFUSED by name the moment a step reaches a third neutron iteration (upstream's
+/// `aitkenAcceleration.H` then reads three uninitialised lists); with one iteration per step (the shipped case, which sets the flag) it is a no-op, as in
+/// every run of rounds 60-66.
+#[test]
+fn aitken_acceleration_is_refused_by_name_when_a_third_neutron_iteration_runs() {
+    let root = stage_from_files("aitken", false);
+    let fvs = root.join("system/neutroRegion/fvSolution");
+    let text = std::fs::read_to_string(&fvs).expect("fvSolution");
+    assert!(text.contains("neutronIterationResidual    0.000001;"));
+    std::fs::write(&fvs, text.replace("neutronIterationResidual    0.000001;", "neutronIterationResidual    1e-30;")).expect("write");
+    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).expect("read: the flag alone is not refused");
+    let err = run.step().expect_err("a step with three neutron iterations and aitkenAcceleration true is refused");
+    let msg = err.to_string();
+    println!("{msg}");
+    assert!(msg.contains("aitkenAcceleration") && msg.contains("UNINITIALISED") && msg.contains("refused by name"), "{msg}");
+}
