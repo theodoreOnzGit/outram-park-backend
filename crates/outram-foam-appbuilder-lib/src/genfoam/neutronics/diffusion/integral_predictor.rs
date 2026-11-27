@@ -31,7 +31,8 @@
 //! Every sum is the sequential `sum_c V_c x_c` of `gSum(V*field)` (`fvc::domainIntegrate`); the leakage is `fvc::div` of the face flux
 //! `(gamma_f snGrad_f) |Sf|` (`gaussLaplacianScheme::fvcLaplacian`, scalar gamma), `V (surfaceIntegrate/V)`.
 //!
-//! Not ported: `implicitPredictor.H` (refused by name by the caller's reader) and `aitkenAcceleration.H` (its three lists are
+//! ~~Not ported: `implicitPredictor.H` (refused by name by the caller's reader)~~ **CHANGED 2026-11-27 (gh:#1926, README round 66)**: `implicitPredictor.H` is ported
+//! ([`super::implicit_predictor`]). Not ported: `aitkenAcceleration.H` (its three lists are
 //! uninitialised in upstream and the real log of this case never reaches it: one neutron iteration per step).
 
 #[cfg(not(any(feature = "std", test)))]

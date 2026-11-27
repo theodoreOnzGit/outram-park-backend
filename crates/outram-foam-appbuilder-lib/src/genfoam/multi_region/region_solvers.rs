@@ -38,8 +38,9 @@
 //! * a `regionSolvers` entry other than `onePhase`, `diffusionNeutronics`, `legacyThermoMechanics`;
 //! * ~~`eigenvalueNeutronics false` (the transient with `integralPredictor`: gh:#1916/#1919)~~ **CHANGED 2026-11-27 (gh:#1919, README round 60)**: ported as
 //!   [`RegionSolvers::restart_transient`] (a restart of the steady state into `solveNeutronics.H` with `eigenvalueNeutronics false`, `integralPredictor.H`
-//!   included); `read` of a case that STARTS with `eigenvalueNeutronics false` is still refused (its `fluxStar_`/`prec_` would have to be read from a
-//!   start directory); ~~`regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922)~~ **CHANGED 2026-11-27 (gh:#1922, README
+//!   included); ~~`read` of a case that STARTS with `eigenvalueNeutronics false` is still refused (its `fluxStar_`/`prec_` would have to be read from a
+//!   start directory)~~ **CHANGED 2026-11-27 (gh:#1926, README round 66)**: `read` of such a case is ported (the regions are constructed from the written start
+//!   directory; the in-memory restart stays callable); ~~`regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922)~~ **CHANGED 2026-11-27 (gh:#1922, README
 //!   round 61)**: ported as [`RegionSolver::PointKinetics`], reached only through [`RegionSolvers::restart_transient`];
 //! * `removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236). For a mesh without any, upstream's
 //!   baffle-less mesh is the same mesh (`Writing 0 duplicate faces`) and `correctBaffleLessFields` is a copy of the primitive field: the
@@ -400,7 +401,7 @@ fn has_baffles(mesh: &DeformableMesh) -> bool {
 /// `fvSchemes`; and whether `integralPredictor.H` runs. `no_integral_predictor` is the CONTROL of round 60.
 ///
 /// # Errors
-/// `implicitPredictor true`, a laplacian or ddt scheme other than `Gauss linear corrected` and `Euler`: refused by name.
+/// A laplacian or ddt scheme other than `Gauss linear corrected` and `Euler`: refused by name (~~`implicitPredictor true`~~: **CHANGED 2026-11-27 (gh:#1926)**, ported as `implicitPredictor.H`).
 fn neutronics_transient_controls(root: &Path, nname: &str, no_integral_predictor: bool) -> Result<(StationaryStepControls, bool, bool), AppBuilderError> {
     let fvs = read_dict(root, &format!("system/{nname}/fvSolution"))?;
     let nt = fvs.dict.get_dict("neutronTransport");
@@ -774,7 +775,7 @@ impl RegionSolvers {
     ///
     /// # Errors
     /// [`AppBuilderError`] naming what is refused: a `regionSolvers` entry that changes kind (the `pointKinetics` variant is gh:#1922),
-    /// `implicitPredictor true`, a laplacian or ddt scheme other than `Gauss linear corrected` and `Euler`, `eigenvalueNeutronics true`.
+    /// ~~`implicitPredictor true`~~ (**CHANGED 2026-11-27, gh:#1926**: ported), a laplacian or ddt scheme other than `Gauss linear corrected` and `Euler`, `eigenvalueNeutronics true`.
     pub fn restart_transient(&mut self, root: &Path) -> Result<(), AppBuilderError> {
         let ctl = read_dict(root, "system/controlDict")?;
         let c = &ctl.dict;
