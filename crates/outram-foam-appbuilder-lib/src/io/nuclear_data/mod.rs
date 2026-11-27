@@ -104,6 +104,11 @@ use std::path::Path;
 mod writer;
 pub use writer::write_nuclear_data;
 
+#[cfg(feature = "std")]
+pub mod controls;
+#[cfg(feature = "std")]
+pub use controls::{read_control_rods, read_disc_factor_controls};
+
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamFile, FoamValue};
 
 use crate::error::AppBuilderError;

@@ -63,7 +63,8 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, SolverSettings, VolScalarField};
+use crate::genfoam::common::linear_solvers::{LinearSolve, NeutronEquation};
+use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, VolScalarField};
 use thiserror::Error;
 
 /// OpenFOAM `SMALL` (double precision).
@@ -89,6 +90,14 @@ pub enum PseudoTimeError {
     /// not part of this driver.
     #[error("pseudo-time eigenvalue stepping is implemented for stationary fuel only")]
     LiquidFuel,
+    /// The cross-section evaluation of `XS::correct()` failed (driveline or discontinuity-factor
+    /// evolution of the diffusion model).
+    #[error("XS::correct(): cross-section evaluation failed")]
+    CrossSections,
+    /// The model divides by discontinuity factors that are not 1 (or adjusts them) and this driver does
+    /// not port that: refused by name (gh:#1785; SP3 and SN are not ported).
+    #[error("discontinuity factors other than 1 are not ported for this model (gh:#1785)")]
+    DiscFactorsNotPorted,
 }
 
 /// The `controlDict` entries the loop reads (GeN-Foam `GeN-Foam.C`,
@@ -303,14 +312,14 @@ pub(crate) fn solve_twice(
     eqn: &FvMatrix,
     name: &str,
     start: &VolScalarField,
-    settings: SolverSettings,
+    settings: LinearSolve,
 ) -> (VolScalarField, f64) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let initial = eqn
         .ldu
         .openfoam_initial_residual(start.internal.as_slice(), &b);
-    let (first, _) = eqn.solve_cg_with_guess(name.to_string(), start, settings);
-    let (second, _) = eqn.solve_cg_with_guess(name.to_string(), &first, settings);
+    let first = settings.solve(NeutronEquation::Flux, eqn, name, start);
+    let second = settings.solve(NeutronEquation::Flux, eqn, name, &first);
     (second, initial)
 }
 
@@ -322,13 +331,13 @@ pub(crate) fn solve_twice_residuals(
     eqn: &FvMatrix,
     name: &str,
     start: &VolScalarField,
-    settings: SolverSettings,
+    settings: LinearSolve,
 ) -> (VolScalarField, f64, f64) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let initial = eqn.ldu.openfoam_initial_residual(start.internal.as_slice(), &b);
-    let (first, _) = eqn.solve_cg_with_guess(name.to_string(), start, settings);
+    let first = settings.solve(NeutronEquation::Flux, eqn, name, start);
     let second_initial = eqn.ldu.openfoam_initial_residual(first.internal.as_slice(), &b);
-    let (second, _) = eqn.solve_cg_with_guess(name.to_string(), &first, settings);
+    let second = settings.solve(NeutronEquation::Flux, eqn, name, &first);
     (second, initial, second_initial)
 }
 
@@ -398,6 +407,10 @@ pub trait PseudoTimeEigenvalue {
         p_tot_old: f64,
     ) -> f64;
 
+    /// `mesh.time().value()` of the step about to be taken, called by the loop after `runTime++` and
+    /// before `pTotOld_ = power()` (default: ignored; the driveline of `XS::correct()` reads it).
+    fn set_time(&mut self, _time: f64) {}
+
     /// `correctPhysics()` for `eigenvalueNeutronics true`, after `pTotOld_` was
     /// taken. `first_step` is `timeIndex - startTimeIndex == 1`.
     ///
@@ -429,6 +442,7 @@ pub fn run_pseudo_time_eigenvalue<S: PseudoTimeEigenvalue>(
     while clock.run() {
         clock.advance();
         let delta_t = clock.delta_t();
+        solver.set_time(clock.value());
         // `pTotOld_ = power();` first in `correctPhysics()`.
         let p_tot_old = solver.pseudo_time_power();
         let first_step = clock.time_index() == 1;

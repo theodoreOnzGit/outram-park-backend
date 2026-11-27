@@ -90,6 +90,13 @@ impl RadialPowerModel {
         }
     }
 
+    /// `powerModel::powerOff()`: only `heatedPin` overrides it (`powerDensity_ *= 0`); the other three inherit the empty base.
+    pub fn power_off(&mut self) {
+        if let Self::HeatedPin(m) = self {
+            m.power_off();
+        }
+    }
+
     /// `powerModel::correctT(T)` for one cell of the model: the structure surface temperature.
     #[must_use]
     pub fn surface_temperature(&self, cell: usize) -> f64 {
@@ -120,6 +127,15 @@ impl RadialPowerModel {
             Self::NuclearFuelPin(m) => m.interfacial_area(cell),
             Self::LumpedNuclearStructure(m) => m.interfacial_area(cell),
             Self::InterpolatedNuclearFuelPin(m) => m.interfacial_area(cell),
+        }
+    }
+
+    /// `Tmatrix` of a `lumpedNuclearStructure` (the field whose Laplacian its `correct` takes), `None` for the others.
+    #[must_use]
+    pub fn tmatrix(&self) -> Option<&[f64]> {
+        match self {
+            Self::LumpedNuclearStructure(m) => Some(m.tmatrix()),
+            _ => None,
         }
     }
 

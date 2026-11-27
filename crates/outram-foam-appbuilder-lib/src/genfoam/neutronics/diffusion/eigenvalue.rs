@@ -34,6 +34,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use outram_foam_basic_lib::prelude::{fvm, Field, SurfaceScalarField, VolScalarField};
 
 use super::precursor_drift;
@@ -65,6 +66,11 @@ impl DiffusionNeutronics {
     /// [`NeutronicsError::NotConverged`] if the outer loop exhausts
     /// `max_outer_iterations` without meeting both tolerances.
     pub fn solve_eigenvalue(&mut self) -> Result<EigenvalueReport, NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         let g = self.energy_groups();
         let n = self.state.mesh().n_cells;
 
@@ -178,8 +184,7 @@ impl DiffusionNeutronics {
                     self.settings.delta_coeff,
                 ) + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
                     - fvm::su(&q_field, flux_g);
-                let (sol, _perf) =
-                    eqn.solve_cg_with_guess(format!("flux{gg}"), flux_g, self.settings.linear);
+                let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("flux{gg}"), flux_g);
                 self.write_group_flux(gg, &sol);
             }
 
@@ -292,7 +297,7 @@ impl DiffusionNeutronics {
                 &transport,
                 diffusivity_face,
                 &src_field,
-                self.settings.linear,
+                self.settings.linear_solve(),
                 self.settings.delta_coeff,
             );
 

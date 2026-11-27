@@ -109,6 +109,11 @@ pub struct DiffusionXsFields {
     pub beta_tot: VolScalarField,
     /// Precursor decay constant `lambda_k` per precursor group (s^-1).
     pub lambda: Vec<VolScalarField>,
+    /// Discontinuity factor `discFactor_g` per group (dimensionless): the zone `discFactor` list of the
+    /// dictionary, as `XS::correct()` fills it once `timeIndex > startTimeIndex` (gh:#1785). Only the
+    /// diffusion pseudo-time eigenvalue driver divides by it; every other path of this crate assumes 1
+    /// and must check [`DiffusionXsFields::disc_factors_are_unity`].
+    pub disc_factor: Vec<VolScalarField>,
 }
 
 /// Build a per-cell [`VolScalarField`] from a value vector, with zero-gradient
@@ -148,7 +153,7 @@ impl DiffusionXsFields {
         zone_of_cell: &[usize],
         raw_parameters: &[f64],
     ) -> Result<Self, XsError> {
-        Self::materialize_inner(mesh, xs, zone_of_cell, &|_| raw_parameters)
+        Self::materialize_inner(mesh, xs, zone_of_cell, zone_of_cell, &|_| raw_parameters)
     }
 
     /// As [`materialize`](Self::materialize), but evaluating the cross sections
@@ -188,19 +193,64 @@ impl DiffusionXsFields {
                 count: expected,
             });
         }
-        Self::materialize_inner(mesh, xs, zone_of_cell, &|c| {
+        Self::materialize_inner(mesh, xs, zone_of_cell, zone_of_cell, &|c| {
             &cell_parameters[c * n_vars..(c + 1) * n_vars]
         })
+    }
+
+    /// As [`materialize_per_cell`](Self::materialize_per_cell) with the control-rod driveline of
+    /// `XS::correct()` (gh:#1474): `xs_zone_of_cell` is the zone each cell's variable cross sections
+    /// (and discontinuity factor) come from, `mesh_zone_of_cell` the cell's own cellZone, which keeps
+    /// `IV`, `Beta`, `BetaTot` and `lambda`. `disc_values[zone][group]` replaces the dictionary
+    /// `discFactor` (the adjusted `discFactorList_`) when given.
+    ///
+    /// # Errors
+    ///
+    /// As [`materialize_per_cell`](Self::materialize_per_cell).
+    pub fn materialize_evolved(
+        mesh: &Arc<FvMesh>,
+        xs: &CrossSectionData,
+        xs_zone_of_cell: &[usize],
+        mesh_zone_of_cell: &[usize],
+        cell_parameters: &[f64],
+        disc_values: Option<&[Vec<f64>]>,
+    ) -> Result<Self, XsError> {
+        let n_vars = xs.variables().len();
+        let expected = mesh.n_cells * n_vars;
+        if cell_parameters.len() != expected {
+            return Err(XsError::IndexOutOfRange {
+                what: "cell_parameters length vs n_cells * n_variables",
+                index: cell_parameters.len(),
+                count: expected,
+            });
+        }
+        let mut f = Self::materialize_inner(mesh, xs, xs_zone_of_cell, mesh_zone_of_cell, &|c| {
+            &cell_parameters[c * n_vars..(c + 1) * n_vars]
+        })?;
+        if let Some(values) = disc_values {
+            for group in 0..f.energy_groups {
+                let v: Vec<f64> = xs_zone_of_cell.iter().map(|&z| values[z][group]).collect();
+                f.disc_factor[group] = cell_field(format!("discFactor{group}"), mesh, v);
+            }
+        }
+        Ok(f)
+    }
+
+    /// Whether every discontinuity factor is exactly 1.
+    #[must_use]
+    pub fn disc_factors_are_unity(&self) -> bool {
+        self.disc_factor.iter().all(|f| f.internal.as_slice().iter().all(|&v| v == 1.0))
     }
 
     fn materialize_inner<'a>(
         mesh: &Arc<FvMesh>,
         xs: &CrossSectionData,
         zone_of_cell: &[usize],
+        mesh_zone_of_cell: &[usize],
         parameters_of_cell: &dyn Fn(usize) -> &'a [f64],
     ) -> Result<Self, XsError> {
         let n_cells = mesh.n_cells;
-        if zone_of_cell.len() != n_cells {
+        if zone_of_cell.len() != n_cells || mesh_zone_of_cell.len() != n_cells {
             return Err(XsError::IndexOutOfRange {
                 what: "zone_of_cell length vs mesh.n_cells",
                 index: zone_of_cell.len(),
@@ -218,6 +268,7 @@ impl DiffusionXsFields {
         let mut chi_prompt = Vec::with_capacity(g);
         let mut chi_delayed = Vec::with_capacity(g);
         let mut inv_velocity = Vec::with_capacity(g);
+        let mut disc_factor = Vec::with_capacity(g);
 
         for group in 0..g {
             let mut vd = vec![0.0; n_cells];
@@ -227,6 +278,7 @@ impl DiffusionXsFields {
             let mut vcp = vec![0.0; n_cells];
             let mut vcd = vec![0.0; n_cells];
             let mut viv = vec![0.0; n_cells];
+            let mut vdf = vec![0.0; n_cells];
             for c in 0..n_cells {
                 let gc =
                     xs.evaluate_group_constants(zone_of_cell[c], group, parameters_of_cell(c))?;
@@ -236,7 +288,12 @@ impl DiffusionXsFields {
                 vsr[c] = gc.sigma_removal.value;
                 vcp[c] = gc.chi_prompt.value;
                 vcd[c] = gc.chi_delayed.value;
-                viv[c] = gc.inverse_velocity.value;
+                viv[c] = if mesh_zone_of_cell[c] == zone_of_cell[c] {
+                    gc.inverse_velocity.value
+                } else {
+                    xs.reference_group_constants(mesh_zone_of_cell[c], group)?.inverse_velocity.value
+                };
+                vdf[c] = gc.disc_factor.value;
             }
             d.push(cell_field(format!("D{group}"), mesh, vd));
             nu_sigma_f.push(cell_field(format!("nuSigmaF{group}"), mesh, vnf));
@@ -245,6 +302,7 @@ impl DiffusionXsFields {
             chi_prompt.push(cell_field(format!("chiPrompt{group}"), mesh, vcp));
             chi_delayed.push(cell_field(format!("chiDelayed{group}"), mesh, vcd));
             inv_velocity.push(cell_field(format!("IV{group}"), mesh, viv));
+            disc_factor.push(cell_field(format!("discFactor{group}"), mesh, vdf));
         }
 
         let d_face = d.iter().map(fvc::interpolate).collect();
@@ -275,7 +333,7 @@ impl DiffusionXsFields {
         let mut lambda = vec![vec![0.0; n_cells]; np];
         let mut vbeta_tot = vec![0.0; n_cells];
         for c in 0..n_cells {
-            let pc = xs.precursor_constants(zone_of_cell[c])?;
+            let pc = xs.precursor_constants(mesh_zone_of_cell[c])?;
             vbeta_tot[c] = pc.beta_tot.value;
             for k in 0..np {
                 beta[k][c] = pc.beta[k].value;
@@ -309,6 +367,7 @@ impl DiffusionXsFields {
             beta,
             beta_tot,
             lambda,
+            disc_factor,
         })
     }
 }

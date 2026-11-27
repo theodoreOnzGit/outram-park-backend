@@ -57,7 +57,7 @@ pub(crate) struct SolvePerformance {
     pub final_residual: f64,
 }
 
-fn g_sum_mag(v: &[f64]) -> f64 {
+pub(crate) fn g_sum_mag(v: &[f64]) -> f64 {
     let mut s = 0.0;
     for x in v {
         s += x.abs();
@@ -65,7 +65,7 @@ fn g_sum_mag(v: &[f64]) -> f64 {
     s
 }
 
-fn g_sum_prod(a: &[f64], b: &[f64]) -> f64 {
+pub(crate) fn g_sum_prod(a: &[f64], b: &[f64]) -> f64 {
     let mut s = 0.0;
     for i in 0..a.len() {
         s += a[i] * b[i];
@@ -74,12 +74,12 @@ fn g_sum_prod(a: &[f64], b: &[f64]) -> f64 {
 }
 
 /// `solverPerformance::checkConvergence`.
-fn converged(final_residual: f64, initial_residual: f64, tolerance: f64, rel_tol: f64) -> bool {
+pub(crate) fn converged(final_residual: f64, initial_residual: f64, tolerance: f64, rel_tol: f64) -> bool {
     final_residual < tolerance || (rel_tol > SMALL && final_residual < rel_tol * initial_residual)
 }
 
 /// `lduMatrix::solver::normFactor(psi, source, Apsi, tmpField)`.
-fn norm_factor(a: &LduMatrix, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 {
+pub(crate) fn norm_factor(a: &LduMatrix, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 {
     let n = psi.len();
     // sumA
     let mut sum_a = a.diag.clone();

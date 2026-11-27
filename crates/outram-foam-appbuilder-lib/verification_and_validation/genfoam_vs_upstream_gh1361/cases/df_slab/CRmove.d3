@@ -1,0 +1,12 @@
+FoamFile { version 2.0; format ascii; class dictionary; object CRmove; }
+zones
+(
+    controlRod
+    {
+        startTime   0;
+        endTime     20;
+        speed       -0.004;
+        initialDistanceFromMeshCR 0.05;
+        followerName follower;
+    }
+);

@@ -82,10 +82,15 @@
 //! ## Scope / deferrals
 //!
 //! Cross sections are materialised once at a fixed feedback point (see
-//! [`fields::DiffusionXsFields`]); live thermal-hydraulic feedback, control-rod
-//! motion, discontinuity-factor adjustment, liquid-fuel precursor advection,
-//! Aitken acceleration, and the implicit/integral transient predictors are
-//! deferred with the coupling layer. Boundary conditions are whatever the
+//! [`fields::DiffusionXsFields`]); live thermal-hydraulic feedback, liquid-fuel
+//! precursor advection, Aitken acceleration, and the implicit/integral transient
+//! predictors are deferred with the coupling layer. ~~Control-rod motion and
+//! discontinuity-factor adjustment are deferred~~ **CORRECTED 2026-11-27**
+//! (gh:#1474, gh:#1785, README round 39): both exist for the pseudo-time
+//! eigenvalue driver ([`xs_evolution::XsEvolution`], [`DiffusionNeutronics::set_xs_evolution`]),
+//! bit-identical to the real `XS` class; every other solve path here (static eigenvalue, simple
+//! transient, upstream-form transient, stationary and liquid-fuel steps) divides by nothing and
+//! returns an error when a factor is not 1. Boundary conditions are whatever the
 //! caller sets on the flux fields (vacuum = `FixedValue(0)`, reflective =
 //! `ZeroGradient`).
 
@@ -99,6 +104,7 @@ mod tests;
 
 use alloc::sync::Arc;
 
+use crate::genfoam::common::linear_solvers::{LinearSolve, LinearSolverForm};
 use outram_foam_basic_lib::prelude::{
     fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
 };
@@ -109,6 +115,7 @@ use crate::genfoam::neutronics::NeutronicsError;
 
 pub use fields::DiffusionXsFields;
 pub use precursor_drift::PrecursorTransport;
+pub use xs_evolution::XsEvolution;
 
 /// Convergence and linear-solver controls for a diffusion solve.
 ///
@@ -125,6 +132,10 @@ pub struct DiffusionSettings {
     pub max_outer_iterations: usize,
     /// Inner linear-solver settings (one group solve).
     pub linear: SolverSettings,
+    /// The implementation of the linear solves: OpenFOAM's `PCG`/`DIC`, `PBiCG`/`DILU` and
+    /// `PBiCGStab`/`DILU` as the case's `fvSolution` selects them (default, gh:#1361 round 40), or
+    /// the deprecated basic-lib form. See [`LinearSolverForm`].
+    pub form: LinearSolverForm,
     /// Which face-distance coefficient the flux Laplacian divides by.
     ///
     /// GeN-Foam's neutronics regions ship
@@ -137,6 +148,22 @@ pub struct DiffusionSettings {
     pub delta_coeff: DeltaCoeff,
 }
 
+impl DiffusionSettings {
+    /// The linear solve of this model: [`Self::linear`] interpreted in [`Self::form`].
+    #[must_use]
+    pub fn linear_solve(&self) -> LinearSolve {
+        LinearSolve::new(self.linear, self.form)
+    }
+
+    /// The deprecated basic-lib form of the linear solves (`||r||/||b||` CG, ILU(0)-BiCGStab), kept
+    /// callable; the default is OpenFOAM's solvers.
+    #[must_use]
+    pub fn with_basic_lib_cg(mut self) -> Self {
+        self.form = LinearSolverForm::BasicLib;
+        self
+    }
+}
+
 impl Default for DiffusionSettings {
     fn default() -> Self {
         Self {
@@ -147,6 +174,7 @@ impl Default for DiffusionSettings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            form: LinearSolverForm::default(),
             delta_coeff: DeltaCoeff::NonOrthogonal,
         }
     }
@@ -198,6 +226,14 @@ pub struct DiffusionNeutronics {
     /// The external neutron source (`externalSourceNeutronics_`, `externalSourceFlux[g]`), if set
     /// (gh:#1863); [`Self::upstream_stationary_step`] adds it to every group equation.
     external_source: Option<external_source::ExternalSource>,
+    /// Driveline motion and discontinuity factors of `XS::correct()` (gh:#1785, gh:#1474); `None` keeps the
+    /// cross sections as materialised and the dictionary `discFactor` list.
+    evolution: Option<XsEvolution>,
+    /// `fluxStar_` (internal values, per group) between pseudo-time steps; `None` before the first step,
+    /// when it equals the flux.
+    flux_star: Option<Vec<Vec<f64>>>,
+    /// `mesh.time().value()` of the step being taken (set by the pseudo-time loop).
+    time: f64,
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -299,6 +335,9 @@ impl DiffusionNeutronics {
             prec_star: Vec::new(),
             old_time: None,
             external_source: None,
+            evolution: None,
+            flux_star: None,
+            time: 0.0,
         })
     }
 
@@ -439,6 +478,39 @@ impl DiffusionNeutronics {
             field.internal.as_mut_slice().copy_from_slice(values);
         }
         self.state.set_k_eff_raw(k_eff);
+        self.flux_star = None;
+    }
+
+    /// Switch on `XS::correct()`'s time dependence for the pseudo-time eigenvalue driver: control-rod
+    /// driveline motion and discontinuity factors (gh:#1474, gh:#1785). Without it the cross sections stay
+    /// as materialised, with the dictionary `discFactor` (upstream's form at `timeIndex > 0`).
+    pub fn set_xs_evolution(&mut self, evolution: XsEvolution) {
+        self.evolution = Some(evolution);
+    }
+
+    /// The earlier form of this model: every discontinuity factor 1, whatever the dictionary says (the port
+    /// had no factor before gh:#1785). A named ablation, never the default; it does not survive
+    /// [`Self::set_xs_evolution`], which re-reads the lists at every step.
+    #[must_use]
+    pub fn without_disc_factors(mut self) -> Self {
+        for field in self.xs.disc_factor.iter_mut() {
+            for v in field.internal.as_mut_slice() {
+                *v = 1.0;
+            }
+        }
+        self
+    }
+
+    /// The evolution, if set.
+    #[must_use]
+    pub fn xs_evolution(&self) -> Option<&XsEvolution> {
+        self.evolution.as_ref()
+    }
+
+    /// `fluxStar_` after the last pseudo-time step (`None` before the first).
+    #[must_use]
+    pub fn flux_star(&self) -> Option<&[Vec<f64>]> {
+        self.flux_star.as_deref()
     }
 
     /// The materialised cross-section fields.
@@ -587,5 +659,6 @@ pub mod external_source_case;
 pub mod precursor_drift;
 mod pseudo_time;
 mod transient;
+pub mod xs_evolution;
 pub mod upstream_eigenvalue;
 pub mod upstream_transient;

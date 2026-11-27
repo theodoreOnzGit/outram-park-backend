@@ -88,7 +88,8 @@
 //! [`SnNeutronics`] is isotropic (P0) scattering only on the baked-in level-symmetric
 //! sets; ~~the anisotropic Legendre-moment source (`SNNeutronics`'s
 //! `legendreMatrices_`, moments `>= 1`) is deferred~~ **CORRECTED 2026-11-12**
-//! (gh:#1474, gh:#1361): the anisotropic source and the case's own
+//! (gh:#1474, gh:#1361; re-checked 2026-11-27 for gh:#1474 item c and gh:#1785's batch: nothing of it is open,
+//! the differential against the real binary exists, README round 2 and round 39): the anisotropic source and the case's own
 //! `quadratureSet` are ported in [`pseudo_time::SnPseudoTimeSolver`] and
 //! [`quadrature_set::QuadratureSet`], as a translation of upstream's pseudo-time
 //! step; this type is kept unchanged as the named alternative. Transients, liquid-fuel
@@ -122,6 +123,7 @@ mod tests;
 
 use alloc::sync::Arc;
 
+use crate::genfoam::common::linear_solvers::{LinearSolve, LinearSolverForm};
 use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
 
 use crate::genfoam::neutronics::diffusion::DiffusionXsFields;
@@ -153,6 +155,26 @@ pub struct SnSettings {
     pub inner_tolerance: f64,
     /// Inner linear-solver settings (one direction solve).
     pub linear: SolverSettings,
+    /// The implementation of the linear solves: OpenFOAM's `PCG`/`DIC`, `PBiCG`/`DILU` and
+    /// `PBiCGStab`/`DILU` as the case's `fvSolution` selects them (default, gh:#1361 round 40), or
+    /// the deprecated basic-lib form. See [`LinearSolverForm`].
+    pub form: LinearSolverForm,
+}
+
+impl SnSettings {
+    /// The linear solve of this model: [`Self::linear`] interpreted in [`Self::form`].
+    #[must_use]
+    pub fn linear_solve(&self) -> LinearSolve {
+        LinearSolve::new(self.linear, self.form)
+    }
+
+    /// The deprecated basic-lib form of the linear solves (`||r||/||b||` CG, ILU(0)-BiCGStab), kept
+    /// callable; the default is OpenFOAM's solvers.
+    #[must_use]
+    pub fn with_basic_lib_cg(mut self) -> Self {
+        self.form = LinearSolverForm::BasicLib;
+        self
+    }
 }
 
 impl Default for SnSettings {
@@ -167,6 +189,7 @@ impl Default for SnSettings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            form: LinearSolverForm::default(),
         }
     }
 }

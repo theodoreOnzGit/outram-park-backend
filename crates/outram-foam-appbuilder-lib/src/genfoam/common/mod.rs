@@ -69,6 +69,8 @@ pub mod interpolate_table;
 pub mod interpolate_table_nd;
 pub mod rbf;
 pub mod time_profile;
+pub(crate) mod linear_solvers;
+pub(crate) mod pcg;
 
 pub use interpolate_table::{
     InterpolateTableError, InterpolationMethod, OutOfBounds, ScalarInterpolateTable,

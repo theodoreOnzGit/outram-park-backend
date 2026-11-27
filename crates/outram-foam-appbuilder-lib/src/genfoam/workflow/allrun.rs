@@ -156,6 +156,7 @@ impl RootCase {
             controls: Some(ControlOverrides { start_time: 0.0, end_time: edits.end_time_th, delta_t: edits.delta_t_adjustable }),
             check_region_solvers: false,
             fields: None,
+            ..CaseReadOptions::default()
         };
         let case = OnePhaseCcCase::read_with_options(&self.root, &self.fluid_poly_mesh, &options)
             .map_err(|e| case_err(format!("{e}")))?;
@@ -188,6 +189,7 @@ impl RootCase {
             controls: Some(ControlOverrides { start_time: edits.end_time_th, end_time: edits.end_time_en, delta_t: edits.delta_t_en }),
             check_region_solvers: false,
             fields: Some(stage.fluid.fluid_fields()),
+            ..CaseReadOptions::default()
         };
         let case = OnePhaseCcCase::read_with_options(&self.root, &self.fluid_poly_mesh, &options)
             .map_err(|e| case_err(format!("{e}")))?;

@@ -309,6 +309,13 @@ impl HeatedPin {
         self.to[cell]
     }
 
+    /// The `powerDensity.heatedPin` field read from the start directory (`READ_IF_PRESENT`; `structure::setRegionField`
+    /// then does nothing): the whole-mesh values replace the per-region dictionary value, the model reads its own cells.
+    pub fn set_power_density_field(&mut self, field: &[f64]) {
+        self.power_density.clear();
+        self.power_density.extend_from_slice(field);
+    }
+
     /// `heatedPin::powerOff`: the power density becomes zero.
     pub fn power_off(&mut self) {
         for q in &mut self.power_density {

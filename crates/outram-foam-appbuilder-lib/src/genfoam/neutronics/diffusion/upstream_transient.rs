@@ -78,7 +78,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use outram_foam_basic_lib::ldu_matrix::solvers::krylov_solve::KrylovOptions;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use outram_foam_basic_lib::prelude::{fvm, Field, FvMatrix, VolScalarField};
 
 use super::DiffusionNeutronics;
@@ -263,6 +263,11 @@ impl DiffusionNeutronics {
         dt: f64,
         controls: &UpstreamTransientControls,
     ) -> Result<UpstreamTransientStep, NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         if dt <= 0.0 || dt.is_nan() {
             return Err(NeutronicsError::NonPositiveTimeStep(dt));
         }
@@ -374,7 +379,7 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
                 let (sol, init_res, second_res) =
-                    solve_twice_residuals(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
+                    solve_twice_residuals(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear_solve());
                 neutro_residual = neutro_residual.max(init_res);
                 second_solve_residual = second_solve_residual.max(second_res);
                 if neutro_iter == 0 {
@@ -490,12 +495,7 @@ impl DiffusionNeutronics {
                 - fvm::su(&field_like(&alpha_field, source), c_star)
                 + fvm::div(&phi, c_star)
                 + fvm::laplacian_with_delta(&diffusivity_face, c_star, self.settings.delta_coeff);
-            let (sol, _perf) = eqn.solve_bicgstab_with_guess(
-                format!("precStar{k}"),
-                c_star,
-                KrylovOptions::default(),
-                self.settings.linear,
-            );
+            let sol = self.settings.linear_solve().solve(NeutronEquation::Precursor, &eqn, &format!("precStar{k}"), c_star);
             let sol_values = sol.internal.as_slice().to_vec();
             self.prec_star[k].internal = Field::new(sol_values.clone());
             let dst = self.state.precursors_mut()[k].internal.as_mut_slice();

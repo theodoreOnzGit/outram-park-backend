@@ -246,6 +246,25 @@ fn keff_bare_slab_critical_buckling() {
     );
 }
 
+/// Round 40 (gh:#1890): the default linear solves are OpenFOAM's (`PCG`/`DIC`, OpenFOAM's normalised residual); the
+/// deprecated basic-lib form (`with_basic_lib_cg`) gives the same eigenvalue to the solver tolerance.
+#[test]
+fn the_two_linear_solver_forms_give_the_same_bare_slab_keff() {
+    let gc = OneGroup { d: 0.02, nu_sigma_f: 0.30, sigma_a: 0.10 };
+    let xs = one_group_xs(&gc);
+    let mesh = slab_mesh(100);
+    let bc = vec![BoundaryCondition::FixedValue(0.0), BoundaryCondition::FixedValue(0.0)];
+    let zone_of_cell = vec![0usize; mesh.n_cells];
+    let run = |settings: DiffusionSettings| {
+        let mut model = DiffusionNeutronics::new(mesh.clone(), &xs, &zone_of_cell, &[], &bc, settings).expect("model");
+        model.solve_eigenvalue().expect("converges").k_eff
+    };
+    let upstream = run(DiffusionSettings::default());
+    let old = run(DiffusionSettings::default().with_basic_lib_cg());
+    assert!(DiffusionSettings::default().with_basic_lib_cg().form != DiffusionSettings::default().form);
+    assert!((upstream - old).abs() / old < 1e-7, "{upstream} vs {old}");
+}
+
 #[test]
 fn keff_bare_slab_mesh_convergence() {
     let gc = OneGroup {

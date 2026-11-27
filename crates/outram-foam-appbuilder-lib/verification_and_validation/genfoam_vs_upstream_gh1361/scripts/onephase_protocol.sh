@@ -13,6 +13,11 @@ if [ -n "$TIGHT" ]; then
          if(ins && $1=="relTol"){sub(/relTol .*/,"relTol          0;")}
          print }' "$f" > "$f.new" && mv "$f.new" "$f"
 fi
+# gh:#1878 round 38: PSOLVER=pcg replaces `solver GAMG; smoother DIC;` by `solver PCG; preconditioner DIC;` (a solver-only change,
+# as rounds 16/21): GAMG does not reach 1e-14 and the port has no GAMG (gh:#1843). Applied to every GAMG entry of the file.
+if [ "${PSOLVER:-gamg}" = pcg ]; then
+  perl -0pi -e 's/solver\s+GAMG;\s*smoother\s+DIC;/solver          PCG;\n        preconditioner  DIC;/g' "$f"
+fi
 [ -n "$NOUTER" ] && sed -i "s/^\( *\)nOuterCorrectors .*/\1nOuterCorrectors    $NOUTER;/" "$f"
 [ -n "$NCORR" ] && sed -i "s/^\( *\)nCorrectors .*/\1nCorrectors    $NCORR;/" "$f"
 exit 0

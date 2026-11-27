@@ -349,6 +349,11 @@ impl DiffusionNeutronics {
         dt: f64,
         controls: &StationaryStepControls,
     ) -> Result<StationaryStep, NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         if dt <= 0.0 || dt.is_nan() {
             return Err(NeutronicsError::NonPositiveTimeStep(dt));
         }
@@ -435,7 +440,7 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, prompt), flux_g)
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
-                let (sol, init_res) = solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
+                let (sol, init_res) = solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear_solve());
                 neutro_residual = neutro_residual.max(init_res);
                 self.write_group_flux(gg, &sol);
 

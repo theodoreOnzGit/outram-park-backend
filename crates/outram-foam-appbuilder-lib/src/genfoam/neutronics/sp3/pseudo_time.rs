@@ -133,6 +133,12 @@ impl PseudoTimeEigenvalue for Sp3Neutronics {
         first_step: bool,
     ) -> Result<PseudoTimeStep, PseudoTimeError> {
         let xs = self.xs.take().ok_or(PseudoTimeError::NoCrossSections)?;
+        // SP3 divides every operator by `discFactor` (`fluxEqSP3.H`, `createFluxMatricesSP3.H`): not
+        // ported (gh:#1785), so factors other than 1 are refused instead of silently dropped.
+        if !xs.base.disc_factors_are_unity() {
+            self.xs = Some(xs);
+            return Err(PseudoTimeError::DiscFactorsNotPorted);
+        }
         let step = self.eigenvalue_time_step_inner(&xs, p_target, first_step);
         self.xs = Some(xs);
         Ok(step)
@@ -233,7 +239,7 @@ impl Sp3Neutronics {
                     - fvm::su(&field_like(&template, scatter.clone()), phi0)
                     - fvm::su(&field_like(&template, sr_star2), phi0);
             let (sol1, res1) =
-                solve_twice(&eqn1, &format!("fluxStar{gg}"), phi0, self.settings.linear);
+                solve_twice(&eqn1, &format!("fluxStar{gg}"), phi0, self.settings.linear_solve());
             neutro_residual = neutro_residual.max(res1);
             Self::write_moment(&mut self.flux_star[gg], &sol1);
 
@@ -260,7 +266,7 @@ impl Sp3Neutronics {
                 + fvm::su(&field_like(&template, x3), phi2)
                 + fvm::su(&field_like(&template, x4), phi2);
             let (sol2, res2) =
-                solve_twice(&eqn2, &format!("fluxStar2{gg}"), phi2, self.settings.linear);
+                solve_twice(&eqn2, &format!("fluxStar2{gg}"), phi2, self.settings.linear_solve());
             neutro_residual = neutro_residual.max(res2);
             Self::write_moment(&mut self.flux_star2[gg], &sol2);
 

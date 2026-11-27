@@ -36,6 +36,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use crate::genfoam::common::linear_solvers::NeutronEquation;
 use core::f64::consts::PI;
 
 use outram_foam_basic_lib::prelude::{fvm, VolScalarField};
@@ -98,7 +99,7 @@ impl SnNeutronics {
                 let eqn = fvm::div(&solver.face_phi[j], &solver.angular_flux[i][j])
                     + fvm::sp(&solver.sigma_t[i], &solver.angular_flux[i][j])
                     - fvm::su(&q_field, &solver.angular_flux[i][j]);
-                let (sol, _perf) = eqn.solve(format!("psi{i}_{j}"), settings.linear);
+                let sol = settings.linear_solve().solve(NeutronEquation::StaticAngularFlux, &eqn, &format!("psi{i}_{j}"), &solver.angular_flux[i][j]);
                 let dst = solver.angular_flux[i][j].internal.as_mut_slice();
                 for (d, s) in dst.iter_mut().zip(sol.internal.as_slice()) {
                     *d = *s;
