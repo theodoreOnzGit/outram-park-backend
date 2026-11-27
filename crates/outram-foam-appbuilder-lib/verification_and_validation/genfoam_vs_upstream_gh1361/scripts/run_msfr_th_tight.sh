@@ -1,7 +1,7 @@
 #!/bin/bash
 # gh:#1812 / gh:#1361 round 18: the 2D_MSFR `steadyStateTH` stage (onePhase, cellCentered, solveFluidMechanics true),
 # run with the REAL unmodified GeN-Foam binary at tight settings, for the first steps only.
-# Usage: run_msfr_th_tight.sh <name> [RUN_ROOT]    env: END_TIME (default 0.06), TURB=on|off, PSOLVER=pcg|gamg, WRITE=step|adjustable, TOLERANCE=tight|shipped, VARIANT=<cases/msfr_th_variants name> with VARIANT_DIR (gh:#1842)
+# Usage: run_msfr_th_tight.sh <name> [RUN_ROOT]    env: WRITE_INTERVAL (gh:#1951; adjustable only, default 1), END_TIME (default 0.06), TURB=on|off, PSOLVER=pcg|gamg, WRITE=step|adjustable, TOLERANCE=tight|shipped, VARIANT=<cases/msfr_th_variants name> with VARIANT_DIR (gh:#1842)
 # Allrun's setSteadyStateTH is replayed with sed/perl (foamDictionary is not built here). The ONLY edits beyond
 # Allrun's: every linear-solver tolerance 1e-14 / relTol 0; p_rgh GAMG -> PCG/DIC (GAMG does not reach 1e-14: a
 # solver-only change, as in round 16); write every step (writeControl timeStep) at writePrecision 17 (set in the
@@ -15,7 +15,7 @@ ctl() { sed -i "s/^$2 .*/$2 $3;/" "$1/system/controlDict"; }
 blk() { perl -0pi -e "s/^$2\s*\{[^}]*\}/$2\n{\n$3\n}/m" "$1/system/controlDict"; }
 rm -r $C/0/neutroRegion $C/constant/neutroRegion $C/system/neutroRegion $C/0/uniform $C/constant/fluidRegion/polyMeshFine
 ctl $C endTime ${END_TIME:-0.06}; ctl $C deltaT 1e-03; ctl $C adjustTimeStep true
-if [ "${WRITE:-step}" = adjustable ]; then ctl $C writeInterval 1; else ctl $C writeControl timeStep; ctl $C writeInterval 1; fi   # gh:#1841 round 21: WRITE=adjustable keeps the rootCase's adjustableRunTime (Allrun: writeInterval 1) for the 15 s run
+if [ "${WRITE:-step}" = adjustable ]; then ctl $C writeInterval ${WRITE_INTERVAL:-1}; else ctl $C writeControl timeStep; ctl $C writeInterval 1; fi   # gh:#1841 round 21: WRITE=adjustable keeps the rootCase's adjustableRunTime (Allrun: writeInterval 1) for the 15 s run
 blk $C regionSolvers "    fluidRegion onePhase;"; blk $C removeBaffles "    fluidRegion false;"
 cp $C/constant/multiRegionCouplingDict_steadyStateTH $C/constant/multiRegionCouplingDict
 rm $C/constant/multiRegionCouplingDict_*

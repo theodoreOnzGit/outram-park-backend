@@ -62,7 +62,7 @@
 //!
 //! ~~Refused by name: `steadyStateTH` (fluid mechanics, gh:#1812)~~ **CORRECTED 2026-11-26 (gh:#1841, round 21):** `steadyStateTH`
 //! ([`SteadyStateTh`]) runs, and [`allrun::RootCase`] chains `steadyStateTH -> steadyStateEN -> transient` from `rootCase` with
-//! the fluid fields handed over in memory; its `p_rgh` `GAMG` is a named deviation ([`Deviation`]). Refused by name: SN (no
+//! the fluid fields handed over in memory; its `p_rgh` `GAMG` runs as a named deviation ([`Deviation`]) under the DEFAULT PROTOCOL (`AllrunEdits::default()`, the references' own), ~~the port's default~~ **CORRECTED 2026-11-27 (gh:#1947):** upstream's own `GAMGSolver` under `AllrunEdits::as_shipped_gamg()`. Refused by name: SN (no
 //! transient path), point kinetics (no eigenvalue: its `keff_` is not iterated upstream).
 
 #[cfg(not(any(feature = "std", test)))]

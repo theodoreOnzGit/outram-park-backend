@@ -68,7 +68,10 @@ pub struct AllrunEdits {
     pub delta_t_en: f64,
     /// `writeInterval` of `steadyStateTH` when `writeControl adjustableRunTime` (1, the rootCase and Allrun); `None` for another write control.
     pub write_interval_th: Option<f64>,
-    /// `GAMG` for `p_rgh`: the named deviation, on by default (see [`GamgPolicy`]).
+    /// `GAMG` for `p_rgh`. **A PROTOCOL value, not the port's own default** (gh:#1947, README round 76): `AllrunEdits` describes edits
+    /// applied to BOTH the real and the port run, and the committed MSFR references were produced by a real run whose script replaced
+    /// `GAMG` by `PCG`/`DIC` textually, so the default is [`GamgPolicy::SubstitutePcgDic`] to match them. The case as shipped, `GAMG`
+    /// kept in both runs, is [`AllrunEdits::as_shipped_gamg`]. (A bare [`CaseReadOptions`] defaults to [`GamgPolicy::Native`].)
     pub gamg: GamgPolicy,
     /// The neutron iteration controls of the neutronics (`neutronicsProperties`: 1e-6 residual, 50 iterations, `ScNo 1`).
     pub neutron_controls: UpstreamTransientControls,
@@ -89,6 +92,14 @@ pub enum NeutronLinearSource {
 }
 
 impl AllrunEdits {
+    /// The `Allrun` protocol with the case's `GAMG` kept as shipped in the port run ([`GamgPolicy::Native`], upstream's own solver)
+    /// instead of replaced by `PCG`/`DIC` (the protocol of the committed MSFR references, [`AllrunEdits::default`]): compare it only
+    /// against a real run that also kept `GAMG` (gh:#1947).
+    #[must_use]
+    pub fn as_shipped_gamg() -> Self {
+        Self { gamg: GamgPolicy::Native, ..Self::default() }
+    }
+
     /// These edits with the neutronics solving at the explicit settings `settings` instead of reading `fvSolution`.
     #[must_use]
     pub fn with_explicit_neutron_linear(mut self, settings: SolverSettings) -> Self {

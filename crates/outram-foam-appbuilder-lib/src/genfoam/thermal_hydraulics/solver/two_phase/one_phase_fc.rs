@@ -117,7 +117,9 @@ use super::{
 use super::one_phase_cc::flow::UEqnCc;
 use super::one_phase_cc::{GamgPolicy, PressureSolve};
 use super::pcg::pcg_dic;
-use super::gamg_solve::{read_gamg_controls, GamgSolveState};
+#[cfg(feature = "std")]
+use super::gamg_solve::read_gamg_controls;
+use super::gamg_solve::GamgSolveState;
 use crate::genfoam::common::gamg::GamgControls;
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;

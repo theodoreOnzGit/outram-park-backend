@@ -8601,6 +8601,66 @@ AI-written, not human-reviewed. Maintainer 2026-11-27: "Match all upstream" = fo
 * **P5** no earlier pin moves: 90 % (a test that read a shipped GAMG case through a default will move and is renamed to the substitute explicitly).
 * **P6** the as-shipped (loose) protocol is NOT claimed for any region (round 67's sensitivity result applies); not gated.
 
+## Round 72 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (`a205a78c7`), BEFORE the first run of the port against any new real-binary number; real binary 652b3da on ESI v2506 through the instrumented COPY `GAMGdump` of `GAMGSolver` (`upstream_driver/gamg_dump/build.sh`, now with `GAMGDUMP_LIB`; `scripts/run_fftf_gamg_real.sh` with `GAMG_SMOOTHER`; `legacyTmDump` for the thermo-mechanics class; `scripts/fc_protocol.sh` with `NOMAXITER`); references in the refs submodule: `gamg_r72_s1_{gs,sgs,dicgs,dicpre}_{cycles,solution}`, `gamg_r72_s1_dicgs_agglom`, `gamg_r72_s2_tstruct_{matrix,agglom,cycles,solution}`, `gamg_r72_s2t_tstruct_{cycles,solution}`, `legacy_tm_r72_gamg20{,_log}`, `fc_r72_ch_gamg`, `fc_r72_cav_gamg` (each under 5 MB); tests: `genfoam_gamg_smoothers_vs_upstream.rs` (4), `genfoam_legacy_thermo_mechanics_vs_upstream.rs::r72_*` (2), `genfoam_one_phase_fc_vs_upstream.rs::r72_*` (3), `genfoam_two_phase_vs_upstream.rs::r72_*` (1))
+
+AI-written, not human-reviewed. **Upstream's own `GAMGSolver` (`faceAreaPair`; `DIC`, `GaussSeidel`, `DICGaussSeidel`, `symGaussSeidel`; `nPreSweeps`; the asymmetric path) runs, by default, in the cell-centred onePhase, face-centred onePhase, twoPhase and legacy thermo-mechanics regions. Every single solve checked equals the real binary bit for bit (four symmetric selections over 1 000 V-cycles each, and the asymmetric `TStruct` solve with all 8 coarse matrices); the thermo-mechanics region over 20 steps is bit-identical in every field, every one of 240 linear solves and `Max sigmaEq`; the face-centred region agrees to 7.8e-14 (channel, 108 steps) and 1.2e-11 (cavity, 32 steps of a GAMG that stagnates at `maxIter 1000` in both codes); the twoPhase boiling run improves from 7.6e-10 to 1.4e-13 over steps 3-65.**
+
+### What the shipped tutorials select (README above): one more fact found by running
+
+`TStruct`'s matrix is asymmetric (the row scaling `(1 - isPorous) * (...)` allocates `lower`, `fvMatrix::operator*=`), so the shipped `GaussSeidel` entry needs the asymmetric path, not only a new smoother. The port decides symmetry by value (`lower == upper` bit for bit) and carries `GamgControls::has_lower` for a matrix that has the array although it equals `upper` (set by the thermo-mechanics region).
+
+### S1: single solves, FFTF `p_rgh` (symmetric), 4 selections: HELD, bit-identical
+
+Solve 0 of step 1 (18 538 cells, `tolerance 1e-14`, `relTol 0`, upstream stopped at `maxIter 1000` in all four): **`GaussSeidel`, `symGaussSeidel`, `DICGaussSeidel` (`nPreSweeps 1, nPostSweeps 1, nFinestSweeps 1, nCellsInCoarsestLevel 20`: 9 levels) and `DIC` with `nPreSweeps 2`: all 1 000 V-cycle residuals bit-identical and 0 of 18 538 solution entries differ**; 1.6-2.5 s per 1 000 cycles. The dump's matrix equals round 67's byte for byte. Controls (worst relative cycle-residual difference over 30 cycles): GS run as symGS 0.87, symGS as GS 6.8, GS as DIC 0.99, DICGS as DIC 1.06, DICGS as GS 15, `nPreSweeps 2` as 0 0.99, as 1 0.37: all differ.
+
+### S2: the asymmetric `TStruct` solve of the shipped legacy thermo-mechanics case: HELD, bit-identical
+
+Real `legacyThermoMechanics` (the `legacyTmDump` driver) with `TStruct` `solver GAMGdump` and the shipped options (`GaussSeidel`, `nCellsInCoarsestLevel 50`, `1e-6`/`relTol 0.001`): `SYM 0`, 23 340 cells, 56 292 faces, **8 levels (upstream 8); 0 agglomeration entries differ; 0 of the coarse `diag`, `upper` AND `lower` entries of all 8 levels differ bit for bit**; the shipped solve (1 V-cycle) and a 1e-14 solve (40 V-cycles, upstream stopped at `maxIter 40`): **every cycle and every solution entry bit-identical**. Controls: `scaleCorrection true` 1.0, `symGaussSeidel` 1.0, `nPreSweeps 1` 6.4 (cycle residuals), symmetric coarsening of the asymmetric matrix 915 coarse `upper` entries differ, `PBiCG`/`DILU` at the shipped tolerances 1.4e-5 of max away from the real GAMG solution. **Post-run deviation of the control:** at 1e-14 the substitute reaches the real GAMG's solution to 4.3e-16 of max, so it is distinguishable only at the shipped tolerance, where it was used before this round.
+
+### R-tm: 20 steps of the legacy thermo-mechanics region: HELD, bit-identical
+
+`legacyTmDump` 20 steps (tight protocol, `TStruct` the tutorial's own GAMG entry, plain `GAMG`, no dump library), `refs/legacy_tm_r72_gamg20*`. Port `TStructGamgPolicy::Native`: **all 10 field tallies (`disp` at steps 1, 2, 5, 10, 15, 20; `TStruct`, `disp`, `fuelDisp`, `CRDisp`, `meshDisp` at 20) bit-identical (0 of 23 340 / 70 020 values differ); all 240 linear solves bit-identical (initial residual, final residual, iterations); `Max sigmaEq` and `residual_` bit-identical at all 20 steps**. Control: the substitute's `TStruct` solves at steps 1-3 end at 7.9e-8 (2 iterations), 4.6e-7 (1), 4.7e-7 (1) against the real GAMG's 2.2e-4 (1), 3.3e-8 (1), 3.3e-8 (1).
+
+### R-fc: face-centred onePhase: HELD for the fields; the `deltaT` gate MISSED slightly (post-run)
+
+* Channel (the shipped case vendored as `genfoam_1d_onephase`, 40 cells, 108 steps, GAMG converges in 1 V-cycle): worst gated field row **7.8e-14** over the 8 kept steps (criterion 1e-9); 3 188 `p_rgh` solves compared: **0 violations in all three tiers, 0 solve-count mismatches, worst iteration difference 0** (2 straddle steps).
+* Cavity (`2D_cavityBoussinesq`, 1 600 cells, **32 steps (committed 30)**): the real GAMG at 1e-14 does NOT converge here: **all 2 304 `p_rgh` solves stop at `maxIter 1000`** (initial 0.4, final 0.39 after 1 000 cycles on the closed-volume `pRefCell` matrix); the port reproduces that: all 2 304 at 1 000 in both, 0 violations; worst gated field row **1.2e-11** over the 7 kept steps (committed 1e-9). **Miss (post-run, cause):** `deltaT` differs by up to 1.66e-12 relative (first at step 22), over the committed 1e-12: the Courant-set step inherits the flux's round-off (the same cause as round 38, where 1.1e-12 was measured); asserted at 1e-10 as in round 38.
+* Control: `PCG`/`DIC` (textual protocol) against the same real GAMG solve log: all 216 solves of 3 steps violate the tier rules (iteration differences up to 969).
+* The real-binary runs cost 85 s (13 steps) to 3.5 min (32 steps) because every cavity solve runs 1 000 V-cycles.
+
+### R-2p: twoPhase `1D_boiling`, `p_rgh` GAMG: HELD (reference reused, post-run deviation)
+
+The round 3 reference `boiling_tight_steps80` is a real-binary run at 1e-14 whose `p_rgh` solver IS the case's GAMG, so no new real run was made (the committed criterion said one real run each). 30 steps, port with upstream's own GAMG: **worst over steps 1-30: `p` 1.13e-13, `p_rgh` 1.13e-13, `U.liquid` 1.44e-13, `U.vapour` 1.43e-13, `T.interface` 6.3e-15, `T.vapour` 1.0e-15 (criterion 1e-9); `dt` within 1e-12 at every step**. The earlier ILU(0)-BiCGStab (`with_krylov_for_p_rgh`, the named ablation) over the same steps: 2.6e-13, 2.6e-13, 5.5e-12, 5.5e-12, 2.6e-14, 1.2e-14: farther on every field, 38 times on `U.liquid`. Bit-identity of the fields was NOT reached (1e-13): the two-phase matrices are assembled in the port with the round-off of earlier rounds (~1e-13), the solver is identical. The solve counts of the twoPhase solver are not logged by the reference: not compared. Iteration counts REPORTED NOT GATED.
+
+### Earlier numbers: moved ones (old -> new), all explained
+
+The defaults changed: `GamgPolicy` (cell-centred, face-centred onePhase, twoPhase), `TStructGamgPolicy` and the multi-region reader (`region_solvers.rs`) now run upstream's GAMG. Not changed: `CaseReadOptions::default().gamg` (Refuse) and `AllrunEdits::default().gamg` (SubstitutePcgDic), gh:#1947. The substitutes are named ablations and keep their pins.
+
+| pin / number | old | new | cause |
+|---|---|---|---|
+| `genfoam_two_phase_vs_upstream` steps 3-65 vs the real run, worst `p`, `T.liquid`, `U.liquid`, `T.vapour`, `T.interface`, `U.vapour` | 4.7e-12, 2.5e-13, 9.3e-12, 2.3e-10, 7.6e-10, 7.0e-10 | 1.1e-13, 1.4e-15, 1.4e-13, 8.3e-16, 5.2e-15, 1.4e-13 | the real run's `p_rgh` solver is GAMG; the port now runs it (bounds in the test unchanged: they still hold) |
+| `one_d_boiling_default_is_the_corrected_pimple_ending` (1363 steps, empty flags) | pinned on the ILU path | not re-pinned: the test runs the ablation `with_krylov_for_p_rgh` (1363 unchanged); the new default's post-onset flags are non-empty (chaotic excursion) | renamed to its path explicitly |
+| `mules_first_diverging_step_after_the_onset_is_636_by_fields`: first sub-cycle marker | 641 | 643 | chaotic post-onset marker; the flow markers 636/637/636 and every outer-iteration count did not move |
+| `solve_phase_liquid_matches_upstream_until_step_44`: first diverging step of variant d | 45 | none in 60 steps | the divergence at 45 was the ILU(0)-BiCGStab's stopping noise |
+| `the_first_diverging_steps_are_the_noise_floor_of_the_system`, variant d | 45 | none in 80 steps | same |
+| three-region `genfoam_fullcoupling_three_region_vs_upstream`, worst `TStruct` / `disp` / `fuelDisp` over 476 steps | 4.40e-15 (step 147), 1.51e-14 (270), 8.18e-13 (7) | 4.51e-15 (219), 1.56e-14 (166), 8.09e-13 (7) | noise-level (1e-15) moves; TStruct is converged each step |
+
+### Regression gate (targeted, all at their pins after the re-pins above; no full suite was run)
+
+`--lib genfoam` (506 passed), `genfoam_gamg_vs_upstream` (3), `genfoam_one_phase_fc_vs_upstream` (18 passed, 3 ignored, includes the three new `r72_*`), `genfoam_one_phase_vs_upstream`, `genfoam_fftf_pieces_vs_upstream` (14), `genfoam_coupled_tutorials_requirements`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_msfr_{chain,coupled,df}_vs_upstream`, `genfoam_msfr_th{,_options,_nonorth,_pimple}_vs_upstream`, `genfoam_esfr_fluid`, `genfoam_fullcoupling_{fluid,transient,three_region}`, `genfoam_legacy_thermo_mechanics_vs_upstream` (7), `genfoam_two_phase_vs_upstream`, `genfoam_two_phase_mules{,_solve_phase}_vs_upstream`, `genfoam_two_phase_1d_boiling`, `genfoam_chf_{shipped,trace}`, `genfoam_heat_exchanger`, `genfoam_psbt{,2_turbulence}_*`. NOT runnable here: `genfoam_two_phase_radial_power_vs_upstream` does not compile on this branch (a non-exhaustive match on `RadialPowerModel::NuclearFuelPinTest`, another agent's round 71 work, not touched).
+
+### Predictions: held / missed
+
+P1 held (4 of 4 bit-identical). P2 held (bit-identical, shipped and 1e-14). P3 held for R-fc fields (channel 7.8e-14, cavity 1.2e-11), R-2p (1.4e-13, with the reused reference) and R-tm (bit-identical); the `dt` gate of the cavity missed (1.66e-12 against 1e-12) and the cavity ran 32 steps not 30. P4 held (every control differs; the PBiCG control only at the shipped tolerance). **P5 MISSED: five pins moved** (table above; all explained, none is a physics gate). P6 held (no as-shipped claim).
+
+### Not ported, not done
+
+Refused by name (gh:#1946): processor agglomeration, interfaces, `interpolateCorrection true`, `directSolveCoarsest true`, `mergeLevels != 1`, `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, `DILU`/`FDIC`/`DILUGaussSeidel`/`nonBlockingGaussSeidel` smoothers, `DIC` on an asymmetric matrix. Neutronics NOT wired (no tutorial selects GAMG there; gh:#1945). `GamgPolicy::Native` is not the default of `CaseReadOptions` and `AllrunEdits` (gh:#1947). The twoPhase solver does not select `p_rghFinal` separately: a differing Final entry is refused by name. No wasm gate was run; `bash scripts/check-nostd.sh` is clean (it caught an ungated `read_gamg_controls` import in `one_phase_fc.rs`, fixed).
+
+### Reproduction
+
+`GAMGDUMP_LIB=<dir> bash upstream_driver/gamg_dump/build.sh`; S1: `GAMGDUMP_LIB=<dir> GAMGDUMP_MAXSOLVES=1 GAMG_SMOOTHER="smoother GaussSeidel;" bash scripts/run_fftf_gamg_real.sh <work> tight 1 dump` (and `symGaussSeidel`, `DICGaussSeidel; nPreSweeps 1; nPostSweeps 1; nFinestSweeps 1; nCellsInCoarsestLevel 20;`, `DIC; nPreSweeps 2;`); S2/R-tm: `make_legacy_tm_case.sh` then the `TStruct` entry replaced by the shipped GAMG block (`GAMGdump` with `libs` for the dump, plain `GAMG` for R-tm), `LEGACY_TM_DISP_ONLY=1 legacyTmDump -case <case> <out> 20`; R-fc: `END_TIME=1 TIGHT=1 NOMAXITER=1 PRE_RUN=scripts/fc_protocol.sh bash scripts/run_case.sh tests/data/genfoam_1d_onephase <name>` and `END_TIME=0.34 ... genfoam_2d_cavity_boussinesq`, then `scripts/extract_fc_reference.sh` (now also reads `GAMG:` solve lines); tests as listed in the heading.
+
 ## Round 67 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (the commit "round 67: GAMGSolver port ... predictions and criteria BEFORE any run on upstream data"), BEFORE the first run of the port on any upstream number; real binary 652b3da on ESI v2506 through the instrumented COPY `GAMGdump` of `GAMGSolver` (`upstream_driver/gamg_dump/build.sh`, `scripts/run_fftf_gamg_real.sh`); references in the refs submodule `796a643`: `gamg_r67_fftf_step1_{matrix,agglom,solution,cycles}.ref.txt.gz` (2.0 MB), `gamg_r67_tight{,_log}.ref.txt.gz` (8.6 MB), `gamg_r67_loose17_{log,cycles}.ref.txt.gz`; `tests/genfoam_gamg_vs_upstream.rs` 3 tests, 2.3 s; `tests/genfoam_fftf_pieces_vs_upstream.rs` 3 new `#[ignore]` tests)
 
 AI-written, not human-reviewed. **The port runs upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, all v2506 defaults) for `p_rgh` of the cell-centred onePhase region (`GamgPolicy::Native`); its agglomeration and every one of 1 000 V-cycles equal the real binary's bit for bit; the shipped 2D_FFTF steady state with GAMG and tight tolerances matches the real binary over 30 steps (every field `<= 2.1e-12`); the as-shipped loose run matches step for step for about 9 steps and then parts for a reason the real binary shows too (below).**
@@ -9103,3 +9163,139 @@ A1 **held** (9.2e-11 <= 1e-9, 60 %). A2 **held** (1.9e-16, 85 %). A3 **MISSED** 
 ### What upstream does that the port did not, and what is left (criterion of the issue)
 
 Read in upstream (above): the solver settings are `mesh.solverDict(field)` of each region's `fvSolution`; `neutronIterationResidual` and `maxNeutronIterations` are read (`solveNeutronics.H:18-25`) but the do-while ends after one pass when `eigenvalueNeutronics` is true, so they are not consulted on the eigenvalue path (ported as such: the region's `solve_twice` stays one pass). `aitkenAcceleration` is read on the eigenvalue path (`fluxEq.H:3`) and is `false` in both shipped ESFR cases (not ported, refused by name where it is true: gh:#1932). **A flux entry selecting `GAMG` is refused by name** in `RegionSolvers::read` (the reader of round 42 would run `PCG`/`DIC` in its place; no shipped case selects it: the blocks are commented out); the other agent's GAMG wiring (round 72) is for `p_rgh`, not the neutronics flux. The transient neutronics steps of `RegionSolvers` take the same settings (they share `DiffusionSettings`), as upstream does.
+
+## Round 76 (gh:#1947 under #1936/#1216; maintainer 2026-11-27: "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS; the correct form is the DEFAULT, deviations are named ablations): `CaseReadOptions::default().gamg` becomes `GamgPolicy::Native`; `AllrunEdits::default().gamg` stays `SubstitutePcgDic` (a PROTOCOL value) and gains a sibling `AllrunEdits::as_shipped_gamg()` (predictions and criteria written and committed BEFORE any run)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 75 (gh:#1948): keep both on merge.
+
+### Decision (maintainer, via the caller of this round)
+
+1. `CaseReadOptions::default().gamg`: ~~`GamgPolicy::Refuse`~~ **CHANGED 2026-11-27 (gh:#1947)** to `GamgPolicy::Native`. `Refuse` and `SubstitutePcgDic` stay as explicit, named ablations (a caller sets the field).
+2. `AllrunEdits` is a PROTOCOL: edits applied to BOTH the real and the port run. The committed MSFR references were produced by a real run whose script replaced `GAMG` by `PCG`/`DIC` textually, so `AllrunEdits::default().gamg = SubstitutePcgDic` DESCRIBES THAT PROTOCOL and is kept; changing it would make the port run a different protocol from the references and the comparison would stop being a comparison. The case as shipped (GAMG kept in both runs) is the new constructor `AllrunEdits::as_shipped_gamg()`.
+
+### What I checked before writing (search-before-building)
+
+`grep -rn "CaseReadOptions\|AllrunEdits\|OnePhaseCcCase::read("` over `src/` and `tests/` of every crate: only `outram-foam-appbuilder-lib` uses them. Callers of `CaseReadOptions::default()` (read from the source): `OnePhaseCcCase::read` (so `OnePhaseCcSolver::from_case_dir`), `genfoam_heat_exchanger_{cc,3d}_vs_upstream`, `genfoam_radial_power_wired_vs_upstream`, `genfoam_msfr_th_pimple_vs_upstream::run_perturbed`, and as the `..CaseReadOptions::default()` base in `workflow/allrun.rs` (which sets `gamg` itself), `multi_region/region_solvers.rs` (sets Native), `genfoam_{fftf_pieces,esfr_fluid,fullcoupling_fluid,msfr_allrun,coupled_tutorials_requirements}` (every one sets `gamg` explicitly).
+
+### Predictions (written before any run)
+
+* **P1. No recorded number moves.** `gamg` is consulted only when a `solvers.p_rgh` entry (or its `Final`) selects `GAMG`. A case that does not select it is read identically under any policy. A case that selects it was REFUSED by name under the old default, so no test could hold a recorded number for it through the default path. Every test that does run a GAMG case sets the policy explicitly and keeps its value. Prediction: every test of the list below passes unchanged, with the same printed numbers (bit-identical, the code path being identical).
+* **P2. The default tests.** (a) `CaseReadOptions::default().gamg == GamgPolicy::Native` and `GamgPolicy::default() == Native`; (b) the shipped 2D_MSFR rootCase read with `CaseReadOptions { check_region_solvers: false, ..default() }` is accepted (not refused) and holds a native `GAMG` agglomeration (`p_rgh_gamg.is_some()`, `!p_rgh_gamg_substituted`); (c) `AllrunEdits::default().gamg == SubstitutePcgDic` (protocol) and `AllrunEdits::as_shipped_gamg().gamg == Native`, with the staged shipped MSFR rootCase accepted by `steady_state_th(&as_shipped_gamg)`. If (b) is refused by name for a selection that is not ported, that is a finding to report, not a reason to edit the case.
+* **P3. If any test fails after the change**, the first hypothesis is that it relied on the old default silently; it then gets the old policy EXPLICITLY (never a loosened gate).
+
+### Tests to re-run (targeted, release, private target dir)
+
+`genfoam_coupled_tutorials_requirements`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_gamg_vs_upstream`, `genfoam_gamg_smoothers_vs_upstream`, `genfoam_one_phase_fc_vs_upstream` (the `GamgPolicy` test), `genfoam_heat_exchanger_{cc,3d}_vs_upstream`, `genfoam_radial_power_wired_vs_upstream`, `genfoam_msfr_th_pimple_vs_upstream`, the new `gamg_is_default` tests, and the lib check without default features for `x86_64-unknown-none`.
+
+### Round 76 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions above committed first)
+
+* **P1 held: no recorded number moved.** Passing, unchanged: `genfoam_coupled_tutorials_requirements` (2), `genfoam_msfr_allrun_vs_upstream` (6 run, 2 hour-scale `#[ignore]` not run: they use `AllrunEdits::default()`, whose value is unchanged), `genfoam_gamg_vs_upstream` (3), `genfoam_gamg_smoothers_vs_upstream` (4), `genfoam_one_phase_fc_vs_upstream` `gamg`-filtered (4, incl. the `r72_*`), `genfoam_heat_exchanger_{cc,3d}_vs_upstream` (4+3), `genfoam_radial_power_wired_vs_upstream` (8), `genfoam_msfr_th_pimple_vs_upstream` (14); `cargo check --lib --no-default-features --target x86_64-unknown-none` clean. No test needed the old default made explicit: every GAMG-reading test already named its policy; the default-reading tests use cases without a `GAMG` `p_rgh` (the policy is consulted only for `GAMG`).
+* **P2 held.** `genfoam_gamg_is_default` (2) and `genfoam_msfr_allrun_vs_upstream::gamg_is_the_default_and_the_allrun_protocol_is_named`: the shipped 2D_MSFR rootCase read with `CaseReadOptions::default()` is accepted with `p_rgh_gamg_substituted == false`; `SubstitutePcgDic` set explicitly substitutes; `AllrunEdits::default().gamg == SubstitutePcgDic`; `AllrunEdits::as_shipped_gamg()` (`Native`) is accepted by `steady_state_th` on the shipped case. ~~Not run: a 15 s as-shipped-GAMG MSFR stage against a real run that kept GAMG (no such reference exists; filed as a possible follow-up on gh:#1947).~~ **CORRECTED 2026-11-27 (gh:#1951, round 77; verified by running the loose test with GAMG_R77_LOOSE_STEPS=all):** the references msfr_gamg_r77_* exist and the 1 965-step as-shipped stage agrees (dt bit-identical, all 36 543 p_rgh counts equal).
+
+
+
+# Round 77 (gh:#1951 under #1947/#1937/#1216; maintainer 2026-11-27: "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS and stopping rules): the 2D_MSFR Allrun chain with GAMG KEPT AS SHIPPED (`AllrunEdits::as_shipped_gamg()`), against the real binary (predictions and criteria written and committed BEFORE any real run and before any port run on a new number)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 75 (gh:#1948/#1950): keep both on merge.
+
+## What was checked before writing (search-before-building)
+
+* **The protocol script already has the switch.** `scripts/run_msfr_th_tight.sh` with `PSOLVER=gamg` SKIPS the `GAMG -> PCG/DIC` perl edit (round 21 used it for the shipped-tolerance 15 s run, `msfr_th15_shipped_*`); `scripts/run_msfr_chain.sh` (EN, transient) NEVER edited `GAMG` at all. New: `scripts/run_msfr_allrun_gamg.sh` (one entry point, `th|en|transient`, that names the protocol), `WRITE_INTERVAL` in `run_msfr_th_tight.sh` and `TH_END` in `run_msfr_chain.sh` (defaults unchanged: 1 and 15).
+* **Extraction already exists**: `extract_msfr_th_log.sh` (per solve `PRGH/EPS/K/H/TSTAT`), `extract_msfr_th_fields.sh`, `extract_msfr_th15.sh` (`N`, `DT`, fields), `extract_msfr_en_reference.sh` (EN and transient logs). The port side: `RootCase::steady_state_th` / `steady_state_en` / `start_transient` with `AllrunEdits`, `ThRecord.pressure_solves` (outer, corrector, initial residual, iterations), `compare_th_fields`, `compare_en` of `tests/genfoam_msfr_allrun_vs_upstream.rs` (its helpers are copied into the new test file, as every test file here does).
+* **What the shipped MSFR selects of GAMG** (read from `rootCase/system/fluidRegion/fvSolution`): `p_rgh { solver GAMG; smoother DIC; tolerance 1e-7; relTol 0; }`, `p_rghFinal { $p_rgh; relTol 0; }`: every other GAMG entry is the ESI v2506 default, i.e. exactly what round 67 ported (`faceAreaPair`, `DIC`, `nPreSweeps 0`, `nPostSweeps 2`, `nFinestSweeps 2`, `mergeLevels 1`, `nCellsInCoarsestLevel 10`, `cacheAgglomeration true`, `scaleCorrection` on, `directSolveCoarsest false`, `maxIter 1000`). Round 76 already showed the shipped MSFR rootCase is ACCEPTED under `Native`. **Prediction: no GAMG feature is refused for MSFR, so none is ported in this round**; if a refusal appears it is a finding and gets the round 72 method (instrumented COPY `GAMGdump`, line-by-line port with file/line citations, single solves bit-identical). The `neutroRegion` fvSolution selects no GAMG. The EN and transient stages set `solveFluidMechanics false`: `p_rgh` is not solved there.
+* Round 67 measured on FFTF that the as-shipped loose protocol is round-off sensitive after ~9 steps (gh:#1937): the loose comparison below is therefore a solve-count / macroscopic-quantity comparison, never a point-wise one.
+
+## Protocol (both sides identical)
+
+`2D_MSFR` `rootCase` as shipped (`/home/user/upstream-build/gh1812/runs/rootCase`: only `writePrecision 17`, `writeCompression off` differ from the shipped `controlDict`), the Allrun `setSteadyStateTH`/`setSteadyStateEN`/`setTransient` edits, **`p_rgh` keeps `solver GAMG; smoother DIC;`**, and:
+
+* **Tight (T)**: every `tolerance 1e-14`, `relTol 0` in every `fvSolution` of the stage (round 67's tight-GAMG protocol; GAMG then sits at its round-off floor and stops at `maxIter 1000`).
+* **Loose (L)**: solvers as shipped (`1e-7`, `relTol 0`), `writePrecision 17`.
+* Real runs (serial, GeN-Foam 652b3da on ESI v2506, scratch `/home/user/upstream-build/gh1951`, deleted after extraction):
+  * **R-T1** `run_msfr_allrun_gamg.sh th` (`WRITE=step`, `END_TIME=0.5`): every step written; M steps (M is read from the real log; the shipped dt sequence reaches 0.5 s at step 41).
+  * **R-T2** the same with `WRITE=adjustable WRITE_INTERVAL=0.5` (`adjustableRunTime`, last step lands on 0.5): the hand-over state of the chain.
+  * **R-TE** `run_msfr_allrun_gamg.sh en` (`TH_END=0.5 EN_END=150.5 EN_WRITE=50`, 600 steps of 0.25 s) from R-T2's own `0.5`, then **R-TT** `transient` (`END_TIME=160.5`) from R-TE's own `150.5`.
+  * **R-L1** `th` with `PROTOCOL=shipped WRITE=adjustable END_TIME=15` (the real as-shipped 15 s, 1 965 steps in the round 21 run, ~9 min); **R-L2** the same with ONE input changed by one ulp (`0/fluidRegion/T internalField uniform 900 -> 900.0000000000001`), to measure the protocol's own sensitivity (gh:#1937 method).
+* Port: `AllrunEdits::as_shipped_gamg()` with `end_time_th = 0.5`, `write_interval_th = None` (T steps) / `Some(0.5)` (T chain) / `Some(1.0)` and `end_time_th = 15` (L); chain `end_time_en = 150.5`, `end_time_transient = 160.5`; the EN stage starts from the port's OWN TH state (in memory), the transient from the port's own EN state; no upstream number is an input.
+
+## Criteria (fixed here; none will change after seeing results)
+
+* **C1 (T, TH steps)**: the M steps of R-T1. Kept steps 1, 2, 5, 10, 20, M (fields written by every step; `U p p_rgh T k epsilon nut alphat alphaPhi alphaRhoPhi htc T.fixedTemperature`; **if a ref file exceeds 10 MB the kept steps are reduced and the deviation recorded post-run**): fields `<= 1e-9` (`U` on `max|U|`, the rest on the field's own max-norm); `dt` sequence `<= 1e-12` relative; `T (avg min max)` lines `<= 1e-9`; every `p_rgh` solve's initial residual: absolute `<= 1e-11` for solves above `1e-10` (round 67's criterion, kept although it was missed there by 1.2e-11); `p_rgh` GAMG iteration counts equal for every solve that stops below `maxIter`, a solve at `maxIter 1000` REPORTED, NOT GATED; `h`/`k`/`epsilon` iteration counts at the noise floor REPORTED, NOT GATED. Step count equal. First diverging step and cause recorded.
+* **C2 (T, chain)**: from R-T2's state. EN, 600 steps: `keff_`, `power:` `<= 1e-9` per step; `T (avg min max)` of every outer iteration `<= 1e-9`; `Time` equal; first `h` residual REPORTED, NOT GATED (noise floor); at 150.5 s `powerDensity` `<= 1e-8` (own max-norm), `T` `<= 1e-9`, final `keff_` `<= 1e-9`. Transient, the first 50 steps: `deltaT` `<= 1e-9`, `T` `<= 1e-9`, `power:` `<= 1e-9`; `keff_` frozen (bitwise). **C2b**: the real EN and transient logs contain NO `p_rgh` / `GAMG` solver line (so the GAMG policy cannot matter in them), and the port's EN stage built from the SAME TH state under `as_shipped_gamg()` and under `AllrunEdits::default()` gives a bit-identical `keff_` history.
+* **C3 (L, loose, 15 s)**: against R-L1. The loose caveat of round 67 applies: **iteration counts, residual sequences and fields point by point are NOT gated beyond the step where the real binary itself parts from its own 1-ulp perturbation (R-L2)**. Gated: macroscopic quantities `dt` at every step and `T (avg min max)` lines of every outer iteration, with the gate for each quantity `q` = **10 x the largest difference between R-L1 and R-L2 in `q` over the same span, floored at 1e-9** (the rule is fixed now; the number is measured on the two REAL runs before the port is run on the loose case). Reported, not gated: step count (a difference is recorded with its first step), every `p_rgh` iteration count (the first step where counts differ, and the count of differing solves over the first 300 steps), `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat` at 1, 5, 10, 15 s against R-L1 (relative to max-norm). The earlier `SubstitutePcgDic` numbers of round 21 (`p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10, `U` 4.1e-6, `k` 1.0e-5 at worst over 1, 5, 10, 15 s) are quoted for comparison, not as gates.
+* **Control**: the same TH steps with `AllrunEdits::default()` (`SubstitutePcgDic`) against R-T1 must NOT satisfy C1 at 1e-9 (the PCG substitute is a different solver; if it did, C1 would not discriminate); reported.
+* **Earlier numbers (rounds 3-76) must not move**: `genfoam_msfr_allrun_vs_upstream` (non-ignored), `genfoam_gamg_vs_upstream`, `genfoam_gamg_is_default` re-run; anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+* Refs are each under 10 MB; `outram-foam-basic-lib` and `genfoam/common/gamg.rs` are not edited (kovan-reviewed functions are not touched).
+
+## Predictions (written before any run)
+
+| id | quantity | prediction | probability |
+|---|---|---|---|
+| H1 | R-T1: every `p_rgh` solve stops at `maxIter 1000` (the floor, as FFTF round 67) | yes | 70 % |
+| H2 | R-T1 real wall time per step (36 solves of up to 1 000 V-cycles on 8 595 cells) | 8 to 40 s; M = 41 +- 2 steps | 60 % |
+| H3 | C1 fields, `dt`, `T` lines at the gates over M steps; no first diverging step | held | 65 % |
+| H4 | C1 `p_rgh` initial residual absolute difference `<= 1e-11` | held | 50 % (round 67 missed it by 1.2e-11 at the matrix round-off ~1e-12) |
+| H5 | C1 all upstream `p_rgh` solves at `maxIter` and the port's too (counts equal by construction) | yes | 70 % |
+| H6 | C2 EN `keff_`/`power:`/`T` `<= 1e-9` over 600 steps; transient 50 steps `<= 1e-9` | held | 75 % |
+| H7 | C2b no GAMG/`p_rgh` solve line in the real EN and transient logs; port EN bit-identical under both policies | held | 97 % |
+| H8 | C3 real R-L1 vs R-L2 (1 ulp): the iteration counts part before step 50 | yes | 85 % |
+| H9 | C3 R-L1 has 1 965 steps (as `msfr_th15_shipped_log`: determinism of the real binary) | yes | 90 % |
+| H10 | C3 port `as_shipped_gamg` against R-L1: `dt` and `T` lines inside 10 x the real sensitivity | held | 60 % |
+| H11 | C3 15 s fields against R-L1: `p_rgh`, `U` no worse than the `SubstitutePcgDic` numbers of round 21 (5.1e-7, 4.1e-6) | held | 55 % |
+| H12 | C3 port `p_rgh` iteration counts equal to the real ones for the first 9 steps, parted before step 300 | both | 65 % |
+| H13 | control: `SubstitutePcgDic` fails C1 at 1e-9 | yes | 95 % |
+| H14 | no GAMG feature is refused for MSFR; nothing new is ported | yes | 90 % |
+| H15 | nothing earlier moves | yes | 95 % |
+
+
+## Round 77 addendum A (written and committed AFTER the real runs and BEFORE any port run on the tight, chain or long loose numbers; the only port run so far is the 5-step default test `loose_as_shipped_gamg_first_steps_follow_the_real_log`, which matched the loose log: dt bit-identical, 150 `p_rgh` counts equal, T lines 5e-16)
+
+Real runs finished (serial, 652b3da on ESI v2506; refs submodule `1688ba6`): **R-T1** 42 steps (H2: M = 41 +- 2 held), 708 s with two other runs sharing the machine (17 s per step; H2's 8-40 s held); every one of its 1 260 `p_rgh` solves stopped at `maxIter 1000` (**H1 held**, 100 %). **R-T2** 41 steps (the last step is aligned to 0.5 s). **R-TE** 600 steps, 169 s; **R-TT** `END_TIME` was set to 151.2 (not the 160.5 written above: 150.81 gave only 39 steps, 151.2 gives 74; the criterion is the first 50 steps and is unchanged), 17 s. **C2b's real half held (H7)**: `grep -ci 'GAMG\|p_rgh'` over the real EN and transient logs is 0. **R-L1** 1 965 steps, 36 543 `p_rgh` GAMG solves, 518 s (**H9 held**: as `msfr_th15_shipped_log`). **R-L2** (1 ulp in the initial `T`): 1 965 steps, 36 543 solves.
+
+**H8 MISSED, and the C3 gate follows from it:** R-L1 and R-L2 do NOT part. Over 300 steps and over all 1 965: `dt` bit-identical (0), `T` lines 2.1e-15 / 8.1e-15, every one of the 36 543 `p_rgh` iteration counts equal (first differing step: none; the largest count is 32). So the as-shipped MSFR loose run is NOT round-off sensitive to this perturbation, unlike FFTF's (round 67: parted at step ~10 for `rho0 + 1 ulp`); cause not established (one perturbation tried only). By the rule fixed above (10 x the real sensitivity, floored at 1e-9) **the C3 gates are 1e-9 for `dt` and for the `T` lines**; the port's `p_rgh` counts are REPORTED against R-L1 at every step (not gated, as written: the port's matrix differs from upstream's by ~1e-12, which FFTF showed is enough to part a loose run).
+
+
+## Round 77 addendum B (post-run, written after the tight control and chain runs; marks what was learnt, no criterion changed)
+
+The pre-run control "the PCG substitute must NOT meet C1 at 1e-9" (H13) **MISSED**: over 10 tight steps the substitute is within 4.0e-12 of the real tight-GAMG fields, as the native GAMG is (below). Cause: at the tight protocol (`1e-14`, `relTol 0`) both solvers drive `p_rgh` to the round-off floor, so the field gate cannot tell them apart. The discriminating control is the LOOSE one (added post-run, `the_pcg_substitute_parts_from_the_real_loose_gamg_counts`): over 300 steps the substitute's `p_rgh` iteration counts differ from the real as-shipped GAMG's in **8 977 of 9 000 solves** (step 1: upstream 32/19/19/19/17/17, substitute 204/183/181/177/175/172), `T` lines 1.9e-10.
+
+## Round 77 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (`bb6ae8174`, addendum A `1caf29c9e`); real binary 652b3da on ESI v2506, serial; refs in the refs submodule (`1688ba6`): `msfr_gamg_r77_tight_{log,fields}` (6.4 MB fields), `msfr_gamg_r77_chain_{th_log,en,transient}`, `msfr_gamg_r77_loose_{log,fields}` (1.1 MB log), `msfr_gamg_r77_loose_pert_log`; tests `tests/genfoam_msfr_gamg_vs_upstream.rs` (1 default test, 2.6 s; 5 `#[ignore]`); `--nocapture` prints every table)
+
+AI-written, not human-reviewed. **`AllrunEdits::as_shipped_gamg()` (upstream's own `GAMGSolver`, `GamgPolicy::Native`) reproduces the real binary that KEPT `GAMG`, at every stage the MSFR tests cover, to round-off. No GAMG feature is refused for MSFR and nothing new was ported.**
+
+| stage (protocol) | span | quantity | worst difference |
+|---|---|---|---|
+| steady TH, tight, GAMG kept (C1) | 42 steps (step count equal), 1 260 `p_rgh` solves | `dt` sequence; `T` lines; initial residual (absolute, solves above 1e-10) | 1.5e-13; 8.8e-16; 2.6e-14 |
+| | kept steps 1, 2, 5, 10, 20, 42 | `U` (on max abs U), `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi`, `alphaRhoPhi`, `htc`, `T.fixedTemperature` | 1.0e-12, 2.0e-13, 2.0e-13, 1.6e-15, 1.1e-13, 3.4e-13, 1.4e-13, 1.4e-13, 3.7e-12, 3.7e-12 (worst of all 3.7e-12, `alphaPhi` at step 2); `htc`, `T.fixedTemperature` 0 |
+| | iteration counts | every upstream AND port `p_rgh` solve stops at `maxIter 1000` (1 260 of 1 260 both): REPORTED, NOT GATED; `h` first residual 1.7e-7 relative (noise floor, reported) | |
+| chain from the TH state at 0.5 s (C2) | TH 41 steps (`adjustableRunTime`, `writeInterval 0.5`) | `dt` (0), `T` lines, `p_rgh` residual | 0; 7.6e-16; 3.3e-14 |
+| EN, 600 steps | `keff_`, `power:`, `T` lines, `Time`; first `h` residual (reported) | 1.4e-15, 1.7e-15, 8.8e-15, 0; 7.0e-11 |
+| at 150.5 s | final `keff_` 0.96136801439228237; `powerDensity`; `T` | 2.3e-16; 2.6e-15; 8.6e-15 |
+| transient, first 50 steps | `deltaT`, `T`, `power:`; `keff_` frozen bitwise | 4.9e-14, 8.8e-15, 1.7e-14 |
+| C2b | real EN and transient logs: lines matching `GAMG` or `p_rgh`: 0; port EN 40 steps under `as_shipped_gamg()` and `default()` from the same TH state | bit-identical `keff_` and `power:` | 0 |
+| steady TH, LOOSE as shipped (C3), 15 s | all 1 965 steps (step count equal; port 296 s, real 518 s) | `dt` at every step; `T` lines | **0 (bit-identical)**; 2.0e-14 (gates were 1e-9 each) |
+| | **all 36 543 `p_rgh` GAMG solves** | iteration counts EQUAL in every solve (first differing step: none); initial residual absolute | 0 differing; 1.6e-13 |
+| | fields at 1, 5, 10, 15 s (reported) | `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi`, `alphaRhoPhi` | at 15 s: `U` 3.5e-13, `p_rgh` 8.7e-14, `T` 7.3e-15, `k` 3.5e-12, `epsilon` 2.2e-12, `nut` 9.2e-12 |
+| Controls | PCG substitute vs tight GAMG reference, 10 steps | fields (H13 missed, see addendum B) | 4.0e-12 |
+| | PCG substitute vs real loose, 300 steps | `p_rgh` counts differing | 8 977 of 9 000 |
+
+Against round 21's `SubstitutePcgDic` at the shipped tolerance (`p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10, `U` 4.1e-6, `k` 1.0e-5 at worst): the native GAMG moves the 15 s as-shipped agreement from 1e-7..1e-5 to **<= 9.2e-12**, with every iteration count equal. The substitution's cost (round 21 T6) was the GAMG-vs-PCG difference; with the real solver it vanishes.
+
+### Predictions: held / missed
+
+H1 held (1 260 of 1 260 at `maxIter`). H2 held (M = 42, 17 s per step). H3 held (no first diverging step). H4 held (2.6e-14 against 1e-11; round 67's FFTF miss did not recur: the MSFR matrix is closer to upstream's). H5 held. H6 held (EN 1.4e-15..8.8e-15, transient <= 4.9e-14 against 1e-9). H7 held. **H8 MISSED** (the 1-ulp perturbed real loose run did not part: addendum A; the MSFR loose protocol was not sensitive to that perturbation). H9 held. H10 held (dt bit-identical, T 2e-14). H11 held, far better than predicted (9.2e-12 against 5.1e-7 / 4.1e-6). **H12 MISSED, favourably**: the port's `p_rgh` counts are equal to the real ones in ALL 36 543 solves, not only the first 9 steps (predicted: part before step 300, 65 % that both hold). Possible cause (not tested): the loose MSFR solves are well conditioned and their stopping tests are not near-tie, unlike FFTF's. **H13 MISSED** (addendum B). H14 held (the shipped MSFR GAMG entries are the ones round 67 ported; no refusal arose). H15 held (below).
+
+### Not verified / limits
+
+* The tight chain is a **0.5 s** TH state, not the 15 s one: a tight 15 s GAMG stage (1 965 steps x 1 000 V-cycles x 30 solves, ~17 s per step) is ~9 hours per side and was not run; the 15 s state is covered by the LOOSE run (1 965 steps). EN and transient do not touch `GAMG` (C2b), so what the tight chain tests is the hand-over, not the solver.
+* The loose run was compared with ONE real run (R-L1) and one 1-ulp perturbed run (R-L2, which equalled it); a different perturbation (e.g. a changed `deltaT`, a different initial `U`) might part them. The result "every count equal" is therefore a statement about this protocol on this machine; the gates stay at the 1e-9 floor.
+* Not run: the coupled-region (`fluidRegion` + `neutroRegion` full transient with `maxIterations 3`) loose transient with GAMG kept; EN/transient are solver-independent, but a transient that restarts from the loose 15 s state was not run against a real run.
+* The first-5-steps default test pins (dt <= 1e-6, T <= 1e-6, equal counts) are post-run pins (measured 0, 5e-16, 0); they are not README criteria.
+
+### Moved numbers
+
+None: `genfoam_msfr_allrun_vs_upstream` (6 passed, 2 `#[ignore]` not run), `genfoam_gamg_vs_upstream` (3), `genfoam_gamg_is_default` (2) pass at their pins; `cargo check --lib --no-default-features --target x86_64-unknown-none` clean. `outram-foam-basic-lib`, `genfoam/common/gamg.rs` and every `src/` file are unedited (no kovan-reviewed function touched). The scripts gained `WRITE_INTERVAL` / `TH_END` with unchanged defaults.
+
+### Reproduction
+
+Real: `bash scripts/run_msfr_allrun_gamg.sh th <runs>` with `NAME=r_t1 END_TIME=0.5 WRITE=step` (R-T1), `NAME=r_t2 END_TIME=0.5 WRITE=adjustable WRITE_INTERVAL=0.5` (R-T2, copied to `steadyStateTH`), then `TH_END=0.5 EN_END=150.5 EN_WRITE=50 ... en` and `... END_TIME=151.2 ... transient`; loose `PROTOCOL=shipped END_TIME=15 WRITE=adjustable` (R-L1; R-L2 in a `rootCase` copy whose `0/fluidRegion/T` is `uniform 900.0000000000001`); `scripts/extract_msfr_gamg_r77.sh <run> <stem> "1 2 5 10 20 42"`, `extract_msfr_en_reference.sh <runs> 150.5 msfr_gamg_r77_chain_en`, `extract_msfr_fluid_reference.sh <runs> 50 msfr_gamg_r77_chain_transient 150.5`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_gamg_vs_upstream -- --ignored --nocapture` (tight 812 s, chain 952 s, loose `GAMG_R77_LOOSE_STEPS=all` 296 s, controls 183 s).

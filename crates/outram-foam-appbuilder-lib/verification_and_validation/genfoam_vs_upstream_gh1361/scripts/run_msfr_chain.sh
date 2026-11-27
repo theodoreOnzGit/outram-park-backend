@@ -1,6 +1,7 @@
 #!/bin/bash
 # gh:#1361 round 6: the 2D_MSFR tutorial's Allrun chain without foamDictionary (not built here).
 # Usage: run_msfr_chain.sh <stage: steadyStateTH|steadyStateEN|transient> [RUN_ROOT]
+# gh:#1951 round 77: TH_END overrides endTimeTH (default 15; the dir steadyStateTH/$TH_END must exist), EN_END and END_TIME as before.
 # Replays upstream's Allrun setSteadyStateTH / setSteadyStateEN / setTransient with sed/perl, then
 # runs the real GeN-Foam binary serially, logging to <stage>/log.GeN-Foam.
 # The ONLY edits beyond Allrun's own: writePrecision 17 in rootCase (done by the caller before
@@ -10,7 +11,7 @@ source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1
 STAGE=$1
 R=${2:-/home/user/upstream-build/gh1361/runs/msfr}
 cd "$R" || exit 1
-endTimeTH=15; endTimeEN=${EN_END:-165}; endTimeTransient=175   # gh:#1814 round 14: EN_END, EN_WRITE override the EN end time and write interval (the light chain uses 20 and 20)
+endTimeTH=${TH_END:-15}; endTimeEN=${EN_END:-165}; endTimeTransient=175   # gh:#1814 round 14: EN_END, EN_WRITE override the EN end time and write interval (the light chain uses 20 and 20)
 tighten_solvers() {
   for f in $1/system/*/fvSolution; do
     # only plain `tolerance x;` / `relTol x;` lines: the neutroRegion file has a /* ... relTol 0.01;*/ block
