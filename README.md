@@ -8,6 +8,106 @@ Cargo workspace for **OUTRAM PARK** — Open-source Unified TRAnsient Multi-Phys
 
 ~~A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.~~ **CHANGED 2026-11-27 (maintainer: "it is not the simulations themselves, it is knowledge preservation and presentation"):** an open-source ecosystem that turns scientific and technical knowledge (nuclear data, Monte Carlo and deterministic transport, thermal-hydraulics, CFD, fuel and materials behaviour, dispersion and dose, and the literature behind them) into **inspectable source code, interactive simulations, visualisations and verification evidence** that people can study and challenge. It is 51 Rust crates, most of them translations of established open-source codes whose every routine can be read beside its upstream. The simulations are a means; the preserved, connected and challengeable knowledge is the point (see the vision below).
 
+**Code deep dives and API reference:** <https://theodoreonzgit.github.io/outram-park-backend/>
+(how each crate is built and why, beside its code; rebuilt from `develop` when it is merged into `web-deploy`
+by `.github/workflows/pages.yml`, gh:#518; ~~on every push to `develop`~~ **CHANGED 2026-11-06**, gh:#1306). The concept lessons for
+students will live on the [OUTRAM PARK teaching site](https://theodoreonzgit.github.io/outram-park/) (not live yet; outram-park#5).
+
+> *"Best open-source nuclear simulator suite in Singapore, JB — and some say Batam!"* 🇸🇬
+> — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
+> status, see the ⚠️ banner above: everything here is unverified until validated,
+> and **not** for facility operation.
+
+## How it started
+
+It started with curiosity, and with simulators. The author had a keen interest
+in nuclear engineering and in software engineering (Rust especially), and a
+wider curiosity about many areas of science. Out of that came a simple wish:
+wouldn't it be nice if knowledge were freely accessible, for the betterment of
+mankind and for the fun of learning?
+
+OUTRAM PARK is where those threads tie together, now that agentic AI is a
+reality. Any simulation can be constructed; any knowledge can be visualised
+effectively. OUTRAM PARK is a platform for learning and research in anything
+related to nuclear science and engineering. The simulators are how the
+knowledge is made tangible; the knowledge, kept open to study and challenge,
+is the point (see the [Vision](#vision-scientific-knowledge-that-can-be-studied-and-challenged)).
+
+The first simulator started as a sketch. An early concept from 2025, drawn by hand on graph
+paper, titled **"Natural FHR Simulator, Mark I"**: a fluoride-salt-cooled
+high-temperature reactor (FHR) you could watch and operate.
+
+![Hand-drawn 2025 concept sketch of the Natural FHR Simulator Mark I: a pebble-bed core with control rod, graphite reflector and decay-heat removal loop; a primary salt pump labelled TUAS; an intermediate salt-to-salt heat exchanger; a helical steam generator, single-stage expansion turbine and condenser labelled TAMPINES](docs/images/fhr-simulator-mark-i-concept-2025.jpg)
+
+Everything on that page was a question for code to answer. On the left, the
+core: a pebble bed with a temperature-sensitive display, a control rod, a
+graphite reflector and a decay-heat removal loop. In the middle, a primary
+salt pump driving the salt through an intermediate salt-to-salt heat
+exchanger. On the right, a helical steam generator feeding a single-stage
+expansion turbine and a condenser. The sketch is honest about what it left
+out: "no HP, LP turbine for simplicity", and a primary pump that "really has
+parallel but simplify".
+
+Two labels on it already name the pieces that would carry the idea: **TUAS**
+under the salt loops, and **TAMPINES** under the steam side. Both are crates in
+[`outram-park-backend`](https://github.com/theodoreOnzGit/outram-park-backend)
+today (`tuas_boussinesq_solver` and `tampines`), and the rest of OUTRAM PARK
+grew around them.
+
+## Why the names: Singapore's MRT
+
+Nuclear science codes often carry names chosen for their familiarity. At Idaho
+National Laboratory many are named after animals: the MOOSE framework (the
+Multiphysics Object-Oriented Simulation Environment), BISON for fuel
+performance, Griffin for reactor physics, Pronghorn for coarse-mesh
+thermal-hydraulics.[^inl] Some are acronyms that read like people's names:
+STACY, the Source Term Analysis Code System for fission-product release from
+HTR fuel,[^stacy] and SAM, Argonne's System Analysis Module for advanced
+non-light-water reactors.[^sam] Some are food: SCONE, Cambridge's Stochastic
+Calculator Of Neutron transport Equation.[^scone]
+
+The author wanted names that were familiar and uniquely Singaporean. The first
+ideas were food and drink: Cheng Teng, Teh O, Teh C (one survives, in
+[`teh-o-prke`](crates/teh-o-prke)). After some discussion with his supervisor,
+he agreed that a naming system for codes should be a little more professional.
+So came **TUAS**,[^tuas] and with it the convention: name the codes after
+places in Singapore, so that people would know they were made in Singapore.
+(And, jokingly, as the best open-source nuclear science simulators in
+Singapore, JB, and some say Batam.)
+
+Thereafter the codes were named after MRT stations and other places in
+Singapore. The convention carries a wish: that learning about nuclear science
+should be as accessible and affordable as taking the MRT, and that the fear
+and mystery around nuclear science will fade and give way to knowledge. The
+convention spread beyond the author's own codes: his colleague Than Yan Ren
+named his reactor simulator **BEDOK**,[^bedok] now translated here as
+[`bedok`](crates/bedok). The rest was history. Today each station names a
+domain of the ecosystem ([`docs/ecosystem-naming.md`](docs/ecosystem-naming.md)).
+
+[^inl]: Idaho National Laboratory, NCRC code descriptions,
+    <https://inl.gov/ncrc/code-descriptions/>; MOOSE applications list,
+    <https://mooseframework.inl.gov/help/inl/applications.html>. No source was
+    found stating why INL chose animal names; the pattern is observed, not a
+    documented policy.
+[^stacy]: STACY (Source Term Analysis Code System), OECD NEA Data Bank
+    package IAEA1439, <https://oecd-nea.org/tools/abstract/detail/iaea1439/>;
+    RSICC abstract, <https://rsicc-docs.ornl.gov/abstract/S/STACY--00.html>.
+[^sam]: R. Hu et al., "SAM: A Modern System Code for Advanced Non-LWR Safety
+    Analysis", *Nuclear Technology* 211(9) (2025),
+    <https://www.ornl.gov/publication/sam-modern-system-code-advanced-non-lwr-safety-analysis>;
+    Argonne National Laboratory, System Analysis Module,
+    <https://www.anl.gov/nse/system-analysis-module>.
+[^scone]: SCONE (Stochastic Calculator Of Neutron transport Equation),
+    University of Cambridge, MIT licence, <https://github.com/CambridgeNuclear/SCONE>;
+    documentation <https://scone.readthedocs.io/en/latest/>.
+[^tuas]: T. K. C. Ong, S. Xiao, P. F. Peterson, "An open-source Thermo-hydraulic
+    Uniphase Advection and Convection Solver for Salt Flows (TUAS)",
+    *International Journal of Advanced Nuclear Reactor Design and Technology*
+    (2025), <https://doi.org/10.1016/j.jandt.2025.03.006>.
+[^bedok]: Y. R. Than, S. Xiao, "BEDOK: An In-House Numerical Reactor Simulator
+    Effort in Singapore", *Energy Engineering* 123(9) (2026),
+    <https://doi.org/10.32604/ee.2026.082487>.
+
 ## Vision: Scientific Knowledge That Can Be Studied and Challenged
 
 OUTRAM PARK is an open-source ecosystem dedicated to making vast amounts of scientific and technical knowledge **connectable, accessible, understandable, and explorable**.
@@ -108,39 +208,6 @@ Its broader purpose is to make scientific knowledge easier to access, explore, q
 The same text is kept in [`VISION.md`](VISION.md). Each crate's README says, in its section **"Knowledge in this crate"**, which of these artifacts that crate holds: its literature and upstream sources, equations, source code, simulations and visualisations, V&V evidence, and human reviews and corrections.
 
 ---
-
-**Code deep dives and API reference:** <https://theodoreonzgit.github.io/outram-park-backend/>
-(how each crate is built and why, beside its code; rebuilt from `develop` when it is merged into `web-deploy`
-by `.github/workflows/pages.yml`, gh:#518; ~~on every push to `develop`~~ **CHANGED 2026-11-06**, gh:#1306). The concept lessons for
-students will live on the [OUTRAM PARK teaching site](https://theodoreonzgit.github.io/outram-park/) (not live yet; outram-park#5).
-
-> *"Best open-source nuclear simulator suite in Singapore, JB — and some say Batam!"* 🇸🇬
-> — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
-> status, see the ⚠️ banner above: everything here is unverified until validated,
-> and **not** for facility operation.
-
-## How it started
-
-It started as a sketch. An early concept from 2025, drawn by hand on graph
-paper, titled **"Natural FHR Simulator, Mark I"**: a fluoride-salt-cooled
-high-temperature reactor (FHR) you could watch and operate.
-
-![Hand-drawn 2025 concept sketch of the Natural FHR Simulator Mark I: a pebble-bed core with control rod, graphite reflector and decay-heat removal loop; a primary salt pump labelled TUAS; an intermediate salt-to-salt heat exchanger; a helical steam generator, single-stage expansion turbine and condenser labelled TAMPINES](docs/images/fhr-simulator-mark-i-concept-2025.jpg)
-
-Everything on that page was a question for code to answer. On the left, the
-core: a pebble bed with a temperature-sensitive display, a control rod, a
-graphite reflector and a decay-heat removal loop. In the middle, a primary
-salt pump driving the salt through an intermediate salt-to-salt heat
-exchanger. On the right, a helical steam generator feeding a single-stage
-expansion turbine and a condenser. The sketch is honest about what it left
-out: "no HP, LP turbine for simplicity", and a primary pump that "really has
-parallel but simplify".
-
-Two labels on it already name the pieces that would carry the idea: **TUAS**
-under the salt loops, and **TAMPINES** under the steam side. Both are crates in
-[`outram-park-backend`](https://github.com/theodoreOnzGit/outram-park-backend)
-today (`tuas_boussinesq_solver` and `tampines`), and the rest of OUTRAM PARK
-grew around them.
 
 ## Note on AI-assisted development cost vs. value
 
