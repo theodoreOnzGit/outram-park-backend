@@ -4277,3 +4277,44 @@ The outer-iteration counts, which steps are skipped by the stale flag, and which
 * `twoPhase` (and `one_phase_fc`) `Final` uses, gh:#1855 item 3: not ported; `solveP_rgh_2p.H` and `EEqns_2p.H` use the same selectors (`finalInnerIter()`, `isFinalIteration()` through `psi.select`). Their `customPimpleControl::loop` (round 4/5) is the older hard-wired form.
 * Function1 relaxation factors (tables) and regex keys beyond `.*` are refused / unsupported.
 * `fields` relaxation of `Kd`/`htc` where the start value differs from the model (see `fld_htc`).
+
+## Round 32 (gh:#1863): the external neutron source of `diffusionNeutronics`, against `2D_externalSourceDiffusion`
+
+### What upstream does (read before any code or run; GeN-Foam 652b3da on ESI v2506)
+
+* `neutronics.C:256-283`: `externalSourceNeutronics_` is `lookupOrDefault("externalSourceNeutronics", false)` of `neutronicsProperties`; `constant/<region>/externalSource` is READ_IF_PRESENT and its key `externalSourceModulationTimeProfile` builds a `timeProfile` (invalid, so modulation 1, when the file or the key is absent).
+* `createNeutronicsFields.H:150-167`: `externalSourceFlux<i>` is READ_IF_PRESENT, copied from `defaultExternalSourceFlux` (READ_IF_PRESENT, default `uniform 0`, zeroGradient); AUTO_WRITE only when the source is on.
+* `createFluxMatrices.H`: `externalSourceModulation = profile.value(timeOutputValue)` (or 1), and each group matrix is `ddt(...) - laplacian - Sp(...) - externalSourceFlux[g]*externalSourceModulation*externalSourceNeutronics_`. The matrices are built ONCE per step, before the neutron iteration, so a `corrected` laplacian's explicit part is frozen at the step's start flux.
+* `solveNeutronics.H:131`: with the source on, `reactorState_.set("pTarget", pTot)` at the end of every step. `:100` has the loop test `!externalSourceNeutronics` commented out.
+* `fluxEq.H`, `precEq.H`: the term `(1-externalSourceNeutronics_)` appears only in comments; the source is not divided by `discFactor` and does not enter the eigenvalue branch's `keff_` update.
+* SP3 and SN: `grep -rn externalSource src/classes/neutronics/{SP3,SN}` finds nothing (the only hits are `diffusion/`, `neutronics.{C,H}` and `pointKinetics/`), so the source is a diffusion-only (and point-kinetics, gh:#1864) feature; SP3/SN ignore `externalSourceNeutronics` silently. The port REFUSES that combination by name rather than ignore it.
+* The tutorial case (`featureCases/2D_externalSourceDiffusion`): 150-cell wedge (10 x 1 x 15, 0.1 rad, a non-orthogonal trapezoid in r-z), two groups, six precursor groups, `laplacianSchemes Gauss linear corrected` (the MSFR neutronics regions use `uncorrected`), `ddtSchemes steadyState`, `eigenvalueNeutronics false`, `externalSourceNeutronics true`, `keff 1` in `reactorState`, `adjustTimeStep` with `maxPowerVariation 0.01`, `endTime 100`. `Alltest` sets the walls of `defaultFlux`, `defaultFlux2`, `defaultExternalSourceFlux` to `zeroGradient` (a closed medium); `rootCase` has `fixedValue 0` walls.
+
+### What the port had (searched before writing)
+
+`grep -ri externalSource crates/outram-foam-appbuilder-lib/src/genfoam` found nothing. The stationary-fuel diffusion model had the eigenvalue pseudo-time step (`pseudo_time.rs`) and the port-native `DiffusionNeutronics::step` (not a translation); `upstream_transient_step` is the `liquidFuel true` form only and needs the circulating-fuel transport. `fvm::laplacian_corrected` (upstream's `correctedSnGrad` translation, gh:#1362) and `fvc::grad` (Gauss linear) exist in basic-lib; `PseudoTimeClock`, `adjust_delta_t` and `neutronics_max_delta_t` are the whole time loop; `TimeProfile` is the `Function1` table. New code: the reader of the flag and the flux files, the `solveNeutronics.H` non-eigenvalue stationary-fuel step with its `ddt` scheme (`steadyState` or `Euler`) and the source, and the loop.
+
+### Cases (the port reads the same bytes upstream runs)
+
+| id | case |
+|---|---|
+| A | shipped `rootCase` (walls `fixedValue 0`), tight protocol |
+| B | `Alltest`'s form: walls `zeroGradient` on `defaultFlux`, `defaultFlux2`, `defaultExternalSourceFlux` (closed medium), tight protocol |
+| C | B with `ddtSchemes default Euler` (a real transient toward the same steady state; the shipped case never exercises `fvm::ddt`) |
+| D (control) | port B with `externalSourceNeutronics false` against upstream B (source on): must differ |
+| E (control) | port A with `uncorrected` against upstream A (`corrected`): must differ, because the mesh is non-orthogonal and A's flux is not uniform |
+
+### Predictions (written BEFORE any run of upstream or port in this round; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| Q1 | A, B, C: `power` of every step, port against upstream | <= 1e-9 relative at every step (not bit-identical: basic-lib's CG against `PCG`/`DIC`; round 1 gave 6e-13 on the flux). Odds 65 %. The alternative, for A only, is the wedge patches in the Gauss gradient that feeds the `corrected` laplacian: then step 1 differs at 1e-4 to 1e-3 and the first diverging quantity is the first group's first-solve residual |
+| Q2 | neutron iterations per step | equal at >= 95 % of the steps; a mismatch sits at a step whose final residual is within 1e-6 relative of the 1e-6 threshold (as round 6) |
+| Q3 | time sequence (`Time =`, `deltaT`) | equal to 1e-10 relative at every step; the number of steps equal. I cannot predict the number: with `steadyState` the step size only follows `maxPowerVariation 0.01`, and a large power change per step SHRINKS the step; I expect between 100 and 5000 |
+| Q4 | B final power, steady state | upstream's `Alltest` expects 53214.3 W, and the closed-form uniform solution of the two-group balance (derived in the test from the cross sections alone) gives it; port within 1e-9 of upstream. The approach is from BELOW (the start flux 1e3 is under the steady 6951 / 8951) |
+| Q5 | B analytic check | the discrete balance residuals `eq0`, `eq1` of `analysis.py` are <= 1e-9 of the flux scale; `N_tot = S/(1 - ksrc)` with `ksrc = 0.944142` (not the eigenvalue 0.9497: the source spectrum is not the fission spectrum) to 1e-9. `N_tot = S + sum nuSigmaF flux` is an identity once `ksrc` is defined that way, so the non-trivial content of the check is that `ksrc` equals the closed-form value |
+| Q6 | A: fixedValue walls | final power below B's (leakage), the flux not uniform; port against upstream as Q1 |
+| Q7 | `pTarget` written at the end | equals the final `power()` bit for bit in the port, and upstream's written `reactorState` agrees to 1e-9 |
+| Q8 | control D | step-1 power differs from upstream by > 10 % (no source: the start flux decays); at the end the port power is < 1e-3 of upstream's. Fails the gate: yes |
+| Q9 | control E | power differs from upstream at the end by between 1e-5 and 1e-2 relative, port above or below unknown. Fails the gate: yes |
+| Q10 | wall time | port < 60 s for the whole of A, B and C |
