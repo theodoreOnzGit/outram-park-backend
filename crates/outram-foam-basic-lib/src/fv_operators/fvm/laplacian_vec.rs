@@ -175,12 +175,11 @@ pub fn laplacian_vec(
     let mut acf = mesh.ami_ldu_start();
     for coupling in &mesh.ami_couplings {
         let o = coupling.target_cell;
-        let d_t = (mesh.face_centres[coupling.target_face] - mesh.cell_centres[o]).mag();
+        // Upstream's coupled delta (gh:#1860; was `|d_t| + |d_s|`).
+        let delta = super::laplacian::DeltaCoeff::Orthogonal.ami_delta(&mesh, coupling).max(1e-30);
         let gamma_seam = gamma_f.boundary[coupling.target_patch].values[coupling.local];
         for w in &coupling.weights {
             let nb = w.source_cell;
-            let d_s = (mesh.face_centres[w.source_face] - mesh.cell_centres[nb]).mag();
-            let delta = (d_t + d_s).max(1e-30);
             let coeff = gamma_seam * w.overlap_area / delta;
             mat.ldu.diag[o] += coeff;
             mat.ldu.diag[nb] += coeff;

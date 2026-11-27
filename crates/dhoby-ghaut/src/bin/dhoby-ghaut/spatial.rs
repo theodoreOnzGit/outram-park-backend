@@ -996,7 +996,9 @@ mod tests {
             let a = crate::headless::assemble_for_test(&mut engine, &r).expect("assembly");
             let d = crate::meshing::domain_from(&a);
             let mut plan = dhoby_ghaut::workbench::meshes::MeshPlan::default_for(&d);
-            plan.roles[0].cell_size_cm = 40.0;
+            // `DHOBY_TEST_NEUTRONICS_CM` (test-only knob, 2026-11-27) refines
+            // the neutronics mesh for a convergence study of the bare cylinder.
+            plan.roles[0].cell_size_cm = std::env::var("DHOBY_TEST_NEUTRONICS_CM").ok().and_then(|v| v.parse().ok()).unwrap_or(40.0);
             plan.roles[1].cell_size_cm = 25.0;
             plan.roles[2].cell_size_cm = 60.0;
             let dir = std::env::temp_dir()

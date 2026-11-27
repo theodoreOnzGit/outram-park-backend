@@ -95,6 +95,40 @@ pub enum DeltaCoeff {
 }
 
 impl DeltaCoeff {
+    /// The distance `[m]` this scheme divides by on the target face of an
+    /// AMI coupling: upstream's `cyclicAMIFvPatch::delta()` (OpenFOAM ESI
+    /// `6e2595746a39`, `cyclicAMIFvPatch.C:157`), the vector `Cf - C` of the
+    /// target face minus the AMI-interpolated `Cf - C` of its source faces
+    /// (`interpolate` = the weighted sum, weights as the coupling holds them;
+    /// no transform). Its length for [`Self::Orthogonal`] (`deltaCoeffs` =
+    /// `1/mag(delta)` on a coupled patch), `max(n . delta, 0.05 |delta|)` for
+    /// [`Self::NonOrthogonal`].
+    ///
+    /// ~~`|Cf_t - C_t| + |Cf_s - C_s|` per partial face~~ (CORRECTED
+    /// 2026-11-27, gh:#1860): by the triangle inequality never shorter than
+    /// upstream's, so every AMI seam conducted less. On the HTR-10 Step 7
+    /// neutronics mesh (polyhedral duals, 23 seams) the bare-cylinder k came
+    /// out +12.7 % from the analytic value. In the matching limit (one source,
+    /// weight 1, both deltas along the normal) the two forms agree.
+    #[must_use]
+    pub fn ami_delta(self, mesh: &crate::mesh::fv_mesh::FvMesh, coupling: &crate::mesh::ami::AmiCoupling) -> f64 {
+        let o = coupling.target_cell;
+        let d_t = mesh.face_centres[coupling.target_face] - mesh.cell_centres[o];
+        let mut d_n = crate::primitives::Vector3::ZERO;
+        for w in &coupling.weights {
+            d_n = d_n + (mesh.face_centres[w.source_face] - mesh.cell_centres[w.source_cell]) * w.weight;
+        }
+        let delta = d_t - d_n;
+        match self {
+            Self::Orthogonal => delta.mag(),
+            Self::NonOrthogonal => {
+                let sf = mesh.face_area_vectors[coupling.target_face];
+                let n = sf * (1.0 / sf.mag().max(1e-300));
+                n.dot(delta).max(0.05 * delta.mag())
+            }
+        }
+    }
+
     /// The distance `[m]` this scheme divides by on **internal** face `face`.
     ///
     /// The reciprocal is OpenFOAM's `deltaCoeffs`/`nonOrthDeltaCoeffs` entry for
@@ -260,7 +294,8 @@ fn boundary_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
 /// non-conformal: each target seam face overlaps several source faces. Each
 /// [`AmiCoupling`](crate::mesh::AmiCoupling) is assembled as a set of **partial
 /// internal faces**, one per weighted (target, source) overlap, each carrying
-/// `Γ·overlap_area / delta` with the symmetric internal-face stamp. Per target
+/// `Γ·overlap_area / delta` with the symmetric internal-face stamp, `delta`
+/// upstream's coupled one ([`DeltaCoeff::ami_delta`]). Per target
 /// the overlap areas sum to the target area, so the seam flux is distributed
 /// conservatively (`A·uniform = 0`); in the matching (conformal) limit this
 /// reduces exactly to the plain cyclic seam. Mirrors
@@ -280,12 +315,16 @@ pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
 /// Pass [`DeltaCoeff::NonOrthogonal`] to reproduce a case whose `fvSchemes`
 /// asks for `uncorrected` — every GeN-Foam neutronics case does.
 ///
-/// # Seam couplings are not covered
+/// # Seam couplings
 ///
-/// Cyclic and cyclicAMI seams keep the orthogonal `1/|d|` treatment whatever
+/// ~~Cyclic and cyclicAMI seams keep the orthogonal `1/|d|` treatment whatever
 /// `mode` says: OpenFOAM's coupled patches override `delta()` with a form this
 /// port does not yet implement, so silently applying the projection there would
-/// be a guess rather than a port. Do not rely on `mode` at a periodic seam.
+/// be a guess rather than a port. Do not rely on `mode` at a periodic seam.~~
+/// **CORRECTED 2026-11-27 (gh:#1860):** a cyclicAMI seam now uses upstream's
+/// coupled `delta()` with `mode` applied to it ([`DeltaCoeff::ami_delta`]).
+/// A plain cyclic seam still keeps `|d_a| + |d_b|` whatever `mode` says (not
+/// re-checked against upstream's `cyclicFvPatch::delta()`).
 pub fn laplacian_with_delta(
     gamma: &SurfaceScalarField,
     phi: &VolScalarField,
@@ -494,13 +533,13 @@ pub fn laplacian_with_delta_diag_and_source(
     let mut cf = mesh.ami_ldu_start();
     for coupling in &mesh.ami_couplings {
         let o = coupling.target_cell;
-        let d_t = (mesh.face_centres[coupling.target_face] - mesh.cell_centres[o]).mag();
+        // Upstream's coupled delta (`DeltaCoeff::ami_delta`), one per target
+        // face, shared by its partial faces.
+        let delta = mode.ami_delta(&mesh, coupling);
         // Γ on the seam taken from the target-patch boundary coefficient.
         let gamma_seam = gamma.boundary[coupling.target_patch].values[coupling.local];
         for w in &coupling.weights {
             let nb = w.source_cell;
-            let d_s = (mesh.face_centres[w.source_face] - mesh.cell_centres[nb]).mag();
-            let delta = d_t + d_s;
             if delta < 1e-300 {
                 cf += 1;
                 continue;

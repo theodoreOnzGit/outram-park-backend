@@ -443,8 +443,9 @@ pub fn parse_neighbour_patches(text: &str, file: &str) -> Result<Vec<Option<Stri
 /// ESI's `faceAreaWeightAMI` weights
 /// (`outram_foam_basic_lib::mesh::face_area_weight_ami`, upstream defaults:
 /// the two halves wound against each other, as two regions' outward faces
-/// are), each half coupled to the other in both directions, the first half
-/// of the pair (in patch order) as upstream's source. A `cyclicAMI` patch
+/// are), the first half of the pair (in patch order) as upstream's source,
+/// and **one coupling per source face**: the operators stamp it as a full
+/// internal face of the overlap area, so the seam is counted once. A `cyclicAMI` patch
 /// whose `neighbourPatch` is missing or does not name it back is an error.
 /// A face no partner face overlaps gets no coupling (the builder rejects an
 /// empty one) and so acts as a wall.
@@ -494,9 +495,14 @@ pub fn cyclic_ami_couplings(
         }
         let r = face_area_weight_ami(&geometry(p), &geometry(&patches[j]), &FaceAreaWeightAmiOptions::default())
             .map_err(|e| format!("cyclicAMI {} / {}: {e:?}", p.name, nbr))?;
+        // One side only: this crate's operators stamp an `AmiCoupling` as a
+        // full internal face (both cells' diagonals and both off-diagonals),
+        // so one half's couplings already carry the whole seam, as
+        // `FvMesh::periodic_ring_ami` builds them. ~~Both halves~~
+        // (2026-11-27) counted every interface twice: Step 10's bare-cylinder
+        // k came out +4.7 % from the analytic value.
         let (pi, pj) = (placement(i), placement(j));
         out.extend(r.to_ami_couplings(AmiPatchSide::Source, &pi, &pj));
-        out.extend(r.to_ami_couplings(AmiPatchSide::Target, &pj, &pi));
     }
     Ok(out)
 }
