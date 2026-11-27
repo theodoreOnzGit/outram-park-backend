@@ -4959,3 +4959,43 @@ None: the existing tests that exercise `one_phase_cc` pass unchanged (`genfoam_m
 ### Gates run (2026-11-27, release, `CARGO_BUILD_JOBS=2`, private `CARGO_TARGET_DIR`)
 
 `--test genfoam_radial_power_wired_vs_upstream` 8 passed; `--test genfoam_radial_power_models_vs_upstream` 8; `--test genfoam_refs_submodule_present` 1; `--test genfoam_msfr_th_vs_upstream` 6; `--test genfoam_msfr_th_pimple_vs_upstream` 14; `--test genfoam_msfr_th_nonorth_vs_upstream` 8; `--test genfoam_msfr_coupled_vs_upstream` 6 passed, 1 ignored; `--lib structure:: two_phase` 96; `petir --test no_platform_libm` 4; `bash scripts/check-nostd.sh` clean (includes `outram-foam-appbuilder-lib`). Not run: the full suites, the hour-scale ignored tests, `genfoam_msfr_allrun`/`chain`/`transient` (not touched by an energy-only change; the allrun reader literals gained `..CaseReadOptions::default()`).
+
+
+---
+
+# Round 38 (gh:#1878, remainder of #1866; child of #1216): `one_phase_fc` (`pEqnf_1p.H`): bit-identical `PCG`/`DIC` and the tight protocol first (item 5), then closed volume, Boussinesq, `noSlip`/`empty` (2-4), then the `nNonOrthogonalCorrectors` loop (1)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+## What was read before any run (2026-11-27; upstream = GeN-Foam 652b3da on ESI v2506)
+
+* `pEqnf_1p.H` + `pEqnRoutines/*` read in full. Differences from the cell-centred `pEqn_1p.H` that matter here: `rAUf` is `1/(interpolate(UEqn.A()) + alphaRhof/dt)` computed ONCE before the corrector loop, `phiHbyA = alpharAUf (alphaRhof0ByDt phi.old + flux(UEqn.H())) + alphaf phiSbyA`, and `setSnGrad<fixedFluxPressure>` takes `(phiHbyA_b - alphaf_b phi_b)/(magSf_b rAUf_b)`.
+* What the port's `one_phase_fc` had (read from the code, 2026-11-27): `p_rgh` solved by `solve_krylov` (ILU(0)-BiCGStab, `||r||/||b|| < tol`) at `solvers.p_rgh.tolerance` only, `p_rghFinal` never read (gh:#1857), no `nNonOrthogonalCorrectors`, no `setReference`, no Boussinesq, only `zeroGradient` velocity patches, and a convergence break `res < p_rgh_tolerance` (a different test from upstream's `converged = nIterations == 0`; to be checked in the translation).
+* Searched before writing (reuse, HARD RULE): `pcg_dic` (`two_phase/pcg.rs`), `PRghPcg` (`two_phase/mod.rs`), `GamgPolicy::SubstitutePcgDic` (`one_phase_cc.rs`), `VecEqn::{boundary_convection, boundary_laplacian}` and `Vector::patch_coeffs` (noSlip = `VectorBc::Fixed`), `Bc::FixedGradient`, `Bc::Empty`, `BoussinesqHConst` and the `setReference` branch of `one_phase_cc/flow.rs`, `PimpleState` (`one_phase_cc/pimple.rs`). All to be reused or ported from; none rewritten.
+
+## Cases and upstream references (real unmodified binary, serial; scratch runs under `/home/user/upstream-build/gh1361/runs/r38_*`, deleted after extraction)
+
+* **A, channel** (`tests/data/genfoam_1d_onephase`, round 4): the 40-cell channel, 108 steps to 1 s, tight (`1e-14`, `relTol 0`, `writePrecision 17`) with `p_rgh` `GAMG -> PCG/DIC` (`scripts/onephase_protocol.sh`, new `PSOLVER=pcg`; a solver-only change as rounds 16/21). Upstream took 108 steps; every `p_rgh` solve takes 1 iteration (a 1-D tridiagonal system): the channel cannot stress `PCG`.
+* **B, open cavity** (`tests/data/genfoam_2d_cavity_open`, new; derivation and the two aborted earlier variants in its `PROVENANCE.md`): 40 x 40 two-dimensional (`empty`) face-centred flow, sodium thermo, `p_rgh` `fixedValue` top and bottom, all velocity patches `zeroGradient`, i.e. needs nothing beyond what round 4 ported. Upstream (`scripts/fc_protocol.sh`, `TIGHT=1 PSOLVER=pcg`, `maxIter` lines removed so PCG can reach 1e-14): 618 steps to 1 s, 44,496 `p_rgh` solves, mean 42.3, max 73 iterations.
+
+## Comparison criteria (fixed here, BEFORE the first port run; none will change after seeing results)
+
+* Fields (`p p_rgh T U.x U.y T.fixedPower htc Re`): `max|port - upstream| / max|upstream|` per field at every compared step; `contErr` scaled by `max(alpha rho)/dt` and `dgdt` by `1/dt` (as round 4). `deltaT` of every step must be bit-identical.
+* `p_rgh` solve log (the port records every solve; upstream's log, in order): the number of solves per step must be EQUAL. Per solve, by the UPSTREAM initial residual `r_up`: (i) `r_up >= 1e-8`: iterations within 1 and `|r_port - r_up| / r_up <= 1e-3`; (ii) `1e-11 <= r_up < 1e-8`: iterations within 2 and `0.1 <= r_port / r_up <= 10`; (iii) `r_up < 1e-11` (the round-off floor, round 33/37 precedent): NOT compared by count; `r_port <= 10 r_up` or `<= 1e-10`. The number of solves violating (i)/(ii) is REPORTED per case; gate: none violate.
+* Bit-identity is the goal; the 1e-9 allowance (direct) / 1e-4 (propagated) applies only with an explained cause.
+* Gates (set now): fields <= 1e-11 at every step of the channel, <= 1e-9 at every compared step of the open cavity, `contErr`/`dgdt` (scaled) <= 1e-9.
+
+## Predictions, item 5 (written before the first port run of this round; committed first)
+
+| id | quantity | prediction (sign, size) | if missed |
+|---|---|---|---|
+| F1 | channel, 108 steps, `PCG`/`DIC` default | every field at every step `<= 1e-12`, i.e. at or below round 4's `5.3e-12`: `p`, `p_rgh` `<= 3e-13` (round 4: `2.5e-13` with BiCGStab), `U <= 3e-12`; NOT bit-identical (the round-4 causes, `fvMatrix::relax` order and the `ddt` correction, are not touched) | a worse number means the PCG path differs from upstream's in the `fixedValue` outlet handling: bisect by `nOuterCorrectors 1`, `nCorrectors 1` |
+| F2 | channel, solve log | 1 iteration per solve in both, all solves after the first corrector of tier (iii); counts equal | |
+| F3 | open cavity, step 1 | fields `<= 1e-11`; solve counts equal; tier (i) solves agree to 1 iteration | first diverging operation to be found by `nOuterCorrectors 1`, `nCorrectors 1` upstream runs |
+| F4 | open cavity, steps up to 100 | fields `<= 1e-10` (round-off accumulated through 72 `PCG` solves per step, each about 40 iterations); the worst does not shrink by more than 3x with the step | |
+| F5 | open cavity, solve log | more than 99 % of the tier (i)/(ii) solves have counts within 1; some tier (iii) pairs differ by more than 10 iterations (round 33 finding) | |
+| C1 | control: the old `ILU-BiCGStab` option (`with_krylov_for_p_rgh`) against the same upstream | open cavity step 1 worst field `>= 10x` F3's worst (predicted `1e-9` to `1e-6`: its stop rule `||r||/||b|| < 1e-14` is not OpenFOAM's normalised residual) | the comparison could not fail: the gate is meaningless |
+| C2 | control: the port at the SHIPPED tolerance (`1e-6`, `relTol 0`) against the tight upstream | open cavity step 1 worst field `>= 1e-8` | |
+| C3 | nothing else moves | `genfoam_one_phase_vs_upstream` (round 4) passes with its numbers unchanged when it selects `with_krylov_for_p_rgh`; `genfoam_msfr_th*` and the two-phase suites are untouched (no shared function is edited) | record old/new and cause |
+
+Items 2-4 (cavity as shipped) and item 1 get their own prediction commits before their first port runs.
