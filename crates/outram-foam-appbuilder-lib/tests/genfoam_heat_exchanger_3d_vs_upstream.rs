@@ -5,7 +5,7 @@
 //!
 //! AI-written, not human-reviewed. Research, education and V&V only.
 //!
-//! `cases/esfr_hx`: the shipped `3D_SmallESFR` fluid mesh (23322 hexahedra) with the `2D_MSFR` `steadyStateTH` settings, the core split into two
+//! `cases/esfr_hx`: the shipped `3D_SmallESFR` fluid mesh (~~23322 hexahedra~~ **CORRECTED 2026-11-27 (gh:#1911, round 71; counted: every one of the 23322 cells has 6 vertices and 5 faces): 23322 triangular prisms, 169 hexagonal assemblies of 6 prisms per layer**) with the `2D_MSFR` `steadyStateTH` settings, the core split into two
 //! halves `hxA`, `hxB` of equal volume, two mirrored exchangers (`ABHX`, `BAHX`), a nonuniform initial `T` (900 K, 800 K in `hxB`), three
 //! steps, tight 1e-14 solvers. Reference `refs/esfr_hx_r52.ref.txt.gz` (real binary: every 11th cell of `U p_rgh T`, every 7th core cell of
 //! `T T.HX htc`, every linear solve) and `refs/esfr_hx_r52_mapping.ref.txt.gz` (`upstream_driver/hx_mapping_dump`: ESI's own `meshToMesh`
