@@ -198,6 +198,9 @@ fn pin_fields(s: &TwoPhaseSolver) -> Vec<(String, Vec<f64>)> {
                 out.push(("T.lumpedNuclearStructure".into(), MID.flat_map(|c| l.nodes(c).to_vec()).collect()));
             }
             RadialPowerModel::InterpolatedNuclearFuelPin(_) => {}
+            // Added 2026-11-27 (round 71's variant): no twoPhase case compared here selects `nuclearFuelPinTest`,
+            // and the writer refuses its written fields by name (README round 71), so it contributes no fields.
+            RadialPowerModel::NuclearFuelPinTest(_) => {}
         }
     }
     out
