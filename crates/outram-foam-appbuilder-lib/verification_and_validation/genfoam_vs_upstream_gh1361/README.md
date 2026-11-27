@@ -9029,3 +9029,58 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 
 * **P1 held: no recorded number moved.** Passing, unchanged: `genfoam_coupled_tutorials_requirements` (2), `genfoam_msfr_allrun_vs_upstream` (6 run, 2 hour-scale `#[ignore]` not run: they use `AllrunEdits::default()`, whose value is unchanged), `genfoam_gamg_vs_upstream` (3), `genfoam_gamg_smoothers_vs_upstream` (4), `genfoam_one_phase_fc_vs_upstream` `gamg`-filtered (4, incl. the `r72_*`), `genfoam_heat_exchanger_{cc,3d}_vs_upstream` (4+3), `genfoam_radial_power_wired_vs_upstream` (8), `genfoam_msfr_th_pimple_vs_upstream` (14); `cargo check --lib --no-default-features --target x86_64-unknown-none` clean. No test needed the old default made explicit: every GAMG-reading test already named its policy; the default-reading tests use cases without a `GAMG` `p_rgh` (the policy is consulted only for `GAMG`).
 * **P2 held.** `genfoam_gamg_is_default` (2) and `genfoam_msfr_allrun_vs_upstream::gamg_is_the_default_and_the_allrun_protocol_is_named`: the shipped 2D_MSFR rootCase read with `CaseReadOptions::default()` is accepted with `p_rgh_gamg_substituted == false`; `SubstitutePcgDic` set explicitly substitutes; `AllrunEdits::default().gamg == SubstitutePcgDic`; `AllrunEdits::as_shipped_gamg()` (`Native`) is accepted by `steady_state_th` on the shipped case. Not run: a 15 s as-shipped-GAMG MSFR stage against a real run that kept GAMG (no such reference exists; filed as a possible follow-up on gh:#1947).
+
+
+
+# Round 77 (gh:#1951 under #1947/#1937/#1216; maintainer 2026-11-27: "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS and stopping rules): the 2D_MSFR Allrun chain with GAMG KEPT AS SHIPPED (`AllrunEdits::as_shipped_gamg()`), against the real binary (predictions and criteria written and committed BEFORE any real run and before any port run on a new number)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 75 (gh:#1948/#1950): keep both on merge.
+
+## What was checked before writing (search-before-building)
+
+* **The protocol script already has the switch.** `scripts/run_msfr_th_tight.sh` with `PSOLVER=gamg` SKIPS the `GAMG -> PCG/DIC` perl edit (round 21 used it for the shipped-tolerance 15 s run, `msfr_th15_shipped_*`); `scripts/run_msfr_chain.sh` (EN, transient) NEVER edited `GAMG` at all. New: `scripts/run_msfr_allrun_gamg.sh` (one entry point, `th|en|transient`, that names the protocol), `WRITE_INTERVAL` in `run_msfr_th_tight.sh` and `TH_END` in `run_msfr_chain.sh` (defaults unchanged: 1 and 15).
+* **Extraction already exists**: `extract_msfr_th_log.sh` (per solve `PRGH/EPS/K/H/TSTAT`), `extract_msfr_th_fields.sh`, `extract_msfr_th15.sh` (`N`, `DT`, fields), `extract_msfr_en_reference.sh` (EN and transient logs). The port side: `RootCase::steady_state_th` / `steady_state_en` / `start_transient` with `AllrunEdits`, `ThRecord.pressure_solves` (outer, corrector, initial residual, iterations), `compare_th_fields`, `compare_en` of `tests/genfoam_msfr_allrun_vs_upstream.rs` (its helpers are copied into the new test file, as every test file here does).
+* **What the shipped MSFR selects of GAMG** (read from `rootCase/system/fluidRegion/fvSolution`): `p_rgh { solver GAMG; smoother DIC; tolerance 1e-7; relTol 0; }`, `p_rghFinal { $p_rgh; relTol 0; }`: every other GAMG entry is the ESI v2506 default, i.e. exactly what round 67 ported (`faceAreaPair`, `DIC`, `nPreSweeps 0`, `nPostSweeps 2`, `nFinestSweeps 2`, `mergeLevels 1`, `nCellsInCoarsestLevel 10`, `cacheAgglomeration true`, `scaleCorrection` on, `directSolveCoarsest false`, `maxIter 1000`). Round 76 already showed the shipped MSFR rootCase is ACCEPTED under `Native`. **Prediction: no GAMG feature is refused for MSFR, so none is ported in this round**; if a refusal appears it is a finding and gets the round 72 method (instrumented COPY `GAMGdump`, line-by-line port with file/line citations, single solves bit-identical). The `neutroRegion` fvSolution selects no GAMG. The EN and transient stages set `solveFluidMechanics false`: `p_rgh` is not solved there.
+* Round 67 measured on FFTF that the as-shipped loose protocol is round-off sensitive after ~9 steps (gh:#1937): the loose comparison below is therefore a solve-count / macroscopic-quantity comparison, never a point-wise one.
+
+## Protocol (both sides identical)
+
+`2D_MSFR` `rootCase` as shipped (`/home/user/upstream-build/gh1812/runs/rootCase`: only `writePrecision 17`, `writeCompression off` differ from the shipped `controlDict`), the Allrun `setSteadyStateTH`/`setSteadyStateEN`/`setTransient` edits, **`p_rgh` keeps `solver GAMG; smoother DIC;`**, and:
+
+* **Tight (T)**: every `tolerance 1e-14`, `relTol 0` in every `fvSolution` of the stage (round 67's tight-GAMG protocol; GAMG then sits at its round-off floor and stops at `maxIter 1000`).
+* **Loose (L)**: solvers as shipped (`1e-7`, `relTol 0`), `writePrecision 17`.
+* Real runs (serial, GeN-Foam 652b3da on ESI v2506, scratch `/home/user/upstream-build/gh1951`, deleted after extraction):
+  * **R-T1** `run_msfr_allrun_gamg.sh th` (`WRITE=step`, `END_TIME=0.5`): every step written; M steps (M is read from the real log; the shipped dt sequence reaches 0.5 s at step 41).
+  * **R-T2** the same with `WRITE=adjustable WRITE_INTERVAL=0.5` (`adjustableRunTime`, last step lands on 0.5): the hand-over state of the chain.
+  * **R-TE** `run_msfr_allrun_gamg.sh en` (`TH_END=0.5 EN_END=150.5 EN_WRITE=50`, 600 steps of 0.25 s) from R-T2's own `0.5`, then **R-TT** `transient` (`END_TIME=160.5`) from R-TE's own `150.5`.
+  * **R-L1** `th` with `PROTOCOL=shipped WRITE=adjustable END_TIME=15` (the real as-shipped 15 s, 1 965 steps in the round 21 run, ~9 min); **R-L2** the same with ONE input changed by one ulp (`0/fluidRegion/T internalField uniform 900 -> 900.0000000000001`), to measure the protocol's own sensitivity (gh:#1937 method).
+* Port: `AllrunEdits::as_shipped_gamg()` with `end_time_th = 0.5`, `write_interval_th = None` (T steps) / `Some(0.5)` (T chain) / `Some(1.0)` and `end_time_th = 15` (L); chain `end_time_en = 150.5`, `end_time_transient = 160.5`; the EN stage starts from the port's OWN TH state (in memory), the transient from the port's own EN state; no upstream number is an input.
+
+## Criteria (fixed here; none will change after seeing results)
+
+* **C1 (T, TH steps)**: the M steps of R-T1. Kept steps 1, 2, 5, 10, 20, M (fields written by every step; `U p p_rgh T k epsilon nut alphat alphaPhi alphaRhoPhi htc T.fixedTemperature`; **if a ref file exceeds 10 MB the kept steps are reduced and the deviation recorded post-run**): fields `<= 1e-9` (`U` on `max|U|`, the rest on the field's own max-norm); `dt` sequence `<= 1e-12` relative; `T (avg min max)` lines `<= 1e-9`; every `p_rgh` solve's initial residual: absolute `<= 1e-11` for solves above `1e-10` (round 67's criterion, kept although it was missed there by 1.2e-11); `p_rgh` GAMG iteration counts equal for every solve that stops below `maxIter`, a solve at `maxIter 1000` REPORTED, NOT GATED; `h`/`k`/`epsilon` iteration counts at the noise floor REPORTED, NOT GATED. Step count equal. First diverging step and cause recorded.
+* **C2 (T, chain)**: from R-T2's state. EN, 600 steps: `keff_`, `power:` `<= 1e-9` per step; `T (avg min max)` of every outer iteration `<= 1e-9`; `Time` equal; first `h` residual REPORTED, NOT GATED (noise floor); at 150.5 s `powerDensity` `<= 1e-8` (own max-norm), `T` `<= 1e-9`, final `keff_` `<= 1e-9`. Transient, the first 50 steps: `deltaT` `<= 1e-9`, `T` `<= 1e-9`, `power:` `<= 1e-9`; `keff_` frozen (bitwise). **C2b**: the real EN and transient logs contain NO `p_rgh` / `GAMG` solver line (so the GAMG policy cannot matter in them), and the port's EN stage built from the SAME TH state under `as_shipped_gamg()` and under `AllrunEdits::default()` gives a bit-identical `keff_` history.
+* **C3 (L, loose, 15 s)**: against R-L1. The loose caveat of round 67 applies: **iteration counts, residual sequences and fields point by point are NOT gated beyond the step where the real binary itself parts from its own 1-ulp perturbation (R-L2)**. Gated: macroscopic quantities `dt` at every step and `T (avg min max)` lines of every outer iteration, with the gate for each quantity `q` = **10 x the largest difference between R-L1 and R-L2 in `q` over the same span, floored at 1e-9** (the rule is fixed now; the number is measured on the two REAL runs before the port is run on the loose case). Reported, not gated: step count (a difference is recorded with its first step), every `p_rgh` iteration count (the first step where counts differ, and the count of differing solves over the first 300 steps), `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat` at 1, 5, 10, 15 s against R-L1 (relative to max-norm). The earlier `SubstitutePcgDic` numbers of round 21 (`p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10, `U` 4.1e-6, `k` 1.0e-5 at worst over 1, 5, 10, 15 s) are quoted for comparison, not as gates.
+* **Control**: the same TH steps with `AllrunEdits::default()` (`SubstitutePcgDic`) against R-T1 must NOT satisfy C1 at 1e-9 (the PCG substitute is a different solver; if it did, C1 would not discriminate); reported.
+* **Earlier numbers (rounds 3-76) must not move**: `genfoam_msfr_allrun_vs_upstream` (non-ignored), `genfoam_gamg_vs_upstream`, `genfoam_gamg_is_default` re-run; anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+* Refs are each under 10 MB; `outram-foam-basic-lib` and `genfoam/common/gamg.rs` are not edited (kovan-reviewed functions are not touched).
+
+## Predictions (written before any run)
+
+| id | quantity | prediction | probability |
+|---|---|---|---|
+| H1 | R-T1: every `p_rgh` solve stops at `maxIter 1000` (the floor, as FFTF round 67) | yes | 70 % |
+| H2 | R-T1 real wall time per step (36 solves of up to 1 000 V-cycles on 8 595 cells) | 8 to 40 s; M = 41 +- 2 steps | 60 % |
+| H3 | C1 fields, `dt`, `T` lines at the gates over M steps; no first diverging step | held | 65 % |
+| H4 | C1 `p_rgh` initial residual absolute difference `<= 1e-11` | held | 50 % (round 67 missed it by 1.2e-11 at the matrix round-off ~1e-12) |
+| H5 | C1 all upstream `p_rgh` solves at `maxIter` and the port's too (counts equal by construction) | yes | 70 % |
+| H6 | C2 EN `keff_`/`power:`/`T` `<= 1e-9` over 600 steps; transient 50 steps `<= 1e-9` | held | 75 % |
+| H7 | C2b no GAMG/`p_rgh` solve line in the real EN and transient logs; port EN bit-identical under both policies | held | 97 % |
+| H8 | C3 real R-L1 vs R-L2 (1 ulp): the iteration counts part before step 50 | yes | 85 % |
+| H9 | C3 R-L1 has 1 965 steps (as `msfr_th15_shipped_log`: determinism of the real binary) | yes | 90 % |
+| H10 | C3 port `as_shipped_gamg` against R-L1: `dt` and `T` lines inside 10 x the real sensitivity | held | 60 % |
+| H11 | C3 15 s fields against R-L1: `p_rgh`, `U` no worse than the `SubstitutePcgDic` numbers of round 21 (5.1e-7, 4.1e-6) | held | 55 % |
+| H12 | C3 port `p_rgh` iteration counts equal to the real ones for the first 9 steps, parted before step 300 | both | 65 % |
+| H13 | control: `SubstitutePcgDic` fails C1 at 1e-9 | yes | 95 % |
+| H14 | no GAMG feature is refused for MSFR; nothing new is ported | yes | 90 % |
+| H15 | nothing earlier moves | yes | 95 % |
