@@ -5178,6 +5178,10 @@ The `dk` is at the 1e-15 to 1e-13 level of round 2's slabs (3e-14 to 6e-14): the
 * SN anisotropic scattering (#1474 item c): nothing to port, see the first section.
 
 
+---
+
+# Round 38 (gh:#1878), continued: items 2-4 results (the cavity as shipped), item 1 predictions and results (merge note: another agent's Round 39 section was appended between the two halves)
+
 ## Items 2-4: results of the cavity AS SHIPPED (measured 2026-11-27, release; `tests/genfoam_one_phase_fc_vs_upstream.rs`)
 
 Reference `refs/fc_cav_pcg` (the real binary on the shipped files, `GAMG -> PCG/DIC`, 3169 steps to 30 s, 228,168 `p_rgh` solves, mean 53 iterations; fields at steps 1, 2, 3, 10, 50, 100, 300, 1000 and the last; solve log of the first 300 steps). The comparison is 300 steps.
