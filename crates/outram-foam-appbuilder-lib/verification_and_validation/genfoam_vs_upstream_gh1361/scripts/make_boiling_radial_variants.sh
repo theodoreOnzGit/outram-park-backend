@@ -18,12 +18,15 @@
 #   hp_field heatedPin  as hp but the dictionary has NO `powerDensity`; the cell values come from `0/fluidRegion/powerDensity.heatedPin`
 #            (the way 2D_KNS37-L22 supplies them: `READ_IF_PRESENT` field, `structure::setRegionField` does nothing when it is present).
 #            The field is 4.5e8 * (0.8 + 0.4 (i-10)/19) on cells 10..29 (a 20 % linear tilt, written with 17 digits) and 0 elsewhere.
-#   hp_off   as hp plus `powerOffCriterionModel { type timer; time 0.3; }` (the KNS37 tutorial has the same entry, time 12.475):
+#   hp_off   as hp with the shipped `powerOffCriterionModel { type timer; time 7; }` set to time 0.3 (the shipped file has this entry; the KNS37 tutorial has time 12.475):
 #            `structure::checkPowerOff` -> `heatedPin::powerOff` (`powerDensity_ *= 0`).
 #   nfp      nuclearFuelPin  2D_fullCoupling zone0 (hollow fuel 0.0012..0.004715, clad 0.004865..0.005365, fuelMeshSize 16, cladMeshSize 4,
 #            fuelRho 10480 fuelCp 250, cladRho 7500 cladCp 500, gapH 3000, fuelK 3, cladK 20, fuelT = cladT = 600), powerDensity 4.5e8 (shipped,
 #            the neutronics' `powerDensityNeutronics` through `setRegionField`).
 #   nfp_tab  the same with `gapHPowerDensity table ((0 1500) (1e8 3000) (4e8 6000))` instead of `gapH`.
+#   nfp_hot  as nfp with powerDensity 9e8 (2x): a CASE-DESIGN choice made after the upstream run of `nfp` showed the fluid reaching 1017 K of the
+#            1161 K saturation in 12 s without a boiling onset; the number is not an input of any comparison (the comparison is port against
+#            upstream on the same case) and 2x is the smallest round factor, recorded as a post-run decision in README round 41.
 #   lns      lumpedNuclearStructure  1D_thermalMSR_pointKinetics "core" VERBATIM (nodesNumber 1, heatConductances (450000 225000), rhoCp 5357692,
 #            powerDensity 5e6, volumetricArea 40, T0 900) plus `kappaMatrix 12` (round 35/37's value, so the mesh Laplacian is exercised). The shipped
 #            power is 90x smaller than 1D_boiling's, so this variant stays single phase: it is a single-phase test of the lumped wiring.
@@ -40,7 +43,9 @@ variant() { # name <powerModel block text> [yes: add the powerOffCriterionModel]
   cp "$BASE/constant/fluidRegion/phaseProperties" "$f"
   PM="$2" perl -0pi -e 's/(\n\s*)powerModel\s*\{[^}]*\}/$1 . $ENV{PM}/e' "$f"
   if [ "$3" = yes ]; then
-    perl -0pi -e 's|\n/\*\n    Example cellZone\(s\) subDict|\n    powerOffCriterionModel\n    {\n        type            timer;\n        time            0.3;\n    }\n\n/*\n    Example cellZone(s) subDict|' "$f"
+    # the shipped phaseProperties ALREADY ends with `powerOffCriterionModel { type timer; time 7; }` (the later duplicate key wins in OpenFOAM and in the
+    # port): change THAT entry's time, do not add a second block (the first version of this script did, and was silently overridden: README round 41)
+    perl -0pi -e 's/(type\s+timer;\s*\n\s*\/\/-\s*\n\s*time\s+)7;/${1}0.3;/' "$f"
   fi
 }
 HP='        powerModel
@@ -110,6 +115,11 @@ $NFP_COMMON
                 (1e8 3000)
                 (4e8 6000)
             );
+        }"
+variant nfp_hot "        powerModel
+        {
+${NFP_COMMON/4.5e8/9e8}
+            gapH                3000;
         }"
 variant lns '        powerModel
         {

@@ -50,7 +50,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 
-use super::super::fv::Geometry;
+use super::fv::Geometry;
 
 /// `fvc::laplacian(vf)` with `laplacianSchemes Gauss linear uncorrected` (ESI `gaussLaplacianScheme::fvcLaplacian`):
 /// `fvc::div(snGrad(vf)*mesh.magSf())` = `fvc::surfaceIntegrate`, i.e. the internal faces `deltaCoeffs (vf_N - vf_P) |Sf|`
@@ -82,7 +82,7 @@ mod reader {
     use uom::si::f64::Time;
     use uom::si::time::second;
 
-    use super::super::super::case::{scalar, Ctx};
+    use super::super::case::{scalar, Ctx};
     use crate::error::AppBuilderError;
     use crate::genfoam::common::TimeProfile;
     use crate::genfoam::thermal_hydraulics::structure::heated_pin::{HeatedPin, HeatedPinRegion};
@@ -193,6 +193,7 @@ mod reader {
         fdir: &Path,
         corrected_ring_areas: bool,
         q_file: Option<Vec<f64>>,
+        heated_pin_q_file: Option<Vec<f64>>,
     ) -> Result<RadialRead, AppBuilderError> {
         let n = alpha_structure.len();
         // 1. the types in order of first appearance, and the regions of each (`dicts.add(zone, powerModelDict)`)
@@ -228,6 +229,10 @@ mod reader {
                 _ => &["T.interpolatedNuclearFuelPin"],
             };
             for f in own_files {
+                // `powerDensity.heatedPin` is READ when the caller supplies it (`heated_pin_q_file`): upstream's `setRegionField` then does nothing
+                if *f == "powerDensity.heatedPin" && heated_pin_q_file.is_some() {
+                    continue;
+                }
                 if fdir.join(f).exists() {
                     return Err(ctx.e(format!("{ty}: the start directory holds `{f}` (a restart from the model's own state is not ported)")));
                 }
@@ -256,11 +261,14 @@ mod reader {
                             rho_cp: rho_cp(ctx, pm, "rho", "Cp", "rhoCp", &format!("heatedPin region {zone}"))?,
                             k: ctx.f64(pm, "k")?,
                             initial_temperature: ctx.f64(pm, "T")?,
-                            power_density: ctx.f64(pm, "powerDensity")?,
+                            power_density: if heated_pin_q_file.is_some() { 0.0 } else { ctx.f64(pm, "powerDensity")? },
                             volume_fraction: pm_alpha(pm),
                         });
                     }
-                    let m = HeatedPin::new(n, rs, alpha_structure, volumes, 0).map_err(|e| model_err(ctx, ty, e))?;
+                    let mut m = HeatedPin::new(n, rs, alpha_structure, volumes, 0).map_err(|e| model_err(ctx, ty, e))?;
+                    if let Some(file) = &heated_pin_q_file {
+                        m.set_power_density_field(file);
+                    }
                     models.push(RadialPowerModel::HeatedPin(m));
                 }
                 "nuclearFuelPin" => {

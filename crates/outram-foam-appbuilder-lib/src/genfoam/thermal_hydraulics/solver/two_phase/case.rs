@@ -609,6 +609,17 @@ impl TwoPhaseCase {
     /// selection the port cannot honour.
     #[allow(clippy::too_many_lines)]
     pub fn read(root: &Path) -> Result<Self, AppBuilderError> {
+        Self::read_with_radial_ring_areas(root, false)
+    }
+
+    #[cfg(feature = "std")]
+    /// [`TwoPhaseCase::read`] with round 35's CONTROL for `nuclearFuelPin` (`corrected_ring_areas = true` fixes the two ring-area
+    /// slips of upstream; never the default).
+    ///
+    /// # Errors
+    /// As [`TwoPhaseCase::read`].
+    #[allow(clippy::too_many_lines)]
+    pub fn read_with_radial_ring_areas(root: &Path, corrected_ring_areas: bool) -> Result<Self, AppBuilderError> {
         let ctx = Ctx {
             root: root.to_path_buf(),
         };
@@ -867,8 +878,16 @@ impl TwoPhaseCase {
                 }
             }
             if let Some(pm) = zd.get_dict("powerModel") {
-                if word(pm, "type").as_deref() != Some("fixedPower") {
-                    return Err(ctx.e("only the fixedPower powerModel is ported"));
+                let ty = word(pm, "type");
+                if ty.as_deref().is_some_and(|t| super::radial_power::RADIAL_TYPES.contains(&t)) {
+                    // built after the loop by `read_radial_power_models`, which needs every zone's structure alpha (gh:#1884)
+                    continue;
+                }
+                if let Some(t) = ty.as_deref().filter(|t| matches!(*t, "nuclearFuelPinTest" | "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU")) {
+                    return Err(ctx.e(super::radial_power::refusal_reason(t)));
+                }
+                if ty.as_deref() != Some("fixedPower") {
+                    return Err(ctx.e("only the fixedPower and the radial-conduction powerModels (heatedPin, nuclearFuelPin, lumpedNuclearStructure, interpolatedNuclearFuelPin) are ported"));
                 }
                 let power_profile = match pm.get_dict("powerTimeProfile") {
                     Some(d) => Some(read_table_time_profile(&ctx, d, "powerTimeProfile")?),
@@ -917,7 +936,52 @@ impl TwoPhaseCase {
                 }
             }
         }
-        let structure = Structure::new(&g, alpha_s, dh_s, power, power_off);
+        // ---- the radial-conduction power models (gh:#1884): the one-phase reader, shared (`radial_power.rs`)
+        let has_radial = sp.iter().any(|(_, e)| match e {
+            FoamEntry::SubDict(zd) => zd
+                .get_dict("powerModel")
+                .and_then(|pm| word(pm, "type"))
+                .is_some_and(|t| super::radial_power::RADIAL_TYPES.contains(&t.as_str())),
+            _ => false,
+        });
+        let read_cells = |name: &str| -> Result<Option<Vec<f64>>, AppBuilderError> {
+            let path = root.join(format!("0/{region}/{name}"));
+            if !has_radial || !path.exists() {
+                return Ok(None);
+            }
+            let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field(&path, mesh.clone())
+                .map_err(|e| ctx.e(format!("{name}: {e}")))?;
+            Ok(Some(f.internal.as_slice().to_vec()))
+        };
+        let q_file = read_cells("powerDensityNeutronics")?;
+        let hp_file = read_cells("powerDensity.heatedPin")?;
+        let radial = super::radial_power::read_radial_power_models(
+            &ctx,
+            &sp,
+            &zone_cells,
+            &alpha_s,
+            &mesh.cell_volumes,
+            &root.join(format!("0/{region}")),
+            corrected_ring_areas,
+            q_file,
+            hp_file,
+        )?;
+        if radial.needs_laplacian {
+            // `fvc::laplacian(Tmatrix)` is the `uncorrected` form only
+            let schemes = ctx.read(&format!("system/{region}/fvSchemes"))?;
+            let d = ctx.sub(&schemes, "laplacianSchemes")?;
+            let uncorrected = match d.get("default") {
+                Some(FoamEntry::Tokens(vs)) => {
+                    vs.iter().any(|v| matches!(v, outram_foam_basic_lib::io::FoamValue::Word(w) if w == "uncorrected"))
+                }
+                _ => false,
+            };
+            if !uncorrected {
+                return Err(ctx.e("lumpedNuclearStructure with kappaMatrix != 0 needs laplacianSchemes `Gauss linear uncorrected` (the only fvc::laplacian ported)"));
+            }
+        }
+        let structure = Structure::new(&g, alpha_s, dh_s, power, power_off)
+            .with_radial_power_models(radial.models, radial.q_neutronics, radial.needs_laplacian);
 
         // regime map
         let mut regime_map_name: Option<String> = None;

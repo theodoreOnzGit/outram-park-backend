@@ -142,12 +142,6 @@ structureProperties
         }
     }
 
-    powerOffCriterionModel
-    {
-        type            timer;
-        time            0.3;
-    }
-
 /*
     Example cellZone(s) subDict for three postulated cellZones, zone0, zone1
     and zone2 that share the same properties
@@ -480,7 +474,7 @@ structureProperties
         type            timer;
 
         //-
-        time            7;
+        time            0.3;
     }
 }
 

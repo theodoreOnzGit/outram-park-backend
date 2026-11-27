@@ -75,7 +75,8 @@ use crate::genfoam::common::TimeProfile;
 
 mod flow;
 mod pimple;
-mod radial_power;
+#[cfg(feature = "std")]
+use super::radial_power;
 mod turbulence;
 pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
@@ -85,7 +86,7 @@ pub use turbulence::{
     WallFunctionCoeffs,
 };
 use turbulence::TurbState;
-pub use radial_power::fvc_laplacian_uncorrected;
+pub use super::radial_power::fvc_laplacian_uncorrected;
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
@@ -806,6 +807,7 @@ impl OnePhaseCcCase {
             &fdir,
             options.radial_corrected_ring_areas,
             q_file,
+            None,
         )?;
         if hand.is_some() && !radial.models.is_empty() {
             return Err(ctx.e("radial power models cannot continue from handed-over fluid fields (their own state is not handed over)"));

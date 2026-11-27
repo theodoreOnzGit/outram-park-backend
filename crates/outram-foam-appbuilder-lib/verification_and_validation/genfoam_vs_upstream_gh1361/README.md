@@ -5443,3 +5443,81 @@ With upstream's `PCG`/`DIC` and normalised residual, the port's first `fluxStar0
 * The residual non-bit-identity of the diffusion pseudo-time guided slabs (step-1 `dk` 5e-14 on guided 2) and of A, G of the external source: not localised.
 * `GAMG` has no faithful port (gh:#1843); `relTol`/`minIter` are carried by `LinearSolverForm::Upstream` but the case readers do not yet read them from `fvSolution` (the tests and the workflow use the tight protocol `relTol 0`).
 * Not re-run: the hour-scale `#[ignore]` tests (`msfr_coupled` 452-step run, 1090 s; `msfr_allrun` TH stage; `godiva_sn_step`; `msfr_transient` diagnostics). They use the same neutronics code path as the non-ignored tests that were re-run.
+
+## Round 41 results (2026-11-27, release, `CARGO_BUILD_JOBS=2`, private target dir; `tests/genfoam_two_phase_radial_power_vs_upstream.rs`, 10 tests + 1 ignored diagnostic, ~28 s; `--nocapture` prints every table)
+
+Upstream: the real unmodified GeN-Foam 652b3da on ESI v2506, `scripts/boiling_radial_variant_protocol.sh` (tight protocol, MULES as shipped, every step written), variants of `cases/boiling_radial_r41/`; references `refs/boiling_radial_r41_<variant>_<lo>_<hi>.ref.txt.gz` (29 files, 0.14-0.36 MB each, **7.1 MB in all**; refs submodule commit f1c5dcd). Runs: hp 27 s (1215 steps to t = 12), hp3 170 s (3643 steps, upstream ABORTS with SIGFPE at t = 9.34 s, 3 s after the onset, as the `both` run of round 7 did), nfp 30 s, nfp_hot 1364 steps (aborts at t = 6.44 s).
+
+### Upstream -> Rust mapping
+
+| upstream | Rust |
+|---|---|
+| `structure` constructor: `iAact_ += iter()->iA(); iter()->correctT(Tact_)` (`structure.C:836-837`) | `Structure::with_radial_power_models` (`two_phase/mod.rs`) |
+| the `powerModel` table read from `structureProperties` (one dictionary per type, keyed by zone) | `radial_power::read_radial_power_models` (round 37's reader, MOVED from `one_phase_cc/` to `two_phase/radial_power.rs` and shared; `TwoPhaseCase::read_with_radial_ring_areas`) |
+| `heatedPin` `powerDensity.heatedPin` `READ_IF_PRESENT` + `setRegionField` doing nothing when present (`heatedPin.C:87-98, 157`) | `read_radial_power_models(.., heated_pin_q_file)` + `HeatedPin::set_power_density_field` (two-phase only; the one-phase call still refuses the file) |
+| `structure_.correct(H1s*T1 + H2s*T2, H1s + H2s)` (`EEqns_2p.H:331`, post-solve `T1`, `T2`); `iter()->correct(HT,H); iter()->correctT(Tact_)`; `Twall = Tact`; `heatFlux = H Twall - HT` (`structure.C:987-1000, 1058-1066`) | `TwoPhaseSolver::radial_structure_correct` (after the `fixedPower` block of `correct_energy`) |
+| `structure_.checkPowerOff()` -> `powerOff()` of every model (`structure.C:1162`; only `heatedPin`, `fixedPower`, `fixedTemperature` override the empty base) | the existing criterion block of `correct_energy`, now also `RadialPowerModel::power_off` (only `HeatedPin` acts) |
+| `lumpedNuclearStructure::correct`: `fvc::laplacian(Tmatrix_)` | `radial_power::fvc_laplacian_uncorrected` (same function as the one-phase region) |
+| `structure.TFuelAv()/TCladAv()` hand-over | `TwoPhaseSolver::fuel_clad_temperatures`; `set_structure_power_density` is the input side |
+| `mesh.time().timeIndex()` | `TwoPhaseSolver::steps_begun` |
+| refused by name | `nuclearFuelPinTest`, the FMU models, any other powerModel type; restarts from a model's own written fields; `laplacianSchemes` other than `uncorrected` with `kappaMatrix != 0` |
+
+`dmdtW`: nothing radial-specific exists upstream; the boiling models read `iAact` and `Twall`, which the wiring supplies (the nfp_hot run goes through the boiling onset on them).
+
+### Results ("worst" = `max |port - up| / max |up|` over the compared steps; every compared step has upstream's step size to 1e-12 and the same onset flag)
+
+| variant | steps compared | gated | p | T.liquid | U | alpha.vapour / dmdt | pin fields (worst) | heatFlux.structure | first step flow > 1e-6 |
+|---|---|---|---|---|---|---|---|---|---|
+| `hp` heatedPin, `iA` 100 (1-60, 200-225, 400-425, 600-625, 690-740) | 189 | all | 4.5e-13 | 5.5e-14 | 7.6e-12 | 0 / 0 (no onset in 12 s) | `To` 4.4e-14, `Tav` 2.9e-14, `Ti` 1.5e-14, `Trad` 3.6e-14 | 1.2e-12 | none |
+| `hp3` heatedPin 3 mm, `iA` 333 (1-60, 603-653) | 111 | steps < 648; 648 post-run (below) | 2.3e-12 | 4.6e-14 | 7.5e-12 | 7.9e-11 / 8.1e-11 (onset at step 628, equal) | `To` 4.5e-14, `Trad` 4.4e-14 | 2.0e-12 | 650 (noise-floor `S` = 649) |
+| `hp_field` (nonuniform `powerDensity.heatedPin`) | 138 | all | 2.7e-13 | 6.6e-14 | 7.8e-12 | 0 | `To` 4.7e-14, `Trad` 3.6e-14 | 1.9e-12 | none |
+| `hp_off` (shipped timer set to 0.3 s) | 138 | all | 4.5e-13 | 8.8e-15 | 7.0e-12 | 0 | `To` 5.4e-15, `Trad` 5.3e-15, `Tav` 3.4e-15 | 1.3e-12 | none |
+| `nfp` nuclearFuelPin, `gapH` | 138 | all | 4.8e-13 | 5.4e-14 | 8.3e-12 | 0 | `Tco` 3.1e-14, `Tcav` 3.0e-14, `Tfav` 1.0e-14, `Tfi` 5.7e-15, `Trad` 2.0e-14, `TCladAv` 3.0e-14 | 1.6e-12 | none |
+| `nfp_tab` `gapHPowerDensity` table | 138 | all | 4.7e-13 | 4.7e-14 | 8.3e-12 | 0 | `Tcav` 3.5e-14, `Trad` 2.4e-14 | 1.6e-12 | none |
+| `nfp_hot` (power 9e8; 1-60, 575-625) | 111 | steps < 617 | 4.1e-12 | 5.9e-14 (`T.vapour` 4.6e-13) | 3.2e-11 | 2.7e-11 / 8.4e-11 (onset at step 600, equal) | `Tcav` 5.6e-14, `Trad` 3.1e-14 | 1.6e-12 | 617 (`S` = 617) |
+| `lns` lumpedNuclearStructure + `kappaMatrix 12` | 138 | all | 6.4e-13 | 1.7e-14 | 7.9e-12 | 0 | `Tsurface` 1.2e-14, `T`/`Tmatrix`/`Tmax`/`TFuelAv` 3.4e-15 | 1.0e-13 | none |
+
+Not bit-identical anywhere (p_rgh is GAMG upstream, the port's solver differs: rounds 3-7; flagged for the maintainer per CLAUDE.md; worst direct difference 3.2e-11 << 1e-9). The pin fields agree 1e-14..1e-15 (not 0 ulp, as P1 said): they follow the solved `T1`, `T2`.
+
+**The one pre-registered gate that missed.** `hp3`, step 648, the step just before `S` = 649: `p` 2.4e-10 (gate 1e-11), `T.vapour` 1.2e-10 (1e-12), `U.vapour` 8.9e-10, `alpha.vapour` 8.9e-10, `dmdt` 5.3e-9 (gate 1e-10). It is inside the exponential amplification that the noise-floor instrument marks: `p` 1.4e-12 at 644, 2.3e-12 at 646, 2.4e-10 at 648, 2.6e-7 at 649, 1e-6 at 650 (the port against ITSELF with `T.liquid` x (1 + 1e-9) is at the same scale at 649). The criterion `n < S` was written before the run; it is NOT changed, the test asserts steps < 648 at the pre-registered gates and step 648 at **1e-8, a post-run bound with this cause** (`POST_RUN_BOUND`); the pin fields at 648 are within their gates. The same instrument on `nfp_hot` gives `S` = 617 with no miss before it.
+
+### Controls (each fails its comparison: worst difference)
+
+| control | result | prediction |
+|---|---|---|
+| shipped `fixedPower` case against the `hp` reference | `T.liquid` 2.2e-2 | P5(a) >= 1e-6: held |
+| `HT` from the PRE-solve temperatures (`hp`) | pin fields 3.1e-7 | P5(b) 1e-7..1e-3: held (low edge: single-phase, the temperatures change little in one step) |
+| structure `iAact` without the radial `iA` | `T.liquid` 3.6e-2 | P5(c) >= 1e-3: held |
+| `Tact` never handed back | `T.liquid` 3.6e-2 | P5(d) >= 1e-4: held |
+| `nuclearFuelPin` with corrected ring areas | pin fields 1.6e-2 | P5(e) >= 1e-4: held |
+| constant `gapH` against the table reference | pin fields 8.1e-3 | P5(f) >= 1e-6: held |
+| lumped `fvc::laplacian(Tmatrix) = 0` (`lns`) | pin fields 4.0e-4 | P5(g) >= 1e-6: held |
+| `hp_off` without the criterion (port never powers off) | pin fields 3.0e-1 | P3 >= 1e-3: held |
+| `hp` (dictionary power) against the `hp_field` reference | pin fields 1.5e-2 | P4 >= 1e-3: held |
+
+### Predictions: held and missed
+
+* **P1 held:** single-phase flow p <= 5e-13, T <= 7e-14, U <= 8.3e-12; pin fields 3e-15..5.8e-14 (predicted 1e-16..1e-13). Near/through the onset p 2.3e-12 / 4.1e-12 (hp3, nfp_hot), U 3.2e-11, as round 34.
+* **P2 missed in part:** `hp` (1 cm) and `nfp`, `nfp_tab` do NOT reach an onset in 12 s (fluid 863 K and 1017 K against `T_sat` 1161 K; upstream log); only `hp3` does (step 628, port equal). Boiling for the nuclearFuelPin was therefore covered by an added variant `nfp_hot` (powerDensity 2x, a case-design decision made after seeing the `nfp` run, recorded in the script header; the comparison is port against upstream on that case, so the number is not an input of any check). Onset step equal in port and upstream where there is one (hp3 628, nfp_hot 600): held. `S` within 20 steps of the onset: nfp_hot 17 held; hp3 21 **missed by one**.
+* **P3 held, after a defect of mine:** the first `hp_off` ADDED a second `powerOffCriterionModel` block; the shipped `1D_boiling` file already ends with `powerOffCriterionModel { type timer; time 7; }`, the later duplicate key wins in OpenFOAM and in the port, so the variant did not power off at 0.3 s (its references were bit-identical to `hp`'s and the control "never power off" agreed to 2e-14: that is how it was caught, the control could fail only after the fix). The script now edits the shipped entry's time; the references were re-made; the shipped 7 s power-off is covered by the added `hp` window 690-740 (step ~715). Upstream's `timer` prints "Power off" when it fires; its log shows it.
+* **P4 held.** **P5 held** (table). **P7 stands.** **P8:** each upstream run <= 3 minutes held; each reference < 0.6 MB held; the total < 4 MB **missed (7.1 MB)** because of the number of windows (29).
+* **P6 (moved numbers): none** (see the gates below).
+
+### Defects and findings
+
+1. **My variant script duplicated a key** (P3 above); caught by the control; fixed; references re-made.
+2. **A reference extractor bug** (the `nuclearFuelPin` profile lists are separated by blank lines, which the first awk counted as cells: 7 of 20 cells read; the test rejected it as "wrong length"): fixed in `extract_boiling_radial_reference.sh`, the references re-made from fresh upstream runs.
+3. Upstream behaviour worth knowing: `structure::checkPowerOff` powers off only `heatedPin` (and `fixedPower`/`fixedTemperature`); a `nuclearFuelPin` or lumped model keeps its `powerDensityNeutronics` (that is the neutronics' business). The port mirrors this (`RadialPowerModel::power_off`).
+4. The one-phase reader still refuses `powerDensity.heatedPin` in the start directory (the two-phase caller supplies it); not extended, no case needs it there.
+
+### Not done (stated in P7, unchanged) and follow-ups
+
+`2D_KNS37-L22` end to end (closures `Rehme`, `Autruffe`, `Schor`, `annular`, `KottowskiSavatteri`, `localTortuosity`, start time -2); the neutronics as input of `powerDensityNeutronics` in the two-phase region; `nuclearFuelPinTest`/FMU (refused); `interpolatedNuclearFuelPin` against the binary; boiling through the onset for `lns`; steps beyond `S` (the system's own sensitivity, as in rounds 3-34).
+
+### Moved numbers
+
+None. The `fixedPower` path is untouched; the radial reader only changed module path (`one_phase_cc/radial_power.rs` -> `two_phase/radial_power.rs`) and gained one parameter (`None` in the one-phase call).
+
+### Reproduction
+
+`bash scripts/make_boiling_radial_variants.sh`; per variant `VARIANT=<v> EVERY_STEP=1 TIGHT=1 END_TIME=12 PRE_RUN=scripts/boiling_radial_variant_protocol.sh bash scripts/run_tutorial.sh featureCases/1D_boiling r41_<v>`; `EXTRA_FIELDS="..." PROFILE_FIELDS="Trad.<model>" bash scripts/extract_boiling_radial_reference.sh r41_<v> boiling_radial_r41_<v>_<lo>_<hi> . <lo> <hi>` (windows: 1-60, 200-225, 400-425, 600-625 for the no-onset variants; hp also 690-740; hp3 1-60 and 603-653; nfp_hot 1-60 and 575-625).
