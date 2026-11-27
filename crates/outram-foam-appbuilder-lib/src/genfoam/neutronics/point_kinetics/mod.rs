@@ -98,6 +98,13 @@
 //! `LumpedNeutronics` drives this module with Doppler reactivity from a mapped
 //! fuel temperature. This module itself still takes `ρ` as an input.
 //!
+//! **UPDATED 2026-11-27 (gh:#1864, README round 36):** the solid-fuel class itself (constructor,
+//! feedback averages, reactivity assembly, external source modes, decay power, driveline,
+//! `maxDeltaT`) is [`model::PointKineticNeutronics`], bit-identical to the real class on ten case
+//! variants. The dense solve of this module is upstream's `solve()` by default
+//! ([`LinearSolveForm::OpenFoamGaussian`]); the Crout LU stays as [`LinearSolveForm::CroutLu`].
+//! Refused by name: `GEMReactivityMap`, FMU inputs, the liquid-fuel precursor transport.
+//!
 //! ## Example
 //!
 //! ```
@@ -134,6 +141,8 @@
 //! // At exact equilibrium and ρ = 0 the power is unchanged.
 //! assert!((state.fission_power().get::<watt>() - 1.0e6).abs() < 1.0);
 //! ```
+
+pub mod model;
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -343,6 +352,78 @@ impl PointKineticsParameters {
     }
 }
 
+/// Which dense solver [`PointKineticsState::step_with`] uses for the `n x n` system.
+///
+/// `GeN-Foam`'s `solvePointKinetics.H` calls `solve(x, A, B)`, which in ESI v2506
+/// (`src/OpenFOAM/matrices/scalarMatrices/scalarMatricesTemplates.C`) is Gaussian
+/// elimination with partial pivoting and no row scaling (gh:#1439, gh:#1864 round 36).
+/// That is the default. The earlier form of this port (Crout LU with implicit scaling,
+/// `LUsolve`) stays as a named option; it agrees to about 1e-12 and not bit for bit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LinearSolveForm {
+    /// Upstream's `Foam::solve(List, SquareMatrix, List)` (the default).
+    #[default]
+    OpenFoamGaussian,
+    /// The port's earlier form: `SquareMatrix::solve` (Crout LU, implicit scaling).
+    CroutLu,
+}
+
+/// Translation of ESI v2506 `Foam::solve(List<Type>& psi, const scalarSquareMatrix&,
+/// const List<Type>& source)` (`scalarMatricesTemplates.C`): partial pivoting on the
+/// largest `|a(j, i)|`, elimination `a(j,k) -= a(i,k)*a(j,i)/a(i,i)` for `k` descending,
+/// `s(j) -= s(i)*factor`, back substitution accumulating `sum_k a(j,k) s(k)` first.
+/// Same algorithm as `teh-o-prke`'s `SquareMatrix::solve_gaussian_openfoam` (gh:#1439),
+/// which was bit-identical to the real class on 300 steps.
+///
+/// # Errors
+///
+/// [`PointKineticsError::SingularSystem`] when a pivot is below `1e-20` (upstream aborts).
+pub fn solve_openfoam_gaussian(
+    matrix: &SquareMatrix,
+    rhs: &[f64],
+) -> Result<Vec<f64>, PointKineticsError> {
+    let m = matrix.n();
+    let mut a = matrix.clone();
+    let mut s: Vec<f64> = rhs.to_vec();
+    for i in 0..m {
+        let mut i_max = i;
+        let mut largest = a.get(i_max, i).abs();
+        for j in (i + 1)..m {
+            if a.get(j, i).abs() > largest {
+                i_max = j;
+                largest = a.get(i_max, i).abs();
+            }
+        }
+        if i != i_max {
+            for k in i..m {
+                let t = a.get(i, k);
+                a.set(i, k, a.get(i_max, k));
+                a.set(i_max, k, t);
+            }
+            s.swap(i, i_max);
+        }
+        if a.get(i, i).abs() < 1.0e-20 {
+            return Err(PointKineticsError::SingularSystem { col: i });
+        }
+        for j in (i + 1)..m {
+            let factor = a.get(j, i) / a.get(i, i);
+            s[j] -= s[i] * factor;
+            for k in (i..m).rev() {
+                let reduced = a.get(j, k) - a.get(i, k) * a.get(j, i) / a.get(i, i);
+                a.set(j, k, reduced);
+            }
+        }
+    }
+    for j in (0..m).rev() {
+        let mut accumulated = 0.0_f64;
+        for k in (j + 1)..m {
+            accumulated += a.get(j, k) * s[k];
+        }
+        s[j] = (s[j] - accumulated) / a.get(j, j);
+    }
+    Ok(s)
+}
+
 /// Instantaneous state of the point-kinetics model: fission power and the
 /// per-group precursor "powers", plus the external source power carried into the
 /// implicit solve.
@@ -452,6 +533,29 @@ impl PointKineticsState {
         reactivity: Reactivity,
         external_source_power: Power,
     ) -> Result<(), PointKineticsError> {
+        self.step_with(
+            params,
+            dt,
+            reactivity,
+            external_source_power,
+            LinearSolveForm::OpenFoamGaussian,
+        )
+    }
+
+    /// [`Self::step`] with an explicit choice of the dense solver
+    /// ([`LinearSolveForm`]); `step` uses upstream's form.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::step`].
+    pub fn step_with(
+        &mut self,
+        params: &PointKineticsParameters,
+        dt: Time,
+        reactivity: Reactivity,
+        external_source_power: Power,
+        form: LinearSolveForm,
+    ) -> Result<(), PointKineticsError> {
         let n_groups = params.delayed_group_count();
         if self.precursor_powers.len() != n_groups {
             return Err(PointKineticsError::MismatchedGroups {
@@ -508,7 +612,10 @@ impl PointKineticsState {
         a.set(n - 1, n - 1, 1.0 / dt_s);
         b[n - 1] = source / dt_s;
 
-        let x = a.solve(&b)?;
+        let x = match form {
+            LinearSolveForm::OpenFoamGaussian => solve_openfoam_gaussian(&a, &b)?,
+            LinearSolveForm::CroutLu => a.solve(&b)?,
+        };
 
         self.fission_power = Power::new::<watt>(x[0]);
         for i in 0..n_groups {
@@ -627,5 +734,49 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(err, PointKineticsError::NonPositiveTimeStep(0.0));
+    }
+    /// Upstream's elimination solves a system that needs a row swap exactly, and agrees with the
+    /// earlier Crout-LU form to round-off on the point-kinetics system (gh:#1864).
+    #[test]
+    fn gaussian_form_pivots_and_agrees_with_crout() {
+        let mut p = SquareMatrix::new(2);
+        p.set(0, 1, 1.0);
+        p.set(1, 0, 2.0);
+        assert_eq!(solve_openfoam_gaussian(&p, &[3.0, 4.0]).unwrap(), vec![2.0, 3.0]);
+        let mut sing = SquareMatrix::new(2);
+        sing.set(0, 0, 1.0);
+        sing.set(0, 1, 1.0);
+        sing.set(1, 0, 1.0);
+        sing.set(1, 1, 1.0);
+        assert_eq!(
+            solve_openfoam_gaussian(&sing, &[1.0, 1.0]),
+            Err(PointKineticsError::SingularSystem { col: 1 })
+        );
+        let params = u235_six_group();
+        let mut a = PointKineticsState::new_equilibrium(&params, Power::new::<watt>(1.0e6));
+        let mut b = a.clone();
+        for _ in 0..20 {
+            let rho = Ratio::new::<ratio>(1.0e-3);
+            let dt = Time::new::<second>(0.01);
+            let zero = Power::new::<watt>(0.0);
+            a.step_with(&params, dt, rho, zero, LinearSolveForm::OpenFoamGaussian).unwrap();
+            b.step_with(&params, dt, rho, zero, LinearSolveForm::CroutLu).unwrap();
+        }
+        let (pa, pb) = (a.fission_power().get::<watt>(), b.fission_power().get::<watt>());
+        assert!(((pa - pb) / pb).abs() < 1.0e-9);
+        // `step` is upstream's form.
+        let mut c = PointKineticsState::new_equilibrium(&params, Power::new::<watt>(1.0e6));
+        c.step(&params, Time::new::<second>(0.01), Ratio::new::<ratio>(1.0e-3), Power::new::<watt>(0.0))
+            .unwrap();
+        let mut d = PointKineticsState::new_equilibrium(&params, Power::new::<watt>(1.0e6));
+        d.step_with(
+            &params,
+            Time::new::<second>(0.01),
+            Ratio::new::<ratio>(1.0e-3),
+            Power::new::<watt>(0.0),
+            LinearSolveForm::OpenFoamGaussian,
+        )
+        .unwrap();
+        assert_eq!(c.fission_power().get::<watt>().to_bits(), d.fission_power().get::<watt>().to_bits());
     }
 }

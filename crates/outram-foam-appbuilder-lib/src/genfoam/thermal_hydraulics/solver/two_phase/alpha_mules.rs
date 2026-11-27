@@ -81,11 +81,16 @@ impl TwoPhaseSolver {
 
     /// `alphaPhic<k>` of `solveAlphas`: three convective fluxes, summed left to right.
     fn mules_alpha_phic(&self, mc: &MulesControls, k: usize) -> Vec<f64> {
+        self.mules_alpha_phic_with(mc, k, &self.fluids[1 - k].alpha)
+    }
+
+    /// [`Self::mules_alpha_phic`] with the field the relative flux carries given explicitly: `alpha_o` of
+    /// `solveAlphas`, `movingAlpha_ - solveFluid` of the `solveAlpha` lambda (solveAlphaMULES.H:31-37).
+    fn mules_alpha_phic_with(&self, mc: &MulesControls, k: usize, ao: &fv::Scalar) -> Vec<f64> {
         let g = &self.geom;
         let nf = g.n_faces();
         let o = 1 - k;
         let ak = &self.fluids[k].alpha;
-        let ao = &self.fluids[o].alpha;
         let phik = &self.fluids[k].phi;
         let phio = &self.fluids[o].phi;
         let x = mules::flux(g, mc.phi_scheme, &self.phi, ak);
@@ -231,6 +236,91 @@ impl TwoPhaseSolver {
         }
     }
 
+
+    /// `movingAlpha_ - solveFluid` as a field with boundary values (`movingAlpha_ = 1 - structure_`, twoPhase.C:194).
+    fn mules_moving_minus(&self, k: usize) -> fv::Scalar {
+        let g = &self.geom;
+        let a = &self.fluids[k].alpha;
+        let s = &self.structure.alpha;
+        let c: Vec<f64> = (0..g.n_cells()).map(|i| self.moving(i) - a.c[i]).collect();
+        let b: Vec<f64> = (0..a.b.len()).map(|i| (1.0 - s.b[i]) - a.b[i]).collect();
+        fv::Scalar { c, b, bc: g.default_bcs() }
+    }
+
+    /// The `solveAlpha` lambda of `solveAlphaMULES.H` (lines 24-122) for `solvePhase` = fluid `k`; the other fluid
+    /// follows by continuity (`alphaPhi = phi_ - alphaPhi_k`, `alpha = movingAlpha_ - alpha_k`).
+    fn mules_solve_one(&mut self, mc: &MulesControls, k: usize, r_delta_t: f64) {
+        let g = self.geom.clone();
+        let n = g.n_cells();
+        let nf = g.n_faces();
+        let ni = g.n_internal();
+        let o = 1 - k;
+        let m_minus = self.mules_moving_minus(k);
+        let mut ap = self.mules_alpha_phic_with(mc, k, &m_minus);
+        self.mules_correct_inflow_outflow(k, &mut ap);
+        let (sp, su) = self.mules_sp_su(mc, k);
+        // myMULES::explicitSolve(rDeltaT, one, solveFluid, phi_, alphaPhic, Sp, Su, movingAlpha_, zeroField()):
+        // psi.correctBoundaryConditions(); limit(..., returnCorr = false); explicitSolve (6 arguments)
+        self.fluids[k].alpha.correct_bc(&g);
+        let psi_max: Vec<f64> = (0..n).map(|c| self.moving(c)).collect();
+        let psi_min = vec![0.0; n];
+        let psi0 = self.fluids[k].alpha_old.clone();
+        let phi = self.phi.clone();
+        mules::limit_full_flux(&g, &mc.limiter, r_delta_t, &self.fluids[k].alpha, &psi0, &phi, &mut ap, &sp, &su, &psi_max, &psi_min);
+        {
+            let prev = self.fluids[k].alpha.c.clone();
+            let mut x = prev.clone();
+            mules::explicit_update(&g, r_delta_t, &mut x, &psi0, &ap, &sp, &su);
+            if let Some(fa) = mc.relax[k] {
+                for c in 0..n {
+                    x[c] = prev[c] + fa * (x[c] - prev[c]);
+                }
+            }
+            let a = &mut self.fluids[k].alpha;
+            a.c = x;
+            a.correct_bc(&g);
+        }
+        // solveFluid.alphaPhi() = alphaPhic; otherFluid.alphaPhi() = phi_ - solveFluid.alphaPhi();
+        let mut ap_o: Vec<f64> = (0..nf).map(|f| phi[f] - ap[f]).collect();
+        self.fluids[k].alpha_phi = ap;
+        self.mules_correct_inflow_outflow(o, &mut ap_o);
+        self.fluids[o].alpha_phi = ap_o;
+        // solveFluid = min(max(solveFluid, 0), movingAlpha_); correctBoundaryConditions; other = min(max(movingAlpha_ - solveFluid, 0), movingAlpha_)
+        {
+            let ms: Vec<f64> = (0..n).map(|c| self.moving(c)).collect();
+            let mb: Vec<f64> = (0..nf - ni).map(|i| 1.0 - self.structure.alpha.b[i]).collect();
+            let a = &mut self.fluids[k].alpha;
+            for c in 0..n {
+                a.c[c] = fmin(fmax(a.c[c], 0.0), ms[c]);
+            }
+            for f in ni..nf {
+                if g.active[f] && !matches!(a.bc[g.patch_of[f - ni]], fv::Bc::Fixed(_)) {
+                    a.b[f - ni] = fmin(fmax(a.b[f - ni], 0.0), mb[f - ni]);
+                }
+            }
+            a.correct_bc(&g);
+            let sc = self.fluids[k].alpha.c.clone();
+            let sb = self.fluids[k].alpha.b.clone();
+            let b = &mut self.fluids[o].alpha;
+            for c in 0..n {
+                b.c[c] = fmin(fmax(ms[c] - sc[c], 0.0), ms[c]);
+            }
+            for f in ni..nf {
+                if g.active[f] && !matches!(b.bc[g.patch_of[f - ni]], fv::Bc::Fixed(_)) {
+                    b.b[f - ni] = fmin(fmax(mb[f - ni] - sb[f - ni], 0.0), mb[f - ni]);
+                }
+            }
+        }
+    }
+
+    /// `solve(solvePhase, rDeltaT)` of solveAlphaMULES.H:365-398.
+    fn mules_solve(&mut self, mc: &MulesControls, r_delta_t: f64) {
+        match mc.solve_phase {
+            None => self.mules_solve_both(mc, r_delta_t),
+            Some(k) => self.mules_solve_one(mc, k, r_delta_t),
+        }
+    }
+
     /// `solveAlphaMULES.H`: the sub-cycle count, `solve` once or `nSubCycles` times with
     /// upstream's old-time bookkeeping, then the mass fluxes `alphaRhoPhi = interpolate(rho) alphaPhi`.
     pub(super) fn correct_alpha_mules(&mut self, mc: &MulesControls) {
@@ -245,13 +335,22 @@ impl TwoPhaseSolver {
         self.alpha_sub_cycles = n_sub;
         let r_delta_t = n_sub as f64 / self.dt;
         if n_sub == 1 {
-            self.mules_solve_both(mc, r_delta_t);
+            self.mules_solve(mc, r_delta_t);
+            if let (true, Some(k)) = (self.other_alpha_old_stale, mc.solve_phase) {
+                // the other fluid's alpha.oldTime() is created at its first request, after the lambda assigned it
+                let o = 1 - k;
+                self.fluids[o].alpha_old = self.fluids[o].alpha.c.clone();
+                self.fluids[o].alpha_old_b = self.fluids[o].alpha.b.clone();
+            }
+            self.other_alpha_old_stale = false;
         } else {
+            // `alpha1.oldTime()` / `alpha2.oldTime()` are requested before the sub-cycle loop (solveAlphaMULES.H:473): both exist
+            self.other_alpha_old_stale = false;
             let keep: Vec<(Vec<f64>, Vec<f64>)> =
                 (0..2).map(|k| (self.fluids[k].alpha_old.clone(), self.fluids[k].alpha_old_b.clone())).collect();
             let mut sums = [vec![0.0; nf], vec![0.0; nf]];
             for _ in 0..n_sub {
-                self.mules_solve_both(mc, r_delta_t);
+                self.mules_solve(mc, r_delta_t);
                 for k in 0..2 {
                     self.fluids[k].alpha_old = self.fluids[k].alpha.c.clone();
                     self.fluids[k].alpha_old_b = self.fluids[k].alpha.b.clone();

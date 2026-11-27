@@ -50,7 +50,7 @@
 //! anisotropic tortuosity / local-frame rotation tensors, the mesh-to-mesh
 //! heat-exchanger mapping, the semi-implicit `fvm::Sp` enthalpy-source matrix,
 //! and the assembly of these per-cell quantities into the porous `UEqn`/`EEqn`
-//! — is deferred to the porous one-phase solver bead (op-p6p.7.11), mirroring
+//! — is deferred to the porous one-phase solver ~~bead (op-p6p.7.11)~~ (**CORRECTED 2026-11-27:** `op-*` ids are retired; gh:#1877 reconciles this module with the solver-local code), mirroring
 //! how [`closures::fs_drag`](super::closures::fs_drag) ports the friction
 //! correlations but leaves the drag-tensor assembly to the solver. The
 //! higher-fidelity radial-conduction pin/pebble models and the FMU couplings are
@@ -61,10 +61,16 @@
 use crate::nostd_prelude::*;
 pub mod heat_exchanger;
 pub mod heat_source;
+pub mod heated_pin;
+pub mod interpolated_nuclear_fuel_pin;
+pub mod lumped_nuclear_structure;
+pub mod nuclear_fuel_pin;
 pub mod nuclear_steady_state_pebble;
 pub mod power_model;
 pub mod power_off;
 pub mod pump;
+pub mod radial_power_model;
+pub mod radial_solve;
 pub mod units;
 
 pub use heat_exchanger::{hx_wall_temperature, HeatExchanger};

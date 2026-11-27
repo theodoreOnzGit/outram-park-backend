@@ -1,0 +1,104 @@
+--- /home/user/upstream-build/GeN-Foam-src/src/classes/thermalHydraulics/solvers/twoPhase/include/alphaEqnsRoutines/solveAlphaMULES.H	2026-11-13 01:06:51.451292645 +0000
++++ /home/user/upstream-build/probe1799/classes/thermalHydraulics/solvers/twoPhase/include/alphaEqnsRoutines/solveAlphaMULES.H	2026-11-27 02:46:27.326116817 +0000
+@@ -1,3 +1,4 @@
++#include <fstream>
+ //- Field references
+ const surfaceScalarField& phi1(fluid1_.phi());
+ const surfaceScalarField& phi2(fluid2_.phi());
+@@ -17,6 +18,25 @@
+ //  to ensure continuity. This is an alternative to always solving both
+ //  phase fractions with MULES. Needs testing to see which one performs
+ //  better in which scenarios
++static int gh1799Call = 0;
++auto dumpF = [](const char* tag, const UList<scalar>& f)
++{
++    if (gh1799Call > 40) return;
++    std::ofstream o("/home/user/upstream-build/probe1799/dump.txt", std::ios::app);
++    o.precision(17);
++    o << "D " << gh1799Call << " " << tag;
++    forAll(f, i) { o << " " << f[i]; }
++    o << "\n";
++};
++auto dumpB = [](const char* tag, const surfaceScalarField& f)
++{
++    if (gh1799Call > 40) return;
++    std::ofstream o("/home/user/upstream-build/probe1799/dump.txt", std::ios::app);
++    o.precision(17);
++    o << "D " << gh1799Call << " " << tag;
++    forAll(f.boundaryField(), pi) { forAll(f.boundaryField()[pi], i) { o << " " << f.boundaryField()[pi][i]; } }
++    o << "\n";
++};
+ auto solveAlpha = [&]
+ (
+     fluid& solveFluid, 
+@@ -24,6 +44,12 @@
+     scalar rDeltaT
+ )
+ {
++    gh1799Call++;
++    dumpF("alphaIn", solveFluid.primitiveField());
++    dumpF("alpha0", solveFluid.oldTime().primitiveField());
++    dumpF("phi", phi_.primitiveField());
++    dumpF("phiSolve", solveFluid.phi().primitiveField());
++    dumpF("phiOther", otherFluid.phi().primitiveField());
+     surfaceScalarField alphaPhic 
+     (
+         fvc::flux(phi_, solveFluid, "div(phi,alpha)")
+@@ -45,7 +71,9 @@
+             phirScheme
+         )
+     );
++    dumpF("ap0", alphaPhic.primitiveField());
+     correctInflowOutflow(solveFluid, solveFluid.phi(), alphaPhic);
++    dumpB("apb", alphaPhic);
+     volScalarField::Internal Sp
+     (
+         IOobject
+@@ -89,6 +117,8 @@
+             Su[celli] += dgdt[celli];
+         }
+     }
++    dumpF("sp", Sp.field());
++    dumpF("su", Su.field());
+     myMULES::explicitSolve
+     (
+         rDeltaT,
+@@ -102,6 +132,8 @@
+         zeroField()
+     );
+ 
++    dumpF("ap2", alphaPhic.primitiveField());
++    dumpF("alphaAfter", solveFluid.primitiveField());
+     solveFluid.alphaPhi() = alphaPhic;
+     otherFluid.alphaPhi() = phi_-solveFluid.alphaPhi();
+     correctInflowOutflow
+@@ -119,6 +151,8 @@
+     (
+         min(max(movingAlpha_-solveFluid, 0.0), movingAlpha_)
+     );
++    dumpF("alphaFinal", solveFluid.primitiveField());
++    dumpF("otherFinal", otherFluid.primitiveField());
+ };
+ 
+ ///////////////////////////////////////////////////////////////////////////////
+@@ -538,4 +572,19 @@
+         fvc::interpolate(fluid1_.rho())*fluid1_.alphaPhi();
+ fluid2_.alphaRhoPhi() = 
+     fvc::interpolate(fluid2_.rho())*fluid2_.alphaPhi();
++dumpF("aPhiL", fluid1_.alphaPhi().primitiveField());
++dumpF("aPhiV", fluid2_.alphaPhi().primitiveField());
++dumpB("aPhiLb", fluid1_.alphaPhi());
++dumpB("aPhiVb", fluid2_.alphaPhi());
++dumpF("aRhoPhiL", fluid1_.alphaRhoPhi().primitiveField());
++dumpF("aRhoPhiV", fluid2_.alphaRhoPhi().primitiveField());
++{
++    std::ofstream o("/home/user/upstream-build/probe1799/dump.txt", std::ios::app);
++    o.precision(17);
++    o << "D " << gh1799Call << " alphaLb";
++    forAll(fluid1_.boundaryField(), pi) { forAll(fluid1_.boundaryField()[pi], i) { o << " " << fluid1_.boundaryField()[pi][i]; } }
++    o << "\nD " << gh1799Call << " alphaVb";
++    forAll(fluid2_.boundaryField(), pi) { forAll(fluid2_.boundaryField()[pi], i) { o << " " << fluid2_.boundaryField()[pi][i]; } }
++    o << "\n";
++}
+     
+\ No newline at end of file

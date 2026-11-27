@@ -121,6 +121,13 @@ gh issue comment <number> --body "..."           # progress
     `CARGO_TARGET_DIR`. A `NotFound` path under another checkout is this
     fault, not a code defect: rebuild from the integration checkout and
     re-run.
+  - **Parallel streams each build in a private `CARGO_TARGET_DIR`**
+    (found 2026-11-27). The shared target is not safe for the streams'
+    own targeted checks either: a workspace crate gets the same artifact
+    hash in every worktree, so one stream's build of a crate overwrites
+    another's and a test can compile against the other worktree's code
+    while reporting a pass. Give each stream `<worktree>/target-private`
+    and delete it when the stream ends; budget about 2 GB of disk each.
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,

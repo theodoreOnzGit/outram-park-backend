@@ -252,6 +252,9 @@ pub(super) struct FieldFile {
     /// The field's name (the file name), for error messages.
     pub(super) name: String,
     pub(super) internal: FoamValue,
+    /// `internalField nonuniform List<scalar> N (...)`: the cell values (`read_alpha_field` only; `internal` then
+    /// holds the first one). `None` for a `uniform` field.
+    pub(super) internal_list: Option<Vec<f64>>,
     pub(super) bcs: Vec<(String, String, Option<FoamValue>)>,
     /// The whole dictionary of each patch (`phi`, `inletValue`, ...), by patch name.
     pub(super) dicts: Vec<(String, FoamDict)>,
@@ -259,8 +262,45 @@ pub(super) struct FieldFile {
 
 #[cfg(feature = "std")]
 pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
+    read_field_with(ctx, rel, false)
+}
+
+/// [`read_field`] for `alpha.<fluid>`: also accepts `internalField nonuniform List<scalar> N (...)` (gh:#1799). Every other
+/// field still refuses a non-uniform internal field by name.
+#[cfg(feature = "std")]
+pub(super) fn read_alpha_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
+    read_field_with(ctx, rel, true)
+}
+
+/// The cells of a `nonuniform List<scalar> N ( ... )` entry's tokens (`[nonuniform, List<scalar>, N, (...)]`), or `None`
+/// when the tokens are not that form. `N` must equal the list length.
+pub(super) fn nonuniform_scalar_list(tokens: &[FoamValue]) -> Option<Vec<f64>> {
+    match tokens {
+        [FoamValue::Word(w), FoamValue::Word(t), FoamValue::Scalar(n), FoamValue::List(items)]
+            if w == "nonuniform" && t == "List<scalar>" && (*n - items.len() as f64).abs() == 0.0 =>
+        {
+            items.iter().map(FoamValue::as_scalar).collect()
+        }
+        _ => None,
+    }
+}
+
+#[cfg(feature = "std")]
+fn read_field_with(ctx: &Ctx, rel: &str, allow_nonuniform: bool) -> Result<FieldFile, AppBuilderError> {
     let d = ctx.read(rel)?;
-    let internal = uniform_value(ctx, d.get("internalField"))?;
+    let list = match d.get("internalField") {
+        Some(FoamEntry::Tokens(t)) if t.first().and_then(FoamValue::as_word) == Some("nonuniform") => {
+            if !allow_nonuniform {
+                return Err(ctx.e("`nonuniform` internalField is ported for alpha.<fluid> only"));
+            }
+            Some(nonuniform_scalar_list(t).ok_or_else(|| ctx.e("only `nonuniform List<scalar> N (...)` is read"))?)
+        }
+        _ => None,
+    };
+    let internal = match &list {
+        Some(l) => FoamValue::Scalar(*l.first().ok_or_else(|| ctx.e("empty nonuniform list"))?),
+        None => uniform_value(ctx, d.get("internalField"))?,
+    };
     let bf = ctx.sub(&d, "boundaryField")?;
     let mut bcs = Vec::new();
     let mut dicts = Vec::new();
@@ -276,7 +316,7 @@ pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderEr
             bcs.push((name.to_string(), ty, value));
         }
     }
-    Ok(FieldFile { name: rel.rsplit('/').next().unwrap_or(rel).to_string(), internal, bcs, dicts })
+    Ok(FieldFile { name: rel.rsplit('/').next().unwrap_or(rel).to_string(), internal, internal_list: list, bcs, dicts })
 }
 
 /// The boundary conditions beyond `fixedValue`, `zeroGradient` and `calculated` that a scalar field may
@@ -653,17 +693,28 @@ impl TwoPhaseCase {
         // fluids
         let mut fluids = Vec::new();
         let mut alphas = Vec::new();
+        let mut alpha_lists: Vec<Option<Vec<f64>>> = Vec::new();
         let mut alpha_bcs: Vec<Option<Vec<Bc>>> = Vec::new();
         for name in &names {
             let a_path = root.join(format!("{zero}/alpha.{name}"));
             alphas.push(if a_path.exists() {
-                let af = read_field(&ctx, &format!("{zero}/alpha.{name}"))?;
+                let af = read_alpha_field(&ctx, &format!("{zero}/alpha.{name}"))?;
+                if let Some(l) = &af.internal_list {
+                    if l.len() != g.n_cells() {
+                        return Err(ctx.e(format!("alpha.{name}: {} values for {} cells", l.len(), g.n_cells())));
+                    }
+                }
+                alpha_lists.push(af.internal_list.clone());
                 alpha_bcs.push(Some(scalar_bcs_with(&ctx, &g, &af, ExtraBc::InletOutlet, &names)?));
                 Some(af.internal.as_scalar().unwrap_or(0.0))
             } else {
+                alpha_lists.push(None);
                 alpha_bcs.push(None);
                 None
             });
+        }
+        if alpha_lists.iter().any(Option::is_some) && alpha_lists.iter().zip(&alphas).any(|(l, a)| l.is_none() && a.is_none()) {
+            return Err(ctx.e("a nonuniform alpha.<fluid> without the other fluid's file is not ported (the other would be `1 - alpha`)"));
         }
         if alphas[0].is_none() && alphas[1].is_none() {
             return Err(ctx.e("neither alpha field is present"));
@@ -757,7 +808,13 @@ impl TwoPhaseCase {
                 None => g.default_bcs(),
             };
             let mut alpha = Scalar::uniform(&g, if k == 0 { a0 } else { a1 }, g.default_bcs());
+            if let Some(l) = &alpha_lists[k] {
+                alpha.c = l.clone();
+            }
             alpha.bc = a_bc;
+            if alpha_lists[k].is_some() {
+                alpha.correct_bc(&g);
+            }
             fluids.push(Phase::new(
                 &g,
                 name,
@@ -1197,7 +1254,12 @@ impl TwoPhaseCase {
         };
         let alpha_solver = ctx.word(&alpha_d, "solver")?;
         let solve_phase_name = word(&alpha_d, "solvePhase");
+        // MULES also accepts `solvePhase both` (the default of solveAlphaMULES.H:418)
+        let mules_both = alpha_solver == "MULES" && matches!(solve_phase_name.as_deref(), None | Some("both"));
         let solve_phase = match solve_phase_name.clone() {
+            Some(_) if mules_both => {
+                if fluids[0].is_liquid { 1 } else { 0 }
+            }
             Some(sp) => names.iter().position(|x| *x == sp).ok_or_else(|| ctx.e("unknown solvePhase"))?,
             None => {
                 // MULES solves both; implicitUpwind needs one: the vapour.
@@ -1218,8 +1280,8 @@ impl TwoPhaseCase {
         let alpha = match alpha_solver.as_str() {
             "implicitUpwind" => AlphaSolver::ImplicitUpwind,
             "MULES" => {
-                if solve_phase_name.is_some() {
-                    return Err(ctx.e("MULES with `solvePhase` set (single-phase solveAlpha) is not ported"));
+                if g.mesh.patches.iter().any(|p| p.kind == PatchKind::Cyclic) {
+                    return Err(ctx.e("MULES with a `cyclic` (coupled) patch is not ported (syncTools::syncFaceList and the coupled limiter branches of myMULES)"));
                 }
                 let schemes = ctx.read(&format!("system/{region}/fvSchemes"))?;
                 let div = ctx.sub(&schemes, "divSchemes")?;
@@ -1264,6 +1326,7 @@ impl TwoPhaseCase {
                         relax_of(&format!("alpha.{}", names[0])),
                         relax_of(&format!("alpha.{}", names[1])),
                     ],
+                    solve_phase: if mules_both { None } else { Some(solve_phase) },
                 })
             }
             other => return Err(ctx.e(format!("alpha solver `{other}` is not an upstream selection (MULES, implicitUpwind)"))),

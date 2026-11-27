@@ -163,7 +163,7 @@ pub struct UpstreamTransientStep {
 
 /// `fvm::ddt(coeff, psi)` of `EulerDdtScheme::fvmDdt(vsf, vf)`, operation
 /// order as upstream: `diag = rDeltaT*vsf*V`, `source = rDeltaT*vsf_0*vf_0*V`.
-fn euler_ddt(coeff: &[f64], psi_old: &[f64], volumes: &[f64], dt: f64, like: &VolScalarField) -> FvMatrix {
+pub(super) fn euler_ddt(coeff: &[f64], psi_old: &[f64], volumes: &[f64], dt: f64, like: &VolScalarField) -> FvMatrix {
     let r_delta_t = 1.0 / dt;
     let mut m = FvMatrix::new(like.mesh.clone());
     for c in 0..coeff.len() {
@@ -267,6 +267,11 @@ impl DiffusionNeutronics {
             return Err(NeutronicsError::NonPositiveTimeStep(dt));
         }
         let n = self.state.mesh().n_cells;
+        if self.external_source.as_ref().is_some_and(|s| s.enabled) {
+            return Err(NeutronicsError::UpstreamTransient(
+                "externalSourceNeutronics true with liquidFuel true: the circulating-fuel step does not add the source; not ported (use the stationary-fuel step)",
+            ));
+        }
         if self.drift.is_none() || self.prec_star.len() != self.prec_groups() {
             return Err(NeutronicsError::UpstreamTransient(
                 "circulating-fuel transport and precStar must be set first",

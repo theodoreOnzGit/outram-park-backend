@@ -1,0 +1,29 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| Round 32b (gh:#1863): externalSource dictionary of the time-profile variant F |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      externalSource;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// F: the inline form of the shipped point-kinetics tutorial (`table table ((t v) ...)`), with a startTime.
+// Real times: 1 until t = 20, ramp to 3 at t = 40, hold to t = 60, drop to 0.5 at t = 80, hold.
+externalSourceModulationTimeProfile
+{
+    type        table;
+    startTime   5;
+    table       table
+    (
+        (0      1)
+        (15     1)
+        (35     3)
+        (55     3)
+        (75     0.5)
+    );
+}
+
+// ************************************************************************* //

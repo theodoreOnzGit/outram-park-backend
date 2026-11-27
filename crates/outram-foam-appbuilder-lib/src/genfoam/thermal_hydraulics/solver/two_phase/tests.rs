@@ -464,3 +464,144 @@ fn wedge_rotation_tensor_is_the_rotation_of_the_centre_normal_onto_the_patch_nor
     }
     assert!((r2n1[0] - 0.96).abs() < 1e-15 && r2n1[1].abs() < 1e-15 && (r2n1[2] - 0.28).abs() < 1e-15);
 }
+
+// ───────────────────── MULES `solvePhase` (gh:#1799, round 34) ─────────────────────
+
+/// A step profile and a central flux on `line(10)`, Courant 0.5, as in the limiter test above.
+fn step_case(g: &Geometry) -> (Vec<f64>, Scalar, Vec<f64>, Vec<f64>, f64) {
+    let nf = g.n_faces();
+    let area = g.mesh.face_areas[0];
+    let phi: Vec<f64> = (0..nf).map(|f| if f < g.n_internal() { area } else { 0.0 }).collect();
+    let step: Vec<f64> = (0..10).map(|i| if i < 5 { 1.0 } else { 0.0 }).collect();
+    let psi = scalar_on(g, &step);
+    let lin = mules::interpolate(g, AlphaConvection::Linear, &phi, &psi);
+    let central: Vec<f64> = (0..nf).map(|f| phi[f] * lin[f]).collect();
+    let r = area / (0.5 * g.mesh.cell_volumes[0]);
+    (phi, psi, step, central, r)
+}
+
+/// `limiter` is the zero-source case of `limiter_with_sources` bit for bit, and a non-zero `Sp`/`Su` moves the limiter
+/// (`(rDeltaT - Sp) psiMaxn - Su` in the bounds, myMULESTemplates.C:440-452).
+#[test]
+fn limiter_with_zero_sources_is_the_zero_source_limiter_and_sources_move_it() {
+    let g = line(10);
+    let (phi, psi, step, central, r) = step_case(&g);
+    let up = mules::interpolate(&g, AlphaConvection::Upwind, &phi, &psi);
+    let bd: Vec<f64> = (0..g.n_faces()).map(|f| phi[f] * up[f]).collect();
+    let corr: Vec<f64> = (0..g.n_faces()).map(|f| central[f] - bd[f]).collect();
+    let (ones, zeros) = (vec![1.0; 10], vec![0.0; 10]);
+    let ctl = LimiterControls::default();
+    let a = mules::limiter(&g, &ctl, r, &psi, &step, &bd, &corr, &ones, &zeros);
+    let b = mules::limiter_with_sources(&g, &ctl, r, &psi, &step, &bd, &corr, &zeros, &zeros, &ones, &zeros);
+    assert_eq!(a, b);
+    assert!(a.iter().any(|l| *l < 1.0), "the central flux across a step must be limited somewhere");
+    // `psiMaxn = V ((r - Sp) psiMaxn - Su - r psi0) + sumPhiBD`: an explicit source of either sign moves the bounds
+    let sink = vec![-0.4 * r; 10];
+    let src = vec![0.4 * r; 10];
+    let c = mules::limiter_with_sources(&g, &ctl, r, &psi, &step, &bd, &corr, &zeros, &sink, &ones, &zeros);
+    let d = mules::limiter_with_sources(&g, &ctl, r, &psi, &step, &bd, &corr, &zeros, &src, &ones, &zeros);
+    assert_ne!(a, c, "an explicit sink must change the limiter");
+    assert_ne!(a, d, "an explicit source must change the limiter");
+}
+
+/// `limit(returnCorr = false)` returns the full flux `phiBD + lambda phiCorr`: bitwise `phiBD` plus what
+/// `limit(returnCorr = true)` returns, and the explicit update with it stays inside the bounds.
+#[test]
+fn limit_full_flux_is_the_upwind_flux_plus_the_limited_correction() {
+    let g = line(10);
+    let (phi, psi, step, central, r) = step_case(&g);
+    let (ones, zeros) = (vec![1.0; 10], vec![0.0; 10]);
+    let ctl = LimiterControls::default();
+    let up = mules::interpolate(&g, AlphaConvection::Upwind, &phi, &psi);
+    let mut corr = central.clone();
+    mules::limit_return_corr(&g, &ctl, r, &psi, &step, &phi, &mut corr, &ones);
+    let mut full = central.clone();
+    mules::limit_full_flux(&g, &ctl, r, &psi, &step, &phi, &mut full, &zeros, &zeros, &ones, &zeros);
+    for f in 0..g.n_faces() {
+        let bd = if f < g.n_internal() { phi[f] * up[f] } else { central[f] };
+        assert_eq!(full[f], bd + corr[f], "face {f}");
+    }
+    let mut y = step.clone();
+    mules::explicit_update(&g, r, &mut y, &step, &full, &zeros, &zeros);
+    assert!(y.iter().all(|v| *v >= -1e-12 && *v <= 1.0 + 1e-12), "{y:?}");
+}
+
+/// A `wedge` patch gets `lambda = 0` at the end of every limiter iteration (myMULESTemplates.C:561-566). Its `phiCorr`
+/// is 0 in the solver (`phiBD := phiPsi` on non-coupled patches), so the limited flux is unchanged: the translation is
+/// exercised and has no numerical effect, which is what upstream's code gives too.
+#[test]
+fn a_wedge_patch_gets_lambda_zero_in_the_limiter() {
+    let mut mesh = create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1e-2), 10).expect("1-D mesh");
+    let (inlet, _) = end_patches(&Geometry::new(alloc::sync::Arc::new(mesh.clone())));
+    let mut plain = mesh.clone();
+    mesh.patches[inlet].kind = PatchKind::Wedge;
+    plain.patches[inlet].kind = PatchKind::Patch;
+    let g = Geometry::new(alloc::sync::Arc::new(mesh));
+    let gp = Geometry::new(alloc::sync::Arc::new(plain));
+    let (phi, psi, step, central, r) = step_case(&g);
+    let up = mules::interpolate(&g, AlphaConvection::Upwind, &phi, &psi);
+    let mut bd: Vec<f64> = (0..g.n_faces()).map(|f| phi[f] * up[f]).collect();
+    let mut corr: Vec<f64> = (0..g.n_faces()).map(|f| central[f] - bd[f]).collect();
+    let f0 = g.mesh.patches[inlet].start;
+    bd[f0] = central[f0];
+    corr[f0] = 0.3; // a (non-physical) boundary correction: the wedge branch must zero its lambda
+    let (ones, zeros) = (vec![1.0; 10], vec![0.0; 10]);
+    let ctl = LimiterControls::default();
+    let lambda = mules::limiter(&g, &ctl, r, &psi, &step, &bd, &corr, &ones, &zeros);
+    assert_eq!(lambda[f0], 0.0);
+    let lambda_plain = mules::limiter(&gp, &ctl, r, &psi, &step, &bd, &corr, &ones, &zeros);
+    assert_eq!(lambda_plain[f0], 1.0, "a plain patch keeps lambda = 1");
+}
+
+/// `nonuniform List<scalar> N (...)` tokens give the cell values; a wrong count or another element type is refused.
+#[test]
+fn nonuniform_scalar_list_reads_the_foam_tokens() {
+    use outram_foam_basic_lib::io::FoamValue;
+    let toks = |n: f64, items: Vec<FoamValue>| {
+        vec![FoamValue::Word("nonuniform".into()), FoamValue::Word("List<scalar>".into()), FoamValue::Scalar(n), FoamValue::List(items)]
+    };
+    let ok = toks(2.0, vec![FoamValue::Scalar(0.25), FoamValue::Scalar(0.0)]);
+    assert_eq!(super::case::nonuniform_scalar_list(&ok), Some(vec![0.25, 0.0]));
+    assert_eq!(super::case::nonuniform_scalar_list(&toks(3.0, vec![FoamValue::Scalar(1.0)])), None);
+    let mut vec_list = toks(1.0, vec![FoamValue::Scalar(1.0)]);
+    vec_list[1] = FoamValue::Word("List<vector>".into());
+    assert_eq!(super::case::nonuniform_scalar_list(&vec_list), None);
+    assert_eq!(super::case::nonuniform_scalar_list(&[FoamValue::Word("uniform".into()), FoamValue::Scalar(1.0)]), None);
+}
+
+/// The `solveAlpha` lambda (`solvePhase` set), forced here with nSubCycles 3 on the vendored `1D_boiling`: the solved fluid
+/// is bounded by the moving fraction, the other follows by continuity (sum = moving fraction in every cell), and
+/// `alpha.oldTime()` is restored after the cycles.
+#[cfg(feature = "std")]
+#[test]
+fn solve_phase_lambda_keeps_the_fractions_bounded_and_summing_to_the_moving_fraction() {
+    for solved in [1usize, 0usize] {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_boiling");
+        let mut case = TwoPhaseCase::read(&dir).expect("read vendored 1D_boiling");
+        match &mut case.controls.alpha {
+            super::AlphaSolver::Mules(mc) => {
+                mc.adjust_sub_cycles = false;
+                mc.n_sub_cycles = 3;
+                mc.solve_phase = Some(solved);
+            }
+            super::AlphaSolver::ImplicitUpwind => panic!("the shipped case selects MULES"),
+        }
+        let mut s = super::TwoPhaseSolver::new(case);
+        for _ in 0..6 {
+            let before: Vec<Vec<f64>> = (0..2).map(|k| s.fluids[k].alpha.c.clone()).collect();
+            s.step().expect("step");
+            assert_eq!(s.alpha_sub_cycles, 3);
+            for k in 0..2 {
+                assert_eq!(s.fluids[k].alpha_old, before[k], "alpha.oldTime() is the start-of-step value after the cycles");
+            }
+            for c in 0..s.geom.n_cells() {
+                let moving = 1.0 - s.structure.alpha.c[c];
+                let sum = s.fluids[0].alpha.c[c] + s.fluids[1].alpha.c[c];
+                assert!((sum - moving).abs() < 1e-12, "cell {c}: {sum} vs {moving}");
+                for k in 0..2 {
+                    assert!(s.fluids[k].alpha.c[c] >= 0.0 && s.fluids[k].alpha.c[c] <= moving, "cell {c} fluid {k}");
+                }
+            }
+        }
+    }
+}
