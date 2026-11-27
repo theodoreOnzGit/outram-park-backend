@@ -2367,6 +2367,12 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
             continue;
         }
 
+        // note, the 'history here is not a lifetime, but a Rust 
+        // loop label.
+        //
+        // This allows the break 'history; seen later to 
+        // break out from the correct loop rather than something unspecified 
+        // this is ok
         'history: loop {
             events += 1;
             if events > max_events {

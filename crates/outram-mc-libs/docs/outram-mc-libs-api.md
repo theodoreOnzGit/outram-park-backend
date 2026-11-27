@@ -6302,7 +6302,7 @@ pub struct Nuclide {
   Whether fission sampling applies delayed-neutron spectra: `true` when the
 
 - ```rust
-  pub fn native_energy_grid(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
+  pub fn native_energy_grid_with_thinning(self: &Self, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
   ```
   The native energy breakpoints \[eV\] this nuclide's cross-section data
 
@@ -6800,6 +6800,17 @@ free label: `Ok`, unchecked.
 
 ```rust
 pub fn check_name_against_za(name: &str, za: f64) -> Result<(), njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
+#### Function `thin_energy_nodes`
+
+Clip `nodes` to `[e_min_ev, e_max_ev]`, add both endpoints, sort, and drop
+duplicates: exactly equal energies always, and with `thin_tol = Some(tol)`
+also any node within `tol * max(|last|, 1.0)` of the last kept one
+(absolute below 1 eV, relative above). Non-finite nodes are dropped.
+
+```rust
+pub fn thin_energy_nodes(nodes: Vec<f64>, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
 ```
 
 #### Function `zero_kelvin_companion_candidates`
@@ -28278,19 +28289,9 @@ pub struct Majorant {
   Build the majorant `Σ_maj(E) ≥ max_m Σ_t,m(E)` over `materials`, on the
 
 - ```rust
-  pub fn from_materials_without_breakpoints(materials: &[Material], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
-  ```
-  **ABLATION — not a bound on resonance data.** The pre-#589
-
-- ```rust
   pub fn over_indices(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
   ```
   **A majorant bounding only the materials a REGION can reach.**
-
-- ```rust
-  pub fn over_indices_without_breakpoints(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
-  ```
-  **ABLATION — not a bound on resonance data.** [`Self::over_indices`] on
 
 - ```rust
   pub fn bounding(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize, margin: f64) -> Self { /* ... */ }
@@ -47947,7 +47948,7 @@ pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult { /* ... */ }
 Build a [`SlowingDownGrid`] from real nuclear data.
 
 `grid_ev` supplies the *energy* resolution — pass the union of the nuclides'
-own [`Nuclide::native_energy_grid`]s, which resolves every resonance the
+own [`Nuclide::native_energy_grid_with_thinning`]s, which resolves every resonance the
 reconstruction resolved. This function then supplies the *lethargy*
 resolution the solver needs, subdividing any interval wider than
 `ε_min / steps_per_window` (see [`solve_on_grid`] for why that matters).
@@ -77975,7 +77976,7 @@ between its log-spaced nodes; its fidelity is bounded by `n_points`.
 
 [`UnionTotalXs::tabulate_native`] (beads op-u6s.7) builds the genuine
 **native-breakpoint union grid**: it gathers every energy node the underlying
-nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid`]
+nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid_with_thinning`]
 — reconstructed section grids for the HIGH tier; WMP window edges + fast-group
 bounds for the LOW/analytic tier), merges them with a log-spaced backbone
 floor (so it is never coarser than the equal-size dense grid), and

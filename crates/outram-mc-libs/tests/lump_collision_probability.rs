@@ -331,8 +331,14 @@ fn medium() -> Option<&'static (Vec<outram_mc_libs::prelude::Nuclide>, Vec<f64>)
         .get_or_init(|| {
             let c12 = nuclide_or_skip("C12", "n-006_C_012-ENDF8.0.endf")?;
             let u238 = nuclide_or_skip("U238", "n-092_U_238.endf")?;
-            let mut grid = u238.native_energy_grid(BAND.e_bot * 0.9, BAND.e_top * 1.1);
-            grid.extend_from_slice(&c12.native_energy_grid(BAND.e_bot * 0.9, BAND.e_top * 1.1));
+            let mut grid = match u238.native_energy_grid_with_thinning(BAND.e_bot * 0.9, BAND.e_top * 1.1, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            };
+            grid.extend_from_slice(&match c12.native_energy_grid_with_thinning(BAND.e_bot * 0.9, BAND.e_top * 1.1, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            });
             grid.sort_by(|a, b| a.partial_cmp(b).expect("finite grid"));
             grid.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-12 * b.abs());
             Some((vec![c12, u238], grid))

@@ -3,6 +3,13 @@
 # log-grid-only) majorant, at the same 10 000 x [5 + 20]. Separates the
 # majorant's effect from every other code change since the 2026-10-01 record.
 set -u
+# REMOVED 2026-11-26 (gh:#1819): the OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS knob and
+# Majorant::over_indices_without_breakpoints were deleted (maintainer: "it's
+# wasting space"). On code after that the knob is ignored and this would
+# silently run the BOUNDED majorant, so refuse. To rerun the control, build
+# htr10_rmc_keff at 625e964655 or earlier.
+echo "run_control.sh: the pre-#589 majorant ablation was removed 2026-11-26 (gh:#1819); build at 625e964655 or earlier" >&2
+exit 1
 BIN=${BIN:-/home/user/outram-park-backend/target/release/examples/htr10_rmc_keff}
 log=logs/run_e8_N14_control_old_majorant.log
 if [ -f "$log" ] && grep -q "k_eff        =" "$log"; then exit 0; fi

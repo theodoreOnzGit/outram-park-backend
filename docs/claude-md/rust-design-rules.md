@@ -142,3 +142,35 @@ and every module imports `crate::hash::{HashMap, HashSet}`, never
   value: the type changes with the `std` feature, and Cargo unifies features
   across a build. Existing public fields that do are listed on gh:#1610.
 
+
+### Handling a `Result`: explicit `match`, never `?` (added 2026-11-26)
+
+**Maintainer direction, 2026-11-26:** "don't use ?", "i want explicit
+match", "make it a workspace rule for all new agentically coded result
+handling". **Every `Result` an agent handles in new or changed code is
+handled with an explicit `match`** that names both arms. This applies to
+libraries, tests and examples alike.
+
+```rust
+let grid = match nuc.native_energy_grid_with_thinning(lo, hi, Some(1.0e-12)) {
+    Ok(grid) => grid,
+    Err(err) => panic!("native energy grid: {err}"),
+};
+```
+
+- **Not `?`, not `.unwrap()`, not `.expect(..)`,** and not the combinators
+  that hide a branch (`unwrap_or`, `ok()`, `map_err(..)?`). The reviewer
+  reads what each arm does, and the error path is visible rather than
+  implied.
+- **Passing an error up is still allowed, as an arm:**
+  `Err(err) => return Err(err)`, or with the error converted inside the arm.
+- **An `Err` arm that panics needs a reason,** like any panic: say why the
+  error cannot happen or cannot be recovered from, and give the function a
+  `# Panics` line in its doc comment. "Result over panic" still holds: a
+  library function that can fail on its caller's input returns the
+  `Result`.
+- **Scope:** code agents write or change from now on. Existing `?` and
+  `unwrap` are not mass-refactored, and never inside a kovan-reviewed
+  function without the confirmation that rule requires.
+- **First use:** gh:#1827, the call sites of
+  `Nuclide::native_energy_grid_with_thinning`.
