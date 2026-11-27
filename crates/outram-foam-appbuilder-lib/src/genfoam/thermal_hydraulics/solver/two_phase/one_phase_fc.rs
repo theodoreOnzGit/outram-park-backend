@@ -226,6 +226,18 @@ pub struct OnePhaseFcCase {
     pub delta_t: f64,
 }
 
+/// The per-face terms of `fvMatrix::relax` (ESI v2506 `fvMatrix.C:1149`, `:1237`) for a non-coupled boundary face with
+/// `internalCoeffs = ic` (one entry per component), relative to the `cmptAv` that [`Vector`]'s matrix assembly already folds
+/// into the diagonal: `(cmptMax(cmptMag(ic)) - cmptAv(ic), cmptAv(ic) - cmptMin(ic))` = `(pre, post)` of
+/// `OnePhaseFcSolver::relax_diag_boundary`. For three equal components `v` this is `(2 max(-v, 0), 0)`; for a `slip` wall of
+/// normal `x`, `ic = (c, 0, 0)` gives `(2c/3, c/3)`. gh:#1894.
+pub(super) fn relax_face_terms(ic: [f64; 3]) -> (f64, f64) {
+    let cmax_mag = ic[0].abs().max(ic[1].abs()).max(ic[2].abs());
+    let cmin = ic[0].min(ic[1]).min(ic[2]);
+    let cav = (ic[0] + ic[1] + ic[2]) / 3.0;
+    (cmax_mag - cav, cav - cmin)
+}
+
 fn parse_zone_models<T>(
     ctx: &Ctx,
     d: &outram_foam_basic_lib::io::FoamDict,
@@ -885,13 +897,15 @@ impl OnePhaseFcSolver {
     }
 
     /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`). With the boundary coefficients folded
-    /// into the diagonal (`diag_fold = D + sum iCoeffs`), OpenFOAM's add-`cmptMax(cmptMag(iCoeffs))`,
-    /// take-`max(|D|, sumOff)`, divide, subtract-`iCoeffs` sequence gives
-    /// `diag_fold' = max(|diag_fold + 2 sum max(-iCoeffs, 0)|, sumOff) / alpha`: a boundary face with a
-    /// NEGATIVE internal coefficient (convective inflow through a non-fixed patch) is not neutral.
-    /// `inflow2[c]` is that `2 sum max(-iCoeffs, 0)` of cell `c`. Returns `D' - D` per cell, the
-    /// coefficient of `psi` in the source correction.
-    fn relax_diag(&self, e: &mut Eqn, factor: f64, inflow2: &[f64]) -> Vec<f64> {
+    /// into the diagonal (`diag_fold = D + sum cmptAv(iCoeffs)`), OpenFOAM's add-`cmptMax(cmptMag(iCoeffs))`,
+    /// take-`max(|D|, sumOff)`, divide, subtract-`cmptMin(iCoeffs)` sequence (per boundary face) gives
+    /// `diag_fold' = max(|diag_fold + pre|, sumOff) / alpha + post`, with `pre = sum_f (cmptMax(cmptMag(iCoeffs_f)) -
+    /// cmptAv(iCoeffs_f))` and `post = sum_f (cmptAv(iCoeffs_f) - cmptMin(iCoeffs_f))` ([`relax_face_terms`]). For equal
+    /// components (a scalar equation, `zeroGradient`, `fixedValue`, `noSlip`) `pre = 2 max(-iCoeffs, 0)` (a boundary face with a
+    /// NEGATIVE internal coefficient, a convective inflow through a non-fixed patch, is not neutral) and `post = 0`; for a
+    /// `slip` wall (`iCoeffs = (c, 0, 0)`) both are non-zero (gh:#1894). Returns `D' - D` per cell, the coefficient of `psi`
+    /// in the source correction.
+    fn relax_diag_boundary(&self, e: &mut Eqn, factor: f64, pre: &[f64], post: &[f64]) -> Vec<f64> {
         let n = self.geom.n_cells();
         let mut sum_off = vec![0.0; n];
         for f in 0..self.geom.n_internal() {
@@ -901,11 +915,49 @@ impl OnePhaseFcSolver {
         let mut delta = vec![0.0; n];
         for c in 0..n {
             let d0 = e.ldu.diag[c];
-            let d = (d0 + inflow2[c]).abs().max(sum_off[c]) / factor;
+            let d = (d0 + pre[c]).abs().max(sum_off[c]) / factor + post[c];
             e.ldu.diag[c] = d;
             delta[c] = d - d0;
         }
         delta
+    }
+
+    /// [`Self::relax_diag_boundary`] for equal `iCoeffs` components: `inflow2[c]` is the `2 sum max(-iCoeffs, 0)` of cell `c`
+    /// (the scalar energy equation, whose boundary coefficients are scalars).
+    fn relax_diag(&self, e: &mut Eqn, factor: f64, inflow2: &[f64]) -> Vec<f64> {
+        let zero = vec![0.0; self.geom.n_cells()];
+        self.relax_diag_boundary(e, factor, inflow2, &zero)
+    }
+
+    /// The `pre` and `post` sums of [`Self::relax_diag_boundary`] for the velocity equation: per boundary face the
+    /// `internalCoeffs` of `fvm::div(alphaRhoPhi, U)` (`phi_b valueInternalCoeffs`) plus those of `-fvm::laplacian(gamma, U)`
+    /// (`-(pGamma gradientInternalCoeffs)`; `fvMatrix::operator+=` adds them component-wise before `relax` sees them), from the
+    /// patch coefficients of [`Vector::patch_coeffs`] exactly as `VecEqn::boundary_convection` and `boundary_laplacian` build them.
+    fn u_relax_boundary_terms(&self, gamma: &[f64]) -> (Vec<f64>, Vec<f64>) {
+        let g = &self.geom;
+        let fl = &self.fluid;
+        let mut pre = vec![0.0; g.n_cells()];
+        let mut post = vec![0.0; g.n_cells()];
+        for f in g.n_internal()..g.n_faces() {
+            if !g.active[f] {
+                continue;
+            }
+            let o = g.mesh.owner[f];
+            let c = fl.u.patch_coeffs(g, f, [&[], &[]]);
+            let phi = fl.alpha_rho_phi[f];
+            let mut ic = [phi * c.value_internal[0], phi * c.value_internal[1], phi * c.value_internal[2]];
+            if !(c.gradient_internal_diag == [0.0; 3] && c.gradient_boundary == [0.0; 3]) {
+                let pg = gamma[f] * g.mesh.face_areas[f];
+                let d = g.delta[f];
+                for k in 0..3 {
+                    ic[k] += -(pg * (-d * c.gradient_internal_diag[k]));
+                }
+            }
+            let (p, q) = relax_face_terms(ic);
+            pre[o] += p;
+            post[o] += q;
+        }
+        (pre, post)
     }
 
     /// `2 sum max(-phi_b, 0)` per owner cell over the boundary faces of `phi` whose patch is not
@@ -964,8 +1016,13 @@ impl OnePhaseFcSolver {
         }
         e.eqn.sp(g, &self.kd);
         if let Some(fct) = self.controls.relax_u_equation {
-            let inflow2 = self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.u.flux_is_fixed(g, f));
-            let delta = self.relax_diag(&mut e.eqn, fct, &inflow2);
+            // gh:#1894: per boundary face, over the three components (a `slip` wall's `iCoeffs` are not equal in them)
+            let (pre, post) = if patched {
+                self.u_relax_boundary_terms(&gamma)
+            } else {
+                (self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.u.flux_is_fixed(g, f)), vec![0.0; n])
+            };
+            let delta = self.relax_diag_boundary(&mut e.eqn, fct, &pre, &post);
             for c in 0..n {
                 e.src[0][c] += delta[c] * fl.u.c[c].x;
                 e.src[1][c] += delta[c] * fl.u.c[c].y;

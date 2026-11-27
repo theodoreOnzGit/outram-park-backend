@@ -361,34 +361,17 @@ fn worst_of(rows: &[(usize, Row)], name: &str) -> f64 {
     rows.iter().flat_map(|(_, w)| w.iter()).filter(|(k, _)| k == name).map(|(_, v)| *v).fold(0.0, f64::max)
 }
 
-/// The committed gate (README round 44, "Comparison criteria": every field 1e-9, `p_rgh` and `T` 1e-10) AMENDED POST-RUN, recorded
-/// at the measured size with the cause (H4, H5, H6, H7 MISSED for the pressure and the quantities slaved to it in the early steps):
-/// the pressure differs by a deterministic ~3e-11 (of `max p`) after the second outer iteration of step 1, in the case WITHOUT heat
-/// exchangers or heating as well (README round 44 results, "Baseline"). Early steps (<= 5): `p`, `p_rgh` 2e-7, `Uz`, `Re`, `htc`
-/// 1e-8, the exchanged heat (a cancellation `THX - T` of 0.01 K against a `T` error of 4.5e-9 K) 5e-7; steps 10..=200: `p`, `p_rgh`
-/// 5e-9 and the zone integral 1e-8; afterwards the committed 1e-9 for `p`/`p_rgh` too. `T`, `T[zone]`, `T.HX` keep the committed 1e-10.
-fn gate(step: usize, name: &str) -> f64 {
-    let strict = name == "T" || name.starts_with("T[") || name == "T.HX";
-    let pressure = matches!(name, "p" | "p_rgh");
-    let base = if strict { 1e-10 } else { 1e-9 };
-    if step <= 5 {
-        match name {
-            "p" | "p_rgh" => 2e-7,
-            "Uz" | "Re" | "htc" | "Uz/|U|max" => 1e-8,
-            "Q_hx" => 5e-7,
-            n if n.starts_with("intQ") => 5e-7,
-            _ => base,
-        }
-    } else if step <= 200 {
-        if pressure {
-            5e-9
-        } else if name.starts_with("intQ") {
-            1e-8
-        } else {
-            base
-        }
+/// The committed gate (README round 44, "Comparison criteria": every field 1e-9, `p_rgh`, `T` and the zone integrals 1e-10). Round 44 AMENDED it post-run
+/// to 2e-7 (`p`, early steps), 1e-8 (`Uz`, `Re`, `htc`), 5e-7 (the exchanged heat), 5e-9 (`p`, steps 10..=200) at the measured size of a
+/// deterministic pressure offset (gh:#1894). Round 45 found the cause (`fvMatrix::relax` on a `slip` wall, README round 45, fixed in
+/// `OnePhaseFcSolver::relax_diag_boundary`) and RESTORED the committed gates: measured worst `p` 3.0e-12, `Uz` 1.6e-13, `Q` 5.3e-11,
+/// `T` 3.5e-13 over all 2008 steps.
+fn gate(_step: usize, name: &str) -> f64 {
+    let strict = name == "T" || name.starts_with("T[") || name == "T.HX" || name == "p_rgh" || name.starts_with("intQ");
+    if strict {
+        1e-10
     } else {
-        base
+        1e-9
     }
 }
 
