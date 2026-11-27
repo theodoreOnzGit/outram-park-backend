@@ -65,6 +65,11 @@ impl DiffusionNeutronics {
     /// [`NeutronicsError::NotConverged`] if the outer loop exhausts
     /// `max_outer_iterations` without meeting both tolerances.
     pub fn solve_eigenvalue(&mut self) -> Result<EigenvalueReport, NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         let g = self.energy_groups();
         let n = self.state.mesh().n_cells;
 

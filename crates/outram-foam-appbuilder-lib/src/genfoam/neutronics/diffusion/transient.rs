@@ -70,6 +70,11 @@ impl DiffusionNeutronics {
     ///
     /// [`NeutronicsError::NonPositiveTimeStep`] if `dt <= 0`.
     pub fn step(&mut self, dt: Time) -> Result<(), NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         let dt_s = dt.get::<second>();
         if dt_s <= 0.0 || dt_s.is_nan() {
             return Err(NeutronicsError::NonPositiveTimeStep(dt_s));

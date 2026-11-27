@@ -5100,3 +5100,79 @@ Comparison criteria, fixed now and not to be changed after seeing results:
 | K4 control | the port's `adjust` fed the physical `flux` instead of `fluxStar` (on the instrument-1 sequence of `v1`) | differs from upstream's `dfList` by more than 1e-6 relative from the second call on (the first call starts from df = 1, where flux and fluxStar coincide) |
 | R1 | the existing round 1/2/14/15/32 neutronics numbers (`genfoam_pseudo_time_vs_upstream`, `genfoam_neutronics_vs_upstream`, `genfoam_external_source_vs_upstream`, the non-ignored msfr chain/allrun tests, `--lib neutronics`) | do not move (every `discFactor` of those cases is 1) |
 | R2 | SP3 pseudo-time on data with a factor other than 1 | returns `DiscFactorsNotPorted`; on unity data unchanged |
+
+## Round 39 results (measured 2026-11-27, release, PRIVATE cargo target dir; `tests/genfoam_df_driveline_vs_upstream.rs`, 19 tests + 1 ignored diagnostic, 0.5 s; `--nocapture` prints every tally)
+
+**What was ported (new code; no kovan-reviewed function exists in these folders).** `neutronics/xs/disc_factors.rs` (`DiscFactorState::adjust` = `adjustDiscFactors.H`, `domain_integrate`), `xs/driveline.rs` (`ControlRodDriveline`: `CRposition_`, the follower/rod zone swap of `setNeutronicsVariables.H`), `diffusion/xs_evolution.rs` (`XsEvolution` = `XS::correct()` at time t), `DiffusionXsFields::{materialize_evolved, disc_factor}`, readers `io::nuclear_data::{read_disc_factor_controls, read_control_rods}`; the diffusion pseudo-time eigenvalue step now solves for `fluxStar_` and sets `flux_ = fluxStar_/discFactor` (`D/df` interpolated, `sigmaRemoval/df`), calls `adjustDiscFactors` after `normFluxes.H`; `PseudoTimeEigenvalue::set_time` (default no-op) lets the loop pass the step time. Refusals by name: see "Method".
+
+**Upstream -> Rust.** `XS.C:149-165, 326-331` and `include/adjustDiscFactors.H` -> `DiscFactorControls`, `DiscFactorState::{new, adjust}`; `include/readNuclearData.H` (control-rod block, `dfAdjust`, `discFactor`, `integralFlux`) -> `read_control_rods`, `ZoneNuclearData`; `include/setNeutronicsVariables.H` (position, zone swap, `discFactor_ = discFactorList_[zone]`) -> `ControlRodDriveline::{positions, effective_zone_of_cell}`, `XsEvolution::materialize`; `include/setNeutronicsConstants.H`, `setPrecConst.H` (constants by MESH zone) -> `materialize_evolved(.., mesh_zone_of_cell, ..)`; `diffusion/include/{solveNeutronics,createFluxMatrices,fluxEq,normFluxes}.H` with `discFactor` -> `diffusion/pseudo_time.rs::eigenvalue_time_step`.
+
+### Instrument 1: GeN-Foam's own `XS` class (`dump_xs_df`), bit for bit
+
+| case | per-cell arrays (12 per probe time) | `CRposition` | `dfList` after `adjustDiscFactors` | upstream max `abs(df - 1)` |
+|---|---|---|---|---|
+| `v1` (adjust, 10 calls) | 120 of 120 `==` | no rod | 80 of 80 `==` | 99.9 |
+| `v1_d1` (adjust + rod, 10 times) | 120 of 120 | 0 difference | 80 of 80 | 99.9 |
+| `v0_d1` (rod entering) | 120 of 120 | 0 difference | 80 of 80 (all 1) | 0 |
+| `v0_d3` (rod retracting from a displaced start, 6 times) | 72 of 72 | 0 difference | 48 of 48 | 0 |
+
+The 12 arrays: `D`, `nuSigmaEff`, `sigmaRemoval` (both groups), `discFactor` (both), `IV` (both), `sigmaFromTo_0_1`, `BetaTot`. Cell centres of the port equal ESI's (the rod positions are `==`).
+
+### Instrument 2: the binary, step by step (T1 to T7 of round 2, fixed before the runs)
+
+| variant | steps | worst `abs(dk)` (step) | worst rel `dP` | residual rel / abs | flux shape (both groups) | upstream `keff_` first -> last | verdict |
+|---|---:|---|---|---|---|---|---|
+| `v0` (control) | 230 / 230 | 5.8e-15 (228) | 5.4e-15 | 2.8e-10 / 3.1e-15 | 7.3e-13 | 1.2521 -> 1.3494 | T1-T7 held |
+| `v1` (adjust, both groups, 4 zones) | 230 / 230 | 1.9e-13 (17) | 1.5e-13 | 8.1e-13 / 1.5e-19 | 6.2e-13 | 1.2521 -> 1.3972 | held |
+| `v2` (`groupsWoDF (1)`, reflector `dfAdjust false`) | 230 / 230 | 8.7e-15 (6) | 9.6e-15 | 5.7e-10 / 7.3e-15 | 1.8e-12 | 1.2521 -> 1.3469 | held |
+| `v3` (given factors 1.05/0.96, 0.9/1.2, 0.98/1.04) | 230 / 230 | 5.1e-15 (75) | 6.2e-15 | 3.4e-10 / 4.5e-15 | 8.8e-13 | 1.2596 -> 1.3484 | held |
+| `v0_d1` (rod entering, t 10..30) | 230 / 230 | 5.1e-15 (139) | 5.6e-15 | 4.9e-10 / 8.9e-16 | 5.0e-14 | 1.2521 -> 1.3382 | held |
+| `v0_d3` (rod retracting, t 0..20) | 230 / 230 | 6.2e-15 (135) | 5.8e-15 | 3.7e-10 / 7.3e-16 | 4.1e-14 | 1.2318 -> 1.3515 | held |
+| `v1_d1` (adjust + rod) | 230 / 230 | 1.9e-13 up to step 201; **6.7e-3 from step 202** | 1.5e-13 up to 201 | up to 201: held | final: 1.0 | 1.2521 -> 1.2999 | **MISSED from step 202** |
+| `v2_d1` (`v2` + rod) | 230 / 230 | 1.3e-14 up to step 204; **8.6e-3 from step 205** | 1.5e-14 up to 204 | up to 204: held | final: 1.0 | 1.2521 -> 1.3108 | **MISSED from step 205** |
+
+The `dk` is at the 1e-15 to 1e-13 level of round 2's slabs (3e-14 to 6e-14): the discontinuity-factor operators and the zone swap cost nothing beyond the round-off of the two linear solvers. The `v0` series printed by the existing `genfoam_pseudo_time_vs_upstream` guided cases is unchanged to the printed digits (diffusion guided 1: max `dk` 3.331e-14 at step 146, median 2.49e-14, `dP` 1.43e-14, residual 2.34e-10, shape 2.58e-13; guided 2: 6.239e-14 at 193, 4.77e-14, 1.98e-14, 1.26e-10, 4.32e-13; SP3 guided 1 and 2 as in the round 2 table), so the old path is reproduced.
+
+**The two misses and their cause (first diverging item, found from upstream's own log).** In `v1_d1` and `v2_d1` the adjustment drives the rod zone's factor to 4.7e-14 (`v1_d1`) and 6.6e-14 (`v2_d1`, group 0) as the rod moves (the loop `df -> fluxStar -> df` has gain above 1 for the rod's small `integralFlux`, which is upstream's own behaviour, also in `v1`, where the thermal-group factors reach 5e-6 to 27 but the run still matches). At step 202 (`v1_d1`) and 205 (`v2_d1`) upstream's first `fluxStar0` solve reports `No Iterations 0` at an initial residual of 5.8e-15 and 8.3e-15, just under its `1e-14` tolerance, and **upstream's power is 5.2e-3 and 6.6e-3 off `pTarget`** (log: `power: 1005200.5`, `1006582.5`) while the port's is 1.6e-5 and 4e-9 off, trending as before: upstream's flux is the unconverged one, the stopping test being on OpenFOAM's normalised residual, whose normalisation factor is dominated by the 1e13-times larger entries of the rod cells. The step then rescales `keff_` by that wrong `pTot` (`keff_ *= pTot/pTarget`), and `keff_` stays 6.7e-3 / 8.6e-3 away for the rest of the run, because the next step's power is back on target. The port solves to its own `||r||/||b||` and does not skip. So the miss is the stopping rule at an ill-conditioned point (round 2's finding 7 again), not the algorithm: every quantity of the two variants agrees with upstream for 201 and 204 steps, through the rod motion (t 10 to 30) and the adjustment. The criteria were not changed: the tests `v1_d1_..._until_upstream_stops_unconverged` and `v2_d1_...` assert what holds (steps before the departure at the original bounds; that the departure exists; that upstream's own power is off target there and the port's is not), stated after the run and labelled as such. Making the port reproduce upstream's skipped solve would mean copying the OpenFOAM normalised-residual stopping rule into basic-lib's CG; not done (shared crate, and it would copy an unconverged answer).
+
+### Controls (each comparison can fail)
+
+| control | result |
+|---|---|
+| K1: every factor forced to 1 (`without_disc_factors`, the earlier form) on `v3` | step-1 `abs(dk)` 7.5e-3 (> 1e-4 predicted) |
+| K2: no adjustment on `v1` | last-step `abs(dk)` 4.8e-2 |
+| K3: no driveline on `v0_d1` | last-step `abs(dk)` 1.1e-2 |
+| K4: `adjust` fed the physical flux (`fluxStar/df`) instead of `fluxStar` (instrument-1 sequence of `v1`) | `dfList` differs by up to 1.8 relative from the second call on |
+| R2: SP3 on `v3` | `PseudoTimeError::DiscFactorsNotPorted`, as predicted |
+| B3/B4: late in `v0_d1` some follower cells carry the rod's cross sections while their `BetaTot` is the follower's; no rods means the zone map equals the mesh zone map | held (`constants_are_not_remapped_and_no_rods_means_no_remap`) |
+
+### Predictions: held and missed
+
+| id | verdict |
+|---|---|
+| A1 | held: 80 of 80, in both `v1` and `v1_d1` |
+| A2 | held, from upstream's log and the solver run: `v2` prints no `energy 1` line (`Not calculating DF for group: 1`), the reflector stays exactly 1 for all 230 steps, and the port agrees to 9e-15. Not probed at instrument 1 |
+| A3 | held: upstream's factors reach 99.9 |
+| B1 | held: 120 of 120, 120 of 120, 72 of 72 arrays `==` |
+| B2 | held in the strong form: `CRposition` is bit-identical (the port's cell centres equal ESI's) |
+| B3, B4 | held |
+| C1 | held: `v0` at 5.8e-15; the guided-slab numbers of round 2 are unchanged to the printed digits |
+| C2 | **held for `v1` and `v2`; missed for the two combined variants** (cause above; `v2_d1` was added after the first `v1_d1` run, see "Case design") |
+| C3 | held |
+| C4 | held for `v0_d1`, `v0_d3` (upstream `keff_` moves by 0.097 and 0.123 over the run); **missed for `v1_d1`** (cause above) |
+| K1 to K4, R2 | held (K4 and K1 by a wide margin) |
+| R1 | held: `genfoam_pseudo_time_vs_upstream` (3), `genfoam_neutronics_vs_upstream` (3), `genfoam_external_source_vs_upstream` (11), `genfoam_msfr_chain_vs_upstream` (5, 312 s), `genfoam_msfr_allrun_vs_upstream` (4 + 2 ignored), `genfoam_sn_vs_upstream` (2), `genfoam_point_kinetics_vs_upstream` (5), `--lib neutronics` (78), `petir --test no_platform_libm` (4), `scripts/check-nostd.sh` |
+
+### Case design and harness defects found on the way (recorded, none hidden)
+
+1. **First `integralFlux` (arbitrary 0.5/0.33/0.25/...) made UPSTREAM diverge** (`v1`: factors down to 4.7e-15, `keff_` clamped at 5 from step 4 on). Replaced, before any port run, by the zone integrals of upstream's own converged `v0` flux times a fixed 0.90 to 1.12 perturbation (`scripts/make_df_driveline_cases.sh` header). This is an input choice, not a criterion; the predictions and criteria were not touched. `v2_d1` was added after seeing that `v1_d1` leaves upstream's convergence; it does too.
+2. **Harness defect: the first upstream runs used the tutorial's own `points`** (10 decimals), which differ from the committed `cases/guided2/polyMesh` the port reads by up to 3.3e-10 m. The rod position then differed by 2.3e-10 relative and every flux by 1e-7 (a step-1 `dk` of 2.6e-12 in the CONTROL `v0`): found because the control failed. The upstream runs now use the same polyMesh files as the port, and `v0` agrees to 6e-15.
+3. **Harness defect: the first `dump_xs_df` set the time index to `i` while a case read at its latest time has `startTimeIndex` 230**, so `correct()` took the "list := field" branch and every dumped `discFactor` field was 1. Found because the `discFactor` arrays disagreed with the (correct) list. The probe now sets `startTimeIndex() + i`.
+
+### What is not done (filed or refused by name)
+
+* SP3 (`fluxEqSP3.H`, `createFluxMatricesSP3.H`, `implicit/integralPredictorSP3.H`) and SN with a discontinuity factor other than 1: `PseudoTimeError::DiscFactorsNotPorted` for SP3. The adjustment is also called by `SP3Neutronics` (`solveNeutronicsSP3.H:119`); not ported.
+* The static `solve_eigenvalue`, the simple `step`, `upstream_transient_step`, `upstream_eigenvalue_step` and `upstream_stationary_step` divide by nothing and return `NeutronicsError::UpstreamTransient` when a factor is not 1 (so a shipped case with non-unity lists, 2D_FFTF, no longer runs silently without them).
+* `XsEvolution` keeps the per-cell feedback parameters static; time-varying `TFuel`/`rhoCool` are `refresh_cross_sections`' job (coupled region). `disp`-driven `radExp`/`axExp` (`axialOrientation`), `isLowMemory` (`sigmaFromToYesNo`), `secondaryPowerVolumeFraction` are not ported.
+* The workflow/case reader does not yet construct `XsEvolution` from `constant/<region>/{nuclearData,CRmove}` (the test does it by hand); the shipped `2D_FFTF` and `3D_SmallESFR_old` have empty `CRmove` and `adjustDiscFactors false`, so nothing shipped exercises the rod or the adjustment.
+* SN anisotropic scattering (#1474 item c): nothing to port, see the first section.

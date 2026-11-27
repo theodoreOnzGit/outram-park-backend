@@ -133,6 +133,12 @@ impl PseudoTimeEigenvalue for Sp3Neutronics {
         first_step: bool,
     ) -> Result<PseudoTimeStep, PseudoTimeError> {
         let xs = self.xs.take().ok_or(PseudoTimeError::NoCrossSections)?;
+        // SP3 divides every operator by `discFactor` (`fluxEqSP3.H`, `createFluxMatricesSP3.H`): not
+        // ported (gh:#1785), so factors other than 1 are refused instead of silently dropped.
+        if !xs.base.disc_factors_are_unity() {
+            self.xs = Some(xs);
+            return Err(PseudoTimeError::DiscFactorsNotPorted);
+        }
         let step = self.eigenvalue_time_step_inner(&xs, p_target, first_step);
         self.xs = Some(xs);
         Ok(step)

@@ -2,7 +2,7 @@
 // Written for this workspace. It DERIVES from GeN-Foam's own `XS` class (libNeutronicsSolvers, GPL-3.0, EPFL) to read its
 // protected members (`CRposition_`, `discFactorList_`); no upstream code is copied.
 //
-// For each time t_i of `-times "t1 t2 ..."` (time index i = 1, 2, ...: `runTime.setTime(t_i, i)`, so `correct()` takes
+// For each time t_i of `-times "t1 t2 ..."` (time index startTimeIndex + i, i = 1, 2, ...: `runTime.setTime(t_i, ...)`, so `correct()` takes
 // the `timeIndex - startTimeIndex > 0` branch exactly as inside a solver run):
 //   1. xs.correct()                       (driveline position + zone remap + the per-cell discFactor from discFactorList_)
 //   2. dump into <case>/xsdump/<i>/: CRposition (one value per rod), D<g>, nuSigmaEff<g>, sigmaPow<g>,
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     for (size_t k = 0; k < times.size(); ++k)
     {
         const label idx = label(k) + 1;
-        runTime.setTime(times[k], idx);
+        runTime.setTime(times[k], runTime.startTimeIndex() + idx);  // a case read at its latest time has startTimeIndex > 0
         xs.correct();
 
         const fileName d = root/name(idx);

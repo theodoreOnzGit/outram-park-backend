@@ -89,6 +89,14 @@ pub enum PseudoTimeError {
     /// not part of this driver.
     #[error("pseudo-time eigenvalue stepping is implemented for stationary fuel only")]
     LiquidFuel,
+    /// The cross-section evaluation of `XS::correct()` failed (driveline or discontinuity-factor
+    /// evolution of the diffusion model).
+    #[error("XS::correct(): cross-section evaluation failed")]
+    CrossSections,
+    /// The model divides by discontinuity factors that are not 1 (or adjusts them) and this driver does
+    /// not port that: refused by name (gh:#1785; SP3 and SN are not ported).
+    #[error("discontinuity factors other than 1 are not ported for this model (gh:#1785)")]
+    DiscFactorsNotPorted,
 }
 
 /// The `controlDict` entries the loop reads (GeN-Foam `GeN-Foam.C`,
@@ -398,6 +406,10 @@ pub trait PseudoTimeEigenvalue {
         p_tot_old: f64,
     ) -> f64;
 
+    /// `mesh.time().value()` of the step about to be taken, called by the loop after `runTime++` and
+    /// before `pTotOld_ = power()` (default: ignored; the driveline of `XS::correct()` reads it).
+    fn set_time(&mut self, _time: f64) {}
+
     /// `correctPhysics()` for `eigenvalueNeutronics true`, after `pTotOld_` was
     /// taken. `first_step` is `timeIndex - startTimeIndex == 1`.
     ///
@@ -429,6 +441,7 @@ pub fn run_pseudo_time_eigenvalue<S: PseudoTimeEigenvalue>(
     while clock.run() {
         clock.advance();
         let delta_t = clock.delta_t();
+        solver.set_time(clock.value());
         // `pTotOld_ = power();` first in `correctPhysics()`.
         let p_tot_old = solver.pseudo_time_power();
         let first_step = clock.time_index() == 1;

@@ -8,6 +8,11 @@
 #           protocol (writePrecision 17, solvers 1e-14/0, endTime 60) and runs the real GeN-Foam binary.
 # The cross sections are NOT physical data: they are inputs of both codes (two groups, one fast one thermal, a
 # fuel, a reflector and an absorbing "rod" zone), chosen only so that every zone and group carries weight.
+# integralFlux (round 39, second choice): the zone integrals of the converged v0 flux of the real binary (run
+# 2026-11-27) times 1.10/0.92 (reflector), 0.95/1.08 (coreLow), 1.07/0.94 (follower), 1.12/0.90 (rod), group 0/1,
+# scaled by 1e-6. The FIRST choice (0.5 0.33 / 0.25 0.35 / 0.2 0.3 / 0.05 0.02, arbitrary numbers) made upstream
+# itself diverge (v1: df down to 4.7e-15, keff clamped at 5 from step 4 on), a state in which a step-by-step
+# comparison means nothing; it was replaced before any port run.
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$HERE/cases/df_slab"
 
@@ -50,10 +55,10 @@ states
     {
         zones
         (
-$(zone reflector 2.04 0 0.2 0 0.012 0.0030 2.0 0.1 $4 ${9} ${10} 0.5 0.33)
-$(zone coreLow 3.0 0.6 10.0 18.0 0.013 0.0040 2.0 0.4 true $5 $6 0.25 0.35)
-$(zone follower 3.0 0.6 10.0 18.0 0.013 0.0040 2.0 0.4 true $5 $6 0.2 0.3)
-$(zone controlRod 3.5 0.4 40.0 2.0 0.011 0.0035 2.0 0.4 true $7 $8 0.05 0.02)
+$(zone reflector 2.04 0 0.2 0 0.012 0.0030 2.0 0.1 $4 ${9} ${10} 0.04534 0.17206)
+$(zone coreLow 3.0 0.6 10.0 18.0 0.013 0.0040 2.0 0.4 true $5 $6 0.32269 0.07787)
+$(zone follower 3.0 0.6 10.0 18.0 0.013 0.0040 2.0 0.4 true $5 $6 0.25485 0.04440)
+$(zone controlRod 3.5 0.4 40.0 2.0 0.011 0.0035 2.0 0.4 true $7 $8 0.01113 0.00055)
         );
     }
 );
@@ -113,6 +118,12 @@ run)
   ND=${V%%_*}   # variant name before an underscore selects the nuclearData
   cp "$OUT/nuclearData.${ND}" constant/neutroRegion/nuclearData
   zcat "$OUT/cellZones.gz" > constant/neutroRegion/polyMesh/cellZones
+  # The SAME polyMesh files the port reads (cases/guided2, 17-digit points). The tutorial's own points are written with
+  # 10 decimals and differ from them by up to 3.3e-10 m: the first round-39 run used them, and the cell-centre z of the
+  # follower (the rod position) then differed by 2.3e-10 relative and every flux by 1e-7 (a harness defect, not a port one).
+  for f in points faces owner neighbour boundary; do
+    zcat "$HERE/cases/guided2/polyMesh/$f.gz" > constant/neutroRegion/polyMesh/$f
+  done
   [ "$CR" != none ] && cp "$OUT/CRmove.$CR" constant/neutroRegion/CRmove
   PRE=$HERE/scripts/tight_protocol.sh
   bash "$PRE"

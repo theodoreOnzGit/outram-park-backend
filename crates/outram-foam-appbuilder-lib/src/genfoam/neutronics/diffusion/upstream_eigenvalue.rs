@@ -106,6 +106,11 @@ impl DiffusionNeutronics {
         first_step: bool,
         controls: &UpstreamTransientControls,
     ) -> Result<UpstreamEigenvalueStep, NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         let n = self.state.mesh().n_cells;
         if self.drift.is_none() || self.prec_star.len() != self.prec_groups() {
             return Err(NeutronicsError::UpstreamTransient(

@@ -88,7 +88,8 @@
 //! [`SnNeutronics`] is isotropic (P0) scattering only on the baked-in level-symmetric
 //! sets; ~~the anisotropic Legendre-moment source (`SNNeutronics`'s
 //! `legendreMatrices_`, moments `>= 1`) is deferred~~ **CORRECTED 2026-11-12**
-//! (gh:#1474, gh:#1361): the anisotropic source and the case's own
+//! (gh:#1474, gh:#1361; re-checked 2026-11-27 for gh:#1474 item c and gh:#1785's batch: nothing of it is open,
+//! the differential against the real binary exists, README round 2 and round 39): the anisotropic source and the case's own
 //! `quadratureSet` are ported in [`pseudo_time::SnPseudoTimeSolver`] and
 //! [`quadrature_set::QuadratureSet`], as a translation of upstream's pseudo-time
 //! step; this type is kept unchanged as the named alternative. Transients, liquid-fuel

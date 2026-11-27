@@ -349,6 +349,11 @@ impl DiffusionNeutronics {
         dt: f64,
         controls: &StationaryStepControls,
     ) -> Result<StationaryStep, NeutronicsError> {
+        if !self.xs.disc_factors_are_unity() {
+            return Err(NeutronicsError::UpstreamTransient(
+                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+            ));
+        }
         if dt <= 0.0 || dt.is_nan() {
             return Err(NeutronicsError::NonPositiveTimeStep(dt));
         }
