@@ -7342,3 +7342,54 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | Q10 | the NaN: its cause is a non-finite INPUT meeting `lambda (P - N) + N` (an `inf - inf` where `w P + (1 - w) N` gives `inf`), or a zero in `unit_area`/weights of a degenerate face | P 40 % | whatever the instrumented run finds |
 | Q11 | `pEqn.relax()` / `E.relax()` on the two-phase matrices change a printed number by more than 1e-14 relative somewhere | P 60 % (`(D + ic) - ic` at the `fixedValue` patch cells) | report as "no-op here" |
 | Q12 | outer-iteration counts of every compared step unchanged before the onset | P 85 % | |
+
+
+# Round 59 (gh:#1916, #1883; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah"): the TRANSIENT stage of `2D_fullCoupling`, coupled, from the steady state
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 58; keep both on merge. **Predictions and criteria below are committed BEFORE any run of the port's transient** (the real binary was run first, twice; no port number of the transient has been looked at).
+
+## FINDING (read from upstream before anything was ported): the shipped `Allrun` transient is a DIFFUSION transient, not point kinetics
+
+`Tutorials/featureCases/2D_fullCoupling/Allrun` `setTransientNoDriveline` sets `model pointKinetics` and `eigenvalueNeutronics false` in `neutronicsProperties`, `startTime 100`, `endTime 200`, `deltaT 1e-6`, `absoluteDrivelineExpansionCoeff 0`, and copies `multiRegionCouplingDict_transient`. But the SOLVER of `neutroRegion` is chosen by `system/controlDict` `regionSolvers { neutroRegion diffusionNeutronics; }`, which the Allrun does not edit; the `neutronicsProperties` `model` key is read only by `modifyDictLegacy.H`, included only under `GeN-Foam -legacy` (`GeN-Foam.C:130-137`), which the Allrun does not pass. Measured (real binary, `scripts/make_fullcoupling_transient_case.sh`, `SHIPPED=1`): the log shows `Accelerating neutronic solution: integral predictor`, `fluxStar0` and `DICPCG` solves, `power:` lines: **upstream's shipped transient runs the diffusion model in time-dependent mode** (precursor transport, `integralPredictor`), and the tutorial README ("a transient based on point-kinetics") is stale against the code. The point-kinetics stage the task names exists only with one further edit, `regionSolvers.neutroRegion pointKinetics` (variant **PK**, `scripts/make_fullcoupling_transient_case.sh` without `SHIPPED`).
+
+Consequences, stated plainly: (1) the as-shipped stage (variant **SH**) needs the transient diffusion model with `integralPredictor` (gh:#1919, not ported): it is REFUSED by name by the port's reader today (`eigenvalueNeutronics false`), and this round does not change that; (2) the PK variant is the documented variant this round ports. Filed for the maintainer: report to the upstream authors (draft #1910) that the Allrun's transient does not select point kinetics.
+
+## What the real binary does at the restart (read from the logs and time directories, 2026-11-27)
+
+* The steady state of the reference protocol (writeControl `timeStep`, writeInterval 1, writePrecision 17) ends at **t = 99.9583331749870752** (476 steps; no write-time adjustment: the Allrun's `adjustableRunTime` would land on 100). The transient therefore starts from that time (`startTime` edit), not 100.
+* The restart READS the written fields (17 digits, exact) and, for the neutronics mesh, the MOVED points written in `<t>/neutroRegion/polyMesh/points` (the deformed mesh of the steady state), so the transient's `meshToMesh` addressing and the point-kinetics `V` are those of the DEFORMED neutronics mesh; the fluid and TM meshes are undeformed. `phi` of the fluid is not written (`alphaPhi`, `alphaRhoPhi` are), so a restart rebuilds it from `U`; old-time fields are reset to the current ones.
+* `pointKineticNeutronics` constructor (`pointKineticNeutronics.C:62-905`): `power_ = pTarget` (reactorState, 1e7 W), precursors in equilibrium (no `precursorPowers`), `flux0`, `flux1`, `powerDensity`, `secondaryPowerDensity`, `prec0..5` READ from the start directory (the steady state wrote them), `oneGroupFlux = flux0 + flux1`; reference temperatures taken at the first step (`solvePointKinetics.H`, `timeIndex == startTimeIndex + 1`). Feedback: only `feedbackCoeffTFuel = -3e-6` is non-zero; `TStruct` and `TStructMech` coefficients are 0; the external reactivity is a one-row table (57.67131 pcm, step at t=0); no `coolFeedbackZones` key exists in the shipped `nuclearData` (so `setFeedbackCellField` gives 1 everywhere). Transient `multiRegionCouplingDict_transient`: no `meshDeformation`; neutronics receives `T thermo:rho T.fuelAvForNeutronics T.cladAvForNeutronics T.passiveStructure` from the fluid and `TStruct` from the TM (into `TStructMech`); the TM receives fluid temperatures and the neutronics `powerDensity`; the fluid receives `powerDensity`, `secondaryPowerDensity`.
+* Real PK run: 195+ steps from dt 1e-6, `totalReactivity` 57.67131 pcm at step 1 then falling by the TFuel term; power 1.00057e7 W at step 1.
+
+## Pieces required (and state at this commit)
+
+| piece | state |
+|---|---|
+| point-kinetics case reader (`nuclearData`, `reactorState`, `externalReactivityTimeProfile`, feedback zones) to `PkConfig`/`PkMeshData` | not started at this commit |
+| `RegionSolver::PointKinetics` in `RegionSolvers`, `eigenvalueNeutronics false` + `pointKinetics` regionSolvers entry | not started |
+| restart state (moved neutronics points, maps rebuilt on them, `phi` from `U`, flux/prec fields read) | not started |
+| point-kinetics constructor taking read `fluxes_`/`prec_` instead of `initialOneGroupFluxByZone` (`new` only builds `fluxes_ = oneGroupFlux/groups`) | not started |
+| workflow stage (`genfoam::workflow`), still refused by name | not started |
+| extractor + differential test | not started |
+| as-shipped diffusion transient with `integralPredictor` (variant SH) | gh:#1919 |
+
+## Criteria (fixed here; none will change after seeing results)
+
+For variant PK, every step of the real run from the restart to `t = 200`:
+1. Runs without refusal; step count equals the real run's; time-step sequence relative `<= 1e-9` (round 57 reached 2.5e-13).
+2. Point-kinetics `power`, `fission` power and every reactivity term (`totalReactivity`, `extReactivity`, `TFuel`) of the log, relative `<= 1e-9` (terms below 1e-12 of `totalReactivity` compared absolutely at `1e-15`); precursor powers `<= 1e-9`.
+3. Fingerprints of every field of the three regions at every step (as round 57) `<= 1e-9`; kept-step full fields `max|port-up|/max|up| <= 1e-9`; velocity on `max|U|`.
+4. Fluid and TM solve logs as round 57 (counts equal; initial residuals above 1e-10 within 1e-11 absolute, noise-floor solves reported).
+5. Controls, each must differ at step 100 of the transient: feedback off (`feedbackCoeffTFuel 0`: power differs `> 1e-6` relative), neutronics -> fluid power off, fluid -> TM off, TM -> neutronics (`TStructMech`) off (this one may NOT differ, since its coefficient is 0: reported as a non-control, not a failure).
+6. Earlier numbers (rounds 3-57) do not move (1e-9 direct, 1e-4 propagated).
+
+## Predictions (written before any port transient number existed)
+
+| id | quantity | prediction |
+|---|---|---|
+| T1 | the shipped transient (SH) is refused by the port by name | certain (existing refusal) |
+| T2 | PK `power`/reactivity of the port within 1e-9 for all steps | P 60 % (round 36 was bit-identical with prescribed fields; here the fields come from the port's own fluid) |
+| T3 | restart emulated in memory (no files) matches the real file restart | P 40 %: the likely misses are `phi` rebuilt from `U`, and the neutronics maps on the deformed mesh |
+| T4 | all fingerprints <= 1e-9 at all steps | P 35 % (the fluid has not been run with dt = 1e-6 steps and a sudden power change; round 55's fluid ran dt >= 0.2) |
+| T5 | fluid `T` moves by more than 1e-3 of `max T` over the transient | P 70 % (power rises 0.06 % per step early) |
+| T6 | feedback-off control differs > 1e-6 | P 90 % |
