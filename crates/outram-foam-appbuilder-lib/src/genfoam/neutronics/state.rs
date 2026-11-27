@@ -144,6 +144,27 @@ impl NeutronicsState {
         &self.mesh
     }
 
+    /// Put every field of the state on `mesh`, the same cells and faces at moved points (`fvMesh::movePoints` keeps the fields and
+    /// changes the geometry under them, gh:#1856). Internal and boundary values are untouched.
+    ///
+    /// # Errors
+    /// The cell, internal-face or patch count of `mesh` differs from the current mesh's.
+    pub fn rebind_mesh(&mut self, mesh: Arc<FvMesh>) -> Result<(), &'static str> {
+        if mesh.n_cells != self.mesh.n_cells
+            || mesh.n_internal_faces != self.mesh.n_internal_faces
+            || mesh.patches.len() != self.mesh.patches.len()
+        {
+            return Err("the moved mesh has a different topology");
+        }
+        for f in self.flux.iter_mut().chain(self.precursors.iter_mut()) {
+            f.mesh = mesh.clone();
+        }
+        self.power_density.mesh = mesh.clone();
+        self.one_group_flux.mesh = mesh.clone();
+        self.mesh = mesh;
+        Ok(())
+    }
+
     /// Number of energy groups `G`.
     #[must_use]
     pub fn energy_groups(&self) -> usize {

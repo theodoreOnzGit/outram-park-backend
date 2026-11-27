@@ -212,6 +212,15 @@ impl MeshNeutronics {
         })
     }
 
+    /// `deformMesh()` moved this region's mesh (gh:#1856): bind the diffusion model to the moved geometry with `V0` for its `ddt`
+    /// ([`DiffusionNeutronics::rebind_mesh`]).
+    ///
+    /// # Errors
+    /// [`CouplingLoopError::Neutronics`] with the underlying message.
+    pub fn rebind_mesh(&mut self, mesh: Arc<FvMesh>, v0: Option<Vec<f64>>) -> Result<(), CouplingLoopError> {
+        self.model.rebind_mesh(mesh, v0).map_err(|e| CouplingLoopError::Neutronics(e.to_string()))
+    }
+
     /// The current effective multiplication factor `k_eff`.
     #[must_use]
     pub fn k_eff(&self) -> f64 {

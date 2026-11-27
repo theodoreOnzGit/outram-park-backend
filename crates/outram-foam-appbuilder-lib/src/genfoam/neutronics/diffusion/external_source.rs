@@ -273,6 +273,8 @@ impl DiffusionNeutronics {
     ) {
         let n = neutro_source.len();
         let r_delta_t = 1.0 / dt;
+        // `fvm::ddt(dimensionedScalar, vf)` on a moving mesh: `Vsc()` in the diagonal, `Vsc0()` in the source (gh:#1856)
+        let volumes_old: Vec<f64> = self.old_volumes_or(volumes).to_vec();
         for k in 0..self.prec_groups() {
             let beta = self.xs.beta[k].internal.as_slice();
             let lambda = self.xs.lambda[k].internal.as_slice();
@@ -282,7 +284,7 @@ impl DiffusionNeutronics {
                     NeutronicsDdtScheme::SteadyState => (0.0, 0.0),
                     NeutronicsDdtScheme::Euler => (
                         (r_delta_t * 1.0) * volumes[c],
-                        ((r_delta_t * 1.0) * prec_old[k][c]) * volumes[c],
+                        ((r_delta_t * 1.0) * prec_old[k][c]) * volumes_old[c],
                     ),
                 };
                 diag += volumes[c] * lambda[c];
@@ -326,7 +328,7 @@ impl DiffusionNeutronics {
         let flux_g = star_field;
         let ddt = match controls.ddt {
             NeutronicsDdtScheme::SteadyState => FvMatrix::new(flux_g.mesh.clone()),
-            NeutronicsDdtScheme::Euler => euler_ddt(&iv_over_disc, flux_old, volumes, dt, flux_g),
+            NeutronicsDdtScheme::Euler => euler_ddt(&iv_over_disc, flux_old, volumes, self.old_volumes_or(volumes), dt, flux_g),
         };
         let lap = match (controls.laplacian, gradient) {
             (NeutronicsLaplacianScheme::Corrected, Some(grad)) => {

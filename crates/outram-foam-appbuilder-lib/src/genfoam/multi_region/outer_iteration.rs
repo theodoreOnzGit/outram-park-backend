@@ -156,6 +156,8 @@ pub enum CouplingLoopError {
     /// ([`crate::genfoam::neutronics::NeutronicsError`] wraps un-`Clone` RBF
     /// diagnostics).
     Neutronics(String),
+    /// `meshDeformation` lists a region whose model takes no moving mesh (refused by name, gh:#1856), or a mesh problem.
+    MeshDeformation(String),
     /// The loop hit `max_iterations` without reaching `min_residual`.
     NotConverged {
         /// Residual at the final iteration.
@@ -173,6 +175,7 @@ impl core::fmt::Display for CouplingLoopError {
             }
             CouplingLoopError::PointKinetics(e) => write!(f, "point-kinetics sub-solve: {e:?}"),
             CouplingLoopError::Neutronics(msg) => write!(f, "mesh neutronics sub-solve: {msg}"),
+            CouplingLoopError::MeshDeformation(msg) => write!(f, "mesh deformation: {msg}"),
             CouplingLoopError::NotConverged {
                 residual,
                 iterations,
@@ -584,6 +587,19 @@ pub struct MultiPhysicsSolver {
     max_iterations: usize,
     /// Residual history of the last [`Self::solve`] call (one entry per iterate).
     residual_history: Vec<f64>,
+    /// `meshDeformation` of `multiRegionCouplingDict` with the deformable region meshes (gh:#1856), if any.
+    deformation: Option<MeshDeformation>,
+    /// `runTime.timeIndex()`: counted by [`Self::solve`] (one per physical step).
+    time_index: i64,
+    /// How many `deformMesh()` calls moved a mesh, in total (a diagnostic of the loop).
+    deform_calls: usize,
+}
+
+/// The `meshDeformation` dictionary and the deformable mesh of each region it lists (`neutronics.C::deformMesh`'s inputs).
+#[derive(Debug, Clone)]
+struct MeshDeformation {
+    dict: super::mesh_deformation::MeshDeformationDict,
+    meshes: Vec<(String, super::mesh_deformation::DeformableMesh)>,
 }
 
 impl MultiPhysicsSolver {
@@ -601,7 +617,53 @@ impl MultiPhysicsSolver {
             min_residual,
             max_iterations,
             residual_history: Vec::new(),
+            deformation: None,
+            time_index: 0,
+            deform_calls: 0,
         }
+    }
+
+    /// Give the loop the region meshes and the `meshDeformation` dictionary, so each Picard iteration runs `deformMesh()` before each
+    /// solver's `correctPhysics()` as `multiPhysicsSolver::correctPhysics` does (`multiPhysicsSolver.C:174-186`; gh:#1856 item 2).
+    /// Each mesh is read at time index 0 (build it with `at_time_index(0)`); [`Self::solve`] counts the time index.
+    ///
+    /// # Errors
+    /// [`CouplingLoopError::MeshDeformation`] (refused by name) when the dictionary lists a region that has no model here, or whose
+    /// model takes no moving mesh: only [`RegionModel::MeshNeutronics`] does; the per-cell thermal-hydraulics stand-in, the lumped
+    /// models and the cell-centred `onePhase` solver (which is not a [`RegionModel`]) are not ported on a moving mesh, although
+    /// upstream's `thermalHydraulicsModel::deformMesh` would move their meshes; or a listed region has no mesh in `meshes`.
+    pub fn with_mesh_deformation(
+        mut self,
+        dict: super::mesh_deformation::MeshDeformationDict,
+        meshes: Vec<(String, super::mesh_deformation::DeformableMesh)>,
+    ) -> Result<Self, CouplingLoopError> {
+        for (region, _) in &dict.regions {
+            let Some(model) = self.models.iter().find(|m| m.region_name() == region) else {
+                return Err(CouplingLoopError::MeshDeformation(format!("region `{region}` is listed in meshDeformation but has no model")));
+            };
+            if !matches!(model, RegionModel::MeshNeutronics(_)) {
+                return Err(CouplingLoopError::MeshDeformation(format!(
+                    "region `{region}` is listed in meshDeformation but its model takes no moving mesh: only the diffusion neutronics region does (the thermal-hydraulics `ddt`, `fvc::ddt` of p, K, alpha and rho on a moving mesh are not ported, README round 56)"
+                )));
+            }
+            if !meshes.iter().any(|(n, _)| n == region) {
+                return Err(CouplingLoopError::MeshDeformation(format!("region `{region}` has no deformable mesh")));
+            }
+        }
+        self.deformation = Some(MeshDeformation { dict, meshes });
+        Ok(self)
+    }
+
+    /// The number of `deformMesh()` calls that moved a mesh so far.
+    #[must_use]
+    pub fn deform_calls(&self) -> usize {
+        self.deform_calls
+    }
+
+    /// The deformable mesh of `region`, if the loop owns one.
+    #[must_use]
+    pub fn deformable_mesh(&self, region: &str) -> Option<&super::mesh_deformation::DeformableMesh> {
+        self.deformation.as_ref()?.meshes.iter().find(|(n, _)| n == region).map(|(_, m)| m)
     }
 
     /// Borrow the mesh handler (to read converged coupling fields).
@@ -635,6 +697,7 @@ impl MultiPhysicsSolver {
     /// - Propagates field-lookup and point-kinetics errors.
     pub fn solve(&mut self, dt: Time) -> Result<usize, CouplingLoopError> {
         self.residual_history.clear();
+        self.time_index += 1;
         for m in &mut self.models {
             m.begin_step();
         }
@@ -665,12 +728,32 @@ impl MultiPhysicsSolver {
             for model in &mut self.models {
                 let tight = iter > 0 && model.correct_only_energy();
                 let name = model.region_name().to_string();
+                // `solvers_[solvI].deformMesh()` before `correctPhysics()`, every iteration (`multiPhysicsSolver.C:176`)
+                let mut moved_mesh: Option<alloc::sync::Arc<FvMesh>> = None;
+                if let Some(def) = self.deformation.as_mut() {
+                    if let Some(slot) = def.meshes.iter_mut().position(|(n, _)| *n == name) {
+                        let clock = super::mesh_deformation::StepClock { time_index: self.time_index, delta_t: dt.get::<second>() };
+                        let moved = super::coupled_loop::deform_region_mesh(&def.dict, &name, &mut def.meshes[slot].1, &self.handler, clock)
+                            .map_err(|e| CouplingLoopError::MeshDeformation(e.to_string()))?;
+                        if moved {
+                            self.deform_calls += 1;
+                            let dm = &def.meshes[slot].1;
+                            if let RegionModel::MeshNeutronics(m) = &mut *model {
+                                m.rebind_mesh(dm.mesh().clone(), dm.v0().map(|v| v.to_vec()))?;
+                            }
+                            moved_mesh = Some(dm.mesh().clone());
+                        }
+                    }
+                }
                 let region = self.handler.region_mut(&name).ok_or_else(|| {
                     CouplingLoopError::MissingField {
                         region: name.clone(),
                         field: String::new(),
                     }
                 })?;
+                if let Some(mesh) = moved_mesh {
+                    region.rebind_mesh(mesh).map_err(|()| CouplingLoopError::MeshDeformation(format!("the moved mesh of `{name}` has another topology")))?;
+                }
                 let r = model.correct(region, dt, tight)?;
                 residual = residual.max(r);
             }

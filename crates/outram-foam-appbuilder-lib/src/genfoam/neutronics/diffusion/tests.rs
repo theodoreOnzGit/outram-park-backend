@@ -430,3 +430,41 @@ fn workflow_chain_normalises_to_p_target_and_holds_it() {
     // the coupled stepper refuses a stationary-fuel run, by name
     assert!(run.step_adjustable().is_err());
 }
+
+/// gh:#1856 item 1: a static mesh reduces to the old `ddt` bit for bit (`rebind_mesh` without `V0`), `V0` enters the `ddt` source on a moving
+/// mesh (a control: `V0 = 2 V` changes the step), and a moved mesh of another topology is refused.
+#[test]
+fn rebind_without_v0_is_the_old_path_and_v0_weights_the_ddt_source() {
+    use super::external_source::StationaryStepControls;
+    let gc = OneGroup { d: 0.02, nu_sigma_f: 0.30, sigma_a: 0.10 };
+    let xs = one_group_xs(&gc);
+    let mesh = slab_mesh(20);
+    let n = mesh.n_cells;
+    let bc = vec![BoundaryCondition::FixedValue(0.0), BoundaryCondition::FixedValue(0.0)];
+    let build = || {
+        let mut m = DiffusionNeutronics::new(mesh.clone(), &xs, &vec![0usize; n], &[], &bc, DiffusionSettings::default()).unwrap();
+        m.set_initial_guess(&[vec![1.0; n]], 1.0);
+        m
+    };
+    let controls = StationaryStepControls::default();
+    let (mut a, mut b, mut c) = (build(), build(), build());
+    let v2: Vec<f64> = mesh.cell_volumes.iter().map(|v| 2.0 * v).collect();
+    let mut first_a = Vec::new();
+    for k in 1..=3 {
+        let t = 0.01 * k as f64;
+        a.upstream_stationary_step(t, 0.01, &controls).unwrap();
+        b.rebind_mesh(mesh.clone(), None).unwrap();
+        b.upstream_stationary_step(t, 0.01, &controls).unwrap();
+        assert_eq!(a.state().flux()[0].internal.as_slice(), b.state().flux()[0].internal.as_slice(), "step {k}");
+        assert!(!b.on_moving_mesh());
+        if k == 1 {
+            first_a = a.state().flux()[0].internal.as_slice().to_vec();
+            c.rebind_mesh(mesh.clone(), Some(v2.clone())).unwrap();
+            c.upstream_stationary_step(t, 0.01, &controls).unwrap();
+            assert!(c.on_moving_mesh());
+        }
+    }
+    assert_ne!(c.state().flux()[0].internal.as_slice(), first_a.as_slice(), "V0 != V must change the ddt source");
+    assert!(a.rebind_mesh(slab_mesh(21), None).is_err(), "another topology is refused");
+    assert!(a.rebind_mesh(mesh.clone(), Some(vec![1.0; 3])).is_err(), "V0 must be sized to the mesh");
+}

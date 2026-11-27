@@ -6940,7 +6940,7 @@ DONE = ported and differenced; PART = ported in part; MISSING = nothing in the p
 | 15 | 14 328-cell fluid mesh, 900 s steady state + 1200 s transient | no | needs | no | cost, not a gap |
 | 16 | point kinetics from the case files (`nuclearData`, `reactorState`, feedback zones, `TStruct`/`TStructMech` feedback, `decayPowerTimeProfile`, driveline, `GEMReactivityMap`, `controlRodReactivityMap`) | needs (no GEM, no driveline in the shipped transient) | needs (GEM, decay power, driveline) | needs | MISSING: no case reader (gh:#1883); GEM refused by name |
 | 17 | coupled `multiPhysicsSolver` loop `fluid onePhase` + `neutro pointKinetics` | needs (transient) | needs | needs | PART: the loop is ported (`correct_physics_loop`, rounds 9, 22) for diffusion + onePhase only |
-| 18 | `diffusionNeutronics` eigenvalue stage on a mesh that DEFORMS (`meshDeformation { neutroRegion { displacementField disp; } }`) in the per-step "solve each physics once" loop | needs | no | no | PART: `deformMesh`, `V0/V00/meshPhi` ported (rounds 26, 30); the region solvers do not take the moving-mesh data (gh:#1856) |
+| 18 | `diffusionNeutronics` eigenvalue stage on a mesh that DEFORMS (`meshDeformation { neutroRegion { displacementField disp; } }`) in the per-step "solve each physics once" loop | needs | no | no | PART: `deformMesh`, `V0/V00/meshPhi` ported (rounds 26, 30); ~~the region solvers do not take the moving-mesh data (gh:#1856)~~ **CORRECTED 2026-11-27 (gh:#1856, README round 56)**: the neutronics region takes the moved geometry and `V0` (`rebind_mesh`), `empty` patches are ported in `volPointInterpolation`, and the region is bit-identical to the real coupled run on its deforming mesh with the real `disp` (points and `meshPhi` 0, `keff`/`power` 2e-15, 476 steps); the loop drives `deformMesh()` every iteration. Open: the fluid + neutronics + TM loop of the port (#1914 remainder), TH regions on a moving mesh |
 | 19 | `legacyThermoMechanics` region inside the coupled run | needs | no | no | PART: the region alone is bit-identical (rounds 23-27); not wired (gh:#1846) |
 | 20 | `meshToMesh` among three different meshes; fields `T.passiveStructure`, `T.fuelAvForNeutronics`, `powerDensity`, `meshDisp` | needs | 2 regions | no | PART: `cell_overlap` exact (round 28); wiring gh:#1854 |
 | 21 | `-initializeMappedFields` and the `Allrun` stage chain from the root case | needs | needs | needs | PART: the 2D_MSFR chain only (round 21) |
@@ -7092,3 +7092,61 @@ The shipped `2D_fullCoupling` `steadyState` stage as Allrun sets it (`model diff
 | M1 | `meshPhi.oldTime()` of the real class: after call 1 equals call 1's `meshPhi` (created by the request, a copy); after call 2 equals call 1's; after call 3 equals call 2's; after call 4 (same index as 3) still equals call 2's | P 85 % | the real schedule is the finding |
 | L1 | earlier numbers unchanged | P 90 % | listed old/new |
 | T1 | the port's 476-step neutronics run takes under 30 s in release | P 80 % | |
+
+
+## Round 56 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first: `3f1222587`; real binary `scripts/run_fullcoupling_coupled.sh` (11 s, 476 steps, exit 0); references in the refs submodule: `fc_coupled_r56.ref.txt.gz` (`deaff7c`, header fix `cf7a28b`) and `coupled_deform_esfr_r56.ref.txt.gz` (round 30's sample plus `meshPhiOld`); `tests/genfoam_fullcoupling_neutronics_vs_upstream.rs`, 3 tests, 0.8 s; `--nocapture` prints every table)
+
+### What was ported (upstream -> Rust)
+
+| upstream (GeN-Foam 652b3da, OpenFOAM-ESI v2506) | port |
+|---|---|
+| `volPointInterpolation.C:67-129, 153-205` (`empty` is not a patch: `boundaryIsPatchFace_`, `isPatchPoint_`); `pointConstraints` skips `emptyPointPatch` | `DeformableMesh` accepts `empty` patches (`MeshTopology::{is_patch_face, is_patch_point}`); `VolDisplacement::from_vol_field` pads the value-less `empty` patch field |
+| `neutronics.C::deformMesh` + `fvMesh::movePoints` seen by the diffusion region: moved `V`, `Sf`, `C`, weights; `EulerDdtScheme::fvmDdt` moving branch `diag = rDeltaT rho Vsc`, `source = rDeltaT rho0 vf0 Vsc0` | `DiffusionNeutronics::rebind_mesh(mesh, v0)` (state, cross sections, `D/discFactor` face interpolation, albedo patches on the moved geometry; `V0` kept for the `ddt`); `multi_region::mesh_deformation::euler_ddt_diag_source` is the one body of the operator, called by `DeformableMesh::euler_fvm_ddt` and by the neutronics `euler_ddt` (flux and precursors, transient, stationary and liquid-fuel forms) and by the stationary precursor `ddt`; a static mesh passes the same slice twice (earlier path bit for bit, unit test) |
+| `laplacianSchemes Gauss linear corrected` in the eigenvalue step (`createFluxMatrices.H`) | `DiffusionNeutronics::with_eigenvalue_laplacian(Corrected)`: `fvc::grad` of the start-of-step flux, `fvm::laplacian_corrected` (default stays `Uncorrected`) |
+| `fvMesh.C:927-934` `phiPtr_->oldTime()` | `DeformableMesh::mesh_phi_old` |
+| `multiPhysicsSolver::correctPhysics` (`deformMesh()` before each `correctPhysics()`, every iteration) | `MultiPhysicsSolver::with_mesh_deformation`, `deform_calls`, `deformable_mesh`; `CouplingRegion::rebind_mesh`; `MeshNeutronics::rebind_mesh`; `CouplingLoopError::MeshDeformation` |
+
+### Comparison with the real coupled binary (neutronics region, `disp` of every step prescribed from the real run; 476 steps)
+
+| quantity | worst difference | first diverging step |
+|---|---|---|
+| moved `points`, steps 1-30, every 10th, last (41 steps x 975 points) | **0 (bit-identical)** | none |
+| `meshPhi` internal faces, same steps | **0 (bit-identical)** | none |
+| `keff` every step | 1.3e-15 relative (step 476) | none above 1e-9 |
+| `power` every step | 2.4e-15 relative (step 476) | none above 1e-9 |
+| `flux0`, `flux1` at the kept steps | 1.2e-14, 4.1e-15 relative to the max (step 476; 1e-15 elsewhere) | none |
+| `powerDensity` (port: normalised flux x power/pTarget) | 7.6e-15 (step 476) | none |
+
+Port run time 0.5 s for 476 steps. N1 (bit-identical points: held), N2 (held), N3 (<= 1e-11 at step 1: held, 5e-16), N4 (<= 1e-9 at every step: held; the predicted growth over the first 100 steps did NOT occur: the difference is round-off flat, 1e-16 to 2e-15, MISSED in kind), N7 (held: moved geometry plus the `Corrected` laplacian is all the eigenvalue step needed; no other physics differed).
+
+### Controls (each fails the same comparison; step 100)
+
+* **a, deformation off**: `keff` 2.48e-3, `power` 9.3e-7 relative to upstream. **Criterion 5a asked `power > 1e-6`: MISSED (9.3e-7)**; cause: `power` is renormalised to `pTarget` every step, so the volume change largely cancels in it; it still fails the 1e-9 gate by 3 orders, and `keff` (2.5e-3, inside the predicted 1e-4 .. 1e-2, N6 held) is the sensitive quantity. The test asserts `keff > 1e-6` and `power > 1e-9`; the criterion text above is unchanged.
+* **b, `Uncorrected` laplacian on the moved mesh**: `keff` 6.4e-4, `power` 8.5e-7. Criterion 5b (`> 1e-8`) held; **N5 predicted 1e-6 .. 1e-4, observed 6.4e-4: MISSED in size (larger)**: the deformed 2D mesh is more sheared than I estimated.
+* **c** is round 30's control. **d** (power with the undeformed volumes) was NOT RUN; control a already shows the geometry enters `power()` and `keff`, and `power()` takes its volumes from the bound mesh by the same `rebind_mesh` that moved the laplacian.
+
+### Items 1, 2, 5
+
+* **Item 1, neutronics (done)**: `euler_ddt` of the transient and stationary steps and of the precursors takes `V` and `V0`; `rebind_mesh` supplies them. D2 (static mesh equals the old path bit for bit): held, unit test `rebind_without_v0_is_the_old_path_and_v0_weights_the_ddt_source`, which also shows `V0 = 2V` changes the step (control). D1 (the helper equals the real class's `fvm::ddt` `diag`/`source`): held by construction and by the round 30 comparison, which now runs through the shared `euler_ddt_diag_source` (4 tests pass, every one of the compared values bit-identical). **In the shipped `2D_fullCoupling` steady state every neutronics `ddt` coefficient is `(1 - eigenvalueNeutronics) = 0`**, so the moving-mesh ddt has nothing to act on in the real run; the mesh motion reaches the solution through the geometry, which the table above compares. A real-binary comparison of the moving-mesh ddt itself (a transient `eigenvalueNeutronics false` run on the deforming mesh) was NOT done: `integralPredictor` and `aitkenAcceleration` are shipped true and the Rust stationary step does not port `integralPredictor.H`; filed.
+* **Item 1, thermal hydraulics (refused by name, not ported)**: upstream's `thermalHydraulicsModel::deformMesh` would move a fluid mesh listed in `meshDeformation`, and the `ddt`s of `EEqn_1p.H`, `UEqn_1p.H`, `fvc::ddt(p)`, `fvc::ddt(alpha, rho, K)`, `fvc::ddt(alpha)`, `fvc::ddt(fluid_, rho)` and the thermo-mechanics/structure `fvm::ddt` would then take the moving branch. None of the shipped tutorials lists a TH region (`2D_fullCoupling`: only `neutroRegion`); `MultiPhysicsSolver::with_mesh_deformation` refuses a listed region whose model is not the diffusion neutronics, by name. Issue filed.
+* **Item 2 (done)**: `the_coupled_loop_drives_deform_mesh_every_iteration`: with `min_residual < 0` and 3 iterations `deformMesh()` runs 3 times in one step and 6 in two; the region mesh moved (its volume grew) and is not cumulative (the second step restarts from `originalPoints_`: same volume to the bit); a region not listed is untouched (0 calls); a region listed whose model takes no moving mesh is refused. Not driven: the real `GeN-Foam.C` map step of the three-region case (`meshHandler` mapping of `meshDisp` into `disp`): the `disp` of the stage-B comparison is the real run's own.
+* **Item 5 (done)**: `DeformableMesh::mesh_phi_old`. M1 held exactly as predicted: the real class's `meshPhi.oldTime()` after calls 1, 2, 3, 4 equals the `meshPhi` of calls 1, 1, 2, 2; the port reproduces it bit for bit (the round 30 comparison, 0 differences over the extra 4 x 225 024-value sample items) and a unit test pins the schedule.
+* **Item 6 (flaky staging directory)**: already fixed by `8971c7d97`; verified, `genfoam_mesh_deformation_vs_upstream` passes at the default thread count in the run below.
+
+### Moved numbers
+
+None. (Gates in "Gates run".) `euler_fvm_ddt` now delegates to the shared function with the same operation order; round 30's 4 tests pass bit-identical.
+
+### What is NOT done (and why)
+
+* The stage B coupling itself (fluid `onePhase` + neutronics + TM in one loop on the shipped case, #1914): the neutronics region is now bit-identical on the real coupled run with the real run's `disp`; the fluid region (round 55) and the neutronics are not yet run together by the port, and the TM region (#1846) does not yet produce `disp`: the next piece is the coupled loop with the cell-centred `onePhase` as a region model (#1475).
+* A real-binary moving-mesh `ddt` comparison (transient neutronics on the deforming mesh) and `integralPredictor`; TH regions on a moving mesh; `removeBaffles` on a deformed region (refused earlier).
+* Control d above.
+
+### Reproduction
+
+`scripts/make_fullcoupling_coupled_case.sh <dir>`, `scripts/run_fullcoupling_coupled.sh <dir>` (11 s), `python3 scripts/extract_fullcoupling_coupled.py <dir> out.txt`, `gzip -9 -n`; then `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_neutronics_vs_upstream -- --nocapture`. For `meshPhiOld`: `scripts/build_and_run_coupled_deform_dump.sh` (driver now also dumps `meshPhi.oldTime()`), `scripts/subsample_coupled_deform_dump.py <dump> refs/coupled_deform_esfr_r56.ref.txt.gz 31`.
+
+### Gates run (2026-11-27, release, targeted, private target)
+
+`--lib neutronics` 84 passed (incl. the new `rebind_without_v0_is_the_old_path_and_v0_weights_the_ddt_source`); `--lib multi_region` 56 passed (the `meshPhi.oldTime()` schedule is asserted inside the existing `moving_state_follows_fvmesh_move_points`); `--lib workflow` 5 passed; `--test genfoam_fullcoupling_neutronics_vs_upstream` 3 passed (0.8 s); `--test genfoam_coupled_deformation_vs_upstream` 4 passed (49.8 s, bit-identical, now including `meshPhiOld`); `--test genfoam_mesh_deformation_vs_upstream` 6 passed (1.2 s, default thread count: item 6 verified); `--test genfoam_mesh_to_mesh_vs_upstream` 5 passed (44 s); `--test genfoam_msfr_transient_vs_upstream` 2 passed, 7 ignored (as before); `--test genfoam_neutronics_vs_upstream` 3 passed; `--test genfoam_fullcoupling_fluid_vs_upstream` 5 passed. `--test genfoam_msfr_coupled_vs_upstream`: the full run was NOT completed (`msfr_full_transient_to_175_s_matches_upstream` and the 452-step test are long; stopped by me on the loaded shared machine); the fast subset is listed below. Not run: `-p petir --test no_platform_libm`, `scripts/check-nostd.sh` (disk: 1.2 GB free at the time; the new code uses `alloc`/`core` paths only and `cargo check` of the std build passes; `no_std` of the changed files was NOT checked).

@@ -263,6 +263,8 @@ fn simulate() -> Sim {
         let phi = neutro.mesh_phi().unwrap();
         put("meshPhi", phi[..n_int].to_vec());
         put("meshPhi.bnd", phi[n_int..].to_vec());
+        // gh:#1856 item 5: `meshPhi.oldTime()`
+        put("meshPhiOld", neutro.mesh_phi_old().unwrap()[..n_int].to_vec());
         // the consumer: flux = cf(C0, call, 1.0); old flux as the driver's primitiveFieldRef() / oldTime() leaves it
         let flux: Vec<f64> = c0_ne.iter().map(|c| cf(*c, call as f64, 1.0)).collect();
         if call != 4 {
@@ -351,7 +353,7 @@ struct Reference {
 fn load_reference() -> Reference {
     let (text, full) = match std::env::var("GENFOAM_COUPLED_DEFORM_DUMP") {
         Ok(p) => (std::fs::read_to_string(p).expect("read dump"), true),
-        Err(_) => (String::from_utf8(gunzip(&vv_dir().join("refs/coupled_deform_esfr.ref.txt.gz"))).unwrap(), false),
+        Err(_) => (String::from_utf8(gunzip(&vv_dir().join("refs/coupled_deform_esfr_r56.ref.txt.gz"))).unwrap(), false),
     };
     let vector_names = ["points", "oldPoints", "reverseVector", "disp", "disp.bnd"];
     let mut r = Reference { fields: HashMap::new(), state: HashMap::new(), full };

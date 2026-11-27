@@ -220,6 +220,25 @@ impl CouplingRegion {
         self.overlap.as_ref()
     }
 
+    /// `fvMesh::movePoints` moved the region's points (gh:#1856): the fields stay, the geometry under them changes. The mapping objects of
+    /// the [`MeshHandler`] are NOT rebuilt (upstream builds its `meshToMesh` once on the undeformed meshes), and `overlap` stays.
+    ///
+    /// # Errors
+    /// `Err(())` when the cell, internal-face or patch count differs.
+    pub fn rebind_mesh(&mut self, mesh: Arc<FvMesh>) -> Result<(), ()> {
+        if mesh.n_cells != self.mesh.n_cells || mesh.n_internal_faces != self.mesh.n_internal_faces || mesh.patches.len() != self.mesh.patches.len() {
+            return Err(());
+        }
+        for f in self.scalars.values_mut() {
+            f.mesh = mesh.clone();
+        }
+        for f in self.vectors.values_mut() {
+            f.mesh = mesh.clone();
+        }
+        self.mesh = mesh;
+        Ok(())
+    }
+
     /// The region name.
     #[must_use]
     pub fn name(&self) -> &str {

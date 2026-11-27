@@ -55,8 +55,8 @@
 //!
 //! ## Refused, by name (nothing here is guessed)
 //!
-//! `symmetry`/`symmetryPlane`/`wedge`/`empty`/`cyclic`/`cyclicAMI`/`processor` patches (point constraints and coupled boundaries are not
-//! ported), a displacement patch condition other than `zeroGradient` or `fixedValue`, any key but `displacementField` in a
+//! `symmetry`/`symmetryPlane`/`wedge`/~~`empty`~~/`cyclic`/`cyclicAMI`/`processor` patches (point constraints and coupled boundaries are not
+//! ported; **CORRECTED 2026-11-27 (gh:#1856, README round 56): `empty` IS ported**, it is not a patch of `volPointInterpolation` and has no point constraint, and the 2D `neutroRegion` of `2D_fullCoupling` moves bit-identically to the real binary), a displacement patch condition other than `zeroGradient` or `fixedValue`, any key but `displacementField` in a
 //! `meshDeformation` entry, and `removeBaffles` on a deformed region (upstream moves the original mesh only, the baffle-less copy
 //! keeps its points). ~~`fvMesh::movePoints` also sets `meshPhi` and the old-time volumes `V0`/`V00`, which `ddt` of a moving mesh
 //! consumes in the thermal-hydraulics solver: NOT ported (gh:#1846).~~ **CORRECTED 2026-11-26 (gh:#1852, round 30):** ported,
@@ -249,8 +249,17 @@ impl VolDisplacement {
     pub fn from_vol_field(field: &outram_foam_basic_lib::fields::vol_field::VolVectorField) -> Result<Self, MeshDeformationError> {
         let cells = field.internal.as_slice().to_vec();
         let mut boundary = Vec::new();
-        for p in &field.boundary {
-            boundary.extend_from_slice(p.values.as_slice());
+        for (pi, p) in field.boundary.iter().enumerate() {
+            // an `empty` patch field holds no values (`flatBoundaryField` skips it, `volPointInterpolation.C`): pad it so
+            // that the list stays indexed by boundary face; the padded values are never read (not a patch face)
+            let size = field.mesh.patches.get(pi).map_or(p.values.len(), |q| q.size);
+            if p.values.len() == size {
+                boundary.extend_from_slice(p.values.as_slice());
+            } else if p.values.len() == 0 {
+                boundary.extend(core::iter::repeat(Vector3::ZERO).take(size));
+            } else {
+                return Err(MeshDeformationError::Invalid(format!("patch {pi} of the displacement field has {} values for {size} faces", p.values.len())));
+            }
         }
         Ok(VolDisplacement { cells, boundary })
     }
@@ -298,6 +307,10 @@ pub struct MeshTopology {
     boundary_point_faces: Vec<Vec<usize>>,
     /// Per mesh point, its index in `boundary_points`, or `usize::MAX`.
     boundary_slot: Vec<usize>,
+    /// `boundaryIsPatchFace_`: per boundary face, false on an `empty` patch (`volPointInterpolation.C:67-90`).
+    is_patch_face: Vec<bool>,
+    /// `isPatchPoint_`: per mesh point, on a face of a non-empty patch (`volPointInterpolation.C:77-90`).
+    is_patch_point: Vec<bool>,
 }
 
 impl MeshTopology {
@@ -408,7 +421,7 @@ impl VolPointInterpolation {
         // makeInternalWeights: points not on a patch
         let mut point_weights: Vec<Vec<f64>> = vec![Vec::new(); n_points];
         for p in 0..n_points {
-            if topology.boundary_slot[p] == usize::MAX {
+            if !topology.is_patch_point[p] {
                 let pcp = &topology.point_cells[p];
                 let mut pw = vec![0.0_f64; pcp.len()];
                 for (i, &c) in pcp.iter().enumerate() {
@@ -423,11 +436,15 @@ impl VolPointInterpolation {
         for (i, &p) in topology.boundary_points.iter().enumerate() {
             let pfaces = &topology.boundary_point_faces[i];
             let mut pw = vec![0.0_f64; pfaces.len()];
-            sum_weights[p] = 0.0;
-            for (j, &bf) in pfaces.iter().enumerate() {
-                let facei = topology.n_internal + bf;
-                pw[j] = 1.0 / sub(points[p], face_centres[facei]).mag();
-                sum_weights[p] += pw[j];
+            if topology.is_patch_point[p] {
+                sum_weights[p] = 0.0;
+                for (j, &bf) in pfaces.iter().enumerate() {
+                    if topology.is_patch_face[bf] {
+                        let facei = topology.n_internal + bf;
+                        pw[j] = 1.0 / sub(points[p], face_centres[facei]).mag();
+                        sum_weights[p] += pw[j];
+                    }
+                }
             }
             boundary_point_weights[i] = pw;
         }
@@ -438,8 +455,10 @@ impl VolPointInterpolation {
             }
         }
         for (i, &p) in topology.boundary_points.iter().enumerate() {
-            for w in boundary_point_weights[i].iter_mut() {
-                *w /= sum_weights[p];
+            if topology.is_patch_point[p] {
+                for w in boundary_point_weights[i].iter_mut() {
+                    *w /= sum_weights[p];
+                }
             }
         }
         VolPointInterpolation { point_weights, boundary_point_weights }
@@ -449,7 +468,7 @@ impl VolPointInterpolation {
     pub fn interpolate(&self, topology: &MeshTopology, disp: &VolDisplacement) -> Vec<Vector3> {
         let mut pf = vec![Vector3::ZERO; topology.n_points];
         for p in 0..topology.n_points {
-            if topology.boundary_slot[p] == usize::MAX {
+            if !topology.is_patch_point[p] {
                 let (mut x, mut y, mut z) = (0.0_f64, 0.0_f64, 0.0_f64);
                 for (i, &c) in topology.point_cells[p].iter().enumerate() {
                     let w = self.point_weights[p][i];
@@ -462,8 +481,14 @@ impl VolPointInterpolation {
             }
         }
         for (i, &p) in topology.boundary_points.iter().enumerate() {
+            if !topology.is_patch_point[p] {
+                continue;
+            }
             let (mut x, mut y, mut z) = (0.0_f64, 0.0_f64, 0.0_f64);
             for (j, &bf) in topology.boundary_point_faces[i].iter().enumerate() {
+                if !topology.is_patch_face[bf] {
+                    continue;
+                }
                 let w = self.boundary_point_weights[i][j];
                 let v = disp.boundary[bf];
                 x += w * v.x;
@@ -474,6 +499,28 @@ impl VolPointInterpolation {
         }
         pf
     }
+}
+
+/// `EulerDdtScheme::fvmDdt(rho, vf)` for a `volScalarField` coefficient on the cell volumes `vsc` (`Vsc()`) and `vsc_old` (`Vsc0()` on a
+/// moving mesh, `Vsc()` on a static one), `EulerDdtScheme.C:437-471`: `diag = rDeltaT*rho*Vsc`, `source = rDeltaT*rho0*vf0*Vsc0`, in that
+/// operation order. The one body of the operator: [`DeformableMesh::euler_fvm_ddt`] and the neutronics region solvers call it.
+///
+/// # Panics
+/// If a slice is shorter than `rho`.
+#[must_use]
+pub fn euler_ddt_diag_source(
+    delta_t: f64,
+    rho: &[f64],
+    rho_old: &[f64],
+    vf_old: &[f64],
+    vsc: &[f64],
+    vsc_old: &[f64],
+) -> (Vec<f64>, Vec<f64>) {
+    let r_delta_t = 1.0 / delta_t;
+    let n = rho.len();
+    let diag = (0..n).map(|c| r_delta_t * rho[c] * vsc[c]).collect();
+    let source = (0..n).map(|c| r_delta_t * rho_old[c] * vf_old[c] * vsc_old[c]).collect();
+    (diag, source)
 }
 
 /// A region's mesh that `deformMesh()` can move: the points as read (`originalPoints_`), the current points and the geometry
@@ -517,6 +564,11 @@ struct MovingMeshState {
     old_points: Option<Vec<Vector3>>,
     /// `phiPtr_`: `meshPhi`, internal faces then boundary faces in face order (null until the first `movePoints`).
     mesh_phi: Option<Vec<f64>>,
+    /// `phiPtr_->oldTime()` (`fvMesh.C:927-934`): `meshPhi` as the previous time index's last `movePoints` left it; `None` until the
+    /// mesh moves in a second time index (README round 56).
+    mesh_phi_old: Option<Vec<f64>>,
+    /// `phiPtr_->timeIndex()`.
+    mesh_phi_time_index: i64,
 }
 
 impl MovingMeshState {
@@ -529,6 +581,8 @@ impl MovingMeshState {
             v00: None,
             old_points: None,
             mesh_phi: None,
+            mesh_phi_old: None,
+            mesh_phi_time_index: time_index,
         }
     }
 }
@@ -537,7 +591,7 @@ impl DeformableMesh {
     /// Build from raw `polyMesh` lists (`points`, `faces`, `owner`, `neighbour`, `boundary`).
     ///
     /// # Errors
-    /// [`MeshDeformationError::Refused`] for a symmetry, wedge, empty, cyclic or processor patch;
+    /// [`MeshDeformationError::Refused`] for a symmetry, wedge, cyclic or processor patch (`empty` is accepted since gh:#1856);
     /// [`MeshDeformationError::Invalid`] for inconsistent lists.
     pub fn new(
         points: Vec<Vector3>,
@@ -549,7 +603,9 @@ impl DeformableMesh {
     ) -> Result<Self, MeshDeformationError> {
         for p in &patches {
             match p.kind {
-                PatchKind::Patch | PatchKind::Wall => {}
+                // `empty` is not a patch of `volPointInterpolation` (README round 56): its faces and the points only on them
+                // are interpolated as interior; no point constraint (`emptyPointPatchField` has no `evaluate`)
+                PatchKind::Patch | PatchKind::Wall | PatchKind::Empty => {}
                 other => {
                     return Err(refused(
                         format!("patch `{}` of kind {other:?}", p.name),
@@ -582,7 +638,22 @@ impl DeformableMesh {
                 boundary_point_faces[boundary_slot[p]].push(bf);
             }
         }
+        let mut is_patch_face = vec![true; faces.len() - n_internal];
+        let mut is_patch_point = vec![false; n_points];
+        for pa in &patches {
+            for f in pa.start..pa.start + pa.size {
+                if pa.kind == PatchKind::Empty {
+                    is_patch_face[f - n_internal] = false;
+                } else {
+                    for &q in &faces[f] {
+                        is_patch_point[q] = true;
+                    }
+                }
+            }
+        }
         let topology = Arc::new(MeshTopology {
+            is_patch_face,
+            is_patch_point,
             faces,
             owner,
             neighbour,
@@ -621,7 +692,7 @@ impl DeformableMesh {
         let btxt = read("boundary")?;
         let toks: Vec<&str> = btxt.split(|c: char| c.is_whitespace() || c == ';').filter(|t| !t.is_empty()).collect();
         for w in toks.windows(2) {
-            if w[0] == "type" && !matches!(w[1], "patch" | "wall" | "mappedWall") {
+            if w[0] == "type" && !matches!(w[1], "patch" | "wall" | "mappedWall" | "empty") {
                 return Err(refused(format!("polyPatch type {}", w[1]), "only patch, wall and mappedWall"));
             }
         }
@@ -773,6 +844,15 @@ impl DeformableMesh {
         self.state.mesh_phi.as_deref()
     }
 
+    /// `meshPhi.oldTime()` (gh:#1856 item 5; `fvMesh::movePoints` `fvMesh.C:927-934`, `GeometricField::oldTime`/`storeOldTimes`): the
+    /// mesh motion flux the last `movePoints` of the PREVIOUS time index left. Within the first time index in which the mesh moved
+    /// there is no old field yet; a consumer asking then gets a copy of the current one, which is what this returns (`None` before
+    /// the first move). GeN-Foam and `EulerDdtScheme` never read it (`backward`, `CrankNicolson` and `ddtCorr` would).
+    #[must_use]
+    pub fn mesh_phi_old(&self) -> Option<&[f64]> {
+        self.state.mesh_phi_old.as_deref().or(self.state.mesh_phi.as_deref())
+    }
+
     /// `fvMesh::Vsc()` without sub-cycling: `V()`.
     #[must_use]
     pub fn vsc(&self) -> &[f64] {
@@ -835,6 +915,11 @@ impl DeformableMesh {
         let n_faces = self.topology.faces.len();
         if self.state.mesh_phi.is_none() {
             self.state.mesh_phi = Some(vec![0.0; n_faces]);
+            self.state.mesh_phi_time_index = clock.time_index;
+        } else if self.state.mesh_phi_time_index != clock.time_index {
+            // `phiPtr_->oldTime()`, then `storeOldTimes()` at the assignment of `setMeshPhi`: the old field is the current one
+            self.state.mesh_phi_old = self.state.mesh_phi.clone();
+            self.state.mesh_phi_time_index = clock.time_index;
         }
         // (3) polyMesh::movePoints
         self.state.moving = true;
@@ -885,12 +970,9 @@ impl DeformableMesh {
         if rho.len() != n || rho_old.len() != n || vf_old.len() != n {
             return Err(MeshDeformationError::Invalid("ddt field size does not match the mesh".into()));
         }
-        let r_delta_t = 1.0 / delta_t;
         let vsc = self.vsc();
         let vsc_old: &[f64] = if self.state.moving { self.vsc0()? } else { vsc };
-        let diag = (0..n).map(|c| r_delta_t * rho[c] * vsc[c]).collect();
-        let source = (0..n).map(|c| r_delta_t * rho_old[c] * vf_old[c] * vsc_old[c]).collect();
-        Ok((diag, source))
+        Ok(euler_ddt_diag_source(delta_t, rho, rho_old, vf_old, vsc, vsc_old))
     }
 }
 
@@ -1132,9 +1214,14 @@ mod tests {
         for c in 0..v1.len() {
             assert!((net[c] - (v1[c] - v_orig[c])).abs() < 1e-12, "cell {c}");
         }
+        // meshPhi.oldTime() (gh:#1856 item 5): in the first time index in which the mesh moves there is no old field yet, a request gets
+        // a copy of the current one
+        assert_eq!(m.mesh_phi_old().unwrap(), phi.as_slice());
         // second call in the SAME time index (a Picard iteration): V0 and oldPoints stay
         let d15 = expansion(&m, 0.015);
         m.deform_mesh_at(&d15, StepClock { time_index: 1, delta_t: 0.5 }).unwrap();
+        let phi_call2 = m.mesh_phi().unwrap().to_vec();
+        assert_ne!(phi_call2, phi);
         assert_eq!(m.v0().unwrap(), v_orig.as_slice());
         assert_eq!(m.old_points().unwrap(), p_orig.as_slice());
         assert_ne!(m.mesh().cell_volumes, v1);
@@ -1146,6 +1233,12 @@ mod tests {
         assert_eq!(m.v0().unwrap(), v_end1.as_slice());
         assert_eq!(m.old_points().unwrap(), p_end1.as_slice());
         assert_eq!(m.v00().unwrap(), v_orig.as_slice());
+        // the old meshPhi of step 2 is the one the last movePoints of step 1 left (call 2), and stays it within step 2
+        assert_eq!(m.mesh_phi_old().unwrap(), phi_call2.as_slice());
+        let phi_step2_call1 = m.mesh_phi().unwrap().to_vec();
+        m.deform_mesh_at(&expansion(&m, 0.021), StepClock { time_index: 2, delta_t: 0.5 }).unwrap();
+        assert_eq!(m.mesh_phi_old().unwrap(), phi_call2.as_slice());
+        assert_ne!(m.mesh_phi().unwrap(), phi_step2_call1.as_slice());
         // the time-less deform_mesh keeps no state
         let mut n = mesh(3, PointCellsOrder::CellAscending);
         let dn = expansion(&n, 0.01);
