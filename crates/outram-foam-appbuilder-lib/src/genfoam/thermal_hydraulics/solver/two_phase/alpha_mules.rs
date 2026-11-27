@@ -366,7 +366,7 @@ impl TwoPhaseSolver {
             }
         }
         for k in 0..2 {
-            let rf = fv::interp_linear(&g, &self.fluids[k].rho);
+            let rf = fv::interp_linear_openfoam(&g, &self.fluids[k].rho);
             self.fluids[k].alpha_rho_phi = (0..nf).map(|f| rf[f] * self.fluids[k].alpha_phi[f]).collect();
         }
     }

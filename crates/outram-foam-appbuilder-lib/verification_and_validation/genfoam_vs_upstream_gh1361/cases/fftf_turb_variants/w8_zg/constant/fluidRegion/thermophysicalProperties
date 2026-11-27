@@ -1,0 +1,54 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+thermoType
+{
+    type                heRhoThermo;
+    mixture             pureMixture;
+    equationOfState     Boussinesq;
+    thermo              hConst;
+    transport           const;
+    specie              specie;
+    energy              sensibleEnthalpy;
+}
+
+pRef        100000;
+
+//- Properties are those of liquid Sodium evaluated at 600 K (shipped 2D_FFTF)
+mixture
+{
+    specie
+    {
+        molWeight   22.989769;
+    }
+    equationOfState
+    {
+        rho0    874;
+        T0      600;
+        beta    2.602975e-4;
+    }
+    thermodynamics
+    {
+        Cp      1301;
+        Hf      0;
+    }
+    transport
+    {
+        mu      3.21e-4;
+        Pr      5.6664993e-3;
+    }
+}

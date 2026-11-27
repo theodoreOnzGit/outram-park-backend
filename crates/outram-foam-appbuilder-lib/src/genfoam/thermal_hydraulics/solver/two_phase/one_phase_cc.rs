@@ -57,7 +57,9 @@
 //! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
 //! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); `nuclearFuelPinTest`, the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
 //! `hConst` `Boussinesq` `const`; ~~`residualControl` in `PIMPLE`~~ **CORRECTED 2026-11-27 (gh:#1855, round 31): `residualControl` (customPimpleControl), the `Final` selection it causes and the `relaxationFactors` `default` entries are ported ([`pimple`])**; `stopIfFirstResRelChangeAboveRelTol` (upstream aborts with SIGFPE). `dragModels` (`ReynoldsPower`) are read but
-//! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation.
+//! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation. **UPDATED 2026-11-27 (gh:#1870, README round 62):** with
+//! the flow solved, `ReynoldsPower`, `Churchill`, `Rehme` and per-axis (`localX/Y/Z`) `dragModels` ARE evaluated ([`flow`]), a pump
+//! `momentumSourceTimeProfile` is applied, `PBiCG`/`DILU` is selectable for `h`, `k`, `epsilon`; `localTortuosity` (the tensor-diffusivity Laplacian, gh:#1229 round 64) is ported through `tensor_laplacian`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -78,13 +80,15 @@ use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForce
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use crate::genfoam::common::TimeProfile;
+use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 
 pub(super) mod flow;
 mod pimple;
 #[cfg(feature = "std")]
 use super::radial_power;
 mod turbulence;
-pub use flow::{OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
+mod written;
+pub use flow::{CellDrag, DragLaw, OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
 pub use pimple::{LoopStep, PimpleControls, PimpleState, RelaxationDict, RelaxationFactors, ResidualSpec};
 pub use turbulence::{
@@ -97,6 +101,7 @@ use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchanger
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
+use super::tensor_laplacian;
 use super::thermo::PhaseThermo;
 use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
@@ -126,6 +131,9 @@ pub enum HSolver {
     /// (`one_phase::smooth_solve_sym_gauss_seidel_openfoam`, differenced against the real binary in README round 46 and, for the
     /// cell-centred region, in round 55 variant V3).
     SmoothSymGaussSeidel,
+    /// `PBiCG` with the `DILU` preconditioner (`legacy_fvm::pbicg::pbicg_dilu`, README rounds 23 and 62): the shipped `2D_FFTF`'s
+    /// `"(h|k|epsilon)"` entries (the real log reads `DILUPBiCG: Solving for h`).
+    PbicgDilu,
 }
 
 /// `fvSolution`/`controlDict` entries the stage reads.
@@ -273,6 +281,9 @@ pub enum GamgPolicy {
     /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21).
     #[default]
     SubstitutePcgDic,
+    /// Run upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, defaults of ESI v2506; [`crate::genfoam::common::gamg`], gh:#1934): the
+    /// entry's `tolerance`/`relTol`/`maxIter` and GAMG keys are honoured, selections that are not ported are refused by name.
+    Native,
 }
 
 /// The `controlDict` entries a stage of the Allrun chain sets (`startTime`, `endTime`, `deltaT`), typed instead of edited.
@@ -308,6 +319,8 @@ pub struct FluidFields {
     pub htc: Vec<f64>,
     /// `powerDensityNeutronicsToLiquid` per cell.
     pub power_density: Vec<f64>,
+    /// `alphaRhoMagU`: cells and boundary faces (gh:#1935; the value the stage wrote, read by the next stage as `READ_IF_PRESENT`).
+    pub alpha_rho_mag_u: (Vec<f64>, Vec<f64>),
 }
 
 /// How a case is read: the stage edits of `Allrun` as values, and where the start fields come from.
@@ -350,6 +363,10 @@ pub struct PassiveStructure {
     pub alpha_rho_cp: Vec<f64>,
     /// `Tpas_` at the start time per cell (the dictionary `T` where the field is not on disk).
     pub t: Vec<f64>,
+    /// `T.passiveStructure` was READ from the start directory (`structure.C:157`, `TpasHeaderOk`; gh:#1926, README round 66). A new process
+    /// has the `Tpas.oldTime()` first-step quirk of a restart ([`OnePhaseCcSolver::restart_at`]) without calling `restart_at`: round 65
+    /// (gh:#1928) made `pas_old_lazy` true at EVERY construction (it is masked for a uniform `Tpas = T`), so this flag is informative only.
+    pub t_from_file: bool,
 }
 
 /// A read case (all fields at the start time).
@@ -411,10 +428,17 @@ pub struct OnePhaseCcCase {
     pub alpha_phi: Vec<f64>,
     /// `powerDensityNeutronicsToLiquid`.
     pub power_density: Vec<f64>,
+    /// `alphaRhoMagU` READ from the start directory (or handed over): cells and boundary faces; `None`: `fluid::initAlphaPhis` computes
+    /// `alpha*rho*magU` at construction (`fluid.C:720-723`, gh:#1935).
+    pub alpha_rho_mag_u: Option<(Vec<f64>, Vec<f64>)>,
     /// `residualFluidStructureRe` (default 10).
     pub min_re: f64,
     /// `solveFluidMechanics true`: the momentum/pressure part of the case (`None` for the frozen-flux region).
     pub flow: Option<OnePhaseFlowCase>,
+    /// `structureProperties.<zone>.localTortuosity` (gh:#1229, round 64): the diagonal of the global-frame tortuosity tensor per cell
+    /// (identity outside the tortuous zones); `None` when no zone has one (`structure_.tortuosityPtr().valid()` false: the scalar-gamma
+    /// Laplacians of `UEqn_1p.H`/`EEqn_1p.H`).
+    pub tortuosity: Option<Vec<[f64; 3]>>,
 }
 
 /// Parse `internalField` and the `value` of the named patches of a surface (or any scalar) field file.
@@ -483,6 +507,28 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
         return Ok((vals, &r[close + 1..]));
     }
     Err("neither uniform nor nonuniform".to_string())
+}
+
+/// One `FSDragCoefficientModel` dictionary: `ReynoldsPower` (`coeff`, `exp`, `const`), `Churchill` (`surfaceRoughness`) or `Rehme`
+/// (`numberOfPins`, `pinDiameter`, `wireDiameter`, `wireLeadLen`, `wetWrapPerimeter`); every other model is refused by name.
+#[cfg(feature = "std")]
+fn read_drag_law(ctx: &Ctx, what: &str, md: &FoamDict) -> Result<DragLaw, AppBuilderError> {
+    match ctx.word(md, "type")?.as_str() {
+        "ReynoldsPower" => Ok(DragLaw::ReynoldsPower(ReynoldsPowerDrag {
+            coeff: ctx.f64(md, "coeff")?,
+            exp: ctx.f64(md, "exp")?,
+            constant: scalar(md, "const").unwrap_or(0.0),
+        })),
+        "Churchill" => Ok(DragLaw::Wall(FsWallFriction::Churchill { surface_roughness: ctx.f64(md, "surfaceRoughness")? })),
+        "Rehme" => Ok(DragLaw::Wall(FsWallFriction::rehme_from_geometry(
+            ctx.f64(md, "numberOfPins")?,
+            ctx.f64(md, "pinDiameter")?,
+            ctx.f64(md, "wireDiameter")?,
+            ctx.f64(md, "wireLeadLen")?,
+            ctx.f64(md, "wetWrapPerimeter")?,
+        ))),
+        other => Err(ctx.e(format!("dragModels.{what}: `{other}` is not ported for the solved flow (ReynoldsPower, Churchill, Rehme)"))),
+    }
 }
 
 #[cfg(feature = "std")]
@@ -666,6 +712,7 @@ impl OnePhaseCcCase {
                 Some(FoamEntry::SubDict(d)) => {
                     let kind = match (word(d, "solver").as_deref(), word(d, "preconditioner").as_deref(), word(d, "smoother").as_deref()) {
                         (Some("PBiCGStab"), Some("diagonal"), _) => HSolver::PBiCGStabDiagonal,
+                        (Some("PBiCG"), Some("DILU"), _) => HSolver::PbicgDilu,
                         (Some("smoothSolver"), _, Some("symGaussSeidel")) => {
                             // the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55)
                             if scalar(d, "relTol").unwrap_or(0.0) != 0.0 {
@@ -681,7 +728,7 @@ impl OnePhaseCcCase {
                         }
                         _ => {
                             return Err(ctx.e(format!(
-                                "solvers for `{name}`: only PBiCGStab with the diagonal preconditioner and smoothSolver with symGaussSeidel are ported"
+                                "solvers for `{name}`: only PBiCGStab/diagonal, PBiCG/DILU and smoothSolver with symGaussSeidel are ported"
                             )))
                         }
                     };
@@ -787,6 +834,8 @@ impl OnePhaseCcCase {
         let mut ia_act = vec![0.0; n];
         let mut fixed_cells = vec![false; n];
         let mut momentum_source = vec![Vector3::ZERO; n];
+        let mut tortuosity: Option<Vec<[f64; 3]>> = None;
+        let mut momentum_profiles: Vec<(Vec<usize>, Vector3, TimeProfile)> = Vec::new();
         let mut t_fixed_default = vec![0.0; n];
         let mut passive: Option<PassiveStructure> = None;
         let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
@@ -802,11 +851,11 @@ impl OnePhaseCcCase {
             let cells = zone_cells(key)?;
             if solve_flow {
                 if let Some(FoamEntry::List(v)) = zd.get("momentumSource") {
-                    if zd.get("momentumSourceTimeProfile").is_some() || zd.get_dict("momentumSourceTimeProfile").is_some() {
-                        return Err(ctx.e("momentumSourceTimeProfile is not ported"));
-                    }
                     if v.len() != 3 {
                         return Err(ctx.e("momentumSource must be a vector"));
+                    }
+                    if zd.get("momentumSourceTimeProfile").is_some() && zd.get_dict("momentumSourceTimeProfile").is_none() {
+                        return Err(ctx.e("momentumSourceTimeProfile must be a dictionary"));
                     }
                     let src = Vector3::new(
                         v[0].as_scalar().unwrap_or(0.0),
@@ -816,6 +865,23 @@ impl OnePhaseCcCase {
                     for &c in &cells {
                         momentum_source[c] = src;
                     }
+                    if let Some(td) = zd.get_dict("momentumSourceTimeProfile") {
+                        momentum_profiles.push((cells.clone(), src, read_table_time_profile(&ctx, td, "momentumSourceTimeProfile")?));
+                    }
+                }
+            }
+            if let Some(lt) = zd.get("localTortuosity") {
+                // `structure.C:663-711`: `diag(localTortuosity)` in the global frame (a `localReferenceFrame` is refused below)
+                let FoamEntry::List(v) = lt else {
+                    return Err(ctx.e("localTortuosity must be a vector"));
+                };
+                if v.len() != 3 {
+                    return Err(ctx.e("localTortuosity must be a vector"));
+                }
+                let d = [v[0].as_scalar().unwrap_or(1.0), v[1].as_scalar().unwrap_or(1.0), v[2].as_scalar().unwrap_or(1.0)];
+                let field = tortuosity.get_or_insert_with(|| vec![[1.0; 3]; n]);
+                for &c in &cells {
+                    field[c] = d;
                 }
             }
             let vf = ctx.f64(zd, "volumeFraction")?;
@@ -845,7 +911,7 @@ impl OnePhaseCcCase {
                 let pas_alpha = scalar(pd, "volumeFraction").unwrap_or(vf);
                 let pas_ia = ctx.f64(pd, "volumetricArea")?;
                 let pas_t = ctx.f64(pd, "T")?;
-                let ps = passive.get_or_insert_with(|| PassiveStructure { ia: vec![0.0; n], alpha_rho_cp: vec![0.0; n], t: vec![0.0; n] });
+                let ps = passive.get_or_insert_with(|| PassiveStructure { ia: vec![0.0; n], alpha_rho_cp: vec![0.0; n], t: vec![0.0; n], t_from_file: false });
                 for &c in &cells {
                     ps.ia[c] = pas_ia;
                     ps.alpha_rho_cp[c] = pas_alpha * rho_cp;
@@ -853,7 +919,7 @@ impl OnePhaseCcCase {
                 }
             }
             for (k2, _) in zd.iter() {
-                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "passiveProperties") {
+                if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "momentumSourceTimeProfile" | "passiveProperties" | "localTortuosity") {
                     return Err(ctx.e(format!("structureProperties.{key}.{k2} is not ported")));
                 }
             }
@@ -905,20 +971,29 @@ impl OnePhaseCcCase {
         }
         // dragModels: the energy equation does not see `Kd`; the solved flow does (`ReynoldsPower` only)
         let dragd = ctx.sub(pm_dict, "dragModels")?;
-        let mut drag: Vec<Option<ReynoldsPowerDrag>> = vec![None; n];
+        let mut drag: Vec<Option<CellDrag>> = vec![None; n];
         if solve_flow {
             for (zk, e) in dragd.iter() {
                 let FoamEntry::SubDict(md) = e else { continue };
-                if ctx.word(md, "type")? != "ReynoldsPower" {
-                    return Err(ctx.e(format!("dragModels.{zk}: only ReynoldsPower is ported for the solved flow")));
-                }
-                let model = ReynoldsPowerDrag {
-                    coeff: ctx.f64(md, "coeff")?,
-                    exp: ctx.f64(md, "exp")?,
-                    constant: scalar(md, "const").unwrap_or(0.0),
+                let cell = if md.get("type").is_some() {
+                    CellDrag { isotropic: true, laws: [Some(read_drag_law(&ctx, zk, md)?), None, None] }
+                } else {
+                    // `FSDragFactor`: no `type` -> per-axis models `localX`, `localY`, `localZ` (an absent axis has no model)
+                    for (k, _) in md.iter() {
+                        if !matches!(k, "localX" | "localY" | "localZ") {
+                            return Err(ctx.e(format!("dragModels.{zk}.{k} is not ported (localX, localY, localZ)")));
+                        }
+                    }
+                    let mut laws = [None, None, None];
+                    for (i, key) in ["localX", "localY", "localZ"].iter().enumerate() {
+                        if let Some(sd) = md.get_dict(key) {
+                            laws[i] = Some(read_drag_law(&ctx, &alloc::format!("{zk}.{key}"), sd)?);
+                        }
+                    }
+                    CellDrag { isotropic: false, laws }
                 };
                 for c in zone_cells(zk)? {
-                    drag[c] = Some(model);
+                    drag[c] = Some(cell);
                 }
             }
         }
@@ -933,6 +1008,13 @@ impl OnePhaseCcCase {
         let fdir = root.join(&tdir).join(region);
         let sfield = |name: &str| read_vol_scalar_field(&fdir.join(name), n);
         let hand = options.fields.as_ref();
+        // `structure.C:157`: `Tpas_` is `READ_IF_PRESENT`; the dictionary's `T` only where the header is not ok (`if (!TpasHeaderOk)`, `:466`)
+        if let Some(ps) = passive.as_mut() {
+            if hand.is_none() && fdir.join("T.passiveStructure").exists() {
+                ps.t = sfield("T.passiveStructure")?;
+                ps.t_from_file = true;
+            }
+        }
         // ---- the radial-conduction power models (gh:#1879): built here because they need every zone's structure alpha
         let has_radial = sp.iter().any(|(_, e)| match e {
             FoamEntry::SubDict(zd) => zd
@@ -1026,6 +1108,7 @@ impl OnePhaseCcCase {
         };
         let flow = if solve_flow {
             let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg, laminar)?;
+            fc.momentum_profiles = momentum_profiles;
             fc.turbulence = if laminar {
                 None
             } else {
@@ -1075,6 +1158,28 @@ impl OnePhaseCcCase {
             match hand { Some(h) => (h.alpha_rho_phi.clone(), h.alpha_phi.clone()), None => (surface("alphaRhoPhi")?, surface("alphaPhi")?) }
         };
 
+        // `alphaRhoMagU` (`READ_IF_PRESENT`, `fluid.C:185`): the written start directory's, or the previous stage's handed over; else computed
+        let alpha_rho_mag_u: Option<(Vec<f64>, Vec<f64>)> = if let Some(h) = hand {
+            Some(h.alpha_rho_mag_u.clone())
+        } else if solve_flow && exists("alphaRhoMagU") {
+            let path = fdir.join("alphaRhoMagU");
+            let text = std::fs::read_to_string(&path).map_err(|e| AppBuilderError::Io { path: path.clone(), source: e })?;
+            let (internal, per_patch) = parse_scalar_field_text(&text, n, &patches).map_err(|m| ctx.e(format!("alphaRhoMagU: {m}")))?;
+            let mut bvals = vec![0.0; g.n_faces() - ni];
+            for (q, vals) in mesh.patches.iter().zip(per_patch) {
+                for (k, v) in vals.into_iter().enumerate() {
+                    bvals[q.start - ni + k] = v;
+                }
+            }
+            Some((internal, bvals))
+        } else {
+            None
+        };
+
+        if let Some(td) = &tortuosity {
+            tensor_laplacian::tortuosity_fields(&g, td).map_err(|m| ctx.e(m))?;
+        }
+
         Ok(Self {
             mesh,
             gravity,
@@ -1103,8 +1208,10 @@ impl OnePhaseCcCase {
             alpha_rho_phi,
             alpha_phi,
             power_density,
+            alpha_rho_mag_u,
             min_re,
             flow,
+            tortuosity,
         })
     }
 }
@@ -1141,8 +1248,15 @@ pub struct OnePhaseCcSolver {
     ctl_ht_post_solve: bool,
     /// CONTROL (gh:#1879): evaluate `fvc::laplacian(Tmatrix)` as 0.
     ctl_no_laplacian: bool,
+    /// CONTROLS, NOT upstream (gh:#1229): the tortuosity left out of the momentum / the energy Laplacian (scalar-gamma form).
+    ctl_no_tort_momentum: bool,
+    ctl_no_tort_energy: bool,
+    ctl_no_alphat_patch: bool,
     htc: Vec<f64>,
     re: Vec<f64>,
+    /// `FSPair::lRe_`: the per-axis Reynolds number `max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371`; the signed component, `lDh = Dh` as no
+    /// `localDhAnisotropy` is ported) a per-axis drag model (`localX`/`localY`/`localZ`, `cmpt() >= 0`) evaluates (gh:#1870 round 62).
+    lre: Vec<[f64; 3]>,
     cont_err: Vec<f64>,
     power_density: Vec<f64>,
     dt: f64,
@@ -1170,7 +1284,7 @@ pub struct OnePhaseCcSolver {
     /// `p_rgh.prevIter()` (stored at each `loop()` when `fields` relaxes `p_rgh`).
     p_rgh_prev: Vec<f64>,
     /// `Kd.prevIter()` (`myOps::storePrevIterIfRelax`).
-    kd_prev: Vec<f64>,
+    kd_prev: Vec<[f64; 3]>,
     /// CONTROL (gh:#1866): see [`OnePhaseCcSolver::with_first_piso_residual_of_first_pass_only`].
     first_piso_first_pass_only: bool,
     /// `htc.prevIter()` (`myOps::storePrevIterIfRelax`).
@@ -1181,6 +1295,11 @@ pub struct OnePhaseCcSolver {
     rho: Vec<f64>,
     /// `fluid::rho()` on every boundary face (index `face - n_internal`).
     rho_b: Vec<f64>,
+    /// `alphaRhoMagU_` (cells, boundary faces): set at construction (`fluid::initAlphaPhis`) or READ; `correctAlphaRhoMagU()` only runs with
+    /// `momentumMode cellCenteredFaceReconstruction` (`reconstructU_1p.H:21`), which the writer refuses by name (gh:#1935).
+    alpha_rho_mag_u: (Vec<f64>, Vec<f64>),
+    /// `fluid_.dgdt()` as the last final non-orthogonal pass of the last corrector set it: `-pEqnComp & p_rgh_` (`pEqn_1p.H:64`), cells.
+    dgdt: Vec<f64>,
     /// `fluid::rho().oldTime()` per cell: its value at the start of the time step.
     rho_old: Vec<f64>,
     /// `fluid.Cp()` placeholder field (`fluid.C:597`, `EEqn_1p.H` end): `thermo.Cp()` as of the last `thermo.correct()`.
@@ -1199,6 +1318,11 @@ pub struct OnePhaseCcSolver {
     ctl_freeze_htc: bool,
     /// `htc` has been evaluated once (for [`Self::with_frozen_htc`]).
     htc_evaluated: bool,
+    /// A restart's first step (gh:#1919, README round 60): `Tpas.oldTime()` does not exist yet in the new process, is created by the first
+    /// `structure::correct` as a copy, and the first `Tpas.correctBoundaryConditions()` (`storeOldTimes()`, the field's `timeIndex_` still that
+    /// of the read) then re-stores it from the ALREADY UPDATED field, so the later outer iterations of the step integrate from that value.
+    /// Set by [`Self::restart_at`], cleared by the first [`Self::passive_correct`].
+    pas_old_lazy: bool,
 }
 
 /// What one PIMPLE outer iteration of the energy equation reported.
@@ -1261,6 +1385,7 @@ impl OnePhaseCcSolver {
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
+        let lre = vec![[case.min_re; 3]; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
         let t_pas = case.passive.as_ref().map_or_else(Vec::new, |ps| ps.t.clone());
         let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; case.mesh.patches.len()], |f| f.t_bc.clone());
@@ -1271,6 +1396,14 @@ impl OnePhaseCcSolver {
             None => (
                 (0..n).map(|c| case.thermo.props(case.p[c], case.t[c]).rho).collect(),
                 (ni0..geom.n_faces()).map(|f| case.thermo.props(case.p[geom.mesh.owner[f]], ts0.b[f - ni0]).rho).collect(),
+            ),
+        };
+        // `fluid::initAlphaPhis`: `alphaRhoMagU_ = alpha*rho*magU_` unless the file was read; `magU_ = mag(U_)` of the constructed `U`
+        let alpha_rho_mag_u = match case.alpha_rho_mag_u.clone() {
+            Some(read) => read,
+            None => (
+                (0..n).map(|c| alpha[c] * rho[c] * u.c[c].mag()).collect(),
+                (ni0..geom.n_faces()).map(|f| alpha[geom.mesh.owner[f]] * rho_b[f - ni0] * u.b[f - ni0].mag()).collect(),
             ),
         };
         let mut s = Self {
@@ -1291,8 +1424,12 @@ impl OnePhaseCcSolver {
             structure_heat_flux: vec![0.0; n],
             ctl_ht_post_solve: false,
             ctl_no_laplacian: false,
+            ctl_no_tort_momentum: false,
+            ctl_no_tort_energy: false,
+            ctl_no_alphat_patch: false,
             htc,
             re,
+            lre,
             cont_err,
             power_density,
             dt,
@@ -1317,6 +1454,8 @@ impl OnePhaseCcSolver {
             rho_old: rho.clone(),
             rho,
             rho_b,
+            alpha_rho_mag_u,
+            dgdt: vec![0.0; n],
             cp_f: vec![0.0; n],
             kappa_f: vec![0.0; n],
             pr_f: vec![0.0; n],
@@ -1325,6 +1464,7 @@ impl OnePhaseCcSolver {
             ctl_no_passive: false,
             ctl_freeze_htc: false,
             htc_evaluated: false,
+            pas_old_lazy: true,
         };
         s.update_thermo_fields();
         // the structure constructor calls `correctT` once, which runs `temperatureUpdate()` at the start time
@@ -1356,6 +1496,7 @@ impl OnePhaseCcSolver {
             t_fixed: self.case.t_fixed.clone(),
             htc: self.htc.clone(),
             power_density: self.power_density.clone(),
+            alpha_rho_mag_u: self.alpha_rho_mag_u.clone(),
         }
     }
 
@@ -1434,6 +1575,69 @@ impl OnePhaseCcSolver {
         self.steps_begun += 1;
     }
 
+    /// What a RESTART from the written state at `start_time` rebuilds that an uninterrupted run keeps (gh:#1919, README round 60): a new
+    /// process has no old-time copies (so the lazy first-step `p.oldTime()` of round 3 applies again), a fresh PIMPLE control state, the
+    /// face flux `phi = fvc::flux(U)` (it is NOT written: `fluid.C:509-578` rebuilds it, while `alphaPhi`/`alphaRhoPhi` are read and
+    /// kept), `magU = mag(U)`, and every old-time field equal to the field read. The cell fields (`T`, `U`, `p`, `p_rgh`, `h`, ...)
+    /// are written at full precision and are kept as they are. `rebuild_phi` false is the CONTROL that keeps the last step's `phi` (README round 60, control d).
+    pub fn restart_at(&mut self, start_time: f64, rebuild_phi: bool) {
+        self.time = start_time;
+        self.steps_begun = 0;
+        self.p_old = None;
+        self.pimple = PimpleState::new();
+        self.h_solves.clear();
+        // the thermo is constructed from the READ `T` and `p`: `h = he(p, T)` and `rho = rho(p, T)` (the running process holds the `h` its
+        // last solve left and the density of the temperature before it)
+        self.he = (0..self.t.len()).map(|c| self.case.thermo.he(self.p[c], self.t[c])).collect();
+        self.update_thermo_fields();
+        self.he_old = self.he.clone();
+        self.rho_old = self.rho.clone();
+        self.t_pas_old = self.t_pas.clone();
+        self.pas_old_lazy = true;
+        self.t_act_old = self.t_act.clone();
+        // `onePhase` constructor `correctContErr()`: `ddt(alpha, rho)` is exactly 0 (old time = current), `contErr = div(alphaRhoPhi)`
+        let dv = fv::div(&self.geom, &self.alpha_rho_phi);
+        for c in 0..self.geom.n_cells() {
+            self.cont_err[c] = 0.0 + dv[c];
+        }
+        let uc = self.u.c.clone();
+        let phi = fv::flux_openfoam(&self.geom, &self.u);
+        // `onePhase.C:133`: `phi_ = fluid_.alphaPhi()`, the field READ from disk (what the last step left in `alphaPhi`)
+        let alpha_phi = self.alpha_phi.clone();
+        if rebuild_phi {
+            self.phi_total = alpha_phi.clone();
+        }
+        if let Some(fs) = self.flow.as_mut() {
+            if rebuild_phi {
+                fs.phi = phi;
+                fs.phi_solver = alpha_phi;
+            }
+            fs.u_old = uc;
+            fs.mag_u = self.u.c.iter().map(|v| v.mag()).collect();
+            fs.solves.clear();
+        }
+    }
+
+    /// A restart that READS the written fields (gh:#1925, README round 61): replace `U`, `p` and `T` by the values a time directory holds, BEFORE
+    /// [`Self::restart_at`] rebuilds everything a new process derives from them (`h`, `rho`, `phi = fvc::flux(U)`, `contErr`, `magU`).
+    ///
+    /// Why it exists: a restart from the port's OWN steady state inherits that state's round-off (`U` differs from upstream's written one by
+    /// 9.8e-14 relative), and the first `p_rgh` source is a cancellation of face fluxes (`contErr`, `div(phiHbyA)`: 1e-10 of fluxes of 2e-3),
+    /// so a 1e-13 input noise becomes 1.9e-7 in the first initial residual. Fed upstream's own written `U`, `p`, `T`, every input of the first
+    /// pressure corrector (`alpha`, `rho`, `p`, `T`, `U`, `phi`, `alphaPhi`, `alphaRhoPhi`, `contErr`, the momentum `A`/`H`/diagonal, `rAUf`,
+    /// `phiHbyA`) is bit-identical (README round 61), i.e. the restart emulation itself is exact.
+    ///
+    /// # Panics
+    /// If a length is not the cell count.
+    pub fn adopt_written_state(&mut self, u: &[Vector3], p: &[f64], t: &[f64]) {
+        assert!(u.len() == self.u.c.len() && p.len() == self.p.len() && t.len() == self.t.len(), "adopt_written_state: length is not the cell count");
+        self.u.c.copy_from_slice(u);
+        let g = self.geom.clone();
+        self.u.correct_bc(&g);
+        self.p.copy_from_slice(p);
+        self.t.copy_from_slice(t);
+    }
+
     /// DEPRECATED (gh:#1837): the old-time pressure of step 1 is the initial pressure, not the pressure after the first
     /// `p_rgh` solve that upstream's lazy `oldTime()` gives. The ablation of the default.
     #[must_use]
@@ -1460,10 +1664,23 @@ impl OnePhaseCcSolver {
         self.flow.as_ref().map(|f| f.p_rgh.c.as_slice())
     }
 
+    /// `phi` of the fluid (`fluid_.phi()`, the field `findObject<surfaceScalarField>("phi")` finds: the superficial flux) on every face, `None` for
+    /// the frozen-flux region (gh:#1927, GEM).
+    #[must_use]
+    pub fn face_flux(&self) -> Option<&[f64]> {
+        self.flow.as_ref().map(|f| f.phi.as_slice())
+    }
+
     /// `alphaPhi` on every face, as last set (at the start of the last `pEqn`).
     #[must_use]
     pub fn alpha_phi(&self) -> &[f64] {
         &self.alpha_phi
+    }
+
+    /// The `GAMG` solves since the last call (`GamgPolicy::Native`): `(initial residual, residual after each V-cycle)` per `p_rgh` solve, in order
+    /// (gh:#1934: what upstream's instrumented `GAMGSolver` dumps). Empty when `p_rgh` runs `PCG`.
+    pub fn take_gamg_log(&mut self) -> Vec<(f64, Vec<f64>)> {
+        self.flow.as_mut().map_or_else(Vec::new, |f| f.gamg.take_log())
     }
 
     /// The pressure solves of the last time step (empty without flow).
@@ -1482,6 +1699,14 @@ impl OnePhaseCcSolver {
             let norm = self.alpha[c] / (1.0 - self.case.alpha_structure[c]);
             let re = norm * self.u.c[c].mag() * self.case.dh[c] / nu;
             self.re[c] = re.max(self.case.min_re);
+            // `FSPair::correct`: `alphaByNu = normalized/nu`, `lRe[k] = max(alphaByNu*U[k]*lDh[k], minRe)`
+            let alpha_by_nu = norm / nu;
+            let (u, dh) = (self.u.c[c], self.case.dh[c]);
+            self.lre[c] = [
+                (alpha_by_nu * u.x * dh).max(self.case.min_re),
+                (alpha_by_nu * u.y * dh).max(self.case.min_re),
+                (alpha_by_nu * u.z * dh).max(self.case.min_re),
+            ];
         }
     }
 
@@ -1589,6 +1814,11 @@ impl OnePhaseCcSolver {
             let a = ps.alpha_rho_cp[c] / dt;
             self.t_pas[c] = (ia * ht + a * self.t_pas_old[c]) / (a + ia * self.htc[c]);
         }
+        if self.pas_old_lazy {
+            // `Tpas_.correctBoundaryConditions()` -> `storeOldTimes()` of a field whose old time was created in this very step
+            self.t_pas_old = self.t_pas.clone();
+            self.pas_old_lazy = false;
+        }
     }
 
     /// CONTROL, NOT upstream (gh:#1913): the passive structure ignored (it neither exchanges heat nor is updated).
@@ -1690,6 +1920,27 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn without_lumped_laplacian(mut self) -> Self {
         self.ctl_no_laplacian = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1229): the `UEqn_1p.H` Laplacian and `dev2` divergence use the scalar `alpha rho nuEff` (tortuosity ignored).
+    #[must_use]
+    pub fn without_tortuosity_in_momentum(mut self) -> Self {
+        self.ctl_no_tort_momentum = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1229): the `EEqn_1p.H` Laplacian uses the scalar `alphaEff` (tortuosity ignored).
+    #[must_use]
+    pub fn without_tortuosity_in_energy(mut self) -> Self {
+        self.ctl_no_tort_energy = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1929, README round 65): the energy equation's `alphaEff` patch value takes no `alphat` (the form before round 65).
+    #[must_use]
+    pub fn without_alphat_patch_value(mut self) -> Self {
+        self.ctl_no_alphat_patch = true;
         self
     }
 
@@ -1826,13 +2077,27 @@ impl OnePhaseCcSolver {
         };
         let ae = Scalar {
             c: (0..n).map(|c| alpha_h_at(self.p[c], self.t[c]) + self.turb.as_ref().map_or(self.case.alphat[c], |t| t.alphat.c[c])).collect(),
-            b: (ni..g.n_faces()).map(|f| alpha_h_at(self.p[g.mesh.owner[f]], t_s.b[f - ni]) + 0.0).collect(),
+            b: (ni..g.n_faces()).map(|f| alpha_h_at(self.p[g.mesh.owner[f]], t_s.b[f - ni]) + self.turb.as_ref().filter(|_| !self.ctl_no_alphat_patch).map_or(0.0, |t| t.alphat.b[f - ni])).collect(),
             bc: vec![Bc::Calculated; g.mesh.patches.len()],
         };
-        let ae_f = fv::interp_linear_openfoam(&g, &ae);
-        let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
-        e.neg_laplacian_internal(&g, &gam);
-        let (lic, lbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar);
+        let (lic, lbc) = if let Some(td) = self.case.tortuosity.as_ref().filter(|_| !self.ctl_no_tort_energy) {
+            // `EEqn_1p.H:22-27`: `fvm::laplacian(interpolate(alpha) interpolate(tortuosity alphaEff), he)`, the tensor-gamma
+            // `gaussLaplacianScheme::fvmLaplacian` (`tensor_laplacian`, gh:#1229)
+            let (tc, tb) = tensor_laplacian::tortuosity_fields(&g, td).expect("validated when the case was read");
+            let ta_c: Vec<_> = (0..n).map(|c| tensor_laplacian::scale(ae.c[c], &tc[c])).collect();
+            let ta_b: Vec<_> = (0..nb).map(|i| tensor_laplacian::scale(ae.b[i], &tb[i])).collect();
+            let taf = tensor_laplacian::interpolate(&g, &ta_c, &ta_b);
+            let gam_t: Vec<_> = (0..g.n_faces()).map(|f| tensor_laplacian::scale(self.alpha_f[f], &taf[f])).collect();
+            let tg = tensor_laplacian::decompose(&g, &gam_t);
+            tensor_laplacian::neg_laplacian_internal(&mut e, &g, &tg.gamma_mag_sf);
+            tensor_laplacian::add_neg_laplacian_scalar_correction(&mut e, &g, &tg, &he_scalar);
+            tensor_laplacian::neg_laplacian_boundary_coeffs(&g, &tg.gamma_mag_sf, &he_scalar)
+        } else {
+            let ae_f = fv::interp_linear_openfoam(&g, &ae);
+            let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
+            e.neg_laplacian_internal(&g, &gam);
+            Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar)
+        };
         for i in 0..nb {
             ic[i] += lic[i];
             bco[i] += lbc[i];
@@ -1941,6 +2206,10 @@ impl OnePhaseCcSolver {
         let (initial_residual, iterations) = match kind {
             HSolver::PBiCGStabDiagonal => {
                 let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+                (perf.initial_residual, perf.iterations)
+            }
+            HSolver::PbicgDilu => {
+                let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
                 (perf.initial_residual, perf.iterations)
             }
             HSolver::SmoothSymGaussSeidel => {

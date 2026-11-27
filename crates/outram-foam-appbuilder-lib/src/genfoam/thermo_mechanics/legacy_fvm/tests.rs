@@ -489,3 +489,36 @@ fn euler_d2dt2_lags_the_quasi_static_displacement() {
     assert!(steady > 4e-5, "quasi-static mean stretch ({steady:e})");
     assert!(euler < 0.5 * steady, "inertia holds the first step back: euler {euler:e} vs steady {steady:e}");
 }
+
+/// gh:#1915 (README round 57): a `fixedValue` `TStruct` patch pulls a conducting (`TStructFromTH = 0`, so `isPorous = 0`) block
+/// towards its value, a `zeroGradient` one does not; the `y` solution direction left out (the `empty` direction of a 2-D case) is
+/// neither solved nor logged.
+#[test]
+fn fixed_value_t_struct_patch_conducts_and_unsolved_direction_is_skipped() {
+    let mesh = block();
+    let n = mesh.n_cells;
+    let mut s = settings(GradScheme::GaussLinear, LaplacianCorrection::Uncorrected);
+    s.solve_displacement = false;
+    let run = |fixed: bool| {
+        let tm = build(&mesh, s.clone());
+        let patches: Vec<ScalarPatch> = mesh
+            .patches
+            .iter()
+            .map(|p| if fixed && p.name == "left" { ScalarPatch::FixedValue(300.0) } else { ScalarPatch::ZeroGradient })
+            .collect();
+        let mut tm = tm.with_t_struct_patches(patches);
+        tm.set_coupling_fields(&vec![0.0; n], &vec![0.0; n], &vec![0.0; n]);
+        let _ = tm.correct_physics();
+        tm.t_struct().to_vec()
+    };
+    let (free, held) = (run(false), run(true));
+    assert!(free.iter().all(|t| (t - 700.0).abs() < 1e-9), "no flux, no source: T stays");
+    assert!(held.iter().any(|t| *t < 699.0), "the fixed 300 K face cools the block");
+    let mut s2 = settings(GradScheme::GaussLinear, LaplacianCorrection::Uncorrected);
+    s2.solve_thermo = false;
+    let mut tm = build(&mesh, s2).with_solution_directions([true, false, true]);
+    assert_eq!(tm.solution_directions(), [true, false, true]);
+    let log = tm.correct_physics();
+    assert!(log.solves.iter().all(|r| r.field != "dispy"));
+    assert!(log.solves.iter().any(|r| r.field == "dispx"));
+}

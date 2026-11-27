@@ -1,0 +1,7 @@
+GAMGdumpSolver.C
+GAMGdumpSolverAgglomerateMatrix.C
+GAMGdumpSolverInterpolate.C
+GAMGdumpSolverScale.C
+GAMGdumpSolverSolve.C
+
+LIB = /home/user/upstream-build/gh1934/lib/libGAMGdump

@@ -1,0 +1,179 @@
+--- /home/user/upstream-build/GeN-Foam-src/src/classes/thermalHydraulics/solvers/onePhase/include/equations/pEqn_1p.H	2026-11-13 01:06:51.450141544 +0000
++++ classes/thermalHydraulics/solvers/onePhase/include/equations/pEqn_1p.H	2026-11-27 15:21:36.001390518 +0000
+@@ -16,6 +16,38 @@
+ //- Pressure corrector loop
+ while (pimple_.correct(convergedPISO))
+ {
++    probe1925::active() = (mesh_.time().timeIndex() == 477); Foam::Info << "PROBE1925 timeIndex " << mesh_.time().timeIndex() << " corr " << probe1925::corr() << Foam::endl;
++    if (probe1925::active()) probe1925::corr()++;
++    probe1925::dumpScalar("alpha", alpha.primitiveField());
++    probe1925::dumpScalar("rho", rho.primitiveField());
++    probe1925::dumpVolB("B_rho", rho);
++    probe1925::dumpScalar("p_in", p_.primitiveField());
++    probe1925::dumpVolB("B_p_in", p_);
++    probe1925::dumpScalar("p_rgh_in", p_rgh_.primitiveField());
++    probe1925::dumpVolB("B_p_rgh_in", p_rgh_);
++    probe1925::dumpScalar("p_rgh_old", p_rgh_.oldTime().primitiveField());
++    probe1925::dumpScalar("T", fluid_.thermo().T().primitiveField());
++    probe1925::dumpScalar("psi", fluid_.thermo().psi().primitiveField());
++    probe1925::dumpScalar("gh", gh_.primitiveField());
++    probe1925::dumpFace("ghf", ghf_);
++    probe1925::dumpScalar("contErr", fluid_.contErr().primitiveField());
++    probe1925::dumpScalar("ddtAlpha", fvc::ddt(alpha)().primitiveField());
++    probe1925::dumpScalar("divAlphaPhi", fvc::div(fluid_.alphaPhi())().primitiveField());
++    probe1925::dumpVector("U", U.primitiveField());
++    probe1925::dumpVolVecB("B_U", U);
++    probe1925::dumpFace("phi_in", fluid_.phi());
++    probe1925::dumpFace("phi_old", fluid_.phi().oldTime());
++    probe1925::dumpFace("alphaf", alphaf);
++    probe1925::dumpFace("alphaPhi", fluid_.alphaPhi());
++    probe1925::dumpFace("alphaRhoPhi", fluid_.alphaRhoPhi());
++    probe1925::dumpScalar("UA", UEqn.A()().primitiveField());
++    probe1925::dumpVector("UH", UEqn.H()().primitiveField());
++    probe1925::dumpScalar("Udiag", UEqn.diag());
++    probe1925::dumpVector("Usource", UEqn.source());
++    probe1925::dumpPatchVec("Uint", UEqn.internalCoeffs());
++    probe1925::dumpPatchVec("Ubnd", UEqn.boundaryCoeffs());
++    probe1925::dumpScalar("rAU", rAU.primitiveField());
++    probe1925::dumpFace("alpharAUf", alpharAUf);
+     p_rgh_ = p_ - rho*gh_;
+ 
+     //- Correct fixed-flux phi BCs to be consistent with the velocity BCs
+@@ -46,6 +78,13 @@
+     );
+ 
+     #include "calcrAUfSetSnGradCalcComp_1p.H"
++    probe1925::dumpFace("rAUf", rAUf);
++    probe1925::dumpFace("phiSbyA", phiSbyA);
++    probe1925::dumpFace("phiHbyA", phiHbyA);
++    probe1925::dumpFaceB("B_phiHbyA", phiHbyA);
++    probe1925::dumpScalar("HbyA_x", HbyA.primitiveField().component(0)());
++    probe1925::dumpScalar("pEqnComp_src", pEqnComp().source());
++    probe1925::dumpScalar("pEqnComp_diag", pEqnComp().diag());
+ 
+     //- Cache p prior to solve for density update
+     volScalarField p_rgh_0(p_rgh_);
+@@ -54,6 +93,12 @@
+     while (pimple_.correctNonOrthogonal())
+     {
+         #include "solveP_rgh_1p.H"
++        probe1925::dumpScalar("pdiag", pEqn.diag());
++        probe1925::dumpScalar("pupper", pEqn.upper());
++        probe1925::dumpScalar("psource", pEqn.source());
++        probe1925::dumpPatchScalar("pint", pEqn.internalCoeffs());
++        probe1925::dumpPatchScalar("pbnd", pEqn.boundaryCoeffs());
++        probe1925::dumpScalar("p_rgh_post", p_rgh_.primitiveField());
+ 
+         if (pimple_.finalNonOrthogonalIter())
+         {
+--- /home/user/upstream-build/GeN-Foam-src/src/classes/thermalHydraulics/solvers/onePhase/onePhase.C	2026-11-13 01:06:51.450141544 +0000
++++ classes/thermalHydraulics/solvers/onePhase/onePhase.C	2026-11-27 15:18:53.118357588 +0000
+@@ -38,6 +38,7 @@
+ \*---------------------------------------------------------------------------*/
+ 
+ #include "onePhase.H"
++#include "../probe1925.H"
+ #include "addToRunTimeSelectionTable.H"
+ #include "regimeMapModel.H"
+ 
+--- /dev/null	2026-11-24 23:11:27.744730229 +0000
++++ classes/thermalHydraulics/solvers/probe1925.H	2026-11-27 15:18:53.102940615 +0000
+@@ -0,0 +1,98 @@
++// gh:#1894 probe: 17-digit dumps of the face-centred onePhase pressure stage (instrumented copy, NOT upstream).
++#ifndef probe1925_H
++#define probe1925_H
++#include <fstream>
++#include <cstdlib>
++#include "fvCFD.H"
++namespace probe1925
++{
++    inline std::ofstream& os()
++    {
++        static std::ofstream f(std::getenv("PROBE1925_FILE") ? std::getenv("PROBE1925_FILE") : "/tmp/probe1925.txt");
++        static bool init(false);
++        if (!init) { f.precision(17); init = true; }
++        return f;
++    }
++    inline int& corr() { static int c(0); return c; }
++    inline bool& active() { static bool a(false); return a; }
++    inline bool on() { return active() && corr() <= (std::getenv("PROBE1925_MAXCORR") ? std::atoi(std::getenv("PROBE1925_MAXCORR")) : 2); }
++    inline void dumpScalar(const char* name, const Foam::scalarField& f)
++    {
++        if (!on()) return;
++        os() << "S " << corr() << " " << name;
++        forAll(f, i) os() << " " << f[i];
++        os() << "\n";
++    }
++    inline void dumpVector(const char* name, const Foam::vectorField& f)
++    {
++        if (!on()) return;
++        os() << "V " << corr() << " " << name;
++        forAll(f, i) os() << " " << f[i].x() << " " << f[i].y() << " " << f[i].z();
++        os() << "\n";
++    }
++    inline void dumpFace(const char* name, const Foam::surfaceScalarField& f)
++    {
++        dumpScalar(name, f.primitiveField());
++    }
++    inline void dumpFaceB(const char* name, const Foam::surfaceScalarField& f)
++    {
++        Foam::scalarField all(0);
++        forAll(f.boundaryField(), pi)
++        {
++            const Foam::scalarField& v = f.boundaryField()[pi];
++            Foam::label o = all.size();
++            all.setSize(o + v.size());
++            forAll(v, i) all[o + i] = v[i];
++        }
++        dumpScalar(name, all);
++    }
++    inline void dumpVolB(const char* name, const Foam::volScalarField& f)
++    {
++        Foam::scalarField all(0);
++        forAll(f.boundaryField(), pi)
++        {
++            const Foam::scalarField& v = f.boundaryField()[pi];
++            Foam::label o = all.size();
++            all.setSize(o + v.size());
++            forAll(v, i) all[o + i] = v[i];
++        }
++        dumpScalar(name, all);
++    }
++    inline void dumpVolVecB(const char* name, const Foam::volVectorField& f)
++    {
++        Foam::vectorField all(0);
++        forAll(f.boundaryField(), pi)
++        {
++            const Foam::vectorField& v = f.boundaryField()[pi];
++            Foam::label o = all.size();
++            all.setSize(o + v.size());
++            forAll(v, i) all[o + i] = v[i];
++        }
++        dumpVector(name, all);
++    }
++    inline void dumpPatchVec(const char* name, const Foam::FieldField<Foam::Field, Foam::vector>& f)
++    {
++        Foam::vectorField all(0);
++        forAll(f, pi)
++        {
++            const Foam::vectorField& v = f[pi];
++            Foam::label o = all.size();
++            all.setSize(o + v.size());
++            forAll(v, i) all[o + i] = v[i];
++        }
++        dumpVector(name, all);
++    }
++    inline void dumpPatchScalar(const char* name, const Foam::FieldField<Foam::Field, Foam::scalar>& f)
++    {
++        Foam::scalarField all(0);
++        forAll(f, pi)
++        {
++            const Foam::scalarField& v = f[pi];
++            Foam::label o = all.size();
++            all.setSize(o + v.size());
++            forAll(v, i) all[o + i] = v[i];
++        }
++        dumpScalar(name, all);
++    }
++}
++#endif

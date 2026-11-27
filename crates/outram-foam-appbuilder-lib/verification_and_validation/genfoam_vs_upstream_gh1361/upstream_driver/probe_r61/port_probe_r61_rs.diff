@@ -1,0 +1,166 @@
+diff --git a/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc.rs b/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc.rs
+index cd6f605b5..7810b46ba 100644
+--- a/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc.rs
++++ b/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc.rs
+@@ -1446,6 +1446,29 @@ impl OnePhaseCcSolver {
+     /// kept), `magU = mag(U)`, and every old-time field equal to the field read. The cell fields (`T`, `U`, `p`, `p_rgh`, `h`, ...)
+     /// are written at full precision and are kept as they are. `rebuild_phi` false is the CONTROL that keeps the last step's `phi` (README round 60, control d).
+     pub fn restart_at(&mut self, start_time: f64, rebuild_phi: bool) {
++        // TEMPORARY gh:#1925 injection (never committed): the upstream's READ U, p, T of the restart
++        if let Ok(path) = std::env::var("PORT_INJECT_FILE") {
++            let text = std::fs::read_to_string(path).unwrap();
++            for line in text.lines() {
++                let t: Vec<&str> = line.split_whitespace().collect();
++                if t.len() < 4 || t[1] != "1" {
++                    continue;
++                }
++                let v: Vec<f64> = t[3..].iter().map(|x| x.parse().unwrap()).collect();
++                match t[2] {
++                    "U" => {
++                        for c in 0..self.u.c.len() {
++                            self.u.c[c] = Vector3::new(v[3 * c], v[3 * c + 1], v[3 * c + 2]);
++                        }
++                        let g = self.geom.clone();
++                        self.u.correct_bc(&g);
++                    }
++                    "p_in" => self.p.copy_from_slice(&v),
++                    "T" => self.t.copy_from_slice(&v),
++                    _ => {}
++                }
++            }
++        }
+         self.time = start_time;
+         self.steps_begun = 0;
+         self.p_old = None;
+diff --git a/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc/flow.rs b/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc/flow.rs
+index 4709b7e7b..7e7c726af 100644
+--- a/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc/flow.rs
++++ b/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_cc/flow.rs
+@@ -794,6 +794,30 @@ impl OnePhaseCcSolver {
+             if !(corr_piso <= fc.n_correctors && !interrupt) {
+                 break;
+             }
++            let pc = corr_piso;
++            let pon = outer == 1 && self.steps_begun == 1;
++            if pon {
++                pdump_s(pc, "alpha", &self.alpha);
++                pdump_s(pc, "rho", &rho);
++                pdump_s(pc, "B_rho", &rho_b);
++                pdump_s(pc, "p_in", &self.p);
++                pdump_s(pc, "p_rgh_in", &fs.p_rgh.c);
++                pdump_s(pc, "T", &self.t);
++                pdump_s(pc, "gh", &fs.gh);
++                pdump_s(pc, "ghf", &fs.ghf[..ni]);
++                pdump_s(pc, "contErr", &self.cont_err);
++                pdump_s(pc, "divAlphaPhi", &fv::div(&g, &self.alpha_phi));
++                pdump_v(pc, "U", &self.u.c);
++                pdump_s(pc, "phi_in", &fs.phi[..ni]);
++                pdump_s(pc, "alphaf", &alphaf[..ni]);
++                pdump_s(pc, "alphaPhi", &self.alpha_phi[..ni]);
++                pdump_s(pc, "alphaRhoPhi", &self.alpha_rho_phi[..ni]);
++                pdump_s(pc, "UA", &a_cell);
++                pdump_v(pc, "UH", &e.h(&g, &self.u.c));
++                pdump_s(pc, "Udiag", &e.eqn.ldu.diag);
++                pdump_s(pc, "rAU", &rau);
++                pdump_s(pc, "alpharAUf", &alpharauf[..ni]);
++            }
+             for c in 0..n {
+                 fs.p_rgh.c[c] = self.p[c] - rho[c] * fs.gh[c];
+             }
+@@ -851,6 +875,11 @@ impl OnePhaseCcSolver {
+                     rauf[f] = (alphaf[f] * alpharauf[f]).abs();
+                 }
+             }
++            if pon {
++                pdump_s(pc, "rAUf", &rauf[..ni]);
++                pdump_s(pc, "phiSbyA", &phi_s[..ni]);
++                pdump_s(pc, "phiHbyA", &phi_hbya[..ni]);
++            }
+             // the fixedFluxPressure gradient from the boundary flux mismatch
+             for (pi, patch) in m.patches.iter().enumerate() {
+                 if let Bc::FixedGradient(gr) = &mut fs.p_rgh.bc[pi] {
+@@ -879,6 +908,11 @@ impl OnePhaseCcSolver {
+                 peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
+                 peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
+             }
++            if pon {
++                pdump_s(pc, "pdiag", &peqn.ldu.diag);
++                pdump_s(pc, "pupper", &peqn.ldu.upper);
++                pdump_s(pc, "psource", &peqn.source);
++            }
+             // pEqn_1p.H: `while (pimple_.correctNonOrthogonal())`, solveP_rgh_1p.H in each pass
+             let n_pass = fc.n_non_orth_correctors + 1;
+             let mut p_flux_final = Vec::new();
+@@ -887,6 +921,9 @@ impl OnePhaseCcSolver {
+                 let mut x = fs.p_rgh.c.clone();
+                 let perf =
+                     pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter);
++                if pon {
++                    pdump_s(pc, "res", &[perf.initial_residual, perf.iterations as f64]);
++                }
+                 fs.solves.push(PressureSolve {
+                     outer,
+                     corrector: corr_piso,
+@@ -909,6 +946,9 @@ impl OnePhaseCcSolver {
+                     p_flux_final = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
+                 }
+             }
++            if pon {
++                pdump_s(pc, "p_rgh_post", &fs.p_rgh.c);
++            }
+             let mut p_flux = p_flux_final;
+             for f in 0..nf {
+                 if !g.active[f] {
+@@ -962,6 +1002,29 @@ impl OnePhaseCcSolver {
+     }
+ }
+ 
++
++// TEMPORARY gh:#1925 probe (never committed)
++fn pdump_s(corr: usize, name: &str, v: &[f64]) {
++    use std::io::Write;
++    let Ok(path) = std::env::var("PORT_PROBE_FILE") else { return };
++    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap();
++    let mut line = format!("S {corr} {name}");
++    for x in v {
++        line.push_str(&format!(" {:e}", x));
++    }
++    writeln!(f, "{line}").unwrap();
++}
++fn pdump_v(corr: usize, name: &str, v: &[Vector3]) {
++    use std::io::Write;
++    let Ok(path) = std::env::var("PORT_PROBE_FILE") else { return };
++    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap();
++    let mut line = format!("V {corr} {name}");
++    for x in v {
++        line.push_str(&format!(" {:e} {:e} {:e}", x.x, x.y, x.z));
++    }
++    writeln!(f, "{line}").unwrap();
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/crates/outram-foam-appbuilder-lib/tests/genfoam_fullcoupling_transient_vs_upstream.rs b/crates/outram-foam-appbuilder-lib/tests/genfoam_fullcoupling_transient_vs_upstream.rs
+index f42fbba66..1b972e05c 100644
+--- a/crates/outram-foam-appbuilder-lib/tests/genfoam_fullcoupling_transient_vs_upstream.rs
++++ b/crates/outram-foam-appbuilder-lib/tests/genfoam_fullcoupling_transient_vs_upstream.rs
+@@ -611,3 +611,18 @@ fn the_references_load_and_are_complete() {
+     }
+     assert!(PREC.iter().all(|p| tr.fp.contains_key(&(1, format!("neutroRegion {p}")))));
+ }
++
++// TEMPORARY gh:#1925 probe test (never committed)
++#[test]
++#[ignore]
++fn probe_r61() {
++    let root = stage_steady("probe");
++    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).expect("read");
++    while run.running() {
++        run.step().expect("ss");
++    }
++    let troot = stage_transient("probe");
++    run.restart_transient(&troot).expect("restart");
++    unsafe { std::env::set_var("PORT_PROBE_FILE", "/home/user/upstream-build/gh1925/port_inj.txt") };
++    run.step().expect("step 1");
++}

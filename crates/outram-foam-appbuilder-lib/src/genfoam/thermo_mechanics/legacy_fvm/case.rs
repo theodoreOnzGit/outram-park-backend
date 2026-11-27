@@ -57,6 +57,63 @@ pub struct LegacyFvmCase {
     pub delta_t: f64,
     /// `fvSchemes.d2dt2Schemes.default` (`steadyState` or `Euler`; gh:#1845).
     pub d2dt2: D2dt2Scheme,
+    /// `polyMesh::solutionD()` (`false` normal to the `empty` patches; README round 57).
+    pub solution_d: [bool; 3],
+    /// `TStruct` patch conditions (README round 57: `fixedValue` on `right_alone`).
+    pub t_patches: Vec<ScalarPatch>,
+    /// The cell fields READ from a written start directory (`disp` and `fuelDisp`, `CRDisp` `MUST_READ`, `meshDisp` `READ_IF_PRESENT`;
+    /// `thermoMechanics.C:84-110`, `legacyThermoMechanics.C:259`; gh:#1926, README round 66); `None` for a case that starts at `0` with its
+    /// zero uniform fields.
+    pub start_fields: Option<TmStartFields>,
+}
+
+/// The cell fields of a written time directory of the thermo-mechanics region (see [`LegacyFvmCase::start_fields`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TmStartFields {
+    /// `disp` per cell.
+    pub disp: Vec<Vector3>,
+    /// `fuelDisp` per cell.
+    pub fuel_disp: Vec<f64>,
+    /// `CRDisp` per cell.
+    pub cr_disp: Vec<f64>,
+    /// `meshDisp` per cell (zero where the file is absent).
+    pub mesh_disp: Vec<Vector3>,
+}
+
+/// The finite-volume view of a 2-D mesh: `emptyFvPatch` has size 0, so the `empty` patches (which must be the LAST patches) and their faces
+/// are dropped, and `polyMesh::calcDirections` gives the solution directions (`emptyDirVec = sum |faceAreas|` over the empty faces,
+/// normalised; a component above `1e-6` is not solved). The cell volumes and centres were computed with every face and are kept.
+///
+/// # Errors
+/// A message if an `empty` patch is not last.
+pub fn drop_empty_patches(mesh: &Arc<FvMesh>) -> Result<(Arc<FvMesh>, [bool; 3]), String> {
+    use outram_foam_basic_lib::mesh::fv_mesh::PatchKind;
+    let first_empty = mesh.patches.iter().position(|p| p.kind == PatchKind::Empty);
+    let Some(fe) = first_empty else { return Ok((mesh.clone(), [true; 3])) };
+    if mesh.patches[fe..].iter().any(|p| p.kind != PatchKind::Empty) {
+        return Err("an `empty` patch is followed by a non-empty one: not ported".to_string());
+    }
+    let start = mesh.patches[fe].start;
+    let (mut ex, mut ey, mut ez) = (0.0_f64, 0.0_f64, 0.0_f64);
+    for p in &mesh.patches[fe..] {
+        for f in p.start..p.start + p.size {
+            let a = mesh.face_area_vectors[f];
+            ex += a.x.abs();
+            ey += a.y.abs();
+            ez += a.z.abs();
+        }
+    }
+    // `component / mag > 1e-6`, written without the square root: `component^2 > 1e-12 mag^2`
+    let mag2 = ex * ex + ey * ey + ez * ez;
+    let solution_d = [!(ex * ex > 1e-12 * mag2), !(ey * ey > 1e-12 * mag2), !(ez * ez > 1e-12 * mag2)];
+    let mut m = (**mesh).clone();
+    m.patches.truncate(fe);
+    m.owner.truncate(start);
+    m.face_area_vectors.truncate(start);
+    m.face_areas.truncate(start);
+    m.face_centres.truncate(start);
+    m.n_faces = start;
+    Ok((Arc::new(m), solution_d))
 }
 
 fn err(root: &Path, msg: impl Into<String>) -> AppBuilderError {
@@ -208,8 +265,19 @@ impl LegacyFvmCase {
     /// not implement; I/O and parse errors.
     #[allow(clippy::too_many_lines)]
     pub fn read(root: &Path, region: &str, gamg: TStructGamgPolicy) -> Result<Self, AppBuilderError> {
+        Self::read_at(root, region, gamg, "0")
+    }
+
+    /// [`Self::read`] with the fields taken from the time directory `start_dir` (`"0"`: the case's zero fields, as before; any other: a
+    /// WRITTEN directory whose `disp`, `fuelDisp`, `CRDisp`, `TStruct` are non-uniform lists, gh:#1926, README round 66).
+    ///
+    /// # Errors
+    /// As [`Self::read`]; a missing `disp`, `fuelDisp` or `CRDisp` file of a written directory (`MUST_READ`).
+    #[allow(clippy::too_many_lines)]
+    pub fn read_at(root: &Path, region: &str, gamg: TStructGamgPolicy, start_dir: &str) -> Result<Self, AppBuilderError> {
+        let written = start_dir != "0";
         let poly = root.join(format!("constant/{region}/polyMesh"));
-        let mesh = read_poly_mesh(&poly)?;
+        let (mesh, solution_d) = drop_empty_patches(&read_poly_mesh(&poly)?).map_err(|m| err(root, m))?;
         let zones: Vec<(String, Vec<usize>)> = read_cell_zones(&poly)?.into_iter().map(|z| (z.name, z.cells)).collect();
 
         // thermoMechanicalProperties
@@ -364,10 +432,10 @@ impl LegacyFvmCase {
         let delta_t = cd.get("deltaT").and_then(|e| numbers(e).first().copied()).ok_or_else(|| err(root, "controlDict: no deltaT"))?;
 
         // 0/ fields
-        let zero = format!("0/{region}");
+        let zero = format!("{start_dir}/{region}");
         let disp_f = read_dict(root, &format!("{zero}/disp"))?;
-        let internal = uniform_numbers(root, &disp_f, "internalField", "disp")?;
-        if internal != [0.0, 0.0, 0.0] {
+        let internal = if written { vec![0.0; 3] } else { uniform_numbers(root, &disp_f, "internalField", "disp")? };
+        if !written && internal != [0.0, 0.0, 0.0] {
             return Err(err(root, "disp: only a zero uniform internalField is read"));
         }
         let bf = disp_f.get_dict("boundaryField").ok_or_else(|| err(root, "disp: no boundaryField"))?;
@@ -407,7 +475,7 @@ impl LegacyFvmCase {
         }
         let scalar_patches = |name: &str| -> Result<Vec<ScalarPatch>, AppBuilderError> {
             let f = read_dict(root, &format!("{zero}/{name}"))?;
-            if uniform_numbers(root, &f, "internalField", name)? != [0.0] {
+            if !written && uniform_numbers(root, &f, "internalField", name)? != [0.0] {
                 return Err(err(root, format!("{name}: only a zero uniform internalField is read")));
             }
             let bf = f.get_dict("boundaryField").ok_or_else(|| err(root, format!("{name}: no boundaryField")))?;
@@ -425,17 +493,29 @@ impl LegacyFvmCase {
         };
         let fuel_patches = scalar_patches("fuelDisp")?;
         let cr_patches = scalar_patches("CRDisp")?;
+        let mut t_patches: Vec<ScalarPatch> = vec![ScalarPatch::ZeroGradient; mesh.patches.len()];
         let t_struct0 = match read_dict(root, &format!("{zero}/TStruct")) {
             Ok(f) => {
-                let v = uniform_numbers(root, &f, "internalField", "TStruct")?;
+                // a written directory holds the field as a list (`TStruct` is `READ_IF_PRESENT`, `legacyThermoMechanics.C:271`)
+                let v = if written { Vec::new() } else { uniform_numbers(root, &f, "internalField", "TStruct")? };
                 if let Some(bf) = f.get_dict("boundaryField") {
-                    for (_, ty) in patch_entries(root, bf, &mesh, "TStruct")? {
-                        if ty != "zeroGradient" {
-                            return Err(unsupported("boundaryField", format!("TStruct: {ty}"), "only zeroGradient"));
-                        }
-                    }
+                    t_patches = patch_entries(root, bf, &mesh, "TStruct")?
+                        .into_iter()
+                        .map(|(d, ty)| match ty.as_str() {
+                            "zeroGradient" => Ok(ScalarPatch::ZeroGradient),
+                            "fixedValue" => {
+                                let v = uniform_numbers(root, d, "value", "TStruct")?;
+                                Ok(ScalarPatch::FixedValue(*v.first().ok_or_else(|| err(root, "TStruct: fixedValue without a value"))?))
+                            }
+                            other => Err(unsupported("boundaryField", format!("TStruct: {other}"), "only zeroGradient and fixedValue")),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
                 }
-                vec![v.first().copied().unwrap_or(0.0); mesh.n_cells]
+                if written {
+                    crate::io::field_reader::read_vol_scalar_field(&root.join(&zero).join("TStruct"), mesh.n_cells)?
+                } else {
+                    vec![v.first().copied().unwrap_or(0.0); mesh.n_cells]
+                }
             }
             Err(_) => vec![0.0; mesh.n_cells],
         };
@@ -456,7 +536,21 @@ impl LegacyFvmCase {
             t_solver_kind,
             traction_bc_honours_plane_stress: false,
         };
-        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2 })
+        let start_fields = if written {
+            use crate::io::field_reader::{read_vol_scalar_field, read_vol_vector_field};
+            let n = mesh.n_cells;
+            let dir = root.join(&zero);
+            let mesh_disp_path = dir.join("meshDisp");
+            Some(TmStartFields {
+                disp: read_vol_vector_field(&dir.join("disp"), n)?,
+                fuel_disp: read_vol_scalar_field(&dir.join("fuelDisp"), n)?,
+                cr_disp: read_vol_scalar_field(&dir.join("CRDisp"), n)?,
+                mesh_disp: if mesh_disp_path.exists() { read_vol_vector_field(&mesh_disp_path, n)? } else { vec![Vector3::ZERO; n] },
+            })
+        } else {
+            None
+        };
+        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2, solution_d, t_patches, start_fields })
     }
 
     /// Build the solver from the case.
@@ -475,6 +569,10 @@ impl LegacyFvmCase {
             self.t_struct0.clone(),
             self.delta_t,
         )
-        .map(|s| s.with_d2dt2(self.d2dt2))
+        .map(|s| s.with_d2dt2(self.d2dt2).with_solution_directions(self.solution_d).with_t_struct_patches(self.t_patches.clone()))
+        .map(|s| match &self.start_fields {
+            Some(f) => s.with_read_fields(&f.disp, &f.fuel_disp, &f.cr_disp, &f.mesh_disp),
+            None => s,
+        })
     }
 }

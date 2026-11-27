@@ -96,6 +96,7 @@ use uom::si::f64::Time;
 use uom::si::time::second;
 
 use outram_foam_basic_lib::interpolation::interpolate_xy;
+use petir::mathf::RealMath;
 
 /// Errors returned when constructing a [`TimeProfile`] from a table.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -126,6 +127,14 @@ pub enum TimeProfileError {
         /// The offending time, in seconds.
         next: f64,
     },
+
+    /// A `polynomial` profile without coefficients (upstream `Polynomial::checkCoefficients`: "Invalid (empty) polynomial coefficients").
+    #[error("time-profile polynomial has no coefficients")]
+    EmptyPolynomial,
+
+    /// A ramp with `duration == 0` (a division by zero in `ramp::linearRamp`).
+    #[error("time-profile ramp has duration 0")]
+    ZeroRampDuration,
 }
 
 /// The interpolation kind backing a [`TimeProfile`]. Private: consumers dispatch
@@ -138,6 +147,67 @@ enum ProfileKind {
     /// `values` are the raw ordinates. Queries clamp to the endpoints outside
     /// the tabulated range.
     Table { times: Vec<f64>, values: Vec<f64> },
+    /// OpenFOAM's `ramp` family (gh:#1927).
+    Ramp { shape: RampShape, start: f64, duration: f64 },
+    /// OpenFOAM's `Sine`, `Cosine` and `Square` (gh:#1927).
+    Oscillation(Oscillation),
+    /// OpenFOAM's `Polynomial`: `(coefficient, exponent)` pairs (gh:#1927).
+    Polynomial(Vec<(f64, f64)>),
+}
+
+/// The shape of an OpenFOAM `ramp` `Function1` (`src/OpenFOAM/primitives/functions/Function1/{linearRamp,quadraticRamp,halfCosineRamp,quarterCosineRamp,quarterSineRamp}`):
+/// 0 before `start`, 1 after `start + duration`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RampShape {
+    /// `linearRamp`: `clamp((t - start)/duration, 0, 1)` (`ramp.H`).
+    Linear,
+    /// `quadraticRamp`: `sqr(linearRamp(t))`.
+    Quadratic,
+    /// `halfCosineRamp`: `0.5*(1 - cos(pi*linearRamp(t)))`.
+    HalfCosine,
+    /// `quarterCosineRamp`: `1 - cos(0.5*pi*linearRamp(t))`.
+    QuarterCosine,
+    /// `quarterSineRamp`: `sin(0.5*pi*linearRamp(t))`.
+    QuarterSine,
+}
+
+/// Which periodic function an [`Oscillation`] is (`Sine.H`: `sinValue`, `cosValue`, `squareValue`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OscillationKind {
+    /// `sine`.
+    Sine,
+    /// `cosine`.
+    Cosine,
+    /// `square`.
+    Square,
+}
+
+/// How the cycle count is given (`Sine.C`: `period` wins when present, else `frequency`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CycleRate {
+    /// `frequency` (1/s): `cycle = (t - t0)*frequency`.
+    Frequency(f64),
+    /// `period` (s): `cycle = (t - t0)/(period + VSMALL)`.
+    Period(f64),
+}
+
+/// The entries of OpenFOAM's `Sine`/`Cosine`/`Square` `Function1` with plain scalar sub-entries (nested `Function1` entries are not ported).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Oscillation {
+    /// Which function.
+    pub kind: OscillationKind,
+    /// `t0` (default 0).
+    pub t0: f64,
+    /// `amplitude` (absent: 1).
+    pub amplitude: Option<f64>,
+    /// `frequency` or `period`.
+    pub rate: CycleRate,
+    /// `scale`.
+    pub scale: f64,
+    /// `level`.
+    pub level: f64,
+    /// `Square`: `mark/(mark + space)` (`mark` and `space` default 1).
+    pub positive_fraction: f64,
 }
 
 /// A single simulation input tabulated against **time**.
@@ -218,6 +288,33 @@ impl TimeProfile {
         })
     }
 
+    /// An OpenFOAM `ramp` profile (gh:#1927).
+    ///
+    /// # Errors
+    /// [`TimeProfileError::ZeroRampDuration`].
+    pub fn ramp(shape: RampShape, start: f64, duration: f64) -> Result<Self, TimeProfileError> {
+        if duration == 0.0 {
+            return Err(TimeProfileError::ZeroRampDuration);
+        }
+        Ok(Self { start_time: 0.0, kind: ProfileKind::Ramp { shape, start, duration } })
+    }
+
+    /// An OpenFOAM `Sine`, `Cosine` or `Square` profile (gh:#1927).
+    pub fn oscillation(o: Oscillation) -> Self {
+        Self { start_time: 0.0, kind: ProfileKind::Oscillation(o) }
+    }
+
+    /// An OpenFOAM `Polynomial` profile, `(coefficient, exponent)` pairs (gh:#1927).
+    ///
+    /// # Errors
+    /// [`TimeProfileError::EmptyPolynomial`].
+    pub fn polynomial(coefficients: Vec<(f64, f64)>) -> Result<Self, TimeProfileError> {
+        if coefficients.is_empty() {
+            return Err(TimeProfileError::EmptyPolynomial);
+        }
+        Ok(Self { start_time: 0.0, kind: ProfileKind::Polynomial(coefficients) })
+    }
+
     /// Set the start-time offset `t_0`: subsequent [`value`](Self::value) queries
     /// at wall-clock time `t` are evaluated at the shifted time `t − t_0`.
     ///
@@ -262,6 +359,7 @@ impl TimeProfile {
         match &self.kind {
             ProfileKind::Constant(v) => *v,
             ProfileKind::Table { times, values } => esi_table_value(shifted, times, values),
+            other => function1_value(other, shifted),
         }
     }
 
@@ -274,7 +372,68 @@ impl TimeProfile {
         match &self.kind {
             ProfileKind::Constant(v) => *v,
             ProfileKind::Table { times, values } => interpolate_xy(shifted, times, values),
+            other => function1_value(other, shifted),
         }
+    }
+}
+
+/// `pi` and `twoPi` of `constant::mathematical` (`2*pi` is exact in binary).
+const PI: f64 = core::f64::consts::PI;
+/// OpenFOAM's `doubleScalarVSMALL`.
+const VSMALL: f64 = 1.0e-300;
+
+/// `ramp::linearRamp`: `clamp((t - start)/duration, zero_one{})`.
+fn linear_ramp(t: f64, start: f64, duration: f64) -> f64 {
+    let x = (t - start) / duration;
+    if x < 0.0 {
+        0.0
+    } else if x > 1.0 {
+        1.0
+    } else {
+        x
+    }
+}
+
+/// `Sine::cycle`.
+fn cycle(o: &Oscillation, t: f64) -> f64 {
+    match o.rate {
+        CycleRate::Frequency(f) => (t - o.t0) * f,
+        CycleRate::Period(p) => (t - o.t0) / (p + VSMALL),
+    }
+}
+
+/// The value of the non-table, non-constant kinds at the (already shifted) time `t` (gh:#1927; each arm cites its OpenFOAM-ESI v2506 source).
+fn function1_value(kind: &ProfileKind, t: f64) -> f64 {
+    match kind {
+        ProfileKind::Ramp { shape, start, duration } => {
+            let l = linear_ramp(t, *start, *duration);
+            match shape {
+                RampShape::Linear => l,
+                RampShape::Quadratic => l * l,
+                RampShape::HalfCosine => 0.5 * (1.0 - (PI * l).r_cos()),
+                RampShape::QuarterCosine => 1.0 - (0.5 * PI * l).r_cos(),
+                RampShape::QuarterSine => (0.5 * PI * l).r_sin(),
+            }
+        }
+        ProfileKind::Oscillation(o) => {
+            let amp = o.amplitude.unwrap_or(1.0);
+            let c = cycle(o, t);
+            let form = match o.kind {
+                OscillationKind::Sine => (2.0 * PI * c).r_sin() * amp,
+                OscillationKind::Cosine => (2.0 * PI * c).r_cos() * amp,
+                OscillationKind::Square => (if (c - c.floor()) < o.positive_fraction { 1.0 } else { -1.0 }) * amp,
+            };
+            form * o.scale + o.level
+        }
+        ProfileKind::Polynomial(coeffs) => {
+            let mut y = 0.0;
+            for (c, e) in coeffs {
+                y += c * t.r_powf(*e);
+            }
+            y
+        }
+        ProfileKind::Constant(v) => *v,
+        ProfileKind::Table { times, values } => esi_table_value(t, times, values),
     }
 }
 

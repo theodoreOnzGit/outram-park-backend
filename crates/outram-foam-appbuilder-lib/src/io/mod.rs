@@ -28,8 +28,8 @@
 //!
 //! ## What actually reads and writes today
 //!
-//! **Only the mesh and field readers work.** The three `system/` dictionary
-//! parsers and every writer are `todo!()` and panic if called, so a case is
+//! **The mesh and field readers work, and [`foam_ascii`] writes GeN-Foam's time directories** (gh:#1931).
+//! The three `system/` dictionary parsers and the [`output`] writers are `todo!()` and panic if called, so a case is
 //! configured by constructing the structs in Rust and its results are read off
 //! the solver's public fields rather than from disk.
 //!
@@ -40,7 +40,9 @@
 //! | [`control_dict`] | `system/controlDict` time + write control | struct only; `read` is `todo!()` |
 //! | [`fv_schemes`] | `system/fvSchemes` ddt/grad/div/laplacian choices | struct only; `read` is `todo!()` |
 //! | [`fv_solution`] | `system/fvSolution` linear-solver + PIMPLE controls | struct only; `read` is `todo!()` |
-//! | [`output`] | OpenFOAM-ASCII and legacy-VTK field writers | **all `todo!()`** |
+//! | [`output`] | OpenFOAM-ASCII and legacy-VTK field writers | **all `todo!()`** (signatures carry no class/location/patch types) |
+//! | [`foam_ascii`] | OpenFOAM-ESI v2506 ASCII time-directory text, byte for byte (gh:#1931) | **Implemented** (`no_std`) |
+//! | [`foam_ascii_mesh`] | the eight `polyMesh` files of a baffle-less mesh (gh:#1935) | **Implemented** (`no_std`) |
 //!
 //! The "struct only" rows are still useful: the dictionaries they model are
 //! typed enums, so a scheme or solver selection that OpenFOAM would accept
@@ -51,6 +53,8 @@
 use crate::nostd_prelude::*;
 pub mod control_dict;
 pub mod field_reader;
+pub mod foam_ascii;
+pub mod foam_ascii_mesh;
 pub mod fv_schemes;
 pub mod fv_solution;
 pub mod nuclear_data;

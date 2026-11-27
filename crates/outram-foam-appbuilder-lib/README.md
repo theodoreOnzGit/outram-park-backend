@@ -184,7 +184,8 @@ Laplacian's non-orthogonal correction, as upstream's `correctedSnGrad`);
 | `io::control_dict` | controlDict struct + `Default`. `ControlDict::read` from disk is **`todo!()` — not implemented** (construct programmatically). |
 | `io::fv_schemes` | fvSchemes struct. `FvSchemes::read` is **`todo!()` — not implemented.** |
 | `io::fv_solution` | fvSolution struct. `FvSolution::read` is **`todo!()` — not implemented.** |
-| `io::output` | `write_scalar_field`, `write_vector_field`, `write_vtk` are all **`todo!()` — no ASCII/VTK field output yet.** |
+| `io::output` | `write_scalar_field`, `write_vector_field`, `write_vtk` are all **`todo!()` — no ASCII/VTK field output yet.** ~~(no field output)~~ **CORRECTED 2026-11-27 (gh:#1931):** the GeN-Foam coupled loop writes OpenFOAM-ESI ASCII time directories through `io::foam_ascii` (`%.{writePrecision}g`, `uniform`/`nonuniform`, `boundaryField`, `uniform/time`; ~~66 of 84 files~~ **CORRECTED 2026-11-27 (gh:#1935, README round 69, verified by running the test):** all 84 files of the real `2D_fullCoupling` `t = 100`, README rounds 68 and 69 of `verification_and_validation/genfoam_vs_upstream_gh1361`); these three functions stay `todo!()`. |
+| `io::foam_ascii` | OpenFOAM's ASCII field/dictionary text byte for byte (`no_std`): `format_g`, `time_name`, `write_field_file`, `write_list_file`, `write_dictionary_file`, `write_time_dict`. Binary format, `writeCompression on`, other `timeFormat`s and patch types outside `SUPPORTED_PATCH_TYPES` are refused by name. |
 | `io::nuclear_data` | GeN-Foam `nuclearData` reader and writer (`read_nuclear_data`, `write_nuclear_data`). **Implemented** (row added 2026-11-27; see "GeN-Foam neutronics" below). |
 
 ## GeN-Foam port (`genfoam`)
@@ -428,7 +429,7 @@ real limitations** as of version ~~0.1.1~~ 0.1.8 (CORRECTED 2026-11-27, `Cargo.t
   and `FvSolution::read` are `todo!()`. Cases must be configured by
   constructing these structs in Rust (`Default` + field assignment), not by
   reading `system/controlDict` etc. from disk.
-- **No field output.** `io::output::{write_scalar_field, write_vector_field,
+- ~~**No field output.**~~ **CORRECTED 2026-11-27 (gh:#1931): the GeN-Foam loop writes `io::foam_ascii` time directories;** `io::output::{write_scalar_field, write_vector_field,
   write_vtk}` are `todo!()` — the library reads meshes/fields but cannot yet
   write OpenFOAM ASCII fields or export VTK for post-processing.
 

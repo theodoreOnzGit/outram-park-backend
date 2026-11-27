@@ -18,9 +18,16 @@
 //! | `angularFlux.*` | `PBiCGStab` | `DILU` | [`pbicgstab_dilu`] (this file) |
 //!
 //! The `GAMG` block shipped next to the `PCG` one is commented out in every
-//! tutorial. A case that selects `GAMG` has no faithful port (gh:#1843): it
-//! runs `PCG`/`DIC` here, a NAMED deviation (round 21 did the same for the
-//! thermal-hydraulics `GAMG` entries).
+//! tutorial, so no neutronics equation selects it. ~~A case that selects `GAMG`
+//! has no faithful port (gh:#1843): it runs `PCG`/`DIC` here, a NAMED deviation
+//! (round 21 did the same for the thermal-hydraulics `GAMG` entries).~~
+//! **CORRECTED 2026-11-27 (gh:#1934, README round 67):** `GAMGSolver` with
+//! `faceAreaPair` and `DIC` IS ported ([`super::gamg`], bit-identical to the
+//! real binary's on the shipped 2D_FFTF `p_rgh` matrix) and wired into the
+//! one-phase cell-centred region (`GamgPolicy::Native`); this neutronics
+//! selector still has no `GAMG` branch (none is shipped), and the
+//! thermo-mechanics, two-phase and face-centred regions keep their named
+//! `PCG`/`DIC` or `PBiCG`/`DILU` substitutes.
 //!
 //! Each runs OpenFOAM's `normFactor`-normalised residual, `tolerance`,
 //! `relTol`, `maxIter` and `minIter`, and the zero-iteration exit when the

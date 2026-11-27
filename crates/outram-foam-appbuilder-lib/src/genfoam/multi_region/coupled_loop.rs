@@ -128,6 +128,17 @@ impl CouplingDict {
         };
         let include_fluid_mechanics_in_loop =
             sd.get("includeFluidMechanicsInLoop").and_then(word_list).unwrap_or_default();
+        let mappings = Self::mappings_from_dict(d, case)?;
+        Ok(Self { solvers, min_residual, max_iterations, include_fluid_mechanics_in_loop, mappings })
+    }
+
+    /// The `mappings` of a `multiRegionCouplingDict`, in dictionary order (target region, then source region), without the
+    /// `multiPhysicsSolvers` the Picard loop needs: the main loop of `GeN-Foam.C` (`mapAllFields`) reads only these (gh:#1915).
+    ///
+    /// # Errors
+    /// [`AppBuilderError::Case`] if a mapping's source and target field counts differ.
+    pub fn mappings_from_dict(d: &FoamDict, case: &Path) -> Result<Vec<MappingEntry>, AppBuilderError> {
+        let e = |m: String| AppBuilderError::Case { case: case.to_path_buf(), msg: m };
         let mut mappings = Vec::new();
         if let Some(md) = d.get_dict("mappings") {
             for (target, te) in md.iter() {
@@ -148,7 +159,7 @@ impl CouplingDict {
                 }
             }
         }
-        Ok(Self { solvers, min_residual, max_iterations, include_fluid_mechanics_in_loop, mappings })
+        Ok(mappings)
     }
 
     /// Read `<case>/constant/multiRegionCouplingDict` and pick `multiPhysicsSolvers.<name>`.

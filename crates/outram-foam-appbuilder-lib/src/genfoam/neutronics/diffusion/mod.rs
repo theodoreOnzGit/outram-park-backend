@@ -249,6 +249,11 @@ pub struct DiffusionNeutronics {
     /// The `laplacianSchemes` of the eigenvalue pseudo-time step ([`Self::with_eigenvalue_laplacian`]); `Uncorrected` is the form of
     /// every case before round 56.
     eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme,
+    /// `neutronTransport.integralPredictor` of `fvSolution` (gh:#1919, round 60): [`Self::upstream_stationary_step`] runs `integralPredictor.H`
+    /// when it is true; false (upstream's default) is the step of every case before round 60.
+    integral_predictor: bool,
+    /// `neutronTransport.implicitPredictor` (gh:#1926, round 66): [`Self::upstream_stationary_step`] runs `implicitPredictor.H` after `integralPredictor.H`.
+    implicit_predictor: bool,
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -355,6 +360,8 @@ impl DiffusionNeutronics {
             time: 0.0,
             old_volumes: None,
             eigenvalue_laplacian: external_source::NeutronicsLaplacianScheme::Uncorrected,
+            integral_predictor: false,
+            implicit_predictor: false,
         })
     }
 
@@ -501,6 +508,31 @@ impl DiffusionNeutronics {
         }
         self.state.set_k_eff_raw(k_eff);
         self.flux_star = None;
+    }
+
+    /// The fields of a run that STARTS at a written time with `eigenvalueNeutronics false` (gh:#1926, README round 66): `flux<g>`,
+    /// `fluxStar<g>` and `prec<k>` are `READ_IF_PRESENT` (`createNeutronicsFields.H:119-215`) and `keff_` comes from
+    /// `<time>/uniform/reactorState` (`neutronics.C:79-92`). `flux_` is `fluxStar_/discFactor` at the top of every `solveNeutronics.H`
+    /// step, so the read `flux<g>` only seeds the state; `fluxStar_` is the unknown the transient step integrates from.
+    ///
+    /// # Panics
+    /// If a list is not `groups x cells` (flux), or `prec_groups x cells`, or `k_eff` is not positive and finite.
+    pub fn set_read_fields(&mut self, flux: &[Vec<f64>], flux_star: &[Vec<f64>], prec: &[Vec<f64>], k_eff: f64) {
+        let n = self.state.mesh().n_cells;
+        assert!(flux.len() == self.energy_groups() && flux_star.len() == self.energy_groups(), "one flux per energy group");
+        assert!(prec.len() == self.prec_groups(), "one precursor field per group");
+        assert!(k_eff.is_finite() && k_eff > 0.0, "k_eff must be positive");
+        for (field, values) in self.state.flux_mut().iter_mut().zip(flux) {
+            assert_eq!(values.len(), n, "one flux value per cell");
+            field.internal.as_mut_slice().copy_from_slice(values);
+        }
+        for (field, values) in self.state.precursors_mut().iter_mut().zip(prec) {
+            assert_eq!(values.len(), n, "one precursor value per cell");
+            field.internal.as_mut_slice().copy_from_slice(values);
+        }
+        assert!(flux_star.iter().all(|v| v.len() == n), "one fluxStar value per cell");
+        self.state.set_k_eff_raw(k_eff);
+        self.flux_star = Some(flux_star.to_vec());
     }
 
     /// Switch on `XS::correct()`'s time dependence for the pseudo-time eigenvalue driver: control-rod
@@ -686,3 +718,5 @@ pub mod expansion;
 pub mod xs_evolution;
 pub mod upstream_eigenvalue;
 pub mod upstream_transient;
+pub mod implicit_predictor;
+pub mod integral_predictor;

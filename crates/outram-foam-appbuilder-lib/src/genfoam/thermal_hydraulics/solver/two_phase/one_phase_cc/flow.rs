@@ -49,9 +49,9 @@
 //!
 //! ## What is NOT ported (refused by name when the case is read)
 //!
-//! ~~`turbulence true` (gh:#1838 wall functions, gh:#1839 `porousKEpsilon::correct`)~~ **CORRECTED 2026-11-26 (round 20): ported, see [`super::turbulence`]**; `momentumMode` other than
-//! `cellCentered`, ~~`nNonOrthogonalCorrectors != 0`~~ **CORRECTED 2026-11-27 (gh:#1866, round 33): ported (`n + 1` passes of the pressure solve, `p_rghFinal` in the last pass of the last corrector, `updateFirstPISOPrevPIMPLE` per pass; `corrected` Laplacian/snGrad schemes are refused by name)**, `porousInterfaceSharpness != 0`, `minKdFS != 0`, a
-//! `momentumSourceTimeProfile`, drag models other than `ReynoldsPower`, tortuosity, `fvOptions`.
+//! ~~`turbulence true` (gh:#1838 wall functions, gh:#1839 `porousKEpsilon::correct`)~~ **CORRECTED 2026-11-26 (round 20): ported, see [`super::turbulence`]**; ~~`momentumMode` other than
+//! `cellCentered`~~ **CORRECTED 2026-11-27 (gh:#1865, gh:#1870 round 62): `cellCenteredFaceReconstruction` and `porousInterfaceSharpness` are ported ([`reconstruct_u_1p`])**, ~~`nNonOrthogonalCorrectors != 0`~~ **CORRECTED 2026-11-27 (gh:#1866, round 33): ported (`n + 1` passes of the pressure solve, `p_rghFinal` in the last pass of the last corrector, `updateFirstPISOPrevPIMPLE` per pass; `corrected` Laplacian/snGrad schemes are refused by name)**, `minKdFS != 0`, ~~a
+//! `momentumSourceTimeProfile`~~ **ported (round 62)**, drag models other than `ReynoldsPower`, tortuosity, `fvOptions`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -59,10 +59,17 @@ use crate::nostd_prelude::*;
 
 use outram_foam_basic_lib::primitives::Vector3;
 use petir::mathf::RealMath;
+use uom::si::ratio::ratio;
+use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
+use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use super::super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector, VectorBc};
+#[cfg(feature = "std")]
+use super::super::gamg_solve::read_gamg_controls;
+use super::super::gamg_solve::GamgSolveState;
 use super::super::pcg::pcg_dic;
-use super::super::{dev2_div, PRghPcg};
+use crate::genfoam::common::gamg::GamgControls;
+use super::super::{dev2_div, dev2_div_tortuous, tensor_laplacian, PRghPcg};
 use super::OnePhaseCcSolver;
 use super::super::thermo::PhaseThermo;
 #[cfg(feature = "std")]
@@ -94,6 +101,37 @@ impl ReynoldsPowerDrag {
     }
 }
 
+/// One `FSDragCoefficientModel` of the solved flow: `ReynoldsPower`, or a wall-friction correlation of [`FsWallFriction`]
+/// (`Churchill`, `Rehme`; gh:#1870 round 62).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DragLaw {
+    /// `ReynoldsPower`.
+    ReynoldsPower(ReynoldsPowerDrag),
+    /// `Churchill` or `Rehme` (the closures of `closures::fs_drag`).
+    Wall(FsWallFriction),
+}
+
+impl DragLaw {
+    /// The model's `value(celli)` at the cell's Reynolds number.
+    #[must_use]
+    pub fn value(&self, re: f64) -> f64 {
+        match self {
+            Self::ReynoldsPower(d) => d.value(re),
+            Self::Wall(w) => w.friction_factor(ReynoldsNumber::new::<ratio>(re)).get::<ratio>(),
+        }
+    }
+}
+
+/// The drag model(s) of one cell (`FSDragFactor`): ONE isotropic model (`type` given: `Kd = diag(v, v, v)`) or per-axis models
+/// (`localX`, `localY`, `localZ`; an absent axis keeps its `Kd` entry 0), as `FSDragFactor::correctField` (gh:#1870 round 62).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CellDrag {
+    /// Isotropic (`laws[0]` is the one model) or per-axis.
+    pub isotropic: bool,
+    /// The models of the `x`, `y`, `z` axes.
+    pub laws: [Option<DragLaw>; 3],
+}
+
 /// The `solveFluidMechanics true` part of a read case.
 #[derive(Debug, Clone)]
 pub struct OnePhaseFlowCase {
@@ -105,6 +143,10 @@ pub struct OnePhaseFlowCase {
     pub p_rgh: PRghPcg,
     /// The `p_rghFinal` entry, used by the last corrector of the last outer iteration.
     pub p_rgh_final: PRghPcg,
+    /// `Some` when `solvers.p_rgh` selected `GAMG` and [`super::GamgPolicy::Native`] runs upstream's `GAMGSolver` (gh:#1934).
+    pub p_rgh_gamg: Option<GamgControls>,
+    /// The same for `solvers.p_rghFinal`.
+    pub p_rgh_final_gamg: Option<GamgControls>,
     /// `true` when `solvers.p_rgh` selected `GAMG` and `PCG`/`DIC` ran in its place (the named deviation of [`super::GamgPolicy`]).
     pub p_rgh_gamg_substituted: bool,
     /// `pMin` [Pa].
@@ -137,8 +179,15 @@ pub struct OnePhaseFlowCase {
     pub nut_boundary: Vec<f64>,
     /// The pump `momentumSource` per cell.
     pub momentum_source: Vec<Vector3>,
+    /// `momentumMode cellCenteredFaceReconstruction` (`pEqn_1p.H`: `U` from `reconstructU_1p.H`, gh:#1865, gh:#1870 round 62).
+    pub reconstruct_u: bool,
+    /// `porous_sharp` (default 0), the weight of `reconstruct(phi_)/alpha` in `reconstructU_1p.H`.
+    pub porous_interface_sharpness: f64,
+    /// `momentumSourceTimeProfile` of each pump zone (`pump::correct`, gh:#1870 round 62): the zone's cells, its `momentumSource`
+    /// vector and the table; each pressure corrector sets the zone's cells to `momentumSource * profile.value(t)` at the current time.
+    pub momentum_profiles: Vec<(Vec<usize>, Vector3, crate::genfoam::common::TimeProfile)>,
     /// The `ReynoldsPower` drag per cell (`None` outside the drag zones).
-    pub drag: Vec<Option<ReynoldsPowerDrag>>,
+    pub drag: Vec<Option<CellDrag>>,
     /// `turbulence true`: `porousKEpsilon` with the wall functions (`None` with `turbulence false`).
     pub turbulence: Option<super::OnePhaseTurbulenceCase>,
 }
@@ -171,14 +220,16 @@ pub(super) struct FlowState {
     pub phi_solver: Vec<f64>,
     /// `fluid_.magU()` per cell.
     pub mag_u: Vec<f64>,
-    /// Isotropic `Kd` per cell (the value of the three diagonal entries).
-    pub kd: Vec<f64>,
+    /// `Kd` per cell: the three diagonal entries (`xx`, `yy`, `zz`) of the diagonal drag tensor.
+    pub kd: Vec<[f64; 3]>,
     /// `gh = g . C + |g| hRef` per cell.
     pub gh: Vec<f64>,
     /// `ghf` on every face.
     pub ghf: Vec<f64>,
     /// The pressure solves of the last [`OnePhaseCcSolver::correct_physics`] call.
     pub solves: Vec<PressureSolve>,
+    /// The cached `GAMG` agglomeration of the mesh (`GamgPolicy::Native`).
+    pub gamg: GamgSolveState,
 }
 
 /// `fvMatrix<vector>` with `internalCoeffs`/`boundaryCoeffs` kept per boundary face, as OpenFOAM keeps them
@@ -420,16 +471,18 @@ pub(super) fn read_flow_case(
     fs: &FoamDict,
     pp: &FoamDict,
     momentum_source: Vec<Vector3>,
-    drag: Vec<Option<ReynoldsPowerDrag>>,
+    drag: Vec<Option<CellDrag>>,
     gamg: super::GamgPolicy,
     laminar: bool,
 ) -> Result<OnePhaseFlowCase, AppBuilderError> {
     let n = g.n_cells();
     let ni = g.n_internal();
     let mode = word(pimple, "momentumMode").unwrap_or_else(|| "cellCentered".to_string());
-    if mode != "cellCentered" {
-        return Err(ctx.e(format!("PIMPLE.momentumMode `{mode}` is not ported (cellCentered only)")));
+    if mode != "cellCentered" && mode != "cellCenteredFaceReconstruction" {
+        return Err(ctx.e(format!("PIMPLE.momentumMode `{mode}` is not ported (cellCentered and cellCenteredFaceReconstruction only)")));
     }
+    // `thermalHydraulicsModel.C:202`: `porous_sharp`, default 0; read in every mode, used by `reconstructU_1p.H` only
+    let porous_sharp = scalar(pimple, "porousInterfaceSharpness").unwrap_or(0.0);
     if let Some(pe) = word(pimple, "partialEliminationMode") {
         if pe != "implicit" {
             return Err(ctx.e(format!("PIMPLE.partialEliminationMode `{pe}` is not ported")));
@@ -457,13 +510,14 @@ pub(super) fn read_flow_case(
             }
         }
     }
-    for (key, what) in [("porousInterfaceSharpness", "porousInterfaceSharpness"), ("minKdFS", "minKdFS")] {
+    for (key, what) in [("minKdFS", "minKdFS")] {
         if scalar(pimple, key).unwrap_or(0.0) != 0.0 {
             return Err(ctx.e(format!("PIMPLE.{what} != 0 is not ported")));
         }
     }
     let solvers = ctx.sub(fs, "solvers")?;
     let substituted = core::cell::Cell::new(false);
+    let gamg_ctl: core::cell::RefCell<[Option<GamgControls>; 2]> = core::cell::RefCell::new([None, None]);
     let pcg_entry = |name: &str, fallback: Option<PRghPcg>| -> Result<PRghPcg, AppBuilderError> {
         match last_match(solvers, name) {
             Some(FoamEntry::SubDict(d)) => {
@@ -472,8 +526,11 @@ pub(super) fn read_flow_case(
                     (None, Some(f)) => f.tolerance,
                     (None, None) => return Err(ctx.e(format!("solvers.{name}: no tolerance"))),
                 };
-                if fallback.is_none() {
-                    let is_gamg = word(d, "solver").as_deref() == Some("GAMG");
+                let is_gamg = word(d, "solver").as_deref() == Some("GAMG");
+                if is_gamg && gamg == super::GamgPolicy::Native {
+                    let c = read_gamg_controls(name, d, None).map_err(|e| ctx.e(e))?;
+                    gamg_ctl.borrow_mut()[usize::from(fallback.is_some())] = Some(c);
+                } else if fallback.is_none() {
                     if is_gamg && gamg == super::GamgPolicy::SubstitutePcgDic {
                         substituted.set(true);
                     } else if word(d, "solver").as_deref() != Some("PCG") || word(d, "preconditioner").as_deref() != Some("DIC") {
@@ -501,7 +558,8 @@ pub(super) fn read_flow_case(
             .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{name}`", ff.name)))?;
         Ok((ty.clone(), v.clone()))
     };
-    let uf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/U"))?;
+    // `U` and `p_rgh` of a WRITTEN start directory are lists (gh:#1926): only their boundary conditions come from these files
+    let uf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/U"))?;
     let mut u_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         if p.kind == PatchKind::Empty {
@@ -517,11 +575,18 @@ pub(super) fn read_flow_case(
                 let v = v.as_ref().and_then(FoamValue::as_vector3).ok_or_else(|| ctx.e("U fixedValue needs a uniform vector"))?;
                 VectorBc::Fixed(vec![v; p.size])
             }
-            (other, _) => return Err(ctx.e(format!("U.{}: `{other}` is not ported for the solved flow (wedge, fixedValue, zeroGradient, slip)", p.name))),
+            // `noSlipFvPatchVectorField` is `fixedValue` with `Zero` (the wall of the shipped 2D_FFTF vessel)
+            ("noSlip", _) => VectorBc::Fixed(vec![Vector3::ZERO; p.size]),
+            (other, _) => return Err(ctx.e(format!("U.{}: `{other}` is not ported for the solved flow (wedge, fixedValue, noSlip, zeroGradient, slip)", p.name))),
         });
     }
-    let pf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/p_rgh"))?;
+    let pf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/p_rgh"))?;
     let p0 = pf.internal.as_scalar().ok_or_else(|| ctx.e("p_rgh internalField must be a uniform scalar"))?;
+    let p_rgh_cells = match &pf.internal_list {
+        Some(l) if l.len() == n => l.clone(),
+        Some(l) => return Err(ctx.e(format!("p_rgh: {} values for {n} cells", l.len()))),
+        None => vec![p0; n],
+    };
     let mut p_rgh_bc = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         if p.kind == PatchKind::Empty {
@@ -568,7 +633,9 @@ pub(super) fn read_flow_case(
         let Some(nf) = nf.as_ref() else { break };
         let (ty, v) = patch_bc(&nf, pi)?;
         let val = match (ty.as_str(), p.kind) {
-            ("wedge", PatchKind::Wedge) => nut0,
+            ("wedge", PatchKind::Wedge) | ("empty", PatchKind::Empty) => nut0,
+            // a `zeroGradient` patch is evaluated at construction: the owner value, the uniform internal field (gh:#1929)
+            ("zeroGradient", _) => nut0,
             // with `turbulence false` no wall function ever runs: the patch keeps the value it was read with
             ("nutkWallFunction" | "calculated", _) => v
                 .as_ref()
@@ -581,11 +648,14 @@ pub(super) fn read_flow_case(
         }
     }
     let _ = pp.get("pMin").ok_or_else(|| ctx.e("phaseProperties: pMin is missing"))?;
+    let [p_rgh_gamg, p_rgh_final_gamg] = gamg_ctl.into_inner();
     Ok(OnePhaseFlowCase {
         n_correctors: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
         correct_until_convergence: bool_entry(pimple, "correctUntilConvergence").unwrap_or(false),
         p_rgh,
         p_rgh_final,
+        p_rgh_gamg,
+        p_rgh_final_gamg,
         p_rgh_gamg_substituted: substituted.get(),
         p_min: ctx.f64(pp, "pMin")?,
         p_ref_cell: scalar(pp, "pRefCell").unwrap_or(0.0) as usize,
@@ -597,10 +667,13 @@ pub(super) fn read_flow_case(
         t_bc,
         u_bc,
         p_rgh_bc,
-        p_rgh0: vec![p0; n],
+        p_rgh0: p_rgh_cells,
         nut: vec![nut0; n],
         nut_boundary,
         momentum_source,
+        reconstruct_u: mode == "cellCenteredFaceReconstruction",
+        porous_interface_sharpness: porous_sharp,
+        momentum_profiles: Vec::new(),
         drag,
         turbulence: None,
     })
@@ -625,10 +698,11 @@ impl FlowState {
             phi: fv::flux_openfoam(g, u),
             phi_solver: case.alpha_phi.clone(),
             mag_u: u.c.iter().map(|v| v.mag()).collect(),
-            kd: vec![0.0; n],
+            kd: vec![[0.0; 3]; n],
             gh,
             ghf,
             solves: Vec::new(),
+            gamg: GamgSolveState::default(),
         }
     }
 }
@@ -654,17 +728,31 @@ impl OnePhaseCcSolver {
         if a.is_some() {
             self.kd_prev = fs.kd.clone();
         }
+        let min_mag_u = fc.min_mag_u;
         for c in 0..self.alpha.len() {
             if let Some(d) = fc.drag[c] {
                 let dh = self.case.dh[c];
                 let alphas = self.case.alpha_structure[c];
-                let value = 0.5 / dh * (1.0 - alphas) * self.rho[c] * fs.mag_u[c].max(fc.min_mag_u) * d.value(self.re[c]);
-                fs.kd[c] = value;
+                let half = 0.5 / dh * (1.0 - alphas) * self.rho[c] * fs.mag_u[c].max(min_mag_u);
+                if d.isotropic {
+                    let law = d.laws[0].expect("an isotropic drag cell has its model");
+                    let value = half * law.value(self.re[c]);
+                    fs.kd[c] = [value, value, value];
+                } else {
+                    // `halfAlphaRhoMagUByDh_ * model->value(celli)` per valid axis; the other entries keep their value
+                    for k in 0..3 {
+                        if let Some(law) = d.laws[k] {
+                            fs.kd[c][k] = half * law.value(self.lre[c][k]);
+                        }
+                    }
+                }
             }
         }
         if let Some(a) = a {
             for c in 0..self.alpha.len() {
-                fs.kd[c] = self.kd_prev[c] + a * (fs.kd[c] - self.kd_prev[c]);
+                for k in 0..3 {
+                    fs.kd[c][k] = self.kd_prev[c][k] + a * (fs.kd[c][k] - self.kd_prev[c][k]);
+                }
             }
         }
     }
@@ -719,19 +807,31 @@ impl OnePhaseCcSolver {
         e.boundary_convection(&g, &self.alpha_rho_phi, &self.u);
         let ce: Vec<f64> = self.cont_err.iter().map(|v| -v).collect();
         e.su_sp(&g, &ce, &self.u.c);
-        e.eqn.neg_laplacian(&g, &gamma, &zg);
-        e.boundary_laplacian(&g, &gamma, &self.u);
-        let dev2 = dev2_div(&g, &self.u, &arn);
+        let dev2 = if let Some(td) = self.case.tortuosity.as_ref().filter(|_| !self.ctl_no_tort_momentum) {
+            // `UEqn_1p.H:27-40`: `- fvm::laplacian(alpha rho nuEff tortuosity, U) - fvc::div(alpha rho nuEff tortuosity & dev2(T(grad U)))`
+            // (gh:#1229, `tensor_laplacian`)
+            let (tc, tb) = tensor_laplacian::tortuosity_fields(&g, td).expect("validated when the case was read");
+            let gc: Vec<_> = (0..n).map(|c| tensor_laplacian::scale(arn.c[c], &tc[c])).collect();
+            let gb: Vec<_> = (0..nb).map(|i| tensor_laplacian::scale(arn.b[i], &tb[i])).collect();
+            let gf = tensor_laplacian::interpolate(&g, &gc, &gb);
+            let tg = tensor_laplacian::decompose(&g, &gf);
+            tensor_laplacian::add_neg_laplacian_vector(&mut e, &g, &tg, &self.u);
+            dev2_div_tortuous(&g, &self.u, &arn, (&tc, &tb))
+        } else {
+            e.eqn.neg_laplacian(&g, &gamma, &zg);
+            e.boundary_laplacian(&g, &gamma, &self.u);
+            dev2_div(&g, &self.u, &arn)
+        };
         e.sub_field(&g, &dev2);
         // fvm::Sp((1/3) tr(Kd), U) + (dev(Kd) & U); Kd = diag(v, v, v)
         let mut sp = vec![0.0; n];
         let mut dev_u = vec![Vector3::ZERO; n];
         for c in 0..n {
-            let v = fs.kd[c];
-            let tr = v + v + v;
+            let [kx, ky, kz] = fs.kd[c];
+            let tr = kx + ky + kz;
             sp[c] = (1.0 / 3.0) * tr;
-            let dv = v - (1.0 / 3.0) * tr;
-            dev_u[c] = Vector3::new(dv * self.u.c[c].x, dv * self.u.c[c].y, dv * self.u.c[c].z);
+            let third = (1.0 / 3.0) * tr;
+            dev_u[c] = Vector3::new((kx - third) * self.u.c[c].x, (ky - third) * self.u.c[c].y, (kz - third) * self.u.c[c].z);
         }
         e.eqn.sp(&g, &sp);
         e.add_field(&g, &dev_u);
@@ -833,6 +933,14 @@ impl OnePhaseCcSolver {
             let sng = fv::sn_grad(&g, &rho_t);
             let mut ms = Vector::uniform_with_constraint_patches(&g, Vector3::ZERO);
             ms.c = fc.momentum_source.clone();
+            // `pump::correct`: `pumpValue_ * momentumSourceTimeProfile_.value(timeOutputValue())` on the zone's cells
+            for (cells, src, profile) in &fc.momentum_profiles {
+                let f = profile.value(uom::si::f64::Time::new::<uom::si::time::second>(self.time));
+                let v = Vector3::new(src.x * f, src.y * f, src.z * f);
+                for &c in cells {
+                    ms.c[c] = v;
+                }
+            }
             ms.correct_bc(&g);
             let ms_flux = fv::flux_openfoam(&g, &ms);
             let mut phi_s = vec![0.0; nf];
@@ -866,9 +974,11 @@ impl OnePhaseCcSolver {
             let mut peqn = Eqn::new(&g);
             peqn.neg_laplacian(&g, &rauf, &fs.p_rgh);
             let dphi = fv::div(&g, &phi_hbya);
+            let mut comp_all = vec![0.0; n];
             for c in 0..n {
                 let v = m.cell_volumes[c];
                 let comp = (self.cont_err[c] - (0.0 + dap[c]) * rho[c]) / rho[c];
+                comp_all[c] = comp;
                 peqn.source[c] -= v * comp;
                 peqn.source[c] -= v * dphi[c];
             }
@@ -885,8 +995,15 @@ impl OnePhaseCcSolver {
             for pass in 1..=n_pass {
                 let solver = if self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple) { fc.p_rgh_final } else { fc.p_rgh };
                 let mut x = fs.p_rgh.c.clone();
-                let perf =
-                    pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter);
+                let gamg_ctl = if self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple) { fc.p_rgh_final_gamg } else { fc.p_rgh_gamg };
+                let perf = match gamg_ctl {
+                    // GamgPolicy::Native: upstream's GAMGSolver (gh:#1934); the agglomeration is cached in `fs.gamg`
+                    Some(ctl) => {
+                        let p = fs.gamg.solve(&g, &peqn.ldu, &peqn.source, &mut x, &ctl);
+                        crate::genfoam::common::pcg::PcgPerformance { iterations: p.iterations, initial_residual: p.initial_residual, final_residual: p.final_residual }
+                    }
+                    None => pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter),
+                };
                 fs.solves.push(PressureSolve {
                     outer,
                     corrector: corr_piso,
@@ -905,6 +1022,12 @@ impl OnePhaseCcSolver {
                 fs.p_rgh.c = x;
                 fs.p_rgh.correct_bc(&g);
                 if pass == n_pass {
+                    // `fluid_.dgdt() = -pEqnComp & p_rgh_` (`pEqn_1p.H:64`, ESI `fvMatrix::operator&`): `pEqnComp` is a pure source `-V comp`
+                    // (`psi = 0`), negated to `V comp`, then `/= -V` (the diagonal and boundary terms add exact zeros): `dgdt = (V comp)/(-V)`
+                    for c in 0..n {
+                        let v = m.cell_volumes[c];
+                        self.dgdt[c] = (v * comp_all[c]) / (-v);
+                    }
                     // phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf (a fixedValue flux patch ignores the assignment)
                     p_flux_final = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
                 }
@@ -937,9 +1060,18 @@ impl OnePhaseCcSolver {
                     rec_src[f] = alpharauf[f] * p_flux[f] / rauf[f] + phi_s[f];
                 }
             }
-            let rec = fv::reconstruct(&g, &rec_src);
-            for c in 0..n {
-                self.u.c[c] = hbya.c[c] + rec[c];
+            if fc.reconstruct_u {
+                // reconstructU_1p.H: `phi_` is `fs.phi_solver` (phiHbyA + pEqnIncomp.flux(), unrelaxed), `fluid_.phi()` is `fs.phi`
+                let sharp = fc.porous_interface_sharpness;
+                let u_new = reconstruct_u_1p(&g, &fs.phi_solver, &fs.phi, &self.alpha, sharp);
+                for c in 0..n {
+                    self.u.c[c] = u_new[c];
+                }
+            } else {
+                let rec = fv::reconstruct(&g, &rec_src);
+                for c in 0..n {
+                    self.u.c[c] = hbya.c[c] + rec[c];
+                }
             }
             self.u.correct_bc(&g);
             for c in 0..n {
@@ -960,6 +1092,28 @@ impl OnePhaseCcSolver {
         self.flow = Some(fs);
         self.correct_cont_err();
     }
+}
+
+/// `reconstructU_1p.H` (upstream `onePhase/include/equations/pEqnRoutines/reconstructU_1p.H`, GeN-Foam 652b3da): the velocity of
+/// `momentumMode cellCenteredFaceReconstruction` from the face fluxes, with `s = porous_sharp`:
+/// `s != 0`: `s == 1`: `reconstruct(phi_)/alpha`; else `s*(reconstruct(phi_)/alpha) + (1 - s)*reconstruct(phi)`; `s == 0`: `reconstruct(phi)`.
+/// `phi_` is the superficial flux (`alpha phi`), `phi` the interstitial one (`phi_/alphaf`). Uses the OpenFOAM-order
+/// [`fv::reconstruct_openfoam`].
+pub(super) fn reconstruct_u_1p(g: &Geometry, phi_super: &[f64], phi: &[f64], alpha: &[f64], sharpness: f64) -> Vec<Vector3> {
+    let n = g.n_cells();
+    if sharpness == 0.0 {
+        return fv::reconstruct_openfoam(g, phi);
+    }
+    let rs = fv::reconstruct_openfoam(g, phi_super);
+    let div: Vec<Vector3> = (0..n).map(|c| Vector3::new(rs[c].x / alpha[c], rs[c].y / alpha[c], rs[c].z / alpha[c])).collect();
+    if sharpness == 1.0 {
+        return div;
+    }
+    let ri = fv::reconstruct_openfoam(g, phi);
+    let w = 1.0 - sharpness;
+    (0..n)
+        .map(|c| Vector3::new(sharpness * div[c].x + w * ri[c].x, sharpness * div[c].y + w * ri[c].y, sharpness * div[c].z + w * ri[c].z))
+        .collect()
 }
 
 #[cfg(test)]

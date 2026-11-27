@@ -1,0 +1,94 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2306                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    arch        "LSB;label=32;scalar=64";
+    class       regIOobject;
+    location    "constant/thermoMechanicalRegion/polyMesh";
+    object      faceZones;
+    meta
+    {
+        names           2 ( right_THNleft_N0Side0Zone right_Nleft_alone1Side0Zone );
+    }
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+2
+(right_THNleft_N0Side0Zone
+{
+    type            faceZone;
+    faceLabels      List<label> 
+24
+(
+11
+23
+35
+47
+59
+71
+83
+95
+107
+119
+131
+143
+155
+167
+179
+191
+203
+215
+227
+239
+251
+263
+275
+281
+)
+;
+    flipMap         List<bool> 24{0};
+}
+right_Nleft_alone1Side0Zone
+{
+    type            faceZone;
+    faceLabels      List<label> 
+24
+(
+293
+305
+317
+329
+341
+353
+365
+377
+389
+401
+413
+425
+437
+449
+461
+473
+485
+497
+509
+521
+533
+545
+557
+563
+)
+;
+    flipMap         List<bool> 24{0};
+}
+)
+
+// ************************************************************************* //

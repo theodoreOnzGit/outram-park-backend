@@ -74,9 +74,11 @@
 //!   [`io::fv_solution::FvSolution::read`] are `todo!()`. Configure a case by
 //!   constructing the structs in Rust (`Default::default()` plus field
 //!   assignment), not by reading `system/…` from disk.
-//! - **No field output.** Every writer in [`io::output`] is `todo!()`, so a
+//! - **No generic field output.** Every writer in [`io::output`] is `todo!()`, so a
 //!   solver run leaves its results in memory only — read them off the solver's
-//!   public field members.
+//!   public field members. ~~(no writer at all)~~ **CORRECTED 2026-11-27 (gh:#1931):**
+//!   the GeN-Foam coupled loop writes OpenFOAM-ESI ASCII time directories
+//!   ([`io::foam_ascii`], `RegionSolvers::write_time_directory`).
 //!
 //! Per the workspace `RESPONSIBLE_USE.md`, nothing here is for reactor
 //! operation, control, licensing, or any safety-critical or operational use.

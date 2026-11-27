@@ -172,6 +172,14 @@ impl GfTractionDisplacement {
         &self.gradient
     }
 
+    /// The patch as the dictionary constructor leaves it after a READ (README round 60): `gradient() = Zero` and no `updateCoeffs()`
+    /// yet. The `value` entry of the file is not used by the constructor (`operator=(patchInternalField())`), so the caller sets the patch values to
+    /// the owner cells' too.
+    pub fn reset_after_read(&mut self) {
+        self.gradient.iter_mut().for_each(|g| *g = Vector3::ZERO);
+        self.updated = false;
+    }
+
     /// `pressure() = ...` (what `gapContact::updateCoeffs` does before calling this class's).
     ///
     /// # Panics

@@ -198,6 +198,10 @@ pub(super) fn bool_entry(d: &FoamDict, key: &str) -> Option<bool> {
 /// OpenFOAM keyword regex, restricted to literals and `.*` (all the cases
 /// use): `alpha.*` matches `alpha.vapour`.
 pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
+    // gh:#1870 round 62: groups, alternation, classes and `+`/`?` (`"(h|k|epsilon)"`) go to the full matcher; literal and `.*` patterns keep this path
+    if super::foam_regex::needs_full_regex(pattern) {
+        return super::foam_regex::foam_regex_full_match(pattern, name);
+    }
     if !pattern.contains(".*") {
         return pattern == name;
     }
@@ -305,17 +309,25 @@ pub(super) fn nonuniform_scalar_list(tokens: &[FoamValue]) -> Option<Vec<f64>> {
 #[cfg(feature = "std")]
 fn read_field_with(ctx: &Ctx, rel: &str, allow_nonuniform: bool) -> Result<FieldFile, AppBuilderError> {
     let d = ctx.read(rel)?;
+    // gh:#1926 (README round 66): a WRITTEN field holds `nonuniform List<vector>` (`U`) and `nonuniform` patch values; a reader that takes only the
+    // boundary conditions from the file (`allow_nonuniform`) takes neither (the cells come from `read_vol_vector_field`)
+    let vector_list = matches!(d.get("internalField"), Some(FoamEntry::Tokens(t)) if t.first().and_then(FoamValue::as_word) == Some("nonuniform") && t.get(1).and_then(FoamValue::as_word) == Some("List<vector>"));
     let list = match d.get("internalField") {
         Some(FoamEntry::Tokens(t)) if t.first().and_then(FoamValue::as_word) == Some("nonuniform") => {
             if !allow_nonuniform {
                 return Err(ctx.e("`nonuniform` internalField is ported for alpha.<fluid> only"));
             }
-            Some(nonuniform_scalar_list(t).ok_or_else(|| ctx.e("only `nonuniform List<scalar> N (...)` is read"))?)
+            if vector_list {
+                None
+            } else {
+                Some(nonuniform_scalar_list(t).ok_or_else(|| ctx.e("only `nonuniform List<scalar> N (...)` is read"))?)
+            }
         }
         _ => None,
     };
     let internal = match &list {
         Some(l) => FoamValue::Scalar(*l.first().ok_or_else(|| ctx.e("empty nonuniform list"))?),
+        None if vector_list => FoamValue::Scalar(0.0),
         None => uniform_value(ctx, d.get("internalField"))?,
     };
     let bf = ctx.sub(&d, "boundaryField")?;
@@ -327,6 +339,7 @@ fn read_field_with(ctx: &Ctx, rel: &str, allow_nonuniform: bool) -> Result<Field
             let ty = ctx.word(pd, "type")?;
             let value = match pd.get("value") {
                 Some(FoamEntry::Word(w)) if w == "$internalField" => Some(internal.clone()),
+                Some(FoamEntry::Tokens(t)) if allow_nonuniform && t.first().and_then(FoamValue::as_word) == Some("nonuniform") => None,
                 Some(v @ FoamEntry::Tokens(_)) => Some(uniform_value(ctx, Some(v))?),
                 _ => None,
             };
@@ -644,7 +657,7 @@ impl TwoPhaseCase {
         let poly = root.join(format!("constant/{region}/polyMesh"));
         let mesh = read_poly_mesh(&poly)?;
         let zones = read_cell_zones(&poly)?;
-        let g = Geometry::new(mesh.clone());
+        let g = Geometry::new_openfoam(mesh.clone());
         let n = g.n_cells();
         let deviations: Vec<String> = Vec::new();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
@@ -1429,6 +1442,15 @@ impl TwoPhaseCase {
                 })
                 .unwrap_or(1.0)
         };
+        let eq_relax = |name: &str| -> Option<f64> {
+            fs.get_dict("relaxationFactors")
+                .and_then(|r| r.get_dict("equations"))
+                .and_then(|r| lookup_regex(r, name))
+                .and_then(|e| match e {
+                    FoamEntry::Scalar(x) => Some(*x),
+                    _ => None,
+                })
+        };
         let controls = TwoPhaseControls {
             alpha,
             n_outer: scalar(pimple, "nOuterCorrectors").unwrap_or(1.0) as usize,
@@ -1453,6 +1475,8 @@ impl TwoPhaseCase {
             relax_t_interface: rf("T.interface"),
             relax_he: [rf(&format!("h.{}", names[0])), rf(&format!("h.{}", names[1]))],
             relax_phi: [rf(&format!("phi.{}", names[0])), rf(&format!("phi.{}", names[1]))],
+            relax_p_rgh_equation: eq_relax("p_rgh"),
+            relax_he_equation: [eq_relax(&format!("h.{}", names[0])), eq_relax(&format!("h.{}", names[1]))],
             min_kd_ff: scalar(pimple, "minKdFF").unwrap_or(1.0),
             min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-4),
             solve_phase,

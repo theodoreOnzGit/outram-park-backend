@@ -727,6 +727,31 @@ impl DeformableMesh {
         Ok((Arc::new(mesh), face_centres))
     }
 
+    /// The mesh as a restarted run reads it (gh:#1919, README round 60): `points` become the points of a fresh mesh (`polyMesh` read from
+    /// `<startTime>/polyMesh/points`), geometry recomputed from them, no `V0`, no old points, no `meshPhi` history.
+    ///
+    /// # Errors
+    /// As [`DeformableMesh::new`] (the geometry of the points).
+    pub fn restarted_at(&self, points: &[Vector3]) -> Result<Self, MeshDeformationError> {
+        let (mesh, face_centres) = Self::geometry(&self.topology, points)?;
+        Ok(DeformableMesh {
+            topology: self.topology.clone(),
+            original_points: points.to_vec(),
+            points: points.to_vec(),
+            mesh,
+            face_centres,
+            state: MovingMeshState::at_time_index(0),
+        })
+    }
+
+    /// [`Self::restarted_at`] the current points (what a restart from the last written time reads).
+    ///
+    /// # Errors
+    /// As [`DeformableMesh::new`].
+    pub fn restarted_at_current_points(&self) -> Result<Self, MeshDeformationError> {
+        self.restarted_at(&self.points.clone())
+    }
+
     /// `originalPoints_`.
     pub fn original_points(&self) -> &[Vector3] {
         &self.original_points
@@ -835,6 +860,12 @@ impl DeformableMesh {
     #[must_use]
     pub fn old_points(&self) -> Option<&[Vector3]> {
         self.state.old_points.as_deref()
+    }
+
+    /// `polyMesh::moving()`: true once `movePoints` has run (gh:#1935: `polyMesh` writes `points` only then).
+    #[must_use]
+    pub fn is_moving(&self) -> bool {
+        self.state.moving
     }
 
     /// `fvMesh::phi()` (`meshPhi`): the swept volume of every face over `deltaT`, internal faces then boundary faces; `None`
