@@ -109,6 +109,7 @@ use outram_foam_basic_lib::prelude::{
     fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
 };
 
+use crate::genfoam::neutronics::diffusion::XsEvolution;
 use crate::genfoam::neutronics::state::NeutronicsState;
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::neutronics::NeutronicsError;
@@ -158,6 +159,15 @@ impl Sp3Settings {
         self.form = LinearSolverForm::BasicLib;
         self
     }
+
+    /// Every key of the case's `fvSolution` solver entries (`tolerance`, `relTol`, `maxIter`, `minIter`, solver and
+    /// preconditioner) in place of [`Self::linear`] and the tight-protocol defaults (gh:#1887 round 42); read with
+    /// `io::nuclear_data::read_neutron_fv_solution`.
+    #[must_use]
+    pub fn with_fv_solution(mut self, entries: crate::genfoam::common::linear_solvers::NeutronSolverEntries) -> Self {
+        self.form = LinearSolverForm::UpstreamFvSolution(entries);
+        self
+    }
 }
 
 impl Default for Sp3Settings {
@@ -203,6 +213,11 @@ pub struct Sp3Neutronics {
     /// [`Self::new`].
     xs: Option<Sp3XsFields>,
     settings: Sp3Settings,
+    /// `XS::correct()` at the time of each step (discontinuity factors, gh:#1887); `None`: the cross sections stay
+    /// as materialised, with the dictionary `discFactor`.
+    evolution: Option<XsEvolution>,
+    /// The time the loop passed with `set_time` (`XS::correct()` runs at it).
+    time: f64,
 }
 
 impl Sp3Neutronics {
@@ -227,6 +242,8 @@ impl Sp3Neutronics {
             flux_star2,
             xs: None,
             settings: Sp3Settings::default(),
+            evolution: None,
+            time: 0.0,
         }
     }
 
@@ -281,6 +298,8 @@ impl Sp3Neutronics {
             flux_star2,
             xs: Some(xs_fields),
             settings,
+            evolution: None,
+            time: 0.0,
         };
         model.apply_flux_boundary(flux_boundary);
         model.reconstruct_flux();
@@ -472,6 +491,35 @@ impl Sp3Neutronics {
 pub(crate) fn with_values(mut field: VolScalarField, values: Vec<f64>) -> VolScalarField {
     field.internal = Field::new(values);
     field
+}
+
+impl Sp3Neutronics {
+    /// Switch on `XS::correct()`'s time dependence for the pseudo-time eigenvalue driver: the discontinuity-factor
+    /// lists and `adjustDiscFactors(fluxStar_)` (`solveNeutronicsSP3.H:119`), gh:#1887. Without it the cross sections
+    /// stay as materialised, with the dictionary `discFactor` (upstream's form at `timeIndex > 0`).
+    pub fn set_xs_evolution(&mut self, evolution: XsEvolution) {
+        self.evolution = Some(evolution);
+    }
+
+    /// The evolution, if set.
+    #[must_use]
+    pub fn xs_evolution(&self) -> Option<&XsEvolution> {
+        self.evolution.as_ref()
+    }
+
+    /// The earlier form of this model: every discontinuity factor 1, whatever the dictionary says. A named ablation,
+    /// never the default; it does not survive [`Self::set_xs_evolution`].
+    #[must_use]
+    pub fn without_disc_factors(mut self) -> Self {
+        if let Some(xs) = self.xs.as_mut() {
+            for field in xs.base.disc_factor.iter_mut() {
+                for v in field.internal.as_mut_slice() {
+                    *v = 1.0;
+                }
+            }
+        }
+        self
+    }
 }
 
 mod eigenvalue;

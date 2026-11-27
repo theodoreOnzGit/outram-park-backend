@@ -35,10 +35,11 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use crate::genfoam::common::linear_solvers::NeutronEquation;
-use outram_foam_basic_lib::prelude::{fvm, Field, SurfaceScalarField, VolScalarField};
+use outram_foam_basic_lib::prelude::{fvc, fvm, Field, SurfaceScalarField, VolScalarField};
 
 use super::precursor_drift;
 use super::{DiffusionNeutronics, EigenvalueReport};
+use crate::genfoam::neutronics::pseudo_time::field_like;
 use crate::genfoam::neutronics::NeutronicsError;
 
 impl DiffusionNeutronics {
@@ -66,9 +67,12 @@ impl DiffusionNeutronics {
     /// [`NeutronicsError::NotConverged`] if the outer loop exhausts
     /// `max_outer_iterations` without meeting both tolerances.
     pub fn solve_eigenvalue(&mut self) -> Result<EigenvalueReport, NeutronicsError> {
-        if !self.xs.disc_factors_are_unity() {
+        // Discontinuity factors (gh:#1887): the operator is over `fluxStar = flux*discFactor` with `D/discFactor` and
+        // `sigmaRemoval/discFactor`, the sources in terms of the physical flux (createFluxMatrices.H, fluxEq.H). The
+        // circulating-fuel precursor equation with a factor other than 1 is not ported (refused by name).
+        if self.drift.is_some() && !self.xs.disc_factors_are_unity() {
             return Err(NeutronicsError::UpstreamTransient(
-                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+                "discontinuity factors other than 1 with circulating fuel: not ported (gh:#1887)",
             ));
         }
         let g = self.energy_groups();
@@ -174,18 +178,25 @@ impl DiffusionNeutronics {
                 let q_field = VolScalarField::uniform("q", self.state.mesh().clone(), 0.0);
                 let q_field = with_values(q_field, q_vals);
 
+                // The unknown is `fluxStar = flux*discFactor` (`flux = fluxStar/discFactor`); with every factor 1 the
+                // products and quotients below are exact and this is the earlier form.
+                let df = self.xs.disc_factor[gg].internal.as_slice();
                 let flux_g = &self.state.flux()[gg];
+                let star_vals: Vec<f64> = (0..n).map(|c| flux_g.internal.as_slice()[c] * df[c]).collect();
+                let star_g = with_values(flux_g.clone(), star_vals);
+                let d_over_df: Vec<f64> = (0..n).map(|c| self.xs.d[gg].internal.as_slice()[c] / df[c]).collect();
+                let sr_over_df: Vec<f64> =
+                    (0..n).map(|c| self.xs.sigma_removal[gg].internal.as_slice()[c] / df[c]).collect();
+                let d_face = fvc::interpolate(&field_like(flux_g, d_over_df));
                 // Loss operator (symmetric positive-definite: SPD laplacian +
                 // positive removal diagonal) minus the explicit fission /
                 // in-scatter source — solved with warm-started CG.
-                let eqn = fvm::laplacian_with_delta(
-                    &self.xs.d_face[gg],
-                    flux_g,
-                    self.settings.delta_coeff,
-                ) + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
-                    - fvm::su(&q_field, flux_g);
-                let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("flux{gg}"), flux_g);
-                self.write_group_flux(gg, &sol);
+                let eqn = fvm::laplacian_with_delta(&d_face, &star_g, self.settings.delta_coeff)
+                    + fvm::sp(&field_like(flux_g, sr_over_df), &star_g)
+                    - fvm::su(&q_field, &star_g);
+                let sol = self.settings.linear_solve().solve(NeutronEquation::Flux, &eqn, &format!("fluxStar{gg}"), &star_g);
+                let phys: Vec<f64> = (0..n).map(|c| sol.internal.as_slice()[c] / df[c]).collect();
+                self.write_group_flux(gg, &with_values(sol, phys));
             }
 
             // k update from the fission-production integral ratio.

@@ -41,8 +41,21 @@ done
 bash "$HERE/scripts/tight_protocol.sh"
 [ -n "$FVEDIT" ] && sed -i "$FVEDIT" system/neutroRegion/fvSolution
 [ -n "$DT" ] && sed -i "s/^deltaT .*/deltaT          $DT;/" system/controlDict
+[ "$EIGEN" = false ] && sed -i 's/^writeControl .*/writeControl    timeStep;/; s/^writeInterval .*/writeInterval   1;/; s/^purgeWrite .*/purgeWrite      2;/' system/controlDict
 [ "$EIGEN" = false ] && sed -i 's/^eigenvalueNeutronics .*/eigenvalueNeutronics        false;/' constant/neutroRegion/neutronicsProperties
 S=$(date +%s)
 GeN-Foam > log.GeN-Foam 2>&1
 echo "run $NAME: GeN-Foam exit $? in $(( $(date +%s)-S )) s"
 tail -3 log.GeN-Foam
+
+# ---------------------------------------------------------------------------------------------------------------------
+# DATA of the SP3 adjustment variants (round 42). Upstream SP3 with round 39's `v1` integralFlux numbers died with a floating
+# point exception at step 56 (df of the first group driven to the keff clamp, as round 39's first choice did for diffusion):
+# those numbers are zone integrals of the DIFFUSION flux. The SP3 variants `s1` / `s2` therefore use the same RECIPE on the
+# SP3 `fluxStar_` (the field `adjustDiscFactors(fluxStar_)` integrates): integralFlux[zone, g] = 1e-6 * V * sum over the zone's cells of the converged `s0` fluxStar<g> (gh1887 run s0, t = 60) *
+# factor, factor = 1.10/0.92 (reflector), 0.95/1.08 (coreLow), 1.07/0.94 (follower), 1.12/0.90 (rod), V = 7.92723e-05 m^3 (the
+# cell volume: 0.32269 = 1e-6 * V * 0.95 * sum_coreLow flux0 of the v1 numbers), five decimals, the precision of v1:
+#   reflector 0.11737 0.38996 | coreLow 0.31664 0.07819 | follower 0.25263 0.04437 | controlRod 0.01450 0.00058
+# (a FIRST attempt with the converged physical `flux` (0.10371 0.39245 | 0.32288 0.07775 | 0.25529 0.04450 | 0.01077 0.00053) also drove upstream SP3 to the keff clamp, FPE at step 39: fluxStar differs from flux by the second moment, which is the quantity the adjustment sees)
+# (the reflector value of v1 (0.04534 / 0.17206) is 2.29x smaller than this recipe gives on the same flux: it is not
+# reproduced by the recipe, which is why the SP3 numbers are given explicitly here).

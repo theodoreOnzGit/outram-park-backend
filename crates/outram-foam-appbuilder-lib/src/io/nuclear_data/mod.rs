@@ -108,6 +108,10 @@ pub use writer::write_nuclear_data;
 pub mod controls;
 #[cfg(feature = "std")]
 pub use controls::{read_control_rods, read_disc_factor_controls};
+#[cfg(feature = "std")]
+pub mod fv_solution;
+#[cfg(feature = "std")]
+pub use fv_solution::{read_neutron_fv_solution, resolve_neutron_fv_solution, NeutronFvSolution};
 
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamFile, FoamValue};
 

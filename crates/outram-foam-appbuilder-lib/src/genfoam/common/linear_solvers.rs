@@ -60,6 +60,12 @@ pub enum LinearSolverForm {
         /// `minIter` of the `solvers` entry.
         min_iter: usize,
     },
+    /// OpenFOAM's solvers with every key of the case's `fvSolution` `solvers` entries read
+    /// (gh:#1887 round 42): per equation family the solver and preconditioner words, `tolerance`,
+    /// `relTol`, `maxIter` and `minIter`, defaults where an entry omits a key. Built by
+    /// `io::nuclear_data::read_neutron_fv_solution`; the `tolerance` / `max_iter` of
+    /// [`LinearSolve::settings`] are not used in this form.
+    UpstreamFvSolution(NeutronSolverEntries),
     /// Deprecated: basic-lib's `||r||/||b||` CG for the symmetric equations,
     /// ILU(0)-BiCGStab for the asymmetric ones (and Gauss-Seidel for the
     /// static SN sweep). The form before gh:#1361 round 40.
@@ -69,6 +75,66 @@ pub enum LinearSolverForm {
 impl Default for LinearSolverForm {
     fn default() -> Self {
         Self::Upstream { rel_tol: 0.0, min_iter: 0 }
+    }
+}
+
+/// The OpenFOAM linear solver and preconditioner pair an `fvSolution` entry selects (the pairs the port
+/// translates; any other selection is refused by name when the entry is read).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NeutronSolverKind {
+    /// `PCG` with `DIC` ([`super::pcg::pcg_dic`]); symmetric matrices.
+    PcgDic,
+    /// `PBiCG` with `DILU` (`legacy_fvm::pbicg::pbicg_dilu`); asymmetric matrices.
+    PbicgDilu,
+    /// `PBiCGStab` with `DILU` ([`pbicgstab_dilu`]); asymmetric matrices.
+    PbicgstabDilu,
+}
+
+/// One `solvers` entry of `fvSolution` as OpenFOAM's `lduMatrix::solver::readControls` reads it
+/// (OpenFOAM-v2506 `lduMatrixSolver.C:195-208`): `tolerance` default `lduMatrix::defaultTolerance`
+/// (1e-6), `relTol` 0, `maxIter` `lduMatrix::defaultMaxIter` (1000), `minIter` 0.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NeutronSolverEntry {
+    /// The solver and preconditioner.
+    pub kind: NeutronSolverKind,
+    /// `tolerance`.
+    pub tolerance: f64,
+    /// `relTol`.
+    pub rel_tol: f64,
+    /// `maxIter`.
+    pub max_iter: usize,
+    /// `minIter`.
+    pub min_iter: usize,
+}
+
+impl NeutronSolverEntry {
+    /// An entry of kind `kind` with every control at OpenFOAM's default.
+    #[must_use]
+    pub fn with_defaults(kind: NeutronSolverKind) -> Self {
+        Self { kind, tolerance: 1e-6, rel_tol: 0.0, max_iter: 1000, min_iter: 0 }
+    }
+}
+
+/// The entries the three equation families of the neutronics resolve to.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NeutronSolverEntries {
+    /// `flux.*` family (`flux<g>`, `fluxStar<g>`, `fluxStar2<g>`).
+    pub flux: NeutronSolverEntry,
+    /// `prec.*` family (`prec<k>`, `precStar<k>`).
+    pub precursor: NeutronSolverEntry,
+    /// `angularFlux.*` family (`angularFlux_<g>_<d>`).
+    pub angular_flux: NeutronSolverEntry,
+}
+
+impl NeutronSolverEntries {
+    /// The entry `role` solves with (the static SN sweep solves the angular-flux matrix).
+    #[must_use]
+    pub fn entry_for(&self, role: NeutronEquation) -> NeutronSolverEntry {
+        match role {
+            NeutronEquation::Flux => self.flux,
+            NeutronEquation::Precursor => self.precursor,
+            NeutronEquation::AngularFlux | NeutronEquation::StaticAngularFlux => self.angular_flux,
+        }
     }
 }
 
@@ -118,25 +184,44 @@ impl LinearSolve {
                 NeutronEquation::StaticAngularFlux => eqn.solve(name.to_string(), self.settings).0,
             },
             LinearSolverForm::Upstream { rel_tol, min_iter } => {
-                let b: Vec<f64> = eqn.source.iter().copied().collect();
-                let mut x: Vec<f64> = start.internal.as_slice().to_vec();
-                let (tol, max_iter) = (self.settings.tolerance, self.settings.max_iter);
-                match role {
-                    NeutronEquation::Flux => {
-                        let _ = pcg_dic(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
-                    }
-                    NeutronEquation::Precursor => {
-                        let _ = pbicg_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
-                    }
-                    NeutronEquation::AngularFlux | NeutronEquation::StaticAngularFlux => {
-                        let _ = pbicgstab_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
-                    }
-                }
-                let boundary = eqn.mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect();
-                VolScalarField::new(name.to_string(), eqn.mesh.clone(), Field::new(x), boundary)
+                let kind = match role {
+                    NeutronEquation::Flux => NeutronSolverKind::PcgDic,
+                    NeutronEquation::Precursor => NeutronSolverKind::PbicgDilu,
+                    NeutronEquation::AngularFlux | NeutronEquation::StaticAngularFlux => NeutronSolverKind::PbicgstabDilu,
+                };
+                let entry = NeutronSolverEntry {
+                    kind,
+                    tolerance: self.settings.tolerance,
+                    rel_tol,
+                    max_iter: self.settings.max_iter,
+                    min_iter,
+                };
+                run_entry(eqn, name, start, entry)
             }
+            LinearSolverForm::UpstreamFvSolution(entries) => run_entry(eqn, name, start, entries.entry_for(role)),
         }
     }
+}
+
+/// Run the OpenFOAM solver `entry` selects on `eqn`, from `start`, and return the solution on the template's mesh with
+/// zero-gradient patches, as basic-lib's solves do.
+fn run_entry(eqn: &FvMatrix, name: &str, start: &VolScalarField, entry: NeutronSolverEntry) -> VolScalarField {
+    let b: Vec<f64> = eqn.source.iter().copied().collect();
+    let mut x: Vec<f64> = start.internal.as_slice().to_vec();
+    let (tol, rel_tol, max_iter, min_iter) = (entry.tolerance, entry.rel_tol, entry.max_iter, entry.min_iter);
+    match entry.kind {
+        NeutronSolverKind::PcgDic => {
+            let _ = pcg_dic(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+        }
+        NeutronSolverKind::PbicgDilu => {
+            let _ = pbicg_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+        }
+        NeutronSolverKind::PbicgstabDilu => {
+            let _ = pbicgstab_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+        }
+    }
+    let boundary = eqn.mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect();
+    VolScalarField::new(name.to_string(), eqn.mesh.clone(), Field::new(x), boundary)
 }
 
 /// Result of a solve, as OpenFOAM's `solverPerformance`.

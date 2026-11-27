@@ -84,6 +84,7 @@ use uom::si::time::second;
 use super::upstream_transient::euler_ddt;
 use super::DiffusionNeutronics;
 use crate::genfoam::common::TimeProfile;
+use outram_foam_basic_lib::prelude::{Field, VolScalarField};
 use crate::genfoam::neutronics::pseudo_time::{
     adjust_delta_t, field_like, neutronics_max_delta_t, solve_twice, PseudoTimeClock, PseudoTimeControls,
 };
@@ -299,6 +300,7 @@ impl DiffusionNeutronics {
         g: usize,
         controls: &StationaryStepControls,
         gradient: Option<&outram_foam_basic_lib::prelude::VolVectorField>,
+        star_field: &VolScalarField,
         flux_old: &[f64],
         volumes: &[f64],
         dt: f64,
@@ -312,21 +314,25 @@ impl DiffusionNeutronics {
         let iv = self.xs.inv_velocity[g].internal.as_slice();
         let keff = self.state.k_eff_raw();
         // coefficient of `- fvm::Sp(...)`: (nuSigmaEff/keff (1-BetaTot) chiPrompt (1-eig) - sigmaRemoval)/disc
+        let df = self.xs.disc_factor[g].internal.as_slice();
         let sp_coeff: Vec<f64> = (0..n)
-            .map(|c| ((((nf[c] / keff) * one_minus_beta[c]) * chi_p[c]) * 1.0 - removal[c]) / 1.0)
+            .map(|c| ((((nf[c] / keff) * one_minus_beta[c]) * chi_p[c]) * 1.0 - removal[c]) / df[c])
             .collect();
-        let iv_over_disc: Vec<f64> = (0..n).map(|c| (1.0 * iv[c]) / 1.0).collect();
+        let iv_over_disc: Vec<f64> = (0..n).map(|c| (1.0 * iv[c]) / df[c]).collect();
+        // `fvm::laplacian(D/discFactor, fluxStar_)` (createFluxMatrices.H:27): the unknown is `fluxStar_`
+        let d_over_df: Vec<f64> = (0..n).map(|c| self.xs.d[g].internal.as_slice()[c] / df[c]).collect();
+        let d_face = fvc::interpolate(&field_like(star_field, d_over_df));
 
-        let flux_g = &self.state.flux()[g];
+        let flux_g = star_field;
         let ddt = match controls.ddt {
             NeutronicsDdtScheme::SteadyState => FvMatrix::new(flux_g.mesh.clone()),
             NeutronicsDdtScheme::Euler => euler_ddt(&iv_over_disc, flux_old, volumes, dt, flux_g),
         };
         let lap = match (controls.laplacian, gradient) {
             (NeutronicsLaplacianScheme::Corrected, Some(grad)) => {
-                fvm::laplacian_corrected(&self.xs.d_face[g], flux_g, grad, NonOrthoScheme::Corrected)
+                fvm::laplacian_corrected(&d_face, flux_g, grad, NonOrthoScheme::Corrected)
             }
-            _ => fvm::laplacian_with_delta(&self.xs.d_face[g], flux_g, self.settings.delta_coeff),
+            _ => fvm::laplacian_with_delta(&d_face, flux_g, self.settings.delta_coeff),
         };
         let mut eqn = ddt + lap - fvm::sp(&field_like(flux_g, sp_coeff), flux_g);
         if let Some(ext) = external {
@@ -349,9 +355,12 @@ impl DiffusionNeutronics {
         dt: f64,
         controls: &StationaryStepControls,
     ) -> Result<StationaryStep, NeutronicsError> {
-        if !self.xs.disc_factors_are_unity() {
+        // The factors of the dictionary (`XS::correct()` at `timeIndex > 0`) are applied (gh:#1887). A time-varying
+        // `XsEvolution` (driveline, adjustment) is the eigenvalue driver's: `adjustDiscFactors` is in the eigenvalue
+        // branch only, and the driveline is not compared for this step: refused by name.
+        if self.evolution.is_some() {
             return Err(NeutronicsError::UpstreamTransient(
-                "discontinuity factors other than 1: only the pseudo-time eigenvalue driver divides by them (gh:#1785)",
+                "an XsEvolution (driveline motion, factor adjustment) with the stationary-fuel step is not ported (gh:#1887)",
             ));
         }
         if dt <= 0.0 || dt.is_nan() {
@@ -367,7 +376,23 @@ impl DiffusionNeutronics {
         let volumes = self.state.mesh().cell_volumes.clone();
         let keff = self.state.k_eff_raw();
         let power_old = self.upstream_power();
-        let flux_old: Vec<Vec<f64>> = self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
+        // `fluxStar_` (read from the case, else `defaultFlux`: the state's flux at the first step), then
+        // `flux_ = fluxStar_/discFactor` (solveNeutronics.H:29-32); the `ddt` takes `fluxStar_.oldTime()`
+        let mut star: Vec<Vec<f64>> = match self.flux_star.take() {
+            Some(v) => v,
+            None => self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+        };
+        for g in 0..groups {
+            let df = self.xs.disc_factor[g].internal.as_slice();
+            let dst = self.state.flux_mut()[g].internal.as_mut_slice();
+            for c in 0..n {
+                dst[c] = star[g][c] / df[c];
+            }
+        }
+        let flux_old: Vec<Vec<f64>> = star.clone();
+        let mut star_fields: Vec<VolScalarField> = (0..groups)
+            .map(|g| field_with_boundary(&self.state.flux()[g], star[g].clone()))
+            .collect();
         let prec_old: Vec<Vec<f64>> =
             self.state.precursors().iter().map(|p| p.internal.as_slice().to_vec()).collect();
         let one_minus_beta: Vec<f64> = self.xs.beta_tot.internal.as_slice().iter().map(|b| 1.0 - b).collect();
@@ -391,7 +416,7 @@ impl DiffusionNeutronics {
         // createFluxMatrices.H: the explicit correction is taken from the flux the step starts from
         let gradients: Vec<Option<outram_foam_basic_lib::prelude::VolVectorField>> = (0..groups)
             .map(|g| match controls.laplacian {
-                NeutronicsLaplacianScheme::Corrected => Some(fvc::grad(&self.state.flux()[g])),
+                NeutronicsLaplacianScheme::Corrected => Some(fvc::grad(&star_fields[g])),
                 NeutronicsLaplacianScheme::Uncorrected => None,
             })
             .collect();
@@ -430,6 +455,7 @@ impl DiffusionNeutronics {
                     gg,
                     controls,
                     gradients[gg].as_ref(),
+                    &star_fields[gg],
                     &flux_old[gg],
                     &volumes,
                     dt,
@@ -440,9 +466,19 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, prompt), flux_g)
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
-                let (sol, init_res) = solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear_solve());
+                let (sol, init_res) =
+                    solve_twice(&eqn, &format!("fluxStar{gg}"), &star_fields[gg], self.settings.linear_solve());
                 neutro_residual = neutro_residual.max(init_res);
-                self.write_group_flux(gg, &sol);
+                // fluxStar_ = solution; flux_ = fluxStar_/discFactor (fluxEq.H:31)
+                star[gg] = sol.internal.as_slice().to_vec();
+                star_fields[gg] = field_with_boundary(&star_fields[gg], star[gg].clone());
+                {
+                    let df = self.xs.disc_factor[gg].internal.as_slice();
+                    let dst = self.state.flux_mut()[gg].internal.as_mut_slice();
+                    for c in 0..n {
+                        dst[c] = star[gg][c] / df[c];
+                    }
+                }
 
                 // neutroSource_ += nuSigmaEff[g] * flux_[g] * (1 - eigenvalueNeutronics_)
                 let nf = self.xs.nu_sigma_f[gg].internal.as_slice();
@@ -466,6 +502,7 @@ impl DiffusionNeutronics {
             }
         }
 
+        self.flux_star = Some(star);
         self.update_derived_fields();
         let power = self.upstream_power();
         let p_target = match &self.external_source {
@@ -508,9 +545,31 @@ impl DiffusionNeutronics {
     }
 }
 
+/// `template` (keeping its boundary conditions and patch values) with the internal values replaced.
+fn field_with_boundary(template: &VolScalarField, values: Vec<f64>) -> VolScalarField {
+    let mut f = template.clone();
+    f.internal = Field::new(values);
+    f
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn field_with_boundary_replaces_only_the_internal_values() {
+        use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+        use uom::si::area::square_meter;
+        use uom::si::f64::{Area, Length};
+        use uom::si::length::meter;
+        let mesh = alloc::sync::Arc::new(
+            create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1.0), 3).expect("mesh"),
+        );
+        let t = VolScalarField::uniform("t", mesh, 1.0);
+        let f = field_with_boundary(&t, vec![4.0, 5.0, 6.0]);
+        assert_eq!(f.internal.as_slice(), &[4.0, 5.0, 6.0]);
+        assert_eq!(f.boundary.len(), t.boundary.len());
+    }
 
     #[test]
     fn sp3_and_sn_with_a_source_are_refused_by_name() {

@@ -90,15 +90,16 @@ impl Sp3Neutronics {
         p_tot
     }
 
-    /// `flux_ = (fluxStar_ - fluxStar2_*2.0)/discFactor` with `discFactor = 1`.
-    fn rebuild_flux_upstream(&mut self) {
+    /// `flux_ = (fluxStar_ - fluxStar2_*2.0)/discFactor` (`normFluxesSP3.H:5`, `solveNeutronicsSP3.H:35`).
+    fn rebuild_flux_upstream(&mut self, xs: &Sp3XsFields) {
         let n = self.state.mesh().n_cells;
         for g in 0..self.energy_groups() {
             let star = self.flux_star[g].internal.as_slice().to_vec();
             let star2 = self.flux_star2[g].internal.as_slice().to_vec();
+            let df = xs.base.disc_factor[g].internal.as_slice();
             let dst = self.state.flux_mut()[g].internal.as_mut_slice();
             for c in 0..n {
-                dst[c] = (star[c] - star2[c] * 2.0) / 1.0;
+                dst[c] = (star[c] - star2[c] * 2.0) / df[c];
             }
         }
     }
@@ -132,16 +133,31 @@ impl PseudoTimeEigenvalue for Sp3Neutronics {
         p_target: f64,
         first_step: bool,
     ) -> Result<PseudoTimeStep, PseudoTimeError> {
-        let xs = self.xs.take().ok_or(PseudoTimeError::NoCrossSections)?;
-        // SP3 divides every operator by `discFactor` (`fluxEqSP3.H`, `createFluxMatricesSP3.H`): not
-        // ported (gh:#1785), so factors other than 1 are refused instead of silently dropped.
-        if !xs.base.disc_factors_are_unity() {
-            self.xs = Some(xs);
-            return Err(PseudoTimeError::DiscFactorsNotPorted);
+        let mut xs = self.xs.take().ok_or(PseudoTimeError::NoCrossSections)?;
+        // `xs_.correct()` (`solveNeutronicsSP3.H:4`): the discontinuity-factor lists at the time of this step.
+        if let Some(evolution) = &self.evolution {
+            let mesh = self.state.mesh().clone();
+            match evolution.materialize(&mesh, self.time) {
+                Ok(base) => xs = Sp3XsFields::from_base(&mesh, base),
+                Err(_) => {
+                    self.xs = Some(xs);
+                    return Err(PseudoTimeError::CrossSections);
+                }
+            }
         }
         let step = self.eigenvalue_time_step_inner(&xs, p_target, first_step);
+        // `xs_.adjustDiscFactors(fluxStar_)` (`solveNeutronicsSP3.H:119`): takes effect at the next step.
+        if let Some(evolution) = self.evolution.as_mut() {
+            let vols = self.state.mesh().cell_volumes.clone();
+            let star: Vec<Vec<f64>> = self.flux_star.iter().map(|f| f.internal.as_slice().to_vec()).collect();
+            evolution.adjust_disc_factors(&star, &vols);
+        }
         self.xs = Some(xs);
         Ok(step)
+    }
+
+    fn set_time(&mut self, time: f64) {
+        self.time = time;
     }
 }
 
@@ -159,12 +175,12 @@ impl Sp3Neutronics {
 
         // solveNeutronicsSP3.H: flux_ = (fluxStar - 2 fluxStar2)/disc, then on
         // the first step normFluxesSP3.H.
-        self.rebuild_flux_upstream();
+        self.rebuild_flux_upstream(xs);
         if first_step {
             let p_tot = self.upstream_power_with(xs);
             let ratio = p_target / p_tot;
             self.scale_moments_by(ratio);
-            self.rebuild_flux_upstream();
+            self.rebuild_flux_upstream(xs);
         }
 
         let mut neutro_source = vec![0.0; n];
@@ -215,9 +231,14 @@ impl Sp3Neutronics {
             }
             let sr = xs.base.sigma_removal[gg].internal.as_slice();
             let ss = xs.base.scattering[gg][gg].internal.as_slice();
+            let df = xs.base.disc_factor[gg].internal.as_slice();
             let chi_p = xs.base.chi_prompt[gg].internal.as_slice();
             let chi_d = xs.base.chi_delayed[gg].internal.as_slice();
             let template = self.flux_star[gg].clone();
+            // `fvm::laplacian(D/discFactor, fluxStar)`, `fvm::Sp(sigmaRemoval/discFactor, fluxStar)` (`createFluxMatricesSP3.H`)
+            let d_over_df: Vec<f64> = (0..n).map(|c| xs.base.d[gg].internal.as_slice()[c] / df[c]).collect();
+            let sr_over_df: Vec<f64> = (0..n).map(|c| sr[c] / df[c]).collect();
+            let d_face = fvc::interpolate(&field_like(&template, d_over_df));
 
             let prompt: Vec<f64> = (0..n)
                 .map(|c| ((neutro_source[c] * one_minus_beta[c]) * chi_p[c]) / keff)
@@ -225,15 +246,15 @@ impl Sp3Neutronics {
             let delayed_g: Vec<f64> = (0..n).map(|c| delayed[c] * chi_d[c]).collect();
             let star2_old = self.flux_star2[gg].internal.as_slice().to_vec();
             let sr_star2: Vec<f64> = (0..n)
-                .map(|c| (sr[c] * (star2_old[c] / 1.0)) * 2.0)
+                .map(|c| (sr[c] * (star2_old[c] / df[c])) * 2.0)
                 .collect();
 
             // First moment: neutroEqList[g] - prompt - delayed - scatter
             //   - sr*(fluxStar2/disc)*2.0 (- fvc::ddt(0)*2.0, identically zero).
             let phi0 = &self.flux_star[gg];
             let eqn1 =
-                fvm::laplacian_with_delta(&xs.base.d_face[gg], phi0, self.settings.delta_coeff)
-                    + fvm::sp(&xs.base.sigma_removal[gg], phi0)
+                fvm::laplacian_with_delta(&d_face, phi0, self.settings.delta_coeff)
+                    + fvm::sp(&field_like(&template, sr_over_df), phi0)
                     - fvm::su(&field_like(&template, prompt.clone()), phi0)
                     - fvm::su(&field_like(&template, delayed_g.clone()), phi0)
                     - fvm::su(&field_like(&template, scatter.clone()), phi0)
@@ -245,7 +266,7 @@ impl Sp3Neutronics {
 
             // Second moment (fluxEqSP3.H neutroEq2).
             let d2: Vec<f64> = (0..n)
-                .map(|c| ((1.0 / (sr[c] + ss[c])) * 3.0) / 7.0)
+                .map(|c| ((df[c] / (sr[c] + ss[c])) * 3.0) / 7.0)
                 .collect();
             let a2: Vec<f64> = (0..n)
                 .map(|c| ((sr[c] + ss[c]) * 5.0) / 3.0 + (sr[c] * 4.0) / 3.0)
@@ -253,7 +274,7 @@ impl Sp3Neutronics {
             let d2_face = fvc::interpolate(&field_like(&template, d2));
             let star_new = self.flux_star[gg].internal.as_slice().to_vec();
             let x1: Vec<f64> = (0..n)
-                .map(|c| ((sr[c] * (star_new[c] / 1.0)) * 2.0) / 3.0)
+                .map(|c| ((sr[c] * (star_new[c] / df[c])) * 2.0) / 3.0)
                 .collect();
             let x2: Vec<f64> = (0..n).map(|c| (prompt[c] * 2.0) / 3.0).collect();
             let x3: Vec<f64> = (0..n).map(|c| (delayed_g[c] * 2.0) / 3.0).collect();
@@ -275,7 +296,7 @@ impl Sp3Neutronics {
             let star2 = self.flux_star2[gg].internal.as_slice().to_vec();
             let dst = self.state.flux_mut()[gg].internal.as_mut_slice();
             for c in 0..n {
-                dst[c] = (star[c] - star2[c] * 2.0) / 1.0;
+                dst[c] = (star[c] - star2[c] * 2.0) / df[c];
             }
         }
 
@@ -283,7 +304,7 @@ impl Sp3Neutronics {
         keff = calc_keff(keff, p_tot, p_target);
         let ratio = p_target / p_tot;
         self.scale_moments_by(ratio);
-        self.rebuild_flux_upstream();
+        self.rebuild_flux_upstream(xs);
         self.state.set_k_eff_raw(keff);
         self.update_derived_fields(xs);
 

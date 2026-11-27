@@ -175,6 +175,15 @@ impl SnSettings {
         self.form = LinearSolverForm::BasicLib;
         self
     }
+
+    /// Every key of the case's `fvSolution` solver entries (`tolerance`, `relTol`, `maxIter`, `minIter`, solver and
+    /// preconditioner) in place of [`Self::linear`] and the tight-protocol defaults (gh:#1887 round 42); read with
+    /// `io::nuclear_data::read_neutron_fv_solution`.
+    #[must_use]
+    pub fn with_fv_solution(mut self, entries: crate::genfoam::common::linear_solvers::NeutronSolverEntries) -> Self {
+        self.form = LinearSolverForm::UpstreamFvSolution(entries);
+        self
+    }
 }
 
 impl Default for SnSettings {

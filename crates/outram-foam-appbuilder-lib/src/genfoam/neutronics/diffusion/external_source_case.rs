@@ -288,6 +288,29 @@ pub struct ExternalSourceCase {
 }
 
 impl ExternalSourceCase {
+    /// [`Self::read`] with the linear solvers taken from the case's own `system/neutroRegion/fvSolution`: every key
+    /// OpenFOAM's `lduMatrix::solver` reads (`tolerance`, `relTol`, `maxIter`, `minIter`, solver and preconditioner),
+    /// upstream's defaults where an entry omits one (gh:#1887 round 42). `GAMG` runs `PCG`/`DIC` (named deviation,
+    /// reported in the returned flag).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::read`], and an `fvSolution` selection the port does not run (named).
+    #[cfg(feature = "std")]
+    pub fn read_with_fv_solution(case_dir: &Path) -> Result<(Self, bool), AppBuilderError> {
+        let linear = outram_foam_basic_lib::prelude::SolverSettings { tolerance: 1e-6, max_iter: 1000 };
+        let mut case = Self::read(case_dir, linear)?;
+        let path = case_dir.join("system").join("neutroRegion").join("fvSolution");
+        let sol = crate::io::nuclear_data::read_neutron_fv_solution(
+            &path,
+            case.model.energy_groups(),
+            case.model.prec_groups(),
+            0,
+        )?;
+        case.model.set_linear_form(crate::genfoam::common::linear_solvers::LinearSolverForm::UpstreamFvSolution(sol.entries));
+        Ok((case, sol.gamg_substituted))
+    }
+
     /// Read the case under `case_dir` (region `neutroRegion`); `solver` is the `regionSolvers` entry of the
     /// `controlDict` (`diffusionNeutronics`).
     ///

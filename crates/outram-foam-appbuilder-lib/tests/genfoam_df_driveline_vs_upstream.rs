@@ -30,7 +30,7 @@ use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
     DiffusionNeutronics, DiffusionSettings, XsEvolution,
 };
 use outram_foam_appbuilder_lib::genfoam::neutronics::pseudo_time::{
-    run_pseudo_time_eigenvalue, PseudoTimeControls, PseudoTimeError, PseudoTimeRecord,
+    run_pseudo_time_eigenvalue, PseudoTimeControls, PseudoTimeRecord,
 };
 use outram_foam_appbuilder_lib::genfoam::neutronics::sp3::{Sp3Neutronics, Sp3Settings};
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::disc_factors::DiscFactorControls;
@@ -639,9 +639,10 @@ fn constants_are_not_remapped_and_no_rods_means_no_remap() {
     assert_eq!(none.xs_zone_of_cell(40.0), c.mesh_zone, "B4");
 }
 
-/// R2: SP3 refuses a factor other than 1 by name.
+/// R2 (round 39) said SP3 refuses a factor other than 1 by name. **CHANGED round 42 (gh:#1887)**: SP3 now divides by the factors
+/// (`fluxEqSP3.H`), so the run returns a history; the comparison with the binary is in `genfoam_fv_solution_df_vs_upstream`.
 #[test]
-fn sp3_refuses_discontinuity_factors_other_than_one() {
+fn sp3_runs_discontinuity_factors_other_than_one() {
     let c = load("v3");
     let settings = Sp3Settings {
         linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
@@ -650,8 +651,8 @@ fn sp3_refuses_discontinuity_factors_other_than_one() {
     let mut s =
         Sp3Neutronics::with_cross_sections(c.mesh.clone(), &c.xs, &c.mesh_zone, &[], &c.flux_boundary, settings)
             .expect("sp3");
-    let err = run_pseudo_time_eigenvalue(&mut s, &pt_controls()).unwrap_err();
-    assert_eq!(err, PseudoTimeError::DiscFactorsNotPorted);
+    let h = run_pseudo_time_eigenvalue(&mut s, &pt_controls()).expect("SP3 runs the factors");
+    assert!(h.len() > 100);
 }
 
 /// The readers.
