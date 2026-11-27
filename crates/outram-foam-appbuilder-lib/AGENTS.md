@@ -106,15 +106,41 @@ and `--headless-cht-mesh`, Mesh Studio, Foam Studio, a test fixture).
 
 - **Every internal region boundary is a set of mesh faces.** No cell
   straddles two regions: a region is meshed with its interfaces as
-  constraints, not assigned afterwards by cell centroid. The tool is
+  constraints, not assigned afterwards by cell centroid. ~~The tool is
   cfMesh's `pipeline::multi_region` (TetGen with region attributes, each
-  region dualled on its own and the duals stitched at the interfaces).
+  region dualled on its own and the duals stitched at the interfaces).~~
+  **CHANGED 2026-11-27 (maintainer: "mesh each region separately, then
+  combine them into a multiregion mesh using a AMI interface"; gh:#1858):**
+  for an FV mesh, **each region is meshed on its own** by the
+  single-region pipeline (`surface_to_tet_dual_mesh_multipatch`, with its
+  layers grown first), so its whole boundary, interfaces included, is
+  fitted by construction. The regions are joined into one polyMesh by
+  cfMesh's `pipeline::region_join`, each interface a **`cyclicAMI` patch
+  pair** (`<a>_to_<b>` / `<b>_to_<a>`; OpenFOAM ESI's convention, written
+  by `foam::write_polymesh_with_ami`) coupled by AMI weights
+  (`outram_foam_basic_lib::mesh::face_area_weight_ami`, a bit-identical
+  port of ESI's `faceAreaWeightAMI`). dhoby-ghaut's
+  `meshing::mesh_regions_joined` is the route. The conforming
+  `pipeline::multi_region` (one TetGen run, interfaces shared) stays as an
+  explicit ablation, and is the route for an FE (Tet4) mesh, where AMI does
+  not apply.
 - **The boundaries are snapped onto the true geometry**, interfaces and
   outer walls alike: a body of revolution reaches the mesher as facets, and
   the mesh is moved onto the true cylinders and cones afterwards
   (dhoby-ghaut `meshing::snap_faces_to_revolved`, after
-  `morph_to_revolved`). A layered wall is snapped **before** its layers
-  grow, never after (snapping after took a face past 90°).
+  `morph_to_revolved`; on the per-region route also the rims,
+  `snap_rims_to_revolved` and `split_rim_chords`, so both sides of a flat
+  interface carry the same rim points). A layered wall is snapped
+  **before** its layers grow, never after (snapping after took a face past
+  90°). That was measured on cfMesh's `boundaryLayerOptimisation` layers
+  grown on a finished dual. On the per-region route the pipeline grows its
+  layers first, from TetGen's wall triangulation, and the region is snapped
+  after them; on HTR-10's cavity (2026-11-27) that left no non-positive
+  cell, and `snap_checked` refuses one. It is measured on that case only.
+- **Report the AMI pairs**: each interface's two side areas and its weight
+  sums (min / mean / max) from both sides. They measure how far the two
+  tilings of one surface disagree; a 1 % shortfall is where a thin band's
+  rims do not line up.
 - **Centroid assignment is an ablation only**: a named, explicit option
   (`--boundaries centroid`), never a default, never a silent fallback.
   Where a boundary cannot be fitted, the mesh is refused with the reason.
@@ -127,8 +153,9 @@ porous/fluid/solid physics a GeN-Foam case solves. By centroid, HTR-10's
 cold-gas plenum came out 1–2 cells thick and broken, and every region was
 off by its stair-step, up to 0.96 % on the bed, hidden at first behind a
 cancelling faceting error. Fitted and snapped, each region's volume is
-within 0.03 % of its exact value
-(`crates/dhoby-ghaut/verification_and_validation/htr10_cht_mesh/`).
+within 0.03 % of its exact value on the conforming route
+(`crates/dhoby-ghaut/verification_and_validation/htr10_cht_mesh/`; the
+per-region AMI route's numbers are in the same folder).
 
 ## Maturity: DECLARED MATURE (2026-09-05)
 

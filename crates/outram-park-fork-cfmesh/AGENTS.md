@@ -591,6 +591,29 @@ diagonal; an unpaired interface face is an error). Needs
   `--headless-cht-mesh`):
   `crates/dhoby-ghaut/verification_and_validation/htr10_cht_mesh/`.
 
+## Per-region meshes joined by `cyclicAMI` (gh:#1861, 2026-11-27, NOT a port)
+
+`pipeline::region_join::join_regions` joins one `VolumeMesh` per region
+into one mesh. It is the route the HTR-10 FV meshes take since 2026-11-27
+(maintainer: "mesh each region separately, then combine them into a
+multiregion mesh using a AMI interface"); `pipeline::multi_region` above
+is kept as its conforming ablation.
+
+- **Points are not merged**: the two sides of an interface are different
+  tilings, so they stay two boundary patches. The caller names them
+  (`<a>_to_<b>` / `<b>_to_<a>`); they are recorded as an `AmiPair` with
+  both sides' areas. An outer patch name several regions use becomes one
+  patch. The result leaves in upper-triangular order.
+- **Written as `cyclicAMI`** by `foam::write_polymesh_with_ami`: both sides
+  get `type cyclicAMI`, `inGroups 1(cyclicAMI)`, `matchTolerance 0.0001`,
+  `transform noOrdering` and each other as `neighbourPatch` (OpenFOAM ESI
+  `6e2595746a39`, `cyclicAMIPolyPatch::write`; OpenFOAM-dev has replaced
+  `cyclicAMI` with non-conformal couples). `write_polymesh` is unchanged.
+- **The weights are not computed here**: they are
+  `outram_foam_basic_lib::mesh::face_area_weight_ami` (gh:#1859).
+- `BoundaryPatch` was not given a type field (every literal in the crate
+  would change); the pair list carries the coupling.
+
 ## TetGen as the tet source (gh:#1796, 2026-11-26)
 
 > **CHANGED 2026-11-26 (gh:#1829):** TetGen is the pipeline's default tet
