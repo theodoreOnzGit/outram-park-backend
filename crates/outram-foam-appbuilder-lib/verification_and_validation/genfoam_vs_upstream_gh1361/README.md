@@ -6867,3 +6867,40 @@ None moved: the one source edit (`read_field_bcs_only`, used only by `one_phase_
 ### Tests run (private target dir, release, `CARGO_BUILD_JOBS=2`, 2026-11-27)
 
 `genfoam_heat_exchanger_3d_vs_upstream` 3 passed; `genfoam_heat_exchanger_vs_upstream` 8 passed, 2 ignored; `genfoam_heat_exchanger_cc_vs_upstream` 4 passed; `genfoam_one_phase_vs_upstream` 5 passed, 2 ignored; `genfoam_msfr_th_vs_upstream` 6 passed; `genfoam_msfr_th_nonorth_vs_upstream` 8 passed; `genfoam_mesh_to_mesh_vs_upstream` 5 passed; `--lib one_phase` 21, `--lib structure` 42, `--lib multi_region` 56 passed; `petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` exit 0. **Not run** (not on the path of the edit and slow): `genfoam_one_phase_fc_vs_upstream`, the other `msfr_th_*` files. `read_field_bcs_only` is reached by `esfr_hx_matches_the_real_binary` and the other two tests of the new file (call graph). No `kind = "review"` block exists under `src/` (checked), so no reviewed function was touched.
+
+
+# Round 53 (gh:#1909 item 5, readers; child of #1216; maintainer 2026-11-27: "Match all upstream"; on #1909: "(1) YES, switch the field and dictionary number readers to `parse_foam_f64`"; "(3) basic-lib `PolyMesh::read` keeps the correctly rounded parse")
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27.
+
+## What was read before the predictions
+
+Sites that read a decimal into `f64` from an OpenFOAM case text file, found by grepping `parse::<f64>`, `.parse()` into a typed `f64`, `from_str` in `outram-foam-appbuilder-lib/src` and `outram-foam-basic-lib/src`:
+
+| # | site | what it reads | shared with |
+|---|---|---|---|
+| 1-4 | `appbuilder::io::field_reader` `parse_uniform_scalar`, nonuniform scalar list, `parse_vector_triple`, `parse_uniform_scalar_payload` | `0/<field>` internalField and boundary values | GeN-Foam and the appbuilder solvers |
+| 5-7 | basic-lib `io::dict` `parse_dimensioned` exponents, `parse_leaf` (2 sites) | every dictionary number (fvSolution, fvSchemes, controlDict, thermophysicalProperties, nuclearData, structureProperties, phaseProperties, multiRegionCouplingDict, cellZones/time tables through `FoamFile`) | cfMesh port, `outram-foam-mesh`, `outram-foam-cli`, kovan-literature: they write then read their own files (round-trip tests), so the default stays correctly rounded |
+| 8 | basic-lib `io::field` `parse_f64` | `read_vol_scalar_field` / `read_vol_vector_field` (`FoamCase::read`) | same sharing |
+| extra | `two_phase/one_phase_cc.rs` `parse_value` (uniform and nonuniform scalar lists of the cell-centred reader), `workflow/allrun.rs` `uniform_internal_field`, `workflow/reactor_state.rs` (`keff`, `pTarget`), `neutronics/diffusion/external_source_case.rs` `parse_scalar` | GeN-Foam case files | GeN-Foam only |
+
+Not switched, on purpose: `PolyMesh::read` (decision 3); `view_factor_radiation` (OpenFOAM's `viewFactor` reads `F` with `readList<scalar>`, but no GeN-Foam test uses it; listed, not changed); the CSV readers of the HTR-10 example (`fpic.rs`, `power_map.rs`: not OpenFOAM files); `upstream_differential.rs` (reads `%.17g` dumps printed by the real class from a double).
+
+**Design.** The shared basic-lib readers keep the correctly rounded default and gain explicit ESI entry points (`FoamFile::parse_esi`, `parse_named_esi`, `read_esi`, `read_with_includes_esi`, `read_vol_scalar_field_esi`, `read_vol_vector_field_esi`), so cfMesh, `outram-foam-mesh` and the CLI are unchanged and a write-then-read round trip of this workspace's shortest-round-trip text stays exact (strtold can differ from it by one ulp). Every GeN-Foam call site of the appbuilder switches to the ESI entry points; `appbuilder::io::field_reader` switches directly.
+
+## Predictions (written BEFORE the switch; committed first)
+
+A decimal of at most ~12 significant digits is rounded differently by `strtold`-then-narrow only when the 64-bit intermediate lands on a 53-bit midpoint: about 1 in 10^3 to 10^4 for 10-digit values (round 49: 4 of 52 860 point coordinates), and almost never for hand-typed short decimals (`0.5`, `1e5`, `300`).
+
+| id | prediction | confidence |
+|---|---|---|
+| R1 | Tests whose input numbers are hand-typed short decimals do not move at all (bit-identical to before) | 85 % |
+| R2 | Tests that read machine-written fields with 6 to 17 digits (the MSFR/ESFR `0/` files written by OpenFOAM, `nonuniform` lists) read 1-ulp different values in about 1 of 10^3 to 10^4 of them; the tests that read them (`genfoam_msfr_transient_vs_upstream`, `_chain_`, `_th_`, `genfoam_heat_exchanger_*`) move by round-off: no recorded value moves by more than 1e-9 relative directly or 1e-4 propagated | 75 % |
+| R3 | `genfoam_msfr_precursor_matrix_vs_upstream` (all-zero gates, round 49) stays bit-identical; if a field it reads moves, it moves towards upstream, not away | 85 % |
+| R4 | At least one non-bit-identical vs-upstream gate becomes bit-identical or its worst difference falls; at least one worst difference rises by round-off (mixed signs, as round 49 B3, since matrix assembly B4 is still the old form) | 60 % |
+| R5 | The noise-limited radial-power gates (`lumped_nuclear_structure_matches`, `_three_nodes_matches`; README round 49: 1.8e-6 .. 2.5e-6 against a 1e-6 gate) move again by noise; they pass or fail with equal probability and are NOT loosened | 50 % |
+| R6 | Counting numeric tokens of the shipped GeN-Foam case files: the fraction whose ESI value differs from the correctly rounded one is below 1e-3 overall and 0 for files with at most 8 significant digits | 80 % |
+| R7 | basic-lib and appbuilder-lib `--lib --tests`: no failure caused by the readers other than R5 | 85 % |
+| R8 | `outram-foam-cli`, `outram-foam-mesh`, `outram-park-fork-cfmesh` tests unchanged (default entry points) | 95 % |
+
+Criteria (fixed here): a pin may move for round-off by up to 1e-9 relative (direct) or 1e-4 (propagated), recorded old/new where it lives; beyond that, or unexplained, STOP and report. No gate is loosened. A gate is tightened only to a value the post-run measurement supports and only where the result is bit-identical.
