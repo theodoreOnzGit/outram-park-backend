@@ -68,7 +68,7 @@ use crate::nostd_prelude::*;
 use std::path::Path;
 use alloc::sync::Arc;
 
-use outram_foam_basic_lib::io::FoamEntry;
+use outram_foam_basic_lib::io::{FoamEntry, FoamValue};
 use outram_foam_basic_lib::prelude::*;
 use uom::si::f64::{Length, Ratio, ThermalConductivity, Time};
 use uom::si::heat_flux_density::watt_per_square_meter;
@@ -170,6 +170,10 @@ pub struct OnePhaseFcControls {
     pub p_ref_cell: usize,
     /// `pRefValue` (default 0).
     pub p_ref_value: f64,
+    /// `nNonOrthogonalCorrectors` (default 0): the pressure equation is solved `n + 1` times per corrector, the flux, `dgdt` and `U`
+    /// being taken from the last pass (`pEqnf_1p.H`, gh:#1878 item 1).
+    pub n_non_orth_correctors: usize,
+
     /// `true` (default, upstream's form): a `Boussinesq` fluid has the constant `rho0` as `fluid::rho()` in every term but the
     /// buoyancy flux. `false` ([`OnePhaseFcSolver::with_variable_density_boussinesq`]): the ablation, `rho(T)` everywhere.
     pub boussinesq_constant_rho: bool,
@@ -413,6 +417,30 @@ impl OnePhaseFcCase {
         if scalar(pimple, "porousInterfaceSharpness").unwrap_or(0.0) != 0.0 {
             return Err(ctx.e("porousInterfaceSharpness != 0 is not ported"));
         }
+        // `uncorrected` Laplacian and snGrad are the only schemes `fv` implements: with a `corrected` one the non-orthogonal passes
+        // would carry an explicit correction (refused by name, as in the cell-centred reader)
+        {
+            let schemes = ctx.read(&format!("system/{region}/fvSchemes"))?;
+            for block in ["laplacianSchemes", "snGradSchemes"] {
+                let d = ctx.sub(&schemes, block)?;
+                let words: Vec<String> = match d.get("default") {
+                    Some(FoamEntry::Word(w)) => vec![w.clone()],
+                    Some(FoamEntry::Tokens(vs)) => vs
+                        .iter()
+                        .filter_map(|v| match v {
+                            FoamValue::Word(w) => Some(w.clone()),
+                            _ => None,
+                        })
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                if !words.iter().any(|w| w == "uncorrected") {
+                    return Err(ctx.e(format!(
+                        "fvSchemes.{block}.default = {words:?} is not ported (only `uncorrected`: no explicit non-orthogonal correction)"
+                    )));
+                }
+            }
+        }
         let solvers = ctx.sub(&fs, "solvers")?;
         let p_rgh_entry = match lookup_regex(solvers, "p_rgh") {
             Some(FoamEntry::SubDict(d)) => d,
@@ -463,6 +491,7 @@ impl OnePhaseFcCase {
             p_ref_cell: scalar(&pp, "pRefCell").unwrap_or(0.0) as usize,
             p_ref_value: scalar(&pp, "pRefValue").unwrap_or(0.0),
             boussinesq_constant_rho: true,
+            n_non_orth_correctors: scalar(pimple, "nNonOrthogonalCorrectors").unwrap_or(0.0) as usize,
         };
 
         let zero = format!("0/{region}");
@@ -776,12 +805,32 @@ impl OnePhaseFcSolver {
         }
     }
 
+    /// The density of the THERMO in cell `c` (`fluid_.thermo().rho()`): for a `Boussinesq` fluid `rho0 (1 - beta (T - T0))`, which is NOT
+    /// `fluid::rho()` (= `rho0`); `thermo().nu()` and the laminar `nuEff` divide `mu` by it. For every other package they are the same field.
+    fn thermo_rho_c(&self, c: usize) -> f64 {
+        if self.fluid.thermo.boussinesq_rho0().is_some() {
+            self.rho_var.c[c]
+        } else {
+            self.fluid.rho.c[c]
+        }
+    }
+
+    /// [`Self::thermo_rho_c`] on boundary face `i` (indexed from the first boundary face).
+    fn thermo_rho_b(&self, i: usize) -> f64 {
+        if self.fluid.thermo.boussinesq_rho0().is_some() {
+            self.rho_var.b[i]
+        } else {
+            self.fluid.rho.b[i]
+        }
+    }
+
     /// `FSPair::correct(true, true)`: `Re`, `Kd` and `Hs`.
     fn correct_models(&mut self) {
         let n = self.geom.n_cells();
         for c in 0..n {
             let fl = &self.fluid;
-            let nu = fl.mu.c[c] / fl.rho.c[c];
+            // `fluid_.thermo().nu()` = mu / the THERMO density (`rho(T)` of a Boussinesq fluid, not `fluid::rho()` = rho0)
+            let nu = fl.mu.c[c] / self.thermo_rho_c(c);
             self.re[c] = (fl.normalized[c] * fl.u.c[c].mag() * self.structure.dh[c] / nu).max(10.0);
         }
         for c in 0..n {
@@ -873,10 +922,10 @@ impl OnePhaseFcSolver {
         // alpha rho nuEff, nuEff = mu / rho (laminar Stokes)
         let mut arn = Scalar::uniform(g, 0.0, vec![Bc::Calculated; g.mesh.patches.len()]);
         for c in 0..n {
-            arn.c[c] = fl.alpha.c[c] * fl.rho.c[c] * (fl.mu.c[c] / fl.rho.c[c]);
+            arn.c[c] = fl.alpha.c[c] * fl.rho.c[c] * (fl.mu.c[c] / self.thermo_rho_c(c));
         }
         for i in 0..(nf - ni) {
-            arn.b[i] = fl.alpha.b[i] * fl.rho.b[i] * (fl.mu.b[i] / fl.rho.b[i]);
+            arn.b[i] = fl.alpha.b[i] * fl.rho.b[i] * (fl.mu.b[i] / self.thermo_rho_b(i));
         }
         let gamma = fv::interp_linear(g, &arn);
         e.eqn.neg_laplacian(g, &gamma, &zg);
@@ -1023,32 +1072,47 @@ impl OnePhaseFcSolver {
                 peqn.source[rc] += peqn.ldu.diag[rc] * self.controls.p_ref_value;
                 peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
             }
-            let mut x = self.p_rgh.c.clone();
-            // `pEqn.solve(mesh_.solver(p_rgh_.select(pimple_.finalInnerIter())))`: `finalInnerIter()` is the last corrector
-            // (one non-orthogonal pass); `converged = nIterations == 0`, `convergedPISO = converged`
-            let (res, converged) = match self.controls.p_rgh_pcg {
-                Some(def) => {
-                    let s = if corr == self.controls.n_corr.max(1) { self.controls.p_rgh_final_pcg.unwrap_or(def) } else { def };
-                    let perf = pcg_dic(&peqn.ldu, &peqn.source, &mut x, s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
-                    self.last_step_solves.push(PressureSolve {
-                        outer: self.outer_now,
-                        corrector: corr,
-                        non_orth: 1,
-                        initial_residual: perf.initial_residual,
-                        iterations: perf.iterations,
-                    });
-                    (perf.initial_residual, perf.iterations == 0)
+            // `while (pimple_.correctNonOrthogonal())` (nNonOrthogonalCorrectors + 1 passes), `solveP_rgh_1p.H` in each. With the
+            // `uncorrected` Laplacian (the only scheme read, see `OnePhaseFcCase::read`) the matrix and source of every pass are the
+            // same, so they are built once; only `p_rgh` differs between passes (gh:#1878 item 1, README round 38).
+            let n_pass = self.controls.n_non_orth_correctors + 1;
+            let mut converged = false;
+            for pass in 1..=n_pass {
+                let mut x = self.p_rgh.c.clone();
+                // `pEqn.solve(mesh_.solver(p_rgh_.select(pimple_.finalInnerIter())))`: `finalInnerIter()` is the last pass of the
+                // last corrector; `converged = nIterations == 0`, and `if (corrNonOrtho == 1) convergedPISO = converged`
+                let (res, conv) = match self.controls.p_rgh_pcg {
+                    Some(def) => {
+                        let last = corr == self.controls.n_corr.max(1) && pass == n_pass;
+                        let s = if last { self.controls.p_rgh_final_pcg.unwrap_or(def) } else { def };
+                        let perf = pcg_dic(&peqn.ldu, &peqn.source, &mut x, s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
+                        self.last_step_solves.push(PressureSolve {
+                            outer: self.outer_now,
+                            corrector: corr,
+                            non_orth: pass,
+                            initial_residual: perf.initial_residual,
+                            iterations: perf.iterations,
+                        });
+                        (perf.initial_residual, perf.iterations == 0)
+                    }
+                    None => {
+                        let r = solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance);
+                        (r, r < self.controls.p_rgh_tolerance)
+                    }
+                };
+                if pass == 1 {
+                    converged = conv;
                 }
-                None => {
-                    let r = solve_krylov(&peqn, &mut x, self.controls.p_rgh_tolerance);
-                    (r, r < self.controls.p_rgh_tolerance)
+                // `updateFirstPISOPrevPIMPLE()` (customPimpleControl.C:279) after EVERY pass: in the first corrector it keeps the LAST
+                // `p_rgh` solve's initial residual of the iteration, so the residual `useFirstPISOInitialResidual` sees is that of the
+                // last pass. NOT discriminated by any case run (README round 38: the channel's `h` criterion is never met, so the
+                // outer-iteration count does not depend on it); read from upstream, not measured
+                if corr == 1 {
+                    first_res = res;
                 }
-            };
-            if corr == 1 {
-                first_res = res;
+                self.p_rgh.c = x;
+                self.p_rgh.correct_bc(&g);
             }
-            self.p_rgh.c = x;
-            self.p_rgh.correct_bc(&g);
             let p_flux = Eqn::laplacian_flux(&g, &rau_p, &self.p_rgh);
             for f in 0..nf {
                 if g.active[f] {
@@ -1424,6 +1488,15 @@ impl OnePhaseFcSolver {
     #[must_use]
     pub fn with_variable_density_boussinesq(mut self) -> Self {
         self.controls.boussinesq_constant_rho = false;
+        self
+    }
+
+    /// The ablation of the non-orthogonal loop ([`OnePhaseFcControls::n_non_orth_correctors`] `= 0`): one pressure solve per corrector
+    /// whatever `nNonOrthogonalCorrectors` says (control of README round 38, item 1). With the `uncorrected` Laplacian the extra passes
+    /// change the solve log and, through `p_rghFinal` and `residualControl`, the iteration counts, not the converged answer.
+    #[must_use]
+    pub fn without_non_orthogonal_correctors(mut self) -> Self {
+        self.controls.n_non_orth_correctors = 0;
         self
     }
 }
