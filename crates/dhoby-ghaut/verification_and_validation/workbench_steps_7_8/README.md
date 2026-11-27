@@ -22,6 +22,7 @@ cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-mgxs \
 | `images/mesh_<mesh>_xz.png`, `_xy.png` | each mesh drawn from the mesh itself (cells cut by the plane, faces in black, coloured by region): X-Z through the axis, X-Y at the bed mid-height |
 | `images/gui_step7.png`, `gui_step8.png` | the workbench at Steps 7 and 8 (Xvfb, `--open-step 7 --auto-build`) |
 | `meshes.csv` | per mesh: cells, volume against exact, quality, patches; per region: cells and volume against exact; per map: overlap and coverage |
+| `meshes_ami_2026-11-27.csv`, `mesh_notes_ami_2026-11-27.md`, `images/ami_2026-11-27/` | the current Step 7 (every region meshed on its own, joined by `cyclicAMI`): the CSV, each mesh's build notes (per region, per AMI pair), the images |
 | `mgxs.csv` | per state, region and group: Σ_t, Σ_a, νΣ_f, χ, Σ_s g→g, D, flux, with relative σ |
 | `nuclearData` | the GeN-Foam `constant/neutroRegion/nuclearData` Step 8 wrote |
 | `run.log` | timings and modelling notes |
@@ -80,6 +81,92 @@ size, worst for thin bands: the 10 cm cold-gas plenum band is +90 % on the
 neutronics mesh and the 8 cm coolant band is a row of whole cells. **What the
 images cannot show:** the explicit borings (not in the meshes at all, gh:#594)
 and anything off the two planes drawn.
+
+### Re-measured 2026-11-27: every region meshed on its own, joined by `cyclicAMI`
+
+**Maintainer, 2026-11-26:** "pls always snap internal region boundaries"
+(the hard rule in `outram-foam-appbuilder-lib/AGENTS.md`), and **2026-11-27:**
+"mesh each region separately, then combine them into a multiregion mesh
+using a AMI interface" (gh:#1858; the structural FEM mesh stays conforming,
+the join is one polyMesh with `cyclicAMI` pairs).
+
+The 2026-11-26 meshes below were each **one** closed surface with the
+regions given to cells by centroid afterwards: no region boundary inside
+a mesh was a face. Now:
+
+- **Neutronics and TH**: each region the mesh holds is meshed on its own
+  (`meshing::mesh_regions_joined`; method as in
+  `htr10_cht_mesh/README.md`, "Per-region meshes joined by `cyclicAMI`"),
+  snapped (walls, interfaces, rims and the conus cone), and the regions
+  joined with each interface a `cyclicAMI` pair. The TH cavity grows its 3
+  layers **first**, by the single-region pipeline (gh:#1829); on the
+  cavity alone it grows all of them at the full asked thickness (thinnest
+  column 100 % of 3.99 cm). It no longer meets the `cavity_wall` /
+  `bed_wall` seam that refused it on 2026-11-26.
+- **Structural (Tet4)**: the regions are meshed together in one TetGen run
+  with the interfaces as constraints (`pipeline::multi_region`, no dual),
+  then snapped: conforming, as an FEM mesh needs.
+- **Ablation**: `DHOBY_STEP7_BOUNDARIES=conformal` meshes the FV meshes on
+  the conforming route too. On it the TH cavity came out −1.13 % short at
+  25 cm, cause not found (`diagnose_th_cavity_volume_at_25_cm`); that is
+  one reason it is not the default.
+
+Default sizes (30 / 15 / 25 cm, 32 segments), built from `b73f1ad43`; whole
+run 56 s (it was 2 m 34 s).
+
+| mesh | cells | volume vs exact | worst region | non-star cells | max non-orth |
+|---|---|---|---|---|---|
+| neutronics (12 regions, per region + AMI) | 23 303 polyhedra | **−0.10 %** | `conus_graphite` −0.14 % | 4 020 | 74.5° |
+| thermal-hydraulics (bed + cavity, cavity layered) | 6 423 | **−0.06 %** | `core_cavity` −0.08 % | 275 | **58.1°** |
+| structural (conforming Tet4) | 131 265 | **−0.13 %** | `control_rod_band` −0.63 % | 0 | 83.6° |
+
+The volumes are against the partition's analytic round volumes (each
+region's polygons revolved exactly). ~~`exact_in`'s 0.5 cm quadrature~~,
+used for the rows below, was off by up to 0.4 % where a region edge is off
+its grid. Every region of every mesh is within 0.65 %; the gate test asserts
+1 %. The cold-gas plenum band, which by centroid was up to +90 % off on
+the 30 cm neutronics mesh (2026-10-05), is −0.04 %.
+
+**The interfaces.** Neutronics has 23 `cyclicAMI` pairs, TH one. Per pair
+the notes give both side areas and the AMI weight sums
+(`mesh_notes_ami_2026-11-27.md`):
+
+- **Flat pairs** whose rims match on both sides: sums 1 to round-off, areas
+  equal to 1e-15. Four of them, plus the TH bed/cavity pair (whose cavity
+  side carries the layer columns' rim: source min 0.972, mean 0.99964).
+- **Curved pairs** (cylinders): mean sums 1.00005 to 1.0012. Over all
+  pairs the two side areas differ by at most 2.5e-3. Predicted before measuring: an excess over 1 of about
+  π²/(6N²), from the projection along the bisector that upstream uses (the
+  port's own cylinder test confirms the model). I estimated N from the cell
+  size, about 19 around r = 0.9 m, and predicted 2–5e-3; the measured excess
+  is about 5× smaller, because the snapped dual faces are finer than the
+  cell size.
+- **Thin flat bands** (the cold-gas plenum, the coolant and control-rod
+  bands against their neighbours): mean sums down to 0.9899, single faces
+  down to 0.966. Not predicted. Probably TetGen splitting the rim rings at
+  different angles on the two sides, so the rims do not line up; not
+  checked.
+
+**The map gate moved, with the maintainer's agreement.** The test maps a
+power density neutronics → TH and compares integrals. Its bound ~~1e-4~~ is
+now `(1 - coverage) q_max / q_min`. The neutronics mesh now has a fitted
+boundary at r = 90 cm, and both meshes are snapped onto that cylinder with
+different tilings, so about 0.4 mm slivers of the TH domain lie outside
+every neutronics cell. N → TH coverage is now 0.999231; it was 0.999999 when
+the neutronics mesh was one cylinder of r = 190 cm. Measured 1.54e-4 at the
+test sizes, against a bound of 7.7e-4.
+
+**Images** (`images/ami_2026-11-27/`, drawn from the meshes). Checked:
+every region boundary is a straight line in X-Z (the conus slope one
+straight line); the thin bands (side-reflector strip r 90–95.6 cm, coolant
+band, control-rod band, cold-gas plenum) are continuous; the TH cavity shows
+its three layer lines along both walls. Not checked: off the drawn planes,
+and the AMI coupling itself.
+
+**Not yet done:** Steps 9–10 read the `cyclicAMI` pairs as plain patches
+until `read_poly_mesh` couples them (gh:#1860). Files:
+`meshes_ami_2026-11-27.csv`, `mesh_notes_ami_2026-11-27.md`,
+`images/ami_2026-11-27/`.
 
 ### Re-measured 2026-11-26: snapped to the true geometry; TH layers restored
 

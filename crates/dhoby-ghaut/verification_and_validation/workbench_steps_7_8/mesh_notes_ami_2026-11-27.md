@@ -1,0 +1,111 @@
+## Neutronics
+
+- pebble_bed: TetGen tetrahedra with region attributes (1796 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- pebble_bed: TetGen -pq1.414/3.5a0.0031819805153394634A
+- pebble_bed: snapped 556 surface points radially onto the true surface of revolution (32-facet input), after morphing 4049 points within 30.0 cm of a cylinder
+- pebble_bed: snapped 50 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- pebble_bed: 442 cells
+- conus: TetGen tetrahedra with region attributes (1862 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- conus: TetGen -pq1.414/3.5a0.0031819805153394634A
+- conus: snapped 1493 surface points radially onto the true surface of revolution (32-facet input), after morphing 0 points within 30.0 cm of a cylinder
+- conus: snapped 43 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- conus: 558 cells
+- discharge_tube: TetGen tetrahedra with region attributes (5978 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- discharge_tube: TetGen -pq1.414/3.5a0.0031819805153394634A
+- discharge_tube: snapped 3102 surface points radially onto the true surface of revolution (32-facet input), after morphing 21516 points within 30.0 cm of a cylinder
+- discharge_tube: snapped 26 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- discharge_tube: 1575 cells
+- core_cavity: TetGen tetrahedra with region attributes (1486 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- core_cavity: TetGen -pq1.414/3.5a0.0031819805153394634A
+- core_cavity: snapped 467 surface points radially onto the true surface of revolution (32-facet input), after morphing 3380 points within 30.0 cm of a cylinder
+- core_cavity: snapped 50 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- core_cavity: 374 cells
+- top_reflector: TetGen tetrahedra with region attributes (4775 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- top_reflector: TetGen -pq1.414/3.5a0.0031819805153394634A
+- top_reflector: snapped 1092 surface points radially onto the true surface of revolution (32-facet input), after morphing 9995 points within 30.0 cm of a cylinder
+- top_reflector: snapped 228 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- top_reflector: 1249 cells
+- cold_gas_plenum: TetGen tetrahedra with region attributes (2405 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- cold_gas_plenum: TetGen -pq1.414/3.5a0.0031819805153394634A
+- cold_gas_plenum: snapped 218 surface points radially onto the true surface of revolution (32-facet input), after morphing 4020 points within 30.0 cm of a cylinder
+- cold_gas_plenum: snapped 414 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- cold_gas_plenum: 818 cells
+- side_reflector: TetGen tetrahedra with region attributes (22513 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- side_reflector: TetGen -pq1.414/3.5a0.0031819805153394634A
+- side_reflector: snapped 23971 surface points radially onto the true surface of revolution (32-facet input), after morphing 91727 points within 30.0 cm of a cylinder
+- side_reflector: snapped 617 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- side_reflector: 7363 cells
+- control_rod_band: TetGen tetrahedra with region attributes (2688 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- control_rod_band: TetGen -pq1.414/3.5a0.0031819805153394634A
+- control_rod_band: snapped 2198 surface points radially onto the true surface of revolution (32-facet input), after morphing 10174 points within 30.0 cm of a cylinder
+- control_rod_band: snapped 32 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- control_rod_band: 894 cells
+- coolant_band: TetGen tetrahedra with region attributes (7186 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- coolant_band: TetGen -pq1.414/3.5a0.0031819805153394634A
+- coolant_band: snapped 7464 surface points radially onto the true surface of revolution (32-facet input), after morphing 30274 points within 30.0 cm of a cylinder
+- coolant_band: snapped 91 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- coolant_band: 2406 cells
+- carbon_bricks: TetGen tetrahedra with region attributes (7112 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- carbon_bricks: TetGen -pq1.414/3.5a0.0031819805153394634A
+- carbon_bricks: snapped 8974 surface points radially onto the true surface of revolution (32-facet input), after morphing 28516 points within 30.0 cm of a cylinder
+- carbon_bricks: snapped 252 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- carbon_bricks: 2385 cells
+- bottom_structures: TetGen tetrahedra with region attributes (21512 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- bottom_structures: TetGen -pq1.414/3.5a0.0031819805153394634A
+- bottom_structures: snapped 5446 surface points radially onto the true surface of revolution (32-facet input), after morphing 49393 points within 30.0 cm of a cylinder
+- bottom_structures: snapped 631 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- bottom_structures: 4654 cells
+- conus_graphite: TetGen tetrahedra with region attributes (1679 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- conus_graphite: TetGen -pq1.414/3.5a0.0031819805153394634A
+- conus_graphite: snapped 1735 surface points radially onto the true surface of revolution (32-facet input), after morphing 1944 points within 30.0 cm of a cylinder
+- conus_graphite: snapped 66 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- conus_graphite: 585 cells
+- AMI pebble_bed_to_conus / conus_to_pebble_bed: areas 2.540604e0 / 2.540604e0 m², mismatch -6.66e-16; weight sums source 1.0000 / 1.000000 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- AMI pebble_bed_to_core_cavity / core_cavity_to_pebble_bed: areas 2.540604e0 / 2.540604e0 m², mismatch -8.88e-16; weight sums source 1.0000 / 1.000000 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- AMI pebble_bed_to_side_reflector / side_reflector_to_pebble_bed: areas 6.984754e0 / 6.987287e0 m², mismatch +3.63e-4; weight sums source 1.0001 / 1.000458 / 1.0010, target 0.9997 / 1.000089 / 1.0009 (min / mean / max)
+- AMI conus_to_discharge_tube / discharge_tube_to_conus: areas 1.960343e-1 / 1.960343e-1 m², mismatch +0.00e0; weight sums source 1.0000 / 1.000000 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- AMI conus_to_conus_graphite / conus_graphite_to_conus: areas 2.697662e0 / 2.697603e0 m², mismatch -2.19e-5; weight sums source 0.9999 / 1.000069 / 1.0004, target 1.0000 / 1.000071 / 1.0003 (min / mean / max)
+- AMI discharge_tube_to_bottom_structures / bottom_structures_to_discharge_tube: areas 3.473538e0 / 3.473538e0 m², mismatch -1.10e-7; weight sums source 1.0000 / 1.000274 / 1.0009, target 1.0001 / 1.000274 / 1.0007 (min / mean / max)
+- AMI core_cavity_to_top_reflector / top_reflector_to_core_cavity: areas 2.540604e0 / 2.540604e0 m², mismatch +2.22e-16; weight sums source 1.0000 / 1.000000 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- AMI core_cavity_to_side_reflector / side_reflector_to_core_cavity: areas 5.552880e0 / 5.554604e0 m², mismatch +3.11e-4; weight sums source 1.0001 / 1.000502 / 1.0011, target 0.9998 / 1.000167 / 1.0010 (min / mean / max)
+- AMI top_reflector_to_cold_gas_plenum / cold_gas_plenum_to_top_reflector: areas 1.030170e1 / 1.030912e1 m², mismatch +7.21e-4; weight sums source 0.9864 / 0.999392 / 1.0000, target 0.9672 / 0.998505 / 1.0000 (min / mean / max)
+- AMI top_reflector_to_side_reflector / side_reflector_to_top_reflector: areas 1.165844e1 / 1.166901e1 m², mismatch +9.06e-4; weight sums source 0.9999 / 1.000756 / 1.0238, target 0.9843 / 0.999882 / 1.0010 (min / mean / max)
+- AMI top_reflector_to_control_rod_band / control_rod_band_to_top_reflector: areas 8.326282e-1 / 8.326282e-1 m², mismatch +2.22e-16; weight sums source 1.0000 / 1.000000 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- AMI top_reflector_to_carbon_bricks / carbon_bricks_to_top_reflector: areas 4.215859e0 / 4.215397e0 m², mismatch -1.10e-4; weight sums source 0.9999 / 1.000165 / 1.0006, target 0.9999 / 1.000302 / 1.0006 (min / mean / max)
+- AMI cold_gas_plenum_to_side_reflector / side_reflector_to_cold_gas_plenum: areas 3.766848e0 / 3.761928e0 m², mismatch -1.31e-3; weight sums source 0.9701 / 0.998440 / 1.0002, target 0.9871 / 0.999625 / 1.0002 (min / mean / max)
+- AMI cold_gas_plenum_to_coolant_band / coolant_band_to_cold_gas_plenum: areas 7.265470e-1 / 7.265933e-1 m², mismatch +6.38e-5; weight sums source 0.9919 / 0.999832 / 1.0000, target 0.9917 / 0.999597 / 1.0000 (min / mean / max)
+- AMI side_reflector_to_control_rod_band / control_rod_band_to_side_reflector: areas 3.319031e1 / 3.318492e1 m², mismatch -1.62e-4; weight sums source 0.9996 / 1.000099 / 1.0012, target 0.9999 / 1.000363 / 1.0010 (min / mean / max)
+- AMI side_reflector_to_coolant_band / coolant_band_to_side_reflector: areas 5.154176e1 / 5.155383e1 m², mismatch +2.34e-4; weight sums source 0.9999 / 1.000392 / 1.0012, target 0.9996 / 1.000145 / 1.0010 (min / mean / max)
+- AMI side_reflector_to_carbon_bricks / carbon_bricks_to_side_reflector: areas 3.675632e1 / 3.675400e1 m², mismatch -6.30e-5; weight sums source 0.9999 / 1.000313 / 1.0010, target 0.9999 / 1.000383 / 1.0011 (min / mean / max)
+- AMI side_reflector_to_bottom_structures / bottom_structures_to_side_reflector: areas 4.733698e0 / 4.739331e0 m², mismatch +1.19e-3; weight sums source 0.9855 / 0.998735 / 1.0000, target 0.9685 / 0.997300 / 1.0000 (min / mean / max)
+- AMI side_reflector_to_conus_graphite / conus_graphite_to_side_reflector: areas 2.089002e0 / 2.088287e0 m², mismatch -3.42e-4; weight sums source 0.9998 / 1.000051 / 1.0006, target 1.0002 / 1.000403 / 1.0007 (min / mean / max)
+- AMI control_rod_band_to_bottom_structures / bottom_structures_to_control_rod_band: areas 8.326282e-1 / 8.305652e-1 m², mismatch -2.48e-3; weight sums source 0.9864 / 0.995522 / 1.0000, target 0.9854 / 0.998179 / 1.0000 (min / mean / max)
+- AMI coolant_band_to_bottom_structures / bottom_structures_to_coolant_band: areas 7.266465e-1 / 7.265470e-1 m², mismatch -1.37e-4; weight sums source 0.9917 / 0.999116 / 1.0000, target 0.9906 / 0.999528 / 1.0000 (min / mean / max)
+- AMI carbon_bricks_to_bottom_structures / bottom_structures_to_carbon_bricks: areas 2.332042e1 / 2.331844e1 m², mismatch -8.50e-5; weight sums source 0.9999 / 1.000119 / 1.0009, target 0.9997 / 1.000175 / 1.0009 (min / mean / max)
+- AMI bottom_structures_to_conus_graphite / conus_graphite_to_bottom_structures: areas 2.347634e0 / 2.344570e0 m², mismatch -1.31e-3; weight sums source 0.9746 / 0.998089 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- quality by place: 0 cells on a region interface, max non-orthogonality 0.0 deg, max skewness 0.00; the other 23303 cells 74.5 deg, 1.62. Worst non-orthogonality at r 86.2, z -62.3 cm; worst skewness at r 94.4, z -21.9 cm
+
+## Thermal-hydraulics
+
+- pebble_bed: TetGen tetrahedra with region attributes (14205 tetrahedra), each region dualled separately and stitched: 0 interface faces
+- pebble_bed: TetGen -pq1.414/3.5a0.00039774756441743293A
+- pebble_bed: snapped 2015 surface points radially onto the true surface of revolution (32-facet input), after morphing 16702 points within 15.0 cm of a cylinder
+- pebble_bed: snapped 99 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- pebble_bed: 2838 cells
+- core_cavity: layers-first step 1, the wall triangulation: tet source TetGen -pq1.414/3.5a0.00039774756441743293: 11177 tetrahedra on 2253 nodes; carve, snap and the Delaunay flips not run (TetGen's constrained Delaunay refinement replaces them)
+- core_cavity: layers-first: 3 layers on 489 wall points (872 faces), requested total 3.9900e-2 m; 489 points at the full thickness, thinnest column 100.0 % of the request; capped by proximity at 0, by the corner rule at 0, thinned in 0 passes at 0 (wrong prism, flipped inlet triangle or intersecting top surface); 251 points of the non-layer patches slid in their planes
+- core_cavity: layers-first step 4, the inner region: TetGen -pq1.414/3.5a0.00039774756441743293YMJ on 1720 triangles: 10261 tetrahedra, 1256 points added inside, none on the boundary
+- core_cavity: snapped 1319 surface points radially onto the true surface of revolution (32-facet input), after morphing 21602 points within 15.0 cm of a cylinder
+- core_cavity: snapped 84 rim points (edges between two patches) onto their rings; split 0 rim chords to half a facet
+- core_cavity: 3585 cells
+- AMI pebble_bed_to_core_cavity / core_cavity_to_pebble_bed: areas 2.543477e0 / 2.542328e0 m², mismatch -4.52e-4; weight sums source 0.9749 / 0.999398 / 1.0000, target 1.0000 / 1.000000 / 1.0000 (min / mean / max)
+- quality by place: 0 cells on a region interface, max non-orthogonality 0.0 deg, max skewness 0.00; the other 6423 cells 58.1 deg, 1.34. Worst non-orthogonality at r 87.6, z -53.6 cm; worst skewness at r 78.5, z 59.0 cm
+
+## Structural (FEM)
+
+- TetGen tetrahedra with region attributes: 131265 tetrahedra on 24229 nodes, internal boundaries fitted
+- TetGen -pq1.414/3.5a0.0018414239093399673A
+- region boundaries fitted: 48356 interface faces (carbon_bricks_to_bottom_structures 1767, bottom_structures_to_conus_graphite 675, side_reflector_to_bottom_structures 613, side_reflector_to_conus_graphite 493, control_rod_band_to_bottom_structures 143, side_reflector_to_control_rod_band 6737, coolant_band_to_bottom_structures 136, side_reflector_to_coolant_band 5544, side_reflector_to_carbon_bricks 3717, top_reflector_to_side_reflector 1825, top_reflector_to_control_rod_band 212, top_reflector_to_cold_gas_plenum 1331, cold_gas_plenum_to_side_reflector 579, cold_gas_plenum_to_coolant_band 144, top_reflector_to_carbon_bricks 262, all interfaces 24178)
+- snapped 7513 surface points radially onto the true surface of revolution (32-facet input), after morphing 13861 points within 25.0 cm of a cylinder
+- quality by place: 46690 cells on a region interface, max non-orthogonality 72.4 deg, max skewness 1.22; the other 84575 cells 83.6 deg, 1.70. Worst non-orthogonality at r 175.9, z 70.1 cm; worst skewness at r 43.7, z -102.9 cm
+

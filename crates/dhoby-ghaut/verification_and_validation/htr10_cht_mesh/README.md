@@ -27,6 +27,105 @@ The plenum zones still hold graphite in Fig. 4.10 (16 % of zone 3, and 61 %
 and 38 % of zones 14 and 15 by carbon density). Here they are taken as all
 gas. That is an idealisation, stated in the code.
 
+## Per-region meshes joined by `cyclicAMI` (2026-11-27, the default)
+
+**Maintainer, 2026-11-27:** "since single region works, cut these
+multiregion meshes into individual ones, then mesh each region separately,
+then combine them into a multiregion mesh using a AMI interface" (gh:#1858).
+`--boundaries ami` is now the default; the conforming route below is
+`--boundaries fitted`, kept as the ablation.
+
+### Method
+
+```text
+cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-cht-mesh \
+    --cell 10 --out <case>                          # per region + cyclicAMI (default)
+```
+
+1. **One surface per region.** `RegionMap::rz_partition` cuts the R-Z map
+   into one-region polygons (the conus slope split along it).
+   `meshing::fitted_surface`, keeping one region, revolves that region's
+   boundary with 32 segments. An edge to another region `h` becomes the
+   patch `<region>_to_<h>`; the outer edges become `top`, `bottom` and
+   `side`. Every run is wound with its normal away from the region, so an
+   enclosed shell (the solid graphite round the bed and plenums) has
+   negative volume and gets a TetGen hole point.
+2. **Each region meshed on its own**: TetGen `-pq1.414/3.5a<V>A`, `V` the
+   regular tetrahedron of 10 cm, then the polyhedral dual re-wound from the
+   tetrahedra (`pipeline::multi_region` with one region). A region that
+   grows layers goes through the single-region pipeline, which grows them
+   first. A region left as tetrahedra is refused (the pipeline's own dual
+   had kept 949 570 tetrahedra on the solid, found by its cell kinds).
+3. **Each region snapped** to the true geometry: the morph and face snap of
+   step 6 below, then the rims (`snap_rims_to_revolved`, points on an edge
+   between two patches go onto their ring) and `split_rim_chords` (a rim
+   chord wider than half a facet split at its angular midpoint in every face
+   using it), so both sides of a flat interface carry the same rim points.
+   Faces are classified by their own segment's normal, so the conus cone is
+   snapped too (it was not, on any route, before 2026-11-27).
+4. **Joined** (`outram_park_fork_cfmesh::pipeline::region_join`): points and
+   cells concatenated, each interface kept as two patches and written as a
+   `cyclicAMI` pair with each other as `neighbourPatch` (OpenFOAM ESI's
+   convention).
+5. **AMI weights** on every pair: `outram_foam_basic_lib::mesh::face_area_weight_ami`,
+   a port of ESI's `faceAreaWeightAMI` bit-identical to the upstream library
+   on 17 cases (gh:#1859).
+
+**Pass criteria** (`the_ami_cht_mesh_joins_snapped_regions`, 40 cm, 16
+segments): every region has cells and is within 1 % of its analytic round
+volume; no cell is a tetrahedron; the outer patches are `top`, `bottom`,
+`side`; every interface is a pair named after its two regions and written
+as `cyclicAMI`; the polyMesh and cellZones read back.
+
+### Results (2026-11-27, 10 cm, 32 segments)
+
+Same container as below; built from `b73f1ad43`. Report: `report_ami.md`.
+
+| | per region + AMI | conforming (`--boundaries fitted`, 2026-11-26) |
+|---|---|---|
+| cells (all polyhedra) | 184 204 | 185 798 |
+| wall time | 72 s | 50–53 s |
+| max non-orthogonality | **71.0°** | 86.4° |
+| max skewness | **2.50** | 12.5 |
+
+| region | per region + AMI | conforming, snapped |
+|---|---|---|
+| `porous_bed` | **−0.03 %** | −0.02 % |
+| `fluid_upper_plenum` | **−0.03 %** | −0.03 % |
+| `fluid_lower_plenum` | **+0.00 %** | +0.01 % |
+| `solid_graphite` | **−0.00 %** | −0.00 % |
+
+The region volumes are as good as the conforming route's, and the quality
+is much better: the conforming route's worst cells were the interface
+cells at the corner ring where the bed's bottom edge meets r = 90 cm, and
+here no cell sits on an interface. The worst cell is now at the outer
+wall (r 188 cm, z 92 cm).
+
+**The interfaces** (side areas, and AMI weight sums min / mean / max):
+
+| pair | b / a − 1 | source sums | target sums |
+|---|---|---|---|
+| `porous_bed` / `fluid_upper_plenum` (flat) | +4.4e-16 | 0.9907 / 0.999977 / 1.0000 | 0.9917 / 0.999983 / 1.0000 |
+| `porous_bed` / `solid_graphite` | +1.75e-5 | 0.9999 / 1.000057 / 1.0004 | 0.9901 / 1.000022 / 1.0054 |
+| `fluid_upper_plenum` / `solid_graphite` | +2.60e-6 | 0.9906 / 1.000016 / 1.0083 | 0.9907 / 1.000030 / 1.0003 |
+| `fluid_lower_plenum` / `solid_graphite` | +8.14e-6 | 0.9852 / 1.000063 / 1.0244 | 0.9999 / 1.000048 / 1.0007 |
+
+A weight sum above 1 is where curved facets overlap after the projection
+upstream uses; below 1 is a face partly uncovered (at a rim). The means are
+within 6.3e-5 of 1 on every side.
+
+**Images** (`images/ami/`, drawn from the joined mesh). Checked: every
+interface is a straight line in X-Z and a circle in X-Y; the cold-gas
+plenum is one continuous band; the hot plenum is the annulus with the solid
+column inside it; nothing is white inside the cylinder. Not checked:
+anything off the drawn planes, and the AMI coupling itself (the images show
+cells, not weights).
+
+**Not yet done:** the solver does not read the `cyclicAMI` pairs back as
+coupled yet (gh:#1860): `read_poly_mesh` takes them as plain patches.
+
+## The conforming route (`--boundaries fitted`, the default until 2026-11-27)
+
 ## Method
 
 ```text
@@ -38,14 +137,18 @@ cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-cht-mesh \
 
 The fitted route takes five steps.
 
-1. **R-Z tiling** (`RegionMap::rz_tiling`). The tensor grid of every `r` and
+1. **R-Z tiling** (~~`RegionMap::rz_tiling`~~ `RegionMap::rz_partition`
+   since 2026-11-26, which also splits the rectangles the conus slope
+   crosses, so the Basic map is no longer refused). The tensor grid of every `r` and
    `z` at which a part or a box begins or ends. Each rectangle gets the
    region at its centre, and is refused if a probe at any of its four
    corners (inset by 1e-4 of the cell) finds another region or none. So the
-   region boundaries are grid edges, checked rather than assumed. The
+   region boundaries are grid edges, checked rather than assumed. ~~The
    Basic map, whose conus and conus graphite are different regions across
-   the slope, is refused, as it must be.
-2. **Multi-region surface** (`meshing::fitted_cht_surface`). Every grid edge
+   the slope, is refused, as it must be.~~ (CORRECTED 2026-11-26: the slope
+   is now split, see above.)
+2. **Multi-region surface** (~~`meshing::fitted_cht_surface`~~
+   `meshing::fitted_surface` since 2026-11-26). Every grid edge
    between two regions, and the outer top, bottom and side, is revolved with
    32 segments. Collinear edges with the same two regions are merged first,
    where nothing else meets them. Each interface is a patch marker
@@ -204,5 +307,7 @@ as above the plane (pinned by `a_cut_through_vertices_fills_every_cell`).
 
 | file | what |
 |---|---|
-| `report_fitted.md` (snapped, default), `report_fitted_no_snap.md`, `report_centroid.md` | the command's own reports |
+| `report_ami.md` (per region + `cyclicAMI`, the default since 2026-11-27) | the command's own report |
+| `report_fitted.md` (snapped, ~~default~~ the conforming ablation), `report_fitted_no_snap.md`, `report_centroid.md` | the command's own reports |
+| `images/ami/*.png` | the per-region route's slices |
 | `images/fitted/*.png`, `images/centroid/*.png` | the slices above |
