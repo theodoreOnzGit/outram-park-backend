@@ -70,7 +70,7 @@
 //! ## What this does not port (each refused by name in [`OnePhaseFcCase::read`])
 //!
 //! `momentumMode` other than `faceCentered`; `porousInterfaceSharpness != 0`; turbulence other than
-//! `laminar`; heat exchangers, pumps, passive structures, tortuosity, local frames, power-off
+//! `laminar`; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported in the same region, `secondaryRegion` stays refused**), pumps, passive structures, tortuosity, local frames, power-off
 //! criteria; velocity patches other than `zeroGradient` and `noSlip` (`fixedValue`, `slip` and `symmetry` are accepted by the shared
 //! reader and NOT verified here; `pressureInletOutletVelocity` is refused: no fluid flux names); `fixedValue`/`flowRateInletVelocity`/`partialSlip`
 //! cases of `1D_HX` (gh:#1867);
@@ -100,7 +100,7 @@ use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
 use super::case::{bool_entry, lookup_regex, scalar, word, Ctx};
 #[cfg(feature = "std")]
-use super::case::{read_field, read_nusselt, read_thermo, scalar_bcs, scalar_bcs_with, vector_bcs, ExtraBc};
+use super::case::{read_field, read_heat_exchangers, read_nusselt, read_thermo, scalar_bcs, scalar_bcs_with, vector_bcs, ExtraBc};
 #[cfg(feature = "std")]
 use super::thermo::PhaseThermo;
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
@@ -224,6 +224,18 @@ pub struct OnePhaseFcCase {
     pub end_time: f64,
     /// `deltaT`.
     pub delta_t: f64,
+}
+
+/// The per-face terms of `fvMatrix::relax` (ESI v2506 `fvMatrix.C:1149`, `:1237`) for a non-coupled boundary face with
+/// `internalCoeffs = ic` (one entry per component), relative to the `cmptAv` that [`Vector`]'s matrix assembly already folds
+/// into the diagonal: `(cmptMax(cmptMag(ic)) - cmptAv(ic), cmptAv(ic) - cmptMin(ic))` = `(pre, post)` of
+/// `OnePhaseFcSolver::relax_diag_boundary`. For three equal components `v` this is `(2 max(-v, 0), 0)`; for a `slip` wall of
+/// normal `x`, `ic = (c, 0, 0)` gives `(2c/3, c/3)`. gh:#1894.
+pub(super) fn relax_face_terms(ic: [f64; 3]) -> (f64, f64) {
+    let cmax_mag = ic[0].abs().max(ic[1].abs()).max(ic[2].abs());
+    let cmin = ic[0].min(ic[1]).min(ic[2]);
+    let cav = (ic[0] + ic[1] + ic[2]) / 3.0;
+    (cmax_mag - cav, cav - cmin)
 }
 
 fn parse_zone_models<T>(
@@ -364,7 +376,11 @@ impl OnePhaseFcCase {
         let mut power: Vec<Option<FixedPower>> = vec![None; n];
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
-            if key == "powerOffCriterionModel" || key == "heatExchangers" {
+            if key == "heatExchangers" {
+                // `structure.C:265`: skipped as a zone key; read after the loop (`constructHeatExchangers`)
+                continue;
+            }
+            if key == "powerOffCriterionModel" {
                 return Err(ctx.e(format!("structureProperties.{key} is not ported")));
             }
             let cells = zone_cells(key)?;
@@ -408,7 +424,10 @@ impl OnePhaseFcCase {
                 }
             }
         }
-        let structure = Structure::new(&g, alpha_s, dh_s, power, None);
+        let mut structure = Structure::new(&g, alpha_s, dh_s, power, None);
+        if let Some(hxd) = sp.get_dict("heatExchangers") {
+            structure.heat_exchangers = read_heat_exchangers(&ctx, hxd, &poly, &g, &zone_cells)?;
+        }
 
         let pm = ctx.sub(&pp, "physicsModels")?;
         let drag = ctx.sub(pm, "dragModels")?;
@@ -878,13 +897,15 @@ impl OnePhaseFcSolver {
     }
 
     /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`). With the boundary coefficients folded
-    /// into the diagonal (`diag_fold = D + sum iCoeffs`), OpenFOAM's add-`cmptMax(cmptMag(iCoeffs))`,
-    /// take-`max(|D|, sumOff)`, divide, subtract-`iCoeffs` sequence gives
-    /// `diag_fold' = max(|diag_fold + 2 sum max(-iCoeffs, 0)|, sumOff) / alpha`: a boundary face with a
-    /// NEGATIVE internal coefficient (convective inflow through a non-fixed patch) is not neutral.
-    /// `inflow2[c]` is that `2 sum max(-iCoeffs, 0)` of cell `c`. Returns `D' - D` per cell, the
-    /// coefficient of `psi` in the source correction.
-    fn relax_diag(&self, e: &mut Eqn, factor: f64, inflow2: &[f64]) -> Vec<f64> {
+    /// into the diagonal (`diag_fold = D + sum cmptAv(iCoeffs)`), OpenFOAM's add-`cmptMax(cmptMag(iCoeffs))`,
+    /// take-`max(|D|, sumOff)`, divide, subtract-`cmptMin(iCoeffs)` sequence (per boundary face) gives
+    /// `diag_fold' = max(|diag_fold + pre|, sumOff) / alpha + post`, with `pre = sum_f (cmptMax(cmptMag(iCoeffs_f)) -
+    /// cmptAv(iCoeffs_f))` and `post = sum_f (cmptAv(iCoeffs_f) - cmptMin(iCoeffs_f))` ([`relax_face_terms`]). For equal
+    /// components (a scalar equation, `zeroGradient`, `fixedValue`, `noSlip`) `pre = 2 max(-iCoeffs, 0)` (a boundary face with a
+    /// NEGATIVE internal coefficient, a convective inflow through a non-fixed patch, is not neutral) and `post = 0`; for a
+    /// `slip` wall (`iCoeffs = (c, 0, 0)`) both are non-zero (gh:#1894). Returns `D' - D` per cell, the coefficient of `psi`
+    /// in the source correction.
+    fn relax_diag_boundary(&self, e: &mut Eqn, factor: f64, pre: &[f64], post: &[f64]) -> Vec<f64> {
         let n = self.geom.n_cells();
         let mut sum_off = vec![0.0; n];
         for f in 0..self.geom.n_internal() {
@@ -894,11 +915,49 @@ impl OnePhaseFcSolver {
         let mut delta = vec![0.0; n];
         for c in 0..n {
             let d0 = e.ldu.diag[c];
-            let d = (d0 + inflow2[c]).abs().max(sum_off[c]) / factor;
+            let d = (d0 + pre[c]).abs().max(sum_off[c]) / factor + post[c];
             e.ldu.diag[c] = d;
             delta[c] = d - d0;
         }
         delta
+    }
+
+    /// [`Self::relax_diag_boundary`] for equal `iCoeffs` components: `inflow2[c]` is the `2 sum max(-iCoeffs, 0)` of cell `c`
+    /// (the scalar energy equation, whose boundary coefficients are scalars).
+    fn relax_diag(&self, e: &mut Eqn, factor: f64, inflow2: &[f64]) -> Vec<f64> {
+        let zero = vec![0.0; self.geom.n_cells()];
+        self.relax_diag_boundary(e, factor, inflow2, &zero)
+    }
+
+    /// The `pre` and `post` sums of [`Self::relax_diag_boundary`] for the velocity equation: per boundary face the
+    /// `internalCoeffs` of `fvm::div(alphaRhoPhi, U)` (`phi_b valueInternalCoeffs`) plus those of `-fvm::laplacian(gamma, U)`
+    /// (`-(pGamma gradientInternalCoeffs)`; `fvMatrix::operator+=` adds them component-wise before `relax` sees them), from the
+    /// patch coefficients of [`Vector::patch_coeffs`] exactly as `VecEqn::boundary_convection` and `boundary_laplacian` build them.
+    fn u_relax_boundary_terms(&self, gamma: &[f64]) -> (Vec<f64>, Vec<f64>) {
+        let g = &self.geom;
+        let fl = &self.fluid;
+        let mut pre = vec![0.0; g.n_cells()];
+        let mut post = vec![0.0; g.n_cells()];
+        for f in g.n_internal()..g.n_faces() {
+            if !g.active[f] {
+                continue;
+            }
+            let o = g.mesh.owner[f];
+            let c = fl.u.patch_coeffs(g, f, [&[], &[]]);
+            let phi = fl.alpha_rho_phi[f];
+            let mut ic = [phi * c.value_internal[0], phi * c.value_internal[1], phi * c.value_internal[2]];
+            if !(c.gradient_internal_diag == [0.0; 3] && c.gradient_boundary == [0.0; 3]) {
+                let pg = gamma[f] * g.mesh.face_areas[f];
+                let d = g.delta[f];
+                for k in 0..3 {
+                    ic[k] += -(pg * (-d * c.gradient_internal_diag[k]));
+                }
+            }
+            let (p, q) = relax_face_terms(ic);
+            pre[o] += p;
+            post[o] += q;
+        }
+        (pre, post)
     }
 
     /// `2 sum max(-phi_b, 0)` per owner cell over the boundary faces of `phi` whose patch is not
@@ -957,8 +1016,13 @@ impl OnePhaseFcSolver {
         }
         e.eqn.sp(g, &self.kd);
         if let Some(fct) = self.controls.relax_u_equation {
-            let inflow2 = self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.u.flux_is_fixed(g, f));
-            let delta = self.relax_diag(&mut e.eqn, fct, &inflow2);
+            // gh:#1894: per boundary face, over the three components (a `slip` wall's `iCoeffs` are not equal in them)
+            let (pre, post) = if patched {
+                self.u_relax_boundary_terms(&gamma)
+            } else {
+                (self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.u.flux_is_fixed(g, f)), vec![0.0; n])
+            };
+            let delta = self.relax_diag_boundary(&mut e.eqn, fct, &pre, &post);
             for c in 0..n {
                 e.src[0][c] += delta[c] * fl.u.c[c].x;
                 e.src[1][c] += delta[c] * fl.u.c[c].y;
@@ -1259,8 +1323,19 @@ impl OnePhaseFcSolver {
             su[c] = ih * (self.structure.t_act[c] - fl.t.c[c] + fl.he.c[c] / fl.cp.c[c]);
             sp[c] = ih / fl.cp.c[c];
         }
-        e.su(&g, &su);
-        e.sp(&g, &sp);
+        if self.structure.heat_exchangers.is_active() {
+            // `structure.C:1148-1156`: `Q += iAHX*H*(THX-T+he/Cp) - fvm::Sp(iAHX*H/Cp, he)` is added to Q BEFORE `EEqn -= Q`,
+            // so the source and the diagonal receive `(V*act + V*hx)` as one sum (negations are exact), not two additions.
+            for c in 0..n {
+                let v = g.mesh.cell_volumes[c];
+                let (su_hx, sp_hx) = self.structure.heat_exchangers.source_and_coeff(c, self.htc[c], fl.t.c[c], fl.he.c[c], fl.cp.c[c]);
+                e.source[c] += v * su[c] + v * su_hx;
+                e.ldu.diag[c] += v * sp[c] + v * sp_hx;
+            }
+        } else {
+            e.su(&g, &su);
+            e.sp(&g, &sp);
+        }
         let t_prev = fl.t.c.clone();
         if let Some(fct) = self.controls.relax_h_equation {
             let inflow2 = self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.he.is_fixed(&g, f));
@@ -1304,6 +1379,14 @@ impl OnePhaseFcSolver {
                 self.structure.t_act[c] = tn.get::<kelvin>();
                 self.structure.power[c] = Some(pm);
             }
+        }
+        // structure::correct, after the power models: `iter().correct(HT, H, THXPtr_())` of every heat exchanger (structure.C:1000-1018)
+        if self.structure.heat_exchangers.is_present() {
+            let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_used[c]).collect();
+            // `sMesh_.lookupObject("T")` is the CURRENT temperature (after the solve); the C3 control uses `T.prevIter()`
+            let t_sec = if self.structure.heat_exchangers.secondary_uses_prev_iter_t { &t_used } else { &self.fluid.t.c };
+            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_sec[c]).collect();
+            self.structure.heat_exchangers.correct(&ht, &self.htc, &self.htc, &s_ht);
         }
         if self.structure_old_time_stale {
             self.structure.power_old = self.structure.power.clone();
@@ -1480,6 +1563,28 @@ impl OnePhaseFcSolver {
     #[must_use]
     pub fn without_kinetic_energy(mut self) -> Self {
         self.controls.include_kinetic_energy = false;
+        self
+    }
+
+    /// CONTROL (README round 44, C1): no heat exchangers, whatever `structureProperties.heatExchangers` says (the explicit ablation).
+    #[must_use]
+    pub fn without_heat_exchangers(mut self) -> Self {
+        self.structure.heat_exchangers = crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet::default();
+        self
+    }
+
+    /// CONTROL (README round 44, C2): every primary cell takes its NEAREST secondary cell with weight 1 instead of the
+    /// `meshToMesh` overlap weights.
+    #[must_use]
+    pub fn with_nearest_cell_heat_exchanger_mapping(mut self) -> Self {
+        self.structure.heat_exchangers.nearest_cell_mapping = true;
+        self
+    }
+
+    /// CONTROL (README round 44, C3): the secondary side's `htc*T` with `T.prevIter()` instead of the current `T`.
+    #[must_use]
+    pub fn with_heat_exchanger_secondary_prev_iter_temperature(mut self) -> Self {
+        self.structure.heat_exchangers.secondary_uses_prev_iter_t = true;
         self
     }
 

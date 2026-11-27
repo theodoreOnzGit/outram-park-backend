@@ -162,6 +162,7 @@ use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map_2d::Re
 use crate::genfoam::thermal_hydraulics::closures::phase_change::{
     LatentHeatModel, PhaseChangeRateModel, SaturationModel,
 };
+use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet;
 use crate::genfoam::thermal_hydraulics::structure::power_model::FixedPower;
 use crate::genfoam::thermal_hydraulics::structure::power_off::PowerOffCriterion;
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
@@ -763,6 +764,8 @@ pub struct Structure {
     pub radial_needs_laplacian: bool,
     /// CONTROLS, not upstream (gh:#1884): each deliberately breaks one ingredient of the radial wiring.
     pub radial_controls: RadialControls,
+    /// `structureProperties.heatExchangers` with `iAHX` and `T.HX` (README round 44, gh:#1847); empty when none.
+    pub heat_exchangers: HeatExchangerSet,
 }
 
 /// Ablations of the radial-power wiring, for the controls of README round 41 only (all `false` = upstream).
@@ -4065,6 +4068,7 @@ impl Structure {
             heat_flux: vec![0.0; n],
             radial_needs_laplacian: false,
             radial_controls: RadialControls::default(),
+            heat_exchangers: HeatExchangerSet::default(),
         }
     }
 

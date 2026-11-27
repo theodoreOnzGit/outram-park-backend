@@ -605,3 +605,22 @@ fn solve_phase_lambda_keeps_the_fractions_bounded_and_summing_to_the_moving_frac
         }
     }
 }
+
+/// gh:#1894: the per-face terms of `fvMatrix::relax` (`fvMatrix.C:1149`, `:1237`). Three equal components `v` (zeroGradient, fixedValue,
+/// noSlip, a scalar equation) reduce to the earlier `2 max(-v, 0)` and `0`; a `slip` wall of normal `x` (`iCoeffs = (c, 0, 0)`, from
+/// `snGradTransformDiag = |n|`) has `cmptMax - cmptAv = 2c/3` and `cmptAv - cmptMin = c/3`, which the earlier form dropped.
+#[test]
+fn relax_face_terms_reduce_to_the_scalar_form_and_differ_for_a_slip_wall() {
+    use super::one_phase_fc::relax_face_terms;
+    for v in [3.0, 0.0, -3.0] {
+        let (pre, post) = relax_face_terms([v, v, v]);
+        assert!((pre - 2.0 * (-v).max(0.0)).abs() < 1e-15 && post.abs() < 1e-15, "v = {v}: {pre} {post}");
+    }
+    let c = 0.6;
+    let (pre, post) = relax_face_terms([c, 0.0, 0.0]);
+    assert!((pre - 2.0 * c / 3.0).abs() < 1e-15 && (post - c / 3.0).abs() < 1e-15, "{pre} {post}");
+    // the sum is what upstream adds to D beyond cmptAv, `cmptMax(cmptMag) - cmptMin = c`
+    assert!((pre + post - c).abs() < 1e-15);
+    let (pre, post) = relax_face_terms([0.0, c, 0.0]);
+    assert!((pre - 2.0 * c / 3.0).abs() < 1e-15 && (post - c / 3.0).abs() < 1e-15);
+}

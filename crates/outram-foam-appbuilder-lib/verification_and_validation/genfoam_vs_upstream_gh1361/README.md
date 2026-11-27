@@ -5776,3 +5776,259 @@ Code, tests, scripts and the instrumented upstream (`upstream_driver/prec_probe_
 * gh:#1897: the 8 quads' geometry (the last non-bit-identity of the precursor matrix).
 * gh:#1898: the remaining items (static solve with factors, liquid-fuel `XsEvolution`, `DiffusionNeutronics::step`, `disp`-driven `radExp`/`axExp`, `2D_FFTF`, an SP3-stable adjusting data set).
 * The workflow default changed (`fvSolution` instead of explicit 1e-14): a root case with the shipped neutronics file now runs with `relTol 1e-1`, as upstream does; the V&V tests tighten the file.
+
+# Round 44 (gh:#1847, child of #1216/#1813; unblocks #1867): heat exchangers (`structureProperties.heatExchangers`) in the `onePhase` region, against the real binary
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27, **predictions and every comparison criterion committed BEFORE the first upstream reference run of the case variants and BEFORE the first port run of this round.**
+
+## What upstream does (read before any code; GeN-Foam 652b3da on OpenFOAM-ESI v2506)
+
+* `structure.C:265` skips the key `heatExchangers` as a zone key. `constructHeatExchangers` (`structure.C:911-978`): one `heatExchanger` per sub-dictionary (names arbitrary), then `THX` (`T.HX`, `zeroGradient`, AUTO_WRITE, **zero until the first correct**) and `iAHX = sum iA()`, where `iA()` is `iA_` on the **primary** cells only (the secondary loop is commented out in `heatExchanger.C:83-88`).
+* `heatExchanger` constructor (`heatExchanger.C:55-77`): `iA_ = volumetricArea`, `Hw_ = max(wallConductance, 1e-69)` (the tutorial comment says it defaults to 0; the code `get<scalar>` REQUIRES it), `primaryCells_` = the zone `primary`.
+* `constructSecondaryHX` (`heatExchanger.C:310-431`), at the first `correct`: volume-weighted centres of the two zones (`pCOV += V C`, `/= pV`; same for the secondary), `delta = pCOV - sCOV`, FatalError if `(pV - sV)/pV >= 1e-2` (signed), a copy of the WHOLE secondary-region mesh translated by `delta` (`points + delta`, faces and cells unchanged), and `meshToMesh(translatedMesh, mesh_, interpolationMethod (default 2 = imCellVolumeWeight), pmAABB, false)`, i.e. the round 28 constructor (normalised weights).
+* `correct(HT, H, THX)` (`heatExchanger.C:213-298`): `sH = htc`, `sHT = htc*T` **of the secondary mesh at the moment of the call, i.e. with the CURRENT `T`** (after the energy solve and `thermo.correct()`), whereas the primary side's `HT` is the argument `Hs*T.prevIter()` (the temperature BEFORE the solve). `HsOp = mapSrcToTgt(sH, plusEqOp)` (into a zero field), `HTsOp` likewise; on the primary cells `Ap = (Hw+H)/Hw, Bp = HT/Hw, As = (Hw+HsOp)/Hw, Bs = HTsOp/Hw, THX = (Bp As + Bs)/max(Ap As - 1, 1e-69)`. `HTpOs`, `HpOs` (`mapTgtToSrc`) are computed and never read. `THX.correctBoundaryConditions()`.
+* Use (`structure.C:1090-1100, 1128-1157`): `linearizedSemiImplicitHeatSource` adds `iAHX*H*(THX - T + he/Cp) - fvm::Sp(iAHX*H/Cp, he)` to `Q` **only if `max(THX) > 1e-69`**, and `EEqn -= Q` in `EEqn_1p.H` (`structure_.correct(Hs*T.prevIter(), Hs)` follows `thermo.correct()`). Consequence for the floating-point order: `Q.source = (-V act) - V pas + (-V hx)` and the equation receives `V act + V hx` as ONE sum (negation is exact); likewise the diagonal. The port adds the two as one sum and keeps the old single-term path when there is no active exchanger.
+* `secondaryRegion` (default: the region itself) with a second region's `htc`/`T` is **refused by name** (`heatExchangers.<name>.secondaryRegion is not ported`, gh:#1867: it needs the second region's mesh and fields in the coupled loop); `interpolationMethod` other than 2 is refused by name.
+
+## Searched before writing (reuse; HARD RULE)
+
+`multi_region::cell_overlap::{OverlapMesh, CellVolumeWeightAddressing::{new_normalised, map_src_to_tgt_scalar}}` (round 28, bit-identical to ESI `meshToMesh`: REUSED, including `map_src_to_tgt_scalar` which is exactly `mapSrcToTgt(.., plusEqOp)`); `structure::heat_exchanger::hx_wall_temperature` (the per-cell two-sided solve, reused for the algebra); `io::poly_mesh::{parse_points, parse_faces, parse_index_list, read_cell_zones}`; the `one_phase_fc` energy assembly and `structure_.correct` position. **Not found anywhere in the workspace:** the zone centre-of-volume translation, `iAHX`/`THX`, the guard, the secondary `htc*T` lookup: written new, each cited to its upstream line. The older `structure/heat_exchanger.rs` documented the mapping as "missing"; that is now struck through there.
+
+## Cases (real unmodified binary, serial; scratch under `/home/user/upstream-build/gh1847/`, deleted after extraction)
+
+* **A, `featureCases/1D_HX/onePhase` AS SHIPPED** (`tests/data/genfoam_1d_hx_onephase`): a 120-cell pencil mesh (1 x 1 x 60 per channel) of two parallel channels (primary: `pPipe`, `heater` (`fixedPower`, 1.1e9 W/m^3), `pHX`, `pPipe`; secondary: `sPipe`, `sPipe`, `sHX`, `sPipe`), two exchangers (`pIHX1` primary `pHX` secondary `sHX`, `sIHX1` the reverse), `volumetricArea 250`, `wallConductance 2.5e4`, `faceCentered` momentum, polynomial sodium, `fixedValue` U inlets, `slip` walls, `fixedFluxPressure`, `adjustTimeStep` with `maxCo 10`, `maxDeltaT 0.01`, `endTime 20`. The deviation from the shipped files is the solver only, as rounds 21/38: `p_rgh` `GAMG -> PCG/DIC` and every tolerance `1e-14`, `relTol 0` (`scripts/fc_protocol.sh`, `TIGHT=1 PSOLVER=pcg`), `writePrecision 17`, every step written. **A's translation is exact** (the secondary zone is the primary zone shifted along x), so the mapping has weight 1 on one source cell: A tests the heat-exchanger physics and the boundary conditions, NOT the weighted averaging.
+* **B, `nc` = A with the secondary exchanger zone `sHX` meshed with 30 cells instead of 20** (`tests/data/genfoam_1d_hx_nonconformal`, made by `scripts/make_hx_variants.sh`: `blockMeshDict` `sHX (1 1 20) -> (1 1 30)`, `blockMesh -region fluidRegion`; nothing else). Justified from upstream's own text: `heatExchanger.C` says "the two meshes of the heat exchanger could be non-conformal", the tutorial says the zones "can have any relative displacement" and need only equal volume, and the `meshToMesh` object is the reason the class exists. Each primary cell then overlaps 2 or 3 secondary cells with fractional weights: B tests the weighted averaging, the thing A cannot.
+
+## Comparison criteria (fixed here; none will change after seeing results)
+
+* **Steps compared** (fields): 1, 2, 3, 5, 10, 25, 50, 100, 200, 300, 500, 750, 1000, 1500, 2000 (those that exist) and the last step; `deltaT` and the solve log at EVERY step.
+* **Fields** `p p_rgh T Uz T.fixedPower htc Re contErr dgdt T.HX`: `max|port - up| / max|up|` per field (own maximum over all cells, as round 38), `contErr` scaled by `max(alpha rho)/dt`, `dgdt` by `1/dt`. `Ux`, `Uy` (identically zero in a pencil mesh with `slip` walls) compared as absolute maxima. **Velocity is reported both per component (`Uz` on its own maximum) and on `max|U|` (the same number here: `Uz` is the only component, stated so a reader does not look for a difference).** `T` on its own maximum (a few hundred K of range hides 1e-3 K: the absolute `max|dT|` in K is printed beside it), and reported separately for the cells of the two exchanger zones. `T.HX` on its own maximum over the primary cells.
+* **Exchanged heat:** `Q = iAHX*H*(THX - T)` [W/m^3] per cell from `htc`, `T`, `T.HX` of each code (and the port's own `iAHX`, which is asserted equal to `250` on the primary cells and 0 elsewhere), on its own maximum, and the per-zone integral `sum V Q` (relative).
+* **Gates:** every field `<= 1e-9` at every compared step, `p_rgh` and `T` `<= 1e-10`; `deltaT` relative `<= 1e-12` per step with the count of bit-identical leading steps REPORTED; equal number of steps; solve-log tiers exactly as round 38 (tier (i) `r_up >= 1e-8`: iterations within 1 and residual within 1e-3; (ii) `1e-11..1e-8`: within 2, ratio in 0.1..10; (iii) floor: `r_port <= 10 r_up` or `<= 1e-10`; the straddle rule of round 38 F2 for a convergence disagreement). Round-off-floor solves are not compared by count.
+* Bit-identity is the goal; the 1e-9 allowance applies only with an explained cause.
+
+## Predictions (written before any run of this round)
+
+| id | quantity | prediction | if missed |
+|---|---|---|---|
+| H0 | the case runs at all | A: the port reads A (`heatExchangers` accepted, `slip`/`fixedValue` velocity, polynomial thermo, `NusseltReynoldsPrandtlPower`, `fixedPower`) and steps to 20 s. **Risk 40 %:** `slip` and `fixedValue` U were accepted by the reader and never verified (round 38), and `adjustTimeStep` with `maxCo 10` has only been verified to `maxCo 1`; a refusal or a divergence is then the finding and is bisected on `nOuterCorrectors 1`, `nCorrectors 1` upstream runs | refusals are by name |
+| H1 | mapping A | every primary cell of both exchangers has exactly ONE source entry of weight exactly `1.0` | the translation is not exact: report the extra entries |
+| H2 | mapping B | every primary cell has 2 or 3 entries, weights positive, sum 1 to 4 ulp | |
+| H3 | the guard | `THX = 0` through the first outer iteration of step 1 in both codes (no exchanger source), non-zero after the first `correct`; the first written `T.HX` agrees | |
+| H4 | A, fields, first steps | steps 1-10: every field `<= 1e-12`; `T.HX` `<= 1e-12` | first diverging operation by `nOuterCorrectors 1` |
+| H5 | A, all compared steps to 20 s | every field `<= 1e-10`, expected `1e-13` to `1e-11`; NOT bit-identical (PCG/DIC and the `relax` order are not touched, round 38); `deltaT` bit-identical for at least 10 leading steps and then `<= 1e-12` (Courant-limited, round 38) | the worst field is the first place to look: the unverified `slip`/`fixedValue` branches would show in `U`/`p` at step 1, the exchanger in `T` of the zones |
+| H6 | A, exchanged heat | `Q` agrees to `<= 1e-9` and the integrals to `<= 1e-10`; the exchanged power is non-zero: the `sHX` zone mean `T` exceeds the inlet 653.15 K by more than 0.1 K at 5 s and by more than 1 K at 20 s (a missed size is reported, the case then tests less than intended) | |
+| H7 | B, fields | as H5 (`<= 1e-10`), expected `1e-13` to `1e-11`; weighted averages add a few ulps per cell | a worse number means the mapping order of operations differs: bisect at step 1 where only `HsOp`, `HTsOp` enter |
+| H8 | solve log | counts equal at every step except round 38's straddle rule; tier (i) none violating | |
+| C1 | control: exchangers OFF in the port (`without_heat_exchangers`, the explicit ablation) against the same references | `T` in the zones differs by `>= 1e-4` of `max T` at step 500 on A | the exchanger moves too little to be tested: reported |
+| C2 | control: mapping replaced by the NEAREST source cell (`with_nearest_cell_heat_exchanger_mapping`) | on B `T` differs by `>= 1e-7` (relative to `max T`) at some compared step; on A it is **identical** (a conformal mapping IS nearest-cell: the control cannot fail there, stated so) | the weighted averaging is not tested by B |
+| C3 | control: the secondary `sHT` taken with `T.prevIter()` (the plausible symmetry slip) | `>= 1e-9` at some compared step on A; if below, reported as not detectable at this tolerance | |
+| M1 | earlier numbers | `genfoam_one_phase_fc_vs_upstream` (round 38, 5+6 tests) and the round 4 channel pass with unchanged numbers: the only edit on their path is the `is_active()` branch, which is false without heat exchangers | record old/new |
+| W1 | cost | upstream: tens of seconds per case; the port: under 60 s per case in release | |
+
+
+## Round 44, part 2: the `cellCentered` region (predictions written 2026-11-27 BEFORE any upstream run of the variant and BEFORE any port run of it; committed first)
+
+* **Wiring (new code, `one_phase_cc.rs`):** `heatExchangers` read through the shared `read_heat_exchangers`; `HeatExchangerSet` in the case and the solver; the exchanger source added to the `h` equation as ONE sum with the active-structure source (`structure.C:1148-1156`, same as the face-centred region); `heatExchanger::correct` after the energy solve and `thermo.correct()`, in `structure_correct` (`HT = Hs*T.prevIter()`, `sHT = Hs*T`). The `OnePhaseCcCase::read` refusal of `heatExchangers` is removed.
+* **The case, and why it is weak (stated, not hidden).** The MSFR mesh has four cell zones (`pump` 715 cells, `intermed` 165, `hx` 2035, `main_fd` 5680) and upstream aborts when `(pV - sV)/pV >= 1e-2`; no two zones have equal volumes, so no two-zone exchanger can be declared on it. The only exchanger the mesh admits is the `hx` zone paired with ITSELF (`primary "hx"; secondary "hx"`, `volumetricArea 250`, `wallConductance 2.5e4`, the shipped 1D_HX values): the translation is zero and the mapping is the identity, so `THX = HT/H = T.prevIter` of the previous pass. This tests the cell-centred wiring (the guard, the one-sum assembly, the `T` lookups, the position of the call) and NOT the weighted averaging, which the face-centred cases test (H1, H2, C2). A genuinely two-zone cell-centred case needs a mesh with two equal zones: filed as a follow-up in the hand-off.
+* **Protocol:** the round 17-37 protocol (`scripts/run_msfr_th_tight.sh`, `TURB=off`, three steps, tight 1e-14, `PCG`/`DIC`), overlay `cases/msfr_th_variants_r44/hx_self` made by `scripts/make_msfr_th_hx_variants.sh`; reference `refs/msfr_th_r44_hx_self.ref.txt.gz` (every 11th cell of `U p_rgh T`, every 7th `hx` cell of `T` and `T.HX`, every linear solve), `tests/genfoam_heat_exchanger_cc_vs_upstream.rs`.
+* **Criteria (fixed now):** the round-37 criteria exactly: outer-iteration count of each step equal; the iteration count of every `p_rgh` and `h` solve within 1 for upstream initial residuals above the `1e-10` floor (round 37's constant, used as committed there); every field max-norm `max|port - up|/max|up| <= 1e-9`; `T.HX` on its own maximum (about 900 K, so 1e-9 is 1e-6 K).
+* **Predictions:** **K1** the port runs the variant and the outer-iteration counts are equal at all three steps; **K2** every field `<= 1e-9`, expected `1e-12` to `1e-11` (round 37's wired-model numbers); `T.HX` `<= 1e-11`; **K3** `THX` of the first outer iteration of step 1 is zero in both codes (the guard), non-zero afterwards: the written `T.HX` at step 1 is the last pass's `T.prevIter()` of the `hx` cells, i.e. within `1e-3` of 900 K (a 1 ms step moves a fluid cell by far less); **K4 (control, HX off in the port):** `T.HX` differs by 100 % (port: zero) and the `h` initial residuals differ from upstream's by more than `1e-6` relative at step 1; `T` itself differs by LESS than `1e-9` or about that: the self-paired exchanger's source is `iAHX H (T.prevIter - T)`, a damping term of order `250 * 1e4 * 1e-4 K = 250 W/m^3` against `rho cp dT/dt ~ 5e5 W/m^3`, i.e. `~5e-4` of the temperature change of a step: I expect `T` to NOT discriminate (reported, not gated) and the solve log and `T.HX` to do so; **K5** (control, secondary `htc*T` with `T.prevIter()`): `THX` is then exactly `T.prevIter` of a different pass: `T.HX` differs by `>= 1e-9` at some step; if it does not, it is reported as not detectable at this tolerance.
+
+
+## Round 44 results (measured 2026-11-27, release, `CARGO_BUILD_JOBS=2`, private target dir; `tests/genfoam_heat_exchanger_vs_upstream.rs` (case A and B 20 s runs, mapping tests, three controls, two ignored diagnostics) and `tests/genfoam_heat_exchanger_cc_vs_upstream.rs`; `--nocapture` prints every row)
+
+### Upstream -> Rust mapping
+
+| upstream | Rust |
+|---|---|
+| `structure.C:265` (`heatExchangers` is not a zone key) | `one_phase_fc.rs`, `one_phase_cc.rs` readers skip the key; the refusals of `OnePhaseCcCase::read` and `OnePhaseFcCase::read` are REMOVED |
+| `structure::constructHeatExchangers` (`structure.C:911-978`): the `heatExchanger` per sub-dictionary, `THX`, `iAHX` | `case::read_heat_exchangers` + `structure::heat_exchanger::HeatExchangerSet::new` |
+| `heatExchanger::heatExchanger` (`:55-77`), `constructSecondaryHX` (`:310-431`) | `HeatExchangerZone::new` (`centre_of_volume`, the translation `delta`, the `1e-2` volume `FatalError`, the translated copy of the mesh, `CellVolumeWeightAddressing::new_normalised` of round 28) |
+| `heatExchanger::correct` (`:213-298`) | `HeatExchangerSet::correct` (`mapSrcToTgt(plusEqOp)` = `map_src_to_tgt_scalar` into zeros; the per-cell algebra is the existing `hx_wall_temperature`) |
+| `structure::correct` HX part (`structure.C:1000-1018`) | after `thermo.correct()` and the power models: `one_phase_fc.rs` (in the step), `one_phase_cc.rs::structure_correct` |
+| `linearizedSemiImplicitHeatSource` HX part (`structure.C:1128-1157`), the guard `max(THX) > 1e-69` | `HeatExchangerSet::is_active`, `source_and_coeff`; added as ONE sum with the active-structure term (`V act + V hx`) in both regions |
+| the zone-to-zone mapping | exact `meshToMesh` (round 28), reused unchanged |
+
+**Refused by name:** `secondaryRegion` (other region), `interpolationMethod` other than 2, the two-phase region (gh:#1867). Not ported and not needed by the shipped case: `explicitHeatSource`'s HX term (no solver here calls it).
+
+### Case A (`1D_HX/onePhase` AS SHIPPED, 2008 steps to 20 s) and case B (`sHX` refined to 30 cells)
+
+| quantity | A worst over the compared steps (step) | B worst | committed gate | held? |
+|---|---|---|---|---|
+| steps | 2008 = upstream's 2008 | 2008 | equal | **held** |
+| `deltaT` | **bit-identical at all 2008 steps** | bit-identical | <= 1e-12, leading bit-identical >= 10 | **held** (2008 leading) |
+| `p`, `p_rgh` | 1.04e-7 (step 2); 3.2e-8 (step 1); <= 2.7e-9 for steps 10-200; 8.5e-10 at 300, 6.2e-10 from step 500 to 2008 | 1.05e-7 (3); 5.5e-10 late | 1e-9 / 1e-10 | **MISSED** (H4, H5, H7) |
+| `T` (own maximum, 653-1163 K) | 3.2e-11 (3); at 2008: 3.5e-13 (0.4 nK absolute); worst absolute 2.1e-8 K | 3.2e-11 | 1e-10 | held |
+| `T` in the exchanger zones | zone 0 (`pHX`) 2.2e-11, zone 1 (`sHX`) 2.5e-11 | same | 1e-10 | held |
+| `Uz` (= `|U|`, `Ux`, `Uy` identically 0 in both) | 5.8e-9 (3); 1.0e-9 (1) | 5.8e-9 | 1e-9 | **MISSED** early (H4); <= 8.4e-12 from step 100, <= 2e-12 from step 300 |
+| `htc`, `Re` | 1.1e-9 (3), 6.3e-9 (3) | same | 1e-9 | **MISSED** early, same cause |
+| `T.fixedPower` | 2.4e-12 (300) | 2.4e-12 | 1e-9 | held |
+| `contErr` (scaled), `dgdt` (scaled) | 1.1e-12, 5.1e-12 | same | 1e-9 | held |
+| `T.HX` (own maximum, 653-1005 K) | 1.9e-11 (3); 2.3e-13 at 2008 | same | 1e-10 | held |
+| exchanged heat `Q = iAHX H (THX - T)` per cell | 2.6e-7 (2); 2.5e-10 (25); 1.8e-13 at 2008 | same | 1e-9 | **MISSED** early (H6) |
+| zone integral `sum V Q` | 2.7e-7 (2); 2.5e-13 at 2008 | same | 1e-10 | **MISSED** early |
+| `p_rgh` solve log | 37,104 solves compared (tier (i) 7665, (ii) 991, (iii) 28,448): **0 violations, iteration differences 0 / 0 / 0 in the three tiers, the same number of solves at all 2008 steps** (2 straddle steps by round 38's rule) | 37,113 (7678 / 992 / 28,443), 0 violations, 1 straddle | none violating | **held** |
+| `T.HX` at step 1 with `nOuterCorrectors 1` | **bit-identical (0)**, also `htc`; `p` 3.0e-14, `Uz` 1.7e-15, `T` 1.7e-16 | not run | | |
+
+**Predictions held / missed.** H0 held (the case runs; `slip`, `fixedValue` inlets, polynomial thermo, `NusseltReynoldsPrandtlPower`, `adjustTimeStep maxCo 10` ran with no refusal and no divergence; my 40 % risk did not occur). H1 held (every primary cell has one source entry of weight exactly 1.0; the translation `(0.19999999999999998, 1.3877787807814457e-17, -4.4408920985006262e-16)` equals upstream's logged `delta` bit for bit, and so does its negative). H2 held in a weaker form than predicted: every primary cell of the 20-cell zone has 1, 2 or 3 positive weights (1 where the faces coincide), summing to 1 within 4 ulp; some are fractional. H3 held (`T.HX` of the first outer pass of step 1 is bit-identical to upstream's, so the guard and the first `correct` are exact). **H4 MISSED** (predicted every field <= 1e-12 at steps 1-10: `p` 3.2e-8, `Uz` 1.0e-9, `T.HX` 3.5e-12). **H5 MISSED for `p`, `p_rgh`, `Uz`, `htc`, `Re`** (predicted <= 1e-10); held for `T`, `T.HX`, `T.fixedPower`, `contErr`, `dgdt`; `deltaT` held beyond the prediction (bit-identical throughout). **H6** the heat exchanged is large (the `sHX` fluid, 653.15 K at the inlet, reaches 907 K at 20 s in the upstream reference, and `T.HX` reaches 1005 K) so the case tests the exchanger; the Q agreement missed 1e-9 early (2.6e-7) for the reason below. **H7 MISSED** like H5 (B equals A to 3 digits: the fractional weights add nothing measurable). H8 held. **C1 held** (exchangers off: `T` 2.2e-1 of `max T` at step 500, 253 K absolute). **C2 held** (nearest-cell mapping on B: `T` 3.0e-3 (3.5 K); on A it is identical to the weighted mapping to 3.2e-11 as stated). **C3 held** (secondary `htc*T` with `T.prevIter()`: `T` 4.1e-4). **M1 held** (see "Moved numbers"). W1 held (each 2008-step case takes about 2 s in the port, 27 s upstream).
+
+### Baseline: why `p` misses (found by bisecting upstream and the port at `nOuterCorrectors`/`nCorrectors` and by removing the exchangers), NOT a heat-exchanger defect, ~~NOT explained~~ **CORRECTED 2026-11-27 (round 45, gh:#1894): explained and fixed: `fvMatrix::relax` on the `slip` walls of `one_phase_fc`**
+
+| run (step 1 only, upstream tight PCG/DIC) | `p` (of `max p` 1.5e5) | `Uz` | `T` | `T.HX` |
+|---|---|---|---|---|
+| 1 outer x 1 corrector | 3.0e-14 | 1.7e-15 | 1.7e-16 | **0 (bit-identical)** |
+| 1 outer x 2 correctors | 6.3e-14 | 3.2e-15 | 1.7e-16 | |
+| 2 outer x 1 corrector (the exchanger acts in the second pass) | **3.5e-11** | 3.1e-15 | 6.4e-15 | |
+| the same, upstream with the `heatExchangers` block REMOVED and the port ablated | **3.47e-11** (identical digits per cell) | 3.1e-15 | 6.3e-15 | |
+| the same, and the heater power 0 | **3.47e-11** | 3.1e-15 | 6.4e-15 | |
+| the same, every solver tolerance 1e-30 in both (p_rgh `PCG` runs 2-3 iterations to a final residual 1e-32) | **3.46e-11** | 4e-15 | | |
+| full step 1 (6 outer x 6 correctors) | 3.2e-8 | 1.0e-9 | 6.9e-12 | 3.5e-12 |
+
+So: the exchanger is bit-identical where it acts first; the `p` difference is a DETERMINISTIC (it does not move with the linear-solver tolerance, so it is not round-off in a stopped solve) 8e-11 relative scaling of the pressure drop `p - p_out`, arising in the SECOND outer pass of step 1, present without exchangers and without heating, i.e. in `one_phase_fc` on a case with `fixedValue` inlets, `slip` walls and `dt = 1e-3` that no earlier round exercised (round 38's cases have `zeroGradient`/`noSlip` velocity). The velocity agrees to 3e-15 there and the quantities slaved to `p` (`T` through `fvc::ddt(p)`, `Q` through the cancellation `THX - T` ~ 0.01 K) follow. ~~I did not find the cause; **filed as gh:#1894**, with this table as its reproduction;~~ **CORRECTED 2026-11-27 (round 45): the cause is `fvMatrix::relax` with the non-uniform `internalCoeffs` of the `slip` walls (the momentum matrix differed from pass 1; `p` hid it there by a cancellation), fixed in `one_phase_fc`; this table is the record of the symptom;** the remaining work (a two-zone cell-centred case, `secondaryRegion`) is gh:#1895, the two-phase region gh:#1867. The error is largest in steps 1-5 (`p` 1e-7), decays with the transient (3e-9 by step 25) and settles at a constant 6e-10 offset of `p` (6e-5 Pa) with `T`, `Uz`, `Q` at 1e-13 for the last 1000 steps: not a drift. **~~The gates asserted in the test are the committed ones amended post-run at these sizes~~ **CORRECTED 2026-11-27 (round 45): the committed gates are asserted again (1e-9; `p_rgh`, `T`, `T.HX` 1e-10); the post-run amendments (2e-7, 1e-8, 5e-7, 5e-9) are removed, see the Round 45 results.**
+
+### Cell-centred region, `hx` paired with itself (part 2; 3 steps, tight)
+
+| quantity | measured | predicted | held? |
+|---|---|---|---|
+| outer iterations per step | 5, 5, 5 = upstream's 5, 5, 5 | equal | **held** (K1) |
+| `U`, `p_rgh`, `T` (every 11th cell), `hx` `T`, `T.HX` | 4.0e-12, 7.4e-13, 1.0e-15, 8.8e-16, **8.8e-16** (`T.HX` agrees to 1 ulp-scale) | <= 1e-9, expected 1e-12..1e-11; `T.HX` <= 1e-11 | **held** (K2) |
+| `T.HX` at step 1 | within 1e-6 of 900 K in both (`THX = T.prevIter` of the last pass) | within 1e-3 of 900 K | **held** (K3) |
+| solves | 105 compared, worst iteration difference 0 above the 1e-10 floor; 52 solves below it (worst difference 83, the round 37 floor behaviour) | <= 1 | **held** |
+| relative initial residual (round 37 gated it at 1e-6; not among the criteria written for this round) | 3.1e-6 | | recorded; asserted at 1e-5 |
+| K4 control (exchangers off) | `T.HX` 100 % different; `T` 4.7e-13 (does NOT discriminate, as predicted); the solve log does: relative initial residual 9.4e-3 against 3.1e-6 | solve log > 1e-6 | **held** |
+| K5 control (secondary `htc*T` with `T.prevIter`) | `T.HX` 6.0e-12 (predicted >= 1e-9) | | **MISSED**: undetectable in `T.HX` (with a self-paired exchanger `T - T.prevIter` is ~1e-8 K); the solve log sees it (5.0e-3) |
+
+Also: the reader accepts `heatExchangers` and reaches upstream's `FatalError` for `pump` (715 cells) against `hx` (2035): `unequal_zone_volumes_reach_upstreams_fatal_error`.
+
+### Moved numbers
+
+None. `genfoam_one_phase_fc_vs_upstream` (15 passed, 3 ignored), `genfoam_one_phase_vs_upstream` (5), `genfoam_msfr_th_vs_upstream` (5), `genfoam_radial_power_wired_vs_upstream` (6), `genfoam_mesh_to_mesh_vs_upstream` (8) pass with their committed gates and unchanged asserted numbers; the only edit on their path is the `is_active()` branch (false without exchangers) and the new `heat_exchangers` field (empty).
+
+### Defects found by this round
+
+1. The comparison needs `with_upstream_stale_pimple_converged_flag()` (round 4) for a Courant-limited run: without it every second step from step 453 differs (upstream solves nothing on those steps); found on the first run, applied in the test, not a new finding.
+2. `heatExchanger.C` documents `wallConductance` as optional ("defaults to 0", tutorial text) but `this->get<scalar>("wallConductance")` REQUIRES it; the port requires it too.
+3. gh:#1894 (baseline `p`), above; ~~not found~~ **CORRECTED 2026-11-27: found and fixed in round 45.**
+
+### Reproduction
+
+`bash scripts/make_hx_variants.sh`; per case `END_TIME=20 TIGHT=1 PSOLVER=pcg PRE_RUN=scripts/fc_protocol.sh bash scripts/run_case.sh <case dir> <name>` then `scripts/extract_hx_reference.sh <name> hx_A_pcg 120 "1 2 3 5 10 25 50 100 200 300 500 750 1000 1500 2000 last" 2008` (B: 130 cells); the cell-centred variant by `scripts/make_msfr_th_hx_variants.sh` and `END_TIME=0.0037 TURB=off VARIANT=hx_self VARIANT_DIR=cases/msfr_th_variants_r44 bash scripts/run_msfr_th_tight.sh` with `scripts/extract_radial_fields.sh` (zone fields `T T.HX`). `fc_protocol.sh` gained `TOL` (default 1e-14; 1e-30 for the baseline bisect).
+
+# Round 45 (gh:#1894, child of #1216/#1847): why `p` of `one_phase_fc` differs by ~1e-10 (relative) after the SECOND outer pass on `1D_HX/onePhase`
+
+Maintainer, 2026-11-27: "Port genfoam exhaustively", "Match all upstream". Written 2026-11-27 BEFORE any probe run or port dump of this round; committed first.
+
+## What was read first (upstream, before any hypothesis)
+
+`pEqnf_1p.H` and its includes (`updateAlphaPhiAndInitControls_1p.H`, `calcPhiSbyA_1p.H`, `calcrAUfSetSnGradCalcComp_1p.H`, `solveP_rgh_1p.H`, `updatePP_rghRho_1p.H`), `UEqn_1p.H`, `onePhase::correctPhysics` (the outer loop: `correctModels`, `correctFluidMechanics`, `correctEnergy`), and ESI v2506 `fvMatrix::relax(scalar)` (`fvMatrix.C:1101`: `D += cmptMax(cmptMag(iCoeffs))`, `D = max(|D|, sumOff)`, `D /= alpha`, `D -= cmptMin(iCoeffs)`, `S += (D - D0) psi`; note `cmptMin`, not `iCoeffs`). The case: `icoPolynomial` (`psi = 0`, `rho(T)` only), `p_rgh` `fixedFluxPressure` at the inlets and the `slip` walls, `fixedValue` outlets, `U` `fixedValue` at the inlets, `slip` on the walls, `relaxationFactors equations ".*" 1` (so `UEqn.relax(1)` runs in every pass), `nOuterCorrectors 6`, `nCorrectors 6`, `nNonOrthogonalCorrectors 0`. The port: `one_phase_fc.rs` (`correct_u_eqn`, `relax_diag`, `convective_inflow2`, `correct_pressure`) and `two_phase/mod.rs` (`VecEqn::add_internal_coeffs`: `cmptAv`, `boundary_convection`, `boundary_laplacian`), `two_phase/fv.rs` (`Vector::patch_coeffs`, `Slip`).
+
+What the data already say: in the first pass everything agrees (3e-14); `U` agrees to 3e-15 throughout; the 1-D incompressible flow cannot move `U`, so ANY 1e-10 relative error in an inertia/friction coefficient of the momentum equation appears only in `p - p_out` (the pressure drop is `(phiHbyA - phi)/(rAUf |Sf|)`, i.e. `~ phi (A + alphaRho/dt)`). The error is deterministic and is present with the heat exchangers off and the heater at 0, so it is a property of the pass-2 state, not of the energy equation.
+
+## Hypotheses (predicted sign and magnitude, BEFORE the probe)
+
+Probe plan: an instrumented copy of `libFFSSolvers2` (`upstream_driver/probe_one_phase_fc/`, separate `FOAM_USER_LIBBIN`; the sources are not edited) dumps at 17 digits, per corrector of step 1: cell `alpha`, `rho`, `p`, `p_rgh`, `T`, `U`, `contErr`, `UEqn.A()`, `UEqn.H()`, `UEqn.diag()/source()/internalCoeffs()`; internal-face `alphaf`, `alphaRhofByDt`, `alphaRhof0ByDt`, `rAUf` (first), `alpharAUf`, `phiSbyA`, `phiHbyA`, `rAUf` (second), `phi`, `phi.oldTime()`, `alphaRhoPhi`; boundary values of `phi`, `phiHbyA`, `rAUf`, `alphaf`, `alphaRhoPhi`, `U`; and the `pEqn` `diag/upper/lower/source/internalCoeffs/boundaryCoeffs` and the solution. The port writes the same names through a temporary edit of `correct_pressure` (not kept). Compared at (outer 1, corrector 1) and (outer 2, corrector 1) of step 1, `nOuterCorrectors 2`, `nCorrectors 1`, tolerances 1e-30, isothermal control (no exchangers, heater power 0).
+
+- **P0 (the instrument).** At (outer 1, corrector 1) every dumped quantity agrees to <= 1e-14 relative (consistent with the measured 3e-14 of `p`). If not, the bisect restarts from outer 1 and the issue's premise is wrong.
+- **H1: `fvMatrix::relax` with non-uniform boundary `internalCoeffs` (slip walls).** The port's `relax_diag` folds `cmptAv(iCoeffs)` into the diagonal and assumes the add/subtract pair is `iCoeffs`; upstream adds `cmptMax(cmptMag(iCoeffs))` and subtracts `cmptMin(iCoeffs)`. For a slip patch the laplacian `iCoeffs` is `(c, 0, 0)` or `(0, c, 0)` (`snGradTransformDiag = |n|` per component), so `cmptMax - cmptMin = c`: one wall-viscous diagonal contribution. Prediction: this would show in OUTER 1 too, and outer 1 agrees, so I predict H1 is **NOT** the cause of a pass-2-only error (cell `A()` agrees at outer 1 to <= 1e-14). If instead `A()` differs by ~1e-10 relative at outer 2 only, `relax` is involved, and the sign is: port `A` smaller than upstream (the missing `cmptMax - cmptMin` term is non-negative).
+- **H2: `contErr` entering `fvm::SuSp(-contErr, U)` and `pEqnComp` at pass 2.** In pass 1 `contErr` is the previous step's; in pass 2 it is the pass-1 `ddt(alpha rho) + div(alphaRhoPhi)`. The isothermal control has `contErr` at round-off only, so H2 cannot produce a deterministic 1e-10 there: predicted NOT the cause in the control (`contErr` agrees to <= 1e-12 of `rho/dt`).
+- **H3: boundary `phi` on the `slip`/`fixedValue` patches in pass 2.** `correctBoundaryFlux_1p.H` resets only `fixedValueFvsPatchScalarField` flux patches to `Sf . U_b`; the port's `flux_is_fixed` treats `Fixed | Slip`. Prediction: at the inlet `phi_b = Sf . U_b` exactly in both; at the walls `|phi_b| <= 1e-17` in both. A difference in the type of the flux patch would show as a wall `phi_b` or `phiHbyA_b` differing at outer 2 by far more than 1e-17, would change the `fixedFluxPressure` gradient at the walls but NOT the 1-D pressure drop: predicted not the cause of a drop scaling.
+- **H4: `rho` / `gh` / `p -> p_rgh` bookkeeping in pass 2** (`p_rgh = p - rho gh` at the start of every corrector; `p = max(p_rgh + rho gh, pMin)` at its end). In the control `rho` is constant, so the round trip is round-off. Prediction: agree to <= 1e-15 relative; not the cause.
+- **H5 (residual hypothesis, to be refined by the dump): a coefficient of the momentum equation in pass 2 that differs by ~1e-10 relative: the friction `Kd` (from `Re`, `|U|`: `magU` is set by `fluid_.magU() = mag(U)` after the corrector, `Re` in `correctModels` at the start of pass 2) or `alphaRhofByDt`/`rAUf`.** Prediction: `A` and `rAUf` differ at outer 2 by a spatially smooth relative difference of ~1e-10 (one sign everywhere, as the pressure-drop scaling is a single factor) and `U` by < 1e-14; and the quantity that differs is the one built from `U` of pass 1 (`Kd`/`Re`/`magU`), because `U` of pass 1 is the only pass-1 quantity that is not round-off in the control and enters the pass-2 coefficients (`|U|` moves by ~1e-10 relative from the inlet value 2 m/s through the first pass's `p_rgh` solve at dt = 1e-3).
+
+Decision rule (fixed now): the first dumped quantity, in the order cell inputs -> face inputs -> boundary values -> matrix -> solution, that differs by more than 1e-13 relative at (outer 2, corrector 1) is the proximate cause; its upstream expression is then read, the port is made to match it, and `p` of the 1 x 1, 1 x 2 and 2 x 1 runs and the committed gates of rounds 4, 38 and 44 are re-measured. No gate is loosened.
+
+## Probe 1 (measured 2026-11-27, release, `nOuterCorrectors 2`, `nCorrectors 1`, every tolerance 1e-30, exchangers removed, heater power 0; step 1; `upstream_driver/probe_one_phase_fc/`)
+
+Worst `|port - upstream| / max |upstream|` per dumped quantity, (outer 1) / (outer 2); the first quantity that differs is the proximate cause (decision rule above).
+
+| quantity | outer 1 | outer 2 |
+|---|---|---|
+| `alpha`, `rho`, `p`, `T`, `U` (cells and boundary), `magU`, `phi`, `phi.oldTime()`, `alphaf`, `alphaRhofByDt`, `gh`, `p_rgh` before the solve | 0 .. 1.4e-16 | 0 .. 3.6e-14 (`p`, `p_rgh`: the pass-1 result), `U` 2e-15 |
+| **`UEqn.A()` (cells)** | **5.95e-6** (uniform: port smaller by 0.1150 in every cell, `A` = 19311.3) | **5.95e-6** (same) |
+| **`UEqn.H()` (z)** | **6.7e-6** | **6.7e-6** |
+| `rAUf` (first, second), `alpharAUf`, `pupper` | 2.55e-7 | 2.55e-7 |
+| `phiHbyA` | 1.2e-9 | 1.2e-9 |
+| `p_rgh` after the solve, `p` | **3.6e-14** | **3.46e-11** (the baseline) |
+| `phi` after the solve | 2e-15 | 4.5e-15 |
+
+**Finding.** The momentum matrix of the port differs from upstream's in the FIRST pass already, by a uniform 0.115 in `A` (relative 6e-6) and 0.23 in `H_z`; the pressure of pass 1 does not show it (`p` 3.6e-14) because with `U = phi/(alpha |Sf|)` uniform and `phi.oldTime() = phi` the error in `rAUf` multiplies `(alphaRhof0ByDt phi_old + flux(H)) - phi/alpharAUf`, which cancels to first order when the velocity is unchanged; pass 2 starts from the pass-1 `phi`, `contErr` and `p` and no longer cancels. **Predictions: P0 MISSED** (I predicted `A` agrees at outer 1 to 1e-14: it is 6e-6); **H1's "not the cause" MISSED, its sign held** (port `A` smaller than upstream, as the missing `cmptMax - cmptMin` of the slip wall's laplacian `internalCoeffs` predicts); **H2, H3, H4 held** (`contErr` of the control 3.6e-12 absolute at pass 1 and 5e-11 of 1.8e-3 at pass 2, boundary `phi` agrees to 4e-17, `rho`, `gh`, `p_rgh` bookkeeping 1e-16); H5 (a `Kd`/`Re` lag) MISSED: `magU`, `U`, `rho`, `T` agree to 4e-15.
+
+**Cause (to be confirmed by the fix).** `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1147-1149`, `:1235-1238`) adds `cmptMax(cmptMag(iCoeffs))` per boundary face before the dominance test and subtracts `cmptMin(iCoeffs)` after it, per FACE and over the three COMPONENTS; `UEqn.A()` then adds `cmptAv(iCoeffs)`. `one_phase_fc::relax_diag` (round 38) assumed the three components of `iCoeffs` equal, so that `cmptMax(cmptMag) - cmptMin = |v| - v = 2 max(-v, 0)` (its `convective_inflow2`). That holds for `zeroGradient`, `fixedValue`, `noSlip` (every earlier round) but NOT for a `slip` wall: the laplacian `gradientInternalCoeffs = -deltaCoeffs snGradTransformDiag` with `snGradTransformDiag = |n|` per component (`basicSymmetryFvPatchField`), so a wall of normal `x` has `iCoeffs = (c, 0, 0)`, `cmptMax - cmptMin = c` and `cmptAv = c/3`: the upstream diagonal gets `c + c/3` of that face where the port's gets `c/3`. In a 1-D tube (four side walls per cell) the `z` momentum equation is therefore missing the viscous wall contribution `sum_f c_f` of the cmptMax-cmptMin pair, uniform over the cells; the pressure drop `p - p_out` carries it as a relative scaling because `U` is fixed by continuity.
+
+## Predictions for the fix (written BEFORE the fix is built or run; committed first)
+
+Fix: `relax_diag` gets the two per-cell boundary sums of upstream's formula, `pre[c] = sum_f (cmptMax(cmptMag(iCoeffs_f)) - cmptAv(iCoeffs_f))` added inside the dominance test and `post[c] = sum_f (cmptAv(iCoeffs_f) - cmptMin(iCoeffs_f))` added after the division, built per boundary FACE from `Vector::patch_coeffs` with the convective and laplacian parts summed as `fvMatrix::operator+=` does; for equal components they reduce to `2 max(-v, 0)` and `0` (the old `convective_inflow2`).
+
+- **F1.** `UEqn.A()` and `UEqn.H()` at (outer 1) agree with upstream to <= 1e-13 relative (from 6e-6 / 6.7e-6); the 0.115 difference is closed to <= 1e-12 absolute.
+- **F2.** `p` after 2 outer x 1 corrector: <= 1e-12 (from 3.5e-11); after 1 x 1 and 1 x 2: unchanged (<= 1e-13).
+- **F3.** Full step 1 of `1D_HX/onePhase` (6 x 6): `p` <= 1e-9 (from 3.2e-8), `Uz` <= 1e-10 (from 1.0e-9), `Q` and `htc`, `Re` <= 1e-9; the late-time offset (6e-10 of `p` from step 500) drops below 1e-11. If `p` stays above 1e-9 at step 1, a second cause exists and the probe is repeated at 6 x 6.
+- **F4.** Rounds 4 and 38 (no slip patch: `zeroGradient`, `noSlip`, `fixedValue`) are bit-for-bit unchanged: for them `pre = 2 max(-v, 0)` and `post = 0` reproduce the old path in exact arithmetic; at most a last-bit difference from the order of the sums, which the pins tolerate to 1e-9 (the maintainer's rounding allowance). Predicted worst movement of any committed round-4/38 number: <= 1e-13 relative.
+- **F5.** The energy-equation `relax` (`one_phase_fc.rs`, scalar `h`) is untouched (its `iCoeffs` are scalar: equal "components"), so `T` is unchanged to 1e-15 in the control.
+
+## Round 45 results (measured 2026-11-27, release, `CARGO_BUILD_JOBS=2`, PRIVATE target dir; the real unmodified-numerics upstream binary for the reference, the instrumented copy for the dumps; `tests/genfoam_heat_exchanger_vs_upstream.rs`, 8 tests + 2 ignored diagnostics, 11 s; `--nocapture` prints every row)
+
+### The cause (upstream file/line against the port)
+
+| | upstream | port (before) | port (after) |
+|---|---|---|---|
+| per boundary face, `fvMatrix::relax` adds `cmptMax(cmptMag(iCoeffs))` to `D`, tests dominance, divides by `alpha`, subtracts `cmptMin(iCoeffs)` | `OpenFOAM-v2506/src/finiteVolume/fvMatrices/fvMatrix/fvMatrix.C:1147-1149` and `:1235-1238` | `one_phase_fc::relax_diag`: add and subtract `2 max(-v, 0)` of the CONVECTIVE flux only, i.e. the three components of `iCoeffs` taken as equal | `relax_diag_boundary` with `pre = sum_f (cmptMax(cmptMag(ic)) - cmptAv(ic))`, `post = sum_f (cmptAv(ic) - cmptMin(ic))` built per face from the convective AND laplacian `iCoeffs` (`u_relax_boundary_terms`, `relax_face_terms`) |
+| `UEqn.A()` = `(D + cmptAv(iCoeffs))/V` | `fvMatrix::A()` | `A` smaller by 0.1150 (relative 5.95e-6, uniform over the cells, `A` = 19311.3) | agrees to 7.5e-16 |
+| `iCoeffs` of a `slip` wall (laplacian) | `-deltaCoeffs snGradTransformDiag`, `snGradTransformDiag = (|nx|, |ny|, |nz|)` (`basicSymmetryFvPatchField`): `(c, 0, 0)` on an `x`-normal wall | the term was missing from `cmptMax - cmptMin = c` | included |
+
+For equal components (`zeroGradient`, `fixedValue`, `noSlip`, every case of rounds 4 and 38, and the scalar `h` equation) the new terms reduce to the old `(2 max(-v, 0), 0)` (`relax_face_terms_reduce_to_the_scalar_form_and_differ_for_a_slip_wall`). The cell-centred region already did it per face (`one_phase_cc/flow.rs::VecEqn::relax`, `cmptMax`/`cmptMin` over `self.ic`), which is how the face-centred form was found to be the odd one out.
+
+**Why the first pass hid it.** At pass 1 `U` is uniform and `phi.oldTime() = phi`, so the pressure gradient is `alphaRhof0ByDt phi_old + flux(H) - phi/alpharAUf`, a difference of two terms each carrying the wrong `A`; they cancel to first order while `U` does not change (`p` of pass 1: 3.6e-14 with `A` wrong by 6e-6). Pass 2 starts from the pass-1 `phi`, `contErr` and `p`, which no longer cancel, and 1-D incompressible flow cannot move `U`, so the whole error lands in `p - p_out` as a relative scaling (3.5e-11 of `max p`).
+
+### Probe: `UEqn.A()`, `H()`, `rAUf`, `phiHbyA` and `p` against the instrumented upstream (worst relative to the field maximum; step 1, tolerance 1e-30 except the last row)
+
+| run | quantity | before | after |
+|---|---|---|---|
+| 2 outer x 1 corrector, isothermal, no exchangers (outer 1 / outer 2) | `UEqn.A()` | 5.95e-6 / 5.95e-6 | 7.5e-16 / 7.5e-16 |
+| | `UEqn.H()` | 6.7e-6 / 6.7e-6 | 6.3e-16 / 1.3e-15 |
+| | `rAUf` (both), `phiHbyA` | 2.55e-7, 1.2e-9 | 1.9e-16, 3.5e-16 |
+| | `p` after the solve | 3.6e-14 / **3.46e-11** | 1.9e-14 / **1.0e-13** |
+| 2 x 1, heated, no exchangers | `p`, `Uz`, `T` (end of step) | 3.5e-11, 3.1e-15, 6.4e-15 | 1.1e-13, 4.6e-15, 1.7e-16 |
+| 6 x 6 (36 correctors), heated, exchangers on, tolerance 1e-14 (shipped protocol) | `UEqn.A()` at corrector 36 | | 1.35e-14 |
+| | `p` / `Uz` / `T` / `htc` / `T.HX` after step 1 | **3.2e-8** / 1.0e-9 / 6.9e-12 / | **6.5e-13** / 2.7e-14 / 5.2e-16 / 3.0e-15 / 3.5e-16 |
+
+The 6 x 6 probe also agrees at all 36 correctors to <= 1e-11 on every dumped quantity (cells, internal faces, boundary faces, solution).
+
+### `1D_HX/onePhase` as shipped (case A) and non-conformal (case B), 2008 steps to 20 s, tight PCG/DIC (the round 44 table, same protocol)
+
+| quantity | A before (round 44) | A after | B after | committed gate (restored) |
+|---|---|---|---|---|
+| `p`, `p_rgh` | 1.04e-7 (step 2); 3.2e-8 (1); 6.2e-10 from step 500 | **3.0e-12** (step 3); 5.5e-14 at step 2008 | 1.3e-12 (2) | 1e-9 / 1e-10 |
+| `Uz` | 5.8e-9 (3); 1.0e-9 (1) | **1.6e-13** (3) | 1.3e-13 (1500) | 1e-9 |
+| `htc`, `Re` | 1.1e-9, 6.3e-9 | 1.2e-13, 4.0e-13 | 1.2e-13, 4.5e-13 | 1e-9 |
+| `T` / `T[zone]` / `T.HX` | 3.2e-11 / 2.5e-11 / 1.9e-11 | 3.5e-13 / 2.5e-13 / 2.3e-13 | 3.5e-13 / 2.5e-13 / 2.3e-13 | 1e-10 |
+| exchanged heat `Q` / zone integral | 2.6e-7 (2) / 2.7e-7 (2) | **5.3e-11** (1) / 7.7e-12 | 5.3e-11 / 1.8e-11 | 1e-9 / 1e-10 |
+| `T.fixedPower`, `contErr`, `dgdt` | 2.4e-12, 1.1e-12, 5.1e-12 | 6.7e-14, 1.5e-14, 7.2e-15 | 6.0e-14, 9.6e-15, 4.1e-15 | 1e-9 |
+| `p_rgh` solve log | 37,104 solves, 0 violations | 37,103 solves (2 straddle steps), **0 violations, iteration differences 0 / 0 / 0**, equal count at every step | 37,126, 0 violations | none violating |
+| `deltaT` | bit-identical, 2008 steps | bit-identical | bit-identical | |
+
+Controls unchanged: C1 (exchangers off) `T` 2.2e-1 at step 500; C2 (nearest cell) 3.0e-3 non-conformal, 1.4e-13 conformal; C3 (secondary `T.prevIter`) 4.1e-4.
+
+### Gates (old -> new, `gate()` in `tests/genfoam_heat_exchanger_vs_upstream.rs`)
+
+Round 44's post-run amendments are REMOVED and the committed gates asserted for every step: `p` 2e-7 (steps <= 5) / 5e-9 (<= 200) -> **1e-9**; `p_rgh` the same -> **1e-10**; `Uz`, `Re`, `htc` 1e-8 -> **1e-9**; exchanged heat 5e-7 -> **1e-9**, zone integral 5e-7 / 1e-8 -> **1e-10**. Each is the round 44 committed criterion; nothing was loosened and no gate is tighter than committed.
+
+### Predictions: held and missed
+
+P0 **MISSED** (`A` at outer 1 differed by 6e-6: the premise "the first pass agrees" was true of `p` and false of the matrix). H1: the sign held, "not the cause" **MISSED** (it is the cause; I had argued it would show in pass 1, but `p` of pass 1 hides it by a cancellation, stated above). H2, H3, H4 held (`contErr` of the control 3.6e-12 absolute at pass 1; boundary `phi` agrees to 4e-17; `rho`, `gh`, `p_rgh` bookkeeping 1e-16). H5 (a `Kd`/`Re`/`magU` lag) **MISSED**: `magU`, `U`, `rho`, `T` agree to 4e-15. Fix predictions: F1 held (`A`, `H` 7.5e-16 / 6.3e-16, predicted <= 1e-13); F2 held (`p` 2 x 1: 1.0e-13, predicted <= 1e-12); F3 held and beaten (6 x 6 step 1: `p` 6.5e-13 against <= 1e-9, `Uz` 2.7e-14 against <= 1e-10, `Q` 5.3e-11 against <= 1e-9, the late offset 6e-10 -> 5e-14 against < 1e-11); F4 held in its weaker form (the 15 + 5 tests of rounds 38 and 4 pass with their committed pins; I did not compare their numbers bit for bit before and after); F5 held (`T` of the control 1.7e-16).
+
+### Not bit-identical, and why
+
+`UEqn.A()` agrees to 7.5e-16, not bit for bit: the port folds `cmptAv(iCoeffs)` into the diagonal as the matrix is assembled, upstream keeps `D` and `iCoeffs` separate and adds them in `A()`; the sums are formed in a different order. That is a round-off difference below the 1e-9 allowance (maintainer, 2026-11-17), flagged here for the maintainer; the pressure agrees to 3e-12 (2008 steps) rather than bit for bit for the same reason.
+
+### Moved numbers
+
+`genfoam_heat_exchanger_vs_upstream`: the asserted gates (above) and the round 44 README numbers for `p`, `Uz`, `htc`, `Re`, `Q` (before/after table). Rounds 4 and 38 (`genfoam_one_phase_vs_upstream` 5 passed / 2 ignored; `genfoam_one_phase_fc_vs_upstream` 15 passed / 3 ignored) pass with their committed pins unchanged: their velocity patches are `zeroGradient`, `noSlip` (a `fixedValue`) or `fixedValue`, whose `iCoeffs` have equal components.
+
+### Not done
+
+The cell-centred region already relaxes per face. Not re-checked: `two_phase` momentum relaxation with non-uniform patches (no `slip`/`symmetry` momentum case of the two-phase region was in scope). Upstream probe, scripts and both patches: `upstream_driver/probe_one_phase_fc/` (`probe_one_phase_fc.patch`, `port_probe_one_phase_fc_rs.patch` = the temporary dump edit of `correct_pressure`, not in the source; `build.sh`, `run_up.sh`, `pre_run.sh`, `cmp.py`; scripts carry the author's scratch paths).
+
+### Reproduction
+
+`bash upstream_driver/probe_one_phase_fc/build.sh` after copying `classes/{common,thermalHydraulics/{src,solvers}}` of `GeN-Foam-src` to `probe1894/classes` and applying the patch; `ISO=1 NOUTER=2 NCORR=1 bash run_up.sh iso21`; port: apply `port_probe_one_phase_fc_rs.patch`, `PORT_PROBE_FILE=... DIAG_NOUT=2 DIAG_NCORR=1 DIAG_P0=1 DIAG_NOHX=1 HX_TOL=1e-30 cargo test --release -p outram-foam-appbuilder-lib --test genfoam_heat_exchanger_vs_upstream diagnostic_step1_one_corrector -- --ignored --nocapture`; `python3 cmp.py up_iso21.txt port.txt`.
