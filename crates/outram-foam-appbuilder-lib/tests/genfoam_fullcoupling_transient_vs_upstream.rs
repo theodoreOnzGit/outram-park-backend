@@ -1349,3 +1349,161 @@ fn each_file_read_control_differs_from_the_real_run() {
     assert!(dd.1 > 1e-6, "control d {:e}", dd.1);
     // (e) is REPORTED: it may be a non-control (round 60 control d)
 }
+
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// The Function1 profile types of `externalReactivityTimeProfile` against the real binary (gh:#1930, README round 66, criterion 6)
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+/// The types with a real-run reference (`scripts/make_pk_variant_r63.py prof_<type>`); `one` is NOT here: its real run is a finding (external
+/// reactivity 1 = 100000 pcm, the real binary took 3000 steps of 1e-8 s with a power running away and was killed at t = 100.000035).
+const PROFILE_TYPES: [&str; 10] =
+    ["constant", "uniform", "zero", "linearRamp", "halfCosineRamp", "quarterCosineRamp", "quarterSineRamp", "cosine", "square", "polynomial"];
+
+/// The staged transient of one profile variant, from the written start directory.
+fn stage_profile(tag: &str, variant: &str) -> PathBuf {
+    let root = stage_from_files(&format!("{variant}_{tag}"), true);
+    let script = vv_dir().join("scripts/make_pk_variant_r63.py");
+    let status = std::process::Command::new("python3").arg("-I").arg(&script).arg(variant).arg(&root).status().expect("python3");
+    assert!(status.success(), "make_pk_variant_r63.py {variant}");
+    root
+}
+
+/// Criteria 1-4 of README round 66 for one profile type (the port restarted from the files, the real binary on the same one-edit variant).
+#[test]
+fn the_function1_profile_types_match_the_real_binary() {
+    let mut failures = Vec::new();
+    for ty in PROFILE_TYPES {
+        let reference = load_reference(&format!("pk63_prof_{ty}.ref.txt.gz"));
+        let root = stage_profile("main", &format!("prof_{ty}"));
+        let w = run_pk_from_files(&root, CouplingSwitches::default(), usize::MAX, &reference);
+        let ext = w.pk_terms.get("arrow_extReactivity").copied().unwrap_or((f64::NAN, 0));
+        let total = w.pk_terms.get("totalReactivity").copied().unwrap_or((f64::NAN, 0));
+        println!(
+            "r66 profile {ty}: {} steps (real {}); dt {:e}; final time {:e}; power {:?}; extReactivity worst {:e} at step {}; totalReactivity worst {:e} at step {}; first diverging PK term {:?}; TFuel term abs {:e} pcm; fingerprint first diverging {:?}; fluid residual abs {:e}; TM {:e}; solve-count mismatches {}",
+            w.steps, reference.n_steps, w.dt, w.time, w.power, ext.0, ext.1, total.0, total.1, w.pk_first, w.pk_tfuel_abs, w.first_diverging, w.fluid_res_abs, w.tm_res_abs, w.solve_count_mismatch
+        );
+        let mut bad = Vec::new();
+        if w.steps != reference.n_steps {
+            bad.push(format!("steps {} vs {}", w.steps, reference.n_steps));
+        }
+        if !(w.time <= 1e-12 && w.dt <= GATE) {
+            bad.push(format!("time {:e} dt {:e}", w.time, w.dt));
+        }
+        if !(w.power.0 <= GATE) {
+            bad.push(format!("power {:?}", w.power));
+        }
+        if w.pk_first.is_some() {
+            bad.push(format!("first diverging PK term {:?}", w.pk_first));
+        }
+        if !(w.pk_tfuel_abs <= PK_TFUEL_TERM_ABS_PIN) {
+            bad.push(format!("TFuel term {:e}", w.pk_tfuel_abs));
+        }
+        if w.first_diverging.is_some() {
+            bad.push(format!("fingerprint {:?}", w.first_diverging));
+        }
+        if w.solve_count_mismatch != 0 || !(w.fluid_res_abs <= 1e-11) || !(w.tm_res_abs <= 1e-11) {
+            bad.push(format!("solves: mismatches {} fluid {:e} tm {:e}", w.solve_count_mismatch, w.fluid_res_abs, w.tm_res_abs));
+        }
+        if !bad.is_empty() {
+            failures.push(format!("{ty}: {}", bad.join("; ")));
+        }
+    }
+    assert!(failures.is_empty(), "profile types that missed: {failures:#?}");
+}
+
+/// README round 66, criterion 6: the profile replaced by its constant level (`prof_constant`: 5.7671e-4) differs from the real run's
+/// `extReactivity` at step 100 by more than 1e-6 relative; `constant` and `uniform` ARE their own level (reported, not controls).
+#[test]
+fn each_profile_control_differs_from_the_real_run() {
+    let mut failures = Vec::new();
+    for ty in PROFILE_TYPES {
+        let reference = load_reference(&format!("pk63_prof_{ty}.ref.txt.gz"));
+        let root = stage_profile("ctl", "prof_constant");
+        let w = run_pk_from_files(&root, CouplingSwitches::default(), 100, &reference);
+        let d = w.pk_last.get("arrow_extReactivity").copied().unwrap_or(f64::NAN);
+        println!("r66 profile control {ty}: constant level against the real run's extReactivity at step 100: {d:e}");
+        let own_level = matches!(ty, "constant" | "uniform");
+        if own_level {
+            if !(d <= GATE) {
+                failures.push(format!("{ty}: its own level differs {d:e}"));
+            }
+        } else if !(d > 1e-6) {
+            failures.push(format!("{ty}: {d:e}"));
+        }
+    }
+    assert!(failures.is_empty(), "controls that did not behave: {failures:?}");
+}
+
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// The `reactorState` write-out of the point-kinetics region (gh:#1930, README round 66, criterion 7)
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+/// The entries of a written `reactorState` (`key value;` or `key N ( v ... );`), after the header, as `(key, values)`.
+fn parse_reactor_state(text: &str) -> Vec<(String, Vec<f64>)> {
+    let body = &text[text.find("// * *").map_or(0, |i| i)..];
+    let mut out = Vec::new();
+    for line in body.lines() {
+        let line = line.trim().trim_end_matches(';').trim();
+        if line.is_empty() || line.starts_with("//") || line.starts_with('/') {
+            continue;
+        }
+        let mut it = line.split_whitespace();
+        let key = it.next().expect("key").to_string();
+        let vals: Vec<f64> = it.filter(|t| *t != "(" && *t != ")").filter_map(|t| t.parse::<f64>().ok()).collect();
+        let vals = if vals.len() > 1 { vals[1..].to_vec() } else { vals };
+        out.push((key, vals));
+    }
+    out
+}
+
+/// Run the staged PK case from the written start directory to its end and return the write-out entries of the point-kinetics region.
+fn pk_write_out(root: &Path) -> Vec<(String, Vec<f64>)> {
+    let mut run = RegionSolvers::read(root, CouplingSwitches::default()).unwrap_or_else(|e| panic!("not readable: {e}"));
+    while run.running() {
+        run.step().unwrap_or_else(|e| panic!("step: {e}"));
+    }
+    let Some(RegionSolver::PointKinetics(p)) = run.region("neutroRegion").map(|r| &r.solver) else { panic!("not point kinetics") };
+    p.pk.reactor_state_write_entries()
+}
+
+/// Compare the write-out with the file the real run wrote at its last step: every key the real run SET (all but `keff`, and the read-only
+/// `TladRef`/`TDriveLineRef` the `restart` variant carried in) is in the port's entries under the same name, no other, values within 1e-9
+/// relative (an entry that is 0 in the real file: 1e-15 absolute).
+fn check_write_out(label: &str, port: &[(String, Vec<f64>)], real_file: &str) {
+    let real = parse_reactor_state(real_file);
+    let skip = ["keff", "TladRef", "TDriveLineRef"];
+    let mut worst = 0.0_f64;
+    let mut missing = Vec::new();
+    for (k, v) in real.iter().filter(|(k, _)| !skip.contains(&k.as_str())) {
+        let Some((_, mine)) = port.iter().find(|(n, _)| n == k) else {
+            missing.push(k.clone());
+            continue;
+        };
+        assert_eq!(mine.len(), v.len(), "{label}: {k} length");
+        for (a, b) in mine.iter().zip(v) {
+            let d = if *b == 0.0 { a.abs() / 1e-15 * GATE } else { (a - b).abs() / b.abs() };
+            worst = worst.max(d);
+        }
+    }
+    let extra: Vec<&String> = port.iter().map(|(k, _)| k).filter(|k| !real.iter().any(|(r, _)| r == *k)).collect();
+    println!("{label}: reactorState write-out: {} keys compared, worst relative difference {worst:e}, missing in the port {missing:?}, extra in the port {extra:?}", real.len());
+    assert!(missing.is_empty() && extra.is_empty(), "{label}: keys differ: missing {missing:?} extra {extra:?}");
+    assert!(worst <= GATE, "{label}: write-out {worst:e}");
+}
+
+#[test]
+fn the_point_kinetics_reactor_state_write_out_matches_the_real_binary() {
+    // the PK run of round 61 (551 steps, `endTime 200`): `pTarget`, the seven `T*Ref` under the WRITTEN spellings, `precursorPowers`
+    let base = stage_from_files("rs_base", true);
+    let port = pk_write_out(&base);
+    check_write_out("base", &port, &std::fs::read_to_string(vv_dir().join("refs/fc_reactorState_pk_base_last_r66.txt")).expect("reference"));
+    // the `restart` variant of round 63: `precursorPowers` and `T*Ref` READ (`TladRef`, `TDriveLineRef` spelt as upstream reads them), 130 s end
+    let restart = stage_from_files("rs_restart", true);
+    let script = vv_dir().join("scripts/make_pk_variant_r63.py");
+    let status = std::process::Command::new("python3").arg("-I").arg(&script).arg("restart").arg(&restart).status().expect("python3");
+    assert!(status.success());
+    let port = pk_write_out(&restart);
+    check_write_out("restart", &port, &std::fs::read_to_string(vv_dir().join("refs/fc_reactorState_pk_restart_last_r66.txt")).expect("reference"));
+}

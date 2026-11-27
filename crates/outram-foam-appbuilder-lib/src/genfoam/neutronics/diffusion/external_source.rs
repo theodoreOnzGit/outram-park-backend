@@ -433,6 +433,11 @@ impl DiffusionNeutronics {
         } else {
             None
         };
+        // `implicitPredictor.H` (`solveNeutronics.H`): AFTER `integralPredictor.H`, on the star flux that left it (gh:#1926, README round 66)
+        if self.implicit_predictor {
+            self.run_implicit_predictor(&mut star, &star_fields, &flux_old, &mut neutro_source, &delayed, dt, keff)?;
+            star_fields = (0..groups).map(|g| field_with_boundary(&self.state.flux()[g], star[g].clone())).collect();
+        }
 
         // createFluxMatrices.H: the explicit correction is taken from the flux the step starts from
         let gradients: Vec<Option<outram_foam_basic_lib::prelude::VolVectorField>> = (0..groups)

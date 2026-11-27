@@ -996,6 +996,30 @@ impl PointKineticNeutronics {
         self.decay_power
     }
 
+    /// What `solvePointKinetics.H` leaves in the `reactorState` dictionary at a WRITE step (gh:#1930, README round 66, criterion 7), under the
+    /// key spellings upstream WRITES: `reactorState_.set("TFuelRef" ... "TDrivelineRef")` after the first step (`:44-50`: `TCladRef`,
+    /// `TDrivelineRef`, while the READ keys are `TladRef`, `TDriveLineRef`), `pTarget = power_` and `precursorPowers` (`:196-201`, on a write
+    /// time only). Each entry is `(key, values)`; the `T*Ref` entries are absent before the first step (nothing was set yet).
+    #[must_use]
+    pub fn reactor_state_write_entries(&self) -> Vec<(String, Vec<f64>)> {
+        let mut out = vec![("pTarget".to_string(), vec![self.power()])];
+        if let Some(r) = &self.refs {
+            for (k, v) in [
+                ("TFuelRef", r.t_fuel),
+                ("TCladRef", r.t_clad),
+                ("TCoolRef", r.t_cool),
+                ("rhoCoolRef", r.rho_cool),
+                ("TStructRef", r.t_struct),
+                ("TStructMechRef", r.t_struct_mech),
+                ("TDrivelineRef", r.t_driveline),
+            ] {
+                out.push((k.to_string(), vec![v]));
+            }
+        }
+        out.push(("precursorPowers".to_string(), self.precursor_powers()));
+        out
+    }
+
     /// Precursor powers `precursorPowers_` (W).
     pub fn precursor_powers(&self) -> Vec<f64> {
         self.state

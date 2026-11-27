@@ -401,13 +401,12 @@ fn has_baffles(mesh: &DeformableMesh) -> bool {
 ///
 /// # Errors
 /// `implicitPredictor true`, a laplacian or ddt scheme other than `Gauss linear corrected` and `Euler`: refused by name.
-fn neutronics_transient_controls(root: &Path, nname: &str, no_integral_predictor: bool) -> Result<(StationaryStepControls, bool), AppBuilderError> {
+fn neutronics_transient_controls(root: &Path, nname: &str, no_integral_predictor: bool) -> Result<(StationaryStepControls, bool, bool), AppBuilderError> {
     let fvs = read_dict(root, &format!("system/{nname}/fvSolution"))?;
     let nt = fvs.dict.get_dict("neutronTransport");
     let flag = |k: &str| nt.and_then(|d| d.get_word(k)).is_some_and(|w| w == "true" || w == "yes" || w == "on");
-    if flag("implicitPredictor") {
-        return Err(case_err(root, "neutronTransport.implicitPredictor true is not ported (implicitPredictor.H); gh:#1919 ports integralPredictor.H only"));
-    }
+    // `implicitPredictor.H` is ported (gh:#1926, README round 66); `aitkenAcceleration.H` is not (its lists are uninitialised upstream)
+    let implicit_predictor = flag("implicitPredictor");
     let integral_predictor = flag("integralPredictor") && !no_integral_predictor;
     let res = nt.and_then(|d| d.get_scalar("neutronIterationResidual")).unwrap_or(1e-5);
     let max_it = nt.and_then(|d| d.get_scalar("maxNeutronIterations")).unwrap_or(10.0) as usize;
@@ -420,7 +419,7 @@ fn neutronics_transient_controls(root: &Path, nname: &str, no_integral_predictor
     if !schemes.contains("Euler;") {
         return Err(case_err(root, "fvSchemes: only `ddtSchemes default Euler` is ported for the transient step"));
     }
-    Ok((StationaryStepControls { ddt: NeutronicsDdtScheme::Euler, laplacian, neutron_iteration_residual: res, max_neutron_iterations: max_it }, integral_predictor))
+    Ok((StationaryStepControls { ddt: NeutronicsDdtScheme::Euler, laplacian, neutron_iteration_residual: res, max_neutron_iterations: max_it }, integral_predictor, implicit_predictor))
 }
 
 /// `neutronicsProperties.eigenvalueNeutronics` of a neutronics region of kind `kind` is `false` (a point-kinetics region always is): the
@@ -671,8 +670,8 @@ impl RegionSolvers {
                         // `solveNeutronics.H` with `eigenvalueNeutronics false` from the READ `fluxStar<g>`, `flux<g>`, `prec<k>` (`createNeutronicsFields.H:119-215`)
                         let td = time_dir.as_deref().ok_or_else(|| case_err(root, "internal: no start directory"))?;
                         let nf = read_neutronics_files(root, name, td, n, solver.energy_groups(), solver.prec_groups(), true)?;
-                        let (controls, integral_predictor) = neutronics_transient_controls(root, name, switches.no_integral_predictor)?;
-                        solver = solver.with_integral_predictor(integral_predictor);
+                        let (controls, integral_predictor, implicit_predictor) = neutronics_transient_controls(root, name, switches.no_integral_predictor)?;
+                        solver = solver.with_integral_predictor(integral_predictor).with_implicit_predictor(implicit_predictor);
                         solver.set_read_fields(&nf.flux, &nf.flux_star, &nf.prec, k0);
                         for (nm, v) in nf.scalars {
                             fields.set_scalar(&nm, v);
@@ -812,7 +811,7 @@ impl RegionSolvers {
         if pk_variant {
             return self.restart_transient_point_kinetics(root, ni, &nname, start_time, &cc, mappings, deformation);
         }
-        let (controls, integral_predictor) = neutronics_transient_controls(root, &nname, self.switches.no_integral_predictor)?;
+        let (controls, integral_predictor, implicit_predictor) = neutronics_transient_controls(root, &nname, self.switches.no_integral_predictor)?;
 
         // the neutronics mesh as the restart reads it
         let keep_original = self.switches.restart_on_original_mesh;
@@ -820,7 +819,7 @@ impl RegionSolvers {
         let fresh = if keep_original { n.mesh.restarted_at(&n.mesh.original_points().to_vec()) } else { n.mesh.restarted_at_current_points() }
             .map_err(|e| case_err(root, format!("{nname}: restart mesh: {e}")))?;
         n.mesh = fresh.clone();
-        n.solver = n.solver.clone().with_integral_predictor(integral_predictor);
+        n.solver = n.solver.clone().with_integral_predictor(integral_predictor).with_implicit_predictor(implicit_predictor);
         n.solver.rebind_mesh(fresh.mesh().clone(), None).map_err(|e| case_err(root, e.to_string()))?;
         n.first_step = false;
         n.transient = Some(NeutronicsTransient { controls, last_step: None });
