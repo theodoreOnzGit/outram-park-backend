@@ -50,6 +50,13 @@
 //! * The wedge patches carry a ~1e-11 residual flux (read from the restart); like upstream it enters `div`
 //!   (diagonal), `contErr` and the Courant number.
 //!
+//! ## `momentumMode faceCentered` (gh:#1939, README round 73)
+//!
+//! Upstream has one `onePhase` class with `momentumMode` branches; the `faceCentered` one (`UEqn_1p.H` without `ddt`, `pEqnf_1p.H`,
+//! `reconstructU_1p.H`) is in `face_centered.rs`, selected by `OnePhaseFlowCase::face_centered`. It serves the shipped `3D_SmallESFR` fluid
+//! region (`byRegime` heat transfer, `fixedFluxExtrapolatedPressure`, `zeroGradient` `p_rgh`, native `GAMG`). `one_phase_fc.rs` is the earlier,
+//! separate port of the same branch.
+//!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
 //! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported, same-region secondary zone only**), pumps (a `momentumSource` pump IS read when the flow is solved),

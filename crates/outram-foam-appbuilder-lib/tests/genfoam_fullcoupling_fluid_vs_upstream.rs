@@ -345,7 +345,8 @@ fn run_solver(
             }
         }
         // fields
-        let time = &lg.step_time[&step];
+        // a step without a written directory (the 200-step ESFR run writes every 10th) has no field reference
+        let time = lg.step_time.get(&step).cloned().unwrap_or_default();
         let key = |name: &str| format!("{name} {time}");
         if let Some(ru) = rf.get(&key("U")) {
             let u: Vec<f64> = solver.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).collect();
@@ -782,4 +783,66 @@ fn r73_esfr_loose_as_shipped_for_50_steps() {
     println!("esfr loose: wall {:.1} s", t0.elapsed().as_secs_f64());
     print_report("esfr loose", &r);
     assert_eq!(r.steps, 50);
+}
+
+/// The shipped ESFR fluid region, tight, to the tutorial's `endTime 200` (README round 73 addendum C): fields at steps 10, 50, 100, 200.
+#[test]
+#[ignore = "long: the 23 322-cell ESFR fluid region, 200 steps (wall time in README Round 73 results)"]
+fn r73_esfr_tight_matches_the_real_binary_for_200_steps() {
+    let (root, poly) = stage_esfr("tight200", true);
+    let t0 = std::time::Instant::now();
+    let r = run_solver(esfr_solver(&root, &poly), "esfr_r73_tight200.ref.txt.gz", "esfr_r73_tight200_log.ref.txt.gz", Some(200), Some(1.0), |s| s);
+    println!("esfr tight 200: wall {:.1} s", t0.elapsed().as_secs_f64());
+    print_report("esfr tight 200", &r);
+    assert_eq!(r.steps, 200);
+}
+
+/// The writer refuses a `fixedFluxExtrapolatedPressure` patch by name (it would otherwise write `fixedFluxPressure`, a different type name).
+#[test]
+fn r73_the_writer_refuses_fixed_flux_extrapolated_pressure_by_name() {
+    let (root, poly) = stage("r73w");
+    variant_extrapolated_pressure(&root);
+    let solver = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("read");
+    let e = solver.written_fields("1").expect_err("refused");
+    assert!(e.to_string().contains("fixedFluxExtrapolatedPressure"), "{e}");
+}
+
+/// P1 (port side): `fixedFluxExtrapolatedPressure` is an alias, so the port's `f2` is bit-identical to its own base after 3 steps.
+#[test]
+fn r73_the_port_alias_is_bit_identical_to_its_base() {
+    let run = |alias: bool| -> Vec<f64> {
+        let (root, poly) = stage(if alias { "r73al1" } else { "r73al0" });
+        if alias {
+            variant_extrapolated_pressure(&root);
+        }
+        let mut s = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("read");
+        let mut dt = s.case().delta_t;
+        for _ in 0..3 {
+            s.begin_time_step(dt);
+            let _ = s.correct_physics();
+            dt = adjust_delta_t(true, &[s.max_delta_t()], 1e-300, dt).expect("adjustable");
+        }
+        s.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).chain(s.temperature().iter().copied()).collect()
+    };
+    let (a, b) = (run(false), run(true));
+    assert!(a.iter().zip(&b).all(|(x, y)| x.to_bits() == y.to_bits()), "the alias changed a bit");
+}
+
+/// The faceCentered branch is a real branch: the port's `faceCentered` result is not bit-identical to its cell-centred one.
+#[test]
+fn r73_face_centered_differs_from_cell_centred_in_the_port() {
+    let run = |fc: bool| -> Vec<f64> {
+        let (root, poly) = stage(if fc { "r73fc1" } else { "r73fc0" });
+        if fc {
+            variant_face_centered(&root);
+        }
+        let mut s = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("read");
+        let dt = s.case().delta_t;
+        s.begin_time_step(dt);
+        let _ = s.correct_physics();
+        s.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).chain(s.p_rgh().expect("flow").iter().copied()).collect()
+    };
+    let (a, b) = (run(false), run(true));
+    // the two modes differ at round-off level on this 1-D-like channel (the real references differ in all 160 entries by bits)
+    assert!(a.iter().zip(&b).any(|(x, y)| x.to_bits() != y.to_bits()), "faceCentered and cellCentered gave bit-identical U and p_rgh");
 }
