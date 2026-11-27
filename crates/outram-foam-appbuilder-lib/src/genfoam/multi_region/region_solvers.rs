@@ -791,7 +791,7 @@ impl RegionSolvers {
                 "legacyThermoMechanics" => {
                     // `disp`, `fuelDisp`, `CRDisp` are READ from the start directory (a written one holds them as lists)
                     let tm_dir = if start_time == 0.0 { "0".to_string() } else { time_dir_name(root, start_time)? };
-                    let tm = LegacyFvmCase::read_at(root, name, TStructGamgPolicy::SubstitutePbicgDilu, &tm_dir)?.build()?;
+                    let tm = LegacyFvmCase::read_at(root, name, TStructGamgPolicy::Native, &tm_dir)?.build()?;
                     fields.set_scalar("TStructFromTH", vec![1.0; n]);
                     fields.set_scalar("TFuel", vec![1.0; n]);
                     fields.set_scalar("powerDensityNeutronics", vec![0.0; n]);

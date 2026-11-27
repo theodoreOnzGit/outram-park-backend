@@ -64,13 +64,32 @@ impl GamgSolveState {
     }
 }
 
+impl GamgSolveState {
+    /// [`Self::solve`] for a caller that has no [`Geometry`] (the thermo-mechanics region): `internal_face_areas` supplies the `Sf` of the internal
+    /// faces and is called only for the first solve (the agglomeration is then cached, as upstream's mesh registry does).
+    ///
+    /// # Panics
+    /// As [`Self::solve`].
+    pub fn solve_with_face_areas<F: FnOnce() -> Vec<[f64; 3]>>(&mut self, internal_face_areas: F, ldu: &LduMatrix, source: &[f64], x: &mut [f64], ctl: &GamgControls) -> GamgPerformance {
+        if self.agg.is_none() {
+            let w = face_area_pair_weights(&internal_face_areas());
+            let agg = pair_agglomerate(ldu.n_cells, &ldu.owner, &ldu.neighbour, &w, ctl, &mut self.forward).unwrap_or_else(|e| panic!("{e}"));
+            self.agg = Some(agg);
+        }
+        let agg = self.agg.as_ref().expect("built above");
+        let perf = gamg_dic_solve(ldu, agg, ctl, source, x).unwrap_or_else(|e| panic!("{e}"));
+        self.log.push((perf.initial_residual, perf.cycles.clone()));
+        perf
+    }
+}
+
 /// The `GAMG` controls of a `solvers` entry (`p_rgh`, `p_rghFinal`), refusing by name what the port does not run. `tolerance` falls back to
 /// `fallback` when absent, as the readers of the `PCG` entries do.
 ///
 /// # Errors
 /// The first unsupported selection, named.
 #[cfg(feature = "std")]
-pub(super) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::FoamDict, fallback: Option<&GamgControls>) -> Result<GamgControls, String> {
+pub(crate) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::FoamDict, fallback: Option<&GamgControls>) -> Result<GamgControls, String> {
     use super::case::{bool_entry, scalar, word};
     let mut c = GamgControls::default();
     if let Some(f) = fallback {

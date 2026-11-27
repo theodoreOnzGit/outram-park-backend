@@ -130,6 +130,9 @@ pub struct GamgControls {
     pub merge_levels: usize,
     /// `scaleCorrection` (`None`: the default, `matrix.symmetric()`).
     pub scale_correction: Option<bool>,
+    /// `true` when upstream's matrix HAS a `lower` array although it equals `upper` value for value (`fvMatrix::operator*=` by a field
+    /// allocates it: the row-scaled `TStruct` equation): the solve then takes the asymmetric path (gh:#1936).
+    pub has_lower: bool,
 }
 
 impl Default for GamgControls {
@@ -150,6 +153,7 @@ impl Default for GamgControls {
             n_cells_in_coarsest_level: 10,
             merge_levels: 1,
             scale_correction: None,
+            has_lower: false,
         }
     }
 }
@@ -551,7 +555,11 @@ fn pbicgstab_dilu(a: &LduMatrix, source: &[f64], psi: &mut [f64], tolerance: f64
 /// The coarse matrices of `a` over `agg` (`matrixLevels_` of `GAMGSolver`: entry `i` is the matrix of coarse level `i + 1`).
 #[must_use]
 pub fn coarse_matrices(a: &LduMatrix, agg: &GamgAgglomeration) -> Vec<LduMatrix> {
-    let sym = is_symmetric(a);
+    coarse_matrices_for(a, agg, is_symmetric(a))
+}
+
+/// [`coarse_matrices`] with the symmetry decided by the caller (`lduMatrix::symmetric()` is whether `lower` is allocated).
+fn coarse_matrices_for(a: &LduMatrix, agg: &GamgAgglomeration, sym: bool) -> Vec<LduMatrix> {
     let mut mats: Vec<LduMatrix> = Vec::with_capacity(agg.levels.len());
     for (i, lvl) in agg.levels.iter().enumerate() {
         let fine = if i == 0 { a } else { &mats[i - 1] };
@@ -780,7 +788,7 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
 /// An asymmetric matrix, an unsupported control, or no coarse level (upstream: `FatalError`, "No coarse levels created").
 pub fn gamg_dic_solve(a: &LduMatrix, agg: &GamgAgglomeration, ctl: &GamgControls, source: &[f64], psi: &mut [f64]) -> Result<GamgPerformance, String> {
     ctl.check_supported()?;
-    let sym = is_symmetric(a);
+    let sym = is_symmetric(a) && !ctl.has_lower;
     if !sym && ctl.smoother.uses_dic() {
         return Err("GAMG: the DIC and DICGaussSeidel smoothers need a symmetric matrix (upstream has no asymmetric `DIC`)".to_string());
     }
@@ -788,7 +796,7 @@ pub fn gamg_dic_solve(a: &LduMatrix, agg: &GamgAgglomeration, ctl: &GamgControls
         return Err("GAMG: no coarse levels created (matrix too small for GAMG or nCellsInCoarsestLevel too large)".to_string());
     }
     // the constructor: agglomerate the matrices, build the smoothers
-    let mats = coarse_matrices(a, agg);
+    let mats = coarse_matrices_for(a, agg, sym);
     let mut r_d = Vec::with_capacity(mats.len() + 1);
     if ctl.smoother.uses_dic() {
         r_d.push(dic_reciprocal_diag(a));

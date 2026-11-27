@@ -99,7 +99,9 @@ use crate::io::fv_schemes::GradScheme;
 use crate::solvers::non_orthogonal::LaplacianCorrection;
 
 pub mod pbicg;
-use pbicg::pbicg_dilu;
+use pbicg::{pbicg_dilu, PbicgPerformance};
+use crate::genfoam::common::gamg::GamgControls;
+use crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::GamgSolveState;
 pub mod traction;
 use traction::{base_sn_grad, evaluate_value, GfTractionDisplacement, TractionInputs};
 
@@ -218,6 +220,8 @@ pub enum TStructSolver {
     /// The case selects `GAMG`; the port has no faithful `GAMG` and runs `PBiCG`/`DILU` at the entry's tolerances. A
     /// NAMED deviation, reported by [`LegacyFvmThermoMechanics::t_struct_gamg_substituted`].
     GamgSubstitutedByPbicgDilu,
+    /// The case selects `GAMG` and upstream's own `GAMGSolver` runs (`GaussSeidel`, the asymmetric path; gh:#1936, README round 72).
+    Gamg,
 }
 
 /// `fvSchemes.d2dt2Schemes.default` (gh:#1845, round 27). ESI v2506 has exactly these two (`d2dt2Schemes/`:
@@ -432,6 +436,8 @@ struct LaplacianParts {
 /// ([`Self::mesh_displacement`], [`Self::fuel_displacement`], [`Self::control_rod_displacement`]).
 #[derive(Debug, Clone)]
 pub struct LegacyFvmThermoMechanics {
+    /// `Some` when `TStruct` runs upstream's `GAMGSolver` ([`TStructSolver::Gamg`]), with the cached agglomeration.
+    t_gamg: Option<(GamgControls, GamgSolveState)>,
     mesh: Arc<FvMesh>,
     settings: LegacyFvmSettings,
     geo: FaceGeometry,
@@ -623,6 +629,7 @@ impl LegacyFvmThermoMechanics {
             .collect();
         let gamg_substituted = settings.t_solver_kind == TStructSolver::GamgSubstitutedByPbicgDilu;
         let mut s = Self {
+            t_gamg: None,
             geo,
             delta_t,
             delta_t0: delta_t,
@@ -714,6 +721,19 @@ impl LegacyFvmThermoMechanics {
     pub fn with_solution_directions(mut self, solution_d: [bool; 3]) -> Self {
         self.solution_d = solution_d;
         self
+    }
+
+    /// Run `TStruct`'s linear solve with upstream's own `GAMGSolver` (`ctl` from the case's `solvers.TStruct`; gh:#1936, README round 72).
+    #[must_use]
+    pub fn with_t_struct_gamg(mut self, ctl: GamgControls) -> Self {
+        self.t_gamg = Some((GamgControls { has_lower: true, ..ctl }, GamgSolveState::default()));
+        self.gamg_substituted = false;
+        self
+    }
+
+    /// The `GAMG` solves of `TStruct` since the last call (initial residual, residual after each V-cycle), empty without `GAMG`.
+    pub fn take_t_struct_gamg_log(&mut self) -> Vec<(f64, Vec<f64>)> {
+        self.t_gamg.as_mut().map_or_else(Vec::new, |(_, st)| st.take_log())
     }
 
     /// Whether `TStruct`'s linear solve is the named `GAMG` substitute.
@@ -1319,7 +1339,14 @@ impl LegacyFvmThermoMechanics {
         a.lower = lower;
         let mut psi = self.t_struct.clone();
         let s = self.settings.t_solver;
-        let perf = pbicg_dilu(&a, &source, &mut psi, s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
+        let perf = if let Some((ctl, state)) = self.t_gamg.as_mut() {
+            // gh:#1936: upstream's GAMGSolver; the row-scaled equation has a `lower` array (`fvMatrix::operator*=`)
+            let mesh = &self.mesh;
+            let p = state.solve_with_face_areas(|| mesh.face_area_vectors[..n_if].iter().map(|v| [v.x, v.y, v.z]).collect(), &a, &source, &mut psi, ctl);
+            PbicgPerformance { iterations: p.iterations, initial_residual: p.initial_residual, final_residual: p.final_residual }
+        } else {
+            pbicg_dilu(&a, &source, &mut psi, s.tolerance, s.rel_tol, s.max_iter, s.min_iter)
+        };
         self.t_struct = psi;
         log.solves.push(SolveRecord {
             field: "TStruct",
