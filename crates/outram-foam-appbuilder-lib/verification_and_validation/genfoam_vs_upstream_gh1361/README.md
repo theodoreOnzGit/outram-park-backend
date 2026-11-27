@@ -8434,7 +8434,7 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 No port run; references only.
 
 * **Steady state as shipped.** The Allrun `steadyState` stage, unmodified (round 64 only narrowed `cases=` to stop the transient from auto-starting), on GeN-Foam 652b3da / ESI v2506, serial, GAMG. It ran 8 994 steps from t = 0 to t = 900 in about 2 h 10 min. Refs: `fftf_ss900_t900_r70.tar.gz` (the written `900` directory, all regions) and `fftf_ss900_log_summary_r70.ref.txt.gz` (per step: time, deltaT, solve count and iteration sum per field, and the `T` lines).
-* **The shipped transient stage cannot start as shipped.** The `onePhase`-only steady state writes no `900/uniform/reactorState`, and point kinetics requires one, so both `-initializeMappedFields` calls abort with `Entry 'pTarget' not found in dictionary .../transient/900/uniform/reactorState`. This is added to the draft upstream report (gh:#1910). To run it, `setTransient` gets one added line, `cp rootCase/0/uniform/reactorState $1/$endTimeSS/uniform/reactorState`; nothing else is changed. The transient (endTime 1200) was started detached in `/home/user/upstream-build/fftf_ss900/transient`; its references are to be extracted when it ends.
+* **The shipped transient stage cannot start as shipped.** The `onePhase`-only steady state writes no `900/uniform/reactorState`, and point kinetics requires one, so both `-initializeMappedFields` calls abort with `Entry 'pTarget' not found in dictionary .../transient/900/uniform/reactorState`. This is added to the draft upstream report (gh:#1910). To run it, `setTransient` gets one added line, `cp rootCase/0/uniform/reactorState $1/$endTimeSS/uniform/reactorState`; nothing else is changed. ~~The transient (endTime 1200) was started detached in `/home/user/upstream-build/fftf_ss900/transient`; its references are to be extracted when it ends.~~ **UPDATED 2026-11-27:** the transient cannot be run to its end here: it is Courant-limited (`maxCo 1`) at deltaT about 2.0e-3 s, so the 300 s are about 150 000 steps (measured 70 steps/min, about 36 h), and `writeControl timeStep; writeInterval 50` writes about 12 MB every 50 steps (about 36 GB in all). It was stopped by hand after **1334 steps (t = 902.63)**. Refs: `fftf_tr_log_summary_r70.ref.txt.gz` (per step: time, deltaT, solve counts and iteration sums per field, `T` lines, the `pointKinetics` block (totalPower, fission, decay, totalReactivity and its terms), the patch function-object lines) and `fftf_tr_first_writes_r70.tar.gz` (the first two written directories, 900.00903188 and 900.10970563033). Power at the first step 1.3648e6 W, totalReactivity +55.9 pcm, rising slowly. A port comparison is first-N-steps.
 * **What the 900 s state can gate.** The port's tight-protocol comparison (round 65, 163 steps) is step by step. The 8 994-step as-shipped run uses loose tolerances (GAMG, `relTol`, `residualControl`), so a port run of the same length can be compared only (a) with GAMG ported faithfully (round 67), and (b) on quantities that the loose solves do not make chaotic: the converged state at t = 900 and the dt sequence while it is Courant-limited. A step-by-step gate over 9 000 loose steps is not expected to hold to 1e-9; the criterion for it is to be written before that run.
 ## Round 69 addendum A (written BEFORE the first port run of any round 69 writer; the real `110` directories had been read)
 
@@ -8555,3 +8555,69 @@ Looked at: the four radial slices (z = 0.092, 0.693, 1.155, 1.964 m) and the y =
 `bash scripts/make_esfr_fluid_case.sh <dir>` (the shipped fluid region as the real binary and the port read it); `bash scripts/make_fullcoupling_fluid_variants.sh cases/fullcoupling_fluid <out>` then the loop of `scripts/run_fullcoupling_fluid_variants.sh` over `v4_pintest v5_pintest_dict v5b_pin_dict` (`END_TIME` 4.9); `python3 -I scripts/draw_esfr_mesh.py cases/esfr_fluid/constant/fluidRegion/polyMesh images`.
 
 **Process note.** The `v5b_pin_dict` control was added after the predictions commit and BEFORE its real run or any port run (it has no criterion beyond "no first diverging step" and the bit-identity of its real output with `v5`); it is the only variant not listed in the pre-run criteria.
+
+
+## Round 67 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (the commit "round 67: GAMGSolver port ... predictions and criteria BEFORE any run on upstream data"), BEFORE the first run of the port on any upstream number; real binary 652b3da on ESI v2506 through the instrumented COPY `GAMGdump` of `GAMGSolver` (`upstream_driver/gamg_dump/build.sh`, `scripts/run_fftf_gamg_real.sh`); references in the refs submodule `796a643`: `gamg_r67_fftf_step1_{matrix,agglom,solution,cycles}.ref.txt.gz` (2.0 MB), `gamg_r67_tight{,_log}.ref.txt.gz` (8.6 MB), `gamg_r67_loose17_{log,cycles}.ref.txt.gz`; `tests/genfoam_gamg_vs_upstream.rs` 3 tests, 2.3 s; `tests/genfoam_fftf_pieces_vs_upstream.rs` 3 new `#[ignore]` tests)
+
+AI-written, not human-reviewed. **The port runs upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, all v2506 defaults) for `p_rgh` of the cell-centred onePhase region (`GamgPolicy::Native`); its agglomeration and every one of 1 000 V-cycles equal the real binary's bit for bit; the shipped 2D_FFTF steady state with GAMG and tight tolerances matches the real binary over 30 steps (every field `<= 2.1e-12`); the as-shipped loose run matches step for step for about 9 steps and then parts for a reason the real binary shows too (below).**
+
+### What was ported (upstream -> Rust)
+
+| piece | upstream | port |
+|---|---|---|
+| `faceAreaPair` weights | `faceAreaPairGAMGAgglomeration.C:62-76` | `common/gamg.rs::face_area_pair_weights` |
+| pair agglomeration, `forward_`, `continueAgglomerating`, `nCellsInCoarsestLevel_` | `pairGAMGAgglomerate.C`, `GAMGAgglomeration.C` | `pair_agglomerate`, `agglomerate_level` |
+| coarse addressing, face restriction, flip map | `GAMGAgglomerateLduAddressing.C` | `agglomerate_ldu_addressing` |
+| coarse matrices | `GAMGSolverAgglomerateMatrix.C` (symmetric branch) | `coarsen_matrix`, `coarse_matrices` |
+| V-cycle, residual loop, convergence | `GAMGSolverSolve.C` | `gamg_dic_solve`, `v_cycle` |
+| correction scaling | `GAMGSolverScale.C` | `scale` |
+| `DIC` smoother (with `lduMatrix::residual`, not `source - Amul`) | `DICSmoother.C`, `lduMatrixATmul.C:268` | `dic_smooth`, `ldu_residual` |
+| coarsest level `PCG`/`DIC` at the outer `tolerance`/`relTol` | `GAMGSolver.C:320-330`, `PCGsolverDict` | `pcg_dic` (round 17) |
+| agglomeration cache shared by `p_rgh` and `p_rghFinal`, `forward_` | `GAMGAgglomeration::New` (mesh registry) | `two_phase/gamg_solve.rs::GamgSolveState` |
+| reader with named refusals | `GAMGSolver::readControls` | `read_gamg_controls`, `GamgPolicy::Native` |
+
+`outram-foam-basic-lib` is NOT edited (its old `gamg` and every user of it are unchanged); `GamgPolicy::Refuse` and `SubstitutePcgDic` behave as before.
+
+### (a) Agglomeration (criterion: zero differences): HELD
+
+10 levels (upstream 10; 9 243, 4 443, 2 185, 1 052, 508, 240, 115, 55, 24, 11 coarse cells): **0 differing entries** of `restrictAddressing`, `faceRestrictAddressing`, `faceFlipMap`, coarse `lowerAddr`/`upperAddr`, `nCells`, `nFaces`; **0 of the coarse `diag`/`upper` coefficients of all 10 levels differ bit for bit** (from the dumped fine matrix). The weights come from the mesh alone (`Sf` of the 35 689 internal faces of the shipped polyMesh).
+
+### (b) Single solve (criterion: every V-cycle bit-identical): HELD
+
+The first `p_rgh` solve of step 1 of the real run, tolerance `1e-14`, `relTol 0`: **1 000 V-cycles (upstream also stopped at `maxIter 1000`), every cycle's residual bit-identical, final `psi` bit-identical (0 of 18 538 entries differ)**; initial residual 0.6066174565437147 (the dump's 0.60661745654371468 is the same double). 1.4 s for the 1 000 cycles (1.4 ms per V-cycle on 18 538 cells).
+
+### Controls (each must differ): HELD, all five
+
+| control | agglomeration entries differing | worst cycle residual difference over 30 cycles (relative) |
+|---|---|---|
+| weights `\|upper\|` of the fine matrix (basic-lib's old algebraic pairing) | 188 376 | 32.7 |
+| weights `magSf` (the `updateInterval 0` branch) | 182 730 | 0.90 |
+| `forward_` started `false` | 193 344 | 0.995 |
+| `nFinestSweeps 1` (wrong smoothing) | 0 | 5.0 |
+| `scaleCorrection false` | 0 | 1.0e4 |
+
+("wrong smoother" is represented by the sweep count: a smoother other than `DIC` is refused by name, so no second smoother exists to substitute.)
+
+### (c) FFTF steady state, GAMG as shipped, tight tolerances: HELD for the fields; two small misses (marked post-run)
+
+Real reference: `scripts/run_fftf_gamg_real.sh <dir> tight 30 dump` (30 steps, 1 083 `p_rgh` solves; **every one stopped at `maxIter 1000` with final residual 1e-13..2e-12: GAMG does not reach 1e-14 here, it sits at its round-off floor**, so the tolerance protocol of round 62 makes GAMG run 1 000 V-cycles per solve); kept steps 1, 2, 5, 10, 30 (**post-run deviation from the criterion's list 1, 2, 3, 4, 5, 10, 20 and last: 8 kept steps made the file 13.8 MB, over the 10 MB limit; the field list is unchanged**). Port (`gamg_tight_steady_state_matches_the_real_binary`, 1 600 s for 30 steps): **no first diverging step**; worst over the kept steps: `U` 6.2e-13 (on max\|U\|; components `Ux` 9.9e-13, `Uy` 6.4e-10 of its own tiny maximum = 8.8e-17 of max\|U\|, `Uz` 6.4e-13), `p` 2.1e-12, `p_rgh` 2.1e-12, `T` 8.7e-15, `k` 1.3e-13, `epsilon` 1.9e-13, `nut` 4.3e-13, `alphaPhi` 2.3e-12, `htc` 5.9e-14, `T.passiveStructure` 8.7e-15, `T.fuelAvForNeutronics` 4.3e-14; `T` lines 5.2e-15; **`dt` sequence 7.3e-13 (criterion 1e-12 held)**; 1 080 `p_rgh` solves compared, all at `maxIter` in both (REPORTED, NOT GATED: the count is 1 000 = 1 000 by construction); the 58 `h`/`k`/`epsilon` noise-floor solves: iteration differences 0. **Miss (post-run, cause)**: initial residual absolute difference up to **1.23e-11 against the criterion 1e-11** (relative 2.3e-5 on a solve whose residual is 5e-7): the port's matrix is not bit-identical to upstream's (the same ~1e-12 as round 65), and a GAMG sitting at its floor carries that noise into the next solve's initial residual; every field stays at 2e-12. Bit-identity of the whole run was NOT reached for that reason; bit-identity of the solver is what (a) and (b) show.
+
+### (d) FFTF as shipped (loose): MISSED for iteration counts beyond step 9; macroscopic quantities agree to ~1e-5
+
+Against the real as-shipped log of round 62 (`fftf_r62_asshipped_ss_first1804_log`, 7 printed digits), 300 steps (206 s; 8 808 `p_rgh` solves compared): **`p_rgh` iteration counts equal in steps 1-9 (every solve); first difference step 10, outer 2, corrector 2 (13 vs 14)**; over 300 steps 285 of 8 808 solves (3.2 %) differ (49 by 2 or more, worst 3); initial residuals within the 7-digit rounding (<= 3.5e-5 relative) for steps 1-9, then up to 7.8e-3 (step 10) and larger afterwards; `dt` sequence <= 5.8e-5 relative and `T` lines <= 4.9e-6 over ALL 300 steps. A second real as-shipped run with 17-digit logs (`refs/gamg_r67_loose17_*`, 60 steps, with the V-cycle residuals of 800 solves) gives the same picture at full precision: initial residual differences of 1e-15 (step 1, the matrix round-off) grow to 2e-12 by step 5 and 1e-8 by step 10.
+
+**Cause, measured on the real binary (not assumed): the as-shipped loose protocol is sensitive to round-off.** A second real run identical except `rho0 874 -> 874.0000000000001` (one input changed by 1.1e-16 relative) parts from the first the same way: worst relative difference of the `p_rgh` initial residuals (solves above 1e-6) per 50 solves: 3.8e-9, 8.4e-8, 7.4e-9, 1.4e-8, 4.0e-7, 2.4e-5, **8.1e-3, 1.2e-2** (solves 300-400 = steps 9-12), the port's against upstream's being 7.8e-3 and 2.0e-2 at steps 10 and 11. So the port's loss of solve-level agreement at step ~10 is the protocol's own sensitivity (partially converged solves keep their error, and the tolerance tests are discontinuities), not a GAMG defect: (a), (b) show the solver identical, and (c) shows the whole run identical where the solves are driven to a floor.
+
+**What a comparison of 9 000 loose steps can and cannot gate (for the real 900 s state, PID 22461, `fftf_ss900`):** it CANNOT gate iteration counts, residual sequences, per-step fields or any point-wise comparison beyond step ~9: two real runs 1e-16 apart already differ at the percent level in solver residuals. It CAN gate macroscopic quantities (`T (avg min max)`, `max|U|`, `dt`, integral power) to a tolerance DERIVED from that sensitivity (here dt 5.8e-5 and T 4.9e-6 over 300 steps; at 900 s the meaningful number needs an ensemble of perturbed real runs: gh:#1937), and the converged-state agreement the tight protocol (c) establishes. The 0.00e0 field columns of the 300-step run mean "no fields in the as-shipped log", not agreement.
+
+### Predictions: held / missed
+
+G1 held (0 differences). G2 held. G3 held, better than the 55 % asked: all 1 000 cycles and the solution bit-identical. G4 held (fields `<= 2.1e-12`; the iteration counts equal by construction at `maxIter`). G5 held (all 1 083 upstream solves at `maxIter 1000`). **G6 MISSED**: the first 100 steps do not all have equal counts; the first difference is at step 10 (P 70 % for 100 steps; the 9 steps that agree are what the sensitivity allows). G7 held (all five). G8 held (below). G9 held: 1 600 s / 30 steps = 53 s per step.
+
+### Earlier numbers (criterion): none moved
+
+`genfoam_fftf_pieces_vs_upstream` (14 tests, unchanged pins), `genfoam_coupled_tutorials_requirements` (2: `GamgPolicy::Refuse` still refuses FFTF's `p_rgh` by name), `genfoam_fullcoupling_fluid_vs_upstream` (5), `--lib one_phase`, `gamg`, `pcg` pass at their pins; `bash scripts/check-nostd.sh` clean (the gate caught an unguarded `std` import, fixed); `outram-foam-basic-lib` has no diff.
+
+### Not ported, not done
+
+Refused by name: processor agglomeration, interfaces, asymmetric matrices, `nPreSweeps != 0`, `interpolateCorrection true`, `directSolveCoarsest true`, `mergeLevels != 1`, `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, smoothers other than `DIC`. NOT wired: `one_phase_fc`, the twoPhase solver, thermo-mechanics (GaussSeidel/DICGaussSeidel, `nCellsInCoarsestLevel 20/50`; asymmetric): gh:#1936. The `forward_` static is a per-case value that starts `true` (upstream: process-wide); a case whose process agglomerated another mesh with `GAMG` first would start from the other state. The real as-shipped 900 s state is untouched and its comparison is gh:#1937. No wasm gate was run (`outram-foam-basic-lib` untouched; the crate's `no_std` build is clean). The matrix of the dump is upstream's own (taken inside the real run) for (a), (b); for (c), (d) the port builds its own matrix (equal to upstream's to ~1e-12).
