@@ -716,7 +716,7 @@ impl OnePhaseCcSolver {
                     // `halfAlphaRhoMagUByDh_ * model->value(celli)` per valid axis; the other entries keep their value
                     for k in 0..3 {
                         if let Some(law) = d.laws[k] {
-                            fs.kd[c][k] = half * law.value(self.re[c]);
+                            fs.kd[c][k] = half * law.value(self.lre[c][k]);
                         }
                     }
                 }

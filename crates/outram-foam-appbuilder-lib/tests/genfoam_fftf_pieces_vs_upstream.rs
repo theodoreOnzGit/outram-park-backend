@@ -142,6 +142,18 @@ fn variant_churchill(root: &Path) {
     });
 }
 
+/// `w6_aniso`: the drag of `zone0` per axis (`localZ` Rehme, `localX`/`localY` ReynoldsPower), the FFTF core's selection.
+fn variant_aniso(root: &Path) {
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| {
+        let d = t.find("dragModels").expect("dragModels");
+        let z = d + t[d..].find("\"zone0\"").expect("zone0");
+        let open = z + t[z..].find('{').expect("{") + 1;
+        let close = open + t[open..].find('}').expect("}");
+        let body = "\n            \"localZ\"\n            {\n                type                Rehme;\n                numberOfPins        217;\n                pinDiameter         0.005842;\n                wireDiameter        0.001445;\n                wireLeadLen         0.302;\n                wetWrapPerimeter    0.38143;\n            }\n            \"localX\"\n            {\n                type    ReynoldsPower;\n                coeff   0.96;\n                exp     -0.145;\n            }\n            \"localY\"\n            {\n                type    ReynoldsPower;\n                coeff   0.96;\n                exp     -0.145;\n            }\n        ";
+        format!("{}{}{}", &t[..open], body, &t[close..])
+    });
+}
+
 /// `w5_noslip`: the `fixedWalls` `U` patch `slip` -> `noSlip`.
 fn variant_noslip(root: &Path) {
     edit_file(root, "0/fluidRegion/U", |t| {
@@ -482,4 +494,12 @@ fn w5_no_slip_wall_matches_the_real_binary() {
     variant_noslip(&root);
     let r = run_case(&root, &poly, "fftf_r62_w5_noslip.ref.txt.gz", "fftf_r62_w5_noslip_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
     check("w5_noslip", &r);
+}
+
+#[test]
+fn w6_per_axis_rehme_drag_matches_the_real_binary() {
+    let (root, poly) = stage("w6");
+    variant_aniso(&root);
+    let r = run_case(&root, &poly, "fftf_r62_w6_aniso.ref.txt.gz", "fftf_r62_w6_aniso_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
+    check("w6_aniso", &r);
 }

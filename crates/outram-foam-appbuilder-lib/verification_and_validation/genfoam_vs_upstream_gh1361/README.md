@@ -7630,3 +7630,46 @@ Variants of `cases/fullcoupling_fluid` made by `scripts/make_fftf_piece_variants
 ## Round 62 addendum W6 (criterion and prediction written BEFORE the port was run on it; the other variants had been run when this was written, results below)
 
 Variant `w6_aniso` (`scripts/make_fftf_piece_variants.py`): `zone0` drag per axis exactly as the FFTF core selects it (`localZ` `Rehme` with 217 pins and the FFTF wire numbers, `localX` and `localY` `ReynoldsPower` 0.96/-0.145); real reference `refs/fftf_r62_w6_aniso*` (refs submodule `53d831e`). **Criterion**: as criteria 1-3 of this round (fields `<= 1e-9`, `dt` `<= 1e-12`, solve-log pins as the other variants). **Prediction P9**: held, P 70 % (the wiring is `correct_kd` per axis and `Kd = diag(kx, ky, kz)` in the UEqn; the risk is that `Kd` entries of an axis without a model must stay 0 and that `Rehme` takes `Re` of the cell as the other models do). **Prediction P10**: the `Rehme` closure's coefficient derivation (`rehme_from_geometry`) agrees with `RehmeFSDragCoefficient.C` (read above): P 85 %.
+
+
+## Round 62 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; criteria and predictions above committed first (`8701190c4`; W6 addendum `9ad2fc1e2`) before any port number of the variants was looked at; real binary: GeN-Foam 652b3da on ESI v2506 plus the `libThermoMechanicsSolvers.so` of round 23 only where a TM region is present (none here); refs submodule `cc3ded6`; `tests/genfoam_fftf_pieces_vs_upstream.rs`, 7 tests, 0.3 s in all; `--nocapture` prints every table)
+
+### The seven one-edit variants against the real binary (20 steps each; worst over the 20 steps; port at the tight protocol)
+
+| variant | `U` (on max abs U) | `p` / `p_rgh` | `T` | `alphaPhi` | `htc` | `dt` | solve log |
+|---|---|---|---|---|---|---|---|
+| `w1_dilu` (regex keys, `PBiCG`/`DILU` for `h`) | 1.8e-13 | 3.5e-14 | 3.2e-15 | 2.4e-13 | 2.9e-14 | 1.4e-13 | 81 gated solves, worst abs residual 9.5e-13, iterations equal (0) |
+| `w2_half_cc` (alpha interface, old momentum path) | 4.0e-13 | 1.6e-14 | 4.3e-15 | 6.3e-13 | 2.5e-14 | 8.5e-14 | worst abs 5.7e-13, iterations within 5 |
+| `w2_recon05` (`cellCenteredFaceReconstruction`, sharpness 0.5) | 3.4e-13 | 2.1e-14 | 5.8e-15 | 6.4e-13 | 2.1e-14 | 1.2e-13 | worst abs 5.1e-13 |
+| `w2_recon1` (sharpness 1) | 3.1e-13 | 1.7e-14 | 6.2e-15 | 8.7e-13 | 2.4e-14 | 1.0e-13 | worst abs 4.7e-13 |
+| `w2_recon0` (sharpness 0) | 2.7e-13 | 1.5e-14 | 9.2e-15 | 6.8e-13 | 1.6e-14 | 1.1e-13 | worst abs 4.5e-13 |
+| `w3_pump` (`momentumSourceTimeProfile`) | 2.3e-13 | 3.2e-14 | 3.0e-15 | 1.9e-13 | 2.2e-14 | 1.7e-13 | worst abs 9.5e-13, iterations equal |
+| `w4_churchill` | 2.0e-13 | 4.3e-14 | 6.9e-15 | 2.8e-13 | 4.0e-14 | 1.5e-13 | worst abs 9.5e-13, iterations equal |
+| `w5_noslip` | 2.1e-13 | 1.9e-14 | 3.3e-15 | 1.8e-13 | 2.8e-14 | 1.7e-13 | worst abs 9.5e-13 |
+| `w6_aniso` (`localZ` Rehme, `localX/Y` ReynoldsPower), AFTER the fix below | 1.4e-13 | 2.8e-14 | 3.8e-15 | 1.7e-13 | 2.3e-14 | 6.4e-14 | worst abs 9.5e-13, iterations within 0 (gated) |
+
+`T.passiveStructure` and `T.fuelAvForNeutronics` <= 1.9e-15 and 7.8e-15 in every variant; `T (avg min max)` lines <= 5.6e-15. Controls: the port at sharpness 0.5 against the sharpness-1 and sharpness-0 references differs by 8.3e-2 in `U` (criterion: more than 1e-12); the references differ from each other and in their `dt` sequence (3e-7 in time at step 20), so this control shows the mode is distinguishable, not by how little. The pump control with the profile cleared was not run (criterion 4's second half: NOT MEASURED).
+
+### Misses, with cause (marked post-run)
+
+* **Criterion 3 (solve log), MISSED as in round 55**: initial residuals of solves whose upstream residual is 1e-10 to 1e-9 differ by up to 3.7e-3 relative (9.5e-13 absolute), and the iteration counts of solves converging to the 1e-14 tolerance differ by up to 5 (`h` solves at initial residual ~4e-2 differ by +-2 in the half-zone variants: the final residual sits at the 1e-14 floor). POST-RUN pins in the test: absolute residual <= 1e-11, iterations within 5. Not a physics difference: every field is within 1e-12.
+* **P9 / `w6_aniso`, FIRST RUN MISSED: first diverging step 1, `U` 1.2e-8, `htc` 1.8e-9, `p` 1.5e-10.** Cause (read from upstream after the miss): a per-axis drag model is evaluated at the AXIS Reynolds number `lRe[k] = max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371-385`, `FSDragCoefficientModel.H:135`: `Re(celli)` returns `lRe_[celli][cmpt_]` when `cmpt_ != -1`), the signed velocity component, not the isotropic `Re = alpha |U| Dh / nu`. The port had used `Re` for every axis. Fixed (`OnePhaseCcSolver::lre`, `update_re`), the criterion unchanged; the table above is the second run. `lDh = Dh` (no `localDhAnisotropy`; that key is refused by name).
+* No other prediction missed. P1-P6, P10: held. P7 (earlier numbers unchanged): held, see below. P8: held (the FFTF steady state is not run in the port).
+
+### Earlier numbers (criterion 5): none moved
+
+`genfoam_fullcoupling_fluid_vs_upstream` (5 tests), `_three_region_` (5), `_transient_` (5), `genfoam_msfr_th_vs_upstream` (6), `genfoam_heat_exchanger_cc_vs_upstream` (4), `genfoam_radial_power_wired_vs_upstream` (8), `genfoam_coupled_tutorials_requirements` (2, the FFTF pin re-pinned), `--lib` `foam_regex` (2), `one_phase_cc` and `pbicg_dilu_and_pbicgstab_diagonal_solve_the_same_asymmetric_system` (21 in all) pass with their recorded pins. `Kd` became three entries per cell; for an isotropic case the arithmetic is the same sequence of operations as before.
+
+### The real tutorial (criterion 7)
+
+* **As shipped, serial, GAMG, loose tolerances** (`Allrun` `setSteadyState` edits through the real `foamDictionary`): 1 804 steps took 36 min to reach `t = 178.69 s`; `deltaT` stays at about 0.10 s (0.0993 at step 200, 0.1011 at step 1800) although `maxDeltaT 2` and `maxCo 50`, so 900 s needs about 9 000 steps, about 3 h serial. The run was STOPPED at 1 804 steps (nothing is written before `t = 900`, `writeInterval 900`), so there is no 900 s state and NO transient was run: the point-kinetics stage needs it. At that point `T (avg min max) = 620.3 574.5 683.8 K`, fuel `1 088.9 891.0 1 357.1 K`. The solve log, `dt` sequence and `T` lines of the 1 804 steps: `refs/fftf_r62_asshipped_ss_first1804_log.ref.txt.gz`. README's own wall time (820 s on 5 cores) is consistent (5 x 820 s = 68 min of CPU for the steady state on its machine).
+* **Tight protocol** (`scripts/fc_protocol.sh`: every tolerance 1e-14, relTol 0, `GAMG` -> `PCG`/`DIC`, `writePrecision 17`, every step written): first 163 steps (up to `t = 14.27 s`; killed there by the disk limit: the written steps are 16 MB each, 2.6 GB for 163): `refs/fftf_r62_tight_ss*.ref.txt.gz`: every solve (`p_rgh` 5 872, `h` 978, `k`, `epsilon`), the `dt` sequence, `T` lines; full fields (`U p p_rgh T k epsilon nut alphaPhi htc T.passiveStructure T.fuelAvForNeutronics Kd`) at steps 1, 2, 3, 4, 5, 10, 20, 40, 80, 163. The first `p_rgh` solve takes 655 `PCG` iterations. The port does NOT run this reference: the first refusal is `localTortuosity`.
+* **Meshes drawn** (`images/fftf_fluidRegion_zones.svg`, `fftf_neutroRegion_zones.svg`; SVG because no rasteriser works on this machine): checked by the script from the solver's own `polyMesh`: every cell of both meshes is drawn once (fluid 18 538 of 18 538, neutro 9 450 of 9 450); no cell outside a cellZone; fluid zones disjoint (26), neutro zones overlap in 27 cells (the `coreOutlet` zone; the later zone's colour wins); extents fluid x 0..15.162 m, z -3.531..6.002 m, neutro x 0..1.116 m, z -0.813..2.172 m. NOT checked: the picture itself was not looked at by a human or by me (no viewer for SVG here), so axis orientation, the loop topology and the IHX placement are unchecked by eye.
+
+### Not done (and why)
+
+* **The 2D_FFTF steady state in the port** (P8 held): blocked first by `localTortuosity` on the IHX zones (tensor-diffusivity Laplacian of `UEqn_1p.H`/`EEqn_1p.H` plus `fvc::div(nuEff tort & dev2(T(grad U)))`, gh:#1229); then unrun: `mappedWall` patch kind, the `porousKEpsilon` reader with `zeroGradient` wall entries, GAMG-substitute PCG on 14 328 wedge cells, `nOuterCorrectors 6`/`nCorrectors 6` with `residualControl`.
+* **The transient** (point kinetics with `GEMReactivityMap`, `controlRodReactivityMap`, driveline, decay power; `-initializeMappedFields` through the baffle-less `meshToMesh`): no reference (the 900 s state does not exist), nothing ported (gh:#1883, gh:#1922, gh:#1236).
+* `Allrun_parallel` (decomposition changes iteration counts: not a tight-protocol reference) and `Allrun_powerFromDiffusion` not run.
+* The generated `docs/outram-foam-appbuilder-lib-api.md` mirror was not regenerated (`kovan-cli api-docs`).
+* `Rehme`'s numbers are differenced only through `w6_aniso` (one pin geometry). Other `FSDragCoefficientModels` (Colebrook, Engel, ...) are refused by name in the solved flow.

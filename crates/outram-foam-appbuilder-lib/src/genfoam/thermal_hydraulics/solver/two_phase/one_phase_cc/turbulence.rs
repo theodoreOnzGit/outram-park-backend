@@ -1187,6 +1187,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pbicg_dilu_and_pbicgstab_diagonal_solve_the_same_asymmetric_system() {
+        // 4 cells in a row, an asymmetric diagonally dominant matrix (`div` + `laplacian`-like)
+        let mut m = outram_foam_basic_lib::prelude::LduMatrix::new(4, alloc::vec![0, 1, 2], alloc::vec![1, 2, 3]);
+        m.diag = alloc::vec![4.0, 5.0, 5.0, 4.0];
+        m.upper = alloc::vec![-1.0, -1.5, -1.0];
+        m.lower = alloc::vec![-2.0, -0.5, -1.2];
+        let source = [1.0, 2.0, 3.0, 4.0];
+        let mk = |dilu: bool| DiagonalBicgstab { tolerance: 1e-14, rel_tol: 0.0, min_iter: 0, max_iter: 1000, dilu };
+        let (mut a, mut b) = ([0.0; 4], [0.0; 4]);
+        let (ra, ia) = mk(false).solve(&m, &source, &mut a);
+        let (rb, ib) = mk(true).solve(&m, &source, &mut b);
+        assert!(ra > 0.0 && rb > 0.0 && ia > 0 && ib > 0);
+        for c in 0..4 {
+            assert!((a[c] - b[c]).abs() < 1e-12, "{c}: {} {}", a[c], b[c]);
+        }
+        // the solution satisfies the system
+        let res = m.multiply(&b);
+        for c in 0..4 {
+            assert!((res[c] - source[c]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
     fn y_plus_lam_is_the_fixed_point_of_the_log_law_intersection() {
         let w = WallFunctionCoeffs::standard();
         // ypl = ln(E ypl)/kappa: the well-known 11.53 for kappa 0.41, E 9.8

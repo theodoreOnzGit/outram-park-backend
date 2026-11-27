@@ -57,7 +57,9 @@
 //! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
 //! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); `nuclearFuelPinTest`, the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
 //! `hConst` `Boussinesq` `const`; ~~`residualControl` in `PIMPLE`~~ **CORRECTED 2026-11-27 (gh:#1855, round 31): `residualControl` (customPimpleControl), the `Final` selection it causes and the `relaxationFactors` `default` entries are ported ([`pimple`])**; `stopIfFirstResRelChangeAboveRelTol` (upstream aborts with SIGFPE). `dragModels` (`ReynoldsPower`) are read but
-//! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation.
+//! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation. **UPDATED 2026-11-27 (gh:#1870, README round 62):** with
+//! the flow solved, `ReynoldsPower`, `Churchill`, `Rehme` and per-axis (`localX/Y/Z`) `dragModels` ARE evaluated ([`flow`]), a pump
+//! `momentumSourceTimeProfile` is applied, `PBiCG`/`DILU` is selectable for `h`, `k`, `epsilon`; `localTortuosity` is still refused by name.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -1184,6 +1186,9 @@ pub struct OnePhaseCcSolver {
     ctl_no_laplacian: bool,
     htc: Vec<f64>,
     re: Vec<f64>,
+    /// `FSPair::lRe_`: the per-axis Reynolds number `max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371`; the signed component, `lDh = Dh` as no
+    /// `localDhAnisotropy` is ported) a per-axis drag model (`localX`/`localY`/`localZ`, `cmpt() >= 0`) evaluates (gh:#1870 round 62).
+    lre: Vec<[f64; 3]>,
     cont_err: Vec<f64>,
     power_density: Vec<f64>,
     dt: f64,
@@ -1307,6 +1312,7 @@ impl OnePhaseCcSolver {
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
+        let lre = vec![[case.min_re; 3]; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
         let t_pas = case.passive.as_ref().map_or_else(Vec::new, |ps| ps.t.clone());
         let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; case.mesh.patches.len()], |f| f.t_bc.clone());
@@ -1339,6 +1345,7 @@ impl OnePhaseCcSolver {
             ctl_no_laplacian: false,
             htc,
             re,
+            lre,
             cont_err,
             power_density,
             dt,
@@ -1572,6 +1579,14 @@ impl OnePhaseCcSolver {
             let norm = self.alpha[c] / (1.0 - self.case.alpha_structure[c]);
             let re = norm * self.u.c[c].mag() * self.case.dh[c] / nu;
             self.re[c] = re.max(self.case.min_re);
+            // `FSPair::correct`: `alphaByNu = normalized/nu`, `lRe[k] = max(alphaByNu*U[k]*lDh[k], minRe)`
+            let alpha_by_nu = norm / nu;
+            let (u, dh) = (self.u.c[c], self.case.dh[c]);
+            self.lre[c] = [
+                (alpha_by_nu * u.x * dh).max(self.case.min_re),
+                (alpha_by_nu * u.y * dh).max(self.case.min_re),
+                (alpha_by_nu * u.z * dh).max(self.case.min_re),
+            ];
         }
     }
 
