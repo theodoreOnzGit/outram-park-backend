@@ -450,7 +450,11 @@ fn one_d_boiling_default_is_the_corrected_pimple_ending() {
     // its time step at t = 6.229), before any step meets the criteria in the last outer iteration, so neither flag is raised here; the
     // upstream option's skipping is pinned by `one_d_boiling_skipped_steps_nouter6_vs_upstream`.
     assert!(would_c.is_empty() && skipped_u.is_empty(), "no last-iteration convergence is reached before the collapse: {would_c:?} {skipped_u:?}");
-    assert_eq!(n_c, 653);
+    // ~~653~~ **MOVED 2026-11-27 to 1363** (gh:#1909 round 58): with the two-phase matrices assembled in OpenFOAM order (402 of 402
+    // probed corrector quantities bit-identical to upstream at PSBT2 Ex3 step 1), the ulp draws in the post-onset excursion change and the
+    // port's step no longer collapses at t = 6.229; the run ends at 1363 steps. A chaotic post-onset marker, re-pinned with cause recorded
+    // (maintainer, 2026-11-27: pins moving is ok).
+    assert_eq!(n_c, 1363);
 }
 
 fn full(test: &str, refname: &str, tight: bool, pre_onset_bound: f64, stale: bool) {
@@ -816,7 +820,9 @@ fn one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split
     // ~~759~~ **MOVED 2026-11-26 to 640** (gh:#1361 round 13, enthalpy equations on upstream's `PBiCGStab` plus the other four round-13
     // causes): the port now agrees with the committed upstream iteration counts and endings through step 639, 3 steps beyond the step-636
     // growth of the flow excursion (README "Round 13"); the steps after it are the excursion, in which the port's step collapses at 653.
-    assert_eq!(first_diff, Some(640));
+    // ~~640~~ **MOVED 2026-11-27 back to 759** (gh:#1909 round 58, two-phase matrices in OpenFOAM order): the port now agrees with the
+    // committed upstream iteration counts and endings through step 758, 119 steps further into the excursion than round 13.
+    assert_eq!(first_diff, Some(759));
 }
 
 /// Diagnostic (not a gate), round 5: the whole tight run with the corrected default ending, for the moved-numbers table.
