@@ -65,3 +65,18 @@ fn probe_shipped_first_refusal() {
     let e = OnePhaseFcCase::read(&stage("esfr_fluid", "probe")).expect_err("refused");
     println!("FIRST REFUSAL: {e}");
 }
+
+/// Round 73 probe: the first refusal (if any) of the cell-centred `onePhase` reader (which now carries `faceCentered`) on the shipped case.
+#[test]
+fn probe_cc_first_refusal() {
+    use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{
+        CaseReadOptions, GamgPolicy, OnePhaseCcCase,
+    };
+    let root = stage("esfr_fluid", "probe_cc");
+    let poly = root.join("constant/fluidRegion/polyMesh");
+    let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+    match OnePhaseCcCase::read_with_options(&root, &poly, &opts) {
+        Ok(c) => println!("READS: {} cells", c.t.len()),
+        Err(e) => println!("FIRST REFUSAL (cc): {e}"),
+    }
+}

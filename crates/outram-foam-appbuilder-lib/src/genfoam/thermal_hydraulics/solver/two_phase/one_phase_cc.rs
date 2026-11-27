@@ -77,6 +77,8 @@ use uom::si::ratio::ratio;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::time::second;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::by_regime::ByRegimeModel;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{RegimeBound, RegimeInterpolationMode, RegimeMap1D};
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use crate::genfoam::common::TimeProfile;
@@ -178,6 +180,9 @@ pub enum FsHtcModel {
     /// `(kappa/Dh) (A + B pow(Re Pr, C))` (`C == D`) or `(kappa/Dh) (A + B pow(Re, C) pow(Pr, D))`, from the closure
     /// [`FsForcedConvectionHtc`]. `expTc != 0` (needs `T.wall`) is refused by name when the case is read.
     Nusselt(FsForcedConvectionHtc),
+    /// `type byRegime` (gh:#1939, README round 73): index into [`OnePhaseCcCase::htc_by_regime`] (one leaf model per regime of the
+    /// case's one-parameter regime map, evaluated as `regimeMapModel::interpolateValue` does).
+    ByRegime(usize),
 }
 
 impl FsHtcModel {
@@ -187,7 +192,7 @@ impl FsHtcModel {
     pub fn value(&self) -> Option<f64> {
         match self {
             Self::Constant(v) => Some(*v),
-            Self::Nusselt(_) => None,
+            Self::Nusselt(_) | Self::ByRegime(_) => None,
         }
     }
 
@@ -206,6 +211,8 @@ impl FsHtcModel {
                     None,
                 )
                 .get::<watt_per_square_meter_kelvin>(),
+            // a `byRegime` model needs the cell's regime weights and its sub-models: `OnePhaseCcSolver::correct_models`
+            Self::ByRegime(_) => f64::NAN,
         }
     }
 }
@@ -413,6 +420,11 @@ pub struct OnePhaseCcCase {
     pub radial_needs_laplacian: bool,
     /// `heatTransferModels` per cell.
     pub htc_model: Vec<Option<FsHtcModel>>,
+    /// The `byRegime` heat-transfer models ([`FsHtcModel::ByRegime`] indexes this): one leaf model per regime name.
+    pub htc_by_regime: Vec<ByRegimeModel<FsHtcModel>>,
+    /// `regimeMapModels` (exactly one `oneParameter` map on `Re` is ported): evaluated by `correctRegimeMaps()` BEFORE `FSPair::correct`
+    /// of every `correctModels`, so with the Reynolds number of the PREVIOUS call.
+    pub regime_map: Option<RegimeMap1D>,
     /// `htc` read from the start directory (cells outside the model zones keep it).
     pub htc0: Vec<f64>,
     /// `T`.
@@ -953,18 +965,71 @@ impl OnePhaseCcCase {
         }
         let pm_dict = ctx.sub(&pp, "physicsModels")?;
         let htcd = ctx.sub(pm_dict, "heatTransferModels")?;
+        // `regimeMapModels` (`oneParameter` on `Re` only: `oneParameter.C`, `regime_map::RegimeMap1D`)
+        let mut regime_map: Option<RegimeMap1D> = None;
+        let mut regime_map_name = String::new();
+        let mut regime_names: Vec<String> = Vec::new();
+        if let Some(rm) = pp.get_dict("regimeMapModels") {
+            for (mname, e) in rm.iter() {
+                let FoamEntry::SubDict(md) = e else { continue };
+                if regime_map.is_some() {
+                    return Err(ctx.e("regimeMapModels: exactly one regime map is ported"));
+                }
+                if word(md, "type").as_deref() != Some("oneParameter") {
+                    return Err(ctx.e(format!("regimeMapModels.{mname}: only `oneParameter` is ported for a onePhase region")));
+                }
+                if word(md, "parameter").as_deref() != Some("Re") {
+                    return Err(ctx.e(format!("regimeMapModels.{mname}.parameter: only `Re` (the fluid-structure Reynolds number) is ported")));
+                }
+                let mut bounds = Vec::new();
+                for (rn, be) in ctx.sub(md, "regimeBounds")?.iter() {
+                    if let FoamEntry::List(v) = be {
+                        regime_names.push(rn.to_string());
+                        bounds.push(RegimeBound { name: rn.to_string(), lower: v[0].as_scalar().unwrap_or(0.0), upper: v[1].as_scalar().unwrap_or(0.0) });
+                    }
+                }
+                if bounds.is_empty() {
+                    return Err(ctx.e(format!("regimeMapModels.{mname}: no regimeBounds")));
+                }
+                let mode = match word(md, "interpolationMode").as_deref() {
+                    Some("quadratic") => RegimeInterpolationMode::Quadratic,
+                    Some("linear") | None => RegimeInterpolationMode::Linear,
+                    Some(other) => return Err(ctx.e(format!("regimeMapModels.{mname}.interpolationMode `{other}` is not ported"))),
+                };
+                regime_map_name = mname.to_string();
+                regime_map = Some(RegimeMap1D::new(bounds, mode));
+            }
+        }
+        let mut htc_by_regime: Vec<ByRegimeModel<FsHtcModel>> = Vec::new();
         let mut htc_model: Vec<Option<FsHtcModel>> = vec![None; n];
-        for (zk, e) in htcd.iter() {
-            let FoamEntry::SubDict(md) = e else { continue };
-            let model = match ctx.word(md, "type")?.as_str() {
-                "constant" => FsHtcModel::Constant(ctx.f64(md, "value")?),
+        let leaf = |zk: &str, md: &FoamDict| -> Result<FsHtcModel, AppBuilderError> {
+            match ctx.word(md, "type")?.as_str() {
+                "constant" => Ok(FsHtcModel::Constant(ctx.f64(md, "value")?)),
                 "NusseltReynoldsPrandtlPower" | "Nusselt" => {
                     if scalar(md, "expTc").unwrap_or(0.0) != 0.0 {
                         return Err(ctx.e(format!("heatTransferModels.{zk}: `expTc != 0` needs the structure wall temperature `T.wall` and is not ported")));
                     }
-                    FsHtcModel::Nusselt(super::case::read_nusselt(&ctx, md)?)
+                    Ok(FsHtcModel::Nusselt(super::case::read_nusselt(&ctx, md)?))
                 }
-                other => return Err(ctx.e(format!("heatTransferModels.{zk}: `{other}` is not ported here"))),
+                other => Err(ctx.e(format!("heatTransferModels.{zk}: `{other}` is not ported here"))),
+            }
+        };
+        for (zk, e) in htcd.iter() {
+            let FoamEntry::SubDict(md) = e else { continue };
+            let model = if ctx.word(md, "type")? == "byRegime" {
+                let wanted = ctx.word(md, "regimeMap")?;
+                if regime_map.is_none() || wanted != regime_map_name {
+                    return Err(ctx.e(format!("heatTransferModels.{zk}: regimeMap `{wanted}` is not in regimeMapModels")));
+                }
+                let table = ByRegimeModel::per_regime(&regime_names, |rn| match md.get(rn) {
+                    Some(FoamEntry::SubDict(sd)) => leaf(zk, sd).ok(),
+                    _ => None,
+                })
+                .map_err(|m| ctx.e(format!("heatTransferModels.{zk}: {m} (or a sub-model that is not constant/Nusselt)")))?;
+                htc_by_regime.push(table);
+                FsHtcModel::ByRegime(htc_by_regime.len() - 1)
+            } else {
+                leaf(zk, md)?
             };
             for c in zone_cells(zk)? {
                 htc_model[c] = Some(model);
@@ -1204,6 +1269,8 @@ impl OnePhaseCcCase {
             t_fixed,
             t_profiles,
             htc_model,
+            htc_by_regime,
+            regime_map,
             htc0,
             t,
             p,
@@ -1257,6 +1324,11 @@ pub struct OnePhaseCcSolver {
     ctl_no_tort_energy: bool,
     ctl_no_alphat_patch: bool,
     htc: Vec<f64>,
+    /// `regimeMapModels` weights per cell (`oneParameter::correct`), from the Reynolds number of the previous `correctModels`.
+    regime_weights: Vec<Vec<(String, f64)>>,
+    /// The `Re` field as `FSPair::correct` last left it, for `oneParameter::correct`: `residualFluidStructureRe` until the first
+    /// `correctModels` (the constructor of the port evaluates `re` once for its own use; upstream's `Re_` still holds `minRe_` then).
+    regime_re: Vec<f64>,
     re: Vec<f64>,
     /// `FSPair::lRe_`: the per-axis Reynolds number `max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371`; the signed component, `lDh = Dh` as no
     /// `localDhAnisotropy` is ported) a per-axis drag model (`localX`/`localY`/`localZ`, `cmpt() >= 0`) evaluates (gh:#1870 round 62).
@@ -1389,6 +1461,7 @@ impl OnePhaseCcSolver {
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
+        let min_re_init = case.min_re;
         let lre = vec![[case.min_re; 3]; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
         let t_pas = case.passive.as_ref().map_or_else(Vec::new, |ps| ps.t.clone());
@@ -1432,6 +1505,8 @@ impl OnePhaseCcSolver {
             ctl_no_tort_energy: false,
             ctl_no_alphat_patch: false,
             htc,
+            regime_weights: vec![Vec::new(); n],
+            regime_re: vec![min_re_init; n],
             re,
             lre,
             cont_err,
@@ -1953,7 +2028,15 @@ impl OnePhaseCcSolver {
 
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
+        // `onePhase::correctModels`: `correctRegimeMaps()` FIRST (`oneParameter::correct`, with the `Re` field as `FSPair` left it at
+        // the previous call: `residualFluidStructureRe` at construction), then `FSPair::correct`
+        if let Some(map) = self.case.regime_map.as_ref() {
+            for c in 0..self.geom.n_cells() {
+                self.regime_weights[c] = map.regime_weights(self.regime_re[c]);
+            }
+        }
         self.update_re();
+        self.regime_re = self.re.clone();
         self.correct_kd();
         // `myOps::storePrevIterIfRelax(htc_)`, the model values, `htc_.relax()` (`fields` entry `htc`, `htcFinal` when final)
         let a = self.case.controls.relax.field("htc", self.pimple.final_iteration);
@@ -1967,9 +2050,13 @@ impl OnePhaseCcSolver {
                 break;
             }
             if let Some(m) = self.case.htc_model[c] {
-                self.htc[c] = match m.value() {
-                    Some(v) => v,
-                    None => m.value_with(self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]),
+                self.htc[c] = match (m, m.value()) {
+                    (_, Some(v)) => v,
+                    (FsHtcModel::ByRegime(k), None) => {
+                        let (re, pr, kappa, dh) = (self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]);
+                        self.case.htc_by_regime[k].value(&self.regime_weights[c], |leaf| leaf.value_with(re, pr, kappa, dh))
+                    }
+                    (_, None) => m.value_with(self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]),
                 };
             }
         }

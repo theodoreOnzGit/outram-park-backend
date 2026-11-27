@@ -7,7 +7,7 @@ shift 2
 HERE=$(dirname "$0")
 source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1
 mkdir -p "$OUT"
-NAMES=${*:-f1_facecentered f2_extrap f3_varrho f4_fc_varrho f5_byregime f6_fc_nonorth}
+NAMES=${*:-f1_facecentered f2_extrap f3_varrho f4_fc_varrho f5_byregime f5b_byregime_interp f6_fc_nonorth f7_zerograd_p_rgh f8_fc_zerograd}
 for v in $NAMES; do
   c="$VAR/$v"
   sed -i "s/^endTime .*/endTime         ${END_TIME:-4.9};/" "$c/system/controlDict"

@@ -611,11 +611,13 @@ pub(super) fn read_flow_case(
             // `fixedFluxExtrapolatedPressureFvPatchScalarField` (ESI v2506) is a constructor-only subclass of `fixedFluxPressure`
             // (no override; `setSnGrad<fixedFluxPressure>` matches it by `isA`): the same boundary condition (gh:#1939, README round 73)
             ("fixedFluxPressure" | "fixedFluxExtrapolatedPressure", _) => Bc::FixedGradient(vec![0.0; p.size]),
+            // a `zeroGradient` `p_rgh` patch is not touched by `setSnGrad<fixedFluxPressure>` (gh:#1939)
+            ("zeroGradient", _) => Bc::ZeroGradient,
             ("fixedValue", _) => {
                 let v = pv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("p_rgh.{}: fixedValue needs a uniform value", p.name)))?;
                 Bc::Fixed(vec![v; p.size])
             }
-            (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, fixedValue, wedge)", p.name))),
+            (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, fixedFluxExtrapolatedPressure, fixedValue, zeroGradient, wedge)", p.name))),
         });
     }
     let tf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/T"))?;

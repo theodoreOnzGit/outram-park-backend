@@ -10,11 +10,14 @@
 #   f5b_byregime_interp : (added AFTER the f5 real run showed Re = 5e4, not 2.5e4: f5 is turbulent-only, weight 1) f5 with bounds laminar (0 40000), turbulent (60000 61000)
 #                     and the case's own EMPTY `regimeMapModels` block replaced instead of a second block added: Re = 5e4 is in the INTERPOLATION region
 #   f6_fc_nonorth   : f1 + `nNonOrthogonalCorrectors 1;` (two named edits)
+#   f7_zerograd_p_rgh : (added with addendum B, before its real run) the ONE edit `fixedFluxPressure` -> `zeroGradient` on the `fixedWalls` `p_rgh` (the shipped
+#                     ESFR `p_rgh` has zeroGradient on walls and baffles)
+#   f8_fc_zerograd  : f1 + f7 (named pair)
 # usage: make_round73_variants.sh <base case dir> <out dir>
 BASE=$1
 OUT=$2
 mkdir -p "$OUT"
-for v in f1_facecentered f2_extrap f3_varrho f4_fc_varrho f5_byregime f5b_byregime_interp f6_fc_nonorth; do
+for v in f1_facecentered f2_extrap f3_varrho f4_fc_varrho f5_byregime f5b_byregime_interp f6_fc_nonorth f7_zerograd_p_rgh f8_fc_zerograd; do
   rm -rf "$OUT/$v"
   mkdir -p "$OUT/$v"
   cp -r "$BASE/0" "$BASE/constant" "$BASE/system" "$OUT/$v/"
@@ -35,3 +38,8 @@ perl -0pi -e 's/(physicsModels\s*\{)/regimeMapModels\n{\n    "lamTurb"\n    {\n 
 # f5b: written and its prediction committed BEFORE its real run
 cp "$OUT/f5_byregime/$pp" "$OUT/f5b_byregime_interp/$pp"
 perl -0pi -e 's/regimeMapModels\s*\{\s*\}\s*//; s/\(0      20000\)/(0      40000)/; s/\(30000  31000\)/(60000  61000)/' "$OUT/f5b_byregime_interp/$pp"
+# f7, f8 (addendum B)
+for v in f7_zerograd_p_rgh f8_fc_zerograd; do
+  perl -0pi -e 's/(fixedWalls\s*\{\s*type\s+)fixedFluxPressure;/$1zeroGradient;/' "$OUT/$v/0/fluidRegion/p_rgh"
+done
+perl -0pi -e 's/(PIMPLE\s*\{)/$1\n    momentumMode        faceCentered;/' "$OUT/f8_fc_zerograd/$fv"

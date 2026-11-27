@@ -613,3 +613,56 @@ fn r73_face_centered_variable_density_matches_the_real_binary() {
 fn r73_face_centered_non_orthogonal_pass_matches_the_real_binary() {
     round73_gate("f6", &run73("r73f6", &[variant_face_centered, variant_one_non_orth], "f6_fc_nonorth"));
 }
+
+/// `regimeMapModels.lamTurb` (oneParameter on `Re`, `laminar` up to `lam_hi`, `turbulent` from `turb`) and `heatTransferModels.zone0` `byRegime`.
+/// `replace_empty_block`: the case's own empty `regimeMapModels {}` is replaced (f5b) instead of a second block being added (f5).
+fn by_regime_edit(root: &Path, lam_hi: &str, turb: (&str, &str), replace_empty_block: bool) {
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| {
+        let i = t.find("NusseltReynoldsPrandtlPower").expect("NRPP");
+        let end = i + t[i..].find('}').expect("}");
+        let by = "byRegime;\n            regimeMap   \"lamTurb\";\n            \"laminar\"\n            {\n                type    NusseltReynoldsPrandtlPower;\n                const   4;\n                coeff   0;\n                expRe   0;\n                expPr   0;\n            }\n            \"turbulent\"\n            {\n                type    NusseltReynoldsPrandtlPower;\n                const   4.82;\n                coeff   0.0185;\n                expRe   0.827;\n                expPr   0.827;\n            }\n        ";
+        let mut t = format!("{}{}{}", &t[..i], by, &t[end..]);
+        if replace_empty_block {
+            let a = t.find("regimeMapModels").expect("empty block");
+            let b = a + t[a..].find('}').expect("}") + 1;
+            t = format!("{}{}", &t[..a], &t[b..]);
+        }
+        let k = t.find("physicsModels").expect("physicsModels");
+        let map = format!("regimeMapModels\n{{\n    \"lamTurb\"\n    {{\n        type                oneParameter;\n        parameter           \"Re\";\n        regimeBounds\n        {{\n            \"laminar\"       (0      {lam_hi});\n            \"turbulent\"     ({}  {});\n        }}\n    }}\n}}\n\n", turb.0, turb.1);
+        format!("{}{}{}", &t[..k], map, &t[k..])
+    });
+}
+
+fn variant_by_regime(root: &Path) {
+    by_regime_edit(root, "20000", ("30000", "31000"), false);
+}
+
+fn variant_by_regime_interp(root: &Path) {
+    by_regime_edit(root, "40000", ("60000", "61000"), true);
+}
+
+/// F5: `byRegime` Nusselt, the whole run in the turbulent regime (weight 1; the real `htc` equals the base's).
+#[test]
+fn r73_by_regime_turbulent_only_matches_the_real_binary() {
+    round73_gate("f5", &run73("r73f5", &[variant_by_regime], "f5_byregime"));
+}
+
+/// F5b: `byRegime` Nusselt with the case's Re = 5e4 in the INTERPOLATION region between the regimes (the weights lag one `correctModels`).
+#[test]
+fn r73_by_regime_interpolation_matches_the_real_binary() {
+    round73_gate("f5b", &run73("r73f5b", &[variant_by_regime_interp], "f5b_byregime_interp"));
+}
+
+/// Diagnostic (not a gate): the port's `T (avg min max)` lines of the first step of `f5` for comparison with the real log.
+#[test]
+#[ignore = "diagnostic: prints the port's T lines of step 1 of f5"]
+fn r73_debug_f5_first_step_t_lines() {
+    let (root, poly) = stage("r73dbg");
+    variant_by_regime(&root);
+    let mut s = OnePhaseCcSolver::from_case_dir(&root, &poly).expect("case");
+    s.begin_time_step(s.case().delta_t);
+    let (_, rep) = s.correct_physics();
+    for (o, st) in rep.t_stats.iter().enumerate() {
+        println!("PORT TSTAT 1 {} {:.17} {:.17} {:.17}", o + 1, st.0, st.1, st.2);
+    }
+}
