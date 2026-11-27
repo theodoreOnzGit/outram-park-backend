@@ -5658,3 +5658,41 @@ Criteria, fixed now: an array is "identical" iff every element `==`; the first a
 | P2 | the flux, power and iteration counts of the test do not move (they were already at <= 1.1e-14) | 85 % |
 | P3 | the chain and coupled tests (which use the same constants) move by less than 2x in `rel_P`, `maxrel_T`; `rel_h1res` may fall | 60 % |
 | C1 | control: the port with the old constants against the same dump differs in the located array by the same ulps | holds by construction if H1 or H2 |
+
+## Item 2 (gh:#1890 workflow): `genfoam::workflow` reads the neutronics `fvSolution`
+
+### Read before any code
+`AllrunEdits::neutron_linear` (a `SolverSettings { 1e-14, 100000 }`) is handed to `EnergyNeutroDiffusion::new`, which builds `DiffusionSettings { linear, .. }`: the form `LinearSolverForm::Upstream { rel_tol: 0, min_iter: 0 }` at an explicit tolerance. Upstream reads `system/neutroRegion/fvSolution` of the case (`lduMatrix::solver::readControls`). Round 42's `read_neutron_fv_solution(path, groups, prec_groups, directions)` returns the entries and `DiffusionSettings::with_fv_solution` installs them. The V&V tests tighten only `system/fluidRegion/fvSolution` (`tighten` in `genfoam_msfr_allrun_vs_upstream.rs`), while upstream's runs tightened every `system/*/fvSolution` (`run_msfr_chain.sh tighten_solvers`): the neutronics file of `cases/msfr_root` is the SHIPPED one (`relTol 1e-1` on the flux and precursor entries), so the tests must tighten it too once the workflow reads it. No kovan-reviewed function is touched (no `kind = "review"` block in `workflow/`, `neutronics/diffusion/`).
+
+### Design (named options; upstream's form is the default)
+`AllrunEdits::neutron_linear: NeutronLinear` is an enum: `FvSolution` (default: read the case's file) and `Explicit(SolverSettings)` (the earlier form, `AllrunEdits::with_explicit_neutron_linear`). `EnergyNeutroDiffusion::new` takes the same enum.
+
+### Predictions and criteria (fixed now)
+| id | claim | prediction |
+|---|---|---|
+| W1 | with the neutronics `fvSolution` of the staged root tightened (every `tolerance` 1e-14, `relTol` 0, as upstream's runs), the workflow reading it reproduces the explicit-settings run: every `EnergyEigenvalueRecord` (`keff`, `power`, `neutro_residual`) and the final fluxes `==` over the 20 light-chain EN steps | 70 % bit-identical (`maxIter` is 1000 instead of 100 000; round 40's S7 says no solve needs more); else <= 1e-12 and the cause |
+| W2 | control: the SHIPPED (untightened) file read by the workflow | `keff` differs from the explicit-tight run by > 1e-9 at some step (relTol 1e-1 acts): 85 % |
+| W3 | `Explicit(SolverSettings)` | reproduces the pre-change run bit for bit (it is the same code path): 95 % |
+| W4 | the allrun / chain / light-chain / transient numbers recorded in rounds 11, 14, 15, 40 with the tightened file | do not move (== to the printed digits) 75 % |
+| W5 | a file selecting an unported solver (`smoothSolver`) in the workflow's root case | `WorkflowError::Case` naming the entry (round 42's refusal, surfaced): 95 % |
+
+## Item 3 (gh:#1893): discontinuity factors in the liquid-fuel steps
+
+### Read before any code
+`upstream_eigenvalue_step` and `upstream_transient_step` refuse `discFactor != 1` (`disc_factors_are_unity`). Upstream (`solveNeutronics.H`, `createFluxMatrices.H`, `fluxEq.H`, liquid fuel or not): at the top of every step `flux_[g] = fluxStar_[g]/discFactor[g]`; the matrix is over `fluxStar_` with `IV/df`, `D/df`, `(nuSigmaEff/keff (1-BetaTot) chiPrompt (1-eig) - sigmaRemoval)/df`; the sources are in terms of the physical `flux`; after each group's solve `flux_[g] = fluxStar_[g]/df`; `precEq.H` uses `neutroSource_` built from the physical flux; in the eigenvalue branch `calcKeff.H`, `normFluxes.H` (scales `fluxStar_`) and `xs_.adjustDiscFactors(fluxStar_)`. Round 42 ported the non-liquid forms (`upstream_stationary_step`, SP3, pseudo-time); the liquid-fuel forms differ only in the precursor equation, which the factors do not touch. Reused: `DiscFactorState`, `DiffusionXsFields::disc_factor`, `solve_twice`, the round-42 `flux_star` handling.
+
+### Method
+The tight `2D_MSFR` chain of rounds 11/14 with `useGivenDiscFactors true` and the non-unit `discFactor` of `cases/msfr_neutro/nuclearData.df` (every zone and group: a smooth deterministic pattern from `scripts/make_msfr_df_data.sh`, not a physical set), run by the real binary through the light chain (`steadyStateEN` to 20 s, `PROTOCOL=tight`, then `transient` 5 steps from its 20 s output: the `msfr_light_chain` protocol) with the instrumented library absent (shipped libraries). References `refs/msfr_en20_df.ref.txt.gz`, `refs/msfr_chain20_df_transient.ref.txt.gz`. Test `tests/genfoam_msfr_df_vs_upstream.rs`, the port through `genfoam::workflow` exactly as the light chain.
+
+### Predictions and criteria (fixed now; the gates are those of the unity light chain, `msfr_light_chain_matches_upstream`, not loosened)
+| id | claim | prediction |
+|---|---|---|
+| D1 | EN 20 steps with factors: `keff` rel < 1e-11 and power rel < 1e-11 at every step, `time` equal, `h1` < 1e-7, fields at 20 s (flux, precStar < 1e-9, power density < 1e-9, T < 1e-12) | 65 % all gates held |
+| D2 | transient 5 steps from the port's own 20 s state: `dt` < 2e-10, T < 1e-12, power < 1e-11 | 55 % |
+| D3 | control: the same port run with every factor forced to 1 | `keff` differs from upstream by > 1e-4 at some EN step: 95 % |
+| D4 | the unity-factor light chain (round 14/15 numbers: EN `keff`, step-1 transient power 1.1e-13, worst 3.5e-12) after the change | `==` the numbers before the change (the factor path divides by exactly 1.0 only when all are 1; the unity path is unchanged code): 85 % |
+| D5 | `upstream_eigenvalue_step` / `upstream_transient_step` with `adjustDiscFactors true` | refused by name (the adjustment of a liquid-fuel run is not compared: no stable data set); the refusal is pinned by a test: 100 % (design) |
+| D6 | `DiffusionNeutronics::step` (the port's own single-pass scheme, not an upstream algorithm) | still refuses a factor != 1 by name, with the reason that no upstream step exists to difference it against; pinned by a test |
+| D7 | stationary step (`upstream_stationary_step`) with an `XsEvolution` (driveline `CRmove`) and given factors, against `n3` plus `crmove=d1` of `scripts/make_r42_cases.sh` | criteria of round 42's non-eigenvalue level (steps equal, `power:` rel < 1e-12, iteration counts equal, last residual rel < 1e-6, flux < 1e-10); bit-identical 20 % |
+| D8 | the static solve with circulating fuel (`solve_eigenvalue` plus drift) with factors | refused by name; not compared (upstream has no static solve to difference: its eigenvalue is the pseudo-time `upstream_eigenvalue_step`, which D1 covers); filed |
+| D9 | disp-driven `radExp` / `axExp`; `2D_FFTF` neutronics | not attempted in this round unless time allows: refused by name, filed with the reason (the feedback fields come from the fluid region and `disp`) |
