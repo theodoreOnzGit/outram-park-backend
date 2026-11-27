@@ -1,6 +1,6 @@
 [package]
 name = "dhoby-ghaut"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only): relicensed
@@ -90,7 +90,7 @@ mc_demo = ["mc_web", "dep:eframe", "dep:nee_soon", "nee_soon/dem_ui", "dep:outra
 # Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
 # none of which belong in the browser demos that build this library for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.5", default-features = false, optional = true }
+kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.6", default-features = false, optional = true }
 # The recipe schema (`src/workbench/recipe.rs`): serde for the settings
 # tables, toml to read/write them, uom for the quantities that leave it.
 serde = { workspace = true, optional = true }
