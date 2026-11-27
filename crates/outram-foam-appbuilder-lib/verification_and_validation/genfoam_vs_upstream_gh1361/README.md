@@ -6184,3 +6184,20 @@ Maintainer, 2026-11-27: "Port genfoam exhaustively", "Match all upstream"; for #
 | R6 | rounds 38 and 4 | every committed pin passes; printed worst numbers move by `<= 1e-9` relative (the folded-diagonal change); P(some number moves visibly, > 1e-12 relative) 40 %, as these cases run 100s of steps | record old/new |
 | R7 | two-phase momentum | no relaxation in either code; the unit test of `A()`/`H()` with a `slip` face passes | a defect is then fixed and shown with a variant |
 | R8 | the new unit test (`momentum_matrix_keeps_diagonal_and_internal_coeffs_apart_and_relaxes_per_face`) | passes | |
+
+## Part 1b: the probe after the matrix change, and a second cause found by it (measured 2026-11-27, the rebuilt instrumented upstream of round 45 against the port, isothermal 2 x 1 control, tolerance 1e-30, step 1)
+
+**Part 1 predictions R1/R2 MISSED:** with `D` and `internalCoeffs` kept apart, `UEqn.A()` at outer 1 corrector 1 is still NOT bit-identical (worst abs 7.3e-12 on 1.93e4: rel 3.8e-16, 2 ulp; `Udiag` 3.6e-15 on 9.66; `UH` 2.1e-16). Not the matrix assembly then: the dump shows the INPUTS differ first: `alphaRhoPhi` 1.8e-15 on 8.62 (1 ulp) and the port's `contErr` is 3.6e-12 where upstream's is exactly 0 (the first-corrector flux of a uniform flow divides to 0 upstream), `alphaRhofByDt` 5.8e-11 on 4.3e5 (1 ulp), while `rho`, `alpha`, `T`, `U`, `phi` are bit-identical (0). The common operation is the linear face interpolation `fvc::interpolate(rho)`, `interpolate(alpha rho)`, `interpolate(alpha rAU)`: ESI v2506 `surfaceInterpolationScheme<Type>::interpolate(vf, lambdas)` forwards to `dotInterpolate(geometricOneField(), vf, lambdas)` (`surfaceInterpolationScheme.C:296-318`), whose internal-face line is `sfi[fi] = Sfi[fi] & (lambda[fi]*(vfi[P[fi]] - vfi[N[fi]]) + vfi[N[fi]])` (`:270`); the port's `fv::interp_linear` and `fv::flux` compute `w P + (1 - w) N` (and `u_P w + u_N (1 - w)`), which differ by an ulp whenever `P == N` is not exactly reproduced (`w + (1 - w)` is not exactly 1 in floating point) and generally. That is a port defect against upstream, outside the momentum matrix.
+
+**Change (Part 1b).** New `fv::interp_linear_openfoam` and `fv::flux_openfoam` (`lambda (P - N) + N`, then `Sf & .`), used by `one_phase_fc` ONLY (the 8 `interp_linear` and 2 `flux` call sites there). `fv::interp_linear`/`fv::flux` are NOT changed: they are shared by the two-phase region, `one_phase_cc` and the rounds 3-37 numbers, which this round does not re-measure (filed below as the follow-up for the workspace-wide switch). The earlier numbers of the face-centred onePhase rounds (4, 38, 41, 44, 45) move by round-off and are recorded old/new.
+
+**Predictions for Part 1b (written before the change was built or run):**
+
+| id | quantity | prediction | if missed |
+|---|---|---|---|
+| S1 | `contErr`, `alphaRhoPhi`, `alphaRhofByDt`, `alpharAUf` at outer 1 corrector 1 (iso 2 x 1) | **bit-identical** (worst abs 0); P 75 % | another operation differs: the next dump |
+| S2 | `UA`, `Udiag`, `Uint` at outer 1 corrector 1 | **bit-identical**; P 60 % (the `fvc::div(dev2)` source and the laplacian `gamma` are the remaining candidates for `Usource`, which has cancellation) | report which |
+| S3 | `UH`, `phiHbyA`, `rAUf` at outer 1 corrector 1 | bit-identical; P 50 % | |
+| S4 | `p` after the 2 x 1 step | `<= 1e-14` relative (now 4.6e-14); P(bit-identical) 25 % | |
+| S5 | 6 x 6, the 36 correctors | `UA` bit-identical at corrector 1, `<= 1e-14` after (the solves differ by their stopping) | |
+| S6 | case A/B end to end, worst `p` | `<= 1e-12` at every compared step (round 45: 3.0e-12 at step 3); `T`, `T.HX` `<= 5e-13` | |
