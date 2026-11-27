@@ -436,6 +436,18 @@ pub fn mesh_regions_joined(
         if let Some(delta) = snap {
             let n = snap_checked(&mut vm, None, &fs.segs_m, n_seg, delta).map_err(|e| format!("{id}: {e}"))?;
             notes.push(format!("{id}: {n}"));
+            let rims = snap_rims_to_revolved(&mut vm, &fs.rings_m, n_seg);
+            let q = outram_park_fork_cfmesh::checks::check_quality(&vm);
+            if q.n_negative_volume_cells > 0 {
+                return Err(format!("{id}: snapping the rims left {} cells with non-positive volume", q.n_negative_volume_cells));
+            }
+            let added = split_rim_chords(&mut vm, &fs.rings_m, n_seg);
+            vm.validate().map_err(|e| format!("{id}: after splitting the rim chords: {e}"))?;
+            let q = outram_park_fork_cfmesh::checks::check_quality(&vm);
+            if q.n_negative_volume_cells > 0 {
+                return Err(format!("{id}: splitting the rim chords left {} cells with non-positive volume", q.n_negative_volume_cells));
+            }
+            notes.push(format!("{id}: snapped {rims} rim points (edges between two patches) onto their rings; split {added} rim chords to half a facet"));
         }
         notes.push(format!("{id}: {} cells", vm.n_cells));
         meshes.push(vm);
@@ -869,6 +881,9 @@ pub struct FittedSurface {
     /// Every non-horizontal edge of the surface (walls and interfaces), in
     /// metres, for [`snap_faces_to_revolved`] and [`morph_to_revolved`].
     pub segs_m: Vec<[[f64; 2]; 2]>,
+    /// Every ring `(R, z)` \[m\] the surface's edges end on (off the axis),
+    /// where two patches meet, for [`snap_rims_to_revolved`].
+    pub rings_m: Vec<[f64; 2]>,
 }
 
 /// The **body-fitted multi-region surface** of the regions `allowed` keeps
@@ -1033,7 +1048,14 @@ pub fn fitted_surface(
     };
     let (mut tris, mut marker) = (Vec::new(), Vec::new());
     let mut segs_m = Vec::new();
+    let mut rings_m: Vec<[f64; 2]> = Vec::new();
     for &(a, b, p) in &runs {
+        for v in [a, b] {
+            let q = [verts[v][0] / 100.0, verts[v][1] / 100.0];
+            if q[0] > 1e-12 && !rings_m.iter().any(|x| (x[0] - q[0]).abs() < 1e-12 && (x[1] - q[1]).abs() < 1e-12) {
+                rings_m.push(q);
+            }
+        }
         let (ra, rb) = (ring_of(a, &mut points), ring_of(b, &mut points));
         for k in 0..n_seg {
             let l = (k + 1) % n_seg;
@@ -1090,18 +1112,173 @@ pub fn fitted_surface(
         },
         global: present,
         segs_m,
+        rings_m,
     }
+}
+
+/// **Split the rim chords**: every boundary edge between two patches whose
+/// two points lie on the same ring `(R, z)` of `rings` (after
+/// [`snap_rims_to_revolved`]) and span more than half a facet (`pi / n_seg`,
+/// 1 % slack) is split at its angular midpoint, the new point on the true
+/// radius, in **every** face that uses the edge (boundary and internal, so
+/// every cell stays closed); repeated until no such edge is left. Returns the
+/// number of points added.
+///
+/// Why (2026-11-27): the dual merges coplanar boundary faces, so a rim
+/// inside a flat disc (the top reflector's, where its interface with the
+/// cavity meets its interface with the side reflector) keeps only the ring's
+/// vertices and stays a 32-gon (-0.64 % of the disc), while a rim that is
+/// also a wall's edge carries the wall faces' midpoints and is a 64-gon once
+/// snapped (-0.16 %). The two sides of `core_cavity_to_top_reflector`
+/// differed in area by -0.48 %. Split to half a facet, both sides carry the
+/// same rim points.
+pub fn split_rim_chords(mesh: &mut VolumeMesh, rings: &[[f64; 2]], n_seg: usize) -> usize {
+    use std::collections::BTreeMap;
+    let half = core::f64::consts::PI / n_seg as f64 * 1.01;
+    let ring_of = |p: outram_park_fork_cfmesh::math::Vec3| {
+        let r = (p.x * p.x + p.y * p.y).sqrt();
+        rings.iter().position(|q| (p.z - q[1]).abs() < 1e-9 * q[0].max(1.0) && (r - q[0]).abs() < 1e-9 * q[0])
+    };
+    let mut added = 0;
+    for _pass in 0..8 {
+        let mut patch_of = vec![usize::MAX; mesh.face_count()];
+        for (k, p) in mesh.patches.iter().enumerate() {
+            for f in p.start_face..p.start_face + p.n_faces {
+                patch_of[f] = k;
+            }
+        }
+        let mut edges: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+        for f in 0..mesh.face_count() {
+            if mesh.neighbour[f].is_some() {
+                continue;
+            }
+            let ring = &mesh.faces[f];
+            for k in 0..ring.len() {
+                let (a, b) = (ring[k], ring[(k + 1) % ring.len()]);
+                edges.entry((a.min(b), a.max(b))).or_default().push(patch_of[f]);
+            }
+        }
+        // The edges to split and their new points.
+        let mut split: BTreeMap<(usize, usize), usize> = BTreeMap::new();
+        for (&(a, b), ps) in &edges {
+            if ps.iter().all(|&p| p == ps[0]) {
+                continue;
+            }
+            let (pa, pb) = (mesh.points[a], mesh.points[b]);
+            let (Some(ra), Some(rb)) = (ring_of(pa), ring_of(pb)) else { continue };
+            if ra != rb {
+                continue;
+            }
+            let (ta, tb) = (pa.y.atan2(pa.x), pb.y.atan2(pb.x));
+            let mut dt = tb - ta;
+            if dt > core::f64::consts::PI {
+                dt -= 2.0 * core::f64::consts::PI;
+            } else if dt < -core::f64::consts::PI {
+                dt += 2.0 * core::f64::consts::PI;
+            }
+            if dt.abs() <= half {
+                continue;
+            }
+            let (rr, z) = (rings[ra][0], rings[ra][1]);
+            let tm = ta + 0.5 * dt;
+            mesh.points.push(outram_park_fork_cfmesh::math::Vec3::new(rr * tm.r_cos(), rr * tm.r_sin(), z));
+            split.insert((a, b), mesh.points.len() - 1);
+        }
+        if split.is_empty() {
+            break;
+        }
+        added += split.len();
+        for face in &mut mesh.faces {
+            let n = face.len();
+            let mut out = Vec::with_capacity(n + 2);
+            for k in 0..n {
+                let (a, b) = (face[k], face[(k + 1) % n]);
+                out.push(a);
+                if let Some(&m) = split.get(&(a.min(b), a.max(b))) {
+                    out.push(m);
+                }
+            }
+            *face = out;
+        }
+    }
+    mesh.cells = None;
+    added
+}
+
+/// **Snap the rims**: every boundary point on an edge between two boundary
+/// patches (a ring where a disc meets a wall or another disc patch) moves
+/// radially onto the true radius `R` of the ring `(R, z)` of `rings` it lies
+/// on (`|z - z_ring| < 1e-9 R` and `R cos(pi/n) - 0.005 R <= r <= R +
+/// 0.005 R`, the band [`snap_faces_to_revolved`] uses). Returns the number
+/// of points moved.
+///
+/// [`snap_faces_to_revolved`] moves the points of mostly radial faces only,
+/// so a disc whose rim is not also the edge of a wall in the same mesh kept
+/// its rim on the facets' chords (2026-11-27): the two sides of the flat
+/// interface `core_cavity_to_top_reflector` differed in area by -0.48 %, the
+/// cavity's rim being round (it is its wall's edge) and the top reflector's
+/// a 32-gon.
+pub fn snap_rims_to_revolved(mesh: &mut VolumeMesh, rings: &[[f64; 2]], n_seg: usize) -> usize {
+    use std::collections::BTreeMap;
+    // Patch of each boundary face.
+    let mut patch_of = vec![usize::MAX; mesh.face_count()];
+    for (k, p) in mesh.patches.iter().enumerate() {
+        for f in p.start_face..p.start_face + p.n_faces {
+            patch_of[f] = k;
+        }
+    }
+    // Boundary edges with the patches of their faces.
+    let mut edges: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    for f in 0..mesh.face_count() {
+        if mesh.neighbour[f].is_some() {
+            continue;
+        }
+        let ring = &mesh.faces[f];
+        for k in 0..ring.len() {
+            let (a, b) = (ring[k], ring[(k + 1) % ring.len()]);
+            edges.entry((a.min(b), a.max(b))).or_default().push(patch_of[f]);
+        }
+    }
+    let mut on_rim = vec![false; mesh.points.len()];
+    for (&(a, b), ps) in &edges {
+        if ps.iter().any(|&p| p != ps[0]) {
+            on_rim[a] = true;
+            on_rim[b] = true;
+        }
+    }
+    let chord = (core::f64::consts::PI / n_seg as f64).r_cos();
+    let mut moved = 0;
+    for (v, p) in mesh.points.iter_mut().enumerate() {
+        if !on_rim[v] {
+            continue;
+        }
+        let r = (p.x * p.x + p.y * p.y).sqrt();
+        if r < 1e-12 {
+            continue;
+        }
+        if let Some(q) = rings.iter().find(|q| (p.z - q[1]).abs() < 1e-9 * q[0].max(1.0) && r >= q[0] * chord - 0.005 * q[0] && r <= q[0] * 1.005) {
+            let s = q[0] / r;
+            if (s - 1.0).abs() > 0.0 {
+                p.x *= s;
+                p.y *= s;
+                moved += 1;
+            }
+        }
+    }
+    moved
 }
 
 /// **Snap a mesh's surface faces onto the true surface of revolution**, by
 /// face rather than by point (2026-11-26). The surface faces are the
 /// boundary faces and, given `cell_region`, the internal faces between two
-/// regions. A surface face whose unit normal is mostly radial (`|n_z| <
-/// 0.5`) lies on the cylinder or cone `segs[i]` whose true radius at the
+/// regions. A surface face whose unit normal lies within 37 deg of the R-Z
+/// normal of the cylinder or cone `segs[i]` (~~mostly radial, `|n_z| <
+/// 0.5`~~, CORRECTED 2026-11-27: that left the 30 deg conus unsnapped) lies
+/// on it when its true radius at the
 /// face centre's height `R(z_c)` satisfies `R cos(pi/n) - 0.005 R <= r_c <= R
 /// + 0.005 R` with `z_c` in its range: every point of that face moves
-/// radially, at its own height, to `R(z)`. Faces of the discs (`|n_z| >=
-/// 0.5`) do not move their points; a rim point shared with a cylinder face
+/// radially, at its own height, to `R(z)`. Faces of the discs (no
+/// segment's normal matches) do not move their points; a rim point shared with a cylinder face
 /// moves radially and so stays in the disc's plane. It classifies faces,
 /// not points, so a point need not lie on a facet plane (after
 /// [`morph_to_revolved`] most do not). Returns the number of points moved.
@@ -1125,14 +1302,28 @@ pub fn snap_faces_to_revolved(mesh: &mut VolumeMesh, cell_region: Option<&[usize
         }
         let a = mesh.face_area_vector(f);
         let al = a.length();
-        if al <= 0.0 || (a.z / al).abs() >= 0.5 {
+        if al <= 0.0 {
             continue;
         }
         let c = mesh.face_centroid(f);
         let rc = (c.x * c.x + c.y * c.y).sqrt();
+        if rc < 1e-12 {
+            continue;
+        }
+        // The face normal in the R-Z half plane at its centre.
+        let (nr, nz) = ((a.x * c.x + a.y * c.y) / (rc * al), a.z / al);
         let hit = segs.iter().position(|sg| {
             let (zl, zh) = (sg[0][1].min(sg[1][1]), sg[0][1].max(sg[1][1]));
             if c.z < zl - 1e-9 || c.z > zh + 1e-9 {
+                return false;
+            }
+            // ~~`|n_z| < 0.5`~~ (2026-11-27): the face normal within 37 deg
+            // of the segment's own R-Z normal, so a cone counts. The HTR-10
+            // conus slopes about 30 deg from the horizontal, |n_z| about 0.87,
+            // and the old test left it on the facets (-0.62 % on the conus).
+            let (dr, dz) = (sg[1][0] - sg[0][0], sg[1][1] - sg[0][1]);
+            let l = (dr * dr + dz * dz).sqrt();
+            if ((nr * dz - nz * dr) / l).abs() < 0.8 {
                 return false;
             }
             // Margin 0.5 % of R either side: a face the layerer's untangler
@@ -1716,5 +1907,43 @@ mod tests {
             }
             eprintln!("layers {layers}: z {zmin}..{zmax} (want {zb}..{zt}); near-disc dz top {dzt:e} bottom {dzb:e}; r max {rmax}; patches {:?}", m.vm.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect::<Vec<_>>());
         }
+    }
+
+    /// Diagnostic (2026-11-27): the top reflector meshed alone, its
+    /// interface with the cavity before and after the snaps. `#[ignore]`.
+    #[test]
+    #[ignore]
+    fn diagnose_top_reflector_rim() {
+        let r = crate::preset::htr10();
+        let mut engine = crate::engine::Engine::default();
+        let a = crate::headless::assemble_for_test(&mut engine, &r).expect("assembly");
+        let d = domain_from(&a);
+        let plan = MeshPlan::default_for(&d);
+        let map = &plan.regions;
+        let part = map.rz_partition(&d).unwrap();
+        let g = map.regions.iter().position(|x| x.id == "top_reflector").unwrap();
+        let fs = fitted_surface(map, &part, 32, |x| x == g, |_, _, across| across.map_or("walls".to_string(), |o| format!("top_reflector_to_{}", map.regions[o].id)));
+        eprintln!("rings {:?}", fs.rings_m);
+        eprintln!("patches {:?}", fs.surf.patch_names);
+        let labels: Vec<&str> = fs.surf.marker.iter().map(|&k| fs.surf.patch_names[k].as_str()).collect();
+        let opts = TetDualOptions { cell_size: 0.3, dual: true, dual_min_faces: true, n_layers: 0, ..TetDualOptions::default() };
+        let (mut vm, _) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(&fs.surf.points, &fs.surf.tris, &SurfaceRegions::from_labels(&labels), &opts).unwrap();
+        let show = |vm: &VolumeMesh, w: &str| {
+            for p in &vm.patches {
+                let area: f64 = (p.start_face..p.start_face + p.n_faces).map(|f| vm.face_area_vector(f).length()).sum();
+                let rmax = (p.start_face..p.start_face + p.n_faces).flat_map(|f| vm.faces[f].iter()).map(|&v| (vm.points[v].x.powi(2) + vm.points[v].y.powi(2)).sqrt()).fold(0.0, f64::max);
+                eprintln!("{w}: {} faces {} area {area:.6e} rmax {rmax:.6}", p.name, p.n_faces);
+            }
+        };
+        show(&vm, "bare");
+        snap_checked(&mut vm, None, &fs.segs_m, 32, 0.3).unwrap();
+        show(&vm, "snapped");
+        let n = snap_rims_to_revolved(&mut vm, &fs.rings_m, 32);
+        eprintln!("rims moved {n}");
+        show(&vm, "rims");
+        let k = split_rim_chords(&mut vm, &fs.rings_m, 32);
+        vm.validate().unwrap();
+        eprintln!("split {k}");
+        show(&vm, "split");
     }
 }

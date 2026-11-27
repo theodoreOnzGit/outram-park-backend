@@ -618,6 +618,17 @@ mod headless {
         let csv = crate::meshing::summary_csv(&built.set);
         std::fs::write(out.join("meshes.csv"), &csv).map_err(|e| e.to_string())?;
         println!("{csv}");
+        // What each mesh's build did (regions, layers, snapping, AMI pairs).
+        let mut notes = String::new();
+        for m in &built.set.meshes {
+            notes.push_str(&format!("## {}\n\n", m.role.name()));
+            for n in &m.notes {
+                notes.push_str(&format!("- {n}\n"));
+            }
+            notes.push('\n');
+        }
+        std::fs::write(out.join("mesh_notes.md"), &notes).map_err(|e| e.to_string())?;
+        eprintln!("wrote {}", out.join("mesh_notes.md").display());
         let Some(mplan) = mgxs else { return Ok(()) };
         let core = engine_core(&mut engine, r).ok_or("no core")?;
         let nm = &built.meshes[dhoby_ghaut::workbench::meshes::MeshRole::Neutronics.index()];
@@ -999,7 +1010,11 @@ mod tests {
                     assert_eq!(r.cells, 0, "{:?}: {id} is outside this mesh's domain", m.role);
                 }
             }
-            assert!(m.notes.iter().any(|n| n.contains("region boundaries fitted")), "{:?}: {:?}", m.role, m.notes);
+            // Neutronics and TH: each region meshed alone and joined by
+            // cyclicAMI pairs (gh:#1862); structural: the conforming route.
+            let joined = m.notes.iter().any(|n| n.starts_with("AMI "));
+            let conforming = m.notes.iter().any(|n| n.contains("region boundaries fitted"));
+            assert!(if m.role == MeshRole::Structural { conforming } else { joined }, "{:?}: {:?}", m.role, m.notes);
         }
         for to in [MeshRole::ThermalHydraulics, MeshRole::Structural] {
             let m = b.set.mapping(MeshRole::Neutronics, to).unwrap();
