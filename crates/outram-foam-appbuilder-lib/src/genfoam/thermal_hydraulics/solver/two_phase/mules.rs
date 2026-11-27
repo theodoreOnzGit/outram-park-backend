@@ -31,6 +31,7 @@
 use crate::nostd_prelude::*;
 
 use super::fv::{Bc, Geometry, Scalar};
+use outram_foam_basic_lib::prelude::PatchKind;
 
 /// `ROOTVSMALL` of OpenFOAM's `doubleScalar`.
 const ROOT_V_SMALL: f64 = 1.0e-150;
@@ -204,6 +205,7 @@ impl Default for LimiterControls {
 
 /// `myMULES::limiter` for `rho = one`, no moving mesh, `Sp = Su = 0`: the
 /// per-face limiter `lambda` (1 on boundary faces of non-coupled patches).
+/// The zero-source case of [`limiter_with_sources`].
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn limiter(
@@ -214,6 +216,30 @@ pub fn limiter(
     psi0: &[f64],
     phi_bd: &[f64],
     phi_corr: &[f64],
+    psi_max: &[f64],
+    psi_min: &[f64],
+) -> Vec<f64> {
+    let zero = vec![0.0; g.n_cells()];
+    limiter_with_sources(g, ctl, r_delta_t, psi, psi0, phi_bd, phi_corr, &zero, &zero, psi_max, psi_min)
+}
+
+/// `myMULES::limiter` (myMULESTemplates.C:241-610) for `rho = geometricOneField`, no moving mesh, with the
+/// implicit and explicit sources `Sp`, `Su` (`rho rDeltaT - Sp` and `Su` in the `psiMaxn`/`psiMinn` bounds,
+/// lines 440-452). Boundary faces of non-coupled patches keep `lambda = 1`; faces of a `wedge` patch are set
+/// to 0 at the end of every iteration (lines 561-566). Coupled patches (`cyclic`) are not in the mesh type
+/// of this port, so `psiPf.coupled()` is never true here.
+#[must_use]
+#[allow(clippy::too_many_arguments)]
+pub fn limiter_with_sources(
+    g: &Geometry,
+    ctl: &LimiterControls,
+    r_delta_t: f64,
+    psi: &Scalar,
+    psi0: &[f64],
+    phi_bd: &[f64],
+    phi_corr: &[f64],
+    sp: &[f64],
+    su: &[f64],
     psi_max: &[f64],
     psi_min: &[f64],
 ) -> Vec<f64> {
@@ -286,8 +312,9 @@ pub fn limiter(
     }
     for c in 0..nc {
         let v = m.cell_volumes[c];
-        psi_maxn[c] = v * ((r_delta_t * psi_maxn[c]) - (r_delta_t * psi0[c])) + sum_phi_bd[c];
-        psi_minn[c] = v * ((-(r_delta_t * psi_minn[c])) + (r_delta_t * psi0[c])) - sum_phi_bd[c];
+        // V*((rho rDeltaT - Sp) psiMaxn - Su - (rho0 rDeltaT) psi0) + sumPhiBD ; V*(Su - (rho rDeltaT - Sp) psiMinn + (rho0 rDeltaT) psi0) - sumPhiBD
+        psi_maxn[c] = v * ((((r_delta_t - sp[c]) * psi_maxn[c]) - su[c]) - (r_delta_t * psi0[c])) + sum_phi_bd[c];
+        psi_minn[c] = v * ((su[c] - ((r_delta_t - sp[c]) * psi_minn[c])) + (r_delta_t * psi0[c])) - sum_phi_bd[c];
     }
 
     let mut sum_lphip = vec![0.0; nc];
@@ -332,7 +359,12 @@ pub fn limiter(
                 fmin(lambda[f], fmin(lambdam[own], lambdap[nei]))
             };
         }
-        // Boundary faces of non-coupled, non-wedge patches keep lambda = 1.
+        // Boundary faces of non-coupled, non-wedge patches keep lambda = 1; a `wedge` patch is set to 0.
+        for f in ni..nf {
+            if g.active[f] && m.patches[g.patch_of[f - ni]].kind == PatchKind::Wedge {
+                lambda[f] = 0.0;
+            }
+        }
     }
     lambda
 }
@@ -352,6 +384,48 @@ pub fn limit_return_corr(
     phi_psi: &mut [f64],
     psi_max: &[f64],
 ) {
+    let zero = vec![0.0; g.n_cells()];
+    limit_core(g, ctl, r_delta_t, psi, psi0, phi, phi_psi, &zero, &zero, psi_max, &zero, true);
+}
+
+/// `myMULES::limit(rDeltaT, one, psi, phi, phiPsi, Sp, Su, psiMax, psiMin, returnCorr = false)`
+/// (myMULESTemplates.C:622-697): on return `phi_psi` holds the FULL limited flux
+/// `phiBD + lambda (phiPsi - phiBD)` (the form `solveAlpha` stores as `alphaPhi`).
+#[allow(clippy::too_many_arguments)]
+pub fn limit_full_flux(
+    g: &Geometry,
+    ctl: &LimiterControls,
+    r_delta_t: f64,
+    psi: &Scalar,
+    psi0: &[f64],
+    phi: &[f64],
+    phi_psi: &mut [f64],
+    sp: &[f64],
+    su: &[f64],
+    psi_max: &[f64],
+    psi_min: &[f64],
+) {
+    limit_core(g, ctl, r_delta_t, psi, psi0, phi, phi_psi, sp, su, psi_max, psi_min, false);
+}
+
+/// The body of `myMULES::limit`, upstream's order: `phiBD = upwind flux` with the non-coupled boundary set to
+/// `phiPsi`, `phiCorr = phiPsi - phiBD`, `lambda` from the limiter, then `phiCorr *= lambda` (`return_corr`) or
+/// `phiPsi = phiBD + lambda phiCorr`.
+#[allow(clippy::too_many_arguments)]
+fn limit_core(
+    g: &Geometry,
+    ctl: &LimiterControls,
+    r_delta_t: f64,
+    psi: &Scalar,
+    psi0: &[f64],
+    phi: &[f64],
+    phi_psi: &mut [f64],
+    sp: &[f64],
+    su: &[f64],
+    psi_max: &[f64],
+    psi_min: &[f64],
+    return_corr: bool,
+) {
     let nf = g.n_faces();
     let ni = g.n_internal();
     // phiBD = upwind<scalar>(mesh, phi).flux(psi); non-coupled boundary := phiPsi.
@@ -363,12 +437,17 @@ pub fn limit_return_corr(
         }
     }
     let mut phi_corr: Vec<f64> = (0..nf).map(|f| phi_psi[f] - phi_bd[f]).collect();
-    let psi_min = vec![0.0; g.n_cells()];
-    let lambda = limiter(g, ctl, r_delta_t, psi, psi0, &phi_bd, &phi_corr, psi_max, &psi_min);
-    for f in 0..nf {
-        phi_corr[f] *= lambda[f];
+    let lambda = limiter_with_sources(g, ctl, r_delta_t, psi, psi0, &phi_bd, &phi_corr, sp, su, psi_max, psi_min);
+    if return_corr {
+        for f in 0..nf {
+            phi_corr[f] *= lambda[f];
+        }
+        phi_psi.copy_from_slice(&phi_corr);
+    } else {
+        for f in 0..nf {
+            phi_psi[f] = phi_bd[f] + lambda[f] * phi_corr[f];
+        }
     }
-    phi_psi.copy_from_slice(&phi_corr);
 }
 
 /// `myMULES::explicitSolve(rDeltaT, one, psi, phiPsi, Sp, Su)` WITHOUT the

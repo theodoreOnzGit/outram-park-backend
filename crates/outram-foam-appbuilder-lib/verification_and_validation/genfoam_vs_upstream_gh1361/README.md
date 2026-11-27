@@ -1393,6 +1393,8 @@ codes" did NOT test.
 
 ## What remains (round 7)
 
+**CORRECTED 2026-11-27 (gh:#1799, round 34):** the first bullet (MULES with `solvePhase` set) and the sub-cycle bullet (`nSubCycles > 1` not compared) are DONE (compared with the real binary to round-off, not bitwise: the p_rgh GAMG solve differs); `wedge` `lambda = 0` is ported; `cyclic` patches are refused by name; the rest stands.
+
 - MULES with `solvePhase` set (`solveAlpha` lambda: `limit(returnCorr = false)`, `movingAlpha - alpha` flux, `explicitSolve` with the 9-argument limiter): used by `1D_HX/twoPhase`, `2D_KNS37-L22`; reader refuses it.
 - Coupled patches (`syncTools::syncFaceList`, `cyclic`) and `wedge` (`lambda = 0`) in the limiter; moving meshes; `rho` other than `geometricOneField`.
 - Bit-identity needs a bit-identical p_rgh solve (GAMG).
@@ -4315,3 +4317,80 @@ Justification is in the script header: every option is upstream's own (`solvePha
 | R7 | controls | port run with the wrong branch (c case against d reference), with `both` (c against b), with the sub-cycle count forced to 1 (b, c), and the 6-argument update without the limiter all FAIL the 1e-9 gate by > 100x | the comparison cannot fail |
 | R8 | rounds 3-17 numbers | do not move (the old `limiter` is the zero-source special case: `x - 0 = x`, `0 - x`, bitwise) | record old/new and why |
 | R9 | upstream stability | upstream runs c, d, e, b for >= 100 steps without abort and without a flow excursion before step 600 (the bump only perturbs the closures mildly) | choose a smaller peak and say why |
+
+
+## Round 34 results (2026-11-27, release; `tests/genfoam_two_phase_mules_solve_phase_vs_upstream.rs`, 7 gates + 4 diagnostics, ~5 s; `--ignored --nocapture` prints every row)
+
+References: fresh runs of the installed binary, tight protocol, every step written (`refs/boiling_mules_r34_*.ref.txt.gz`, 0.18-0.6 MB each, in the refs submodule). Upstream runs: 5 s each (variant a, 1727 steps to t = 7: 80 s; it does NOT abort at step 650 as the `both` run of round 7 did).
+Worst relative difference over the 40 cells, relative to the field's own maximum at that step. `sub` = MULES sub-cycles seen (equal to upstream's log at every compared step, except where stated).
+
+| variant, steps | sub | p | T.liquid | T.vapour | U.liquid | U.vapour | alpha.vapour | dmdt | alphaPhi.vapour | alphaPhi.liquid | phi.vapour |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| a, 1-40 | 1 | 2.6e-13 | 2.9e-15 | 1.1e-14 | 5.5e-12 | 5.5e-12 | 0 (exact) | 0 | 0 | 4.2e-12 | 3.5e-12 |
+| a, 600-615 | 1 | 4.7e-14 | 8.3e-14 | 3.6e-14 | 4.6e-12 | 4.6e-12 | 0 | 0 | 0 | 1.6e-12 | 3.1e-12 |
+| a, 616-634 (onset) | 1 | 1.2e-12 | 9.2e-14 | 8.0e-14 | 6.1e-12 | 6.5e-12 | 1.0e-10 | 9.0e-11 | 1.0e-10 | 5.6e-12 | 6.8e-12 |
+| b (both), 1-60 | 1,2,3 | 6.0e-13 | 4.5e-15 | 3.9e-14 | 4.3e-12 | 3.7e-12 | 8.8e-13 | 2.4e-12 | 3.8e-12 | 2.6e-12 | 2.3e-12 |
+| c (vapour), 1-115 | 1,2,3 | 6.6e-13 | 4.1e-14 | 4.0e-14 | 8.0e-12 | 8.0e-12 | 2.2e-12 | 5.7e-12 | 6.3e-12 | 5.0e-12 | 5.1e-12 |
+| d (liquid), 1-10 | 1,2 | 1.1e-13 | 2.6e-15 | 7.0e-15 | 6.8e-13 | 9.7e-13 | 1.8e-13 | 2.3e-12 | 3.5e-12 | 8.0e-13 | 1.4e-12 |
+| d (liquid), 11-44 | 2,3 | 8.8e-13 | 2.8e-13 | 2.5e-14 | 8.7e-12 | 4.2e-9 | 2.7e-10 | 2.5e-9 | 1.7e-9 | 3.1e-12 | 3.7e-9 |
+| e (vapour, 1 sub-cycle), 1-60 | 1 | 5.0e-13 | 5.7e-15 | 3.9e-14 | 8.0e-12 | 7.8e-12 | 6.8e-13 | 5.5e-13 | 1.3e-12 | 4.9e-12 | 4.9e-12 |
+
+Not bit-identical anywhere (p_rgh GAMG against the port's solver, as in rounds 3-7: the round-off cause is the same and explained; flagged for the maintainer per CLAUDE.md, worst direct difference 8e-12 << 1e-9). The MULES stage itself IS bit-identical: with the inputs of the very first alpha solve (variant e, first call of the lambda, probe below) `alphaIn`, `alpha0`, `phi`, `Sp`, `Su`, the limited flux, `alpha` after the update, the other fluid, both `alphaPhi`, both `alphaRhoPhi` and the boundary values agree to the last bit (the only difference: a face flux of 1e-20, 6.8e-21 absolute, in the vanLeer tail).
+
+**First diverging steps.** Variant a: a flow field first leaves 1e-6 at **step 637** (step size too, 637), the sub-cycle count differs from **639** (upstream 13, port 2-3). The same steps (637) come out of the port against ITSELF with the initial liquid temperature scaled by 1 + 1e-9. Variant d: first flow field > 1e-6 at **step 45** (alpha.vapour 8e-2; steps to 44 agree to 4e-9); the port against itself with T.liquid x (1 + 1e-12) leaves 1e-6 at **step 45** too: the event is the system's sensitivity (vapour = 0.5 - liquid, so its tail cells are round-off differences of two numbers near 0.5), not a translation difference. Upstream does not abort in variant a (it ran to t = 7 with the vapour present from step 616 on); the port diverges (NaN) at step 646.
+
+### Defect found by the comparison (and how)
+
+1. **Lazy `alpha.oldTime()` of the OTHER fluid in step 1.** The first run of variants c, d, e was off by 1e-6 (c, e: p 3.1e-6, alpha.vapour 1.6e-6 at step 1; d: p 2e-3) while variant b (the `both` path) agreed to 1e-13. Localised with an instrumented upstream (`upstream_driver/probe_solve_alpha/`: 6 dumps in the lambda, built against the installed libraries into a scratch `libFFSSolvers2`, 1.5 min) and the same dumps in the port: every quantity of the first lambda call, including the limited flux and both `alphaPhi`, was bit-identical; the first difference was `phi` at the second call, i.e. something AFTER the alpha solve consumed a different input. Reading `GeometricField::operator=`/`storeOldTimes` and the upstream flow: the lambda assigns the other fluid with `operator=` before anything has asked for its `oldTime()`; the first request (`correctContErrs`: `fvc::ddt(fluid, rho)`, `fvm::ddt(alpha, rho, U)`) then CREATES the old-time copy from the already-assigned value, so in step 1 the other fluid's `alpha.oldTime()` is its value after the first outer iteration's MULES, not the initial field. (The limited fluid's own `oldTime()` is requested in `limit` before it is modified; with sub-cycles `alpha10/alpha20 = alpha.oldTime()` request both before the loop, so nothing is stale there.) Ported as `TwoPhaseSolver::other_alpha_old_stale` (default on, as upstream; `with_eager_other_alpha_old_time()` is the earlier form, used as a control). After: step 1 p 6e-13, alpha.vapour 1.3e-13. This is the third first-step lazy old-time upstream behaviour (round 3 found `p` and the structure temperature); my prediction R5 "1e-13..1e-11 at steps 1-3" was MISSED by the first run (1e-6) and HELD after the fix.
+
+### Controls (each fails the round-off gate; `the_comparison_can_fail_...`, `the_first_diverging_steps_are_the_noise_floor_of_the_system`)
+
+- the port with the OTHER branch (`solvePhase liquid`) against the vapour reference, with `both`, with sub-cycling forced off (sub-cycle count differs from upstream's), and with the earlier eager old-time: each > 1e-6 (eager: > 1e-7) over 60 steps against a gate of 1e-10;
+- noise floors above (variants a and d);
+- `solve_phase_lambda_keeps_the_fractions_bounded_and_summing_to_the_moving_fraction` (in-crate, both branches, forced 3 sub-cycles): alpha in [0, moving], sum = moving to 1e-12, `alpha.oldTime()` restored.
+
+### Predictions: held and missed
+
+| id | result |
+|---|---|
+| R1 held | a, 1-70 range (1-40 and 600-615 gated): p 2.6e-13, U 5.5e-12; alpha.vapour, dmdt, alphaPhi.vapour EXACTLY 0; alphaPhi.liquid 4.2e-12 |
+| R2 held | onset alpha.vapour 1.0e-10 (<= 1e-9); the flow first leaves 1e-6 at 637 (predicted within 3 steps of 636) |
+| R3 held | sub-cycle count equals upstream's at every compared step of b, c, d, e and of a to 638; b, c, d reach 2 at step 10 and 3 at step 22; e stays 1 |
+| R4 held (after the fix) | alpha.vapour relative to its own maximum <= 2.9e-13 in b, c, e over 50 steps (predicted 1e-9); p <= 6.6e-13 (predicted 1e-10); the bound [0, movingAlpha] holds in the in-crate test |
+| R5 **missed by the first run** | step 1 was 1.6e-6 before the lazy old-time fix; 1e-13 after |
+| R6 not measured | the real binary's c against d: the references of c and d differ by 3e-3 at step 1 (the limiter bounds differ), so "the branch is not a physics change" was WRONG: solving the liquid or the vapour with `Sp`/`Su` and `movingAlpha` bounds is a different discretisation; I did not assert it |
+| R7 held | every control fails by orders of magnitude |
+| R8 held | rounds 3-17 numbers do not move (rounds 3, 7 and the two_phase suites re-run: `genfoam_two_phase_mules_vs_upstream` 6 gates, `genfoam_two_phase_vs_upstream` 12, `genfoam_two_phase_1d_boiling`, lib `two_phase` 55 pass) |
+| R9 held in part | upstream ran all of b, c, d, e for 115 steps without an abort; the vapour slug condenses (peak 0.0497 at step 1, 1e-5 by step 100) |
+
+### What was ported (upstream -> Rust)
+
+| upstream | port |
+|---|---|
+| `solveAlphaMULES.H:24-122` `solveAlpha` lambda: `alphaPhic` with `movingAlpha_ - solveFluid`, `correctInflowOutflow`, `Sp`/`Su` from `dgdt`, 9-argument `explicitSolve`, `alphaPhi`, other fluid by `phi_ - alphaPhi`, `min(max(., 0), movingAlpha_)` | `alpha_mules.rs`: `mules_solve_one`, `mules_moving_minus`, `mules_alpha_phic_with`, `mules_solve` (the `solve` lambda dispatch) |
+| `myMULES::limit(returnCorr = false)` (`myMULESTemplates.C:622-697`) | `mules.rs`: `limit_full_flux`, `limit_core` (`limit_return_corr` is now its `true` wrapper) |
+| `myMULES::limiter` with `Sp`/`Su` (440-452) and `wedge` `lambda = 0` (561-566) | `mules.rs`: `limiter_with_sources` (`limiter` = zero-source wrapper, bitwise) |
+| `solvePhase` entry (`both`, `<fluid1>`, `<fluid2>`) | `case.rs`: `MulesControls::solve_phase` |
+| `internalField nonuniform List<scalar>` of `alpha.<fluid>` (non-alpha fields still refuse by name) | `case.rs`: `read_alpha_field`, `nonuniform_scalar_list` |
+| lazy `alpha.oldTime()` of the other fluid (step 1) | `mod.rs`: `other_alpha_old_stale`, `with_eager_other_alpha_old_time` |
+
+Refused by name: a `cyclic` (coupled) patch with MULES (`syncTools::syncFaceList` and the coupled limiter branches).
+
+### Deviations / not covered
+
+- `calculated` alpha patches (`alpha.liquid` inlet/outlet as shipped) are read as `zeroGradient` (an earlier reading kept from round 7); upstream keeps their assigned values. Not exercised by these variants while no vapour is in a boundary cell (variant d solves the `calculated` fluid and agrees to step 44). Follow-up issue filed.
+- `1D_HX/twoPhase` and `2D_KNS37-L22` themselves are not run (heat exchangers, heated pins).
+- The `wedge` branch has no numerical effect in this solver (its `phiCorr` is 0): unit-tested only; no upstream comparison on a wedge mesh.
+- Probe patch: `upstream_driver/probe_solve_alpha/` holds `solveAlphaMULES.probe.patch` (diff of the scratch header) and `build.sh`/`run.sh`; the scratch tree was deleted.
+
+### Moved numbers
+
+None: rounds 3-17 gates re-run unchanged. `TwoPhaseCase::read` of a case with `solvePhase` under MULES: error -> runs (the refusal is removed); `solvePhase "both"` is now accepted under MULES.
+
+### Gates run (2026-11-27, release, targeted; PRIVATE target dir `target-private` after the coordinator's notice; the first measurement tables above were taken on the shared target before the switch and every gate was re-run on the private one: all pass)
+
+`--test genfoam_two_phase_mules_solve_phase_vs_upstream` 7 passed; `--test genfoam_two_phase_mules_vs_upstream`, `genfoam_two_phase_vs_upstream`, `genfoam_two_phase_1d_boiling` pass; `--lib two_phase` 55 pass; `petir --test no_platform_libm` 4 pass; `scripts/check-nostd.sh` (incl. this crate) clean.
+
+### Reproduction
+
+`bash scripts/make_boiling_mules_variants.sh`; per variant `VARIANT=<name> EVERY_STEP=1 TIGHT=1 END_TIME=1.0 PRE_RUN=scripts/boiling_mules_variant_protocol.sh bash scripts/run_tutorial.sh featureCases/1D_boiling r34_<x>`; `EXTRA_FIELDS="alpha.liquid alphaPhi.vapour alphaPhi.liquid phi.vapour phi.liquid" bash scripts/extract_boiling_reference.sh r34_<x> <ref name> . 1 60` (a: `. 1 40` and `. 600 660`, END_TIME 7).
