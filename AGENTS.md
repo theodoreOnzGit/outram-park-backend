@@ -107,6 +107,41 @@ gh issue comment <number> --body "..."           # progress
   `macro_rules!`. kovan reads `mod` lines without expanding macros, so a
   macro-declared module is missing from review. Full rule: `CLAUDE.md`.
 
+## Tests never race for the same file: copy or duplicate it (HARD RULE)
+
+**Maintainer direction, 2026-11-27:** "if something is going to race cos of
+racing for same file, … the file ought to be copied or duplicated". Binds
+every crate and every agent, Claude included.
+
+Tests run in parallel: the threads of one test binary, and several binaries
+at once in a workspace run. **No two tests, or two calls of one helper, may
+write, delete or rename the same file path.** A test that needs a file it
+changes gets its own copy at a path no other test uses.
+
+- **Writing a file:** use a unique path per test or call, e.g.
+  `tempfile::tempdir()` or `tempfile::NamedTempFile`, never a fixed name
+  such as `std::env::temp_dir().join("x.h5")`.
+- **Modifying a shared input** (a reference deck, a git repo, a cache): copy
+  it into the test's own directory first and work on the copy. The original
+  is read-only to tests.
+- **Reading a shared input without changing it is fine**: committed
+  reference data, ACE tables, vendored sources.
+- **Process-wide state is a shared file too:** a `static` cache, an
+  environment variable, a current directory. A test must not depend on
+  another test leaving it alone. Key it per test or give the test its own.
+- **Do not fix a race by serialising the tests** (`--test-threads=1`, a
+  global lock). Give each test its own copy instead.
+- **When a test fails in a parallel run but passes alone, look for a shared
+  path first**, and fix the test rather than re-running until it passes.
+
+**Why.** The v0.0.6 lockstep release run (2026-11-27) had two failures that
+were races, not defects. `outram-mc-libs`' `openmc_xs_details_463` wrote and
+deleted one fixed `temp_dir()/var_from_hdf5_463.h5` from tests running in
+parallel ("read: NotFound"), and kovan's `answers_are_kept_per_head_only`
+lost its answers to a process-wide cache other tests clear (gh:#1880,
+gh:#1896). Both pass alone. A red release test blocks the crate and every
+crate above it, so a race costs a release, not just a re-run.
+
 ## Crate-level interfaces may follow SOLID principles (maintainer, 2026-11-03)
 
 **Maintainer direction:** "At the crate level I am ok with interfaces using
