@@ -68,7 +68,7 @@ use crate::error::AppBuilderError;
 use crate::genfoam::neutronics::diffusion::external_source::{NeutronicsDdtScheme, NeutronicsLaplacianScheme, StationaryStep, StationaryStepControls};
 use crate::genfoam::neutronics::diffusion::upstream_transient::diffusion_max_delta_t;
 use crate::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettings};
-use crate::genfoam::neutronics::point_kinetics::case::read_pk_config;
+use crate::genfoam::neutronics::point_kinetics::case::{read_pk_case, PkCaseDicts};
 use crate::genfoam::neutronics::point_kinetics::model::{feedback_cell_field, PkFeedbackFields, PkMeshData, PkStepReport, PointKineticNeutronics};
 use crate::genfoam::neutronics::point_kinetics::LinearSolveForm;
 use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
@@ -78,7 +78,7 @@ use crate::genfoam::thermo_mechanics::legacy_fvm::case::{LegacyFvmCase, TStructG
 use crate::genfoam::thermo_mechanics::legacy_fvm::{LegacyFvmThermoMechanics, PhysicsLog};
 use crate::genfoam::workflow::reactor_state::ReactorState;
 use crate::io::nuclear_data::read_nuclear_data;
-use crate::io::poly_mesh::{read_cell_zones, zone_of_cell};
+use crate::io::poly_mesh::{read_cell_zones, read_face_zones, zone_of_cell};
 
 /// `GREAT` of OpenFOAM (`doubleScalarGreat`), the `maxDeltaT` of a solver that has none.
 const GREAT: f64 = 1.0e15;
@@ -181,6 +181,17 @@ pub struct PointKineticRegion {
     pub pk: PointKineticNeutronics,
     /// The report of the last `correctPhysics()`: the weighted averages and every reactivity term (`pointKineticsInfo.H`).
     pub last: Option<PkStepReport>,
+    /// GEM (`GEMFlowFaceZone` of the fluid region `fluidRegionName`), when the case gives a `GEMReactivityMap` (gh:#1927).
+    pub gem: Option<GemFaces>,
+}
+
+/// The faces `calcGEMLevelAndReactivity` sums `phi*|Sf|` over (`phiFaces_`, `phiMagSf_`), and the region whose `phi` it reads.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GemFaces {
+    /// Index of the fluid region (`fluidRegionName`).
+    pub fluid_region: usize,
+    /// `(face label, |Sf|)` in zone order.
+    pub faces: Vec<(usize, f64)>,
 }
 
 /// `legacyThermoMechanics` (finite-volume form).
@@ -351,6 +362,18 @@ fn build_maps(regions: &[Region], mappings: &[MappingEntry], geometries: &[Overl
         maps.push((ti, si, map));
     }
     Ok(maps)
+}
+
+/// The name of the time directory of `root` whose value is `t` (`Time::timeName`: `100` for 100, `99.958333...` as written).
+fn time_dir_name(root: &Path, t: f64) -> Result<String, AppBuilderError> {
+    let entries = std::fs::read_dir(root).map_err(|e| case_err(root, format!("{e}")))?;
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        if name.parse::<f64>().is_ok_and(|v| v == t) {
+            return Ok(name);
+        }
+    }
+    Err(case_err(root, format!("no time directory for t = {t}")))
 }
 
 fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
@@ -637,37 +660,70 @@ impl RegionSolvers {
         deformation: MeshDeformationDict,
     ) -> Result<(), AppBuilderError> {
         let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
-        for (key, what) in [("liquidFuel", "the liquid-fuel precursor transport (gh:#1882) is not wired into the loop"), ("externalSourceNeutronics", "the external source of the PK is not read here")] {
-            if np.dict.get_word(key).is_some_and(|w| w == "true" || w == "yes" || w == "on") {
-                return Err(case_err(root, format!("neutronicsProperties.{key} true: {what}")));
-            }
+        if np.dict.get_word("liquidFuel").is_some_and(|w| w == "true" || w == "yes" || w == "on") {
+            return Err(case_err(root, "neutronicsProperties.liquidFuel true: the liquid-fuel precursor transport (gh:#1882) is not wired into the loop (gh:#1905)"));
         }
         let nd = read_dict(root, &format!("constant/{nname}/nuclearData"))?;
+        let es_rel = format!("constant/{nname}/externalSource");
+        let es = if root.join(&es_rel).is_file() { Some(read_dict(root, &es_rel)?) } else { None };
+        // `reactorState` of the start directory (`neutronics.C:79-90`: `<time>/uniform/reactorState`)
+        let rs_rel = format!("{}/uniform/reactorState", time_dir_name(root, start_time)?);
+        let rs = if root.join(&rs_rel).is_file() { Some(read_dict(root, &rs_rel)?) } else { None };
+        let dicts = PkCaseDicts { nuclear: &nd.dict, neutronics_properties: &np.dict, external_source: es.as_ref().map(|f| &f.dict), reactor_state: rs.as_ref().map(|f| &f.dict) };
+        let case = read_pk_case(&dicts, start_time).map_err(|e| case_err(root, e))?;
+        // the feedback cell fields from the neutronics region's `cellZones` (`setFeedbackCellField`: a missing zone is upstream's FatalError)
+        let zones = read_cell_zones(&root.join(format!("constant/{nname}/polyMesh")))?;
+        let zone_cells = |names: &[String]| -> Result<Vec<Vec<usize>>, AppBuilderError> {
+            names
+                .iter()
+                .map(|n| zones.iter().find(|z| &z.name == n).map(|z| z.cells.clone()).ok_or_else(|| case_err(root, format!("{nname}: feedback zone {n} is not a cellZone"))))
+                .collect()
+        };
+        let gem_faces = match &case.gem {
+            None => None,
+            Some(g) => {
+                let fi = self.regions.iter().position(|r| r.name == g.fluid_region && matches!(r.solver, RegionSolver::OnePhase(_)));
+                let Some(fi) = fi else {
+                    return Err(case_err(root, format!("GEM: fluidRegionName {} is not a onePhase region of this case", g.fluid_region)));
+                };
+                let fzs = read_face_zones(&root.join(format!("constant/{}/polyMesh", g.fluid_region)))?;
+                let Some(fz) = fzs.iter().find(|z| z.name == g.face_zone) else {
+                    return Err(case_err(root, format!("GEM: GEMFlowFaceZone {} is not a faceZone of {}", g.face_zone, g.fluid_region)));
+                };
+                let fv = &self.regions[fi].fv;
+                // `magSf = mag(THMesh.faceAreas())`
+                let faces: Vec<(usize, f64)> = fz.faces.iter().map(|&f| (f, fv.face_area_vectors[f].mag())).collect();
+                Some(GemFaces { fluid_region: fi, faces })
+            }
+        };
         let keep_original = self.switches.restart_on_original_mesh;
         let RegionSolver::Neutronics(n) = &mut self.regions[ni].solver else { unreachable!("found as Neutronics") };
         let fresh = if keep_original { n.mesh.restarted_at(&n.mesh.original_points().to_vec()) } else { n.mesh.restarted_at_current_points() }
             .map_err(|e| case_err(root, format!("{nname}: restart mesh: {e}")))?;
-        let cfg = read_pk_config(&nd.dict, n.p_target, start_time).map_err(|e| case_err(root, e))?;
+        let cfg = case.cfg.clone();
         let cells = fresh.mesh().n_cells;
         let fluxes: Vec<Vec<f64>> = n.solver.state().flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
         let prec: Vec<Vec<f64>> = n.solver.state().precursors().iter().map(|f| f.internal.as_slice().to_vec()).collect();
         let power_density = self.regions[ni].fields.scalar("powerDensity").map(<[f64]>::to_vec).unwrap_or_else(|| vec![0.0; cells]);
         let secondary = self.regions[ni].fields.scalar("secondaryPowerDensity").map(<[f64]>::to_vec).unwrap_or_else(|| vec![0.0; cells]);
-        let ones = feedback_cell_field(cells, &[]);
         let mesh = PkMeshData {
             volume: fresh.mesh().cell_volumes.clone(),
-            fuel: ones.clone(),
-            cool: ones.clone(),
-            structure: ones.clone(),
-            structure_mech: ones.clone(),
-            driveline: ones,
+            fuel: feedback_cell_field(cells, &zone_cells(&case.zones.fuel)?),
+            cool: feedback_cell_field(cells, &zone_cells(&case.zones.cool)?),
+            structure: feedback_cell_field(cells, &zone_cells(&case.zones.structure)?),
+            structure_mech: feedback_cell_field(cells, &zone_cells(&case.zones.structure_mech)?),
+            driveline: feedback_cell_field(cells, &zone_cells(&case.zones.driveline)?),
         };
-        let pk = PointKineticNeutronics::from_read_fields(cfg, mesh, fluxes, power_density, secondary, prec, LinearSolveForm::default())
-            .map_err(|e| case_err(root, format!("{nname}: pointKineticNeutronics: {e}")))?;
+        let mut pk = PointKineticNeutronics::from_read_fields(cfg, mesh, fluxes, power_density, secondary, prec, LinearSolveForm::default())
+            .map_err(|e| case_err(root, format!("{nname}: pointKineticNeutronics: {e}")))?
+            .with_read_references(case.refs);
+        if let Some(g) = &case.gem {
+            pk = pk.with_gem(g.map.clone(), g.sodium_level_ref).map_err(|e| case_err(root, format!("{nname}: GEM: {e}")))?;
+        }
         let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
         self.regions[ni].fv = fresh.mesh().clone();
         self.geometries[ni] = geometry;
-        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None });
+        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None, gem: gem_faces });
         let rebuild_phi = !self.switches.restart_keeps_phi;
         for r in self.regions.iter_mut() {
             match &mut r.solver {
@@ -850,6 +906,11 @@ impl RegionSolvers {
     /// `solvers[i].correctPhysics()`.
     fn correct_physics(&mut self, i: usize) -> Result<(), AppBuilderError> {
         let dt = self.dt;
+        // GEM reads the FLUID region's `phi` (`calcGEMLevelAndReactivity`): taken before the neutronics region is borrowed
+        let gem_flux = match &self.regions[i].solver {
+            RegionSolver::PointKinetics(PointKineticRegion { gem: Some(g), .. }) => Some(self.gem_face_flux(g)?),
+            _ => None,
+        };
         let r = &mut self.regions[i];
         match &mut r.solver {
             RegionSolver::OnePhase(f) => {
@@ -893,6 +954,10 @@ impl RegionSolvers {
                     t_struct: get("TStruct"),
                     t_struct_mech: get("TStructMech"),
                 };
+                if let Some(flux) = gem_flux {
+                    // `correctReactivity.H:40`: `calcGEMLevelAndReactivity()` before the reactivity sum
+                    p.pk.compute_gem(flux);
+                }
                 let rep = p.pk.step(self.time, dt, &fields).map_err(|e| case_err(Path::new(""), e.to_string()))?;
                 p.last = Some(rep);
                 r.fields.set_scalar("powerDensity", p.pk.power_density.clone());
@@ -907,6 +972,19 @@ impl RegionSolvers {
             }
         }
         Ok(())
+    }
+
+    /// `sum_i phi[face_i]*|Sf_i|` over the GEM zone, in zone order, of the fluid region's `phi` (`fluid_.phi()`).
+    fn gem_face_flux(&self, g: &GemFaces) -> Result<f64, AppBuilderError> {
+        let RegionSolver::OnePhase(f) = &self.regions[g.fluid_region].solver else {
+            return Err(case_err(Path::new(""), "GEM: the fluid region is not onePhase"));
+        };
+        let Some(phi) = f.solver.face_flux() else { return Err(case_err(Path::new(""), "GEM: the fluid region has no phi (frozen flux)")) };
+        let mut sum = 0.0;
+        for &(face, mag_sf) in &g.faces {
+            sum += phi[face] * mag_sf;
+        }
+        Ok(sum)
     }
 
     /// `solvers[i].maxDeltaT()`.

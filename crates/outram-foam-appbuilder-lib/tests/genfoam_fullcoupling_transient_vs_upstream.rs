@@ -300,6 +300,13 @@ struct Worst {
     pk_tfuel_first: Option<(usize, f64)>,
     /// PK: the largest precursor power (diagnostic)
     pk_precursors: f64,
+    /// PK: `name -> difference` of the LAST compared step (round 63 controls compare at step 100)
+    pk_last: HashMap<String, f64>,
+    /// PK, round 63 (POST-RUN, README "Misses"): the other temperature-difference reactivity terms (`Doppler`, `TClad`, `TCool`, `rhoCool`, `TStruct`,
+    /// `TStructMech`) are cancellations like the `TFuel` term (`coeff * (value - first-step reference)`, the two equal to 1e-7 of themselves at the
+    /// first steps); `name -> worst absolute difference (pcm)` and the first step above the relative gate
+    pk_cancel_abs: HashMap<String, f64>,
+    pk_cancel_first: Option<(usize, String, f64)>,
 }
 
 fn compare_fields(run: &RegionSolvers, reference: &Reference, k: usize, n_steps: usize, w: &mut Worst, early: bool) {
@@ -707,8 +714,14 @@ fn stage_pk(tag: &str) -> PathBuf {
     let text = std::fs::read_to_string(&ctl).expect("controlDict");
     assert_eq!(text.matches("diffusionNeutronics;").count(), 1, "controlDict regionSolvers");
     std::fs::write(&ctl, text.replace("diffusionNeutronics;", "pointKinetics;")).expect("write controlDict");
+    // gh:#1927: the restart reads the start directory's `reactorState` (`pTarget`), as upstream does; the steady state wrote this one
+    std::fs::create_dir_all(root.join("100/uniform")).expect("start dir");
+    std::fs::write(root.join("100/uniform/reactorState"), REACTOR_STATE).expect("reactorState");
     root
 }
+
+/// The reactivity terms of the form `coeff * (value - reference)` other than `TFuel` (round 63, POST-RUN: they cancel like the `TFuel` term).
+const CANCELLATION_TERMS: [&str; 6] = ["arrow_Doppler_fast", "arrow_TClad", "arrow_TCool", "arrow_rhoCool", "arrow_TStruct", "arrow_TStructMech"];
 
 /// Every `name` of the `pointKinetics:` block of the real run against the port's (`pointKineticsInfo.H`: reactivities in pcm = value * 1e5).
 fn compare_pk(run: &RegionSolvers, reference: &Reference, k: usize, w: &mut Worst) {
@@ -740,11 +753,26 @@ fn compare_pk(run: &RegionSolvers, reference: &Reference, k: usize, w: &mut Wors
         ("TStructMech", v.t_struct_mech),
         ("driveline_T_exp", v.t_driveline),
     ];
+    let (ext_power, ext_mod, ext_beam_power, ext_beam_intensity) = p.pk.external_source();
+    let extras: Vec<(&str, f64)> = vec![
+        ("arrow_subcriticalIdx", p.pk.subcritical_index() * 1e5),
+        ("extSrcPower", ext_power),
+        ("extSrcBeamPower", ext_beam_power),
+        ("extSrcBeamIntensity", ext_beam_intensity * 1.602176634e-19),
+        ("extSrcModulation", ext_mod),
+        ("arrow_GEM", t.gem * 1e5),
+        ("GEMSodiumLevel", p.pk.gem_level()),
+    ];
+    let mut mine = mine;
+    mine.extend(extras.into_iter().filter(|(n, _)| up.contains_key(*n)));
     let total_ref = up["totalReactivity"].abs();
     for (name, a) in mine {
         let b = up[name];
         // terms below 1e-12 of `totalReactivity` are compared absolutely at 1e-15 (scaled so that the gate is the same 1e-9)
-        let d = if b.abs() >= 1e-12 * total_ref && b != 0.0 { (a - b).abs() / b.abs() } else { (a - b).abs() / 1e-15 * GATE };
+        // round 63: the source and GEM lines are compared relatively (extSrcBeamIntensity is 1e-26 W/eV-scale, far below the absolute floor)
+        let relative_only = name.starts_with("extSrc") || name == "arrow_subcriticalIdx" || name.contains("GEM");
+        let d = if (b.abs() >= 1e-12 * total_ref || relative_only) && b != 0.0 { (a - b).abs() / b.abs() } else { (a - b).abs() / 1e-15 * GATE };
+        w.pk_last.insert(name.to_string(), d);
         let e = w.pk_terms.entry(name.to_string()).or_insert((0.0, 0));
         if d > e.0 {
             *e = (d, k);
@@ -756,6 +784,12 @@ fn compare_pk(run: &RegionSolvers, reference: &Reference, k: usize, w: &mut Wors
             w.pk_tfuel_abs = w.pk_tfuel_abs.max((a - b).abs());
             if d > GATE && w.pk_tfuel_first.is_none() {
                 w.pk_tfuel_first = Some((k, d));
+            }
+        } else if CANCELLATION_TERMS.contains(&name) {
+            let e = w.pk_cancel_abs.entry(name.to_string()).or_insert(0.0);
+            *e = e.max((a - b).abs());
+            if d > GATE && w.pk_cancel_first.is_none() {
+                w.pk_cancel_first = Some((k, name.to_string(), d));
             }
         } else if d > GATE && w.pk_first.is_none() {
             w.pk_first = Some((k, name.to_string(), d));
@@ -815,6 +849,9 @@ fn print_pk(name: &str, w: &Worst) {
     for k in keys {
         println!("{name}: PK {k}: worst {:e} at step {}", w.pk_terms[k].0, w.pk_terms[k].1);
     }
+    let mut cancel: Vec<(&String, &f64)> = w.pk_cancel_abs.iter().collect();
+    cancel.sort_by(|a, b| a.0.cmp(b.0));
+    println!("{name}: cancellation terms, worst absolute difference (pcm) {cancel:?}; first above the relative gate {:?}", w.pk_cancel_first);
     print_worst(name, w);
 }
 
@@ -907,4 +944,187 @@ fn each_point_kinetics_control_differs_from_the_real_run() {
     println!("PK controls at step {n}: feedback off power {da:e}; mesh not moved power {db:e}; no power into fluid/TM fluid T sum {dc:e}; no fluid T into TM disp max {de:e}; TStructMech mapping off power {df:e} (non-control expected)");
     assert!(da > 1e-6 && db > 1e-6 && dc > 1e-6 && de > 1e-6, "controls feedback {da:e} mesh {db:e} power {dc:e} tm {de:e}");
     assert!(df <= GATE, "TStructMech mapping off changed the power by {df:e}");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// The point-kinetics options in the coupled loop (gh:#1927, README round 63)
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+/// POST-RUN pin (pcm, absolute) of the cancellation reactivity terms of the round 63 variants (README round 63, "Misses"); set from the first runs.
+const PK_CANCEL_TERM_ABS_PIN: f64 = 1e-11;
+
+/// What the real steady state wrote to `100/uniform/reactorState` (`keff`, `pTarget`): the in-memory restart reads the start directory's file.
+const REACTOR_STATE: &str = "FoamFile\n{\n    version     2.0;\n    format      ascii;\n    class       dictionary;\n    location    \"100/uniform\";\n    object      reactorState;\n}\n\nkeff            0.86009132271254252;\n\npTarget         10000000;\n";
+
+/// `constant/fluidRegion/polyMesh/faceZones` as `topoSet` (`boxToFace` on the 12th z level, `setToFaceZone`) wrote it for the `gem` variant.
+const GEM_FACE_ZONES: &str = "FoamFile\n{\n    version 2.0;\n    format ascii;\n    class regIOobject;\n    object faceZones;\n}\n\n1\n(gemCut\n{\n    type            faceZone;\n    faceLabels      List<label> 6(111 113 115 117 119 120);\n    flipMap         List<bool> 6{0};\n}\n)\n";
+
+/// A control or an ablation: edit one file of the staged variant (truncate it at `find`, or replace `find`).
+struct Edit {
+    file: &'static str,
+    find: &'static str,
+    replace: Option<&'static str>,
+}
+
+fn apply_edits(root: &Path, edits: &[Edit]) {
+    for e in edits {
+        let path = root.join(e.file);
+        let text = std::fs::read_to_string(&path).expect("edit target");
+        let at = text.find(e.find).unwrap_or_else(|| panic!("`{}` not in {}", e.find, e.file));
+        let out = match e.replace {
+            None => text[..at].to_string(),
+            Some(r) => text.replacen(e.find, r, 1),
+        };
+        std::fs::write(&path, out).expect("write edit");
+    }
+}
+
+/// The transient stage of one variant: round 61's PK stage, the start directory's `reactorState`, then the variant script's edits.
+fn stage_variant(tag: &str, variant: &str, edits: &[Edit]) -> PathBuf {
+    let root = stage_pk(&format!("{variant}_{tag}"));
+    std::fs::create_dir_all(root.join("100/uniform")).expect("start dir");
+    std::fs::write(root.join("100/uniform/reactorState"), REACTOR_STATE).expect("reactorState");
+    let script = vv_dir().join("scripts/make_pk_variant_r63.py");
+    let status = std::process::Command::new("python3").arg("-I").arg(&script).arg(variant).arg(&root).status().expect("python3");
+    assert!(status.success(), "make_pk_variant_r63.py {variant}");
+    if variant == "gem" {
+        std::fs::write(root.join("constant/fluidRegion/polyMesh/faceZones"), GEM_FACE_ZONES).expect("faceZones");
+    }
+    apply_edits(&root, edits);
+    root
+}
+
+/// One variant from the written fluid state (criterion 4 as written), up to `n_steps`.
+fn run_variant(tag: &str, variant: &str, edits: &[Edit], n_steps: usize, ss_ref: &Reference, reference: &Reference) -> Worst {
+    let root = stage_steady(&format!("v_{variant}_{tag}"));
+    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap_or_else(|e| panic!("the staged case is not readable: {e}"));
+    while run.running() {
+        run.step().unwrap_or_else(|e| panic!("steady state: {e}"));
+    }
+    let n_ss = run.step_count();
+    let troot = stage_variant(tag, variant, edits);
+    let get = |name: &str| ss_ref.full.get(&(n_ss, format!("fluidRegion {name}"))).unwrap_or_else(|| panic!("no written fluid {name}")).clone();
+    let u: Vec<outram_foam_basic_lib::primitives::Vector3> = get("U").chunks(3).map(|c| outram_foam_basic_lib::primitives::Vector3::new(c[0], c[1], c[2])).collect();
+    run.adopt_written_fluid_state("fluidRegion", &u, &get("p"), &get("T")).unwrap_or_else(|e| panic!("written state: {e}"));
+    run.restart_transient(&troot).unwrap_or_else(|e| panic!("restart of {variant}: {e}"));
+    let mut w = Worst::default();
+    let mut t_ref = 100.0;
+    let mut k = 0;
+    while run.running() && k < n_steps {
+        k += 1;
+        let rec = run.step().unwrap_or_else(|e| panic!("{variant} step {k}: {e}"));
+        w.steps = k;
+        w.dt = w.dt.max(rel(rec.dt, reference.dt[k - 1]));
+        t_ref += reference.dt[k - 1];
+        w.time = rel(run.time(), t_ref);
+        let dp = rel(rec.power, reference.pk[k - 1]["totalPower"]);
+        if dp > w.power.0 {
+            w.power = (dp, k);
+        }
+        w.power_trace.push(rec.power);
+        compare_pk(&run, reference, k, &mut w);
+        compare_fields(&run, reference, k, usize::MAX, &mut w, false);
+        compare_solves(&run, reference, k, &mut w);
+    }
+    w
+}
+
+fn variant_ss() -> Reference {
+    load_reference("fc_ss_adj_r60.ref.txt.gz")
+}
+
+/// Criteria 1-4 of README round 63 for one variant; prints every tally.
+fn check_variant(variant: &str) -> Worst {
+    let reference = load_reference(&format!("pk63_{variant}.ref.txt.gz"));
+    let w = run_variant("main", variant, &[], usize::MAX, &variant_ss(), &reference);
+    print_pk(&format!("r63 {variant}"), &w);
+    assert_eq!(w.steps, reference.n_steps, "{variant}: step count");
+    assert!(w.time <= 1e-12 && w.dt <= GATE, "{variant}: time {:e} dt {:e}", w.time, w.dt);
+    assert!(w.pk_first.is_none(), "{variant}: first diverging PK term {:?}", w.pk_first);
+    assert!(w.pk_tfuel_abs <= PK_TFUEL_TERM_ABS_PIN, "{variant}: TFuel term absolute {:e}", w.pk_tfuel_abs);
+    for (k, v) in &w.pk_cancel_abs {
+        assert!(*v <= PK_CANCEL_TERM_ABS_PIN, "{variant}: {k} absolute {v:e} pcm");
+    }
+    assert!(w.first_diverging.is_none(), "{variant}: first diverging fingerprint {:?}", w.first_diverging);
+    for (k, v) in &w.full {
+        assert!(*v <= GATE, "{variant}: {k} full-field {v:e}");
+    }
+    assert_eq!(w.solve_count_mismatch, 0, "{variant}: solve counts");
+    assert!(w.tm_res_abs <= 1e-11, "{variant}: tm solves {:e}", w.tm_res_abs);
+    assert!(w.fluid_res_abs <= 1e-11, "{variant}: fluid solve residuals {:e} ({})", w.fluid_res_abs, w.fluid_worst_solve);
+    w
+}
+
+#[test]
+fn pk_option_feedback_zones_match_the_real_binary() {
+    check_variant("zones");
+}
+
+#[test]
+fn pk_option_coolant_key_is_ignored_as_upstream_ignores_it() {
+    check_variant("zones_coolant_key");
+}
+
+#[test]
+fn pk_option_external_source_transient_matches_the_real_binary() {
+    check_variant("ext_transient");
+}
+
+#[test]
+fn pk_option_external_source_power_monitoring_matches_the_real_binary() {
+    check_variant("ext_monitor");
+}
+
+#[test]
+fn pk_option_decay_power_matches_the_real_binary() {
+    check_variant("decay");
+}
+
+#[test]
+fn pk_option_time_profile_types_match_the_real_binary() {
+    check_variant("profiles");
+}
+
+#[test]
+fn pk_option_reactor_state_restart_matches_the_real_binary() {
+    check_variant("restart");
+}
+
+#[test]
+fn pk_option_gem_matches_the_real_binary() {
+    check_variant("gem");
+}
+
+/// Criterion 5: each option's control differs from the real run at step 100 by more than 1e-6 relative in some `pointKinetics:` value.
+#[test]
+fn each_pk_option_control_differs_from_the_real_run() {
+    let ss = variant_ss();
+    let nd = "constant/neutroRegion/nuclearData";
+    let rsf = "100/uniform/reactorState";
+    let cases: Vec<(&str, &str, Vec<Edit>)> = vec![
+        ("zones", "zones ignored (all cells)", vec![Edit { file: nd, find: "\nfuelFeedbackZones", replace: None }]),
+        ("zones_coolant_key", "coolantFeedbackZones honoured", vec![Edit { file: nd, find: "coolantFeedbackZones", replace: Some("coolFeedbackZones") }]),
+        ("ext_transient", "external source off", vec![Edit { file: "constant/neutroRegion/neutronicsProperties", find: "externalSourceNeutronics true", replace: Some("externalSourceNeutronics false") }]),
+        ("ext_monitor", "external source off", vec![Edit { file: "constant/neutroRegion/neutronicsProperties", find: "externalSourceNeutronics true", replace: Some("externalSourceNeutronics false") }]),
+        ("decay", "decay profile ignored", vec![Edit { file: rsf, find: "\ndecayPowerTimeProfile", replace: None }]),
+        (
+            "profiles",
+            "sine replaced by its level",
+            vec![Edit { file: nd, find: "    type sine;\n    frequency 0.05;\n    scale 1e-4;\n    level 5.7671e-4;", replace: Some("    type constant;\n    value 5.7671e-4;") }],
+        ),
+        ("restart", "precursorPowers ignored", vec![Edit { file: rsf, find: "\nprecursorPowers", replace: None }]),
+        ("restart", "T*Ref keys ignored", vec![Edit { file: rsf, find: "\nTFuelRef", replace: None }]),
+        ("gem", "GEM off", vec![Edit { file: nd, find: "\nGEMSodiumLevelRef", replace: None }]),
+    ];
+    let mut failures = Vec::new();
+    for (variant, what, edits) in cases {
+        let reference = load_reference(&format!("pk63_{variant}.ref.txt.gz"));
+        let w = run_variant("ctl", variant, &edits, 100, &ss, &reference);
+        let worst = w.pk_last.iter().fold(("".to_string(), 0.0_f64), |m, (k, v)| if *v > m.1 { (k.clone(), *v) } else { m });
+        println!("r63 control {variant} / {what}: step-100 worst PK difference {:e} ({})", worst.1, worst.0);
+        if worst.1 <= 1e-6 {
+            failures.push(format!("{variant} / {what}: {:e}", worst.1));
+        }
+    }
+    assert!(failures.is_empty(), "controls that did not differ: {failures:?}");
 }

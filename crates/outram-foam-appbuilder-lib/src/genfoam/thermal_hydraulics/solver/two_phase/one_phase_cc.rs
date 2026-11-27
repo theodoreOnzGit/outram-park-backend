@@ -1607,6 +1607,13 @@ impl OnePhaseCcSolver {
         self.flow.as_ref().map(|f| f.p_rgh.c.as_slice())
     }
 
+    /// `phi` of the fluid (`fluid_.phi()`, the field `findObject<surfaceScalarField>("phi")` finds: the superficial flux) on every face, `None` for
+    /// the frozen-flux region (gh:#1927, GEM).
+    #[must_use]
+    pub fn face_flux(&self) -> Option<&[f64]> {
+        self.flow.as_ref().map(|f| f.phi.as_slice())
+    }
+
     /// `alphaPhi` on every face, as last set (at the start of the last `pEqn`).
     #[must_use]
     pub fn alpha_phi(&self) -> &[f64] {

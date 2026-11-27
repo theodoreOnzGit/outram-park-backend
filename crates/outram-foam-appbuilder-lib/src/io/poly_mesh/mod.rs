@@ -557,6 +557,41 @@ pub struct CellZone {
 /// [`zone_of_cell`] when a single zone per cell is required; that is where the
 /// ambiguity is resolved and reported.
 pub fn parse_cell_zones(text: &str, file: &str) -> Result<Vec<CellZone>, AppBuilderError> {
+    Ok(parse_zones(text, file, "cellLabels")?.into_iter().map(|(name, cells)| CellZone { name, cells }).collect())
+}
+
+/// One named face zone (`constant/<region>/polyMesh/faceZones`): the face labels of the zone, in file order (gh:#1927, GEM's `GEMFlowFaceZone`).
+///
+/// The `flipMap` is not read: GeN-Foam's GEM sums `phi[face]*|Sf|` over `mesh.faceZones()[name]` (a `labelList`) without it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FaceZone {
+    /// Zone name.
+    pub name: String,
+    /// The faces of the zone (global face labels: internal faces first, then the patches).
+    pub faces: Vec<usize>,
+}
+
+/// Parse an OpenFOAM `faceZones` file (`N ( name { type faceZone; faceLabels List<label> M ( ... ); flipMap ...; } ... )`).
+///
+/// # Errors
+/// As [`parse_cell_zones`], for `faceLabels`.
+pub fn parse_face_zones(text: &str, file: &str) -> Result<Vec<FaceZone>, AppBuilderError> {
+    Ok(parse_zones(text, file, "faceLabels")?.into_iter().map(|(name, faces)| FaceZone { name, faces }).collect())
+}
+
+#[cfg(feature = "std")]
+/// Read and parse `<polyMesh>/faceZones`.
+///
+/// # Errors
+/// [`AppBuilderError::Io`] if the file cannot be read, or [`AppBuilderError::Parse`] per [`parse_face_zones`].
+pub fn read_face_zones(poly_mesh_dir: &Path) -> Result<Vec<FaceZone>, AppBuilderError> {
+    let p = poly_mesh_dir.join("faceZones");
+    let text = std::fs::read_to_string(&p).map_err(|e| AppBuilderError::Io { path: p.clone(), source: e })?;
+    parse_face_zones(&text, "faceZones")
+}
+
+/// The zone list common to `cellZones` and `faceZones`: `(name, labels under `key`)` per zone.
+fn parse_zones(text: &str, file: &str, key: &str) -> Result<Vec<(String, Vec<usize>)>, AppBuilderError> {
     let stripped = strip_foam_comments(text);
     let section = data_section(&stripped);
     let (count, body) = extract_list_body(section, file)?;
@@ -589,8 +624,8 @@ pub fn parse_cell_zones(text: &str, file: &str) -> Result<Vec<CellZone>, AppBuil
             msg: format!("unclosed '{{' for cell zone {name:?}"),
         })?;
         let block = &s[1..close];
-        let cells = parse_cell_labels(block, &name, file)?;
-        zones.push(CellZone { name, cells });
+        let cells = parse_cell_labels(block, &name, file, key)?;
+        zones.push((name, cells));
         s = &s[close + 1..];
     }
 
@@ -605,18 +640,18 @@ pub fn parse_cell_zones(text: &str, file: &str) -> Result<Vec<CellZone>, AppBuil
 }
 
 /// The `cellLabels  List<label>  M ( … )` entry inside one zone block.
-fn parse_cell_labels(block: &str, zone: &str, file: &str) -> Result<Vec<usize>, AppBuilderError> {
+fn parse_cell_labels(block: &str, zone: &str, file: &str, key: &str) -> Result<Vec<usize>, AppBuilderError> {
     let pos = block
-        .find("cellLabels")
+        .find(key)
         .ok_or_else(|| AppBuilderError::Parse {
             file: file.to_string(),
             line: 0,
-            msg: format!("cell zone {zone:?} has no `cellLabels` entry"),
+            msg: format!("zone {zone:?} has no `{key}` entry"),
         })?;
     // OpenFOAM writes `cellLabels  List<label>  M ( … )`; the type tag is
     // optional in the format and absent from some writers, so it is skipped
     // rather than required.
-    let rest = block[pos + "cellLabels".len()..].trim_start();
+    let rest = block[pos + key.len()..].trim_start();
     let rest = rest.strip_prefix("List<label>").unwrap_or(rest);
     let (declared, body) = extract_list_body(rest, file)?;
     let mut cells = Vec::with_capacity(declared);
@@ -732,4 +767,20 @@ pub fn zone_of_cell(
         )));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod zone_tests {
+    use super::*;
+
+    #[test]
+    fn face_zones_and_cell_zones_parse_through_the_shared_zone_list() {
+        let fz = "FoamFile\n{\n    version 2.0;\n    format ascii;\n    class regIOobject;\n    object faceZones;\n}\n// * * * //\n\n1\n(gemCut\n{\n    type            faceZone;\n    faceLabels      List<label> 6(111 113 115 117 119 120);\n    flipMap         List<bool> 6{0};\n}\n)\n";
+        let z = parse_face_zones(fz, "faceZones").expect("face zones");
+        assert_eq!(z, vec![FaceZone { name: "gemCut".to_string(), faces: vec![111, 113, 115, 117, 119, 120] }]);
+        let cz = "FoamFile\n{\n    version 2.0;\n    format ascii;\n    class regIOobject;\n    object cellZones;\n}\n\n2\n(\nzoneA\n{\n    type cellZone;\n    cellLabels List<label> \n2\n(\n0\n1\n)\n;\n}\nzoneB\n{\n    type cellZone;\n    cellLabels List<label> 1(2);\n}\n)\n";
+        let z = parse_cell_zones(cz, "cellZones").expect("cell zones");
+        assert_eq!((z[0].cells.clone(), z[1].cells.clone()), (vec![0, 1], vec![2]));
+        assert!(parse_face_zones(cz, "cellZones").is_err(), "a cellZones text has no faceLabels");
+    }
 }

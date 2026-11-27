@@ -47,8 +47,11 @@
 //!
 //! ## Refused by name
 //!
-//! `GEMReactivityMap` ([`PkModelError::GemNotPorted`]; upstream says itself that it "does NOT work
-//! in GeN-Foam 2.0"), the FMU inputs (`type fmi`), ~~the liquid-fuel precursor transport
+//! ~~`GEMReactivityMap` ([`PkModelError::GemNotPorted`]; upstream says itself that it "does NOT work
+//! in GeN-Foam 2.0")~~ **CORRECTED 2026-11-27 (gh:#1927, README round 63): ported** as
+//! [`PointKineticNeutronics::with_gem`] / [`PointKineticNeutronics::compute_gem`] (against the real binary in the coupled loop, <= 7.3e-12);
+//! [`PkConfig::gem_map`] stays refused by [`PointKineticNeutronics::new`] because the map needs the reference level and the fluid flux, which only
+//! `with_gem` takes. The FMU inputs (`type fmi`), ~~the liquid-fuel precursor transport
 //! (`solvePointKineticsLiquidFuel.H`)~~ **CORRECTED 2026-11-27 (gh:#1882, round 48): ported in
 //! [`liquid_fuel`] (`LiquidFuelPk`), bit-identical to the real class with prescribed fluid fields**,
 //! and the `reactorState` write-out.
@@ -88,9 +91,12 @@ pub enum PkModelError {
     /// `nuFission`, `beamEnergy`, `energyPerFission` or `nuSource` negative.
     #[error("nuFission, beamEnergy, energyPerFission and nuSource must be positive")]
     NegativeSourceData,
-    /// `GEMReactivityMap` was given (refused by name, gh:#1864).
-    #[error("GEMReactivityMap is not ported (gh:#1864): upstream's own comment says GEM does not work in GeN-Foam 2.0")]
+    /// `GEMReactivityMap` was put in the config of [`PointKineticNeutronics::new`] (use [`PointKineticNeutronics::with_gem`], gh:#1927).
+    #[error("GEMReactivityMap in PkConfig: give it through PointKineticNeutronics::with_gem (needs the reference level and the fluid flux, gh:#1927)")]
     GemNotPorted,
+    /// `GEMReactivityMap` not in descending sodium level (upstream `FatalError`).
+    #[error("GEMReactivityMap should be indexed by descending sodium level values")]
+    GemNotDescending,
     /// A per-cell array does not have the mesh's length.
     #[error("field `{0}` has the wrong length")]
     FieldLength(&'static str),
@@ -163,7 +169,8 @@ pub struct PkConfig {
     pub coefficients: FeedbackCoefficients,
     /// `controlRodReactivityMap` as (driveline expansion, reactivity) knots; empty when absent.
     pub control_rod_map: Vec<(f64, f64)>,
-    /// `GEMReactivityMap` knots; any entry is refused ([`PkModelError::GemNotPorted`]).
+    /// `GEMReactivityMap` knots; [`PointKineticNeutronics::new`] refuses any entry ([`PkModelError::GemNotPorted`]): GEM is given through
+    /// [`PointKineticNeutronics::with_gem`] (gh:#1927).
     pub gem_map: Vec<(f64, f64)>,
     /// `externalReactivityTimeProfile`.
     pub external_reactivity: Option<TimeProfile>,
@@ -306,6 +313,34 @@ pub struct ReactivityTerms {
     pub total: f64,
 }
 
+/// `reactorState` `TFuelRef`, `TladRef` (sic), `TCoolRef`, `rhoCoolRef`, `TStructRef`, `TStructMechRef`, `TDriveLineRef` (sic): upstream's
+/// `lookupOrDefault(key, firstStepAverage)` at the first step (`solvePointKinetics.H:12-33`); `None` = key absent.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ReadReferences {
+    /// `TFuelRef`.
+    pub t_fuel: Option<f64>,
+    /// `TladRef` (upstream's spelling of the read key).
+    pub t_clad: Option<f64>,
+    /// `TCoolRef`.
+    pub t_cool: Option<f64>,
+    /// `rhoCoolRef`.
+    pub rho_cool: Option<f64>,
+    /// `TStructRef`.
+    pub t_struct: Option<f64>,
+    /// `TStructMechRef`.
+    pub t_struct_mech: Option<f64>,
+    /// `TDriveLineRef` (upstream's spelling of the read key).
+    pub t_driveline: Option<f64>,
+}
+
+/// `GEMReactivityMap_` (descending sodium level) and `GEMSodiumLevelRef_` of `pointKineticNeutronics.C:861-882`, plus `intPhiRef_`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GemModel {
+    map: Vec<(f64, f64)>,
+    level_ref: f64,
+    int_phi_ref: Option<f64>,
+}
+
 /// What one [`PointKineticNeutronics::step`] reports.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PkStepReport {
@@ -345,6 +380,14 @@ pub struct PointKineticNeutronics {
     total_reactivity: f64,
     refs: Option<FeedbackReferences>,
     steps: usize,
+    /// `GEMReactivityMap_` and `GEMSodiumLevelRef_` (gh:#1927), when the map has more than one knot.
+    gem: Option<GemModel>,
+    /// `GEMReactivity` of the last [`Self::compute_gem`] (0 without GEM).
+    gem_reactivity: f64,
+    /// `GEMSodiumLevel` of the last [`Self::compute_gem`] (0 without GEM).
+    gem_level: f64,
+    /// `reactorState` `T*Ref` keys, when read (gh:#1927).
+    read_refs: ReadReferences,
     /// `oneGroupFlux_` (1/m^2/s) per cell.
     pub one_group_flux: Vec<f64>,
     /// `fluxes_[g]` per cell.
@@ -491,6 +534,10 @@ impl PointKineticNeutronics {
             total_reactivity: 0.0,
             refs: None,
             steps: 0,
+            gem: None,
+            gem_reactivity: 0.0,
+            gem_level: 0.0,
+            read_refs: ReadReferences::default(),
             one_group_flux: initial_flux,
             fluxes,
             power_density,
@@ -540,6 +587,72 @@ impl PointKineticNeutronics {
         me.fluxes = fluxes;
         me.prec = prec;
         Ok(me)
+    }
+
+    /// `reactorState`'s `T*Ref` keys (gh:#1927): used instead of the first-step averages where present.
+    #[must_use]
+    pub fn with_read_references(mut self, refs: ReadReferences) -> Self {
+        self.read_refs = refs;
+        self
+    }
+
+    /// The GEM branch of the constructor (`pointKineticNeutronics.C:861-882`): `GEMReactivityMap` with more than one knot switches GEM on;
+    /// `GEMSodiumLevelRef` is `nuclearData`'s. [`Self::new`] refuses a `gem_map` in the config (it cannot know the reference), this takes it.
+    ///
+    /// # Errors
+    /// [`PkModelError::GemNotDescending`] ("GEMReactivityMap should be indexed by descending sodium level values!").
+    pub fn with_gem(mut self, map: Vec<(f64, f64)>, sodium_level_ref: f64) -> Result<Self, PkModelError> {
+        if map.len() > 1 {
+            for w in map.windows(2) {
+                if w[0].0 <= w[1].0 {
+                    return Err(PkModelError::GemNotDescending);
+                }
+            }
+            self.gem = Some(GemModel { map, level_ref: sodium_level_ref, int_phi_ref: None });
+        }
+        Ok(self)
+    }
+
+    /// Whether GEM is on (`this->get<bool>("GEM")`).
+    pub fn gem_enabled(&self) -> bool {
+        self.gem.is_some()
+    }
+
+    /// `calcGEMLevelAndReactivity()` (`pointKineticNeutronics.C:1064-1156`), given the face-zone flux `sum_i phi_i |Sf_i|` of the fluid
+    /// region AS OF NOW (the caller sums in zone order, as upstream's `forAll(phiFaces_, i)`). The first call also sets `intPhiRef_` (the
+    /// reference is the flux of that call). Returns `(GEMSodiumLevel, GEMReactivity)`, also stored for the step's reactivity.
+    pub fn compute_gem(&mut self, int_phi: f64) -> (f64, f64) {
+        let Some(g) = self.gem.as_mut() else { return (0.0, 0.0) };
+        let reference = *g.int_phi_ref.get_or_insert(int_phi);
+        let frac = int_phi / reference;
+        // `(265.0-539504/(2440.13+sqr(intPhiFrac*100)))/100 - GEMSodiumLevelRef_`
+        let x = frac * 100.0;
+        let level = (265.0 - 539504.0 / (2440.13 + x * x)) / 100.0 - g.level_ref;
+        let n = g.map.len() - 1;
+        let mut reactivity = 0.0;
+        if level >= g.map[0].0 {
+            reactivity = g.map[0].1;
+        } else if level <= g.map[n].0 {
+            reactivity = g.map[n].1;
+        } else {
+            for i in 0..n {
+                let (x0, y0) = g.map[i];
+                let (x1, y1) = g.map[i + 1];
+                if level <= x0 && level > x1 {
+                    let m = (y1 - y0) / (x1 - x0);
+                    reactivity = m * (level - x0) + y0;
+                    break;
+                }
+            }
+        }
+        self.gem_level = level;
+        self.gem_reactivity = reactivity;
+        (level, reactivity)
+    }
+
+    /// `GEMSodiumLevel` of the last [`Self::compute_gem`].
+    pub fn gem_level(&self) -> f64 {
+        self.gem_level
     }
 
     /// `computeFeedbackFieldValues.H`: the flux-squared weighted averages. Every integral is
@@ -657,7 +770,7 @@ impl PointKineticNeutronics {
         let t_struct_mech = c.t_struct_mech * (v.t_struct_mech - r.t_struct_mech);
         let driveline_expansion = c.driveline_expansion * (v.t_driveline - r.t_driveline);
         let driveline = self.driveline_reactivity(driveline_expansion);
-        let gem = 0.0;
+        let gem = self.gem_reactivity;
         let time = Time::new::<second>(t);
         let external = self
             .cfg
@@ -744,16 +857,16 @@ impl PointKineticNeutronics {
         let values = self.feedback_values(fields)?;
         let initialize = self.steps == 0;
         if initialize {
-            // `lookupOrDefault` of reactorState: no restart references are supported, so the
-            // first-step averages are the references.
+            // `reactorState_.lookupOrDefault("TFuelRef", TFuelValue)` etc. (gh:#1927): the read key when present, else the first-step average
+            let r = self.read_refs;
             self.refs = Some(FeedbackReferences {
-                t_fuel: values.t_fuel,
-                t_clad: values.t_clad,
-                t_cool: values.t_cool,
-                rho_cool: values.rho_cool,
-                t_struct: values.t_struct,
-                t_struct_mech: values.t_struct_mech,
-                t_driveline: values.t_driveline,
+                t_fuel: r.t_fuel.unwrap_or(values.t_fuel),
+                t_clad: r.t_clad.unwrap_or(values.t_clad),
+                t_cool: r.t_cool.unwrap_or(values.t_cool),
+                rho_cool: r.rho_cool.unwrap_or(values.rho_cool),
+                t_struct: r.t_struct.unwrap_or(values.t_struct),
+                t_struct_mech: r.t_struct_mech.unwrap_or(values.t_struct_mech),
+                t_driveline: r.t_driveline.unwrap_or(values.t_driveline),
             });
         }
         let refs = self.refs.unwrap_or(FeedbackReferences {
@@ -1033,6 +1146,44 @@ mod tests {
         assert_eq!(PointKineticNeutronics::interpolate_value_clamp(&tab, -1.0), 1.0);
         assert_eq!(PointKineticNeutronics::interpolate_value_clamp(&tab, 0.5), 2.0);
         assert_eq!(PointKineticNeutronics::interpolate_value_clamp(&tab, 2.0), 3.0);
+    }
+
+    #[test]
+    fn gem_level_follows_the_flow_fraction_and_the_map_interpolates_clamps_and_checks_order() {
+        let pk = || {
+            PointKineticNeutronics::new(tiny_cfg(), tiny_mesh(), vec![1.0, 1.0], vec![0.0, 0.0], vec![0.0, 0.0], LinearSolveForm::OpenFoamGaussian).expect("class")
+        };
+        let mut g = pk().with_gem(vec![(0.5, 1.0e-4), (0.0, 0.0), (-0.5, -1.0e-4)], 2.2).expect("gem");
+        assert!(g.gem_enabled() && !pk().gem_enabled());
+        // the first call fixes the reference flux: fraction 1, level (265 - 539504/(2440.13 + 100^2))/100 - 2.2
+        let (level, rho) = g.compute_gem(3.0);
+        let expected = (265.0 - 539504.0 / (2440.13 + 100.0 * 100.0)) / 100.0 - 2.2;
+        assert_eq!(level, expected);
+        let m = (0.0 - 1.0e-4) / (0.0 - 0.5);
+        assert_eq!(rho, m * (level - 0.5) + 1.0e-4);
+        assert_eq!(g.gem_level(), level);
+        // half the flux: a lower level, below the map's last knot is clamped to it
+        let (low, rho_low) = g.compute_gem(1.5);
+        assert!(low < level);
+        assert_eq!(rho_low, if low <= -0.5 { -1.0e-4 } else { rho_low });
+        let mut clamp = pk().with_gem(vec![(0.01, 5.0), (0.0, 1.0)], 2.2).expect("gem");
+        assert_eq!(clamp.compute_gem(1.0).1, 5.0, "the first call's level 0.0163 is above the first knot 0.01: clamped to its reactivity");
+        assert_eq!(clamp.compute_gem(0.5).1, 1.0, "half the flux: level -0.64 is below the last knot 0.0: clamped to its reactivity");
+        // without GEM nothing is computed
+        assert_eq!(pk().compute_gem(1.0), (0.0, 0.0));
+        // a map that is not descending, and a one-knot map (no GEM), as upstream
+        assert!(matches!(pk().with_gem(vec![(0.0, 0.0), (0.5, 1.0)], 2.2), Err(PkModelError::GemNotDescending)));
+        assert!(!pk().with_gem(vec![(0.0, 0.0)], 2.2).expect("one knot").gem_enabled());
+    }
+
+    #[test]
+    fn read_references_replace_the_first_step_averages() {
+        let mut pk = PointKineticNeutronics::new(tiny_cfg(), tiny_mesh(), vec![1.0, 1.0], vec![0.0, 0.0], vec![0.0, 0.0], LinearSolveForm::OpenFoamGaussian)
+            .expect("class")
+            .with_read_references(ReadReferences { t_fuel: Some(500.0), ..ReadReferences::default() });
+        pk.step(0.0, 1e-3, &fields(600.0)).expect("step");
+        let r = pk.references().expect("references");
+        assert_eq!((r.t_fuel, r.t_clad), (500.0, 600.0));
     }
 
     #[test]

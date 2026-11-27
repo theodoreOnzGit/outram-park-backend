@@ -5,6 +5,8 @@ as-shipped DIFFUSION transient restarted from it (variant SH of README round 59)
 usage: extract_fullcoupling_transient.py ss <ss run dir> <out.txt>
        extract_fullcoupling_transient.py tr <tr run dir> <out.txt>
        extract_fullcoupling_transient.py pk <pk run dir> <out.txt>      (gh:#1922 round 61: the POINT-KINETICS variant, `regionSolvers.neutroRegion pointKinetics`)
+       extract_fullcoupling_transient.py pkv <pk run dir> <out.txt>     (gh:#1927 round 63: as pk, plus the GEM lines of the `pointKinetics:` block; full fields at
+                                                                         steps 1-3, every 50th and the last, so that the variants' references stay small)
 (run dirs made by make_fullcoupling_coupled_case.sh (ADJ=1) / make_fullcoupling_transient_case.sh (SHIPPED=1), run by run_fullcoupling_coupled.sh /
 run_fullcoupling_transient.sh)
 
@@ -46,7 +48,7 @@ def read_list(path):
 
 def fields_of(run, tn, k, kept, o, mode='tr'):
     for region, names in FIELDS.items():
-        if mode == 'pk' and region == 'neutroRegion':
+        if mode in ('pk', 'pkv') and region == 'neutroRegion':
             names = PK_NEUTRO
         for fld in names:
             p = os.path.join(run, tn, region, fld)
@@ -97,9 +99,15 @@ def main():
             power = re.search(r'^power: (\S+)', body, re.M).group(1)
             ms = re.search(r'Max sigmaEq = (\S+)', body); sig = ms.group(1) if ms else '-'
             o.write(f'LOG {k} {prev} {keff} {power} {sig}\n')
-        elif mode == 'pk':
+        elif mode in ('pk', 'pkv'):
             blk = body[body.index('pointKinetics:'):]
-            blk = blk[:blk.index('\n', blk.index('driveline (T, exp)'))]
+            end = blk.index('\n', blk.index('driveline (T, exp)'))
+            if mode == 'pkv':
+                # gh:#1927: upstream prints `GEMSodiumLevel = ... m` after the driveline line when the GEM map is given
+                m = re.match(r'\n\s+GEMSodiumLevel = [^\n]*', blk[end:])
+                if m:
+                    end += m.end()
+            blk = blk[:end]
             for line in blk.splitlines()[1:]:
                 m = re.match(r'^\s+(->\s*)?(.*?)\s*=\s*(\S+)', line)
                 if m:
@@ -120,8 +128,8 @@ def main():
         o.write(f'PRGH {k} {len(pr)} ' + ' '.join(f'{a} {c}' for a, c in pr) + '\n')
         o.write(f'H {k} {len(hh)} ' + ' '.join(f'{a} {c}' for a, c in hh) + '\n')
         o.write(f'TM {k} {len(tm)} ' + ' '.join(f'{f} {a} {c}' for f, a, c in tm) + '\n')
-        if mode in ('tr', 'pk'):
-            kept = k <= 10 or k % 25 == 0 or k == n
+        if mode in ('tr', 'pk', 'pkv'):
+            kept = (k <= 3 or k % 50 == 0 or k == n) if mode == 'pkv' else (k <= 10 or k % 25 == 0 or k == n)
             fields_of(run, tn, k, kept, o, mode)
             if k == 1 or k == n:
                 points(run, tn, k, o)
