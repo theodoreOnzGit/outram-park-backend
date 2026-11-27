@@ -994,7 +994,7 @@ mod tests {
                 if r.exact_cm3 > 0.0 {
                     assert!(r.cells > 0, "{:?}: {id} has no cells", m.role);
                     let rel = r.mesh_cm3 / r.exact_cm3 - 1.0;
-                    assert!(rel.abs() < 0.01, "{:?}: {id} volume off by {rel:e}", m.role);
+                    assert!(rel.abs() < 0.01, "{:?}: {id} volume off by {rel:e}; notes {:#?}", m.role, m.notes);
                 } else {
                     assert_eq!(r.cells, 0, "{:?}: {id} is outside this mesh's domain", m.role);
                 }
