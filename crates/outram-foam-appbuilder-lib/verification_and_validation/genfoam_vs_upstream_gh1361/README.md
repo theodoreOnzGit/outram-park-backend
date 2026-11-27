@@ -6939,15 +6939,15 @@ DONE = ported and differenced; PART = ported in part; MISSING = nothing in the p
 | 14 | `nOuterCorrectors 6`, `nCorrectors 6`, `removeBaffles` with 8 `mappedWall` faces, `uniformFixedValue` U, `noSlip`, `slip` | no | needs | no | PART (several refused by name at the BC reader; `removeBaffles` is gh:#1236) |
 | 15 | 14 328-cell fluid mesh, 900 s steady state + 1200 s transient | no | needs | no | cost, not a gap |
 | 16 | point kinetics from the case files (`nuclearData`, `reactorState`, feedback zones, `TStruct`/`TStructMech` feedback, `decayPowerTimeProfile`, driveline, `GEMReactivityMap`, `controlRodReactivityMap`) | needs (no GEM, no driveline in the shipped transient) | needs (GEM, decay power, driveline) | needs | MISSING: no case reader (gh:#1883); GEM refused by name |
-| 17 | coupled `multiPhysicsSolver` loop `fluid onePhase` + `neutro pointKinetics` | needs (transient) | needs | needs | PART: the loop is ported (`correct_physics_loop`, rounds 9, 22) for diffusion + onePhase only |
+| 17 | coupled `multiPhysicsSolver` loop `fluid onePhase` + `neutro pointKinetics` | needs (transient) | needs | needs | ~~PART: the loop is ported (`correct_physics_loop`, rounds 9, 22) for diffusion + onePhase only~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE for this tutorial's steady state: `RegionSolvers` runs the main loop of `GeN-Foam.C` over `onePhase` + `diffusionNeutronics` + `legacyThermoMechanics`, 476 steps, every field of the three regions <= 2.5e-13 of the real binary at every step (the fluid solve residual gate missed: 1.1e-10 absolute). The point-kinetics transient (`neutro pointKinetics`) is gh:#1916 |
 | 18 | `diffusionNeutronics` eigenvalue stage on a mesh that DEFORMS (`meshDeformation { neutroRegion { displacementField disp; } }`) in the per-step "solve each physics once" loop | needs | no | no | PART: `deformMesh`, `V0/V00/meshPhi` ported (rounds 26, 30); ~~the region solvers do not take the moving-mesh data (gh:#1856)~~ **CORRECTED 2026-11-27 (gh:#1856, README round 56)**: the neutronics region takes the moved geometry and `V0` (`rebind_mesh`), `empty` patches are ported in `volPointInterpolation`, and the region is bit-identical to the real coupled run on its deforming mesh with the real `disp` (points and `meshPhi` 0, `keff`/`power` 2e-15, 476 steps); the loop drives `deformMesh()` every iteration. Open: the fluid + neutronics + TM loop of the port (#1914 remainder), TH regions on a moving mesh |
-| 19 | `legacyThermoMechanics` region inside the coupled run | needs | no | no | PART: the region alone is bit-identical (rounds 23-27); not wired (gh:#1846) |
-| 20 | `meshToMesh` among three different meshes; fields `T.passiveStructure`, `T.fuelAvForNeutronics`, `powerDensity`, `meshDisp` | needs | 2 regions | no | PART: `cell_overlap` exact (round 28); wiring gh:#1854 |
+| 19 | `legacyThermoMechanics` region inside the coupled run | needs | no | no | ~~PART: the region alone is bit-identical (rounds 23-27); not wired (gh:#1846)~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE: wired in the three-region loop (2-D `empty` patches, `solutionD`, `fixedValue` `TStruct` ported); `disp`/`meshDisp`/`TStruct`/`fuelDisp` <= 1.5e-14 (fingerprints, 476 steps; `fuelDisp` 8e-13), solve order/count/iterations equal |
+| 20 | `meshToMesh` among three different meshes; fields `T.passiveStructure`, `T.fuelAvForNeutronics`, `powerDensity`, `meshDisp` | needs | 2 regions | no | ~~PART: `cell_overlap` exact (round 28); wiring gh:#1854~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE: the three maps (fluid/neutro/TM, partial overlap, 2-D) run in `mapAllFields`; mapped `TStructFromTH`, `TFuel`, `powerDensityNeutronics`, `disp` agree to <= 1.9e-14 over 476 steps. `-initializeMappedFields` is not needed (the mapped fields are not read from `0/`) |
 | 21 | `-initializeMappedFields` and the `Allrun` stage chain from the root case | needs | needs | needs | PART: the 2D_MSFR chain only (round 21) |
 | 22 | function objects (`massFlow`, `TBulk`) | no | needs | no | DONE (round 51) |
 | 23 | liquid-fuel loop (`liquidFuel true`, cyclic neutro mesh) | no | no | needs | DEFERRED by the maintainer (gh:#1905) |
 
-Open (MISSING or PART) rows per tutorial: `2D_fullCoupling` 11 (rows 1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 21); `2D_FFTF` 13 (rows 2, 4, 5, 9, 10, 11, 12, 14, 16, 17, 20, 21, and the hours-long 14 328-cell reference of row 15); `1D_thermalMSR` skipped. **Chosen: `2D_fullCoupling`** (fewest; smallest mesh; the real reference runs in 5 s). Its hard remainder is the TM chain, rows 18-20 (gh:#1846, #1856, #1854), not the fluid rows.
+Open (MISSING or PART) rows per tutorial: ~~`2D_fullCoupling` 11 (rows 1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 21)~~ **CORRECTED 2026-11-27 (gh:#1915): `2D_fullCoupling` steady state: none; open: row 16 (point-kinetics transient, gh:#1916) and row 21's stage chain from the root case**; `2D_FFTF` 13 (rows 2, 4, 5, 9, 10, 11, 12, 14, 16, 17, 20, 21, and the hours-long 14 328-cell reference of row 15); `1D_thermalMSR` skipped. **Chosen: `2D_fullCoupling`** (fewest; smallest mesh; the real reference runs in 5 s). Its hard remainder is the TM chain, rows 18-20 (gh:#1846, #1856, #1854), not the fluid rows.
 
 ## Status at this commit
 
@@ -7234,3 +7234,70 @@ If the thermo-mechanics region cannot be brought into the loop this round, the l
 | S1 | S runs 476 steps without refusal | P 85 % | the refusal |
 | S2 | all S gates (dt `1e-12`, keff/power `1e-9`, fingerprints and kept fields `1e-9`, points `1e-12`, fluid solve gates) | P 50 % (round 55's fluid is 2.5e-13 in `U`; the neutronics 2e-15; the new pieces are the two maps and the time-step coupling) | first diverging step and field |
 | S3 | controls a and b fail by `> 1e-6` | P 85 % | magnitudes |
+
+
+## Round 57 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first: `612923446` (full run) and `21a3bf429` (subset S), BEFORE the first run of the loop; real binary `scripts/run_fullcoupling_coupled.sh` (15 s, 476 steps, exit 0); reference `refs/fc_coupled_r57.ref.txt.gz` (4.5 MB, refs submodule `550da36`); `tests/genfoam_fullcoupling_three_region_vs_upstream.rs`, 5 tests, 8.5 s; `--nocapture` prints every table)
+
+### What was ported (upstream -> Rust)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `GeN-Foam.C` main loop, `regionSolvers.C`, `setDeltaT.C`, `meshHandler.C::mapAllFields`, `thermalHydraulicsModel.C::correctBaffleLessFields` | `multi_region::region_solvers::RegionSolvers` (`read`, `step`): `runTime++`, `mapAllFields` (exact `cellVolumeWeight`, round 28/30, addressing built once on the undeformed meshes), per solver `deformMesh()`, `correctPhysics()`, `correctBaffleLessFields()`, `adjustDeltaT`; regions are the enum `RegionSolver::{OnePhase, Neutronics, ThermoMechanics}` (#1475: the real `onePhase` kernel and the real legacy TM are regions of a coupled loop). Mapped fields start at the constructors' defaults (`neutronics.C`, `thermoMechanics.C:128-155`), nothing from `-initializeMappedFields` |
+| `diffusionNeutronics::{correctPhysics (pTotOld_), maxDeltaT}` | `diffusion_max_delta_t` with `pseudo_time_power()` before and after the solve (existing function) |
+| `multiRegionCouplingDict` `mappings` without `multiPhysicsSolvers` | `CouplingDict::mappings_from_dict` (the old reader's body, extracted; same code) |
+| `polyMesh::calcDirections` (`solutionD`), `emptyFvPatch` size 0, `fvMatrix::solveSegregated` skipping the `empty` direction | `legacy_fvm::case::drop_empty_patches` (trailing `empty` patches and their faces dropped from the finite-volume view, `emptyDirVec` as upstream), `LegacyFvmThermoMechanics::with_solution_directions` (`dispy` is neither solved nor logged: the real log has `dispx`, `dispz` only) |
+| `TStruct` `fixedValue` patch (`right_alone`): `fvm::laplacian` `fixedValue` coefficients scaled by `(1 - isPorous)`, boundary face values in `grad(threeKalpha (T - Tref))`, boundary `sigma` | `with_t_struct_patches`, `t_struct_boundary` (zeroGradient reduces to the old arithmetic: the round 23-27 comparisons are unchanged, bit for bit) |
+
+### The coupled run, port against the real binary (all three regions, 476 steps, the port's own loop; 3.6 s)
+
+| quantity | worst difference | first diverging |
+|---|---|---|
+| steps run / reference | 476 / 476 | none |
+| `deltaT` sequence | 2.5e-13 relative (criterion 1e-12) | none |
+| `keff` | 1.7e-15 (step 457) | none above 1e-9 |
+| `power` | 2.4e-15 (step 458) | none |
+| `Max sigmaEq` | 4.3e-15 | none |
+| moved neutronics points (41 kept steps) | 2.2e-16 m | none |
+| fluid `T`, `T.passiveStructure`, `T.fuelAv/cladAvForNeutronics`, `p`, `p_rgh` (fingerprints, every step) | 1.3e-14, 4.4e-15, 1.1e-14 / 1.4e-14, 4.9e-14, 4.8e-14 | none |
+| fluid `U` (`max|U|`, every step; full field at kept steps) | 2.4e-13; 2.0e-13 | none |
+| mapped into the fluid: `powerDensityNeutronics` | 4.8e-15 | none |
+| neutronics `disp` (mapped from the port's own TM `meshDisp`), `powerDensity`, `flux0`, `flux1` | 1.8e-14, 4.8e-15, 2.9e-15, 4.8e-15 | none |
+| TM `disp`, `meshDisp`, `TStruct`, `TStructFromTH`, `TFuel` | 1.5e-14, 1.9e-14, 4.4e-15, 4.4e-15, 1.1e-14 | none |
+| TM `fuelDisp` (fingerprint; kept-step full field 2.6e-13), `CRDisp` | 8.1e-13 (step 7), 0 | none |
+| TM solves (`TStruct`, `dispx`, `dispz`, `fuelDisp`, `CRDisp`): order, count, iterations | all equal; initial residuals within 3.3e-14 absolute | none |
+| fluid `p_rgh`/`h` solves: count | equal at every step | |
+| fluid solves: initial residual (gated solves) | **1.09e-10 absolute** (an `h` solve of step 1, outer 2: upstream 8.926e-8, port 8.915e-8) and **2.4e-11** from step 2 on; iterations within 3 | **criterion 6 MISSED** (1e-11) |
+
+The TM region is **bit-identical stand-alone** (round 23-27 tests re-run: unchanged) and in the loop agrees to 1e-14; no difference grows over the run (fingerprint worst values occur at steps 7 to 459, scattered, none trending), so the loose coupling through `meshDisp` -> `disp` -> mesh -> `keff` did not amplify round-off.
+
+### Subset S (fluid + neutronics in the loop, real `disp` prescribed; 2.7 s)
+
+Same gates: dt 2.5e-13, `keff` 1.3e-15, `power` 2.4e-15, every fluid and neutronics field as in the table (<= 2.4e-13), points 0, the same fluid solve miss. S1 held, S2 held except the solve residual, S3 held (controls below).
+
+### Controls (each fails the same comparison; step 100)
+
+* **a, no mesh deformation**: `keff` 2.48e-3 relative to upstream (criterion `> 1e-6`: held).
+* **b, no neutronics power into the fluid and the TM**: fluid `T` sum 1.2e-1, TM `TStruct` sum 5.6e-2 (held).
+* **c, no TM displacement into the neutronics**: `keff` 2.48e-3, identical to control a to the printed digits: with `disp` never mapped the neutronics mesh is "moved onto its own points", the same state as no deformation (held; it is a check that the two switches are the same thing, not an independent control).
+* **d, no fluid temperatures into the TM**: TM `disp` `max|.|` 3.2e-4 relative (held).
+* Subset S: a 2.48e-3, b fluid `T` sum 1.2e-1.
+
+### Predictions
+
+R1 held (the first reads refused `empty` patches and a `fixedValue` `TStruct` patch; both are now ported, this section's table), R2 held, R3 held (the predicted growth did not occur), R4 held, R5 held, R6 held (mapped TM inputs 4.4e-15 to 1.1e-14 over all steps), R7 held, **R8 MISSED** (cause below), R9 held, R10 held (below), R11 held (3.6 s). S1, S3 held, S2 missed only on the solve residual.
+
+**The miss (R8 / criterion 6, fluid solves)**: the initial residual of an `h` solve is normalised by the spread of the solution, which in the first step is round-off sized (uniform 600 K, zero power, `T` differing by 1e-14); the worst difference (1.09e-10) is that solve, and the 2.4e-11 of later steps is the same quantity at later noise-floor solves. Fields agree to 1e-14 at those steps. This is consistent with round 55's account (a round-off-sized normaliser), not proved by a separate measurement; the assertion uses the post-run pins (1.2e-10 and 3e-11 absolute), marked in the test; the criterion text above is unchanged. Round 55's own solve gate passed at 1e-11 on a case with non-zero power in step 1.
+
+### Moved numbers
+
+None. Gates re-run (release, private target): `--lib thermo_mechanics` 35 passed (incl. the new `fixed_value_t_struct_patch_conducts_and_unsolved_direction_is_skipped`), `--lib multi_region` 56, `--lib workflow` 5, `genfoam_legacy_thermo_mechanics_vs_upstream` 5 (bit-identical, unchanged), `genfoam_fullcoupling_fluid_vs_upstream` 5, `genfoam_fullcoupling_neutronics_vs_upstream` 3, `genfoam_coupled_tutorials_requirements` 2, `genfoam_mesh_to_mesh_vs_upstream` 5 (43.6 s), `genfoam_coupled_deformation_vs_upstream` 4 (47.8 s). Not run: `genfoam_msfr_coupled_vs_upstream` (long; not touched), `-p petir --test no_platform_libm` (petir untouched).
+
+### Not done (and why)
+
+* **`multiPhysicsSolver` (Picard) `RegionModel` variants for `onePhase`/legacy TM**: this tutorial does not use `multiPhysicsSolver` (no `multiPhysicsSolvers` in its coupling dictionary); the regions of its main loop are `RegionSolver`. A `RegionModel` for the Picard loop of 2D_MSFR/ESFR is a separate piece (filed).
+* The transient stage (`pointKinetics`, row 16, gh:#1916), `-initializeMappedFields` (not needed: the fields are not read), `removeBaffles` on a mesh WITH baffles (refused by name; the shipped fluid mesh has none), TH regions on a moving mesh (#1918), a transient `eigenvalueNeutronics false` loop (#1919).
+* `drop_empty_patches` requires the `empty` patches to be last (true here); other orders are refused by name. Only the two directions of this 2-D case were exercised against upstream.
+
+### Reproduction
+
+`bash scripts/make_fullcoupling_coupled_case.sh <dir>; bash scripts/run_fullcoupling_coupled.sh <dir>; python3 -I scripts/extract_fullcoupling_three_region.py <dir> out.txt; gzip -9 -n out.txt`; then `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_three_region_vs_upstream -- --nocapture`.
